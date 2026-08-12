@@ -5535,13 +5535,13 @@
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/+page.server.ts": {
-    "mtime": 1786543210.6395407,
-    "ast_hash": "6006317f6fc270dfa06c878568ec35ae",
+    "mtime": 1786544792.24287,
+    "ast_hash": "1d5392e0d5d3ec95cc79404ddae9802d",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/+page.svelte": {
-    "mtime": 1786543252.7885566,
-    "ast_hash": "3e4a165e4a6e88493a79c87c4e186347",
+    "mtime": 1786544792.2762241,
+    "ast_hash": "48ce6b8d78c153faea3e24441593c929",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/_guide.ts": {
@@ -12130,8 +12130,8 @@
     "semantic_hash": ""
   },
   "docs/design/06-UI\u8a2d\u8a08\u66f8.md": {
-    "mtime": 1786543244.7236247,
-    "ast_hash": "a20a28fc5b8bc17a406eef38b5ae74d5",
+    "mtime": 1786544785.9976418,
+    "ast_hash": "f5bf2baccb61d82180ca4d2b4796deb4",
     "semantic_hash": ""
   },
   "docs/design/07-API\u8a2d\u8a08\u66f8.md": {
@@ -14540,8 +14540,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/ai-suggest-gate.ts": {
-    "mtime": 1786543251.8937333,
-    "ast_hash": "d95c0d8180be2698c57aaf75b734ba3c",
+    "mtime": 1786544791.435449,
+    "ast_hash": "6eba98c6d1524babb04dabac16a3e0fb",
     "semantic_hash": ""
   },
   "src/lib/domain/constants/plan-retention.ts": {
@@ -14565,8 +14565,8 @@
     "semantic_hash": ""
   },
   "tests/unit/architecture/ai-suggest-gate-derivation.test.ts": {
-    "mtime": 1786543120.1989894,
-    "ast_hash": "3ea416b0d0c2de55d48f7bd6bd6e195b",
+    "mtime": 1786544818.8639288,
+    "ast_hash": "04df83e9183fa3c3bb675b8d6948fbe6",
     "semantic_hash": ""
   },
   "tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts": {
@@ -14590,8 +14590,8 @@
     "semantic_hash": ""
   },
   "tests/unit/components/ai-suggest-gate-display-matrix.test.ts": {
-    "mtime": 1786542111.1367493,
-    "ast_hash": "42a036eed07d6178500651e4f21813b6",
+    "mtime": 1786544792.8801222,
+    "ast_hash": "d4a6504c2149c7677dfb3159775ce6b8",
     "semantic_hash": ""
   },
   "tests/unit/db/sqlite/image-repo-avatar-cas-4466.test.ts": {
@@ -14610,8 +14610,8 @@
     "semantic_hash": ""
   },
   "tests/unit/routes/admin-checklists-ai-suggest-gate.test.ts": {
-    "mtime": 1786543253.871791,
-    "ast_hash": "d768b68e2d76605157da167624e9650f",
+    "mtime": 1786544793.3314538,
+    "ast_hash": "431fc8744e308387515530a54ee3978c",
     "semantic_hash": ""
   },
   "tests/unit/routes/avatar-upload-old-file-deletion.test.ts": {
@@ -14627,6 +14627,11 @@
   "tests/unit/routes/switch-parent-gate-scroll-lock.test.ts": {
     "mtime": 1786541182.5344274,
     "ast_hash": "472bee45a332f09c7c5afae34b550e03",
+    "semantic_hash": ""
+  },
+  "scripts/capture-specs/flows/admin-checklists-ai-gate-4506.mjs": {
+    "mtime": 1786544441.612814,
+    "ast_hash": "b2dc8c6e6a37d403a27df0b7c6757f85",
     "semantic_hash": ""
   }
 }

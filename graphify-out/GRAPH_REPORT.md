@@ -1,16 +1,16 @@
 # Graph Report - fix-4506-ai-gate  (2026-08-12)
 
 ## Corpus Check
-- 2688 files · ~3,298,113 words
+- 2689 files · ~3,298,996 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 22976 nodes · 40884 edges · 1419 communities (1227 shown, 192 thin omitted)
+- 22983 nodes · 40892 edges · 1423 communities (1228 shown, 195 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 223 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c7e25a08`
+- Built from commit: `5572fd1e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -18,9 +18,9 @@
 - labels.ts
 - SqlExecutor
 - ChildId
-- import-service.ts
-- logger.ts
-- plan-limit-service.ts
+- getRepos
+- auth/factory.ts
+- grace-period-service.ts
 - demo-data.ts
 - child-service.ts
 - date-utils.ts
@@ -30,76 +30,76 @@
 - sqlite/cloud-export-repo.ts
 - page-guide-types.ts
 - entities.ts
-- admin/rewards/+page.server.ts
+- reward-redemption-service.ts
 - checklist-template-import-service.ts
 - unit/helpers/test-db.ts
 - admin/activities/+page.svelte
 - dsql/schema.ts
-- sqlite/activity-repo.ts
+- asCategoryId
 - check-pr-body.mjs
 - demo/checklist-repo.ts
 - orphan-utils.mjs
 - auth/types.ts
-- age-tier.ts
-- auth/factory.ts
+- Child
+- auth/login/+page.server.ts
 - db/schema.ts
 - lifecycle-email-service.ts
 - stripe-service.ts
-- marketplace-item.ts
+- requireTenantId
 - admin/rewards/+page.svelte
-- issue-triage/SKILL.md
+- agents/po-session.md
 - email-service.ts
 - scripts
 - viewer-token-service.ts
 - tutorial-store.svelte.ts
-- Dev Self-Review Agent — 運用 SSOT
-- ai/factory.ts
-- deletion-warning-service.ts
+- アンチパターン集 — 開発プロセスで繰り返した「逃げ」と是正
+- evaluation-service.ts
+- logger.ts
 - notification-service.ts
-- validationError
-- dsql/stamp-card-repo.ts
+- activity.ts
+- child-cookie-guard.test.ts
 - sqlite/child-repo.ts
 - sqlite/stamp-card-repo.ts
 - pmf-survey-service.ts
 - hooks.server.ts
 - child-challenge-service.ts
 - child-dashboard-service.test.ts
-- demo/cloud-export-repo.ts
+- child-challenge-service.test.ts
 - decisions/README.md
 - 01-企画書.md
-- ids.ts
-- demo/activity-repo.ts
+- asChildId
+- sqlite/daily-mission-repo.ts
 - status-service.ts
 - rule-preset-import-service.ts
 - account-deletion-service.ts
-- ops-service.ts
+- pricing-trigger-service.ts
 - backup-health.ts
 - certificate-service.ts
 - sqlite/checklist-repo.ts
-- subscription-plan.ts
+- subscription-status.ts
 - dependencies
-- activity.ts
-- IWebhookEventRepo
-- sqlite/reward-redemption-repo.ts
+- activity-import-service.ts
+- interfaces/index.ts
+- verifyCronAuth
 - pipeline.mjs
 - tenant-deletion-marketing-suppression-4338.test.ts
 - schema-range-ssot.test.ts
 - deletion-export-service.ts
 - export-service.ts
 - getEnv
-- bedrock-claude-provider.ts
+- ai/factory.ts
 - fixtures.ts
 - @storybook/addon-svelte-csf
 - pre-ready.mjs
 - battle-service.ts
-- login-bonus-service.ts
+- sqlite/graduation-consent-repo.ts
 - points/+page.svelte
 - checklist-service.test.ts
 - がんばりクエスト 要求仕様書
 - 23 Discordサーバー設計書
 - 性別セグメンテーション市場調査レポート — ADR-0042 意思決定用
 - usage-log-service.ts
-- requireTenantId
+- subscription/+page.server.ts
 - back-merge-pr-body.mjs
 - Runbook — DSQL dashboard / Alarm 閾値超過時の一次対応
 - 3. テーブル定義
@@ -108,7 +108,7 @@
 - Phase 1 補強 1 文脈判断 6 件 + lookup_key 段階移行 + API version 維持判断 SSOT (Epic #2525 Phase 6 子 4、#2683 補強)
 - special-reward.ts
 - config.ts
-- dsql/reward-redemption-repo.ts
+- sqlite/reward-redemption-repo.ts
 - export-schema.ts
 - がんばりクエスト 企画書
 - Research 01: Issue Template 強制パターン / research 添付方式 / 既存 6 文書統廃合の比較研究
@@ -116,7 +116,7 @@
 - LP→app 動線設計 (CTA 文言統一 + FAQ 強化) (Epic #2525 Phase 4 子 issue #2621)
 - terms.ts / labels.ts atom / compound 配置確定 + Phase 7 atom 統合 PR 計画 — Epic #2525 Phase 5 グループ C (#2643)
 - pr-template-gate-checks.mjs
-- Dialog.svelte
+- age-tier.ts
 - reward-set-import-service.ts
 - archived リソース表示 + One-click reactivation UI 設計 (Phase 3 #2575)
 - `/admin/subscription/confirm` 特商法最終確認画面 UI 設計 (Phase 3 #2573)
@@ -130,13 +130,13 @@
 - One-click reactivation 常時表示動線設計 (Phase 4 #2623)
 - DSQL データモデル設計書（ground-up 再設計、EPIC #3424）
 - 2. 検出事項
-- subscription-status.ts
-- demo/child-activity-repo.ts
+- subscription-plan.ts
+- check-ss-blob-sha-uniqueness.mjs
 - sqlite/evaluation-repo.ts
-- audit-manager.md
+- Adversarial Reviewer (ADR-0056)
 - check-pr-screenshot.mjs
 - Archive 機構統合 (3 経路) アーキ設計 — Epic #2525 Phase 5 グループ B (#2642)
-- screenshot-mode.ts
+- (child)/+layout.svelte
 - schemas/index.ts
 - CognitoAdminClient
 - 0040. 実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)
@@ -145,10 +145,10 @@
 - Proration 実装方針アーキテクチャ — Epic #2525 Phase 5 子 2 (#2640、#2683 補強)
 - Stripe Webhook 冪等性 DB 設計 (stripe_webhook_events dedup table) — Epic #2525 Phase 5 子 2
 - generate-image.mjs
-- alert.ts
-- home/+page.server.ts
-- sqlite/child-challenge-repo.ts
 - stripe-webhook-delivery-monitor.ts
+- habit-certificate-notice-service.ts
+- sqlite/child-challenge-repo.ts
+- challenge-set-import-service.ts
 - tests/ — テスト品質ルール
 - agent-lock.test.ts
 - dsql-loop-sequential-write-fitness.test.ts
@@ -163,8 +163,8 @@
 - trial→in-app paywall 動線設計 (Reverse Trial パターン C 整合、Phase 4 #2622)
 - Stripe Product / Price 構成設計 (2 Product 各 1 Price + lookup_key) — Epic #2525 Phase 5 子 1
 - measure-lp-dimensions.mjs
-- stamp-card-service.ts
-- getRepos
+- categories.ts
+- activity-log-service.ts
 - demo/certificate-repo.ts
 - ignorePaths
 - がんばりクエスト 要件定義書
@@ -183,7 +183,7 @@
 - がんばりクエスト UI設計書
 - 43 ユーザーオンボーディング UX 監査レポート
 - sync-lp-fallback.mjs
-- (child)/+layout.svelte
+- stamp-image.ts
 - home-form-field-guard.test.ts
 - words
 - 4. 画面設計
@@ -208,7 +208,7 @@
 - 家庭躾文化・育児マニュアル調査レポート
 - marketplace-architecture.md — Marketplace import/export 統一抽象化 SSOT
 - チーム憲章 — 誰が何を決め、誰に渡すか
-- message-service.test.ts
+- point-service.ts
 - infra/ — デプロイ手順
 - storage-stack.ts
 - collect-integration-prs.test.ts
@@ -221,7 +221,7 @@
 - pglite-journal-when-range-3948.test.ts
 - synthetic-staging-dataset.ts
 - demo-guide-state.svelte.ts
-- sqlite/trial-history-repo.ts
+- check-new-required-env.mjs
 - scripts
 - capture-app-baseline.mjs
 - 21. プラン用語統一規約（Naming Convention）
@@ -230,8 +230,8 @@
 - Deep Research リクエスト方法論 SSOT
 - cli-entry-guard.test.ts
 - demo-service.ts
-- questionnaire-service.ts
-- dsql/report-daily-summary-repo.ts
+- trial-notification-service.ts
+- sqlite/report-daily-summary-repo.ts
 - demo/sibling-cheer-repo.ts
 - env-distribution-closure.test.ts
 - tenant-cleanup-service.test.ts
@@ -251,7 +251,7 @@
 - check-no-plan-literals.mjs
 - CategorySection.svelte
 - ops-route-auth-fitness.test.ts
-- stub-repos.test.ts
+- dsql/voice-repo.ts
 - includes
 - gate-approve.mjs
 - SaaS展開ロードマップ
@@ -264,7 +264,7 @@
 - ブランチ戦略 SSOT — develop 二層 + gate 二層
 - pglite/connection.ts
 - admin/status/+page.svelte
-- trial-service.ts
+- capabilities.ts
 - アップグレード/ダウングレード ジャーニーマップ (#2549 / Epic #2525 Phase 2 UX) — 全面再構成
 - Part II. Application Design (GoF / Fowler / Martin / Cockburn / Evans 原典 + 公開 OSS 裏付け)
 - Runbook — NUC PGlite バックアップ運用 + 復元リハーサル (restore drill)
@@ -272,7 +272,7 @@
 - rules
 - capture.mjs
 - take-lp-screenshots.mjs
-- notification-service-vapid-distribution.test.ts
+- discord-notify-service.ts
 - アカウント削除予告メール自動化 (EventBridge + cron-dispatcher + SES) — 設計 SSOT (#2399)
 - §3 仕様
 - network-stack.ts
@@ -290,7 +290,7 @@
 - daily-mission-service.ts
 - app-role.ts
 - integration-pr-body.mjs
-- stripe-metrics-service.ts
+- ops-service.ts
 - point-flight.svelte.ts
 - admin-resource-model-registry.ts
 - schema-validator.ts
@@ -310,7 +310,7 @@
 - Runbook: staging 実機検証（cognito + DSQL 経路）
 - check-action-sha-pin.mjs
 - export-service.test.ts
-- loyalty-service.ts
+- setSetting
 - sqlite/status-repo.ts
 - admin-rewards-actions.test.ts
 - import-service-verify.test.ts
@@ -329,7 +329,7 @@
 - physical-name-ratchet.test.ts
 - pr-trigger-lane-guard.test.ts
 - screenshot-helpers.mjs
-- nuc-cutover-verify.ts
+- ExportData
 - admin-bypass-metrics-service.ts
 - 契約状態マトリクス — `families` 4 列の許容組み合わせと遷移
 - マーケットプレイス・持ち物プリセット監査
@@ -340,11 +340,11 @@
 - check-ss-render-health.mjs
 - gh-command.mjs
 - env.ts
-- demo/child-challenge-repo.ts
+- sqlite/battle-repo.ts
 - async-index-poll.ts
-- pin-reset-otp.ts
-- checklists/+page.server.ts
-- checklist-distribution-service.ts
+- demo/child-challenge-repo.ts
+- message-service.test.ts
+- tz-invariance.test.ts
 - availability.ts
 - 0045. terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)
 - 11. 全ページ一覧
@@ -362,7 +362,7 @@
 - to-sarif.mjs
 - waitForStablePage
 - check-marketplace-registry-integrity.mjs
-- check-schema-migration-completeness.mjs
+- is-main.mjs
 - check-screenshot-freshness.mjs
 - check-workflow-sparse-checkout-closure.mjs
 - dsql-migration-provision.test.ts
@@ -411,7 +411,7 @@
 - subscribe/+server.ts
 - goal-flows.ts
 - dsql-append-only-mutation-allowlist.test.ts
-- auth-invite-shared-device.test.ts
+- invite-service.ts
 - signup-actions.test.ts
 - デプロイ検証手順（ADR-0021 / ADR-0024 / ADR-0048）
 - Live UI Verification（実機 UI 検証）
@@ -440,7 +440,7 @@
 - monthly-habit-certificate.test.ts
 - Amendments（決定内容）
 - ADR-0030: `npm run pre-ready` CLI 採用と pre-push hook 非採用
-- stripe-webhook-dedup.test.ts
+- preset-challenges.ts
 - 支払い失敗 (dunning) ジャーニーマップ (#2551 / Epic #2525 Phase 2 UX) — 既存実装前提
 - M2 論理データモデル（Logical Data Model / relational・DBMS 非依存）— がんばりクエスト
 - M3 物理モデル レビュー Round 1 台帳（4 独立観点 / [must]8）
@@ -456,7 +456,7 @@
 - Platform (開発基盤) セッション起動プロンプト
 - eslint.config.js
 - compute-stack.ts
-- generate-release-predicate.mjs
+- Go-to-Market 戦略書
 - check-no-at-html.mjs
 - check-repo-scan-test-declaration.mjs
 - generate-sitemap.mjs
@@ -467,7 +467,7 @@
 - backup-entity-registry.ts
 - data-integrity-guards.ts
 - support/+page.server.ts
-- plan-fixtures.ts
+- debug-plan.ts
 - src/routes/ — UI 実装ルール
 - resource-archive.test.ts
 - cloudfront-s3-user-content-bypass-fitness.test.ts
@@ -493,7 +493,7 @@
 - §2.1 baby (0-2 歳)
 - §2.2 kinder (3-5 歳)
 - プラン機能棚卸し（#792）
-- tz-invariance.test.ts
+- activity-record-preparation.ts
 - textlint-rule-prh 必要性評価 設計経緯 (Phase 5 F4)
 - §1. 実 OSS / web service 事例 (一次情報源 URL 必須)
 - 4. 資源別掃除手順 (空 orphan の削除 → redeploy)
@@ -507,12 +507,12 @@
 - generate-coreloop-summary.mjs
 - verify-backup-restore.cjs
 - 必須 9 項目（A〜I 全項目）
-- interfaces/index.ts
-- ownerGateResponse
+- cancellation-service.ts
+- V2MOM — 2026 Q2
 - +error.svelte
 - services/types.ts
 - provision.ts
-- backup-offsite.ts
+- pglite-backup-offsite-wiring.test.ts
 - admin-premium-welcome.test.ts
 - admin-status-benchmark-authz.test.ts
 - 競合調査フェーズゲート
@@ -538,7 +538,7 @@
 - §2.5 senior (16-18 歳)
 - 参考リンク一覧 (AWS 公式 source 中心)
 - 契約状態監査 (`/ops` X1-X4) の一次対応 runbook
-- check-pr-body-reality-drift.test.ts
+- consent-service.ts
 - §2. 設計原則
 - staging-lambda-env-ssot.test.ts
 - check-cdk-cfn-lint.mjs
@@ -577,7 +577,7 @@
 - 使用時間ログ DynamoDB 実装延期 設計経緯
 - Claude Code 設定 retrospective YYYY-MM
 - retention 押し漏れ網羅調査結果 (Issue #2278 / EPIC #2266)
-- アンチパターン集 — 開発プロセスで繰り返した「逃げ」と是正
+- file-source.ts
 - エージェント並行実行 SSOT — セッション分離と排他
 - sections
 - sections
@@ -596,7 +596,7 @@
 - hooks-integration.test.ts
 - biome.json
 - 決定
-- ADR-0024: インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm
+- sqlite/webhook-event-repo.test.ts
 - 0064. NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback
 - 5. 認証フロー
 - がんばりクエスト データベース設計書
@@ -619,11 +619,11 @@
 - index.mjs
 - Phase 1.1 POC — 6 Layer Stack LLM Judge FP 圧縮基盤 (Issue #2711)
 - evaluate-merge-readiness.mjs
-- value-preview-service.ts
+- integration/services/setup-service.test.ts
 - check-native-dep-pin.mjs
 - claude-hook-prevent-qa-account-pr.mjs
 - export-format.test.ts
-- dsql/auth-repo.ts
+- invite-token.ts
 - setup/packs/+page.svelte
 - churn-status-predicate-ssot.test.ts
 - dockerfile-copy-import-fitness.test.ts
@@ -631,7 +631,7 @@
 - admin-role-mutation-authz.test.ts
 - nuc-pglite-cutover-cli.test.ts
 - pre-ready-base-freshness.test.ts
-- handleWebhookEvent
+- stripe-webhook-contract-state.test.ts
 - rules
 - Findings — PM Reviewer
 - .cspell.json
@@ -648,7 +648,7 @@
 - 19 プライシング戦略書
 - 4e.3 仕様（§3）
 - SEO 戦略書
-- habit-certificate-notice.ts
+- admin/+layout.svelte
 - 5. コンポーネントプリミティブ（再実装禁止）
 - 構造的ルール (EPIC #2253 admin-activities add UX、#2258)
 - データライフサイクル 要件定義 (#2538 / Epic #2525 Phase 1)
@@ -726,11 +726,11 @@
 - §9. AWS 実数値コスト試算 (Pricing 公式 source)
 - §4 daily run コスト・triage 負荷概算（cadence 引き上げ成立性）
 - クローン立ち上げ手順 — 5 クローン運用の SSOT
-- period-end-cancellation-chain.test.ts
+- getStripeClient
 - Reporting a Vulnerability
 - 「一度見せたら次から出さない」機構 設計経緯
 - Role: Toddler Parent Persona Agent (3 歳児の親 30 代 IT 中)
-- is-main.mjs
+- hotfix-back-merge.mjs
 - workflow-judgment-delegation-guard.test.ts
 - pr-lane.mjs
 - regenerate-all-stamps.mjs
@@ -750,7 +750,7 @@
 - init-round.mjs
 - File Inventory（LP 関連ファイル一覧）
 - 分析手順
-- 0005. テスト品質 ratchet
+- dsql-errors.test.ts
 - 0008. 設計ポリシー先行確認フロー — 新機能 / 新 interface は実装前に PO 合意を必須化
 - §21 Phase Rewards-Cheer-Shop EPIC (#2266 / 2026-05-19)
 - 3.9 特別報酬関連
@@ -786,12 +786,12 @@
 - axe-runner.mjs
 - Role: NN/G Heuristic Evaluator Agent (Nielsen 10 原則 主観評価)
 - check-no-demo-route-duplication.mjs
-- check-pr-body-closes-landed.test.ts
+- LP レビューワークフロー
 - export-users.mjs
 - generate-stripe-product-images.mjs
 - exclusion-reason-nonempty.test.ts
 - check-cdk-cfn-lint.test.mjs
-- point-display.ts
+- settings-backup-classification.test.ts
 - child-challenge-celebration-once.spec.ts
 - child-tutorial-dialog-screenshots.spec.ts
 - child-tutorial-verification.spec.ts
@@ -820,7 +820,7 @@
 - check-no-waitfortimeout.mjs
 - site-terminology.test.ts
 - 0002. Critical 修正の品質ゲート
-- 0061. band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function)
+- checklist copy の quota TOCTOU 設計判断
 - §13 baby モード — 親向け準備モード UI（#1300 / ADR-0011）
 - 4.7a 親用設定画面 (S-08a) — 7 グループ child routes (#2319 / #3954)
 - 6. テスト環境構成
@@ -848,13 +848,13 @@
 - GitHub Sponsors 設定ガイド (3/4) — W-8BEN 税務書類の提出
 - image-service.ts
 - sqlite/certificate-repo.ts
-- checklist copy の quota TOCTOU 設計判断
+- 開発者オンボーディングガイド
 - follow-up treadmill の真因と介入 (deep-research、2026-06-29)
 - §4. ganbari-quest 固有適合性 (既存 6 stack との mapping)
 - Role: Elementary Parent Persona Agent (小 3 親 40 代 IT 中-高)
 - Role: Mercari CGI Evaluator Agent (子供 CGI / 公式 stance human-only 整合)
 - 3.19 おうえんメッセージ
-- admin-tenant-cancel.test.ts
+- child-activity-copy-service.ts
 - app.d.ts
 - src/routes/ — UI 実装ルール
 - admin-page-guide-presence.spec.ts
@@ -866,7 +866,7 @@
 - fetch-error-handling-ratchet.test.ts
 - stripe-webhook-single-entrypoint.test.ts
 - pglite-journal-monotonic-3946.test.ts
-- pr-body-template-integrity.test.ts
+- webhook/+server.ts
 - compose-backup-volume.test.ts
 - playwright-shard-split.test.ts
 - account-delete-api.test.ts
@@ -880,7 +880,7 @@
 - Issue List — N（finding 番号）→ #（Issue 番号）対応表
 - 4.6 おやカギコード認証画面 (S-07) + PIN gate modal (EPIC #2310 / #2353 / #2992)
 - 4.8 スタンプカード（ログインボーナス）
-- 頻出 QM fix カテゴリ
+- ChildDashboardHomeData
 - 3.11 管理系 API
 - 3.26 ごほうびショップ 交換申請 API (#1337)
 - child_activities (per-child instance、#2362 PR-3、ADR-0055)
@@ -903,8 +903,8 @@
 - §1. Lambda 多 tenant in-memory state 共有問題 (最重要 / 致命的判定)
 - §3. Cold start UX 検証 (Provisioned Concurrency cost 含む)
 - §7. 35 Repository 実装方式 (stateless fixture)
-- §B. SOLID 原則準拠検証
-- §F. デモ画面ログ管理 (CloudWatch separation, PII handling)
+- magic-bytes.ts
+- 0063. DSQL pool マルチテナント分離 — 信頼 claim/context + アプリ層単一強制点 + fitness function（RLS 非対応の代替防御線）
 - GitHub API head_sha staleness 対処 (#2557)
 - QM Agent spawn テンプレート
 - TA-001 — generate-lp-labels.mjs 変更後に site/shared-labels.js の再生成漏れ
@@ -918,12 +918,12 @@
 - reconcile-stripe-subscriptions.ts
 - snapshot-prod-db.cjs
 - shared-labels.js
-- round-trip-required.test.ts
+- nuc-pglite-cutover.ts
 - Demo Repository (`src/lib/server/db/demo/`)
 - checklist-strategy.test.ts
 - sitemap.xml/+server.ts
 - plan-login-helpers.ts
-- client-types.ts
+- parent-gate.spec.ts
 - challenge-set-strategy.test.ts
 - child-challenge-claim-flow.spec.ts
 - global-teardown-aws.ts
@@ -980,7 +980,7 @@
 - §3. Security claim 検証 (IAM permission boundary、AWS 公式 source)
 - §5. 代替案 (案 D) との re-評価
 - §2. Session 隔離戦略
-- §4. CDK 実装 + IAM Permission Boundary
+- ペルソナ定義（docs/design/11-ペルソナ設計.md 準拠）
 - TA-002 — docs のみ変更時に pull_request CI がスキップされる（正常動作）
 - TA-003 — cognito-dev ビルドで `/sitemap.xml` がプリレンダエラーになる
 - TA-004 — cognito-dev 専用テストが標準 e2e に混入してタイムアウト
@@ -1012,7 +1012,7 @@
 - scripts/init-pr-body.mjs
 - check-orphan-env.test.mjs
 - auto-budoux.js
-- startup-upgrade-path.test.ts
+- ブランチ戦略 設計経緯
 - svelte.config.js
 - child-challenge-card-badge.spec.ts
 - child-tutorial-double-dialog-regression.spec.ts
@@ -1042,7 +1042,7 @@
 - 3.10 利用停止・解約フェーズ
 - 3.2 サインアップフェーズ
 - 3.7 メンバー管理フェーズ（家族の追加・削除）
-- 3.8 問い合わせフェーズ
+- generate-pwa-icons.ts
 - 4. 通知設計
 - 8. ギャップ分析サマリー
 - 3. 機能制限マトリクス
@@ -1070,7 +1070,7 @@
 - 14. 根拠 (primary source)
 - §1.7 集約 ChecklistTemplate（C7, family master — ADR-0055 唯一の例外, 3 層）
 - §3 キー戦略
-- activity-pack-strategy.test.ts
+- seed-staging.ts
 - 10-B. 実装状況スナップショット (2026-04-20)
 - 1. 事業背景 — なぜ今刷新が必要か (Why Now)
 - 2. 競合ポジショニング (Where We Stand)
@@ -1082,7 +1082,7 @@
 - 2. アップグレード — 新規購入（free → standard / family）
 - 4. 支払い失敗フロー（猶予期間）
 - Step 7: 最終確認
-- §12. LP linking 戦略
+- ブランド/UI 一貫性チェック
 - exaggeration-sample.md
 - Configuration
 - Quick Start
@@ -1108,19 +1108,19 @@
 - type-aware-lint.test.ts
 - pk-freeze-manifest.test.ts
 - stripe-dashboard-runbook.test.ts
-- reward-suggest-service.ts
+- §5. CloudFront multi-origin: subdomain vs path-prefix
 - demo-cta-href-migration-2097.test.ts
 - check-orphan-repos-population.test.ts
 - pre-ready-preflight.test.ts
 - cron-idempotency.test.ts
 - cutover-parent-message-timestamp.test.ts
 - avatar-upload-old-file-deletion.test.ts
-- 3.1 子供関連
-- components/Header.svelte
+- admin-checklists-ai-gate-4506.mjs
+- setup/challenges/+page.svelte
 - 3.6 ログインボーナス関連
 - audit-actor.ts
 - 3.1 認知・集客フェーズ
-- 3.6 プラン変更フェーズ
+- 3.21 設定
 - 3.9 データエクスポートフェーズ
 - 1. プライシング方針
 - 8. KPI と見直し基準
@@ -1130,7 +1130,7 @@
 - 5. a11y 設計 (動線レイヤの screen reader + keyboard)
 - 5. 将来の Stripe apiVersion bump 時の webhook destination 切替 (§5、#2683 補強で副次制約 4 を根拠化)
 - §5 index 戦略（ASYNC 制約下、P4）
-- §2 PK 戦略（§P1 不変性下の凍結確定）
+- §C. UML 設計図 (Class / Sequence / Component)
 - 11. 残課題・将来 Epic への送り
 - 6. 月額 ↔ 年額切替
 - GitHub Actions CI トラブルシューティング KB
@@ -1178,10 +1178,10 @@
 - feedback-api.test.ts
 - marketplace-auth-redirect.test.ts
 - client-api-version.test.ts
-- toast-stack.ts
+- §G. モック化 (Test Double) と E2E test 戦略
 - cognito-jwt.test.ts
 - page-guide-raf-clamp.test.ts
-- Runbook: operator-level PIN reset (#2994 / EPIC #2990)
+- isLegacyCompatibleDateTime
 - @biomejs/biome
 - @browserbasehq/stagehand
 - @chromatic-com/storybook
@@ -1192,7 +1192,7 @@
 - .dependency-cruiser.cjs
 - ADR-0036
 - admin-challenges-delete-confirm.spec.ts
-- certificates
+- admin-settings-support-backup-health.test.ts
 - parent_messages
 - sibling_cheers
 - reward_redemption_requests
@@ -1210,6 +1210,7 @@
 - eslint-plugin-svelte
 - child-point-delta-flight-4448.mjs
 - @google/genai
+- stripe-portal-flow.test.ts
 - Runbook: staging deploy gate の required 化（Phase 1 → 2 段階導入）
 - post-commit
 - pre-commit
@@ -1245,6 +1246,7 @@
 - textlint-rule-prh
 - child-celebration-click-intercept-4433.mjs
 - e2e-worker-db-fixture-ratchet.test.ts
+- §H. 既存 ADR との整合 + ADR-0048 起票要否
 - @types/cookie-signature
 - @types/dompurify
 - @types/web-push
@@ -1291,16 +1293,18 @@
 - agent-teams-role-pointers.test.ts
 - admin-bypass-metrics.test.ts
 - vite.config.ts
+- stripe-portal-create-failure.test.ts
+- 3.12 再登録フェーズ
 - ChildDashboardService
-- admin/challenges/+page.svelte
+- ids.ts
 - version.ts
+- 3.5 課金開始フェーズ
 - child-celebration-click-intercept.spec.ts
-- bedrock-claude-provider.test.ts
-- 0001. 設計書は Single Source of Truth
+- §8 トレーサビリティ（物理判断 → M2 論理 + 根拠）
+- cloud_exports
 - §19 LP / Legal 文言の SSOT 経路 (#1683 umbrella 完遂, #1704)
 - 3.18 閲覧専用トークン
 - [05b] 年齢別成長ロードマップ — 卒業を最終地点として位置付ける (#1613 R9 / #1848)
-- checklist-service.ts
 - user-content-not-cached.test.ts
 - 3.15 ヘルスチェック
 - 3.17 アカウント管理
@@ -1345,59 +1349,59 @@
 ## Import Cycles
 - 3-file cycle: `src/lib/data/preset-rewards.ts -> src/lib/domain/validation/special-reward.ts -> src/lib/domain/shop-category.ts -> src/lib/data/preset-rewards.ts`
 
-## Communities (1419 total, 192 thin omitted)
+## Communities (1423 total, 195 thin omitted)
 
 ### Community 0 - "labels.ts"
 Cohesion: 0.01
-Nodes (236): formatRetentionPeriod(), PLAN_HISTORY_RETENTION_DAYS, ADR-0013, ADR-0045, ADR-0049, ACTIVITIES_INTRODUCE_LABELS, ACTIVITY_FORM_LABELS, ACTIVITY_PRIORITY_FORM_LABELS (+228 more)
+Nodes (223): ACTIVITIES_INTRODUCE_LABELS, ACTIVITY_FORM_LABELS, ACTIVITY_PRIORITY_FORM_LABELS, ActivityPriority, ADMIN_ACTIVITIES_PAGE_LABELS, ADMIN_CHALLENGES_PAGE_LABELS, ADMIN_CHECKLISTS_PAGE_LABELS, ADMIN_CHILDREN_LABELS (+215 more)
 
 ### Community 1 - "SqlExecutor"
 Cohesion: 0.03
-Nodes (113): createDsqlActivityMasteryRepo(), createDsqlActivityPrefRepo(), createDsqlActivityRepo(), createDsqlBattleRepo(), chunkByLimits(), ChunkedImportOptions, ChunkedImportResult, chunkKey() (+105 more)
+Nodes (120): AGE_TIER_CONFIG, getDefaultUiMode(), isValidUiMode(), recalcUiMode(), uiModeSchema, requireValidChildCookieFormat(), insertChild(), MASTERY_COLUMNS (+112 more)
 
 ### Community 2 - "ChildId"
-Cohesion: 0.01
-Nodes (123): ActivityPreview, ChecklistTemplatePreview, ChildPreview, DowngradePreview, ExportCategory, ActivityId, CategoryId, ChildId (+115 more)
-
-### Community 3 - "import-service.ts"
-Cohesion: 0.05
-Nodes (68): isExportableSettingKey(), isIsoDatetime(), ImportSkipReason, isLegacyCompatibleDateTime(), LEGACY_COMPAT_DATETIME_RE, ADR-0066, insertActivityLog(), findLogsByChild() (+60 more)
-
-### Community 4 - "logger.ts"
 Cohesion: 0.02
-Nodes (137): ADR-0034, IMPORT_LABELS, ADR-0033, verifyCronAuth(), requireChildAccess(), requireRole(), isScheduledCronTrigger(), restoreArchivedChecklistTemplates() (+129 more)
+Nodes (76): ActivityPreview, ChecklistTemplatePreview, ChildPreview, DowngradePreview, ActivityId, CategoryId, ChildId, ActivityItem (+68 more)
 
-### Community 5 - "plan-limit-service.ts"
-Cohesion: 0.03
-Nodes (119): ACTIVITY_SOURCE_WIRE_VALUES, ACTIVITY_SOURCES, ActivitySourceCode, ActivitySourceDef, ActivitySourceWireValue, countsTowardActivityQuota(), LEGACY_PARENT_SOURCE, PARENT_CREATED_SOURCE (+111 more)
+### Community 3 - "getRepos"
+Cohesion: 0.02
+Nodes (180): countsTowardActivityQuota(), TimeSlot, VALID_TIME_SLOTS, isExportableSettingKey(), ImportSkipReason, archiveActivities(), countActiveActivityLogs(), _countActiveActivityLogsByCategory() (+172 more)
+
+### Community 4 - "auth/factory.ts"
+Cohesion: 0.02
+Nodes (144): IMPORT_LABELS, SETTINGS_LABELS, ADR-0048, requireChildAccess(), requireRole(), CloudExportType, apiError(), ERROR_DEFINITIONS (+136 more)
+
+### Community 5 - "grace-period-service.ts"
+Cohesion: 0.05
+Nodes (43): ADR-0034, DeletionRoute, DELETION_WARNING_DAYS_BEFORE, DEFAULT_PURGE_LIMIT, DELETION_GRACE_PERIOD_DAYS, DELETION_WARNING_SENT_KEY, DISABLED_VALUES, ENABLED_VALUES (+35 more)
 
 ### Community 6 - "demo-data.ts"
 Cohesion: 0.02
-Nodes (75): findChildById(), findChildById(), findChildById(), findChildByUserId(), insertChild(), ADR-0048, updateChild(), findChildForMission() (+67 more)
+Nodes (111): ALL_DEMO_ACTIVITIES, countActiveActivityLogsByCategory(), countDistinctCategories(), deleteActivity(), filterActivity(), findActivities(), findActivityById(), findActivityLogById() (+103 more)
 
 ### Community 7 - "child-service.ts"
 Cohesion: 0.03
 Nodes (117): AvatarColors, buildPlaceholderAvatarSvg(), DEFAULT_COLORS, escapeXmlText(), firstGrapheme(), PLACEHOLDER_AVATAR_CONTENT_TYPE, PLACEHOLDER_AVATAR_EXTENSION, placeholderAvatarVersion() (+109 more)
 
 ### Community 8 - "date-utils.ts"
-Cohesion: 0.04
-Nodes (86): generateVersion(), version, getAutoAddRecommendedPresets(), getPresetChallengeById(), PRESET_CHALLENGES, PresetChallenge, resolvePresetChallengeDates(), ADR-0012 (+78 more)
+Cohesion: 0.02
+Nodes (163): generateVersion(), version, addDaysJST(), daysBetweenJST(), daysInMonthOfKey(), formatJSTDate(), formatJSTDateTime(), isInJstMonth() (+155 more)
 
 ### Community 9 - "auth.ts"
 Cohesion: 0.04
-Nodes (87): ACTIVITIES_SETTINGS_DEFAULTS, activitiesDefaultsToSettingPairs(), ActivitiesSettingsDefaults, ADR-0012, ADR-0014, DEFAULT_PIN, ADR-0010, OYAKAGI_LABELS (+79 more)
+Nodes (85): DEFAULT_PIN, ADR-0010, OYAKAGI_LABELS, DEFAULT_POINT_SETTINGS, createInviteSchema, emailLoginSchema, INVITE_ACCEPT_ERROR_COOKIE_NAME, INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS (+77 more)
 
 ### Community 10 - "primitives/Button.svelte"
-Cohesion: 0.02
-Nodes (37): CANCELLATION_LABELS, CHILD_PROFILE_CARD_LABELS, handleFileSelect(), startRecording(), stopRecording(), uploadAvatar(), getCategoryName(), errorMessage (+29 more)
+Cohesion: 0.04
+Nodes (23): CHILD_PROFILE_CARD_LABELS, handleFileSelect(), startRecording(), stopRecording(), uploadAvatar(), DemoEvent, errorMessage, mailtoSubject (+15 more)
 
 ### Community 11 - "src/lib/marketplace/types.ts"
 Cohesion: 0.05
-Nodes (55): UNIFIED_EMPTY_STATE_LABELS, UNIFIED_IMPORT_HUB_LABELS, getMarketplaceRegistry(), hasMarketplaceRegistry(), MARKETPLACE_REGISTRY_KEY, setMarketplaceRegistryContext(), ADR-0046, ADR-0052 (+47 more)
+Nodes (56): UNIFIED_EMPTY_STATE_LABELS, UNIFIED_IMPORT_HUB_LABELS, getMarketplaceTypeMetaClient(), MARKETPLACE_TYPE_CODES_CLIENT, MARKETPLACE_TYPE_METAS_CLIENT, MarketplaceTypeCodeClient, MarketplaceTypeMeta, ADR-0046 (+48 more)
 
 ### Community 12 - "sqlite/cloud-export-repo.ts"
 Cohesion: 0.12
-Nodes (17): viewerTokens, findById(), findByPin(), findByTenant(), findPendingBuilds(), findStaleBuildingExports(), incrementDownloadCount(), insert() (+9 more)
+Nodes (16): viewerTokens, findById(), findByPin(), findByTenant(), findPendingBuilds(), findStaleBuildingExports(), insert(), toRecord() (+8 more)
 
 ### Community 13 - "page-guide-types.ts"
 Cohesion: 0.03
@@ -1405,182 +1409,182 @@ Nodes (82): PAGE_GUIDE_LABELS, ALL_PAGE_IDS, filterGuideStepsByRuntime(), filter
 
 ### Community 14 - "entities.ts"
 Cohesion: 0.03
-Nodes (54): RouteRule, AUTH_PROVIDERS, AuthProviderKind, AuthUser, CONSENT_TYPES, ConsentRecord, ConsentType, CreateInviteInput (+46 more)
+Nodes (51): INVITE_EXPIRY_DAYS, RouteRule, AUTH_PROVIDERS, AuthProviderKind, AuthUser, CONSENT_TYPES, ConsentRecord, ConsentType (+43 more)
 
-### Community 15 - "admin/rewards/+page.server.ts"
-Cohesion: 0.04
-Nodes (75): PresetReward, CHILD_SHOP_LABELS, formatRewardWithQuantity(), deriveShopCategory(), MONEY_ICONS, PRIVILEGE_ICONS, SHOP_CATEGORIES, isValidRedemptionQuantity() (+67 more)
+### Community 15 - "reward-redemption-service.ts"
+Cohesion: 0.03
+Nodes (86): getAllPresetRewards(), PRESET_REWARD_GROUPS, PresetReward, PresetRewardGroup, ShopCategory, CHILD_SHOP_LABELS, formatRewardWithQuantity(), RewardSetPayload (+78 more)
 
 ### Community 16 - "checklist-template-import-service.ts"
-Cohesion: 0.12
-Nodes (22): ChecklistPayload, findTemplatesByTenant(), ChecklistImportPreview, ChecklistImportResult, importChecklistTemplate(), importChecklistTemplateForFamily(), importChecklistTemplateFromPayload(), importChecklistTemplateInternal() (+14 more)
+Cohesion: 0.07
+Nodes (41): ChecklistPayload, findTemplatesByTenant(), addTemplateItem(), createTemplate(), ChecklistImportPreview, ChecklistImportResult, importChecklistTemplate(), importChecklistTemplateForFamily() (+33 more)
 
 ### Community 17 - "unit/helpers/test-db.ts"
 Cohesion: 0.03
-Nodes (70): insertDailyMission(), createActivity(), getChildActivities(), clearAllFamilyData(), ClearResult, DataSummary, exportFamilyData(), assertError() (+62 more)
+Nodes (70): RecordActivityCoreResult, insertDailyMission(), getChildActivities(), updateChildChallengeProgress(), clearAllFamilyData(), ClearResult, DataSummary, exportFamilyData() (+62 more)
 
 ### Community 18 - "admin/activities/+page.svelte"
-Cohesion: 0.09
-Nodes (14): joinIcon(), ParsedIcon, segmenter, splitIcon(), ActivityItem, ActivityPackInfo, AiPreviewData, CATEGORY_INFO (+6 more)
+Cohesion: 0.05
+Nodes (23): joinIcon(), ParsedIcon, segmenter, splitIcon(), PLAN_FULL_TERMS, ActivityPackInfo, AiPreviewData, CATEGORY_INFO (+15 more)
 
 ### Community 19 - "dsql/schema.ts"
 Cohesion: 0.02
-Nodes (82): CHECKLIST_OVERRIDE_ACTIONS, ChecklistOverrideAction, CHALLENGE_PERIOD_TYPES, ChallengePeriodType, CHILD_CHALLENGE_STATUSES, ChildChallengeStatus, CLOUD_EXPORT_STATUSES, REDEMPTION_STATUSES (+74 more)
+Nodes (83): CHECKLIST_OVERRIDE_ACTIONS, ChecklistOverrideAction, CHALLENGE_PERIOD_TYPES, ChallengePeriodType, CHILD_CHALLENGE_STATUSES, ChildChallengeStatus, CLOUD_EXPORT_STATUSES, INQUIRY_STATUSES (+75 more)
 
-### Community 20 - "sqlite/activity-repo.ts"
-Cohesion: 0.06
-Nodes (23): ActivityLogRow, ChildRow, deleteActivity(), findActivities(), findActivityById(), findActivityLogById(), findActivityLogs(), findChildById() (+15 more)
+### Community 20 - "asCategoryId"
+Cohesion: 0.04
+Nodes (44): asCategoryId(), toBenchmark(), createDedicatedActivity(), ADR-0006, ADR-0062, addChildViaAdmin(), addChildViaSetup(), globalSetup() (+36 more)
 
 ### Community 21 - "check-pr-body.mjs"
-Cohesion: 0.06
-Nodes (71): checkAcMap(), checkChangeTypeSelection(), checkEnvDistributionForHotfix(), checkEvidencePrReferences(), checkMergeable(), checkPlaceholders(), checkPoDecisionBrief(), checkSelfReviewEvidence() (+63 more)
+Cohesion: 0.05
+Nodes (91): ADR-0004, BLOCKING_GATES, BLOCKING_VIOLATION_IDS, checkAcMap(), checkChangeTypeSelection(), checkClaimedCounts(), checkClosesLanded(), checkEnvDistributionForHotfix() (+83 more)
 
 ### Community 22 - "demo/checklist-repo.ts"
 Cohesion: 0.03
-Nodes (48): ARCHIVED_REASONS, ArchivedReason, getRetentionDays(), ADR-0045, ADR-0049, ALL_DEMO_CHECKLIST_ASSIGNMENTS, ALL_DEMO_CHECKLIST_ITEMS, ALL_DEMO_CHECKLIST_TEMPLATES (+40 more)
+Nodes (42): ARCHIVED_REASONS, ArchivedReason, getRetentionDays(), ADR-0045, ADR-0049, ALL_DEMO_CHECKLIST_ASSIGNMENTS, ALL_DEMO_CHECKLIST_ITEMS, ALL_DEMO_CHECKLIST_TEMPLATES (+34 more)
 
 ### Community 23 - "orphan-utils.mjs"
 Cohesion: 0.05
 Nodes (77): ASSET_EXTENSIONS, ASSET_ROOTS, isMain, main(), NOTE: site/screenshots/ は .gitignore で git 外管理。本 script では対象外。, NOTE: scripts/orphan-baselines/ + docs/operations/orphan-audit-*.md は self-…, SEARCH_DIRS, SEARCH_EXTENSIONS (+69 more)
 
 ### Community 24 - "auth/types.ts"
-Cohesion: 0.05
-Nodes (57): authorizeCognito(), checkLicenseAccess(), findMatchingRule(), isPublicRoute(), ROUTE_RULES, CONTEXT_TTL, ContextPayload, ContextTokenClaims (+49 more)
-
-### Community 25 - "age-tier.ts"
-Cohesion: 0.07
-Nodes (31): MARKETPLACE_FILTER_LABELS, STAMP_PRESS_N_MESSAGES, UI_MODE_CHANGE_LABELS, AGE_TIER_CONFIG, getDefaultUiMode(), isValidUiMode(), recalcUiMode(), LEGACY_UI_MODE_MAP (+23 more)
-
-### Community 26 - "auth/factory.ts"
 Cohesion: 0.04
-Nodes (79): LEGAL_LABELS, SIGNUP_LABELS, CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME, REFRESH_COOKIE_NAME, SIGNUP_CODE_EXPIRY_MINUTES, getAuthMode(), getAuthProvider() (+71 more)
+Nodes (61): CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME, authorizeCognito(), checkLicenseAccess(), findMatchingRule(), isPublicRoute(), ROUTE_RULES, CONTEXT_TTL (+53 more)
+
+### Community 25 - "Child"
+Cohesion: 0.05
+Nodes (24): findChildForImage(), ADR-0048, claimToday(), findChildById(), findStreak(), ADR-0048, IChildRepo, IImageRepo (+16 more)
+
+### Community 26 - "auth/login/+page.server.ts"
+Cohesion: 0.06
+Nodes (60): REFRESH_COOKIE_NAME, SIGNUP_CODE_EXPIRY_MINUTES, getAuthMode(), getAuthProvider(), isCognitoDevMode(), authenticateWithCognito(), CognitoAuthError, CognitoAuthResult (+52 more)
 
 ### Community 27 - "db/schema.ts"
-Cohesion: 0.03
-Nodes (78): db, DrizzleDatabase, emitOrphanAlert(), getOrInitDb(), rawSqlite, achievements, activities, activityMastery (+70 more)
+Cohesion: 0.04
+Nodes (66): db, DrizzleDatabase, rawSqlite, achievements, activities, categories, characterImages, children (+58 more)
 
 ### Community 28 - "lifecycle-email-service.ts"
-Cohesion: 0.06
-Nodes (44): getSubscriptionPlanLabel(), daysSinceLastActive(), daysUntil(), DORMANT_THRESHOLD_DAYS, formatExpiresAt(), isRenewalReminderDay(), isTenantUnsubscribed(), LifecycleEmailRunOptions (+36 more)
+Cohesion: 0.08
+Nodes (35): getSubscriptionPlanLabel(), buildUnsubscribeUrl(), getAppBaseUrl(), sendDormantReactivationEmail(), sendLicenseRenewalReminderEmail(), sendPmfSurveyEmail(), wrapLifecycleTemplate(), daysSinceLastActive() (+27 more)
 
 ### Community 29 - "stripe-service.ts"
-Cohesion: 0.06
-Nodes (54): CheckoutReconciliationResult, CheckoutReconciliationStatus, getDebugCancelAtPeriodEnd(), applyTenantContractState(), buildPortalFlowData(), CancelSubscriptionResult, ContractEventTarget, CreateCheckoutInput (+46 more)
+Cohesion: 0.10
+Nodes (38): CheckoutReconciliationResult, CheckoutReconciliationStatus, applyTenantContractState(), buildPortalFlowData(), CancelSubscriptionResult, ContractEventTarget, CreateCheckoutInput, CreateCheckoutResult (+30 more)
 
-### Community 30 - "marketplace-item.ts"
-Cohesion: 0.05
-Nodes (64): allItems, countPayloadItems(), getAllTags(), getMarketplaceCounts(), getMarketplaceIndex(), getMarketplaceItem(), itemMap, toMeta() (+56 more)
+### Community 30 - "requireTenantId"
+Cohesion: 0.03
+Nodes (160): allItems, countPayloadItems(), getAllTags(), getMarketplaceCounts(), getMarketplaceIndex(), getMarketplaceItem(), itemMap, toMeta() (+152 more)
 
 ### Community 31 - "admin/rewards/+page.svelte"
-Cohesion: 0.05
-Nodes (43): ActionErrorDisplay, getActionErrorDisplay(), getErrorMessage(), isPlanLimitError(), PlanLimitError, PlanLimitErrorBody, ADR-0024, MARKETPLACE_IMPORT_FEEDBACK_LABELS (+35 more)
-
-### Community 32 - "issue-triage/SKILL.md"
 Cohesion: 0.04
-Nodes (46): Cron エンドポイント追加 Issue, Issue の品質基準, Issue テンプレート集, Issue 起票前の強制チェック（フェーズゲート）, Pre-PMF 3 視点（ADR-0010）, Write tool 例外（sub-agent ハーネス向け — #1804）, あなたの役割, やってはいけないこと (+38 more)
+Nodes (43): isAiSuggestUnlocked(), MARKETPLACE_IMPORT_FEEDBACK_LABELS, ImportFeedback, ImportFeedbackLabels, ImportFeedbackTone, resolveImportFeedback(), toCount(), ADR-0052 (+35 more)
+
+### Community 32 - "agents/po-session.md"
+Cohesion: 0.17
+Nodes (11): Cron エンドポイント追加 Issue, Issue の品質基準, Issue テンプレート集, Issue 起票前の強制チェック（フェーズゲート）, Pre-PMF 3 視点（ADR-0010）, Write tool 例外（sub-agent ハーネス向け — #1804）, あなたの役割, やってはいけないこと (+3 more)
 
 ### Community 33 - "email-service.ts"
-Cohesion: 0.06
-Nodes (42): RFC-2047, RFC-2369, DELETION_WARNING_EMAIL_LABELS, LIFECYCLE_EMAIL_LABELS, PIN_RESET_EMAIL_LABELS, PMF_SURVEY_LABELS, buildRawMimeMessage(), buildUnsubscribeUrl() (+34 more)
+Cohesion: 0.07
+Nodes (41): RFC-2047, RFC-2369, DELETION_WARNING_EMAIL_LABELS, LIFECYCLE_EMAIL_LABELS, PIN_RESET_EMAIL_LABELS, PMF_SURVEY_LABELS, buildRawMimeMessage(), DeletionWarningParams (+33 more)
 
 ### Community 34 - "scripts"
 Cohesion: 0.03
 Nodes (77): scripts, build, build-storybook, capture, capture:admin, capture:child, capture:feature, capture:lp (+69 more)
 
 ### Community 35 - "viewer-token-service.ts"
-Cohesion: 0.16
-Nodes (18): computeExpiry(), createViewerToken(), deleteViewerToken(), generateToken(), listViewerTokens(), resolveViewerToken(), revokeViewerToken(), DELETE() (+10 more)
+Cohesion: 0.21
+Nodes (13): computeExpiry(), createViewerToken(), deleteViewerToken(), generateToken(), resolveViewerToken(), revokeViewerToken(), DELETE(), load() (+5 more)
 
 ### Community 36 - "tutorial-store.svelte.ts"
-Cohesion: 0.05
-Nodes (53): CHILD_TUTORIAL_CHAPTERS, getChildAllSteps(), active, animKey, cancelExit(), confirmExit(), getShowExitConfirm(), handleOverlayClick() (+45 more)
+Cohesion: 0.06
+Nodes (48): active, animKey, cancelExit(), confirmExit(), getShowExitConfirm(), handleOverlayClick(), setupStepTracking(), showExitConfirm (+40 more)
 
-### Community 37 - "Dev Self-Review Agent — 運用 SSOT"
-Cohesion: 0.14
-Nodes (14): §1 必須化条件, §2.1 qm-session.md 5 手順, §2.2 Self-Review 固有 追加観点 (16 項目), §2.3 UI/UX 品質 10 項目, §2.4-2 機械 gate 対応表 + 観点一括 CLI 不採用判断（#2815 D-2）, §2.4 Self-Review HONESTY（false PASS 主張の禁止、Issue #2475）, §2 レビュー観点, §3.1 共通入力 (+6 more)
-
-### Community 38 - "ai/factory.ts"
-Cohesion: 0.16
-Nodes (14): converseWithImageAndTool(), converseWithTool(), getAiProvider(), isAiAvailable(), providers, ProviderType, CHEER_KEYWORD_MAP, CHEER_TOOL (+6 more)
-
-### Community 39 - "deletion-warning-service.ts"
+### Community 37 - "アンチパターン集 — 開発プロセスで繰り返した「逃げ」と是正"
 Cohesion: 0.04
-Nodes (60): createTimeBudget(), CRON_TIME_BUDGET_MS, TimeBudget, AgeRecalcOptions, AgeRecalcResult, DEFAULT_TENANT_LIMIT, processChild(), ProcessChildResult (+52 more)
+Nodes (49): §1 必須化条件, §2.1 qm-session.md 5 手順, §2.2 Self-Review 固有 追加観点 (16 項目), §2.3 UI/UX 品質 10 項目, §2.4-2 機械 gate 対応表 + 観点一括 CLI 不採用判断（#2815 D-2）, §2.4 Self-Review HONESTY（false PASS 主張の禁止、Issue #2475）, §2 レビュー観点, §3.1 共通入力 (+41 more)
+
+### Community 38 - "evaluation-service.ts"
+Cohesion: 0.08
+Nodes (41): DecayIntensity, countActivitiesByCategory(), countRestDaysInMonth(), deleteRestDay(), findAllChildren(), findLastActivityDateByCategory(), findRestDays(), findWeekEvaluation() (+33 more)
+
+### Community 39 - "logger.ts"
+Cohesion: 0.04
+Nodes (61): OWNER_GATE_LABELS, OwnerGateAudit, ownerGateResponse(), ADR-0010, createTimeBudget(), CRON_TIME_BUDGET_MS, TimeBudget, ensureLogDir() (+53 more)
 
 ### Community 40 - "notification-service.ts"
-Cohesion: 0.10
-Nodes (32): formatChildName(), formatChildNames(), NameContext, countTodayLogs(), deleteByEndpoint(), findByTenant(), _findRecentLogs(), insertLog() (+24 more)
+Cohesion: 0.08
+Nodes (40): formatChildName(), formatChildNames(), NameContext, countTodayLogs(), deleteByEndpoint(), findByTenant(), _findRecentLogs(), insertLog() (+32 more)
 
-### Community 41 - "validationError"
-Cohesion: 0.05
-Nodes (53): POINT_LEDGER_LABELS, ConvertMode, convertPointsManualSchema, convertPointsPresetSchema, convertPointsReceiptSchema, convertPointsSchema, pointHistoryQuerySchema, POINTS_PER_CONVERT_UNIT (+45 more)
+### Community 41 - "activity.ts"
+Cohesion: 0.09
+Nodes (32): ACTIVITY_SOURCE_WIRE_VALUES, activitiesQuerySchema, ACTIVITY_ICON_MIN_GRAPHEMES, ACTIVITY_NAME_FIELD_MAX, ACTIVITY_SUBCATEGORY_MAX, activityIdLikeSchema, activityLogsQuerySchema, calcMasteryBonus() (+24 more)
 
-### Community 42 - "dsql/stamp-card-repo.ts"
-Cohesion: 0.05
-Nodes (48): requireValidChildCookieFormat(), areValidUuidFormFields(), isValidUuidFormField(), ADR-0062, ADR-0063, DbBackend, isDsqlBackend(), resolveDbBackend() (+40 more)
+### Community 42 - "child-cookie-guard.test.ts"
+Cohesion: 0.29
+Nodes (9): actions, makeCookies(), makeRequest(), mockIsDsqlBackend, mockRequireTenantId, mockToggleCheckItem, runGuard(), runToggle() (+1 more)
 
 ### Community 43 - "sqlite/child-repo.ts"
 Cohesion: 0.06
-Nodes (45): calculateAgeFromBirthDate(), BatchMigrationResult, ENTITY_TABLE_MAP, EntityStats, EntityType, getMigrationStats(), runAllBatchMigrations(), runBatchMigration() (+37 more)
+Nodes (46): calculateAgeFromBirthDate(), BatchMigrationResult, ENTITY_TABLE_MAP, EntityStats, EntityType, getMigrationStats(), runAllBatchMigrations(), runBatchMigration() (+38 more)
 
 ### Community 44 - "sqlite/stamp-card-repo.ts"
 Cohesion: 0.06
 Nodes (23): findCardByChildAndWeek(), findEntriesWithMasterByCardId(), ADR-0048, IStampCardRepo, CardRow, findCardByChildAndWeek(), findCardsByChild(), findEnabledStampMasters() (+15 more)
 
 ### Community 45 - "pmf-survey-service.ts"
-Cohesion: 0.06
-Nodes (54): PmfSurveyQ1, PmfSurveyQ3, aggregateSurveyResponses(), AggregationAccumulator, applyResponse(), buildAggregation(), buildSurveyUrl(), createAccumulator() (+46 more)
+Cohesion: 0.05
+Nodes (56): PmfSurveyQ1, PmfSurveyQ3, aggregateSurveyResponses(), AggregationAccumulator, applyResponse(), buildAggregation(), buildSurveyUrl(), createAccumulator() (+48 more)
 
 ### Community 46 - "hooks.server.ts"
-Cohesion: 0.05
-Nodes (54): acceptsHtml(), checkFrontDoor(), ENTITLEMENT_FAILURE_EXEMPT_PATHS, handle(), isEntitlementFailureExemptPath(), isTenantSoftDeleted(), provider, renderErrorHtml() (+46 more)
+Cohesion: 0.08
+Nodes (44): acceptsHtml(), checkFrontDoor(), ENTITLEMENT_FAILURE_EXEMPT_PATHS, handle(), isEntitlementFailureExemptPath(), isTenantSoftDeleted(), provider, renderErrorHtml() (+36 more)
 
 ### Community 47 - "child-challenge-service.ts"
-Cohesion: 0.03
-Nodes (84): ChildChallengeGroup, aggregateActivityLogsByCategory(), ChallengeSetImportPreview, ChallengeSetImportResult, expandChallengeSetDates(), importChallengeSet(), ImportChallengeSetOptions, ADR-0052 (+76 more)
+Cohesion: 0.08
+Nodes (37): ChildChallengeGroup, aggregateActivityLogsByCategory(), aggregateCategoryCounts(), ALL_CATEGORY_IDS, CATEGORY_NAMES, ChallengePrev, ChallengeProposal, ChallengeProposalMode (+29 more)
 
 ### Community 48 - "child-dashboard-service.test.ts"
-Cohesion: 0.11
-Nodes (22): clearDemoHomeData(), createDemoDashboardService(), DemoDashboardService, persistDemoHomeData(), safeWriteStorage(), ADR-0046, createProductionDashboardService(), FetchFn (+14 more)
+Cohesion: 0.12
+Nodes (20): clearDemoHomeData(), createDemoDashboardService(), DemoDashboardService, persistDemoHomeData(), safeWriteStorage(), ADR-0046, createProductionDashboardService(), FetchFn (+12 more)
 
-### Community 49 - "demo/cloud-export-repo.ts"
-Cohesion: 0.08
-Nodes (8): CloudExportStatus, ADR-0048, CloudExportRow, EXPORT_COLUMNS, ICloudExportRepo, CloudExportRecord, InsertCloudExportInput, UpdateCloudExportStatusInput
+### Community 49 - "child-challenge-service.test.ts"
+Cohesion: 0.07
+Nodes (28): celebrationRow(), challengeRow(), FIXED_CLOCKS, fixedWeeksAgo(), JST_WEEK_BOUNDARY_WINDOW, makePrev(), mockAggregateActivityLogsByCategory, mockClaimRewardAndGrantPoints (+20 more)
 
 ### Community 50 - "decisions/README.md"
-Cohesion: 0.07
-Nodes (11): 0006. Safety Assertion Erosion Ban — 既存セーフティの段階的弱体化を禁ずる, References, コンテキスト, 結果, ブランチ戦略 設計経緯, 採用案とその理由, 棄却理由, 検討した代替案 (+3 more)
+Cohesion: 0.05
+Nodes (29): 0001. 設計書は Single Source of Truth, コンテキスト, 決定, 結果, 関連, 0005. テスト品質 ratchet, 1. カバレッジ閾値の引き下げを CI で禁止, 2. 機能追加 PR にカバレッジ差分チェック (+21 more)
 
 ### Community 51 - "01-企画書.md"
-Cohesion: 0.03
-Nodes (58): 1.1 ターゲット, 1.2 バリュープロポジション, 1. プロダクト概要, 2. プライシング, 3.1 オーガニック（無料）, 3.2 コミュニティ, 3.3 有料広告（将来検討）, 3. チャネル戦略 (+50 more)
+Cohesion: 0.04
+Nodes (28): backup コンテナの構成, Runbook — NUC コンテナのライフサイクルと復旧, 原因切り分け, 復旧 (backup のみ再作成、app 無傷), 復旧 (WAL 安全順序、#0099), 恒久化 (推奨、host 設定), 症状と切り分け, 設計上の注意 — profile ゲートと deploy (+20 more)
 
-### Community 52 - "ids.ts"
+### Community 52 - "asChildId"
 Cohesion: 0.02
-Nodes (134): asActivityId(), asCategoryId(), asChildId(), Branded, ADR-0048, ADR-0055, SUB_ICON_PRESETS, MASTERY_COLUMNS (+126 more)
+Nodes (99): asActivityId(), asChildId(), toMastery(), toPref(), toActivityLog(), toImage(), toLoginStreak(), activityMastery (+91 more)
 
-### Community 53 - "demo/activity-repo.ts"
-Cohesion: 0.07
-Nodes (19): ALL_DEMO_ACTIVITIES, countActiveActivityLogsByCategory(), countDistinctCategories(), deleteActivity(), filterActivity(), findActivities(), findActivityById(), findActivityLogById() (+11 more)
+### Community 53 - "sqlite/daily-mission-repo.ts"
+Cohesion: 0.09
+Nodes (20): activityLogs, childActivities, childActivityPreferences, countPinnedInCategory(), findAllByChild(), findPinnedByChild(), getUsageCounts(), insertForRestore() (+12 more)
 
 ### Community 54 - "status-service.ts"
-Cohesion: 0.05
-Nodes (91): AGE_MAX_TABLE, calcActivitiesToNextLevel(), calcCharacterType(), calcDecay(), calcDeviationScore(), calcLevelFromXp(), calcStars(), calcTrend() (+83 more)
+Cohesion: 0.08
+Nodes (51): AGE_MAX_TABLE, calcActivitiesToNextLevel(), calcCharacterType(), calcDecay(), calcDeviationScore(), calcLevelFromXp(), calcStars(), calcTrend() (+43 more)
 
 ### Community 55 - "rule-preset-import-service.ts"
-Cohesion: 0.07
-Nodes (40): RulePresetPayload, applyBonus(), BonusApplyResult, BonusPreviewResult, previewBonus(), BONUS_OVERRIDES_KEY, BonusOverridesState, BonusPresetEntry (+32 more)
+Cohesion: 0.05
+Nodes (51): RulePresetPayload, applyBonus(), BonusApplyResult, BonusPreviewResult, previewBonus(), BONUS_OVERRIDES_KEY, BonusOverridesState, BonusPresetEntry (+43 more)
 
 ### Community 56 - "account-deletion-service.ts"
 Cohesion: 0.11
-Nodes (39): invalidateRequestCaches(), countChildrenForRecord(), deleteAllMemberships(), deleteChildAccount(), deleteCognitoUser(), deleteMemberAccount(), deleteOwnerFullDelete(), deleteOwnerOnlyAccount() (+31 more)
+Nodes (40): countChildrenForRecord(), deleteAllMemberships(), deleteChildAccount(), deleteCognitoUser(), deleteMemberAccount(), deleteOwnerFullDelete(), deleteOwnerOnlyAccount(), DeletionAudit (+32 more)
 
-### Community 57 - "ops-service.ts"
-Cohesion: 0.07
-Nodes (39): countPlans(), emptyRevenueData(), generateExpenseLedgerCsv(), generatePLSummary(), generateSalesLedgerCsv(), getAWSCostData(), getKpiSummary(), getRevenueData() (+31 more)
+### Community 57 - "pricing-trigger-service.ts"
+Cohesion: 0.15
+Nodes (17): collectMonthlyMetrics(), evaluateAllTriggers(), evaluateTrigger(), getMinPaidUsers(), getTriggerDefinitions(), MonthlyMetrics, PricingTriggerReport, runPricingTriggerCheck() (+9 more)
 
 ### Community 58 - "backup-health.ts"
-Cohesion: 0.17
+Cohesion: 0.16
 Nodes (13): BACKUP_CONSECUTIVE_FAILURE_CRITICAL, BACKUP_ROTATION_BLOCKED_CRITICAL_HOURS, BACKUP_STALE_CRITICAL_HOURS, BACKUP_STALE_WARN_HOURS, BackupHealthInput, BackupHealthLevel, BackupHealthReason, ADR-0012 (+5 more)
 
 ### Community 59 - "certificate-service.ts"
@@ -1589,79 +1593,75 @@ Nodes (26): findCertificateById(), findCertificates(), hasCertificate(), issueCe
 
 ### Community 60 - "sqlite/checklist-repo.ts"
 Cohesion: 0.06
-Nodes (46): checklistLogs, checklistOverrides, checklistTemplateAssignments, checklistTemplateItems, checklistTemplates, cloudExports, dailyMissions, AssignmentRow (+38 more)
+Nodes (47): checklistLogs, checklistOverrides, checklistTemplateAssignments, checklistTemplateItems, checklistTemplates, dailyMissions, AssignmentRow, assignTemplateToChildren() (+39 more)
 
-### Community 61 - "subscription-plan.ts"
+### Community 61 - "subscription-status.ts"
 Cohesion: 0.06
-Nodes (42): AuthLicenseStatus, ALL_SUBSCRIPTION_PLANS, FAMILY_PLANS, isFamilyPlan(), isLifetimePlan(), isMonthlyPlan(), isYearlyPlan(), MONTHLY_PLANS (+34 more)
+Nodes (38): AuthLicenseStatus, ALL_SUBSCRIPTION_STATUSES, ENTITLED_SUBSCRIPTION_STATUSES, isChurnedContract(), isEntitledStatus(), isSubscriptionActive(), isSubscriptionSuspended(), isSubscriptionTerminated() (+30 more)
 
 ### Community 62 - "dependencies"
 Cohesion: 0.04
 Nodes (55): @ark-ui/svelte, @aws/aurora-dsql-node-postgres-connector, @aws-sdk/client-bedrock-runtime, @aws-sdk/client-cognito-identity-provider, @aws-sdk/client-cost-explorer, @aws-sdk/client-s3, @aws-sdk/client-ses, @aws-sdk/client-ssm (+47 more)
 
-### Community 63 - "activity.ts"
+### Community 63 - "activity-import-service.ts"
+Cohesion: 0.11
+Nodes (22): ActivityImportPreview, ActivityImportResult, buildExistingNamesByChild(), categoryIdFromCode(), dispatchPerChildBulk(), _fallbackChildIds(), importActivities(), ImportActivitiesOptions (+14 more)
+
+### Community 64 - "interfaces/index.ts"
 Cohesion: 0.04
-Nodes (72): ActivityPackItem, CATEGORIES, CATEGORY_CODE_TO_ID, CATEGORY_CODES, CATEGORY_ID_TO_CODE, CATEGORY_NUMERIC_IDS, CategoryCode, CategoryMeta (+64 more)
+Nodes (31): ADR-0048, ADR-0048, demoWebhookEventRepo, events, _resetDemoWebhookEvents(), ADR-0048, LOCKOUT_COLUMNS, LockoutRow (+23 more)
 
-### Community 64 - "IWebhookEventRepo"
-Cohesion: 0.09
-Nodes (12): ADR-0048, createDsqlAccountLockoutRepo(), LOCKOUT_COLUMNS, LockoutRow, createDsqlWebhookEventRepo(), EVENT_COLUMNS, WebhookEventRow, IAccountLockoutRepo (+4 more)
-
-### Community 65 - "sqlite/reward-redemption-repo.ts"
-Cohesion: 0.06
-Nodes (35): normalizeRedemptionQuantity(), normalizeResolvedByParentId(), children, parentMessages, rewardRedemptionRequests, siblingCheers, specialRewards, findRedemptionRequestsByChild() (+27 more)
+### Community 65 - "verifyCronAuth"
+Cohesion: 0.11
+Nodes (21): ADR-0033, verifyCronAuth(), isScheduledCronTrigger(), runDeletionWarningEmails(), tally(), GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM, expireOldRedemptions(), GET() (+13 more)
 
 ### Community 66 - "pipeline.mjs"
 Cohesion: 0.07
 Nodes (45): attachScreenshots(), buildMockResponse(), callSingleRun(), ciscAggregate(), loadAnthropic(), runLayerA(), severityBucket(), TEMPERATURES (+37 more)
 
 ### Community 67 - "tenant-deletion-marketing-suppression-4338.test.ts"
-Cohesion: 0.08
-Nodes (25): TENANT_DELETION_RECORD_LOG_TERM, DORMANT_REACTIVATION_SENT_KEY, getMarketingSuppressionKeys(), MARKETING_EMAIL_COUNT_KEY_PREFIX, MARKETING_UNSUBSCRIBED_KEY, marketingEmailCountKey(), ADR-0045, getSettingsKeysToKeepDuringDeletion() (+17 more)
+Cohesion: 0.06
+Nodes (35): TENANT_DELETION_RECORD_LOG_TERM, canSendMarketingEmail(), getCurrentYearKey(), getMarketingEmailCount(), incrementMarketingEmailCount(), MARKETING_EMAIL_YEARLY_LIMIT, NOTE: Get → Put の race を避ける目的の atomic 操作は使っていない。, ADR-0023 (+27 more)
 
 ### Community 68 - "schema-range-ssot.test.ts"
 Cohesion: 0.03
-Nodes (95): ACTIVITY_AGE_MAX, ACTIVITY_AGE_MIN, ACTIVITY_BASE_POINTS_MIN, ACTIVITY_DESCRIPTION_MAX, ACTIVITY_ICON_MAX_GRAPHEMES, ACTIVITY_NAME_MAX, ACTIVITY_NAME_MIN, ACTIVITY_TRIGGER_HINT_MAX (+87 more)
+Nodes (104): ACTIVITY_AGE_MAX, ACTIVITY_AGE_MIN, ACTIVITY_BASE_POINTS_MIN, ACTIVITY_DESCRIPTION_MAX, ACTIVITY_ICON_MAX_GRAPHEMES, ACTIVITY_NAME_MAX, ACTIVITY_NAME_MIN, ACTIVITY_TRIGGER_HINT_MAX (+96 more)
 
 ### Community 69 - "deletion-export-service.ts"
-Cohesion: 0.12
-Nodes (24): ExportScope, resolveExportScope(), ExportData, DELETION_EXPORT_NOTE_LABELS, ActivitySummaryExport, buildDeletionExportNotes(), DeletionExportOptions, DeletionExportResult (+16 more)
+Cohesion: 0.08
+Nodes (35): PlanTier, jstDateOfIso(), ExportScope, resolveExportScope(), ActionErrorDisplay, getActionErrorDisplay(), getErrorMessage(), isPlanLimitError() (+27 more)
 
 ### Community 70 - "export-service.ts"
-Cohesion: 0.06
-Nodes (59): ACTIVITY_LEVEL_VALUES, BOOL_SETTING_VALUES, CURRENCY_CODE_VALUES, DECAY_INTENSITY_VALUES, EXPORTABLE_SETTING_KEYS, ExportAchievement, ExportActivity, ExportActivityLog (+51 more)
+Cohesion: 0.08
+Nodes (47): ACTIVITY_LEVEL_VALUES, BOOL_SETTING_VALUES, CURRENCY_CODE_VALUES, DECAY_INTENSITY_VALUES, ExportAchievement, ExportActivity, ExportActivityLog, ExportActivityPref (+39 more)
 
 ### Community 71 - "getEnv"
-Cohesion: 0.11
-Nodes (29): OffsiteVerdict, getEnv(), backupFilename(), DEFAULT_BACKUP_RETENTION, JournalEntry, loadJournalEntries(), PGLITE_BACKUP_EXT, PGLITE_BACKUP_FILENAME_PATTERN (+21 more)
+Cohesion: 0.10
+Nodes (33): describeOffsiteVerdict(), judgeOffsiteReplication(), OffsiteProbe, OffsiteVerdict, shouldNotifyOffsite(), getEnv(), backupFilename(), DEFAULT_BACKUP_RETENTION (+25 more)
 
-### Community 72 - "bedrock-claude-provider.ts"
-Cohesion: 0.19
-Nodes (15): isProviderLatchedUnavailable(), withAvailabilityTracking(), BedrockClaudeProvider, buildTools(), ConverseOutput, extractToolUse(), getClient(), resolveModelId() (+7 more)
+### Community 72 - "ai/factory.ts"
+Cohesion: 0.13
+Nodes (18): BedrockClaudeProvider, buildTools(), ConverseOutput, extractToolUse(), getClient(), resolveModelId(), converseWithImageAndTool(), converseWithTool() (+10 more)
 
 ### Community 73 - "fixtures.ts"
 Cohesion: 0.05
 Nodes (11): RFC-5987, SeededReward, ADR-0006, CONTRACTS, ADR-0012, BASE_PORT, test, WorkerFixtures (+3 more)
-
-### Community 74 - "@storybook/addon-svelte-csf"
-Cohesion: 0.04
-Nodes (4): badge(), assertPointerInteractive(), primary, recommended
 
 ### Community 75 - "pre-ready.mjs"
 Cohesion: 0.08
 Nodes (45): ensureDevelopRefspec(), isAllowedBaseBranch(), isMain, isSafeGitRefName(), measureBaseDrift(), refspecCoversDevelop(), resolveBaseBranch(), resolveBaseBranchAuto() (+37 more)
 
 ### Community 76 - "battle-service.ts"
-Cohesion: 0.04
-Nodes (77): ENEMIES, getAvailableEnemies(), getEnemyById(), RARITY_WEIGHTS, selectDailyEnemy(), BattleConfig, calculateDamage(), calculateRecovery() (+69 more)
+Cohesion: 0.06
+Nodes (57): ENEMIES, getAvailableEnemies(), getEnemyById(), RARITY_WEIGHTS, selectDailyEnemy(), BattleConfig, calculateDamage(), calculateRecovery() (+49 more)
 
-### Community 77 - "login-bonus-service.ts"
-Cohesion: 0.18
-Nodes (18): prevDateJST(), calcLoginBonusPoints(), deriveConsecutiveDays(), deriveStreakCounter(), drawOmikuji(), getLoginMultiplier(), LOGIN_MULTIPLIERS, OMIKUJI_RANKS (+10 more)
+### Community 77 - "sqlite/graduation-consent-repo.ts"
+Cohesion: 0.11
+Nodes (14): ADR-0048, CONSENT_COLUMNS, ConsentRow, CreateGraduationConsentInput, GraduationConsentRecord, GraduationStats, IGraduationConsentRepo, ADR-0023 (+6 more)
 
 ### Community 78 - "points/+page.svelte"
-Cohesion: 0.07
-Nodes (28): allTimeTotal, anyOperationBusy, canSubmit, convertHistory, currentBalance, effectiveAmount, effectiveMode, filteredHistory (+20 more)
+Cohesion: 0.06
+Nodes (36): CURRENCY_CODES, CURRENCY_DEFS, CurrencyDef, formatPointValue(), formatPointValueWithSign(), formatWithSettings(), formatWithSettingsAndSign(), getUnitLabel() (+28 more)
 
 ### Community 79 - "checklist-service.test.ts"
 Cohesion: 0.10
@@ -1683,21 +1683,21 @@ Nodes (45): 1.1 発見事項（TL;DR）, 1.2 結論の方向性（§8 で詳述�
 Cohesion: 0.15
 Nodes (23): jstDayStartUtcIso(), closeOpenSessions(), findTodayUsageLogs(), findUsageLogsByChildAndDateRange(), insertUsageLog(), ADR-0010, updateUsageLogEnd(), endUsageSession() (+15 more)
 
-### Community 85 - "requireTenantId"
-Cohesion: 0.03
-Nodes (91): isPortalFallbackContext(), PORTAL_FALLBACK_CONTEXT, PORTAL_FALLBACK_PARAM, PORTAL_UNAVAILABLE_PARAM, PortalFallbackContext, formIdString(), requireTenantId(), _collectAllChildActivities() (+83 more)
+### Community 85 - "subscription/+page.server.ts"
+Cohesion: 0.06
+Nodes (48): isPortalFallbackContext(), PORTAL_FALLBACK_CONTEXT, PORTAL_FALLBACK_PARAM, PORTAL_UNAVAILABLE_PARAM, PortalFallbackContext, invalidateRequestCaches(), getLicenseInfo(), LicenseInfo (+40 more)
 
 ### Community 86 - "back-merge-pr-body.mjs"
-Cohesion: 0.11
-Nodes (27): BACK_MERGE_LABELS, conflictInstructions(), __dirname, isMain, ADR-0006, parseArgs(), renderBackMergePrBody(), repoRoot (+19 more)
+Cohesion: 0.09
+Nodes (33): BACK_MERGE_LABELS, conflictInstructions(), __dirname, isMain, ADR-0006, parseArgs(), renderBackMergePrBody(), repoRoot (+25 more)
 
 ### Community 87 - "Runbook — DSQL dashboard / Alarm 閾値超過時の一次対応"
-Cohesion: 0.04
-Nodes (41): 0063. DSQL pool マルチテナント分離 — 信頼 claim/context + アプリ層単一強制点 + fitness function（RLS 非対応の代替防御線）, コンテキスト, 検討した選択肢（OSS / 確立パターン 2 件以上 — #1350）, 決定, 結果, 選択肢 A: pool + PostgreSQL RLS（DB エンジン強制）, 選択肢 B: silo（cluster-per-tenant）+ per-tenant IAM, 選択肢 C: pool + 信頼 claim/context + アプリ層単一強制点 + fitness function（採用） (+33 more)
+Cohesion: 0.06
+Nodes (33): 0065. DSQL DPU コスト規約 — service 層クエリの 5 原則 (実測裏付け), コンテキスト, 検討した選択肢（OSS / 確立パターン — #1350）, 機械強制の適用状況 (原則 1 / 2、#3682 AC1), 決定 — service 層クエリの 5 原則, 結果, 選択肢 A: DynamoDB 時代の RCU/WCU 規約の踏襲 (確立パターン), 選択肢 B: pgMustard 等の EXPLAIN 解析 SaaS・OSS (+25 more)
 
 ### Community 88 - "3. テーブル定義"
 Cohesion: 0.04
-Nodes (45): 3. テーブル定義, achievements, activity_logs, activity_mastery, cancellation_reasons (#1596 / ADR-0023 §3.8 / I3), categories, character_images, checklist_logs (+37 more)
+Nodes (45): 3. テーブル定義, achievements, activity_logs, activity_mastery, cancellation_reasons (#1596 / ADR-0023 §3.8 / I3), categories, certificates, character_images (+37 more)
 
 ### Community 89 - "AWSサーバレスアーキテクチャ設計書"
 Cohesion: 0.04
@@ -1713,19 +1713,19 @@ Nodes (45): 10. 根拠 (primary source), 1.1 課題: Phase 1 補強 1 の「文�
 
 ### Community 92 - "special-reward.ts"
 Cohesion: 0.06
-Nodes (43): getAllPresetRewards(), PRESET_REWARD_GROUPS, PresetRewardGroup, grantSpecialRewardSchema, REDEMPTION_QUANTITY_MAX, REDEMPTION_QUANTITY_MIN, REWARD_CATEGORIES, REWARD_DESCRIPTION_MAX (+35 more)
+Nodes (37): ACTIVITY_BASE_POINTS_MAX, grantSpecialRewardSchema, REDEMPTION_QUANTITY_MAX, REDEMPTION_QUANTITY_MIN, REWARD_CATEGORIES, REWARD_DESCRIPTION_MAX, REWARD_ICON_MAX_GRAPHEMES, REWARD_ICON_MIN_GRAPHEMES (+29 more)
 
 ### Community 93 - "config.ts"
-Cohesion: 0.08
-Nodes (30): PRICE_TERMS, ACTIVE_STATUSES, checkPlanResolution(), customerIdOf(), MAX_SUBSCRIPTIONS_PER_CHECK, PlanDriftReport, PlanUnresolvedSubscription, ADR-0010 (+22 more)
+Cohesion: 0.07
+Nodes (35): PRICE_TERMS, createCheckoutSession(), reportCheckoutMisconfigured(), buildPlanConfigs(), CURRENCY, getPlans(), getPriceId(), GRACE_PERIOD_DAYS (+27 more)
 
-### Community 94 - "dsql/reward-redemption-repo.ts"
-Cohesion: 0.10
-Nodes (12): ADR-0048, createDsqlRewardRedemptionRepo(), isoToEpoch(), REQUEST_COLUMNS, RequestRow, SNAPSHOT_ICON, SNAPSHOT_POINTS, SNAPSHOT_TITLE (+4 more)
+### Community 94 - "sqlite/reward-redemption-repo.ts"
+Cohesion: 0.08
+Nodes (19): ADR-0048, isoToEpoch(), REQUEST_COLUMNS, RequestRow, SNAPSHOT_ICON, SNAPSHOT_POINTS, SNAPSHOT_TITLE, toRequestRow() (+11 more)
 
 ### Community 95 - "export-schema.ts"
-Cohesion: 0.05
-Nodes (55): RFC-8785, buildAttachmentContentDisposition(), computeChecksum(), deterministicStringify(), sortValueRecursive(), ADR-0006, verifyChecksum(), dispatchExport() (+47 more)
+Cohesion: 0.07
+Nodes (43): RFC-8785, buildAttachmentContentDisposition(), computeChecksum(), deterministicStringify(), sortValueRecursive(), ADR-0006, verifyChecksum(), dispatchExport() (+35 more)
 
 ### Community 96 - "がんばりクエスト 企画書"
 Cohesion: 0.05
@@ -1737,7 +1737,7 @@ Nodes (43): 10. 関連ドキュメント, 11. 出典 (1 次ソース 13 件), 1.
 
 ### Community 98 - "src/lib/marketplace/strategies/rule-preset-strategy.ts"
 Cohesion: 0.07
-Nodes (32): RulePresetPayload, RulePresetPayloadSchema, applyPenalty(), PENALTY_REASON, PenaltyApplyResult, ADR-0012, ADR-0052, applySpecial() (+24 more)
+Nodes (35): ruleIconSchema, rulePointSchema, RULE_TYPES, RulePresetItem, RulePresetItemSchema, RulePresetPayload, RulePresetPayloadSchema, RuleType (+27 more)
 
 ### Community 99 - "LP→app 動線設計 (CTA 文言統一 + FAQ 強化) (Epic #2525 Phase 4 子 issue #2621)"
 Cohesion: 0.05
@@ -1751,13 +1751,13 @@ Nodes (43): 10. Open question (Adversarial Reviewer 3 軸、PO 判断、Phase 7 
 Cohesion: 0.20
 Nodes (23): hasH2Section(), checkChangeType(), checkClosingKeyword(), checkCustomerValue(), checkIssueReference(), checkSectionPresence(), checkTestResults(), CLOSING_KEYWORD_TARGET_LABELS (+15 more)
 
-### Community 102 - "Dialog.svelte"
-Cohesion: 0.05
-Nodes (24): CelebrationOptions, playRewardCelebration(), ADR-0012, ADR-0014, playSound(), SoundService, loadSoundSettings(), muted (+16 more)
+### Community 102 - "age-tier.ts"
+Cohesion: 0.03
+Nodes (58): HABIT_CERTIFICATE_NOTICE_LABELS, MARKETPLACE_FILTER_LABELS, STAMP_PRESS_N_MESSAGES, UI_MODE_CHANGE_LABELS, LEGACY_UI_MODE_MAP, normalizeUiMode(), UI_MODES, UiMode (+50 more)
 
 ### Community 103 - "reward-set-import-service.ts"
-Cohesion: 0.06
-Nodes (40): applyExchange(), collectSameSourceTitles(), ExchangeApplyResult, ExchangePreviewResult, previewExchange(), ADR-0023, ADR-0052, findSpecialRewards() (+32 more)
+Cohesion: 0.07
+Nodes (32): narrowChildContext(), RewardSetChildContext, rewardSetStrategy, ADR-0052, ADR-0055, buildRewardDuplicateMatcher(), importRewardSet(), ImportRewardSetOptions (+24 more)
 
 ### Community 104 - "archived リソース表示 + One-click reactivation UI 設計 (Phase 3 #2575)"
 Cohesion: 0.05
@@ -1777,19 +1777,19 @@ Nodes (38): ALLOWLIST, ALLOWLIST_KINDS, AMBIGUOUS_MEMBERS, buildTzDependentMembe
 
 ### Community 108 - "db/factory.ts"
 Cohesion: 0.02
-Nodes (70): INQUIRY_STATUSES, InquiryStatus, ADR-0048, ADR-0048, ADR-0048, ADR-0048, ADR-0048, createDsqlActivationFunnelRepo() (+62 more)
+Nodes (97): CloudExportStatus, InquiryStatus, ADR-0048, ADR-0048, ADR-0048, ADR-0048, ADR-0048, ADR-0048 (+89 more)
 
 ### Community 109 - "sqlite/storage-repo.ts"
 Cohesion: 0.08
 Nodes (23): ADR-0048, FileData, IStorageRepo, StorageDownloadUrl, deleteByPrefix(), deleteFile(), fileExists(), getDownloadUrl() (+15 more)
 
 ### Community 110 - "sqlite/auth-repo.ts"
-Cohesion: 0.07
-Nodes (6): buildLocalTenant(), findTenantById(), listAllTenants(), LocalTenantContract, readLocalContract(), updateTenantStripe()
+Cohesion: 0.06
+Nodes (10): buildLocalTenant(), findTenantById(), listAllTenants(), LocalTenantContract, readLocalContract(), updateTenantStripe(), deleteByTenantId(), deleteByTenantIdExcept() (+2 more)
 
 ### Community 111 - "ops-analytics-service.ts"
-Cohesion: 0.10
-Nodes (26): ActivationFunnelResult, CohortRow, computeAnalytics(), computePresetDistribution(), emptyAnalytics(), emptyPresetDistribution(), fetchChallengesPerTenant(), getAnalyticsData() (+18 more)
+Cohesion: 0.08
+Nodes (30): ActivationFunnelResult, CohortRow, computeAnalytics(), computePresetDistribution(), emptyAnalytics(), emptyPresetDistribution(), fetchChallengesPerTenant(), getAnalyticsData() (+22 more)
 
 ### Community 112 - "0056. QM Orchestrator role drift の構造的対処 (Adversarial Reviewer + PreToolUse Hook + JSON Schema 強制)"
 Cohesion: 0.05
@@ -1807,37 +1807,37 @@ Nodes (41): §10 未決事項（PO レビューで確定）, §11.1 `children`�
 Cohesion: 0.05
 Nodes (40): 1.1 対象範囲, 1.2 手法, 1.3 脅威モデル概要, 1. レビュー範囲と手法, 2.1 重大度分類基準, 2. 検出事項, 3.1 SAQ A 適用条件の確認, 3.2 SAQ A 要件別チェック (+32 more)
 
-### Community 116 - "subscription-status.ts"
-Cohesion: 0.09
-Nodes (31): ALL_SUBSCRIPTION_STATUSES, ENTITLED_SUBSCRIPTION_STATUSES, isChurnedContract(), isEntitledStatus(), isSubscriptionActive(), isSubscriptionSuspended(), isSubscriptionTerminated(), ADR-0022 (+23 more)
+### Community 116 - "subscription-plan.ts"
+Cohesion: 0.08
+Nodes (40): ALL_SUBSCRIPTION_PLANS, FAMILY_PLANS, isFamilyPlan(), isLifetimePlan(), isMonthlyPlan(), isYearlyPlan(), MONTHLY_PLANS, planDurationDays() (+32 more)
 
-### Community 117 - "demo/child-activity-repo.ts"
-Cohesion: 0.19
-Nodes (14): ALL_DEMO_ACTIVITIES_MASTER, copyActivitiesAcrossChildren(), countMainQuestActivities(), deleteActivity(), findActivitiesByChild(), findActivityById(), insertActivitiesBulk(), insertActivity() (+6 more)
+### Community 117 - "check-ss-blob-sha-uniqueness.mjs"
+Cohesion: 0.16
+Nodes (23): checkSsBlobShaUniqueness(), detectIdenticalPairs(), extractScreenshotRefs(), fetchBlobSha(), hasInternalRefactorLabel(), INTERNAL_REFACTOR_LABEL, isMain, main() (+15 more)
 
 ### Community 118 - "sqlite/evaluation-repo.ts"
-Cohesion: 0.06
-Nodes (33): activityLogs, childActivities, childActivityPreferences, evaluations, restDays, countPinnedInCategory(), findAllByChild(), findPinnedByChild() (+25 more)
+Cohesion: 0.04
+Nodes (32): findWeekEvaluation(), ADR-0048, EVALUATION_COLUMNS, EvaluationRow, REST_DAY_COLUMNS, RestDayRow, toEvaluation(), toRestDay() (+24 more)
 
-### Community 119 - "audit-manager.md"
-Cohesion: 0.05
-Nodes (35): §A 2 層判定構造（Tier1/Tier2、audit-manager 独自命名）, §B structured JSON evidence 仕様（物理強制）, §C 不可逆 side-effect = orchestrator 専権（ADR-0056 §E 継承 — role identity）, §D CUJ 横断テーマの deep research（AC6 — audit-manager 自身の責務）, §E run flow（dispatch → 集約 → 重複統合 → severity filter → ポリシー準拠 filter → 起票/判定）, evidence schema（領域 finding の最小 field）, §F 統合 PR merge 判定前の adversarial-reviewer dispatch（必須）, §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4 / 5） (+27 more)
+### Community 119 - "Adversarial Reviewer (ADR-0056)"
+Cohesion: 0.17
+Nodes (12): Adversarial Reviewer (ADR-0056), drift 検出時の self-correction, schema 強制事項 (gate-approve.mjs / verify-adversarial-output.mjs で検証):, あなたが絶対にしてはいけないこと (Echoing 抑制), あなたが絶対にすべきこと, 入力, 出力 (structured JSON、絶対遵守), 出力手順 (write tool fallback 含む) (+4 more)
 
 ### Community 120 - "check-pr-screenshot.mjs"
-Cohesion: 0.05
-Nodes (81): ADR-0003, appendUntrackedFiles(), collectMentionedEnvs(), collectOptionalMarkedEnvs(), detectFailFastGuardedEnvs(), detectNewRequiredEnvs(), detectRequirementTransitions(), extractDiffLines() (+73 more)
+Cohesion: 0.12
+Nodes (37): ADR-0003, buildEmbedMissingViolation(), buildFutureTenseViolation(), buildIntegrationEvidenceMissingViolation(), checkBeforeAfterViolation(), checkDomSnapshotViolation(), checkLocalPathViolation(), checkRenderImpossibleDeclaration() (+29 more)
 
 ### Community 121 - "Archive 機構統合 (3 経路) アーキ設計 — Epic #2525 Phase 5 グループ B (#2642)"
 Cohesion: 0.05
 Nodes (40): 10. Open question (§10、Adversarial Reviewer 3 軸、PO 判断待ち), 11. 6 観点 自己検証 (§11、per-issue-execution-workflow SSOT), 12. 根拠 (§12), 1.1 課題: archive 機構が 2 service に分散し、reason 別の制御が暗黙化, 1.2 課題: 申し送り 3 件が 3 phase に分散したまま未統合, 1.3 課題: 4 backend (sqlite / dynamodb / in-memory demo / interface) の DB schema 差異, 1.4 設計がなかった場合に何が困るか (3 シナリオ), 1.5 deep-research 結果 (2026-05-29、自プロダクト固有性に focus) (+32 more)
 
-### Community 122 - "screenshot-mode.ts"
+### Community 122 - "(child)/+layout.svelte"
 Cohesion: 0.03
-Nodes (26): format, javascript, svelte, PARENT_GATE_INACTIVITY_MS, ParentGateInactivityOptions, startParentGateInactivityRedirect(), ADR-0012, SCREENSHOT_MODE_KEY (+18 more)
+Nodes (34): format, javascript, svelte, DEFAULT_LABELS, ICON_ACHIEVEMENTS, ICON_CHECKLIST, ICON_HISTORY, ICON_HOME (+26 more)
 
 ### Community 123 - "schemas/index.ts"
 Cohesion: 0.06
-Nodes (38): ACTIVITY_BASE_POINTS_MAX, activityAgeSchema, activityBasePointsSchema, activityDescriptionSchema, activityGradeLevelSchema, activityIconSchema, activityNameSchema, activityTriggerHintSchema (+30 more)
+Nodes (37): activityAgeSchema, activityBasePointsSchema, activityDescriptionSchema, activityGradeLevelSchema, activityIconSchema, activityNameSchema, activityTriggerHintSchema, ActivityPackItem (+29 more)
 
 ### Community 124 - "CognitoAdminClient"
 Cohesion: 0.08
@@ -1867,21 +1867,21 @@ Nodes (39): 10. 想定リスク + ロールバック, 11. ADR 起票判断, 12. 
 Cohesion: 0.06
 Nodes (34): ai, args, _aspectRatioArg, buildReferenceImagePart(), category, convertToWebP(), __dirname, fullPrompt (+26 more)
 
-### Community 131 - "alert.ts"
-Cohesion: 0.06
-Nodes (42): notifyContextUnresolved(), reportPortalCreateFailure(), formatAlertTags(), notifyStripeAlert(), notifyStripeAlertAsync(), StripeAlertKind, StripeAlertOptions, ADR-0010 (+34 more)
+### Community 131 - "stripe-webhook-delivery-monitor.ts"
+Cohesion: 0.10
+Nodes (28): checkWebhookDelivery(), inspectCheckout(), LedgerGapSummary, LOOKBACK_HOURS, MAX_EVENTS_PER_RUN, MONITORED_EVENT_TYPES, shouldAlert(), STALE_MINUTES (+20 more)
 
-### Community 132 - "home/+page.server.ts"
-Cohesion: 0.06
-Nodes (49): countPinnedInCategory(), findPinnedByChild(), getUsageCounts(), togglePin(), findDistinctRecordedDates(), countTodayCheersFrom(), findUnshownCheers(), insertCheer() (+41 more)
+### Community 132 - "habit-certificate-notice-service.ts"
+Cohesion: 0.31
+Nodes (9): clearHabitCertificateNotice(), getHabitCertificateNotice(), habitCertificateNoticeKey(), recordHabitCertificateNotice(), ADR-0012, CHILD_ID, KEY, settingsStore (+1 more)
 
 ### Community 133 - "sqlite/child-challenge-repo.ts"
-Cohesion: 0.11
-Nodes (29): childChallenges, ChallengeRow, claimRewardAndGrantPoints(), copyAcrossChildren(), deleteChallenge(), findActiveByChildId(), findActiveOrUnclaimedByChildId(), findAllByTenant() (+21 more)
+Cohesion: 0.10
+Nodes (30): childChallenges, ChallengeRow, claimRewardAndGrantPoints(), copyAcrossChildren(), deleteChallenge(), findActiveByChildId(), findActiveOrUnclaimedByChildId(), findAllByTenant() (+22 more)
 
-### Community 134 - "stripe-webhook-delivery-monitor.ts"
-Cohesion: 0.20
-Nodes (13): checkWebhookDelivery(), inspectCheckout(), LedgerGapSummary, LOOKBACK_HOURS, MAX_EVENTS_PER_RUN, MONITORED_EVENT_TYPES, shouldAlert(), STALE_MINUTES (+5 more)
+### Community 134 - "challenge-set-import-service.ts"
+Cohesion: 0.10
+Nodes (22): ID_TO_CODE_LOOKUP, toCategoryCode(), ChallengeSetPayload, ChallengeSetImportPreview, ChallengeSetImportResult, expandChallengeSetDates(), importChallengeSet(), ImportChallengeSetOptions (+14 more)
 
 ### Community 135 - "tests/ — テスト品質ルール"
 Cohesion: 0.05
@@ -1900,8 +1900,8 @@ Cohesion: 0.29
 Nodes (7): EXPORT_VERSION, foldLoginBonusesToStreaks(), LegacyLoginBonusRow, MIGRATABLE_VERSIONS, migrateExportData(), MigrationStep, STEPS
 
 ### Community 139 - "agents/dev-session.md"
-Cohesion: 0.08
-Nodes (25): Critical バグ修正時（ADR-0005）, Cron エンドポイント実装時の認証パターン, Dev Agent 共通制約 (spawn 時に毎回適用される SSOT — #1862), E2E テスト: cron エンドポイントのテストパターン, Fix 完遂検証 log（物理 verification 証跡、#2690 / #2815 D-4）, ⚠️ gate 実行前 worktree HEAD verify (#2618 / ADR-0056 §D、critical), Git 運用, PR push 前のローカル lint 確認 (+17 more)
+Cohesion: 0.05
+Nodes (35): Critical バグ修正時（ADR-0005）, Cron エンドポイント実装時の認証パターン, Dev Agent 共通制約 (spawn 時に毎回適用される SSOT — #1862), E2E テスト: cron エンドポイントのテストパターン, Fix 完遂検証 log（物理 verification 証跡、#2690 / #2815 D-4）, ⚠️ gate 実行前 worktree HEAD verify (#2618 / ADR-0056 §D、critical), Git 運用, PR push 前のローカル lint 確認 (+27 more)
 
 ### Community 140 - "ADR-0049: プラン別履歴保持期間ポリシー — 物理削除の対象テーブル拡張（旧 ADR-0028 un-archived + 拡張）"
 Cohesion: 0.05
@@ -1939,17 +1939,17 @@ Nodes (36): 10. Open question (PO 判断、Phase 7 で確定), 11. 既存実装�
 Cohesion: 0.09
 Nodes (35): ACTIVITY_PACKS_DIR, args, collectForbiddenTermViolations(), collectManagedServiceNameViolations(), collectMissingScreenshotViolations(), collectPresetViolations(), collectThresholdViolations(), collectThresholdWarnings() (+27 more)
 
-### Community 149 - "stamp-card-service.ts"
-Cohesion: 0.20
-Nodes (19): pickOmikujiRank(), findCardByChildAndWeek(), findEnabledStampMasters(), findEntriesWithMasterByCardId(), insertCard(), insertEntry(), _updateCardStatus(), updateCardStatusIfCollecting() (+11 more)
+### Community 149 - "categories.ts"
+Cohesion: 0.12
+Nodes (20): CATEGORIES, CATEGORY_CODE_TO_ID, CATEGORY_CODES, CATEGORY_ID_TO_CODE, CATEGORY_NUMERIC_IDS, CategoryMeta, CategoryName, CategoryNumericId (+12 more)
 
-### Community 150 - "getRepos"
-Cohesion: 0.05
-Nodes (86): monthKeyJST(), calcMasteryBonus(), calcMasteryBonusRefundOnCancel(), calcMasteryLevel(), CANCEL_WINDOW_MS, countToNextMasteryLevel(), getActivityDisplayName(), getCategoryById() (+78 more)
+### Community 150 - "activity-log-service.ts"
+Cohesion: 0.08
+Nodes (44): monthKeyJST(), CANCEL_WINDOW_MS, getActivityDisplayName(), getCategoryById(), MASTERY_MILESTONE_LEVELS, getCategoryName(), _findAllByChild(), findByChildAndActivity() (+36 more)
 
 ### Community 151 - "demo/certificate-repo.ts"
-Cohesion: 0.12
-Nodes (13): findCertificateById(), hasCertificate(), issueCertificate(), ADR-0048, CERT_COLUMNS, CertRow, createDsqlCertificateRepo(), toCertificate() (+5 more)
+Cohesion: 0.13
+Nodes (12): findCertificateById(), hasCertificate(), issueCertificate(), ADR-0048, CERT_COLUMNS, CertRow, toCertificate(), ICertificateRepo (+4 more)
 
 ### Community 152 - "ignorePaths"
 Cohesion: 0.06
@@ -1972,16 +1972,16 @@ Cohesion: 0.06
 Nodes (34): compilerOptions, allowUnreachableCode, allowUnusedLabels, alwaysStrict, declaration, experimentalDecorators, inlineSourceMap, inlineSources (+26 more)
 
 ### Community 157 - "check-ac-verification-map.mjs"
-Cohesion: 0.19
-Nodes (21): checkAcVerification(), checkIntegrationEvidenceTable(), checkNgZeroDeclaration(), checkPerPrAcMap(), extractFourColumnRows(), findEmptyRows(), INTEGRATION_EVIDENCE_SECTION, isMain (+13 more)
+Cohesion: 0.18
+Nodes (22): checkAcVerification(), checkIntegrationEvidenceTable(), checkNgZeroDeclaration(), checkPerPrAcMap(), extractFourColumnRows(), findEmptyRows(), INTEGRATION_EVIDENCE_SECTION, isMain (+14 more)
 
 ### Community 158 - "plan-features.ts"
-Cohesion: 0.10
-Nodes (23): ACTION_LABELS, PlanKey, TRIAL_LABELS, getLicenseHighlights(), getPricingFeatures(), getPricingMeta(), getPricingPagePlans(), getUnlockedFeatures() (+15 more)
+Cohesion: 0.06
+Nodes (36): formatRetentionPeriod(), PLAN_HISTORY_RETENTION_DAYS, ADR-0013, ADR-0045, ADR-0049, ACTION_LABELS, DOWNGRADE_RESOURCE_SELECTOR_LABELS, FEATURES_LABELS (+28 more)
 
 ### Community 159 - "discord-alert.ts"
-Cohesion: 0.07
-Nodes (43): handleError(), AlertOptions, alertThrottleMap, buildAlertEmbed(), buildThrottledAlertEmbed(), cleanupThrottleMap(), getAlertWebhookUrl(), _getThrottleMap() (+35 more)
+Cohesion: 0.10
+Nodes (28): AlertOptions, alertThrottleMap, buildAlertEmbed(), buildThrottledAlertEmbed(), cleanupThrottleMap(), getAlertWebhookUrl(), _getThrottleMap(), redactAlertOptions() (+20 more)
 
 ### Community 160 - "getCronHeaders"
 Cohesion: 0.08
@@ -2019,9 +2019,9 @@ Nodes (33): 10. 総合評価, 1. 概要, 2.1 LP 構成の現状, 2.2 サイン�
 Cohesion: 0.09
 Nodes (29): args, CHECK_MODE, collectHasDescendantLpKey(), collectLpKeyElements(), __dirname, __filename, invokedAsCli, loadLpLabels() (+21 more)
 
-### Community 169 - "(child)/+layout.svelte"
-Cohesion: 0.06
-Nodes (20): DEFAULT_LABELS, ICON_ACHIEVEMENTS, ICON_CHECKLIST, ICON_HISTORY, ICON_HOME, ICON_STATUS, ICON_SWITCH, MODE_LABELS (+12 more)
+### Community 169 - "stamp-image.ts"
+Cohesion: 0.31
+Nodes (8): getFallbackRank(), getStampImagePath(), getStampImagePathSafe(), OMIKUJI_LABELS, OMIKUJI_RANKS, OmikujiRank, RARITY_DEFAULT_RANK, RARITY_TO_OMIKUJI
 
 ### Community 170 - "home-form-field-guard.test.ts"
 Cohesion: 0.07
@@ -2037,7 +2037,7 @@ Nodes (33): 4.10 ロイヤルティバッジ・ログインボーナス倍率（
 
 ### Community 173 - "3. エンドポイント詳細"
 Cohesion: 0.06
-Nodes (33): 3.13 活動ピン留め, 3.14 活動サジェスト, 3.21 設定, 3.23 評価, 3.24 ポイント履歴, 3.25 アナリティクス, 3.2 活動関連, 3.4 ポイント関連 (+25 more)
+Nodes (31): 3.13 活動ピン留め, 3.14 活動サジェスト, 3.1 子供関連, 3.23 評価, 3.24 ポイント履歴, 3.25 アナリティクス, 3.2 活動関連, 3.4 ポイント関連 (+23 more)
 
 ### Community 174 - "Stripe Dashboard 立ち上げランブック (#2101)"
 Cohesion: 0.06
@@ -2045,7 +2045,7 @@ Nodes (32): 0. 本書の位置づけ, 5-1. SSM Parameter Store（Lambda 本番�
 
 ### Community 175 - "error-notify.ts"
 Cohesion: 0.11
-Nodes (26): ERROR_NOTIFY_LABELS, ERROR_NOTIFY_LABELS_CHILD, ErrorNotifyLabelSet, getErrorNotifyLabels(), defaultFilename(), DELETION_EXPORT_ENDPOINT, DeletionExportDownloadDeps, DeletionExportDownloadResult (+18 more)
+Nodes (27): ERROR_NOTIFY_LABELS, ERROR_NOTIFY_LABELS_CHILD, ErrorNotifyLabelSet, getErrorNotifyLabels(), defaultFilename(), DELETION_EXPORT_ENDPOINT, DeletionExportDownloadDeps, DeletionExportDownloadResult (+19 more)
 
 ### Community 176 - "ops-authz.ts"
 Cohesion: 0.10
@@ -2088,8 +2088,8 @@ Cohesion: 0.07
 Nodes (15): activity_packPayloadSchema, challenge_setPayloadSchema, checklistPayloadSchema, reward_setPayloadSchema, rule_presetPayloadSchema, activity_packStrategy, challenge_setStrategy, checklistStrategy (+7 more)
 
 ### Community 187 - "contract-transition-matrix-ssot.test.ts"
-Cohesion: 0.17
-Nodes (16): DeclaredTransitions, DRIVEN, eventFor(), makeTenant(), mergePatch(), mockFindTenantById, mockFindTenantByStripeCustomerId, mockSubscriptionsRetrieve (+8 more)
+Cohesion: 0.08
+Nodes (25): DeclaredTransitions, DRIVEN, eventFor(), expectAllStatesValid(), makeTenant(), mergePatch(), mockFindTenantById, mockFindTenantByStripeCustomerId (+17 more)
 
 ### Community 188 - "11 ペルソナ定義書"
 Cohesion: 0.07
@@ -2115,9 +2115,9 @@ Nodes (30): 10. Registry 完整性 CI 検知 (#2374、AN-5 #2180 補強 7), 11. 
 Cohesion: 0.07
 Nodes (30): §0 現在の運用モード（2026-08-05〜、オーナー決定）, §1 設計背景, §2 設計原則, §3.1 全体図, §3.2.1 Scrum は階層を持たない — lead / teammate は組織階層ではない, §3.2 Scrum の 3 責任との対応, §3.3 Scrum からの逸脱（意図的なもの）, §3.4 プラットフォーム（開発基盤）— 新設ロール (+22 more)
 
-### Community 194 - "message-service.test.ts"
+### Community 194 - "point-service.ts"
 Cohesion: 0.05
-Nodes (57): activityIdSchema, categoryIdSchema, childIdSchema, idLike, plainIdSchema, MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES, messageQuerySchema (+49 more)
+Nodes (61): POINT_LEDGER_LABELS, activityIdSchema, categoryIdSchema, childIdSchema, idLike, plainIdSchema, MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES (+53 more)
 
 ### Community 195 - "infra/ — デプロイ手順"
 Cohesion: 0.07
@@ -2160,16 +2160,16 @@ Cohesion: 0.11
 Nodes (19): main(), ADR-0030, printHelp(), checkAllJournals(), findJournalFiles(), findJournalWhenViolations(), formatAllJournalViolations(), GRANDFATHERED_WHEN (+11 more)
 
 ### Community 205 - "synthetic-staging-dataset.ts"
-Cohesion: 0.11
-Nodes (31): Args, { cmd, opts }, fail(), runApply(), runGenerate(), DEMO_MARKETPLACE_SPECIAL_REWARDS, DEMO_SIBLING_CHEERS, getDemoMarketplaceActivitiesByChild() (+23 more)
+Cohesion: 0.12
+Nodes (28): ExportChild, ExportDailyMission, ExportTransactionData, DEMO_MARKETPLACE_SPECIAL_REWARDS, getDemoMarketplaceChecklistItemsByTemplate(), baseBody(), buildSmallBody(), buildSyntheticStagingDataset() (+20 more)
 
 ### Community 206 - "demo-guide-state.svelte.ts"
-Cohesion: 0.09
-Nodes (20): DemoEvent, advanceStep(), checkAutoAdvance(), currentStep, dismissGuide(), getGuideState(), goBack(), GUIDE_STEPS (+12 more)
+Cohesion: 0.11
+Nodes (19): advanceStep(), checkAutoAdvance(), currentStep, dismissGuide(), getGuideState(), goBack(), GUIDE_STEPS, guideActive (+11 more)
 
-### Community 207 - "sqlite/trial-history-repo.ts"
-Cohesion: 0.09
-Nodes (12): ADR-0048, createDsqlTrialHistoryRepo(), TRIAL_COLUMNS, TrialRow, InsertTrialHistoryInput, ITrialHistoryRepo, TrialHistoryRow, UpdateTrialConversionInput (+4 more)
+### Community 207 - "check-new-required-env.mjs"
+Cohesion: 0.16
+Nodes (20): appendUntrackedFiles(), collectMentionedEnvs(), collectOptionalMarkedEnvs(), detectFailFastGuardedEnvs(), detectNewRequiredEnvs(), detectRequirementTransitions(), extractDiffLines(), FRAMEWORK_ENVS (+12 more)
 
 ### Community 208 - "scripts"
 Cohesion: 0.07
@@ -2200,20 +2200,20 @@ Cohesion: 0.10
 Nodes (21): collectFiles(), hasMarkerInPrecedingComments(), isCommentLine(), main(), ADR-0056, ADR-0061, printHelp(), RULES (+13 more)
 
 ### Community 215 - "demo-service.ts"
-Cohesion: 0.10
-Nodes (23): findTodayMissions(), DEMO_ACTIVITIES, getDemoActivitiesForChild(), getDemoChecklistsForChild(), getDemoLogsForChild(), getDemoMissionsForChild(), getDemoPointBalance(), getDemoStatusesForChild() (+15 more)
-
-### Community 216 - "questionnaire-service.ts"
 Cohesion: 0.12
-Nodes (22): assignTemplateToChildren(), insertTemplate(), insertTemplateItem(), addTemplateItem(), createTemplate(), importOneChecklistTemplate(), applyChecklistPresets(), CHALLENGE_CATEGORY_WEIGHTS (+14 more)
+Nodes (18): CATEGORY_DEFS, getCategoryByCode(), getDemoChecklistsForChild(), getDemoLogsForChild(), getDemoPointBalance(), getDemoStatusesForChild(), DemoHistoryData, DemoHomeData (+10 more)
 
-### Community 217 - "dsql/report-daily-summary-repo.ts"
-Cohesion: 0.12
-Nodes (7): ADR-0048, createDsqlReportDailySummaryRepo(), SummaryRow, toSummary(), IReportDailySummaryRepo, InsertReportDailySummaryInput, ReportDailySummary
+### Community 216 - "trial-notification-service.ts"
+Cohesion: 0.17
+Nodes (19): getPlanLabel(), TRIAL_EMAIL_LABELS, getNotificationSchedule(), _NOTIFICATION_THRESHOLDS, processTrialNotifications(), sendTrialEndedTodayEmail(), sendTrialEnding1DayEmail(), sendTrialEnding3DaysEmail() (+11 more)
+
+### Community 217 - "sqlite/report-daily-summary-repo.ts"
+Cohesion: 0.09
+Nodes (11): ADR-0048, SummaryRow, toSummary(), IReportDailySummaryRepo, reportDailySummaries, findByChildAndDateRange(), findByTenantAndDateRange(), SummaryRow (+3 more)
 
 ### Community 218 - "demo/sibling-cheer-repo.ts"
-Cohesion: 0.10
-Nodes (9): ADR-0048, CHEER_COLUMNS, CheerRow, createDsqlSiblingCheerRepo(), toCheer(), ADR-0012, ISiblingCheerRepo, InsertSiblingCheerInput (+1 more)
+Cohesion: 0.09
+Nodes (10): ADR-0048, CHEER_COLUMNS, CheerRow, toCheer(), ADR-0012, ISiblingCheerRepo, InsertSiblingCheerInput, SiblingCheer (+2 more)
 
 ### Community 219 - "env-distribution-closure.test.ts"
 Cohesion: 0.11
@@ -2280,16 +2280,16 @@ Cohesion: 0.09
 Nodes (25): checkFile(), CONCEPT_ICON_RULES, __dirname, EXCLUDE_PATTERNS, EXTENSIONS, __filename, isCommentLine(), isMain (+17 more)
 
 ### Community 235 - "CategorySection.svelte"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (25): CARD_SIZE_CSS, CARD_SIZE_LABELS, CARD_SIZES, CardSize, DisplayConfig, getDefaultDisplayConfig(), parseDisplayConfig(), UI_COMPONENTS_LABELS (+17 more)
 
 ### Community 236 - "ops-route-auth-fitness.test.ts"
 Cohesion: 0.24
 Nodes (9): collectCronRoutes(), CronRoute, cronRoutes, stripCommentsAndStrings(), collectOpsActionPages(), collectOpsEndpoints(), opsActionPages, OpsEndpoint (+1 more)
 
-### Community 237 - "stub-repos.test.ts"
-Cohesion: 0.06
-Nodes (11): ADR-0048, ADR-0048, createDsqlVoiceRepo(), toVoice(), VOICE_COLUMNS, VoiceRow, IVoiceRepo, ChildCustomVoice (+3 more)
+### Community 237 - "dsql/voice-repo.ts"
+Cohesion: 0.10
+Nodes (7): ADR-0048, createDsqlVoiceRepo(), toVoice(), VOICE_COLUMNS, VoiceRow, IVoiceRepo, ChildCustomVoice
 
 ### Community 238 - "includes"
 Cohesion: 0.08
@@ -2308,7 +2308,7 @@ Cohesion: 0.08
 Nodes (25): 17. ログ設計書, 1.1 ログ出力先, 1.2 ログフォーマット, 1. ログシステム概要, 2. ログレベル定義（5段階）, 3. LogEntry スキーマ, 4. requestId 相関ID設計, 5.1 通知トリガー条件 (+17 more)
 
 ### Community 242 - "デプロイ・リリースパイプライン設計書"
-Cohesion: 0.07
+Cohesion: 0.08
 Nodes (26): 1.1 関連設計書, 1.2 パイプライン図, 1. 概要, 2.1 トリガー, 2.2 CI ジョブ構成（`ci.yml`）, 2.3 必須チェック, 2. CI パイプライン, 3.1 フロー (+18 more)
 
 ### Community 243 - "M1 概念データモデル（Conceptual Data Model / ANSI-SPARC 概念層）— がんばりクエスト"
@@ -2332,24 +2332,24 @@ Cohesion: 0.08
 Nodes (26): §10 自動化段階移管（S0→S4、tracker #3399）, §1 設計背景, §2 設計原則, §3.1 release ブランチ方式（統合 PR の「動く標的」問題の構造的解消、#3063）, §3.2 develop 二層での Issue close 運用（develop merge 非連動 / 統合 PR で集約 auto-close、#2938 項目 4 / #3423）, §3 ブランチ規則, §4.1 Ready 判定の根拠 — フルスイートはローカルではなく CI で測る（#4007）, §4 gate 二層対応表 (+18 more)
 
 ### Community 248 - "pglite/connection.ts"
-Cohesion: 0.12
-Nodes (20): getPgliteClient(), getPgliteDb(), getPgliteDbSync(), getPgliteTransactionRunner(), getPgliteTransactionRunnerSync(), initPgliteConnection(), migrationsDir(), PgliteDatabase (+12 more)
+Cohesion: 0.05
+Nodes (50): resetEnvForTesting(), DbBackend, resolveDbBackend(), ADR-0040, ADR-0048, buildDsqlPoolConfig(), DsqlDatabase, DsqlTx (+42 more)
 
 ### Community 249 - "admin/status/+page.svelte"
-Cohesion: 0.10
-Nodes (17): getPoint(), gridPolygon(), isScreenshotForRadar, polygonCompValues, polygonPoints(), polygonValues, guideBaseXp, guideMeanHigh (+9 more)
+Cohesion: 0.07
+Nodes (19): getPoint(), gridPolygon(), isScreenshotForRadar, polygonCompValues, polygonPoints(), polygonValues, progressColor, progressPct (+11 more)
 
-### Community 250 - "trial-service.ts"
-Cohesion: 0.03
-Nodes (102): getPlanLabel(), TRIAL_EMAIL_LABELS, ALLOW, can(), canWriteDb(), Capability, CapabilityEvaluator, deny() (+94 more)
+### Community 250 - "capabilities.ts"
+Cohesion: 0.07
+Nodes (46): ALLOW, can(), canWriteDb(), Capability, CapabilityEvaluator, deny(), DenyReason, ensureCan() (+38 more)
 
 ### Community 251 - "アップグレード/ダウングレード ジャーニーマップ (#2549 / Epic #2525 Phase 2 UX) — 全面再構成"
 Cohesion: 0.08
 Nodes (25): ADR-0012 整合性チェック, mermaid 図 1A: アップ感情曲線 (journey), mermaid 図 1B: ダウン感情曲線 (journey、資産保護フレーミング), mermaid 図 2: 状態遷移 (free ↔ standard ↔ family、双方向 + アーカイブ), mermaid 図 3: ダウン時のリソース処理フロー (Notion 型 Pattern A), Open question (PO 判断), Pattern A 採用理由 (4 点), Phase 3 (UI) (+17 more)
 
 ### Community 252 - "Part II. Application Design (GoF / Fowler / Martin / Cockburn / Evans 原典 + 公開 OSS 裏付け)"
-Cohesion: 0.08
-Nodes (25): C.1 Class Diagram — Multi-Lambda Demo 全体構造, C.2 Sequence Diagram — demo Lambda request flow, C.3 Component Diagram — Multi-Lambda 配備構成, C.4 UML 3 図の補足, §C. UML 設計図 (Class / Sequence / Component), E.1 既存 ADR-0040 Policy Gate の確認, E.2 Multi-Lambda 採用時の Policy Gate 統合, E.3 既存 ADR-0040 構造 vs Multi-Lambda 採用後の比較 (+17 more)
+Cohesion: 0.09
+Nodes (23): B.1 SRP (Single Responsibility) — ◯ 準拠, B.2 OCP (Open/Closed) — ◯ 準拠, B.3 LSP (Liskov Substitution) — △ 条件付き準拠, B.4 ISP (Interface Segregation) — △ 改善余地あり, B.5 DIP (Dependency Inversion) — ◯ 準拠, §B. SOLID 原則準拠検証, E.1 既存 ADR-0040 Policy Gate の確認, E.2 Multi-Lambda 採用時の Policy Gate 統合 (+15 more)
 
 ### Community 253 - "Runbook — NUC PGlite バックアップ運用 + 復元リハーサル (restore drill)"
 Cohesion: 0.08
@@ -2371,9 +2371,9 @@ Nodes (20): cellHeight, cellWidth, checkPort(), CHILD_ID_BY_UI_MODE, deriveChild
 Cohesion: 0.13
 Nodes (22): convertToWebP(), SCREENSHOT_QUERY, SCREENSHOT_QUERY_NOISE_ONLY, withScreenshotParam(), AGE_MODES, args, captureAgeMode(), captureGeneric() (+14 more)
 
-### Community 258 - "notification-service-vapid-distribution.test.ts"
-Cohesion: 0.22
-Nodes (8): mockCountTodayLogs, mockFindByTenant, mockGetSettings, mockInsertLog, { mockLoggerWarn, mockLoggerInfo }, mockSendNotification, mockSetVapidDetails, ADR-0006
+### Community 258 - "discord-notify-service.ts"
+Cohesion: 0.16
+Nodes (16): handleError(), DiscordChannel, DiscordEmbed, getWebhookUrl(), INQUIRY_CATEGORY_LABELS, notifyDiscord(), notifyIncident(), notifyInquiry() (+8 more)
 
 ### Community 259 - "アカウント削除予告メール自動化 (EventBridge + cron-dispatcher + SES) — 設計 SSOT (#2399)"
 Cohesion: 0.08
@@ -2440,28 +2440,28 @@ Cohesion: 0.13
 Nodes (15): main(), readArg(), APP_ROLE_NAME, AppRoleProvisionOptions, AppRoleProvisionResult, assertIdent(), provisionAppRole(), ADR-0049 (+7 more)
 
 ### Community 275 - "integration-pr-body.mjs"
-Cohesion: 0.21
-Nodes (21): buildBackMergeStatus(), buildContainedPrTable(), classifyForContainedList(), escapeCell(), extractAreaLabel(), extractClosedIssues(), extractTypeLabel(), isConventionalCommitPrefixLine() (+13 more)
+Cohesion: 0.12
+Nodes (34): argOf(), buildContainedPrRecords(), buildReleasePredicate(), evaluateNgZero(), isMain, isNonEmptyString(), ADR-0056, normalizeLabels() (+26 more)
 
-### Community 276 - "stripe-metrics-service.ts"
-Cohesion: 0.11
-Nodes (35): shiftMonthKey(), BreakevenData, calculateBreakevenUsers(), calculateFixedCosts(), calculateMonthlyProfit(), calculateProgressRate(), calculateStripeFee(), generateMockBreakevenData() (+27 more)
+### Community 276 - "ops-service.ts"
+Cohesion: 0.06
+Nodes (57): jstYearMonth(), monthStartJST(), shiftMonthKey(), BreakevenData, calculateBreakevenUsers(), calculateFixedCosts(), calculateMonthlyProfit(), calculateProgressRate() (+49 more)
 
 ### Community 277 - "point-flight.svelte.ts"
-Cohesion: 0.12
-Nodes (21): PointSettings, BalanceChangePlan, center(), FlightPoint, FlightRect, planBalanceChange(), PlanBalanceChangeInput, POINT_FLIGHT_COUNT_MS (+13 more)
+Cohesion: 0.10
+Nodes (24): PointSettings, BalanceChangePlan, center(), FlightPoint, FlightRect, planBalanceChange(), PlanBalanceChangeInput, POINT_FLIGHT_COUNT_MS (+16 more)
 
 ### Community 278 - "admin-resource-model-registry.ts"
 Cohesion: 0.11
-Nodes (18): ADMIN_RESOURCE_MODEL_REGISTRY, AdminResourceBinding, AdminResourceDataScope, AdminResourceKey, AdminResourceModel, AdminResourceOrganizingModel, ALLOWED_NON_CANONICAL_SLOT_TESTIDS, CANONICAL_SLOT_ORDER (+10 more)
+Nodes (18): ADMIN_RESOURCE_MODEL_REGISTRY, AdminResourceBinding, AdminResourceKey, AdminResourceModel, AdminResourceOrganizingModel, ALLOWED_NON_CANONICAL_SLOT_TESTIDS, CANONICAL_SLOT_ORDER, CanonicalSlot (+10 more)
 
 ### Community 279 - "schema-validator.ts"
-Cohesion: 0.13
-Nodes (17): ColumnDef, deriveBackfillValue(), extractDefaultClause(), getActualColumns(), getActualTables(), getExpectedTables(), PragmaColumn, SchemaValidationResult (+9 more)
+Cohesion: 0.08
+Nodes (22): SQL_CREATE_TABLES, cloudExports, ColumnDef, deriveBackfillValue(), extractDefaultClause(), getActualColumns(), getActualTables(), getExpectedTables() (+14 more)
 
 ### Community 280 - "sqlite/child-activity-repo.ts"
-Cohesion: 0.18
-Nodes (20): archiveActivities(), ChildActivityRow, ChildRow, copyActivitiesAcrossChildren(), countMainQuestActivities(), deleteActivity(), findActivitiesByChild(), findActivityById() (+12 more)
+Cohesion: 0.17
+Nodes (21): ACTIVITY_SOURCES, archiveActivities(), ChildActivityRow, ChildRow, copyActivitiesAcrossChildren(), countMainQuestActivities(), deleteActivity(), findActivitiesByChild() (+13 more)
 
 ### Community 281 - "founder-inquiry-service.ts"
 Cohesion: 0.13
@@ -2523,9 +2523,9 @@ Nodes (19): __dirname, findHighPrivilegeContextViolations(), findMissingTopLevel
 Cohesion: 0.09
 Nodes (19): EXPORT_FORMAT, mockAchievements, mockActivities, mockActivityLogs, mockChecklistItems, mockChecklistLogs, mockChecklistTemplates, mockChildren (+11 more)
 
-### Community 296 - "loyalty-service.ts"
-Cohesion: 0.18
-Nodes (24): _applyAnnualPlanBonus(), ChurnPreventionData, classifyMonthKeyMatch(), consumeMemoryTicket(), getChurnPreventionData(), getCurrentTier(), getLoginBonusMultiplier(), getLoyaltyInfo() (+16 more)
+### Community 296 - "setSetting"
+Cohesion: 0.03
+Nodes (106): ACTIVITIES_SETTINGS_DEFAULTS, activitiesDefaultsToSettingPairs(), ActivitiesSettingsDefaults, ADR-0012, ADR-0014, NOTIFIED_STREAK_MILESTONE_DAYS, PraiseMilestoneId, CurrencyCode (+98 more)
 
 ### Community 297 - "sqlite/status-repo.ts"
 Cohesion: 0.13
@@ -2536,8 +2536,8 @@ Cohesion: 0.09
 Nodes (19): ActionResult, addPresetAction, copyFromChildAction, grantAction, importPresetToChildrenAction, load, mockCopyChildRewardsToSibling, mockCopyChildRewardsToSiblings (+11 more)
 
 ### Community 299 - "import-service-verify.test.ts"
-Cohesion: 0.07
-Nodes (21): computeChecksum(), verifyChecksum(), ADR-0061, mockChildActivityFindByChild, mockChildActivityInsert, mockFindActivities, mockFindActivityLogs, mockFindSpecialRewards (+13 more)
+Cohesion: 0.09
+Nodes (18): mockChildActivityFindByChild, mockChildActivityInsert, mockFindActivities, mockFindActivityLogs, mockFindSpecialRewards, mockFindTemplatesByChild, mockInsertActivity, mockInsertActivityLog (+10 more)
 
 ### Community 300 - "agents/qm-session.md"
 Cohesion: 0.10
@@ -2572,8 +2572,8 @@ Cohesion: 0.10
 Nodes (20): A-1. ブランドスタイルブロック（コピペ用）, A-2. レアリティ別視覚言語（シール・バッジ・称号共通）, A-3. カテゴリ別仕様とプロンプトテンプレート, A-4. セッション管理・一貫性維持, A-5. ネガティブプロンプト（標準セット）, A-6. 生成モデル選択ガイド, Gemini 画像生成ガイド — がんばりクエスト, nanobanana-mcp での手順 (+12 more)
 
 ### Community 308 - "Part I. Infrastructure Design (AWS 公式 source 裏付け)"
-Cohesion: 0.10
-Nodes (21): 11.1 dev (local) vs production の挙動差分, 11.2 既存 `tests/e2e/global-setup.ts`, 11.3 cross-Lambda routing test 戦略, 11.4 推奨, §11. E2E test 戦略, 5.1 Path-prefix 案 (`/demo/*`) — CloudFront cache behavior, 5.2 Subdomain 案 (`demo.ganbari-quest.com`) — CloudFront alternate domain name, 5.3 比較表 (+13 more)
+Cohesion: 0.08
+Nodes (24): 11.1 dev (local) vs production の挙動差分, 11.2 既存 `tests/e2e/global-setup.ts`, 11.3 cross-Lambda routing test 戦略, 11.4 推奨, §11. E2E test 戦略, 12.1 candidate URL, 12.2 推奨: A (subdomain), 12.3 SEO 対策 (+16 more)
 
 ### Community 309 - "QM Orchestrator Role Drift 構造的対処 — Research SSOT (2026-05-28)"
 Cohesion: 0.10
@@ -2599,13 +2599,13 @@ Nodes (18): ACTIVITY_TYPES_WITHOUT_NEW_COMMIT, DEFAULT_PR_ACTIVITY_TYPES, HEAVY_
 Cohesion: 0.22
 Nodes (13): buildGridLayout(), captureDomSnapshot(), checkBeforeAfterIdentical(), checkImageNotBlank(), checkStepLimit(), detectIdenticalBeforeAfterPairs(), findBeforeAfterPairs(), FlowRecorder (+5 more)
 
-### Community 315 - "nuc-cutover-verify.ts"
-Cohesion: 0.13
-Nodes (18): collectImportedCounts(), CUTOVER_COUNT_AXES, CutoverCounts, diffCutoverCounts(), summarizeExportCounts(), ADR-0064, applySyntheticDataset(), SeedApplyResult (+10 more)
+### Community 315 - "ExportData"
+Cohesion: 0.17
+Nodes (14): collectImportedCounts(), CUTOVER_COUNT_AXES, CutoverCounts, diffCutoverCounts(), summarizeExportCounts(), ADR-0064, applySyntheticDataset(), SeedApplyResult (+6 more)
 
 ### Community 316 - "admin-bypass-metrics-service.ts"
-Cohesion: 0.17
-Nodes (18): MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_DAY, AdminBypassMetricsReport, buildEmpty(), EVIDENCE_MARKERS (+10 more)
+Cohesion: 0.16
+Nodes (19): MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_DAY, env, AdminBypassMetricsReport, buildEmpty() (+11 more)
 
 ### Community 317 - "契約状態マトリクス — `families` 4 列の許容組み合わせと遷移"
 Cohesion: 0.10
@@ -2640,32 +2640,32 @@ Cohesion: 0.14
 Nodes (14): findGhInvocations(), IMPLIES_POST, ADR-0006, ADR-0022, ADR-0056, normalizeApiPath(), normalizeCommand(), parseGhApiInvocation() (+6 more)
 
 ### Community 325 - "env.ts"
-Cohesion: 0.03
-Nodes (96): POINTS_LABELS, SETTINGS_LABELS, booleanStringSchema, env, envSchema, resetEnvForTesting(), ADR-0023, ADR-0029 (+88 more)
+Cohesion: 0.07
+Nodes (42): POINTS_LABELS, booleanStringSchema, envSchema, ADR-0023, ADR-0029, ADR-0033, ADR-0040, ADR-0044 (+34 more)
 
-### Community 326 - "demo/child-challenge-repo.ts"
-Cohesion: 0.06
-Nodes (19): claimRewardAndGrantPoints(), findById(), getOrCreateWeeklyAuto(), insert(), insertBulk(), ADR-0048, CHALLENGE_COLUMNS, ChallengeRow (+11 more)
+### Community 326 - "sqlite/battle-repo.ts"
+Cohesion: 0.04
+Nodes (39): BattleOutcome, findTodayBattle(), ADR-0048, BATTLE_COLUMNS, BattleRow, battleToken(), COLLECTION_COLUMNS, CollectionRow (+31 more)
 
 ### Community 327 - "async-index-poll.ts"
 Cohesion: 0.28
 Nodes (6): captureIndexBuildWatermark(), pollAsyncIndexBuild(), RawSqlExecutor, rowStatus(), toObjectNameLiteral(), toSqlLiteral()
 
-### Community 328 - "pin-reset-otp.ts"
-Cohesion: 0.18
-Nodes (18): sendPinResetCodeEmail(), getParentGateCookieSecret(), generatePinResetOtpCode(), hashCode(), issuePinResetOtp(), parseSignedPayload(), PIN_RESET_OTP_COOKIE_MAX_AGE_SEC, PIN_RESET_OTP_COOKIE_NAME (+10 more)
+### Community 328 - "demo/child-challenge-repo.ts"
+Cohesion: 0.13
+Nodes (7): claimRewardAndGrantPoints(), findById(), getOrCreateWeeklyAuto(), insert(), insertBulk(), ADR-0048, DEMO_CHILD_CHALLENGES
 
-### Community 329 - "checklists/+page.server.ts"
-Cohesion: 0.20
-Nodes (16): findAssignmentsByChild(), findAssignmentsByTemplate(), findOverrides(), findTemplateItems(), findTodayLog(), ADR-0055, upsertLog(), getTodayChecklist() (+8 more)
-
-### Community 330 - "checklist-distribution-service.ts"
+### Community 329 - "message-service.test.ts"
 Cohesion: 0.17
-Nodes (17): findTemplateById(), unassignTemplate(), unassignTemplateFromChildren(), distributeToChildren(), listAssignedTemplatesByChild(), listDistribution(), syncDistribution(), ADR-0055 (+9 more)
+Nodes (15): countUnshownMessages(), findMessages(), findUnshownMessage(), insertForRestore(), insertMessage(), markMessageShown(), MessageRow, toMessage() (+7 more)
+
+### Community 330 - "tz-invariance.test.ts"
+Cohesion: 0.14
+Nodes (15): TZ_INVARIANCE_CASE_IDS, TZ_INVARIANCE_CASES, TZ_PROBE_INSTANT_ISO, TZ_PROBE_JST_DATE, TZ_PROBE_JST_MONTH, TZ_PROBE_TIMEZONES, implementedCases, mockCountRestDaysInMonth (+7 more)
 
 ### Community 331 - "availability.ts"
-Cohesion: 0.11
-Nodes (20): AI_PROVIDER_UNAVAILABLE_LOG_TERM, AiUnavailableReason, isAiUnavailableError(), latched, markProviderUnavailable(), reportAiUnavailable(), reportAiUnavailableAtGuard(), reportedReasons (+12 more)
+Cohesion: 0.10
+Nodes (24): AI_PROVIDER_UNAVAILABLE_LOG_TERM, AiUnavailableReason, isAiUnavailableError(), isProviderLatchedUnavailable(), latched, markProviderUnavailable(), reportAiUnavailable(), reportAiUnavailableAtGuard() (+16 more)
 
 ### Community 332 - "0045. terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)"
 Cohesion: 0.11
@@ -2731,9 +2731,9 @@ Nodes (5): DEV_OWNER, scrollToPercent(), captureSection(), waitForStablePage(), 
 Cohesion: 0.16
 Nodes (17): camelCase(), checkIndexImports(), checkStrategyFiles(), checkTypeModules(), COLOR, DEFAULT_REPO_ROOT, __dirname, escapeRegex() (+9 more)
 
-### Community 348 - "check-schema-migration-completeness.mjs"
-Cohesion: 0.42
-Nodes (8): collectColumnsInAddedTables(), detectBreakingChanges(), getChangedFiles(), getFileDiff(), getSchemaDiff(), getSyncedTableNames(), main(), runGit()
+### Community 348 - "is-main.mjs"
+Cohesion: 0.20
+Nodes (14): computeOverlaps(), isMain, main(), renderOutput(), collectColumnsInAddedTables(), detectBreakingChanges(), getChangedFiles(), getFileDiff() (+6 more)
 
 ### Community 349 - "check-screenshot-freshness.mjs"
 Cohesion: 0.16
@@ -2844,7 +2844,7 @@ Cohesion: 0.12
 Nodes (14): createEvent(), createRequest(), mockDistributeToChildren, mockFindAssignmentsByChild, mockGetAllChildren, mockLoggerError, mockLoggerInfo, mockLoggerWarn (+6 more)
 
 ### Community 376 - "0019. CDK Replacement 検知を deploy 前必須ゲートとして組み込む"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (17): 0019. CDK Replacement 検知を deploy 前必須ゲートとして組み込む, 1. `scripts/check-cdk-replacement.mjs` の作成, 2. `.github/workflows/deploy.yml` への組み込み, 3. `.github/PULL_REQUEST_TEMPLATE.md` への `replacement-approved` セクション追加, A. CDK changeset を全 PR で実行する, B. cdk diff --strict で CI 失敗させる, C. PR レビュー時の目視確認のみ, cdk diff の制限 (+9 more)
 
 ### Community 377 - "0048. Multi-Lambda Demo Deployment (env 駆動 + IAM role 分離 + client-side state)"
@@ -2908,7 +2908,7 @@ Cohesion: 0.20
 Nodes (16): args, DEAD_ASSETS, __dirname, fmt(), isCheck, isReport, main(), ADR-0010 (+8 more)
 
 ### Community 392 - "DialogFSM"
-Cohesion: 0.16
+Cohesion: 0.15
 Nodes (6): DialogFSM, DialogState, DialogTriggers, DialogType, PRIORITY_ORDER, ADR-0012
 
 ### Community 393 - "restore-idempotency-registry.test.ts"
@@ -2927,9 +2927,9 @@ Nodes (10): ADR-0005, ADR-0006, ADR-0007, completeImportFlow(), CompleteImportFl
 Cohesion: 0.13
 Nodes (13): APPEND_ONLY_TABLES, collectViolations(), DSQL_DIR, findAppendOnlyMutations(), Mutation, MUTATION_ALLOWLIST, MutationAllowlistEntry, REASON_STUBS (+5 more)
 
-### Community 397 - "auth-invite-shared-device.test.ts"
-Cohesion: 0.14
-Nodes (15): AUTH_INVITE_LABELS, INVITE_COOKIE_NAME, load(), childIdentity, mockAcceptInvite, mockCreateMembership, mockCreateTenant, mockCreateUser (+7 more)
+### Community 397 - "invite-service.ts"
+Cohesion: 0.09
+Nodes (31): AUTH_INVITE_LABELS, INVITE_COOKIE_NAME, checkInviteEmailBinding(), InviteEmailBindingError, ADR-0061, ADR-0063, ACCEPT_INVITE_FAILURE_ERRORS, acceptInvite() (+23 more)
 
 ### Community 398 - "signup-actions.test.ts"
 Cohesion: 0.14
@@ -3043,9 +3043,9 @@ Nodes (15): 1. admin bypass を完全に禁止する, 2. ganbariquestsupport-lab
 Cohesion: 0.13
 Nodes (14): 2026-05-27 補追: 前提崩れによる位置付け変更, 2026-07-30 補追: Ready 判定の根拠をローカル pre-ready から CI へ移す, AC6 (`.husky/pre-push` 自動実行) — 非採用, ADR-0030: `npm run pre-ready` CLI 採用と pre-push hook 非採用, Consequences, Context, Decision, Followup (+6 more)
 
-### Community 426 - "stripe-webhook-dedup.test.ts"
-Cohesion: 0.15
-Nodes (13): demoWebhookEventRepo, events, _resetDemoWebhookEvents(), ADR-0048, WEBHOOK_CLAIM_STALE_MINUTES, makeRecord(), seedCompleted(), mockFindTenantById (+5 more)
+### Community 426 - "preset-challenges.ts"
+Cohesion: 0.21
+Nodes (13): getAutoAddRecommendedPresets(), getPresetChallengeById(), PRESET_CHALLENGES, PresetChallenge, resolvePresetChallengeDates(), ADR-0012, ADR-0014, CHILD_TERMS (+5 more)
 
 ### Community 427 - "支払い失敗 (dunning) ジャーニーマップ (#2551 / Epic #2525 Phase 2 UX) — 既存実装前提"
 Cohesion: 0.13
@@ -3103,9 +3103,9 @@ Nodes (15): 3 つの制約（再掲）, Agent Teams（1 ロール内の並列化
 Cohesion: 0.14
 Nodes (13): CRON_JOBS, ADR-0006, ADR-0010, ADR-0019, ADR-0023, ADR-0024, ADR-0033, ADR-0048 (+5 more)
 
-### Community 442 - "generate-release-predicate.mjs"
-Cohesion: 0.27
-Nodes (13): argOf(), buildContainedPrRecords(), buildReleasePredicate(), evaluateNgZero(), isMain, isNonEmptyString(), ADR-0056, normalizeLabels() (+5 more)
+### Community 442 - "Go-to-Market 戦略書"
+Cohesion: 0.13
+Nodes (14): 1.1 ターゲット, 1.2 バリュープロポジション, 1. プロダクト概要, 2. プライシング, 3.1 オーガニック（無料）, 3.2 コミュニティ, 3.3 有料広告（将来検討）, 3. チャネル戦略 (+6 more)
 
 ### Community 443 - "check-no-at-html.mjs"
 Cohesion: 0.21
@@ -3120,36 +3120,36 @@ Cohesion: 0.21
 Nodes (13): buildSitemapXml(), collectHtmlFiles(), __dirname, generateEntries(), getLastModDate(), isDirectRun, main(), ADR-0014 (+5 more)
 
 ### Community 446 - "migrate-local.ts"
-Cohesion: 0.20
-Nodes (7): ColumnInfo, db, tables, ADR-0023, ADR-0031, SQL_CREATE_TABLES, ADR-0061
+Cohesion: 0.29
+Nodes (5): ColumnInfo, db, tables, ADR-0023, ADR-0031
 
 ### Community 447 - "checklist-override.ts"
 Cohesion: 0.20
 Nodes (12): CHECKLIST_OVERRIDE_ACTIONS, CHECKLIST_OVERRIDE_DATE_RE, CHECKLIST_OVERRIDE_ICON_MAX, CHECKLIST_OVERRIDE_ITEM_NAME_MAX, ChecklistOverrideAction, ChecklistOverrideRestoreResult, isChecklistOverrideAction(), sanitizeChecklistOverrideRestore() (+4 more)
 
 ### Community 448 - "unsubscribe-token.ts"
-Cohesion: 0.29
-Nodes (9): base64UrlEncode(), generateUnsubscribeToken(), getSigningSecret(), sign(), ADR-0010, RFC-8058, UnsubscribeKind, UnsubscribeTokenPayload (+1 more)
+Cohesion: 0.17
+Nodes (15): isTenantUnsubscribed(), markTenantUnsubscribed(), base64UrlEncode(), generateUnsubscribeToken(), getSigningSecret(), sign(), ADR-0010, RFC-8058 (+7 more)
 
 ### Community 449 - "contract-state-audit-service.ts"
-Cohesion: 0.06
-Nodes (43): classifyContractState(), ContractShape, ContractState, ContractStateClassification, ContractStateColumns, findInvalid(), findValid(), INVALID_CONTRACT_STATES (+35 more)
+Cohesion: 0.10
+Nodes (27): classifyContractState(), ContractShape, ContractState, ContractStateClassification, findInvalid(), findValid(), INVALID_CONTRACT_STATES, InvalidContractState (+19 more)
 
 ### Community 450 - "backup-entity-registry.ts"
 Cohesion: 0.17
 Nodes (11): BACKUP_ENTITY_REGISTRY, BackupClassification, BackupEntityEntry, BackupExcludedKind, BackupExportStatus, classifiedSchemaTables(), deferredExcludedEntities(), notYetExportedSourceEntities() (+3 more)
 
 ### Community 451 - "data-integrity-guards.ts"
-Cohesion: 0.20
-Nodes (11): assertNoDataOrphans(), AssertNoDataOrphansOptions, collectDataOrphans(), CORE_ORPHAN_CHECKS, countOrphanRows(), isTestEnv(), OrphanCheck, OrphanReport (+3 more)
+Cohesion: 0.17
+Nodes (13): emitOrphanAlert(), getOrInitDb(), assertNoDataOrphans(), AssertNoDataOrphansOptions, collectDataOrphans(), CORE_ORPHAN_CHECKS, countOrphanRows(), isTestEnv() (+5 more)
 
 ### Community 452 - "support/+page.server.ts"
-Cohesion: 0.12
-Nodes (21): BackupHealthVerdict, evaluateBackupHealth(), isBackupNotificationConfigured(), generateInquiryId(), saveInquiry(), probePg(), probeSqlite(), SqliteProbeResult (+13 more)
+Cohesion: 0.16
+Nodes (17): BackupHealthVerdict, evaluateBackupHealth(), isBackupNotificationConfigured(), generateInquiryId(), saveInquiry(), probeSqlite(), SqliteProbeResult, ADR-0061 (+9 more)
 
-### Community 453 - "plan-fixtures.ts"
-Cohesion: 0.27
-Nodes (12): TrialSource, formatDate(), insertTrialRow(), makeFamilyContext(), makeFreeContext(), makeStandardContext(), seedTrialActive(), seedTrialActiveContext() (+4 more)
+### Community 453 - "debug-plan.ts"
+Cohesion: 0.10
+Nodes (32): applyDebugPlanOverride(), DebugPlan, DebugPlanOverride, DebugTrial, DebugTrialOverride, getDebugCancelAtPeriodEnd(), getDebugPlanOverride(), getDebugPlanSummary() (+24 more)
 
 ### Community 454 - "src/routes/ — UI 実装ルール"
 Cohesion: 0.13
@@ -3192,7 +3192,7 @@ Cohesion: 0.14
 Nodes (14): 0007. 静的解析 tier ポリシー (T1/T2/T3/T4 + EPIC-merge / customer-review tier), 1-2. gate を残すか消すかの判断原則 v2 (2026-07-30、#4121), 1. 4 階層の定義, 2. 新ツール導入時の判断フロー, 3. 実行時間予算, 4. 運用ルール, 5. EPIC-merge / customer-review tier (#2544 で追加), 6. eslint-plugin-svelte recommended の活性化と Runes semantic の lint 対象外原則 (#3878 で追加) (+6 more)
 
 ### Community 464 - "0011. 0-2 歳スコープ判断 — baby モードは「親の準備モード」として扱う"
-Cohesion: 0.13
+Cohesion: 0.14
 Nodes (14): 0011. 0-2 歳スコープ判断 — baby モードは「親の準備モード」として扱う, 1. コアターゲットを 3-18 歳に再定義, 2. baby モードは「親の準備モード」として残す, 3. マーケット / seed データの baby 向け削除, 4. データマイグレーション方針, Alternatives considered, Route α (保守的): 既存 baby UI を薄くバリアント, Route β (急進的): childV3toV4 で baby → preschool 強制移行 (+6 more)
 
 ### Community 465 - "0025. LP SSOT 注入機構の innerHTML 化 + XSS 設計（DOMPurify）"
@@ -3251,9 +3251,9 @@ Nodes (14): §2.2 kinder (3-5 歳), 活動「いっしょにあそんだ」「�
 Cohesion: 0.14
 Nodes (13): LP 同期状況, ⚠️ plan-gate されていないが有料訴求リストにある機能（掲載は要再検討）, ✅ plan-gate されている機能（プラン差別化の根拠となる）, SSOT 更新方針（`src/lib/domain/plan-features.ts`）, 🪦 デッドコンフィグ（削除済み）, ファミリー +¥280/月 の価値訴求, プラン機能棚卸し（#792）, 📘 全プラン共通機能（プラン差別化に使わない） (+5 more)
 
-### Community 479 - "tz-invariance.test.ts"
-Cohesion: 0.06
-Nodes (39): TZ_INVARIANCE_CASE_IDS, TZ_INVARIANCE_CASES, TZ_PROBE_INSTANT_ISO, TZ_PROBE_JST_DATE, TZ_PROBE_JST_MONTH, TZ_PROBE_TIMEZONES, jstHour(), calcStreakBonus() (+31 more)
+### Community 479 - "activity-record-preparation.ts"
+Cohesion: 0.08
+Nodes (35): jstHour(), calcStreakBonus(), countTodayActiveRecords(), findActivityByIdForChild(), findStreakLogs(), getTodayActivityCountsByChild(), ActivityRecordActivity, ActivityRecordChild (+27 more)
 
 ### Community 480 - "textlint-rule-prh 必要性評価 設計経緯 (Phase 5 F4)"
 Cohesion: 0.14
@@ -3304,32 +3304,32 @@ Cohesion: 0.20
 Nodes (12): ADR-0010, Database, envPath, findLatestBackup(), fs, main(), MONITORED_TABLES, notifyFailure() (+4 more)
 
 ### Community 492 - "必須 9 項目（A〜I 全項目）"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (17): 0-1. パス判定マップ（機械層）, 0-2. glob で表現できない triage シグナル（判断層 checklist、PO 決裁 2026-07-19 追加軸込み）, 0-3. label 付与時の義務, A. ファイル存在・依存関係, B. Issue AC 突合, BLOCK は 3 類型のみ (2026-07-30、SSOT: `docs/sessions/qm-session.md` §BLOCK 基準), C. テスト品質（ADR-0005 / ADR-0061）, D. 横展開（parallel-implementations.md） (+9 more)
 
-### Community 493 - "interfaces/index.ts"
+### Community 493 - "cancellation-service.ts"
 Cohesion: 0.06
 Nodes (34): CANCELLATION_CATEGORIES, CancellationCategory, ADR-0048, CancellationReasonRow, REASON_COLUMNS, CancellationReasonAggregation, CancellationReasonRecord, CreateCancellationReasonInput (+26 more)
 
-### Community 494 - "ownerGateResponse"
-Cohesion: 0.13
-Nodes (18): OWNER_GATE_LABELS, OwnerGateAudit, ownerGateResponse(), ADR-0010, getOwnerDeletionInfo(), sendCancellationEmail(), sendMemberJoinedEmail(), sendMemberRemovedEmail() (+10 more)
+### Community 494 - "V2MOM — 2026 Q2"
+Cohesion: 0.14
+Nodes (14): 1. 設計背景, 2. 設計原則, M1: コアループの完成度向上, M2: SaaS 基盤の安定化, M3: ユーザー獲得の基盤構築, M4: 法務・コンプライアンス対応, Measures（成果指標）, Methods（方法） (+6 more)
 
 ### Community 495 - "+error.svelte"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (6): ERROR_PAGE_LABELS, OPS_MFA_SETUP_LABELS, countdown, shouldAutoRedirect, pageState, renderErrorPage()
 
 ### Community 496 - "services/types.ts"
 Cohesion: 0.11
-Nodes (18): ADR-0047, ChildHomeActivity, ChildHomeAgeContext, ChildHomeChild, ChildHomeCurrency, ChildHomeFeatureFlags, ChildHomeProgressDisplay, ChildHomeViewModel (+10 more)
+Nodes (17): ADR-0047, ChildHomeAgeContext, ChildHomeChild, ChildHomeCurrency, ChildHomeFeatureFlags, ChildHomeProgressDisplay, ChildHomeViewModel, ParentAdminReadonlyMember (+9 more)
 
 ### Community 497 - "provision.ts"
 Cohesion: 0.24
 Nodes (10): AsyncIndexPollOptions, DrizzleJournal, MigrationFile, ProvisionResult, ADR-0010, applyDsqlMigrationPlan(), ApplyMigrationOptions, createDrizzleRawExecutor() (+2 more)
 
-### Community 498 - "backup-offsite.ts"
-Cohesion: 0.20
-Nodes (9): describeOffsiteVerdict(), judgeOffsiteReplication(), OFFSITE_MARKER_FILENAME, OffsiteProbe, shouldNotifyOffsite(), envMock, run(), ADR-0040 (+1 more)
+### Community 498 - "pglite-backup-offsite-wiring.test.ts"
+Cohesion: 0.29
+Nodes (5): OFFSITE_MARKER_FILENAME, envMock, run(), ADR-0040, ADR-0061
 
 ### Community 499 - "admin-premium-welcome.test.ts"
 Cohesion: 0.14
@@ -3356,7 +3356,7 @@ Cohesion: 0.15
 Nodes (12): 0029. LP CSP 多層防御 + CDN SRI / pin 戦略, 1. LP 全 10 ページに CSP meta tag を追加, 2. ライブラリ別 pin / SRI 戦略（多層防御の構造）, 3. 移行計画 / 適用順序, 4. C 案 fallback への移行条件, コンテキスト, トレードオフ, 利点 (+4 more)
 
 ### Community 505 - "0042. LP CSS Spacing/Layout 3 層トークン化 (Base → Semantic → Component SSOT)"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (13): 0042. LP CSS Spacing/Layout 3 層トークン化 (Base → Semantic → Component SSOT), 1. コンテキスト, 2. 検討した選択肢（OSS / 確立パターン 2 件以上 — #1350）, 3. 決定, 4.1 ポジティブ, 4.2 ネガティブ / リスク, 4.3 維持すべき不変条件, 4. 帰結 (Consequences) (+5 more)
 
 ### Community 506 - "0050. Parent-Gate Session Cookie 署名方式: cookie-signature (OSS 4 件比較)"
@@ -3431,9 +3431,9 @@ Nodes (13): AWS Prescriptive Guidance, CDK 公式 doc + sample, CloudFront 公�
 Cohesion: 0.15
 Nodes (13): 1. どこで見るか, 2. 是正の原則, 3. 是正が必須ではない場合, 4. 決裁 — 本番データの書き換えはオーナー, 5. X1-X4 個別の一次対応, 6. 基準不明の継続月キー（#4269）, 7. 未定（実装から読み取れない事項）, X1 — `sub` なし + `plan` あり (+5 more)
 
-### Community 524 - "check-pr-body-reality-drift.test.ts"
-Cohesion: 0.15
-Nodes (15): ADR-0004, BLOCKING_GATES, BLOCKING_VIOLATION_IDS, checkClaimedCounts(), checkStateClaims(), extractCountClaims(), extractStateClaims(), formatAdvisoryReport() (+7 more)
+### Community 524 - "consent-service.ts"
+Cohesion: 0.22
+Nodes (11): CONSENT_LABELS, LEGAL_LABELS, SIGNUP_LABELS, checkConsent(), ConsentCheck, CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION, getConsentHistory() (+3 more)
 
 ### Community 525 - "§2. 設計原則"
 Cohesion: 0.12
@@ -3452,8 +3452,8 @@ Cohesion: 0.15
 Nodes (5): UI_PRIMITIVES_LABELS, ADR-0006, isAwsEnv(), isLocalEnv(), ADR-0017
 
 ### Community 529 - "activity-suggest-service.ts"
-Cohesion: 0.22
-Nodes (12): ACTIVITY_TOOL, CATEGORY_ICONS, hasKanji(), inferNames(), isKanaOnly(), KEYWORD_ICONS, NAME_PAIR_TABLE, suggestActivity() (+4 more)
+Cohesion: 0.21
+Nodes (13): getCategoryByName(), ACTIVITY_TOOL, CATEGORY_ICONS, hasKanji(), inferNames(), isKanaOnly(), KEYWORD_ICONS, NAME_PAIR_TABLE (+5 more)
 
 ### Community 530 - "a11y.ts"
 Cohesion: 0.19
@@ -3473,7 +3473,7 @@ Nodes (12): AstNode, collectViolations(), EXCLUDED_PARENT_TAGS, HARDCODED_TERMS,
 
 ### Community 534 - "admin-resource-model-registry.test.ts"
 Cohesion: 0.16
-Nodes (11): ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY, ALL_ADMIN_RESOURCE_PAGES, classifyAdminPageRoute(), NON_CANONICAL_ADMIN_RESOURCES, ADMIN_ROUTES_DIR, DATA_MODEL_SCOPE_DOC, discoverAdminPageRoutes(), hasPageFile() (+3 more)
+Nodes (11): ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY, AdminResourceDataScope, ALL_ADMIN_RESOURCE_PAGES, NON_CANONICAL_ADMIN_RESOURCES, ADMIN_ROUTES_DIR, DATA_MODEL_SCOPE_DOC, discoverAdminPageRoutes(), hasPageFile() (+3 more)
 
 ### Community 535 - "ops-export-authz.test.ts"
 Cohesion: 0.15
@@ -3544,7 +3544,7 @@ Cohesion: 0.17
 Nodes (12): 5 ドメイン用語の文脈別使い分けルール（#1914 TECH-F、ADR-0045）, 6. 用語辞書（SSOT）, labels.ts エクスポート一覧（compound）, marketplace type 命名規則（#2899）, Storybook ラベル言語ポリシー（#1738、#1465 follow-up）, terms.ts エクスポート一覧（atom）, ルール, 例外 (+4 more)
 
 ### Community 552 - "ライセンスキー撤廃 + Stripe Subscription SSOT 化 — 方針書"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (12): 10. 全体計画への接続, 1. 背景・課題, 2. スコープ, 3. 基本方針, 4. 採択する業界標準フロー (Stripe 公式 SaaS ガイド), 5. トライアル設計方針, 6. lifetime 廃止方針, 7. 現状実装との差分 (+4 more)
 
 ### Community 553 - "支払い失敗 (dunning) 要件定義 (#2537 / Epic #2525 Phase 1)"
@@ -3576,7 +3576,7 @@ Cohesion: 0.17
 Nodes (12): 1. 調査サマリー, 2.1 stamps コレクション UI の有無, 2.2 レア度演出の UX, 2.3 ポイント以外の独立報酬の有無, 2.4 毎日 N（最頻度）が連続で出た時の UX, 2. 詳細調査結果, 3. 逸脱有無サマリー（表形式）, 4. 結論 (+4 more)
 
 ### Community 560 - "使用時間ログ DynamoDB 実装延期 設計経緯"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (12): ADR-0010 Bucket 判定との整合, なぜこれが正しいか, 使用時間ログ DynamoDB 実装延期 設計経緯, 採用案とその理由 (案 C), 案 A 棄却理由: Pre-PMF 過剰防衛 (ADR-0010 Bucket B), 案 B 棄却理由: 機能後退 + 将来 PMF 後の修正コスト, 棄却理由, 検討した代替案 (+4 more)
 
 ### Community 561 - "Claude Code 設定 retrospective YYYY-MM"
@@ -3587,9 +3587,9 @@ Nodes (12): 1. 実施情報, 2. 対象棚卸結果 (現状件数 + 前回比), 3
 Cohesion: 0.17
 Nodes (11): 1. 既存 retention 削除対象（ADR-0028 archive 参照）, 2.a catalog/master テーブル — retention 対象外, 2.b event/transaction テーブル — retention 対象（押し漏れ含む）, 2.c judgment-call — PO 判断要, 2. 全子供関連テーブル分類 (49 テーブルを (a) catalog / (b) event / (c) judgment-call に分類), 3. 押し漏れ判定: 最も重要な対象 6 件, 4. master vs event 役割分離 (AN-5 補強候補 #3), 5. ADR-0028 拡張 推奨案 (案 α: un-archive + 拡張) (+3 more)
 
-### Community 563 - "アンチパターン集 — 開発プロセスで繰り返した「逃げ」と是正"
-Cohesion: 0.15
-Nodes (13): 10. 対症療法を取ったら根本解決までやりきる, 11. 複雑度最小化の主語は常にユーザ, 12. demo / 本番 UI 共通化は実体共通化（shim で済ませない）, 1. 「scope 外」を言い訳に問題を放置しない, 2. 実装の越境をしない（Reviewer / PO は Dev の肩代わりをしない）, 3. テスト assertion を弱体化しない, 4. ラバースタンプ merge をしない（QM / レビュー時）, 5. QM は CI ゲートではない (+5 more)
+### Community 563 - "file-source.ts"
+Cohesion: 0.23
+Nodes (11): isExportEnvelopeLike(), loadActivityPackFromFile(), loadChecklistFromFile(), loadEnvelopePayloadFromFile(), loadRewardSetFromFile(), parseActivitiesFromJson(), parseCsvActivities(), ADR-0052 (+3 more)
 
 ### Community 564 - "エージェント並行実行 SSOT — セッション分離と排他"
 Cohesion: 0.17
@@ -3620,8 +3620,8 @@ Cohesion: 0.32
 Nodes (10): countMatchingSecrets(), evaluateFrontDoor(), FRONT_DOOR_PROTECTED_PREFIXES, FrontDoorDecision, isFrontDoorProtectedPath(), ORIGIN_VERIFY_HEADER, secretEquals(), ADR-0024 (+2 more)
 
 ### Community 571 - "[itemId]/+page.svelte"
-Cohesion: 0.07
-Nodes (16): ICONS_DIR, main(), ROOT, SIZES, SVG_PATH, activityPackActivities, childOptions, existingNameSet (+8 more)
+Cohesion: 0.17
+Nodes (9): activityPackActivities, childOptions, existingNameSet, importUrlWithSubset, isRuleBonus, isRulePenalty, isRuleSpecial, selectedCount (+1 more)
 
 ### Community 572 - "dsql-uuid-guard-ssot-fitness.test.ts"
 Cohesion: 0.17
@@ -3660,12 +3660,12 @@ Cohesion: 0.18
 Nodes (10): files, formatter, enabled, indentStyle, indentWidth, lineWidth, linter, enabled (+2 more)
 
 ### Community 581 - "決定"
-Cohesion: 0.29
-Nodes (7): Chesterton's Fence 欄, Fail-Closed 原則, 例外手続き, 境界の判別法, 新規 env / secret 追加チェックの自動化, 決定, 禁止 5 項目
+Cohesion: 0.18
+Nodes (11): 0006. Safety Assertion Erosion Ban — 既存セーフティの段階的弱体化を禁ずる, Chesterton's Fence 欄, Fail-Closed 原則, References, コンテキスト, 例外手続き, 境界の判別法, 新規 env / secret 追加チェックの自動化 (+3 more)
 
-### Community 582 - "ADR-0024: インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm"
-Cohesion: 0.17
-Nodes (11): ADR-0024: インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm, References, コンテキスト, ルール 1: tryGetContext で取った必須 env は throw で assert する（silent skip 禁止）, ルール 2: deploy.yml に validate-required-secrets step 必須, ルール 3: 新規 Lambda を含むインフラ PR は post-deploy smoke test step 必須, ルール 4: scheduled / cron Lambda は CloudWatch Alarm 必須（CDK で生成）, ルール 5: 「既存 env の必須化」も新規追加と同じ配布証跡を要求する (+3 more)
+### Community 582 - "sqlite/webhook-event-repo.test.ts"
+Cohesion: 0.25
+Nodes (11): stripeWebhookEvents, claim(), deleteOlderThan(), finalize(), findByEventId(), incrementRetryCount(), releaseClaim(), toRecord() (+3 more)
 
 ### Community 583 - "0064. NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback"
 Cohesion: 0.18
@@ -3732,8 +3732,8 @@ Cohesion: 0.18
 Nodes (11): I.1.1 nikoheikkila/photo-browser, I.1.2 jkonowitch/hex-effect, I.1.3 techniq/sveltekit-drizzle, I.1 SvelteKit + Repository / Hexagonal Architecture 事例, I.2.1 aws-samples/aws-saas-factory-serverless-saas, I.2.2 cdk-patterns/serverless, I.2 AWS Multi-Lambda + CDK reference, I.3.1 Gerard Meszaros xUnit Test Patterns (ISBN 978-0131495050) (+3 more)
 
 ### Community 599 - "sessions/dev-session.md"
-Cohesion: 0.05
-Nodes (48): 3 つの制約（[チーム憲章 §3.4](../../docs/sessions/README.md) が SSOT）, Agent Teams, やってはいけないこと, セッション起動時, 検証, 目的, 顧客は Dev, 1. 用語・ラベル変更は grep で全件確認 (+40 more)
+Cohesion: 0.04
+Nodes (59): §A 2 層判定構造（Tier1/Tier2、audit-manager 独自命名）, §B structured JSON evidence 仕様（物理強制）, §C 不可逆 side-effect = orchestrator 専権（ADR-0056 §E 継承 — role identity）, §D CUJ 横断テーマの deep research（AC6 — audit-manager 自身の責務）, §E run flow（dispatch → 集約 → 重複統合 → severity filter → ポリシー準拠 filter → 起票/判定）, evidence schema（領域 finding の最小 field）, §F 統合 PR merge 判定前の adversarial-reviewer dispatch（必須）, §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4 / 5） (+51 more)
 
 ### Community 600 - "PO（プロダクトオーナー）セッション"
 Cohesion: 0.18
@@ -3755,9 +3755,9 @@ Nodes (10): 5 軸定量実測閾値 (AC4 達成判定), File Layout, Mock smoke 
 Cohesion: 0.35
 Nodes (6): countNg(), evaluateCoverageRatchet(), evaluateMergeReadiness(), formatMergeReadinessMarkdown(), partitionBySeverity(), SEVERITY_ESCALATION_THRESHOLD
 
-### Community 605 - "value-preview-service.ts"
-Cohesion: 0.17
-Nodes (15): NOTIFIED_STREAK_MILESTONE_DAYS, PraiseMilestoneId, CategoryBreakdown, ChildValuePreview, computeCurrentStreak(), computeLongestStreak(), computeStreaks(), daysBetween() (+7 more)
+### Community 605 - "integration/services/setup-service.test.ts"
+Cohesion: 0.18
+Nodes (5): getArchivedChildren(), isSetupRequired(), ADR-0031, mockGetAllChildren, mockGetArchivedChildren
 
 ### Community 606 - "check-native-dep-pin.mjs"
 Cohesion: 0.24
@@ -3767,9 +3767,9 @@ Nodes (8): __dirname, findPinViolations(), main(), ADR-0061, REPO_ROOT, SIGSEGV_
 Cohesion: 0.31
 Nodes (9): containsGhPrCreate(), detectPrCreation(), extractActiveAccount(), ghLib(), main(), ADR-0022, parseActiveAccount(), readStdin() (+1 more)
 
-### Community 609 - "dsql/auth-repo.ts"
-Cohesion: 0.09
-Nodes (22): INVITE_EXPIRY_DAYS, hashInviteCode(), hashInviteSecret(), generateInviteToken(), hashInviteToken(), INVITE_TOKEN_BYTES, ADR-0010, verifyInviteTokenHash() (+14 more)
+### Community 609 - "invite-token.ts"
+Cohesion: 0.38
+Nodes (8): hashInviteCode(), hashInviteSecret(), generateInviteToken(), hashInviteToken(), INVITE_TOKEN_BYTES, ADR-0010, verifyInviteTokenHash(), ADR-0061
 
 ### Community 610 - "setup/packs/+page.svelte"
 Cohesion: 0.20
@@ -3799,9 +3799,9 @@ Nodes (5): CUTOVER_CLI, REPO_ROOT, ADR-0061, TSX_CLI, workDirs
 Cohesion: 0.22
 Nodes (6): callExport(), classifyBaseDrift(), Drift, isGateSsotPath(), repoRoot, ADR-0061
 
-### Community 617 - "handleWebhookEvent"
-Cohesion: 0.10
-Nodes (17): handleWebhookEvent(), resolveEventTenantId(), verifyWebhookSignature(), getWebhookSecret(), POST(), generateStripeSignature(), makeSignedRequest(), mockHandleWebhookEvent (+9 more)
+### Community 617 - "stripe-webhook-contract-state.test.ts"
+Cohesion: 0.06
+Nodes (29): ContractStateColumns, handleWebhookEvent(), resolveEventTenantId(), mockFindTenantById, mockFindTenantByStripeCustomerId, mockGetStripeClient, mockIsStripeEnabled, mockSessionRetrieve (+21 more)
 
 ### Community 618 - "rules"
 Cohesion: 0.20
@@ -3852,8 +3852,8 @@ Cohesion: 0.20
 Nodes (10): 11. AI エージェント向け指示, 12. 更新ルール, 1. ブランドアイデンティティ, 3. タイポグラフィ, 8. 年齢帯別 UI（4 コアモード + 準備モード）, 9. 禁忌事項（Things Not To Do — デザイン関連）, DESIGN.md — がんばりクエスト デザインシステム SSOT, 並行実装の注意 (+2 more)
 
 ### Community 630 - "3. フェーズ別フロー詳細"
-Cohesion: 0.20
-Nodes (10): 3.12 再登録フェーズ, 3.3 初期設定フェーズ, 3.5 課金開始フェーズ, 3. フェーズ別フロー詳細, ユーザー行動フロー, ユーザー行動フロー, ユーザー行動フロー, 現状と課題 (+2 more)
+Cohesion: 0.18
+Nodes (11): 3.3 初期設定フェーズ, 3.6 プラン変更フェーズ, 3.8 問い合わせフェーズ, 3. フェーズ別フロー詳細, LP からの問い合わせフロー（未実装）, ユーザー行動フロー, ユーザー行動フロー, ユーザー行動フロー (+3 more)
 
 ### Community 631 - "19 プライシング戦略書"
 Cohesion: 0.20
@@ -3867,9 +3867,9 @@ Nodes (10): 4e.1 設計背景（§1）, 4e.2 設計原則（§2）, 4e.3 仕様�
 Cohesion: 0.20
 Nodes (9): 1. 概要, 2.1 主要キーワード, 2.2 ロングテールキーワード, 2. ターゲットキーワード, 3.1 Google Search Console 登録手順 (ローンチ時), 3. テクニカル SEO, 4. コンテンツ SEO, 5. 計測 (+1 more)
 
-### Community 634 - "habit-certificate-notice.ts"
+### Community 634 - "admin/+layout.svelte"
 Cohesion: 0.18
-Nodes (9): HABIT_CERTIFICATE_NOTICE_LABELS, getHabitCertificateNoticeText(), HabitCertificateNotice, HabitCertificateNoticeVisibility, shouldShowHabitCertificateNotice(), ADR-0012, notice, ADR-0011 (+1 more)
+Nodes (6): PARENT_GATE_INACTIVITY_MS, ParentGateInactivityOptions, startParentGateInactivityRedirect(), ADR-0012, showTrialEndedDialog, trialDaysRemaining
 
 ### Community 635 - "5. コンポーネントプリミティブ（再実装禁止）"
 Cohesion: 0.20
@@ -3909,7 +3909,7 @@ Nodes (10): 10. Open question (PO 判断、Phase 7 で確定), 11. 6 観点 work
 
 ### Community 644 - "M3 物理データモデル（Physical Data Model / Aurora DSQL 固有）— がんばりクエスト"
 Cohesion: 0.20
-Nodes (9): §10 物理層の遵守確認（M2 論理を覆していないこと）, §7 PoC 状態（Phase 1 実測完了 2026-07-05 + 残 gap）, §8.1 物理テーブル → M2 リレーション（no-silent-gap）, §8.2 主要物理判断 → 根拠（構造決定 or PoC 保留、[must]C 是正で spike#2-#8 依拠を降格）, §8 トレーサビリティ（物理判断 → M2 論理 + 根拠）, §9 M2 未決 U-1〜U-8 の物理的帰結, M3 物理データモデル（Physical Data Model / Aurora DSQL 固有）— がんばりクエスト, §P0 Aurora DSQL 物理制約の SSOT（spike#1 + **Phase 1 PoC 実測（2026-07-05）** + AWS 公式 doc） (+1 more)
+Nodes (9): §10 物理層の遵守確認（M2 論理を覆していないこと）, §2.1 自然複合 PK 昇格の governing rule（§P1 凍結の監査可能な線引き、構造決定）, §2.2 PK 凍結 manifest の考え方（構造決定）, §2 PK 戦略（§P1 不変性下の凍結確定）, §7 PoC 状態（Phase 1 実測完了 2026-07-05 + 残 gap）, §9 M2 未決 U-1〜U-8 の物理的帰結, M3 物理データモデル（Physical Data Model / Aurora DSQL 固有）— がんばりクエスト, §P0 Aurora DSQL 物理制約の SSOT（spike#1 + **Phase 1 PoC 実測（2026-07-05）** + AWS 公式 doc） (+1 more)
 
 ### Community 645 - "M4-C（schema 完成 + PK 凍結 manifest）レビュー Round 1 台帳"
 Cohesion: 0.20
@@ -3940,7 +3940,7 @@ Cohesion: 0.20
 Nodes (10): GitHub Sponsors 設定ガイド (1/4) — プロフィール作成, Step 1: Sponsors ダッシュボードにアクセス, Step 2: Short bio（一行紹介文）の設定, Step 3: Introduction（詳細紹介文）の設定, Step 4: Featured work（注目プロジェクト）の設定, Step 5: 設定の保存, 前提条件, 概要 (+2 more)
 
 ### Community 652 - "biome-ignore 複雑性 リファクタ umbrella (Issue #2397)"
-Cohesion: 0.20
+Cohesion: 0.18
 Nodes (10): 1. 背景, 2. 設計原則, 3.1 全件 grep 結果 (2026-05-22 時点), 3.2 優先度判定表 (39 ファイル), 3.3 sub-Issue 起票方針, 3.4 sub-Issue テンプレ, 3. 仕様, 4. 進捗追跡 (+2 more)
 
 ### Community 653 - "docs/rationale/ — 機能別設計経緯ドキュメント 運用ルール"
@@ -3992,12 +3992,12 @@ Cohesion: 0.40
 Nodes (9): copyActivitiesForChild(), detectCopyableActivityColumns(), getOrphanCounts(), hasColumn(), main(), ORPHAN_QUERIES, remapTable(), runRecoveryTransaction() (+1 more)
 
 ### Community 665 - "sqlite/voice-repo.ts"
-Cohesion: 0.22
-Nodes (9): childCustomVoices, findActiveVoice(), findAllByChild(), findByChild(), findById(), insert(), insertForRestore(), toVoice() (+1 more)
+Cohesion: 0.25
+Nodes (7): childCustomVoices, findActiveVoice(), findAllByChild(), findByChild(), findById(), toVoice(), VoiceRow
 
 ### Community 666 - "checklist-suggest-service.ts"
-Cohesion: 0.19
-Nodes (12): CHECKLIST_TOOL, inferIcon(), ITEM_ICON_MAP, PRESET_CHECKLISTS, suggestByKeywords(), suggestChecklist(), SuggestedChecklist, SuggestedChecklistItem (+4 more)
+Cohesion: 0.08
+Nodes (29): isAiAvailable(), CHECKLIST_TOOL, inferIcon(), ITEM_ICON_MAP, PRESET_CHECKLISTS, suggestByKeywords(), suggestChecklist(), SuggestedChecklist (+21 more)
 
 ### Community 667 - "global-setup.ts"
 Cohesion: 0.29
@@ -4179,9 +4179,9 @@ Nodes (9): §1 NG 時 flow（部分 merge 可否 / 繰越 / revert・fix 判断�
 Cohesion: 0.22
 Nodes (9): §1 設計背景, §2 前提 — Node の版, §3 手順, §4 ロール別 — クローン / 起動プロンプト / cron / gh アカウント, §5 躓いたときに最初に見るところ, §6 このファイルの更新ルール, gh アカウント（ADR-0022）, major を切り替えたら必ず `npm ci` をやり直す (+1 more)
 
-### Community 712 - "period-end-cancellation-chain.test.ts"
-Cohesion: 0.17
-Nodes (8): mockFindTenantById, mockFindTenantByStripeCustomerId, mockGetStripeClient, mockIsStripeEnabled, mockRetrieve, mockUpdate, mockUpdateTenantStripe, PERIOD_END_EPOCH
+### Community 712 - "getStripeClient"
+Cohesion: 0.06
+Nodes (34): ACTIVE_STATUSES, checkPlanResolution(), customerIdOf(), MAX_SUBSCRIPTIONS_PER_CHECK, PlanDriftReport, PlanUnresolvedSubscription, ADR-0010, getCancellationState() (+26 more)
 
 ### Community 713 - "Reporting a Vulnerability"
 Cohesion: 0.22
@@ -4195,9 +4195,9 @@ Nodes (14): A を選んだ場合に必ず満たす 3 条件, 「一度見せた�
 Cohesion: 0.22
 Nodes (8): FP 抑制制約 (Synthetic HE arXiv 2507.02306 で実証された 3 類型対策), Role identity (絶対遵守、Echoing 抑制), Role: Toddler Parent Persona Agent (3 歳児の親 30 代 IT 中), 出力 format (JSON、厳格遵守), 本 product 5 age tier (DESIGN.md §8), 本 product Anti-engagement 原則 (ADR-0012、絶対遵守), 本 product context (cache 対象、ADR-0045 SSOT), 評価軸 (本 Role 固有)
 
-### Community 716 - "is-main.mjs"
-Cohesion: 0.22
-Nodes (13): computeOverlaps(), isMain, main(), renderOutput(), backMergeBranchName(), classifyMergedPr(), evaluateBackMerge(), HOTFIX_LABELS (+5 more)
+### Community 716 - "hotfix-back-merge.mjs"
+Cohesion: 0.47
+Nodes (7): backMergeBranchName(), classifyMergedPr(), evaluateBackMerge(), HOTFIX_LABELS, isMain, parseArgs(), shouldBackMerge()
 
 ### Community 717 - "workflow-judgment-delegation-guard.test.ts"
 Cohesion: 0.33
@@ -4275,9 +4275,9 @@ Nodes (7): docs/, File Inventory（LP 関連ファイル一覧）, .github/workf
 Cohesion: 0.25
 Nodes (7): 1. 変更ファイルの特定, 2. 影響範囲マッピング, 3. 並行実装チェック（docs/design/parallel-implementations.md）, 4. テストカバレッジ確認, リグレッション影響分析, 出力フォーマット, 分析手順
 
-### Community 736 - "0005. テスト品質 ratchet"
-Cohesion: 0.22
-Nodes (8): 0005. テスト品質 ratchet, 1. カバレッジ閾値の引き下げを CI で禁止, 2. 機能追加 PR にカバレッジ差分チェック, 3. テスト回避パターンの禁止, コンテキスト, 決定, 結果, 関連
+### Community 736 - "dsql-errors.test.ts"
+Cohesion: 0.29
+Nodes (9): isCheckViolation(), isUniqueViolation(), sqlstateOf(), uniqueConstraintOf(), acceptInvite(), DEFAULTS, isOccConflict(), OccRetryOptions (+1 more)
 
 ### Community 737 - "0008. 設計ポリシー先行確認フロー — 新機能 / 新 interface は実装前に PO 合意を必須化"
 Cohesion: 0.22
@@ -4419,9 +4419,9 @@ Nodes (7): AI 弱点自己申告 (重要、anchoring 抑制), FP 抑制制約 (3
 Cohesion: 0.29
 Nodes (7): DEMO_DIR, __filename, listAllFiles(), main(), ADR-0039, ADR-0048, REPO_ROOT
 
-### Community 772 - "check-pr-body-closes-landed.test.ts"
-Cohesion: 0.39
-Nodes (6): checkClosesLanded(), extractClosingKeywordMentions(), extractLandedClosingIssues(), runClosesLandedMode(), LIVE_BODY_4152, tempDirs
+### Community 772 - "LP レビューワークフロー"
+Cohesion: 0.18
+Nodes (11): LP レビューワークフロー, no-touch-zones の固定化, PO スクショ SSOT 化原則, ステップ 1: PO 指摘ヒアリング, ステップ 2: 前ラウンド regression trace, ステップ 3: 3 専門 Agent spawn（parallel）, ステップ 4: PO 統合, ステップ 5: Issue 起票 (+3 more)
 
 ### Community 773 - "export-users.mjs"
 Cohesion: 0.39
@@ -4439,9 +4439,9 @@ Nodes (9): LOW_RISK_THIRD_PARTY_ALLOWLIST, findBaselineReasonDefects(), findReas
 Cohesion: 0.25
 Nodes (4): available, cfnlintrc, __dirname, repoRoot
 
-### Community 777 - "point-display.ts"
-Cohesion: 0.36
-Nodes (9): CURRENCY_CODES, CURRENCY_DEFS, CurrencyDef, DEFAULT_POINT_SETTINGS, formatPointValue(), formatPointValueWithSign(), formatWithSettings(), formatWithSettingsAndSign() (+1 more)
+### Community 777 - "settings-backup-classification.test.ts"
+Cohesion: 0.20
+Nodes (10): EXPORTABLE_SETTING_KEYS, hasControlChar(), isValidSettingValue(), NON_EXPORTABLE_SETTING_KEYS, SECRET_SETTING_KEYS, SETTING_VALUE_VALIDATORS, collectSourceFiles(), collectUsedSettingKeys() (+2 more)
 
 ### Community 778 - "child-challenge-celebration-once.spec.ts"
 Cohesion: 0.29
@@ -4555,9 +4555,9 @@ Nodes (4): ADR-0027, FORBIDDEN_TERMS, TERMS, ADR-0037
 Cohesion: 0.29
 Nodes (7): 0002. Critical 修正の品質ゲート, 2026-05-20: stripe-checkout EPIC #2345 子#2346 critical (景品表示法対応), コンテキスト, 決定, 結果, 適用ログ, 関連
 
-### Community 806 - "0061. band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function)"
-Cohesion: 0.29
-Nodes (7): 0061. band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function), コンテキスト, 検討した選択肢 (OSS / 確立パターン最低 2 件 — #1350), 決定, 結果, 選択肢 A: ADR + 既存 skill/gate/lint 拡張で機械強制 (採用), 選択肢 B: 完全な SLO / error-budget tooling + 正式 postmortem ceremony + Pact broker
+### Community 806 - "checklist copy の quota TOCTOU 設計判断"
+Cohesion: 0.13
+Nodes (14): 0061. band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function), コンテキスト, 検討した選択肢 (OSS / 確立パターン最低 2 件 — #1350), 決定, 結果, 選択肢 A: ADR + 既存 skill/gate/lint 拡張で機械強制 (採用), 選択肢 B: 完全な SLO / error-budget tooling + 正式 postmortem ceremony + Pact broker, checklist copy の quota TOCTOU 設計判断 (+6 more)
 
 ### Community 807 - "§13 baby モード — 親向け準備モード UI（#1300 / ADR-0011）"
 Cohesion: 0.29
@@ -4625,7 +4625,7 @@ Nodes (7): §6.1 recordActivity の原子化（I-REC、構造決定）, §6.2 �
 
 ### Community 823 - "activity-service.ts"
 Cohesion: 0.07
-Nodes (37): normalizeParentCreatedSource(), sanitizeActivityNameField(), sanitizeDailyLimit(), Source, countPointLedgerEntriesByTypeAndDate(), findMustActivitiesWithToday(), ActivityPriority, computeMustCompletionBonus() (+29 more)
+Nodes (42): ActivitySourceCode, ActivitySourceDef, ActivitySourceWireValue, LEGACY_PARENT_SOURCE, normalizeParentCreatedSource(), PARENT_CREATED_SOURCE, ADR-0061, sanitizeActivityNameField() (+34 more)
 
 ### Community 824 - "マーケットプレイスコンテンツ監査レポート"
 Cohesion: 0.29
@@ -4660,16 +4660,16 @@ Cohesion: 0.29
 Nodes (7): GitHub Sponsors 設定ガイド (3/4) — W-8BEN 税務書類の提出, Step 1: 税務フォームにアクセス, Step 3: 提出完了の確認, なぜ W-8BEN が必要か, 前提条件, 概要, 次のステップ
 
 ### Community 832 - "image-service.ts"
-Cohesion: 0.27
-Nodes (7): findChildForImage(), getAvatarUrl(), getFaviconPath(), GET(), CHILD_ID, mockFileExists, mockFindChildForImage
+Cohesion: 0.26
+Nodes (8): findChildForImage(), getAvatarUrl(), getFaviconPath(), fileExists(), GET(), CHILD_ID, mockFileExists, mockFindChildForImage
 
 ### Community 833 - "sqlite/certificate-repo.ts"
 Cohesion: 0.25
 Nodes (8): certificates, CertificateRow, findCertificateById(), findCertificates(), insertForRestore(), issueCertificate(), toCertificate(), ADR-0048
 
-### Community 834 - "checklist copy の quota TOCTOU 設計判断"
-Cohesion: 0.29
-Nodes (7): checklist copy の quota TOCTOU 設計判断, 採用案とその理由, 棄却理由, 検討した代替案, 残された懸念・フォローアップ, 議論の発端, 関連
+### Community 834 - "開発者オンボーディングガイド"
+Cohesion: 0.20
+Nodes (10): 1. 概要, 2. 前提条件, 3. セットアップ手順, 4.1 まず読むべきファイル, 4.2 重要な設計書, 4. コードの理解, 5. 開発フロー, 6. 注意事項 (+2 more)
 
 ### Community 835 - "follow-up treadmill の真因と介入 (deep-research、2026-06-29)"
 Cohesion: 0.29
@@ -4691,9 +4691,9 @@ Nodes (6): FP 抑制制約 + 出力 format, honest 認識 (Round 18 F2 認定), 
 Cohesion: 0.50
 Nodes (4): 3.19 おうえんメッセージ, GET /api/v1/messages/[childId], POST /api/v1/messages/[childId], POST /api/v1/messages/[messageId]/shown
 
-### Community 840 - "admin-tenant-cancel.test.ts"
-Cohesion: 0.15
-Nodes (9): expectAllStatesValid(), mockFindTenantById, mockResumeSubscription, mockScheduleCancellation, mockSendCancellationEmail, mockUpdateTenantStripe, Role, state() (+1 more)
+### Community 840 - "child-activity-copy-service.ts"
+Cohesion: 0.24
+Nodes (8): CopyChildActivitiesContext, CopyChildActivitiesResult, copyChildActivitiesToSibling(), copyChildActivitiesToSiblings(), ADR-0055, mockCopyActivitiesAcrossChildren, SOURCE, ADR-0055
 
 ### Community 841 - "app.d.ts"
 Cohesion: 0.29
@@ -4708,8 +4708,8 @@ Cohesion: 0.29
 Nodes (5): ADMIN_GUIDE_PAGES, FALLBACK_PAGES, MEMBERS_PACKS_PAGES, SETTINGS_SUB_PAGES, ADR-0006
 
 ### Community 844 - "検討した選択肢"
-Cohesion: 0.15
-Nodes (12): 0053. LP visual regression: pixelmatch (OSS 6 件比較), app / child-home 拡張 (2026-06-03 補追、#2520 / CX-DoR #8), コンテキスト, 検討した選択肢, 決定, 結果, 選択肢 A: pixelmatch (採用), 選択肢 B: jest-image-snapshot (+4 more)
+Cohesion: 0.29
+Nodes (7): 検討した選択肢, 選択肢 A: pixelmatch (採用), 選択肢 B: jest-image-snapshot, 選択肢 C: Playwright `toHaveScreenshot()`, 選択肢 D: Percy / Chromatic (SaaS), 選択肢 E: BackstopJS, 選択肢 F: 独自実装 (sharp + canvas pixel diff)
 
 ### Community 845 - "pin-activity.spec.ts"
 Cohesion: 0.33
@@ -4739,9 +4739,9 @@ Nodes (5): repoRoot, serverRouteFiles, ADR-0061, WebhookRoute, webhookRoutes
 Cohesion: 0.29
 Nodes (3): JournalEntry, MIGRATIONS_DIR, tempDirs
 
-### Community 852 - "pr-body-template-integrity.test.ts"
-Cohesion: 0.33
-Nodes (5): extractReadySection(), findPreReadyUncheckedItems(), READY_SECTION_TEMPLATE_FILES, repoRoot, TEMPLATE_FILES
+### Community 852 - "webhook/+server.ts"
+Cohesion: 0.27
+Nodes (7): verifyWebhookSignature(), getWebhookSecret(), POST(), generateStripeSignature(), makeSignedRequest(), mockHandleWebhookEvent, StripeApiVersion
 
 ### Community 853 - "compose-backup-volume.test.ts"
 Cohesion: 0.38
@@ -4794,10 +4794,6 @@ Nodes (6): 4.6.1.1 認証成功後の navigating overlay (S-07c) (#3089), 4.6.1 
 ### Community 865 - "4.8 スタンプカード（ログインボーナス）"
 Cohesion: 0.33
 Nodes (6): 4.8 スタンプカード（ログインボーナス）, スタンプカードUI, スタンプカード構造, スタンプデザイン, ポイント計算, 押印オーバーレイ演出（StampPressOverlay）
-
-### Community 866 - "頻出 QM fix カテゴリ"
-Cohesion: 0.22
-Nodes (9): ADR / docs 系, CI gate 系, merge 通知を受けたら必ず確認する, QM fix パターン集 — merge 前に QM team が加えた頻出 fix, Self-Review HONESTY（false PASS 主張の禁止）, Svelte 5 / Ark UI 固有, テスト同期系（facade / strategy rewrite 後）, 実装 / セキュリティ系 (+1 more)
 
 ### Community 867 - "3.11 管理系 API"
 Cohesion: 0.33
@@ -4887,13 +4883,13 @@ Nodes (6): 3.1 AWS 公式 cold start 数値, 3.2 ganbari-quest 現状 (Docker im
 Cohesion: 0.33
 Nodes (6): 7.1 §1 結論を踏まえた設計, 7.2 ファイル構成, §7. 35 Repository 実装方式 (stateless fixture), 7.3 factory.ts 分岐, 7.4 行数試算, 7.5 公開実装の参考
 
-### Community 889 - "§B. SOLID 原則準拠検証"
-Cohesion: 0.33
-Nodes (6): B.1 SRP (Single Responsibility) — ◯ 準拠, B.2 OCP (Open/Closed) — ◯ 準拠, B.3 LSP (Liskov Substitution) — △ 条件付き準拠, B.4 ISP (Interface Segregation) — △ 改善余地あり, B.5 DIP (Dependency Inversion) — ◯ 準拠, §B. SOLID 原則準拠検証
+### Community 889 - "magic-bytes.ts"
+Cohesion: 0.39
+Nodes (7): AUDIO_SIGNATURES, detectMimeType(), IMAGE_SIGNATURES, MagicSignature, matchesSignature(), validateBase64ImageMagicBytes(), validateImageMagicBytes()
 
-### Community 890 - "§F. デモ画面ログ管理 (CloudWatch separation, PII handling)"
-Cohesion: 0.33
-Nodes (6): F.1 AWS Lambda CloudWatch Logs 公式仕様, F.2 IAM permission 設計 (log group level isolation), F.3 Retention policy, F.4 PII 除外設計, F.5 暗号化 (at rest / in transit), §F. デモ画面ログ管理 (CloudWatch separation, PII handling)
+### Community 890 - "0063. DSQL pool マルチテナント分離 — 信頼 claim/context + アプリ層単一強制点 + fitness function（RLS 非対応の代替防御線）"
+Cohesion: 0.25
+Nodes (8): 0063. DSQL pool マルチテナント分離 — 信頼 claim/context + アプリ層単一強制点 + fitness function（RLS 非対応の代替防御線）, コンテキスト, 検討した選択肢（OSS / 確立パターン 2 件以上 — #1350）, 決定, 結果, 選択肢 A: pool + PostgreSQL RLS（DB エンジン強制）, 選択肢 B: silo（cluster-per-tenant）+ per-tenant IAM, 選択肢 C: pool + 信頼 claim/context + アプリ層単一強制点 + fitness function（採用）
 
 ### Community 891 - "GitHub API head_sha staleness 対処 (#2557)"
 Cohesion: 0.33
@@ -4947,9 +4943,9 @@ Nodes (5): Database, fs, main(), parseArgs(), path
 Cohesion: 0.53
 Nodes (5): applyAgeTierLabels(), applyAll(), applyLpKeys(), applyPlanLabels(), ADR-0025
 
-### Community 904 - "round-trip-required.test.ts"
-Cohesion: 0.25
-Nodes (6): __dirname, __filename, findSeed(), REPO_ROOT, SEED_CASES, ADR-0052
+### Community 904 - "nuc-pglite-cutover.ts"
+Cohesion: 0.32
+Nodes (6): Args, { cmd, opts }, fail(), runExport(), runImport(), ADR-0064
 
 ### Community 905 - "Demo Repository (`src/lib/server/db/demo/`)"
 Cohesion: 0.33
@@ -4967,9 +4963,9 @@ Nodes (5): buildSitemapXml(), ENTRIES, GET(), prerender, SitemapEntry
 Cohesion: 0.40
 Nodes (3): PLAN_USERS, PlanUserKey, warmupAdminPages()
 
-### Community 909 - "client-types.ts"
-Cohesion: 0.32
-Nodes (7): getMarketplaceTypeMetaClient(), MARKETPLACE_TYPE_CODES_CLIENT, MARKETPLACE_TYPE_METAS_CLIENT, MarketplaceTypeCodeClient, MarketplaceTypeMeta, ADR-0046, ADR-0052
+### Community 909 - "parent-gate.spec.ts"
+Cohesion: 0.29
+Nodes (5): NAV_TIMEOUT_MS, ADR-0061, ADR-0006, ADR-0045, ADR-0050
 
 ### Community 910 - "challenge-set-strategy.test.ts"
 Cohesion: 0.25
@@ -5187,9 +5183,9 @@ Nodes (5): 5.1 案 D = single Lambda + tenant filter (Supabase 等価), 5.2 ganb
 Cohesion: 0.40
 Nodes (5): 2.1 案の比較, 2.2 案 B (sessionStorage) の AWS 公式裏付け, 2.3 他社調査 (一次情報源で確認できた範囲), 2.4 結論, §2. Session 隔離戦略
 
-### Community 966 - "§4. CDK 実装 + IAM Permission Boundary"
-Cohesion: 0.40
-Nodes (5): 4.1 同一 ECR image から 2 Lambda 定義する CDK パターン, 4.2 IAM execution role の分離, 4.3 Permission Boundary intersection の挙動, 4.4 AWS SaaS Factory が permission boundary を明示しない件, §4. CDK 実装 + IAM Permission Boundary
+### Community 966 - "ペルソナ定義（docs/design/11-ペルソナ設計.md 準拠）"
+Cohesion: 0.29
+Nodes (7): フィードバック生成テンプレート, ペルソナ A: 3歳児の親（30代）, ペルソナ B: 小学3年生の親（40代）, ペルソナ C: 中学2年生本人（14歳）, ペルソナ定義（docs/design/11-ペルソナ設計.md 準拠）, 仮想顧客フィードバック, 出力フォーマット
 
 ### Community 967 - "TA-002 — docs のみ変更時に pull_request CI がスキップされる（正常動作）"
 Cohesion: 0.40
@@ -5307,6 +5303,10 @@ Nodes (3): __filename, REPO_ROOT, TMP_ROOT
 Cohesion: 0.50
 Nodes (4): applyBudoux(), ADR-0016, ADR-0025, wrapTextNodes()
 
+### Community 999 - "ブランチ戦略 設計経緯"
+Cohesion: 0.29
+Nodes (7): ブランチ戦略 設計経緯, 採用案とその理由, 棄却理由, 検討した代替案, 残された懸念・フォローアップ, 議論の発端, 関連
+
 ### Community 1000 - "svelte.config.js"
 Cohesion: 0.40
 Nodes (4): config, ADR-0029, ADR-0048, ADR-0067
@@ -5372,7 +5372,7 @@ Cohesion: 0.50
 Nodes (4): source, assist, actions, organizeImports
 
 ### Community 1018 - "ai-suggest-gate-derivation.test.ts"
-Cohesion: 0.29
+Cohesion: 0.25
 Nodes (5): Callsite, callsites, DEFERRED_DERIVATIONS, repoRoot, ADR-0061
 
 ### Community 1019 - "3.20 おやすみ日"
@@ -5415,9 +5415,9 @@ Nodes (4): 3.2 サインアップフェーズ, ユーザー行動フロー, 同�
 Cohesion: 0.50
 Nodes (4): 3.7 メンバー管理フェーズ（家族の追加・削除）, 家族メンバー削除フロー, 家族メンバー招待フロー, 現状と課題
 
-### Community 1029 - "3.8 問い合わせフェーズ"
-Cohesion: 0.50
-Nodes (4): 3.8 問い合わせフェーズ, LP からの問い合わせフロー（未実装）, ユーザー行動フロー, 現状と課題
+### Community 1029 - "generate-pwa-icons.ts"
+Cohesion: 0.29
+Nodes (5): ICONS_DIR, main(), ROOT, SIZES, SVG_PATH
 
 ### Community 1030 - "4. 通知設計"
 Cohesion: 0.50
@@ -5527,9 +5527,9 @@ Nodes (4): §1.7 集約 ChecklistTemplate（C7, family master — ADR-0055 唯�
 Cohesion: 0.50
 Nodes (4): §3.1 自然キー vs 代理キーの論理的選択（M1「合成 id 廃止・自然キー露出」L-12 の反映）, §3.2 外部キー（参照整合）の宣言, §3.3 §P1 非可逆性への配慮（論理レベルの前置き）, §3 キー戦略
 
-### Community 1057 - "activity-pack-strategy.test.ts"
-Cohesion: 0.29
-Nodes (5): mockFindActivities, mockFindActivitiesByChild, mockFindAllChildren, mockInsertActivitiesBulk, ADR-0052
+### Community 1057 - "seed-staging.ts"
+Cohesion: 0.38
+Nodes (5): Args, { cmd, opts }, fail(), runApply(), runGenerate()
 
 ### Community 1058 - "10-B. 実装状況スナップショット (2026-04-20)"
 Cohesion: 0.50
@@ -5575,9 +5575,9 @@ Nodes (4): 4.1 Webhook 処理 — `invoice.payment_failed`, 4.2 ユーザー視�
 Cohesion: 0.50
 Nodes (4): Step 7: 最終確認, スポンサーページの確認, スポンサーボタンの確認, 別アカウントでの確認（推奨）
 
-### Community 1070 - "§12. LP linking 戦略"
-Cohesion: 0.50
-Nodes (4): 12.1 candidate URL, 12.2 推奨: A (subdomain), 12.3 SEO 対策, §12. LP linking 戦略
+### Community 1070 - "ブランド/UI 一貫性チェック"
+Cohesion: 0.33
+Nodes (6): docs/DESIGN.md §9 禁忌事項 5 点, カラートークン使用チェック, スクリーンショットチェック, ブランド/UI 一貫性チェック, ブランドトーン確認, 用語辞書チェック
 
 ### Community 1071 - "exaggeration-sample.md"
 Cohesion: 0.50
@@ -5615,9 +5615,9 @@ Nodes (3): MIME, SITE_DIR, ADR-0025
 Cohesion: 0.50
 Nodes (3): MIME, SITE_DIR, ADR-0010
 
-### Community 1098 - "reward-suggest-service.ts"
-Cohesion: 0.31
-Nodes (7): REWARD_KEYWORD_MAP, REWARD_TOOL, suggestByKeywords(), SuggestedReward, suggestReward(), suggestWithAi(), POST()
+### Community 1098 - "§5. CloudFront multi-origin: subdomain vs path-prefix"
+Cohesion: 0.33
+Nodes (6): 5.1 Path-prefix 案 (`/demo/*`) — CloudFront cache behavior, 5.2 Subdomain 案 (`demo.ganbari-quest.com`) — CloudFront alternate domain name, 5.3 比較表, 5.4 推奨, 5.5 Path normalization の注意, §5. CloudFront multi-origin: subdomain vs path-prefix
 
 ### Community 1099 - "demo-cta-href-migration-2097.test.ts"
 Cohesion: 0.50
@@ -5631,13 +5631,9 @@ Nodes (3): NOTE:, ADR-0010, ADR-0061
 Cohesion: 0.33
 Nodes (6): makePngFile(), mockDeleteFile, mockFindChildById, mockSaveFile, mockUpdateChildAvatarUrl, postAvatar()
 
-### Community 1105 - "3.1 子供関連"
-Cohesion: 0.67
-Nodes (3): 3.1 子供関連, GET /api/v1/children, GET /api/v1/children/[id]
-
-### Community 1106 - "components/Header.svelte"
-Cohesion: 0.33
-Nodes (3): pointFlight, BASE, ADR-0011
+### Community 1105 - "admin-checklists-ai-gate-4506.mjs"
+Cohesion: 0.47
+Nodes (3): dismissOverlays(), openAiDialog(), waitForMenuOpen()
 
 ### Community 1107 - "3.6 ログインボーナス関連"
 Cohesion: 0.67
@@ -5651,9 +5647,9 @@ Nodes (4): ANONYMOUS_ACTOR, NUC_LOCAL_ACTOR, resolveAuditActor(), ADR-0010
 Cohesion: 0.67
 Nodes (3): 3.1 認知・集客フェーズ, ユーザー行動フロー, 現状と課題
 
-### Community 1110 - "3.6 プラン変更フェーズ"
-Cohesion: 0.67
-Nodes (3): 3.6 プラン変更フェーズ, ユーザー行動フロー, 現状と課題
+### Community 1110 - "3.21 設定"
+Cohesion: 0.40
+Nodes (5): 3.21 設定, GET /api/v1/settings/decay, GET /api/v1/settings/vapid-key, POST /api/v1/settings/tutorial, PUT /api/v1/settings/decay
 
 ### Community 1111 - "3.9 データエクスポートフェーズ"
 Cohesion: 0.67
@@ -5691,9 +5687,9 @@ Nodes (3): 5.1 手順, 5.2 kill switch SSOT, 5. 将来の Stripe apiVersion bump
 Cohesion: 0.67
 Nodes (3): §5.1 構造決定（AWS 公式 doc + spike#1 + **Phase 1 PoC 実測**）, §5.2 PoC 保留（secondary 採否は実データ規模で最終判断、#3425）, §5 index 戦略（ASYNC 制約下、P4）
 
-### Community 1120 - "§2 PK 戦略（§P1 不変性下の凍結確定）"
-Cohesion: 0.67
-Nodes (3): §2.1 自然複合 PK 昇格の governing rule（§P1 凍結の監査可能な線引き、構造決定）, §2.2 PK 凍結 manifest の考え方（構造決定）, §2 PK 戦略（§P1 不変性下の凍結確定）
+### Community 1120 - "§C. UML 設計図 (Class / Sequence / Component)"
+Cohesion: 0.40
+Nodes (5): C.1 Class Diagram — Multi-Lambda Demo 全体構造, C.2 Sequence Diagram — demo Lambda request flow, C.3 Component Diagram — Multi-Lambda 配備構成, C.4 UML 3 図の補足, §C. UML 設計図 (Class / Sequence / Component)
 
 ### Community 1121 - "11. 残課題・将来 Epic への送り"
 Cohesion: 0.67
@@ -5711,13 +5707,17 @@ Nodes (3): DEMO_PORT, ADR-0048, useDeployedTarget
 Cohesion: 0.50
 Nodes (3): PRECACHE_ASSETS, PushNotificationOptions, sw
 
-### Community 1174 - "toast-stack.ts"
-Cohesion: 0.53
-Nodes (3): MAX_TOASTS, reconcileToastStack(), ToastItem
+### Community 1174 - "§G. モック化 (Test Double) と E2E test 戦略"
+Cohesion: 0.40
+Nodes (5): G.1 vitest unit test での Fake Repository 使用, G.2 Playwright E2E test での demo Lambda 利用, G.3 Mock pyramid との関係, G.4 Spy / Mock を使うべき場面 (使わない判断), §G. モック化 (Test Double) と E2E test 戦略
 
-### Community 1177 - "Runbook: operator-level PIN reset (#2994 / EPIC #2990)"
-Cohesion: 0.22
-Nodes (8): 1. 主機構: `PARENT_PIN_RESET` env (AUTH_MODE=local 専用), 2. フォールバック: SQLite 直接操作 (docker / NUC、env が使えない場合), 3. フォールバック: PaaS one-off run, 4. フォールバック: cognito SaaS (DynamoDB、運用者によるサポート介入), 5. やらないこと (Pre-PMF、ADR-0010), docker-compose (NUC セルフホスト), PaaS (Heroku 型 config vars), Runbook: operator-level PIN reset (#2994 / EPIC #2990)
+### Community 1177 - "isLegacyCompatibleDateTime"
+Cohesion: 0.50
+Nodes (4): isIsoDatetime(), isLegacyCompatibleDateTime(), LEGACY_COMPAT_DATETIME_RE, ADR-0066
+
+### Community 1188 - "admin-settings-support-backup-health.test.ts"
+Cohesion: 0.40
+Nodes (3): loadSupportPage(), mockGetPgliteBackupStatus, ORIGINAL_ENV
 
 ### Community 1201 - "cron-stripe-webhook-delivery-check.test.ts"
 Cohesion: 0.40
@@ -5739,25 +5739,37 @@ Nodes (6): 8.1 カードサイズプリセット, 8.2 年齢別デフォルト, 
 Cohesion: 0.33
 Nodes (3): AUTO_OVERLAYS, CHILDREN, ADR-0011
 
-### Community 1397 - "admin/challenges/+page.svelte"
-Cohesion: 0.09
-Nodes (9): ariaLabel, barWidth, groupWidth, linePath(), maxCount, x(), y(), yTicks (+1 more)
+### Community 1243 - "§H. 既存 ADR との整合 + ADR-0048 起票要否"
+Cohesion: 0.50
+Nodes (4): H.1 ADR 整合性 matrix, H.2 ADR-0048 起票推奨, H.3 ADR 1-in-1-out ルール (`docs/decisions/README.md`), §H. 既存 ADR との整合 + ADR-0048 起票要否
+
+### Community 1394 - "stripe-portal-create-failure.test.ts"
+Cohesion: 0.50
+Nodes (3): mockFindTenantById, mockNotifyStripeAlert, mockPortalCreate
+
+### Community 1395 - "3.12 再登録フェーズ"
+Cohesion: 0.67
+Nodes (3): 3.12 再登録フェーズ, ユーザー行動フロー, 現状と課題
+
+### Community 1397 - "ids.ts"
+Cohesion: 0.04
+Nodes (20): Branded, ADR-0048, ADR-0055, ariaLabel, barWidth, groupWidth, linePath(), maxCount (+12 more)
 
 ### Community 1398 - "version.ts"
 Cohesion: 0.47
 Nodes (3): APP_VERSION, APP_VERSION_DATE, GET()
 
+### Community 1399 - "3.5 課金開始フェーズ"
+Cohesion: 0.67
+Nodes (3): 3.5 課金開始フェーズ, ユーザー行動フロー, 現状と課題
+
 ### Community 1400 - "child-celebration-click-intercept.spec.ts"
 Cohesion: 0.40
 Nodes (3): AUTO_OVERLAYS, jstDate(), seedBothPending()
 
-### Community 1401 - "bedrock-claude-provider.test.ts"
-Cohesion: 0.33
-Nodes (3): load(), mockSend, TOOL
-
-### Community 1402 - "0001. 設計書は Single Source of Truth"
-Cohesion: 0.40
-Nodes (5): 0001. 設計書は Single Source of Truth, コンテキスト, 決定, 結果, 関連
+### Community 1401 - "§8 トレーサビリティ（物理判断 → M2 論理 + 根拠）"
+Cohesion: 0.67
+Nodes (3): §8.1 物理テーブル → M2 リレーション（no-silent-gap）, §8.2 主要物理判断 → 根拠（構造決定 or PoC 保留、[must]C 是正で spike#2-#8 依拠を降格）, §8 トレーサビリティ（物理判断 → M2 論理 + 根拠）
 
 ### Community 1403 - "§19 LP / Legal 文言の SSOT 経路 (#1683 umbrella 完遂, #1704)"
 Cohesion: 0.40
@@ -5770,10 +5782,6 @@ Nodes (4): 3.18 閲覧専用トークン, DELETE /api/v1/admin/viewer-tokens/[id
 ### Community 1408 - "[05b] 年齢別成長ロードマップ — 卒業を最終地点として位置付ける (#1613 R9 / #1848)"
 Cohesion: 0.50
 Nodes (4): [05b] 年齢別成長ロードマップ — 卒業を最終地点として位置付ける (#1613 R9 / #1848), §1. 設計背景（why）, §2. 設計原則（rules）, §3. 仕様（what）
-
-### Community 1409 - "checklist-service.ts"
-Cohesion: 0.11
-Nodes (23): TimeSlot, VALID_TIME_SLOTS, deleteOverride(), deleteTemplate(), deleteTemplateItem(), insertOverride(), updateTemplate(), addOverride() (+15 more)
 
 ### Community 1411 - "3.15 ヘルスチェック"
 Cohesion: 0.67
@@ -5790,22 +5798,22 @@ Nodes (3): 3.22 Push 通知, POST /api/v1/notifications/subscribe, POST /api/v1/
 ## Knowledge Gaps
 - **11291 isolated node(s):** `CODE_EXECUTION_TOOLS`, `ADR-0056`, `ADR-0022`, `moduleLoadFailures`, `ADR-0056` (+11286 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **192 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **195 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `isMain()` connect `is-main.mjs` to `staging-lambda-env-ssot.test.ts`, `integration-pr-body.mjs`, `measure-lp-dimensions.mjs`, `generate-coverage-gap-map.mjs`, `check-pr-body.mjs`, `orphan-utils.mjs`, `check-ac-verification-map.mjs`, `check-readdir-rotation-guard.mjs`, `check-recent-deploy-deletion.mjs`, `check-action-sha-pin.mjs`, `sync-lp-fallback.mjs`, `check-cdk-replacement.test.mjs`, `check-lambda-env-drift.mjs`, `generate-lp-labels.mjs`, `generate-release-predicate.mjs`, `check-no-at-html.mjs`, `check-repo-scan-test-declaration.mjs`, `generate-sitemap.mjs`, `check-ss-render-health.mjs`, `collect-integration-prs.test.ts`, `pre-ready.mjs`, `pglite-journal-when-range-3948.test.ts`, `pr-lane.mjs`, `back-merge-pr-body.mjs`, `cli-entry-guard.test.ts`, `to-sarif.mjs`, `check-schema-migration-completeness.mjs`, `check-screenshot-freshness.mjs`, `check-native-dep-pin.mjs`, `check-workflow-sparse-checkout-closure.mjs`, `dev-open-pr/scripts/init-pr-body.mjs`, `pr-template-gate-checks.mjs`, `check-gh-account-before-pr.mjs`, `check-no-plan-literals.mjs`, `check-local-tz-date-getters.mjs`, `check-codeql-alerts.mjs`, `close-leak-report.mjs`, `generate-integration-evidence.mjs`, `check-license-key-leak.mjs`, `check-no-direct-env-access.mjs`, `check-pr-screenshot.mjs`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
-- **Why does `asChildId()` connect `ids.ts` to `SqlExecutor`, `ChildId`, `import-service.ts`, `logger.ts`, `sqlite/child-challenge-repo.ts`, `demo-data.ts`, `child-service.ts`, `plan-limit-service.ts`, `auth.ts`, `home/+page.server.ts`, `src/lib/marketplace/types.ts`, `checklist-strategy.test.ts`, `date-utils.ts`, `challenge-set-strategy.test.ts`, `admin/rewards/+page.server.ts`, `features.spec.ts`, `unit/helpers/test-db.ts`, `age-recalc-service.test.ts`, `checklist-template-import-service.ts`, `sqlite/activity-repo.ts`, `entities.ts`, `demo/checklist-repo.ts`, `demo/certificate-repo.ts`, `auth/types.ts`, `age-tier.ts`, `sqlite/child-activity-repo.ts`, `db/schema.ts`, `sqlite/voice-repo.ts`, `marketplace-item.ts`, `export-service.test.ts`, `monthly-habit-certificate.test.ts`, `sqlite/status-repo.ts`, `dsql/stamp-card-repo.ts`, `sqlite/child-repo.ts`, `sqlite/stamp-card-repo.ts`, `validationError`, `admin-rewards-actions.test.ts`, `child-challenge-service.ts`, `child-dashboard-service.test.ts`, `import-service.test.ts`, `status-service.ts`, `activity-service.ts`, `rule-preset-import-service.ts`, `certificate-service.ts`, `sqlite/checklist-repo.ts`, `activity.ts`, `admin-checklists-create-template.test.ts`, `sqlite/certificate-repo.ts`, `message-service.test.ts`, `sqlite/reward-redemption-repo.ts`, `schema-range-ssot.test.ts`, `env.ts`, `demo/child-challenge-repo.ts`, `plan-fixtures.ts`, `image-service.ts`, `checklists/+page.server.ts`, `checklist-distribution-service.ts`, `deletion-warning-service.ts`, `battle-service.ts`, `synthetic-staging-dataset.ts`, `login-bonus-service.ts`, `checklist-service.test.ts`, `usage-log-service.ts`, `requireTenantId`, `demo-service.ts`, `questionnaire-service.ts`, `dsql/report-daily-summary-repo.ts`, `demo/sibling-cheer-repo.ts`, `special-reward.ts`, `dsql/reward-redemption-repo.ts`, `tz-invariance.test.ts`, `dsql/auth-repo.ts`, `src/lib/marketplace/strategies/rule-preset-strategy.ts`, `reward-set-import-service.ts`, `stub-repos.test.ts`, `sqlite/evaluation-repo.ts`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
-- **Why does `ChildId` connect `ChildId` to `SqlExecutor`, `checklist-service.ts`, `import-service.ts`, `logger.ts`, `home/+page.server.ts`, `demo-data.ts`, `child-service.ts`, `sqlite/child-challenge-repo.ts`, `date-utils.ts`, `auth.ts`, `src/lib/marketplace/types.ts`, `plan-limit-service.ts`, `entities.ts`, `admin/rewards/+page.server.ts`, `checklist-template-import-service.ts`, `daily-mission-service.ts`, `unit/helpers/test-db.ts`, `age-recalc-service.test.ts`, `sqlite/activity-repo.ts`, `stamp-card-service.ts`, `getRepos`, `demo/certificate-repo.ts`, `auth/types.ts`, `demo/checklist-repo.ts`, `sqlite/child-activity-repo.ts`, `db/schema.ts`, `sqlite/voice-repo.ts`, `marketplace-item.ts`, `deletion-warning-service.ts`, `export-service.test.ts`, `validationError`, `dsql/stamp-card-repo.ts`, `sqlite/child-repo.ts`, `sqlite/stamp-card-repo.ts`, `sqlite/status-repo.ts`, `child-challenge-service.ts`, `child-dashboard-service.test.ts`, `ids.ts`, `demo/activity-repo.ts`, `status-service.ts`, `activity-service.ts`, `rule-preset-import-service.ts`, `account-deletion-service.ts`, `certificate-service.ts`, `sqlite/checklist-repo.ts`, `activity.ts`, `image-service.ts`, `sqlite/certificate-repo.ts`, `message-service.test.ts`, `sqlite/reward-redemption-repo.ts`, `admin-checklists-create-template.test.ts`, `plan-fixtures.ts`, `export-service.ts`, `demo/child-challenge-repo.ts`, `graduation-service.ts`, `checklists/+page.server.ts`, `checklist-distribution-service.ts`, `battle-service.ts`, `login-bonus-service.ts`, `synthetic-staging-dataset.ts`, `usage-log-service.ts`, `requireTenantId`, `demo-service.ts`, `questionnaire-service.ts`, `dsql/report-daily-summary-repo.ts`, `demo/sibling-cheer-repo.ts`, `special-reward.ts`, `value-preview-service.ts`, `dsql/reward-redemption-repo.ts`, `reward-set-import-service.ts`, `stub-repos.test.ts`, `services/types.ts`, `demo/child-activity-repo.ts`, `sqlite/evaluation-repo.ts`, `admin-checklists-copy-distribution.test.ts`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+- **Why does `isMain()` connect `is-main.mjs` to `staging-lambda-env-ssot.test.ts`, `integration-pr-body.mjs`, `measure-lp-dimensions.mjs`, `generate-coverage-gap-map.mjs`, `check-pr-body.mjs`, `orphan-utils.mjs`, `check-ac-verification-map.mjs`, `check-readdir-rotation-guard.mjs`, `check-recent-deploy-deletion.mjs`, `check-action-sha-pin.mjs`, `sync-lp-fallback.mjs`, `check-cdk-replacement.test.mjs`, `check-lambda-env-drift.mjs`, `generate-lp-labels.mjs`, `check-no-at-html.mjs`, `check-repo-scan-test-declaration.mjs`, `generate-sitemap.mjs`, `check-ss-render-health.mjs`, `collect-integration-prs.test.ts`, `pre-ready.mjs`, `pglite-journal-when-range-3948.test.ts`, `hotfix-back-merge.mjs`, `pr-lane.mjs`, `check-new-required-env.mjs`, `back-merge-pr-body.mjs`, `cli-entry-guard.test.ts`, `to-sarif.mjs`, `check-screenshot-freshness.mjs`, `check-native-dep-pin.mjs`, `check-workflow-sparse-checkout-closure.mjs`, `dev-open-pr/scripts/init-pr-body.mjs`, `pr-template-gate-checks.mjs`, `check-gh-account-before-pr.mjs`, `check-no-plan-literals.mjs`, `check-local-tz-date-getters.mjs`, `check-codeql-alerts.mjs`, `close-leak-report.mjs`, `generate-integration-evidence.mjs`, `check-license-key-leak.mjs`, `check-no-direct-env-access.mjs`, `check-ss-blob-sha-uniqueness.mjs`, `check-pr-screenshot.mjs`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+- **Why does `logger` connect `logger.ts` to `SqlExecutor`, `discord-notify-service.ts`, `getRepos`, `auth/factory.ts`, `grace-period-service.ts`, `challenge-set-import-service.ts`, `child-service.ts`, `date-utils.ts`, `auth.ts`, `stripe-webhook-delivery-monitor.ts`, `subscribe/+server.ts`, `consent-service.ts`, `invite-service.ts`, `reward-redemption-service.ts`, `checklist-template-import-service.ts`, `activity-suggest-service.ts`, `unit/helpers/test-db.ts`, `age-recalc-service.test.ts`, `ops-service.ts`, `activity-log-service.ts`, `auth/types.ts`, `founder-inquiry-service.ts`, `auth/login/+page.server.ts`, `checklist-suggest-service.ts`, `lifecycle-email-service.ts`, `stripe-service.ts`, `requireTenantId`, `discord-alert.ts`, `email-service.ts`, `evaluation-service.ts`, `setSetting`, `notification-service.ts`, `sqlite/child-repo.ts`, `pmf-survey-service.ts`, `hooks.server.ts`, `ops-authz.ts`, `rule-preset-import-service.ts`, `account-deletion-service.ts`, `pricing-trigger-service.ts`, `activity-service.ts`, `certificate-service.ts`, `admin-bypass-metrics-service.ts`, `subscription-status.ts`, `activity-import-service.ts`, `verifyCronAuth`, `point-service.ts`, `tenant-deletion-marketing-suppression-4338.test.ts`, `support/+page.server.ts`, `deletion-export-service.ts`, `export-service.ts`, `graduation-service.ts`, `child-activity-copy-service.ts`, `getEnv`, `getStripeClient`, `availability.ts`, `usage-log-service.ts`, `subscription/+page.server.ts`, `webhook/+server.ts`, `trial-notification-service.ts`, `tenant-cleanup-service.test.ts`, `integration/services/setup-service.test.ts`, `config.ts`, `activity-record-preparation.ts`, `src/lib/marketplace/strategies/rule-preset-strategy.ts`, `reward-set-import-service.ts`, `cancellation-service.ts`, `ops-analytics-service.ts`, `subscription-plan.ts`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
+- **Why does `asChildId()` connect `asChildId` to `SqlExecutor`, `ChildId`, `getRepos`, `auth/factory.ts`, `sqlite/child-challenge-repo.ts`, `demo-data.ts`, `child-service.ts`, `date-utils.ts`, `auth.ts`, `checklist-strategy.test.ts`, `src/lib/marketplace/types.ts`, `challenge-set-import-service.ts`, `habit-certificate-notice-service.ts`, `entities.ts`, `reward-redemption-service.ts`, `features.spec.ts`, `unit/helpers/test-db.ts`, `challenge-set-strategy.test.ts`, `age-recalc-service.test.ts`, `asCategoryId`, `checklist-template-import-service.ts`, `demo/checklist-repo.ts`, `demo/certificate-repo.ts`, `auth/types.ts`, `sqlite/child-activity-repo.ts`, `Child`, `db/schema.ts`, `sqlite/voice-repo.ts`, `requireTenantId`, `evaluation-service.ts`, `export-service.test.ts`, `setSetting`, `activity.ts`, `sqlite/status-repo.ts`, `sqlite/child-repo.ts`, `sqlite/stamp-card-repo.ts`, `admin-rewards-actions.test.ts`, `monthly-habit-certificate.test.ts`, `child-challenge-service.ts`, `child-dashboard-service.test.ts`, `child-challenge-service.test.ts`, `import-service.test.ts`, `sqlite/daily-mission-repo.ts`, `status-service.ts`, `rule-preset-import-service.ts`, `certificate-service.ts`, `sqlite/checklist-repo.ts`, `subscription-status.ts`, `activity-import-service.ts`, `interfaces/index.ts`, `sqlite/certificate-repo.ts`, `point-service.ts`, `admin-checklists-create-template.test.ts`, `schema-range-ssot.test.ts`, `debug-plan.ts`, `sqlite/battle-repo.ts`, `image-service.ts`, `child-activity-copy-service.ts`, `message-service.test.ts`, `tz-invariance.test.ts`, `battle-service.ts`, `synthetic-staging-dataset.ts`, `invite-service.ts`, `checklist-service.test.ts`, `usage-log-service.ts`, `demo-service.ts`, `sqlite/report-daily-summary-repo.ts`, `demo/sibling-cheer-repo.ts`, `special-reward.ts`, `sqlite/reward-redemption-repo.ts`, `reward-set-import-service.ts`, `db/factory.ts`, `dsql/voice-repo.ts`, `ids.ts`, `sqlite/evaluation-repo.ts`, `(child)/+layout.svelte`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `asChildId()` (e.g. with `GET()` and `POST()`) actually correct?**
   _`asChildId()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `CODE_EXECUTION_TOOLS`, `ADR-0056`, `ADR-0022` to the rest of the system?**
   _11291 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `labels.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.009995869475423379 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.009991158267020336 - nodes in this community are weakly interconnected._
 - **Should `SqlExecutor` be split into smaller, more focused modules?**
-  _Cohesion score 0.028959990285957138 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.026608376511226252 - nodes in this community are weakly interconnected._
