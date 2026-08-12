@@ -57,6 +57,7 @@ import {
 	formatRetentionPeriod,
 	PLAN_HISTORY_RETENTION_DAYS,
 } from '$lib/domain/constants/plan-retention';
+import { TRIAL_EMAIL_LABELS } from '$lib/domain/labels';
 import {
 	getNotificationSchedule,
 	getTrialExpirationInfo,
@@ -192,7 +193,31 @@ describe('trial-notification-service', () => {
 
 			// SSOT の値を 365 の倍数に変えれば期待値は「1年」になり、
 			// 独自整形 (`365日`) に戻した瞬間この assert が落ちる。
-			expect(call.htmlBody).toContain(`データ保持期間: ${formatRetentionPeriod(freeDays)}`);
+			//
+			// #4507: 行の文言は「データ保持期間」→「履歴（記録）の保持期間」に変わった
+			// (消えるのは活動記録などの履歴だけで、アカウント自体ではないため)。
+			// ここで文面を再度ハードコードすると label SSOT と二重管理になるので、
+			// **label の出力そのもの**と突き合わせる。service が label を経由せず
+			// 自前で組み立てに戻れば、この assert が落ちる。
+			expect(call.htmlBody).toContain(TRIAL_EMAIL_LABELS.freeRetentionLine(freeDays));
+			// label 側が formatter を捨てて独自整形に戻る経路も塞ぐ (#4482 の本来の担保)
+			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(freeDays)).toContain(
+				formatRetentionPeriod(freeDays),
+			);
+		});
+
+		// #4507: 旧文面は「データは削除されません」「いつでも復元できます」と無条件に
+		// 約束していたが、無料プラン復帰後の履歴は保持期間超過分が物理削除される。
+		// 3 通が互いに食い違わないよう、シリーズ全通で復元不能を述べることを固定する。
+		it('保持期間を過ぎた履歴が復元できないことを述べる (#4507)', async () => {
+			await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'standard');
+			const call = mockSendEmail.mock.calls[0]?.[0];
+			const freeDays = PLAN_HISTORY_RETENTION_DAYS.free;
+
+			expect(call.htmlBody).toContain(TRIAL_EMAIL_LABELS.retentionIrreversibleLine(freeDays));
+			// 「閲覧不可」等への婉曲化を禁じる (実装は物理削除であり閲覧可否の話ではない)
+			expect(call.htmlBody).toContain('復元できません');
+			expect(call.htmlBody).not.toContain('データは削除されません');
 		});
 	});
 

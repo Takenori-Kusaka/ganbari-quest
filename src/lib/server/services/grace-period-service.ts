@@ -118,14 +118,14 @@ async function notifyDeletionReserved(
 		const members = await repos.auth.findTenantMembers(tenantId);
 		const owner = members.find((m) => m.role === 'owner');
 		if (!owner) {
-			logger.warn('[grace-period] no owner found; deletion reserved unnotified', {
+			logger.warn('[grace-period] no owner found; deletion reserved without notification', {
 				context: { tenantId },
 			});
 			return;
 		}
 		const user = await repos.auth.findUserById(owner.userId);
 		if (!user?.email) {
-			logger.warn('[grace-period] owner has no email; deletion reserved unnotified', {
+			logger.warn('[grace-period] owner has no email; deletion reserved without notification', {
 				context: { tenantId },
 			});
 			return;

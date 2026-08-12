@@ -369,7 +369,7 @@ async function resolveOwnerEmail(ownerId: string): Promise<string | null> {
  */
 async function notifyDeletionComplete(tenantId: string, email: string | null): Promise<void> {
 	if (!email) {
-		logger.warn('[account-deletion] no owner email; deletion completed unnotified', {
+		logger.warn('[account-deletion] no owner email; deletion completed without notification', {
 			context: { tenantId },
 		});
 		return;

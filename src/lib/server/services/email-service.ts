@@ -471,7 +471,7 @@ export async function sendDeletionCompleteEmail(email: string): Promise<boolean>
       <p>${labels.intro}</p>
       <p>${labels.irreversibleNote}</p>
       <p>${labels.thanks}</p>
-      <p>${labels.resignupNote}</p>
+      <p>${labels.signupAgainNote}</p>
     `),
 		textBody: [
 			labels.heading,
@@ -479,7 +479,7 @@ export async function sendDeletionCompleteEmail(email: string): Promise<boolean>
 			labels.intro,
 			labels.irreversibleNote,
 			labels.thanks,
-			labels.resignupNote,
+			labels.signupAgainNote,
 		].join('\n'),
 	});
 }
