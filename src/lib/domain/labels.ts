@@ -3763,6 +3763,8 @@ export const GRADUATION_LABELS = {
 		'長い間ありがとうございました。お子さまのこれからの自律した日々が、ますます充実することを願っています。',
 	successConsentThanks:
 		'事例公開のご快諾ありがとうございました。サービス改善・他のご家庭への参考に活用させていただきます。',
+	// #4498: 課金プランの卒業送信ボタン。押した先は Stripe の解約フローであり、
+	// 「卒業を完了する」系の名乗りだと解約が終わったと誤認される。
 	successProceedButton: '解約手続きへ進む',
 	successProceedFreeButton: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
 } as const satisfies Record<string, unknown>;

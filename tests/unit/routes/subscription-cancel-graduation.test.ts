@@ -6,18 +6,44 @@
 // - load: child が居ない / point 取得失敗時も totalPoints=0 で表示できる
 // - action: nickname 必須 (consented=true 時)
 // - action: nickname 30 文字超でエラー
-// - action: 課金プラン → /admin/subscription にリダイレクト
+// - action: 課金プラン → Customer Portal の解約フローへ直行 (#4498)
+// - action: portal を作れなかった場合 → thanks?portalUnavailable=1 (#4498 / #4329 と同型)
 // - action: 無料プラン → /admin/subscription/cancel/thanks にリダイレクト
+//
+// #4498: 旧実装は課金プランでも `createPortalSession` を呼ばず `/admin/subscription` へ
+// 戻すだけだった。送信ボタンは「卒業を完了する」なので顧客は手続き完了と誤認し、
+// **課金が継続する**。旧テストはその挙動 (`location: '/admin/subscription'`) を
+// 正解として固定していたため、テストごと是正する。
 
 // biome-ignore-all lint/suspicious/noExplicitAny: テスト用 load/action の型を最小化
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	PORTAL_FALLBACK_CONTEXT,
+	PORTAL_FALLBACK_PARAM,
+	PORTAL_UNAVAILABLE_PARAM,
+} from '$lib/domain/constants/stripe-portal';
 import type { ChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
 const mockGetBalance = vi.fn();
 const mockGetLicenseInfo = vi.fn();
 const mockRecordGraduationConsent = vi.fn();
+const mockCreatePortalSession = vi.fn();
+const mockIsStripeEnabled = vi.fn();
+const mockLoggerError = vi.fn();
+
+vi.mock('$lib/server/services/stripe-service', () => ({
+	createPortalSession: (...args: unknown[]) => mockCreatePortalSession(...args),
+}));
+
+vi.mock('$lib/server/stripe/client', () => ({
+	isStripeEnabled: (...args: unknown[]) => mockIsStripeEnabled(...args),
+}));
+
+vi.mock('$lib/server/logger', () => ({
+	logger: { info: vi.fn(), warn: vi.fn(), error: (...args: unknown[]) => mockLoggerError(...args) },
+}));
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -64,7 +90,10 @@ const actions = actionsRaw as unknown as { default: AnyAction };
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	mockIsStripeEnabled.mockReturnValue(true);
 });
+
+const PAGE_URL = new URL('https://app.example/admin/subscription/cancel/graduation');
 
 function buildLocals(tenantId = 'tenant-1') {
 	return { context: { tenantId } };
@@ -83,6 +112,51 @@ function buildActionRequest(form: Record<string, string>): Request {
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: body.toString(),
 	});
+}
+
+/** action は redirect を throw するため、その中身を取り出す */
+async function catchThrown(run: () => Promise<unknown>): Promise<any> {
+	try {
+		return { returned: await run() };
+	} catch (e) {
+		return e;
+	}
+}
+
+/** 有料プラン (Stripe Customer あり) で卒業を送信したときの action 実行 */
+async function runPaidGraduationAction() {
+	mockGetLicenseInfo.mockResolvedValue({
+		createdAt: new Date().toISOString(),
+		stripeSubscriptionId: 'sub_123',
+		stripeCustomerId: 'cus_123',
+	});
+	mockRecordGraduationConsent.mockResolvedValue({
+		ok: true,
+		record: {
+			id: '1',
+			tenantId: 'tenant-1',
+			nickname: 'たろう家',
+			consented: true,
+			userPoints: 100,
+			usagePeriodDays: 30,
+			message: null,
+			consentedAt: new Date().toISOString(),
+		},
+	});
+
+	return catchThrown(() =>
+		actions.default({
+			request: buildActionRequest({
+				consented: 'on',
+				nickname: 'たろう家',
+				message: '',
+				totalPoints: '100',
+				usagePeriodDays: '30',
+			}),
+			locals: buildLocals(),
+			url: PAGE_URL,
+		}),
+	);
 }
 
 describe('billing-cancel-graduation +page.server.ts', () => {
@@ -110,6 +184,8 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			expect(result.usagePeriodDays).toBeLessThanOrEqual(10);
 			expect(result.isPaidPlan).toBe(true);
 			expect(result.hasStripeCustomer).toBe(true);
+			// #4498: 送信ボタンの名乗りを action の分岐と一致させるための材料
+			expect(result.stripeEnabled).toBe(true);
 			expect(result.nicknameMaxLength).toBe(30);
 			expect(result.messageMaxLength).toBe(500);
 		});
@@ -175,6 +251,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			const result = await actions.default({
 				request,
 				locals: buildLocals(),
+				url: PAGE_URL,
 			});
 
 			expect(result).toMatchObject({
@@ -205,6 +282,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			const result = await actions.default({
 				request,
 				locals: buildLocals(),
+				url: PAGE_URL,
 			});
 
 			expect(result).toMatchObject({
@@ -213,43 +291,28 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			});
 		});
 
-		it('課金プラン (stripeCustomerId あり) は /admin/subscription に redirect', async () => {
+		it('無料プランでは portal を作らない（既存挙動の回帰防止）', async () => {
 			mockGetLicenseInfo.mockResolvedValue({
 				createdAt: new Date().toISOString(),
-				stripeSubscriptionId: 'sub_123',
-				stripeCustomerId: 'cus_123',
+				stripeSubscriptionId: null,
+				stripeCustomerId: null,
 			});
-			mockRecordGraduationConsent.mockResolvedValue({
-				ok: true,
-				record: {
-					id: '1',
-					tenantId: 'tenant-1',
-					nickname: 'たろう家',
-					consented: true,
-					userPoints: 100,
-					usagePeriodDays: 30,
-					message: null,
-					consentedAt: new Date().toISOString(),
-				},
-			});
+			mockRecordGraduationConsent.mockResolvedValue({ ok: true, record: {} });
 
-			const request = buildActionRequest({
-				consented: 'on',
-				nickname: 'たろう家',
-				message: '',
-				totalPoints: '100',
-				usagePeriodDays: '30',
-			});
-
-			await expect(
+			await catchThrown(() =>
 				actions.default({
-					request,
+					request: buildActionRequest({
+						nickname: '',
+						message: '',
+						totalPoints: '0',
+						usagePeriodDays: '0',
+					}),
 					locals: buildLocals(),
+					url: PAGE_URL,
 				}),
-			).rejects.toMatchObject({
-				status: 303,
-				location: '/admin/subscription',
-			});
+			);
+
+			expect(mockCreatePortalSession).not.toHaveBeenCalled();
 		});
 
 		it('無料プランは /admin/subscription/cancel/thanks に redirect', async () => {
@@ -283,11 +346,81 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 				actions.default({
 					request,
 					locals: buildLocals(),
+					url: PAGE_URL,
 				}),
 			).rejects.toMatchObject({
 				status: 303,
 				location: '/admin/subscription/cancel/thanks',
 			});
+		});
+	});
+
+	// #4498: 卒業経路の解約が Stripe に到達しない (課金が続く) 状態を塞ぐ。
+	// 離反/中断経路 (`cancel/+page.server.ts`、#4166 / #4270 / #4329) と同型であることを固定する。
+	describe('action default: 課金プランは Customer Portal の解約フローへ直行する (#4498)', () => {
+		it('createPortalSession を解約フロー (subscription_cancel) で呼ぶ', async () => {
+			mockCreatePortalSession.mockResolvedValue({ url: 'https://billing.stripe.com/session_1' });
+
+			await runPaidGraduationAction();
+
+			expect(mockCreatePortalSession).toHaveBeenCalledWith(
+				'tenant-1',
+				expect.stringContaining('/admin/subscription'),
+				{ kind: 'subscription_cancel' },
+			);
+		});
+
+		it('portal の URL へ 303 する（自アプリのプラン画面へ戻して終わりにしない）', async () => {
+			mockCreatePortalSession.mockResolvedValue({ url: 'https://billing.stripe.com/session_1' });
+
+			const thrown = await runPaidGraduationAction();
+
+			expect(thrown.status).toBe(303);
+			expect(thrown.location).toBe('https://billing.stripe.com/session_1');
+		});
+
+		it('flow 拒否時は解約を続ける場所を示せる自画面へ戻す (#4270 と同型)', async () => {
+			mockCreatePortalSession.mockResolvedValue({
+				url: 'https://billing.stripe.com/home_1',
+				flowFallback: true,
+			});
+
+			const thrown = await runPaidGraduationAction();
+
+			expect(thrown.location).toBe(
+				`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`,
+			);
+		});
+
+		it('portal を作れなければ「解約はまだ完了していません」を出す thanks へ送る (#4329 と同型)', async () => {
+			mockCreatePortalSession.mockResolvedValue({ error: 'PORTAL_CREATE_FAILED' });
+
+			const thrown = await runPaidGraduationAction();
+
+			expect(thrown.status).toBe(303);
+			expect(thrown.location).toBe(
+				`/admin/subscription/cancel/thanks?${PORTAL_UNAVAILABLE_PARAM}=1`,
+			);
+			// 素の thanks (成功として見える画面) へ無言で落とさない
+			expect(thrown.location).not.toBe('/admin/subscription/cancel/thanks');
+		});
+
+		it('portal 作成失敗を運用側が観測できる (logger.error)', async () => {
+			mockCreatePortalSession.mockResolvedValue({ error: 'PORTAL_CREATE_FAILED' });
+
+			await runPaidGraduationAction();
+
+			expect(mockLoggerError).toHaveBeenCalledTimes(1);
+			expect(String(mockLoggerError.mock.calls.at(0)?.[0])).toContain('tenant-1');
+		});
+
+		it('Stripe 無効環境では portal を作らず thanks へ送る（既存挙動）', async () => {
+			mockIsStripeEnabled.mockReturnValue(false);
+
+			const thrown = await runPaidGraduationAction();
+
+			expect(mockCreatePortalSession).not.toHaveBeenCalled();
+			expect(thrown.location).toBe('/admin/subscription/cancel/thanks');
 		});
 	});
 });
