@@ -12,6 +12,7 @@ import {
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	UI_LABELS,
+	UNRESOLVED_ENTITY_LABELS,
 } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
@@ -770,7 +771,7 @@ async function saveDistribution() {
 }
 
 function getChildName(childId: ChildId): string {
-	return data.children.find((c) => c.id === childId)?.nickname ?? `#${childId}`;
+	return data.children.find((c) => c.id === childId)?.nickname ?? UNRESOLVED_ENTITY_LABELS.child;
 }
 </script>
 

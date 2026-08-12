@@ -20,6 +20,19 @@ const CHILD_SCOPE = [
 	join(ROOT, 'src', 'lib', 'features', 'child-home'),
 ];
 
+// #4538: 内部 ID 露出禁止 (DESIGN.md §6) は**画面を限定していない**。
+// 子供画面だけを走査していたため、親画面に同型が 7 箇所残ったまま「子供画面は直したから完了」と
+// 誤認する構造になっていた (実測: admin/challenges 3 / admin/checklists 2 / 共有 UI 2)。
+// 子供に見せるより実害は小さいが、guard が見ていない限り永久に先送りされる。
+// `src/lib/features` は `child-home` を含むため CHILD_SCOPE を足すと二重走査になる。
+// 子供画面 (`(child)`) だけを明示的に足し、残りは親画面 + 共有 UI で覆う。
+const UI_SCOPE = [
+	join(ROOT, 'src', 'routes', '(child)'),
+	join(ROOT, 'src', 'routes', '(parent)'),
+	join(ROOT, 'src', 'lib', 'features'),
+	join(ROOT, 'src', 'lib', 'ui'),
+];
+
 function collectFiles(dir: string): string[] {
 	const out: string[] = [];
 	for (const entry of readdirSync(dir)) {
@@ -31,10 +44,11 @@ function collectFiles(dir: string): string[] {
 }
 
 const FILES = CHILD_SCOPE.flatMap(collectFiles);
+const UI_FILES = UI_SCOPE.flatMap(collectFiles);
 
-function findViolations(pattern: RegExp): string[] {
+function findViolations(pattern: RegExp, files: string[] = FILES): string[] {
 	const hits: string[] = [];
-	for (const file of FILES) {
+	for (const file of files) {
 		const lines = readFileSync(file, 'utf-8').split(/\r?\n/);
 		lines.forEach((line, i) => {
 			// 実装ではなく経緯を書いたコメント行は対象外
@@ -56,8 +70,16 @@ describe('#4509 子供画面の表示整合 — 再発 guard', () => {
 	});
 
 	it('⑤ 内部 ID を表示名のフォールバックにしない (DESIGN.md §6、#498 / #573)', () => {
-		// 例: `nickname ?? \`#${s.childId}\`
-		expect(findViolations(/`#\$\{[^}]*[Ii]d\b[^}]*\}/u)).toEqual([]);
+		// #4538: 走査対象は子供画面に限らない。DESIGN.md §6 は画面を限定しておらず、
+		// 子供画面だけを見る guard は「子供画面は直したから完了」の誤認を作る。
+		//
+		// 2 つの書き方を両方見る。テンプレートリテラルだけを見ていた旧実装は、同一ファイル内の
+		// 文字列連結形 (admin/challenges の `'#' + instance.childId`) をそもそも検出できなかった。
+		const templateForm = /`#\$\{[^}]*[Ii]d\b[^}]*\}/u; // `#${childId}`
+		const concatForm = /['"]#['"]\s*\+\s*[A-Za-z0-9_.?[\]]*[Ii]d\b/u; // '#' + childId
+
+		expect(findViolations(templateForm, UI_FILES)).toEqual([]);
+		expect(findViolations(concatForm, UI_FILES)).toEqual([]);
 	});
 
 	it('① 経験値の増分を固定リテラルで描画しない (実データから導出する)', () => {
@@ -66,5 +88,17 @@ describe('#4509 子供画面の表示整合 — 再発 guard', () => {
 
 	it('guard の走査対象がゼロ件になっていない (scope 消失の検知)', () => {
 		expect(FILES.length).toBeGreaterThan(20);
+	});
+
+	it('⑤ の走査対象が親画面まで届いている (#4538、scope 縮退の検知)', () => {
+		// 0 件アンカー: dir を rename / 移動して UI_SCOPE が空振りしても guard が緑のままにならない。
+		// 「子供画面のぶんだけ」に戻る退行も、件数が FILES を上回ることで検知する。
+		expect(UI_FILES.length).toBeGreaterThan(FILES.length);
+		for (const dir of UI_SCOPE) {
+			expect(
+				UI_FILES.filter((f) => f.startsWith(dir)).length,
+				`${dir} の走査結果が 0 件 (dir 消失 / rename で guard が空振りしている)`,
+			).toBeGreaterThan(0);
+		}
 	});
 });

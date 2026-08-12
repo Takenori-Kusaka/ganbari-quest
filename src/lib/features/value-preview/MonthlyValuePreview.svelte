@@ -11,7 +11,11 @@
 -->
 <script lang="ts">
 import type { CategoryId } from '$lib/domain/ids';
-import { getMilestoneLabel, VALUE_PREVIEW_LABELS } from '$lib/domain/labels';
+import {
+	getMilestoneLabel,
+	UNRESOLVED_ENTITY_LABELS,
+	VALUE_PREVIEW_LABELS,
+} from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type {
 	ChildValuePreview,
@@ -44,7 +48,7 @@ function getMilestoneTitle(id: MilestoneId): string {
 }
 
 function getCategoryName(categoryId: CategoryId): string {
-	return getCategoryById(categoryId)?.name ?? `#${categoryId}`;
+	return getCategoryById(categoryId)?.name ?? UNRESOLVED_ENTITY_LABELS.category;
 }
 
 function maxCategoryCount(child: ChildValuePreview): number {

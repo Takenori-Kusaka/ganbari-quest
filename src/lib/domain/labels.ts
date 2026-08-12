@@ -9018,6 +9018,13 @@ export const STORYBOOK_LABELS = {
 	avatarDisplay: {
 		nickname: 'たろう',
 	},
+	// #4538: SiblingChallengeComparison の見た目確認用。children 一覧から引けない childId が
+	// あるときに内部 ID ではなく汎用語へ落ちることを目視できるようにする。
+	siblingChallengeComparison: {
+		challengeTitle: '今週は毎日おてつだい',
+		firstChildNickname: 'はると',
+		secondChildNickname: 'ひなた',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',
@@ -10196,6 +10203,27 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	// Reward / Checklist 等で childId 必須な場合の補助文言
 	pickChildHint: '対象の子供を選んでから取り込みできます。',
 	disabledReason: '権限が不足しています',
+} as const;
+
+/**
+ * 参照先のレコードを解決できなかったときの表示名 (#4538)。
+ *
+ * 内部 ID (`#${childId}` 等) を表示名のフォールバックにしない (DESIGN.md §6「内部コード露出禁止」、
+ * 過去事例 #498 / #573)。UUID が画面に出ても顧客には意味が無く、誰のことか分からないうえ、
+ * 内部識別子を不必要に露出する。**画面 (子供 / 親) を問わず本ラベルを使う**。
+ *
+ * 出る条件は「一覧に載っていない子供 / 定義が無いカテゴリを参照している」= データ不整合であり、
+ * 通常運用では出ない。出たときに「不明である」と正直に述べるのが正しい (存在しない名前を作らない)。
+ *
+ * 子供画面側の同種フォールバックは `CHILD_HOME_LABELS.siblingUnknownName` (「きょうだい」)。
+ * 読み手が違う (子供 = ひらがな / 親 = 敬称) ため値は分けるが、**内部 ID を出さない**点は共通で、
+ * `tests/unit/architecture/child-ui-display-integrity.test.ts` が両 scope をまとめて guard する。
+ */
+export const UNRESOLVED_ENTITY_LABELS = {
+	/** children 一覧から引けなかった子供の表示名 */
+	child: `不明な${CHILD_TERMS.honorific}`,
+	/** カテゴリ定義から引けなかったカテゴリの表示名 */
+	category: '不明なカテゴリ',
 } as const;
 
 // #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。

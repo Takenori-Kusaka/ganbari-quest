@@ -6,7 +6,7 @@ import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #3151 slice3 (ADR-0066): item label / icon の値域 SSOT。admin authoring 経路と wire schema が
 // 同一境界を共有し、authoring 可能な item ⊆ export/import 往復可能な item を成立させる。
@@ -76,7 +76,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					const child = children.find((c) => c.id === a.childId);
 					return {
 						childId: a.childId,
-						childName: child?.nickname ?? `#${a.childId}`,
+						childName: child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child,
 						checkedCount: checkedIds.length,
 						totalCount: items.length,
 						completedAll: log?.completedAll === 1,
