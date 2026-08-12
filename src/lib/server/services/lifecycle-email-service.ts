@@ -7,10 +7,15 @@
 // 実行タイミング: lifecycle-emails cron (毎日 09:30 JST、cron-dispatcher 経由)。
 // 詳細仕様: ADR-0023 §3.2 / §3.3 / §5 I11。
 
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getSubscriptionPlanLabel } from '$lib/domain/labels';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { sendDormantReactivationEmail, sendLicenseRenewalReminderEmail } from './email-service';
+import {
+	sendDormantReactivationEmail,
+	sendLicenseRenewalReminderEmail,
+	sendPaymentFailedNoticeEmail,
+} from './email-service';
 import { canSendMarketingEmail, incrementMarketingEmailCount } from './marketing-email-counter';
 import {
 	DORMANT_REACTIVATION_SENT_KEY,
@@ -53,6 +58,8 @@ export interface LifecycleEmailRunOptions {
 export interface LifecycleEmailRunResult {
 	scanned: number;
 	renewalSent: number;
+	/** #4507: 支払い失敗 (dunning) 通知の送信数。トランザクション便のため年 6 回上限を消費しない。 */
+	paymentFailedSent: number;
 	dormantSent: number;
 	skippedUnsubscribed: number;
 	skippedRateLimit: number;
@@ -116,9 +123,72 @@ interface TenantContext {
 	email: string;
 	ownerName: string;
 	plan: string | undefined;
+	/**
+	 * #4507: 契約状態。`grace_period` = 支払い失敗 (dunning) 中。
+	 * 同じ「残り 30/7/1 日」の判定から、marketing 便の期限前リマインドではなく
+	 * トランザクション便の支払い失敗通知へ分岐するために読む。
+	 */
+	status: string;
 	planExpiresAt: string | undefined;
 	lastActiveAt: string | undefined;
 	createdAt: string;
+}
+
+/**
+ * 支払い失敗 (dunning) 中で、かつ通知日に当たるか (#4507)。
+ *
+ * `grace_period` は支払い失敗でしか書かれない (stripe-service の書き手一意化 #3986)。
+ * この状態の `planExpiresAt` は「猶予の終わり」であり、更新予定日ではない。
+ */
+function isDunningNotice(ctx: TenantContext, isReminderDay: boolean): boolean {
+	return ctx.status === SUBSCRIPTION_STATUS.GRACE_PERIOD && isReminderDay && !!ctx.plan;
+}
+
+/**
+ * 支払い失敗のお知らせを送る (#4507)。
+ *
+ * 旧実装はこれを期限前リマインド (marketing 便) として送っていたため、配信停止済み /
+ * 年 6 回上限に達した顧客は支払い失敗を**一度も知らされずに**猶予明けで suspended に
+ * なった。契約継続の可否に直結する連絡なので、削除予告メールと同じくトランザクション便
+ * として **opt-out / 年 6 回上限のどちらも経由せず** 送る。
+ */
+async function sendDunningNotice(
+	ctx: TenantContext,
+	daysRemaining: number,
+	dryRun: boolean,
+): Promise<'payment-failed-sent' | 'error'> {
+	if (dryRun) {
+		logger.info('[lifecycle-email] dryRun would send', {
+			context: { tenantId: ctx.tenantId, target: 'payment-failed', daysRemaining },
+		});
+		return 'payment-failed-sent';
+	}
+	const ok = await sendPaymentFailedNoticeEmail({
+		email: ctx.email,
+		ownerName: ctx.ownerName,
+		planLabel: getSubscriptionPlanLabel(ctx.plan ?? ''),
+		graceDeadline: formatExpiresAt(ctx.planExpiresAt as string),
+		daysRemaining,
+	});
+	return ok ? 'payment-failed-sent' : 'error';
+}
+
+/**
+ * 休眠復帰メールの対象判定。
+ *
+ * 送信済フラグの読み取りは日数条件を満たしたときだけ行う (全テナント分の
+ * settings 読みを増やさない、ADR-0065 DSQL DPU 規約)。
+ */
+async function resolveDormantState(
+	ctx: TenantContext,
+	now: Date,
+): Promise<{ days: number; eligible: boolean; alreadySent: boolean }> {
+	const days = daysSinceLastActive(ctx.lastActiveAt, ctx.createdAt, now);
+	if (days < DORMANT_THRESHOLD_DAYS) return { days, eligible: false, alreadySent: false };
+
+	const sentAt = await getRepos().settings.getSetting(DORMANT_SENT_KEY, ctx.tenantId);
+	const alreadySent = !!sentAt;
+	return { days, eligible: !alreadySent, alreadySent };
 }
 
 /**
@@ -135,6 +205,7 @@ async function processTenant(
 	dryRun: boolean,
 ): Promise<
 	| 'renewal-sent'
+	| 'payment-failed-sent'
 	| 'dormant-sent'
 	| 'skipped-unsubscribed'
 	| 'skipped-rate-limit'
@@ -144,24 +215,31 @@ async function processTenant(
 > {
 	const repos = getRepos();
 
+	const daysRemaining = ctx.planExpiresAt ? daysUntil(ctx.planExpiresAt, now) : null;
+	const isReminderDay = daysRemaining !== null && isRenewalReminderDay(daysRemaining);
+
+	// 0) 支払い失敗 (dunning) 通知 — **opt-out / 年 6 回上限より前** (#4507)
+	if (isDunningNotice(ctx, isReminderDay)) {
+		return sendDunningNotice(ctx, daysRemaining as number, dryRun);
+	}
+
 	// 1) opt-out チェック (年 6 回枠とは独立した拒絶)
 	const optOut = await repos.settings.getSetting(UNSUBSCRIBED_KEY, ctx.tenantId);
 	if (optOut) return 'skipped-unsubscribed';
 
 	// 2) 期限切れ前リマインド判定
-	const daysRemaining = ctx.planExpiresAt ? daysUntil(ctx.planExpiresAt, now) : null;
+	//    #4507: dunning 中 (grace_period) はここに来ない (上の分岐で処理済み)。
+	//    それでも条件に status を含めるのは、将来 reminder 日以外の送信日を足したときに
+	//    「支払い失敗中の顧客へ marketing 便の更新案内」が復活しないようにするため。
 	const renewalEligible =
-		daysRemaining !== null && isRenewalReminderDay(daysRemaining) && !!ctx.plan; // 一般プランのみ (trial 等を除外)
+		isReminderDay && !!ctx.plan && ctx.status !== SUBSCRIPTION_STATUS.GRACE_PERIOD; // 一般プランのみ (trial 等を除外)
 
 	// 3) 休眠復帰判定
-	const dormantDays = daysSinceLastActive(ctx.lastActiveAt, ctx.createdAt, now);
-	const dormantEligibleByDays = dormantDays >= DORMANT_THRESHOLD_DAYS;
-	let dormantAlreadySent = false;
-	if (dormantEligibleByDays) {
-		const sentAt = await repos.settings.getSetting(DORMANT_SENT_KEY, ctx.tenantId);
-		dormantAlreadySent = !!sentAt;
-	}
-	const dormantEligible = dormantEligibleByDays && !dormantAlreadySent;
+	const {
+		days: dormantDays,
+		eligible: dormantEligible,
+		alreadySent: dormantAlreadySent,
+	} = await resolveDormantState(ctx, now);
 
 	if (!renewalEligible && !dormantEligible) {
 		return dormantAlreadySent ? 'skipped-already-sent' : 'skipped-no-target';
@@ -227,6 +305,7 @@ export async function runLifecycleEmails(
 	const result: LifecycleEmailRunResult = {
 		scanned: 0,
 		renewalSent: 0,
+		paymentFailedSent: 0,
 		dormantSent: 0,
 		skippedUnsubscribed: 0,
 		skippedRateLimit: 0,
@@ -261,6 +340,7 @@ export async function runLifecycleEmails(
 					email: user.email,
 					ownerName: user.displayName || tenant.name,
 					plan: tenant.plan,
+					status: tenant.status,
 					planExpiresAt: tenant.planExpiresAt,
 					lastActiveAt: tenant.lastActiveAt,
 					createdAt: tenant.createdAt,
@@ -272,6 +352,9 @@ export async function runLifecycleEmails(
 			switch (outcome) {
 				case 'renewal-sent':
 					result.renewalSent++;
+					break;
+				case 'payment-failed-sent':
+					result.paymentFailedSent++;
 					break;
 				case 'dormant-sent':
 					result.dormantSent++;

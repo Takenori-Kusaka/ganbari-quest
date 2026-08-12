@@ -3,11 +3,11 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { getMemberRoleLabel, OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { sendMemberJoinedEmail } from '$lib/server/services/email-service';
+import { sendOwnershipTransferredEmail } from '$lib/server/services/email-service';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const context = locals.context;
@@ -76,11 +76,16 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	await repos.auth.updateTenantOwner(tenantId, targetUserId);
 
 	// メール通知
+	// #4507: 旧実装は sendMemberJoinedEmail を流用しており、新オーナーには
+	// 「新しいメンバーが参加しました」という別事象の文面が届き、role には内部コード
+	// 'owner' が生のまま差し込まれていた。移譲専用の文面 + 日本語 role ラベルで送る。
 	const newOwner = await repos.auth.findUserById(targetUserId);
 	if (newOwner?.email) {
-		sendMemberJoinedEmail(newOwner.email, newOwner.displayName ?? newOwner.email, 'owner').catch(
-			() => {},
-		);
+		sendOwnershipTransferredEmail(
+			newOwner.email,
+			newOwner.displayName ?? newOwner.email,
+			getMemberRoleLabel('owner'),
+		).catch(() => {});
 	}
 
 	logger.info('[members] owner 権限移譲', {

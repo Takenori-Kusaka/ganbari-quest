@@ -732,9 +732,124 @@ export const TRIAL_LABELS = {
 // service 側で `${days}日` と独自整形すると、保持日数を 365 の倍数に変えたときに
 // このメールだけ「365日」と述べ、料金表・LP の「1年」と食い違う。
 
+// #4507 (GAMMA 監査 R2 #1): 旧文面は 1 日前 / 当日メールで「データは削除されません」
+// 「アップグレードすればいつでも復元できます」と**無条件に**約束していた。無料プラン復帰後の
+// 記録は `retention-cleanup-service` が保持期間を過ぎた分を**物理削除**するため、これは虚偽である。
+// アーカイブ (上限超過分の非表示化 — 復元可能) と 保持期間切れ (物理削除 — 復元不能) は
+// 別事象なので、両方を同じ 1 通の中で言い分ける。
+//
+// 「復元できません（再契約でも戻りません）」まで述べ切るのは #4496 の解約 / 保持期間文言と
+// 同一基準（「閲覧不可」等への弱化は禁止 — 実装は物理削除であり閲覧の可否の話ではない）。
+
 export const TRIAL_EMAIL_LABELS = {
-	/** @param days 無料プランの保持日数 (null = 無期限) */
-	freeRetentionLine: (days: number | null) => `データ保持期間: ${formatRetentionPeriod(days)}`,
+	/**
+	 * 無料プランの履歴保持期間を述べる行。
+	 *
+	 * 「データ保持期間」ではなく「履歴（記録）の保持期間」と呼ぶ (#4507 AC1)。
+	 * アカウントやお子さまの登録そのものが期限で消えると読めてしまうため
+	 * (実際に期限で消えるのは活動記録などの履歴だけ)。
+	 *
+	 * @param days 無料プランの保持日数 (null = 無期限)
+	 */
+	freeRetentionLine: (days: number | null) =>
+		`履歴（記録）の保持期間: ${formatRetentionPeriod(days)}`,
+	/**
+	 * 上限超過リソースのアーカイブについて述べる行。**こちらは復元できる**。
+	 * 保持期間切れの物理削除 (retentionIrreversibleLine) と必ず対で使う。
+	 */
+	archiveRestorableLine: (planLabel: string) =>
+		`${planLabel}の上限を超えるお子さま・活動などはアーカイブされます（データは残っており、アップグレードすれば復元できます）。`,
+	/**
+	 * 保持期間を過ぎた履歴が**物理削除され復元できない**ことを述べる行 (#4507 AC1)。
+	 *
+	 * @param days 無料プランの保持日数 (null = 無期限)
+	 */
+	retentionIrreversibleLine: (days: number | null) =>
+		days === null
+			? '履歴（記録）の保持期間に上限はありません。'
+			: `${formatRetentionPeriod(days)}を超えた履歴（記録）は削除され、復元できません（再契約でも戻りません）。`,
+} as const;
+
+// ============================================================
+// 支払い失敗のお知らせメール用ラベル（#4507 GAMMA 監査 R2 #2）
+// ============================================================
+//
+// dunning (支払い失敗 → 7 日猶予 → suspended) の**唯一の顧客向け通知**。
+//
+// 旧実装はこの期間の連絡を期限前リマインド (LIFECYCLE_EMAIL_LABELS.renewalSubject
+// 「次回更新予定日のお知らせ」) が兼ねており、(a) 件名が支払い失敗の事実を述べず
+// (b) marketing 便として配信停止 / 年 6 回上限に抑止されるため、配信停止済みの顧客は
+// **1 通も受け取らないまま 7 日後に suspended** になっていた。
+//
+// 本メールはトランザクション便 (削除予告メールと同区分 — List-Unsubscribe を付けず
+// 年 6 回上限も消費しない)。ADR-0012 整合で煽らず、事実と復旧導線だけを述べる。
+
+export const PAYMENT_FAILED_EMAIL_LABELS = {
+	subject: (daysRemaining: number) => `お支払いを確認できませんでした（残り${daysRemaining}日）`,
+	heading: 'お支払いを確認できませんでした',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro:
+		'ご登録のお支払い方法で、有料プランの更新料をお引き落としできませんでした。カードの有効期限切れや限度額超過が主な原因です。',
+	planLine: (planLabel: string) => `ご契約プラン: ${planLabel}`,
+	graceLine: (deadline: string, daysRemaining: number) =>
+		`${deadline}（残り${daysRemaining}日）までにお支払い方法を更新いただければ、これまでどおりご利用いただけます。`,
+	consequenceLine: (freePlanLabel: string) =>
+		`更新がないまま期限を過ぎると、有料プランの機能は停止し、${freePlanLabel}のご利用に切り替わります。`,
+	ctaLabel: 'お支払い方法を更新する',
+	transactionalNote:
+		'本メールはご契約に関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
+} as const;
+
+// ============================================================
+// 退会（アカウント削除）通知メール用ラベル（#4507 GAMMA 監査 R2 #3）
+// ============================================================
+//
+// 旧実装は退会の両端が未配線だった: 予約 route はメールを 1 通も送らず、
+// 削除完了メール (sendDeletionCompleteEmail) は production 呼び出しゼロの dead code。
+// 無料プランの退会は即時物理削除のため、**通知 0 通でデータが消えていた**。
+//
+// 削除予告メール (DELETION_WARNING_EMAIL_LABELS) と同じくトランザクション便。
+
+export const DELETION_RESERVED_EMAIL_LABELS = {
+	subject: '退会（アカウント削除）のお申し込みを受け付けました',
+	heading: '退会のお申し込みを受け付けました',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro: '退会（アカウント削除）のお申し込みを受け付けました。',
+	scheduleLine: (deletionDate: string, graceDays: number) =>
+		`お申し込みから${graceDays}日後の${deletionDate}に、すべてのデータを削除します。`,
+	restoreLine: (adminViewLabel: string) =>
+		`削除日までは${adminViewLabel}からお取り消しいただけます。削除後のデータは復元できません。`,
+	exportLine: '記録を手元に残される場合は、削除日までに書き出しをお願いいたします。',
+	ctaLabel: 'アカウント設定を開く',
+	transactionalNote:
+		'本メールはお手続きに関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
+} as const;
+
+export const DELETION_COMPLETE_EMAIL_LABELS = {
+	subject: 'データの削除が完了しました',
+	heading: 'データの削除が完了しました',
+	intro: 'がんばりクエストにお預かりしていたデータの削除が完了しました。',
+	irreversibleNote: '削除したデータは復元できません。',
+	thanks: 'ご利用いただきありがとうございました。',
+	resignupNote: '再びご利用いただく場合は、新しいアカウントとしてお申し込みください。',
+} as const;
+
+// ============================================================
+// オーナー権限移譲の通知メール用ラベル（#4507 GAMMA 監査 R2 #6）
+// ============================================================
+//
+// 旧実装は sendMemberJoinedEmail を流用しており、(a) 件名・本文が
+// 「新しいメンバーが参加しました」という別事象の説明で (b) 差し込む role に
+// 内部コード 'owner' が生のまま渡っていた（内部コード UI 露出禁止、DESIGN.md §6）。
+
+export const OWNERSHIP_TRANSFER_EMAIL_LABELS = {
+	subject: 'オーナー権限が移譲されました',
+	heading: 'オーナー権限が移譲されました',
+	// 宛先は**新オーナー本人**なので二人称で書く (第三者の話として読ませない)。
+	greeting: (memberName: string) => `${memberName} 様`,
+	body: (roleLabel: string) =>
+		`家族グループの「${roleLabel}」権限があなたに移譲されました。メンバーの招待・削除や、プラン・お支払いのお手続きが行えます。`,
+	ctaLabel: 'メンバー管理を開く',
 } as const;
 
 // ============================================================
@@ -4261,6 +4376,26 @@ export const MEMBERS_LABELS = {
 	transferTitle: 'オーナー権限を移譲',
 	removeTitle: 'メンバーを削除',
 } as const;
+
+/**
+ * メンバー role の内部コードを日本語ラベルにする (#4507)。
+ *
+ * 内部コード ('owner' / 'parent' / 'child') を顧客に見せないための SSOT
+ * (DESIGN.md §6「内部コード露出禁止」)。メール本文 / 画面のどちらからも本関数を通す。
+ * 未知の role は内部コードを露出させず空文字を返さないよう、汎用語にフォールバックする。
+ */
+export function getMemberRoleLabel(role: string): string {
+	switch (role) {
+		case 'owner':
+			return MEMBERS_LABELS.roleOwner;
+		case 'parent':
+			return MEMBERS_LABELS.roleParent;
+		case 'child':
+			return MEMBERS_LABELS.roleChild;
+		default:
+			return MEMBERS_LABELS.roleParent;
+	}
+}
 
 // ============================================================
 // demo/+page.svelte (#1452 Phase B)

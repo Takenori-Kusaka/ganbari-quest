@@ -5,8 +5,12 @@
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
 import {
+	DELETION_COMPLETE_EMAIL_LABELS,
+	DELETION_RESERVED_EMAIL_LABELS,
 	DELETION_WARNING_EMAIL_LABELS,
 	LIFECYCLE_EMAIL_LABELS,
+	OWNERSHIP_TRANSFER_EMAIL_LABELS,
+	PAYMENT_FAILED_EMAIL_LABELS,
 	PIN_RESET_EMAIL_LABELS,
 	PMF_SURVEY_LABELS,
 } from '$lib/domain/labels';
@@ -394,19 +398,89 @@ export async function sendDeletionWarningEmail(params: DeletionWarningParams): P
 	});
 }
 
-/** データ削除完了通知メール */
-export async function sendDeletionCompleteEmail(email: string): Promise<boolean> {
+export interface DeletionReservedParams {
+	email: string;
+	/** 宛名 (オーナーの表示名。未設定時は呼び出し側がテナント名にフォールバックする) */
+	ownerName: string;
+	/** 表示用の物理削除予定日 (JST 暦日、例: 2026年4月15日) */
+	deletionDate: string;
+	/** 猶予期間の日数 (プラン別、1 以上) */
+	graceDays: number;
+}
+
+/**
+ * 退会（アカウント削除）予約の受付通知メール (#4507)。
+ *
+ * 旧実装では退会予約 route がメールを 1 通も送っておらず、削除予告メール (#2399) が
+ * 届くまで「予約できたのか」を確かめる手段がメールに無かった。
+ *
+ * 送信経路は削除予告メール (`sendDeletionWarningEmail`) と同区分のトランザクション便:
+ *   - `listUnsubscribeUrl` を付けない (お手続きの連絡を配信設定で止めさせない)
+ *   - `marketing-email-counter` (年 6 回上限) を経由しない
+ */
+export async function sendDeletionReservedEmail(params: DeletionReservedParams): Promise<boolean> {
+	const labels = DELETION_RESERVED_EMAIL_LABELS;
+	const { email, ownerName, deletionDate, graceDays } = params;
+	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
 	return sendEmail({
 		to: email,
-		subject: '【がんばりクエスト】データ削除が完了しました',
+		subject: `【がんばりクエスト】${labels.subject}`,
 		htmlBody: wrapTemplate(`
-      <h2>データ削除が完了しました</h2>
-      <p>がんばりクエストのすべてのデータが削除されました。</p>
-      <p>ご利用いただきありがとうございました。</p>
-      <p>再度ご利用いただく場合は、新規アカウントとしてサインアップしてください。</p>
+      <h2>${labels.heading}</h2>
+      <p>${labels.greeting(ownerName)}</p>
+      <p>${labels.intro}</p>
+      <p><strong>${labels.scheduleLine(deletionDate, graceDays)}</strong></p>
+      <p>${labels.restoreLine(ADMIN_VIEW_TERMS.canonical)}</p>
+      <p>${labels.exportLine}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
+      </p>
+      <p>${labels.transactionalNote}</p>
     `),
-		textBody:
-			'データ削除が完了しました\n\nがんばりクエストのすべてのデータが削除されました。\nご利用いただきありがとうございました。',
+		textBody: [
+			labels.greeting(ownerName),
+			'',
+			labels.intro,
+			labels.scheduleLine(deletionDate, graceDays),
+			labels.restoreLine(ADMIN_VIEW_TERMS.canonical),
+			labels.exportLine,
+			'',
+			`${labels.ctaLabel}: ${ctaUrl}`,
+			'',
+			labels.transactionalNote,
+		].join('\n'),
+	});
+}
+
+/**
+ * データ削除完了通知メール。
+ *
+ * #4507: 長らく production 呼び出しゼロの dead code だった (無料プランの退会は
+ * 即時物理削除のため、通知 0 通でデータが消えていた)。現在は物理削除を行う
+ * `deleteOwnerOnlyAccount` / `deleteOwnerFullDelete` が削除確定後に送る
+ * (即時削除・猶予期間満了後の cron 削除の両経路をカバーする)。
+ */
+export async function sendDeletionCompleteEmail(email: string): Promise<boolean> {
+	const labels = DELETION_COMPLETE_EMAIL_LABELS;
+	return sendEmail({
+		to: email,
+		subject: `【がんばりクエスト】${labels.subject}`,
+		htmlBody: wrapTemplate(`
+      <h2>${labels.heading}</h2>
+      <p>${labels.intro}</p>
+      <p>${labels.irreversibleNote}</p>
+      <p>${labels.thanks}</p>
+      <p>${labels.resignupNote}</p>
+    `),
+		textBody: [
+			labels.heading,
+			'',
+			labels.intro,
+			labels.irreversibleNote,
+			labels.thanks,
+			labels.resignupNote,
+		].join('\n'),
 	});
 }
 
@@ -441,6 +515,100 @@ export async function sendMemberJoinedEmail(
       </p>
     `),
 		textBody: `${memberName} さんが「${role}」として家族グループに参加しました。`,
+	});
+}
+
+/**
+ * オーナー権限の移譲通知メール (#4507)。
+ *
+ * 旧実装は `sendMemberJoinedEmail` を流用しており、新オーナーには
+ * 「新しいメンバーが参加しました」という別事象の文面が届き、role には内部コード
+ * `'owner'` が生のまま差し込まれていた (内部コード露出禁止、DESIGN.md §6)。
+ *
+ * @param roleLabel 表示用の role 名。呼び出し側が `getMemberRoleLabel()` で解決して渡す
+ *                  (内部コードを本関数に渡さないことを型ではなく引数名で明示する)
+ */
+export async function sendOwnershipTransferredEmail(
+	newOwnerEmail: string,
+	memberName: string,
+	roleLabel: string,
+): Promise<boolean> {
+	const labels = OWNERSHIP_TRANSFER_EMAIL_LABELS;
+	const ctaUrl = `${getAppBaseUrl()}/admin/members`;
+	return sendEmail({
+		to: newOwnerEmail,
+		subject: `【がんばりクエスト】${labels.subject}`,
+		htmlBody: wrapTemplate(`
+      <h2>${labels.heading}</h2>
+      <p>${labels.greeting(memberName)}</p>
+      <p>${labels.body(roleLabel)}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
+      </p>
+    `),
+		textBody: `${labels.greeting(memberName)}\n\n${labels.body(roleLabel)}\n\n${labels.ctaLabel}: ${ctaUrl}`,
+	});
+}
+
+export interface PaymentFailedNoticeParams {
+	email: string;
+	/** 宛名 (オーナーの表示名。未設定時は呼び出し側がテナント名にフォールバックする) */
+	ownerName: string;
+	/** 表示用のご契約プラン名 */
+	planLabel: string;
+	/** 表示用の猶予期限 (JST 暦日) */
+	graceDeadline: string;
+	/** 猶予期限までの残り日数 */
+	daysRemaining: number;
+}
+
+/**
+ * 支払い失敗 (dunning) のお知らせメール (#4507)。
+ *
+ * この 7 日間の猶予中に顧客へ届く**唯一の**連絡。旧実装は期限前リマインド
+ * (`sendLicenseRenewalReminderEmail`) が兼ねていたが、それは marketing 便であり
+ * 配信停止済み・年 6 回上限に達した顧客には**届かない**ため、支払い失敗を一度も
+ * 知らされないまま 7 日後に suspended になり得た。
+ *
+ * よって本メールは削除予告メールと同区分のトランザクション便として送る:
+ *   - `listUnsubscribeUrl` を付けない (配信設定で止めさせない)
+ *   - `marketing-email-counter` (年 6 回上限) を経由しない
+ * 件名は「次回更新予定日のお知らせ」ではなく**支払い失敗の事実**を述べる。
+ */
+export async function sendPaymentFailedNoticeEmail(
+	params: PaymentFailedNoticeParams,
+): Promise<boolean> {
+	const labels = PAYMENT_FAILED_EMAIL_LABELS;
+	const { email, ownerName, planLabel, graceDeadline, daysRemaining } = params;
+	const ctaUrl = `${getAppBaseUrl()}/admin/subscription`;
+
+	return sendEmail({
+		to: email,
+		subject: `【がんばりクエスト】${labels.subject(daysRemaining)}`,
+		htmlBody: wrapTemplate(`
+      <h2>${labels.heading}</h2>
+      <p>${labels.greeting(ownerName)}</p>
+      <p>${labels.intro}</p>
+      <p>${labels.planLine(planLabel)}</p>
+      <p><strong>${labels.graceLine(graceDeadline, daysRemaining)}</strong></p>
+      <p>${labels.consequenceLine(PLAN_FULL_TERMS.free)}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
+      </p>
+      <p>${labels.transactionalNote}</p>
+    `),
+		textBody: [
+			labels.greeting(ownerName),
+			'',
+			labels.intro,
+			labels.planLine(planLabel),
+			labels.graceLine(graceDeadline, daysRemaining),
+			labels.consequenceLine(PLAN_FULL_TERMS.free),
+			'',
+			`${labels.ctaLabel}: ${ctaUrl}`,
+			'',
+			labels.transactionalNote,
+		].join('\n'),
 	});
 }
 

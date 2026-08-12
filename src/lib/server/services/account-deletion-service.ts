@@ -14,7 +14,7 @@ import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteByPrefix } from '$lib/server/storage';
-import { sendMemberRemovedEmail } from './email-service';
+import { sendDeletionCompleteEmail, sendMemberRemovedEmail } from './email-service';
 import type { PlanTier } from './plan-limit-service';
 import { cancelSubscription } from './stripe-service';
 import {
@@ -340,6 +340,56 @@ export async function getOwnerDeletionInfo(
 }
 
 /**
+ * 削除完了通知の宛先 (オーナーのメールアドレス) を控える (#4507)。
+ *
+ * **物理削除より前に呼ぶこと** — 削除後は users 行ごと消えるので引けない。
+ */
+async function resolveOwnerEmail(ownerId: string): Promise<string | null> {
+	try {
+		const user = await repos().auth.findUserById(ownerId);
+		return user?.email ?? null;
+	} catch (err) {
+		logger.error('[account-deletion] failed to resolve owner email', {
+			error: String(err),
+			context: { ownerId },
+		});
+		return null;
+	}
+}
+
+/**
+ * 物理削除の完了をオーナーへ通知する (#4507)。
+ *
+ * 旧実装ではこの通知が production 呼び出しゼロの dead code で、無料プランの退会
+ * (猶予 0 日 = 即時物理削除) は**通知 0 通**でデータが消えていた。
+ *
+ * 本 helper を即時削除経路 (退会 API) と猶予満了経路 (grace-period cron が
+ * 同じ 2 関数を呼ぶ) の両方が通るため、削除経路によらず 1 通は届く。
+ * 送信失敗で削除を巻き戻さない (削除は既に確定している)。観測はログで行う。
+ */
+async function notifyDeletionComplete(tenantId: string, email: string | null): Promise<void> {
+	if (!email) {
+		logger.warn('[account-deletion] no owner email; deletion completed unnotified', {
+			context: { tenantId },
+		});
+		return;
+	}
+	try {
+		const ok = await sendDeletionCompleteEmail(email);
+		if (!ok) {
+			logger.error('[account-deletion] deletion complete email send failed', {
+				context: { tenantId },
+			});
+		}
+	} catch (err) {
+		logger.error('[account-deletion] deletion complete email failed', {
+			error: String(err),
+			context: { tenantId },
+		});
+	}
+}
+
+/**
  * Pattern 1: Owner のみの家族グループ → 全データ削除
  */
 export async function deleteOwnerOnlyAccount(
@@ -357,11 +407,16 @@ export async function deleteOwnerOnlyAccount(
 		throw new Error('他のメンバーが存在します。先に移譲するか全削除を選択してください。');
 	}
 
+	// #4507: 宛先は削除前にしか引けないので先に控える（送信は削除確定後）。
+	const ownerEmail = await resolveOwnerEmail(ownerId);
+
 	const { itemsDeleted, filesDeleted } = await fullTenantDeletion(tenantId, ownerId, audit);
 
 	logger.info('[account-deletion] Pattern 1: 削除完了', {
 		context: { tenantId, itemsDeleted, filesDeleted },
 	});
+
+	await notifyDeletionComplete(tenantId, ownerEmail);
 
 	return {
 		success: true,
@@ -446,6 +501,7 @@ export async function deleteOwnerFullDelete(
 
 	// メール通知先の情報を先に収集（削除後は取得不能）
 	// 送信自体は Stripe キャンセル・DB 削除成功後に行う (#741 Copilot [must])
+	const ownerEmail = await resolveOwnerEmail(ownerId); // #4507
 	const tenant = await repos().auth.findTenantById(tenantId);
 	const memberEmails: Array<{ email: string; tenantName: string }> = [];
 	for (const member of otherMembers) {
@@ -505,6 +561,8 @@ export async function deleteOwnerFullDelete(
 	logger.info('[account-deletion] Pattern 2b: 全削除完了', {
 		context: { tenantId, itemsDeleted, filesDeleted, unaffiliatedMembers },
 	});
+
+	await notifyDeletionComplete(tenantId, ownerEmail); // #4507
 
 	return {
 		success: true,
