@@ -10,20 +10,57 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 let { data, form } = $props();
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
+let agreedCrossBorder = $state(false);
 let loading = $state(false);
 
 // 送信可能かの判定（ユーザーに明確なフィードバックを出すため derived で算出）
 const needsTerms = $derived(!data.termsAccepted);
 const needsPrivacy = $derived(!data.privacyAccepted);
+const needsCrossBorder = $derived(!data.crossBorderAccepted);
 const canSubmit = $derived(
-	!loading && (!needsTerms || agreedTerms) && (!needsPrivacy || agreedPrivacy),
+	!loading &&
+		(!needsTerms || agreedTerms) &&
+		(!needsPrivacy || agreedPrivacy) &&
+		(!needsCrossBorder || agreedCrossBorder),
 );
 const submitBlockReason = $derived.by(() => {
 	if (loading) return '';
 	if (needsTerms && !agreedTerms) return CONSENT_LABELS.errors.termsRequired;
 	if (needsPrivacy && !agreedPrivacy) return CONSENT_LABELS.errors.privacyRequired;
+	if (needsCrossBorder && !agreedCrossBorder) return CONSENT_LABELS.errors.crossBorderRequired;
 	return '';
 });
+
+// #4497: 「前回同意 → 最新」は文書ごとに出す。旧実装は利用規約の version 固定だったため、
+// プライバシーポリシーだけを改定したときに「2026-04-28 → 2026-04-28」と嘘を表示していた。
+const previousConsentLines = $derived(
+	[
+		{
+			name: CONSENT_LABELS.termsSectionTitle,
+			previous: data.previousTermsVersion,
+			latest: data.currentTermsVersion,
+		},
+		{
+			name: CONSENT_LABELS.privacySectionTitle,
+			previous: data.previousPrivacyVersion,
+			latest: data.currentPrivacyVersion,
+		},
+		{
+			name: CONSENT_LABELS.crossBorderSectionTitle,
+			previous: data.previousCrossBorderVersion,
+			latest: data.currentCrossBorderVersion,
+		},
+	]
+		// 前回と最新が同じ文書（今回同意し直す必要がない文書）は行に出さない
+		.filter((line) => line.previous !== line.latest)
+		.map((line) =>
+			CONSENT_LABELS.previousConsentLine(
+				line.name,
+				line.previous ?? CONSENT_LABELS.previousConsentNone,
+				line.latest,
+			),
+		),
+);
 </script>
 
 <svelte:head>
@@ -47,11 +84,13 @@ const submitBlockReason = $derived.by(() => {
 					<p class="text-sm text-[var(--color-text-muted)]">
 						{CONSENT_LABELS.descUpdated}
 					</p>
-					{#if data.previousTermsVersion || data.previousPrivacyVersion}
-						<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
-							{CONSENT_LABELS.previousConsentPrefix}{data.previousTermsVersion ?? CONSENT_LABELS.previousConsentNone}{CONSENT_LABELS.previousConsentArrow}
-							{CONSENT_LABELS.previousConsentLatest}{data.currentTermsVersion}
-						</p>
+					{#if previousConsentLines.length > 0}
+						<div class="text-xs text-[var(--color-text-tertiary)] mt-2" data-testid="consent-previous-versions">
+							<p>{CONSENT_LABELS.previousConsentHeading}</p>
+							{#each previousConsentLines as line (line)}
+								<p>{line}</p>
+							{/each}
+						</div>
 					{/if}
 				{:else}
 					<h1 class="text-lg font-bold text-[var(--color-text)] mt-2 mb-1" data-testid="consent-heading">{CONSENT_LABELS.headingNew}</h1>
@@ -138,7 +177,61 @@ const submitBlockReason = $derived.by(() => {
 				{:else}
 					<input type="hidden" name="agreedPrivacy" value="on" />
 				{/if}
+
+				<!--
+					#4497: 越境移転同意 (個人情報保護法 §28)。
+					Google OAuth 経由の登録は signup フォームを通らないため、この画面が唯一の取得点。
+					提供情報 (移転先国 / 当該国の個人情報保護制度 / 移転先が講ずる措置) の実体は
+					privacy.html 第10条にあり、リンク先で参照できる。
+				-->
+				{#if !data.crossBorderAccepted}
+					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.crossBorderSectionTitle}</h2>
+						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">{CONSENT_LABELS.crossBorderVersionPrefix}{data.currentCrossBorderVersion}</p>
+						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-1">{CONSENT_LABELS.crossBorderNotice}</p>
+						<p class="text-sm text-[var(--color-text)] font-bold leading-relaxed mb-2">{CONSENT_LABELS.crossBorderNoNoUse}</p>
+						<a
+							href="https://www.ganbari-quest.com/privacy.html#cross-border-transfer"
+							target="_blank"
+							rel="noopener"
+							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
+						>{CONSENT_LABELS.crossBorderReadLink}</a>
+						<FormField label="">
+							{#snippet children()}
+								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
+									<input
+										type="checkbox"
+										name="agreedCrossBorder"
+										bind:checked={agreedCrossBorder}
+										data-testid="consent-cross-border-checkbox"
+										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
+									/>
+									<span>
+										{CONSENT_LABELS.crossBorderCheckLabel}
+									</span>
+								</label>
+							{/snippet}
+						</FormField>
+					</div>
+				{:else}
+					<input type="hidden" name="agreedCrossBorder" value="on" />
+				{/if}
 			</form>
+
+			<!--
+				#4497: 同意しない場合の出口。/auth/logout は実在するが画面から到達できず、
+				「同意する以外の選択肢が無い」状態だった。
+				form の外に置き、同意 submit と取り違えられないようにする。
+			-->
+			<div class="mt-6 pt-4 border-t border-[var(--color-border-light)]">
+				<h2 class="text-sm font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.declineHeading}</h2>
+				<p class="text-xs text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.declineDescription}</p>
+				<a
+					href="/auth/logout"
+					class="text-sm text-[var(--color-text-link)] underline"
+					data-testid="consent-decline-logout"
+				>{CONSENT_LABELS.declineLogoutLink}</a>
+			</div>
 			{/snippet}
 		</Card>
 	</div>

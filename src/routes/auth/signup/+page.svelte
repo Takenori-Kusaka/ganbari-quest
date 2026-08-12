@@ -84,6 +84,14 @@ const planParam = $derived($page.url.searchParams.get('plan'));
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
+// #4497: 確認ステップへ持ち回る同意の根拠。
+// signup アクションが 3 種の同意を server 検証して通した場合のみ consentGiven が返る。
+// 同一ページ内で checkbox 状態が保持されている場合はそれも根拠になる（enhance 経由の遷移）。
+const consentCarried = $derived(
+	(form && 'consentGiven' in form && form.consentGiven === true) ||
+		(agreedTerms && agreedPrivacy && agreedCrossBorder),
+);
+
 // サーバーレスポンス（form）からフォーム値を復元
 $effect(() => {
 	if (typeof form?.email === 'string') email = form.email;
@@ -137,6 +145,16 @@ $effect(() => {
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
 				<input type="hidden" name="plan" value={planParam ?? ''} />
+				<!--
+					#4497: 同意 3 種を確認ステップへ持ち回る。同意の記録は tenant が確定する
+					confirm アクションで行われるため、その時点でも同意の主張が server に届いている
+					必要がある（confirm 側でも必須検証する）。
+					値は「signup アクションが同意を検証して通した」ことを示す consentGiven を
+					第一の根拠にし、同一ページ内のチェック状態はその補助とする。
+				-->
+				<input type="hidden" name="agreedTerms" value={consentCarried ? 'on' : ''} />
+				<input type="hidden" name="agreedPrivacy" value={consentCarried ? 'on' : ''} />
+				<input type="hidden" name="agreedCrossBorder" value={consentCarried ? 'on' : ''} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					{SIGNUP_LABELS.confirmEmailSent(email)}<br />
