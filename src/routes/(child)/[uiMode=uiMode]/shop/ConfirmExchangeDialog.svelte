@@ -13,7 +13,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
-import type { PointSettings } from '$lib/domain/point-display';
+import { type PointSettings, splitPointDisplay } from '$lib/domain/point-display';
 import {
 	REDEMPTION_QUANTITY_MAX,
 	REDEMPTION_QUANTITY_MIN,
@@ -67,6 +67,18 @@ const maxAffordable = $derived(
 );
 const totalPoints = $derived(rewardPoints * quantity);
 const remainingAfter = $derived(balance - totalPoints);
+// #4509 ②: 確定前に見せる数字も一覧・ヘッダーと同じ換算を通す (通貨モードで単位が割れない)。
+const totalParts = $derived(
+	splitPointDisplay(totalPoints, pointSettings, CHILD_SHOP_LABELS.pointUnit),
+);
+const remainingAfterText = $derived.by(() => {
+	const { amount, unit } = splitPointDisplay(
+		remainingAfter,
+		pointSettings,
+		CHILD_SHOP_LABELS.pointUnit,
+	);
+	return `${amount}${unit}`;
+});
 
 // ごほうびを選び直したら個数を 1 に戻す (前の選択が持ち越されて意図しない個数で確定するのを防ぐ)。
 $effect(() => {
@@ -100,11 +112,13 @@ $effect(() => {
 					: CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}
 			</span>
 			<p class="confirm-points-value">
-				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalPoints}</span>
-				<span class="confirm-points-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
+				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalParts.amount}</span>
+				{#if totalParts.unit}
+					<span class="confirm-points-unit">{totalParts.unit}</span>
+				{/if}
 			</p>
 			<span class="confirm-points-label" data-testid="confirm-remaining-after">
-				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfter}{CHILD_SHOP_LABELS.pointUnit}
+				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfterText}
 			</span>
 		</div>
 		<p class="confirm-description">{CHILD_SHOP_LABELS.exchangeConfirmDescription}</p>

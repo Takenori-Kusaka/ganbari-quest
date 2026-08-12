@@ -26,8 +26,10 @@ import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
+import XpGainRow from '$lib/features/child-home/components/XpGainRow.svelte';
 import { DialogFSM, type DialogType } from '$lib/features/child-home/dialog-state-machine';
 import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
+import { resolveSiblingDisplayName } from '$lib/features/child-home/sibling-display-name';
 import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
@@ -1074,15 +1076,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{/if}
 
 				{#if xpGainData}
-					{@const catDef = getCategoryById(xpGainData.categoryId)}
-					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full">
-						<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
-						{CHILD_HOME_LABELS.resultXpLabel}
-						<span class="font-bold text-[var(--color-text)]">+0.3</span>
-						{#if xpGainData.levelAfter > xpGainData.levelBefore}
-							<span class="font-bold text-[var(--color-feedback-warning-text)]"> → Lv.{xpGainData.levelAfter} ↑</span>
-						{/if}
-					</div>
+					<!-- #4509 ①: 増分は XpGainRow が xpAfter - xpBefore から導出する (旧: +0.3 固定リテラル) -->
+					<XpGainRow xp={xpGainData} />
 				{/if}
 
 				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
@@ -1182,7 +1177,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		challengeTitle={celebrationChallenge.title}
 		showClaimHint={celebrationChallenge.rewardClaimed === 0}
 		siblings={celebrationChallenge.siblings.map((s: { childId: ChildId; completed: number }) => ({
-			name: data.allChildren?.find((c: { id: ChildId }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
+			// #4509 ⑤: 名前が引けない回に内部 ID を子供へ見せない (DESIGN.md §6)
+			name: resolveSiblingDisplayName(data.allChildren, s.childId),
 			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}

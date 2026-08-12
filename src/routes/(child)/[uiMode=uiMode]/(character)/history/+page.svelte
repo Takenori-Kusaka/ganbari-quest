@@ -72,7 +72,9 @@ function formatDate(dateStr: string): string {
 	const month = m ?? 0;
 	const day = dd ?? 0;
 	const weekday = t.weekdays[jstDayOfWeek(new Date(`${dateStr}T00:00:00Z`))];
-	return `${month}${t.historyCountUnit === 'かい' ? 'がつ' : '月'}${day}${t.historyCountUnit === 'かい' ? 'にち' : '日'}（${weekday}）`;
+	// #4509 ⑥: 年齢帯は uiMode 由来の variant からのみ導出する
+	// (旧実装は `t.historyCountUnit === 'かい'` という別ラベルの値をプロキシにしていた)
+	return `${month}${t.dateMonthSuffix}${day}${t.dateDaySuffix}（${weekday}）`;
 }
 
 function formatUnixDate(unix: number): string {

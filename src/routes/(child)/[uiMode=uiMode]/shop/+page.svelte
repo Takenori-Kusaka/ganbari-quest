@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { APP_LABELS, CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { splitPointDisplay } from '$lib/domain/point-display';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -112,6 +113,16 @@ function resetFilters() {
 }
 
 const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitleSuffix}`);
+
+// #4509 ②: 残高 / 価格 / 不足分は必ずポイント表示設定 (point / currency + rate) を通す。
+// 通さないと、同じ画面のヘッダー (円換算) と桁の違う数字が並び、子供には
+// 「買えるのかどうか」が読めなくなる。
+const ps = $derived(data.pointSettings);
+const ptsParts = (points: number) => splitPointDisplay(points, ps, CHILD_SHOP_LABELS.pointUnit);
+const ptsText = (points: number) => {
+	const { amount, unit } = ptsParts(points);
+	return unit ? `${amount} ${unit}` : amount;
+};
 </script>
 
 <svelte:head>
@@ -122,8 +133,10 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	<div class="balance-banner">
 		<span class="balance-label">{CHILD_SHOP_LABELS.pointBalanceLabel}</span>
 		<span class="balance-value" data-testid="point-balance">
-			{data.balance}
-			<span class="balance-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
+			{ptsParts(data.balance).amount}
+			{#if ptsParts(data.balance).unit}
+				<span class="balance-unit">{ptsParts(data.balance).unit}</span>
+			{/if}
 		</span>
 	</div>
 
@@ -262,8 +275,10 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 											<div class="reward-info">
 												<p class="reward-title">{reward.title}</p>
 												<p class="reward-points">
-													<span class="reward-points-num">{reward.points}</span>
-													<span class="reward-points-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
+													<span class="reward-points-num">{ptsParts(reward.points).amount}</span>
+													{#if ptsParts(reward.points).unit}
+														<span class="reward-points-unit">{ptsParts(reward.points).unit}</span>
+													{/if}
 												</p>
 
 												{#if reward.latestRequestStatus === 'pending_parent_approval'}
@@ -285,7 +300,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 															class="progress-bar"
 														></progress>
 														<span class="progress-hint">
-															{CHILD_SHOP_LABELS.insufficientPointsHint(remaining)}
+															{CHILD_SHOP_LABELS.insufficientPointsHint(ptsText(remaining))}
 														</span>
 													</div>
 												{/if}

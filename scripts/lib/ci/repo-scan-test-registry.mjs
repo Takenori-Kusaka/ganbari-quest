@@ -89,6 +89,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src/routes + src/lib を走査して Base トークン直接使用を数える (ratchet、#3152)',
 	},
+	'tests/unit/architecture/child-ui-display-integrity.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/(child) と src/lib/features/child-home を再帰 walk し、①経験値の固定リテラル描画 ②内部 ID の表示名フォールバック ③ラベル値による年齢帯判定 の再発を検出する (#4509)',
+	},
 	'tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts': {
 		scope: 'repo',
 		note: '#4085 実測 例4 (5533ms で timeout)。.github + scripts を走査する scanner の健全性検査 (#4007)',
