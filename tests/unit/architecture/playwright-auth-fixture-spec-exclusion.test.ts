@@ -53,7 +53,9 @@ function extractBaseTestIgnoreGlobs(source: string): string[] {
 				'定義の形を変えた場合は本 fitness function の抽出も追随させてください。',
 		);
 	}
-	return [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+	return [...(block[1] ?? '').matchAll(/'([^']+)'/g)]
+		.map((m) => m[1])
+		.filter((g): g is string => g !== undefined);
 }
 
 describe('playwright/.auth fixture を使う spec は local e2e config から除外されている (#4485)', () => {
