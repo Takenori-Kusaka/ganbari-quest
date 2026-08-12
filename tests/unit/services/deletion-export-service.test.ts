@@ -98,6 +98,8 @@ vi.mock('$lib/server/services/export-service', () => ({
 	exportFamilyData: (...args: unknown[]) => mockExportFamilyData(...args),
 }));
 
+// #4482: 保持日数の整形 SSOT
+import { formatRetentionPeriod } from '$lib/domain/constants/plan-retention';
 import { DELETION_EXPORT_NOTE_LABELS } from '$lib/domain/labels';
 import {
 	buildDeletionExportNotes,
@@ -348,7 +350,9 @@ describe('deletion-export-service', () => {
 				expect(joined).toContain(
 					DELETION_EXPORT_NOTE_LABELS.retentionLimited(days as unknown as number),
 				);
-				expect(joined).toContain(String(days));
+				// #4482: 整形は formatRetentionPeriod が SSOT なので、生の日数ではなく
+				// 整形後の表現 (90 → 「90日」/ 365 → 「1年」) が入る
+				expect(joined).toContain(formatRetentionPeriod(days));
 				// 無期限プラン向けの別文が紛れ込まない
 				expect(joined).not.toContain(DELETION_EXPORT_NOTE_LABELS.retentionUnlimited);
 			}
@@ -359,8 +363,11 @@ describe('deletion-export-service', () => {
 			const standardNote = buildDeletionExportNotes('standard').join('\n');
 
 			expect(freeNote).not.toBe(standardNote);
-			expect(freeNote).toContain(String(getPlanLimits('free').historyRetentionDays));
-			expect(standardNote).toContain(String(getPlanLimits('standard').historyRetentionDays));
+			// #4482: 生の日数ではなく formatRetentionPeriod 整形後の表現で照合する
+			expect(freeNote).toContain(formatRetentionPeriod(getPlanLimits('free').historyRetentionDays));
+			expect(standardNote).toContain(
+				formatRetentionPeriod(getPlanLimits('standard').historyRetentionDays),
+			);
 		});
 
 		it('historyRetentionDays が null のプランは日数ではなく「上限なし」の別文を出す', () => {

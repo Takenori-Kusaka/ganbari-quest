@@ -107,8 +107,17 @@ describe('plan retention days SSOT (#4477)', () => {
 	// #4482: 値が SSOT でも「整形」が独自だと、365 の倍数にした瞬間に
 	// 料金表は「1年」・こちらは「365日」と食い違う。整形経路も SSOT に寄せる。
 	describe('日数を表示する経路は formatRetentionPeriod を経由する (変異試験の対象)', () => {
-		const free = PLAN_HISTORY_RETENTION_DAYS.free;
-		const standard = PLAN_HISTORY_RETENTION_DAYS.standard;
+		// SSOT の型は `number | null` (null = 無期限)。本 describe は「日数が数値のときの整形」を
+		// 見るため非 null を要求する。既定値で穴埋めすると SSOT を null にした変異が
+		// 黙って通ってしまうので、明示的に落とす。
+		const requireDays = (value: number | null, name: string): number => {
+			if (value === null) {
+				throw new Error(`${name} が null (無期限) では本テストの前提が成立しない`);
+			}
+			return value;
+		};
+		const free = requireDays(PLAN_HISTORY_RETENTION_DAYS.free, 'free');
+		const standard = requireDays(PLAN_HISTORY_RETENTION_DAYS.standard, 'standard');
 
 		it('/admin/subscription プランカードの「データ保持」', () => {
 			expect(FEATURES_LABELS.planStatusCard.retentionDays(free)).toBe(

@@ -2950,7 +2950,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
 	churnLostItemTitle: (title: string) => `「${title}」称号`,
 	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年以前」と述べる）。
-	churnLostRetentionDays: (days: number) =>
+	churnLostRetentionDays: (days: number | null) =>
 		`${formatRetentionPeriod(days)}以前のデータへのアクセス`,
 
 	// デモ版固有ラベル
@@ -5511,10 +5511,13 @@ export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	 * 保持日数を 365 の倍数に変えるとここだけ「365日」と述べ、料金表の「1年」と食い違った。
 	 * 文の組み立てごと本 compound に集約し、日数の整形は formatRetentionPeriod に委ねる。
 	 *
+	 * `PlanLimits.historyRetentionDays` は `number | null` なので両引数とも null を受ける
+	 * (null の整形は formatRetentionPeriod が「無期限」として担う)。
+	 *
 	 * @param currentDays 現プランの保持日数 (null = 無制限)
-	 * @param targetDays  ダウングレード先の保持日数
+	 * @param targetDays  ダウングレード先の保持日数 (null = 無期限)
 	 */
-	retentionWarning: (currentDays: number | null, targetDays: number) => {
+	retentionWarning: (currentDays: number | null, targetDays: number | null) => {
 		const current = currentDays === null ? '無制限' : formatRetentionPeriod(currentDays);
 		const target = formatRetentionPeriod(targetDays);
 		return `データ保持期間が${current}から${target}に短縮されます。${target}以前のデータは閲覧できなくなります。`;
