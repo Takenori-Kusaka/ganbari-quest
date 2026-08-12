@@ -11,6 +11,7 @@
 // `FAMILY_YEARLY` constants と `ops-analytics-service` / `cohort-analysis-service` で
 // 別途維持される (本ファイル `getPlans()` の対象外)。
 
+import { PLAN_PRICE_YEN } from '$lib/domain/constants/plan-price';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { PLAN_TERMS, PRICE_TERMS } from '$lib/domain/terms';
 import { notifyStripeAlert } from './alert';
@@ -52,7 +53,8 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 		[SUBSCRIPTION_PLAN.MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? '',
 			lookupKey: 'standard_monthly',
-			amount: 500,
+			// 請求額は constants/plan-price.ts が SSOT (#4533)。/ops の MRR 集計と同じ数値を引く。
+			amount: PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY],
 			interval: 'month',
 			tier: 'standard',
 			label: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
@@ -62,7 +64,7 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 			// premium = family (PLAN_TERMS.premium / .family は同値、ADR-0058 rename 過渡期)。
 			// lookup_key 側は `premium_` 接頭辞で、`tier` の 'family' とは語彙が異なる。
 			lookupKey: 'premium_monthly',
-			amount: 780,
+			amount: PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY],
 			interval: 'month',
 			tier: 'family',
 			label: `${PLAN_TERMS.premium}月額（${PRICE_TERMS.family}/月）`,

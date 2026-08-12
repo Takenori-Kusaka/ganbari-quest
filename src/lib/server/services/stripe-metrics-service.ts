@@ -4,6 +4,7 @@
 // MRR / ARR / ARPU / 有料数 / トライアル→有料転換率 / 月次解約率 を提供。
 // 12-事業計画書.md §7.2 / 19-プライシング戦略書.md §8.1 の KPI 定義に準拠。
 
+import { PLAN_MRR_UNIT_YEN, PLAN_PRICE_YEN } from '$lib/domain/constants/plan-price';
 import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
@@ -25,8 +26,10 @@ import { getPlans, type PlanConfig, type PlanId } from '$lib/server/stripe/confi
  * 側で reject される。本 map の値変更は過去契約者の MRR 表示にのみ影響する。
  */
 const HISTORICAL_YEARLY_AMOUNTS: Partial<Record<SubscriptionPlan, number>> = {
-	[SUBSCRIPTION_PLAN.YEARLY]: 5000, // 旧 STANDARD_YEARLY
-	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: 7800, // 旧 FAMILY_YEARLY
+	// 金額は constants/plan-price.ts が SSOT (#4533)。ここで snapshot を持つと
+	// 値上げ時に MRR 集計だけが旧単価のまま残る。
+	[SUBSCRIPTION_PLAN.YEARLY]: PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.YEARLY],
+	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY],
 };
 
 // ============================================================
@@ -103,9 +106,11 @@ function generateMockMetrics(): StripeMetricsWithTrend {
 		const paidCount = Math.max(1, 6 - i);
 		trend.push({
 			month,
-			mrr: paidCount * 500 + Math.round(paidCount * 0.3) * Math.round(5000 / 12),
+			mrr:
+				paidCount * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY] +
+				Math.round(paidCount * 0.3) * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.YEARLY],
 			activePaidCount: paidCount,
-			monthlyRevenue: paidCount * 500,
+			monthlyRevenue: paidCount * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY],
 			churnRate: i > 3 ? 0.1 : 0.05,
 		});
 	}

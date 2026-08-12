@@ -1,6 +1,7 @@
 // src/lib/server/services/ops-service.ts
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
+import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
@@ -109,27 +110,22 @@ function countPlans(tenants: Tenant[]) {
 }
 
 /**
- * プラン単価 (月次換算、円) — /ops MRR 表示の唯一の SSOT (#4505)。
+ * プラン別 MRR 内訳を組み立てる (#4505)。
  *
+ * 単価は `src/lib/domain/constants/plan-price.ts` が唯一の SSOT (#4533)。
  * `src/lib/server/stripe/config.ts` の `getPlans()` は Stripe checkout で新規購入可能な
- * monthly 2 種のみを扱う (#2719 yearly 廃止後)。ここは historical record を含む
- * 5 プラン全種の MRR 単価が必要なため、`ops-analytics-service.ts` / `cohort-analysis-service.ts`
- * と同型の単価表を本サービス内に保持する (円建て、Stripe 実額と同一)。
+ * monthly 2 種のみを扱う (#2719 yearly 廃止後) が、ここは historical record を含む
+ * 5 プラン全種の MRR 単価が必要なため、値だけを同じ SSOT から引く。
  */
-const PLAN_MRR_UNIT_YEN = {
-	monthly: 500,
-	yearly: Math.round(5000 / 12),
-	familyMonthly: 780,
-	familyYearly: Math.round(7800 / 12),
-} as const;
-
 function computeMrrBreakdown(
 	planBreakdown: TenantStats['planBreakdown'],
 ): TenantStats['mrrBreakdown'] {
-	const monthly = planBreakdown.monthly * PLAN_MRR_UNIT_YEN.monthly;
-	const yearly = planBreakdown.yearly * PLAN_MRR_UNIT_YEN.yearly;
-	const familyMonthly = planBreakdown.familyMonthly * PLAN_MRR_UNIT_YEN.familyMonthly;
-	const familyYearly = planBreakdown.familyYearly * PLAN_MRR_UNIT_YEN.familyYearly;
+	const monthly = planBreakdown.monthly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY];
+	const yearly = planBreakdown.yearly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.YEARLY];
+	const familyMonthly =
+		planBreakdown.familyMonthly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY];
+	const familyYearly =
+		planBreakdown.familyYearly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY];
 
 	return {
 		monthly,
