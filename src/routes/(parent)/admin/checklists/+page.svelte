@@ -1,6 +1,7 @@
 <script lang="ts">
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
@@ -1319,7 +1320,10 @@ function getChildName(childId: ChildId): string {
      プレミアム gate の文脈提示は AiSuggestChecklistPanel 内部の familyOnlyDescription(kind) が
      機能名 (AI チェックリスト提案) 込みで担う (#2901 contextual paywall 整合、AC2)。 -->
 <Dialog bind:open={aiDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addDialogTitleAi} testid="checklists-ai-dialog">
-	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
+	<!-- #4506: gate 導出は $lib/domain/ai-suggest-gate の述語 1 本に集約 (server enforcement と同一)。
+	     旧 `data.planTier === 'family'` は load が planTier を返しておらず常に false に潰れ、
+	     プレミアム加入者にもロックが出ていた。関数化により planTier 欠落は型エラーになる。 -->
+	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={isAiSuggestUnlocked(data.planTier)} />
 </Dialog>
 
 <!-- #3098: 「別の子から copy」dialog — source child の配信 template を選択中 child にも配信 (assignments 追加)。

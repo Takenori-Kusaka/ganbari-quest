@@ -61,6 +61,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
 	},
+	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下の +page.svelte を走査し、AI 提案パネルの isFamily 導出が共有述語 isAiSuggestUnlocked() を経由しているかを検査する (#4506 AC5)',
+	},
 	'tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts': {
 		scope: 'repo',
 		note: 'tests/e2e 配下の spec を走査し、worker 分離 fixture (./fixtures) を経由しない spec 数を ratchet する (#4489)',

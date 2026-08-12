@@ -616,7 +616,17 @@ function selectChild(childId: ChildId) {
 		{#if addMode === 'ai'}
 			<!-- #2902 Phase A: load は planTier を返さず isPremium を返す。
 			     旧 `data.planTier === 'family'` は常に undefined === 'family' = false で機能不全だった。
-			     有料判定 (isPremium) を渡して AI 提案パネルの premium gating を正しく評価する。 -->
+			     有料判定 (isPremium) を渡して AI 提案パネルの premium gating を正しく評価する。
+
+			     #4506: ここは **意図的に共有述語 (isAiSuggestUnlocked) へ移行していない**。
+			     isPremium は有料 tier 全体 (standard を含む) を指すため、述語に置換えると
+			     standard 加入者の表示が解放 → ロックに変わる。この引き締めは PO の順序制約により
+			     **#4501 (プレミアムのトライアル化) と同 wave か、その後**に実施する
+			     (LP が「全機能お試し」を約束している間に先に締めると、見込み客に対する
+			     新たな誤認を作るため)。#4506 の checklists 側 (顧客救済) のみ先行させ、
+			     本 callsite の是正は #4501 wave に残す。
+			     この未移行状態は tests/unit/architecture/ai-suggest-gate-derivation.test.ts の
+			     除外登録で pin されており、除外を消さない限り #4501 wave で必ず再訪される。 -->
 			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.isPremium} />
 		{:else if addMode === 'manual'}
 			<ActivityCreateForm

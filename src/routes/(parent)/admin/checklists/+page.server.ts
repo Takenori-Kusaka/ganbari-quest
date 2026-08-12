@@ -130,6 +130,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		familyTemplates,
 		today,
 		isPremium,
+		// #4506: AI 提案パネルの UI プランゲート (premium 限定) の導出元。従来 load が planTier を
+		// 返しておらず、`+page.svelte` の `data.planTier === 'family'` が常に
+		// `undefined === 'family'` = false に潰れて、プレミアム加入者にもロックが出ていた。
+		planTier: tier,
 		checklistTemplateMax,
 		importPresetId,
 		importPresetInvalid,

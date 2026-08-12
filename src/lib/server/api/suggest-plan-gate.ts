@@ -2,6 +2,7 @@
 // AI 提案エンドポイント共通プランゲート (#727)
 
 import { error } from '@sveltejs/kit';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { apiError } from '$lib/server/errors';
@@ -39,7 +40,9 @@ export async function validateSuggestRequest(
 
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	if (tier !== 'family') {
+	// #4506: UI 側のロック表示と同一述語 ($lib/domain/ai-suggest-gate) を使う。
+	// enforcement と表示が別式だったために「表示の嘘」が 3 画面で発生した。
+	if (!isAiSuggestUnlocked(tier)) {
 		return {
 			ok: false,
 			response: apiError('PLAN_LIMIT_EXCEEDED', PLAN_GATE_LABELS.familyOnlyFor(featureLabel)),
