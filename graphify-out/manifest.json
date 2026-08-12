@@ -1405,8 +1405,8 @@
     "semantic_hash": ""
   },
   "scripts/lib/ci/repo-scan-test-registry.mjs": {
-    "mtime": 1786539130.6718128,
-    "ast_hash": "b18b9ca94d3b79f69508d05854ce68cd",
+    "mtime": 1786545154.8399203,
+    "ast_hash": "4f7aebb40d233fc74b8ebe84fb41fe23",
     "semantic_hash": ""
   },
   "scripts/lib/ci/resolve-base-branch.mjs": {
@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/labels.ts": {
-    "mtime": 1786540902.6780193,
-    "ast_hash": "48e1bdc2d8b0cdcaa63243d1cea98636",
+    "mtime": 1786544461.2360747,
+    "ast_hash": "faf118e42480bd17d96acc11ccaa7397",
     "semantic_hash": ""
   },
   "src/lib/domain/marketplace-item.ts": {
@@ -4175,8 +4175,8 @@
     "semantic_hash": ""
   },
   "src/lib/server/services/account-deletion-service.ts": {
-    "mtime": 1786539706.5992043,
-    "ast_hash": "280adc28f47e2166ef66ec99d928eea9",
+    "mtime": 1786544461.2400832,
+    "ast_hash": "c6fdad8ea1945d5c420a5b98d7adfbd9",
     "semantic_hash": ""
   },
   "src/lib/server/services/activity-cancel-dsql.ts": {
@@ -4405,8 +4405,8 @@
     "semantic_hash": ""
   },
   "src/lib/server/services/email-service.ts": {
-    "mtime": 1786540908.273175,
-    "ast_hash": "f9bbe9dc793da3fc75e098481fdcdb2b",
+    "mtime": 1786544461.2390776,
+    "ast_hash": "1c3d91f4e93047d9492702f652e8e2cc",
     "semantic_hash": ""
   },
   "src/lib/server/services/evaluation-service.ts": {
@@ -4435,8 +4435,8 @@
     "semantic_hash": ""
   },
   "src/lib/server/services/grace-period-service.ts": {
-    "mtime": 1786539669.6279025,
-    "ast_hash": "45137c23b5005d78acec66a4bda9e2de",
+    "mtime": 1786544461.241105,
+    "ast_hash": "35f51f2c59112002f4363f30b7d98333",
     "semantic_hash": ""
   },
   "src/lib/server/services/graduation-service.ts": {
@@ -11240,8 +11240,8 @@
     "semantic_hash": ""
   },
   "tests/unit/services/trial-notification-service.test.ts": {
-    "mtime": 1786539132.9892626,
-    "ast_hash": "d1b2561739d989bba868ed89357fb96d",
+    "mtime": 1786545205.8990462,
+    "ast_hash": "43ba9a93e295b6009e83859643cff72c",
     "semantic_hash": ""
   },
   "tests/unit/services/trial-service.test.ts": {
