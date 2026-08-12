@@ -12130,8 +12130,8 @@
     "semantic_hash": ""
   },
   "docs/design/06-UI\u8a2d\u8a08\u66f8.md": {
-    "mtime": 1786544785.9976418,
-    "ast_hash": "f5bf2baccb61d82180ca4d2b4796deb4",
+    "mtime": 1786546542.8395364,
+    "ast_hash": "38a84d3ade0208d69dd54f1b1c51b5e5",
     "semantic_hash": ""
   },
   "docs/design/07-API\u8a2d\u8a08\u66f8.md": {
@@ -14540,8 +14540,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/ai-suggest-gate.ts": {
-    "mtime": 1786544791.435449,
-    "ast_hash": "6eba98c6d1524babb04dabac16a3e0fb",
+    "mtime": 1786546547.2986536,
+    "ast_hash": "670e0a6f55455a06da283d9a01f11cab",
     "semantic_hash": ""
   },
   "src/lib/domain/constants/plan-retention.ts": {
@@ -14565,8 +14565,8 @@
     "semantic_hash": ""
   },
   "tests/unit/architecture/ai-suggest-gate-derivation.test.ts": {
-    "mtime": 1786544818.8639288,
-    "ast_hash": "04df83e9183fa3c3bb675b8d6948fbe6",
+    "mtime": 1786546548.4190695,
+    "ast_hash": "f7714c675b313877676fc0c0d440cf5b",
     "semantic_hash": ""
   },
   "tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts": {
@@ -14630,8 +14630,8 @@
     "semantic_hash": ""
   },
   "scripts/capture-specs/flows/admin-checklists-ai-gate-4506.mjs": {
-    "mtime": 1786544441.612814,
-    "ast_hash": "b2dc8c6e6a37d403a27df0b7c6757f85",
+    "mtime": 1786546462.1939418,
+    "ast_hash": "4963f8cc7dc28092ce9e856bd09bc3c6",
     "semantic_hash": ""
   }
 }

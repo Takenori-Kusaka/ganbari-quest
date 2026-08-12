@@ -5,8 +5,9 @@
 //
 // AI 提案は server 側 (`$lib/server/api/suggest-plan-gate.ts`) が premium 限定で enforce している。
 // 一方 UI 側は各 admin 画面が `isFamily` prop を **画面ごとに別々の式で導出** していたため、
-// 「server は拒否するのに UI は解放表示」「server は許可するのに UI はロック表示」という
-// 表示の嘘が 3 画面で三様に発生した (#2902 → #4506 で same-class 3 現場目)。
+// 「server は拒否するのに UI は解放表示」という表示の嘘 (activities) と、
+// 「式は正しいのに壊れていると 2 度誤読される」状態 (checklists) が併存していた
+// (#2902 → #4506)。
 //
 // | 画面 | 旧導出 | 状態 |
 // |---|---|---|
@@ -25,12 +26,12 @@
 //
 // 一方 **page 側は型で守れない**。SvelteKit が生成する `PageData` は `OutputDataShape` 経由で
 // `Record<string, any>` を含むため、`data.<存在しない field>` は `any` に解決され、svelte-check /
-// tsc は何も言わない。現に #4506 の欠陥 (`data.planTier` が undefined) は CI の svelte-check を
-// 通過して出荷されており、planTier 返却を外す mutation を当てても 0 errors であることを実測した。
+// tsc は何も言わない (存在しない field を参照する mutation を当てて 0 errors を実測)。
 //
 // したがって page ↔ load の対応は機械検査で担保する:
 // `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` が、call site が読む `data.<field>` を
-// 同ディレクトリの load が実際に返しているかを検査する (mutation で検出を実測済)。
+// **load 連鎖 (page load + 祖先 layout load) のどこかが**返しているかを検査する
+// (mutation で検出を実測済)。layout を数えない検査は #2902 / #4506 の誤読の機械化になる。
 
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 
