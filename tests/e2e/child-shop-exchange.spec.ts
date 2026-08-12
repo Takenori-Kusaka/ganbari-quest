@@ -227,16 +227,10 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		await expect(confirmYes).not.toBeVisible();
 
 		// #4449: 既定 (承認必須) では作られるのは申請だけでポイントは 1 も減っていない。
-		// 「何を / 返事待ち」が文字で出て、祝福 (紙吹雪) は出ないことを実ブラウザで固定する。
+		// 「何を / 返事待ち」が文字で出ることを実ブラウザで固定する。
 		await expect(page.getByText(CHILD_SHOP_LABELS.exchangeRequestedToastTitle)).toBeVisible({
 			timeout: 10000,
 		});
-		// canvas-confetti は body 直下に <canvas> を追加する。Toast が出た時点で演出の発火
-		// タイミングは過ぎているが、動的 import の解決ぶんだけ余裕を取ってから 0 件を確認する。
-		await page.waitForTimeout(500);
-		expect(await page.locator('canvas').count(), '減っていないポイントを祝う紙吹雪を出さない').toBe(
-			0,
-		);
 
 		// 申請後は「申請中」バッジが表示されるか、交換ボタンが非表示になる
 		// どちらかの状態になることを確認（UIの実装に応じて）
@@ -257,6 +251,11 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 				{ timeout: 5000 },
 			)
 			.toBe(true);
+
+		// #4449: 祝福 (紙吹雪) を出さないこと。canvas-confetti は body 直下に <canvas> を追加する。
+		// 演出の発火点は `onClose()` の直後 = 上の「申請中」確定 (invalidateAll 後) より前なので、
+		// ここまで来た時点で「鳴っていたなら canvas が居る」状態になっている (待ち時間を挟まずに済む)。
+		expect(await page.locator('canvas').count(), '減っていないポイントを祝わない').toBe(0);
 	});
 
 	// ============================================================
