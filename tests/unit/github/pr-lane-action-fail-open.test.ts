@@ -71,7 +71,7 @@ function extractCommitsRunScript(): string {
 
 /** GitHub composite step の既定 shell と同じ条件で run script を実行する。 */
 function runStepScript(options: { ghExitCode: number; ghStdout: string; prNumber: string }) {
-	const dir = mkdtempSync(path.join(tmpdir(), 'pr-lane-failopen-'));
+	const dir = mkdtempSync(path.join(tmpdir(), 'pr-lane-fail-open-'));
 	tempDirs.push(dir);
 
 	const scriptPath = path.join(dir, 'step.sh');
