@@ -10,7 +10,11 @@ import {
 	ICON_STATUS,
 	ICON_SWITCH,
 } from '$lib/domain/icons';
-import { CHILD_SHOP_LABELS, PIN_GATE_ONBOARDING_LABELS } from '$lib/domain/labels';
+import {
+	CHILD_SHOP_LABELS,
+	PIN_GATE_ONBOARDING_LABELS,
+	UI_COMPONENTS_LABELS,
+} from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
@@ -61,7 +65,8 @@ const pointFlightEnabled = $derived(!isBaby && !isScreenshotMode);
 // #0289: モード別ラベルを一元定数から取得
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
-	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: 'ホーム' },
+	// #4509 ⑥: 直書きを labels SSOT へ (BottomNav の既定項目と同じ出所を使う)
+	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: UI_COMPONENTS_LABELS.bottomNavHome },
 	{ href: '/checklist', icon: ICON_CHECKLIST, label: modeLabels.checklist },
 	{ href: `/${uiMode}/shop`, icon: CHILD_SHOP_LABELS.navIcon, label: CHILD_SHOP_LABELS.navLabel },
 	{ href: `/${uiMode}/status`, icon: ICON_STATUS, label: modeLabels.status },

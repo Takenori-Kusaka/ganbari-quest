@@ -2,7 +2,12 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { jstDayOfWeek } from '$lib/domain/date-utils';
-import { APP_LABELS, CHILD_CHECKLIST_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	CHILD_CHECKLIST_TIME_SLOT_ICONS,
+	getChildChecklistLabels,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
@@ -22,33 +27,16 @@ const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.curren
 let completeOpen = $state(false);
 let completeData = $state<{ templateName: string; pointsAwarded: number } | null>(null);
 
-const DAY_NAMES = [
-	'にちようび',
-	'げつようび',
-	'かようび',
-	'すいようび',
-	'もくようび',
-	'きんようび',
-	'どようび',
-];
+// #4509 ④: 年齢帯文言は labels SSOT の getChildChecklistLabels に集約する。
+// 本 route は `[uiMode]` パラメータ配下ではないが、年齢帯は `(child)/+layout.server.ts` が
+// 解決済みの `data.uiMode` から受け取れる (route を動かさなくても context は届く)。
+// 画面側に `if (uiMode === ...)` を書かない (`src/routes/CLAUDE.md` §年齢帯 variant)。
+const t = $derived(getChildChecklistLabels({ ageTier: data.uiMode }));
 
 // 曜日は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) が JST 00:00〜09:00 に
 // 前日の曜日を描画し、hydration で切り替わる (子供画面に誤情報 + ちらつき)。
-const todayDayName = $derived(DAY_NAMES[jstDayOfWeek()]);
+const todayDayName = $derived(t.dayNames[jstDayOfWeek()]);
 
-// 時間帯ラベル
-const TIME_SLOT_LABELS: Record<string, string> = {
-	morning: 'あさ',
-	afternoon: 'ひる',
-	evening: 'よる',
-	anytime: 'いつでも',
-};
-const TIME_SLOT_ICONS: Record<string, string> = {
-	morning: '☀️',
-	afternoon: '🌤️',
-	evening: '🌙',
-	anytime: '🕐',
-};
 const currentSlot = $derived(data.currentTimeSlot ?? 'morning');
 function isCurrentSlot(slot: string): boolean {
 	return slot === currentSlot || slot === 'anytime';
@@ -72,18 +60,18 @@ const flatChecklists = $derived(data.checklists);
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">
 	<!-- Day of week header -->
 	<div class="text-center mb-[var(--sp-md)]">
-		<p class="text-sm text-[var(--color-text-muted)]">{CHILD_CHECKLIST_LABELS.todayPrefix}</p>
+		<p class="text-sm text-[var(--color-text-muted)]">{t.todayPrefix}</p>
 		<p class="text-lg font-bold">{todayDayName}</p>
 		<p class="text-sm text-[var(--color-text-muted)]">
-			{TIME_SLOT_ICONS[currentSlot]} {CHILD_CHECKLIST_LABELS.nowPrefix} <span class="font-bold">{TIME_SLOT_LABELS[currentSlot]}</span> {CHILD_CHECKLIST_LABELS.nowSuffix}
+			{CHILD_CHECKLIST_TIME_SLOT_ICONS[currentSlot]} {t.nowPrefix} <span class="font-bold">{t.timeSlotLabels[currentSlot]}</span> {t.nowSuffix}
 		</p>
 	</div>
 
 	{#if data.checklists.length === 0}
 		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
 			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-lg font-bold">{CHILD_CHECKLIST_LABELS.emptyTitle}</p>
-			<p class="text-sm">{CHILD_CHECKLIST_LABELS.emptyDesc}</p>
+			<p class="text-lg font-bold">{t.emptyTitle}</p>
+			<p class="text-sm">{t.emptyDesc}</p>
 		</div>
 	{:else}
 		<!-- #1755 (#1709-A): kind 削除 — グルーピング解除、持ち物として一覧表示 -->
@@ -96,7 +84,7 @@ const flatChecklists = $derived(data.checklists);
 						<span class="text-xl">{checklist.templateIcon}</span>
 						<span class="font-bold">{checklist.templateName}</span>
 						{#if checklist.timeSlot !== 'anytime'}
-							<span class="text-xs px-1.5 py-0.5 bg-white/50 rounded">{TIME_SLOT_ICONS[checklist.timeSlot]} {TIME_SLOT_LABELS[checklist.timeSlot]}</span>
+							<span class="text-xs px-1.5 py-0.5 bg-white/50 rounded">{CHILD_CHECKLIST_TIME_SLOT_ICONS[checklist.timeSlot]} {t.timeSlotLabels[checklist.timeSlot]}</span>
 						{/if}
 					</div>
 					<div class="text-sm">
@@ -167,9 +155,9 @@ const flatChecklists = $derived(data.checklists);
 				<!-- Footer: points info -->
 				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]">
 					{#if checklist.completedAll}
-						<span class="text-[var(--theme-accent)] font-bold">{CHILD_CHECKLIST_LABELS.completedAll} {fmtPts(checklist.pointsAwarded)}</span>
+						<span class="text-[var(--theme-accent)] font-bold">{t.completedAll} {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}
-						{CHILD_CHECKLIST_LABELS.checkForPoints} <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
+						{t.checkForPoints} <span class="font-bold text-[var(--color-point)]">{fmtPts(checklist.totalCount * checklist.pointsPerItem + checklist.completionBonus)}</span>
 					{/if}
 				</div>
 				{/snippet}
@@ -187,13 +175,14 @@ const flatChecklists = $derived(data.checklists);
 			<div class="relative w-24 h-24 flex items-center justify-center">
 				<CelebrationEffect type={celebEffect} />
 			</div>
-			<p class="text-lg font-bold">{completeData.templateName}<br />{CHILD_CHECKLIST_LABELS.completeTitle}</p>
+			<p class="text-lg font-bold">{completeData.templateName}<br />{t.completeTitle}</p>
 			<div class="animate-point-pop">
-				<p class="text-2xl font-bold text-[var(--color-point)]">{'+' + completeData.pointsAwarded + ' ' + CHILD_CHECKLIST_LABELS.pointsSuffix}</p>
+				<!-- #4509 ③: フッターと同じ fmtPts を通す (換算非経由の生ポイント表示を根絶) -->
+				<p class="text-2xl font-bold text-[var(--color-point)]" data-testid="checklist-complete-points">{fmtPts(completeData.pointsAwarded)}</p>
 			</div>
-			<p class="text-sm text-[var(--color-text-muted)]">{CHILD_CHECKLIST_LABELS.completeMsg}</p>
+			<p class="text-sm text-[var(--color-text-muted)]">{t.completeMsg}</p>
 			<Button variant="primary" size="lg" class="w-full" onclick={handleCompleteClose}>
-				{CHILD_CHECKLIST_LABELS.completeButton}
+				{t.completeButton}
 			</Button>
 		</div>
 	{/if}

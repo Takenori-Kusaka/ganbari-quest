@@ -4025,6 +4025,13 @@ export const CHILD_HOME_LABELS = {
 		`🎖️ ${name}が Lv.${level} になった！`,
 	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
 	resultXpLabel: 'けいけんち',
+	/**
+	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
+	 * 内部 ID (`#<childId>`) を子供の画面に出さないためのフォールバック (DESIGN.md §6)。
+	 */
+	siblingUnknownName: 'きょうだい',
+	/** #4509 ①: 経験値行のレベルアップ併記。増分の数値そのものは実データから導出する */
+	resultXpLevelUp: (level: number | string) => ` → Lv.${level} ↑`,
 	resultMissionComplete: '🎯 ミッションたっせい！',
 	resultMissionAllClear: '🎉 ぜんぶクリア！',
 	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
@@ -5961,7 +5968,36 @@ export const DEMO_BATTLE_LABELS = {
 	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
 } as const;
 
-export const CHILD_CHECKLIST_LABELS = {
+/**
+ * チェックリスト画面の文言 (年齢帯 variant)。
+ *
+ * #4509 ④/⑥: 以前は 1 セットのひらがな文言しか無く、13-18 歳がナビの「持ち物チェック」(漢字)
+ * から遷移すると「にちようび」「おやにおねがいしてね」という幼児文体に着地していた。
+ * 曜日名 7 件 / 時間帯 4 件も画面側に直書きされていた。
+ *
+ * 年齢帯の出し分けは `getChildChecklistLabels({ ageTier })` 経由に集約する
+ * (`src/routes/CLAUDE.md` §年齢帯 variant: 画面側に `if (uiMode === ...)` を散らさない)。
+ * 分割は MODE_VARIANTS (child-home) と同じ baby/preschool = ひらがな、
+ * elementary 以上 = 漢字。
+ */
+interface ChildChecklistTextVariant {
+	todayPrefix: string;
+	nowPrefix: string;
+	nowSuffix: string;
+	emptyTitle: string;
+	emptyDesc: string;
+	completedAll: string;
+	checkForPoints: string;
+	completeTitle: string;
+	completeMsg: string;
+	completeButton: string;
+	/** 曜日名 (index 0 = 日曜)。JST SSOT (`jstDayOfWeek()`) の戻り値で引く */
+	dayNames: readonly string[];
+	/** 時間帯ラベル (checklist.timeSlot の値で引く) */
+	timeSlotLabels: Readonly<Record<string, string>>;
+}
+
+const CHILD_CHECKLIST_HIRAGANA: ChildChecklistTextVariant = {
 	todayPrefix: 'きょうは',
 	nowPrefix: 'いまは',
 	nowSuffix: 'のじかん',
@@ -5971,10 +6007,65 @@ export const CHILD_CHECKLIST_LABELS = {
 	checkForPoints: 'ぜんぶチェックしたら',
 	// #2196: backButton 撤廃 — BottomNav と動線重複 + 他 child タブ (achievements / battle / history / status / shop) 統一性
 	completeTitle: 'ぜんぶできたよ！',
-	pointsSuffix: 'ポイント！',
 	completeMsg: 'わすれものなし！すごい！',
 	completeButton: 'やったね！',
-} as const;
+	dayNames: [
+		'にちようび',
+		'げつようび',
+		'かようび',
+		'すいようび',
+		'もくようび',
+		'きんようび',
+		'どようび',
+	],
+	timeSlotLabels: {
+		morning: 'あさ',
+		afternoon: 'ひる',
+		evening: 'よる',
+		anytime: 'いつでも',
+	},
+};
+
+const CHILD_CHECKLIST_KANJI: ChildChecklistTextVariant = {
+	todayPrefix: '今日は',
+	nowPrefix: '今は',
+	nowSuffix: 'の時間',
+	emptyTitle: 'チェックリストがありません',
+	emptyDesc: 'おうちの人に追加してもらおう',
+	completedAll: '🎉 全部できた！',
+	checkForPoints: '全部チェックしたら',
+	completeTitle: '全部できた！',
+	completeMsg: '忘れ物なし！すごい！',
+	completeButton: 'やったね！',
+	dayNames: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+	timeSlotLabels: {
+		morning: '朝',
+		afternoon: '昼',
+		evening: '夜',
+		anytime: 'いつでも',
+	},
+};
+
+/** 時間帯アイコン。年齢帯で変わらないため variant の外に置く */
+export const CHILD_CHECKLIST_TIME_SLOT_ICONS: Readonly<Record<string, string>> = {
+	morning: '☀️',
+	afternoon: '🌤️',
+	evening: '🌙',
+	anytime: '🕐',
+};
+
+/**
+ * 年齢帯に応じたチェックリスト文言を返す。
+ *
+ * `ageTier` は必ず呼び出し側から渡すこと (アンチパターン A1: `if (uiMode === 'baby')` 散在の回避)。
+ * `(child)/+layout.server.ts` が解決した `data.uiMode` をそのまま渡す。
+ */
+export function getChildChecklistLabels(ctx: {
+	ageTier: UiMode | string | null | undefined;
+}): ChildChecklistTextVariant {
+	const tier = normalizeUiMode(ctx.ageTier ?? '');
+	return tier === 'baby' || tier === 'preschool' ? CHILD_CHECKLIST_HIRAGANA : CHILD_CHECKLIST_KANJI;
+}
 
 export const DEMO_CHILD_CHECKLIST_LABELS = {
 	demoNotice: 'これはデモです。チェックは保存されません。',
@@ -7047,7 +7138,12 @@ export const CHILD_SHOP_LABELS = {
 		`${rewardTitle} と こうかんする？（${points} ポイント）`,
 	exchangeConfirmYes: 'はい',
 	exchangeConfirmCancel: 'やめる',
-	insufficientPointsHint: (remaining: number) => `あと ${remaining} ポイント`,
+	/**
+	 * #4509 ②: 不足分は「整形済みの表示文字列」を受け取る。
+	 * 生ポイント + 固定単位だと通貨モードで嘘の数字になるため、単位は呼び出し側が
+	 * splitPointDisplay で決める。
+	 */
+	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
 	emptyMessage: 'ごほうびがまだありません',
 	// 申請中バッジ
 	statusPending: 'うけとりまち',
@@ -7097,7 +7193,9 @@ export const CHILD_SHOP_LABELS = {
 	quantityValueAriaLabel: (quantity: number) => `こすう ${quantity}こ`,
 	quantityMaxHint: 'もっているポイントで こうかんできる さいだいの こすうだよ',
 	totalPointsLabel: 'ぜんぶで',
-	remainingAfterLabel: 'こうかんしたあとの ポイント',
+	// #4509 ②: 単位語 (「ポイント」) を見出しから外す。通貨モードでは値が「250円」になるため、
+	// 見出しに「ポイント」が残ると同じ行の中で単位が二重に食い違う。
+	remainingAfterLabel: 'こうかんしたあとの のこり',
 	// #4407 AC9/AC12: 交換の結果を「見ている場所」に文字で出す (演出は加飾であって通知ではない)
 	exchangeSuccessToastTitle: 'こうかんできたよ！',
 	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
