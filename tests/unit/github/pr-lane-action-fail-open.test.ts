@@ -54,7 +54,7 @@ function extractCommitsRunScript(): string {
 	const body: string[] = [];
 	let indent: number | null = null;
 	for (let i = runStart + 1; i < lines.length; i++) {
-		const line = lines[i];
+		const line = lines[i] ?? '';
 		if (line.trim() === '') {
 			body.push('');
 			continue;
