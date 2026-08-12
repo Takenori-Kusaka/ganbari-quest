@@ -7,7 +7,8 @@
  * 本ダイアログは `SaasLicensePanel.requestPortal()` から
  *   ① `STRIPE_SECRET_KEY` があり (stripeEnabled)
  *   ② tenant に有効な契約 (`stripeSubscriptionId`) があり
- *   ③ ダウングレード先の上限を超えるリソースがある (`hasExcess`)
+ *   ③ ダウングレードで失うものがある (`hasExcess` または保持期間短縮 `willLoseHistory`、
+ *     判定は `downgrade-dialog-policy.ts` の `shouldOpenDowngradeSelector`、#4530)
  * の 3 条件が揃ったときにだけ開く。local backend (sqlite) は `tenants` を持たず
  * `getLicenseInfo` が常に null を返すため、**ローカルでは開くこと自体ができない**
  * (docs/CLAUDE.md §「local 検証不可」と同型。SaasLicensePanel story の
@@ -70,6 +71,42 @@ function mockPreview(currentRetentionDays: number | null): DowngradePreview {
 	};
 }
 
+/**
+ * 超過リソースが**無い**まま保持期間だけが縮む preview (#4530)。
+ *
+ * 旧実装はダイアログを開く判定が `hasExcess` だけだったため、この状態の顧客は
+ * 警告を 1 つも見ないまま Stripe の確認へ直行し、保持期間を超えた記録が物理削除されていた。
+ * 子供 2 人 / 活動 2 個はいずれも free 上限以内 = `hasExcess: false`。
+ */
+function mockPreviewWithoutExcess(currentRetentionDays: number | null): DowngradePreview {
+	return {
+		targetTier: 'free',
+		children: {
+			current: [
+				{ id: 'child-1' as ChildId, name: L.childOne, uiMode: 'elementary' },
+				{ id: 'child-2' as ChildId, name: L.childTwo, uiMode: 'preschool' },
+			],
+			max: FREE_MAX_CHILDREN,
+			excess: 0,
+		},
+		activities: {
+			current: [
+				{ id: 'act-1' as ActivityId, name: L.activityOne, icon: '🦷' },
+				{ id: 'act-2' as ActivityId, name: L.activityTwo, icon: '🧹' },
+			],
+			max: FREE_MAX_ACTIVITIES,
+			excess: 0,
+		},
+		checklistTemplates: { current: [], maxPerChild: 3, excessByChild: [] },
+		retentionChange: {
+			currentDays: currentRetentionDays,
+			targetDays: FREE_RETENTION_DAYS,
+			willLoseHistory: true,
+		},
+		hasExcess: false,
+	};
+}
+
 const { Story } = defineMeta({
 	title: 'Admin/DowngradeResourceSelector',
 	component: DowngradeResourceSelector,
@@ -120,5 +157,39 @@ const { Story } = defineMeta({
 		const warning = await waitFor(() => screen.getByText(expected));
 		await expect(warning).toBeVisible();
 		await expect(warning).toHaveTextContent('削除され、復元できません（再契約でも戻りません）');
+	}}
+/>
+
+<!--
+  #4530: 超過リソースが無く、保持期間だけが縮むダウングレード。
+  旧実装ではこの状態でダイアログが開かれず、警告が顧客に一度も出なかった
+  (caller が `hasExcess` だけで開くか決めていた)。
+  ここでは (a) 保持期間短縮の警告が出ること、(b) 超過リソースの選択 UI は出ないこと、
+  (c) 確認ボタンが「アーカイブして…」ではなく「プラン変更へ進む」であることを固定する。
+-->
+<Story
+	name="RetentionShortenedWithoutExcess"
+	args={{
+		open: true,
+		preview: mockPreviewWithoutExcess(STANDARD_RETENTION_DAYS),
+		onConfirm: fn(),
+		onCancel: fn(),
+	}}
+	play={async () => {
+		const expected = DOWNGRADE_RESOURCE_SELECTOR_LABELS.retentionWarning(
+			STANDARD_RETENTION_DAYS,
+			FREE_RETENTION_DAYS,
+		);
+		const warning = await waitFor(() => screen.getByText(expected));
+		await expect(warning).toBeVisible();
+		await expect(warning).toHaveTextContent('削除され、復元できません（再契約でも戻りません）');
+
+		// 超過が無いので選択 UI は出ない (無用な操作を増やさない)
+		await expect(screen.queryByTestId('downgrade-child-list')).toBeNull();
+
+		// 確認ボタンはアーカイブではなくプラン変更へ進む側
+		const confirm = screen.getByTestId('downgrade-confirm-button');
+		await expect(confirm).toHaveTextContent(DOWNGRADE_RESOURCE_SELECTOR_LABELS.proceedButton);
+		await expect(confirm).toBeEnabled();
 	}}
 />
