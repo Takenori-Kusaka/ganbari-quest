@@ -4485,8 +4485,8 @@
     "semantic_hash": ""
   },
   "src/lib/server/services/lifecycle-email-service.ts": {
-    "mtime": 1786540025.0804796,
-    "ast_hash": "8668881134287013b61a82c1c0ad6b61",
+    "mtime": 1786542499.1103191,
+    "ast_hash": "7295e73be2a36460a1e95ad4b579c277",
     "semantic_hash": ""
   },
   "src/lib/server/services/login-bonus-service.ts": {
@@ -14610,13 +14610,18 @@
     "semantic_hash": ""
   },
   "tests/unit/services/email-content-snapshot.test.ts": {
-    "mtime": 1786540793.9774077,
-    "ast_hash": "810bb5c9314e814ec96c352ad3ecd49c",
+    "mtime": 1786543170.1794448,
+    "ast_hash": "177160b2089264ac0fd1c0140506c103",
     "semantic_hash": ""
   },
   "tests/unit/services/email-wiring.test.ts": {
-    "mtime": 1786540977.0065515,
-    "ast_hash": "c7fa2a1cadbcd80d1fe62b5bb3853c78",
+    "mtime": 1786543170.199446,
+    "ast_hash": "0be7a4c841baa31c384ced6d4dc920b3",
+    "semantic_hash": ""
+  },
+  "tests/unit/architecture/grace-period-dunning-only-writer.test.ts": {
+    "mtime": 1786542242.9486985,
+    "ast_hash": "038a799688cac099848c5c553114df03",
     "semantic_hash": ""
   }
 }
