@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/labels.ts": {
-    "mtime": 1786535768.9213507,
-    "ast_hash": "85c9f95a3b0d1ebec2b52abd2040aa9b",
+    "mtime": 1786539048.7151453,
+    "ast_hash": "e9f8e9d461c8ab31908bb5b7663677d0",
     "semantic_hash": ""
   },
   "src/lib/domain/marketplace-item.ts": {
@@ -5710,8 +5710,8 @@
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/settings/account/+page.svelte": {
-    "mtime": 1786535413.3616872,
-    "ast_hash": "62665d16425b4ced284042887f6a9ab5",
+    "mtime": 1786539048.7921834,
+    "ast_hash": "3f1dbe70d3bc941f749c57c0ae290eba",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/settings/account/_guide.ts": {
@@ -14595,8 +14595,8 @@
     "semantic_hash": ""
   },
   "tests/unit/domain/cancel-vs-deletion-terminology.test.ts": {
-    "mtime": 1786535708.268508,
-    "ast_hash": "77b8847e60047523d434053e6a98f24b",
+    "mtime": 1786539064.6309495,
+    "ast_hash": "c7320fbc8ebfe0cb6bcf27bbe05620f1",
     "semantic_hash": ""
   },
   "tests/unit/domain/plan-retention-ssot.test.ts": {
@@ -14622,6 +14622,16 @@
   "tests/unit/routes/switch-parent-gate-scroll-lock.test.ts": {
     "mtime": 1786534629.1394172,
     "ast_hash": "472bee45a332f09c7c5afae34b550e03",
+    "semantic_hash": ""
+  },
+  "scripts/capture-specs/flows/cancel-vs-deletion-4496.mjs": {
+    "mtime": 1786538372.4792278,
+    "ast_hash": "0b41cebd564e49daee19f8773c0e5e8d",
+    "semantic_hash": ""
+  },
+  "scripts/capture-specs/flows/lp-faq-cancel-4496.mjs": {
+    "mtime": 1786538328.6267967,
+    "ast_hash": "90baa3267e0f5cf2df6c031e4096ea5e",
     "semantic_hash": ""
   }
 }
