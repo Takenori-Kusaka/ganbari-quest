@@ -31,6 +31,13 @@ import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
  * モデル選定 (Haiku 系 latest = 最安最適) は変えない。変えたのは profile → base model の形式のみ。
  * IAM 側の Resource ARN (`infra/lib/compute-stack.ts` の `BEDROCK_MODEL_ARN`) と対で動くため、
  * 片方だけ変えると権限が外れて `AccessDeniedException` になる。
+ *
+ * **稼働判定は実呼び出しのみ。`agreementAvailability` は誤判定実績あり** (#4367)。
+ * `aws bedrock get-foundation-model-availability` の `agreementAvailability` は、同じ model ID /
+ * region で Converse が実際に成功する状態でも `NOT_AVAILABLE` を返した。モデルを呼べるかどうかを
+ * 表していない指標なので、これや infra の grep・env 一覧といった静的根拠だけで「Bedrock が未有効化 /
+ * 不作動」と結論づけてはならない (この形の診断は 7 回連続で誤検出だった)。稼働を主張・否定する側が
+ * 同日の実 Converse 呼び出しか本番ログを添えること。
  */
 const DEFAULT_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
 
