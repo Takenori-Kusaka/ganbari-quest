@@ -8530,7 +8530,12 @@ export const LP_SELFHOST_LABELS = {
 	text22: ' オフライン利用可能。インターネット接続なしでも LAN 内で動作します。',
 	// #4499: 実ライセンス AGPL-3.0-only (LICENSE / package.json) に合わせて修正。
 	// 旧「MIT License」表記は虚偽表示だった (GAMMA-SELFHOST-01)。
-	text23: ` オープンソース（${OSS_LICENSE_TERMS.name}）。${OSS_LICENSE_TERMS.commercialUseCondition}。`,
+	// #4547: SPDX 完全形 (-only) に是正 + メリット一覧には「メリットの事実」だけを残し、
+	// コピーレフト義務は一覧の外の注記 (licenseObligationNote) に分離した。
+	text23: ` オープンソース（${OSS_LICENSE_TERMS.spdxId}）。${OSS_LICENSE_TERMS.commercialUse}。`,
+	// メリット一覧の直下に置く注記。義務はメリットではないため箇条書きに混ぜず、
+	// かつ埋没させないよう独立した注記として明示する (#4547)。
+	licenseObligationNote: `${OSS_LICENSE_TERMS.spdxId} のコピーレフト義務: ${OSS_LICENSE_TERMS.copyleftObligation}。`,
 	text24: '&#x1F4CA; SaaS版との比較',
 	text25: '項目',
 	text26: 'SaaS版',
