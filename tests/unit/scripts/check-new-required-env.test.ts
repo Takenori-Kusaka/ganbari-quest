@@ -236,7 +236,7 @@ describe('check-new-required-env (#4129 AC5 既存 env の必須化)', () => {
 			const lines = [
 				'for (const type of types) {',
 				'	if (!CONSENT_TYPES.includes(type)) {',
-				'		throw new Error(`Unknown consent type: ${String(type)}`);',
+				'		throw new Error("Unknown consent type");',
 				'	}',
 				'}',
 			];
