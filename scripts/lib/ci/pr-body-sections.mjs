@@ -38,7 +38,16 @@
  * @returns {string}
  */
 export function stripHtmlComments(text) {
-	return (text ?? '').replace(/<!--[\s\S]*?--!?>/g, '');
+	// js/incomplete-multi-character-sanitization (CodeQL) 対策で不動点まで繰り返す。
+	// 1 回の replace では、除去後に残った断片が再び `<!--` … `-->` を構成しうる
+	// (例: `<!--<!-- x --> y -->` は 1 回目で内側が消え、残りが新たなコメントになる)。
+	// 変化しなくなるまで回すことで「1 回だけ剥がして素通り」を作らない。
+	let current = text ?? '';
+	for (;;) {
+		const next = current.replace(/<!--[\s\S]*?--!?>/g, '');
+		if (next === current) return current;
+		current = next;
+	}
 }
 
 /**
