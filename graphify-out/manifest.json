@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   ".husky/post-commit": {
-    "mtime": 1786534980.4865465,
-    "ast_hash": "f0ce87393d45394c93ac9114ab9c062b",
+    "mtime": 1786536005.004696,
+    "ast_hash": "1a3f0a9293ba6cde1bcae1b1c54e376f",
     "semantic_hash": ""
   },
   ".husky/pre-commit": {
