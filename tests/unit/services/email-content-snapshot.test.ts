@@ -57,6 +57,7 @@ vi.mock('$lib/runtime/env', () => ({
 
 import { PLAN_FULL_TERMS, PLAN_RETENTION_TERMS } from '$lib/domain/terms';
 import * as emailService from '$lib/server/services/email-service';
+import * as trialNotificationService from '$lib/server/services/trial-notification-service';
 import {
 	sendTrialEndedTodayEmail,
 	sendTrialEnding1DayEmail,
@@ -254,16 +255,29 @@ describe('顧客向けメールの件名・本文 snapshot (#4507)', () => {
 // ============================================================
 
 describe('メール網羅性 (#4507)', () => {
-	it('email-service の send*Email export が全て snapshot 対象になっている', () => {
-		const exported = Object.keys(emailService)
-			.filter((key) => /^send[A-Z].*Email$/.test(key))
-			// sendEmail 相当の低レベル API は個別メールではないため対象外
-			.filter((key) => key !== 'sendEmail');
+	/** `send*Email` export を反射で数える。個別メール名のハードコード列挙は追加漏れを検出できない。 */
+	function sendEmailExportNames(mod: Record<string, unknown>): string[] {
+		return (
+			Object.keys(mod)
+				.filter((key) => /^send[A-Z].*Email$/.test(key))
+				// sendEmail 相当の低レベル API は個別メールではないため対象外
+				.filter((key) => key !== 'sendEmail')
+		);
+	}
+
+	it('email-service + trial-notification-service の send*Email export が全て snapshot 対象になっている', () => {
+		// email-service 側だけを数えると trial-notification-service 側の 3 通が分母から漏れ、
+		// そちらに新規メールを足しても検出されずに素通りしていた (#4507 監査後の残懸念)。
+		// 2 module を反射で数えて合算することで、どちらに足しても検出できるようにする。
+		const exported = [
+			...sendEmailExportNames(emailService as unknown as Record<string, unknown>),
+			...sendEmailExportNames(trialNotificationService as unknown as Record<string, unknown>),
+		];
 
 		// snapshot 側の網羅数と export 数が一致していれば、新規メールの追加漏れは無い。
-		// (email-service の 15 通 + trial-notification の 3 通)
-		expect(exported).toHaveLength(EMAILS.length - 3);
-		expect(EMAILS).toHaveLength(18);
+		// (手動アンカー `toHaveLength(18)` には依存しない — それ自体が「足し忘れても気づけない」
+		// 固定値だったため、比較先を反射由来の exported.length に置き換える)
+		expect(exported).toHaveLength(EMAILS.length);
 	});
 });
 

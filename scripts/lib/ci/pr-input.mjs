@@ -191,11 +191,19 @@ export function parseGhPrView(raw) {
 /**
  * gh を実行して PR の body / labels / files を取る (既定の IO 実装、test では DI で差し替える)。
  *
+ * `expectedRepo` (`owner/repo`) が分かっているときは `gh pr view` に `--repo` を明示する。
+ * `gh` は `--repo` 未指定だと **cwd から推測したリポジトリ**に対して PR 番号を解決するため、
+ * CI の checkout 構成やローカルの cwd がずれると「意図と違うリポジトリの同番号 PR」を
+ * 静かに引いてしまう余地が残る (#4519 と同じ「検査対象の真正性」の軸)。`--repo` を渡せば
+ * gh 自身がその時点で pin する。事後の owner/repo 突合は `resolvePrInput` 側が担う。
+ *
  * @param {string} prNumber - 数字のみであることを呼び出し前に検証済み
+ * @param {string} [expectedRepo] - `owner/repo`。空なら従来通り cwd 推測に委ねる
  * @returns {string} 生 JSON
  */
-function defaultGhView(prNumber) {
-	return execSync(`gh pr view ${prNumber} --json body,labels,files,url`, {
+function defaultGhView(prNumber, expectedRepo = '') {
+	const repoArg = expectedRepo ? ` --repo ${expectedRepo}` : '';
+	return execSync(`gh pr view ${prNumber}${repoArg} --json body,labels,files,url`, {
 		encoding: 'utf-8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 		timeout: 30_000,
@@ -209,7 +217,7 @@ function defaultGhView(prNumber) {
  * 解決できない場合は **必ず `PrInputError`**。空入力で先に進めない (skip / pass に倒さない)。
  *
  * @param {{ argv?: string[]; env?: Record<string, string | undefined>; need?: 'body' | 'prNumber';
- *   scriptName?: string; ghView?: (prNumber: string) => string }} input
+ *   scriptName?: string; ghView?: (prNumber: string, expectedRepo?: string) => string }} input
  * @returns {{ source: 'gh' | 'env'; prNumber: string | null; body: string; labels: string[];
  *   files: string[]; repo: string }}
  */
@@ -224,9 +232,11 @@ export function resolvePrInput({
 	if (plan.source === 'error') throw new PrInputError(plan.message);
 
 	if (plan.source === 'gh') {
+		// CI では常に定義される (GitHub Actions 既定 env)。ローカル実行で未設定なら突合を skip する。
+		const expectedRepo = (env.GITHUB_REPOSITORY ?? '').trim();
 		let raw;
 		try {
-			raw = ghView(plan.prNumber);
+			raw = ghView(plan.prNumber, expectedRepo);
 		} catch (err) {
 			throw new PrInputError(
 				`gh pr view ${plan.prNumber} に失敗しました: ${err instanceof Error ? err.message : String(err)}\n` +
@@ -239,13 +249,20 @@ export function resolvePrInput({
 				`PR #${plan.prNumber} の body が空です。検査対象が無い状態で成功終了させません (#4348 / #4084)。`,
 			);
 		}
+		const actualRepo = `${parsed.owner}/${parsed.repo}`;
+		if (expectedRepo && actualRepo !== expectedRepo) {
+			throw new PrInputError(
+				`PR #${plan.prNumber} は ${expectedRepo} ではなく ${actualRepo} の PR でした。` +
+					`意図しないリポジトリの PR を検査対象にしません (実在確認だけでは足りず、検査対象の真正性を突合する必要がある)。`,
+			);
+		}
 		return {
 			source: 'gh',
 			prNumber: plan.prNumber,
 			body: parsed.body,
 			labels: parsed.labels,
 			files: parsed.files,
-			repo: `${parsed.owner}/${parsed.repo}`,
+			repo: actualRepo,
 		};
 	}
 

@@ -82,6 +82,7 @@ runs:
         GH_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ inputs.pr-number }}
+        ACTOR: ${{ inputs.actor }}
       run: |
         set -uo pipefail
         if [ -z "${PR_NUMBER}" ]; then
@@ -101,8 +102,19 @@ runs:
           --jq '[.[] | select((.parents | length) == 1) | (.author.login // "")] | join(",")' 2>/dev/null)"; then
           echo "authors=${authors}" >> "${GITHUB_OUTPUT}"
         else
+          # fail-open が常態化していないか後から追える必要がある (#4348 と同じ「gate が生きている
+          # つもりで死んでいる」class)。`::warning::` は annotation UI に残るが、実行中ログに埋もれて
+          # 発動回数が誰にも観測されない。job summary にも同じ内容を出し、Actions の Summary タブで
+          # 「この PR / この run で bot exemption 判定が実質 actor のみに縮退した」ことを見える化する。
           echo "::warning::[actions/pr-lane] commit author 取得に失敗しました。actor のみで判定します (fail-open)。"
           echo "authors=" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### ⚠️ actions/pr-lane fail-open"
+            echo ""
+            echo "commit author 取得 (\`pulls/${PR_NUMBER}/commits\`) に失敗したため、bot exemption 判定を actor (\`${ACTOR}\`) のみで行いました。"
+            echo "権限不足 / API error / rate limit の可能性があります。頻発する場合は放置せず原因を調査してください。"
+            echo ""
+          } >> "${GITHUB_STEP_SUMMARY}"
         fi
 
     - name: Classify PR lane (scripts/pr-lane.mjs SSOT)

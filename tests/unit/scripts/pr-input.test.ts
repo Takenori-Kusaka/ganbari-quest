@@ -227,6 +227,42 @@ describe('resolvePrInput', () => {
 		).toThrow(PrInputError);
 	});
 
+	it('GITHUB_REPOSITORY があれば ghView に --repo pin 用の expectedRepo を渡す', () => {
+		const seen: Array<string | undefined> = [];
+		resolvePrInput({
+			argv: ['--pr', '4513'],
+			env: { GITHUB_REPOSITORY: 'Takenori-Kusaka/ganbari-quest' },
+			ghView: (_prNumber, expectedRepo) => {
+				seen.push(expectedRepo);
+				return ghView();
+			},
+		});
+		expect(seen).toEqual(['Takenori-Kusaka/ganbari-quest']);
+	});
+
+	it('gh が別リポジトリの PR url を返したら throw する (検査対象の真正性突合、#4519 と同軸)', () => {
+		// cwd ずれ / checkout 構成ミスで意図と違うリポジトリの同番号 PR を引いてしまうケースの再現。
+		// url 自体は妥当な形なので #4519 前の実装 (url 形式チェックのみ) は通してしまっていた。
+		expect(() =>
+			resolvePrInput({
+				argv: ['--pr', '4513'],
+				env: { GITHUB_REPOSITORY: 'Takenori-Kusaka/ganbari-quest' },
+				ghView: () =>
+					JSON.stringify({
+						body: '## 概要\n本文',
+						labels: [],
+						files: [],
+						url: 'https://github.com/some-other-org/some-other-repo/pull/4513',
+					}),
+			}),
+		).toThrow(PrInputError);
+	});
+
+	it('GITHUB_REPOSITORY 未設定ならリポジトリ突合を skip する (ローカル実行の既存経路は不変)', () => {
+		const input = resolvePrInput({ argv: ['--pr', '4513'], env: {}, ghView });
+		expect(input.repo).toBe('Takenori-Kusaka/ganbari-quest');
+	});
+
 	it('env 経路は従来どおり labels / files を分解する', () => {
 		const input = resolvePrInput({
 			argv: [],
