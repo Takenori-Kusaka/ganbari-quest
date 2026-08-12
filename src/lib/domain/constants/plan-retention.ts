@@ -21,8 +21,12 @@ import type { PlanTier } from './plan-tier';
 /**
  * プラン別の履歴保持日数。`null` = 無期限 (物理削除しない)。
  *
- * **この 3 つの数値がプロダクト全体の SSOT**。表示文字列側に数値を複製しないこと
- * (複製は `scripts/check-hardcoded-strings.mjs` / 本 SSOT の unit test で検出する)。
+ * **この 3 つの数値がプロダクト全体の SSOT**。表示文字列側に数値を複製しないこと。
+ *
+ * 複製を検出する CI script は無い (機械強制は無い)。追随は
+ * `tests/unit/domain/plan-retention-ssot.test.ts` が「本定数から組み立てた文字列と
+ * 表示側が一致するか」で検証する — 表示側に数値を直書きすると、本定数を変えた瞬間に
+ * 同 test が落ちる。unit test が見ていない表示経路は、レビューで担保する。
  */
 export const PLAN_HISTORY_RETENTION_DAYS: Record<PlanTier, number | null> = {
 	free: 90,

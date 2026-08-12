@@ -5,6 +5,9 @@
 
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
+// #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
+// 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
+import { formatRetentionPeriod } from './constants/plan-retention';
 import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -696,7 +699,8 @@ export const ACTION_LABELS = {
  * 上記仕様のため、登録 CTA の下に「付帯」表記を書くと「登録すれば自動で
  * トライアル付帯」と誤認させる景品表示法リスクがある（Issue #1166 参照）。
  * 登録・購入系 CTA には「付帯」「付き」などの表記を書かないこと。
- * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
+ * CI: tests/e2e/trial-notice-consistency.spec.ts が登録 / 購入系 CTA 近傍に
+ * 「付帯」表記が出ないことを検証する（#4322 で撤去された専用 lint の後継、#4482）。
  */
 // #1916: atom (トライアル日数) は terms.ts (TRIAL_TERMS) に移譲
 // #3033: TrialBanner を urgent 専用に縮小し not-started / expired / active 通常の compound を撤去
@@ -717,6 +721,20 @@ export const TRIAL_LABELS = {
 	// (tap で /admin/subscription へ。urgent 残 1 日以下のみ body バナー併用)
 	headerPillLabel: (days: number) => `残り${days}日`,
 	headerPillTitle: `${ACTION_LABELS.freeTrial}中`,
+} as const;
+
+// ============================================================
+// トライアル終了予告メール用ラベル（#4482）
+// ============================================================
+//
+// トライアル終了後に移行する無料プランの制限を述べる行。
+// 保持期間の整形は formatRetentionPeriod (constants/plan-retention.ts) が SSOT。
+// service 側で `${days}日` と独自整形すると、保持日数を 365 の倍数に変えたときに
+// このメールだけ「365日」と述べ、料金表・LP の「1年」と食い違う。
+
+export const TRIAL_EMAIL_LABELS = {
+	/** @param days 無料プランの保持日数 (null = 無期限) */
+	freeRetentionLine: (days: number | null) => `データ保持期間: ${formatRetentionPeriod(days)}`,
 } as const;
 
 // ============================================================
@@ -833,8 +851,9 @@ export const DELETION_EXPORT_NOTE_LABELS = {
 	 * 確定できない。日数は `PlanLimits.historyRetentionDays` が SSOT のため、
 	 * ここでは **値を持たず引数で受ける** (labels 側に 90 / 365 を複製しない)。
 	 */
+	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年間」と述べる）。
 	retentionLimited: (days: number) =>
-		`記録の保存期間は${days}日間です。それより古い記録は削除済みのため、この期間には含まれません。`,
+		`記録の保存期間は${formatRetentionPeriod(days)}間です。それより古い記録は削除済みのため、この期間には含まれません。`,
 	/**
 	 * `historyRetentionDays: null` (保存期間の上限なし) のプラン向け。
 	 * 「null日間」のような値の穴埋めにせず、上限がないという事実を別文で述べる。
@@ -1356,7 +1375,7 @@ export const TUTORIAL_CHAPTER_LABELS = {
 // `_guide.ts` は本定数を参照するだけにし、構造フィールド (pageId / icon / selector /
 // position / requiredTier / step id) は `_guide.ts` 側に残す（表示文言ではないため）。
 // 構造は page → step → field のネスト（TUTORIAL_CHAPTER_LABELS と同型、ADR-0045 compound 層）。
-// F0 linter (scripts/check-guide-copy.ts) は本定数を検査対象にする。
+// 本定数の文言を検査する linter は無い（機械強制は無い。レビューで担保する）。
 // ============================================================
 
 export const PAGE_GUIDE_LABELS = {
@@ -2930,7 +2949,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	churnLostItemTickets: (count: number | string) => `思い出チケット ${count}枚`,
 	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
 	churnLostItemTitle: (title: string) => `「${title}」称号`,
-	churnLostRetentionDays: (days: number | string) => `${days}日以前のデータへのアクセス`,
+	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年以前」と述べる）。
+	churnLostRetentionDays: (days: number | null) =>
+		`${formatRetentionPeriod(days)}以前のデータへのアクセス`,
 
 	// デモ版固有ラベル
 	demoNotice: 'これはデモ画面です',
@@ -5482,12 +5503,25 @@ export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	dialogTitle: 'ダウングレードの確認',
 	targetTierSuffix: 'へのダウングレード',
 	noExcessNote: '現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。',
-	retentionWarningPrefix: 'データ保持期間が',
 	retentionUnlimited: '無制限',
-	retentionDaysSuffix: '日',
-	retentionFromTo: 'から',
-	retentionTargetSuffix: '日に短縮されます。',
-	retentionDataLossSuffix: '日以前のデータは閲覧できなくなります。',
+	/**
+	 * 保持期間短縮の警告文 (#4482)。
+	 *
+	 * 以前は接頭辞 / 接尾辞の断片を svelte 側で `${days}日` と繋いで組み立てていたため、
+	 * 保持日数を 365 の倍数に変えるとここだけ「365日」と述べ、料金表の「1年」と食い違った。
+	 * 文の組み立てごと本 compound に集約し、日数の整形は formatRetentionPeriod に委ねる。
+	 *
+	 * `PlanLimits.historyRetentionDays` は `number | null` なので両引数とも null を受ける
+	 * (null の整形は formatRetentionPeriod が「無期限」として担う)。
+	 *
+	 * @param currentDays 現プランの保持日数 (null = 無制限)
+	 * @param targetDays  ダウングレード先の保持日数 (null = 無期限)
+	 */
+	retentionWarning: (currentDays: number | null, targetDays: number | null) => {
+		const current = currentDays === null ? '無制限' : formatRetentionPeriod(currentDays);
+		const target = formatRetentionPeriod(targetDays);
+		return `データ保持期間が${current}から${target}に短縮されます。${target}以前のデータは閲覧できなくなります。`;
+	},
 	excessTitlePrefix: '現在のリソースが',
 	excessTitleSuffix: 'の上限を超えています',
 	excessGuide:
@@ -7906,7 +7940,8 @@ export const FEATURES_LABELS = {
 		standardPlan: `${PLAN_TERMS.standard} プラン`,
 		familyPlan: `${PLAN_TERMS.premium} プラン`,
 		unlimited: '無制限',
-		retentionDays: (days: number) => `${days}日間`,
+		// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年間」と述べる）。
+		retentionDays: (days: number) => `${formatRetentionPeriod(days)}間`,
 		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
 		statCustomActivity: 'カスタム活動',
 		statChildren: 'こども',
@@ -7978,8 +8013,9 @@ export const FEATURES_LABELS = {
  * 法的文書 SSOT (#1638 / #1590)
  *
  * site/privacy.html / site/terms.html / signup フォームで横断的に使う
- * 法律用語のキー語彙。文言ドリフト防止のため、CI (`scripts/check-lp-ssot.mjs`)
- * で各 value が site/privacy.html / site/terms.html に出現することを検証する。
+ * 法律用語のキー語彙。各 value が site/privacy.html / site/terms.html に出現することを
+ * 検証する CI は無い（専用 lint は #4322 で撤去済。機械強制は無く、HTML との文言整合は
+ * レビューで担保する、#4482）。key の存在は tests/unit/domain/legal-labels.test.ts が検証する。
  *
  * 注: site/*.html は SEO meta 等の例外を含むため、キー用語の存在確認のみで
  * data-label 等の SSOT 注入は要求しない（ADR-0009 例外）。
@@ -9044,7 +9080,7 @@ export const VALUE_PREVIEW_LABELS = {
 // ============================================================
 // LP Phase B Labels (#1702 — site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化)
 //
-// 生成元: scripts/check-lp-ssot.mjs で検出された 339 件の violation 行を
+// 生成元: #1702 時点の LP SSOT 検査で検出された 339 件の violation 行を
 // 全て data-lp-key 化したときの label 値（innerHTML 形式）。
 // 各 namespace 内の k1, k2, ... は HTML 内の出現順。
 // LP_*_LABELS / LP_*_EXTRA_LABELS との重複は許容（同じ文字列が複数 namespace に存在しうる）。

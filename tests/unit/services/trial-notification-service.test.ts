@@ -52,6 +52,11 @@ vi.mock('$lib/server/request-context', () => ({
 	invalidateRequestCaches: vi.fn(),
 }));
 
+// #4482: 保持期間の値 / 整形の SSOT
+import {
+	formatRetentionPeriod,
+	PLAN_HISTORY_RETENTION_DAYS,
+} from '$lib/domain/constants/plan-retention';
 import {
 	getNotificationSchedule,
 	getTrialExpirationInfo,
@@ -174,6 +179,20 @@ describe('trial-notification-service', () => {
 			await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'family');
 			const call = mockSendEmail.mock.calls[0]?.[0];
 			expect(call.htmlBody).toContain('プレミアム');
+		});
+
+		// #4482: 保持期間の「整形」も SSOT (formatRetentionPeriod) を経由する。
+		// 以前は `${historyRetentionDays}日` と service 内で独自整形していたため、
+		// 保持日数を 365 の倍数にすると LP / 料金表は「1年」なのにこのメールだけ
+		// 「365日」と述べる食い違いが起きた。
+		it('保持期間を SSOT の formatter で整形して述べる (#4482)', async () => {
+			await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'standard');
+			const call = mockSendEmail.mock.calls[0]?.[0];
+			const freeDays = PLAN_HISTORY_RETENTION_DAYS.free;
+
+			// SSOT の値を 365 の倍数に変えれば期待値は「1年」になり、
+			// 独自整形 (`365日`) に戻した瞬間この assert が落ちる。
+			expect(call.htmlBody).toContain(`データ保持期間: ${formatRetentionPeriod(freeDays)}`);
 		});
 	});
 
