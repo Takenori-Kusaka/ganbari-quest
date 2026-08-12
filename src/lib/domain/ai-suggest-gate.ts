@@ -15,7 +15,7 @@
 // | rewards | `data.planTier === 'family'` (page load も planTier 返却) | 正 |
 //
 // enforcement (server) と表示 (UI) が同じ述語を import することで、片側だけがずれる状態を
-// 構造的に作れなくする。callsite の網羅は
+// 構造的に作れなくする。call site の網羅は
 // `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` (fitness function) が固定する。
 //
 // # silent false をどこで止めるか (型では止まらない)
@@ -29,7 +29,7 @@
 // 通過して出荷されており、planTier 返却を外す mutation を当てても 0 errors であることを実測した。
 //
 // したがって page ↔ load の対応は機械検査で担保する:
-// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` が、callsite が読む `data.<field>` を
+// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` が、call site が読む `data.<field>` を
 // 同ディレクトリの load が実際に返しているかを検査する (mutation で検出を実測済)。
 
 import type { PlanTier } from '$lib/domain/constants/plan-tier';

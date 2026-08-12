@@ -22,6 +22,23 @@
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
+/**
+ * 描画 frame を n 回待つ。
+ *
+ * `page.waitForTimeout()` は scripts/ 配下で禁止 (#1208 — 任意の sleep は flaky の温床)。
+ * ここで必要なのは「ブラウザに 1 度描画させる」ことなので、rAF 2 回 = 1 frame 完了を待つ。
+ */
+async function waitFrames(page, frames = 1) {
+	for (let i = 0; i < frames; i++) {
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+				),
+		);
+	}
+}
+
 /** cognito-dev のログインフォームを通す (cancel-period-end-3991.mjs と同型) */
 async function login(page, email, password) {
 	await page.goto(`${BASE_URL}/auth/login`);
@@ -96,7 +113,8 @@ async function waitForMenuOpen(page, triggerTestId) {
 		if (!box) throw new Error(`${triggerTestId} の boundingBox が取れません`);
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 		await page.mouse.down();
-		await page.waitForTimeout(80);
+		// pointerdown → pointerup を同一 frame に詰めると Ark UI が open を取りこぼす。1 frame 挟む。
+		await waitFrames(page, 2);
 		await page.mouse.up();
 		await page
 			.waitForFunction(
@@ -107,17 +125,13 @@ async function waitForMenuOpen(page, triggerTestId) {
 				{ timeout: 5_000 },
 			)
 			.catch(() => {});
-		if (!(await isOpen())) await page.waitForTimeout(1_000);
+		// 再試行前に 1 frame 空ける (hydration 直後の再入を避ける)
+		if (!(await isOpen())) await waitFrames(page, 2);
 	}
 	if (!(await isOpen())) {
 		throw new Error(`${triggerTestId} が 3 回の pointer 操作で開きませんでした`);
 	}
-	await page.evaluate(
-		() =>
-			new Promise((resolve) =>
-				requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
-			),
-	);
+	await waitFrames(page);
 }
 
 /** `/admin/checklists` を開き「+ 追加 → AI で提案」で AI 提案ダイアログを開いた状態にする */
@@ -130,12 +144,7 @@ async function openAiDialog(page) {
 	await ai.waitFor({ state: 'visible', timeout: 10_000 });
 	await ai.click();
 	await page.getByTestId('checklists-ai-dialog').waitFor({ state: 'visible', timeout: 10_000 });
-	await page.evaluate(
-		() =>
-			new Promise((resolve) =>
-				requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
-			),
-	);
+	await waitFrames(page);
 }
 
 /**

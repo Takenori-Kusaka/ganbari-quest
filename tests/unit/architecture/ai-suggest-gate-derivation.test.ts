@@ -5,7 +5,7 @@
 //
 // ## なぜ機械 guard にしたか
 //
-// 「導出式が callsite ごとに手書きされている」ことが原因の混乱が 3 回起きている。
+// 「導出式が call site ごとに手書きされている」ことが原因の混乱が 3 回起きている。
 //
 // - #2902: activities の `data.planTier === 'family'` を「load が planTier を返さないので常に
 //   false」と読んで `data.isPremium` に変えた。**この読みは誤りだった** —
@@ -17,17 +17,17 @@
 // - #4506 GAMMA2-ADM1-02: #2902 が作った activities の実欠陥が改めて検出された。
 //
 // つまり「式を人が読んで正しさを判定する」運用が 3 回連続で失敗している。判定を人手から外し、
-// **callsite が共有述語を経由していること** と **参照 field が load 連鎖で供給されていること**
+// **callSite が共有述語を経由していること** と **参照 field が load 連鎖で供給されていること**
 // を機械が見る。特に検査 2 は #2902 / #4506 の誤読そのものを機械化しないよう、
 // layout の寄与を必ず数える (`loadFilesFor` の doc)。
 //
 // ## 何を検査するか
 //
-// 1. `src/routes/**/+page.svelte` の `<AiSuggest*Panel ... isFamily={...} />` 全 callsite が
-//    `isAiSuggestUnlocked(` を経由していること。経由しない callsite は
+// 1. `src/routes/**/+page.svelte` の `<AiSuggest*Panel ... isFamily={...} />` 全 call site が
+//    `isAiSuggestUnlocked(` を経由していること。経由しない callSite は
 //    `DEFERRED_DERIVATIONS` に **理由付きで** 登録されていなければ fail する。
 //    「あとで直す」を無言で置けないようにするための登録であって、免除の入口ではない。
-// 2. callsite が読む `data.<field>` を、**load 連鎖 (`+page.server.ts` + 祖先の
+// 2. call site が読む `data.<field>` を、**load 連鎖 (`+page.server.ts` + 祖先の
 //    `+layout(.server).ts`) のどこかが実際に返している**こと。SvelteKit の `data` は layout の
 //    戻り値がマージされたものなので、page load だけを見ると誤読する (#4506 の Issue 本文が
 //    その誤読だった。詳細は loadFilesFor の doc)。
@@ -50,14 +50,14 @@ import { findReasonDefect } from '../../../scripts/lib/ci/exclusion-reason.mjs';
 
 const repoRoot = resolve(__dirname, '../../..');
 
-/** 導出の SSOT。callsite はこれを経由しなければならない。 */
+/** 導出の SSOT。callSite はこれを経由しなければならない。 */
 const SHARED_PREDICATE = 'isAiSuggestUnlocked(';
 
-/** AI 提案パネル callsite。`isFamily={...}` の中身を捕まえる。 */
+/** AI 提案パネルの call site。`isFamily={...}` の中身を捕まえる。 */
 const CALLSITE_PATTERN = /<AiSuggest(\w*)Panel\b[^>]*?isFamily=\{([^}]*)\}/gs;
 
 /**
- * 共有述語へ未移行のまま許容する callsite。
+ * 共有述語へ未移行のまま許容する callSite。
  *
  * key は repo root からの POSIX 相対パス。**理由には追跡先 Issue 番号を必ず含める**
  * (`findReasonDefect` が空 / stub を弾き、本 file が `#\d+` を追加で要求する)。
@@ -84,13 +84,13 @@ function listPageSvelte(dir: string): string[] {
 	return found;
 }
 
-interface Callsite {
+interface CallSite {
 	path: string;
 	panel: string;
 	expression: string;
 }
 
-const callsites: Callsite[] = listPageSvelte(join(repoRoot, 'src', 'routes')).flatMap((path) => {
+const callSites: CallSite[] = listPageSvelte(join(repoRoot, 'src', 'routes')).flatMap((path) => {
 	const source = readFileSync(path, 'utf-8');
 	const rel = relative(repoRoot, path).replace(/\\/g, '/');
 	return [...source.matchAll(CALLSITE_PATTERN)].map((m) => ({
@@ -133,30 +133,30 @@ function loadFilesFor(pageSveltePath: string): Array<{ rel: string; absolute: st
 // repo 走査 test の区分宣言 (#4085、SSOT = scripts/lib/ci/repo-scan-test-registry.mjs)。
 // src/routes 全体を walk するため、並列 worker との CPU / FS 競合で既定 5s を超えうる。
 describe('AI 提案パネル isFamily 導出の単一実装 (#4506 AC5)', { timeout: 30000 }, () => {
-	it('callsite を検出できている (検査が空振りしていない)', () => {
-		// 0 件で PASS すると「callsite が無い」ことを健全と見なしてしまう。
+	it('call site を検出できている (検査が空振りしていない)', () => {
+		// 0 件で PASS すると「call site が無い」ことを健全と見なしてしまう。
 		// panel の rename / prop 名変更で pattern が外れた場合もここで落ちる。
-		expect(callsites.length).toBeGreaterThanOrEqual(3);
+		expect(callSites.length).toBeGreaterThanOrEqual(3);
 	});
 
-	it('すべての callsite が共有述語 isAiSuggestUnlocked() を経由する (除外登録を除く)', () => {
-		const violations = callsites
+	it('すべての call site が共有述語 isAiSuggestUnlocked() を経由する (除外登録を除く)', () => {
+		const violations = callSites
 			.filter((c) => !c.expression.includes(SHARED_PREDICATE))
 			.filter((c) => !(c.path in DEFERRED_DERIVATIONS))
 			.map((c) => `${c.path} (${c.panel}): isFamily={${c.expression}}`);
 
 		expect(
 			violations,
-			`isFamily の導出を手書きしている callsite があります。$lib/domain/ai-suggest-gate の ` +
+			`isFamily の導出を手書きしている call site があります。$lib/domain/ai-suggest-gate の ` +
 				`isAiSuggestUnlocked() を使ってください (#4506)。意図的な未移行なら ` +
 				`DEFERRED_DERIVATIONS に理由付きで登録してください:\n${violations.join('\n')}`,
 		).toEqual([]);
 	});
 
-	it('除外登録は実在の callsite を指し、かつ現に未移行である (腐った除外を残さない)', () => {
+	it('除外登録は実在の call site を指し、かつ現に未移行である (腐った除外を残さない)', () => {
 		for (const path of Object.keys(DEFERRED_DERIVATIONS)) {
-			const matching = callsites.filter((c) => c.path === path);
-			expect(matching.length, `${path} に AI 提案パネルの callsite がありません`).toBeGreaterThan(
+			const matching = callSites.filter((c) => c.path === path);
+			expect(matching.length, `${path} に AI 提案パネルの call site がありません`).toBeGreaterThan(
 				0,
 			);
 			// 共有述語へ移行済みなのに除外が残っている = 除外の目的が消えている。消させる。
@@ -168,17 +168,17 @@ describe('AI 提案パネル isFamily 導出の単一実装 (#4506 AC5)', { time
 		}
 	});
 
-	it('callsite が読む data.<field> を load 連鎖のどこかが実際に返している (silent undefined の排除)', () => {
+	it('call site が読む data.<field> を load 連鎖のどこかが実際に返している (silent undefined の排除)', () => {
 		const missing: string[] = [];
 
-		for (const callsite of callsites) {
+		for (const callSite of callSites) {
 			// `isAiSuggestUnlocked(data.planTier)` / `data.isPremium` 等から参照 field を取り出す
-			const fields = [...callsite.expression.matchAll(/\bdata\.(\w+)/g)].map((m) => m[1] ?? '');
+			const fields = [...callSite.expression.matchAll(/\bdata\.(\w+)/g)].map((m) => m[1] ?? '');
 			if (fields.length === 0) continue;
 
-			const providers = loadFilesFor(callsite.path);
+			const providers = loadFilesFor(callSite.path);
 			if (providers.length === 0) {
-				missing.push(`${callsite.path}: load file が 1 つも見つかりません`);
+				missing.push(`${callSite.path}: load file が 1 つも見つかりません`);
 				continue;
 			}
 
@@ -188,7 +188,7 @@ describe('AI 提案パネル isFamily 導出の単一実装 (#4506 AC5)', { time
 				const provided = providers.some((f) => pattern.test(readFileSync(f.absolute, 'utf-8')));
 				if (!provided) {
 					missing.push(
-						`${callsite.path} が data.${field} を読んでいますが、load 連鎖 ` +
+						`${callSite.path} が data.${field} を読んでいますが、load 連鎖 ` +
 							`(${providers.map((f) => f.rel).join(' / ')}) のどこも ${field} を返していません ` +
 							`(常に undefined = 静かに false になります)`,
 					);
