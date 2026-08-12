@@ -7,7 +7,12 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// repo 走査 test (scope: 'repo'、#4085)。unit lane の並列実行で FS / CPU を奪い合っても
+// 既定 5s timeout で偽陽性にならないよう明示 timeout を置く
+// (SSOT: scripts/lib/ci/repo-scan-test-registry.mjs / tests/CLAUDE.md §repo 走査 test)。
+vi.setConfig({ testTimeout: 60_000 });
 
 const ROOT = join(__dirname, '..', '..', '..');
 const CHILD_SCOPE = [
