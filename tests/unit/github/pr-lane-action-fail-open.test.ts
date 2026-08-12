@@ -122,7 +122,11 @@ describe('actions/pr-lane commit author 取得 step (#4518)', () => {
 	});
 
 	it('gh api が成功したら取得した author 一覧をそのまま出力する', () => {
-		const r = runStepScript({ ghExitCode: 0, ghStdout: 'dependabot[bot],dependabot[bot]', prNumber: '4492' });
+		const r = runStepScript({
+			ghExitCode: 0,
+			ghStdout: 'dependabot[bot],dependabot[bot]',
+			prNumber: '4492',
+		});
 
 		expect(r.status).toBe(0);
 		expect(r.githubOutput).toContain('authors=dependabot[bot],dependabot[bot]');
