@@ -208,6 +208,44 @@ function assertAddColumnHasNoConstraint(stmt: string): void {
 	);
 }
 
+/**
+ * `ALTER TABLE … ADD …` を DSQL 用に処理する (責務 1 + 責務 7)。
+ *
+ * - `ADD CONSTRAINT … FOREIGN KEY` → 除去 (`null` を返す。整合は app 層 relations() + fitness)
+ * - `ADD CONSTRAINT … UNIQUE`      → `CREATE UNIQUE INDEX ASYNC` へ変換 (build poll 対象)
+ * - `ADD CONSTRAINT … PK/CHECK/他` → throw (CREATE TABLE inline へ寄せるべき)
+ * - `ADD [COLUMN] …`               → 列制約が無ければそのまま。あれば throw (#4488)
+ *
+ * @returns 適用する DDL。FK 除去で「何も適用しない」場合は `null`。
+ * @throws 非対応の ADD CONSTRAINT / 列制約付き ADD COLUMN を検出したとき。
+ */
+function planAlterTableAdd(stmt: string): DsqlStatement | null {
+	const structural = stripLiteralsAndIdents(stmt);
+
+	// ── 責務 1: DSQL は `ALTER TABLE ADD CONSTRAINT` を非対応 (検証 2) ──
+	if (/\bADD\s+CONSTRAINT\b/i.test(structural)) {
+		if (/\bFOREIGN\s+KEY\b/i.test(structural)) {
+			return null; // FK 除去
+		}
+		if (/\bUNIQUE\b/i.test(structural)) {
+			return transformUniqueAlterToAsyncIndex(stmt);
+		}
+		// silent 通過で DSQL apply 時に 0A000 で落ちるより、早く・明確に落とす。
+		throw new Error(
+			'[dsql-migration] unsupported `ALTER TABLE … ADD CONSTRAINT` (PRIMARY KEY/CHECK/other). ' +
+				'DSQL は ADD CONSTRAINT 非対応 (PoC 検証 2: 0A000)。PK/CHECK は CREATE TABLE inline へ、' +
+				'UNIQUE は CREATE UNIQUE INDEX ASYNC へ表現し直すこと。 ' +
+				`offending statement: ${stmt.slice(0, 120)}…`,
+		);
+	}
+
+	// ── 責務 7: ADD COLUMN は列制約を取れない (#4488) ──
+	// ADD CONSTRAINT は上で処理済みなので、ここに残る `ALTER TABLE … ADD` は ADD COLUMN
+	// (PostgreSQL は COLUMN キーワードを省略できる。drizzle-kit は常に付けるが両形を受ける)。
+	assertAddColumnHasNoConstraint(stmt);
+	return { sql: stmt };
+}
+
 /** CREATE SEQUENCE の CACHE 準拠を検証する (責務 5)。非準拠は throw。 */
 function assertSequenceCacheCompliant(stmt: string): void {
 	const m = stmt.match(/\bCACHE\s+(\d+)\b/i);
@@ -284,48 +322,10 @@ export function transformDrizzleSqlToDsql(sqlText: string): DsqlMigrationPlan {
 	const pushDml = (s: DsqlStatement) => statements.push({ ...s, kind: 'dml' });
 
 	for (const stmt of raw) {
-		// ── ALTER TABLE … ADD CONSTRAINT の網羅処理 (責務 1 + fail-close) ──
-		// DSQL は `ALTER TABLE ADD CONSTRAINT` を非対応 (検証 2)。制約種別ごとに:
-		//   FK     → 除去 (app 層 relations() + fitness で整合担保)
-		//   UNIQUE → CREATE UNIQUE INDEX ASYNC へ変換 (build poll 対象)
-		//   PK/CHECK/その他 → 明示 throw (CREATE TABLE inline へ寄せるべき。silent 通過で
-		//                     DSQL apply 時に 0A000 fail-close するより早く・明確に落とす)
-		if (
-			startsWith(stmt, 'ALTER\\s+TABLE') &&
-			/\bADD\s+CONSTRAINT\b/i.test(stripLiteralsAndIdents(stmt))
-		) {
-			const structural = stripLiteralsAndIdents(stmt);
-			if (/\bFOREIGN\s+KEY\b/i.test(structural)) {
-				continue; // FK 除去
-			}
-			if (/\bUNIQUE\b/i.test(structural)) {
-				pushDdl(transformUniqueAlterToAsyncIndex(stmt));
-				continue;
-			}
-			throw new Error(
-				'[dsql-migration] unsupported `ALTER TABLE … ADD CONSTRAINT` (PRIMARY KEY/CHECK/other). ' +
-					'DSQL は ADD CONSTRAINT 非対応 (PoC 検証 2: 0A000)。PK/CHECK は CREATE TABLE inline へ、' +
-					'UNIQUE は CREATE UNIQUE INDEX ASYNC へ表現し直すこと。 ' +
-					`offending statement: ${stmt.slice(0, 120)}…`,
-			);
-		}
-
-		// ── 責務 7: ADD COLUMN の列制約を fail-close する (#4488) ──
-		// DSQL の ADD COLUMN 文法は
-		//   ADD [COLUMN] [IF NOT EXISTS] column_name data_type [STORAGE …]
-		// だけで、列制約 (DEFAULT / NOT NULL / CHECK / UNIQUE / REFERENCES / GENERATED) を
-		// 一切取れない (実測: 0A000 `ALTER TABLE ADD COLUMN with constraint not supported`)。
-		//
-		// **自動分割はしない**。正しい分解は「素の ADD COLUMN → SET DEFAULT → backfill UPDATE」で、
-		// backfill は行数に依存し DSQL の 3,000 行/txn 上限を超えるとバッチ分割が要る。純変換層が
-		// 安全に生成できる対象ではない (小規模では通り、育つと本番で落ちる = 最悪の壊れ方)。
-		// NOT NULL を黙って落とすのも意味論の変更であり、本モジュール冒頭の
-		// 「silent 誤変換で fail-open しない」原則に反する。よって書き手に投げ返す。
-		// ADD CONSTRAINT は上で処理済みなので、ここに残る `ALTER TABLE … ADD` は ADD COLUMN
-		// (PostgreSQL は COLUMN キーワードを省略できる。drizzle-kit は常に付けるが両形を受ける)。
+		// 責務 1 + 7: `ALTER TABLE … ADD …` は種別ごとに除去 / 変換 / throw (planAlterTableAdd)。
 		if (startsWith(stmt, 'ALTER\\s+TABLE') && /\bADD\b/i.test(stripLiteralsAndIdents(stmt))) {
-			assertAddColumnHasNoConstraint(stmt);
-			pushDdl({ sql: stmt });
+			const planned = planAlterTableAdd(stmt);
+			if (planned) pushDdl(planned);
 			continue;
 		}
 
