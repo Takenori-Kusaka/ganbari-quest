@@ -66,12 +66,22 @@ const contractState = $derived(data.contractState);
 				<tr>
 					<td>{OPS_LABELS.planMonthly}</td>
 					<td>{stats.planBreakdown.monthly}</td>
-					<td>¥{(stats.planBreakdown.monthly * 500).toLocaleString()}</td>
+					<td>¥{stats.mrrBreakdown.monthly.toLocaleString()}</td>
 				</tr>
 				<tr>
 					<td>{OPS_LABELS.planYearly}</td>
 					<td>{stats.planBreakdown.yearly}</td>
-					<td>¥{Math.round(stats.planBreakdown.yearly * 5000 / 12).toLocaleString()}</td>
+					<td>¥{stats.mrrBreakdown.yearly.toLocaleString()}</td>
+				</tr>
+				<tr>
+					<td>{OPS_LABELS.planPremiumMonthly}</td>
+					<td>{stats.planBreakdown.familyMonthly}</td>
+					<td>¥{stats.mrrBreakdown.familyMonthly.toLocaleString()}</td>
+				</tr>
+				<tr>
+					<td>{OPS_LABELS.planPremiumYearly}</td>
+					<td>{stats.planBreakdown.familyYearly}</td>
+					<td>¥{stats.mrrBreakdown.familyYearly.toLocaleString()}</td>
 				</tr>
 				<tr>
 					<td>{OPS_LABELS.planLifetime}</td>
@@ -86,7 +96,7 @@ const contractState = $derived(data.contractState);
 				<tr class="total-row">
 					<td>{OPS_LABELS.planTotalMrr}</td>
 					<td>{stats.active}</td>
-					<td>¥{(stats.planBreakdown.monthly * 500 + Math.round(stats.planBreakdown.yearly * 5000 / 12)).toLocaleString()}</td>
+					<td>¥{stats.mrrBreakdown.total.toLocaleString()}</td>
 				</tr>
 			</tbody>
 		</table>

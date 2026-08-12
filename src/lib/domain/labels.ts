@@ -3209,6 +3209,10 @@ export const OPS_LABELS = {
 	planColMrr: 'MRR 概算',
 	planMonthly: '月額 (¥500/月)',
 	planYearly: '年額 (¥5,000/年)',
+	// #4505: プレミアム (legacy family monthly/yearly 含む) は集計済みでも描画行が無く
+	// テナントが不可視だった。他行と同じ表記形式 + terms.ts 単価 atom 参照で追加する。
+	planPremiumMonthly: `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
+	planPremiumYearly: `${PLAN_TERMS.premium}年額 (¥7,800/年)`,
 	planLifetime: 'ライフタイム',
 	planNone: '未設定（トライアル等）',
 	planTotalMrr: '合計 MRR',
