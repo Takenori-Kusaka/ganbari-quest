@@ -28,6 +28,7 @@ import {
 	findTodayLog,
 } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
+import { warnOrphanChildReferences } from '$lib/server/orphan-child-reference';
 import {
 	distributeToChildren,
 	syncDistribution,
@@ -91,6 +92,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			};
 		}),
 	);
+
+	// #4556: 配信先 (assignments) の childId が children から引けないと表示は
+	// 「不明なお子さま」に潰れる。潰れた件数を後から数えられるようにする。
+	warnOrphanChildReferences({
+		tenantId,
+		referencedChildIds: familyTemplates.flatMap((t) => t.assignedChildIds),
+		knownChildIds: children.map((c) => c.id),
+		source: 'admin/checklists:load',
+	});
 
 	// 旧 per-child legacy 経路 (admin UI の child 別タブ + override) 維持: family scope で
 	// findAssignmentsByChild ベースに置換える代わりに、family scope の overrides を child 別に並べる。

@@ -56,11 +56,16 @@ describe('#4509 ② 交換確認ダイアログのポイント表示', () => {
 		expect(el.textContent).not.toContain('ポイント');
 	});
 
-	it('ポイントモードの表示は従来どおり (数値 + 「ポイント」)', async () => {
+	// #4556: 単位の連結は formatPointDisplayText に集約し、区切りは半角スペースに揃えた。
+	// このダイアログ自身が既にスペースあり側で描画しているため (主数値は
+	// `.confirm-points-value { display: flex; gap: 4px }` で数値と単位を分離、
+	// `exchangeConfirmTitle` は `（100 ポイント）`)、スペース無しだったのは
+	// 「のこり」の 1 行だけで、同じダイアログ内で表記が割れていた。
+	it('ポイントモードの表示は数値 + 半角スペース + 「ポイント」', async () => {
 		renderDialog(POINT_MODE);
 		expect((await screen.findByTestId('confirm-total-points')).textContent).toBe('100');
 		expect((await screen.findByTestId('confirm-remaining-after')).textContent).toContain(
-			'500ポイント',
+			'500 ポイント',
 		);
 	});
 });

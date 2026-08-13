@@ -1,7 +1,7 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { APP_LABELS, CHILD_SHOP_LABELS } from '$lib/domain/labels';
-import { splitPointDisplay } from '$lib/domain/point-display';
+import { formatPointDisplayText, splitPointDisplay } from '$lib/domain/point-display';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -119,10 +119,9 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 // 「買えるのかどうか」が読めなくなる。
 const ps = $derived(data.pointSettings);
 const ptsParts = (points: number) => splitPointDisplay(points, ps, CHILD_SHOP_LABELS.pointUnit);
-const ptsText = (points: number) => {
-	const { amount, unit } = ptsParts(points);
-	return unit ? `${amount} ${unit}` : amount;
-};
+// #4556: 文中に埋め込む連結は必ず formatPointDisplayText を通す (連結を画面ごとに書くと
+// 「あと 250 ポイント」→「のこり: 250ポイント」のように同一 CUJ 内で表記が割れる)。
+const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHOP_LABELS.pointUnit);
 </script>
 
 <svelte:head>

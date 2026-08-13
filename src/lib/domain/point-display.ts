@@ -142,6 +142,29 @@ export function splitPointDisplay(
 }
 
 /**
+ * `splitPointDisplay` の結果を 1 本の文字列に連結する (文中に埋め込む画面向け)。
+ *
+ * #4556: `splitPointDisplay` は「数値」と「単位」を分けて返すため、**連結の仕方が呼び出し側の
+ * 自由**になっていた。結果、同じショップの CUJ 内で `${amount} ${unit}` (一覧の不足分ヒント) と
+ * `${amount}${unit}` (交換確認ダイアログの残高) に割れ、ポイントモードの家庭では
+ * 「あと 250 ポイント」→「のこり: 250ポイント」と表記が揺れていた。子供の目に**連続して**
+ * 入る画面なので、連結を 1 箇所に集約する。
+ *
+ * 区切りは半角スペース。子供画面の既存表現 (`CHILD_SHOP_LABELS.exchangeConfirmTitle` の
+ * `${points} ポイント` / 一覧の不足分ヒント) がこちらで、ひらがな主体の preschool でも
+ * 数字と語の境目が読み取りやすい。通貨モードは `unit` が空 (記号は `amount` に含まれる) なので
+ * 余分なスペースは付かない。
+ */
+export function formatPointDisplayText(
+	points: number,
+	settings: PointSettings,
+	pointWord: string,
+): string {
+	const { amount, unit } = splitPointDisplay(points, settings, pointWord);
+	return unit ? `${amount} ${unit}` : amount;
+}
+
+/**
  * Format using PointSettings object (convenience wrapper).
  */
 export function formatWithSettings(points: number, settings: PointSettings): string {
