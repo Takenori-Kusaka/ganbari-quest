@@ -575,6 +575,12 @@ async function clearApprovedRedemptions(workerDbPath: string): Promise<void> {
 test.describe('#3339: ごほうび即時交換オプション', () => {
 	test.beforeEach(async ({ workerDbPath }) => {
 		await resetKinderChildBalance(workerDbPath);
+		// #4564: 先行 test (親の承認 / 却下) が同じ worker DB に残した approved 申請を先に掃除する。
+		// #3356 の dedup 契約は「同一 (child, reward) の直近 approved 10 秒窓」で再申請を
+		// RECENTLY_EXCHANGED として弾くため、掃除しないと本 test の交換自体が成立せず
+		// 「さっき こうかんしたよ」が出る。afterEach だけでは自分の後始末しかできず、
+		// 先行 test の残骸には効かない (共有 worker DB、tests/CLAUDE.md #2851)。
+		await clearApprovedRedemptions(workerDbPath);
 		await setRewardAutoApproveSetting(workerDbPath, 'true');
 	});
 
