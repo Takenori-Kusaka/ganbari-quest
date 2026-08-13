@@ -31,7 +31,6 @@ import {
 	CTA_TERMS,
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
-	TOKUSHOHO_TERMS,
 	TRIAL_TERMS,
 } from '../../../src/lib/domain/terms';
 
