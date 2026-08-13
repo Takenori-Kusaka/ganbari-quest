@@ -48,6 +48,19 @@ describe('#4503 利用規約の改訂', () => {
 			// downgrade-service が実際に物理削除する事実を、規約が明示していること
 			expect(section7).toMatch(/保持期間を超える履歴は削除されます/);
 		});
+
+		// PO 決裁 (PR #4587): 事前告知 UI (DowngradeResourceSelector → downgrade-preview) を
+		// 呼ぶのは **手動ダウングレード経路のみ**。解約 → 無料復帰では archiveExcessResources が
+		// 予告なく走る (#4585)。告知の約束を手動経路に限定し、解約経由では約束しない
+		// (規約が実装より大きい状態を、新しい条文で作らない)。
+		it('事前告知の約束が手動のプラン変更に限定され、解約経由では約束していない', () => {
+			expect(section7).toContain('お手続きをご自身で行う場合');
+			expect(section7).toContain('解約時点でこの案内は行われません');
+			// 「変更手続きの前に画面上でお知らせします」を無条件で書かない
+			expect(section7).not.toMatch(
+				/削除される履歴がある場合は、変更手続きの前に画面上でお知らせします/,
+			);
+		});
 	});
 
 	describe('第8条 — 無料トライアル (finding 5 / 6)', () => {
