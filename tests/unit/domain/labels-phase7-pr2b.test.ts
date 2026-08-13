@@ -142,14 +142,21 @@ describe('LP_PRICING_LABELS 拡張 (Phase 4 #2621、Phase 7 PR-2b #2697)', () =>
 		);
 	});
 
-	it('faqPurchaseSteps: 質問 + 導入 + 3 ステップを持つ', () => {
-		expect(LP_PRICING_LABELS.faqPurchaseStepsQ).toContain('どうやって');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsAIntro).toContain('3 ステップ');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep1).toContain(CTA_TERMS.freeTrialVerb);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep2).toContain('プラン');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TOKUSHOHO_TERMS.heading6Important);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TRIAL_TERMS.duration);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TRIAL_TERMS.noCreditCardMid);
+	// #4510: faqPurchaseSteps は **配線ゼロのまま配信されていた dead payload** で、Step3 は
+	// 「カード情報を入力すると無料体験が始まります（カード登録不要）」という自己矛盾かつ
+	// 実装と逆 (Checkout は即時課金) の文言だった。配線された瞬間に虚偽表示になるため
+	// group ごと削除した。**復活したら落ちる**形に置き換える (assertion の弱体化ではなく、
+	// 誤った文言を守っていた検査の反転 — ADR-0006)。
+	it('faqPurchaseSteps は削除されている (未配線 + 実装と逆の文言だった)', () => {
+		for (const key of [
+			'faqPurchaseStepsQ',
+			'faqPurchaseStepsAIntro',
+			'faqPurchaseStepsStep1',
+			'faqPurchaseStepsStep2',
+			'faqPurchaseStepsStep3',
+		]) {
+			expect(LP_PRICING_LABELS, `${key} が復活しています`).not.toHaveProperty(key);
+		}
 	});
 
 	it('faqCancelSteps: 質問 + 導入 + 3 ステップ + closing を持つ', () => {
