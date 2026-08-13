@@ -26,7 +26,7 @@
 
 import { error } from '@sveltejs/kit';
 
-import { FAMILY_MEMBER_LIMIT, invitableFrom } from '$lib/domain/constants/family-member-limit';
+import { FAMILY_MEMBER_LIMIT, invitesAllowedFrom } from '$lib/domain/constants/family-member-limit';
 import type { EvaluationContext } from '$lib/runtime/evaluation-context';
 
 /**
@@ -135,7 +135,7 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 		const tier = ctx.plan?.tier;
 		if (!tier) return deny('plan-tier-insufficient');
 		const limit = FAMILY_MEMBER_LIMIT[tier];
-		if (limit !== null && invitableFrom(limit) <= 0) return deny('plan-tier-insufficient');
+		if (limit !== null && invitesAllowedFrom(limit) <= 0) return deny('plan-tier-insufficient');
 		return canWriteDb(ctx);
 	},
 

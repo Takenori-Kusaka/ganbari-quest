@@ -19,7 +19,7 @@ import { buildFamilyMemberLimitTerms } from '../../../scripts/generate-lp-labels
 import {
 	FAMILY_MEMBER_LIMIT,
 	formatMemberCount,
-	invitableFrom,
+	invitesAllowedFrom,
 } from '../../../src/lib/domain/constants/family-member-limit';
 import {
 	LP_FAQ_PHASEB_LABELS,
@@ -35,10 +35,10 @@ const STANDARD_TOTAL = FAMILY_MEMBER_LIMIT.standard ?? 0;
 
 describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 	describe('値 SSOT からの導出', () => {
-		it('invitableFrom は owner の 1 枠を差し引く', () => {
-			expect(invitableFrom(4)).toBe(3);
-			expect(invitableFrom(1)).toBe(0); // free: owner のみ = 招待できない
-			expect(invitableFrom(0)).toBe(0); // 負数にしない
+		it('invitesAllowedFrom は owner の 1 枠を差し引く', () => {
+			expect(invitesAllowedFrom(4)).toBe(3);
+			expect(invitesAllowedFrom(1)).toBe(0); // free: owner のみ = 招待できない
+			expect(invitesAllowedFrom(0)).toBe(0); // 負数にしない
 		});
 
 		it('FAMILY_MEMBER_LIMIT_TERMS は FAMILY_MEMBER_LIMIT を整形したもの', () => {
@@ -46,14 +46,14 @@ describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 			expect(FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced).toBe(
 				formatMemberCount(STANDARD_TOTAL, { spaced: true }),
 			);
-			expect(FAMILY_MEMBER_LIMIT_TERMS.standardInvitable).toBe(
-				formatMemberCount(invitableFrom(STANDARD_TOTAL)),
+			expect(FAMILY_MEMBER_LIMIT_TERMS.standardInvites).toBe(
+				formatMemberCount(invitesAllowedFrom(STANDARD_TOTAL)),
 			);
 		});
 
 		it('合計と招待可能数は必ず 1 人ちがう (同一視したことが本 Issue の欠陥)', () => {
 			expect(FAMILY_MEMBER_LIMIT_TERMS.standardTotal).not.toBe(
-				FAMILY_MEMBER_LIMIT_TERMS.standardInvitable,
+				FAMILY_MEMBER_LIMIT_TERMS.standardInvites,
 			);
 		});
 
@@ -61,8 +61,8 @@ describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 			expect(buildFamilyMemberLimitTerms()).toEqual({
 				standardTotal: FAMILY_MEMBER_LIMIT_TERMS.standardTotal,
 				standardTotalSpaced: FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced,
-				standardInvitable: FAMILY_MEMBER_LIMIT_TERMS.standardInvitable,
-				standardInvitableSpaced: FAMILY_MEMBER_LIMIT_TERMS.standardInvitableSpaced,
+				standardInvites: FAMILY_MEMBER_LIMIT_TERMS.standardInvites,
+				standardInvitesSpaced: FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced,
 			});
 		});
 	});
@@ -87,18 +87,18 @@ describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 
 	describe('顧客に見える文言 (LP / FAQ / 403)', () => {
 		/** 「招待は N 人」と読める形になっていること (合計だけを言って終わらない)。 */
-		const mentionsInvitable = (text: string) =>
-			text.includes(FAMILY_MEMBER_LIMIT_TERMS.standardInvitable) ||
-			text.includes(FAMILY_MEMBER_LIMIT_TERMS.standardInvitableSpaced);
+		const mentionsInvites = (text: string) =>
+			text.includes(FAMILY_MEMBER_LIMIT_TERMS.standardInvites) ||
+			text.includes(FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced);
 
 		it('pricing の招待説明が招待可能数に言及する', () => {
-			expect(mentionsInvitable(LP_PRICING_LABELS.familyPatternInviteDesc)).toBe(true);
-			expect(mentionsInvitable(LP_PRICING_LABELS.faqMultiDeviceA)).toBe(true);
+			expect(mentionsInvites(LP_PRICING_LABELS.familyPatternInviteDesc)).toBe(true);
+			expect(mentionsInvites(LP_PRICING_LABELS.faqMultiDeviceA)).toBe(true);
 		});
 
 		it('FAQ の招待説明が招待可能数に言及する', () => {
-			expect(mentionsInvitable(LP_FAQ_PHASEB_LABELS.k49)).toBe(true);
-			expect(mentionsInvitable(LP_FAQ_PHASEB_LABELS.k107)).toBe(true);
+			expect(mentionsInvites(LP_FAQ_PHASEB_LABELS.k49)).toBe(true);
+			expect(mentionsInvites(LP_FAQ_PHASEB_LABELS.k107)).toBe(true);
 		});
 
 		it('403 文言が owner 込みの数え方であることを述べる', () => {

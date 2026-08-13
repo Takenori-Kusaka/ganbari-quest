@@ -52,7 +52,7 @@ import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constan
 import {
 	FAMILY_MEMBER_LIMIT,
 	formatMemberCount,
-	invitableFrom,
+	invitesAllowedFrom,
 } from './constants/family-member-limit';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
@@ -1255,7 +1255,7 @@ export const DELETION_GRACE_TERMS = {
 // **合計と招待可能数を必ず区別する**。上限 4 は **owner を含む合計**であり、
 // 実際に招待できるのは 3 人。この 2 つを同一視して「招待 4 人まで」と訴求していたのが
 // #4500 の欠陥そのもので、プラン選択の判断材料を 1 人分過大に見せていた (ADR-0013)。
-// 「招待」の文脈では invitable 系を、「ご家族の人数」の文脈では total 系を使う。
+// 「招待」の文脈では invites 系を、「ご家族の人数」の文脈では total 系を使う。
 //
 // LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
 // 同名 namespace を組み立てる。両者が一致することは
@@ -1269,9 +1269,9 @@ export const FAMILY_MEMBER_LIMIT_TERMS = {
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「4 人」) */
 	standardTotalSpaced: formatMemberCount(STANDARD_MEMBER_TOTAL, { spaced: true }),
 	/** スタンダードで招待できる人数 (owner の 1 枠を除く。例: 「3人」) */
-	standardInvitable: formatMemberCount(invitableFrom(STANDARD_MEMBER_TOTAL)),
+	standardInvites: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL)),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「3 人」) */
-	standardInvitableSpaced: formatMemberCount(invitableFrom(STANDARD_MEMBER_TOTAL), {
+	standardInvitesSpaced: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL), {
 		spaced: true,
 	}),
 } as const;

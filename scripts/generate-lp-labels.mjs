@@ -378,7 +378,7 @@ function buildPlanRetentionTerms() {
  * 整形をここで再現する。整形結果が TS 側と一致することは
  * tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
  *
- * @returns {Record<string, string>} `{ standardTotal, standardTotalSpaced, standardInvitable, standardInvitableSpaced }`
+ * @returns {Record<string, string>} `{ standardTotal, standardTotalSpaced, standardInvites, standardInvitesSpaced }`
  */
 function buildFamilyMemberLimitTerms() {
 	const src = fs.readFileSync(FAMILY_MEMBER_LIMIT_TS, 'utf-8');
@@ -391,8 +391,8 @@ function buildFamilyMemberLimitTerms() {
 		throw new Error('FAMILY_MEMBER_LIMIT.standard not parseable in family-member-limit.ts');
 	}
 	const total = Number(m[1]);
-	// invitableFrom / formatMemberCount (family-member-limit.ts) と同じ規則。差異は上記 test が検出する。
-	const invitable = Math.max(0, total - 1);
+	// invitesAllowedFrom / formatMemberCount (family-member-limit.ts) と同じ規則。差異は上記 test が検出する。
+	const invites = Math.max(0, total - 1);
 	/**
 	 * @param {number} count
 	 * @param {boolean} [spaced]
@@ -401,8 +401,8 @@ function buildFamilyMemberLimitTerms() {
 	return {
 		standardTotal: format(total),
 		standardTotalSpaced: format(total, true),
-		standardInvitable: format(invitable),
-		standardInvitableSpaced: format(invitable, true),
+		standardInvites: format(invites),
+		standardInvitesSpaced: format(invites, true),
 	};
 }
 

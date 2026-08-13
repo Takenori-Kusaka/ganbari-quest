@@ -46,7 +46,7 @@ export const FAMILY_MEMBER_LIMIT: Record<PlanTier, number | null> = {
  *
  * @param total owner を含む合計上限
  */
-export function invitableFrom(total: number): number {
+export function invitesAllowedFrom(total: number): number {
 	return Math.max(0, total - 1);
 }
 
