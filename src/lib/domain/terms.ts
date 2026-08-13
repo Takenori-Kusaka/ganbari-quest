@@ -49,7 +49,9 @@
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
 
 import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constants/deletion-grace';
+import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
+import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -96,8 +98,16 @@ export const PLAN_FULL_TERMS = {
 // ============================================================
 
 export const PRICE_TERMS = {
-	standard: '¥500',
-	family: '¥780',
+	// #4533: 金額の値は constants/plan-price.ts が SSOT。ここは整形だけを担う
+	// (表示に数値を複製すると値上げ時に LP 料金表と Stripe 実請求額が食い違う)。
+	standard: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY]),
+	family: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]),
+	/** 年額 (#2719 で新規購入停止。過去契約者の表示 / 特商法表記に残る) */
+	standardYearly: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.YEARLY]),
+	familyYearly: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY]),
+	/** 数値後置形 (「月額500円（税込）」等、法務文書 / meta description 用) */
+	standardYenFull: `${PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY]}円`,
+	familyYenFull: `${PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]}円`,
 	free: '¥0',
 	taxNote: '（税込）',
 	monthlyPrefix: '月 ',

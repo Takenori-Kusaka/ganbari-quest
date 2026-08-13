@@ -21,7 +21,7 @@
 
 import type { PlanKey } from './labels';
 import { ACTION_LABELS, TRIAL_LABELS } from './labels';
-import { PLAN_RETENTION_TERMS, PLAN_TERMS } from './terms';
+import { PLAN_RETENTION_TERMS, PLAN_TERMS, PRICE_TERMS } from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -176,7 +176,7 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		id: 'standard',
 		// Phase 7 PR-L4 (#2836): プラン名を atom 参照化 (ADR-0045 / ADR-0058)。
 		name: PLAN_TERMS.standard,
-		price: '¥500',
+		price: PRICE_TERMS.standard,
 		unit: '/月',
 		shortDescription: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
 		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
@@ -188,7 +188,7 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		id: 'family',
 		// Phase 7 PR-L4 (#2836): family→premium rename 漏れを atom 参照化 (ADR-0058)。
 		name: PLAN_TERMS.premium,
-		price: '¥780',
+		price: PRICE_TERMS.family,
 		unit: '/月',
 		shortDescription: '全機能解放。きょうだいの成長をまとめて見守れます。',
 		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
