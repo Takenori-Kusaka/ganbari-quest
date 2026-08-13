@@ -207,6 +207,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	},
 
 	// --- scope: bounded (走査 API を使うが入力が有界。追加要求なし) ---
+	'tests/unit/architecture/sqlite-tenant-predicate-fitness.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/server/db/sqlite の 1 dir を非再帰 readdir し、tenant 引数を捨てているメソッドが tenant_id 列を持つ表を触っていないかを検査する (#4546)。ツリーは歩かない',
+	},
 	'tests/unit/architecture/ci-shell-fail-open-guard.test.ts': {
 		scope: 'bounded',
 		note: '.github/workflows の 1 dir と actions/*/action.yml (composite action は現状 1 本) のみを非再帰 glob で解決し、`$?` で分岐する run ブロックが `set +e` を明示しているかを検査する (#4518)。ツリーは歩かないため file 数に比例しない',

@@ -5835,6 +5835,11 @@ export const DEMO_REPORTS_LABELS = {
 
 export const ADMIN_CHILDREN_PAGE_LABELS = {
 	pageTitle: '👧 こども管理',
+	// #4546 ③: 仮アバターの作り直しをレースで見送ったときの通知 (ADR-0062 §1「一時的・回復可能」= Toast)。
+	// 「失敗」ではなく「写真を優先した」正常な結果なので、責めず・次にどうすればよいかまで書く。
+	placeholderAvatarSkippedTitle: 'アバターはそのままです',
+	placeholderAvatarSkippedDesc:
+		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
 	limitBannerTitle: 'こどもの登録上限に達しています',
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',

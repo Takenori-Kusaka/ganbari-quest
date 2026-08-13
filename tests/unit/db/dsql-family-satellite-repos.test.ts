@@ -633,14 +633,19 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 	it('[IM2] updateChildAvatarUrl (tenant no-op) + findChildForImage (§P9)', async () => {
 		const childId = await newChild('画像二郎');
-		// 他 tenant を名乗った更新は no-op
-		await imageRepo.updateChildAvatarUrl(childId, '/evil.png', OTHER_FAMILY);
+		// 他 tenant を名乗った更新は no-op (家族述語が他人の行に触らせない)
+		await imageRepo.updateChildAvatarUrl(
+			childId,
+			`/tenants/${OTHER_FAMILY}/avatars/e.png`,
+			OTHER_FAMILY,
+		);
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
 
-		await imageRepo.updateChildAvatarUrl(childId, '/avatars/two.png', FAMILY);
+		const two = `/tenants/${FAMILY}/avatars/two.png`;
+		await imageRepo.updateChildAvatarUrl(childId, two, FAMILY);
 		const child = await imageRepo.findChildForImage(childId, FAMILY);
 		expect(child?.nickname).toBe('画像二郎');
-		expect(child?.avatarUrl).toBe('/avatars/two.png');
+		expect(child?.avatarUrl).toBe(two);
 		// null 戻しも可能
 		await imageRepo.updateChildAvatarUrl(childId, null, FAMILY);
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
@@ -653,8 +658,9 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 	// 期待値を WHERE に載せ、負けた側が 0 行更新になることを実 Postgres (PGlite) で固定する。
 	it('[IM5] #4466 updateChildAvatarUrlIfMatches は期待値一致時のみ書く (lost update 防止)', async () => {
 		const childId = await newChild('画像三郎');
-		const placeholder = '/tenants/x/avatars/placeholder.svg?v=1';
-		const photo = '/tenants/x/avatars/9f1c2d3e.webp';
+		// #4546 ②: 書き込む値は自 tenant prefix 配下でなければ repo が拒否するため FAMILY から組む。
+		const placeholder = `/tenants/${FAMILY}/avatars/placeholder.svg?v=1`;
+		const photo = `/tenants/${FAMILY}/avatars/9f1c2d3e.webp`;
 
 		// avatar_url 未設定 (null) を期待 → 書ける。`= NULL` は常に UNKNOWN なので
 		// null 一致が効かないと未設定の子供が永久に更新できなくなる。
@@ -668,19 +674,62 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 		// 読んだ時点の値 (placeholder) を期待した書き込みは負ける = 写真が残る
 		expect(
-			await imageRepo.updateChildAvatarUrlIfMatches(childId, placeholder, '/new.svg', FAMILY),
+			await imageRepo.updateChildAvatarUrlIfMatches(
+				childId,
+				placeholder,
+				`/tenants/${FAMILY}/avatars/new.svg`,
+				FAMILY,
+			),
 		).toBe(false);
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
 
 		// §P9: 他 tenant を名乗った条件付き更新も no-op (false)
 		expect(
-			await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, '/evil.png', OTHER_FAMILY),
+			await imageRepo.updateChildAvatarUrlIfMatches(
+				childId,
+				photo,
+				`/tenants/${OTHER_FAMILY}/avatars/evil.png`,
+				OTHER_FAMILY,
+			),
 		).toBe(false);
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
 
 		// null 戻しも条件付きで可能
 		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, null, FAMILY)).toBe(true);
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
+	});
+
+	// ── #4546 ②: 書き込む値の tenant prefix 検証 (family_id 述語とは別の防御線) ──
+	//
+	// family_id 述語は「他人の行を更新しない」を守る。しかし「自分の行に他人を指す値を書く」は
+	// 述語では止まらない (行は自分のもの)。配信経路がそのまま他人の顔写真を返し (IDOR)、
+	// account 削除の prefix 一括削除からも漏れるため、値そのものも検査する。
+	it('[IM6] #4546 ②: 自 family の行でも他 tenant を指す avatar_url は書けない', async () => {
+		const childId = await newChild('画像五郎');
+		const foreign = `/tenants/${OTHER_FAMILY}/avatars/stolen.webp`;
+
+		await expect(imageRepo.updateChildAvatarUrl(childId, foreign, FAMILY)).rejects.toThrow(
+			/tenant-scoped/,
+		);
+		await expect(
+			imageRepo.updateChildAvatarUrlIfMatches(childId, null, foreign, FAMILY),
+		).rejects.toThrow(/tenant-scoped/);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
+	});
+
+	// 期待値は DB から読んだ値なので検査しない (tenant prefix 導入前の legacy な avatar_url を
+	// 持つ行が永久に更新できなくなるのを防ぐ)。SQLite 側と同契約。
+	it('[IM7] #4546 ②: 期待値は検査しない (legacy な avatar_url を持つ行も更新できる)', async () => {
+		const childId = await newChild('画像六郎');
+		const legacy = '/uploads/avatars/legacy.png';
+		const next = `/tenants/${FAMILY}/avatars/next.svg`;
+		await t.db.execute(
+			sql`UPDATE children SET avatar_url = ${legacy}
+				WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+
+		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, legacy, next, FAMILY)).toBe(true);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(next);
 	});
 
 	it('[IM4] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert 拒否 (孤児バイト防止)', async () => {

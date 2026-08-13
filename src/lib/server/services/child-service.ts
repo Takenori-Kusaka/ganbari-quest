@@ -60,7 +60,7 @@ export async function addChild(
 	// 保護者が明示指定した uiMode は尊重する (手動フラグは editChild 側の責務)。
 	const resolved = { ...input, uiMode: input.uiMode ?? getDefaultUiMode(input.age) };
 	const child = await insertChild(resolved, tenantId);
-	return await attachPlaceholderAvatar(child, tenantId);
+	return (await attachPlaceholderAvatar(child, tenantId)).child;
 }
 
 /**
@@ -87,10 +87,15 @@ export async function addChild(
  * **書き込みは `child.avatarUrl` (読んだ時点の値) を期待値にした条件付き更新**で行い、
  * レースに負けたら 0 行更新で写真を残す (`updateChildAvatarUrlIfMatches`)。
  * 呼び出し元は `child.avatarUrl` に**判定に使った値そのもの**を渡すこと。
+ *
+ * #4546 ③: レースに負けて見送ったことを `skipped` で返す。warn だけだと保護者には
+ * 「名前を直したのにアバターが古いまま」が黙って起きる (ADR-0062 §1「一時的・回復可能」= Toast)。
+ * 生成失敗 (catch 側) は `skipped` にしない — 保護者に打てる手が無く、通知しても不安を煽るだけで、
+ * 見送り (= 写真が優先された、正常な結果) とは意味が違う。
  */
 async function attachPlaceholderAvatar<
 	T extends { id: ChildId; nickname: string; theme: string; avatarUrl?: string | null },
->(child: T, tenantId: string): Promise<T> {
+>(child: T, tenantId: string): Promise<{ child: T; skipped: boolean }> {
 	try {
 		const key = placeholderAvatarKey(tenantId, child.id, PLACEHOLDER_AVATAR_EXTENSION);
 		assertTenantScopedStorageKey(key, tenantId);
@@ -116,16 +121,16 @@ async function attachPlaceholderAvatar<
 				'[child-service] 仮アバターの反映を見送りました（この間に avatar_url が変わったため。写真は保持されます）',
 				{ context: { childId: child.id, tenantId } },
 			);
-			return child;
+			return { child, skipped: true };
 		}
 
-		return { ...child, avatarUrl: publicUrl };
+		return { child: { ...child, avatarUrl: publicUrl }, skipped: false };
 	} catch (err) {
 		logger.warn('[child-service] 仮アバターの生成に失敗しました（登録・編集は継続します）', {
 			context: { childId: child.id, tenantId },
 			error: err instanceof Error ? err.message : String(err),
 		});
-		return child;
+		return { child, skipped: false };
 	}
 }
 
@@ -168,9 +173,12 @@ export async function editChild(
 
 	const updated = await updateChild(id, patched, tenantId);
 
+	// #4546 ③: 仮アバターの反映を見送ったかを呼び出し元 (form action → 画面の Toast) に返す。
+	let placeholderAvatarSkipped = false;
+
 	if (existing && shouldRegeneratePlaceholderAvatar(existing, input, id, tenantId)) {
 		// 失敗しても編集は成功させる (attachPlaceholderAvatar が内部で握って warn する)。
-		await attachPlaceholderAvatar(
+		const attached = await attachPlaceholderAvatar(
 			{
 				id,
 				nickname: input.nickname ?? existing.nickname,
@@ -181,9 +189,10 @@ export async function editChild(
 			},
 			tenantId,
 		);
+		placeholderAvatarSkipped = attached.skipped;
 	}
 
-	return updated;
+	return { child: updated, placeholderAvatarSkipped };
 }
 
 /**
