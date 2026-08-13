@@ -40,6 +40,28 @@ import type { PlanTier } from '$lib/domain/constants/plan-tier';
  *
  * server 側の enforcement (`validateSuggestRequest`) と同一の判定であり、UI のロック表示 /
  * アップグレード CTA の出し分けはこの述語だけを根拠にする。
+ *
+ * # ⚠️ これは表示専用の述語ではない — 緩めると認可が緩む
+ *
+ * この関数は **UI のロック表示**と **server 側の認可 (`$lib/server/api/suggest-plan-gate.ts` の
+ * `validateSuggestRequest`)** の**両方**から呼ばれている。domain 層に置かれ「利用可能か」という
+ * 表示寄りの名前を持つため、**呼び出し元を見ずに書き換えると認可が黙って緩む**。
+ *
+ * 実際に来うる要件が「トライアル中は見た目だけ解放したい」「standard にも CTA を見せたい」の
+ * ような **UI 都合**であることに注意する。それをこの関数の条件に足すと、同じ条件が
+ * enforcement 側にもそのまま効き、**課金していないテナントが AI 提案 API を実行できる**
+ * (原価が出る / 有利誤認)。
+ *
+ * ## 表示都合の分岐が必要になったら
+ *
+ * この関数は「enforcement の判定」のまま据え置き、**表示側に別の述語を足す**
+ * (例: `isAiSuggestTeased(tier, trial)` を新設し、UI は「解放 = isAiSuggestUnlocked /
+ * 誘導表示 = isAiSuggestTeased」の 2 つを使い分ける)。enforcement が読む述語は 1 本に保つ。
+ *
+ * 呼び出し元が enforcement と表示の両方であることは
+ * `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` の
+ * 「共有述語の呼び出し元が enforcement と表示の両方である」が pin しており、call site が
+ * 増減すると CI が落ちる (= この JSDoc を読まずに触れない)。
  */
 export function isAiSuggestUnlocked(tier: PlanTier): boolean {
 	return tier === 'family';

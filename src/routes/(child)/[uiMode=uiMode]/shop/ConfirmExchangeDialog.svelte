@@ -13,7 +13,11 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
-import { type PointSettings, splitPointDisplay } from '$lib/domain/point-display';
+import {
+	formatPointDisplayText,
+	type PointSettings,
+	splitPointDisplay,
+} from '$lib/domain/point-display';
 import {
 	REDEMPTION_QUANTITY_MAX,
 	REDEMPTION_QUANTITY_MIN,
@@ -71,14 +75,11 @@ const remainingAfter = $derived(balance - totalPoints);
 const totalParts = $derived(
 	splitPointDisplay(totalPoints, pointSettings, CHILD_SHOP_LABELS.pointUnit),
 );
-const remainingAfterText = $derived.by(() => {
-	const { amount, unit } = splitPointDisplay(
-		remainingAfter,
-		pointSettings,
-		CHILD_SHOP_LABELS.pointUnit,
-	);
-	return `${amount}${unit}`;
-});
+// #4556: 一覧の不足分ヒントと同じ連結を使う。ここだけ自前で連結すると、一覧 →
+// 確認ダイアログの遷移で「あと 250 ポイント」→「のこり: 250ポイント」と表記が割れる。
+const remainingAfterText = $derived(
+	formatPointDisplayText(remainingAfter, pointSettings, CHILD_SHOP_LABELS.pointUnit),
+);
 
 // ごほうびを選び直したら個数を 1 に戻す (前の選択が持ち越されて意図しない個数で確定するのを防ぐ)。
 $effect(() => {
