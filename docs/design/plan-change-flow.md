@@ -1,6 +1,6 @@
 # plan-change-flow.md — プラン変更フロー仕様 (#747)
 
-> アップグレード（free→standard→family）とダウングレード（family→standard→free）、月額↔年額切替、および解約時の挙動を 1 か所にまとめた SSOT。実装は `/admin/license` ページと `/api/stripe/{checkout,portal,webhook}` に集約されている。
+> アップグレード（free→standard→family）とダウングレード（family→standard→free）、および解約時の挙動を 1 か所にまとめた SSOT。**年額プランは #2719 で廃止**しており、購入できるのは月額のみ。実装は `/admin/license` ページと `/api/stripe/{checkout,portal,webhook}` に集約されている。
 
 ---
 
@@ -11,12 +11,11 @@
 | **アップグレード (新規購入)** | `/admin/license` プラン選択カード | `POST /api/stripe/checkout` → Stripe Checkout (外部) → `checkout.session.completed` Webhook | success URL = `/admin/license?session_id=...` → PremiumWelcome 表示 |
 | **アップグレード (プラン昇格)** | `/admin/subscription` プラン利用状況カードのアップグレード CTA | PIN 確認 → `POST /api/stripe/portal` → Stripe Customer Portal → `customer.subscription.updated` Webhook | Portal の return URL = `/admin/license` → 新プラン反映 |
 | **ダウングレード** | 同上（Customer Portal） | 同上 → Portal で下位プランに変更 → `customer.subscription.updated` Webhook | 同上 → 新プラン反映＋PlanStatusCard で超過リソースを警告 |
-| **月額↔年額切替** | 同上（Customer Portal） | 同上（Stripe 標準 UI） | 同上 |
 | **解約 (cancel)** | Customer Portal または `/admin/subscription` (アプリ内 API) | `cancel_at_period_end=true` を予約 → 期末に `customer.subscription.deleted` Webhook | DB: `stripe_subscription_id=NULL, plan=NULL, status=suspended`（テナントは残る、#3982）。到着順に依らない収束規則は §10.5 |
 | **支払い失敗** | Stripe (自動) | `invoice.payment_failed` Webhook | DB: `status=grace_period, planExpiresAt=now+7d` → 猶予期間中は機能維持 |
 | **ライセンスキー適用** | `/admin/license` フォーム | `applyLicenseKey` action → `consumeLicenseKey` (Stripe を経由しない) | テナント plan を直接昇格、Stripe 課金は発生しない |
 
-> **重要**: プラン昇降格と月年額切替は **Stripe Customer Portal に委譲** している (#771)。解約は Portal に加えてアプリ内 API (`POST /api/v1/admin/tenant/cancel`) からも実行でき、いずれも **期末解約** (`cancel_at_period_end=true`) で予約する (#3991 / FR-1)。アプリ内 API は DB の契約状態を書かず、Stripe の `cancel_at_period_end` が「解約申請中か」の SSOT である (NFR-2)。期末が到来すると `customer.subscription.deleted` が §10.5 U5 の終端状態へ収束させる。取り消しは `POST /api/v1/admin/tenant/reactivate` (`cancel_at_period_end=false`) で、契約が生きているため Checkout の再実行は不要。
+> **重要**: プラン昇降格は **Stripe Customer Portal に委譲** している (#771)。解約は Portal に加えてアプリ内 API (`POST /api/v1/admin/tenant/cancel`) からも実行でき、いずれも **期末解約** (`cancel_at_period_end=true`) で予約する (#3991 / FR-1)。アプリ内 API は DB の契約状態を書かず、Stripe の `cancel_at_period_end` が「解約申請中か」の SSOT である (NFR-2)。期末が到来すると `customer.subscription.deleted` が §10.5 U5 の終端状態へ収束させる。取り消しは `POST /api/v1/admin/tenant/reactivate` (`cancel_at_period_end=false`) で、契約が生きているため Checkout の再実行は不要。
 
 ---
 
@@ -26,13 +25,12 @@
 
 ```
 [/admin/license]
-  ├─ 月額/年額タブ（billingInterval state）
-  ├─ プランカード × 2（standard / family、ファミリーが「おすすめ」バッジ）
+  ├─ プランカード × 2（standard / premium）
   └─ 「{プラン名}プランで始める」ボタン
         │
         ▼
   POST /api/stripe/checkout
-   body: { planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly' }
+   body: { planId: 'monthly' | 'family-monthly' }   // 年額は #2719 で廃止
         │
         ├─ 認可: role ∈ {owner, parent}（child は 403）
         ├─ tenantId: locals.context.tenantId（改ざん不可、サーバー署名付き）
@@ -535,26 +533,16 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
 
 ---
 
-## 6. 月額 ↔ 年額切替
+## 6. 課金期間
 
-### 6.1 新規購入時
+**月額のみ**。年額プランは #2719 で廃止した。
 
-`/admin/license` のプランカード上部にあるトグル (`billingInterval` state) で `monthly` ↔ `yearly` を切り替えてから購入ボタンを押す。`planId` は以下にマッピング:
+| プラン | planId | Stripe Price ID 取得元 |
+|--------|--------|----------------------|
+| standard | `monthly` | `STRIPE_PRICE_STANDARD_MONTHLY` |
+| premium | `family-monthly` | `STRIPE_PRICE_FAMILY_MONTHLY` |
 
-| プラン × 期間 | planId | Stripe Price ID 取得元 |
-|--------------|--------|----------------------|
-| standard × monthly | `monthly` | `STRIPE_PRICE_STANDARD_MONTHLY` |
-| standard × yearly | `yearly` | `STRIPE_PRICE_STANDARD_YEARLY` |
-| family × monthly | `family-monthly` | `STRIPE_PRICE_FAMILY_MONTHLY` |
-| family × yearly | `family-yearly` | `STRIPE_PRICE_FAMILY_YEARLY` |
-
-年額は約 17% OFF（`¥500/月 → ¥5,000/年`、`¥780/月 → ¥7,800/年`）。
-
-### 6.2 既存ユーザーの切替
-
-Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り替える。Stripe が proration（日割り計算）を自動で実施する。
-
-> **注意 (#786 連動)**: 「月額↔年額切替がどの画面から可能か不明」「proration の扱い未定義」と #786 で指摘されている。本ドキュメントの本セクションで「Customer Portal で実施・proration は Stripe 自動」を仕様として確定させた。UI 側の導線案内も #786 で改善予定。
+年額の planId (`yearly` / `family-yearly`) は `constants/subscription-plan.ts` に残るが、**新規購入の経路は無い**（過去契約の解決のためだけに存在する）。
 
 ---
 
@@ -648,7 +636,6 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 | プラン変更（昇格・降格） | PIN 入力 or 確認フレーズ → Customer Portal に遷移 | #771: 子供誤操作防止 |
 | 解約 | 同上 → Customer Portal で「Cancel Plan」 | Stripe Portal の標準 UI |
 | 支払い方法更新 | 同上 → Customer Portal で更新 | 同上 |
-| 月額 ↔ 年額切替 | 同上 → Customer Portal で変更 | 同上 |
 | ライセンスキー適用 | キー入力 → 確認ダイアログ → 適用 | owner ロールのみ実行可 |
 
 ---
@@ -789,7 +776,6 @@ checkout.session.completed Webhook
 | プラン × 期間 | 環境変数 | 用途 |
 |---|---|---|
 | `family-monthly` | `STRIPE_PRICE_FAMILY_MONTHLY` | Family 月額 |
-| `family-yearly` | `STRIPE_PRICE_FAMILY_YEARLY` | Family 年額 |
 | `standard-to-family-monthly`（Phase 2 β、未実装） | `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` | 差額 ¥280/月（将来追加候補） |
 
 Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の差額 Price ID を Stripe Dashboard で作成し、本 §11 のフローを差額 Price 経由に切り替える。
@@ -838,7 +824,6 @@ Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の
   - [06-UI設計書.md §10](06-UI設計書.md) — プラン UI パターン全体（#743）
   - [account-deletion-flow.md](account-deletion-flow.md) — 削除フロー（#746、PR #908 でマージ予定）
   - #738 — ダウングレード前警告フロー（超過リソース処理）
-  - #786 — 月額↔年額切替の UI 導線改善 / proration 仕様
   - #823 — Tenant plan 状態マシン統一 EPIC
 - ADR
   - [ADR-0049](../decisions/0049-retention-physical-delete-extended.md) — プラン別履歴保持 + 物理削除ポリシー（旧 archive ADR-0022 の課金×データライフサイクル整合原則は本文と git 履歴に統合）
