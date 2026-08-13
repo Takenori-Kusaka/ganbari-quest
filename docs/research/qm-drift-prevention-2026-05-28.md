@@ -127,7 +127,7 @@ D1-D5 の 5 指標を 33 日 retroactive scan + 案 1 deploy 後 30 日 prospect
 
 ---
 
-## 7. OSS 先調査記録 (ADR §「検討した選択肢」根拠資料、ADR-0014 / #1350 整合)
+## 7. OSS 先調査記録 (ADR §「検討した選択肢」根拠資料、`docs/decisions/README.md` §OSS 先調査ルール / #1350 整合)
 
 | 選択肢 | 種別 | 採用根拠 |
 |---|---|---|

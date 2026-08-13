@@ -4,7 +4,7 @@
 >
 > **本ファイルの位置付け**: methodology reference (連番外)。個別 research の成果物 (連番 `NN-research-<topic>.md`) はこの方法論に従って書かれる。
 >
-> **関連**: `.claude/skills/issue-triage/SKILL.md` 手順 C / ADR-0003 (Issue 品質) / ADR-0010 (Pre-PMF) / ADR-0014 (OSS 先調査)
+> **関連**: `.claude/skills/issue-triage/SKILL.md` 手順 C / ADR-0003 (Issue 品質) / ADR-0010 (Pre-PMF) / `docs/decisions/README.md` §OSS 先調査ルール
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### 1.2 本方法論がなかった場合の損失
 
-- Issue 起票時の「世間が既に解決しているパターン」の見落としが継続 (ADR-0014 違反)
+- Issue 起票時の「世間が既に解決しているパターン」の見落としが継続 (OSS 先調査ルール違反)
 - 独自実装 → 半完成放置 (#1346 / #566 / #1126 / #1150 等) の再発
 - 実装者 (Dev Agent) が前提知識ゼロから OSS 調査を始め、PO 意図と乖離した判断を返す悪循環
 
@@ -39,7 +39,7 @@ weight: 中規模 (Issue Tree + Rust RFC Alternatives + Prior art 抜粋)
 
 未宣言の Issue は PO レビューで `[must]` 差し戻し。
 
-### 2.2 OSS / 確立パターン最低 2 件先調査 (ADR-0014 / #1350)
+### 2.2 OSS / 確立パターン最低 2 件先調査 (`docs/decisions/README.md` §OSS 先調査ルール / #1350)
 
 中規模・大規模 Issue では「OSS / 確立パターン調査結果」セクション必須。npm / GitHub / GoF / DDD / Rust RFC prior art などから最低 2 件を比較し、独自実装を退けた理由を残す。
 
@@ -142,7 +142,7 @@ weight: 中規模 (Issue Tree + Rust RFC Alternatives + Prior art 抜粋)
 ## 設計背景
 [Pyramid 結論 + Issue Tree で 3 階層分解]
 
-## 検討した選択肢 (OSS / 確立パターン最低 2 件、ADR-0014)
+## 検討した選択肢 (OSS / 確立パターン最低 2 件、`docs/decisions/README.md` §OSS 先調査ルール)
 - 選択肢 A: <OSS 名> — 採用実績 / メリット / 棄却理由
 - 選択肢 B: <OSS 名> — 同上
 - 選択肢 C: 独自実装 — A/B を退けた具体的理由

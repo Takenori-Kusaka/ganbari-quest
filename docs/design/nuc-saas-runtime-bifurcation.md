@@ -126,6 +126,6 @@ export const NUC_EDITION_TERMS = {
 
 - ADR-0040 (archive): 実行モード × ライセンス統括アーキテクチャ
 - ADR-0015: 年齢帯 variant アーキテクチャ (context 注入同型)
-- ADR-0014: labels / i18n 機構選定 (OSS 先調査)
+- 旧 ADR-0014: labels / i18n 機構選定 (OSS 先調査、#2440 PR-A5 で削除、#1346)
 - ADR-0045: terms.ts SSOT 2 階層化原則
 - EPIC #2327 + 子 #2328 / #2329 / #2330 / #2331 / #2333

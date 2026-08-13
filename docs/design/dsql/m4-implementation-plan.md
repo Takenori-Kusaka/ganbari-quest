@@ -55,7 +55,7 @@ develop / feature/dsql 上の DSQL コードは **フェーズゲート違反下
 
 reset-plan 決定に従い、既存 DSQL コードを **確定設計（M3 + reset-plan 決定#1-#4）に照らして再検査**し、寄せる。「revert リスト」ではなく「確定設計に照らして再検査/リファクタする対象」として読む。DynamoDB 単一 id 前提の移植ハック（合成 `child:category` id 等）は排除するが、branded string 型自体は維持（決定#2）。
 
-### §2.2 OSS 先調査（ADR-0014 / #1350）
+### §2.2 OSS 先調査（`docs/decisions/README.md` §OSS 先調査ルール / #1350）
 
 10 行超の独自実装の前に OSS / 確立パターンを最低 2 件調査する。M4 の主要な独自実装候補は **カスタム migration runner** のみ（drizzle-kit が DSQL 非互換ゆえ、検証 2 で独自必要性を実証済）。接続層は connector を OSS 採用済（検証 9、awslabs 公式・Apache-2.0）。
 

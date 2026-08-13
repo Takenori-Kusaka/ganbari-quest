@@ -413,6 +413,6 @@ Phase 1 補強 3 (#2788、PR #2790 マージ済) で license key = SaaS / NUC �
   - [phase4-lp-app-flow-design.md](phase4-lp-app-flow-design.md) (#2621 LP_PRICING_LABELS 拡張 SSOT)
   - [phase4-reactivation-flow-design.md](phase4-reactivation-flow-design.md) (#2623 PHASE4_REACTIVATION_FLOW_LABELS 配置 SSOT)
   - [phase4-upgrade-flow-design.md](phase4-upgrade-flow-design.md) (#2624 UPGRADE_FLOW_LABELS 配置 SSOT)
-- **ADR**: ADR-0045 (terms.ts 2 階層 = 本 docs の核理論) / ADR-0010 (Pre-PMF、新規 atom 発明禁止根拠) / ADR-0012 (Anti-engagement、「失う / 消える」atom 含めない) / ADR-0013 (LP truth、§3.4 既存 atom 流用) / ADR-0042 (CSS 3 層トークン、同型責務分離パターン) / ADR-0049 (retention 90 日、`protectedFree` / `resumeReadyFree` variant 根拠) / ADR-0014 (OSS 先調査、本 docs では新規 OSS 採用なし)
+- **ADR**: ADR-0045 (terms.ts 2 階層 = 本 docs の核理論) / ADR-0010 (Pre-PMF、新規 atom 発明禁止根拠) / ADR-0012 (Anti-engagement、「失う / 消える」atom 含めない) / ADR-0013 (LP truth、§3.4 既存 atom 流用) / ADR-0042 (CSS 3 層トークン、同型責務分離パターン) / ADR-0049 (retention 90 日、`protectedFree` / `resumeReadyFree` variant 根拠) / `docs/decisions/README.md` §OSS 先調査ルール（本 docs では新規 OSS 採用なし）
 - **skill**: `impact-analysis` (§5 で 4 layer + 21 カテゴリ checklist 適用) / `regression-check` (Phase 3+4 既設計 + 本 atom 配置確定の整合 §9)
 - **関連 memory**: per-issue-execution-workflow / impact-analysis-methodology / design-intent-grounding / test-coverage-every-issue / deep-research-product-specific / branch-base-main-freshness / pr-body-encoding-powershell-stdin / pr-review-recurring-blocks / ssot_verification_before_proposal / plan_name_implementation_gap
