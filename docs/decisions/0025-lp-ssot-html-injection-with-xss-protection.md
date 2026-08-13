@@ -6,7 +6,7 @@
 | 日付 | 2026-04-29（accepted 昇格 2026-04-30） |
 | 起票者 | PO |
 | 関連 Issue | #1683 / #1465 / #1346 / #1704 (umbrella close) |
-| 関連 ADR | ADR-0009（labels SSOT 原則、§例外「法的文書」を本 ADR が supersede） / ADR-0014（i18n 機構選定） / ADR-0029（LP CSP / CDN allowlist、表裏一体） |
+| 関連 ADR | ADR-0009（labels SSOT 原則、§例外「法的文書」を本 ADR が supersede） / 旧 ADR-0014（i18n 機構選定、#2440 PR-A5 で削除、#1346） / ADR-0029（LP CSP / CDN allowlist、表裏一体） |
 
 ## コンテキスト
 
@@ -21,7 +21,7 @@ ADR-0009 の「LP / Legal を含む全ユーザー露出文言の SSOT 化」を
 
 PO 判断 (#1683): architecture ADR 先行確定 → 1 系統で LP 339 + Legal 354 = 693 件全件 SSOT 化。本 ADR がその architecture を確定する。
 
-## 検討した選択肢（OSS 先調査 — #1350 / ADR-0014 整合）
+## 検討した選択肢（OSS 先調査 — #1350 / `docs/decisions/README.md` §OSS 先調査ルール 整合）
 
 ### 選択肢 A: DOMPurify による innerHTML 注入 + 許可タグ制限（採用）
 
@@ -74,7 +74,7 @@ PO 判断 (#1683): architecture ADR 先行確定 → 1 系統で LP 339 + Legal 
 
 ## 関連
 - ADR-0009（labels.ts SSOT 原則）— §例外「法的文書」を本 ADR が supersede（履歴は archive/0009 内）
-- ADR-0014（i18n 機構選定）— Paraglide 移行前の `shared-labels.js` 経路延命策
+- 旧 ADR-0014（i18n 機構選定、#2440 PR-A5 で削除、#1346）— Paraglide 移行前の `shared-labels.js` 経路延命策
 - ADR-0029（LP CSP / CDN SRI Strategy）— DOMPurify CDN allowlist の根拠と表裏一体
 - Issue #1683（SSOT 100% 完全化）/ #1465 / #1346
 - DOMPurify: https://github.com/cure53/DOMPurify

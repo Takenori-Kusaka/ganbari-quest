@@ -5,7 +5,7 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 
 > **親 SSOT**: [PO Session — Goal 1](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
 >
-> **本 SKILL の位置付け (Issue #2089)**: Issue 起票運用の **SSOT**。Pre-PMF check / HEREDOC 禁止 / OSS 先調査 / research 添付 の 4 領域は本 SKILL に集約し、他文書 (`docs/sessions/po-session.md` / `.github/CLAUDE.md` / `.claude/skills/lp-review/SKILL.md`) からは link 参照のみとする。ADR-0003 / ADR-0010 / ADR-0014 は背景・根拠の reference として残置 (本 SKILL の各セクションから refer)。
+> **本 SKILL の位置付け (Issue #2089)**: Issue 起票運用の **SSOT**。Pre-PMF check / HEREDOC 禁止 / OSS 先調査 / research 添付 の 4 領域は本 SKILL に集約し、他文書 (`docs/sessions/po-session.md` / `.github/CLAUDE.md` / `.claude/skills/lp-review/SKILL.md`) からは link 参照のみとする。ADR-0003 / ADR-0010 は背景・根拠の reference として残置 (本 SKILL の各セクションから refer)。旧 ADR-0014（labels / i18n 機構選定）は #2440 PR-A5 で削除済み（詳細は手順 B 参照）。
 
 # Issue 起票フェーズゲート
 
@@ -112,9 +112,9 @@ Issue 起票時の Pre-PMF バイアスチェック (ADR-0010 §3 を SSOT と�
 
 ## 手順 B: OSS 先調査
 
-独自実装が 10 行以上に達しそうな Issue を起票する場合、起票前に **OSS / 確立パターンを最低 2 件**調査する義務がある (ADR-0014 / `docs/decisions/README.md` §「OSS 先調査ルール (#1350)」)。本 §は補佐責務として SKILL に手順を集約。
+独自実装が 10 行以上に達しそうな Issue を起票する場合、起票前に **OSS / 確立パターンを最低 2 件**調査する義務がある (`docs/decisions/README.md` §「OSS 先調査ルール (#1350)」)。本 §は補佐責務として SKILL に手順を集約。
 
-**ADR-0014 supersede 判定 (#2089)**: ADR-0014 (labels / i18n 機構選定) は本 SKILL の **OSS 先調査の reference 実装例** として残置し、supersede しない。理由: ADR-0014 は具体的 OSS (Paraglide / svelte-i18n / 独自) を 2 件以上比較した実例として歴史的価値があり、本 SKILL から refer することで「比較表の書き方」テンプレートとして機能する。
+**ADR-0014（labels / i18n 機構選定）は削除済み**: #2089 時点では本 SKILL の **OSS 先調査の reference 実装例** として残置し supersede しない、と判定していた（具体的 OSS (Paraglide / svelte-i18n / 独自) を 2 件以上比較した実例として）。その後 #2440 PR-A5（ADR 削除主義棚卸）で ADR-0014 自体が削除されたため、この残置判定は現在成立していない。「比較表の書き方」は `docs/decisions/README.md` の ADR テンプレート §検討した選択肢（OSS / 確立パターン最低 2 件必須）が選択肢 A / B / C の書式を定義しており、テンプレートとしての役割はそちらが担う。
 
 ### 調査手順 (補佐の責務)
 
