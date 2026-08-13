@@ -13,6 +13,7 @@ import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -359,37 +360,50 @@ const canConfirmDelete = $derived(
 							<li>{SETTINGS_LABELS.accountDeleteOwnerItem3}</li>
 							<li>{SETTINGS_LABELS.accountDeleteOwnerItem4}</li>
 						</ul>
-						<p class="text-[var(--color-feedback-error-text)] font-medium">
-							{SETTINGS_LABELS.accountDeleteOwnerWarning}
-						</p>
+						<!-- #4545: 不可逆 (復旧不能) の告知は色文字ではなく Alert primitive で出す。
+						     danger variant が枠線 + 背景 + アイコン + role="alert" を担保する。 -->
+						<Alert
+							variant="danger"
+							message={SETTINGS_LABELS.accountDeleteOwnerWarning}
+							data-testid="account-delete-owner-warning"
+						/>
 					</div>
 				{:else if $page.data.userRole === 'child'}
 					<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
 						<p>{SETTINGS_LABELS.accountDeleteChildDesc}</p>
 						<p>{SETTINGS_LABELS.accountDeleteChildDesc2}</p>
-						<p class="text-[var(--color-feedback-error-text)] font-medium">
-							{SETTINGS_LABELS.accountDeleteChildWarning}
-						</p>
+						<!-- #4545: 同上 (子供アカウント自身の削除も復旧不能) -->
+						<Alert
+							variant="danger"
+							message={SETTINGS_LABELS.accountDeleteChildWarning}
+							data-testid="account-delete-child-warning"
+						/>
 					</div>
 				{:else}
 					<div class="text-sm text-[var(--color-text-secondary)] space-y-2 mb-4">
 						<p>{SETTINGS_LABELS.accountDeleteMemberDesc}</p>
 						<p>{SETTINGS_LABELS.accountDeleteMemberDesc2}</p>
-						<p class="text-[var(--color-feedback-error-text)] font-medium">
-							{SETTINGS_LABELS.accountDeleteMemberWarning}
-						</p>
+						<!-- #4545: 同上 (メンバー離脱もログイン情報は復旧不能) -->
+						<Alert
+							variant="danger"
+							message={SETTINGS_LABELS.accountDeleteMemberWarning}
+							data-testid="account-delete-member-warning"
+						/>
 					</div>
 				{/if}
 
 				{#if $page.data.userRole === 'owner'}
 					<!-- #4496: プラン別の猶予期間を手続き **前** に述べる (無料プランは猶予なし) -->
 					{#if deletionGraceDays !== null}
-						<p
-							class="text-sm text-[var(--color-feedback-error-text)] font-medium mb-4"
+						<!-- #4545: 猶予 0 日 (無料プラン) は申込と同時に物理削除され取り消せないため
+						     danger (role="alert") で出す。猶予がある有料プランは期間内なら取り消せる
+						     ので warning (role="status") に留め、不可逆でないものを同じ強さで叫ばない。 -->
+						<Alert
+							variant={deletionGraceDays === 0 ? 'danger' : 'warning'}
+							message={SETTINGS_LABELS.accountDeleteGraceNotice(deletionGraceDays)}
+							class="mb-4"
 							data-testid="account-delete-grace-notice"
-						>
-							{SETTINGS_LABELS.accountDeleteGraceNotice(deletionGraceDays)}
-						</p>
+						/>
 					{/if}
 
 					<!-- #4472: 退会を実行する前にデータを持ち出せるようにする (無料プランを含む全プラン) -->

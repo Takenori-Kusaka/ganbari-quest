@@ -56,6 +56,25 @@ test.describe('#2319 Danger Zone — accountDelete (/admin/settings/account)', (
 
 		await expect(dangerZone).toBeVisible();
 
+		// #4545: 復旧不能の告知は色文字ではなく Alert primitive (role="alert") で出す。
+		// 色だけを手がかりにすると色覚多様性のある方に届かない (WCAG 1.4.1)。
+		// role は Alert の danger variant が担保する。
+		const ownerWarning = page.getByTestId('account-delete-owner-warning');
+		if ((await ownerWarning.count()) > 0) {
+			await expect(ownerWarning).toBeVisible();
+			await expect(ownerWarning).toHaveAttribute('role', 'alert');
+		}
+
+		// 猶予期間の告知: 猶予 0 日 (無料プラン) は取り消せないので alert、
+		// 猶予がある有料プランは期間内に取り消せるので status に留める。
+		const graceNotice = page.getByTestId('account-delete-grace-notice');
+		if ((await graceNotice.count()) > 0) {
+			await expect(graceNotice).toBeVisible();
+			// どちらの場合も「枠線付きの Alert」であること = role 属性を持つこと自体を要求する
+			// (旧実装の裸の <p> は role を持たない)。
+			await expect(graceNotice).toHaveAttribute('role', /^(alert|status)$/);
+		}
+
 		const executeBtn = page.getByTestId('account-danger-execute-button');
 		await expect(executeBtn).toBeVisible();
 		await expect(executeBtn).toBeDisabled();
