@@ -138,15 +138,25 @@ jobs:
           git switch -C "$BRANCH"
           git add graphify-out
           git commit -m "chore(graphify): regenerate knowledge graph (develop ${DEVELOP_SHA:0:7}, #4536)"
-          # `--force-with-lease` が失敗するのは「他の誰かが同 branch を進めた」という信号そのもの
-          # なので、無条件 `--force` へ fallback すると lease の意味が消える (#4536 レビュー漏れ)。
-          # graphify-refresh PR に人が手を入れた直後の run が、その修正を警告なく消してしまう。
-          # 失敗したら push せず job を落とす (graphify-out は次の push 契機で再生成できる)。
-          if ! git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
-            "$BRANCH" --force-with-lease; then
-            echo "::error::${BRANCH} が他から進んでいるため push を中止しました。bot PR に人手の修正が入っている可能性があります。"
-            exit 1
+          # push 先 branch を fetch していないため `--force-with-lease` は使えない (#4563)。
+          # 追跡参照が無いと lease は「人が進めた」ではなく「過去の値を知らない」で常に
+          # stale info になり、2 回目以降の run が永久に失敗する (bare repo で再現確認済み)。
+          #
+          # 代わりに「remote の tip を bot 自身が書いたか」で判定する。人手の commit が
+          # 載っていれば force しない — bot PR に入れた修正を警告なく消さないための唯一の砦。
+          REMOTE_URL="https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
+          REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/${BRANCH}" | cut -f1)
+          if [ -n "${REMOTE_SHA}" ]; then
+            git fetch --depth=1 "$REMOTE_URL" "${BRANCH}"
+            TIP_EMAIL=$(git log -1 --format=%ae FETCH_HEAD)
+            if [ "${TIP_EMAIL}" != "${GIT_AUTHOR_EMAIL}" ]; then
+              echo "::error::${BRANCH} の先頭 commit が bot 以外 (${TIP_EMAIL}) です。\
+                push を中止しました。bot PR に入れた人手の修正を消さないためです。\
+                内容を取り込むか、不要なら ${BRANCH} を削除してから再実行してください。"
+              exit 1
+            fi
           fi
+          git push "$REMOTE_URL" "${BRANCH}" --force
 
       - name: Upsert graphify-refresh PR
         if: steps.diff.outputs.changed == 'true' && steps.appcreds.outputs.present == 'true'
