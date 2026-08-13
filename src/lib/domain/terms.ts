@@ -986,9 +986,6 @@ export const NUC_EDITION_TERMS = {
 //   - commercialUse       : 商用利用の可否（メリット側の事実）
 //   - copyleftObligation  : コピーレフト義務（義務側の事実。メリット一覧に混ぜない）
 //
-// 表示と実ライセンスの乖離は `tests/unit/domain/oss-license-ssot.test.ts` が機械検証する
-// (package.json / LICENSE / README / labels.ts / LP HTML fallback を突き合わせる)。
-//
 // 参照: docs/DESIGN.md §6 / Issue #4499 / #4495 / #4547
 
 export const OSS_LICENSE_TERMS = {
