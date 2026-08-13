@@ -31,6 +31,7 @@ const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
+const PLAN_PRICE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-price.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
@@ -411,6 +412,46 @@ function buildDeletionGraceTerms() {
 }
 
 /**
+ * プラン単価の値 SSOT (`src/lib/domain/constants/plan-price.ts`) を読み、
+ * terms.ts の `PRICE_TERMS` のうち**金額由来の key** を組み立てる (#4533)。
+ *
+ * なぜ必要か:
+ *   buildPlanRetentionTerms と同じ理由。本 script は TS を実行せず text parse するため、
+ *   `formatYen(PLAN_PRICE_YEN[...])` で計算された値を terms.ts から読み取れない。
+ *   数値 SSOT (`PLAN_PRICE_YEN`) は literal なので読める → 整形だけをここで再現する。
+ *   整形結果が TS 側 `PRICE_TERMS` と一致することは
+ *   tests/unit/domain/plan-price-ssot.test.ts が機械検証する (drift 不可)。
+ *
+ * @returns {Record<string, string>} `{ standard, family }`
+ */
+function buildPriceTerms() {
+	const src = fs.readFileSync(PLAN_PRICE_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const PLAN_PRICE_YEN'));
+	if (block === null) {
+		throw new Error('PLAN_PRICE_YEN not found in plan-price.ts');
+	}
+	/** @param {string} planConst */
+	const readYen = (planConst) => {
+		const m = block.match(new RegExp(`SUBSCRIPTION_PLAN\\.${planConst}\\]:\\s*(\\d+)`));
+		if (!m || m[1] === undefined) {
+			throw new Error(`PLAN_PRICE_YEN.${planConst} not parseable in plan-price.ts`);
+		}
+		return Number(m[1]);
+	};
+	// formatYen (plan-price.ts) と同じ整形規則。差異は上記 test が検出する。
+	/** @param {number} amount */
+	const format = (amount) => `¥${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+	return {
+		standard: format(readYen('MONTHLY')),
+		family: format(readYen('FAMILY_MONTHLY')),
+		standardYearly: format(readYen('YEARLY')),
+		familyYearly: format(readYen('FAMILY_YEARLY')),
+		standardYenFull: `${readYen('MONTHLY')}円`,
+		familyYenFull: `${readYen('FAMILY_MONTHLY')}円`,
+	};
+}
+
+/**
  * LP 用 namespace 名 ↔ 戻り値 key の対応表。
  *
  * #1917 のリファクタで parseLabelsTs() の cognitive complexity を 27 → 安全圏に下げるため、
@@ -495,6 +536,9 @@ function parseAllNamespacesResolved() {
 		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
 		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
 		DELETION_GRACE_TERMS: buildDeletionGraceTerms(),
+		// #4533: 同上 (値 SSOT = plan-price.ts)。金額由来の key だけを上書きし、
+		// literal のままの key (free / taxNote / monthlyPrefix / fromSuffix) は parse 結果を残す。
+		PRICE_TERMS: { ...(termsNamespaces.PRICE_TERMS ?? {}), ...buildPriceTerms() },
 		AGE_TIER_LABELS: ageTierLabels,
 		AGE_TIER_SHORT_LABELS: ageTierShort,
 		PLAN_LABELS: planLabels,
@@ -921,6 +965,7 @@ if (invokedAsCli) {
 export {
 	buildDeletionGraceTerms,
 	buildPlanRetentionTerms,
+	buildPriceTerms,
 	isTemplateLiteral,
 	parseAllNamespacesResolved,
 	parseBlock,

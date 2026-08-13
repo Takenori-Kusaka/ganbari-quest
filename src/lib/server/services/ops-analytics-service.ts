@@ -5,7 +5,7 @@
 //
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
-import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
+import { planMrrUnitYen } from '$lib/domain/constants/plan-price';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { shiftMonthKey, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
@@ -137,18 +137,6 @@ export interface OpsAnalyticsData {
 }
 
 // ============================================================
-// Price map (JPY)
-// ============================================================
-
-/** プラン別 MRR 単価 (monthly 換算) */
-const PLAN_MRR_UNIT: Record<string, number> = {
-	[SUBSCRIPTION_PLAN.MONTHLY]: 500,
-	[SUBSCRIPTION_PLAN.YEARLY]: Math.round(5000 / 12),
-	[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: 780,
-	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: Math.round(7800 / 12),
-};
-
-// ============================================================
 // Helpers (exported for tests)
 // ============================================================
 
@@ -267,7 +255,7 @@ export function computeAnalytics(
 	let monthlyMrr = 0;
 	for (const t of activeTenants) {
 		if (t.plan) {
-			monthlyMrr += PLAN_MRR_UNIT[t.plan] ?? 0;
+			monthlyMrr += planMrrUnitYen(t.plan);
 		}
 	}
 
@@ -298,7 +286,7 @@ export function computeAnalytics(
 	const totalActive = activeTenants.length;
 
 	for (const [plan, count] of planCounts) {
-		const mrr = (PLAN_MRR_UNIT[plan] ?? 0) * count;
+		const mrr = planMrrUnitYen(plan) * count;
 
 		planBreakdown.push({
 			plan,

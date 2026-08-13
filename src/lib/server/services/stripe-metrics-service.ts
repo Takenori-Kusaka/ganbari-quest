@@ -4,6 +4,7 @@
 // MRR / ARR / ARPU / 有料数 / トライアル→有料転換率 / 月次解約率 を提供。
 // 12-事業計画書.md §7.2 / 19-プライシング戦略書.md §8.1 の KPI 定義に準拠。
 
+import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
 import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
@@ -23,6 +24,15 @@ import { getPlans, type PlanConfig, type PlanId } from '$lib/server/stripe/confi
  *
  * 注: 本 map は historical compat のみが目的で、新規 yearly checkout は `stripe-service`
  * 側で reject される。本 map の値変更は過去契約者の MRR 表示にのみ影響する。
+ *
+ * **`constants/plan-price.ts` の `PLAN_PRICE_YEN` を参照してはいけない (#4533)**。
+ * あちらは「現行の定価」だが、ここは「過去に実際に請求された額」であり、意味が違う。
+ * 年額は #2719 で新規販売を停止済みなので、ここに残る tenant は**全員が旧価格の契約者**。
+ * SSOT 参照にすると、料金改定した瞬間に旧価格契約者の MRR / ARR / LTV が新価格で再計算され、
+ * /ops の経営数値が実際の請求額から乖離する (画面には何の警告も出ない)。
+ * 「値上げしても旧単価のまま」はここでは**バグではなく仕様**であり、literal は集約漏れではない。
+ * 本 map が SSOT を参照していないことは `tests/unit/domain/plan-price-ssot.test.ts` が assert する
+ * (善意の「集約漏れ潰し」で再び壊されないようにするため)。
  */
 const HISTORICAL_YEARLY_AMOUNTS: Partial<Record<SubscriptionPlan, number>> = {
 	[SUBSCRIPTION_PLAN.YEARLY]: 5000, // 旧 STANDARD_YEARLY
@@ -103,9 +113,11 @@ function generateMockMetrics(): StripeMetricsWithTrend {
 		const paidCount = Math.max(1, 6 - i);
 		trend.push({
 			month,
-			mrr: paidCount * 500 + Math.round(paidCount * 0.3) * Math.round(5000 / 12),
+			mrr:
+				paidCount * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY] +
+				Math.round(paidCount * 0.3) * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.YEARLY],
 			activePaidCount: paidCount,
-			monthlyRevenue: paidCount * 500,
+			monthlyRevenue: paidCount * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY],
 			churnRate: i > 3 ? 0.1 : 0.05,
 		});
 	}
