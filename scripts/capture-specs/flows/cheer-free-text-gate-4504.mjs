@@ -48,10 +48,12 @@ async function loginAsOwner(page) {
 async function ensureChild(page) {
 	// login 直後は redirect が飛んでいる最中で goto が ERR_ABORTED になることがある
 	await page.waitForLoadState('networkidle').catch(() => {});
-	await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' }).catch(async () => {
-		await page.waitForTimeout(1_000);
-		await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' });
-	});
+	await page
+		.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' })
+		.catch(async () => {
+			await page.waitForTimeout(1_000);
+			await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' });
+		});
 	await page.waitForLoadState('networkidle').catch(() => {});
 	const existing = page.getByText('はなちゃん', { exact: false }).first();
 	if (await existing.isVisible().catch(() => false)) return;
