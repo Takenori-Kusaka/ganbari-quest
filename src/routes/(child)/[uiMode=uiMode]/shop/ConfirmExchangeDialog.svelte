@@ -13,7 +13,11 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
-import type { PointSettings } from '$lib/domain/point-display';
+import {
+	formatPointDisplayText,
+	type PointSettings,
+	splitPointDisplay,
+} from '$lib/domain/point-display';
 import {
 	REDEMPTION_QUANTITY_MAX,
 	REDEMPTION_QUANTITY_MIN,
@@ -67,6 +71,15 @@ const maxAffordable = $derived(
 );
 const totalPoints = $derived(rewardPoints * quantity);
 const remainingAfter = $derived(balance - totalPoints);
+// #4509 ②: 確定前に見せる数字も一覧・ヘッダーと同じ換算を通す (通貨モードで単位が割れない)。
+const totalParts = $derived(
+	splitPointDisplay(totalPoints, pointSettings, CHILD_SHOP_LABELS.pointUnit),
+);
+// #4556: 一覧の不足分ヒントと同じ連結を使う。ここだけ自前で連結すると、一覧 →
+// 確認ダイアログの遷移で「あと 250 ポイント」→「のこり: 250ポイント」と表記が割れる。
+const remainingAfterText = $derived(
+	formatPointDisplayText(remainingAfter, pointSettings, CHILD_SHOP_LABELS.pointUnit),
+);
 
 // ごほうびを選び直したら個数を 1 に戻す (前の選択が持ち越されて意図しない個数で確定するのを防ぐ)。
 $effect(() => {
@@ -100,11 +113,13 @@ $effect(() => {
 					: CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}
 			</span>
 			<p class="confirm-points-value">
-				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalPoints}</span>
-				<span class="confirm-points-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
+				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalParts.amount}</span>
+				{#if totalParts.unit}
+					<span class="confirm-points-unit">{totalParts.unit}</span>
+				{/if}
 			</p>
 			<span class="confirm-points-label" data-testid="confirm-remaining-after">
-				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfter}{CHILD_SHOP_LABELS.pointUnit}
+				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfterText}
 			</span>
 		</div>
 		<p class="confirm-description">{CHILD_SHOP_LABELS.exchangeConfirmDescription}</p>
@@ -145,7 +160,13 @@ $effect(() => {
 							);
 							await update();
 							onClose();
-							void playRewardCelebration();
+							// #4449: 祝福は「実際に起きたこと」にだけ出す。
+							// 既定設定 (親の承認が要る) では、押した時点で作られるのは申請だけで
+							// ポイントは 1 も減っていない。そこで紙吹雪 + ファンファーレ + 振動を鳴らすのは
+							// 起きていないことを祝う演出の濫用 (ADR-0012) であり、子供には「もう交換できた」
+							// と誤って伝わる。申請だけの経路は上の Toast (「おうちのひとに おねがいしたよ」)
+							// による軽い確認だけにする。
+							if (instant) void playRewardCelebration();
 							// #4448: 減った分を `-N` (赤) でヘッダー残高へ飛ばし、減算後の値まで数える。
 							// 親承認待ち (instant=false) は残高が動かないため、演出は自動的に出ない。
 							await animateBalanceChange({

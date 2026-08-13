@@ -14,7 +14,7 @@
 | ステータス | 設計確定 (本 PR で docs SSOT、コード変更は Phase 7 各 Step / ADR 起票は本 PR で同時実施) / **2026-05-30 補強 #2683: 代替案 D 採用に伴う scope 変更を反映** |
 | 作業姿勢 (#2525 critical) | 課金は別格 ([[billing-critical-extra-caution]])。ロールバック手順は「実際に Test mode で 1 度実演」できる粒度まで具体化。Pre-PMF Bucket A (ADR-0010) 整合、kill switch は LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を不採用、env var 1 件 (`USE_LOOKUP_KEY`) で最小構成 |
 
-> **位置づけ**: Phase 6 グループ C 最後の子 (グループ A=#2667 / グループ B=#2674-#2675 / #2673 完了後)。Phase 5 子 1 §「想定リスク 7 件」を **検知 → ロールバック → 再発防止** の 3 観点で実装手順化し、#2627 Stripe Dashboard ロールバックを **3 期間 (Phase 7 マージ前 / マージ後 24h / マージ後 1 週間)** で詳細化、feature flag kill switch を `.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所で統合管理する。さらに Phase 1 で確定済の構造的欠落 3 件 (handleSubscriptionDeleted archive 未呼出 / tax_behavior 一致 / Portal ロック誘導文言) の Phase 7 反映方針を確定。最後に ADR-0014 整合の OSS 4 件比較で本 PR と同時に新規 ADR を起票する。
+> **位置づけ**: Phase 6 グループ C 最後の子 (グループ A=#2667 / グループ B=#2674-#2675 / #2673 完了後)。Phase 5 子 1 §「想定リスク 7 件」を **検知 → ロールバック → 再発防止** の 3 観点で実装手順化し、#2627 Stripe Dashboard ロールバックを **3 期間 (Phase 7 マージ前 / マージ後 24h / マージ後 1 週間)** で詳細化、feature flag kill switch を `.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所で統合管理する。さらに Phase 1 で確定済の構造的欠落 3 件 (handleSubscriptionDeleted archive 未呼出 / tax_behavior 一致 / Portal ロック誘導文言) の Phase 7 反映方針を確定。最後に `docs/decisions/README.md` §OSS 先調査ルール 整合の OSS 4 件比較で本 PR と同時に新規 ADR を起票する。
 
 ## 1. 設計背景 (§1)
 
@@ -48,7 +48,7 @@ Phase 6 子 1 #2667 §4 で「7 領域 (A-G) 同期 timeline」を確定した�
 
 Phase 5 子 1 + Phase 6 子 1 + 子 4 で **`USE_LOOKUP_KEY` (Step 3)** の feature flag を確定したが、**「どの env file に書き、どの config module から読み、デフォルト値は何か、CDK Lambda env / GitHub Actions Variables / `.env.example` の 3 系統で同期するか」が docs 化されていない**。
 
-LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を検討する余地もあるが、**Pre-PMF Bucket A (ADR-0010) として「kill switch 2 件のために feature flag platform 導入は過剰防衛」**と判断する必要があり、その判断根拠 + OSS 比較を ADR-0014 整合で残す必要がある。
+LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を検討する余地もあるが、**Pre-PMF Bucket A (ADR-0010) として「kill switch 2 件のために feature flag platform 導入は過剰防衛」**と判断する必要があり、その判断根拠 + OSS 比較を `docs/decisions/README.md` §OSS 先調査ルール 整合で残す必要がある。
 
 ### 1.4 課題: Phase 1 で確定済の構造的欠落 3 件が Phase 6 で位置付けされていない
 
@@ -74,10 +74,10 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 |------|------|------|
 | **1. 想定リスク 7 件は「検知 method (具体的 alert 名 / log query)」+ 「ロールバック手順 (1-3 step)」+ 「再発防止 (CI gate / Pre-Ready checklist 1 行)」の 3 観点 SSOT** | 各リスクで Phase 7 実装者が独自判断する余地ゼロ、Test mode で 1 度実演可能な粒度 | [[billing-critical-extra-caution]] / Phase 5 子 1 §想定リスク 7 件 / Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events) 5 phase migration |
 | **2. #2627 Dashboard rollback は 3 期間別マトリクス** | (a) Phase 7 マージ前 / (b) マージ後 24h 以内 / (c) マージ後 1 週間 (retire 完了後) で「rollback 可否 + 手順」を分解 | Stripe `migrate-subscriptions toolkit` 10h window / Stripe API versioning 72h window / Phase 6 子 1 #2667 §3 Step 5 1 週間 smoke test |
-| **3. kill switch は env var 2 件のみ (`.env.example` + `src/lib/server/stripe/config.ts` SSOT)** | LaunchDarkly / Unleash 不採用、Pre-PMF 最小構成、CDK Lambda env / GitHub Actions Variables / `.env.example` の 3 系統同期手順を SSOT 化 | ADR-0010 Pre-PMF 過剰追加回避 / ADR-0014 OSS 先調査 (本 PR §7 で 4 件比較) |
+| **3. kill switch は env var 2 件のみ (`.env.example` + `src/lib/server/stripe/config.ts` SSOT)** | LaunchDarkly / Unleash 不採用、Pre-PMF 最小構成、CDK Lambda env / GitHub Actions Variables / `.env.example` の 3 系統同期手順を SSOT 化 | ADR-0010 Pre-PMF 過剰追加回避 / `docs/decisions/README.md` §OSS 先調査ルール (本 PR §7 で 4 件比較) |
 | **4. Phase 1 構造的欠落 3 件は Phase 7 の **担当 PR + 担当 Step を 1 表で SSOT 化** | #1 = Phase 7 PR-X (Step 4-b 内部) / #2 = #2627 領域 A+E 設定 / #3 = Phase 7 Step 2 atom 追加 | Phase 1 #2537 dunning FR-3 / Phase 5 子 1 §3.2 副次制約 1+2 / Phase 6 子 1 #2667 §3 Step 4-b |
 | **5. ロールバック判断基準は 3 指標 (エラー率 / 顧客 inquiry 件数 / DB inconsistency) の SSOT** | 各指標の閾値 + 検知方法 + 判断者 (Dev or PO) を本 docs で確定 | Phase 6 子 1 #2667 §3 Step 4-b ロールバック判断基準 / [[billing-critical-extra-caution]] |
-| **6. 本 PR で ADR 起票 (OSS 4 件比較 + 1-in-1-out は月 1 棚卸へ)** | Pre-PMF Bucket A (ADR-0010) + Stripe 公式 5 phase 整合 + env var 最小構成、月 1 棚卸 (2026-06 最終週) で archive 候補確定後に 1-in-1-out 履行 | ADR-0014 OSS 先調査 / docs/CLAUDE.md §「ADR 月 1 棚卸」 / `docs/decisions/README.md` §「10 枠超過時の義務 (1-in-1-out)」 |
+| **6. 本 PR で ADR 起票 (OSS 4 件比較 + 1-in-1-out は月 1 棚卸へ)** | Pre-PMF Bucket A (ADR-0010) + Stripe 公式 5 phase 整合 + env var 最小構成、月 1 棚卸 (2026-06 最終週) で archive 候補確定後に 1-in-1-out 履行 | `docs/decisions/README.md` §OSS 先調査ルール / docs/CLAUDE.md §「ADR 月 1 棚卸」 / `docs/decisions/README.md` §「10 枠超過時の義務 (1-in-1-out)」 |
 | **7. 本 PR は docs only、コード変更なし** | Phase 7 各 Step 実装で本 docs を参照、本 PR では `docs/design/billing-redesign/README.md` §Phase 6 表は触らない (グループ C 並列 conflict 回避) | [[per-issue-execution-workflow]] / Phase 6 親 #2660 conflict 連鎖回避ガイドライン |
 
 ## 3. Phase 5 子 1 想定リスク 7 件の実装手順化 (§3) ⭐ 本 docs の核
@@ -399,7 +399,7 @@ Phase 7 Step 3 + Step 4-a の各 PR Pre-Ready checklist に以下 1 行追加:
 | **適用範囲** | `notifyStripeAlert({ message, errorSummary, tags })` の string 全フィールド + Discord dispatch failure 時の err.message。汎用 logging 全般への適用は scope 外 (過剰防衛回避) |
 | **performance 要件** | < 1ms / call (alert path 非ブロッキング、fire-and-forget 整合)、unit test で 1000 回呼出 < 100ms assert (#2749 で NFKC + homograph fold 追加後も baseline 維持を assert) |
 | **実体** | `src/lib/server/stripe/pii-redaction.ts` (`redactPii` / `redactPiiInTags` / `PII_REDACTION_MARKERS` SSOT) |
-| **OSS 先調査** | `pii-redactor` (採用実績乏しい) / `@privacy-aware/pii-redact` (採用ほぼゼロ) / `gitleaks` (CLI のみ) で適合 OSS なし、ADR-0014 「OSS 採用コスト > Pre-PMF benefit」基準で正規表現独自実装 (~60 行、#2749 で NFKC + homograph fold + Luhn + IDN 拡張) 採用 |
+| **OSS 先調査** | `pii-redactor` (採用実績乏しい) / `@privacy-aware/pii-redact` (採用ほぼゼロ) / `gitleaks` (CLI のみ) で適合 OSS なし、`docs/decisions/README.md` §OSS 先調査ルール 「OSS 採用コスト > Pre-PMF benefit」基準で正規表現独自実装 (~60 行、#2749 で NFKC + homograph fold + Luhn + IDN 拡張) 採用 |
 | **bypass 対策 (#2749、Adversarial security 軸 critical follow-up)** | (1) **Unicode NFKC 正規化** で全角英数 / Mathematical Alphanumeric Symbols email を半角化 (2) **Cyrillic / Greek homograph variant fold** で NFKC では潰せない script-level look-alike (例: `fοο@example.com` Greek omicron) を Latin に折りたたみ (3) **IDN `xn--` punycode** を独立 pattern で検出して `<IDN_REDACTED>` (4) **credit card spaced/hyphen 区切り** (`4242 4242 4242 4242`) を Luhn 合格時のみ redact (false positive 防止)。homograph table は Unicode TR#39 confusables の Stripe 課金 path 実用 subset (Cyrillic 24 + Greek 17 文字) に限定し Pre-PMF 過剰防衛 (ADR-0010) 回避 |
 | **再発防止** | (a) `tests/unit/server/stripe/pii-redaction.test.ts` 57 test (false negative + false positive + performance regression + **#2749 で AC1/2/3/4 4 軸 33 test 追加**: NFKC bypass / Cyrillic-Greek homograph / IDN / spaced card Luhn / 3 軸 bypass simulation / NFKC 後 performance regression) (b) `tests/unit/server/stripe/alert.test.ts` PII redaction 4 ケース (c) `tests/unit/services/discord-alert.test.ts` throttle 検証 |
 
@@ -449,7 +449,7 @@ Phase 1 + Phase 6 子 1-4 経由で判明した 3 件の構造的欠落を、Pha
 
 ## 7. OSS 4 件比較 (kill switch / feature flag platform、ADR 起票根拠、§7)
 
-Phase 5 子 1 §「想定リスク 7 件」+ Phase 6 子 1 #2667 §10 OQ-3 で確定した kill switch 戦略について、ADR-0014 (OSS 先調査) 整合で 4 件比較。
+Phase 5 子 1 §「想定リスク 7 件」+ Phase 6 子 1 #2667 §10 OQ-3 で確定した kill switch 戦略について、`docs/decisions/README.md` §OSS 先調査ルール 整合で 4 件比較。
 
 ### 7.1 比較表
 
@@ -614,7 +614,7 @@ Phase 6 子 1 #2667 §9 + 子 2 #2674 §9 で「ADR 起票推奨」と言及さ�
 `docs/decisions/README.md` active 39 件 (2026-05-28 棚卸時点) で TOP 10 ルール超過中。本 PR で +1 → 40 件。1-in-1-out 履行は **2026-06 月 1 棚卸 (docs/CLAUDE.md §「ADR 月 1 棚卸」、次回 2026-06 最終週)** で archive 候補確定後に実施。本 PR では archive 移動は実施せず、`docs/decisions/README.md` 表に ADR-0059 を追加するのみ (棚卸タイミングで 1-in-1-out 履行する旨を README に明記)。
 
 archive 候補 (2026-06 棚卸で再評価):
-- ADR-0014 (proposed のまま 1 ヶ月超過、accepted 昇格判断未済)
+- 旧 ADR-0014 (当時 proposed のまま 1 ヶ月超過、accepted 昇格判断未済だったが、その後 #2440 PR-A5 の棚卸で削除済)
 - ADR-0017 (rejected ADR の archive 検討、2026-05-09 棚卸時点で archive 候補と明記済)
 - per-ADR ボリューム超過 6 件 (2026-05-09 棚卸の P1 課題)
 
@@ -678,7 +678,7 @@ QM BLOCK 予防 4 項目 (memory `feedback_pr_review_recurring_blocks`) で「Op
 ### ADR (関連)
 
 - ADR-0010 (Pre-PMF、LaunchDarkly / Unleash 不採用判断、本 docs §7)
-- ADR-0014 (OSS 先調査、本 docs §7 で 4 件比較)
+- `docs/decisions/README.md` §OSS 先調査ルール（本 docs §7 で 4 件比較）
 - ADR-0020 (PR size ≤ 500 行、Phase 7 PR-X 独立判断、本 docs §12 OQ-1)
 - ADR-0045 (atom / compound、`cancelPendingRedirect` template literal 参照、本 docs §6.3)
 - ADR-0049 (retention、Phase 5 子 3 webhook 30 日 cleanup、本 docs §8.1 指標 3)

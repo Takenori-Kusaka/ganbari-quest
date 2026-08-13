@@ -1189,7 +1189,8 @@ jobs:
   # 「main へ PR を出せるのは develop（統合 PR）と fix/*（hotfix、§5）のみ」を機械強制する。
   # Branch Ruleset は head branch の base 制限を直接持たないため workflow gate で補完する。
   #
-  # 有効化は repository variable `BRANCH_STRATEGY_CUTOVER_AT`（ISO 8601 日時、ユーザー手動設定 = §8 step 5）:
+  # head 判定（develop / release/* / fix/* 以外を拒否）の有効化は repository variable
+  # `BRANCH_STRATEGY_CUTOVER_AT`（ISO 8601 日時、ユーザー手動設定 = §8 step 5）:
   #   - 未設定: gate inactive（既存 open PR を block しない、§8 step 6 の無停止 cutover）
   #   - 設定後: 設定日時より後に作成された main 向け PR のみ enforce
   #     （設定日時より前に作成された open PR は grandfather 免除 = §8 step 6「retarget しない」）
@@ -1199,6 +1200,7 @@ jobs:
   # 旧 exempt はこれを素通しして auto-merge が develop 軽量レーン + 8 領域監査をすり抜けていた
   # (#3158 better-sqlite3 → #3190 SIGSEGV / #3920 hono と same-class 2 例)。bot も enforce し、
   # required check fail で auto-merge を構造的に阻止 → 人間が develop 経由へ re-route する。
+  # **bot 判定は cutover 設定に依存しない**（#4544）。variable 未設定でも bot の main 向け PR は fail する。
   main-pr-base-guard:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
@@ -1212,10 +1214,12 @@ jobs:
           PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
           PR_ACTOR: ${{ github.event.pull_request.user.login }}
         run: |
-          if [ -z "$CUTOVER_AT" ]; then
-            echo "BRANCH_STRATEGY_CUTOVER_AT 未設定 → gate inactive（cutover 前、§8 step 6）"
-            exit 0
-          fi
+          # bot の main 直行判定は **cutover 設定より先**に行う (#4544)。
+          # 旧実装はこの分岐を `CUTOVER_AT` 未設定の早期 exit の後ろに置いていたため、
+          # repository variable `BRANCH_STRATEGY_CUTOVER_AT` が未設定 / 改名 / typo になった瞬間に
+          # 「dependabot security 更新の main 直行検出」まで道連れで黙って消えた。
+          # cutover の grandfather (§8 step 6) は **人間が作った既存 open PR を止めない**ための
+          # 経過措置であり、bot の main 直行とは無関係。両者を同じ条件にぶら下げない。
           case "$PR_ACTOR" in
             dependabot\[bot\]|renovate\[bot\])
               # #3922: security 更新の main 直行を検知して fail-close (exempt 廃止)。
@@ -1224,6 +1228,10 @@ jobs:
               echo "::error::close して bump PR を作り直す必要はありません。retarget すれば通常レーン (develop → 統合 release → main) に載り、必須 CI も再発火します。緊急の security fix も同じ経路で入れてください。背景: #3922 / #4273 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
               exit 1 ;;
           esac
+          if [ -z "$CUTOVER_AT" ]; then
+            echo "BRANCH_STRATEGY_CUTOVER_AT 未設定 → head 判定は inactive（cutover 前、§8 step 6）"
+            exit 0
+          fi
           # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
           if [[ "$PR_CREATED_AT" < "$CUTOVER_AT" ]]; then
             echo "PR 作成 ($PR_CREATED_AT) < cutover ($CUTOVER_AT) → grandfather 免除（§8 step 6）"
@@ -1375,9 +1383,18 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))")
+          # 失敗しうるコマンドの結果は `if <cmd>; then` の条件部で受ける (#4518)。
+          # run の既定 shell は `bash -e {0}` で、`set -uo pipefail` では -e が解除されない。
+          # 裸の代入にすると evidence.json 欠落時に step ごと中断し、下の $GITHUB_STEP_SUMMARY
+          # にも ::warning:: にも到達しない (advisory が「黙って何も言わない」状態になる)。
+          if ! ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))"); then
+            echo "::warning::integration-evidence/evidence.json を読めないため advisory 評価を skip しました。"
+            exit 0
+          fi
           echo "advisory: $ADVISORY"
-          PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)")
+          if ! PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)"); then
+            PASS=false
+          fi
           {
             echo '## マージ判定 advisory (#2876、非 block / required 未登録)';
             echo '';

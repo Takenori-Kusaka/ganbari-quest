@@ -87,7 +87,7 @@
   },
   "src/lib/features/admin/components/DowngradeResourceSelector.svelte": {
     "svelte/no-useless-children-snippet": {
-      "count": 9
+      "count": 8
     },
     "svelte/prefer-svelte-reactivity": {
       "count": 3
@@ -410,27 +410,6 @@
       "count": 1
     }
   },
-  "src/routes/(parent)/admin/subscription/cancel/+page.svelte": {
-    "local/max-style-lines": {
-      "count": 1
-    },
-    "svelte/no-useless-children-snippet": {
-      "count": 3
-    }
-  },
-  "src/routes/(parent)/admin/subscription/cancel/graduation/+page.svelte": {
-    "local/max-style-lines": {
-      "count": 1
-    },
-    "svelte/no-useless-children-snippet": {
-      "count": 5
-    }
-  },
-  "src/routes/(parent)/admin/subscription/cancel/thanks/+page.svelte": {
-    "svelte/no-useless-children-snippet": {
-      "count": 2
-    }
-  },
   "src/routes/(parent)/admin/certificates/+page.svelte": {
     "svelte/no-navigation-without-resolve": {
       "count": 2
@@ -621,6 +600,27 @@
     },
     "svelte/no-useless-children-snippet": {
       "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/subscription/cancel/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/subscription/cancel/graduation/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 5
+    }
+  },
+  "src/routes/(parent)/admin/subscription/cancel/thanks/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 2
     }
   },
   "src/routes/(parent)/login/+page.svelte": {

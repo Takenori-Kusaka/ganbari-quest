@@ -18,6 +18,15 @@ export interface TextVariant {
 	historyEmpty: string;
 	historyStreakSuffix: string;
 	weekdays: string[];
+	/**
+	 * 日付整形の「月」「日」接尾語。
+	 *
+	 * #4509 ⑥: 以前は history 画面が `t.historyCountUnit === 'かい'` という**別ラベルの値**で
+	 * ひらがな / 漢字を判定していた。回数の単位を変えるだけで日付表記が壊れる結合であり、
+	 * 年齢帯は uiMode (= 本 variant がどちらか) からしか導出しない。
+	 */
+	dateMonthSuffix: string;
+	dateDaySuffix: string;
 
 	// #2170: history 画面 4 タブ階層 (データ種別 → 期間)
 	historyKindActivities: string;
@@ -87,6 +96,8 @@ const HIRAGANA_TEXT: TextVariant = {
 	historyEmpty: 'まだきろくがないよ',
 	historyStreakSuffix: 'にちれんぞく',
 	weekdays: ['にち', 'げつ', 'か', 'すい', 'もく', 'きん', 'ど'],
+	dateMonthSuffix: 'がつ',
+	dateDaySuffix: 'にち',
 
 	// #2170: history 画面 4 タブ階層
 	historyKindActivities: 'かつどう',
@@ -126,6 +137,8 @@ const KANJI_TEXT: TextVariant = {
 	historyEmpty: 'まだ記録がないよ',
 	historyStreakSuffix: '日連続',
 	weekdays: ['日', '月', '火', '水', '木', '金', '土'],
+	dateMonthSuffix: '月',
+	dateDaySuffix: '日',
 
 	// #2170: history 画面 4 タブ階層
 	historyKindActivities: '活動',

@@ -119,5 +119,11 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 	// #4270: flow が Stripe に拒否されて home に倒れた事実をクライアントへ返す。
 	// 黙って portal ホームへ飛ばすと「プラン変更画面に行くはずが違う画面に着いた」だけが
 	// 顧客に残る。画面側が次の操作を示したうえで進ませる。
-	return json({ url: result.url, flowFallback: result.flowFallback === true });
+	// #4548: **理由も返す**。再試行で直りうる一時障害と、ご契約情報が確認できず何度押しても
+	// 同じ結果になる状態とで、画面が出すべき次の手が正反対になる。
+	return json({
+		url: result.url,
+		flowFallback: result.flowFallback !== undefined,
+		flowFallbackReason: result.flowFallback ?? null,
+	});
 };

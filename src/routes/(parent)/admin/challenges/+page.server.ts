@@ -10,6 +10,7 @@ import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { warnOrphanChildReferences } from '$lib/server/orphan-child-reference';
 import {
 	deleteChildChallenge,
 	getChallengeGroupsForAdmin,
@@ -26,6 +27,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		getAllChildren(tenantId),
 		getFamilyStreak(tenantId),
 	]);
+
+	// #4556: 表示側 (`UNRESOLVED_ENTITY_LABELS.child`) は解決できない childId を「不明なお子さま」に
+	// 潰すため、孤立レコードが増えても画面からは分からない。件数を後から数えられるようにする。
+	warnOrphanChildReferences({
+		tenantId,
+		referencedChildIds: challengeGroups.flatMap((g) => g.instances.map((i) => i.childId)),
+		knownChildIds: children.map((c) => c.id),
+		source: 'admin/challenges:load',
+	});
 
 	const familyStreak = {
 		...familyStreakData,

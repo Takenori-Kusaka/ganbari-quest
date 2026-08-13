@@ -123,16 +123,23 @@ function handleConfirm() {
 				<p class="text-[var(--color-text-secondary)] font-medium">
 					{getPlanLabel(preview.targetTier)}{L.targetTierSuffix}
 				</p>
-				{#if !preview.hasExcess && !preview.retentionChange.willLoseHistory}
-					<p class="text-[var(--color-text-muted)] mt-1">
-						{L.noExcessNote}
-					</p>
-				{/if}
 			</div>
 
-			<!-- 超過がない場合の履歴警告のみ表示 -->
-			{#if !preview.hasExcess && preview.retentionChange.willLoseHistory}
-				<Alert variant="warning">
+			<!--
+			  履歴保持期間の短縮警告 (#4530: caller は超過が無くてもこの状態でダイアログを開く)。
+
+			  #4545: 本ダイアログで唯一**不可逆**な告知 (保持期間を超えた記録は物理削除され、
+			  再契約でも戻らない) なので、
+			    - 超過リソースの選択 UI と確定ボタンより**前** = ダイアログ上部に置き、
+			      スクロールせずに読める位置を保つ (旧実装は超過ありの分岐でチェックボックス
+			      一覧をすべて挟んだ後に置いており、素の viewport では見えなかった)
+			    - `hasExcess` の有無で位置が変わらないよう 1 箇所に統合する (旧実装は 2 箇所重複)
+			    - `variant="danger"` (role="alert") で出す。アーカイブ (復元可能) 側の警告は
+			      warning のままにして、可逆 / 不可逆を視覚的にも支援技術的にも区別する
+			  縦順は stories の play 関数が assert する (警告を下へ戻すと落ちる)。
+			-->
+			{#if preview.retentionChange.willLoseHistory}
+				<Alert variant="danger" data-testid="downgrade-retention-warning">
 					{#snippet children()}
 					<p>
 						{L.retentionWarning(
@@ -279,20 +286,6 @@ function handleConfirm() {
 						{/each}
 						{/snippet}
 					</Card>
-				{/if}
-
-				<!-- 履歴保持期間の警告 -->
-				{#if preview.retentionChange.willLoseHistory}
-					<Alert variant="warning">
-						{#snippet children()}
-						<p>
-							{L.retentionWarning(
-							preview.retentionChange.currentDays,
-							preview.retentionChange.targetDays,
-						)}
-						</p>
-						{/snippet}
-					</Alert>
 				{/if}
 
 				<!-- アップグレードで復元可能の説明 -->

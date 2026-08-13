@@ -101,3 +101,21 @@ export function assertTenantScopedStorageKey(key: string, tenantId: string): voi
 		throw new Error(`storage key is not tenant-scoped (expected prefix "${prefix}")`);
 	}
 }
+
+/**
+ * #4546 ②: `children.avatar_url` に**書き込む値**が自テナント配下を指すことを保証する。
+ *
+ * `avatar_url` は storage key ではなく公開 URL (`/tenants/<tenantId>/avatars/...`、仮アバターは
+ * 版 query `?v=` 付き) なので、`publicUrlToStorageKey` で key に戻してから
+ * `assertTenantScopedStorageKey` に掛ける。#4469 は**削除時**にしか同等の検証を置いておらず、
+ * 「`avatar_url` に何を書けるか」は無検査のままだった。他テナントを指す URL を書けてしまうと、
+ * 配信経路がそのまま他人の顔写真を返す (IDOR) / account 削除の prefix 一括削除から漏れる。
+ *
+ * **書き込む値だけを検査する**。CAS の期待値 (`expectedAvatarUrl`) は DB から読んだ値であり、
+ * tenant prefix 導入前の legacy な値を持つ行が更新不能になるため検査対象にしない。
+ * `null` (アバター解除) は指す先が無いので素通しする。
+ */
+export function assertTenantScopedAvatarUrl(avatarUrl: string | null, tenantId: string): void {
+	if (avatarUrl === null) return;
+	assertTenantScopedStorageKey(publicUrlToStorageKey(avatarUrl), tenantId);
+}

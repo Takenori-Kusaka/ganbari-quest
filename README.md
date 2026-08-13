@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/sponsors/Takenori-Kusaka"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github" alt="Sponsor"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg" alt="License: AGPL-3.0-only"></a>
   <img src="https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit 2">
   <img src="https://img.shields.io/badge/Svelte-5_(Runes)-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5">
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript strict">
@@ -283,4 +283,4 @@ ganbari-quest/
 
 ## ライセンス
 
-[AGPL-3.0](./LICENSE) -- 個人利用・セルフホスト・改造は自由です。改変版をネットワークサービスとして配布する場合は、同じライセンスでソースコードを公開する必要があります。
+[AGPL-3.0-only](./LICENSE) -- 個人利用・セルフホスト・改造は自由です。改変版をネットワークサービスとして配布する場合は、同じライセンスでソースコードを公開する必要があります。

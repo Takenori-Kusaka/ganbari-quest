@@ -1,7 +1,21 @@
 #!/usr/bin/env sh
 
-# Auto-rebuild Graphify AST/semantic graph on commit
-# (AST is completely free; Markdown is incrementally cached - zero/minimum token cost)
+# Auto-rebuild Graphify AST/semantic graph on commit — develop/main only (#4536)
+#
+# graphify-out/graph.json (27MB+) は git 追跡している (coldstart 解消、docs/CLAUDE.md §graphify)。
+# 以前は全 branch でコミットのたびに再生成していたため、並行する feature branch がそれぞれ
+# 独自の graphify-out を持ち、develop への merge のたびに残り全 PR が graphify-out だけで
+# conflict していた (実測: PR #4514 merge 時、conflict は graphify-out 3 file のみ)。
+#
+# feature branch では再生成しない。develop / main 上の再生成は push 契機の
+# .github/workflows/graphify-refresh.yml が担う (bot PR で develop に反映)。
+# 下の `graphify hook install` (scripts/prepare.mjs) が追記するブロックもこの exit で止まる。
+_GFY_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+case "$_GFY_BRANCH" in
+    develop|main) ;;
+    *) exit 0 ;;
+esac
+
 if command -v graphify >/dev/null 2>&1; then
     echo "Updating Graphify knowledge graph..."
     graphify update . || true

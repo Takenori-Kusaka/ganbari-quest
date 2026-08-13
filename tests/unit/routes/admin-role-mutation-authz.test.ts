@@ -47,6 +47,8 @@ vi.mock('$lib/server/db/factory', () => ({
 vi.mock('$lib/server/services/email-service', () => ({
 	sendMemberJoinedEmail: vi.fn().mockResolvedValue(undefined),
 	sendMemberRemovedEmail: vi.fn().mockResolvedValue(undefined),
+	// #4507: オーナー移譲は sendMemberJoinedEmail の流用をやめ専用文面になった
+	sendOwnershipTransferredEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 // #3549 決裁 (a): invites 作成・取消の owner 専用化のための service mocks
@@ -78,6 +80,12 @@ const { POST: createInvitePost } = await import('../../../src/routes/api/v1/admi
 const { DELETE: revokeInviteDelete } = await import(
 	'../../../src/routes/api/v1/admin/invites/[id]/+server'
 );
+
+// #4507: 移譲通知の宛先文言を検証するために mock 実体と role ラベル SSOT を取る
+const { sendMemberJoinedEmail, sendOwnershipTransferredEmail } = await import(
+	'$lib/server/services/email-service'
+);
+const { MEMBERS_LABELS } = await import('$lib/domain/labels');
 
 // ---------- helpers ----------
 
@@ -148,6 +156,21 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 				expect.objectContaining({ context: expect.objectContaining({ role: 'owner' }) }),
 				['owner'],
 			);
+		});
+
+		// #4507 監査 #6: 旧実装は sendMemberJoinedEmail を流用しており、新オーナーには
+		// 「新しいメンバーが参加しました」という別事象の文面が届き、role には内部コード
+		// 'owner' が生で差し込まれていた (内部コード露出禁止、DESIGN.md §6)。
+		it('#4507: 移譲専用メールを日本語 role ラベルで送る (内部コードを渡さない)', async () => {
+			await transferOwnership(createEvent('owner'));
+
+			expect(sendMemberJoinedEmail).not.toHaveBeenCalled();
+			expect(sendOwnershipTransferredEmail).toHaveBeenCalledTimes(1);
+
+			const [, , roleLabel] = vi.mocked(sendOwnershipTransferredEmail).mock.calls[0] ?? [];
+			expect(roleLabel).toBe(MEMBERS_LABELS.roleOwner);
+			// 内部コードがそのまま顧客に届く経路を塞ぐ
+			expect(roleLabel).not.toBe('owner');
 		});
 
 		it('parent は 403 + 既存 {error} body 形を維持 (negative、client d.error 依存の互換固定)', async () => {

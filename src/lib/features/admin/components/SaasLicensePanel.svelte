@@ -26,7 +26,11 @@
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { PORTAL_FALLBACK_CONTEXT } from '$lib/domain/constants/stripe-portal';
+import {
+	PORTAL_FALLBACK_CONTEXT,
+	PORTAL_FALLBACK_REASON,
+	type PortalFallbackReason,
+} from '$lib/domain/constants/stripe-portal';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import {
@@ -51,6 +55,7 @@ import {
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
+import { shouldOpenDowngradeSelector } from '$lib/features/admin/downgrade-dialog-policy';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -145,9 +150,17 @@ let portalError = $state<string | null>(null);
 let portalFallbackMessage = $state<string | null>(null);
 // 倒れたときに作られている portal セッション URL。PIN を入れ直させずそのまま進ませる。
 let portalFallbackUrl = $state<string | null>(null);
+// #4548: ご契約情報が確認できず**何度押しても同じ結果**になる状態か。true のとき、
+// この画面から自力で解約を完了する手段は無い。サポート窓口が唯一の出口になるので、
+// 「portal へ進む」ボタン (押しても同じ場所に戻る) は出さず、問い合わせ導線を出す。
+let portalFallbackUnresolvable = $state(false);
 $effect(() => {
 	if (data.portalFallback === PORTAL_FALLBACK_CONTEXT.CANCEL) {
-		portalFallbackMessage = SUBSCRIPTION_PAGE_LABELS.portalFallbackCancel;
+		const unresolvable = data.portalFallbackReason === PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION;
+		portalFallbackUnresolvable = unresolvable;
+		portalFallbackMessage = unresolvable
+			? SUBSCRIPTION_PAGE_LABELS.portalFallbackCancelUnavailable
+			: SUBSCRIPTION_PAGE_LABELS.portalFallbackCancel;
 	}
 });
 
@@ -437,7 +450,11 @@ async function requestPortal() {
 
 	if (planTier !== 'free') {
 		const preview = await fetchDowngradePreview();
-		if (preview?.hasExcess) {
+		// #4530: 判定は `hasExcess` だけを見ていたため、超過リソースが無く保持期間だけが
+		//   縮む顧客は警告を 1 つも見ないまま Stripe の確認へ直行し、物理削除に至っていた。
+		//   「失うものがあるなら必ず開く」判定は shouldOpenDowngradeSelector が SSOT
+		//   (4 条件の組み合わせと分岐の到達可能性を unit test が固定する)。
+		if (shouldOpenDowngradeSelector(preview)) {
 			downgradePreview = preview;
 			showDowngradeSelector = true;
 			return;
@@ -507,13 +524,23 @@ async function openPortal() {
 			portalPinValue = '';
 			return;
 		}
-		const body = (await res.json()) as { url?: string; flowFallback?: boolean };
+		const body = (await res.json()) as {
+			url?: string;
+			flowFallback?: boolean;
+			flowFallbackReason?: PortalFallbackReason | null;
+		};
 		if (!body.url) return;
 		if (body.flowFallback) {
 			// #4270: 期待した画面 (プラン変更 / 解約) には着かない。黙って portal ホームへ飛ばさず、
 			// 次にどこで続けるかを示してから進ませる (原因は説明しない、ADR-0062)。
-			portalFallbackUrl = body.url;
-			portalFallbackMessage = SUBSCRIPTION_PAGE_LABELS.portalFallbackPlanChange;
+			// #4548: ご契約情報が確認できない場合は portal へ進んでも同じ結果になるため、
+			// 「進む」ボタンを出さずサポート窓口へ誘導する (出口の無いループを作らない)。
+			const unresolvable = body.flowFallbackReason === PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION;
+			portalFallbackUnresolvable = unresolvable;
+			portalFallbackUrl = unresolvable ? null : body.url;
+			portalFallbackMessage = unresolvable
+				? SUBSCRIPTION_PAGE_LABELS.portalFallbackPlanChangeUnavailable
+				: SUBSCRIPTION_PAGE_LABELS.portalFallbackPlanChange;
 			showPortalConfirm = false;
 			return;
 		}
@@ -553,6 +580,21 @@ async function openPortal() {
 						data-testid="portal-fallback-continue"
 					>
 						{SUBSCRIPTION_PAGE_LABELS.portalFallbackContinueButton}
+					</Button>
+				</div>
+			{/if}
+			<!-- #4548: ご契約情報が確認できない状態は再試行しても直らない。この画面に押し返し
+			     続けると、顧客からは「解約させない構造」に見える (特商法上の解約導線の実効性)。
+			     自力で完了できないことを認め、唯一の出口 (設定 > サポート、#2904) を出す。 -->
+			{#if portalFallbackUnresolvable}
+				<div class="mt-2">
+					<Button
+						href="/admin/settings/support"
+						variant="secondary"
+						size="md"
+						data-testid="portal-fallback-support"
+					>
+						{SUBSCRIPTION_PAGE_LABELS.portalFallbackSupportLink}
 					</Button>
 				</div>
 			{/if}

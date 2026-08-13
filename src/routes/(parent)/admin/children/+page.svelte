@@ -16,6 +16,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import Select from '$lib/ui/primitives/Select.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
 const childLimit = $derived(
@@ -25,6 +26,24 @@ const childLimit = $derived(
 );
 // #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
 const errorMessage = $derived(getErrorMessage(form?.error));
+
+// #4546 ③: 仮アバターの作り直しをレースで見送ったことを保護者に伝える。
+// warn ログだけだと「名前を直したのにアバターが古いまま」が黙って起きる (ADR-0062 §1)。
+// 失敗ではなく「写真を優先した」正常な結果なので info (role="status" + 自動消滅) を使う。
+// 同じ action 結果で effect が再実行されても 1 回だけ出す (結果オブジェクトは送信ごとに新しくなる
+// ので、同じ子供を続けて編集して 2 回とも見送られた場合は 2 回とも出る)。
+let notifiedAvatarSkipResult: unknown = null;
+$effect(() => {
+	const f = form as { placeholderAvatarSkipped?: boolean } | null;
+	if (!f?.placeholderAvatarSkipped) return;
+	if (notifiedAvatarSkipResult === f) return;
+	notifiedAvatarSkipResult = f;
+	showToast(
+		ADMIN_CHILDREN_PAGE_LABELS.placeholderAvatarSkippedTitle,
+		ADMIN_CHILDREN_PAGE_LABELS.placeholderAvatarSkippedDesc,
+		'info',
+	);
+});
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);

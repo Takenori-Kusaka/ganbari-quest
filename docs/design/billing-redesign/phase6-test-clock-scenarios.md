@@ -612,7 +612,7 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 子 1 #2667 §9 �
   - 課金は Pre-PMF でも別格 ([[billing-critical-extra-caution]])、本物 Stripe Test mode + test clock 経由が必須
   - Stripe 公式 advanced-usage 2 interval 制約 + Smart Retries AI 最適タイミングへの対応
   - kill switch dry-run (Phase 6 子 1 #2667 §10 Open question 3) の Pre-Ready 必須化
-- **選択肢比較** (OSS 先調査ルール ADR-0014 整合):
+- **選択肢比較** (`docs/decisions/README.md` §OSS 先調査ルール 整合):
   - **A. 本物 Stripe Test mode + test_clock (本 PR 採用)**: Stripe 公式推奨パターン
   - **B. Stripe API mock (`page.route` 経由)**: 不採用 (課金は別格、mock では検出できない事故が存在、tests/e2e/integration/upgrade-checkout.spec.ts は Phase 2 以前の mock 経路で残存)
   - **C. demo Lambda 経路 (`AUTH_MODE=anonymous + DATA_SOURCE=demo`)**: 不採用 (ADR-0048 demo 哲学逸脱、Stripe Test mode との混在で trace 困難)

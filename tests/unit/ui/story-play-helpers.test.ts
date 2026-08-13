@@ -9,7 +9,10 @@
 
 import { waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { assertPointerInteractive } from '../../../src/lib/ui/primitives/story-play-helpers';
+import {
+	assertPointerInteractive,
+	assertPrecedes,
+} from '../../../src/lib/ui/primitives/story-play-helpers';
 
 function createElement(pointerEvents: string): HTMLElement {
 	const el = document.createElement('div');
@@ -41,5 +44,38 @@ describe('assertPointerInteractive (#3687 Menu play flake 根治)', () => {
 		await waitFor(() => assertPointerInteractive(el));
 		expect(getComputedStyle(el).pointerEvents).not.toBe('none');
 		el.remove();
+	});
+});
+
+describe('assertPrecedes (#4545 不可逆警告の縦位置契約)', () => {
+	function createSiblings(): { first: HTMLElement; second: HTMLElement; parent: HTMLElement } {
+		const parent = document.createElement('div');
+		const first = document.createElement('p');
+		const second = document.createElement('button');
+		parent.append(first, second);
+		document.body.appendChild(parent);
+		return { first, second, parent };
+	}
+
+	it('DOM 順で前にある要素は throw しない (警告 → 確定ボタンの正しい並び)', () => {
+		const { first, second, parent } = createSiblings();
+		expect(() => assertPrecedes(first, second)).not.toThrow();
+		parent.remove();
+	});
+
+	it('DOM 順で後ろにある要素は throw する (警告を確定ボタンより下へ押し下げたら落ちる)', () => {
+		const { first, second, parent } = createSiblings();
+		expect(() => assertPrecedes(second, first)).toThrowError(/precede/);
+		parent.remove();
+	});
+
+	it('入れ子 (祖先 → 子孫) も「前」として扱う', () => {
+		const parent = document.createElement('div');
+		const child = document.createElement('span');
+		parent.appendChild(child);
+		document.body.appendChild(parent);
+		expect(() => assertPrecedes(parent, child)).not.toThrow();
+		expect(() => assertPrecedes(child, parent)).toThrowError(/precede/);
+		parent.remove();
 	});
 });

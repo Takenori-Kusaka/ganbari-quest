@@ -14,11 +14,12 @@
 |------|------|----------|
 | アカウント削除予約 (`softDeleteTenant`) | 実装済 (`src/lib/server/services/grace-period-service.ts`) | `account-deletion-flow.md §4` |
 | グレースピリオド物理削除 cron (`grace-period-deletion`) | 実装済 (#1648, registry `cron(0 17 * * ? *)` 02:00 JST 毎日)。**AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (dispatcher `KNOWN_ENDPOINTS` には登録済、`13-AWSサーバレスアーキテクチャ設計書.md` cron 表参照) | 同上 / `schedule-registry.ts` |
-| 削除完了メール (`sendDeletionCompleteEmail`) | 実装済 (`email-service.ts` L323) | 同上 |
-| グレース開始通知 (`sendCancellationEmail`) | 実装済 (`email-service.ts` L304) | 同上 |
+| 削除完了メール (`sendDeletionCompleteEmail`) | 物理削除を行う `deleteOwnerOnlyAccount` / `deleteOwnerFullDelete` が削除確定後に送る (`account-deletion-service.ts`)。即時削除 (無料プラン) と猶予満了後の cron 削除の**両経路**が同じ 2 関数を通るため、削除経路によらず 1 通届く | 同上 |
+| 退会予約の受付通知 (`sendDeletionReservedEmail`) | `softDeleteTenant` が予約確定 (sentinel 書き込み) 後に送る (`grace-period-service.ts`) | 同上 |
+| 解約受付通知 (`sendCancellationEmail`) | 実装済 (`email-service.ts`)。**これは有料プランの「解約」(無料プランへ移行) の通知であり、退会 (アカウント削除) の予約通知ではない** — 退会側は上記 `sendDeletionReservedEmail` が担う | `phase1-cancellation-requirements.md` |
 | **削除予告メール** | 実装済 (`/api/cron/deletion-warning-emails` → `deletion-warning-service.ts` → `email-service.sendDeletionWarningEmail`) | 本 runbook + `account-deletion-flow.md` §4.7 |
 
-猶予期間中 (standard 7 日 / family 30 日) に顧客へ届くイベントは、予約直後 (`sendCancellationEmail`) と削除完了後 (`sendDeletionCompleteEmail`) の両端しかない。その間「復元できる」ことを思い出す契機が無いと、復元 UI を見ないまま沈黙で削除される。
+猶予期間中 (standard 7 日 / family 30 日) に顧客へ届くイベントは、予約直後 (`sendDeletionReservedEmail`) と削除完了後 (`sendDeletionCompleteEmail`) の両端しかない。その間「復元できる」ことを思い出す契機が無いと、復元 UI を見ないまま沈黙で削除される。
 
 ### 1.2 なぜ自動化が必要か
 

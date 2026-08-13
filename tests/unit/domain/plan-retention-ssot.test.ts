@@ -130,7 +130,7 @@ describe('plan retention days SSOT (#4477)', () => {
 
 		it('解約時に失うものの一覧', () => {
 			expect(SUBSCRIPTION_PAGE_LABELS.churnLostRetentionDays(free)).toBe(
-				`${formatRetentionPeriod(free)}以前のデータへのアクセス`,
+				`${formatRetentionPeriod(free)}以前の記録（削除され、復元できません）`,
 			);
 		});
 
@@ -155,11 +155,32 @@ describe('plan retention days SSOT (#4477)', () => {
 		});
 
 		it('トライアル終了予告メールの保持期間行', () => {
+			// #4507 AC1: 「データ保持期間」→「履歴（記録）の保持期間」。
+			// 期限で消えるのは活動記録などの履歴だけで、アカウントやお子さまの登録は消えない。
+			// 旧文言だと「登録そのものが 90 日で消える」と読めてしまうため改めた。
 			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(free)).toBe(
-				`データ保持期間: ${formatRetentionPeriod(free)}`,
+				`履歴（記録）の保持期間: ${formatRetentionPeriod(free)}`,
 			);
 			// null (無期限) を「null日」と穴埋めしない
-			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(null)).toBe('データ保持期間: 無期限');
+			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(null)).toBe('履歴（記録）の保持期間: 無期限');
+		});
+
+		// #4507: 保持期間切れが**物理削除**であることを述べる行。retention-cleanup-service は
+		// 行ごと消すので、「閲覧不可」等に婉曲化してはならない (#4496 / #4507 共通基準)。
+		it('トライアル終了予告メールの復元不能行', () => {
+			const line = TRIAL_EMAIL_LABELS.retentionIrreversibleLine(free);
+			// 日数は SSOT 整形を経由する (「90日」を直書きしない)
+			expect(line).toContain(formatRetentionPeriod(free));
+			// 削除であって閲覧制限ではない、と述べ切る
+			expect(line).toContain('削除され');
+			expect(line).toContain('復元できません');
+			expect(line).toContain('再契約でも戻りません');
+			expect(line).not.toContain('閲覧');
+
+			// 無期限プランでは「無期限日を超えたら削除」と述べない
+			const unlimited = TRIAL_EMAIL_LABELS.retentionIrreversibleLine(null);
+			expect(unlimited).not.toContain('削除');
+			expect(unlimited).toContain('上限はありません');
 		});
 	});
 

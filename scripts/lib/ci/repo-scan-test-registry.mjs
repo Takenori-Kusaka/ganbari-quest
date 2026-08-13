@@ -61,6 +61,14 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
 	},
+	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下の +page.svelte を走査し、AI 提案パネルの isFamily 導出が共有述語 isAiSuggestUnlocked() を経由しているかを検査する (#4506 AC5)',
+	},
+	'tests/unit/architecture/grace-period-dunning-only-writer.test.ts': {
+		scope: 'repo',
+		note: 'src 配下の .ts を再帰的に walk し、status に grace_period を書く関数が dunning 経路 2 件に収まっているかを TypeScript compiler API で検査する (#4507)。lifecycle-email-service の opt-out 迂回はこの一意性を根拠にしているため、走査範囲は src 全体でなければ意味を持たない',
+	},
 	'tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts': {
 		scope: 'repo',
 		note: 'tests/e2e 配下の spec を走査し、worker 分離 fixture (./fixtures) を経由しない spec 数を ratchet する (#4489)',
@@ -88,6 +96,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/base-token-routes-ratchet.test.ts': {
 		scope: 'repo',
 		note: 'src/routes + src/lib を走査して Base トークン直接使用を数える (ratchet、#3152)',
+	},
+	'tests/unit/architecture/child-ui-display-integrity.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/(child) と src/lib/features/child-home を再帰 walk し、①経験値の固定リテラル描画 ②内部 ID の表示名フォールバック ③ラベル値による年齢帯判定 の再発を検出する (#4509)',
 	},
 	'tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts': {
 		scope: 'repo',
@@ -195,6 +207,14 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	},
 
 	// --- scope: bounded (走査 API を使うが入力が有界。追加要求なし) ---
+	'tests/unit/architecture/sqlite-tenant-predicate-fitness.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/server/db/sqlite の 1 dir を非再帰 readdir し、tenant 引数を捨てているメソッドが tenant_id 列を持つ表を触っていないかを検査する (#4546)。ツリーは歩かない',
+	},
+	'tests/unit/architecture/ci-shell-fail-open-guard.test.ts': {
+		scope: 'bounded',
+		note: '.github/workflows の 1 dir と actions/*/action.yml (composite action は現状 1 本) のみを非再帰 glob で解決し、`$?` で分岐する run ブロックが `set +e` を明示しているかを検査する (#4518)。ツリーは歩かないため file 数に比例しない',
+	},
 	'tests/integration/db/legacy-schema-upgrade.test.ts': {
 		scope: 'bounded',
 		note: 'temp dir に作った DB ファイルのみを読む',

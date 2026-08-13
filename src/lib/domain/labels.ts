@@ -47,6 +47,7 @@ import {
 	CONCEPT_ICONS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
+	DELETION_GRACE_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
@@ -55,6 +56,7 @@ import {
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
+	OSS_LICENSE_TERMS,
 	OVERFLOW_MENU_TERMS,
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
@@ -732,9 +734,124 @@ export const TRIAL_LABELS = {
 // service 側で `${days}日` と独自整形すると、保持日数を 365 の倍数に変えたときに
 // このメールだけ「365日」と述べ、料金表・LP の「1年」と食い違う。
 
+// #4507 (GAMMA 監査 R2 #1): 旧文面は 1 日前 / 当日メールで「データは削除されません」
+// 「アップグレードすればいつでも復元できます」と**無条件に**約束していた。無料プラン復帰後の
+// 記録は `retention-cleanup-service` が保持期間を過ぎた分を**物理削除**するため、これは虚偽である。
+// アーカイブ (上限超過分の非表示化 — 復元可能) と 保持期間切れ (物理削除 — 復元不能) は
+// 別事象なので、両方を同じ 1 通の中で言い分ける。
+//
+// 「復元できません（再契約でも戻りません）」まで述べ切るのは #4496 の解約 / 保持期間文言と
+// 同一基準（「閲覧不可」等への弱化は禁止 — 実装は物理削除であり閲覧の可否の話ではない）。
+
 export const TRIAL_EMAIL_LABELS = {
-	/** @param days 無料プランの保持日数 (null = 無期限) */
-	freeRetentionLine: (days: number | null) => `データ保持期間: ${formatRetentionPeriod(days)}`,
+	/**
+	 * 無料プランの履歴保持期間を述べる行。
+	 *
+	 * 「データ保持期間」ではなく「履歴（記録）の保持期間」と呼ぶ (#4507 AC1)。
+	 * アカウントやお子さまの登録そのものが期限で消えると読めてしまうため
+	 * (実際に期限で消えるのは活動記録などの履歴だけ)。
+	 *
+	 * @param days 無料プランの保持日数 (null = 無期限)
+	 */
+	freeRetentionLine: (days: number | null) =>
+		`履歴（記録）の保持期間: ${formatRetentionPeriod(days)}`,
+	/**
+	 * 上限超過リソースのアーカイブについて述べる行。**こちらは復元できる**。
+	 * 保持期間切れの物理削除 (retentionIrreversibleLine) と必ず対で使う。
+	 */
+	archiveRestorableLine: (planLabel: string) =>
+		`${planLabel}の上限を超えるお子さま・活動などはアーカイブされます（データは残っており、アップグレードすれば復元できます）。`,
+	/**
+	 * 保持期間を過ぎた履歴が**物理削除され復元できない**ことを述べる行 (#4507 AC1)。
+	 *
+	 * @param days 無料プランの保持日数 (null = 無期限)
+	 */
+	retentionIrreversibleLine: (days: number | null) =>
+		days === null
+			? '履歴（記録）の保持期間に上限はありません。'
+			: `${formatRetentionPeriod(days)}を超えた履歴（記録）は削除され、復元できません（再契約でも戻りません）。`,
+} as const;
+
+// ============================================================
+// 支払い失敗のお知らせメール用ラベル（#4507 GAMMA 監査 R2 #2）
+// ============================================================
+//
+// dunning (支払い失敗 → 7 日猶予 → suspended) の**唯一の顧客向け通知**。
+//
+// 旧実装はこの期間の連絡を期限前リマインド (LIFECYCLE_EMAIL_LABELS.renewalSubject
+// 「次回更新予定日のお知らせ」) が兼ねており、(a) 件名が支払い失敗の事実を述べず
+// (b) marketing 便として配信停止 / 年 6 回上限に抑止されるため、配信停止済みの顧客は
+// **1 通も受け取らないまま 7 日後に suspended** になっていた。
+//
+// 本メールはトランザクション便 (削除予告メールと同区分 — List-Unsubscribe を付けず
+// 年 6 回上限も消費しない)。ADR-0012 整合で煽らず、事実と復旧導線だけを述べる。
+
+export const PAYMENT_FAILED_EMAIL_LABELS = {
+	subject: (daysRemaining: number) => `お支払いを確認できませんでした（残り${daysRemaining}日）`,
+	heading: 'お支払いを確認できませんでした',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro:
+		'ご登録のお支払い方法で、有料プランの更新料をお引き落としできませんでした。カードの有効期限切れや限度額超過が主な原因です。',
+	planLine: (planLabel: string) => `ご契約プラン: ${planLabel}`,
+	graceLine: (deadline: string, daysRemaining: number) =>
+		`${deadline}（残り${daysRemaining}日）までにお支払い方法を更新いただければ、これまでどおりご利用いただけます。`,
+	consequenceLine: (freePlanLabel: string) =>
+		`更新がないまま期限を過ぎると、有料プランの機能は停止し、${freePlanLabel}のご利用に切り替わります。`,
+	ctaLabel: 'お支払い方法を更新する',
+	transactionalNote:
+		'本メールはご契約に関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
+} as const;
+
+// ============================================================
+// 退会（アカウント削除）通知メール用ラベル（#4507 GAMMA 監査 R2 #3）
+// ============================================================
+//
+// 旧実装は退会の両端が未配線だった: 予約 route はメールを 1 通も送らず、
+// 削除完了メール (sendDeletionCompleteEmail) は production 呼び出しゼロの dead code。
+// 無料プランの退会は即時物理削除のため、**通知 0 通でデータが消えていた**。
+//
+// 削除予告メール (DELETION_WARNING_EMAIL_LABELS) と同じくトランザクション便。
+
+export const DELETION_RESERVED_EMAIL_LABELS = {
+	subject: '退会（アカウント削除）のお申し込みを受け付けました',
+	heading: '退会のお申し込みを受け付けました',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro: '退会（アカウント削除）のお申し込みを受け付けました。',
+	scheduleLine: (deletionDate: string, graceDays: number) =>
+		`お申し込みから${graceDays}日後の${deletionDate}に、すべてのデータを削除します。`,
+	restoreLine: (adminViewLabel: string) =>
+		`削除日までは${adminViewLabel}からお取り消しいただけます。削除後のデータは復元できません。`,
+	exportLine: '記録を手元に残される場合は、削除日までに書き出しをお願いいたします。',
+	ctaLabel: 'アカウント設定を開く',
+	transactionalNote:
+		'本メールはお手続きに関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
+} as const;
+
+export const DELETION_COMPLETE_EMAIL_LABELS = {
+	subject: 'データの削除が完了しました',
+	heading: 'データの削除が完了しました',
+	intro: 'がんばりクエストにお預かりしていたデータの削除が完了しました。',
+	irreversibleNote: '削除したデータは復元できません。',
+	thanks: 'ご利用いただきありがとうございました。',
+	signupAgainNote: '再びご利用いただく場合は、新しいアカウントとしてお申し込みください。',
+} as const;
+
+// ============================================================
+// オーナー権限移譲の通知メール用ラベル（#4507 GAMMA 監査 R2 #6）
+// ============================================================
+//
+// 旧実装は sendMemberJoinedEmail を流用しており、(a) 件名・本文が
+// 「新しいメンバーが参加しました」という別事象の説明で (b) 差し込む role に
+// 内部コード 'owner' が生のまま渡っていた（内部コード UI 露出禁止、DESIGN.md §6）。
+
+export const OWNERSHIP_TRANSFER_EMAIL_LABELS = {
+	subject: 'オーナー権限が移譲されました',
+	heading: 'オーナー権限が移譲されました',
+	// 宛先は**新オーナー本人**なので二人称で書く (第三者の話として読ませない)。
+	greeting: (memberName: string) => `${memberName} 様`,
+	body: (roleLabel: string) =>
+		`家族グループの「${roleLabel}」権限があなたに移譲されました。メンバーの招待・削除や、プラン・お支払いのお手続きが行えます。`,
+	ctaLabel: 'メンバー管理を開く',
 } as const;
 
 // ============================================================
@@ -2298,8 +2415,11 @@ export const SETTINGS_LABELS = {
 
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
-	deletionGraceDesc: (days: number, date: string) =>
-		`お手続きから ${days} 日後（${date}）に完全に削除されます。それまでであれば「復元」ボタンで取り消せます。`,
+	// #4496: 呼び出し側 (admin/settings/account) が渡すのは `daysRemaining` (残日数) なのに、
+	//   文言は「お手続きから N 日後」と経過日数として述べていたため、数日後に開くと
+	//   値と説明が食い違っていた。引数名を実体に合わせ、文言も残日数として述べる。
+	deletionGraceDesc: (daysRemaining: number, date: string) =>
+		`あと ${daysRemaining} 日（${date}）ですべてのデータが完全に削除されます。それまでであれば「復元」ボタンで取り消せます。`,
 	deletionGraceRestoreAction: 'アカウントを復元する',
 	deletionGraceRestoreSubmitting: '復元中...',
 	deletionGraceRestoreSuccess: 'アカウントを復元しました。通常通りご利用いただけます。',
@@ -2636,8 +2756,19 @@ export const SETTINGS_LABELS = {
 	accountDeleteOwnerItem2: 'アバター画像・音声ファイル',
 	accountDeleteOwnerItem3: '設定・チェックリスト・キャリアプラン',
 	accountDeleteOwnerItem4: 'メンバーシップ・招待情報',
+	// #4496: 猶予の有無はプランで異なる (無料は 0 日 = 申請と同時に削除) ため、本文で猶予に
+	//   言及しない。プラン別の事実は accountDeleteGraceNotice が述べる (直下に並ぶので、
+	//   ここで「猶予期間の経過後は」と書くと無料プランの案内と正面から矛盾する)。
 	accountDeleteOwnerWarning:
-		'削除後のデータ復旧はできません。事前にデータをエクスポートすることを強くお勧めします。',
+		'削除が確定するとデータは復旧できません。事前にデータをエクスポートすることを強くお勧めします。',
+	// #4496: 退会 (アカウント削除) の猶予はプラン別 (無料は 0 日 = 申請と同時に物理削除)。
+	//   「削除後の復旧はできません」だけでは、同一画面の復元バナー (deletionGraceDesc) や
+	//   削除予告メールと矛盾し、無料プランの顧客は取り消せないことを知らないまま申し込む。
+	//   手続き**前**にプラン別の猶予を述べる。日数は DELETION_GRACE_TERMS (値 SSOT) から引く。
+	accountDeleteGraceNotice: (graceDays: number) =>
+		graceDays === 0
+			? `ご利用中の${PLAN_FULL_TERMS.free}には猶予期間がありません。お申し込みと同時にすべてのデータが完全に削除され、取り消しはできません。必要なデータは事前に持ち出してください。`
+			: `お申し込みから ${graceDays} 日間は「復元」ボタンで取り消せます。${graceDays} 日を過ぎるとすべてのデータが完全に削除され、復旧できません。`,
 	accountDeleteChildDesc: 'アカウントを削除すると、あなたのログイン情報が削除されます。',
 	accountDeleteChildDesc2:
 		'活動記録やポイントは家族グループに残りますが、このアカウントでのログインはできなくなります。',
@@ -2772,9 +2903,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// プランラベル
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	planLabelMonthly: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
-	planLabelYearly: `${PLAN_TERMS.standard}年額（¥5,000/年）`,
+	planLabelYearly: `${PLAN_TERMS.standard}年額（${PRICE_TERMS.standardYearly}/年）`,
 	planLabelFamilyMonthly: `${PLAN_TERMS.premium}月額（${PRICE_TERMS.family}/月）`,
-	planLabelFamilyYearly: `${PLAN_TERMS.premium}年額（¥7,800/年）`,
+	planLabelFamilyYearly: `${PLAN_TERMS.premium}年額（${PRICE_TERMS.familyYearly}/年）`,
 	planLabelLifetime: '永久ライセンス',
 	planLabelFree: `${PLAN_FULL_TERMS.free}`,
 
@@ -2784,7 +2915,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	statusSuspended: '停止中',
 	/** S5 契約終了 (#4156)。S6 `terminated` (退会) を表す statusTerminated とは別状態 */
 	statusCancelled: `${CANCEL_TERMS.canonical}済み`,
-	statusTerminated: '解約済み',
+	// #4496: S6 は退会 (アカウント削除) 済みの状態。S5 (解約済み) と同じ「解約済み」を出すと
+	//   2 状態が区別できず、CANCEL_TERMS.account ('退会') の使い分けにも反する。
+	statusTerminated: `${CANCEL_TERMS.account}済み`,
 
 	// 無料トライアル
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
@@ -2824,9 +2957,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
 	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
-	terminatedTitle: '❌ 解約済み',
-	terminatedDesc:
-		'このアカウントは解約されています。データは一定期間保持されますが、その後削除されます。',
+	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
+	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
 	// 請求履歴 (#4156)
 	//
@@ -2860,6 +2992,14 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 原因 (Dashboard 設定 / Stripe の拒否) は顧客に説明せず、次の操作だけを示す (ADR-0062)。
 	portalFallbackCancel: `${CANCEL_TERMS.canonical}のお手続きは、この画面の「${STRIPE_PORTAL_TERMS.short}を開く」から続けてください。`,
 	portalFallbackPlanChange: `${PLAN_CHANGE_TERMS.changeNoun}のお手続きは、${STRIPE_PORTAL_TERMS.short}から続けてください。`,
+	// #4548: 上の 2 つは「時間をおけば直りうる」一時障害 (#4270) 用。ご契約情報が確認できない
+	// 状態 (#4537) は**何度押しても同じ結果**になるため、同じ文言で再試行させると顧客は
+	// 出口の無いループに入る (特商法上の解約導線の実効性)。できないことを正直に伝え、
+	// こちらで手続きを承ると約束する。原因の内部詳細は出さない (ADR-0062)。
+	portalFallbackCancelUnavailable: `ご契約情報を確認できないため、この画面から${CANCEL_TERMS.canonicalVerb}ことができません。お手数ですが、サポート窓口までご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	portalFallbackPlanChangeUnavailable: `ご契約情報を確認できないため、この画面から${PLAN_CHANGE_TERMS.changeNoun}のお手続きができません。お手数ですが、サポート窓口までご連絡ください。`,
+	/** 恒久的に自力で完了できないときの唯一の出口 (設定 > サポートの単独 SSOT、#2904) */
+	portalFallbackSupportLink: 'サポート窓口に連絡する',
 	/** fallback 時に、作成済みの portal セッションへそのまま進むための導線 (PIN を再入力させない) */
 	portalFallbackContinueButton: `${STRIPE_PORTAL_TERMS.short}へ進む`,
 	portalPinNote: (usesPin: boolean) =>
@@ -2950,8 +3090,10 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
 	churnLostItemTitle: (title: string) => `「${title}」称号`,
 	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年以前」と述べる）。
+	// #4496: 「アクセス」だけだと閲覧できなくなるだけに読めるが、実装 (retention-cleanup-service) は
+	//   物理削除であり再契約でも戻らない。失うものの一覧なので、その事実をそのまま述べる。
 	churnLostRetentionDays: (days: number | null) =>
-		`${formatRetentionPeriod(days)}以前のデータへのアクセス`,
+		`${formatRetentionPeriod(days)}以前の記録（削除され、復元できません）`,
 
 	// デモ版固有ラベル
 	demoNotice: 'これはデモ画面です',
@@ -3207,8 +3349,12 @@ export const OPS_LABELS = {
 	planColPlan: 'プラン',
 	planColTenants: 'テナント数',
 	planColMrr: 'MRR 概算',
-	planMonthly: '月額 (¥500/月)',
-	planYearly: '年額 (¥5,000/年)',
+	planMonthly: `月額 (${PRICE_TERMS.standard}/月)`,
+	planYearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
+	// #4505: プレミアム (legacy family monthly/yearly 含む) は集計済みでも描画行が無く
+	// テナントが不可視だった。他行と同じ表記形式 + terms.ts 単価 atom 参照で追加する。
+	planPremiumMonthly: `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
+	planPremiumYearly: `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
 	planLifetime: 'ライフタイム',
 	planNone: '未設定（トライアル等）',
 	planTotalMrr: '合計 MRR',
@@ -3639,8 +3785,12 @@ export const CANCELLATION_LABELS = {
 
 	// Plan-context messaging (free / standard / family 共通)
 	// #1959: 無料プラン → PLAN_FULL_TERMS.free 参照化 (atom 直書き撤廃)
-	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。`,
-	paidPlanNotice: `解約手続きを進めると、Stripe の${STRIPE_PORTAL_TERMS.short}で決済停止を行います。次回の請求は発生しません。`,
+	// #4496: 旧 freePlanNotice は「解約後はアカウント自体を削除する必要があります」と、事実でない
+	//   義務を提示して退会 (無料プランは猶予なし = 即時物理削除) へ誤誘導していた。
+	//   旧 paidPlanNotice は「決済停止を行います」だけで、期末まで使えることと日割り返金が
+	//   ないことを手続き前に示していなかった (#3991 期末解約モデルの不告知)。
+	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中のため、お支払いは発生しておらず${CANCEL_TERMS.canonical}のお手続きは必要ありません。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。差し支えなければ、その前に理由をお聞かせください。`,
+	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
 
 	// Submit
 	submitButton: '解約手続きへ進む',
@@ -3763,6 +3913,8 @@ export const GRADUATION_LABELS = {
 		'長い間ありがとうございました。お子さまのこれからの自律した日々が、ますます充実することを願っています。',
 	successConsentThanks:
 		'事例公開のご快諾ありがとうございました。サービス改善・他のご家庭への参考に活用させていただきます。',
+	// #4498: 課金プランの卒業送信ボタン。押した先は Stripe の解約フローであり、
+	// 「卒業を完了する」系の名乗りだと解約が終わったと誤認される。
 	successProceedButton: '解約手続きへ進む',
 	successProceedFreeButton: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
 } as const satisfies Record<string, unknown>;
@@ -4025,6 +4177,13 @@ export const CHILD_HOME_LABELS = {
 		`🎖️ ${name}が Lv.${level} になった！`,
 	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
 	resultXpLabel: 'けいけんち',
+	/**
+	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
+	 * 内部 ID (`#<childId>`) を子供の画面に出さないためのフォールバック (DESIGN.md §6)。
+	 */
+	siblingUnknownName: 'きょうだい',
+	/** #4509 ①: 経験値行のレベルアップ併記。増分の数値そのものは実データから導出する */
+	resultXpLevelUp: (level: number | string) => ` → Lv.${level} ↑`,
 	resultMissionComplete: '🎯 ミッションたっせい！',
 	resultMissionAllClear: '🎉 ぜんぶクリア！',
 	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
@@ -4077,9 +4236,9 @@ export const DEMO_SIGNUP_LABELS = {
 	pricingFreeLabel: 'フリー',
 	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
 	pricingStandardLabel: `${PLAN_TERMS.standard}`,
-	pricingStandardPrice: '（月額¥500〜）と',
+	pricingStandardPrice: `（月額${PRICE_TERMS.standard}〜）と`,
 	pricingFamilyLabel: `${PLAN_TERMS.premium}`,
-	pricingFamilyPrice: '（月額¥780〜）。',
+	pricingFamilyPrice: `（月額${PRICE_TERMS.family}〜）。`,
 	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
 	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
 
@@ -4261,6 +4420,26 @@ export const MEMBERS_LABELS = {
 	transferTitle: 'オーナー権限を移譲',
 	removeTitle: 'メンバーを削除',
 } as const;
+
+/**
+ * メンバー role の内部コードを日本語ラベルにする (#4507)。
+ *
+ * 内部コード ('owner' / 'parent' / 'child') を顧客に見せないための SSOT
+ * (DESIGN.md §6「内部コード露出禁止」)。メール本文 / 画面のどちらからも本関数を通す。
+ * 未知の role は内部コードを露出させず空文字を返さないよう、汎用語にフォールバックする。
+ */
+export function getMemberRoleLabel(role: string): string {
+	switch (role) {
+		case 'owner':
+			return MEMBERS_LABELS.roleOwner;
+		case 'parent':
+			return MEMBERS_LABELS.roleParent;
+		case 'child':
+			return MEMBERS_LABELS.roleChild;
+		default:
+			return MEMBERS_LABELS.roleParent;
+	}
+}
 
 // ============================================================
 // demo/+page.svelte (#1452 Phase B)
@@ -4644,12 +4823,21 @@ export const PRICING_PAGE_LABELS = {
 	faqFreePlanA:
 		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
 	faqCancelTrialQ: `無料体験中に${CANCEL_TERMS.canonical}できますか？`,
-	faqCancelTrialA: `はい。無料体験期間中に${CANCEL_TERMS.canonical}すれば一切課金されません。`,
+	// #4496: 旧文言「無料体験期間中に解約すれば一切課金されません」は「解約しなければ課金される」
+	//   という誤含意を持っていた。トライアルは自動課金なしが仕様 (FR-5 / NFR-1) なので、
+	//   「何もしなくても課金されない」ことを先に述べる。
+	faqCancelTrialA: `はい。無料体験は自動で課金される仕組みではありません。体験期間が終わると自動的に${PLAN_FULL_TERMS.free}へ切り替わり、料金は発生しません（体験中に${CANCEL_TERMS.canonicalVerb}手続きをしなくても課金されません）。`,
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
-	// #1647 R42 + #1643 R38 + #1733 R16: 実装 grace-period-service.ts の {free:0, standard:7, family:30} に合わせる
-	// アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html の全てで同一表現を返す SSOT
-	// #1960 Phase 7 H3: PLAN_FULL_TERMS atom 参照化（grace 日数 7/30 は server SSOT grace-period-service.ts と整合）
-	faqCancelA: `プランによって猶予期間が異なります。${PLAN_FULL_TERMS.free}: 解約申請後すべてのデータが即時削除されます（猶予期間なし）。${PLAN_FULL_TERMS.standard}: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。${PLAN_FULL_TERMS.premium}: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。`,
+	// #4496: 旧文言は**退会 (アカウント削除) の猶予期間**を解約の説明に転用しており、
+	//   「解約するとデータが削除される」という事実と異なる記述になっていた。
+	//   実装事実 (#3991 期末解約モデル / cancel_at_period_end=true):
+	//     - 解約はデータを削除しない。期末まで有料プランを使え、その後無料プランへ自動移行する
+	//     - 無料プランの保持期間 (PLAN_HISTORY_RETENTION_DAYS.free) を超えた記録は
+	//       retention-cleanup-service が**物理削除**する (閲覧不可ではなく復元不能)
+	//     - データそのものの削除は退会の手続きで、猶予は DELETION_GRACE_PERIOD_DAYS
+	//   アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html / 特商法で同一の
+	//   事実を述べる (数値は terms.ts atom 経由で値 SSOT から引く)。
+	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きで、プラン別の猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free} / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後にすべてのデータが完全に削除されます。`,
 	faqBillingDateQ: '課金日はいつですか？',
 	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
@@ -5502,7 +5690,6 @@ export const ADMIN_HOME_LABELS = {
 export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	dialogTitle: 'ダウングレードの確認',
 	targetTierSuffix: 'へのダウングレード',
-	noExcessNote: '現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。',
 	retentionUnlimited: '無制限',
 	/**
 	 * 保持期間短縮の警告文 (#4482)。
@@ -5514,13 +5701,21 @@ export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	 * `PlanLimits.historyRetentionDays` は `number | null` なので両引数とも null を受ける
 	 * (null の整形は formatRetentionPeriod が「無期限」として担う)。
 	 *
+	 * #4528: 後段は「閲覧できなくなります」と述べていたが、実装
+	 * (`server/services/retention-cleanup-service.ts`) は `recorded_date < cutoffDate` の
+	 * 活動ログ・ポイント台帳・ステータス履歴を**行ごと削除する**。復元手段は無く、
+	 * 上位プランに戻しても戻らない。ダウングレード確認画面は顧客が不可逆な結果を
+	 * 自分の操作で確定させる直前の地点なので、婉曲化すると「あとで戻せば見られる」と
+	 * 誤解したままデータを失う。#4496 (LP・特商法) / #4507 (メール) で確定した強さ
+	 * 「削除され、復元できません（再契約でも戻りません）」と同一表現で述べ切る。
+	 *
 	 * @param currentDays 現プランの保持日数 (null = 無制限)
 	 * @param targetDays  ダウングレード先の保持日数 (null = 無期限)
 	 */
 	retentionWarning: (currentDays: number | null, targetDays: number | null) => {
 		const current = currentDays === null ? '無制限' : formatRetentionPeriod(currentDays);
 		const target = formatRetentionPeriod(targetDays);
-		return `データ保持期間が${current}から${target}に短縮されます。${target}以前のデータは閲覧できなくなります。`;
+		return `データ保持期間が${current}から${target}に短縮されます。${target}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
 	},
 	excessTitlePrefix: '現在のリソースが',
 	excessTitleSuffix: 'の上限を超えています',
@@ -5648,6 +5843,11 @@ export const DEMO_REPORTS_LABELS = {
 
 export const ADMIN_CHILDREN_PAGE_LABELS = {
 	pageTitle: '👧 こども管理',
+	// #4546 ③: 仮アバターの作り直しをレースで見送ったときの通知 (ADR-0062 §1「一時的・回復可能」= Toast)。
+	// 「失敗」ではなく「写真を優先した」正常な結果なので、責めず・次にどうすればよいかまで書く。
+	placeholderAvatarSkippedTitle: 'アバターはそのままです',
+	placeholderAvatarSkippedDesc:
+		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
 	limitBannerTitle: 'こどもの登録上限に達しています',
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
@@ -5961,7 +6161,36 @@ export const DEMO_BATTLE_LABELS = {
 	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
 } as const;
 
-export const CHILD_CHECKLIST_LABELS = {
+/**
+ * チェックリスト画面の文言 (年齢帯 variant)。
+ *
+ * #4509 ④/⑥: 以前は 1 セットのひらがな文言しか無く、13-18 歳がナビの「持ち物チェック」(漢字)
+ * から遷移すると「にちようび」「おやにおねがいしてね」という幼児文体に着地していた。
+ * 曜日名 7 件 / 時間帯 4 件も画面側に直書きされていた。
+ *
+ * 年齢帯の出し分けは `getChildChecklistLabels({ ageTier })` 経由に集約する
+ * (`src/routes/CLAUDE.md` §年齢帯 variant: 画面側に `if (uiMode === ...)` を散らさない)。
+ * 分割は MODE_VARIANTS (child-home) と同じ baby/preschool = ひらがな、
+ * elementary 以上 = 漢字。
+ */
+interface ChildChecklistTextVariant {
+	todayPrefix: string;
+	nowPrefix: string;
+	nowSuffix: string;
+	emptyTitle: string;
+	emptyDesc: string;
+	completedAll: string;
+	checkForPoints: string;
+	completeTitle: string;
+	completeMsg: string;
+	completeButton: string;
+	/** 曜日名 (index 0 = 日曜)。JST SSOT (`jstDayOfWeek()`) の戻り値で引く */
+	dayNames: readonly string[];
+	/** 時間帯ラベル (checklist.timeSlot の値で引く) */
+	timeSlotLabels: Readonly<Record<string, string>>;
+}
+
+const CHILD_CHECKLIST_HIRAGANA: ChildChecklistTextVariant = {
 	todayPrefix: 'きょうは',
 	nowPrefix: 'いまは',
 	nowSuffix: 'のじかん',
@@ -5971,10 +6200,65 @@ export const CHILD_CHECKLIST_LABELS = {
 	checkForPoints: 'ぜんぶチェックしたら',
 	// #2196: backButton 撤廃 — BottomNav と動線重複 + 他 child タブ (achievements / battle / history / status / shop) 統一性
 	completeTitle: 'ぜんぶできたよ！',
-	pointsSuffix: 'ポイント！',
 	completeMsg: 'わすれものなし！すごい！',
 	completeButton: 'やったね！',
-} as const;
+	dayNames: [
+		'にちようび',
+		'げつようび',
+		'かようび',
+		'すいようび',
+		'もくようび',
+		'きんようび',
+		'どようび',
+	],
+	timeSlotLabels: {
+		morning: 'あさ',
+		afternoon: 'ひる',
+		evening: 'よる',
+		anytime: 'いつでも',
+	},
+};
+
+const CHILD_CHECKLIST_KANJI: ChildChecklistTextVariant = {
+	todayPrefix: '今日は',
+	nowPrefix: '今は',
+	nowSuffix: 'の時間',
+	emptyTitle: 'チェックリストがありません',
+	emptyDesc: 'おうちの人に追加してもらおう',
+	completedAll: '🎉 全部できた！',
+	checkForPoints: '全部チェックしたら',
+	completeTitle: '全部できた！',
+	completeMsg: '忘れ物なし！すごい！',
+	completeButton: 'やったね！',
+	dayNames: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+	timeSlotLabels: {
+		morning: '朝',
+		afternoon: '昼',
+		evening: '夜',
+		anytime: 'いつでも',
+	},
+};
+
+/** 時間帯アイコン。年齢帯で変わらないため variant の外に置く */
+export const CHILD_CHECKLIST_TIME_SLOT_ICONS: Readonly<Record<string, string>> = {
+	morning: '☀️',
+	afternoon: '🌤️',
+	evening: '🌙',
+	anytime: '🕐',
+};
+
+/**
+ * 年齢帯に応じたチェックリスト文言を返す。
+ *
+ * `ageTier` は必ず呼び出し側から渡すこと (アンチパターン A1: `if (uiMode === 'baby')` 散在の回避)。
+ * `(child)/+layout.server.ts` が解決した `data.uiMode` をそのまま渡す。
+ */
+export function getChildChecklistLabels(ctx: {
+	ageTier: UiMode | string | null | undefined;
+}): ChildChecklistTextVariant {
+	const tier = normalizeUiMode(ctx.ageTier ?? '');
+	return tier === 'baby' || tier === 'preschool' ? CHILD_CHECKLIST_HIRAGANA : CHILD_CHECKLIST_KANJI;
+}
 
 export const DEMO_CHILD_CHECKLIST_LABELS = {
 	demoNotice: 'これはデモです。チェックは保存されません。',
@@ -6393,7 +6677,10 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 	// #1912 (F-9): SaaS / 法律用語「読み取り専用猶予期間」を顧客語彙へ。
 	//   IT リテラシーなし親 P1 が直感的に理解できる「データを見られる期間」表現。
 	//   特商法 (tokushoho.html) と利用規約 第14条「卒業」では法的精度のため「猶予期間」を維持。
-	cancelDisclaimer: `※解約後、${PLAN_TERMS.standard}は 7 日間、${PLAN_TERMS.premium}は 30 日間はデータを見られます（${PLAN_TERMS.free}は即時）。その後すべてのデータが完全に削除されます。日割り返金はありません。`,
+	// #4496: 旧文言は退会 (アカウント削除) の猶予期間を解約の打消し表示に転用しており、
+	//   「解約するとデータが完全に削除される」という事実と異なる予告になっていた
+	//   (解約抑止のダークパターンとも解され得る)。解約の事実だけを述べ、削除は退会に紐づける。
+	cancelDisclaimer: `※${CANCEL_TERMS.canonical}後も現在の請求期間の終了日までご利用いただけます（日割り返金はありません）。${CANCEL_TERMS.canonical}でデータは削除されず、${PLAN_TERMS.free}プランへ移行します。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。データを完全に消すのはアカウント${CANCEL_TERMS.account}のお手続きです。`,
 	// #1898: 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（4 回目指摘の構造的再発ブロック）
 	cancelDisclaimerLinks: `${LP_FAQ_TERMS.canonicalShort} / 特定商取引法に基づく表記`,
 	// #1838: cta-bottom セクション全削除に伴い cancelDisclaimerCta / cancelDisclaimerCtaLink を削除。
@@ -6447,7 +6734,7 @@ export const LP_PRICING_LABELS = {
 	//        「500円」「780円」は atom (¥500 / ¥780) から ¥ を除去して「円」連結する compound のため、
 	//        実装上は PRICE_TERMS.standard.replace('¥', '') 等を避け、atom 値を直接担保する parse-time 設計を取らず
 	//        ここでは PLAN_TERMS のみ参照（価格数値「500」「780」は atom 直接対応がないため直書き維持）。
-	metaDescription: `がんばりクエストの料金プラン。基本無料で始められます。${PLAN_TERMS.standard}月額500円（税込）、${PLAN_TERMS.premium}月額780円（税込）。すべての有料プランに7日間の無料体験付き。`,
+	metaDescription: `がんばりクエストの料金プラン。基本無料で始められます。${PLAN_TERMS.standard}月額${PRICE_TERMS.standardYenFull}（税込）、${PLAN_TERMS.premium}月額${PRICE_TERMS.familyYenFull}（税込）。すべての有料プランに7日間の無料体験付き。`,
 	ogTitle: '料金プラン - がんばりクエスト',
 	// #1912 (F-6): og:description の「ログインボーナス」→「毎日のごほうび」へ日本語化
 	ogDescription:
@@ -6572,11 +6859,15 @@ export const LP_PRICING_LABELS = {
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
 	faqAfterTrialA: `7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、${ADMIN_VIEW_TERMS.canonical}からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
-	// #1643 R38 + #1647 R42: プラン別猶予期間（実装 grace-period-service.ts 準拠）
+	// #4496: 旧文言は退会の猶予期間を解約に転用していた (同ページ faqCancelVsDeleteA と自己矛盾)。
+	//   アプリ内 PRICING_PAGE_LABELS.faqCancelA と同じ事実を述べる。
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
-	// #1912 (F-9): 「読み取り専用猶予期間」を顧客語彙化（SaaS 業界用語のため）。
-	faqCancelA:
-		'プランによって異なります。スタンダードプランは解約申請から 7 日間、ファミリープランは解約申請から 30 日間はデータを見られます。その後すべてのデータが完全に削除されます（復旧不可）。この期間中はログインしてダウンロードが可能です。',
+	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きです。`,
+	// #4496: pricing.html hero 直下の打消し表示。旧 HTML 直書き文言は「解約申請後 30 日間は
+	//   読み取り専用…その後すべてのデータが完全に削除」と、猶予日数も削除の有無も誤っていた。
+	//   HTML 直書きのままだと SSOT を経由せず再発するため、本 namespace に key を起こす
+	//   (site/pricing.html の fallback は scripts/sync-lp-fallback.mjs が同期する)。
+	heroCancelDisclaimer: `※「${CANCEL_TERMS.anytimeOk}」について: ${CANCEL_TERMS.canonical}後も現在の請求期間の終了日まではご利用いただけます（日割り返金はありません）。${CANCEL_TERMS.canonical}でデータは削除されず、${PLAN_FULL_TERMS.free}へ移行します。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。データを完全に消すのはアカウント${CANCEL_TERMS.account}のお手続きです。`,
 	faqBillingDateQ: 'お支払い日はいつですか？',
 	// #3212: 年額廃止 (#2719) に伴い月額のみの記述に整合。faqYearlyCancel* は撤去。
 	faqBillingDateA:
@@ -6618,7 +6909,9 @@ export const LP_PRICING_LABELS = {
 	// CTA-bottom 直下に既存有料ユーザー向け small リンクで /admin/billing へ誘導。
 	faqCancelPathNote: `解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (${STRIPE_PORTAL_TERMS.canonical}) でいつでもお手続きいただけます。`,
 	faqCancelVsDeleteQ: `${CANCEL_TERMS.canonical}とアカウント${CANCEL_TERMS.account}は何が違いますか？`,
-	faqCancelVsDeleteA: `${CANCEL_TERMS.canonical}は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。アカウント${CANCEL_TERMS.account}は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。`,
+	// #4496: 「猶予期間後に無料プランへ移行」は誤り (解約に猶予期間は無く、現在の請求期間の
+	//   終了日で移行する)。退会側の猶予はプラン別で、無料プランは猶予なし。
+	faqCancelVsDeleteA: `${CANCEL_TERMS.canonical}は有料プランの自動更新を停止する手続きで、現在の請求期間の終了日に${PLAN_FULL_TERMS.free}へ自動移行します。データは削除されず、${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えた記録だけが削除され、復元できません（再契約でも戻りません）。アカウント${CANCEL_TERMS.account}は、ログイン後にご自身で実施いただくことで、プラン別の猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後に全データを完全削除します。`,
 	existingCustomerCancelLinkPrefix: 'すでに有料プランをご利用中の方の',
 	existingCustomerCancelLinkLabel: `${CANCEL_TERMS.canonical}はこちら`,
 	existingCustomerCancelLinkSuffix: `（${ADMIN_VIEW_TERMS.canonical}に移動します）`,
@@ -7047,7 +7340,12 @@ export const CHILD_SHOP_LABELS = {
 		`${rewardTitle} と こうかんする？（${points} ポイント）`,
 	exchangeConfirmYes: 'はい',
 	exchangeConfirmCancel: 'やめる',
-	insufficientPointsHint: (remaining: number) => `あと ${remaining} ポイント`,
+	/**
+	 * #4509 ②: 不足分は「整形済みの表示文字列」を受け取る。
+	 * 生ポイント + 固定単位だと通貨モードで嘘の数字になるため、単位は呼び出し側が
+	 * splitPointDisplay で決める。
+	 */
+	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
 	emptyMessage: 'ごほうびがまだありません',
 	// 申請中バッジ
 	statusPending: 'うけとりまち',
@@ -7097,7 +7395,9 @@ export const CHILD_SHOP_LABELS = {
 	quantityValueAriaLabel: (quantity: number) => `こすう ${quantity}こ`,
 	quantityMaxHint: 'もっているポイントで こうかんできる さいだいの こすうだよ',
 	totalPointsLabel: 'ぜんぶで',
-	remainingAfterLabel: 'こうかんしたあとの ポイント',
+	// #4509 ②: 単位語 (「ポイント」) を見出しから外す。通貨モードでは値が「250円」になるため、
+	// 見出しに「ポイント」が残ると同じ行の中で単位が二重に食い違う。
+	remainingAfterLabel: 'こうかんしたあとの のこり',
 	// #4407 AC9/AC12: 交換の結果を「見ている場所」に文字で出す (演出は加飾であって通知ではない)
 	exchangeSuccessToastTitle: 'こうかんできたよ！',
 	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
@@ -8078,17 +8378,18 @@ export const LP_FAQ_LABELS = {
 	text16: '自動課金はされません。',
 	text17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
 	text18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
-	// #1955 (Phase 3 D10): プラン名 atom (PLAN_TERMS) を terms.ts 参照化。猶予期間は data deletion 文脈で TRIAL_TERMS と意味が異なるため文字列直書き維持。
-	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日`,
-	text20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
-	text21: '猶予期間終了後: すべてのデータが完全に削除',
-	text22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータのバックアップをお願いします。`,
+	// #4496: 旧文言は退会の猶予期間と物理削除を解約の説明に転用していた (LP_FAQ_PHASEB_LABELS
+	//   k19-k22 と同一内容)。解約はデータを削除しない — 実装事実は PRICING_PAGE_LABELS.faqCancelA 参照。
+	text19: `${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
+	text20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
+	text21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
+	text22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
 	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
-	text28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
+	text28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
 	text29: '料金・課金について',
 	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
 	text31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
@@ -8140,8 +8441,9 @@ export const LP_FAQ_LABELS = {
 	text73: '終了後: すべてのデータを完全削除',
 	text74: '利用規約',
 	text75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
-	text76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
-	text77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
+	// #4496: 猶予はプラン別 (無料は 0 日 = 申請と同時に物理削除)。k76 / k77 と同一内容。
+	text76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。猶予期間はご利用プランによって異なります（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）。`,
+	text77: `${PLAN_FULL_TERMS.free}は申請と同時に削除されるため、取り消しもエクスポートもできません。有料プランは猶予期間中に申請の取り消しとデータのエクスポートができます。猶予期間の経過後、全データは完全に削除されます（復旧はできません）。`,
 	text78: 'データはどこに保存されていますか？',
 	text79: 'プライバシーポリシー',
 	text80:
@@ -8239,7 +8541,14 @@ export const LP_SELFHOST_LABELS = {
 	text20: ' 完全無料。月額料金なし、機能制限なし。',
 	text21: ' カスタマイズ自由。ソースコードを自由に改変できます。',
 	text22: ' オフライン利用可能。インターネット接続なしでも LAN 内で動作します。',
-	text23: ' オープンソース（MIT License）。商用利用も可能です。',
+	// #4499: 実ライセンス AGPL-3.0-only (LICENSE / package.json) に合わせて修正。
+	// 旧「MIT License」表記は虚偽表示だった (GAMMA-SELFHOST-01)。
+	// #4547: SPDX 完全形 (-only) に是正 + メリット一覧には「メリットの事実」だけを残し、
+	// コピーレフト義務は一覧の外の注記 (licenseObligationNote) に分離した。
+	text23: ` オープンソース（${OSS_LICENSE_TERMS.spdxId}）。${OSS_LICENSE_TERMS.commercialUse}。`,
+	// メリット一覧の直下に置く注記。義務はメリットではないため箇条書きに混ぜず、
+	// かつ埋没させないよう独立した注記として明示する (#4547)。
+	licenseObligationNote: `守っていただく義務: ${OSS_LICENSE_TERMS.copyleftObligation}（${OSS_LICENSE_TERMS.spdxId} のコピーレフト条項）。`,
 	text24: '&#x1F4CA; SaaS版との比較',
 	text25: '項目',
 	text26: 'SaaS版',
@@ -8727,6 +9036,13 @@ export const STORYBOOK_LABELS = {
 	avatarDisplay: {
 		nickname: 'たろう',
 	},
+	// #4538: SiblingChallengeComparison の見た目確認用。children 一覧から引けない childId が
+	// あるときに内部 ID ではなく汎用語へ落ちることを目視できるようにする。
+	siblingChallengeComparison: {
+		challengeTitle: '今週は毎日おてつだい',
+		firstChildNickname: 'はると',
+		secondChildNickname: 'ひなた',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',
@@ -8955,6 +9271,19 @@ export const STORYBOOK_LABELS = {
 	// (ss-render-impossible)、story の play で見た目を固定する (#4166)。
 	saasLicensePanel: {
 		tenantName: 'たろう家',
+	},
+	// #4528: DowngradeResourceSelector story の mock 表示テキスト。
+	// ダウングレード確認ダイアログは有料契約 (tenant の stripeSubscriptionId) が無いと開かず、
+	// local backend は tenants を持たないため撮影できない (ss-render-impossible)。
+	// 保持期間短縮警告の見た目は story で固定する。
+	downgradeResourceSelector: {
+		childOne: 'たろう',
+		childTwo: 'はなこ',
+		childThree: 'じろう',
+		activityOne: '歯みがき',
+		activityTwo: 'お手伝い',
+		activityThree: '音読',
+		activityFour: 'ストレッチ',
 	},
 } as const;
 
@@ -9377,18 +9706,21 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
 	k18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
 	// #1943 (Phase 3 D3): 「いつでも解約」atom を CANCEL_TERMS.anytime 参照化。
-	//   注: 「解約」(単独) / 「7 日間」(半角空白あり、TRIAL_TERMS.duration='7日間' と不一致) は char-by-char
-	//   一致を維持するため直書き継続 (#1949 section13 / #1954 ctaBottomDesc と同方針)。
-	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.premium}: 30 日間）。`,
-	k20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
-	k21: '猶予期間終了後: すべてのデータが完全に削除',
-	k22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータのバックアップをお願いします。`,
+	// #4496: 旧文言は退会 (アカウント削除) の猶予期間と物理削除を解約の説明に転用しており、
+	//   同ページ k27 (期末まで利用可 = 正) と自己矛盾していた。解約はデータを削除しない。
+	//   解約経路も実導線 (見守り画面「プラン・お支払い」→ Stripe の請求管理ページ) に統一する。
+	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から${CANCEL_TERMS.anytime}できます。${CANCEL_TERMS.canonical}しても<strong>データは削除されません</strong>。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
+	k20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
+	k21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
+	k22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
 	k27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
-	k28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
+	// #4496: 旧文言は解約に猶予期間と全データ削除があるかのように述べていた。解約で消えるのは
+	//   無料プランの保持期間を超えた履歴だけで、それは再契約でも戻らない。
+	k28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
 	k31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
@@ -9438,8 +9770,11 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k73: '終了後: すべてのデータを完全削除',
 	k74: '詳しくは <a href="terms.html">利用規約</a> 第 14 条をご覧ください。',
 	k75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
-	k76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
-	k77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
+	// #4496: 旧文言は猶予を一律「申請後 30 日間」と述べていたが、猶予はプラン別 (無料は 0 日 =
+	//   申請と同時に物理削除)。無料プランの顧客が「30 日間は取り消せる」と誤認したまま退会すると
+	//   データが全損する。日数は DELETION_GRACE_TERMS (値 SSOT = deletion-grace.ts) から引く。
+	k76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。猶予期間はご利用プランによって異なります（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）。`,
+	k77: `${PLAN_FULL_TERMS.free}は申請と同時に削除されるため、取り消しもエクスポートもできません。有料プランは猶予期間中に申請の取り消しとデータのエクスポートができます。猶予期間の経過後、全データは完全に削除されます（復旧はできません）。`,
 	k78: 'データはどこに保存されていますか？',
 	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html">プライバシーポリシー</a>第8条（データの国外移転）をご覧ください。',
 	k80: '決済情報は Stripe（国際的な PCI DSS 準拠の決済プロバイダ）で管理されており、当サービスのサーバーにはカード番号等の秘匿情報を保持していません。',
@@ -9684,8 +10019,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 		'<h2>第5条（アカウントの停止・削除）</h2><ol><li>運営者は、利用者が前条の禁止事項に違反した場合、または本規約のいずれかの条項に違反した場合、事前の通知なくアカウントの停止または削除を行うことができます。</li><li>前項の措置により利用者に生じた損害について、運営者は一切の責任を負いません。</li><li>運営者は、アカウント停止または削除の理由について、開示する義務を負いません。</li></ol>',
 	section6:
 		'<h2>第6条（未成年者の利用）</h2><ol><li>本サービスは、保護者の管理のもとでこどもが利用することを前提として設計されています。</li><li>未成年者が本サービスを利用する場合、法定代理人（保護者）の同意が必要です。</li><li>保護者は、こどもの本サービスの利用に関して一切の責任を負うものとします。</li><li>保護者が本規約に同意してアカウントを作成した時点で、こどもの本サービスの利用についても同意したものとみなします。</li><li>未成年者の個人情報の取扱いについて、運営者は<a href="privacy.html#under-age">プライバシーポリシー第9条（未成年者の取扱い）</a>に定める特別な保護措置を講じています。</li></ol>',
-	section7:
-		'<h2>第7条（料金および支払い）</h2><ol><li>本サービスの基本機能は無料でご利用いただけます。一部の機能は有料プランへの加入が必要です。料金の詳細は本サービス内の料金ページに記載します。</li><li>有料プランの支払いは、運営者が指定する決済サービスを通じて行われます。</li><li>有料プランは契約期間ごとに自動更新されます。自動更新の停止（解約）は、次回更新日の前日までに本サービスの設定画面から行うことができます。</li><li>解約後も、支払い済み期間の終了日まで有料プランの機能をご利用いただけます。</li><li>日割り計算による返金は行いません。</li><li><strong>解約とアカウント削除の違い</strong>: 解約はサブスクリプションの自動更新停止のみを行うものであり、利用者のデータは無料プランへ移行して保持されます（保持期間は本規約第13条に定めます）。データを完全に削除したい場合は、本サービスにログインのうえ、設定画面の「アカウント削除」から本人が実施してください。詳細は第13条に定めます。</li></ol>',
+	section7: `<h2>第7条（料金および支払い）</h2><ol><li>本サービスの基本機能は無料でご利用いただけます。一部の機能は有料プランへの加入が必要です。料金の詳細は本サービス内の料金ページに記載します。</li><li>有料プランの支払いは、運営者が指定する決済サービスを通じて行われます。</li><li>有料プランは契約期間ごとに自動更新されます。自動更新の停止（解約）は、次回更新日の前日までに${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から行うことができます。</li><li>解約後も、支払い済み期間の終了日まで有料プランの機能をご利用いただけます。</li><li>日割り計算による返金は行いません。</li><li><strong>解約とアカウント削除の違い</strong>: 解約はサブスクリプションの自動更新停止のみを行うものであり、利用者のデータは無料プランへ移行して保持されます（保持期間は本規約第13条に定めます）。データを完全に削除したい場合は、本サービスにログインのうえ、設定画面の「アカウント削除」から本人が実施してください。詳細は第13条に定めます。</li></ol>`,
 	section8: `<h2>第8条（無料トライアル）</h2><ol><li>有料プランには無料トライアル期間が含まれる場合があります。期間の詳細は本サービス内に記載します。</li><li>無料トライアル期間中に解約した場合、料金は発生しません。</li><li>無料トライアル期間終了後、自動的に${PLAN_FULL_TERMS.free}に移行します。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。</li><li>無料トライアルは、1アカウントにつき1回のみご利用いただけます。</li></ol>`,
 	section9:
 		'<h2>第9条（知的財産権）</h2><ol><li>本サービスに関する知的財産権は全て運営者または正当な権利者に帰属します。</li><li>利用者が本サービスに登録したコンテンツの著作権は利用者に帰属しますが、運営者はサービスの提供および改善に必要な範囲で当該コンテンツを利用できるものとします。</li></ol>',
@@ -9694,7 +10028,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 	section11:
 		'<h2>第11条（サービスの中断・停止）</h2><ol><li>運営者は、以下の場合、事前の通知なく本サービスの全部または一部を中断・停止することがあります。<ul><li>システムの保守・点検・更新を行う場合</li><li>地震、落雷、火災、停電、天災等の不可抗力により本サービスの提供が困難な場合</li><li>その他、運営者がサービスの中断・停止が必要と判断した場合</li></ul></li><li>サービスの中断・停止により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、運営者は責任を負いません。</li></ol>',
 	section12: `<h2>第12条（免責事項）</h2><ol><li>本サービスは個人開発者が運営するものであり、「現状有姿（AS IS）」で提供されます。運営者は、本サービスの正確性、完全性、信頼性、適時性、安全性、特定目的への適合性について、明示的または黙示的を問わず一切の保証をしません。</li><li>本サービスはこどもの教育効果や行動変容を保証するものではなく、結果について運営者は責任を負いません。</li><li>運営者は、本サービスの利用により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、一切の責任を負いません。</li><li>運営者は、以下に起因する損害について、一切の責任を負いません。<ul><li>データの消失、破損、改ざん、または復旧の不能</li><li>サービスの中断、遅延、停止、または終了</li><li>第三者サービス（AWS、Stripe、Google等）の障害、仕様変更、またはサービス停止</li><li>不正アクセス、コンピュータウイルス、その他のセキュリティ侵害</li><li>利用者間のトラブルまたは紛争</li><li>利用者の操作ミスまたはアカウント管理の不備</li></ul></li><li>運営者は、間接損害、特別損害、偶発的損害、結果的損害、逸失利益、およびデータの喪失について、たとえその可能性を事前に告知されていた場合であっても、責任を負いません。</li><li>前各項の規定にかかわらず、消費者契約法その他の強行法規の適用により運営者の責任が認められる場合、運営者が利用者に対して賠償する金額は、当該利用者が損害発生月を含む直近3ヶ月間に本サービスに対して実際に支払った利用料の総額を上限とします。${PLAN_FULL_TERMS.free}の利用者については、運営者の賠償額の上限は0円とします。</li></ol>`,
-	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li><strong>アカウント削除はログインして行った時のみ全データの完全削除が実行されるもの</strong>であり、サブスクリプションの解約（第7条）とは別の手続きです。アカウント削除はご家族の見守り画面の設定から本人が実施してください。なりすまし防止のため、運営者がご本人に代わってアカウント削除を実施することはありません。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7日間 / ${PLAN_FULL_TERMS.premium}: 30日間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
+	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li><strong>アカウント削除はログインして行った時のみ全データの完全削除が実行されるもの</strong>であり、サブスクリプションの解約（第7条）とは別の手続きです。アカウント削除はご家族の見守り画面の設定から本人が実施してください。なりすまし防止のため、運営者がご本人に代わってアカウント削除を実施することはありません。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standard}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premium}間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です（${PLAN_FULL_TERMS.free}は猶予期間がないため取消しできません）。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
 	section14: `<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの${ADMIN_VIEW_TERMS.canonical}から「卒業手続き」を行うことで、本契約を終了し、データのエクスポートまたは削除を選択することができます。具体的な手続き UI は別途提供します（実装は今後のリリースで提供予定）。</li><li><strong>残ポイントの還元</strong>: 卒業時に保有しているポイントについて、現金または物品での還元を希望される場合は、別途運営者までご連絡ください。還元の対象範囲・方法については、運営者が個別に案内します。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>`,
 	section15:
 		'<h2>第15条（サービスの終了）</h2><ol><li>運営者は、運営者の判断により、本サービスの全部または一部を終了することがあります。</li><li>本サービスを終了する場合、運営者は終了日の30日前までに本サービス上または登録メールアドレスへの通知により利用者にお知らせします。</li><li>サービス終了時、利用者は終了日までに自己のデータをエクスポートすることができます。</li><li>サービスの終了により利用者に生じた損害について、運営者は一切の責任を負いません。</li></ol>',
@@ -9814,7 +10148,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${CANCEL_TERMS.canonical}をご検討の方」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 
@@ -9887,6 +10221,27 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	// Reward / Checklist 等で childId 必須な場合の補助文言
 	pickChildHint: '対象の子供を選んでから取り込みできます。',
 	disabledReason: '権限が不足しています',
+} as const;
+
+/**
+ * 参照先のレコードを解決できなかったときの表示名 (#4538)。
+ *
+ * 内部 ID (`#${childId}` 等) を表示名のフォールバックにしない (DESIGN.md §6「内部コード露出禁止」、
+ * 過去事例 #498 / #573)。UUID が画面に出ても顧客には意味が無く、誰のことか分からないうえ、
+ * 内部識別子を不必要に露出する。**画面 (子供 / 親) を問わず本ラベルを使う**。
+ *
+ * 出る条件は「一覧に載っていない子供 / 定義が無いカテゴリを参照している」= データ不整合であり、
+ * 通常運用では出ない。出たときに「不明である」と正直に述べるのが正しい (存在しない名前を作らない)。
+ *
+ * 子供画面側の同種フォールバックは `CHILD_HOME_LABELS.siblingUnknownName` (「きょうだい」)。
+ * 読み手が違う (子供 = ひらがな / 親 = 敬称) ため値は分けるが、**内部 ID を出さない**点は共通で、
+ * `tests/unit/architecture/child-ui-display-integrity.test.ts` が両 scope をまとめて guard する。
+ */
+export const UNRESOLVED_ENTITY_LABELS = {
+	/** children 一覧から引けなかった子供の表示名 */
+	child: `不明な${CHILD_TERMS.honorific}`,
+	/** カテゴリ定義から引けなかったカテゴリの表示名 */
+	category: '不明なカテゴリ',
 } as const;
 
 // #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。

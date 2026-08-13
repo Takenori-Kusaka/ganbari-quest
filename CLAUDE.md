@@ -83,7 +83,7 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 - Pre-PMF 過剰防衛設計 (汎用監査ログ / S3+Athena / WAF 等) → ADR-0010
 - 認証画面を `npm run dev` だけで Ready 化 → `npm run dev:cognito` (#1026)
 - SS を CI 通過のためだけに添付 → UI/UX 自己判定証跡 (@docs/DESIGN.md §9)
-- jscpd を PR hard-fail 昇格 (#971) / OSS 未調査で 10 行超独自実装 (ADR-0014 / #1350)
+- jscpd を PR hard-fail 昇格 (#971) / OSS 未調査で 10 行超独自実装 (`docs/decisions/README.md` §OSS 先調査ルール / #1350)
 - LP / pricing に未実装機能を「実装済み」と記載 → ADR-0013
 - `scripts/` に使い捨てスクリプト追加 → `npm run capture` 等 generic ツール拡充 (#1442)
 

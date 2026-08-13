@@ -12,7 +12,10 @@ import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import {
 	isPortalFallbackContext,
+	isPortalFallbackReason,
 	PORTAL_FALLBACK_PARAM,
+	PORTAL_FALLBACK_REASON,
+	PORTAL_FALLBACK_REASON_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { TRIAL_LABELS } from '$lib/domain/labels';
@@ -112,6 +115,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		portalFallback: (() => {
 			const raw = url.searchParams.get(PORTAL_FALLBACK_PARAM);
 			return isPortalFallbackContext(raw) ? raw : null;
+		})(),
+		// #4548: **なぜ**倒れたか。一時障害 (再試行で直りうる) と、ご契約情報が確認できない
+		// 恒久不能 (何度押しても同じ) では顧客が次に取るべき行動が正反対で、後者は
+		// サポート窓口が唯一の出口になる。値が読めないときは一時障害側に倒す
+		// (誤ってサポートへ誘導するより、再試行を促すほうが害が小さい)。
+		portalFallbackReason: (() => {
+			const raw = url.searchParams.get(PORTAL_FALLBACK_REASON_PARAM);
+			return isPortalFallbackReason(raw) ? raw : PORTAL_FALLBACK_REASON.FLOW_REJECTED;
 		})(),
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,

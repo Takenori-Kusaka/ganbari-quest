@@ -6,7 +6,7 @@
 | 日付 | 2026-05-07 |
 | 起票者 | Takenori-Kusaka |
 | 関連 Issue | #1916 (Phase 1 atom 抽出) / #1917 (template literal parser) / #1922 (本 ADR 起票) |
-| 関連 ADR | ADR-0009 (本 ADR で supersede) / ADR-0014 (labels / i18n 機構選定) / ADR-0010 (Pre-PMF scope) / ADR-0013 (LP truth from implementation) |
+| 関連 ADR | ADR-0009 (本 ADR で supersede) / 旧 ADR-0014 (labels / i18n 機構選定、#2440 PR-A5 で削除、#1346) / ADR-0010 (Pre-PMF scope) / ADR-0013 (LP truth from implementation) |
 
 ## 1. コンテキスト
 
@@ -56,9 +56,9 @@ ADR-0009 の SSOT 原則は維持しつつ、**SSOT 内部に 2 階層構造を�
 
 ### 選択肢 C: i18n ライブラリ採用（i18next / FormatJS / Paraglide）（rejected）
 
-- 概要: ADR-0014 で検討した OSS i18n 機構を Phase 1 で先行投入し、atom / compound を ICU MessageFormat や ICU plural などで構造化
+- 概要: 旧 ADR-0014（#2440 PR-A5 で削除、#1346）で検討した OSS i18n 機構を Phase 1 で先行投入し、atom / compound を ICU MessageFormat や ICU plural などで構造化
 - メリット: 将来の多言語化に直結、ICU で複数形・性別・数値書式が宣言的
-- デメリット: (1) **ADR-0014 で「Pre-PMF Phase 1 では未採用、Phase 2 以降の機構選定段階で導入」と決定済**、本 ADR の atom 分離は ADR-0014 機構導入の**前段下準備**であり、両者は段階適用関係、(2) 多言語化要件が現時点で未確定 (日本語のみ)、(3) i18n ライブラリ前提だと atom 構造化と機構導入が単一 PR に膨らみ、リスク分散が壊れる
+- デメリット: (1) **旧 ADR-0014 で「Pre-PMF Phase 1 では未採用、Phase 2 以降の機構選定段階で導入」と決定済**（ADR-0014 自体は #2440 PR-A5 で削除、内容は #1346）、本 ADR の atom 分離は同機構導入の**前段下準備**であり、両者は段階適用関係、(2) 多言語化要件が現時点で未確定 (日本語のみ)、(3) i18n ライブラリ前提だと atom 構造化と機構導入が単一 PR に膨らみ、リスク分散が壊れる
 - Pre-PMF コスト: 導入工数 高（学習 + LP 経路確立 + 全 namespace 移行）、学習コスト 高、長期保守性 高（ただし Phase 段階性を壊す）
 
 ### 選択肢 D: 現状維持（rejected）
@@ -71,7 +71,7 @@ ADR-0009 の SSOT 原則は維持しつつ、**SSOT 内部に 2 階層構造を�
 - **DDD Value Object**: atom = primitive 用語の Value Object 化に相当
 - **Atomic Design**: atom (terms.ts) → molecule (labels.ts compound) → organism (svelte component) の階層
 - **CSS 3 層トークン (ADR-0042)**: Base → Semantic → Component と同型構造の用語版
-- **i18next ICU MessageFormat**: 将来 ADR-0014 機構導入時に compound 側を ICU 化する経路は維持
+- **i18next ICU MessageFormat**: 将来 #1346 の i18n 機構導入時に compound 側を ICU 化する経路は維持
 
 ## 3. 決定
 
@@ -117,7 +117,7 @@ labels.ts (compound、≈6700 行)
 - **責務分離による可読性向上**: 「用語そのものを変えたい」場合は terms.ts (86 行) のみ精読すれば足り、6700 行 labels.ts の全走査が不要
 - **CI による再発防止 (Phase 5)**: 直書きが追加された瞬間に PR で fail し、レビュー前に検出
 - **トレードオフ**: import 経路が 1 段増える（`terms.ts → labels.ts → component`）が、ファイル境界による責務分離の利点が上回る
-- **ADR-0014 機構導入時の互換性**: i18n ライブラリ導入時も terms.ts は ICU の atom 入力として再利用可能
+- **#1346 機構導入時の互換性**: i18n ライブラリ導入時も terms.ts は ICU の atom 入力として再利用可能
 
 ## 補遺: DESIGN.md は全 export をミラーしない（2026-06-03）
 
@@ -138,5 +138,5 @@ labels.ts (compound、≈6700 行)
 - ADR-0009（labels.ts SSOT 化原則）— **本 ADR で supersede**（SSOT 原則は維持、内部構造を 2 階層化）
 - ADR-0010（Pre-PMF scope）— Phase 段階適用で導入コスト分散
 - ADR-0013（LP truth from implementation）— terms.ts atom が LP 文言の SSOT 起点
-- ADR-0014（labels / i18n 機構選定）— Phase 2 以降の機構導入で terms.ts が atom 入力源として再利用
+- 旧 ADR-0014（labels / i18n 機構選定、#2440 PR-A5 で削除、#1346）— Phase 2 以降の機構導入で terms.ts が atom 入力源として再利用
 - ADR-0042（LP CSS Spacing/Layout 3 層トークン）— 同型の責務分離パターン（Base → Semantic → Component）

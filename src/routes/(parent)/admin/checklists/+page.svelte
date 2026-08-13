@@ -1,6 +1,7 @@
 <script lang="ts">
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
@@ -11,6 +12,7 @@ import {
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	UI_LABELS,
+	UNRESOLVED_ENTITY_LABELS,
 } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
@@ -769,7 +771,7 @@ async function saveDistribution() {
 }
 
 function getChildName(childId: ChildId): string {
-	return data.children.find((c) => c.id === childId)?.nickname ?? `#${childId}`;
+	return data.children.find((c) => c.id === childId)?.nickname ?? UNRESOLVED_ENTITY_LABELS.child;
 }
 </script>
 
@@ -1319,7 +1321,13 @@ function getChildName(childId: ChildId): string {
      プレミアム gate の文脈提示は AiSuggestChecklistPanel 内部の familyOnlyDescription(kind) が
      機能名 (AI チェックリスト提案) 込みで担う (#2901 contextual paywall 整合、AC2)。 -->
 <Dialog bind:open={aiDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addDialogTitleAi} testid="checklists-ai-dialog">
-	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
+	<!-- #4506: gate 導出は $lib/domain/ai-suggest-gate の述語 1 本に集約 (server enforcement と同一)。
+	     判定値は旧 `data.planTier === 'family'` と同一 (顧客に見える変化なし)。
+	     旧式は「page load が planTier を返さないので常に false」と 2 度誤読された (#2902 / #4506) が、
+	     実際は (parent)/admin/+layout.server.ts が供給しており解決していた。
+	     参照元を追える状態にするため page load でも planTier を明示返却し、
+	     load 連鎖との対応は tests/unit/architecture/ai-suggest-gate-derivation.test.ts が機械検査する。 -->
+	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={isAiSuggestUnlocked(data.planTier)} />
 </Dialog>
 
 <!-- #3098: 「別の子から copy」dialog — source child の配信 template を選択中 child にも配信 (assignments 追加)。

@@ -58,20 +58,27 @@
  *   2 = internal error
  */
 
+import {
+	formatPrInputUsage,
+	isHelpRequested,
+	PrInputError,
+	resolvePrInput,
+} from './lib/ci/pr-input.mjs';
+
+/**
+ * #4348 (対象 #7 の兄弟): 本 script も PR body / files / labels を env からしか読まず、
+ * `--pr <N>` を黙殺していた。`--pr` 付きで呼ぶと PR_FILES が空 → `isUiPr()` false →
+ * 「UI 関連ファイル変更なし — スキップ」と**安心感のある成功終了**をしていた
+ * (実測 2026-08-12、PR #4515 は env を正しく渡すと dom-snapshot-missing を検出する)。
+ * 入力解決は `scripts/lib/ci/pr-input.mjs` (SSOT) に委譲する。
+ */
+const SCRIPT_NAME = 'scripts/check-pr-screenshot.mjs';
+
 const MODE = (process.env.SCREENSHOT_CHECK_MODE || 'warn').toLowerCase();
 // #2946 (Phase A/A-4): lane 判定は SSOT (scripts/pr-lane.mjs + actions/pr-lane) が出した
 // 値を env PR_LANE で受け取るだけ。本 script 内で base/head/actor から lane を再判定しない
 // (no-go: lane 判定ロジックの inline 重複禁止)。未設定時は 'feature' (軽量レーン、後方互換)。
 const PR_LANE = (process.env.PR_LANE || 'feature').trim().toLowerCase();
-const PR_BODY = process.env.PR_BODY || '';
-const PR_FILES = (process.env.PR_FILES || '')
-	.split('\n')
-	.map((s) => s.trim())
-	.filter(Boolean);
-const PR_LABELS = (process.env.PR_LABELS || '')
-	.split(',')
-	.map((s) => s.trim())
-	.filter(Boolean);
 
 // ---------------------------------------------------------------------------
 // 検証関数（pure functions, named exports for unit testing）
@@ -739,7 +746,11 @@ function buildIntegrationEvidenceMissingViolation() {
 	};
 }
 
-function main() {
+/**
+ * CI screenshot-quality-check 本体。入力は entry で解決済のものを受け取る (#4348)。
+ * @param {{ body: string; files: string[]; labels: string[] }} input
+ */
+function main({ body: PR_BODY, files: PR_FILES, labels: PR_LABELS }) {
 	const violations = [];
 
 	// 検証 1: ローカルパス禁止 (#1741) — UI PR でなくても貼ったらアウト (lane 非依存)
@@ -836,11 +847,15 @@ function main() {
  *
  * @returns {number} exit code (0 = PASS / skip, 1 = 違反)
  */
-function mainEmbedGate() {
+/**
+ * pre-ready Step 11b の SS embed gate。入力は entry で解決済のものを受け取る (#4348)。
+ * @param {{ body: string; files: string[]; labels: string[] }} input
+ */
+function mainEmbedGate({ body, files, labels }) {
 	const { skipped, skipReason, violations } = checkScreenshotEmbedReadiness({
-		body: PR_BODY,
-		files: PR_FILES,
-		labels: PR_LABELS,
+		body,
+		files,
+		labels,
 	});
 
 	if (skipped && violations.length === 0) {
@@ -868,6 +883,33 @@ import { isMain as isMainModule } from './lib/is-main.mjs';
 const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
+	const argv = process.argv.slice(2);
+	if (isHelpRequested(argv)) {
+		console.log(
+			[
+				`${SCRIPT_NAME} — PR の SS 添付品質 / SS embed 完了を検証します (#1740 / #2918)。`,
+				'',
+				'入力 (いずれか。無指定は失敗します — #4348):',
+				formatPrInputUsage(SCRIPT_NAME, 'body'),
+				'',
+				'(help を表示しただけで、検査は実行していません)',
+			].join('\n'),
+		);
+		process.exit(0);
+	}
+
+	// #4348: 入力ゼロ (`--pr` 黙殺 / PR_BODY 未設定) を「UI 変更なし skip」で成功終了させない。
+	let input;
+	try {
+		input = resolvePrInput({ argv, env: process.env, need: 'body', scriptName: SCRIPT_NAME });
+	} catch (err) {
+		if (err instanceof PrInputError) {
+			console.error(`[screenshot-check] INPUT ERROR — ${err.message}`);
+			process.exit(2);
+		}
+		throw err;
+	}
+
 	try {
 		// #2918: SCREENSHOT_EMBED_GATE=1 で Ready 化前 SS embed ゲートを起動 (pre-ready Step 用)。
 		// 未設定時は従来の CI screenshot-check (before/after / DOM / ローカルパス) を実行する。
@@ -876,7 +918,7 @@ if (isMain) {
 			(process.env.SCREENSHOT_EMBED_GATE || '').toLowerCase() === 'true'
 				? mainEmbedGate
 				: main;
-		process.exit(runner());
+		process.exit(runner(input));
 	} catch (err) {
 		console.error('[screenshot-check] internal error:', err);
 		process.exit(2);

@@ -217,6 +217,7 @@ PO の「『卒業』をプロダクト哲学（ADR-0023 §3.8）として実装
   - ニックネーム（公開時実名禁止、最大 30 文字、承諾時のみ必須）
   - 卒業メッセージ（公開可、最大 500 文字、任意）
 - 承諾済 / 未承諾どちらでも recordGraduationConsent() で記録
+- 記録後の遷移は離反 / 中断経路と同型: Stripe Customer あり & Stripe 有効 → Customer Portal の解約フロー（失敗時は `thanks?portalUnavailable=1`）、無料プラン / Stripe 未有効 → `thanks`
 
 ##### graduation-service
 
@@ -344,12 +345,31 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
 外部 SaaS の設定を常時監視する機構は持たず（Pre-PMF、ADR-0010）、以下の 3 点で塞ぐ。
 
 1. **フォールバック**: `createPortalSession()` は flow 付き session の作成が失敗したら、**flow 無しで作り直す**。
-   作り直しも失敗した場合は握り潰さず throw する（portal に入れない事実を成功として返さない）
-2. **倒れたことを顧客に伝える**: 戻り値 `flowFallback: true` を呼び出し元へ返す。
-   - プラン変更（`POST /api/stripe/portal`）: 応答 `{ url, flowFallback }`。画面は自動遷移せず
-     `portal-fallback-notice` を出し、作成済み session への「請求管理ページへ進む」で進ませる（PIN 再入力なし）
-   - 解約（`cancel/+page.server.ts`）: portal へ飛ばさず `/admin/subscription?portalFallback=cancel` へ戻し、
-     同じ通知を出す。**解約理由を書き終えた直後に予期しない画面へ落とさない**
+   作り直しも失敗した場合は握り潰さず型付きの失敗（`PORTAL_CREATE_FAILED`）を返す
+   （portal に入れない事実を成功として返さない）
+2. **倒れたことを顧客に伝え、理由で出口を変える**: 戻り値 `flowFallback` に**理由**
+   （`PORTAL_FALLBACK_REASON`）を載せて呼び出し元へ返す。着地（portal ホーム）は同じでも、
+   **顧客が次に取るべき行動が正反対**なので理由を落とさない
+
+   | 理由 | 立つ条件 | 顧客に示す次の手 |
+   |---|---|---|
+   | `flow-rejected` | Stripe が `flow_data` を拒否した | 時間をおいて再試行（この画面の「請求ポータルを開く」から続ける） |
+   | `no-subscription` | `stripeSubscriptionId` を持たず `flow_data` を組み立てられなかった | **サポート窓口**（`/admin/settings/support`）。自力では完了できない |
+
+   `no-subscription` は解約済みで Customer だけ残る場合のほか、**Stripe 側にサブスクが生きているのに
+   DB 側が null というドリフト**でも起き、黙って通すと「解約を押したのに課金が続く」になる。
+   このとき再試行を促すと**押すたびに同じ画面へ戻る出口の無いループ**になり、解約導線の実効性を欠く
+   （特商法）。`home` を要求した場合はホーム着地が期待どおりなので立てない
+   - プラン変更（`POST /api/stripe/portal`）: 応答 `{ url, flowFallback, flowFallbackReason }`。
+     画面は自動遷移せず `portal-fallback-notice` を出し、`flow-rejected` なら作成済み session への
+     「請求管理ページへ進む」で進ませる（PIN 再入力なし）。`no-subscription` では進むボタンを出さず
+     サポート導線（`portal-fallback-support`）に置き換える
+   - 解約（`cancel/+page.server.ts`）/ 卒業（`cancel/graduation/+page.server.ts`）/ thanks の再試行:
+     portal へ飛ばさず `/admin/subscription?portalFallback=cancel&portalFallbackReason=<理由>` へ戻し、
+     理由に応じた通知を出す（URL 組み立ては `buildPortalFallbackLocation()` に集約）。
+     **解約理由を書き終えた直後に予期しない画面へ落とさない**
+   - `no-subscription` は `logger.warn`（tenantId 付き）で残す。課金整合性の破れを運用が数えられない
+     状態にしない。Discord alert は上げない（正常な再訪でも立つため alert fatigue、ADR-0010）
    - 文言は `SUBSCRIPTION_PAGE_LABELS.portalFallback*`（labels SSOT）。**原因は顧客に説明しない**（ADR-0062）
 3. **`intent` の検証**: `POST /api/stripe/portal` の `intent` は allowlist
    （`plan-change` / `plan-upgrade` / `billing-history`）で検証し、外れたら安全側（`home`）に倒して
@@ -443,7 +463,7 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
 
 ### 5.1 実装状況
 
-**#738 で実装済み**。`/admin/license` の「プラン変更・支払い管理」ボタン押下時に、ダウングレード先プランの上限を���えるリソースがある場合は、Portal 遷移前にリソース選���ダイアログを表示する。
+**#738 で実装済み**。`/admin/license` の「プラン変更・支払い管理」ボタン押下時に、ダウングレードで**顧客が何かを失う場合**は Portal 遷移前に確認ダイアログを表示する。開くかどうかの判定は `src/lib/features/admin/downgrade-dialog-policy.ts` の `shouldOpenDowngradeSelector`（`hasExcess`（上限超過リソースあり）または `willLoseHistory`（保持期間短縮）の論理和）を SSOT とする。
 
 ### 5.2 挙動
 
@@ -457,8 +477,9 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
 | 残すリソース選択 | チェックボックスで「残す」「アーカイブ」を選択 |
 | アーカイブ動作 | `is_archived = true, archived_reason = 'downgrade_user_selected'`。物理削除しない |
 | アップグレード時の復元 | `is_archived = false` に戻すだけで完全復元可能（既存の `restoreArchivedResources` が `trial_expired` を復元するのと同じ機構） |
-| 履歴保持の警告 | 現在の保持日数 > 新プランの保持日数なら「古い履歴は閲覧不可になります」警告 |
-| 超���なしの場合 | プレビューで超過なしなら選択画面をスキップし��直接 PIN 確認ダイアログへ進む |
+| 履歴保持の警告 | 現在の保持日数 > 新プランの保持日数なら、短縮の事実に加えて「新プランの保持期間を超えた記録は削除され、復元できません（再契約でも戻りません）」と警告する。retention 超過分は `retention-cleanup-service` が行ごと削除するため、アーカイブ (上表) と違い復元手段が無い |
+| 超過なし + 保持期間短縮あり | 選択 UI は出さず、保持期間短縮の警告だけを出して「プラン変更へ進む」で PIN 確認へ進む |
+| 超過なし + 保持期間短縮なし | 失うものが無いのでダイアログを開かず、直接 PIN 確認ダイアログへ進む |
 
 ### 5.3 ダウングレード経路のフロー
 
@@ -469,22 +490,26 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
         ▼
   GET /api/v1/admin/downgrade-preview?targetTier=free
         │
-        ├─ hasExcess === true
+        ├─ hasExcess === true（保持期間短縮の有無は問わない）
         │    └─ DowngradeResourceSelector ダイアログ表示
         │         │
         │         ├─ ユーザーがアーカイブするリソースを選択
-        │         ├─ 「アーカイブしてプラン変更へ��む」ボタン
+        │         ├─ 「アーカイブしてプラン変更へ進む」ボタン
         │         ▼
         │    POST /api/v1/admin/downgrade-archive
         │      body: { targetTier, childIds, activityIds, checklistTemplateIds }
         │         │
         │         ├─ サーバーで is_archived を更新
-        │         ├─ 残数が上限以内か検証��失敗→エラー返却）
+        │         ├─ 残数が上限以内か検証（失敗→エラー返却）
         │         ▼
         │    成功 → PIN 確認ダイアログ (#771) へ進む
         │
-        ├─ hasExcess === false
-        │    └─ PIN 確認ダイアログへ直接進む
+        ├─ hasExcess === false かつ willLoseHistory === true
+        │    └─ DowngradeResourceSelector ダイアログ表示（保持期間短縮の警告のみ。選択 UI なし）
+        │         └─ 「プラン変更へ進む」→ archive は実行せず PIN 確認ダイアログへ
+        │
+        ├─ hasExcess === false かつ willLoseHistory === false
+        │    └─ 失うものが無いのでダイアログを開かず PIN 確認ダイアログへ直接進む
         ▼
   PIN 確認 → POST /api/stripe/portal → Customer Portal
 ```

@@ -3,6 +3,14 @@
 	"_forbiddenPathPrefixes": "src/ 配下の alert を baseline に載せることは禁止 (顧客経路の alert に『受容』の選択肢を作らない)。src/ の entry があれば ledger 検証自体が fail する。",
 	"entries": [
 		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/architecture/ai-suggest-gate-derivation.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #47 (2026-08-13、第21回統合監査で検出)。#4506 の fitness function が repo 内の source file を読んでコメントを落とす stripComments の regex。入力は自リポジトリの source file のみで、結果は includes() 判定にしか使わない (HTML として描画しない / ユーザー入力を通さない) ため injection 経路が無い。本番 bundle にも載らない。",
+			"resolutionTrigger": "tests/unit/architecture/ai-suggest-gate-derivation.test.ts の stripComments を次に触るとき"
+		},
+		{
 			"rule": "js/regex-injection",
 			"path": "scripts/check-recent-deploy-deletion.mjs",
 			"count": 1,

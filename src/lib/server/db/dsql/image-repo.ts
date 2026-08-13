@@ -14,7 +14,10 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId } from '$lib/domain/ids';
-import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
+import {
+	assertTenantScopedAvatarUrl,
+	assertTenantScopedStorageKey,
+} from '$lib/server/storage-keys';
 import type { IImageRepo } from '../interfaces/image-repo.interface';
 import type { CharacterImage } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
@@ -69,6 +72,10 @@ export function createDsqlImageRepo(db: SqlExecutor): IImageRepo {
 		},
 
 		async updateChildAvatarUrl(childId, avatarUrl, tenantId) {
+			// #4546 ②: 他テナントを指す URL を avatar_url に書けないようにする。
+			// family_id 述語は「他人の行を更新しない」を守るが、「自分の行に他人を指す値を書く」
+			// (IDOR / account 削除の prefix 一括削除からの漏れ) は別問題なので値側も検査する。
+			assertTenantScopedAvatarUrl(avatarUrl, tenantId);
 			await db.execute(sql`
 				UPDATE children SET avatar_url = ${avatarUrl}, updated_at = now()
 				WHERE family_id = ${tenantId} AND child_id = ${childId}
@@ -76,6 +83,8 @@ export function createDsqlImageRepo(db: SqlExecutor): IImageRepo {
 		},
 
 		async updateChildAvatarUrlIfMatches(childId, expectedAvatarUrl, avatarUrl, tenantId) {
+			// #4546 ②: 書き込む値のみ検査する (expectedAvatarUrl は DB から読んだ値なので対象外)。
+			assertTenantScopedAvatarUrl(avatarUrl, tenantId);
 			// #4466: 期待値を WHERE に載せ、一致しなければ 0 行更新で負ける (lost update 防止)。
 			// SqlExecutor は rowCount を公開しないため RETURNING の行数で判定する
 			// (cloud-export-repo の updateStatus / daily-mission-complete と同 convention)。

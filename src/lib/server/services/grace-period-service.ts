@@ -9,6 +9,8 @@
 //   standard: 7日間
 //   family:   30日間
 
+import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
+import { formatJSTDate, toJSTDateString } from '$lib/domain/date-utils';
 import { env } from '$lib/runtime/env';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
@@ -38,7 +40,6 @@ type PurgeRoute = Extract<DeletionRoute, 'grace-expiry' | 'manual'>;
  */
 export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
 
-/** プラン別グレースピリオド（日数）。0 = 即時物理削除 */
 /**
  * #4327: 物理削除の**部分失敗**を表す log 行の検索語 (SSOT)。
  *
@@ -51,16 +52,16 @@ export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
 
 /**
- * #4338: soft-delete 判定キーの SSOT。実体は leaf module (`soft-delete-keys.ts`) に置き、
- * ここから re-export する (削除側 tenant-cleanup-service との import cycle を避けるため)。
+ * 実体を leaf module に置き、ここから re-export するもの (本 module の public API は不変)。
+ *
+ * - `GRACE_PERIOD_JUDGMENT_KEYS` (#4338): soft-delete 判定キーの SSOT。実体は
+ *   `soft-delete-keys.ts` (削除側 tenant-cleanup-service との import cycle を避けるため)。
+ * - `DELETION_GRACE_PERIOD_DAYS` (#4496): 猶予日数の値 SSOT。実体は domain leaf
+ *   `$lib/domain/constants/deletion-grace`。顧客に見える文言側 (terms.ts → labels.ts → LP) は
+ *   server module を import できないため、値を domain に置かないと数値が複製される
+ *   (複製された「7 日 / 30 日」が**解約**の説明に転用されたのが #4496 の根本原因)。
  */
-export { GRACE_PERIOD_JUDGMENT_KEYS };
-
-export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
-	free: 0,
-	standard: 7,
-	family: 30,
-} as const;
+export { DELETION_GRACE_PERIOD_DAYS, GRACE_PERIOD_JUDGMENT_KEYS };
 
 // ============================================================
 // Types
@@ -100,6 +101,55 @@ export interface RestoreResult {
 // ============================================================
 // Soft delete
 // ============================================================
+
+/**
+ * 退会予約の受付をオーナーへ通知する (#4507)。
+ *
+ * 送信可否で予約処理を止めないため、失敗は例外にせずログに残すだけにする
+ * (宛先不明・SES 障害で「退会できない」を作らない)。
+ */
+async function notifyDeletionReserved(
+	tenantId: string,
+	physicalDeletionDate: string,
+	graceDays: number,
+): Promise<void> {
+	try {
+		const repos = getRepos();
+		const members = await repos.auth.findTenantMembers(tenantId);
+		const owner = members.find((m) => m.role === 'owner');
+		if (!owner) {
+			logger.warn('[grace-period] no owner found; deletion reserved without notification', {
+				context: { tenantId },
+			});
+			return;
+		}
+		const user = await repos.auth.findUserById(owner.userId);
+		if (!user?.email) {
+			logger.warn('[grace-period] owner has no email; deletion reserved without notification', {
+				context: { tenantId },
+			});
+			return;
+		}
+		const tenant = await repos.auth.findTenantById(tenantId);
+		const { sendDeletionReservedEmail } = await import('./email-service');
+		const ok = await sendDeletionReservedEmail({
+			email: user.email,
+			ownerName: user.displayName || tenant?.name || '',
+			deletionDate: formatJSTDate(toJSTDateString(new Date(physicalDeletionDate))),
+			graceDays,
+		});
+		if (!ok) {
+			logger.error('[grace-period] deletion reserved email send failed', {
+				context: { tenantId },
+			});
+		}
+	} catch (err) {
+		logger.error('[grace-period] deletion reserved email failed', {
+			error: String(err),
+			context: { tenantId },
+		});
+	}
+}
 
 /**
  * テナントをソフトデリートする。
@@ -162,6 +212,13 @@ export async function softDeleteTenant(
 	logger.info('[grace-period] Tenant soft deleted', {
 		context: { tenantId, planTier, graceDays, physicalDeletionDate },
 	});
+
+	// #4507: 予約を受け付けたことをオーナーへ通知する。
+	//   sentinel (soft_deleted_at) を書いた**後**に送る。先に送ると、後続の書き込みが
+	//   失敗して soft-delete が成立しなかったときに「予約しました」だけが届く。
+	//   送信失敗で予約自体を巻き戻さない (削除の受付は成立しており、猶予期限も止まらない)。
+	//   届かなかったことは下の logger.error と、猶予中の削除予告メール (#2399) で補う。
+	await notifyDeletionReserved(tenantId, physicalDeletionDate, graceDays);
 
 	return {
 		success: true,

@@ -8,6 +8,7 @@ import {
 	CHALLENGES_LABELS,
 	PAGE_TITLES,
 	UI_LABELS,
+	UNRESOLVED_ENTITY_LABELS,
 } from '$lib/domain/labels';
 // CX-DoR #9・#11: empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
@@ -231,7 +232,7 @@ function tabHref(childId: ChildId | 'all'): string {
 						{@const pct = Math.min(100, Math.round((firstInstance.currentValue / firstInstance.targetValue) * 100))}
 						<div class="flex items-center gap-2" data-testid="admin-challenges-single-progress">
 							<span class="text-xs font-medium text-[var(--color-text-primary)] w-20 truncate">
-								{child?.nickname ?? `#${firstInstance.childId}`}
+								{child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child}
 							</span>
 							<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
 								<div
@@ -261,7 +262,7 @@ function tabHref(childId: ChildId | 'all'): string {
 											ADMIN_CHALLENGES_PAGE_LABELS.deleteConfirmTitle,
 											ADMIN_CHALLENGES_PAGE_LABELS.deleteConfirmBody(
 												group.title,
-												child?.nickname ?? `#${instance.childId}`,
+												child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child,
 											),
 										)
 									) {
@@ -276,7 +277,7 @@ function tabHref(childId: ChildId | 'all'): string {
 									size="sm"
 									data-testid="admin-challenge-delete-{instance.id}"
 								>
-									{group.instances.length >= 2 ? `${child?.nickname ?? '#' + instance.childId} を削除` : CHALLENGES_LABELS.deleteButton}
+									{group.instances.length >= 2 ? `${child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child} を削除` : CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
 						{/each}

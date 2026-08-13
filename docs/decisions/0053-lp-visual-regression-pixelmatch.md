@@ -11,7 +11,7 @@
 
 LP (`site/**`) の visual regression を CI で構造的検出する gate が未整備で、demo 固有 UI 映り込み / dialog auto-open 干渉 / レイアウト破壊が手動レビュー依存（PO-4-7 で 8 回再発）。
 
-PR #1893 (Phase 1) で `pixelmatch` + `pngjs` + `sharp` を dev 依存に追加し baseline ディレクトリを整備済。本 ADR は #2401 (Phase 2 = CI gate 実装) で導入する `scripts/check-lp-visual-regression.mjs` (305 行) の OSS 選定根拠を ADR-0014 / #1350 (10 行超 OSS 先調査ルール) に従って記録する。
+PR #1893 (Phase 1) で `pixelmatch` + `pngjs` + `sharp` を dev 依存に追加し baseline ディレクトリを整備済。本 ADR は #2401 (Phase 2 = CI gate 実装) で導入する `scripts/check-lp-visual-regression.mjs` (305 行) の OSS 選定根拠を `docs/decisions/README.md` §OSS 先調査ルール / #1350 (10 行超 OSS 先調査ルール) に従って記録する。
 
 ## 検討した選択肢
 
@@ -77,8 +77,8 @@ PR #1893 (Phase 1) で `pixelmatch` + `pngjs` + `sharp` を dev 依存に追加�
 - **メリット**: 完全制御
 - **デメリット**:
   - **pixelmatch (110 行のコア) を再実装する意味なし**。anti-aliasing tolerance / YIQ 色空間変換 / threshold ロジックを自前で書くと 200+ 行
-  - ADR-0014 / #1350 (10 行超 OSS 先調査ルール) 違反
-- **Pre-PMF コスト**: 不採用 (ADR-0014 違反)
+  - `docs/decisions/README.md` §OSS 先調査ルール / #1350 (10 行超 OSS 先調査ルール) 違反
+- **Pre-PMF コスト**: 不採用 (OSS 先調査ルール違反)
 
 ## 決定
 
@@ -90,14 +90,14 @@ PR #1893 (Phase 1) で `pixelmatch` + `pngjs` + `sharp` を dev 依存に追加�
 2. 業界標準 (Mapbox 製 / stars 6k+ / MIT) で、内部実装を読めるサイズ (110 行のコア)
 3. Pre-PMF 段階で SaaS 課金 (Percy / Chromatic) は ROI 不明、git tracked baseline (ADR-0013 LP truth) と矛盾しない
 4. Playwright `toHaveScreenshot()` は撮影戦略 (preview server + cookie + scrollTo) が複雑すぎて統合困難 (capture-hp-screenshots.mjs 300+ 行を維持する設計判断)
-5. 5 件比較 (B/C/D/E/F) で A が最適、独自実装 (F) は ADR-0014 / #1350 で禁止
+5. 5 件比較 (B/C/D/E/F) で A が最適、独自実装 (F) は `docs/decisions/README.md` §OSS 先調査ルール / #1350 で禁止
 
 **棄却した選択肢の総括**:
 - B (jest-image-snapshot): jest 移行コストが過大
 - C (Playwright `toHaveScreenshot`): 撮影戦略の再実装コストが過大、将来候補
 - D (Percy / Chromatic): SaaS 課金が Pre-PMF 過剰
 - E (BackstopJS): Puppeteer 依存で runner 二重化
-- F (独自実装): ADR-0014 違反
+- F (独自実装): OSS 先調査ルール違反
 
 ## 結果
 

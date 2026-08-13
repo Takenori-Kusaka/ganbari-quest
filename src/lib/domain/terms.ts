@@ -48,7 +48,10 @@
 //
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
 
+import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constants/deletion-grace';
+import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
+import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -95,8 +98,16 @@ export const PLAN_FULL_TERMS = {
 // ============================================================
 
 export const PRICE_TERMS = {
-	standard: '¥500',
-	family: '¥780',
+	// #4533: 金額の値は constants/plan-price.ts が SSOT。ここは整形だけを担う
+	// (表示に数値を複製すると値上げ時に LP 料金表と Stripe 実請求額が食い違う)。
+	standard: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY]),
+	family: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]),
+	/** 年額 (#2719 で新規購入停止。過去契約者の表示 / 特商法表記に残る) */
+	standardYearly: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.YEARLY]),
+	familyYearly: formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY]),
+	/** 数値後置形 (「月額500円（税込）」等、法務文書 / meta description 用) */
+	standardYenFull: `${PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY]}円`,
+	familyYenFull: `${PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]}円`,
 	free: '¥0',
 	taxNote: '（税込）',
 	monthlyPrefix: '月 ',
@@ -968,6 +979,33 @@ export const NUC_EDITION_TERMS = {
 } as const;
 
 // ============================================================
+// OSS_LICENSE_TERMS — OSS ライセンス表記 atom (#4499)
+// ============================================================
+//
+// GAMMA 監査 (#4495) Step 1 finding GAMMA-SELFHOST-01: `site/selfhost.html`
+// が「オープンソース（MIT License）」と表示していたが、リポジトリの実ライセンスは
+// AGPL-3.0-only（`LICENSE:1` / `package.json` "license"）で虚偽表示だった。
+// AGPL はコピーレフト義務（改変版のネットワーク提供時のソース開示）を伴い、
+// MIT とは商用利用の条件が本質的に異なるため、名称と条件説明を atom として
+// SSOT 化し、以後のライセンス種別変更が 1 行で全箇所に伝播するようにする。
+//
+// 設計指針:
+//   - spdxId     : SPDX 完全形。`package.json` の "license" と 1 文字も違わない値を持つ。
+//                  SPDX では `-only` と `-or-later` は拘束力が異なる別ライセンス識別子であり、
+//                  フォークする第三者にとって意味が変わるため、短縮形 ('AGPL-3.0') では書かない。
+//   - commercialUse       : 商用利用の可否（メリット側の事実）
+//   - copyleftObligation  : コピーレフト義務（義務側の事実。メリット一覧に混ぜない）
+//
+// 参照: docs/DESIGN.md §6 / Issue #4499 / #4495 / #4547
+
+export const OSS_LICENSE_TERMS = {
+	spdxId: 'AGPL-3.0-only',
+	commercialUse: '商用利用も可能です',
+	copyleftObligation:
+		'改変版をネットワーク経由で提供する場合は、同じライセンスでソースコードを開示する義務があります',
+} as const;
+
+// ============================================================
 // OYAKAGI_TERMS — おやカギコード関連 atom (#2353)
 // ============================================================
 //
@@ -1169,4 +1207,34 @@ export const PLAN_RETENTION_TERMS = {
 	standard: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「1 年」) */
 	standardSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
+} as const;
+
+// ============================================================
+// DELETION_GRACE_TERMS — 退会 (アカウント削除) のプラン別猶予期間 atom (#4496)
+// ============================================================
+//
+// 値の SSOT は `constants/deletion-grace.ts` の DELETION_GRACE_PERIOD_DAYS
+// (server 側 grace-period-service.ts も同じ定数を re-export する)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+//
+// **この猶予は「退会」にだけ存在する**。解約 (サブスクリプションの自動更新停止) では
+// データは削除されず、猶予期間も発生しない (#3991 期末解約モデル)。本 atom を
+// 解約の説明に使ってはならない — その取り違えが #4496 (LP・特商法・アプリ内 FAQ の
+// 「解約するとデータが削除される」系文言) の根本原因である。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てて template literal を解決する。両者が一致することは
+// tests/unit/domain/cancel-vs-deletion-terminology.test.ts が機械検証する。
+
+export const DELETION_GRACE_TERMS = {
+	/** 無料プランの退会猶予 (例: 「即時」= 申請と同時に削除) */
+	free: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.free),
+	/** スタンダードプランの退会猶予 (例: 「7日」) */
+	standard: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.standard),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「7 日」) */
+	standardSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.standard, { spaced: true }),
+	/** プレミアムプランの退会猶予 (例: 「30日」) */
+	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
+	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
 } as const;

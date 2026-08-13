@@ -6,7 +6,7 @@ import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #3151 slice3 (ADR-0066): item label / icon の値域 SSOT。admin authoring 経路と wire schema が
 // 同一境界を共有し、authoring 可能な item ⊆ export/import 往復可能な item を成立させる。
@@ -28,6 +28,7 @@ import {
 	findTodayLog,
 } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
+import { warnOrphanChildReferences } from '$lib/server/orphan-child-reference';
 import {
 	distributeToChildren,
 	syncDistribution,
@@ -76,7 +77,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					const child = children.find((c) => c.id === a.childId);
 					return {
 						childId: a.childId,
-						childName: child?.nickname ?? `#${a.childId}`,
+						childName: child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child,
 						checkedCount: checkedIds.length,
 						totalCount: items.length,
 						completedAll: log?.completedAll === 1,
@@ -91,6 +92,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			};
 		}),
 	);
+
+	// #4556: 配信先 (assignments) の childId が children から引けないと表示は
+	// 「不明なお子さま」に潰れる。潰れた件数を後から数えられるようにする。
+	warnOrphanChildReferences({
+		tenantId,
+		referencedChildIds: familyTemplates.flatMap((t) => t.assignedChildIds),
+		knownChildIds: children.map((c) => c.id),
+		source: 'admin/checklists:load',
+	});
 
 	// 旧 per-child legacy 経路 (admin UI の child 別タブ + override) 維持: family scope で
 	// findAssignmentsByChild ベースに置換える代わりに、family scope の overrides を child 別に並べる。
@@ -130,6 +140,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		familyTemplates,
 		today,
 		isPremium,
+		// #4506: AI 提案パネルの UI プランゲート (premium 限定) の導出元。
+		// 従来は page load が返しておらず (parent)/admin/+layout.server.ts の値で解決していたため、
+		// この page だけを読むと「常に undefined」と誤読された (#2902 / #4506 で 2 度)。
+		// 値は layout と同一 (resolveFullPlanTier)。参照元を page 内で追えるようにするための明示返却。
+		planTier: tier,
 		checklistTemplateMax,
 		importPresetId,
 		importPresetInvalid,

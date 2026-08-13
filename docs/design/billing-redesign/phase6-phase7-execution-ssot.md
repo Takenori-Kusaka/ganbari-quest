@@ -406,7 +406,7 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 計画書 v2 §�
   - Stripe webhook migration 5 phase (setup → shadow → cutover → retire) を自プロダクトに転用
   - feature flag (`USE_LOOKUP_KEY`) で kill switch 実装
   - 72h rollback window 活用 (apiVersion bump)
-- **選択肢比較** (OSS 先調査ルール ADR-0014 整合):
+- **選択肢比較** (`docs/decisions/README.md` §OSS 先調査ルール 整合):
   - **A. Stripe 公式 5 phase + 自前 env var kill switch** (本 PR 採用)
   - **B. Stripe 公式 5 phase + LaunchDarkly feature flag platform**: 不採用 (Pre-PMF 過剰防衛、ADR-0010)
   - **C. Stripe 公式 5 phase + Unleash OSS**: 不採用 (同上)
@@ -480,7 +480,7 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 計画書 v2 §�
 ### ADR (関連)
 - ADR-0010 (Pre-PMF、最小構成 kill switch、LaunchDarkly 不採用)
 - ADR-0012 (Anti-engagement、lock-in 罠回避)
-- ADR-0014 (OSS 先調査、Stripe 公式 5 phase + 自前 env var の組合せ)
+- `docs/decisions/README.md` §OSS 先調査ルール（Stripe 公式 5 phase + 自前 env var の組合せ）
 - ADR-0020 (PR size ≤ 500 行、5 step 分割の根拠)
 - ADR-0031 (DB migration 互換、Step 1)
 - ADR-0045 (atom / compound、Step 2)

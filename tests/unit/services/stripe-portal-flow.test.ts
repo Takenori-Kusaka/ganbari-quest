@@ -20,9 +20,13 @@
 // ユニットで担保できるのは **`create()` に渡した引数**までなので、そこを固定する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PORTAL_FALLBACK_REASON } from '$lib/domain/constants/stripe-portal';
 
 const mockFindTenantById = vi.fn();
 const mockPortalCreate = vi.fn();
+// #4548: この経路が**運用から観測できる**ことを固定するために参照を掴んでおく。
+const mockWarn = vi.fn();
+const mockStripeAlert = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -51,8 +55,12 @@ vi.mock('$lib/server/stripe/config', () => ({
 	GRACE_PERIOD_DAYS: 7,
 	CURRENCY: 'jpy',
 }));
-vi.mock('$lib/server/stripe/alert', () => ({ notifyStripeAlert: vi.fn() }));
-vi.mock('$lib/server/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('$lib/server/stripe/alert', () => ({
+	notifyStripeAlert: (...args: unknown[]) => mockStripeAlert(...args),
+}));
+vi.mock('$lib/server/logger', () => ({
+	logger: { info: vi.fn(), warn: (...args: unknown[]) => mockWarn(...args), error: vi.fn() },
+}));
 vi.mock('$lib/server/services/discord-notify-service', () => ({
 	notifyDiscord: vi.fn(),
 	notifyIncident: vi.fn(),
@@ -177,7 +185,12 @@ describe('#4270 Stripe が flow を拒否したら home で作り直す', () => 
 			'作り直しに flow を残すと同じ理由でまた落ち、portal に入れないままになる',
 		).toBeUndefined();
 		expect(lastArgs().return_url).toBe(RETURN_URL);
-		expect(result).toEqual({ url: 'https://billing.stripe.com/home_1', flowFallback: true });
+		expect(result).toEqual({
+			url: 'https://billing.stripe.com/home_1',
+			// #4548: 理由は「Stripe に拒否された」= 再試行で直りうる側。ここを恒久不能と取り違えると、
+			// 直りうる顧客に「サポートへ連絡してください」を出して自力解決を奪う。
+			flowFallback: PORTAL_FALLBACK_REASON.FLOW_REJECTED,
+		});
 	});
 
 	it('倒れたことを呼び出し元に伝える (黙って portal ホームへ落とさないため)', async () => {
@@ -192,8 +205,8 @@ describe('#4270 Stripe が flow を拒否したら home で作り直す', () => 
 
 		expect(
 			'flowFallback' in result && result.flowFallback,
-			'true でないと画面が「予期しない場所に着いた」ことに気づけず案内を出せない',
-		).toBe(true);
+			'立てないと画面が「予期しない場所に着いた」ことに気づけず案内を出せない',
+		).toBe(PORTAL_FALLBACK_REASON.FLOW_REJECTED);
 	});
 
 	it('成功したときは flowFallback を立てない (通常の直行と区別する)', async () => {
@@ -239,7 +252,143 @@ describe('#4166 AC2 subscription を持たないなら home にフォールバ�
 			lastArgs().flow_data,
 			'subscription 無しで flow を付けると Stripe が 400 を返し導線ごと死ぬ',
 		).toBeUndefined();
-		// **落とさずに portal へは入れる**こと（fallback の意味）
+		// **落とさずに portal へは入れる**こと（fallback の意味）。
+		// #4537: 同時に「直行できていない」を呼び出し元へ伝える (下の describe が固定する)。
+		expect(result).toEqual({
+			url: 'https://billing.stripe.com/session_1',
+			flowFallback: PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION,
+		});
+	});
+});
+
+describe('#4537 subscription が無くて flow を組めなかったことを黙って通さない', () => {
+	// ## 実害
+	//
+	// `stripeCustomerId` はあるが `stripeSubscriptionId` が null の顧客は、flow_data 無しで
+	// session を作るので Stripe API は**成功する**。旧実装は `{ url }` だけを返し、呼び出し元は
+	// 「直行できた」と解釈して素通ししていた。顧客は「解約手続きへ進む」を押したのに
+	// portal ホームへ放り出され、**説明が一切出ない**。
+	//
+	// DB の stripeSubscriptionId が null なのに Stripe 側にサブスクが生きているドリフトがあれば、
+	// これは「押したのに課金が続く」(#4498) と同じ結果になる。
+	it.each([
+		'subscription_update',
+		'subscription_cancel',
+	] as const)('%s: subscription が無ければ flowFallback を立てる', async (kind) => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, { kind });
+
+		// #4548: 理由まで固定する。ここが FLOW_REJECTED になると画面は「もう一度お試しください」を
+		// 出し、**何度押しても同じ結果になる**顧客が出口の無いループに入る (特商法上の実効性)。
+		expect(
+			'flowFallback' in result && result.flowFallback,
+			'立てないと呼び出し元は素通しし、顧客は説明なく portal ホームへ落ちる',
+		).toBe(PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION);
+	});
+
+	it('undefined の subscription (列自体が無い) でも flowFallback を立てる', async () => {
+		// `?? null` の正規化を経由しない実データ形状でも判定が効くこと
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: undefined }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect('flowFallback' in result && result.flowFallback).toBe(
+			PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION,
+		);
+	});
+
+	it('空文字の subscription でも flowFallback を立てる (flow_data を組めていない事実は同じ)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: '' }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(lastArgs().flow_data).toBeUndefined();
+		expect('flowFallback' in result && result.flowFallback).toBe(
+			PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION,
+		);
+	});
+
+	// AC2: home は「ホームに着く」のが期待どおりの着地。ここまで案内を出すと、請求書確認 /
+	// 支払い方法変更をしに来た顧客に「手続きは完了していません」が出てしまう。
+	it('home 要求時は subscription が無くても flowFallback を立てない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, { kind: 'home' });
+
 		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('flow 未指定 (home 相当) も同様に立てない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL);
+
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('subscription があって直行できたときは立てない (通常経路の回帰防止)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant());
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('subscription 無しで session 作成も失敗したら成功として返さない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+		mockPortalCreate.mockRejectedValue(new Error('Stripe API down'));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(result).toEqual({ error: 'PORTAL_CREATE_FAILED' });
+	});
+});
+
+describe('#4548 subscription 不在のドリフトを運用から観測できるようにする', () => {
+	// ## なぜ必要か
+	//
+	// 「DB は stripeSubscriptionId が null だが Stripe 側ではサブスクが生きている」ドリフトでは、
+	// 顧客は解約フローに到達できないまま課金され続ける。#4270 の flow 拒否経路は logger.warn を
+	// 残していたのに、この経路は logger も alert も呼んでおらず、**何件起きているか誰にも
+	// 分からなかった**。件数が見えなければ、行き止まりに嵌まった顧客の存在に運用が気づけない。
+	it('subscription 不在で home に着地したことを tenantId 付きで記録する', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		await createPortalSession('t-test', RETURN_URL, { kind: 'subscription_cancel' });
+
+		expect(
+			mockWarn,
+			'記録が無いと、解約できない顧客が何人いるか運用側から永久に見えない',
+		).toHaveBeenCalledTimes(1);
+		const message = String(mockWarn.mock.calls.at(0)?.[0] ?? '');
+		expect(message, 'どのテナントかを特定できないと個別救済ができない').toContain('t-test');
+		expect(message).toContain('subscription');
+	});
+
+	// Pre-PMF (ADR-0010): 「解約済みで Customer だけ残る顧客の再訪」でも立つシグナルなので、
+	// alert にすると通知が鳴り続けて誰も読まなくなる。件数は logger を数えて把握する。
+	it('Discord alert は上げない (正常な再訪でも立つため alert fatigue になる)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		await createPortalSession('t-test', RETURN_URL, { kind: 'subscription_cancel' });
+
+		expect(mockStripeAlert).not.toHaveBeenCalled();
+	});
+
+	it('home 要求時は記録しない (期待どおりの着地でログを埋めない)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		await createPortalSession('t-test', RETURN_URL, { kind: 'home' });
+
+		expect(mockWarn).not.toHaveBeenCalled();
 	});
 });

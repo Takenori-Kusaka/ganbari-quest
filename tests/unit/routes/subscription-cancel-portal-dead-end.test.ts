@@ -18,6 +18,7 @@
 // biome-ignore-all lint/suspicious/noExplicitAny: テスト用 load/action の型を最小化
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PORTAL_FALLBACK_REASON } from '$lib/domain/constants/stripe-portal';
 import { PORTAL_UNAVAILABLE_PARAM } from '../../../src/lib/domain/constants/stripe-portal';
 
 const mockGetLicenseInfo = vi.fn();
@@ -129,15 +130,22 @@ describe('解約 action: portal を作れなかったとき (#4329 AC1 / AC4)', 
 		expect(thrown.location).toBe('https://billing.stripe.com/session_1');
 	});
 
-	it('flow 拒否 (#4270) の自画面戻しは従来どおり（回帰防止）', async () => {
+	// #4548: 理由も URL に載せる。載せないと戻り先は一時障害の文言 (再試行) しか出せず、
+	// 何度押しても直らない顧客に「もう一度お試しください」を出し続ける。
+	it.each([
+		[PORTAL_FALLBACK_REASON.FLOW_REJECTED],
+		[PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION],
+	])('flow 直行できなかったとき (理由 %s) は理由つきで自画面へ戻す', async (reason) => {
 		mockCreatePortalSession.mockResolvedValue({
 			url: 'https://billing.stripe.com/home_1',
-			flowFallback: true,
+			flowFallback: reason,
 		});
 
 		const thrown = await catchThrown(() => cancelAction(buildCancelEvent()));
 
-		expect(thrown.location).toBe('/admin/subscription?portalFallback=cancel');
+		expect(thrown.location).toBe(
+			`/admin/subscription?portalFallback=cancel&portalFallbackReason=${reason}`,
+		);
 	});
 });
 

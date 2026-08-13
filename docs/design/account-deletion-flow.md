@@ -75,6 +75,9 @@ else                              pattern = 'member';
 | **新オーナー昇格** (テナント `ownerId` 付け替え) | — | ✔ | — | — | — |
 | 子供レコードと user の link 解除（`child.userId = null`） | — | — | — | ✔ | — |
 | 他メンバーへのメール通知（`sendMemberRemovedEmail`） | — | — | ✔ | — | — |
+| オーナーへの削除完了通知（`sendDeletionCompleteEmail`、#4507） | ✔ | — | ✔ | — | — |
+
+> **オーナーへの通知は退会の両端で 1 通ずつ（#4507）**: 予約時に `sendDeletionReservedEmail`（`softDeleteTenant` 内）、物理削除の完了時に `sendDeletionCompleteEmail`（`deleteOwnerOnlyAccount` / `deleteOwnerFullDelete` 内）。完了通知を**物理削除を行う関数の側**に置いているため、無料プランの即時削除と猶予満了後の cron 削除の両経路が同じ 1 箇所を通る（呼び出し側ごとに配線し忘れる余地を作らない）。宛先は削除前に控える（削除後は users 行ごと消えて引けない）。無料プランは猶予 0 日で §4.7 の予告メールを送れないため、この完了通知が唯一の通知になる。
 
 > **重要**: パターン 3 (`deleteChildAccount`) は子供レコード自体を削除しない（活動履歴・実績は残す）。代わりに `child.userId` を `null` にしてアカウントだけ切り離す。これは「子供がスマホを返した」「再ログインのため UID を作り直したい」等のケースを想定したもの。
 
@@ -132,7 +135,12 @@ deleteOwnerFullDelete(tenantId, ownerId)
 | standard | 7 日 | あり | ○（grace 期間内のみ） |
 | family | 30 日 | あり | ○（grace 期間内のみ） |
 
-定数: `DELETION_GRACE_PERIOD_DAYS` in `src/lib/server/services/grace-period-service.ts`
+値 SSOT: `DELETION_GRACE_PERIOD_DAYS` in `src/lib/domain/constants/deletion-grace.ts`
+（`src/lib/server/services/grace-period-service.ts` は同定数を re-export する。顧客に見える文言は
+`terms.ts` の `DELETION_GRACE_TERMS` を経由して同じ値を引く — 表示側に日数を複製しない）
+
+**この猶予は退会（アカウント削除）にだけ存在する**。解約（サブスクリプションの自動更新停止、#3991
+期末解約モデル）ではデータは削除されず、猶予期間も発生しない。
 
 ### 4.2 実装フロー（#1781 で `softDeleteTenant` を `+server.ts` に配線完了）
 

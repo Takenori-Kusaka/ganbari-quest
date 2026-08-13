@@ -64,8 +64,25 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      # #4544: **base=develop の PR にしか auto-merge を仕掛けない**。
+      # dependabot の security 更新は dependabot.yml の target-branch を無視して default branch
+      # (= main) に PR を作る (GitHub 仕様、設定では直せない)。main 向け PR は ci.yml の
+      # `main-pr-base-guard` が fail-close するため今すぐ merge されはしないが、**auto-merge を
+      # 武装したまま置く**と「guard の条件が変わった / 誰かが retarget した」瞬間に、監査を通らない
+      # まま main へ merge = 本番 deploy が走る。武装そのものを base で止める (defense in depth)。
+      #
+      # なお #4532 で auto-merge が武装しなかったのは「人の commit を検出したから」という偶然の
+      # 副作用であり base を見た結果ではない。bot-only の通常 bump なら武装していた。
+      - name: Skip auto-merge for non-develop base (#4544)
+        if: github.event.pull_request.base.ref != 'develop'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          echo "::notice::base=${BASE_REF} は develop ではないため auto-merge の対象外 (依存更新は develop 軽量レーン経由、branch-strategy.md §7)。main 向けなら 'gh pr edit ${{ github.event.pull_request.number }} --base develop' で retarget してください。"
+
       - name: Enable auto-merge for minor and patch updates
         if: >-
+          github.event.pull_request.base.ref == 'develop' &&
           steps.authorship.outputs.human-commits == '0' &&
           (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
           steps.metadata.outputs.update-type == 'version-update:semver-patch')

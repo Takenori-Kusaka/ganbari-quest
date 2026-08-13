@@ -1,0 +1,68 @@
+// src/lib/domain/ai-suggest-gate.ts
+// AI 提案機能のプランゲート述語 SSOT (#4506 / EPIC #4495)。
+//
+// # なぜ 1 本にするか
+//
+// AI 提案は server 側 (`$lib/server/api/suggest-plan-gate.ts`) が premium 限定で enforce している。
+// 一方 UI 側は各 admin 画面が `isFamily` prop を **画面ごとに別々の式で導出** していたため、
+// 「server は拒否するのに UI は解放表示」という表示の嘘 (activities) と、
+// 「式は正しいのに壊れていると 2 度誤読される」状態 (checklists) が併存していた
+// (#2902 → #4506)。
+//
+// | 画面 | 旧導出 | 状態 |
+// |---|---|---|
+// | checklists | `data.planTier === 'family'` | **判定は正しかった** (`data.planTier` は `(parent)/admin/+layout.server.ts` が供給。premium 非ロックを実機実測)。ただし参照元が page load に見えないため「常に false」と 2 度誤読された |
+// | activities | `data.isPremium` (= 有料なら true、standard も含む) | **誤り**。standard に解放表示 → 実行時 403 (有利誤認 / legal)。#2902 が上記の誤読で「修正」した結果として入った |
+// | rewards | `data.planTier === 'family'` (page load も planTier 返却) | 正 |
+//
+// enforcement (server) と表示 (UI) が同じ述語を import することで、片側だけがずれる状態を
+// 構造的に作れなくする。call site の網羅は
+// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` (fitness function) が固定する。
+//
+// # silent false をどこで止めるか (型では止まらない)
+//
+// 引数は `PlanTier` (optional でない) を要求するので、**server 側の導出は型で守られる**
+// (`+page.server.ts` の `tier` は実型を持つ)。
+//
+// 一方 **page 側は型で守れない**。SvelteKit が生成する `PageData` は `OutputDataShape` 経由で
+// `Record<string, any>` を含むため、`data.<存在しない field>` は `any` に解決され、svelte-check /
+// tsc は何も言わない (存在しない field を参照する mutation を当てて 0 errors を実測)。
+//
+// したがって page ↔ load の対応は機械検査で担保する:
+// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` が、call site が読む `data.<field>` を
+// **load 連鎖 (page load + 祖先 layout load) のどこかが**返しているかを検査する
+// (mutation で検出を実測済)。layout を数えない検査は #2902 / #4506 の誤読の機械化になる。
+
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
+
+/**
+ * AI 提案機能が当該プランで利用可能か。
+ *
+ * server 側の enforcement (`validateSuggestRequest`) と同一の判定であり、UI のロック表示 /
+ * アップグレード CTA の出し分けはこの述語だけを根拠にする。
+ *
+ * # ⚠️ これは表示専用の述語ではない — 緩めると認可が緩む
+ *
+ * この関数は **UI のロック表示**と **server 側の認可 (`$lib/server/api/suggest-plan-gate.ts` の
+ * `validateSuggestRequest`)** の**両方**から呼ばれている。domain 層に置かれ「利用可能か」という
+ * 表示寄りの名前を持つため、**呼び出し元を見ずに書き換えると認可が黙って緩む**。
+ *
+ * 実際に来うる要件が「トライアル中は見た目だけ解放したい」「standard にも CTA を見せたい」の
+ * ような **UI 都合**であることに注意する。それをこの関数の条件に足すと、同じ条件が
+ * enforcement 側にもそのまま効き、**課金していないテナントが AI 提案 API を実行できる**
+ * (原価が出る / 有利誤認)。
+ *
+ * ## 表示都合の分岐が必要になったら
+ *
+ * この関数は「enforcement の判定」のまま据え置き、**表示側に別の述語を足す**
+ * (例: `isAiSuggestTeased(tier, trial)` を新設し、UI は「解放 = isAiSuggestUnlocked /
+ * 誘導表示 = isAiSuggestTeased」の 2 つを使い分ける)。enforcement が読む述語は 1 本に保つ。
+ *
+ * 呼び出し元が enforcement と表示の両方であることは
+ * `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` の
+ * 「共有述語の呼び出し元が enforcement と表示の両方である」が pin しており、call site が
+ * 増減すると CI が落ちる (= この JSDoc を読まずに触れない)。
+ */
+export function isAiSuggestUnlocked(tier: PlanTier): boolean {
+	return tier === 'family';
+}

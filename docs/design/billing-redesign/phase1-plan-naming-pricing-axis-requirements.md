@@ -113,7 +113,7 @@ Phase 1 trial 要件 (#2533) の「family 固定 7 日」は本 FR-1 連動で�
 本要件の判断 (業界調査 + 哲学整合 + Pre-PMF 影響) は ADR 級:
 - **ADR 候補名**: 「プラン命名と課金期間方針 (本格度軸 + 月額のみ)」
 - context: Spotify Family 2026 廃止 + 27% monthly-only + family 命名業界規範
-- 選択肢比較: Day One Silver/Gold + Cozi Gold + Notion Plus の 3 OSS/事例 (ADR-0014 OSS 先調査ルール整合)
+- 選択肢比較: Day One Silver/Gold + Cozi Gold + Notion Plus の 3 OSS/事例 (`docs/decisions/README.md` §OSS 先調査ルール 整合)
 - 整合: ADR-0010 (Pre-PMF) / ADR-0012 (Anti-engagement) / ADR-0013 (LP truth) / ADR-0045 (atom)
 - TOP 10 active 39 件超過中、月 1 棚卸 (2026-06) で 1-in-1-out トリガー判断
 
@@ -176,6 +176,6 @@ Phase 1 trial 要件 (#2533) の「family 固定 7 日」は本 FR-1 連動で�
   - [Prosperity Issue: Subscription Overload Families](https://prosperityissue.com/subscription-overload-how-recurring-costs-are-quietly-impacting-families)
 <!-- doc-code-refs: ignore-line -->
 - **Explore (2026-05-28)**: `src/lib/server/stripe/config.ts` (4 Price) / `src/lib/domain/constants/license-plan.ts` (MONTHLY/YEARLY_PLANS) / `src/lib/domain/terms.ts` (PLAN_TERMS / PRICE_TERMS) / `src/lib/domain/labels.ts` (95 件 atom 経由参照) / `site/*.html` (35 件) / 法務文書 (5 件)
-- 関連 ADR: ADR-0010 (Pre-PMF) / ADR-0012 (Anti-engagement) / ADR-0013 (LP truth) / ADR-0014 (OSS 先調査) / ADR-0028 (引き止めない) / ADR-0045 (atom/compound 2 階層) / ADR-0049 (retention)
+- 関連 ADR: ADR-0010 (Pre-PMF) / ADR-0012 (Anti-engagement) / ADR-0013 (LP truth) / `docs/decisions/README.md` §OSS 先調査ルール / ADR-0028 (引き止めない) / ADR-0045 (atom/compound 2 階層) / ADR-0049 (retention)
 - 関連 memory: [[plan-name-implementation-gap]] / [[roi-framing-customer-anxiety-axis]] / [[replan-on-unforeseen-blocker]] (本セッション教訓)
 - 関連 Phase 1 補強 1: [phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) (PR #2583 マージ済)

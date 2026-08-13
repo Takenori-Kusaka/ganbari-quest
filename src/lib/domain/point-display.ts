@@ -112,6 +112,58 @@ export function getUnitLabel(mode: PointUnitMode, currency: CurrencyCode): strin
 	return CURRENCY_DEFS[currency].symbol;
 }
 
+/** 「数値」と「単位」を別要素で描画する画面のための分割表現 */
+export interface PointDisplayParts {
+	/** 数値部分。通貨モードでは通貨記号込みの完成形になる */
+	amount: string;
+	/** 単位部分。通貨モードでは空文字 (記号は amount 側に含まれる) */
+	unit: string;
+}
+
+/**
+ * 数値と単位を別要素で組む画面 (子供のショップ残高 / ごほうび価格 / 交換確認) 向けの整形。
+ *
+ * #4509 ②: これらの画面は生ポイント + 固定「ポイント」を描画しており、通貨モードの家庭では
+ * 同じ画面のヘッダー (円換算) と数字が矛盾していた。表示は必ず PointSettings を通す。
+ *
+ * - point モード: 子供向けの語 (`pointWord`) をそのまま単位に使う (既存の見た目を維持)
+ * - currency モード: rate 換算 + 通貨記号を amount に含め、unit は空にする
+ *   (記号前置通貨 `$5.00` を「数値 + 単位」に割れないため。二重単位も防げる)
+ */
+export function splitPointDisplay(
+	points: number,
+	settings: PointSettings,
+	pointWord: string,
+): PointDisplayParts {
+	if (settings.mode === 'point') {
+		return { amount: points.toLocaleString('ja-JP'), unit: pointWord };
+	}
+	return { amount: formatWithSettings(points, settings), unit: '' };
+}
+
+/**
+ * `splitPointDisplay` の結果を 1 本の文字列に連結する (文中に埋め込む画面向け)。
+ *
+ * #4556: `splitPointDisplay` は「数値」と「単位」を分けて返すため、**連結の仕方が呼び出し側の
+ * 自由**になっていた。結果、同じショップの CUJ 内で `${amount} ${unit}` (一覧の不足分ヒント) と
+ * `${amount}${unit}` (交換確認ダイアログの残高) に割れ、ポイントモードの家庭では
+ * 「あと 250 ポイント」→「のこり: 250ポイント」と表記が揺れていた。子供の目に**連続して**
+ * 入る画面なので、連結を 1 箇所に集約する。
+ *
+ * 区切りは半角スペース。子供画面の既存表現 (`CHILD_SHOP_LABELS.exchangeConfirmTitle` の
+ * `${points} ポイント` / 一覧の不足分ヒント) がこちらで、ひらがな主体の preschool でも
+ * 数字と語の境目が読み取りやすい。通貨モードは `unit` が空 (記号は `amount` に含まれる) なので
+ * 余分なスペースは付かない。
+ */
+export function formatPointDisplayText(
+	points: number,
+	settings: PointSettings,
+	pointWord: string,
+): string {
+	const { amount, unit } = splitPointDisplay(points, settings, pointWord);
+	return unit ? `${amount} ${unit}` : amount;
+}
+
 /**
  * Format using PointSettings object (convenience wrapper).
  */
