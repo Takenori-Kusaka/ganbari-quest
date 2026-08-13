@@ -411,7 +411,10 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					<a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">
 						{MARKETPLACE_LABELS.backToHome}
 					</a>
-					<a href="/demo" class="text-sm text-[var(--color-action-primary)] hover:underline">
+					<a
+						href={MARKETPLACE_LABELS.backToDemoHref}
+						class="text-sm text-[var(--color-action-primary)] hover:underline"
+					>
 						{MARKETPLACE_LABELS.backToDemo}
 					</a>
 				</div>

@@ -1238,3 +1238,22 @@ export const DELETION_GRACE_TERMS = {
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
 } as const;
+
+// ============================================================
+// DEMO_SITE_TERMS — デモ環境の URL atom (#4511)
+// ============================================================
+//
+// デモは #2181 で demo.ganbari-quest.com へ移設した。LP 側の CTA は切り替わったが
+// **marketplace だけ旧 `/demo` のまま**残り、legacy redirect → `/` → 未認証は
+// `/auth/login` という死に導線になっていた (「デモを体験」と表示してログイン画面へ誘導)。
+//
+// URL が複数箇所に literal で散っていると、移設のたびに同じ取りこぼしが起きる。
+// 表示側は必ず本 atom を参照する。
+//
+// **www. canonical を使う理由** (#2261): LP は www. で配信されており、apex 経由だと
+// 301 が挟まって UX が劣化する。デモは demo. サブドメインなのでそのまま。
+
+export const DEMO_SITE_TERMS = {
+	/** デモ環境のトップ (末尾スラッシュ込み) */
+	url: 'https://demo.ganbari-quest.com/',
+} as const;

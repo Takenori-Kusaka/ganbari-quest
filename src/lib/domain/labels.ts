@@ -48,6 +48,7 @@ import {
 	CTA_TERMS,
 	CURRENCY_TERMS,
 	DELETION_GRACE_TERMS,
+	DEMO_SITE_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
@@ -1156,7 +1157,8 @@ export const MARKETPLACE_LABELS = {
 	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
+	// #4511: 陳列は #2896 で 3 type (rule-preset はブラウズ不可)。検索流入者に 4 type を訴求しない
+	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリストを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
 	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
@@ -1164,6 +1166,9 @@ export const MARKETPLACE_LABELS = {
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
+	// #4511: 旧 href="/demo" は legacy redirect → 「/」→ 未認証は /auth/login に落ちる
+	// 死に導線だった (デモは #2181 で demo.ganbari-quest.com へ移設済み)。URL は atom 参照
+	backToDemoHref: DEMO_SITE_TERMS.url,
 	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
 	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
 	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
@@ -1175,7 +1180,10 @@ export const MARKETPLACE_LABELS = {
 	tabs: {
 		activities: 'アクティビティ集',
 		rewards: 'ごほうび集',
-		checklists: '持ち物リスト',
+		// #4511: 「持ち物リスト」という画面は存在しない (子供画面は年齢帯ごとに
+		//   もちもの / もちものチェック / 持ち物チェック、icons.ts が SSOT)。
+		//   marketplace の type 名としては年齢帯に依らない中立名を使う
+		checklists: 'もちものチェック集',
 		rules: 'ルール集',
 	},
 	detailIncludedActivities: 'ふくまれる活動',
@@ -1250,7 +1258,7 @@ export const MARKETPLACE_LABELS = {
 	// #2137 (MP-2): event-checklist 一括追加 CTA
 	detailCtaImportChecklist: '一括追加',
 	detailCtaImportChecklistDesc:
-		'お子さまの「持ち物リスト」へまとめて追加します（重複時はスキップ）',
+		'お子さまの「もちものチェック」へまとめて追加します（重複時はスキップ）',
 	detailCtaSignupToImport: 'がんばりクエストに登録して 一括追加',
 	detailChildSelectLabel: 'どのお子さまに追加しますか？',
 	detailImportSuccess: (n: number) => `${n}件のチェック項目を追加しました`,
@@ -1265,9 +1273,11 @@ export const MARKETPLACE_LABELS = {
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
+	// #4511: ADR 番号や no-op は社内語彙。顧客には「今は使えない」という事実だけを伝える
 	detailCtaImportRuleDescPenalty:
-		'⚠️ penalty タイプは ADR-0012 anti-engagement 細則により慎重審査中です。取込試行は警告として記録されます。',
-	detailCtaImportRuleDescSpecial: '⚠️ special タイプは将来枠です。本取込は記録のみで no-op です。',
+		'⚠️ このタイプのルールは現在ご利用いただけません（お子さまへの罰を伴う仕組みは提供しない方針のため）。',
+	detailCtaImportRuleDescSpecial:
+		'⚠️ このタイプのルールは準備中です。追加しても、今はまだ画面には反映されません。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
 		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
