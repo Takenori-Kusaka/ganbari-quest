@@ -45,6 +45,30 @@ const OBSERVED_2026_08_01 = [
 	})),
 ];
 
+/**
+ * 2026-08-13 実測で追加受容した open alert 1 件 (第21回統合監査 PR #4565)。
+ *
+ * `OBSERVED_2026_08_01` は #4155 起票時点の実測 snapshot なので**書き換えない**。
+ * ledger が正当に増えたぶんは本 fixture を足して「現時点の受容集合」を組み立てる
+ * (ledger を増やしたら本 test も必ず触ることになる = 無自覚な baseline 肥大の tripwire を残す)。
+ */
+const OBSERVED_2026_08_13 = [
+	{
+		number: 47,
+		state: 'open',
+		rule: {
+			id: 'js/incomplete-multi-character-sanitization',
+			security_severity_level: 'high',
+		},
+		most_recent_instance: {
+			location: { path: 'tests/unit/architecture/ai-suggest-gate-derivation.test.ts' },
+		},
+	},
+];
+
+/** 現時点で ledger が受容している alert 集合 (= 起票時点 7 件 + 以後の追加受容)。 */
+const OBSERVED_CURRENT = [...OBSERVED_2026_08_01, ...OBSERVED_2026_08_13];
+
 const realBaseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
 
 describe('validateBaseline (ledger 自体の健全性)', () => {
@@ -123,16 +147,16 @@ describe('normalizeAlerts / groupAlerts', () => {
 });
 
 describe('evaluateCodeqlAlerts (AC5 — baseline 一致で PASS / 1 件追加で FAIL)', () => {
-	it('起票時点の 7 件は baseline に載っており PASS する', () => {
+	it('現時点の受容集合 8 件は baseline に載っており PASS する', () => {
 		const r = evaluateCodeqlAlerts({
-			alerts: OBSERVED_2026_08_01,
+			alerts: OBSERVED_CURRENT,
 			baseline: realBaseline,
 			analysisCount: 1,
 			ref: 'refs/pull/4155/merge',
 		});
 		expect(r.newAlerts).toEqual([]);
-		expect(r.observedCount).toBe(7);
-		expect(r.acceptedCount).toBe(7);
+		expect(r.observedCount).toBe(8);
+		expect(r.acceptedCount).toBe(8);
 		expect(r.staleEntries).toEqual([]);
 		expect(r.pass).toBe(true);
 	});
@@ -140,7 +164,7 @@ describe('evaluateCodeqlAlerts (AC5 — baseline 一致で PASS / 1 件追加で
 	it('未登録 rule の alert を 1 件足すと FAIL する', () => {
 		const r = evaluateCodeqlAlerts({
 			alerts: [
-				...OBSERVED_2026_08_01,
+				...OBSERVED_CURRENT,
 				{
 					number: 99,
 					state: 'open',
@@ -207,7 +231,7 @@ describe('evaluateCodeqlAlerts (AC5 — baseline 一致で PASS / 1 件追加で
 
 	it('解消済み baseline entry は stale として報告する (fail はさせない)', () => {
 		const r = evaluateCodeqlAlerts({
-			alerts: OBSERVED_2026_08_01.filter((a) => a.number !== 41),
+			alerts: OBSERVED_CURRENT.filter((a) => a.number !== 41),
 			baseline: realBaseline,
 			analysisCount: 1,
 		});
