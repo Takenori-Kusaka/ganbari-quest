@@ -138,10 +138,15 @@ jobs:
           git switch -C "$BRANCH"
           git add graphify-out
           git commit -m "chore(graphify): regenerate knowledge graph (develop ${DEVELOP_SHA:0:7}, #4536)"
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
-            "$BRANCH" --force-with-lease || \
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
-            "$BRANCH" --force
+          # `--force-with-lease` が失敗するのは「他の誰かが同 branch を進めた」という信号そのもの
+          # なので、無条件 `--force` へ fallback すると lease の意味が消える (#4536 レビュー漏れ)。
+          # graphify-refresh PR に人が手を入れた直後の run が、その修正を警告なく消してしまう。
+          # 失敗したら push せず job を落とす (graphify-out は次の push 契機で再生成できる)。
+          if ! git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
+            "$BRANCH" --force-with-lease; then
+            echo "::error::${BRANCH} が他から進んでいるため push を中止しました。bot PR に人手の修正が入っている可能性があります。"
+            exit 1
+          fi
 
       - name: Upsert graphify-refresh PR
         if: steps.diff.outputs.changed == 'true' && steps.appcreds.outputs.present == 'true'
