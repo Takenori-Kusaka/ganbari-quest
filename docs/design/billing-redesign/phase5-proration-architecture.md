@@ -436,7 +436,7 @@ export const actions = {
 - ADR-0010 (Pre-PMF、自前 proration 計算しない = 本 PR §2 設計原則)
 - ADR-0012 (Anti-engagement、滞在時間延伸禁止 = 本 PR §4.2 banner 1 件のみ / 連続演出禁止)
 - ADR-0013 (LP truth、tokushoho / Stripe / confirm UI / 本 PR proration 4 経路 SSOT)
-- ADR-0014 (OSS 先調査ルール) — 本 PR は Stripe 公式 SDK + Stripe Subscription Schedules の組合せ、独自実装はゼロ
+- `docs/decisions/README.md` §OSS 先調査ルール — 本 PR は Stripe 公式 SDK + Stripe Subscription Schedules の組合せ、独自実装はゼロ
 - ADR-0045 (atom/compound 2 階層) — Phase 7 で `PLAN_CHANGE_TERMS` atom 追加 (Phase 2 §「文言 atom 拡張案」)
 - ADR-0049 (retention)
 - ADR-0050 (Parent-Gate session cookie、`/admin/subscription/confirm` 配下 Parent-Gate 保護)

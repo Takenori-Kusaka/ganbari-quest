@@ -369,7 +369,7 @@ Pre-PMF Issue #2097 の implementation scope として現実的範囲 (1 PR で�
 
 ### 7.5 公開実装の参考
 
-SvelteKit + Lambda での fixture Repository pattern を [awesome-sveltekit](https://github.com/janosh/awesome-sveltekit) で調査。**SvelteKit 公式 example には該当する直接的 pattern 無し**。ただし「Repository pattern + DI で test 用 fixture と production 実装を切替」は GoF レベルの確立パターンであり、独自実装で問題なし (ADR-0014 OSS 先調査 ルール: GoF レベルパターンは独自実装 OK)。
+SvelteKit + Lambda での fixture Repository pattern を [awesome-sveltekit](https://github.com/janosh/awesome-sveltekit) で調査。**SvelteKit 公式 example には該当する直接的 pattern 無し**。ただし「Repository pattern + DI で test 用 fixture と production 実装を切替」は GoF レベルの確立パターンであり、独自実装で問題なし (`docs/decisions/README.md` §OSS 先調査ルール: GoF レベルパターンは独自実装 OK)。
 
 ---
 

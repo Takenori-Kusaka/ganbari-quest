@@ -22,9 +22,9 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
   - challenge-set は service 不存在で type 漏れ (`MarketplaceItemType` は 4 値のみ、5 番目が抜けている)
 - L2-L5 は別 ADR / 別 Issue で対応 (UnifiedImportHub #8 / PageGuideRegistry #9 / Round-trip schema #10 / EmptyState 統一 #8)
 
-「世間が使っているものを見もしないまま独自実装」(ADR-0014 / #1350) を避け、本 ADR で **Strategy + Registry パターンの SSOT 機構** を確立する。本 PR (#2363) は **interface 基盤のみ**、concrete strategy は #2365-2369 で順次追加する Strangler Fig 段階移行 (Shopify / Stripe API versioning 同型)。
+「世間が使っているものを見もしないまま独自実装」(`docs/decisions/README.md` §OSS 先調査ルール / #1350) を避け、本 ADR で **Strategy + Registry パターンの SSOT 機構** を確立する。本 PR (#2363) は **interface 基盤のみ**、concrete strategy は #2365-2369 で順次追加する Strangler Fig 段階移行 (Shopify / Stripe API versioning 同型)。
 
-## 検討した選択肢 (OSS / 確立パターン 4 件比較、ADR-0014 / #1350 整合)
+## 検討した選択肢 (OSS / 確立パターン 4 件比較、`docs/decisions/README.md` §OSS 先調査ルール / #1350 整合)
 
 ### 選択肢 A: Strategy + Registry パターン (採用)
 
@@ -99,7 +99,7 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
 
 - EPIC #2362 (PO 4 問題の構造的解決)
 - ADR-0010 (Pre-PMF Bucket A)
-- ADR-0014 / #1350 (OSS 先調査ルール)
+- `docs/decisions/README.md` §OSS 先調査ルール / #1350
 - ADR-0048 §統合 (Service Interface + Context DI、旧 ADR-0046) — 本 ADR の Registry 配布パターンの参照元
 - ADR-0023 archive (tenant isolation 強制) — 本 ADR の `ImportContext.tenantId` 必須性の根拠
 - `docs/design/marketplace-architecture.md` (本 PR で新規追加、アーキ概念図)

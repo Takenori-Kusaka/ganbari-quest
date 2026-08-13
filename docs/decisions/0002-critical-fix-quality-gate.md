@@ -50,4 +50,4 @@
 
 - ADR-0003（Issue 起票・クローズ品質）— AC 全項目完了の一般規則
 - ADR-0004（レビュー & AC 検証品質）— AC 検証エビデンス
-- ADR-0014 / ADR-0045 (labels.ts SSOT) — stripe-service.ts 直書きの構造的解消
+- ADR-0045 (labels.ts SSOT) — stripe-service.ts 直書きの構造的解消

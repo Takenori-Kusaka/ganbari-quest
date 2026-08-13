@@ -13,7 +13,7 @@ EPIC #2310 で `/admin/*` route に PIN gate + 15 分 sliding session を導入�
 
 既存 `src/lib/server/services/auth-service.ts` の session は DB-side (settings.session_token) で管理されており、PIN 再確認のたびに DB round-trip が発生する設計。本 EPIC の sliding refresh は「各 admin リクエストで lastActiveAt 更新」を要求するため、DB round-trip 増加を避けて **stateless signed cookie** で表現するのが Pre-PMF 軽量解。
 
-## 2. 検討した選択肢 (OSS 4 件、#1350 / ADR-0014 整合)
+## 2. 検討した選択肢 (OSS 4 件、#1350 / `docs/decisions/README.md` §OSS 先調査ルール 整合)
 
 ### α (採用): `cookie-signature` (Express 標準ライブラリ)
 

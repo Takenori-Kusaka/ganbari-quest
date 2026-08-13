@@ -17,7 +17,7 @@
 通知 3 種類（#1 チャレンジ達成 / #2 Push / #3 メール）のうち、**#2 Push + #3 メール が正しく動作していること自体が未確認** な状態（PO 報告 2026-05-17）を解消する EPIC #2190 の統括 SSOT。
 
 Phase A / B 補佐確認結果:
-- **OSS 採用**: `web-push`（#2）+ `@aws-sdk/client-ses`（#3）→ 業界標準、独自実装なし、ADR-0014 整合
+- **OSS 採用**: `web-push`（#2）+ `@aws-sdk/client-ses`（#3）→ 業界標準、独自実装なし、`docs/decisions/README.md` §OSS 先調査ルール 整合
 - **anti-engagement guard 整備済**（#1593: subscriber_role / 親端末限定 / 1 日 3 通 cap / quiet hours）
 - **動作確認 / E2E 部分的**（`push-subscribe-anti-engagement.spec.ts` 等）、4 + 4 = 8 通知種別の網羅性は未確認
 - **runbook 未整備**（本書で SSOT 化）
@@ -181,7 +181,7 @@ aws ses get-identity-verification-attributes \
 - **ADR-0006**: assertion 弱体化禁止 / 配布証跡 → §2.1 VAPID 配布証跡 + §3.1 SES 配布証跡
 - **ADR-0010**: Pre-PMF → OSS（`web-push` / `@aws-sdk/client-ses`）採用、独自実装ゼロ
 - **ADR-0012**: anti-engagement → subscriber_role + quiet hours + 1 日 3 通 cap
-- **ADR-0014**: OSS 先調査 → Phase B で `web-push` / `@aws-sdk/client-ses` を業界標準として採用済
+- **OSS 先調査ルール**（`docs/decisions/README.md` §OSS 先調査ルール）: Phase B で `web-push` / `@aws-sdk/client-ses` を業界標準として採用済
 - **#1593**: anti-engagement 適合化（subscriber_role / quiet hours 実装、closed）
 - **#2114**: Phase Push Notification（並行進行中）
 - **#2167**: Phase Milestone-Notification-UX（#1 チャレンジ達成通知、本書対象外）

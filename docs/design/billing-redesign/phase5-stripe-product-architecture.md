@@ -289,7 +289,7 @@ webhook 購読 event リスト (Phase 7 Dashboard 設定) — **実装の `dispa
   - 現行 4 Product (推定) 構成は Portal 期末ダウンが効かない
   - Phase 1 補強 2 で年額廃止 + premium rename が確定済
   - Stripe 公式 build-subscriptions が lookup_key 経由参照を推奨
-- **選択肢比較** (OSS 先調査ルール ADR-0014 整合):
+- **選択肢比較** (`docs/decisions/README.md` §OSS 先調査ルール 整合):
   - **A. 1 Product 2 Price + lookup_key** (本 PR 採用): Stripe 公式推奨パターン
   - **B. 4 Product のまま + env var 直読**: 現状維持、Portal 期末ダウン不成立
   - **C. Stripe Pricing Table** (Stripe Hosted): 別 PR で比較検討中 (Phase 2 申し送り)
@@ -347,7 +347,7 @@ webhook 購読 event リスト (Phase 7 Dashboard 設定) — **実装の `dispa
 
 - ADR-0010 (Pre-PMF、自前 proration 計算しない)
 - ADR-0012 (Anti-engagement、lock-in 罠回避)
-- ADR-0014 (OSS 先調査ルール) — 本 PR は Stripe 公式 SDK + Stripe Hosted Portal の組合せ、独自実装は subscription_schedule cancel-pending UI のみ
+- `docs/decisions/README.md` §OSS 先調査ルール — 本 PR は Stripe 公式 SDK + Stripe Hosted Portal の組合せ、独自実装は subscription_schedule cancel-pending UI のみ
 - ADR-0045 (atom/compound 2 階層) — Phase 7 で `PLAN_CHANGE_TERMS` atom 追加 (Phase 2 申し送り)
 - ADR-0049 (retention)
 

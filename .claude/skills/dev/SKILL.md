@@ -51,7 +51,7 @@ gh issue list --state open --limit 100 --json number,title,labels \
   **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えている場合、
   消すと次は誰も気づけない
 - 変更前に [parallel-implementations.md](../../../docs/design/parallel-implementations.md) の並行実装ペアを確認する
-- 独自実装が 10 行を超えそうなら、先に OSS / 確立パターンを 2 件以上調査する（ADR-0014 / #1350）
+- 独自実装が 10 行を超えそうなら、先に OSS / 確立パターンを 2 件以上調査する（`docs/decisions/README.md` §OSS 先調査ルール / #1350）
 
 ## 5. Ready 化 → QM へ引き渡す
 

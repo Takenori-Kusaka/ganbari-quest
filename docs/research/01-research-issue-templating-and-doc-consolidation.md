@@ -16,7 +16,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 
 - **軸 A**: Issue Template での「research 添付」の強制方式
 - **軸 B**: research 結果の出力先と添付方式
-- **軸 C**: 既存 6 文書 (issue-triage SKILL / lp-review SKILL / .github/CLAUDE.md / ADR-0003 / ADR-0010 / ADR-0014) の統廃合戦略
+- **軸 C**: 既存 6 文書 (issue-triage SKILL / lp-review SKILL / .github/CLAUDE.md / ADR-0003 / ADR-0010 / ADR-0014、うち ADR-0014 は後年 #2440 PR-A5 で削除) の統廃合戦略
 
 ---
 
@@ -61,7 +61,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 | 概要 | rust-lang/rfcs の `Alternatives` / `Prior art` セクションを Issue Template に転用 |
 | 1 次ソース | rust-lang/rfcs README.md / 0000-template.md |
 | 採用実績 | Rust language design / Tauri / Bun 等が踏襲 |
-| メリット | 棄却理由を残す文化が強制される (ADR-0014 OSS 先調査と整合) |
+| メリット | 棄却理由を残す文化が強制される (`docs/decisions/README.md` §OSS 先調査ルール と整合) |
 | デメリット | 軽量 Issue に過剰 |
 | 採用判定 | **採用 (中規模・大規模に限定、軸 A1 と併用)** |
 
@@ -173,14 +173,14 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 | 概要 | `docs/sessions/po-session.md` に「タスク 4」を追加するのみ。6 文書には触らない |
 | 採用実績 | 漸進的改善 (Kaizen / Conway's Law 整合) |
 | メリット | 低リスク / 既存運用に影響なし / dogfood 観察期間を確保できる |
-| デメリット | 重複が一時的に残る (ADR-0014 OSS 先調査 vs 本 Issue のタスク 4) |
+| デメリット | 重複が一時的に残る (旧 ADR-0014 OSS 先調査 vs 本 Issue のタスク 4。ADR-0014 は #2440 PR-A5 で削除済、内容は `docs/decisions/README.md` §OSS 先調査ルール に統合) |
 | 採用判定 | **首位採用 (Issue A、本 PR)** |
 
 ### 4.3 案 C-2: S-2 (6 文書統廃合、issue-triage SKILL に集約)
 
 | 項目 | 内容 |
 |---|---|
-| 概要 | po-session.md タスク 4 を `.claude/skills/issue-triage/SKILL.md` に統合 + ADR-0014 を archive 送り |
+| 概要 | po-session.md タスク 4 を `.claude/skills/issue-triage/SKILL.md` に統合 + ADR-0014 を archive 送り（実際には後年 #2440 PR-A5 で削除された） |
 | 採用実績 | Single Responsibility Principle / SSOT 強化 |
 | メリット | 重複ゼロ / 補佐は SKILL を 1 つ読めば良い |
 | デメリット | 6 文書同時改修 = 高リスク。dogfood 観察前にやると修正コスト膨大 |
@@ -193,7 +193,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 | 概要 | ADR-0014 (OSS 先調査) を本研究の新方針で supersede |
 | メリット | ADR 数削減 |
 | デメリット | ADR-0014 は機械強制と整合する技術選定 SSOT で、本 Issue の運用責務とは責務が異なる。supersede すると機械強制側の参照が不安定化 |
-| 採用判定 | **棄却** (ADR-0014 と本 SSOT は補完関係) |
+| 採用判定 | **棄却** (ADR-0014 と本 SSOT は補完関係。なお ADR-0014 自体は後年 #2440 PR-A5 で supersede ではなく削除され、内容は `docs/decisions/README.md` §OSS 先調査ルール に統合された) |
 
 ### 4.5 軸 C 採用
 
@@ -203,10 +203,10 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 
 ## 5. ADR との整合
 
-### 5.1 ADR-0014 (labels / i18n 機構選定)
+### 5.1 旧 ADR-0014 (labels / i18n 機構選定、#2440 PR-A5 で削除、#1346)
 
 - **整合点**: ADR-0014 は OSS 2 件先調査ルールの **個別事例 (labels.ts)**。本 SSOT はその汎用化として「Issue 起票時の研究方法論」を提供
-- **supersede 関係**: なし。ADR-0014 は技術選定 SSOT、本 SSOT は運用方法論 SSOT。両者は orthogonal
+- **supersede 関係**: なし。ADR-0014 は技術選定 SSOT、本 SSOT は運用方法論 SSOT。両者は orthogonal（ADR-0014 自体は現存せず、OSS 先調査ルールの本体は `docs/decisions/README.md` §OSS 先調査ルール）
 
 ### 5.2 ADR-0010 (Pre-PMF scope 判断)
 
