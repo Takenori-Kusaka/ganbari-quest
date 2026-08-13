@@ -2872,8 +2872,6 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
 	currentPlan: '現在のプラン',
-	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
-	trialActive: `${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
 	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
 	upgradeCta: `${PLAN_FULL_TERMS.premium}にする`,
 	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
@@ -2921,11 +2919,11 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 
 	// 無料トライアル
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
-	trialActiveTitle: `${PLAN_FULL_TERMS.standard} トライアル中`,
+	trialActiveTitle: `${PLAN_FULL_TERMS.premium} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
 	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
-	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
+	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
 	trialStartButton: '無料トライアルを開始する',
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
@@ -3573,10 +3571,9 @@ export const SIGNUP_LABELS = {
 	submitLoading: '登録中...',
 	submitWithTrial: `${TRIAL_TERMS.duration} 無料体験をはじめる`,
 	submitFree: '無料ではじめる',
-	trialPlanNote: (planName: string) =>
-		`セットアップ後に ${planName}プランのトライアルが開始されます`,
-	trialPlanStandard: PLAN_TERMS.standard,
-	trialPlanFamily: PLAN_TERMS.premium,
+	// #4501: トライアルは常に premium tier (FR-2)。プラン名を差し込む形だと
+	// 「standard のトライアル」と読めてしまい、実挙動 (全機能開放) と食い違う。
+	trialPlanNote: `セットアップ後に${PLAN_FULL_TERMS.premium}のトライアルが開始され、${TRIAL_TERMS.duration}すべての有料機能をお試しいただけます`,
 	loginLink: '既にアカウントをお持ちの方はこちら',
 	legalNote: '有料プランをご利用の前に',
 	legalTokushoho: '特定商取引法に基づく表記',
@@ -6899,10 +6896,9 @@ export const LP_PRICING_LABELS = {
 	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴い「購入後ライセンスキーをメールで…」を
 	// サブスクリプション整合の文言に置換 (決済後 tenant.status=ACTIVE で即時利用可、key 配布なし)。
 	// #3212: 月額/年額トグル (billingToggle*) は年額廃止 (#2719) で撤去。billing=monthly 固定。
-	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
-	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
-	directPurchaseNote: '※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます',
-	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
+	// #4501 PO 決裁 3: トライアルが 1 回限り (FR-8、tenant 単位) であることは LP のどこにも
+	// 書かれていなかった。プラン選択の前に知らせる。
+	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）。無料体験はご家族につき 1 回かぎりです`,
 
 	// #2103 F-2: 解約 CTA + FAQ 経路明示（γ ハイブリッド: アプリ内 1-click → Stripe Customer Portal）
 	// FAQ 既存 faqCancelA は維持し、解約「経路」を補足する追記文 + 新規 FAQ「解約 vs アカウント削除」を追加。
