@@ -48,6 +48,7 @@ import {
 	CTA_TERMS,
 	CURRENCY_TERMS,
 	DELETION_GRACE_TERMS,
+	FAMILY_MEMBER_LIMIT_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
@@ -453,13 +454,17 @@ export const PLAN_GATE_LABELS = {
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 
 	/**
-	 * "メンバー上限（{max}人）に達しています。プランをアップグレードしてください。"
+	 * "ご家族の人数が上限（オーナーを含めて {max} 人）に達しています。…"
 	 *
 	 * 家族メンバー招待の quota 上限 (maxFamilyMembers) 到達時の 403 文言 (#1111 / EPIC #3533 §10.7)。
 	 * 旧 `api/v1/admin/invites/+server.ts` 内ハードコードを SSOT 経由に是正 (ADR-0045 / P5)。
+	 *
+	 * **上限は owner を含む合計**である (#4500)。「メンバー上限（4人）」とだけ言うと、LP で
+	 * 「4 人まで招待できる」と読んだ顧客が 3 人目の招待でブロックされた時に不具合と誤認する。
+	 * オーナーを含む数え方であることを、ブロックされたその場で明示する。
 	 */
 	memberLimitReached: (max: number | string) =>
-		`メンバー上限（${max}人）に達しています。プランをアップグレードしてください。`,
+		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -4393,7 +4398,10 @@ export const MEMBERS_LABELS = {
 	viewerLabelField: 'ラベル（任意）',
 	viewerLabelPlaceholder: '例: おばあちゃん用',
 	viewerDurationLabel: '有効期限',
-	viewerDuration7d: `${TRIAL_TERMS.duration}`,
+	// #4500: viewerDuration7d は `TRIAL_TERMS.duration` (無料体験の期間) を流用していた。
+	// 閲覧リンクの有効期限とトライアル期間は無関係で、トライアルを 14 日に変えた瞬間に
+	// 閲覧リンクの選択肢が「14日間」と表示される (誤流用)。閲覧リンク自身の値として持つ。
+	viewerDuration7d: '7日間',
 	viewerDuration30d: '30日間',
 	viewerDurationUnlimited: '無期限',
 	viewerCreateLoading: '作成中...',
@@ -6842,8 +6850,7 @@ export const LP_PRICING_LABELS = {
 		'親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。',
 	familyPatternInviteTag: 'スタンダード以上',
 	familyPatternInviteTitle: '個別アカウント＋招待リンク型',
-	familyPatternInviteDesc:
-		'家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。',
+	familyPatternInviteDesc: `家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。${PLAN_TERMS.standard}はご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}まで（オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}まで）、${PLAN_TERMS.premium}は無制限で招待できます。`,
 
 	// FAQ (#1647 R42 — labels.ts PRICING_PAGE_LABELS と整合 / #1643 R38 / #1653 R47)
 	// #1896 PO-4-10: 旧 'faqTitle: よくある質問' は LP_FAQ_TERMS.faqHtmlTitle 経由に統一
@@ -6881,8 +6888,7 @@ export const LP_PRICING_LABELS = {
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
 	faqMultiDeviceQ: '家族で複数端末から使えますか？',
-	faqMultiDeviceA:
-		'はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。',
+	faqMultiDeviceA: `はい。${PLAN_TERMS.standard}以上のプランで、家族メンバーを招待して複数端末からアクセスできます。${PLAN_FULL_TERMS.standard}はご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}まで（オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}まで）、${PLAN_FULL_TERMS.premium}は無制限に招待可能です。${PLAN_FULL_TERMS.free}でも1つの端末でお子さまを切り替えて使えます。`,
 	// #1653 R47: 「卒業」概念訴求（FAQ 文脈・機能訴求は禁止）
 	// #1915 (TECH-F 中頻度 D-4): GRADUATION_TERMS atom 経由参照（「卒業」「最終ゴール」を SSOT 化）
 	//   ※APP_LABELS は LP labels generator の cross-namespace 参照対象外のため product 名「がんばりクエスト」は直書き維持。
@@ -8859,7 +8865,7 @@ export const LP_PAMPHLET_LABELS = {
 	k43: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
 	k44: '子供の登録：無制限',
 	k45: 'オリジナル活動：無制限',
-	k46: '家族メンバー招待：4人まで',
+	k46: `家族メンバー招待：ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）`,
 	k47: '特別なごほうび設定',
 	k48: 'データのダウンロード',
 	k49: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -8933,7 +8939,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k10: 'お子さまの登録人数：無制限',
 	k11: 'オリジナル活動の作成：無制限',
 	k12: 'チェックリスト自由作成（無制限）',
-	k13: '家族メンバー招待：4人まで',
+	k13: `家族メンバー招待：ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）`,
 	k14: '特別なごほうび設定（即時付与）',
 	k15: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k16: 'データのダウンロード',
@@ -8984,7 +8990,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k54: 'レポート・家族機能',
 	k55: '日次サマリー',
 	k56: '家族メンバー招待（別端末からアクセス）',
-	k57: '4人まで',
+	k57: `ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）`,
 	k58: '無制限',
 	k59: 'きょうだいランキング',
 	k60: 'ひとことメッセージ（自由テキスト）',
@@ -9635,7 +9641,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
-	k12: '家族メンバー招待：4人まで',
+	k12: `家族メンバー招待：ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）`,
 	k13: '特別なごほうび設定（即時付与）',
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
@@ -9672,7 +9678,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	k42: '<td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
-	k43: '<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>4人まで</td><td class="check">無制限</td>',
+	k43: `<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）</td><td class="check">無制限</td>`,
 	k44: '<td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k45: '<td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k46: '<td colspan="4">データ管理</td>',
@@ -9742,7 +9748,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k46: '兄弟姉妹で使うと、どちらかだけがゲーミフィケーションされて不公平になりませんか？',
 	k47: '同じ家族アカウント内で複数のお子さまをまとめて管理できます。ポイント・シール・レベル称号はお子さまごとに独立して蓄積され、<strong>片方だけが得をする構造にはなりません</strong>。',
 	k48: `<strong>${PLAN_FULL_TERMS.free}</strong>: お子さま 2 人まで登録可能（招待機能なし、ご本人の端末のみ）`,
-	k49: `<strong>${PLAN_FULL_TERMS.standard}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>4 人まで</strong>（核家族でのご利用想定）`,
+	k49: `<strong>${PLAN_FULL_TERMS.standard}</strong>: お子さま無制限で登録可能・ご家族は<strong>合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで</strong>（オーナーを含むため、招待できるのは${FAMILY_MEMBER_LIMIT_TERMS.standardInvitableSpaced}まで。核家族でのご利用想定）`,
 	k50: `<strong>${PLAN_FULL_TERMS.premium}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>無制限</strong>（祖父母・おじおばなど拡張家族でのご利用想定）`,
 	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
 	k52: '支払い方法は何が使えますか？',
@@ -9807,8 +9813,8 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
-	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
-	k108: '招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}はご家族合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで＝オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitableSpaced}までです）。`,
+	k108: `招待されたメンバーは保護者として、お子さまの記録の確認と活動の記録ができます（アカウントを持たずに記録を見せたい場合は、${PLAN_FULL_TERMS.premium}の閲覧リンクをお使いください。閲覧専用です）。`,
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	k111: 'スマホ・タブレット・PC、何台まで使えますか？',
@@ -9889,7 +9895,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k39: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
-	k42: '<span class="check">&#x2713;</span>家族メンバー招待：4人まで',
+	k42: `<span class="check">&#x2713;</span>家族メンバー招待：ご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}（招待${FAMILY_MEMBER_LIMIT_TERMS.standardInvitable}）`,
 	k43: '<span class="check">&#x2713;</span>特別なごほうび設定',
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
