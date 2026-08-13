@@ -347,17 +347,29 @@ proration / 期末切替の表示責務がアプリに移り、Stripe を課金�
 1. **フォールバック**: `createPortalSession()` は flow 付き session の作成が失敗したら、**flow 無しで作り直す**。
    作り直しも失敗した場合は握り潰さず型付きの失敗（`PORTAL_CREATE_FAILED`）を返す
    （portal に入れない事実を成功として返さない）
-2. **倒れたことを顧客に伝える**: 戻り値 `flowFallback: true` を呼び出し元へ返す。
-   立つ条件は 2 つで、**顧客から見た結果（要求した flow に入れず portal ホームに着く）が同一**なので
-   同じシグナルに集約する — (a) Stripe が `flow_data` を拒否した / (b) `stripeSubscriptionId` を持たず
-   `flow_data` を組み立てられなかった。(b) は解約済みで Customer だけ残る場合のほか、
-   **Stripe 側にサブスクが生きているのに DB 側が null というドリフト**でも起き、黙って通すと
-   「解約を押したのに課金が続く」になる。`home` を要求した場合はホーム着地が期待どおりなので立てない
-   - プラン変更（`POST /api/stripe/portal`）: 応答 `{ url, flowFallback }`。画面は自動遷移せず
-     `portal-fallback-notice` を出し、作成済み session への「請求管理ページへ進む」で進ませる（PIN 再入力なし）
-   - 解約（`cancel/+page.server.ts`）/ 卒業（`cancel/graduation/+page.server.ts`）: portal へ飛ばさず
-     `/admin/subscription?portalFallback=cancel` へ戻し、同じ通知を出す。
+2. **倒れたことを顧客に伝え、理由で出口を変える**: 戻り値 `flowFallback` に**理由**
+   （`PORTAL_FALLBACK_REASON`）を載せて呼び出し元へ返す。着地（portal ホーム）は同じでも、
+   **顧客が次に取るべき行動が正反対**なので理由を落とさない
+
+   | 理由 | 立つ条件 | 顧客に示す次の手 |
+   |---|---|---|
+   | `flow-rejected` | Stripe が `flow_data` を拒否した | 時間をおいて再試行（この画面の「請求ポータルを開く」から続ける） |
+   | `no-subscription` | `stripeSubscriptionId` を持たず `flow_data` を組み立てられなかった | **サポート窓口**（`/admin/settings/support`）。自力では完了できない |
+
+   `no-subscription` は解約済みで Customer だけ残る場合のほか、**Stripe 側にサブスクが生きているのに
+   DB 側が null というドリフト**でも起き、黙って通すと「解約を押したのに課金が続く」になる。
+   このとき再試行を促すと**押すたびに同じ画面へ戻る出口の無いループ**になり、解約導線の実効性を欠く
+   （特商法）。`home` を要求した場合はホーム着地が期待どおりなので立てない
+   - プラン変更（`POST /api/stripe/portal`）: 応答 `{ url, flowFallback, flowFallbackReason }`。
+     画面は自動遷移せず `portal-fallback-notice` を出し、`flow-rejected` なら作成済み session への
+     「請求管理ページへ進む」で進ませる（PIN 再入力なし）。`no-subscription` では進むボタンを出さず
+     サポート導線（`portal-fallback-support`）に置き換える
+   - 解約（`cancel/+page.server.ts`）/ 卒業（`cancel/graduation/+page.server.ts`）/ thanks の再試行:
+     portal へ飛ばさず `/admin/subscription?portalFallback=cancel&portalFallbackReason=<理由>` へ戻し、
+     理由に応じた通知を出す（URL 組み立ては `buildPortalFallbackLocation()` に集約）。
      **解約理由を書き終えた直後に予期しない画面へ落とさない**
+   - `no-subscription` は `logger.warn`（tenantId 付き）で残す。課金整合性の破れを運用が数えられない
+     状態にしない。Discord alert は上げない（正常な再訪でも立つため alert fatigue、ADR-0010）
    - 文言は `SUBSCRIPTION_PAGE_LABELS.portalFallback*`（labels SSOT）。**原因は顧客に説明しない**（ADR-0062）
 3. **`intent` の検証**: `POST /api/stripe/portal` の `intent` は allowlist
    （`plan-change` / `plan-upgrade` / `billing-history`）で検証し、外れたら安全側（`home`）に倒して

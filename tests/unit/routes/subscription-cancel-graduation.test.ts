@@ -21,6 +21,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	PORTAL_FALLBACK_CONTEXT,
 	PORTAL_FALLBACK_PARAM,
+	PORTAL_FALLBACK_REASON,
+	PORTAL_FALLBACK_REASON_PARAM,
 	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import type { ChildId } from '$lib/domain/ids';
@@ -379,16 +381,20 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			expect(thrown.location).toBe('https://billing.stripe.com/session_1');
 		});
 
-		it('flow 拒否時は解約を続ける場所を示せる自画面へ戻す (#4270 と同型)', async () => {
+		// #4548: 卒業経路も理由を落とさない (離反経路だけ直す片手落ちを作らない)。
+		it.each([
+			[PORTAL_FALLBACK_REASON.FLOW_REJECTED],
+			[PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION],
+		])('flow 直行できなかったとき (理由 %s) は理由つきで自画面へ戻す', async (reason) => {
 			mockCreatePortalSession.mockResolvedValue({
 				url: 'https://billing.stripe.com/home_1',
-				flowFallback: true,
+				flowFallback: reason,
 			});
 
 			const thrown = await runPaidGraduationAction();
 
 			expect(thrown.location).toBe(
-				`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`,
+				`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}&${PORTAL_FALLBACK_REASON_PARAM}=${reason}`,
 			);
 		});
 

@@ -14,6 +14,7 @@
 //   prefix 一致の緩い判定 (#3956 で実害) を検出できなくなるため、この file scope で許可する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PORTAL_FALLBACK_REASON } from '$lib/domain/constants/stripe-portal';
 
 const mockCreatePortalSession = vi.fn();
 const mockIsPinConfigured = vi.fn();
@@ -106,10 +107,15 @@ describe('#4270 intent は allowlist で検証する', () => {
 });
 
 describe('#4270 flow が home に倒れたことをクライアントへ返す', () => {
-	it('flowFallback=true をそのまま返す (画面が次の操作を示せるようにする)', async () => {
+	// #4548: 理由も返す。画面は理由で「もう一度」と「サポートへ連絡」を出し分けるため、
+	// ここで理由を落とすと恒久不能の顧客に再試行を促し続ける行き止まりが復活する。
+	it.each([
+		[PORTAL_FALLBACK_REASON.FLOW_REJECTED],
+		[PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION],
+	])('flowFallback=%s を理由つきでそのまま返す (画面が次の操作を出し分けられる)', async (reason) => {
 		mockCreatePortalSession.mockResolvedValue({
 			url: 'https://billing.stripe.com/home_1',
-			flowFallback: true,
+			flowFallback: reason,
 		});
 
 		const res = await callPortal({ confirmPhrase: CONFIRM_PHRASE, intent: 'plan-upgrade' });
@@ -117,6 +123,7 @@ describe('#4270 flow が home に倒れたことをクライアントへ返す',
 		expect(await res.json()).toEqual({
 			url: 'https://billing.stripe.com/home_1',
 			flowFallback: true,
+			flowFallbackReason: reason,
 		});
 	});
 
@@ -126,6 +133,7 @@ describe('#4270 flow が home に倒れたことをクライアントへ返す',
 		expect(await res.json()).toEqual({
 			url: 'https://billing.stripe.com/session_1',
 			flowFallback: false,
+			flowFallbackReason: null,
 		});
 	});
 });
