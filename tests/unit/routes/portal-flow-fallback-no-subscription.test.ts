@@ -23,8 +23,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	buildPortalFallbackLocation,
 	PORTAL_FALLBACK_CONTEXT,
-	PORTAL_FALLBACK_PARAM,
+	PORTAL_FALLBACK_REASON,
 } from '$lib/domain/constants/stripe-portal';
 
 const mockFindTenantById = vi.fn();
@@ -103,7 +104,12 @@ const cancelAction = (cancelActionsRaw as any).default as (...args: unknown[]) =
 const graduationAction = (graduationActionsRaw as any).default as (...args: unknown[]) => any;
 
 const LOCALS = { context: { tenantId: 'tenant-1' } };
-const EXPECTED_FALLBACK_LOCATION = `/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`;
+// #4548: 戻り先は**理由つき**。理由が落ちると戻った先は再試行を促す文言しか出せず、
+// 何度押しても直らない顧客が同じ画面をぐるぐる回る (出口が無い) 状態に戻る。
+const EXPECTED_FALLBACK_LOCATION = buildPortalFallbackLocation(
+	PORTAL_FALLBACK_CONTEXT.CANCEL,
+	PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION,
+);
 
 /** Stripe Customer は持つが subscription を持たないテナント (本 test の入力そのもの)。 */
 function tenantWithoutSubscription() {

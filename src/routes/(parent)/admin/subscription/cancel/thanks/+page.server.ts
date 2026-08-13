@@ -5,8 +5,8 @@
 
 import { fail, redirect } from '@sveltejs/kit';
 import {
+	buildPortalFallbackLocation,
 	PORTAL_FALLBACK_CONTEXT,
-	PORTAL_FALLBACK_PARAM,
 	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -56,9 +56,10 @@ export const actions: Actions = {
 			// flow が拒否された場合は portal ホームに着く。#4270 と同じく、どこで手続きを
 			// 続けるかを示せる自画面へ戻す (顧客に原因は説明しない、ADR-0062)。
 			if (portalResult.flowFallback) {
+				// #4548: 理由も渡す (ご契約情報が確認できない場合は再試行では出口にならない)。
 				throw redirect(
 					303,
-					`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`,
+					buildPortalFallbackLocation(PORTAL_FALLBACK_CONTEXT.CANCEL, portalResult.flowFallback),
 				);
 			}
 			throw redirect(303, portalResult.url);

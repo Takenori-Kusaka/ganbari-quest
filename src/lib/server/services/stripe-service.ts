@@ -3,6 +3,10 @@
 
 import type Stripe from 'stripe';
 import type { CheckoutReconciliationResult } from '$lib/domain/checkout-reconciliation';
+import {
+	PORTAL_FALLBACK_REASON,
+	type PortalFallbackReason,
+} from '$lib/domain/constants/stripe-portal';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
@@ -205,8 +209,13 @@ export type CreatePortalResult =
 			 * 2 は「解約済みで Customer だけ残っている」ほか、**Stripe 側にサブスクが生きているのに
 			 * DB 側が null というドリフト**でも起きる。後者を黙って通すと「解約を押したのに課金が続く」
 			 * (#4498 と同じ実害) になるため、成功として返してはならない。
+			 *
+			 * #4548: **値は理由を持つ** (`PORTAL_FALLBACK_REASON`)。着地は同じでも 1 は再試行で直りうり、
+			 * 2 は何度押しても同じ結果になる。同じ文言に集約すると、恒久不能の顧客が
+			 * 「もう一度お試しください」を無限に繰り返す行き止まりに入る。呼び出し元は理由で出し分ける。
+			 * 真偽判定 (`if (result.flowFallback)`) は従来どおり成立する。
 			 */
-			flowFallback?: true;
+			flowFallback?: PortalFallbackReason;
 	  }
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
@@ -315,9 +324,21 @@ export async function createPortalSession(
 		// 「解約手続きへ進む」を押したのに portal ホームへ放り出される (説明が一切出ない)。
 		// 着地は #4270 の flow 拒否時と同一なので、同じ `flowFallback` で伝える。
 		const fallback = flowRequestedButUnavailable(flow, subscriptionId);
+		if (fallback) {
+			// #4548: この経路は**運用が気づけない課金整合性の破れ**でありうる。DB が null でも
+			// Stripe 側にサブスクが生きていれば、顧客は解約できないまま課金され続ける。
+			// 誰も件数を把握できない状態を断つため、tenantId 付き (CloudWatch から特定できる) で残す。
+			// alert は上げない — 正常な状態 (解約済みで Customer だけ残る顧客の再訪) でも立つシグナルで、
+			// 通知にすると alert fatigue になるだけ (Pre-PMF、ADR-0010)。件数は logger を数えて把握する。
+			logger.warn(
+				`[STRIPE] portal flow (${flow.kind}) を要求されましたが subscription が無いため home に着地します: tenant=${tenantId}`,
+			);
+		}
 		try {
 			const session = await stripe.billingPortal.sessions.create(baseParams);
-			return fallback ? { url: session.url, flowFallback: true } : { url: session.url };
+			return fallback
+				? { url: session.url, flowFallback: PORTAL_FALLBACK_REASON.NO_SUBSCRIPTION }
+				: { url: session.url };
 		} catch (err) {
 			return reportPortalCreateFailure(tenantId, flow.kind, err);
 		}
@@ -339,7 +360,7 @@ export async function createPortalSession(
 		);
 		try {
 			const session = await stripe.billingPortal.sessions.create(baseParams);
-			return { url: session.url, flowFallback: true };
+			return { url: session.url, flowFallback: PORTAL_FALLBACK_REASON.FLOW_REJECTED };
 		} catch (fallbackErr) {
 			return reportPortalCreateFailure(tenantId, flow.kind, fallbackErr);
 		}

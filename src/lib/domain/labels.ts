@@ -2992,6 +2992,14 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 原因 (Dashboard 設定 / Stripe の拒否) は顧客に説明せず、次の操作だけを示す (ADR-0062)。
 	portalFallbackCancel: `${CANCEL_TERMS.canonical}のお手続きは、この画面の「${STRIPE_PORTAL_TERMS.short}を開く」から続けてください。`,
 	portalFallbackPlanChange: `${PLAN_CHANGE_TERMS.changeNoun}のお手続きは、${STRIPE_PORTAL_TERMS.short}から続けてください。`,
+	// #4548: 上の 2 つは「時間をおけば直りうる」一時障害 (#4270) 用。ご契約情報が確認できない
+	// 状態 (#4537) は**何度押しても同じ結果**になるため、同じ文言で再試行させると顧客は
+	// 出口の無いループに入る (特商法上の解約導線の実効性)。できないことを正直に伝え、
+	// こちらで手続きを承ると約束する。原因の内部詳細は出さない (ADR-0062)。
+	portalFallbackCancelUnavailable: `ご契約情報を確認できないため、この画面から${CANCEL_TERMS.canonicalVerb}ことができません。お手数ですが、サポート窓口までご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	portalFallbackPlanChangeUnavailable: `ご契約情報を確認できないため、この画面から${PLAN_CHANGE_TERMS.changeNoun}のお手続きができません。お手数ですが、サポート窓口までご連絡ください。`,
+	/** 恒久的に自力で完了できないときの唯一の出口 (設定 > サポートの単独 SSOT、#2904) */
+	portalFallbackSupportLink: 'サポート窓口に連絡する',
 	/** fallback 時に、作成済みの portal セッションへそのまま進むための導線 (PIN を再入力させない) */
 	portalFallbackContinueButton: `${STRIPE_PORTAL_TERMS.short}へ進む`,
 	portalPinNote: (usesPin: boolean) =>
