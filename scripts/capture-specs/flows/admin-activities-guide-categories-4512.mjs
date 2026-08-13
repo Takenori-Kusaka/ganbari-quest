@@ -45,8 +45,7 @@ export default async (page, capture) => {
 		await next.click({ force: true });
 		await page
 			.waitForFunction(
-				(title) =>
-					document.querySelector('.driver-popover')?.textContent?.includes(title) ?? false,
+				(title) => document.querySelector('.driver-popover')?.textContent?.includes(title) ?? false,
 				TARGET_TITLE,
 				{ timeout: 2_000 },
 			)

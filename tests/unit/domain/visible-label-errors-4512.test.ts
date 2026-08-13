@@ -58,7 +58,8 @@ describe('#4512 顧客に見える誤り', () => {
 			expect(page, 'カテゴリ名を漢字で持つと SSOT を変えてもレポートだけ古くなる').not.toMatch(
 				/'1':\s*'運動'/,
 			);
-			expect(page).not.toContain('カテゴリ${catId}');
+			// biome: 文字列内の ${} は意図（page 側の fallback 表記が消えたことを見る）
+			expect(page).not.toContain(['カテゴリ$', '{catId}'].join(''));
 		});
 
 		it('categories.ts から名前を引いている', () => {
