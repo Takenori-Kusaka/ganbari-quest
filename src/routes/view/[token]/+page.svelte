@@ -88,12 +88,12 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 
 	.viewer-header h1 {
 		font-size: 1.5rem;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.viewer-label {
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 		margin: 0.25rem 0 0;
 	}
@@ -104,14 +104,14 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 		padding: 0.25rem 0.75rem;
 		border-radius: 9999px;
 		font-size: 0.75rem;
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #94a3b8);
+		background: var(--color-surface-muted);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-empty {
 		text-align: center;
 		padding: 3rem 1rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-children {
@@ -122,8 +122,8 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	}
 
 	.child-card {
-		background: var(--color-surface-card, #fff);
-		border: 1px solid var(--color-border-default, #e2e8f0);
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
 		border-radius: 1rem;
 		padding: 1.25rem;
 	}
@@ -138,13 +138,13 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	.child-name {
 		font-size: 1.25rem;
 		font-weight: 700;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.child-age {
 		font-size: 0.875rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.child-stats {
@@ -161,12 +161,12 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	.stat-value {
 		font-size: 1.5rem;
 		font-weight: 700;
-		color: var(--color-action-primary, #667eea);
+		color: var(--color-action-primary);
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.category-grid {
@@ -181,7 +181,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 		align-items: center;
 		padding: 0.5rem;
 		border-radius: 0.5rem;
-		background: var(--color-surface-muted, #f8fafc);
+		background: var(--color-surface-muted);
 	}
 
 	.category-icon {
@@ -190,19 +190,19 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 
 	.category-name {
 		font-size: 0.75rem;
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.category-level {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 	}
 
 	.viewer-footer {
 		text-align: center;
 		padding: 2rem 0 1rem;
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 </style>

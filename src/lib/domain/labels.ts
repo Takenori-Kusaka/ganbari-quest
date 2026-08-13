@@ -4,6 +4,7 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
+import { CATEGORY_NAME_LIST } from './categories';
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
@@ -409,6 +410,24 @@ export const PLAN_GATE_LABELS = {
 	 */
 	standardOrAboveFor: (feature: string) =>
 		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
+
+	/**
+	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"
+	 *
+	 * #4512: checklists の上限エラー 5 箇所が「フリープラン」を直書きしていた
+	 * (プラン名の SSOT は「無料プラン」で、「フリー」はカード等の短縮名。#4502 の
+	 *  使い分け決裁を server 面にも適用する)。文と数値の組み立てを 1 箇所に閉じる。
+	 */
+	perChildLimitReached: (max: number | string | null) =>
+		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
+
+	/** 同上の短い版 (上限値だけを述べ、アップグレード導線は呼び出し側が別に出す場合)。 */
+	perChildLimitReachedShort: (max: number | string | null) =>
+		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。`,
+
+	/** 一括取込で一部だけ入った場合の結果通知。 */
+	bulkImportPartiallyLimited: (added: number | string, rejected: number | string, note: string) =>
+		`${added} 件取り込みました。${PLAN_FULL_TERMS.free}の上限に達したため ${rejected} 件は取り込めませんでした。${PLAN_FULL_TERMS.standard}以上で無制限。${note}`,
 
 	/**
 	 * "{feature}はファミリープランでご利用いただけます"
@@ -1531,7 +1550,9 @@ export const PAGE_GUIDE_LABELS = {
 			},
 			'activities-filter': {
 				title: '画面の見方（カテゴリで絞り込み）',
-				what: '活動は5つのカテゴリ（うんどう・べんきょう・せいかつ・おてつだい・そうぞう）に分かれています。上部のフィルターで表示を絞り込めます。',
+				// #4512: 実在しない「おてつだい」を挙げ「こうりゅう」を落としていた。
+				//   列挙は categories.ts (SSOT) から作る (手書きだとカテゴリ増減で取り残される)
+				what: `活動は5つのカテゴリ（${CATEGORY_NAME_LIST}）に分かれています。上部のフィルターで表示を絞り込めます。`,
 				how: '1. カテゴリボタンをタップして絞り込みます\n2. もう一度タップすると解除されます',
 				goal: '活動が増えても「うんどう系だけ表示」のように、目的の活動を素早く見つけられます。',
 			},
@@ -2020,7 +2041,7 @@ export const PAGE_GUIDE_LABELS = {
 		steps: {
 			'status-intro': {
 				title: 'このページについて',
-				what: 'お子さまの活動を「うんどう・べんきょう・せいかつ・こうりゅう・そうぞう」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。',
+				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。`,
 				how: 'レーダーチャートで5軸のバランスを見ます。同年代の目安（ベンチマーク）と重ねて表示されるので、平均との比較もできます。',
 				goal: '「今月はうんどうが伸びた」「べんきょうが少なめ」といった傾向が数値とグラフで分かり、声かけや活動設計の参考になります。',
 			},
@@ -3229,6 +3250,9 @@ export const NUC_LICENSE_LABELS = {
 } as const;
 
 export const REPORTS_LABELS = {
+	// #4512: カテゴリ名は categories.ts (SSOT) から引く。ここに持つのは
+	//   「SSOT に無い id が来たとき」の表示だけ (旧実装は 5 カテゴリを漢字で並行実装していた)
+	categoryUnknown: 'その他',
 	// ページヘッダー
 	pageTitle: '📊 レポート',
 	certificatesLink: '📜 証明書',
