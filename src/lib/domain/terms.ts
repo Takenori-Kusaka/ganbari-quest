@@ -990,15 +990,19 @@ export const NUC_EDITION_TERMS = {
 // SSOT 化し、以後のライセンス種別変更が 1 行で全箇所に伝播するようにする。
 //
 // 設計指針:
-//   - name       : 'AGPL-3.0'                          (ライセンス名、括弧書き用)
-//   - commercialUseCondition : 商用利用時の条件（ソース開示義務の説明）
+//   - spdxId     : SPDX 完全形。`package.json` の "license" と 1 文字も違わない値を持つ。
+//                  SPDX では `-only` と `-or-later` は拘束力が異なる別ライセンス識別子であり、
+//                  フォークする第三者にとって意味が変わるため、短縮形 ('AGPL-3.0') では書かない。
+//   - commercialUse       : 商用利用の可否（メリット側の事実）
+//   - copyleftObligation  : コピーレフト義務（義務側の事実。メリット一覧に混ぜない）
 //
-// 参照: docs/DESIGN.md §6 / Issue #4499 / #4495
+// 参照: docs/DESIGN.md §6 / Issue #4499 / #4495 / #4547
 
 export const OSS_LICENSE_TERMS = {
-	name: 'AGPL-3.0',
-	commercialUseCondition:
-		'商用利用も可能ですが、改変版をネットワーク経由で提供する場合はソースコードの開示義務があります',
+	spdxId: 'AGPL-3.0-only',
+	commercialUse: '商用利用も可能です',
+	copyleftObligation:
+		'改変版をネットワーク経由で提供する場合は、同じライセンスでソースコードを開示する義務があります',
 } as const;
 
 // ============================================================
