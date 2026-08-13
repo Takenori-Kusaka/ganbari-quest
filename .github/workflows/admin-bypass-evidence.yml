@@ -3,6 +3,9 @@ name: Admin Bypass Evidence Check
 # #1201 / ADR-0044: admin bypass merge された PR に Self-Review 証跡セクションが
 # 含まれているかを検証し、欠落 PR に追記要求コメントを投稿する。
 # block はしない（事後 merge を revert することは運用上困難なため、事後追記を促す）。
+#
+# #4557: 同じ日次 cron に「main 直行のまま滞留した bot PR」検知 job を相乗りさせている
+# (既存の定期実行 workflow に寄せ、新規 workflow / 新規 cron を増やさない判断)。
 
 on:
   schedule:
@@ -20,6 +23,10 @@ on:
         description: 'Skip comment posting (for testing)'
         required: false
         default: 'false'
+      stall_days:
+        description: 'main 直行 bot PR を滞留とみなす経過日数 (default 2)'
+        required: false
+        default: '2'
 
 permissions:
   contents: read
@@ -38,3 +45,22 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-admin-bypass-evidence.mjs
+
+  # #4557: main-pr-base-guard (ci.yml) に fail-close された bot PR (dependabot/renovate の
+  # security update 等) は、bot 自身が retarget しないため人が気づくまで滞留する。
+  # #4532 が実例 (GHSA-9mqv-5hh9-4cgg、認証前到達可能な WebSocket upgrade メモリ枯渇の修正が
+  # fail のまま放置されていた)。検知したら PR コメント (新規 secret 不要) を投稿し、
+  # DISCORD_WEBHOOK_INCIDENT が設定済みなら要約も通知する (既存 secret を再利用、新規追加なし)。
+  stalled-bot-pr-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run stalled bot PR check
+        env:
+          REPO: ${{ github.repository }}
+          STALL_DAYS: ${{ github.event.inputs.stall_days || '2' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_INCIDENT: ${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
+        run: node scripts/check-stalled-bot-pr.mjs
