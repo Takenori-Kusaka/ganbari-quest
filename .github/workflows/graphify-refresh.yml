@@ -60,8 +60,15 @@ jobs:
 
       # graphifyy (PyPI、graphify CLI の配布名) を install する。`update` は AST 抽出のみで
       # LLM を呼ばない ("no LLM needed"、docs/decisions/README.md §OSS 採用記録) ため secret 不要。
-      - name: Install graphify (graphifyy on PyPI)
-        run: pip install graphifyy
+      #
+      # version pin 必須 (QM 指摘、#4536): 本 job は同一 runner 内で pip install の直後に
+      # INTEGRATION_BOT_APP_PRIVATE_KEY から短命 install token を発行する (develop へ push 可能)。
+      # unpinned PyPI package が乗っ取られると、その token を奪う経路になる。0.9.32 は
+      # `graphify --help` / `graphify update .` の CLI surface を本 PR 作成時に実機確認済みの版。
+      # 更新する場合は新版で `graphify update .` の出力 (graph.json / manifest.json /
+      # GRAPH_REPORT.md) を手元で確認してから version 文字列だけを差し替える。
+      - name: Install graphify (graphifyy on PyPI, pinned)
+        run: pip install "graphifyy==0.9.32"
 
       - name: Regenerate knowledge graph
         run: graphify update .
