@@ -5063,6 +5063,12 @@ export const CHEER_LABELS = {
 	iconHint: '絵文字を入れてください',
 	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
 	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
+	// #4504: 自由テキストは premium 限定 (LP の訴求どおり)。定型スタンプは全プランで使える。
+	/** プランゲートのエラー文言 / ロック表示に使う機能名 */
+	freeTextFeatureName: 'ひとことメッセージ（自由テキスト）',
+	/** premium 以外に出す説明。スタンプは使えることを同時に伝える (全否定しない) */
+	freeTextLockedNote: `ひとことメッセージ（自由テキスト）は${PLAN_FULL_TERMS.premium}の機能です。スタンプは今のプランでも送れます。`,
+	freeTextPlaceholder: 'ひとことメッセージを足す（任意）',
 	confirmTitle: `7. 内容を確認して${CHEER_TERMS.action}`,
 	grantButton: CHEER_TERMS.action,
 	grantButtonDisabled: '理由とポイントを入力してください',
