@@ -8535,7 +8535,7 @@ export const LP_SELFHOST_LABELS = {
 	text23: ` オープンソース（${OSS_LICENSE_TERMS.spdxId}）。${OSS_LICENSE_TERMS.commercialUse}。`,
 	// メリット一覧の直下に置く注記。義務はメリットではないため箇条書きに混ぜず、
 	// かつ埋没させないよう独立した注記として明示する (#4547)。
-	licenseObligationNote: `${OSS_LICENSE_TERMS.spdxId} のコピーレフト義務: ${OSS_LICENSE_TERMS.copyleftObligation}。`,
+	licenseObligationNote: `守っていただく義務: ${OSS_LICENSE_TERMS.copyleftObligation}（${OSS_LICENSE_TERMS.spdxId} のコピーレフト条項）。`,
 	text24: '&#x1F4CA; SaaS版との比較',
 	text25: '項目',
 	text26: 'SaaS版',

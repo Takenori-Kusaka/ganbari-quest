@@ -38,10 +38,26 @@ describe('OSS ライセンス表記 SSOT (#4547)', () => {
 		}
 	});
 
-	it('LICENSE ファイルが宣言ライセンスと同じ系統である', () => {
-		// LICENSE 全文の完全一致は取れないため、SPDX id の系統名 (AGPL 等) の出現で担保する
-		const family = packageLicense.replace(/-.*$/, '');
-		expect(read('LICENSE')).toContain(family);
+	it('LICENSE ファイルが宣言ライセンスと同じ本文・同じ版である', () => {
+		// 法的拘束力の実体は LICENSE 全文であり package.json のメタデータではない。
+		// 系統名 ('AGPL') の部分文字列一致だけでは、AGPL に言及するだけの別文書や
+		// 別版 (v2 等) に差し替わっても PASS してしまうため、正式名称 + 版数まで見る。
+		const [family, version] = packageLicense.split('-'); // 'AGPL-3.0-only' -> ['AGPL', '3.0']
+		const officialName: Record<string, string> = {
+			AGPL: 'GNU AFFERO GENERAL PUBLIC LICENSE',
+			GPL: 'GNU GENERAL PUBLIC LICENSE',
+			LGPL: 'GNU LESSER GENERAL PUBLIC LICENSE',
+		};
+		const licenseText = read('LICENSE');
+		const expectedName = officialName[family ?? ''];
+		if (expectedName === undefined) {
+			// GNU 系以外は正式名称表を持たないため、SPDX id そのものの出現を要求する
+			expect(licenseText).toContain(packageLicense.replace(/-(only|or-later)$/, ''));
+			return;
+		}
+		expect(licenseText).toContain(expectedName);
+		// 'Version 3, 19 November 2007' の major を照合する ('3.0' -> '3')
+		expect(licenseText).toContain(`Version ${(version ?? '').split('.')[0]}`);
 	});
 
 	it('LP のライセンス表示 (labels.ts compound) が atom 経由で実ライセンスを名乗る', () => {
