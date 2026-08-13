@@ -48,10 +48,12 @@ async function loginAsOwner(page) {
 async function ensureChild(page) {
 	// login 直後は redirect が飛んでいる最中で goto が ERR_ABORTED になることがある
 	await page.waitForLoadState('networkidle').catch(() => {});
+	// 固定 sleep は使わない (#1208)。goto が redirect と競合したら、URL が落ち着くのを
+	// 待ってから 1 度だけやり直す。
 	await page
 		.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' })
 		.catch(async () => {
-			await page.waitForTimeout(1_000);
+			await page.waitForURL(/\/(admin|switch|child)/, { timeout: 15_000 }).catch(() => {});
 			await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' });
 		});
 	await page.waitForLoadState('networkidle').catch(() => {});
