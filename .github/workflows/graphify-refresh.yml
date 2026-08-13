@@ -138,10 +138,32 @@ jobs:
           git switch -C "$BRANCH"
           git add graphify-out
           git commit -m "chore(graphify): regenerate knowledge graph (develop ${DEVELOP_SHA:0:7}, #4536)"
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
-            "$BRANCH" --force-with-lease || \
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
-            "$BRANCH" --force
+          # push 先 branch を fetch していないため素の `--force-with-lease` は使えない (#4563)。
+          # 追跡参照が無いと lease は「人が進めた」ではなく「過去の値を知らない」で常に
+          # stale info になり、2 回目以降の run が永久に失敗する (bare repo で再現確認済み)。
+          #
+          # 2 段で守る:
+          #   1. remote tip の作者が bot 自身か        … 判定時点で人手の commit が載っていないこと
+          #   2. --force-with-lease=<ref>:<expect>     … 判定から push までの間に誰も push していないこと
+          # 1 だけだと判定後の窓に入った push を黙って消す。2 は明示 lease 値なので追跡参照が無くても効く。
+          REMOTE_URL="https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
+          # ls-remote の一過性失敗で set -e により生の非ゼロ終了になるのを避ける
+          # (裸の代入は条件部でないため -e の対象。#4520 で実測した class と同じ)。
+          if ! REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/${BRANCH}" | cut -f1); then
+            echo "::error::${BRANCH} の現在値を取得できませんでした (GitHub API の一過性障害の可能性)。次の develop push で再試行されます。"
+            exit 1
+          fi
+          if [ -n "${REMOTE_SHA}" ]; then
+            git fetch --depth=1 "$REMOTE_URL" "${BRANCH}"
+            TIP_EMAIL=$(git log -1 --format=%ae FETCH_HEAD)
+            if [ "${TIP_EMAIL}" != "${GIT_AUTHOR_EMAIL}" ]; then
+              echo "::error::${BRANCH} の先頭 commit が bot 以外 (${TIP_EMAIL}) です。push を中止しました。bot PR に入れた人手の修正を消さないためです。内容を取り込むか、不要なら ${BRANCH} を削除してください。"
+              exit 1
+            fi
+            git push "$REMOTE_URL" "${BRANCH}" --force-with-lease="refs/heads/${BRANCH}:${REMOTE_SHA}"
+          else
+            git push "$REMOTE_URL" "${BRANCH}"
+          fi
 
       - name: Upsert graphify-refresh PR
         if: steps.diff.outputs.changed == 'true' && steps.appcreds.outputs.present == 'true'
