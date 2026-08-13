@@ -2,7 +2,7 @@
 // コホート別 LTV / チャーン率推移（リテンションカーブ）サービス (#838)
 // 12-事業計画書 §7.3 の LTV 計算式と整合する実測値を算出
 
-import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
+import { planMrrUnitYen } from '$lib/domain/constants/plan-price';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { shiftMonthKey, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
@@ -253,17 +253,10 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 function calculateArpu(paidTenants: Tenant[]): number {
 	if (paidTenants.length === 0) return 0;
 
-	// プラン単価 (月額換算)
-	const planPrices: Record<string, number> = {
-		[SUBSCRIPTION_PLAN.MONTHLY]: 500,
-		[SUBSCRIPTION_PLAN.YEARLY]: Math.round(5000 / 12), // 417
-		[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: 780,
-		[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: Math.round(7800 / 12), // 650
-		[SUBSCRIPTION_PLAN.LIFETIME]: 0,
-	};
-
+	// プラン単価 (月額換算) は constants/plan-price.ts が SSOT (#4533)。
+	// ここに単価表を持つと値上げ時に /ops の MRR と ARPU が食い違う。
 	const totalRevenue = paidTenants.reduce((sum, t) => {
-		const price = t.plan ? (planPrices[t.plan] ?? 0) : 0;
+		const price = planMrrUnitYen(t.plan);
 		return sum + price;
 	}, 0);
 

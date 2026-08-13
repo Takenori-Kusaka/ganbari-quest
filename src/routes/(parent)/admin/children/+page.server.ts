@@ -234,8 +234,9 @@ export const actions: Actions = {
 			if (!Number.isNaN(age) && age >= 0 && age <= 18) updates.age = age;
 		}
 
-		await editChild(childId, updates, tenantId);
-		return { success: true, editedChildId: childId };
+		// #4546 ③: 仮アバターの作り直しをレースで見送ったら画面で知らせる (黙って古いままにしない)。
+		const { placeholderAvatarSkipped } = await editChild(childId, updates, tenantId);
+		return { success: true, editedChildId: childId, placeholderAvatarSkipped };
 	},
 
 	removeChild: async ({ request, locals }) => {

@@ -204,7 +204,7 @@ CodeQL は重く Pre-PMF オーバーキル、security review 用途で別軸。
 ## 関連 SSOT
 
 - memory: `reference_impact_analysis_methodology.md` (詳細方法論、業界事例、primary source URL)
-- ADR: ADR-0014 (OSS 先調査ルール、本 skill のツール選定根拠)
+- ADR: `docs/decisions/README.md` §OSS 先調査ルール（旧 ADR-0014 は #2440 PR-A5 で削除、本 skill のツール選定根拠）
 - skill: `db-migration` (DB schema 変更時の追加 skill) / `pr-review` (QM レビュー時の本 skill 適用確認) / `regression-check` (rename 後の回帰テスト)
 - 関連 memory: [[plan-name-implementation-gap]] / [[deep-research-product-specific]] / [[replan-on-unforeseen-blocker]] / [[ssot-verification-before-proposal]]
 

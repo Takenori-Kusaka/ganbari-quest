@@ -64,7 +64,7 @@ Phase 2 の 3 ジャーニーで同型課題が独立に提起されている:
 
 ### 1.5 deep-research 結果 (2026-05-29、自プロダクト固有性に focus)
 
-Phase 2 #2549 / #2547 / #2551 で既に Notion / Calendly / Slack / Figma / Canva / Stripe Smart Retries の業界調査済。本 #2642 は**アーキ層固有の論点 (3 経路統合パターン)** に focus し、OSS / 確立パターン (ADR-0014 OSS 先調査ルール / `docs/decisions/README.md` 整合) で 3 案比較:
+Phase 2 #2549 / #2547 / #2551 で既に Notion / Calendly / Slack / Figma / Canva / Stripe Smart Retries の業界調査済。本 #2642 は**アーキ層固有の論点 (3 経路統合パターン)** に focus し、OSS / 確立パターン (`docs/decisions/README.md` §OSS 先調査ルール 整合) で 3 案比較:
 
 | 選択肢 | 概要 | メリット | デメリット | Pre-PMF コスト | 採否 |
 |---|---|---|---|---|---|
@@ -74,7 +74,7 @@ Phase 2 #2549 / #2547 / #2551 で既に Notion / Calendly / Slack / Figma / Canv
 
 **採用**: B (enum + 統合 service)。Strategy パターンは reason 別の振る舞い差が「retention 期間 (ADR-0049)」のみで、enum + 1 行分岐で表現可能。3 経路の archive ロジック自体は既存 `archiveForDowngrade` / `archiveExcessResources` を温存しつつ、**`archived_reason` enum SSOT 化 + `restore` ループ化** のみを Phase 7 で実装する最小侵襲設計。
 
-### 1.6 OSS 先調査 (ADR-0014 / #1350 OSS 先調査ルール整合)
+### 1.6 OSS 先調査 (`docs/decisions/README.md` §OSS 先調査ルール / #1350 整合)
 
 「TypeScript で reason / status enum を統合管理するパターン」で OSS 2 件以上を調査:
 
@@ -398,7 +398,7 @@ Phase 7 PR body に impact-analysis 4 layer + 21 カテゴリ checklist を本 �
 
 | # | 観点 | 本 docs 反映 |
 |---|---|---|
-| 1 | **着手時 deep-research** | §1.5 で OSS / 確立パターン 3 案比較 (Strategy / enum+統合 / 現状維持)、ADR-0014 OSS 先調査ルール整合。Phase 2 #2549 / #2547 / #2551 既調査を「アーキ層 3 経路統合」固有論点で再評価。自プロダクト既存実装 (`downgrade-service.ts` / `resource-archive-service.ts` / `stripe-service.ts`) を Explore 照合 (feedback_deep_research_product_specific 整合) |
+| 1 | **着手時 deep-research** | §1.5 で OSS / 確立パターン 3 案比較 (Strategy / enum+統合 / 現状維持)、`docs/decisions/README.md` §OSS 先調査ルール 整合。Phase 2 #2549 / #2547 / #2551 既調査を「アーキ層 3 経路統合」固有論点で再評価。自プロダクト既存実装 (`downgrade-service.ts` / `resource-archive-service.ts` / `stripe-service.ts`) を Explore 照合 (feedback_deep_research_product_specific 整合) |
 | 2 | **UI SS + アクセシビリティ検証計画** | 本 #2642 は archive 機構 (DB / service 層) のみで UI 文言追加なし。Phase 3 #2575 + Phase 4 #2623 既設計の SS / a11y を保全 (本 §6 整合性チェックで確認)。Phase 7 で `ArchivedResourceBanner` `dunning-archived` variant SS 1 件追加 (§7.4) |
 | 3 | **UX 変更時のテスト項目追加** | §7 で unit (3 spec 新規) + integration (3 spec 新規 / 拡張) + E2E (1 spec 新規 + 2 spec 拡張) + Storybook 1 variant + Phase 7 PR body impact-analysis 計画記載 |
 | 4 | **用語 SSOT (atom)** | §8 で reason 別 atom 接続 (`'dunning_canceled'` → Phase 3 #2575 既存 `PLAN_CHANGE_LABELS.archivedBannerTitle` 流用) + 新規 `?from=dunning-archived` を Phase 4 #2620 URL マッピング SSOT に Phase 7 で追補。本 #2642 は新 atom 追加なし、既存 atom 流用で SSOT 整合 |
@@ -415,7 +415,7 @@ Phase 7 PR body に impact-analysis 4 layer + 21 カテゴリ checklist を本 �
   - `src/routes/(parent)/admin/+layout.server.ts:120-145` (Reverse Trial 終了 → archiveExcessResources 自動呼出)
   - `src/routes/api/v1/admin/downgrade-archive/+server.ts:7,37` (`archiveForDowngrade` 呼出)
 - **deep-research (2026-05-29、自プロダクト固有性)**:
-  - OSS / パターン比較 (Strategy / enum+統合 / 現状維持 の 3 案)、ADR-0014 OSS 先調査ルール整合
+  - OSS / パターン比較 (Strategy / enum+統合 / 現状維持 の 3 案)、`docs/decisions/README.md` §OSS 先調査ルール 整合
   - Phase 2 #2549 / #2547 / #2551 既調査 (Notion / Calendly / Slack / Figma / Canva / Stripe Smart Retries) を「3 経路統合」固有論点で再評価
 - **関連 Phase 1+2+3+4 docs**:
   - [phase1-plan-change-requirements.md](phase1-plan-change-requirements.md) (#2535 FR-5 archive 機構維持)
@@ -429,6 +429,6 @@ Phase 7 PR body に impact-analysis 4 layer + 21 カテゴリ checklist を本 �
   - [phase4-reactivation-flow-design.md](phase4-reactivation-flow-design.md) (#2623 動線設計、本 #2642 §3 図 3 dunning 経路追加で双対)
   - [phase5-stripe-product-architecture.md](phase5-stripe-product-architecture.md) (#2639 Phase 5 子 1、本 #2642 は子 2 として独立)
   - [parallel-implementations.md](parallel-implementations.md) (DB スキーマ並行実装 4 backend SSOT、Phase 7 step 9 で `archived_reason` enum 同期手順追補)
-- **ADR**: ADR-0049 (履歴保持期間ポリシー retention) / ADR-0012 (Anti-engagement 子供 UI ゼロ touch) / ADR-0013 (LP truth = 実装の事実) / ADR-0045 (terms.ts 2 階層) / ADR-0010 (Pre-PMF、Strategy パターン不採用根拠) / ADR-0014 (OSS 先調査) / ADR-0031 (DB schema 互換テスト義務化 archive 移動済の精神継承)
+- **ADR**: ADR-0049 (履歴保持期間ポリシー retention) / ADR-0012 (Anti-engagement 子供 UI ゼロ touch) / ADR-0013 (LP truth = 実装の事実) / ADR-0045 (terms.ts 2 階層) / ADR-0010 (Pre-PMF、Strategy パターン不採用根拠) / `docs/decisions/README.md` §OSS 先調査ルール / ADR-0031 (DB schema 互換テスト義務化 archive 移動済の精神継承)
 - **skill**: `impact-analysis` (§5 で 4 layer + 21 カテゴリ checklist 適用) / `db-migration` (§4 step 7 migration script 起票) / `regression-check` (Phase 2/3/4 既設計 + 本アーキ確定の整合 §9)
 - **関連 memory**: per-issue-execution-workflow / impact-analysis-methodology / design-intent-grounding / test-coverage-every-issue / deep-research-product-specific / branch-base-main-freshness / pr-body-encoding-powershell-stdin / pr-review-recurring-blocks / oss_first_principle

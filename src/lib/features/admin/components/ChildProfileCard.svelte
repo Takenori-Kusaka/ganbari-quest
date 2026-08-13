@@ -11,6 +11,7 @@ import {
 	getUnitLabel,
 } from '$lib/domain/point-display';
 import type { CategoryDef } from '$lib/domain/validation/activity';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -376,7 +377,13 @@ $effect(() => {
 			<!-- Delete section -->
 			<div class="profile-edit__danger-zone">
 				{#if confirmDelete}
-					<p class="profile-edit__danger-text">{CHILD_PROFILE_CARD_LABELS.deleteConfirmText}</p>
+					<!-- #4545: 子供の削除も不可逆。色文字 (独自 .profile-edit__danger-text) ではなく
+				     Alert primitive (枠線 + 背景 + アイコン + role="alert") で出す。 -->
+				<Alert
+					variant="danger"
+					message={CHILD_PROFILE_CARD_LABELS.deleteConfirmText}
+					data-testid="child-delete-confirm-warning"
+				/>
 					<div class="profile-edit__danger-actions">
 						<form
 							method="POST"
@@ -859,11 +866,6 @@ $effect(() => {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.profile-edit__danger-text {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: var(--color-danger, #ef4444);
 	}
 	.profile-edit__danger-actions {
 		display: flex;

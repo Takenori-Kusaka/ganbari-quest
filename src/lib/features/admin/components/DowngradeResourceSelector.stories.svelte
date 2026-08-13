@@ -25,6 +25,7 @@ import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retentio
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { DOWNGRADE_RESOURCE_SELECTOR_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
+import { assertPrecedes } from '$lib/ui/primitives/story-play-helpers';
 import DowngradeResourceSelector from './DowngradeResourceSelector.svelte';
 
 const L = STORYBOOK_LABELS.downgradeResourceSelector;
@@ -135,6 +136,16 @@ const { Story } = defineMeta({
 		const warning = await waitFor(() => screen.getByText(expected));
 		await expect(warning).toBeVisible();
 		await expect(warning).toHaveTextContent('削除され、復元できません（再契約でも戻りません）');
+
+		// #4545: 文言が正しいだけでは届かない。提示形式と縦位置まで固定する。
+		const alertBox = await waitFor(() => screen.getByTestId('downgrade-retention-warning'));
+		// (a) 不可逆なので role="alert" (Alert の danger variant)。warning/status に弱めない
+		await expect(alertBox).toHaveAttribute('role', 'alert');
+		// (b) 超過リソースの選択 UI と確定ボタンより **前** に置く。
+		//     旧実装はチェックボックス一覧の後 = ダイアログ末尾にあり、素の viewport では
+		//     読まれないまま確定できた。警告を下へ戻すと本 assert が落ちる。
+		assertPrecedes(alertBox, screen.getByTestId('downgrade-child-list'));
+		assertPrecedes(alertBox, screen.getByTestId('downgrade-confirm-button'));
 	}}
 />
 
@@ -157,6 +168,11 @@ const { Story } = defineMeta({
 		const warning = await waitFor(() => screen.getByText(expected));
 		await expect(warning).toBeVisible();
 		await expect(warning).toHaveTextContent('削除され、復元できません（再契約でも戻りません）');
+
+		// #4545: 無制限側の分岐でも提示形式・縦位置は同じ
+		const alertBox = await waitFor(() => screen.getByTestId('downgrade-retention-warning'));
+		await expect(alertBox).toHaveAttribute('role', 'alert');
+		assertPrecedes(alertBox, screen.getByTestId('downgrade-confirm-button'));
 	}}
 />
 
@@ -183,6 +199,11 @@ const { Story } = defineMeta({
 		const warning = await waitFor(() => screen.getByText(expected));
 		await expect(warning).toBeVisible();
 		await expect(warning).toHaveTextContent('削除され、復元できません（再契約でも戻りません）');
+
+		// #4545: 超過の有無で警告の提示形式・縦位置が変わらないこと (1 箇所に統合済)
+		const alertBox = await waitFor(() => screen.getByTestId('downgrade-retention-warning'));
+		await expect(alertBox).toHaveAttribute('role', 'alert');
+		assertPrecedes(alertBox, screen.getByTestId('downgrade-confirm-button'));
 
 		// 超過が無いので選択 UI は出ない (無用な操作を増やさない)
 		await expect(screen.queryByTestId('downgrade-child-list')).toBeNull();

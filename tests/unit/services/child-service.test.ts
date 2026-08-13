@@ -420,9 +420,11 @@ describe('child-service', () => {
 
 				const result = await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
 
-				expect(result).toEqual({ id: '10' });
+				expect(result.child).toEqual({ id: '10' });
 				expect(updateChild).toHaveBeenCalled();
 				expect(logger.warn).toHaveBeenCalled();
+				// #4546 ③: warn だけでなく呼び出し元 (form action → Toast) にも見送りを伝える。
+				expect(result.placeholderAvatarSkipped).toBe(true);
 			});
 
 			it('競合がなければこれまで通り仮アバターを差し替える (条件付きにしても素通りしない)', async () => {
@@ -448,10 +450,12 @@ describe('child-service', () => {
 					return true;
 				});
 
-				await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
+				const result = await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
 
 				expect(db.avatarUrl).toBe(url('はなこ', 'blue'));
 				expect(logger.warn).not.toHaveBeenCalled();
+				// #4546 ③: 見送っていないので通知しない (毎回 Toast が出るのは過剰)。
+				expect(result.placeholderAvatarSkipped).toBe(false);
 			});
 		});
 
@@ -461,10 +465,13 @@ describe('child-service', () => {
 
 			const result = await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
 
-			expect(result).toEqual({ id: '10' });
+			expect(result.child).toEqual({ id: '10' });
 			expect(updateChild).toHaveBeenCalled();
 			expect(updateChildAvatarUrlIfMatches).not.toHaveBeenCalled();
 			expect(logger.warn).toHaveBeenCalled();
+			// #4546 ③: 生成失敗は「見送り」ではない。保護者に打てる手が無いので通知しない
+			// (写真を優先した = 正常な結果、とは意味が違う)。
+			expect(result.placeholderAvatarSkipped).toBe(false);
 		});
 	});
 

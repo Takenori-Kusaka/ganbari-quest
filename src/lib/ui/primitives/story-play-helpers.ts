@@ -27,3 +27,22 @@ export function assertPointerInteractive(element: Element): void {
 		throw new Error('element is still in open transition (pointer-events: none)');
 	}
 }
+
+/**
+ * `earlier` が DOM 順で `later` より前にあることを assert する (#4545)。
+ *
+ * 「不可逆操作の最重要警告を、選択 UI や確定ボタンより前に置く」といった **縦位置の契約** を
+ * play 関数から固定するために使う。jsdom / Storybook vitest 環境ではレイアウト計算
+ * (`getBoundingClientRect`) が常に 0 を返すため「スクロールせずに見えるか」を pixel では
+ * 判定できない。DOM 順序は決定的に判定でき、かつ「警告を下へ押し下げる」改修を確実に捕捉する。
+ *
+ * @throws {Error} `earlier` が `later` より後、または比較不能な場合
+ */
+export function assertPrecedes(earlier: Element, later: Element): void {
+	const position = earlier.compareDocumentPosition(later);
+	if ((position & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+		throw new Error(
+			'expected the first element to precede the second in DOM order, but it does not',
+		);
+	}
+}

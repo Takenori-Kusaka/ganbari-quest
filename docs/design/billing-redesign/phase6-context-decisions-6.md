@@ -377,7 +377,7 @@ src/routes/api/stripe/* (checkout / webhook handler)
 
 - ADR-0008 (設計ポリシー先行確認フロー、本 PR §3 PO 判断票の運用根拠)
 - ADR-0010 (Pre-PMF、過剰追加回避。元設計で論点 2 / 3 / 6「rename しない」推奨の根拠だったが、#2788 license key 完全全廃で前提が崩れ物理削除に再評価。ADR-0010 は「過剰追加回避」であり全廃した dead concept を残す口実ではない、[[adr0010-interpretation]] 整合)
-- ADR-0014 (OSS 先調査ルール、Stripe 公式 `transfer_lookup_key` パターン採用)
+- `docs/decisions/README.md` §OSS 先調査ルール（Stripe 公式 `transfer_lookup_key` パターン採用）
 - ADR-0033 (Cognito ops group authz、論点 3 `/ops/license/*` 維持の整合)
 - ADR-0045 (atom/compound 2 階層、論点 5 `PLAN_TERMS` 経由化の根拠)
 

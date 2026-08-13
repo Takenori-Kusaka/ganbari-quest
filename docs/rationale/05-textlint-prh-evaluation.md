@@ -57,7 +57,7 @@
 
 - **Phase 1 #1916 で labels.ts 内表記揺れが構造的に消失**: terms.ts atom 化により、labels.ts は `${PLAN_TERMS.standard}` 等の参照のみとなり、同概念の複数表記が並存する余地が無い。textlint-rule-prh の主目的（PO 4 回連続再発した「FAQ 用語 SSOT」表記揺れ検出）は、Phase 1 完了時点で対象自体が消失している
 - **F1 が atom 直書き検出層をカバー**: terms.ts atom 値を `src/lib/server` / `src/routes` で直書きする経路は F1 が hard-fail で塞ぐ。これが残る唯一の表記揺れリスク経路
-- **「OSS / 確立パターン」要件の充足**: ADR-0014 / #1350 OSS 先調査ルールに照らし、F1 は ESLint custom rule (`no-hardcoded-jp-text` #1452) + 独自 mjs (`check-no-plan-literals.mjs` #972) という既存 OSS / 確立パターン延長で実装可能。「独自実装が 10 行超えそうなら OSS を探す」は本件で既に既存機構の延長線上のため適合
+- **「OSS / 確立パターン」要件の充足**: `docs/decisions/README.md` §OSS 先調査ルール / #1350 に照らし、F1 は ESLint custom rule (`no-hardcoded-jp-text` #1452) + 独自 mjs (`check-no-plan-literals.mjs` #972) という既存 OSS / 確立パターン延長で実装可能。「独自実装が 10 行超えそうなら OSS を探す」は本件で既に既存機構の延長線上のため適合
 - **Pre-PMF コスト最小化（ADR-0010）**: dev 依存 50MB 増 + prh.yml 別 SSOT + 例外承認フローを Pre-PMF で導入する ROI が、対象消失により成立しない
 
 ### 3. リスクと残留懸念
