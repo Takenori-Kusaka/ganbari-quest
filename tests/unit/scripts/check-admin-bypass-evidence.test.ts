@@ -100,27 +100,35 @@ describe('import しても process が落ちない（判定を test から呼べ
 // ---------------------------------------------------------------------------
 
 describe('isBotAuthored — App 作成 PR を拾い、値が無ければ exempt しない', () => {
+	/**
+	 * `gh pr list --json ...` の生 JSON を渡す想定の判定なので、test では PR の一部だけを
+	 * 与える (型を満たすためだけのダミー全項目は、何を検証しているかを隠す)。
+	 * 非 boolean の `is_bot` は「壊れた入力でも exempt しない」ことの負例なので、型を通すためだけに
+	 * 直すと negative case が消える。
+	 */
+	const pr = (partial: unknown) => partial as Parameters<typeof isBotAuthored>[0];
+
 	// 実測値 (`gh pr list --json author`、2026-08-13)。
 	it.each([
 		['app/ganbari-quest-integrator', true],
 		['app/dependabot', true],
 	])('App actor %s は bot と判定する (実測: is_bot=true)', (login, expected) => {
-		expect(isBotAuthored({ author: { login, is_bot: true } })).toBe(expected);
+		expect(isBotAuthored(pr({ author: { login, is_bot: true } }))).toBe(expected);
 	});
 
 	it('人間の作成者は bot ではない', () => {
-		expect(isBotAuthored({ author: { login: 'Takenori-Kusaka', is_bot: false } })).toBe(false);
+		expect(isBotAuthored(pr({ author: { login: 'Takenori-Kusaka', is_bot: false } }))).toBe(false);
 	});
 
 	it('is_bot が無い / author 自体が無いときは exempt しない (fail-closed)', () => {
 		// `[bot]` を含む login を騙っても、種別が取れなければ exempt しない。
-		expect(isBotAuthored({ author: { login: 'not-really-a[bot]' } })).toBe(false);
-		expect(isBotAuthored({ author: null })).toBe(false);
-		expect(isBotAuthored({})).toBe(false);
+		expect(isBotAuthored(pr({ author: { login: 'not-really-a[bot]' } }))).toBe(false);
+		expect(isBotAuthored(pr({ author: null }))).toBe(false);
+		expect(isBotAuthored(pr({}))).toBe(false);
 	});
 
 	it('is_bot が boolean でない値 (文字列 "true" 等) では exempt しない', () => {
-		expect(isBotAuthored({ author: { login: 'x', is_bot: 'true' } })).toBe(false);
-		expect(isBotAuthored({ author: { login: 'x', is_bot: 1 } })).toBe(false);
+		expect(isBotAuthored(pr({ author: { login: 'x', is_bot: 'true' } }))).toBe(false);
+		expect(isBotAuthored(pr({ author: { login: 'x', is_bot: 1 } }))).toBe(false);
 	});
 });
