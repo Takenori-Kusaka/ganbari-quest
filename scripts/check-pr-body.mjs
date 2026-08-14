@@ -294,9 +294,9 @@ export function extractEvidencePrNumbers(body) {
 }
 
 /**
- * AC 検証マップの根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
+ * `## 検証` の根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
  *
- * 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。
+ * 実測 (#4074): PR #4063 の根拠欄に `npm run pre-ready -- --pr 4059` と書かれていた。
  * #4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は
  * 「OK — 違反なし」を返し CI も全 pass した。**宛先違いの証跡でも Ready 化を通過できた。**
  *
@@ -305,8 +305,8 @@ export function extractEvidencePrNumbers(body) {
  * 一方「自 PR と一致しない番号」は実在・非実在を問わず宛先違いなので、一致判定だけで
  * 本 Issue の欠陥 (実在しない 4059 / 別 PR の番号) を両方とも落とせる。ネットワーク非依存。
  *
- * 対象は AC 検証マップセクションのみ。body の他所 (背景・関連 PR への言及) は正当に他 PR 番号を
- * 含むため対象外にして誤検出を作らない (AC3)。
+ * 対象は `## 検証` セクションのみ (#4612 で走査節を是正)。body の他所 (背景・関連 PR への言及) は
+ * 正当に他 PR 番号を含むため対象外にして誤検出を作らない (AC3)。
  *
  * @param {string} body
  * @param {string | number | null | undefined} prNumber 自 PR 番号 (`--body-file` dry-run では null)
