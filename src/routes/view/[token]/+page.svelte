@@ -1,15 +1,15 @@
 <script lang="ts">
-import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
+import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
+import { APP_LABELS, formatAgeKana, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
-const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
-	1: { name: 'うんどう', icon: '🏃' },
-	2: { name: 'べんきょう', icon: '📚' },
-	3: { name: 'せいかつ', icon: '🏠' },
-	4: { name: 'こうりゅう', icon: '🤝' },
-	5: { name: 'そうぞう', icon: '🎨' },
-};
+// #4512: 旧実装は 5 カテゴリの name / icon を setup/packs と二重にハードコードしていた
+// (カテゴリを増減しても本画面だけ取り残される並行実装)。SSOT は categories.ts。
+function categoryMeta(categoryId: number | string) {
+	const code = toCategoryCode(categoryId);
+	return code ? CATEGORIES[code] : undefined;
+}
 </script>
 
 <svelte:head>
@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 				<div class="child-card">
 					<div class="child-header">
 						<h2 class="child-name">{child.nickname}</h2>
-						<span class="child-age">{child.age + 'さい'}</span>
+						<span class="child-age">{formatAgeKana(child.age)}</span>
 					</div>
 
 					<div class="child-stats">
@@ -52,7 +52,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 					{#if child.statuses.length > 0}
 						<div class="category-grid">
 							{#each child.statuses as status}
-								{@const cat = CATEGORY_LABELS[status.categoryId]}
+								{@const cat = categoryMeta(status.categoryId)}
 								{#if cat}
 									<div class="category-item">
 										<span class="category-icon">{cat.icon}</span>

@@ -239,6 +239,13 @@ export function formatCount(n: number): string {
 export function formatAge(n: number): string {
 	return `${n}歳`;
 }
+/**
+ * 子供向け画面のひらがな年齢表記 (#4512)。`formatAge` の漢字版と対。
+ * /switch / /view/[token] のように子供・来訪者が読む画面はこちらを使う。
+ */
+export function formatAgeKana(n: number): string {
+	return `${n}さい`;
+}
 export function formatAgeRange(min: number, max: number): string {
 	return `${min}〜${max}歳`;
 }
@@ -261,6 +268,20 @@ export function formatDateRange(start: string, end: string): string {
 
 export const SETUP_LABELS = {
 	layoutTitle: '初期セットアップ',
+	// #4512: setup wizard の step 名。旧実装は setup/+layout.svelte に直書きだった。
+	stepChildren: '子供登録',
+	stepQuestionnaire: 'かんたん質問',
+	stepPacks: '活動',
+	stepRewards: 'ごほうび',
+	stepRules: 'ルール',
+	stepActivitiesDefaults: '活動初期設定',
+	stepChallenges: '家族チャレンジ',
+	stepFirstAdventure: 'はじめての冒険',
+	stepComplete: '冒険の始まり',
+	// #4512: プレビュー開閉トグル。packs / rewards / rules / challenges の 4 step で同一文言のため
+	//   step 個別 namespace ではなく setup 共通に置く (SETUP_CHALLENGES_LABELS からも参照する)。
+	previewToggleOpen: '▼ なかみ',
+	previewToggleClose: '▲ とじる',
 } as const;
 
 // ============================================================
@@ -1159,6 +1180,9 @@ export const MARKETPLACE_LABELS = {
 	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
+	// #4512: 詳細ルートの 404 文言 (旧: [type]/[itemId]/+page.server.ts 直書き)
+	errorInvalidType: 'コンテンツタイプが不正です',
+	errorItemNotFound: 'コンテンツが見つかりません',
 	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
@@ -5160,6 +5184,9 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	recordButton: 'タップしてきろく！',
 	selectActivityHint: 'がんばりをえらんでね！',
 	skipButton: 'あとでやる（スキップ）',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorActivityRequired: '活動を選択してください',
+	errorRecordFailed: '記録に失敗しました。もう一度お試しください。',
 } as const;
 
 // ============================================================
@@ -5333,6 +5360,15 @@ export const SETUP_CHILDREN_LABELS = {
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
 	addFormTitle: '子供を追加',
+	// #4512: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
+	nicknameLabel: 'ニックネーム',
+	nicknamePlaceholder: 'たろうくん',
+	ageLabel: '年齢',
+	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNicknameRequired: 'ニックネームを入力してください',
+	errorAgeRange: '年齢は0〜18で入力してください',
+	errorNoChildren: `1人以上の${CHILD_TERMS.neutral}を登録してください`,
 	themeColorLabel: 'テーマカラー',
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
@@ -6048,6 +6084,8 @@ export const SETUP_PACKS_LABELS = {
 	mustDefaultCheckboxHint:
 		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。',
 	mustDefaultBadge: 'おやくそく推奨',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorPackLoadFailed: (packId: string) => `パック「${packId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 2「ごほうび一括追加」labels
@@ -6065,6 +6103,9 @@ export const SETUP_REWARDS_LABELS = {
 	childPickerLabel: 'どのお子さまに追加しますか？',
 	rewardsCountSuffix: '件のごほうび',
 	emptyChildrenNotice: 'お子さまが登録されていないため、このステップはスキップされます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorSetNotFound: (itemId: string) => `セット「${itemId}」が見つかりません`,
+	errorSetLoadFailed: (itemId: string) => `セット「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 3「ルール一括追加」labels
@@ -6088,6 +6129,9 @@ export const SETUP_RULES_LABELS = {
 	ruleTypeSpecial: 'スペシャル（取込未対応）',
 	bonusOnlyNotice:
 		'ボーナスルールは家族全体に適用されます。交換ルールはお子さまごとのごほうびとして登録されます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorRuleNotFound: (itemId: string) => `ルール「${itemId}」が見つかりません`,
+	errorRuleLoadFailed: (itemId: string) => `ルール「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels
@@ -6130,8 +6174,13 @@ export const SETUP_CHALLENGES_LABELS = {
 	targetSuffix: '回',
 	rewardSuffix: 'P',
 	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
-	previewToggleOpen: '▼ なかみ',
-	previewToggleClose: '▲ とじる',
+	// #4512: 同一文言が packs / rewards / rules にも直書きされていたため SETUP_LABELS に集約
+	previewToggleOpen: SETUP_LABELS.previewToggleOpen,
+	previewToggleClose: SETUP_LABELS.previewToggleClose,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNoChildren: `${CHILD_TERMS.honorific}が登録されていません`,
+	errorPresetNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません`,
+	errorAddFailed: (title: string, reason: string) => `「${title}」の追加に失敗: ${reason}`,
 } as const;
 
 export const PARENT_LOGIN_LABELS = {
@@ -6150,6 +6199,8 @@ export const VIEW_PAGE_LABELS = {
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',
 	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+	// #4512: 無効 / 期限切れトークンの 404 文言 (旧: +page.server.ts 直書き)
+	errorInvalidToken: 'このリンクは無効か、期限切れです',
 } as const;
 
 export const DEMO_BATTLE_LABELS = {
@@ -6285,6 +6336,13 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	namePlaceholderItem: '例: がっこうのもちもの',
 	inactiveBadge: '無効',
 	deleteButton: '削除',
+	// #4023 横展開 (#4512): native confirm() を Dialog primitive に置換 (DESIGN.md §5)。
+	//   本文は admin/challenges の deleteConfirmBody と同型で「何が一緒に消えるか」を書く。
+	//   deleteTemplate は assignments / items / logs を cascade 削除する
+	//   (src/lib/server/db/sqlite/checklist-repo.ts deleteTemplate)。
+	deleteConfirmTitle: 'このチェックリストを削除しますか？',
+	deleteConfirmBody: (templateName: string) =>
+		`「${templateName}」を削除します。ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
@@ -6480,6 +6538,9 @@ export const SWITCH_PAGE_LABELS = {
 	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
 	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
 	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorChildRequired: 'こどもをえらんでね',
+	errorChildNotSelectable: 'このプロフィールは選べません',
 } as const;
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)

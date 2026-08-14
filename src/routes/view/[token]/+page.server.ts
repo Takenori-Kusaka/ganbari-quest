@@ -3,6 +3,7 @@
 
 import { error } from '@sveltejs/kit';
 import { asCategoryId, type CategoryId } from '$lib/domain/ids';
+import { VIEW_PAGE_LABELS } from '$lib/domain/labels';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -12,7 +13,7 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ params }) => {
 	const viewer = await resolveViewerToken(params.token);
 	if (!viewer) {
-		error(404, 'このリンクは無効か、期限切れです');
+		error(404, VIEW_PAGE_LABELS.errorInvalidToken);
 	}
 
 	const tenantId = viewer.tenantId;

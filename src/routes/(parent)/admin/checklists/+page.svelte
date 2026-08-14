@@ -45,6 +45,44 @@ import VisibilityChipGroup, {
 
 let { data, form } = $props();
 
+// #4023 横展開 (#4512): テンプレート削除の確認を native confirm() から Dialog primitive に
+// 置換する (DESIGN.md §5「プリミティブ再実装禁止」/ admin/challenges・admin/settings/rules と同一方式)。
+//
+// 停止は use:enhance の cancel() で行う。旧実装は submit ボタンの onclick で
+// e.preventDefault() しており「click の default が止まれば submit event も発火しない」ため
+// 動いてはいたが (#4023 の掃き出しでも実害なしと判定)、確認 UI が OS ネイティブのままで
+// challenges / rules と見た目・文言・機構が揃っていなかった。
+type PendingConfirm = { formEl: HTMLFormElement; title: string; body: string };
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(formEl: HTMLFormElement, title: string, body: string): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
+
 // #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
 //   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
@@ -991,14 +1029,31 @@ function getChildName(childId: ChildId): string {
 								{template.isActive ? '無効化' : '有効化'}
 							</Button>
 						</form>
-						<form method="POST" action="?/deleteTemplate" use:enhance={() => async () => invalidateAll()}>
+						<form
+							method="POST"
+							action="?/deleteTemplate"
+							use:enhance={({ formElement, cancel }) => {
+								// #4023 横展開 (#4512): 削除は取り消せないので確認を 1 枚挟む。
+								if (
+									!passConfirm(
+										formElement,
+										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
+										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(template.name),
+									)
+								) {
+									cancel();
+									return;
+								}
+								return async () => invalidateAll();
+							}}
+						>
 							<input type="hidden" name="templateId" value={template.id} />
 							<Button
 								type="submit"
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
-								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
+								data-testid="admin-checklist-delete-{template.id}"
 							>
 								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
@@ -1511,6 +1566,41 @@ function getChildName(childId: ChildId): string {
 			{/each}
 		</div>
 	{/if}
+</Dialog>
+
+<!-- #4023 横展開 (#4512): テンプレート削除の確認ダイアログ (DESIGN.md §5 Dialog primitive) -->
+<Dialog
+	bind:open={confirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissConfirm();
+	}}
+	title={pendingConfirm?.title ?? ''}
+	size="md"
+	testid="admin-checklists-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingConfirm?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissConfirm}
+			data-testid="admin-checklists-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="danger"
+			size="sm"
+			onclick={acceptConfirm}
+			data-testid="admin-checklists-confirm-accept"
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
+		</Button>
+	</div>
 </Dialog>
 
 <style>
