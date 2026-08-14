@@ -136,15 +136,12 @@ const noticeText = $derived(
 	</header>
 
 	<Alert variant="info">
-		{#snippet children()}
 		{noticeText}
-		{/snippet}
 	</Alert>
 
 	{#if returnsToFreePlan}
 		<!-- #4585-1: 選ばずに進めた場合に何が残るかを、手続きの前に述べる (PO 必須指示) -->
 		<Alert variant="warning">
-			{#snippet children()}
 			<div data-testid="cancellation-archive-fallback-notice" class="space-y-1">
 				<p class="font-semibold">{CANCELLATION_LABELS.archiveFallbackHeading}</p>
 				<p>
@@ -156,17 +153,14 @@ const noticeText = $derived(
 				</p>
 				<p>{CANCELLATION_LABELS.archiveFallbackRestore}</p>
 			</div>
-			{/snippet}
 		</Alert>
 	{/if}
 
 	{#if selectionUnavailable}
 		<Alert variant="danger">
-			{#snippet children()}
 			<p data-testid="cancellation-selection-unavailable" role="alert">
 				{CANCELLATION_LABELS.selectionUnavailable}
 			</p>
-			{/snippet}
 		</Alert>
 	{/if}
 
@@ -190,7 +184,6 @@ const noticeText = $derived(
 		}}
 	>
 		<Card variant="default" padding="lg">
-			{#snippet children()}
 			<div class="space-y-5">
 				<div class="space-y-1">
 					<h2 class="text-base font-semibold text-[var(--color-text-secondary)] flex items-center gap-2">
@@ -293,9 +286,7 @@ const noticeText = $derived(
 
 				{#if form?.error}
 					<Alert variant="danger">
-						{#snippet children()}
 						{form.error}
-						{/snippet}
 					</Alert>
 				{/if}
 
@@ -326,7 +317,6 @@ const noticeText = $derived(
 					</Button>
 				</div>
 			</div>
-			{/snippet}
 		</Card>
 	</form>
 </div>

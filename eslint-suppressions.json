@@ -605,9 +605,6 @@
   "src/routes/(parent)/admin/subscription/cancel/+page.svelte": {
     "local/max-style-lines": {
       "count": 1
-    },
-    "svelte/no-useless-children-snippet": {
-      "count": 3
     }
   },
   "src/routes/(parent)/admin/subscription/cancel/graduation/+page.svelte": {
