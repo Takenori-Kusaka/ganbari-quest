@@ -74,9 +74,12 @@ describe('deriveTenantEntitlement (#3963)', () => {
 
 	// #4585-2: `status` 単独では S4 停止 (契約が残る) と S5 契約終了 (解約確定) を区別できない。
 	// 契約の有無を entitlement に載せることで、読み手が同じ 1 行から両方を読める。
-	it.each([
+	// repo は NULL 列を `undefined` に写す (`auth-repo.ts:95` の `?? undefined`)。
+	// Tenant entity 側も `stripeSubscriptionId?: string` なので、契約なしは `undefined` で入る。
+	// entitlement は読み手が 1 行で扱えるよう `null` に正規化する (`types.ts:69` は `string | null`)。
+	it.each<[string, string | undefined, string | null]>([
 		['契約あり (S4 停止)', 'sub_1', 'sub_1'],
-		['契約なし (S5 契約終了)', null, null],
+		['契約なし (S5 契約終了)', undefined, null],
 	])('%s の stripeSubscriptionId をそのまま持ち回る', (_name, stored, expected) => {
 		const result = deriveTenantEntitlement(
 			makeTenant({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: stored }),
