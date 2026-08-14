@@ -16,9 +16,13 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { PlanLimitCheck } from '$lib/server/services/plan-limit-service';
+
+// #4085: 本 file は src/routes ツリーを walk する repo 走査 test (registry に scope:'repo' で宣言済)。
+// unit lane の並列実行では既定 5s を超えうるため明示 timeout を置く。
+vi.setConfig({ testTimeout: 60_000 });
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const ROUTES_DIR = path.join(REPO_ROOT, 'src', 'routes');
