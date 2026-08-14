@@ -3761,6 +3761,9 @@ export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
 	CANCELLATION_CATEGORY.PAUSE,
 ];
 
+/** #4585-1: 「選ばずに進めた場合」の見出し。同一画面の複数箇所から参照するため 1 箇所に置く */
+const ARCHIVE_FALLBACK_HEADING = '選ばずに進めた場合';
+
 export const CANCELLATION_LABELS = {
 	pageHeading: '解約手続き',
 	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
@@ -3826,13 +3829,17 @@ export const CANCELLATION_LABELS = {
 	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
 	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
 	// 「先に登録したものから順に上限数だけ残す」。規則を内部に閉じず、解約画面で先に伝える。
-	archiveFallbackHeading: '選ばずに進めた場合',
+	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
 	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
 		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、先に登録したものから順にこの数だけ残し、超えた分をアーカイブします。`,
 	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
 	selectionButton: '残すデータを選ぶ',
 	selectionLoading: '確認しています…',
-	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「選ばずに進めた場合」の扱いになります。もう一度ボタンを押すとお手続きに進みます。`,
+	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度ボタンを押すとお手続きに進みます。`,
+	// #4585-1 QM: 選択ダイアログを閉じた顧客の出口。確定ボタンは超過分を選ぶまで押せないため、
+	// 「どれも手放したくない」顧客の唯一の操作が「閉じる」になる。ここで手続きを再開できないと
+	// 解約そのものが行き止まりになる (#4329 / #4548 / #4560 と同じ class)。
+	selectionSkipped: `残すデータを選ばずに閉じました。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度ボタンを押すとお手続きに進みます。`,
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */

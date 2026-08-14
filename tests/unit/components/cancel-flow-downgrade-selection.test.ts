@@ -276,4 +276,37 @@ describe('#4585-1 解約フローが選択 UI に合流する', () => {
 			expect(actionCalls().length).toBeGreaterThan(0);
 		});
 	});
+
+	it('AC8: 選択ダイアログを閉じた顧客を解約できない状態に閉じ込めない', async () => {
+		renderPage();
+		await submitWithReason();
+		await waitFor(() => {
+			expect(selectorState()).toBe('open');
+		});
+
+		// 確定ボタンは超過分を選ぶまで押せない (DowngradeResourceSelector の allValid)。
+		// つまり「どれも手放したくない」顧客の唯一の出口は「キャンセル」になる。
+		// ここで閉じたあと解約が二度と完了できないなら、それは解約導線の行き止まり
+		// (特商法の解約導線の実効性、#4329 / #4548 / #4560 と同じ class)。
+		await fireEvent.click(
+			screen
+				.getAllByRole('button')
+				.find((b) => b.textContent?.trim() === 'キャンセル') as HTMLElement,
+		);
+		await waitFor(() => {
+			expect(selectorState()).toBe('closed');
+		});
+		// 選ばずに閉じたことと、このまま進めた場合の扱いを伝える
+		expect(screen.getByTestId('cancellation-selection-skipped').textContent).toContain(
+			CANCELLATION_LABELS.selectionSkipped,
+		);
+		// 閉じただけでは archive も送信もしない (無言で顧客のデータを落とさない)
+		expect(actionCalls()).toHaveLength(0);
+
+		// もう一度押せば手続きは進む
+		await fireEvent.click(screen.getByTestId('cancellation-submit'));
+		await waitFor(() => {
+			expect(actionCalls().length).toBeGreaterThan(0);
+		});
+	});
 });

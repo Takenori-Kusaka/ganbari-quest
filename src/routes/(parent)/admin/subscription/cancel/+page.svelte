@@ -34,6 +34,7 @@ let downgradePreview = $state<DowngradePreview | null>(null);
 let selectorLoading = $state(false);
 let selectorError = $state<string | null>(null);
 let selectionUnavailable = $state(false);
+let selectionSkipped = $state(false);
 
 /** 解約すると無料プランに戻る顧客か (= 上限超過分の行き先が決まる顧客か) */
 const returnsToFreePlan = $derived(data.planTier !== undefined && data.planTier !== 'free');
@@ -54,6 +55,7 @@ async function resolveSelection() {
 	selectorLoading = true;
 	selectorError = null;
 	selectionUnavailable = false;
+	selectionSkipped = false;
 	const result = await fetchDowngradePreview();
 	selectorLoading = false;
 
@@ -153,6 +155,14 @@ const noticeText = $derived(
 				</p>
 				<p>{CANCELLATION_LABELS.archiveFallbackRestore}</p>
 			</div>
+		</Alert>
+	{/if}
+
+	{#if selectionSkipped}
+		<Alert variant="warning">
+			<p data-testid="cancellation-selection-skipped" role="status">
+				{CANCELLATION_LABELS.selectionSkipped}
+			</p>
 		</Alert>
 	{/if}
 
@@ -332,6 +342,12 @@ const noticeText = $derived(
 		showSelector = false;
 		downgradePreview = null;
 		selectorError = null;
+		// #4585-1 QM: 確定ボタンは超過分を選ぶまで押せないため、「どれも手放したくない」顧客は
+		// 閉じるしかない。ここで selectionResolved を立てないと submit のたびにダイアログが
+		// 開き直し、解約が完了できなくなる。閉じたこと自体では archive も送信もせず、
+		// 次に何が起きるかを伝えたうえで再送信に委ねる。
+		selectionSkipped = true;
+		selectionResolved = true;
 	}}
 />
 
