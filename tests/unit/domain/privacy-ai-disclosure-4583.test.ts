@@ -61,10 +61,15 @@ describe('#4583 プライバシーポリシーの生成 AI 記述が実装と一
 			expect(section9).toContain('領収書');
 		});
 
-		it('第9条④ が送信先の 2 系統 (Bedrock / Gemini) を区別している', () => {
-			// 「運営者が管理する AWS 環境内でのみ処理」はセルフホスト (Gemini) では成立しない
-			expect(section9).toContain('Bedrock');
-			expect(section9).toContain('Gemini');
+		it('第9条④ が送信先の 2 系統 (運営者の環境内 / 環境外) を区別している', () => {
+			// 「運営者が管理する AWS 環境内でのみ処理」はセルフホスト (外部事業者) では成立しない。
+			//
+			// **個別サービス名 (Bedrock / Gemini) は書かない** — 法務文書 / LP には事業者名と
+			// 「運営者の環境内か外部か」を書く規約 (#4370、measure-lp-dimensions.mjs が hard-fail)。
+			expect(section9).toContain('運営者が管理する AWS 環境内の生成 AI');
+			expect(section9).toContain('運営者の環境外の生成 AI');
+			expect(section9).toContain('Google LLC');
+			expect(section9, '#4370: 法務文書に個別サービス名を書かない').not.toMatch(/Bedrock|Gemini/);
 		});
 
 		it('第9条④ が「入力した内容は送られる」ことを読み手に警告している', () => {
