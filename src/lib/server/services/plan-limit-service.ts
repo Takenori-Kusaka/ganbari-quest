@@ -6,6 +6,7 @@ import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
@@ -22,7 +23,14 @@ export interface PlanLimits {
 	historyRetentionDays: number | null;
 	canExport: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
+	/**
+	 * 特別なごほうび設定（スタンダード以上、#728）。
+	 *
+	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
+	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
+	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
+	 */
+	canCustomReward: boolean;
 	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
@@ -45,7 +53,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
 		canExport: false,
 		canFreeTextMessage: false,
-		canCustomReward: false,
+		canCustomReward: isCustomRewardUnlocked('free'),
 		canSiblingRanking: false,
 		maxCloudExports: 0,
 	},
@@ -58,7 +66,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
 		canFreeTextMessage: false,
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('standard'),
 		canSiblingRanking: false,
 		maxCloudExports: 3,
 	},
@@ -71,7 +79,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
 		canFreeTextMessage: true,
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('family'),
 		canSiblingRanking: true,
 		maxCloudExports: 10,
 	},
