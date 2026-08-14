@@ -190,6 +190,48 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			).toContain(`${DELETION_GRACE_PERIOD_DAYS.standard} 日間は「復元」ボタンで取り消せます`);
 		});
 
+		// #4524: 同意チェックの文言は猶予 notice と同じ事実を述べる。旧実装はプラン非依存の
+		//   固定文で「元に戻せません」と断定しており、猶予のある有料プランでは直上の notice と
+		//   同一画面で正面から矛盾していた (最も不可逆性の高い操作の直前で警告が信用を失う)。
+		it('同意チェックは有料プランで「元に戻せません」と断定しない', () => {
+			const paid = SETTINGS_LABELS.accountDeleteDangerConsentLabel(
+				DELETION_GRACE_PERIOD_DAYS.standard,
+			);
+			expect(paid).not.toContain('元に戻せません');
+			expect(paid).toContain(`${DELETION_GRACE_PERIOD_DAYS.standard} 日以内`);
+			expect(paid).toContain('「復元」ボタンで取り消せます');
+		});
+
+		it('同意チェックは猶予 0 日 (無料 / 非 owner) で不可逆を明言する', () => {
+			// 単純な文言撤去で無料プランの警告を弱めない (#4496 の元の実害を再発させない)
+			expect(SETTINGS_LABELS.accountDeleteDangerConsentLabel(0)).toContain('元に戻せません');
+		});
+
+		it('同意チェックはプラン未解決時に猶予を断定しない', () => {
+			// `?? 'free'` へ倒すと、猶予のある親に「元に戻せません」を見せる誤誘導になる (#4517 整合)
+			const unknown = SETTINGS_LABELS.accountDeleteDangerConsentLabel(null);
+			expect(unknown).not.toContain('元に戻せません');
+			expect(unknown).not.toContain('取り消せます');
+			expect(unknown).toContain('削除することに同意します');
+		});
+
+		it('同意チェックと猶予 notice が同じ事実を述べる (同一画面で矛盾しない)', () => {
+			for (const days of [
+				0,
+				DELETION_GRACE_PERIOD_DAYS.standard,
+				DELETION_GRACE_PERIOD_DAYS.family,
+			]) {
+				const consent = SETTINGS_LABELS.accountDeleteDangerConsentLabel(days);
+				const notice = SETTINGS_LABELS.accountDeleteGraceNotice(days);
+				const consentSaysReversible = consent.includes('取り消せます');
+				const noticeSaysReversible = notice.includes('取り消せます');
+				expect(
+					consentSaysReversible,
+					`猶予 ${days} 日で consent と notice の可逆性の主張が食い違う: consent="${consent}" / notice="${notice}"`,
+				).toBe(noticeSaysReversible);
+			}
+		});
+
 		it('削除猶予バナーは残日数として述べる (引数は daysRemaining)', () => {
 			expect(SETTINGS_LABELS.deletionGraceDesc(3, '2026-08-15')).toBe(
 				'あと 3 日（2026-08-15）ですべてのデータが完全に削除されます。それまでであれば「復元」ボタンで取り消せます。',
