@@ -3838,11 +3838,12 @@ export const CANCELLATION_LABELS = {
 	portalSupportLink: 'サポート窓口に連絡する',
 
 	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
-	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
-	// 「先に登録したものから順に上限数だけ残す」。規則を内部に閉じず、解約画面で先に伝える。
+	// #4585-3: fallback 規則を子供だけ「直近の利用順」に変更 (PO 決裁 Q1 / Q3)。
+	// 顧客に伝えるのは「お子さまは最近記録がある方を残す」ところまで。活動・チェックリストの
+	// 並び順 (登録順) までは書かない — 復元でき、かつ選択 UI で顧客自身が選べるため。
 	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
 	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
-		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、先に登録したものから順にこの数だけ残し、超えた分をアーカイブします。`,
+		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、この数だけ残して超えた分をアーカイブします。${CHILD_TERMS.honorific}は、最近記録がある${CHILD_TERMS.honorific}から順に残します。`,
 	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
 	selectionButton: '残すデータを選ぶ',
 	selectionLoading: '確認しています…',
