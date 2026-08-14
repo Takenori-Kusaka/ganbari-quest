@@ -60,11 +60,16 @@ for (const arg of process.argv.slice(2)) {
 	}
 }
 
+/**
+ * @param {string[]} args
+ * @returns {string}
+ */
 function runGit(args) {
 	try {
 		return execFileSync('git', args, { encoding: 'utf8' });
 	} catch (err) {
-		console.error('[check-schema-change-tests] git command failed:', err.message);
+		const message = err instanceof Error ? err.message : String(err);
+		console.error('[check-schema-change-tests] git command failed:', message);
 		process.exit(2);
 	}
 }
