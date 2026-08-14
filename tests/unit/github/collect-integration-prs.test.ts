@@ -17,18 +17,15 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-	compareIsoInstant,
 	computeDriftDays,
 	excludeReason,
 	extractMergedPrNumber,
 	extractMergedPrNumbers,
 	findLastIntegrationAnchor,
 	formatReconcileReport,
-	isAtOrAfterInstant,
 	isIntegrationMergeSubject,
 	parseFirstParentLog,
 	reconcileCandidates,
-	toEpochMs,
 } from '../../../scripts/collect-integration-prs.mjs';
 import {
 	buildContainedPrTable,
@@ -36,6 +33,13 @@ import {
 	extractClosedIssues,
 	renderIntegrationPrBody,
 } from '../../../scripts/integration-pr-body.mjs';
+// 時刻の正規化・比較は #4624 で scripts/lib/iso-instant.mjs へ移した (本 script 専用ではなく、
+// ISO8601 を比較する全 script の唯一の入口にするため)。本 file は本 script 経由の挙動を固定する。
+import {
+	compareIsoInstant,
+	isAtOrAfterInstant,
+	toEpochMs,
+} from '../../../scripts/lib/iso-instant.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, '../../fixtures/integration-pr');

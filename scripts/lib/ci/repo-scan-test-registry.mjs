@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/iso-instant-comparison-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs / .claude/hooks/**/*.mjs を AST 化し、.github/workflows/*.yml を行走査して、ISO8601 を文字列のまま順序比較している箇所を検出する (#4624 / #4053 AC1)',
+	},
 	'tests/unit/architecture/unreachable-script-export-fitness.test.ts': {
 		scope: 'repo',
 		note: 'scripts/**/*.mjs と .claude/hooks/*.mjs を TypeScript parser で AST 化し、entry / registry から到達しない export された判定関数を検出する (#4623)',
