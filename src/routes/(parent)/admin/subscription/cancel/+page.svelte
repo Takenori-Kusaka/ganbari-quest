@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import {
 	APP_LABELS,
 	CANCELLATION_CATEGORY,
@@ -7,6 +8,13 @@ import {
 	type CancellationCategory,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
+import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
+import {
+	archiveDowngradeSelection,
+	type DowngradeSelection,
+	fetchDowngradePreview,
+} from '$lib/features/admin/downgrade-client';
+import { shouldOpenDowngradeSelector } from '$lib/features/admin/downgrade-dialog-policy';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -16,6 +24,68 @@ let { data, form } = $props();
 let selectedCategory = $state<CancellationCategory | ''>('');
 let freeText = $state<string>('');
 let submitting = $state(false);
+
+// #4585-1: 解約フローも請求パネルと同じ選択 UI (DowngradeResourceSelector) に合流させる。
+// 同じ解約なのに入口によって「選べる / 選べない」が変わる状態を無くす。
+let formEl = $state<HTMLFormElement | null>(null);
+let selectionResolved = $state(false);
+let showSelector = $state(false);
+let downgradePreview = $state<DowngradePreview | null>(null);
+let selectorLoading = $state(false);
+let selectorError = $state<string | null>(null);
+let selectionUnavailable = $state(false);
+
+/** 解約すると無料プランに戻る顧客か (= 上限超過分の行き先が決まる顧客か) */
+const returnsToFreePlan = $derived(data.planTier !== undefined && data.planTier !== 'free');
+
+function submitForm() {
+	formEl?.requestSubmit();
+}
+
+/**
+ * 送信前に「どれを残すか」を顧客に決めさせる。
+ *
+ * - 失うものがあれば選択ダイアログを開く (判定 SSOT = shouldOpenDowngradeSelector、#4530)
+ * - 失うものが無ければそのまま手続きへ進む (無用なダイアログを増やさない)
+ * - 取得できなければ理由を出して止める。再度押せば手続きは続けられる
+ *   (解約を行き止まりにしない — #4329 と同じ特商法の解約導線の実効性)
+ */
+async function resolveSelection() {
+	selectorLoading = true;
+	selectorError = null;
+	selectionUnavailable = false;
+	const result = await fetchDowngradePreview();
+	selectorLoading = false;
+
+	if (!result.ok) {
+		selectionUnavailable = true;
+		selectionResolved = true;
+		return;
+	}
+	if (!shouldOpenDowngradeSelector(result.value)) {
+		selectionResolved = true;
+		submitForm();
+		return;
+	}
+	downgradePreview = result.value;
+	showSelector = true;
+}
+
+async function confirmSelection(selection: DowngradeSelection) {
+	if (downgradePreview?.hasExcess) {
+		selectorLoading = true;
+		const archived = await archiveDowngradeSelection(selection);
+		selectorLoading = false;
+		if (!archived.ok) {
+			selectorError = archived.error;
+			return;
+		}
+	}
+	showSelector = false;
+	downgradePreview = null;
+	selectionResolved = true;
+	submitForm();
+}
 
 // form action が再実行されたら state を同期（fail 時のフォーム値復元）
 $effect(() => {
@@ -29,15 +99,21 @@ $effect(() => {
 
 const charCount = $derived(freeText.length);
 const isOverLimit = $derived(charCount > data.freeTextMaxLength);
-const canSubmit = $derived(selectedCategory !== '' && !isOverLimit && !submitting);
+const canSubmit = $derived(
+	selectedCategory !== '' && !isOverLimit && !submitting && !selectorLoading,
+);
 
 function selectCategory(category: CancellationCategory) {
 	selectedCategory = category;
 }
 
-const submitLabel = $derived(
-	data.isPaidPlan ? CANCELLATION_LABELS.submitButton : CANCELLATION_LABELS.submitButtonNoStripe,
-);
+const submitLabel = $derived.by(() => {
+	// #4585-1: 選択がまだなら、次に起きること (残すデータを選ぶ) をボタンで予告する
+	if (returnsToFreePlan && !selectionResolved) return CANCELLATION_LABELS.selectionButton;
+	return data.isPaidPlan
+		? CANCELLATION_LABELS.submitButton
+		: CANCELLATION_LABELS.submitButtonNoStripe;
+});
 
 const noticeText = $derived(
 	data.isPaidPlan ? CANCELLATION_LABELS.paidPlanNotice : CANCELLATION_LABELS.freePlanNotice,
@@ -65,10 +141,47 @@ const noticeText = $derived(
 		{/snippet}
 	</Alert>
 
+	{#if returnsToFreePlan}
+		<!-- #4585-1: 選ばずに進めた場合に何が残るかを、手続きの前に述べる (PO 必須指示) -->
+		<Alert variant="warning">
+			{#snippet children()}
+			<div data-testid="cancellation-archive-fallback-notice" class="space-y-1">
+				<p class="font-semibold">{CANCELLATION_LABELS.archiveFallbackHeading}</p>
+				<p>
+					{CANCELLATION_LABELS.archiveFallbackRule(
+						data.freeLimits?.maxChildren ?? 0,
+						data.freeLimits?.maxActivities ?? 0,
+						data.freeLimits?.maxChecklistTemplates ?? 0,
+					)}
+				</p>
+				<p>{CANCELLATION_LABELS.archiveFallbackRestore}</p>
+			</div>
+			{/snippet}
+		</Alert>
+	{/if}
+
+	{#if selectionUnavailable}
+		<Alert variant="danger">
+			{#snippet children()}
+			<p data-testid="cancellation-selection-unavailable" role="alert">
+				{CANCELLATION_LABELS.selectionUnavailable}
+			</p>
+			{/snippet}
+		</Alert>
+	{/if}
+
 	<form
 		method="POST"
+		bind:this={formEl}
 		data-testid="cancellation-form"
-		use:enhance={() => {
+		use:enhance={({ cancel }) => {
+			// 選択が済んでいない解約は、まず「どれを残すか」を決めてもらう。
+			// 済ませずに送ると期末の自動アーカイブ (先に登録した順に残す) に倒れる。
+			if (returnsToFreePlan && !selectionResolved) {
+				cancel();
+				void resolveSelection();
+				return;
+			}
 			submitting = true;
 			return async ({ update }) => {
 				await update();
@@ -203,7 +316,13 @@ const noticeText = $derived(
 						disabled={!canSubmit}
 						data-testid="cancellation-submit"
 					>
-						{submitting ? CANCELLATION_LABELS.submitLoading : submitLabel}
+						{#if submitting}
+							{CANCELLATION_LABELS.submitLoading}
+						{:else if selectorLoading}
+							{CANCELLATION_LABELS.selectionLoading}
+						{:else}
+							{submitLabel}
+						{/if}
 					</Button>
 				</div>
 			</div>
@@ -211,6 +330,20 @@ const noticeText = $derived(
 		</Card>
 	</form>
 </div>
+
+<!-- #4585-1: 請求パネル (SaasLicensePanel) と同一の選択 UI。解約フローもここに合流する -->
+<DowngradeResourceSelector
+	bind:open={showSelector}
+	preview={downgradePreview}
+	loading={selectorLoading}
+	error={selectorError}
+	onConfirm={confirmSelection}
+	onCancel={() => {
+		showSelector = false;
+		downgradePreview = null;
+		selectorError = null;
+	}}
+/>
 
 <style>
 	.cancel-flow {

@@ -3822,6 +3822,17 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
+	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
+	// 「先に登録したものから順に上限数だけ残す」。規則を内部に閉じず、解約画面で先に伝える。
+	archiveFallbackHeading: '選ばずに進めた場合',
+	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
+		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、先に登録したものから順にこの数だけ残し、超えた分をアーカイブします。`,
+	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
+	selectionButton: '残すデータを選ぶ',
+	selectionLoading: '確認しています…',
+	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「選ばずに進めた場合」の扱いになります。もう一度ボタンを押すとお手続きに進みます。`,
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
