@@ -31,11 +31,7 @@ import {
 	copyChildRewardsToSiblings,
 } from '$lib/server/services/child-reward-copy-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-import {
-	isPaidTier,
-	type PlanTier,
-	resolveFullPlanTier,
-} from '$lib/server/services/plan-limit-service';
+import { type PlanTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
 import {
 	addReward,
