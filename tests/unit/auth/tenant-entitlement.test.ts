@@ -68,7 +68,20 @@ describe('deriveTenantEntitlement (#3963)', () => {
 			licenseStatus: AUTH_LICENSE_STATUS.NONE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: undefined,
+			stripeSubscriptionId: null,
 		});
+	});
+
+	// #4585-2: `status` 単独では S4 停止 (契約が残る) と S5 契約終了 (解約確定) を区別できない。
+	// 契約の有無を entitlement に載せることで、読み手が同じ 1 行から両方を読める。
+	it.each([
+		['契約あり (S4 停止)', 'sub_1', 'sub_1'],
+		['契約なし (S5 契約終了)', null, null],
+	])('%s の stripeSubscriptionId をそのまま持ち回る', (_name, stored, expected) => {
+		const result = deriveTenantEntitlement(
+			makeTenant({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: stored }),
+		);
+		expect(result.stripeSubscriptionId).toBe(expected);
 	});
 
 	// active / grace_period のみ機能利用可 (ENTITLED_SUBSCRIPTION_STATUSES と整合)
@@ -109,6 +122,7 @@ describe('resolveTenantEntitlement (#3963)', () => {
 			licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: 'family-monthly',
+			stripeSubscriptionId: 'sub_1',
 		});
 	});
 
