@@ -23,7 +23,7 @@
 // grep でコメントを除去しようとすると正規表現リテラル (`/^https?:\/\//i`) の末尾を `//`
 // コメントと誤認する — 実測でこれが生きている `isUserAttachmentAssetUrl` を dead と誤検出した。
 //
-// 参照元 (CONSUMER_GLOBS) に **test を含めない**。含めると上記のとおり検査が無意味になる。
+// 参照元 (CONSUMER_ROOTS) に **test を含めない**。含めると上記のとおり検査が無意味になる。
 // 「fitness function からしか呼ばれないのが正しい」export は ALLOWLIST に理由付きで載せる。
 import { globSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -38,12 +38,15 @@ const TARGET_ROOTS = ['scripts'];
 /**
  * 参照元として数える production コードの走査 root。
  *
- * **test を入れてはならない** — test からの import を参照と数えると、本番経路が死んでいても
- * 「使われている」ことになり、本 gate が守りたいものを守れなくなる。
+ * **test を参照元に入れてはならない** — test からの import を参照と数えると、本番経路が死んで
+ * いても「使われている」ことになり、本 gate が守りたいものを守れなくなる。
+ *
+ * 除外は 2 経路で効いている: `tests/**` は `.ts` なので下の `.mjs` glob に入らない。
+ * `scripts/__tests__/**`(node:test) は `.mjs` なので `EXCLUDED_PATH_PARTS` で明示除外する。
  */
 const CONSUMER_ROOTS = ['scripts', '.claude/hooks'];
 
-/** 走査から外す path 断片 (自身の test / 一時ファイル)。 */
+/** 走査から外す path 断片 (test は参照元に数えない、上記参照)。 */
 const EXCLUDED_PATH_PARTS = ['__tests__', 'node_modules'];
 
 /**
@@ -52,7 +55,6 @@ const EXCLUDED_PATH_PARTS = ['__tests__', 'node_modules'];
  * 理由なし / stub な理由は置かない (理由の非強制を作らない、#3956 教訓)。ここに足すときは
  * **なぜ production から呼ばれないのが正しいのか**を書く。単に「まだ使っていない」は理由に
  * ならない — その場合は削除する。
- *
  */
 const ALLOWLIST: Record<string, string> = {
 	'scripts/lib/ci/workflow-judgment-registry.mjs#findJudgment':
@@ -213,6 +215,15 @@ describe('#4623 scripts/ の export された判定関数は entry / registry �
 			].join('\n'),
 		).toEqual([]);
 	}, 60_000);
+
+	// 現時点では「scripts/__tests__ からしか参照されない export」が存在しないため、除外を外しても
+	// 検出結果は変わらない (実測)。つまり除外の効きは検出結果からは確認できない。効かなくなった
+	// ことに後から気づけるよう、参照元集合そのものを直接 assert する。
+	it('参照元集合に test は 1 件も入っていない（test を生存証明にしない）', () => {
+		const consumers = expandRoots(CONSUMER_ROOTS);
+		expect(consumers.length, '参照元が 0 件 = 全 export が dead 判定される').toBeGreaterThan(0);
+		expect(consumers.filter((f) => f.includes('__tests__') || /\.test\.mjs$/.test(f))).toEqual([]);
+	});
 
 	it('ALLOWLIST の理由は stub でない', () => {
 		for (const [key, reason] of Object.entries(ALLOWLIST)) {
