@@ -31,6 +31,26 @@ export interface PlanLimits {
 // 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
 export type { PlanTier };
 
+/**
+ * 上限チェックの結果 (#4622)。
+ *
+ * `max: null` は「無制限」を意味するので、**上限に達した状態 (`allowed: false`) と
+ * 同時には成立しない**。旧実装は `{ allowed: boolean; max: number | null }` という
+ * 単一 shape だったため、この不変条件を型が持たず、`if (!check.allowed)` の内側でも
+ * `max` が `number | null` のままだった。結果、上限到達メッセージに
+ * 「カスタム活動は最大 null 個まで作成できます」と出しうる型の穴が空いていた。
+ *
+ * discriminated union にすることで不正な状態を型で表現不能にし (ADR-0061)、
+ * `!allowed` 側では `max` が `number` に narrowing される。
+ * 上限メッセージのラベル関数 (`PLAN_GATE_LABELS.*LimitReached`) は `max: number` を
+ * 要求するので、この不変条件を崩した瞬間に呼び出し側がコンパイルで落ちる。
+ */
+export type PlanLimitCheck =
+	/** 未到達。`max: null` は無制限プラン (上限なし) を表す */
+	| { allowed: true; current: number; max: number | null }
+	/** 上限到達。到達しうるのは上限が具体値のプランだけなので `max` は必ず number */
+	| { allowed: false; current: number; max: number };
+
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
 		maxChildren: 2,
@@ -224,7 +244,7 @@ export async function hasArchivedData(
 export async function checkChildLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChildren === null) {
 		return { allowed: true, current: 0, max: null };
@@ -250,7 +270,7 @@ export async function checkChildLimit(
 export async function checkActivityLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxActivities === null) {
 		return { allowed: true, current: 0, max: null };
@@ -284,7 +304,7 @@ export async function checkChecklistTemplateLimit(
 	tenantId: string,
 	licenseStatus: string,
 	childId: ChildId,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChecklistTemplates === null) {
 		return { allowed: true, current: 0, max: null };
@@ -312,7 +332,7 @@ export async function checkChecklistTemplateLimit(
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxFamilyMembers === null) {
 		return { allowed: true, current: 0, max: null };

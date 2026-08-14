@@ -174,7 +174,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 			error: createPlanLimitError(
 				tier,
 				'standard',
-				`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
 			),
 			upgradeRequired: true,
 		});
@@ -324,7 +324,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -490,7 +490,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。`,
+					PLAN_GATE_LABELS.checklistTemplateLimitReached(limit.max),
 				),
 			});
 		}
@@ -563,7 +563,7 @@ export const actions: Actions = {
 					error: createPlanLimitError(
 						tier,
 						'standard',
-						`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+						PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
 					),
 					upgradeRequired: true,
 				});
@@ -753,7 +753,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
 				),
 				upgradeRequired: true,
 			});

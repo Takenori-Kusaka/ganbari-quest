@@ -5,6 +5,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
@@ -180,7 +181,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -292,7 +293,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${importPackLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(importPackLimitCheck.max),
 				),
 			});
 		}
@@ -433,7 +434,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -543,7 +544,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${copyLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(copyLimitCheck.max),
 				),
 			});
 		}
@@ -609,7 +610,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${bulkActivityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(bulkActivityLimitCheck.max),
 				),
 			});
 		}
