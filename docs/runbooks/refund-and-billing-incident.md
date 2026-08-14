@@ -95,12 +95,19 @@ business / cohort / costs / export / pmf-survey / revenue のみ）。
 
 **重要**: アプリは Stripe の返金イベントを購読していない。
 
-`stripe-service.ts` の `handleWebhookEvent` が処理するのは以下の **5 種のみ**:
+`stripe-service.ts` の `dispatchWebhookEvent` が処理するのは以下だけである。
 
-```
-checkout.session.completed / invoice.paid / invoice.payment_failed
-customer.subscription.updated / customer.subscription.deleted
-```
+<!-- webhook-subscribed-events:start -->
+- `checkout.session.completed`
+- `customer.subscription.deleted`
+- `customer.subscription.updated`
+- `invoice.paid`
+- `invoice.payment_failed`
+<!-- webhook-subscribed-events:end -->
+
+> 上記は `tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` が実装の `case` と
+> 突合している（#3990）。**実装が増減したらこの runbook が落ちる**ので、「返金は自動で
+> 追随しない」という本節の前提が古いまま残ることはない。
 
 **`charge.refunded` は含まれない。** したがって:
 
