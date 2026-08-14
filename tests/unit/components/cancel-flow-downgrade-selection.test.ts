@@ -309,4 +309,17 @@ describe('#4585-1 解約フローが選択 UI に合流する', () => {
 			expect(actionCalls().length).toBeGreaterThan(0);
 		});
 	});
+
+	it('AC9: 体験中 (請求は無いが実効プランは有料) に「無料プランをご利用中」と言わない', () => {
+		// 体験中は stripeSubscriptionId が無いため isPaidPlan=false だが、実効プランは有料。
+		// freePlanNotice をそのまま出すと、直下の「無料プランに戻ると…」と同一画面で矛盾し、
+		// かつ「無料プランをご利用中」という事実でない断定になる (実測で発見)。
+		renderPage({ isPaidPlan: false, hasStripeCustomer: false });
+
+		const body = document.body.textContent ?? '';
+		expect(body).toContain(CANCELLATION_LABELS.trialPlanNotice);
+		expect(body).not.toContain(CANCELLATION_LABELS.freePlanNotice);
+		// 上限超過の扱いは引き続き提示する (体験中でも解約すれば無料プランの上限に戻るため)
+		expect(screen.getByTestId('cancellation-archive-fallback-notice')).toBeTruthy();
+	});
 });

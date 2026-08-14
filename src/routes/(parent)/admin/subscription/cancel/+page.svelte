@@ -117,9 +117,13 @@ const submitLabel = $derived.by(() => {
 		: CANCELLATION_LABELS.submitButtonNoStripe;
 });
 
-const noticeText = $derived(
-	data.isPaidPlan ? CANCELLATION_LABELS.paidPlanNotice : CANCELLATION_LABELS.freePlanNotice,
-);
+const noticeText = $derived.by(() => {
+	if (data.isPaidPlan) return CANCELLATION_LABELS.paidPlanNotice;
+	// #4585-1 QM: 体験中 (実効プランは有料 / Stripe の契約は無い) に freePlanNotice を出すと
+	// 「無料プランをご利用中」と直下の「無料プランに戻ると」が同一画面で矛盾する。
+	if (returnsToFreePlan) return CANCELLATION_LABELS.trialPlanNotice;
+	return CANCELLATION_LABELS.freePlanNotice;
+});
 </script>
 
 <svelte:head>

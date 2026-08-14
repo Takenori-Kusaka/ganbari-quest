@@ -62,7 +62,17 @@ export default async (page, capture) => {
 	await capture(`${PREFIX}cancel-fallback-notice`);
 
 	// 2. 理由を選んで送信 → 選択ダイアログ (変更前は開かず portal へ送っていた)
+	// hydration 完了前の click は Svelte state に載らず submit が disabled のまま残る。
+	// 「一度クリックして待つ」だけだと撮影機の負荷次第で取りこぼすため、有効化を条件に押し直す。
+	const submitBtn = page.getByTestId('cancellation-submit');
 	await page.getByTestId('cancellation-category-churn').click();
+	for (let i = 0; i < 20 && (await submitBtn.isDisabled()); i++) {
+		await page.getByTestId('cancellation-category-churn').click();
+		await page
+			.locator('[data-testid="cancellation-submit"]:not([disabled])')
+			.waitFor({ state: 'visible', timeout: 1_000 })
+			.catch(() => {});
+	}
 	await page
 		.locator('[data-testid="cancellation-submit"]:not([disabled])')
 		.waitFor({ state: 'visible', timeout: 15_000 });
@@ -72,4 +82,16 @@ export default async (page, capture) => {
 		.waitFor({ state: 'visible', timeout: 15_000 })
 		.catch(() => {});
 	await capture(`${PREFIX}cancel-downgrade-selector`);
+
+	// 3. ダイアログを閉じた状態 — 確定ボタンは超過分を選ぶまで押せないため、「どれも
+	//    手放したくない」顧客はここで閉じるしかない。閉じたあと解約を続けられることを撮る。
+	const dismiss = page.getByRole('button', { name: 'キャンセル' }).first();
+	if (await dismiss.isVisible().catch(() => false)) {
+		await dismiss.click();
+		await page
+			.getByTestId('cancellation-selection-skipped')
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.catch(() => {});
+	}
+	await capture(`${PREFIX}cancel-selection-skipped`);
 };
