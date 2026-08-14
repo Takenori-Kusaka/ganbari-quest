@@ -4,6 +4,7 @@ import { isInJstMonth, monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import AiInputNotice from '$lib/features/admin/components/AiInputNotice.svelte';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -342,6 +343,7 @@ async function handleReceiptFile(event: Event) {
 			{:else}
 				<div class="space-y-3">
 					<span class="block text-sm font-bold text-[var(--color-text-muted)]">{POINTS_LABELS.receiptLabel}</span>
+					<AiInputNotice variant="image" testid="ai-input-notice-receipt" />
 
 					<!-- File input (hidden, triggered by button) -->
 					<input
