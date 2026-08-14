@@ -2961,7 +2961,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
 	trialActiveTitle: `${PLAN_FULL_TERMS.standard} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
-	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
+	// #4628: トライアル中にしか出ない文なので期限は必ず具体値。旧 `date ?? ''` は
+	// null のとき日付の無い「 まで」を出す band-aid だった (#4622 の `?? 0` と同一 class)。
+	trialActiveUntil: (date: string) => `${date} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
 	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
 	trialStartButton: '無料トライアルを開始する',

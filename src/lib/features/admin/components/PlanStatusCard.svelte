@@ -4,11 +4,15 @@ import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
+/**
+ * 本カードが読む部分だけ (SSOT は `TrialStatus` / `TrialStatusView`、trial-service.ts)。
+ * #4628: 描画しない `trialEndDate` を宣言していたため、`isTrialActive:true` + `trialEndDate:null`
+ * という不正な組み合わせをここでも構成できた (実際 test fixture が構成していた)。読まない値は持たない。
+ */
 interface TrialStatusProp {
 	isTrialActive: boolean;
 	trialUsed: boolean;
 	daysRemaining: number;
-	trialEndDate: string | null;
 	trialTier?: 'standard' | 'family' | null;
 }
 

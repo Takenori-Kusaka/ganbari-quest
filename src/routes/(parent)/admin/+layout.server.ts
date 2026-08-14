@@ -200,11 +200,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		planTier,
 		tutorialStarted,
 		userRole,
+		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
+		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
+		// client まで運ばれ、「flag と値が別々に届く = 相関の消えた形」を増やしていたので落とす。
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,
 			trialUsed: trialStatus.trialUsed,
-			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
 		archivedSummary,

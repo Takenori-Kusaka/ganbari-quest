@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src/routes 配下を再帰 walk し、プラン上限メッセージ本文が labels.ts SSOT を経由せず直書きに戻っていないかを検査する (#4622)。直書きに戻ると `max: number` の関門が消え、上限メッセージに null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
 	},
+	'tests/unit/services/trial-status-null-type-hole.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下を再帰 walk し、trial 状態 (flag + 期限 / ティア) を route で手で組み直していないかを検査する (#4628)。手組みすると discriminated union の相関が推論から消え、画面側の narrowing が効かなくなって期限表示に null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
+	},
 	'tests/unit/arch/no-direct-db-access.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',

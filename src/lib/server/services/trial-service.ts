@@ -14,14 +14,75 @@ const DEFAULT_TRIAL_TIER = 'standard' as const;
 export type TrialSource = 'user_initiated' | 'campaign' | 'admin_grant';
 export type TrialTier = 'standard' | 'family';
 
-export interface TrialStatus {
-	isTrialActive: boolean;
-	trialUsed: boolean;
-	trialStartDate: string | null;
-	trialEndDate: string | null;
-	trialTier: TrialTier | null;
-	daysRemaining: number;
-	source: TrialSource | null;
+/**
+ * トライアル状態。
+ *
+ * #4628: 「トライアル中なら期間・ティアは必ず具体値」という実装上の不変条件を型が持つ。
+ * 旧実装は `isTrialActive: boolean` + `trialEndDate: string | null` の直積で、
+ * `isTrialActive:true` かつ `trialEndDate:null` という不正な組み合わせが型として構成でき、
+ * 画面に日付の無い「 まで」を出しうる状態だった (#4622 の `max: null` と同一 class)。
+ */
+export type TrialStatus =
+	| {
+			isTrialActive: true;
+			trialUsed: boolean;
+			trialStartDate: string;
+			trialEndDate: string;
+			trialTier: TrialTier;
+			daysRemaining: number;
+			source: TrialSource;
+	  }
+	| {
+			isTrialActive: false;
+			trialUsed: boolean;
+			trialStartDate: string | null;
+			trialEndDate: string | null;
+			trialTier: TrialTier | null;
+			daysRemaining: number;
+			source: TrialSource | null;
+	  };
+
+/**
+ * client (page data) に配る表示用の部分集合。
+ *
+ * #4628: route で `{ isTrialActive: s.isTrialActive, trialEndDate: s.trialEndDate }` と
+ * **手で組み直すと相関が消える** (推論は `{ isTrialActive: boolean; trialEndDate: string | null }`)。
+ * 射影をこの 1 関数に集約し、UI 側でも `isTrialActive` で narrowing が効く状態を保つ。
+ */
+export type TrialStatusView =
+	| {
+			isTrialActive: true;
+			trialUsed: boolean;
+			daysRemaining: number;
+			trialEndDate: string;
+			trialTier: TrialTier;
+	  }
+	| {
+			isTrialActive: false;
+			trialUsed: boolean;
+			daysRemaining: number;
+			trialEndDate: string | null;
+			trialTier: TrialTier | null;
+	  };
+
+/** `TrialStatus` を相関を保ったまま client 配布用に射影する (#4628)。 */
+export function toTrialStatusView(status: TrialStatus): TrialStatusView {
+	if (status.isTrialActive) {
+		return {
+			isTrialActive: true,
+			trialUsed: status.trialUsed,
+			daysRemaining: status.daysRemaining,
+			trialEndDate: status.trialEndDate,
+			trialTier: status.trialTier,
+		};
+	}
+	return {
+		isTrialActive: false,
+		trialUsed: status.trialUsed,
+		daysRemaining: status.daysRemaining,
+		trialEndDate: status.trialEndDate,
+		trialTier: status.trialTier,
+	};
 }
 
 export type UpgradeReason = 'auto' | 'manual' | 'email_cta';
@@ -110,17 +171,27 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 	const todayDate = new Date(`${todayStr}T00:00:00Z`);
 	const endDate = new Date(`${latest.endDate}T00:00:00Z`);
 	const isActive = endDate >= todayDate;
-	const daysRemaining = isActive
-		? Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24))
-		: 0;
+
+	// #4628: active / inactive で戻り値の型が変わる (active は期間・ティアが必ず具体値)。
+	if (isActive) {
+		return {
+			isTrialActive: true,
+			trialUsed: true,
+			trialStartDate: latest.startDate,
+			trialEndDate: latest.endDate,
+			trialTier: latest.tier as TrialTier,
+			daysRemaining: Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)),
+			source: latest.source as TrialSource,
+		};
+	}
 
 	return {
-		isTrialActive: isActive,
+		isTrialActive: false,
 		trialUsed: true,
 		trialStartDate: latest.startDate,
 		trialEndDate: latest.endDate,
 		trialTier: latest.tier as TrialTier,
-		daysRemaining,
+		daysRemaining: 0,
 		source: latest.source as TrialSource,
 	};
 }

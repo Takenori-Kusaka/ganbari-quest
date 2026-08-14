@@ -58,7 +58,10 @@ export async function getNotificationSchedule(
 ): Promise<TrialNotificationSchedule | null> {
 	const status = await getTrialStatus(tenantId);
 
-	if (!status.isTrialActive || !status.trialEndDate || !status.trialTier) {
+	// #4628: `isTrialActive` で narrowing すれば trialEndDate / trialTier は具体値に確定する
+	// (旧実装の `|| !status.trialEndDate || !status.trialTier` は、型が保証しない分を
+	// 実行時に手で埋め合わせていたもの)。
+	if (!status.isTrialActive) {
 		return null;
 	}
 

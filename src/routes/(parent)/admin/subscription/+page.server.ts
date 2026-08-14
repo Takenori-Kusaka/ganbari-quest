@@ -31,7 +31,7 @@ import {
 	getCancellationState,
 	reconcileCheckoutSession,
 } from '$lib/server/services/stripe-service';
-import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
+import { getTrialStatus, startTrial, toTrialStatusView } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -124,13 +124,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			const raw = url.searchParams.get(PORTAL_FALLBACK_REASON_PARAM);
 			return isPortalFallbackReason(raw) ? raw : PORTAL_FALLBACK_REASON.FLOW_REJECTED;
 		})(),
-		trialStatus: {
-			isTrialActive: trialStatus.isTrialActive,
-			trialUsed: trialStatus.trialUsed,
-			daysRemaining: trialStatus.daysRemaining,
-			trialEndDate: trialStatus.trialEndDate,
-			trialTier: trialStatus.trialTier,
-		},
+		// #4628: 手で組み直すと `isTrialActive` と `trialEndDate` の相関が推論から消え、
+		// 画面側の `{#if trialStatus.isTrialActive}` で narrowing が効かなくなる。射影は
+		// `toTrialStatusView` に集約する (route での再インライン化は fitness test が止める)。
+		trialStatus: toTrialStatusView(trialStatus),
 		// #3991: 期末解約の予約状態 (null = 契約なし / Stripe 未設定 / 取得失敗)
 		cancellation,
 		// EPIC #2327 / #2328: runtimeMode は +layout.server.ts (admin layout) で
