@@ -7,7 +7,13 @@ import { logger } from '$lib/server/logger';
 
 /** 規約バージョン（改訂日ベース） */
 export const CURRENT_TERMS_VERSION = '2026-04-28';
-export const CURRENT_PRIVACY_VERSION = '2026-04-28';
+// #4583: 第9条④ / 第10条 が「生成 AI へは送らない」と絶対形で書いていたが、実装は
+//   AI 提案 3 種 (保護者の入力文) と領収書 OCR (画像) を実際に送っている。条文を事実に
+//   合わせて書き直したため再同意を発火させる。
+//
+//   **PR #4516 (#4497) も同 constant を 2026-08-12 に bump している。**先に merge された側の
+//   値が残り、後発は日付を後ろにずらして解消する (顧客への再同意は最終値 1 回で足りる)。
+export const CURRENT_PRIVACY_VERSION = '2026-08-14';
 
 export interface ConsentCheck {
 	termsAccepted: boolean;

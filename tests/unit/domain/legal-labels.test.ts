@@ -97,8 +97,11 @@ describe('#1638 #1590: consent-service バージョン定数', () => {
 		expect(CURRENT_TERMS_VERSION).toBe('2026-04-28');
 	});
 
-	it('CURRENT_PRIVACY_VERSION が 2026-04-28 に更新されている', () => {
-		expect(CURRENT_PRIVACY_VERSION).toBe('2026-04-28');
+	// #4583: 第9条④ / 第10条 の生成 AI 記述を実装の事実に合わせて改訂したため bump。
+	//   期待値の緩和ではなく、**改訂したのに bump し忘れた状態を落とす**ための更新
+	//   (条文を変えたのに版が据え置きだと、同意済みの顧客は改訂を知らないまま使い続ける)。
+	it('CURRENT_PRIVACY_VERSION が 2026-08-14 に更新されている', () => {
+		expect(CURRENT_PRIVACY_VERSION).toBe('2026-08-14');
 	});
 
 	it('規約バージョンが ISO-like 形式（YYYY-MM-DD）であること', () => {
