@@ -310,6 +310,53 @@ describe('#4585-1 解約フローが選択 UI に合流する', () => {
 		});
 	});
 
+	it('AC10: 閉じたあとも選択に戻れる (誤クリック 1 回で選ぶ機会を失わせない)', async () => {
+		renderPage();
+		await submitWithReason();
+		await waitFor(() => {
+			expect(selectorState()).toBe('open');
+		});
+		await fireEvent.click(
+			screen
+				.getAllByRole('button')
+				.find((b) => b.textContent?.trim() === 'キャンセル') as HTMLElement,
+		);
+		await waitFor(() => {
+			expect(selectorState()).toBe('closed');
+		});
+
+		// 「選び直す」で選択 UI に戻れる。戻らないと、閉じた顧客は登録順の機械的な
+		// アーカイブに倒れるしかなくなる (子供の記録は取り返しが難しい)。
+		await fireEvent.click(screen.getByTestId('cancellation-selection-reopen'));
+		await waitFor(() => {
+			expect(selectorState()).toBe('open');
+		});
+		// 戻った時点では送信していない
+		expect(actionCalls()).toHaveLength(0);
+	});
+
+	it('AC11: preview 取得に失敗しても再試行できる', async () => {
+		fetchMock.mockImplementation(async (input: unknown) => {
+			if (String(input).startsWith('/api/v1/admin/downgrade-preview')) {
+				return new Response('{}', { status: 500 });
+			}
+			return new Response('{}', { status: 200 });
+		});
+		renderPage();
+		await submitWithReason();
+		await waitFor(() => {
+			expect(screen.getByTestId('cancellation-selection-unavailable')).toBeTruthy();
+		});
+
+		// 一過性の失敗なら、再試行で選択 UI に到達できる
+		mockPreview({});
+		await fireEvent.click(screen.getByTestId('cancellation-selection-reopen'));
+		await waitFor(() => {
+			expect(selectorState()).toBe('open');
+		});
+		expect(actionCalls()).toHaveLength(0);
+	});
+
 	it('AC9: 体験中 (請求は無いが実効プランは有料) に「無料プランをご利用中」と言わない', () => {
 		// 体験中は stripeSubscriptionId が無いため isPaidPlan=false だが、実効プランは有料。
 		// freePlanNotice をそのまま出すと、直下の「無料プランに戻ると…」と同一画面で矛盾し、

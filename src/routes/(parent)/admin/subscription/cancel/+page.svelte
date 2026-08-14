@@ -145,6 +145,28 @@ const noticeText = $derived.by(() => {
 		{noticeText}
 	</Alert>
 
+	<!--
+		#4585-1 QM: 選択に戻る唯一の導線。閉じた / 取得に失敗した状態から、選ばないまま
+		手続きを終える以外の選択肢を残す (誤クリック 1 回で子供の記録の扱いを失わせない)。
+	-->
+	{#snippet reopenButton()}
+		<Button
+			variant="secondary"
+			size="sm"
+			type="button"
+			disabled={selectorLoading}
+			data-testid="cancellation-selection-reopen"
+			onclick={() => {
+				selectionSkipped = false;
+				selectionUnavailable = false;
+				selectionResolved = false;
+				void resolveSelection();
+			}}
+		>
+			{CANCELLATION_LABELS.selectionReopen}
+		</Button>
+	{/snippet}
+
 	{#if returnsToFreePlan}
 		<!-- #4585-1: 選ばずに進めた場合に何が残るかを、手続きの前に述べる (PO 必須指示) -->
 		<Alert variant="warning">
@@ -164,17 +186,23 @@ const noticeText = $derived.by(() => {
 
 	{#if selectionSkipped}
 		<Alert variant="warning">
-			<p data-testid="cancellation-selection-skipped" role="status">
-				{CANCELLATION_LABELS.selectionSkipped}
-			</p>
+			<div class="space-y-2">
+				<p data-testid="cancellation-selection-skipped" role="status">
+					{CANCELLATION_LABELS.selectionSkipped}
+				</p>
+				{@render reopenButton()}
+			</div>
 		</Alert>
 	{/if}
 
 	{#if selectionUnavailable}
 		<Alert variant="danger">
-			<p data-testid="cancellation-selection-unavailable" role="alert">
-				{CANCELLATION_LABELS.selectionUnavailable}
-			</p>
+			<div class="space-y-2">
+				<p data-testid="cancellation-selection-unavailable" role="alert">
+					{CANCELLATION_LABELS.selectionUnavailable}
+				</p>
+				{@render reopenButton()}
+			</div>
 		</Alert>
 	{/if}
 
