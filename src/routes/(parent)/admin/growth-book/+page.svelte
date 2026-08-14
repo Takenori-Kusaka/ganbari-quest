@@ -2,7 +2,7 @@
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, GROWTH_BOOK_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, formatMonthOnly, GROWTH_BOOK_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -18,7 +18,7 @@ const categoryNames: Record<string, string> = {
 
 function formatMonth(ym: string): string {
 	const [_y, m] = ym.split('-');
-	return `${Number(m)}月`;
+	return formatMonthOnly(m ?? 0);
 }
 
 function handleChildChange(childId: ChildId) {

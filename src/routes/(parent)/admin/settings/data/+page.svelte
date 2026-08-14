@@ -12,6 +12,7 @@ import {
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
+	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -485,7 +486,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 
-const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
+const canConfirmClear = $derived(
+	clearConfirmText === SETTINGS_LABELS.clearConfirmKeyword && clearAgreeChecked,
+);
 </script>
 
 <svelte:head>
@@ -500,7 +503,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+				<PremiumBadge size="sm" label={PLAN_GATE_LABELS.standardOrAboveBadge} showLock />
 			{/if}
 		</div>
 
@@ -951,7 +954,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 					{SETTINGS_LABELS.cloudSectionTitle}
 				</h3>
 				{#if data.maxCloudExports === 0}
-					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<PremiumBadge size="sm" label={PLAN_GATE_LABELS.standardOrAboveBadge} showLock />
 				{:else}
 					<span
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
@@ -1380,12 +1383,12 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				<div class="danger-zone__step">
 					<p class="danger-zone__step-label">{SETTINGS_LABELS.dangerStep1Label}</p>
 					<FormField
-						label="確認のため「削除」と入力してください"
+						label={SETTINGS_LABELS.clearConfirmFieldLabel}
 						type="text"
 						id="clearConfirm"
 						name="confirm"
 						bind:value={clearConfirmText}
-						placeholder="削除"
+						placeholder={SETTINGS_LABELS.clearConfirmKeyword}
 					/>
 				</div>
 
@@ -1418,7 +1421,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						disabled={clearSubmitting || !canConfirmClear}
 						data-testid="data-danger-execute-button"
 					>
-						{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
+						{clearSubmitting ? SETTINGS_LABELS.clearSubmitting : SETTINGS_LABELS.clearSubmitButton}
 					</Button>
 				</div>
 			</form>

@@ -1,5 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
+import { CATEGORIES } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyActionError } from '$lib/ui/error-notify';
@@ -23,7 +25,7 @@ $effect(() => {
 
 let reason = $state('');
 let points = $state(50);
-let category = $state<string>('うんどう');
+let category = $state<string>(CATEGORIES.undou.name);
 let icon = $state('🎉');
 let stampCode = $state('');
 let body = $state('');
@@ -48,7 +50,7 @@ const categoryOptions = $derived(data.categories.map((c) => ({ value: c, label: 
 function resetForm() {
 	reason = '';
 	points = 50;
-	category = 'うんどう';
+	category = CATEGORIES.undou.name;
 	icon = '🎉';
 	stampCode = '';
 	body = '';
@@ -165,7 +167,7 @@ $effect(() => {
 						name="reason"
 						maxlength={data.reasonMaxLength}
 						placeholder={CHEER_LABELS.reasonPlaceholder}
-						hint="{reasonLength}/{data.reasonMaxLength}（あと{reasonRemaining}文字）"
+						hint={CHEER_LABELS.reasonCounterHint(reasonLength, data.reasonMaxLength, reasonRemaining)}
 						bind:value={reason}
 					/>
 				</Card>
@@ -236,7 +238,7 @@ $effect(() => {
 						rows={2}
 						name="body"
 						maxlength={120}
-						placeholder="ひとことメッセージを足す（任意）"
+						placeholder={CHEER_LABELS.bodyPlaceholder}
 						bind:value={body}
 					/>
 					<input type="hidden" name="stampCode" value={stampCode} />

@@ -3,7 +3,7 @@ import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { shiftMonthKey } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatYearMonth, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';
 import SiblingTrendChart from '$lib/ui/components/SiblingTrendChart.svelte';
@@ -15,15 +15,7 @@ let { data, form } = $props();
 type TabId = 'monthly' | 'weekly';
 let activeTab = $state<TabId>('monthly');
 
-const dayLabels: Record<string, string> = {
-	monday: '月曜日',
-	tuesday: '火曜日',
-	wednesday: '水曜日',
-	thursday: '木曜日',
-	friday: '金曜日',
-	saturday: '土曜日',
-	sunday: '日曜日',
-};
+const dayLabels: Record<string, string> = REPORTS_LABELS.weeklySettingsDayNames;
 
 function formatWeek(start: string, end: string): string {
 	return `${start.replace(/-/g, '/')} 〜 ${end.replace(/-/g, '/')}`;
@@ -40,7 +32,7 @@ function progressPct(xp: number, level: number): number {
 
 function formatMonth(ym: string): string {
 	const [y, m] = ym.split('-');
-	return `${y}年${Number(m)}月`;
+	return formatYearMonth(y ?? '', m ?? '');
 }
 
 function navigateMonth(offset: number) {
@@ -297,7 +289,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 				</p>
 			{/if}
 			<div class="flex flex-wrap items-center gap-4">
-				<FormField label="週次レポートを有効にする">
+				<FormField label={REPORTS_LABELS.weeklySettingsEnableLabel}>
 					{#snippet children()}
 						<input
 							type="checkbox"
@@ -308,7 +300,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 						/>
 					{/snippet}
 				</FormField>
-				<FormField label="配信曜日">
+				<FormField label={REPORTS_LABELS.weeklySettingsDayLabel}>
 					{#snippet children()}
 						<select
 							name="day"

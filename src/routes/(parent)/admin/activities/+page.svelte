@@ -7,6 +7,7 @@ import { splitIcon } from '$lib/domain/icon-utils';
 import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
 	APP_LABELS,
 	FEATURES_LABELS,
 	PAGE_TITLES,
@@ -398,7 +399,7 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 // 「他の子供から copy」action
 async function handleCopyFromChild() {
 	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
-		actionMessage = '違うお子さまを選んでください';
+		actionMessage = ADMIN_FORM_ERROR_LABELS.sameChildNotAllowed;
 		return;
 	}
 	const formData = new FormData();
@@ -407,12 +408,12 @@ async function handleCopyFromChild() {
 
 	const resp = await fetch('?/copyFromChild', { method: 'POST', body: formData });
 	if (resp.ok) {
-		actionMessage = 'コピーが完了しました';
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copySuccess;
 		showCopyFromChildDialog = false;
 		copySourceChildId = null;
 		await invalidateAll();
 	} else {
-		actionMessage = 'コピーに失敗しました';
+		actionMessage = ADMIN_FORM_ERROR_LABELS.copyFailed;
 	}
 }
 
@@ -426,7 +427,7 @@ let bulkTargets = $state<'all' | ChildId[]>('all');
 
 async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	if (!bulkName.trim()) {
-		actionMessage = '名前を入力してください';
+		actionMessage = ADMIN_FORM_ERROR_LABELS.nameRequired;
 		return;
 	}
 	const childIdsValue = targets === 'all' ? 'all' : targets.join(',');
@@ -439,12 +440,12 @@ async function handleBulkCreate(targets: 'all' | ChildId[]) {
 
 	const resp = await fetch('?/bulkCreateForChildren', { method: 'POST', body: formData });
 	if (resp.ok) {
-		actionMessage = '一括追加しました';
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.bulkAddSuccess;
 		showBulkCreateDialog = false;
 		bulkName = '';
 		await invalidateAll();
 	} else {
-		actionMessage = '一括追加に失敗しました';
+		actionMessage = ADMIN_FORM_ERROR_LABELS.bulkAddFailed;
 	}
 }
 

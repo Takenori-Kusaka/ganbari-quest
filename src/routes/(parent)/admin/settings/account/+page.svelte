@@ -98,10 +98,10 @@ async function fetchDeletionInfo() {
 	try {
 		const res = await fetch('/api/v1/admin/account/deletion-info');
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? '情報取得に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteInfoFetchFailed);
 		deletionInfo = d;
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : '情報取得に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteInfoFetchFailed;
 	} finally {
 		deletionInfoLoading = false;
 	}
@@ -109,7 +109,8 @@ async function fetchDeletionInfo() {
 
 async function handleDeleteAccount() {
 	if (deleteSubmitting) return;
-	if (deleteConfirmText !== 'アカウントを削除します' || !deleteAgreeChecked) return;
+	if (deleteConfirmText !== SETTINGS_LABELS.accountDeleteConfirmKeyword || !deleteAgreeChecked)
+		return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -137,10 +138,10 @@ async function handleDeleteAccount() {
 			body: JSON.stringify({ pattern }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -161,10 +162,10 @@ async function handleTransferAndDelete() {
 			}),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -182,10 +183,10 @@ async function handleFullDelete() {
 			body: JSON.stringify({ pattern: 'owner-full-delete' }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -206,7 +207,7 @@ const deletionGraceDays = $derived(
 );
 
 const canConfirmDelete = $derived(
-	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
+	deleteConfirmText === SETTINGS_LABELS.accountDeleteConfirmKeyword && deleteAgreeChecked,
 );
 </script>
 
@@ -282,7 +283,7 @@ const canConfirmDelete = $derived(
 			class="flex flex-col gap-4"
 		>
 			<FormField
-				label={`現在の${OYAKAGI_LABELS.name}`}
+				label={OYAKAGI_LABELS.currentInputLabel}
 				type="password"
 				id="currentPin"
 				name="currentPin"
@@ -290,7 +291,7 @@ const canConfirmDelete = $derived(
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}
+				label={OYAKAGI_LABELS.newInputLabel}
 				type="password"
 				id="newPin"
 				name="newPin"
@@ -298,7 +299,7 @@ const canConfirmDelete = $derived(
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（確認）`}
+				label={OYAKAGI_LABELS.newConfirmInputLabel}
 				type="password"
 				id="confirmPin"
 				name="confirmPin"
@@ -312,7 +313,7 @@ const canConfirmDelete = $derived(
 				class="w-full"
 				disabled={submitting}
 			>
-				{submitting ? '変更中...' : OYAKAGI_LABELS.changeAction}
+				{submitting ? SETTINGS_LABELS.oyakagiChangeSubmitting : OYAKAGI_LABELS.changeAction}
 			</Button>
 		</form>
 	</Card>
@@ -437,7 +438,7 @@ const canConfirmDelete = $derived(
 										<NativeSelect
 											bind:value={transferTargetId}
 											options={[
-												{ value: '', label: '移譲先を選択...' },
+												{ value: '', label: SETTINGS_LABELS.accountDeleteTransferPlaceholder },
 												...deletionInfo.otherMembers
 													.filter((m) => m.role !== 'child')
 													.map((member) => ({
@@ -454,7 +455,7 @@ const canConfirmDelete = $derived(
 										disabled={deleteSubmitting || !transferTargetId}
 										onclick={handleTransferAndDelete}
 									>
-										{deleteSubmitting ? '処理中...' : '移譲して退会'}
+										{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteTransferSubmit}
 									</Button>
 								</div>
 							</div>
@@ -475,7 +476,7 @@ const canConfirmDelete = $derived(
 									disabled={deleteSubmitting}
 									onclick={handleFullDelete}
 								>
-									{deleteSubmitting ? '処理中...' : '全て削除する'}
+									{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteFullSubmit}
 								</Button>
 							</div>
 
@@ -498,11 +499,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.dangerStep1Label}
 						</p>
 						<FormField
-							label="確認のため「アカウントを削除します」と入力してください"
+							label={SETTINGS_LABELS.accountDeleteConfirmFieldLabel}
 							type="text"
 							id="deleteConfirm"
 							bind:value={deleteConfirmText}
-							placeholder="アカウントを削除します"
+							placeholder={SETTINGS_LABELS.accountDeleteConfirmKeyword}
 						/>
 					</div>
 
@@ -544,8 +545,8 @@ const canConfirmDelete = $derived(
 							data-testid="account-danger-execute-button"
 						>
 							{deleteSubmitting || deletionInfoLoading
-								? '処理中...'
-								: 'アカウントを削除する'}
+								? SETTINGS_LABELS.accountDeleteProcessing
+								: SETTINGS_LABELS.accountDeleteSubmit}
 						</Button>
 					</div>
 				{/if}

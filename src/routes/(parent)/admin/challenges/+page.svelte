@@ -131,8 +131,10 @@ function tabHref(childId: ChildId | 'all'): string {
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
-					? `今日は${data.familyStreak.todayRecorders.length + '人'}が記録済み`
-					: '今日はまだ誰も記録していません'}
+					? ADMIN_CHALLENGES_PAGE_LABELS.familyStreakRecordedToday(
+							data.familyStreak.todayRecorders.length,
+						)
+					: ADMIN_CHALLENGES_PAGE_LABELS.familyStreakNoneToday}
 			</p>
 		</div>
 	{/if}
@@ -277,7 +279,7 @@ function tabHref(childId: ChildId | 'all'): string {
 									size="sm"
 									data-testid="admin-challenge-delete-{instance.id}"
 								>
-									{group.instances.length >= 2 ? `${child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child} を削除` : CHALLENGES_LABELS.deleteButton}
+									{group.instances.length >= 2 ? ADMIN_CHALLENGES_PAGE_LABELS.deleteChildButton(child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child) : CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
 						{/each}

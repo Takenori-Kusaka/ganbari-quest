@@ -27,13 +27,7 @@ const groupedCerts = $derived.by(() => {
 });
 
 const categoryOrder = ['streak', 'level', 'monthly', 'category_master', 'annual'] as const;
-const categoryNames: Record<string, string> = {
-	streak: '🔥 連続記録',
-	level: '🌟 レベルアップ',
-	monthly: '📜 月間がんばり',
-	category_master: '🎓 カテゴリマスター',
-	annual: '🏆 年間がんばり大賞',
-};
+const categoryNames = CERTIFICATES_PAGE_LABELS.categoryNames;
 </script>
 
 <svelte:head>

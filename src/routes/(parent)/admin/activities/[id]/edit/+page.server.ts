@@ -5,6 +5,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId } from '$lib/domain/ids';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { ADMIN_ACTIVITIES_PAGE_LABELS, ADMIN_FORM_ERROR_LABELS } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
@@ -20,11 +22,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const tenantId = requireTenantId(locals);
 	const id = asActivityId(params.id);
 	if (!id) {
-		error(400, '不正な活動IDです');
+		error(400, ADMIN_ACTIVITIES_PAGE_LABELS.activityIdInvalid);
 	}
 	const activity = await getActivityById(id, tenantId);
 	if (!activity) {
-		error(404, '活動が見つかりません');
+		error(404, ADMIN_ACTIVITIES_PAGE_LABELS.activityNotFound);
 	}
 	return {
 		activity,
@@ -38,7 +40,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const id = asActivityId(params.id);
 		if (!id) {
-			return fail(400, { error: '不正な活動IDです' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.activityIdInvalid });
 		}
 
 		const formData = await request.formData();
@@ -61,9 +63,9 @@ export const actions: Actions = {
 		const priorityRaw = formData.get('priority');
 		const priority: 'must' | 'optional' = priorityRaw === 'must' ? 'must' : 'optional';
 
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
 
 		try {
@@ -90,7 +92,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id, name, priority },
 			});
-			return fail(500, { error: '更新に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.updateFailed });
 		}
 
 		// 更新成功 → 一覧画面にリダイレクト

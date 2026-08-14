@@ -3,7 +3,7 @@
 // accountDelete / logout は client-side fetch + a href 遷移なので server action 不要。
 
 import { fail } from '@sveltejs/kit';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { OYAKAGI_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { changePin } from '$lib/server/services/auth-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,7 +23,7 @@ export const actions = {
 		const confirmPin = form.get('confirmPin')?.toString() ?? '';
 
 		if (!currentPin || !newPin || !confirmPin) {
-			return fail(400, { error: 'すべてのフィールドを入力してください' });
+			return fail(400, { error: SETTINGS_LABELS.oyakagiAllFieldsRequired });
 		}
 
 		if (newPin.length < 4 || newPin.length > 8) {
@@ -35,13 +35,13 @@ export const actions = {
 		}
 
 		if (newPin !== confirmPin) {
-			return fail(400, { error: `新しい${OYAKAGI_LABELS.name}が一致しません` });
+			return fail(400, { error: OYAKAGI_LABELS.confirmMismatchError });
 		}
 
 		const result = await changePin(currentPin, newPin, tenantId);
 		if ('error' in result) {
 			if (result.error === 'INVALID_CURRENT_PIN') {
-				return fail(400, { error: `現在の${OYAKAGI_LABELS.name}が正しくありません` });
+				return fail(400, { error: OYAKAGI_LABELS.currentInvalidError });
 			}
 			if (result.error === 'LOCKED_OUT') {
 				return fail(429, { error: OYAKAGI_LABELS.lockedError });

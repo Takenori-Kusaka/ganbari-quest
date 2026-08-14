@@ -144,7 +144,7 @@ async function handleReceiptFile(event: Event) {
 
 			if (!res.ok) {
 				const errorBody = await res.json();
-				receiptError = errorBody.error?.message ?? '読み取りに失敗しました';
+				receiptError = errorBody.error?.message ?? POINTS_LABELS.receiptScanFailed;
 				receiptScanning = false;
 				return;
 			}
@@ -154,7 +154,7 @@ async function handleReceiptFile(event: Event) {
 			receiptRawText = data.rawText;
 			receiptScanning = false;
 		} catch {
-			receiptError = '通信エラーが発生しました';
+			receiptError = POINTS_LABELS.receiptNetworkError;
 			receiptScanning = false;
 		}
 	};

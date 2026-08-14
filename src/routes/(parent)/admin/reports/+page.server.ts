@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { monthKeyJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, REPORTS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -158,7 +158,7 @@ export const actions: Actions = {
 			'sunday',
 		];
 		if (!validDays.includes(day)) {
-			return fail(400, { error: '無効な曜日です' });
+			return fail(400, { error: REPORTS_LABELS.weeklySettingsDayInvalid });
 		}
 
 		await setSetting('weekly_report_enabled', enabled, tenantId);

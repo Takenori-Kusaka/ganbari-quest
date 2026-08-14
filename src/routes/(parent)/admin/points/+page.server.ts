@@ -1,6 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { POINTS_LABELS } from '$lib/domain/labels';
 import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -56,24 +58,24 @@ export const actions: Actions = {
 		const mode = (formData.get('mode') as string) || ConvertMode.PRESET;
 
 		if (!childId || !amount || amount < 1) {
-			return fail(400, { error: '入力が不正です' });
+			return fail(400, { error: POINTS_LABELS.convertInputInvalid });
 		}
 
 		if (!Number.isInteger(amount)) {
-			return fail(400, { error: 'ポイントは整数で入力してください' });
+			return fail(400, { error: POINTS_LABELS.convertAmountNotInteger });
 		}
 
 		// プリセットモードは500P単位の制約を維持
 		if (mode === ConvertMode.PRESET && (amount < 500 || amount % 500 !== 0)) {
-			return fail(400, { error: 'ポイントは500単位で変換できます' });
+			return fail(400, { error: POINTS_LABELS.convertPresetUnit });
 		}
 
 		const result = await convertPoints(childId, amount, tenantId, mode as ConvertMode);
 		if ('error' in result) {
 			const messages: Record<string, string> = {
-				NOT_FOUND: 'こどもが見つかりません',
-				INSUFFICIENT_POINTS: 'ポイントが足りません',
-				INVALID_AMOUNT: '金額が不正です',
+				NOT_FOUND: POINTS_LABELS.convertChildNotFound,
+				INSUFFICIENT_POINTS: POINTS_LABELS.convertInsufficientPoints,
+				INVALID_AMOUNT: POINTS_LABELS.convertInvalidAmount,
 			};
 			return fail(400, { error: messages[result.error] ?? result.error });
 		}

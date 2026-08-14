@@ -4,7 +4,7 @@ import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
-import { ADMIN_CHILDREN_PAGE_LABELS } from '$lib/domain/labels';
+import { ADMIN_CHILDREN_PAGE_LABELS, ADMIN_FORM_ERROR_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -147,15 +147,15 @@ export const actions: Actions = {
 		const birthDate = formData.get('birthDate')?.toString() || null;
 
 		if (!nickname || nickname.length === 0) {
-			return fail(400, { error: 'ニックネームを入力してください' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.nicknameRequired });
 		}
 
 		// 誕生日バリデーション
 		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-			return fail(400, { error: '誕生日の形式が正しくありません（YYYY-MM-DD）' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayFormatInvalid });
 		}
 		if (birthDate && new Date(birthDate) > new Date()) {
-			return fail(400, { error: '未来の日付は設定できません' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayFutureNotAllowed });
 		}
 
 		// 誕生日から年齢を自動計算、なければ手動入力 (#1380: 両方空はエラー)
@@ -181,7 +181,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`子供は最大${childLimitCheck.max}人まで登録できます。プランをアップグレードしてください。`,
+					ADMIN_CHILDREN_PAGE_LABELS.childLimitReached(childLimitCheck.max),
 				),
 			});
 		}
@@ -204,15 +204,15 @@ export const actions: Actions = {
 		const birthDate = formData.get('birthDate')?.toString();
 
 		if (!childId) {
-			return fail(400, { error: 'IDが不正です' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 		}
 
 		// 誕生日バリデーション
 		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-			return fail(400, { error: '誕生日の形式が正しくありません（YYYY-MM-DD）' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayFormatInvalid });
 		}
 		if (birthDate && new Date(birthDate) > new Date()) {
-			return fail(400, { error: '未来の日付は設定できません' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayFutureNotAllowed });
 		}
 
 		const updates: Record<string, string | number | null> = {};
@@ -245,7 +245,7 @@ export const actions: Actions = {
 		const childId = asChildId(formIdString(formData.get('childId')));
 
 		if (!childId) {
-			return fail(400, { error: 'IDが不正です' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 		}
 
 		await removeChild(childId, tenantId);
@@ -260,16 +260,16 @@ export const actions: Actions = {
 		const newValue = Number(form.get('value'));
 
 		if (!childId || !categoryId) {
-			return fail(400, { error: '必須項目が不足しています' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.requiredFieldsMissing });
 		}
 
 		const currentStatus = await getChildStatus(childId, tenantId);
 		if ('error' in currentStatus) {
-			return fail(404, { error: '子供が見つかりません' });
+			return fail(404, { error: ADMIN_FORM_ERROR_LABELS.childNotFoundNeutral });
 		}
 
 		if (Number.isNaN(newValue) || newValue < 0 || newValue > 100000) {
-			return fail(400, { error: '値は0〜100000の範囲で入力してください' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.statusValueRange });
 		}
 
 		const currentValue = currentStatus.statuses[categoryId]?.value ?? 0;
@@ -291,21 +291,21 @@ export const actions: Actions = {
 		const label = String(formData.get('label') ?? '').trim();
 		const durationMs = formData.get('durationMs') ? Number(formData.get('durationMs')) : undefined;
 
-		if (!childId) return fail(400, { error: 'IDが不正です' });
-		if (!label) return fail(400, { error: 'ラベルを入力してください' });
+		if (!childId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
+		if (!label) return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.voiceLabelRequired });
 		if (!(file instanceof File) || file.size === 0) {
-			return fail(400, { error: '音声ファイルを選択してください' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.voiceFileRequired });
 		}
 
 		const result = await uploadVoice(childId, tenantId, file, label, 'complete', durationMs);
 		if ('error' in result) {
 			const msgs: Record<string, string> = {
-				INVALID_FILE: 'ファイルが不正です',
-				FILE_TOO_LARGE: '5MB以下にしてください',
-				UNSUPPORTED_TYPE: 'MP3/M4A/WAV/WebM/OGG形式のみ',
-				TOO_MANY_VOICES: '10件まで登録可能です',
+				INVALID_FILE: ADMIN_CHILDREN_PAGE_LABELS.voiceErrorInvalidFile,
+				FILE_TOO_LARGE: ADMIN_CHILDREN_PAGE_LABELS.voiceErrorFileTooLarge,
+				UNSUPPORTED_TYPE: ADMIN_CHILDREN_PAGE_LABELS.voiceErrorUnsupportedType,
+				TOO_MANY_VOICES: ADMIN_CHILDREN_PAGE_LABELS.voiceErrorTooMany,
 			};
-			return fail(400, { error: msgs[result.error] ?? 'エラーが発生しました' });
+			return fail(400, { error: msgs[result.error] ?? ADMIN_FORM_ERROR_LABELS.genericError });
 		}
 		return { success: true, voiceUploaded: true };
 	},
@@ -315,7 +315,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const voiceId = formIdString(form.get('voiceId'));
 		const childId = asChildId(formIdString(form.get('childId')));
-		if (!voiceId || !childId) return fail(400, { error: 'IDが不正です' });
+		if (!voiceId || !childId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 
 		await activateVoice(voiceId, childId, 'complete', tenantId);
 		return { success: true, voiceActivated: true };
@@ -325,7 +325,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const voiceId = formIdString(form.get('voiceId'));
-		if (!voiceId) return fail(400, { error: 'IDが不正です' });
+		if (!voiceId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 
 		await deleteVoice(voiceId, tenantId);
 		return { success: true, voiceDeleted: true };
@@ -337,9 +337,9 @@ export const actions: Actions = {
 		const childId = asChildId(formIdString(form.get('childId')));
 		const multiplier = Number(form.get('multiplier'));
 
-		if (!childId) return fail(400, { error: 'IDが不正です' });
+		if (!childId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 		if (Number.isNaN(multiplier) || multiplier < 0.5 || multiplier > 3.0) {
-			return fail(400, { error: '倍率は0.5〜3.0の範囲で設定してください' });
+			return fail(400, { error: ADMIN_CHILDREN_PAGE_LABELS.birthdayMultiplierRange });
 		}
 
 		await editChild(childId, { birthdayBonusMultiplier: multiplier }, tenantId);

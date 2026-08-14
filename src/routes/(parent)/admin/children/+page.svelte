@@ -126,7 +126,7 @@ const addCalculatedAge = $derived(
 						id="add-nickname"
 						name="nickname"
 						required
-						placeholder="例: たろうくん"
+						placeholder={ADMIN_CHILDREN_PAGE_LABELS.nicknamePlaceholder}
 					/>
 					<BirthdayInput
 						name="birthDate"

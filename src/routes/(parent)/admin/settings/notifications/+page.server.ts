@@ -3,6 +3,8 @@
 // 1 section だけのため軽量サブページ。
 
 import { fail } from '@sveltejs/kit';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -61,7 +63,7 @@ export const actions = {
 
 		const timeRegex = /^\d{2}:\d{2}$/;
 		if (!timeRegex.test(reminderTime) || !timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
-			return fail(400, { notificationError: '時刻の形式が不正です' });
+			return fail(400, { notificationError: SETTINGS_LABELS.notificationTimeFormatInvalid });
 		}
 
 		await setSetting('notification_reminders_enabled', remindersEnabled, tenantId);

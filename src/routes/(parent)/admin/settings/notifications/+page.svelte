@@ -197,7 +197,7 @@ async function disableNotifications() {
 			{#if data.notificationSettings.remindersEnabled}
 				<div class="ml-6">
 					<FormField
-						label="リマインダー時刻"
+						label={SETTINGS_LABELS.notificationReminderTimeLabel}
 						type="time"
 						name="reminderTime"
 						value={data.notificationSettings.reminderTime}
@@ -227,7 +227,10 @@ async function disableNotifications() {
 				</span>
 			</label>
 			<div class="border-t border-[var(--color-border-default)] pt-4 mt-4">
-				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
+				<FormField
+					label={SETTINGS_LABELS.notificationQuietLabel}
+					hint={SETTINGS_LABELS.notificationQuietHint}
+				>
 					{#snippet children()}
 						<div class="flex items-center gap-2">
 							<input
