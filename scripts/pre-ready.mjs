@@ -291,7 +291,8 @@ export const PRE_READY_GATE_SSOT_PATHS = /** @type {const} */ ([
 	'scripts/check-ac-verification-map.mjs',
 	'scripts/integration-pr-body.mjs',
 	'scripts/pr-lane.mjs',
-	'scripts/pr-template-gate-checks.mjs',
+	// `scripts/pr-template-gate-checks.mjs` は #4612 で閉包から外れた
+	// (`check-pr-body.mjs` が唯一 import していた `checkChangeType` を削除したため)。
 	'scripts/lib/is-main.mjs',
 	'scripts/lib/ci/pr-body-sections.mjs',
 	'scripts/lib/ci/pr-input.mjs',
