@@ -18,7 +18,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { getModeLabels } from '../../../src/lib/domain/icons';
 import { MARKETPLACE_LABELS } from '../../../src/lib/domain/labels';
+import { MARKETPLACE_TYPE_LABELS } from '../../../src/lib/domain/marketplace-item';
 import { DEMO_SITE_TERMS } from '../../../src/lib/domain/terms';
+import { MARKETPLACE_TYPE_METAS_CLIENT } from '../../../src/lib/marketplace/client-types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
@@ -68,6 +70,53 @@ describe('#4511 marketplace の導線と説明', () => {
 		it('「使えない / 準備中」という事実は伝えている (説明を消すだけにしない)', () => {
 			expect(MARKETPLACE_LABELS.detailCtaImportRuleDescPenalty).toContain('ご利用いただけません');
 			expect(MARKETPLACE_LABELS.detailCtaImportRuleDescSpecial).toContain('準備中');
+		});
+	});
+
+	describe('type 名の SSOT (finding 4 / PO 決裁)', () => {
+		// 同じ 5 type の名前が 3 箇所に別表記で併存していた:
+		//   MARKETPLACE_TYPE_LABELS / registry displayLabel は一致、MARKETPLACE_LABELS.tabs
+		//   だけが 4 つ全部ズレていた (アクティビティ集 / ごほうび集 / 持ち物リスト / ルール集)。
+		// DESIGN.md §6 は前 2 者の一致しか定めていなかったため、3 つ目が外側でズレ続けた。
+		it('tabs の 4 つが MARKETPLACE_TYPE_LABELS と一致する', () => {
+			expect(MARKETPLACE_LABELS.tabs.activities).toBe(MARKETPLACE_TYPE_LABELS['activity-pack']);
+			expect(MARKETPLACE_LABELS.tabs.rewards).toBe(MARKETPLACE_TYPE_LABELS['reward-set']);
+			expect(MARKETPLACE_LABELS.tabs.checklists).toBe(MARKETPLACE_TYPE_LABELS.checklist);
+			expect(MARKETPLACE_LABELS.tabs.rules).toBe(MARKETPLACE_TYPE_LABELS['rule-preset']);
+		});
+
+		it('tabs / MARKETPLACE_TYPE_LABELS が同じ atom を参照し、文字列を複製しない', () => {
+			// 値の一致だけでは「同じ literal を 2 箇所に書く」状態を許してしまい、片方だけ
+			// 変更されたときにまたズレる。参照そのものを assert して複製の復活を落とす。
+			const labelsSrc = repoFile('src/lib/domain/labels.ts');
+			const tabsBlock = labelsSrc.match(/\ttabs: \{[\s\S]*?\n\t\},/)?.[0] ?? '';
+			expect(tabsBlock, 'tabs ブロックが見つかる').not.toBe('');
+			for (const key of ['activityPack', 'rewardSet', 'checklist', 'rulePreset'] as const) {
+				expect(tabsBlock).toContain(`MARKETPLACE_TYPE_TERMS.${key}`);
+			}
+			expect(tabsBlock, '文字列 literal を書かない').not.toMatch(/: '/);
+
+			const itemSrc = repoFile('src/lib/domain/marketplace-item.ts');
+			const typeLabelsBlock =
+				itemSrc.match(
+					/export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = \{[\s\S]*?\n\};/,
+				)?.[0] ?? '';
+			expect(typeLabelsBlock, 'MARKETPLACE_TYPE_LABELS ブロックが見つかる').not.toBe('');
+			expect(typeLabelsBlock).toContain('MARKETPLACE_TYPE_TERMS.');
+			expect(typeLabelsBlock, '文字列 literal を書かない').not.toMatch(/: '/);
+		});
+
+		it('registry displayLabel と MARKETPLACE_TYPE_LABELS が一致する (DESIGN.md §6)', () => {
+			for (const meta of MARKETPLACE_TYPE_METAS_CLIENT) {
+				expect(meta.displayLabel).toBe(MARKETPLACE_TYPE_LABELS[meta.typeCode]);
+			}
+		});
+
+		it('type 名に限定語を付けない (DESIGN.md §10 / チェックリストは持ち物専用ではない)', () => {
+			const typeNames = Object.values(MARKETPLACE_TYPE_LABELS).join('\n');
+			for (const narrowing of ['持ち物', 'もちもの']) {
+				expect(typeNames).not.toContain(narrowing);
+			}
 		});
 	});
 

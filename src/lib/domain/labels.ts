@@ -55,6 +55,8 @@ import {
 	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
+	// #4511: marketplace 5 type 名 atom (tabs の別表記複製を廃止)
+	MARKETPLACE_TYPE_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
 	OSS_LICENSE_TERMS,
@@ -1177,14 +1179,17 @@ export const MARKETPLACE_LABELS = {
 	recommendedSection: `おすすめ${TEMPLATE_TERMS.short}`,
 	importCta: '使ってみる',
 	questsBadge: 'クエスト集',
+	// #4511: 同じ 5 type の名前が MARKETPLACE_TYPE_LABELS / registry displayLabel /
+	//   ここ の 3 箇所に別表記で併存していた (前者 2 つは一致、tabs だけ 4 つ全部ズレ)。
+	//   MARKETPLACE_TYPE_TERMS atom を参照し、文字列の複製を作らない (ADR-0045)。
+	//   旧「持ち物リスト」は実在しない画面名の引用でもあった (子供画面名は icons.ts SSOT)
+	//   が、DESIGN.md §10 の「リソース名に限定語を付けない」に従い type 名は
+	//   「チェックリスト」に揃える (チェックリストは持ち物専用ではない)。
 	tabs: {
-		activities: 'アクティビティ集',
-		rewards: 'ごほうび集',
-		// #4511: 「持ち物リスト」という画面は存在しない (子供画面は年齢帯ごとに
-		//   もちもの / もちものチェック / 持ち物チェック、icons.ts が SSOT)。
-		//   marketplace の type 名としては年齢帯に依らない中立名を使う
-		checklists: 'もちものチェック集',
-		rules: 'ルール集',
+		activities: MARKETPLACE_TYPE_TERMS.activityPack,
+		rewards: MARKETPLACE_TYPE_TERMS.rewardSet,
+		checklists: MARKETPLACE_TYPE_TERMS.checklist,
+		rules: MARKETPLACE_TYPE_TERMS.rulePreset,
 	},
 	detailIncludedActivities: 'ふくまれる活動',
 	detailIncludedRewards: 'ふくまれるごほうび',
