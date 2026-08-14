@@ -13,15 +13,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import * as gateChecksModule from '../../../scripts/pr-template-gate-checks.mjs';
 import {
 	CLOSING_KEYWORD_TARGET_LABELS,
-	checkChangeType,
 	checkClosingKeyword,
 	checkCustomerValue,
 	checkIssueReference,
 	checkSectionPresence,
 	checkTestResults,
-	detectChangeTypeHeading,
 	detectIssueSectionHeading,
 	detectTestSectionKeyword,
 	extractTemplateSections,
@@ -167,9 +166,6 @@ describe('helper detectors (#2944)', () => {
 	it('detectIssueSectionHeading は closes # を含む section を返す', () => {
 		expect(detectIssueSectionHeading(TEMPLATE)).toBe('## 関連 Issue');
 	});
-	it('detectChangeTypeHeading は 3 つ以上 [ ] を持つ section を返す', () => {
-		expect(detectChangeTypeHeading(TEMPLATE)).toBe('## 変更タイプ');
-	});
 	it('detectTestSectionKeyword はテスト結果テーブル直近の見出しを返す', () => {
 		expect(detectTestSectionKeyword(TEMPLATE)).toBe('テスト実行結果');
 	});
@@ -206,19 +202,6 @@ describe('feature lane: 現行観点維持 (#2944 AC4)', () => {
 		const r = checkIssueReference({
 			...base,
 			body: VALID_FEATURE_BODY.replace('closes #2944', 'closes #'),
-		});
-		expect(r.ok).toBe(false);
-	});
-	it('change-type PASS: 1 つ [x]', () => {
-		expect(checkChangeType({ ...base, body: VALID_FEATURE_BODY }).ok).toBe(true);
-	});
-	it('change-type FAIL: 0 件 [x]', () => {
-		const r = checkChangeType({
-			...base,
-			body: VALID_FEATURE_BODY.replace(
-				'- [x] infra: インフラ・CI/CD',
-				'- [ ] infra: インフラ・CI/CD',
-			),
 		});
 		expect(r.ok).toBe(false);
 	});
@@ -434,18 +417,6 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 		expect(checkIssueReference({ ...base, body: INTEGRATION_BODY }).ok).toBe(true);
 		expect(INTEGRATION_BODY).not.toContain('closes #');
 	});
-	it('change-type PASS: 複数タイプ混在を許容 (AC2)', () => {
-		const r = checkChangeType({ ...base, body: INTEGRATION_BODY });
-		expect(r.ok).toBe(true);
-		expect(r.message).toContain('複数混在 OK');
-	});
-	it('change-type FAIL: 0 件 [x] は integration でも fail (1 つ以上は維持)', () => {
-		const r = checkChangeType({
-			...base,
-			body: INTEGRATION_BODY.replace(/- \[x\]/g, '- [ ]'),
-		});
-		expect(r.ok).toBe(false);
-	});
 	it('test-results PASS: 統合エビデンス表 (1 行) があれば通過', () => {
 		const r = checkTestResults({ ...base, body: INTEGRATION_BODY });
 		expect(r.ok).toBe(true);
@@ -599,7 +570,6 @@ describe('dependabot lane: 全 check skip 相当 (#2944 AC5)', () => {
 	for (const [name, fn] of [
 		['section-presence', checkSectionPresence],
 		['issue-reference', checkIssueReference],
-		['change-type', checkChangeType],
 		['customer-value', checkCustomerValue],
 		['test-results', checkTestResults],
 		['closing-keyword', checkClosingKeyword],
@@ -962,5 +932,25 @@ describe('#4348: 見出し探索は行の完全一致 + 見つからなければ
 		const r = checkTestResults({ ...base, lane: 'integration', body });
 		expect(r.skipped, 'feature template の見出しを探して skip していた (#4348)').toBeFalsy();
 		expect(r.ok).toBe(true);
+	});
+});
+
+// =====================================================================
+// #4612: CHECKS registry に載らない判定関数を残さない (class-lock)
+//
+// `checkChangeType` は #4305 で `pr-template-gate.yml` の対 job が撤去されたあとも残り、
+// **CHECKS registry に無い = CLI からは起動できない**にもかかわらず存在し続けた。
+// 唯一の呼び出し元 `check-pr-body.mjs` の `checkChangeTypeSelection` 自身も runner から
+// 呼ばれておらず、chain 全体が死んでいた (#4612 で両端とも削除)。
+// =====================================================================
+describe('#4612 変更タイプ判定は存在しない（registry に無い判定を残さない）', () => {
+	for (const name of ['checkChangeType', 'detectChangeTypeHeading']) {
+		it(`${name} は export されていない`, () => {
+			expect(Object.keys(gateChecksModule)).not.toContain(name);
+		});
+	}
+
+	it('CHECKS registry に change-type は無い（CLI から起動できない）', () => {
+		expect(Object.keys(gateChecksModule.CHECKS)).not.toContain('change-type');
 	});
 });

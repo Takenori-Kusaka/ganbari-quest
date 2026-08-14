@@ -464,82 +464,13 @@ export function checkClosingKeyword({ body, labels, lane }) {
 	};
 }
 
-/**
- * template から複数の `- [ ]` を持つ変更タイプセクション見出しを動的取得。
- * @param {string} template
- * @returns {string}
- */
-export function detectChangeTypeHeading(template) {
-	const lines = template.split('\n');
-	let heading = '## 変更タイプ';
-	for (let i = 0; i < lines.length; i += 1) {
-		const line = lines[i] ?? '';
-		if (/^## /.test(line)) {
-			const sectionEndIdx = lines.findIndex((l, idx) => idx > i && /^## /.test(l));
-			const lookaheadEnd = sectionEndIdx === -1 ? Math.min(i + 50, lines.length) : sectionEndIdx;
-			const lookahead = lines.slice(i + 1, lookaheadEnd);
-			if (lookahead.filter((l) => /^- \[ \]/.test(l)).length >= 3) {
-				heading = line.trim();
-				break;
-			}
-		}
-	}
-	return heading;
-}
-
-/**
- * Check 3: 変更タイプの選択 (lane-aware)。
- * - feature/hotfix: 1 つ以上 [x] (現行どおり)。
- * - integration: 複数タイプ混在を許容 (統合 PR は feat/fix/docs 混在が正常)。1 つ以上 [x] は維持 (#2944)。
- *   → 閾値は feature と同じ (1 つ以上) だが、複数選択を violation 扱いしない点が明示的に異なる
- *     (現行ロジックも複数選択を fail にはしないため、integration では「混在 OK」を message で明示する)。
- * - dependabot: skip。
- *
- * @param {CheckInput} input
- * @returns {CheckResult}
- */
-export function checkChangeType({ body, labels, template, lane }) {
-	const dep = dependabotSkip(lane);
-	if (dep) return dep;
-	if (hasDependenciesLabel(labels, lane)) {
-		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
-	}
-
-	const heading = detectChangeTypeHeading(template);
-	const start = body.indexOf(heading);
-	if (start === -1) {
-		// 現行は warning + return (section-presence に委譲)。ここでも ok 扱い (skip)。
-		return {
-			ok: true,
-			skipped: true,
-			lane,
-			message: `「${heading}」セクションが見つかりません (section-presence チェックに委譲)`,
-		};
-	}
-	const end = body.indexOf('\n## ', start + 1);
-	const section = body.slice(start, end > start ? end : start + 600);
-	const checked = section.match(/- \[[xX]\]/g);
-
-	if (!checked || checked.length === 0) {
-		return {
-			ok: false,
-			lane,
-			message:
-				`❌ 「${heading}」で何も選択されていません。\n\n` +
-				'該当する変更タイプのチェックボックスを選択してください。\n\n例:\n```\n- [x] feat: 新機能\n```',
-		};
-	}
-
-	const items = (section.match(/- \[[xX]\] (.+)/g) || []).map((i) => i.replace(/- \[[xX]\] /, ''));
-	if (lane === 'integration') {
-		return {
-			ok: true,
-			lane,
-			message: `✅ [integration] 変更タイプ (複数混在 OK): ${items.join(' / ')}`,
-		};
-	}
-	return { ok: true, lane, message: `✅ 変更タイプ: ${items.join(' / ')}` };
-}
+// 旧 Check 3「変更タイプの選択」(`detectChangeTypeHeading` / `checkChangeType`) は削除した (#4612)。
+// #4305 が `## 変更タイプ` 節をテンプレートから外し、`pr-template-gate.yml` の対の job も
+// 同時に撤去したため、本関数は `CHECKS` registry に載らず (= CLI からは起動不能)、
+// 唯一の呼び出し元が `check-pr-body.mjs` の `checkChangeTypeSelection` だった。その
+// `checkChangeTypeSelection` 自身も runner から呼ばれておらず、chain 全体が死んでいた。
+// 復活させるならテンプレート節 / `PR_TEMPLATE_SECTIONS.json` / `CHECKS` 登録 / workflow job を
+// セットで戻すこと (class-lock: tests/unit/github/pr-template-gate-checks.test.ts)。
 
 /**
  * template の「最初の `## ` セクション本文」(見出し行から次の `## ` の直前まで) を返す。
