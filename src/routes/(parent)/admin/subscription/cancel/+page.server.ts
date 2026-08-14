@@ -19,6 +19,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { submitCancellationReason } from '$lib/server/services/cancellation-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
+import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { createPortalSession } from '$lib/server/services/stripe-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,13 +32,30 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const isPaidPlan = !!license?.stripeSubscriptionId;
 	const hasStripeCustomer = !!license?.stripeCustomerId;
 
+	// #4585-1: 解約すると無料プランに戻る顧客には、上限超過分の扱いを解約前に決めさせる。
+	// 判定軸は license.plan ではなく**実効プラン** (トライアル中も上限は有料相当) にする。
+	const planTier = await resolveFullPlanTier(
+		tenantId,
+		locals.context?.licenseStatus ?? 'none',
+		locals.context?.plan,
+	);
+	// fallback (選ばずに手続きが完了した場合) で何が残るかを画面で述べるための上限値。
+	// 数値の SSOT は plan-limit-service。画面側で書き写さない。
+	const freeLimits = getPlanLimits('free');
+
 	return {
 		plan,
+		planTier,
 		isPaidPlan,
 		hasStripeCustomer,
 		stripeEnabled: isStripeEnabled(),
 		categories: CANCELLATION_CATEGORIES,
 		freeTextMaxLength: CANCELLATION_LABELS.freeTextMaxLength,
+		freeLimits: {
+			maxChildren: freeLimits.maxChildren,
+			maxActivities: freeLimits.maxActivities,
+			maxChecklistTemplates: freeLimits.maxChecklistTemplates,
+		},
 	};
 };
 

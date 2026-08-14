@@ -3761,6 +3761,9 @@ export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
 	CANCELLATION_CATEGORY.PAUSE,
 ];
 
+/** #4585-1: 「選ばずに進めた場合」の見出し。同一画面の複数箇所から参照するため 1 箇所に置く */
+const ARCHIVE_FALLBACK_HEADING = '選ばずに進めた場合';
+
 export const CANCELLATION_LABELS = {
 	pageHeading: '解約手続き',
 	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
@@ -3790,6 +3793,10 @@ export const CANCELLATION_LABELS = {
 	//   旧 paidPlanNotice は「決済停止を行います」だけで、期末まで使えることと日割り返金が
 	//   ないことを手続き前に示していなかった (#3991 期末解約モデルの不告知)。
 	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中のため、お支払いは発生しておらず${CANCEL_TERMS.canonical}のお手続きは必要ありません。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。差し支えなければ、その前に理由をお聞かせください。`,
+	// #4585-1 QM: 体験中の顧客は「請求は無い」が「無料プランの上限でもない」。freePlanNotice を
+	// そのまま出すと、同じ画面で「無料プランをご利用中」と「無料プランに戻ると」が並び、
+	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
+	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
 	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
 
 	// Submit
@@ -3822,6 +3829,24 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
+	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
+	// 「先に登録したものから順に上限数だけ残す」。規則を内部に閉じず、解約画面で先に伝える。
+	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
+	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
+		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、先に登録したものから順にこの数だけ残し、超えた分をアーカイブします。`,
+	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
+	selectionButton: '残すデータを選ぶ',
+	selectionLoading: '確認しています…',
+	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度お試しになる場合は下のボタンから、このまま進める場合は送信ボタンを押してください。`,
+	// #4585-1 QM: 選択ダイアログを閉じた顧客の出口。確定ボタンは超過分を選ぶまで押せないため、
+	// 「どれも手放したくない」顧客の唯一の操作が「閉じる」になる。ここで手続きを再開できないと
+	// 解約そのものが行き止まりになる (#4329 / #4548 / #4560 と同じ class)。
+	selectionSkipped: `残すデータを選ばずに閉じました。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。選び直すこともできます。`,
+	// #4585-1 QM: 閉じた / 取得に失敗した顧客が選択に戻る唯一の導線。これが無いと、
+	// 誤って閉じた 1 クリックで「自分で選ぶ」機会を恒久的に失う (子供の記録は取り返しが難しい)。
+	selectionReopen: '残すデータを選び直す',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
