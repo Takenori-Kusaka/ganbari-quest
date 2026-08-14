@@ -52,7 +52,9 @@ export default async (page, capture) => {
 	await loginAsStandardOwner(page);
 
 	// 1. 解約画面 — fallback (選ばずに進めた場合) の提示
-	await page.goto(`${BASE_URL}/admin/subscription/cancel`, { waitUntil: 'domcontentloaded' });
+	//    hydration 前に操作すると radio の change が Svelte state に載らず submit が disabled の
+	//    ままになるため networkidle まで待つ。
+	await page.goto(`${BASE_URL}/admin/subscription/cancel`, { waitUntil: 'networkidle' });
 	await page
 		.getByTestId('cancellation-form')
 		.waitFor({ state: 'visible', timeout: 30_000 })
@@ -61,6 +63,9 @@ export default async (page, capture) => {
 
 	// 2. 理由を選んで送信 → 選択ダイアログ (変更前は開かず portal へ送っていた)
 	await page.getByTestId('cancellation-category-churn').click();
+	await page
+		.locator('[data-testid="cancellation-submit"]:not([disabled])')
+		.waitFor({ state: 'visible', timeout: 15_000 });
 	await page.getByTestId('cancellation-submit').click();
 	await page
 		.getByTestId('downgrade-resource-selector')
