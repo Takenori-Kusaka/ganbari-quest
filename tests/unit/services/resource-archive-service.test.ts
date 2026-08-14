@@ -104,7 +104,9 @@ function logsAt(...recordedAt: string[]) {
 
 /** child id → 活動ログ の対応で `findActivityLogs` を組む。 */
 function mockLogsByChild(byChild: Record<string, { id: string; recordedAt: string }[]>) {
-	mockFindActivityLogs.mockImplementation(async (childId: string) => byChild[String(childId)] ?? []);
+	mockFindActivityLogs.mockImplementation(
+		async (childId: string) => byChild[String(childId)] ?? [],
+	);
 }
 
 describe('archiveExcessResources', () => {
@@ -404,11 +406,7 @@ describe('#4585-3 archive reason（体験終了と支払い失敗を区別する
 
 		expect(mockArchiveChildren).toHaveBeenCalledWith(['3'], 'dunning_canceled', TENANT);
 		expect(mockArchiveActivities).toHaveBeenCalledWith(['4'], 'dunning_canceled', TENANT);
-		expect(mockArchiveChecklistTemplates).toHaveBeenCalledWith(
-			['4'],
-			'dunning_canceled',
-			TENANT,
-		);
+		expect(mockArchiveChecklistTemplates).toHaveBeenCalledWith(['4'], 'dunning_canceled', TENANT);
 	});
 });
 

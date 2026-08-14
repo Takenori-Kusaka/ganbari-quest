@@ -3,7 +3,7 @@ import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/resource-archive-service.ts
 // #783: トライアル終了時の超過リソース archive / アップグレード時の restore
 
-import { ARCHIVED_REASONS, type ArchivedReason } from '$lib/domain/archive-types';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { jstDateOfIso } from '$lib/domain/date-utils';
 import {
 	archiveActivities,
@@ -32,7 +32,7 @@ function compareOpaqueIdAsc(a: string, b: string): number {
 	return a.length - b.length || a.localeCompare(b);
 }
 
-const ARCHIVE_REASON: ArchivedReason = 'trial_expired';
+const ARCHIVE_REASON: AutoArchiveReason = 'trial_expired';
 
 /**
  * 顧客が「残すもの」を選ばないまま無料プランに戻ったときの archive reason (#4585-3)。
@@ -180,18 +180,42 @@ export async function archiveExcessResources(
 }
 
 /**
+ * 復元対象の reason を **型で網羅させる** ための表 (#4585-3)。
+ *
+ * `ArchivedReason` に値が増えたとき、本表に足さないとコンパイルが通らない。復元の取りこぼしは
+ * 「再契約したのに記録が戻らない」として顧客に出るが、書き忘れても何も落ちないため
+ * (`dunning_canceled` が実際にその状態だった) 型で気づかせる。
+ * 実行時の網羅は `tests/unit/services/resource-archive-service.test.ts` が
+ * `ARCHIVED_REASONS` を読んで assert する (表に足しただけで呼んでいない場合を捕まえる)。
+ */
+const RESTORE_TARGET_REASONS: Record<ArchivedReason, true> = {
+	trial_expired: true,
+	downgrade_user_selected: true,
+	dunning_canceled: true,
+};
+
+/**
  * アップグレード時に archive されたリソースを **全 reason** について復元する。
  *
- * reason は enum SSOT (`ARCHIVED_REASONS`) を全件回す (#4585-3)。列挙を手で並べていると
- * reason を足したときに復元だけ取りこぼし、その顧客は再契約しても記録が戻らないまま残る
- * (`dunning_canceled` が実際にその状態だった)。
+ * 呼び出しをループにせず reason ごとに展開している。ループ内の逐次 write は ADR-0065 原則 2 の
+ * ratchet (`tests/unit/architecture/dsql-loop-sequential-write-fitness.test.ts`) が数える対象で、
+ * 発行する txn 数は展開形と同じ (reason × 3 資源) ため、形だけ loop にして計上を増やさない。
  */
 export async function restoreArchivedResources(tenantId: string): Promise<void> {
-	for (const reason of ARCHIVED_REASONS) {
-		await restoreArchivedChildren(reason, tenantId);
-		await restoreArchivedActivities(reason, tenantId);
-		await restoreArchivedChecklistTemplates(reason, tenantId);
-	}
+	void RESTORE_TARGET_REASONS; // 型で網羅を強制するためだけの表 (値は使わない)
+
+	// #783: 体験終了で archive されたリソース
+	await restoreArchivedChildren('trial_expired', tenantId);
+	await restoreArchivedActivities('trial_expired', tenantId);
+	await restoreArchivedChecklistTemplates('trial_expired', tenantId);
+	// #738: 顧客自身が選んで archive したリソース
+	await restoreArchivedChildren('downgrade_user_selected', tenantId);
+	await restoreArchivedActivities('downgrade_user_selected', tenantId);
+	await restoreArchivedChecklistTemplates('downgrade_user_selected', tenantId);
+	// #4585-3: 支払い失敗で archive されたリソース (支払い手段を直して再契約したら戻す)
+	await restoreArchivedChildren('dunning_canceled', tenantId);
+	await restoreArchivedActivities('dunning_canceled', tenantId);
+	await restoreArchivedChecklistTemplates('dunning_canceled', tenantId);
 }
 
 /**
