@@ -174,15 +174,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (1 回限りの通知 cookie を
+	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
 	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
 	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
+	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
+	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
 	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError =
-		rawInviteAcceptError === 'INVITE_EMAIL_MISMATCH' ||
-		rawInviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
-			? rawInviteAcceptError
-			: null;
+	const inviteAcceptError = rawInviteAcceptError ? rawInviteAcceptError : null;
 	if (rawInviteAcceptError) {
 		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
 	}
