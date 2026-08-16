@@ -54,7 +54,13 @@ export default async (page, capture) => {
 		// バナーは SSR 出力に含まれる (server load の戻り値)。修正前 build では出ないため
 		// 存在待ちはせず、レイアウトが描画され切ったところで撮る。
 		await page.locator('main, [data-testid="admin-resource-header"], body').first().waitFor();
-		await page.waitForTimeout(300);
+		// 描画の落ち着きは固定時間ではなく 2 フレーム待ちで取る (#1208: scripts/ で waitForTimeout 禁止)
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+				),
+		);
 		await capture(`${PHASE}-invite-accept-error-${reason.toLowerCase().replace(/_/g, '-')}`);
 	}
 };
