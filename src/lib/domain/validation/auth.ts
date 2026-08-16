@@ -99,10 +99,10 @@ export type InviteAcceptErrorReason = (typeof INVITE_ACCEPT_ERROR_REASONS)[numbe
  * cookie 値が既知の拒否理由かを判定する。未知の値 (古い cookie / 改竄) は
  * 呼び出し側で汎用文言にフォールバックさせる。
  */
-export function isInviteAcceptErrorReason(value: string | undefined): value is InviteAcceptErrorReason {
-	return (
-		value !== undefined && (INVITE_ACCEPT_ERROR_REASONS as readonly string[]).includes(value)
-	);
+export function isInviteAcceptErrorReason(
+	value: string | undefined,
+): value is InviteAcceptErrorReason {
+	return value !== undefined && (INVITE_ACCEPT_ERROR_REASONS as readonly string[]).includes(value);
 }
 
 export const createInviteSchema = z.object({

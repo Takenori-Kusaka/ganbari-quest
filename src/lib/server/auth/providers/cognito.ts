@@ -290,7 +290,7 @@ export class CognitoAuthProvider implements AuthProvider {
 	 *
 	 * 拒否は例外なくこの後の `provisionNewUser` (新規家族グループ自動作成) にフォールバックする。
 	 * 通知を積まないと「招待されたはずの人が、別世帯の owner として空の管理画面に着地する」
-     * 失敗が成功に見える経路になる。理由の一覧 SSOT は `INVITE_ACCEPT_ERROR_REASONS`。
+	 * 失敗が成功に見える経路になる。理由の一覧 SSOT は `INVITE_ACCEPT_ERROR_REASONS`。
 	 */
 	private setInviteAcceptErrorCookie(event: RequestEvent, reason: string): void {
 		event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, reason, {

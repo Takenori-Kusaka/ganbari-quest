@@ -317,21 +317,21 @@ describe('acceptInvite', () => {
 
 	// #4633: 緩和は grace_period までで、機能停止・退会済からの受諾は従来どおり拒否する
 	// (entitled 判定を「常に true」に緩めた瞬間に落ちる)。
-	it.each([SUBSCRIPTION_STATUS.SUSPENDED, SUBSCRIPTION_STATUS.TERMINATED])(
-		'entitled でないテナント (%s) からの招待は受諾できない (#4633)',
-		async (status) => {
-			inviteStore.set(`acc-${status}`, makePendingInvite({ inviteCode: `acc-${status}` }));
-			tenantStore.set('t-test', {
-				tenantId: 't-test',
-				status,
-				createdAt: new Date().toISOString(),
-			} as Tenant);
+	it.each([
+		SUBSCRIPTION_STATUS.SUSPENDED,
+		SUBSCRIPTION_STATUS.TERMINATED,
+	])('entitled でないテナント (%s) からの招待は受諾できない (#4633)', async (status) => {
+		inviteStore.set(`acc-${status}`, makePendingInvite({ inviteCode: `acc-${status}` }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status,
+			createdAt: new Date().toISOString(),
+		} as Tenant);
 
-			const result = assertError(await acceptInvite(`acc-${status}`, `user-${status}`));
-			expect(result.error).toBe('TENANT_NOT_FOUND');
-			expect(membershipStore).toHaveLength(0);
-		},
-	);
+		const result = assertError(await acceptInvite(`acc-${status}`, `user-${status}`));
+		expect(result.error).toBe('TENANT_NOT_FOUND');
+		expect(membershipStore).toHaveLength(0);
+	});
 
 	it('自分で作成した招待は受諾できない (#0203)', async () => {
 		inviteStore.set(
