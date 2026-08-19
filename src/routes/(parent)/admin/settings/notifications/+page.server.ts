@@ -3,6 +3,7 @@
 // 1 section だけのため軽量サブページ。
 
 import { fail } from '@sveltejs/kit';
+import { DEFAULT_QUIET_END, DEFAULT_QUIET_START } from '$lib/domain/constants/notification';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -16,8 +17,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		reminderTime: '09:00',
 		streakEnabled: true,
 		achievementsEnabled: true,
-		quietStart: '21:00',
-		quietEnd: '07:00',
+		quietStart: DEFAULT_QUIET_START,
+		quietEnd: DEFAULT_QUIET_END,
 	};
 
 	try {
@@ -37,8 +38,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			reminderTime: ns.notification_reminder_time ?? '09:00',
 			streakEnabled: ns.notification_streak_enabled !== 'false',
 			achievementsEnabled: ns.notification_achievements_enabled !== 'false',
-			quietStart: ns.notification_quiet_start ?? '21:00',
-			quietEnd: ns.notification_quiet_end ?? '07:00',
+			quietStart: ns.notification_quiet_start ?? DEFAULT_QUIET_START,
+			quietEnd: ns.notification_quiet_end ?? DEFAULT_QUIET_END,
 		};
 	} catch (err) {
 		logger.error('[settings/notifications] load failed', { error: String(err) });
@@ -52,21 +53,19 @@ export const actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 
-		const remindersEnabled = form.has('remindersEnabled') ? 'true' : 'false';
-		const reminderTime = form.get('reminderTime')?.toString() ?? '09:00';
-		const streakEnabled = form.has('streakEnabled') ? 'true' : 'false';
 		const achievementsEnabled = form.has('achievementsEnabled') ? 'true' : 'false';
-		const quietStart = form.get('quietStart')?.toString() ?? '21:00';
-		const quietEnd = form.get('quietEnd')?.toString() ?? '07:00';
+		const quietStart = form.get('quietStart')?.toString() ?? DEFAULT_QUIET_START;
+		const quietEnd = form.get('quietEnd')?.toString() ?? DEFAULT_QUIET_END;
 
 		const timeRegex = /^\d{2}:\d{2}$/;
-		if (!timeRegex.test(reminderTime) || !timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
+		if (!timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
 			return fail(400, { notificationError: '時刻の形式が不正です' });
 		}
 
-		await setSetting('notification_reminders_enabled', remindersEnabled, tenantId);
-		await setSetting('notification_reminder_time', reminderTime, tenantId);
-		await setSetting('notification_streak_enabled', streakEnabled, tenantId);
+		// #4664 F5: リマインダー / ストリーク警告 は配信するスケジューラが無いため UI から外した。
+		//   保存値 (notification_reminders_enabled / _reminder_time / _streak_enabled) は
+		//   **書き換えない** — フォームに欄が無いことを理由に 'false' で潰すと、配信を実装した
+		//   ときに全テナントの設定が失われる。
 		await setSetting('notification_achievements_enabled', achievementsEnabled, tenantId);
 		await setSetting('notification_quiet_start', quietStart, tenantId);
 		await setSetting('notification_quiet_end', quietEnd, tenantId);

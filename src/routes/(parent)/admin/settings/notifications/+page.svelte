@@ -106,6 +106,7 @@ async function disableNotifications() {
 		<div
 			class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]"
 			data-testid="notification-browser-status"
+			data-tutorial="notification-browser-status"
 		>
 			<div class="flex items-center justify-between">
 				<span class="text-sm font-medium text-[var(--color-text)]">
@@ -183,38 +184,11 @@ async function disableNotifications() {
 			class="space-y-4"
 			data-tutorial="notification-settings"
 		>
-			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					name="remindersEnabled"
-					checked={data.notificationSettings.remindersEnabled}
-					class="h-4 w-4 rounded border-[var(--color-border-strong)]"
-				/>
-				<span class="text-sm text-[var(--color-text)]">
-					{SETTINGS_LABELS.notificationReminderLabel}
-				</span>
-			</label>
-			{#if data.notificationSettings.remindersEnabled}
-				<div class="ml-6">
-					<FormField
-						label="リマインダー時刻"
-						type="time"
-						name="reminderTime"
-						value={data.notificationSettings.reminderTime}
-					/>
-				</div>
-			{/if}
-			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					name="streakEnabled"
-					checked={data.notificationSettings.streakEnabled}
-					class="h-4 w-4 rounded border-[var(--color-border-strong)]"
-				/>
-				<span class="text-sm text-[var(--color-text)]">
-					{SETTINGS_LABELS.notificationStreakLabel}
-				</span>
-			</label>
+			<!-- #4664 F5: リマインダー / ストリーク警告 のチェックは、それを送るスケジューラが
+			     存在しない (endpoint はあるが cron 登録が無い) ため、ONにしても通知は届かなかった。
+			     届かないものを設定画面で約束しないよう、実配信が入るまで出さない。保存値
+			     (notification_reminders_enabled / _streak_enabled) は書き換えないので、
+			     配信を実装すれば以前の設定のまま復帰する。 -->
 			<label class="flex items-center gap-2">
 				<input
 					type="checkbox"
@@ -226,8 +200,14 @@ async function disableNotifications() {
 					{SETTINGS_LABELS.notificationAchievementLabel}
 				</span>
 			</label>
-			<div class="border-t border-[var(--color-border-default)] pt-4 mt-4">
-				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
+			<div
+				class="border-t border-[var(--color-border-default)] pt-4 mt-4"
+				data-tutorial="notification-quiet-hours"
+			>
+				<FormField
+					label={SETTINGS_LABELS.notificationQuietLabel}
+					hint={SETTINGS_LABELS.notificationQuietHint}
+				>
 					{#snippet children()}
 						<div class="flex items-center gap-2">
 							<input
@@ -249,7 +229,13 @@ async function disableNotifications() {
 					{/snippet}
 				</FormField>
 			</div>
-			<Button type="submit" variant="primary" size="md" class="w-full">
+			<Button
+				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
+				data-tutorial="notification-save"
+			>
 				{SETTINGS_LABELS.notificationSaveAction}
 			</Button>
 		</form>

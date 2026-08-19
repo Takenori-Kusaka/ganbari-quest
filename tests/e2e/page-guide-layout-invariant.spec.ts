@@ -74,6 +74,13 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
 	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
 	'/admin/settings/account': ['settings-account-pin'],
+	// #4664: 通知ページの 4 anchor はいずれも常設 (ブラウザ状態 / 種類 / サイレント時間帯 / 保存)
+	'/admin/settings/notifications': [
+		'settings-notifications-status',
+		'settings-notifications-types',
+		'settings-notifications-quiet',
+		'settings-notifications-save',
+	],
 	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
 	'/admin/settings/activities': [
 		'settings-activities-decay',
