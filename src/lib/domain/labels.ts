@@ -10301,10 +10301,13 @@ export const POINT_LEDGER_LABELS = {
 // `CANCEL_WINDOW_MS` を参照し、画面の実表記・実値と一致させる（直書きしない）。
 // 関数にしているのは CHILD_SHOP_LABELS 等の宣言順（TDZ）に依らず参照するため。
 
-/** 子供チュートリアルの文言 variant。preschool / elementary = kana、junior / senior = kanji */
-export type ChildTutorialVariant = 'kana' | 'kanji';
+/**
+ * 子供チュートリアルの文言 variant。preschool / elementary = kana、junior / senior = kanji。
+ * 外部公開せず本ファイル内で `getChildTutorialLabels` からのみ使う (公開 API は同関数 1 本)。
+ */
+type ChildTutorialVariant = 'kana' | 'kanji';
 
-export function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
+function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
 	return uiMode === 'junior' || uiMode === 'senior' ? 'kanji' : 'kana';
 }
 
