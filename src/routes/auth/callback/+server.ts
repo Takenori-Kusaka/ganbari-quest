@@ -2,7 +2,12 @@
 // Authorization Code を受け取り、トークン交換して Cookie にセット
 
 import { redirect } from '@sveltejs/kit';
-import { OAUTH_NEXT_COOKIE_NAME, resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
+import {
+	LOGIN_NEXT_PARAM,
+	OAUTH_NEXT_COOKIE_NAME,
+	resolveSafeNextPath,
+} from '$lib/domain/validation/login-redirect';
+import { OAUTH_PLAN_COOKIE_NAME } from '$lib/domain/validation/signup-plan';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
@@ -66,6 +71,13 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			error: e instanceof Error ? e.message : String(e),
 		});
 		redirect(302, '/auth/login?error=token_exchange_failed');
+	}
+
+	// #4702: 「無料体験をはじめる」から Google で登録した場合は、テナント自動プロビジョニング後に
+	// トライアルを開始する必要がある (callback 時点ではまだテナントが無い)。plan cookie があるときだけ
+	// /auth/oauth/trial-start を経由させ、そこから本来の着地先へ進む。
+	if (cookies.get(OAUTH_PLAN_COOKIE_NAME)) {
+		redirect(302, `/auth/oauth/trial-start?${LOGIN_NEXT_PARAM}=${encodeURIComponent(successPath)}`);
 	}
 
 	// 認証成功 → ご家族の見守り画面 or oauth_next（resolveContext で自動的にテナント選択される）

@@ -2,6 +2,7 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
+import { parsePlanForTrial } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	authenticateWithCognito,
@@ -14,19 +15,11 @@ import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/
 import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
-import { startTrial, type TrialTier } from '$lib/server/services/trial-service';
+import { startTrial } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
 
-/**
- * #766: /auth/signup?plan=X からのサインアップ時にトライアル自動開始用のティアを決定する。
- * 既知のティア以外（無効値・空文字）は null を返し、呼び出し側でトライアル開始をスキップする。
- */
-function parsePlanForTrial(planInput: string | null | undefined): TrialTier | null {
-	if (!planInput) return null;
-	const normalized = planInput.trim().toLowerCase();
-	if (normalized === 'standard' || normalized === 'family') return normalized;
-	return null;
-}
+// #766 / #4702: `?plan=` の解釈は $lib/domain/validation/signup-plan の parsePlanForTrial が SSOT。
+// Google 登録経路 (/auth/oauth/trial-start) と同じ規則を使う。
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;

@@ -4,6 +4,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { APP_LABELS, PAGE_TITLES, SIGNUP_LABELS } from '$lib/domain/labels';
 import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
+import { parsePlanForTrial } from '$lib/domain/validation/signup-plan';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -81,6 +82,11 @@ function startCooldown() {
 
 // URL の plan パラメータ（pricing ページからの遷移用）
 const planParam = $derived($page.url.searchParams.get('plan'));
+// #4702: plan が有効値のときだけ Google 登録 URL に引き継ぐ (無効値は既定の登録フローのまま)
+const googleSignupPlan = $derived(parsePlanForTrial(planParam));
+const googleSignupHref = $derived(
+	googleSignupPlan ? `/auth/oauth/google?plan=${googleSignupPlan}` : '/auth/oauth/google',
+);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
@@ -211,7 +217,9 @@ $effect(() => {
 			</form>
 		{:else}
 			<!-- Google OAuth サインアップ -->
-			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href="/auth/oauth/google" />
+			<!-- #4702: 料金ページからの `?plan=` を Google 登録経路にも引き継ぎ、メール登録と同じく
+			     トライアルを自動開始する (引き継がないと「無料体験をはじめる」から入った顧客が無料プランに着地する) -->
+			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href={googleSignupHref} />
 			<Divider label={SIGNUP_LABELS.dividerOr} spacing="sm" />
 
 			<!-- 登録フォーム -->
