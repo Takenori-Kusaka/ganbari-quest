@@ -218,7 +218,7 @@ $effect(() => {
 		{:else}
 			<!-- Google OAuth サインアップ -->
 			<!-- #4702: 料金ページからの `?plan=` を Google 登録経路にも引き継ぎ、メール登録と同じく
-			     トライアルを自動開始する (引き継がないと「無料体験をはじめる」から入った顧客が無料プランに着地する) -->
+			     トライアルを自動開始する (引き継がないと登録手段によって体験の有無が変わる) -->
 			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href={googleSignupHref} />
 			<Divider label={SIGNUP_LABELS.dividerOr} spacing="sm" />
 
