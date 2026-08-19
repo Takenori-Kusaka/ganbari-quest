@@ -21,7 +21,10 @@ export default async (page, capture) => {
 	const origin = new URL(page.url()).origin;
 
 	await page.goto(new URL('/admin/challenges', origin).toString());
-	await page.locator('[data-testid="admin-challenges-group"]').first().waitFor({ state: 'visible' });
+	await page
+		.locator('[data-testid="admin-challenges-group"]')
+		.first()
+		.waitFor({ state: 'visible' });
 	await page
 		.waitForFunction(
 			() => document.getAnimations().every((a) => a.playState !== 'running'),
