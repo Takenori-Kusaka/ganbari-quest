@@ -49,10 +49,21 @@ async function dismissOverlays(page) {
 /** @param {import('playwright').Page} page */
 async function selectChild(page) {
 	await page.context().clearCookies();
-	await page.goto(`${BASE_URL}/switch`);
-	await page.locator('[data-testid^="child-select-"]').first().click();
-	await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\//, { timeout: 30_000 });
-	return new URL(page.url()).pathname.split('/')[1];
+	// hydration 前 / オーバーレイに click を奪われることがあるため、遷移するまで再試行する
+	for (let i = 0; i < 5; i++) {
+		await page.goto(`${BASE_URL}/switch`);
+		await dismissOverlays(page);
+		const card = page.locator('[data-testid^="child-select-"]').first();
+		await card.waitFor({ state: 'visible', timeout: 15_000 });
+		await card.click({ timeout: 10_000 }).catch(() => {});
+		try {
+			await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\//, { timeout: 10_000 });
+			return new URL(page.url()).pathname.split('/')[1];
+		} catch {
+			// 次のループで再試行
+		}
+	}
+	throw new Error('お子さま選択から子供画面へ遷移できなかった');
 }
 
 /**
@@ -115,6 +126,7 @@ export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/${uiMode}/shop`);
 	await page.getByTestId('shop-page').waitFor({ state: 'visible', timeout: 15_000 });
 	await dismissOverlays(page);
+	await page.evaluate(() => window.scrollTo(0, 0));
 	await capture('ごほうびショップ 一覧 (ごほうび名の折返し)');
 
 	// 2. 「いまこうかんできる」フィルタ ON の件数バッジ
@@ -126,6 +138,7 @@ export default async (page, capture) => {
 			.first()
 			.waitFor({ state: 'visible', timeout: 5_000 })
 			.catch(() => {});
+		await page.evaluate(() => window.scrollTo(0, 0));
 		await capture('いまこうかんできる フィルタの件数');
 		await availableFilter.uncheck().catch(() => {});
 	}
