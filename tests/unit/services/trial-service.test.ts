@@ -79,6 +79,7 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import { toJSTDateString } from '$lib/domain/date-utils';
+import type { TrialStatus } from '$lib/server/services/trial-service';
 import {
 	applyLicenseToTrialStatus,
 	endTrialOnConversion,
@@ -538,14 +539,14 @@ describe('trial-service (#314)', () => {
 		});
 
 		it('applyLicenseToTrialStatus は active 以外で同一オブジェクトを返す (純関数)', () => {
-			const st = {
+			const st: TrialStatus = {
 				isTrialActive: true,
 				trialUsed: true,
 				trialStartDate: '2026-08-19',
 				trialEndDate: '2026-08-26',
 				trialTier: 'standard' as const,
 				daysRemaining: 7,
-				source: 'user_initiated' as const,
+				source: 'user_initiated',
 				convertedToPaid: false,
 			};
 			expect(applyLicenseToTrialStatus(st, 'none')).toBe(st);
