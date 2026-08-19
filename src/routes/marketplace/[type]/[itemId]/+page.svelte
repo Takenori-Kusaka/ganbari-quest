@@ -329,7 +329,8 @@ function deselectAllActivities() {
 		>
 			{#if data.importLocked && data.isAuthenticated && (isRewardSet || isRuleExchange)}
 				<!-- #4705: 無料プランは商品登録ができない。押す前に条件と行き先を出す
-				     (旧: CTA 活性 → 子供選択 → 取込 POST 後に「スタンダードプラン以上」で拒否) -->
+				     (旧: CTA 活性 → 子供選択 → 取込 POST 後に有料プラン必須で拒否)。
+				     文言は MARKETPLACE_LABELS (atom 経由) を読む。 -->
 				<div
 					class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-xl p-3 text-sm"
 					data-testid="marketplace-import-locked"
