@@ -29,6 +29,7 @@ import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
+import { enforceActivityQuota } from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -353,6 +354,17 @@ export async function importActivities(
 			// 全 target child で既存だった (どこにも追加しない) activity。
 			skipped++;
 		}
+	}
+
+	// #4693: **quota はここで一元強制する。** 経路ごとに `checkActivityLimit` を書く形では、
+	// 経路が増えるたびに書き忘れが起きる (手動 / 一括 / コピー / テンプレ取込には gate があり、
+	// ファイル復元だけ無かった = 無料プランが CSV を作れば無制限に増やせた、#4693 実測。
+	// #2894 / #3740 に続く 3 件目)。全ての取込経路が本関数を通るため、ここで切ると
+	// 「経路を増やしても素通りしない」構造になる (fitness function:
+	// tests/unit/architecture/activity-quota-single-enforcement.test.ts)。
+	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
+	if (quota.rejectedNames.size > 0) {
+		errors.push(quota.message);
 	}
 
 	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。

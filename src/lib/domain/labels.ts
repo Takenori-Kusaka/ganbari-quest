@@ -5575,6 +5575,12 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
 	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	// #4693: copy / 一括追加の結果文言 (旧: +page.svelte に直書き、SSOT 逸脱)。
+	// 失敗時はサーバーが返す理由 (上限 + アップグレード導線) を優先し、本文言は fallback。
+	copySuccess: 'コピーが完了しました',
+	copyFailed: 'コピーに失敗しました',
+	bulkCreateSuccess: '一括追加しました',
+	bulkCreateFailed: '一括追加に失敗しました',
 	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
 	// 選択中 child banner
 	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,

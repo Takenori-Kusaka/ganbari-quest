@@ -1,5 +1,9 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
+import {
+	ADMIN_ACTION_FETCH_HEADERS,
+	readAdminActionResult,
+} from '$lib/features/admin/action-result';
 import { goto, invalidateAll } from '$app/navigation';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
@@ -360,14 +364,24 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 	const formData = new FormData();
 	formData.append('file', file);
 	try {
-		const resp = await fetch('?/importFile', { method: 'POST', body: formData });
-		if (!resp.ok) {
-			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
+		// #4693: 復元も ActionResult 判定に統一する (上限で fail したことを握り潰さない)。
+		const resp = await fetch('?/importFile', {
+			method: 'POST',
+			headers: ADMIN_ACTION_FETCH_HEADERS,
+			body: formData,
+		});
+		const actionResult = await readAdminActionResult(resp);
+		if (!actionResult.ok) {
+			const display = getActionErrorDisplay(
+				actionResult.error,
+				FEATURES_LABELS.activitiesHeader.restoreFailed,
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
 			return;
 		}
-		const result = deserialize(await resp.text());
-		if (result.type === 'success' && result.data) {
-			const d = result.data as Record<string, unknown>;
+		if (actionResult.data) {
+			const d = actionResult.data;
 			// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装しない。
 			if (d.demo === true) {
 				actionMessage = FEATURES_LABELS.activitiesHeader.restoreDemo;
@@ -382,10 +396,6 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 			}
 			showRestoreDialog = false;
 			await invalidateAll();
-		} else if (result.type === 'failure') {
-			const err = (result.data as Record<string, unknown> | undefined)?.error;
-			actionMessage =
-				typeof err === 'string' ? err : FEATURES_LABELS.activitiesHeader.restoreFailed;
 		} else {
 			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
 		}
@@ -406,14 +416,27 @@ async function handleCopyFromChild() {
 	formData.append('sourceChildId', String(copySourceChildId));
 	formData.append('targetChildId', String(selectedChildId));
 
-	const resp = await fetch('?/copyFromChild', { method: 'POST', body: formData });
-	if (resp.ok) {
-		actionMessage = 'コピーが完了しました';
+	// #4693: `resp.ok` は fail() を成功として読む。ActionResult の type で判定し、
+	// 失敗時はサーバーが返した理由 (上限 + アップグレード導線) をそのまま出す。
+	const resp = await fetch('?/copyFromChild', {
+		method: 'POST',
+		headers: ADMIN_ACTION_FETCH_HEADERS,
+		body: formData,
+	});
+	const result = await readAdminActionResult(resp);
+	if (result.ok) {
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copySuccess;
+		actionUpgradeUrl = null;
 		showCopyFromChildDialog = false;
 		copySourceChildId = null;
 		await invalidateAll();
 	} else {
-		actionMessage = 'コピーに失敗しました';
+		const display = getActionErrorDisplay(
+			result.error,
+			ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed,
+		);
+		actionMessage = display.message;
+		actionUpgradeUrl = display.upgradeUrl;
 	}
 }
 
@@ -438,14 +461,26 @@ async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	formData.append('basePoints', String(bulkPoints));
 	formData.append('childIds', childIdsValue);
 
-	const resp = await fetch('?/bulkCreateForChildren', { method: 'POST', body: formData });
-	if (resp.ok) {
-		actionMessage = '一括追加しました';
+	// #4693: 同上。上限到達時に「一括追加しました」と偽らない。
+	const resp = await fetch('?/bulkCreateForChildren', {
+		method: 'POST',
+		headers: ADMIN_ACTION_FETCH_HEADERS,
+		body: formData,
+	});
+	const result = await readAdminActionResult(resp);
+	if (result.ok) {
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateSuccess;
+		actionUpgradeUrl = null;
 		showBulkCreateDialog = false;
 		bulkName = '';
 		await invalidateAll();
 	} else {
-		actionMessage = '一括追加に失敗しました';
+		const display = getActionErrorDisplay(
+			result.error,
+			ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateFailed,
+		);
+		actionMessage = display.message;
+		actionUpgradeUrl = display.upgradeUrl;
 	}
 }
 
