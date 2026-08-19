@@ -15,7 +15,7 @@ const L = PAGE_GUIDE_LABELS.adminSettingsActivities;
 export const SETTINGS_ACTIVITIES_GUIDE: PageGuide = {
 	pageId: 'admin-settings-activities',
 	title: L.title,
-	icon: '🎯',
+	icon: '📝',
 	steps: [
 		// ① ページ概要（selector 省略で画面中央 modal）
 		{
