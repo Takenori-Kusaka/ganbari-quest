@@ -68,6 +68,11 @@ describe('#4709 privacy の生成 AI 用途が実送信経路と一致する', (
 			}
 		}
 	});
+
+	it('「送信されるのは技術的な情報のみ」と述べていない（AI 提案の入力と領収書画像を送っている）', () => {
+		expect(LP_LEGAL_PRIVACY_LABELS.section8).not.toMatch(/送信されるのは技術的な情報のみ/);
+		expect(LP_LEGAL_PRIVACY_LABELS.section8).toContain('領収書画像を送信します');
+	});
 });
 
 describe('#4709 問い合わせ応答目標が 3 文書で一致する', () => {
