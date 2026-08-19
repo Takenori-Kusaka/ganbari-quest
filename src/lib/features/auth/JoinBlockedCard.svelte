@@ -28,46 +28,46 @@ const busy = $derived(creating || submitting);
 </script>
 
 <Card variant="elevated" padding="none" class="join-card">
-	{#snippet children()}
-		<h1 class="join-title" data-testid="join-title">
-			{message ? AUTH_JOIN_LABELS.blockedTitle : AUTH_JOIN_LABELS.noInviteTitle}
-		</h1>
+	<h1 class="join-title" data-testid="join-title">
+		{message ? AUTH_JOIN_LABELS.blockedTitle : AUTH_JOIN_LABELS.noInviteTitle}
+	</h1>
 
-		{#if message}
-			<Alert variant="warning" message={message} data-testid="join-blocked-reason" />
-			<p class="join-hint">{AUTH_JOIN_LABELS.retryHint}</p>
-		{:else}
-			<p class="join-hint">{AUTH_JOIN_LABELS.noInviteDesc}</p>
-		{/if}
+	{#if message}
+		<Alert variant="warning" {message} data-testid="join-blocked-reason" />
+		<p class="join-hint">{AUTH_JOIN_LABELS.retryHint}</p>
+	{:else}
+		<p class="join-hint">{AUTH_JOIN_LABELS.noInviteDesc}</p>
+	{/if}
 
-		{#if createFailed}
-			<Alert
-				variant="danger"
-				message={AUTH_JOIN_LABELS.createFailed}
-				data-testid="join-create-failed"
-			/>
-		{/if}
+	{#if createFailed}
+		<Alert
+			variant="danger"
+			message={AUTH_JOIN_LABELS.createFailed}
+			data-testid="join-create-failed"
+		/>
+	{/if}
 
-		<section class="join-create">
-			<h2 class="join-create-title">{AUTH_JOIN_LABELS.createSectionTitle}</h2>
-			<p class="join-create-desc">{AUTH_JOIN_LABELS.createSectionDesc}</p>
-			<form method="POST" action="?/createFamily" onsubmit={() => (submitting = true)}>
-				<Button
-					type="submit"
-					variant="primary"
-					class="w-full"
-					loading={busy}
-					data-testid="join-create-family"
-				>
-					{busy ? AUTH_JOIN_LABELS.createButtonLoading : AUTH_JOIN_LABELS.createButton}
-				</Button>
-			</form>
-		</section>
+	<section class="join-create">
+		<h2 class="join-create-title">{AUTH_JOIN_LABELS.createSectionTitle}</h2>
+		<p class="join-create-desc">{AUTH_JOIN_LABELS.createSectionDesc}</p>
+		<form method="POST" action="?/createFamily" onsubmit={() => (submitting = true)}>
+			<Button
+				type="submit"
+				variant="primary"
+				class="w-full"
+				loading={busy}
+				data-testid="join-create-family"
+			>
+				{busy ? AUTH_JOIN_LABELS.createButtonLoading : AUTH_JOIN_LABELS.createButton}
+			</Button>
+		</form>
+	</section>
 
-		<a class="join-switch" href={switchAccountHref} data-testid="join-switch-account">
+	<div class="join-switch">
+		<Button variant="ghost" size="sm" href={switchAccountHref} data-testid="join-switch-account">
 			{AUTH_JOIN_LABELS.switchAccountLink}
-		</a>
-	{/snippet}
+		</Button>
+	</div>
 </Card>
 
 <style>
@@ -107,10 +107,7 @@ const busy = $derived(creating || submitting);
 		color: var(--color-text-secondary);
 	}
 	.join-switch {
-		display: block;
 		margin-top: 1.25rem;
-		font-size: 0.875rem;
 		text-align: center;
-		color: var(--color-text-link);
 	}
 </style>
