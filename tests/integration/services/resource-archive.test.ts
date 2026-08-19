@@ -143,6 +143,23 @@ const SQL_TABLES = `
 		cancelled INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
+
+	-- #4708: webhook 経路 (checkout.session.completed → 復元) を実 DB で駆動するために必要。
+	-- local (sqlite) の auth repo は契約 4 列を settings に永続する (#4156)。
+	CREATE TABLE settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE stripe_webhook_events (
+		event_id TEXT PRIMARY KEY,
+		event_type TEXT NOT NULL,
+		processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		handler_result TEXT NOT NULL,
+		error_message TEXT,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		tenant_id TEXT
+	);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -175,6 +192,9 @@ afterAll(() => {
 });
 
 function resetDb() {
+	// #4708: webhook 経路 test 用 (契約状態 / dedup 台帳)
+	sqlite.exec('DELETE FROM settings');
+	sqlite.exec('DELETE FROM stripe_webhook_events');
 	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
 	sqlite.exec('DELETE FROM activity_logs');
 	sqlite.exec('DELETE FROM checklist_template_assignments');
