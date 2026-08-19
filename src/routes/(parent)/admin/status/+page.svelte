@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
@@ -99,7 +100,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 <div class="space-y-6" data-tutorial="status-report">
 	<div class="flex items-center justify-end">
 		<a
-			href="/admin/children"
+			href={resolve('/admin/children')}
 			class="text-sm text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] font-bold"
 			data-tutorial="status-edit-link"
 		>
@@ -137,7 +138,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 		<Card>
 			<div class="text-center space-y-2" data-tutorial="status-empty" data-testid="status-empty-state">
 				<p class="text-sm text-[var(--color-text-muted)]">{STATUS_LABELS.emptyNoChildren}</p>
-				<a href="/admin/children" class="text-sm font-bold text-[var(--color-text-link)] underline">
+				<a href={resolve('/admin/children')} class="text-sm font-bold text-[var(--color-text-link)] underline">
 					{STATUS_LABELS.emptyNoChildrenLink}
 				</a>
 			</div>
