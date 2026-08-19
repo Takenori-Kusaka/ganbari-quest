@@ -159,7 +159,7 @@ export const actions: Actions = {
 	 *   6. /admin へリダイレクト
 	 *
 	 * 途中で失敗した場合はログを残して /auth/login?registered=true へフォールバック。
-	 * 手動ログイン後の初回リクエストで hooks.server.ts が provisionNewUser を走らせるが、
+	 * 手動ログイン後の初回リクエストで hooks.server.ts が世帯を provisioning するが、
 	 * その時点でも consent は未記録のままなので /consent 画面で明示的に同意してもらう。
 	 */
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
@@ -234,15 +234,19 @@ export const actions: Actions = {
 			email: claims.email,
 		};
 
-		// Tenant を provisioning（初回ユーザーなら provisionNewUser が走る）
+		// Tenant を provisioning（招待 cookie があれば受諾、無ければ新規作成）
 		const authProvider = getAuthProvider();
 		const context = await authProvider.resolveContext(event, identity);
 
 		if (!context) {
-			logger.error('[SIGNUP] Failed to provision tenant after signup confirm', {
+			// #4636: 招待の受諾に失敗したときはここに来る (新規世帯へフォールバックしないため)。
+			// ログイン画面に戻すと「ログイン → /admin → ログイン」の往復になるので、理由と
+			// 次アクション (招待の再試行 / 自分の家族グループを作る) を出す画面へ送る。
+			// consent は tenantId が決まっていないため記録できず、世帯確定後に /consent が拾う。
+			logger.warn('[SIGNUP] Membership undecided after signup confirm', {
 				context: { email, userId: claims.sub },
 			});
-			redirect(302, '/auth/login?registered=true');
+			redirect(302, '/auth/join');
 		}
 
 		const tenantId = context.tenantId;

@@ -127,10 +127,18 @@ describe('authorizeCognito', () => {
 	// Context なし（テナント未所属）
 	// ============================================================
 	describe('Context なし（テナント未所属）', () => {
-		it('/admin はリダイレクト', () => {
+		// #4636: ログイン済みなのに所属が無い状態を /auth/login に送ると
+		// ログイン → /admin → /auth/login の往復になり出口が無い。理由 + 次アクションを
+		// 持つ /auth/join に着地させる。
+		it('/admin は /auth/join へリダイレクト (ログイン画面との往復を作らない)', () => {
 			const result = authorizeCognito('/admin', cognitoIdentity(), null);
 			expect(result.allowed).toBe(false);
-			if (!result.allowed) expect(result.redirect).toBe('/auth/login');
+			if (!result.allowed) expect(result.redirect).toBe('/auth/join');
+		});
+
+		it('/auth/join 自体は Context なしでアクセスできる (着地先が自分自身を弾かない)', () => {
+			const result = authorizeCognito('/auth/join', cognitoIdentity(), null);
+			expect(result.allowed).toBe(true);
 		});
 
 		it('/onboarding は Context なしでもアクセス可能', () => {
