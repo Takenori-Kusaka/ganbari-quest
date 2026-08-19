@@ -1179,6 +1179,33 @@ export const ADD_MENU_TERMS = {
 } as const;
 
 // ============================================================
+// REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
+// ============================================================
+//
+// 子供タブ行 / 一覧カード / 手動追加 Dialog / ︙ に出るボタン名・見出し。描画側
+// (REWARDS_LABELS / ADMIN_REWARDS_PAGE_LABELS) とページガイド (PAGE_GUIDE_LABELS.adminRewards) の
+// 双方が参照する (ADMIN_HOME_TERMS / ACTIVITY_ADMIN_TERMS と同型)。
+export const REWARD_ADMIN_TERMS = {
+	/** 検索欄ラベル */
+	search: 'ごほうびを検索',
+	/** 兄弟共通化: 他の子供からコピー (子供タブ行の右端ボタン) */
+	copyFromChild: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	/** ︙ の申請承認 item (件数付きは labels compound 側) */
+	requestsMenu: '申請承認',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	delete: '削除',
+	pendingBadge: '交換申請 処理待ち',
+	/** 手動追加 Dialog の入力項目 */
+	formTitle: 'タイトル',
+	formPoints: 'ポイント',
+	formIcon: 'アイコン',
+	shopCategory: 'ショップの並び（タブ）',
+	/** 追加フォーム送信ボタンの接尾辞 (「🎁 タイトル (NP) を追加する」) */
+	submitSuffix: ' を追加する',
+} as const;
+
+// ============================================================
 // ACTIVITY_ADMIN_TERMS — 活動管理 (/admin/activities) 画面の操作ボタン名 atom (#4655)
 // ============================================================
 //

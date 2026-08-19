@@ -72,6 +72,7 @@ import {
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	REWARD_ADMIN_TERMS,
 	REWARD_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
@@ -1781,27 +1782,52 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4656: /admin/rewards のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブ → 一覧カード) の順に主要操作を
+	// 網羅し、ボタン名は描画側と同じ atom (ADD_MENU_TERMS / REWARD_ADMIN_TERMS / OVERFLOW_MENU_TERMS / REWARD_TERMS)
+	// を参照する。お子さまタブ (0 人) / 一覧カード (0 件) は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminRewards: {
-		title: 'はげまし・ごほうび',
+		title: REWARD_TERMS.menu,
 		steps: {
 			'rewards-intro': {
 				title: 'このページについて',
-				what: 'お子さまを応援する「ごほうび」を管理するページです。子供のごほうびショップに並べるプレゼント（おこづかい・ゲーム時間・おやつなど）を用意できます。',
-				how: 'プリセットから選ぶか、オリジナルのごほうびを作成して、お子さまごとに配信します。その場でひと押ししたい応援は応援ページをご利用ください。',
-				goal: 'お子さまが貯めたポイントでごほうびと交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。',
+				what: `お子さまの${REWARD_TERMS.shop}に並べる${REWARD_TERMS.canonical}（おこづかい・ゲーム時間・おやつなど）を管理するページです。`,
+				how: `右上の「${ADD_MENU_TERMS.trigger}」から始めます。上から順に、「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → ${REWARD_ADMIN_TERMS.search} → ${REWARD_TERMS.canonical}の一覧 と並びます。その場でひと押ししたい${CHEER_TERMS.canonical}は${CHEER_TERMS.canonical}ページから送ります。`,
+				goal: `お子さまが貯めたポイントで${REWARD_TERMS.canonical}と交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。`,
+				tips: [
+					`${PLAN_GATE_LABELS.standardOrAboveFor(`オリジナルの${REWARD_TERMS.canonical}作成・${TEMPLATE_TERMS.userFacing}の取込・${REWARD_ADMIN_TERMS.edit}`)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+				],
+				relatedLinks: [{ label: `${CHEER_TERMS.canonical}を送る`, href: '/admin/cheer' }],
+			},
+			'rewards-add': {
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. 「${ADD_MENU_TERMS.manual}」を選ぶ\n3. ${REWARD_ADMIN_TERMS.formTitle}・${REWARD_ADMIN_TERMS.formPoints}・${REWARD_ADMIN_TERMS.formIcon}・${REWARD_ADMIN_TERMS.shopCategory}を入力\n4. 下の「〇〇 (ポイント)${REWARD_ADMIN_TERMS.submitSuffix}」を押す`,
+				goal: `選んでいるお子さまの${REWARD_TERMS.shop}に${REWARD_TERMS.canonical}が並び、貯めたポイントで交換できるようになります。`,
+				tips: ['ポイントは通常の活動の 10〜50 回分くらいが目安です（多すぎるとインフレします）'],
+			},
+			'rewards-overflow': {
+				title: `画面の見方（︙ メニュー・${REWARD_ADMIN_TERMS.requestsMenu}）`,
+				what: `右端の「︙」には ${REWARD_ADMIN_TERMS.requestsMenu} / ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} が入っています。お子さまが交換を申請すると「${ADD_MENU_TERMS.trigger}」の左に件数の赤いバッジが出ます。`,
+				how: `1. 「︙」を押す\n2. 「${REWARD_ADMIN_TERMS.requestsMenu}」で申請を確認し、承認して受け渡す\n3. 「${OVERFLOW_MENU_TERMS.itemExport}」で保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: `お子さまの交換申請を見落とさず、${REWARD_TERMS.canonical}の設定は機種変更のときも持ち運べます。`,
+				relatedLinks: [
+					{
+						label: `${REWARD_ADMIN_TERMS.requestsMenu}の画面を開く`,
+						href: '/admin/rewards/requests',
+					},
+				],
 			},
 			'rewards-child-tabs': {
 				title: '画面の見方（お子さまの切り替え）',
-				what: '上部のタブで、ごほうびを管理するお子さまを切り替えます。タブの数字はそのお子さまに登録済みのごほうび数です。',
-				how: '1. お子さまのタブをタップして選びます\n2. その下に、選んだお子さまのごほうび一覧が表示されます',
-				goal: 'お子さまごとに別々のごほうびを用意できるので、年齢や興味に合わせた応援ができます。',
+				what: `${REWARD_TERMS.canonical}はお子さまごとに持ちます。タブで選んだお子さまの${REWARD_TERMS.canonical}だけが下に表示され、追加もそのお子さまに入ります。タブの数字は登録済みの件数です。`,
+				how: `1. お子さまのタブを押す\n2. 兄弟に同じ${REWARD_TERMS.canonical}を用意するときは、タブ右端の「${REWARD_ADMIN_TERMS.copyFromChild}」でまとめてコピーする（お子さまが 2 人以上のとき）`,
+				goal: `お子さまごとに別々の${REWARD_TERMS.canonical}を用意できるので、年齢や興味に合わせた応援ができます。`,
 			},
-			'rewards-add': {
-				title: 'よく使う操作（ごほうびの追加）',
-				what: '最もよく使うのがごほうびの追加です。テンプレートから選ぶか、下の作成フォームでタイトル・ポイント・アイコンを決めてオリジナルを作成します。',
-				how: '1. テンプレートから選ぶか、オリジナルのごほうびを作成\n2. タイトル・ポイント・アイコンを設定\n3. 「追加する」をタップ',
-				goal: '子供のごほうびショップにごほうびが並び、お子さまが貯めたポイントで交換できるようになります。',
-				tips: ['ポイントは通常の活動の10〜50回分くらいが目安です（多すぎるとインフレします）'],
+			'rewards-list': {
+				title: `画面の見方（${REWARD_TERMS.canonical}の一覧）`,
+				what: `各カードに「${REWARD_ADMIN_TERMS.edit}」「${REWARD_ADMIN_TERMS.delete}」があります。お子さまが交換を申請中のカードには「${REWARD_ADMIN_TERMS.pendingBadge}」と出ます。上の「${REWARD_ADMIN_TERMS.search}」で名前から絞り込めます。`,
+				how: `1. 「${REWARD_ADMIN_TERMS.edit}」でタイトルやポイントを変える（申請済みの交換は申請時点の内容で処理されます）\n2. 「${REWARD_ADMIN_TERMS.delete}」は確認のうえ消す（「${REWARD_ADMIN_TERMS.pendingBadge}」があるときは先に申請を処理します）`,
+				goal: `${REWARD_TERMS.canonical}を直したり整理したりしても、お子さまが申請済みの交換は壊れません。`,
 			},
 		},
 	},
@@ -5043,15 +5069,17 @@ export const OPS_COSTS_LABELS = {
 export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
-	sectionTitle: '🎁 ごほうび管理',
+	// #4656 F5: 呼称は REWARD_TERMS.menu (ごほうび管理)、icon は CONCEPT_ICONS.reward。ガイド title と同一表記
+	sectionTitle: `${CONCEPT_ICONS.reward} ${REWARD_TERMS.menu}`,
 	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
 	// (pageDescHint*) のみ page-description カードに残す。
-	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
+	// #4656 F8 / M1: 生 URL 露出と旧 /admin/messages 参照をやめ、応援 (NAV_ITEM_LABELS.cheer) への link に統一
+	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${CHEER_TERMS.canonical}ページから送れます。`,
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
-	pageDescHintLink: 'おうえんメッセージ',
+	pageDescHintLink: CHEER_TERMS.canonical,
 	pageDescHintSuffix: 'から送れます',
 	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
 	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
@@ -5059,22 +5087,22 @@ export const REWARDS_LABELS = {
 	selectTemplateTitle: 'プリセットを選択',
 	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,
 	// #2268: 検索 UI
-	searchLabel: 'ごほうびを検索',
+	searchLabel: REWARD_ADMIN_TERMS.search,
 	searchPlaceholder: 'ごほうび名で検索...',
 	searchEmptyMessage: '該当するごほうびがありません',
 	confirmGrantTitle: '内容を確認して追加',
-	titleLabel: 'タイトル',
-	pointsLabel: 'ポイント',
-	iconLabel: 'アイコン',
+	titleLabel: REWARD_ADMIN_TERMS.formTitle,
+	pointsLabel: REWARD_ADMIN_TERMS.formPoints,
+	iconLabel: REWARD_ADMIN_TERMS.formIcon,
 	categoryLabel: 'カテゴリ',
 	// #2268: grant → add リネーム（実態は special_rewards INSERT、子供 shop に並べる商品の追加）
 	grantButton: (icon: string, title: string, points: number) =>
-		`${icon} ${title || 'ごほうび'} (${points}P) を追加する`,
+		`${icon} ${title || REWARD_TERMS.canonical} (${points}P)${REWARD_ADMIN_TERMS.submitSuffix}`,
 	grantSuccess: 'ごほうびを追加しました！',
 	// #2268: overflow menu / 申請承認導線（子#3 で /admin/rewards/requests へ分離）
 	overflowMenuAriaLabel: 'その他の操作',
-	requestsMenuLabel: (count: number) => `申請承認 (${count} 件)`,
-	requestsMenuLabelEmpty: '申請承認',
+	requestsMenuLabel: (count: number) => `${REWARD_ADMIN_TERMS.requestsMenu} (${count} 件)`,
+	requestsMenuLabelEmpty: REWARD_ADMIN_TERMS.requestsMenu,
 	/** #2136 MP-1: マーケットプレイス一括追加セクション */
 	marketplaceSectionTitle: 'みんなのごほうびから追加',
 	marketplaceSectionDesc: 'おすすめのごほうびセットを一括追加できます（重複はスキップ）',
@@ -5663,7 +5691,7 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	copyFromChildButton: REWARD_ADMIN_TERMS.copyFromChild,
 	// 選択中 child banner
 	childContextRewardsSuffix: (count: number) => `のごほうび (${count} 件)`,
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のごほうびを表示します`,
@@ -5694,7 +5722,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
 	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
-	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
+	// #4656 M2: 英語 'shop' 表記をやめ REWARD_TERMS.shop (ごほうびショップ) に統一
+	headerDescription: `${CHILD_TERMS.neutral}の${REWARD_TERMS.shop}に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します`,
 	addMenuButton: ADD_MENU_TERMS.trigger,
 	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
 	addManualLabel: ADD_MENU_TERMS.manual,
@@ -5708,9 +5737,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	addDialogTitleAi: 'AI で提案してもらう',
 	// #2832: reward 一覧の編集 / 削除 (pending redemption ガード)
 	rewardListEmpty: `この${CHILD_TERMS.honorific}にはまだごほうびがありません`,
-	rewardEditButton: '編集',
-	rewardDeleteButton: '削除',
-	rewardPendingBadge: '交換申請 処理待ち',
+	rewardEditButton: REWARD_ADMIN_TERMS.edit,
+	rewardDeleteButton: REWARD_ADMIN_TERMS.delete,
+	rewardPendingBadge: REWARD_ADMIN_TERMS.pendingBadge,
 	editDialogTitle: 'ごほうびを編集',
 	// AC2 (案 b): 編集許容 + snapshot 仕様 (申請時点値) の明示 note
 	editPendingNote: '申請済みの交換は申請時点の内容（名前・ポイント）で処理されます',
@@ -5733,7 +5762,7 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// #3147: ショップ陳列系統 (physical/money/privilege) の登録時セレクト。
 	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
 	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
-	shopCategoryLabel: 'ショップの並び（タブ）',
+	shopCategoryLabel: REWARD_ADMIN_TERMS.shopCategory,
 	shopCategoryHint:
 		'子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
 	shopCategoryAuto: '自動で振り分け',
