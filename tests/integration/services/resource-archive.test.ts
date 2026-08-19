@@ -506,4 +506,31 @@ describe('#783 getArchivedResourceSummary', () => {
 		expect(summary.archivedChildCount).toBe(2);
 		expect(summary.hasArchivedResources).toBe(true);
 	});
+
+	// #4708: 3 資源の件数 (banner「お子さま N 人 / 活動 N 件 / チェックリスト N 件」の根拠、実 DB)
+	it('活動 / チェックリストの archive 件数も返し、restore で 0 に戻る (実 DB)', async () => {
+		seedChildren(1); // free 上限内 (子供は archive されない)
+		seedCustomActivities(5); // free 上限 3 → 2 件 archive
+		seedChecklistTemplates(1, 4); // free 上限 (maxChecklistTemplates) 超過分 archive
+
+		const archived = await archiveExcessResources(TENANT);
+		expect(archived.archivedChildIds).toHaveLength(0);
+		expect(archived.archivedActivityIds).toHaveLength(2);
+		expect(archived.archivedChecklistTemplateIds.length).toBeGreaterThan(0);
+
+		const summary = await getArchivedResourceSummary(TENANT);
+		expect(summary.archivedChildCount).toBe(0);
+		expect(summary.archivedActivityCount).toBe(2);
+		expect(summary.archivedChecklistTemplateCount).toBe(
+			archived.archivedChecklistTemplateIds.length,
+		);
+		expect(summary.totalCount).toBe(2 + archived.archivedChecklistTemplateIds.length);
+		expect(summary.hasArchivedResources).toBe(true);
+
+		// 有料化 (webhook W1/W2/W4) と同じ復元関数で全件戻る
+		await restoreArchivedResources(TENANT);
+		const after = await getArchivedResourceSummary(TENANT);
+		expect(after.totalCount).toBe(0);
+		expect(after.hasArchivedResources).toBe(false);
+	});
 });

@@ -798,7 +798,7 @@ export const TRIAL_EMAIL_LABELS = {
 	 * 保持期間切れの物理削除 (retentionIrreversibleLine) と必ず対で使う。
 	 */
 	archiveRestorableLine: (planLabel: string) =>
-		`${planLabel}の上限を超えるお子さま・活動などはアーカイブされます（データは残っており、アップグレードすれば復元できます）。`,
+		`${planLabel}の上限を超えるお子さま・活動・チェックリストは一時的に非表示（アーカイブ）になります（データは残っており、有料プランにアップグレードすると自動で元に戻ります）。`,
 	/**
 	 * 保持期間を過ぎた履歴が**物理削除され復元できない**ことを述べる行 (#4507 AC1)。
 	 *
@@ -3752,6 +3752,38 @@ export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
 	viewBillingHistoryLink: 'ご請求履歴で credit memo を確認する',
 	// banner dismiss (session storage 経由、再表示は次セッション、ADR-0012 連続演出回避)
 	dismissAriaLabel: 'バナーを閉じる',
+} as const;
+
+// ============================================================
+// ARCHIVED_RESOURCE_LABELS — 無料プランの上限で archive 中のリソースの告知 / 一覧 (#4708)
+// ============================================================
+//
+// トライアル終了 / 解約 / 支払い失敗で無料プランに戻ったとき、上限を超えるお子さま / 活動 /
+// チェックリストは archive (一時非表示) される。FAQ / pricing は「削除されず、管理画面で確認でき、
+// 有料プランで元に戻る」と約束しているので、その 3 点を画面で成立させる文言。
+//   - banner: admin 全画面の本文上部 (TrialBanner と同階層、flow、CTA 以外はタップ不可)
+//   - listing: /admin/children の archive 一覧 (読み取り専用、復元操作は置かない)
+// ADR-0012: 「失う / 消える」を使わず、事実 (非表示) + 復元可能性のみ。煽り CTA は置かない。
+export const ARCHIVED_RESOURCE_LABELS = {
+	// banner
+	bannerTitle: (breakdown: string) => `${breakdown}が非表示になっています`,
+	bannerDesc: `${PLAN_FULL_TERMS.free}の上限を超えた分を一時的に${PLAN_CHANGE_TERMS.archive}しています。データは削除されません。有料プランにすると自動で元に戻ります。`,
+	/** 件数の内訳。0 件の資源は省略 (例: 活動のみなら「活動 5 件」) */
+	breakdown: (c: { children: number; activities: number; checklists: number }) =>
+		[
+			c.children > 0 ? `${CHILD_TERMS.honorific} ${c.children}人` : null,
+			c.activities > 0 ? `活動 ${c.activities}件` : null,
+			c.checklists > 0 ? `チェックリスト ${c.checklists}件` : null,
+		]
+			.filter((x): x is string => x !== null)
+			.join(' / '),
+	bannerCta: ACTION_LABELS.viewPlans,
+	bannerListLink: `非表示の${CHILD_TERMS.honorific}を見る`,
+	// /admin/children の archive 一覧 (読み取り専用)
+	childrenSectionTitle: `非表示になっている${CHILD_TERMS.honorific}`,
+	childrenSectionDesc: `${PLAN_FULL_TERMS.free}の上限を超えたため一時的に非表示になっています。記録・編集はできませんが、データは残っています。有料プランにすると自動で表示に戻ります。`,
+	childrenSectionReadOnlyTag: '非表示中',
+	childrenSectionCta: ACTION_LABELS.viewPlans,
 } as const;
 
 // ============================================================
@@ -6906,7 +6938,7 @@ export const LP_PRICING_LABELS = {
 	// #1641 R36: 実装 retention-cleanup-service.ts に整合した「並列構造」
 	trialDataReassureLine1Strong:
 		'無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録',
-	trialDataReassureLine1Suffix: 'は、無料プランに移行した後もそのまま保持されます。',
+	trialDataReassureLine1Suffix: `は、${PLAN_FULL_TERMS.free}に移行した後も削除されません。上限を超える分は一時的に非表示（アーカイブ）になり、有料プランにアップグレードすると自動で元に戻ります。`,
 	// #1912 (F-6): 「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・毎日のごほうび履歴',
 	trialDataReassureLine2Suffix: `は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
@@ -8201,8 +8233,8 @@ export const FEATURES_LABELS = {
 		message: '無料体験期間が終了しました。\nフリープランの範囲内で引き続きご利用いただけます。',
 		messageLine1: '無料体験期間が終了しました。',
 		messageLine2: 'フリープランの範囲内で引き続きご利用いただけます。',
-		note1: 'オリジナル活動やチェックリストの超過分は一時的に非表示になります',
-		note2: 'データは削除されません — アップグレードで復活します',
+		note1: `${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストは一時的に非表示（アーカイブ）になります`,
+		note2: 'データは削除されません — 有料プランにすると自動で元に戻ります',
 		ctaBtn: '⭐ プランを見る',
 		dismissBtn: 'あとで',
 	},
@@ -8465,7 +8497,7 @@ export const LP_FAQ_LABELS = {
 	text22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
-	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
+	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超える分は一時的に非表示（アーカイブ）になります。削除はされず、保護者の管理画面で非表示中のお子さまを確認できますが、記録・編集はできません。有料プランにアップグレードすると自動で元に戻ります。`,
 	text26: '解約後に再開することはできますか？',
 	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	text28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
@@ -9794,7 +9826,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
-	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
+	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超える分は一時的に非表示（アーカイブ）になります。削除はされず、保護者の管理画面で非表示中のお子さまを確認できますが、記録・編集はできません。有料プランにアップグレードすると自動で元に戻ります。`,
 	k26: '解約後に再開することはできますか？',
 	k27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	// #4496: 旧文言は解約に猶予期間と全データ削除があるかのように述べていた。解約で消えるのは
