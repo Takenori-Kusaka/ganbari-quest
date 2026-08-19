@@ -144,9 +144,11 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		file: 'status-repo.ts',
 		table: 'status_history',
 		op: 'DELETE',
-		marker: /recorded_at\s*<\s*\$\{cutoffDate\}/,
+		// #4722: point_ledger (#3593 ②) と同じく cutoff を JST 深夜 0:00 の instant に TZ-qualify した
+		// (session TZ 依存の裸 cast だと DSQL 既定 session=UTC で 9 時間ずれ、境界日 JST 0〜9 時を 1 日早く消す)。
+		marker: /recorded_at\s*<\s*\(\$\{cutoffDate\}\s*\|\|\s*'T00:00:00\+09:00'\)/,
 		reason:
-			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + recorded_at cutoff 述語、#3518-2)',
+			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + JST-qualified cutoff 述語、#3518-2 / #4722)',
 	},
 	// ── 設計済み状態遷移 (行の業務データ本体は不変、フラグ/紐付けのみ) ──
 	{
