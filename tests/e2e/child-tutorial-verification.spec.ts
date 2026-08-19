@@ -351,9 +351,24 @@ test.describe('#4652 子供チュートリアルの入口とダイアログ文�
 		await startTutorialWithRetry(page);
 		await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 
-		// overlay 背景クリックで終了確認を出す
-		await page.locator('.tutorial-overlay-bg').click({ force: true });
+		// bubble が出る (= step 解決が済み overlay が安定した) のを待ってから背景をクリックする。
+		// #4651 で step 開始直後は targetRect が null (spotlight 未解決) になり得るため、
+		// 起動直後に click すると overlay の再描画と競合して exitConfirm が落ちることがある。
+		await expect(page.locator('.tutorial-bubble')).toBeVisible({ timeout: 10_000 });
 		const dialog = page.getByTestId('tutorial-exit-confirm-dialog');
+		await expect
+			.poll(
+				async () => {
+					if (await dialog.isVisible().catch(() => false)) return true;
+					await page
+						.locator('.tutorial-overlay-bg')
+						.click({ force: true, timeout: 2_000 })
+						.catch(() => {});
+					return dialog.isVisible().catch(() => false);
+				},
+				{ timeout: 20_000, intervals: [300, 500, 1000, 2000] },
+			)
+			.toBe(true);
 		await expect(dialog).toBeVisible({ timeout: 5_000 });
 		// 親向け漢字文言 (「チュートリアルを終了しますか？」) ではなく子供向けひらがな
 		await expect(dialog).toContainText('ガイドを やめる？');

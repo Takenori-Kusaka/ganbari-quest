@@ -80,17 +80,18 @@ setupResizeScrollTracking();
 						/>
 					</mask>
 				</defs>
-				<rect
-					class="tutorial-overlay-bg"
-					width="100%"
-					height="100%"
-					fill="rgba(0,0,0,0.6)"
-					mask="url(#tutorial-spotlight)"
-				/>
-			{:else}
-				<!-- 対象なし: cutout を作らず一様な暗幕にする (偽 spotlight を描かない、#4651) -->
-				<rect class="tutorial-overlay-bg" width="100%" height="100%" fill="rgba(0,0,0,0.6)" />
 			{/if}
+			<!-- #4651: 暗幕の rect は常に同じ要素を使い、cutout の有無は mask 属性の付け外しだけで
+			     切り替える。対象解決のたびに rect を作り直すと、その瞬間の click が破棄済ノードに落ちて
+			     「背景を押しても終了確認が出ない」瞬間ができる。対象なしのときは cutout を描かない
+			     (= 偽 spotlight を作らない)。 -->
+			<rect
+				class="tutorial-overlay-bg"
+				width="100%"
+				height="100%"
+				fill="rgba(0,0,0,0.6)"
+				mask={targetRect ? 'url(#tutorial-spotlight)' : null}
+			/>
 		</svg>
 
 		<!-- Spotlight border glow (対象がある step のみ) -->
