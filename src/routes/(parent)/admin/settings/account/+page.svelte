@@ -321,7 +321,9 @@ const canConfirmDelete = $derived(
 
 	<!-- ログアウト (cognito モードのみ) -->
 	{#if $page.data.authMode === 'cognito'}
-		<Card padding="lg">
+		<!-- #4662: ページガイド ③ の anchor。カード自体が cognito 限定描画なので、
+		     ガイド側は requiredRuntime='saas' + optional で「出ているときだけ」案内する -->
+		<Card padding="lg" data-tutorial="account-logout">
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
 				{SETTINGS_LABELS.logoutSectionTitle}
 			</h3>
@@ -340,7 +342,12 @@ const canConfirmDelete = $derived(
 
 	<!-- Danger Zone: アカウント削除 (#2321 GitHub Danger Zone パターン) -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
-		<section class="danger-zone" data-testid="account-danger-zone">
+		<!-- #4662: ページガイド ④ の anchor (同上、cognito 限定描画) -->
+		<section
+			class="danger-zone"
+			data-testid="account-danger-zone"
+			data-tutorial="account-danger-zone"
+		>
 			<header class="danger-zone__header">
 				<h3 class="danger-zone__title">
 					⚠️ {SETTINGS_LABELS.dangerZoneTitle}

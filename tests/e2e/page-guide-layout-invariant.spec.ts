@@ -71,6 +71,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'subscription-plan-status',
 		'subscription-cancel',
 	],
+	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
+	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
+	'/admin/settings/account': ['settings-account-pin'],
 	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
 	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
 	'/admin/status': [
