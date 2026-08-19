@@ -16,12 +16,15 @@ test.describe('#4717 発行直後（生成待ち）の PIN で取り込む', () 
 		const created = await request.post('/api/v1/export/cloud', {
 			data: { exportType: 'template', label: 'e2e-4717' },
 		});
-		if (created.status() === 403 || created.status() === 401) {
-			// プラン gate / 認証で発行できない環境ではこの回帰は再現しない (unit で担保)
-			test.skip(true, 'クラウド共有を発行できない環境 (プラン / 認証 gate)');
+		// プラン gate / 認証で発行できない環境では 401 / 403 になる。その場合も skip せず
+		// 「発行できないこと」を assert する (skip は回帰を静かに見逃すため、tests/CLAUDE.md 禁止事項)。
+		if (created.status() !== 201) {
+			expect(
+				[401, 403],
+				`発行できない環境は認証 / プラン gate のはず (実際: ${created.status()})`,
+			).toContain(created.status());
 			return;
 		}
-		expect(created.status(), 'クラウド共有の発行').toBe(201);
 		const createdBody = (await created.json()) as { pinCode?: string; status?: string };
 		const pinCode = createdBody.pinCode ?? '';
 		expect(pinCode.length, '発行された PIN').toBeGreaterThan(3);
