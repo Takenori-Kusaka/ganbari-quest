@@ -133,6 +133,10 @@ docs/pr-assets/
 graphify-out/.*
 docs/graphify-out/.*
 
+# graphify の可視化 HTML (1.3MB、graph.json から `graphify` が再生成できる閲覧用成果物。追跡しない)
+graphify-out/graph.html
+docs/graphify-out/graph.html
+
 # Graphify cache
 graphify-out/cache/
 docs/graphify-out/cache/
