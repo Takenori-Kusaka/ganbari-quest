@@ -123,7 +123,11 @@ const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, dat
 const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
 let showTutorialHint = $state(false);
 $effect(() => {
-	if (typeof window !== 'undefined') {
+	// #4714: `?screenshot=*` 中は出さない。LP 配信 SS にワンタイム通知が写り込むと、
+	//   「どの画面にも常時この帯が出る」ように見えるうえ、アニメーション途中で撮影されて
+	//   フェード中の半透明バナーが配信 SS に残る (実測: site/screenshots/age-lower.webp)。
+	//   通常表示 (screenshot mode off) の挙動は不変。
+	if (typeof window !== 'undefined' && !isScreenshotMode) {
 		showTutorialHint = !localStorage.getItem(tutorialHintKey);
 	}
 });

@@ -34,6 +34,7 @@ import { jstDayOfWeek } from './date-utils';
 //     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
 //     されているため、本 PR では import 不要
 import {
+	ADMIN_SCREEN_TERMS,
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
@@ -118,7 +119,8 @@ export const PAGE_TITLES = {
 	checklists: 'チェックリスト管理',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
 	challenges: 'きょうだいチャレンジ',
-	children: 'こども管理',
+	// #4714: LP の carousel alt (LP_INDEX_PHASEB_LABELS.carouselSlide4Alt) と同じ atom から引く
+	children: `${ADMIN_SCREEN_TERMS.children}`,
 	members: 'メンバー管理',
 	settings: '設定',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
@@ -6555,7 +6557,6 @@ export const LP_NAV_LABELS = {
 	selfhost: '仕組みを公開（開発者向け）',
 	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
-	features: 'できること',
 	// #1906 TECH-D-4: skip-to-content link (a11y) — site/*.html 全 10 ファイルで参照
 	skipToContent: '本文へスキップ',
 } as const;
@@ -9458,7 +9459,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k4: '3〜18 歳の子供のホーム画面 — 活動を記録してポイントゲット',
 	k5: 'お子さまの年齢で、画面とむずかしさが変わります',
 	k6: '3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。',
-	k7: '0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a>',
+	k7: '0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#usage" style="color:var(--brand-700)">詳しくはこちら</a>',
 	k8: '幼児 (3-5)',
 	k9: '小学生以上 (6-18)',
 	k10: 'ひらがな中心・丸みのある大きなボタン',
@@ -9467,8 +9468,11 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k12: '幼児期に身につけたい習慣を、読める・押せる・選べる形で始められます。',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k13: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
-	k14: '漢字 + 情報密度で 15 年継続できる UI',
-	k15: '小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット',
+	// #4714: 旧「漢字 + 情報密度で 15 年継続できる UI」は、同パネルの SS (小学生ホーム = 漢字最小限)
+	//   と食い違っていた。DESIGN.md §8 の年齢帯定義 (小学生 = 漢字最小限 / 中学生以降 = 漢字・情報密度)
+	//   に沿って、パネルが束ねる 6〜18 歳の中での変化として述べる。
+	k14: '小学生は読みやすさ優先、中学生からは漢字と情報密度が上がる',
+	k15: '小学生以降 UI: 学年に合わせた漢字量 / 情報密度 / 学年別プリセット',
 	k16: '小学校以降は自分で計画してより多くの活動をより楽しく',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k17: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
@@ -9478,7 +9482,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	kinderCheck2: 'ひらがな表示で読みやすい',
 	// #4713: 延べ 325 件のうち名前のユニークは 129 種。訴求はユニーク基準に改める (ADR-0013)。
 	kinderCheck3: `${PRESET_ACTIVITY_TERMS.uniqueCountBadge} プリセット活動からタップで選ぶだけ`,
-	primaryCheck1: '漢字 + 情報密度で 15 年継続できる UI',
+	primaryCheck1: '小学生は読みやすさ優先、中学生からは漢字と情報密度が上がる',
 	primaryCheck2: '学年別プリセット (宿題 / 部活 / 受験) 対応',
 	primaryCheck3: 'ポイント履歴で子供自身が次の計画を立てる',
 	k18: '&#x1F476; 0〜2 歳のお子さまは「<strong>準備モード</strong>」でご登録いただけます — <a href="https://demo.ganbari-quest.com/">デモを見る</a>',
@@ -9521,10 +9525,19 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//     4. 価値: 「個別ご家庭向けの自由なカスタマイズ」を文末で明示
 	//   PO 確定: 論点 2-B = Persona 案 1
 	k38: '冒険の裏で、親がちゃんと伴走できる仕組み。「遊ばせっぱなし」「うちの子に合わなさそう」の不安をなくし、ご家庭に合わせて自由にカスタマイズできます。',
-	k39: '成長の記録（月次レポート）',
-	k40: '月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。',
-	k41: '時間管理（使いすぎ防止）',
-	k42: '設定時間が経過すると画面が自動で閉じる使いすぎ防止タイマー。スクリーンタイムの心配なく使わせられます。',
+	// #4714: カードの SS は /admin/status の成長レポート (5 軸レーダー + 同年齢の平均) であり、
+	//   推移グラフ・前月比は写っていない。SS が写している画面の名前と内容に合わせる (ADR-0013)。
+	k39: '成長の記録（成長レポート）',
+	k40: `成長レポートで、${STATUS_AXIS_TERMS.examplePair}など ${STATUS_AXIS_TERMS.axisCount}のバランスをレーダーでひと目で把握。同年齢の平均と重ねて見られます。`,
+	// #4714: soft-features カードの SS の alt。旧「月次レポート画面 — 活動・ポイント推移グラフ」は
+	//   写っている画面 (/admin/status の成長レポート) と別物だった。値の mirror は
+	//   tests/unit/domain/lp-alt-caption-mirror-4714.test.ts が index.html と突き合わせる。
+	softMonthlyReportImgAlt: `成長レポート画面 — ${STATUS_AXIS_TERMS.axisCount}のレーダーと同年齢の平均`,
+	k41: '使いすぎ防止タイマー',
+	// #4714 (#4713 と同 class): 実装は「連続利用が 15 分に達すると戻る」であり、
+	//   「設定時間が経過すると閉じる」ではない (時間を設定する UI も無い)。現在 site/*.html からは
+	//   未参照だが、復活時に誤説明が再流入しないよう同時に是正する。
+	k42: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻ります。時間の設定は不要です。`,
 	k43: 'おうえんメッセージ',
 	k44: '「よくがんばったね」の一言が子供のホーム画面に届きます。Family プランで家族全員から送れます。',
 	k45: '設定の自由度',
@@ -9616,10 +9629,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #1793: 月次レポート / 設定の自由度は「親が日々のオペレーションで楽になる効果」を訴求するため
 	//   「家庭で楽になること」を採用。
 	softBenefitMonthlyReport:
-		'<strong>家庭で楽になること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる',
+		'<strong>家庭で楽になること</strong>: よく取り組んでいる分野と手つかずの分野が一目でわかる',
 	// #1720 R4 で softBenefitFamilySupport に統合済の旧キー。SSOT 整合のため語彙だけ更新
-	softBenefitAutoSleep:
-		'<strong>家庭で楽になること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない',
+	softBenefitAutoSleep: `<strong>家庭で楽になること</strong>: ${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で戻り、長時間利用が起きない`,
 	softBenefitCheerMessage:
 		'<strong>家族で実感できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く',
 	softBenefitSettings:
@@ -9649,10 +9661,13 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//                   carouselSlide3Alt は AGE_RANGE_TERMS.juniorShort (= '13〜18 歳') を経由し全文一致を維持。
 	carouselSlide1Alt: '幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン',
 	carouselSlide2Alt: '小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得',
-	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 自己管理ダッシュボード`,
+	// #4714: 旧 alt「自己管理ダッシュボード」に相当する UI は junior ホームに無い。実画面の内容に合わせる。
+	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 今日の活動とポイントの一覧`,
 	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
-	carouselSlide4Alt: 'お子さま管理タブ — 家族メンバーの登録と切替',
+	// #4714: 実画面 (/admin/children) のタイトルは NAV_ADMIN_LABELS.children = 「こども管理」。
+	//   alt を画面名と一致させる (顧客が SS と画面を結び付けられるようにする)。
+	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — ${CHILD_TERMS.honorific}の登録と切り替え`,
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
