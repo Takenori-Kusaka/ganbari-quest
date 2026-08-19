@@ -51,6 +51,8 @@ export interface DeletionResult {
  * - `grace-expiry`: 猶予期間が切れて**定時実行の cron** (`grace-period-deletion`) が消した。
  * - `manual`: 同じ cron endpoint を**人が手で叩いて**消した (期限を待たずに消した / 障害対応の再実行)。
  * - `immediate`: 無料プランの退会で猶予なく即時削除した (`/api/v1/admin/account/delete`)。
+ * - `relocation`: 別の家族グループへ引っ越した人が抜けて**無人になった**家族グループを掃除した
+ *   (`/auth/invite/[code]` の引っ越し合流、#4642)。退会ではないので削除完了メールは送らない。
  *
  * `grace-expiry` と `manual` は同じ処理を通るが、**記録としては区別する**。
  * 「いつ・どの経路で消えたか」を後から答えるのが記録の目的であり、機械が期限どおり消したのか
@@ -60,7 +62,7 @@ export interface DeletionResult {
  * これ以外の削除入口は存在しない。増やすときは列挙も足す (省略可能にしない — 省略できる形に
  * すると新しい入口が黙って記録なしで消せてしまう)。
  */
-export type DeletionRoute = 'grace-expiry' | 'manual' | 'immediate';
+export type DeletionRoute = 'grace-expiry' | 'manual' | 'immediate' | 'relocation';
 
 /**
  * #4338: 削除記録ログに載せる文脈。**PII は含めない** (#4174 Q3 / #4192)。
@@ -417,6 +419,42 @@ export async function deleteOwnerOnlyAccount(
 	});
 
 	await notifyDeletionComplete(tenantId, ownerEmail);
+
+	return {
+		success: true,
+		pattern: 'owner-only',
+		itemsDeleted,
+		filesDeleted,
+		unaffiliatedMembers: [],
+	};
+}
+
+/**
+ * 引っ越し合流でメンバーが 0 人になった家族グループを掃除する (#4642)。
+ *
+ * 退会 (アカウント削除) とは別事象で、**人は消さない** — 引っ越した本人は合流先で使い続ける。
+ * 呼び出し前に本人の membership を削除しておくこと。メンバーが 1 人でも残っていれば
+ * 「まだ使われている家族グループ」なので **throw して止める** (誤って生きた世帯を消さない)。
+ *
+ * 削除そのものは `fullTenantDeletion` (退会と同じ経路) を再利用する — 新しい削除機構を作らない。
+ * メンバーが 0 人なので、その中の Cognito / users 削除ループは 1 度も回らない。
+ */
+export async function deleteVacatedTenant(
+	tenantId: string,
+	audit: DeletionAudit,
+): Promise<DeletionResult> {
+	const members = await repos().auth.findTenantMembers(tenantId);
+	if (members.length > 0) {
+		throw new Error(
+			`無人ではない家族グループは掃除できません (tenantId=${tenantId}, members=${members.length})`,
+		);
+	}
+
+	logger.info('[account-deletion] 引っ越しで無人になった家族グループを削除', {
+		context: { tenantId, route: audit.route },
+	});
+
+	const { itemsDeleted, filesDeleted } = await fullTenantDeletion(tenantId, '', audit);
 
 	return {
 		success: true,

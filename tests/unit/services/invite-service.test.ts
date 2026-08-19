@@ -361,6 +361,52 @@ describe('acceptInvite', () => {
 		expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
 	});
 
+	// #4642: 引っ越し合流 (元の家族グループを畳んで別の家族グループへ移る) の許可は opt-in。
+	// 既定で許すと、招待リンクを踏んだだけで元の家族のデータが破棄される。
+	it('allowRelocation を渡さなければ別グループ所属は従来どおり拒否される (#4642)', async () => {
+		inviteStore.set('g-relocate-default', makePendingInvite({ inviteCode: 'g-relocate-default' }));
+		userTenantStore.set('u-mover', [
+			{ userId: 'u-mover', tenantId: 't-own', role: 'owner', joinedAt: new Date().toISOString() },
+		]);
+
+		const result = assertError(await acceptInvite('g-relocate-default', 'u-mover'));
+		expect(result.error).toBe('ALREADY_IN_TENANT');
+	});
+
+	it('allowRelocation=true なら別グループ所属でも受諾できる (#4642)', async () => {
+		inviteStore.set('g-relocate-ok', makePendingInvite({ inviteCode: 'g-relocate-ok' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		userTenantStore.set('u-mover2', [
+			{ userId: 'u-mover2', tenantId: 't-own', role: 'owner', joinedAt: new Date().toISOString() },
+		]);
+
+		const result = await acceptInvite('g-relocate-ok', 'u-mover2', undefined, {
+			allowRelocation: true,
+		});
+		expect('membership' in result).toBe(true);
+	});
+
+	it('allowRelocation=true でも招待元と同じグループへの受諾は拒否する (#4642)', async () => {
+		inviteStore.set('g-relocate-same', makePendingInvite({ inviteCode: 'g-relocate-same' }));
+		userTenantStore.set('u-mover3', [
+			{
+				userId: 'u-mover3',
+				tenantId: 't-test',
+				role: 'parent',
+				joinedAt: new Date().toISOString(),
+			},
+		]);
+
+		const result = assertError(
+			await acceptInvite('g-relocate-same', 'u-mover3', undefined, { allowRelocation: true }),
+		);
+		expect(result.error).toBe('ALREADY_IN_TENANT');
+	});
+
 	// #4633 AC-A / #4636 (no-silent-gap): 受諾拒否の理由が 1 つでも文言表に無いと、
 	// `/auth/join` が汎用文言に落ちて「なぜ参加できなかったか」を説明できない。
 	// acceptInvite が実際に返す全 error 理由が、理由 SSOT (INVITE_ACCEPT_ERROR_REASONS) と

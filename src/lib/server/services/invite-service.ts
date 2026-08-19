@@ -66,6 +66,13 @@ async function preflightAcceptInvite(
 	userId: string,
 	userEmail: string | undefined,
 	emailVerified: boolean | undefined,
+	/**
+	 * #4642: 引っ越し合流 (元の家族グループを畳んで別の家族グループへ移る) を許すか。
+	 * **既定は false** — 通常のログイン経路でこれを許すと、招待リンクを踏んだだけで
+	 * 元の家族のデータが破棄される。呼び出し側 (`tenant-relocation-service`) が
+	 * 「唯一のメンバーかつ owner」と顧客の明示同意を確認したときだけ true にする。
+	 */
+	allowRelocation = false,
 ): Promise<string | null> {
 	// 自己招待防止 (#0203)
 	if (invite.invitedBy === userId) return 'SELF_INVITE_NOT_ALLOWED';
@@ -80,7 +87,10 @@ async function preflightAcceptInvite(
 	if (existingTenants.length > 0) {
 		// owner が child ロールの招待を受けてダウングレードされるのを防止 (#0203)
 		const existing = existingTenants.find((m) => m.tenantId === invite.tenantId);
-		return existing?.role === 'owner' ? 'OWNER_CANNOT_BE_DOWNGRADED' : 'ALREADY_IN_TENANT';
+		if (existing?.role === 'owner') return 'OWNER_CANNOT_BE_DOWNGRADED';
+		// #4642: 招待元と同じ家族グループに既に居るなら、引っ越しても行き先が同じで意味がない
+		if (existing) return 'ALREADY_IN_TENANT';
+		if (!allowRelocation) return 'ALREADY_IN_TENANT';
 	}
 
 	// テナントの存在確認。
@@ -174,6 +184,11 @@ export async function acceptInvite(
 		 * claim を持たない provider (local / dev) との後方互換のため許容。
 		 */
 		emailVerified?: boolean;
+		/**
+		 * #4642: 引っ越し合流を許すか。既定 false。true にしてよいのは、呼び出し側が
+		 * 「唯一のメンバーかつ owner」+ 顧客の明示同意を確認したときだけ。
+		 */
+		allowRelocation?: boolean;
 	},
 ): Promise<{ membership: Membership } | { error: string }> {
 	const invite = await getInvite(inviteCode);
@@ -186,6 +201,7 @@ export async function acceptInvite(
 		userId,
 		userEmail,
 		opts?.emailVerified,
+		opts?.allowRelocation === true,
 	);
 	if (preflightError) {
 		return { error: preflightError };
