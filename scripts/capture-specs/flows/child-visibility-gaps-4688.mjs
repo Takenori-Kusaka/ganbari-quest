@@ -13,6 +13,20 @@
  *   SS_MODE    uiMode (既定: elementary)
  */
 
+/**
+ * CSS アニメーションが終わるまで待つ (固定 sleep は #1208 で禁止)。
+ * @param {import('playwright').Page} page
+ */
+async function waitForAnimationsSettled(page) {
+	await page
+		.waitForFunction(
+			() => document.getAnimations().every((a) => a.playState !== 'running'),
+			undefined,
+			{ timeout: 5000 },
+		)
+		.catch(() => {});
+}
+
 const prefix = process.env.SS_PREFIX ?? 'after';
 const preset = process.env.SS_PRESET ?? 'desktop';
 const childName = process.env.SS_CHILD ?? 'けんたくん';
@@ -41,17 +55,17 @@ export default async (page, capture) => {
 
 	// 記録 > 達成タブ (受取済みチャレンジが残るか)
 	await go(`/${mode}/history?kind=achievements`);
-	await page.waitForTimeout(500);
+	await waitForAnimationsSettled(page);
 	await capture(`${prefix}-history-achievements-${preset}`);
 
 	// つよさ (レベル称号)
 	await go(`/${mode}/status`);
 	await page.locator('[data-testid="growth-chart-heading"]').waitFor({ state: 'visible' });
-	await page.waitForTimeout(400);
+	await waitForAnimationsSettled(page);
 	await capture(`${prefix}-status-level-title-${preset}`);
 
 	// 🔔 の着地先 (マイルストーン一覧)
 	await go(`/${mode}/history?kind=milestones`);
-	await page.waitForTimeout(500);
+	await waitForAnimationsSettled(page);
 	await capture(`${prefix}-history-milestones-${preset}`);
 };
