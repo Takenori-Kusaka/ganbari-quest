@@ -34,7 +34,7 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
 import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
@@ -91,7 +91,8 @@ onMount(() => {
 		if (config) {
 			soundService.preload(config.enabledSounds);
 		}
-		setChapters(CHILD_TUTORIAL_CHAPTERS);
+		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
+		setChapters(getChildTutorialChapters(uiMode));
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）
@@ -207,7 +208,7 @@ function handleStartChildTutorial() {
 			onStampClick={() => {
 				stampDialogOpen = true;
 			}}
-			onHelpClick={handleStartChildTutorial}
+			onHelpClick={isBaby ? undefined : handleStartChildTutorial}
 			isPremium={data.isPremium}
 			animateBalance={pointFlightEnabled}
 		>
@@ -239,7 +240,7 @@ function handleStartChildTutorial() {
 
 	{#if !isBaby}
 		<BottomNav items={navItems} />
-		<TutorialOverlay />
+		<TutorialOverlay childUiMode={uiMode} />
 	{/if}
 </div>
 

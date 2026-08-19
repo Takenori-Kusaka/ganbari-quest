@@ -9,6 +9,8 @@ import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
 import { jstDayOfWeek } from './date-utils';
+// #4652: 子供チュートリアルの nav 名 / とりけし秒数を画面と同じ SSOT から引く (icons.ts / validation は labels を import しない)
+import { getModeLabels } from './icons';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -77,6 +79,7 @@ import {
 	UPGRADE_TERMS,
 	VISIBILITY_CHIP_TERMS,
 } from './terms';
+import { CANCEL_WINDOW_MS } from './validation/activity';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -10284,3 +10287,121 @@ export const POINT_LEDGER_LABELS = {
 		return base;
 	},
 } as const;
+
+// ============================================================
+// 子供チュートリアル（子供ホーム ❓）の文言 SSOT（#4652、EPIC #4650 判断 3 / 4 / 5）
+// ============================================================
+//
+// 「記録して閉じる」最短経路だけを説明する（ADR-0012）: 活動カード → とりけし → 💮 スタンプ → 下ナビ
+// （つよさ / ステータス、ショップ）。ホームに無い仕組み（コンボ / おみくじ / 別ページのレーダー
+// チャート）は説明しない。
+//
+// 年齢帯 variant: preschool / elementary = ひらがな分かち書き、junior / senior = 漢字（nav ラベルと同表記）。
+// nav 名は `getModeLabels(uiMode).status` / `CHILD_SHOP_LABELS.navLabel`、とりけし秒数は
+// `CANCEL_WINDOW_MS` を参照し、画面の実表記・実値と一致させる（直書きしない）。
+// 関数にしているのは CHILD_SHOP_LABELS 等の宣言順（TDZ）に依らず参照するため。
+
+/** 子供チュートリアルの文言 variant。preschool / elementary = kana、junior / senior = kanji */
+export type ChildTutorialVariant = 'kana' | 'kanji';
+
+export function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
+	return uiMode === 'junior' || uiMode === 'senior' ? 'kanji' : 'kana';
+}
+
+export function getChildTutorialLabels(uiMode: string) {
+	const variant = getChildTutorialVariant(uiMode);
+	const mode = getModeLabels(uiMode);
+	const statusNav = mode.status;
+	const shopNav = CHILD_SHOP_LABELS.navLabel;
+	const cancelSec = Math.round(CANCEL_WINDOW_MS / 1000);
+	if (variant === 'kanji') {
+		return {
+			variant,
+			chapters: {
+				record: { title: '記録しよう', icon: '⭐' },
+				daily: { title: '毎日つづけよう', icon: '🎴' },
+				more: { title: 'ほかの画面', icon: '📊' },
+			},
+			steps: {
+				'child-record-card': {
+					title: '活動カード',
+					description:
+						'やったことのカードをタップすると「きろく！」ボタンが出ます。きろく！ を押すとポイントがもらえます。',
+				},
+				'child-record-cancel': {
+					title: 'とりけし',
+					description: `まちがえて記録しても、記録のあと ${cancelSec} 秒のあいだは「とりけし」ボタンで取り消せます。`,
+				},
+				'child-daily-stamp': {
+					title: 'スタンプ',
+					description:
+						'毎日ひらくと 💮 スタンプがたまります。タップするとスタンプカードが見られます。',
+				},
+				'child-nav-status': {
+					title: statusNav,
+					description: `下の「${statusNav}」で、自分の成長（5 つの力）が見られます。`,
+				},
+				'child-nav-shop': {
+					title: shopNav,
+					description: `ためたポイントは下の「${shopNav}」でごほうびに交換できます。`,
+				},
+			},
+			dialog: {
+				resumeTitle: 'ガイドの続き',
+				resumePrompt: '前回の途中から続けますか？',
+				resumeCancel: 'やめる',
+				resumeFromStart: '最初から',
+				resumeContinue: '続きから',
+				exitConfirmAriaLabel: 'ガイド終了の確認',
+				exitConfirmPrompt: 'ガイドを終了しますか？',
+				exitConfirmHint: '途中からあとで再開できます。',
+				exitConfirmCancel: '続ける',
+				exitConfirmConfirm: '終了する',
+			},
+		} as const;
+	}
+	return {
+		variant,
+		chapters: {
+			record: { title: 'きろくしよう', icon: '⭐' },
+			daily: { title: 'まいにち つづけよう', icon: '🎴' },
+			more: { title: 'ほかの がめん', icon: '📊' },
+		},
+		steps: {
+			'child-record-card': {
+				title: 'かつどうカード',
+				description:
+					'やったことの カードを タップすると「きろく！」ボタンが でるよ。きろく！ を おすと ポイントが もらえるよ。',
+			},
+			'child-record-cancel': {
+				title: 'とりけし',
+				description: `まちがえて きろくしても、きろくの あと ${cancelSec}びょうの あいだは「とりけし」ボタンで とりけせるよ。`,
+			},
+			'child-daily-stamp': {
+				title: 'スタンプ',
+				description:
+					'まいにち ひらくと 💮 スタンプが たまるよ。タップすると スタンプカードが みられるよ。',
+			},
+			'child-nav-status': {
+				title: statusNav,
+				description: `したの「${statusNav}」で、じぶんの つよさ（5つの ちから）が みられるよ。`,
+			},
+			'child-nav-shop': {
+				title: shopNav,
+				description: `ためた ポイントは したの「${shopNav}」で ごほうびに かえられるよ。`,
+			},
+		},
+		dialog: {
+			resumeTitle: 'ガイドの つづき',
+			resumePrompt: 'まえの つづきから みる？',
+			resumeCancel: 'やめる',
+			resumeFromStart: 'さいしょから',
+			resumeContinue: 'つづきから',
+			exitConfirmAriaLabel: 'ガイドを やめる かくにん',
+			exitConfirmPrompt: 'ガイドを やめる？',
+			exitConfirmHint: 'あとで つづきから みられるよ。',
+			exitConfirmCancel: 'つづける',
+			exitConfirmConfirm: 'やめる',
+		},
+	} as const;
+}

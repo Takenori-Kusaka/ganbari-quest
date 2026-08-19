@@ -8,7 +8,11 @@
 //   - admin v1 tutorial 撤去 (PR #2388) で旧 spec は到達不能化、子供画面 spec として再構築
 //
 // AC4 (全ステップ動作): chapter 1〜4 を順次進行 → 最後のステップで「完了」ボタンで終了
-// AC5 (バブル表示): 各ステップで TutorialBubble が visible (selector 不在は中央表示 fallback)
+// AC5 (バブル表示): 各ステップで TutorialBubble が visible
+// #4652 (EPIC #4650 判断 4 / 6): **selector 指定 step は必ず実要素に spotlight する**。
+//   旧 spec は「selector 不在は中央表示 fallback」を許容していたため、9 step 中 5 step が
+//   何も光らないまま CI 緑だった。overlay の `data-tutorial-target="resolved|fallback"` と
+//   step の `data-has-target` を突き合わせ、fallback で成立させない。
 // AC6 (全ステップ SS): docs/screenshots/2393-child-tutorial-verification/<mode>/step-N.png
 // AC7 (twin dialog 回避): 各ステップで .tutorial-bubble は 1 件のみ
 //
@@ -20,8 +24,20 @@ import { expect, type Page, test } from '@playwright/test';
 const SCREENSHOT_DIR = path.resolve('docs/screenshots/2393-child-tutorial-verification');
 const MODES = ['preschool', 'elementary', 'junior', 'senior'] as const;
 
-/** CHILD_TUTORIAL_CHAPTERS = 4 chapter × 合計 9 step (cf. tutorial-chapters-child.ts) */
-const EXPECTED_TOTAL_STEPS = 9;
+/**
+ * #4652: 「記録して閉じる」最短経路 3 chapter × 合計 5 step (cf. tutorial-chapters-child.ts)。
+ * ホームに無い仕組み (コンボ / おみくじ / 別ページのレーダーチャート) の step は撤去済。
+ */
+const EXPECTED_TOTAL_STEPS = 5;
+
+/** 訪れる step id の正準列 (上から下: 記録 → とりけし → スタンプ → つよさ → ショップ)。 */
+const EXPECTED_STEP_IDS = [
+	'child-record-card',
+	'child-record-cancel',
+	'child-daily-stamp',
+	'child-nav-status',
+	'child-nav-shop',
+] as const;
 
 /**
  * /switch から指定 mode の子供を選択して home に遷移する。
@@ -173,6 +189,28 @@ async function startTutorialWithRetry(page: Page) {
 	}
 }
 
+/**
+ * #4652 (EPIC #4650 判断 4 / 6): selector 指定 step が**実要素に spotlight する**ことを検証する。
+ * overlay の `data-tutorial-target` が `resolved` で、spotlight ring が非 0 サイズであること。
+ * selector を持たない説明 step (`data-has-target="false"`) は中央表示が正なので対象外。
+ */
+async function assertStepSpotlight(
+	page: Page,
+	bubble: ReturnType<Page['locator']>,
+	ctx: string,
+): Promise<void> {
+	if ((await bubble.getAttribute('data-has-target')) !== 'true') return;
+	await expect(
+		page.locator('.tutorial-overlay'),
+		`${ctx}: 対象要素に spotlight する (中央 fallback でない)`,
+	).toHaveAttribute('data-tutorial-target', 'resolved', { timeout: 10_000 });
+	const ringBox = await page.locator('.tutorial-spotlight-ring').boundingBox();
+	expect(ringBox, `${ctx}: spotlight ring が描画される`).not.toBeNull();
+	if (!ringBox) return;
+	expect(ringBox.width, `${ctx}: spotlight 幅 > 0`).toBeGreaterThan(0);
+	expect(ringBox.height, `${ctx}: spotlight 高 > 0`).toBeGreaterThan(0);
+}
+
 // mobile project からの実行は `playwright.config.ts` の mobile.testIgnore で除外済 (#2393)。
 test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証', () => {
 	test.setTimeout(180_000);
@@ -189,7 +227,8 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 
 			let stepNum = 0;
-			const maxSteps = 15; // 無限ループ防止 (実 step 9 + 余裕)
+			const visitedStepIds: string[] = [];
+			const maxSteps = 15; // 無限ループ防止 (実 step 5 + 余裕)
 
 			while (stepNum < maxSteps) {
 				stepNum++;
@@ -202,6 +241,8 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 				await expect(page.locator('.tutorial-bubble')).toHaveCount(1);
 
 				// ステップ情報を取得
+				const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+				visitedStepIds.push(stepId);
 				const title = (await bubble.locator('.tutorial-title').textContent()) ?? '';
 				const progress = (await bubble.locator('.tutorial-progress-text').textContent()) ?? '';
 
@@ -216,6 +257,9 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 					),
 					fullPage: false,
 				});
+
+				// #4652: selector 指定 step は実要素に spotlight する (中央 fallback を許容しない)
+				await assertStepSpotlight(page, bubble, `[${uiMode} Step ${stepNum}] ${stepId}`);
 
 				// AC5: バブルがビューポート内に収まっているか
 				const bubbleBox = await bubble.boundingBox();
@@ -255,8 +299,61 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			//   (子供 tutorial は isParentChapters=false で quickMode 非発火、必ず全 step 通過)
 			expect(
 				stepNum,
-				`[${uiMode}] CHILD_TUTORIAL_CHAPTERS 全 ${EXPECTED_TOTAL_STEPS} step が再生される`,
+				`[${uiMode}] 子供チュートリアル 全 ${EXPECTED_TOTAL_STEPS} step が再生される`,
 			).toBe(EXPECTED_TOTAL_STEPS);
+			// #4652: step 構成 (上から下の最短経路) を固定する
+			expect(visitedStepIds, `[${uiMode}] 訪れた step id の列`).toEqual([...EXPECTED_STEP_IDS]);
 		});
 	}
+});
+
+// #4652 (EPIC #4650 F6 / F9): baby モードの ❓ 不在と、子供向けダイアログ文言の年齢帯 variant。
+test.describe('#4652 子供チュートリアルの入口とダイアログ文言', () => {
+	test.setTimeout(120_000);
+
+	test('baby: ❓ ボタンが出ない (子供画面から /admin へ飛ばない)', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		// baby の子供に到達する (/switch の各ボタンを順に試す)
+		await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+		const childButtons = page.locator('[data-testid^="child-select-"]');
+		await childButtons.first().waitFor({ state: 'visible', timeout: 15_000 });
+		const count = await childButtons.count();
+		let arrived = false;
+		for (let i = 0; i < count; i++) {
+			if (i > 0) {
+				await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+				await childButtons.first().waitFor({ state: 'visible', timeout: 15_000 });
+			}
+			await childButtons.nth(i).click();
+			try {
+				await page.waitForURL(/\/baby(\/|$)/, { timeout: 5_000 });
+				arrived = true;
+				break;
+			} catch {
+				// 別 mode → 次を試す
+			}
+		}
+		expect(arrived, 'baby モードの子供が seed に存在する').toBe(true);
+
+		// ❓ (header-help-btn) は baby では描画しない。押せば親チャプターで /admin へ飛ぶため
+		// (EPIC #4650 F6)、ボタン自体を出さないことを固定する。
+		await expect(page.locator('[data-testid="header-help-btn"]')).toHaveCount(0);
+		// 子供画面に留まっている (管理画面へ遷移していない)
+		expect(page.url()).toContain('/baby');
+	});
+
+	test('preschool: 終了確認ダイアログが子供向けひらがな文言で出る', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await gotoChildHome(page, 'preschool');
+		await startTutorialWithRetry(page);
+		await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
+
+		// overlay 背景クリックで終了確認を出す
+		await page.locator('.tutorial-overlay-bg').click({ force: true });
+		const dialog = page.getByTestId('tutorial-exit-confirm-dialog');
+		await expect(dialog).toBeVisible({ timeout: 5_000 });
+		// 親向け漢字文言 (「チュートリアルを終了しますか？」) ではなく子供向けひらがな
+		await expect(dialog).toContainText('ガイドを やめる？');
+		await expect(dialog).not.toContainText('チュートリアルを終了しますか？');
+	});
 });

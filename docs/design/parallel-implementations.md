@@ -638,7 +638,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
-- [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
+- [ ] **チュートリアル** → 親 章立て (`tutorial-chapters.ts`) + 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`) + デモ (`demo-guide-state.svelte.ts`)。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（旧 `check-lp-ssot.mjs` は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
