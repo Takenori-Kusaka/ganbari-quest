@@ -7988,6 +7988,11 @@ export const FEATURES_LABELS = {
 	challenge: {
 		// SiblingCelebration
 		celebrationTitle: 'みんなクリア！',
+		/**
+		 * #4689: 自分だけのチャレンジ (兄弟が同じ内容を持たない = group が自分 1 人) を達成したときの見出し。
+		 * 週次自動生成は子供ごとに内容が違うため、この形が既定になる。
+		 */
+		celebrationTitleSolo: 'チャレンジ クリア！',
 		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
 		celebrationCloseBtn: 'とじる',
 		// #4410 AC4: 閉じたあとどこで受け取るのかをダイアログ内で示す。claim ボタン自体は
