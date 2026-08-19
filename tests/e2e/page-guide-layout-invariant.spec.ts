@@ -80,6 +80,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'status-act',
 		'status-level-titles',
 	],
+	// #4670: 右上リンク 2 本 / タブ / 月の移動 (既定の月次タブ) は常に描画。upsell (free) / 週次設定 (週次タブ) /
+	// きょうだいランキング (プレミアム + ON + 2 人以上) は optional で列挙しない
+	'/admin/reports': ['reports-links', 'reports-tabs', 'reports-month-nav'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';

@@ -40,6 +40,7 @@ import {
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
+	CERTIFICATE_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
@@ -51,6 +52,7 @@ import {
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
+	GROWTH_BOOK_TERMS,
 	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
@@ -105,7 +107,7 @@ export const PAGE_TITLES = {
 	activitiesIntroduce: '活動紹介スライド',
 	reports: 'レポート',
 	achievements: 'チャレンジ管理',
-	growth: '成長記録ブック',
+	growth: GROWTH_BOOK_TERMS.full,
 	points: 'ポイント管理',
 	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
 	cheer: '応援',
@@ -118,7 +120,7 @@ export const PAGE_TITLES = {
 	settings: '設定',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	billing: '請求書・支払い管理',
-	certificates: 'がんばり証明書',
+	certificates: CERTIFICATE_TERMS.full,
 	license: 'プラン・お支払い',
 	// #4669 F6: 親に見えるのは成長レポートのみ (ベンチマーク編集は ops / NUC 限定) のため表題を画面内容に揃える
 	statusReport: '成長レポート',
@@ -288,7 +290,8 @@ export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
 	reports: 'レポート',
-	growthBook: 'グロースブック',
+	// #4670 F2: 呼称をレポート画面リンクと同じ「記録ブック」に統一 (旧「グロースブック」)
+	growthBook: GROWTH_BOOK_TERMS.canonical,
 	// #4669 F7: /admin/status への到達導線 (record カテゴリ)
 	statusReport: '成長レポート',
 	achievements: 'チャレンジ履歴',
@@ -585,7 +588,7 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 
 export const FEATURE_LABELS = {
 	report: 'レポート',
-	growthBook: 'グロースブック',
+	growthBook: GROWTH_BOOK_TERMS.canonical,
 	message: 'おうえんメッセージ',
 	reward: 'ごほうび',
 	// #1168: チェックリストを「持ち物」「ルーティン」に分離
@@ -596,7 +599,7 @@ export const FEATURE_LABELS = {
 	loginBonus: 'ログインボーナス',
 	challenge: 'チャレンジ',
 	event: 'イベント',
-	certificate: 'がんばり証明書',
+	certificate: CERTIFICATE_TERMS.full,
 	stamp: 'スタンプ',
 	// #1311: 「シールガチャ」語彙を撤回、実装実体 (日 1 回 cap login omikuji + 週次 stamp card) に合わせた SSOT
 	// 旧: 'シールガチャ' → 新: 'おみくじ' + 'スタンプカード' の 2 mechanic 分離 (ADR-0012 / ADR-0013 準拠)
@@ -1684,24 +1687,64 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminReports: {
 		title: 'レポート',
+		// #4670 (EPIC #4650): step は画面の DOM 順 (右上リンク → upsell → タブ → 月の移動 → 週次設定 →
+		// きょうだいランキング)。呼称はリンク実表示 (CERTIFICATE_TERMS / GROWTH_BOOK_TERMS canonical) と
+		// タブ実表示 (REPORTS_LABELS.tabMonthly / tabWeekly と同文) に合わせ、週次に無い「曜日別」は書かない。
 		steps: {
 			'reports-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・レベルアップ・前の期間との比較がひと目でわかります。',
-				how: '「月次」「週次」のタブを切り替えて、見たい期間のレポートを表示します。',
+				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・ポイント・レベル・カテゴリ別の内訳がひと目でわかります。',
+				how: '上から順に、証明書・記録ブックへのリンク、「月次レポート」「週次レポート」のタブ、レポート本体が並びます。週次レポートのメール配信設定ときょうだいランキングは週次タブ / ページ下部にあります。',
 				goal: '「今月はうんどうを20回頑張ったね！先月より5回多いよ」と、具体的な数字でお子さまを褒められます。',
 			},
-			'reports-tabs': {
-				title: '画面の見方（月次／週次の切り替え）',
-				what: 'タブで「月次」と「週次」を切り替えます。月次は1ヶ月の総まとめ、週次は曜日別・カテゴリ別の傾向が見られます。',
-				how: '1. 「月次」「週次」タブをタップして切り替えます\n2. 月次は ◀ ▶ で月を移動できます\n3. 前の期間との差分が色付きで表示されます（赤=減少、緑=増加）',
-				goal: '「平日は頑張っているけど土日が少ない」のような傾向に気づけ、次の声かけのヒントになります。',
-			},
-			'reports-growth-book': {
-				title: 'よく使う操作（賞状・成長ブック）',
-				what: 'レポートから、お子さまの頑張りを「修了証（賞状）」として印刷したり、長期的な成長を「成長ブック」で振り返ったりできます。',
-				how: '1. このリンクから賞状・成長ブックのページを開きます\n2. 印刷・保存して、お子さまと一緒に振り返ります',
+			// ② 右上の証明書 / 記録ブック リンク (2 本を包む要素を spotlight)
+			'reports-links': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}・${GROWTH_BOOK_TERMS.canonical}）`,
+				what: `右上の 2 つのリンクから、がんばりの節目ごとに発行される「${CERTIFICATE_TERMS.canonical}」と、長期的な成長をまとめた「${GROWTH_BOOK_TERMS.canonical}」のページを開けます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}」を押すと${CERTIFICATE_TERMS.full}の一覧を開きます\n2. 「📖 ${GROWTH_BOOK_TERMS.canonical}」を押すと${GROWTH_BOOK_TERMS.full}を開きます\n3. どちらも画面で閲覧でき、印刷や PDF 保存はそれぞれのページから行います`,
 				goal: 'がんばりを形に残せるので、お子さまの達成感が大きくなり、次の目標への意欲につながります。',
+				tips: [`PDF 保存・印刷は${PAID_PLAN_LABEL}で利用できます（閲覧はどのプランでもできます）`],
+				relatedLinks: [
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
+					{ label: GROWTH_BOOK_TERMS.full, href: '/admin/growth-book' },
+				],
+			},
+			// ③ 無料プラン向け upsell バナー (free のときだけ描画、optional)
+			'reports-weekly-upsell': {
+				title: '画面の見方（週次メールレポートのご案内）',
+				what: `週次レポートを毎週メールで受け取る機能は${PAID_PLAN_LABEL}の特典です。${PLAN_FULL_TERMS.free}では、このお知らせと「週次レポート」タブのプレビューが表示されます。`,
+				how: `1. メールで受け取りたいときは「プランを見る →」からプランを確認します\n2. 今のプランのままでも、「週次レポート」タブで今週のまとめを画面で見られます`,
+				goal: 'メール配信を使うかどうかを、内容をプレビューで確かめてから決められます。',
+			},
+			'reports-tabs': {
+				title: '画面の見方（月次レポート／週次レポートの切り替え）',
+				what: 'タブで「月次レポート」と「週次レポート」を切り替えます。月次は 1 か月の総まとめ（先月との比較つき）、週次は今週のカテゴリ別の活動数・ハイライト・新しい実績・アドバイスです。',
+				how: '1. 「月次レポート」「週次レポート」のタブを押して切り替えます\n2. 週次レポートタブの上部には「⚙️ レポート設定」（メール配信の有効化・配信曜日）があります',
+				goal: '「今週はうんどうが多かった」「今月は先月より活動が増えた」のように、期間ごとの傾向に気づけ、次の声かけのヒントになります。',
+			},
+			// ⑤ 月の移動と先月比 (月次タブのときだけ描画、optional)
+			'reports-month-nav': {
+				title: 'よく使う操作（月の移動と先月比）',
+				what: '◀ ▶ で見たい月に移動します。月次レポートの数字には先月との差が色付きで表示されます（緑＝増加、赤＝減少）。',
+				how: '1. ◀ で前の月、▶ で次の月に移動します\n2. 各数字の下の「先月比」で増減を確認します',
+				goal: '「先月より 5 回多いよ」と根拠のある声かけができ、月ごとの伸びを追えます。',
+			},
+			// ⑥ 週次メール配信設定 (週次タブのときだけ描画、optional)
+			'reports-weekly-settings': {
+				title: 'よく使う操作（週次レポートのメール配信設定）',
+				what: `「⚙️ レポート設定」で、週次レポートをメールで受け取るかどうかと配信曜日を設定します。メール配信は${PAID_PLAN_LABEL}で利用できます。`,
+				how: '1. 「週次レポートを有効にする」にチェックを入れます\n2. 「配信曜日」を選びます\n3. 「保存」を押します',
+				goal: '毎週決まった曜日に、お子さまのがんばりのまとめが保護者のメールに届きます。',
+			},
+			// ⑦ きょうだいランキング (プレミアム + ランキング ON + 子 2 人以上のときだけ描画、optional)
+			'reports-sibling-ranking': {
+				title: '画面の見方（きょうだいランキング）',
+				what: `きょうだいの今週の活動数をくらべる「👫 きょうだいランキング」です。${PLAN_FULL_TERMS.premium}で、設定の「きょうだいランキング」が ON、かつお子さまが 2 人以上のときに表示されます。`,
+				how: '1. 「今週のまとめ」でもっとも活発だったお子さまを確認します\n2. 「週別 活動数のうつりかわり」「カテゴリ別くらべっこ」のグラフで推移と得意分野をくらべます',
+				goal: 'きょうだいそれぞれの得意・がんばりどころが分かり、比べて責めるのではなく、それぞれを認める声かけに使えます。',
+				tips: [
+					'表示されないときは、プラン・設定の「きょうだいランキング」・お子さまの人数を確認してください',
+				],
 			},
 		},
 	},
@@ -3291,8 +3334,8 @@ export const NUC_LICENSE_LABELS = {
 export const REPORTS_LABELS = {
 	// ページヘッダー
 	pageTitle: '📊 レポート',
-	certificatesLink: '📜 証明書',
-	growthBookLink: '📖 記録ブック',
+	certificatesLink: `📜 ${CERTIFICATE_TERMS.canonical}`,
+	growthBookLink: `📖 ${GROWTH_BOOK_TERMS.canonical}`,
 
 	// 設定更新完了
 	settingsUpdated: '設定を更新しました',
@@ -4582,7 +4625,7 @@ export const DEMO_TOP_LABELS = {
 // ============================================================
 
 export const GROWTH_BOOK_LABELS = {
-	pageHeading: '📖 成長記録ブック',
+	pageHeading: `📖 ${GROWTH_BOOK_TERMS.full}`,
 	backToReports: '← レポートへ',
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
@@ -5997,7 +6040,7 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
-	pageTitle: '📜 がんばり証明書',
+	pageTitle: `📜 ${CERTIFICATE_TERMS.full}`,
 	backToReportsLink: 'レポートへ',
 	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
