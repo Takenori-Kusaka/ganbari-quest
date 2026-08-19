@@ -2,11 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/stamp-card-service.ts
 // スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
-import {
-	todayDateJST,
-	weekEndOfDateJST,
-	weekStartOfDateJST,
-} from '$lib/domain/date-utils';
+import { todayDateJST, weekEndOfDateJST, weekStartOfDateJST } from '$lib/domain/date-utils';
 import { pickOmikujiRank } from '$lib/domain/stamp-image';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import {
