@@ -264,6 +264,54 @@ async function waitForBubbleStable(page: Page, bubble: Locator): Promise<void> {
 	}
 }
 
+/**
+ * ガイドの全 step を「つぎへ」で辿りながら (a)(b)(c)(d) を検証する (上限で無限ループを防ぐ。
+ * 1 ページ最大 step は registry 上 12 以下)。
+ * @param requiredSpotlight (d) で実要素 spotlight を要求し、走査後に出現も要求する step id (#4650)
+ */
+async function walkAllSteps(
+	page: Page,
+	bubble: Locator,
+	pageCtx: string,
+	requiredSpotlight: readonly string[],
+): Promise<void> {
+	const MAX_STEPS = 12;
+	const seenStepIds: string[] = [];
+	for (let i = 0; i < MAX_STEPS; i++) {
+		const ctx = `${pageCtx} step#${i + 1}`;
+
+		// driver.js の scroll-into-view + fade + 再配置が静止するまで待ってから計測する。
+		await waitForBubbleStable(page, bubble);
+		await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
+		const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+		seenStepIds.push(stepId);
+
+		await assertSpotlightVisible(page, ctx);
+		await assertBubbleWithinViewport(page, bubble, ctx);
+		await assertBubbleNotOverlapTarget(page, bubble, ctx);
+		// (d) #4650: 列挙した selector 指定 step は実要素に spotlight していること
+		if (requiredSpotlight.includes(stepId)) {
+			await assertStepSpotlightsRealTarget(page, `${ctx} (${stepId})`);
+		}
+
+		// 次へ。最終 step なら「かんりょう！」になり、押すとガイドが閉じる。
+		const nextBtn = bubble.locator(GUIDE_NEXT);
+		const nextText = (await nextBtn.textContent().catch(() => '')) ?? '';
+		if (nextText.includes('かんりょう')) break;
+		// 現 step の data-step-id を控え、click 後に値が変わる (= 新 step に遷移) のを待つ。
+		await nextBtn.click();
+		await expect(bubble, `${ctx}: step 遷移で data-step-id が更新`).not.toHaveAttribute(
+			'data-step-id',
+			stepId,
+			{ timeout: 5_000 },
+		);
+	}
+	// (d) #4650: 列挙した step が全て出現した (filter / 起動時判定で黙って落ちていない) こと。
+	for (const id of requiredSpotlight) {
+		expect(seenStepIds, `${pageCtx}: step "${id}" がガイドに現れる`).toContain(id);
+	}
+}
+
 test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b)(c) 機械固定', () => {
 	test.setTimeout(120_000);
 
@@ -287,45 +335,12 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 				const bubble = page.locator(GUIDE_BUBBLE);
 				await expect(bubble).toBeVisible({ timeout: 5_000 });
 
-				// 全 step をループ検証 (上限で無限ループを防ぐ。1 ページ最大 step は registry 上 12 以下)。
-				const MAX_STEPS = 12;
-				const requiredSpotlight = REQUIRED_SPOTLIGHT_STEPS[path] ?? [];
-				const seenStepIds: string[] = [];
-				for (let i = 0; i < MAX_STEPS; i++) {
-					const ctx = `[${vpLabel}] ${path} step#${i + 1}`;
-
-					// driver.js の scroll-into-view + fade + 再配置が静止するまで待ってから計測する。
-					await waitForBubbleStable(page, bubble);
-					await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
-					const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
-					seenStepIds.push(stepId);
-
-					await assertSpotlightVisible(page, ctx);
-					await assertBubbleWithinViewport(page, bubble, ctx);
-					await assertBubbleNotOverlapTarget(page, bubble, ctx);
-					// (d) #4650: 列挙した selector 指定 step は実要素に spotlight していること
-					if (requiredSpotlight.includes(stepId)) {
-						await assertStepSpotlightsRealTarget(page, `${ctx} (${stepId})`);
-					}
-
-					// 次へ。最終 step なら「かんりょう！」になり、押すとガイドが閉じる。
-					const nextBtn = bubble.locator(GUIDE_NEXT);
-					const nextText = (await nextBtn.textContent().catch(() => '')) ?? '';
-					const isLast = nextText.includes('かんりょう');
-					if (isLast) break;
-					// 現 step の data-step-id を控え、click 後に値が変わる (= 新 step に遷移) のを待つ。
-					const prevStepId = await bubble.getAttribute('data-step-id').catch(() => null);
-					await nextBtn.click();
-					await expect(bubble, `${ctx}: step 遷移で data-step-id が更新`).not.toHaveAttribute(
-						'data-step-id',
-						prevStepId ?? '',
-						{ timeout: 5_000 },
-					);
-				}
-				// (d) #4650: 列挙した step が全て出現した (filter / 起動時判定で黙って落ちていない) こと。
-				for (const id of requiredSpotlight) {
-					expect(seenStepIds, `[${vpLabel}] ${path}: step "${id}" がガイドに現れる`).toContain(id);
-				}
+				await walkAllSteps(
+					page,
+					bubble,
+					`[${vpLabel}] ${path}`,
+					REQUIRED_SPOTLIGHT_STEPS[path] ?? [],
+				);
 			});
 		}
 	}
