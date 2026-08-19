@@ -79,7 +79,9 @@ const addCalculatedAge = $derived(
 		</div>
 	{/if}
 
-	<div class="children-page__toolbar" data-tutorial="children-list">
+	<!-- #4660 F1: children-list anchor は「追加する」ボタン行ではなく下のカード一覧に付ける
+	     (旧: 本 toolbar に付いており、「カードが並ぶ」という文言と光る場所が食い違っていた) -->
+	<div class="children-page__toolbar">
 		{#if !childLimit || childLimit.allowed}
 			<Button
 				variant="primary"
@@ -167,7 +169,7 @@ const addCalculatedAge = $derived(
 	{/if}
 
 	<!-- Children list -->
-	<div class="children-page__list">
+	<div class="children-page__list" data-tutorial="children-list">
 		{#each data.children as child, i}
 			<ChildListCard
 				{child}
@@ -181,7 +183,8 @@ const addCalculatedAge = $derived(
 
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
-		<div class="children-page__detail">
+		<!-- data-tutorial: ページガイド (#4660) の詳細カード step の spotlight anchor (未選択時は出ない) -->
+		<div class="children-page__detail" data-tutorial="child-detail">
 			{#key data.selectedChild.id}
 				<ChildProfileCard
 					child={data.selectedChild}

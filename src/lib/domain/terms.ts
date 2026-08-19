@@ -1254,6 +1254,33 @@ export const CHEER_ADMIN_TERMS = {
 } as const;
 
 // ============================================================
+// CHILD_ADMIN_TERMS — こども管理 (/admin/children) 画面のボタン名・タブ名 atom (#4660)
+// ============================================================
+//
+// 追加フォームの実ボタン名 / 入力項目名 / 詳細カードのタブ名。ガイドが「＋ こどもを追加」「保存」
+// のような画面に無いボタン名を案内していたため、描画側 (ADMIN_CHILDREN_PAGE_LABELS /
+// CHILD_PROFILE_CARD_LABELS) とページガイドの双方が本 atom を参照する。
+export const CHILD_ADMIN_TERMS = {
+	/** 追加フォームを開くボタン / フォーム確定ボタン (同じ「追加する」) */
+	addButton: '追加する',
+	/** 上限到達時の disabled ボタン */
+	limitReachedButton: '上限に達しています',
+	/** 追加フォームの入力項目 */
+	nickname: 'ニックネーム',
+	themeColor: 'テーマカラー',
+	age: '年齢',
+	/** 詳細カードの操作 */
+	editButton: '✏️ 編集',
+	deleteButton: '🗑 この子供を削除',
+	/** 詳細カードのタブ (絵文字込みの画面表記) */
+	tabInfo: '📋 基本情報',
+	tabStatus: '📊 ステータス',
+	tabLogs: '📝 活動記録',
+	tabAchievements: '🏆 実績',
+	tabVoice: '📢 ボイス',
+} as const;
+
+// ============================================================
 // REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
 // ============================================================
 //

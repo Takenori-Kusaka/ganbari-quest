@@ -50,6 +50,7 @@ import {
 	CHECKOUT_TERMS,
 	CHEER_ADMIN_TERMS,
 	CHEER_TERMS,
+	CHILD_ADMIN_TERMS,
 	CHILD_SELECTION_TERMS,
 	CHILD_TERMS,
 	CONCEPT_ICONS,
@@ -1745,36 +1746,48 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4660: /admin/children のガイド。上から下 (追加する → お子さま一覧 → 詳細カード) の順に、
+	// 実際に押す要素を spotlight する (旧 step ② は一覧ではなく追加ボタン行を光らせ ③ と重複していた)。
+	// ボタン名 / タブ名は描画側と同じ atom (CHILD_ADMIN_TERMS)、上限人数は FREE_PLAN_QUOTA を参照。
+	// 詳細カードはお子さま選択時のみ描画されるため filterGuideStepsByTargetPresence で出し分ける。
 	adminChildren: {
-		title: 'こども管理',
+		title: NAV_ITEM_LABELS.children,
 		steps: {
 			'children-intro': {
 				title: 'このページについて',
 				what: 'お子さまを登録・管理するページです。お子さまごとに専用の画面が作られ、活動・ポイント・レベルが個別に記録されます。',
-				how: 'まずはお子さまを 1 人登録するところから始めます。登録すると、年齢に合わせて画面表示（ひらがな／漢字など）が自動で切り替わります。',
+				how: `まずはお子さまを 1 人登録するところから始めます。登録後は画面右上の「← ${ADMIN_HOME_TERMS.switchToChild}」からその子の画面を開けます。`,
 				goal: '兄弟姉妹それぞれの専用画面ができ、テーマカラーで取り違えることなく一人ひとりの成長を見守れます。',
+				relatedLinks: [{ label: ADMIN_HOME_TERMS.switchToChild, href: '/switch' }],
+			},
+			'children-add': {
+				title: `よく使う操作（お子さまの${CHILD_ADMIN_TERMS.addButton}）`,
+				what: `いちばん最初に行うのがお子さまの登録です。「${CHILD_ADMIN_TERMS.addButton}」を押すとフォームが開きます。`,
+				how: `1. 「${CHILD_ADMIN_TERMS.addButton}」を押す（もう一度押すと閉じます）\n2. ${CHILD_ADMIN_TERMS.nickname}を入力（ひらがな推奨）\n3. 誕生日を選ぶ（分からないときは${CHILD_ADMIN_TERMS.age}だけでも登録できます）\n4. ${CHILD_ADMIN_TERMS.themeColor}を選ぶ\n5. フォーム下の「${CHILD_ADMIN_TERMS.addButton}」で確定`,
+				goal: 'お子さま専用の画面が作られ、活動の記録・ポイント・レベルアップが個別に追跡されます。',
+				tips: [
+					`${PLAN_FULL_TERMS.free}で登録できるお子さまは ${FREE_PLAN_QUOTA.maxChildren} 人までです。上限に達すると「${CHILD_ADMIN_TERMS.limitReachedButton}」と表示され、上の案内からプランを変更できます`,
+					'誕生日を入れておくと、年齢に合わせて画面の文字表現が自動で変わります（3 歳 → 全部ひらがな、小学生 → 漢字まじり）',
+				],
+				relatedLinks: [{ label: 'プランを見る', href: '/admin/subscription' }],
 			},
 			'children-list': {
 				title: '画面の見方（お子さま一覧）',
-				what: 'このページには登録済みのお子さまのカードが並びます。各カードでポイント残高・レベル・カテゴリ別の活動状況を確認できます。',
-				how: '1. お子さまのカードをタップします\n2. プロフィール詳細が表示されます\n3. 「編集」で名前やテーマカラーを変更できます',
-				goal: 'お子さまが複数いても、それぞれの進捗や得意分野をひと目で見比べられます。',
+				what: `登録済みのお子さまのカードが並びます。カードには${CHILD_ADMIN_TERMS.nickname}・${CHILD_ADMIN_TERMS.age}・区分・テーマ・誕生日・ポイント残高が出ます。`,
+				how: '1. お子さまのカードを押す\n2. 下にそのお子さまの詳細が開きます',
+				goal: '兄弟姉妹の残高や設定を、このページだけで見比べられます。',
 			},
-			'children-add': {
-				title: 'よく使う操作（お子さまの追加）',
-				what: '最初に行うのがお子さまの追加です。名前・生年月日・テーマカラーを登録します。',
-				how: '1. 「＋ こどもを追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ',
-				goal: 'お子さま専用の画面が作成され、活動の記録・ポイント管理・レベルアップが個別に追跡されます。',
+			'children-detail': {
+				title: '画面の見方（詳細カード）',
+				what: `カードを押すと開く詳細に、${CHILD_ADMIN_TERMS.tabInfo} / ${CHILD_ADMIN_TERMS.tabStatus} / ${CHILD_ADMIN_TERMS.tabLogs} / ${CHILD_ADMIN_TERMS.tabAchievements} / ${CHILD_ADMIN_TERMS.tabVoice} の 5 つのタブがあります。`,
+				how: `1. タブを押して見たい内容に切り替える\n2. 「${CHILD_ADMIN_TERMS.editButton}」で${CHILD_ADMIN_TERMS.nickname}・誕生日・${CHILD_ADMIN_TERMS.themeColor}・写真・おたんじょうびボーナスを変える\n3. 登録をやめるときは同じ詳細の下にある「${CHILD_ADMIN_TERMS.deleteButton}」から（2 段階の確認があります）`,
+				goal: '名前やテーマを後から変えられ、活動の記録や実績もお子さまごとに振り返れます。',
 				tips: [
-					'年齢によって画面の文字表現が自動で変わります（3歳→全部ひらがな、小学生→漢字まじり）',
-					'テーマカラーは後から変更できます',
+					`「${CHILD_ADMIN_TERMS.tabVoice}」では、活動を記録したときに再生される親の声（最大 10 秒）を録音・登録できます`,
 				],
 			},
 		},
 	},
-	// #4658: /admin/points のガイド。画面は一貫して「変換」(おこづかいに換える) であり「交換」ではない
-	// (ごほうび交換は子供画面の shop)。タブ名 / ボタン名 / 履歴見出しは描画側と同じ atom
-	// (POINTS_ADMIN_TERMS) を参照する。残高カード / 履歴は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminPoints: {
 		title: NAV_ITEM_LABELS.points,
 		steps: {
@@ -5528,11 +5541,11 @@ export const SETUP_CHILDREN_LABELS = {
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
 	addFormTitle: '子供を追加',
-	themeColorLabel: 'テーマカラー',
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
 	submittingLabel: '登録中...',
-	addButton: '追加する',
+	addButton: CHILD_ADMIN_TERMS.addButton,
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
 	addSuccessMessage: '子供を登録しました！',
@@ -5975,14 +5988,14 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	deleteConfirmText: 'この子供を本当に削除しますか？',
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',
-	deleteOpenButton: '🗑 この子供を削除',
-	editButton: '✏️ 編集',
+	deleteOpenButton: CHILD_ADMIN_TERMS.deleteButton,
+	editButton: CHILD_ADMIN_TERMS.editButton,
 	// Tabs
-	tabInfo: '📋 基本情報',
-	tabStatus: '📊 ステータス',
-	tabLogs: '📝 活動記録',
-	tabAchievements: '🏆 実績',
-	tabVoice: '📢 ボイス',
+	tabInfo: CHILD_ADMIN_TERMS.tabInfo,
+	tabStatus: CHILD_ADMIN_TERMS.tabStatus,
+	tabLogs: CHILD_ADMIN_TERMS.tabLogs,
+	tabAchievements: CHILD_ADMIN_TERMS.tabAchievements,
+	tabVoice: CHILD_ADMIN_TERMS.tabVoice,
 	// Info tab
 	infoAgeUnit: '歳',
 	infoAgeLabel: '年齢',
@@ -6050,9 +6063,9 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
 	cancelButton: 'キャンセル',
-	limitReachedButton: '上限に達しています',
+	limitReachedButton: CHILD_ADMIN_TERMS.limitReachedButton,
 	addFormTitle: 'こどもを追加',
-	nicknameLabel: 'ニックネーム',
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
 	addButton: '追加する',
