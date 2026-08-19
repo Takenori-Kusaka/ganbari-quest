@@ -108,8 +108,8 @@ function handleExitOpenChange(details: { open: boolean }) {
 		flex-wrap: wrap;
 	}
 
-	/* #4651 (e): 再開ダイアログはボタン 3 つ。狭い幅で 1 つだけ右下に落ちて読み順が壊れるため、
-	   折り返しが起きる幅では縦積み (各ボタン全幅) にして順序を保つ。 */
+	/* #4651 (e): the resume dialog has 3 buttons. On narrow widths one of them wrapped to the
+	   bottom-right on its own, breaking the reading order, so stack them full width instead. */
 	@media (max-width: 480px) {
 		.dialog-actions {
 			flex-direction: column-reverse;

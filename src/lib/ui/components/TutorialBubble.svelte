@@ -372,8 +372,8 @@ function handleEnd() {
 		color: #475569;
 		line-height: 1.5;
 		margin: 0;
-		/* #4651 (c): description の "
-" 段落分けを表示に反映する (潰れて 1 行になっていた) */
+		/* #4651 (c): keep the newline paragraph breaks of step.description visible
+		   (they used to collapse into a single line). */
 		white-space: pre-line;
 	}
 
