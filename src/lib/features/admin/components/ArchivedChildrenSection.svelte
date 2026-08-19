@@ -24,7 +24,7 @@ let { children, basePath = '/admin' }: Props = $props();
 	<section class="archived-children" id="archived" data-testid="archived-children-section">
 		<Card>
 			<h3 class="archived-children__title">
-				📦 {ARCHIVED_RESOURCE_LABELS.childrenSectionTitle}（{children.length}）
+				📦 {ARCHIVED_RESOURCE_LABELS.childrenSectionTitleWithCount(children.length)}
 			</h3>
 			<p class="archived-children__desc">{ARCHIVED_RESOURCE_LABELS.childrenSectionDesc}</p>
 			<ul class="archived-children__list">

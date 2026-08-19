@@ -3781,6 +3781,9 @@ export const ARCHIVED_RESOURCE_LABELS = {
 	bannerListLink: `非表示の${CHILD_TERMS.honorific}を見る`,
 	// /admin/children の archive 一覧 (読み取り専用)
 	childrenSectionTitle: `非表示になっている${CHILD_TERMS.honorific}`,
+	/** 一覧見出し + 件数 (「非表示になっているお子さま（2）」) */
+	childrenSectionTitleWithCount: (count: number) =>
+		`非表示になっている${CHILD_TERMS.honorific}（${count}）`,
 	childrenSectionDesc: `${PLAN_FULL_TERMS.free}の上限を超えたため一時的に非表示になっています。記録・編集はできませんが、データは残っています。有料プランにすると自動で表示に戻ります。`,
 	childrenSectionReadOnlyTag: '非表示中',
 	childrenSectionCta: ACTION_LABELS.viewPlans,

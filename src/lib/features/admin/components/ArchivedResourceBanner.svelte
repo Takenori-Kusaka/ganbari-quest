@@ -40,13 +40,14 @@ const breakdown = $derived(
 		</div>
 		<div class="archived-banner__actions">
 			{#if summary.archivedChildCount > 0}
-				<a
+				<Button
+					variant="ghost"
+					size="sm"
 					href="{basePath}/children#archived"
-					class="archived-banner__link"
 					data-testid="archived-resource-banner-list-link"
 				>
 					{ARCHIVED_RESOURCE_LABELS.bannerListLink}
-				</a>
+				</Button>
 			{/if}
 			<Button
 				variant="primary"
@@ -102,9 +103,4 @@ const breakdown = $derived(
 		flex-shrink: 0;
 	}
 
-	.archived-banner__link {
-		font-size: 0.75rem;
-		color: var(--color-text-link);
-		text-decoration: underline;
-	}
 </style>
