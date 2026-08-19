@@ -425,6 +425,9 @@ async function handleCopyFromChild() {
 		const display = getActionErrorDisplay(result.error, ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed);
 		actionMessage = display.message;
 		actionUpgradeUrl = display.upgradeUrl;
+		// #4693: 失敗理由 (上限 + アップグレード導線) は本文の banner に出るため、dialog を閉じて
+		// 読める状態にする (開いたままだと理由が modal の裏に隠れて dead-end になる)。
+		showCopyFromChildDialog = false;
 	}
 }
 
@@ -469,6 +472,8 @@ async function handleBulkCreate(targets: 'all' | ChildId[]) {
 		);
 		actionMessage = display.message;
 		actionUpgradeUrl = display.upgradeUrl;
+		// #4693: 同上 (理由を読める位置に出す)。
+		showBulkCreateDialog = false;
 	}
 }
 
