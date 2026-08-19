@@ -167,14 +167,7 @@ export function createDsqlBattleRepo<TTx extends SqlExecutor>(
 			`);
 		},
 
-		async completeBattleAndGrantPoints(
-			battleId,
-			outcome,
-			rewardPoints,
-			turnsUsed,
-			ledger,
-			tenantId,
-		) {
+		async completeBattleAndGrantPoints(battleId, result, ledger, tenantId) {
 			// #4681: 完了 flip (status='pending' の行のみ) → flip 行数 gate → point_ledger INSERT +
 			// children.total_point 共更新 (§6.2 compute-on-write) を **単一 txn** で実行する。
 			// child_challenge の claimRewardAndGrantPoints (#3284/#3342) と同型で、ledger 失敗時は
@@ -185,8 +178,8 @@ export function createDsqlBattleRepo<TTx extends SqlExecutor>(
 			return runner.runInTransaction(async (tx) => {
 				const flipped = await tx.execute(sql`
 					UPDATE daily_battles
-					SET status = 'completed', outcome = ${outcome as BattleOutcome},
-						reward_points = ${rewardPoints}, turns_used = ${turnsUsed}, updated_at = now()
+					SET status = 'completed', outcome = ${result.outcome as BattleOutcome},
+						reward_points = ${result.rewardPoints}, turns_used = ${result.turnsUsed}, updated_at = now()
 					WHERE family_id = ${tenantId} AND child_id = ${childId} AND date = ${date}
 						AND status = 'pending'
 					RETURNING child_id

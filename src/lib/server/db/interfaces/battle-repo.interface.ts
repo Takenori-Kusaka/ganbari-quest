@@ -63,9 +63,7 @@ export interface IBattleRepo {
 	 */
 	completeBattleAndGrantPoints(
 		battleId: string,
-		outcome: BattleOutcome,
-		rewardPoints: number,
-		turnsUsed: number,
+		result: { outcome: BattleOutcome; rewardPoints: number; turnsUsed: number },
 		ledger: { childId: ChildId; amount: number; description: string },
 		tenantId: string,
 	): Promise<number>;

@@ -58,9 +58,7 @@ export async function completeBattle(
 
 export async function completeBattleAndGrantPoints(
 	_battleId: string,
-	_outcome: BattleOutcome,
-	_rewardPoints: number,
-	_turnsUsed: number,
+	_result: { outcome: BattleOutcome; rewardPoints: number; turnsUsed: number },
 	_ledger: { childId: ChildId; amount: number; description: string },
 	_tenantId: string,
 ): Promise<number> {

@@ -182,9 +182,11 @@ export async function executeDailyBattle(
 	// 2 段に分けると ledger 失敗時に「完了済み + 付与 0」= 二度と取り返せない lost-award になる。
 	const flipped = await completeBattleAndGrantPoints(
 		battle.id,
-		battleResult.outcome,
-		rewardPoints,
-		battleResult.totalTurns,
+		{
+			outcome: battleResult.outcome,
+			rewardPoints,
+			turnsUsed: battleResult.totalTurns,
+		},
 		{
 			childId,
 			amount: rewardPoints,

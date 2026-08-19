@@ -124,25 +124,23 @@ export async function completeBattle(
  */
 export async function completeBattleAndGrantPoints(
 	battleId: string,
-	outcome: BattleOutcome,
-	rewardPoints: number,
-	turnsUsed: number,
+	result: { outcome: BattleOutcome; rewardPoints: number; turnsUsed: number },
 	ledger: { childId: ChildId; amount: number; description: string },
 	_tenantId: string,
 ): Promise<number> {
 	return db.transaction((tx) => {
-		const result = tx
+		const flipped = tx
 			.update(dailyBattles)
 			.set({
 				status: 'completed',
-				outcome,
-				rewardPoints,
-				turnsUsed,
+				outcome: result.outcome,
+				rewardPoints: result.rewardPoints,
+				turnsUsed: result.turnsUsed,
 				updatedAt: sql`CURRENT_TIMESTAMP`,
 			})
 			.where(and(eq(dailyBattles.id, Number(battleId)), eq(dailyBattles.status, 'pending')))
 			.run();
-		if (result.changes !== 1) return 0;
+		if (flipped.changes !== 1) return 0;
 		if (ledger.amount !== 0) {
 			tx.insert(pointLedger)
 				.values({

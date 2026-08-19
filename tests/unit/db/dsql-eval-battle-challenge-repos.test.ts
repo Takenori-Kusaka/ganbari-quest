@@ -56,9 +56,7 @@ describe('DSQL battle-repo (PR-R9、実 schema PGlite)', () => {
 
 		const flipped = await battleRepo.completeBattleAndGrantPoints(
 			battleId,
-			'win',
-			10,
-			4,
+			{ outcome: 'win', rewardPoints: 10, turnsUsed: 4 },
 			{ childId, amount: 10, description: '[2026-07-09] バトルしょうり キノコおばけ' },
 			FAMILY,
 		);
@@ -80,9 +78,7 @@ describe('DSQL battle-repo (PR-R9、実 schema PGlite)', () => {
 		// 2 回目 (並行 2 連打) は flip が成立せず、ledger も増えない
 		const again = await battleRepo.completeBattleAndGrantPoints(
 			battleId,
-			'win',
-			10,
-			4,
+			{ outcome: 'win', rewardPoints: 10, turnsUsed: 4 },
 			{ childId, amount: 10, description: 'dup' },
 			FAMILY,
 		);
