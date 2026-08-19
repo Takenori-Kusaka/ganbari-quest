@@ -304,7 +304,7 @@ describe('#4687: 週コンプリート済の日とおみくじログインボー
 		cookies: { get: (key: string) => (key === 'selectedChildId' ? '1' : undefined) },
 	};
 
-	it('CARD_FULL の日は空カード (0 回目 / +0pt) ではなく今のカード + コンプリート表示のデータを返す', async () => {
+	it('押印できない日 (CARD_FULL) は空カード (0 回目 / +0pt) ではなく今のカード + コンプリート表示のデータを返す', async () => {
 		mockClaimLoginBonus.mockResolvedValue({
 			rank: '吉',
 			basePoints: 3,
@@ -355,7 +355,31 @@ describe('#4687: 週コンプリート済の日とおみくじログインボー
 		expect(result.instantPoints).toBe(5);
 		expect(result.loginBonusPoints).toBe(10);
 		expect(result.loginBonusRank).toBe('大吉');
-		// CARD_FULL でない日は card 再読込を行わない (無駄なクエリを増やさない)
+		// 押印できた日は card 再読込を行わない (無駄なクエリを増やさない)
 		expect(mockGetStampCardStatus).not.toHaveBeenCalled();
+	});
+
+	it('今日は押印済 (ALREADY_STAMPED) でも空カードを出さず、埋まっていなければコンプリート扱いにしない', async () => {
+		mockClaimLoginBonus.mockResolvedValue({
+			rank: '末吉',
+			basePoints: 2,
+			totalPoints: 2,
+			multiplier: 1,
+			consecutiveLoginDays: 1,
+			message: '末吉！2ポイントゲット！',
+		});
+		mockStampToday.mockResolvedValue({ error: 'ALREADY_STAMPED' });
+		mockGetStampCardStatus.mockResolvedValue({
+			id: 'card-2',
+			filledSlots: 3,
+			totalSlots: 5,
+			entries: [],
+		});
+
+		const result = await actions.loginStamp(event);
+
+		expect(result.cardData.filledSlots).toBe(3); // 今のカードを出す (0 回目にしない)
+		expect(result.cardFull).toBe(false); // 3/5 はコンプリートではない
+		expect(result.loginBonusPoints).toBe(2);
 	});
 });

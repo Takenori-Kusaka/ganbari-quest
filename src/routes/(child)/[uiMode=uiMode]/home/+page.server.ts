@@ -485,12 +485,13 @@ export const actions: Actions = {
 			weeklyRedeem = null;
 		}
 
-		// #4687 ②: 週 5 枠が埋まった後 (CARD_FULL) は stamp=null になる。旧実装はそのまま返していたため
-		// 演出が「今週 0回目！ / +0pt / あと5回でコンプリート！」と空カードになり、ヘッダー (5/5) と
-		// 画面内で矛盾していた。今のカードを読み直して渡し、演出側で「コンプリート」を出す。
-		const cardFull = 'error' in stampResult && stampResult.error === 'CARD_FULL';
-		const currentCard = cardFull ? await getStampCardStatus(childId, tenantId) : null;
+		// #4687 ②: 押印できない日 (週 5 枠が埋まった CARD_FULL / 今日は押印済 ALREADY_STAMPED) は
+		// stamp=null になる。旧実装はそのまま返していたため演出が「今週 0回目！ / +0pt /
+		// あと5回でコンプリート！」と空カードになり、ヘッダー (5/5) と画面内で矛盾していた。
+		// 今のカードを読み直して渡し、埋まっていれば演出側で「コンプリート」を出す。
+		const currentCard = stamp ? null : await getStampCardStatus(childId, tenantId);
 		const cardData = stamp?.cardData ?? currentCard;
+		const cardFull = !stamp && !!currentCard && currentCard.filledSlots >= currentCard.totalSlots;
 
 		return {
 			success: true,
