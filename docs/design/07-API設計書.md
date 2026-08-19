@@ -137,8 +137,8 @@
 | POST | /api/v1/usage | セッション開始記録 | 全ロール |
 | PATCH | /api/v1/usage | セッション終了記録 | 全ロール |
 
-**no-op fallback 仕様 (#2338、2026-05-20)**:
-`DATA_SOURCE=dynamodb` / `DATA_SOURCE=demo` モード時、`usage-log-service` は SQLite repo を呼ばず no-op で動作し、endpoint は `204 No Content` を返す（旧来は `null` → 500 で本番 cognito Lambda エラーログ汚染）。SQLite mode (`DATA_SOURCE=sqlite`、NUC / dev) では従来通り `200 OK` + `{ id }`。DynamoDB 完全実装は PMF 後に評価（ADR-0010 Bucket B、`docs/rationale/07-usage-log-dynamodb-deferred-rationale.md`）。
+**backend 別挙動 (#4719)**:
+`usage-log-service` は backend 分岐を持たず、facade `usage-log-repo.ts` → factory `getRepos().usageLog` (`IUsageLogRepo`) が backend を選ぶ。sqlite (NUC local / dev) と pg-core (cloud DSQL / NUC PGlite、`dsql/usage-log-repo.ts`、`usage_logs` 表) は記録・集計を行い `201 Created` + `{ id }` / PATCH は `200 OK` + `{ durationSec }`。`DATA_SOURCE=demo` は stub repo (永続化なし) で POST は dummy id `'0'` を返し、PATCH は行が無いため `204 No Content`。DB エラー時は service が `null` に正規化し endpoint は `204`（client は fire-and-forget、5xx alarm 抑止）。
 
 ### 画像・エクスポート
 
