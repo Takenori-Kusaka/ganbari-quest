@@ -1210,6 +1210,34 @@ export const CHECKLIST_ADMIN_TERMS = {
 } as const;
 
 // ============================================================
+// POINTS_ADMIN_TERMS — ポイント管理 (/admin/points) 画面の用語 atom (#4658)
+// ============================================================
+//
+// 変換フォームのモードタブ名 / 確定ボタンの語 / 履歴見出し / 「変換可能」の語。画面側は「変換」で
+// 統一されているのにガイドが「交換」と書き、タブ名も旧称 (じぶんで / レシート) だったため、
+// 描画側 (POINTS_LABELS) とガイド (PAGE_GUIDE_LABELS.adminPoints) の双方が本 atom を参照する。
+export const POINTS_ADMIN_TERMS = {
+	/** 本画面の操作 (「交換」ではない。ごほうび交換は子供画面の shop) */
+	convert: '変換',
+	convertVerb: '変換する',
+	/** 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値) */
+	convertable: '変換可能',
+	/** 変換フォームのモードタブ */
+	tabPreset: 'かんたん',
+	tabManual: '自由入力',
+	tabReceipt: '領収書',
+	/** 自由入力モードの全額ボタン */
+	maxButton: '全額変換',
+	/** 履歴セクション */
+	historyTitle: 'おこづかい変換りれき',
+	historyFilterThisMonth: '今月',
+	historyFilterLastMonth: '先月',
+	historyFilterAll: '全期間',
+	/** かんたんモードの変換単位 (P)。実装 (+page.svelte の preset 選択肢) と同値 */
+	presetUnit: 500,
+} as const;
+
+// ============================================================
 // REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
 // ============================================================
 //

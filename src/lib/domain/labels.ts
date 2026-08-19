@@ -72,6 +72,7 @@ import {
 	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
+	POINTS_ADMIN_TERMS,
 	PRICE_TERMS,
 	REWARD_ADMIN_TERMS,
 	REWARD_TERMS,
@@ -1751,30 +1752,53 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4658: /admin/points のガイド。画面は一貫して「変換」(おこづかいに換える) であり「交換」ではない
+	// (ごほうび交換は子供画面の shop)。タブ名 / ボタン名 / 履歴見出しは描画側と同じ atom
+	// (POINTS_ADMIN_TERMS) を参照する。残高カード / 履歴は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminPoints: {
-		title: 'ポイント交換',
+		title: NAV_ITEM_LABELS.points,
 		steps: {
 			'points-intro': {
 				title: 'このページについて',
-				what: 'お子さまが活動で貯めたポイントを、おこづかいやご褒美に交換するページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。',
-				how: 'お子さまを選んで交換ポイント数を指定し、交換を確定します。交換すると残高が引かれ、履歴に記録されます。',
-				goal: '「500ポイント貯めたら交換しようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				what: `お子さまが活動で貯めたポイントを、おこづかい（現金）に${POINTS_ADMIN_TERMS.convertVerb}ページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。`,
+				how: `1. お子さまの残高カードを押す\n2. 下に開く${POINTS_ADMIN_TERMS.convert}フォームで金額を決めて確定する`,
+				goal: '「500ポイント貯めたらおこづかいにしようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				tips: [
+					`${REWARD_TERMS.canonical}との交換はこのページではなく、お子さまの画面の${REWARD_TERMS.shop}で行います（用意は${REWARD_TERMS.menu}から）`,
+					'円で表示したいときや 1P あたりの金額を変えたいときは、設定 > 活動・ポイント の「ポイント表示設定」から変更します（はじめは 1P = 1円）',
+				],
+				relatedLinks: [
+					{ label: 'ポイント表示設定を開く', href: '/admin/settings/activities#point-settings' },
+					{ label: `${REWARD_TERMS.menu}を開く`, href: '/admin/rewards' },
+				],
 			},
 			'points-balances': {
 				title: '画面の見方（残高の一覧）',
-				what: '上部にお子さまごとのポイント残高カードが並びます。カードをタップすると、そのお子さまの交換フォームが下に開きます。',
-				how: '1. 交換したいお子さまのカードをタップします\n2. 選んだお子さまの残高が強調表示されます',
-				goal: '誰がどれだけ貯めているかをひと目で把握でき、交換の対象をすぐ選べます。',
+				what: `お子さまごとのカードに「残高」と「${POINTS_ADMIN_TERMS.convertable}」が出ます。${POINTS_ADMIN_TERMS.convertable}は残高を ${POINTS_ADMIN_TERMS.presetUnit}P 単位に切り捨てた額で、「${POINTS_ADMIN_TERMS.tabPreset}」で選べる上限です。`,
+				how: `1. カードで残高と${POINTS_ADMIN_TERMS.convertable}を見比べる\n2. 端数まで${POINTS_ADMIN_TERMS.convertVerb}ときは「${POINTS_ADMIN_TERMS.tabManual}」を使う（1P 単位）`,
+				goal: '誰がどれだけ貯めているかをひと目で把握でき、いくらまで渡せるかがすぐ分かります。',
+				tips: [
+					`残高が ${POINTS_ADMIN_TERMS.presetUnit}P に満たないお子さまはカードを押しても${POINTS_ADMIN_TERMS.convert}できる分がありません`,
+				],
 			},
 			'points-convert': {
-				title: 'よく使う操作（ポイントの交換）',
-				what: '最もよく使うのがポイントの交換です。残高カードをタップすると、その下に交換フォームが開き、「かんたん」「じぶんで」「レシート」の3つの方法から選べます。',
-				how: '1. お子さまの残高カードをタップ\n2. 交換方法のタブを選択\n3. 交換ポイント数を指定（残高が足りない場合はグレーアウト）\n4. 「交換する」をタップで確定',
-				goal: 'お子さまの残高から交換分が引かれ、交換履歴に記録されます。定額おこづかいにも、ご褒美交換にも使えます。',
-				tips: [
-					'交換レートは設定画面で変更できます（例: 100ポイント = 100円）',
-					'画面下部の交換りれきで、月別の交換実績を確認できます',
-				],
+				title: `よく使う操作（おこづかいへの${POINTS_ADMIN_TERMS.convert}）`,
+				what: `残高カードを押すと、その下に${POINTS_ADMIN_TERMS.convert}フォームと「${POINTS_ADMIN_TERMS.historyTitle}」が開きます。`,
+				how: `1. ${POINTS_ADMIN_TERMS.convertVerb}お子さまのカードを押す\n2. 「${POINTS_ADMIN_TERMS.tabPreset}」「${POINTS_ADMIN_TERMS.tabManual}」「${POINTS_ADMIN_TERMS.tabReceipt}」から入力方法を選ぶ\n3. 金額を決めて、下の「〇〇 を${POINTS_ADMIN_TERMS.convertVerb}」（円で表示しているときは「〇〇 を渡す」）を押す`,
+				goal: 'お子さまの残高から その分が引かれ、りれきに記録されます。',
+				tips: ['円で表示しているときは、画面の案内どおり実際のお金をお子さまにお渡しください'],
+			},
+			'points-modes': {
+				title: `画面の見方（3 つの入力方法）`,
+				what: `「${POINTS_ADMIN_TERMS.tabPreset}」は ${POINTS_ADMIN_TERMS.presetUnit}P 単位のボタンから選ぶ方法、「${POINTS_ADMIN_TERMS.tabManual}」は 1P 単位で自分で入れる方法、「${POINTS_ADMIN_TERMS.tabReceipt}」は買ったものの領収書を撮って金額を読み取る方法です。`,
+				how: `1. 「${POINTS_ADMIN_TERMS.tabPreset}」— ${POINTS_ADMIN_TERMS.convertable}を超える金額のボタンは出ません\n2. 「${POINTS_ADMIN_TERMS.tabManual}」— 残高を超えると「残高を超えています」と出ます。「${POINTS_ADMIN_TERMS.maxButton}」で残高いっぱいまで入ります\n3. 「${POINTS_ADMIN_TERMS.tabReceipt}」— 撮影 → 読み取り → 金額を直して確定します`,
+				goal: '「1,000 円ぴったり渡す」「本を買った分だけ引く」など、ご家庭の渡し方に合わせて選べます。',
+			},
+			'points-history': {
+				title: `画面の見方（${POINTS_ADMIN_TERMS.historyTitle}）`,
+				what: `選んでいるお子さまの${POINTS_ADMIN_TERMS.convert}記録が下にまとまります。「今月の合計」「累計」と、${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} の切り替えがあります。`,
+				how: `1. ${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} を押して期間を切り替える\n2. 他のお子さまの記録は、上のカードでそのお子さまを選ぶと表示されます`,
+				goal: '「今月はいくら渡したか」を後から確認でき、渡し忘れ・二重渡しを防げます。',
 			},
 		},
 	},
@@ -3546,16 +3570,16 @@ export const POINTS_LABELS = {
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
 	// 残高カード
-	convertableLabel: (amount: string) => `変換可能: ${amount}`,
+	convertableLabel: (amount: string) => `${POINTS_ADMIN_TERMS.convertable}: ${amount}`,
 
 	// 変換フォーム
 	convertFormTitle: (childName: string) => `${childName}のおこづかいにかえる`,
 	currencyModeHint: '💡 変換した金額を実際にお子さまへお渡しください',
 
 	// モードタブ
-	tabPreset: 'かんたん',
-	tabManual: '自由入力',
-	tabReceipt: '領収書',
+	tabPreset: POINTS_ADMIN_TERMS.tabPreset,
+	tabManual: POINTS_ADMIN_TERMS.tabManual,
+	tabReceipt: POINTS_ADMIN_TERMS.tabReceipt,
 
 	// プリセットモード
 	presetLabel: (unit: string, minAmount: string) => `変換${unit}数（${minAmount}単位）`,
@@ -3569,7 +3593,7 @@ export const POINTS_LABELS = {
 	manualHintCurrency: (current: string) => `残高: ${current}`,
 	manualHintPoints: (current: string) => `1P = 1円 / 残高: ${current}`,
 	manualPlaceholder: '金額を入力',
-	manualMaxButton: '全額変換',
+	manualMaxButton: POINTS_ADMIN_TERMS.maxButton,
 
 	// 領収書モード
 	// #3694: OCR 画像は base64 JSON body で送るため、AWS 本番は Function URL 6MB request cap に
@@ -3638,12 +3662,12 @@ export const POINTS_LABELS = {
 	resultBalance: (balance: string) => `残高: ${balance}`,
 
 	// 変換履歴
-	historyTitle: 'おこづかい変換りれき',
+	historyTitle: POINTS_ADMIN_TERMS.historyTitle,
 	historySummaryThisMonth: '今月の合計',
 	historySummaryAllTime: '累計',
-	historyFilterThisMonth: '今月',
-	historyFilterLastMonth: '先月',
-	historyFilterAll: '全期間',
+	historyFilterThisMonth: POINTS_ADMIN_TERMS.historyFilterThisMonth,
+	historyFilterLastMonth: POINTS_ADMIN_TERMS.historyFilterLastMonth,
+	historyFilterAll: POINTS_ADMIN_TERMS.historyFilterAll,
 	historyEmpty: 'この期間の変換履歴はありません',
 } as const;
 
