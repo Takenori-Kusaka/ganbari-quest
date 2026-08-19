@@ -41,41 +41,63 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
-	// #2894 AC5: free tier の reward-set 取込 → PlanLimitError が正しく描画される。
-	// 根本原因 (#2894): `String(error)` で PlanLimitError オブジェクトが `[object Object]` 化し、
-	// 「件数表示すら正しくない」壊れた表示になっていた。getActionErrorDisplay 経由で
-	// 構造化メッセージ + アップグレード導線が出ることを検証する (NN/G #9 error recovery)。
-	test('free プランで reward-set 取込 → PlanLimitError 構造化メッセージ + upgrade 導線 (#2894 AC3)', async ({
+	// #4705: free tier は marketplace の取込 CTA から着地しても **子供選択 dialog を開かない**。
+	// 旧挙動 (#2894) は dialog → 全員選択 → 確定 → POST 後に 403 で拒否しており、
+	// 「押せる → 子供まで選ばせる → 断る」という順序そのものが問題だった (PO 指摘)。
+	// assertion は弱めていない: 403 表示の検証を「そもそも到達させない」検証に置き換え、
+	// 拒否の実体 (server action / REST の gate) は unit で保持する
+	// (tests/unit/routes/admin-rewards-actions.test.ts / special-rewards-api-plan-gate.test.ts)。
+	test('free プランで reward-set 取込 URL に着地 → dialog を開かず条件を先に示す (#4705)', async ({
 		page,
 	}) => {
 		test.slow(); // Vite dev コールドコンパイル耐性
 
-		// ?import=<presetId> で ChildSelectionDialog auto-open
 		await page.goto('/admin/rewards?import=kinder-rewards', { waitUntil: 'domcontentloaded' });
-		const dialog = page.getByTestId('reward-import-child-selection-dialog');
-		await expect(dialog).toBeVisible({ timeout: 15_000 });
 
-		// 「全員に追加」default → 確定 click。free tier は importPresetToChildren で 403 を返す。
-		const confirm = page.getByTestId('child-selection-confirm');
-		await expect(confirm).toBeEnabled();
-		const [resp] = await Promise.all([
-			page.waitForResponse((r) => /\?\/importPresetToChildren/.test(r.url())),
-			confirm.click(),
-		]);
-		// SvelteKit form action の fail(403) は ActionResult として body 内 error を返す。
-		expect(resp.ok()).toBeTruthy();
-
-		// banner が表示され、`[object Object]` でない構造化メッセージが出る (壊れ表示の根治検証)。
+		// 条件メッセージが出る (banner は role=status、Toast と 2 層防御)
 		const banner = page.getByTestId('rewards-action-message');
-		await expect(banner).toBeVisible({ timeout: 10_000 });
+		await expect(banner).toBeVisible({ timeout: 15_000 });
 		await expect(banner).not.toContainText('[object Object]');
-		// PlanLimitError メッセージ (UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor) を含む。
 		await expect(banner).toContainText('スタンダードプラン');
 
-		// AC3 / NN/G #9: アップグレード導線リンクが /admin/subscription へ向く。
+		// 子供選択 dialog は開かない (子供を選ばせてから拒否しない)
+		await expect(page.getByTestId('reward-import-child-selection-dialog')).toHaveCount(0);
+
+		// NN/G #9: 次の行き先が示される
 		const upgradeLink = page.getByTestId('rewards-upgrade-link');
 		await expect(upgradeLink).toBeVisible();
 		await expect(upgradeLink).toHaveAttribute('href', '/admin/subscription');
+	});
+
+	// #4705: marketplace 詳細でも **押す前に** 条件が出る (CTA 自体を差し替える)。
+	test('free プランで reward-set 詳細 → 取込 CTA が条件表示に差し替わる (#4705)', async ({
+		page,
+	}) => {
+		test.slow();
+
+		await page.goto('/marketplace/reward-set/kinder-rewards', { waitUntil: 'domcontentloaded' });
+		const locked = page.getByTestId('marketplace-import-locked');
+		await expect(locked).toBeVisible({ timeout: 15_000 });
+		await expect(locked).toContainText('スタンダードプラン');
+		// 取込 CTA (押すと子供選択に進む導線) は出さない
+		await expect(page.getByTestId('reward-set-import-cta')).toHaveCount(0);
+		await expect(page.getByTestId('marketplace-import-locked-cta')).toHaveAttribute(
+			'href',
+			'/admin/subscription',
+		);
+	});
+
+	// #4705: 交換型ルール (rule-preset exchange) も取込先が /admin/rewards なので同じ扱い。
+	test('free プランで 交換型ルール詳細 → 取込 CTA が条件表示に差し替わる (#4705)', async ({
+		page,
+	}) => {
+		test.slow();
+
+		await page.goto('/marketplace/rule-preset/night-owl-pass', {
+			waitUntil: 'domcontentloaded',
+		});
+		await expect(page.getByTestId('marketplace-import-locked')).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByTestId('rule-preset-import-cta')).toHaveCount(0);
 	});
 });
 

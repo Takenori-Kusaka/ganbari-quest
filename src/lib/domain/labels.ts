@@ -1267,6 +1267,11 @@ export const MARKETPLACE_LABELS = {
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
 	/** #2136 MP-1: 件数付き一括追加 CTA */
 	detailCtaImportRewardWithCount: (count: number) => `🎁 このごほうびセットを一括追加 (${count}件)`,
+	// #4705: 無料プランは商品登録ができない。押す**前**に条件と次の行き先を示す
+	// (子供を選ばせてから拒否しない)。実ゲートは isCustomRewardUnlocked (#4584)。
+	detailImportLockedTitle: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
+	detailImportLockedDesc: `${PLAN_FULL_TERMS.free}でも活動の記録・ポイント・レベルはそのままお使いいただけます。取り込んだごほうびをショップに並べるには、プランのアップグレードが必要です。`,
+	detailImportLockedCta: 'プランを見る',
 	/** #2136 MP-1: ログイン後の reward 取込誘導 */
 	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
 	/** #2136 MP-1: 取込先の子供選択ラベル */
@@ -5699,6 +5704,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4705: 無料プランで marketplace の取込 CTA から着地したとき (子供を選ばせる前に条件を出す)
+	importLockedMessage: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
 	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
@@ -6966,8 +6973,7 @@ export const LP_PRICING_LABELS = {
 	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreeQ: '無料プランでも十分使えますか？',
 	// #1912 (F-6): LP FAQ の「ログインボーナス」→「ごほうび」へ日本語化
-	faqFreeA:
-		'はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。',
+	faqFreeA: `はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.productRegistration}（貯めたポイントと交換する商品の登録）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
@@ -8974,7 +8980,7 @@ export const LP_PAMPHLET_LABELS = {
 	k44: '子供の登録：無制限',
 	k45: 'オリジナル活動：無制限',
 	k46: '家族メンバー招待：4人まで',
-	k47: '特別なごほうび設定',
+	k47: `${REWARD_TERMS.productRegistration}`,
 	k48: 'データのダウンロード',
 	k49: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k50: 'メールサポート',
@@ -9048,7 +9054,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k11: 'オリジナル活動の作成：無制限',
 	k12: 'チェックリスト自由作成（無制限）',
 	k13: '家族メンバー招待：4人まで',
-	k14: '特別なごほうび設定（即時付与）',
+	k14: `${REWARD_TERMS.productRegistration}`,
 	k15: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k16: 'データのダウンロード',
 	k17: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -9093,7 +9099,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k49: '3個/子まで',
 	k50: '無制限',
 	k51: '無制限',
-	k52: '特別なごほうび設定（即時付与）',
+	k52: `${REWARD_TERMS.productRegistration}`,
 	k53: 'AI 自動提案（活動・ごほうび・チェックリスト）',
 	k54: 'レポート・家族機能',
 	k55: '日次サマリー',
@@ -9746,11 +9752,14 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k6: '持ち物チェックリスト 3個/子まで',
 	k7: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k8: 'メールサポート（標準）',
+	// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限を
+	// 検討時点で見えるようにする (実ゲート = isCustomRewardUnlocked、#4584)。
+	k8b: `${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
 	k12: '家族メンバー招待：4人まで',
-	k13: '特別なごほうび設定（即時付与）',
+	k13: `${REWARD_TERMS.productRegistration}`,
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
 	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -9782,7 +9791,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	// #1710 R3-C: k38 を「持ち物チェックリスト自由作成」に純化（持ち物 = event-* プリセット 3 件 / 毎日 must = 活動マスタ priority 属性 への責務分離）
 	k36: '<td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
 	k38: '<td>持ち物チェックリスト自由作成</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
-	k39: '<td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
+	k39: `<td>${REWARD_TERMS.productRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	k42: '<td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
@@ -10004,7 +10013,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
 	k42: '<span class="check">&#x2713;</span>家族メンバー招待：4人まで',
-	k43: '<span class="check">&#x2713;</span>特別なごほうび設定',
+	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.productRegistration}`,
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k46: '<span class="check">&#x2713;</span>メールサポート',

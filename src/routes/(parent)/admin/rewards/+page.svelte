@@ -272,6 +272,21 @@ $effect(() => {
 	}
 });
 
+// #4705: 無料プランで marketplace の取込 CTA から着地したとき。dialog は開かず
+// (子供を選ばせてから拒否しない)、条件と行き先だけを伝える。invalid preset と同じ one-shot guard。
+let handledLockedPreset = $state(false);
+$effect(() => {
+	if (data.importPresetLocked) {
+		if (!handledLockedPreset) {
+			handledLockedPreset = true;
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
+		}
+	} else {
+		handledLockedPreset = false;
+	}
+});
+
 // ChildSelectionDialog 用の ChildOption 配列
 const childOptions = $derived<ChildOption[]>(
 	data.children.map((c) => ({

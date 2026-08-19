@@ -112,6 +112,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
+	// #4705: 無料プランは商品登録ができない。取込 preset を伴って着地しても
+	// ChildSelectionDialog を開かず (子供を選ばせてから拒否しない)、条件を先に伝える。
+	const importPresetLocked = Boolean(importPresetId) && !isPremium;
+	if (importPresetLocked) {
+		importPresetId = null;
+		importPresetTypeCode = null;
+	}
 	// `?childId=<n>` query で初期 child 選択復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
 	const initialChildId =
@@ -133,6 +140,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const pendingRewardIds = [...new Set(pendingRequests.map((r) => r.rewardId))];
 
 	return {
+		// #4705: 無料プランで取込 CTA から着地したことを画面に伝える (dialog は開かない)
+		importPresetLocked,
+
 		children: childrenWithRewards,
 		childRewardsByChild,
 		templates,
