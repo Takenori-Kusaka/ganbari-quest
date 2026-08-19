@@ -6,10 +6,10 @@ import { getEnemyById, selectDailyEnemy } from '$lib/domain/battle-enemies';
 import { executeBattle, scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
+import { BATTLE_LEDGER_TYPE } from '$lib/domain/battle-types';
 import { jstDayOfWeek, todayDateJST } from '$lib/domain/date-utils';
-import { insertPointLedger } from '$lib/server/db/activity-repo';
 import {
-	completeBattle,
+	completeBattleAndGrantPoints,
 	countConsecutiveLosses,
 	findCollection,
 	findRecentBattles,
@@ -27,11 +27,10 @@ import type {
 // ============================================================
 
 /**
- * #4681: バトル報酬の point_ledger type。勝利 = enemy.dropPoints / 敗北 = enemy.consolationPoints を
- * 本 type で台帳に計上する (設計書 26 §4c「副次ポイントが付与される」)。
- * referenceId = battleId で (child, type, reference) 冪等 unique (#3284) が二重付与を物理拒否する。
+ * #4681: バトル報酬の point_ledger type (SSOT は `$lib/domain/battle-types`)。
+ * repo の原子 primitive と共有するため domain に置き、ここから re-export する。
  */
-export const BATTLE_LEDGER_TYPE = 'battle';
+export { BATTLE_LEDGER_TYPE };
 
 export interface TodayBattleInfo {
 	/** バトル ID（DB レコード） */
@@ -173,29 +172,29 @@ export async function executeDailyBattle(
 	const rewardPoints = battleResult.outcome === 'win' ? enemy.dropPoints : enemy.consolationPoints;
 	battleResult.rewardPoints = rewardPoints;
 
-	// DB 更新
-	await completeBattle(
+	// DB 更新 + 報酬付与 (#4681)
+	//
+	// 画面「+N ポイント」と残高を一致させる。`daily_battles.reward_points` は結果表示用の
+	// snapshot であり、残高の正は point_ledger (SUM / total_point) なので台帳に計上しなければ
+	// 「表示されるが一度も加算されない」になる。付与額は rewardPoints そのもの (別計算を持たない)。
+	//
+	// 完了 flip と付与は **単一 txn の原子 primitive** で行う (#3284/#3342 の claim と同型)。
+	// 2 段に分けると ledger 失敗時に「完了済み + 付与 0」= 二度と取り返せない lost-award になる。
+	const flipped = await completeBattleAndGrantPoints(
 		battle.id,
 		battleResult.outcome,
 		rewardPoints,
 		battleResult.totalTurns,
+		{
+			childId,
+			amount: rewardPoints,
+			description: `[${today}] バトル${battleResult.outcome === 'win' ? 'しょうり' : 'なぐさめ'} ${enemy.name}`,
+		},
 		tenantId,
 	);
-
-	// #4681: 画面「+N ポイント」と残高を一致させる。daily_battles.reward_points は結果表示用の
-	// snapshot であり、残高の正は point_ledger (SUM / total_point) なので台帳に計上しなければ
-	// 「表示されるが一度も加算されない」になる。付与額は rewardPoints そのもの (別計算を持たない)。
-	if (rewardPoints > 0) {
-		await insertPointLedger(
-			{
-				childId,
-				amount: rewardPoints,
-				type: BATTLE_LEDGER_TYPE,
-				description: `[${today}] バトル${battleResult.outcome === 'win' ? 'しょうり' : 'なぐさめ'} ${enemy.name}`,
-				referenceId: battle.id,
-			},
-			tenantId,
-		);
+	if (flipped !== 1) {
+		// 並行 2 連打で他方が先に完了させた (status が pending でなくなった)。
+		throw new Error('今日のバトルは既に完了しています');
 	}
 
 	// 勝利時は図鑑に記録

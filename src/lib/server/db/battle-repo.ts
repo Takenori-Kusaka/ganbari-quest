@@ -36,6 +36,25 @@ export async function completeBattle(
 	return getRepos().battle.completeBattle(battleId, outcome, rewardPoints, turnsUsed, tenantId);
 }
 
+/** #4681: 完了 flip + 報酬 ledger を単一 txn で行う原子 primitive。 */
+export async function completeBattleAndGrantPoints(
+	battleId: string,
+	outcome: BattleOutcome,
+	rewardPoints: number,
+	turnsUsed: number,
+	ledger: { childId: ChildId; amount: number; description: string },
+	tenantId: string,
+) {
+	return getRepos().battle.completeBattleAndGrantPoints(
+		battleId,
+		outcome,
+		rewardPoints,
+		turnsUsed,
+		ledger,
+		tenantId,
+	);
+}
+
 export async function findCollection(childId: ChildId, tenantId: string) {
 	return getRepos().battle.findCollection(childId, tenantId);
 }

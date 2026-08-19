@@ -56,6 +56,18 @@ export async function completeBattle(
 	// Stub: no-op
 }
 
+export async function completeBattleAndGrantPoints(
+	_battleId: string,
+	_outcome: BattleOutcome,
+	_rewardPoints: number,
+	_turnsUsed: number,
+	_ledger: { childId: ChildId; amount: number; description: string },
+	_tenantId: string,
+): Promise<number> {
+	// Stub: demo は write 非永続 (ADR-0048)。flip 成立扱いにして UI 契約だけ満たす。
+	return 1;
+}
+
 export async function findCollection(
 	_childId: ChildId,
 	_tenantId: string,

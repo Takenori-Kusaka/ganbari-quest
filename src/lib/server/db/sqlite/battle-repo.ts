@@ -2,11 +2,11 @@
 // バトルアドベンチャー SQLite リポジトリ
 
 import { and, desc, eq, sql } from 'drizzle-orm';
-import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import { BATTLE_LEDGER_TYPE, type BattleOutcome, type BattleStats } from '$lib/domain/battle-types';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type { DailyBattleRow, EnemyCollectionRow } from '../interfaces/battle-repo.interface';
-import { dailyBattles, enemyCollection } from '../schema';
+import { dailyBattles, enemyCollection, pointLedger } from '../schema';
 
 type BattleRow = typeof dailyBattles.$inferSelect;
 type CollectionRow = typeof enemyCollection.$inferSelect;
@@ -116,6 +116,46 @@ export async function completeBattle(
 		})
 		.where(eq(dailyBattles.id, Number(battleId)))
 		.run();
+}
+
+/**
+ * #4681: 完了 flip + 報酬 ledger を単一 txn で実行する原子 primitive。
+ * status='pending' の行だけ flip し、成立時のみ ledger を INSERT する (両成功 or 両 rollback)。
+ */
+export async function completeBattleAndGrantPoints(
+	battleId: string,
+	outcome: BattleOutcome,
+	rewardPoints: number,
+	turnsUsed: number,
+	ledger: { childId: ChildId; amount: number; description: string },
+	_tenantId: string,
+): Promise<number> {
+	return db.transaction((tx) => {
+		const result = tx
+			.update(dailyBattles)
+			.set({
+				status: 'completed',
+				outcome,
+				rewardPoints,
+				turnsUsed,
+				updatedAt: sql`CURRENT_TIMESTAMP`,
+			})
+			.where(and(eq(dailyBattles.id, Number(battleId)), eq(dailyBattles.status, 'pending')))
+			.run();
+		if (result.changes !== 1) return 0;
+		if (ledger.amount !== 0) {
+			tx.insert(pointLedger)
+				.values({
+					childId: Number(ledger.childId),
+					amount: ledger.amount,
+					type: BATTLE_LEDGER_TYPE,
+					description: ledger.description,
+					referenceId: Number(battleId),
+				})
+				.run();
+		}
+		return 1;
+	});
 }
 
 /** 敵図鑑を取得 */
