@@ -639,7 +639,8 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// 認可チェック（Provider 固有のルート保護）
-		const authResult = provider.authorize(path, identity, context);
+		// #4701: `?next=` を見る判定 (ログイン済みで /auth/login に来た顧客の転送先) のため url も渡す
+		const authResult = provider.authorize(path, identity, context, event.url);
 		if (!authResult.allowed) {
 			if (path.startsWith('/api/')) {
 				const status = authResult.status ?? 401;

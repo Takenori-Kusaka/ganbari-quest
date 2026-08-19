@@ -16,6 +16,7 @@ import {
 	MARKETPLACE_TYPE_LABELS,
 	PERSONA_LABELS,
 } from '$lib/domain/marketplace-item';
+import { buildLoginHrefWithNext } from '$lib/domain/validation/login-redirect';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -27,6 +28,10 @@ let { data } = $props();
 const item: MarketplaceItem = data.item;
 
 const isActivityPack = $derived(item.type === 'activity-pack');
+
+// #4701: 未ログイン CTA は `?next=` (login-redirect.ts SSOT、旧 `?redirect=` は login が読まず常に /admin 着地)
+// に統一し、ログイン後 (password / Google 両経路) に見ていた画面へ戻す。値は encode して入れ子 query を壊さない
+const loginHref = buildLoginHrefWithNext;
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
@@ -361,9 +366,9 @@ function deselectAllActivities() {
 			{:else if isRewardSet}
 				<!-- #2136 MP-1: 未ログイン -> login へ誘導 (#2303: data integrity 保護のため signup ではなく login)。
 					login 画面内「新規アカウント作成」リンクで signup へ到達可能。
-					redirect query は将来 login が post-login redirect に対応した時のため保持 -->
+					#4701: ログイン後に本詳細へ戻す (`?next=`) -->
 				<a
-					href="/auth/login?redirect=/marketplace/{item.type}/{item.itemId}"
+					href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}
 					class="block"
 					data-testid="reward-import-signup-cta"
 				>
@@ -412,7 +417,7 @@ function deselectAllActivities() {
 					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
 				</p>
 				<a
-					href="/auth/login?next=/marketplace/{item.type}/{item.itemId}"
+					href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}
 					class="block"
 					data-testid="marketplace-signup-redirect"
 				>
@@ -490,7 +495,7 @@ function deselectAllActivities() {
 				<!-- #2138 (MP-3) / #2303: 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
 					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 				<a
-					href="/auth/login?next=/marketplace/rule-preset/{item.itemId}"
+					href={loginHref(`/marketplace/rule-preset/${item.itemId}`)}
 					class="block"
 					data-testid="rule-import-signup-redirect"
 				>
@@ -548,7 +553,7 @@ function deselectAllActivities() {
 				<!-- #2362 PR-3 Phase 5 / #2303: activity-pack 未ログイン → /auth/login (誤新規登録防止 / data integrity 保護)。
 					next query で取込再開動線を維持 (login 後 admin/activities?import=<itemId> へ遷移して auto-open) -->
 				<a
-					href="/auth/login?next=/admin/activities?import={item.itemId}"
+					href={loginHref(`/admin/activities?import=${item.itemId}`)}
 					class="block"
 					data-testid="activity-pack-signup-redirect"
 				>

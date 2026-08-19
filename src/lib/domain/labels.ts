@@ -4313,6 +4313,20 @@ export const CHALLENGES_LABELS = {
 export const LOGIN_LABELS = {
 	mfaBadge: 'MFA認証',
 	passwordResetSuccess: 'パスワードがリセットされました。新しいパスワードでログインしてください。',
+	// #4701: ログイン画面に戻された理由 (query → 文言)。mapping は $lib/domain/validation/login-redirect.ts
+	noticeRegistered:
+		'アカウントの登録が完了しました。登録したメールアドレスとパスワードでログインしてください。',
+	noticeConfirmed: 'メールアドレスの確認が完了しました。ログインして始めましょう。',
+	noticeAccountDeleted: `このアカウントは${CANCEL_TERMS.account}（削除）済みのためログインできません。もう一度ご利用になる場合は、新しいアカウントを登録してください。`,
+	noticeOauthFailed:
+		'Google でのログインを完了できませんでした。もう一度お試しいただくか、メールアドレスとパスワードでログインしてください。',
+	noticeOauthStateLost:
+		'ログインの途中で情報が失われました（時間切れ、または別のタブやブラウザで開いた可能性があります）。もう一度「Google でログイン」からやり直してください。',
+	noticeOauthTokenExchangeFailed:
+		'Google アカウントの確認に失敗しました。時間をおいてもう一度お試しください。続く場合はメールアドレスとパスワードでログインしてください。',
+	noticeLoginFailedGeneric: 'ログインを完了できませんでした。もう一度お試しください。',
+	// #4701: ?next= 付きでログイン画面に来たとき、ログイン後に元の画面へ戻ることを予告する
+	nextReturnNotice: 'ログインすると、見ていた画面に戻ります。',
 
 	// Confirm code step
 	confirmBadge: 'メール認証',

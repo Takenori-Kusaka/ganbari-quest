@@ -5,6 +5,11 @@
 
 import { fail, redirect } from '@sveltejs/kit';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
+import {
+	encodeNextParam,
+	LOGIN_NEXT_PARAM,
+	resolveSafeNextPath,
+} from '$lib/domain/validation/login-redirect';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
@@ -14,6 +19,7 @@ import {
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
+import type { Role } from '$lib/server/auth/types';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 import {
@@ -23,23 +29,34 @@ import {
 } from '$lib/server/security/account-lockout';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+/**
+ * ログイン後の着地先 (#4701)。`?next=` が安全な相対パス (同一オリジン、`/` 始まり、`//` `/\` 不可) なら
+ * それを、無ければロール既定 (child → /switch、それ以外 → /admin) を返す。
+ * child が `/admin/...` を next に持っていても hooks の認可が /switch へ戻すため、ここでは役割で絞らない。
+ */
+function resolveLoginTarget(next: string | null | undefined, role: Role | null) {
+	return resolveSafeNextPath(next) ?? (role === 'child' ? '/switch' : '/admin');
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+	// #4701: `?next=` は検証済みの値だけを page data に載せる (外部 URL / `//evil` は null = 無視)
+	const next = resolveSafeNextPath(url.searchParams.get(LOGIN_NEXT_PARAM));
 
 	// local モードではログイン不要 → /admin へ
 	if (authMode === 'local') {
-		redirect(302, '/admin');
+		redirect(302, next ?? '/admin');
 	}
 
-	// 既にログイン済み → /admin へ
+	// 既にログイン済み → next または /admin へ
 	if (locals.identity) {
-		const target = locals.context?.role === 'child' ? '/switch' : '/admin';
-		redirect(302, target);
+		redirect(302, resolveLoginTarget(next, locals.context?.role ?? null));
 	}
 
 	return {
 		devMode: isCognitoDevMode(),
+		next,
 	};
 };
 
@@ -49,6 +66,8 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
+		// #4701: hidden input で往復した next (再検証する。form 改竄で外部 URL を入れても無視される)
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!email || !password) {
 			return fail(400, { error: 'メールアドレスとパスワードを入力してください', email });
@@ -57,10 +76,10 @@ export const actions: Actions = {
 		const devMode = isCognitoDevMode();
 
 		if (devMode) {
-			return handleDevLogin(email, password, cookies);
+			return handleDevLogin(email, password, cookies, next);
 		}
 
-		return handleCognitoLogin(email, password, cookies);
+		return handleCognitoLogin(email, password, cookies, next);
 	},
 
 	confirmCode: async ({ request, cookies }) => {
@@ -68,6 +87,7 @@ export const actions: Actions = {
 		const email = formData.get('email') as string;
 		const code = (formData.get('code') as string)?.replace(/\s/g, '');
 		const password = formData.get('password') as string;
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!email || !code) {
 			return fail(400, {
@@ -95,12 +115,12 @@ export const actions: Actions = {
 			if (loginResult.success) {
 				await resetLoginFailures(email);
 				establishSession(cookies, loginResult);
-				redirect(302, '/admin');
+				redirect(302, resolveLoginTarget(next, null));
 			}
 		}
 
-		// 自動ログインできなかった場合はログインページへ
-		redirect(302, '/auth/login?confirmed=true');
+		// 自動ログインできなかった場合はログインページへ (確認完了を表示、next は引き継ぐ)
+		redirect(302, withNext('/auth/login?confirmed=true', next));
 	},
 
 	resendFromLogin: async ({ request }) => {
@@ -139,6 +159,7 @@ export const actions: Actions = {
 		const mfaCode = (formData.get('mfaCode') as string)?.replace(/\s/g, '');
 		const challengeName = formData.get('challengeName') as string;
 		const email = formData.get('email') as string;
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!session || !mfaCode || !challengeName) {
 			return fail(400, { error: 'MFA認証コードを入力してください', email, mfaStep: true });
@@ -158,9 +179,16 @@ export const actions: Actions = {
 
 		// MFA成功 → セッション確立
 		establishSession(cookies, result);
-		redirect(302, '/admin');
+		redirect(302, resolveLoginTarget(next, null));
 	},
 };
+
+/** `next` があれば query に付けて返す (login 画面への戻りで引き継ぐ用)。 */
+function withNext(path: string, next: string | null): string {
+	if (!next) return path;
+	const sep = path.includes('?') ? '&' : '?';
+	return `${path}${sep}${LOGIN_NEXT_PARAM}=${encodeNextParam(next)}`;
+}
 
 /**
  * 認証成功時のセッション cookie 確立
@@ -181,6 +209,7 @@ async function handleDevLogin(
 	email: string,
 	password: string,
 	cookies: import('@sveltejs/kit').Cookies,
+	next: string | null,
 ) {
 	const user = authenticateDevUser(email, password);
 	if (!user) {
@@ -204,8 +233,7 @@ async function handleDevLogin(
 		maxAge: 60 * 60,
 	});
 
-	const target = user.role === 'child' ? '/switch' : '/admin';
-	redirect(302, target);
+	redirect(302, resolveLoginTarget(next, user.role));
 }
 
 /** 本番: Cognito InitiateAuth API で認証 */
@@ -213,6 +241,7 @@ async function handleCognitoLogin(
 	email: string,
 	password: string,
 	cookies: import('@sveltejs/kit').Cookies,
+	next: string | null,
 ) {
 	// アカウントロックアウトチェック
 	const lockout = await checkAccountLockout(email);
@@ -274,8 +303,8 @@ async function handleCognitoLogin(
 		return fail(401, { error: result.message, email });
 	}
 
-	// 認証成功: ロックアウトカウンターをリセット → セッション確立
+	// 認証成功: ロックアウトカウンターをリセット → セッション確立 → next または /admin
 	await resetLoginFailures(email);
 	establishSession(cookies, result);
-	redirect(302, '/admin');
+	redirect(302, resolveLoginTarget(next, null));
 }

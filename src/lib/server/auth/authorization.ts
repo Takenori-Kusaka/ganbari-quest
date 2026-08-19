@@ -6,6 +6,7 @@
 // ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { LOGIN_NEXT_PARAM, resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
 import type { AuthContext, AuthResult, Identity, Role } from './types';
 
 interface RouteRule {
@@ -78,12 +79,16 @@ export function authorizeCognito(
 	path: string,
 	identity: Identity | null,
 	context: AuthContext | null,
+	url?: URL,
 ): AuthResult {
 	// 公開ルート（認証不要）
 	if (isPublicRoute(path)) {
-		// 認証済みで /auth/login にアクセスしたら適切な画面へ
+		// 認証済みで /auth/login にアクセスしたら適切な画面へ。
+		// #4701: `?next=` が安全な相対パスならそこへ送る (marketplace CTA からログイン済みで来た顧客が
+		// 見ていた画面に戻れる)。外部 URL / `//evil` は resolveSafeNextPath が null にするので既定へ。
 		if (path.startsWith('/auth/login') && identity && context) {
-			const redirect = context.role === 'child' ? '/switch' : '/admin';
+			const next = resolveSafeNextPath(url?.searchParams.get(LOGIN_NEXT_PARAM));
+			const redirect = next ?? (context.role === 'child' ? '/switch' : '/admin');
 			return { allowed: false, redirect };
 		}
 		return { allowed: true };
