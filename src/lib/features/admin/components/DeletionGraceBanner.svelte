@@ -40,16 +40,23 @@ let {
 
 const visible = $derived(Boolean(status?.isSoftDeleted) && !status?.isExpired);
 
-/** 物理削除日を「YYYY年M月D日」で表示する (ISO をそのまま出さない) */
-const deletionDateLabel = $derived(
-	status?.physicalDeletionDate
-		? new Date(status.physicalDeletionDate).toLocaleDateString('ja-JP', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric',
-			})
-		: '',
-);
+/**
+ * 物理削除日を「YYYY年M月D日」で表示する (ISO をそのまま出さない)。
+ * SSR は Lambda = UTC で描画されるため `timeZone: 'Asia/Tokyo'` を明示する
+ * (JST 00:00〜09:00 に前日として表示されるのを防ぐ、#4015)。
+ */
+const deletionDateLabel = $derived.by(() => {
+	const iso = status?.physicalDeletionDate;
+	if (!iso) return '';
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return '';
+	return date.toLocaleDateString('ja-JP', {
+		timeZone: 'Asia/Tokyo',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+	});
+});
 
 let restoreSubmitting = $state(false);
 let restoreError = $state('');
