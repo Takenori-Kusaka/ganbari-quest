@@ -69,10 +69,12 @@ describe('#4681 executeDailyBattle → point_ledger 計上', () => {
 
 		const rows = ledgerRows();
 		expect(rows).toHaveLength(1);
-		expect(rows[0].type).toBe(BATTLE_LEDGER_TYPE);
-		expect(rows[0].amount).toBe(expected);
+		const row = rows[0];
+		if (!row) throw new Error('ledger row missing');
+		expect(row.type).toBe(BATTLE_LEDGER_TYPE);
+		expect(row.amount).toBe(expected);
 		// 冪等キー (child, type, reference) = battleId で二重付与を DB 層が拒否する
-		expect(String(rows[0].referenceId)).toBe(info.battleId);
+		expect(String(row.referenceId)).toBe(info.battleId);
 
 		// 残高 = SUM(ledger) が画面表示額と一致
 		const sum = rows.reduce((acc, r) => acc + r.amount, 0);
@@ -85,10 +87,11 @@ describe('#4681 executeDailyBattle → point_ledger 計上', () => {
 		await expect(executeDailyBattle(CHILD, 'elementary', CATEGORY_XP, TENANT)).rejects.toThrow(
 			/既に完了/,
 		);
-		expect(ledgerRows()).toHaveLength(1);
+		const rows = ledgerRows();
+		expect(rows).toHaveLength(1);
 
 		const again = await getTodayBattle(CHILD, 'elementary', CATEGORY_XP, TENANT);
 		expect(again.completed).toBe(true);
-		expect(again.result?.rewardPoints).toBe(ledgerRows()[0].amount);
+		expect(again.result?.rewardPoints).toBe(rows[0]?.amount);
 	});
 });
