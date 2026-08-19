@@ -2572,6 +2572,8 @@ export const SETTINGS_LABELS = {
 	dataImportPreviewAchievements: (n: number | string | undefined) => `実績: ${n}件`,
 	dataImportPreviewLoginBonuses: (n: number | string | undefined) => `ログインボーナス: ${n}件`,
 	dataImportPreviewChecklists: (n: number | string | undefined) => `チェックリスト: ${n}件`,
+	// #4696: データクリアの件数表示 (お子さまの音声)。実績 (#322 廃止) は表示対象から外した
+	dataImportPreviewVoices: (n: number | string | undefined) => `お子さまの音声: ${n}件`,
 	dataImportMoreItems: (n: number) => `...他 ${n}件`,
 	dataImportReplaceConfirm:
 		'既存データをすべて削除してからインポートします。この操作は取り消せません。',
@@ -5365,6 +5367,8 @@ export const SETUP_CHILDREN_LABELS = {
 	addButton: '追加する',
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
+	// #4696: 全削除後もこの画面に来るため、バックアップからの復元導線を出す
+	restoreFromBackup: 'バックアップから復元する',
 	addSuccessMessage: '子供を登録しました！',
 } as const;
 

@@ -722,6 +722,19 @@ export async function countActiveActivityLogsByCategory(
 }
 
 /** 指定タイプのポイント台帳エントリ数を取得 */
+/** #4696: 子供のポイント台帳 総行数 (データクリア件数表示用)。 */
+export async function countPointLedgerEntries(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: count() })
+		.from(pointLedger)
+		.where(eq(pointLedger.childId, Number(childId)))
+		.get();
+	return result?.total ?? 0;
+}
+
 export async function countPointLedgerEntriesByType(
 	childId: ChildId,
 	type: string,

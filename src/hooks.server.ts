@@ -620,7 +620,13 @@ export const handle: Handle = ({ event, resolve }) =>
 				!path.startsWith('/api/v1/inquiry/founder') &&
 				// #1598 ADR-0023 I7: PMF 判定アンケート (Sean Ellis Test) は HMAC トークン認証で
 				// メールリンクから直接アクセスする。セットアップ前でもアクセス可能にする。
-				!path.startsWith('/survey/')
+				!path.startsWith('/survey/') &&
+				// #4696: 全削除の直後は子供 0 人 = セットアップ必須になるが、そこで復元画面まで
+				// 遮断すると「エクスポートしておいてください」と案内しておきながら**バックアップから
+				// 戻せない**(ダミーの子供を登録するしか手が無い)。データ設定画面と import API だけは
+				// セットアップ前でも通す (復元すれば子供が戻り、セットアップ必須も自然に解ける)。
+				path !== '/admin/settings/data' &&
+				!path.startsWith('/api/v1/import')
 			) {
 				if (await isSetupRequired(tenantId)) {
 					redirect(302, '/setup');

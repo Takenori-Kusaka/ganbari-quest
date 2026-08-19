@@ -128,6 +128,7 @@ vi.mock('./child-service', () => ({
 
 import { logger } from '$lib/server/logger';
 import {
+	ChildDeletionFailedError,
 	deleteAllChildrenData,
 	deleteTenantScopedData,
 } from '$lib/server/services/tenant-cleanup-service';
@@ -167,7 +168,7 @@ describe('deleteAllChildrenData', () => {
 		expect(mockChildRepo.deleteChild).toHaveBeenCalledWith('2', TENANT);
 	});
 
-	it('1 人の削除が失敗しても他の子供は削除を続行する', async () => {
+	it('#4696: 1 人の削除が失敗しても残りは試行し、最後に失敗として throw する', async () => {
 		mockChildRepo.findAllChildren.mockResolvedValue([
 			{ id: '1', nickname: '太郎' },
 			{ id: '2', nickname: '花子' },
@@ -177,10 +178,13 @@ describe('deleteAllChildrenData', () => {
 			.mockRejectedValueOnce(new Error('db err'))
 			.mockResolvedValueOnce(undefined);
 
-		const deleted = await deleteAllChildrenData(TENANT);
-
-		expect(deleted).toBe(1); // 成功したのは 1 人だけ
-		expect(mockChildRepo.deleteChild).toHaveBeenCalledTimes(2);
+		// 旧実装は「成功件数 1」を返して呼び出し側が success 扱いしていた (画面は「完了しました」)。
+		// 全件試行したうえで失敗を伝える (置換インポートの原子境界も中止できる)。
+		const err = await deleteAllChildrenData(TENANT).catch((e) => e);
+		expect(err).toBeInstanceOf(ChildDeletionFailedError);
+		expect((err as ChildDeletionFailedError).failures).toHaveLength(1);
+		expect((err as ChildDeletionFailedError).deleted).toBe(1);
+		expect(mockChildRepo.deleteChild).toHaveBeenCalledTimes(2); // 1 件目の失敗で止まらない
 	});
 
 	it('scope boundary: tenant-scoped な repo は呼ばれない', async () => {
