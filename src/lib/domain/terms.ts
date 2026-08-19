@@ -770,6 +770,19 @@ export const CHEER_TERMS = {
 //
 // 既存 REWARDS_LABELS の '管理' / '一覧' / '申請' 等は本 atom と組み合わせて使う。
 
+// ============================================================
+// RULES_TERMS — 設定 > ごほうび・ボーナスルール (/admin/settings/rules) の画面名 atom (#4678)
+// ============================================================
+//
+// 設定ハブのカード (SETTINGS_LABELS.groupRulesTitle) / 設定サブナビ (SETTINGS_NAV_LABELS.rules) /
+// marketplace 詳細ガイドの取込先案内 (PAGE_GUIDE_LABELS.marketplaceDetail) が同じ画面名を参照する。
+// labels.ts 内の宣言順 (TDZ) に依らず参照できるよう atom として terms.ts に置く。
+
+export const RULES_TERMS = {
+	/** 設定ハブ / サブナビ / ガイドで使う画面名 */
+	settingsMenu: 'ごほうび・ボーナスルール',
+} as const;
+
 export const REWARD_TERMS = {
 	menu: 'ごほうび管理',
 	shop: 'ごほうびショップ',
