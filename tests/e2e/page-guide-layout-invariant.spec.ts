@@ -89,6 +89,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
 	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
 	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
+	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
+	// optional のまま列挙しない
+	'/admin/certificates': ['certificates-child-select'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';

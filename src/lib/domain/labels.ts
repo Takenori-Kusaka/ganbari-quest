@@ -4,7 +4,13 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
-import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
+import {
+	CERTIFICATE_LEVEL_MILESTONES,
+	MONTHLY_HABIT_DAYS_THRESHOLD,
+	PRAISE_MILESTONE_IDS,
+	type PraiseMilestoneId,
+	STREAK_MILESTONE_DAYS,
+} from './constants/habit-milestones';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
@@ -1493,6 +1499,21 @@ export const TUTORIAL_CHAPTER_LABELS = {
 	},
 } as const;
 
+// #4674: PAGE_GUIDE_LABELS.adminCertificates が印刷 / シェアのボタン名を参照するため同様に前置きする
+export const CERTIFICATE_DETAIL_LABELS = {
+	pageTitle: CERTIFICATE_TERMS.full,
+	backLink: '一覧に戻る',
+	previewTitle: `📜 ${CERTIFICATE_TERMS.canonical}プレビュー`,
+	printButton: '🖨️ 印刷 / PDF保存',
+	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
+	upgradeLink: 'アップグレード',
+	shareCardTitle: '🎉 がんばりカード',
+	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
+	downloadButton: '📥 画像をダウンロード',
+	closeButton: '閉じる',
+	showShareCardButton: '🎉 シェアカードを表示',
+} as const;
+
 // #4672: PAGE_GUIDE_LABELS.adminMembers がボタン名を参照するため PAGE_GUIDE_LABELS より前に置く
 //        (module 初期化順。const は宣言前に参照できない)
 // ============================================================
@@ -2351,23 +2372,37 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（賞状コレクション / 成長記録ブック / ごほうび申請の承認）
 	adminCertificates: {
-		title: '賞状コレクション',
+		// #4674 F1 / M: 呼称は画面表記の「証明書」に統一 (旧「賞状コレクション」「賞状」)
+		title: CERTIFICATE_TERMS.full,
+		// #4674 (EPIC #4650): 2 step とも中央 modal で「上のお子さまタブで切り替える」と案内しても
+		// 何も光らなかったため、お子さま切替ボタン行と一覧カードに anchor を張り、印刷 / シェアの
+		// 最頻操作 step を追加する。発行条件の数値は habit-milestones.ts の定数から埋め込む (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'certificates-intro': {
 				title: 'このページについて',
-				what: 'お子さまががんばって獲得した賞状を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに賞状が自動で贈られます。',
-				how: '保護者が作る操作はありません。お子さまが活動を続けると条件を満たした賞状がここに増えていきます。',
-				goal: 'お子さまの「ここまでがんばった」を賞状という形で振り返れて、ご家族で成長をお祝いできます。',
-			},
-			// ② 画面の見方（お子さまタブ + カテゴリ別の一覧）
-			'certificates-view': {
-				title: '画面の見方',
-				what: '上のお子さまタブで子ごとに切り替えると、その子の賞状が「連続記録」「レベルアップ」「月間がんばり」などの種類ごとに並びます。',
-				how: '1. お子さまタブで見たい子を選びます\n2. 種類ごとに並んだ賞状を見ていきます',
-				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+				what: `お子さまががんばって獲得した${CERTIFICATE_TERMS.canonical}を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに${CERTIFICATE_TERMS.canonical}が自動で贈られます。`,
+				how: `保護者が作る操作はありません。お子さまが活動を続けて、たとえば ${STREAK_MILESTONE_DAYS[0]} 日連続の記録・レベル ${CERTIFICATE_LEVEL_MILESTONES[0]} 到達・1 か月に ${MONTHLY_HABIT_DAYS_THRESHOLD} 日以上の記録といった節目を満たすと、ここに増えていきます。`,
+				goal: `お子さまの「ここまでがんばった」を${CERTIFICATE_TERMS.canonical}という形で振り返れて、ご家族で成長をお祝いできます。`,
 				tips: [
-					`賞状は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📜 ${CERTIFICATE_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さまを切り替える（お子さまが 1 人以上のときだけ描画されるボタン行）
+			'certificates-child-select': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: `上のお子さまのボタンで表示する子を切り替えます。ボタンの数字はその子が持っている${CERTIFICATE_TERMS.canonical}の数です。お子さまが 1 人のご家庭ではボタンも 1 つだけ表示されます。`,
+				how: `1. 見たいお子さまのボタンを押します\n2. その子の${CERTIFICATE_TERMS.canonical}が種類ごと（連続記録・レベルアップ・月間がんばり・カテゴリマスター・年間がんばり大賞）に並びます`,
+				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+			},
+			// ③ 証明書を開いて印刷・シェアする（1 件以上あるときだけ描画される一覧）
+			'certificates-open': {
+				title: `よく使う操作（${CERTIFICATE_TERMS.canonical}を開いて印刷・シェアする）`,
+				what: `${CERTIFICATE_TERMS.canonical}のカードを押すと詳細が開き、印刷やご家族へのシェアができます。`,
+				how: `1. 見たい${CERTIFICATE_TERMS.canonical}のカードを押します\n2. 詳細画面の「${CERTIFICATE_DETAIL_LABELS.printButton}」で紙に印刷したり PDF として保存したりできます（${PAID_PLAN_LABEL}）\n3. 「${CERTIFICATE_DETAIL_LABELS.showShareCardButton}」→「${CERTIFICATE_DETAIL_LABELS.downloadButton}」で画像として保存し、離れて暮らすご家族に送れます`,
+				goal: `がんばりを紙や画像で残せるので、お子さまの達成感が形になって残ります。`,
+				tips: [
+					`${CERTIFICATE_TERMS.canonical}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
 				],
 			},
 		},
@@ -5461,20 +5496,6 @@ export const SETUP_COMPLETE_LABELS = {
 	pinHintSuffix: '初めて入るときに作成します。',
 } as const;
 
-export const CERTIFICATE_DETAIL_LABELS = {
-	pageTitle: 'がんばり証明書',
-	backLink: '一覧に戻る',
-	previewTitle: '📜 証明書プレビュー',
-	printButton: '🖨️ 印刷 / PDF保存',
-	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
-	upgradeLink: 'アップグレード',
-	shareCardTitle: '🎉 がんばりカード',
-	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
-	downloadButton: '📥 画像をダウンロード',
-	closeButton: '閉じる',
-	showShareCardButton: '🎉 シェアカードを表示',
-} as const;
-
 export const DEMO_CHILD_HOME_LABELS = {
 	checklistTitle: 'もちものチェック',
 	checklistDone: '✅ かんりょう！',
@@ -6087,12 +6108,24 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 export const CERTIFICATES_PAGE_LABELS = {
 	pageTitle: `📜 ${CERTIFICATE_TERMS.full}`,
 	backToReportsLink: 'レポートへ',
-	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
+	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では${CERTIFICATE_TERMS.canonical}の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
 	freePlanNoteSuffix: 'で利用できます。',
-	emptyTitle: 'まだ証明書がありません',
-	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
+	emptyTitle: `まだ${CERTIFICATE_TERMS.canonical}がありません`,
+	emptyDesc: `活動を記録すると、節目を達成したときに${CERTIFICATE_TERMS.canonical}が発行されます`,
 	noChildrenTitle: '子供が登録されていません',
+	// #4674 F5: カテゴリ見出しは page 直書きをやめて本 SSOT に集約 (ガイド文言も同じ値を引く)。
+	// short はカード上のバッジ表記 (子供にも読めるひらがな)。
+	categoryStreak: '🔥 連続記録',
+	categoryLevel: '🌟 レベルアップ',
+	categoryMonthly: '📜 月間がんばり',
+	categoryMaster: '🎓 カテゴリマスター',
+	categoryAnnual: '🏆 年間がんばり大賞',
+	categoryShortStreak: 'れんぞく',
+	categoryShortLevel: 'レベル',
+	categoryShortMonthly: 'がつかん',
+	categoryShortMaster: 'マスター',
+	categoryShortAnnual: 'ねんかん',
 } as const;
 
 export const PACKS_PAGE_LABELS = {
