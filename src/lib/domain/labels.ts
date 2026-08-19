@@ -1163,7 +1163,6 @@ export const MARKETPLACE_LABELS = {
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
-	backToDemo: 'デモを体験',
 	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
 	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
 	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
@@ -2039,33 +2038,74 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
-	// #3263 (EPIC #3260 F2) / #3269 (C5): みんなのテンプレート一覧ガイド。
+	// #3263 (EPIC #3260 F2) / #3269 (C5) / #4677 (EPIC #4650): みんなのテンプレート一覧ガイド。
 	// AdminLayout 非使用ページのため marketplace/+layout.svelte が独自配線する。
-	// 取込 CUJ（一覧で探す → カードで詳細を開く → 取り込む）を案内する 3 部構成。
+	// 画面の「上から下」順に、公式テンプレートを探して取り込む CUJ を案内する
+	// (概要 → 種類 → 年齢自動フィルタ → しぼりこむ → ならべかえ → カード / 0 件)。
+	// 陳列物はがんばりクエスト公式 preset のみ (投稿機能は無い) — 「他のご家庭が作った」とは書かない。
+	// ボタン名 / 見出し / 並び替え名は画面表記 (MARKETPLACE_FILTER_LABELS 等) と同じ定数を参照する。
 	marketplace: {
-		title: 'みんなのテンプレート',
+		title: TEMPLATE_TERMS.userFacing,
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'marketplace-intro': {
 				title: 'このページについて',
-				what: '他のご家庭が作った活動・ごほうび・チェックリストのテンプレートを探して、ご自身のお子さま向けに取り込めるページです。ゼロから作らなくても、よくある活動セットをそのまま使えます。',
-				how: '気になるテンプレートを探し、カードをタップして詳細を開きます。詳細ページで取り込み、配信するお子さまを選びます。',
-				goal: '選んだテンプレートが活動管理・ごほうび管理・チェックリストに追加され、ご家庭に合わせて項目を足したり消したりして調整できます。',
+				what: `がんばりクエストが用意した公式${TEMPLATE_TERMS.short}（活動セット・ごほうびセット・チェックリスト）を探して、${CHILD_TERMS.honorific}向けに取り込めるページです。ゼロから作らなくても、よくある活動セットをそのまま使えます。`,
+				how: `気になる${TEMPLATE_TERMS.short}のカードをタップして詳細を開き、詳細ページの取り込み（一括追加）ボタンから取り込みます。取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です。`,
+				goal: `選んだ${TEMPLATE_TERMS.short}が活動管理・ごほうび管理・チェックリストに追加され、ご家庭に合わせて項目を足したり消したりして調整できます。`,
+				tips: [
+					`ログイン中は左上の「${ADMIN_VIEW_TERMS.short}へ」で${ADMIN_VIEW_TERMS.canonical}に戻れます`,
+					'ログインしていなくても一覧と詳細は見られます。取り込むときにログインを求められます',
+				],
 			},
-			// ② 画面の見方（種類で絞り込み + 検索・並び替え）
+			// ② 種類で絞り込む（type filter = 3 種類カード）
 			'marketplace-browse': {
-				title: '画面の見方（種類で絞り込む）',
-				what: '上部の種類（活動セット・ごほうびセット・チェックリスト）でテンプレートを絞り込めます。さらに年齢・タグでの絞り込みや、人気順・新着順での並び替えもできます。',
-				how: '1. 種類のカードをタップして絞り込みます\n2. 絞り込みパネルで年齢・タグを選びます\n3. 並び替えメニューで表示順を変えます',
-				goal: 'たくさんのテンプレートの中から、お子さまの年齢や興味にぴったりのものを素早く見つけられます。',
+				title: '種類で絞り込む',
+				what: `上部の 3 つのカードで、${TEMPLATE_TERMS.short}の種類（活動セット・ごほうびセット・チェックリスト）を切り替えられます。数字はその種類の${TEMPLATE_TERMS.short}数です。`,
+				how: '1. 見たい種類のカードをタップします\n2. もう一度タップすると絞り込みが外れます',
+				goal: '「まずは活動だけ」「ごほうびを足したい」のように、目的の種類だけを一覧にできます。',
 			},
-			// ③ 最頻操作（カードをタップして詳細を開く）
+			// ③ 年齢に合わせた表示（ログイン + お子さま選択中のみ出る hint バナー、optional）
+			'marketplace-age-auto': {
+				title: '年齢に合わせた表示',
+				what: `選択中の${CHILD_TERMS.honorific}の年齢に合わせて、一覧を自動で絞り込んで表示しています。表示件数が少ないのはこのためです。`,
+				how: `1. バナーの「${MARKETPLACE_FILTER_LABELS.clearAgeFilter}」をタップすると絞り込みが外れ、全件が並びます\n2. 別の年齢で見たいときは「${MARKETPLACE_FILTER_LABELS.sectionTitle}」の${MARKETPLACE_FILTER_LABELS.age}から選び直します`,
+				goal: `きょうだいの年齢差があっても、今選んでいる${CHILD_TERMS.honorific}にちょうどいい${TEMPLATE_TERMS.short}から探し始められます。`,
+			},
+			// ④ しぼりこむ（desktop = 左のパネル / mobile = ⚙️ フィルタ ボタン → ダイアログ。可視の方が光る）
+			'marketplace-filter': {
+				title: `${MARKETPLACE_FILTER_LABELS.sectionTitle}（${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}）`,
+				what: `${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}で${TEMPLATE_TERMS.short}を絞り込めます。パソコンでは左の「${MARKETPLACE_FILTER_LABELS.sectionTitle}」パネル、スマホでは「⚙️ ${MARKETPLACE_FILTER_LABELS.open}」ボタンを押すと同じ項目が開きます。`,
+				how: `1. スマホは「⚙️ ${MARKETPLACE_FILTER_LABELS.open}」をタップしてパネルを開きます（パソコンは左に常に表示）\n2. ${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}を選びます（もう一度タップで解除）\n3. 「${MARKETPLACE_FILTER_LABELS.reset}」で全部外せます`,
+				goal: `たくさんの${TEMPLATE_TERMS.short}の中から、${CHILD_TERMS.honorific}の年齢や興味にぴったりのものを素早く見つけられます。`,
+				tips: [
+					`${MARKETPLACE_FILTER_LABELS.tag}は人気の 8 件だけ表示され、「もっと見る」で全部出せます`,
+				],
+			},
+			// ⑤ ならべかえ
+			'marketplace-sort': {
+				title: MARKETPLACE_FILTER_LABELS.sort,
+				what: `一覧の並び順を「${MARKETPLACE_FILTER_LABELS.sortOptions.popularity}」「${MARKETPLACE_FILTER_LABELS.sortOptions.newest}」「${MARKETPLACE_FILTER_LABELS.sortOptions.ageFit}」から選べます。`,
+				how: `1. 並び替えメニューを開きます\n2. ${MARKETPLACE_FILTER_LABELS.sortOptions.popularity}（まずはこれ）/ ${MARKETPLACE_FILTER_LABELS.sortOptions.newest} / ${MARKETPLACE_FILTER_LABELS.sortOptions.ageFit}（対象年齢が低い順）から選びます`,
+				goal: '迷ったら人気順、幼児向けから探したいときは年齢順、と目的に合わせて一覧を並べ替えられます。',
+			},
+			// ⑥ テンプレートを開く（先頭カード。一覧 0 件時は出ない = optional）
 			'marketplace-open': {
-				title: 'よく使う操作（テンプレートを開く）',
-				what: '最もよく使うのが、テンプレートのカードをタップして詳細を開く操作です。詳細ページで中身を確認してから取り込めます。',
-				how: '1. 一覧のテンプレートのカードをタップします\n2. 詳細ページで含まれる内容を確認します\n3. 取り込みボタンから、配信するお子さまを選びます',
+				title: `${TEMPLATE_TERMS.short}を開く`,
+				what: `最もよく使うのが、${TEMPLATE_TERMS.short}のカードをタップして詳細を開く操作です。詳細ページで中身を確認してから取り込めます。`,
+				how: `1. 一覧の${TEMPLATE_TERMS.short}のカードをタップします\n2. 詳細ページで含まれる内容を確認します\n3. 詳細ページの取り込み（一括追加）ボタンから、追加する${CHILD_TERMS.honorific}を選びます`,
 				goal: '中身を確かめたうえで取り込めるので、「思っていたものと違った」を防げます。',
-				tips: ['まずはテンプレートを取り込んで、ご家庭に合わせて調整するのが近道です'],
+				tips: [
+					`まずは${TEMPLATE_TERMS.short}を取り込んで、ご家庭に合わせて調整するのが近道です`,
+					`取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です`,
+				],
+			},
+			// ⑥' 0 件のとき（フィルタ不一致。カードが無いので empty state を案内）
+			'marketplace-empty': {
+				title: `${TEMPLATE_TERMS.short}が見つからないとき`,
+				what: `今の絞り込み条件に合う${TEMPLATE_TERMS.short}がありません。条件を外すと一覧が戻ります。`,
+				how: `1. 「${MARKETPLACE_FILTER_LABELS.reset}」をタップして条件を全部外します\n2. 年齢や種類を 1 つずつ選び直します`,
+				goal: `条件を緩めれば、公式${TEMPLATE_TERMS.short}の全件から改めて探せます。`,
 			},
 		},
 	},
