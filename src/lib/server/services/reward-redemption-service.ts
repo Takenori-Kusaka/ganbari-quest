@@ -276,6 +276,11 @@ async function finalizeApproval(args: {
 	rewardTitle: string;
 	parentUserId: string | null;
 	tenantId: string;
+	/**
+	 * #4722: 呼び出し側が既に条件付き UPDATE で申請を approved に確定させている (親承認経路)。
+	 * この場合ここでは status を更新せず、減算に失敗したときだけ pending へ戻す (補償)。
+	 */
+	claimed?: { row: RedemptionRequestResult };
 }): Promise<RedemptionRequestResult | { error: 'INSUFFICIENT_POINTS' | 'REQUEST_NOT_FOUND' }> {
 	const { childId, requestId, rewardPoints, quantity, rewardTitle, parentUserId, tenantId } = args;
 
@@ -296,7 +301,23 @@ async function finalizeApproval(args: {
 		},
 		tenantId,
 	);
-	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
+	if ('error' in spend) {
+		// #4722: 親承認経路では先に approved を確定させている。残高不足で減算できなかった場合は
+		// 「承認済なのに引かれていない」状態を残さないよう pending に戻す (approved のときだけ戻す)。
+		if (args.claimed) {
+			await updateRedemptionRequestStatus(
+				childId,
+				requestId,
+				{ status: 'pending_parent_approval', resolvedAt: null, resolvedByParentId: null },
+				tenantId,
+				{ expectedStatus: 'approved' },
+			);
+		}
+		return { error: 'INSUFFICIENT_POINTS' };
+	}
+
+	// #4722: 親承認経路は既に approved 確定済 (条件付き UPDATE の勝者) なので再更新しない。
+	if (args.claimed) return args.claimed.row;
 
 	// ステータス更新 (#2845 課題①: childId で所有権検証付き composite key 更新)
 	const now = Math.floor(Date.now() / 1000);
@@ -341,6 +362,20 @@ export async function approveRedemption(
 
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
 
+	// #4722: **先に条件付き UPDATE で承認を確定させる** (pending のときだけ approved にする)。
+	// 旧実装は「読んで status を見る → 減算 → 無条件 UPDATE」だったため、2 人の保護者が同時に承認すると
+	// 両方が減算へ進み、2 件目が台帳の冪等 UNIQUE 違反 (未 catch) で 500 になっていた。
+	// DB 側で勝者を 1 つに確定させることで、敗者は 0 行 = INVALID_STATUS として綺麗に落ちる。
+	const now = Math.floor(Date.now() / 1000);
+	const claimed = await updateRedemptionRequestStatus(
+		req.childId,
+		requestId,
+		{ status: 'approved', resolvedAt: now, resolvedByParentId: parentUserId },
+		tenantId,
+		{ expectedStatus: 'pending_parent_approval' },
+	);
+	if (!claimed) return { error: 'INVALID_STATUS' };
+
 	return finalizeApproval({
 		childId: req.childId,
 		requestId,
@@ -350,6 +385,19 @@ export async function approveRedemption(
 		rewardTitle: req.rewardTitle,
 		parentUserId,
 		tenantId,
+		claimed: {
+			row: {
+				id: claimed.id,
+				childId: claimed.childId,
+				rewardId: claimed.rewardId,
+				quantity: claimed.quantity,
+				status: claimed.status as RedemptionStatus,
+				requestedAt: claimed.requestedAt,
+				parentNote: claimed.parentNote,
+				resolvedAt: claimed.resolvedAt,
+				shownToChildAt: claimed.shownToChildAt,
+			},
+		},
 	});
 }
 

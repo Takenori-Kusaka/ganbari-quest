@@ -749,7 +749,11 @@ export async function countPointLedgerEntriesByTypeAndDate(
 			and(
 				eq(pointLedger.childId, Number(childId)),
 				eq(pointLedger.type, type),
-				sql`date(${pointLedger.createdAt}) = ${date}`,
+				// #4722: created_at は CURRENT_TIMESTAMP (UTC) で入るため、JST 暦日 (date) と
+				// 比べるには +9h してから日付にする。旧実装は UTC 暦日と比較しており、
+				// JST 0〜9 時に「今日まだ付与していない」と誤判定して二重付与しうる
+				// (おやくそく全達成ボーナス等の当日冪等判定)。
+				sql`date(${pointLedger.createdAt}, '+9 hours') = ${date}`,
 			),
 		)
 		.get();

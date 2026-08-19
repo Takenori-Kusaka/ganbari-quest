@@ -1,4 +1,4 @@
-import { and, count, eq, gte, isNull } from 'drizzle-orm';
+import { and, count, eq, isNull, sql } from 'drizzle-orm';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
@@ -132,7 +132,9 @@ export async function countTodayCheersFrom(
 		.where(
 			and(
 				eq(siblingCheers.fromChildId, Number(fromChildId)),
-				gte(siblingCheers.sentAt, `${today}T00:00:00`),
+				// #4722: sent_at は UTC ISO 保存。JST 暦日 (today) と比べるには +9h してから日付にする。
+				// 旧実装は JST 日付を UTC 時刻として比較しており、当日回数の窓が 9 時間ずれていた。
+				sql`date(${siblingCheers.sentAt}, '+9 hours') = ${today}`,
 			),
 		)
 		.get();

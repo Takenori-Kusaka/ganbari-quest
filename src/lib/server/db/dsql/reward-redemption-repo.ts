@@ -221,7 +221,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			return Number(row?.count ?? 0);
 		},
 
-		async updateRedemptionRequestStatus(childId, id, updates, tenantId) {
+		async updateRedemptionRequestStatus(childId, id, updates, tenantId, options) {
 			// #2845 課題①: (childId, redemptionId) 複合キーで child 所有権を検証。
 			const sets: ReturnType<typeof sql>[] = [sql`status = ${updates.status}`];
 			if (updates.parentNote !== undefined) sets.push(sql`parent_note = ${updates.parentNote}`);
@@ -231,9 +231,18 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 				);
 			if (updates.resolvedByParentId !== undefined)
 				sets.push(sql`resolved_by_parent_id = ${updates.resolvedByParentId}`);
+			// #4722: expectedStatus 指定時は条件付き UPDATE (0 行 = 既に別の承認が確定済)。
+			const where = [
+				sql`family_id = ${tenantId}`,
+				sql`redemption_id = ${id}`,
+				sql`child_id = ${childId}`,
+			];
+			if (options?.expectedStatus !== undefined) {
+				where.push(sql`status = ${options.expectedStatus}`);
+			}
 			const result = await db.execute(sql`
 				UPDATE reward_redemption_requests SET ${sql.join(sets, sql`, `)}
-				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}
+				WHERE ${sql.join(where, sql` AND `)}
 				RETURNING ${REQUEST_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as RequestRow | undefined;

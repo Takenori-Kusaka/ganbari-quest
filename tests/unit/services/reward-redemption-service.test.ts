@@ -327,6 +327,39 @@ describe('approveRedemption', () => {
 		expect(ledgerEntry!.amount).toBe(-80);
 	});
 
+	it('#4722: 同一申請の同時承認は 1 件だけ成立し、2 件目は 500 でなく INVALID_STATUS', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
+		if ('error' in reqResult) return;
+
+		// 2 人の保護者 (or 連打) が同時に承認する。旧実装は両方が「pending だ」と読んでから減算へ進み、
+		// 2 件目が台帳の冪等 UNIQUE 違反 (未 catch) で throw = API 500 になっていた。
+		const [a, b] = await Promise.all([
+			approveRedemption(reqResult.id, 'parent-A', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+			approveRedemption(reqResult.id, 'parent-B', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+		]);
+		for (const r of [a, b]) {
+			expect(r, '承認は throw しない (500 にしない)').not.toHaveProperty('thrown');
+		}
+		const results = [a, b] as Array<Record<string, unknown>>;
+		const approved = results.filter((r) => r.status === 'approved');
+		const invalid = results.filter((r) => r.error === 'INVALID_STATUS');
+		expect(approved).toHaveLength(1); // 勝者は 1 人
+		expect(invalid).toHaveLength(1); // 敗者は綺麗な業務エラー
+
+		// 二重減算していない (台帳は 1 行だけ)
+		const ledger = sqlite
+			.prepare(
+				"SELECT count(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		expect(ledger.c).toBe(1);
+	});
+
 	it('既に承認済みの申請を承認しようとすると INVALID_STATUS', async () => {
 		const { childId, rewardId } = seedBaseData();
 		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);

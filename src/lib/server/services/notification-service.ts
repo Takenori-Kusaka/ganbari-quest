@@ -4,9 +4,14 @@
 
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
-import { jstMinuteOfDay, todayDateJST } from '$lib/domain/date-utils';
 import {
-	countTodayLogs,
+	addDaysJST,
+	jstDayStartUtcIso,
+	jstMinuteOfDay,
+	todayDateJST,
+} from '$lib/domain/date-utils';
+import {
+	countLogsBetween,
 	deleteByEndpoint,
 	findByTenant,
 	insertLog,
@@ -147,9 +152,15 @@ export async function canSendNotification(tenantId: string): Promise<boolean> {
 		return false;
 	}
 
-	// 日次上限チェック
+	// 日次上限チェック。#4722: 「今日」は **JST 暦日**。境界を instant (UTC ISO) に直して渡す
+	// (旧実装は JST の日付文字列をそのまま UTC 日境界として比較しており、カウント窓が 9 時間ずれ、
+	// JST 0〜9 時の送信が前日の枠で数えられていた)。
 	const today = todayDateJST();
-	const count = await countTodayLogs(tenantId, today);
+	const count = await countLogsBetween(
+		tenantId,
+		jstDayStartUtcIso(today),
+		jstDayStartUtcIso(addDaysJST(today, 1)),
+	);
 	return count < MAX_DAILY_NOTIFICATIONS;
 }
 

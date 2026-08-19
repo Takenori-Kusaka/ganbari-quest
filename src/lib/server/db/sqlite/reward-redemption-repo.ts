@@ -275,16 +275,20 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
+	options?: { expectedStatus?: string },
 ): Promise<RedemptionRequestRow | undefined> {
+	// #4722: expectedStatus 指定時は条件付き UPDATE (0 行 = 既に別の承認が確定済)。
+	const conditions = [
+		eq(rewardRedemptionRequests.id, Number(id)),
+		eq(rewardRedemptionRequests.childId, Number(childId)),
+	];
+	if (options?.expectedStatus !== undefined) {
+		conditions.push(eq(rewardRedemptionRequests.status, options.expectedStatus));
+	}
 	const row = db
 		.update(rewardRedemptionRequests)
 		.set(updates)
-		.where(
-			and(
-				eq(rewardRedemptionRequests.id, Number(id)),
-				eq(rewardRedemptionRequests.childId, Number(childId)),
-			),
-		)
+		.where(and(...conditions))
 		.returning()
 		.get();
 	return row ? toRequestRow(row) : undefined;

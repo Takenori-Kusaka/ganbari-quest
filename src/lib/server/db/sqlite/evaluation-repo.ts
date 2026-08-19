@@ -135,7 +135,10 @@ export async function hasDecayRunToday(
 			and(
 				eq(statusHistory.childId, Number(childId)),
 				eq(statusHistory.changeType, 'daily_decay'),
-				like(statusHistory.recordedAt, `${today}%`),
+				// #4722: recorded_at は UTC ISO で保存されるため、JST 暦日 (today) と比べるには
+				// +9h してから日付にする。旧実装の prefix LIKE は UTC 暦日との比較で、
+				// JST 0〜9 時に「今日まだ減衰していない」と誤判定していた (dsql 側は JST 判定済)。
+				sql`date(${statusHistory.recordedAt}, '+9 hours') = ${today}`,
 			),
 		)
 		.get();
