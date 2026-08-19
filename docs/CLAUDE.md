@@ -59,7 +59,8 @@
 | `desktopHeightWarn` (#1840) | 7800 px | 累積 gate warning 帯 |
 | `forbiddenTerms` | 0 | 開発者語彙 / 射幸性語彙の追加禁止 |
 | `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
-| `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
+| `presetActivityCountClaimedMin` (#1803 / #4713) | 120 以上（**活動名のユニーク数**が基準） | LP 訴求 ≤ 実数 (ADR-0013 LP truth)。延べ件数ではなくユニーク名で裏取りする — activity-packs は男の子 / 女の子 variant が同名活動を重複して持ち、延べ 325 件に対しユニークは 129 種のため、延べ基準だと選べる種類を 2 倍以上に見せる訴求が CI 緑で通る |
+| `presetActivityPackCountClaimedMin` (#4713) | 12 以上 | LP の「NN セット」訴求 ≤ 実 activity-pack 数 |
 | `lp-visual-regression` (#2401) | per-image diff ≤ 10% | `scripts/lp-screenshot-baseline/*.webp` (git tracked) と CI 撮影 `site/screenshots/*.webp` を pixelmatch 比較。diff > 10% で fail。意図的変更時は `node scripts/check-lp-visual-regression.mjs --update-baseline` で更新 (PR #1893 Phase 2)。更新 flow / triage 手順は [runbooks/lp-visual-regression-baseline.md](runbooks/lp-visual-regression-baseline.md) (#2452) |
 
 閾値緩和は ADR 合意後に `THRESHOLDS` を更新。
