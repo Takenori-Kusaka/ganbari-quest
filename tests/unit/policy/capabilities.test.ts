@@ -21,8 +21,6 @@ const opsOwner: EvaluationUser = {
 const opsOwnerNoMfa: EvaluationUser = { id: 'u-ops-no-mfa', role: 'owner', groups: ['ops'] };
 
 const family: EvaluationPlan = { tier: 'family', status: 'active', trialState: 'none' };
-const standard: EvaluationPlan = { tier: 'standard', status: 'active', trialState: 'none' };
-const free: EvaluationPlan = { tier: 'free', status: 'none', trialState: 'none' };
 
 function ctx(
 	overrides: Partial<Omit<EvaluationContext, 'mode'>> & { mode: EvaluationContext['mode'] },
