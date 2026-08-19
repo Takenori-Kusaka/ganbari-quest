@@ -127,7 +127,7 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 	'ganbari-quest-ai-fallback-rate': {
 		notify: true,
 		reason:
-			'AI 呼び出しの半分以上が落ちている = 有料プランの筆頭訴求 (AI 提案) が事実上死んでいる状態で、応答は HTTP 200 のため顧客も運営も画面からは気付けない。#4726 の本番障害 (base model ID を on-demand で呼べず全リクエスト ValidationException) は latch 型の ai-provider-unavailable では拾えず、丸一日以上 100% fallback のまま発見はオーナーの手動実行だった。ノイズ懸念には「件数」ではなく「率」を見ること (15 分 window で 50% 以上 / 分母 0 の window はデータ点が無い) で対処済み — 単発の throttle / timeout では鳴らない',
+			'AI 呼び出しの半分以上が落ちている = 有料プランの筆頭訴求 (AI 提案) が事実上死んでいる状態で、応答は HTTP 200 のため顧客も運営も画面からは気付けない。#4726 の本番障害 (base model ID を on-demand で呼べず全リクエスト ValidationException) は latch 型の ai-provider-unavailable では拾えず、丸一日以上 100% fallback のまま発見はオーナーの手動実行だった。ノイズ懸念には「件数」と「率」の両方を掛けて対処済み (15 分 window で **失敗 2 件以上かつ 50% 以上**) — 単発の throttle / timeout は 1 件なので鳴らず、100% 壊れていれば 2 件目で鳴る',
 	},
 	'ganbari-quest-ops-alert-forward-failed': {
 		notify: true,

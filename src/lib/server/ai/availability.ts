@@ -137,6 +137,10 @@ export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavaila
  * (有料機能の実行回数) に等しく、per-request で膨らむ性質の log ではない。
  * 載せてよいのは分類まで (provider 名 / 例外クラス名)。例外メッセージ本文・顧客入力は載せない。
  *
+ * **成功・失敗を同じ log level (info) で出す。** 片方だけ level を上げると、`LOG_LEVEL` の
+ * 設定 1 つで分母だけが消えて率が壊れる (「1 件でも失敗すれば 100%」に化ける)。
+ * 対称性は `tests/unit/infra/ai-fallback-rate-alarm.test.ts` [C3] が固定する。
+ *
  * metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数
  * (CDK の tsconfig rootDir 制約で src を import できないため literal で持ち、
  * `tests/unit/infra/ai-fallback-rate-alarm.test.ts` が drift を機械検証する)。
@@ -233,7 +237,11 @@ export async function withAvailabilityTracking<T>(
 		if (isAiUnavailableError(err)) {
 			markProviderUnavailable(providerName);
 		}
-		logger.warn(`${AI_CALL_FAILED_LOG_TERM} provider=${providerName} error=${errorClassOf(err)}`);
+		// **成功と同じ level (info) で出す。** 分子だけ warn にすると `LOG_LEVEL=warn` を配った
+		// 瞬間に分母 (成功) が消え、fallback 率が「1 件でも失敗すれば 100%」に化ける
+		// (失敗の重大さは呼び出し側の logger.error が別に出しており、ここは metric の材料)。
+		// LOG_LEVEL を上げれば両方消える = 率は算出されず alarm は無風になる (誤発火しない側)。
+		logger.info(`${AI_CALL_FAILED_LOG_TERM} provider=${providerName} error=${errorClassOf(err)}`);
 		throw err;
 	}
 }

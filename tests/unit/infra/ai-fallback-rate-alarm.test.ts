@@ -149,7 +149,10 @@ describe('[A] fallback 率の MetricFilter / Alarm が CDK に定義されてい
 		const expression = metrics
 			?.map((m) => (m.Expression as string) ?? '')
 			.find((e) => e.length > 0);
-		expect(expression).toBe('100 * failed / (failed + succeeded)');
+		// **件数と率を掛けている**こと。率だけだと 1 件の単発失敗が 100% になって鳴りっぱなしになり、
+		// 件数だけだと Pre-PMF の呼び出し量では 100% 壊れていても到達しない。
+		// この形は 0 除算も原理的に起きない (分子 2 以上のときしか除算に進まない)。
+		expect(expression).toBe('IF(failed >= 2, 100 * failed / (failed + succeeded), 0)');
 
 		// 分子・分母の両方が式に供給されている
 		const metricNames = (metrics ?? [])
@@ -229,6 +232,51 @@ describe('[C] filter pattern が実際の log 出力にマッチする', () => {
 		});
 	});
 
+	// 分子だけ level を上げると LOG_LEVEL=warn を配った瞬間に分母が消え、
+	// fallback 率が「1 件でも失敗すれば 100%」に化ける。対称であることを固定する。
+	it('[C3] 成功と失敗を同じ log level (info = console.log) で出す', async () => {
+		const { withAvailabilityTracking, resetAiAvailabilityLatch } = await import(
+			'../../../src/lib/server/ai/availability'
+		);
+		resetAiAvailabilityLatch();
+
+		await withAvailabilityTracking('bedrock-claude', async () => 'ok');
+		await expect(
+			withAvailabilityTracking('bedrock-claude', async () => {
+				throw Object.assign(new Error('boom'), { name: 'ValidationException' });
+			}),
+		).rejects.toThrow();
+
+		expect(infoed.filter((l) => l.includes(AI_CALL_SUCCEEDED_LOG_TERM))).toHaveLength(1);
+		expect(infoed.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(1);
+		expect(warned.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(0);
+		resetAiAvailabilityLatch();
+	});
+
+	// #4726 で tracking 範囲を「使える結果を得るまで」に広げた分、latch 判定に晒される例外面が
+	// 増えた。レスポンス解析の失敗は入力起因であり、AI 全停止に倒してはいけない。
+	it('[C4] レスポンス解析の失敗 (tool_use 欠落 / JSON 不正) では latch しない', async () => {
+		const { withAvailabilityTracking, isProviderLatchedUnavailable, resetAiAvailabilityLatch } =
+			await import('../../../src/lib/server/ai/availability');
+
+		for (const message of [
+			'No tool_use block in Bedrock response',
+			'No valid JSON in Gemini response',
+		]) {
+			resetAiAvailabilityLatch();
+			await expect(
+				withAvailabilityTracking('bedrock-claude', async () => {
+					throw new Error(message);
+				}),
+			).rejects.toThrow(message);
+			expect(
+				isProviderLatchedUnavailable('bedrock-claude'),
+				`"${message}" で latch すると 4 サービス + 領収書 OCR が cold start まで一斉に縮退する`,
+			).toBe(false);
+		}
+		resetAiAvailabilityLatch();
+	});
+
 	it('[C1] 成功呼び出しが分母の filter にマッチする', async () => {
 		const { withAvailabilityTracking, resetAiAvailabilityLatch } = await import(
 			'../../../src/lib/server/ai/availability'
@@ -262,7 +310,7 @@ describe('[C] filter pattern が実際の log 出力にマッチする', () => {
 			}),
 		).rejects.toThrow(validationError);
 
-		const matched = warned.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM));
+		const matched = infoed.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM));
 		expect(matched).toHaveLength(1);
 		// 分類 (例外クラス名) までは載せる。メッセージ本文は載せない。
 		expect(matched[0]).toContain('error=ValidationException');

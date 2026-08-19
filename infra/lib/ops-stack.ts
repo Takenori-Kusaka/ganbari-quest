@@ -521,10 +521,19 @@ export class OpsStack extends cdk.Stack {
 			// 一方 1 件の失敗で即発火にすると、単発の throttle / timeout で鳴りっぱなしになる。
 			// 「呼んだうちどれだけ落ちたか」だけが両方を分離できる。
 			//
-			// 閾値の根拠: 15 分の window で fallback 率 50% 以上。半分以上が落ちているのは
-			// 一過性ではなく構成・権限・モデル ID の問題であり、必ず人の判断が要る。
-			// 分母 0 (AI が 1 度も呼ばれていない window) は metric math が除算不能でデータ点を
-			// 作らないため、無風の夜間に鳴ることはない (treatMissingData=NOT_BREACHING)。
+			// 閾値の根拠: 15 分の window で **失敗 2 件以上 かつ fallback 率 50% 以上**。
+			//
+			// 率だけだと「その window の AI 呼び出しが 1 件で、それが単発の throttle / timeout で
+			// 落ちた」ケースが 100% になり、鳴りっぱなしの原因になる (Pre-PMF は呼び出しが疎)。
+			// 逆に件数だけだと 100% 壊れていても到達しない (#4726 の実測は 2 件)。
+			// **両方を掛ける** — `IF(failed >= 2, rate, 0)` にして、単発失敗は 0 に潰し、
+			// 2 件以上落ちたときだけ率で判定する。#4726 の実障害 (2 回とも失敗) は発火する。
+			//
+			// この形にすると **0 除算が原理的に起きない** — 分子が 2 以上のときしか除算に進まず、
+			// そのとき分母 (failed + succeeded) は必ず 2 以上である。metric math の 0/0 挙動に
+			// 依存した仮定を持たない (CDK の unit test では検証できない仮定を残さない)。
+			// 呼び出しが無い window は式が 0 を返すか、metric 自体にデータ点が無い
+			// (treatMissingData=NOT_BREACHING) ため、いずれにせよ鳴らない。
 			const aiCallFailed = new logs.MetricFilter(this, 'AiCallFailedFilter', {
 				logGroup: props.appLogGroup,
 				filterPattern: logs.FilterPattern.literal(`"${AI_CALL_FAILED_LOG_TERM}"`),
@@ -543,7 +552,7 @@ export class OpsStack extends cdk.Stack {
 			});
 
 			const aiFallbackRate = new cloudwatch.MathExpression({
-				expression: '100 * failed / (failed + succeeded)',
+				expression: 'IF(failed >= 2, 100 * failed / (failed + succeeded), 0)',
 				usingMetrics: {
 					failed: aiCallFailed.metric({
 						period: cdk.Duration.minutes(15),
@@ -561,7 +570,7 @@ export class OpsStack extends cdk.Stack {
 			const aiFallbackRateAlarm = new cloudwatch.Alarm(this, 'AiFallbackRate', {
 				alarmName: 'ganbari-quest-ai-fallback-rate',
 				alarmDescription:
-					'AI 呼び出しの fallback 率が 15 分で 50% 以上: 顧客には AI ではなくキーワード規則の結果が返っている (HTTP 200 のため顧客も失敗に気付けない)',
+					'AI 呼び出しが 15 分で 2 件以上失敗し、その割合が 50% 以上: 顧客には AI ではなくキーワード規則の結果が返っている (HTTP 200 のため顧客も失敗に気付けない)',
 				metric: aiFallbackRate,
 				threshold: 50,
 				evaluationPeriods: 1,
