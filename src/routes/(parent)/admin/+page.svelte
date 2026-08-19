@@ -3,6 +3,7 @@ import { page } from '$app/state';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
 import RedemptionPendingBanner from '$lib/features/admin/components/RedemptionPendingBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
+import PwaInstallBanner from '$lib/features/pwa/PwaInstallBanner.svelte';
 
 let { data } = $props();
 
@@ -25,6 +26,14 @@ const pendingCountFailed = $derived(!isScreenshotAll && data.pendingRedemptionCo
 // shared コンポーネントの `isDemo = mode === 'demo'` 派生を server-side SSOT と同期させる。
 // これにより onboarding ダイアログ等の本番専用 UI が demo Lambda 上で誤表示されない (A-6 ISSUE-003)。
 const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
+
+// #4644: 「ホーム画面に追加」案内を出してよい局面か。
+// - お子さま登録前 (セットアップ途中) には出さない — 追加した先が空の画面になるため
+// - SS 撮影 (`?screenshot=*`) では出さない — LP 配信 SS に案内が映り込むのを避ける
+//   (src/routes/CLAUDE.md §?screenshot、DemoBanner / MilestoneBanner と同じ抑止規約)
+const showPwaInstallBanner = $derived(
+	getScreenshotModeKind() === 'off' && (data.children?.length ?? 0) > 0 && adminMode === 'live',
+);
 </script>
 
 <!-- #3144: ごほうび交換の承認待ち導線 (pending > 0 のときのみ)。
@@ -36,6 +45,10 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	     (true-0 = 承認待ちなし と failure-0 = 取得障害 を区別し、親が承認待ちを見落とさない)。 -->
 	<RedemptionPendingBanner variant="error" />
 {/if}
+
+<!-- #4644: 「ホーム画面に追加」案内 (端末ごとに 1 回だけ。閉じたら二度と出さない)。
+     表示可否は component 内で standalone / 閉じた履歴 / プラットフォームを見て決める。 -->
+<PwaInstallBanner enabled={showPwaInstallBanner} />
 
 <AdminHome
 	children={data.children}

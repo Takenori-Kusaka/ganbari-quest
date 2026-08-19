@@ -67,6 +67,7 @@ import {
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	PWA_TERMS,
 	REWARD_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
@@ -9644,6 +9645,17 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
 	carouselSlide4Alt: 'お子さま管理タブ — 家族メンバーの登録と切替',
+	// #4644: ホーム画面への追加 (インストール) 訴求。アプリ内の案内 (PWA_INSTALL_LABELS) と
+	// 同じ操作名を使うため PWA_TERMS.installAction を経由する (LP で読んだ操作名が
+	// アプリ内で見つからない状態を作らない)。
+	pwaTitle: `タブレットやスマホの${PWA_TERMS.installAction}しよう`,
+	pwaDesc: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動します。${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。`,
+	pwaAndroidTitle: 'Android / Chrome',
+	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosTitle: 'iPhone / iPad（Safari）',
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaNote:
+		'アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -10283,4 +10295,68 @@ export const POINT_LEDGER_LABELS = {
 		if (mode === 'receipt') return `${base}（領収書読み取り）`;
 		return base;
 	},
+} as const;
+
+// #4644: オフライン着地ページ (`/offline`) の文言。
+//
+// 読み手は**年齢帯を問わず子供**である (Service Worker はどの画面からの遷移でも
+// ここへ落とすため、preschool の子が最初に読む可能性がある)。年齢帯 variant は
+// 持たず、全年齢が読めるひらがな主体の 1 種類に固定する。漢字を混ぜると preschool が
+// 読めず、逆に「エラー」等のカタカナ専門語を出すと「壊した」と受け取られる。
+export const OFFLINE_LABELS = {
+	/** ページタイトル (svelte:head) */
+	pageTitle: 'いんたーねっとに つながっていません',
+	/** 画面見出し */
+	heading: 'いんたーねっとに つながっていないよ',
+	/** 本文 (原因と対処。子供が自分で試せることだけを書く) */
+	body: 'でんぱが とどいていないみたい。おうちの Wi-Fi を たしかめてから、もういちど ためしてね。',
+	/** 「壊れていない」ことの明示 (パニック防止。ADR-0012 整合で煽らない) */
+	reassurance: 'きろくは きえていないから だいじょうぶ。',
+	/** 再読み込みボタン */
+	retry: 'もういちど ひらく',
+	/** 装飾アイコン (aria-hidden) */
+	icon: '📡',
+} as const;
+
+// #4644: ホーム画面への追加 (インストール) ガイドの文言。
+//
+// 親向けの案内。ADR-0012 整合で「押し付けない」— バナーは閉じたら二度と出さず、
+// 恒久導線は 設定 > サポート に置く (フィードバック導線と同じ SSOT、DESIGN.md §10)。
+export const PWA_INSTALL_LABELS = {
+	/** 案内バナーの見出し */
+	bannerTitle: `${PARENT_TERMS.honorific}の方へ: ${PWA_TERMS.installAction}できます`,
+	/** 案内バナーの本文 (メリットを 1 文で) */
+	bannerBody: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動し、${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することなく使えます。`,
+	/** Android / Chrome: ブラウザ標準のインストールダイアログを起動する */
+	bannerInstallAction: PWA_TERMS.installAction,
+	/** iOS Safari 等、beforeinstallprompt が無い環境で手順を開く */
+	bannerHowToAction: '追加方法をみる',
+	/** バナーを閉じる (以後表示しない) */
+	bannerDismiss: '閉じる',
+	/** 閉じるボタンの aria-label (「以後出ない」ことを読み上げでも伝える) */
+	bannerDismissAria: '追加の案内を閉じる（次回から表示しません）',
+	/** 手順ダイアログ / 設定内カードの見出し */
+	guideTitle: `${PWA_TERMS.installAction}する方法`,
+	/** 手順ダイアログの導入文 */
+	guideIntro: `お使いの端末に合わせて操作してください。追加しても${PWA_TERMS.standalone}で開くだけで、アプリを別途インストールするわけではありません。`,
+	/** Android / Chrome 手順の見出し */
+	androidTitle: 'Android / Chrome の場合',
+	androidStep1: '画面右上の「⋮」（メニュー）をひらく',
+	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ`,
+	androidStep3: '確認画面で「追加」をおす',
+	/** iOS / Safari 手順の見出し */
+	iosTitle: 'iPhone / iPad（Safari）の場合',
+	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす`,
+	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
+	iosStep3: '右上の「追加」をおす',
+	/** 追加後に何が起きるか */
+	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
+	/** 設定 > サポート のカード見出し */
+	settingsCardTitle: PWA_TERMS.installAction,
+	/** 設定 > サポート のカード説明 */
+	settingsCardDesc: `${CHILD_TERMS.honorific}が安全に使えるよう、ホーム画面にアイコンを置く手順をいつでも確認できます。`,
+	/** 設定 > サポート の展開ボタン */
+	settingsCardAction: '手順をみる',
+	/** ダイアログを閉じる */
+	close: '閉じる',
 } as const;

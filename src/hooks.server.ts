@@ -612,6 +612,10 @@ export const handle: Handle = ({ event, resolve }) =>
 				// sitemap.xml がビルド時に生成できずビルド失敗する。
 				path !== '/sitemap.xml' &&
 				path !== '/robots.txt' &&
+				// #4644: オフライン着地ページ。sitemap.xml と同じくプリレンダ対象であり、
+				// 除外しないと /setup へ 302 されてビルド時に静的化できない。加えて実行時も
+				// 「オフラインなのに /setup へ飛ばそうとして更に失敗する」ことを避ける。
+				path !== '/offline' &&
 				// #1601: 配信停止リンクは未認証 + セットアップ前でもアクセス可能にする
 				// （特定電子メール法準拠: クリックしたら確実に解除できる必要がある）。
 				!path.startsWith('/unsubscribe/') &&
