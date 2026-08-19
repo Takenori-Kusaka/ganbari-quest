@@ -273,6 +273,25 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 	};
 }
 
+/**
+ * #4720: pg 系 backend (Aurora DSQL / NUC PGlite) の TransactionRunner を返す。
+ * record / cancel core (単一 txn 経路) 等の pg 専用 service は、`dsql/connection` を直 import せず
+ * **本関数から runner の注入を受ける** (直 import は NUC PGlite でも DSQL pool を開こうとする)。
+ * backend 判定は `isPgBackend()` (db/backend.ts) と対。sqlite / demo で呼ぶのは配線ミスなので throw。
+ */
+export function getPgTransactionRunner(): TransactionRunner<SqlExecutor> {
+	const dataSource = process.env.DATA_SOURCE ?? 'sqlite';
+	if (dataSource === 'dsql') {
+		return getDsqlTransactionRunner() as unknown as TransactionRunner<SqlExecutor>;
+	}
+	if (dataSource === 'pglite') {
+		return getPgliteTransactionRunnerSync() as unknown as TransactionRunner<SqlExecutor>;
+	}
+	throw new Error(
+		`[factory] getPgTransactionRunner は pg 系 backend (dsql / pglite) 専用です (DATA_SOURCE=${dataSource})`,
+	);
+}
+
 export function getRepos(): Repositories {
 	if (_repos) return _repos;
 

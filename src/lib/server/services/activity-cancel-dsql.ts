@@ -25,7 +25,7 @@ import { calcLevelFromXp, clampDecayFloor } from '$lib/domain/validation/status'
 import { findByChildAndActivity as findMastery } from '$lib/server/db/activity-mastery-repo';
 import { findActivityById, findActivityLogById } from '$lib/server/db/activity-repo';
 import { cancelActivityCore } from '$lib/server/db/dsql/cancel-activity-core';
-import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
+import { getPgTransactionRunner } from '$lib/server/db/factory';
 
 /**
  * DATA_SOURCE=dsql の活動キャンセル。error 契約 (NOT_FOUND / CANCEL_EXPIRED) と
@@ -59,7 +59,7 @@ export async function cancelActivityDsql(
 
 	// 2. core 単一 txn (冪等性の正 = cancel UPDATE の affected 判定、§8)
 	const now = new Date().toISOString();
-	const result = await cancelActivityCore(getDsqlTransactionRunner(), {
+	const result = await cancelActivityCore(getPgTransactionRunner(), {
 		familyId: tenantId,
 		childId: String(log.childId),
 		activityId: String(log.activityId),
