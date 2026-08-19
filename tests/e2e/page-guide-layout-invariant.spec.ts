@@ -56,6 +56,46 @@ const VIEWPORTS = [
 	{ label: 'mobile', width: 390, height: 844 },
 ] as const;
 
+/**
+ * #4651 (EPIC #4650 判断 4 / 6): **selector を持つ step は必ず実要素に spotlight する**。
+ *
+ * 判定は DOM から行う (spec 側で step 一覧を二重管理しない):
+ *   `.guide-bubble[data-has-target="true"]` = ガイド定義が selector を持つ step。
+ *   その step では driver.js の `.driver-active-element` が 1 件・可視・非 0 サイズで存在すること。
+ *
+ * ### accepted-residual allowlist (ADR-0061)
+ * 「対象が画面に無い step」は本来 0 件であるべきだが、同一 EPIC の各画面 PR が develop に
+ * merge されるまでの間だけ残る。下表に **対応 PR 番号付きで** 明示列挙し、それ以外は hard-fail する。
+ * - 追加は必ずレビューを通る (定数の diff として見える) = allowlist が増える方向は PR で止まる
+ * - 列挙した組み合わせが **通ってしまった場合も fail** させる (merge 済なのに残置 = 記録の腐り)。
+ *   → allowlist は縮む方向にしか動かない
+ */
+const ACCEPTED_RESIDUAL_SPOTLIGHT: readonly {
+	path: string;
+	viewport: 'desktop' | 'mobile';
+	stepId: string;
+	pr: string;
+}[] = [
+	// 各行は「対象 PR が develop に入れば解消する」ものだけ。解消したら行ごと削除する。
+	{
+		// /admin step 3 (home-nav) は `[data-tutorial="nav-primary"]` = AdminLayout の mobile nav を
+		// 指しており、desktop では `md:hidden` で非表示。#4651 で「非可視候補は採用しない」ようにしたため
+		// 0×0 spotlight は消え中央 modal になるが、**実要素に光る**状態にするには step の再アンカーが要る。
+		// 再アンカーは /admin ガイド担当 PR #4732 (Issue #4653) が行う。
+		path: '/admin',
+		viewport: 'desktop',
+		stepId: 'home-nav',
+		pr: '#4732 (Issue #4653)',
+	},
+];
+
+/** allowlist 判定 (path × viewport × stepId 完全一致)。 */
+function residualEntry(path: string, viewport: string, stepId: string) {
+	return ACCEPTED_RESIDUAL_SPOTLIGHT.find(
+		(e) => e.path === path && e.viewport === viewport && e.stepId === stepId,
+	);
+}
+
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
 const GUIDE_BUBBLE = '.guide-bubble';
 const GUIDE_NEXT = '.guide-nav-next';
@@ -215,6 +255,57 @@ async function waitForBubbleStable(page: Page, bubble: Locator): Promise<void> {
 	}
 }
 
+/**
+ * (d) #4651: selector を持つ step が実要素に spotlight したことを検証する。
+ * 戻り値は「実要素に spotlight したか」。allowlist 判定のため boolean を返す。
+ */
+async function isSpotlightingRealTarget(page: Page): Promise<boolean> {
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	if ((await target.count()) !== 1) return false;
+	if (!(await target.isVisible().catch(() => false))) return false;
+	const box = await target.boundingBox();
+	if (!box || box.width <= 0 || box.height <= 0) return false;
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+	const tol = 1;
+	return (
+		box.x + box.width > -tol &&
+		box.y + box.height > -tol &&
+		box.x < vp.width + tol &&
+		box.y < vp.height + tol
+	);
+}
+
+/**
+ * (d) #4651: `data-has-target="true"` の step は実要素に spotlight する。
+ * allowlist 記載の組み合わせのみ「まだ光らない」ことを許容し、逆に光っていたら
+ * 「allowlist から外せ」と fail する (記録が腐らないようにする)。
+ */
+async function assertSelectorStepLights(
+	page: Page,
+	bubble: Locator,
+	path: string,
+	viewport: string,
+	ctx: string,
+): Promise<void> {
+	if ((await bubble.getAttribute('data-has-target')) !== 'true') return;
+	const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+	const lit = await isSpotlightingRealTarget(page);
+	const residual = residualEntry(path, viewport, stepId);
+	if (residual) {
+		expect(
+			lit,
+			`${ctx}: ${stepId} は allowlist (${residual.pr}) に載っているが実要素に spotlight した。` +
+				' 対象 PR が merge 済なら ACCEPTED_RESIDUAL_SPOTLIGHT から当該行を削除すること',
+		).toBe(false);
+		return;
+	}
+	expect(
+		lit,
+		`${ctx}: ${stepId} は selector 指定 step なので実要素に spotlight する必要がある` +
+			' (中央 fallback / 0×0 spotlight で成立させない、EPIC #4650 判断 4)',
+	).toBe(true);
+}
+
 test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b)(c) 機械固定', () => {
 	test.setTimeout(120_000);
 
@@ -250,6 +341,8 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 					await assertSpotlightVisible(page, ctx);
 					await assertBubbleWithinViewport(page, bubble, ctx);
 					await assertBubbleNotOverlapTarget(page, bubble, ctx);
+					// #4651: selector 指定 step は実要素に spotlight する (allowlist 以外は hard-fail)
+					await assertSelectorStepLights(page, bubble, path, vpLabel, ctx);
 
 					// 次へ。最終 step なら「かんりょう！」になり、押すとガイドが閉じる。
 					const nextBtn = bubble.locator(GUIDE_NEXT);

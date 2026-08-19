@@ -148,8 +148,11 @@ async function dismissChildHomeOverlays(page: Page) {
 
 async function clearTutorialProgress(page: Page) {
 	await page.evaluate(() => {
-		localStorage.removeItem('tutorial-progress-chapter');
-		localStorage.removeItem('tutorial-progress-step');
+		// #4651: 進捗 key は章セットごとの namespace (`tutorial-progress:<scope>:chapter|step`)。
+		// spec 側は prefix 一致で全 scope を掃除する (mode ごとに書き分けない)。
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('tutorial-progress')) localStorage.removeItem(key);
+		}
 	});
 }
 
@@ -202,10 +205,11 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			await gotoChildHome(page, uiMode);
 
 			// 保存進捗をセットし reload → resume prompt を発火させる
-			await page.evaluate(() => {
-				localStorage.setItem('tutorial-progress-chapter', '2');
-				localStorage.setItem('tutorial-progress-step', '0');
-			});
+			// #4651: key は章セットごとの namespace (`tutorial-progress:child:<uiMode>:*`)
+			await page.evaluate((mode) => {
+				localStorage.setItem(`tutorial-progress:child:${mode}:chapter`, '2');
+				localStorage.setItem(`tutorial-progress:child:${mode}:step`, '0');
+			}, uiMode);
 			await page.reload();
 			// reload 後 Header help button の再描画を待つ
 			await page.locator('[data-testid="header-help-btn"]').waitFor({

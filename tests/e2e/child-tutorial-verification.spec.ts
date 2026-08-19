@@ -72,8 +72,11 @@ async function gotoChildHome(page: Page, uiMode: string) {
 	}
 	await dismissChildHomeOverlays(page);
 	await page.evaluate(() => {
-		localStorage.removeItem('tutorial-progress-chapter');
-		localStorage.removeItem('tutorial-progress-step');
+		// #4651: 進捗 key は章セットごとの namespace (`tutorial-progress:<scope>:chapter|step`)。
+		// spec 側は prefix 一致で全 scope を掃除する (mode ごとに書き分けない)。
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('tutorial-progress')) localStorage.removeItem(key);
+		}
 	});
 }
 
