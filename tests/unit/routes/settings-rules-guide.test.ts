@@ -82,8 +82,8 @@ describe('#4666 ごほうび・ボーナスルールのガイドが実画面と�
 
 	it('[R6] 承認待ちの処理先への relatedLink がある', () => {
 		const step = SETTINGS_RULES_GUIDE.steps.find((s) => s.id === 'settings-rules-approval');
-		const hrefs = (step?.relatedLinks ?? []).map((l) => l.href);
-		expect(hrefs).toContain('/admin/rewards/requests');
+		const linkTargets = (step?.relatedLinks ?? []).map((l) => l.href);
+		expect(linkTargets).toContain('/admin/rewards/requests');
 		// href が実在すること (死にリンクを作らない)
 		expect(
 			fs.existsSync(
