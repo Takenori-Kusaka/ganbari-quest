@@ -9,6 +9,7 @@ import {
 	REFRESH_COOKIE_NAME,
 	SESSION_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
+import { LOGIN_REASON_CODES } from '$lib/domain/validation/login-redirect';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	buildLogoutUrl,
@@ -16,7 +17,7 @@ import {
 } from '$lib/server/auth/providers/cognito-oauth';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ cookies }) => {
+export const GET: RequestHandler = async ({ cookies, url }) => {
 	// Cognito 本番モード: Refresh Token を失効させてから Cookie 削除 (#1365)
 	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
 		await revokeCognitoRefreshToken(cookies);
@@ -34,6 +35,10 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		redirect(302, buildLogoutUrl());
 	}
 
-	// ローカル or dev モードの場合はログインページへ
-	redirect(302, '/auth/login');
+	// ローカル or dev モードの場合はログインページへ。
+	// #4699: 退会 (アカウント削除) 申請直後は理由を引き継ぎ、ログイン画面で受付完了を伝える
+	// (既知の理由コードのみ通す。任意文字列を query に載せ替えない)。
+	const reason = url.searchParams.get('reason');
+	const known = Object.values(LOGIN_REASON_CODES).find((code) => code === reason);
+	redirect(302, known ? `/auth/login?reason=${known}` : '/auth/login');
 };

@@ -684,6 +684,10 @@ export const handle: Handle = ({ event, resolve }) =>
 				'/api/v1/export',
 				'/api/v1/auth/logout',
 				'/auth/logout',
+				// #4699: /switch の子供選択は cookie を書くだけで DB を書き換えない (読み取り用途の POST)。
+				// ここを塞ぐと退会申請中に子供画面へ入れず、しかも設定画面へ無言で飛ばされる
+				// (顧客には「タップしたのに設定に戻された」としか見えない)。
+				'/switch',
 			].some((p) => path.startsWith(p));
 
 			if (!isAllowedWritePath && (await isTenantSoftDeleted(context.tenantId))) {

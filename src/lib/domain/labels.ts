@@ -2413,6 +2413,10 @@ export const SETTINGS_LABELS = {
 		'カードの有効期限切れなどでお支払いが完了していない可能性があります。プラン・お支払い画面からお支払い方法をご確認ください。お子さまの記録はそのままご利用いただけます。',
 	gracePeriodAction: 'プラン・お支払いを確認する',
 
+	// #4699: 退会申請中に書き込み操作をして設定画面へ戻されたときの説明 (旧実装は
+	// `?reason=account_deletion_pending` を誰も表示せず、無言で設定トップに飛ばしていた)
+	deletionPendingReadOnlyNotice:
+		'アカウント削除のお手続き中のため、設定の変更は行えません（読み取り専用）。下の「アカウント」から復元すると、これまでどおりご利用いただけます。',
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
 	// #4496: 呼び出し側 (admin/settings/account) が渡すのは `daysRemaining` (残日数) なのに、
@@ -4318,6 +4322,8 @@ export const LOGIN_LABELS = {
 		'アカウントの登録が完了しました。登録したメールアドレスとパスワードでログインしてください。',
 	noticeConfirmed: 'メールアドレスの確認が完了しました。ログインして始めましょう。',
 	noticeAccountDeleted: `このアカウントは${CANCEL_TERMS.account}（削除）済みのためログインできません。もう一度ご利用になる場合は、新しいアカウントを登録してください。`,
+	// #4699: 退会 (アカウント削除) を申請した直後の着地。受付と、猶予中は取り消せることを伝える
+	noticeDeletionPending: `アカウント削除のお申し込みを受け付けました。猶予期間中にもう一度ログインすると、${ADMIN_VIEW_TERMS.canonical}から取り消し（復元）できます。`,
 	noticeOauthFailed:
 		'Google でのログインを完了できませんでした。もう一度お試しいただくか、メールアドレスとパスワードでログインしてください。',
 	noticeOauthStateLost:
