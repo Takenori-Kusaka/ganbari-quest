@@ -1113,6 +1113,18 @@ export const PIN_DEFAULT_TERMS = {
 //   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
 //   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
 
+// ============================================================
+// CHALLENGE_TERMS — チャレンジの呼称 atom (#4671 F3)
+// ============================================================
+//
+// 同一画面で「チャレンジ管理」(ガイド title) / 「👥 きょうだいチャレンジ」(見出し・page title) /
+// 「チャレンジ」(サイドナビ) の 3 表記が混在していた。per-child 自動生成モデルではきょうだい限定機能
+// ではないため、画面で最も広く使われている「チャレンジ」を canonical とする (EPIC #4650 PO 判断)。
+
+export const CHALLENGE_TERMS = {
+	canonical: 'チャレンジ',
+} as const;
+
 export const CONCEPT_ICONS = {
 	activity: '📝',
 	reward: '🎁',

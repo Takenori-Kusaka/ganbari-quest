@@ -83,6 +83,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4670: 右上リンク 2 本 / タブ / 月の移動 (既定の月次タブ) は常に描画。upsell (free) / 週次設定 (週次タブ) /
 	// きょうだいランキング (プレミアム + ON + 2 人以上) は optional で列挙しない
 	'/admin/reports': ['reports-links', 'reports-tabs', 'reports-month-nav'],
+	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
+	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
+	'/admin/challenges': ['challenges-child-tabs'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';

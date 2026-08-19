@@ -41,6 +41,7 @@ import {
 	BACKUP_TERMS,
 	CANCEL_TERMS,
 	CERTIFICATE_TERMS,
+	CHALLENGE_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
@@ -114,7 +115,8 @@ export const PAGE_TITLES = {
 	rewards: 'ごほうび',
 	checklists: 'チェックリスト管理',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'きょうだいチャレンジ',
+	// #4671 F3: 呼称は CHALLENGE_TERMS.canonical に統一 (旧「きょうだいチャレンジ」)
+	challenges: CHALLENGE_TERMS.canonical,
 	children: 'こども管理',
 	members: 'メンバー管理',
 	settings: '設定',
@@ -149,7 +151,7 @@ export const PAGE_TITLES = {
 	// デモ ご家族の見守り画面 (#2057)
 	demoAdminAchievements: 'チャレンジ履歴（デモ）',
 	demoAdminActivities: '活動管理',
-	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
+	demoAdminChallenges: `${CHALLENGE_TERMS.canonical}（デモ）`,
 	demoAdminChecklists: 'もちものチェックリスト',
 	demoAdminChildren: 'こども管理',
 	demoAdminEvents: 'イベント管理（デモ）',
@@ -307,7 +309,7 @@ export const NAV_ITEM_LABELS = {
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'チャレンジ',
+	challenges: CHALLENGE_TERMS.canonical,
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
 	marketplace: TEMPLATE_TERMS.short,
@@ -1554,26 +1556,47 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminChallenges: {
-		title: 'チャレンジ管理',
+		title: CHALLENGE_TERMS.canonical,
+		// #4671 (EPIC #4650): 全 step が中央 modal で何も光らなかったため、画面の DOM 順
+		// (家族ストリーク → お子さまタブ → 今週のカード → 削除) に anchor を張り直す。
+		// 削除の説明は実装の事実 (同じ週のうちは再び用意され進捗は 0 に戻る) を正とする (PO 判断)。
 		steps: {
 			'challenges-intro': {
 				title: 'このページについて',
-				what: 'チャレンジは、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、そのチャレンジを保護者が一覧で見守れます。',
-				how: '設定や作成は不要です。お子さまがアプリを開くと今週のチャレンジが自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。',
+				what: `${CHALLENGE_TERMS.canonical}は、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、その${CHALLENGE_TERMS.canonical}を保護者が一覧で見守れます。`,
+				how: `設定や作成は不要です。お子さまがアプリを開くと今週の${CHALLENGE_TERMS.canonical}が自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。`,
 				goal: 'お子さまの画面に進捗バーが表示され、達成に近づく様子が見えます。期間内に達成すると特別な演出でお祝いされます。',
 			},
-			'challenges-view': {
-				title: '画面の見方',
-				what: '自動で用意された今週のチャレンジと、これまでの履歴が並びます。お子さまごとの進捗バーで達成までの道のりが見え、きょうだいで同じ目標に取り組むときはみんなの進捗が並んで表示されます。',
-				how: '上に今週のチャレンジ、その下に過去の履歴が並びます。各カードの進捗バーで達成度を確認できます。',
+			// ② 家族ストリーク (誰かが記録した日が続くと表示される。0 日の日は描画されない → optional)
+			'challenges-family-streak': {
+				title: '画面の見方（家族ストリーク）',
+				what: `一番上の「🔥 家族ストリーク」は、ご家族の誰かが記録した日が何日続いているかを表します。その下に今日すでに記録した人数が出ます。${CHALLENGE_TERMS.canonical}とは別の「家族全体の連続記録」です。`,
+				how: `1. 「家族ストリーク: N日」で連続日数を確認します\n2. 「今日は N人が記録済み」で今日の状況を確認します（誰も記録していない日はその旨が出ます）`,
+				goal: '「あと 1 人記録すれば今日も続くね」と、家族で声をかけ合うきっかけになります。',
+			},
+			// ③ お子さまタブ (子供 2 人以上のときだけ描画 → optional)
+			'challenges-child-tabs': {
+				title: '画面の見方（お子さまで絞り込む）',
+				what: `お子さまが 2 人以上のとき、上のタブで表示する子を切り替えられます。お子さまが 1 人のご家庭ではタブは出ず、その子の${CHALLENGE_TERMS.canonical}がそのまま並びます。`,
+				how: `1. 「すべて」を押すと全員分が並びます\n2. お子さまの名前のタブを押すと、その子の${CHALLENGE_TERMS.canonical}だけが表示されます`,
+				goal: '見たいお子さまの取り組みだけを表示して、進み具合を確認できます。',
+			},
+			// ④ 今週のカードの見方 (1 件以上あるときだけ描画 → optional)
+			'challenges-card': {
+				title: '画面の見方（今週のカード）',
+				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「報酬 N P」（P はポイント）が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
+				how: `1. 進捗バーで達成までの距離を確認します\n2. 「報酬 N P」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
 				goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
 			},
-			'challenges-manage': {
-				title: 'よく使う操作（絞り込みと削除）',
-				what: 'お子さまが複数いるときは、上のタブで子ごとに絞り込めます。合わないチャレンジはカードから取り除けます。',
-				how: '1. お子さまタブで見たい子に切り替えます\n2. 不要なチャレンジは各カードの「削除」で取り除きます',
-				goal: '見たいお子さまの取り組みだけを表示でき、合わない目標を整理できます。削除しても翌週また自動で用意されます。',
-				tips: ['チャレンジはアプリが自動で用意するので、保護者が目標を作る必要はありません'],
+			// ⑤ 削除 (カードが 1 件以上あるときだけ描画 → optional)
+			'challenges-delete': {
+				title: 'よく使う操作（削除）',
+				what: `お子さまに合わない${CHALLENGE_TERMS.canonical}は、カードから取り除けます。消えるのは押したお子さまの分だけです。`,
+				how: `1. カード右下の「削除」（きょうだいのカードでは「<お名前> を削除」）を押します\n2. 確認画面で「削除」を選びます`,
+				goal: `そのお子さまの今週の進捗は消えます。同じ週のうちは、次にお子さまがアプリを開くと今週分が改めて用意されます（進捗は 0 からになります）。翌週は新しい${CHALLENGE_TERMS.canonical}が届きます。`,
+				tips: [
+					`${CHALLENGE_TERMS.canonical}はアプリが自動で用意するので、保護者が目標を作る必要はありません`,
+				],
 			},
 		},
 	},
@@ -4395,10 +4418,13 @@ export const CHALLENGES_LABELS = {
 	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
 	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: `${CONCEPT_ICONS.challenge} ${CHALLENGE_TERMS.canonical}`,
 	deletedNotice: 'チャレンジを削除しました',
-	noChallengeTitleIcon: '👥',
-	noChallengeTitle: 'チャレンジはまだありません',
+	noChallengeTitleIcon: CONCEPT_ICONS.challenge,
+	noChallengeTitle: `${CHALLENGE_TERMS.canonical}はまだありません`,
+	// #4671 F8: 家族ストリークカードの日本語直書きを SSOT 化
+	familyStreakRecordedToday: (count: number) => `今日は${formatPeople(count)}が記録済み`,
+	familyStreakNoneToday: '今日はまだ誰も記録していません',
 	badgeAllCompleted: '全員クリア！',
 	badgeActive: '開催中',
 	rewardLabel: (points: number) => `報酬${points}P`,
@@ -6009,17 +6035,9 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// 子供別タブ
 	childTabAllLabel: 'すべて',
 	childTabAllAriaLabel: 'すべてのお子さま',
-	// 一括追加 / cross-child copy
-	bulkAddAction: '全員にこのチャレンジを追加',
-	copyFromOtherChildAction: '他のお子さまから取り込む',
-	copyConfirmTitle: (sourceName: string, targetCount: number) =>
-		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
-	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
-	// 一括追加 完了通知 (#2362 PR-7)
-	bulkCreatedMessage: (createdCount: number) => `${createdCount} 件のチャレンジを追加しました。`,
 	// per-child empty state
+	// #4671 F7: 一括追加 / cross-child copy の label は #3195 の機能撤去で参照 0 件になったため削除
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
-	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
 	// #3195: アプリ自動生成への一本化 (親手動作成撤去、読み取り専用ビュー)
 	autoGeneratedDesc:
 		'チャレンジはアプリが毎週自動で用意します。お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標が届きます。',
