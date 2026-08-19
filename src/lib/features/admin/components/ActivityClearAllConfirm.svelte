@@ -70,11 +70,15 @@ const L = FEATURES_LABELS.activityClearAllConfirm;
 		border-radius: var(--radius-md);
 		background: var(--color-feedback-error-bg);
 		border: 1px solid var(--color-feedback-error-border);
+		/* #4692: 確認文が「誰の・何件」を含む分だけ長くなるため、狭い画面では
+		   ボタン行を折り返す (旧: 1 行固定で「実行 / やめる」が縦に潰れていた)。 */
+		flex-wrap: wrap;
 	}
 	.clear-confirm__text {
 		font-size: 0.8rem;
 		font-weight: 700;
 		color: var(--color-feedback-error-text);
+		flex: 1 1 14rem;
 	}
 	.clear-confirm__actions {
 		display: flex;
