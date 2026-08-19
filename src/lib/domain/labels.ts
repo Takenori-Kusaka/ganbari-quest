@@ -1493,6 +1493,104 @@ export const TUTORIAL_CHAPTER_LABELS = {
 	},
 } as const;
 
+// #4672: PAGE_GUIDE_LABELS.adminMembers がボタン名を参照するため PAGE_GUIDE_LABELS より前に置く
+//        (module 初期化順。const は宣言前に参照できない)
+// ============================================================
+// admin/members ページ (#1452 Phase B)
+// ============================================================
+
+export const MEMBERS_LABELS = {
+	// Role labels
+	roleOwner: 'オーナー',
+	roleParent: `${PARENT_TERMS.honorific}`,
+	roleChild: `${CHILD_TERMS.hiragana}`,
+
+	// Current members section
+	currentMembersTitle: '現在のメンバー',
+	noMembersText: 'メンバーがいません',
+	transferButton: '移譲',
+	removeButton: '削除',
+	leaveGroupButton: '家族グループを離れる',
+
+	// Invite section
+	inviteSectionTitle: 'メンバーを招待',
+	inviteRoleLabel: '招待ロール',
+	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
+	inviteEmailLabel: '宛先メールアドレス（任意）',
+	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
+	inviteChildLabel: '対象の子供（任意）',
+	inviteChildNone: '-- 後で紐づけ --',
+	inviteCreateLoading: '作成中...',
+	inviteCreateButton: '招待リンクを作成',
+	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
+	inviteQrAlt: '招待QRコード',
+	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
+	inviteUrlLabel: '招待URL',
+	inviteCopied: 'コピー済み',
+	inviteCopy: 'コピー',
+
+	// Pending invites section
+	pendingInvitesTitle: '保留中の招待',
+	inviteExpiresPrefix: '期限: ',
+	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
+	// 取消し → 再発行できる修正導線)
+	inviteEmailBoundPrefix: '宛先: ',
+	inviteRevokeButton: '取消し',
+	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
+	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
+	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
+	inviteOwnerOnlyNote:
+		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
+
+	// Error messages
+	inviteCreateError: '招待リンクの作成に失敗しました',
+	networkError: '通信エラーが発生しました',
+	removeError: '削除に失敗しました',
+	transferError: '移譲に失敗しました',
+	leaveError: '離脱に失敗しました',
+
+	// Confirm dialogs
+	revokeConfirm: 'この招待リンクを取り消しますか？',
+	removeMemberConfirm: (email: string) =>
+		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
+	transferConfirm: (email: string) =>
+		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
+	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
+
+	// Viewer link section
+	viewerSectionTitle: '閲覧リンク',
+	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
+	viewerLabelField: 'ラベル（任意）',
+	viewerLabelPlaceholder: '例: おばあちゃん用',
+	viewerDurationLabel: '有効期限',
+	viewerDuration7d: `${TRIAL_TERMS.duration}`,
+	viewerDuration30d: '30日間',
+	viewerDurationUnlimited: '無期限',
+	viewerCreateLoading: '作成中...',
+	viewerCreateButton: '閲覧リンクを作成',
+	viewerSuccessMsg: '閲覧リンクが作成されました',
+	viewerQrAlt: '閲覧QRコード',
+	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
+	viewerUrlLabel: '閲覧URL',
+	viewerCopied: 'コピー済み',
+	viewerCopy: 'コピー',
+	viewerNoLabel: '(ラベルなし)',
+	viewerStatusInvalid: '無効',
+	viewerStatusExpired: '期限切れ',
+	viewerStatusValid: '有効',
+	viewerExpiresPrefix: '期限: ',
+	viewerExpiresNone: '無期限',
+	viewerRevokeButton: '無効化',
+	viewerDeleteButton: '削除',
+	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
+	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
+	viewerCreateError: '閲覧リンクの作成に失敗しました',
+
+	// Button titles
+	transferTitle: 'オーナー権限を移譲',
+	removeTitle: 'メンバーを削除',
+} as const;
+
 // ============================================================
 // ページ別オンデマンドガイド（PageGuide）の表示文言 SSOT
 // #3264 (EPIC #3260 F3): 各 `_guide.ts` (admin 11 ページ) にインライン直書きしていた
@@ -2054,26 +2152,51 @@ export const PAGE_GUIDE_LABELS = {
 	// #3268 (EPIC #3260 C4): 家族メンバー / パックページの個別ガイド。常在セクションのみを selector で
 	// 指す（保留中の招待 / 閲覧リンク / 展開コンテンツは条件表示のため step 対象外）。
 	adminMembers: {
-		title: '家族メンバー',
+		// #4672 F6: ガイド title はページ表示名 (PAGE_TITLES.members) に揃える
+		title: PAGE_TITLES.members,
+		// #4672 (EPIC #4650): step を画面の DOM 順 (メンバー一覧 → 招待作成 → 保留中の招待 →
+		// 閲覧リンク) に並べ、role / プラン / 件数で描画が変わるカードは `optional` で起動時 DOM 判定する。
+		// 招待作成カードは owner 専用のため、保護者ロールでは step ごと消える (旧実装は「作成ボタンを
+		// 押す」と案内しながら何も光らなかった)。ボタン名は MEMBERS_LABELS の実表記を引く。
 		steps: {
 			'members-intro': {
 				title: 'このページについて',
-				what: '家族で使う人を増やしたり、離れて暮らす家族に「見るだけ」のリンクを渡したりできるページです。',
-				how: '上から順に、今のメンバー・招待リンクの作成・見るだけのリンクが並びます。表示される項目はご利用環境によって変わります。',
-				goal: '家族みんなで使えるようになり、離れた家族にも成長を共有できます。',
+				what: `家族で使う人を増やしたり、離れて暮らすご家族に「見るだけ」のリンクを渡したりできるページです。招待リンクの発行と取り消しは${MEMBERS_LABELS.roleOwner}のみ行えます。`,
+				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・閲覧リンク（${PLAN_FULL_TERMS.family}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
+				goal: '家族みんなで使えるようになり、離れたご家族にも成長を共有できます。',
 			},
 			'members-list': {
-				title: '画面の見方（今のメンバー）',
-				what: '今この家族で使っている人の一覧です。それぞれの権限もここで分かります。',
-				how: '1. 一覧で今のメンバーを確認します\n2. 必要なら権限の変更や削除ができます',
-				goal: '誰が使っているかをひと目で確認できます。',
+				title: '画面の見方（現在のメンバー）',
+				what: `今この家族で使っている人の一覧です。それぞれの権限（${MEMBERS_LABELS.roleOwner} / ${MEMBERS_LABELS.roleParent} / ${MEMBERS_LABELS.roleChild}）もここで分かります。`,
+				how: `1. 一覧で今のメンバーと権限を確認します\n2. ${MEMBERS_LABELS.roleOwner}は他のメンバーに「${MEMBERS_LABELS.transferButton}」（${MEMBERS_LABELS.roleOwner}を引き継ぐ）と「${MEMBERS_LABELS.removeButton}」ができます\n3. ${MEMBERS_LABELS.roleParent}は自分だけが「${MEMBERS_LABELS.leaveGroupButton}」で抜けられます`,
+				goal: `誰が使っているかをひと目で確認でき、必要なときに${MEMBERS_LABELS.roleOwner}の引き継ぎやメンバーの整理ができます。`,
 			},
+			// ③ 招待リンクを作る (owner のときだけ描画 → optional)
 			'members-invite': {
-				title: 'よく使う操作（招待リンクを作る）',
-				what: '新しく使う人を招くリンクを作れます。リンクやQRコードを渡すだけで参加してもらえます。',
-				how: '1. 役割（保護者か子供）を選びます\n2. 作成ボタンを押し、出てきたリンクを渡します',
+				title: `よく使う操作（${MEMBERS_LABELS.inviteCreateButton}）`,
+				what: '新しく使う人を招くリンクを作れます。リンクや QR コードを渡すだけで参加してもらえます。',
+				how: `1. 「${MEMBERS_LABELS.inviteRoleLabel}」で ${MEMBERS_LABELS.roleParent} か ${MEMBERS_LABELS.roleChild} を選びます\n2. 「${MEMBERS_LABELS.inviteEmailLabel}」を入れると、そのメールアドレスのアカウントだけが受諾できます（空欄なら誰でも受諾できます）\n3. 「${MEMBERS_LABELS.inviteChildLabel}」を選ぶと、参加した人をそのお子さまに紐づけます（後からでも設定できます）\n4. 「${MEMBERS_LABELS.inviteCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
 				goal: '相手がリンクを開くだけで家族に参加でき、すぐ一緒に使い始められます。',
-				tips: ['招待リンクには期限があり、参加が済むと自動で使えなくなります'],
+				tips: [
+					`招待リンクは ${TRIAL_TERMS.duration}有効です（期限は下の「${MEMBERS_LABELS.pendingInvitesTitle}」に表示されます）。参加が済むと自動で使えなくなります`,
+				],
+			},
+			// ④ 保留中の招待 (未受諾の招待があるときだけ描画 → optional)
+			'members-pending': {
+				title: `画面の見方（${MEMBERS_LABELS.pendingInvitesTitle}）`,
+				what: `まだ受諾されていない招待がここに並びます。期限と、宛先を指定した場合はその宛先が表示されます。`,
+				how: `1. 「${MEMBERS_LABELS.inviteExpiresPrefix.trim()}」で使える期限を確認します\n2. 宛先を間違えたときや不要になったときは「${MEMBERS_LABELS.inviteRevokeButton}」で無効にします（${MEMBERS_LABELS.roleOwner}のみ）`,
+				goal: '渡した招待がまだ使われていないかを把握でき、間違えた招待をすぐ取り消せます。',
+			},
+			// ⑤ 閲覧リンク (プレミアムのときだけ描画 → optional)
+			'members-viewer': {
+				title: `よく使う操作（${MEMBERS_LABELS.viewerCreateButton}）`,
+				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.family}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
+				how: `1. 「${MEMBERS_LABELS.viewerLabelField}」に渡す相手が分かる名前を入れます（例: ${MEMBERS_LABELS.viewerLabelPlaceholder.replace('例: ', '')}）\n2. 「${MEMBERS_LABELS.viewerDurationLabel}」を ${MEMBERS_LABELS.viewerDuration7d} / ${MEMBERS_LABELS.viewerDuration30d} / ${MEMBERS_LABELS.viewerDurationUnlimited} から選びます\n3. 「${MEMBERS_LABELS.viewerCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
+				goal: '離れて暮らすご家族が、記録を見るだけの画面で成長を見守れます。',
+				tips: [
+					`渡した後で止めたいときは一覧の「${MEMBERS_LABELS.viewerRevokeButton}」（リンクを使えなくする）、履歴ごと消すときは「${MEMBERS_LABELS.viewerDeleteButton}」を使います`,
+				],
 			},
 		},
 	},
@@ -4477,102 +4600,6 @@ export const LOGIN_LABELS = {
 	devAccountOwnerRole: '(管理者)',
 	devAccountParentRole: '(親)',
 	devAccountChildRole: '(子供)',
-} as const;
-
-// ============================================================
-// admin/members ページ (#1452 Phase B)
-// ============================================================
-
-export const MEMBERS_LABELS = {
-	// Role labels
-	roleOwner: 'オーナー',
-	roleParent: `${PARENT_TERMS.honorific}`,
-	roleChild: `${CHILD_TERMS.hiragana}`,
-
-	// Current members section
-	currentMembersTitle: '現在のメンバー',
-	noMembersText: 'メンバーがいません',
-	transferButton: '移譲',
-	removeButton: '削除',
-	leaveGroupButton: '家族グループを離れる',
-
-	// Invite section
-	inviteSectionTitle: 'メンバーを招待',
-	inviteRoleLabel: '招待ロール',
-	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
-	inviteEmailLabel: '宛先メールアドレス（任意）',
-	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
-	inviteChildLabel: '対象の子供（任意）',
-	inviteChildNone: '-- 後で紐づけ --',
-	inviteCreateLoading: '作成中...',
-	inviteCreateButton: '招待リンクを作成',
-	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
-	inviteQrAlt: '招待QRコード',
-	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
-	inviteUrlLabel: '招待URL',
-	inviteCopied: 'コピー済み',
-	inviteCopy: 'コピー',
-
-	// Pending invites section
-	pendingInvitesTitle: '保留中の招待',
-	inviteExpiresPrefix: '期限: ',
-	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
-	// 取消し → 再発行できる修正導線)
-	inviteEmailBoundPrefix: '宛先: ',
-	inviteRevokeButton: '取消し',
-	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
-	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
-	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
-	inviteOwnerOnlyNote:
-		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
-
-	// Error messages
-	inviteCreateError: '招待リンクの作成に失敗しました',
-	networkError: '通信エラーが発生しました',
-	removeError: '削除に失敗しました',
-	transferError: '移譲に失敗しました',
-	leaveError: '離脱に失敗しました',
-
-	// Confirm dialogs
-	revokeConfirm: 'この招待リンクを取り消しますか？',
-	removeMemberConfirm: (email: string) =>
-		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
-	transferConfirm: (email: string) =>
-		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
-	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
-
-	// Viewer link section
-	viewerSectionTitle: '閲覧リンク',
-	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
-	viewerLabelField: 'ラベル（任意）',
-	viewerLabelPlaceholder: '例: おばあちゃん用',
-	viewerDurationLabel: '有効期限',
-	viewerDuration7d: `${TRIAL_TERMS.duration}`,
-	viewerDuration30d: '30日間',
-	viewerDurationUnlimited: '無期限',
-	viewerCreateLoading: '作成中...',
-	viewerCreateButton: '閲覧リンクを作成',
-	viewerSuccessMsg: '閲覧リンクが作成されました',
-	viewerQrAlt: '閲覧QRコード',
-	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
-	viewerUrlLabel: '閲覧URL',
-	viewerCopied: 'コピー済み',
-	viewerCopy: 'コピー',
-	viewerNoLabel: '(ラベルなし)',
-	viewerStatusInvalid: '無効',
-	viewerStatusExpired: '期限切れ',
-	viewerStatusValid: '有効',
-	viewerExpiresPrefix: '期限: ',
-	viewerExpiresNone: '無期限',
-	viewerRevokeButton: '無効化',
-	viewerDeleteButton: '削除',
-	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
-	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
-	viewerCreateError: '閲覧リンクの作成に失敗しました',
-
-	// Button titles
-	transferTitle: 'オーナー権限を移譲',
-	removeTitle: 'メンバーを削除',
 } as const;
 
 /**

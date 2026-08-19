@@ -86,6 +86,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
 	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
 	'/admin/challenges': ['challenges-child-tabs'],
+	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
+	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
+	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
