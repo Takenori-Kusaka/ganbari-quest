@@ -507,7 +507,24 @@ export const PLAN_GATE_LABELS = {
 	 * 上と同じ上限のアップグレード導線併記版 (#4622)。
 	 */
 	checklistTemplateLimitReachedWithUpgrade: (max: number) =>
-		`フリープランではお子さま1人あたり ${max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+		`${PLAN_FULL_TERMS.free}では${CHILD_TERMS.honorific}1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
+
+	/**
+	 * **誰が**上限に達しているのかを言う版 (#4693)。
+	 *
+	 * 旧実装は上限に達した子の名前を出さず、しかも 1 人でも超過していれば全員分の配信を
+	 * 丸ごと失敗させていた。「誰の上限か分からない / 余裕のある子にも入らない」の 2 重の
+	 * 詰まりになるため、名前を出したうえで**余裕のある子には配信する**。
+	 */
+	/**
+	 * プランを確認できないため取込を中止したときの文言 (#4693 fail-closed)。
+	 * 障害中だけ上限が消える経路を作らないための拒否であり、顧客には再試行を促す。
+	 */
+	planUnverifiableImportAborted:
+		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
+
+	checklistTemplateLimitReachedForChildren: (names: readonly string[], max: number) =>
+		`${names.join('・')}は${PLAN_FULL_TERMS.free}の上限（${CHILD_TERMS.honorific}1人あたり ${max} 個）に達しているため配信をスキップしました。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。

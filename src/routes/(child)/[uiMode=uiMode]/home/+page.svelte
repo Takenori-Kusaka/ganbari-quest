@@ -18,6 +18,10 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
+import {
+	ADMIN_ACTION_FETCH_HEADERS,
+	readAdminActionResult,
+} from '$lib/features/admin/action-result';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import HabitCertificateNoticeBanner from '$lib/features/child/HabitCertificateNoticeBanner.svelte';
@@ -49,7 +53,7 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
-import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
+import { notifyActionFailure, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
@@ -407,9 +411,17 @@ async function handlePinToggle() {
 	//   error 文言を使う (DESIGN.md §8)。form action の raw fetch でも !res.ok で汎用文言にフォールバック。
 	const errorLabels = getErrorNotifyLabels(data.uiMode ?? 'preschool');
 	try {
-		const res = await fetch('?/togglePin', { method: 'POST', body: formData });
-		if (!res.ok) {
-			await notifyApiError(res, { labels: errorLabels });
+		// #4693: form action の失敗 (fail()) は HTTP status に現れないため、ActionResult の
+		// type で判定する。旧実装は `!res.ok` で分岐しており、サーバーが拒否しても
+		// 子供には何も出ない (無音の失敗) 経路だった。
+		const res = await fetch('?/togglePin', {
+			method: 'POST',
+			headers: ADMIN_ACTION_FETCH_HEADERS,
+			body: formData,
+		});
+		const actionResult = await readAdminActionResult(res);
+		if (!actionResult.ok) {
+			notifyActionFailure({ labels: errorLabels });
 		}
 	} catch {
 		notifyNetworkError({ labels: errorLabels });
@@ -498,8 +510,10 @@ function handleStampPressClose() {
 async function postShown(url: string): Promise<void> {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			const res = await fetch(url, { method: 'POST' });
-			if (res.ok) return;
+			// #4693: REST endpoint なので HTTP status が結果そのもの (form action ではない)。
+			// 変数名を分けて「form action の戻り値を .ok で判定していない」ことを読み手にも示す。
+			const apiRes = await fetch(url, { method: 'POST' });
+			if (apiRes.ok) return;
 		} catch {
 			// 次の attempt で再送する
 		}

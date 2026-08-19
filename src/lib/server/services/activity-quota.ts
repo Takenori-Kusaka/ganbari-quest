@@ -49,8 +49,29 @@ export async function enforceActivityQuota(
 	const empty: ActivityQuotaEnforcement = { rejectedNames: new Set(), message: '' };
 	if (plannedNewNames.size === 0) return empty;
 
-	const { licenseStatus, plan } = await resolveTenantEntitlement(tenantId);
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus, plan));
+	// プラン解決できない (DB 障害等) ときは **取り込まない**。ここで握り潰して通すと、
+	// 障害中だけ上限が消える経路になる (fail-closed、ADR-0006)。
+	let entitlement: { licenseStatus: string; plan?: string };
+	try {
+		entitlement = await resolveTenantEntitlement(tenantId);
+	} catch (e) {
+		logger.error('[activity-quota] プランを確認できないため取込を中止しました', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId },
+		});
+		const rejectedNames = new Set(plannedNewNames);
+		for (const [childId, inputs] of childInputsByChild) {
+			childInputsByChild.set(
+				childId,
+				inputs.filter((i) => !rejectedNames.has(i.name)),
+			);
+		}
+		plannedNewNames.clear();
+		return { rejectedNames, message: PLAN_GATE_LABELS.planUnverifiableImportAborted };
+	}
+	const limits = getPlanLimits(
+		await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan),
+	);
 	const max = limits.maxActivities;
 	if (max === null) return empty;
 

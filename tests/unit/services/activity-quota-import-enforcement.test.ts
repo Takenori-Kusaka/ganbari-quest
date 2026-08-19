@@ -7,6 +7,7 @@
 // 119 件が入り「たろう (122)」になった (#4693 実測)。取込の実書き込み直前で切る。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { asChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
@@ -62,12 +63,15 @@ import { importActivities } from '$lib/server/services/activity-import-service';
 const TENANT = 'tenant-1';
 const CHILD = asChildId(1);
 
-function pack(count: number) {
+function pack(count: number): ActivityPackItem[] {
 	return Array.from({ length: count }, (_, i) => ({
 		name: `復元活動${i + 1}`,
-		categoryCode: 'benkyou',
+		categoryCode: 'benkyou' as const,
 		icon: '📚',
 		basePoints: 5,
+		ageMin: null,
+		ageMax: null,
+		gradeLevel: null,
 	}));
 }
 
