@@ -12,6 +12,22 @@
  *   SS_CASE    normal (押印できる日) / cardfull (週 5 枠が既に埋まっている日)
  */
 
+/**
+ * CSS アニメーション (fade-in / point-pop) が終わるまで待つ。
+ * 固定 sleep (waitForTimeout) は #1208 で禁止されているため、実際に走っている animation が
+ * 無くなったことを条件にする。
+ * @param {import('playwright').Page} page
+ */
+async function waitForAnimationsSettled(page) {
+	await page
+		.waitForFunction(
+			() => document.getAnimations().every((a) => a.playState !== 'running'),
+			undefined,
+			{ timeout: 5000 },
+		)
+		.catch(() => {});
+}
+
 const prefix = process.env.SS_PREFIX ?? 'after';
 const preset = process.env.SS_PRESET ?? 'desktop';
 const childName = process.env.SS_CHILD ?? 'けんたくん';
@@ -34,7 +50,7 @@ export default async (page, capture) => {
 	const overlay = page.getByTestId('stamp-press-overlay');
 	await overlay.waitFor({ state: 'visible', timeout: 20_000 });
 	await page.getByTestId('login-bonus-confirm').waitFor({ state: 'visible', timeout: 20_000 });
-	await page.waitForTimeout(600);
+	await waitForAnimationsSettled(page);
 	await capture(`${prefix}-login-stamp-${caseName}-${preset}`);
 
 	// 「つぎへ」がある場合は週次交換フェーズも撮る
@@ -44,7 +60,7 @@ export default async (page, capture) => {
 		await nextBtn.click();
 		await page.getByTestId('weekly-redeem-confirm').waitFor({ state: 'visible' });
 		// fade-in アニメーションが終わってから撮る (途中で撮ると文字が薄く写る)
-		await page.waitForTimeout(600);
+		await waitForAnimationsSettled(page);
 		await capture(`${prefix}-weekly-redeem-${caseName}-${preset}`);
 	}
 };
