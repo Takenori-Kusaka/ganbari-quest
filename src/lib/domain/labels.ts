@@ -37,6 +37,7 @@ import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
+	AUTO_SLEEP_TERMS,
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
@@ -66,15 +67,19 @@ import {
 	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
+	PRESET_ACTIVITY_TERMS,
 	PRICE_TERMS,
 	REWARD_TERMS,
 	SIGNUP_TERMS,
+	STATUS_AXIS_TERMS,
 	STRIPE_PORTAL_TERMS,
 	TEMPLATE_TERMS,
 	TOKUSHOHO_TERMS,
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
+	USAGE_SUMMARY_TERMS,
+	VIEWER_LINK_TERMS,
 	VISIBILITY_CHIP_TERMS,
 } from './terms';
 import type { UiMode } from './validation/age-tier-types';
@@ -6601,17 +6606,17 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 // LP Hero 仕様起点の数字バッジ (#1628 R24 / #1788 honest 刷新)
 // PMF 後送り testimonial の代替として仕様値を訴求
 // #1788 (P-MAJ-3): presetSuffix を honest 表現「プリセット活動の候補」に刷新
-//   （実態は「親がセットアップで選択する 300+ 候補プール」であり、訴求から「自動で揃う」誤認を排除）
+//   （実態は「親がセットアップで選択する候補プール」であり、訴求から「自動で揃う」誤認を排除）
 //   CI `measure-lp-dimensions.mjs` の正規表現 `<strong>(\d+)\+</strong>\s*プリセット活動` は
 //   「プリセット活動」リテラルが残っていれば検出されるため、honest 表現でも CI 裏取りは継続して機能する
 // #1953 (Phase 3 D8): atom 化対象ゼロ → #1913 (UIUX-E-1) で AGE_RANGE_TERMS を新設、ageRange を atom 参照化。
-// プリセット数（300+）/ セットアップ時間（約 5 分）は引き続き本 LP 専用の仕様値であり terms.ts に対応 atom 不在。
-// 将来 SETUP_TERMS / SPEC_TERMS 等を新設する判断は別 Issue で検討。
+// #4713: プリセット数は PRESET_ACTIVITY_TERMS (terms.ts) の atom に移した。セットアップ時間（約 5 分）は
+//   引き続き本 LP 専用の仕様値であり terms.ts に対応 atom 不在。
 export const LP_HERO_SPEC_BADGES_LABELS = {
 	// #1913: AGE_RANGE_TERMS.short = '3〜18 歳' を参照（波ダッシュ短縮形 atom）
 	ageRange: `${AGE_RANGE_TERMS.short}`,
 	ageRangeSuffix: '対応',
-	presetCount: '300+',
+	presetCount: `${PRESET_ACTIVITY_TERMS.uniqueCountBadge}`,
 	presetSuffix: 'プリセット活動 の候補',
 	setupTime: '約 5 分',
 	setupSuffix: 'で初期設定',
@@ -7680,12 +7685,13 @@ export const STAMP_PRESS_N_MESSAGES = {
 // ============================================================
 
 export const USAGE_TIME_LABELS = {
-	todayUsage: '本日の使用時間',
+	// #4713: LP 料金比較表の行名と同じ atom から引く (旧「日次サマリー」行が指す画面を一致させる)
+	todayUsage: `${USAGE_SUMMARY_TERMS.today}`,
 	todayUsageOf: (childName: string) => `${childName}の本日使用時間`,
 	minutesUsed: (min: number) => `${min}分使用`,
 	minutesOf15: (min: number) => `${min}分 / 15分`,
 	// Phase 2: 週次 bar chart (#1576)
-	weeklyUsage: '今週の使用時間',
+	weeklyUsage: `${USAGE_SUMMARY_TERMS.weekly}`,
 	weeklyUsageOf: (childName: string) => `${childName}の今週使用時間`,
 	noData: 'まだデータがありません',
 	minutesUnit: '分',
@@ -8499,14 +8505,17 @@ export const LP_FAQ_LABELS = {
 		'「長く遊ばせる」設計にしていません。本サービスは「活動記録アプリ」であり、お子さまがアプリ内で過ごす時間は 1 回 1 〜 3 分が想定です。',
 	text102: '活動記録 → ポイント獲得 → シール抽選 → 結果確認で完了（1 〜 3 分）',
 	text103: '動画視聴・無限スクロール・配信コンテンツは一切なし',
-	text104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
+	// #4713: 実装 (src/lib/features/auto-sleep.ts) は「15 分“連続で使う”と自動で戻る」であり、
+	//   旧文言「15 分の無操作で自動で閉じる」は挙動が逆だった (放置しても閉じない)。
+	text104: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻る使いすぎ防止タイマーで、長時間の滞在を防止 (${AUTO_SLEEP_TERMS.inactiveReset}操作がなければ計測はリセット)`,
 	text105:
 		'「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	text106: '祖父母や親戚も使えますか？',
 	text107: `${PLAN_FULL_TERMS.premium}`,
 	text108: '無制限',
-	text109:
-		'招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	// #4713: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
+	//   読み取り専用の共有は premium の閲覧リンク (別機能)。
+	text109: `招待した${PARENT_TERMS.honorific}は${CHILD_TERMS.honorific}の記録の確認・コメントやスタンプ送付・設定変更ができます。閲覧のみの共有をご希望の場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。`,
 	text110: '技術的なご質問',
 	text111: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	text112: 'スマホ・タブレット・PC、何台まで使えますか？',
@@ -8844,9 +8853,9 @@ export const LP_PAMPHLET_LABELS = {
 	k13: '活動',
 	k14: ' 毎日の活動 &#x2192; ポイント',
 	// #1912 (F-12 + F-11): zombie pamphletExtra namespace。「プリセット活動がそのまま使える」→
-	//   「あらかじめ用意された 300 種類の活動がそのまま使える」へ顧客語彙化（長文での冗長な機能名連呼を解消）。
+	//   「あらかじめ用意された活動がそのまま使える」へ顧客語彙化（長文での冗長な機能名連呼を解消）。
 	//   F-11 「セットアップ」も LP 訴求文では「最初の準備」へ顧客語彙化（IT リテラシーなし親 P1 向け）。
-	k15: '「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された 300 種類の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。',
+	k15: `「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された ${PRESET_ACTIVITY_TERMS.uniqueCount}の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。`,
 	k16: '習慣',
 	k17: ' おみくじスタンプ &#x2192; 習慣',
 	k18: '1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。',
@@ -9007,7 +9016,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k52: '特別なごほうび設定（即時付与）',
 	k53: 'AI 自動提案（活動・ごほうび・チェックリスト）',
 	k54: 'レポート・家族機能',
-	k55: '日次サマリー',
+	k55: `${USAGE_SUMMARY_TERMS.today}・${USAGE_SUMMARY_TERMS.weekly}`,
 	k56: '家族メンバー招待（別端末からアクセス）',
 	k57: '4人まで',
 	k58: '無制限',
@@ -9467,7 +9476,8 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// 各年齢 UI モードの代表機能 3 件を ✓ で列挙、age-panel-feature span との重複を避け具体例で訴求
 	kinderCheck1: '大きなタップ領域 (80px) で押しやすい',
 	kinderCheck2: 'ひらがな表示で読みやすい',
-	kinderCheck3: '300+ プリセット活動からタップで選ぶだけ',
+	// #4713: 延べ 325 件のうち名前のユニークは 129 種。訴求はユニーク基準に改める (ADR-0013)。
+	kinderCheck3: `${PRESET_ACTIVITY_TERMS.uniqueCountBadge} プリセット活動からタップで選ぶだけ`,
 	primaryCheck1: '漢字 + 情報密度で 15 年継続できる UI',
 	primaryCheck2: '学年別プリセット (宿題 / 部活 / 受験) 対応',
 	primaryCheck3: 'ポイント履歴で子供自身が次の計画を立てる',
@@ -9621,8 +9631,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   実画面の事実 = ステータス減少設定 (4 段階で習慣化サポートの強さを調整) に合わせて rename。
 	//   おうえんメッセージは feature-cheer-message カード (versus-row4) に集約。
 	softFamilySupportTitle: 'ステータス減少設定（習慣化サポート）',
-	softFamilySupportDesc:
-		'ご家庭のリズムに合わせて、ステータス（やる気・体力など）が時間とともに少しずつ減る強さを調整できます。「毎日少しずつでも続けるとお得」な仕組みで、習慣化を後押しします。',
+	softFamilySupportDesc: `ご家庭のリズムに合わせて、ステータス（${STATUS_AXIS_TERMS.examplePair}など ${STATUS_AXIS_TERMS.axisCount}）が時間とともに少しずつ減る強さを調整できます。「毎日少しずつでも続けるとお得」な仕組みで、習慣化を後押しします。`,
 	// #2201: rename に伴い「ステータス減少設定」の家庭ベネフィットに刷新
 	softBenefitFamilySupport:
 		'<strong>家庭ごとにカスタマイズできること</strong>: ステータス減少の強さを 4 段階から選んで、習慣化のペースを家庭に合わせられる',
@@ -9654,7 +9663,8 @@ export const LP_PRICING_PHASEB_LABELS = {
 	// #1912 (F-6): 「ログインボーナス・連続達成ボーナス」→「毎日のごほうび・続けるごほうび」へ日本語化
 	k5: '毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
-	k6: '持ち物チェックリスト 3個/子まで',
+	// #4713: 取込ぶんも同じ枠を消費することを明示 (plan-limit-service.maxChecklistTemplates)。
+	k6: '持ち物チェックリスト 3個/子まで（取込を含む）',
 	k7: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k8: 'メールサポート（標準）',
 	k9: 'お子さまの登録人数：無制限',
@@ -9691,12 +9701,15 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k35: '<td colspan="4">カスタマイズ</td>',
 	// #1708 R3-A: k37 (朝夜の習慣リスト / 旧ルーチン-CL) は削除（kind=routine 廃止に伴い）
 	// #1710 R3-C: k38 を「持ち物チェックリスト自由作成」に純化（持ち物 = event-* プリセット 3 件 / 毎日 must = 活動マスタ priority 属性 への責務分離）
-	k36: '<td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
-	k38: '<td>持ち物チェックリスト自由作成</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
+	// #4713: 旧 k36 (「登校・おでかけ」プリセットは全プラン ✓) と旧 k38 (「自由作成 3個/子まで」) を 1 行に統合。
+	//   実装はプリセット取込ぶんも同じ枠を消費する「1 子あたりテンプレ合計 3 件」であり、
+	//   2 行に分けると「プリセットは別枠で使い放題」と読めてしまう (plan-limit-service.maxChecklistTemplates)。
+	k36: '<td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
 	k39: '<td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
-	k42: '<td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
+	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
+	k42: `<td>${USAGE_SUMMARY_TERMS.today}・${USAGE_SUMMARY_TERMS.weekly}</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k43: '<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>4人まで</td><td class="check">無制限</td>',
 	k44: '<td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k45: '<td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
@@ -9821,7 +9834,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #1912 (F-12): FAQ 本文「年齢に応じたプリセット活動を選ぶ」→
 	//   「年齢に応じた、あらかじめ用意された活動を選ぶ」へ顧客語彙化（IT 用語「テンプレート」も含めて精査）。
 	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
-	k96: `<strong>初日</strong>: ${SIGNUP_TERMS.canonical} → ${CHILD_TERMS.honorific}登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（300+ の中から）`,
+	k96: `<strong>初日</strong>: ${SIGNUP_TERMS.canonical} → ${CHILD_TERMS.honorific}登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（${PRESET_ACTIVITY_TERMS.packCount}・${PRESET_ACTIVITY_TERMS.uniqueCount}の中から）`,
 	k97: `<strong>毎日</strong>: お子さまが自分で活動を記録 → 保護者は${ADMIN_VIEW_TERMS.canonical}で結果を確認（所要時間 30 秒〜）`,
 	k98: '<strong>週 1 回</strong>: レベルアップ・チャレンジ達成を家族で共有（お楽しみタイム）',
 	k99: '親が毎日新しい活動を作る必要はありません。プリセットをそのまま使うか、年齢が変わった時にテンプレートを切り替えるだけで運用できます。',
@@ -9829,11 +9842,13 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k101: '「長く遊ばせる」設計にしていません。本サービスは「活動記録アプリ」であり、お子さまがアプリ内で過ごす時間は 1 回 1 〜 3 分が想定です。',
 	k102: '活動記録 → ポイント獲得 → スタンプ獲得 → 結果確認で完了（1 〜 3 分）',
 	k103: '動画視聴・無限スクロール・配信コンテンツは一切なし',
-	k104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
+	// #4713: 実装は「15 分連続で使うと /switch へ戻る (無操作 1 分でカウントがリセット)」。
+	k104: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻る使いすぎ防止タイマーで、長時間の滞在を防止 (${AUTO_SLEEP_TERMS.inactiveReset}操作がなければ計測はリセット)`,
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
 	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
-	k108: '招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	// #4713: 同上 (招待ロールは 保護者 / こども の 2 択)。
+	k108: `招待した${PARENT_TERMS.honorific}は${CHILD_TERMS.honorific}の記録の確認・コメントやスタンプ送付・設定変更ができます。閲覧のみの共有をご希望の場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。`,
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	k111: 'スマホ・タブレット・PC、何台まで使えますか？',
@@ -9875,8 +9890,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k11: '&#x2728; 3 つの仕組みで、毎日のがんばりが本物の報酬になる',
 	k12: '<span class="fi-layer-badge">活動</span> 毎日の活動 &#x2192; ポイント',
 	// #1912 (F-12): pamphletB 本文「プリセット活動がそのまま使える」→
-	//   「あらかじめ用意された 300 種類の活動がそのまま使える」へ顧客語彙化。
-	k13: '「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された 300 種類の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。',
+	//   「あらかじめ用意された活動がそのまま使える」へ顧客語彙化。
+	k13: `「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された ${PRESET_ACTIVITY_TERMS.uniqueCount}の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。`,
 	k14: '<span class="fi-layer-badge">習慣</span> おみくじスタンプ &#x2192; 習慣',
 	k15: '1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。',
 	k16: '<span class="fi-layer-badge">ごほうび</span> ごほうびショップ &#x2192; 交換',

@@ -199,12 +199,18 @@ const THRESHOLDS = {
 	// fail 閾値 (8000) の 200px 手前に warning 帯を置き、PR で「次の数 PR で 8000 接触リスク」を
 	// 早期通知する。ratchet (8000) は据え置き。warn-threshold は --warn-threshold で上書き可能。
 	desktopHeightWarn: 7800,
-	// #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り。
-	// site/index.html L480 `<li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>`
-	// および site/shared-labels.js k96「300+ のテンプレート」が、実 marketplace data
-	// (src/lib/data/marketplace/activity-packs/*.json の payload.activities 合計) に裏付けられているかを
-	// CI で assert する。実数 < 訴求値 になれば ADR-0013 LP truth 違反として fail。
-	presetActivityCountClaimedMin: 300,
+	// #1803 / #4713: hero spec-badges 「120+ プリセット活動」CI 裏取り。
+	// site/index.html `<li data-lp-key="heroSpecBadges.presetCount"><strong>120+</strong> プリセット活動</li>`
+	// および site/shared-labels.js の「NNN+ のテンプレート」/「NNN 種類以上」表記が、実 marketplace data
+	// に裏付けられているかを CI で assert する。実数 < 訴求値 になれば ADR-0013 LP truth 違反として fail。
+	//
+	// #4713: **裏取りの基準を「延べ件数」から「活動名のユニーク数」に変更した**。
+	//   activity-packs は男の子 / 女の子 variant がほぼ同じ活動名を重複して持つため、延べ 325 件に対し
+	//   ユニークな活動名は 129 種しかない。延べ数で「300+ プリセット活動」を裏取りすると、顧客が実際に
+	//   選べる活動の種類を 2 倍以上に見せる訴求が CI 緑のまま通ってしまう。
+	presetActivityCountClaimedMin: 120,
+	// LP が訴求するセット (パック) 数の下限。実パック数がこれを下回れば LP 訴求が実装を上回る。
+	presetActivityPackCountClaimedMin: 12,
 };
 
 // #1840: --warn-threshold=NNNN で上書き可能（CI 累積 gate での warning 帯調整用）
@@ -218,29 +224,36 @@ if (args['warn-threshold']) {
 const ACTIVITY_PACKS_DIR = resolve('src/lib/data/marketplace/activity-packs');
 
 /**
- * src/lib/data/marketplace/activity-packs/*.json から activity 総数を計算する。
- * 各 pack の payload.activities[] の数を合算した値を返す。
+ * src/lib/data/marketplace/activity-packs/*.json から activity 数を計算する。
  *
- * #1803 の AC:
- *   - LP `heroSpecBadges.presetCount` (= '300+') が実 marketplace count >= 300 で裏付けられているか
- *   - 実 marketplace data が 300 件以下になった場合 LP 訴求と乖離 → ADR-0013 違反
+ * #1803 の AC (#4713 で基準を変更):
+ *   - LP `heroSpecBadges.presetCount` (= '120+') が **活動名のユニーク数** で裏付けられているか
+ *   - 実 marketplace data のユニーク数が訴求を下回った場合 LP 訴求と乖離 → ADR-0013 違反
+ *
+ * `total` (延べ) も返すが、裏取りに使うのは `unique`。男の子 / 女の子 variant が同じ活動名を
+ * 重複して持つため、延べ数は顧客が選べる「種類」を過大に表す (#4713 実測: 延べ 325 / ユニーク 129)。
  */
 function countActivityPackActivities() {
-	if (!existsSync(ACTIVITY_PACKS_DIR)) return { total: 0, breakdown: [], error: 'dir-not-found' };
+	if (!existsSync(ACTIVITY_PACKS_DIR))
+		return { total: 0, unique: 0, breakdown: [], error: 'dir-not-found' };
 	const files = readdirSync(ACTIVITY_PACKS_DIR).filter((f) => f.endsWith('.json'));
 	let total = 0;
+	const uniqueNames = new Set();
 	const breakdown = [];
 	for (const f of files) {
 		try {
 			const data = JSON.parse(readFileSync(join(ACTIVITY_PACKS_DIR, f), 'utf8'));
-			const n = Array.isArray(data?.payload?.activities) ? data.payload.activities.length : 0;
-			breakdown.push({ pack: f, activities: n });
-			total += n;
+			const activities = Array.isArray(data?.payload?.activities) ? data.payload.activities : [];
+			for (const a of activities) {
+				if (typeof a?.name === 'string' && a.name !== '') uniqueNames.add(a.name);
+			}
+			breakdown.push({ pack: f, activities: activities.length });
+			total += activities.length;
 		} catch (e) {
 			breakdown.push({ pack: f, activities: 0, error: e instanceof Error ? e.message : String(e) });
 		}
 	}
-	return { total, breakdown, packCount: files.length };
+	return { total, unique: uniqueNames.size, breakdown, packCount: files.length };
 }
 
 /**
@@ -265,13 +278,40 @@ function extractClaimedPresetCount(siteDir) {
 	const sharedLabels = join(siteDir, 'shared-labels.js');
 	if (existsSync(sharedLabels)) {
 		const src = readFileSync(sharedLabels, 'utf8');
-		// 例: "k96": "...300+ のテンプレートから..."
+		// 例: "k96": "...120+ のテンプレートから..."
 		const re = /(\d+)\+\s*の?\s*テンプレート/g;
 		let m;
 		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
 		while ((m = re.exec(src)) !== null) {
 			claims.push({ source: 'site/shared-labels.js', claimed: Number.parseInt(m[1], 10) });
 		}
+		// #4713: 「120 種類以上」形式 (PRESET_ACTIVITY_TERMS.uniqueCount) も裏取り対象にする。
+		const reJa = /(\d+)\s*種類以上/g;
+		let mJa;
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
+		while ((mJa = reJa.exec(src)) !== null) {
+			claims.push({ source: 'site/shared-labels.js', claimed: Number.parseInt(mJa[1], 10) });
+		}
+	}
+	return claims;
+}
+
+/**
+ * site/shared-labels.js から「NN セット」表記 (PRESET_ACTIVITY_TERMS.packCount) を抽出する。
+ * 実 activity-pack 数がこの訴求を下回っていないことを CI で assert するため (#4713)。
+ *
+ * 戻り値: { source, claimed }[] — claimed は数値 (例: 12)
+ */
+function extractClaimedPresetPackCount(siteDir) {
+	const claims = [];
+	const sharedLabels = join(siteDir, 'shared-labels.js');
+	if (!existsSync(sharedLabels)) return claims;
+	const src = readFileSync(sharedLabels, 'utf8');
+	const re = /(\d+)\s*セット/g;
+	let m;
+	// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
+	while ((m = re.exec(src)) !== null) {
+		claims.push({ source: 'site/shared-labels.js', claimed: Number.parseInt(m[1], 10) });
 	}
 	return claims;
 }
@@ -515,23 +555,38 @@ function collectThresholdWarnings(r) {
 }
 
 function collectPresetViolations(presetCheck) {
-	// #1803: hero spec-badges presetCount 裏取り gate
+	// #1803 / #4713: hero spec-badges presetCount 裏取り gate (基準 = 活動名のユニーク数)
 	const out = [];
-	const { actualCount, claims } = presetCheck;
+	const { uniqueCount, packCount, claims, packClaims } = presetCheck;
 	for (const { source, claimed } of claims) {
-		if (actualCount < claimed) {
+		if (uniqueCount < claimed) {
 			out.push(
-				`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
+				`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity のユニーク名 ${uniqueCount} 種 を満たしていません ` +
+					`(ADR-0013 LP truth 違反)`,
+			);
+		}
+	}
+	// #4713: 「12 セット」等のセット数訴求も同じ向き (訴求 ≦ 実数) で裏取りする
+	for (const { source, claimed } of packClaims ?? []) {
+		if (packCount < claimed) {
+			out.push(
+				`[${source}] preset セット数: 訴求 ${claimed} セット ≦ 実 activity-pack 数 ${packCount} を満たしていません ` +
 					`(ADR-0013 LP truth 違反)`,
 			);
 		}
 	}
 	// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
-	// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
-	if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
+	// (LP に明示的訴求がない場合でも、内部 SSOT として下限を割らないかを ratchet 監視)
+	if (uniqueCount < THRESHOLDS.presetActivityCountClaimedMin) {
 		out.push(
-			`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
+			`[marketplace] activity-packs のユニーク活動名=${uniqueCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
 				`(LP hero spec-badges 訴求の最低水準を割っています)`,
+		);
+	}
+	if (packCount < THRESHOLDS.presetActivityPackCountClaimedMin) {
+		out.push(
+			`[marketplace] activity-pack 数=${packCount} < ${THRESHOLDS.presetActivityPackCountClaimedMin} ` +
+				`(LP のセット数訴求の最低水準を割っています)`,
 		);
 	}
 	return out;
@@ -589,9 +644,13 @@ async function main() {
 	// #1803: marketplace 実 activity 数 + LP 訴求 claim を計算
 	const packCount = countActivityPackActivities();
 	const claims = extractClaimedPresetCount(SITE_DIR);
+	const packClaims = extractClaimedPresetPackCount(SITE_DIR);
 	const presetCheck = {
+		// 後方互換: 延べ件数も出力する (裏取りに使うのは #4713 以降 uniqueCount)
 		actualCount: packCount.total,
+		uniqueCount: packCount.unique,
 		claims,
+		packClaims,
 		breakdown: packCount.breakdown,
 		packCount: packCount.packCount,
 	};
