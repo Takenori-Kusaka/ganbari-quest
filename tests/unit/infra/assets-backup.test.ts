@@ -17,6 +17,8 @@
 //   [B] AWS Backup の selection に assets バケットが載り、既存の失敗通知経路を共有する
 //   [S] staging の使い捨て (removalPolicy=DESTROY + autoDeleteObjects) が壊れていない
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -49,7 +51,7 @@ beforeAll(() => {
 describe('[V] assets バケットのバージョニングと有界化', () => {
 	it('[V1] バージョニングが有効 (誤削除・誤上書きから戻せる)', () => {
 		prodStorage.hasResourceProperties('AWS::S3::Bucket', {
-			BucketName: assetsBucketName('ganbari-quest', '000000000000'),
+			BucketName: assetsBucketName(PROD_ENV_CONFIG.resourcePrefix, '000000000000'),
 			VersioningConfiguration: { Status: 'Enabled' },
 		});
 	});
@@ -59,7 +61,7 @@ describe('[V] assets バケットのバージョニングと有界化', () => {
 	// S3 だけ先に消えて復元時点がちぐはぐになるのを避ける)。
 	it('[V2] 非現行バージョンが 30 日で expire し、delete marker も掃除される', () => {
 		const buckets = prodStorage.findResources('AWS::S3::Bucket', {
-			Properties: { BucketName: assetsBucketName('ganbari-quest', '000000000000') },
+			Properties: { BucketName: assetsBucketName(PROD_ENV_CONFIG.resourcePrefix, '000000000000') },
 		});
 		const props = Object.values(buckets)[0]?.Properties as {
 			LifecycleConfiguration?: { Rules?: Array<Record<string, unknown>> };
@@ -79,7 +81,7 @@ describe('[V] assets バケットのバージョニングと有界化', () => {
 	// 既存の expiration は `backups/` prefix 限定であることを固定する。
 	it('[V3] 顧客データの現行バージョンに expiration を掛けていない', () => {
 		const buckets = prodStorage.findResources('AWS::S3::Bucket', {
-			Properties: { BucketName: assetsBucketName('ganbari-quest', '000000000000') },
+			Properties: { BucketName: assetsBucketName(PROD_ENV_CONFIG.resourcePrefix, '000000000000') },
 		});
 		const props = Object.values(buckets)[0]?.Properties as {
 			LifecycleConfiguration?: { Rules?: Array<Record<string, unknown>> };
@@ -100,7 +102,7 @@ describe('[B] AWS Backup の保護対象', () => {
 	it('[B1] assets バケットが BackupSelection に載っている', () => {
 		const selections = prodDsql.findResources('AWS::Backup::BackupSelection');
 		const serialized = JSON.stringify(Object.values(selections));
-		expect(serialized).toContain(assetsBucketArn('ganbari-quest', '000000000000'));
+		expect(serialized).toContain(assetsBucketArn(PROD_ENV_CONFIG.resourcePrefix, '000000000000'));
 	});
 
 	// 同じ vault に載せることで、既存の DsqlBackupJobFailed rule (vault 名で scope) が
@@ -115,15 +117,18 @@ describe('[B] AWS Backup の保護対象', () => {
 		const failRule = Object.values(rules)[0];
 		const pattern = (failRule?.Properties as { EventPattern: { detail: Record<string, unknown> } })
 			.EventPattern.detail;
-		expect(pattern.state).toEqual(['FAILED', 'ABORTED', 'EXPIRED']);
+		// #4724: PARTIAL を含む。S3 backup は一部オブジェクトだけ失敗すると PARTIAL で終わるため、
+		// 3 値のままだと「毎晩走っているが写真が入っていない」が通知ゼロで成立する。
+		expect(pattern.state).toEqual(['FAILED', 'ABORTED', 'EXPIRED', 'PARTIAL']);
 
 		// rule は vault 名で scope する。その vault が、2 つの selection が載る plan の
 		// backup 先と同一であることを logical ID で突き合わせる (別 vault なら S3 の失敗が届かない)。
 		const vaultLogicalIds = Object.keys(prodDsql.findResources('AWS::Backup::BackupVault'));
 		expect(vaultLogicalIds).toHaveLength(1);
-		const ruleVault = (pattern.backupVaultName as Array<{ 'Fn::GetAtt': [string, string] }>)[0];
-		expect(ruleVault['Fn::GetAtt'][0]).toBe(vaultLogicalIds[0]);
-		expect(ruleVault['Fn::GetAtt'][1]).toBe('BackupVaultName');
+		const ruleVaults = pattern.backupVaultName as Array<{ 'Fn::GetAtt': [string, string] }>;
+		expect(ruleVaults).toHaveLength(1);
+		expect(ruleVaults[0]?.['Fn::GetAtt']?.[0]).toBe(vaultLogicalIds[0]);
+		expect(ruleVaults[0]?.['Fn::GetAtt']?.[1]).toBe('BackupVaultName');
 
 		const planBody = JSON.stringify(
 			Object.values(prodDsql.findResources('AWS::Backup::BackupPlan')),
@@ -152,7 +157,7 @@ describe('[B] AWS Backup の保護対象', () => {
 	// なり、しかも成功扱いで気付けない。SSOT 関数 1 本に閉じていることを固定する。
 	it('[B4] selection の ARN が StorageStack の実バケット名と一致する', () => {
 		const buckets = prodStorage.findResources('AWS::S3::Bucket', {
-			Properties: { BucketName: assetsBucketName('ganbari-quest', '000000000000') },
+			Properties: { BucketName: assetsBucketName(PROD_ENV_CONFIG.resourcePrefix, '000000000000') },
 		});
 		expect(Object.keys(buckets), 'assets バケットが 1 本だけ存在する').toHaveLength(1);
 
@@ -170,7 +175,7 @@ describe('[S] staging の使い捨てを壊していない', () => {
 	it('[S1] staging bucket は DESTROY + autoDeleteObjects のまま', () => {
 		stagingStorage.hasResource('AWS::S3::Bucket', {
 			Properties: Match.objectLike({
-				BucketName: assetsBucketName('ganbari-quest-staging', '000000000000'),
+				BucketName: assetsBucketName(STAGING_ENV_CONFIG.resourcePrefix, '000000000000'),
 				VersioningConfiguration: { Status: 'Enabled' },
 			}),
 			DeletionPolicy: 'Delete',
@@ -185,5 +190,47 @@ describe('[S] staging の使い捨てを壊していない', () => {
 		staging.resourceCountIs('AWS::Backup::BackupSelection', 0);
 		staging.resourceCountIs('AWS::Backup::BackupPlan', 0);
 		staging.resourceCountIs('AWS::Backup::BackupVault', 0);
+	});
+});
+
+/**
+ * [D] バージョニングと「完全削除の約束」の整合 (#4724)。
+ *
+ * バージョニングを有効にすると `deleteByPrefix` は delete marker を立てるだけになり、実体は
+ * lifecycle (30 日) まで残る。**退会は法務文書 (privacy 第 6 条 / 利用規約) が「猶予期間後に
+ * 完全削除」と約束している**ため、退会経路だけは全バージョンを消す `purgeByPrefix` を通す。
+ *
+ * ここが `deleteByPrefix` に戻ると、CI は緑のまま「約束より 30 日長く保持する」状態になる
+ * (画面にも log にも出ない = 誰も気付けない)。経路そのものを固定する。
+ */
+describe('[D] 退会の完全削除がバージョンごと消す経路を通る', () => {
+	const source = fs.readFileSync(
+		path.resolve(__dirname, '../../..', 'src/lib/server/services/account-deletion-service.ts'),
+		'utf-8',
+	);
+
+	it('[D1] account-deletion-service は purgeByPrefix を使い deleteByPrefix を使わない', () => {
+		// biome の template-placeholder 警告を避けるため文字列を組み立てる (検査対象は実ソース)
+		const tenantPrefixLiteral = ['tenants/$', '{tenantId}/'].join('');
+		expect(source).toContain(`purgeByPrefix(\`${tenantPrefixLiteral}\`)`);
+		// 対照: 検査が空振りしていないこと (対象文字列が実在する)
+		expect(source).toContain(tenantPrefixLiteral);
+		expect(
+			source.includes('deleteByPrefix('),
+			'退会経路で deleteByPrefix を使うと delete marker が立つだけで実体が 30 日残る',
+		).toBe(false);
+	});
+
+	// 全 backend に purge 経路があること。1 つでも欠けると、その backend の退会だけ
+	// ファイルが消えない / 例外になる silent な差が生まれる。
+	it('[D2] storage backend 3 実装すべてが purgeByPrefix を持つ', () => {
+		for (const rel of [
+			'src/lib/server/db/s3/storage-repo.ts',
+			'src/lib/server/db/sqlite/storage-repo.ts',
+			'src/lib/server/db/demo/storage-repo.ts',
+		]) {
+			const body = fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf-8');
+			expect(body, `${rel} に purgeByPrefix が無い`).toContain('purgeByPrefix');
+		}
 	});
 });

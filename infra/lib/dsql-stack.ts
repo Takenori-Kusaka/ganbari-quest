@@ -281,6 +281,18 @@ export class DsqlStack extends cdk.Stack {
 			//     S3 backup job の失敗もそのまま拾う (新しい通知経路を作らない)
 			//   - retention も DSQL と同じ 7 日。片方だけ長いと復元時点が揃わない
 			//
+			// **選択はバケット単位である** — AWS Backup for S3 は prefix filter を持たない。
+			// このバケットには顧客ファイル (`tenants/` / `exports/`) のほかに Firehose が書く
+			// ログ archive (`logs/`) が同居する。ログは lifecycle `archive-logs-to-glacier` で
+			// 1 日後に Glacier へ落ち、**AWS Backup for S3 は Glacier 系ストレージクラスを
+			// 対象にしない**ため、定常状態で backup 対象になるのは顧客ファイル + 直近 1 日分の
+			// ログに留まる。
+			//
+			// この前提が崩れた場合 (ログ量の急増 / lifecycle の変更) は
+			// **下の DsqlBackupBudget ($0.07 ≈ ¥10) が鳴る**。budget は DSQL 単体を前提に
+			// 引いた値のままにしてあり、S3 を足したことで前提が崩れたなら気付ける側に倒れる
+			// (上限を先に緩めると、崩れたことを誰も知らないまま課金だけ増える)。
+			//
 			// **前提条件は 2 つある。どちらも CDK では表現できないので runbook / deploy 手順で確認する:**
 			//   1. バケットのバージョニングが有効 (AWS Backup for S3 の要件)。
 			//      StorageStack が `versioned: true` で作る (#4724)。順序上 Storage を先に deploy する
@@ -315,12 +327,15 @@ export class DsqlStack extends cdk.Stack {
 			new events.Rule(this, 'DsqlBackupJobFailed', {
 				ruleName: `ganbari-quest-dsql${nameSuffix}-backup-failed`,
 				description:
-					'AWS Backup ジョブ失敗 (FAILED/ABORTED/EXPIRED) を検知し DsqlAlerts へ通知 (#3437 / ADR-0024 (d)) 一次対応: docs/runbooks/dsql-restore.md',
+					'AWS Backup ジョブ失敗 (FAILED/ABORTED/EXPIRED/PARTIAL) を検知し DsqlAlerts へ通知 (#3437 / #4724 / ADR-0024 (d)) 一次対応: docs/runbooks/dsql-restore.md',
 				eventPattern: {
 					source: ['aws.backup'],
 					detailType: ['Backup Job State Change'],
 					detail: {
-						state: ['FAILED', 'ABORTED', 'EXPIRED'],
+						// #4724: `PARTIAL` を足す。S3 backup は一部オブジェクトだけ失敗しても
+						// job 全体は FAILED にならず PARTIAL で終わる — 3 値のままだと
+						// 「毎晩走っているが写真が入っていない」が通知ゼロで成立してしまう。
+						state: ['FAILED', 'ABORTED', 'EXPIRED', 'PARTIAL'],
 						backupVaultName: [backupVault.backupVaultName],
 					},
 				},

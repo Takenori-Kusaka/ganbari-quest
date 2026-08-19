@@ -149,6 +149,9 @@ aws s3api copy-object --bucket "$BUCKET" --key "$KEY"   --copy-source "$BUCKET/$
 ```bash
 aws s3api list-object-versions --bucket "$BUCKET" --prefix "tenants/<tenantId>/"   --query 'DeleteMarkers[?IsLatest==`true`].{Key:Key,VersionId:VersionId}' --output json > /tmp/markers.json
 # 件数を目視してから実行する (消す対象が tenantId で正しく絞れているかを必ず確認)
+# **prefix を打ち間違えると復旧手段そのものを永久破壊する** — delete-object --version-id は不可逆で、
+# 誤って現行バージョンの VersionId を渡すと実体が消える。
+# 上の list 結果が「DeleteMarkers かつ IsLatest==true」だけであることを目視してから進める。
 jq -r '.[] | [.Key, .VersionId] | @tsv' /tmp/markers.json | while IFS=$'\t' read -r key vid; do
   aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$vid"
 done
@@ -188,7 +191,8 @@ aws backup describe-restore-job --restore-job-id <JobId> --region us-east-1   --
 | tenant 単位の誤削除・巻戻し | AWS Backup ではなく **アプリ層 backup-archive (JSON/CSV) で該当 tenant を import** (物理 restore は cluster 全体を巻き戻すため不適) |
 | restore job が失敗 | `describe-restore-job` の StatusMessage 確認。metadata 不整合が典型 (IAM role は `ganbari-quest-dsql-backup-role` = backup/restore 両権限付きを使う) |
 | 日次 backup ジョブが失敗 | `ganbari-quest-dsql-backup-failed` の SNS 通知が来る。`aws backup describe-backup-job --backup-job-id <id>` で原因確認 (cluster busy / 権限 / vault full 等)。連日失敗 = DR 空白のため priority:high |
-| 子供の写真・声が消えた | まず §S3 assets の復元 (A) バージョン復元。**30 日以内なら必ず戻る**。30 日を超えている / バケットごと失った場合は (B) AWS Backup。復元後は (C) の 4 点まで確認する |
+| 子供の写真・声が消えた | まず §S3 assets の復元 (A) バージョン復元。**30 日以内かつ、バージョンを名指しで消す操作 (`purgeByPrefix` = 退会 / エクスポート削除) を経ていなければ**戻せる。バージョニングが守るのはアプリのバグと通常削除であって、version 指定削除や資格情報漏洩には無力である (Object Lock / MFA Delete は未導入)。30 日を超えている / バケットごと失った場合は (B) AWS Backup。復元後は (C) の 4 点まで確認する |
+| backup job が PARTIAL で終わる | 一部オブジェクトだけ失敗している。`aws backup describe-backup-job` の StatusMessage を見る。`logs/` 配下の Glacier オブジェクトは AWS Backup for S3 の対象外で skip されるのが正常。**`tenants/` / `exports/` のオブジェクトが失敗していたら顧客ファイルが入っていない**ので priority:high |
 | S3 の recovery point が 1 件も無い | リージョンの Service opt-in で S3 が false になっている可能性が高い (`aws backup describe-region-settings`)。この状態は job が失敗すらしないため失敗通知も出ない。有効化して次の日次を待つ |
 
 ## 関連
