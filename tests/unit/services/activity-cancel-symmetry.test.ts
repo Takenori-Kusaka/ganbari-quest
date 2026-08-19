@@ -274,8 +274,8 @@ describe('#4686 今日のおやくそく全達成ボーナスの対称巻き戻�
 		expect(sumType('must_completion_bonus')).toBe(0);
 
 		await recordActivity(CHILD, asActivityId(2), TENANT);
-		const regranted = await tryGrantMustCompletionBonus(CHILD, TODAY, 'elementary', TENANT);
-		expect(regranted.granted).toBe(true);
+		const grantedAgain = await tryGrantMustCompletionBonus(CHILD, TODAY, 'elementary', TENANT);
+		expect(grantedAgain.granted).toBe(true);
 		expect(sumType('must_completion_bonus')).toBe(granted.points);
 	});
 });
