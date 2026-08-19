@@ -208,6 +208,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/api/v1/parent-gate/setup/+server.ts` (#2992) | 初回 PIN 作成 endpoint (未設定 tenant のみ、設定済へは 403 `ALREADY_CONFIGURED`。成功で verify と同じ cookie 発行) |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
+| `src/lib/server/auth/session-cookies.ts` `LOGOUT_CLEARED_COOKIE_NAMES` (#4700) | アカウントログアウト (`/auth/logout` / `/auth/signout`) で破棄する cookie 一覧 SSOT (parent session を含む)。新しいセッション系 cookie を足したらここに追加 |
 | `src/routes/api/v1/parent-gate/reset-verified/+server.ts` (#2993) | PIN reset (パスワード re-auth → setupPin + session 発行、cognito 専用) |
 | `src/routes/auth/reset-pin/+page.svelte` + `+page.server.ts` (#2993) | PIN reset 1 画面 UI (パスワード + 新 PIN、cognito identity guard) |
 | `src/lib/server/services/pin-operator-reset.ts` (#2994) | operator-level reset (`PARENT_PIN_RESET` env、冪等、local 専用)。hooks.server.ts が初回リクエストで評価 |

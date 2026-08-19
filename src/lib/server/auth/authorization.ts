@@ -46,6 +46,16 @@ const ROUTE_RULES: RouteRule[] = [
 		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/switch?reason=admin_forbidden',
 	},
+	// 初期セットアップ (/setup/*: 子供追加 / 活動・ごほうび・ルール・チャレンジ一括追加 / 初期設定)
+	// — owner + parent (#4700)。旧実装は isPublicRoute に含めてロール検査が無く、child ロールが
+	// 9 step 全てに入って子供追加や一括取込・初期設定の書き換えができた。未認証は /auth/login、
+	// child は /switch へ (admin と同じ理由コード)。setup 完了済テナントの再入は従来どおり可。
+	{
+		pattern: '/setup',
+		roles: ['owner', 'parent'],
+		unauthRedirect: '/auth/login',
+		forbiddenRedirect: '/switch?reason=admin_forbidden',
+	},
 	// 子供画面 — 全ロール（/switch, /preschool/*, /baby/*, /checklist/*）
 	{ pattern: '/switch', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	{ pattern: '/preschool', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
@@ -137,7 +147,6 @@ function isPublicRoute(path: string): boolean {
 		path === '/robots.txt' ||
 		path.startsWith('/auth') ||
 		path.startsWith('/pricing') ||
-		path.startsWith('/setup') ||
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
 		path.startsWith('/api/health') ||
