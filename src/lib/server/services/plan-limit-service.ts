@@ -352,8 +352,17 @@ export async function checkFamilyMemberLimit(
 	}
 
 	const repos = getRepos();
-	const members = await repos.auth.findTenantMembers(tenantId);
-	const current = members.length;
+	// #4704: **発行済みで未受諾の招待も席として数える。** 旧実装は members.length だけを見ており、
+	// メンバー 1 人 (上限 4) の状態でも招待リンクを 5 本発行でき、全員が受諾すると 6 人になった
+	// (受諾側にも検査が無かったため上限は事実上効いていなかった)。
+	// 「発行 = 席の予約」と数えることで、発行時点で上限を超える発行ができなくなる。
+	const [members, invites] = await Promise.all([
+		repos.auth.findTenantMembers(tenantId),
+		repos.auth.findTenantInvites(tenantId),
+	]);
+	const now = new Date().toISOString();
+	const pendingInvites = invites.filter((i) => i.status === 'pending' && i.expiresAt > now);
+	const current = members.length + pendingInvites.length;
 
 	return {
 		allowed: current < limits.maxFamilyMembers,

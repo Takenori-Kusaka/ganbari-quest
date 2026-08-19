@@ -4,7 +4,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { OWNER_GATE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { MEMBERS_LABELS, OWNER_GATE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { createInviteSchema } from '$lib/domain/validation/auth';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { validationError } from '$lib/server/errors';
@@ -39,7 +39,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const identity = locals.identity;
 	if (!identity || identity.type !== 'cognito') {
-		error(401, 'Unauthorized');
+		// #4704: 旧実装は英語の 'Unauthorized' をそのまま画面に出していた (セルフホストで実際に露出)。
+		// 文言は SSOT 経由にし、内部識別子を顧客に見せない (ADR-0062)。画面側はそもそも
+		// セルフホストで招待セクションを出さないため、ここは最後の砦。
+		error(401, MEMBERS_LABELS.inviteUnsupportedTitle);
 	}
 	const userId = identity.userId;
 

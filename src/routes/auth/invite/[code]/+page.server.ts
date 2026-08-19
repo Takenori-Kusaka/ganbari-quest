@@ -40,6 +40,19 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			};
 		}
 		const existingTenants = await getRepos().auth.findUserTenants(locals.identity.userId);
+		// #4704: 招待を発行した本人 (= 同じ家族グループの所属) が自分のリンクを開くケース。
+		// 旧実装は所属の有無だけを見て「既に**別の**グループに所属している」と言っていたが、
+		// 同じグループなので事実と違い、リンクが壊れているように読める (#4636 の入口)。
+		if (existingTenants.some((t) => t.tenantId === invite.tenantId)) {
+			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
+			return {
+				valid: false as const,
+				error: AUTH_INVITE_LABELS.ownTenantInvite,
+				errorDesc: AUTH_INVITE_LABELS.ownTenantInviteDesc,
+				// ログアウト導線は出さない (自分は既に参加済みで、やることは「相手に送る」)
+				sessionActive: false,
+			};
+		}
 		if (existingTenants.length > 0) {
 			// 既にテナント所属 → 招待 Cookie を保存せず警告表示
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });

@@ -4476,6 +4476,18 @@ export const LOGIN_LABELS = {
 // ============================================================
 
 export const MEMBERS_LABELS = {
+	// #4704: 招待できない状態を **押す前に** 伝える (旧: フォームが活性のまま、送信して初めて 403)。
+	/** 上限到達 (free = 自分 1 人まで / standard = 4 人まで) */
+	inviteLimitTitle: '今のプランではこれ以上ご招待いただけません',
+	inviteLimitDesc: (current: number, max: number) =>
+		`ご家族のメンバーと発行済みの招待をあわせて ${current} / ${max} 人です。${PLAN_FULL_TERMS.standard}以上にすると人数を増やせます。`,
+	/** free は「上限 1 人」= 実質「自分だけ」なので、人数ではなく意味で伝える */
+	inviteLimitDescFree: `${PLAN_FULL_TERMS.free}ではご家族の招待をご利用いただけません（${ADMIN_VIEW_TERMS.canonical}はご本人のみ）。${PLAN_FULL_TERMS.standard}以上にすると、ご家族を招待できます。`,
+	inviteLimitCta: 'プランを見る',
+	/** セルフホスト (NUC) では招待 API 自体が使えない */
+	inviteUnsupportedTitle: 'この環境では招待をご利用いただけません',
+	inviteUnsupportedDesc:
+		'ご自宅のサーバーでお使いの場合、同じ端末・同じネットワークからそのままご利用いただけるため、招待の仕組みはありません。',
 	// Role labels
 	roleOwner: 'オーナー',
 	roleParent: `${PARENT_TERMS.honorific}`,
@@ -6152,6 +6164,11 @@ export const AUTH_INVITE_LABELS = {
 	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
 	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
 	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	// #4704: 招待を発行した本人 (同じ家族グループ) がリンクを開いたときは「別のグループ」ではない。
+	// リンクの使い方 (渡す相手が違う) を伝える。
+	ownTenantInvite: 'このリンクはご自身のご家族グループへの招待です。',
+	ownTenantInviteDesc:
+		'招待したい方（別のアカウントをお使いの方）にこのリンクをお送りください。お送りした方がリンクを開くと参加できます。',
 	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
 	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
 	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)
@@ -8633,8 +8650,9 @@ export const LP_FAQ_LABELS = {
 	text106: '祖父母や親戚も使えますか？',
 	text107: `${PLAN_FULL_TERMS.premium}`,
 	text108: '無制限',
-	text109:
-		'招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	// #4704: 実装は招待ロール = 保護者 / こども の 2 択で「閲覧権限」は割り当てられない
+	// (閲覧のみの共有は別機能の閲覧リンク)。実装に合わせる (ADR-0013)。
+	text109: `招待した${PARENT_TERMS.honorific}は、記録や設定などご家族と同じ操作をご利用いただけます。見るだけの共有をご希望の場合は、${PLAN_FULL_TERMS.premium}の閲覧リンクをお使いください。`,
 	text110: '技術的なご質問',
 	text111: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	text112: 'スマホ・タブレット・PC、何台まで使えますか？',
@@ -9964,7 +9982,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
 	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
-	k108: '招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	k108: `招待した${PARENT_TERMS.honorific}は、記録や設定などご家族と同じ操作をご利用いただけます。見るだけの共有をご希望の場合は、${PLAN_FULL_TERMS.premium}の閲覧リンクをお使いください。`,
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	k111: 'スマホ・タブレット・PC、何台まで使えますか？',

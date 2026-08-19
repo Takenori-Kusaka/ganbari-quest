@@ -29,7 +29,13 @@ export type AcceptInviteFailure =
 	| 'INVALID_OR_EXPIRED'
 	| 'ALREADY_IN_TENANT'
 	| 'EMAIL_MISMATCH'
-	| 'EMAIL_UNVERIFIED';
+	| 'EMAIL_UNVERIFIED'
+	/**
+	 * #4704: 受諾するとメンバー上限を超える。発行時 (`checkFamilyMemberLimit`) だけの検査では、
+	 * 発行後にプランが下がった場合や、同時受諾が重なった場合に上限を超えられるため、
+	 * **受諾 txn の中でも**数える (最後の砦)。
+	 */
+	| 'MEMBER_LIMIT_REACHED';
 
 export interface AcceptInviteTxnInput {
 	/** invite の管理鍵 (#3585)。raw code ではない。 */

@@ -20,13 +20,18 @@ const mockFindActivities = vi.fn();
 const mockFindActivitiesByChild = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
 const mockFindTenantMembers = vi.fn();
+const mockFindTenantInvites = vi.fn().mockResolvedValue([]);
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: { findAllChildren: mockFindAllChildren },
 		activity: { findActivities: mockFindActivities },
 		childActivity: { findActivitiesByChild: mockFindActivitiesByChild },
 		checklist: { findTemplatesByChild: mockFindTemplatesByChild },
-		auth: { findTenantMembers: mockFindTenantMembers },
+		auth: {
+			findTenantMembers: mockFindTenantMembers,
+			// #4704: 上限は「メンバー + 未受諾の招待」で数える
+			findTenantInvites: mockFindTenantInvites,
+		},
 	}),
 }));
 
@@ -777,6 +782,11 @@ describe('plan-limit-service', () => {
 	});
 
 	describe('checkFamilyMemberLimit (#1111)', () => {
+		beforeEach(() => {
+			// 既存 case は「未受諾の招待なし」を前提にする (#4704 で招待も席に数えるようになったため)
+			mockFindTenantInvites.mockResolvedValue([]);
+		});
+
 		it('free (cognito): blocked (owner only, max=1)', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTenantMembers.mockResolvedValue([
@@ -824,6 +834,40 @@ describe('plan-limit-service', () => {
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(4);
 			expect(result.max).toBe(4);
+		});
+
+		// #4704: 発行済み未受諾の招待も席として数える (発行 5 本 → 受諾で上限超過、を発行時に止める)
+		it('standard: メンバー 1 + 未受諾招待 3 = 4/4 で発行できない', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'owner', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+			]);
+			const future = new Date(Date.now() + 86_400_000).toISOString();
+			mockFindTenantInvites.mockResolvedValue([
+				{ inviteId: 'i1', status: 'pending', expiresAt: future },
+				{ inviteId: 'i2', status: 'pending', expiresAt: future },
+				{ inviteId: 'i3', status: 'pending', expiresAt: future },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			expect(result.allowed).toBe(false);
+			expect(result.current).toBe(4);
+		});
+
+		it('期限切れ / 受諾済み / 取消済みの招待は席に数えない', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'owner', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+			]);
+			const past = new Date(Date.now() - 86_400_000).toISOString();
+			const future = new Date(Date.now() + 86_400_000).toISOString();
+			mockFindTenantInvites.mockResolvedValue([
+				{ inviteId: 'expired', status: 'pending', expiresAt: past },
+				{ inviteId: 'accepted', status: 'accepted', expiresAt: future },
+				{ inviteId: 'revoked', status: 'revoked', expiresAt: future },
+			]);
+			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(1);
 		});
 
 		it('local: always allowed (selfhost = family tier, max=null)', async () => {

@@ -17,7 +17,10 @@
 // result に写像し、呼び出し側には throw しない)。
 
 import { sql } from 'drizzle-orm';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Role } from '$lib/server/auth/types';
+import { getPlanLimits } from '$lib/server/services/plan-limit-service';
 import { checkInviteEmailBinding } from '../../auth/invite-email-binding';
 import type {
 	AcceptInviteFailure,
@@ -83,6 +86,12 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 				}
 			}
 
+			// #4704: **受諾側でも席数を数える。** 上限検査が発行時だけだと、
+			// (a) 発行後にプランが下がった / (b) 上限ぎりぎりで複数の招待が同時に受諾された
+			// 場合に上限を超えられる。同一 txn 内で数えることで、超過した受諾だけが確実に落ちる
+			// (40001 は runner が再実行するので、勝った 1 件だけが通る)。
+			await assertMemberSeatAvailable(tx, invite.family_id);
+
 			await tx.execute(sql`
 				INSERT INTO memberships (family_id, user_id, role, invited_by, joined_at)
 				VALUES (${invite.family_id}, ${userId}, ${invite.role}, ${invite.invited_by}, ${now})
@@ -102,4 +111,43 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 		if (isUniqueViolation(err)) return { ok: false, reason: 'ALREADY_IN_TENANT' };
 		throw err;
 	}
+}
+
+/**
+ * #4704: 受諾トランザクション内でメンバー上限を検査する。
+ *
+ * プランは `families` の契約 4 列から導出する (`plan-limit-service` の `PLAN_LIMITS` が上限の SSOT)。
+ * 上限が null (プレミアム / セルフホスト相当) なら何もしない。
+ */
+async function assertMemberSeatAvailable<TTx extends SqlExecutor>(
+	tx: TTx,
+	familyId: string,
+): Promise<void> {
+	const contract = await tx.execute(sql`
+		SELECT status, plan, stripe_subscription_id FROM families WHERE family_id = ${familyId}
+	`);
+	const row = contract.rows[0] as
+		| { status: string; plan: string | null; stripe_subscription_id: string | null }
+		| undefined;
+	if (!row) throw new AcceptInviteAbort('INVALID_OR_EXPIRED');
+
+	// contract-state-matrix §4: 契約があり active / grace_period なら有料 (licenseStatus=ACTIVE)。
+	const paid =
+		row.stripe_subscription_id !== null &&
+		(row.status === SUBSCRIPTION_STATUS.ACTIVE || row.status === SUBSCRIPTION_STATUS.GRACE_PERIOD);
+	const licenseStatus = paid ? AUTH_LICENSE_STATUS.ACTIVE : AUTH_LICENSE_STATUS.NONE;
+	const tier =
+		licenseStatus === AUTH_LICENSE_STATUS.ACTIVE
+			? row.plan?.startsWith('family')
+				? 'family'
+				: 'standard'
+			: 'free';
+	const max = getPlanLimits(tier).maxFamilyMembers;
+	if (max === null) return;
+
+	const counted = await tx.execute(sql`
+		SELECT count(*)::int AS seats FROM memberships WHERE family_id = ${familyId}
+	`);
+	const seats = Number((counted.rows[0] as { seats: number } | undefined)?.seats ?? 0);
+	if (seats >= max) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
 }
