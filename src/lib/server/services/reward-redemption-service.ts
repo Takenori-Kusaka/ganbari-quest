@@ -18,6 +18,7 @@ import {
 } from '$lib/server/db/reward-redemption-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
+import { logger } from '$lib/server/logger';
 
 /**
  * #3339: ごほうび交換の「即時交換（親承認スキップ）」が家庭設定で有効か。
@@ -305,13 +306,20 @@ async function finalizeApproval(args: {
 		// #4722: 親承認経路では先に approved を確定させている。残高不足で減算できなかった場合は
 		// 「承認済なのに引かれていない」状態を残さないよう pending に戻す (approved のときだけ戻す)。
 		if (args.claimed) {
-			await updateRedemptionRequestStatus(
+			const reverted = await updateRedemptionRequestStatus(
 				childId,
 				requestId,
 				{ status: 'pending_parent_approval', resolvedAt: null, resolvedByParentId: null },
 				tenantId,
 				{ expectedStatus: 'approved' },
 			);
+			if (!reverted) {
+				// 戻せなかった = 「承認済だが引かれていない」申請が残る。黙って進むと親も運営も気づけない
+				// (本 Issue #4722 が正そうとしている「失敗を成功に見せる」構造そのもの) ため必ず残す。
+				logger.error('[reward-redemption] 承認の巻き戻しに失敗 (承認済だが未控除の申請が残る)', {
+					context: { tenantId, childId, requestId },
+				});
+			}
 		}
 		return { error: 'INSUFFICIENT_POINTS' };
 	}
