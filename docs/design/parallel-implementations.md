@@ -184,7 +184,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 場所 | 内容 |
 |------|------|
-| `src/lib/features/tutorial/tutorial-chapters.ts` | 本番チュートリアル |
+| `src/lib/ui/tutorial/tutorial-chapters-child.ts` + `getChildTutorialLabels` | 子供画面チュートリアル (親の章立て v1 は #4654 で撤去) |
+| `src/routes/**/_guide.ts` + `PAGE_GUIDE_LABELS` | 親管理画面 / marketplace の ❓ ページガイド |
 | `src/lib/features/demo/demo-guide-state.svelte.ts` | デモガイドツアー |
 
 **同期メカニズム**:
@@ -631,7 +632,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
 
-- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
+- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
 - [ ] **本番画面** → **#2097 PR-B3 #2188 完了で `src/routes/demo/` 並行実装は 0 file**。本番 routes のみが SSOT (demo Lambda は env 駆動で本番 routes を直接 host、ADR-0048)。新規 `src/routes/demo/` の追加は禁止
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期

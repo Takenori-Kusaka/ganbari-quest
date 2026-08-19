@@ -2,7 +2,7 @@ import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
-// step 1 は selector 省略で画面中央 modal 表示。巨大要素 (points-section) は target にしない。
+// step 1 は selector 省略で画面中央 modal 表示。ページ全体を包む巨大 wrapper は target にしない。
 // #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
 const L = PAGE_GUIDE_LABELS.adminPoints;
 

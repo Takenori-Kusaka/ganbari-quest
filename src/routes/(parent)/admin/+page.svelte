@@ -40,7 +40,6 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 <AdminHome
 	children={data.children}
 	pointSettings={data.pointSettings}
-	tutorialStarted={data.tutorialStarted}
 	onboarding={data.onboarding}
 	mode={adminMode}
 	basePath="/admin"

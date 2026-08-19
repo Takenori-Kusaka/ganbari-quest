@@ -1931,16 +1931,18 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 #### POST /api/v1/settings/tutorial
 
-チュートリアル完了をマーク。
+チュートリアル完了をマーク（子供画面チュートリアルの最終ステップで送信）。
 
 **認証:** owner/parent
 
 **リクエスト:**
 ```json
 {
-  "completed": true
+  "action": "complete"
 }
 ```
+
+`action` は `complete` のみ受理する（それ以外は 400）。親の章立てチュートリアル撤去に伴い、開始マーク・バナー dismiss の action は受理しない。
 
 #### GET /api/v1/settings/vapid-key
 

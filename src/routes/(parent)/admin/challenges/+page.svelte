@@ -122,7 +122,7 @@ function tabHref(childId: ChildId | 'all'): string {
 </svelte:head>
 
 <!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー (最外 wrapper)。 -->
-<div class="space-y-4" data-tutorial="challenges-page">
+<div class="space-y-4">
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
 		<div class="rounded-xl border bg-white p-4">
 			<div class="flex items-center gap-2 mb-2">

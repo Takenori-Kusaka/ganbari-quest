@@ -71,16 +71,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	}
 
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
-		getSettings(
-			[
-				'point_unit_mode',
-				'point_currency',
-				'point_rate',
-				'tutorial_started_at',
-				'tutorial_banner_dismissed',
-			],
-			tenantId,
-		),
+		getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
 		getTrialStatus(tenantId),
 	]);
 	const pointSettings: PointSettings = {
@@ -98,10 +89,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		locals.context?.plan,
 	);
 	const isPremium = isPaidTier(planTier);
-	const tutorialStarted = !!(
-		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
-	);
-
 	const userRole = locals.context?.role ?? 'owner';
 
 	// #770: トライアル終了検知 — cookie で前回の trial 状態を記憶し、
@@ -198,7 +185,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		tenantStatus,
 		isPremium,
 		planTier,
-		tutorialStarted,
 		userRole,
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,

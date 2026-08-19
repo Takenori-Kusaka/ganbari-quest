@@ -304,7 +304,7 @@ function isItemActive(itemHref: string): boolean {
 				<a
 					href={isDemo ? '/demo' : '/switch'}
 					class="header-switch-link"
-					data-tutorial="switch-to-child"
+					
 				>
 					<span aria-hidden="true">&larr;</span>
 					{isDemo ? FEATURES_LABELS.adminLayout.demoTopLink : FEATURES_LABELS.adminLayout.switchToChild}

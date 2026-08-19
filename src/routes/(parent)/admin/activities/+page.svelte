@@ -588,7 +588,7 @@ function selectChild(childId: ChildId) {
 	<!-- #2902 Phase A: 活動一覧（メインコンテンツ）— 選択中 child の per-child instance を
 	     単一表示。全行が ActivityListItem (編集 / 表示切替 / メインクエスト / 削除のフル CRUD)。
 	     旧 per-child read-only badge 行 + family master 並存表示は撤去 (二重表示 / 件数水増し解消)。 -->
-	<div class="space-y-1" data-tutorial="activity-list" data-testid="admin-activities-list">
+	<div class="space-y-1" data-testid="admin-activities-list">
 		{#each filteredActivities as activity (activity.id)}
 			<div data-testid="per-child-activity-{activity.id}">
 				<ActivityListItem
