@@ -11,11 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
-import {
-	DEMO_ACTIVITY_LOGS,
-	DEMO_POINT_BALANCES,
-	DEMO_STATUSES,
-} from '$lib/server/demo/demo-data';
+import { DEMO_ACTIVITY_LOGS, DEMO_POINT_BALANCES, DEMO_STATUSES } from '$lib/server/demo/demo-data';
 import * as repo from '../../../../../src/lib/server/db/demo/report-daily-summary-repo';
 
 const TENANT = 'demo';
