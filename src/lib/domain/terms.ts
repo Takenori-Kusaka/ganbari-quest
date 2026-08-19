@@ -141,6 +141,9 @@ export const TRIAL_TERMS = {
 	// 注: ここに撤去済 export の識別子を literal で書くと check-orphan-labels が
 	// それを「参照 1 件」と数え、復活させても検出できなくなる (#4408 mutation 検証で実証)。
 	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
+	// #4668: プラン・課金ページのトライアル開始ボタン表記。画面 (SUBSCRIPTION_PAGE_LABELS.trialStartButton)
+	// とページガイド文言が同じ atom を引き、ボタン名の食い違いを作らない。
+	startButton: '無料トライアルを開始する',
 } as const;
 
 // ============================================================
@@ -419,6 +422,9 @@ export const STRIPE_PORTAL_TERMS = {
 	canonical: 'Stripe の請求管理ページ',
 	short: '請求管理ページ',
 	billingPortal: '請求管理ページ',
+	// #4668: 画面見出し「請求履歴」(SUBSCRIPTION_PAGE_LABELS.billingHistoryTitle) とガイド文言が同じ
+	// atom を引く。ガイド側で「支払い履歴」等の別表記を作らない (EPIC #4650 PO 判断)。
+	history: '請求履歴',
 } as const;
 
 // ============================================================

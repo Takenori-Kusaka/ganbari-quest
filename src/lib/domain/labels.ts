@@ -1904,6 +1904,10 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminSubscription: {
 		title: 'プラン・課金',
+		// #4668 (EPIC #4650): step は SaasLicensePanel / NucLicensePanel の DOM 順に「上から下」で並べ、
+		// ボタン名・見出しは画面と同じ atom (TRIAL_TERMS / STRIPE_PORTAL_TERMS / CANCEL_TERMS 等) を引く。
+		// 環境依存 UI (Checkout 照合バナー / Portal fallback / 期末解約バナー / 請求履歴カード) は出た
+		// ときに画面自身が説明するため step 化しない (ガイドは常設要素だけを扱う)。
 		steps: {
 			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
 			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
@@ -1911,23 +1915,48 @@ export const PAGE_GUIDE_LABELS = {
 			'subscription-intro': {
 				title: 'このページについて',
 				what: '今ご利用中のプランや契約の状況を確認するページです。プランに関する操作の入り口がここに集まっています。',
-				how: '上から順に、現在の状況・プランの管理・支払い履歴への入り口が並びます。表示される項目はご利用環境によって変わります。',
+				how: `上から順に、現在のプラン・利用状況と上限・${PLAN_CHANGE_TERMS.changeNoun}や${STRIPE_PORTAL_TERMS.history}への入り口が並びます。表示される項目はご利用環境やプランによって変わります。`,
 				goal: `プランの状況をひと目で把握でき、必要なときに${PLAN_CHANGE_TERMS.changeNoun}や支払いの管理へ迷わず進めます。`,
 			},
-			// ② 画面の見方（現在のプラン）— SaaS 版のみ（NUC では本セクション非表示のため除外）。
+			// ② 画面の見方（現在のプラン）— SaaS 版のみ。カード全体を spotlight。残り日数はここには出ない
+			// (利用状況カードの step で説明する、PO 判断)。
 			'subscription-current-plan': {
 				title: '画面の見方（現在のプラン）',
-				what: 'いま契約中のプランと、無料トライアル中ならその残り期間がここに表示されます。',
-				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
-				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
+				what: 'いま契約中のプランの名前と、ステータス（有効・猶予期間など）・有効期限・家族名・登録日がここに表示されます。',
+				how: '1. 「プラン」の行で今のプランを確認します\n2. 「ステータス」と「有効期限」で契約が続いているかを確認します',
+				goal: '今どのプランで、いつまで使えるかをすぐに確認できます。',
 			},
-			// ③ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			// ③ 画面の見方（利用状況と上限）— SaaS 版のみ。PlanStatusCard (上限 / トライアル残り日数 / アップグレード CTA)。
+			'subscription-plan-status': {
+				title: '画面の見方（利用状況と上限）',
+				what: '今のプランで登録できるお子さまの人数・カスタム活動の数・データ保持期間と、現在の使用数が並びます。無料トライアル中なら残り日数もここに表示されます。',
+				how: '1. 「こども」「カスタム活動」の「使用数 / 上限」を見ます\n2. 上限に近づいたら、このカードのアップグレードボタンから上のプランに進めます',
+				goal: 'あと何人・何件まで登録できるかが分かり、足りなくなる前にプランを見直せます。',
+			},
+			// ④ 最頻操作（無料トライアルを開始する）— 無料プランで未使用のときだけ出るカード (optional)。
+			'subscription-trial': {
+				title: `よく使う操作（${TRIAL_TERMS.startButton}）`,
+				what: `${PLAN_FULL_TERMS.standard}の全機能を${TRIAL_TERMS.duration}無料で試せます。${TRIAL_TERMS.noCreditCard}で、自動で課金されることはありません。`,
+				how: `1. 「${TRIAL_TERMS.startButton}」を押します\n2. すぐに${PLAN_FULL_TERMS.standard}の機能が使えるようになり、残り日数が上の利用状況カードに表示されます`,
+				goal: `${TRIAL_TERMS.duration}のあいだ上位プランを実際に使ってみてから、続けるかどうかを決められます。`,
+			},
+			// ⑤ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。契約状況で分岐するため両分岐を記述。
+			// 契約済み分岐は PIN / 確認フレーズ dialog (+ ダウングレード確認) を省略せず書く (PO 判断)。
 			'subscription-plan-management': {
 				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
 				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
-				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
-				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
-				tips: [`${CANCEL_TERMS.anytime}できます`],
+				how: `・未契約のとき: 1. プランを選びます 2. 「${PLAN_TERMS.standard}プランで始める」など選んだプランのボタンを押し、お支払い手続きに進みます\n・契約済みのとき: 1. 「${STRIPE_PORTAL_TERMS.short}を開く」を押します 2. 上位プランからの変更で使えなくなるデータがある場合は、先に確認画面が出ます 3. ${OYAKAGI_TERMS.shortName}（親 PIN）か確認フレーズを入力します 4. ${STRIPE_PORTAL_TERMS.canonical}でプラン変更や支払い方法を手続きします`,
+				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法や請求書も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
+				tips: [
+					`${STRIPE_PORTAL_TERMS.short}を開く前に${OYAKAGI_TERMS.shortName}の入力を求めるのは、お子さまの誤操作で${CANCEL_TERMS.canonical}やダウングレードが起きないようにするためです`,
+				],
+			},
+			// ⑥ 解約の入口 — SaaS 版のみ。ページ末尾の控えめなリンクを spotlight。
+			'subscription-cancel': {
+				title: `${CANCEL_TERMS.canonical}の入口`,
+				what: `${CANCEL_TERMS.anytime}できます。有料プランをやめるときは、ページの一番下にあるこのリンクから進みます。`,
+				how: `1. 「${CANCEL_TERMS.canonical}をご検討の方」を押します\n2. 次の画面で${CANCEL_TERMS.canonical}の内容を確認して手続きします`,
+				goal: `${CANCEL_TERMS.canonical}の場所を探し回らずに済み、続けるかやめるかをいつでも自分で決められます。`,
 			},
 			// ②' 画面の見方（ご利用中の版）— NUC セルフホスト版のみ（#3296）。NucLicensePanel の
 			// Edition badge を spotlight し、全機能が制限なく使える旨を案内する。
@@ -1937,38 +1966,19 @@ export const PAGE_GUIDE_LABELS = {
 				how: 'ここに版の名前と、使える範囲が表示されます。お申し込みや支払いの手続きは必要ありません。',
 				goal: '追加の費用や手続きなしで、すべての機能をそのまま使えることが分かります。',
 			},
-			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況セクションを spotlight。
+			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況カード全体を spotlight。
 			'subscription-nuc-usage': {
 				title: '画面の見方（利用状況）',
 				what: '今このアプリに登録されているお子さまの人数や、これまでに作った活動の数を確認できます。',
 				how: '1. 登録人数や活動数の一覧を見ます\n2. データの保存期間もあわせて確認できます',
 				goal: 'どれくらい使っているかをひと目で把握できます。',
 			},
-		},
-	},
-	adminBilling: {
-		title: 'お支払い',
-		steps: {
-			// ① ページ概要（selector 省略で画面中央 modal）。
-			'billing-intro': {
-				title: 'このページについて',
-				what: `ご契約の状況確認と、${STRIPE_PORTAL_TERMS.short}での支払い管理・${CANCEL_TERMS.canonical}をまとめたページです。`,
-				how: '上から「ご契約状況」「請求管理」の順に並びます。',
-				goal: `支払いの状況を把握でき、必要なら${STRIPE_PORTAL_TERMS.short}や${CANCEL_TERMS.canonicalVerb}手続きに進めます。`,
-			},
-			// ② 画面の見方（ご契約状況）。
-			'billing-overview': {
-				title: '画面の見方（ご契約状況）',
-				what: '契約中のプランの状態と、次回の請求予定がここに表示されます。',
-				how: '1. 契約状況を確認します\n2. 下の「請求管理」で支払い方法を変えられます',
-				goal: '今の契約と請求予定をひと目で確認できます。',
-			},
-			// ③ 最頻操作（請求管理ページ）。ご契約があるときに「請求管理ページを開く」ボタンが出る。
-			'billing-portal': {
-				title: `よく使う操作（${STRIPE_PORTAL_TERMS.short}）`,
-				what: `支払い方法の変更や領収書の確認は${STRIPE_PORTAL_TERMS.canonical}から行います。ご契約があるときに開くボタンが表示されます。`,
-				how: `1. ${STRIPE_PORTAL_TERMS.short}を開きます\n2. 支払い方法や${CANCEL_TERMS.canonical}を手続きします`,
-				goal: `支払い方法を最新に保て、${CANCEL_TERMS.anytime}できます。`,
+			// ④' サポート — NUC セルフホスト版のみ (#4668 F5)。お問い合わせ / ドキュメントへのリンク。
+			'subscription-nuc-support': {
+				title: '困ったときは（サポート）',
+				what: 'セルフホスト版で困ったときの相談先とドキュメントへのリンクがここにまとまっています。',
+				how: '1. 使い方や不具合の相談は「お問い合わせ」を押します\n2. 設定やバックアップの手順は「ドキュメント」で確認します',
+				goal: '問い合わせ先を探し回らずに、困りごとをすぐ相談できます。',
 			},
 		},
 	},
@@ -2926,7 +2936,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
 	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
-	trialStartButton: '無料トライアルを開始する',
+	trialStartButton: TRIAL_TERMS.startButton,
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
 
@@ -2965,7 +2975,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
 	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
 	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
-	billingHistoryTitle: '請求履歴',
+	billingHistoryTitle: STRIPE_PORTAL_TERMS.history,
 	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
 	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
 	billingHistoryFeatureReceipts: 'お支払い履歴の確認',

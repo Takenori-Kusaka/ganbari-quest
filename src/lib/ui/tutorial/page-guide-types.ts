@@ -60,6 +60,16 @@ export interface GuideStep {
 	 * 判定は {@link filterGuideStepsByStripe}（stripeEnabled 未確定時は fail-closed で除外）。
 	 */
 	requiredStripe?: 'enabled';
+	/**
+	 * 対象要素が「画面の状態」で出たり消えたりする step (#4668 / EPIC #4650 PO 判断 4)。
+	 * `true` の step は、ガイド起動時に `selector` が可視要素に解決しなければ **step ごと除外**する
+	 * ({@link filterGuideStepsByPresence})。例: 無料プランのときだけ出る「無料トライアルを開始する」
+	 * カード、保留中の招待があるときだけ出る一覧、0 件時に消える操作ボタン。
+	 * tier / runtime / stripe の静的 filter では表現できない「ページ状態依存 UI」を、中央 fallback
+	 * (押せと言われたボタンが光らない) にせず宣言的に扱うための軸。`selector` 無しの step には無意味。
+	 * 常設 UI を指す step には付けない (付けると anchor 退行を silent に隠すため)。
+	 */
+	optional?: boolean;
 	/** バブルの表示位置 */
 	position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
 }
