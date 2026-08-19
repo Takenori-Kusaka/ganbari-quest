@@ -77,6 +77,17 @@ const DEMO_TENANT_ID = 'demo';
 const NOW = '2026-03-27T09:00:00.000Z';
 const TODAY = '2026-03-27';
 
+/**
+ * #4712: fixture の「今日」(ADR-0048 §決定 §2 fixture immutability で固定値)。
+ *
+ * デモの活動ログはこの日を基準に「N 日前」で作られているため、実時刻の当月を既定にすると
+ * 月次レポート / ダッシュボードが常に「活動 0 回」に見える (デモが「使われていない家族」に見える)。
+ * デモ経路では本定数から導いた月を既定表示にする。
+ */
+export const DEMO_FIXTURE_TODAY = TODAY;
+/** #4712: fixture 基準日の月キー (`YYYY-MM`)。デモの月次表示の既定値。 */
+export const DEMO_FIXTURE_MONTH_KEY = TODAY.slice(0, 7);
+
 function daysAgo(n: number): string {
 	return addDaysJST(TODAY, -n);
 }

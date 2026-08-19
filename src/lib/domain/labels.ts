@@ -2190,6 +2190,12 @@ export const DEMO_LABELS = {
 	 * #2261 (2026-05-19 PO 報告): exitHref と同じく www. canonical に統一。
 	 */
 	signupHref: 'https://www.ganbari-quest.com/auth/signup',
+	/**
+	 * ログイン CTA 先。
+	 * #4712: demo Lambda には Cognito が無いため relative `/auth/login` はフォームだけ出て
+	 * 送信しても何も起きない (write no-op)。signupHref と同じく本番 absolute に固定する。
+	 */
+	loginHref: 'https://www.ganbari-quest.com/auth/login',
 } as const;
 
 // ============================================================
