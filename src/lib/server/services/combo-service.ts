@@ -75,6 +75,32 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
 	return null;
 }
 
+/** point_ledger.type。付与も巻き戻しも同 type で計上する (#4686)。 */
+export const COMBO_LEDGER_TYPE = 'combo_bonus';
+
+/**
+ * 台帳 description を組む。付与 (正) と巻き戻し (負) で語だけ変え、成立中の tier は共通で列挙する。
+ */
+function buildComboLedgerDescription(input: {
+	prefix: string;
+	delta: number;
+	miniCombo: MiniCombo | null;
+	categoryCombo: CategoryComboEntry[];
+	crossCategoryCombo: CrossCategoryCombo | null;
+}): string {
+	const parts: string[] = [];
+	if (input.miniCombo) parts.push('ミニコンボ');
+	for (const cc of input.categoryCombo) {
+		const catName = getCategoryById(cc.categoryId)?.name ?? String(cc.categoryId);
+		parts.push(`${cc.name}コンボ(${catName})`);
+	}
+	if (input.crossCategoryCombo) parts.push(input.crossCategoryCombo.name);
+	const detail = parts.join('・');
+	return input.delta > 0
+		? `${input.prefix} ${detail} +${input.delta}`
+		: `${input.prefix} コンボとりけし${detail ? `（${detail}）` : ''} ${input.delta}`;
+}
+
 /**
  * Check today's combo state and reconcile the granted bonus with the desired bonus.
  *
@@ -137,28 +163,18 @@ export async function reconcileComboBonus(
 	const newBonus = totalDesiredBonus - alreadyAmount;
 
 	if (newBonus !== 0) {
-		const parts: string[] = [];
-		if (miniCombo) {
-			parts.push('ミニコンボ');
-		}
-		for (const cc of categoryCombo) {
-			const catName = getCategoryById(cc.categoryId)?.name ?? String(cc.categoryId);
-			parts.push(`${cc.name}コンボ(${catName})`);
-		}
-		if (crossCategoryCombo) {
-			parts.push(crossCategoryCombo.name);
-		}
-		const description =
-			newBonus > 0
-				? `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`
-				: `${comboBonusPrefix} コンボとりけし${parts.length > 0 ? `（${parts.join('・')}）` : ''} ${newBonus}`;
-
 		await insertPointLedger(
 			{
 				childId,
 				amount: newBonus,
-				type: 'combo_bonus',
-				description,
+				type: COMBO_LEDGER_TYPE,
+				description: buildComboLedgerDescription({
+					prefix: comboBonusPrefix,
+					delta: newBonus,
+					miniCombo,
+					categoryCombo,
+					crossCategoryCombo,
+				}),
 			},
 			tenantId,
 		);
