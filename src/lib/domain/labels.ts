@@ -1761,7 +1761,7 @@ export const PAGE_GUIDE_LABELS = {
 				relatedLinks: [{ label: ADMIN_HOME_TERMS.switchToChild, href: '/switch' }],
 			},
 			'children-add': {
-				title: `よく使う操作（お子さまの${CHILD_ADMIN_TERMS.addButton}）`,
+				title: `よく使う操作（お子さまの登録）`,
 				what: `いちばん最初に行うのがお子さまの登録です。「${CHILD_ADMIN_TERMS.addButton}」を押すとフォームが開きます。`,
 				how: `1. 「${CHILD_ADMIN_TERMS.addButton}」を押す（もう一度押すと閉じます）\n2. ${CHILD_ADMIN_TERMS.nickname}を入力（ひらがな推奨）\n3. 誕生日を選ぶ（分からないときは${CHILD_ADMIN_TERMS.age}だけでも登録できます）\n4. ${CHILD_ADMIN_TERMS.themeColor}を選ぶ\n5. フォーム下の「${CHILD_ADMIN_TERMS.addButton}」で確定`,
 				goal: 'お子さま専用の画面が作られ、活動の記録・ポイント・レベルアップが個別に追跡されます。',
