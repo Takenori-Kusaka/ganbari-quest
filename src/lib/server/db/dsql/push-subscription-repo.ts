@@ -12,7 +12,7 @@
 //     二重防御があるため、不正値も string 経由で PushSubscriberRole に渡す (sqlite と同判断)。
 //   - **0/1 契約**: NotificationLog.success は number (0/1)。DSQL 列は boolean のため
 //     読み出しで boolean→0/1 変換する (voice-repo と同 convention)。
-//   - **countTodayLogs の当日境界**: sqlite は ISO 文字列比較 (= UTC 日境界)。DSQL は
+//   - **countLogsBetween の境界 (#4722)**: 呼び出し側が JST 暦日を instant 化して渡す。DSQL は
 //     UTC anchor 明示の `<today>T00:00:00Z`::timestamptz 範囲で同義 (裸の date cast は
 //     session TZ 依存のため禁止 — PGlite はローカル TZ を継承する)。
 

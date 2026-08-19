@@ -30,7 +30,7 @@
 //   [VT2] findByToken (無 tenant 単点 lookup) / revoke (tenant no-op → soft revoke) / deleteById
 // ── IPushSubscriptionRepo ──
 //   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)
-//   [PS2] insertLog (success boolean→0/1) + countTodayLogs (UTC 日境界) + findRecentLogs 降順 limit
+//   [PS2] insertLog (success boolean→0/1) + countLogsBetween (instant 範囲、#4722) + findRecentLogs 降順 limit
 // ── ICancellationReasonRepo ──
 //   [CR1] create shape + listByTenant 降順 + §P9
 //   [CR2] aggregateRecent (全カテゴリ 0 初期化 + percentage) + searchFreeText (ILIKE / 空 query)
