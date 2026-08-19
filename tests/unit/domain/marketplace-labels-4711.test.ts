@@ -34,7 +34,7 @@ describe('#4711 marketplace 取込 CTA の統一', () => {
 	it('詳細ページの取込 CTA は統一 label 2 種以外を使わない (type 別 CTA 文言の再発防止)', () => {
 		const src = readFileSync(DETAIL_PAGE, 'utf-8');
 		const used = new Set(
-			Array.from(src.matchAll(/MARKETPLACE_LABELS\.(detailCtaImport\w+)/g), (m) => m[1]),
+			Array.from(src.matchAll(/MARKETPLACE_LABELS\.(detailCtaImport\w+)/g), (m) => m[1] ?? ''),
 		);
 		// 説明文 (Desc) / 未ログイン補足 (SignedOut hint) / 子供未登録 (NoChildren) は CTA 本体ではない
 		const ctaOnly = Array.from(used).filter(
