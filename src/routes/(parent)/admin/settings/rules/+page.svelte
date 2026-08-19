@@ -2,6 +2,7 @@
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { toJSTDateString } from '$lib/domain/date-utils';
 import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, UI_LABELS } from '$lib/domain/labels';
@@ -89,14 +90,14 @@ $effect(() => {
 		// #4711: 種類違いは「失敗 → 再試行」ではなく専用文言 + 正規経路 (交換型 = ごほうび管理)。
 		// 表示名は load 側で marketplace から引く (内部 ID を出さない)。
 		const name = data.importPresetName ?? data.importPresetIdRaw;
-		const hint = data.importWrongTypeHref
+		const hint = data.importWrongTypeRewardPresetId
 			? ADMIN_RULES_PAGE_LABELS.importWrongTypeExchangeHint
 			: ADMIN_RULES_PAGE_LABELS.importWrongTypeNotImportable;
 		showToast(ADMIN_RULES_PAGE_LABELS.importToastWrongType(name), hint, 'error');
 		importMessage = {
 			text: `${ADMIN_RULES_PAGE_LABELS.importToastWrongType(name)} ${hint}`,
 			tone: 'error',
-			href: data.importWrongTypeHref,
+			rewardPresetId: data.importWrongTypeRewardPresetId,
 		};
 		cleanupImportQueryParam();
 		return;
@@ -130,8 +131,15 @@ let demoNoopToastShown = $state(false);
 // #4711: 取込結果の in-page banner (Toast との 2 層構成、DESIGN.md §5 Toast)。
 // Toast は 3 秒で消えるため、2 回目取込の「取込済み」や種類違いの案内が見逃されないよう
 // role="status" の banner を併置する (E2E もこちらを待つ)。
-type ImportMessage = { text: string; tone: 'success' | 'info' | 'error'; href?: string | null };
+type ImportMessage = {
+	text: string;
+	tone: 'success' | 'info' | 'error';
+	/** 交換型を誤って開いたときの正規経路 (admin/rewards?import=<id>) */
+	rewardPresetId?: string | null;
+};
 let importMessage = $state<ImportMessage | null>(null);
+// 正規経路 link の base (svelte/no-navigation-without-resolve: href は resolve() 起点で組む)
+const rewardsImportBase = resolve('/admin/rewards');
 
 $effect(() => {
 	if (!form) return;
@@ -241,9 +249,9 @@ function formatImportedAt(iso: string): string {
 			data-tone={importMessage.tone}
 		>
 			<span>{importMessage.text}</span>
-			{#if importMessage.href}
+			{#if importMessage.rewardPresetId}
 				<a
-					href={importMessage.href}
+					href="{rewardsImportBase}?import={encodeURIComponent(importMessage.rewardPresetId)}"
 					class="ml-2 font-bold underline"
 					data-testid="rules-import-wrong-type-link"
 				>

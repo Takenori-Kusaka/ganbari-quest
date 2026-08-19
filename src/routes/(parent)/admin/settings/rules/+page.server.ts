@@ -42,10 +42,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
 	let importPresetId: string | null = null;
 	let importPresetError: 'not-found' | 'wrong-type' | null = null;
-	// #4711: wrong-type の案内に使う表示名 + 正規経路 (exchange は admin/rewards?import=)。
-	// 内部 ID (presetId) を顧客に見せない。
+	// #4711: wrong-type の案内に使う表示名 + 正規経路 (exchange は admin/rewards?import=<id>)。
+	// 内部 ID (presetId) は表示文言には出さず、link の query にだけ載せる
+	// (href 自体は client 側で resolve('/admin/rewards') から組む、svelte/no-navigation-without-resolve)。
 	let importPresetName: string | null = null;
-	let importWrongTypeHref: string | null = null;
+	let importWrongTypeRewardPresetId: string | null = null;
 	if (importPresetIdRaw) {
 		const item = getMarketplaceItem('rule-preset', importPresetIdRaw);
 		if (!item) {
@@ -58,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			importPresetError = 'wrong-type';
 			importPresetName = item.name;
 			if ((item.payload as { ruleType: string }).ruleType === 'exchange') {
-				importWrongTypeHref = `/admin/rewards?import=${encodeURIComponent(item.itemId)}`;
+				importWrongTypeRewardPresetId = item.itemId;
 			}
 		} else {
 			importPresetId = importPresetIdRaw;
@@ -79,7 +80,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		importPresetIdRaw,
 		importPresetError,
 		importPresetName,
-		importWrongTypeHref,
+		importWrongTypeRewardPresetId,
 		rewardAutoApprove,
 	};
 };
