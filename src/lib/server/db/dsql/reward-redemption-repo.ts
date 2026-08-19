@@ -232,17 +232,17 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			if (updates.resolvedByParentId !== undefined)
 				sets.push(sql`resolved_by_parent_id = ${updates.resolvedByParentId}`);
 			// #4722: expectedStatus 指定時は条件付き UPDATE (0 行 = 既に別の承認が確定済)。
-			const where = [
-				sql`family_id = ${tenantId}`,
-				sql`redemption_id = ${id}`,
-				sql`child_id = ${childId}`,
-			];
-			if (options?.expectedStatus !== undefined) {
-				where.push(sql`status = ${options.expectedStatus}`);
-			}
+			// ⚠️ tenant 述語 (`family_id = ${tenantId}`) は **template 内にインラインで書く**。
+			// 配列に積んで `sql.join` で組み立てると、tenant 述語 fitness
+			// (tests/unit/architecture/dsql-tenant-predicate-fitness.test.ts、ADR-0063 §3.4) の
+			// 静的走査から述語が見えなくなり「family_id 欠如」を誤検出する = 防御線を実質無効化する。
+			const statusCondition =
+				options?.expectedStatus !== undefined
+					? sql` AND status = ${options.expectedStatus}`
+					: sql``;
 			const result = await db.execute(sql`
 				UPDATE reward_redemption_requests SET ${sql.join(sets, sql`, `)}
-				WHERE ${sql.join(where, sql` AND `)}
+				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}${statusCondition}
 				RETURNING ${REQUEST_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as RequestRow | undefined;
