@@ -1,4 +1,5 @@
 import type { CategoryId, ChildId } from '$lib/domain/ids';
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 // src/lib/server/services/cloud-export-service.ts
 // クラウドエクスポート共有サービス（PIN付きS3保管 + インポート）
 
@@ -454,6 +455,29 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
  * 食い潰し、本来の復元 (execute) ができなくなる恐れがあった。消費は validate 成功後の execute/replace で
  * {@link consumeCloudExportDownload} を明示的に呼ぶ責務に分離する（preview は非消費）。
  */
+/**
+ * PIN からクラウド共有データを引くときの失敗理由 (#4717)。
+ *
+ * route 側が **文字列 match で分類していた** ため、新しい失敗理由 (生成待ち) を足したときに
+ * 分類から漏れて 500 になった。理由を型で運び、route は `reason` だけを見て HTTP 種別に写像する。
+ */
+export type CloudExportFetchFailure =
+	| 'invalid-pin'
+	| 'expired'
+	| 'download-limit'
+	| 'not-ready'
+	| 'build-failed'
+	| 'data-missing';
+
+export class CloudExportFetchError extends Error {
+	readonly reason: CloudExportFetchFailure;
+	constructor(reason: CloudExportFetchFailure, message: string) {
+		super(message);
+		this.name = 'CloudExportFetchError';
+		this.reason = reason;
+	}
+}
+
 export async function fetchCloudExportByPin(pinCode: string): Promise<{
 	record: CloudExportRecord;
 	bytes: Uint8Array;
@@ -461,15 +485,30 @@ export async function fetchCloudExportByPin(pinCode: string): Promise<{
 	const repos = getRepos();
 	const record = await repos.cloudExport.findByPin(pinCode.toUpperCase());
 
-	if (!record) throw new Error('PINコードが無効です');
+	if (!record) throw new CloudExportFetchError('invalid-pin', 'PINコードが無効です');
 	if (new Date(record.expiresAt) < new Date())
-		throw new Error('このエクスポートは有効期限切れです');
+		throw new CloudExportFetchError('expired', 'このエクスポートは有効期限切れです');
 	if (record.downloadCount >= record.maxDownloads)
-		throw new Error('このエクスポートはダウンロード回数の上限に達しています');
+		throw new CloudExportFetchError(
+			'download-limit',
+			'このエクスポートはダウンロード回数の上限に達しています',
+		);
+
+	// #4717: 非同期 build (#3504) の完了前 (pending / building) に取り込もうとした場合。
+	// 旧実装は S3 read が空 → 「エクスポートデータが見つかりません」を投げ、route 側が
+	// 文字列 match から漏れて 500 (INTERNAL_ERROR「システムに問題が発生しました」) を返していた。
+	// AWS の build cron は 5 分毎のため、発行〜5 分は必ずこの窓に入る = 受け取る側が「障害」と誤認する。
+	if (record.status === 'pending' || record.status === 'building') {
+		throw new CloudExportFetchError('not-ready', SETTINGS_LABELS.cloudImportNotReady);
+	}
+	if (record.status === 'failed') {
+		throw new CloudExportFetchError('build-failed', SETTINGS_LABELS.cloudImportBuildFailed);
+	}
 
 	// S3からデータ取得
 	const fileData = await repos.storage.readFile(record.s3Key);
-	if (!fileData) throw new Error('エクスポートデータが見つかりません');
+	if (!fileData)
+		throw new CloudExportFetchError('data-missing', 'エクスポートデータが見つかりません');
 
 	return { record, bytes: new Uint8Array(fileData.data) };
 }
