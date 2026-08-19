@@ -35,6 +35,23 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args),
 }));
 
+vi.mock('$lib/server/auth/factory', () => ({
+	getAuthMode: () => 'cognito',
+}));
+
+vi.mock('$lib/server/services/trial-service', () => ({
+	getTrialStatus: async () => ({
+		isTrialActive: false,
+		trialUsed: false,
+		trialStartDate: null,
+		trialEndDate: null,
+		trialTier: null,
+		daysRemaining: 0,
+		source: null,
+		convertedToPaid: false,
+	}),
+}));
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		childActivity: {
@@ -42,6 +59,18 @@ vi.mock('$lib/server/db/factory', () => ({
 			// #2558: per-child dedup — buildExistingNamesByChild が cid ごとに呼ぶ。
 			// dedup 効果を検証するテストは個別 mockResolvedValue で上書きする。
 			findActivitiesByChild: (...args: unknown[]) => mockFindActivitiesByChild(...args),
+		},
+		child: { findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args) },
+		// #4693: 取込は書き込み直前に quota を強制するためプラン (契約 4 列) を読む。
+		// 本 file の関心は Strategy の写像なので、上限のない有料テナントを返して素通りさせる
+		// (上限そのものの検証は tests/unit/services/activity-quota-import-enforcement.test.ts)。
+		auth: {
+			findTenantById: async () => ({
+				tenantId: 'tenant-x',
+				status: 'active',
+				plan: 'monthly',
+				stripeSubscriptionId: 'sub_test',
+			}),
 		},
 	}),
 }));

@@ -507,7 +507,7 @@ export const PLAN_GATE_LABELS = {
 	 * 上と同じ上限のアップグレード導線併記版 (#4622)。
 	 */
 	checklistTemplateLimitReachedWithUpgrade: (max: number) =>
-		`${PLAN_FULL_TERMS.free}では${CHILD_TERMS.honorific}1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
+		`フリープランではお子さま1人あたり ${max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * **誰が**上限に達しているのかを言う版 (#4693)。
@@ -524,7 +524,7 @@ export const PLAN_GATE_LABELS = {
 		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
 
 	checklistTemplateLimitReachedForChildren: (names: readonly string[], max: number) =>
-		`${names.join('・')}は${PLAN_FULL_TERMS.free}の上限（${CHILD_TERMS.honorific}1人あたり ${max} 個）に達しているため配信をスキップしました。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
+		`${names.join('・')}はフリープランの上限（お子さま1人あたり ${max} 個）に達しているため配信をスキップしました。スタンダード以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
