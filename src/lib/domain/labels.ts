@@ -2408,23 +2408,54 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminGrowthBook: {
-		title: '成長記録ブック',
+		title: GROWTH_BOOK_TERMS.full,
+		// #4675 (EPIC #4650): 旧 2 step は selector 省略の中央 modal で、しかも存在しない
+		// 年度切替 UI と分野別一覧を案内していた。画面の DOM 順 (お子さま切替 → 表紙 → 年間サマリー →
+		// 月別 → 証明書リンク) に anchor を張り直し、描画条件を持つ step は optional にする。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'growth-book-intro': {
 				title: 'このページについて',
-				what: 'お子さまの 1 年間のがんばりを、月ごと・分野ごとにまとめた記録ブックです。活動の積み重ねが一冊の成長の記録になります。',
+				what: `お子さまの今年度（4月〜翌年3月）のがんばりを 1 冊にまとめた${GROWTH_BOOK_TERMS.full}です。表紙・年間サマリー・月別の記録が並びます。`,
 				how: `保護者が入力する操作はありません。お子さまの記録から自動でまとめられ、${PAID_PLAN_LABEL}では印刷して手元に残すこともできます。`,
 				goal: '1 年の成長をまとめて振り返れて、ご家族の思い出として保存できます。',
-			},
-			// ② 画面の見方 + 最頻操作（年度・お子さまの切り替えと印刷）
-			'growth-book-view': {
-				title: '画面の見方と印刷',
-				what: `お子さまと年度を切り替えると、その子のその年の記録が月ごと・分野ごとに並びます。${PAID_PLAN_LABEL}では印刷ボタンで紙にも残せます。`,
-				how: `1. お子さまと年度を選びます\n2. 月ごと・分野ごとの記録を見ていきます\n3. ${PAID_PLAN_LABEL}なら印刷ボタンで手元に残せます`,
-				goal: '見たいお子さま・年度の成長を選んで振り返り、必要なら印刷して保存できます。',
 				tips: [
-					`成長記録ブックは${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📖 ${GROWTH_BOOK_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さま切替 (子供 2 人以上のときだけ描画)
+			'growth-book-child-tabs': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: 'お子さまが 2 人以上のとき、上のボタンで表示する子を切り替えます。お子さまが 1 人のご家庭ではボタンは出ず、その子の記録がそのまま表示されます。',
+				how: `1. 見たいお子さまのボタンを押します\n2. 下の表紙・年間サマリー・月別の記録がその子の内容に切り替わります`,
+				goal: 'きょうだいそれぞれの 1 年を、同じページで順番に振り返れます。',
+			},
+			// ③ 年間サマリー (記録が 1 件以上あるときだけ描画)
+			'growth-book-summary': {
+				title: '画面の見方（年間サマリー）',
+				what: '今年度の合計が並びます。「活動回数」は記録した回数、「獲得ポイント」はその合計、「最長連続日数」は毎日続いた最長の日数、「証明書」は受け取った証明書の枚数です。下には「いちばんがんばった月」と「とくいなカテゴリ」も出ます。',
+				how: `1. 4 つの数字で 1 年の量をつかみます\n2. 「いちばんがんばった月」「とくいなカテゴリ」でその子らしさを見ます\n3. その下の「📅 月別の記録」で、月ごとの回数・活動日数・連続日数を振り返ります`,
+				goal: '1 年でどれだけ積み上がったかと、得意な分野・伸びた時期がひと目で分かります。',
+			},
+			// ④ 印刷 (有料プラン かつ 記録があるときだけ描画)
+			'growth-book-print': {
+				title: 'よく使う操作（印刷して残す）',
+				what: `${PAID_PLAN_LABEL}では、この${GROWTH_BOOK_TERMS.full}を紙に印刷したり PDF として保存したりできます。ボタンは記録が 1 件以上あるときに右上に出ます。`,
+				how: `1. 右上の「🖨️ 印刷 / PDF」を押します\n2. ブラウザの印刷画面が開きます\n3. そのまま印刷するか、送信先（プリンター）で「PDF に保存」を選んで保存します`,
+				goal: '1 年の記録を手元に残せて、お子さまと一緒に見返したりご家族に渡したりできます。',
+				tips: [
+					`${GROWTH_BOOK_TERMS.full}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+				],
+			},
+			// ⑤ 証明書一覧へ (記録があるときだけ描画)
+			'growth-book-certificates': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}を見る）`,
+				what: `年間サマリーで数えている${CERTIFICATE_TERMS.canonical}の中身は、ページ下部のリンクから一覧で確認できます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →」を押します\n2. ${CERTIFICATE_TERMS.full}のページで、種類ごとに並んだ${CERTIFICATE_TERMS.canonical}を確認します`,
+				goal: `どんな節目で${CERTIFICATE_TERMS.canonical}が贈られたのかまで辿れます。`,
+				relatedLinks: [
+					{ label: 'レポート', href: '/admin/reports' },
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
 				],
 			},
 		},
@@ -4729,8 +4760,9 @@ export const GROWTH_BOOK_LABELS = {
 	annualSummaryTitle: '📊 年間サマリー',
 	statActivities: '活動回数',
 	statPoints: '獲得ポイント',
-	statMaxStreak: 'さいちょうストリーク',
-	statCertificates: 'しょうめいしょ',
+	// #4675 F8: 保護者画面の指標は漢字表記に統一 (同一画面の「証明書一覧」と揺れていた)
+	statMaxStreak: '最長連続日数',
+	statCertificates: `${CERTIFICATE_TERMS.canonical}`,
 	bestMonthLabel: 'いちばんがんばった月: ',
 	bestCategoryLabel: 'とくいなカテゴリ: ',
 
@@ -4741,7 +4773,7 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
 
 	// Certificate link
-	certificateLink: '📜 証明書一覧を見る →',
+	certificateLink: `📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →`,
 
 	// Empty states
 	noChildrenEmoji: '👧',

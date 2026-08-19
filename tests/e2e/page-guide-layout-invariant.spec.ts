@@ -92,6 +92,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
 	// optional のまま列挙しない
 	'/admin/certificates': ['certificates-child-select'],
+	// #4675: seed は子供 5 人 → お子さま切替は常に描画。年間サマリー / 印刷 / 証明書リンクは
+	// 記録データとプランに依存するため optional のまま列挙しない
+	'/admin/growth-book': ['growth-book-child-tabs'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';

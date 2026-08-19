@@ -41,7 +41,7 @@ function handlePrint() {
 			<div class="flex gap-2">
 				<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.backToReports}</a>
 				{#if data.isPremium && data.book}
-					<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
+					<Button type="button" variant="primary" size="sm" onclick={handlePrint} data-tutorial="growth-book-print">
 						{GROWTH_BOOK_LABELS.printButton}
 					</Button>
 				{/if}
@@ -58,7 +58,7 @@ function handlePrint() {
 		{/if}
 
 		{#if data.children.length > 1}
-			<div class="flex gap-2 overflow-x-auto pb-2">
+			<div class="flex gap-2 overflow-x-auto pb-2" data-tutorial="growth-book-child-tabs">
 				{#each data.children as child (child.id)}
 					<Button
 						type="button"
@@ -95,8 +95,8 @@ function handlePrint() {
 			{/snippet}
 		</Card>
 
-		<!-- Annual Summary -->
-		<Card variant="default" padding="md">
+		<!-- Annual Summary (#4675: ページガイド anchor) -->
+		<Card variant="default" padding="md" data-tutorial="growth-book-summary">
 			{#snippet children()}
 			<h3 class="text-base font-bold text-[var(--color-text-primary)] mb-3">{GROWTH_BOOK_LABELS.annualSummaryTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
@@ -157,8 +157,8 @@ function handlePrint() {
 			</Card>
 		{/each}
 
-		<!-- Certificate link -->
-		<div class="text-center py-4">
+		<!-- Certificate link (#4675: ページガイド anchor) -->
+		<div class="text-center py-4" data-tutorial="growth-book-certificates">
 			<a
 				href="/admin/certificates"
 				class="text-sm font-medium text-[var(--color-feedback-info-text)] hover:underline"
