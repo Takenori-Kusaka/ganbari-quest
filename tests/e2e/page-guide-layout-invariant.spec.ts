@@ -74,6 +74,13 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
 	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
 	'/admin/settings/account': ['settings-account-pin'],
+	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
+	'/admin/settings/activities': [
+		'settings-activities-decay',
+		'settings-activities-point',
+		'settings-activities-default-child',
+		'settings-activities-sibling',
+	],
 	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
 	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
 	'/admin/status': [
