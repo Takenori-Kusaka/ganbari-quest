@@ -1,0 +1,90 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>特定商取引法に基づく表記 - がんばりクエスト</title>
+<meta name="robots" content="noindex">
+<meta property="og:title" content="特定商取引法に基づく表記 - がんばりクエスト">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.ganbari-quest.com/tokushoho.html">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<link rel="canonical" href="https://www.ganbari-quest.com/tokushoho.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer=""></script>
+<style>
+body{line-height:1.8;background:var(--gray-50)}
+table{width:100%;border-collapse:collapse;margin:16px 0}
+table th,table td{padding:12px 16px;border:1px solid var(--gray-200);font-size:.9rem;vertical-align:top}
+table th{background:var(--gray-50);font-weight:600;color:var(--gray-900);width:180px;white-space:nowrap}
+table td{color:var(--gray-700)}
+@media(max-width:600px){
+  table th{width:120px;font-size:.8rem;padding:8px 10px}
+  table td{font-size:.8rem;padding:8px 10px}
+}
+</style>
+</head>
+<body>
+
+<!-- #1906 TECH-D-4: skip-to-content link -->
+<a href="#main-content" class="skip-link" data-lp-key="nav.skipToContent">本文へスキップ</a>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+    </a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="https://demo.ganbari-quest.com/" class="btn btn-demo" data-lp-key="common.ctaDemo">デモを見る</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料で始める</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main" id="main-content" tabindex="-1">
+<article class="doc">
+  <header data-lp-key="legalTokushoho.articleHeader"><h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p></header>
+
+  <table data-lp-key="legalTokushoho.tableContent"><tbody><tr xmlns="http://www.w3.org/1999/xhtml"><th>販売業者</th><td>日下武紀</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>運営責任者</th><td>日下武紀</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>販売価格</th><td>無料プラン: 無料<br>スタンダードプラン: 月額500円（税込）<br>プレミアムプラン: 月額780円（税込）</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に無料プランに移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身でご家族の見守り画面より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、ご家族の見守り画面の「プラン・お支払い」→「請求管理ページを開く」（Stripe の請求管理ページ）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は無料プランへ自動的に移行し、記録はそのまま保持されます。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント退会（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、ご家族の見守り画面の設定からアカウント退会をお申し込みください。ご利用プランに応じた猶予期間（無料プラン: 即時削除 / スタンダードプラン: 7 日間 / プレミアムプラン: 30 日間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に退会の取消しとデータのエクスポートが可能ですが、無料プランは猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に無料プランに移行します。自動課金は一切ありません。</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr xmlns="http://www.w3.org/1999/xhtml"><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr></tbody></table>
+
+  <div class="effective" data-lp-key="legalTokushoho.effective"><p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p></div>
+</article>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.linksHeading">リンク</h4>
+      <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
+      <a href="mailto:ganbari.quest.support@gmail.com?subject=%5B%E7%89%B9%E5%AE%9A%E5%95%86%E5%8F%96%E5%BC%95%E6%B3%95%5D%20%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20tokushoho%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F151.0.7922.34%20Safari%2F537.36" data-contact-context="特定商取引法" data-lp-key="footer.contactLink">お問い合わせ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.legalHeading">法的情報</h4>
+      <a href="terms.html" data-lp-key="footer.termsLink">利用規約</a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+      <a href="sla.html" data-lp-key="footer.slaLink">SLA</a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法に基づく表記</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p data-lp-key="footer.copyright">© 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="shared-labels.js"></script>
+<script src="js/contact.js"></script>
+
+
+</body></html>
