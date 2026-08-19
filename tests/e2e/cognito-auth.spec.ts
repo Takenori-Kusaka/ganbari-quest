@@ -1,3 +1,6 @@
+// cspell:ignore Fimport Dkinder
+// ↑ percent-encode 済み URL (`%3Fimport%3Dkinder-starter`) の断片。`?` `=` を encode した形が
+//   そのまま検証値なので綴りを直すと「入れ子 query を壊さず往復できる」ことの検証が成立しない (#4701)。
 // tests/e2e/cognito-auth.spec.ts
 // Cognito dev モードの認証 E2E テスト
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts

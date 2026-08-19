@@ -1,3 +1,6 @@
+// cspell:ignore Fimport
+// ↑ percent-encode 済み URL (`%3Fimport%3D…`) の断片。`?` `=` を encode した形がそのまま
+//   期待値なので、綴りを直すと encodeNextParam の検証が成立しない (#4701)。
 // tests/unit/domain/login-redirect.test.ts
 // #4701: ログイン後の戻り先 (`?next=`) の open redirect 防止と、ログイン画面の状態 query → 文言 mapping。
 import { describe, expect, it } from 'vitest';
