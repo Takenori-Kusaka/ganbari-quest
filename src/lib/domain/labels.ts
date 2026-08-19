@@ -68,6 +68,7 @@ import {
 	POINT_TERMS,
 	PRICE_TERMS,
 	REWARD_TERMS,
+	RULES_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
 	TEMPLATE_TERMS,
@@ -2109,34 +2110,92 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
-	// #3269 (EPIC #3260 C5): みんなのテンプレート詳細ガイド（取込 CTA ページ）。
-	// 一覧から開いた 1 件の詳細。中身プレビューの見方 → 取り込み（配信先のお子さま選択）を案内。
+	// #3269 (EPIC #3260 C5) / #4678 (EPIC #4650): みんなのテンプレート詳細ガイド（取込 CTA ページ）。
+	// 一覧から開いた 1 件の詳細。概要 → 中身の一覧 → (活動セットの取り込む項目選択) → 取り込む、の順。
+	// 取り込む step は CTA ブロックに出ている分岐 (data-cta-variant) ごとに optional step を用意し、
+	// 画面に出ている分岐だけが step になる: per-child (お子さまを選ぶ) / family-rule (とくべつルールは
+	// 家庭全体に 1 回) / rule-unavailable (penalty・special はボタン無し) / no-children (先にお子さま登録) /
+	// login (ログイン画面へ)。ボタン名は画面表記 (取り込み / 一括追加) に合わせ「取り込み（一括追加）ボタン」と併記。
 	marketplaceDetail: {
-		title: 'テンプレートの詳細',
+		title: `${TEMPLATE_TERMS.short}の詳細`,
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'marketplace-detail-intro': {
 				title: 'このページについて',
-				what: '選んだテンプレート 1 件の詳細ページです。含まれる活動・ごほうび・チェック項目を確認してから、ご自身のお子さまに取り込めます。',
-				how: '中身のプレビューを確認し、ページ下部の取り込みボタンから取り込みます。取り込むお子さまはこのあとの画面で選びます。',
-				goal: '中身を確かめたうえで取り込めるので、家庭に合うテンプレートだけを安心して追加できます。',
+				what: `選んだ${TEMPLATE_TERMS.short} 1 件の詳細ページです。含まれる活動・ごほうび・チェック項目・ルールを確認してから、ご自身の家庭に取り込めます。`,
+				how: `中身の一覧を確認し、ページ下部の取り込み（一括追加）ボタンから取り込みます。取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です（未ログインのときはボタンがログイン画面への案内に変わります）。`,
+				goal: `中身を確かめたうえで取り込めるので、家庭に合う${TEMPLATE_TERMS.short}だけを安心して追加できます。`,
+				tips: [
+					`上部のタグや対象年齢をタップすると、似た${TEMPLATE_TERMS.short}を一覧で探せます`,
+					`ログイン中は左上の「${ADMIN_VIEW_TERMS.short}へ」で${ADMIN_VIEW_TERMS.canonical}に戻れます`,
+				],
 			},
 			// ② 内容プレビューの見方
 			'marketplace-detail-preview': {
-				title: '画面の見方（中身を確認する）',
-				what: '中ほどに、このテンプレートに含まれる活動・ごほうび・チェック項目の一覧が並びます。取り込む前に中身をひと通り確認できます。',
-				how: '1. 一覧をスクロールして含まれる項目を確認します\n2. 活動セットでは、取り込む項目を選んだり外したりできます',
-				goal: '取り込む前に中身が分かるので、ご家庭に必要なものだけを選んで追加できます。',
+				title: '中身を確認する',
+				what: `この${TEMPLATE_TERMS.short}に含まれる活動・ごほうび・チェック項目・ルールの一覧です。取り込む前に中身をひと通り確認できます。`,
+				how: `1. 一覧をスクロールして含まれる項目とポイントを確認します\n2. 活動セットは取り込む項目をチェックで選べます（ログイン + ${CHILD_TERMS.honorific}登録済のとき）\n3. チェックリストは取り込み済みの項目を重複させずスキップします`,
+				goal: `取り込む前に中身が分かるので、ご家庭に必要なものだけを選んで追加できます。`,
 			},
-			// ③ 取り込む（配信先のお子さまを選ぶ）
+			// ③ 活動セットの取り込む項目を選ぶ（活動セット + ログイン + お子さま登録済のみ描画 → optional）
+			'marketplace-detail-select': {
+				title: '取り込む活動を選ぶ',
+				what: `活動セットでは、取り込む活動をチェックで選べます。すでに登録済みの活動（「登録済み」バッジ）は重複しないよう最初からチェックが外れています。`,
+				how: `1. 「すべて選ぶ」「すべて外す」でまとめて切り替えます\n2. 個別にチェックを付け外しします（「N件 / M件 を取り込みます」に反映）\n3. 0 件のときは取り込みボタンが押せません。1 件以上選んでください`,
+				goal: `「歯みがきとお片付けだけ」のように必要な活動だけを取り込め、既存の活動と二重になりません。`,
+			},
+			// ④-a 取り込む（活動セット / ごほうびセット / チェックリスト / 交換ルール = お子さまを選ぶ）
 			'marketplace-detail-import': {
-				title: 'よく使う操作（取り込む）',
-				what: '最もよく使うのが取り込みです。取り込みボタンを押すと、どのお子さまに追加するかを選ぶ画面に進みます。',
-				how: '1. ページ下部の取り込みボタンをタップします\n2. 進んだ画面で、追加するお子さまを選びます\n3. 確定すると、選んだお子さまに追加されます',
-				goal: '選んだお子さまの活動管理・ごほうび管理・チェックリストにテンプレートの内容が追加されます。',
+				title: '取り込む',
+				what: `ページ下部の取り込み（一括追加）ボタンを押すと、${ADMIN_VIEW_TERMS.canonical}に移り、どの${CHILD_TERMS.honorific}に追加するかを選ぶ画面が開きます。`,
+				how: `1. ページ下部の取り込み（一括追加）ボタンをタップします\n2. 開いた画面で、追加する${CHILD_TERMS.honorific}を選びます\n3. 確定すると、選んだ${CHILD_TERMS.honorific}に追加されます`,
+				goal: `選んだ${CHILD_TERMS.honorific}の${PAGE_TITLES.activities}・${REWARD_TERMS.menu}・${PAGE_TITLES.checklists}に${TEMPLATE_TERMS.short}の内容が追加されます。`,
 				tips: [
-					'お子さまごとに取り込めるので、上の子・下の子で別々のテンプレートを使い分けられます',
+					`${CHILD_TERMS.honorific}ごとに取り込めるので、上の子・下の子で別々の${TEMPLATE_TERMS.short}を使い分けられます`,
 				],
+				relatedLinks: [
+					{ label: PAGE_TITLES.activities, href: '/admin/activities' },
+					{ label: REWARD_TERMS.menu, href: '/admin/rewards' },
+					{ label: PAGE_TITLES.checklists, href: '/admin/checklists' },
+					{
+						label: `${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}`,
+						href: '/admin/settings/rules',
+					},
+				],
+			},
+			// ④-b 取り込む（とくべつルール = ボーナス: 家庭全体に 1 回、お子さま選択なし）
+			'marketplace-detail-import-rule': {
+				title: '取り込む（とくべつルール）',
+				what: `とくべつルール（ボーナス）は${CHILD_TERMS.honorific}ごとではなく、ご家庭全体に 1 回で追加されます。${CHILD_TERMS.honorific}を選ぶ画面は出ません。`,
+				how: `1. ページ下部の取り込み（一括追加）ボタンをタップします\n2. そのまま「${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}」に移り、自動で追加されます\n3. 追加後は同じ画面で ON / OFF を切り替えられます`,
+				goal: `ボーナスルールが家庭全体に効き、「${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}」でいつでも止められます。`,
+				relatedLinks: [
+					{
+						label: `${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}`,
+						href: '/admin/settings/rules',
+					},
+				],
+			},
+			// ④-c とくべつルール (penalty / special) は取り込みボタンが無い
+			'marketplace-detail-rule-unavailable': {
+				title: 'このルールは取り込めません',
+				what: `ペナルティ型のとくべつルールは慎重に審査中、特別型は将来枠のため、いまは取り込みボタンがありません。ここにはその説明だけが出ます。`,
+				how: `1. ボーナス型のとくべつルールや、活動セット・ごほうびセットから選び直します\n2. 一覧へ戻るには下の「…一覧に戻る」をタップします`,
+				goal: `取り込めない理由が分かり、代わりに使えるボーナス型ルールへ迷わず移れます。`,
+			},
+			// ④-d お子さま未登録（ログイン済）
+			'marketplace-detail-no-children': {
+				title: `先に${CHILD_TERMS.honorific}を登録する`,
+				what: `取り込み先になる${CHILD_TERMS.honorific}がまだ登録されていません。ボタンは${CHILD_TERMS.honorific}登録画面への案内に変わっています。`,
+				how: `1. 「まずは${CHILD_TERMS.honorific}を登録してください」をタップします\n2. ${CHILD_TERMS.honorific}を登録したら、この${TEMPLATE_TERMS.short}に戻って取り込みます`,
+				goal: `${CHILD_TERMS.honorific}を登録すると同じボタンが取り込み（一括追加）に変わり、どの${CHILD_TERMS.honorific}に追加するかを選べます。`,
+			},
+			// ④-e 未ログイン
+			'marketplace-detail-login': {
+				title: 'ログインして取り込む',
+				what: `取り込みにはログインが必要です。ボタンを押すとログイン画面に移ります（新規の方はログイン画面の「新規アカウント作成」から登録できます）。`,
+				how: `1. ページ下部のボタンをタップしてログインします\n2. ログイン後、この${TEMPLATE_TERMS.short}に戻って取り込み（一括追加）ボタンを押します\n3. ${CHILD_TERMS.honorific}が未登録なら先に登録します`,
+				goal: `ログインと${CHILD_TERMS.honorific}登録がそろえば、${TEMPLATE_TERMS.short}をワンタップで${ADMIN_VIEW_TERMS.canonical}に取り込めます。`,
 			},
 		},
 	},
@@ -2846,7 +2905,7 @@ export const SETTINGS_LABELS = {
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
 	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
 	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
-	groupRulesTitle: 'ごほうび・ボーナスルール',
+	groupRulesTitle: RULES_TERMS.settingsMenu,
 	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
 	groupPlanTitle: 'プラン・課金',
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
@@ -2887,7 +2946,7 @@ export const SETTINGS_NAV_LABELS = {
 	// #4024: 当初は「サブナビは幅が限られる」として短縮形にしたが、**短縮しても 1280px で
 	// サブナビは 2 行に折り返しており、短縮の目的を達成していなかった** (#3996 の SS が反証)。
 	// 折り返しが避けられない以上、同じ画面に名前を 2 つ持つ対価に見合わないため長い名前に統一する。
-	rules: 'ごほうび・ボーナスルール',
+	rules: RULES_TERMS.settingsMenu,
 	support: 'サポート',
 	plan: 'プラン・課金',
 	externalIndicator: '別ページ',

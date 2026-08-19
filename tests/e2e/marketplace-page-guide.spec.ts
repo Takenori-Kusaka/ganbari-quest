@@ -325,38 +325,111 @@ test.describe('#3263 / #3269 / #4677 marketplace ページガイド', () => {
 		await expect(page.locator('a[href="/demo"]')).toHaveCount(0);
 	});
 
-	test('詳細: dedicated 詳細ガイドが開き、全 3 step 通過 + 非重複 (親へ degrade しない、#3269)', async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
+	/**
+	 * #4678: 詳細ガイドの期待 step 列を**画面の実状態**から導出する。
+	 * 活動セットの選択 UI (ログイン + お子さま登録済のみ) と、取込 CTA ブロックに出ている分岐
+	 * (data-cta-variant) に対応する取り込み step だけが残る。
+	 */
+	async function expectedDetailStepIds(page: Page): Promise<string[]> {
+		const hasSelect = await page
+			.locator('[data-tutorial="marketplace-detail-select"]')
+			.isVisible()
+			.catch(() => false);
+		const variant = await page
+			.locator('[data-testid="marketplace-detail-cta"]')
+			.getAttribute('data-cta-variant');
+		const importStepByVariant: Record<string, string> = {
+			'per-child': 'marketplace-detail-import',
+			'family-rule': 'marketplace-detail-import-rule',
+			'rule-unavailable': 'marketplace-detail-rule-unavailable',
+			'no-children': 'marketplace-detail-no-children',
+			login: 'marketplace-detail-login',
+		};
+		const importStep = importStepByVariant[variant ?? ''];
+		expect(importStep, `CTA 分岐 (${variant}) に対応する取り込み step がある`).toBeTruthy();
+		return [
+			'marketplace-detail-intro',
+			'marketplace-detail-preview',
+			...(hasSelect ? ['marketplace-detail-select'] : []),
+			importStep as string,
+		];
+	}
 
-		// 一覧から最初のテンプレート詳細へ遷移 (固定 itemId に依存しない)
-		await page.goto('/marketplace');
-		const firstItem = page.locator('a[href^="/marketplace/"]').first();
-		await expect(firstItem).toBeVisible({ timeout: 10_000 });
-		await firstItem.click();
-		await page.waitForURL(/\/marketplace\/[^/]+\/[^/]+/);
-
-		// 詳細ルートでも ❓ が出る
+	async function openDetailGuideAndAssertDedicated(page: Page): Promise<Locator> {
 		const pageGuideBtn = page.locator(GUIDE_BTN);
 		await expect(pageGuideBtn).toBeVisible({ timeout: 15_000 });
 		await expect(pageGuideBtn).toHaveCount(1);
-		await pageGuideBtn.click();
-
+		await pageGuideBtn.click({ force: true });
 		const guideOverlay = page.locator('.guide-overlay');
 		await expect(guideOverlay).toBeVisible({ timeout: 10_000 });
-
 		// dedicated 詳細ガイドが解決されている (= 親 /marketplace ガイドへ degrade していない)。
-		// ① 概要 step の data-step-id が詳細ガイド固有 id であることで判定する。
 		const bubble = page.locator(GUIDE_BUBBLE);
 		await expect(bubble).toBeVisible({ timeout: 10_000 });
 		await expect(bubble).toHaveAttribute('data-step-id', 'marketplace-detail-intro');
+		return bubble;
+	}
 
-		// 全 3 step 通過 + 非重複 + 完了で閉じる
-		await traverseGuide(page, bubble, [
+	for (const { label, width, height } of VIEWPORTS) {
+		test(`詳細 (活動セット) [${label}]: dedicated ガイドで 選択 UI + お子さまを選ぶ取込 step が光る (#3269 / #4678)`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			// 一覧 (活動セットに絞る) から最初のテンプレート詳細へ遷移 (固定 itemId に依存しない)
+			await page.goto('/marketplace?type=activity-pack');
+			const firstItem = page.locator('a[href^="/marketplace/activity-pack/"]').first();
+			await expect(firstItem).toBeVisible({ timeout: 10_000 });
+			await firstItem.click();
+			await page.waitForURL(/\/marketplace\/activity-pack\/[^/]+/);
+
+			const expected = await expectedDetailStepIds(page);
+			// AUTH_MODE=local (ログイン + お子さま seed 済) では活動セットの選択 UI と per-child 取込が出る
+			expect(expected).toEqual([
+				'marketplace-detail-intro',
+				'marketplace-detail-preview',
+				'marketplace-detail-select',
+				'marketplace-detail-import',
+			]);
+			const bubble = await openDetailGuideAndAssertDedicated(page);
+			await traverseGuide(page, bubble, expected);
+		});
+	}
+
+	test('詳細 (とくべつルール ボーナス): お子さま選択ではなく家庭全体取込 (設定 > ルール) の step になる (#4678 F1)', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		// rule-preset は一覧に陳列しないが直リンクは残置 (#2896)。bonus の preset を開く
+		await page.goto('/marketplace/rule-preset/early-bird');
+		await expect(page.locator('[data-testid="marketplace-detail-cta"]')).toHaveAttribute(
+			'data-cta-variant',
+			'family-rule',
+		);
+		const expected = await expectedDetailStepIds(page);
+		expect(expected).toEqual([
+			'marketplace-detail-intro',
+			'marketplace-detail-preview',
+			'marketplace-detail-import-rule',
+		]);
+		const bubble = await openDetailGuideAndAssertDedicated(page);
+		await traverseGuide(page, bubble, expected);
+	});
+
+	test('詳細 (ごほうびセット): 選択 UI は無く、お子さまを選ぶ取込 step が光る (#4678)', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await page.goto('/marketplace?type=reward-set');
+		const firstItem = page.locator('a[href^="/marketplace/reward-set/"]').first();
+		await expect(firstItem).toBeVisible({ timeout: 10_000 });
+		await firstItem.click();
+		await page.waitForURL(/\/marketplace\/reward-set\/[^/]+/);
+		const expected = await expectedDetailStepIds(page);
+		expect(expected).toEqual([
 			'marketplace-detail-intro',
 			'marketplace-detail-preview',
 			'marketplace-detail-import',
 		]);
+		const bubble = await openDetailGuideAndAssertDedicated(page);
+		await traverseGuide(page, bubble, expected);
 	});
 });
