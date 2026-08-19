@@ -1,150 +1,65 @@
 <script lang="ts">
-// #4644: 親ダッシュボード (/admin) の「ホーム画面に追加」案内バナー。
+// #4644: 「ホーム画面に追加」案内バナーの見た目だけを持つ presentational component。
 //
-// ADR-0012 (anti-engagement) 整合の押し付けない設計:
-//   - 表示は /admin の 1 画面のみ。子供画面には一切出さない
-//   - [閉じる] を押した端末には二度と出さない (localStorage、pwa-install.ts が SSOT)
-//   - インストール完了 (`appinstalled`) でも二度と出さない
-//   - 常時 FAB 等の恒常露出は作らない。恒久導線は 設定 > サポート の 1 箇所
+// 表示可否の判定 (standalone / 閉じた履歴 / `beforeinstallprompt`) は `PwaInstallPrompt.svelte`
+// が担う。分離しているのは、判定がブラウザ環境依存 (installable な context でしか
+// `beforeinstallprompt` が発火しない) で、そのままだと Storybook / SS 撮影で一度も描画されず
+// 見た目のレビューができないため。
 import { PWA_INSTALL_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
-import Dialog from '$lib/ui/primitives/Dialog.svelte';
-import PwaInstallGuide from './PwaInstallGuide.svelte';
-import {
-	type BeforeInstallPromptEvent,
-	detectPwaPlatform,
-	dismissPwaBanner,
-	isPwaBannerDismissed,
-	isStandaloneDisplay,
-	type PwaInstallPlatform,
-	shouldShowInstallBanner,
-} from './pwa-install';
 
 interface Props {
-	/**
-	 * バナーを出してよい局面か (呼び出し側が判断)。
-	 * /admin では「お子さま登録が 1 人以上 = セットアップ済み」を条件にする。
-	 * 登録前の親に追加を勧めても、追加した先が空の画面になるため。
-	 */
-	enabled?: boolean;
+	/** ブラウザ標準のインストールダイアログを起動できるか (Chromium 系で true) */
+	canInstall: boolean;
+	/** 「ホーム画面に追加」押下 (canInstall=true のとき) */
+	onInstall: () => void;
+	/** 「追加方法をみる」押下 (canInstall=false のとき) */
+	onHowTo: () => void;
+	/** 「閉じる」押下 (以後この端末では出さない) */
+	onDismiss: () => void;
 }
 
-let { enabled = true }: Props = $props();
-
-let dismissed = $state(false);
-let standalone = $state(true);
-let platform = $state<PwaInstallPlatform>('other');
-let deferredPrompt = $state<BeforeInstallPromptEvent | null>(null);
-let guideOpen = $state(false);
-
-const visible = $derived(
-	enabled &&
-		shouldShowInstallBanner({
-			standalone,
-			dismissed,
-			platform,
-			hasNativePrompt: deferredPrompt !== null,
-		}),
-);
-
-$effect(() => {
-	// クライアントでのみ判定する (SSR では localStorage / matchMedia が無い)。
-	standalone = isStandaloneDisplay(window);
-	dismissed = isPwaBannerDismissed(window.localStorage);
-	platform = detectPwaPlatform(navigator.userAgent);
-
-	const onBeforeInstallPrompt = (event: Event) => {
-		// 既定の mini-infobar を止めて、こちらの案内バナー経由で出す (Chromium 推奨パターン)。
-		event.preventDefault();
-		deferredPrompt = event as BeforeInstallPromptEvent;
-	};
-	const onAppInstalled = () => {
-		deferredPrompt = null;
-		dismissPwaBanner(window.localStorage);
-		dismissed = true;
-	};
-
-	window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-	window.addEventListener('appinstalled', onAppInstalled);
-	return () => {
-		window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-		window.removeEventListener('appinstalled', onAppInstalled);
-	};
-});
-
-function close(): void {
-	dismissPwaBanner(window.localStorage);
-	dismissed = true;
-}
-
-async function install(): Promise<void> {
-	const prompt = deferredPrompt;
-	if (!prompt) {
-		guideOpen = true;
-		return;
-	}
-	// prompt() は 1 回しか使えない。呼んだ時点で参照を捨てる。
-	deferredPrompt = null;
-	await prompt.prompt();
-	const choice = await prompt.userChoice;
-	if (choice.outcome === 'accepted') {
-		// `appinstalled` が来ない環境もあるためここでも記録する。
-		close();
-	}
-}
+let { canInstall, onInstall, onHowTo, onDismiss }: Props = $props();
 </script>
 
-{#if visible}
-	<!-- role="status" は「今すぐ対処が要る警告」ではない案内であることを表す (ADR-0062 整合)。 -->
-	<div class="pwa-banner" role="status" data-testid="pwa-install-banner">
-		<span class="pwa-banner__icon" aria-hidden="true">📲</span>
-		<div class="pwa-banner__body">
-			<p class="pwa-banner__title">{PWA_INSTALL_LABELS.bannerTitle}</p>
-			<p class="pwa-banner__text">{PWA_INSTALL_LABELS.bannerBody}</p>
-			<div class="pwa-banner__actions">
-				{#if deferredPrompt}
-					<Button
-						variant="primary"
-						size="sm"
-						onclick={install}
-						data-testid="pwa-install-banner-install"
-					>
-						{PWA_INSTALL_LABELS.bannerInstallAction}
-					</Button>
-				{:else}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => {
-							guideOpen = true;
-						}}
-						data-testid="pwa-install-banner-howto"
-					>
-						{PWA_INSTALL_LABELS.bannerHowToAction}
-					</Button>
-				{/if}
+<!-- role="status" は「今すぐ対処が要る警告」ではない案内であることを表す (ADR-0062 整合)。 -->
+<div class="pwa-banner" role="status" data-testid="pwa-install-banner">
+	<span class="pwa-banner__icon" aria-hidden="true">📲</span>
+	<div class="pwa-banner__body">
+		<p class="pwa-banner__title">{PWA_INSTALL_LABELS.bannerTitle}</p>
+		<p class="pwa-banner__text">{PWA_INSTALL_LABELS.bannerBody}</p>
+		<div class="pwa-banner__actions">
+			{#if canInstall}
 				<Button
-					variant="ghost"
+					variant="primary"
 					size="sm"
-					onclick={close}
-					aria-label={PWA_INSTALL_LABELS.bannerDismissAria}
-					data-testid="pwa-install-banner-dismiss"
+					onclick={onInstall}
+					data-testid="pwa-install-banner-install"
 				>
-					{PWA_INSTALL_LABELS.bannerDismiss}
+					{PWA_INSTALL_LABELS.bannerInstallAction}
 				</Button>
-			</div>
+			{:else}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={onHowTo}
+					data-testid="pwa-install-banner-howto"
+				>
+					{PWA_INSTALL_LABELS.bannerHowToAction}
+				</Button>
+			{/if}
+			<Button
+				variant="ghost"
+				size="sm"
+				onclick={onDismiss}
+				aria-label={PWA_INSTALL_LABELS.bannerDismissAria}
+				data-testid="pwa-install-banner-dismiss"
+			>
+				{PWA_INSTALL_LABELS.bannerDismiss}
+			</Button>
 		</div>
 	</div>
-{/if}
-
-<Dialog
-	bind:open={guideOpen}
-	title={PWA_INSTALL_LABELS.guideTitle}
-	size="lg"
-	testid="pwa-install-guide-dialog"
->
-	<PwaInstallGuide {platform} testid="pwa-install-guide-dialog-body" />
-</Dialog>
+</div>
 
 <style>
 	.pwa-banner {

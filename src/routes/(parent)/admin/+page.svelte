@@ -3,7 +3,7 @@ import { page } from '$app/state';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
 import RedemptionPendingBanner from '$lib/features/admin/components/RedemptionPendingBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
-import PwaInstallBanner from '$lib/features/pwa/PwaInstallBanner.svelte';
+import PwaInstallPrompt from '$lib/features/pwa/PwaInstallPrompt.svelte';
 
 let { data } = $props();
 
@@ -48,7 +48,7 @@ const showPwaInstallBanner = $derived(
 
 <!-- #4644: 「ホーム画面に追加」案内 (端末ごとに 1 回だけ。閉じたら二度と出さない)。
      表示可否は component 内で standalone / 閉じた履歴 / プラットフォームを見て決める。 -->
-<PwaInstallBanner enabled={showPwaInstallBanner} />
+<PwaInstallPrompt enabled={showPwaInstallBanner} />
 
 <AdminHome
 	children={data.children}
