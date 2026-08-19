@@ -23,8 +23,6 @@ const SCAN_ROOTS = ['src/routes', 'src/lib/server'];
 const ALLOWLIST: Record<string, string> = {
 	'src/lib/server/auth/audit-actor.ts':
 		'監査ログの actor 識別子。DB を引かず、IdP 上の主体をそのまま記録する用途 (関数の doc に明記)',
-	'src/lib/server/auth/owner-gate.ts':
-		'403 拒否ログの actorUserId。ログ出力のみで DB 参照に使わない',
 	'src/lib/server/auth/providers/cognito.ts':
 		'sub → アプリ user への解決点そのもの (email 経由)。ここだけが両者を橋渡しする',
 };
