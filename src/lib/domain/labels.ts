@@ -45,6 +45,7 @@ import {
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
+	CHECKLIST_ADMIN_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
@@ -1176,14 +1177,7 @@ export const MARKETPLACE_LABELS = {
 	breadcrumbRoot: TEMPLATE_TERMS.short,
 	// Round 18 Cluster A (ADR-0045): おすすめパック → TEMPLATE_TERMS atom 経由
 	recommendedSection: `おすすめ${TEMPLATE_TERMS.short}`,
-	importCta: '使ってみる',
 	questsBadge: 'クエスト集',
-	tabs: {
-		activities: 'アクティビティ集',
-		rewards: 'ごほうび集',
-		checklists: '持ち物リスト',
-		rules: 'ルール集',
-	},
 	detailIncludedActivities: 'ふくまれる活動',
 	detailIncludedRewards: 'ふくまれるごほうび',
 	detailChecklistItems: 'チェック項目',
@@ -1254,9 +1248,9 @@ export const MARKETPLACE_LABELS = {
 	detailRewardImportPerChildHint:
 		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
 	// #2137 (MP-2): event-checklist 一括追加 CTA
-	detailCtaImportChecklist: '一括追加',
-	detailCtaImportChecklistDesc:
-		'お子さまの「持ち物リスト」へまとめて追加します（重複時はスキップ）',
+	// #4657 F10: 取込先の呼称は現称「チェックリスト」(旧「持ち物リスト」は #2909 で撤去済の旧称)
+	detailCtaImportChecklist: CHECKLIST_ADMIN_TERMS.marketplaceImportCta,
+	detailCtaImportChecklistDesc: `お子さまの「${NAV_ITEM_LABELS.checklists}」へまとめて追加します（重複時はスキップ）`,
 	detailCtaSignupToImport: 'がんばりクエストに登録して 一括追加',
 	detailChildSelectLabel: 'どのお子さまに追加しますか？',
 	detailImportSuccess: (n: number) => `${n}件のチェック項目を追加しました`,
@@ -1651,30 +1645,55 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4657: /admin/checklists のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブと検索 → 一覧カードの調整 →
+	// 本日のワンオフ) の順に主要操作を網羅し、ボタン名は描画側と同じ atom (ADD_MENU_TERMS /
+	// CHECKLIST_ADMIN_TERMS / OVERFLOW_MENU_TERMS)、上限は FREE_PLAN_QUOTA を参照する。
+	// 条件付き要素 (お子さまタブ / 一覧カード / 本日のワンオフ) は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminChecklists: {
-		title: 'チェックリスト管理',
+		title: CHECKLIST_ADMIN_TERMS.pageTitle,
 		steps: {
 			'checklists-intro': {
 				title: 'このページについて',
-				what: 'お子さまが「学校の準備」「習い事の持ち物」「寝る前のしたく」などを自分で確認できるチェックリストを、お子さまごとに用意するページです。',
-				how: 'テンプレートを取り込むか新しく追加して、配信するお子さまを選びます。有効にしたチェックリストはお子さまの画面に表示されます。',
+				what: 'お子さまが「学校の準備」「習い事の持ち物」「寝る前のしたく」などを自分で確認できるチェックリストを用意するページです。',
+				how: `上から順に、右上の「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブと${CHECKLIST_ADMIN_TERMS.search} → チェックリストの一覧 → ${CHECKLIST_ADMIN_TERMS.todayOverride} と並びます。`,
 				goal: 'お子さまが自分でタップして「できた！」を確認できるようになり、「ハンカチ持った？」と毎朝聞く必要がなくなります。',
-			},
-			'checklists-header': {
-				title: '画面の見方（このページの役割）',
-				what: 'ここはチェックリストの管理画面です。お子さまごとにチェックリストを作成・編集し、子供の画面への配信を切り替えます。',
-				how: '1. 対象のお子さまを選びます\n2. 既存のテンプレートを編集するか、新しく追加します\n3. 有効化したテンプレートがお子さまの画面に表示されます',
-				goal: '朝の支度や寝る前のルーティンを、声かけなしでお子さま自身が進められるようになります。',
-			},
-			'checklists-marketplace': {
-				title: 'よく使う操作（テンプレートから取り込む）',
-				what: '最も手軽なのが、みんなのテンプレートからの取り込みです。小学校の時間割・遠足・プールの日など、よくあるチェックリストをそのまま使えます。',
-				how: '1. 「みんなのテンプレートを見る」をタップ\n2. マーケットプレイスでチェックリストを選びます\n3. 「使ってみる」から取り込み、配信するお子さまを選びます',
-				goal: '選んだチェックリストがお子さまのチェックリストに追加されます。家庭に合わせて項目を足したり消したりして調整できます。',
 				tips: [
-					'まずはテンプレートを取り込んで、ご家庭に合わせて調整するのが近道です',
-					'季節やイベントごとにテンプレートを切り替えると管理が楽になります',
+					`${PLAN_FULL_TERMS.free}ではお子さま 1 人あたり ${FREE_PLAN_QUOTA.maxChecklistTemplates} 件までです（上限に達すると「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					PLAN_GATE_LABELS.familyOnlyFor(`「${ADD_MENU_TERMS.ai}」`),
 				],
+			},
+			'checklists-add': {
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} / ${CHECKLIST_ADMIN_TERMS.addOverride} / ${CHECKLIST_ADMIN_TERMS.copyFromChild}（お子さまが 2 人以上のとき）から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. はじめてなら「${ADD_MENU_TERMS.browse}」で ${TEMPLATE_TERMS.userFacing} を開き、使いたいチェックリストの「${CHECKLIST_ADMIN_TERMS.marketplaceImportCta}」で取り込む\n3. 自分で作るときは「${ADD_MENU_TERMS.manual}」で名前とアイコンを決める\n4. 今日だけ足したいものは「${CHECKLIST_ADMIN_TERMS.addOverride}」`,
+				goal: '取り込んだチェックリストがそのまま使え、ご家庭に合わせて項目を足したり消したりして調整できます。',
+			},
+			'checklists-overflow': {
+				title: '画面の見方（︙ メニュー）',
+				what: `右端の「︙」には ${OVERFLOW_MENU_TERMS.itemMarketplace} / ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} / ${OVERFLOW_MENU_TERMS.itemHelp} が入っています。`,
+				how: `1. 「︙」を押す\n2. 「${OVERFLOW_MENU_TERMS.itemExport}」で 1 つのチェックリストをファイルに保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: '作り込んだチェックリストを保存しておけるので、機種変更やお子さまの進級のときも作り直さずに済みます。',
+			},
+			'checklists-child-tabs': {
+				title: '画面の見方（お子さまのタブと検索）',
+				what: 'タブで選んだお子さまに配られているチェックリストが下に表示されます。その下の検索欄で名前から絞り込めます。',
+				how: `1. 表示したいお子さまのタブを押す\n2. 「${CHECKLIST_ADMIN_TERMS.search}」に名前の一部を入れて絞り込む\n3. 兄弟に同じリストを配るときは「${ADD_MENU_TERMS.trigger}」の「${CHECKLIST_ADMIN_TERMS.copyFromChild}」を使う`,
+				goal: 'お子さまごとに違うリストにも、兄弟で同じリストにもできます。',
+			},
+			'checklists-card': {
+				title: '画面の見方（カードの調整）',
+				what: `各カードで、${CHECKLIST_ADMIN_TERMS.timeSlot}の切り替え・項目の追加と削除・${CHECKLIST_ADMIN_TERMS.configureDistribution}・${CHECKLIST_ADMIN_TERMS.perChildProgress}の確認ができます。`,
+				how: `1. 「${CHECKLIST_ADMIN_TERMS.addItem}」で持ち物ややることを足す（各項目の ✕ で消す）\n2. ${CHECKLIST_ADMIN_TERMS.timeSlot}のボタンで朝・夜などを切り替える\n3. 「${CHECKLIST_ADMIN_TERMS.configureDistribution}」で、このリストを表示するお子さまを選ぶ\n4. 「${CHECKLIST_ADMIN_TERMS.delete}」で不要になったリストを消す`,
+				goal: `${CHECKLIST_ADMIN_TERMS.distributionSection}の下に「${CHECKLIST_ADMIN_TERMS.perChildProgress}」が出るので、今日どこまで終わったかが親の画面で分かります。`,
+				tips: [
+					`「${CHECKLIST_ADMIN_TERMS.inactiveBadge}」と付いたリストはお子さまの画面に出ません`,
+				],
+			},
+			'checklists-override': {
+				title: `画面の見方（${CHECKLIST_ADMIN_TERMS.todayOverride}）`,
+				what: '遠足やプールの日など、今日だけ足したもの・外したものが一覧の下にまとまります。',
+				how: `1. 「${ADD_MENU_TERMS.trigger}」の「${CHECKLIST_ADMIN_TERMS.addOverride}」で今日だけの持ち物を足す\n2. ここに出た項目は当日限りで、明日には元のリストに戻ります`,
+				goal: '特別な日のためにリスト本体を書き換えずに済み、翌日に戻し忘れる心配がありません。',
 			},
 		},
 	},
@@ -6406,7 +6425,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	childContextSuffix: 'のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い hint を activities (childContextHint) と同型に揃える。
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のチェックリストを表示します`,
-	searchLabel: 'チェックリストを検索',
+	searchLabel: CHECKLIST_ADMIN_TERMS.search,
 	searchPlaceholder: 'チェックリスト名で検索...',
 	// #1755 (#1709-A): kind 削除に伴い tabAriaLabel は本 sub では未使用化
 	//   後続 sub-issue (#1709-B) で他用途に流用 / 削除を検討
@@ -6418,16 +6437,16 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// #1755 (#1709-A): kind 選択削除に伴うダイアログタイトル / プレースホルダ統合
 	addTemplateDialogTitle: 'チェックリスト作成',
 	namePlaceholderItem: '例: がっこうのもちもの',
-	inactiveBadge: '無効',
-	deleteButton: '削除',
-	timeSlotLabel: '時間帯:',
-	addItemButton: '+ アイテム追加',
+	inactiveBadge: CHECKLIST_ADMIN_TERMS.inactiveBadge,
+	deleteButton: CHECKLIST_ADMIN_TERMS.delete,
+	timeSlotLabel: CHECKLIST_ADMIN_TERMS.timeSlot,
+	addItemButton: CHECKLIST_ADMIN_TERMS.addItem,
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
 	//   §10.2 P1/P3 に基づき撤去 (画面内 quota カウンタ・個別アップセル CTA を廃止、制約詳細はプラン画面へ一元化)。
 	addTemplateButton: '+ テンプレート作成',
-	addOverrideButton: '📅 ワンオフ追加',
+	addOverrideButton: `📅 ${CHECKLIST_ADMIN_TERMS.addOverride}`,
 	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
-	addMenuButton: '+ 追加',
+	addMenuButton: ADD_MENU_TERMS.trigger,
 	// #2903 (EPIC #2897): add 経路を activities (ActivitiesHeader) と同型に統一。
 	//   AI 提案パネル直置きを撤去し「+ 追加」dropdown 内の選択肢 (手動 / AI / テンプレから探す / ワンオフ) に格納する。
 	//   icon / 文言は activities header の add menu (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
@@ -6439,11 +6458,11 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addAiIcon: '✨',
 	addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 	addBrowseTemplatesIcon: '🔍',
-	addOverrideMenuLabel: 'ワンオフ追加',
+	addOverrideMenuLabel: CHECKLIST_ADMIN_TERMS.addOverride,
 	addOverrideMenuIcon: '📅',
 	// add dialog title (mode 別、activities の addDialogTitle* と同型)
 	addDialogTitleAi: 'AI で提案してもらう',
-	todayOverrideTitle: '📅 本日のワンオフ',
+	todayOverrideTitle: `📅 ${CHECKLIST_ADMIN_TERMS.todayOverride}`,
 	formKindLabel: '種別',
 	formIconLabel: 'アイコン',
 	createButton: '作成',
@@ -6457,16 +6476,17 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceSectionDesc:
 		'季節やイベント時のチェックリストをワンタップで取込めます（重複時はスキップ）',
 	marketplaceItemCount: (n: number) => `${n}項目`,
-	marketplaceImportButton: '一括追加',
+	marketplaceImportButton: CHECKLIST_ADMIN_TERMS.marketplaceImportCta,
 	marketplaceImportedBadge: '取込済',
 	marketplaceImportSuccess: (presetName: string, items: number) =>
 		`✅ 「${presetName}」: ${items}項目を追加しました`,
 	marketplaceImportDuplicate: (presetName: string) =>
 		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
-	marketplaceSeeMore: 'すべてのチェックリストを見る →',
+	// #4657 F2 (EPIC #4650 PO 判断): 同じ遷移先を指す 3 導線を「みんなのテンプレートから探す」に統一
+	marketplaceSeeMore: `${ADD_MENU_TERMS.browse} →`,
 	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
 	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
-	pageTitle: 'チェックリスト管理',
+	pageTitle: CHECKLIST_ADMIN_TERMS.pageTitle,
 	familyChecklistsSectionTitle: '家族のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い、header 説明を「子供タブで選択中の子のチェックリストを表示」軸に更新。
 	//   同じリストを複数のお子さまに配ることも可能 (= 追加時に配信先を選ぶ) という従来の柔軟性は維持。
@@ -6475,16 +6495,16 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	emptyFamilyMessage: '家族のチェックリストがまだありません',
 	emptyFamilyDesc: `みんなのテンプレートから取込むか、「${OVERFLOW_MENU_TERMS.itemMarketplace}」メニューから追加できます`,
 	browseMarketplaceLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
-	distributionSectionTitle: '配信先のお子さま',
+	distributionSectionTitle: CHECKLIST_ADMIN_TERMS.distributionSection,
 	distributionEmpty: '誰にも配信されていません',
-	distributionConfigureButton: '配信先を設定',
+	distributionConfigureButton: CHECKLIST_ADMIN_TERMS.configureDistribution,
 	distributionDialogTitle: '配信先のお子さまを選ぶ',
 	distributionDialogDesc: 'チェックを入れたお子さまの画面に、このチェックリストが表示されます。',
 	distributionSaveButton: '配信先を保存',
 	distributionUpdated: (added: number, removed: number) =>
 		`配信先を更新しました（追加 ${added} 件 / 解除 ${removed} 件）`,
 	distributionNoChange: '配信先に変更はありませんでした',
-	perChildProgressTitle: 'お子さまごとの今日の進捗',
+	perChildProgressTitle: CHECKLIST_ADMIN_TERMS.perChildProgress,
 	perChildProgressEmpty: '配信中のお子さまがいないため進捗は表示されません',
 	perChildProgressDone: (childName: string, total: number) =>
 		`${childName}: 今日のぶん ${total}/${total} 完了`,
@@ -6514,7 +6534,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
 	// #3098 (EPIC #3096 Sub-2): 子供主軸 UI 統一に伴う「別の子から copy」(= 配信先追加) 導線。
 	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
-	copyFromChildMenuLabel: `他の${CHILD_TERMS.honorific}から取り込む`,
+	copyFromChildMenuLabel: CHECKLIST_ADMIN_TERMS.copyFromChild,
 	copyFromChildMenuIcon: '📋',
 	copyDialogTitle: `他の${CHILD_TERMS.honorific}のチェックリストを取り込む`,
 	copyDialogDescPrefix: 'コピー元を選んでください（コピー先: ',
@@ -8184,7 +8204,7 @@ export const FEATURES_LABELS = {
 	aiSuggestChecklist: {
 		title: '✨ どんなもちものが必要？',
 		kind: 'AI チェックリスト提案',
-		description: 'シーンや学年を入力すると、持ち物リストを自動で提案します',
+		description: `シーンや学年を入力すると、${NAV_ITEM_LABELS.checklists}を自動で提案します`,
 		placeholder: '例: 小学3年生の月曜日の持ち物、えんそく、プール',
 		acceptBtn: 'この内容でテンプレートを作成',
 		itemCount: (count: number) => `(${count}個)`,
