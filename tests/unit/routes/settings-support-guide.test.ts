@@ -86,10 +86,10 @@ describe('#4667 サポート画面のガイドがフォームの分岐と返信�
 
 	it('[U6] アプリ情報 step があり、バージョン確認に触れている', () => {
 		expect(
-			SETTINGS_SUPPORT_GUIDE.steps.some((s) => s.id === 'settings-support-appinfo'),
+			SETTINGS_SUPPORT_GUIDE.steps.some((s) => s.id === 'settings-support-app-info'),
 			'アプリ情報 step が無い',
 		).toBe(true);
-		expect(textOf('settings-support-appinfo')).toMatch(/バージョン/);
+		expect(textOf('settings-support-app-info')).toMatch(/バージョン/);
 	});
 
 	// #4667 F5: 「お問い合わせのフォーム」は画面のどこにも無い名前。

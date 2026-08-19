@@ -40,9 +40,9 @@ export const SETTINGS_SUPPORT_GUIDE: PageGuide = {
 		},
 		// ④ アプリ情報（常設、ページ末尾）
 		{
-			id: 'settings-support-appinfo',
+			id: 'settings-support-app-info',
 			selector: '[data-tutorial="app-info-card"]',
-			...L.steps['settings-support-appinfo'],
+			...L.steps['settings-support-app-info'],
 			position: 'top',
 		},
 	],

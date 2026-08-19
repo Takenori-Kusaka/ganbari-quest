@@ -76,7 +76,7 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	'/admin/settings/account': ['settings-account-pin'],
 	// #4667: フォームとアプリ情報は常設。バックアップの状態は NUC (pglite) のみ描画のため
 	// optional のまま列挙しない
-	'/admin/settings/support': ['settings-support-form', 'settings-support-appinfo'],
+	'/admin/settings/support': ['settings-support-form', 'settings-support-app-info'],
 	// #4666: 承認セクションと、一覧 / 空状態を包む常在ラッパーはどちらも常に描画される
 	'/admin/settings/rules': ['settings-rules-approval', 'settings-rules-list'],
 	// #4665: E2E は AUTH_MODE=local (plan=family) → エクスポート / 復元 / 全削除 は描画される。
