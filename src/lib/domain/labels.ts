@@ -11,9 +11,13 @@ import {
 	type PraiseMilestoneId,
 	STREAK_MILESTONE_DAYS,
 } from './constants/habit-milestones';
+import { formatRetentionPeriod } from './constants/plan-retention';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
-import { formatRetentionPeriod } from './constants/plan-retention';
+import {
+	REWARD_REJECT_NOTE_MAX_LENGTH,
+	REWARD_REQUEST_HISTORY_LIMIT,
+} from './constants/redemption-status';
 import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -1514,6 +1518,84 @@ export const CERTIFICATE_DETAIL_LABELS = {
 	showShareCardButton: '🎉 シェアカードを表示',
 } as const;
 
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests がボタン名・見出しを参照するため前置きする
+export const ADMIN_REWARDS_REQUESTS_LABELS = {
+	pageTitle: '📋 ごほうび申請承認',
+	pageDescTitle: '📋 ごほうび申請承認',
+	// #4676 F5: 保護者向け画面のため CHILD_TERMS.honorific に統一し、英語見出しを日本語にする
+	pageDescText: `${CHILD_TERMS.honorific}からの交換申請に承認/却下します。`,
+	backToRewardsLabel: '← ごほうび管理に戻る',
+	pendingSectionTitle: '未処理の申請',
+	pendingCountSuffix: (count: number) => `${count} 件`,
+	historySectionTitle: `履歴（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
+	emptyPendingMessage: '申請はありません',
+	emptyHistoryMessage: '履歴はありません',
+	approveButton: '承認して渡した',
+	rejectButton: '却下する',
+	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectConfirmButton: '確定',
+	rejectCancelButton: 'キャンセル',
+	requestedAtLabel: '申請日時',
+	rewardPointsUnit: 'ポイント',
+	statusApproved: '承認済み',
+	statusRejected: '却下済み',
+} as const;
+
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests が設定 > ルールの見出しを参照するため前置きする
+export const ADMIN_RULES_PAGE_LABELS = {
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
+	pageDescription:
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
+	emptyTitle: 'ボーナスルールがありません',
+	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
+	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
+	sectionBonusDesc:
+		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
+	enabledBadge: '有効',
+	disabledBadge: '無効',
+	enableButton: '有効化',
+	disableButton: '無効化',
+	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
+	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
+	importedAtLabel: '取込日時',
+	rulesLabel: '含まれるルール',
+	pointBonusSuffix: 'pt',
+	updateSuccess: 'ルールを更新しました',
+	removeSuccess: 'ルールを削除しました',
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
+	importToastSuccess: (presetName: string) =>
+		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
+	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
+	importToastError: (presetName: string) =>
+		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
+	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
+	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
+	rewardApprovalSectionDesc:
+		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
+	rewardApprovalRequireState: '保護者の承認が必要',
+	rewardApprovalInstantState: '承認なしで即時交換',
+	rewardApprovalRequireDesc:
+		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
+	rewardApprovalInstantDesc:
+		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
+	rewardApprovalEnableInstantButton: '即時交換にする',
+	rewardApprovalDisableInstantButton: '承認を必須に戻す',
+	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
+} as const;
+
 // #4672: PAGE_GUIDE_LABELS.adminMembers がボタン名を参照するため PAGE_GUIDE_LABELS より前に置く
 //        (module 初期化順。const は宣言前に参照できない)
 // ============================================================
@@ -2462,21 +2544,52 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminRewardsRequests: {
 		title: 'ごほうび申請の承認',
+		// #4676 (EPIC #4650): 旧 step 2 はページ最外 div (見出し・戻るリンク・履歴を含む) を
+		// spotlight していて概要 step と見分けが付かなかった。未処理セクション / 承認ボタン /
+		// 却下ボタン / 履歴セクションに anchor を分け、申請 0 件のときは操作 step が出ないようにする。
+		// ボタン名・件数・文字数は ADMIN_REWARDS_REQUESTS_LABELS と定数を引く (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'rewards-requests-intro': {
 				title: 'このページについて',
-				what: 'お子さまが「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。お子さまの交換は保護者の承認を経て確定します。',
-				how: '申請があるとここに一覧で並びます。中身を見て、承認するか却下するかを選びます。',
-				goal: 'お子さまの交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。',
+				what: `${CHILD_TERMS.honorific}が「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。初期設定では保護者の承認を経て交換が確定します（設定 > ${ADMIN_RULES_PAGE_LABELS.pageTitle}の「${ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}」で、承認なしの即時交換にも切り替えられます）。`,
+				how: `申請があると「${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}」に並びます。中身を見て、承認するか却下するかを選びます。下の「${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}」には処理済みの申請が残ります。`,
+				goal: `${CHILD_TERMS.honorific}の交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。`,
+				tips: [`申請が届くと管理画面の上部にお知らせが出ます。ごほうび管理の ⋮ からも開けます`],
 			},
-			// ② 最頻操作（承認・却下する）
-			'rewards-requests-act': {
-				title: 'よく使う操作（承認・却下）',
-				what: '最もよく使うのが、申請ごとの承認・却下です。却下するときは、お子さま宛てに理由を添えられます。',
-				how: '1. 申請の内容を確認します\n2. よければ承認、見送るときは却下を押します\n3. 却下のときは理由を入力するとお子さまに伝わります',
-				goal: `承認するとポイントが引かれて交換が確定します。ポイントは承認したときだけ引かれるので、却下してもお子さまの残高は変わりません。`,
-				tips: ['却下の理由を添えると、お子さまが次にどうすればよいか分かります'],
+			// ② 未処理の申請（常設セクション。0 件のときは「申請はありません」が出る）
+			'rewards-requests-pending': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}）`,
+				what: `まだ処理していない申請がここに並びます。1 件ごとに ${CHILD_TERMS.honorific}の名前・ごほうびの内容・必要ポイント・申請日時が表示されます。申請が無いときは「${ADMIN_REWARDS_REQUESTS_LABELS.emptyPendingMessage}」と表示され、${CHILD_TERMS.honorific}が交換を申し込むとここに増えます。`,
+				how: `1. 見出し横の件数で未処理の数を確認します\n2. 各申請の内容と必要ポイントを確認します`,
+				goal: '処理が必要な申請だけを、まとめて確認できます。',
+			},
+			// ③ 承認する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-approve': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}）`,
+				what: `ごほうびを実際に渡したあとに押すボタンです。押すとその場で交換が確定し、必要ポイントが${CHILD_TERMS.honorific}の残高から引かれます。`,
+				how: `1. ごほうびを${CHILD_TERMS.honorific}に渡します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}」を押します\n3. 残高が足りないときは確定できず、画面上部にお知らせが出ます`,
+				goal: '渡したものだけがポイント消費として記録され、渡し忘れ・二重消費を防げます。',
+			},
+			// ④ 却下する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-reject': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}）`,
+				what: `今回は見送るときに使います。却下してもポイントは引かれず、${CHILD_TERMS.honorific}の残高は変わりません。`,
+				how: `1. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}」を押します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectNoteLabel}」に理由を書きます（書かなくても進めます）\n3. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectConfirmButton}」を押すと却下が確定します（「${ADMIN_REWARDS_REQUESTS_LABELS.rejectCancelButton}」でやめられます）`,
+				goal: `理由を添えると${CHILD_TERMS.honorific}の画面に表示され、次にどうすればよいかが伝わります。`,
+				tips: [`却下の理由は最大 ${REWARD_REJECT_NOTE_MAX_LENGTH} 文字です`],
+			},
+			// ⑤ 履歴（常設セクション）
+			'rewards-requests-history': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}）`,
+				what: `処理済みの申請が新しい順に ${REWARD_REQUEST_HISTORY_LIMIT} 件まで残り、「${ADMIN_REWARDS_REQUESTS_LABELS.statusApproved}」「${ADMIN_REWARDS_REQUESTS_LABELS.statusRejected}」のしるしが付きます。`,
+				how: `1. しるしで結果を確認します\n2. ${CHILD_TERMS.honorific}の名前と使ったポイントで、いつ何を渡したかを振り返ります`,
+				goal: '「先週なにを渡したか」をあとから確認でき、ごほうびの出しすぎにも気づけます。',
+				tips: ['確定した承認・却下を取り消す操作はありません。渡してから承認を押すのが確実です'],
+				relatedLinks: [
+					{ label: 'ごほうび管理', href: '/admin/rewards' },
+					{ label: ADMIN_RULES_PAGE_LABELS.pageTitle, href: '/admin/settings/rules' },
+				],
 			},
 		},
 	},
@@ -6646,59 +6759,6 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
-export const ADMIN_RULES_PAGE_LABELS = {
-	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
-	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
-	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
-	pageTitle: 'ごほうび・ボーナスルール',
-	pageDescription:
-		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
-	emptyTitle: 'ボーナスルールがありません',
-	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
-	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
-	sectionBonusDesc:
-		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
-	enabledBadge: '有効',
-	disabledBadge: '無効',
-	enableButton: '有効化',
-	disableButton: '無効化',
-	removeButton: '削除',
-	removeConfirmTitle: 'このルールを削除しますか？',
-	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
-	importedAtLabel: '取込日時',
-	rulesLabel: '含まれるルール',
-	pointBonusSuffix: 'pt',
-	updateSuccess: 'ルールを更新しました',
-	removeSuccess: 'ルールを削除しました',
-	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
-	importToastSuccess: (presetName: string) =>
-		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
-	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
-	importToastError: (presetName: string) =>
-		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
-	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
-	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
-	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
-	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
-	rewardApprovalSectionDesc:
-		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
-	rewardApprovalRequireState: '保護者の承認が必要',
-	rewardApprovalInstantState: '承認なしで即時交換',
-	rewardApprovalRequireDesc:
-		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
-	rewardApprovalInstantDesc:
-		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
-	rewardApprovalEnableInstantButton: '即時交換にする',
-	rewardApprovalDisableInstantButton: '承認を必須に戻す',
-	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
-	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
-	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
-	// 解除後に何が起きるか (結果) を書く (AC3)。
-	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
-	rewardApprovalInstantConfirmBody:
-		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
-} as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
 	aiAddButton: '✨ AI追加',
@@ -7675,7 +7735,7 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 	emptyPendingMessage: '申請はありません',
 	approveButton: '承認して渡した',
 	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectNoteLabel: `却下理由（任意・最大${REWARD_REJECT_NOTE_MAX_LENGTH}文字）`,
 	rejectConfirmButton: '確定',
 	rejectCancelButton: 'キャンセル',
 	requestedAtLabel: '申請日時',
@@ -7690,27 +7750,6 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 // ごほうび申請承認専用画面 (#2269: /admin/rewards/requests)
 // CRUD と承認フローの責務分離（PO 指摘「ごほうび/申請タブ区分が意味不明」）
 // ============================================================
-
-export const ADMIN_REWARDS_REQUESTS_LABELS = {
-	pageTitle: '📋 ごほうび申請承認',
-	pageDescTitle: '📋 ごほうび申請承認',
-	pageDescText: '子供からの交換申請に承認/却下します。',
-	backToRewardsLabel: '← ごほうび管理に戻る',
-	pendingSectionTitle: 'Pending',
-	pendingCountSuffix: (count: number) => `${count} 件`,
-	historySectionTitle: 'History（直近30件）',
-	emptyPendingMessage: '申請はありません',
-	emptyHistoryMessage: '履歴はありません',
-	approveButton: '承認して渡した',
-	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
-	rejectConfirmButton: '確定',
-	rejectCancelButton: 'キャンセル',
-	requestedAtLabel: '申請日時',
-	rewardPointsUnit: 'ポイント',
-	statusApproved: '承認済み',
-	statusRejected: '却下済み',
-} as const;
 
 // ============================================================
 // UI プリミティブ コンポーネントラベル (#1465 Phase B)

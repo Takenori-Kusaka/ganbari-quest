@@ -95,6 +95,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4675: seed は子供 5 人 → お子さま切替は常に描画。年間サマリー / 印刷 / 証明書リンクは
 	// 記録データとプランに依存するため optional のまま列挙しない
 	'/admin/growth-book': ['growth-book-child-tabs'],
+	// #4676: 未処理 / 履歴セクションは常設 (0 件でも「申請はありません」を表示)。承認 / 却下ボタンは
+	// 未処理の申請があるときだけ描画されるため optional のまま列挙しない
+	'/admin/rewards/requests': ['rewards-requests-pending', 'rewards-requests-history'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
