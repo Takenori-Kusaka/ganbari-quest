@@ -112,79 +112,6 @@ describe('policy/capabilities can() — record.activity', () => {
 	});
 });
 
-describe('policy/capabilities can() — invite.family_member', () => {
-	it('aws-prod + owner + family = allowed', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: owner, plan: family }), 'invite.family_member'),
-		).toEqual({ allowed: true });
-	});
-
-	it('parent role = role-insufficient', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: parent, plan: family }), 'invite.family_member'),
-		).toEqual({ allowed: false, reason: 'role-insufficient' });
-	});
-
-	it('standard plan = plan-tier-insufficient', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: owner, plan: standard }), 'invite.family_member'),
-		).toEqual({ allowed: false, reason: 'plan-tier-insufficient' });
-	});
-
-	it('free plan = plan-tier-insufficient', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner, plan: free }), 'invite.family_member')).toEqual(
-			{ allowed: false, reason: 'plan-tier-insufficient' },
-		);
-	});
-
-	it('plan=null = plan-tier-insufficient', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner }), 'invite.family_member')).toEqual({
-			allowed: false,
-			reason: 'plan-tier-insufficient',
-		});
-	});
-
-	it('user=null = unauthenticated', () => {
-		expect(can(ctx({ mode: 'aws-prod', plan: family }), 'invite.family_member')).toEqual({
-			allowed: false,
-			reason: 'unauthenticated',
-		});
-	});
-
-	it('demo = demo-readonly (write.db 継承)', () => {
-		expect(can(ctx({ mode: 'demo', user: owner, plan: family }), 'invite.family_member')).toEqual({
-			allowed: false,
-			reason: 'demo-readonly',
-		});
-	});
-});
-
-describe('policy/capabilities can() — export.activity_history', () => {
-	it('owner + standard = allowed', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: owner, plan: standard }), 'export.activity_history'),
-		).toEqual({ allowed: true });
-	});
-
-	it('parent + family = allowed', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: parent, plan: family }), 'export.activity_history'),
-		).toEqual({ allowed: true });
-	});
-
-	it('child role = role-insufficient', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: child, plan: standard }), 'export.activity_history'),
-		).toEqual({ allowed: false, reason: 'role-insufficient' });
-	});
-
-	it('free plan = plan-tier-insufficient', () => {
-		expect(
-			can(ctx({ mode: 'aws-prod', user: owner, plan: free }), 'export.activity_history'),
-		).toEqual({ allowed: false, reason: 'plan-tier-insufficient' });
-	});
-});
-
 describe('policy/capabilities can() — access.ops_dashboard / view.ops_license_dashboard', () => {
 	const caps: Capability[] = ['access.ops_dashboard', 'view.ops_license_dashboard'];
 
@@ -217,41 +144,6 @@ describe('policy/capabilities can() — access.ops_dashboard / view.ops_license_
 			});
 		});
 	}
-});
-
-describe('policy/capabilities can() — purchase.upgrade', () => {
-	it('aws-prod + owner + free = allowed', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner, plan: free }), 'purchase.upgrade')).toEqual({
-			allowed: true,
-		});
-	});
-
-	it('aws-prod + owner + standard = allowed (standard→family upgrade)', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner, plan: standard }), 'purchase.upgrade')).toEqual(
-			{ allowed: true },
-		);
-	});
-
-	it('aws-prod + owner + family = plan-tier-insufficient (already top)', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner, plan: family }), 'purchase.upgrade')).toEqual({
-			allowed: false,
-			reason: 'plan-tier-insufficient',
-		});
-	});
-
-	it('nuc-prod = mode-mismatch (NUC は Stripe を使わない)', () => {
-		expect(can(ctx({ mode: 'nuc-prod', user: owner, plan: free }), 'purchase.upgrade')).toEqual({
-			allowed: false,
-			reason: 'mode-mismatch',
-		});
-	});
-
-	it('parent role = role-insufficient', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: parent, plan: free }), 'purchase.upgrade')).toEqual({
-			allowed: false,
-			reason: 'role-insufficient',
-		});
-	});
 });
 
 describe('policy/capabilities can() — debug.plan_override', () => {
@@ -324,9 +216,11 @@ describe('policy/capabilities ensureCan()', () => {
 		}
 	});
 
+	// #4710: plan 条件を持つ 3 capability (invite.family_member ほか) は未配線 + plan-limit-service と
+	// 二重定義だったため削除した。reason 露出の検証は role 条件を持つ現役 capability で行う。
 	it('reason が DenyReason 値として露出される', () => {
 		try {
-			ensureCan(ctx({ mode: 'aws-prod', user: parent, plan: family }), 'invite.family_member');
+			ensureCan(ctx({ mode: 'aws-prod', user: child, plan: family }), 'manage.child_profile');
 			expect.fail('ensureCan should have thrown');
 		} catch (e) {
 			const err = e as { body: { reason: string } };

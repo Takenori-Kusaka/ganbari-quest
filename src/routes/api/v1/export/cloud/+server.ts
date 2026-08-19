@@ -5,7 +5,7 @@ import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
-import { apiError, validationError } from '$lib/server/errors';
+import { apiError, planLimitError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { createCloudExport, listCloudExports } from '$lib/server/services/cloud-export-service';
 import type { RequestHandler } from './$types';
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const msg = err instanceof Error ? err.message : String(err);
 		// プラン未達 / 保管上限は起票時点で同期的に弾く。
 		if (msg.includes('スタンダード') || msg.includes('上限')) {
-			return apiError('PLAN_LIMIT_EXCEEDED', msg);
+			return planLimitError('standard', msg);
 		}
 		logger.error('[cloud-export] 作成失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの作成に失敗しました');

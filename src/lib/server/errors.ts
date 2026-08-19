@@ -124,6 +124,47 @@ export function apiError(code: ErrorCode, message: string, context?: Record<stri
 	);
 }
 
+/**
+ * プラン制限による 403 を **要求 tier 込み**で返す (#4710)。
+ *
+ * `apiError('PLAN_LIMIT_EXCEEDED', …)` は userMessage を `ERROR_DEFINITIONS` の固定文
+ * (スタンダード以上の案内) から取るため、**プレミアム限定機能をスタンダード契約者が叩いても
+ * 「スタンダード以上でご利用いただけます」** と返していた。既にスタンダードな顧客は
+ * 次の行動が取れない (実測: AI 提案 `POST /api/v1/activities/suggest`)。
+ *
+ * 呼び出し側は「その機能が何 tier を要求するか」を必ず知っている (gate 判定をしている当人)
+ * ので、それを引数で受け取り userMessage を出し分ける。`PLAN_LIMIT_EXCEEDED` を
+ * `apiError` で直接返す経路は `tests/unit/architecture/plan-limit-error-required-tier.test.ts`
+ * が禁止する (同じ穴を別 endpoint で再生産させない)。
+ *
+ * @param requiredTier その機能が要求する最低 tier
+ * @param message 開発者向け (ログ / `error.message`)。顧客には出さない
+ */
+export function planLimitError(
+	requiredTier: 'standard' | 'family',
+	message: string,
+	context?: Record<string, unknown>,
+) {
+	const userMessage =
+		requiredTier === 'family'
+			? PLAN_GATE_LABELS.familyLimitedGenericWithUpgrade
+			: PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade;
+	logger.warn(`[API] PLAN_LIMIT_EXCEEDED: ${message}`, { context: { ...context, requiredTier } });
+	const def = ERROR_DEFINITIONS.PLAN_LIMIT_EXCEEDED;
+	return json(
+		{
+			error: {
+				code: 'PLAN_LIMIT_EXCEEDED',
+				message,
+				userMessage,
+				severity: def.severity,
+				action: def.action,
+			},
+		},
+		{ status: def.status },
+	);
+}
+
 export function notFound(message = 'みつかりませんでした') {
 	return apiError('NOT_FOUND', message);
 }

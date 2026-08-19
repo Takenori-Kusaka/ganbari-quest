@@ -7,7 +7,7 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
-import { apiError } from '$lib/server/errors';
+import { planLimitError } from '$lib/server/errors';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
@@ -103,11 +103,10 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 		if (!limitCheck.allowed) {
-			return apiError(
-				'PLAN_LIMIT_EXCEEDED',
-				PLAN_GATE_LABELS.activityLimitReached(limitCheck.max),
-				{ current: limitCheck.current, max: limitCheck.max },
-			);
+			return planLimitError('standard', PLAN_GATE_LABELS.activityLimitReached(limitCheck.max), {
+				current: limitCheck.current,
+				max: limitCheck.max,
+			});
 		}
 
 		const result = await dispatchImport({
