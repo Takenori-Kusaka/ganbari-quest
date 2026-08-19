@@ -58,6 +58,9 @@ const NON_DECLARING_DOCS: Record<string, string> = {
 	'docs/design/19-プライシング戦略書.md': 'KPI / 課金モデルの説明文中の event 言及',
 	'docs/runbooks/contract-state-audit-remediation.md':
 		'X1-X4 個別の想定原因・是正手順 (resend 対象 event) の記述。購読集合の宣言ではない',
+	// #4708: §10.3 が「archive を復元する契機」として handler 名を挙げる (UI 仕様の根拠提示)。
+	// Dashboard の購読集合を宣言する doc ではない。
+	'docs/design/06-UI設計書.md': 'archive 復元の契機として handler を参照する UI 仕様の記述',
 };
 
 function read(relPath: string): string {
