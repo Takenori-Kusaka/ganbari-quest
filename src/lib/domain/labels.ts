@@ -7891,6 +7891,8 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressWeeklyComplete: 'コンプリート！',
 	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
 	stampPressWeeklyMessage: '今週もがんばろう！',
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
