@@ -26,7 +26,6 @@ import {
 	PIN_RESET_LABELS,
 } from '$lib/domain/labels';
 import { OYAKAGI_TERMS } from '$lib/domain/terms';
-// @ts-expect-error - .mjs script without type declarations (buildPriceTerms 等と同じ扱い)
 import { buildOyakagiTerms } from '../../../scripts/generate-lp-labels.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -39,6 +38,8 @@ const ACCOUNT_PAGE = path.join(ACCOUNT_DIR, '+page.svelte');
  * 新しい検証点を足したらここにも足す。列挙漏れは [P6] の横断 scan が拾う。
  */
 const PIN_CALLSITES = [
+	'src/lib/domain/validation/auth.ts',
+	'src/routes/(parent)/login/+page.svelte',
 	'src/routes/(parent)/admin/settings/account/+page.server.ts',
 	'src/routes/api/v1/parent-gate/verify/+server.ts',
 	'src/routes/api/v1/parent-gate/setup/+server.ts',
@@ -102,10 +103,23 @@ describe('#4661 おやカギコードの桁数は 1 つの SSOT から出る', (
 	});
 
 	it('[P3] ページガイド (設定ハブ / アカウント) が述べる桁数は digitRange だけ', () => {
-		const guideTexts = [
+		const steps: {
+			title: string;
+			what: string;
+			how: string;
+			goal: string;
+			tips?: readonly string[];
+		}[] = [
 			...Object.values(PAGE_GUIDE_LABELS.adminSettings.steps),
 			...Object.values(PAGE_GUIDE_LABELS.adminSettingsAccount.steps),
-		].flatMap((step) => [step.title, step.what, step.how, step.goal, ...(step.tips ?? [])]);
+		];
+		const guideTexts = steps.flatMap((step) => [
+			step.title,
+			step.what,
+			step.how,
+			step.goal,
+			...(step.tips ?? []),
+		]);
 
 		for (const text of guideTexts) {
 			const stray = hardcodedDigitMentions(text).filter((m) => m !== OYAKAGI_TERMS.digitRange);
