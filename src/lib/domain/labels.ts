@@ -4,6 +4,7 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 import { CATEGORIES } from './categories';
+import { CHEER_POINTS } from './constants/cheer-points';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 import { FREE_PLAN_QUOTA } from './constants/plan-quota';
@@ -47,6 +48,7 @@ import {
 	CANCEL_TERMS,
 	CHECKLIST_ADMIN_TERMS,
 	CHECKOUT_TERMS,
+	CHEER_ADMIN_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
 	CHILD_TERMS,
@@ -1698,30 +1700,48 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4659: /admin/cheer のガイド。画面の上から下 (送り先 → よくある応援 → 理由とポイント → 応援する →
+	// 履歴) の順に、実際に押す要素を spotlight する (旧ガイドは見出し 1 行だけを光らせていた)。
+	// P の範囲・既定値は CHEER_POINTS (domain/constants、cheer-service と同一定数)、例文は
+	// CHEER_LABELS.reasonPlaceholder を参照する。子供 0 人 / 履歴 0 件では該当 step が出ない。
 	adminCheer: {
-		title: '応援',
+		title: CHEER_TERMS.canonical,
 		steps: {
 			'cheer-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりに、その場で応援を届けるページです。理由と任意のボーナスポイントを添えて、すぐに気持ちを伝えられます。',
-				how: '送り先のお子さまを選び、応援する理由を入力して送るだけです。毎日の活動ポイントは活動タブから、その場でひと押ししたい応援はこちらから。',
+				what: `お子さまのがんばりに、その場で${CHEER_TERMS.canonical}を届けるページです。理由と任意のボーナスポイント（${CHEER_POINTS.min}〜${CHEER_POINTS.max}P、はじめは ${CHEER_POINTS.default}P）を添えて、すぐに気持ちを伝えられます。`,
+				how: `上から順に、送り先のお子さま → 「${CHEER_ADMIN_TERMS.presetTitle}」 → 理由・ポイント・カテゴリ・アイコン → 「${CHEER_TERMS.action}」 と並びます。毎日の活動ポイントは${NAV_ITEM_LABELS.activities}から、その場でひと押ししたい${CHEER_TERMS.canonical}はこちらから。`,
 				goal: '「親が見ていて、すぐに認めてくれる」体験になり、お子さまの継続のモチベーションを支えます。',
 			},
 			'cheer-select': {
 				title: '画面の見方（送り先を選ぶ）',
-				what: 'まず上部で、応援を送るお子さまを選びます。選んだお子さま宛てに応援が届きます。',
-				how: '1. お子さまのボタンをタップして選びます\n2. 選んだお子さまが強調表示されます',
-				goal: '兄弟姉妹がいても、応援したいお子さまを取り違えずに選べます。',
+				what: `まず「${CHEER_ADMIN_TERMS.selectChildTitle}」で、${CHEER_TERMS.canonical}を送るお子さまを選びます。選んだお子さま宛てに届きます。`,
+				how: '1. お子さまの名前のボタンを押す\n2. 選ばれたボタンの色が変わります',
+				goal: '兄弟姉妹がいても、送りたいお子さまを取り違えずに選べます。',
+			},
+			'cheer-templates': {
+				title: `よく使う操作（${CHEER_ADMIN_TERMS.presetTitle}）`,
+				what: `「${CHEER_ADMIN_TERMS.presetTitle}」のチップを 1 回押すだけで、理由・ポイント・カテゴリ・アイコンがまとめて入ります。`,
+				how: '1. あてはまるチップを押す\n2. 入った内容はそのまま直せます（ポイントだけ増やす等）',
+				goal: '毎回 7 段の入力をしなくても、数タップで応援を送れます。',
 			},
 			'cheer-reason': {
-				title: 'よく使う操作（応援を送る）',
-				what: '最もよく使うのが応援の送信です。応援する理由を入力し、ボーナスポイントやスタンプを添えて送ります。',
-				how: '1. 応援する理由を入力（例:「うんどうかいで 1いに なったよ！」）\n2. ボーナスポイント・カテゴリ・アイコンを選択\n3. 必要なら付随のスタンプ／メッセージを添える\n4. 「応援する」をタップ',
-				goal: 'お子さまの画面にメッセージとポイントが届きます。具体的に褒めると効果が高まります。',
-				tips: [
-					'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります',
-					'送った応援の履歴は、お子さまを選ぶと下部に表示されます（既読／未読も確認できます）',
-				],
+				title: '画面の見方（理由とポイントを整える）',
+				what: `理由（例:「${CHEER_ADMIN_TERMS.reasonPlaceholder}」）と、ボーナスポイント・カテゴリ・アイコン・付随スタンプを決めます。`,
+				how: `1. 理由を入力する（チップを使ったときは入力済み）\n2. ポイントを ${CHEER_POINTS.min}〜${CHEER_POINTS.max} の範囲で決める（はじめは ${CHEER_POINTS.default}P）\n3. カテゴリを選ぶ（お子さまのカテゴリ別のがんばりに積まれます）\n4. アイコンとスタンプを選ぶ（お子さまの画面と履歴に出ます）`,
+				goal: 'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります。',
+			},
+			'cheer-submit': {
+				title: `よく使う操作（${CHEER_TERMS.action}）`,
+				what: `いちばん下で内容を確認し、「${CHEER_TERMS.action}」を押すと送信されます。`,
+				how: `1. 理由・ポイント・カテゴリ・アイコンの確認欄を見る\n2. 「${CHEER_TERMS.action}」を押す（理由とポイントが未入力のうちは押せません）`,
+				goal: 'お子さまの画面にメッセージとポイントが届き、送信後は入力欄が空に戻ります。具体的に褒めると効果が高まります。',
+			},
+			'cheer-history': {
+				title: `画面の見方（最近の${CHEER_TERMS.canonical}）`,
+				what: `選んでいるお子さまに送った${CHEER_TERMS.canonical}が下に並びます。お子さまが読んだかどうかも分かります。`,
+				how: '1. 送った内容とポイントを確認する\n2. 他のお子さまの履歴は、上でそのお子さまを選ぶと表示されます',
+				goal: '「先週も同じことで応援した」と分かるので、ほめる場面が偏らずに済みます。',
 			},
 		},
 	},
@@ -5227,12 +5247,12 @@ export const CHEER_LABELS = {
 	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
 	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
-	selectChildTitle: '1. こどもを選択',
+	selectChildTitle: CHEER_ADMIN_TERMS.selectChildTitle,
 	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
-	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+	reasonPlaceholder: CHEER_ADMIN_TERMS.reasonPlaceholder,
 	reasonHint: '100文字以内',
 	pointsTitle: '3. ボーナスポイント',
-	pointsHint: '1〜10000の範囲で入力',
+	pointsHint: `${CHEER_POINTS.min}〜${CHEER_POINTS.max}の範囲で入力`,
 	categoryTitle: '4. カテゴリ',
 	iconTitle: '5. アイコン',
 	iconHint: '絵文字を入れてください',
@@ -5250,7 +5270,7 @@ export const CHEER_LABELS = {
 	noChildrenTitle: 'まずこどもを登録してください',
 	noChildrenDesc: '「こども」タブから登録できます',
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
-	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	presetTitle: CHEER_ADMIN_TERMS.presetTitle,
 	// 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥)
 	// 親が現実イベント後に承認する 1 タップ操作（ADR-0012 anti-engagement / 滞在ゼロ）。
 	// シーズン期間中の自動配信は不採用、家族コミュニケーション wedge 強化。
