@@ -22,14 +22,24 @@ import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
  * **可用性判定には使わない** (#4366)。既定値があること自体は「設定が配られている」ことを意味せず、
  * 既定値を根拠に `isAvailable()` を true にしたのが本欠陥の原因だった。
  *
- * **geo inference profile (`us.` 接頭辞) を既定にしない** (#4367 AC3)。`us.` は cross-region
- * inference profile で、us-east-1 に投げても us-east-2 / us-west-2 で推論されうる。子供の活動
- * テキストを「運営者が管理する AWS 環境」で処理すると開示している以上 (site/privacy.html 第 3 条 /
- * 第 10 条、移転先は us-east-1 と明記)、既定は 1 リージョンに閉じる base model ID にする。
- * Pre-PMF で throughput 冗長性 (profile の利点) は要らない。
+ * **US geo inference profile (`us.` 接頭辞) を既定にする** (#4726、オーナー決裁 2026-08-19)。
+ * #4367 AC3 は「`us.` は us-east-2 / us-west-2 でも推論されうるので base model ID に固定する」と
+ * 決めたが、**Claude Haiku 4.5 は base model ID の on-demand 呼び出しを受け付けない**
+ * (`ValidationException: Invocation of model ID ... with on-demand throughput isn't supported.
+ * Retry your request with the ID or ARN of an inference profile that contains this model.`)。
+ * 本番の全リクエストがこれで落ち、AI 提案は 100% キーワード fallback だった (#4726)。
+ * base model 固定はこの構成では原理的に 1 回も成立しない。
  *
- * モデル選定 (Haiku 系 latest = 最安最適) は変えない。変えたのは profile → base model の形式のみ。
- * IAM 側の Resource ARN (`infra/lib/compute-stack.ts` の `BEDROCK_MODEL_ARN`) と対で動くため、
+ * 分散するのは**推論処理**であって保存先ではない (AWS は Bedrock の入力を保存しない)。
+ * 米国内 3 リージョンはいずれも運営者の AWS アカウント内で、#4367 の主目的
+ * (子供の活動テキストを AWS の外に出さない) は保たれる。`global.` profile は米国外を
+ * 含みうる = privacy の移転先国「米国」が崩れるため採らない。
+ *
+ * **呼べない ID を既定値に残さない**。ここは env 未配布時にしか使われず `isAvailable()` が
+ * false を返すため到達しないが、呼べない ID を既定に残すと同じ罠を再生産する (#4726)。
+ *
+ * モデル選定 (Haiku 系 latest = 最安最適) は変えない。変えたのは base model → profile の形式のみ。
+ * IAM 側の Resource ARN (`infra/lib/compute-stack.ts` の `bedrockInvokeResources()`) と対で動くため、
  * 片方だけ変えると権限が外れて `AccessDeniedException` になる。
  *
  * **稼働判定は実呼び出しのみ。`agreementAvailability` は誤判定実績あり** (#4367)。
@@ -39,7 +49,7 @@ import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
  * 不作動」と結論づけてはならない (この形の診断は 7 回連続で誤検出だった)。稼働を主張・否定する側が
  * 同日の実 Converse 呼び出しか本番ログを添えること。
  */
-const DEFAULT_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+const DEFAULT_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 /**
  * 呼び出しごとに env を読む。module 読込時に固定すると、テストからも運用からも
@@ -147,8 +157,10 @@ export class BedrockClaudeProvider implements AiProvider {
 		];
 		const tools = buildTools(opts.tool);
 
-		const response = await withAvailabilityTracking(this.name, () =>
-			client.send(
+		// 包む範囲は「使える結果を得るまで」(#4726)。extractToolUse の失敗もサービス層は
+		// fallback に落ちるため、外に出すと fallback 率が実態より小さく出る。
+		return await withAvailabilityTracking(this.name, async () => {
+			const response = await client.send(
 				new ConverseCommand({
 					modelId: resolveModelId(),
 					system: systemContent,
@@ -162,10 +174,9 @@ export class BedrockClaudeProvider implements AiProvider {
 						temperature: 0.3,
 					},
 				}),
-			),
-		);
-
-		return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);
+			);
+			return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);
+		});
 	}
 
 	async converseWithImageAndTool(opts: {
@@ -203,8 +214,10 @@ export class BedrockClaudeProvider implements AiProvider {
 		];
 		const tools = buildTools(opts.tool);
 
-		const response = await withAvailabilityTracking(this.name, () =>
-			client.send(
+		// 包む範囲は「使える結果を得るまで」(#4726)。extractToolUse の失敗もサービス層は
+		// fallback に落ちるため、外に出すと fallback 率が実態より小さく出る。
+		return await withAvailabilityTracking(this.name, async () => {
+			const response = await client.send(
 				new ConverseCommand({
 					modelId: resolveModelId(),
 					system: systemContent,
@@ -218,9 +231,8 @@ export class BedrockClaudeProvider implements AiProvider {
 						temperature: 0.2,
 					},
 				}),
-			),
-		);
-
-		return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);
+			);
+			return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);
+		});
 	}
 }

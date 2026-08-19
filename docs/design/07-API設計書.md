@@ -1325,7 +1325,7 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 テキスト入力から活動名・カテゴリを AI で推定する。
 
-**AIモデル:** AWS Bedrock Claude Haiku (`anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
+**AIモデル:** AWS Bedrock Claude Haiku (US inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
 
 **リクエストボディ:**
 ```json
