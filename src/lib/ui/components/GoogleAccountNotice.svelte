@@ -8,23 +8,23 @@
  * まま待たせ続けてしまう。よって **全員に常時** 出す案内としてここに切り出す
  * (特定アカウントの存在を漏らさずに dead-end を解消する)。
  */
+import { resolve } from '$app/paths';
 import { FORGOT_PASSWORD_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 
 interface Props {
-	/** ログイン画面へのリンク先 (既定: /auth/login) */
-	loginHref?: string;
 	class?: string;
 }
 
-let { loginHref = '/auth/login', class: className = '' }: Props = $props();
+let { class: className = '' }: Props = $props();
+
+// svelte/no-navigation-without-resolve: base path 付きデプロイでも壊れないよう resolve() 経由にする
+const loginHref = resolve('/auth/login');
 </script>
 
 <Alert variant="info" class={className} data-testid="forgot-password-google-notice">
-	{#snippet children()}
-		<span>{FORGOT_PASSWORD_LABELS.googleUserNotice}</span>
-		<a href={loginHref} class="text-[var(--color-text-link)] hover:underline whitespace-nowrap">
-			{FORGOT_PASSWORD_LABELS.googleUserNoticeLink}
-		</a>
-	{/snippet}
+	<span>{FORGOT_PASSWORD_LABELS.googleUserNotice}</span>
+	<a href={loginHref} class="text-[var(--color-text-link)] hover:underline whitespace-nowrap">
+		{FORGOT_PASSWORD_LABELS.googleUserNoticeLink}
+	</a>
 </Alert>
