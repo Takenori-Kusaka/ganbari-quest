@@ -2370,7 +2370,7 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
-	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（賞状コレクション / 成長記録ブック / ごほうび申請の承認）
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（証明書 / 記録ブック / ごほうび申請の承認）
 	adminCertificates: {
 		// #4674 F1 / M: 呼称は画面表記の「証明書」に統一 (旧「賞状コレクション」「賞状」)
 		title: CERTIFICATE_TERMS.full,
