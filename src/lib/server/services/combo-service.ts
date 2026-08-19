@@ -76,10 +76,14 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
 }
 
 /**
- * Check today's combo state and grant any new bonus points.
- * Returns the combo result with only the newly granted bonus amount.
+ * Check today's combo state and reconcile the granted bonus with the desired bonus.
+ *
+ * #4686: 付与は「あるべき額 − 当日付与済み合計」の**差分**で行う。記録で差分が正なら加算、
+ * とりけしで差分が負なら同じ経路で負方向に計上する (付与した経路と同じ経路で取り消す、#3787 と同 class)。
+ * 戻り値の `totalNewBonus` は今回の純増 (負値 = 巻き戻し)。結果ダイアログは tier 満額ではなく
+ * この純増を表示する (表示額 = 台帳増分)。
  */
-export async function checkAndGrantCombo(
+export async function reconcileComboBonus(
 	childId: ChildId,
 	date: string,
 	tenantId: string,
@@ -129,10 +133,10 @@ export async function checkAndGrantCombo(
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
 	const alreadyAmount = await getComboPointsGranted(childId, comboBonusPrefix, tenantId);
-	const newBonus = Math.max(0, totalDesiredBonus - alreadyAmount);
+	// 差分 (正 = 新規付与 / 負 = とりけしによる巻き戻し / 0 = 変化なし)
+	const newBonus = totalDesiredBonus - alreadyAmount;
 
-	// Grant the difference
-	if (newBonus > 0) {
+	if (newBonus !== 0) {
 		const parts: string[] = [];
 		if (miniCombo) {
 			parts.push('ミニコンボ');
@@ -144,7 +148,10 @@ export async function checkAndGrantCombo(
 		if (crossCategoryCombo) {
 			parts.push(crossCategoryCombo.name);
 		}
-		const description = `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`;
+		const description =
+			newBonus > 0
+				? `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`
+				: `${comboBonusPrefix} コンボとりけし${parts.length > 0 ? `（${parts.join('・')}）` : ''} ${newBonus}`;
 
 		await insertPointLedger(
 			{
@@ -163,11 +170,14 @@ export async function checkAndGrantCombo(
 	return {
 		categoryCombo,
 		crossCategoryCombo,
-		miniCombo: newBonus > 0 ? miniCombo : null,
+		miniCombo,
 		hints,
 		totalNewBonus: newBonus,
 	};
 }
+
+/** 記録経路の既存呼び出し名 (reconcileComboBonus と同一。差分付与 + 結果返却)。 */
+export const checkAndGrantCombo = reconcileComboBonus;
 
 /**
  * コンボ予告ヒントを生成

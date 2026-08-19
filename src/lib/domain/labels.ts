@@ -4201,6 +4201,16 @@ export const CHILD_HOME_LABELS = {
 	resultMasteryLevelUp: (name: string, level: number | string) =>
 		`🎖️ ${name}が Lv.${level} になった！`,
 	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
+	/**
+	 * #4686: コンボは tier 名を「状態」として出し、金額は今回の純増 (台帳増分) だけを出す。
+	 * tier 満額を毎回出すと同日 2 回目以降に「ダイアログの合計 ≠ 残高の増分」になるため。
+	 */
+	resultComboCategoryState: (name: string, catName: string) =>
+		`${name}コンボ たっせい中（${catName}）`,
+	resultComboCrossState: (name: string) => `${name}！ たっせい中`,
+	resultComboNewBonus: 'コンボボーナス',
+	/** #4686: フォーカスモード おすすめ 3 件全完了ボーナス (台帳 type=focus_bonus) の結果ダイアログ表記 */
+	resultFocusBonus: '🎯 きょうのクエスト コンプリート！',
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。

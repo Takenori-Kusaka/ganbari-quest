@@ -756,6 +756,27 @@ export async function countPointLedgerEntriesByTypeAndDate(
 	return result?.total ?? 0;
 }
 
+/** #4686: type × description 前方一致の付与合計 (正負込み)。getComboPointsGranted の type 汎用版。 */
+export async function sumPointLedgerByTypeAndDescriptionPrefix(
+	childId: ChildId,
+	type: string,
+	descriptionPrefix: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: sql<number>`coalesce(sum(amount), 0)`.as('total') })
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, Number(childId)),
+				eq(pointLedger.type, type),
+				sql`${pointLedger.description} LIKE ${`${descriptionPrefix}%`}`,
+			),
+		)
+		.get();
+	return Number(result?.total ?? 0);
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================

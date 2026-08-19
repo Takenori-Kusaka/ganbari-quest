@@ -71,7 +71,11 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 	},
 	'child-challenge-service.ts': {
 		markCompleted: 1,
-		updateProgress: 1,
+		// #4686: とりけしの巻き戻し (revertChildChallengeProgress) が、記録側
+		// updateChildChallengeProgress と対称な形で同 method を 1 箇所使う (1 → 2)。
+		// どちらも「当該 child の期間内 challenge」= 実測 1〜3 行のループで、bulk repo API が
+		// 無いため既存の記録側と同じ形状で pin する (解消時は両方まとめて bulk 化する)。
+		updateProgress: 2,
 	},
 	'child-reward-copy-service.ts': {
 		insertSpecialReward: 1,
