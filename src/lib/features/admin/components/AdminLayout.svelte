@@ -183,6 +183,8 @@ const navCategories: NavCategory[] = $derived([
 		icon: NAV_CATEGORIES.record.icon,
 		items: [
 			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
+			// #4669 F7: 成長レポート (/admin/status) はナビからも各ページからも到達不能だった。record 配下に置く
+			{ href: `${basePath}/status`, label: NAV_ITEM_LABELS.statusReport, icon: '📈' },
 			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
 			// #2284 (EPIC #2283): /admin/analytics 撤去。運用者向け機能は /ops/analytics に移動

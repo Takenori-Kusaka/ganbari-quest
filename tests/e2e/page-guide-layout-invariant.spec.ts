@@ -71,6 +71,15 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'subscription-plan-status',
 		'subscription-cancel',
 	],
+	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
+	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
+	'/admin/status': [
+		'status-child-tabs',
+		'status-edit-link',
+		'status-radar',
+		'status-act',
+		'status-level-titles',
+	],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
