@@ -74,6 +74,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
 	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
 	'/admin/settings/account': ['settings-account-pin'],
+	// #4665: E2E は AUTH_MODE=local (plan=family) → エクスポート / 復元 / 全削除 は描画される。
+	// クラウド共有は cognito 環境のみ描画のため optional のまま列挙しない
+	'/admin/settings/data': ['settings-data-export', 'settings-data-import', 'settings-data-clear'],
 	// #4664: 通知ページの 4 anchor はいずれも常設 (ブラウザ状態 / 種類 / サイレント時間帯 / 保存)
 	'/admin/settings/notifications': [
 		'settings-notifications-status',
