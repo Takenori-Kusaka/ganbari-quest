@@ -131,7 +131,9 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		// DSQL は自動 backup を持たないため AWS Backup で cluster full backup を日次取得。
 		template.resourceCountIs('AWS::Backup::BackupVault', 1);
 		template.resourceCountIs('AWS::Backup::BackupPlan', 1);
-		template.resourceCountIs('AWS::Backup::BackupSelection', 1);
+		// #4724: DSQL cluster + assets バケット (子供の写真・声) の 2 selection。
+		// 内訳の固定は tests/unit/infra/assets-backup.test.ts [B1]/[B2]。
+		template.resourceCountIs('AWS::Backup::BackupSelection', 2);
 		// daily rule + 7 日保持 (Pre-PMF 最小 DR 窓)。
 		template.hasResourceProperties('AWS::Backup::BackupPlan', {
 			BackupPlan: {

@@ -10,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
+import { assetsBucketArn, PROD_ENV_CONFIG } from './env-config';
 
 /**
  * DSQL クラスタ + コストガードレール + 可観測性 dashboard (EPIC #3424 M4-E item 12)。
@@ -242,7 +243,8 @@ export class DsqlStack extends cdk.Stack {
 				assumedBy: new iam.ServicePrincipal('backup.amazonaws.com'),
 				// NOTE: IAM Role description は AWS 制約により ASCII/Latin-1 (U+00FF 以下) のみ許容。
 				// 日本語を入れると deploy 時 InvalidRequest → CREATE_FAILED → stack rollback になる (#3870)。
-				description: 'AWS Backup role for DSQL cluster backup / restore (#3437)',
+				description:
+					'AWS Backup role for DSQL cluster and S3 assets backup / restore (#3437 / #4724)',
 				managedPolicies: [
 					iam.ManagedPolicy.fromAwsManagedPolicyName(
 						'service-role/AWSBackupServiceRolePolicyForBackup',
@@ -250,10 +252,54 @@ export class DsqlStack extends cdk.Stack {
 					iam.ManagedPolicy.fromAwsManagedPolicyName(
 						'service-role/AWSBackupServiceRolePolicyForRestores',
 					),
+					// #4724: S3 backup / restore は上の 2 本では認可されない (AWS Backup の S3 対応は
+					// 専用の managed policy を要求する)。付けないと backup job が AccessDenied で
+					// 失敗し続ける — 下の DsqlBackupJobFailed rule で気付けるが、そもそも取れていない。
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForS3Backup',
+					),
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForS3Restore',
+					),
 				],
 			});
 			backupPlan.addSelection('DsqlCluster', {
 				resources: [backup.BackupResource.fromArn(this.cluster.attrResourceArn)],
+				role: backupRole,
+			});
+
+			// #4724: 顧客がアップロードした**子供の写真・声**を保護対象に入れる。
+			//
+			// これらは S3 `ganbari-quest-assets-<account>` の `tenants/<tenantId>/` 配下にあり、
+			// #3437 時点の selection は DSQL cluster だけだったため **S3 は保護対象外**だった。
+			// 退会処理の `deleteByPrefix(tenants/<tenantId>/)` が prefix 単位で消すため、
+			// tenantId や猶予判定を誤れば写真と録音は失われる。「DSQL だけ復元できて写真が戻らない」
+			// 復元は顧客にとって復元ではない (#4580 G7)。
+			//
+			// 同じ plan / 同じ vault に載せるのが要点:
+			//   - vault が同じなので、下の DsqlBackupJobFailed rule (vault 名で scope) が
+			//     S3 backup job の失敗もそのまま拾う (新しい通知経路を作らない)
+			//   - retention も DSQL と同じ 7 日。片方だけ長いと復元時点が揃わない
+			//
+			// **前提条件は 2 つある。どちらも CDK では表現できないので runbook / deploy 手順で確認する:**
+			//   1. バケットのバージョニングが有効 (AWS Backup for S3 の要件)。
+			//      StorageStack が `versioned: true` で作る (#4724)。順序上 Storage を先に deploy する
+			//   2. **リージョンの Service opt-in で S3 が有効**
+			//      (`aws backup describe-region-settings --region us-east-1` の
+			//       ResourceTypeOptInPreference.S3 が true)。false のままだと selection は作成できても
+			//      backup job が走らず、**失敗すらせず単に何も取れない** = 一番気付けない壊れ方になる。
+			//      有効化: `aws backup update-region-settings --resource-type-opt-in-preference S3=true`
+			//      (手順 SSOT: docs/runbooks/dsql-restore.md §S3 assets)
+			//
+			// バケット名は env-config の `assetsBucketArn()` を両 stack が共有し、
+			// cross-stack export を増やさない。
+			// prod のみ (この block 自体が `!isStaging` 配下、staging の assets は使い捨て)。
+			backupPlan.addSelection('AssetsBucket', {
+				resources: [
+					backup.BackupResource.fromArn(
+						assetsBucketArn(PROD_ENV_CONFIG.resourcePrefix, this.account),
+					),
+				],
 				role: backupRole,
 			});
 

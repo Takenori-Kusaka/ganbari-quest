@@ -43,7 +43,21 @@
 ### 3.1 StorageStack
 
 `StorageStack` は S3（assets）+ ECR（Lambda container image）+ AWS Backup vault（RETAIN-orphan、prod のみ）を
-提供する。DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を
+提供する。
+
+**assets バケット（`ganbari-quest-assets-<account>`）は顧客データを保持する**（`tenants/<tenantId>/` 配下に
+子供のアバター写真・録音・AI 生成画像、`exports/` にクラウド共有の預かりデータ）。退会処理が prefix 単位で
+物理削除するため、以下 2 点を持つ（#4724）:
+
+| 保護 | 実装 | 何から守るか |
+|---|---|---|
+| バージョニング | `versioned: true` + 非現行バージョン 30 日 expire + `expiredObjectDeleteMarker` | 誤削除・誤上書き（30 日以内なら元に戻せる。コストは非現行 expire で有界） |
+| AWS Backup | `DsqlStack` の日次 plan（02:00 UTC / 7 日保持 / vault `ganbari-quest-dsql-vault`）に selection を追加 | バケットごとの喪失。DSQL と同一 plan / vault のため復元時点が揃い、失敗通知 rule（`ganbari-quest-dsql-backup-failed`）も 1 本で両方を拾う |
+
+バケット名は `infra/lib/env-config.ts` の `assetsBucketName()` / `assetsBucketArn()` が SSOT で、StorageStack と
+DsqlStack が同じ関数を呼ぶ（cross-stack export を増やさないため ARN を GetAtt で渡さない）。
+**S3 backup はリージョンの Service opt-in で S3 が有効でないと job 自体が走らない**（失敗すらしない）ため、
+opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/dsql-restore.md) を参照する。DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を
 参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL のリレーショナルスキーマは
 [dsql-data-model.md](dsql-data-model.md) を参照。
 
