@@ -32,6 +32,7 @@ const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
 const PLAN_PRICE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-price.ts');
+const OYAKAGI_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/oyakagi.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
@@ -452,6 +453,30 @@ function buildPriceTerms() {
 }
 
 /**
+ * おやカギコードの桁数 SSOT (`src/lib/domain/constants/oyakagi.ts`) を読み、
+ * terms.ts の `OYAKAGI_TERMS` のうち**桁数由来の key** を組み立てる (#4661)。
+ *
+ * なぜ必要か:
+ *   buildPlanRetentionTerms / buildPriceTerms と同じ理由。本 script は TS を実行せず
+ *   text parse するため、`${PIN_LENGTH}桁` のように **terms.ts の外から import した定数**を
+ *   埋め込んだ値は解決できない (resolveTemplateLiteralValue は `${NS.key}` 形式のみ)。
+ *   数値 SSOT (`PIN_LENGTH`) は literal なので読める → 整形だけをここで再現する。
+ *   整形結果が TS 側 `OYAKAGI_TERMS` と一致することは
+ *   tests/unit/domain/oyakagi-pin-length-ssot.test.ts が機械検証する (drift 不可)。
+ *
+ * @returns {Record<string, string>} `{ digitRange }`
+ */
+function buildOyakagiTerms() {
+	const src = fs.readFileSync(OYAKAGI_TS, 'utf-8');
+	const m = src.match(/export const PIN_LENGTH\s*=\s*(\d+)/);
+	if (!m || m[1] === undefined) {
+		throw new Error('PIN_LENGTH not parseable in constants/oyakagi.ts');
+	}
+	// terms.ts 側 `digitRange: \`${PIN_LENGTH}桁\`` と同じ整形規則。差異は上記 test が検出する。
+	return { digitRange: `${Number(m[1])}桁` };
+}
+
+/**
  * LP 用 namespace 名 ↔ 戻り値 key の対応表。
  *
  * #1917 のリファクタで parseLabelsTs() の cognitive complexity を 27 → 安全圏に下げるため、
@@ -539,6 +564,9 @@ function parseAllNamespacesResolved() {
 		// #4533: 同上 (値 SSOT = plan-price.ts)。金額由来の key だけを上書きし、
 		// literal のままの key (free / taxNote / monthlyPrefix / fromSuffix) は parse 結果を残す。
 		PRICE_TERMS: { ...(termsNamespaces.PRICE_TERMS ?? {}), ...buildPriceTerms() },
+		// #4661: 同上 (値 SSOT = constants/oyakagi.ts の PIN_LENGTH)。桁数由来の key だけを
+		// 上書きし、literal のままの key (name / shortName) は parse 結果を残す。
+		OYAKAGI_TERMS: { ...(termsNamespaces.OYAKAGI_TERMS ?? {}), ...buildOyakagiTerms() },
 		AGE_TIER_LABELS: ageTierLabels,
 		AGE_TIER_SHORT_LABELS: ageTierShort,
 		PLAN_LABELS: planLabels,
@@ -964,6 +992,7 @@ if (invokedAsCli) {
 // 状態を通してしまう。
 export {
 	buildDeletionGraceTerms,
+	buildOyakagiTerms,
 	buildPlanRetentionTerms,
 	buildPriceTerms,
 	isTemplateLiteral,

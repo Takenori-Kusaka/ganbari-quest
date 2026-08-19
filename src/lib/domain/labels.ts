@@ -2002,7 +2002,9 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-intro': {
 				title: 'このページについて',
 				what: `${ADMIN_VIEW_TERMS.canonical}の各種設定をまとめたページです。アクセスを守る${OYAKAGI_TERMS.shortName}、ポイントの表示単位、データのバックアップなどをここから設定します。`,
-				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
+				// #4661: 「お子さまの年齢モード / お名前 / 追加」を探して設定に来る保護者が多いが、
+				// hub の 7 カードに子供設定は無く、ガイドにも橋渡しが無かった (relatedLinks 0 件)。
+				how: `設定したい項目のカードを選んで、その中の設定画面に進みます。お子さまごとの設定 (お名前・年齢モード・お子さまの追加) はこのページには無く、メニューの「${NAV_ITEM_LABELS.children}」から行います。`,
 				goal: `必要な設定にすぐたどり着けるので、${OYAKAGI_TERMS.shortName}の変更やバックアップなどの「念のための備え」を迷わず行えます。`,
 			},
 			// #3954: hub のカードが 6→7 枚になったため、件数と「上から順に」の並びを実装に合わせる。
@@ -2012,15 +2014,23 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-hub': {
 				title: '画面の見方（7つの設定グループ）',
 				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート・アプリ情報 — 感想・要望や規約\n7. プラン・課金 — 契約と支払い（別ページに移動します）`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
+				tips: [
+					// #4661 F4: 支払いの確認が取れていない間だけ、カード群の上に赤いお知らせが出る。
+					'お支払いの確認が取れていないときは、カードの上に赤いお知らせが出ます。その中のボタンからプラン・お支払いの画面に進めます',
+				],
 			},
 			'settings-account': {
 				title: 'よく使う操作と詳しいガイド',
-				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（4桁の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
+				// #4661 M1: 桁数は実装が受け付ける範囲 (OYAKAGI_TERMS.digitRange) を正とする。
+				// 以前は「4桁の数字」と断定しており、入力ラベルの「4〜8桁」と食い違っていた。
+				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 				how: '1. 目的のカードをタップして開きます\n2. 各ページの「?」を押すと、そのページ専用の詳しい操作ガイドが見られます',
 				goal: 'よく使う操作にすぐ進め、各ページのガイドで迷わず設定できます。',
-				tips: [`${OYAKAGI_TERMS.shortName}の初期値やポイント表示は各カードの中で変更できます`],
+				// #4661 M2: 変えられるのは「今の おやカギコード」。初期値 (DEFAULT_PIN) は定数で変更対象ではない。
+				tips: [`${OYAKAGI_TERMS.name}の変更やポイント表示は各カードの中で行えます`],
+				relatedLinks: [{ label: NAV_ITEM_LABELS.children, href: '/admin/children' }],
 			},
 		},
 	},
@@ -2040,7 +2050,8 @@ export const PAGE_GUIDE_LABELS = {
 			},
 			'settings-account-pin': {
 				title: `画面の見方（${OYAKAGI_TERMS.shortName}）`,
-				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの4桁の数字です。このカードから変更できます。`,
+				// #4661: 桁数は OYAKAGI_TERMS.digitRange (実装の受付範囲) を引く。「4桁」断定は誤り。
+				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの${OYAKAGI_TERMS.digitRange}の数字です。このカードから変更できます。`,
 				how: '1. 現在のコードを入力します\n2. 新しいコードを入力します',
 				goal: '今のおやカギと、変更する場所がひと目で分かります。',
 			},
@@ -2659,12 +2670,17 @@ export const OYAKAGI_LABELS = {
 	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
 	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
 	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
-	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	inputLabel: `${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	// #4661: 変更フォームの 3 入力欄。以前は account/+page.svelte に「（4〜8桁）」を
+	// 直書きしており、`formatError` の「4〜6桁」と同一画面で矛盾していた。
+	currentInputLabel: `現在の${OYAKAGI_TERMS.name}`,
+	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
 	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
 	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
 	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
-	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	formatError: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
@@ -2685,7 +2701,7 @@ export const OYAKAGI_LABELS = {
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
 	gateLockedUntilNotice: (timeStr: string) =>
 		`${OYAKAGI_TERMS.name}の入力に連続して失敗しました。${timeStr} まで待ってから再度お試しください`,
-	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
 	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
@@ -2700,7 +2716,7 @@ export const OYAKAGI_LABELS = {
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
 	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
-	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
 	gateCreateConfirmTitle: `もう一度入力してください`,
 	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
 	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
@@ -2732,7 +2748,7 @@ export const PIN_RESET_LABELS = {
 	resetFederatedCodeLabel: '確認コード（6桁の数字）',
 	resetFederatedResendButton: 'コードを再送する',
 	// エラー文言
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
@@ -2742,7 +2758,7 @@ export const PIN_RESET_LABELS = {
 	// エラー文言
 	errorInvalidPassword: 'パスワードが正しくありません',
 	errorPasswordRequired: 'パスワードを入力してください',
-	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorPinFormat: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
 	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
@@ -2780,7 +2796,7 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
-	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -3223,7 +3239,10 @@ export const SETTINGS_LABELS = {
 	hubTitle: '設定',
 	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
-	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
+	// #4661: 「おやかぎコード」ひらがな直書きは同一画面のガイド表記 (おやカギコード) と
+	// 揺れていたため atom 参照にする。3 つ目はカード内の見出し (accountDeleteSectionTitle)
+	// と同じ「アカウント削除」に揃える (CANCEL_TERMS.account「退会」はサブスク文脈の語)。
+	groupAccountDesc: `${OYAKAGI_TERMS.name}変更・ログアウト・アカウント削除`,
 	groupActivitiesTitle: '活動・ポイント',
 	groupActivitiesDesc: 'ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ',
 	groupNotificationsTitle: '通知',

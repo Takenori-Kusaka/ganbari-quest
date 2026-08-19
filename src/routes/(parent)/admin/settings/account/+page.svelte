@@ -282,15 +282,17 @@ const canConfirmDelete = $derived(
 			class="flex flex-col gap-4"
 		>
 			<FormField
-				label={`現在の${OYAKAGI_LABELS.name}`}
+				label={OYAKAGI_LABELS.currentInputLabel}
 				type="password"
 				id="currentPin"
 				name="currentPin"
 				required
 			/>
 
+			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= PIN_MIN_LENGTH〜PIN_MAX_LENGTH) 由来。
+			     直書きしていた頃はエラー文の「4〜6桁」と同じ画面で矛盾していた。 -->
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}
+				label={OYAKAGI_LABELS.newInputLabel}
 				type="password"
 				id="newPin"
 				name="newPin"
@@ -298,7 +300,7 @@ const canConfirmDelete = $derived(
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（確認）`}
+				label={OYAKAGI_LABELS.confirmInputLabel}
 				type="password"
 				id="confirmPin"
 				name="confirmPin"

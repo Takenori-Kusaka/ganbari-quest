@@ -2,6 +2,7 @@
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
@@ -377,13 +378,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 					: OYAKAGI_LABELS.gateCreateConfirmDescription}
 			</p>
 			{#key pinInputKey}
-				<PinInput length={4} mask autoFocus onComplete={handleCreateComplete} />
+				<!-- #4661: 桁数は PIN_LENGTH (設定 > アカウントの変更フォーム / API と同一 SSOT) -->
+				<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handleCreateComplete} />
 			{/key}
 		</div>
 	{:else}
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
 		{#key pinInputKey}
-			<PinInput length={4} mask autoFocus onComplete={handlePinComplete} />
+			<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handlePinComplete} />
 		{/key}
 	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->
