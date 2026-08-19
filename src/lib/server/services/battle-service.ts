@@ -7,6 +7,7 @@ import { executeBattle, scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
 import { jstDayOfWeek, todayDateJST } from '$lib/domain/date-utils';
+import { insertPointLedger } from '$lib/server/db/activity-repo';
 import {
 	completeBattle,
 	countConsecutiveLosses,
@@ -24,6 +25,13 @@ import type {
 // ============================================================
 // 型定義
 // ============================================================
+
+/**
+ * #4681: バトル報酬の point_ledger type。勝利 = enemy.dropPoints / 敗北 = enemy.consolationPoints を
+ * 本 type で台帳に計上する (設計書 26 §4c「副次ポイントが付与される」)。
+ * referenceId = battleId で (child, type, reference) 冪等 unique (#3284) が二重付与を物理拒否する。
+ */
+export const BATTLE_LEDGER_TYPE = 'battle';
 
 export interface TodayBattleInfo {
 	/** バトル ID（DB レコード） */
@@ -173,6 +181,22 @@ export async function executeDailyBattle(
 		battleResult.totalTurns,
 		tenantId,
 	);
+
+	// #4681: 画面「+N ポイント」と残高を一致させる。daily_battles.reward_points は結果表示用の
+	// snapshot であり、残高の正は point_ledger (SUM / total_point) なので台帳に計上しなければ
+	// 「表示されるが一度も加算されない」になる。付与額は rewardPoints そのもの (別計算を持たない)。
+	if (rewardPoints > 0) {
+		await insertPointLedger(
+			{
+				childId,
+				amount: rewardPoints,
+				type: BATTLE_LEDGER_TYPE,
+				description: `[${today}] バトル${battleResult.outcome === 'win' ? 'しょうり' : 'なぐさめ'} ${enemy.name}`,
+				referenceId: battle.id,
+			},
+			tenantId,
+		);
+	}
 
 	// 勝利時は図鑑に記録
 	if (battleResult.outcome === 'win') {

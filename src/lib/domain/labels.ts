@@ -7982,6 +7982,8 @@ export const FEATURES_LABELS = {
 		tabChallenge: 'チャレンジ',
 		tabHistoryYoung: 'きろく',
 		tabHistoryOlder: '記録',
+		// #4681: バトル入口 (elementary / junior / senior のみ。LP「ボスバトル」訴求の到達経路)
+		tabBattle: 'バトル',
 	},
 
 	// ---- features/challenge/ ----
