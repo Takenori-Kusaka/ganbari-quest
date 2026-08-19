@@ -207,14 +207,37 @@ async function assertSelectorStepSpotlightsRealElement(
 	expect(targetId, `${ctx}: (d) 対象が driver.js の 0×0 placeholder ではない`).not.toBe(
 		'driver-dummy-element',
 	);
-	const box = await target.boundingBox();
+	// driver.js の smoothScroll は非同期に走るため、対象が viewport に入るまで rAF で待ってから
+	// 判定する (待たずに測ると scroll 途中の座標を掴み、真の不具合と区別できない)。待つのは収束まで
+	// であって、収束後の条件は下で hard assert する (assertion の緩和ではない)。
+	const readGeometry = async () => ({
+		box: await target.boundingBox(),
+		vp: await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+	});
+	const isVisible = (b: Box | null, v: { width: number; height: number }): boolean =>
+		b !== null &&
+		b.width > 0 &&
+		b.height > 0 &&
+		b.x < v.width &&
+		b.x + b.width > 0 &&
+		b.y < v.height &&
+		b.y + b.height > 0;
+	let { box, vp } = await readGeometry();
+	for (let i = 0; i < 40 && !isVisible(box, vp); i++) {
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+				),
+		);
+		({ box, vp } = await readGeometry());
+	}
 	expect(box, `${ctx}: (d) 対象要素の bounding box が取得できる`).not.toBeNull();
 	if (!box) return;
 	expect(
 		box.width > 0 && box.height > 0,
 		`${ctx}: (d) 対象要素が 0×0 ではない (display:none 等で光らない状態を検出)`,
 	).toBe(true);
-	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
 	const intersects =
 		box.x < vp.width && box.x + box.width > 0 && box.y < vp.height && box.y + box.height > 0;
 	expect(intersects, `${ctx}: (d) 対象要素が viewport と交差する (画面外だけを光らせない)`).toBe(
