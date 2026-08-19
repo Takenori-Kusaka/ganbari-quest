@@ -7386,7 +7386,12 @@ export const CHILD_SHOP_LABELS = {
 	// #2155 Dialog UX 改善: 階層化表示用ラベル
 	exchangeConfirmHeading: 'こうかんしますか？',
 	exchangeConfirmPointsLabel: 'ひつようなポイント',
-	exchangeConfirmDescription: 'おうちのひとにれんらくがいくよ',
+	// #4684 F1/F2: 確認ダイアログの説明は「実際に起きること」を言う。
+	//   - 即時交換 ON (reward_auto_approve): その場で approved 確定 = ポイントがすぐ減る。
+	//   - 承認モード: 申請だけが作られる。push / メール通知の経路は無く、親が /admin を
+	//     開いたときに承認待ちバナーで気づく。よって「れんらくがいく」とは言わない。
+	exchangeConfirmDescriptionInstant: 'すぐに こうかんするよ（ポイントが へるよ）',
+	exchangeConfirmDescriptionApproval: 'おうちのひとが みたら へんじがくるよ',
 	exchangeDialogAriaLabel: 'ごほうび交換確認ダイアログ',
 	// #2157 ショップ 3 系統タブ (実物 / お小遣い / 特権、26-設計書 §12 + #1336 SSOT 反映)
 	// shopCategory key (physical / money / privilege) → 表示ラベル
@@ -7428,8 +7433,10 @@ export const CHILD_SHOP_LABELS = {
 	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
 		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ のこり ${balance} ポイント`,
 	exchangeRequestedToastTitle: 'おうちのひとに おねがいしたよ',
+	// #4684 F2: 「へんじを まってね」は待てば通知が来ると読める。実際は親が /admin を開いた
+	// ときの承認待ちバナーだけなので、子供が待ちっぱなしにならない言い方にする。
 	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
-		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ へんじを まってね`,
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ おうちのひとが みたら へんじがくるよ`,
 	// #4407 AC10: 交換申請が通らなかったときの文言 (状態に合わせて分ける)
 	errorInsufficientPoints: 'ポイントが たりないよ',
 	errorAlreadyPending: 'いま おうちのひとの へんじを まっているよ',
