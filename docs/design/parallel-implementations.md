@@ -197,6 +197,21 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 6.4a セッションの user 識別子 2 種 (IdP の sub / アプリ DB の users.user_id) (#4643)
+
+同じ「userId」という名前で **別物**が 2 つ流れる。片方を他方の場所に渡しても例外にならず、行が見つからないだけで静かに壊れるため、触るときは必ず対で確認する。
+
+| 場所 | 内容 |
+|------|------|
+| `Identity.userId` (`src/lib/server/auth/types.ts`) | **IdP (Cognito) の sub**。同じメールでも通常ログインと Google 連携で別値になる |
+| `AuthContext.userId` (同上) | **アプリ DB の `users.user_id`** (DB 生成 UUID)。memberships / invites / children / consents が参照するのはこちら |
+| `CognitoAuthProvider.resolveMembership` | sub → アプリ user の**唯一の解決点** (email 経由。`users` は `email_lower` UNIQUE で 1 メール = 1 行) |
+| `src/lib/server/auth/context-token.ts` | `userId` を context token に載せる。旧 token (userId 無し) は採用せず発行し直す |
+| `requireAppUserId` (`src/lib/server/auth/guards.ts`) | route から `users.user_id` を取る唯一の入口 |
+| `tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts` | `src/routes` / `src/lib/server` の `identity.userId` 参照を検出する fitness function (log 用途のみ allowlist) |
+| `infra/lib/auth-stack.ts` Google IdP `attributeMapping` | `email` + `email_verified` を写す。写さないと federated ユーザーの `email_verified` が false 固定になり、email 束縛招待が Google だけ常に拒否される |
+| `normalizeEmailVerified` (`providers/cognito-jwt.ts`) | claim が boolean / 文字列どちらで載っても同じ判定にする |
+
 #### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware + reset + onboarding) (EPIC #2310 / #2353)
 
 | 場所 | 内容 |

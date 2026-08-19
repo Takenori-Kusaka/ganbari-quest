@@ -250,6 +250,7 @@ export const actions: Actions = {
 		}
 
 		const tenantId = context.tenantId;
+		const consentUserId = context.userId ?? '';
 
 		// #4192: 新規登録の Discord 通知は**持たないと決めた** (#4174 Q2)。サインアップは嬉しいが
 		// 見ても何もしない通知で、増やすと incident が埋もれる。実数は GitHub / DB で足りる。
@@ -259,7 +260,8 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const ua = request.headers.get('user-agent') ?? '';
 		try {
-			await recordConsent(tenantId, claims.sub, ['terms', 'privacy'], ip, ua);
+			// #4643: consents.user_id は users.user_id。claims.sub (IdP の sub) は別物
+			await recordConsent(tenantId, consentUserId, ['terms', 'privacy'], ip, ua);
 			logger.info('[SIGNUP] Consent recorded at signup', {
 				context: { tenantId, userId: claims.sub },
 			});

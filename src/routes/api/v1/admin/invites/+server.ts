@@ -6,6 +6,7 @@ import { error, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { OWNER_GATE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { createInviteSchema } from '$lib/domain/validation/auth';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
@@ -41,7 +42,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!identity || identity.type !== 'cognito') {
 		error(401, 'Unauthorized');
 	}
-	const userId = identity.userId;
+	// #4643: invites.invited_by は users.user_id。IdP の sub を入れていたため、受諾側の
+	// 自己招待 guard (invite.invitedBy === userId) が一度も成立していなかった。
+	const userId = requireAppUserId(locals);
 
 	const body = await request.json();
 	const parsed = createInviteSchema.safeParse(body);

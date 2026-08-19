@@ -3,6 +3,7 @@
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
@@ -24,6 +25,10 @@ export const POST: RequestHandler = async ({ locals }) => {
 		);
 	}
 
+	// #4643: memberships.user_id はアプリ DB の users.user_id。identity.userId (IdP の sub) を
+	// 渡していたため DELETE が 0 件になり、「離脱しました」と返しながら実際は残っていた。
+	const userId = requireAppUserId(locals);
+
 	const repos = getRepos();
 
 	// テナントの全メンバーを確認
@@ -36,10 +41,10 @@ export const POST: RequestHandler = async ({ locals }) => {
 	}
 
 	// メンバーシップ削除
-	await repos.auth.deleteMembership(identity.userId, tenantId);
+	await repos.auth.deleteMembership(userId, tenantId);
 
 	logger.info('[members] 自主離脱', {
-		context: { tenantId, userId: identity.userId, role: context.role },
+		context: { tenantId, userId, role: context.role },
 	});
 
 	return json({ success: true });

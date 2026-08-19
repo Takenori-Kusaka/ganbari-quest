@@ -140,12 +140,25 @@ const ACCEPT_INVITE_FAILURE_ERRORS: Record<AcceptInviteFailure, string> = {
  */
 export async function previewInviteAcceptance(
 	inviteCode: string,
-	userId: string,
+	userId: string | null,
 	userEmail?: string,
 	opts?: { emailVerified?: boolean },
 ): Promise<string | null> {
 	const invite = await getInvite(inviteCode);
 	if (!invite) return 'INVALID_OR_EXPIRED';
+
+	// #4643: users 行がまだ無い人 (null) は、自己招待にも「既に別グループ所属」にも当たり得ない。
+	// IdP の sub を users.user_id の代わりに渡すと、存在しない id での問い合わせになる
+	// (uuid 列では型エラーにもなる)。所有者依存の判定を飛ばして束縛判定だけを行う。
+	if (userId === null) {
+		if (invite.email) {
+			const bindingError = checkInviteEmailBinding(invite.email, userEmail, opts?.emailVerified);
+			if (bindingError) return bindingError;
+		}
+		const tenant = await repos().auth.findTenantById(invite.tenantId);
+		return !tenant || !isEntitledStatus(tenant.status) ? 'TENANT_NOT_FOUND' : null;
+	}
+
 	return preflightAcceptInvite(invite, userId, userEmail, opts?.emailVerified);
 }
 

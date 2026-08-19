@@ -4,7 +4,6 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
 import { INVITE_COOKIE_MAX_AGE_SECONDS, INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
-import { getRepos } from '$lib/server/db/factory';
 import { getInvite } from '$lib/server/services/invite-service';
 import type { PageServerLoad } from './$types';
 
@@ -39,8 +38,10 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 				sessionActive: true,
 			};
 		}
-		const existingTenants = await getRepos().auth.findUserTenants(locals.identity.userId);
-		if (existingTenants.length > 0) {
+		// #4643: 所属の有無は解決済の context で判定する。旧実装は IdP の sub で
+		// findUserTenants を引いており、所属済でも必ず 0 件になって「別グループ所属」の
+		// 警告が一度も出ず、そのまま招待 Cookie を積んでいた。
+		if (locals.context) {
 			// 既にテナント所属 → 招待 Cookie を保存せず警告表示
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
 			// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に

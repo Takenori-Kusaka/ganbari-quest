@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
+		scope: 'repo',
+		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
+	},
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
