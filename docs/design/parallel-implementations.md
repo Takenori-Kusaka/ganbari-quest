@@ -213,7 +213,9 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/server/services/pin-operator-reset.ts` (#2994) | operator-level reset (`PARENT_PIN_RESET` env、冪等、local 専用)。hooks.server.ts が初回リクエストで評価 |
 | `docs/runbooks/operator-pin-reset.md` (#2994) | 形態別 reset 手順 SSOT (docker / PaaS / sqlite3 / DynamoDB + unset 手順) |
 | `src/lib/domain/labels.ts` `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
-| `src/lib/domain/terms.ts` `OYAKAGI_TERMS` / `PIN_DEFAULT_TERMS` (#2353) | atom (おやカギコード / 初期値 5086 ヒント) |
+| `src/lib/domain/terms.ts` `OYAKAGI_TERMS` (#2353 / #4698) | atom (おやカギコード / 桁数 `digits` = `PIN_LENGTH` 由来) |
+| `src/lib/domain/constants/oyakagi.ts` `PIN_LENGTH` / `PIN_PATTERN` / `isValidPinFormat` (#4661 / #4698) | 桁数と形式の SSOT。ゲート UI / 全 PIN API / 設定画面 action / reset-pin / ラベル (`OYAKAGI_TERMS.digitRange`) が import (直書きは `oyakagi-pin-length-ssot.test.ts` + `pin-length-ssot-fitness.test.ts` が検出) |
+| `src/lib/domain/constants/pin-reset-otp.ts` `PIN_RESET_OTP_LENGTH` / `PIN_RESET_OTP_PATTERN` (#4661) | 再設定メールの確認コード (6 桁) SSOT。**おやカギ本体の桁数とは別概念**なので混ぜない |
 | `src/routes/(child)/+layout.server.ts` `loadPinGateOnboardingSeen` (#2353) | onboarding dialog 表示要否 (settings.pin_gate_onboarding_seen) |
 | `src/routes/(child)/+layout.svelte` (#2353) | PIN gate 初心者導線 dialog (baby モード除外) |
 | `src/routes/api/v1/settings/pin-gate-onboarding/+server.ts` (#2353) | onboarding 既読 persist endpoint |
@@ -225,7 +227,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 新規 PO 系 endpoint で「子供モード切替時 cookie 破棄」相当ロジックが必要になった場合は `/api/v1/parent-gate/logout` を呼ぶ
 - PIN reset 方式 (cognito=パスワード再入力 / local=operator reset) の変更は 14-セキュリティ設計書.md §4.3b〜4.4 + 06-UI設計書.md §4.6.2 + `runbooks/operator-pin-reset.md` + ADR-0050 §7 と同期
 - onboarding dialog 文言変更は `PIN_GATE_ONBOARDING_LABELS` SSOT 経由 (Svelte 直書き禁止)
-- PIN 初期値 5086 ヒント (`OYAKAGI_LABELS.defaultValueHint`) は `/admin/settings/account` PIN 変更画面でのみ表示 (legacy local `changePin` の現コード照合文脈)。setup 完了画面 / onboarding dialog は初回作成フロー案内 (#2992、`pinHintSuffix` / `dialogPinHint`)、`/switch` PIN gate modal は非表示 (#2353 設計欠陥 5)。SSOT: 14-セキュリティ設計書.md §4.3「初期 PIN ヒント表示ポリシー」
+- PIN の桁数を変える場合は `PIN_LENGTH` (`constants/oyakagi.ts`) 1 箇所のみ変更し、ゲート UI / API / 設定画面 / ラベルに桁数リテラルを書かない (#4698、fitness function が検出)
+- 既定値 5086 の案内は顧客可視 UI のどこにも出さない (#4698、`DEFAULT_PIN` は legacy local 照合専用)。setup 完了画面 / onboarding dialog は初回作成フロー案内 (#2992、`pinHintSuffix` / `dialogPinHint`)、設定画面は桁数 + 忘れた場合の導線 (`forgotHint`)、`/switch` PIN gate modal はヒント無し (#2353 設計欠陥 5)。SSOT: 14-セキュリティ設計書.md §4.3「おやカギコードの桁数 SSOT」「初期 PIN ヒント表示ポリシー」
 
 ---
 

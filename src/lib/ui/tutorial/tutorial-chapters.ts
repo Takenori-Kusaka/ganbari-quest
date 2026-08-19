@@ -236,7 +236,8 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 8,
 				selector: '[data-tutorial="pin-settings"]',
 				title: OYAKAGI_LABELS.sectionTitle,
-				description: `${L.steps['settings-2'].description}${OYAKAGI_LABELS.name}${L.steps['settings-2'].descriptionSuffix}${OYAKAGI_LABELS.defaultValueHint}。`,
+				// #4698: 旧「初期値は 5086」注記は誤案内 (初回は新規作成フロー) のため撤去
+				description: `${L.steps['settings-2'].description}${OYAKAGI_LABELS.name}${L.steps['settings-2'].descriptionSuffix}`,
 				position: 'bottom',
 				page: '/admin/settings',
 			},

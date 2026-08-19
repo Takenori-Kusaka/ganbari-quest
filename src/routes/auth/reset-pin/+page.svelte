@@ -5,7 +5,7 @@
 //   - password ユーザ: アカウントパスワード + 新 PIN を 1 画面で送信 (#2993)
 //   - federated (Google) ユーザ: ①「確認コードを送る」→ ②メールの 6 桁コード + 新 PIN を送信 (#3070)
 // /api/v1/parent-gate/reset-verified が re-auth → setupPin → parent session 発行まで行う。
-import { PIN_LENGTH, PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+import { isValidPinFormat, PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { PIN_RESET_OTP_LENGTH, PIN_RESET_OTP_PATTERN } from '$lib/domain/constants/pin-reset-otp';
 import { APP_LABELS, PIN_RESET_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -86,8 +86,8 @@ async function submitReset() {
 		errorMessage = PIN_RESET_LABELS.errorPasswordRequired;
 		return;
 	}
-	// #4661: 桁数は constants/oyakagi.ts の PIN_PATTERN が SSOT (server /reset-verified と同一)。
-	if (!PIN_PATTERN.test(newPin)) {
+	// #4661 / #4698: 桁数は constants/oyakagi.ts の isValidPinFormat が SSOT (server /reset-verified と同一)。
+	if (!isValidPinFormat(newPin)) {
 		errorMessage = PIN_RESET_LABELS.errorPinFormat;
 		return;
 	}
