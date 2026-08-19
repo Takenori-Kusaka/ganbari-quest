@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
@@ -33,12 +34,13 @@ export type { PlanTier };
 
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
-		maxChildren: 2,
-		maxActivities: 3,
+		// 値の SSOT は domain/constants/plan-quota.ts (ページガイドの上限表示も同じ定数から引く、#4655)
+		maxChildren: FREE_PLAN_QUOTA.maxChildren,
+		maxActivities: FREE_PLAN_QUOTA.maxActivities,
 		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
 		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
 		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
-		maxChecklistTemplates: 3,
+		maxChecklistTemplates: FREE_PLAN_QUOTA.maxChecklistTemplates,
 		// #1111: フリープランは招待不可（owner のみ）
 		maxFamilyMembers: 1,
 		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)

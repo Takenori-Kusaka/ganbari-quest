@@ -1153,6 +1153,54 @@ export const OVERFLOW_MENU_TERMS = {
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
 	itemHelpIcon: CONCEPT_ICONS.help,
+	/** 活動管理 ︙ の全削除 item (#4655) */
+	itemClearAll: 'すべて削除',
+} as const;
+
+// ============================================================
+// ADD_MENU_TERMS — admin リソース管理画面 header「+ 追加」dropdown の item 名 atom (#4655)
+// ============================================================
+//
+// DESIGN.md §10「admin リソース管理ページの add 経路は同型に揃える」: 活動 / チェックリスト /
+// ごほうび の 3 画面は先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一名称・
+// 同一順序で出す。以前は 3 画面の labels compound にそれぞれ同じ文字列が直書きされ、ページガイド
+// (PAGE_GUIDE_LABELS) からは labels.ts 定義順の都合で参照できなかった。本 atom を描画側とガイド側の
+// 双方が参照することで「ガイドが案内するボタン名 = 画面のボタン名」を構造的に保つ。
+export const ADD_MENU_TERMS = {
+	/** dropdown trigger */
+	trigger: '+ 追加',
+	/** 先頭 3 経路 (3 画面共通、同一順序) */
+	manual: '手動で1つ追加',
+	ai: 'AI で提案してもらう',
+	browse: `${TEMPLATE_TERMS.userFacing}から探す`,
+	/** 活動管理固有 (兄弟共通化) */
+	copyFromChild: `別の${CHILD_TERMS.honorific}からコピー`,
+	bulk: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+} as const;
+
+// ============================================================
+// ACTIVITY_ADMIN_TERMS — 活動管理 (/admin/activities) 画面の操作ボタン名 atom (#4655)
+// ============================================================
+//
+// 一覧カード (ActivityListItem) / 非表示の活動 (HiddenActivitiesSection) / 追加フォーム /
+// 検索欄 に出るボタン名・見出し。描画側 (FEATURES_LABELS / ADMIN_ACTIVITIES_PAGE_LABELS) と
+// ページガイド (PAGE_GUIDE_LABELS.adminActivities) の双方が参照する。
+export const ACTIVITY_ADMIN_TERMS = {
+	/** 追加フォームの送信ボタン接尾辞 (「〇〇 を追加する」) */
+	submitSuffix: ' を追加する',
+	/** 検索欄ラベル */
+	search: '活動を検索',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	visible: '表示',
+	hidden: '非表示',
+	mainQuestEnable: '⚔️設定',
+	mainQuestDisable: '⚔️解除',
+	delete: '削除',
+	/** 非表示の活動セクション */
+	hiddenSection: '非表示の活動',
+	restore: '復活',
+	permanentDelete: '完全削除',
 } as const;
 
 // ============================================================

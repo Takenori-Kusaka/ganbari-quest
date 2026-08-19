@@ -3,8 +3,10 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+import { CATEGORIES } from './categories';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
+import { FREE_PLAN_QUOTA } from './constants/plan-quota';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
@@ -34,6 +36,8 @@ import { jstDayOfWeek } from './date-utils';
 //     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
 //     されているため、本 PR では import 不要
 import {
+	ACTIVITY_ADMIN_TERMS,
+	ADD_MENU_TERMS,
 	ADMIN_HOME_TERMS,
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
@@ -1563,30 +1567,62 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4655: /admin/activities のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブ → フィルタと検索 →
+	// 一覧カード → 非表示の活動) の順に主要操作を網羅し、ボタン名 / カテゴリ名 / 上限は描画側と同じ atom
+	// (ADD_MENU_TERMS / OVERFLOW_MENU_TERMS / ACTIVITY_ADMIN_TERMS / CATEGORIES / FREE_PLAN_QUOTA) を参照する。
+	// お子さまタブ (0 人で非表示) と 非表示の活動 (0 件で非表示) は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminActivities: {
-		title: '活動管理',
+		title: NAV_ITEM_LABELS.activities,
 		steps: {
 			'activities-intro': {
 				title: 'このページについて',
 				what: 'お子さまが記録する「活動」を管理するページです。習い事・お手伝い・家庭ルールなど、ご家庭オリジナルのがんばりをポイント化できます。',
-				how: '初期登録の活動に加えて、独自の活動を追加・編集できます。設定した活動はお子さまの画面にカードとして並びます。',
+				how: `上から順に、右上の「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → カテゴリのフィルタと検索 → 活動の一覧（その下に${ACTIVITY_ADMIN_TERMS.hiddenSection}）と並びます。設定した活動はお子さまの画面にカードとして並びます。`,
 				goal: 'お子さまがタップして記録するたびにポイントが貯まり、「今月ピアノを何回練習したか」までレポートで見えるようになります。',
 			},
-			'activities-filter': {
-				title: '画面の見方（カテゴリで絞り込み）',
-				what: '活動は5つのカテゴリ（うんどう・べんきょう・せいかつ・おてつだい・そうぞう）に分かれています。上部のフィルターで表示を絞り込めます。',
-				how: '1. カテゴリボタンをタップして絞り込みます\n2. もう一度タップすると解除されます',
-				goal: '活動が増えても「うんどう系だけ表示」のように、目的の活動を素早く見つけられます。',
-			},
 			'activities-add': {
-				title: 'よく使う操作（活動の追加）',
-				what: '最もよく使うのが活動の追加です。「＋ 追加」メニューから手動作成・AI 提案・みんなのテンプレートからの取り込みを選べます。',
-				how: '1. 「＋ 追加」ボタンをタップ\n2. 追加方法を選びます\n3. 活動名・カテゴリ・アイコン・ポイント・1日の上限回数を設定\n4. 「保存」をタップ',
-				goal: 'お子さまの画面に新しい活動カードが表示され、記録するとポイントが貯まり、月次レポートにも反映されます。',
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} / ${ADD_MENU_TERMS.copyFromChild}（お子さまが 2 人以上のとき）/ ${ADD_MENU_TERMS.bulk} から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. 追加のしかたを選ぶ\n3. 「${ADD_MENU_TERMS.manual}」では活動名・カテゴリ・アイコン・ポイント・1日の上限回数を入力\n4. フォーム下の「〇〇${ACTIVITY_ADMIN_TERMS.submitSuffix}」を押す`,
+				goal: '選んでいるお子さまの画面に新しい活動カードが表示され、記録するとポイントが貯まり、月次レポートにも反映されます。',
 				tips: [
-					'ポイントは初期活動とのバランスを見て設定しましょう（高すぎるとインフレします）',
-					'1日上限回数を設定すると、連打によるスパムを防げます',
+					`${PLAN_FULL_TERMS.free}では自分で追加できる活動は ${FREE_PLAN_QUOTA.maxActivities} 件までです（上限に達すると「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					PLAN_GATE_LABELS.familyOnlyFor(`「${ADD_MENU_TERMS.ai}」`),
+					'ポイントは初期活動とのバランスを見て設定しましょう（高すぎるとインフレします）。1日上限回数を設定すると連打を防げます',
 				],
+			},
+			'activities-overflow': {
+				title: '画面の見方（︙ メニュー）',
+				what: `右端の「︙」には ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} / ${OVERFLOW_MENU_TERMS.itemClearAll} が入っています。`,
+				how: `1. 「︙」を押す\n2. 「${OVERFLOW_MENU_TERMS.itemExport}」で活動をファイルに保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: '機種変更や設定し直しのときも、活動の設定をまるごと持ち運べます。',
+				tips: [
+					`「${OVERFLOW_MENU_TERMS.itemClearAll}」は確認のうえ全活動を消します。やり直したいときだけ使います`,
+				],
+			},
+			'activities-child-tabs': {
+				title: '画面の見方（お子さまのタブ）',
+				what: '活動はお子さまごとに持ちます。タブで選んだお子さまの活動だけが下に表示され、追加もそのお子さまに入ります。カッコ内はその子の活動数です。',
+				how: `1. 表示したいお子さまのタブを押す\n2. 兄弟に同じ活動を入れたいときは「${ADD_MENU_TERMS.trigger}」の「${ADD_MENU_TERMS.copyFromChild}」または「${ADD_MENU_TERMS.bulk}」を使う`,
+				goal: '兄弟それぞれの年齢や興味に合わせて活動を分けつつ、共通の活動はまとめて入れられます。',
+			},
+			'activities-filter': {
+				title: '画面の見方（カテゴリのフィルタと検索）',
+				what: `活動は ${CATEGORIES.undou.name}・${CATEGORIES.benkyou.name}・${CATEGORIES.seikatsu.name}・${CATEGORIES.kouryuu.name}・${CATEGORIES.souzou.name} の 5 カテゴリに分かれています。一覧の上のボタンで表示を絞り込み、その下の「${ACTIVITY_ADMIN_TERMS.search}」で名前からも探せます。`,
+				how: `1. カテゴリのボタンを押して絞り込む\n2. 「${UI_LABELS.all}」を押すと絞り込みを解除する\n3. 「${ACTIVITY_ADMIN_TERMS.search}」に活動名の一部を入れると一覧が絞られる`,
+				goal: `活動が増えても「${CATEGORIES.undou.name}だけ表示」のように、目的の活動を素早く見つけられます。`,
+			},
+			'activities-list': {
+				title: '画面の見方（活動の一覧）',
+				what: `各カードに「${ACTIVITY_ADMIN_TERMS.edit}」「${ACTIVITY_ADMIN_TERMS.visible}／${ACTIVITY_ADMIN_TERMS.hidden}」「${ACTIVITY_ADMIN_TERMS.mainQuestEnable}」「${ACTIVITY_ADMIN_TERMS.delete}」のボタンがあります。${ADVENTURE_TERMS.mainQuest}にするとお子さまの画面で目立ち、ポイントが 2 倍になります（最大 3 件）。`,
+				how: `1. 「${ACTIVITY_ADMIN_TERMS.edit}」で名前やポイントを変える\n2. 「${ACTIVITY_ADMIN_TERMS.visible}」を押すと${ACTIVITY_ADMIN_TERMS.hidden}になり、お子さまの画面から消える（記録は残る）\n3. 「${ACTIVITY_ADMIN_TERMS.mainQuestEnable}」で${ADVENTURE_TERMS.mainQuest}にする（「${ACTIVITY_ADMIN_TERMS.mainQuestDisable}」で戻す）\n4. 「${ACTIVITY_ADMIN_TERMS.delete}」は確認のうえ活動を消す`,
+				goal: '季節やお子さまの成長に合わせて、活動を消さずに出し入れしながら、今がんばってほしいものを目立たせられます。',
+			},
+			'activities-hidden': {
+				title: `画面の見方（${ACTIVITY_ADMIN_TERMS.hiddenSection}）`,
+				what: `${ACTIVITY_ADMIN_TERMS.hidden}にした活動は一覧の下の「${ACTIVITY_ADMIN_TERMS.hiddenSection}」にまとまります。記録はそのまま残っています。`,
+				how: `1. 「${ACTIVITY_ADMIN_TERMS.hiddenSection}」を押して開く\n2. 「${ACTIVITY_ADMIN_TERMS.restore}」でお子さまの画面に戻す\n3. 「${ACTIVITY_ADMIN_TERMS.permanentDelete}」は記録ごと消す（元に戻せません）`,
+				goal: `「${ACTIVITY_ADMIN_TERMS.hidden}」と「${ACTIVITY_ADMIN_TERMS.delete}」の違いが分かり、夏だけの活動なども安心して休ませられます。`,
 			},
 		},
 	},
@@ -5455,7 +5491,7 @@ export const ACTIVITY_FORM_LABELS = {
 	triggerHintPlaceholder: '例: はみがきが終わったら押してね',
 	triggerHintHint: 'カードに小さく表示される声かけ文（30文字以内）',
 	createSubmitDefault: '活動',
-	createSubmitSuffix: ' を追加する',
+	createSubmitSuffix: ACTIVITY_ADMIN_TERMS.submitSuffix,
 	// Edit-specific
 	editNameLabel: '名前',
 	editIconLabel: 'アイコン',
@@ -5507,7 +5543,7 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
  */
 export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// #3097 (EPIC #3096): 検索ラベルを SSOT 化 (旧 inline hardcoded `活動名で検索` を labels へ移管)
-	searchLabel: '活動を検索',
+	searchLabel: ACTIVITY_ADMIN_TERMS.search,
 	searchPlaceholder: '🔍 活動名で検索...',
 	// 子供別タブ
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
@@ -5555,7 +5591,7 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// #2744 AC4 Delete UI (family scope): 一覧から活動を削除する確認 Dialog + 完了 Toast
 	// #2754 Fix Round 1 B2: undo 経路不在の business risk を文言で明示
 	// (ログ有 → 非表示で活動履歴は保全 / ログ無 → 物理削除でレコード復元不能)
-	deleteBtn: '削除',
+	deleteBtn: ACTIVITY_ADMIN_TERMS.delete,
 	deleteConfirmTitle: (name: string) => `${name} を削除しますか?`,
 	deleteConfirmBody:
 		'この操作は取り消せません。活動ログがある場合は「非表示」になり履歴は保全されますが、ログがない場合は完全に削除され復元できません。続行しますか?',
@@ -5659,13 +5695,13 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
 	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
-	addMenuButton: '+ 追加',
+	addMenuButton: ADD_MENU_TERMS.trigger,
 	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
-	addManualLabel: '手動で1つ追加',
+	addManualLabel: ADD_MENU_TERMS.manual,
 	addManualIcon: '✏️',
-	addAiLabel: 'AI で提案してもらう',
+	addAiLabel: ADD_MENU_TERMS.ai,
 	addAiIcon: '✨',
-	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 	addBrowseTemplatesIcon: '🔍',
 	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
 	addDialogTitleManual: '+ 手動でごほうびを追加',
@@ -6368,11 +6404,11 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	//   icon / 文言は activities header の add menu (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   両ページの add 経路構成 (種類・順序) が一致することを E2E で assert 可能にする (AC3 同型性固定)。
 	addMenuAriaLabel: 'チェックリストを追加するメニューを開く',
-	addManualLabel: '手動で1つ追加',
+	addManualLabel: ADD_MENU_TERMS.manual,
 	addManualIcon: '✏️',
-	addAiLabel: 'AI で提案してもらう',
+	addAiLabel: ADD_MENU_TERMS.ai,
 	addAiIcon: '✨',
-	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 	addBrowseTemplatesIcon: '🔍',
 	addOverrideMenuLabel: 'ワンオフ追加',
 	addOverrideMenuIcon: '📅',
@@ -8178,12 +8214,12 @@ export const FEATURES_LABELS = {
 	// ---- features/admin/components/AddActivityModeSelector ----
 	// ---- features/admin/components/HiddenActivitiesSection ----
 	hiddenActivities: {
-		toggleLabel: (count: number) => `非表示の活動 (${count}件)`,
+		toggleLabel: (count: number) => `${ACTIVITY_ADMIN_TERMS.hiddenSection} (${count}件)`,
 		closeIcon: '▲ 閉じる',
 		openIcon: '▼ 開く',
 		recordCount: (count: number) => `/ 記録 ${count}件`,
-		restoreBtn: '復活',
-		permanentDeleteBtn: '完全削除',
+		restoreBtn: ACTIVITY_ADMIN_TERMS.restore,
+		permanentDeleteBtn: ACTIVITY_ADMIN_TERMS.permanentDelete,
 	},
 
 	// ---- features/admin/components/TrialEndedDialog ----
@@ -8202,27 +8238,28 @@ export const FEATURES_LABELS = {
 	// EPIC #2253 / #2255 / #2257: + dropdown menu + ︙ overflow menu に再構成
 	// #2260 Fix-2: +page.svelte L167 hardcode の Dialog title 3 件を SSOT 化 (ADR-0045 / ADR-0009)
 	activitiesHeader: {
-		title: '📋 活動管理',
+		// #4655 F10: 概念アイコンは CONCEPT_ICONS.activity (📝) に統一 (旧 📋 は checklist と同一)
+		title: `${CONCEPT_ICONS.activity} ${NAV_ITEM_LABELS.activities}`,
 		exportAriaLabel: 'エクスポート',
 		introduceAriaLabel: '活動の紹介',
 		clearAllAriaLabel: '全クリア',
 		// + dropdown menu に統合 (EPIC #2253 / #2255 / #2558 段階2)
 		// #2558 段階2 (PO 方針: マーケットプレイス一本化): 「追加」と「一括追加」を 1 つの
 		// 「+ 追加」メニューに統合。`import` 項目は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する。
-		addButtonLabel: '+ 追加',
+		addButtonLabel: ADD_MENU_TERMS.trigger,
 		addMenuAriaLabel: '活動を追加するメニューを開く',
-		addManualLabel: '手動で1つ追加',
+		addManualLabel: ADD_MENU_TERMS.manual,
 		addManualIcon: '✏️',
-		addAiLabel: 'AI で提案してもらう',
+		addAiLabel: ADD_MENU_TERMS.ai,
 		addAiIcon: '✨',
 		// #2558 段階2 (bug-3 / bug-4 根治): 内部語彙「パック」を排し、admin 内ブラウズ UI でなく
 		// みんなのテンプレート (/marketplace) への画面遷移を表す文言に統一。
-		addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+		addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 		addBrowseTemplatesIcon: '🔍',
 		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
-		addCopyFromChildLabel: `別の${CHILD_TERMS.honorific}からコピー`,
+		addCopyFromChildLabel: ADD_MENU_TERMS.copyFromChild,
 		addCopyFromChildIcon: '📋',
-		addBulkLabel: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+		addBulkLabel: ADD_MENU_TERMS.bulk,
 		addBulkIcon: '👨‍👩‍👧‍👦',
 		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
 		addDialogTitleManual: '+ 手動で追加',
@@ -8234,9 +8271,9 @@ export const FEATURES_LABELS = {
 		overflowTriggerLabel: '︙',
 		restoreLabel: OVERFLOW_MENU_TERMS.itemRestore,
 		restoreIcon: OVERFLOW_MENU_TERMS.itemRestoreIcon,
-		exportLabel: 'エクスポート',
+		exportLabel: OVERFLOW_MENU_TERMS.itemExport,
 		exportIcon: '📤',
-		clearAllLabel: 'すべて削除',
+		clearAllLabel: OVERFLOW_MENU_TERMS.itemClearAll,
 		clearAllIcon: '🗑',
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
@@ -8351,11 +8388,11 @@ export const FEATURES_LABELS = {
 	activityListItem: {
 		mainQuestBadge: '⚔️ メインクエスト ×2',
 		closeBtn: '閉じる',
-		editBtn: '編集',
-		visibleBtn: '表示',
-		hiddenBtn: '非表示',
-		mainQuestEnable: '⚔️設定',
-		mainQuestDisable: '⚔️解除',
+		editBtn: ACTIVITY_ADMIN_TERMS.edit,
+		visibleBtn: ACTIVITY_ADMIN_TERMS.visible,
+		hiddenBtn: ACTIVITY_ADMIN_TERMS.hidden,
+		mainQuestEnable: ACTIVITY_ADMIN_TERMS.mainQuestEnable,
+		mainQuestDisable: ACTIVITY_ADMIN_TERMS.mainQuestDisable,
 		dailyLimitDefault: '1回/日',
 		dailyLimitUnlimited: '無制限',
 		dailyLimitN: (n: number) => `${n}回/日`,
@@ -9327,9 +9364,9 @@ export const STORYBOOK_LABELS = {
 		description: 'お子さまの活動を登録・編集します',
 		addButtonLabel: '+ 追加',
 		addMenuAriaLabel: '追加メニューを開く',
-		addManual: '手動で1つ追加',
-		addAi: 'AI で提案してもらう',
-		addBrowse: 'みんなのテンプレートから探す',
+		addManual: ADD_MENU_TERMS.manual,
+		addAi: ADD_MENU_TERMS.ai,
+		addBrowse: ADD_MENU_TERMS.browse,
 		overflowTrigger: '︙',
 		overflowAriaLabel: 'その他の操作',
 		overflowRestore: 'バックアップから復元',
