@@ -485,6 +485,13 @@ export const actions: Actions = {
 			weeklyRedeem = null;
 		}
 
+		// #4687 ②: 週 5 枠が埋まった後 (CARD_FULL) は stamp=null になる。旧実装はそのまま返していたため
+		// 演出が「今週 0回目！ / +0pt / あと5回でコンプリート！」と空カードになり、ヘッダー (5/5) と
+		// 画面内で矛盾していた。今のカードを読み直して渡し、演出側で「コンプリート」を出す。
+		const cardFull = 'error' in stampResult && stampResult.error === 'CARD_FULL';
+		const currentCard = cardFull ? await getStampCardStatus(childId, tenantId) : null;
+		const cardData = stamp?.cardData ?? currentCard;
+
 		return {
 			success: true,
 			loginStamp: true,
@@ -494,7 +501,12 @@ export const actions: Actions = {
 			instantPoints: stamp?.instantPoints ?? 0,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
 			multiplier: bonus?.multiplier ?? 1,
-			cardData: stamp?.cardData ?? null,
+			cardData,
+			// #4687 ②③: 台帳に載る付与を演出に全部出す (表示額 = stamp_instant + login_bonus の増分)。
+			// おみくじの結果 (吉 / 大吉 …) も返し、子供が「何を引いたか」を画面で見られるようにする。
+			cardFull,
+			loginBonusPoints: bonus?.totalPoints ?? 0,
+			loginBonusRank: bonus?.rank ?? null,
 			weeklyRedeem,
 		};
 	},

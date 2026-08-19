@@ -152,6 +152,8 @@ const mockRequireTenantId = vi.fn(
 );
 const mockClaimLoginBonus = vi.fn();
 const mockStampToday = vi.fn();
+// #4687 ②: CARD_FULL の日に「今のカード」を読み直して演出へ渡すため、route が呼ぶ
+const mockGetStampCardStatus = vi.fn().mockResolvedValue(null);
 const mockAutoRedeemPreviousWeek = vi.fn();
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -221,7 +223,7 @@ vi.mock('$lib/server/services/special-reward-service', () => ({
 }));
 vi.mock('$lib/server/services/stamp-card-service', () => ({
 	autoRedeemPreviousWeek: (...args: unknown[]) => mockAutoRedeemPreviousWeek(...args),
-	getStampCardStatus: vi.fn().mockResolvedValue(null),
+	getStampCardStatus: (...args: unknown[]) => mockGetStampCardStatus(...args),
 	redeemStampCard: vi.fn(),
 	stampToday: (...args: unknown[]) => mockStampToday(...args),
 }));
@@ -287,5 +289,73 @@ describe('Issue #2097 B-14a: loginStamp action no-op for missing selectedChildId
 		expect(mockClaimLoginBonus).not.toHaveBeenCalled();
 		expect(mockStampToday).not.toHaveBeenCalled();
 		expect(mockAutoRedeemPreviousWeek).not.toHaveBeenCalled();
+	});
+});
+
+describe('#4687: 週コンプリート済の日とおみくじログインボーナスを演出に出す', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockGetStampCardStatus.mockResolvedValue(null);
+		mockAutoRedeemPreviousWeek.mockResolvedValue(null);
+	});
+
+	const event = {
+		locals: { context: { tenantId: 'tenant-1' } },
+		cookies: { get: (key: string) => (key === 'selectedChildId' ? '1' : undefined) },
+	};
+
+	it('CARD_FULL の日は空カード (0 回目 / +0pt) ではなく今のカード + コンプリート表示のデータを返す', async () => {
+		mockClaimLoginBonus.mockResolvedValue({
+			rank: '吉',
+			basePoints: 3,
+			totalPoints: 3,
+			multiplier: 1,
+			consecutiveLoginDays: 4,
+			message: '吉！3ポイントゲット！',
+		});
+		mockStampToday.mockResolvedValue({ error: 'CARD_FULL' });
+		mockGetStampCardStatus.mockResolvedValue({
+			id: 'card-1',
+			filledSlots: 5,
+			totalSlots: 5,
+			entries: [{ slot: 1, emoji: '🌟', rarity: 'N', omikujiRank: '吉' }],
+		});
+
+		const result = await actions.loginStamp(event);
+
+		expect(result.loginStamp).toBe(true);
+		expect(result.cardFull).toBe(true);
+		// 旧実装は cardData=null → 演出が「今週 0回目！ / あと5回」になっていた
+		expect(result.cardData).not.toBeNull();
+		expect(result.cardData.filledSlots).toBe(5);
+		// 押印は無いので instantPoints は 0 のまま。代わりにログインボーナス額を出す
+		expect(result.instantPoints).toBe(0);
+		expect(result.loginBonusPoints).toBe(3);
+		expect(result.loginBonusRank).toBe('吉');
+	});
+
+	it('押印できた日はおみくじボーナス額も返す (表示額 = stamp_instant + login_bonus)', async () => {
+		mockClaimLoginBonus.mockResolvedValue({
+			rank: '大吉',
+			basePoints: 5,
+			totalPoints: 10,
+			multiplier: 2,
+			consecutiveLoginDays: 7,
+			message: '大吉！10ポイントゲット！',
+		});
+		mockStampToday.mockResolvedValue({
+			stamp: { rarity: 'R', name: 'ほし', omikujiRank: '大吉' },
+			instantPoints: 5,
+			cardData: { filledSlots: 2, totalSlots: 5, entries: [] },
+		});
+
+		const result = await actions.loginStamp(event);
+
+		expect(result.cardFull).toBe(false);
+		expect(result.instantPoints).toBe(5);
+		expect(result.loginBonusPoints).toBe(10);
+		expect(result.loginBonusRank).toBe('大吉');
+		// CARD_FULL でない日は card 再読込を行わない (無駄なクエリを増やさない)
+		expect(mockGetStampCardStatus).not.toHaveBeenCalled();
 	});
 });
