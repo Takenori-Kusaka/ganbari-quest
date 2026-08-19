@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import {
 	APP_LABELS,
 	getAgeTierLabel,
@@ -142,14 +143,14 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	<!-- ダミーの子供を作らずに戻せるよう、復元画面への導線を出す。 -->
 	<p>
 		<a
-			href="/admin/settings/data"
+			href={resolve('/admin/settings/data')}
 			class="text-sm text-[var(--color-text-link)] underline"
 			data-testid="setup-restore-link"
 		>{SETUP_CHILDREN_LABELS.restoreFromBackup}</a>
 	</p>
 	<p>
 		<a
-			href="/switch"
+			href={resolve('/switch')}
 			class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
 			data-testid="setup-skip-link"
 		>{SETUP_CHILDREN_LABELS.backToHome}</a>
