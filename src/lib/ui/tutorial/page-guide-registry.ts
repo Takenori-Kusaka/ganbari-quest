@@ -324,6 +324,51 @@ export function filterGuideStepsByStripe(
 	return { ...guide, steps };
 }
 
+/**
+ * selector の**最初の一致要素**が document 上で描画されている (box を持つ) か (#4653)。
+ *
+ * driver.js は `document.querySelector` (= 最初の一致) を target にするため、判定も最初の一致に
+ * 揃える (後続に可視要素があっても driver は最初の非表示要素を 0×0 で光らせる)。
+ * `display:none` の要素は `getClientRects()` が空になる (mobile 専用 bottom nav を desktop で
+ * 指した /admin step 3 が左上 0×0 で光らなかった #4653 F2 の機序)。
+ * SSR / document 不在時は false (fail-closed、描画されない UI を spotlight しない)。
+ */
+export function isGuideTargetRendered(selector: string): boolean {
+	if (typeof document === 'undefined') return false;
+	let el: Element | null = null;
+	try {
+		el = document.querySelector(selector);
+	} catch {
+		return false;
+	}
+	return el !== null && el.getClientRects().length > 0;
+}
+
+/**
+ * ページガイドの手順を「対象要素が現在の画面に描画されているか」でフィルタする (#4653)。
+ *
+ * 条件付き UI (承認待ちバナー / お子さま 0 人で出ない子供タブ / 上限到達で消える追加ボタン /
+ * viewport 別の nav 等) を指す step を、**対象が無いときは出さない** ための定義層フィルタ。
+ * 残った selector 付き step は必ず実要素に spotlight する (「押す」と書く step は必ず光る、
+ * EPIC #4650 PO 判断 4)。selector 省略 step (中央 modal の概要) は常に残す。
+ *
+ * 判定関数は DI (unit test で DOM 不要)。本番は {@link isGuideTargetRendered} を渡す。
+ * {@link filterGuideStepsByTier} / {@link filterGuideStepsByRuntime} / {@link filterGuideStepsByStripe}
+ * と同型 (filter → 残 0 なら null)。起動直前 (❓ click 時) に最後段で適用する。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param isRendered selector を受け取り「対象が描画済か」を返す判定関数
+ * @returns 対象が描画済の手順 + selector 省略手順だけのガイド。残手順が 0 なら null
+ */
+export function filterGuideStepsByTargetPresence(
+	guide: PageGuide,
+	isRendered: (selector: string) => boolean = isGuideTargetRendered,
+): PageGuide | null {
+	const steps = guide.steps.filter((step) => !step.selector || isRendered(step.selector));
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
+}
+
 /** 全ガイドのページID一覧（完了状態表示用） */
 export const ALL_PAGE_IDS = [
 	'admin-home',

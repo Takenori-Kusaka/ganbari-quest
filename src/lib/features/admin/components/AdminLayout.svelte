@@ -14,6 +14,7 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import {
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
+	filterGuideStepsByTargetPresence,
 	filterGuideStepsByTier,
 	filterGuideStepsToOverview,
 	getPageGuide,
@@ -117,8 +118,14 @@ async function handleStartPageGuide() {
 	const tierFiltered = filterGuideStepsByTier(guide, planTier);
 	const runtimeFiltered =
 		tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
-	const filtered =
+	const stripeFiltered =
 		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
+	// #4653: 最後段で「対象要素が今の画面に描画されている step」だけに絞る。条件付き UI
+	// (承認待ちバナー / お子さま 0 人で出ない子供タブ / viewport 別 nav 等) を指す step は
+	// 対象が無いとき出さず、残った selector 付き step は必ず実要素に spotlight する
+	// (中央 fallback / 0×0 spotlight を定義層で成立させない、EPIC #4650 PO 判断 4)。
+	const filtered =
+		stripeFiltered === null ? null : filterGuideStepsByTargetPresence(stripeFiltered);
 	if (filtered) {
 		startPageGuide(filtered);
 	}

@@ -6,6 +6,7 @@
 //   (a) 説明 card (バブル) が対象要素を覆い隠す  → バブルと対象要素の bounding box 非重複
 //   (b) card が viewport 下に見切れて読めない     → バブルが viewport 内に完全収容
 //   (c) フォーカス先が分からない (spotlight 不全) → spotlight overlay + active ring 表示
+//   (d) selector 付き step が実要素に当たらない (#4653) → 非 0 の実要素 (dummy でない) が viewport 内で光る
 //
 // 全登録 11 ページ × 各 step × desktop + mobile viewport でループ検証する。
 // driver.js は collision-aware positioning / viewport 自動調整 / spotlight cutout を内蔵するため、
@@ -178,6 +179,49 @@ async function assertBubbleNotOverlapTarget(
 	).toBe(false);
 }
 
+/**
+ * (d) selector 付き step は**実要素**に spotlight する (#4653 / EPIC #4650 PO 判断 4)。
+ *
+ * 旧 suite は `.driver-active-element` が無ければ overlap 検証を return し、selector 未解決
+ * (driver.js が 0×0 の `#driver-dummy-element` へ silent fallback) や `display:none` 要素
+ * (0×0 で左上に spotlight、/admin desktop step 3 の実害) を緑にしていた。本 assert は bubble の
+ * `data-step-selector` (PageGuideBubble が step.selector を露出) が非空の step について:
+ *   - active element が dummy ではなく存在する (selector が解決している)
+ *   - bounding box が非 0 (display:none / 空要素ではない)
+ *   - box が viewport と交差する (画面外だけを光らせていない)
+ * を要求する。「押す」と書く step が必ず光ることの機械担保。
+ */
+async function assertSelectorStepSpotlightsRealElement(
+	page: Page,
+	bubble: Locator,
+	ctx: string,
+): Promise<void> {
+	const selector = (await bubble.getAttribute('data-step-selector').catch(() => '')) ?? '';
+	if (selector === '') return; // 中央 modal の概要 step は対象外
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	await expect(
+		target,
+		`${ctx}: (d) selector 付き step (${selector}) の対象要素が解決している (dummy fallback でない)`,
+	).toHaveCount(1, { timeout: 5_000 });
+	const targetId = await target.getAttribute('id').catch(() => null);
+	expect(targetId, `${ctx}: (d) 対象が driver.js の 0×0 placeholder ではない`).not.toBe(
+		'driver-dummy-element',
+	);
+	const box = await target.boundingBox();
+	expect(box, `${ctx}: (d) 対象要素の bounding box が取得できる`).not.toBeNull();
+	if (!box) return;
+	expect(
+		box.width > 0 && box.height > 0,
+		`${ctx}: (d) 対象要素が 0×0 ではない (display:none 等で光らない状態を検出)`,
+	).toBe(true);
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+	const intersects =
+		box.x < vp.width && box.x + box.width > 0 && box.y < vp.height && box.y + box.height > 0;
+	expect(intersects, `${ctx}: (d) 対象要素が viewport と交差する (画面外だけを光らせない)`).toBe(
+		true,
+	);
+}
+
 /** (c) spotlight (driver.js backdrop overlay) が表示中であることを検証する。 */
 async function assertSpotlightVisible(page: Page, ctx: string): Promise<void> {
 	const overlay = page.locator(DRIVER_OVERLAY);
@@ -245,6 +289,7 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 					await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
 
 					await assertSpotlightVisible(page, ctx);
+					await assertSelectorStepSpotlightsRealElement(page, bubble, ctx);
 					await assertBubbleWithinViewport(page, bubble, ctx);
 					await assertBubbleNotOverlapTarget(page, bubble, ctx);
 

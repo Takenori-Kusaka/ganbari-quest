@@ -34,6 +34,7 @@ import { jstDayOfWeek } from './date-utils';
 //     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
 //     されているため、本 PR では import 不要
 import {
+	ADMIN_HOME_TERMS,
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
@@ -1496,27 +1497,69 @@ export const TUTORIAL_CHAPTER_LABELS = {
 // ============================================================
 
 export const PAGE_GUIDE_LABELS = {
+	// #4653: /admin ホームのガイド。画面の上から下の順 (承認待ちバナー → 上部カード → 今月のがんばり →
+	// こども一覧 → 子供画面へ切替 → 各機能へ移動) に並べ、要素名は描画側と同じ atom
+	// (ADMIN_HOME_TERMS / NAV_CATEGORIES / NAV_ITEM_LABELS) を参照する。条件付き要素 (承認待ちバナー /
+	// 今月のがんばり) の step は対象が描画されているときだけ出る (filterGuideStepsByTargetPresence)。
+	// 'home-nav' は desktop (header 下の nav) と mobile (画面下部の nav) の 2 step が同じ文言を共有する。
 	adminHome: {
-		title: 'ホーム（ダッシュボード）',
+		title: NAV_ITEM_LABELS.home,
 		steps: {
 			'home-intro': {
 				title: 'このページについて',
-				what: `${ADMIN_VIEW_TERMS.canonical}のホームです。お子さま全員の「今日のがんばり」と各機能への入り口がここに集まっています。`,
-				how: '毎日ここを開くだけで、お子さまの活動状況をまとめて確認できます。詳しい操作はこのあと順番にご案内します。',
-				goal: '朝・夜のすきま時間にここを開けば、家族みんなのがんばりを 10 秒で把握でき、声かけのきっかけが見つかります。',
+				what: `${ADMIN_VIEW_TERMS.canonical}の${NAV_ITEM_LABELS.home}です。今月のがんばり・${ADMIN_HOME_TERMS.childrenSection}・各機能への入り口がここに集まっています。`,
+				how: `上から順に、${ADMIN_HOME_TERMS.pendingApproval}のお知らせ（あるとき）→ 上部カード → 今月のがんばり → ${ADMIN_HOME_TERMS.childrenSection} と並びます。このあと順番にご案内します。`,
+				goal: '朝・夜のすきま時間にここを開けば、家族みんなの今月のがんばりと残高を 10 秒で把握でき、声かけのきっかけが見つかります。',
+				tips: [
+					`${REWARD_TERMS.canonical}の交換申請があると、いちばん上に「${ADMIN_HOME_TERMS.pendingApproval}」のお知らせが出ます。押すと承認画面に移動します`,
+				],
+				relatedLinks: [
+					{
+						label: `${REWARD_TERMS.canonical}の交換申請を確認する`,
+						href: '/admin/rewards/requests',
+					},
+				],
+			},
+			'home-pending': {
+				title: `${ADMIN_HOME_TERMS.pendingApproval}のお知らせ`,
+				what: `お子さまが${REWARD_TERMS.canonical}の交換を申請すると、ここに${ADMIN_HOME_TERMS.pendingApproval}の件数が出ます。`,
+				how: '1. このお知らせを押します\n2. 承認画面で申請を確認し、承認または却下します',
+				goal: `申請を見落とさずに受け渡しができ、お子さまは「${REWARD_TERMS.canonical}がちゃんと届く」と実感できます。`,
 			},
 			'home-summary': {
-				title: '画面の見方（今日のサマリー）',
-				what: '画面の上部には、お子さま全員の今日の活動回数・獲得ポイント・レベルの概要がカードで並びます。',
-				how: '特に操作は不要です。ページを開くと自動的に最新の情報が表示されます。',
-				goal: '「今日はたくさんやったね！」と声をかけるタイミングが、開いた瞬間に分かります。',
+				title: '画面の見方（上部カード）',
+				what: `上部のカードは「${ADMIN_HOME_TERMS.childrenCountCard}」と「${ADMIN_HOME_TERMS.totalCard}」の 2 枚です。${ADMIN_HOME_TERMS.totalCard}はお子さま全員のポイント残高を足した数で、今日の獲得分ではありません。`,
+				how: `1. 上部カードで人数と残高${ADMIN_HOME_TERMS.totalCard}を確認\n2. 下の「今月のがんばり」で、お子さまごとの活動回数・レベル・実績を見ます\n3. 「${ADMIN_HOME_TERMS.monthlyDetailsLink}」で月次レポートへ`,
+				goal: '「みんなで 1,200 ポイント貯まったね」のように、家族全体の残高と今月の動きを開いた瞬間に把握できます。',
+			},
+			'home-monthly': {
+				title: '画面の見方（今月のがんばり）',
+				what: `「📊 今月${ADMIN_HOME_TERMS.monthlySuffix}」には、お子さまごとの今月の活動回数・レベル・実績が並びます。`,
+				how: `1. お子さまごとのカードで活動回数・レベル・実績を確認\n2. 右上の「${ADMIN_HOME_TERMS.monthlyDetailsLink}」を押すと月次レポートが開きます`,
+				goal: '「今月はうんどうを 20 回がんばったね」と、具体的な数字でお子さまをほめられます。',
+				tips: [
+					'お子さまが画面を開くと、その下に「⏱️ 本日の使用時間」（1 日 15 分が目安）と「📈 今週の使用時間」も表示されます',
+				],
+				relatedLinks: [{ label: `${NAV_ITEM_LABELS.reports}を見る`, href: '/admin/reports' }],
+			},
+			'home-children': {
+				title: `画面の見方（${ADMIN_HOME_TERMS.childrenSection}）`,
+				what: `登録済みのお子さまがカードで並びます。カードにはニックネーム・年齢・テーマ・ポイント残高が出ます。`,
+				how: `1. お子さまのカードを押します\n2. ${NAV_ITEM_LABELS.children}管理の詳細が開き、プロフィールの編集やボイスの設定ができます`,
+				goal: `お子さまごとの残高と設定にここから直接たどり着けます。まだ 0 人のときは「${NAV_ITEM_LABELS.children}」から登録します。`,
+				relatedLinks: [{ label: `${NAV_ITEM_LABELS.children}を管理する`, href: '/admin/children' }],
+			},
+			'home-switch': {
+				title: `よく使う操作（${ADMIN_HOME_TERMS.switchToChild}）`,
+				what: `画面右上の「← ${ADMIN_HOME_TERMS.switchToChild}」で、お子さまが使う画面に切り替えます。`,
+				how: `1. 「← ${ADMIN_HOME_TERMS.switchToChild}」を押します\n2. お子さまを選ぶと、その子の画面が開きます`,
+				goal: `${ADMIN_VIEW_TERMS.short}とお子さまの画面を 1 台の端末で行き来でき、設定した活動をその場でお子さまに見せられます。`,
 			},
 			'home-nav': {
 				title: 'よく使う操作（各機能へ移動）',
-				what: '最もよく使うのが、各機能への移動です。画面下部のナビゲーションから「みまもり」「やること」「はげまし」「きろく」に移動できます。',
-				how: '1. 画面下部のアイコンをタップします\n2. 目的のカテゴリを選びます\n3. サブメニューから該当する画面をタップします',
+				what: `各機能へは「${NAV_CATEGORIES.family.label}」「${NAV_CATEGORIES.activity.label}」「${NAV_CATEGORIES.record.label}」「${NAV_CATEGORIES.settings.label}」の 4 つと「${NAV_ITEM_LABELS.home}」から移動します。スマホでは画面下部、パソコンでは画面上部のメニューです。`,
+				how: `1. 目的のカテゴリ（${NAV_CATEGORIES.family.label} / ${NAV_CATEGORIES.activity.label} / ${NAV_CATEGORIES.record.label} / ${NAV_CATEGORIES.settings.label}）を押します\n2. 開いたメニューから画面を選びます（${NAV_ITEM_LABELS.home}はそのまま移動します）`,
 				goal: 'どの画面からでも 2 タップ以内で目的の機能にたどり着けます。',
-				tips: ['デスクトップ版ではヘッダーのドロップダウンメニューから同じ機能に移動できます'],
 			},
 		},
 	},
@@ -5671,10 +5714,12 @@ export const ADMIN_HOME_LABELS = {
 	pageTitleDemoSuffix: ' デモ',
 	// #3144: ごほうび交換の承認待ち導線バナー (pending > 0 のときのみ表示)
 	pendingRedemptionBanner: (count: number) =>
-		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 承認待ちです。確認して受け渡しましょう`,
+		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 ${ADMIN_HOME_TERMS.pendingApproval}です。確認して受け渡しましょう`,
 	// #3148: 承認待ち件数の取得に失敗したときの導線 (silent 非表示で見落とすのを防ぐ)
 	pendingRedemptionLoadFailed: `${REWARD_TERMS.canonical}の承認待ち件数を取得できませんでした。交換申請の確認ページを開いてください`,
-	heading: '管理ダッシュボード',
+	// #4653 F6: 呼称は nav ラベル「ホーム」に統一 (旧「管理ダッシュボード」は画面上のどこにも無い語で、
+	// ガイド title「ホーム（ダッシュボード）」/ nav「ホーム」と 3 表記に揺れていた)。
+	heading: NAV_ITEM_LABELS.home,
 	headingDemoSuffix: '（デモ）',
 	onboardingCompleteText: 'すべてのセットアップが完了しました！',
 	onboardingDismissButton: '非表示にする',
@@ -5685,13 +5730,13 @@ export const ADMIN_HOME_LABELS = {
 	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: '登録こども数',
-	summaryChildrenLabel: 'こどもの数',
+	summaryChildrenLabel: ADMIN_HOME_TERMS.childrenCountCard,
 	summaryPointsAria: '全ポイント合計',
-	summaryPointsTotalPrefix: '合計',
+	summaryPointsTotalPrefix: ADMIN_HOME_TERMS.totalCard,
 	monthLabel: (year: string, month: string) => `${year}年${month}月`,
 	monthlyHeadingPrefix: '📊 ',
-	monthlyHeadingSuffix: 'のがんばり',
-	monthlyDetailsLink: '詳しく見る →',
+	monthlyHeadingSuffix: ADMIN_HOME_TERMS.monthlySuffix,
+	monthlyDetailsLink: ADMIN_HOME_TERMS.monthlyDetailsLink,
 	monthlyChildActivitiesAria: (name: string) => `${name}の活動回数`,
 	monthlyChildLevelAria: (name: string) => `${name}のレベル`,
 	monthlyChildAchievementsAria: (name: string) => `${name}の実績`,
@@ -5702,7 +5747,7 @@ export const ADMIN_HOME_LABELS = {
 	monthlyAchievementsUnit: '獲得',
 	todayUsageHeading: '⏱️ ',
 	weeklyUsageHeading: '📈 ',
-	childrenSectionTitle: 'こども一覧',
+	childrenSectionTitle: ADMIN_HOME_TERMS.childrenSection,
 	childrenEmpty: 'まだこどもが登録されていません',
 	demoCtaTitle: 'いかがでしたか？',
 	demoCtaHint: 'お子さまの「がんばり」を冒険に変えませんか？',
@@ -8124,7 +8169,7 @@ export const FEATURES_LABELS = {
 		pageGuideTitle: 'このページの使い方',
 		tutorialRestartTitle: 'チュートリアルを開始',
 		demoTopLink: 'デモトップ',
-		switchToChild: '子供画面へ',
+		switchToChild: ADMIN_HOME_TERMS.switchToChild,
 		desktopNavAriaLabel: '管理メニュー',
 		mobileNavAriaLabel: 'メインナビゲーション',
 		mobileMenuCloseAriaLabel: 'メニューを閉じる',

@@ -405,6 +405,32 @@ export const ADMIN_VIEW_TERMS = {
 } as const;
 
 // ============================================================
+// ADMIN_HOME_TERMS — ご家族の見守り画面 ホーム (/admin) に出る UI 要素名 atom (#4653)
+// ============================================================
+//
+// ホーム画面のカード名 / セクション名 / リンク名と、それを説明するページガイド
+// (labels.ts `PAGE_GUIDE_LABELS.adminHome`) の文言を 1 箇所で同期するための atom。
+// ガイドが「画面に無い名前」を案内する乖離 (#4650 / #4653 F1・F3) を、描画側
+// (`ADMIN_HOME_LABELS` / `FEATURES_LABELS.adminLayout`) とガイド側の双方がこの atom を
+// `${...}` 参照することで構造的に防ぐ (ADR-0045 atom / compound 責務分離)。
+export const ADMIN_HOME_TERMS = {
+	/** 上部 summary card: 登録こども数 */
+	childrenCountCard: 'こどもの数',
+	/** 上部 summary card: 全員のポイント残高合計 (獲得ではなく残高) */
+	totalCard: '合計',
+	/** 月次セクション見出しの接尾辞 (「📊 YYYY年M月のがんばり」) */
+	monthlySuffix: 'のがんばり',
+	/** 月次セクション右上のレポート遷移リンク */
+	monthlyDetailsLink: '詳しく見る →',
+	/** こども一覧セクション見出し */
+	childrenSection: 'こども一覧',
+	/** header 右端の子供画面への切替リンク */
+	switchToChild: '子供画面へ',
+	/** ごほうび交換申請の承認待ちバナーの状態語 */
+	pendingApproval: '承認待ち',
+} as const;
+
+// ============================================================
 // STRIPE_PORTAL_TERMS — Stripe billing portal の用語 atom (#2057)
 // ============================================================
 //
