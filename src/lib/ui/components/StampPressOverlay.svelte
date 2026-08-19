@@ -366,7 +366,7 @@ function handleClose() {
 		font-size: 2rem;
 	}
 
-	/* #4687 ③: おみくじログインボーナス (押印ぶんと並べて出す) */
+	/* #4687: omikuji login bonus line, shown next to the instant stamp points */
 	.sp__login-bonus {
 		font-size: 1rem;
 		font-weight: 800;
