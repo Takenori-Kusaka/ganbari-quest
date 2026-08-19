@@ -1998,23 +1998,6 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
-	adminPacks: {
-		title: 'パック',
-		steps: {
-			'packs-intro': {
-				title: 'このページについて',
-				what: 'おすすめの活動がセットになった「パック」を選んで、まとめて取り込めるページです。',
-				how: '一覧からパックを開いて中身を確認し、まとめて取り込みます。',
-				goal: '1つずつ作らなくても、おすすめの活動をまとめて用意できます。',
-			},
-			'packs-overview': {
-				title: '画面の見方（パック一覧）',
-				what: 'テーマ別のパックが一覧で並びます。開くと中の活動を確認でき、まとめて取り込めます。',
-				how: '1. 気になるパックを開いて中身を見ます\n2. 取り込むボタンでまとめて追加します',
-				goal: 'お子さまに合うパックを選んで、活動を一気にそろえられます。',
-			},
-		},
-	},
 	adminStatus: {
 		title: '成長レポート',
 		steps: {
@@ -5941,24 +5924,6 @@ export const CERTIFICATES_PAGE_LABELS = {
 	noChildrenTitle: '子供が登録されていません',
 } as const;
 
-export const PACKS_PAGE_LABELS = {
-	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	pageTitle: TEMPLATE_TERMS.userFacing,
-	pageDesc:
-		'年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。',
-	recommendedBadge: 'おすすめ',
-	importedBadge: 'インポート済',
-	partiallyImportedSuffix: '件 登録済',
-	activityCountSuffix: '件の活動',
-	importingLabel: 'インポート中...',
-	importButton: (count: number) => `${count}件の新しい活動をインポート`,
-	// #1758 (#1709-D): must 推奨採用チェックボックス
-	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
-	mustDefaultCheckboxHint: `歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで${ADMIN_VIEW_TERMS.parent}から個別に変更できます。`,
-	mustDefaultBadge: 'おやくそく推奨',
-	mustDefaultCount: (count: number) => `おやくそく推奨 ${count}件`,
-} as const;
-
 export const OPS_LAYOUT_LABELS = {
 	headerTitle: 'がんばりクエスト 運営ダッシュボード',
 	navKpi: 'KPI',
@@ -7849,11 +7814,6 @@ export const UI_COMPONENTS_LABELS = {
 	radarChartAriaLabel: 'ステータスレーダーチャート',
 	radarChartNow: 'いま',
 	radarChartDefaultComparisonLabel: 'せんげつ',
-
-	// ---- SiblingCheerOverlay ----
-	siblingCheerTitle: '💌 おうえんがとどいたよ！',
-	siblingCheerFrom: (name: string) => `${name}から`,
-	siblingCheerConfirmBtn: 'ありがとう！',
 
 	// ---- SiblingRanking ----
 	siblingRankingMe: 'じぶん',

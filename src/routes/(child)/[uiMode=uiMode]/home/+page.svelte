@@ -48,7 +48,6 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
-import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -58,7 +57,7 @@ import { soundService } from '$lib/ui/sound';
 let { data } = $props();
 
 // #2097 EPIC PR-B1 hotfix (2026-05-17): LP SS 撮影時 (`?screenshot=*`) は本番 UI 内の
-// auto-open dialog (SiblingCheerOverlay / MonthlyRewardDialog 等) を抑止する。
+// auto-open dialog (MonthlyRewardDialog 等) を抑止する。
 // 子供画面の demo data には常に pending cheer が 1 件含まれるため、撮影タイミングで
 // dialog が画面中央に被って主要 UI が隠れる事故が発生 (PO 2026-05-17 指摘)。
 const isScreenshotMode = $derived(getScreenshotMode());
@@ -156,7 +155,6 @@ $effect(() => {
 });
 
 // Sibling cheer overlay
-let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
 // #2458-B: per-child instance に flip。
@@ -612,21 +610,11 @@ $effect(() => {
 	// ログインボーナスに祝福の click が吸われ、子供が祝福を閉じられなくなっていた
 	// (z-index では解決しない。docs/DESIGN.md §10「侵襲的演出を重ねない」)。
 	const shouldShowCelebration = f.showSiblingFeatures && celebrationChallenge;
-	// 兄弟の応援 overlay も同じ class の defect (FSM 外で開くため祝福と重なりうる) なので
-	// 同時に arbitration へ載せる (ADR-0061: 同 class は 1 件目で guard 化する)。
-	const shouldShowCheer =
-		!isScreenshotMode &&
-		f.showSiblingFeatures &&
-		showCheerOverlay &&
-		data.unshownCheers &&
-		data.unshownCheers.length > 0;
-
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
 		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
-		siblingCheer: shouldShowCheer ? data.unshownCheers : undefined,
 		celebration: shouldShowCelebration ? celebrationChallenge : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
@@ -1182,15 +1170,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}
-	/>
-{/if}
-
-<!-- Sibling cheer overlay (non-baby) -->
-<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
-{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0 && currentDialog === 'siblingCheer'}
-	<SiblingCheerOverlay
-		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; closeDialog(); }}
 	/>
 {/if}
 
