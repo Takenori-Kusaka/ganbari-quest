@@ -7,6 +7,7 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 // 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
 // 旧 `PRESET_REWARD_GROUPS` の in-page render は撤去済 (本 file の load 出力からも削除)。
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
@@ -30,11 +31,7 @@ import {
 	copyChildRewardsToSiblings,
 } from '$lib/server/services/child-reward-copy-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-import {
-	isPaidTier,
-	type PlanTier,
-	resolveFullPlanTier,
-} from '$lib/server/services/plan-limit-service';
+import { type PlanTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
 import {
 	addReward,
@@ -60,7 +57,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-	const isPremium = isPaidTier(tier);
+	// #4584: 表示 (isPremium) と実行 (各 action の gate) を **同じ述語**から出す。
+	// 旧実装は両方 isPaidTier(tier) を直接呼んでおり、PLAN_LIMITS.canCustomReward という
+	// 「有料の根拠として売っている機能フラグ」は誰にも読まれていなかった (参照ゼロ)。
+	// フラグを変えても挙動が変わらない = フラグと実装が別々の真実になっていた。
+	const isPremium = isCustomRewardUnlocked(tier);
 
 	const children = await getAllChildren(tenantId);
 	const templates = await getRewardTemplates(tenantId);
@@ -162,7 +163,7 @@ export const actions: Actions = {
 		// #728: プランゲート — 無料プランはカスタム報酬追加不可
 		// #787: PlanLimitError 形式に統一
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -203,7 +204,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -276,7 +277,7 @@ export const actions: Actions = {
 		// #728: プランゲート — 無料プランはプリセットの取り込みも不可
 		// #787: PlanLimitError 形式に統一
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -312,7 +313,7 @@ export const actions: Actions = {
 
 		// プランゲート: 無料プランは特別ごほうび設定不可（grant と同等）
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -373,7 +374,7 @@ export const actions: Actions = {
 
 		// プラン制限ガード (既存 form と同じ)
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -517,7 +518,7 @@ export const actions: Actions = {
 
 		// プラン制限ガード
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, {
 				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
 			});
@@ -602,7 +603,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, { error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE) });
 		}
 
@@ -660,7 +661,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		const tier = await resolveTier(locals, tenantId);
-		if (!isPaidTier(tier)) {
+		if (!isCustomRewardUnlocked(tier)) {
 			return fail(403, { error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE) });
 		}
 
