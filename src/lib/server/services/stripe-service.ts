@@ -16,6 +16,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { getDebugCancelAtPeriodEnd } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
+import { endTrialOnConversion } from '$lib/server/services/trial-service';
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
@@ -987,11 +988,40 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 		}),
 	);
 
+	// #4707: 有料契約が確定したので、進行中のトライアルは本契約へ移行済みとして閉じる
+	// (S1 → S2 の遷移と同時。閉じないと「払った直後に『トライアル中 / 本契約が必要です』」が出続ける)。
+	if (subscriptionId) {
+		await closeTrialOnPaidContract(tenantId, subscriptionId, 'checkout.session.completed');
+	}
+
 	logger.info(
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,
 	);
 
 	// #4192: 課金**成功**の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
+}
+
+/**
+ * #4707: 有料契約の確定 (W1 checkout / reconcile、W2 invoice.paid) でトライアルを閉じる。
+ *
+ * `families` 4 列 (契約状態) は `applyTenantContractState` が書き、トライアル行 (`trial_history`) は
+ * ここで閉じる。後者の失敗で webhook 全体を 500 にしない — 契約状態の確定が主で、表示 / 通知側は
+ * `applyLicenseToTrialStatus` (licenseStatus=ACTIVE ならトライアル中扱いしない) が第 2 防御として
+ * 同じ結論を出す。失敗は error log に残し、次の event (invoice.paid 等) で再試行される (冪等)。
+ */
+async function closeTrialOnPaidContract(
+	tenantId: string,
+	stripeSubscriptionId: string,
+	eventType: string,
+): Promise<void> {
+	try {
+		await endTrialOnConversion({ tenantId, stripeSubscriptionId, upgradeReason: 'manual' });
+	} catch (err) {
+		logger.error(`[STRIPE] ${eventType}: failed to close trial on paid conversion`, {
+			error: err instanceof Error ? err.message : String(err),
+			context: { tenantId, stripeSubscriptionId, eventType },
+		});
+	}
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
@@ -1047,6 +1077,9 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 		}),
 	);
 	if (!applied) return;
+
+	// #4707: 支払い確定 = 有料契約中。進行中のトライアルは本契約へ移行済みとして閉じる (W1 未達時の救済)。
+	await closeTrialOnPaidContract(tenant.tenantId, subscription.id, 'invoice.paid');
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId} plan=${plan ?? 'unresolved'}`);
 

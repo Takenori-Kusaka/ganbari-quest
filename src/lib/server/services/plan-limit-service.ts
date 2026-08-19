@@ -7,6 +7,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
+import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
@@ -134,7 +135,11 @@ export function resolvePlanTier(
 		return planId?.startsWith('family') ? 'family' : 'standard';
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
-	if (trialEndDate && new Date(trialEndDate) > new Date()) {
+	// #4707: 終了日は JST 暦日 ('YYYY-MM-DD') で end_date 当日いっぱい有効。旧実装の
+	// `new Date(trialEndDate) > new Date()` は UTC 00:00 (= JST 09:00) で切れ、表示判定
+	// (`computeTrialStatus`、JST 暦日比較) と 9 時間ずれて「残り 0 日」表示のまま有料機能が
+	// 403 になっていた。同じ述語 `isTrialEndDateActiveJST` を共有して判定を一致させる。
+	if (trialEndDate && isTrialEndDateActiveJST(trialEndDate)) {
 		return trialTier ?? 'standard';
 	}
 	return 'free';
