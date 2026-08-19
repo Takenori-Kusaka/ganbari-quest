@@ -29,6 +29,7 @@ export const SQL_CREATE_TABLES = `
 		nickname TEXT NOT NULL,
 		age INTEGER NOT NULL,
 		birth_date TEXT,
+		birth_date_estimated INTEGER NOT NULL DEFAULT 0,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		avatar_url TEXT,

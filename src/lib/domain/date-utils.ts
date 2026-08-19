@@ -319,8 +319,10 @@ export function formatJSTDateTime(date: Date): string {
  * 誕生日 (YYYY-MM-DD) から JST 基準の現在年齢を計算して返す。
  * 誕生日当日は既に加算済みの年齢を返す。
  */
-export function calculateAgeFromBirthDate(birthDateStr: string): number {
-	const today = todayDateJST();
+export function calculateAgeFromBirthDate(
+	birthDateStr: string,
+	today: string = todayDateJST(),
+): number {
 	const [ty, tm, td] = today.split('-').map(Number);
 	const [by, bm, bd] = birthDateStr.split('-').map(Number);
 	let age = (ty ?? 0) - (by ?? 0);

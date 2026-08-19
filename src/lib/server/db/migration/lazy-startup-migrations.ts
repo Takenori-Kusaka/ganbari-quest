@@ -1065,6 +1065,34 @@ function migrateLoginBonusesToStreaks(db: Database.Database): void {
 	run();
 }
 
+/**
+ * #4718: children に birth_date_estimated (推定誕生日の印) を追加し、誕生日未設定の旧行
+ * (年齢だけで登録した子供) に age 列から推定誕生日 (JST 今年 − age 年の 1/1) を backfill する。
+ * pg-core 側の drizzle/pglite/0007 と同じ規約 (src/lib/domain/child-age.ts)。
+ * どちらも冪等: ADD COLUMN は hasColumn guard、backfill は WHERE birth_date IS NULL。
+ */
+function migrateChildBirthDateEstimated(db: Database.Database): void {
+	if (!tableExists(db, 'children')) return;
+	if (!hasColumn(db, 'children', 'birth_date_estimated')) {
+		db.exec('ALTER TABLE children ADD COLUMN birth_date_estimated INTEGER NOT NULL DEFAULT 0;');
+		console.info('[lazy-migrate #4718] added children.birth_date_estimated');
+	}
+	if (!hasColumn(db, 'children', 'birth_date') || !hasColumn(db, 'children', 'age')) return;
+	const res = db
+		.prepare(`
+		UPDATE children
+		SET birth_date = (CAST(strftime('%Y', 'now', '+9 hours') AS INTEGER) - age) || '-01-01',
+			birth_date_estimated = 1
+		WHERE birth_date IS NULL
+	`)
+		.run();
+	if (res.changes > 0) {
+		console.info(
+			`[lazy-migrate #4718] backfilled estimated birth_date for ${res.changes} age-only children`,
+		);
+	}
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -1102,6 +1130,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3330: login_bonuses (per-date) → login_streaks (counter) fold + 旧表 DROP。
 		// 他表と独立のため末尾で実行 (SQL_CREATE_TABLES より前なら順序制約なし)。
 		migrateLoginBonusesToStreaks(db);
+		// #4718: children.birth_date_estimated 追加 + 年齢だけの旧行に推定誕生日を backfill。
+		// 純粋な ADD COLUMN + UPDATE なので末尾で実行 (他表と独立)。
+		migrateChildBirthDateEstimated(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険

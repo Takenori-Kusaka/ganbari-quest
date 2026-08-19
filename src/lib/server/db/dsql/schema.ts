@@ -69,7 +69,10 @@ export const children = pgTable(
 		childId: uuid('child_id').notNull().default(sql`gen_random_uuid()`),
 		nickname: text('nickname').notNull(),
 		// age 列は持たない (§11.1 compute-on-read)。birth_date が唯一の年齢ソース。
+		// #4718: 年齢だけで登録した子供は推定誕生日 (今年−年齢 の 1/1) を保存し、
+		// birth_date_estimated=true で実誕生日と区別する (規約 SSOT: $lib/domain/child-age.ts)。
 		birthDate: text('birth_date'),
+		birthDateEstimated: boolean('birth_date_estimated').notNull().default(false),
 		theme: text('theme').notNull().default('pink'),
 		uiMode: text('ui_mode').notNull().default('preschool'),
 		uiModeManuallySet: boolean('ui_mode_manually_set').notNull().default(false),

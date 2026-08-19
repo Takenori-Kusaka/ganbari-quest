@@ -329,7 +329,12 @@ children (
   -- age は列で持たない（compute-on-read）: birth_date と wall-clock の関数で書込 txn では維持不能（誕生日で日次 drift、§P7 と非両立）。
   -- → birth_date から算出。これにより日次 age-recalc cron を撤去（N4 / §8.1）。
   -- ⚠️ PO B2: birth_date NULL 旧データは **移行時に backfill を必須**（不能なら cutover 動線で親への入力プロンプトを組込）。NULL 放置は age 表示 + ui_mode 導出の 2 系統の顧客影響を生むため「出し分け」で逃げない。
+  -- #4718: 年齢だけで登録した子供 (setup は年齢しか聞かない) は **推定誕生日** (JST 今年 − 年齢 の 1/1) を birth_date に保存し
+  --        birth_date_estimated=true で実誕生日と区別する。規約 SSOT = src/lib/domain/child-age.ts (sqlite backend も同規約)。
+  --        公開 entity の birthDate は実誕生日のみ (推定は null → 誕生日ボーナス / 🎂 表示 / 月齢 / export の対象外)。
+  --        旧行 (birth_date NULL) は migration 0007 が ui_mode 帯の代表年齢で backfill する。
   birth_date   text,                                -- 'YYYY-MM-DD'
+  birth_date_estimated boolean NOT NULL DEFAULT false,
   theme        text NOT NULL DEFAULT 'pink'  CHECK (theme IN (<THEME 値 SSOT>)),
   ui_mode      text NOT NULL DEFAULT 'preschool' CHECK (ui_mode IN ('baby','preschool','elementary','junior','senior')),
   -- ⚠️ PO B2: ui_mode_manually_set=false の時は birth_date age から read 時に tier 導出して適用（stored 列は手動 override 時のみ正）。
