@@ -1308,8 +1308,36 @@ export const VIEWER_LINK_TERMS = {
 // LP 側 (labels.ts の LP_* namespace) とアプリ側 (NAV_ADMIN_LABELS) の両方がここから引く。
 
 export const ADMIN_SCREEN_TERMS = {
+	/** `/admin` — 保護者側のトップ */
+	home: ADMIN_VIEW_TERMS.canonical,
 	/** `/admin/children` — お子さまの登録・切り替え */
 	children: 'こども管理',
+	/** `/admin/members` — 招待した大人の管理 */
+	members: 'メンバー管理',
+	/** `/admin/activities` */
+	activities: '活動管理',
+	/** `/admin/checklists` */
+	checklists: 'チェックリスト管理',
+	/** `/admin/challenges` */
+	challenges: 'きょうだいチャレンジ',
+	/** `/admin/rewards` */
+	rewards: 'ごほうび管理',
+	/** `/admin/cheer` */
+	cheer: '応援',
+	/** `/admin/reports` */
+	reports: 'レポート',
+	/** `/admin/growth-book` — 旧 nav 表記「グロースブック」を廃止 (#4715) */
+	growthBook: '成長記録ブック',
+	/** `/admin/points` */
+	points: 'ポイント管理',
+	/** `/admin/status` — 旧 title「ベンチマーク管理」を廃止 (#4715) */
+	status: '成長レポート',
+	/** `/admin/certificates` */
+	certificates: 'がんばり証明書',
+	/** `/admin/settings` */
+	settings: '設定',
+	/** `/admin/subscription` — 「プラン・課金」「プラン」表記を廃止し本表記に統一 (#4715) */
+	subscription: 'プラン・お支払い',
 } as const;
 
 // ============================================================

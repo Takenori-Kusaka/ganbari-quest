@@ -3,6 +3,7 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
@@ -109,27 +110,29 @@ export const APP_LABELS = {
 
 export const PAGE_TITLES = {
 	// ご家族の見守り画面 (#2057, 旧称: 管理画面)
-	activities: '活動管理',
+	activities: ADMIN_SCREENS.activities.name,
 	activitiesIntroduce: '活動紹介スライド',
-	reports: 'レポート',
-	achievements: 'チャレンジ管理',
-	growth: '成長記録ブック',
-	points: 'ポイント管理',
+	reports: ADMIN_SCREENS.reports.name,
+	achievements: ADMIN_SCREENS.challenges.name,
+	growth: ADMIN_SCREENS.growthBook.name,
+	points: ADMIN_SCREENS.points.name,
 	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
-	cheer: '応援',
-	rewards: 'ごほうび',
-	checklists: 'チェックリスト管理',
+	cheer: ADMIN_SCREENS.cheer.name,
+	rewards: ADMIN_SCREENS.rewards.name,
+	checklists: ADMIN_SCREENS.checklists.name,
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'きょうだいチャレンジ',
-	// #4714: LP の carousel alt (LP_INDEX_PHASEB_LABELS.carouselSlide4Alt) と同じ atom から引く
-	children: `${ADMIN_SCREEN_TERMS.children}`,
-	members: 'メンバー管理',
-	settings: '設定',
+	challenges: ADMIN_SCREENS.challenges.name,
+	// #4714 / #4715: LP の carousel alt と nav / 見出しが同じ registry から引く
+	children: ADMIN_SCREENS.children.name,
+	members: ADMIN_SCREENS.members.name,
+	settings: ADMIN_SCREENS.settings.name,
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
-	billing: '請求書・支払い管理',
-	certificates: 'がんばり証明書',
-	license: 'プラン・お支払い',
-	statusBenchmark: 'ベンチマーク管理',
+	// #4139: /admin/billing は /admin/subscription に統合済。呼称も統一する (#4715)
+	billing: ADMIN_SCREENS.subscription.name,
+	certificates: ADMIN_SCREENS.certificates.name,
+	license: ADMIN_SCREENS.subscription.name,
+	// #4715: 旧「ベンチマーク管理」は画面の中身 (成長レポート) と別物だった
+	status: ADMIN_SCREENS.status.name,
 	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
 	packs: TEMPLATE_TERMS.userFacing,
 	// 認証
@@ -295,31 +298,111 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
 export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
-	reports: 'レポート',
-	growthBook: 'グロースブック',
-	achievements: 'チャレンジ履歴',
+	// #4715: nav / title / 見出しを同じ registry から引く (旧 nav「グロースブック」等の別名を廃止)
+	reports: ADMIN_SCREENS.reports.name,
+	growthBook: ADMIN_SCREENS.growthBook.name,
+	achievements: ADMIN_SCREENS.challenges.name,
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
-	points: 'ポイント',
+	points: ADMIN_SCREENS.points.name,
 	// #2270 / #2274 (EPIC #2266): 旧 messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
-	// #2276: CHEER_TERMS / REWARD_TERMS atom 参照化 (ADR-0045)
-	cheer: CHEER_TERMS.canonical,
-	rewards: REWARD_TERMS.canonical,
-	activities: '活動管理',
+	cheer: ADMIN_SCREENS.cheer.name,
+	rewards: ADMIN_SCREENS.rewards.name,
+	activities: ADMIN_SCREENS.activities.name,
 	// #1168: チェックリスト（ナビは単一、ページ内タブで「持ち物」「ルーティン」に分離）
-	checklists: 'チェックリスト',
+	checklists: ADMIN_SCREENS.checklists.name,
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'チャレンジ',
+	challenges: ADMIN_SCREENS.challenges.name,
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
 	marketplace: TEMPLATE_TERMS.short,
-	children: 'こども',
-	settings: '設定',
-	license: 'プラン',
-	billing: '請求管理',
-	members: 'メンバー',
+	children: ADMIN_SCREENS.children.name,
+	settings: ADMIN_SCREENS.settings.name,
+	license: ADMIN_SCREENS.subscription.name,
+	billing: ADMIN_SCREENS.subscription.name,
+	members: ADMIN_SCREENS.members.name,
+	status: ADMIN_SCREENS.status.name,
 } as const;
+
+// ============================================================
+// 子供画面のナビゲーションラベル（年齢帯 variant、#4715）
+// ============================================================
+//
+// #4715: 以前は `src/lib/domain/icons.ts` の `MODE_LABELS` に置かれており、UI 文言の SSOT が
+// labels.ts / icons.ts の 2 箇所に割れていた（icons.ts はアイコン定数の置き場であって文言の置き場ではない）。
+// 文言はここに寄せ、呼び出し側は `getChildNavModeLabels()` を本ファイルから直接 import する。
+//
+// 呼称の是正（#4715）:
+//   - `switch`: junior / senior が「メンバー」だった。親画面の「メンバー管理」（招待した大人）と
+//     同じ語で別概念を指していたため「家族」に統一する。
+//   - `checklist`: 「もちものチェック」「持ち物チェック」「もちもの」の 3 表記があり、
+//     同じ画面にルーティン系プリセット（あさのしたく / よるのじゅんび）も並ぶのに名前が持ち物限定だった。
+//     親画面の「チェックリスト管理」と同じ語幹の「チェックリスト」に寄せる。
+
+export interface ChildNavModeLabels {
+	status: string;
+	switch: string;
+	history: string;
+	achievements: string;
+	titles: string;
+	recordSummary: string;
+	checklist: string;
+}
+
+export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
+	// baby = 親の準備モード（ADR-0011）: 子供向けゲーミフィケーション語彙ではなく親向けラベル
+	baby: {
+		status: 'せいちょうきろく',
+		switch: 'かぞく',
+		history: 'きろく',
+		achievements: 'できたこと',
+		titles: 'せいちょう',
+		recordSummary: 'きょうの きろく',
+		checklist: 'チェックリスト',
+	},
+	preschool: {
+		status: 'つよさ',
+		switch: 'かぞく',
+		history: 'きろく',
+		achievements: 'チャレンジきろく',
+		titles: 'しょうごう',
+		recordSummary: 'きょうの きろく',
+		checklist: 'チェックリスト',
+	},
+	elementary: {
+		status: 'つよさ',
+		switch: 'かぞく',
+		history: '記録',
+		achievements: 'チャレンジきろく',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+	junior: {
+		status: 'ステータス',
+		switch: '家族',
+		history: '記録',
+		achievements: 'チャレンジきろく',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+	senior: {
+		status: 'ステータス',
+		switch: '家族',
+		history: '記録',
+		achievements: 'チャレンジきろく',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+};
+
+/** 年齢モード別の子供ナビラベルを安全に取得する（未知モードは preschool にフォールバック）。 */
+export function getChildNavModeLabels(uiMode: string): ChildNavModeLabels {
+	return CHILD_NAV_MODE_LABELS[normalizeUiMode(uiMode)] ?? CHILD_NAV_MODE_LABELS.preschool;
+}
 
 // ============================================================
 // 年齢区分ラベル（ご家族の見守り画面用）
@@ -590,9 +673,10 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 // ============================================================
 
 export const FEATURE_LABELS = {
-	report: 'レポート',
-	growthBook: 'グロースブック',
-	message: 'おうえんメッセージ',
+	report: ADMIN_SCREENS.reports.name,
+	// #4715: 画面名 registry (nav = title = 見出し) に合わせる
+	growthBook: ADMIN_SCREENS.growthBook.name,
+	message: ADMIN_SCREENS.cheer.name,
 	reward: 'ごほうび',
 	// #1168: チェックリストを「持ち物」「ルーティン」に分離
 	checklistItem: '持ち物チェックリスト',
@@ -1450,9 +1534,8 @@ export const TUTORIAL_CHAPTER_LABELS = {
 				'こどもの活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。',
 		},
 		'reports-2': {
-			title: 'グロースブック',
-			description:
-				'こどもの1年間の成長をまとめた「成長記録ブック」も用意しています。レポート画面右上の「📖 記録ブック」リンクからアクセスできます。印刷してお子さまの記念にもなります。',
+			title: ADMIN_SCREENS.growthBook.name,
+			description: `こどもの1年間の成長をまとめた「${ADMIN_SCREENS.growthBook.name}」も用意しています。${ADMIN_SCREENS.reports.name}画面右上のリンクからアクセスできます。印刷してお子さまの記念にもなります。`,
 		},
 		'messages-1': {
 			title: 'メッセージ送信',
@@ -1751,7 +1834,7 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-hub': {
 				title: '画面の見方（7つの設定グループ）',
 				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. ${ADMIN_SCREENS.subscription.name} — 契約と支払い`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
 			},
 			'settings-account': {
@@ -1912,7 +1995,7 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminSubscription: {
-		title: 'プラン・課金',
+		title: ADMIN_SCREENS.subscription.name,
 		steps: {
 			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
 			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
@@ -2358,7 +2441,7 @@ export const PIN_RESET_EMAIL_LABELS = {
  */
 export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
-	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
+	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_SCREENS.home.name} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
 	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
@@ -2817,7 +2900,7 @@ export const SETTINGS_LABELS = {
 	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
 	groupRulesTitle: 'ごほうび・ボーナスルール',
 	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
-	groupPlanTitle: 'プラン・課金',
+	groupPlanTitle: ADMIN_SCREENS.subscription.name,
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',
 
@@ -2858,7 +2941,7 @@ export const SETTINGS_NAV_LABELS = {
 	// 折り返しが避けられない以上、同じ画面に名前を 2 つ持つ対価に見合わないため長い名前に統一する。
 	rules: 'ごほうび・ボーナスルール',
 	support: 'サポート',
-	plan: 'プラン・課金',
+	plan: ADMIN_SCREENS.subscription.name,
 	externalIndicator: '別ページ',
 	externalIndicatorHub: '別ページへ',
 } as const;
@@ -3250,9 +3333,11 @@ export const NUC_LICENSE_LABELS = {
 
 export const REPORTS_LABELS = {
 	// ページヘッダー
-	pageTitle: '📊 レポート',
-	certificatesLink: '📜 証明書',
-	growthBookLink: '📖 記録ブック',
+	pageTitle: adminScreenHeading('reports'),
+	// #4715: 着地先の画面名 (registry SSOT) をそのまま出す。旧「証明書」「記録ブック」は
+	//   同じ画面の短縮別名で、着地先の title / 見出しと一致していなかった。
+	certificatesLink: adminScreenHeading('certificates'),
+	growthBookLink: adminScreenHeading('growthBook'),
 
 	// 設定更新完了
 	settingsUpdated: '設定を更新しました',
@@ -3437,7 +3522,7 @@ export const OPS_LABELS = {
 
 export const POINTS_LABELS = {
 	// ページヘッダー
-	pageTitle: '⭐ ポイント',
+	pageTitle: adminScreenHeading('points'),
 	displaySetting: (isCurrencyMode: boolean, currency: string) =>
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
@@ -4318,7 +4403,7 @@ export const CHALLENGES_LABELS = {
 	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
 	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: adminScreenHeading('challenges'),
 	deletedNotice: 'チャレンジを削除しました',
 	noChallengeTitleIcon: '👥',
 	noChallengeTitle: 'チャレンジはまだありません',
@@ -4548,7 +4633,7 @@ export const DEMO_TOP_LABELS = {
 // ============================================================
 
 export const GROWTH_BOOK_LABELS = {
-	pageHeading: '📖 成長記録ブック',
+	pageHeading: adminScreenHeading('growthBook'),
 	backToReports: '← レポートへ',
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
@@ -4576,7 +4661,7 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
 
 	// Certificate link
-	certificateLink: '📜 証明書一覧を見る →',
+	certificateLink: `${adminScreenHeading('certificates')}を見る →`,
 
 	// Empty states
 	noChildrenEmoji: '👧',
@@ -4796,12 +4881,14 @@ export const OPS_MFA_SETUP_LABELS = {
 // ============================================================
 
 // ============================================================
-// ベンチマーク管理ページ (#1452 Phase B)
+// 成長レポートページ (#1452 Phase B / #4715 で「ベンチマーク管理」→ 画面名 registry へ)
 // ============================================================
 
 export const STATUS_LABELS = {
+	// #4715: nav / title と同じ画面名を画面内見出しにも出す (registry SSOT)
+	pageHeading: adminScreenHeading('status'),
 	// Navigation link
-	childrenEditLink: 'こども管理でステータス編集 →',
+	childrenEditLink: `${ADMIN_SCREENS.children.name}でステータス編集 →`,
 
 	// Growth report
 	growthReportTitle: (nickname: string) => `📊 ${nickname}の成長レポート`,
@@ -4949,7 +5036,7 @@ export const CONSENT_LABELS = {
 } as const;
 
 // ============================================================
-// デモ版ベンチマーク管理ページ (#1452 Phase B)
+// デモ版 成長レポートページ (#1452 Phase B)
 // ============================================================
 
 export const DEMO_STATUS_LABELS = {
@@ -4990,7 +5077,7 @@ export const OPS_COSTS_LABELS = {
 export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
-	sectionTitle: '🎁 ごほうび管理',
+	sectionTitle: adminScreenHeading('rewards'),
 	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
@@ -4998,7 +5085,9 @@ export const REWARDS_LABELS = {
 	// (pageDescHint*) のみ page-description カードに残す。
 	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
-	pageDescHintLink: 'おうえんメッセージ',
+	// #4715: 着地先は /admin/cheer。旧「おうえんメッセージ」は同画面の別名で、
+	//   リンク先も旧 URL /admin/messages (308 redirect) を指していた。
+	pageDescHintLink: ADMIN_SCREENS.cheer.name,
 	pageDescHintSuffix: 'から送れます',
 	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
 	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
@@ -5700,7 +5789,8 @@ export const ADMIN_HOME_LABELS = {
 		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 承認待ちです。確認して受け渡しましょう`,
 	// #3148: 承認待ち件数の取得に失敗したときの導線 (silent 非表示で見落とすのを防ぐ)
 	pendingRedemptionLoadFailed: `${REWARD_TERMS.canonical}の承認待ち件数を取得できませんでした。交換申請の確認ページを開いてください`,
-	heading: '管理ダッシュボード',
+	// #4715: 旧「管理ダッシュボード」は title (ご家族の見守り画面) と別名だった
+	heading: ADMIN_SCREENS.home.name,
 	headingDemoSuffix: '（デモ）',
 	onboardingCompleteText: 'すべてのセットアップが完了しました！',
 	onboardingDismissButton: '非表示にする',
@@ -5893,7 +5983,7 @@ export const DEMO_REPORTS_LABELS = {
 } as const;
 
 export const ADMIN_CHILDREN_PAGE_LABELS = {
-	pageTitle: '👧 こども管理',
+	pageTitle: adminScreenHeading('children'),
 	// #4546 ③: 仮アバターの作り直しをレースで見送ったときの通知 (ADR-0062 §1「一時的・回復可能」= Toast)。
 	// 「失敗」ではなく「写真を優先した」正常な結果なので、責めず・次にどうすればよいかまで書く。
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
@@ -5957,7 +6047,7 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
-	pageTitle: '📜 がんばり証明書',
+	pageTitle: adminScreenHeading('certificates'),
 	backToReportsLink: 'レポートへ',
 	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
@@ -5980,7 +6070,7 @@ export const PACKS_PAGE_LABELS = {
 	importButton: (count: number) => `${count}件の新しい活動をインポート`,
 	// #1758 (#1709-D): must 推奨採用チェックボックス
 	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
-	mustDefaultCheckboxHint: `歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで${ADMIN_VIEW_TERMS.parent}から個別に変更できます。`,
+	mustDefaultCheckboxHint: `歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで${ADMIN_VIEW_TERMS.canonical}から個別に変更できます。`,
 	mustDefaultBadge: 'おやくそく推奨',
 	mustDefaultCount: (count: number) => `おやくそく推奨 ${count}件`,
 } as const;
@@ -6382,7 +6472,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceSeeMore: 'すべてのチェックリストを見る →',
 	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
 	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
-	pageTitle: 'チェックリスト管理',
+	pageTitle: ADMIN_SCREENS.checklists.name,
 	familyChecklistsSectionTitle: '家族のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い、header 説明を「子供タブで選択中の子のチェックリストを表示」軸に更新。
 	//   同じリストを複数のお子さまに配ることも可能 (= 追加時に配信先を選ぶ) という従来の柔軟性は維持。
@@ -6529,15 +6619,16 @@ export const SWITCH_PAGE_LABELS = {
 	emptyTitle: 'こどもがまだいないよ',
 	emptyDesc: `${PARENT_TERMS.neutral}が${ADMIN_VIEW_TERMS.canonical}からついかしてね`,
 	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
-	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
-	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
+	// #4715: 遷移先の画面名 (registry SSOT) をそのまま出す。旧「保護者の見守り画面」は
+	//   同じ画面の 3 つ目の呼び名で、着地先の title / 見出しと一致していなかった。
+	adminLink: `🔒 ${ADMIN_SCREENS.home.name}`,
 } as const;
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
 //     license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除、割引配布は Stripe Coupon 代替)。
 
 export const DEMO_CHALLENGES_LABELS = {
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: adminScreenHeading('challenges'),
 	allClearedBadge: '全員クリア！',
 	activeBadge: '開催中',
 	dateRangeSeparator: '〜',

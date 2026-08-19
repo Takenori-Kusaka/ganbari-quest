@@ -773,7 +773,7 @@ async function handleCopyFromChild() {
 		</p>
 		<p class="page-description__hint">
 			{REWARDS_LABELS.pageDescHintPrefix}
-			<a href="/admin/messages" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
+			<a href="/admin/cheer" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
 			{REWARDS_LABELS.pageDescHintSuffix}
 		</p>
 	</div>

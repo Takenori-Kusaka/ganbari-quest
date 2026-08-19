@@ -1,7 +1,7 @@
 <script lang="ts">
 import { page } from '$app/stores';
-import { getModeLabels, ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import { ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
+import { FEATURES_LABELS, getChildNavModeLabels } from '$lib/domain/labels';
 
 interface Props {
 	uiMode: string;
@@ -9,7 +9,7 @@ interface Props {
 
 let { uiMode }: Props = $props();
 
-const labels = $derived(getModeLabels(uiMode));
+const labels = $derived(getChildNavModeLabels(uiMode));
 
 // junior/senior はステータスアイコンに📊を使用
 const statusIcon = $derived(uiMode === 'junior' || uiMode === 'senior' ? '📊' : ICON_STATUS);

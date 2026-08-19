@@ -1,6 +1,8 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
+// #4715: nav の label / icon は画面名 registry を SSOT にする (nav = title = 見出し)。
+import { ADMIN_SCREENS } from '$lib/domain/admin-screens';
 import {
 	FEATURES_LABELS,
 	NAV_CATEGORIES,
@@ -8,6 +10,7 @@ import {
 	PLAN_LABELS,
 	TRIAL_LABELS,
 } from '$lib/domain/labels';
+import { CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
@@ -151,8 +154,16 @@ const navCategories: NavCategory[] = $derived([
 		label: NAV_CATEGORIES.family.label,
 		icon: NAV_CATEGORIES.family.icon,
 		items: [
-			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
-			{ href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
+			{
+				href: `${basePath}/children`,
+				label: ADMIN_SCREENS.children.name,
+				icon: ADMIN_SCREENS.children.icon,
+			},
+			{
+				href: `${basePath}/members`,
+				label: ADMIN_SCREENS.members.name,
+				icon: ADMIN_SCREENS.members.icon,
+			},
 		],
 	},
 	{
@@ -160,16 +171,39 @@ const navCategories: NavCategory[] = $derived([
 		label: NAV_CATEGORIES.activity.label,
 		icon: NAV_CATEGORIES.activity.icon,
 		items: [
-			{ href: `${basePath}/activities`, label: NAV_ITEM_LABELS.activities, icon: '📋' },
-			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
+			// #4715: icon は概念アイコン SSOT (CONCEPT_ICONS、docs/DESIGN.md §6) に合わせる。
+			//   旧 nav は 活動 = 📋 (checklist と衝突) / チェックリスト = ✅ (DESIGN.md が明示的に不採用としている絵文字)
+			//   / チャレンジ = 👥 (members と衝突) / テンプレート = 🛍️ だった。
+			{
+				href: `${basePath}/activities`,
+				label: ADMIN_SCREENS.activities.name,
+				icon: ADMIN_SCREENS.activities.icon,
+			},
+			{
+				href: `${basePath}/checklists`,
+				label: ADMIN_SCREENS.checklists.name,
+				icon: ADMIN_SCREENS.checklists.icon,
+			},
 			// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
+			{
+				href: `${basePath}/challenges`,
+				label: ADMIN_SCREENS.challenges.name,
+				icon: ADMIN_SCREENS.challenges.icon,
+			},
 			// #2274 (EPIC #2266): ごほうび/応援を record→activity 配下に移動
 			// (rewards/cheer は日々の活動なので activity タブ配下が適切、PO 指摘 2026-05-19)
-			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
-			{ href: `${basePath}/cheer`, label: NAV_ITEM_LABELS.cheer, icon: '🎉' },
+			{
+				href: `${basePath}/rewards`,
+				label: ADMIN_SCREENS.rewards.name,
+				icon: ADMIN_SCREENS.rewards.icon,
+			},
+			{
+				href: `${basePath}/cheer`,
+				label: ADMIN_SCREENS.cheer.name,
+				icon: ADMIN_SCREENS.cheer.icon,
+			},
 			// #1170: マケプレをグローバルナビ昇格（activity の一員として導線短縮）
-			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
+			{ href: '/marketplace', label: TEMPLATE_TERMS.short, icon: CONCEPT_ICONS.template },
 			// #2178: こども → family カテゴリへ移動済
 		],
 	},
@@ -178,11 +212,29 @@ const navCategories: NavCategory[] = $derived([
 		label: NAV_CATEGORIES.record.label,
 		icon: NAV_CATEGORIES.record.icon,
 		items: [
-			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
-			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
+			{
+				href: `${basePath}/reports`,
+				label: ADMIN_SCREENS.reports.name,
+				icon: ADMIN_SCREENS.reports.icon,
+			},
+			{
+				href: `${basePath}/growth-book`,
+				label: ADMIN_SCREENS.growthBook.name,
+				icon: ADMIN_SCREENS.growthBook.icon,
+			},
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
 			// #2284 (EPIC #2283): /admin/analytics 撤去。運用者向け機能は /ops/analytics に移動
-			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
+			{
+				href: `${basePath}/points`,
+				label: ADMIN_SCREENS.points.name,
+				icon: ADMIN_SCREENS.points.icon,
+			},
+			// #4715: /admin/status は nav 参照ゼロ (直 URL のみ) の孤立ページだった。記録カテゴリに載せる。
+			{
+				href: `${basePath}/status`,
+				label: ADMIN_SCREENS.status.name,
+				icon: ADMIN_SCREENS.status.icon,
+			},
 			// #2270 / #2274 (EPIC #2266): messages 廃止 + rewards/cheer を activity 配下に移動
 		],
 	},
@@ -191,10 +243,18 @@ const navCategories: NavCategory[] = $derived([
 		label: NAV_CATEGORIES.settings.label,
 		icon: NAV_CATEGORIES.settings.icon,
 		items: [
-			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
+			{
+				href: `${basePath}/settings`,
+				label: ADMIN_SCREENS.settings.name,
+				icon: ADMIN_SCREENS.settings.icon,
+			},
 			// #4139: 「請求管理」(/admin/billing) は「プラン」(/admin/subscription) に統合。
 			// プランと課金の入口を 1 本にし、どちらを開けばよいか迷わせない。
-			{ href: `${basePath}/subscription`, label: NAV_ITEM_LABELS.license, icon: '💎' },
+			{
+				href: `${basePath}/subscription`,
+				label: ADMIN_SCREENS.subscription.name,
+				icon: ADMIN_SCREENS.subscription.icon,
+			},
 			// #2178: メンバー → family カテゴリへ移動済
 		],
 	},
