@@ -52,8 +52,12 @@ function createEvent(
 		request: createRequest(formData),
 		locals: {
 			authenticated: opts.authenticated ?? true,
-			identity: { type: 'cognito', userId: 'user-1' },
-			context: opts.tenantId !== null ? { tenantId: opts.tenantId ?? 'tenant-1' } : undefined,
+			// #4643: consents.user_id は users.user_id (context.userId)。identity.userId は IdP の sub
+			identity: { type: 'cognito', userId: 'cognito-sub-user-1' },
+			context:
+				opts.tenantId !== null
+					? { tenantId: opts.tenantId ?? 'tenant-1', userId: 'user-1' }
+					: undefined,
 		},
 		getClientAddress: () => '127.0.0.1',
 	};
