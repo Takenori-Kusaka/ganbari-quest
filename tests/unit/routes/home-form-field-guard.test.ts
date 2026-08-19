@@ -42,7 +42,6 @@ vi.mock('$lib/server/services/child-challenge-service', () => ({
 	markChallengeCelebrationShown: (...args: unknown[]) => mockMarkChallengeCelebrationShown(...args),
 }));
 
-
 import { actions as homeActions } from '../../../src/routes/(child)/[uiMode=uiMode]/home/+page.server';
 
 // cookie guard (requireValidChildCookieFormat) を通すための有効 uuid cookie。
@@ -143,16 +142,12 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			expect(res.status).toBe(400);
 			expect(mockMarkChallengeCelebrationShown).not.toHaveBeenCalled();
 		});
-
-
-
 	});
 
 	describe('dsql backend + 有効 uuid form-field → 従来どおり service に到達する', () => {
 		beforeEach(() => {
 			mockIsDsqlBackend.mockReturnValue(true);
 		});
-
 
 		it('record: 有効 uuid activityId は recordActivity に form 値を渡す', async () => {
 			mockRecordActivity.mockResolvedValue({
@@ -166,14 +161,12 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			expect(mockRecordActivity.mock.calls[0]?.[1]).toBe(VALID_FORM_UUID);
 			expect((res.data as { success?: boolean }).success).toBe(true);
 		});
-
 	});
 
 	describe('非 dsql backend (sqlite/demo) → 数値 form-field id を弾かない (guard no-op)', () => {
 		beforeEach(() => {
 			mockIsDsqlBackend.mockReturnValue(false);
 		});
-
 
 		it('record: 数値 activityId でも guard を通し recordActivity に到達する', async () => {
 			mockRecordActivity.mockResolvedValue({
