@@ -369,7 +369,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | reward-set 詳細ページ CTA、`dispatchImport` 経由 | TypeScript |
 | `src/routes/(parent)/admin/rewards/+page.server.ts` | 「マーケットプレイスから一括追加」、`dispatchImport` 経由 | TypeScript |
 | `src/routes/setup/rewards/+page.server.ts` | setup wizard step 2、`dispatchImport` 経由 | TypeScript |
-| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportReward*` / `REWARDS_LABELS.marketplace*` | TypeScript |
+| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportUnified` (取込 4 type 共通 CTA) / `detailCtaImportRewardSignedOut` / `REWARDS_LABELS.marketplace*` | TypeScript |
 | `src/lib/server/db/schema.ts` | `special_rewards.sourcePresetId` (#1254 G1) | Drizzle |
 
 **同期メカニズム**: `tests/unit/marketplace/strategies/reward-set-strategy.test.ts` (#2366、23 シナリオ + dispatcher integration) + `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ、Strangler Fig 並行) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) + `tests/e2e/admin-rewards-import-marketplace.spec.ts` (#2366 admin 動線) で検証。

@@ -42,6 +42,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
 	let importPresetId: string | null = null;
 	let importPresetError: 'not-found' | 'wrong-type' | null = null;
+	// #4711: wrong-type の案内に使う表示名 + 正規経路 (exchange は admin/rewards?import=)。
+	// 内部 ID (presetId) を顧客に見せない。
+	let importPresetName: string | null = null;
+	let importWrongTypeHref: string | null = null;
 	if (importPresetIdRaw) {
 		const item = getMarketplaceItem('rule-preset', importPresetIdRaw);
 		if (!item) {
@@ -52,6 +56,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		) {
 			// exchange は admin/rewards 経由、penalty / special は ADR-0012 細則で取込不可。
 			importPresetError = 'wrong-type';
+			importPresetName = item.name;
+			if ((item.payload as { ruleType: string }).ruleType === 'exchange') {
+				importWrongTypeHref = `/admin/rewards?import=${encodeURIComponent(item.itemId)}`;
+			}
 		} else {
 			importPresetId = importPresetIdRaw;
 		}
@@ -70,6 +78,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		importPresetId,
 		importPresetIdRaw,
 		importPresetError,
+		importPresetName,
+		importWrongTypeHref,
 		rewardAutoApprove,
 	};
 };
@@ -155,7 +165,8 @@ export const actions: Actions = {
 				typeCode: 'rule-preset',
 				rawPayload: item.payload,
 				displayName: item.name,
-				ctx: { tenantId, presetId },
+				// #4711: 表示名 / icon を Strategy に渡す (保存レコードに内部 ID が残らないように)。
+				ctx: { tenantId, presetId, presetName: item.name, presetIcon: item.icon },
 			});
 			return {
 				packName: result.packName,
