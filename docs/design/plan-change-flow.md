@@ -167,6 +167,13 @@ PO の「解約原因が見えない」「卒業 vs 離反比率が検証され�
 - **fallback (選ばずに手続きが完了した場合)**: 先に登録したものから順に無料プランの上限数だけ残し、
   超えた分をアーカイブする (`archiveExcessResources`)。この規則は解約画面に事前提示する
   (`CANCELLATION_LABELS.archiveFallback*`、上限値は `plan-limit-service` 由来)
+- **fallback の起動条件**: `hasRevertedToFreePlan` (`src/lib/domain/free-plan-reversion.ts`) が SSOT。
+  実効プランが free で、かつ (a) 体験の終了 または (b) 契約の終了 = S5
+  ([contract-state-matrix](billing-redesign/contract-state-matrix.md) §4) のいずれかであること。
+  解約フロー / 請求パネル / dunning はいずれも `customer.subscription.deleted` (同 §5 W5) で
+  S5 に着地するため、3 経路で条件は同一になる。S3 支払い猶予 / S4 停止 (契約が残り復帰しうる) では
+  発火しない。判定は `(parent)/admin/+layout.server.ts` の load で行い、archive 済みサマリの
+  表示も同じ述語で出し分ける
 - アーカイブは削除ではなく、再契約で復元できる
 
 #### 3.0.4 Anti-engagement 原則 (ADR-0012)
