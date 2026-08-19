@@ -1065,6 +1065,84 @@ function migrateLoginBonusesToStreaks(db: Database.Database): void {
 	run();
 }
 
+/**
+ * #4683: `reward_redemption_requests.reward_id` の FK 制約 (→ `special_rewards.id`) を外す。
+ *
+ * ごほうびを削除しても交換履歴は残す仕様 (子供の「記録 > 交換」/ 親の承認履歴 / point_ledger の
+ * 控除 の三者整合) に変えたため、FK があると「履歴行を道連れに削除する」か「reward 削除自体が
+ * FK 違反で失敗する」かの二択になる。表示の権威は申請時点 snapshot (reward_title / reward_points /
+ * reward_icon) 側にあり (#2832 / #3566)、DSQL / PGlite は元から FK を持たない (transform.ts 責務 1)
+ * ため、FK を外すことで 3 backend の挙動が揃う。
+ *
+ * SQLite は `ALTER TABLE … DROP CONSTRAINT` を持たないため shadow table 再作成で行う。
+ * 冪等: `PRAGMA foreign_key_list` に special_rewards への FK が無ければ何もしない。
+ * 列は実 DB に存在するものだけを引き写す (本 migration は `SQL_CREATE_TABLES` /
+ * `validateAndMigrate` より前に走るため、新しい列がまだ無い旧 DB がありうる)。
+ */
+function migrateRedemptionDropRewardFk(db: Database.Database): void {
+	if (!tableExists(db, 'reward_redemption_requests')) return;
+	const fks = db.pragma('foreign_key_list(reward_redemption_requests)') as Array<{
+		table: string;
+	}>;
+	if (!fks.some((f) => f.table === 'special_rewards')) return; // 冪等 (既に FK なし)
+
+	// 新表の全列。旧 DB に無い列は SELECT 側で既定値に落とす。
+	const columns: Array<{ name: string; select: string }> = [
+		{ name: 'id', select: 'id' },
+		{ name: 'child_id', select: 'child_id' },
+		{ name: 'reward_id', select: 'reward_id' },
+		{ name: 'requested_at', select: 'requested_at' },
+		{ name: 'quantity', select: 'COALESCE(quantity, 1)' },
+		{ name: 'status', select: 'status' },
+		{ name: 'parent_note', select: 'parent_note' },
+		{ name: 'resolved_at', select: 'resolved_at' },
+		{ name: 'resolved_by_parent_id', select: 'resolved_by_parent_id' },
+		{ name: 'shown_to_child_at', select: 'shown_to_child_at' },
+		{ name: 'reward_title', select: 'reward_title' },
+		{ name: 'reward_points', select: 'reward_points' },
+		{ name: 'reward_icon', select: 'reward_icon' },
+	];
+	const fallback: Record<string, string> = { quantity: '1' };
+	const selectList = columns
+		.map((c) =>
+			hasColumn(db, 'reward_redemption_requests', c.name) ? c.select : (fallback[c.name] ?? 'NULL'),
+		)
+		.join(', ');
+	const insertList = columns.map((c) => c.name).join(', ');
+
+	const run = db.transaction(() => {
+		db.exec(`
+			CREATE TABLE reward_redemption_requests_new (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				reward_id INTEGER NOT NULL,
+				requested_at INTEGER NOT NULL,
+				quantity INTEGER NOT NULL DEFAULT 1,
+				status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+				parent_note TEXT,
+				resolved_at INTEGER,
+				resolved_by_parent_id TEXT,
+				shown_to_child_at INTEGER,
+				reward_title TEXT,
+				reward_points INTEGER,
+				reward_icon TEXT
+			);
+			INSERT INTO reward_redemption_requests_new (${insertList})
+				SELECT ${selectList} FROM reward_redemption_requests;
+			DROP TABLE reward_redemption_requests;
+			ALTER TABLE reward_redemption_requests_new RENAME TO reward_redemption_requests;
+			CREATE INDEX IF NOT EXISTS idx_redemption_child_status
+				ON reward_redemption_requests(child_id, status);
+			CREATE INDEX IF NOT EXISTS idx_redemption_reward_status
+				ON reward_redemption_requests(reward_id, status);
+		`);
+		console.info(
+			'[lazy-migrate #4683] dropped reward_redemption_requests.reward_id FK (ごほうび削除後も交換履歴を残す)',
+		);
+	});
+	run();
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -1102,6 +1180,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3330: login_bonuses (per-date) → login_streaks (counter) fold + 旧表 DROP。
 		// 他表と独立のため末尾で実行 (SQL_CREATE_TABLES より前なら順序制約なし)。
 		migrateLoginBonusesToStreaks(db);
+		// #4683: reward_redemption_requests の reward_id FK を外す (ごほうび削除後も交換履歴を残す)。
+		// 値の正規化 (migrateRedemptionResolverLegacyZero) の後、表の作り直しなので独立に末尾で実行。
+		migrateRedemptionDropRewardFk(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険

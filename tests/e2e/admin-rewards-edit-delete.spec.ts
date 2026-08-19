@@ -101,14 +101,45 @@ async function resolveRedemption(workerDbPath: string, requestId: number): Promi
 	}
 }
 
+/**
+ * #4683: pending redemption を「承認済み + ポイント台帳に控除あり」にする。
+ * 承認経路 (finalizeApproval) が作る状態を DB 直接 seed で再現する。
+ */
+async function approveRedemptionWithLedger(
+	workerDbPath: string,
+	seeded: SeededReward,
+	requestId: number,
+): Promise<void> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath);
+	try {
+		db.prepare(
+			`UPDATE reward_redemption_requests
+			 SET status = 'approved', resolved_at = ? WHERE id = ?`,
+		).run(Math.floor(Date.now() / 1000), requestId);
+		db.prepare(
+			`INSERT INTO point_ledger (child_id, amount, type, description, reference_id)
+			 VALUES (?, -50, 'reward_redemption', ?, ?)`,
+		).run(seeded.childId, seeded.title, requestId);
+	} finally {
+		db.close();
+	}
+}
+
 /** 本 spec が seed した reward / redemption を完全クリーンアップ (他 spec への汚染防止) */
 async function cleanupSeededRewards(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(workerDbPath);
 	try {
+		// #4683: reward 削除後も履歴行は残るため、reward_title (snapshot) 側でも拾う
 		db.prepare(
-			`DELETE FROM reward_redemption_requests WHERE reward_id IN
-			 (SELECT id FROM special_rewards WHERE title LIKE '${REWARD_TITLE_PREFIX}%')`,
+			`DELETE FROM point_ledger WHERE type = 'reward_redemption'
+			 AND description LIKE '${REWARD_TITLE_PREFIX}%'`,
+		).run();
+		db.prepare(
+			`DELETE FROM reward_redemption_requests
+			 WHERE reward_title LIKE '${REWARD_TITLE_PREFIX}%'
+				OR reward_id IN (SELECT id FROM special_rewards WHERE title LIKE '${REWARD_TITLE_PREFIX}%')`,
 		).run();
 		db.prepare(`DELETE FROM special_rewards WHERE title LIKE '${REWARD_TITLE_PREFIX}%'`).run();
 	} finally {
@@ -199,6 +230,69 @@ test.describe('#2832 reward 編集/削除の pending redemption ガード', () =
 		await expect(page.getByTestId(`reward-item-${seeded.rewardId}`)).toHaveCount(0, {
 			timeout: 10_000,
 		});
+	});
+
+	test('#4683: 承認済みの交換があるごほうびを削除しても、子供の交換履歴・親の承認履歴・ポイント台帳が残る', async ({
+		page,
+		workerDbPath,
+	}) => {
+		test.slow();
+		const seeded = await seedReward(workerDbPath, '4683');
+		const requestId = await insertPendingRedemption(workerDbPath, seeded);
+		// 承認済み (ポイント台帳に控除が立っている状態) を模す
+		await approveRedemptionWithLedger(workerDbPath, seeded, requestId);
+
+		await page.goto('/admin/rewards', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId(`reward-item-${seeded.rewardId}`)).toBeVisible({
+			timeout: 30_000,
+		});
+
+		// 削除 dialog の注記が「履歴は残る」ことを言っている (実装と文言の一致)
+		const deleteDialog = page.getByTestId('reward-delete-dialog');
+		await openDialogWithRetry(
+			page.getByTestId(`reward-delete-btn-${seeded.rewardId}`),
+			deleteDialog,
+		);
+		await expect(deleteDialog).toContainText('交換ずみの履歴は残る');
+
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/delete/.test(r.url())),
+			page.getByTestId('reward-delete-confirm').click(),
+		]);
+		expect(resp.ok()).toBeTruthy();
+		await expect(page.getByTestId(`reward-item-${seeded.rewardId}`)).toHaveCount(0, {
+			timeout: 10_000,
+		});
+
+		// ① 親の承認履歴に残る (snapshot 表示)
+		await page.goto('/admin/rewards/requests', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByText(seeded.title).first()).toBeVisible({ timeout: 30_000 });
+
+		// ② 子供の交換履歴に残る
+		await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+		await page.locator(`[data-testid="child-select-${seeded.childId}"]`).click();
+		await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\//, { timeout: 30_000 });
+		const uiMode = new URL(page.url()).pathname.split('/')[1];
+		await page.goto(`/${uiMode}/history?kind=purchases`, { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('history-list-purchases')).toBeVisible({ timeout: 30_000 });
+
+		// ③ ポイント台帳の控除が残る (「何に使ったか」の事実)
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const ledger = db
+				.prepare(
+					"SELECT COUNT(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND reference_id = ?",
+				)
+				.get(requestId) as { c: number };
+			expect(ledger.c, 'ポイント台帳の控除が消えている').toBe(1);
+			const history = db
+				.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests WHERE id = ?')
+				.get(requestId) as { c: number };
+			expect(history.c, '交換履歴が削除されている').toBe(1);
+		} finally {
+			db.close();
+		}
 	});
 
 	test('AC2 (案 b): pending 中も編集は成功し、編集 dialog に申請時点 snapshot note が表示される', async ({

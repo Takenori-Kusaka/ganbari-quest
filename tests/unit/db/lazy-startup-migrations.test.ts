@@ -955,6 +955,109 @@ describe('applyLazyStartupMigrations', () => {
 		});
 	});
 
+	describe('#4683: reward_redemption_requests.reward_id の FK を外す (ごほうび削除後も履歴を残す)', () => {
+		function seedLegacyRedemptionWithFk(opts: { withNewColumns: boolean }): void {
+			db.exec(`
+				CREATE TABLE special_rewards (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL,
+					title TEXT NOT NULL,
+					points INTEGER NOT NULL,
+					icon TEXT
+				);
+				CREATE TABLE reward_redemption_requests (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL,
+					reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+					requested_at INTEGER NOT NULL,
+					${opts.withNewColumns ? 'quantity INTEGER NOT NULL DEFAULT 1,' : ''}
+					status TEXT NOT NULL DEFAULT 'pending_parent_approval',
+					parent_note TEXT,
+					resolved_at INTEGER,
+					resolved_by_parent_id TEXT,
+					shown_to_child_at INTEGER
+					${opts.withNewColumns ? ', reward_title TEXT, reward_points INTEGER, reward_icon TEXT' : ''}
+				);
+				INSERT INTO special_rewards (id, child_id, title, points, icon)
+					VALUES (1, 10, 'ゲームじかん', 80, '🎮');
+			`);
+			if (opts.withNewColumns) {
+				db.exec(`INSERT INTO reward_redemption_requests
+					(id, child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+					VALUES (1, 10, 1, 1700000000, 3, 'approved', 'ゲームじかん', 80, '🎮');`);
+			} else {
+				db.exec(`INSERT INTO reward_redemption_requests
+					(id, child_id, reward_id, requested_at, status)
+					VALUES (1, 10, 1, 1700000000, 'approved');`);
+			}
+		}
+
+		function fkTables(): string[] {
+			return (
+				db.prepare('PRAGMA foreign_key_list(reward_redemption_requests)').all() as {
+					table: string;
+				}[]
+			).map((f) => f.table);
+		}
+
+		it('special_rewards への FK が外れ、行は保全される', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			expect(fkTables()).toContain('special_rewards');
+
+			applyLazyStartupMigrations(db);
+
+			expect(fkTables()).not.toContain('special_rewards');
+			const row = db
+				.prepare(
+					'SELECT id, child_id, reward_id, quantity, status, reward_title, reward_points, reward_icon FROM reward_redemption_requests',
+				)
+				.get() as Record<string, unknown>;
+			expect(row).toMatchObject({
+				id: 1,
+				child_id: 10,
+				reward_id: 1,
+				quantity: 3,
+				status: 'approved',
+				reward_title: 'ゲームじかん',
+				reward_points: 80,
+				reward_icon: '🎮',
+			});
+		});
+
+		it('FK を外した後は reward を削除しても履歴行が残る (本 Issue の目的)', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			applyLazyStartupMigrations(db);
+			db.pragma('foreign_keys = ON');
+
+			expect(() => db.prepare('DELETE FROM special_rewards WHERE id = 1').run()).not.toThrow();
+			const remaining = db
+				.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests')
+				.get() as { c: number };
+			expect(remaining.c).toBe(1);
+		});
+
+		it('新しい列がまだ無い旧 DB でも移送できる (quantity は 1 / snapshot は NULL)', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: false });
+			applyLazyStartupMigrations(db);
+
+			const row = db
+				.prepare('SELECT quantity, reward_title FROM reward_redemption_requests')
+				.get() as { quantity: number; reward_title: string | null };
+			expect(row.quantity).toBe(1);
+			expect(row.reward_title).toBeNull();
+		});
+
+		it('冪等: 再適用しても行が消えない / 二重にならない', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			applyLazyStartupMigrations(db);
+			applyLazyStartupMigrations(db);
+			const c = db.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests').get() as {
+				c: number;
+			};
+			expect(c.c).toBe(1);
+		});
+	});
+
 	describe('#3504: cloud_exports status / failure_reason 追加 (既存行 ready backfill)', () => {
 		function seedLegacyCloudExports(): void {
 			// 旧 schema (status / failure_reason 列なし)
