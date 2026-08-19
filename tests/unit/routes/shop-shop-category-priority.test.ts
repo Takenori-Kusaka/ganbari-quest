@@ -37,10 +37,13 @@ const load = mod.load as unknown as (event: {
 	locals: App.Locals;
 }) => Promise<{ rewards: Array<{ id: number; shopCategory: string }> }>;
 
-function makeEvent(child: { id: number } | null) {
+// #4685: load は params.uiMode を見て年齢帯の機能可否 (rewardShop) を判定する。
+// baby は home へ redirect するため、本 test は shop を持つモードで呼ぶ。
+function makeEvent(child: { id: number } | null, uiMode = 'elementary') {
 	return {
 		parent: async () => ({ child }),
 		locals: {} as App.Locals,
+		params: { uiMode },
 	};
 }
 
@@ -110,5 +113,21 @@ describe('shop load — shopCategory 列優先 + fallback (#3147)', () => {
 
 		const result = await load(makeEvent({ id: 10 }));
 		expect(result.rewards[0]?.shopCategory).toBe('privilege');
+	});
+});
+
+// #4685 (ADR-0011): 準備モード (baby) はごほうびショップを持たない。
+describe('#4685 準備モード (baby) はショップを開かない', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockRequireTenantId.mockReturnValue('tenant-1');
+	});
+
+	it('baby は home へ redirect し、ごほうび取得も行わない', async () => {
+		await expect(load(makeEvent({ id: 10 }, 'baby'))).rejects.toMatchObject({
+			status: 302,
+			location: '/baby/home',
+		});
+		expect(mockGetChildSpecialRewards).not.toHaveBeenCalled();
 	});
 });
