@@ -1,15 +1,24 @@
 // tests/unit/routes/settings-notifications-guide.test.ts
-// #4664 (EPIC #4650): 通知設定の「届かないものを約束する」class を機械 gate 化する。
+// #4664 (EPIC #4650): 「設定できるのに届かない」class を機械 gate 化する。
 //
 // 観測された実害:
-//   - リマインダー / ストリーク警告 の endpoint は存在するが、それを叩く cron が
-//     schedule-registry.ts にも cron-dispatcher にも登録されていない = **一度も届かない**。
-//     それでも設定画面にチェックボックスがあり、ガイドも「活動のリマインド」を訴求していた
-//   - ガイドの goal が「お子さま自身が活動を思い出すきっかけ」で、届く先（購読した保護者の
-//     この端末）と逆の印象を与えていた
-//   - 通知種別が「連続記録のお祝い」で、実チェックボックス（達成通知 / ストリーク警告）とずれていた
+//   - リマインダー / ストリーク警告 のチェックボックスは設定画面にあるのに、それを送る
+//     cron が `schedule-registry.ts` にも cron-dispatcher にも登録されておらず、ON にしても
+//     一度も届かなかった (#4706 / PR #4796 が配信 cron を実装して解消)
+//   - ガイドの goal が「お子さま自身が活動を思い出すきっかけ」で、届く先 (購読した保護者の
+//     この端末) と逆の印象を与えていた
+//   - 通知種別が「連続記録のお祝い」で、実チェックボックス名 (ストリーク警告) とずれていた
+//   - リマインダー時刻 / サイレント時間帯 / 1 日の上限 / 「ブロック中」の復旧手順が未説明
 //
-// 「配信経路の無い通知種別を UI / ガイドに出していないか」は、cron 登録の有無から機械判定できる。
+// 本 test が固定する不変条件は 1 つ:
+//   **設定画面が入力欄を出す通知種別には、必ず配信経路がある**
+// 配信経路は 2 種類しかない — cron (`scheduleRegistry` に登録された endpoint) か、
+// 記録時の同期送信 (`sendAchievementNotification`)。どちらも無い種別の入力欄を出したら fail する。
+//
+// PO 決裁 (2026-08-20): 同じ欠陥に対し「UI を撤去する」案と「配信を実装する」案が並走していたが、
+// ADR-0012 §6 がこの 3 種 (リマインダー / ストリーク警告 / 達成通知) を名指しで許容している
+// ため、**配信を実装する**方を採る。本 test は撤去側の gate ではなく「約束したものは届く」側の
+// gate として働く (#4796 の cron が登録されている限り緑、外れたら赤)。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,9 +35,9 @@ import { SETTINGS_NOTIFICATIONS_GUIDE } from '../../../src/routes/(parent)/admin
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PAGE = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings/notifications/+page.svelte');
-const SERVER = path.join(
+const ACTIVITY_LOG_SERVICE = path.join(
 	REPO_ROOT,
-	'src/routes/(parent)/admin/settings/notifications/+page.server.ts',
+	'src/lib/server/services/activity-log-service.ts',
 );
 
 const STEPS = PAGE_GUIDE_LABELS.adminSettingsNotifications.steps;
@@ -44,43 +53,95 @@ const ALL_TEXT = (Object.values(STEPS) as GuideStepText[])
 	.flatMap((s) => [s.title, s.what, s.how, s.goal, ...(s.tips ?? [])])
 	.join('\n');
 
-/** 通知 endpoint が cron から起動されるか（起動されないものは「届かない」）。 */
+/**
+ * 設定画面が入力欄を出す通知種別と、その配信経路 (SSOT)。
+ *
+ * `cronEndpoint` … `scheduleRegistry` に登録された endpoint が送る (定期配信)
+ * `syncSender`   … 記録時に service から同期送信される関数名 (cron 不要)
+ *
+ * **入力欄を増やしたらここにも足す**。足さずに欄だけ増やすと [N2] が「配信経路が無い」で落ちる。
+ */
+const PROMISED_DELIVERIES = [
+	{
+		field: 'remindersEnabled',
+		label: () => SETTINGS_LABELS.notificationReminderLabel,
+		cronEndpoint: '/api/cron/notification-delivery',
+		syncSender: null,
+	},
+	{
+		field: 'streakEnabled',
+		label: () => SETTINGS_LABELS.notificationStreakLabel,
+		cronEndpoint: '/api/cron/notification-delivery',
+		syncSender: null,
+	},
+	{
+		field: 'achievementsEnabled',
+		label: () => SETTINGS_LABELS.notificationAchievementLabel,
+		cronEndpoint: null,
+		syncSender: 'sendAchievementNotification',
+	},
+] as const;
+
+/** endpoint が cron から起動されるか (起動されないものは「届かない」)。 */
 function isScheduled(endpoint: string): boolean {
 	return scheduleRegistry.some((job) => job.endpoint === endpoint);
 }
 
 describe('#4664 通知設定は「届くもの」だけを約束する', () => {
-	// 前提の固定: この test の存在理由そのもの。将来 cron を実装したらここが false になり、
-	// [N2] / [N3] を見直す合図になる（黙って前提が変わらない）。
-	it('[N1] リマインダー / ストリーク警告 の配信 cron はまだ登録されていない', () => {
-		expect(isScheduled('/api/v1/admin/notifications/reminder')).toBe(false);
-		expect(isScheduled('/api/v1/admin/notifications/streak-warning')).toBe(false);
-	});
-
-	it('[N2] 配信経路の無い通知種別を設定画面に出していない', () => {
+	// 設定画面に出ている入力欄の集合を、SSOT の宣言と突き合わせる。
+	// 「欄はあるのに宣言が無い」= 配信経路を誰も確認していない状態を作らせない。
+	it('[N1] 設定画面の入力欄と PROMISED_DELIVERIES が過不足なく一致する', () => {
 		const source = fs.readFileSync(PAGE, 'utf8');
-		for (const name of ['remindersEnabled', 'reminderTime', 'streakEnabled']) {
-			expect(source, `未配信の設定 "${name}" が入力欄として残っている`).not.toMatch(
-				new RegExp(`name="${name}"`),
-			);
+		const onPage = [...source.matchAll(/name="(\w+Enabled)"/g)]
+			.map((m) => m[1])
+			.filter((n): n is string => n !== undefined);
+		expect([...new Set(onPage)].sort()).toEqual(PROMISED_DELIVERIES.map((d) => d.field).sort());
+	});
+
+	// 本 test の中心。**約束したものは届く**。
+	it('[N2] 入力欄を出している通知種別には配信経路がある (cron 登録 or 同期送信)', () => {
+		const undelivered: string[] = [];
+		const activityLogSource = fs.readFileSync(ACTIVITY_LOG_SERVICE, 'utf8');
+		for (const d of PROMISED_DELIVERIES) {
+			if (d.cronEndpoint !== null) {
+				if (!isScheduled(d.cronEndpoint)) {
+					undelivered.push(`${d.field}: cron ${d.cronEndpoint} が scheduleRegistry に無い`);
+				}
+				continue;
+			}
+			if (d.syncSender !== null && !activityLogSource.includes(d.syncSender)) {
+				undelivered.push(`${d.field}: 同期送信 ${d.syncSender} の呼び出しが無い`);
+			}
+		}
+		expect(
+			undelivered,
+			`設定画面が約束しているのに配信経路が無い通知:\n  ${undelivered.join('\n  ')}\n` +
+				'→ 配信を実装する (cron なら schedule-registry.ts に登録) か、入力欄を出さない',
+		).toEqual([]);
+	});
+
+	// ガイドが挙げる種別名 = 画面のチェックボックス名。片方だけ増減すると顧客が探せなくなる。
+	it('[N3] ガイドが 3 種すべてを画面と同じ語で挙げている', () => {
+		const how = STEPS['settings-notifications-types'].how;
+		const what = STEPS['settings-notifications-types'].what;
+		const text = `${what}\n${how}`;
+		for (const d of PROMISED_DELIVERIES) {
+			expect(text, `ガイドが「${d.label()}」に触れていない`).toContain(d.label());
 		}
 	});
 
-	it('[N3] ガイドが未配信のお知らせ（リマインダー / ストリーク）を訴求していない', () => {
-		for (const word of ['リマインダー', 'ストリーク']) {
-			expect(ALL_TEXT, `ガイドが未配信の "${word}" を訴求している`).not.toContain(word);
-		}
-	});
-
-	// UI から外しても保存値は消さない（配信を実装したら以前の設定で復帰させる）。
-	it('[N4] 未配信設定の保存値をフォーム欄が無いことを理由に潰していない', () => {
-		const source = fs.readFileSync(SERVER, 'utf8');
+	it('[N4] 保存 action が入力欄のある設定を全て書き込む', () => {
+		const server = fs.readFileSync(
+			path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings/notifications/+page.server.ts'),
+			'utf8',
+		);
 		for (const key of [
 			'notification_reminders_enabled',
 			'notification_reminder_time',
 			'notification_streak_enabled',
+			'notification_achievements_enabled',
 		]) {
-			expect(source, `${key} を setSetting で上書きしている`).not.toContain(`setSetting('${key}'`);
+			expect(server, `${key} を保存していない`).toContain(`setSetting('${key}'`);
 		}
 	});
 
@@ -91,10 +152,16 @@ describe('#4664 通知設定は「届くもの」だけを約束する', () => {
 		expect(ALL_TEXT).not.toMatch(/お子さま自身が/);
 	});
 
-	it('[N6] 種類 step が画面のチェックボックス名をそのまま使っている', () => {
-		expect(STEPS['settings-notifications-types'].how).toContain(
-			SETTINGS_LABELS.notificationAchievementLabel,
+	// #4664 M: 時刻欄は checkbox を押した瞬間ではなく、保存後の再読込 data で描画される。
+	it('[N6] リマインダー時刻の出現条件がガイドと実装で一致する', () => {
+		const source = fs.readFileSync(PAGE, 'utf8');
+		expect(source, '時刻欄が remindersEnabled の保存値で出し分けられていない').toContain(
+			'{#if data.notificationSettings.remindersEnabled}',
 		);
+		const types = STEPS['settings-notifications-types'] as GuideStepText;
+		const text = [types.how, ...(types.tips ?? [])].join('\n');
+		expect(text, '「保存したあとに出る」条件を述べていない').toMatch(/保存/);
+		expect(text).toContain(SETTINGS_LABELS.notificationReminderTimeLabel);
 	});
 
 	it('[N7] ブロック中の復旧手順がガイドで読める', () => {
