@@ -77,7 +77,11 @@ export default async (page, capture) => {
 	//
 	// 握り潰しは DOM 側から見分けられないので、**derived 側 (送信ボタンの活性) が追いつくまで
 	// 入れ直す**。押せるようになったことが「全部チェックした」の唯一の確かな証拠になる。
-	const boxes = ['consent-terms-checkbox', 'consent-privacy-checkbox', 'consent-cross-border-checkbox'];
+	const boxes = [
+		'consent-terms-checkbox',
+		'consent-privacy-checkbox',
+		'consent-cross-border-checkbox',
+	];
 	const submit = page.getByTestId('consent-submit');
 	await submit.waitFor({ state: 'visible', timeout: 15_000 });
 
