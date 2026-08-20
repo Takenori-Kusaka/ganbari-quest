@@ -125,11 +125,11 @@ describe('#4642 引っ越し合流の確認画面 (load)', () => {
 		});
 		const { cookies } = createCookies();
 
-		// biome-ignore lint/suspicious/noExplicitAny: PageServerLoad の部分モック
 		const event = {
 			params: { code: CODE },
 			cookies,
 			locals: { identity, context: { ...context, role: 'parent' } },
+			// biome-ignore lint/suspicious/noExplicitAny: PageServerLoad の部分モック
 		} as any;
 		const { data } = await run(() => load(event));
 
