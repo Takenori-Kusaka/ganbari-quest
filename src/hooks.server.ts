@@ -16,6 +16,7 @@ import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode'
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
 import type { AuthContext } from '$lib/server/auth/types';
+import { cronJobNameFromPath, recordCronRun } from '$lib/server/cron/cron-heartbeat';
 import { getOrInitDb } from '$lib/server/db/client';
 // #3620 AC-C2: DATA_SOURCE=pglite の非同期 init guard 用 (import は side-effect free、
 // PGlite instance は initPgliteConnection() 呼び出し時のみ生成)。
@@ -728,6 +729,17 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		const response = await resolve(event);
+
+		// #4721: cron endpoint が実際に呼ばれたことを記録する (NUC の scheduler 生死観測)。
+		//
+		// **受けた側で記録する**ことに意味がある — scheduler コンテナが起動していない /
+		// 古いままで registry の新ジョブを知らない、という状態は「何も起きない」形で現れ、
+		// log にも画面にも出ないため鮮度でしか捕まえられない。記録は `/api/health` が読む。
+		// 記録側は失敗しても cron 本体を落とさない (観測装置が本処理を止めない)。
+		if (response.ok) {
+			const cronJobName = cronJobNameFromPath(path);
+			if (cronJobName) recordCronRun(cronJobName);
+		}
 
 		// 3) セキュリティヘッダ付与
 		// Content-Security-Policy は SvelteKit 標準 CSP (svelte.config.js kit.csp) が

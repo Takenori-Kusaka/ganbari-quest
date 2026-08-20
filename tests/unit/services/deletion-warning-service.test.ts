@@ -25,6 +25,12 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), critical: vi.fn() },
 }));
 
+// #4721: 物理削除の kill-switch を切り替えるための env mock
+const { mockEnv } = vi.hoisted(() => ({
+	mockEnv: {} as Record<string, string | undefined>,
+}));
+vi.mock('$lib/runtime/env', () => ({ env: mockEnv }));
+
 /** settings KV (tenantId 込みの複合キーで保持する) */
 const settingsStore = new Map<string, string>();
 
@@ -574,5 +580,42 @@ describe('#2399 走査対象外', () => {
 
 		expect(result.sent).toBe(0);
 		expect(result.tenantsRemaining).toBe(3);
+	});
+});
+
+// ============================================================
+// [W9] #4721: 削除が走らない配備では予告も出さない
+// ============================================================
+
+describe('[W9] 物理削除が停止中なら予告メールを送らない (#4721)', () => {
+	afterEach(() => {
+		for (const key of Object.keys(mockEnv)) delete mockEnv[key];
+	});
+
+	// AWS 本番は grace-period-deletion の EventBridge Rule を作っていないのに、予告メールの
+	// Rule だけが動いていた。顧客には「削除予定日: X」が届き、その日が来ても削除されない。
+	it('kill-switch が有効なら 1 通も送らず、止まったことを結果で報告する', async () => {
+		setTenants(['t1']);
+		seedSoftDeleted('t1', 'family', 14);
+		mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'true';
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(0);
+		expect(result.skippedPhysicalDeletionDisabled).toBe(true);
+		expect(mockSendWarning).not.toHaveBeenCalled();
+		// 走査にも入らない (「送らない」だけでなく「見に行かない」)
+		expect(result.scanned).toBe(0);
+	});
+
+	// 対照: flag が無ければ従来どおり送る (検査が常に true を返す空振りでない)
+	it('kill-switch が無効なら従来どおり送る', async () => {
+		setTenants(['t1']);
+		seedSoftDeleted('t1', 'family', 14);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(result.skippedPhysicalDeletionDisabled).toBe(false);
 	});
 });

@@ -21,7 +21,9 @@ import { sendDeletionWarningEmail } from './email-service';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
 	DELETION_WARNING_SENT_KEY,
+	GRACE_PERIOD_DELETION_DISABLED_ENV,
 	getGracePeriodStatus,
+	isPhysicalDeletionDisabled,
 } from './grace-period-service';
 import type { PlanTier } from './plan-limit-service';
 
@@ -100,6 +102,14 @@ export interface DeletionWarningRunResult {
 	/** 個別の宛先送信失敗の総数 (テナント横断の合計。メールアドレス自体は記録しない) (#4359 follow-up) */
 	failedRecipients: number;
 	errors: number;
+	/**
+	 * 物理削除が停止中のため 1 通も送らずに終えたか (#4721)。
+	 *
+	 * 削除が走らない配備で「削除予定日: X（あと N 日）」を告げるのは顧客への嘘になるため、
+	 * 予告メールは削除と同じ feature flag で止める。**止まったことを観測可能にする**
+	 * (silent skip にすると「なぜ届かないのか」が誰にも分からない)。
+	 */
+	skippedPhysicalDeletionDisabled: boolean;
 	/** limit / 時間予算により今回処理せず次回実行へ持ち越した件数 */
 	tenantsRemaining: number;
 	dryRun: boolean;
@@ -350,9 +360,29 @@ export async function runDeletionWarningEmails(
 		tenantsWithPartialFailure: 0,
 		failedRecipients: 0,
 		errors: 0,
+		skippedPhysicalDeletionDisabled: false,
 		tenantsRemaining: 0,
 		dryRun,
 	};
+
+	// #4721: **削除が走らない配備では予告も出さない。**
+	//
+	// AWS 本番は grace-period-deletion の EventBridge Rule を作っていない (#4304 / #4327) ため
+	// 物理削除は起きないが、deletion-warning-emails の Rule だけは毎日動いていた。結果として
+	// 猶予中の顧客に「データの削除予定日: X（あと N 日）」が届き、その日が来ても削除されない
+	// = 通知内容と実態、および privacy 第 6 条「猶予期間後に完全削除」との乖離が生じていた。
+	//
+	// 削除の有効状態は CDK が `GRACE_PERIOD_DELETION_DISABLED` に反映する
+	// (Rule を作らない構成なら 'true')。予告メールが同じ flag を見ることで、Rule を復活させれば
+	// 予告も自動的に再開し、止めれば両方止まる — 2 つの設定を人が同期させる必要がなくなる。
+	if (isPhysicalDeletionDisabled()) {
+		result.skippedPhysicalDeletionDisabled = true;
+		logger.info(
+			'[deletion-warning] 物理削除が停止中のため予告メールを送らない (削除されない日付を告げない)',
+			{ context: { env: GRACE_PERIOD_DELETION_DISABLED_ENV } },
+		);
+		return result;
+	}
 
 	const repos = getRepos();
 	// N+1: Pre-PMF (<100 tenants) では許容。件数上限 + 時間予算で 30 秒制約に収める (#3695)

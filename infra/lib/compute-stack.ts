@@ -193,8 +193,27 @@ export class ComputeStack extends cdk.Stack {
 		// アプリ側 (checkAuth) がどちらでも通るようにする。
 		// #4327: 顧客データ物理削除の kill-switch。deploy 時に `-c gracePeriodDeletionDisabled=true`
 		// を渡すと物理削除を停止したまま deploy できる (既定は従来どおり有効)。
+		//
+		// #4721: **EventBridge Rule が無い = 物理削除は走らない**ので、その場合も env を 'true' に倒す。
+		//
+		// これが無いと「削除は止まっているのに、削除予定日を告げる予告メールだけが毎日届く」
+		// 非対称が起きる (deletion-warning-emails の Rule は作られており、アプリ側の
+		// `GRACE_PERIOD_DELETION_DISABLED` は 'false' のままだったため)。
+		// 顧客には「データの削除予定日: X（あと N 日）」と伝わるのにその日が来ても削除されず、
+		// privacy 第 6 条「猶予期間後に完全削除」とも食い違う。
+		//
+		// env を「物理削除が走るか」の唯一の真実にすることで、予告メール側は env を見るだけで
+		// 削除の有効状態に追従できる (CDK の Rule 有無をアプリから知る術は他に無い)。
+		// NUC は registry に job があり scheduler が駆動するため env 未設定 = 有効のままでよい。
+		// `readonly string[]` に落としてから探す。`CRON_JOBS` は `as const` なので直接比較すると
+		// 「grace-period-deletion は要素に無い」と型エラーになる — それは現状の事実だが、
+		// Rule を戻したときに何も直さず追従してほしい判定なので、型で固定しない。
+		const scheduledCronJobNames: readonly string[] = CRON_JOBS.map((job) => job.name);
+		const gracePeriodJobScheduled = scheduledCronJobNames.includes('grace-period-deletion');
 		const gracePeriodDeletionDisabled =
-			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' ? 'true' : 'false';
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' || !gracePeriodJobScheduled
+				? 'true'
+				: 'false';
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 

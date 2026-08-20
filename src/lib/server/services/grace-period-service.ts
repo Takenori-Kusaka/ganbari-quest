@@ -476,7 +476,14 @@ const DISABLED_VALUES = new Set(['true', '1', 'yes', 'on']);
 /** 「止めない」と解釈する値 (明示的に有効化した状態)。 */
 const ENABLED_VALUES = new Set(['false', '0', 'no', 'off', '']);
 
-function isPhysicalDeletionDisabled(): boolean {
+/**
+ * 物理削除が「この配備で走らない」状態か (#4327 / #4721)。
+ *
+ * **予告メール側もこれを見る** — 削除が走らないのに「削除予定日: X」を告げるメールだけが
+ * 届く非対称を作らないため。AWS では EventBridge Rule の有無が CDK 側で env に反映される
+ * (`infra/lib/compute-stack.ts`) ので、env を見れば「削除が走るか」が分かる。
+ */
+export function isPhysicalDeletionDisabled(): boolean {
 	const raw = env.GRACE_PERIOD_DELETION_DISABLED;
 	if (raw === undefined) return false;
 	const normalized = raw.trim().toLowerCase();
