@@ -95,8 +95,13 @@ export function resolveImportFeedback(
 	if (failed > 0) {
 		const partialFailure =
 			labels.partialFailure ?? MARKETPLACE_IMPORT_FEEDBACK_LABELS.partialFailure;
+		const failureText = partialFailure(imported, failed);
+		// 保存失敗と上限超過が同時に起きたときは両方言う。上限の理由を落とすと、
+		// 併記したアップグレード導線だけが理由なしで残る。
 		return {
-			message: partialFailure(imported, failed),
+			message: blocked
+				? MARKETPLACE_IMPORT_FEEDBACK_LABELS.blockedAfterImport(failureText, blocked.message)
+				: failureText,
 			tone: 'error',
 			upgradeUrl: blocked?.upgradeUrl ?? null,
 		};

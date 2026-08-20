@@ -106,6 +106,14 @@ describe('resolveImportFeedback の blocked 反映 (#4693)', () => {
 		expect(fb.tone).toBe('error');
 	});
 
+	it('保存失敗と上限超過が同時に起きたら両方言う (導線だけが理由なしで残らない)', () => {
+		const fb = resolveImportFeedback({ imported: 1, failed: 2, blocked: blocked(3) }, labels);
+
+		expect(fb.message).toContain('2 件は保存できませんでした');
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
 	it('壊れた blocked (件数 0 / message 空) は成功表示を汚さない', () => {
 		const fb = resolveImportFeedback(
 			{ imported: 3, failed: 0, blocked: { count: 0, message: '', upgradeUrl: null } },
