@@ -18,6 +18,7 @@ import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
@@ -699,15 +700,19 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { copiedCount?: number } }
+			| { type: 'success'; data?: { copiedCount?: number; skippedCount?: number } }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
+			// #4694: 3 画面共通の SSOT で「N 件コピー / M 件は既にあるためスキップ」を出す。
+			//   旧実装は copied 件数だけを出しており、2 回目に 0 件でも「0 件のごほうびを
+			//   コピーしました」と表示され、何が起きたか分からなかった。
 			const cnt = Number(actionResult.data?.copiedCount ?? 0);
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
-			showToast(ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt), undefined, 'success');
+			const skipped = Number(actionResult.data?.skippedCount ?? 0);
+			actionMessage = CHILD_COPY_RESULT_LABELS.format(REWARD_TERMS.canonical, cnt, skipped);
+			showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(cnt));
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();

@@ -5486,6 +5486,11 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: 'コピーする',
+	// #4694: コピー結果文の resource 名 (checklists の restoreResourceNoun と同型)。
+	// 結果文の組み立ては CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が行う。
+	copyResourceNoun: '活動',
+	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
+	copyFailed: 'コピーに失敗しました',
 	// bulk dialog
 	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
 	bulkFormName: '活動名',
@@ -5552,6 +5557,36 @@ export const ADMIN_CHILD_SCOPE_LABELS = {
 		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
 	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
 	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
+} as const;
+
+/**
+ * 「別のお子さまからコピー」の結果メッセージ SSOT (#4694)
+ *
+ * 活動 / ごほうび / チェックリストの 3 画面で同じ判定 (すでにあるものは作らない) を行い、
+ * 同じ形で「作った件数 / 既にあって作らなかった件数」を返す (NN/G #1 visibility of system status)。
+ * 旧実装は「コピーが完了しました」だけを出していたため、2 回押して二重登録されたことにも、
+ * 何も起きなかったことにも気づけなかった。
+ */
+export const CHILD_COPY_RESULT_LABELS = {
+	/**
+	 * @param resourceNoun 「活動」「ごほうび」「チェックリスト」
+	 * @param copied 実際に作成した件数
+	 * @param skipped 既に同じものがあり作成しなかった件数
+	 */
+	format: (resourceNoun: string, copied: number, skipped: number): string => {
+		if (copied === 0) {
+			return skipped > 0
+				? `コピーできる${resourceNoun}はありませんでした（${skipped} 件はすでに追加済みです）`
+				: `コピーできる${resourceNoun}がありませんでした`;
+		}
+		return skipped > 0
+			? `📋 ${copied} 件の${resourceNoun}をコピーしました（${skipped} 件はすでにあるためスキップ）`
+			: `📋 ${copied} 件の${resourceNoun}をコピーしました`;
+	},
+	/** 結果に応じた Toast のトーン (0 件は成功と呼ばない) */
+	tone: (copied: number): 'success' | 'info' => (copied > 0 ? 'success' : 'info'),
+	/** コピー実行中のボタン文言 (DESIGN.md §5 Button loading) */
+	copying: 'コピーしています…',
 } as const;
 
 /**
@@ -5627,7 +5662,6 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
@@ -6438,8 +6472,9 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: '取り込む',
 	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
-	copyNoChange: '取り込めるチェックリストがありませんでした（すでに配信済み）',
-	copySuccess: (added: number) => `${added} 件のチェックリストを取り込みました`,
+	// #4694: コピー結果文は CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が組み立てる。
+	// 本 namespace は resource 名だけを持つ (restoreResourceNoun と同型)。
+	copyResourceNoun: 'チェックリスト',
 	copyFailed: '取り込みに失敗しました',
 } as const;
 

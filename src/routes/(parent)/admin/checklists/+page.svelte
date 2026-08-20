@@ -8,6 +8,7 @@ import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -311,7 +312,15 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| {
+					type: 'success';
+					data?: {
+						added?: number;
+						alreadyDistributed?: number;
+						limitReached?: boolean;
+						message?: string;
+					};
+			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
@@ -324,11 +333,16 @@ async function handleCopyFromChild() {
 				actionMessage = actionResult.data.message;
 				showToast(actionMessage, undefined, 'info');
 			} else {
-				actionMessage =
-					added === 0
-						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
-						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
-				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+				// #4694: 3 画面共通 SSOT で「N 件取り込み / M 件はすでに配信済み」を出す。
+				//   server は既配信 skip を alreadyDistributed で返しているのに、UI は件数を
+				//   捨てて「取り込めるチェックリストがありませんでした」しか出していなかった。
+				const alreadyDistributed = Number(actionResult.data?.alreadyDistributed ?? 0);
+				actionMessage = CHILD_COPY_RESULT_LABELS.format(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+					added,
+					alreadyDistributed,
+				);
+				showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(added));
 			}
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
