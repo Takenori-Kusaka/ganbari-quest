@@ -169,7 +169,9 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 				source: ['aws.backup'],
 				'detail-type': ['Backup Job State Change'],
 				detail: Match.objectLike({
-					state: ['FAILED', 'ABORTED', 'EXPIRED'],
+					// #4724: S3 backup は一部オブジェクトだけ失敗すると PARTIAL で終わるため 4 値。
+					// 3 値のままだと「毎晩走っているが写真が入っていない」が通知ゼロで成立する。
+					state: ['FAILED', 'ABORTED', 'EXPIRED', 'PARTIAL'],
 				}),
 			}),
 		});

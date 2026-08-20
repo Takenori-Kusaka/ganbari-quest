@@ -26,6 +26,7 @@ import { DsqlStack } from '../../../infra/lib/dsql-stack';
 import {
 	assetsBucketArn,
 	assetsBucketName,
+	PROD_ENV_CONFIG,
 	STAGING_ENV_CONFIG,
 } from '../../../infra/lib/env-config';
 import { StorageStack } from '../../../infra/lib/storage-stack';
