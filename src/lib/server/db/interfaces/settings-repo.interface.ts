@@ -16,6 +16,20 @@ export interface ISettingsRepo {
 		valuePrefix: string,
 	): Promise<{ total: number; withPrefix: number }>;
 	/**
+	 * 全テナント横断で、ある key の保存値を `tenantId → value` として返す (#4706)。
+	 *
+	 * 配信 cron (通知 / 週次レポート) は「どのテナントが今この時刻に対象か」を判定するために
+	 * 複数の設定キーを毎回読む。テナントごとに `getSettings` を引くと 15 分ごとに
+	 * テナント数 × キー数のクエリが出る (ADR-0065 原則 2 の N+1)。判定に使うキーは
+	 * 数個で固定なので、**キーごとに 1 クエリへ畳む**ことで実行回数をテナント数から切り離す。
+	 *
+	 * `countValuesByPrefix` と違い値そのものを返すが、返すのは設定値だけで
+	 * 顧客の識別情報は含まない (settings は tenant scope の KVS)。
+	 * 値が未保存のテナントは **含まれない** — 既定値の適用は呼び出し側の責務
+	 * (「未保存 = 既定で有効」なキーがあるため、ここで既定を埋めると判定が二重になる)。
+	 */
+	getSettingForAllTenants(key: string): Promise<Map<string, string>>;
+	/**
 	 * #4338: `keepKeys` に**挙げたキー以外**をすべて削除する（列挙の向きが `deleteByTenantId`
 	 * の逆でも `getSettings` の逆でもある）。
 	 *

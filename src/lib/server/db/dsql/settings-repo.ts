@@ -76,6 +76,15 @@ export function createDsqlSettingsRepo(db: SqlExecutor): ISettingsRepo {
 			return { total: Number(row?.total ?? 0), withPrefix: Number(row?.with_prefix ?? 0) };
 		},
 
+		// #4706: 全テナント横断で 1 キー分をまとめて読む (配信 cron の N+1 回避、ADR-0065 原則 2)
+		async getSettingForAllTenants(key) {
+			const result = await db.execute(sql`
+				SELECT family_id, value FROM settings WHERE key = ${key}
+			`);
+			const rows = result.rows as Array<{ family_id: string; value: string }>;
+			return new Map(rows.map((row) => [row.family_id, row.value]));
+		},
+
 		// #4338: keepKeys 以外を全削除。keepKeys 空は NOT IN () が構文エラーになるため
 		// 全削除にフォールバックする (getSettings の空 keys 分岐と同じ扱い)。
 		async deleteByTenantIdExcept(tenantId, keepKeys) {
