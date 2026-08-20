@@ -3,6 +3,7 @@
 
 import { fail, redirect } from '@sveltejs/kit';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
+import { landingForRole } from '$lib/server/auth/post-login-landing';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
@@ -314,6 +315,7 @@ export const actions: Actions = {
 		}
 
 		// 正常完了
-		redirect(302, '/admin');
+		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
+		redirect(302, landingForRole(context.role));
 	},
 };

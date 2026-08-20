@@ -3,7 +3,7 @@ import { dev } from '$app/environment';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
-import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import { setSelectedChildCookie } from '$lib/server/auth/selected-child-cookie';
 import { isPinConfigured } from '$lib/server/services/auth-service';
 import { resetChildData } from '$lib/server/services/child-data-reset-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
@@ -14,7 +14,7 @@ import {
 import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const tenantId = locals.context?.tenantId;
 	if (!tenantId) {
 		redirect(302, '/auth/login');
@@ -36,6 +36,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.context?.role === 'child' && locals.context.childId) {
 		children = children.filter((c) => c.id === locals.context?.childId);
 	}
+
+	// #4641: **本画面では自動スキップしない**。子供用ナビの「きりかえ」と自動スリープ (#1292) が
+	// ここへ来るため、無条件にホームへ送り返すとその 2 つが機能しなくなる (ボタンが無反応になり、
+	// 15 分の休憩導線が消える)。ログイン直後の 1 回だけをホームへ送る責務は
+	// `resolvePostLoginLanding` (`$lib/server/auth/post-login-landing.ts`) が持つ。
 
 	const authMode = getAuthMode();
 	// #4050: 親ゲート modal をクライアント側で開けるか (= 既にログイン済で /admin を要求できる状態)。
@@ -102,13 +107,7 @@ export const actions: Actions = {
 			}
 		}
 
-		cookies.set('selectedChildId', String(childId), {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: COOKIE_SECURE,
-			maxAge: 60 * 60 * 24 * 365,
-		});
+		setSelectedChildCookie(cookies, asChildId(String(childId)));
 
 		// EPIC #2310 子#2314: 子供モード切替時の PIN session 破棄 (構造的核心)
 		// 親が /admin で作業 → /switch で別の子供 profile 選択 → cookie 削除しないと
