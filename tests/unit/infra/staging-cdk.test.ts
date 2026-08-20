@@ -243,8 +243,9 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			// registry にありながら Rule が無かった age-recalc / grace-period-deletion を追加し 6→8 本、
 			// #2399 で deletion-warning-emails を追加し 8→9 本、
 			// **第 21 回統合 (#4304) で grace-period-deletion を revert し 9→8 本**
-			// — 復活条件は compute-stack.ts CRON_JOBS のコメント参照 (#4327))
-			prodCompute.resourceCountIs('AWS::Events::Rule', 8);
+			// — 復活条件は compute-stack.ts CRON_JOBS のコメント参照 (#4327)、
+			// #4682 F3 で expire-redemptions を追加し 8→9 本 (status 遷移のみで冪等、破壊的操作なし))
+			prodCompute.resourceCountIs('AWS::Events::Rule', 9);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
 			// #3939: L2 化で物理名は固定しない (CFN 自動命名)。固定名に戻すと旧→新置換が
 			// 同名衝突で CFN fail する class が再発するため absent を固定する。
