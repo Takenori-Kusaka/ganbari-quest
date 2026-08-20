@@ -8,6 +8,7 @@ import {
 	INVITE_ACCEPT_ERROR_COOKIE_NAME,
 	INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
 	INVITE_COOKIE_NAME,
+	isInviteAcceptErrorCode,
 } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -251,13 +252,14 @@ export class CognitoAuthProvider implements AuthProvider {
 				logger.warn('[AUTH] Invite acceptance failed', {
 					context: { inviteCode, error: result.error, userId: effectiveUserId },
 				});
-				// #3555 ①: email 束縛による拒否は受諾者に理由を伝えないと dead-end になる
-				// (この後 fallback の新規テナント自動作成が走り、無説明の空 admin に着地する)。
-				// 1 回限りの通知 cookie を積み、admin +layout が読み取って案内バナーを表示する。
-				if (
-					result.error === 'INVITE_EMAIL_MISMATCH' ||
-					result.error === 'INVITE_EMAIL_UNVERIFIED'
-				) {
+				// #3555 ① / #4704: 受諾の拒否は理由を伝えないと dead-end になる (この後 fallback の
+				// 新規テナント自動作成が走り、無説明の空 admin に着地する)。1 回限りの通知 cookie を
+				// 積み、admin +layout が読み取って案内バナーを表示する。
+				//
+				// **判定は理由コードの SSOT (`isInviteAcceptErrorCode`) で行う**。旧実装は email 束縛の
+				// 2 件だけを allowlist していたため、#4704 で足した `MEMBER_LIMIT_REACHED` が素通りし、
+				// 上限で参加できなかった人が黙って別の空グループの owner にされていた。
+				if (isInviteAcceptErrorCode(result.error)) {
 					event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, result.error, {
 						path: '/',
 						httpOnly: true,

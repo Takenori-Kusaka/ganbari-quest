@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OpsPlanRow } from '../../../src/lib/domain/ops-plan-rows';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
+import { computeAnalytics } from '../../../src/lib/server/services/ops-analytics-service';
 import type {
 	AWSCostData,
 	InvoiceRow,
@@ -96,7 +97,8 @@ describe('getKpiSummary', () => {
 			'family-yearly': 0,
 			lifetime: 0,
 		});
-		expect(result.tenantStats.unclassified).toBe(0);
+		expect(result.tenantStats.noPlan).toBe(0);
+		expect(result.tenantStats.unknownPlan).toBe(0);
 		expect(result.tenantStats.totalMrr).toBe(0);
 	});
 
@@ -150,7 +152,8 @@ describe('getKpiSummary', () => {
 			'family-yearly': 0,
 			lifetime: 1,
 		});
-		expect(result.tenantStats.unclassified).toBe(1);
+		expect(result.tenantStats.noPlan).toBe(1);
+		expect(result.tenantStats.unknownPlan).toBe(0);
 	});
 
 	// #4127 (3 instance 目): 実装 (ops-service.ts:69) は `monthStartJST()` 由来の JST 月初で
@@ -234,9 +237,10 @@ describe('getKpiSummary', () => {
 		expect(result.tenantStats.totalMrr).toBe(500);
 	});
 
-	// #4505 の実害は「どの行にも出ないテナント」。行合計 + 未分類 = アクティブ数 を不変条件に
-	// することで、プラン値が何であってもテナントが画面から消えない。
-	it('プラン集合に無い plan 値のテナントも未分類として数える（行合計 + 未分類 = アクティブ）', async () => {
+	// #4505 の実害は「どの行にも出ないテナント」。行合計 + 未設定 + 不明 = アクティブ数 を
+	// 不変条件にすることで、プラン値が何であってもテナントが画面から消えない。
+	// 未設定 (正常) と不明 (異常) を分けるのは、混ぜると異常が「トライアル増」に見えるため。
+	it('プラン集合に無い plan 値は「不明」として未設定と分けて数える（行合計 + 未設定 + 不明 = アクティブ）', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 			// rename 途中の旧値 / 手動投入など、プラン集合に無い値。DB の plan 列は自由文字列
@@ -251,12 +255,36 @@ describe('getKpiSummary', () => {
 		]);
 
 		const result = await getKpiSummary();
-		const { planRows, unclassified, active } = result.tenantStats;
+		const { planRows, noPlan, unknownPlan, active } = result.tenantStats;
 
-		expect(unclassified).toBe(2); // 未知の plan 値 + 未設定
-		expect(planRows.reduce((sum, r) => sum + r.tenants, 0) + unclassified).toBe(active);
+		expect(unknownPlan).toBe(1); // family_monthly (プラン集合に無い値)
+		expect(noPlan).toBe(1); // plan 未設定
+		expect(planRows.reduce((sum, r) => sum + r.tenants, 0) + noPlan + unknownPlan).toBe(active);
 		// 未知の値は MRR にも寄与しない (単価が引けないため)
 		expect(result.tenantStats.totalMrr).toBe(500);
+	});
+
+	// #4505 (adversarial review business 軸): /ops と /ops/analytics は集計の形が違う
+	// (analytics は存在するプランだけを比率付きで並べる) が、**同じテナント集合から出る MRR は
+	// 一致していなければならない**。片方だけ単価表や換算式を差し替えたらここで落ちる。
+	// 形を無理に統一するのではなく、乖離を landing させないことを不変条件にする。
+	it('/ops の合計 MRR と /ops/analytics のプラン別 MRR 合計が一致する', async () => {
+		const tenants = [
+			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
+			makeTenant({ tenantId: 't2', status: 'active', plan: 'yearly' }),
+			makeTenant({ tenantId: 't3', status: 'active', plan: 'family-monthly' }),
+			makeTenant({ tenantId: 't4', status: 'active', plan: 'family-yearly' }),
+			makeTenant({ tenantId: 't5', status: 'active', plan: 'lifetime' }),
+			makeTenant({ tenantId: 't6', status: 'active' }),
+		];
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const result = await getKpiSummary();
+		const analytics = computeAnalytics(tenants);
+		const analyticsMrr = analytics.planBreakdown.reduce((sum, pb) => sum + pb.mrr, 0);
+
+		expect(analyticsMrr).toBe(result.tenantStats.totalMrr);
+		expect(result.tenantStats.totalMrr).toBeGreaterThan(0); // 0 同士の一致で空振りしない
 	});
 
 	it('stripeEnabled が正しく反映される', async () => {

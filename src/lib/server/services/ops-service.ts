@@ -30,15 +30,20 @@ export interface TenantStats {
 	 * 呼出側 (`+page.svelte` / `getRevenueData`) はこの配列を描くだけで、単価を掛け直さない。
 	 */
 	planRows: OpsPlanRow[];
+	/** プラン未設定の active テナント数 (サインアップ直後 / トライアル中)。**正常な状態**。 */
+	noPlan: number;
 	/**
-	 * プラン行のどれにも入らない active テナント数 (未設定 / トライアル / 未知の plan 値)。
+	 * プランが設定されているのに**プラン集合に無い値**を持つ active テナント数。
 	 *
-	 * **行の合計 + 本値 = `active` が常に成り立つ**ように、既知プランの合計との差で求める。
-	 * 旧実装は `!t.plan` だけを数えていたため、プラン集合に無い値を持つテナントが
-	 * **どの行にも出ず未設定にも入らない**（画面の行合計がアクティブ数と合わない）状態を作れた。
+	 * これは正常には 0 で、1 以上なら plan 値の書き手がずれている (rename ドリフト / 手動投入)。
+	 * `noPlan` と混ぜないのは、混ぜると「トライアルが少し増えただけ」に見えて異常が埋もれるため。
+	 *
+	 * 既知プランの合計と `noPlan` の差で求めるので、**行の合計 + noPlan + unknownPlan = `active`**
+	 * が常に成り立つ。旧実装は `!t.plan` だけを数えており、プラン集合に無い値を持つテナントが
+	 * どの行にも出ず未設定にも入らなかった (画面の行合計がアクティブ数と合わない)。
 	 * #4505 でオーナーが実測した「総テナント 3・アクティブ 3 に対し行合計 2」と同じ見え方になる。
 	 */
-	unclassified: number;
+	unknownPlan: number;
 	/** 月次経常収益の合計 (円) = `planRows` の MRR の和。 */
 	totalMrr: number;
 	newThisMonth: number;
@@ -81,7 +86,7 @@ async function getTenantStats(): Promise<TenantStats> {
 	// 環境ごとに「今月の新規テナント数」が変わっていた。
 	const monthStart = new Date(`${monthStartJST()}T00:00:00+09:00`);
 
-	const { tenantsByPlan, unclassified } = countPlans(tenants);
+	const { tenantsByPlan, noPlan, unknownPlan } = countPlans(tenants);
 	const planRows = buildOpsPlanRows(tenantsByPlan);
 
 	return {
@@ -91,7 +96,8 @@ async function getTenantStats(): Promise<TenantStats> {
 		suspended: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.SUSPENDED).length,
 		terminated: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.TERMINATED).length,
 		planRows,
-		unclassified,
+		noPlan,
+		unknownPlan,
 		totalMrr: sumOpsPlanMrr(planRows),
 		newThisMonth: tenants.filter((t) => new Date(t.createdAt) >= monthStart).length,
 	};
@@ -103,13 +109,15 @@ async function getTenantStats(): Promise<TenantStats> {
  * 戻り値を `Record<SubscriptionPlan, number>` にしているので、プランを足したら
  * **ここがコンパイルエラーになる** (数え漏れたプランが 0 件として静かに消えない)。
  *
- * `unclassified` は **残り全部** (`active - 既知プランの合計`) として求める。`!t.plan` で
- * 数えると、プラン集合に無い値 (rename 途中の旧値など) を持つテナントがどの行にも入らず、
- * 画面の行合計がアクティブ数と合わなくなる — #4505 の実害と同じ見え方になる。
+ * `unknownPlan` は **残り全部** (`active - 既知プランの合計 - 未設定`) として求める。
+ * 差で求めることで **行の合計 + noPlan + unknownPlan = active** が構造的に成り立ち、
+ * プラン集合に無い値 (rename 途中の旧値など) を持つテナントが画面から消えない。
+ * 未設定と混ぜないのは、正常 (トライアル) と異常 (値のずれ) を運営が読み分けられるようにするため。
  */
 function countPlans(tenants: Tenant[]): {
 	tenantsByPlan: Record<SubscriptionPlan, number>;
-	unclassified: number;
+	noPlan: number;
+	unknownPlan: number;
 } {
 	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
 	const count = (plan: SubscriptionPlan) => activeTenants.filter((t) => t.plan === plan).length;
@@ -121,7 +129,8 @@ function countPlans(tenants: Tenant[]): {
 		[SUBSCRIPTION_PLAN.LIFETIME]: count(SUBSCRIPTION_PLAN.LIFETIME),
 	};
 	const classified = Object.values(tenantsByPlan).reduce((sum, n) => sum + n, 0);
-	return { tenantsByPlan, unclassified: activeTenants.length - classified };
+	const noPlan = activeTenants.filter((t) => !t.plan).length;
+	return { tenantsByPlan, noPlan, unknownPlan: activeTenants.length - classified - noPlan };
 }
 
 // ============================================================

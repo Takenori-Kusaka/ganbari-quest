@@ -68,9 +68,32 @@ export const REFRESH_COOKIE_NAME = 'gq_refresh';
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
 /**
- * #3555 ①: 招待受諾が email 束縛で拒否されたことを受諾後の画面 (admin layout) に伝える
- * 1 回限りの通知 cookie。値は 'INVITE_EMAIL_MISMATCH' | 'INVITE_EMAIL_UNVERIFIED'。
- * 受諾失敗 → 新規テナント自動作成で顧客が理由不明の dead-end になるのを防ぐ。
+ * 招待受諾が拒否された理由コード (#3555 ① / #4704)。
+ *
+ * 受諾に失敗すると **新規テナントが自動作成される** ため、理由を伝えないと顧客は
+ * 「なぜか知らない空の家族グループの owner になっている」dead-end に着地する。
+ * 本 union を SSOT にして「理由が増えたのに案内が無い」状態を型で塞ぐ:
+ * `AUTH_INVITE_LABELS.acceptErrorBanners` が `Record<InviteAcceptErrorCode, string>` なので、
+ * 新しい理由を足すと **案内文を書くまでコンパイルが通らない**。
+ * (#4704 で `MEMBER_LIMIT_REACHED` を足したとき、旧実装の 2 件 allowlist は素通りさせていた)
+ */
+export const INVITE_ACCEPT_ERROR_CODES = [
+	'INVALID_OR_EXPIRED',
+	'ALREADY_IN_TENANT',
+	'INVITE_EMAIL_MISMATCH',
+	'INVITE_EMAIL_UNVERIFIED',
+	'MEMBER_LIMIT_REACHED',
+] as const;
+
+export type InviteAcceptErrorCode = (typeof INVITE_ACCEPT_ERROR_CODES)[number];
+
+export function isInviteAcceptErrorCode(value: unknown): value is InviteAcceptErrorCode {
+	return (INVITE_ACCEPT_ERROR_CODES as readonly unknown[]).includes(value);
+}
+
+/**
+ * #3555 ①: 招待受諾の拒否理由を受諾後の画面 (admin layout) に伝える 1 回限りの通知 cookie。
+ * 値は {@link InviteAcceptErrorCode}。
  */
 export const INVITE_ACCEPT_ERROR_COOKIE_NAME = 'invite_accept_error';
 export const INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS = 10 * 60;

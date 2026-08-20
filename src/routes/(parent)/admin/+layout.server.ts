@@ -4,7 +4,10 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
+import {
+	INVITE_ACCEPT_ERROR_COOKIE_NAME,
+	isInviteAcceptErrorCode,
+} from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -193,11 +196,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
 	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
 	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError =
-		rawInviteAcceptError === 'INVITE_EMAIL_MISMATCH' ||
-		rawInviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
-			? rawInviteAcceptError
-			: null;
+	// #4704: 受理する値は理由コードの SSOT で判定する。ここに理由を書き並べると、
+	// 受諾側が理由を増やしたときに黙って null に落ちて案内が出なくなる。
+	const inviteAcceptError = isInviteAcceptErrorCode(rawInviteAcceptError)
+		? rawInviteAcceptError
+		: null;
 	if (rawInviteAcceptError) {
 		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
 	}

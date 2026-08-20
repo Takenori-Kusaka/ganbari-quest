@@ -76,9 +76,16 @@ const contractState = $derived(data.contractState);
 						<td>{row.mrr === null ? OPS_LABELS.planMrrNone : formatYen(row.mrr)}</td>
 					</tr>
 				{/each}
-				<tr data-testid="ops-plan-row-unclassified">
-					<td>{OPS_LABELS.planUnclassified}</td>
-					<td>{stats.unclassified}</td>
+				<tr data-testid="ops-plan-row-none">
+					<td>{OPS_LABELS.planNone}</td>
+					<td>{stats.noPlan}</td>
+					<td>{OPS_LABELS.planMrrNone}</td>
+				</tr>
+				<!-- #4505: 「未設定」と分けて出す。同じ行に畳むと、プラン値がずれて
+				     どの行にも入らなくなったテナントが「トライアルが増えただけ」に見える。 -->
+				<tr data-testid="ops-plan-row-unknown">
+					<td>{OPS_LABELS.planUnknown}</td>
+					<td>{stats.unknownPlan}</td>
 					<td>{OPS_LABELS.planMrrNone}</td>
 				</tr>
 				<tr class="total-row" data-testid="ops-plan-row-total">
