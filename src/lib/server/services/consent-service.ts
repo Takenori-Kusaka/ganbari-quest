@@ -14,7 +14,7 @@ import { logger } from '$lib/server/logger';
  * 新規の同意記録も旧 version で保存され続ける（表示文書と同意証跡の恒常不一致）。
  */
 export const CURRENT_TERMS_VERSION = '2026-04-28';
-export const CURRENT_PRIVACY_VERSION = '2026-08-12';
+export const CURRENT_PRIVACY_VERSION = '2026-08-20';
 
 /**
  * 越境移転同意（個人情報保護法 §28）の version。
