@@ -200,13 +200,20 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
+**scheduler コンテナが起動・更新されていることが前提 (#4721)**。`deploy-nuc.yml` は
+`--profile backup --profile scheduler` を build / up の両方に付ける（profile を付けないと
+`profiles: [scheduler]` gate 配下のサービスが build / 再作成の対象外になり、registry にジョブを足しても
+NUC で走らない）。稼働確認は `/api/health` の `scheduler` フィールド（`DATA_SOURCE=pglite` のときのみ出力。
+cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍を過ぎたジョブを `staleJobs` に挙げる。
+全ジョブ未実行なら `critical`）。
+
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
 |---------|-----------------|---------|:-:|:-:|----------|
 | retention-cleanup | `cron(0 16 * * ? *)` | 毎日 01:00 | ✓ | ✓ | 保存期間超過データの自動削除バッチ (#717 / #729) |
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。**Rule を作らない構成では `GRACE_PERIOD_DELETION_DISABLED` env が `'true'` になり (#4721、`compute-stack.ts` が `CRON_JOBS` の有無から導出)、deletion-warning-emails も同じ flag を見て停止する** — 削除されない日付を告げる予告メールだけが届く非対称を作らないため。Rule を戻せば予告も自動的に再開する。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
 | deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |

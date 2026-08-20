@@ -1431,6 +1431,35 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 
 回帰は `tests/unit/domain/backup-health.test.ts`（判定）/ `tests/unit/routes/health-backup-status.test.ts`（付与条件）/ `tests/unit/db/pglite-backup-3950.test.ts` `[BK12]` `[BK17]` `[BK18]`（実 status → verdict の経路と保留の解除）が固定する。
 
+**`scheduler` フィールド（#4721、`backup` と同じ付与条件）:**
+
+```json
+{
+  "scheduler": {
+    "level": "critical",
+    "summary": "定期ジョブが 1 つも実行されていません。scheduler コンテナが起動していない可能性があります (docker compose --profile scheduler up -d)",
+    "staleJobs": ["retention-cleanup", "export-build"],
+    "neverRanJobs": ["retention-cleanup", "export-build"],
+    "lastRunAt": { "notification-delivery": "2026-08-20T09:50:00.000Z" }
+  }
+}
+```
+
+NUC の scheduler は `docker-compose.yml` の `profiles: [scheduler]` gate 配下にあり、`--profile scheduler` を付けない deploy では起動も更新もされない。**その状態は画面にも log にも出ない**（走っていないジョブは log を書かない）ため、cron endpoint が実際に呼ばれた時刻を記録して鮮度で判定する。
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `backup` と同じく `DATA_SOURCE === 'pglite'`（= NUC）のときのみ。AWS 側は EventBridge / cron-dispatcher の CloudWatch metric と `ganbari-quest-cron-dispatcher-errors` alarm が同じ役割を果たす |
+| 記録の主体 | **cron endpoint を受けたアプリ側**（`src/hooks.server.ts` が `/api/cron/<name>` の 2xx 応答時に記録）。scheduler コンテナ自身に書かせると volume 共有が要るうえ「scheduler は生きているが app に届いていない」を検出できない |
+| 記録先 | `data/cron-status.json`（pglite backup の状態ファイルと同じ考え方）。DB に書くと「DB が死んでいるときに cron の生死も見えない」になる |
+| 想定間隔 | `schedule-registry.ts` の cron 式から導出（`expectedIntervalMinutes`）。**ジョブを足せば判定対象も自動で増える**（一覧を二重管理すると増えたジョブが黙って観測対象から漏れる） |
+| 遅延判定 | 想定間隔の 3 倍を超えたら `staleJobs`。日次なら 3 日、15 分なら 45 分 |
+| `level` | `ok` / `warning`（一部遅延）/ `critical`（全ジョブ遅延、または全ジョブ未実行） |
+| 起動直後 | プロセス起動からの経過が猶予内なら未実行を正常扱い（deploy のたびに赤くなると本物の停止に気付けなくなる） |
+| 取得失敗時 | **フィールドを省略するだけで 503 にしない**（`backup` と同方針） |
+
+回帰は `tests/unit/domain/scheduler-health.test.ts`（判定）/ `tests/unit/cron/job-wiring-symmetry.test.ts` `[2]`（記録の配線と deploy profile）が固定する。
+
 #### GET /api/ready
 
 readiness probe（shallow、#3657）。**プロセスが HTTP を受けられることのみを証明し、DB には一切接触しない**。LWA（Lambda Web Adapter）の `AWS_LWA_READINESS_CHECK_PATH` が参照する（`Dockerfile.lambda`）。readiness を `/api/health`（deep DB probe）に結合すると DB 障害時に LWA が never-ready → 全リクエスト 502 + cold start init timeout ループになるため分離する（13-AWSサーバレスアーキテクチャ設計書 §3.3）。

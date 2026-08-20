@@ -819,9 +819,23 @@ export const DELETION_RESERVED_EMAIL_LABELS = {
 	intro: '退会（アカウント削除）のお申し込みを受け付けました。',
 	scheduleLine: (deletionDate: string, graceDays: number) =>
 		`お申し込みから${graceDays}日後の${deletionDate}に、すべてのデータを削除します。`,
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除を断定しない。**
+	 *
+	 * 削除が走らない状態で「この日にすべてのデータを削除します」と書くのは事実に反する。
+	 * 一方で**その日を過ぎるとご自身での取り消しができなくなるのは事実**
+	 * (`restoreSoftDeletedTenant` が `isExpired` で拒否する) なので、期限そのものは伝える。
+	 */
+	scheduleLineRetentionOnly: (deletionDate: string, graceDays: number) =>
+		`お申し込みから${graceDays}日後の${deletionDate}を過ぎると、ご自身でのお取り消しができなくなります。`,
 	restoreLine: (adminViewLabel: string) =>
 		`削除日までは${adminViewLabel}からお取り消しいただけます。削除後のデータは復元できません。`,
+	/** 削除を断定しない版 (#4721)。取り消し期限だけを述べる。 */
+	restoreLineRetentionOnly: (adminViewLabel: string) =>
+		`期限までは${adminViewLabel}からお取り消しいただけます。`,
 	exportLine: '記録を手元に残される場合は、削除日までに書き出しをお願いいたします。',
+	/** 削除を断定しない版 (#4721)。 */
+	exportLineRetentionOnly: '記録を手元に残される場合は、期限までに書き出しをお願いいたします。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'本メールはお手続きに関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
@@ -940,6 +954,21 @@ export const DELETION_WARNING_EMAIL_LABELS = {
 	restoreNote: (adminView: string) =>
 		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
 	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除の断定をやめ、取り消し期限だけを述べる。**
+	 *
+	 * 送信自体は止めない — 猶予中に「まだ戻せる」ことを思い出す接点がこのメールしかなく、
+	 * 止めると復元できるのに戻らない顧客を作る。嘘をやめるのに便を止める必要はない。
+	 */
+	subjectRetentionOnly: (daysRemaining: number) =>
+		`お取り消し期限のお知らせ（あと ${daysRemaining} 日）`,
+	headingRetentionOnly: 'お取り消し期限のお知らせ',
+	deadlineDateLine: (deadlineDate: string, daysRemaining: number) =>
+		`お取り消しができる期限: ${deadlineDate}（あと ${daysRemaining} 日）`,
+	irreversibleNoteRetentionOnly: '期限を過ぎると、ご自身でのお取り消しはできなくなります。',
+	restoreNoteRetentionOnly: (adminView: string) =>
+		`期限までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNoteRetentionOnly: 'このままお手続きを進める場合、操作は不要です。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
