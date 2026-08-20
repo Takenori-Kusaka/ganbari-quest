@@ -759,4 +759,41 @@ test.describe('#4631: 完了した交換は陳列棚に残さない', () => {
 		await expect(page.getByTestId('history-list-purchases')).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByText('こんしゅうは もう つかったからね')).toBeVisible();
 	});
+
+	// #4632: 交換履歴が「いつ・何を・いくらで」を出す (旧: タイトル位置に日付 / アイコン 🎁 固定 /
+	// 日付は全件 1970 年)。#4631 で張った導線の着地点が実際に読めることまで見る。
+	test('#4632: 交換履歴にごほうび名・アイコン・ポイント・申請日 (JST) が出る', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', 'approved');
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/history?kind=purchases');
+
+		const list = page.getByTestId('history-list-purchases');
+		await expect(list).toBeVisible({ timeout: 30_000 });
+
+		// ごほうび名 (旧実装はここに日付が出ていた)
+		await expect(list.getByText('E2Eテスト用ごほうび（交換可）').first()).toBeVisible();
+		// 消費ポイントが符号付きで出る (seed の単価 50pt × 1 個)
+		await expect(list.locator('[data-testid^="history-purchase-points-"]').first()).toContainText(
+			'50',
+		);
+
+		// 申請日が 1970 年でない = epoch 秒を ms と取り違えていない。
+		// seed は「1 時間前」なので JST の今日 (00:00〜01:00 JST に走ると前日) の日付が出る。
+		const jstToday = new Date(Date.now() + 9 * 60 * 60 * 1000);
+		const m = jstToday.getUTCMonth() + 1;
+		const d = jstToday.getUTCDate();
+		const prev = new Date(jstToday.getTime() - 24 * 60 * 60 * 1000);
+		const rowText = (await list.textContent()) ?? '';
+		expect(
+			rowText.includes(`${m}月${d}日`) ||
+				rowText.includes(`${prev.getUTCMonth() + 1}月${prev.getUTCDate()}日`),
+			`申請日が JST の今日/前日でない (1970 年退行の疑い): ${rowText.slice(0, 200)}`,
+		).toBe(true);
+		expect(rowText, '1970 年に戻っている').not.toContain('1月22日');
+	});
 });

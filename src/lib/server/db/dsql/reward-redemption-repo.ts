@@ -42,11 +42,17 @@ interface RequestRow {
 	resolved_at: string | null;
 	resolved_by_parent_id: string | null;
 	shown_to_child_at: string | null;
+	// #4632: 申請時点 snapshot (row 型に昇格)。SELECT で取らない経路では undefined になるため
+	// optional にし、toRequestRow が null に正規化する。
+	reward_title?: string | null;
+	reward_points?: number | null;
+	reward_icon?: string | null;
 }
 
 const REQUEST_COLUMNS = sql.raw(
 	`redemption_id, child_id, reward_id, requested_at, quantity, status, parent_note,
-	 resolved_at, resolved_by_parent_id, shown_to_child_at`,
+	 resolved_at, resolved_by_parent_id, shown_to_child_at,
+	 reward_title, reward_points, reward_icon`,
 );
 
 /**
@@ -81,6 +87,10 @@ function toRequestRow(row: RequestRow): RedemptionRequestRow {
 		resolvedAt: isoToEpoch(row.resolved_at),
 		resolvedByParentId: row.resolved_by_parent_id,
 		shownToChildAt: isoToEpoch(row.shown_to_child_at),
+		// #4632: 申請時点 snapshot を row 型でも返す (子供の交換履歴が「何を交換したか」を出せるように)。
+		rewardTitle: row.reward_title ?? null,
+		rewardPoints: row.reward_points ?? null,
+		rewardIcon: row.reward_icon ?? null,
 	};
 }
 
@@ -241,10 +251,19 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		},
 
 		async findRedemptionRequestsByChild(childId, tenantId) {
+			// #4632: snapshot 3 列は「申請時点 snapshot 優先 / 旧行 (NULL) は live reward に fallback」。
+			// LEFT JOIN なので reward 削除後も行は脱落しない (#3566 / #4683)。
 			const result = await db.execute(sql`
-				SELECT ${REQUEST_COLUMNS} FROM reward_redemption_requests
-				WHERE family_id = ${tenantId} AND child_id = ${childId}
-				ORDER BY requested_at DESC, redemption_id DESC
+				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.quantity,
+					rr.status, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+					COALESCE(rr.reward_title, sr.title) AS reward_title,
+					COALESCE(rr.reward_points, sr.points) AS reward_points,
+					COALESCE(rr.reward_icon, sr.icon) AS reward_icon
+				FROM reward_redemption_requests rr
+				LEFT JOIN special_rewards sr
+					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
+				WHERE rr.family_id = ${tenantId} AND rr.child_id = ${childId}
+				ORDER BY rr.requested_at DESC, rr.redemption_id DESC
 			`);
 			return (result.rows as unknown as RequestRow[]).map(toRequestRow);
 		},
