@@ -6204,6 +6204,10 @@ export const VIEW_PAGE_LABELS = {
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',
 	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+	// #4703: 無効 / 期限切れ token 専用の説明。汎用 404「ページが みつかりません」だと
+	// リンクを共有された人 (祖父母等) が「自分の操作を間違えた」と受け取ってしまう。
+	invalidTokenTitle: 'このリンクは無効か、期限切れです',
+	invalidTokenDesc: `リンクの有効期限が切れたか、共有した${PARENT_TERMS.honorific}が無効にした可能性があります。共有元の${PARENT_TERMS.honorific}に新しいリンクの発行を依頼してください。`,
 } as const;
 
 export const DEMO_BATTLE_LABELS = {
