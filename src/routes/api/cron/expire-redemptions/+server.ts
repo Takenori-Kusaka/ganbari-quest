@@ -11,7 +11,9 @@
 //
 // レスポンス:
 //   200 { ok: true, expiredCount, tenantsTotal, tenantsProcessed, tenantsRemaining,
-//         budgetExceeded, failures }
+//         tenantsSkippedByRotation, tenantsSkippedByBudget, sliceIndex, sliceCount,
+//         budgetExceeded, failures, dryRun }
+//   GET は dry-run 固定 (件数だけ数え status を書き換えない)
 //   401 Unauthorized
 //   500 Internal error
 
@@ -25,8 +27,18 @@ export const POST: RequestHandler = async ({ request }) => {
 	const authError = verifyCronAuth(request);
 	if (authError) return authError;
 
+	// #4682: `{"dryRun": true}` で「何件が対象になるか」だけを数える (status は書き換えない)。
+	// 本番へ Rule を入れる前に影響件数を人間が確認できるようにする (age-recalc と同じ規約)。
+	let dryRun = false;
 	try {
-		const result = await expireOldRedemptionsForAllTenants();
+		const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
+		dryRun = body.dryRun ?? false;
+	} catch {
+		// ボディなしでも可
+	}
+
+	try {
+		const result = await expireOldRedemptionsForAllTenants({ dryRun });
 		logger.info('[cron/expire-redemptions] completed', { context: { ...result } });
 		return json({ ok: true, ...result });
 	} catch (err) {
@@ -34,6 +46,21 @@ export const POST: RequestHandler = async ({ request }) => {
 			error: err instanceof Error ? err.message : String(err),
 		});
 		// #3571 (ADR-0062 §2): 内部例外を response へ露出しない (詳細は上記 logger のみ)
+		return json({ ok: false, error: 'Internal error' }, { status: 500 });
+	}
+};
+
+// GET は dry-run 固定 (件数の観測用。副作用なし)。age-recalc と同じ規約。
+export const GET: RequestHandler = async ({ request }) => {
+	const authError = verifyCronAuth(request);
+	if (authError) return authError;
+	try {
+		const result = await expireOldRedemptionsForAllTenants({ dryRun: true });
+		return json({ ok: true, ...result });
+	} catch (err) {
+		logger.error('[cron/expire-redemptions] dry-run failed', {
+			error: err instanceof Error ? err.message : String(err),
+		});
 		return json({ ok: false, error: 'Internal error' }, { status: 500 });
 	}
 };

@@ -14,7 +14,10 @@
 //   2. 【self-limiting + 持ち越し】処理量がデータ量 (テナント数 / pending 件数等) に比例する
 //      ジョブは、1 回の実行で処理する量に件数上限 + 時間予算 ($lib/server/cron/time-budget.ts
 //      createTimeBudget) を設け、残りは次回実行に持ち越す。持ち越し件数は log + レスポンスで
-//      必ず報告する (silent 持ち越し禁止)。前例: cloud-export-service.drainPendingExports /
+//      必ず報告する (silent 持ち越し禁止)。
+//      **テナント単位の上限は `$lib/server/cron/tenant-slice.ts` の `selectTenantSlice` を使う**
+//      (#4682)。`tenants.slice(0, limit)` は上限超過分が永久に処理されないのに「次回へ持ち越し」と
+//      log に書く嘘になる。前例: cloud-export-service.drainPendingExports /
 //      grace-period-service.purgeExpiredSoftDeletedTenants /
 //      age-recalc-service.recalcAllChildrenAges (処理済みが消えないジョブで「同じ先頭 N 件」を
 //      繰り返さないための、実行日から決まる決定的スライス周回の例)。

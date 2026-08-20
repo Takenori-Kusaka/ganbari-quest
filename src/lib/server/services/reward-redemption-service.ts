@@ -1,12 +1,15 @@
 import type { ChildId } from '$lib/domain/ids';
+
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { formatRewardWithQuantity } from '$lib/domain/labels';
 import {
 	isValidRedemptionQuantity,
 	REDEMPTION_QUANTITY_MIN,
 } from '$lib/domain/validation/special-reward';
+import { selectTenantSlice } from '$lib/server/cron/tenant-slice';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
@@ -418,22 +421,41 @@ export async function expireOldRedemptions(tenantId: string): Promise<number> {
 	return expireOldRedemptionsRepo(tenantId);
 }
 
-/** #4682 F3: 1 回の実行で走査するテナント数の上限 (13-AWS設計書 §3.3 self-limiting)。 */
+/**
+ * #4682 F3: 1 回の実行で走査するテナント数の上限 (13-AWS設計書 §3.3 self-limiting)。
+ *
+ * 上限を超えた分は **翌日以降のスライスで必ず順番が回る** (`selectTenantSlice` の日次ローテーション)。
+ * `tenants.slice(0, limit)` にすると 201 番目以降が永久に処理されないまま
+ * 「次回に持ち越し」と log に書く嘘になるため、先頭固定の切り出しはしない。
+ */
 export const EXPIRE_REDEMPTIONS_TENANT_LIMIT = 200;
 
 export interface ExpireRedemptionsResult {
-	/** 期限切れに移した申請の件数。 */
+	/** 期限切れに移した申請の件数 (dryRun のときは 0)。 */
 	expiredCount: number;
 	/** 存在するテナント総数。 */
 	tenantsTotal: number;
 	/** 今回処理したテナント数。 */
 	tenantsProcessed: number;
-	/** 時間 / 件数予算で今回処理できず次回に持ち越したテナント数。 */
+	/**
+	 * 今回処理しなかったテナント数 = 今日の担当外 (ローテーション、正常) + 予算超過での打ち切り。
+	 * 内訳は下の 2 つで区別する (age-recalc と同じ規約、#4345)。
+	 */
 	tenantsRemaining: number;
+	/** 今日の担当スライス外 (翌日以降に必ず順番が回る、正常)。 */
+	tenantsSkippedByRotation: number;
+	/** 担当スライス内で時間予算により打ち切った数 (異常。warn の対象)。 */
+	tenantsSkippedByBudget: number;
+	/** 何番目のスライスを処理したか (0 始まり)。 */
+	sliceIndex: number;
+	/** スライスの総数 (= 全テナントを一巡するのにかかる日数)。 */
+	sliceCount: number;
 	/** 時間予算超過で打ち切ったか。 */
 	budgetExceeded: boolean;
 	/** テナント単位で失敗した件数 (1 件の失敗で全体を止めない)。 */
 	failures: number;
+	/** 実際には更新せず対象件数だけ数えたか (#4682: 本番投入前の観測手段)。 */
+	dryRun: boolean;
 }
 
 /**
@@ -452,12 +474,20 @@ export interface ExpireRedemptionsResult {
 export async function expireOldRedemptionsForAllTenants(options?: {
 	tenantLimit?: number;
 	budget?: TimeBudget;
+	/** JST 暦日 (テスト注入用)。スライス選択の決定性を保つため実行日から導く。 */
+	today?: string;
+	/** true なら status を書き換えず「対象になる件数」だけ数える (#4682)。 */
+	dryRun?: boolean;
 }): Promise<ExpireRedemptionsResult> {
 	const tenantLimit = options?.tenantLimit ?? EXPIRE_REDEMPTIONS_TENANT_LIMIT;
 	const budget = options?.budget ?? createTimeBudget();
+	const today = options?.today ?? todayDateJST();
+	const dryRun = options?.dryRun ?? false;
 
 	const tenants = await getRepos().auth.listAllTenants();
-	const slice = tenants.slice(0, tenantLimit);
+	// #4682: 先頭固定 (`slice(0, limit)`) にすると上限超過分が永久に処理されない。
+	// 実行日から決まるスライスを選び、ceil(total / limit) 日で全テナントを重複なく周回する。
+	const { slice, sliceIndex, sliceCount } = selectTenantSlice(tenants, tenantLimit, today);
 
 	let expiredCount = 0;
 	let tenantsProcessed = 0;
@@ -471,7 +501,11 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 		}
 		tenantsProcessed++;
 		try {
-			expiredCount += await expireOldRedemptionsRepo(tenant.tenantId);
+			expiredCount += dryRun
+				? await countRedemptionRequestsByTenant(tenant.tenantId, {
+						status: 'pending_parent_approval',
+					})
+				: await expireOldRedemptionsRepo(tenant.tenantId);
 		} catch (err) {
 			failures++;
 			logger.error('[expire-redemptions] tenant failed', {
@@ -481,15 +515,21 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 		}
 	}
 
-	const tenantsRemaining = tenants.length - tenantsProcessed;
-	if (tenantsRemaining > 0) {
-		// silent 持ち越し禁止 (ADR-0006 整合): 打ち切りは必ず warn に残す。
-		logger.warn('[expire-redemptions] carried over remaining tenants to next run', {
+	// #4345 と同じ規約: 「今日の担当外 (正常)」と「担当内での打ち切り (異常)」を分けて数える。
+	const tenantsSkippedByRotation = tenants.length - slice.length;
+	const tenantsSkippedByBudget = slice.length - tenantsProcessed;
+	const tenantsRemaining = tenantsSkippedByRotation + tenantsSkippedByBudget;
+
+	if (tenantsSkippedByBudget > 0) {
+		// silent 打ち切り禁止 (ADR-0006 整合)。ローテーションによる担当外は異常ではないので warn しない。
+		logger.warn('[expire-redemptions] budget cutoff — carried over to next run', {
 			context: {
-				remaining: tenantsRemaining,
+				skippedByBudget: tenantsSkippedByBudget,
+				skippedByRotation: tenantsSkippedByRotation,
 				processed: tenantsProcessed,
 				total: tenants.length,
-				budgetExceeded,
+				sliceIndex,
+				sliceCount,
 			},
 		});
 	}
@@ -499,8 +539,13 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 		tenantsTotal: tenants.length,
 		tenantsProcessed,
 		tenantsRemaining,
+		tenantsSkippedByRotation,
+		tenantsSkippedByBudget,
+		sliceIndex,
+		sliceCount,
 		budgetExceeded,
 		failures,
+		dryRun,
 	};
 }
 
