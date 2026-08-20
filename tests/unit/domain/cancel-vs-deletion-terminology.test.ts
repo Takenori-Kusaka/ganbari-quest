@@ -34,7 +34,11 @@ import {
 	SETTINGS_LABELS,
 	SUBSCRIPTION_PAGE_LABELS,
 } from '../../../src/lib/domain/labels';
-import { DELETION_GRACE_TERMS, PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
+import {
+	DELETION_GRACE_TERMS,
+	PLAN_FULL_TERMS,
+	PLAN_RETENTION_TERMS,
+} from '../../../src/lib/domain/terms';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
@@ -257,6 +261,71 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(repoFile('site/pricing.html')).toContain(
 				`${PLAN_HISTORY_RETENTION_DAYS.free} 日を超えた記録は削除され`,
 			);
+		});
+	});
+
+	// #4540 Q4 (PO 決裁): 解約を決める / 解約が進行している画面で「お子さまの記録は残ります」だけを
+	// 述べると、移行先 (無料プラン) の保持期間を超えた記録が物理削除される事実が見えない。
+	// 特商法にだけ書いてあり画面に無い状態は、顧客に有利に見える方向へ誤っているぶん
+	// 後から「聞いていない」になる (#4496 の「解約 = 削除」の逆向き)。
+	describe('解約導線が移行先プランの保持期間まで述べる (#4540 Q4)', () => {
+		/** 特商法「解約とデータの取扱い」と同一の 2 文。値は PLAN_HISTORY_RETENTION_DAYS が SSOT */
+		const FREE_RETENTION_SENTENCE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${IRREVERSIBLE_SENTENCE}。`;
+
+		const cancelFlowTexts: Array<[string, string]> = [
+			['解約確認画面 (有料)', CANCELLATION_LABELS.paidPlanNotice],
+			// 体験中の顧客も手続き後は無料プランに戻るため、同じ画面で同じ事実を述べる (#4585-1 合流)
+			['解約確認画面 (体験中)', CANCELLATION_LABELS.trialPlanNotice],
+			['解約手続き中バナー (終了日あり)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDesc('2026-09-30')],
+			['解約手続き中バナー (終了日不明)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDescUnknownDate],
+			['解約完了の告知', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
+		];
+
+		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {
+			// 「記録は残ります」で止めない (保持期間の言及が消えたら落ちる)
+			expect(text).toContain(`履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}`);
+			expect(text).toContain(IRREVERSIBLE_SENTENCE);
+		});
+
+		it.each(
+			cancelFlowTexts,
+		)('%s は特商法と同一の文で述べる (文書間で食い違わせない)', (_n, text) => {
+			expect(text).toContain(FREE_RETENTION_SENTENCE);
+		});
+
+		it('特商法の「解約とデータの取扱い」も同一の文を持つ (画面と法定表示の同期)', () => {
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain(FREE_RETENTION_SENTENCE);
+		});
+
+		// 値の SSOT 強制: 画面側に日数を直書きすると
+		//   (a) 下の source 検査で即落ちる
+		//   (b) PLAN_HISTORY_RETENTION_DAYS.free を変えた瞬間に上の runtime 検査が落ちる
+		it('保持期間の文は atom 経由で組み立て、日数を直書きしない', () => {
+			const src = repoFile('src/lib/domain/labels.ts');
+			const shared = src.match(/const FREE_PLAN_RETENTION_NOTICE = `([^`]*)`;/);
+			expect(shared, 'FREE_PLAN_RETENTION_NOTICE の定義が見つからない').not.toBeNull();
+			const literal = shared?.[1] ?? '';
+			// atom (terms.ts) を template literal で参照していること
+			expect(literal).toMatch(/\$\{PLAN_RETENTION_TERMS\.freeSpaced\}/);
+			expect(literal).not.toMatch(/\d/);
+
+			// 各文言の定義本体にも日数の直書きが無いこと (共有文を経由させる)
+			const definitionSource = (key: string) => {
+				const start = src.indexOf(`\n\t${key}:`);
+				expect(start, `${key} の定義が見つからない`).toBeGreaterThan(-1);
+				return src.slice(start, src.indexOf('`,', start));
+			};
+			for (const key of [
+				'paidPlanNotice',
+				'trialPlanNotice',
+				'cancelPendingDesc',
+				'cancelPendingDescUnknownDate',
+				'cancelledDesc',
+			]) {
+				expect(definitionSource(key), `${key} に日数が直書きされている`).not.toMatch(
+					/\d+\s?[日年]/,
+				);
+			}
 		});
 	});
 });

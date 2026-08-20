@@ -118,12 +118,18 @@ const submitLabel = $derived.by(() => {
 });
 
 const noticeText = $derived.by(() => {
+	// #4525: 有料プランだが Stripe 契約が無い状態は portal を開けず、送信しても解約が完了しない。
+	//   「お手続きは必要ありません」を出すと課金が続いたまま放置されるため、専用の案内を出す。
+	if (data.paidWithoutStripe) return CANCELLATION_LABELS.paidWithoutStripeNotice;
 	if (data.isPaidPlan) return CANCELLATION_LABELS.paidPlanNotice;
-	// #4585-1 QM: 体験中 (実効プランは有料 / Stripe の契約は無い) に freePlanNotice を出すと
+	// #4585-1 QM: 体験中 (実効プランは有料 / 請求は無い) に freePlanNotice を出すと
 	// 「無料プランをご利用中」と直下の「無料プランに戻ると」が同一画面で矛盾する。
 	if (returnsToFreePlan) return CANCELLATION_LABELS.trialPlanNotice;
 	return CANCELLATION_LABELS.freePlanNotice;
 });
+
+// 異常状態は info では弱い (解約できないまま課金が続く)。ADR-0062 の種別マッピング整合。
+const noticeVariant = $derived(data.paidWithoutStripe ? 'warning' : 'info');
 </script>
 
 <svelte:head>
@@ -141,7 +147,7 @@ const noticeText = $derived.by(() => {
 		</p>
 	</header>
 
-	<Alert variant="info">
+	<Alert variant={noticeVariant}>
 		{noticeText}
 	</Alert>
 
