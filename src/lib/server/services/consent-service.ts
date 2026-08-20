@@ -13,7 +13,7 @@ export const CURRENT_TERMS_VERSION = '2026-04-28';
 //
 //   **PR #4516 (#4497) も同 constant を 2026-08-12 に bump している。**先に merge された側の
 //   値が残り、後発は日付を後ろにずらして解消する (顧客への再同意は最終値 1 回で足りる)。
-export const CURRENT_PRIVACY_VERSION = '2026-08-14';
+export const CURRENT_PRIVACY_VERSION = '2026-08-20';
 
 export interface ConsentCheck {
 	termsAccepted: boolean;
