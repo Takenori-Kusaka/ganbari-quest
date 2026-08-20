@@ -796,4 +796,27 @@ test.describe('#4631: 完了した交換は陳列棚に残さない', () => {
 		).toBe(true);
 		expect(rowText, '1970 年に戻っている').not.toContain('1月22日');
 	});
+
+	// #4632: 控除が起きたのは承認されたときだけ。却下の行に「-50P」が出ると、
+	// 引かれていないポイントが引かれたように読め、台帳と食い違う。
+	test('#4632: 却下された交換には消費ポイントを出さない (控除は承認時のみ)', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', 'rejected');
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/history?kind=purchases');
+
+		const list = page.getByTestId('history-list-purchases');
+		await expect(list).toBeVisible({ timeout: 30_000 });
+		// 却下行はごほうび名と却下理由を出すが、消費ポイントは出さない
+		await expect(list.getByText('E2Eテスト用ごほうび（交換可）').first()).toBeVisible();
+		await expect(list.getByText('こんしゅうは もう つかったからね')).toBeVisible();
+		await expect(
+			list.locator('[data-testid^="history-purchase-points-"]'),
+			'却下なのに控除額が出ている',
+		).toHaveCount(0);
+	});
 });

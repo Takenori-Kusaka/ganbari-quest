@@ -122,6 +122,50 @@ describe('#4632 AC1 交換履歴にごほうびの詳細 (title / icon / points 
 	});
 });
 
+describe('#4632 却下 / 期限切れ / 承認待ちの行も snapshot で読める (承認済みだけの機能にしない)', () => {
+	beforeEach(() => {
+		resetAllTables(sqlite);
+	});
+
+	it.each([
+		['rejected'],
+		['expired'],
+		['pending_parent_approval'],
+	])('%s の行も title / points / icon を返す', async (status) => {
+		const { childId, rewardId } = seedChildAndReward();
+		sqlite
+			.prepare(
+				`INSERT INTO reward_redemption_requests
+						(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+					 VALUES (?, ?, ?, 1, ?, 'ゲームじかん +30ぷん', 80, '🎮')`,
+			)
+			.run(childId, rewardId, Math.floor(Date.now() / 1000), status);
+
+		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		expect(row?.status).toBe(status);
+		expect(row?.rewardTitle).toBe('ゲームじかん +30ぷん');
+		expect(row?.rewardPoints).toBe(80);
+	});
+
+	it('status ごとに「ポイントが引かれたか」が判別できる (UI の出し分けの根拠)', async () => {
+		const { childId, rewardId } = seedChildAndReward();
+		const now = Math.floor(Date.now() / 1000);
+		const ins = sqlite.prepare(
+			`INSERT INTO reward_redemption_requests
+				(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+			 VALUES (?, ?, ?, 1, ?, 'ゲームじかん +30ぷん', 80, '🎮')`,
+		);
+		ins.run(childId, rewardId, now, 'approved');
+		ins.run(childId, rewardId, now - 10, 'rejected');
+
+		const rows = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		// 控除が起きたのは approved だけ (finalizeApproval の spendPointsAtomic 1 箇所)。
+		// UI はこの status を見て「-80P」を出すか決める (却下行に控除額を出さない)。
+		expect(rows.filter((r) => r.status === 'approved')).toHaveLength(1);
+		expect(rows.filter((r) => r.status === 'rejected')).toHaveLength(1);
+	});
+});
+
 describe('#4632 AC2 日付は申請日の JST 暦日 (秒 / ミリ秒の取り違えを起こさない)', () => {
 	it('epoch 秒を JST 暦日に変換する (旧実装は秒を ms と解釈し 1970 年になった)', () => {
 		// 2026-08-16 12:00:00 JST = 2026-08-16T03:00:00Z

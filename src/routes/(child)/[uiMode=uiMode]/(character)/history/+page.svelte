@@ -264,7 +264,11 @@ function purchaseStatusTone(status: string): string {
 									{/if}
 								</div>
 								<div class="text-right shrink-0">
-									{#if p.rewardPoints !== null}
+									<!-- #4632: ポイントが実際に引かれたのは **承認されたときだけ**
+									     (控除は finalizeApproval の spendPointsAtomic 1 箇所)。
+									     却下 / 期限切れ / 承認待ちの行に「-100P」を出すと、引かれていない
+									     ポイントが引かれたように読め、台帳と食い違う -->
+									{#if p.status === 'approved' && p.rewardPoints !== null}
 										<p class="text-sm font-bold" data-testid="history-purchase-points-{p.id}">
 											{fmtPts(-p.rewardPoints * p.quantity)}
 										</p>
