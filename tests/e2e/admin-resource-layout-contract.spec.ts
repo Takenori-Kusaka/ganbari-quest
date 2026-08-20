@@ -323,9 +323,12 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 				//   最初の子タブに戻っていた (気付かず次のリストを別の子に作る事故)。3 画面とも
 				//   「タブ選択 → URL 反映」「その URL で復元」が成立することを契約として固定する。
 				const tabs = page.getByTestId(model.childTabsTestid).getByRole('tab');
-				const tabCount = await tabs.count();
-				expect(tabCount, '子供タブが 1 つも描画されていない').toBeGreaterThan(0);
-				test.skip(tabCount < 2, '子供が 2 人未満の fixture ではタブ切替を検証できない');
+				// demo fixture は 5 children を seed する。skip ではなく precondition assert で
+				// seed 破綻を検知する (ADR-0006 §3 — assertion 弱体化禁止)。
+				expect(
+					await tabs.count(),
+					'2 child 以上の fixture が必要 (demo seed / global-setup.ts)',
+				).toBeGreaterThanOrEqual(2);
 
 				await tabs.nth(1).click();
 				await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
