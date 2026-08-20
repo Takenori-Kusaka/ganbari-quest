@@ -672,10 +672,10 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 項目 | 内容 |
 |------|------|
 | サービス | Amazon Bedrock (Converse API) |
-| モデル | Claude Haiku 4.5 (`anthropic.claude-haiku-4-5-20251001-v1:0`) |
-| 推論方式 | in-Region on-demand（base model ID）。cross-region inference profile (`us.` 接頭辞) は使わない — us-east-2 / us-west-2 でも推論されうるため、子供の活動テキストの所在を `site/privacy.html` 第 10 条の開示（us-east-1）と一致させる |
+| モデル | Claude Haiku 4.5。呼び出しに使う ID は US inference profile の `us.anthropic.claude-haiku-4-5-20251001-v1:0`（member base model = `anthropic.claude-haiku-4-5-20251001-v1:0`） |
+| 推論方式 | **US geo inference profile**（`us.` 接頭辞）。Claude Haiku 4.5 は base model ID の on-demand 呼び出しを受け付けない（`ValidationException: ... with on-demand throughput isn't supported`）ため profile が必須。推論は member 3 リージョン（us-east-1 / us-east-2 / us-west-2）に分散しうるが、いずれも運営者の AWS アカウント内であり保存先は us-east-1 のまま。米国外を含みうる `global.` profile は採らない（`site/privacy.html` 第 10 条の移転先国「米国」を保つ） |
 | 構造化出力 | tool_use (function calling) でJSONスキーマ準拠の出力を保証 |
-| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は当該 base model の ARN 1 本 (`arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`) に絞り `*` にしない。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
+| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は **profile ARN 1 本 + member 3 リージョンの foundation-model ARN 3 本**（`arn:aws:bedrock:us-east-1:<account>:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0` / `arn:aws:bedrock:{us-east-1,us-east-2,us-west-2}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`）に絞り `*` にしない。profile 経由の呼び出しは両方を要求する。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
 
 ### モデル選定理由
 
@@ -696,7 +696,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 | 変数 | デフォルト | 説明 |
 |------|----------|------|
-| `BEDROCK_MODEL_ID` | `anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID（US inference profile）。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
 | `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン。AWS 本番 / staging へは `us-east-1` を明示配布する (既定値に委ねると実行環境の `AWS_REGION` 次第でずれる) |
 | `BEDROCK_DISABLED` | (未設定) | `true` でBedrock無効化（フォールバック使用） |
 
