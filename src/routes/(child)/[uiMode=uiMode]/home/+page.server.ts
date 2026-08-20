@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
+import { CHILD_ACTION_ERROR_LABELS } from '$lib/domain/labels';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import {
@@ -17,6 +18,8 @@ import {
 	recordActivity,
 } from '$lib/server/services/activity-log-service';
 import {
+	ActivityPinError,
+	MAX_PINS_PER_CATEGORY,
 	sortActivitiesWithPreferences,
 	toggleActivityPin,
 } from '$lib/server/services/activity-pin-service';
@@ -345,12 +348,12 @@ export const actions: Actions = {
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id) へ
 		// 直達し 22P02 → 500 になる CWE-20 を trust 境界で断つ (自己誘発改竄なので 400 正規化)。
 		if (!isValidUuidFormField(activityId, 'route.home.record.activityId')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		const result = await recordActivity(childId, activityId, tenantId);
@@ -391,12 +394,12 @@ export const actions: Actions = {
 		const logId = formIdString(formData.get('logId'));
 
 		if (!childId || !logId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799: form-field 由来 logId が dsql の uuid 列 (activity_logs.log_id) へ直達し
 		// 22P02 → 500 になる CWE-20 を trust 境界で断つ。
 		if (!isValidUuidFormField(logId, 'route.home.cancelRecord.logId')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		const result = await cancelActivityLog(logId, tenantId);
@@ -415,7 +418,7 @@ export const actions: Actions = {
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBonus'));
 		if (!childId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		const result = await claimLoginBonus(childId, tenantId);
@@ -508,20 +511,32 @@ export const actions: Actions = {
 		const pinned = formData.get('pinned') === 'true';
 
 		if (!childId || !activityId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id /
 		// child_activity_preferences.activity_id) へ直達し 22P02 になる CWE-20 を trust 境界で断つ。
 		if (!isValidUuidFormField(activityId, 'route.home.togglePin.activityId')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		try {
 			const result = await toggleActivityPin(childId, activityId, pinned, tenantId);
 			return { success: true, isPinned: result.isPinned };
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'ピン留めに失敗しました';
-			return fail(400, { error: message });
+			// #4716 item 15 / ADR-0062: 旧実装は err.message をそのまま返し、想定外の
+			// 例外の内部文言と漢字のサービス層文言を子供画面に出していた。
+			if (err instanceof ActivityPinError) {
+				return fail(400, {
+					error:
+						err.code === 'PIN_LIMIT_EXCEEDED'
+							? CHILD_ACTION_ERROR_LABELS.pinLimitExceeded(MAX_PINS_PER_CATEGORY)
+							: CHILD_ACTION_ERROR_LABELS.pinActivityNotFound,
+				});
+			}
+			logger.error('[child-home] togglePin failed', {
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.unexpected });
 		}
 	},
 
@@ -531,7 +546,7 @@ export const actions: Actions = {
 		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
 		// なる CWE-20 を trust 境界で断つ)。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.stampCard'));
-		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 
 		const result = await stampToday(childId, tenantId);
 		if ('error' in result) {
@@ -558,7 +573,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.redeemStampCard'));
-		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 
 		const result = await redeemStampCard(childId, tenantId);
 		if ('error' in result) {
@@ -579,7 +594,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBirthday'));
-		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 
 		const result = await claimBirthdayBonus(childId, tenantId);
 		if ('error' in result) {
@@ -607,7 +622,7 @@ export const actions: Actions = {
 		const childId = asChildId(
 			requireValidChildCookieFormat(cookies, 'route.home.dismissUiModeChangeNotice'),
 		);
-		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 
 		await clearUiModeChangeNotice(childId, tenantId);
 		return { success: true, uiModeChangeNoticeDismissed: true };
@@ -625,13 +640,13 @@ export const actions: Actions = {
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799: form-field 由来 challengeId が dsql の uuid 列 (child_challenges.challenge_id) へ
 		// 直達し 22P02 になる CWE-20 を trust 境界で断つ。下の try/catch は 22P02 を握り潰し
 		// 生 err.message を fail(400) に載せる (ADR-0062 内部例外 leak) ため、事前 guard で防ぐ。
 		if (!isValidUuidFormField(challengeId, 'route.home.claimChallengeReward.challengeId')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		try {
@@ -647,8 +662,11 @@ export const actions: Actions = {
 				rewardMessage: result.message ?? '',
 			};
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
-			return fail(400, { error: message });
+			// #4716 item 15 / ADR-0062: 生の例外 message を顧客に見せない (内部情報 leak)。
+			logger.error('[child-home] claimChallengeReward failed', {
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.unexpected });
 		}
 	},
 
@@ -668,19 +686,19 @@ export const actions: Actions = {
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799 と同型: form-field 由来 id が dsql uuid 列へ直達して 22P02 になる CWE-20 を断つ。
 		if (
 			!isValidUuidFormField(challengeId, 'route.home.markChallengeCelebrationShown.challengeId')
 		) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		// 他 child の instance / 存在しない id は false (IDOR 防止)。
 		const marked = await markChallengeCelebrationShown(challengeId, childId, tenantId);
 		if (!marked) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		return { success: true, challengeCelebrationShown: true };
 	},
@@ -694,14 +712,14 @@ export const actions: Actions = {
 		const stampCode = formData.get('stampCode')?.toString() ?? '';
 
 		if (!childId || !toChildId || !stampCode) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799 (確定残渣): form-field 由来 toChildId が sendCheer → insertCheer の
 		// `JOIN children ct ON ct.child_id = ${toChildId}` (dsql uuid 列) へ無 guard 直達し、
 		// 非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。fromChildId は
 		// requireValidChildCookieFormat で cookie guard 済のため、残る form-field toChildId を検証する。
 		if (!isValidUuidFormField(toChildId, 'route.home.sendCheer.toChildId')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		const result = await sendCheer(childId, toChildId, stampCode, tenantId);
@@ -723,7 +741,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.markCheersShown'));
 		if (!childId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		const formData = await request.formData();
 		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';
@@ -733,12 +751,12 @@ export const actions: Actions = {
 			.filter((v) => v !== '');
 
 		if (cheerIds.length === 0) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 		// #3799: form-field 由来 cheerIds が markShown の `cheer_id IN (${...})` (dsql uuid 列) へ
 		// 無 guard 直達し、非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。
 		if (!areValidUuidFormFields(cheerIds, 'route.home.markCheersShown.cheerIds')) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		await markCheersShown(childId, cheerIds, tenantId);
@@ -759,7 +777,7 @@ export const actions: Actions = {
 			requireValidChildCookieFormat(cookies, 'route.home.ackHabitCertificateNotice'),
 		);
 		if (!childId) {
-			return fail(400, { error: 'パラメータが不正です' });
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 		}
 
 		await clearHabitCertificateNotice(childId, tenantId);

@@ -10,6 +10,9 @@
 // 用語の割れは「1 回直しても、次の変更で片方だけ動く」ので、値の一致ではなく
 // **禁止パターンの不在** を assert する (再混入したら落ちる形)。
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as labels from '../../../src/lib/domain/labels';
 import {
@@ -17,12 +20,17 @@ import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	ADMIN_REWARDS_PAGE_LABELS,
 	ADMIN_REWARDS_REQUESTS_LABELS,
+	CHILD_ACTION_ERROR_LABELS,
 	COPY_FROM_CHILD_LABELS,
 	formatChildDate,
 	formatJstDate,
+	OYAKAGI_LABELS,
 	SETTINGS_LABELS,
 } from '../../../src/lib/domain/labels';
 import { CHILD_TERMS } from '../../../src/lib/domain/terms';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../../../src/lib/domain/validation/auth';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /**
  * 保護者向け namespace（子供画面 / LP / Storybook を除く）。
@@ -182,5 +190,59 @@ describe('#4716 item 13: 日付書式が SSOT に寄っている', () => {
 		for (const tier of ['baby', 'preschool', 'elementary', 'junior', 'senior']) {
 			expect(formatChildDate('2026-08-07', tier)).not.toMatch(/\d{4}-\d{2}-\d{2}/);
 		}
+	});
+});
+
+describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経由している', () => {
+	/**
+	 * 子供画面の form action が返す失敗文言。旧実装は 25 箇所で
+	 * `'パラメータが不正です'` を直書きし、3〜5 歳向け preschool 画面に
+	 * 漢字の開発者語を出していた (docs/DESIGN.md §6 内部コード露出禁止)。
+	 */
+	const CHILD_SERVER_FILES = [
+		'src/routes/(child)/checklist/+page.server.ts',
+		'src/routes/(child)/[uiMode=uiMode]/home/+page.server.ts',
+		'src/routes/(child)/[uiMode=uiMode]/home/initial-points/+page.server.ts',
+	];
+
+	it('子供画面の server action に開発者語の失敗文言が残っていない', () => {
+		for (const rel of CHILD_SERVER_FILES) {
+			const src = readFileSync(resolve(REPO_ROOT, rel), 'utf-8');
+			expect(src, rel).not.toContain('パラメータが不正です');
+			expect(src, rel).not.toContain('有効なポイント数を入力してください');
+		}
+	});
+
+	it('子供向け失敗文言がひらがな (漢字を含まない)', () => {
+		const texts = [
+			CHILD_ACTION_ERROR_LABELS.invalidInput,
+			CHILD_ACTION_ERROR_LABELS.pointsNotNumber,
+			CHILD_ACTION_ERROR_LABELS.unexpected,
+			CHILD_ACTION_ERROR_LABELS.pointsOutOfRange(1, 10000),
+		];
+		for (const t of texts) {
+			expect(t, t).not.toMatch(/[一-鿿]/);
+		}
+	});
+
+	it('子供画面の例外 catch が生の Error message を顧客に返していない (ADR-0062)', () => {
+		const src = readFileSync(
+			resolve(REPO_ROOT, 'src/routes/(child)/[uiMode=uiMode]/home/+page.server.ts'),
+			'utf-8',
+		);
+		expect(src).not.toContain('err instanceof Error ? err.message :');
+	});
+
+	it('おやカギコードの桁数表記が pinSchema から導出されている', () => {
+		expect(OYAKAGI_LABELS.newPinLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
+		expect(OYAKAGI_LABELS.inputLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
+		// 旧実装は変更フォームだけ 4〜8 桁を受理し、6 桁固定の /login で再ログイン
+		// できない値を設定させていた。表記・受理範囲・schema の 3 者が揃っていること。
+		const serverSrc = readFileSync(
+			resolve(REPO_ROOT, 'src/routes/(parent)/admin/settings/account/+page.server.ts'),
+			'utf-8',
+		);
+		expect(serverSrc).not.toContain('newPin.length > 8');
+		expect(serverSrc).toContain('PIN_MAX_LENGTH');
 	});
 });

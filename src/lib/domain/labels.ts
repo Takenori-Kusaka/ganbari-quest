@@ -2382,6 +2382,38 @@ export const DEMO_LABELS = {
  *     (子が見て即入力する脆弱性。setup 完了画面 / onboarding dialog でのみ伝達)
  *   - 設計欠陥 4 (PIN 忘れ救済導線): `gateForgotPinLink` 等 PIN reset 関連 compound 追加
  */
+/**
+ * #4716 item 15: 子供画面の form action が返すエラー文言 SSOT。
+ *
+ * 旧実装は 25 箇所で `'パラメータが不正です'` を直書きしており、3〜5 歳が使う
+ * preschool 画面に漢字の開発者語がそのまま出ていた (docs/DESIGN.md §6 内部コード
+ * 露出禁止 / §8 preschool = ひらがなのみ)。子供に届く失敗はすべてひらがなで、
+ * 「次に何をすればよいか」まで書く。
+ */
+/**
+ * #4716 item 4: セルフホスト (NUC / ローカル) 起動時の既定家族名。
+ *
+ * 旧値は `'ローカル家族'` を `sqlite/auth-repo.ts` に直書きしており、/admin/settings の
+ * 「家族名」に開発者語 (ローカル) がそのまま出ていた (docs/DESIGN.md §6 内部コード露出禁止)。
+ */
+export const LOCAL_DEPLOYMENT_LABELS = {
+	defaultFamilyName: 'わが家',
+} as const;
+
+export const CHILD_ACTION_ERROR_LABELS = {
+	/** 送信値が想定の形式でない (uuid 不正 / 欠落など)。原因は子供に説明できないので操作の再試行を促す。 */
+	invalidInput: 'うまく おくれなかったよ。もういちど ためしてね',
+	/** 数値入力が数値として読めない。 */
+	pointsNotNumber: 'すうじで いれてね',
+	/** 数値入力が受理範囲外。 */
+	pointsOutOfRange: (min: number, max: number) => `${min}から${max}までの すうじで いれてね`,
+	/** 予期しない失敗 (例外) の既定文言。内部例外メッセージは出さない (ADR-0062)。 */
+	unexpected: 'うまく いかなかったよ。もういちど ためしてね',
+	/** 活動のピン留め (おきにいり) 拒否理由。service 層の code に 1:1 で対応する。 */
+	pinActivityNotFound: 'その かつどうが みつからなかったよ',
+	pinLimitExceeded: (max: number) => `おきにいりは ${max}こまでだよ`,
+} as const;
+
 export const OYAKAGI_LABELS = {
 	name: `${OYAKAGI_TERMS.name}`,
 	shortName: `${OYAKAGI_TERMS.shortName}`,
@@ -4768,6 +4800,8 @@ export const DEMO_TOP_LABELS = {
 export const GROWTH_BOOK_LABELS = {
 	pageHeading: adminScreenHeading('growthBook'),
 	backToReports: '← レポートへ',
+	// #4716 item 12: 「395pt」が .svelte に直書きされ、単位が POINT_TERMS を経由していなかった。
+	monthlyTotalPoints: (points: number) => `${points.toLocaleString()}${POINT_TERMS.unit}`,
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
 	premiumNoteLink: 'スタンダードプラン以上',

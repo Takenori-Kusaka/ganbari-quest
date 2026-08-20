@@ -1,6 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, PACKS_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, formatAgeRange, PACKS_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -60,7 +60,7 @@ const categoryLabels: Record<string, string> = {
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2 flex-wrap">
 								<span class="font-bold text-[var(--color-text)]">{pack.packName}</span>
-								<span class="text-xs text-[var(--color-text-tertiary)]">{pack.targetAgeMin + '〜'}{pack.targetAgeMax + '歳'}</span>
+								<span class="text-xs text-[var(--color-text-tertiary)]">{formatAgeRange(pack.targetAgeMin, pack.targetAgeMax)}</span>
 								{#if pack.isRecommended && !pack.isFullyImported}
 									<span class="text-[10px] font-bold text-white bg-[var(--color-stat-amber)] rounded-full px-2 py-0.5">{PACKS_PAGE_LABELS.recommendedBadge}</span>
 								{/if}
