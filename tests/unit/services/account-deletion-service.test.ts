@@ -80,8 +80,12 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+// #4724: 退会は **全バージョンごと物理削除**する `purgeByPrefix` を使う。
+// `deleteByPrefix` (= delete marker を立てるだけ) に戻ると、バージョニング有効の S3 で
+// 「完全削除」の約束より 30 日長く実体が残る。下の [#4724] test が経路を固定する。
 vi.mock('$lib/server/storage', () => ({
 	deleteByPrefix: vi.fn().mockResolvedValue(0),
+	purgeByPrefix: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('./child-service', () => ({
