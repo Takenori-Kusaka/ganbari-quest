@@ -1,15 +1,18 @@
 <script lang="ts">
+import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
 import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
-const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
-	1: { name: 'うんどう', icon: '🏃' },
-	2: { name: 'べんきょう', icon: '📚' },
-	3: { name: 'せいかつ', icon: '🏠' },
-	4: { name: 'こうりゅう', icon: '🤝' },
-	5: { name: 'そうぞう', icon: '🎨' },
-};
+/**
+ * #4703: カテゴリ名 / アイコンは `categories.ts` (SSOT) から引く。
+ * 旧実装は本 component 内に 5 件を直書きしており、SSOT を変えてもこの画面だけ
+ * 古い名前を出し続ける形だった (DESIGN.md §6 用語ハードコード禁止)。
+ */
+function categoryMeta(categoryId: string) {
+	const code = toCategoryCode(categoryId);
+	return code ? CATEGORIES[code] : undefined;
+}
 </script>
 
 <svelte:head>
@@ -39,7 +42,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 					</div>
 
 					<div class="child-stats">
-						<div class="stat-item">
+						<div class="stat-item" data-testid="viewer-child-points">
 							<span class="stat-value">{child.totalPoints.toLocaleString()}</span>
 							<span class="stat-label">{VIEW_PAGE_LABELS.statPointLabel}</span>
 						</div>
@@ -52,7 +55,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 					{#if child.statuses.length > 0}
 						<div class="category-grid">
 							{#each child.statuses as status}
-								{@const cat = CATEGORY_LABELS[status.categoryId]}
+								{@const cat = categoryMeta(status.categoryId)}
 								{#if cat}
 									<div class="category-item">
 										<span class="category-icon">{cat.icon}</span>
