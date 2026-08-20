@@ -79,8 +79,8 @@
 | POST | /api/v1/children/[id]/voices | カスタム音声アップロード | owner/parent |
 | PATCH | /api/v1/children/[id]/voices/[voiceId] | カスタム音声アクティブ切替 | owner/parent |
 | DELETE | /api/v1/children/[id]/voices/[voiceId] | カスタム音声削除 | owner/parent |
-| GET | /api/v1/activities/export | 個別バックアップ（#3079 AC4 で v2 統一）。tenant の活動全件を marketplace v2 envelope（activity-pack）JSON でダウンロード（reward-set / checklist と同型、checksum 付き）。復元は admin/activities `?/importFile` action。旧 v1（formatVersion='1.0'）ファイルからの復元は後方互換で受理（`migrateV1ActivityPackToV2`） | owner/parent |
-| POST | /api/v1/activities/import | 活動パック形式でインポート | owner/parent |
+| GET | /api/v1/activities/export | 個別バックアップ（#3079 AC4 で v2 統一）。**`?childId=<id>` 必須（#4692）**でその子 1 人分の活動を marketplace v2 envelope（activity-pack）JSON でダウンロード（reward-set / checklist と同型、checksum 付き）。childId 未指定は 400。復元は admin/activities `?/importFile` action（同じく childId 必須）。旧 v1（formatVersion='1.0'）ファイルからの復元は後方互換で受理（`migrateV1ActivityPackToV2`） | owner/parent |
+| POST | /api/v1/activities/import | 活動パック形式でインポート。**取込先 child は body `childIds`（省略時は家族全員）で明示する（#4692）** — 「tenant 最初の子に silent bind」は廃止。子供 0 人の tenant は 400 | owner/parent |
 
 ### 特別報酬
 

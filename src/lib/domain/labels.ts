@@ -5562,6 +5562,28 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 } as const;
 
 /**
+ * admin リソース画面の「選択中の子と操作対象」共通ラベル (#4692)
+ *
+ * 復元 / エクスポート / すべて削除 / 取込 は per-child 主軸 (ADR-0055、DESIGN.md §10) に従い
+ * 「選択中の子」だけを対象にする。対象範囲を書かない確認文 (旧「本当に全削除しますか？」) や
+ * 子供 0 人での空 dialog は「操作対象がどこか分からない」状態を作るため、
+ * 3 画面 (活動 / ごほうび / チェックリスト) で同一文言を使う。
+ */
+export const ADMIN_CHILD_SCOPE_LABELS = {
+	childRequired: `${CHILD_TERMS.honorific}を選んでください`,
+	childNotFound: `指定された${CHILD_TERMS.honorific}が見つかりませんでした`,
+	/** 子供 0 人で取込 URL (`?import=`) を開いたときの案内 (空 dialog の代わり) */
+	noChildrenTitle: `まずは${CHILD_TERMS.honorific}を登録してください`,
+	noChildrenDesc: `取り込み先の${CHILD_TERMS.honorific}がまだ登録されていません。登録すると、みんなのテンプレートを取り込めます。`,
+	noChildrenCta: `${CHILD_TERMS.honorific}を登録する`,
+	/** ︙「すべて削除」の確認文 — 対象の子と件数を必ず出す */
+	clearAllScopedConfirm: (childName: string, count: number) =>
+		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
+	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
+	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
+} as const;
+
+/**
  * 個別 backup/restore 共通ラベル (#3079、DESIGN.md §10 consistency)
  *
  * 活動 (ActivitiesHeader) と同型の「エクスポート」+「バックアップから復元」を、ごほうび・
@@ -8327,7 +8349,8 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/ActivityClearAllConfirm ----
 	activityClearAllConfirm: {
-		text: '本当に全削除しますか？',
+		// #4692 F3: 対象範囲を書かない「本当に全削除しますか？」は撤去。
+		// 確認文は ADMIN_CHILD_SCOPE_LABELS.clearAllScopedConfirm(子の名前, 件数) を使う。
 		processingText: '処理中...',
 		executeBtn: '実行',
 		cancelBtn: 'やめる',
