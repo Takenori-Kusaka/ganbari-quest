@@ -4,10 +4,9 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
-import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
+import { getPlanLimits, type PlanLimits, resolvePaidPlanTier } from '$lib/domain/plan-limits';
 import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
@@ -16,29 +15,12 @@ import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-co
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 
-export interface PlanLimits {
-	maxChildren: number | null; // null = 無制限
-	maxActivities: number | null;
-	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
-	maxFamilyMembers: number | null; // null = 無制限, 招待によるメンバー上限（owner含む） (#1111)
-	historyRetentionDays: number | null;
-	canExport: boolean;
-	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	/**
-	 * 特別なごほうび設定（スタンダード以上、#728）。
-	 *
-	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
-	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
-	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
-	 */
-	canCustomReward: boolean;
-	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
-	maxCloudExports: number; // クラウド保管の同時保管数上限
-}
-
 // #3963: 型宣言の SSOT は domain leaf に移した (request-context との循環回避)。
+// #4704: 上限値の表 (PLAN_LIMITS / PlanLimits / getPlanLimits) も domain leaf に移した
+// (repo 層から service 層への循環を断つため、$lib/domain/plan-limits.ts が SSOT)。
 // 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
 export type { PlanTier };
+export { getPlanLimits, type PlanLimits };
 
 /**
  * 上限チェックの結果 (#4622)。
@@ -59,52 +41,6 @@ export type PlanLimitCheck =
 	| { allowed: true; current: number; max: number | null }
 	/** 上限到達。到達しうるのは上限が具体値のプランだけなので `max` は必ず number */
 	| { allowed: false; current: number; max: number };
-
-const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-	free: {
-		maxChildren: 2,
-		maxActivities: 3,
-		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
-		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
-		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
-		maxChecklistTemplates: 3,
-		// #1111: フリープランは招待不可（owner のみ）
-		maxFamilyMembers: 1,
-		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
-		canExport: false,
-		canFreeTextMessage: false,
-		canCustomReward: isCustomRewardUnlocked('free'),
-		canSiblingRanking: false,
-		maxCloudExports: 0,
-	},
-	standard: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
-		maxFamilyMembers: 4,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
-		canExport: true,
-		canFreeTextMessage: false,
-		canCustomReward: isCustomRewardUnlocked('standard'),
-		canSiblingRanking: false,
-		maxCloudExports: 3,
-	},
-	family: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: PLAN_LABELS.family は無制限
-		maxFamilyMembers: null,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
-		canExport: true,
-		canFreeTextMessage: true,
-		canCustomReward: isCustomRewardUnlocked('family'),
-		canSiblingRanking: true,
-		maxCloudExports: 10,
-	},
-};
 
 /**
  * テナントのプランティアを判定する同期版（低レベル・internal 用途）。
@@ -140,7 +76,7 @@ export function resolvePlanTier(
 	if (mode === 'anonymous') return 'family';
 	// アクティブな有料プラン
 	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) {
-		return planId?.startsWith('family') ? 'family' : 'standard';
+		return resolvePaidPlanTier(planId);
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
 	// #4707: 終了日は JST 暦日 ('YYYY-MM-DD') で end_date 当日いっぱい有効。旧実装の
@@ -196,11 +132,6 @@ export function isPaidTier(tier: PlanTier): boolean {
 	return tier === 'standard' || tier === 'family';
 }
 
-/** プラン別制限を取得 */
-export function getPlanLimits(tier: PlanTier): PlanLimits {
-	return PLAN_LIMITS[tier];
-}
-
 /**
  * 保持期間カットオフ日 (YYYY-MM-DD、JST 基準) を取得。null = 制限なし。
  *
@@ -211,7 +142,7 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
  * これを JST 深夜 0:00 の instant として TZ-qualified に解釈する。
  */
 export function getHistoryCutoffDate(tier: PlanTier): string | null {
-	const limits = PLAN_LIMITS[tier];
+	const limits = getPlanLimits(tier);
 	if (limits.historyRetentionDays === null) return null;
 	return addDaysJST(todayDateJST(), -limits.historyRetentionDays);
 }

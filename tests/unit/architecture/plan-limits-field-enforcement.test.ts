@@ -37,7 +37,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../');
 
 /** 型定義と既定値を持つ SSOT 自身。ここでの出現は「参照」に数えない。 */
-const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
+// #4704: 表の置き場所を server/services から domain leaf に移した (repo → service の循環を断つため)。
+const DEFINITION_FILE = 'src/lib/domain/plan-limits.ts';
 
 /**
  * 未配線のまま残すフィールド。**理由と追跡 Issue が必須**。
@@ -48,10 +49,6 @@ const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
 const UNWIRED_FIELDS: Record<string, string> = {
 	canFreeTextMessage:
 		'#4504 で配線中 (PR #4579)。マージ後に本エントリを削除する。値は isFreeTextMessageUnlocked から導出される予定',
-	// 本 gate を書いて初めて見つかった 3 件目。招待の上限は plan-limit-service に値があるだけで、
-	// invite-service にも admin/members にも上限チェックが無い (grep で 0 件)。
-	maxFamilyMembers:
-		'#4577 で family-member-limit.ts に集約中。強制の有無は同 PR の scope。マージ後に本エントリを見直す',
 };
 
 /**
