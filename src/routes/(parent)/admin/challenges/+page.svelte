@@ -6,6 +6,7 @@ import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	APP_LABELS,
 	CHALLENGES_LABELS,
+	formatJstDate,
 	PAGE_TITLES,
 	UI_LABELS,
 	UNRESOLVED_ENTITY_LABELS,
@@ -74,9 +75,9 @@ function parseJSON<T>(json: string, fallback: T): T {
 	}
 }
 
-function formatDate(d: string): string {
-	return d.replace(/-/g, '/');
-}
+// #4716: 日付書式は labels.ts の SSOT (formatJstDate) に寄せる。
+//   旧ローカル helper は 2026/08/17 (ゼロ埋め) を出し、他画面の toLocaleDateString は
+//   2026/8/19 (非ゼロ埋め) を出していて、同じ日付が 2 通りに見えていた。
 
 function isCurrentlyActive(instance: ChildChallenge): boolean {
 	const today = todayDateJST();
@@ -215,7 +216,7 @@ function tabHref(childId: ChildId | 'all'): string {
 							</h3>
 							<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 								{periodLabel(group.periodType)}
-								· {formatDate(group.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatDate(group.endDate)}
+								· {formatJstDate(group.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatJstDate(group.endDate)}
 								· {CHALLENGES_LABELS.rewardLabel(reward.points)}
 							</p>
 							{#if group.description}

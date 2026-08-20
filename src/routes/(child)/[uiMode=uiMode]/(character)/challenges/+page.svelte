@@ -1,5 +1,5 @@
 <script lang="ts">
-import { APP_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatChildDate, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -51,7 +51,7 @@ const t = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode).text);
 					<div class="flex items-center justify-between">
 						<div>
 							<p class="text-sm font-bold text-[var(--color-text)]">{challenge.categoryName}</p>
-							<p class="text-xs text-[var(--color-text-muted)]">{challenge.weekStart + '〜'}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{formatChildDate(challenge.weekStart, data.uiMode)}{UI_LABELS.dateFromSuffix}</p>
 						</div>
 						<div class="text-right">
 							<span class="text-sm font-bold">{challenge.currentCount}/{challenge.targetCount}</span>

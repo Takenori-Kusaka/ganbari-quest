@@ -2,7 +2,7 @@
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, formatJstDate, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -306,7 +306,7 @@ const roleLabel = (role: string) => {
 									{roleLabel(member.role)}
 								</span>
 								<span class="text-xs text-[var(--color-text-tertiary)]">
-									{new Date(member.joinedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+									{formatJstDate(member.joinedAt)}
 								</span>
 							</div>
 						</div>
@@ -472,7 +472,7 @@ const roleLabel = (role: string) => {
 								{roleLabel(invite.role)}
 							</span>
 							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
-								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+								{MEMBERS_LABELS.inviteExpiresPrefix}{formatJstDate(invite.expiresAt)}
 							</span>
 							<!-- #3555 ①: 宛先 email 束縛付き招待の宛先を表示 (タイプミスに owner が気づき
 							     取消し → 再発行できる修正導線) -->
@@ -612,7 +612,7 @@ const roleLabel = (role: string) => {
 									{/if}
 									{#if vt.expiresAt}
 										<span class="text-xs text-[var(--color-text-tertiary)]">
-											{MEMBERS_LABELS.viewerExpiresPrefix}{new Date(vt.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+											{MEMBERS_LABELS.viewerExpiresPrefix}{formatJstDate(vt.expiresAt)}
 										</span>
 									{:else}
 										<span class="text-xs text-[var(--color-text-tertiary)]">{MEMBERS_LABELS.viewerExpiresNone}</span>

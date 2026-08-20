@@ -9,7 +9,7 @@ import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
-import { jstDayOfWeek } from './date-utils';
+import { jstDayOfWeek, toJSTDateString } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -201,7 +201,17 @@ export const PAGE_TITLES = {
 // 汎用 UI メッセージ (#1452 Phase B)
 // ============================================================
 
+/**
+ * 「すべてのデータを削除する」操作の呼称 (#4716)。
+ *
+ * 旧「データクリア」は内部語で、同意チェックの「すべてのデータを削除することに同意します」と
+ * 別語だったため、同じ操作が 2 つあるように読めた。実行内容をそのまま名乗る 1 語に寄せる。
+ */
+export const DATA_CLEAR_ACTION_LABEL = 'すべてのデータを削除';
+
 export const UI_LABELS = {
+	// #4716: 「この日から」を表す接尾辞。子供画面の週次チャレンジ履歴などで使う。
+	dateFromSuffix: '〜',
 	redirecting: 'リダイレクト中...',
 	back: '戻る',
 	backWithArrow: '← 戻る',
@@ -265,7 +275,41 @@ export function formatPeople(n: number): string {
 	return `${n}人`;
 }
 export function formatDateRange(start: string, end: string): string {
-	return `${start} 〜 ${end}`;
+	return `${formatJstDate(start)} 〜 ${formatJstDate(end)}`;
+}
+
+/**
+ * 保護者向け画面の日付表示 SSOT (#4716)。`YYYY/MM/DD` (JST, ゼロ埋め) に統一する。
+ *
+ * 以前は画面ごとに `d.replace(/-/g, '/')`（→ 2026/08/17）と
+ * `toLocaleDateString('ja-JP')`（→ 2026/8/19）が混在し、同じ日付が 2 通りに見えていた。
+ * ISO 文字列 (`YYYY-MM-DD`) / epoch ミリ秒 / Date のいずれも受け取り、JST 暦日に正規化する
+ * (`toJSTDateString` 経由。ローカル TZ の getter は使わない — #4015 JST SSOT)。
+ */
+export function formatJstDate(input: string | number | Date): string {
+	const iso =
+		typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)
+			? input
+			: toJSTDateString(input instanceof Date ? input : new Date(input));
+	return iso.replaceAll('-', '/');
+}
+
+/**
+ * 子供向け画面の日付表示 SSOT (#4716)。年齢帯で文体を変える。
+ *
+ * ISO 日付 (`2026-08-17`) をそのまま出すと、幼児画面に開発者フォーマットが露出する
+ * (実測: 子供 /challenges が `2026-08-17〜` を表示していた)。
+ */
+export function formatChildDate(input: string | number | Date, ageTier: string): string {
+	const iso =
+		typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)
+			? input
+			: toJSTDateString(input instanceof Date ? input : new Date(input));
+	const [, month, day] = iso.split('-');
+	const m = Number.parseInt(month ?? '1', 10);
+	const d = Number.parseInt(day ?? '1', 10);
+	const tier = normalizeUiMode(ageTier);
+	return tier === 'baby' || tier === 'preschool' ? `${m}がつ${d}にち` : `${m}月${d}日`;
 }
 
 // ============================================================
@@ -2639,12 +2683,13 @@ export const SETTINGS_LABELS = {
 	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
 
 	// インポート
-	dataImportTitle: 'データのインポート',
+	// #4716: 「インポート」= 復元。BACKUP_TERMS の語 (バックアップ / 復元) に統一する。
+	dataImportTitle: `${BACKUP_TERMS.canonical}から${BACKUP_TERMS.restoreVerb}`,
 	dataImportDesc: `保存した${BACKUP_TERMS.file}からデータを${BACKUP_TERMS.restoreVerb}できます（画像・音声を含むファイルはアバター画像・音声も${BACKUP_TERMS.restoreVerb}します）。`,
-	dataImportMode: 'インポートモード',
-	dataImportModeReplace: '置換（既存データを削除してインポート）',
-	dataImportModeAdd: '追加（既存データを残して追加）',
-	dataImportModeReplaceWarning: `既存の${CHILD_TERMS.honorific}・活動ログ・ポイント等のデータをすべて削除してからインポートします。`,
+	dataImportMode: `${BACKUP_TERMS.restoreVerb}のしかた`,
+	dataImportModeReplace: `置き換える（既存データを削除してから${BACKUP_TERMS.restoreVerb}）`,
+	dataImportModeAdd: '追加する（既存データを残して足す）',
+	dataImportModeReplaceWarning: `既存の${CHILD_TERMS.honorific}・活動ログ・ポイント等のデータをすべて削除してから${BACKUP_TERMS.restoreVerb}します。`,
 	dataImportModeAddNote: `新しい${CHILD_TERMS.honorific}データとして追加されます（既存データは上書きされません）。`,
 	dataImportLoading: '読み込み中...',
 	dataImportSelectFile: `${BACKUP_TERMS.file}を選択`,
@@ -2662,8 +2707,7 @@ export const SETTINGS_LABELS = {
 		`この${BACKUP_TERMS.exportNoun}形式にはまだ含まれないデータがあります（${items}）。これらは${BACKUP_TERMS.restoreVerb}されません。`,
 	cloudExportPinIssued: (pinCode: string, expiry: string) =>
 		`PINコード: ${pinCode}（有効期限: ${expiry}）`,
-	cloudImportNoChildren:
-		'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。',
+	cloudImportNoChildren: `取込先の${CHILD_TERMS.honorific}が登録されていません。先に${ADMIN_SCREENS.children.name}で登録をしてください。`,
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
 	dataImportPreviewChildren: (n: number | string | undefined) => `${CHILD_TERMS.honorific}: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
@@ -2767,12 +2811,12 @@ export const SETTINGS_LABELS = {
 	cloudImportClose: '閉じる',
 
 	// データクリア
-	clearSectionTitle: '🗑️ データクリア',
+	// #4716: 「データクリア」は内部語。実行内容 (すべてのデータを削除) をそのまま名乗る。
+	clearSectionTitle: `🗑️ ${DATA_CLEAR_ACTION_LABEL}`,
 	clearDesc: `すべての家族データ（${CHILD_TERMS.honorific}・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。`,
 	clearCurrentDataTitle: '現在のデータ件数',
-	clearIrreversibleWarning:
-		'この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。',
-	clearCompleted: 'データクリアが完了しました。ページを再読み込みしてください。',
+	clearIrreversibleWarning: `この操作は取り消せません。事前に${BACKUP_TERMS.exportVerb}ことをお勧めします。`,
+	clearCompleted: `${DATA_CLEAR_ACTION_LABEL}が完了しました。ページを再読み込みしてください。`,
 
 	// フィードバック (#support-unify: 1 フォーム統合 — intent 2 軸 + 内容分類併用。研究: 単一フォーム + intent セレクタ)
 	feedbackSectionTitle: '💬 サポート・ご意見',
@@ -2902,7 +2946,7 @@ export const SETTINGS_LABELS = {
 	groupNotificationsTitle: '通知',
 	groupNotificationsDesc: 'リマインダー・ストリーク警告・サイレント時間帯',
 	groupDataTitle: 'データ',
-	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
+	groupDataDesc: `${BACKUP_TERMS.exportNoun}・クラウド共有・${DATA_CLEAR_ACTION_LABEL}`,
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
 	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
@@ -2919,7 +2963,12 @@ export const SETTINGS_LABELS = {
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
 	dangerStep3Label: '手順 3: 実行ボタン',
-	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
+	clearDangerConsentLabel: `${DATA_CLEAR_ACTION_LABEL}することに同意します`,
+	// #4716 item 15: 画面に直書きされていた顧客可視文言を SSOT へ移す
+	clearConfirmInputLabel: '確認のため「削除」と入力してください',
+	clearConfirmInputPlaceholder: '削除',
+	clearExecuteButton: `${DATA_CLEAR_ACTION_LABEL}`,
+	clearExecuting: `${DATA_CLEAR_ACTION_LABEL}しています…`,
 	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
 	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
 	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
@@ -3536,10 +3585,15 @@ export const POINTS_LABELS = {
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
 	// 残高カード
-	convertableLabel: (amount: string) => `変換可能: ${amount}`,
+	// #4716: 旧「変換可能: 0P」は「かんたん」タブ (単位切り上げ) だけの値なのに、
+	//   同じ画面の「自由入力」タブでは 1P から変換できるため矛盾して読めた。
+	//   どちらのタブの話かを名前に入れる。
+	convertableLabel: (amount: string) => `かんたん変換ぶん: ${amount}`,
 
 	// 変換フォーム
-	convertFormTitle: (childName: string) => `${childName}のおこづかいにかえる`,
+	// #4716: 同じ画面に「変換可能」「変換P数」(漢字) が並ぶのに見出しだけひらがなだった。
+	//   ここは保護者しか見ない画面なので漢字に揃える。
+	convertFormTitle: (childName: string) => `${childName}のおこづかいに変換する`,
 	currencyModeHint: '💡 変換した金額を実際にお子さまへお渡しください',
 
 	// モードタブ
@@ -4478,7 +4532,8 @@ export const MEMBERS_LABELS = {
 	// Role labels
 	roleOwner: 'オーナー',
 	roleParent: `${PARENT_TERMS.honorific}`,
-	roleChild: `${CHILD_TERMS.hiragana}`,
+	// #4716: 招待ロールの選択肢は保護者画面にしか出ない。親画面は honorific に寄せる。
+	roleChild: `${CHILD_TERMS.honorific}`,
 
 	// Current members section
 	currentMembersTitle: '現在のメンバー',
@@ -5469,7 +5524,7 @@ export const DEMO_ADMIN_HOME_LABELS = {
 	standardPlanButton: `⭐ ${PLAN_TERMS.standard}`,
 	familyPlanButton: `⭐⭐ ${PLAN_TERMS.premium}`,
 	statsActivityLabel: 'カスタム活動',
-	statsChildLabel: 'こども',
+	statsChildLabel: `${CHILD_TERMS.honorific}`,
 	statsRetentionLabel: 'データ保持',
 	trialCtaTitle: '7日間の無料体験',
 	trialCtaDesc: 'スタンダードプランの全機能を7日間無料で体験できます。',
@@ -6537,7 +6592,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
 	// #3098 (EPIC #3096 Sub-2): 子供主軸 UI 統一に伴う「別の子から copy」(= 配信先追加) 導線。
 	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
-	copyFromChildMenuLabel: `他の${CHILD_TERMS.honorific}から取り込む`,
+	copyFromChildMenuLabel: COPY_FROM_CHILD_LABELS.action,
 	copyFromChildMenuIcon: '📋',
 	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('チェックリスト'),
 	copyDialogDescPrefix: 'コピー元を選んでください（コピー先: ',

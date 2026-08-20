@@ -18,6 +18,7 @@ import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	COPY_FROM_CHILD_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
@@ -338,6 +339,23 @@ const addMenuItems = $derived<MenuItem[]>([
 		icon: ADMIN_REWARDS_PAGE_LABELS.addBrowseTemplatesIcon,
 		onSelect: () => handleAddSelect('browse'),
 	},
+	// #4716: 活動 / チェックリストと同じく「別のお子さまからコピー」を + 追加 dropdown に置く
+	//   (ごほうびだけ本文の独立ボタンで、同じ操作が画面ごとに違う場所にあった)。
+	//   お子さまが 1 人ならコピー元が無いので出さない。
+	...(data.children.length >= 2
+		? [
+				{
+					id: 'copy',
+					label: COPY_FROM_CHILD_LABELS.action,
+					icon: data.isPremium ? COPY_FROM_CHILD_LABELS.icon : PLAN_GATE_LABELS.lockedItemIcon,
+					onSelect: data.isPremium
+						? () => {
+								showCopyFromChildDialog = true;
+							}
+						: () => void goto('/admin/subscription'),
+				},
+			]
+		: []),
 ]);
 
 // #2998: AI 提案を採用したら Dialog を manual フォーム表示に切り替える (activities acceptAiPreview と同型)。
@@ -803,20 +821,7 @@ async function handleCopyFromChild() {
 				</Button>
 			{/each}
 
-			<!-- 兄弟共通化 actions (右寄せ) -->
-			<div class="child-tab-actions">
-				{#if data.children.length >= 2}
-					<Button
-						variant="ghost"
-						size="sm"
-						data-testid="rewards-copy-from-child-btn"
-						disabled={!data.isPremium}
-						onclick={() => { showCopyFromChildDialog = true; }}
-					>
-						{ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton}
-					</Button>
-				{/if}
-			</div>
+			<!-- #4716: 「別のお子さまからコピー」は header の + 追加 dropdown に移動 (活動 / チェックリストと同型) -->
 		</div>
 
 		{#if selectedChild}

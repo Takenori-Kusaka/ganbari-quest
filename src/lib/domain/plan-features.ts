@@ -87,18 +87,21 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
  * 短い機能ハイライトリスト。料金ページよりも簡潔な 4〜5 項目に絞る。
  */
 export const LICENSE_PAGE_HIGHLIGHTS: Record<'standard' | 'family', readonly string[]> = {
+	// #4716: 料金ページ (PRICING_PAGE_FEATURES) / LP と表記を揃える。
+	//   旧: 「子供の登録数 無制限」(neutral 呼称) / 「データ保持 1年間」/ 「データ保持 無制限」/
+	//       「祖父母・家族向け閲覧リンク」(LP 未掲載機能) がここだけの言い回しだった。
 	standard: [
-		'子供の登録数 無制限',
-		'カスタム活動 無制限',
-		'データ保持 1年間',
+		'お子さまの登録人数：無制限',
+		'オリジナル活動の作成：無制限',
+		`${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 		'データのダウンロード',
 	],
 	family: [
 		'スタンダードの全機能',
-		'祖父母・家族向け閲覧リンク',
+		'家族メンバー招待：無制限',
 		'ひとことメッセージ（自由テキスト）',
 		'きょうだいランキング',
-		'データ保持 無制限',
+		'無制限の履歴保持',
 	],
 } as const;
 
@@ -118,21 +121,24 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	'standard' | 'family',
 	readonly UnlockedFeatureItem[]
 > = {
+	// #4716: 料金ページ / LP と同じ言い回しにする。
+	//   旧: 「1年間のデータ保持」/「データの永久保持」/「ごほうびのカスタマイズ」/「こどもの登録（無制限）」が
+	//       ここだけの表記で、同じ機能が顧客には別物に見えていた。
 	standard: [
-		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
+		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: '特別なごほうび設定', icon: '✅' },
-		{ text: '1年間のデータ保持', icon: '✅' },
+		{ text: '特別なごほうび設定（即時付与）', icon: '✅' },
+		{ text: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`, icon: '✅' },
 	],
 	family: [
-		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
+		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
 		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
-		{ text: 'ごほうびのカスタマイズ', icon: '✅' },
+		{ text: '特別なごほうび設定（即時付与）', icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
-		{ text: 'データの永久保持', icon: '✅' },
-		{ text: 'こどもの登録（無制限）', icon: '✅' },
+		{ text: '無制限の履歴保持', icon: '✅' },
+		{ text: 'お子さまの登録人数：無制限', icon: '✅' },
 	],
 } as const;
 
