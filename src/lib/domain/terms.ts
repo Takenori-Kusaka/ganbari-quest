@@ -49,6 +49,11 @@
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
 
 import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constants/deletion-grace';
+import {
+	FAMILY_MEMBER_LIMIT,
+	formatMemberCount,
+	invitesAllowedFrom,
+} from './constants/family-member-limit';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -1237,6 +1242,38 @@ export const DELETION_GRACE_TERMS = {
 	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
+} as const;
+
+// ============================================================
+// FAMILY_MEMBER_LIMIT_TERMS — 家族メンバー上限の atom (#4500)
+// ============================================================
+//
+// 値の SSOT は `constants/family-member-limit.ts` の FAMILY_MEMBER_LIMIT
+// (server 側 plan-limit-service.ts も同じ定数を import する)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+//
+// **合計と招待可能数を必ず区別する**。上限 4 は **owner を含む合計**であり、
+// 実際に招待できるのは 3 人。この 2 つを同一視して「招待 4 人まで」と訴求していたのが
+// #4500 の欠陥そのもので、プラン選択の判断材料を 1 人分過大に見せていた (ADR-0013)。
+// 「招待」の文脈では invites 系を、「ご家族の人数」の文脈では total 系を使う。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てる。両者が一致することは
+// tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
+
+const STANDARD_MEMBER_TOTAL = FAMILY_MEMBER_LIMIT.standard ?? 0;
+
+export const FAMILY_MEMBER_LIMIT_TERMS = {
+	/** スタンダードの合計上限 (owner 含む。例: 「4人」) */
+	standardTotal: formatMemberCount(STANDARD_MEMBER_TOTAL),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「4 人」) */
+	standardTotalSpaced: formatMemberCount(STANDARD_MEMBER_TOTAL, { spaced: true }),
+	/** スタンダードで招待できる人数 (owner の 1 枠を除く。例: 「3人」) */
+	standardInvites: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL)),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「3 人」) */
+	standardInvitesSpaced: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL), {
+		spaced: true,
+	}),
 } as const;
 
 // ============================================================
