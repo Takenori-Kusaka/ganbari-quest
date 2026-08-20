@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/invite-service.ts
 // 招待リンクサービス (#0129)
 
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isEntitledStatus } from '$lib/domain/constants/subscription-status';
 import type { Invite, Membership } from '$lib/server/auth/entities';
 import { checkInviteEmailBinding } from '$lib/server/auth/invite-email-binding';
@@ -9,6 +10,7 @@ import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
 import type { AcceptInviteFailure } from '$lib/server/db/interfaces/auth-repo.interface';
 import { logger } from '$lib/server/logger';
+import { checkFamilyMemberLimit } from './plan-limit-service';
 
 const repos = () => getRepos();
 
@@ -101,7 +103,26 @@ async function preflightAcceptInvite(
 	const tenant = await repos().auth.findTenantById(invite.tenantId);
 	if (!tenant || !isEntitledStatus(tenant.status)) return 'TENANT_NOT_FOUND';
 
+	// #4723: プランのメンバー上限を受諾時に再評価する。発行時に上限内でも、その後の
+	// ダウングレードや他の招待の先着受諾で枠が埋まっていることがある。
+	// ここは早期 return (顧客に理由を出すため) で、**厳密な排他は受諾 txn の中の数え直し**が担う。
+	if (!(await resolveInviteMemberLimit(invite.tenantId)).allowed) return 'MEMBER_LIMIT_REACHED';
+
 	return null;
+}
+
+/**
+ * 受諾先テナントのメンバー上限を解決する (#4723)。
+ *
+ * 受諾者は招待元テナントの context を持たないため、プラン解決は tenantId から行う
+ * (`checkFamilyMemberLimit` が内部で `resolveFullPlanTier` を呼ぶ)。licenseStatus は
+ * 受諾者側の値を持ち込まない — 上限は**招待元テナントの契約**で決まる。
+ *
+ * 受諾時は未受諾の招待を数えない (`countPendingInvites` を渡さない) — いま受諾しようと
+ * している招待自身を「予約」として二重に数えてしまうため。
+ */
+function resolveInviteMemberLimit(tenantId: string) {
+	return checkFamilyMemberLimit(tenantId, AUTH_LICENSE_STATUS.NONE);
 }
 
 /**
@@ -137,6 +158,7 @@ const ACCEPT_INVITE_FAILURE_ERRORS: Record<AcceptInviteFailure, string> = {
 	ALREADY_IN_TENANT: 'ALREADY_IN_TENANT',
 	EMAIL_MISMATCH: 'INVITE_EMAIL_MISMATCH',
 	EMAIL_UNVERIFIED: 'INVITE_EMAIL_UNVERIFIED',
+	MEMBER_LIMIT_REACHED: 'MEMBER_LIMIT_REACHED',
 };
 
 /**
@@ -218,6 +240,8 @@ export async function acceptInvite(
 		userEmail: userEmail ?? '',
 		userEmailVerified: opts?.emailVerified,
 		now: new Date().toISOString(),
+		// #4723: 上限は txn の中で数え直す (残り 1 枠への同時受諾を排他する)
+		maxMembers: (await resolveInviteMemberLimit(invite.tenantId)).max,
 	});
 	if (!accepted.ok) {
 		return { error: ACCEPT_INVITE_FAILURE_ERRORS[accepted.reason] };

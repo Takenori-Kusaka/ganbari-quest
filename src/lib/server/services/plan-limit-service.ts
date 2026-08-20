@@ -308,10 +308,18 @@ export async function checkChecklistTemplateLimit(
  * Free は 1（owner のみ、招待不可）。
  * Standard は 4（owner + 3人、核家族想定）。
  * Family は null（無制限）。
+ *
+ * #4723: 数え方は呼び出す場面で変わる。
+ * - **招待の発行時** (`countPendingInvites: true`): 既存メンバー + 未受諾の招待。
+ *   発行済みの招待は「枠の予約」として数える。数えないと、残り 1 枠に何通でも発行でき、
+ *   最初に受諾した人以外は全員が受諾時に弾かれる（発行者には成功に見える）。
+ * - **招待の受諾時** (既定): 既存メンバーのみ。受諾しようとしている招待自身を
+ *   予約として二重に数えないため。
  */
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
+	opts: { countPendingInvites?: boolean } = {},
 ): Promise<{ allowed: boolean; current: number; max: number | null }> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxFamilyMembers === null) {
@@ -320,7 +328,15 @@ export async function checkFamilyMemberLimit(
 
 	const repos = getRepos();
 	const members = await repos.auth.findTenantMembers(tenantId);
-	const current = members.length;
+	let current = members.length;
+
+	if (opts.countPendingInvites) {
+		const invites = await repos.auth.findTenantInvites(tenantId);
+		const now = Date.now();
+		current += invites.filter(
+			(i) => i.status === 'pending' && new Date(i.expiresAt).getTime() > now,
+		).length;
+	}
 
 	return {
 		allowed: current < limits.maxFamilyMembers,

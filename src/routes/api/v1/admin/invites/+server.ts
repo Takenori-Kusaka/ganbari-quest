@@ -54,7 +54,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// #1111: プラン別メンバー上限チェック
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus);
+	// #4723: 発行時は「既存メンバー + 未受諾の招待」で数える。発行済みの招待を数えないと
+	// 残り 1 枠に何通でも発行でき、最初に受諾した人以外は受諾時に弾かれる (発行者には成功に見える)。
+	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus, {
+		countPendingInvites: true,
+	});
 	if (!memberLimit.allowed) {
 		return json(
 			{

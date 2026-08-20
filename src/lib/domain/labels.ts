@@ -6067,6 +6067,9 @@ export const AUTH_INVITE_LABELS = {
 		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
 	joinBlockedOwnerDowngrade:
 		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
+	// #4723: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
+	joinBlockedMemberLimit:
+		'この家族グループはメンバーの上限に達しているため、参加できませんでした。招待した方にご確認ください。',
 	joinBlockedGeneric:
 		'招待を受け取れませんでした。招待した方に、招待リンクを発行し直してもらってください。',
 } as const;
@@ -6122,6 +6125,7 @@ export const INVITE_JOIN_BLOCKED_MESSAGES = {
 	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
 	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
 	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
+	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.joinBlockedMemberLimit,
 } as const;
 
 /**

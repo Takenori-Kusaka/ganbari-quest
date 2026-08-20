@@ -126,6 +126,17 @@ const mockAuthRepo: Partial<IAuthRepo> = {
 	}),
 };
 
+// #4723: 受諾時のメンバー上限判定。プラン解決 (trial / stripe まで辿る) は別サービスの責務なので、
+// invite-service の unit test では collaborator として差し替える。既定は無制限。
+const mockCheckFamilyMemberLimit = vi.fn(async () => ({
+	allowed: true,
+	current: 0,
+	max: null as number | null,
+}));
+vi.mock('$lib/server/services/plan-limit-service', () => ({
+	checkFamilyMemberLimit: () => mockCheckFamilyMemberLimit(),
+}));
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({ auth: mockAuthRepo }),
 }));
@@ -458,6 +469,22 @@ describe('acceptInvite', () => {
 		// テナントが entitled でない
 		inviteStore.set('g-tenant', makePendingInvite({ inviteCode: 'g-tenant' }));
 		observed.add(assertError(await acceptInvite('g-tenant', 'u6')).error);
+
+		// #4723: プランのメンバー上限に達している
+		inviteStore.set('g-limit', makePendingInvite({ inviteCode: 'g-limit' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		membershipStore.push({
+			userId: 'u-existing',
+			tenantId: 't-test',
+			role: 'parent',
+			joinedAt: new Date().toISOString(),
+		});
+		mockCheckFamilyMemberLimit.mockResolvedValueOnce({ allowed: false, current: 1, max: 1 });
+		observed.add(assertError(await acceptInvite('g-limit', 'u7')).error);
 
 		// 観測した理由が 1 つも欠けずに通知 SSOT に載っていること
 		for (const reason of observed) {
