@@ -97,6 +97,20 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 				updated_at timestamptz NOT NULL DEFAULT now()
 			)`),
 		);
+		// #4704: 受諾 txn は「トライアル中か」も読む (発行側 resolveFullPlanTier と同じ tier を使うため)。
+		await db.execute(
+			sql.raw(`CREATE TABLE trial_history (
+				family_id uuid NOT NULL,
+				trial_id uuid NOT NULL DEFAULT gen_random_uuid(),
+				start_date text NOT NULL,
+				end_date text NOT NULL,
+				tier text NOT NULL DEFAULT 'standard',
+				source text NOT NULL DEFAULT 'test',
+				stripe_subscription_id text,
+				created_at timestamptz NOT NULL DEFAULT now(),
+				PRIMARY KEY (family_id, trial_id)
+			)`),
+		);
 		await db.execute(
 			sql.raw(`CREATE TABLE consents (
 				consent_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -157,8 +171,18 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 			).rows[0]?.c,
 		);
 
+	/** #4704: 進行中トライアル (既定 standard) を 1 行入れる。end_date は JST 暦日の文字列。 */
+	const seedTrial = async (over: { endDate: string; tier?: string; subscription?: string }) => {
+		await db.execute(sql`
+			INSERT INTO trial_history (family_id, start_date, end_date, tier, source, stripe_subscription_id)
+			VALUES (${FAMILY}, '2020-01-01', ${over.endDate}, ${over.tier ?? 'standard'}, 'test',
+				${over.subscription ?? null})
+		`);
+	};
+
 	beforeEach(async () => {
 		await seedFamily();
+		await db.execute(sql`DELETE FROM trial_history WHERE family_id = ${FAMILY}`);
 	});
 
 	const makeRunner = async () => {
@@ -190,6 +214,58 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 		// invite は pending のまま (rollback されている = 上限解消後に使える)
 		expect((await inviteStatus(LIMIT_INVITE)).status).toBe('pending');
 		expect(await membershipCount(LIMIT_USER)).toBe(0);
+	}, 30_000);
+
+	// #4704: 発行側 (resolveFullPlanTier) はトライアル中の tier で上限を見る。受諾側が
+	// families だけを見て free に丸めると「発行は通るのに受諾だけ落ちる」ずれになる。
+	it('[B7b] トライアル中 (standard) の家族は free 上限 (1 人) を超えて受諾できる', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		await seedFamily({ plan: null, subscription: null }); // 契約なし = 契約列だけ見れば free
+		await seedTrial({ endDate: '2999-12-31' });
+		// owner 席は [B7] が作っている場合がある (memberships は test 間で残る)
+		await db.execute(
+			sql`INSERT INTO memberships (family_id, user_id, role) VALUES (${FAMILY}, ${INVITER}, 'owner')
+				ON CONFLICT (family_id, user_id) DO NOTHING`,
+		);
+		const id = '10000000-0000-4000-8000-000000004705';
+		const user = '20000000-0000-4000-8000-000000004705';
+		await seedInvite({ id });
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'someone@example.com',
+			userEmailVerified: true,
+			now: new Date().toISOString(),
+		});
+
+		expect(result.ok).toBe(true);
+		expect(await membershipCount(user)).toBe(1);
+	}, 30_000);
+
+	// 終了済みトライアルで上限が緩んだままにならないこと (end_date 経過 = free に戻る)
+	it('[B7c] 終了したトライアルは席数を緩めない (free 上限で MEMBER_LIMIT_REACHED)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		await seedFamily({ plan: null, subscription: null });
+		await seedTrial({ endDate: '2020-01-08' });
+		await db.execute(
+			sql`INSERT INTO memberships (family_id, user_id, role) VALUES (${FAMILY}, ${INVITER}, 'owner')
+				ON CONFLICT (family_id, user_id) DO NOTHING`,
+		);
+		const id = '10000000-0000-4000-8000-000000004706';
+		const user = '20000000-0000-4000-8000-000000004706';
+		await seedInvite({ id });
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'someone@example.com',
+			userEmailVerified: true,
+			now: new Date().toISOString(),
+		});
+
+		expect(result).toEqual({ ok: false, reason: 'MEMBER_LIMIT_REACHED' });
+		expect(await membershipCount(user)).toBe(0);
 	}, 30_000);
 
 	it('[B1] pending + 未失効 → accepted + membership 作成 (単一 txn)', async () => {
