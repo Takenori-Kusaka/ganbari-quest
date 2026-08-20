@@ -340,7 +340,9 @@ export const NAV_ITEM_LABELS = {
 //     同じ画面にルーティン系プリセット（あさのしたく / よるのじゅんび）も並ぶのに名前が持ち物限定だった。
 //     親画面の「チェックリスト管理」と同じ語幹の「チェックリスト」に寄せる。
 
-export interface ChildNavModeLabels {
+// 型は本ファイル内でのみ使う（`getChildNavModeLabels()` の戻り値として推論される）。
+// export すると参照ゼロの公開 export になり orphan-labels gate が新規 orphan として落とす。
+interface ChildNavModeLabels {
 	status: string;
 	switch: string;
 	history: string;
