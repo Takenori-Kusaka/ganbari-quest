@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
 	login: async (event) => {
-		const { request, cookies, locals } = event;
+		const { request, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
@@ -60,7 +60,7 @@ export const actions: Actions = {
 		const devMode = isCognitoDevMode();
 
 		if (devMode) {
-			return handleDevLogin(email, password, cookies);
+			return handleDevLogin(email, password, event);
 		}
 
 		return handleCognitoLogin(email, password, event);
@@ -187,8 +187,9 @@ function establishSession(
 async function handleDevLogin(
 	email: string,
 	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
+	event: import('@sveltejs/kit').RequestEvent,
 ) {
+	const { cookies } = event;
 	const user = authenticateDevUser(email, password);
 	if (!user) {
 		return fail(401, { error: 'メールアドレスまたはパスワードが正しくありません', email });
@@ -211,8 +212,10 @@ async function handleDevLogin(
 		maxAge: 60 * 60,
 	});
 
-	const target = user.role === 'child' ? '/switch' : '/admin';
-	redirect(302, target);
+	// #4641: 本番経路 (handleCognitoLogin) と同じ SSOT で着地先を決める。
+	// ここだけロール直書きのままだと `npm run dev:cognito` / e2e-cognito-dev レーンでは
+	// 子供が常に /switch に留まり、本 Issue の「再ログインはホーム直行」が成立しない。
+	redirect(302, await landingAfterSession(event, idToken));
 }
 
 /**
