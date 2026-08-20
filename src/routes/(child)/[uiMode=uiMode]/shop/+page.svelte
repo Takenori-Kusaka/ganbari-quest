@@ -120,9 +120,6 @@ function resetFilters() {
 
 const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitleSuffix}`);
 
-// #4631: 交換の記録 (結果 / 却下理由) への導線。uiMode 配下の相対パスは resolve() を通す。
-const historyHref = $derived(resolve(`/${uiMode}/history?kind=purchases`));
-
 // #4509 ②: 残高 / 価格 / 不足分は必ずポイント表示設定 (point / currency + rate) を通す。
 // 通さないと、同じ画面のヘッダー (円換算) と桁の違う数字が並び、子供には
 // 「買えるのかどうか」が読めなくなる。
@@ -150,7 +147,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 
 	<!-- #4631: 交換の結果 (いつ / いくら / 親が書いた却下理由) を読みに行く導線。
 	     旧実装は却下理由がショップから辿れず、子供は理由を知る手段が無かった -->
-	<a class="history-link" href={historyHref} data-testid="shop-history-link">
+	<!-- eslint svelte/no-navigation-without-resolve は href の式そのものが resolve() 呼び出しで
+	     あることを要求する (変数経由 / 文字列連結は不可) ため、query 込みで 1 式にする -->
+	<a
+		class="history-link"
+		href={resolve(`/${uiMode}/history?kind=purchases`)}
+		data-testid="shop-history-link"
+	>
 		{CHILD_SHOP_LABELS.historyLinkLabel}
 	</a>
 
