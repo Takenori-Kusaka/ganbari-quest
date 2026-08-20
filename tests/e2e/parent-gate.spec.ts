@@ -789,7 +789,9 @@ function registerParentGateTests(): void {
 			// 1. seed PIN でゲートを通過し親画面へ
 			await context.clearCookies({ name: 'gq_parent_session' });
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
-			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+			// dev server の初回アクセスは /switch の cold compile が入るため待ち時間を明示する
+			// (既定 5s だと compile 待ちで落ちる。modal 出現の要求自体は緩めない)
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible({ timeout: 20_000 });
 			await typeGatePin(page, SEED_PIN);
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 
@@ -828,6 +830,8 @@ function registerParentGateTests(): void {
 		}) => {
 			await context.clearCookies({ name: 'gq_parent_session' });
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			// cold compile 対策 (上記 AC2 と同じ理由)
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible({ timeout: 20_000 });
 			await typeGatePin(page, NEW_PIN);
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 
