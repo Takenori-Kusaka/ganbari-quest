@@ -208,7 +208,6 @@ export const PAGE_TITLES = {
  * 旧「データクリア」は内部語で、同意チェックの「すべてのデータを削除することに同意します」と
  * 別語だったため、同じ操作が 2 つあるように読めた。実行内容をそのまま名乗る 1 語に寄せる。
  */
-export const DATA_CLEAR_ACTION_LABEL = 'すべてのデータを削除';
 
 /**
  * 「<プラン名>以上」の接尾辞 (#4716 item 15)。
@@ -2867,11 +2866,11 @@ export const SETTINGS_LABELS = {
 
 	// データクリア
 	// #4716: 「データクリア」は内部語。実行内容 (すべてのデータを削除) をそのまま名乗る。
-	clearSectionTitle: `🗑️ ${DATA_CLEAR_ACTION_LABEL}`,
+	clearSectionTitle: `🗑️ ${BACKUP_TERMS.clearAll}`,
 	clearDesc: `すべての家族データ（${CHILD_TERMS.honorific}・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。`,
 	clearCurrentDataTitle: '現在のデータ件数',
 	clearIrreversibleWarning: `この操作は取り消せません。事前に${BACKUP_TERMS.exportVerb}ことをお勧めします。`,
-	clearCompleted: `${DATA_CLEAR_ACTION_LABEL}が完了しました。ページを再読み込みしてください。`,
+	clearCompleted: `${BACKUP_TERMS.clearAll}が完了しました。ページを再読み込みしてください。`,
 
 	// フィードバック (#support-unify: 1 フォーム統合 — intent 2 軸 + 内容分類併用。研究: 単一フォーム + intent セレクタ)
 	feedbackSectionTitle: '💬 サポート・ご意見',
@@ -3001,7 +3000,7 @@ export const SETTINGS_LABELS = {
 	groupNotificationsTitle: '通知',
 	groupNotificationsDesc: 'リマインダー・ストリーク警告・サイレント時間帯',
 	groupDataTitle: 'データ',
-	groupDataDesc: `${BACKUP_TERMS.exportNoun}・クラウド共有・${DATA_CLEAR_ACTION_LABEL}`,
+	groupDataDesc: `${BACKUP_TERMS.exportNoun}・クラウド共有・${BACKUP_TERMS.clearAll}`,
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
 	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
@@ -3018,7 +3017,7 @@ export const SETTINGS_LABELS = {
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
 	dangerStep3Label: '手順 3: 実行ボタン',
-	clearDangerConsentLabel: `${DATA_CLEAR_ACTION_LABEL}することに同意します`,
+	clearDangerConsentLabel: `${BACKUP_TERMS.clearAll}することに同意します`,
 	// #4716 item 15: 画面に直書きされていた顧客可視文言を SSOT へ移す
 	clearConfirmInputLabel: '確認のため「削除」と入力してください',
 	// #4716 item 15: /admin/settings/account と /admin/settings/activities /
@@ -3047,8 +3046,8 @@ export const SETTINGS_LABELS = {
 	quietHoursFieldLabel: 'サイレント時間帯',
 	quietHoursFieldHint: 'この時間帯は通知を送信しません',
 	clearConfirmInputPlaceholder: '削除',
-	clearExecuteButton: `${DATA_CLEAR_ACTION_LABEL}`,
-	clearExecuting: `${DATA_CLEAR_ACTION_LABEL}しています…`,
+	clearExecuteButton: `${BACKUP_TERMS.clearAll}`,
+	clearExecuting: `${BACKUP_TERMS.clearAll}しています…`,
 	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
 	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
 	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
