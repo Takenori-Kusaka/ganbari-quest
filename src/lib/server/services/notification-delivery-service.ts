@@ -72,12 +72,27 @@ export const WEEKLY_REPORT_HOUR_JST = 9;
  */
 export const STREAK_WARNING_HOUR_JST = 19;
 
-/** 1 回の実行で処理するテナント数の上限 (時間予算と併用の二重打ち切り)。 */
-export const DEFAULT_TENANT_LIMIT = 50;
+/**
+ * 1 回の実行で**配信する**テナント数の上限 (時間予算と併用の二重打ち切り)。
+ *
+ * **走査したテナント数ではなく配信したテナント数を数える。** 走査は設定 Map の参照だけで
+ * クエリも送信も伴わないため、これを数えると「対象でないテナントを 50 件見ただけで打ち切る」
+ * = 51 件目以降が毎回同じ位置で切り捨てられ、恒久的に 1 通も届かない状態になる。
+ *
+ * 上限に当たって持ち越したテナントは、マーカーが立っていないので **次の実行 (15 分後) で
+ * そのまま対象に戻る** — 打ち切りは遅延であって欠落ではない。
+ */
+export const DEFAULT_DELIVERY_LIMIT = 50;
 
 /** ストリーク日数の走査上限。これ以上遡っても警告文の意味は変わらない。 */
 const STREAK_SCAN_LIMIT_DAYS = 365;
 
+/**
+ * 判定に使う設定キー。値は `CROSS_TENANT_READABLE_SETTING_KEYS`
+ * (`settings-repo.interface.ts` の横断読み取り allowlist) の部分集合でなければならない —
+ * repo 側が allowlist 外を throw で拒否するため、ここを増やしたら向こうも足す。
+ * 一致は `tests/unit/db/settings-all-tenants.test.ts` が機械検証する。
+ */
 const SETTING_KEYS = {
 	weeklyEnabled: 'weekly_report_enabled',
 	weeklyDay: 'weekly_report_day',
@@ -88,6 +103,9 @@ const SETTING_KEYS = {
 	streakEnabled: 'notification_streak_enabled',
 	streakSentDate: 'notification_streak_sent_date',
 } as const;
+
+/** `sendWeeklyReport` が「宛先を解決できなかった」ことを返す sentinel (0 通と区別する)。 */
+const NO_RECIPIENT = -1;
 
 /** `notification_reminder_time` の既定 (`getNotificationSettings` と同値)。 */
 const DEFAULT_REMINDER_TIME = '09:00';
@@ -100,11 +118,17 @@ export interface NotificationDeliveryOptions {
 	now?: Date;
 	dryRun?: boolean;
 	budget?: TimeBudget;
-	tenantLimit?: number;
+	/** 1 回の実行で配信するテナント数の上限 (既定 {@link DEFAULT_DELIVERY_LIMIT})。 */
+	deliveryLimit?: number;
 }
 
 export interface NotificationDeliveryResult {
+	/** 判定まで行ったテナント数 (対象外を含む)。 */
 	scanned: number;
+	/** 実際に配信処理へ入ったテナント数 (上限はこちらで数える)。 */
+	delivered: number;
+	/** 宛先メールを解決できず週次メールを送れなかったテナント数 (NUC など、silent にしない)。 */
+	skippedNoRecipient: number;
 	weeklyReportSent: number;
 	reminderSent: number;
 	streakWarningSent: number;
@@ -225,11 +249,19 @@ async function sendWeeklyReport(tenantId: string, now: Date, dryRun: boolean): P
 	const planTier = await resolveFullPlanTier(tenantId, licenseInfo.status, licenseInfo.plan);
 	if (planTier === 'free') return 0;
 
+	// 宛先が解決できない場合を **silent にしない**。sqlite backend (NUC セルフホスト) は
+	// `findTenantMembers` が [] を返すため owner が永遠に見つからず、週次メールは 0 通のままになる。
+	// これは NUC に Cognito のユーザーレコードが無いことの帰結で異常ではないが、
+	// 「設定は有効なのに 1 通も来ない」を運用側から観測できないと原因究明ができない。
 	const members = await repos.auth.findTenantMembers(tenantId);
 	const owner = members.find((m) => m.role === 'owner');
-	if (!owner) return 0;
-	const ownerUser = await repos.auth.findUserById(owner.userId);
-	if (!ownerUser?.email) return 0;
+	const ownerUser = owner ? await repos.auth.findUserById(owner.userId) : undefined;
+	if (!ownerUser?.email) {
+		logger.warn('[notification-delivery] 週次レポートの宛先を解決できないため送信をスキップ', {
+			context: { tenantId, hasOwnerMembership: Boolean(owner) },
+		});
+		return NO_RECIPIENT;
+	}
 
 	const children = await repos.child.findAllChildren(tenantId);
 	if (children.length === 0) return 0;
@@ -292,14 +324,26 @@ async function buildWeeklyReportData(
 	};
 }
 
-/** リマインダー push 1 テナント分。送れたら true。 */
-async function sendReminder(tenantId: string, dryRun: boolean): Promise<boolean> {
+/**
+ * リマインダー push 1 テナント分。送れたら true。
+ *
+ * **今日まだ記録していない子供がいるときだけ送る** (ADR-0012 anti-engagement)。
+ * 「記録しよう」という催促は、既に記録した家庭に届いた時点で無意味な急かしになる —
+ * 毎朝きちんと記録している家庭ほど毎日鳴らされる、という逆転を作らない。
+ * 対象がいない日は送らないが**マーカーは立てない** (その日の後半に対象が生じたら送る)。
+ */
+async function sendReminder(tenantId: string, now: Date, dryRun: boolean): Promise<boolean> {
 	const repos = getRepos();
+	const today = toJSTDateString(now);
 	const children = await repos.child.findAllChildren(tenantId);
-	const nameLabel = formatChildNames(
-		children.map((c) => c.nickname),
-		'possessive',
-	);
+
+	const pending: string[] = [];
+	for (const child of children) {
+		const rows = await repos.activity.findDistinctRecordedDates(child.id as ChildId, tenantId);
+		if (!rows.some((r) => r.recordedDate === today)) pending.push(child.nickname);
+	}
+
+	const nameLabel = formatChildNames(pending, 'possessive');
 	if (!nameLabel) return false;
 	if (dryRun) return true;
 
@@ -397,23 +441,24 @@ async function deliverForTenant(
 	tenantId: string,
 	due: DueFlags,
 	ctx: { now: Date; dryRun: boolean; today: string; weekKey: string },
-): Promise<{ weekly: boolean; reminder: boolean; streak: boolean }> {
+): Promise<{ weekly: boolean; reminder: boolean; streak: boolean; noRecipient: boolean }> {
 	const repos = getRepos();
 	const mark = async (key: string, value: string): Promise<void> => {
 		// dryRun ではマーカーを書かない (次回の実行判定を汚さない)
 		if (!ctx.dryRun) await repos.settings.setSetting(key, value, tenantId);
 	};
 
-	const weekly = due.weekly && (await sendWeeklyReport(tenantId, ctx.now, ctx.dryRun)) > 0;
+	const weeklyResult = due.weekly ? await sendWeeklyReport(tenantId, ctx.now, ctx.dryRun) : 0;
+	const weekly = weeklyResult > 0;
 	if (weekly) await mark(SETTING_KEYS.weeklySentWeek, ctx.weekKey);
 
-	const reminder = due.reminder && (await sendReminder(tenantId, ctx.dryRun));
+	const reminder = due.reminder && (await sendReminder(tenantId, ctx.now, ctx.dryRun));
 	if (reminder) await mark(SETTING_KEYS.reminderSentDate, ctx.today);
 
 	const streak = due.streak && (await sendStreakWarning(tenantId, ctx.now, ctx.dryRun));
 	if (streak) await mark(SETTING_KEYS.streakSentDate, ctx.today);
 
-	return { weekly, reminder, streak };
+	return { weekly, reminder, streak, noRecipient: weeklyResult === NO_RECIPIENT };
 }
 
 /**
@@ -432,6 +477,7 @@ async function deliverAndTally(
 		if (sent.weekly) result.weeklyReportSent++;
 		if (sent.reminder) result.reminderSent++;
 		if (sent.streak) result.streakWarningSent++;
+		if (sent.noRecipient) result.skippedNoRecipient++;
 	} catch (err) {
 		result.errors++;
 		logger.error('[notification-delivery] テナント処理に失敗 (他テナントは継続)', {
@@ -447,7 +493,7 @@ export async function runNotificationDelivery(
 	const now = options.now ?? new Date();
 	const dryRun = options.dryRun === true;
 	const budget = options.budget ?? createTimeBudget();
-	const tenantLimit = options.tenantLimit ?? DEFAULT_TENANT_LIMIT;
+	const deliveryLimit = options.deliveryLimit ?? DEFAULT_DELIVERY_LIMIT;
 	const repos = getRepos();
 
 	const tenants = await repos.auth.listAllTenants();
@@ -459,6 +505,8 @@ export async function runNotificationDelivery(
 
 	const result: NotificationDeliveryResult = {
 		scanned: 0,
+		delivered: 0,
+		skippedNoRecipient: 0,
 		weeklyReportSent: 0,
 		reminderSent: 0,
 		streakWarningSent: 0,
@@ -468,7 +516,8 @@ export async function runNotificationDelivery(
 	};
 
 	for (const [index, tenant] of tenants.entries()) {
-		if (budget.exceeded() || result.scanned >= tenantLimit) {
+		// **上限は「配信した数」で数える** (走査数で数えると 51 件目以降が恒久的に届かない)
+		if (budget.exceeded() || result.delivered >= deliveryLimit) {
 			result.tenantsRemaining = tenants.length - index;
 			break;
 		}
@@ -478,6 +527,7 @@ export async function runNotificationDelivery(
 		const due = resolveDueFlags({ tenantId, now, ...pickTenantSettings(settingMaps, tenantId) });
 		if (!due.weekly && !due.reminder && !due.streak) continue;
 
+		result.delivered++;
 		await deliverAndTally(tenantId, due, ctx, result);
 	}
 

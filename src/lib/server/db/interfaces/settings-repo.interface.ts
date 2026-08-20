@@ -1,3 +1,36 @@
+/**
+ * `getSettingForAllTenants` に渡してよいキーの allowlist (#4706)。
+ *
+ * ADR-0063 は「テナント境界はアプリ層の単一強制点で強制する」ことを求めており、
+ * **tenant 述語を持たない読み取り口を無制限に開けてはいけない**。ここに列挙したキーは
+ * いずれも「配信するかどうかの判定材料」であって顧客が書いたテキストではない
+ * (`reward_templates` のような自由記述 JSON は入っていない)。
+ *
+ * 新しいキーを足すときは「全テナント分をまとめて読んでも、その値が顧客の書いた内容を
+ * 含まないか」を確認すること。実装側は allowlist 外のキーを **throw で拒否する**
+ * (呼び出し側の判断に委ねない。`tests/unit/db/settings-all-tenants.test.ts` が固定)。
+ */
+export const CROSS_TENANT_READABLE_SETTING_KEYS = [
+	'weekly_report_enabled',
+	'weekly_report_day',
+	'weekly_report_sent_week',
+	'notification_reminders_enabled',
+	'notification_reminder_time',
+	'notification_reminder_sent_date',
+	'notification_streak_enabled',
+	'notification_streak_sent_date',
+] as const;
+
+/** allowlist 外のキーで横断読み取りしようとしたときに throw する共通 guard。 */
+export function assertCrossTenantReadableKey(key: string): void {
+	if (!(CROSS_TENANT_READABLE_SETTING_KEYS as readonly string[]).includes(key)) {
+		throw new Error(
+			`getSettingForAllTenants: key "${key}" は横断読み取りの allowlist に無い ` +
+				'(ADR-0063: tenant 述語を持たない読み取りは判定材料キーに限る)',
+		);
+	}
+}
+
 export interface ISettingsRepo {
 	getSetting(key: string, tenantId: string): Promise<string | undefined>;
 	setSetting(key: string, value: string, tenantId: string): Promise<void>;
@@ -27,6 +60,9 @@ export interface ISettingsRepo {
 	 * 顧客の識別情報は含まない (settings は tenant scope の KVS)。
 	 * 値が未保存のテナントは **含まれない** — 既定値の適用は呼び出し側の責務
 	 * (「未保存 = 既定で有効」なキーがあるため、ここで既定を埋めると判定が二重になる)。
+	 *
+	 * **キーは {@link CROSS_TENANT_READABLE_SETTING_KEYS} に限る。** 実装は allowlist 外を
+	 * throw で拒否する (呼び出し側の良識に委ねない)。
 	 */
 	getSettingForAllTenants(key: string): Promise<Map<string, string>>;
 	/**

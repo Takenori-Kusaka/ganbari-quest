@@ -305,6 +305,40 @@ describe('streakDaysFromDates', () => {
 	});
 });
 
+// ADR-0012 anti-engagement: 「記録しよう」の催促は、既に記録した家庭に届いた時点で
+// 無意味な急かしになる。毎朝きちんと記録している家庭ほど毎日鳴らされる逆転を作らない。
+describe('リマインダーの対象選別', () => {
+	it('全員が今日すでに記録していれば送らない', async () => {
+		mockRepos.activity.findDistinctRecordedDates.mockResolvedValue([
+			{ recordedDate: '2026-08-20' },
+		]);
+
+		const result = await runNotificationDelivery({ now: jst('2026-08-20', '10:00') });
+
+		expect(result.reminderSent).toBe(0);
+		expect(mockSendPush).not.toHaveBeenCalled();
+		// 対象がいない日はマーカーも立てない (その日の後半に対象が生じたら送る)
+		expect(mockRepos.settings.setSetting).not.toHaveBeenCalled();
+	});
+
+	it('未記録の子供だけを本文に載せる', async () => {
+		mockRepos.child.findAllChildren.mockResolvedValue([
+			{ id: 'c-1', nickname: 'たろう' },
+			{ id: 'c-2', nickname: 'はなこ' },
+		]);
+		mockRepos.activity.findDistinctRecordedDates.mockImplementation(async (childId: string) =>
+			childId === 'c-1' ? [{ recordedDate: '2026-08-20' }] : [],
+		);
+
+		const result = await runNotificationDelivery({ now: jst('2026-08-20', '10:00') });
+
+		expect(result.reminderSent).toBe(1);
+		const body = mockSendPush.mock.calls.find((c) => c[1] === 'reminder')?.[3] as string;
+		expect(body).toContain('はなこ');
+		expect(body).not.toContain('たろう');
+	});
+});
+
 describe('ストリーク警告の対象選別', () => {
 	it('今日すでに記録していれば送らない (途切れないため)', async () => {
 		mockRepos.activity.findDistinctRecordedDates.mockResolvedValue([
@@ -391,7 +425,46 @@ describe('self-limiting (30 秒予算)', () => {
 		});
 
 		expect(result.scanned).toBe(0);
+		expect(result.delivered).toBe(0);
 		expect(result.tenantsRemaining).toBe(3);
+	});
+
+	// 走査数で上限を数えると、対象でないテナントを 50 件見ただけで打ち切られ、
+	// 51 件目以降が毎回同じ位置で切り捨てられて恒久的に 1 通も届かなくなる。
+	it('上限は「配信したテナント数」で数える (対象外を走査しても消費しない)', async () => {
+		const tenants = Array.from({ length: 5 }, (_, i) => ({ tenantId: `t-${i + 1}` }));
+		mockRepos.auth.listAllTenants.mockResolvedValue(tenants);
+		// t-5 だけがリマインダー対象 (他はマーカー済で対象外)
+		mockRepos.settings.getSettingForAllTenants.mockImplementation(async (key: string) =>
+			key === 'notification_reminder_sent_date'
+				? new Map(tenants.slice(0, 4).map((t) => [t.tenantId, '2026-08-20']))
+				: new Map(),
+		);
+
+		const result = await runNotificationDelivery({
+			now: jst('2026-08-20', '10:00'),
+			deliveryLimit: 1,
+		});
+
+		expect(result.scanned).toBe(5);
+		expect(result.delivered).toBe(1);
+		expect(result.reminderSent).toBe(1);
+		expect(result.tenantsRemaining).toBe(0);
+	});
+
+	// NUC (sqlite backend) は findTenantMembers が [] を返すため owner が見つからない。
+	// 「設定は有効なのに 1 通も来ない」を運用側から観測できないと原因究明ができない。
+	it('週次メールの宛先を解決できない場合を件数で報告する (silent にしない)', async () => {
+		mockRepos.auth.findTenantMembers.mockResolvedValue([]);
+		mockRepos.settings.getSettingForAllTenants.mockImplementation(async (key: string) =>
+			key === 'weekly_report_day' ? new Map([[TENANT, 'thursday']]) : new Map(),
+		);
+
+		const result = await runNotificationDelivery({ now: jst('2026-08-20', '10:00') });
+
+		expect(result.weeklyReportSent).toBe(0);
+		expect(result.skippedNoRecipient).toBe(1);
+		expect(mockSendWeeklyEmail).not.toHaveBeenCalled();
 	});
 
 	it('1 テナントの失敗が他テナントの配信を止めない', async () => {

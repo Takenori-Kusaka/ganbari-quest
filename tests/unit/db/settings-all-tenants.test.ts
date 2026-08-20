@@ -10,6 +10,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+	assertCrossTenantReadableKey,
+	CROSS_TENANT_READABLE_SETTING_KEYS,
+} from '../../../src/lib/server/db/interfaces/settings-repo.interface';
 
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -59,6 +63,39 @@ describe('#4706 getSettingForAllTenants の tenantId が listAllTenants と一�
 			expect(read(rel), `${rel} に getSettingForAllTenants が無い`).toContain(
 				'getSettingForAllTenants',
 			);
+		}
+	});
+});
+
+/**
+ * ADR-0063: tenant 述語を持たない読み取り口を無制限に開けない。
+ * allowlist が効いていないと、以後どの route からでも 1 行で他テナントの設定値を列挙できる。
+ */
+describe('#4706 横断読み取りは allowlist されたキーに限る (ADR-0063)', () => {
+	it('allowlist 内のキーは通る', () => {
+		for (const key of CROSS_TENANT_READABLE_SETTING_KEYS) {
+			expect(() => assertCrossTenantReadableKey(key)).not.toThrow();
+		}
+	});
+
+	it('allowlist 外のキーは throw する (顧客が書いたテキストを含む設定を横断で読ませない)', () => {
+		// reward_templates は顧客が書いた JSON。横断で読めてはいけない代表例
+		expect(() => assertCrossTenantReadableKey('reward_templates')).toThrow();
+		expect(() => assertCrossTenantReadableKey('pin_hash')).toThrow();
+	});
+
+	it('配信 cron が使うキーがすべて allowlist に載っている (漏れると本番で throw する)', () => {
+		const serviceSource = read('src/lib/server/services/notification-delivery-service.ts');
+		const block = /const SETTING_KEYS = \{([\s\S]*?)\} as const;/.exec(serviceSource)?.[1] ?? '';
+		const used = [...block.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1] as string);
+
+		// 対照: 抽出が空振りしていない
+		expect(used.length).toBeGreaterThan(0);
+		for (const key of used) {
+			expect(
+				(CROSS_TENANT_READABLE_SETTING_KEYS as readonly string[]).includes(key),
+				`${key} が allowlist に無い`,
+			).toBe(true);
 		}
 	});
 });

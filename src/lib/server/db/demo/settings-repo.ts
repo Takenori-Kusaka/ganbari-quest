@@ -2,6 +2,7 @@
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import { getDemoMarketplaceRewardTemplatesForTenant } from '$lib/server/demo/demo-data';
+import { assertCrossTenantReadableKey } from '../interfaces/settings-repo.interface';
 
 /**
  * #2097 Phase B-7: marketplace reward-set 由来の reward_templates を build 時に serialize。
@@ -55,6 +56,7 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
  * 未定義キーは空 Map (= 既定値の適用は呼び出し側)。
  */
 export async function getSettingForAllTenants(key: string): Promise<Map<string, string>> {
+	assertCrossTenantReadableKey(key);
 	const value = DEMO_SETTINGS[key];
 	return value === undefined ? new Map() : new Map([[DEMO_TENANT_ID, value]]);
 }

@@ -1,5 +1,6 @@
 import { eq, inArray, notInArray } from 'drizzle-orm';
 import { db } from '../client';
+import { assertCrossTenantReadableKey } from '../interfaces/settings-repo.interface';
 import { settings } from '../schema';
 
 /**
@@ -66,6 +67,7 @@ export async function countValuesByPrefix(
  * 突き合わせが常に空振りし、**NUC でだけ通知が 1 通も出ない**という backend 差になる。
  */
 export async function getSettingForAllTenants(key: string): Promise<Map<string, string>> {
+	assertCrossTenantReadableKey(key);
 	const row = db.select().from(settings).where(eq(settings.key, key)).get();
 	return row ? new Map([[SQLITE_TENANT_ID, row.value]]) : new Map();
 }
