@@ -26,7 +26,8 @@ const role = $derived((page.data as { role?: string | null })?.role ?? null);
  * URL 先頭が年齢モードなら、role が解決できなくても子供画面として扱う。
  */
 const uiModeFromPath = $derived.by(() => {
-	const first = page.url.pathname.split('/')[1] ?? '';
+	// エラー画面自身が例外で落ちると復旧導線ごと消えるため、URL の欠落に耐える形で読む。
+	const first = page.url?.pathname?.split('/')[1] ?? '';
 	return (UI_MODES as readonly string[]).includes(first) ? first : null;
 });
 // "child" ロール、または URL が年齢モード配下なら子供画面。それ以外は親扱い。
