@@ -33,6 +33,8 @@ function retry(): void {
 	</Card>
 </main>
 
+<!-- #4645 スタイルの意図:
+     app.css の h1 既定 `word-break: auto-phrase` はひらがなだけの文を分節できず、 モバイル幅で「つ / ながっていないよ」のように語の途中で折れる (実測)。 文言側に入れてある半角スペースを唯一の改行位置にする。 -->
 <style>
 	.offline-page {
 		max-width: 32rem;
@@ -40,39 +42,31 @@ function retry(): void {
 		padding: 2rem 1rem;
 		text-align: center;
 	}
-
 	.offline-page__icon {
 		font-size: 3.5rem;
 		line-height: 1;
 		margin: 0 0 0.5rem;
 	}
-
 	.offline-page__heading {
 		font-size: 1.375rem;
 		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0 0 0.75rem;
-		/* app.css の h1 既定 `word-break: auto-phrase` はひらがなだけの文を分節できず、
-		   モバイル幅で「つ / ながっていないよ」のように語の途中で折れる (実測)。
-		   文言側に入れてある半角スペースを唯一の改行位置にする。 */
 		word-break: keep-all;
 		overflow-wrap: anywhere;
 	}
-
 	.offline-page__body {
 		font-size: 1rem;
 		line-height: 1.8;
 		color: var(--color-text-secondary);
 		margin: 0 0 0.5rem;
 	}
-
 	.offline-page__reassurance {
 		font-size: 0.9375rem;
 		line-height: 1.8;
 		color: var(--color-text-muted);
 		margin: 0;
 	}
-
 	.offline-page__actions {
 		margin-top: 1.5rem;
 	}

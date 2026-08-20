@@ -5,6 +5,7 @@
 // 競合フォーム research: 単一フォーム + intent セレクタ + 段階表示 (progressive disclosure) が支配的。
 // founder 直接相談の独立ページ (/inquiry/founder) は LP / ライセンス導線から到達するため存続。
 
+import { browser } from '$app/environment';
 import { enhance } from '$app/forms';
 import { APP_LABELS, PAGE_TITLES, PWA_INSTALL_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import BackupHealthCard from '$lib/features/admin/components/BackupHealthCard.svelte';
@@ -72,10 +73,10 @@ const successMessage = $derived(
 // (DESIGN.md §10「フィードバック導線 = 設定 > サポート 単独 SSOT」と同じ理由 —
 // 各画面に増設すると ADR-0012 の常時露出になる)。
 let pwaGuideOpen = $state(false);
-let pwaPlatform = $state<PwaInstallPlatform>('other');
-$effect(() => {
-	pwaPlatform = detectPwaPlatform(navigator.userAgent);
-});
+// SSR では navigator が無いので 'other' (両方の手順を出す) に倒す。hydrate 後に端末が確定する。
+const pwaPlatform = $derived<PwaInstallPlatform>(
+	browser ? detectPwaPlatform(navigator.userAgent) : 'other',
+);
 </script>
 
 <svelte:head>
