@@ -272,8 +272,10 @@ describe('#3307: ガイド step の selector anchor が描画側 src に実在�
 		return buf;
 	};
 
-	const extractAnchor = (selector: string): string | null =>
-		selector.match(/\[data-(?:tutorial|testid)="([^"]+)"\]/)?.[1] ?? null;
+	// #4677: カンマ区切り selector (responsive で desktop / mobile の片方だけ描画される UI を 1 step で
+	// 指す) は**全候補**の anchor を検査する (先頭だけ見ると 2 つ目の typo を見逃す)。
+	const extractAnchors = (selector: string): string[] =>
+		[...selector.matchAll(/\[data-(?:tutorial|testid)="([^"]+)"\]/g)].map((m) => m[1] as string);
 
 	// anchor が描画側マークアップに wiring されているか。静的属性 (data-testid="x") / prop 経由
 	// (addMenuDataTutorial="x") / 動的束縛 ({cond ? 'x' : undefined}) いずれも quote 付きトークンで
@@ -294,9 +296,16 @@ describe('#3307: ガイド step の selector anchor が描画側 src に実在�
 			.filter((g): g is NonNullable<typeof g> => g !== null)
 			.flatMap((g) =>
 				g.steps
-					.map((step) => ({ step, anchor: step.selector ? extractAnchor(step.selector) : null }))
-					.filter(({ anchor }) => anchor !== null && !isRenderedAnchor(srcText, anchor))
-					.map(({ step }) => `${g.pageId}/${step.id} → ${step.selector}`),
+					.flatMap((step) =>
+						(step.selector ? extractAnchors(step.selector) : []).map((anchor) => ({
+							step,
+							anchor,
+						})),
+					)
+					.filter(({ anchor }) => !isRenderedAnchor(srcText, anchor))
+					.map(
+						({ step, anchor }) => `${g.pageId}/${step.id} → ${step.selector} (anchor: ${anchor})`,
+					),
 			);
 		expect(
 			missing,
