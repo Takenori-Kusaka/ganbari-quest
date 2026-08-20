@@ -2,15 +2,7 @@
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import {
-	ADMIN_CHALLENGES_PAGE_LABELS,
-	APP_LABELS,
-	CHALLENGES_LABELS,
-	formatJstDate,
-	PAGE_TITLES,
-	UI_LABELS,
-	UNRESOLVED_ENTITY_LABELS,
-} from '$lib/domain/labels';
+import { ADMIN_CHALLENGES_PAGE_LABELS, APP_LABELS, CHALLENGES_LABELS, formatJstDate, formatPeople, PAGE_TITLES, UI_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
 // CX-DoR #9・#11: empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
@@ -132,8 +124,10 @@ function tabHref(childId: ChildId | 'all'): string {
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
-					? `今日は${data.familyStreak.todayRecorders.length + '人'}が記録済み`
-					: '今日はまだ誰も記録していません'}
+					? ADMIN_CHALLENGES_PAGE_LABELS.familyStreakRecordedToday(
+							formatPeople(data.familyStreak.todayRecorders.length),
+						)
+					: ADMIN_CHALLENGES_PAGE_LABELS.familyStreakNoRecordToday}
 			</p>
 		</div>
 	{/if}
@@ -278,7 +272,11 @@ function tabHref(childId: ChildId | 'all'): string {
 									size="sm"
 									data-testid="admin-challenge-delete-{instance.id}"
 								>
-									{group.instances.length >= 2 ? `${child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child} を削除` : CHALLENGES_LABELS.deleteButton}
+									{group.instances.length >= 2
+										? ADMIN_CHALLENGES_PAGE_LABELS.deleteChildButton(
+												child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child,
+											)
+										: CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
 						{/each}

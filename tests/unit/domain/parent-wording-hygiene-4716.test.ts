@@ -161,9 +161,9 @@ describe('#4716 item 1: 申請承認画面の見出し', () => {
 
 describe('#4716 item 7: バックアップ用語が BACKUP_TERMS に寄っている', () => {
 	it('「インポート」「データクリア」が画面文言に残っていない', () => {
-		const texts = Object.values(SETTINGS_LABELS)
-			.filter((v): v is string => typeof v === 'string')
-			.join('\n');
+		const collected: string[] = [];
+		collectStrings(SETTINGS_LABELS, collected);
+		const texts = collected.join('\n');
 		expect(texts).not.toContain('インポートモード');
 		expect(texts).not.toContain('データクリア');
 	});

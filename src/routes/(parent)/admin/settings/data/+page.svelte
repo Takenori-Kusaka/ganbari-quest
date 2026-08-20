@@ -1,4 +1,5 @@
 <script lang="ts">
+import { PLAN_TERMS } from '$lib/domain/terms';
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
@@ -6,15 +7,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import {
-	APP_LABELS,
-	ERROR_NOTIFY_LABELS,
-	formatJstDate,
-	IMPORT_LABELS,
-	type ImportSkipReason,
-	PAGE_TITLES,
-	SETTINGS_LABELS,
-} from '$lib/domain/labels';
+import { APP_LABELS, ERROR_NOTIFY_LABELS, formatJstDate, IMPORT_LABELS, PAGE_TITLES, PLAN_GATE_ABOVE_SUFFIX, SETTINGS_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
@@ -483,7 +476,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 
-const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
+const canConfirmClear = $derived(
+	clearConfirmText === SETTINGS_LABELS.clearConfirmInputPlaceholder && clearAgreeChecked,
+);
 </script>
 
 <svelte:head>
@@ -498,7 +493,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+				<PremiumBadge size="sm" label={PLAN_TERMS.standard + PLAN_GATE_ABOVE_SUFFIX} showLock />
 			{/if}
 		</div>
 
@@ -949,7 +944,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 					{SETTINGS_LABELS.cloudSectionTitle}
 				</h3>
 				{#if data.maxCloudExports === 0}
-					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<PremiumBadge size="sm" label={PLAN_TERMS.standard + PLAN_GATE_ABOVE_SUFFIX} showLock />
 				{:else}
 					<span
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"

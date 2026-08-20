@@ -1,6 +1,7 @@
 <script lang="ts">
+import { CATEGORIES } from '$lib/domain/categories';
 import { enhance } from '$app/forms';
-import { APP_LABELS, PAGE_TITLES, SETUP_PACKS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatCount, PAGE_TITLES, SETUP_CHILDREN_LABELS, SETUP_PACKS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -39,11 +40,12 @@ function selectSkip() {
 
 // Category labels for preview
 const categoryLabels: Record<string, string> = {
-	undou: 'うんどう',
-	benkyou: 'べんきょう',
-	seikatsu: 'せいかつ',
-	kouryuu: 'こうりゅう',
-	souzou: 'そうぞう',
+	// #4716 item 15: カテゴリ名の実体は domain/categories.ts (CATEGORIES) が SSOT
+	undou: CATEGORIES.undou.name,
+	benkyou: CATEGORIES.benkyou.name,
+	seikatsu: CATEGORIES.seikatsu.name,
+	kouryuu: CATEGORIES.kouryuu.name,
+	souzou: CATEGORIES.souzou.name,
 };
 
 // Auto-select recommended packs on mount
@@ -102,7 +104,7 @@ $effect(() => {
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-bold text-[var(--color-text)]">{pack.packName}</span>
-							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount + '件'}</span>
+							<span class="text-xs text-[var(--color-text-muted)]">{formatCount(pack.activityCount)}</span>
 						</div>
 						<p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
 						<div class="flex items-center gap-1 mt-2">
@@ -114,7 +116,9 @@ $effect(() => {
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, pack.packId)}
 							>
-								{expandedPack === pack.packId ? '▲ とじる' : '▼ なかみ'}
+								{expandedPack === pack.packId
+							? SETUP_CHILDREN_LABELS.expandCollapse
+							: SETUP_CHILDREN_LABELS.expandOpen}
 							</button>
 						</div>
 					</div>

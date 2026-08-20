@@ -2,7 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatAge, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
@@ -18,12 +18,12 @@ let { data } = $props();
 function getAnalysisText(deviationScore: number): { text: string; color: string } {
 	if (deviationScore >= 60)
 		return {
-			text: '同年齢の中でも特に活発です',
+			text: STATUS_LABELS.analysisHigh,
 			color: 'text-[var(--color-feedback-success-text)]',
 		};
 	if (deviationScore >= 45)
-		return { text: '平均的なペースで成長しています', color: 'text-[var(--color-brand-600)]' };
-	return { text: 'これから伸びる余地がたくさんあります', color: 'text-[var(--color-warning)]' };
+		return { text: STATUS_LABELS.analysisMid, color: 'text-[var(--color-brand-600)]' };
+	return { text: STATUS_LABELS.analysisLow, color: 'text-[var(--color-warning)]' };
 }
 
 let benchmarkAge = $state(4);
@@ -350,7 +350,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
-					{age + '歳'}
+					{formatAge(age)}
 				</Button>
 			{/each}
 		</div>

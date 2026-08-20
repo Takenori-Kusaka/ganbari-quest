@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MS_PER_DAY, MS_PER_MINUTE, SECONDS_PER_DAY } from '$lib/domain/constants/time';
+import { OYAKAGI_TERMS } from '$lib/domain/terms';
 import { childIdSchema } from './id-schema';
 
 // Cookie名
@@ -18,9 +19,9 @@ export const SESSION_COOKIE_NAME = 'sessionToken';
 // Zodスキーマ（おやカギコード認証用）
 export const pinSchema = z
 	.string()
-	.min(PIN_MIN_LENGTH, `おやカギコードは${PIN_MIN_LENGTH}桁以上です`)
-	.max(PIN_MAX_LENGTH, `おやカギコードは${PIN_MAX_LENGTH}桁以下です`)
-	.regex(/^\d+$/, 'おやカギコードは数字のみです');
+	.min(PIN_MIN_LENGTH, `${OYAKAGI_TERMS.name}は${PIN_MIN_LENGTH}桁以上です`)
+	.max(PIN_MAX_LENGTH, `${OYAKAGI_TERMS.name}は${PIN_MAX_LENGTH}桁以下です`)
+	.regex(/^\d+$/, `${OYAKAGI_TERMS.name}は数字のみです`);
 
 export const loginSchema = z.object({
 	pin: pinSchema,

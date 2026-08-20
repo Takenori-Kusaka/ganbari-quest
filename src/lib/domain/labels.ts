@@ -90,6 +90,7 @@ import {
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from './validation/auth';
 
 // ============================================================
 // アプリ情報 (#1452 Phase B)
@@ -209,6 +210,13 @@ export const PAGE_TITLES = {
  */
 export const DATA_CLEAR_ACTION_LABEL = 'すべてのデータを削除';
 
+/**
+ * 「<プラン名>以上」の接尾辞 (#4716 item 15)。
+ * PremiumBadge の label を画面が「スタンダード以上」と直書きしていたため、
+ * プラン名を変えても badge だけ古いままになりうる状態だった。
+ */
+export const PLAN_GATE_ABOVE_SUFFIX = '以上';
+
 export const UI_LABELS = {
 	// #4716: 「この日から」を表す接尾辞。子供画面の週次チャレンジ履歴などで使う。
 	dateFromSuffix: '〜',
@@ -261,6 +269,13 @@ export function formatCount(n: number): string {
 }
 export function formatAge(n: number): string {
 	return `${n}歳`;
+}
+/**
+ * 子供画面向けの年齢表示 (#4716 item 15)。ひらがな文体で統一する。
+ * `/switch` と `/view/[token]` が `child.age + 'さい'` を直書きしていた。
+ */
+export function formatChildAge(n: number): string {
+	return `${n}さい`;
 }
 export function formatAgeRange(min: number, max: number): string {
 	return `${min}〜${max}歳`;
@@ -2374,12 +2389,20 @@ export const OYAKAGI_LABELS = {
 	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
 	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
 	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
-	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	inputLabel: `${OYAKAGI_TERMS.name}（${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁）`,
+	// #4716 item 15: 変更フォームの 3 項目ラベル。桁数は pinSchema (validation/auth.ts) の
+	// PIN_MIN_LENGTH / PIN_MAX_LENGTH から導出し、画面文言と受理される値を一致させる。
+	currentPinLabel: `現在の${OYAKAGI_TERMS.name}`,
+	newPinLabel: `新しい${OYAKAGI_TERMS.name}（${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁）`,
+	newPinConfirmLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
+	mismatchError: `新しい${OYAKAGI_TERMS.name}が一致しません`,
+	allFieldsRequiredError: 'すべての項目を入力してください',
+	currentPinInvalidError: `現在の${OYAKAGI_TERMS.name}が正しくありません`,
 	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
 	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
 	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
-	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	formatError: `${OYAKAGI_TERMS.name}は${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字で入力してください`,
 	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
@@ -2400,7 +2423,7 @@ export const OYAKAGI_LABELS = {
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
 	gateLockedUntilNotice: (timeStr: string) =>
 		`${OYAKAGI_TERMS.name}の入力に連続して失敗しました。${timeStr} まで待ってから再度お試しください`,
-	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
 	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
@@ -2415,7 +2438,7 @@ export const OYAKAGI_LABELS = {
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
 	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
-	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
 	gateCreateConfirmTitle: `もう一度入力してください`,
 	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
 	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
@@ -2447,7 +2470,7 @@ export const PIN_RESET_LABELS = {
 	resetFederatedCodeLabel: '確認コード（6桁の数字）',
 	resetFederatedResendButton: 'コードを再送する',
 	// エラー文言
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
@@ -2457,7 +2480,7 @@ export const PIN_RESET_LABELS = {
 	// エラー文言
 	errorInvalidPassword: 'パスワードが正しくありません',
 	errorPasswordRequired: 'パスワードを入力してください',
-	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorPinFormat: `${OYAKAGI_TERMS.name}は${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字で入力してください`,
 	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
 	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
@@ -2495,7 +2518,7 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogIntro: `${CHILD_TERMS.honorific}の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_SCREENS.home.name} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
-	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -2966,6 +2989,31 @@ export const SETTINGS_LABELS = {
 	clearDangerConsentLabel: `${DATA_CLEAR_ACTION_LABEL}することに同意します`,
 	// #4716 item 15: 画面に直書きされていた顧客可視文言を SSOT へ移す
 	clearConfirmInputLabel: '確認のため「削除」と入力してください',
+	// #4716 item 15: /admin/settings/account と /admin/settings/activities /
+	//   /admin/settings/notifications に直書きされていた顧客可視文言を SSOT へ。
+	accountDeleteConfirmPhrase: 'アカウントを削除します',
+	accountDeleteConfirmInputLabel: '確認のため「アカウントを削除します」と入力してください',
+	accountInfoFetchError: '情報取得に失敗しました',
+	accountDeleteError: 'アカウント削除に失敗しました',
+	accountTransferSelectPlaceholder: '移譲先を選択...',
+	accountProcessing: '処理中...',
+	accountTransferAndLeave: '移譲して退会',
+	accountDeleteAllButton: '全て削除する',
+	accountDeleteButton: 'アカウントを削除する',
+	decayNoneLabel: 'なし',
+	decayNoneDesc: '減少しません（練習や導入期間向け）',
+	decayGentleLabel: 'ゆるやか',
+	decayGentleDesc: '通常の半分の速度で減少します',
+	decayNormalLabel: 'ふつう',
+	decayNormalDesc: '猶予2日後にゆるやかに減少します',
+	decayStrictLabel: 'きびしめ',
+	decayStrictDesc: '上級者向け。1.5倍の速度で減少します',
+	currencyFieldLabel: '通貨',
+	currencyRateFieldLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
+	currencyRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	reminderTimeFieldLabel: 'リマインダー時刻',
+	quietHoursFieldLabel: 'サイレント時間帯',
+	quietHoursFieldHint: 'この時間帯は通知を送信しません',
 	clearConfirmInputPlaceholder: '削除',
 	clearExecuteButton: `${DATA_CLEAR_ACTION_LABEL}`,
 	clearExecuting: `${DATA_CLEAR_ACTION_LABEL}しています…`,
@@ -4484,6 +4532,25 @@ export const CHALLENGES_LABELS = {
 // auth/login ページ (#1452 Phase B)
 // ============================================================
 
+/**
+ * 認証フォームの共通ラベル (#4716 item 15)。
+ *
+ * ログイン / パスワード再設定 / サインアップで同じ項目名を各画面が直書きしていたため、
+ * 同じ入力欄が画面ごとに別名になりうる状態だった。
+ */
+export const AUTH_FORM_LABELS = {
+	emailLabel: 'メールアドレス',
+	passwordLabel: 'パスワード',
+	verificationCodeLabel: '確認コード',
+	newPasswordLabel: '新しいパスワード',
+	newPasswordConfirmLabel: '新しいパスワード（確認）',
+	newPasswordPlaceholder: '8文字以上（大小英字・数字を含む）',
+	newPasswordHint: '8文字以上、大文字・小文字・数字を含む',
+	newPasswordConfirmPlaceholder: 'パスワードを再入力',
+	passwordMismatch: 'パスワードが一致しません',
+	passwordMatched: 'パスワードが一致しました',
+} as const;
+
 export const LOGIN_LABELS = {
 	mfaBadge: 'MFA認証',
 	passwordResetSuccess: 'パスワードがリセットされました。新しいパスワードでログインしてください。',
@@ -4596,6 +4663,8 @@ export const MEMBERS_LABELS = {
 	viewerDuration7d: `${TRIAL_TERMS.duration}`,
 	viewerDuration30d: '30日間',
 	viewerDurationUnlimited: '無期限',
+	// #4716 item 15: 画面直書きだった select の選択肢を SSOT へ (上の 3 値と同じものを再掲していた)
+	transferSelectPlaceholder: '移譲先を選択...',
 	viewerCreateLoading: '作成中...',
 	viewerCreateButton: '閲覧リンクを作成',
 	viewerSuccessMsg: '閲覧リンクが作成されました',
@@ -4952,6 +5021,10 @@ export const OPS_MFA_SETUP_LABELS = {
 export const STATUS_LABELS = {
 	// #4715: nav / title と同じ画面名を画面内見出しにも出す (registry SSOT)
 	pageHeading: adminScreenHeading('status'),
+	// #4716 item 15: /admin/status に直書きされていた分析文言を SSOT へ
+	analysisHigh: '同年齢の中でも特に活発です',
+	analysisMid: '平均的なペースで成長しています',
+	analysisLow: 'これから伸びる余地がたくさんあります',
 	// Navigation link
 	childrenEditLink: `${ADMIN_SCREENS.children.name}でステータス編集 →`,
 
@@ -5322,6 +5395,10 @@ export const CHEER_LABELS = {
 	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
 	errorCategoryRequired: 'カテゴリを選択してください',
 	errorChildRequired: `${CHILD_TERMS.honorific}を選択してください`,
+	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
+	reasonLengthHint: (used: number | string, max: number | string, remaining: number | string) =>
+		`${used}/${max}（あと${remaining}文字）`,
+	messagePlaceholder: 'ひとことメッセージを足す（任意）',
 } as const;
 
 // ============================================================
@@ -5545,6 +5622,13 @@ export const SETUP_CHILDREN_LABELS = {
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
 	addSuccessMessage: `${CHILD_TERMS.honorific}を登録しました！`,
+	// #4716 item 15: setup 画面に直書きされていた顧客可視文言を SSOT へ
+	nicknameFieldLabel: 'ニックネーム',
+	nicknamePlaceholder: 'たろうくん',
+	ageFieldLabel: '年齢',
+	autoUiModeHint: (modeLabel: string) => `${modeLabel}モードが自動で設定されます`,
+	expandCollapse: '▲ とじる',
+	expandOpen: '▼ なかみ',
 } as const;
 
 export const ADMIN_CHILDREN_LABELS = {
@@ -6058,6 +6142,8 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	cancelButton: 'キャンセル',
 	limitReachedButton: '上限に達しています',
 	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
+	// #4716 item 15: 画面直書きだった placeholder を SSOT へ
+	nicknamePlaceholder: '例: たろうくん',
 	nicknameLabel: 'ニックネーム',
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
@@ -6081,6 +6167,10 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	childTabAllAriaLabel: 'すべてのお子さま',
 	// 一括追加 / cross-child copy
 	bulkAddAction: '全員にこのチャレンジを追加',
+	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
+	familyStreakRecordedToday: (people: string) => `今日は${people}が記録済み`,
+	familyStreakNoRecordToday: '今日はまだ誰も記録していません',
+	deleteChildButton: (childName: string) => `${childName} を削除`,
 	copyFromOtherChildAction: COPY_FROM_CHILD_LABELS.action,
 	copyConfirmTitle: (sourceName: string, targetCount: number) =>
 		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
@@ -6498,6 +6588,32 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	deleteConfirmBodyNoChild: (templateName: string) =>
 		`「${templateName}」を削除します。元に戻せません。`,
 	deleteConfirmAccept: '削除する',
+	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
+	frequencyDaily: 'まいにち',
+	frequencyWeekday: (day: string) => `${day}よう`,
+	directionBring: '持参',
+	directionReturn: '持帰',
+	directionBoth: '往復',
+	timeSlotAnytime: 'いつでも',
+	timeSlotMorning: 'あさ',
+	timeSlotAfternoon: 'ひる',
+	timeSlotEvening: 'よる',
+	distributionSaveError: '配信先の保存に失敗しました',
+	templateDeactivateAction: '無効にする',
+	templateActivateAction: '有効にする',
+	templateDeactivateButton: '無効化',
+	templateActivateButton: '有効化',
+	overrideActionAdd: '追加',
+	overrideActionRemove: '除外',
+	fieldNameLabel: '名前',
+	fieldTimeSlotLabel: '時間帯',
+	fieldFrequencyLabel: '頻度',
+	fieldDirectionLabel: '方向',
+	fieldDateLabel: '日付',
+	fieldOverrideActionLabel: '操作',
+	fieldItemNameLabel: 'アイテム名',
+	itemNamePlaceholder: '例: ハンカチ',
+	overrideItemNamePlaceholder: '例: リュック（遠足）',
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
@@ -10421,6 +10537,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	// #3201: slash 表記「バックアップ / CSV」を廃止し 2 つの入力源を平易に並記
 	fileDesc: `保存しておいた${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
+	// #4716 item 15: 取込結果メッセージで pack 名が返らなかったときの代替表記。
+	fallbackImportedName: '取り込んだファイル',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',
 	// 5 type 共通の type 切替タブ

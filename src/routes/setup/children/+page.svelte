@@ -1,11 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import {
-	APP_LABELS,
-	getAgeTierLabel,
-	PAGE_TITLES,
-	SETUP_CHILDREN_LABELS,
-} from '$lib/domain/labels';
+import { APP_LABELS, formatAge, getAgeTierLabel, PAGE_TITLES, SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -54,7 +49,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 					<div>
 						<p class="font-bold text-sm text-[var(--color-text)]">{child.nickname}</p>
 						<p class="text-xs text-[var(--color-text-muted)]">
-							{child.age + '歳'} / {getAgeTierLabel(child.uiMode)}{SETUP_CHILDREN_LABELS.ageModeSuffix}
+							{formatAge(child.age)} / {getAgeTierLabel(child.uiMode)}{SETUP_CHILDREN_LABELS.ageModeSuffix}
 						</p>
 					</div>
 				</div>
@@ -84,21 +79,21 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">{SETUP_CHILDREN_LABELS.addFormTitle}</h3>
 
 	<FormField
-		label="ニックネーム"
+		label={SETUP_CHILDREN_LABELS.nicknameFieldLabel}
 		name="nickname"
 		required
-		placeholder="たろうくん"
+		placeholder={SETUP_CHILDREN_LABELS.nicknamePlaceholder}
 	/>
 
 	<FormField
-		label="年齢"
+		label={SETUP_CHILDREN_LABELS.ageFieldLabel}
 		type="number"
 		name="age"
 		min={0}
 		max={18}
 		required
 		bind:value={ageInput}
-		hint={autoUiMode ? `${autoUiLabel}モードが自動で設定されます` : undefined}
+		hint={autoUiMode ? SETUP_CHILDREN_LABELS.autoUiModeHint(autoUiLabel) : undefined}
 	/>
 
 	<div>

@@ -1,14 +1,16 @@
 <script lang="ts">
-import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
+import { CATEGORIES } from '$lib/domain/categories';
+import { APP_LABELS, formatChildAge, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
 const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
-	1: { name: 'うんどう', icon: '🏃' },
-	2: { name: 'べんきょう', icon: '📚' },
-	3: { name: 'せいかつ', icon: '🏠' },
-	4: { name: 'こうりゅう', icon: '🤝' },
-	5: { name: 'そうぞう', icon: '🎨' },
+	// #4716 item 15: カテゴリ名 / アイコンの実体は domain/categories.ts (CATEGORIES) が SSOT
+	1: { name: CATEGORIES.undou.name, icon: CATEGORIES.undou.icon },
+	2: { name: CATEGORIES.benkyou.name, icon: CATEGORIES.benkyou.icon },
+	3: { name: CATEGORIES.seikatsu.name, icon: CATEGORIES.seikatsu.icon },
+	4: { name: CATEGORIES.kouryuu.name, icon: CATEGORIES.kouryuu.icon },
+	5: { name: CATEGORIES.souzou.name, icon: CATEGORIES.souzou.icon },
 };
 </script>
 
@@ -35,7 +37,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 				<div class="child-card">
 					<div class="child-header">
 						<h2 class="child-name">{child.nickname}</h2>
-						<span class="child-age">{child.age + 'さい'}</span>
+						<span class="child-age">{formatChildAge(child.age)}</span>
 					</div>
 
 					<div class="child-stats">

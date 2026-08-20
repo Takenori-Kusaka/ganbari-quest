@@ -2,7 +2,7 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
-import { APP_LABELS, LOGIN_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, AUTH_FORM_LABELS, LOGIN_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -270,7 +270,7 @@ $effect(() => {
 				class="flex flex-col gap-5"
 			>
 				<FormField
-					label="メールアドレス"
+					label={AUTH_FORM_LABELS.emailLabel}
 					type="email"
 					id="email"
 					name="email"
@@ -281,7 +281,7 @@ $effect(() => {
 				/>
 
 				<FormField
-					label="パスワード"
+					label={AUTH_FORM_LABELS.passwordLabel}
 					type="password"
 					id="password"
 					name="password"

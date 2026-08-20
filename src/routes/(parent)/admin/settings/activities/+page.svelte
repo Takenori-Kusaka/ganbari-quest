@@ -32,10 +32,23 @@ $effect(() => {
 });
 
 const DECAY_OPTIONS = [
-	{ value: 'none', label: 'なし', desc: '減少しません（練習や導入期間向け）' },
-	{ value: 'gentle', label: 'ゆるやか', desc: '通常の半分の速度で減少します' },
-	{ value: 'normal', label: 'ふつう', desc: '猶予2日後にゆるやかに減少します' },
-	{ value: 'strict', label: 'きびしめ', desc: '上級者向け。1.5倍の速度で減少します' },
+	// #4716 item 15: 顧客可視文言は labels.ts (SETTINGS_LABELS) が SSOT
+	{ value: 'none', label: SETTINGS_LABELS.decayNoneLabel, desc: SETTINGS_LABELS.decayNoneDesc },
+	{
+		value: 'gentle',
+		label: SETTINGS_LABELS.decayGentleLabel,
+		desc: SETTINGS_LABELS.decayGentleDesc,
+	},
+	{
+		value: 'normal',
+		label: SETTINGS_LABELS.decayNormalLabel,
+		desc: SETTINGS_LABELS.decayNormalDesc,
+	},
+	{
+		value: 'strict',
+		label: SETTINGS_LABELS.decayStrictLabel,
+		desc: SETTINGS_LABELS.decayStrictDesc,
+	},
 ] as const;
 
 async function saveDecayIntensity() {
@@ -201,7 +214,7 @@ const previewFormatted = $derived(
 				<NativeSelect
 					id="pointCurrency"
 					name="point_currency"
-					label="通貨"
+					label={SETTINGS_LABELS.currencyFieldLabel}
 					bind:value={pointCurrency}
 					options={CURRENCY_CODES.map((code) => ({
 						value: code,
@@ -210,7 +223,7 @@ const previewFormatted = $derived(
 				/>
 
 				<FormField
-					label="レート（1P = ？{CURRENCY_DEFS[pointCurrency].symbol}）"
+					label={SETTINGS_LABELS.currencyRateFieldLabel(CURRENCY_DEFS[pointCurrency].symbol)}
 					type="number"
 					id="pointRate"
 					name="point_rate"
@@ -219,7 +232,7 @@ const previewFormatted = $derived(
 					max="10000"
 					step="any"
 					required
-					hint="例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」"
+					hint={SETTINGS_LABELS.currencyRateHint}
 				/>
 			{/if}
 
