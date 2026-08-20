@@ -44,7 +44,9 @@ async function settle(page) {
 export default async (page, capture) => {
 	// --- 1) 初期状態: 同意チェックも確認語も未入力 → 実行ボタンは押せない ---
 	await page.goto(STORY_URL);
-	await page.locator('[data-testid="relocation-confirm"]').waitFor({ state: 'visible', timeout: 15_000 });
+	await page
+		.locator('[data-testid="relocation-confirm"]')
+		.waitFor({ state: 'visible', timeout: 15_000 });
 	await settle(page);
 	await capture(`${PHASE}-relocation-confirm-initial`);
 
