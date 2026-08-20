@@ -7,6 +7,7 @@ import {
 	getInviteJoinBlockedMessage,
 	INVITE_RELOCATION_LABELS,
 } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
 import {
 	CONTEXT_COOKIE_NAME,
 	INVITE_COOKIE_MAX_AGE_SECONDS,
@@ -143,6 +144,11 @@ export const actions: Actions = {
 		const form = await request.formData();
 		if (form.get('acknowledge') !== 'on') {
 			return fail(400, { relocateError: INVITE_RELOCATION_LABELS.acknowledgeRequired });
+		}
+		// #4642 PO 差し戻し: 退会と結果が同じ (家族グループの物理削除) なので、確認語の入力も
+		// 退会と同じく要求する。画面側の disabled だけに頼らず、ここでも同じ 2 条件を検証する。
+		if (String(form.get('confirmText') ?? '').trim() !== CANCEL_TERMS.confirmPhrase) {
+			return fail(400, { relocateError: INVITE_RELOCATION_LABELS.confirmInputMismatch });
 		}
 
 		const result = await relocateToInvitedTenant(

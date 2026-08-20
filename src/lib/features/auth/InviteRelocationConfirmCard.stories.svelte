@@ -17,7 +17,12 @@ const { Story } = defineMeta({
   local backend では作れない (#3732) ため、見た目の検証は本 story が担う。
 -->
 
+<!-- 既定 = 同意チェックも確認語も未入力。実行ボタンは押せない (#4642 PO 差し戻し) -->
 <Story name="Default" />
+<Story
+	name="ConfirmInputMismatch"
+	args={{ errorMessage: INVITE_RELOCATION_LABELS.confirmInputMismatch }}
+/>
 <Story name="AcknowledgeRequired" args={{ errorMessage: INVITE_RELOCATION_LABELS.acknowledgeRequired }} />
 <Story name="BlockedHasOtherMembers" args={{ errorMessage: INVITE_RELOCATION_LABELS.blockedHasOtherMembers }} />
 <Story name="Submitting" args={{ submitting: true }} />

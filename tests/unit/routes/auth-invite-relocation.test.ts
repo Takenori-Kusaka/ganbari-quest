@@ -11,6 +11,7 @@ import {
 	getInviteJoinBlockedMessage,
 	INVITE_RELOCATION_LABELS,
 } from '../../../src/lib/domain/labels';
+import { CANCEL_TERMS } from '../../../src/lib/domain/terms';
 import { CONTEXT_COOKIE_NAME, INVITE_COOKIE_NAME } from '../../../src/lib/domain/validation/auth';
 
 const mockGetInvite = vi.fn();
@@ -146,7 +147,7 @@ describe('#4642 引っ越し合流の実行 (action)', () => {
 				params: { code: CODE },
 				cookies,
 				locals: { identity, context },
-				request: createFormRequest({}),
+				request: createFormRequest({ confirmText: CANCEL_TERMS.confirmPhrase }),
 			}),
 		);
 
@@ -155,6 +156,48 @@ describe('#4642 引っ越し合流の実行 (action)', () => {
 			INVITE_RELOCATION_LABELS.acknowledgeRequired,
 		);
 		expect(mockRelocate).not.toHaveBeenCalled();
+	});
+
+	// #4642 PO 差し戻し: 退会と結果が同じ (家族グループの物理削除) なので確認語の入力も要求する。
+	// 画面側の disabled だけに頼らず、サーバーでも同じ 2 条件を検証する。
+	it('確認語の入力が無ければ実行しない (チェックだけでは通さない)', async () => {
+		const { cookies } = createCookies();
+
+		const { data } = await run(() =>
+			relocateAction({
+				params: { code: CODE },
+				cookies,
+				locals: { identity, context },
+				request: createFormRequest({ acknowledge: 'on' }),
+			}),
+		);
+
+		expect((data as { status?: number })?.status).toBe(400);
+		expect((data as { data?: { relocateError?: string } })?.data?.relocateError).toBe(
+			INVITE_RELOCATION_LABELS.confirmInputMismatch,
+		);
+		expect(mockRelocate).not.toHaveBeenCalled();
+	});
+
+	it('確認語が一字でも違えば実行しない', async () => {
+		const { cookies } = createCookies();
+
+		const { data } = await run(() =>
+			relocateAction({
+				params: { code: CODE },
+				cookies,
+				locals: { identity, context },
+				request: createFormRequest({ acknowledge: 'on', confirmText: 'アカウントを削除する' }),
+			}),
+		);
+
+		expect((data as { status?: number })?.status).toBe(400);
+		expect(mockRelocate).not.toHaveBeenCalled();
+	});
+
+	it('確認語は退会と同じ atom を使う (経路ごとに別の語を置かない)', () => {
+		expect(INVITE_RELOCATION_LABELS.confirmInputPlaceholder).toBe(CANCEL_TERMS.confirmPhrase);
+		expect(INVITE_RELOCATION_LABELS.confirmInputLabel).toContain(CANCEL_TERMS.confirmPhrase);
 	});
 
 	it('同意があれば実行し、context / 招待 Cookie を破棄して /admin へ', async () => {
@@ -168,7 +211,10 @@ describe('#4642 引っ越し合流の実行 (action)', () => {
 				params: { code: CODE },
 				cookies,
 				locals: { identity, context },
-				request: createFormRequest({ acknowledge: 'on' }),
+				request: createFormRequest({
+					acknowledge: 'on',
+					confirmText: CANCEL_TERMS.confirmPhrase,
+				}),
 			}),
 		);
 
@@ -189,7 +235,10 @@ describe('#4642 引っ越し合流の実行 (action)', () => {
 				params: { code: CODE },
 				cookies,
 				locals: { identity, context },
-				request: createFormRequest({ acknowledge: 'on' }),
+				request: createFormRequest({
+					acknowledge: 'on',
+					confirmText: CANCEL_TERMS.confirmPhrase,
+				}),
 			}),
 		);
 
@@ -207,7 +256,10 @@ describe('#4642 引っ越し合流の実行 (action)', () => {
 				params: { code: CODE },
 				cookies,
 				locals: { identity, context },
-				request: createFormRequest({ acknowledge: 'on' }),
+				request: createFormRequest({
+					acknowledge: 'on',
+					confirmText: CANCEL_TERMS.confirmPhrase,
+				}),
 			}),
 		);
 

@@ -5,8 +5,10 @@
 // 何が消えるかを列挙し、「取り消せません」を明示し、同意チェック無しでは実行させない。
 
 import { INVITE_RELOCATION_LABELS } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 
 interface Props {
 	/** 実行に失敗したときの表示文言 (同意漏れ / 受諾拒否 / 引っ越し不可)。 */
@@ -20,8 +22,15 @@ interface Props {
 let { errorMessage = null, submitting = false, cancelHref }: Props = $props();
 
 let acknowledged = $state(false);
+let confirmText = $state('');
 let sending = $state(false);
 const busy = $derived(submitting || sending);
+
+// #4642 PO 差し戻し: 退会 (/admin/settings/account) と結果が同じ (家族グループの物理削除) なので、
+// 要求する重さも同じにする — 同意チェックだけでなく確認語の入力も揃える。
+// 経路ごとに重さが違うと「軽いほうの経路から全損する」を作る。
+// サーバー側 (`?/relocate`) も同じ 2 条件を検証する (画面の状態を信用しない)。
+const confirmed = $derived(acknowledged && confirmText.trim() === CANCEL_TERMS.confirmPhrase);
 </script>
 
 <div class="relocation">
@@ -59,12 +68,24 @@ const busy = $derived(submitting || sending);
 			<span>{INVITE_RELOCATION_LABELS.acknowledgeLabel}</span>
 		</label>
 
+		<div class="relocation-confirm-input">
+			<FormField
+				label={INVITE_RELOCATION_LABELS.confirmInputLabel}
+				type="text"
+				id="relocationConfirm"
+				name="confirmText"
+				bind:value={confirmText}
+				placeholder={INVITE_RELOCATION_LABELS.confirmInputPlaceholder}
+				data-testid="relocation-confirm-input"
+			/>
+		</div>
+
 		<Button
 			type="submit"
 			variant="danger"
 			class="w-full"
 			loading={busy}
-			disabled={!acknowledged}
+			disabled={!confirmed}
 			data-testid="relocation-confirm"
 		>
 			{busy
@@ -125,6 +146,9 @@ const busy = $derived(submitting || sending);
 		line-height: 1.6;
 		color: var(--color-text-primary);
 		cursor: pointer;
+	}
+	.relocation-confirm-input {
+		margin-bottom: 1rem;
 	}
 	.relocation-cancel {
 		margin-top: 1rem;

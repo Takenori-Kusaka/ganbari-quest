@@ -11,6 +11,7 @@ import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -109,7 +110,7 @@ async function fetchDeletionInfo() {
 
 async function handleDeleteAccount() {
 	if (deleteSubmitting) return;
-	if (deleteConfirmText !== 'アカウントを削除します' || !deleteAgreeChecked) return;
+	if (deleteConfirmText !== CANCEL_TERMS.confirmPhrase || !deleteAgreeChecked) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -206,7 +207,7 @@ const deletionGraceDays = $derived(
 );
 
 const canConfirmDelete = $derived(
-	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
+	deleteConfirmText === CANCEL_TERMS.confirmPhrase && deleteAgreeChecked,
 );
 </script>
 
@@ -498,11 +499,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.dangerStep1Label}
 						</p>
 						<FormField
-							label="確認のため「アカウントを削除します」と入力してください"
+							label={SETTINGS_LABELS.dangerConfirmInputLabel}
 							type="text"
 							id="deleteConfirm"
 							bind:value={deleteConfirmText}
-							placeholder="アカウントを削除します"
+							placeholder={CANCEL_TERMS.confirmPhrase}
 						/>
 					</div>
 

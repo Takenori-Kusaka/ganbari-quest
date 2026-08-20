@@ -2819,6 +2819,9 @@ export const SETTINGS_LABELS = {
 	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
+	// #4642: 確認語そのものは CANCEL_TERMS.confirmPhrase が atom (退会 / 引っ越し合流で共通)。
+	// ここは atom を文に組み立てた compound (ADR-0045 §3.3)。
+	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
 	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
@@ -6083,6 +6086,11 @@ export const INVITE_RELOCATION_LABELS = {
 	backupHint:
 		'記録を残しておきたい場合は、参加する前にいまの家族グループの設定からデータをエクスポートしてください。',
 	acknowledgeLabel: '上記に同意します（いまの家族グループのデータは削除され、元に戻せません）',
+	// #4642 PO 差し戻し: 退会と結果が同じ (fullTenantDeletion) なので要求する重さも同じにする。
+	// 確認語の atom は CANCEL_TERMS.confirmPhrase (退会側と共通、複製を作らない)。
+	confirmInputLabel: SETTINGS_LABELS.dangerConfirmInputLabel,
+	confirmInputPlaceholder: CANCEL_TERMS.confirmPhrase,
+	confirmInputMismatch: `確認のため「${CANCEL_TERMS.confirmPhrase}」と正確に入力してください。`,
 	confirmButton: '同意して参加する',
 	confirmButtonLoading: '参加しています…',
 	cancelButton: 'やめておく',
