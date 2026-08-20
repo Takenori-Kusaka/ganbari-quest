@@ -52,6 +52,11 @@ function retry(): void {
 		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0 0 0.75rem;
+		/* app.css の h1 既定 `word-break: auto-phrase` はひらがなだけの文を分節できず、
+		   モバイル幅で「つ / ながっていないよ」のように語の途中で折れる (実測)。
+		   文言側に入れてある半角スペースを唯一の改行位置にする。 */
+		word-break: keep-all;
+		overflow-wrap: anywhere;
 	}
 
 	.offline-page__body {
