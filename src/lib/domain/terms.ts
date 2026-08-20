@@ -1310,8 +1310,8 @@ export const VIEWER_LINK_TERMS = {
 export const ADMIN_SCREEN_TERMS = {
 	/** `/admin` — 保護者側のトップ */
 	home: ADMIN_VIEW_TERMS.canonical,
-	/** `/admin/children` — お子さまの登録・切り替え */
-	children: 'こども管理',
+	/** `/admin/children` — お子さまの登録・切り替え。#4716: 親画面は honorific に寄せる */
+	children: `${CHILD_TERMS.honorific}管理`,
 	/** `/admin/members` — 招待した大人の管理 */
 	members: 'メンバー管理',
 	/** `/admin/activities` */
@@ -1364,6 +1364,17 @@ export const SUPPORT_RESPONSE_TERMS = {
 // 無条件に読める案内が残っており、無料プランの顧客が実行すると必ず失敗していた。
 // 退会フローだけは別経路 (`/api/v1/admin/account/export`) で、無料プランでも最小限の内容を
 // 持ち出せる (#4472)。その「最小限の内容」の呼び方をここに 1 つだけ置く。
+
+// ============================================================
+// CHILD_SHOP_TERMS — ごほうびショップの画面名 atom (#4716)
+// ============================================================
+//
+// 親画面の説明文が「子供 shop に並べるごほうび…」と英語 + 内部語で書かれており、
+// 子供側の実画面名 (ごほうびショップ) と一致していなかった。両方がここから引く。
+
+export const CHILD_SHOP_TERMS = {
+	pageName: 'ごほうびショップ',
+} as const;
 
 export const DELETION_EXPORT_TERMS = {
 	/** 無料プランが退会画面で持ち出せる範囲 (`deletion-export-scope.ts` の free scope に対応) */

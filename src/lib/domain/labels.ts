@@ -46,6 +46,7 @@ import {
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
+	CHILD_SHOP_TERMS,
 	CHILD_TERMS,
 	CONCEPT_ICONS,
 	CTA_TERMS,
@@ -96,7 +97,7 @@ import { normalizeUiMode } from './validation/age-tier-types';
 
 export const APP_LABELS = {
 	name: 'がんばりクエスト',
-	tagline: '子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ',
+	tagline: `${CHILD_TERMS.honorific}の活動をゲーミフィケーションで動機付けする家庭内Webアプリ`,
 	demoName: 'がんばりクエスト デモ',
 	pageTitleSuffix: ' - がんばりクエスト',
 	demoPageTitleSuffix: ' - がんばりクエスト デモ',
@@ -160,7 +161,7 @@ export const PAGE_TITLES = {
 	demoAdminActivities: '活動管理',
 	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
 	demoAdminChecklists: 'もちものチェックリスト',
-	demoAdminChildren: 'こども管理',
+	demoAdminChildren: `${CHILD_TERMS.honorific}管理`,
 	demoAdminEvents: 'イベント管理（デモ）',
 	demoAdminLicense: 'プラン・お支払い（デモ）',
 	demoAdminMembers: 'メンバー管理',
@@ -175,7 +176,7 @@ export const PAGE_TITLES = {
 	demoChildHistory: 'きろく',
 	// セットアップ完了・各ステップ
 	setupComplete: 'ぼうけんのはじまり！',
-	setupChildren: '子供登録',
+	setupChildren: `${CHILD_TERMS.honorific}登録`,
 	setupFirstAdventure: 'はじめてのぼうけん',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
 	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
@@ -294,6 +295,21 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
 // ============================================================
 // ナビゲーション項目ラベル
 // ============================================================
+
+/**
+ * 兄弟共通化（別のお子さまの設定をコピーする）操作の共通文言 (#4716)。
+ *
+ * 以前は活動「別のお子さまからコピー」/ ごほうび「📋 他の子供から copy」/ チェックリスト
+ * 「他のお子さまから取り込む」の 3 表記に割れていた。同じ操作なので 1 箇所に置く。
+ */
+export const COPY_FROM_CHILD_LABELS = {
+	/** + 追加 dropdown / ボタンのラベル */
+	action: `別の${CHILD_TERMS.honorific}からコピー`,
+	/** dropdown のアイコン (概念アイコンではないので registry 対象外) */
+	icon: '👨‍👩‍👧',
+	/** ダイアログ見出し。resource は「活動」「ごほうび」等 */
+	dialogTitle: (resource: string) => `別の${CHILD_TERMS.honorific}から${resource}をコピー`,
+} as const;
 
 export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
@@ -736,8 +752,7 @@ export function getActivityPriorityLabel(priority: string): string {
 export const ACTIVITY_PRIORITY_FORM_LABELS = {
 	toggleSectionTitle: '今日のおやくそく',
 	toggleLabel: '「今日のおやくそく」にする',
-	toggleHint:
-		'ON にすると、子供画面で「今日のおやくそく」セクションに表示され、毎日全達成でボーナスポイントが加算されます。',
+	toggleHint: `ON にすると、${CHILD_TERMS.honorific}の画面で「今日のおやくそく」セクションに表示され、毎日全達成でボーナスポイントが加算されます。`,
 	mustBadge: '今日のおやくそく',
 	optionalBadge: 'ふつう',
 	editPageTitle: '活動を編集',
@@ -1124,7 +1139,7 @@ export const PMF_SURVEY_LABELS = {
 	},
 
 	q2Label: 'Q2. このサービスから得られている、主なメリットは何ですか？',
-	q2Placeholder: '例: こどもが自分から記録するようになった など',
+	q2Placeholder: `例: ${CHILD_TERMS.honorific}が自分から記録するようになった など`,
 
 	q3Label: 'Q3. このサービスをどこで知りましたか？',
 	q3Options: {
@@ -1214,7 +1229,7 @@ export const PREMIUM_MODAL_LABELS = {
 		'✅ オリジナル活動の追加・編集',
 		'✅ チェックリストのカスタマイズ',
 		'✅ ごほうびリストの自由設定',
-		'✅ 子供の登録無制限',
+		`✅ ${CHILD_TERMS.honorific}の登録無制限`,
 		'✅ データのエクスポート',
 	],
 	familyFeatures: [
@@ -1465,7 +1480,7 @@ export const TUTORIAL_LABELS = {
 export const TUTORIAL_CHAPTER_LABELS = {
 	chapters: {
 		intro: { title: 'はじめに', icon: '🏠' },
-		children: { title: 'こどもの登録', icon: '👧' },
+		children: { title: `${CHILD_TERMS.honorific}の登録`, icon: '👧' },
 		activities: { title: '活動の管理', icon: '📋' },
 		rewards: { title: '報酬とポイント', icon: '🎁' },
 		reports: { icon: '📊' },
@@ -1480,37 +1495,31 @@ export const TUTORIAL_CHAPTER_LABELS = {
 		},
 		'intro-2': {
 			title: 'ダッシュボード',
-			description:
-				'こどもの人数やポイントの合計がひと目で分かるサマリーです。「今こどもたちは合計何ポイント持っているかな？」を確認したい時にまずここを見てください。',
+			description: `${CHILD_TERMS.honorific}の人数やポイントの合計がひと目で分かるサマリーです。「今${CHILD_TERMS.honorific}たちは合計何ポイント持っているかな？」を確認したい時にまずここを見てください。`,
 		},
 		'intro-3': {
 			title: '今月のがんばり',
-			description:
-				'こどもごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。',
+			description: `${CHILD_TERMS.honorific}ごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。`,
 		},
 		'intro-4': {
-			title: 'こども一覧（ホーム）',
-			description:
-				'登録したこどもの名前・年齢・ポイント残高が表示されます。「きょうだいそれぞれ今どのくらい頑張ってるかな？」をホーム画面から確認できます。',
+			title: `${CHILD_TERMS.honorific}一覧（ホーム）`,
+			description: `登録した${CHILD_TERMS.honorific}の名前・年齢・ポイント残高が表示されます。「きょうだいそれぞれ今どのくらい頑張ってるかな？」をホーム画面から確認できます。`,
 		},
 		'children-1': {
-			title: 'こどもを追加',
-			description:
-				'まだこどもを登録していない場合はここから追加しましょう。ニックネーム・生年月日・テーマカラーを設定すると、こども専用の画面が作られます。きょうだいがいれば複数登録できます。',
+			title: `${CHILD_TERMS.honorific}を追加`,
+			description: `まだ${CHILD_TERMS.honorific}を登録していない場合はここから追加しましょう。ニックネーム・生年月日・テーマカラーを設定すると、${CHILD_TERMS.honorific}専用の画面が作られます。きょうだいがいれば複数登録できます。`,
 		},
 		'children-2': {
-			title: 'こども一覧',
-			description:
-				'登録済みのこどもが一覧で並びます。「こどもの年齢設定を変更したい」「テーマカラーを変えたい」時は、名前をタップして編集画面へ進みましょう。',
+			title: `${CHILD_TERMS.honorific}一覧`,
+			description: `登録済みの${CHILD_TERMS.honorific}が一覧で並びます。「${CHILD_TERMS.honorific}の年齢設定を変更したい」「テーマカラーを変えたい」時は、名前をタップして編集画面へ進みましょう。`,
 		},
 		'children-3': {
-			title: 'こどもの詳細',
-			description: `各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ ${PLAN_FULL_TERMS.free}ではこどもを2人まで登録できます。3人以上のきょうだいがいる場合は${PLAN_FULL_TERMS.standard}以上で無制限に登録できます。`,
+			title: `${CHILD_TERMS.honorific}の詳細`,
+			description: `各${CHILD_TERMS.honorific}の名前・年齢・ポイント残高が表示されます。「${CHILD_TERMS.honorific}ごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ ${PLAN_FULL_TERMS.free}では${CHILD_TERMS.honorific}を2人まで登録できます。3人以上のきょうだいがいる場合は${PLAN_FULL_TERMS.standard}以上で無制限に登録できます。`,
 		},
 		'activities-1': {
 			title: '活動一覧',
-			description:
-				'こどもが記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。',
+			description: `${CHILD_TERMS.honorific}が記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。`,
 		},
 		'activities-2': {
 			title: 'カテゴリで絞り込み',
@@ -1532,34 +1541,30 @@ export const TUTORIAL_CHAPTER_LABELS = {
 		},
 		'reports-1': {
 			title: 'レポート画面',
-			description:
-				'こどもの活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。',
+			description: `${CHILD_TERMS.honorific}の活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。`,
 		},
 		'reports-2': {
 			title: ADMIN_SCREENS.growthBook.name,
-			description: `こどもの1年間の成長をまとめた「${ADMIN_SCREENS.growthBook.name}」も用意しています。${ADMIN_SCREENS.reports.name}画面右上のリンクからアクセスできます。印刷してお子さまの記念にもなります。`,
+			description: `${CHILD_TERMS.honorific}の1年間の成長をまとめた「${ADMIN_SCREENS.growthBook.name}」も用意しています。${ADMIN_SCREENS.reports.name}画面右上のリンクからアクセスできます。印刷してお子さまの記念にもなります。`,
 		},
 		'messages-1': {
 			title: 'メッセージ送信',
-			description:
-				'こどもにおうえんメッセージを送れる画面です。まず送りたいこどもを選んで、スタンプまたはテキストメッセージを選びましょう。こどもの画面にメッセージが届きます。',
+			description: `${CHILD_TERMS.honorific}におうえんメッセージを送れる画面です。まず送りたい${CHILD_TERMS.honorific}を選んで、スタンプまたはテキストメッセージを選びましょう。${CHILD_TERMS.honorific}の画面にメッセージが届きます。`,
 		},
 		'messages-2': {
 			title: 'スタンプの送り方',
-			description:
-				'スタンプを選択して「送信」ボタンを押すだけで、こどもにおうえんの気持ちを伝えられます。「がんばったね！」「すごい！」など、お子さまが喜ぶスタンプが揃っています。',
+			description: `スタンプを選択して「送信」ボタンを押すだけで、${CHILD_TERMS.honorific}におうえんの気持ちを伝えられます。「がんばったね！」「すごい！」など、お子さまが喜ぶスタンプが揃っています。`,
 		},
 		'customize-1': {
 			title: 'データ管理',
 			description: `家族のデータを${BACKUP_TERMS.file}として書き出して保存したり、別の環境で${BACKUP_TERMS.restoreVerb}できます。機種変更やデータの引っ越しに便利です。`,
 		},
 		'settings-1': {
-			title: 'こども画面へ切替',
+			title: `${CHILD_TERMS.honorific}の画面へ切替`,
 		},
 		'settings-2': {
 			description: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する`,
-			descriptionSuffix:
-				'を変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
+			descriptionSuffix: `を変更できます。${CHILD_TERMS.honorific}に勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。`,
 		},
 		'settings-3': {
 			title: 'フィードバック',
@@ -1676,7 +1681,7 @@ export const PAGE_GUIDE_LABELS = {
 			},
 			'checklists-header': {
 				title: '画面の見方（このページの役割）',
-				what: 'ここはチェックリストの管理画面です。お子さまごとにチェックリストを作成・編集し、子供の画面への配信を切り替えます。',
+				what: `ここはチェックリストの管理画面です。お子さまごとにチェックリストを作成・編集し、${CHILD_TERMS.honorific}の画面への配信を切り替えます。`,
 				how: '1. 対象のお子さまを選びます\n2. 既存のテンプレートを編集するか、新しく追加します\n3. 有効化したテンプレートがお子さまの画面に表示されます',
 				goal: '朝の支度や寝る前のルーティンを、声かけなしでお子さま自身が進められるようになります。',
 			},
@@ -1720,7 +1725,7 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminChildren: {
-		title: 'こども管理',
+		title: `${CHILD_TERMS.honorific}管理`,
 		steps: {
 			'children-intro': {
 				title: 'このページについて',
@@ -1737,7 +1742,7 @@ export const PAGE_GUIDE_LABELS = {
 			'children-add': {
 				title: 'よく使う操作（お子さまの追加）',
 				what: '最初に行うのがお子さまの追加です。名前・生年月日・テーマカラーを登録します。',
-				how: '1. 「＋ こどもを追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ',
+				how: `1. 「＋ ${CHILD_TERMS.honorific}を追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ`,
 				goal: 'お子さま専用の画面が作成され、活動の記録・ポイント管理・レベルアップが個別に追跡されます。',
 				tips: [
 					'年齢によって画面の文字表現が自動で変わります（3歳→全部ひらがな、小学生→漢字まじり）',
@@ -1801,7 +1806,7 @@ export const PAGE_GUIDE_LABELS = {
 		steps: {
 			'rewards-intro': {
 				title: 'このページについて',
-				what: 'お子さまを応援する「ごほうび」を管理するページです。子供のごほうびショップに並べるプレゼント（おこづかい・ゲーム時間・おやつなど）を用意できます。',
+				what: `お子さまを応援する「ごほうび」を管理するページです。${CHILD_TERMS.honorific}のごほうびショップに並べるプレゼント（おこづかい・ゲーム時間・おやつなど）を用意できます。`,
 				how: 'プリセットから選ぶか、オリジナルのごほうびを作成して、お子さまごとに配信します。その場でひと押ししたい応援は応援ページをご利用ください。',
 				goal: 'お子さまが貯めたポイントでごほうびと交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。',
 			},
@@ -1815,7 +1820,7 @@ export const PAGE_GUIDE_LABELS = {
 				title: 'よく使う操作（ごほうびの追加）',
 				what: '最もよく使うのがごほうびの追加です。テンプレートから選ぶか、下の作成フォームでタイトル・ポイント・アイコンを決めてオリジナルを作成します。',
 				how: '1. テンプレートから選ぶか、オリジナルのごほうびを作成\n2. タイトル・ポイント・アイコンを設定\n3. 「追加する」をタップ',
-				goal: '子供のごほうびショップにごほうびが並び、お子さまが貯めたポイントで交換できるようになります。',
+				goal: `${CHILD_TERMS.honorific}のごほうびショップにごほうびが並び、お子さまが貯めたポイントで交換できるようになります。`,
 				tips: ['ポイントは通常の活動の10〜50回分くらいが目安です（多すぎるとインフレします）'],
 			},
 		},
@@ -1895,7 +1900,7 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-activities-point': {
 				title: 'よく使う操作（ポイント表示）',
 				what: 'ポイントの呼び方や単位を選んで、お子さまに分かりやすい見せ方にできます。',
-				how: '1. 表示したい単位を選びます\n2. 子供の画面に反映されます',
+				how: `1. 表示したい単位を選びます\n2. ${CHILD_TERMS.honorific}の画面に反映されます`,
 				goal: 'お子さまの年齢に合った言葉でポイントが表示されます。',
 			},
 		},
@@ -2086,7 +2091,7 @@ export const PAGE_GUIDE_LABELS = {
 			'members-invite': {
 				title: 'よく使う操作（招待リンクを作る）',
 				what: '新しく使う人を招くリンクを作れます。リンクやQRコードを渡すだけで参加してもらえます。',
-				how: '1. 役割（保護者か子供）を選びます\n2. 作成ボタンを押し、出てきたリンクを渡します',
+				how: `1. 役割（保護者か${CHILD_TERMS.honorific}）を選びます\n2. 作成ボタンを押し、出てきたリンクを渡します`,
 				goal: '相手がリンクを開くだけで家族に参加でき、すぐ一緒に使い始められます。',
 				tips: ['招待リンクには期限があり、参加が済むと自動で使えなくなります'],
 			},
@@ -2443,7 +2448,7 @@ export const PIN_RESET_EMAIL_LABELS = {
  */
 export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
-	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_SCREENS.home.name} のリンクをタップしてください。`,
+	dialogIntro: `${CHILD_TERMS.honorific}の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_SCREENS.home.name} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
 	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
@@ -2529,12 +2534,13 @@ export const SETTINGS_LABELS = {
 	decaySaved: 'ステータス減少設定を保存しました',
 
 	// 既定の子供
-	defaultChildSectionTitle: '🏠 既定の子供',
-	defaultChildDesc: 'ホーム画面（/）を開いたときに自動で表示する子供を選べます。',
+	defaultChildSectionTitle: `🏠 既定の${CHILD_TERMS.honorific}`,
+	// #4716: 生パス「（/）」を外す (顧客に URL を読ませない)
+	defaultChildDesc: `アプリを開いたときに自動で表示する${CHILD_TERMS.honorific}を選べます。`,
 	defaultChildDescNote: 'これは',
 	defaultChildDescNoteStrong: 'この端末ではなく、アカウント全体の既定',
 	defaultChildDescNoteSuffix: 'です。未設定のときは選択画面が表示されます。',
-	defaultChildUpdated: '既定の子供を更新しました',
+	defaultChildUpdated: `既定の${CHILD_TERMS.honorific}を更新しました`,
 	defaultChildNone: '未設定（毎回選択画面を表示）',
 	defaultChildSaveAction: '既定を保存',
 
@@ -2585,9 +2591,10 @@ export const SETTINGS_LABELS = {
 	dataSectionTitle: '💾 データ管理',
 	dataExportDesc: `家族のデータを${BACKUP_TERMS.file}としてダウンロードできます。${BACKUP_TERMS.exportNoun}や別環境への移行に使用できます。`,
 	dataExportTarget: `${BACKUP_TERMS.canonical}に含まれるもの:`,
-	dataExportItem1: '子供プロフィール・活動記録・ポイント履歴',
+	dataExportItem1: `${CHILD_TERMS.honorific}プロフィール・活動記録・ポイント履歴`,
 	dataExportItem2: 'ステータス・実績・称号・ログインボーナス',
-	dataExportItem3: 'チェックリスト・誕生日振り返り',
+	// #4716: 「誕生日振り返り」は export にも UI にも無い機能名だった
+	dataExportItem3: 'チェックリスト・おやくそく設定',
 	dataExportItem4: '活動マスタ・きせかえアイテム',
 	dataExportUpsellTitle: `🔒 データの${BACKUP_TERMS.exportNoun}は `,
 	// #1960 Phase 7 H3: terms.ts atom 参照化
@@ -2637,9 +2644,8 @@ export const SETTINGS_LABELS = {
 	dataImportMode: 'インポートモード',
 	dataImportModeReplace: '置換（既存データを削除してインポート）',
 	dataImportModeAdd: '追加（既存データを残して追加）',
-	dataImportModeReplaceWarning:
-		'既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。',
-	dataImportModeAddNote: '新しい子供データとして追加されます（既存データは上書きされません）。',
+	dataImportModeReplaceWarning: `既存の${CHILD_TERMS.honorific}・活動ログ・ポイント等のデータをすべて削除してからインポートします。`,
+	dataImportModeAddNote: `新しい${CHILD_TERMS.honorific}データとして追加されます（既存データは上書きされません）。`,
 	dataImportLoading: '読み込み中...',
 	dataImportSelectFile: `${BACKUP_TERMS.file}を選択`,
 	// #backup-terms: 不正ファイル選択時 (内部フォーマット名は出さず「バックアップファイル」で統一)
@@ -2659,7 +2665,7 @@ export const SETTINGS_LABELS = {
 	cloudImportNoChildren:
 		'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。',
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
-	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
+	dataImportPreviewChildren: (n: number | string | undefined) => `${CHILD_TERMS.honorific}: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
 	dataImportPreviewPointLedger: (n: number | string | undefined) => `ポイント履歴: ${n}件`,
 	dataImportPreviewStatuses: (n: number | string | undefined) => `ステータス: ${n}件`,
@@ -2669,13 +2675,12 @@ export const SETTINGS_LABELS = {
 	dataImportMoreItems: (n: number) => `...他 ${n}件`,
 	dataImportReplaceConfirm:
 		'既存データをすべて削除してからインポートします。この操作は取り消せません。',
-	dataImportAddConfirm:
-		'インポートすると新しい子供データとして追加されます。この操作は取り消せません。',
+	dataImportAddConfirm: `インポートすると新しい${CHILD_TERMS.honorific}データとして追加されます。この操作は取り消せません。`,
 	dataImportCancel: 'キャンセル',
 	dataImporting: 'インポート中...',
 	dataImportAction: 'インポートを実行',
 	dataImportComplete: 'インポート完了',
-	dataImportResultChildren: (n: number | string) => `子供: ${n}人 作成`,
+	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
@@ -2729,7 +2734,7 @@ export const SETTINGS_LABELS = {
 	cloudExportTypeTemplate: 'テンプレート（活動・チェックリスト）',
 	cloudExportTypeFull: 'フルバックアップ',
 	cloudExportTypeTemplateDesc: '活動設定やチェックリストのみ共有します（個人データは含みません）。',
-	cloudExportTypeFullDesc: '子供データ・活動ログ等すべてのデータを含みます。環境移行用です。',
+	cloudExportTypeFullDesc: `${CHILD_TERMS.honorific}データ・活動ログ等すべてのデータを含みます。環境移行用です。`,
 	cloudSaving: '保管中...',
 	cloudSaveAction: 'クラウドに保管',
 	cloudStoredTitle: '保管済みデータ',
@@ -2757,13 +2762,13 @@ export const SETTINGS_LABELS = {
 	cloudImportComplete: 'インポート完了',
 	cloudImportResultActivities: (n: number | string | unknown) => `活動マスタ: ${n}件 追加`,
 	cloudImportResultChecklists: (n: number | string | unknown) => `チェックリスト: ${n}件 追加`,
-	cloudImportResultChildren: (n: number | string | unknown) => `子供データ: ${n}人 追加`,
+	cloudImportResultChildren: (n: number | string | unknown) =>
+		`${CHILD_TERMS.honorific}データ: ${n}人 追加`,
 	cloudImportClose: '閉じる',
 
 	// データクリア
 	clearSectionTitle: '🗑️ データクリア',
-	clearDesc:
-		'すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。',
+	clearDesc: `すべての家族データ（${CHILD_TERMS.honorific}・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。`,
 	clearCurrentDataTitle: '現在のデータ件数',
 	clearIrreversibleWarning:
 		'この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。',
@@ -2846,9 +2851,10 @@ export const SETTINGS_LABELS = {
 	accountDeleteSectionTitle: 'アカウント削除',
 	accountDeleteOwnerDesc:
 		'オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。',
-	accountDeleteOwnerItem1: '子供のプロフィール・活動記録・ポイント履歴',
+	accountDeleteOwnerItem1: `${CHILD_TERMS.honorific}のプロフィール・活動記録・ポイント履歴`,
 	accountDeleteOwnerItem2: 'アバター画像・音声ファイル',
-	accountDeleteOwnerItem3: '設定・チェックリスト・キャリアプラン',
+	// #4716: 「キャリアプラン」は存在しない機能名だった
+	accountDeleteOwnerItem3: '設定・チェックリスト・おやくそく設定',
 	accountDeleteOwnerItem4: 'メンバーシップ・招待情報',
 	// #4496: 猶予の有無はプランで異なる (無料は 0 日 = 申請と同時に削除) ため、本文で猶予に
 	//   言及しない。プラン別の事実は accountDeleteGraceNotice が述べる (直下に並ぶので、
@@ -2889,9 +2895,10 @@ export const SETTINGS_LABELS = {
 	hubTitle: '設定',
 	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
-	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
+	// #4716: atom (OYAKAGI_TERMS.name = おやカギコード) の別表記複製を解消
+	groupAccountDesc: `${OYAKAGI_TERMS.name}の変更・ログアウト・アカウント削除`,
 	groupActivitiesTitle: '活動・ポイント',
-	groupActivitiesDesc: 'ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ',
+	groupActivitiesDesc: `ステータス減少・ポイント表示・既定の${CHILD_TERMS.honorific}・きょうだいチャレンジ`,
 	groupNotificationsTitle: '通知',
 	groupNotificationsDesc: 'リマインダー・ストリーク警告・サイレント時間帯',
 	groupDataTitle: 'データ',
@@ -2907,7 +2914,7 @@ export const SETTINGS_LABELS = {
 	backToHub: '← 設定トップへ',
 
 	// Danger Zone (#2319 子#2 / #4 GitHub パターン)
-	dangerZoneTitle: '危険な操作 (Danger Zone)',
+	dangerZoneTitle: '危険な操作',
 	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
@@ -3143,7 +3150,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	standardPlanName: `${PLAN_TERMS.standard}`,
-	standardPlanDesc: `子供無制限・活動無制限・${PLAN_RETENTION_TERMS.standard}保持`,
+	standardPlanDesc: `${CHILD_TERMS.honorific}無制限・活動無制限・${PLAN_RETENTION_TERMS.standard}保持`,
 	standardPriceMonthly: `${PRICE_TERMS.standard}`,
 	standardPerMonth: '/月',
 	// #3208: standardPriceYearly / standardPerYear / standardYearlyMonthlyEquiv は
@@ -3208,7 +3215,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	demoCurrentPlanTitle: '現在のプラン（デモ）',
 	demoPlanUsageTitle: 'プラン利用状況',
 	demoPlanUsageActivity: 'カスタム活動',
-	demoPlanUsageChildren: 'こども',
+	demoPlanUsageChildren: `${CHILD_TERMS.honorific}`,
 	demoPlanUsageRetention: 'データ保持',
 	demoPlanUsageRetentionValue: (days: number | null) => (days === null ? '無制限' : `${days}日間`),
 	demoPlanUsageMaxValue: (max: number | null) => (max === null ? '無制限' : String(max)),
@@ -3319,7 +3326,7 @@ export const NUC_LICENSE_LABELS = {
 
 	// 利用状況セクション
 	usageTitle: 'ご家族の利用状況',
-	usageChildrenLabel: 'こども',
+	usageChildrenLabel: `${CHILD_TERMS.honorific}`,
 	usageChildrenUnit: (count: number) => `${count} 人`,
 	usageActivitiesLabel: 'カスタム活動',
 	usageActivitiesValue: (count: number) => `${count} 件 (${NUC_EDITION_TERMS.unlimited})`,
@@ -3676,7 +3683,7 @@ export const SIGNUP_LABELS = {
 	crossBorderAgreeLink: '詳細',
 	crossBorderAgreeSuffix: '）',
 	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
-	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
+	parentalConsentNote: `※ 本サービスは${CHILD_TERMS.honorific}のデータを扱います。保護者として上記に同意してください。`,
 	submitLoading: '登録中...',
 	submitWithTrial: `${TRIAL_TERMS.duration} 無料体験をはじめる`,
 	submitFree: '無料ではじめる',
@@ -3886,8 +3893,7 @@ export const CANCELLATION_LABELS = {
 
 	// 3 categories - radio button options
 	categoryGraduationLabel: '卒業',
-	categoryGraduationHint:
-		'子供が自分で計画できるようになった・がんばりクエストを使う必要がなくなった',
+	categoryGraduationHint: `${CHILD_TERMS.honorific}が自分で計画できるようになった・がんばりクエストを使う必要がなくなった`,
 	categoryChurnLabel: '離反',
 	categoryChurnHint: '機能が合わない・期待と違った',
 	categoryPauseLabel: '中断',
@@ -4411,7 +4417,8 @@ export const CHALLENGES_LABELS = {
 	noChallengeTitle: 'チャレンジはまだありません',
 	badgeAllCompleted: '全員クリア！',
 	badgeActive: '開催中',
-	rewardLabel: (points: number) => `報酬${points}P`,
+	// #4716: 同じものを「報酬」「ほうしゅう」「ごほうび」の 3 語で呼んでいた。ごほうびに寄せる。
+	rewardLabel: (points: number) => `${REWARD_TERMS.canonical}${points}P`,
 	deleteButton: '削除',
 	dateSeparator: ' 〜 ',
 	periodLabelWeekly: '週間',
@@ -4460,7 +4467,7 @@ export const LOGIN_LABELS = {
 	devAccountsSummary: 'テスト用アカウント',
 	devAccountOwnerRole: '(管理者)',
 	devAccountParentRole: '(親)',
-	devAccountChildRole: '(子供)',
+	devAccountChildRole: `(${CHILD_TERMS.honorific})`,
 } as const;
 
 // ============================================================
@@ -4486,7 +4493,7 @@ export const MEMBERS_LABELS = {
 	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
 	inviteEmailLabel: '宛先メールアドレス（任意）',
 	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
-	inviteChildLabel: '対象の子供（任意）',
+	inviteChildLabel: `対象の${CHILD_TERMS.honorific}（任意）`,
 	inviteChildNone: '-- 後で紐づけ --',
 	inviteCreateLoading: '作成中...',
 	inviteCreateButton: '招待リンクを作成',
@@ -4651,8 +4658,9 @@ export const GROWTH_BOOK_LABELS = {
 	annualSummaryTitle: '📊 年間サマリー',
 	statActivities: '活動回数',
 	statPoints: '獲得ポイント',
-	statMaxStreak: 'さいちょうストリーク',
-	statCertificates: 'しょうめいしょ',
+	// #4716: 同じ表の中で「活動回数 / 獲得ポイント」(漢字) と混在していた
+	statMaxStreak: '最長連続日数',
+	statCertificates: `${ADMIN_SCREENS.certificates.name}`,
 	bestMonthLabel: 'いちばんがんばった月: ',
 	bestCategoryLabel: 'とくいなカテゴリ: ',
 
@@ -4667,7 +4675,7 @@ export const GROWTH_BOOK_LABELS = {
 
 	// Empty states
 	noChildrenEmoji: '👧',
-	noChildrenText: '子供が登録されていません',
+	noChildrenText: `${CHILD_TERMS.honorific}が登録されていません`,
 	noDataEmoji: '📖',
 	noDataText: 'データがありません',
 
@@ -4913,10 +4921,8 @@ export const STATUS_LABELS = {
 
 	// Benchmark info box
 	benchmarkInfoTitle: 'ベンチマークとは？',
-	benchmarkInfoDesc1:
-		'子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。',
-	benchmarkInfoDesc2:
-		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
+	benchmarkInfoDesc1: `${CHILD_TERMS.honorific}のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。`,
+	benchmarkInfoDesc2: `設定すると、${CHILD_TERMS.honorific}の画面に「みんなよりすごい！」などの比較メッセージが表示されます。`,
 
 	// Preview label
 	previewLabel: 'プレビュー:',
@@ -4925,7 +4931,7 @@ export const STATUS_LABELS = {
 	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
 		`${age}歳の目安: 平均 ${meanLow}〜${meanHigh} XP、SD ${sdLow}〜${sdHigh}（XPベース）`,
 	benchmarkUnsetWarning: (age: number) =>
-		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。`,
+		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると${CHILD_TERMS.honorific}の画面の比較メッセージが正しく機能します。`,
 	benchmarkSaveButton: '保存',
 	benchmarkSaveSuccess: 'ベンチマークを更新しました',
 
@@ -5085,7 +5091,8 @@ export const REWARDS_LABELS = {
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
 	// (pageDescHint*) のみ page-description カードに残す。
-	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
+	// #4716: 生パス「/admin/cheer」を本文から外し、直下のリンク (pageDescHint*) に集約する
+	pageDescText2: `突発のごほうびは${ADMIN_SCREENS.cheer.name}から送れます。`,
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	// #4715: 着地先は /admin/cheer。旧「おうえんメッセージ」は同画面の別名で、
 	//   リンク先も旧 URL /admin/messages (308 redirect) を指していた。
@@ -5093,7 +5100,7 @@ export const REWARDS_LABELS = {
 	pageDescHintSuffix: 'から送れます',
 	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
 	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
-	selectChildTitle: 'こどもを選択',
+	selectChildTitle: `${CHILD_TERMS.honorific}を選択`,
 	selectTemplateTitle: 'プリセットを選択',
 	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,
 	// #2268: 検索 UI
@@ -5194,7 +5201,7 @@ export const CHEER_LABELS = {
 	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
 	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
-	selectChildTitle: '1. こどもを選択',
+	selectChildTitle: `1. ${CHILD_TERMS.honorific}を選択`,
 	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
 	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
 	reasonHint: '100文字以内',
@@ -5214,8 +5221,8 @@ export const CHEER_LABELS = {
 	recentMessagesTitle: '最近のメッセージ（旧履歴含む）',
 	msgRead: '既読',
 	msgUnread: '未読',
-	noChildrenTitle: 'まずこどもを登録してください',
-	noChildrenDesc: '「こども」タブから登録できます',
+	noChildrenTitle: `まず${CHILD_TERMS.honorific}を登録してください`,
+	noChildrenDesc: `「${CHILD_TERMS.honorific}」タブから登録できます`,
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
 	presetTitle: `よくある${CHEER_TERMS.canonical}`,
 	// 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥)
@@ -5259,7 +5266,7 @@ export const CHEER_LABELS = {
 	errorReasonTooLong: '理由は100文字以内で入力してください',
 	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
 	errorCategoryRequired: 'カテゴリを選択してください',
-	errorChildRequired: 'こどもを選択してください',
+	errorChildRequired: `${CHILD_TERMS.honorific}を選択してください`,
 } as const;
 
 // ============================================================
@@ -5403,12 +5410,12 @@ export const SETUP_COMPLETE_LABELS = {
 	descPart1: 'ぼうけんじゅんびが',
 	descPart2: 'かんりょうしたよ！',
 	childCountUnit: '人',
-	childCountLabel: 'こども',
+	childCountLabel: `${CHILD_TERMS.honorific}`,
 	activityCountUnit: 'こ',
 	activityCountLabel: 'かつどう',
 	nextMissionLabel: 'つぎのミッション',
 	nextMissionText: '「きょうの がんばりを 3つ きろくしよう！」',
-	ctaPrimary: 'こどもがめんをひらく',
+	ctaPrimary: `${CHILD_TERMS.honorific}がめんをひらく`,
 	ctaSecondary: 'おやのせっていをみる',
 	pinHintPrefix: `💡 ${ADMIN_VIEW_TERMS.canonical}の「せってい」から`,
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
@@ -5470,11 +5477,11 @@ export const DEMO_ADMIN_HOME_LABELS = {
 } as const;
 
 export const SETUP_CHILDREN_LABELS = {
-	pageTitle: '子供を登録しよう',
-	pageDesc: 'がんばりクエストを使う子供を登録してください（1人以上）。',
+	pageTitle: `${CHILD_TERMS.honorific}を登録しよう`,
+	pageDesc: `がんばりクエストを使う${CHILD_TERMS.honorific}を登録してください（1人以上）。`,
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
-	addFormTitle: '子供を追加',
+	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
 	themeColorLabel: 'テーマカラー',
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
@@ -5482,11 +5489,11 @@ export const SETUP_CHILDREN_LABELS = {
 	addButton: '追加する',
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
-	addSuccessMessage: '子供を登録しました！',
+	addSuccessMessage: `${CHILD_TERMS.honorific}を登録しました！`,
 } as const;
 
 export const ADMIN_CHILDREN_LABELS = {
-	addButton: '+ こどもを追加',
+	addButton: `+ ${CHILD_TERMS.honorific}を追加`,
 	backToList: '← 一覧に戻る',
 	statAgeLabel: '年齢',
 	statAgeTierLabel: '年齢区分',
@@ -5521,10 +5528,10 @@ export const ACTIVITY_FORM_LABELS = {
 	dailyLimitHint: '「無制限」なら何回でも記録できます',
 	nameKanaLabel: 'ひらがな表記（省略可）',
 	nameKanaPlaceholder: '例: おかたづけした',
-	nameKanaHint: '6歳未満の子供に表示する名前',
+	nameKanaHint: `6歳未満の${CHILD_TERMS.honorific}に表示する名前`,
 	nameKanjiLabel: '漢字表記（省略可）',
 	nameKanjiPlaceholder: '例: お片付けをした',
-	nameKanjiHint: '6歳以上の子供に表示する名前',
+	nameKanjiHint: `6歳以上の${CHILD_TERMS.honorific}に表示する名前`,
 	triggerHintLabel: 'トリガーヒント（省略可）',
 	triggerHintPlaceholder: '例: はみがきが終わったら押してね',
 	triggerHintHint: 'カードに小さく表示される声かけ文（30文字以内）',
@@ -5542,14 +5549,13 @@ export const ACTIVITY_FORM_LABELS = {
 	editNameKanaLabel: 'ひらがな表記',
 	editNameKanjiLabel: '漢字表記',
 	editKanaPlaceholderOptional: '省略可',
-	editTriggerHintLabel: '子供へのヒント（いつ押すか）',
+	editTriggerHintLabel: `${CHILD_TERMS.honorific}へのヒント（いつ押すか）`,
 	editTriggerHintPlaceholder: 'はみがきが終わったら押してね',
 	editTriggerHintNote: 'カードの下に小さく表示されます（30文字まで）',
 	editSaveButton: '保存',
 	editDeleteButton: '削除',
 	deleteHasLogsTitle: (count: number) => `この活動には ${count} 件の記録があります`,
-	deleteHasLogsExplain:
-		'記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。',
+	deleteHasLogsExplain: `記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は${CHILD_TERMS.honorific}の画面に表示されなくなりますが、過去の記録はそのまま残ります。`,
 	deleteNoLogsConfirm: '本当に削除しますか？',
 	deleteNoLogsExplain: 'この活動は完全に削除されます。この操作は取り消せません。',
 	deleteHideButton: '非表示にする',
@@ -5587,13 +5593,13 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
 	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
 	// 選択中 child banner
 	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}の活動を表示します`,
 	// copy dialog
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}から活動をコピー`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('活動'),
 	copyDialogDescPrefix: 'コピー元の',
 	copyDialogDescSuffix: 'を選んでください (コピー先: ',
 	copyDialogDescCloseParen: ')',
@@ -5701,12 +5707,12 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
 	// 選択中 child banner
 	childContextRewardsSuffix: (count: number) => `のごほうび (${count} 件)`,
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のごほうびを表示します`,
 	// copy dialog
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}からごほうびをコピー`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('ごほうび'),
 	copyDialogDescPrefix: 'コピー元の',
 	copyDialogDescSuffix: 'を選んでください (コピー先: ',
 	copyDialogDescCloseParen: ')',
@@ -5732,7 +5738,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
 	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
-	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
+	// #4716: 「shop」(英語 + 内部語) を実画面名 atom (CHILD_SHOP_TERMS.pageName) に
+	headerDescription: `${CHILD_TERMS.honorific}の${CHILD_SHOP_TERMS.pageName}に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します`,
 	addMenuButton: '+ 追加',
 	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
 	addManualLabel: '手動で1つ追加',
@@ -5772,8 +5779,7 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
 	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
 	shopCategoryLabel: 'ショップの並び（タブ）',
-	shopCategoryHint:
-		'子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
+	shopCategoryHint: `${CHILD_TERMS.honorific}のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）`,
 	shopCategoryAuto: '自動で振り分け',
 	shopCategoryPhysical: 'もの（おもちゃ・おやつなど）',
 	shopCategoryMoney: 'おこづかい',
@@ -5802,8 +5808,8 @@ export const ADMIN_HOME_LABELS = {
 	tutorialLaterButton: 'あとで',
 	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
-	summaryChildrenAria: '登録こども数',
-	summaryChildrenLabel: 'こどもの数',
+	summaryChildrenAria: `登録${CHILD_TERMS.honorific}数`,
+	summaryChildrenLabel: `${CHILD_TERMS.honorific}の数`,
 	summaryPointsAria: '全ポイント合計',
 	summaryPointsTotalPrefix: '合計',
 	monthLabel: (year: string, month: string) => `${year}年${month}月`,
@@ -5820,8 +5826,8 @@ export const ADMIN_HOME_LABELS = {
 	monthlyAchievementsUnit: '獲得',
 	todayUsageHeading: '⏱️ ',
 	weeklyUsageHeading: '📈 ',
-	childrenSectionTitle: 'こども一覧',
-	childrenEmpty: 'まだこどもが登録されていません',
+	childrenSectionTitle: `${CHILD_TERMS.honorific}一覧`,
+	childrenEmpty: `まだ${CHILD_TERMS.honorific}が登録されていません`,
 	demoCtaTitle: 'いかがでしたか？',
 	demoCtaHint: 'お子さまの「がんばり」を冒険に変えませんか？',
 	demoCtaButton: '無料で はじめる →',
@@ -5917,10 +5923,10 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	multiplierApplyButton: '適用',
 	bonusFormulaPreview: (age: number, multiplier: number) =>
 		`→ ${age}歳 × 100pt × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)}pt`,
-	deleteConfirmText: 'この子供を本当に削除しますか？',
+	deleteConfirmText: `この${CHILD_TERMS.honorific}を本当に削除しますか？`,
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',
-	deleteOpenButton: '🗑 この子供を削除',
+	deleteOpenButton: `🗑 この${CHILD_TERMS.honorific}を削除`,
 	editButton: '✏️ 編集',
 	// Tabs
 	tabInfo: '📋 基本情報',
@@ -5991,12 +5997,12 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
 	placeholderAvatarSkippedDesc:
 		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
-	limitBannerTitle: 'こどもの登録上限に達しています',
+	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
 	cancelButton: 'キャンセル',
 	limitReachedButton: '上限に達しています',
-	addFormTitle: 'こどもを追加',
+	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
 	nicknameLabel: 'ニックネーム',
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
@@ -6020,7 +6026,7 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	childTabAllAriaLabel: 'すべてのお子さま',
 	// 一括追加 / cross-child copy
 	bulkAddAction: '全員にこのチャレンジを追加',
-	copyFromOtherChildAction: '他のお子さまから取り込む',
+	copyFromOtherChildAction: COPY_FROM_CHILD_LABELS.action,
 	copyConfirmTitle: (sourceName: string, targetCount: number) =>
 		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
 	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
@@ -6428,6 +6434,15 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	namePlaceholderItem: '例: がっこうのもちもの',
 	inactiveBadge: '無効',
 	deleteButton: '削除',
+	// #4716: 旧実装は native confirm('削除しますか？') で、対象名も配信先も出ないうえ
+	//   `use:enhance` 下では preventDefault が無視され「キャンセルしても削除される」状態だった
+	//   (#4023 と同 class)。Dialog primitive + 対象名 / 配信先の明示に置き換える。
+	deleteConfirmTitle: 'このチェックリストを削除しますか？',
+	deleteConfirmBody: (templateName: string, childNames: string) =>
+		`「${templateName}」を削除します。${childNames}の画面から消え、元に戻せません。`,
+	deleteConfirmBodyNoChild: (templateName: string) =>
+		`「${templateName}」を削除します。元に戻せません。`,
+	deleteConfirmAccept: '削除する',
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
@@ -6524,7 +6539,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
 	copyFromChildMenuLabel: `他の${CHILD_TERMS.honorific}から取り込む`,
 	copyFromChildMenuIcon: '📋',
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}のチェックリストを取り込む`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('チェックリスト'),
 	copyDialogDescPrefix: 'コピー元を選んでください（コピー先: ',
 	copyDialogDescSuffix: '）',
 	copyDialogSelectedPlaceholder: '—',
@@ -7473,7 +7488,8 @@ export const LP_CORELOOP_LABELS = {
 // ============================================================
 
 export const CHILD_SHOP_LABELS = {
-	pageTitle: 'ごほうびショップ',
+	// #4716: 親画面の説明文 (ADMIN_REWARDS_PAGE_LABELS.headerDescription) と同じ atom から引く
+	pageTitle: `${CHILD_SHOP_TERMS.pageName}`,
 	navLabel: 'ショップ',
 	navIcon: '🎁',
 	pointBalanceLabel: 'いまのポイント',
@@ -7591,13 +7607,15 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 // ============================================================
 
 export const ADMIN_REWARDS_REQUESTS_LABELS = {
-	pageTitle: '📋 ごほうび申請承認',
-	pageDescTitle: '📋 ごほうび申請承認',
-	pageDescText: '子供からの交換申請に承認/却下します。',
-	backToRewardsLabel: '← ごほうび管理に戻る',
-	pendingSectionTitle: 'Pending',
+	// #4716: 他の admin title に絵文字が無いため揃える (title は絵文字なし / 画面内見出しに絵文字)
+	pageTitle: 'ごほうび申請承認',
+	pageDescTitle: `${CONCEPT_ICONS.reward} ごほうび申請承認`,
+	pageDescText: `${CHILD_TERMS.honorific}からの交換申請を承認 / 却下します。`,
+	backToRewardsLabel: `← ${ADMIN_SCREENS.rewards.name}に戻る`,
+	// #4716: 英語の節見出し (Pending / History) を日本語に
+	pendingSectionTitle: '承認待ち',
 	pendingCountSuffix: (count: number) => `${count} 件`,
-	historySectionTitle: 'History（直近30件）',
+	historySectionTitle: 'これまでの申請（直近30件）',
 	emptyPendingMessage: '申請はありません',
 	emptyHistoryMessage: '履歴はありません',
 	approveButton: '承認して渡した',
@@ -7605,7 +7623,8 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	rejectNoteLabel: '却下理由（任意・最大100文字）',
 	rejectConfirmButton: '確定',
 	rejectCancelButton: 'キャンセル',
-	requestedAtLabel: '申請日時',
+	// #4716: 表示は日付のみ (時刻を出していない) ため「日時」を名乗らない
+	requestedAtLabel: '申請日',
 	rewardPointsUnit: 'ポイント',
 	statusApproved: '承認済み',
 	statusRejected: '却下済み',
@@ -8107,12 +8126,11 @@ export const FEATURES_LABELS = {
 	challenge: {
 		// SiblingCelebration
 		celebrationTitle: 'みんなクリア！',
-		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
+		celebrationClaimBtn: `${CONCEPT_ICONS.reward} ごほうびをうけとる！`,
 		celebrationCloseBtn: 'とじる',
 		// #4410 AC4: 閉じたあとどこで受け取るのかをダイアログ内で示す。claim ボタン自体は
 		// 戻さない (#3333 の二重導線排除を壊さない) — 場所の案内だけを置く。
-		celebrationClaimHint:
-			'ごほうびは とじたあと したの「🎁 ほうしゅうをうけとる！」ボタンから うけとれるよ',
+		celebrationClaimHint: `ごほうびは とじたあと したの「${CONCEPT_ICONS.reward} ごほうびをうけとる！」ボタンから うけとれるよ`,
 		// #3361 (ux-4): claim 失敗時の可視フィードバック (dead-end 回避、NN/G #1)
 		claimErrorTitle: 'うけとれなかったよ',
 		claimErrorFallback: 'もういちど ためしてね',
@@ -8218,8 +8236,7 @@ export const FEATURES_LABELS = {
 	aiSuggestCheer: {
 		title: '✨ どんな出来事だった？',
 		kind: 'AI 応援提案',
-		description:
-			'子供のがんばりや出来事を入力すると、応援ポイント・カテゴリ・アイコンを自動で提案します',
+		description: `${CHILD_TERMS.honorific}のがんばりや出来事を入力すると、応援ポイント・カテゴリ・アイコンを自動で提案します`,
 		placeholder: '例: 運動会で1位、テストで100点、お皿を進んで洗った',
 		acceptBtn: 'この内容で応援を送る',
 		reasonLabel: '理由',
@@ -8243,7 +8260,7 @@ export const FEATURES_LABELS = {
 		pageGuideTitle: 'このページの使い方',
 		tutorialRestartTitle: 'チュートリアルを開始',
 		demoTopLink: 'デモトップ',
-		switchToChild: '子供画面へ',
+		switchToChild: `${CHILD_TERMS.honorific}の画面へ`,
 		desktopNavAriaLabel: '管理メニュー',
 		mobileNavAriaLabel: 'メインナビゲーション',
 		mobileMenuCloseAriaLabel: 'メニューを閉じる',
@@ -8294,7 +8311,7 @@ export const FEATURES_LABELS = {
 		addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
 		addBrowseTemplatesIcon: '🔍',
 		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
-		addCopyFromChildLabel: `別の${CHILD_TERMS.honorific}からコピー`,
+		addCopyFromChildLabel: COPY_FROM_CHILD_LABELS.action,
 		addCopyFromChildIcon: '📋',
 		addBulkLabel: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
 		addBulkIcon: '👨‍👩‍👧‍👦',
@@ -8388,7 +8405,7 @@ export const FEATURES_LABELS = {
 		retentionDays: (days: number) => `${formatRetentionPeriod(days)}間`,
 		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
 		statCustomActivity: 'カスタム活動',
-		statChildren: 'こども',
+		statChildren: `${CHILD_TERMS.honorific}`,
 		statRetention: 'データ保持',
 		trialNote: (tierLabel: string) =>
 			`${tierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。`,
@@ -9781,7 +9798,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
 	// #4714: 実画面 (/admin/children) のタイトルは NAV_ADMIN_LABELS.children = 「こども管理」。
 	//   alt を画面名と一致させる (顧客が SS と画面を結び付けられるようにする)。
-	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — ${CHILD_TERMS.honorific}の登録と切り替え`,
+	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — 登録と切り替え`,
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -10367,14 +10384,14 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	itemCountSuffix: (count: number) => `（${count} 件）`,
 	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,
 	// childId 未選択時の警告 (reward-set / checklist 等 requiresChildId === true で表示)
-	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
+	childRequiredHint: `※ 対象の${CHILD_TERMS.honorific}を選んでから取り込みできます。`,
 	// preset 内アイテム数と対象年齢の連結 separator
 	itemAgeSeparator: '・',
 	// 既に取込済みの preset に表示するバッジ (#2391 Phase 2/3)
 	importedBadge: '取込済み',
 	// type 選択時のヒント
 	typeHintActivityPack: 'プリセット活動を一括で追加します。',
-	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',
+	typeHintRewardSet: `ごほうびテンプレートを${CHILD_TERMS.honorific}ごとに一括登録します。`,
 	typeHintChecklist: '持ち物チェックリストのテンプレートを取り込みます。',
 	typeHintRulePreset: 'ポイント交換や連続ボーナス等のルールを取り込みます。',
 	typeHintChallengeSet: '家族で取り組むチャレンジ集を一括で追加します。',
@@ -10389,7 +10406,7 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	addBtn: '＋ 新しく作る',
 	importBtn: '📥 取り込みで追加する',
 	// Reward / Checklist 等で childId 必須な場合の補助文言
-	pickChildHint: '対象の子供を選んでから取り込みできます。',
+	pickChildHint: `対象の${CHILD_TERMS.honorific}を選んでから取り込みできます。`,
 	disabledReason: '権限が不足しています',
 } as const;
 

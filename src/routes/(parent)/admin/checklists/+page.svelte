@@ -439,18 +439,60 @@ $effect(() => {
 	}
 });
 
+// #4716 (#4023 と同 class): 削除確認を Dialog primitive に置き換える。
+//   旧実装は `onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}` だったが、
+//   `use:enhance` の submit handler は preventDefault を見ないため **キャンセルしても削除されていた**。
+//   確認済みの form だけ 1 回素通しし、それ以外は cancel() する形にする。
+type PendingChecklistDelete = { formEl: HTMLFormElement; title: string; body: string };
+let pendingDelete = $state<PendingChecklistDelete | null>(null);
+let deleteConfirmOpen = $state(false);
+let confirmedDeleteForm: HTMLFormElement | null = null;
+
+/** 配信先の子供名を読める形にする (未配信なら null)。 */
+function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null {
+	const names = data.children.filter((c) => assignedChildIds.includes(c.id)).map((c) => c.nickname);
+	return names.length > 0 ? names.join('・') : null;
+}
+
+function passDeleteConfirm(
+	formEl: HTMLFormElement,
+	templateName: string,
+	assignedChildIds: readonly ChildId[],
+): boolean {
+	if (confirmedDeleteForm === formEl) {
+		confirmedDeleteForm = null;
+		return true;
+	}
+	const names = assignedChildNames(assignedChildIds);
+	pendingDelete = {
+		formEl,
+		title: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
+		body: names
+			? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
+			: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBodyNoChild(templateName),
+	};
+	deleteConfirmOpen = true;
+	return false;
+}
+
+function acceptDeleteConfirm() {
+	const p = pendingDelete;
+	deleteConfirmOpen = false;
+	pendingDelete = null;
+	if (!p) return;
+	confirmedDeleteForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissDeleteConfirm() {
+	deleteConfirmOpen = false;
+	pendingDelete = null;
+}
+
 // OverflowMenu items
 const overflowItems = $derived<OverflowMenuItem[]>([
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
-		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
-		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
-		onSelect: () => {
-			window.location.href = '/marketplace?type=checklist';
-		},
-	},
-	{ type: 'divider', id: 'divider-1' },
+	// #4716: 「みんなのテンプレから取込」は + 追加 dropdown の「みんなのテンプレートから探す」と
+	//   同じ遷移先の重複導線だったため撤去 (活動 / ごほうびの ︙ にも無い)。
 	{
 		type: 'action',
 		id: OVERFLOW_MENU_LABELS.items.restore.id,
@@ -991,14 +1033,25 @@ function getChildName(childId: ChildId): string {
 								{template.isActive ? '無効化' : '有効化'}
 							</Button>
 						</form>
-						<form method="POST" action="?/deleteTemplate" use:enhance={() => async () => invalidateAll()}>
+						<form
+							method="POST"
+							action="?/deleteTemplate"
+							use:enhance={({ formElement, cancel }) => {
+								// #4716: 削除は取り消せないので確認を 1 枚挟む (対象名 + 配信先を明示)
+								if (!passDeleteConfirm(formElement, template.name, template.assignedChildIds)) {
+									cancel();
+									return;
+								}
+								return async () => invalidateAll();
+							}}
+						>
 							<input type="hidden" name="templateId" value={template.id} />
 							<Button
 								type="submit"
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
-								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
+								data-testid="checklist-template-delete-{template.id}"
 							>
 								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
@@ -1512,6 +1565,43 @@ function getChildName(childId: ChildId): string {
 		</div>
 	{/if}
 </Dialog>
+
+<!-- #4716 (#4023 と同 class): 削除確認ダイアログ (DESIGN.md §5 Dialog primitive)。
+     旧 native confirm は use:enhance 下で preventDefault が効かず「キャンセルしても削除」だった。 -->
+<Dialog
+	bind:open={deleteConfirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissDeleteConfirm();
+	}}
+	title={pendingDelete?.title ?? ''}
+	size="md"
+	testid="admin-checklists-delete-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingDelete?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			onclick={dismissDeleteConfirm}
+			data-testid="admin-checklists-delete-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="danger"
+			size="sm"
+			onclick={acceptDeleteConfirm}
+			data-testid="admin-checklists-delete-confirm-accept"
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmAccept}
+		</Button>
+	</div>
+</Dialog>
+
 
 <style>
 	/* #3079: restore/export dialog (comments use ASCII for local/no-hardcoded-jp-text in style) */
