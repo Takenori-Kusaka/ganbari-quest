@@ -63,7 +63,7 @@ function planTenants(rows: OpsPlanRow[]): Record<string, number> {
 	return Object.fromEntries(rows.map((r) => [r.plan, r.tenants]));
 }
 
-function planMrr(rows: OpsPlanRow[]): Record<string, number> {
+function planMrr(rows: OpsPlanRow[]): Record<string, number | null> {
 	return Object.fromEntries(rows.map((r) => [r.plan, r.mrr]));
 }
 
@@ -211,7 +211,8 @@ describe('getKpiSummary', () => {
 			yearly: 0,
 			'family-monthly': 1560,
 			'family-yearly': 650,
-			lifetime: 0,
+			// 買い切りは経常収益の対象外 (0 ではなく null)
+			lifetime: null,
 		});
 		expect(result.tenantStats.totalMrr).toBe(500 + 1560 + 650);
 	});
@@ -228,7 +229,7 @@ describe('getKpiSummary', () => {
 			yearly: 0,
 			'family-monthly': 0,
 			'family-yearly': 0,
-			lifetime: 0,
+			lifetime: null,
 		});
 		expect(result.tenantStats.totalMrr).toBe(500);
 	});

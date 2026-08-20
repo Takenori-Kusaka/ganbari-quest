@@ -16,7 +16,7 @@
 // **組み立てを呼ぶのは集計側 (ops-service) だけ**で、画面は返ってきた行を描くだけにする
 // (画面が自分で単価を掛け直すと、それ自体が 2 つ目の集計になる)。
 
-import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
+import { isRecurringPlan, PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
 import {
 	ALL_SUBSCRIPTION_PLANS,
 	type SubscriptionPlan,
@@ -26,8 +26,11 @@ import {
 export interface OpsPlanRow {
 	plan: SubscriptionPlan;
 	tenants: number;
-	/** 月次収益への寄与 (買い切りは 0 = 画面では「-」)。 */
-	mrr: number;
+	/**
+	 * 月次収益への寄与。**`null` は「経常収益の対象外」** (買い切り) で、`0` (契約 0 件の
+	 * 月額プラン) とは意味が違う。画面は前者を「-」、後者を「¥0」と描く。
+	 */
+	mrr: number | null;
 }
 
 /**
@@ -40,7 +43,7 @@ export function buildOpsPlanRows(tenantsByPlan: Record<SubscriptionPlan, number>
 	return ALL_SUBSCRIPTION_PLANS.map((plan) => ({
 		plan,
 		tenants: tenantsByPlan[plan],
-		mrr: tenantsByPlan[plan] * PLAN_MRR_UNIT_YEN[plan],
+		mrr: isRecurringPlan(plan) ? tenantsByPlan[plan] * PLAN_MRR_UNIT_YEN[plan] : null,
 	}));
 }
 
@@ -51,5 +54,5 @@ export function buildOpsPlanRows(tenantsByPlan: Record<SubscriptionPlan, number>
  * 存在しえなくなる (#4505 の実害はまさにそれの裏返しで、プレミアムが行にも合計にも無かった)。
  */
 export function sumOpsPlanMrr(rows: readonly OpsPlanRow[]): number {
-	return rows.reduce((sum, row) => sum + row.mrr, 0);
+	return rows.reduce((sum, row) => sum + (row.mrr ?? 0), 0);
 }

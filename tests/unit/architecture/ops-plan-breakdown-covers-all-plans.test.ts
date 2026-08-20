@@ -55,8 +55,10 @@ describe('#4505 /ops プラン内訳は全プランを必ず出す', () => {
 
 		expect(byPlan['family-monthly']?.tenants).toBe(3);
 		expect(byPlan['family-monthly']?.mrr).toBe(3 * PLAN_MRR_UNIT_YEN['family-monthly']);
-		// 買い切りは月次収益に寄与しない (画面では「-」)
-		expect(byPlan.lifetime?.mrr).toBe(0);
+		// 買い切りは経常収益の対象外 = null (画面では「-」)。契約 0 件の月額プラン (¥0) と
+		// 意味が違うので、0 に丸めない
+		expect(byPlan.lifetime?.mrr).toBeNull();
+		expect(buildOpsPlanRows({ ...COUNTS, monthly: 0 })[0]?.mrr).toBe(0);
 	});
 
 	it('合計は行の和である (行に出ているのに合計から漏れるプランが作れない)', () => {
