@@ -103,13 +103,13 @@ export interface DeletionWarningRunResult {
 	failedRecipients: number;
 	errors: number;
 	/**
-	 * 物理削除が停止中のため 1 通も送らずに終えたか (#4721)。
+	 * 物理削除が停止中のため「削除を断定しない文面」で送ったか (#4721)。
 	 *
-	 * 削除が走らない配備で「削除予定日: X（あと N 日）」を告げるのは顧客への嘘になるため、
-	 * 予告メールは削除と同じ feature flag で止める。**止まったことを観測可能にする**
-	 * (silent skip にすると「なぜ届かないのか」が誰にも分からない)。
+	 * 便は止めない (猶予中に「まだ戻せる」ことを思い出す接点がこれしかない) が、
+	 * 削除されない日付を「削除予定日」と呼ぶのは嘘なので文面を切り替える。
+	 * **どちらの文面で送ったかを観測可能にする** (silent に切り替わると差異を追えない)。
 	 */
-	skippedPhysicalDeletionDisabled: boolean;
+	retentionOnlyWording: boolean;
 	/** limit / 時間予算により今回処理せず次回実行へ持ち越した件数 */
 	tenantsRemaining: number;
 	dryRun: boolean;
@@ -255,6 +255,8 @@ async function processTenant(
 			ownerName: recipient.displayName || tenant.tenantName,
 			deletionDate,
 			daysRemaining,
+			// #4721: 削除が走らない配備では削除を断定しない文面にする
+			retentionOnly: isPhysicalDeletionDisabled(),
 		});
 		if (ok) {
 			successCount++;
@@ -360,28 +362,32 @@ export async function runDeletionWarningEmails(
 		tenantsWithPartialFailure: 0,
 		failedRecipients: 0,
 		errors: 0,
-		skippedPhysicalDeletionDisabled: false,
+		retentionOnlyWording: false,
 		tenantsRemaining: 0,
 		dryRun,
 	};
 
-	// #4721: **削除が走らない配備では予告も出さない。**
+	// #4721: **削除が走らない配備では「削除します」と言わない。ただし便は止めない。**
 	//
 	// AWS 本番は grace-period-deletion の EventBridge Rule を作っていない (#4304 / #4327) ため
 	// 物理削除は起きないが、deletion-warning-emails の Rule だけは毎日動いていた。結果として
 	// 猶予中の顧客に「データの削除予定日: X（あと N 日）」が届き、その日が来ても削除されない
 	// = 通知内容と実態、および privacy 第 6 条「猶予期間後に完全削除」との乖離が生じていた。
 	//
+	// **送信そのものを止めるのは不可**。猶予中に「まだ戻せる」ことを思い出す接点がこの便しかなく、
+	// 止めると「復元できるのに戻らない顧客」を作る (回復可能な離脱を回復不能にする)。
+	// そこで嘘の部分だけを直す — **削除の断定をやめ、取り消し期限だけを述べる**文面に切り替える。
+	// その日を過ぎると自分では取り消せなくなるのは削除の有無に関わらず事実である
+	// (`restoreSoftDeletedTenant` が `isExpired` で拒否する)。
+	//
 	// 削除の有効状態は CDK が `GRACE_PERIOD_DELETION_DISABLED` に反映する
-	// (Rule を作らない構成なら 'true')。予告メールが同じ flag を見ることで、Rule を復活させれば
-	// 予告も自動的に再開し、止めれば両方止まる — 2 つの設定を人が同期させる必要がなくなる。
-	if (isPhysicalDeletionDisabled()) {
-		result.skippedPhysicalDeletionDisabled = true;
-		logger.info(
-			'[deletion-warning] 物理削除が停止中のため予告メールを送らない (削除されない日付を告げない)',
-			{ context: { env: GRACE_PERIOD_DELETION_DISABLED_ENV } },
-		);
-		return result;
+	// (Rule を作らない構成なら 'true')。Rule を復活させれば文面も自動的に元へ戻る。
+	const retentionOnly = isPhysicalDeletionDisabled();
+	result.retentionOnlyWording = retentionOnly;
+	if (retentionOnly) {
+		logger.info('[deletion-warning] 物理削除が停止中のため削除を断定しない文面で送る', {
+			context: { env: GRACE_PERIOD_DELETION_DISABLED_ENV },
+		});
 	}
 
 	const repos = getRepos();

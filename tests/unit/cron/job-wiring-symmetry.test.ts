@@ -41,13 +41,21 @@ describe('[1] 削除と予告の対称性 (#4721)', () => {
 		).toContain('|| !gracePeriodJobScheduled');
 	});
 
-	// 予告メール側が同じ flag を見ることで、Rule を戻せば予告も自動的に再開する。
-	// 2 つの設定を人が同期させる必要が無くなる。
-	it('[1b] 予告メール job が物理削除の kill-switch を見て停止する', () => {
-		const service = read('src/lib/server/services/deletion-warning-service.ts');
+	// 予告メール側が同じ flag を見ることで、Rule を戻せば文面も自動的に元へ戻る。
+	//
+	// **挙動の固定は `deletion-warning-service.test.ts` [W9] が behavioral に行う**
+	// (kill-switch 有効時に retentionOnly:true で送る / 無効時に false で送る)。
+	// ここでは「退会受付メールも同じ判定を通る」ことだけを見る — こちらが最も権威ある
+	// 1 通で、予告だけ直しても「削除します」という断定が残るため。
+	it('[1b] 退会受付メールも同じ kill-switch 判定を通る (最も権威ある 1 通を残さない)', () => {
+		const service = read('src/lib/server/services/grace-period-service.ts');
+		const reservedCall = /sendDeletionReservedEmail\(\{[\s\S]*?\}\)/.exec(service)?.[0] ?? '';
 
-		expect(service).toContain('isPhysicalDeletionDisabled()');
-		expect(service).toContain('skippedPhysicalDeletionDisabled');
+		expect(reservedCall, 'sendDeletionReservedEmail の呼び出しが見つからない').not.toBe('');
+		expect(
+			reservedCall,
+			'退会受付メールに retentionOnly を渡していない = 削除の断定が残る',
+		).toContain('retentionOnly: isPhysicalDeletionDisabled()');
 	});
 });
 
@@ -82,11 +90,60 @@ describe('[2] NUC scheduler の起動・更新 (#4721)', () => {
 	});
 
 	// 「動いていない」は沈黙と区別がつかない。最終実行時刻を残して外から読めるようにする。
-	it('[2c] cron 実行が記録され /api/health から読める', () => {
-		expect(read('src/hooks.server.ts')).toContain('recordCronRun');
+	//
+	// grep は「配線されているか」しか見られないので、**path 判定と AWS 除外は実挙動で固定**する
+	// (grep だけだと import 行が残っているだけで通ってしまう)。
+	it('[2c] cron path だけを job 名として拾う', async () => {
+		const { cronJobNameFromPath } = await import('../../../src/lib/server/cron/cron-heartbeat');
+		expect(cronJobNameFromPath('/api/cron/retention-cleanup')).toBe('retention-cleanup');
+		expect(cronJobNameFromPath('/api/cron/export-build/')).toBe('export-build');
+		// cron 以外は拾わない (全リクエストで FS を触らないための第 1 関門)
+		expect(cronJobNameFromPath('/api/v1/children')).toBeUndefined();
+		expect(cronJobNameFromPath('/admin/checklists')).toBeUndefined();
+	});
+
+	// Lambda の作業ディレクトリは read-only。記録を試みると毎回 EROFS を catch して warn を吐き、
+	// 日 400 件超の無意味な log が本物の障害を薄める。
+	it('[2d] AWS (dsql) では記録しない / NUC (pglite) では記録する', async () => {
+		const { recordCronRun, readCronHeartbeat } = await import(
+			'../../../src/lib/server/cron/cron-heartbeat'
+		);
+		const original = process.env.DATA_SOURCE;
+		try {
+			process.env.DATA_SOURCE = 'dsql';
+			const before = JSON.stringify(readCronHeartbeat());
+			recordCronRun('never-recorded-on-aws');
+			expect(JSON.stringify(readCronHeartbeat())).toBe(before);
+
+			process.env.DATA_SOURCE = 'pglite';
+			recordCronRun('recorded-on-nuc');
+			expect(readCronHeartbeat().lastRunAt['recorded-on-nuc']).toBeDefined();
+		} finally {
+			process.env.DATA_SOURCE = original;
+		}
+	});
+
+	// CRON_SECRET 未設定だと /api/cron/* は無認証で、第三者が heartbeat を書き換えられる。
+	// 「死んでいても ok に見える」状態を判定側が黙って信じないことを固定する。
+	it('[2e] CRON_SECRET 未設定なら heartbeat を信用しない', async () => {
+		const { isHeartbeatTrustworthy } = await import('../../../src/lib/server/cron/cron-heartbeat');
+		const original = process.env.CRON_SECRET;
+		try {
+			process.env.CRON_SECRET = '';
+			expect(isHeartbeatTrustworthy()).toBe(false);
+			process.env.CRON_SECRET = 'secret';
+			expect(isHeartbeatTrustworthy()).toBe(true);
+		} finally {
+			if (original === undefined) delete process.env.CRON_SECRET;
+			else process.env.CRON_SECRET = original;
+		}
+	});
+
+	it('[2f] 記録と判定が /api/health に配線されている', () => {
+		expect(read('src/hooks.server.ts')).toContain('recordCronRun(cronJobName)');
 		const health = read('src/routes/api/health/+server.ts');
 		expect(health).toContain('evaluateSchedulerHealth');
-		expect(health).toContain('readCronHeartbeat');
+		expect(health).toContain('isHeartbeatTrustworthy');
 	});
 });
 

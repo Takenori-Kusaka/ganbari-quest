@@ -137,6 +137,9 @@ async function notifyDeletionReserved(
 			ownerName: user.displayName || tenant?.name || '',
 			deletionDate: formatJSTDate(toJSTDateString(new Date(physicalDeletionDate))),
 			graceDays,
+			// #4721: 削除が走らない配備では削除を断定しない文面にする。
+			// **この 1 通が最も権威ある通知**なので、予告メールだけ直しても嘘は残る。
+			retentionOnly: isPhysicalDeletionDisabled(),
 		});
 		if (!ok) {
 			logger.error('[grace-period] deletion reserved email send failed', {

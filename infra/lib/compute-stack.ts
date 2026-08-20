@@ -210,10 +210,21 @@ export class ComputeStack extends cdk.Stack {
 		// Rule を戻したときに何も直さず追従してほしい判定なので、型で固定しない。
 		const scheduledCronJobNames: readonly string[] = CRON_JOBS.map((job) => job.name);
 		const gracePeriodJobScheduled = scheduledCronJobNames.includes('grace-period-deletion');
+		const gracePeriodDisabledByContext =
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true';
 		const gracePeriodDeletionDisabled =
-			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' || !gracePeriodJobScheduled
-				? 'true'
-				: 'false';
+			gracePeriodDisabledByContext || !gracePeriodJobScheduled ? 'true' : 'false';
+
+		// **「有効にしたつもり」を作らない (#4721)。** context で `false` を渡しても Rule が無ければ
+		// 停止のままになる。承認して再有効化したつもりの運用者が、何も起きていないことに
+		// 気付けないまま終わる事故を防ぐため、synth 時に理由と対処を出す。
+		if (!gracePeriodDisabledByContext && !gracePeriodJobScheduled) {
+			cdk.Annotations.of(this).addWarning(
+				'gracePeriodDeletionDisabled=false が渡されましたが、CRON_JOBS に grace-period-deletion が無いため ' +
+					'GRACE_PERIOD_DELETION_DISABLED=true (停止) のまま deploy されます。' +
+					'再有効化するには compute-stack.ts の CRON_JOBS に grace-period-deletion を戻してください (#4327)。',
+			);
+		}
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 

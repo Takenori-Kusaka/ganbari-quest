@@ -34,6 +34,20 @@ import { logger } from '$lib/server/logger';
 
 /** 記録先ディレクトリ (pglite backup の status file と同じ data/ 配下)。 */
 const CRON_STATUS_DIR = join(process.cwd(), 'data');
+
+/**
+ * 記録するのは NUC (pglite) だけ (#4721)。
+ *
+ * **AWS Lambda では書けないうえ書く意味も無い。** Lambda の作業ディレクトリは read-only で
+ * 実行ごとに消えるため、記録を試みると毎回 EROFS を catch して warn を吐く。
+ * export-build (5 分毎 = 288/日) と notification-delivery (15 分毎 = 96/日) だけで
+ * 日 400 件超の無意味な warn が CloudWatch に積もり、本物の障害ログを薄めてコストも増やす。
+ * AWS 側の cron 生死は EventBridge / cron-dispatcher の CloudWatch metric と
+ * `ganbari-quest-cron-dispatcher-errors` alarm が見ている。
+ */
+function isHeartbeatEnabled(): boolean {
+	return (process.env.DATA_SOURCE ?? 'sqlite') === 'pglite';
+}
 const CRON_STATUS_FILENAME = 'cron-status.json';
 
 /** job 名 → 最終実行時刻 (ISO)。 */
@@ -71,6 +85,7 @@ export function readCronHeartbeat(): CronHeartbeat {
  * ここで throw すると「観測装置が壊れたせいで本処理も止まる」という本末転倒になる。
  */
 export function recordCronRun(jobName: string, at: Date = new Date()): void {
+	if (!isHeartbeatEnabled()) return;
 	try {
 		if (!existsSync(CRON_STATUS_DIR)) mkdirSync(CRON_STATUS_DIR, { recursive: true });
 		const current = readCronHeartbeat();
@@ -84,6 +99,21 @@ export function recordCronRun(jobName: string, at: Date = new Date()): void {
 			context: { jobName },
 		});
 	}
+}
+
+/**
+ * heartbeat を信用してよいか (#4721)。
+ *
+ * `CRON_SECRET` が未設定だと `/api/cron/*` は `AUTH_MODE=local` で無認証になり
+ * (`cron-auth.ts`、2026-07-31 まで本番 NUC の .env に欠落していた実績あり)、
+ * **到達できる第三者が endpoint を叩くだけで heartbeat を書き換えられる**。
+ * その状態では「scheduler が死んでいても ok に見える」ため、判定側は信用してはいけない。
+ *
+ * 記録を止めるのではなく「信用できない」を明示する — 記録を止めると
+ * 「CRON_SECRET が無い」と「scheduler が死んでいる」が同じ見た目になり切り分けできない。
+ */
+export function isHeartbeatTrustworthy(): boolean {
+	return Boolean(process.env.CRON_SECRET);
 }
 
 /** `/api/cron/<name>` から job 名を取り出す。cron 以外のパスは undefined。 */

@@ -12,8 +12,11 @@
 /** 判定に使う 1 ジョブ分の入力。 */
 export interface SchedulerJobInput {
 	name: string;
-	/** 想定実行間隔 (分)。registry の cron 式から呼び出し側が導出する。 */
-	expectedIntervalMinutes: number;
+	/**
+	 * 想定実行間隔 (分)。registry の cron 式から呼び出し側が導出する。
+	 * **`null` は「日次より疎で鮮度判定に使えない」** = このジョブは評価対象外 (#4721)。
+	 */
+	expectedIntervalMinutes: number | null;
 	/** 最終実行時刻 (ISO)。未実行は null。 */
 	lastRunAt: string | null;
 }
@@ -50,8 +53,12 @@ export function evaluateSchedulerHealth(
 	const staleJobs: string[] = [];
 	const neverRanJobs: string[] = [];
 
-	for (const job of jobs) {
-		const toleranceMs = job.expectedIntervalMinutes * 60_000 * STALE_FACTOR;
+	// 疎なジョブ (年 2 回等) は「最後の実行から日が経っている」が正常なので評価しない。
+	// 混ぜると常時 warning になり、本物の停止がその warning に埋もれる。
+	const evaluated = jobs.filter((job) => job.expectedIntervalMinutes !== null);
+
+	for (const job of evaluated) {
+		const toleranceMs = (job.expectedIntervalMinutes as number) * 60_000 * STALE_FACTOR;
 		if (job.lastRunAt === null) {
 			// 起動から猶予以内なら「まだ来ていないだけ」
 			if (now.getTime() - processStartedAt.getTime() < toleranceMs) continue;
@@ -75,7 +82,7 @@ export function evaluateSchedulerHealth(
 	}
 
 	// **全ジョブが未実行 = scheduler そのものが動いていない**。個別ジョブの失敗と切り分ける。
-	if (neverRanJobs.length === jobs.length && jobs.length > 0) {
+	if (neverRanJobs.length === evaluated.length && evaluated.length > 0) {
 		return {
 			level: 'critical',
 			summary:
@@ -86,8 +93,8 @@ export function evaluateSchedulerHealth(
 	}
 
 	return {
-		level: staleJobs.length === jobs.length ? 'critical' : 'warning',
-		summary: `定期ジョブ ${staleJobs.length}/${jobs.length} 件が想定間隔を過ぎても実行されていません: ${staleJobs.join(', ')}`,
+		level: staleJobs.length === evaluated.length ? 'critical' : 'warning',
+		summary: `定期ジョブ ${staleJobs.length}/${evaluated.length} 件が想定間隔を過ぎても実行されていません: ${staleJobs.join(', ')}`,
 		staleJobs,
 		neverRanJobs,
 	};
@@ -101,8 +108,18 @@ export function evaluateSchedulerHealth(
  * 月次・年 2 回のような疎なジョブは 1 日として扱い、日次と同じ猶予に丸める
  * (それ以上を厳密にしても「scheduler が動いていない」の検出精度は上がらない)。
  */
-export function expectedIntervalMinutes(cronExpression: string): number {
-	const [minute = '*', hour = '*'] = cronExpression.trim().split(/\s+/);
+export function expectedIntervalMinutes(cronExpression: string): number | null {
+	const fields = cronExpression.trim().split(/\s+/);
+	const [minute = '*', hour = '*', dayOfMonth = '*', month = '*', dayOfWeek = '*'] = fields;
+
+	// 日 / 月 / 曜日 のいずれかを限定している = 日次より疎。鮮度判定に使わない (#4721)。
+	//
+	// **疎なジョブを日次に丸めてはいけない**。年 2 回の pmf-survey (`0 9 1 6,12 *`) を
+	// 1 日に丸めると、猶予 3 日を過ぎた時点で 1 年のうち約 359 日 staleJobs に居座り
+	// warning が常時出続ける。運用者が「この warning は無視してよい」と学習した瞬間、
+	// 本物の scheduler 停止も同じ warning に埋もれて見えなくなる (観測装置として逆効果)。
+	// 疎なジョブは scheduler の生死を判定する材料にならないので最初から対象に入れない。
+	if (dayOfMonth !== '*' || month !== '*' || dayOfWeek !== '*') return null;
 
 	const stepOf = (field: string): number | undefined => {
 		const step = /^\*\/(\d+)$/.exec(field) ?? /^0\/(\d+)$/.exec(field);
@@ -117,6 +134,6 @@ export function expectedIntervalMinutes(cronExpression: string): number {
 	if (hourStep) return hourStep * 60;
 	if (hour === '*') return 60;
 
-	// 日次以下の疎なジョブ (日次 / 月次 / 年 2 回) は一律 1 日として扱う
+	// 分・時とも固定 = 日次
 	return 24 * 60;
 }

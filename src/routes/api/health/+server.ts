@@ -9,7 +9,7 @@ import {
 	expectedIntervalMinutes,
 	type SchedulerHealthVerdict,
 } from '$lib/domain/scheduler-health';
-import { readCronHeartbeat } from '$lib/server/cron/cron-heartbeat';
+import { isHeartbeatTrustworthy, readCronHeartbeat } from '$lib/server/cron/cron-heartbeat';
 import { scheduleRegistry } from '$lib/server/cron/schedule-registry';
 import { probePg, probeSqlite, type SqliteProbeResult } from '$lib/server/db/probe';
 import {
@@ -115,7 +115,7 @@ export const GET: RequestHandler = async () => {
  * (一覧を二重管理すると、増えたジョブが黙って観測対象から漏れる)。
  */
 function evaluateScheduler():
-	| (SchedulerHealthVerdict & { lastRunAt: Record<string, string> })
+	| (SchedulerHealthVerdict & { lastRunAt: Record<string, string>; trustworthy: boolean })
 	| undefined {
 	try {
 		const heartbeat = readCronHeartbeat();
@@ -128,11 +128,35 @@ function evaluateScheduler():
 			new Date(),
 			new Date(Date.now() - process.uptime() * 1000),
 		);
-		return { ...verdict, lastRunAt: heartbeat.lastRunAt };
+
+		// #4721: `CRON_SECRET` 未設定だと `/api/cron/*` が無認証になり、到達できる第三者が
+		// endpoint を叩くだけで heartbeat を書き換えられる = 「死んでいても ok に見える」。
+		// **判定を ok のまま返さない** — 観測装置が偽装可能なことを黙っていると、
+		// この endpoint を信じた運用が成立してしまう。
+		const trustworthy = isHeartbeatTrustworthy();
+		if (!trustworthy) {
+			return {
+				...verdict,
+				level: 'critical',
+				summary: `${SCHEDULER_UNTRUSTED_SUMMARY}（元の判定: ${verdict.summary}）`,
+				lastRunAt: heartbeat.lastRunAt,
+				trustworthy,
+			};
+		}
+		return { ...verdict, lastRunAt: heartbeat.lastRunAt, trustworthy };
 	} catch {
 		return undefined;
 	}
 }
+
+/**
+ * heartbeat を信用できないときの文言 (#4721)。
+ *
+ * 対処 (CRON_SECRET を配る) までを 1 行で言う。読んだ人がその場で行動できないと、
+ * 「critical だが何をすればいいか分からない」= 無視される警告になる。
+ */
+const SCHEDULER_UNTRUSTED_SUMMARY =
+	'CRON_SECRET が未設定のため /api/cron/* が無認証で、定期ジョブの実行記録を第三者が書き換えられます。この判定は信用できません（.env に CRON_SECRET を設定してください）';
 
 /**
  * バックアップ状態の読み取り。**liveness probe を落とさない**ことを優先する。

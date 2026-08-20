@@ -587,35 +587,37 @@ describe('#2399 走査対象外', () => {
 // [W9] #4721: 削除が走らない配備では予告も出さない
 // ============================================================
 
-describe('[W9] 物理削除が停止中なら予告メールを送らない (#4721)', () => {
+describe('[W9] 物理削除が停止中は削除を断定しない文面で送る (#4721)', () => {
 	afterEach(() => {
 		for (const key of Object.keys(mockEnv)) delete mockEnv[key];
 	});
 
 	// AWS 本番は grace-period-deletion の EventBridge Rule を作っていないのに、予告メールの
 	// Rule だけが動いていた。顧客には「削除予定日: X」が届き、その日が来ても削除されない。
-	it('kill-switch が有効なら 1 通も送らず、止まったことを結果で報告する', async () => {
+	//
+	// **便は止めない** — 猶予中に「まだ戻せる」ことを思い出す接点がこの便しかなく、
+	// 止めると復元できるのに戻らない顧客を作る。嘘の部分 (削除の断定) だけを直す。
+	it('kill-switch が有効でも送るが、retentionOnly で送る', async () => {
 		setTenants(['t1']);
 		seedSoftDeleted('t1', 'family', 14);
 		mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'true';
 
 		const result = await runDeletionWarningEmails({ now: NOW });
 
-		expect(result.sent).toBe(0);
-		expect(result.skippedPhysicalDeletionDisabled).toBe(true);
-		expect(mockSendWarning).not.toHaveBeenCalled();
-		// 走査にも入らない (「送らない」だけでなく「見に行かない」)
-		expect(result.scanned).toBe(0);
+		expect(result.sent).toBe(1);
+		expect(result.retentionOnlyWording).toBe(true);
+		expect(mockSendWarning).toHaveBeenCalledWith(expect.objectContaining({ retentionOnly: true }));
 	});
 
-	// 対照: flag が無ければ従来どおり送る (検査が常に true を返す空振りでない)
-	it('kill-switch が無効なら従来どおり送る', async () => {
+	// 対照: flag が無ければ従来の文面 (検査が常に true を返す空振りでない)
+	it('kill-switch が無効なら従来の文面で送る', async () => {
 		setTenants(['t1']);
 		seedSoftDeleted('t1', 'family', 14);
 
 		const result = await runDeletionWarningEmails({ now: NOW });
 
 		expect(result.sent).toBe(1);
-		expect(result.skippedPhysicalDeletionDisabled).toBe(false);
+		expect(result.retentionOnlyWording).toBe(false);
+		expect(mockSendWarning).toHaveBeenCalledWith(expect.objectContaining({ retentionOnly: false }));
 	});
 });
