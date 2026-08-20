@@ -8,6 +8,7 @@ import { PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
+import { type HtmlSafe, html } from './email-html';
 import { sendEmail } from './email-service';
 import type { TrialTier } from './trial-service';
 import { getTrialStatus } from './trial-service';
@@ -114,7 +115,7 @@ export async function sendTrialEnding3DaysEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が残り3日です',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアル期間が残り3日です</h2>
       <p>現在ご利用中の<strong>${tierLabel}</strong>のトライアル期間は <strong>${trialEndDate}</strong> に終了します。</p>
       <p>トライアル終了後は、${PLAN_FULL_TERMS.free}に切り替わります。${PLAN_FULL_TERMS.free}では以下の制限があります:</p>
@@ -146,7 +147,7 @@ export async function sendTrialEnding1DayEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアルが明日終了します',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアルが明日終了します</h2>
       <p><strong>${tierLabel}</strong>のトライアル期間は <strong>明日（${trialEndDate}）</strong> に終了します。終了後は${PLAN_FULL_TERMS.free}に切り替わります。</p>
       <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
@@ -171,7 +172,7 @@ export async function sendTrialEndedTodayEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が終了しました',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアル期間が終了しました</h2>
       <p><strong>${tierLabel}</strong>のトライアル期間が終了しました。現在は${PLAN_FULL_TERMS.free}でご利用いただいています。</p>
       <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
@@ -350,7 +351,7 @@ export async function processTrialNotifications(
 // Email template helper
 // ============================================================
 
-function wrapTrialEmailTemplate(content: string): string {
+function wrapTrialEmailTemplate(content: HtmlSafe): string {
 	return `<!DOCTYPE html>
 <html lang="ja">
 <head>
