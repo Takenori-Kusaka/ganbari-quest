@@ -226,7 +226,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 								<div class="rounded-lg bg-orange-50 p-3 text-center">
 									<p class="text-xs text-orange-600">{REPORTS_LABELS.monthlyStreakLabel}</p>
 									<p class="text-xl font-bold text-orange-700">{report.maxStreakDays}</p>
-									<p class="text-[10px] text-orange-500">{REPORTS_LABELS.monthlyStreakUnit}</p>
+									<p class="text-[10px] text-[var(--color-text-warning-strong)]">{REPORTS_LABELS.monthlyStreakUnit}</p>
 								</div>
 							</div>
 

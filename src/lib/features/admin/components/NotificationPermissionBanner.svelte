@@ -229,7 +229,8 @@ async function handleSubscribe() {
 		padding: 6px 12px;
 		border: none;
 		border-radius: 8px;
-		background: var(--color-action-primary);
+		/* #4645: 白文字を載せる塗りは AA 版 (--color-action-primary は白文字で 3.34:1)。 */
+		background: var(--color-action-primary-strong);
 		color: var(--color-text-inverse);
 		font-size: 0.75rem;
 		font-weight: 600;

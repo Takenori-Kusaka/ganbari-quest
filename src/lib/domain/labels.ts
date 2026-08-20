@@ -7558,6 +7558,10 @@ export const UI_PRIMITIVES_LABELS = {
 	birthDayPlaceholder: '--日',
 	// Dialog / Toast（子供向け UI のため「とじる」表記）
 	closeAriaLabel: 'とじる',
+	/* #4645: title / ariaLabel がどちらも空のまま開かれた Dialog の最終手段の名前。
+	   role="dialog" は accessible name が必須 (WCAG 4.1.2 / axe aria-dialog-name) で、
+	   名前が無いとスクリーンリーダーが「何のダイアログか」を読み上げられない。 */
+	dialogFallbackAriaLabel: 'ダイアログ',
 	// FormField（パスワードトグル）
 	passwordHide: 'パスワードを非表示',
 	passwordShow: 'パスワードを表示',
@@ -7791,7 +7795,11 @@ export const UI_COMPONENTS_LABELS = {
 	// ---- Header ----
 	headerPremiumTitle: 'スタンダード以上',
 	headerHelpAriaLabel: 'つかいかたガイド',
-	headerStampAriaLabel: 'スタンプカードを見る',
+	/* #4645: ボタンの可視テキストは「<たまった数>/<全体>」。aria-label がそれを含まないと
+	   音声操作 (「『スタンプカードを見る』をクリック」) と画面上の文字が一致せず、
+	   axe label-content-name-mismatch (WCAG 2.5.3 Label in Name) に抵触する。 */
+	headerStampAriaLabel: (filled: number, total: number): string =>
+		`スタンプカード ${filled}/${total} を見る`,
 
 	// ---- LevelUpOverlay ----
 	levelUpMessages: {

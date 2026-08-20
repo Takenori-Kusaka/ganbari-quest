@@ -88,6 +88,10 @@
 	--color-brand-50: #f2f9ff;
 
 	/* ---- Gold (星・杖先・ポイントのゴールド) ---- */
+	/* #4645: 文字色として白 / gold-100 の上に載せられる濃いゴールド。
+	   gold-700 (#b8960a) は白で 2.84:1 / gold-100 で 2.73:1 と WCAG 1.4.3 AA (4.5:1) 未達。
+	   gold-800 は白で 6.29:1 / gold-100 で 5.83:1。 */
+	--color-gold-800: #7a5f00;
 	--color-gold-700: #b8960a;
 	--color-gold-600: #d4ad00;
 	--color-gold-500: #ffcc00;
@@ -260,6 +264,14 @@
 
 	/* ---- Child Theme Colors (子供個別テーマ — data-themeで上書き、デフォルトはブランドカラー) ---- */
 	--theme-primary: var(--app-primary);
+	/* #4645: `--theme-primary` の **WCAG AA 版**。白に対して 4.5:1 以上を満たす同系色。
+	   コントラスト比は前景 / 背景の順序に依存しないため、この 1 色で
+	     ① 白背景に載せる文字色 (タブ / ナビの選択状態)
+	     ② 白文字を載せる塗り背景 (primary ボタン / 子供ヘッダー)
+	   の両方が AA を満たす。テーマごとに同系の濃い shade を割り当てる (下の [data-theme] 各ブロック)。
+	   Lighthouse 実測: pink テーマの子供ホームで color-contrast が 30+ node fail していた
+	   (#ff69b4 に白文字 = 2.64:1)。 */
+	--theme-primary-strong: var(--color-brand-700);
 	--theme-secondary: var(--app-secondary);
 	--theme-accent: var(--app-accent);
 	--theme-bg: var(--app-bg);
@@ -271,8 +283,10 @@
 
 	/* #3744: 白文字 (--color-text-inverse) を載せる塗り背景 (選択タブ / 選択チップ / badge) 用。
 	   --color-action-primary (brand-600) は白文字で 3.34:1 と WCAG 1.4.3 AA (4.5:1) 未達のため、
-	   brand-700 (白文字 4.62:1) を AA 適合の primary 塗りとして提供する。 */
-	--color-action-primary-strong: var(--color-brand-700);
+	   AA 適合の primary 塗りとして提供する。
+	   #4645: 子供テーマ (pink / blue / green / orange / purple) では brand-700 固定だと
+	   テーマ色から外れるため、テーマごとの `--theme-primary-strong` を経由する。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
 	--color-action-secondary: var(--theme-secondary);
 	--color-action-accent: var(--theme-accent);
 	--color-action-danger: var(--color-danger);
@@ -334,6 +348,24 @@
 	--color-text-primary: var(--color-neutral-700);
 	--color-text-secondary: var(--color-neutral-600);
 	--color-text-tertiary: var(--color-neutral-400);
+	/* #4645: --theme-nav (子供テーマの淡い塗り、theme-100) の上に載せる文字色。
+	   --color-text-muted (#6b6b6b) は pink テーマの nav (#ffe4e1) で 4.42:1 と
+	   WCAG 1.4.3 AA (4.5:1) にわずかに届かない。neutral-600 は 5 テーマ全ての
+	   theme-100 に対して 4.59:1 以上 (pink 6.29 / blue 5.60 / green 5.64 /
+	   orange 5.97 / purple 4.59)。 */
+	--color-text-on-theme-nav: var(--color-neutral-600);
+	/* #4645: --theme-nav の上に載せる「選択中」のテーマ色。--theme-primary-strong は白基準の
+	   AA 色なので、淡い塗り (theme-100) の上では 3.5〜4.2:1 に落ちる。nav 専用にもう 1 段濃い
+	   shade を持たせる (実測: pink 6.63 / blue 5.47 / green 5.85 / orange 6.53 / purple 7.19 /
+	   ブランド 5.82)。 */
+	--color-text-accent-on-theme-nav: var(--color-brand-800);
+	/* #4645: ポイント残高など「ゴールドで強調する数値」の文字色。
+	   装飾 (アイコン / 枠線) は --color-gold-500 のままでよいが、文字は AA を満たす必要がある。 */
+	--color-text-gold: var(--color-gold-800);
+	/* #4645: 「あと少し」「ミッション」等の暖色強調テキスト。
+	   text-orange-500 (#ff9800) は白背景で 2.16:1、orange-600 (#ea580c) は orange-100 背景で 3.11:1 と
+	   いずれも WCAG 1.4.3 AA 未達。本トークンは白で 5.85:1 / orange-100 で 5.10:1。 */
+	--color-text-warning-strong: #a34c00;
 	--color-text-disabled: #9ca3af;
 	--color-text-warm: #92400e;
 	--color-text-warm-muted: #a16207;
@@ -476,9 +508,17 @@
 	--theme-800: #9c1450;
 	--theme-900: #6e0f3a;
 	--theme-primary: var(--theme-400);
+	/* #4645: 白に対し 5.87:1 (AA)。--theme-400 #ff69b4 は 2.64:1 で不足 */
+	--theme-primary-strong: var(--theme-700);
 	--theme-secondary: var(--theme-200);
 	--theme-accent: var(--theme-600);
 	--theme-bg: var(--theme-50);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: var(--theme-800);
 	--theme-nav: var(--theme-100);
 }
 
@@ -495,9 +535,17 @@
 	--theme-800: #0277bd;
 	--theme-900: #01579b;
 	--theme-primary: var(--theme-300);
+	/* #4645: 白に対し 4.80:1 (AA)。--theme-300 #4fc3f7 は 1.7:1 で不足 */
+	--theme-primary-strong: var(--theme-800);
 	--theme-secondary: var(--theme-200);
 	--theme-accent: var(--theme-600);
 	--theme-bg: var(--theme-50);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: var(--theme-900);
 	--theme-nav: var(--theme-100);
 }
 
@@ -514,9 +562,17 @@
 	--theme-800: #2e7d32;
 	--theme-900: #1b5e20;
 	--theme-primary: var(--theme-400);
+	/* #4645: 白に対し 5.13:1 (AA)。--theme-400 #66bb6a は 2.2:1 で不足 */
+	--theme-primary-strong: var(--theme-800);
 	--theme-secondary: var(--theme-200);
 	--theme-accent: var(--theme-700);
 	--theme-bg: var(--theme-50);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: var(--theme-900);
 	--theme-nav: var(--theme-100);
 }
 
@@ -533,9 +589,17 @@
 	--theme-800: #ef6c00;
 	--theme-900: #e65100;
 	--theme-primary: var(--theme-400);
+	/* #4645: 白に対し 5.20:1 (AA)。--theme-900 #e65100 でも 3.79:1 で届かないため専用値 */
+	--theme-primary-strong: #bf4400;
 	--theme-secondary: var(--theme-200);
 	--theme-accent: var(--theme-700);
 	--theme-bg: var(--theme-50);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: #8a3200;
 	--theme-nav: var(--theme-100);
 }
 
@@ -552,9 +616,17 @@
 	--theme-800: #6a1b9a;
 	--theme-900: #4a148c;
 	--theme-primary: var(--theme-400);
+	/* #4645: 白に対し 7.04:1 (AA)。--theme-400 #ab47bc は 3.5:1 で不足 */
+	--theme-primary-strong: var(--theme-600);
 	--theme-secondary: var(--theme-200);
 	--theme-accent: var(--theme-700);
 	--theme-bg: var(--theme-50);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: var(--theme-900);
 	--theme-nav: var(--theme-100);
 }
 
@@ -571,9 +643,17 @@
 	--theme-800: var(--color-brand-800);
 	--theme-900: var(--color-brand-900);
 	--theme-primary: var(--app-primary);
+	/* #4645: 白に対し 4.62:1 (AA)。--app-primary (brand-600) は 3.34:1 で不足 */
+	--theme-primary-strong: var(--color-brand-700);
 	--theme-secondary: var(--app-secondary);
 	--theme-accent: var(--app-accent);
 	--theme-bg: var(--app-bg);
+	/* #4645: custom property の var() は **宣言された要素**で解決されるため、:root で
+	   `--color-action-primary-strong: var(--theme-primary-strong)` と書いても、テーマ配下では
+	   :root で解決済みのブランド色が継承されてしまう (実測: pink テーマの子供ヘッダーが
+	   ブランドブルーになった)。各テーマブロックで再宣言してテーマ色に解決させる。 */
+	--color-action-primary-strong: var(--theme-primary-strong);
+	--color-text-accent-on-theme-nav: var(--color-brand-800);
 	--theme-nav: var(--app-nav);
 }
 
@@ -662,7 +742,8 @@
 	--plan-page-from: var(--color-gold-100);
 	--plan-page-to: var(--color-premium-50);
 	--plan-badge-bg: var(--color-gold-100);
-	--plan-badge-text: var(--color-gold-700);
+	/* #4645: gold-700 は gold-100 背景で 2.73:1。AA を満たす gold-800 に置換。 */
+	--plan-badge-text: var(--color-gold-800);
 }
 
 /* ============================================================

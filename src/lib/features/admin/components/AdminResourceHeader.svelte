@@ -168,7 +168,8 @@ let {
 		padding: 0.4rem 0.85rem;
 		border: none;
 		border-radius: var(--radius-md);
-		background: var(--color-action-primary);
+		/* #4645: 白文字を載せる塗りは AA 版 (4.5:1) を使う。 */
+		background: var(--color-action-primary-strong);
 		color: var(--color-text-inverse);
 		font-size: 0.875rem;
 		font-weight: 700;
