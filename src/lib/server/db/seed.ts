@@ -2376,6 +2376,9 @@ function seed() {
 			},
 			{
 				name: '水やりをする',
+				// #4690 F1: ageMin=3 で preschool にも出るのに kana が無く、home カード /
+				// 確認ダイアログ / 履歴に漢字がそのまま出ていた (docs/DESIGN.md §8)。
+				nameKana: 'みずやりをする',
 				categoryId: 3,
 				icon: '🌱💧',
 				basePoints: 3,
@@ -2729,6 +2732,9 @@ function seed() {
 			},
 			{
 				name: '水やりをする',
+				// #4690 F1: ageMin=3 で preschool にも出るのに kana が無く、home カード /
+				// 確認ダイアログ / 履歴に漢字がそのまま出ていた (docs/DESIGN.md §8)。
+				nameKana: 'みずやりをする',
 				categoryId: 3,
 				icon: '🌱💧',
 				basePoints: 3,

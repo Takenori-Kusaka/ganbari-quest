@@ -2,7 +2,7 @@
 import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import type { CategoryId } from '$lib/domain/ids';
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getCategoryDisplayName, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 
@@ -38,6 +38,8 @@ interface Props {
 	challengeTarget?: ChallengeTarget | null;
 	/** #3333: 進捗の表示様式。preschool は 'dots'（ドット可視化）、それ以外は 'text'（「のこり○かい」）。 */
 	challengeProgressStyle?: 'dots' | 'text';
+	/** #4690 F6: 年齢モード。カテゴリ名の表記（ひらがな / 漢字）を決める。既定は従来どおりひらがな。 */
+	uiMode?: string;
 	children: Snippet;
 }
 
@@ -54,6 +56,7 @@ let {
 	completedMissionCount = 0,
 	challengeTarget = null,
 	challengeProgressStyle = 'text',
+	uiMode = 'preschool',
 	children,
 }: Props = $props();
 
@@ -65,7 +68,8 @@ const useDots = $derived(
 const catDef = $derived(getCategoryById(categoryId));
 const color = $derived(catDef?.color ?? 'var(--theme-primary)');
 const accent = $derived(catDef?.accent ?? color);
-const name = $derived(catDef?.name ?? '');
+// #4690 F6: junior / senior は漢字表記（docs/DESIGN.md §8）。
+const name = $derived(getCategoryDisplayName(categoryId, uiMode) || (catDef?.name ?? ''));
 const icon = $derived(catDef?.icon ?? '');
 
 const css = $derived(CARD_SIZE_CSS[cardSize]);

@@ -12,7 +12,7 @@
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { getChildShopLabels } from '$lib/domain/labels';
 import {
 	formatPointDisplayText,
 	type PointSettings,
@@ -43,6 +43,8 @@ interface Props {
 	balance: number;
 	/** 表示単位設定。消費ぶんの `-N` 表示に使う (#4448、pt / 円換算いずれも正しく出す)。 */
 	pointSettings: PointSettings;
+	/** 年齢モード。文言の文体を決める (#4690、docs/DESIGN.md §8)。 */
+	uiMode: string;
 	onClose: () => void;
 }
 
@@ -54,8 +56,11 @@ let {
 	rewardIcon,
 	balance,
 	pointSettings,
+	uiMode,
 	onClose,
 }: Props = $props();
+
+const L = $derived(getChildShopLabels(uiMode));
 
 let isSubmitting = $state(false);
 // #4448: 合計消費ポイントの数字が出発点になる
@@ -72,13 +77,11 @@ const maxAffordable = $derived(
 const totalPoints = $derived(rewardPoints * quantity);
 const remainingAfter = $derived(balance - totalPoints);
 // #4509 ②: 確定前に見せる数字も一覧・ヘッダーと同じ換算を通す (通貨モードで単位が割れない)。
-const totalParts = $derived(
-	splitPointDisplay(totalPoints, pointSettings, CHILD_SHOP_LABELS.pointUnit),
-);
+const totalParts = $derived(splitPointDisplay(totalPoints, pointSettings, L.pointUnit));
 // #4556: 一覧の不足分ヒントと同じ連結を使う。ここだけ自前で連結すると、一覧 →
 // 確認ダイアログの遷移で「あと 250 ポイント」→「のこり: 250ポイント」と表記が割れる。
 const remainingAfterText = $derived(
-	formatPointDisplayText(remainingAfter, pointSettings, CHILD_SHOP_LABELS.pointUnit),
+	formatPointDisplayText(remainingAfter, pointSettings, L.pointUnit),
 );
 
 // ごほうびを選び直したら個数を 1 に戻す (前の選択が持ち越されて意図しない個数で確定するのを防ぐ)。
@@ -90,7 +93,7 @@ $effect(() => {
 <Dialog
 	bind:open
 	closable={false}
-	ariaLabel={CHILD_SHOP_LABELS.exchangeDialogAriaLabel}
+	ariaLabel={L.exchangeDialogAriaLabel}
 	testid="exchange-confirm-dialog"
 >
 	<div class="confirm-dialog-body">
@@ -98,19 +101,19 @@ $effect(() => {
 			<span class="confirm-icon">{rewardIcon ?? '🎁'}</span>
 		</div>
 
-		<h2 class="confirm-heading">{CHILD_SHOP_LABELS.exchangeConfirmHeading}</h2>
+		<h2 class="confirm-heading">{L.exchangeConfirmHeading}</h2>
 		<p class="confirm-reward-title" data-testid="confirm-reward-title">
 			{rewardTitle}
 		</p>
 
 		<!-- #4407 AC1: 個数指定。残高で買える上限を超える個数は選べない -->
-		<QuantityStepper bind:quantity max={maxAffordable} />
+		<QuantityStepper bind:quantity max={maxAffordable} {uiMode} />
 
 		<div class="confirm-points-block" data-testid="confirm-reward-points">
 			<span class="confirm-points-label">
 				{quantity > 1
-					? CHILD_SHOP_LABELS.totalPointsLabel
-					: CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}
+					? L.totalPointsLabel
+					: L.exchangeConfirmPointsLabel}
 			</span>
 			<p class="confirm-points-value">
 				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalParts.amount}</span>
@@ -119,10 +122,10 @@ $effect(() => {
 				{/if}
 			</p>
 			<span class="confirm-points-label" data-testid="confirm-remaining-after">
-				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfterText}
+				{L.remainingAfterLabel}: {remainingAfterText}
 			</span>
 		</div>
-		<p class="confirm-description">{CHILD_SHOP_LABELS.exchangeConfirmDescription}</p>
+		<p class="confirm-description">{L.exchangeConfirmDescription}</p>
 
 		<div class="confirm-actions">
 			<form
@@ -147,15 +150,15 @@ $effect(() => {
 							const instant = data?.instant ?? false;
 							showToast(
 								instant
-									? CHILD_SHOP_LABELS.exchangeSuccessToastTitle
-									: CHILD_SHOP_LABELS.exchangeRequestedToastTitle,
+									? L.exchangeSuccessToastTitle
+									: L.exchangeRequestedToastTitle,
 								instant
-									? CHILD_SHOP_LABELS.exchangeSuccessToastBody(
+									? L.exchangeSuccessToastBody(
 											rewardTitle,
 											qty,
 											data?.balance ?? remainingAfter,
 										)
-									: CHILD_SHOP_LABELS.exchangeRequestedToastBody(rewardTitle, qty),
+									: L.exchangeRequestedToastBody(rewardTitle, qty),
 								'success',
 							);
 							await update();
@@ -181,7 +184,7 @@ $effect(() => {
 							const message =
 								(result.type === 'failure'
 									? (result.data as { error?: string } | undefined)?.error
-									: undefined) ?? CHILD_SHOP_LABELS.errorGeneric;
+									: undefined) ?? L.errorGeneric;
 							showToast(message, undefined, 'error');
 							await update();
 							onClose();
@@ -200,12 +203,12 @@ $effect(() => {
 						loading={isSubmitting}
 						data-testid="confirm-exchange-yes"
 					>
-						{CHILD_SHOP_LABELS.exchangeConfirmYes}
+						{L.exchangeConfirmYes}
 					</Button>
 				</div>
 			</form>
 			<Button variant="ghost" size="sm" onclick={onClose} data-testid="confirm-exchange-cancel">
-				{CHILD_SHOP_LABELS.exchangeConfirmCancel}
+				{L.exchangeConfirmCancel}
 			</Button>
 		</div>
 	</div>

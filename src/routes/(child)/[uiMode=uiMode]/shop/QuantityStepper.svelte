@@ -4,7 +4,7 @@
 // キーボード入力を要求しないため preschool (tapSize 80px / ひらがな) でも操作できる。
 // ConfirmExchangeDialog の style ブロックを 50 行以内に保つため分離 (docs/DESIGN.md §9)。
 
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { getChildShopLabels } from '$lib/domain/labels';
 import { REDEMPTION_QUANTITY_MIN } from '$lib/domain/validation/special-reward';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -13,13 +13,17 @@ interface Props {
 	quantity: number;
 	/** 選べる上限 (残高で買える個数と値域上限の小さい方)。 */
 	max: number;
+	/** 年齢モード。文言の文体を決める (#4690、docs/DESIGN.md §8)。 */
+	uiMode: string;
 }
 
-let { quantity = $bindable(), max }: Props = $props();
+let { quantity = $bindable(), max, uiMode }: Props = $props();
+
+const L = $derived(getChildShopLabels(uiMode));
 </script>
 
 <div class="stepper" data-testid="confirm-quantity-block">
-	<span class="stepper-label">{CHILD_SHOP_LABELS.quantityLabel}</span>
+	<span class="stepper-label">{L.quantityLabel}</span>
 	<div class="stepper-row">
 		<Button
 			variant="outline"
@@ -28,18 +32,18 @@ let { quantity = $bindable(), max }: Props = $props();
 			onclick={() => {
 				if (quantity > REDEMPTION_QUANTITY_MIN) quantity -= 1;
 			}}
-			aria-label={CHILD_SHOP_LABELS.quantityDecreaseAriaLabel}
+			aria-label={L.quantityDecreaseAriaLabel}
 			data-testid="confirm-quantity-decrease"
 		>
-			{CHILD_SHOP_LABELS.quantityDecreaseGlyph}
+			{L.quantityDecreaseGlyph}
 		</Button>
 		<output
 			class="stepper-value"
 			aria-live="polite"
-			aria-label={CHILD_SHOP_LABELS.quantityValueAriaLabel(quantity)}
+			aria-label={L.quantityValueAriaLabel(quantity)}
 			data-testid="confirm-quantity-value"
 		>
-			{quantity}<span class="stepper-unit">{CHILD_SHOP_LABELS.quantityUnit}</span>
+			{quantity}<span class="stepper-unit">{L.quantityUnit}</span>
 		</output>
 		<Button
 			variant="outline"
@@ -48,10 +52,10 @@ let { quantity = $bindable(), max }: Props = $props();
 			onclick={() => {
 				if (quantity < max) quantity += 1;
 			}}
-			aria-label={CHILD_SHOP_LABELS.quantityIncreaseAriaLabel}
+			aria-label={L.quantityIncreaseAriaLabel}
 			data-testid="confirm-quantity-increase"
 		>
-			{CHILD_SHOP_LABELS.quantityIncreaseGlyph}
+			{L.quantityIncreaseGlyph}
 		</Button>
 	</div>
 </div>

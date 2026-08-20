@@ -68,6 +68,8 @@ async function mountDialog() {
 			rewardIcon: '🎮',
 			balance: 100,
 			pointSettings: { mode: 'point' as const, currency: 'JPY' as const, rate: 1 },
+			// #4690: 文言の文体は年齢帯で変わる。本 spec は従来どおりひらがな変種を検証する。
+			uiMode: 'elementary',
 			onClose: () => {},
 		},
 	});

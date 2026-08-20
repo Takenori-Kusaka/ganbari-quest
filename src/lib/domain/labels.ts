@@ -4,6 +4,7 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
+import { CATEGORIES, type CategoryCode, toCategoryCode } from './categories';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
@@ -450,7 +451,8 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'つよさ',
 		switch: 'かぞく',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		// #4690 F7: 同じ画面群で history が「記録」なのに achievements だけ「きろく」だった
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -459,7 +461,7 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'ステータス',
 		switch: '家族',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -468,7 +470,7 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'ステータス',
 		switch: '家族',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -4483,6 +4485,63 @@ export const CHILD_HOME_LABELS = {
 		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
 } as const;
 
+/**
+ * 子供ホームの文言セット。値の型は `string` / 関数に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+export type ChildHomeLabels = {
+	readonly [K in keyof typeof CHILD_HOME_LABELS]: (typeof CHILD_HOME_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_HOME_LABELS)[K];
+};
+
+/**
+ * #4690 F6: 子供ホームの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯を持たず、高校生の画面にも記録ダイアログ「きろくする？ / きろく！ /
+ * やめる」、結果「やったね！ / けいけんち / きょう 1かいめ！」、「⭐ おやくそく」が
+ * 出ていた (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_HOME_KANJI_OVERRIDES = {
+	completedAriaLabel: (name: string) => `${name}（記録済み）`,
+	pinActionUnpin: '📌 ピン留めを外す',
+	pinActionPin: '📌 ピン留めする',
+	pinCloseButton: '閉じる',
+	confirmTitle: (name: string) => `${name}を
+記録する？`,
+	confirmTitleBr: (name: string) => `${name}を`,
+	confirmTitleBrLine2: '記録する？',
+	confirmCancelButton: 'キャンセル',
+	confirmSubmitLoading: '記録中…',
+	confirmSubmitButton: '記録する',
+	resultCancelledTitle: '取り消しました',
+	resultCancelledClose: '閉じる',
+	resultFirstRecord: '🌟 はじめの一歩！ 🌟',
+	resultActivityRecorded: (name: string) => `${name}を記録しました`,
+	resultStreakBonus: (days: number | string, bonus: number | string) =>
+		`${days}日連続！ +${bonus}ボーナス`,
+	resultMasteryBonus: (bonus: number | string, level: number | string) =>
+		`📗 熟練ボーナス +${bonus} (Lv.${level})`,
+	resultMasteryLevelUp: (name: string, level: number | string) =>
+		`🎖️ ${name}が Lv.${level} になりました`,
+	resultXpLabel: '経験値',
+	siblingUnknownName: 'きょうだい',
+	resultMissionComplete: '🎯 ミッション達成！',
+	resultMissionAllClear: '🎉 すべてクリア！',
+	resultTodayCount: (n: number | string) => `今日 ${n}回目`,
+	resultCancelButton: (sec: number | string) => `取り消し (${sec}s)`,
+	resultConfirmButton: 'OK',
+	mustRemaining: (n: number | string) => `あと ${n}件`,
+	mustAllComplete: 'すべて達成',
+} as const satisfies Partial<ChildHomeLabels>;
+
+/** 子供ホームの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildHomeLabels(uiMode: string): ChildHomeLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_HOME_LABELS;
+	return { ...CHILD_HOME_LABELS, ...CHILD_HOME_KANJI_OVERRIDES };
+}
+
 export const DEMO_SIGNUP_LABELS = {
 	// Hero section
 	heroTitle: 'デモ体験ありがとうございます！',
@@ -5013,6 +5072,122 @@ export const ERROR_PAGE_LABELS = {
 	// Error ID
 	errorIdPrefix: 'エラーID: ',
 } as const;
+
+/**
+ * #4690 F3: 子供画面のエラー文言（年齢帯 2 変種）。
+ *
+ * 旧実装は「子供かどうか」だけで分岐し、子供文言は 1 種類（ひらがな）、
+ * 判定に失敗すると保護者向けの「お探しのページは存在しないか、移動した可能性が
+ * あります。」がそのまま 3〜5 歳の画面に出ていた（実測: `/preschool/battle`）。
+ *
+ * 文体の分かれ目は `child-home/variants` と同じ baby・preschool = ひらがな /
+ * elementary 以上 = 漢字（docs/DESIGN.md §8）。
+ */
+const ERROR_PAGE_CHILD_HIRAGANA = {
+	title404: 'ページが みつかりません',
+	title429: 'アクセスが こんでいます',
+	title403: 'ここは ひらけません',
+	titleDefault: 'エラーが おきました',
+	desc404: 'おうちの がめんに もどります…',
+	desc403: 'おうちの がめんに もどります…',
+	descGeneric: 'おうちの がめんに もどります…',
+	btnBackNow: 'いますぐ もどる',
+} as const;
+
+const ERROR_PAGE_CHILD_KANJI = {
+	title404: 'ページが見つかりません',
+	title429: 'アクセスが混み合っています',
+	title403: 'このページは開けません',
+	titleDefault: 'エラーが発生しました',
+	desc404: 'ホーム画面に戻ります…',
+	desc403: 'ホーム画面に戻ります…',
+	descGeneric: 'ホーム画面に戻ります…',
+	btnBackNow: '今すぐ戻る',
+} as const;
+
+/**
+ * #4690: カテゴリ表示名を年齢帯で選ぶ。
+ *
+ * `CATEGORIES[code].name` はひらがな固定（DB seed 値 / `CategoryName` union /
+ * marketplace payload が依存しているため変えられない）。13-18 歳の画面に
+ * 「うんどう」「べんきょう」が出るのは docs/DESIGN.md §8 と食い違うので、
+ * 同じ SSOT に並べた `kanjiName` を elementary 以上で使う。
+ *
+ * @param category カテゴリ code、または legacy 数値 id / branded CategoryId 文字列
+ */
+export function getCategoryDisplayName(category: string | number, uiMode: string): string {
+	const code = (category in CATEGORIES ? category : toCategoryCode(category)) as
+		| CategoryCode
+		| undefined;
+	if (!code) return '';
+	const meta = CATEGORIES[code];
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool' ? meta.name : meta.kanjiName;
+}
+
+/**
+ * #4690 F2: 週次チャレンジの提案理由・タイトル（年齢帯 2 変種）。
+ *
+ * 旧実装は `child-challenge-service.ts` に日本語 4 文を直書きし、全年齢に同じ漢字文を
+ * 出していた（実測: `/preschool/challenges` に「最近「こうりゅう」が少なめだったから、
+ * 今週はチャレンジしてみよう！」）。表示文言はサービス層ではなくここが置き場所
+ * （ADR-0045）。文体の分かれ目は docs/DESIGN.md §8。
+ */
+export type ChallengeReasonMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+
+/** 子供に見せるチャレンジ理由文。categoryName は呼び出し側が年齢帯に合わせて解決して渡す。 */
+export function getChallengeReason(
+	mode: ChallengeReasonMode,
+	categoryName: string,
+	uiMode: string,
+): string {
+	const kana = (() => {
+		const m = normalizeUiMode(uiMode);
+		return m === 'baby' || m === 'preschool';
+	})();
+	switch (mode) {
+		case 'explore':
+			return kana
+				? 'まだ きろくが すくないから、いろんなことを やってみよう！'
+				: 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
+		case 'strength':
+			return kana
+				? `とくいな「${categoryName}」を もっと のばしてみよう！`
+				: `得意な「${categoryName}」をもっと伸ばしてみよう！`;
+		case 'rescue-strength':
+			return kana
+				? `とくいな「${categoryName}」で ちょうしを とりもどそう！`
+				: `得意な「${categoryName}」でリズムを取り戻そう！`;
+		default:
+			return kana
+				? `さいきん「${categoryName}」が すくなめだったから、こんしゅう やってみよう！`
+				: `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
+	}
+}
+
+/** 週次チャレンジのタイトル。保護者の管理画面にも出るため漢字表記で保存する。 */
+export function formatChallengeTitle(categoryName: string, targetCount: number): string {
+	return `今週は「${categoryName}」を${targetCount}回`;
+}
+
+export interface ChildErrorPageLabels {
+	readonly title404: string;
+	readonly title429: string;
+	readonly title403: string;
+	readonly titleDefault: string;
+	readonly desc404: string;
+	readonly desc403: string;
+	readonly descGeneric: string;
+	readonly btnBackNow: string;
+}
+
+/** 子供画面のエラー文言を年齢帯で選ぶ。 */
+export function getChildErrorPageLabels(uiMode: string): ChildErrorPageLabels {
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool'
+		? ERROR_PAGE_CHILD_HIRAGANA
+		: ERROR_PAGE_CHILD_KANJI;
+}
 
 /**
  * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
@@ -6314,7 +6489,45 @@ export const CHILD_STATUS_LABELS = {
 	growthWeakCatPrefix: '🌟 ',
 	growthWeakCatSuffix: 'にチャレンジすると のびしろがたくさん！',
 	emptyStatus: 'ステータスがまだないよ',
+	// #4690 F5: RadarChart の凡例。年齢帯で文体が変わるため page から渡す。
+	radarNow: 'いま',
+	radarComparison: 'せんげつ',
 } as const;
+
+/**
+ * ステータス画面の文言セット。値の型は `string` に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+export type ChildStatusLabels = {
+	readonly [K in keyof typeof CHILD_STATUS_LABELS]: string;
+};
+
+/**
+ * #4690 F5: ステータス画面の漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯に関係なく「せいちょうチャート / べんきょうが すごくのびたね！ /
+ * のびしろがたくさん！」を出しており、13-18 歳の画面が幼児向け文体のままだった
+ * (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_STATUS_KANJI_OVERRIDES = {
+	growthChartTitle: '成長チャート',
+	growthHighMessage: '大きく伸びたね！',
+	growthLowMessage: '少しずつ成長しているよ',
+	growthStableMessage: '💬 安定しているね。この調子で続けよう',
+	growthWeakCatSuffix: 'にチャレンジすると伸びしろが大きいよ',
+	emptyStatus: 'ステータスはまだありません',
+	radarNow: '今月',
+	radarComparison: '先月',
+} as const satisfies Partial<ChildStatusLabels>;
+
+/** ステータス画面の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildStatusLabels(uiMode: string): ChildStatusLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_STATUS_LABELS;
+	}
+	return { ...CHILD_STATUS_LABELS, ...CHILD_STATUS_KANJI_OVERRIDES };
+}
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
@@ -7778,6 +7991,84 @@ export const CHILD_SHOP_LABELS = {
 	errorGeneric: 'うまく いかなかったよ。もういちど ためしてね',
 } as const;
 
+/**
+ * ごほうびショップの文言セット。値の型は `string` に広げてある
+ * （`as const` のリテラル型のままだと、年齢帯変種が「別の文字列」を入れられない）。
+ */
+export type ChildShopLabels = {
+	readonly [K in keyof typeof CHILD_SHOP_LABELS]: (typeof CHILD_SHOP_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_SHOP_LABELS)[K];
+};
+
+/**
+ * #4690 F4: ごほうびショップの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は `CHILD_SHOP_LABELS` をどの年齢帯でも直参照しており、高校生の画面にも
+ * 「いまのポイント / こうかんする / おうちのひとにれんらくがいくよ / はい / やめる」が
+ * 出ていた (docs/DESIGN.md §8 は junior・senior = 漢字・情報密度高)。
+ *
+ * **差分だけ**を持ち、ベース (ひらがな) に spread で重ねる。全キーを二重に持つと
+ * 片方だけ足す事故が起きるため、変える語だけを列挙する。
+ */
+const CHILD_SHOP_KANJI_OVERRIDES = {
+	pointBalanceLabel: '現在のポイント',
+	exchangeButton: '交換する',
+	exchangeConfirmTitle: (rewardTitle: string, points: number) =>
+		`${rewardTitle} と交換する？（${points} ポイント）`,
+	exchangeConfirmYes: 'はい',
+	exchangeConfirmCancel: 'キャンセル',
+	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
+	emptyMessage: 'ごほうびがまだありません',
+	statusPending: '承認待ち',
+	statusApproved: '交換済み',
+	statusRejected: '保留中',
+	approvedTitle: (rewardTitle: string) => `${rewardTitle} を受け取りました`,
+	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は保留になりました`,
+	overlayCloseButton: '閉じる',
+	exchangeConfirmHeading: '交換しますか？',
+	exchangeConfirmPointsLabel: '必要なポイント',
+	exchangeConfirmDescription: '保護者に連絡がいきます',
+	tabAll: 'すべて',
+	tabPhysical: 'もの',
+	tabAllowance: 'おこづかい',
+	tabPrivilege: '特別',
+	tabEmpty: (categoryLabel: string) => `${categoryLabel} のごほうびはまだありません`,
+	filterPointsRangeLabel: 'ポイントで探す',
+	filterPointsRangeAll: 'すべて',
+	filterAvailable: '今すぐ交換できる',
+	filterAvailableAriaLabel: '今のポイントで交換できるものだけ表示',
+	filterEmptyMessage: '条件に合うごほうびがありません',
+	quantityLabel: 'いくつ交換する？',
+	quantityDecreaseAriaLabel: '個数を減らす',
+	quantityIncreaseAriaLabel: '個数を増やす',
+	quantityUnit: '個',
+	quantityValueAriaLabel: (quantity: number) => `個数 ${quantity}個`,
+	quantityMaxHint: '持っているポイントで交換できる最大の個数です',
+	totalPointsLabel: '合計',
+	remainingAfterLabel: '交換したあとの残り',
+	exchangeSuccessToastTitle: '交換できました',
+	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 残り ${balance} ポイント`,
+	exchangeRequestedToastTitle: '保護者に申請しました',
+	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 返事を待ってください`,
+	errorInsufficientPoints: 'ポイントが足りません',
+	errorAlreadyPending: '保護者の返事を待っています',
+	errorRecentlyExchanged: 'さきほど交換しました。少し待ってからもう一度押してください',
+	errorRewardNotFound: 'このごほうびが見つかりません',
+	errorInvalidQuantity: '個数をもう一度選んでください',
+	errorChildNotSelected: '子供が選ばれていません',
+	errorGeneric: 'うまくいきませんでした。もう一度試してください',
+} as const satisfies Partial<ChildShopLabels>;
+
+/** ごほうびショップの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildShopLabels(uiMode: string): ChildShopLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_SHOP_LABELS;
+	return { ...CHILD_SHOP_LABELS, ...CHILD_SHOP_KANJI_OVERRIDES };
+}
+
 // #4407: 交換の「× 個数」表記 SSOT。個数 1 のときは付けない (従来表示を変えない)。
 // ポイント台帳の description / 親の承認一覧の両方が本 helper を使う。
 export function formatRewardWithQuantity(rewardTitle: string, quantity: number): string {
@@ -8063,6 +8354,8 @@ export const UI_COMPONENTS_LABELS = {
 	// #2146: priority='must' (今日のおやくそく) のカード演出統合用ラベル
 	// 旧 MustProgressBar 専用セクションを廃止し、ActivityCard 自身に ribbon badge を付ける
 	activityCardMustBadge: '⭐ おやくそく',
+	// #4690 F6: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+	activityCardMustBadgeKanji: '⭐ 今日の約束',
 	activityCardMust: '（今日のおやくそく）',
 
 	// ---- ActivityEmptyState ----
@@ -8346,6 +8639,9 @@ export const FEATURES_LABELS = {
 		hintTitle: 'つかいかた ガイド あるよ！',
 		hintSub: 'いつでも ❓ ボタンで みれるよ',
 		hintCloseAriaLabel: '閉じる',
+		// #4690 F5: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+		hintTitleKanji: '使い方ガイドがあります',
+		hintSubKanji: 'いつでも ❓ ボタンから見られます',
 	},
 
 	// ---- features/demo/ ----

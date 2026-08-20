@@ -42,7 +42,7 @@
 import { enhance } from '$app/forms';
 import type { parseDisplayConfig } from '$lib/domain/display-config';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
-import { CHILD_HOME_LABELS } from '$lib/domain/labels';
+import { getChildHomeLabels } from '$lib/domain/labels';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import type { CategoryXpInfo } from '$lib/server/services/status-service';
@@ -153,6 +153,9 @@ const {
 	onRecordResult: (result: { type: string; data?: Record<string, unknown> }) => void;
 } = $props();
 
+// #4690 F6: カード文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
+const HL = $derived(getChildHomeLabels(uiMode));
+
 // ADR-0046 / Issue #2084 AC2: getDashboardService 経由で child / todayRecorded / pointSettings を参照
 const service = getDashboardService();
 const homeData = $derived(service.getHomeData());
@@ -202,6 +205,7 @@ const activitiesByCategory = $derived(
 		completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
 		challengeTarget={getChallengeTarget(group.categoryId)}
 		challengeProgressStyle={uiMode === 'preschool' ? 'dots' : 'text'}
+		{uiMode}
 	>
 		{#each group.items as activity, i (activity.id)}
 			{#if features.showPin && i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
@@ -227,6 +231,7 @@ const activitiesByCategory = $derived(
 					triggerHint={activity.triggerHint}
 					eventBadge={activeEventBadge}
 					isMust={activity.priority === 'must'}
+					{uiMode}
 					onclick={() => onActivityTap(activity)}
 					onlongpress={() => onActivityLongPress(activity)}
 				/>
@@ -246,6 +251,7 @@ const activitiesByCategory = $derived(
 					triggerHint={activity.triggerHint}
 					eventBadge={activeEventBadge}
 					isMust={activity.priority === 'must'}
+					{uiMode}
 					onclick={() => onActivityTap(activity)}
 					onlongpress={() => onActivityLongPress(activity)}
 				/>
@@ -262,7 +268,7 @@ const activitiesByCategory = $derived(
 						class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
 						data-testid="activity-card-{activity.id}"
 						data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
-						aria-label={CHILD_HOME_LABELS.completedAriaLabel(activity.displayName)}
+						aria-label={HL.completedAriaLabel(activity.displayName)}
 					>
 						<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
 						<CompoundIcon icon={activity.icon} size="lg" faded={true} />
@@ -292,17 +298,17 @@ const activitiesByCategory = $derived(
 							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''} {showMainQuest ? 'baby-card-main-quest' : ''}"
 							data-testid="activity-card-{activity.id}"
 							style="border-color: {showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : borderColor}"
-							aria-label="{CHILD_HOME_LABELS.babyCardRecordAriaLabel(activity.displayName)}{showMainQuest ? CHILD_HOME_LABELS.babyCardRecordMainQuestSuffix : ''}{showMission ? CHILD_HOME_LABELS.babyCardRecordMissionSuffix : ''}"
+							aria-label="{HL.babyCardRecordAriaLabel(activity.displayName)}{showMainQuest ? HL.babyCardRecordMainQuestSuffix : ''}{showMission ? HL.babyCardRecordMissionSuffix : ''}"
 						>
 							{#if showMission}
 								<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
 							{/if}
 							{#if showMainQuest}
-								<span class="baby-main-quest-badge" aria-hidden="true">{CHILD_HOME_LABELS.babyCardMainQuestBadge}</span>
+								<span class="baby-main-quest-badge" aria-hidden="true">{HL.babyCardMainQuestBadge}</span>
 							{/if}
 							{#if pendingActivityId === activity.id}
 								<span class="baby-card__spinner" aria-hidden="true"></span>
-								<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{CHILD_HOME_LABELS.babyCardPendingText}</span>
+								<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{HL.babyCardPendingText}</span>
 							{:else}
 								{#if actCount > 0}
 									<span class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-brand-600)] text-white text-[10px] font-bold shadow-sm">{actCount}</span>

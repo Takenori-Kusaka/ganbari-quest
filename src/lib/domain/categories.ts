@@ -26,6 +26,14 @@ interface CategoryMeta {
 	readonly legacyNumericId: number;
 	/** 日本語表示名 (DB categories.name に seed。子供画面表示はひらがな) */
 	readonly name: string;
+	/**
+	 * 漢字表記 (#4690)。13-18 歳 (junior / senior) の画面で使う。
+	 *
+	 * `name` はひらがな固定で、DB seed 値・`CategoryName` union 型・marketplace payload が
+	 * 依存しているため変えられない。年齢帯で文体を出し分ける (docs/DESIGN.md §8) には
+	 * 2 表記が要るので、同じ場所に並べて持つ (別ファイルに置くと片方だけ足す事故になる)。
+	 */
+	readonly kanjiName: string;
 	/** カテゴリアイコン (DB categories.icon に seed) */
 	readonly icon: string;
 	/** master 表示色 (DB categories.color に seed) */
@@ -35,10 +43,18 @@ interface CategoryMeta {
 }
 
 export const CATEGORIES = {
-	undou: { legacyNumericId: 1, name: 'うんどう', icon: '🏃', color: '#FF6B6B', accent: '#D32F2F' },
+	undou: {
+		legacyNumericId: 1,
+		name: 'うんどう',
+		kanjiName: '運動',
+		icon: '🏃',
+		color: '#FF6B6B',
+		accent: '#D32F2F',
+	},
 	benkyou: {
 		legacyNumericId: 2,
 		name: 'べんきょう',
+		kanjiName: '勉強',
 		icon: '📚',
 		color: '#4ECDC4',
 		accent: '#00897B',
@@ -46,6 +62,7 @@ export const CATEGORIES = {
 	seikatsu: {
 		legacyNumericId: 3,
 		name: 'せいかつ',
+		kanjiName: '生活',
 		icon: '🏠',
 		color: '#FFE66D',
 		accent: '#F9A825',
@@ -53,11 +70,19 @@ export const CATEGORIES = {
 	kouryuu: {
 		legacyNumericId: 4,
 		name: 'こうりゅう',
+		kanjiName: '交流',
 		icon: '🤝',
 		color: '#A8E6CF',
 		accent: '#2E7D32',
 	},
-	souzou: { legacyNumericId: 5, name: 'そうぞう', icon: '🎨', color: '#DDA0DD', accent: '#7B1FA2' },
+	souzou: {
+		legacyNumericId: 5,
+		name: 'そうぞう',
+		kanjiName: '創造',
+		icon: '🎨',
+		color: '#DDA0DD',
+		accent: '#7B1FA2',
+	},
 } as const satisfies Record<string, CategoryMeta>;
 
 /** カテゴリコード union: 'undou' | 'benkyou' | 'seikatsu' | 'kouryuu' | 'souzou' */
