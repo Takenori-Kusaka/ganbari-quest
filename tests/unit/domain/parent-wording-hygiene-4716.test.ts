@@ -230,7 +230,10 @@ describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経�
 			resolve(REPO_ROOT, 'src/routes/(child)/[uiMode=uiMode]/home/+page.server.ts'),
 			'utf-8',
 		);
-		expect(src).not.toContain('err instanceof Error ? err.message :');
+		// 顧客に返す値として使っていないこと。logger へ渡す `error: err instanceof Error ?
+		// err.message : String(err)` は内部ログ行であり、これは残ってよい（残すべき）。
+		expect(src).not.toMatch(/const message = err instanceof Error \? err\.message/);
+		expect(src).not.toMatch(/fail\(\d+,\s*\{\s*error:\s*message\s*\}\)/);
 	});
 
 	it('おやカギコードの桁数表記が pinSchema から導出されている', () => {
