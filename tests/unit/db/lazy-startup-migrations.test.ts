@@ -1047,6 +1047,34 @@ describe('applyLazyStartupMigrations', () => {
 			expect(row.reward_title).toBeNull();
 		});
 
+		it('旧表に在った index を落とさない (shadow table 再作成の道連れ防止)', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			// 命名が割れている実態を模す: create-tables 名とは別名の index を旧表に張っておく
+			db.exec(
+				'CREATE INDEX idx_redemption_requests_child_status ON reward_redemption_requests(child_id, status);',
+			);
+			db.exec(
+				'CREATE INDEX idx_redemption_custom_resolved ON reward_redemption_requests(resolved_at);',
+			);
+
+			applyLazyStartupMigrations(db);
+
+			const names = (
+				db
+					.prepare(
+						"SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'reward_redemption_requests'",
+					)
+					.all() as { name: string }[]
+			).map((r) => r.name);
+			expect(names, 'schema.ts 命名の index が消えている').toContain(
+				'idx_redemption_requests_child_status',
+			);
+			expect(names, '独自 index が消えている').toContain('idx_redemption_custom_resolved');
+			// 正準 index (create-tables.ts SSOT) も張られる
+			expect(names).toContain('idx_redemption_child_status');
+			expect(names).toContain('idx_redemption_reward_status');
+		});
+
 		it('冪等: 再適用しても行が消えない / 二重にならない', () => {
 			seedLegacyRedemptionWithFk({ withNewColumns: true });
 			applyLazyStartupMigrations(db);

@@ -1110,6 +1110,15 @@ function migrateRedemptionDropRewardFk(db: Database.Database): void {
 		.join(', ');
 	const insertList = columns.map((c) => c.name).join(', ');
 
+	// shadow table 再作成は **旧表の index を道連れにする**。名前や定義を literal で書き直すと、
+	// 別名で作られていた index (schema.ts と create-tables.ts で命名が割れている等) を黙って失う。
+	// 旧表に実在した index の DDL をそのまま拾って貼り直す (自動生成 index は sql が NULL なので除く)。
+	const existingIndexes = db
+		.prepare(
+			"SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'reward_redemption_requests' AND sql IS NOT NULL",
+		)
+		.all() as { sql: string }[];
+
 	const run = db.transaction(() => {
 		db.exec(`
 			CREATE TABLE reward_redemption_requests_new (
@@ -1131,13 +1140,20 @@ function migrateRedemptionDropRewardFk(db: Database.Database): void {
 				SELECT ${selectList} FROM reward_redemption_requests;
 			DROP TABLE reward_redemption_requests;
 			ALTER TABLE reward_redemption_requests_new RENAME TO reward_redemption_requests;
+		`);
+		// 旧表に在った index を復元 (IF NOT EXISTS 化して二重作成を避ける)。
+		for (const idx of existingIndexes) {
+			db.exec(idx.sql.replace(/^CREATE\s+INDEX\s+/i, 'CREATE INDEX IF NOT EXISTS '));
+		}
+		// 正準 index (create-tables.ts SSOT)。旧表に無かった DB でも張られるようにする。
+		db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_redemption_child_status
 				ON reward_redemption_requests(child_id, status);
 			CREATE INDEX IF NOT EXISTS idx_redemption_reward_status
 				ON reward_redemption_requests(reward_id, status);
 		`);
 		console.info(
-			'[lazy-migrate #4683] dropped reward_redemption_requests.reward_id FK (ごほうび削除後も交換履歴を残す)',
+			`[lazy-migrate #4683] dropped reward_redemption_requests.reward_id FK (ごほうび削除後も交換履歴を残す、index ${existingIndexes.length} 本を復元)`,
 		);
 	});
 	run();

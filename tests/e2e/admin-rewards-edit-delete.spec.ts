@@ -268,13 +268,22 @@ test.describe('#2832 reward 編集/削除の pending redemption ガード', () =
 		await page.goto('/admin/rewards/requests', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByText(seeded.title).first()).toBeVisible({ timeout: 30_000 });
 
-		// ② 子供の交換履歴に残る
+		// ② 子供の交換履歴に残る。
+		// **空状態でないこと**まで見る (list が visible なだけだと 0 行でも通ってしまう)。
+		// 行の中身 (ごほうび名 / ポイント) の表示是正は #4632 の担当なので、ここでは
+		// 「空状態が出ていない + 行が 1 つ以上ある」を固定する。
 		await page.goto('/switch', { waitUntil: 'domcontentloaded' });
 		await page.locator(`[data-testid="child-select-${seeded.childId}"]`).click();
 		await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\//, { timeout: 30_000 });
 		const uiMode = new URL(page.url()).pathname.split('/')[1];
 		await page.goto(`/${uiMode}/history?kind=purchases`, { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('history-list-purchases')).toBeVisible({ timeout: 30_000 });
+		const purchaseList = page.getByTestId('history-list-purchases');
+		await expect(purchaseList).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('history-empty-purchases')).toHaveCount(0);
+		expect(
+			await purchaseList.locator('> div').count(),
+			'交換履歴が 0 行 (list は出ているが中身が無い)',
+		).toBeGreaterThan(0);
 
 		// ③ ポイント台帳の控除が残る (「何に使ったか」の事実)
 		const { default: Database } = await import('better-sqlite3');
