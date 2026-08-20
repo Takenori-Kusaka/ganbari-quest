@@ -7374,10 +7374,12 @@ export const CHILD_SHOP_LABELS = {
 	 */
 	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
 	emptyMessage: 'ごほうびがまだありません',
-	// 申請中バッジ
+	// #4631: 陳列棚に出すバッジは「承認待ち」だけ。approved / rejected は完了した状態なので
+	// カードに残さない (残すと「もう交換できない」と誤解させる)。結果は「記録 > 交換」で読む。
 	statusPending: 'うけとりまち',
-	statusApproved: 'こうかん済み',
-	statusRejected: 'まってね',
+	// #4631: 交換の結果 (いつ / いくら / 却下理由) を読みに行く導線。
+	// 却下理由は親が書いた文章なので、ショップからは辿れないと子供が理由を知る手段が無かった。
+	historyLinkLabel: 'こうかんの きろくを みる',
 	// 通知 overlay
 	approvedTitle: (rewardTitle: string) => `${rewardTitle} もらったよ！`,
 	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は ちょっとまってね`,

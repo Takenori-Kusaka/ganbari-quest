@@ -1,9 +1,10 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { APP_LABELS, CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { formatPointDisplayText, splitPointDisplay } from '$lib/domain/point-display';
 // #4684 F3: 「押せるか」の判定は 1 箇所 (domain SSOT)。カードとフィルタで条件が割れないようにする。
-import { canExchangeReward } from '$lib/domain/shop-availability';
+import { canExchangeReward, shopStatusBadge } from '$lib/domain/shop-availability';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -119,6 +120,9 @@ function resetFilters() {
 
 const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitleSuffix}`);
 
+// #4631: 交換の記録 (結果 / 却下理由) への導線。uiMode 配下の相対パスは resolve() を通す。
+const historyHref = $derived(resolve(`/${uiMode}/history?kind=purchases`));
+
 // #4509 ②: 残高 / 価格 / 不足分は必ずポイント表示設定 (point / currency + rate) を通す。
 // 通さないと、同じ画面のヘッダー (円換算) と桁の違う数字が並び、子供には
 // 「買えるのかどうか」が読めなくなる。
@@ -143,6 +147,12 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 			{/if}
 		</span>
 	</div>
+
+	<!-- #4631: 交換の結果 (いつ / いくら / 親が書いた却下理由) を読みに行く導線。
+	     旧実装は却下理由がショップから辿れず、子供は理由を知る手段が無かった -->
+	<a class="history-link" href={historyHref} data-testid="shop-history-link">
+		{CHILD_SHOP_LABELS.historyLinkLabel}
+	</a>
 
 	{#if form?.error}
 		<Alert variant="danger" message={form.error} />
@@ -283,12 +293,11 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 													{/if}
 												</p>
 
-												{#if reward.latestRequestStatus === 'pending_parent_approval'}
+												<!-- #4631: バッジは承認待ちのときだけ。完了した状態 (approved / rejected /
+												     expired) を陳列棚に残すと「もう交換できない」と誤解させる。
+												     結果は「記録 > 交換」で読む (下の導線) -->
+												{#if shopStatusBadge(reward.latestRequestStatus) === 'pending'}
 													<Badge variant="warning">{CHILD_SHOP_LABELS.statusPending}</Badge>
-												{:else if reward.latestRequestStatus === 'approved'}
-													<Badge variant="success">{CHILD_SHOP_LABELS.statusApproved}</Badge>
-												{:else if reward.latestRequestStatus === 'rejected'}
-													<Badge variant="neutral">{CHILD_SHOP_LABELS.statusRejected}</Badge>
 												{/if}
 
 												{#if data.balance < reward.points && reward.latestRequestStatus !== 'pending_parent_approval'}
@@ -386,6 +395,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 	.filter-badge-row {
 		display: flex; align-items: center; gap: var(--sp-sm);
 		flex-wrap: wrap;
+	}
+	.history-link {
+		display: inline-block;
+		margin-bottom: var(--sp-md);
+		font-size: 0.9rem;
+		color: var(--color-text-link);
+		text-decoration: underline;
 	}
 	.empty-state { margin-top: var(--sp-md); }
 	.reward-list {
