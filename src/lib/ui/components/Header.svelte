@@ -112,13 +112,13 @@ $effect(() => {
 	</div>
 </header>
 
+<!-- #4645 スタイルの意図:
+     #4645: 白を重ねると地の色が薄まり、上に載る白文字が AA (4.5:1) を割る (実測 3.23:1)。黒を重ねて地を濃くすることで白文字のコントラストを上げる。 -->
 <style>
 	.stamp-mini {
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		/* #4645: 白を重ねると地の色が薄まり、上に載る白文字が AA (4.5:1) を割る
-		   (実測 3.23:1)。黒を重ねて地を濃くすることで白文字のコントラストを上げる。 */
 		background: rgba(0, 0, 0, 0.18);
 		border: none;
 		border-radius: var(--radius-sm, 6px);

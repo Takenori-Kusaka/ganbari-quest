@@ -176,6 +176,8 @@ async function handleSubscribe() {
 	</div>
 {/if}
 
+<!-- #4645 スタイルの意図:
+     #4645: 白文字を載せる塗りは AA 版 (--color-action-primary は白文字で 3.34:1)。 -->
 <style>
 	.notification-banner {
 		display: flex;
@@ -187,49 +189,41 @@ async function handleSubscribe() {
 		border-radius: var(--radius-lg);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
-
 	.notification-banner__main {
 		display: flex;
 		align-items: center;
 		gap: 12px;
 	}
-
 	.notification-banner__icon {
 		font-size: 1.5rem;
 		flex-shrink: 0;
 	}
-
 	.notification-banner__content {
 		flex: 1;
 		min-width: 0;
 	}
-
 	.notification-banner__title {
 		font-size: 0.875rem;
 		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0;
 	}
-
 	.notification-banner__desc {
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);
 		margin: 2px 0 0;
 		line-height: 1.4;
 	}
-
 	.notification-banner__actions {
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
 		flex-shrink: 0;
 	}
-
 	.notification-banner__cta {
 		padding: 6px 12px;
 		border: none;
 		border-radius: 8px;
-		/* #4645: 白文字を載せる塗りは AA 版 (--color-action-primary は白文字で 3.34:1)。 */
 		background: var(--color-action-primary-strong);
 		color: var(--color-text-inverse);
 		font-size: 0.75rem;
@@ -237,16 +231,13 @@ async function handleSubscribe() {
 		cursor: pointer;
 		white-space: nowrap;
 	}
-
 	.notification-banner__cta:hover:not(:disabled) {
 		opacity: 0.9;
 	}
-
 	.notification-banner__cta:disabled {
 		cursor: not-allowed;
 		opacity: 0.6;
 	}
-
 	.notification-banner__dismiss {
 		padding: 4px 8px;
 		border: none;
@@ -256,16 +247,13 @@ async function handleSubscribe() {
 		cursor: pointer;
 		text-align: center;
 	}
-
 	.notification-banner__dismiss:hover:not(:disabled) {
 		text-decoration: underline;
 	}
-
 	.notification-banner__dismiss:disabled {
 		cursor: not-allowed;
 		opacity: 0.6;
 	}
-
 	.notification-banner__error {
 		padding: 8px 12px;
 		background: var(--color-feedback-error-bg);
@@ -273,64 +261,52 @@ async function handleSubscribe() {
 		border-radius: 8px;
 		color: var(--color-feedback-error-text);
 	}
-
 	.notification-banner__error-title {
 		font-size: 0.8125rem;
 		font-weight: 700;
 		margin: 0;
 	}
-
 	.notification-banner__error-desc {
 		font-size: 0.75rem;
 		margin: 2px 0 4px;
 	}
-
 	.notification-banner__error-link {
 		font-size: 0.75rem;
 		color: var(--color-text-link);
 		text-decoration: underline;
 	}
-
 	.notification-banner__disclosure {
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);
 	}
-
 	.notification-banner__disclosure-summary {
 		cursor: pointer;
 		font-weight: 600;
 		padding: 4px 0;
 		color: var(--color-text-link);
 	}
-
 	.notification-banner__disclosure-summary:hover {
 		text-decoration: underline;
 	}
-
 	.notification-banner__disclosure-body {
 		padding: 8px 4px 4px;
 		line-height: 1.5;
 	}
-
 	.notification-banner__kind-list {
 		margin: 0 0 8px;
 	}
-
 	.notification-banner__kind-list dt {
 		font-weight: 700;
 		color: var(--color-text-primary);
 		margin-top: 6px;
 	}
-
 	.notification-banner__kind-list dd {
 		margin: 2px 0 0 1em;
 		color: var(--color-text-secondary);
 	}
-
 	.notification-banner__disclosure-note {
 		margin: 4px 0 0;
 	}
-
 	.notification-banner__disclosure-link {
 		color: var(--color-text-link);
 		text-decoration: underline;
