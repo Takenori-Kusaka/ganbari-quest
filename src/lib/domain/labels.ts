@@ -3433,21 +3433,18 @@ export const OPS_LABELS = {
 	planColPlan: 'プラン',
 	planColTenants: 'テナント数',
 	planColMrr: 'MRR 概算',
-	planMonthly: `月額 (${PRICE_TERMS.standard}/月)`,
-	planYearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
-	// #4505: プレミアム (legacy family monthly/yearly 含む) は集計済みでも描画行が無く
-	// テナントが不可視だった。他行と同じ表記形式 + terms.ts 単価 atom 参照で追加する。
-	planPremiumMonthly: `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
-	planPremiumYearly: `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
-	planLifetime: 'ライフタイム',
 	planNone: '未設定（トライアル等）',
 	planTotalMrr: '合計 MRR',
+	/** 月次経常収益を生まない行 (買い切り / プラン未設定) の MRR 欄。 */
+	planMrrNone: '-',
 	/**
 	 * プラン値 → 行ラベル (#4505)。
 	 *
 	 * 画面はこの表を引いて行を組み立てるため、**プランが増えたら型で表の追加が要求される**
 	 * (`Record<SubscriptionPlan, string>`)。旧実装のように行を手で並べると、追加したプランが
 	 * 画面から抜けても誰も気づかない (プレミアムのテナントが不可視だった原因)。
+	 * 行ごとの個別 key (旧 `planMonthly` / `planPremiumMonthly` 等) は本表に統合済み — key を
+	 * 増やす形に戻すと、プラン追加時に型が何も要求しなくなる。
 	 */
 	planRowLabels: {
 		monthly: `月額 (${PRICE_TERMS.standard}/月)`,

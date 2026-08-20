@@ -9,31 +9,38 @@
 // **プレミアム契約のテナントがどの行にも出ず、合計 MRR からも欠落**した (#4505 実測)。
 // 経営数値の欠落は画面が壊れて見えないので、気づく手段がない。
 //
-// 行をプラン集合から作る形に変えたので、その形が保たれていることを機械で保証する。
+// 行をプラン集合から作り、掛け算を集計側 1 箇所に閉じた形に変えたので、その形が
+// 保たれていることを機械で保証する。
 //
 // # 何を fail させるか
 //
 // - `ALL_SUBSCRIPTION_PLANS` のどれかが内訳の行に現れない
+// - 合計が行の和でなくなる (行に出ているのに合計に入らないプランが作れてしまう)
 // - `/ops` の内訳テーブルがプランごとの行を手で並べる形に戻る
+// - 画面が単価を掛け直す形に戻る (2 つ目の集計が生える)
 
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
-import { ALL_SUBSCRIPTION_PLANS } from '$lib/domain/constants/subscription-plan';
+import {
+	ALL_SUBSCRIPTION_PLANS,
+	SUBSCRIPTION_PLAN,
+	type SubscriptionPlan,
+} from '$lib/domain/constants/subscription-plan';
 import { OPS_LABELS } from '$lib/domain/labels';
-import { buildOpsPlanRows } from '$lib/domain/ops-plan-rows';
+import { buildOpsPlanRows, sumOpsPlanMrr } from '$lib/domain/ops-plan-rows';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const OPS_PAGE = join(REPO_ROOT, 'src/routes/ops/+page.svelte');
 
-const COUNTS = {
-	monthly: 2,
-	yearly: 1,
-	familyMonthly: 3,
-	familyYearly: 1,
-	lifetime: 5,
+const COUNTS: Record<SubscriptionPlan, number> = {
+	[SUBSCRIPTION_PLAN.MONTHLY]: 2,
+	[SUBSCRIPTION_PLAN.YEARLY]: 1,
+	[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: 3,
+	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: 1,
+	[SUBSCRIPTION_PLAN.LIFETIME]: 5,
 };
 
 describe('#4505 /ops プラン内訳は全プランを必ず出す', () => {
@@ -50,13 +57,19 @@ describe('#4505 /ops プラン内訳は全プランを必ず出す', () => {
 		expect(byPlan['family-monthly']?.mrr).toBe(3 * PLAN_MRR_UNIT_YEN['family-monthly']);
 		// 買い切りは月次収益に寄与しない (画面では「-」)
 		expect(byPlan.lifetime?.mrr).toBe(0);
-		// 合計は各行の和 = service の totalMrr と同じ組み立て方
-		const total = rows.reduce((sum, r) => sum + r.mrr, 0);
-		expect(total).toBe(
+	});
+
+	it('合計は行の和である (行に出ているのに合計から漏れるプランが作れない)', () => {
+		const rows = buildOpsPlanRows(COUNTS);
+		expect(sumOpsPlanMrr(rows)).toBe(
 			2 * PLAN_MRR_UNIT_YEN.monthly +
 				1 * PLAN_MRR_UNIT_YEN.yearly +
 				3 * PLAN_MRR_UNIT_YEN['family-monthly'] +
 				1 * PLAN_MRR_UNIT_YEN['family-yearly'],
+		);
+		// プランを 1 つ増やせば和も増える = 合計が行から独立していない
+		expect(sumOpsPlanMrr(rows.filter((r) => r.plan !== 'family-monthly'))).toBe(
+			sumOpsPlanMrr(rows) - 3 * PLAN_MRR_UNIT_YEN['family-monthly'],
 		);
 	});
 
@@ -70,11 +83,32 @@ describe('#4505 /ops プラン内訳は全プランを必ず出す', () => {
 		const src = readFileSync(OPS_PAGE, 'utf-8');
 		// 行は each で組み立てる (プランごとの td を書かない)
 		expect(src).toContain('{#each planRows as row');
-		for (const legacyRow of ['planMonthly', 'planYearly', 'planPremiumMonthly', 'planLifetime']) {
+		for (const legacyRow of [
+			'planMonthly',
+			'planYearly',
+			'planPremiumMonthly',
+			'planPremiumYearly',
+			'planLifetime',
+		]) {
 			expect(
 				src.includes(`OPS_LABELS.${legacyRow}}`),
 				`OPS_LABELS.${legacyRow} を直接描いています。行はプラン集合から組み立ててください (#4505)`,
 			).toBe(false);
 		}
+	});
+
+	it('/ops が MRR を自前で計算し直していない (集計は service 1 箇所)', () => {
+		const src = readFileSync(OPS_PAGE, 'utf-8');
+		// 単価表を画面から引く = 2 つ目の集計。#4505 はまさに画面側の再計算式で MRR が欠落した
+		expect(
+			src.includes('PLAN_MRR_UNIT_YEN'),
+			'画面が単価表を引いています。MRR の算出は ops-service に閉じてください (#4505)',
+		).toBe(false);
+		expect(
+			src.includes('buildOpsPlanRows'),
+			'画面が行を組み立てています。行は ops-service が組み立てたものを描くだけにしてください (#4505)',
+		).toBe(false);
+		// 合計は service が返した値をそのまま描く
+		expect(src).toContain('stats.totalMrr');
 	});
 });

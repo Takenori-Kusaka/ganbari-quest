@@ -2,6 +2,7 @@
 // 運営管理サービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OpsPlanRow } from '../../../src/lib/domain/ops-plan-rows';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
 import type {
 	AWSCostData,
@@ -52,6 +53,20 @@ function makeTenant(overrides: Partial<Tenant> & { tenantId: string }): Tenant {
 	};
 }
 
+/**
+ * 行配列を plan → 値の表に畳む (#4505)。
+ *
+ * `toEqual` で表ごと比較することで、**プランが増えて行が生えたときに test が落ちる**
+ * (行を 1 つずつ拾う書き方だと、増えたプランを誰も見ないまま緑になる)。
+ */
+function planTenants(rows: OpsPlanRow[]): Record<string, number> {
+	return Object.fromEntries(rows.map((r) => [r.plan, r.tenants]));
+}
+
+function planMrr(rows: OpsPlanRow[]): Record<string, number> {
+	return Object.fromEntries(rows.map((r) => [r.plan, r.mrr]));
+}
+
 // =============================================================
 // getKpiSummary
 // =============================================================
@@ -74,14 +89,15 @@ describe('getKpiSummary', () => {
 		expect(result.tenantStats.terminated).toBe(0);
 		expect(result.activeRate).toBe(0);
 		expect(result.tenantStats.newThisMonth).toBe(0);
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 0,
 			yearly: 0,
-			familyMonthly: 0,
-			familyYearly: 0,
+			'family-monthly': 0,
+			'family-yearly': 0,
 			lifetime: 0,
-			noPlan: 0,
 		});
+		expect(result.tenantStats.noPlan).toBe(0);
+		expect(result.tenantStats.totalMrr).toBe(0);
 	});
 
 	it('複数テナント(異なるステータス)を正しく集計する', async () => {
@@ -115,7 +131,7 @@ describe('getKpiSummary', () => {
 		expect(result.activeRate).toBe(3 / 4);
 	});
 
-	it('planBreakdown は active テナントのみ集計する', async () => {
+	it('プラン内訳は active テナントのみ集計する', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 			makeTenant({ tenantId: 't2', status: 'active', plan: 'yearly' }),
@@ -127,14 +143,14 @@ describe('getKpiSummary', () => {
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 1,
 			yearly: 1,
-			familyMonthly: 0,
-			familyYearly: 0,
+			'family-monthly': 0,
+			'family-yearly': 0,
 			lifetime: 1,
-			noPlan: 1,
 		});
+		expect(result.tenantStats.noPlan).toBe(1);
 	});
 
 	// #4127 (3 instance 目): 実装 (ops-service.ts:69) は `monthStartJST()` 由来の JST 月初で
@@ -169,8 +185,8 @@ describe('getKpiSummary', () => {
 	});
 
 	// #4505: プレミアム (family monthly/yearly) は集計されているが描画側にプレミアム行が無く
-	// テナントが不可視だった。集計 (planBreakdown) だけでなく MRR (mrrBreakdown) も
-	// familyMonthly/familyYearly の寄与を含めて算出されることを回帰確認する。
+	// テナントが不可視だった。行 (planRows) と合計 MRR の両方にプレミアムの寄与が乗ることを
+	// 回帰確認する (行に出ているのに合計から欠ける、の裏返しも起きない)。
 	it('familyMonthly/familyYearly の集計と MRR 寄与が正しく反映される (#4505)', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
@@ -181,39 +197,40 @@ describe('getKpiSummary', () => {
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 1,
 			yearly: 0,
-			familyMonthly: 2,
-			familyYearly: 1,
+			'family-monthly': 2,
+			'family-yearly': 1,
 			lifetime: 0,
-			noPlan: 0,
 		});
 
-		// monthly: 1 * 500 = 500 / familyMonthly: 2 * 780 = 1560 / familyYearly: 1 * round(7800/12) = 650
-		expect(result.tenantStats.mrrBreakdown).toEqual({
+		// monthly: 1 * 500 = 500 / family-monthly: 2 * 780 = 1560 / family-yearly: 1 * round(7800/12) = 650
+		expect(planMrr(result.tenantStats.planRows)).toEqual({
 			monthly: 500,
 			yearly: 0,
-			familyMonthly: 1560,
-			familyYearly: 650,
-			total: 500 + 1560 + 650,
+			'family-monthly': 1560,
+			'family-yearly': 650,
+			lifetime: 0,
 		});
+		expect(result.tenantStats.totalMrr).toBe(500 + 1560 + 650);
 	});
 
-	it('プレミアムが 0 件のとき mrrBreakdown の familyMonthly/familyYearly/total は 0', async () => {
+	it('プレミアムが 0 件のときプレミアム行の MRR と合計への寄与は 0', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 		]);
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.mrrBreakdown).toEqual({
+		expect(planMrr(result.tenantStats.planRows)).toEqual({
 			monthly: 500,
 			yearly: 0,
-			familyMonthly: 0,
-			familyYearly: 0,
-			total: 500,
+			'family-monthly': 0,
+			'family-yearly': 0,
+			lifetime: 0,
 		});
+		expect(result.tenantStats.totalMrr).toBe(500);
 	});
 
 	it('stripeEnabled が正しく反映される', async () => {

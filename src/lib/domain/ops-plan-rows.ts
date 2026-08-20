@@ -12,11 +12,15 @@
 // 行をプラン集合 (`ALL_SUBSCRIPTION_PLANS`) から組み立てれば、プランが増えたときに
 // 画面から漏れることが構造的に起きない。単価は `PLAN_MRR_UNIT_YEN` (SSOT) を引く。
 //
-// domain に置くのは、描画 (client) と集計 (server) の両方が同じ関数を読むため
-// (`$lib/server/*` を client から import することはできない)。
+// domain に置くのは、行の型 (`OpsPlanRow`) を描画側と集計側の両方が参照するため。
+// **組み立てを呼ぶのは集計側 (ops-service) だけ**で、画面は返ってきた行を描くだけにする
+// (画面が自分で単価を掛け直すと、それ自体が 2 つ目の集計になる)。
 
-import { PLAN_MRR_UNIT_YEN } from './constants/plan-price';
-import { ALL_SUBSCRIPTION_PLANS, type SubscriptionPlan } from './constants/subscription-plan';
+import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
+import {
+	ALL_SUBSCRIPTION_PLANS,
+	type SubscriptionPlan,
+} from '$lib/domain/constants/subscription-plan';
 
 /** `/ops` プラン内訳の 1 行。 */
 export interface OpsPlanRow {
@@ -26,32 +30,26 @@ export interface OpsPlanRow {
 	mrr: number;
 }
 
-/** 行の組み立てに必要な集計値 (ops-service の `planBreakdown` と同型)。 */
-export interface OpsPlanCounts {
-	monthly: number;
-	yearly: number;
-	familyMonthly: number;
-	familyYearly: number;
-	lifetime: number;
-}
-
 /**
  * プラン集合から内訳の行を作る。
  *
- * `counts` は `Record<SubscriptionPlan, number>` に写してから引くため、プランが増えたときは
- * **この写像がコンパイルエラーになる** (どの集計値を使うかを必ず決めさせる)。
+ * 入力が `Record<SubscriptionPlan, number>` なので、プランが増えたときは
+ * **呼び出し側の写像がコンパイルエラーになる** (どの集計値を使うかを必ず決めさせる)。
  */
-export function buildOpsPlanRows(counts: OpsPlanCounts): OpsPlanRow[] {
-	const byPlan: Record<SubscriptionPlan, number> = {
-		monthly: counts.monthly,
-		yearly: counts.yearly,
-		'family-monthly': counts.familyMonthly,
-		'family-yearly': counts.familyYearly,
-		lifetime: counts.lifetime,
-	};
+export function buildOpsPlanRows(tenantsByPlan: Record<SubscriptionPlan, number>): OpsPlanRow[] {
 	return ALL_SUBSCRIPTION_PLANS.map((plan) => ({
 		plan,
-		tenants: byPlan[plan],
-		mrr: byPlan[plan] * PLAN_MRR_UNIT_YEN[plan],
+		tenants: tenantsByPlan[plan],
+		mrr: tenantsByPlan[plan] * PLAN_MRR_UNIT_YEN[plan],
 	}));
+}
+
+/**
+ * 行の MRR 合計。
+ *
+ * 合計を「行の和」として定義することで、**行に出ているのに合計に入らないプラン**が
+ * 存在しえなくなる (#4505 の実害はまさにそれの裏返しで、プレミアムが行にも合計にも無かった)。
+ */
+export function sumOpsPlanMrr(rows: readonly OpsPlanRow[]): number {
+	return rows.reduce((sum, row) => sum + row.mrr, 0);
 }

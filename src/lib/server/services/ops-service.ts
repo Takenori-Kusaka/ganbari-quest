@@ -1,12 +1,11 @@
 // src/lib/server/services/ops-service.ts
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
-import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
-// #4505: 行の組み立ては domain 側 (client からも読む) が SSOT。ここでは再 export しない。
-import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
+import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { jstDateOfIso, monthStartJST, utcMonthKey } from '$lib/domain/date-utils';
+import { buildOpsPlanRows, type OpsPlanRow, sumOpsPlanMrr } from '$lib/domain/ops-plan-rows';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -22,28 +21,19 @@ export interface TenantStats {
 	gracePeriod: number;
 	suspended: number;
 	terminated: number;
-	planBreakdown: {
-		monthly: number;
-		yearly: number;
-		familyMonthly: number;
-		familyYearly: number;
-		lifetime: number;
-		noPlan: number;
-	};
 	/**
-	 * プラン別 MRR（月次換算、円）と合計 (#4505)。
+	 * プラン別内訳の行 (#4505)。**全プランを必ず 1 行ずつ持つ** (`ALL_SUBSCRIPTION_PLANS` 由来)。
 	 *
-	 * `planBreakdown` の集計と同じテナント集合から算出する唯一の SSOT。
-	 * 呼出側 (`+page.svelte` / `getRevenueData`) はここを描画するだけで、
-	 * 独自の再計算式を持たない（集計と描画の二重実装の再発防止）。
+	 * 旧実装はここが手書きの 5 フィールド (`planBreakdown`) + 別の手書き MRR 表 (`mrrBreakdown`)
+	 * で、画面もプランを手で並べていた。プレミアムを足したときに描画側だけ追従漏れし、
+	 * **契約中のテナントがどの行にも出ず、合計 MRR からも欠落**した。
+	 * 呼出側 (`+page.svelte` / `getRevenueData`) はこの配列を描くだけで、単価を掛け直さない。
 	 */
-	mrrBreakdown: {
-		monthly: number;
-		yearly: number;
-		familyMonthly: number;
-		familyYearly: number;
-		total: number;
-	};
+	planRows: OpsPlanRow[];
+	/** プラン未設定 (トライアル等) の active テナント数。プラン集合の外なので行に含めない。 */
+	noPlan: number;
+	/** 月次経常収益の合計 (円) = `planRows` の MRR の和。 */
+	totalMrr: number;
 	newThisMonth: number;
 }
 
@@ -84,7 +74,8 @@ async function getTenantStats(): Promise<TenantStats> {
 	// 環境ごとに「今月の新規テナント数」が変わっていた。
 	const monthStart = new Date(`${monthStartJST()}T00:00:00+09:00`);
 
-	const planBreakdown = countPlans(tenants);
+	const { tenantsByPlan, noPlan } = countPlans(tenants);
+	const planRows = buildOpsPlanRows(tenantsByPlan);
 
 	return {
 		total: tenants.length,
@@ -92,48 +83,34 @@ async function getTenantStats(): Promise<TenantStats> {
 		gracePeriod: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD).length,
 		suspended: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.SUSPENDED).length,
 		terminated: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.TERMINATED).length,
-		planBreakdown,
-		mrrBreakdown: computeMrrBreakdown(planBreakdown),
+		planRows,
+		noPlan,
+		totalMrr: sumOpsPlanMrr(planRows),
 		newThisMonth: tenants.filter((t) => new Date(t.createdAt) >= monthStart).length,
 	};
 }
 
-function countPlans(tenants: Tenant[]) {
-	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
-	return {
-		monthly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.MONTHLY).length,
-		yearly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.YEARLY).length,
-		familyMonthly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.FAMILY_MONTHLY).length,
-		familyYearly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.FAMILY_YEARLY).length,
-		lifetime: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.LIFETIME).length,
-		noPlan: activeTenants.filter((t) => !t.plan).length,
-	};
-}
-
 /**
- * プラン別 MRR 内訳を組み立てる (#4505)。
+ * active テナントをプラン別に数える (#4505)。
  *
- * 単価は `src/lib/domain/constants/plan-price.ts` が唯一の SSOT (#4533)。
- * `src/lib/server/stripe/config.ts` の `getPlans()` は Stripe checkout で新規購入可能な
- * monthly 2 種のみを扱う (#2719 yearly 廃止後) が、ここは historical record を含む
- * 5 プラン全種の MRR 単価が必要なため、値だけを同じ SSOT から引く。
+ * 戻り値を `Record<SubscriptionPlan, number>` にしているので、プランを足したら
+ * **ここがコンパイルエラーになる** (数え漏れたプランが 0 件として静かに消えない)。
  */
-function computeMrrBreakdown(
-	planBreakdown: TenantStats['planBreakdown'],
-): TenantStats['mrrBreakdown'] {
-	const monthly = planBreakdown.monthly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY];
-	const yearly = planBreakdown.yearly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.YEARLY];
-	const familyMonthly =
-		planBreakdown.familyMonthly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY];
-	const familyYearly =
-		planBreakdown.familyYearly * PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY];
-
+function countPlans(tenants: Tenant[]): {
+	tenantsByPlan: Record<SubscriptionPlan, number>;
+	noPlan: number;
+} {
+	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
+	const count = (plan: SubscriptionPlan) => activeTenants.filter((t) => t.plan === plan).length;
 	return {
-		monthly,
-		yearly,
-		familyMonthly,
-		familyYearly,
-		total: monthly + yearly + familyMonthly + familyYearly,
+		tenantsByPlan: {
+			[SUBSCRIPTION_PLAN.MONTHLY]: count(SUBSCRIPTION_PLAN.MONTHLY),
+			[SUBSCRIPTION_PLAN.YEARLY]: count(SUBSCRIPTION_PLAN.YEARLY),
+			[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: count(SUBSCRIPTION_PLAN.FAMILY_MONTHLY),
+			[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: count(SUBSCRIPTION_PLAN.FAMILY_YEARLY),
+			[SUBSCRIPTION_PLAN.LIFETIME]: count(SUBSCRIPTION_PLAN.LIFETIME),
+		},
+		noPlan: activeTenants.filter((t) => !t.plan).length,
 	};
 }
 
@@ -220,10 +197,10 @@ export async function getRevenueData(from: Date, to: Date): Promise<RevenueData>
 		const monthlyBreakdown = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month));
 
 		// MRR/ARR: KPI のプラン内訳ベース（Stripe請求ベースでなく、DB のテナント情報から算出）。
-		// 算出は `getTenantStats()` の `mrrBreakdown.total` (単一 SSOT) を使う。ここで再計算式を
+		// 算出は `getTenantStats()` の `totalMrr` (単一 SSOT) を使う。ここで再計算式を
 		// 持つと `/ops` の合計 MRR と乖離しうる (#4505 の再発防止)。
 		const tenantStats = await getTenantStats();
-		const mrr = tenantStats.mrrBreakdown.total;
+		const mrr = tenantStats.totalMrr;
 		const arr = mrr * 12;
 
 		return { invoices: rows, totalRevenue, totalStripeFees, monthlyBreakdown, mrr, arr };

@@ -1,6 +1,6 @@
 <script lang="ts">
+import { formatYen } from '$lib/domain/constants/plan-price';
 import { OPS_LABELS } from '$lib/domain/labels';
-import { buildOpsPlanRows } from '$lib/domain/ops-plan-rows';
 import ContractStateAuditCard from '$lib/features/admin/components/ContractStateAuditCard.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -8,8 +8,8 @@ import Card from '$lib/ui/primitives/Card.svelte';
 let { data } = $props();
 const kpi = $derived(data.kpi);
 const stats = $derived(kpi.tenantStats);
-// #4505: プラン行は service (ops-service.buildPlanRows) が組み立てた 1 つの配列を描く
-const planRows = $derived(buildOpsPlanRows(stats.planBreakdown));
+// #4505: プラン行は service が組み立てた 1 つの配列。画面は単価を掛け直さない
+const planRows = $derived(stats.planRows);
 const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
@@ -73,18 +73,18 @@ const contractState = $derived(data.contractState);
 					<tr data-testid="ops-plan-row-{row.plan}">
 						<td>{OPS_LABELS.planRowLabels[row.plan]}</td>
 						<td>{row.tenants}</td>
-						<td>{row.mrr > 0 ? `¥${row.mrr.toLocaleString()}` : '-'}</td>
+						<td>{row.mrr > 0 ? formatYen(row.mrr) : OPS_LABELS.planMrrNone}</td>
 					</tr>
 				{/each}
-				<tr>
+				<tr data-testid="ops-plan-row-none">
 					<td>{OPS_LABELS.planNone}</td>
-					<td>{stats.planBreakdown.noPlan}</td>
-					<td>-</td>
+					<td>{stats.noPlan}</td>
+					<td>{OPS_LABELS.planMrrNone}</td>
 				</tr>
-				<tr class="total-row">
+				<tr class="total-row" data-testid="ops-plan-row-total">
 					<td>{OPS_LABELS.planTotalMrr}</td>
 					<td>{stats.active}</td>
-					<td>¥{stats.mrrBreakdown.total.toLocaleString()}</td>
+					<td>{formatYen(stats.totalMrr)}</td>
 				</tr>
 			</tbody>
 		</table>
