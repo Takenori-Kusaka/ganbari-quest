@@ -220,6 +220,48 @@ describe('送信済マーカー — retry / 手動再実行で 2 通目を送ら
 // プランゲート
 // ============================================================
 
+// 週次メールは「🔥 連続記録: N日」「±0」をそのまま描くため、0 固定にすると
+// 顧客には「連続 0 日」「全カテゴリ増減なし」という嘘が届く。
+describe('週次メールの中身が実データを載せる', () => {
+	beforeEach(() => {
+		mockRepos.settings.getSettingForAllTenants.mockImplementation(async (key: string) =>
+			key === 'weekly_report_day' ? new Map([[TENANT, 'thursday']]) : new Map(),
+		);
+		mockRepos.activity.findDistinctRecordedDates.mockResolvedValue([
+			{ recordedDate: '2026-08-20' },
+			{ recordedDate: '2026-08-19' },
+			{ recordedDate: '2026-08-18' },
+		]);
+		// 今週 3 回 / 前週 1 回 → diff は +2
+		mockGenerate
+			.mockResolvedValueOnce({
+				weekStart: '2026-08-17',
+				weekEnd: '2026-08-23',
+				totalPoints: 42,
+				categories: [{ categoryName: 'うんどう', activityCount: 3, totalXp: 30 }],
+				newAchievements: [],
+			})
+			.mockResolvedValueOnce({
+				weekStart: '2026-08-10',
+				weekEnd: '2026-08-16',
+				totalPoints: 10,
+				categories: [{ categoryName: 'うんどう', activityCount: 1, totalXp: 10 }],
+				newAchievements: [],
+			});
+	});
+
+	it('streak は実際の連続記録日数、diff は前週比を載せる', async () => {
+		await runNotificationDelivery({ now: jst('2026-08-20', '10:00') });
+
+		const data = mockSendWeeklyEmail.mock.calls[0]?.[1] as {
+			streak: number;
+			categories: Array<{ name: string; count: number; diff: number }>;
+		};
+		expect(data.streak).toBe(3);
+		expect(data.categories[0]).toEqual({ name: 'うんどう', count: 3, diff: 2 });
+	});
+});
+
 describe('プランゲート (#735)', () => {
 	it('無料プランには週次メールを送らない (upsell で有料特典と案内しているため)', async () => {
 		mockResolvePlanTier.mockResolvedValue('free');
@@ -283,6 +325,29 @@ describe('ストリーク警告の対象選別', () => {
 		const result = await runNotificationDelivery({ now: jst('2026-08-20', '20:00') });
 
 		expect(result.streakWarningSent).toBe(0);
+	});
+
+	// ADR-0012 anti-engagement: push の宛先はテナント (親の端末) であって子供ごとではない。
+	// 子供の数だけ送ると同じ端末が連続で鳴り、1 日 3 通上限を兄弟で使い切ってその日の
+	// 他の通知が全部落ちる。
+	it('子供が複数いても push は 1 通にまとめる (通知連打しない)', async () => {
+		mockRepos.child.findAllChildren.mockResolvedValue([
+			{ id: 'c-1', nickname: 'たろう' },
+			{ id: 'c-2', nickname: 'はなこ' },
+		]);
+		mockRepos.activity.findDistinctRecordedDates.mockResolvedValue([
+			{ recordedDate: '2026-08-19' },
+			{ recordedDate: '2026-08-18' },
+		]);
+
+		await runNotificationDelivery({ now: jst('2026-08-20', '20:00') });
+
+		const streakCalls = mockSendPush.mock.calls.filter((c) => c[1] === 'streak_warning');
+		expect(streakCalls).toHaveLength(1);
+		// 1 通に両方の子供が入る
+		const body = streakCalls[0]?.[3] as string;
+		expect(body).toContain('たろう');
+		expect(body).toContain('はなこ');
 	});
 
 	it('今日未記録かつストリーク継続中なら日数を本文に入れて送る', async () => {

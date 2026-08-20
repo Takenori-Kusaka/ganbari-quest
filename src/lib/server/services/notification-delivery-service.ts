@@ -236,24 +236,7 @@ async function sendWeeklyReport(tenantId: string, now: Date, dryRun: boolean): P
 
 	let sent = 0;
 	for (const child of children) {
-		const report = await generateWeeklyReport(child.id as ChildId, child.nickname, tenantId, now);
-		const data: WeeklyReportData = {
-			childName: child.nickname,
-			dateRange: `${report.weekStart} 〜 ${report.weekEnd}`,
-			// diff は「前週比」だが、前週分をもう 1 セット生成すると往復が倍になる。
-			// 週次メールの主目的は「今週なにをしたか」なので、実数だけを載せて 0 を置く
-			// (テンプレートは 0 を「±0」と描く)。
-			categories: report.categories.map((c) => ({
-				name: c.categoryName,
-				count: c.activityCount,
-				diff: 0,
-			})),
-			streak: 0,
-			pointsEarned: report.totalPoints,
-			totalPoints: report.categories.reduce((sum, c) => sum + c.totalXp, 0),
-			newAchievements: report.newAchievements.map((a) => a.name),
-		};
-
+		const data = await buildWeeklyReportData(child, tenantId, now);
 		if (dryRun) {
 			sent++;
 			continue;
@@ -261,6 +244,52 @@ async function sendWeeklyReport(tenantId: string, now: Date, dryRun: boolean): P
 		if (await sendWeeklyReportEmail(ownerUser.email, data)) sent++;
 	}
 	return sent;
+}
+
+/**
+ * 週次メール 1 通分のデータを作る。
+ *
+ * **`streak` と `diff` (前週比) を実数で埋める。** メールは「🔥 連続記録: N日」「±0」と
+ * そのまま描くため、0 固定にすると顧客には「連続 0 日」「全カテゴリ増減なし」と読める嘘が届く。
+ * 週次 = 1 テナントにつき週 1 回なので、前週レポートの生成 (1 往復) と
+ * 記録日一覧 (1 クエリ) を足すコストは許容範囲にある。
+ */
+async function buildWeeklyReportData(
+	child: { id: string; nickname: string },
+	tenantId: string,
+	now: Date,
+): Promise<WeeklyReportData> {
+	const repos = getRepos();
+	const childId = child.id as ChildId;
+	const lastWeek = new Date(now.getTime() - 7 * 86_400_000);
+
+	const [report, prevReport, recordedRows] = await Promise.all([
+		generateWeeklyReport(childId, child.nickname, tenantId, now),
+		generateWeeklyReport(childId, child.nickname, tenantId, lastWeek),
+		repos.activity.findDistinctRecordedDates(childId, tenantId),
+	]);
+
+	const prevCount = new Map(
+		prevReport.categories.map((c) => [c.categoryName, c.activityCount] as const),
+	);
+	const recordedDates = recordedRows.map((r) => r.recordedDate);
+	const today = toJSTDateString(now);
+	// 今日まだ記録していない日に送っても「昨日までの連続」を正しく出す
+	const streakFrom = recordedDates.includes(today) ? today : prevDateJST(today);
+
+	return {
+		childName: child.nickname,
+		dateRange: `${report.weekStart} 〜 ${report.weekEnd}`,
+		categories: report.categories.map((c) => ({
+			name: c.categoryName,
+			count: c.activityCount,
+			diff: c.activityCount - (prevCount.get(c.categoryName) ?? 0),
+		})),
+		streak: streakDaysFromDates(recordedDates, streakFrom),
+		pointsEarned: report.totalPoints,
+		totalPoints: report.categories.reduce((sum, c) => sum + c.totalXp, 0),
+		newAchievements: report.newAchievements.map((a) => a.name),
+	};
 }
 
 /** リマインダー push 1 テナント分。送れたら true。 */
@@ -284,35 +313,46 @@ async function sendReminder(tenantId: string, dryRun: boolean): Promise<boolean>
 	return result.sent > 0;
 }
 
-/** ストリーク警告 push 1 テナント分。送れたら true。 */
+/**
+ * ストリーク警告 push 1 テナント分。送れたら true。
+ *
+ * **子供が複数いても push は 1 通にまとめる** (ADR-0012 anti-engagement: 通知連打は不採用)。
+ * push の宛先はテナント (親の端末) であり子供ごとではないため、子供の数だけ送ると
+ * 同じ端末が連続で鳴る。しかも 1 日 3 通の上限 (`MAX_DAILY_NOTIFICATIONS`) を
+ * 兄弟 3 人で使い切り、その日の他の通知が全部落ちる。
+ */
 async function sendStreakWarning(tenantId: string, now: Date, dryRun: boolean): Promise<boolean> {
 	const repos = getRepos();
 	const today = toJSTDateString(now);
 	const yesterday = prevDateJST(today);
 	const children = await repos.child.findAllChildren(tenantId);
 
-	let sentAny = false;
+	const atRisk: Array<{ nickname: string; streakDays: number }> = [];
 	for (const child of children) {
 		const rows = await repos.activity.findDistinctRecordedDates(child.id as ChildId, tenantId);
 		const dates = rows.map((r) => r.recordedDate);
 		if (dates.includes(today)) continue; // 今日は記録済 = 途切れない
 		const streakDays = streakDaysFromDates(dates, yesterday);
 		if (streakDays === 0) continue; // そもそもストリークが無い
-
-		if (dryRun) {
-			sentAny = true;
-			continue;
-		}
-		const result = await sendPushNotification(
-			tenantId,
-			'streak_warning',
-			'ストリークが あぶない！',
-			`${formatChildName(child.nickname, 'possessive')}${streakDays}日れんぞくが きょうでとぎれちゃうよ！ いまからがんばろう！`,
-			{ type: 'streak_warning' },
-		);
-		if (result.sent > 0) sentAny = true;
+		atRisk.push({ nickname: child.nickname, streakDays });
 	}
-	return sentAny;
+	if (atRisk.length === 0) return false;
+	if (dryRun) return true;
+
+	const body = atRisk
+		.map(
+			(c) =>
+				`${formatChildName(c.nickname, 'possessive')}${c.streakDays}日れんぞくが きょうでとぎれちゃうよ！`,
+		)
+		.join(' ');
+	const result = await sendPushNotification(
+		tenantId,
+		'streak_warning',
+		'ストリークが あぶない！',
+		`${body} いまからがんばろう！`,
+		{ type: 'streak_warning' },
+	);
+	return result.sent > 0;
 }
 
 // ============================================================
