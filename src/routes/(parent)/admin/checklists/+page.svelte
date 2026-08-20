@@ -325,6 +325,17 @@ async function handleCopyFromChild() {
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
 			const added = Number(actionResult.data?.added ?? 0);
 			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
 			// (limitReached) は server の partial-success message を出し、silent な over-grant /

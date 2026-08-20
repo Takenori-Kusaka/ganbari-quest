@@ -5587,6 +5587,14 @@ export const CHILD_COPY_RESULT_LABELS = {
 	tone: (copied: number): 'success' | 'info' => (copied > 0 ? 'success' : 'info'),
 	/** コピー実行中のボタン文言 (DESIGN.md §5 Button loading) */
 	copying: 'コピーしています…',
+	/**
+	 * デモ環境 (write no-op) の結果表示。取込 / 復元の demo 分岐と同型 (#2558 bug-1)。
+	 * demo は書き込みを行わないので件数は常に 0 で返る。これを実結果として
+	 * 「コピーできる○○がありませんでした」と出すと、デモを触った人に
+	 * 「重複していないのにコピーできない」と誤解させるため、demo と明示する。
+	 */
+	demo: (resourceNoun: string): string =>
+		`デモではお試し用です（実際の${resourceNoun}のコピーは行われません）`,
 } as const;
 
 /**

@@ -457,6 +457,17 @@ async function handleCopyFromChild() {
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_ACTIVITIES_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
 			const copied = Number(actionResult.data?.copiedCount ?? 0);
 			const skipped = Number(actionResult.data?.skippedCount ?? 0);
 			actionMessage = CHILD_COPY_RESULT_LABELS.format(
