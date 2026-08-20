@@ -179,6 +179,20 @@ describe('#4693 チェックリスト取込の上限は「誰が」を言い、�
 		expect(mockDispatchImport).not.toHaveBeenCalled();
 	});
 
+	// #4693 fix (adversarial D3 security): 上限判定は child 1 人につき DB を 1 往復する。
+	// tenant 所有権の検査より後ろに置くと、未検証の child ID 列で往復を増幅させられる
+	// (ADR-0065 DPU 規約にも逆行)。認可 → 上限判定 の順序を固定する。
+	it('tenant 外 child は上限判定に入る前に弾く (DB 往復を発生させない)', async () => {
+		const result = (await importPresetToChildren(event(`${FULL},9999`))) as {
+			status: number;
+			data: { error: unknown };
+		};
+
+		expect(result.status).toBe(403);
+		expect(mockRepoFindTemplatesByChild).not.toHaveBeenCalled();
+		expect(mockDispatchImport).not.toHaveBeenCalled();
+	});
+
 	it('有料プランは上限判定で外れない', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
 

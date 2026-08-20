@@ -568,45 +568,6 @@ export const actions: Actions = {
 		// 配信先 child 0 件でも family template 自体は作成可能 (後で distribution 編集)
 		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const tenantChildren = await getAllChildren(tenantId);
-		// 配信先 child が指定済みなら各 child の per-child quota を事前確認
-		const childIdsForLimitCheck =
-			childIdsRaw === 'all'
-				? tenantChildren.map((c) => c.id)
-				: childIdsRaw === ''
-					? []
-					: childIdsRaw
-							.split(',')
-							.map((s) => s.trim())
-							.filter((v) => v !== '')
-							.map(asChildId);
-		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
-		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
-		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
-		const {
-			overLimitChildIds,
-			names: overLimitNames,
-			max: checklistMaxForMessage,
-		} = await partitionOverLimitChildren(childIdsForLimitCheck, tenantChildren, {
-			tenantId,
-			licenseStatus,
-		});
-		if (
-			childIdsForLimitCheck.length > 0 &&
-			overLimitChildIds.size === childIdsForLimitCheck.length
-		) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
-						overLimitNames,
-						checklistMaxForMessage,
-					),
-				),
-				upgradeRequired: true,
-			});
-		}
 
 		// childIds: 'all' or comma-separated id list ('' で配信先未指定 = template のみ作成)
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
@@ -623,13 +584,9 @@ export const actions: Actions = {
 				.map(asChildId);
 		}
 
-		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
-		const skippedOverLimitNames = childIds
-			.filter((id) => overLimitChildIds.has(id))
-			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
-		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
-
-		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
+		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject。
+		// #4693: **上限判定より先に**置く。上限判定は child 1 人につき DB を 1 往復するため、
+		// 後ろに置くと未検証の child ID 列で往復を増幅させられる (ADR-0065 DPU 規約にも逆行)。
 		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
 		if (foreignChildIds.length > 0) {
 			logger.warn('[admin/checklists] tenant 外 child ID が importPresetToChildren に指定された', {
@@ -639,6 +596,38 @@ export const actions: Actions = {
 				error: '指定されたお子さまの一部が見つかりませんでした',
 			});
 		}
+
+		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
+		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
+		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
+		const {
+			overLimitChildIds,
+			names: overLimitNames,
+			max: checklistMaxForMessage,
+		} = await partitionOverLimitChildren(childIds, tenantChildren, {
+			tenantId,
+			licenseStatus,
+		});
+		if (childIds.length > 0 && overLimitChildIds.size === childIds.length) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+						overLimitNames,
+						checklistMaxForMessage,
+					),
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
+		const skippedOverLimitNames = childIds
+			.filter((id) => overLimitChildIds.has(id))
+			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
+		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
 
 		const item = getMarketplaceItem('checklist', presetId);
 		if (!item) {
