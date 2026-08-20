@@ -68,16 +68,41 @@ export default async (page, capture) => {
 	await capture(`${PHASE}-consent-initial`);
 
 	// 表示されているチェックボックスを全て入れた状態 (同意ボタンが押せる)
-	for (const testid of [
-		'consent-terms-checkbox',
-		'consent-privacy-checkbox',
-		'consent-cross-border-checkbox',
-	]) {
-		const box = page.getByTestId(testid);
-		// before ブランチには越境移転セクションが無いので、在るものだけ入れる
-		if ((await box.count()) > 0) {
+	//
+	// **hydration 前の click は握り潰される。** native checkbox は click した瞬間にブラウザ側で
+	// 視覚状態が変わる一方、hydration 前だと Svelte の `bind:checked` がイベントを受け取れず
+	// `$state` は false のまま。`check()` は DOM の `.checked` しか見ないので成功扱いになり、
+	// 「全部チェック済みなのにボタンが disabled で『利用規約への同意が必要です』が出ている」
+	// という**実装と食い違う SS** が残る (#4609 と同じ class)。
+	//
+	// 握り潰しは DOM 側から見分けられないので、**derived 側 (送信ボタンの活性) が追いつくまで
+	// 入れ直す**。押せるようになったことが「全部チェックした」の唯一の確かな証拠になる。
+	const boxes = ['consent-terms-checkbox', 'consent-privacy-checkbox', 'consent-cross-border-checkbox'];
+	const submit = page.getByTestId('consent-submit');
+	await submit.waitFor({ state: 'visible', timeout: 15_000 });
+
+	let enabled = false;
+	for (let attempt = 0; attempt < 5 && !enabled; attempt++) {
+		for (const testid of boxes) {
+			const box = page.getByTestId(testid);
+			// before ブランチには越境移転セクションが無いので、在るものだけ入れる
+			if ((await box.count()) === 0) continue;
+			// 2 回目以降は「DOM は checked だが state は false」を解くため一度外してから入れ直す
+			if (attempt > 0) await box.uncheck();
 			await box.check();
 		}
+		enabled = await submit.isEnabled();
+		if (!enabled) await page.waitForTimeout(500);
 	}
+
+	// 押せないまま撮ると SS が実装と食い違うので、ここで落とす (握り潰しを黙って通さない)
+	await submit.waitFor({ state: 'visible', timeout: 5_000 });
+	if (!(await submit.isEnabled())) {
+		throw new Error(
+			'[consent-cross-border-4497] 全項目チェック後も 同意して続ける が disabled のままです。' +
+				'hydration 待ちで解消しない場合は実装側の回帰を疑ってください (#4497)。',
+		);
+	}
+
 	await capture(`${PHASE}-consent-checked`);
 };
