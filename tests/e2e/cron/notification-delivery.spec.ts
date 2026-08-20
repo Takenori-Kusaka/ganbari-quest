@@ -12,7 +12,7 @@
 //
 // 実行: npx playwright test cron/notification-delivery
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { getCronHeaders, isCronAuthSkipped } from '../helpers';
 
 const cronSecret = process.env.CRON_SECRET;
