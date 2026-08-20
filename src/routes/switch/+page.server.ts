@@ -14,7 +14,7 @@ import {
 import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url, cookies }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = locals.context?.tenantId;
 	if (!tenantId) {
 		redirect(302, '/auth/login');
