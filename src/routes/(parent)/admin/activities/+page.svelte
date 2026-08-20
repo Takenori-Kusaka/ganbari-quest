@@ -318,6 +318,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 				partialFailure: ADMIN_ACTIVITIES_PAGE_LABELS.importPartialFailure,
 			});
 			actionMessage = feedback.message;
+			// #4693: プラン上限で外した分がある場合はアップグレード導線も併記する。
+			actionUpgradeUrl = feedback.upgradeUrl;
 			showToast(feedback.message, undefined, feedback.tone);
 			await invalidateAll();
 		} else {
@@ -377,13 +379,19 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 			if (d.demo === true) {
 				actionMessage = FEATURES_LABELS.activitiesHeader.restoreDemo;
 			} else {
-				const imported = Number(d.imported ?? 0);
+				// #4693 (adversarial D2): 復元も取込結果の feedback SSOT に合流させる。
+				//   旧実装は imported / skipped だけを見て文言を組み立てていたため、
+				//   プラン上限で全件弾かれた (imported=0 / skipped=0) ケースが success 側に落ち、
+				//   「0 件を復元しました」と成功トーンで出ていた (理由も upsell 導線も出ない)。
+				//   同じ理由で server 算出の `failed` も無視していた。
 				const skipped = Number(d.skipped ?? 0);
 				const name = String(d.packName ?? FEATURES_LABELS.activitiesHeader.restoreFileFallbackName);
-				actionMessage =
-					imported === 0 && skipped > 0
-						? FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name)
-						: FEATURES_LABELS.activitiesHeader.restoreSuccess(name, imported, skipped);
+				const feedback = resolveImportFeedback(d, {
+					success: (count) => FEATURES_LABELS.activitiesHeader.restoreSuccess(name, count, skipped),
+					allDuplicates: FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name),
+				});
+				actionMessage = feedback.message;
+				actionUpgradeUrl = feedback.upgradeUrl;
 			}
 			showRestoreDialog = false;
 			await invalidateAll();

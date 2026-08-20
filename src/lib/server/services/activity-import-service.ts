@@ -24,6 +24,7 @@ import { asCategoryId } from '$lib/domain/ids';
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { toLegacyCategoryId } from '$lib/domain/categories';
+import type { ImportBlocked } from '$lib/marketplace/types';
 import { findActivities } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
@@ -56,6 +57,13 @@ export interface ActivityImportResult {
 	 *   partial-failure 件数表示は本フィールドを使う。
 	 */
 	failed: number;
+	/**
+	 * #4693: プラン上限で **意図的に取込対象から外した**分と、その顧客向け理由。
+	 *   旧実装は理由を `errors` (表示ログ) にだけ push しており、UI がそれを読まないため
+	 *   上限で全件弾かれても「0 件を復元しました」と成功トーンで出ていた。顧客に見せる
+	 *   channel を別フィールドにして、`resolveImportFeedback` が 1 箇所で表示を決める。
+	 */
+	blocked?: ImportBlocked;
 }
 
 /**
@@ -363,9 +371,13 @@ export async function importActivities(
 	// 「経路を増やしても素通りしない」構造になる (fitness function:
 	// tests/unit/architecture/activity-quota-single-enforcement.test.ts)。
 	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
-	if (quota.rejectedNames.size > 0) {
-		errors.push(quota.message);
-	}
+	// #4693: 上限で外した理由は `errors` (表示ログ) ではなく `blocked` で返す。errors は
+	// per-child catch 行 / 集計行が混ざる内部ログで、UI はこれを読まない (読ませると内部
+	// 例外文字列が顧客に出る、ADR-0062)。顧客向け channel を型で分けておく。
+	const blocked: ImportBlocked | undefined =
+		quota.rejectedRows > 0
+			? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
+			: undefined;
 
 	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
 	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
@@ -388,11 +400,12 @@ export async function importActivities(
 			skipped,
 			failed,
 			errors: errors.length,
+			blocked: blocked?.count ?? 0,
 			presetId: presetId ?? null,
 			applyMustDefault,
 			childIdsCount: childIds.length,
 		},
 	});
 
-	return { imported, skipped, errors, failed };
+	return { imported, skipped, errors, failed, blocked };
 }

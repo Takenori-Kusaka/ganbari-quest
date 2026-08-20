@@ -3,7 +3,7 @@ import * as v from 'valibot';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { createPlanLimitError } from '$lib/domain/errors';
+import { createPlanLimitError, PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
@@ -663,17 +663,22 @@ export const actions: Actions = {
 				imported: result.imported,
 				skipped: result.skipped,
 				total: result.total,
-				// #4693: 上限で配信を外した子を明示する (無音でスキップしない)。
-				errors:
+				errors: result.errors,
+				// #4693 (adversarial D3): 上限で配信を外した子を明示する (無音でスキップしない)。
+				//   旧実装はこの文言を `errors` に append していたが、UI (resolveImportFeedback) は
+				//   errors を読まないため親の画面に一度も出なかった = AC4 が server 側でしか
+				//   成立していなかった。顧客向け channel (`blocked`) に載せて表示まで届かせる。
+				blocked:
 					skippedOverLimitNames.length > 0
-						? [
-								...result.errors,
-								PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+						? {
+								count: skippedOverLimitNames.length,
+								message: PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
 									skippedOverLimitNames,
 									checklistMaxForMessage,
 								),
-							]
-						: result.errors,
+								upgradeUrl: PLAN_UPGRADE_URL,
+							}
+						: undefined,
 				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
 				failed: result.failed,
 				presetId,

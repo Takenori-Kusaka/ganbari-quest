@@ -62,6 +62,15 @@ import { importActivities } from '$lib/server/services/activity-import-service';
 
 const TENANT = 'tenant-1';
 const CHILD = asChildId(1);
+const SIBLING = asChildId(2);
+
+/** insertActivitiesBulk に渡された **行数** の合計 (child × activity)。 */
+function writtenRowCount(): number {
+	return mockInsertActivitiesBulk.mock.calls.reduce(
+		(n, call) => n + (call[0] as unknown[]).length,
+		0,
+	);
+}
 
 function pack(count: number): ActivityPackItem[] {
 	return Array.from({ length: count }, (_, i) => ({
@@ -105,7 +114,10 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 			expect.arrayContaining([expect.objectContaining({ name: '復元活動1' })]),
 			expect.anything(),
 		);
-		expect(result.errors.join(' ')).toContain('3');
+		// #4693 fix: 理由は errors (表示ログ) ではなく blocked (顧客に見せる channel) に載る。
+		expect(result.blocked?.message).toContain('3');
+		expect(result.blocked?.count).toBe(119);
+		expect(result.blocked?.upgradeUrl).toBe('/admin/subscription');
 	});
 
 	it('残枠 1 件 → 1 件だけ入り、残りは弾かれる (余裕のある分は入る)', async () => {
@@ -115,7 +127,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		const result = await importActivities(pack(5), TENANT, { childIds: [CHILD] });
 
 		expect(result.imported).toBe(1);
-		expect(result.errors.length).toBeGreaterThan(0);
+		expect(result.blocked?.count).toBe(4);
 	});
 
 	it('有料プラン (上限なし) は従来どおり全件入る', async () => {
@@ -126,6 +138,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 
 		expect(result.imported).toBe(10);
 		expect(result.errors).toEqual([]);
+		expect(result.blocked).toBeUndefined();
 	});
 
 	it('上限内の取込では quota 判定が結果に影響しない', async () => {
@@ -136,5 +149,40 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 
 		expect(result.imported).toBe(2);
 		expect(result.errors).toEqual([]);
+		expect(result.blocked).toBeUndefined();
+	});
+
+	// #4693 fix (adversarial D1): quota の単位は **行数** (`checkActivityLimit` と同じ)。
+	// 名前の集合数で残枠と比べると、同じ 3 名を 2 人の子に取り込んだとき `3 <= 3` を
+	// 素通りして **6 行** 書かれ、上限 3 のテナントが 6 件保持できてしまう。
+	it('子供 2 人 × 同じ 3 件でも、書かれる行数が上限 3 を超えない', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindAllChildren.mockResolvedValue([
+			{ id: CHILD, nickname: 'たろう' },
+			{ id: SIBLING, nickname: 'はなこ' },
+		]);
+		mockFindActivitiesByChild.mockResolvedValue(existing(0));
+
+		const result = await importActivities(pack(3), TENANT, { childIds: [CHILD, SIBLING] });
+
+		expect(writtenRowCount()).toBeLessThanOrEqual(3);
+		expect(result.blocked?.count).toBeGreaterThan(0);
+	});
+
+	// 既に 2 行使っているテナントに 2 人分を取り込む: 1 名 = 2 行 > 残枠 1 なので 1 行も入らない。
+	it('残枠 1 行に対し 1 件が 2 行を要する場合は 1 行も書かれない', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindAllChildren.mockResolvedValue([
+			{ id: CHILD, nickname: 'たろう' },
+			{ id: SIBLING, nickname: 'はなこ' },
+		]);
+		// 2 人合計で 2 行使用済 (free の maxActivities=3 に対し残枠 1)
+		mockFindActivitiesByChild.mockResolvedValue(existing(1));
+
+		const result = await importActivities(pack(2), TENANT, { childIds: [CHILD, SIBLING] });
+
+		expect(writtenRowCount()).toBe(0);
+		expect(result.imported).toBe(0);
+		expect(result.blocked?.count).toBe(4);
 	});
 });

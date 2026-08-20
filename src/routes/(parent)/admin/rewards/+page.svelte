@@ -638,6 +638,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 					},
 				);
 				actionMessage = feedback.message;
+				// #4693: 上限で外した分がある場合はアップグレード導線も併記する (3 admin page 共通)。
+				actionUpgradeUrl = feedback.upgradeUrl;
 				showToast(actionMessage, undefined, feedback.tone);
 				await invalidateAll();
 			}

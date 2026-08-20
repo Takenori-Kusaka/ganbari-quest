@@ -32,12 +32,12 @@ describe('resolveImportFeedback (#2955)', () => {
 
 	it('failed = 0 かつ imported > 0 で success', () => {
 		const fb = resolveImportFeedback({ imported: 4, failed: 0, errors: [] }, labels);
-		expect(fb).toEqual({ message: 'success:4', tone: 'success' });
+		expect(fb).toEqual({ message: 'success:4', tone: 'success', upgradeUrl: null });
 	});
 
 	it('failed = 0 かつ imported = 0 (純粋な全件重複) で allDuplicates (info)', () => {
 		const fb = resolveImportFeedback({ imported: 0, skipped: 8, failed: 0 }, labels);
-		expect(fb).toEqual({ message: 'all-duplicates', tone: 'info' });
+		expect(fb).toEqual({ message: 'all-duplicates', tone: 'info', upgradeUrl: null });
 	});
 
 	it('errors.length への fallback は行わない — failed 欠落時は errors があっても失敗扱いしない (#2955 項目 2 判断記録)', () => {
@@ -48,7 +48,7 @@ describe('resolveImportFeedback (#2955)', () => {
 			{ imported: 2, errors: ['warning: already imported'] },
 			labels,
 		);
-		expect(fb).toEqual({ message: 'success:2', tone: 'success' });
+		expect(fb).toEqual({ message: 'success:2', tone: 'success', upgradeUrl: null });
 	});
 
 	it('data undefined / 不正値 (負数・非数) は 0 縮退で allDuplicates に落ちる', () => {
@@ -61,6 +61,57 @@ describe('resolveImportFeedback (#2955)', () => {
 			{ imported: 1, failed: 1 },
 			{ ...labels, partialFailure: (i: number, f: number) => `custom:${i}/${f}` },
 		);
-		expect(fb).toEqual({ message: 'custom:1/1', tone: 'error' });
+		expect(fb).toEqual({ message: 'custom:1/1', tone: 'error', upgradeUrl: null });
+	});
+});
+
+/**
+ * #4693 (adversarial D2 / D3): 「プラン上限で入れなかった」を成功トーンで消さない。
+ *
+ * 取込サービスは上限超過分を書き込み計画から外すが、その理由は長らく `errors` 配列
+ * (= UI ログ用) にしか載っておらず、画面はそれを読んでいなかった。結果:
+ *   - ファイル復元で 119 件全部が上限で弾かれても「0 件を復元しました」と成功トーン
+ *     (AC1 の upsell 導線がユーザーに一度も見えない)
+ *   - チェックリスト取込で上限の子を外しても、その子の名前が親の画面に出ない (AC4)
+ */
+const LIMIT_REASON = 'カスタム活動は最大3個まで作成できます。プランをアップグレードしてください。';
+
+function blocked(count: number) {
+	return { count, message: LIMIT_REASON, upgradeUrl: '/admin/subscription' };
+}
+
+describe('resolveImportFeedback の blocked 反映 (#4693)', () => {
+	it('全件が上限で弾かれたとき「すでに追加済み」ではなく上限の理由を出す', () => {
+		const fb = resolveImportFeedback(
+			{ imported: 0, skipped: 0, failed: 0, blocked: blocked(119) },
+			labels,
+		);
+
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.message).not.toContain('all-duplicates');
+		expect(fb.tone).toBe('error');
+	});
+
+	it('上限が理由のときはアップグレード導線 URL を渡す (AC1 upsell)', () => {
+		const fb = resolveImportFeedback({ imported: 0, failed: 0, blocked: blocked(119) }, labels);
+
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
+	it('一部だけ入ったときは「入った件数」と「外した理由」を両方出す', () => {
+		const fb = resolveImportFeedback({ imported: 1, failed: 0, blocked: blocked(4) }, labels);
+
+		expect(fb.message).toContain('success:1');
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.tone).toBe('error');
+	});
+
+	it('壊れた blocked (件数 0 / message 空) は成功表示を汚さない', () => {
+		const fb = resolveImportFeedback(
+			{ imported: 3, failed: 0, blocked: { count: 0, message: '', upgradeUrl: null } },
+			labels,
+		);
+
+		expect(fb).toEqual({ message: 'success:3', tone: 'success', upgradeUrl: null });
 	});
 });

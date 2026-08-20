@@ -655,6 +655,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 					},
 				);
 				actionMessage = feedback.message;
+				// #4693: 上限でスキップした子がいる場合は理由 + アップグレード導線を出す。
+				actionUpgradeUrl = feedback.upgradeUrl;
 				showToast(actionMessage, undefined, feedback.tone);
 			}
 		} else if (actionResult.type === 'failure') {

@@ -5577,6 +5577,9 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
 		imported > 0
 			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
 			: '保存に失敗しました。もう一度お試しください',
+	// #4693: プラン上限で一部だけ入ったときに「入った件数」と「外した理由」を並べる。
+	//   片方だけ出すと、顧客は「全部入った」か「何も入らなかった」のどちらかに誤解する。
+	blockedAfterImport: (successText: string, reason: string) => `${successText}。${reason}`,
 } as const;
 
 /**

@@ -97,7 +97,12 @@ const { actions } = await import('../../../src/routes/(parent)/admin/checklists/
 // (他の admin action テストと同型: tests/unit/routes/admin-rewards-actions.test.ts)。
 const importPresetToChildren = actions.importPresetToChildren as unknown as (
 	event: unknown,
-) => Promise<{ status?: number; data?: { error?: { message: string } }; errors?: string[] }>;
+) => Promise<{
+	status?: number;
+	data?: { error?: { message: string } };
+	errors?: string[];
+	blocked?: { count: number; message: string; upgradeUrl: string | null };
+}>;
 
 const FULL = asChildId(1); // 上限に達している子
 const ROOM = asChildId(2); // 空きのある子
@@ -140,9 +145,24 @@ describe('#4693 チェックリスト取込の上限は「誰が」を言い、�
 		expect(mockDispatchImport).toHaveBeenCalledWith(
 			expect.objectContaining({ ctx: expect.objectContaining({ childIds: [ROOM] }) }),
 		);
-		const errors = (result as { errors: string[] }).errors.join(' ');
-		expect(errors).toContain('たろう');
-		expect(errors).not.toContain('はなこ');
+		// #4693 fix (adversarial D3): スキップした子の名前は `errors` (UI が読まない表示ログ)
+		// ではなく `blocked` に載せる。resolveImportFeedback が blocked を読んで
+		// 「1 人に配信しました。たろうは上限のためスキップ」+ アップグレード導線を出す。
+		const blocked = (result as { blocked?: { count: number; message: string } }).blocked;
+		expect(blocked?.message).toContain('たろう');
+		expect(blocked?.message).not.toContain('はなこ');
+		expect(blocked?.count).toBe(1);
+		expect((result as { blocked?: { upgradeUrl: string | null } }).blocked?.upgradeUrl).toBe(
+			'/admin/subscription',
+		);
+	});
+
+	it('誰も上限に達していなければ blocked を付けない', async () => {
+		mockRepoFindTemplatesByChild.mockResolvedValue([{}]);
+
+		const result = await importPresetToChildren(event(`${FULL},${ROOM}`));
+
+		expect((result as { blocked?: unknown }).blocked).toBeUndefined();
 	});
 
 	it('全員が上限 → 403 で拒否し、エラー文に対象の子が並ぶ', async () => {
