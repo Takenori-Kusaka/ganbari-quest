@@ -28,7 +28,7 @@ import {
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface RequestRow {
@@ -153,7 +153,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		async findRedemptionRequestById(id, tenantId) {
 			// #4682 F1: id 直引き (一覧 limit 非依存)。§P9 family 述語込み。
 			// 非 uuid の id は 22P02 になるため呼び出し側 (form field) に到達させず undefined に倒す。
-			if (!isUuidFormat(String(id))) return undefined;
+			if (!isUuidFormat(String(id))) {
+				warnInvalidUuidId('reward-redemption-repo.findRedemptionRequestById');
+				return undefined;
+			}
 			const result = await db.execute(sql`
 				SELECT ${WITH_DETAILS_SELECT}
 				${WITH_DETAILS_FROM}

@@ -79,11 +79,14 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 
 		async sumPointsByType(childId, options, tenantId) {
 			// #4682 F2: 累計は DB 側 SUM (一覧 window 非依存)。created_at は timestamptz (§11.3)。
-			let where = sql`family_id = ${tenantId} AND child_id = ${childId} AND type = ${options.type}`;
-			if (options.fromIso) where = sql`${where} AND created_at >= ${options.fromIso}::timestamptz`;
-			if (options.toIso) where = sql`${where} AND created_at < ${options.toIso}::timestamptz`;
+			// §P9: family_id 述語は本文に直書きし、期間だけを追加条件として足す
+			// (述語を fragment 変数に畳むと tenant-predicate fitness が検証できなくなる)。
+			const period = sql`${
+				options.fromIso ? sql` AND created_at >= ${options.fromIso}::timestamptz` : sql``
+			}${options.toIso ? sql` AND created_at < ${options.toIso}::timestamptz` : sql``}`;
 			const result = await db.execute(sql`
-				SELECT COALESCE(SUM(amount), 0)::int AS total FROM point_ledger WHERE ${where}
+				SELECT COALESCE(SUM(amount), 0)::int AS total FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId} AND type = ${options.type}${period}
 			`);
 			const row = result.rows[0] as { total: number } | undefined;
 			return Number(row?.total ?? 0);
