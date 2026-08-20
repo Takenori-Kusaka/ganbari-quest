@@ -2,7 +2,13 @@
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { APP_LABELS, formatChildAge, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatChildAge,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+	SWITCH_PAGE_LABELS,
+} from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import Logo from '$lib/ui/components/Logo.svelte';

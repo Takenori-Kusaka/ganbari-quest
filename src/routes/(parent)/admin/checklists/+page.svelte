@@ -801,7 +801,8 @@ async function saveDistribution() {
 					: ADMIN_CHECKLISTS_PAGE_LABELS.distributionUpdated(added, removed);
 			showToast(actionMessage, undefined, added === 0 && removed === 0 ? 'info' : 'success');
 		} else if (actionResult.type === 'failure') {
-			actionMessage = actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
+			actionMessage =
+				actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
 			showToast(actionMessage, undefined, 'error');
 		}
 	} catch {

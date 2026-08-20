@@ -2,7 +2,16 @@
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import { ADMIN_CHALLENGES_PAGE_LABELS, APP_LABELS, CHALLENGES_LABELS, formatJstDate, formatPeople, PAGE_TITLES, UI_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
+import {
+	ADMIN_CHALLENGES_PAGE_LABELS,
+	APP_LABELS,
+	CHALLENGES_LABELS,
+	formatJstDate,
+	formatPeople,
+	PAGE_TITLES,
+	UI_LABELS,
+	UNRESOLVED_ENTITY_LABELS,
+} from '$lib/domain/labels';
 // CX-DoR #9・#11: empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';

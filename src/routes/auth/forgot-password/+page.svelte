@@ -1,6 +1,11 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, AUTH_FORM_LABELS, FORGOT_PASSWORD_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	AUTH_FORM_LABELS,
+	FORGOT_PASSWORD_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { PASSWORD_RESET_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';

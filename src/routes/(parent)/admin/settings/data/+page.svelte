@@ -7,7 +7,16 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, ERROR_NOTIFY_LABELS, formatJstDate, IMPORT_LABELS, PAGE_TITLES, PLAN_GATE_ABOVE_SUFFIX, SETTINGS_LABELS, type ImportSkipReason } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	ERROR_NOTIFY_LABELS,
+	formatJstDate,
+	IMPORT_LABELS,
+	type ImportSkipReason,
+	PAGE_TITLES,
+	PLAN_GATE_ABOVE_SUFFIX,
+	SETTINGS_LABELS,
+} from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一

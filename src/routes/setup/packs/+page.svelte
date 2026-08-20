@@ -1,7 +1,13 @@
 <script lang="ts">
-import { CATEGORIES } from '$lib/domain/categories';
 import { enhance } from '$app/forms';
-import { APP_LABELS, formatCount, PAGE_TITLES, SETUP_CHILDREN_LABELS, SETUP_PACKS_LABELS } from '$lib/domain/labels';
+import { CATEGORIES } from '$lib/domain/categories';
+import {
+	APP_LABELS,
+	formatCount,
+	PAGE_TITLES,
+	SETUP_CHILDREN_LABELS,
+	SETUP_PACKS_LABELS,
+} from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();

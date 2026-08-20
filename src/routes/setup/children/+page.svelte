@@ -1,6 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, formatAge, getAgeTierLabel, PAGE_TITLES, SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatAge,
+	getAgeTierLabel,
+	PAGE_TITLES,
+	SETUP_CHILDREN_LABELS,
+} from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';

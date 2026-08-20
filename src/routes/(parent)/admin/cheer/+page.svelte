@@ -1,6 +1,6 @@
 <script lang="ts">
-import { CATEGORIES } from '$lib/domain/categories';
 import { enhance } from '$app/forms';
+import { CATEGORIES } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyActionError } from '$lib/ui/error-notify';

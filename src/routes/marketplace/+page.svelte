@@ -1,5 +1,13 @@
 <script lang="ts">
-import { APP_LABELS, formatAge, formatAgeRange, formatCount, MARKETPLACE_FILTER_LABELS, MARKETPLACE_LABELS, type MarketplaceSortKey } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatAge,
+	formatAgeRange,
+	formatCount,
+	MARKETPLACE_FILTER_LABELS,
+	MARKETPLACE_LABELS,
+	type MarketplaceSortKey,
+} from '$lib/domain/labels';
 import type { MarketplaceGender } from '$lib/domain/marketplace-item';
 import { MARKETPLACE_TYPE_ICONS, MARKETPLACE_TYPE_LABELS } from '$lib/domain/marketplace-item';
 import {
