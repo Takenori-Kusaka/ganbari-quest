@@ -76,7 +76,9 @@ export default async (page, capture) => {
 		await capture('最古の承認待ちを承認した結果');
 	}
 
-	// 3. ポイント管理の変換りれき / 累計
+	// 3. ポイント管理の変換りれき / 累計。
+	// お子さまカードは hydration 後の $effect で自動選択されるため、選択済みを示す
+	// 変換フォーム (お子さま名入り見出し) が出るまで待ってから撮る。
 	await page.goto(`${BASE_URL}/admin/points`);
 	await page
 		.locator('h1, h2')
@@ -84,6 +86,17 @@ export default async (page, capture) => {
 		.waitFor({ state: 'visible', timeout: 20_000 })
 		.catch(() => {});
 	await dismissOverlays(page);
-	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+	await page
+		.getByText('のおこづかいにかえる')
+		.first()
+		.waitFor({ state: 'visible', timeout: 15_000 })
+		.catch(() => {});
+	// 変換りれきセクション (修正前は存在しない) が出るなら、それが見えるところまでスクロールする
+	const historyCard = page.getByText('おこづかい変換りれき').first();
+	if (await historyCard.isVisible().catch(() => false)) {
+		await historyCard.scrollIntoViewIfNeeded().catch(() => {});
+	} else {
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+	}
 	await capture('ポイント管理 変換りれきと累計');
 };
