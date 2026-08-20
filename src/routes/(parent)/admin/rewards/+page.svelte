@@ -11,6 +11,7 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
@@ -352,7 +353,10 @@ const addMenuItems = $derived<MenuItem[]>([
 						? () => {
 								showCopyFromChildDialog = true;
 							}
-						: () => void goto('/admin/subscription'),
+						: // #4716: 新規追加の遷移は resolve() 経由にする (svelte/no-navigation-without-resolve)。
+							// 既存 6 件は eslint-suppressions.json の baseline で凍結されており、
+							// ここで 7 件目を素で足すと baseline を超えて既存分ごと surface する。
+							() => void goto(resolve('/admin/subscription')),
 				},
 			]
 		: []),
