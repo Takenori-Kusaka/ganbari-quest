@@ -1,7 +1,7 @@
 // src/lib/server/db/point-repo.ts
 // ポイント関連のリポジトリ層
 
-import { and, desc, eq, lt, sum } from 'drizzle-orm';
+import { and, desc, eq, lt, sql, sum } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
@@ -42,6 +42,52 @@ export async function findPointHistory(
 		.offset(options.offset)
 		.all()
 		.map(toEntry);
+}
+
+/**
+ * #4682 F2: 種別で絞った台帳一覧 (新しい順)。limit はその種別の表示件数。
+ */
+export async function findPointHistoryByType(
+	childId: ChildId,
+	options: { type: string; limit: number; offset?: number },
+	_tenantId: string,
+): Promise<PointLedgerEntry[]> {
+	return db
+		.select()
+		.from(pointLedger)
+		.where(and(eq(pointLedger.childId, Number(childId)), eq(pointLedger.type, options.type)))
+		.orderBy(desc(pointLedger.createdAt))
+		.limit(options.limit)
+		.offset(options.offset ?? 0)
+		.all()
+		.map(toEntry);
+}
+
+/**
+ * #4682 F2: 種別 (+ 期間) の SUM を DB 側で計算する (一覧 window 非依存)。
+ *
+ * `created_at` は CURRENT_TIMESTAMP 由来の `YYYY-MM-DD HH:MM:SS` (UTC) と ISO 文字列が
+ * 混在しうるため、両辺を `datetime()` で正規化してから比較する (前方一致や生文字列比較だと
+ * `T` 区切りの行を取りこぼす)。
+ */
+export async function sumPointsByType(
+	childId: ChildId,
+	options: { type: string; fromIso?: string; toIso?: string },
+	_tenantId: string,
+): Promise<number> {
+	const conditions = [eq(pointLedger.childId, Number(childId)), eq(pointLedger.type, options.type)];
+	if (options.fromIso) {
+		conditions.push(sql`datetime(${pointLedger.createdAt}) >= datetime(${options.fromIso})`);
+	}
+	if (options.toIso) {
+		conditions.push(sql`datetime(${pointLedger.createdAt}) < datetime(${options.toIso})`);
+	}
+	const row = db
+		.select({ total: sum(pointLedger.amount) })
+		.from(pointLedger)
+		.where(and(...conditions))
+		.get();
+	return Number(row?.total ?? 0);
 }
 
 /** ポイント台帳にエントリを挿入 */

@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',
+	},
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',

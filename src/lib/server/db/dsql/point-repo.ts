@@ -66,6 +66,29 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 			return (result.rows as unknown as LedgerRow[]).map(toEntry);
 		},
 
+		async findPointHistoryByType(childId, options, tenantId) {
+			// #4682 F2: 種別絞りを DB 側に置く (一覧 limit を種別抽出に流用しない)。
+			const result = await db.execute(sql`
+				SELECT ${LEDGER_COLUMNS} FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId} AND type = ${options.type}
+				ORDER BY created_at DESC, ledger_id DESC
+				LIMIT ${options.limit} OFFSET ${options.offset ?? 0}
+			`);
+			return (result.rows as unknown as LedgerRow[]).map(toEntry);
+		},
+
+		async sumPointsByType(childId, options, tenantId) {
+			// #4682 F2: 累計は DB 側 SUM (一覧 window 非依存)。created_at は timestamptz (§11.3)。
+			let where = sql`family_id = ${tenantId} AND child_id = ${childId} AND type = ${options.type}`;
+			if (options.fromIso) where = sql`${where} AND created_at >= ${options.fromIso}::timestamptz`;
+			if (options.toIso) where = sql`${where} AND created_at < ${options.toIso}::timestamptz`;
+			const result = await db.execute(sql`
+				SELECT COALESCE(SUM(amount), 0)::int AS total FROM point_ledger WHERE ${where}
+			`);
+			const row = result.rows[0] as { total: number } | undefined;
+			return Number(row?.total ?? 0);
+		},
+
 		async spendPointsAtomic(childId, amount, entry, tenantId) {
 			// I-BAL-NONNEG (§6.6, F7): 残高行を FOR UPDATE で write-intent 化してから非負確認 →
 			// 減算。並行 spend は同一 children 行の FOR UPDATE footprint が衝突し一方が 40001 →

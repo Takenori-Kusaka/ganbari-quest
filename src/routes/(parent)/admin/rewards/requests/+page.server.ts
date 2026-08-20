@@ -14,6 +14,12 @@ import {
 } from '$lib/server/services/reward-redemption-service';
 import type { Actions, PageServerLoad } from './$types';
 
+/** #4682 F4: 履歴として出す状態 (処理済み)。 */
+const RESOLVED_REDEMPTION_STATUSES = ['approved', 'rejected'] as const;
+
+/** #4682 F4: 履歴の表示件数 (labels の見出し「処理済み（直近30件）」と対応)。 */
+const HISTORY_LIMIT = 30;
+
 // #3320: 承認/却下した保護者の認証 userId を監査証跡 (resolved_by_parent_id) に記録する。
 // cognito / anonymous(demo) identity は userId(sub) を持つ。local 実行モードは userId を
 // 持たないため null (= 解決者不明)。旧実装は parentId=0 ハードコードで常に解決者不明だった。
@@ -26,12 +32,16 @@ function resolverUserId(locals: App.Locals): string | null {
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 
-	// pending + 最近30件の承認/却下履歴を取得
+	// pending の全件 + 処理済み (approved / rejected) の直近 30 件。
+	// #4682 F4: 旧実装は「直近 30 申請」を取ってから client 側で処理済みを filter していたため、
+	// 承認待ちが 30 件あると履歴が 0 件表示になっていた (一覧 limit を別用途に流用する同 class)。
+	// status 条件を DB 側に渡し、limit を「履歴の表示件数」として正しく効かせる。
 	const [pendingRequests, historyRequests] = await Promise.all([
 		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
-		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((requests) =>
-			requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
-		),
+		getRedemptionRequestsForParent(tenantId, {
+			statuses: RESOLVED_REDEMPTION_STATUSES,
+			limit: HISTORY_LIMIT,
+		}),
 	]);
 
 	return {

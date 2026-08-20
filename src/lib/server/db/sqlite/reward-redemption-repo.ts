@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import { db } from '../client';
@@ -194,37 +194,75 @@ export async function findRedemptionRequestsByChild(
 		.map(toRequestRow);
 }
 
+/** WithDetails 行の共通 select 定義 (単件取得 / 一覧で共有する)。 */
+const withDetailsSelection = {
+	id: rewardRedemptionRequests.id,
+	childId: rewardRedemptionRequests.childId,
+	rewardId: rewardRedemptionRequests.rewardId,
+	requestedAt: rewardRedemptionRequests.requestedAt,
+	quantity: rewardRedemptionRequests.quantity,
+	status: rewardRedemptionRequests.status,
+	parentNote: rewardRedemptionRequests.parentNote,
+	resolvedAt: rewardRedemptionRequests.resolvedAt,
+	resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
+	shownToChildAt: rewardRedemptionRequests.shownToChildAt,
+	childName: children.nickname,
+	// #2832: 申請時点 snapshot 優先 (旧行は live JOIN 値に fallback)
+	rewardTitle: snapshotTitle,
+	rewardIcon: snapshotIcon,
+	rewardPoints: snapshotPoints,
+};
+
+type WithDetailsRow = {
+	id: number;
+	childId: number;
+	rewardId: number;
+} & Omit<RedemptionRequestWithDetails, 'id' | 'childId' | 'rewardId'>;
+
+const toWithDetails = (r: WithDetailsRow): RedemptionRequestWithDetails => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	rewardId: String(r.rewardId),
+});
+
+/**
+ * #4682 F1: id で 1 件取得 (limit 非依存)。承認 / 却下の存在確認に使う。
+ * SQLite はシングルテナントのため tenant 述語は不要 (id が主キー)。
+ */
+export async function findRedemptionRequestById(
+	id: string,
+	_tenantId: string,
+): Promise<RedemptionRequestWithDetails | undefined> {
+	const row = await db
+		.select(withDetailsSelection)
+		.from(rewardRedemptionRequests)
+		.innerJoin(children, eq(rewardRedemptionRequests.childId, children.id))
+		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
+		.where(eq(rewardRedemptionRequests.id, Number(id)))
+		.get();
+	return row ? toWithDetails(row as WithDetailsRow) : undefined;
+}
+
 /** 親がご家族の見守り画面で見る申請一覧（子供名・報酬名を含む） */
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; childId?: ChildId; limit?: number },
+	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
 ): Promise<RedemptionRequestWithDetails[]> {
 	const conditions = [];
 	if (opts?.status) {
 		conditions.push(eq(rewardRedemptionRequests.status, opts.status));
+	}
+	// #4682 F4: 複数状態の OR (承認履歴 = approved / rejected)。空配列は「該当なし」。
+	if (opts?.statuses) {
+		conditions.push(inArray(rewardRedemptionRequests.status, [...opts.statuses]));
 	}
 	if (opts?.childId) {
 		conditions.push(eq(rewardRedemptionRequests.childId, Number(opts.childId)));
 	}
 
 	const rows = await db
-		.select({
-			id: rewardRedemptionRequests.id,
-			childId: rewardRedemptionRequests.childId,
-			rewardId: rewardRedemptionRequests.rewardId,
-			requestedAt: rewardRedemptionRequests.requestedAt,
-			quantity: rewardRedemptionRequests.quantity,
-			status: rewardRedemptionRequests.status,
-			parentNote: rewardRedemptionRequests.parentNote,
-			resolvedAt: rewardRedemptionRequests.resolvedAt,
-			resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
-			shownToChildAt: rewardRedemptionRequests.shownToChildAt,
-			childName: children.nickname,
-			// #2832: 申請時点 snapshot 優先 (旧行は live JOIN 値に fallback)
-			rewardTitle: snapshotTitle,
-			rewardIcon: snapshotIcon,
-			rewardPoints: snapshotPoints,
-		})
+		.select(withDetailsSelection)
 		.from(rewardRedemptionRequests)
 		.innerJoin(children, eq(rewardRedemptionRequests.childId, children.id))
 		// #3566 ①: leftJoin で snapshot を権威化。reward が改名/削除されても申請行は一覧から
@@ -235,12 +273,7 @@ export async function findRedemptionRequestsByTenant(
 		.limit(opts?.limit ?? 50)
 		.all();
 
-	return rows.map((r) => ({
-		...r,
-		id: String(r.id),
-		childId: asChildId(r.childId),
-		rewardId: String(r.rewardId),
-	}));
+	return rows.map((r) => toWithDetails(r as WithDetailsRow));
 }
 
 /**
@@ -250,11 +283,14 @@ export async function findRedemptionRequestsByTenant(
  */
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; childId?: ChildId },
+	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
 ) {
 	const conditions = [];
 	if (opts?.status) {
 		conditions.push(eq(rewardRedemptionRequests.status, opts.status));
+	}
+	if (opts?.statuses) {
+		conditions.push(inArray(rewardRedemptionRequests.status, [...opts.statuses]));
 	}
 	if (opts?.childId) {
 		conditions.push(eq(rewardRedemptionRequests.childId, Number(opts.childId)));

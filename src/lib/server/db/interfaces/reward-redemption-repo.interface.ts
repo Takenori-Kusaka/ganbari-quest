@@ -100,9 +100,32 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow[]>;
 
+	/**
+	 * #4682 F1: **1 件を id で直接引く**（tenant 検査込み、limit の影響を受けない）。
+	 *
+	 * 承認 / 却下は「一覧の中に対象があるか」ではなく「その id の申請が存在するか」を知りたい。
+	 * 旧実装は `findRedemptionRequestsByTenant(tenantId)`（一覧用 limit 50、requestedAt desc）から
+	 * `find` していたため、申請総数が 50 件を超えると古い承認待ちが window から落ち、親が承認 /
+	 * 却下しようとすると「申請が見つかりません」になり子供側は「うけとりまち」で固定していた。
+	 * **一覧の limit を存在確認に流用しない**（同 class の再発を型で断つ）。
+	 */
+	findRedemptionRequestById(
+		id: string,
+		tenantId: string,
+	): Promise<RedemptionRequestWithDetails | undefined>;
+
+	/**
+	 * 親の一覧表示用。`limit` は**表示件数**であり、存在確認 / 件数集計には使わないこと
+	 * (#3144 は count を `countRedemptionRequestsByTenant`、#4682 は単件取得を
+	 * `findRedemptionRequestById` に分離した)。
+	 *
+	 * #4682 F4: `statuses` は複数状態の OR 取得 (承認履歴 = approved か rejected の直近 N 件)。
+	 * 一覧を取ってから client 側で filter すると、window が pending で埋まったときに履歴が
+	 * 0 件表示になる (実測: 承認待ち 30 件で履歴が消える)。`status` と併用しない。
+	 */
 	findRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: ChildId; limit?: number },
+		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
 	): Promise<RedemptionRequestWithDetails[]>;
 
 	/**
@@ -112,7 +135,7 @@ export interface IRewardRedemptionRepo {
 	 */
 	countRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: ChildId },
+		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
 	): Promise<number>;
 
 	/**

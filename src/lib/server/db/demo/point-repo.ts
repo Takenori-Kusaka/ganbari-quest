@@ -17,6 +17,24 @@ export async function findPointHistory(
 	return [];
 }
 
+/** #4682 F2: demo は stateless Fake のため空配列 (findPointHistory と同挙動)。 */
+export async function findPointHistoryByType(
+	_childId: ChildId,
+	_options: { type: string; limit: number; offset?: number },
+	_tenantId: string,
+): Promise<PointLedgerEntry[]> {
+	return [];
+}
+
+/** #4682 F2: demo は台帳を持たないため 0 (件数偽装をしない、#2263 class)。 */
+export async function sumPointsByType(
+	_childId: ChildId,
+	_options: { type: string; fromIso?: string; toIso?: string },
+	_tenantId: string,
+): Promise<number> {
+	return 0;
+}
+
 export async function insertPointEntry(
 	input: InsertPointLedgerInput,
 	_tenantId: string,

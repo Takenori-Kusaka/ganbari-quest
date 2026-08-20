@@ -55,16 +55,24 @@ export async function findRedemptionRequestsByChild(
 	return [];
 }
 
+/** #4682 F1: demo は stateless Fake のため常に「見つからない」を返す (write no-op と整合)。 */
+export async function findRedemptionRequestById(
+	_id: string,
+	_tenantId: string,
+): Promise<RedemptionRequestWithDetails | undefined> {
+	return undefined;
+}
+
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: ChildId; limit?: number },
+	_opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
 ): Promise<RedemptionRequestWithDetails[]> {
 	return [];
 }
 
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: ChildId },
+	_opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
 ): Promise<number> {
 	return 0;
 }

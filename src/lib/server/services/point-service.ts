@@ -2,13 +2,21 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/point-service.ts
 // ポイント管理サービス層
 
+import {
+	jstDayStartUtcIso,
+	monthKeyJST,
+	monthStartJST,
+	shiftMonthKey,
+} from '$lib/domain/date-utils';
 import { POINT_LEDGER_LABELS } from '$lib/domain/labels';
 import { type ConvertMode, POINTS_PER_CONVERT_UNIT } from '$lib/domain/validation/point';
 import {
 	findChildById,
 	findPointHistory,
+	findPointHistoryByType,
 	getBalance,
 	insertPointEntry,
+	sumPointsByType,
 } from '$lib/server/db/point-repo';
 
 export interface PointBalance {
@@ -42,6 +50,70 @@ export async function getPointBalance(
 		balance,
 		convertableAmount,
 		nextConvertAt,
+	};
+}
+
+/** おこづかい変換の台帳種別 (`point_ledger.type`)。 */
+export const LEDGER_TYPE_CONVERT = 'convert';
+
+/**
+ * #4682 F2: `/admin/points` の「おこづかい変換りれき」表示件数。
+ * **一覧の表示件数であり、累計の母数ではない** (累計は DB SUM で別に取る)。
+ */
+export const CONVERT_HISTORY_LIMIT = 100;
+
+export interface ConvertSummary {
+	/** 変換だけを新しい順に並べた直近 `CONVERT_HISTORY_LIMIT` 件。 */
+	history: Awaited<ReturnType<typeof findPointHistoryByType>>;
+	/** 累計変換ポイント (正値)。DB SUM のため一覧件数に依存しない。 */
+	allTimeTotal: number;
+	/** 今月 (JST 暦月) の変換ポイント (正値)。 */
+	thisMonthTotal: number;
+	/** 先月 (JST 暦月) の変換ポイント (正値)。 */
+	lastMonthTotal: number;
+}
+
+/**
+ * #4682 F2: おこづかい変換の履歴 + 累計を返す。
+ *
+ * 旧実装は `getPointHistory({ limit: 50 })` を取ってから `type === 'convert'` で filter し、
+ * 累計も同じ配列から算出していたため、活動が多い子では直近 50 行が活動記録で埋まって
+ * 「変換りれき」セクションごと消えていた (親が渡し忘れ / 二重払いを起こす)。
+ * 抽出と集計をどちらも DB 側に置き、一覧 window から切り離す。
+ *
+ * 月境界は JST SSOT (`monthKeyJST` / `jstDayStartUtcIso`) で作る (#4015 / #4127)。
+ */
+export async function getConvertSummary(
+	childId: ChildId,
+	tenantId: string,
+): Promise<ConvertSummary | { error: 'NOT_FOUND' }> {
+	const child = await findChildById(childId, tenantId);
+	if (!child) return { error: 'NOT_FOUND' };
+
+	const thisMonthStart = jstDayStartUtcIso(monthStartJST());
+	const lastMonthStart = jstDayStartUtcIso(`${shiftMonthKey(monthKeyJST(), -1)}-01`);
+
+	const [history, allTime, thisMonth, lastMonth] = await Promise.all([
+		findPointHistoryByType(
+			childId,
+			{ type: LEDGER_TYPE_CONVERT, limit: CONVERT_HISTORY_LIMIT },
+			tenantId,
+		),
+		sumPointsByType(childId, { type: LEDGER_TYPE_CONVERT }, tenantId),
+		sumPointsByType(childId, { type: LEDGER_TYPE_CONVERT, fromIso: thisMonthStart }, tenantId),
+		sumPointsByType(
+			childId,
+			{ type: LEDGER_TYPE_CONVERT, fromIso: lastMonthStart, toIso: thisMonthStart },
+			tenantId,
+		),
+	]);
+
+	// 変換は負値で記録されるため、画面表示用に絶対値へ倒す。
+	return {
+		history,
+		allTimeTotal: Math.abs(allTime),
+		thisMonthTotal: Math.abs(thisMonth),
+		lastMonthTotal: Math.abs(lastMonth),
 	};
 }
 
@@ -113,7 +185,7 @@ export async function convertPoints(
 		{
 			childId,
 			amount: -amount,
-			type: 'convert',
+			type: LEDGER_TYPE_CONVERT,
 			description,
 		},
 		tenantId,

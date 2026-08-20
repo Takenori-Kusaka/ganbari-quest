@@ -180,10 +180,10 @@
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 9 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 10 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 10 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
@@ -197,12 +197,13 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
+| expire-redemptions | `cron(0 18 * * ? *)` | 毎日 03:00 | ✓ | ✓ | 30 日超の未処理ごほうび交換申請を期限切れにするバッチ (#1337 / #4682 F3, `reward-redemption-service.expireOldRedemptionsForAllTenants`)。**全テナント**を回す (旧実装は endpoint が `'default'` 固定で他テナントを 1 件も処理せず、そもそも registry 未登録でどの runtime でも走っていなかった)。status 遷移のみで破壊的操作を含まず冪等。テナント数上限 + 時間予算で self-limiting し、残りは次回実行へ持ち越して件数を報告する |
 
 - ターゲット: AWS では `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`) が EventBridge から起動され `/api/cron/:job` を HTTP POST する
 - AWS EventBridge Rule 名は `ganbari-quest-cron-<job-name>` (例: `ganbari-quest-cron-retention-cleanup`)
 - `ganbari-quest-cron-license-expire` は license key 全廃 (#2822 / Epic #2525 Phase 7 PR-L3) で撤去済。期限管理は Stripe `customer.subscription.deleted` webhook に代替
 - `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
-- **registry 外の endpoint**: `/api/cron/expire-redemptions` (#1337, 30 日以上 pending の交換申請を expired に移行) は endpoint として存在するが registry / EventBridge / dispatcher いずれにも未登録のため、自動スケジュール駆動はされない (手動 / 外部呼び出し前提)。`/api/cron/pglite-backup` (#3950) も同様に registry 外で、NUC ローカルの crond (`docker-compose.yml` backup profile) が駆動する
+- **registry 外の endpoint**: `/api/cron/pglite-backup` (#3950) は registry 外で、NUC ローカルの crond (`docker-compose.yml` backup profile) が駆動する
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
 - **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。registry ⊆ CDK / CDK ⊆ registry / registry ↔ dispatcher の 3 方向に加え、`src/routes/api/cron/*/+server.ts` の実 FS 列挙を母数とした網羅、および上表 (job 行 / ✓ ✗ 列 / UTC cron 式 / 件数) と code の一致を検証する。registry に載るがスケジュール駆動しない endpoint は理由と追跡 Issue を必須とする `DOCUMENTED_EXCLUSIONS` に明示登録して除外する。gap が解消した除外エントリは同テストが stale として検出する

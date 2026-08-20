@@ -7,10 +7,13 @@ import {
 	isValidRedemptionQuantity,
 	REDEMPTION_QUANTITY_MIN,
 } from '$lib/domain/validation/special-reward';
+import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
+import { getRepos } from '$lib/server/db/factory';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
+	findRedemptionRequestById,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
 	insertRedemptionRequest,
@@ -18,6 +21,7 @@ import {
 } from '$lib/server/db/reward-redemption-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
+import { logger } from '$lib/server/logger';
 
 /**
  * #3339: ごほうび交換の「即時交換（親承認スキップ）」が家庭設定で有効か。
@@ -211,7 +215,7 @@ export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: 
 
 export async function getRedemptionRequestsForParent(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId; limit?: number },
+	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
 ) {
 	const rows = await findRedemptionRequestsByTenant(tenantId, opts);
 	return rows.map((r) => ({
@@ -333,10 +337,9 @@ export async function approveRedemption(
 	parentUserId: string | null,
 	tenantId: string,
 ): Promise<RedemptionRequestResult | ApproveError> {
-	// 申請取得（テナント内か確認のため全件から検索）
-	// children + specialRewards 結合で取得
-	const allPending = await findRedemptionRequestsByTenant(tenantId);
-	const req = allPending.find((r) => r.id === requestId);
+	// #4682 F1: id 直引き (tenant 検査込み)。旧実装は一覧 (limit 50) から find していたため、
+	// 申請総数が 50 件を超えると古い承認待ちが window から落ち「申請が見つかりません」になった。
+	const req = await findRedemptionRequestById(requestId, tenantId);
 	if (!req) return { error: 'REQUEST_NOT_FOUND' };
 
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
@@ -366,8 +369,8 @@ export async function rejectRedemption(
 	// #3320: 却下した保護者の認証 userId。承認と対称に監査証跡として記録する (null = 解決者不明)。
 	parentUserId: string | null = null,
 ): Promise<RedemptionRequestResult | RejectError> {
-	const allRequests = await findRedemptionRequestsByTenant(tenantId);
-	const req = allRequests.find((r) => r.id === requestId);
+	// #4682 F1: 承認と同じく id 直引き (一覧 limit に依存しない)。
+	const req = await findRedemptionRequestById(requestId, tenantId);
 	if (!req) return { error: 'REQUEST_NOT_FOUND' };
 
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
@@ -407,6 +410,92 @@ export async function rejectRedemption(
 
 export async function expireOldRedemptions(tenantId: string): Promise<number> {
 	return expireOldRedemptionsRepo(tenantId);
+}
+
+/** #4682 F3: 1 回の実行で走査するテナント数の上限 (13-AWS設計書 §3.3 self-limiting)。 */
+export const EXPIRE_REDEMPTIONS_TENANT_LIMIT = 200;
+
+export interface ExpireRedemptionsResult {
+	/** 期限切れに移した申請の件数。 */
+	expiredCount: number;
+	/** 存在するテナント総数。 */
+	tenantsTotal: number;
+	/** 今回処理したテナント数。 */
+	tenantsProcessed: number;
+	/** 時間 / 件数予算で今回処理できず次回に持ち越したテナント数。 */
+	tenantsRemaining: number;
+	/** 時間予算超過で打ち切ったか。 */
+	budgetExceeded: boolean;
+	/** テナント単位で失敗した件数 (1 件の失敗で全体を止めない)。 */
+	failures: number;
+}
+
+/**
+ * #4682 F3: **全テナント**の 30 日超 pending を expired に移す (cron 用)。
+ *
+ * 旧実装は endpoint が `expireOldRedemptions('default')` を直に呼んでおり、
+ * (a) `default` 以外のテナントが 1 件も処理されない (b) そもそも registry に載っておらず
+ * どの runtime でもスケジュールされていない、の二重の理由で**一度も動いていなかった**。
+ * 結果、子供のごほうびが「うけとりまち」のまま無期限に残り、履歴の「きげんぎれ」は
+ * 到達不能なラベルになっていた。
+ *
+ * self-limiting (13-AWS設計書 §3.3): テナント数に比例するため件数上限 + 時間予算で打ち切り、
+ * 残りは次回実行へ持ち越して件数を必ず報告する (silent 持ち越し禁止)。expire は冪等
+ * (同じ行を 2 回 expired にしても結果は同じ) なので、持ち越しでデータは壊れない。
+ */
+export async function expireOldRedemptionsForAllTenants(options?: {
+	tenantLimit?: number;
+	budget?: TimeBudget;
+}): Promise<ExpireRedemptionsResult> {
+	const tenantLimit = options?.tenantLimit ?? EXPIRE_REDEMPTIONS_TENANT_LIMIT;
+	const budget = options?.budget ?? createTimeBudget();
+
+	const tenants = await getRepos().auth.listAllTenants();
+	const slice = tenants.slice(0, tenantLimit);
+
+	let expiredCount = 0;
+	let tenantsProcessed = 0;
+	let failures = 0;
+	let budgetExceeded = false;
+
+	for (const tenant of slice) {
+		if (budget.exceeded()) {
+			budgetExceeded = true;
+			break;
+		}
+		tenantsProcessed++;
+		try {
+			expiredCount += await expireOldRedemptionsRepo(tenant.tenantId);
+		} catch (err) {
+			failures++;
+			logger.error('[expire-redemptions] tenant failed', {
+				context: { tenantId: tenant.tenantId },
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
+	const tenantsRemaining = tenants.length - tenantsProcessed;
+	if (tenantsRemaining > 0) {
+		// silent 持ち越し禁止 (ADR-0006 整合): 打ち切りは必ず warn に残す。
+		logger.warn('[expire-redemptions] carried over remaining tenants to next run', {
+			context: {
+				remaining: tenantsRemaining,
+				processed: tenantsProcessed,
+				total: tenants.length,
+				budgetExceeded,
+			},
+		});
+	}
+
+	return {
+		expiredCount,
+		tenantsTotal: tenants.length,
+		tenantsProcessed,
+		tenantsRemaining,
+		budgetExceeded,
+		failures,
+	};
 }
 
 // #4435: getUnshownRedemptionResult / markRedemptionShown は撤去した。

@@ -3,11 +3,43 @@ import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
 
 export interface IPointRepo {
 	getBalance(childId: ChildId, tenantId: string): Promise<number>;
+	/**
+	 * 台帳の全種別を新しい順に返す一覧。`limit` は**表示件数**であり、
+	 * 特定種別の抽出 / 集計に流用しないこと (#4682 F2)。
+	 */
 	findPointHistory(
 		childId: ChildId,
 		options: { limit: number; offset: number },
 		tenantId: string,
 	): Promise<PointLedgerEntry[]>;
+
+	/**
+	 * #4682 F2: **種別で絞った**台帳一覧を新しい順に返す。
+	 *
+	 * 旧実装は `findPointHistory({ limit: 50 })` を取ってから `type === 'convert'` で filter して
+	 * いたため、活動が多い子では直近 50 行が活動記録で埋まり、`/admin/points` の
+	 * 「おこづかい変換りれき」と累計が**丸ごと消えて**いた (渡し忘れ / 二重払いの原因)。
+	 * 絞り込みを DB 側に置き、limit を「その種別の表示件数」として正しく効かせる。
+	 */
+	findPointHistoryByType(
+		childId: ChildId,
+		options: { type: string; limit: number; offset?: number },
+		tenantId: string,
+	): Promise<PointLedgerEntry[]>;
+
+	/**
+	 * #4682 F2: 種別 (+ 期間) の **SUM を DB 側で計算**する。
+	 *
+	 * 累計は一覧の window に依存してはならない (行数が増えると勝手に減る)。
+	 * `fromIso` / `toIso` は UTC ISO 文字列で、JST 月境界は呼び出し側が
+	 * `jstDayStartUtcIso` (JST SSOT) で作る (#4015 / #4127)。範囲は `from <= created_at < to`。
+	 * 戻り値は amount の総和 (消費は負値のまま)。
+	 */
+	sumPointsByType(
+		childId: ChildId,
+		options: { type: string; fromIso?: string; toIso?: string },
+		tenantId: string,
+	): Promise<number>;
 	insertPointEntry(input: InsertPointLedgerInput, tenantId: string): Promise<PointLedgerEntry>;
 	/**
 	 * #3347: 残高が `amount` 以上のときのみ、原子的にポイントを減算して台帳エントリ（負値）を

@@ -42,6 +42,10 @@ const CRON_JOBS = [
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
+	// #4682 F3: 30 日超の未処理ごほうび交換申請を期限切れにするバッチ (日次 03:00 JST)。
+	// 破壊的操作ではなく status 遷移のみ (冪等) のため、grace-period-deletion のような
+	// 復活条件付き保留にはしない。
+	{ name: 'expire-redemptions', utcCronExpression: 'cron(0 18 * * ? *)' },
 ] as const;
 
 // --- Bedrock (#4367) ---

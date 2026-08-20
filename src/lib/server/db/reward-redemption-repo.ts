@@ -38,9 +38,14 @@ export async function insertRedemptionForRestore(
 	return getRepos().rewardRedemption.insertRedemptionForRestore(input, tenantId);
 }
 
+/** #4682 F1: id 直引き (一覧 limit 非依存)。承認 / 却下の存在確認はこちらを使う。 */
+export async function findRedemptionRequestById(id: string, tenantId: string) {
+	return getRepos().rewardRedemption.findRedemptionRequestById(id, tenantId);
+}
+
 export async function findRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId; limit?: number },
+	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
 ) {
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
@@ -48,7 +53,7 @@ export async function findRedemptionRequestsByTenant(
 /** #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。 */
 export async function countRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId },
+	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
 ) {
 	return getRepos().rewardRedemption.countRedemptionRequestsByTenant(tenantId, opts);
 }

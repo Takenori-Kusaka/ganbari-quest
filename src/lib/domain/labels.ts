@@ -7488,7 +7488,8 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	backToRewardsLabel: '← ごほうび管理に戻る',
 	pendingSectionTitle: 'Pending',
 	pendingCountSuffix: (count: number) => `${count} 件`,
-	historySectionTitle: 'History（直近30件）',
+	// #4682 F4: 「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」を出す。
+	historySectionTitle: '処理済み（直近30件）',
 	emptyPendingMessage: '申請はありません',
 	emptyHistoryMessage: '履歴はありません',
 	approveButton: '承認して渡した',
@@ -7500,6 +7501,10 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	rewardPointsUnit: 'ポイント',
 	statusApproved: '承認済み',
 	statusRejected: '却下済み',
+	// #4682 F4: 履歴行に「いつ処理したか」「なぜ却下したか」を出す
+	// (旧実装は申請日時も却下理由も出さず、親が後から判断を思い出せなかった)。
+	resolvedAtLabel: '処理日時',
+	rejectNoteHistoryLabel: '却下理由',
 } as const;
 
 // ============================================================

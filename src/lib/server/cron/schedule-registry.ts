@@ -104,6 +104,17 @@ export const scheduleRegistry: CronJob[] = [
 		description: 'クラウドエクスポート非同期 build バッチ (#3504)',
 	},
 	{
+		// #4682 F3: 30 日以上 pending の交換申請を expired に移す。旧実装は registry に載らず
+		// どの runtime でもスケジュールされていなかったため、子供のごほうびが「うけとりまち」の
+		// まま無期限に残り、履歴の「きげんぎれ」ラベルが到達不能だった。
+		// 他の日次 cron が 00 / 30 分に寄っているため 03:00 にずらし、30 秒予算の食い合いを避ける。
+		name: 'expire-redemptions',
+		endpoint: '/api/cron/expire-redemptions',
+		cronExpression: '0 3 * * *', // 毎日 03:00 JST
+		utcCronExpression: 'cron(0 18 * * ? *)', // 毎日 18:00 UTC = 翌日 03:00 JST
+		description: '30 日超の未処理ごほうび交換申請を期限切れにするバッチ (#1337 / #4682)',
+	},
+	{
 		// #3959: Stripe webhook が Lambda に到達していない (沈黙) を外から検知する。
 		// 検知遅延 1 時間以内という要件から毎時実行。毎時 5 分に寄せているのは、他の日次 cron が
 		// 00 分に集中しており同時実行で 30 秒予算を圧迫するのを避けるため。
