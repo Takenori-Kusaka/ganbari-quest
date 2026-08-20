@@ -138,7 +138,37 @@ PO の「解約原因が見えない」「卒業 vs 離反比率が検証され�
           → ユーザーが必要に応じて /admin/license や /admin/settings へ
 ```
 
-#### 3.0.3 Anti-engagement 原則 (ADR-0012)
+#### 3.0.3 上限超過リソースの選択 (解約 = 無料プラン復帰の経路)
+
+解約すると無料プランに戻るため、上限を超えるリソース (子供 / 活動 / チェックリスト) と履歴保持期間の
+扱いが決まる。**入口 (請求パネル / 解約フロー) によらず、失うものがあるときは必ず選択 UI を通す**。
+
+```
+[/admin/subscription/cancel]  submit (理由入力後)
+  │
+  ├─ 実効プラン (resolveFullPlanTier) = free → そのまま手続きへ
+  │
+  └─ free 以外 → GET /api/v1/admin/downgrade-preview?targetTier=free
+        │
+        ├─ shouldOpenDowngradeSelector(preview) = false (失うもの無し)
+        │     → そのまま手続きへ
+        │
+        ├─ true → DowngradeResourceSelector (請求パネルと同一 component)
+        │     └─ 確定 → POST /api/v1/admin/downgrade-archive
+        │                (reason='downgrade_user_selected') → 手続きへ
+        │
+        └─ preview 取得失敗 → 理由を表示して 1 度止める
+              (再送信で手続きは続く。解約を行き止まりにしない)
+```
+
+- 判定 SSOT: `src/lib/features/admin/downgrade-dialog-policy.ts` (`hasExcess || willLoseHistory`)
+- API 呼び出し SSOT: `src/lib/features/admin/downgrade-client.ts` (2 入口で共有)
+- **fallback (選ばずに手続きが完了した場合)**: 先に登録したものから順に無料プランの上限数だけ残し、
+  超えた分をアーカイブする (`archiveExcessResources`)。この規則は解約画面に事前提示する
+  (`CANCELLATION_LABELS.archiveFallback*`、上限値は `plan-limit-service` 由来)
+- アーカイブは削除ではなく、再契約で復元できる
+
+#### 3.0.4 Anti-engagement 原則 (ADR-0012)
 
 - 「引き止め」UI を出さない（離脱トリガー化を防ぐ）
 - 自由記述は **任意** （義務化はストレス）

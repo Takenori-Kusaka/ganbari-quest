@@ -798,6 +798,30 @@
 
 <!-- LP-LANDMARK:soft-features end -->
 
+<!-- LP-LANDMARK:home-screen start — #4644: ホーム画面への追加（インストール）訴求。
+     新規 CTA ボタンは置かない（ctaVariants ≤ 3 の ratchet 維持）。手順は既存の
+     .soft-grid / .soft-card を再利用し新規 CSS を足さない（desktopHeight ratchet 対策）。 -->
+<!-- [05a] ホーム画面に追加 -->
+<section class="section bg-white" id="home-screen">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.pwaTitle">タブレットやスマホのホーム画面に追加しよう</h2>
+    <p class="section-desc" data-lp-key="indexB.pwaDesc">ホーム画面に追加するとアプリのように全画面で起動します。お子さまがブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。</p>
+    <div class="soft-grid">
+      <div class="soft-card">
+        <h3 data-lp-key="indexB.pwaAndroidTitle">Android / Chrome</h3>
+        <p data-lp-key="indexB.pwaAndroidSteps">画面右上の「⋮」→「ホーム画面に追加」→「追加」</p>
+      </div>
+      <div class="soft-card">
+        <h3 data-lp-key="indexB.pwaIosTitle">iPhone / iPad（Safari）</h3>
+        <p data-lp-key="indexB.pwaIosSteps">画面下の「共有」（□に↑）→「ホーム画面に追加」→「追加」</p>
+      </div>
+    </div>
+    <p class="section-desc" data-lp-key="indexB.pwaNote">アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。</p>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:home-screen end -->
+
 <!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。詳細は graduation.html へ集約
      #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する。
      #1895 (PO-4-9): CTA を「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化（H2 直接接続で認知ジャンプ解消） -->
