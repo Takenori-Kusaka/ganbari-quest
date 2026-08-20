@@ -4489,7 +4489,7 @@ export const CHILD_HOME_LABELS = {
  * 子供ホームの文言セット。値の型は `string` / 関数に広げてある
  * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
  */
-export type ChildHomeLabels = {
+type ChildHomeLabels = {
 	readonly [K in keyof typeof CHILD_HOME_LABELS]: (typeof CHILD_HOME_LABELS)[K] extends string
 		? string
 		: (typeof CHILD_HOME_LABELS)[K];
@@ -5133,7 +5133,7 @@ export function getCategoryDisplayName(category: string | number, uiMode: string
  * 今週はチャレンジしてみよう！」）。表示文言はサービス層ではなくここが置き場所
  * （ADR-0045）。文体の分かれ目は docs/DESIGN.md §8。
  */
-export type ChallengeReasonMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+type ChallengeReasonMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
 
 /** 子供に見せるチャレンジ理由文。categoryName は呼び出し側が年齢帯に合わせて解決して渡す。 */
 export function getChallengeReason(
@@ -5170,7 +5170,7 @@ export function formatChallengeTitle(categoryName: string, targetCount: number):
 	return `今週は「${categoryName}」を${targetCount}回`;
 }
 
-export interface ChildErrorPageLabels {
+interface ChildErrorPageLabels {
 	readonly title404: string;
 	readonly title429: string;
 	readonly title403: string;
@@ -6479,7 +6479,7 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
 
-export const CHILD_STATUS_LABELS = {
+const CHILD_STATUS_LABELS = {
 	growthChartTitle: 'せいちょうチャート',
 	growthBestCatPrefix: '💬 ',
 	growthBestCatSuffix: 'が',
@@ -6498,7 +6498,7 @@ export const CHILD_STATUS_LABELS = {
  * ステータス画面の文言セット。値の型は `string` に広げてある
  * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
  */
-export type ChildStatusLabels = {
+type ChildStatusLabels = {
 	readonly [K in keyof typeof CHILD_STATUS_LABELS]: string;
 };
 
@@ -7995,7 +7995,7 @@ export const CHILD_SHOP_LABELS = {
  * ごほうびショップの文言セット。値の型は `string` に広げてある
  * （`as const` のリテラル型のままだと、年齢帯変種が「別の文字列」を入れられない）。
  */
-export type ChildShopLabels = {
+type ChildShopLabels = {
 	readonly [K in keyof typeof CHILD_SHOP_LABELS]: (typeof CHILD_SHOP_LABELS)[K] extends string
 		? string
 		: (typeof CHILD_SHOP_LABELS)[K];
