@@ -317,6 +317,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-stripe-webhook-delivery-check',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-trial-notifications',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-aws-health',
+			// #4706: 通知 / 週次レポート配信 cron の EventBridge Rule
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-notification-delivery',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-health-check',
 			'GanbariQuestDsql/AWS::Events::Rule/ganbari-quest-dsql-backup-failed',
 		],

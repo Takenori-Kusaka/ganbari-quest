@@ -40,6 +40,9 @@ const CRON_JOBS = [
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
+	// #4706: 設定 UI が約束する 3 配信 (週次メールレポート / リマインダー / ストリーク警告)。
+	// リマインダー時刻が HH:MM の任意値なので 15 分間隔で回す。
+	{ name: 'notification-delivery', utcCronExpression: 'cron(0/15 * * * ? *)' },
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
