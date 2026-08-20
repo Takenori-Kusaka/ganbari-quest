@@ -217,18 +217,18 @@ describe('[B] CDK literal ↔ アプリ側 SSOT の drift', () => {
 });
 
 describe('[C] filter pattern が実際の log 出力にマッチする', () => {
-	let warned: string[];
-	let infoed: string[];
+	let warnLines: string[];
+	let infoLines: string[];
 
 	beforeEach(() => {
-		warned = [];
-		infoed = [];
+		warnLines = [];
+		infoLines = [];
 		vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
-			warned.push(args.map(String).join(' '));
+			warnLines.push(args.map(String).join(' '));
 		});
 		// logger.info は console.log へ出す (#3692)
 		vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-			infoed.push(args.map(String).join(' '));
+			infoLines.push(args.map(String).join(' '));
 		});
 	});
 
@@ -247,9 +247,9 @@ describe('[C] filter pattern が実際の log 出力にマッチする', () => {
 			}),
 		).rejects.toThrow();
 
-		expect(infoed.filter((l) => l.includes(AI_CALL_SUCCEEDED_LOG_TERM))).toHaveLength(1);
-		expect(infoed.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(1);
-		expect(warned.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(0);
+		expect(infoLines.filter((l) => l.includes(AI_CALL_SUCCEEDED_LOG_TERM))).toHaveLength(1);
+		expect(infoLines.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(1);
+		expect(warnLines.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(0);
 		resetAiAvailabilityLatch();
 	});
 
@@ -285,8 +285,8 @@ describe('[C] filter pattern が実際の log 出力にマッチする', () => {
 
 		await withAvailabilityTracking('bedrock-claude', async () => 'ok');
 
-		expect(infoed.filter((l) => l.includes(AI_CALL_SUCCEEDED_LOG_TERM))).toHaveLength(1);
-		expect(infoed.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(0);
+		expect(infoLines.filter((l) => l.includes(AI_CALL_SUCCEEDED_LOG_TERM))).toHaveLength(1);
+		expect(infoLines.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM))).toHaveLength(0);
 		resetAiAvailabilityLatch();
 	});
 
@@ -310,7 +310,7 @@ describe('[C] filter pattern が実際の log 出力にマッチする', () => {
 			}),
 		).rejects.toThrow(validationError);
 
-		const matched = infoed.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM));
+		const matched = infoLines.filter((l) => l.includes(AI_CALL_FAILED_LOG_TERM));
 		expect(matched).toHaveLength(1);
 		// 分類 (例外クラス名) までは載せる。メッセージ本文は載せない。
 		expect(matched[0]).toContain('error=ValidationException');
