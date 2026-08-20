@@ -2,6 +2,7 @@
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
 import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
+// #4505: 行の組み立ては domain 側 (client からも読む) が SSOT。ここでは再 export しない。
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';

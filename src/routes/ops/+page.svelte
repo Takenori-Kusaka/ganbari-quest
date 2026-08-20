@@ -1,5 +1,6 @@
 <script lang="ts">
 import { OPS_LABELS } from '$lib/domain/labels';
+import { buildOpsPlanRows } from '$lib/domain/ops-plan-rows';
 import ContractStateAuditCard from '$lib/features/admin/components/ContractStateAuditCard.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -7,6 +8,8 @@ import Card from '$lib/ui/primitives/Card.svelte';
 let { data } = $props();
 const kpi = $derived(data.kpi);
 const stats = $derived(kpi.tenantStats);
+// #4505: プラン行は service (ops-service.buildPlanRows) が組み立てた 1 つの配列を描く
+const planRows = $derived(buildOpsPlanRows(stats.planBreakdown));
 const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
@@ -63,31 +66,16 @@ const contractState = $derived(data.contractState);
 				</tr>
 			</thead>
 			<tbody>
-				<tr>
-					<td>{OPS_LABELS.planMonthly}</td>
-					<td>{stats.planBreakdown.monthly}</td>
-					<td>¥{stats.mrrBreakdown.monthly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planYearly}</td>
-					<td>{stats.planBreakdown.yearly}</td>
-					<td>¥{stats.mrrBreakdown.yearly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planPremiumMonthly}</td>
-					<td>{stats.planBreakdown.familyMonthly}</td>
-					<td>¥{stats.mrrBreakdown.familyMonthly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planPremiumYearly}</td>
-					<td>{stats.planBreakdown.familyYearly}</td>
-					<td>¥{stats.mrrBreakdown.familyYearly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planLifetime}</td>
-					<td>{stats.planBreakdown.lifetime}</td>
-					<td>-</td>
-				</tr>
+				<!-- #4505: 行はプラン集合 (ALL_SUBSCRIPTION_PLANS) から組み立てる。
+				     手で並べていた頃はプレミアムを追加したときに描画側だけ追従漏れし、
+				     テナントが不可視・合計 MRR 過小になった。 -->
+				{#each planRows as row (row.plan)}
+					<tr data-testid="ops-plan-row-{row.plan}">
+						<td>{OPS_LABELS.planRowLabels[row.plan]}</td>
+						<td>{row.tenants}</td>
+						<td>{row.mrr > 0 ? `¥${row.mrr.toLocaleString()}` : '-'}</td>
+					</tr>
+				{/each}
 				<tr>
 					<td>{OPS_LABELS.planNone}</td>
 					<td>{stats.planBreakdown.noPlan}</td>

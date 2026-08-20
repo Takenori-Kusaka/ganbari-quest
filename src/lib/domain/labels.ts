@@ -3,11 +3,12 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
-// #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
+// #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
+import type { SubscriptionPlan } from './constants/subscription-plan';
 import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -3441,6 +3442,20 @@ export const OPS_LABELS = {
 	planLifetime: 'ライフタイム',
 	planNone: '未設定（トライアル等）',
 	planTotalMrr: '合計 MRR',
+	/**
+	 * プラン値 → 行ラベル (#4505)。
+	 *
+	 * 画面はこの表を引いて行を組み立てるため、**プランが増えたら型で表の追加が要求される**
+	 * (`Record<SubscriptionPlan, string>`)。旧実装のように行を手で並べると、追加したプランが
+	 * 画面から抜けても誰も気づかない (プレミアムのテナントが不可視だった原因)。
+	 */
+	planRowLabels: {
+		monthly: `月額 (${PRICE_TERMS.standard}/月)`,
+		yearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
+		'family-monthly': `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
+		'family-yearly': `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
+		lifetime: 'ライフタイム',
+	} satisfies Record<SubscriptionPlan, string>,
 
 	// 価格見直しトリガー
 	triggerTitle: '価格見直しトリガー',
