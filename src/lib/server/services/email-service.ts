@@ -345,6 +345,11 @@ export interface DeletionWarningParams {
 	deletionDate: string;
 	/** 削除予定日までの残り日数 (JST 暦日換算、1 以上) */
 	daysRemaining: number;
+	/**
+	 * 物理削除が停止中の配備か (#4721)。true なら**削除を断定せず取り消し期限だけを述べる**。
+	 * 呼び出し側が `isPhysicalDeletionDisabled()` を渡す。
+	 */
+	retentionOnly?: boolean;
 }
 
 /**
@@ -363,20 +368,42 @@ export interface DeletionWarningParams {
  */
 export async function sendDeletionWarningEmail(params: DeletionWarningParams): Promise<boolean> {
 	const labels = DELETION_WARNING_EMAIL_LABELS;
-	const { email, ownerName, deletionDate, daysRemaining } = params;
+	const { email, ownerName, deletionDate, daysRemaining, retentionOnly = false } = params;
 	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
+	// #4721: 物理削除が停止中の配備では**削除を断定しない**。
+	// 「この日にデータを削除します」は事実に反するが、**その日を過ぎると自分では取り消せなくなる
+	// のは事実**なので (restoreSoftDeletedTenant が isExpired で拒否)、期限そのものは伝える。
+	// 送信自体は止めない — 猶予中に「まだ戻せる」ことを思い出す接点がこの便しかなく、
+	// 止めると復元できるのに戻らない顧客を作る。
+	const subject = retentionOnly
+		? labels.subjectRetentionOnly(daysRemaining)
+		: labels.subject(daysRemaining);
+	const heading = retentionOnly ? labels.headingRetentionOnly : labels.heading;
+	const dateLine = retentionOnly
+		? labels.deadlineDateLine(deletionDate, daysRemaining)
+		: labels.deletionDateLine(deletionDate, daysRemaining);
+	const irreversible = retentionOnly
+		? labels.irreversibleNoteRetentionOnly
+		: labels.irreversibleNote;
+	const restore = retentionOnly
+		? labels.restoreNoteRetentionOnly(ADMIN_VIEW_TERMS.canonical)
+		: labels.restoreNote(ADMIN_VIEW_TERMS.canonical);
+	const noAction = retentionOnly ? labels.noActionNoteRetentionOnly : labels.noActionNote;
 
 	return sendEmail({
 		to: email,
-		subject: `【がんばりクエスト】${labels.subject(daysRemaining)}`,
+		// #4721 の retentionOnly 出し分け (subject / heading) を保ちつつ、
+		// #4566 の `html` タグ付きテンプレート (HtmlSafe) で埋め込み値をエスケープする
+		subject: `【がんばりクエスト】${subject}`,
 		htmlBody: wrapTemplate(html`
-      <h2>${labels.heading}</h2>
+      <h2>${heading}</h2>
       <p>${labels.greeting(ownerName)}</p>
       <p>${labels.intro}</p>
-      <p><strong>${labels.deletionDateLine(deletionDate, daysRemaining)}</strong></p>
-      <p>${labels.irreversibleNote}</p>
-      <p>${labels.restoreNote(ADMIN_VIEW_TERMS.canonical)}</p>
-      <p>${labels.noActionNote}</p>
+      <p><strong>${dateLine}</strong></p>
+      <p>${irreversible}</p>
+      <p>${restore}</p>
+      <p>${noAction}</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
       </p>
@@ -386,11 +413,11 @@ export async function sendDeletionWarningEmail(params: DeletionWarningParams): P
 			labels.greeting(ownerName),
 			'',
 			labels.intro,
-			labels.deletionDateLine(deletionDate, daysRemaining),
-			labels.irreversibleNote,
+			dateLine,
+			irreversible,
 			'',
-			labels.restoreNote(ADMIN_VIEW_TERMS.canonical),
-			labels.noActionNote,
+			restore,
+			noAction,
 			'',
 			`${labels.ctaLabel}: ${ctaUrl}`,
 			'',
@@ -407,6 +434,11 @@ export interface DeletionReservedParams {
 	deletionDate: string;
 	/** 猶予期間の日数 (プラン別、1 以上) */
 	graceDays: number;
+	/**
+	 * 物理削除が停止中の配備か (#4721)。true なら**削除を断定せず取り消し期限だけを述べる**。
+	 * 呼び出し側が `isPhysicalDeletionDisabled()` を渡す。
+	 */
+	retentionOnly?: boolean;
 }
 
 /**
@@ -421,8 +453,18 @@ export interface DeletionReservedParams {
  */
 export async function sendDeletionReservedEmail(params: DeletionReservedParams): Promise<boolean> {
 	const labels = DELETION_RESERVED_EMAIL_LABELS;
-	const { email, ownerName, deletionDate, graceDays } = params;
+	const { email, ownerName, deletionDate, graceDays, retentionOnly = false } = params;
 	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
+	// #4721: 予告メールと同じ判断。**この 1 通が最も権威ある通知**なので、
+	// ここを直さずに予告だけ手当てしても「削除します」という断定は残ったままになる。
+	const scheduleLine = retentionOnly
+		? labels.scheduleLineRetentionOnly(deletionDate, graceDays)
+		: labels.scheduleLine(deletionDate, graceDays);
+	const restoreLine = retentionOnly
+		? labels.restoreLineRetentionOnly(ADMIN_VIEW_TERMS.canonical)
+		: labels.restoreLine(ADMIN_VIEW_TERMS.canonical);
+	const exportLine = retentionOnly ? labels.exportLineRetentionOnly : labels.exportLine;
 
 	return sendEmail({
 		to: email,
@@ -431,9 +473,9 @@ export async function sendDeletionReservedEmail(params: DeletionReservedParams):
       <h2>${labels.heading}</h2>
       <p>${labels.greeting(ownerName)}</p>
       <p>${labels.intro}</p>
-      <p><strong>${labels.scheduleLine(deletionDate, graceDays)}</strong></p>
-      <p>${labels.restoreLine(ADMIN_VIEW_TERMS.canonical)}</p>
-      <p>${labels.exportLine}</p>
+      <p><strong>${scheduleLine}</strong></p>
+      <p>${restoreLine}</p>
+      <p>${exportLine}</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
       </p>
@@ -443,9 +485,9 @@ export async function sendDeletionReservedEmail(params: DeletionReservedParams):
 			labels.greeting(ownerName),
 			'',
 			labels.intro,
-			labels.scheduleLine(deletionDate, graceDays),
-			labels.restoreLine(ADMIN_VIEW_TERMS.canonical),
-			labels.exportLine,
+			scheduleLine,
+			restoreLine,
+			exportLine,
 			'',
 			`${labels.ctaLabel}: ${ctaUrl}`,
 			'',

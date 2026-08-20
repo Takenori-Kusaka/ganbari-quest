@@ -67,6 +67,7 @@ import {
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	PWA_TERMS,
 	REWARD_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
@@ -819,9 +820,23 @@ export const DELETION_RESERVED_EMAIL_LABELS = {
 	intro: '退会（アカウント削除）のお申し込みを受け付けました。',
 	scheduleLine: (deletionDate: string, graceDays: number) =>
 		`お申し込みから${graceDays}日後の${deletionDate}に、すべてのデータを削除します。`,
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除を断定しない。**
+	 *
+	 * 削除が走らない状態で「この日にすべてのデータを削除します」と書くのは事実に反する。
+	 * 一方で**その日を過ぎるとご自身での取り消しができなくなるのは事実**
+	 * (`restoreSoftDeletedTenant` が `isExpired` で拒否する) なので、期限そのものは伝える。
+	 */
+	scheduleLineRetentionOnly: (deletionDate: string, graceDays: number) =>
+		`お申し込みから${graceDays}日後の${deletionDate}を過ぎると、ご自身でのお取り消しができなくなります。`,
 	restoreLine: (adminViewLabel: string) =>
 		`削除日までは${adminViewLabel}からお取り消しいただけます。削除後のデータは復元できません。`,
+	/** 削除を断定しない版 (#4721)。取り消し期限だけを述べる。 */
+	restoreLineRetentionOnly: (adminViewLabel: string) =>
+		`期限までは${adminViewLabel}からお取り消しいただけます。`,
 	exportLine: '記録を手元に残される場合は、削除日までに書き出しをお願いいたします。',
+	/** 削除を断定しない版 (#4721)。 */
+	exportLineRetentionOnly: '記録を手元に残される場合は、期限までに書き出しをお願いいたします。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'本メールはお手続きに関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
@@ -940,6 +955,21 @@ export const DELETION_WARNING_EMAIL_LABELS = {
 	restoreNote: (adminView: string) =>
 		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
 	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除の断定をやめ、取り消し期限だけを述べる。**
+	 *
+	 * 送信自体は止めない — 猶予中に「まだ戻せる」ことを思い出す接点がこのメールしかなく、
+	 * 止めると復元できるのに戻らない顧客を作る。嘘をやめるのに便を止める必要はない。
+	 */
+	subjectRetentionOnly: (daysRemaining: number) =>
+		`お取り消し期限のお知らせ（あと ${daysRemaining} 日）`,
+	headingRetentionOnly: 'お取り消し期限のお知らせ',
+	deadlineDateLine: (deadlineDate: string, daysRemaining: number) =>
+		`お取り消しができる期限: ${deadlineDate}（あと ${daysRemaining} 日）`,
+	irreversibleNoteRetentionOnly: '期限を過ぎると、ご自身でのお取り消しはできなくなります。',
+	restoreNoteRetentionOnly: (adminView: string) =>
+		`期限までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNoteRetentionOnly: 'このままお手続きを進める場合、操作は不要です。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
@@ -2872,8 +2902,6 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
 	currentPlan: '現在のプラン',
-	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
-	trialActive: `${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
 	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
 	upgradeCta: `${PLAN_FULL_TERMS.premium}にする`,
 	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
@@ -2921,11 +2949,11 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 
 	// 無料トライアル
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
-	trialActiveTitle: `${PLAN_FULL_TERMS.standard} トライアル中`,
+	trialActiveTitle: `${PLAN_FULL_TERMS.premium} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
 	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
-	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
+	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
 	trialStartButton: '無料トライアルを開始する',
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
@@ -3573,10 +3601,9 @@ export const SIGNUP_LABELS = {
 	submitLoading: '登録中...',
 	submitWithTrial: `${TRIAL_TERMS.duration} 無料体験をはじめる`,
 	submitFree: '無料ではじめる',
-	trialPlanNote: (planName: string) =>
-		`セットアップ後に ${planName}プランのトライアルが開始されます`,
-	trialPlanStandard: PLAN_TERMS.standard,
-	trialPlanFamily: PLAN_TERMS.premium,
+	// #4501: トライアルは常に premium tier (FR-2)。プラン名を差し込む形だと
+	// 「standard のトライアル」と読めてしまい、実挙動 (全機能開放) と食い違う。
+	trialPlanNote: `セットアップ後に${PLAN_FULL_TERMS.premium}のトライアルが開始され、${TRIAL_TERMS.duration}すべての有料機能をお試しいただけます`,
 	loginLink: '既にアカウントをお持ちの方はこちら',
 	legalNote: '有料プランをご利用の前に',
 	legalTokushoho: '特定商取引法に基づく表記',
@@ -3761,6 +3788,9 @@ export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
 	CANCELLATION_CATEGORY.PAUSE,
 ];
 
+/** #4585-1: 「選ばずに進めた場合」の見出し。同一画面の複数箇所から参照するため 1 箇所に置く */
+const ARCHIVE_FALLBACK_HEADING = '選ばずに進めた場合';
+
 export const CANCELLATION_LABELS = {
 	pageHeading: '解約手続き',
 	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
@@ -3790,6 +3820,10 @@ export const CANCELLATION_LABELS = {
 	//   旧 paidPlanNotice は「決済停止を行います」だけで、期末まで使えることと日割り返金が
 	//   ないことを手続き前に示していなかった (#3991 期末解約モデルの不告知)。
 	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中のため、お支払いは発生しておらず${CANCEL_TERMS.canonical}のお手続きは必要ありません。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。差し支えなければ、その前に理由をお聞かせください。`,
+	// #4585-1 QM: 体験中の顧客は「請求は無い」が「無料プランの上限でもない」。freePlanNotice を
+	// そのまま出すと、同じ画面で「無料プランをご利用中」と「無料プランに戻ると」が並び、
+	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
+	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
 	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
 
 	// Submit
@@ -3822,6 +3856,24 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
+	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
+	// 「先に登録したものから順に上限数だけ残す」。規則を内部に閉じず、解約画面で先に伝える。
+	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
+	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
+		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、先に登録したものから順にこの数だけ残し、超えた分をアーカイブします。`,
+	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
+	selectionButton: '残すデータを選ぶ',
+	selectionLoading: '確認しています…',
+	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度お試しになる場合は下のボタンから、このまま進める場合は送信ボタンを押してください。`,
+	// #4585-1 QM: 選択ダイアログを閉じた顧客の出口。確定ボタンは超過分を選ぶまで押せないため、
+	// 「どれも手放したくない」顧客の唯一の操作が「閉じる」になる。ここで手続きを再開できないと
+	// 解約そのものが行き止まりになる (#4329 / #4548 / #4560 と同じ class)。
+	selectionSkipped: `残すデータを選ばずに閉じました。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。選び直すこともできます。`,
+	// #4585-1 QM: 閉じた / 取得に失敗した顧客が選択に戻る唯一の導線。これが無いと、
+	// 誤って閉じた 1 クリックで「自分で選ぶ」機会を恒久的に失う (子供の記録は取り返しが難しい)。
+	selectionReopen: '残すデータを選び直す',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
@@ -5063,6 +5115,12 @@ export const CHEER_LABELS = {
 	iconHint: '絵文字を入れてください',
 	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
 	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
+	// #4504: 自由テキストは premium 限定 (LP の訴求どおり)。定型スタンプは全プランで使える。
+	/** プランゲートのエラー文言 / ロック表示に使う機能名 */
+	freeTextFeatureName: 'ひとことメッセージ（自由テキスト）',
+	/** premium 以外に出す説明。スタンプは使えることを同時に伝える (全否定しない) */
+	freeTextLockedNote: `ひとことメッセージ（自由テキスト）は${PLAN_FULL_TERMS.premium}の機能です。スタンプは今のプランでも送れます。`,
+	freeTextPlaceholder: 'ひとことメッセージを足す（任意）',
 	confirmTitle: `7. 内容を確認して${CHEER_TERMS.action}`,
 	grantButton: CHEER_TERMS.action,
 	grantButtonDisabled: '理由とポイントを入力してください',
@@ -5505,6 +5563,28 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	ageFilterBypassedHint: (name: string, age: number) =>
 		`年齢フィルタ無効 (${name}${CHILD_TERMS.honorific} ${age}歳)。全 family scope activity を表示中`,
 	ageFilterReapply: '年齢フィルタを再適用',
+} as const;
+
+/**
+ * admin リソース画面の「選択中の子と操作対象」共通ラベル (#4692)
+ *
+ * 復元 / エクスポート / すべて削除 / 取込 は per-child 主軸 (ADR-0055、DESIGN.md §10) に従い
+ * 「選択中の子」だけを対象にする。対象範囲を書かない確認文 (旧「本当に全削除しますか？」) や
+ * 子供 0 人での空 dialog は「操作対象がどこか分からない」状態を作るため、
+ * 3 画面 (活動 / ごほうび / チェックリスト) で同一文言を使う。
+ */
+export const ADMIN_CHILD_SCOPE_LABELS = {
+	childRequired: `${CHILD_TERMS.honorific}を選んでください`,
+	childNotFound: `指定された${CHILD_TERMS.honorific}が見つかりませんでした`,
+	/** 子供 0 人で取込 URL (`?import=`) を開いたときの案内 (空 dialog の代わり) */
+	noChildrenTitle: `まずは${CHILD_TERMS.honorific}を登録してください`,
+	noChildrenDesc: `取り込み先の${CHILD_TERMS.honorific}がまだ登録されていません。登録すると、みんなのテンプレートを取り込めます。`,
+	noChildrenCta: `${CHILD_TERMS.honorific}を登録する`,
+	/** ︙「すべて削除」の確認文 — 対象の子と件数を必ず出す */
+	clearAllScopedConfirm: (childName: string, count: number) =>
+		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
+	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
+	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
 } as const;
 
 /**
@@ -6150,6 +6230,10 @@ export const VIEW_PAGE_LABELS = {
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',
 	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+	// #4703: 無効 / 期限切れ token 専用の説明。汎用 404「ページが みつかりません」だと
+	// リンクを共有された人 (祖父母等) が「自分の操作を間違えた」と受け取ってしまう。
+	invalidTokenTitle: 'このリンクは無効か、期限切れです',
+	invalidTokenDesc: `リンクの有効期限が切れたか、共有した${PARENT_TERMS.honorific}が無効にした可能性があります。共有元の${PARENT_TERMS.honorific}に新しいリンクの発行を依頼してください。`,
 } as const;
 
 export const DEMO_BATTLE_LABELS = {
@@ -6899,10 +6983,9 @@ export const LP_PRICING_LABELS = {
 	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴い「購入後ライセンスキーをメールで…」を
 	// サブスクリプション整合の文言に置換 (決済後 tenant.status=ACTIVE で即時利用可、key 配布なし)。
 	// #3212: 月額/年額トグル (billingToggle*) は年額廃止 (#2719) で撤去。billing=monthly 固定。
-	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
-	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
-	directPurchaseNote: '※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます',
-	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
+	// #4501 PO 決裁 3: トライアルが 1 回限り (FR-8、tenant 単位) であることは LP のどこにも
+	// 書かれていなかった。プラン選択の前に知らせる。
+	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）。無料体験はご家族につき 1 回かぎりです`,
 
 	// #2103 F-2: 解約 CTA + FAQ 経路明示（γ ハイブリッド: アプリ内 1-click → Stripe Customer Portal）
 	// FAQ 既存 faqCancelA は維持し、解約「経路」を補足する追記文 + 新規 FAQ「解約 vs アカウント削除」を追加。
@@ -8269,7 +8352,8 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/ActivityClearAllConfirm ----
 	activityClearAllConfirm: {
-		text: '本当に全削除しますか？',
+		// #4692 F3: 対象範囲を書かない「本当に全削除しますか？」は撤去。
+		// 確認文は ADMIN_CHILD_SCOPE_LABELS.clearAllScopedConfirm(子の名前, 件数) を使う。
 		processingText: '処理中...',
 		executeBtn: '実行',
 		cancelBtn: 'やめる',
@@ -9619,6 +9703,17 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
 	carouselSlide4Alt: 'お子さま管理タブ — 家族メンバーの登録と切替',
+	// #4644: ホーム画面への追加 (インストール) 訴求。アプリ内の案内 (PWA_INSTALL_LABELS) と
+	// 同じ操作名を使うため PWA_TERMS.installAction を経由する (LP で読んだ操作名が
+	// アプリ内で見つからない状態を作らない)。
+	pwaTitle: `タブレットやスマホの${PWA_TERMS.installAction}しよう`,
+	pwaDesc: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動します。${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。`,
+	pwaAndroidTitle: 'Android / Chrome',
+	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosTitle: 'iPhone / iPad（Safari）',
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaNote:
+		'アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -10258,4 +10353,68 @@ export const POINT_LEDGER_LABELS = {
 		if (mode === 'receipt') return `${base}（領収書読み取り）`;
 		return base;
 	},
+} as const;
+
+// #4644: オフライン着地ページ (`/offline`) の文言。
+//
+// 読み手は**年齢帯を問わず子供**である (Service Worker はどの画面からの遷移でも
+// ここへ落とすため、preschool の子が最初に読む可能性がある)。年齢帯 variant は
+// 持たず、全年齢が読めるひらがな主体の 1 種類に固定する。漢字を混ぜると preschool が
+// 読めず、逆に「エラー」等のカタカナ専門語を出すと「壊した」と受け取られる。
+export const OFFLINE_LABELS = {
+	/** ページタイトル (svelte:head) */
+	pageTitle: 'いんたーねっとに つながっていません',
+	/** 画面見出し */
+	heading: 'いんたーねっとに つながっていないよ',
+	/** 本文 (原因と対処。子供が自分で試せることだけを書く) */
+	body: 'でんぱが とどいていないみたい。おうちの Wi-Fi を たしかめてから、もういちど ためしてね。',
+	/** 「壊れていない」ことの明示 (パニック防止。ADR-0012 整合で煽らない) */
+	reassurance: 'きろくは きえていないから だいじょうぶ。',
+	/** 再読み込みボタン */
+	retry: 'もういちど ひらく',
+	/** 装飾アイコン (aria-hidden) */
+	icon: '📡',
+} as const;
+
+// #4644: ホーム画面への追加 (インストール) ガイドの文言。
+//
+// 親向けの案内。ADR-0012 整合で「押し付けない」— バナーは閉じたら二度と出さず、
+// 恒久導線は 設定 > サポート に置く (フィードバック導線と同じ SSOT、DESIGN.md §10)。
+export const PWA_INSTALL_LABELS = {
+	/** 案内バナーの見出し */
+	bannerTitle: `${PARENT_TERMS.honorific}の方へ: ${PWA_TERMS.installAction}できます`,
+	/** 案内バナーの本文 (メリットを 1 文で) */
+	bannerBody: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動し、${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することなく使えます。`,
+	/** Android / Chrome: ブラウザ標準のインストールダイアログを起動する */
+	bannerInstallAction: PWA_TERMS.installAction,
+	/** iOS Safari 等、beforeinstallprompt が無い環境で手順を開く */
+	bannerHowToAction: '追加方法をみる',
+	/** バナーを閉じる (以後表示しない) */
+	bannerDismiss: '閉じる',
+	/** 閉じるボタンの aria-label (「以後出ない」ことを読み上げでも伝える) */
+	bannerDismissAria: '追加の案内を閉じる（次回から表示しません）',
+	/** 手順ダイアログ / 設定内カードの見出し */
+	guideTitle: `${PWA_TERMS.installAction}する方法`,
+	/** 手順ダイアログの導入文 */
+	guideIntro: `お使いの端末に合わせて操作してください。追加しても${PWA_TERMS.standalone}で開くだけで、アプリを別途インストールするわけではありません。`,
+	/** Android / Chrome 手順の見出し */
+	androidTitle: 'Android / Chrome の場合',
+	androidStep1: '画面右上の「⋮」（メニュー）をひらく',
+	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ`,
+	androidStep3: '確認画面で「追加」をおす',
+	/** iOS / Safari 手順の見出し */
+	iosTitle: 'iPhone / iPad（Safari）の場合',
+	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす`,
+	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
+	iosStep3: '右上の「追加」をおす',
+	/** 追加後に何が起きるか */
+	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
+	/** 設定 > サポート のカード見出し */
+	settingsCardTitle: PWA_TERMS.installAction,
+	/** 設定 > サポート のカード説明 */
+	settingsCardDesc: `${CHILD_TERMS.honorific}が安全に使えるよう、ホーム画面にアイコンを置く手順をいつでも確認できます。`,
+	/** 設定 > サポート の展開ボタン */
+	settingsCardAction: '手順をみる',
+	/** ダイアログを閉じる */
+	close: '閉じる',
 } as const;
