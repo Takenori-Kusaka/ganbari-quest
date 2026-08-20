@@ -1261,3 +1261,23 @@ export const DELETION_GRACE_TERMS = {
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
 } as const;
+
+// ============================================================
+// PWA_TERMS — ホーム画面への追加 (インストール) の atom (#4644)
+// ============================================================
+//
+// 「ホーム画面に追加」は LP (site/index.html) / 親画面の案内バナー / 設定 > サポートの
+// 恒久導線 の 3 箇所に同時に出る。表記が揺れると「LP で読んだ操作名がアプリ内で
+// 見つからない」状態になるため atom で 1 箇所に固定する (ADR-0045)。
+//
+// iOS Safari の共有シート項目名は Apple 側の UI 文言であり、こちらの都合で言い換えると
+// 手順書として機能しなくなる。実機の表記をそのまま atom に持つ。
+
+export const PWA_TERMS = {
+	/** インストール操作の正式名 (Android / iOS 共通の顧客語彙。「PWA」は表に出さない) */
+	installAction: 'ホーム画面に追加',
+	/** standalone 起動の顧客語彙 */
+	standalone: 'アプリのように全画面',
+	/** iOS Safari の共有ボタン (実機の表記) */
+	iosShareButton: '共有',
+} as const;

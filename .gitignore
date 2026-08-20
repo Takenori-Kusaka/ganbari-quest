@@ -21,6 +21,9 @@ dist/
 # #3504: NUC cloud-export ランタイム出力 (子供データ ZIP、static/ 外の非配信ディレクトリ)
 data/exports/
 
+# #4721: cron 実行の heartbeat (NUC ランタイム状態)。環境ごとに変わるため追跡しない
+data/cron-status.json
+
 # IDE
 # #2183: .vscode/ は team 共有設定 (settings.json / extensions.json) のみ追跡。
 # 個人 keybindings / launch.json / theme 等は ignore で個別除外

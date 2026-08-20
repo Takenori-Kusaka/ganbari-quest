@@ -48,11 +48,14 @@ describe('SUBSCRIPTION_PAGE_LABELS (Phase 3 #2567、Phase 7 PR-2b #2697)', () =>
 		expect(SUBSCRIPTION_PAGE_LABELS.currentPlan).toBe('現在のプラン');
 	});
 
-	it('trial active 中の表示は PLAN_FULL_TERMS.premium + TRIAL_TERMS.durationSpaced 経由 (atom 直書きなし)', () => {
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toContain(PLAN_FULL_TERMS.premium);
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toContain(TRIAL_TERMS.durationSpaced);
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toBe(
-			`${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
+	// #4501: `trialActive` は参照ゼロの dead label だった (実際に画面へ出るのは
+	// `trialActiveTitle`)。同じ概念の label が 2 つあると、片方だけ直して食い違う
+	// (実際 trialActive=premium / trialActiveTitle=standard と割れていた)。dead な方を
+	// 撤去し、**生きている方**に同じ不変条件を移す (検査対象を失わせない)。
+	it('trial active 中の表示は PLAN_FULL_TERMS.premium 経由 (atom 直書きなし)', () => {
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toContain(PLAN_FULL_TERMS.premium);
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe(
+			`${PLAN_FULL_TERMS.premium} トライアル中`,
 		);
 	});
 
@@ -263,8 +266,8 @@ describe('ADR-0045 §3.3 atom 直書き複製禁止 (Phase 7 PR-2b 5 compound �
 	it('SUBSCRIPTION_PAGE_LABELS 内に atom 値の文字列リテラル直書きが存在しない', () => {
 		// atom 値はすべて `${...}` template literal 経由参照されること
 		// (静的検証は check-no-plan-literals.mjs が担当、ここでは値整合のみ assert)
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toBe(
-			`${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe(
+			`${PLAN_FULL_TERMS.premium} トライアル中`,
 		);
 		expect(SUBSCRIPTION_PAGE_LABELS.cancelAnytime).toBe(CANCEL_TERMS.anytimeOk);
 		expect(SUBSCRIPTION_PAGE_LABELS.noCreditCard).toBe(TRIAL_TERMS.noCreditCardMid);

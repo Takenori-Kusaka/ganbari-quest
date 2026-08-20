@@ -135,8 +135,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			: null;
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 
+	// #4692 F4: `?childId=<n>` で初期選択 child を復元する (activities / rewards と同実装)。
+	// 本画面だけ URL 同期が無く、リロード / 共有リンクで常に最初の子タブに戻っていたため、
+	// 気付かず次のチェックリストを別の子に作ってしまう事故が起きていた。
+	const initialChildIdRaw = url.searchParams.get('childId');
+	const initialChildId =
+		initialChildIdRaw && initialChildIdRaw !== '' ? asChildId(initialChildIdRaw) : null;
+
 	return {
 		children: childrenWithOverrides,
+		initialChildId,
 		familyTemplates,
 		today,
 		isPremium,
