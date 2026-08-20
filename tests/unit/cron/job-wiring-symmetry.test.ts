@@ -108,18 +108,23 @@ describe('[2] NUC scheduler の起動・更新 (#4721)', () => {
 		const { recordCronRun, readCronHeartbeat } = await import(
 			'../../../src/lib/server/cron/cron-heartbeat'
 		);
+		const { resetEnvForTesting } = await import('../../../src/lib/runtime/env');
 		const original = process.env.DATA_SOURCE;
 		try {
 			process.env.DATA_SOURCE = 'dsql';
+			resetEnvForTesting();
 			const before = JSON.stringify(readCronHeartbeat());
 			recordCronRun('never-recorded-on-aws');
 			expect(JSON.stringify(readCronHeartbeat())).toBe(before);
 
 			process.env.DATA_SOURCE = 'pglite';
+			resetEnvForTesting();
 			recordCronRun('recorded-on-nuc');
 			expect(readCronHeartbeat().lastRunAt['recorded-on-nuc']).toBeDefined();
 		} finally {
-			process.env.DATA_SOURCE = original;
+			if (original === undefined) delete process.env.DATA_SOURCE;
+			else process.env.DATA_SOURCE = original;
+			resetEnvForTesting();
 		}
 	});
 
@@ -127,15 +132,21 @@ describe('[2] NUC scheduler の起動・更新 (#4721)', () => {
 	// 「死んでいても ok に見える」状態を判定側が黙って信じないことを固定する。
 	it('[2e] CRON_SECRET 未設定なら heartbeat を信用しない', async () => {
 		const { isHeartbeatTrustworthy } = await import('../../../src/lib/server/cron/cron-heartbeat');
+		const { resetEnvForTesting } = await import('../../../src/lib/runtime/env');
 		const original = process.env.CRON_SECRET;
 		try {
-			process.env.CRON_SECRET = '';
+			delete process.env.CRON_SECRET;
+			resetEnvForTesting();
 			expect(isHeartbeatTrustworthy()).toBe(false);
-			process.env.CRON_SECRET = 'secret';
+
+			// env schema は CRON_SECRET に 32 文字以上を要求する (短い値は parse error)
+			process.env.CRON_SECRET = 'x'.repeat(32);
+			resetEnvForTesting();
 			expect(isHeartbeatTrustworthy()).toBe(true);
 		} finally {
 			if (original === undefined) delete process.env.CRON_SECRET;
 			else process.env.CRON_SECRET = original;
+			resetEnvForTesting();
 		}
 	});
 

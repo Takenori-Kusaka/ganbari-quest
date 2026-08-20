@@ -30,6 +30,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getEnv } from '$lib/runtime/env';
 import { logger } from '$lib/server/logger';
 
 /** 記録先ディレクトリ (pglite backup の status file と同じ data/ 配下)。 */
@@ -46,7 +47,9 @@ const CRON_STATUS_DIR = join(process.cwd(), 'data');
  * `ganbari-quest-cron-dispatcher-errors` alarm が見ている。
  */
 function isHeartbeatEnabled(): boolean {
-	return (process.env.DATA_SOURCE ?? 'sqlite') === 'pglite';
+	// スナップショットの `env` ではなく `getEnv()` を呼ぶ — test が env を差し替えて
+	// `resetEnvForTesting()` した直後の値を読めるようにするため。
+	return getEnv().DATA_SOURCE === 'pglite';
 }
 const CRON_STATUS_FILENAME = 'cron-status.json';
 
@@ -113,7 +116,7 @@ export function recordCronRun(jobName: string, at: Date = new Date()): void {
  * 「CRON_SECRET が無い」と「scheduler が死んでいる」が同じ見た目になり切り分けできない。
  */
 export function isHeartbeatTrustworthy(): boolean {
-	return Boolean(process.env.CRON_SECRET);
+	return Boolean(getEnv().CRON_SECRET);
 }
 
 /** `/api/cron/<name>` から job 名を取り出す。cron 以外のパスは undefined。 */
