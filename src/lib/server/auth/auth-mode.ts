@@ -8,14 +8,15 @@
 // これがないと `auth/factory → providers/cognito → services/… → plan-limit-service →
 // auth/factory` の循環が生まれる (dependency-cruiser `no-circular` が検出する)。
 
+import { getEnv } from '$lib/runtime/env';
 import type { AuthMode } from './types';
 
 /** 現在の認証モードを取得 */
 export function getAuthMode(): AuthMode {
-	return (process.env.AUTH_MODE ?? 'local') as AuthMode;
+	return getEnv().AUTH_MODE;
 }
 
 /** 開発モード（COGNITO_DEV_MODE=true）かどうか */
 export function isCognitoDevMode(): boolean {
-	return process.env.COGNITO_DEV_MODE === 'true';
+	return getEnv().COGNITO_DEV_MODE === true;
 }
