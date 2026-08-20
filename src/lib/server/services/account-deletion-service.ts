@@ -139,6 +139,15 @@ export interface OwnerDeletionInfo {
 		email?: string;
 		displayName?: string;
 	}>;
+	/**
+	 * #4640: **オーナー権限を渡せる相手が居るか**。
+	 *
+	 * 子供にはオーナーを渡せない (`memberships.role` の設計上 owner は大人のみ) ため、
+	 * 「自分以外のメンバーが居る」= 移譲できる、ではない。他が子供だけのとき移譲を求めると
+	 * 選択肢が空のまま宙吊りになり、退会そのものができなくなる。
+	 * この判定は画面で組み立てず、ここを唯一の出所にする (画面ごとに条件がずれない)。
+	 */
+	hasTransferableAdult: boolean;
 }
 
 // ============================================================
@@ -338,6 +347,8 @@ export async function getOwnerDeletionInfo(
 	return {
 		isOnlyMember: otherMembers.length === 0,
 		otherMembers: enrichedMembers,
+		// #4640: owner を渡せるのは大人 (child 以外) だけ
+		hasTransferableAdult: enrichedMembers.some((m) => m.role !== 'child'),
 	};
 }
 

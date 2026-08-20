@@ -2786,6 +2786,12 @@ export const SETTINGS_LABELS = {
 	accountDeleteFullOption: '家族グループを全て削除する',
 	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
 	accountDeleteCancelAction: 'キャンセル',
+	// #4640: 他が子供だけの家族グループでは、オーナーを渡せる相手が居ない。
+	// 空の移譲欄を出して選ばせようとすると退会そのものができなくなるため、
+	// 移譲欄を出さず「なぜ渡せないか」と「残る選択肢」を述べる。
+	accountDeleteNoAdultTitle: '家族グループに他のメンバーがいます',
+	accountDeleteNoAdultDesc: `いま家族グループにいるのは${CHILD_TERMS.honorific}だけです。${CHILD_TERMS.honorific}にオーナーを引き継ぐことはできないため、この家族グループを全て削除して${CANCEL_TERMS.account}します。`,
+	accountDeleteNoAdultHint: `${CHILD_TERMS.honorific}のデータを残したい場合は、いったんこの画面を閉じて、メンバー管理から別の${PARENT_TERMS.honorific}を招待し、その方にオーナーを引き継いでから${CANCEL_TERMS.account}してください。`,
 
 	// ログアウト
 	logoutSectionTitle: 'ログアウト',

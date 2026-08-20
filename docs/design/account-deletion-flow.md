@@ -42,7 +42,7 @@
 
 > **注**: パターン 2 は内部的に 2a と 2b に分岐するが、API としては別々の DeletionPattern として渡す。UI では owner かつ他メンバーがいるとき、まず移譲ダイアログを表示し、ユーザーが「移譲」か「全削除」を選ぶ。
 
-判定の擬似コード（`src/routes/(parent)/admin/settings/+page.svelte` の `handleDeleteAccount`）:
+判定の擬似コード（`src/routes/(parent)/admin/settings/account/+page.svelte` の `handleDeleteAccount`）:
 
 ```ts
 const role = $page.data.userRole;
@@ -52,6 +52,16 @@ if (role === 'owner') {
 } else if (role === 'child')      pattern = 'child';
 else                              pattern = 'member';
 ```
+
+**移譲先の有無で提示する選択肢を変える（#4640）**: 他メンバーが居ても、**オーナーを渡せるのは大人（`role !== 'child'`）だけ**。他が子供しか居ないときに移譲を求めると選択肢が空のまま宙吊りになり、**退会そのものができなくなる**。判定は `getOwnerDeletionInfo` が返す `hasTransferableAdult`（削除情報 API の一部）を唯一の出所とし、画面側で `otherMembers` から組み立てない。
+
+| 状態 | 出す選択肢 |
+|---|---|
+| 自分ひとり（`isOnlyMember`） | 確認入力 → `owner-only`（ダイアログを出さない） |
+| 他に大人が居る（`hasTransferableAdult`） | 移譲先の選択 + 「移譲して退会」 / 「全て削除する」 |
+| 他は子供だけ | **移譲欄を出さず**、渡せない理由と「別の保護者を招待してから引き継ぐ」案内 + 「全て削除する」 |
+
+固定は `tests/unit/services/owner-deletion-transferable-adult.test.ts`（判定）と `tests/e2e/account-deletion.spec.ts` §9（画面の出し分け）。
 
 ---
 
