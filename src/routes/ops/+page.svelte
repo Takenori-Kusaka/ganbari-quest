@@ -76,9 +76,9 @@ const contractState = $derived(data.contractState);
 						<td>{row.mrr > 0 ? formatYen(row.mrr) : OPS_LABELS.planMrrNone}</td>
 					</tr>
 				{/each}
-				<tr data-testid="ops-plan-row-none">
-					<td>{OPS_LABELS.planNone}</td>
-					<td>{stats.noPlan}</td>
+				<tr data-testid="ops-plan-row-unclassified">
+					<td>{OPS_LABELS.planUnclassified}</td>
+					<td>{stats.unclassified}</td>
 					<td>{OPS_LABELS.planMrrNone}</td>
 				</tr>
 				<tr class="total-row" data-testid="ops-plan-row-total">

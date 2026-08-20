@@ -96,7 +96,7 @@ describe('getKpiSummary', () => {
 			'family-yearly': 0,
 			lifetime: 0,
 		});
-		expect(result.tenantStats.noPlan).toBe(0);
+		expect(result.tenantStats.unclassified).toBe(0);
 		expect(result.tenantStats.totalMrr).toBe(0);
 	});
 
@@ -150,7 +150,7 @@ describe('getKpiSummary', () => {
 			'family-yearly': 0,
 			lifetime: 1,
 		});
-		expect(result.tenantStats.noPlan).toBe(1);
+		expect(result.tenantStats.unclassified).toBe(1);
 	});
 
 	// #4127 (3 instance 目): 実装 (ops-service.ts:69) は `monthStartJST()` 由来の JST 月初で
@@ -230,6 +230,31 @@ describe('getKpiSummary', () => {
 			'family-yearly': 0,
 			lifetime: 0,
 		});
+		expect(result.tenantStats.totalMrr).toBe(500);
+	});
+
+	// #4505 の実害は「どの行にも出ないテナント」。行合計 + 未分類 = アクティブ数 を不変条件に
+	// することで、プラン値が何であってもテナントが画面から消えない。
+	it('プラン集合に無い plan 値のテナントも未分類として数える（行合計 + 未分類 = アクティブ）', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
+			// rename 途中の旧値 / 手動投入など、プラン集合に無い値。DB の plan 列は自由文字列
+			// なので、型が塞いでいても**この境界を越えて入りうる** (cognito-dev の DEV_USERS も
+			// 実際に underscore 形の値を返している)。cast はその境界の再現。
+			makeTenant({
+				tenantId: 't2',
+				status: 'active',
+				plan: 'family_monthly' as unknown as Tenant['plan'],
+			}),
+			makeTenant({ tenantId: 't3', status: 'active' }), // 未設定
+		]);
+
+		const result = await getKpiSummary();
+		const { planRows, unclassified, active } = result.tenantStats;
+
+		expect(unclassified).toBe(2); // 未知の plan 値 + 未設定
+		expect(planRows.reduce((sum, r) => sum + r.tenants, 0) + unclassified).toBe(active);
+		// 未知の値は MRR にも寄与しない (単価が引けないため)
 		expect(result.tenantStats.totalMrr).toBe(500);
 	});
 

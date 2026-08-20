@@ -3433,7 +3433,11 @@ export const OPS_LABELS = {
 	planColPlan: 'プラン',
 	planColTenants: 'テナント数',
 	planColMrr: 'MRR 概算',
-	planNone: '未設定（トライアル等）',
+	/**
+	 * プラン行のどれにも入らない active テナントの行 (#4505)。未設定 / トライアルに加え、
+	 * プラン集合に無い値を持つテナントもここに入る (どの行にも出ない状態を作らないため)。
+	 */
+	planUnclassified: '未設定・その他（トライアル等）',
 	planTotalMrr: '合計 MRR',
 	/** 月次経常収益を生まない行 (買い切り / プラン未設定) の MRR 欄。 */
 	planMrrNone: '-',
