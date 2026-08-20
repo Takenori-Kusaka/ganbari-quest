@@ -65,7 +65,13 @@ export async function findRedemptionRequestById(
 
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
+	_opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ): Promise<RedemptionRequestWithDetails[]> {
 	return [];
 }

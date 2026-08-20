@@ -125,7 +125,19 @@ export interface IRewardRedemptionRepo {
 	 */
 	findRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
+		opts?: {
+			status?: string;
+			statuses?: readonly string[];
+			childId?: ChildId;
+			limit?: number;
+			/**
+			 * #4682 F1: `requestedAt` の並び。既定 `'desc'` (新しい順、履歴向け)。
+			 * **承認待ちキューは `'asc'` (古い順)** で取る — desc + limit だと「一番長く待っている
+			 * 申請」が window の外に落ち、親が画面から永久に処理できなくなる (実測: pending 61 件で
+			 * 最古 11 件が不可視)。
+			 */
+			order?: 'asc' | 'desc';
+		},
 	): Promise<RedemptionRequestWithDetails[]>;
 
 	/**

@@ -45,7 +45,13 @@ export async function findRedemptionRequestById(id: string, tenantId: string) {
 
 export async function findRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ) {
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }

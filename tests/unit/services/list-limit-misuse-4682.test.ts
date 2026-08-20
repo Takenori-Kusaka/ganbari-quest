@@ -35,6 +35,7 @@ vi.mock('$lib/server/db/client', () => ({
 import { getConvertSummary } from '../../../src/lib/server/services/point-service';
 import {
 	approveRedemption,
+	countPendingRedemptionsForParent,
 	getRedemptionRequestsForParent,
 	rejectRedemption,
 } from '../../../src/lib/server/services/reward-redemption-service';
@@ -130,6 +131,52 @@ describe('#4682 F1: 申請総数が一覧 limit (50) を超えても最古の承
 			.get(Number(oldest)) as { status: string; parent_note: string | null };
 		expect(row.status).toBe('rejected');
 		expect(row.parent_note).toBe('いまは だめ');
+	});
+
+	it('承認待ちキューは古い順に取れ、最古が表示 window に必ず入る', async () => {
+		const { childId, rewardId } = seedChildAndReward();
+		const now = Math.floor(Date.now() / 1000);
+		const oldest = sqlite
+			.prepare(
+				`INSERT INTO reward_redemption_requests
+					(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+				 VALUES (?, ?, ?, 1, 'pending_parent_approval', 'ゲームじかん', 80, '🎮')`,
+			)
+			.run(childId, rewardId, now - 500_000).lastInsertRowid;
+		const fill = sqlite.prepare(
+			`INSERT INTO reward_redemption_requests
+				(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+			 VALUES (?, ?, ?, 1, 'pending_parent_approval', 'ゲームじかん', 80, '🎮')`,
+		);
+		for (let i = 0; i < 60; i++) fill.run(childId, rewardId, now - 1000 + i);
+
+		// 既定 (新しい順 + limit 50) では最古が落ちる = 旧実装が壊れていた条件
+		const newestFirst = await getRedemptionRequestsForParent(TENANT, {
+			status: 'pending_parent_approval',
+		});
+		expect(newestFirst.some((r) => r.id === String(oldest))).toBe(false);
+
+		// 古い順なら最古が先頭に来る (親が「一番長く待っている申請」から処理できる)
+		const oldestFirst = await getRedemptionRequestsForParent(TENANT, {
+			status: 'pending_parent_approval',
+			order: 'asc',
+			limit: 200,
+		});
+		expect(oldestFirst[0]?.id).toBe(String(oldest));
+		expect(oldestFirst).toHaveLength(61);
+	});
+
+	it('承認待ちの件数は COUNT (表示件数ではない) で数える', async () => {
+		const { childId, rewardId } = seedChildAndReward();
+		const now = Math.floor(Date.now() / 1000);
+		const fill = sqlite.prepare(
+			`INSERT INTO reward_redemption_requests
+				(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+			 VALUES (?, ?, ?, 1, 'pending_parent_approval', 'ゲームじかん', 80, '🎮')`,
+		);
+		for (let i = 0; i < 61; i++) fill.run(childId, rewardId, now - 1000 + i);
+
+		expect(await countPendingRedemptionsForParent(TENANT), '50 で飽和している').toBe(61);
 	});
 
 	it('存在しない id は従来どおり REQUEST_NOT_FOUND (guard を緩めていない)', async () => {

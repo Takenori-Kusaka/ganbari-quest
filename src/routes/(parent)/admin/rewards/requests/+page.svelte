@@ -65,10 +65,19 @@ function closeRejectForm() {
 	<section>
 		<div class="flex items-baseline gap-2 mb-2">
 			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}</h3>
-			<span class="text-xs text-[var(--color-text-tertiary)]">
-				{ADMIN_REWARDS_REQUESTS_LABELS.pendingCountSuffix(data.pendingRequests.length)}
+			<!-- #4682 F1: 件数は COUNT の総数 (表示件数ではない)。表示上限を超えたら差を明示する -->
+			<span class="text-xs text-[var(--color-text-tertiary)]" data-testid="pending-count">
+				{ADMIN_REWARDS_REQUESTS_LABELS.pendingCountSuffix(data.pendingTotal)}
 			</span>
 		</div>
+		{#if data.pendingTotal > data.pendingRequests.length}
+			<p class="pending-truncated-note" data-testid="pending-truncated-note">
+				{ADMIN_REWARDS_REQUESTS_LABELS.pendingTruncatedNote(
+					data.pendingRequests.length,
+					data.pendingTotal,
+				)}
+			</p>
+		{/if}
 		{#if data.pendingRequests.length === 0}
 			<Alert variant="info" message={ADMIN_REWARDS_REQUESTS_LABELS.emptyPendingMessage} />
 		{:else}
@@ -282,6 +291,11 @@ function closeRejectForm() {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
 		margin: 0;
+	}
+	.pending-truncated-note {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin: 0 0 0.5rem;
 	}
 	.history-note {
 		font-size: 0.75rem;

@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import { db } from '../client';
@@ -247,7 +247,13 @@ export async function findRedemptionRequestById(
 /** 親がご家族の見守り画面で見る申請一覧（子供名・報酬名を含む） */
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ): Promise<RedemptionRequestWithDetails[]> {
 	const conditions = [];
 	if (opts?.status) {
@@ -269,7 +275,12 @@ export async function findRedemptionRequestsByTenant(
 		// 脱落せず snapshot (申請時点の約束) を返す。INNER だと reward 消失で申請が消え顧客期待報酬が失われる。
 		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
 		.where(conditions.length > 0 ? and(...conditions) : undefined)
-		.orderBy(desc(rewardRedemptionRequests.requestedAt))
+		// #4682 F1: 承認待ちキューは古い順 (asc)。desc + limit だと最古が window の外に落ちる。
+		.orderBy(
+			opts?.order === 'asc'
+				? asc(rewardRedemptionRequests.requestedAt)
+				: desc(rewardRedemptionRequests.requestedAt),
+		)
 		.limit(opts?.limit ?? 50)
 		.all();
 

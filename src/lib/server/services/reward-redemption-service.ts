@@ -215,7 +215,13 @@ export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: 
 
 export async function getRedemptionRequestsForParent(
 	tenantId: string,
-	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId; limit?: number },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ) {
 	const rows = await findRedemptionRequestsByTenant(tenantId, opts);
 	return rows.map((r) => ({

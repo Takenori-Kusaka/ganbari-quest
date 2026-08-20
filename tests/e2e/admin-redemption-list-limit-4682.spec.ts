@@ -107,8 +107,7 @@ test.describe('#4682 一覧 limit を存在確認 / 集計に流用しない', (
 		test.slow();
 		const seeded = await seedOverflowingRequests(workerDbPath);
 
-		// 最古の pending を直接指す card は 1 ページ目に出ないため、承認は id 指定 form で行う。
-		// (画面の pending 一覧は全件 = status 条件付き取得なので、最古も一覧に含まれる)
+		// 承認待ちは古い順に並ぶため、最古が先頭に出る (旧実装は新しい順 + limit 50 で不可視だった)。
 		await page.goto('/admin/rewards/requests', { waitUntil: 'domcontentloaded' });
 		const approveBtn = page.getByTestId(`approve-btn-${seeded.oldestPendingId}`);
 		await expect(approveBtn, '最古の承認待ちが一覧に出ていない').toBeVisible({ timeout: 30_000 });
@@ -149,5 +148,20 @@ test.describe('#4682 一覧 limit を存在確認 / 集計に流用しない', (
 		await expect(page.getByTestId(`request-history-note-${seeded.resolvedId}`)).toContainText(
 			'いまはだめ',
 		);
+	});
+
+	test('F1: 承認待ちの件数は COUNT の総数で、表示件数と食い違うときは差を明示する', async ({
+		page,
+		workerDbPath,
+	}) => {
+		test.slow();
+		await seedOverflowingRequests(workerDbPath);
+
+		await page.goto('/admin/rewards/requests', { waitUntil: 'domcontentloaded' });
+		const count = page.getByTestId('pending-count');
+		await expect(count).toBeVisible({ timeout: 30_000 });
+		// seed した 61 件 + 既存 seed 分。50 で飽和していないことを見る (旧実装は必ず「50 件」)。
+		const shown = Number(((await count.textContent()) ?? '').replace(/[^0-9]/g, ''));
+		expect(shown, '承認待ち件数が表示上限で飽和している').toBeGreaterThan(50);
 	});
 });

@@ -250,11 +250,16 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		},
 
 		async findRedemptionRequestsByTenant(tenantId, opts) {
+			// #4682 F1: 承認待ちキューは古い順 (asc)。desc + limit だと最古が window の外に落ちる。
+			const order =
+				opts?.order === 'asc'
+					? sql`ORDER BY rr.requested_at ASC, rr.redemption_id ASC`
+					: sql`ORDER BY rr.requested_at DESC, rr.redemption_id DESC`;
 			const result = await db.execute(sql`
 				SELECT ${WITH_DETAILS_SELECT}
 				${WITH_DETAILS_FROM}
 				WHERE ${tenantConditions(tenantId, opts)}
-				ORDER BY rr.requested_at DESC, rr.redemption_id DESC
+				${order}
 				LIMIT ${opts?.limit ?? 50}
 			`);
 			return (
