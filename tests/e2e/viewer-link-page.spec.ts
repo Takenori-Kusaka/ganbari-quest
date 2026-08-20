@@ -11,7 +11,7 @@
 //
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts viewer-link-page
 
-import { expect, test, type Browser } from '@playwright/test';
+import { type Browser, expect, test } from '@playwright/test';
 
 test.use({ storageState: 'playwright/.auth/family.json' });
 
@@ -43,11 +43,7 @@ test.describe('#4703 閲覧リンク /view/<token>', () => {
 		const { token } = (await res.json()) as { token: { token: string } };
 		expect(token.token).toBeTruthy();
 
-		const { context, anonPage } = await openAsAnonymous(
-			browser,
-			baseURL,
-			`/view/${token.token}`,
-		);
+		const { context, anonPage } = await openAsAnonymous(browser, baseURL, `/view/${token.token}`);
 		try {
 			const stats = anonPage.getByTestId('viewer-child-points');
 			await expect(stats.first()).toBeVisible({ timeout: 30_000 });

@@ -61,17 +61,16 @@ export default async (page, capture) => {
 		throw new Error('[flow] 修正後 build なのに "[object Object]" が残っている。撮影を中止する。');
 	}
 	if (PHASE.startsWith('before') && !bodyText.includes('[object')) {
-		throw new Error('[flow] 修正前 build のはずが "[object Object]" が出ていない。撮影を中止する。');
+		throw new Error(
+			'[flow] 修正前 build のはずが "[object Object]" が出ていない。撮影を中止する。',
+		);
 	}
 	await capture(`${PHASE}-view-token-points-${VIEWPORT}`);
 
 	// --- 2 コマ目: 無効な閲覧リンク ---
 	await page.goto(`${BASE_URL}/view/${BOGUS_TOKEN}`, { waitUntil: 'domcontentloaded' });
 	const invalidTitle = page.getByTestId('viewer-token-invalid-title');
-	await page
-		.locator('h1')
-		.first()
-		.waitFor({ state: 'visible', timeout: 30_000 });
+	await page.locator('h1').first().waitFor({ state: 'visible', timeout: 30_000 });
 
 	if (PHASE.startsWith('after') && (await invalidTitle.count()) === 0) {
 		throw new Error(
