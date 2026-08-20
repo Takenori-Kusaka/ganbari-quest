@@ -21,6 +21,12 @@ const mockDispatchImport = vi.fn();
 const mockLoadFromMarketplace = vi.fn();
 const mockGetAllChildren = vi.fn();
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: vi.fn(() => 'cognito'),
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
 	getAuthMode: vi.fn(() => 'cognito'),

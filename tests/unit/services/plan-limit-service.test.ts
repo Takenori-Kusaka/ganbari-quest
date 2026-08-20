@@ -31,6 +31,12 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => process.env.AUTH_MODE ?? 'local',
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => process.env.AUTH_MODE ?? 'local',
 }));
