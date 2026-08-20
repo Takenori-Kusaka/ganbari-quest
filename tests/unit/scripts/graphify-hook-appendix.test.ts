@@ -5,7 +5,6 @@
 // 開発者マシンの絶対パスが PR に混入する (PR #4635 が実際に main を汚した経路)。
 
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error -- .mjs helper (型定義は無い)
 import {
 	GRAPHIFY_APPENDIX_MARKER,
 	stripGraphifyHookAppendix,
