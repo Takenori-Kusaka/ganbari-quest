@@ -7,6 +7,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
+import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
@@ -44,7 +45,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
 		canExport: false,
-		canFreeTextMessage: false,
+		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
+		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
 		canCustomReward: false,
 		canSiblingRanking: false,
 		maxCloudExports: 0,
@@ -57,7 +59,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxFamilyMembers: 4,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
-		canFreeTextMessage: false,
+		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
 		canCustomReward: true,
 		canSiblingRanking: false,
 		maxCloudExports: 3,
@@ -70,7 +72,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxFamilyMembers: null,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
-		canFreeTextMessage: true,
+		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
 		canCustomReward: true,
 		canSiblingRanking: true,
 		maxCloudExports: 10,
