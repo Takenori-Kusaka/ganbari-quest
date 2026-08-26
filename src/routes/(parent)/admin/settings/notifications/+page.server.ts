@@ -4,6 +4,7 @@
 
 import { fail } from '@sveltejs/kit';
 import { DEFAULT_QUIET_END, DEFAULT_QUIET_START } from '$lib/domain/constants/notification';
+import { isHhMmTimeSetting } from '$lib/domain/export-format';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -57,8 +58,12 @@ export const actions = {
 		const quietStart = form.get('quietStart')?.toString() ?? DEFAULT_QUIET_START;
 		const quietEnd = form.get('quietEnd')?.toString() ?? DEFAULT_QUIET_END;
 
-		const timeRegex = /^\d{2}:\d{2}$/;
-		if (!timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
+		// #4706: 値域まで検査する。旧実装は `/^\d{2}:\d{2}$/` だったため `25:99` が保存でき、
+		// 配信 cron 側が解釈できない値が DB に入りうる状態だった。
+		// 述語は `$lib/domain/export-format` の `isHhMmTimeSetting` (取込 allowlist と同一)
+		// を共有し、保存 / 取込 / 配信の 3 経路が同じ値域を見る (ADR-0066 と同じ向き)。
+		// #4664 F5 でリマインダー欄をフォームから外したため、検査対象は quiet 時間帯のみ。
+		if (!isHhMmTimeSetting(quietStart) || !isHhMmTimeSetting(quietEnd)) {
 			return fail(400, { notificationError: '時刻の形式が不正です' });
 		}
 

@@ -31,6 +31,10 @@ const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
+const FAMILY_MEMBER_LIMIT_TS = path.join(
+	REPO_ROOT,
+	'src/lib/domain/constants/family-member-limit.ts',
+);
 const PLAN_PRICE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-price.ts');
 const OYAKAGI_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/oyakagi.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
@@ -124,6 +128,42 @@ function parseBlock(src, constName) {
 }
 
 /**
+ * labels.ts の module-local 共有 const を収める疑似 namespace 名 (#4619)。
+ * 実 namespace と衝突しないよう `_` 始まりにしてある (labels.ts / terms.ts の export は
+ * すべて英大文字始まり)。
+ */
+const LOCAL_CONSTS_NS = '_LOCAL_CONSTS';
+
+/**
+ * labels.ts の module-level 共有 const (`const FOO = '...';` / `` const FOO = `...`; ``) を
+ * 抽出する (#4619)。
+ *
+ * なぜ必要か:
+ *   「同じ事実を語る文は 1 度だけ組み立てて共有する」ために labels.ts は module-local const
+ *   (WRITES_CONTINUE_ASSURANCE / FREE_PLAN_RETENTION_NOTICE) を持つ。LP 側の namespace が
+ *   その const を値に使うと、本 script は文字列でも template literal でもないため
+ *   **その key を無言で捨てていた**。捨てられた key は shared-labels.js に載らず、LP は
+ *   HTML の古い fallback を出し続ける (顧客に見える文言が labels.ts と乖離する)。
+ *
+ * @param {string} src - labels.ts のソース
+ * @returns {Record<string, string | TemplateLiteralValue>}
+ */
+function parseLabelsLocalConsts(src) {
+	/** @type {Record<string, string | TemplateLiteralValue>} */
+	const result = {};
+	// 行頭 (インデントなし) の module-level const のみ対象。関数内のローカル変数は拾わない。
+	const singleQuote = /^const ([A-Z][A-Z0-9_]*) = '((?:[^'\\]|\\.)*)';$/gm;
+	for (const m of src.matchAll(singleQuote)) {
+		if (m[1] && m[2] !== undefined) result[m[1]] = m[2];
+	}
+	const template = /^const ([A-Z][A-Z0-9_]*) = `((?:[^`\\]|\\.)*)`;$/gm;
+	for (const m of src.matchAll(template)) {
+		if (m[1] && m[2] !== undefined) result[m[1]] = { __template: true, raw: m[2] };
+	}
+	return result;
+}
+
+/**
  * Template literal 値を表す内部マーカー (#1917)。
  * raw に元の `...` 内側 (バッククォート除く) を保持し、後段の resolveTemplateLiterals で
  * `${NS.key}` 参照を解決する。同名マーカーで判別する。
@@ -172,6 +212,18 @@ function parseBlockLine(trimmed, result, pendingKey) {
 	const sameLineTemplate = trimmed.match(/^(\w+):\s*`((?:[^`\\]|\\.)*)`,?$/);
 	if (sameLineTemplate && sameLineTemplate[1] !== undefined && sameLineTemplate[2] !== undefined) {
 		result[sameLineTemplate[1]] = { __template: true, raw: sameLineTemplate[2] };
+		return null;
+	}
+
+	// key: SHARED_CONST, — labels.ts の module-local const をそのまま値にした形 (#4619)
+	//   labels.ts では「同じ事実を語る文は 1 度だけ組み立てて共有する」
+	//   (WRITES_CONTINUE_ASSURANCE / FREE_PLAN_RETENTION_NOTICE)。この形を parse できないと
+	//   該当 key が **無言で欠落** し、LP は HTML の古い fallback を出し続ける
+	//   (sync-lp-fallback --check も key 不在では何も言わない)。`${IDENT}` の template と
+	//   同じ経路に載せて LOCAL_CONSTS namespace で解決する。
+	const sameLineIdent = trimmed.match(/^(\w+):\s*([A-Z][A-Z0-9_]*),?$/);
+	if (sameLineIdent?.[1] && sameLineIdent[2]) {
+		result[sameLineIdent[1]] = { __template: true, raw: `\${${sameLineIdent[2]}}` };
 		return null;
 	}
 
@@ -227,6 +279,19 @@ function resolveTemplateLiteralValue(raw, namespaces, ownerLabel, depth = 0) {
 	// `${ ... }` を非貪欲マッチ。エスケープ ($ → \$) は対象外 (labels.ts では使わない想定)。
 	return raw.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
 		const trimmed = expr.trim();
+		// "SHARED_CONST" — labels.ts の module-local const 参照 (#4619)。
+		// LOCAL_CONSTS namespace (parseLabelsLocalConsts の結果) から引く。
+		if (/^[A-Z][A-Z0-9_]*$/.test(trimmed)) {
+			const localValue = namespaces[LOCAL_CONSTS_NS]?.[trimmed];
+			if (localValue === undefined) {
+				throw new Error(
+					`Unresolved local const ${trimmed} in ${ownerLabel}: not a module-level string const in labels.ts.`,
+				);
+			}
+			return isTemplateLiteral(localValue)
+				? resolveTemplateLiteralValue(localValue.raw, namespaces, trimmed, depth + 1)
+				: localValue;
+		}
 		// "NS.key" / "NS['key']" / 'NS["key"]' の 3 形式に対応
 		const dotMatch = trimmed.match(/^(\w+)\.(\w+)$/);
 		const bracketMatch = trimmed.match(/^(\w+)\[\s*['"]([^'"]+)['"]\s*\]$/);
@@ -363,6 +428,43 @@ function buildPlanRetentionTerms() {
 		freeSpaced: format(free, true),
 		standard: format(standard),
 		standardSpaced: format(standard, true),
+	};
+}
+
+/**
+ * 家族メンバー上限の値 SSOT (`src/lib/domain/constants/family-member-limit.ts`) を読み、
+ * terms.ts の `FAMILY_MEMBER_LIMIT_TERMS` と同じ内容の namespace を組み立てる (#4500)。
+ *
+ * buildDeletionGraceTerms と同じ理由 (本 script は TS を実行せず text parse するため、
+ * 関数で計算された atom を terms.ts から読めない) で、数値だけを SSOT から読み、
+ * 整形をここで再現する。整形結果が TS 側と一致することは
+ * tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
+ *
+ * @returns {Record<string, string>} `{ standardTotal, standardTotalSpaced, standardInvites, standardInvitesSpaced }`
+ */
+function buildFamilyMemberLimitTerms() {
+	const src = fs.readFileSync(FAMILY_MEMBER_LIMIT_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const FAMILY_MEMBER_LIMIT'));
+	if (block === null) {
+		throw new Error('FAMILY_MEMBER_LIMIT not found in family-member-limit.ts');
+	}
+	const m = block.match(/standard:\s*(\d+)/);
+	if (!m || m[1] === undefined) {
+		throw new Error('FAMILY_MEMBER_LIMIT.standard not parseable in family-member-limit.ts');
+	}
+	const total = Number(m[1]);
+	// invitesAllowedFrom / formatMemberCount (family-member-limit.ts) と同じ規則。差異は上記 test が検出する。
+	const invites = Math.max(0, total - 1);
+	/**
+	 * @param {number} count
+	 * @param {boolean} [spaced]
+	 */
+	const format = (count, spaced = false) => `${count}${spaced ? ' ' : ''}人`;
+	return {
+		standardTotal: format(total),
+		standardTotalSpaced: format(total, true),
+		standardInvites: format(invites),
+		standardInvitesSpaced: format(invites, true),
 	};
 }
 
@@ -558,10 +660,13 @@ function parseAllNamespacesResolved() {
 	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
 	const allNamespaces = {
 		...termsNamespaces,
+		// #4619: labels.ts の module-local 共有 const (WRITES_CONTINUE_ASSURANCE 等)
+		[LOCAL_CONSTS_NS]: parseLabelsLocalConsts(src),
 		// #4477: 値 SSOT (plan-retention.ts) 由来。terms.ts 側は関数呼び出しで組み立てるため
 		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
 		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
 		DELETION_GRACE_TERMS: buildDeletionGraceTerms(),
+		FAMILY_MEMBER_LIMIT_TERMS: buildFamilyMemberLimitTerms(),
 		// #4533: 同上 (値 SSOT = plan-price.ts)。金額由来の key だけを上書きし、
 		// literal のままの key (free / taxNote / monthlyPrefix / fromSuffix) は parse 結果を残す。
 		PRICE_TERMS: { ...(termsNamespaces.PRICE_TERMS ?? {}), ...buildPriceTerms() },
@@ -993,13 +1098,16 @@ if (invokedAsCli) {
 // 状態を通してしまう。
 export {
 	buildDeletionGraceTerms,
+	buildFamilyMemberLimitTerms,
 	buildOyakagiTerms,
 	buildPlanRetentionTerms,
 	buildPriceTerms,
 	isTemplateLiteral,
+	LOCAL_CONSTS_NS,
 	parseAllNamespacesResolved,
 	parseBlock,
 	parseBlockLine,
+	parseLabelsLocalConsts,
 	parseSimpleBlock,
 	resolveAllTemplates,
 	resolveTemplateLiteralValue,
