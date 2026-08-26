@@ -68,12 +68,34 @@ export const REFRESH_COOKIE_NAME = 'gq_refresh';
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
 /**
- * #3555 ①: 招待受諾が email 束縛で拒否されたことを受諾後の画面 (admin layout) に伝える
- * 1 回限りの通知 cookie。値は 'INVITE_EMAIL_MISMATCH' | 'INVITE_EMAIL_UNVERIFIED'。
+ * #3555 ①: 招待受諾が拒否されたことを受諾後の画面 (admin layout) に伝える 1 回限りの通知 cookie。
  * 受諾失敗 → 新規テナント自動作成で顧客が理由不明の dead-end になるのを防ぐ。
+ *
+ * #4704: 受諾側の席数検査 (`MEMBER_LIMIT_REACHED`) も同じ dead-end を作るため案内対象に含める。
+ * 値の集合は `INVITE_ACCEPT_ERROR_COOKIE_VALUES` を SSOT とし、cookie を積む側
+ * (`server/auth/providers/cognito.ts`)・読む側 (`admin/+layout.server.ts`)・描く側
+ * (`admin/+layout.svelte`) が同じ集合を参照する (手書き allowlist の取りこぼし防止)。
  */
 export const INVITE_ACCEPT_ERROR_COOKIE_NAME = 'invite_accept_error';
 export const INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS = 10 * 60;
+
+/** 案内バナーを出す受諾失敗理由 (#3555 ① / #4704)。 */
+export const INVITE_ACCEPT_ERROR_COOKIE_VALUES = [
+	'INVITE_EMAIL_MISMATCH',
+	'INVITE_EMAIL_UNVERIFIED',
+	'MEMBER_LIMIT_REACHED',
+] as const;
+
+export type InviteAcceptErrorCookieValue = (typeof INVITE_ACCEPT_ERROR_COOKIE_VALUES)[number];
+
+/** cookie の生値が案内対象の失敗理由かを判定する (SSOT 経由、手書き union 禁止)。 */
+export function isInviteAcceptErrorCookieValue(
+	value: string | undefined,
+): value is InviteAcceptErrorCookieValue {
+	return (
+		value !== undefined && (INVITE_ACCEPT_ERROR_COOKIE_VALUES as readonly string[]).includes(value)
+	);
+}
 
 export const createInviteSchema = z.object({
 	role: z.enum(['parent', 'child']),

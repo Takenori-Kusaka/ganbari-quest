@@ -870,6 +870,60 @@ describe('plan-limit-service', () => {
 			expect(result.current).toBe(1);
 		});
 
+		// #4704 (QM review fix): `Invite.expiresAt` は repo が raw 行の timestamptz をそのまま
+		// 渡した値で、Postgres 系 backend では `2026-09-03 08:47:00+00` のように ISO-8601 と
+		// 書式が異なる。旧実装は `expiresAt > new Date().toISOString()` の**辞書順比較**だったため、
+		// 同じ日付の比較が index 10 の ' ' (0x20) < 'T' (0x54) で反転し、有効な招待を期限切れと
+		// 誤判定して席に数えなかった (= 上限を超えて招待リンクを発行できてしまう)。
+		describe('expiresAt の書式差 (Postgres timestamptz)', () => {
+			afterEach(() => {
+				vi.useRealTimers();
+			});
+
+			it('Postgres 形式の未来日時 (同日) の未受諾招待も席に数える', async () => {
+				process.env.AUTH_MODE = 'cognito';
+				vi.useFakeTimers();
+				// 招待の期限と「同じ日付」= 辞書順比較が壊れる条件を固定する
+				vi.setSystemTime(new Date('2026-09-03T00:00:00.000Z'));
+				mockFindTenantMembers.mockResolvedValue([
+					{
+						userId: 'owner',
+						tenantId: 'tenant1',
+						role: 'owner',
+						joinedAt: '2026-09-01 00:00:00+00',
+					},
+				]);
+				mockFindTenantInvites.mockResolvedValue([
+					{ inviteId: 'i1', status: 'pending', expiresAt: '2026-09-03 08:47:00+00' },
+					{ inviteId: 'i2', status: 'pending', expiresAt: '2026-09-03 23:59:59+00' },
+					{ inviteId: 'i3', status: 'pending', expiresAt: '2026-09-10 08:47:00+00' },
+				]);
+				const result = await checkFamilyMemberLimit('tenant1', 'active');
+				expect(result.current).toBe(4); // owner 1 + 未受諾 3
+				expect(result.allowed).toBe(false);
+			});
+
+			it('Postgres 形式の過去日時 (同日) の招待は席に数えない', async () => {
+				process.env.AUTH_MODE = 'cognito';
+				vi.useFakeTimers();
+				vi.setSystemTime(new Date('2026-09-03T12:00:00.000Z'));
+				mockFindTenantMembers.mockResolvedValue([
+					{
+						userId: 'owner',
+						tenantId: 'tenant1',
+						role: 'owner',
+						joinedAt: '2026-09-01 00:00:00+00',
+					},
+				]);
+				mockFindTenantInvites.mockResolvedValue([
+					{ inviteId: 'expired', status: 'pending', expiresAt: '2026-09-03 08:47:00+00' },
+				]);
+				const result = await checkFamilyMemberLimit('tenant1', 'active');
+				expect(result.current).toBe(1);
+				expect(result.allowed).toBe(true);
+			});
+		});
+
 		it('local: always allowed (selfhost = family tier, max=null)', async () => {
 			process.env.AUTH_MODE = 'local';
 			const result = await checkFamilyMemberLimit('tenant1', 'none');

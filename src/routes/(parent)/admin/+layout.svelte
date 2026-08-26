@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
+import type { InviteAcceptErrorCookieValue } from '$lib/domain/validation/auth';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
@@ -41,13 +42,23 @@ interface Props {
 		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
-		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		inviteAcceptError?: 'INVITE_EMAIL_MISMATCH' | 'INVITE_EMAIL_UNVERIFIED' | null;
+		// #3555 ① / #4704: 招待受諾が拒否された直後の 1 回限り案内 (通知 cookie 由来)。
+		// 理由の集合は validation/auth.ts が SSOT (手書き union にすると新しい失敗理由を取りこぼす)。
+		inviteAcceptError?: InviteAcceptErrorCookieValue | null;
 	};
 	children: Snippet;
 }
 
 let { data, children }: Props = $props();
+
+// #4704: 受諾失敗理由 → 案内文言。`Record<InviteAcceptErrorCookieValue, string>` にすることで
+// 理由を増やしたときに文言の追加漏れが型で落ちる (旧: 三項で「それ以外は email 不一致の文言」に
+// 落ちるため、新しい理由が誤った案内を出すか案内自体が出なかった)。
+const INVITE_ACCEPT_ERROR_MESSAGES: Record<InviteAcceptErrorCookieValue, string> = {
+	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.acceptErrorMismatchBanner,
+	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner,
+	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.acceptErrorMemberLimitBanner,
+};
 
 // parent-gate inactivity redirect: PIN gate 有効時のみ、15 分アイドルで親 session を logout し
 // /switch (子供選択画面) へ自動リダイレクトする。放置画面を子供が触れない本来の意図を、
@@ -90,15 +101,13 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
-	<!-- #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
+	<!-- #3555 ① / #4704: 招待受諾が拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
 	{#if data.inviteAcceptError}
 		<div style:margin-bottom="16px">
 			<Alert
 				variant="warning"
 				data-testid="invite-accept-error-banner"
-				message={data.inviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
-					? AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner
-					: AUTH_INVITE_LABELS.acceptErrorMismatchBanner}
+				message={INVITE_ACCEPT_ERROR_MESSAGES[data.inviteAcceptError]}
 			/>
 		</div>
 	{/if}
