@@ -77,6 +77,15 @@ import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
 
 export const PLAN_TERMS = {
 	free: '無料',
+	/**
+	 * プランカード / 比較表 / FAQ カテゴリの**短縮名**「フリー」(#4502 PO 決裁)。
+	 *
+	 * LP には「フリー」と「無料」の 2 表記が混在していた。どちらかを消すのではなく
+	 * **使い分けを公式化**する — 名札 (カード見出し・比較表の列・FAQ カテゴリ) は `freeCardName`、
+	 * 文章中は `PLAN_FULL_TERMS.free`「無料プラン」。名札は短いほうが読みやすく、
+	 * 文章中は「無料プラン」でないと「無料」が形容詞と紛れるため。
+	 */
+	freeCardName: 'フリー',
 	standard: 'スタンダード',
 	premium: 'プレミアム',
 	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */

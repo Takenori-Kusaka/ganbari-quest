@@ -26,10 +26,10 @@ import { jstDayOfWeek } from './date-utils';
 //   （admin route 共通 ⋮ menu / per-child 取込ダイアログ / family master visibility chip atom、UX 規約 SSOT）
 // Phase 7 PR-2b (#2697): PLAN_CHANGE_TERMS / TOKUSHOHO_TERMS を追加 import
 //   - PR-2a (#2689) で terms.ts に atom-only 6 / 7 / 9 key で配備済
-//   - 本 PR-2b で SUBSCRIPTION_PAGE_LABELS / UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS /
+//   - 本 PR-2b で SUBSCRIPTION_PAGE_LABELS /
 //     PHASE4_REACTIVATION_FLOW_LABELS / LP_PRICING_LABELS 拡張の 5 compound で参照
 //   - 補強 PR #2684 (代替案 D = 2 Product 各 1 Price + ダウン即時 + Stripe credit memo) を反映し、
-//     旧 SCHEDULED_DOWNGRADE_BANNER_LABELS → IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS に命名変更
+//     (UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS は #4502 で削除 — #4166 の Portal 委譲で自社確認 UI が不採用になり dead 化した)
 //   - CHECKOUT_SUCCESS_TERMS の compound (CHECKOUT_SUCCESS_LABELS) は Phase 5 §4.6 SSOT で
 //     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
 //     されているため、本 PR では import 不要
@@ -3160,7 +3160,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// Churn prevention
 	churnLostItemMonthly: (months: number | string) => `月替わり限定アイテム ${months}個`,
 	churnLostItemTickets: (count: number | string) => `思い出チケット ${count}枚`,
-	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
+	// #4502 (GAMMA-K2-09): 語彙は #1912 で「毎日のごほうび」に統一済み。解約画面にだけ
+	// 旧語彙が残っていた
+	churnLostItemBonus: (multiplier: number | string) => `毎日のごほうび ×${multiplier}倍`,
 	churnLostItemTitle: (title: string) => `「${title}」称号`,
 	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年以前」と述べる）。
 	// #4496: 「アクセス」だけだと閲覧できなくなるだけに読めるが、実装 (retention-cleanup-service) は
@@ -3235,39 +3237,6 @@ export const CHECKOUT_RECONCILIATION_LABELS = {
 //   - ADR-0013 (LP truth): 実装事実と LP の整合、月額のみ (Phase 1 補強 2 FR-2)
 
 export const LICENSE_PAGE_LABELS = SUBSCRIPTION_PAGE_LABELS;
-
-// ============================================================
-// UPGRADE_FLOW_LABELS — アップグレード動線 4 段階 funnel (Phase 4 #2624 / Phase 7 PR-2b)
-// ============================================================
-//
-// Phase 4 #2624 §4.2 SSOT 配置確定 + Phase 5 子 5 #2656 §4.2 配置 (LICENSE_PAGE_LABELS 直後)。
-// `/admin/subscription/confirm` 上部 context-passing 文言 (`?from=...` クエリ別)。
-//
-// 設計意図:
-//   - gate → subscription → /confirm → Checkout の 4 段階 conversion funnel で
-//     `?from=feature-gate&feature=<id>` / `?from=trial-end` / `?from=header-badge` / `?from=banner` の
-//     context-passing を /confirm 上部 1 行 context line として表示 (Phase 4 #2624 §3.3)
-//   - 補強 PR #2684 (代替案 D): アップは即時実行 + `proration_behavior='always_invoice'` の
-//     業界収束パターン (Slack / Notion / Atlassian / Linear) を採用、本 compound は context 表示のみ
-//
-// 関連 ADR:
-//   - ADR-0045 (terms.ts 2 階層): atom (PLAN_FULL_TERMS / FEATURE_LABELS) を `${...}` 経由参照
-//   - ADR-0012 (Anti-engagement): 煽り回避「what happens when clicked」原則 (Kinde 整合)
-
-export const UPGRADE_FLOW_LABELS = {
-	// ?from=feature-gate&feature=<id> 経由 (Phase 3 #2570 gate → /confirm 動線)
-	contextFromFeatureGate: (featureLabel: string, tierLabel: string) =>
-		`${featureLabel} を解放するため ${tierLabel} にアップグレードします`,
-	// ?from=trial-end 経由 (Phase 4 #2622 trial→paywall 動線)
-	contextFromTrialEnd: (tierLabel: string) =>
-		`体験は終了しました。継続される場合は ${tierLabel} へアップグレードしてください`,
-	// ?from=header-badge 経由 (Phase 3 #2568 plan-badge → /confirm 動線、context なし標準表示)
-	contextFromHeaderBadge: '',
-	// ?from=banner 経由 (上限到達 banner → /confirm 動線、Phase 3 #2572 連動)
-	contextFromBanner: (tierLabel: string) => `上限到達のため ${tierLabel} へアップグレードします`,
-	// ?from パラメータ非該当時のフォールバック (任意の値が来た場合の安全表示)
-	contextFallback: '',
-} as const;
 
 // ============================================================
 // NUC_LICENSE_LABELS — NUC セルフホスト版 license panel (EPIC #2327 / #2329)
@@ -3723,56 +3692,6 @@ export const BILLING_LABELS = {
 	dialogCancelButton: 'キャンセル',
 	dialogConfirmLoading: '確認中…',
 	dialogConfirmButton: `${STRIPE_PORTAL_TERMS.short}へ`,
-} as const;
-
-// ============================================================
-// IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS — 即時ダウン + Stripe credit memo banner (Phase 3 #2574 + 補強 PR #2684 / Phase 7 PR-2b)
-// ============================================================
-//
-// **命名変更履歴 (補強 PR #2684、代替案 D 採用)**:
-//   旧名: SCHEDULED_DOWNGRADE_BANNER_LABELS (Phase 3 #2574 当初設計、期末ダウン予約 3 variant banner)
-//   新名: IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (本 PR、代替案 D で命名整合)
-//
-// 命名変更理由 (補強 PR #2684 / 代替案 D):
-//   PO 手動検証 (2026-05-30) で Stripe Dashboard が「同一 Product 内 2 Price を Customer Portal
-//   `subscription_update.products` 配列に登録不可」と判明 → 1 Product 2 Price 案は破棄、
-//   **2 Product 各 1 Price + ダウン即時 + Stripe `proration_behavior='always_invoice'`** の
-//   業界収束パターン (Slack / Notion / Atlassian / Linear 等 50% SaaS 採用) に変更。
-//   Subscription Schedule API は別 Product 間で機能しないため不使用、ダウンは即時実行 + 未消費期間が
-//   credit memo として自動発行 → 次回 invoice で控除される。よって旧「期末ダウン予約残日数 banner」は
-//   scope 外となり、本 compound は「ダウン即時実行済 + credit memo 残高表示」に再設計。
-//
-// 想定リスク R8 (補強 PR #2684 / phase6-rollback-and-kill-switches.md §3.8) 対処:
-//   「顧客が credit 残高を `/admin/subscription` で確認できない → 信頼毀損」を回避するため、
-//   本 banner で「ダウン即時実行済 + 次回 invoice で ¥X 自動控除見込み」を可視化する。
-//
-// 設計意図:
-//   - ダウン即時完了直後の透明性 (credit memo 発行額 + 次回控除見込みを 1 文で伝達)
-//   - 顧客が「ダウンしたのに金が戻らない」と認識するインシデント (R8) の構造的予防
-//   - ADR-0012 煽り回避: 「失う / 消える / 使えなくなる」atom を含めず、事実説明 + 復活可能性のみ
-//
-// 関連 ADR:
-//   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
-//   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
-//   - kill switch (`USE_LOOKUP_KEY`) で Price 解決経路を切替可能、本 compound は両経路で使用
-//     (webhook shadow mode の kill switch は #4128 で撤去済)
-
-export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
-	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)
-	completedTitle: (targetPlan: string) => `${targetPlan} に切り替わりました`,
-	// credit memo 残高 + 次回控除見込みの透明性 (R8 対処の核、Phase 3 hybrid confirm UI 連動)
-	creditBalanceLine: (creditAmount: string, nextInvoiceDate: string) =>
-		`未消費期間分の ${creditAmount} は、次回ご請求 (${nextInvoiceDate}) で自動的に差し引かれます`,
-	// アーカイブ予告 (Phase 3 #2575 archived listing と機能領域として隣接)
-	archiveNotice: (childCount: number, activityCount: number) =>
-		`お子さま ${childCount} 人 ・ 活動 ${activityCount} 件は${PLAN_CHANGE_TERMS.archiveVerb}が、上位プランで再開すればすぐ${PLAN_CHANGE_TERMS.restore}できます`,
-	// 復活 CTA (アップグレード動線への bridge、Phase 4 #2624 UPGRADE_FLOW_LABELS と隣接)
-	ctaReactivate: (sourcePlan: string) => `${sourcePlan} に戻す`,
-	ctaReactivateAria: `${PLAN_CHANGE_TERMS.changeVerb}でアップグレードして元のプランに戻る`,
-	// 請求履歴詳細リンク (BILLING_LABELS と機能領域として隣接、credit memo 詳細表示)
-	viewBillingHistoryLink: 'ご請求履歴で credit memo を確認する',
-	// banner dismiss (session storage 経由、再表示は次セッション、ADR-0012 連続演出回避)
-	dismissAriaLabel: 'バナーを閉じる',
 } as const;
 
 // ============================================================
@@ -4301,57 +4220,6 @@ export const CHILD_HOME_LABELS = {
 	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
 	mustBonusGrantedAriaLabel: (pts: number | string) =>
 		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
-} as const;
-
-export const DEMO_SIGNUP_LABELS = {
-	// Hero section
-	heroTitle: 'デモ体験ありがとうございます！',
-	heroDesc1: 'お子さまの「がんばり」を',
-	heroDesc2: '冒険に変えてみませんか？',
-
-	// Primary CTA card
-	trialHeading: '7日間の無料トライアル',
-	trialSubheading: 'クレジットカード登録不要で今すぐ始められます',
-	ctaStartFree: '無料で はじめる',
-	ctaCancelNote: `いつでも${CANCEL_TERMS.canonical}OK・違約金なし`,
-
-	// Value propositions
-	featuresHeading: 'がんばりクエストでできること',
-	feature1Title: 'お子さまの名前で記録',
-	feature1Desc: 'デモでは保存されませんが、本番ではすべて安全に保存されます',
-	feature2Title: '成長の可視化',
-	feature2Desc: '月次レポートでお子さまの成長傾向をレーダーチャートで確認',
-	feature3Title: 'デイリーミッション',
-	feature3Desc: '毎日の目標で「続ける力」を自然に育てます',
-	feature4Title: '家族みんなで管理',
-	feature4Desc: 'きょうだいをまとめて管理。家族メンバーの招待も可能',
-	feature5Title: '安心・安全',
-	feature5Desc: 'PIN認証で子供のデータを保護。広告なし・データ販売なし',
-
-	// Pricing summary
-	pricingHeading: '料金プラン',
-	pricingFreeLabel: 'フリー',
-	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
-	pricingStandardLabel: `${PLAN_TERMS.standard}`,
-	pricingStandardPrice: `（月額${PRICE_TERMS.standard}〜）と`,
-	pricingFamilyLabel: `${PLAN_TERMS.premium}`,
-	pricingFamilyPrice: `（月額${PRICE_TERMS.family}〜）。`,
-	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
-	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
-
-	// Testimonials
-	testimonialsHeading: 'ご利用者の声',
-	testimonial1: '「毎朝、自分からスタンプを押したがるようになりました」',
-	testimonial1Author: '— 5歳男の子のママ',
-	testimonial2: '「お手伝いが楽しいゲームに変わった。親も記録が楽」',
-	testimonial2Author: '— 8歳女の子のパパ',
-
-	// Secondary CTA
-	ctaStartTrial: '無料トライアルを はじめる',
-	ctaTrialNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
-
-	// Back to demo
-	backToDemo: 'デモに戻る',
 } as const;
 
 // ============================================================
@@ -4939,12 +4807,13 @@ export const PRICING_PAGE_LABELS = {
 	//   事実を述べる (数値は terms.ts atom 経由で値 SSOT から引く)。
 	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きで、プラン別の猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free} / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後にすべてのデータが完全に削除されます。`,
 	faqBillingDateQ: '課金日はいつですか？',
-	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
+	// #4502: 年額は #2719 で廃止済み。LP 側は #3212 で是正済みで、ここだけ残っていた
+	faqBillingDateA: 'お申し込み日を起算日として毎月自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
+	faqPlanChangeA: `はい。${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}の切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
 	faqSelfHostQ: 'セルフホスト版はありますか？',
 	faqSelfHostA:
 		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
@@ -6947,8 +6816,7 @@ export const LP_PRICING_LABELS = {
 	trialStep1Desc: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。`,
 	trialStep2Title: '7日間、選択したプランの全機能が使い放題',
 	// #1642 R37: 経路依存（?plan=standard / ?plan=family / admin/license 手動）すべてに対応
-	trialStep2Desc:
-		'スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。',
+	trialStep2Desc: `${PLAN_TERMS.standard}/${PLAN_TERMS.premium}いずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。`,
 	trialStep3Title: '終了後は自動で無料プランに戻ります',
 	// #1912 (F-10): 「自動課金は一切ありません」→「勝手にお金がかかることはありません」へ日本語化
 	trialStep3Desc:
@@ -6963,7 +6831,7 @@ export const LP_PRICING_LABELS = {
 	// #1912 (F-6): 「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・毎日のごほうび履歴',
 	trialDataReassureLine2Suffix: `は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
-	trialDataReassureLine3: `有料プランにアップグレードすれば、より長期間（スタンダード: ${PLAN_RETENTION_TERMS.standardSpaced} / ファミリー: 無制限）の履歴をご利用いただけます。`,
+	trialDataReassureLine3: `有料プランにアップグレードすれば、より長期間（${PLAN_TERMS.standard}: ${PLAN_RETENTION_TERMS.standardSpaced} / ${PLAN_TERMS.premium}: 無制限）の履歴をご利用いただけます。`,
 
 	// Family pattern section
 	familyPatternsTitle: '家族での使い方',
@@ -7007,7 +6875,7 @@ export const LP_PRICING_LABELS = {
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
+	faqPlanChangeA: `はい。${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}の切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
 	faqAdsQ: '子供の画面に広告は出ますか？',
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
@@ -7350,15 +7218,16 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	seniorRange: '16-18',
 	seniorUnit: '歳',
 	seniorTitle: '進路相談で「これだけやってきた」を子供自身が語れる',
-	seniorDesc: '15 年分の活動ログが「自分はこれだけやってきた」という自信に。',
+	// #4502 (GAMMA-GRAD-01): 15 年分の保持は無期限保持を持つ premium の条件。
+	// 条件を書かずに年数だけ訴求しない
+	seniorDesc: `15 年分の活動ログが「自分はこれだけやってきた」という自信に（${PLAN_TERMS.premium}の無期限保持でのご利用時）。`,
 	// #1911 (B-6): 15 字以内に圧縮
 	seniorParentBenefit: '進路面談で活動履歴を語れる',
 	seniorChildExperience: '15年の履歴が自信になる',
 	graduateLabel: 'そして',
 	graduateAccent: '卒業',
 	graduateTitle: 'アプリを開かなくなった日 — それは家族の卒業式',
-	graduateDesc:
-		'「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。',
+	graduateDesc: `「使わなくなる」ことががんばりクエストの成功。記録はいつでも書き出してご家族の手元に残せます（書き出しは有料プラン、15 年分の保持は${PLAN_TERMS.premium}の機能です）。`,
 	// #1911 (B-6): 15 字以内に圧縮
 	// #2058 (UIUX-F-16): 「子供の自律」→「自分で動く姿」リフレーム。
 	// AUTONOMY_TERMS atom 直接参照ではなく、graduate stage 文脈で「動詞 → 名詞」転置した
@@ -8528,7 +8397,7 @@ export const LP_FAQ_LABELS = {
 	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	text28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
 	text29: '料金・課金について',
-	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
+	text30: `3 つのプラン（${PLAN_TERMS.freeCardName} / ${PLAN_TERMS.standard} / ${PLAN_TERMS.premium}）と、課金の仕組みについて。`,
 	text31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
 	text32: `${PLAN_FULL_TERMS.free}でもすべてご利用いただけます`,
 	text33: '有料プランで解放される主な機能:',
@@ -8557,7 +8426,7 @@ export const LP_FAQ_LABELS = {
 	text55:
 		'途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	text56: '特定商取引法に基づく表記',
-	text57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
+	text57: `プランの変更（${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}）はできますか？`,
 	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
 	text59:
 		'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
@@ -8801,10 +8670,14 @@ export const LP_INDEX_EXTRA_LABELS = {
 	// #1904 (PERS-CRT-5): hero L483 hero-note の「クレジットカード登録不要」削除。
 	//                     3 連発による不信感増幅を解消するため hero 領域では訴求しない
 	//                     (カード要否の説明は FAQ 側 indexB.k72 に集約)。
-	k9: '家族何人でも無料ではじめられます',
+	// #4502 (GAMMA-LP-04): 無料プランは子供 2 人・招待不可なので「家族何人でも」は誤り。
+	// 人数を含意しない表現にする (index.html:832 の正表記と同型)
+	k9: 'ご家族で無料ではじめられます',
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',
-	k12: '3 歳から 18 歳まで、2 つの UI モードが対応。',
+	// #4502 (GAMMA-LP-05): 実装は 5 mode。LP が 2 パネルに集約しているのは意図的なので、
+	// パネル数をそのままモード数として言い切らない
+	k12: '3 歳から 18 歳まで、年齢に合わせた UI が対応。',
 	k13: 'タップで「今のお子さまに合う UI」をご覧ください。',
 	k14: '      0-2 歳のお子様は「準備モード」でご登録いただけます。',
 	k15: '詳しくはこちら',
@@ -8964,7 +8837,7 @@ export const LP_PAMPHLET_LABELS = {
 	k18: '1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。',
 	k19: 'ごほうび',
 	k20: ' ごほうびショップ &#x2192; 交換',
-	k21: '&#x1F308; 3歳から18歳まで &#8212; 2つの UI モード',
+	k21: '&#x1F308; 3歳から18歳まで &#8212; 年齢に合わせた UI',
 	k22: '&#x1F476; 0〜2歳のお子様は「準備モード」でご登録いただけます',
 	k23: '小学生以上',
 	k24: '6&#x301C;18歳',
@@ -9560,7 +9433,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k3: '3〜18 歳の毎日の習慣を、ゲームのように楽しめる仕組みに変える。声をかけなくても、自分から動きだす家族時間へ。',
 	k4: '3〜18 歳の子供のホーム画面 — 活動を記録してポイントゲット',
 	k5: 'お子さまの年齢で、画面とむずかしさが変わります',
-	k6: '3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。',
+	k6: '3 歳から 18 歳まで、年齢に合わせた UI が対応。タップで「今のお子さまに合う UI」をご覧ください。',
 	k7: '0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a>',
 	k8: '幼児 (3-5)',
 	k9: '小学生以上 (6-18)',
@@ -9701,7 +9574,10 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k84: '無料で始める',
 	// #1736 m-MIN-7: 体験軸 FAQ Q4 (Top 3 → Top 4)
 	k85: '子供が自分から使ってくれるようになりますか？',
-	k86: '多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。',
+	// #4502 (GAMMA-LP-02): 「多くの保護者からお声をいただいています」は顧客実績の裏付けが
+	// 無い体験談形式で優良誤認になりうる (同 LP 自身が testimonial は PMF 後と注記している)。
+	// 実績の主張をやめ、設計意図の説明に書き換える
+	k86: '「ガミガミ言わなくても、子供のほうから見せに来る」状態を目指して設計しています。最初の 1 週間は、親子で一緒に楽しむ時間を取ることをおすすめします。',
 	// #1736 m-MIN-7: section-desc を「Top 3」→「Top 4」に
 	// #1897 PO-4-11: FAQ 案内文重複削除 + 静的「24 項目」管理コスト解消で 1 行短縮。
 	//   旧: 「保護者の皆さまから特によくいただく 4 つ。他のご質問は…FAQ 専用ページ（24 項目）…」(footnote k78 と訴求重複)
@@ -9870,15 +9746,19 @@ export const LP_FAQ_PHASEB_LABELS = {
 	//   無料プランの保持期間を超えた履歴だけで、それは再契約でも戻らない。
 	k28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
-	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
+	k30: `3 つのプラン（${PLAN_TERMS.freeCardName} / ${PLAN_TERMS.standard} / ${PLAN_TERMS.premium}）と、課金の仕組みについて。`,
 	k31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
 	// #1912 (F-6): 「連続達成ボーナス」→「続けるごほうび」へ日本語化
 	k32: `お子さまの冒険体験（活動記録・ポイント・レベル・スタンプ・チャレンジ・続けるごほうび）は、<strong>${PLAN_FULL_TERMS.free}でもすべてご利用いただけます</strong>。`,
 	k33: '有料プランで解放される主な機能:',
-	k34: `お子さま・活動の人数制限解除（${PLAN_TERMS.free}: お子さま 2 人 / 活動 3 個まで）`,
-	k35: `長期の履歴保持（${PLAN_TERMS.free}: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで → 有料: 無期限）`,
-	k36: 'AI 自動提案（活動案・ごほうび案）',
-	k37: 'きょうだいランキング・家族メンバー招待',
+	k34: `お子さま・活動の人数制限解除（${PLAN_TERMS.freeCardName}: お子さま 2 人 / 活動 3 個まで）`,
+	// #4502 (GAMMA-FAQ-03): 「有料: 無期限」は誤り。スタンダードは 1 年で、無期限は
+	// プレミアムのみ。値は #4477 の PLAN_RETENTION_TERMS atom から引く
+	k35: `長期の履歴保持（${PLAN_TERMS.freeCardName}: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで / ${PLAN_TERMS.standard}: ${PLAN_RETENTION_TERMS.standardSpaced} / ${PLAN_TERMS.premium}: 無期限）`,
+	// #4502 (GAMMA-FAQ-04): AI 提案 / きょうだいランキングは premium 限定。「有料プランで
+	// 解放される」の列に無印で並べるとスタンダードでも使えると読める
+	k36: `AI 自動提案（活動案・ごほうび案）※${PLAN_TERMS.premium}のみ`,
+	k37: `きょうだいランキング ※${PLAN_TERMS.premium}のみ / 家族メンバー招待`,
 	k38: 'データのバックアップ',
 	k39: '詳細は <a href="pricing.html">料金プランページ</a> の比較表をご覧ください。',
 	k40: '子供が勝手に課金してしまう心配はありませんか？',
@@ -9898,7 +9778,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k54: 'プランを途中で解約した場合の返金は？',
 	k55: '途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	k56: '日割りでの返金は行っておりません。詳細は <a href="tokushoho.html">特定商取引法に基づく表記</a> をご確認ください。',
-	k57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
+	k57: `プランの変更（${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}）はできますか？`,
 	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
 	k59: 'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	k60: '<span class="faq-category-num">3</span>プライバシー・データについて',
