@@ -23,9 +23,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
 	isTemplateLiteral,
+	LOCAL_CONSTS_NS,
 	parseAllNamespacesResolved,
 	parseBlock,
 	parseBlockLine,
+	parseLabelsLocalConsts,
 	resolveAllTemplates,
 	resolveTemplateLiteralValue,
 } from '../generate-lp-labels.mjs';
@@ -354,6 +356,56 @@ describe('実 labels.ts / terms.ts は template literal を含み、かつ全て
 					`${ns}.${key} に未解決の interpolation が残っている: ${value}`,
 				);
 			}
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4619: labels.ts の module-local 共有 const を値にした key を無言で捨てない
+// ---------------------------------------------------------------------------
+describe('module-local 共有 const 参照 (#4619)', () => {
+	it('parseLabelsLocalConsts が module-level const を拾う (関数内ローカルは拾わない)', () => {
+		const fixture = [
+			"const SHARED_PLAIN = 'そのままの文';",
+			'const SHARED_TEMPLATE = `${PLAN_TERMS.standard}は継続できます`;',
+			'function f() {',
+			"\tconst INNER_LOCAL = 'これは対象外';",
+			'\treturn INNER_LOCAL;',
+			'}',
+		].join('\n');
+		const locals = parseLabelsLocalConsts(fixture);
+		assert.equal(locals.SHARED_PLAIN, 'そのままの文');
+		assert.ok(isTemplateLiteral(locals.SHARED_TEMPLATE));
+		assert.equal(locals.INNER_LOCAL, undefined);
+	});
+
+	it('key: SHARED_CONST 形式が捨てられず、共有 const の値に解決される', () => {
+		/** @type {Record<string, string | { __template: true; raw: string }>} */
+		const result = {};
+		const pending = parseBlockLine('k20: WRITES_CONTINUE_ASSURANCE,', result, null);
+		assert.equal(pending, null);
+		assert.ok(isTemplateLiteral(result.k20), 'bare identifier が template として保持されていない');
+
+		const namespaces = {
+			[LOCAL_CONSTS_NS]: { WRITES_CONTINUE_ASSURANCE: '記録は続けられます。' },
+			LP_TEST: result,
+		};
+		assert.equal(resolveAllTemplates(namespaces).LP_TEST.k20, '記録は続けられます。');
+	});
+
+	it('存在しない共有 const 参照は無言で落ちず throw する', () => {
+		assert.throws(
+			() =>
+				resolveTemplateLiteralValue('${NO_SUCH_CONST}', { [LOCAL_CONSTS_NS]: {} }, 'LP_TEST.key'),
+			/Unresolved local const NO_SUCH_CONST/,
+		);
+	});
+
+	it('実 labels.ts: 解約 FAQ の 5 key が shared-labels 生成対象に残っている', () => {
+		// k20 / k21 は共有 const を値に持つ。parser が捨てると LP は古い fallback を出し続ける。
+		const faqB = parseAllNamespacesResolved().LP_FAQ_PHASEB_LABELS;
+		for (const key of ['k19', 'k20', 'k21', 'k22', 'k124']) {
+			assert.ok(faqB[key], `LP_FAQ_PHASEB_LABELS.${key} が解決結果から欠落している`);
 		}
 	});
 });
