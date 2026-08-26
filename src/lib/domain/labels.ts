@@ -2915,7 +2915,20 @@ export const SETTINGS_LABELS = {
 	dangerStep2Label: '手順 2: 同意チェック',
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
-	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
+	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
+	//   旧実装はプランに依らない固定文で「元に戻せません」と断定しており、猶予のある有料プラン
+	//   では直上の notice (「N 日間は復元で取り消せます」) と正面から矛盾していた。最も不可逆性の
+	//   高い操作の直前で 2 文が食い違うと、警告全体が信用されなくなる。
+	//
+	//   graceDays が null (プラン未解決) のときに `?? 'free'` 相当へ倒さない: 猶予のある親に
+	//   「元に戻せません」を見せるのは事実と異なる誤誘導になるため、断定しない中立文にする
+	//   (accountDeleteGraceNotice / deletionGraceDays の扱いと同じ、#4517)。
+	accountDeleteDangerConsentLabel: (graceDays: number | null) =>
+		graceDays === null
+			? 'このアカウントを削除することに同意します'
+			: graceDays === 0
+				? 'このアカウントを削除することに同意します（元に戻せません）'
+				: `このアカウントを削除することに同意します（${graceDays} 日以内なら「復元」ボタンで取り消せます）`,
 	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
 	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
 	accountDeleteExportAction: 'データをダウンロード',
