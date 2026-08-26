@@ -229,7 +229,7 @@ test.describe
 
 			const expectedNames = [
 				'ようじキッズ', // kinder-starter
-				'しょうがくせいチャレンジ', // elementary-challenge
+				'小学生チャレンジ', // elementary-challenge
 				'中学生チャレンジ', // junior-high-challenge
 				'高校生チャレンジ', // senior-high-challenge
 			];
