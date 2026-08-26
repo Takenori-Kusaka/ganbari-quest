@@ -125,10 +125,15 @@ describe('policy/capabilities can() — invite.family_member', () => {
 		).toEqual({ allowed: false, reason: 'role-insufficient' });
 	});
 
-	it('standard plan = plan-tier-insufficient', () => {
+	// #4500: 旧 assert は `standard = plan-tier-insufficient` を固定していたが、これは
+	// **実装 (PLAN_LIMITS の maxFamilyMembers.standard = 4 = owner + 招待 3) と矛盾した
+	// 期待値**だった。capability が未配線だったため矛盾が表面化せず、配線した日に
+	// standard の招待が壊れる状態を test が守ってしまっていた。実装事実側に合わせる
+	// (assertion の弱体化ではなく、誤った期待値の是正 — ADR-0006)。
+	it('standard plan = allowed (owner + 招待 3 人。PLAN_LIMITS と整合)', () => {
 		expect(
 			can(ctx({ mode: 'aws-prod', user: owner, plan: standard }), 'invite.family_member'),
-		).toEqual({ allowed: false, reason: 'plan-tier-insufficient' });
+		).toEqual({ allowed: true });
 	});
 
 	it('free plan = plan-tier-insufficient', () => {

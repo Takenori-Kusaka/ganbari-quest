@@ -6,7 +6,7 @@
 | 親 | #2530 (Phase 5 アーキ) / Epic #2525 |
 | 上位 (Phase 1) | #2535 (plan-change FR-3 / FR-4 / FR-6 / NFR-1〜NFR-3) |
 | 前提 (Phase 5 子 1) | #2644 (Stripe Product / Price 構成、**#2683 で 2 Product 各 1 Price 代替案 D に変更**、マージ済 + 補強 PR #2683) |
-| ステータス | 設計確定 (deep-research: Stripe 公式一次 14 URL 検証済 → 本 PR で docs 確定、コード変更は Phase 7) / **2026-05-30 補強 #2683: ダウン方式を `subscriptionSchedules.create` 期末ダウンから `subscriptions.update` 即時ダウン + Stripe credit memo パターンに変更** |
+| ステータス | **superseded (#4166)** — proration 表示と確認 UI を自社に持つ前提が Portal 委譲へ変わり、`subscription_update_confirm` は不採用になった。本書は当時の設計根拠 (Stripe 公式一次 14 URL 検証) の記録として残す。**現行仕様は [plan-change-flow.md](../design/plan-change-flow.md) を見ること** |
 | Phase 7 連動 | `stripe-service.ts` 拡張 (`subscriptions.update` + `invoices.createPreview`、`subscriptionSchedules.create/release` は **#2683 で scope 外**) + Phase 3 #2573 hybrid confirm UI 統合 |
 | Phase 3 申し送り反映 | #2573 ハイブリッド方式 (自社 `/admin/subscription/confirm` + Stripe Checkout `custom_text`)、Preview API による差額表示 |
 | 作業姿勢 (#2525 critical) | 課金は別格 (memory: feedback_billing_critical_extra_caution)。proration 計算は自前禁止 (Phase 1 NFR-1)、Stripe SSOT。タイムスタンプ整合事故を構造的に回避 (proration_date 固定) |
