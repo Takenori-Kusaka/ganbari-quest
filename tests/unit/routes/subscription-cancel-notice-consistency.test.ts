@@ -60,7 +60,7 @@ vi.mock('$lib/server/auth/factory', async (importOriginal) => ({
 }));
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { CANCELLATION_LABELS } from '$lib/domain/labels';
+import { CANCELLATION_LABELS, SETTINGS_LABELS, SETTINGS_NAV_LABELS } from '$lib/domain/labels';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { load as loadRaw } from '../../../src/routes/(parent)/admin/subscription/cancel/+page.server';
 
@@ -207,10 +207,15 @@ describe('#4525 解約確認画面の badge と notice の整合', () => {
 			expect(mockLoggerWarn).not.toHaveBeenCalled();
 		});
 
-		it('案内はサポート窓口へ誘導する (再試行を促さない)', () => {
+		// #4525 QM fix: この画面に「サポート窓口」への導線は無い。実在する唯一の出口は
+		// 設定 > サポート (#2904 単独 SSOT)。文言をハードコード比較すると導線が変わっても
+		// 検出できないため、SETTINGS_LABELS / SETTINGS_NAV_LABELS の SSOT から実導線名を
+		// 組み立てて notice と突き合わせる。
+		it('案内は実在する設定 > サポート導線へ誘導する (再試行を促さない)', () => {
 			// 再試行しても直らない状態なので「もう一度」は出口にならない (#4548 と同じ判断)
 			const notice = CANCELLATION_LABELS.paidWithoutStripeNotice;
-			expect(notice).toContain('サポート窓口');
+			const settingsSupportPath = `${SETTINGS_LABELS.hubTitle} > ${SETTINGS_NAV_LABELS.support}`;
+			expect(notice).toContain(settingsSupportPath);
 			expect(notice).not.toContain('必要ありません');
 			expect(notice).not.toContain('もう一度');
 		});
