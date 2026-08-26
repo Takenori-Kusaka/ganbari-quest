@@ -50,6 +50,13 @@ const BASE_TEST_IGNORE = [
 	// auth.setup.ts が cognito-dev config の setup project でのみ走るため local config では fixture 不在 ENOENT)
 	'**/integration/stripe-checkout-labels.spec.ts',
 	'**/integration/stripe-checkout-monthly-yearly.spec.ts',
+	// #4703: 閲覧リンク /view/<token> E2E は cognito-dev モード専用。
+	// 閲覧リンクの発行が family plan 限定 (`/api/v1/admin/viewer-tokens` が 403) で、
+	// test.use({ storageState: 'playwright/.auth/family.json' }) の fixture は
+	// auth.setup.ts (cognito-dev config の setup project) でのみ生成されるため、
+	// local config では fixture 不在 ENOENT で必ず落ちる (plan-family と同 class)。
+	// 全 test は playwright.cognito-dev.config.ts の testMatch に含まれる。
+	'**/viewer-link-page.spec.ts',
 	// #1598 PR #1675: スクリーンショット撮影専用 spec (cognito-dev mode 専用、CI 既定実行から除外)
 	'**/screenshots-pmf-survey.spec.ts',
 	// #2754 Fix Round 1 B1: /admin/activities Delete UI SS 撮影専用 spec

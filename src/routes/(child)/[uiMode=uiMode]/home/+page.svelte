@@ -288,6 +288,8 @@ let missionResult = $state<{
 	allComplete: boolean;
 	bonusAwarded: number;
 } | null>(null);
+// #4686: フォーカスボーナス (台帳に載る付与) を結果ダイアログに出す (合計 = 台帳増分)
+let focusBonusResult = $state<{ bonusPoints: number } | null>(null);
 
 // Level up overlay state (kept separate — part of user-initiated record flow)
 let levelUpData = $state<{
@@ -453,6 +455,7 @@ function handleResultClose() {
 	cancelTimerId = null;
 	resultOpen = false;
 	missionResult = null;
+	focusBonusResult = null;
 
 	// XPバーアニメーションを開始
 	if (xpGainData) {
@@ -686,6 +689,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				allComplete: boolean;
 				bonusAwarded: number;
 			} | null;
+			focusBonus?: { bonusPoints: number } | null;
 			levelUp: {
 				oldLevel: number;
 				oldTitle: string;
@@ -718,6 +722,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			comboBonus: d.comboBonus ?? null,
 		};
 		missionResult = d.missionComplete ?? null;
+		focusBonusResult = d.focusBonus && d.focusBonus.bonusPoints > 0 ? d.focusBonus : null;
 		levelUpData = d.levelUp ?? null;
 		xpGainData = d.xpGain ?? null;
 		startCancelCountdown(d.cancelableUntil);
@@ -1056,30 +1061,43 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					</div>
 				{/if}
 				{#if resultData.comboBonus}
-					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<!-- #4686: tier 名は状態、金額は今回の純増 (台帳増分) のみ。tier 満額は出さない -->
+					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-combo">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{CHILD_HOME_LABELS.resultComboCategoryCombo(cc.name, getCategoryById(cc.categoryId)?.name ?? '')} {fmtPts(cc.bonus)}
+								{CHILD_HOME_LABELS.resultComboCategoryState(cc.name, getCategoryById(cc.categoryId)?.name ?? '')}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{resultData.comboBonus.crossCategoryCombo.name + CHILD_HOME_LABELS.crossComboBang} {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
+								{CHILD_HOME_LABELS.resultComboCrossState(resultData.comboBonus.crossCategoryCombo.name)}
 							</p>
 						{/if}
+						<p class="text-sm font-bold text-[var(--color-point)]" data-testid="result-combo-new-bonus">
+							{CHILD_HOME_LABELS.resultComboNewBonus} {fmtPts(resultData.comboBonus.totalNewBonus)}
+						</p>
 					</div>
 				{/if}
 				{#if missionResult}
-					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-mission">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
 							{CHILD_HOME_LABELS.resultMissionComplete}
 							{#if missionResult.bonusAwarded > 0}
-								{fmtPts(missionResult.bonusAwarded)}
+								<span data-testid="result-mission-bonus">{fmtPts(missionResult.bonusAwarded)}</span>
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
 							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
 						{/if}
+					</div>
+				{/if}
+
+				{#if focusBonusResult}
+					<!-- #4686: フォーカスボーナスも台帳に載る付与なのでダイアログに出す (合計 = 台帳増分) -->
+					<div class="bg-[var(--color-feedback-success-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-focus-bonus">
+						<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
+							{CHILD_HOME_LABELS.resultFocusBonus} {fmtPts(focusBonusResult.bonusPoints)}
+						</p>
 					</div>
 				{/if}
 
