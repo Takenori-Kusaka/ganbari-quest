@@ -139,6 +139,13 @@ describe('hasUiNotApplicableMarker', () => {
 			expect(hasUiNotApplicableMarker('判定は `UI 変更なし` の有無で行う')).toBe(false);
 		});
 
+		// #4348: HTML コメントは顧客にも監査にも見えないので宣言ではない
+		// (コメント除去は他の PR body gate と同じ規律に揃えた)。
+		it('HTML コメント内の記述は宣言として扱わない', () => {
+			expect(hasUiNotApplicableMarker('<!-- UI 変更なし の場合はここに書く -->')).toBe(false);
+			expect(hasUiNotApplicableMarker('<!-- 該当なし（refactor / docs / chore） -->')).toBe(false);
+		});
+
 		it('**未チェックの checkbox は宣言として扱わない**（チェックしていない = 宣言していない）', () => {
 			expect(hasUiNotApplicableMarker('- [ ] UI 変更なし')).toBe(false);
 			expect(hasUiNotApplicableMarker('- [x] UI 変更なし')).toBe(true);
@@ -317,6 +324,46 @@ describe('hasDomSnapshotReference (#1766 / #1747 AC4)', () => {
 		// URL ではなく説明文中の言及なので検出されない
 		expect(hasDomSnapshotReference(body)).toBe(false);
 	});
+
+	// #4348 (対象 #4): 本文全体への 1 本の正規表現をやめ、行単位 + 文脈除外に揃える。
+	// 「参照がある」と判定されると DOM 併記検証がまるごと消えるため、
+	// **書いていない参照を書いたことにされる**経路を塞ぐ (#4255 / hasUiNotApplicableMarker と同型)。
+	describe('行単位 + 文脈除外 (#4348 対象 #4)', () => {
+		it('HTML コメント内の .dom.html URL は参照として扱わない', () => {
+			const body =
+				'![after](https://example.com/a.png)\n<!-- [DOM HTML](https://x/foo.dom.html) -->';
+			expect(hasDomSnapshotReference(body)).toBe(false);
+		});
+
+		it('コードブロック内の .dom.html URL は参照として扱わない', () => {
+			const body = ['```md', '[DOM HTML](https://example.com/foo.dom.html)', '```'].join('\n');
+			expect(hasDomSnapshotReference(body)).toBe(false);
+		});
+
+		it('インラインコード内の .dom.html URL は参照として扱わない（書式の説明）', () => {
+			expect(hasDomSnapshotReference('書式: `[DOM HTML](https://example.com/x.dom.html)`')).toBe(
+				false,
+			);
+		});
+
+		it('引用行 / 否定文の .dom.html URL は参照として扱わない', () => {
+			expect(hasDomSnapshotReference('> [DOM](https://example.com/foo.dom.html) を貼ること')).toBe(
+				false,
+			);
+			expect(
+				hasDomSnapshotReference('https://example.com/foo.dom.html は撮れていないため添付ではない'),
+			).toBe(false);
+		});
+
+		it('未チェック checkbox 行の .dom.html URL は参照として扱わない', () => {
+			expect(hasDomSnapshotReference('- [ ] [DOM HTML](https://example.com/foo.dom.html)')).toBe(
+				false,
+			);
+			expect(hasDomSnapshotReference('- [x] [DOM HTML](https://example.com/foo.dom.html)')).toBe(
+				true,
+			);
+		});
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -492,10 +539,9 @@ describe('hasIntegrationVrEvidence (#2946 — integration lane SS 観点)', () =
 		expect(hasIntegrationVrEvidence('app pixelmatch baseline 比較で回帰未検出。')).toBe(true);
 	});
 
-	it('含有 PR への言及があれば true', () => {
-		expect(
-			hasIntegrationVrEvidence('含有 PR: #3001 / #3002 / #3003 (いずれも develop 取込済み)。'),
-		).toBe(true);
+	it('`## 含有 PR 一覧` section に含有 PR の行があれば true', () => {
+		const body = ['## 含有 PR 一覧', '', '- #3001 活動追加', '- #3002 ごほうび修正'].join('\n');
+		expect(hasIntegrationVrEvidence(body)).toBe(true);
 	});
 
 	it('取込時 SS 検証済の宣言があれば true', () => {
@@ -503,11 +549,39 @@ describe('hasIntegrationVrEvidence (#2946 — integration lane SS 観点)', () =
 		expect(hasIntegrationVrEvidence('含有 PR は取込済で個別に SS 検証されている。')).toBe(true);
 	});
 
-	it('統合対象 / 統合状態 / 統合 smoke への言及があれば true', () => {
-		expect(hasIntegrationVrEvidence('本 PR は統合対象 PR 群を束ねる develop→main 統合 PR。')).toBe(
-			true,
-		);
+	it('統合 smoke への言及があれば true', () => {
 		expect(hasIntegrationVrEvidence('統合 smoke を実行し問題なし。')).toBe(true);
+	});
+
+	// #4348 (対象 #4): 旧実装は本文全体に 6 本の正規表現を当てるだけで、
+	// 「含有 PR」「統合対象」の 4 文字が本文のどこか (説明文 / HTML コメント / 引用) にあれば
+	// 緑になっていた。統合 PR template はその 4 文字を 3 通りで含むため、
+	// **統合 PR は VR 証跡の有無に関係なく常に緑**だった (#4333 と同じ形)。
+	describe('行単位 + 構造判定 (#4348 対象 #4)', () => {
+		it('PR を束ねる自己紹介文だけでは false (evidence ではない)', () => {
+			expect(
+				hasIntegrationVrEvidence('本 PR は統合対象 PR 群を束ねる develop→main 統合 PR。'),
+			).toBe(false);
+			expect(hasIntegrationVrEvidence('含有 PR 一覧は B-3 が自動生成します。')).toBe(false);
+		});
+
+		it('HTML コメント / 引用 / 否定文の言及は evidence として扱わない', () => {
+			expect(hasIntegrationVrEvidence('<!-- visual regression の結果をここに書く -->')).toBe(false);
+			expect(hasIntegrationVrEvidence('> visual regression の結果を貼ること')).toBe(false);
+			expect(hasIntegrationVrEvidence('本 PR は visual regression の対象ではない')).toBe(false);
+		});
+
+		it('`## 含有 PR 一覧` が空 (見出しだけ) なら false', () => {
+			expect(hasIntegrationVrEvidence('## 含有 PR 一覧\n\n<!-- B-3 が自動生成 -->')).toBe(false);
+		});
+
+		// 生成側 assert: 統合 PR template を素で出しただけで evidence 成立させない (#4348 AC7)。
+		it('統合 PR テンプレートを素で生成した body は evidence を成立させない', () => {
+			expect(
+				hasIntegrationVrEvidence(readFileSync('.github/INTEGRATION_PR_TEMPLATE.md', 'utf8')),
+				'template を貼るだけで統合 PR の SS 観点検証が緑になる',
+			).toBe(false);
+		});
 	});
 
 	it('generic な本文 (VR 言及 / 含有 PR / 取込検証なし) なら false', () => {

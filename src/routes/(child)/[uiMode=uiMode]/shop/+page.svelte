@@ -2,6 +2,8 @@
 import { page } from '$app/state';
 import { APP_LABELS, CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { formatPointDisplayText, splitPointDisplay } from '$lib/domain/point-display';
+// #4684 F3: 「押せるか」の判定は 1 箇所 (domain SSOT)。カードとフィルタで条件が割れないようにする。
+import { canExchangeReward } from '$lib/domain/shop-availability';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -80,7 +82,10 @@ function applyFilters(rewards: typeof data.rewards) {
 		list = list.filter((r) => r.points >= 500);
 	}
 	if (availableOnlyFilter) {
-		list = list.filter((r) => data.balance >= r.points);
+		// #4684 F3: 「いまこうかんできる」は カードの交換ボタンが押せる条件と同一。
+		// 旧実装は残高だけを見ていたため、承認待ち (押せない) のごほうびが件数と一覧に混ざり、
+		// 「3件中 2件」と出ているのに実際に押せるのは 1 件、という状態になっていた。
+		list = list.filter((r) => canExchangeReward(r, data.balance));
 	}
 	return list;
 }
@@ -256,9 +261,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 							style:--reward-grid-min={gridMin}
 						>
 							{#each panelFiltered as reward (reward.id)}
-								{@const canExchange =
-									data.balance >= reward.points &&
-									reward.latestRequestStatus !== 'pending_parent_approval'}
+								{@const canExchange = canExchangeReward(reward, data.balance)}
 								{@const remaining = reward.points - data.balance}
 
 								<li>
@@ -343,6 +346,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 	rewardIcon={selectedRewardIcon}
 	balance={data.balance}
 	pointSettings={data.pointSettings}
+	autoApprove={data.autoApprove}
 	onClose={closeConfirmDialog}
 />
 
@@ -399,7 +403,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 	}
 	.reward-title {
 		font-weight: bold; font-size: 1rem; margin: 0;
-		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		overflow-wrap: anywhere;
+		word-break: auto-phrase;
 	}
 	.reward-points { font-size: 0.9rem; color: var(--color-text-secondary); margin: 0; }
 	.reward-points-num { font-weight: bold; color: var(--color-action-accent); }

@@ -130,11 +130,12 @@ describe('BedrockClaudeProvider.converseWithTool()', () => {
 		expect(command.input.modelId).toBe('custom.model-id');
 	});
 
-	it('既定モデルは in-Region の base model ID (cross-region inference profile を既定にしない、#4367 AC3)', async () => {
-		// #4367 AC3: 旧既定 `us.anthropic.claude-haiku-4-5-20251001-v1:0` は cross-region inference
-		// profile で、us-east-1 に投げても us-east-2 / us-west-2 で推論されうる。子供の活動テキストを
-		// 「運営者が管理する AWS 環境」に留める開示 (site/privacy.html 第 3 条 / 第 10 条) の趣旨に
-		// 照らし、既定は 1 リージョンに閉じる base model ID にする。Pre-PMF で throughput 冗長性は不要。
+	it('既定モデルは US inference profile (呼べない base model ID を既定に残さない、#4726)', async () => {
+		// #4726: Claude Haiku 4.5 は base model ID の on-demand 呼び出しを受け付けず
+		// `ValidationException: ... with on-demand throughput isn't supported` になる。
+		// #4367 AC3 が既定にした base model ID は本番で 1 回も成立せず、AI 提案は 100% fallback
+		// だった。ここが base model ID に戻ると同じ罠を再生産するため既定値そのものを固定する。
+		// `global.` は米国外を含みうる (privacy 第 10 条の移転先国「米国」が崩れる) ので除外する。
 		//
 		// env 未配布時は isAvailable() === false (#4366) だが、converseWithTool は可用性判定と
 		// 独立に既定値を使うため、ここで既定値そのものを固定できる。
@@ -145,9 +146,9 @@ describe('BedrockClaudeProvider.converseWithTool()', () => {
 		await provider.converseWithTool({ system: 's', userMessage: 'u', tool: TOOL });
 
 		const command = mockSend.mock.calls[0]?.[0] as { input: { modelId: string } };
-		expect(command.input.modelId).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
-		// geo prefix (us. / eu. / apac. / global.) が付いた瞬間に落ちる
-		expect(command.input.modelId).not.toMatch(/^(us|eu|apac|global)\./);
+		expect(command.input.modelId).toBe('us.anthropic.claude-haiku-4-5-20251001-v1:0');
+		// base model ID (prefix 無し) / 米国外を含む global. に戻った瞬間に落ちる
+		expect(command.input.modelId).toMatch(/^us\./);
 	});
 
 	it('tool_use ブロックが無い応答は例外にする (握り潰さない)', async () => {
