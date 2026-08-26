@@ -32,6 +32,8 @@
 //   [RR6] pending dedup (#3356 (1)) / approved 遷移後に pending が残らない
 //         (#4435: findUnshownResultByChild / markRedemptionResultShown は到達不能経路として撤去)
 //   [RR7] expireOldRedemptions (30 日超 pending → expired) / hasPendingByReward
+//   [RR7b] #4682: countRedemptionRequestsByTenant の requestedBeforeEpoch が expire と同じ母集団 /
+//          findPendingRewardIdsByTenant (DISTINCT、一覧 LIMIT 非依存)
 //   [RR8] insertRedemptionForRestore (status/解決情報/snapshot verbatim)
 // ── IMessageRepo ──
 //   [MSG1] insertMessage (icon 既定 💌 は schema DEFAULT 経由) + findMessages 降順 + §P9
@@ -68,7 +70,10 @@ import type { IChildRepo } from '../../../src/lib/server/db/interfaces/child-rep
 import type { ILoginBonusRepo } from '../../../src/lib/server/db/interfaces/login-bonus-repo.interface';
 import type { IMessageRepo } from '../../../src/lib/server/db/interfaces/message-repo.interface';
 import type { IRewardRedemptionRepo } from '../../../src/lib/server/db/interfaces/reward-redemption-repo.interface';
-import { REDEMPTION_DEDUP_WINDOW_SEC } from '../../../src/lib/server/db/interfaces/reward-redemption-repo.interface';
+import {
+	REDEMPTION_DEDUP_WINDOW_SEC,
+	REDEMPTION_EXPIRE_AFTER_SEC,
+} from '../../../src/lib/server/db/interfaces/reward-redemption-repo.interface';
 import type { ISiblingCheerRepo } from '../../../src/lib/server/db/interfaces/sibling-cheer-repo.interface';
 import type { ISpecialRewardRepo } from '../../../src/lib/server/db/interfaces/special-reward-repo.interface';
 import type { TransactionRunner } from '../../../src/lib/server/db/interfaces/transaction.interface';
@@ -704,6 +709,48 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(await redemptionRepo.hasPendingByReward(reward.id, family)).toBe(false);
 		const rows = await redemptionRepo.findRedemptionRequestsByChild(childId, family);
 		expect(rows[0]?.status).toBe('expired');
+	});
+
+	it('[RR7b] #4682: dry-run の COUNT は expire と同じ母集団 / 承認待ち reward は DISTINCT で取れる', async () => {
+		// [RR7] と同じ理由で専用 family へ隔離する (tenant 全体走査 + 件数の決定性)。
+		const family = '00000000-0000-4000-8000-0000000000d8';
+		const childId = await newChild('期限八郎', family);
+		const oldReward = await seedReward(childId, '古い報酬', 10, family);
+		const freshReward = await seedReward(childId, '新しい報酬', 20, family);
+		const now = Math.floor(Date.now() / 1000);
+		mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: oldReward.id, requestedAt: now - 40 * 24 * 60 * 60, quantity: 1 },
+				family,
+			),
+		);
+		mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: freshReward.id, requestedAt: now - 60, quantity: 1 },
+				family,
+			),
+		);
+
+		// 承認待ちの reward 種別は DISTINCT で 2 件 (一覧の LIMIT に依存しない)
+		const pendingRewardIds = await redemptionRepo.findPendingRewardIdsByTenant(family);
+		expect([...pendingRewardIds].sort()).toEqual([oldReward.id, freshReward.id].sort());
+
+		// 期間条件なしの COUNT は承認待ち全件 = dry-run の過大報告 (旧実装)
+		expect(
+			await redemptionRepo.countRedemptionRequestsByTenant(family, {
+				status: 'pending_parent_approval',
+			}),
+		).toBe(2);
+
+		const dryRunCount = await redemptionRepo.countRedemptionRequestsByTenant(family, {
+			status: 'pending_parent_approval',
+			requestedBeforeEpoch: now - REDEMPTION_EXPIRE_AFTER_SEC,
+		});
+		expect(dryRunCount, 'dry-run が実際より多く報告している').toBe(1);
+		expect(await redemptionRepo.expireOldRedemptions(family)).toBe(dryRunCount);
+
+		// 失効後は残った承認待ちの reward だけが返る
+		expect(await redemptionRepo.findPendingRewardIdsByTenant(family)).toEqual([freshReward.id]);
 	});
 
 	it('[RR8] insertRedemptionForRestore: status/解決情報/snapshot verbatim', async () => {

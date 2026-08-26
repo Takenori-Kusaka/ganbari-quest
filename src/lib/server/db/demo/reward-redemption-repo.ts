@@ -78,9 +78,19 @@ export async function findRedemptionRequestsByTenant(
 
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
+	_opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		requestedBeforeEpoch?: number;
+	},
 ): Promise<number> {
 	return 0;
+}
+
+/** #4682: 承認待ち reward id の集合 (demo は stateless stub のため常に空)。 */
+export async function findPendingRewardIdsByTenant(_tenantId: string): Promise<string[]> {
+	return [];
 }
 
 export async function updateRedemptionRequestStatus(

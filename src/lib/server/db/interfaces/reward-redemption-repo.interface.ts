@@ -40,6 +40,17 @@ export interface RedemptionRequestWithDetails extends RedemptionRequestRow {
  */
 export const REDEMPTION_DEDUP_WINDOW_SEC = 10;
 
+/**
+ * #4682: 承認待ち申請が自動失効するまでの経過秒 (30 日)。
+ *
+ * `expireOldRedemptions` の実更新条件 (`requestedAt < now - この値`) と、cron の dry-run が数える
+ * 件数 (`countRedemptionRequestsByTenant` の `requestedBeforeEpoch`) が**同一の値**を見るための SSOT。
+ * backend ごとに 30 を書くと「dry-run の報告件数と実際に失効する件数が食い違う」= 本番投入前の
+ * 観測が運用判断を誤らせる (実測: dry-run 側に期間条件が無く、承認待ち**全件**を失効予定として
+ * 報告していた)。
+ */
+export const REDEMPTION_EXPIRE_AFTER_SEC = 30 * 24 * 60 * 60;
+
 export interface IRewardRedemptionRepo {
 	/**
 	 * 交換申請を作成する (#3356 (1) server-side idempotency 内蔵)。
@@ -144,11 +155,30 @@ export interface IRewardRedemptionRepo {
 	 * #3144: テナント内の交換申請の正確な件数を返す (COUNT、limit なし)。
 	 * findRedemptionRequestsByTenant は admin 一覧表示用に limit(50) を持つため件数算出に
 	 * 流用すると 50 で飽和する。本メソッドは limit を掛けず正確な件数を返す。
+	 *
+	 * #4682: `requestedBeforeEpoch` は「申請日時がこの epoch 秒より前」の期間条件 (境界は排他)。
+	 * 失効 cron の dry-run が `expireOldRedemptions` と**同じ母集団**を数えるために使う
+	 * (`REDEMPTION_EXPIRE_AFTER_SEC` から導く)。省略時は期間で絞らない。
 	 */
 	countRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
+		opts?: {
+			status?: string;
+			statuses?: readonly string[];
+			childId?: ChildId;
+			requestedBeforeEpoch?: number;
+		},
 	): Promise<number>;
+
+	/**
+	 * #4682: 承認待ち申請が存在する reward id の集合 (DISTINCT、limit なし)。
+	 *
+	 * 一覧 (`findRedemptionRequestsByTenant`、表示用 limit つき) を map して種別抽出すると、
+	 * 申請が limit を超えた時点で「処理待ちのごほうび」が静かに抜け落ち、編集 dialog の
+	 * 「申請時点の内容で処理」note と削除前の処理待ちバッジが出なくなる。
+	 * 種別抽出は表示用一覧から導かず、専用の DISTINCT クエリで取る。
+	 */
+	findPendingRewardIdsByTenant(tenantId: string): Promise<string[]>;
 
 	/**
 	 * #2845 課題①: full composite-key addressing。childId + id の複合キーで対象を直接
