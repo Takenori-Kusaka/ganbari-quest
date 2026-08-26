@@ -43,10 +43,50 @@ describe('DSQL battle-repo (PR-R9、実 schema PGlite)', () => {
 		t = await createDsqlTestDb();
 		const runner = createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 });
 		childRepo = createDsqlChildRepo(t.db, runner);
-		battleRepo = createDsqlBattleRepo(t.db);
+		battleRepo = createDsqlBattleRepo(t.db, runner);
 	}, 60_000);
 	afterAll(async () => {
 		await t.close();
+	});
+
+	// #4681: 完了 flip + 報酬 ledger の原子 primitive (claimRewardAndGrantPoints と同型)。
+	it('[B0] completeBattleAndGrantPoints: flip 成立時のみ ledger + total_point を同一 txn で更新', async () => {
+		const childId = await newChild('バトル原子');
+		const battleId = await battleRepo.insertDailyBattle(childId, 3, '2026-07-09', STATS, FAMILY);
+
+		const flipped = await battleRepo.completeBattleAndGrantPoints(
+			battleId,
+			{ outcome: 'win', rewardPoints: 10, turnsUsed: 4 },
+			{ childId, amount: 10, description: '[2026-07-09] バトルしょうり キノコおばけ' },
+			FAMILY,
+		);
+		expect(flipped).toBe(1);
+
+		const ledger = await t.db.execute(
+			sql`SELECT amount, type, reference_id FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+		expect(ledger.rows).toHaveLength(1);
+		expect((ledger.rows[0] as { amount: number }).amount).toBe(10);
+		expect((ledger.rows[0] as { type: string }).type).toBe('battle');
+		expect((ledger.rows[0] as { reference_id: string }).reference_id).toBe(battleId);
+
+		const child = await t.db.execute(
+			sql`SELECT total_point FROM children WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+		expect((child.rows[0] as { total_point: number }).total_point).toBe(10);
+
+		// 2 回目 (並行 2 連打) は flip が成立せず、ledger も増えない
+		const again = await battleRepo.completeBattleAndGrantPoints(
+			battleId,
+			{ outcome: 'win', rewardPoints: 10, turnsUsed: 4 },
+			{ childId, amount: 10, description: 'dup' },
+			FAMILY,
+		);
+		expect(again).toBe(0);
+		const ledger2 = await t.db.execute(
+			sql`SELECT count(*)::int AS c FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+		expect((ledger2.rows[0] as { c: number }).c).toBe(1);
 	});
 
 	it('[B1] insertDailyBattle → findTodayBattle: playerStats 5 列 round-trip + shape', async () => {

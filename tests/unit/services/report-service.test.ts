@@ -294,20 +294,23 @@ describe('getAllChildrenMonthlyReport', () => {
 // ============================================================
 
 describe('getSimpleMonthSummary', () => {
-	it('集計テーブルがある場合はそれを使う', async () => {
+	it('集計テーブルがある場合は活動数 / 実績をそれから取り、レベルは statuses から realtime 導出する (#4719)', async () => {
 		const summaries = [
 			makeSummary({ activityCount: 3, level: 5, newAchievements: 1 }),
 			makeSummary({ activityCount: 2, level: 6, newAchievements: 0 }),
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
+		// summary の level (snapshot、pg-core では既定 1) ではなく statuses の現在レベルが出る
+		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 300, level: 9 }]);
 
 		const result = await getSimpleMonthSummary(TENANT, asChildId(1), '2026-04');
 
 		expect(result.totalActivities).toBe(5);
-		expect(result.currentLevel).toBe(6);
+		expect(result.currentLevel).toBe(9);
 		expect(result.newAchievements).toBe(1);
-		// リアルタイム計算のAPIは呼ばれない
-		expect(mockRepos.status.findStatuses).not.toHaveBeenCalled();
+		expect(mockRepos.status.findStatuses).toHaveBeenCalled();
+		// 日次の realtime 走査 (findTodayLogsWithCategory) は summary があれば呼ばれない
+		expect(mockRepos.activity.findTodayLogsWithCategory).not.toHaveBeenCalled();
 	});
 
 	it('集計テーブルが空の場合はリアルタイム計算にフォールバックする', async () => {
@@ -401,6 +404,11 @@ describe('computeDetailedMonthlyReport', () => {
 			}),
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
+		// #4719: レベル / 累計ポイントは summary snapshot でなく statuses から realtime 導出
+		mockRepos.status.findStatuses.mockResolvedValue([
+			{ totalXp: 150, level: 7 },
+			{ totalXp: 60, level: 4 },
+		]);
 
 		const result = await computeDetailedMonthlyReport(
 			TENANT,
@@ -413,14 +421,15 @@ describe('computeDetailedMonthlyReport', () => {
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.month).toBe('2026-04');
 		expect(result.totalActivities).toBe(7);
-		expect(result.currentLevel).toBe(6);
-		expect(result.totalPoints).toBe(180);
+		expect(result.currentLevel).toBe(7);
+		expect(result.totalPoints).toBe(210);
 		expect(result.maxStreakDays).toBe(3);
 		expect(result.totalNewAchievements).toBe(1);
 		expect(result.daysWithActivity).toBe(2);
 		expect(result.totalDays).toBe(2);
-		// リアルタイム計算のAPIは呼ばれない
-		expect(mockRepos.status.findStatuses).not.toHaveBeenCalled();
+		expect(mockRepos.status.findStatuses).toHaveBeenCalled();
+		// 日次の realtime 走査は summary があれば呼ばれない
+		expect(mockRepos.activity.findTodayLogsWithCategory).not.toHaveBeenCalled();
 	});
 
 	it('集計テーブルが空の場合はリアルタイム計算にフォールバックする', async () => {

@@ -562,3 +562,8 @@ dockerfiles
 # ===== #4395 Graphify (OSS 調査記録の対象。tests/unit/architecture/oss-rejection-record-falsifiable.test.ts) =====
 Graphify
 graphify
+
+# ===== #4644 PWA インストール promotion (W3C / Chromium の標準イベント名・UI 名。綴りは仕様側で固定) =====
+beforeinstallprompt
+appinstalled
+infobar

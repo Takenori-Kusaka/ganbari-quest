@@ -46,8 +46,8 @@ const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
  * 死んだ参照を書いて通す動機になる。除外は残すが、理由ごと可視化する。
  */
 const UNWIRED_FIELDS: Record<string, string> = {
-	canFreeTextMessage:
-		'#4504 で配線中 (PR #4579)。マージ後に本エントリを削除する。値は isFreeTextMessageUnlocked から導出される予定',
+	// 現在 0 件。#4504 の canFreeTextMessage は PR #4579 マージで配線済みとなったため、
+	// 本エントリから PREDICATE_BACKED_FIELDS へ移した (述語経由で導出・拒否の両方を検査する)。
 };
 
 /**
@@ -74,6 +74,14 @@ const PREDICATE_BACKED_FIELDS: Record<string, { predicate: string; enforcedIn: s
 	canCustomReward: {
 		predicate: 'isCustomRewardUnlocked',
 		enforcedIn: ['src/routes/(parent)/admin/rewards/+page.server.ts'],
+	},
+	// #4504 (PR #4579) で同型の配線が入った。値の導出も拒否も isFreeTextMessageUnlocked を読む。
+	canFreeTextMessage: {
+		predicate: 'isFreeTextMessageUnlocked',
+		enforcedIn: [
+			'src/routes/(parent)/admin/cheer/+page.server.ts',
+			'src/routes/api/v1/messages/[childId]/+server.ts',
+		],
 	},
 };
 
