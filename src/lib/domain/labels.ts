@@ -38,6 +38,7 @@ import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
+	AI_TRANSFER_TERMS,
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
@@ -8052,12 +8053,42 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressWeeklyComplete: 'コンプリート！',
 	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
 	stampPressWeeklyMessage: '今週もがんばろう！',
+	/** #4687 ②: 週 5 枠が埋まっている日のログイン (スタンプは押せない) */
+	stampPressAlreadyComplete: '今週はコンプリート！',
+	/** #4687 ③: おみくじログインボーナス (台帳に載る額をそのまま出す) */
+	stampPressLoginBonus: (rank: string, points: number | string) =>
+		`おみくじ ${rank}！ +${points}pt`,
+	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
+	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
+	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
 	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
 	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
 		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+} as const;
+
+// ============================================================
+// AI 送信の注意書き (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路で共有する
+// 唯一の定義。4 経路にコピペせず、`AiInputNotice.svelte` 経由で参照する。
+//
+// プライバシーポリシー第9条④ (#4583 / PR #4598) と同じ事実を、入力する瞬間に短く述べる。
+// ADR-0012 (anti-engagement) 整合で警告は積み上げず hint 1 行に留め、送信先の詳細
+// (運営者が管理する AWS 環境内 / 運営者の環境外) は条文側へリンクで委ねる。
+// 生成 AI の製品名はここにも UI にも書かない (#4370 / #4583 と同一規律)。
+
+export const AI_INPUT_NOTICE_LABELS = {
+	/** テキスト入力経路 (AI 提案 3 種) */
+	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
+	/** 画像アップロード経路 (領収書 OCR) */
+	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
+	/** 送信先の詳細 (条文) への導線 */
+	linkLabel: '送信先とあつかい',
+	linkHref: 'https://www.ganbari-quest.com/privacy.html#under-age',
 } as const;
 
 // ============================================================
