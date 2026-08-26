@@ -3,10 +3,9 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
-import { CATEGORIES } from './categories';
-import { CHEER_POINTS } from './constants/cheer-points';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
-import { CATEGORY_NAME_LIST } from './categories';
+import { CATEGORIES, CATEGORY_NAME_LIST } from './categories';
+import { CHEER_POINTS } from './constants/cheer-points';
 import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 import { FREE_PLAN_QUOTA } from './constants/plan-quota';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
