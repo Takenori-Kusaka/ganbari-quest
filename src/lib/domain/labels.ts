@@ -2822,6 +2822,11 @@ export const SETTINGS_LABELS = {
 	cloudStatusBuilding: '生成中…',
 	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
 	cloudDownloadAction: 'ダウンロード',
+	// #4717: 発行直後 (pending/building) / 失敗 (failed) の PIN で取り込もうとしたときの案内。
+	// 「システムに問題が発生しました」(500) ではなく、待てば解決することを伝える。
+	cloudImportNotReady: 'このデータはまだ準備中です。数分後にもう一度お試しください。',
+	cloudImportBuildFailed:
+		'このデータの作成に失敗しています。共有した方にもう一度クラウドへ保管しなおしてもらってください。',
 	cloudImportTitle: 'PINコードでインポート',
 	cloudImportDesc: '共有されたPINコードを入力してデータを取り込みます。',
 	cloudImportPinPlaceholder: 'PINコード（6桁）',
