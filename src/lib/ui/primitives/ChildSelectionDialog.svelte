@@ -143,6 +143,10 @@ function handleCancelClick() {
 
 const isAllSelected = $derived(selection === 'all');
 const canConfirm = $derived.by(() => {
+	// #4692 F6: 候補が 1 人もいないときは「全員に追加」でも確定させない。
+	// 旧実装は children=[] でも `selection==='all'` が true 判定になるため、選択肢ゼロの
+	// dialog で「追加」が押せてしまい、呼出側が 0 件配信を実行していた。
+	if (children.length === 0) return false;
 	if (selection === 'all') return true;
 	return selection.ids.length > 0;
 });

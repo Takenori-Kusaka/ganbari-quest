@@ -224,11 +224,11 @@ EPIC #2190 / 子 Issue #2191 (Push) + #2192 (Email) の動作確認・配布証�
 
 | # | 系統 | 種類 | 実装 | cron / trigger | プラン gate |
 |---|---|---|---|---|---|
-| 1 | reminder | Push | `notification-service.sendPushNotification` | reminder cron (daily) | 全プラン |
-| 2 | streak-warning | Push | 同上 (`streak_warning` type) | `analytics-aggregate` 内派生 | 全プラン |
+| 1 | reminder | Push | `notification-delivery-service.runNotificationDelivery` → `notification-service.sendPushNotification` | `/api/cron/notification-delivery` (15 分毎、`notification_reminder_time` を過ぎた家庭に 1 日 1 回) | 全プラン |
+| 2 | streak-warning | Push | 同上 (`streak_warning` type) | 同 cron (19:00 JST 以降、今日未記録かつストリーク継続中) | 全プラン |
 | 3 | achievement | Push | `sendAchievementNotification` | `activity-log-service` 完了 hook | 全プラン |
 | 4 | level_up | Push | 同上 (`level_up` type) | `activity-log-service` 完了 hook (level up 時) | 全プラン |
-| 5 | weekly-report | Email | `email-service.sendWeeklyReportEmail` | `/api/v1/admin/weekly-report` (cron 想定) | standard 以上 (#735) |
+| 5 | weekly-report | Email | `notification-delivery-service.runNotificationDelivery` → `email-service.sendWeeklyReportEmail` | `/api/cron/notification-delivery` (`weekly_report_day` の 09:00 JST 以降に週 1 回)。`/api/v1/admin/weekly-report` は body で対象を受け取る手動 / 外部呼び出し用の口として存続 | standard 以上 (#735) |
 | 6 | lifecycle (renewal + dormant) | Email | `lifecycle-email-service.runLifecycleEmails` | `/api/cron/lifecycle-emails` (daily) | 全プラン (年 6 回上限) |
 | 7 | trial (3day/1day/today) | Email | `trial-notification-service.processTrialNotifications` | `/api/cron/trial-notifications` (daily) | trial 中のみ |
 | 8 | pmf-survey | Email | `pmf-survey-service.runPmfSurveyDistribution` | `/api/cron/pmf-survey` (年 2 回) | owner 全件 (年 6 回上限と共有) |
@@ -313,7 +313,7 @@ open http://localhost:5174/admin
 # 2. 「通知を有効化」を押す (NotificationPermissionBanner、#2115/#2116 で UX 改善済)
 # 3. OS の通知許可ダイアログを承認
 # 4. cron トリガー (手動)
-curl -X POST http://localhost:5174/api/cron/reminder \
+curl -X POST http://localhost:5174/api/cron/notification-delivery \
   -H "x-cron-secret: $CRON_SECRET" -d '{"dryRun":false}'
 # 5. デスクトップ右上 (Mac) / 右下 (Win) に通知が出る → SS 撮影
 ```
@@ -329,7 +329,7 @@ curl -X POST http://localhost:5174/api/cron/reminder \
 
 **期待動作**:
 - reminder: 「きょうもがんばろう！」(quiet hours 21-07 JST 外、日次上限 3 通)
-- streak-warning: 連続記録途切れ警告 (`analytics-aggregate` 経由)
+- streak-warning: 連続記録途切れ警告 (`notification-delivery` cron 経由、19:00 JST 以降)
 - achievement: 「`{childName}`「`{activityName}`」を がんばったよ！ +`{points}`P」
 - level_up: 「`{childName}` レベル`{n}`に なったよ！ すごい！」
 

@@ -226,7 +226,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 |---|---|---|
 | 置き場 | `families.status` ほか 4 列 | `settings` の `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` |
 | 書き手 | W1〜W9 | `softDeleteTenant()`（`grace-period-service.ts:67-110`） |
-| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`） |
+| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`。**コード上の key は `family`** — 顧客向け表示名 premium の内部コード） |
 
 **`softDeleteTenant()` は `families` を一切触らない。** したがって「退会申請済み」は本表のどの行にも現れない。読み取り専用ロックと物理削除は契約軸ではなくこちらを条件とする（#3993）。
 

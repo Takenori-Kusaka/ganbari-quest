@@ -93,8 +93,10 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(3)).toBe(
 			'フリープランではお子さま1人あたり 3 個までです。スタンダード以上にアップグレードすると無制限に作成できます。',
 		);
+		// #4500 (develop) でオーナー込みの数え方を明示する文言に是正済み。
+		// byte 一致の回帰ロックは維持したまま、現行 SSOT の値に追従させる。
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
-			'メンバー上限（4人）に達しています。プランをアップグレードしてください。',
+			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);
 	});
 });
