@@ -79,8 +79,8 @@
 | POST | /api/v1/children/[id]/voices | カスタム音声アップロード | owner/parent |
 | PATCH | /api/v1/children/[id]/voices/[voiceId] | カスタム音声アクティブ切替 | owner/parent |
 | DELETE | /api/v1/children/[id]/voices/[voiceId] | カスタム音声削除 | owner/parent |
-| GET | /api/v1/activities/export | 個別バックアップ（#3079 AC4 で v2 統一）。tenant の活動全件を marketplace v2 envelope（activity-pack）JSON でダウンロード（reward-set / checklist と同型、checksum 付き）。復元は admin/activities `?/importFile` action。旧 v1（formatVersion='1.0'）ファイルからの復元は後方互換で受理（`migrateV1ActivityPackToV2`） | owner/parent |
-| POST | /api/v1/activities/import | 活動パック形式でインポート | owner/parent |
+| GET | /api/v1/activities/export | 個別バックアップ（#3079 AC4 で v2 統一）。**`?childId=<id>` 必須（#4692）**でその子 1 人分の活動を marketplace v2 envelope（activity-pack）JSON でダウンロード（reward-set / checklist と同型、checksum 付き）。childId 未指定は 400。復元は admin/activities `?/importFile` action（同じく childId 必須）。旧 v1（formatVersion='1.0'）ファイルからの復元は後方互換で受理（`migrateV1ActivityPackToV2`） | owner/parent |
+| POST | /api/v1/activities/import | 活動パック形式でインポート。**取込先 child は body `childIds`（省略時は家族全員）で明示する（#4692）** — 「tenant 最初の子に silent bind」は廃止。子供 0 人の tenant は 400 | owner/parent |
 
 ### 特別報酬
 
@@ -137,8 +137,8 @@
 | POST | /api/v1/usage | セッション開始記録 | 全ロール |
 | PATCH | /api/v1/usage | セッション終了記録 | 全ロール |
 
-**no-op fallback 仕様 (#2338、2026-05-20)**:
-`DATA_SOURCE=dynamodb` / `DATA_SOURCE=demo` モード時、`usage-log-service` は SQLite repo を呼ばず no-op で動作し、endpoint は `204 No Content` を返す（旧来は `null` → 500 で本番 cognito Lambda エラーログ汚染）。SQLite mode (`DATA_SOURCE=sqlite`、NUC / dev) では従来通り `200 OK` + `{ id }`。DynamoDB 完全実装は PMF 後に評価（ADR-0010 Bucket B、`docs/rationale/07-usage-log-dynamodb-deferred-rationale.md`）。
+**backend 別挙動 (#4719)**:
+`usage-log-service` は backend 分岐を持たず、facade `usage-log-repo.ts` → factory `getRepos().usageLog` (`IUsageLogRepo`) が backend を選ぶ。sqlite (NUC local / dev) と pg-core (cloud DSQL / NUC PGlite、`dsql/usage-log-repo.ts`、`usage_logs` 表) は記録・集計を行い `201 Created` + `{ id }` / PATCH は `200 OK` + `{ durationSec }`。`DATA_SOURCE=demo` は stub repo (永続化なし) で POST は dummy id `'0'` を返し、PATCH は行が無いため `204 No Content`。DB エラー時は service が `null` に正規化し endpoint は `204`（client は fire-and-forget、5xx alarm 抑止）。
 
 ### 画像・エクスポート
 
@@ -1325,7 +1325,7 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 テキスト入力から活動名・カテゴリを AI で推定する。
 
-**AIモデル:** AWS Bedrock Claude Haiku (`anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
+**AIモデル:** AWS Bedrock Claude Haiku (US inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
 
 **リクエストボディ:**
 ```json
@@ -1430,6 +1430,35 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 判定順は `rotation-blocked` を stale / 連続失敗より**後**に置く。「取れていない」方が常に重く、「取れているが片付いていない」はその次だからである。guard は自己解除しない（溢れは毎晩 1 ずつ増える）ため、この warn は放置で消える類ではなく**行動を促すもの**として扱う。
 
 回帰は `tests/unit/domain/backup-health.test.ts`（判定）/ `tests/unit/routes/health-backup-status.test.ts`（付与条件）/ `tests/unit/db/pglite-backup-3950.test.ts` `[BK12]` `[BK17]` `[BK18]`（実 status → verdict の経路と保留の解除）が固定する。
+
+**`scheduler` フィールド（#4721、`backup` と同じ付与条件）:**
+
+```json
+{
+  "scheduler": {
+    "level": "critical",
+    "summary": "定期ジョブが 1 つも実行されていません。scheduler コンテナが起動していない可能性があります (docker compose --profile scheduler up -d)",
+    "staleJobs": ["retention-cleanup", "export-build"],
+    "neverRanJobs": ["retention-cleanup", "export-build"],
+    "lastRunAt": { "notification-delivery": "2026-08-20T09:50:00.000Z" }
+  }
+}
+```
+
+NUC の scheduler は `docker-compose.yml` の `profiles: [scheduler]` gate 配下にあり、`--profile scheduler` を付けない deploy では起動も更新もされない。**その状態は画面にも log にも出ない**（走っていないジョブは log を書かない）ため、cron endpoint が実際に呼ばれた時刻を記録して鮮度で判定する。
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `backup` と同じく `DATA_SOURCE === 'pglite'`（= NUC）のときのみ。AWS 側は EventBridge / cron-dispatcher の CloudWatch metric と `ganbari-quest-cron-dispatcher-errors` alarm が同じ役割を果たす |
+| 記録の主体 | **cron endpoint を受けたアプリ側**（`src/hooks.server.ts` が `/api/cron/<name>` の 2xx 応答時に記録）。scheduler コンテナ自身に書かせると volume 共有が要るうえ「scheduler は生きているが app に届いていない」を検出できない |
+| 記録先 | `data/cron-status.json`（pglite backup の状態ファイルと同じ考え方）。DB に書くと「DB が死んでいるときに cron の生死も見えない」になる |
+| 想定間隔 | `schedule-registry.ts` の cron 式から導出（`expectedIntervalMinutes`）。**ジョブを足せば判定対象も自動で増える**（一覧を二重管理すると増えたジョブが黙って観測対象から漏れる） |
+| 遅延判定 | 想定間隔の 3 倍を超えたら `staleJobs`。日次なら 3 日、15 分なら 45 分 |
+| `level` | `ok` / `warning`（一部遅延）/ `critical`（全ジョブ遅延、または全ジョブ未実行） |
+| 起動直後 | プロセス起動からの経過が猶予内なら未実行を正常扱い（deploy のたびに赤くなると本物の停止に気付けなくなる） |
+| 取得失敗時 | **フィールドを省略するだけで 503 にしない**（`backup` と同方針） |
+
+回帰は `tests/unit/domain/scheduler-health.test.ts`（判定）/ `tests/unit/cron/job-wiring-symmetry.test.ts` `[2]`（記録の配線と deploy profile）が固定する。
 
 #### GET /api/ready
 
