@@ -389,27 +389,29 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					</div>
 				{/if}
 
-				<!-- CTA -->
-				<Card variant="default" padding="lg">
-					{#snippet children()}
-						<div class="text-center">
-							<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
-								{MARKETPLACE_LABELS.ctaHeading}
-							</p>
-							<p class="text-xs text-[var(--color-text-secondary)] mb-3">
-								{MARKETPLACE_LABELS.ctaSubheading}
-							</p>
-							<!-- #2303: 未ログイン CTA は /auth/login 経由 (誤新規登録防止 / data integrity 保護)。
-								login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
-							<a
-								href="/auth/login"
-								class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
-							>
-								{MARKETPLACE_LABELS.ctaStart}
-							</a>
-						</div>
-					{/snippet}
-				</Card>
+				<!-- CTA (#4711: 「アカウント登録後…」は未認証の訪問者向け。認証済の親には出さない) -->
+				{#if !data.isAuthenticated}
+					<Card variant="default" padding="lg">
+						{#snippet children()}
+							<div class="text-center" data-testid="marketplace-signup-cta-card">
+								<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
+									{MARKETPLACE_LABELS.ctaHeading}
+								</p>
+								<p class="text-xs text-[var(--color-text-secondary)] mb-3">
+									{MARKETPLACE_LABELS.ctaSubheading}
+								</p>
+								<!-- #2303: 未ログイン CTA は /auth/login 経由 (誤新規登録防止 / data integrity 保護)。
+									login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
+								<a
+									href="/auth/login"
+									class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+								>
+									{MARKETPLACE_LABELS.ctaStart}
+								</a>
+							</div>
+						{/snippet}
+					</Card>
+				{/if}
 
 				<!-- Back links (#4677: 旧「デモを体験」/demo リンクは legacy-url-map で LP トップへ redirect され
 					デモに到達しないため撤去。demo Lambda では本ページ自体が demo 環境で動く) -->
