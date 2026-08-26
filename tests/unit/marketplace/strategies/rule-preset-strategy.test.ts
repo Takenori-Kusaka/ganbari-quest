@@ -453,3 +453,70 @@ describe('rulePresetStrategy.applyRulePreset — dryRun', () => {
 		});
 	});
 });
+
+// ============================================================
+// #4711: 表示名 / icon の伝搬 + 保存済データの read-path fallback
+// ============================================================
+describe('#4711 bonus preset の表示名 / icon', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockGetSetting.mockResolvedValue(null);
+	});
+
+	it('generic apply() は ctx.presetName / presetIcon を保存レコードに使う (内部 ID を表示名にしない)', async () => {
+		await rulePresetStrategy.apply(makeBonusPayload(), {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			presetName: 'れんぞくボーナス',
+			presetIcon: '🔥',
+		});
+		const parsed = JSON.parse(mockSetSetting.mock.calls[0]![1] as string);
+		expect(parsed.presets[0].presetName).toBe('れんぞくボーナス');
+		expect(parsed.presets[0].presetIcon).toBe('🔥');
+	});
+
+	it('dispatchImport は displayName を ctx.presetName に補完する (全 type 共通の伝搬点)', async () => {
+		const { dispatchImport } = await import('../../../../src/lib/marketplace/index');
+		const result = await dispatchImport({
+			typeCode: 'rule-preset',
+			rawPayload: makeBonusPayload(),
+			displayName: 'れんぞくボーナス',
+			ctx: { tenantId: TENANT, presetId: PRESET_ID, presetIcon: '🔥' },
+		});
+		expect(result.imported).toBe(1);
+		const parsed = JSON.parse(mockSetSetting.mock.calls[0]![1] as string);
+		expect(parsed.presets[0].presetName).toBe('れんぞくボーナス');
+		expect(parsed.presets[0].presetName).not.toBe(PRESET_ID);
+		expect(parsed.presets[0].presetIcon).toBe('🔥');
+	});
+
+	it('loadBonusOverrides は presetName === presetId / icon 空の保存済 entry を marketplace SSOT から引き直す', async () => {
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				presets: [
+					{
+						presetId: 'streak-bonus',
+						presetName: 'streak-bonus',
+						presetIcon: '',
+						enabled: true,
+						rules: [],
+						importedAt: '2026-01-01T00:00:00.000Z',
+					},
+					{
+						// marketplace から撤去済の preset は保存値をそのまま返す (graceful degradation)
+						presetId: 'sibling-coop',
+						presetName: 'sibling-coop',
+						presetIcon: '',
+						enabled: true,
+						rules: [],
+						importedAt: '2026-01-01T00:00:00.000Z',
+					},
+				],
+			}),
+		);
+		const state = await loadBonusOverrides(TENANT);
+		expect(state.presets[0]?.presetName).toBe('れんぞくボーナス');
+		expect(state.presets[0]?.presetIcon).toBe('🔥');
+		expect(state.presets[1]?.presetName).toBe('sibling-coop');
+	});
+});

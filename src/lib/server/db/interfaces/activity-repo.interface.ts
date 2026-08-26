@@ -122,6 +122,19 @@ export interface IActivityRepo {
 		date: string,
 		tenantId: string,
 	): Promise<number>;
+	/**
+	 * #4686: type 別 × description 前方一致の付与合計 (正負込み)。once-per-day 系 bonus
+	 * (daily_mission / must_completion_bonus / focus_bonus) は description 先頭に `[YYYY-MM-DD]`
+	 * (JST) を持つため、とりけし時の対称巻き戻しは「当日付与済み合計 − あるべき額」の差分を
+	 * 同 type で負方向に計上する。件数 (countPointLedgerEntriesByTypeAndDate) では負行を含む
+	 * 巻き戻し後に再付与できないため、合計を読む。getComboPointsGranted の type 汎用版。
+	 */
+	sumPointLedgerByTypeAndDescriptionPrefix(
+		childId: ChildId,
+		type: string,
+		descriptionPrefix: string,
+		tenantId: string,
+	): Promise<number>;
 
 	// #1755 (#1709-A): 「今日のおやくそく」(priority='must') 集計
 	/**

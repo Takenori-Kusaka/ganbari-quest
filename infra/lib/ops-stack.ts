@@ -114,6 +114,24 @@ export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] pa
  */
 export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
 
+/**
+ * #4726: AI 呼び出しが失敗して fallback に落ちたことを表す log の検索語 (分子)。
+ *
+ * SSOT は `AI_CALL_FAILED_LOG_TERM` (`src/lib/server/ai/availability.ts`)。rootDir 制約で
+ * import できないため literal で持ち、`tests/unit/infra/ai-fallback-rate-alarm.test.ts` が
+ * drift を機械検証する。
+ *
+ * 上の `AI_PROVIDER_UNAVAILABLE_LOG_TERM` は **可用性クラスの失敗** (権限 / 資格情報 /
+ * モデル未存在) でしか出ない。#4726 の本番障害は `ValidationException` (base model ID を
+ * on-demand で呼べない) で、全リクエストが 100% fallback していたのにあちらの alarm は
+ * 1 度も鳴らなかった。ValidationException を可用性クラスに足すと入力起因の失敗で AI 全停止に
+ * 倒れるため、latch ではなく **fallback 率**を観測する。
+ */
+export const AI_CALL_FAILED_LOG_TERM = '[ai-alert] ai-call-failed';
+
+/** #4726: AI 呼び出しの成功を表す log の検索語 (fallback 率の分母)。SSOT は同上。 */
+export const AI_CALL_SUCCEEDED_LOG_TERM = '[ai-alert] ai-call-succeeded';
+
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
@@ -490,6 +508,84 @@ export class OpsStack extends cdk.Stack {
 			// 復旧を鳴らしたいなら、OK 遷移を流用せず **復旧を表す信号** (例: AI 呼び出しの
 			// 成功 metric) を作って別 alarm にすること。
 			// 固定: tests/unit/infra/ai-provider-unavailable-alarm.test.ts [A2b]
+
+			// #4726: AI 呼び出しの fallback 率。
+			//
+			// 上の ai-provider-unavailable は「可用性クラスの失敗」しか拾わない。#4726 の本番障害
+			// (base model ID を on-demand で呼べず全リクエスト ValidationException) は
+			// そのクラスに入らないため 1 度も鳴らず、有料プランの筆頭訴求である AI 提案が
+			// 100% キーワード fallback のまま丸一日以上放置された。発見はオーナーの手動実行だった。
+			//
+			// **なぜ件数ではなく率か**: Pre-PMF の AI 呼び出しは 1 日数件規模で、件数閾値
+			// (例: 15 分で 3 件) は 100% 壊れていても到達しない (#4726 の実測でも 2 件だった)。
+			// 一方 1 件の失敗で即発火にすると、単発の throttle / timeout で鳴りっぱなしになる。
+			// 「呼んだうちどれだけ落ちたか」だけが両方を分離できる。
+			//
+			// 閾値の根拠: 15 分の window で **失敗 2 件以上 かつ fallback 率 50% 以上**。
+			//
+			// 率だけだと「その window の AI 呼び出しが 1 件で、それが単発の throttle / timeout で
+			// 落ちた」ケースが 100% になり、鳴りっぱなしの原因になる (Pre-PMF は呼び出しが疎)。
+			// 逆に件数だけだと 100% 壊れていても到達しない (#4726 の実測は 2 件)。
+			// **両方を掛ける** — `IF(failed >= 2, rate, 0)` にして、単発失敗は 0 に潰し、
+			// 2 件以上落ちたときだけ率で判定する。#4726 の実障害 (2 回とも失敗) は発火する。
+			//
+			// この形にすると **0 除算が原理的に起きない** — 分子が 2 以上のときしか除算に進まず、
+			// そのとき分母 (failed + succeeded) は必ず 2 以上である。metric math の 0/0 挙動に
+			// 依存した仮定を持たない (CDK の unit test では検証できない仮定を残さない)。
+			// 呼び出しが無い window は式が 0 を返すか、metric 自体にデータ点が無い
+			// (treatMissingData=NOT_BREACHING) ため、いずれにせよ鳴らない。
+			const aiCallFailed = new logs.MetricFilter(this, 'AiCallFailedFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${AI_CALL_FAILED_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Ai',
+				metricName: 'AiCallFailed',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+			const aiCallSucceeded = new logs.MetricFilter(this, 'AiCallSucceededFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${AI_CALL_SUCCEEDED_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Ai',
+				metricName: 'AiCallSucceeded',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const aiFallbackRate = new cloudwatch.MathExpression({
+				expression: 'IF(failed >= 2, 100 * failed / (failed + succeeded), 0)',
+				usingMetrics: {
+					failed: aiCallFailed.metric({
+						period: cdk.Duration.minutes(15),
+						statistic: 'Sum',
+					}),
+					succeeded: aiCallSucceeded.metric({
+						period: cdk.Duration.minutes(15),
+						statistic: 'Sum',
+					}),
+				},
+				period: cdk.Duration.minutes(15),
+				label: 'AI fallback rate (%)',
+			});
+
+			const aiFallbackRateAlarm = new cloudwatch.Alarm(this, 'AiFallbackRate', {
+				alarmName: 'ganbari-quest-ai-fallback-rate',
+				alarmDescription:
+					'AI 呼び出しが 15 分で 2 件以上失敗し、その割合が 50% 以上: 顧客には AI ではなくキーワード規則の結果が返っている (HTTP 200 のため顧客も失敗に気付けない)',
+				metric: aiFallbackRate,
+				threshold: 50,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			aiFallbackRateAlarm.addAlarmAction(alarmAction);
+			// **OK action は付けない** (ai-provider-unavailable [A2b] と同じ理由)。
+			// AI が 1 度も呼ばれない window は分母 0 でデータ点が無く、NOT_BREACHING により
+			// alarm は自動的に OK へ戻る。つまり OK 遷移は「直った」ではなく「誰も呼ばなかった」
+			// でも起きる。OK action を付けると 100% 壊れたままでも「復旧しました」に等しい通知が
+			// Discord に飛び、運営は手を止め顧客は使えないまま放置される (沈黙より悪い)。
+			// 復旧を鳴らしたいなら OK 遷移を流用せず、復旧を表す信号を別 alarm にすること。
+			// 固定: tests/unit/infra/ai-fallback-rate-alarm.test.ts [A2b]
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//

@@ -26,6 +26,7 @@
 
 import { error } from '@sveltejs/kit';
 
+import { FAMILY_MEMBER_LIMIT, invitesAllowedFrom } from '$lib/domain/constants/family-member-limit';
 import type { EvaluationContext } from '$lib/runtime/evaluation-context';
 
 /**
@@ -123,10 +124,18 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 		return canWriteDb(ctx);
 	},
 
+	// #4500: 旧実装は `tier !== 'family'` を一律 deny していた。実装 (PLAN_LIMITS の
+	// maxFamilyMembers) は standard にも 4 (owner + 3) を割り当てており、**未配線のまま
+	// 矛盾していた**。将来この capability を配線した日に standard の招待が黙って壊れる
+	// 地雷なので、判定を数値 SSOT から導く (上限 1 = owner のみ = 招待できない)。
+	// 何人まで招待できるかの quota 判定は checkFamilyMemberLimit の責務で、ここは可否だけを見る。
 	'invite.family_member': (ctx) => {
 		if (!ctx.user) return deny('unauthenticated');
 		if (ctx.user.role !== 'owner') return deny('role-insufficient');
-		if (ctx.plan?.tier !== 'family') return deny('plan-tier-insufficient');
+		const tier = ctx.plan?.tier;
+		if (!tier) return deny('plan-tier-insufficient');
+		const limit = FAMILY_MEMBER_LIMIT[tier];
+		if (limit !== null && invitesAllowedFrom(limit) <= 0) return deny('plan-tier-insufficient');
 		return canWriteDb(ctx);
 	},
 

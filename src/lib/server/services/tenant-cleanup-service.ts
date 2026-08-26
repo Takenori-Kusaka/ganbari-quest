@@ -205,14 +205,18 @@ export async function deleteTenantScopedData(
 	// cloudExport の s3Key は `exports/${tenantId}/...` で fullTenantDeletion の
 	// `tenants/${tenantId}/` prefix 一括削除の外側にあるため、ここで明示削除しないと退会後も
 	// S3 lifecycle (30 日) の失効まで孤児として滞留する。個別削除
-	// (cloud-export-service.deleteCloudExport) と同一手段 storage.deleteByPrefix を再利用する。
+	// (cloud-export-service.deleteCloudExport) と同一手段 storage.purgeByPrefix を再利用する。
+	//
+	// #4724: バージョニング有効化後は **purge (全バージョン削除)** を使う。`deleteByPrefix` は
+	// delete marker を立てるだけで、非現行バージョンは lifecycle の 30 日まで残る = 本 block が
+	// #3868 で塞いだ「退会後も完全 PII を含む ZIP が滞留する」がそのまま再発する。
 	try {
 		const exports = await r.cloudExport.findByTenant(tenantId);
 		for (const exp of exports) {
 			// S3 削除は best-effort: 失敗しても DB 行削除 + account 削除を継続する。
 			// ただし削除漏れを silent にせず warn で記録する (ADR-0006)。
 			try {
-				await r.storage.deleteByPrefix(exp.s3Key);
+				await r.storage.purgeByPrefix(exp.s3Key);
 			} catch (err) {
 				logger.warn(
 					`[tenant-cleanup] cloudExport S3 実体削除失敗 (DB 行削除は継続) id=${exp.id} s3Key=${exp.s3Key}: ${String(err)}`,
