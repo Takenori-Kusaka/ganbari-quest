@@ -43,6 +43,11 @@ interface Props {
 	balance: number;
 	/** 表示単位設定。消費ぶんの `-N` 表示に使う (#4448、pt / 円換算いずれも正しく出す)。 */
 	pointSettings: PointSettings;
+	/**
+	 * #4684 F1: 家庭設定 `reward_auto_approve` が ON か。ON なら「はい」でその場で
+	 * ポイントが減る (親の承認を挟まない) ため、説明文を実際の挙動に合わせて出し分ける。
+	 */
+	autoApprove: boolean;
 	onClose: () => void;
 }
 
@@ -54,6 +59,7 @@ let {
 	rewardIcon,
 	balance,
 	pointSettings,
+	autoApprove,
 	onClose,
 }: Props = $props();
 
@@ -122,7 +128,12 @@ $effect(() => {
 				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfterText}
 			</span>
 		</div>
-		<p class="confirm-description">{CHILD_SHOP_LABELS.exchangeConfirmDescription}</p>
+		<!-- #4684 AC1: 即時交換 ON / OFF で「このあと何が起きるか」を出し分ける -->
+		<p class="confirm-description" data-testid="confirm-exchange-description">
+			{autoApprove
+				? CHILD_SHOP_LABELS.exchangeConfirmDescriptionInstant
+				: CHILD_SHOP_LABELS.exchangeConfirmDescriptionApproval}
+		</p>
 
 		<div class="confirm-actions">
 			<form

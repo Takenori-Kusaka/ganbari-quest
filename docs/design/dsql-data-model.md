@@ -205,6 +205,8 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 
 Dynamo は GSI 回避で持たざるを得なかった read-model。DSQL では **compute-on-read + index を既定**（`activity_logs`/`checklist_logs`/`statuses` から集計）。実 DPU を計測し、ホーム/レポートで恒常的に重ければマテビュー化（更新は集計元 txn 内 or バッチ、乖離しない形）。**まず廃止して実クエリ化を試す**。
 
+**summary に無い値は consumer が realtime 補完する (#4719)**: compute-on-read summary (`dsql/report-daily-summary-repo.ts`) は活動数 / カテゴリ内訳 / streak は導出できるが、`level` (当日 snapshot) は再現できず既定 1 を返す。`report-service` (ホーム簡易サマリー / 月次レポート) は **表示レベル・累計ポイントを常に `statuses` から realtime 導出**し、summary の `level` / `totalPoints` を UI に出さない (sqlite / pg-core 共通。summary 経路に乗ると「レベル 1」になる #4680 class の根治)。
+
 ## §8 recordActivity の原子化（最大の質的改善、grounded + spike#4 実機確証）
 
 > **経路の分岐条件は「pg 系 backend か」= `isPgBackend()`（`db/backend.ts`、#4720）**。cloud Aurora DSQL と NUC PGlite は同一 pg-core repos を共有するため、単一 txn core（`record-activity-core.ts` / `cancel-activity-core.ts`）・uuid 形式 guard・置換 import の補償戦略はすべてこの 2 値判定で切り替える。`isDsqlBackend()` は **DSQL pool を開くか**（接続層の起動判定）専用で、アプリ層の挙動分岐に使わない（NUC PGlite を取り逃し、逐次 await 経路 = 部分コミットに落ちる）。txn runner は `getPgTransactionRunner()`（factory）から注入する（`dsql/connection` 直 import は PGlite 環境でも DSQL pool を開こうとする）。

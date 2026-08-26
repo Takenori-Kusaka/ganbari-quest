@@ -38,6 +38,7 @@ import * as demoStampCardRepo from './demo/stamp-card-repo';
 import * as demoStatusRepo from './demo/status-repo';
 import * as demoStorageRepo from './demo/storage-repo';
 import * as demoTrialHistoryRepo from './demo/trial-history-repo';
+import * as demoUsageLogRepo from './demo/usage-log-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
 import { demoWebhookEventRepo } from './demo/webhook-event-repo';
@@ -77,6 +78,7 @@ import type { SqlExecutor } from './dsql/sql-executor';
 import { createDsqlStampCardRepo } from './dsql/stamp-card-repo';
 import { createDsqlStatusRepo } from './dsql/status-repo';
 import { createDsqlTrialHistoryRepo } from './dsql/trial-history-repo';
+import { createDsqlUsageLogRepo } from './dsql/usage-log-repo';
 import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
 import { createDsqlVoiceRepo } from './dsql/voice-repo';
 import { createDsqlWebhookEventRepo } from './dsql/webhook-event-repo';
@@ -116,6 +118,7 @@ import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
 import type { TransactionRunner } from './interfaces/transaction.interface';
 import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interface';
+import type { IUsageLogRepo } from './interfaces/usage-log-repo.interface';
 import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import type { IWebhookEventRepo } from './interfaces/webhook-event-repo.interface';
@@ -158,6 +161,7 @@ import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTrialHistoryRepo from './sqlite/trial-history-repo';
+import * as sqliteUsageLogRepo from './sqlite/usage-log-repo';
 import * as sqliteViewerTokenRepo from './sqlite/viewer-token-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
 import * as sqliteWebhookEventRepo from './sqlite/webhook-event-repo';
@@ -210,6 +214,8 @@ export interface Repositories {
 	status: IStatusRepo;
 	storage: IStorageRepo;
 	trialHistory: ITrialHistoryRepo;
+	/** #4719: 使用時間ログ (#1292)。全 backend 実装 (demo は stub)。facade usage-log-repo.ts の唯一の経路 */
+	usageLog: IUsageLogRepo;
 	viewerToken: IViewerTokenRepo;
 	/**
 	 * #3985: Stripe webhook の event.id dedup (`stripe_webhook_events`)。
@@ -235,7 +241,7 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 	return {
 		accountLockout: createDsqlAccountLockoutRepo(db),
 		activationFunnel: createDsqlActivationFunnelRepo(db),
-		battle: createDsqlBattleRepo(db),
+		battle: createDsqlBattleRepo(db, runner),
 		cancellationReason: createDsqlCancellationReasonRepo(db),
 		certificate: createDsqlCertificateRepo(db),
 		auth: createDsqlAuthRepo(db, runner),
@@ -267,6 +273,7 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 		// storage の実体は S3 (DB backend 非依存)。#3438 Phase 1 で dynamodb/ → s3/ へ移設済。
 		storage: s3StorageRepo,
 		trialHistory: createDsqlTrialHistoryRepo(db),
+		usageLog: createDsqlUsageLogRepo(db),
 		viewerToken: createDsqlViewerTokenRepo(db),
 		webhookEvent: createDsqlWebhookEventRepo(db),
 		voice: createDsqlVoiceRepo(db, runner),
@@ -336,6 +343,7 @@ export function getRepos(): Repositories {
 			status: demoStatusRepo,
 			storage: demoStorageRepo,
 			trialHistory: demoTrialHistoryRepo,
+			usageLog: demoUsageLogRepo,
 			viewerToken: demoViewerTokenRepo,
 			webhookEvent: demoWebhookEventRepo,
 			voice: demoVoiceRepo,
@@ -391,6 +399,7 @@ export function getRepos(): Repositories {
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
 		trialHistory: sqliteTrialHistoryRepo,
+		usageLog: sqliteUsageLogRepo,
 		viewerToken: sqliteViewerTokenRepo,
 		webhookEvent: sqliteWebhookEventRepo,
 		voice: sqliteVoiceRepo,

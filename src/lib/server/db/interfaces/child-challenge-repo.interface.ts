@@ -85,6 +85,13 @@ export interface IChildChallengeRepo {
 	markCompleted(id: string, tenantId: string): Promise<void>;
 
 	/**
+	 * #4686: とりけし時の対称巻き戻し。completed=1 かつ **reward_claimed=0** の instance だけを
+	 * completed=0 / status='active' / completed_at=NULL に戻す (受取済みは触らない = 受取済ポイント
+	 * との整合を保つ)。currentValue の減算は updateProgress で service 層が行う。
+	 */
+	revertCompletion(id: string, tenantId: string): Promise<void>;
+
+	/**
 	 * #4410: 達成祝福 (SiblingCelebration) を「見せた」ことを記録する。
 	 *
 	 * 「一度見せたら次から出さない」媒体 A (行に timestamp 列)。満たすべき条件は
