@@ -1,6 +1,7 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
@@ -654,22 +655,12 @@ function selectChild(childId: ChildId) {
 	<!-- #2558 段階2: 'import' (admin 内マーケットプレイス風ブラウズ UI) を撤去。manual / ai のみ。 -->
 	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
 		{#if addMode === 'ai'}
-			<!-- ⚠ この式は **誤り** です (standard 加入者に解放表示 → 実行時 403 = 有利誤認 / legal)。
-			     isPremium は有料 tier 全体 (standard を含む) を指し、AI 提案は premium 限定のため。
-
-			     #2902 の経緯 (#4506 で訂正): 旧 `data.planTier === 'family'` を「load が planTier を
-			     返さないので常に undefined === 'family' = false」と読んで isPremium に置換えたが、
-			     **この読みが誤りだった**。`data` は祖先 layout の戻り値をマージしたものであり、
-			     (parent)/admin/+layout.server.ts が planTier を返しているため解決していた
-			     (#4506 で premium account の実機検証により確認)。つまり動いていた式を壊している。
-
-			     #4506: 是正 (isAiSuggestUnlocked(data.planTier) への置換え) は PO の順序制約により
-			     **#4501 (プレミアムのトライアル化) と同 wave か、その後**に実施する。standard の表示が
-			     解放 → ロックに変わるため、LP が「全機能お試し」を約束している間に先に締めると
-			     見込み客に対する新たな誤認を作る。
-			     この未移行は tests/unit/architecture/ai-suggest-gate-derivation.test.ts の
-			     DEFERRED_DERIVATIONS に理由付きで pin されており、除外を消さない限り再訪される。 -->
-			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.isPremium} />
+			<!-- #4506 (GAMMA2-ADM1-02): 旧 `data.isPremium` は有料 tier 全体 (standard を含む) を指すため、
+			     standard 加入者に解放表示 → 実行時 403 という有利誤認になっていた。enforcement
+			     ($lib/server/api/suggest-plan-gate.ts) と同じ述語を読む。
+			     引き締めのタイミングは #4501 (トライアルの premium 化) と同 wave という制約があり、
+			     #4501 の実装 (PR #4578) と揃えて本 PR で解除した。 -->
+			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={isAiSuggestUnlocked(data.planTier)} />
 		{:else if addMode === 'manual'}
 			<ActivityCreateForm
 				categoryDefs={data.categoryDefs}

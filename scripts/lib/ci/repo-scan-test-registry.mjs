@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/setup-route-role-guard-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/setup 直下の route dir を depth 1 で列挙し、全 step が child 拒否 / 未認証 → /auth/login で守られていることを突き合わせる (#4700)。単一 dir だが静的判定は保守的に repo と見なすため明示 timeout を置く',
+	},
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
@@ -120,6 +124,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/db-access-boundary.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
+	},
+	'tests/unit/architecture/db-facade-backend-parity.test.ts': {
+		scope: 'bounded',
+		note: '#4719 src/lib/server/db 直下 (単一 dir) の *-repo.ts facade と factory.ts だけを読み、backend 実装の直 import / 3 backend 実装 file の欠落を検出する',
 	},
 	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
 		scope: 'repo',
