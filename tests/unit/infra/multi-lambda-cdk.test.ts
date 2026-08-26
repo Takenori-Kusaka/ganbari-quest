@@ -593,38 +593,53 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			});
 		}
 
-		// AC2: Lambda 実行ロールに bedrock:InvokeModel を最小権限で付与する。
-		it('AC2: 本番 Lambda role に bedrock:InvokeModel が付き、Resource は base model ARN 1 個 (`*` にしない)', () => {
+		// AC2 (#4367) → #4726 で profile 構成に更新。Resource は `*` にしないまま、
+		// profile ARN 1 本 + member 3 リージョンの foundation-model ARN 3 本に限定する。
+		it('AC2: 本番 Lambda role に bedrock:InvokeModel が付き、Resource は profile + member FM の 4 本 (`*` にしない)', () => {
 			const stmt = theBedrockStatement();
 
 			const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
 			expect(actions).toEqual(['bedrock:InvokeModel']);
 
 			// Resource は wildcard 禁止 (ses / ce の `*` grant と違い、Bedrock は対象モデルを特定できる)
-			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
-			expect(resources.length).toBe(1);
-			expect(resources[0]).toBe(
-				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+			const resources = (Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource]).map(
+				String,
 			);
+			expect(resources).toEqual([
+				'arn:aws:bedrock:us-east-1:000000000000:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0',
+				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+				'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+				'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+			]);
 			expect(JSON.stringify(resources)).not.toContain('*');
 		});
 
 		// AC4: #4366 で isAvailable() が env の明示配布を要求するため、配らない限り AI は無効のまま。
 		it('AC4: 本番 Fn の env に BEDROCK_MODEL_ID / BEDROCK_REGION が配られる', () => {
 			const envVars = envOf('ganbari-quest-app');
-			expect(envVars.BEDROCK_MODEL_ID).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+			expect(envVars.BEDROCK_MODEL_ID).toBe('us.anthropic.claude-haiku-4-5-20251001-v1:0');
 			expect(envVars.BEDROCK_REGION).toBe('us-east-1');
 			// 対照: 同じ env block の既存値が生きている (検査が空振りしていない)
 			expect(envVars.DATA_SOURCE).toBe('dsql');
 		});
 
-		it('AC3+AC4: 配る model ID は cross-region inference profile ではない (in-Region 固定)', () => {
+		// #4726: base model ID を on-demand で呼ぶと Claude Haiku 4.5 は ValidationException を返す。
+		// 本番の全リクエストがこれで落ちて 100% fallback していたため、profile ID であることを固定する。
+		// `global.` は米国外を含みうる (privacy 第 10 条の移転先国「米国」が崩れる) ので US に限定する。
+		it('#4726: 配る model ID は US inference profile (base model ID / global. profile ではない)', () => {
 			const modelId = envOf('ganbari-quest-app').BEDROCK_MODEL_ID as string;
-			expect(modelId).not.toMatch(/^(us|eu|apac|global)\./);
-			// IAM Resource の ARN と env の model ID が一致する (片方だけ変えると権限が外れる)
+			expect(modelId.startsWith('us.')).toBe(true);
+			expect(modelId).not.toMatch(/^(eu|apac|global)\./);
+			// IAM の profile ARN と env の model ID が一致する (片方だけ変えると権限が外れる)
 			const stmt = theBedrockStatement();
-			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
-			expect(String(resources[0])).toContain(`/${modelId}`);
+			const resources = (Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource]).map(
+				String,
+			);
+			const profileArns = resources.filter((r) => r.includes(':inference-profile/'));
+			expect(profileArns).toHaveLength(1);
+			expect(profileArns[0]).toContain(`/${modelId}`);
+			// profile の member base model 側 ARN も揃っている (profile ARN だけでは呼べない)
+			expect(resources.filter((r) => r.includes('::foundation-model/'))).toHaveLength(3);
 		});
 
 		it('demo Lambda は Bedrock を持たない (env / IAM とも、ADR-0048 role 分離)', () => {
