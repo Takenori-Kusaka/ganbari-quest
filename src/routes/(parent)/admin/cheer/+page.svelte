@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
+import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyActionError } from '$lib/ui/error-notify';
@@ -10,6 +11,10 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data, form } = $props();
+
+// #4504: enforcement (server action / API) と同じ述語を読む。別式で導出すると
+// 「表示は開いているのに送信は 403」がまた起きる (#2902 → #4506 の実例)。
+const freeTextUnlocked = $derived(isFreeTextMessageUnlocked(data.planTier));
 
 const errorMessage = $derived((form as { error?: string } | null)?.error);
 const granted = $derived(Boolean((form as { granted?: boolean } | null)?.granted));
@@ -231,15 +236,26 @@ $effect(() => {
 							</Button>
 						{/each}
 					</div>
-					<FormField
-						label=""
-						type="textarea"
-						rows={2}
-						name="body"
-						maxlength={120}
-						placeholder="ひとことメッセージを足す（任意）"
-						bind:value={body}
-					/>
+					{#if freeTextUnlocked}
+						<FormField
+							label=""
+							type="textarea"
+							rows={2}
+							name="body"
+							maxlength={120}
+							placeholder={CHEER_LABELS.freeTextPlaceholder}
+							bind:value={body}
+						/>
+					{:else}
+						<!-- #4504: 自由テキストは premium 限定 (LP の訴求どおり)。スタンプは上に残っており
+						     全プランで使えるので、「何が使えないか」だけでなく「何は使えるか」も伝える -->
+						<p
+							class="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-muted)] rounded-lg p-3"
+							data-testid="cheer-free-text-locked"
+						>
+							{CHEER_LABELS.freeTextLockedNote}
+						</p>
+					{/if}
 					<input type="hidden" name="stampCode" value={stampCode} />
 				</Card>
 			</section>

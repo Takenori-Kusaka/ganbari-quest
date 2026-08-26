@@ -4,10 +4,12 @@
 import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
+import type { UsageLog } from '../interfaces/usage-log-repo.interface';
 import { usageLogs } from '../schema';
 
 // #3575: read 境界で integer PK 行を string/branded id に変換して返す。
-function toUsageLog(r: typeof usageLogs.$inferSelect) {
+// #4719: 返却 shape は IUsageLogRepo.UsageLog (pg 実装と同一)。
+function toUsageLog(r: typeof usageLogs.$inferSelect): UsageLog {
 	return { ...r, id: String(r.id), childId: asChildId(r.childId) };
 }
 
@@ -38,7 +40,7 @@ export async function updateUsageLogEnd(
 		.where(eq(usageLogs.id, Number(id)))
 		.returning()
 		.get();
-	return row ? toUsageLog(row) : row;
+	return row ? toUsageLog(row) : undefined;
 }
 
 /** 進行中セッションを終了（cleanup用） */
