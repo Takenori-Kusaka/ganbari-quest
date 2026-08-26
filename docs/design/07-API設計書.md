@@ -120,13 +120,10 @@
 | POST | /api/v1/messages/[childId] | メッセージ送信 | owner/parent |
 | POST | /api/v1/messages/[messageId]/shown | メッセージ表示済みマーク | 全ロール |
 
-### おやすみ日・減少設定
+### 減少設定
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/v1/rest-days/[childId] | おやすみ日一覧取得（月別） | owner/parent |
-| POST | /api/v1/rest-days/[childId] | おやすみ日登録 | owner/parent |
-| DELETE | /api/v1/rest-days/[childId] | おやすみ日削除 | owner/parent |
 | GET | /api/v1/settings/decay | 減少強度設定取得 | owner/parent |
 | PUT | /api/v1/settings/decay | 減少強度設定更新 | owner/parent |
 
@@ -1900,50 +1897,6 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 **レスポンス:** `200 { success: true }`
-
-### 3.20 おやすみ日
-
-#### GET /api/v1/rest-days/[childId]
-
-おやすみ日一覧取得。`?month=YYYY-MM` で月別フィルタ。
-
-**認証:** owner/parent
-
-**レスポンス:**
-```json
-{
-  "restDays": [
-    { "id": 1, "date": "2026-04-09", "reason": "sick" }
-  ]
-}
-```
-
-#### POST /api/v1/rest-days/[childId]
-
-おやすみ日を登録。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09",
-  "reason": "rest"
-}
-```
-
-#### DELETE /api/v1/rest-days/[childId]
-
-おやすみ日を削除。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09"
-}
-```
 
 ### 3.21 設定
 

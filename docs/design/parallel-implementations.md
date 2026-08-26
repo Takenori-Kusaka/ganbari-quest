@@ -325,15 +325,14 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/domain/activity-pack.ts` | `ActivityPackItem.mustDefault?: boolean` 型 | TypeScript |
 | `src/lib/domain/marketplace-item.ts` | `ActivityPackPayload.activities[].mustDefault?` 型 | TypeScript |
 | `src/lib/server/services/activity-import-service.ts` | `ImportActivitiesOptions.applyMustDefault` で `priority='must'` 制御 | TypeScript |
-| `src/routes/(parent)/admin/packs/+page.{svelte,server.ts}` | チェックボックス + must Badge + form action 受信 | Svelte / TS |
 | `src/routes/setup/packs/+page.{svelte,server.ts}` | setup フローのチェックボックス + must Badge | Svelte / TS |
-| `src/lib/domain/labels.ts` | `PACKS_PAGE_LABELS.mustDefault*` / `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
+| `src/lib/domain/labels.ts` | `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
 
-**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/setup-marketplace-must.spec.ts` (3 シナリオ) で検証。
+**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/admin-activities-import-marketplace.spec.ts` (marketplace → `?import=` → ChildSelectionDialog の正規経路) で検証。
 
 **修正時チェック**:
 - 新しい mustDefault 候補を JSON に追加 → import-service テストで該当パターンが網羅されているか確認
-- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（admin と setup 両方）
+- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（setup / ChildSelectionDialog）
 - `priority` enum を拡張するなら `activities.priority` schema (#1755) と整合チェック
 
 #### 7c. checklist 系 marketplace の純化 (#1758)
@@ -569,7 +568,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 何を記録するか | 媒体 | 実体 | 例 |
 |---|---|---|---|
-| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
+| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
 | 子 / テナントに 1 本の一時的な未読告知 | **B: settings KV**（列追加は不可逆なので避ける） | `settings` テーブル + `export-format.ts` の分類 3 配列 | `habit_certificate_notice:<childId>` / `ui_mode_change_notice:<childId>` / `premium_welcome_shown` ほか |
 | 端末ローカルで十分な UI ガイド（機種変で再表示されてよい） | C: localStorage | 各コンポーネント / store | `ganbari-page-guide-completed` / `gq:milestone-seen:*` |
 
