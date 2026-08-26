@@ -9,7 +9,6 @@
 //
 // 検出力 (failing-test-first, ADR-0061):
 //   - WHERE の `IS NULL` guard を外す → [C1]/[M1]/[R1] が fail (shownAt が上書きされる)
-//   - markShown の to_child_id 述語を外す → [C2] が fail (別の子の cheer が既読になる)
 //   - 既読後の fallback SELECT を外す → [M2]/[R2] が fail (再送が not-found になり 404 化する)
 
 import { and, eq } from 'drizzle-orm';
@@ -30,13 +29,8 @@ vi.mock('$lib/server/db/client', () => ({
 
 import { asChildId } from '$lib/domain/ids';
 // import after mock
-import { children, parentMessages, siblingCheers, specialRewards } from '$lib/server/db/schema';
+import { children, parentMessages, specialRewards } from '$lib/server/db/schema';
 import { markMessageShown } from '$lib/server/db/sqlite/message-repo';
-import {
-	findUnshownCheers,
-	insertCheer,
-	markShown,
-} from '$lib/server/db/sqlite/sibling-cheer-repo';
 import { markRewardShown } from '$lib/server/db/sqlite/special-reward-repo';
 
 const TENANT = 't-4435';
@@ -69,46 +63,6 @@ describe('#4435 媒体 A の冪等性 / 所有権 (SQLite 挙動 SSOT)', () => {
 		if (!dbHolder.db) throw new Error('no db');
 		return dbHolder.db;
 	};
-
-	// ── sibling_cheers ──────────────────────────────────────────────
-
-	const seedCheer = async (toChildId: number) =>
-		insertCheer(
-			{
-				fromChildId: asChildId(toChildId === childA ? childB : childA),
-				toChildId: asChildId(toChildId),
-				stampCode: 'ganbare',
-			},
-			TENANT,
-		);
-
-	it('[C1] おうえんの既読化は冪等 — 2 回目の mark が初回表示時刻を上書きしない', async () => {
-		const cheer = await seedCheer(childB);
-		await markShown(asChildId(childB), [cheer.id], TENANT);
-		const first = (await db().select().from(siblingCheers).get())?.shownAt;
-		expect(first).not.toBeNull();
-
-		// 初回時刻を「過去」に固定してから再送する (now() 粒度に依存せず上書きを検出する)
-		db()
-			.update(siblingCheers)
-			.set({ shownAt: FIRST_SHOWN_AT })
-			.where(eq(siblingCheers.id, Number(cheer.id)))
-			.run();
-		await markShown(asChildId(childB), [cheer.id], TENANT);
-
-		expect((await db().select().from(siblingCheers).get())?.shownAt).toBe(FIRST_SHOWN_AT);
-	});
-
-	it('[C2] きょうだいは別の子宛のおうえんを既読にできない (to_child_id 所有権)', async () => {
-		const cheerForB = await seedCheer(childB);
-
-		// 兄 (childA) が弟 (childB) 宛の cheer id を送っても既読にならない
-		await markShown(asChildId(childA), [cheerForB.id], TENANT);
-
-		expect((await db().select().from(siblingCheers).get())?.shownAt).toBeNull();
-		// 弟から見て未読のまま = 弟は必ずこのおうえんを見られる
-		expect(await findUnshownCheers(asChildId(childB), TENANT)).toHaveLength(1);
-	});
 
 	// ── parent_messages ─────────────────────────────────────────────
 

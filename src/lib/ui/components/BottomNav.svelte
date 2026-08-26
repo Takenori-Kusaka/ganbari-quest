@@ -41,7 +41,9 @@ function isActive(href: string): boolean {
 			use:playSound={'tap'}
 			class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
 				transition-colors min-h-16
-				{isActive(item.href) ? 'text-[var(--theme-primary)] font-bold' : 'text-[var(--color-text-muted)]'}"
+				{isActive(item.href)
+					? 'text-[var(--color-text-accent-on-theme-nav)] font-bold'
+					: 'text-[var(--color-text-on-theme-nav)]'}"
 			aria-current={isActive(item.href) ? 'page' : undefined}
 			aria-label={iconOnly ? item.label : undefined}
 			data-testid="nav-{item.href.split('/').pop()}"

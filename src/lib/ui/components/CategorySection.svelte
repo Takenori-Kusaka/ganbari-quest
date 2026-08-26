@@ -159,13 +159,17 @@ function toggleExpand() {
 				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
 			</h2>
 			{#if missionCount > 0}
-				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+				<span
+					class="text-[10px] font-bold bg-orange-100 text-[var(--color-text-warning-strong)] px-1.5 py-0.5 rounded-full"
+				>
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
 			{@render challengeBadge()}
 			{#if xpInfo}
-				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<!-- #4645: カテゴリ色は利用者データ由来でコントラストを保証できない。色は左のバー /
+					XP バー (装飾) が担い、文字は AA を満たすテキスト色で描く。 -->
+				<span class="text-[10px] font-bold text-[var(--color-text-primary)]">Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 					<div
 						class="h-full rounded-full xp-bar__fill"
@@ -197,13 +201,17 @@ function toggleExpand() {
 				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
 			</h2>
 			{#if missionCount > 0}
-				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+				<span
+					class="text-[10px] font-bold bg-orange-100 text-[var(--color-text-warning-strong)] px-1.5 py-0.5 rounded-full"
+				>
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
 			{@render challengeBadge()}
 			{#if xpInfo}
-				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<!-- #4645: カテゴリ色は利用者データ由来でコントラストを保証できない。色は左のバー /
+					XP バー (装飾) が担い、文字は AA を満たすテキスト色で描く。 -->
+				<span class="text-[10px] font-bold text-[var(--color-text-primary)]">Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 					<div
 						class="h-full rounded-full xp-bar__fill"
