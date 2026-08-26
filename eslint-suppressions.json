@@ -686,7 +686,7 @@
       "count": 2
     },
     "svelte/no-navigation-without-resolve": {
-      "count": 12
+      "count": 13
     },
     "svelte/no-useless-children-snippet": {
       "count": 3
