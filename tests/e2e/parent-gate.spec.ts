@@ -10,6 +10,8 @@
 // 既存 auth.setup.ts / E2E spec を破壊しない構造的妥協 (本 EPIC + ADR-0050 §運用)。
 
 import { expect, test } from '@playwright/test';
+import { ADMIN_SCREENS } from '../../src/lib/domain/admin-screens';
+import { SWITCH_PAGE_LABELS } from '../../src/lib/domain/labels';
 import { NAV_TIMEOUT_MS } from '../../src/routes/switch/nav-timeout';
 
 const PARENT_GATE_ACTIVE = process.env.PARENT_GATE_FORCE_ACTIVE === 'true';
@@ -179,14 +181,17 @@ function registerParentGateTests(): void {
 			await expect(banner).toHaveText(/ご家族の見守り画面.*おやカギコード.*必要/);
 		});
 
-		test('AC4 (Fix 3 漢字化): /switch の「保護者の見守り画面へ」link が漢字表記である', async ({
+		test('AC4 (Fix 3 漢字化 + #4715 画面名 SSOT): /switch の見守り画面 link が漢字表記かつ着地先の画面名と一致する', async ({
 			page,
 		}) => {
 			await page.goto('/switch', { waitUntil: 'domcontentloaded' });
 			const adminLink = page.getByTestId('switch-admin-link');
 			await expect(adminLink).toBeVisible();
-			// 旧: 「🔒 おやのかんりがめん」 → 新: 「🔒 保護者の見守り画面」
-			await expect(adminLink).toContainText('保護者の見守り画面');
+			// 旧: 「🔒 おやのかんりがめん」(#2353 で漢字化) → 「🔒 保護者の見守り画面」
+			//   → #4715 で着地先 (/admin) の title / 見出しと同じ画面名 registry に一本化。
+			//   同じ画面が 3 つの名前で呼ばれる状態を作らないため、literal ではなく SSOT を参照する。
+			await expect(adminLink).toContainText(ADMIN_SCREENS.home.name);
+			await expect(adminLink).toHaveText(SWITCH_PAGE_LABELS.adminLink);
 			await expect(adminLink).not.toContainText('おやのかんりがめん');
 		});
 
