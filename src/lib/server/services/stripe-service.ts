@@ -30,6 +30,7 @@ import {
 	planIdFromPriceId,
 } from '$lib/server/stripe/config';
 import { redactPii } from '$lib/server/stripe/pii-redaction';
+import { archiveExcessResources } from './resource-archive-service';
 
 // ============================================================
 // Checkout Session
@@ -1198,7 +1199,58 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);
 
+	await archiveForDunningCancellation(subscription, tenant.tenantId);
+
 	// #4192: 解約 (subscription 消滅) の Discord 通知は持たないと決めた (#4174 Q2)。
+}
+
+/**
+ * Stripe が「支払い失敗が理由で契約を終わらせた」と言っている場合の値 (#4585-3)。
+ *
+ * `cancellation_details.reason` は `cancellation_requested` (顧客・運営の申し出) /
+ * `payment_disputed` (チャージバック) / `payment_failure` (回収不能) の 3 値。
+ * dunning (Smart Retries 枯渇) の終端はこの `payment_failure` として届く。
+ */
+const DUNNING_CANCELLATION_REASON = 'payment_failure';
+
+/**
+ * 支払い失敗で無料プランに落ちた顧客の超過リソースを archive する (#4585-3、PO 決裁 ③)。
+ *
+ * **顧客が選択画面を通れない唯一の経路**なので、fallback 規則 (解約フロー / 請求パネルと同じ
+ * `archiveExcessResources`) をここで適用し、`dunning_canceled` を刻む。顧客自身の解約は
+ * 選択 UI (#4603) を通るため本経路では扱わない。
+ *
+ * 失敗しても throw しない: ここで例外を投げると webhook が失敗扱いになり Stripe が再送する。
+ * 契約状態の書き込み (この関数の呼び出し元) は既に完了しており、archive は次に顧客が
+ * 管理画面へ来たときの経路でも冪等に成立する。
+ */
+async function archiveForDunningCancellation(
+	subscription: Stripe.Subscription,
+	tenantId: string,
+): Promise<void> {
+	if (subscription.cancellation_details?.reason !== DUNNING_CANCELLATION_REASON) return;
+
+	try {
+		const result = await archiveExcessResources(tenantId, 'dunning_canceled');
+		if (
+			result.archivedChildIds.length > 0 ||
+			result.archivedActivityIds.length > 0 ||
+			result.archivedChecklistTemplateIds.length > 0
+		) {
+			logger.info('[ARCHIVE] Dunning canceled — excess resources archived', {
+				context: {
+					tenantId,
+					children: result.archivedChildIds.length,
+					activities: result.archivedActivityIds.length,
+					checklists: result.archivedChecklistTemplateIds.length,
+				},
+			});
+		}
+	} catch (err) {
+		logger.error('[ARCHIVE] Failed to archive after dunning cancellation', {
+			context: { tenantId, error: err instanceof Error ? err.message : String(err) },
+		});
+	}
 }
 
 // ============================================================
@@ -1300,7 +1352,7 @@ type TenantContractStatePatch = Parameters<
  * (`resolveSubscriptionContext` の customer 逆引きの鍵でもあり、消すと後続 webhook が
  * tenant を解決できなくなる)。
  */
-const TERMINAL_CONTRACT_STATE = {
+export const TERMINAL_CONTRACT_STATE = {
 	stripeSubscriptionId: null,
 	plan: null,
 	status: SUBSCRIPTION_STATUS.SUSPENDED,

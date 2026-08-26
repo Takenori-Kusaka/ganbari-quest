@@ -94,8 +94,10 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
+// #4724: 退会は purgeByPrefix (全バージョン削除) を通る
 vi.mock('$lib/server/storage', () => ({
 	deleteByPrefix: vi.fn().mockResolvedValue(0),
+	purgeByPrefix: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('$lib/server/services/child-service', () => ({
