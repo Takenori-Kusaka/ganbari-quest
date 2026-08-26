@@ -1,3 +1,4 @@
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/plan-limit-service.test.ts
 // plan-limit-service ユニットテスト (#0196, #0269, #0270)
@@ -763,6 +764,41 @@ describe('plan-limit-service', () => {
 			const result = await checkFamilyMemberLimit('tenant1', 'active');
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(1);
+			expect(result.max).toBe(4);
+		});
+
+		// #4723: maxFamilyMembers は standard (4) / family (無制限) で唯一値が割れる上限。
+		// planId を渡さないと resolveFullPlanTier が有料契約を一律 standard に落とし、
+		// family 世帯が 4 人で頭打ちになる (下の "blocked at exactly 4/4" と同じ入力で結果が割れる)。
+		it('#4723 family plan (cognito): planId を渡すと無制限になる', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'u1', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+				{ userId: 'u2', tenantId: 'tenant1', role: 'parent', joinedAt: new Date().toISOString() },
+				{ userId: 'u3', tenantId: 'tenant1', role: 'child', joinedAt: new Date().toISOString() },
+				{ userId: 'u4', tenantId: 'tenant1', role: 'child', joinedAt: new Date().toISOString() },
+			]);
+
+			const result = await checkFamilyMemberLimit('tenant1', 'active', {
+				planId: SUBSCRIPTION_PLAN.FAMILY_MONTHLY,
+			});
+
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+		});
+
+		// planId が standard 系なら従来どおり 4 人上限 (family 判定が広がりすぎないこと)
+		it('#4723 standard plan (cognito): planId を渡しても上限は 4 のまま', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'u1', tenantId: 'tenant1', role: 'owner', joinedAt: new Date().toISOString() },
+			]);
+
+			const result = await checkFamilyMemberLimit('tenant1', 'active', {
+				planId: SUBSCRIPTION_PLAN.MONTHLY,
+			});
+
+			expect(result.allowed).toBe(true);
 			expect(result.max).toBe(4);
 		});
 

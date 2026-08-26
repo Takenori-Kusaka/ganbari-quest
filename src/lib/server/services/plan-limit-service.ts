@@ -315,13 +315,19 @@ export async function checkChecklistTemplateLimit(
  *   最初に受諾した人以外は全員が受諾時に弾かれる（発行者には成功に見える）。
  * - **招待の受諾時** (既定): 既存メンバーのみ。受諾しようとしている招待自身を
  *   予約として二重に数えないため。
+ *
+ * #4723: `planId` (= `locals.context?.plan` / `tenants.plan`) は **本チェックでは必須**。
+ * `maxFamilyMembers` は standard (4) と family (null = 無制限) で唯一値が割れる上限であり、
+ * `resolveFullPlanTier` は planId が無いと有料契約を一律 standard に落とす。渡し忘れると
+ * family 世帯が 4 人で頭打ちになる (他の check*Limit は standard / family とも null のため
+ * 影響が出ず、この引数を持たない)。
  */
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
-	opts: { countPendingInvites?: boolean } = {},
+	opts: { countPendingInvites?: boolean; planId?: string } = {},
 ): Promise<{ allowed: boolean; current: number; max: number | null }> {
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus, opts.planId));
 	if (limits.maxFamilyMembers === null) {
 		return { allowed: true, current: 0, max: null };
 	}
