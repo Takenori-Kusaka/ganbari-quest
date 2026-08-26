@@ -37,6 +37,10 @@ export function deriveTenantEntitlement(tenant: Tenant | undefined): TenantEntit
 		licenseStatus,
 		tenantStatus: tenant?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
 		plan: tenant?.plan,
+		// #4585-2: `status` 単独では S4 停止 (契約が残る) と S5 契約終了 (解約確定) を区別できない
+		// (contract-state-matrix §4)。区別できないと「解約したのか、支払いが止まっているだけか」で
+		// 挙動を変えられないため、既に読んでいる同じ行から契約の有無も持ち回る (追加クエリなし)。
+		stripeSubscriptionId: tenant?.stripeSubscriptionId ?? null,
 	};
 }
 

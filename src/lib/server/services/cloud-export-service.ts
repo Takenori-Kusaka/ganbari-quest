@@ -433,9 +433,11 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
 	const record = await repos.cloudExport.findById(id, tenantId);
 	if (!record) throw new Error('エクスポートが見つかりません');
 
-	// S3からも削除
+	// S3 からも削除。**全バージョンごと消す** (#4724) — この ZIP は子供名・アバター・音声を含む
+	// 完全 PII で、delete marker を立てるだけだと非現行バージョンが lifecycle の 30 日まで残る
+	// (#3868 が塞いだ「PII が滞留する」の再発)。顧客が明示的に消したものは戻せなくてよい。
 	try {
-		await repos.storage.deleteByPrefix(record.s3Key);
+		await repos.storage.purgeByPrefix(record.s3Key);
 	} catch {
 		// S3削除失敗はログのみ（DB側は削除する）
 		logger.warn('[cloud-export] S3削除失敗', { context: { s3Key: record.s3Key } });
