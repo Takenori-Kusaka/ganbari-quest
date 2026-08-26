@@ -1266,7 +1266,7 @@
 		"heroSpecBadges": {
 			"ageRange": "3〜18 歳",
 			"ageRangeSuffix": "対応",
-			"presetCount": "300+",
+			"presetCount": "120+",
 			"presetSuffix": "プリセット活動 の候補",
 			"setupTime": "約 5 分",
 			"setupSuffix": "で初期設定"
