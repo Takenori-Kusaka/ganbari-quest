@@ -4,7 +4,6 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -71,6 +70,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
 		getSettings(
 			[
@@ -82,7 +82,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 			],
 			tenantId,
 		),
-		getTrialStatus(tenantId),
+		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
+		getTrialStatus(tenantId, licenseStatus),
 	]);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
@@ -93,11 +94,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
-	const planTier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
@@ -188,22 +185,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
-	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
-	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
-	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
-	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
-	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError = rawInviteAcceptError ? rawInviteAcceptError : null;
-	if (rawInviteAcceptError) {
-		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
-	}
-
 	return {
 		pointSettings,
 		authMode,
-		// #3555 ①: 招待受諾失敗の 1 回限り案内 (admin +layout.svelte がバナー表示に使う)
-		inviteAcceptError,
 		// parent-gate inactivity redirect (client): PIN gate 有効時のみ admin で
 		// 15 分アイドル → /switch 自動リダイレクトを起動する (dev/demo では起動しない)
 		pinGateActive,

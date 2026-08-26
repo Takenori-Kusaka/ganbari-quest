@@ -53,12 +53,25 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		? await reconcileCheckoutSession({ tenantId, sessionId })
 		: null;
 
+	// #3958: `locals.context` は hooks.server.ts が load 前に解決した値なので、本 request 内で
+	// reconcile が契約を反映した場合は古い (無料プランのまま)。反映したときだけ DB から
+	// 引き直す (reconcile 側が request キャッシュを破棄済みなので最新値が返る)。
+	// #4707: トライアル状態の射影 (有料契約中はトライアル中扱いしない) にも同じ entitlement を使うため、
+	// trialStatus の取得より前に解決する。
+	const entitlement =
+		checkoutReconciliation?.status === 'applied'
+			? await resolveTenantEntitlement(tenantId)
+			: {
+					licenseStatus: locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+					plan: locals.context?.plan,
+				};
+
 	const [license, loyaltyInfo, children, trialStatus, pinConfigured, cancellation] =
 		await Promise.all([
 			getLicenseInfo(tenantId),
 			getLoyaltyInfo(tenantId).catch(() => null),
 			getAllChildren(tenantId),
-			getTrialStatus(tenantId),
+			getTrialStatus(tenantId, entitlement.licenseStatus),
 			isPinConfigured(tenantId),
 			// #3991: 「解約申請中か」「いつまで使えるか」の SSOT は Stripe の subscription (NFR-2)。
 			// DB に猶予期限を持たせると `grace_period` (dunning) と再び多重定義になる (#3986) ため、
@@ -68,16 +81,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		]);
 
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
-	// #3958: `locals.context` は hooks.server.ts が load 前に解決した値なので、本 request 内で
-	// reconcile が契約を反映した場合は古い (無料プランのまま)。反映したときだけ DB から
-	// 引き直す (reconcile 側が request キャッシュを破棄済みなので最新値が返る)。
-	const entitlement =
-		checkoutReconciliation?.status === 'applied'
-			? await resolveTenantEntitlement(tenantId)
-			: {
-					licenseStatus: locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-					plan: locals.context?.plan,
-				};
 	const tier = await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan);
 	const planLimits = getPlanLimits(tier);
 	let activityCount = 0;

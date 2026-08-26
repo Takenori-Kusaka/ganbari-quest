@@ -47,6 +47,7 @@ function collectSourceFiles(dir: string, acc: string[] = []): string[] {
 const ACTIVE: TrialStatus = {
 	isTrialActive: true,
 	trialUsed: true,
+	convertedToPaid: false,
 	trialStartDate: '2026-08-01',
 	trialEndDate: '2026-08-08',
 	trialTier: 'standard',
@@ -90,6 +91,7 @@ describe('#4628 TrialStatus — 不正な状態 (isTrialActive:true + trialEndDa
 		const notStarted: TrialStatus = {
 			isTrialActive: false,
 			trialUsed: false,
+			convertedToPaid: false,
 			trialStartDate: null,
 			trialEndDate: null,
 			trialTier: null,
@@ -139,6 +141,7 @@ describe('#4628 client への射影は相関を保つ', () => {
 		const view = toTrialStatusView({
 			isTrialActive: false,
 			trialUsed: true,
+			convertedToPaid: false,
 			trialStartDate: '2026-07-01',
 			trialEndDate: '2026-07-08',
 			trialTier: 'family',

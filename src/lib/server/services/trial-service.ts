@@ -2,7 +2,9 @@
 // トライアル管理サービス (#314 リファクタ)
 // trial_history テーブルベースに移行。settings の trial_* は後方互換用に読み取りのみ。
 
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { addDaysJST, toJSTDateString } from '$lib/domain/date-utils';
+import { isTrialEndDateActiveJST, trialDaysRemainingJST } from '$lib/domain/trial-period';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugTrialOverride } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
@@ -44,6 +46,8 @@ export type TrialStatus =
 			trialTier: TrialTier;
 			daysRemaining: number;
 			source: TrialSource;
+			/** #4707: 本契約へ移行済みのトライアルは active になり得ない */
+			convertedToPaid: false;
 	  }
 	| {
 			isTrialActive: false;
@@ -53,6 +57,12 @@ export type TrialStatus =
 			trialTier: TrialTier | null;
 			daysRemaining: number;
 			source: TrialSource | null;
+			/**
+			 * #4707: トライアル中 (または終了後) に本契約へ移行済み (trial_history.stripe_subscription_id あり)。
+			 * 移行済みのトライアルは end_date に関わらず「終了」扱い — 払った直後に
+			 * 「トライアル中 / 本契約が必要です」と出さないため。
+			 */
+			convertedToPaid: boolean;
 	  };
 
 /**
@@ -100,6 +110,12 @@ export function toTrialStatusView(status: TrialStatus): TrialStatusView {
 
 export type UpgradeReason = 'auto' | 'manual' | 'email_cta';
 
+export interface EndTrialOnConversionInput {
+	tenantId: string;
+	stripeSubscriptionId: string;
+	upgradeReason: UpgradeReason;
+}
+
 export interface StartTrialInput {
 	tenantId: string;
 	source: TrialSource;
@@ -117,15 +133,35 @@ export interface StartTrialInput {
  * トライアル開始/終了など状態が変わる操作の直後は `invalidateRequestCaches` が
  * キャッシュを破棄するため、リクエスト内で stale な値を返すことはない。
  */
-export async function getTrialStatus(tenantId: string): Promise<TrialStatus> {
+export async function getTrialStatus(
+	tenantId: string,
+	licenseStatus?: string | null,
+): Promise<TrialStatus> {
 	// #788: リクエストスコープのキャッシュを優先
 	const ctx = getRequestContext();
 	const cached = ctx?.trialStatusCache.get(tenantId);
-	if (cached) return cached;
+	if (cached) return applyLicenseToTrialStatus(cached, licenseStatus);
 
 	const status = await computeTrialStatus(tenantId);
 	ctx?.trialStatusCache.set(tenantId, status);
-	return status;
+	return applyLicenseToTrialStatus(status, licenseStatus);
+}
+
+/**
+ * #4707: licenseStatus=ACTIVE (有料契約中) のテナントはトライアル「中」ではない。
+ *
+ * トライアル行の終了 (`endTrialOnConversion`) と独立した第 2 防御。webhook 未達 / 旧データで
+ * trial_history が閉じていなくても、契約が生きていれば UI (ヘッダー pill / PlanStatusCard) と
+ * 終了予告メールの両方でトライアル表示・通知を出さない。`trialUsed` は保持する
+ * (再開不可判定に使う)。licenseStatus 未指定 (null / undefined) なら素の状態を返す。
+ */
+export function applyLicenseToTrialStatus(
+	status: TrialStatus,
+	licenseStatus?: string | null,
+): TrialStatus {
+	if (licenseStatus !== AUTH_LICENSE_STATUS.ACTIVE) return status;
+	if (!status.isTrialActive) return status;
+	return { ...status, isTrialActive: false, daysRemaining: 0 };
 }
 
 /**
@@ -151,6 +187,7 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 				trialTier: debugOverride.tier,
 				daysRemaining,
 				source: 'admin_grant',
+				convertedToPaid: false,
 			};
 		}
 		// #783: expired は trialUsed=true、not-started は trialUsed=false
@@ -162,6 +199,7 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 			trialTier: null,
 			daysRemaining: 0,
 			source: null,
+			convertedToPaid: false,
 		};
 	}
 
@@ -176,14 +214,14 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 			trialTier: null,
 			daysRemaining: 0,
 			source: null,
+			convertedToPaid: false,
 		};
 	}
 
-	const now = new Date();
-	const todayStr = toJSTDateString(now);
-	const todayDate = new Date(`${todayStr}T00:00:00Z`);
-	const endDate = new Date(`${latest.endDate}T00:00:00Z`);
-	const isActive = endDate >= todayDate;
+	// #4707: 本契約へ移行済み (stripe_subscription_id あり) のトライアルは end_date に関わらず終了。
+	// 有効期間は JST 暦日で end_date 当日いっぱい (tier 判定 resolvePlanTier と同じ述語)。
+	const convertedToPaid = latest.stripeSubscriptionId != null;
+	const isActive = !convertedToPaid && isTrialEndDateActiveJST(latest.endDate);
 
 	// #4628: active / inactive で戻り値の型が変わる (active は期間・ティアが必ず具体値)。
 	if (isActive) {
@@ -193,8 +231,9 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 			trialStartDate: latest.startDate,
 			trialEndDate: latest.endDate,
 			trialTier: latest.tier as TrialTier,
-			daysRemaining: Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)),
+			daysRemaining: trialDaysRemainingJST(latest.endDate),
 			source: latest.source as TrialSource,
+			convertedToPaid: false,
 		};
 	}
 
@@ -206,6 +245,7 @@ async function computeTrialStatus(tenantId: string): Promise<TrialStatus> {
 		trialTier: latest.tier as TrialTier,
 		daysRemaining: 0,
 		source: latest.source as TrialSource,
+		convertedToPaid,
 	};
 }
 
@@ -259,6 +299,50 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 	invalidateRequestCaches(tenantId);
 
 	logger.info('Trial started', { context: { tenantId, startStr, endStr, tier, source } });
+	return true;
+}
+
+/**
+ * #4707: 有料契約 (Stripe subscription) が確定したとき、当該テナントのトライアルを本契約へ移行済みとして閉じる。
+ *
+ * - 最新トライアル行に `stripe_subscription_id` / `upgrade_reason` を記録する (移行済みの印)
+ * - トライアルがまだ有効 (JST 暦日で end_date ≥ 今日) なら `end_date` を今日に詰める
+ *   (終了済みなら end_date は触らない — 過去の終了日を今日に延ばさない)
+ * - 既に同じ subscription で移行済み / トライアル履歴なし → 何もしない (冪等)
+ *
+ * 呼び手: `stripe-service` W1 (`checkout.session.completed` / reconcile) と W2 (`invoice.paid`)。
+ * 表示 / 通知側は `applyLicenseToTrialStatus` が第 2 防御として同じ結論を出す。
+ *
+ * @returns 書き込みを行ったら true
+ */
+export async function endTrialOnConversion(input: EndTrialOnConversionInput): Promise<boolean> {
+	const { tenantId, stripeSubscriptionId, upgradeReason } = input;
+	const repo = getRepos().trialHistory;
+	const latest = await repo.findLatestByTenant(tenantId);
+	if (!latest) return false;
+	if (latest.stripeSubscriptionId === stripeSubscriptionId) return false;
+
+	const todayStr = toJSTDateString(new Date());
+	const stillActive = isTrialEndDateActiveJST(latest.endDate);
+	await repo.updateConversion({
+		id: latest.id,
+		tenantId,
+		stripeSubscriptionId,
+		upgradeReason,
+		...(stillActive ? { endDate: todayStr } : {}),
+	});
+	invalidateRequestCaches(tenantId);
+
+	logger.info('Trial closed on paid conversion', {
+		context: {
+			tenantId,
+			trialId: latest.id,
+			stripeSubscriptionId,
+			upgradeReason,
+			endDate: stillActive ? todayStr : latest.endDate,
+			wasActive: stillActive,
+		},
+	});
 	return true;
 }
 
