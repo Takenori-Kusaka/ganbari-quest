@@ -69,20 +69,25 @@ export const REFRESH_COOKIE_NAME = 'gq_refresh';
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
 /**
- * #3555 ①: 招待受諾が拒否されたことを受諾後の画面 (admin layout) に伝える 1 回限りの通知 cookie。
- * 受諾失敗 → 新規テナント自動作成で顧客が理由不明の dead-end になるのを防ぐ。
+ * 招待コード cookie の寿命 = 招待そのものの有効期限 (#4636)。
  *
- * #4633 AC-A: 通知対象は email 束縛の 2 理由だけではない。受諾拒否は **すべて**
- * 「無音で新しい家族グループの owner になる」に化けるため、`acceptInvite` が返しうる
- * 全 error 理由を本 cookie に載せる (未知の値も汎用文言でバナー表示する)。
+ * 旧実装は 10 分だった。リンクを踏んでからメール確認コードを入れてサインアップを終えるまでに
+ * 10 分以上かかる (メール到着待ち / 子供の世話で中断) のは普通に起きるため、cookie だけが先に
+ * 消えて「招待を踏んだのに招待なしの初回ログイン」に化け、新規家族グループが作られていた
+ * (#4636 PO 追記で特定された主要な発生源)。招待自体の期限を超えて有効にはならないため、
+ * 期限切れ招待が cookie 経由で復活することはない (`getInvite` が expired を弾く)。
  */
-export const INVITE_ACCEPT_ERROR_COOKIE_NAME = 'invite_accept_error';
-export const INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS = 10 * 60;
+export const INVITE_COOKIE_MAX_AGE_SECONDS = INVITE_EXPIRY_DAYS * SECONDS_PER_DAY;
 
 /**
- * #4633 AC-A: 通知 cookie に載る受諾拒否理由の SSOT。
+ * 招待受諾が拒否された理由の SSOT (#3555 ① / #4633 AC-A / #4636)。
  * `acceptInvite` (invite-service.ts) が返す error 文字列と 1:1 で対応する。
- * 新しい拒否理由を追加したら、本配列と `INVITE_ACCEPT_ERROR_BANNERS` (labels.ts) を同時に足す。
+ * 新しい拒否理由を追加したら、本配列と `INVITE_JOIN_BLOCKED_MESSAGES` (labels.ts) を同時に足す。
+ *
+ * #4636: 理由の伝達手段は 1 回限りの通知 cookie ではなく `/auth/join` 画面になった
+ * (cookie の TTL が切れると理由が永久に失われる / 一度表示したら二度と出ない、という
+ * 「理由が cookie の寿命に依存する」構造を廃止した)。画面は招待 cookie から理由を
+ * その都度再導出するため、リロードでもブックマークからの再訪でも同じ理由が出る。
  */
 export const INVITE_ACCEPT_ERROR_REASONS = [
 	'INVITE_EMAIL_MISMATCH',
@@ -97,7 +102,7 @@ export const INVITE_ACCEPT_ERROR_REASONS = [
 export type InviteAcceptErrorReason = (typeof INVITE_ACCEPT_ERROR_REASONS)[number];
 
 /**
- * cookie 値が既知の拒否理由かを判定する。未知の値 (古い cookie / 改竄) は
+ * 値が既知の拒否理由かを判定する。未知の値 (将来の理由 / 想定外) は
  * 呼び出し側で汎用文言にフォールバックさせる。
  */
 export function isInviteAcceptErrorReason(

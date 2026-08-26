@@ -103,6 +103,38 @@ let cloudExportType = $state<'template' | 'full'>('template');
 let cloudImportPin = $state('');
 let cloudImportLoading = $state(false);
 let cloudImportError = $state('');
+// #4717: server の error 種別 (ADR-0062 severity × action) をそのまま案内に反映する。
+// 「準備中 (待てば解決)」を warning + 「入力を直して」と表示すると、待つべき場面で
+// 顧客が PIN を疑って入力し直す (誤った回復行動を促す)。
+type CloudImportErrorKind = {
+	severity: 'info' | 'warning' | 'error';
+	action: 'retry' | 'fix_input' | 'contact_admin' | 'none';
+};
+const DEFAULT_CLOUD_IMPORT_ERROR_KIND: CloudImportErrorKind = {
+	severity: 'warning',
+	action: 'fix_input',
+};
+let cloudImportErrorKind = $state<CloudImportErrorKind>(DEFAULT_CLOUD_IMPORT_ERROR_KIND);
+
+/** server の error body から severity / action を取り出す (無ければ既定)。 */
+function resolveCloudImportErrorKind(errorBody: unknown): CloudImportErrorKind {
+	const e = errorBody as { severity?: unknown; action?: unknown } | null | undefined;
+	const severity = e?.severity;
+	const action = e?.action;
+	return {
+		severity:
+			severity === 'info' || severity === 'warning' || severity === 'error'
+				? severity
+				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.severity,
+		action:
+			action === 'retry' ||
+			action === 'fix_input' ||
+			action === 'contact_admin' ||
+			action === 'none'
+				? action
+				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.action,
+	};
+}
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
@@ -382,6 +414,7 @@ async function handleCloudImportPreview() {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
 			return;
 		}
 		cloudImportPreview = d.preview;
@@ -426,6 +459,7 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
 			return;
 		}
 		cloudImportResult = d.result;
@@ -455,6 +489,7 @@ function resetCloudImport() {
 	cloudImportPreview = null;
 	cloudImportResult = null;
 	cloudImportError = '';
+	cloudImportErrorKind = DEFAULT_CLOUD_IMPORT_ERROR_KIND;
 	cloudImportStep = 'input';
 	childSelectionOpen = false;
 }
@@ -1148,8 +1183,8 @@ const canConfirmClear = $derived(
 						{#if cloudImportError}
 							<ErrorAlert
 								message={cloudImportError}
-								severity="warning"
-								action="fix_input"
+								severity={cloudImportErrorKind.severity}
+								action={cloudImportErrorKind.action}
 							/>
 						{/if}
 
@@ -1333,11 +1368,9 @@ const canConfirmClear = $derived(
 						</li>
 						<li>{SETTINGS_LABELS.dataImportPreviewStatuses(data.dataSummary.statuses)}</li>
 						<li>
-							{SETTINGS_LABELS.dataImportPreviewAchievements(data.dataSummary.achievements)}
+							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginStreaks)}
 						</li>
-						<li>
-							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginBonuses)}
-						</li>
+						<li>{SETTINGS_LABELS.dataImportPreviewVoices(data.dataSummary.voices)}</li>
 						<li>
 							{SETTINGS_LABELS.dataImportPreviewChecklists(
 								data.dataSummary.checklistTemplates,

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import {
 	APP_LABELS,
 	formatAge,
@@ -138,12 +139,23 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 <!-- #2821: 離脱先を / でなく /switch に固定。/ は子供 1 人だと child home に自動 redirect され -->
 <!-- 親向けの SetupResumeBanner が見えず AC1 の first-view 視認が壊れる。/switch は親向けの子供選択 -->
 <!-- 画面で、残りの初期設定 step を案内する resume バナーを先頭に出す。詳細は SetupResumeBanner.svelte。 -->
-<div class="mt-4 text-center">
-	<a
-		href="/switch"
-		class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
-		data-testid="setup-skip-link"
-	>{SETUP_CHILDREN_LABELS.backToHome}</a>
+<div class="mt-4 text-center space-y-2">
+	<!-- #4696: 全削除の直後もここに来る (子供 0 人 = セットアップ必須)。バックアップを持っている人が -->
+	<!-- ダミーの子供を作らずに戻せるよう、復元画面への導線を出す。 -->
+	<p>
+		<a
+			href={resolve('/admin/settings/data')}
+			class="text-sm text-[var(--color-text-link)] underline"
+			data-testid="setup-restore-link"
+		>{SETUP_CHILDREN_LABELS.restoreFromBackup}</a>
+	</p>
+	<p>
+		<a
+			href={resolve('/switch')}
+			class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
+			data-testid="setup-skip-link"
+		>{SETUP_CHILDREN_LABELS.backToHome}</a>
+	</p>
 </div>
 
 <style>

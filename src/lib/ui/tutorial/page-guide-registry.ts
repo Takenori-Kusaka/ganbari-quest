@@ -54,9 +54,8 @@ const GUIDE_LOADERS: Record<
 	// #3314: bracket path は dynamic import が build で解決できないため static import 済の
 	// 定数を Promise でラップして返す（loader interface は維持、確実に bundle される）。
 	'/marketplace/[type]/[itemId]': () => Promise.resolve({ MARKETPLACE_DETAIL_GUIDE }),
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'/admin/members': () => import('../../../routes/(parent)/admin/members/_guide'),
-	'/admin/packs': () => import('../../../routes/(parent)/admin/packs/_guide'),
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ。getPageGuide は最具体一致が先に効くため
 	// /admin/rewards/requests は親 /admin/rewards より本ガイドが優先される。
 	'/admin/certificates': () => import('../../../routes/(parent)/admin/certificates/_guide'),
@@ -108,9 +107,8 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/marketplace': 'MARKETPLACE_GUIDE',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'/marketplace/[type]/[itemId]': 'MARKETPLACE_DETAIL_GUIDE',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'/admin/members': 'MEMBERS_GUIDE',
-	'/admin/packs': 'PACKS_GUIDE',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'/admin/certificates': 'CERTIFICATES_GUIDE',
 	'/admin/growth-book': 'GROWTH_BOOK_GUIDE',
@@ -352,9 +350,8 @@ export const ALL_PAGE_IDS = [
 	'marketplace',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'marketplace-detail',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'admin-members',
-	'admin-packs',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'admin-certificates',
 	'admin-growth-book',

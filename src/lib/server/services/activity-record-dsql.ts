@@ -28,9 +28,9 @@ import {
 	MASTERY_MILESTONE_LEVELS,
 } from '$lib/domain/validation/activity';
 import { calcLevelFromXp } from '$lib/domain/validation/status';
-import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
 import { runOptionalWrite } from '$lib/server/db/dsql/optional-write-guard';
 import { recordActivityCore } from '$lib/server/db/dsql/record-activity-core';
+import { getPgTransactionRunner } from '$lib/server/db/factory';
 import type { RecordActivityResult, XpGainInfo } from '$lib/server/services/activity-log-service';
 import {
 	type PreparedActivityRecord,
@@ -45,8 +45,9 @@ import type { LevelUpInfo } from '$lib/server/services/status-service';
 const STATUS_MAX_VALUE = 100000;
 
 /**
- * DATA_SOURCE=dsql の活動記録。error 契約 (ALREADY_RECORDED / DAILY_LIMIT_REACHED /
+ * pg 系 backend (DATA_SOURCE=dsql / pglite) の活動記録。error 契約 (ALREADY_RECORDED / DAILY_LIMIT_REACHED /
  * NOT_FOUND) と RecordActivityResult shape は sqlite 経路と同一 (frontend 契約不変)。
+ * txn runner は factory から注入される (#4720: dsql/connection 直 import だと NUC PGlite で DSQL pool を開く)。
  */
 export async function recordActivityDsql(
 	childId: ChildId,
@@ -64,7 +65,7 @@ export async function recordActivityDsql(
 
 	// 2. core 5 行の単一 txn (冪等性の正 = txn 内 re-read、§8)
 	const now = new Date().toISOString();
-	const core = await recordActivityCore(getDsqlTransactionRunner(), {
+	const core = await recordActivityCore(getPgTransactionRunner(), {
 		familyId: tenantId,
 		childId: String(childId),
 		activityId: String(activityId),
