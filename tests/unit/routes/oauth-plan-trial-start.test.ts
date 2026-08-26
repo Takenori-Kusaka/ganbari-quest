@@ -26,6 +26,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 vi.mock('$lib/server/services/trial-service', () => ({
 	startTrial: mockStartTrial,
+	// #4501: tier は呼び出し側が選ばず、この定数で固定される (FR-2 premium 固定)。
+	// 'family' は DB / 内部 tier コードに残る旧名で、顧客向け表示名が 'premium'。
+	TRIAL_TIER: 'family',
 }));
 
 const { GET: googleStartGET } = await import('../../../src/routes/auth/oauth/google/+server');
@@ -66,10 +69,14 @@ beforeEach(() => {
 });
 
 describe('GET /auth/oauth/google — ?plan= の受け渡し (#4702)', () => {
+	// #4501: cookie には parseSignupPlanParam の**正規化後**の値が入る
+	// (旧 alias 'family' は 'premium' に寄せられる)。生値をそのまま保存すると
+	// trial-start 側が二重に値域を持つことになるため、ここで正規化を固定する。
 	it.each([
-		'standard',
-		'family',
-	])('有効な plan=%s は oauth_plan cookie に保存される', async (plan) => {
+		['standard', 'standard'],
+		['premium', 'premium'],
+		['family', 'premium'],
+	])('有効な plan=%s は oauth_plan cookie に %s として保存される', async (plan, stored) => {
 		const { cookies, jar } = makeCookieJar();
 		await getRedirectLocation(() =>
 			googleStartGET({
@@ -77,7 +84,7 @@ describe('GET /auth/oauth/google — ?plan= の受け渡し (#4702)', () => {
 				url: new URL(`http://localhost/auth/oauth/google?plan=${plan}`),
 			} as never),
 		);
-		expect(jar.get('oauth_plan')).toBe(plan);
+		expect(jar.get('oauth_plan')).toBe(stored);
 	});
 
 	it('無効な plan (free / 空) は保存しない', async () => {
@@ -135,10 +142,13 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 	}
 
 	it('plan cookie + テナントありで startTrial を呼び、着地先へ redirect する', async () => {
-		const jar = makeCookieJar({ oauth_plan: 'family' });
+		// cookie には google route が書いた正規化後の値が入る (#4501)
+		const jar = makeCookieJar({ oauth_plan: 'premium' });
 		const location = await getRedirectLocation(() =>
 			trialStartGET(makeEvent(jar, { next: '/admin/subscription' })),
 		);
+		// tier は cookie の plan ではなく TRIAL_TIER 固定 (#4501 FR-2)。
+		// 'family' は premium の内部 tier コード。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 't-1',
 			source: 'user_initiated',
