@@ -205,6 +205,8 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 
 Dynamo は GSI 回避で持たざるを得なかった read-model。DSQL では **compute-on-read + index を既定**（`activity_logs`/`checklist_logs`/`statuses` から集計）。実 DPU を計測し、ホーム/レポートで恒常的に重ければマテビュー化（更新は集計元 txn 内 or バッチ、乖離しない形）。**まず廃止して実クエリ化を試す**。
 
+**summary に無い値は consumer が realtime 補完する (#4719)**: compute-on-read summary (`dsql/report-daily-summary-repo.ts`) は活動数 / カテゴリ内訳 / streak は導出できるが、`level` (当日 snapshot) は再現できず既定 1 を返す。`report-service` (ホーム簡易サマリー / 月次レポート) は **表示レベル・累計ポイントを常に `statuses` から realtime 導出**し、summary の `level` / `totalPoints` を UI に出さない (sqlite / pg-core 共通。summary 経路に乗ると「レベル 1」になる #4680 class の根治)。
+
 ## §8 recordActivity の原子化（最大の質的改善、grounded + spike#4 実機確証）
 
 現行は 5+ 表を **txn 無し・逐次 await・例外握り潰し**（`activity-log-service.ts:340/356/372/395/422`）で書き、部分コミット（point 入ったが status 未更新等）が起きる。DynamoDB 本番も非原子。DSQL 移管で初めて原子性を入れる。

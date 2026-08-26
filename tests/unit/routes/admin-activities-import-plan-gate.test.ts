@@ -60,6 +60,7 @@ vi.mock('$lib/server/services/activity-service', () => ({
 	deleteActivityWithCleanup: vi.fn(),
 	getActivities: vi.fn(async () => []),
 	getActivityLogCounts: vi.fn(async () => ({})),
+	getChildActivities: vi.fn(async () => []),
 	getMainQuestCount: vi.fn(async () => 0),
 	hasActivityLogs: vi.fn(async () => false),
 	MAIN_QUEST_MAX: 3,
