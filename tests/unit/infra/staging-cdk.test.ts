@@ -237,15 +237,16 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-cron-dispatcher',
 			});
-			// CRON_JOBS 9 本 (compute-stack.ts CRON_JOBS SSOT。#3805 で analytics-aggregator-daily /
+			// CRON_JOBS 10 本 (compute-stack.ts CRON_JOBS SSOT。#3805 で analytics-aggregator-daily /
 			// challenge-aggregator-daily の DynamoDB 事前集計 cron 2 本を撤去し 7→5 本、
 			// #3959 で stripe-webhook-delivery-check を追加し 5→6 本、#4033 AC3-AC5 で
 			// registry にありながら Rule が無かった age-recalc / grace-period-deletion を追加し 6→8 本、
 			// #2399 で deletion-warning-emails を追加し 8→9 本、
 			// **第 21 回統合 (#4304) で grace-period-deletion を revert し 9→8 本**
 			// — 復活条件は compute-stack.ts CRON_JOBS のコメント参照 (#4327)、
-			// #4682 F3 で expire-redemptions を追加し 8→9 本 (status 遷移のみで冪等、破壊的操作なし))
-			prodCompute.resourceCountIs('AWS::Events::Rule', 9);
+			// #4706 で notification-delivery (通知 / 週次レポート配信) を追加し 8→9 本、
+			// #4682 F3 で expire-redemptions を追加し 9→10 本 (status 遷移のみで冪等、破壊的操作なし))
+			prodCompute.resourceCountIs('AWS::Events::Rule', 10);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
 			// #3939: L2 化で物理名は固定しない (CFN 自動命名)。固定名に戻すと旧→新置換が
 			// 同名衝突で CFN fail する class が再発するため absent を固定する。
@@ -497,14 +498,21 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 				Properties: { Environment?: { Variables?: Record<string, unknown> } };
 			};
 			const envVars = fnDef.Properties.Environment?.Variables ?? {};
-			expect(envVars.BEDROCK_MODEL_ID).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+			// #4726: base model ID は on-demand で呼べない (ValidationException) ため US profile を配る
+			expect(envVars.BEDROCK_MODEL_ID).toBe('us.anthropic.claude-haiku-4-5-20251001-v1:0');
 			expect(envVars.BEDROCK_REGION).toBe('us-east-1');
 
 			const serialized = JSON.stringify(stagingCompute.findResources('AWS::IAM::Policy'));
 			expect(serialized).toContain('bedrock:InvokeModel');
+			// profile ARN + member 3 リージョンの foundation-model ARN (profile 経由は両方要求する)
 			expect(serialized).toContain(
-				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+				'arn:aws:bedrock:us-east-1:000000000000:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0',
 			);
+			for (const region of ['us-east-1', 'us-east-2', 'us-west-2']) {
+				expect(serialized).toContain(
+					`arn:aws:bedrock:${region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`,
+				);
+			}
 		});
 
 		it('staging synth は cronSecret / opsSecretKey 無しで throw しない (#1586 guard の分岐内移動)', () => {

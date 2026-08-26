@@ -78,11 +78,17 @@ export function isBrowseableMarketplaceType(typeCode: string): boolean {
  * @property dedupMode       重複検知モード (#3168)。現状 reward-set restore のみが解釈する。
  *                           `'content'` = sourcePresetId 非依存で (title+points) 照合 = 冪等復元。
  *                           省略時は各 Strategy の既定 (reward-set は `'preset-scope'`、#1254 G1)。
+ * @property presetName      #4711: preset の表示名 (marketplace item.name)。保存先に表示名を
+ *                           持つ Strategy (rule-preset bonus の settings KVS 等) が使う。
+ *                           generic 経路 (`dispatchImport`) は displayName から補完する。
+ * @property presetIcon      #4711: preset の icon (marketplace item.icon)。同上。
  */
 export interface ImportContext {
 	tenantId: string;
 	dryRun?: boolean;
 	presetId?: string;
+	presetName?: string;
+	presetIcon?: string;
 	childId?: ChildId;
 	childIds?: readonly ChildId[];
 	applyMustDefault?: boolean;
