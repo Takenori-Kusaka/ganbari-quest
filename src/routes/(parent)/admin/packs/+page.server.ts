@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
 import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
@@ -93,11 +94,23 @@ export const actions: Actions = {
 			return { success: true, imported: 0, message: 'すべての活動は登録済みです' };
 		}
 
+		// #4692: 取込先 child を明示する (service の first-child silent fallback は撤去済)。
+		// 本画面は child を選ばせない「家族向けパック一括導入」画面なので家族全員に配信する。
+		const targetChildren = await getAllChildren(tenantId);
+		if (targetChildren.length === 0) {
+			return fail(400, { error: ADMIN_CHILD_SCOPE_LABELS.noChildrenTitle });
+		}
+
 		await dispatchImport({
 			typeCode: 'activity-pack',
 			rawPayload: source.payload,
 			displayName: source.displayName,
-			ctx: { tenantId, presetId: packId, applyMustDefault },
+			ctx: {
+				tenantId,
+				presetId: packId,
+				applyMustDefault,
+				childIds: targetChildren.map((c) => c.id),
+			},
 		});
 		redirect(302, '/admin/packs');
 	},
