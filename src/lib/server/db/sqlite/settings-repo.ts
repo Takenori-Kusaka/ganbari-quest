@@ -1,6 +1,14 @@
 import { eq, inArray, notInArray } from 'drizzle-orm';
 import { db } from '../client';
+import { assertCrossTenantReadableKey } from '../interfaces/settings-repo.interface';
 import { settings } from '../schema';
+
+/**
+ * SQLite backend の単一テナント id。`sqlite/auth-repo.ts` の `LOCAL_TENANT_ID` と同値。
+ * (auth-repo から import すると settings ↔ auth の循環になるため定数を置く。
+ *  一致は `tests/unit/db/settings-all-tenants.test.ts` が機械検証する)
+ */
+const SQLITE_TENANT_ID = 'local';
 
 /** 設定値を取得 */
 export async function getSetting(key: string, _tenantId: string): Promise<string | undefined> {
@@ -48,6 +56,20 @@ export async function countValuesByPrefix(
 		total: rows.length,
 		withPrefix: rows.filter((row) => row.value.startsWith(valuePrefix)).length,
 	};
+}
+
+/**
+ * 全テナント横断で 1 キー分をまとめて読む (#4706)。
+ *
+ * SQLite backend は key 単独 PK のグローバル KVS（単一家族 NUC）なので該当は最大 1 行。
+ * 「全テナント」= その 1 家族であり、tenantId は `sqlite/auth-repo.ts` の `listAllTenants()` が
+ * 返すダミーテナントの id (`'local'`) に一致させる。ここを別の値にすると配信 cron 側の
+ * 突き合わせが常に空振りし、**NUC でだけ通知が 1 通も出ない**という backend 差になる。
+ */
+export async function getSettingForAllTenants(key: string): Promise<Map<string, string>> {
+	assertCrossTenantReadableKey(key);
+	const row = db.select().from(settings).where(eq(settings.key, key)).get();
+	return row ? new Map([[SQLITE_TENANT_ID, row.value]]) : new Map();
 }
 
 /** テナントの全設定を削除（SQLite: シングルテナントのため全行削除） */
