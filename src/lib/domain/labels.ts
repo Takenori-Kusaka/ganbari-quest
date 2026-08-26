@@ -38,6 +38,7 @@ import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
+	AI_TRANSFER_TERMS,
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
@@ -6129,7 +6130,43 @@ export const AUTH_INVITE_LABELS = {
 		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
 	acceptErrorUnverifiedBanner:
 		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
+	// #4633 AC-A: email 束縛以外の受諾拒否も、同じく無音で「新しい家族グループの owner」に
+	// 化ける。理由ごとに「なぜ参加できなかったか + 次アクション」を必ず添える。
+	acceptErrorExpiredBanner:
+		'招待の有効期限が切れていたため参加できず、新しい家族グループが作成されました。招待した方に、新しい招待リンクを発行してもらってください。',
+	acceptErrorTenantNotFoundBanner:
+		'招待元の家族グループが現在ご利用できない状態のため参加できず、新しい家族グループが作成されました。招待した方に、お支払い状況をご確認のうえ改めて招待を発行してもらってください。',
+	acceptErrorAlreadyInTenantBanner:
+		'すでに別の家族グループに参加しているため招待を受けられず、新しい家族グループが作成されました。招待で参加するには、一度ログアウトして別のアカウントで招待リンクを開いてください。',
+	acceptErrorSelfInviteBanner:
+		'ご自身が発行した招待は受け取れないため参加できず、新しい家族グループが作成されました。参加する方ご本人のアカウントで招待リンクを開いてください。',
+	acceptErrorOwnerDowngradeBanner:
+		'すでにこの家族グループの管理者のため招待を受けられず、新しい家族グループが作成されました。管理者のまま参加を続ける場合、この招待は受け取る必要はありません。',
+	acceptErrorGenericBanner:
+		'招待を受け取れなかったため、新しい家族グループが作成されました。招待した方に、招待リンクを発行し直してもらってください。',
 } as const;
+
+/**
+ * #4633 AC-A: 受諾拒否理由 → 案内バナー文言の対応表 (SSOT)。
+ * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
+ */
+export const INVITE_ACCEPT_ERROR_BANNERS = {
+	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.acceptErrorMismatchBanner,
+	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner,
+	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.acceptErrorExpiredBanner,
+	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.acceptErrorTenantNotFoundBanner,
+	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.acceptErrorAlreadyInTenantBanner,
+	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.acceptErrorSelfInviteBanner,
+	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.acceptErrorOwnerDowngradeBanner,
+} as const;
+
+/** 未知の理由 (古い cookie / 想定外) は汎用文言にフォールバックする。 */
+export function getInviteAcceptErrorBanner(reason: string): string {
+	return (
+		(INVITE_ACCEPT_ERROR_BANNERS as Record<string, string>)[reason] ??
+		AUTH_INVITE_LABELS.acceptErrorGenericBanner
+	);
+}
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
 
@@ -7998,6 +8035,28 @@ export const UI_COMPONENTS_LABELS = {
 	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
 	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
 		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+} as const;
+
+// ============================================================
+// AI 送信の注意書き (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路で共有する
+// 唯一の定義。4 経路にコピペせず、`AiInputNotice.svelte` 経由で参照する。
+//
+// プライバシーポリシー第9条④ (#4583 / PR #4598) と同じ事実を、入力する瞬間に短く述べる。
+// ADR-0012 (anti-engagement) 整合で警告は積み上げず hint 1 行に留め、送信先の詳細
+// (運営者が管理する AWS 環境内 / 運営者の環境外) は条文側へリンクで委ねる。
+// 生成 AI の製品名はここにも UI にも書かない (#4370 / #4583 と同一規律)。
+
+export const AI_INPUT_NOTICE_LABELS = {
+	/** テキスト入力経路 (AI 提案 3 種) */
+	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
+	/** 画像アップロード経路 (領収書 OCR) */
+	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
+	/** 送信先の詳細 (条文) への導線 */
+	linkLabel: '送信先とあつかい',
+	linkHref: 'https://www.ganbari-quest.com/privacy.html#under-age',
 } as const;
 
 // ============================================================
