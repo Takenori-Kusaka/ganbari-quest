@@ -140,3 +140,53 @@ export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => 
 
 	return totalDeleted;
 };
+
+/**
+ * prefix 配下を **全バージョン + delete marker まで**物理削除する (#4724)。
+ *
+ * バージョニングを有効にしたことで `deleteByPrefix` (ListObjectsV2 + DeleteObjects) は
+ * 「現行バージョンに delete marker を立てるだけ」になり、実体は lifecycle の 30 日まで残る。
+ * 退会は法務文書 (privacy 第 6 条 / 利用規約) が「猶予期間後に完全削除」と約束しているため、
+ * **バージョンを名指しして消す経路**が要る。ここが無いとバージョニング有効化が
+ * 「約束より 30 日長く保持する」という静かな違反になる。
+ *
+ * ListObjectVersions は 1 ページ最大 1000 件を Versions / DeleteMarkers の 2 配列で返す。
+ * 両方消さないと delete marker だけが残り続ける (中身は無いがオブジェクトとして列挙される)。
+ */
+export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix) => {
+	const { DeleteObjectsCommand, ListObjectVersionsCommand } = await import('@aws-sdk/client-s3');
+	const client = await getS3Client();
+	let totalDeleted = 0;
+	let keyMarker: string | undefined;
+	let versionIdMarker: string | undefined;
+
+	do {
+		const listResult = await client.send(
+			new ListObjectVersionsCommand({
+				Bucket: ASSETS_BUCKET,
+				Prefix: prefix,
+				KeyMarker: keyMarker,
+				VersionIdMarker: versionIdMarker,
+			}),
+		);
+
+		const targets = [...(listResult.Versions ?? []), ...(listResult.DeleteMarkers ?? [])]
+			.filter((v) => !!v.Key && !!v.VersionId)
+			.map((v) => ({ Key: v.Key as string, VersionId: v.VersionId as string }));
+
+		if (targets.length > 0) {
+			await client.send(
+				new DeleteObjectsCommand({
+					Bucket: ASSETS_BUCKET,
+					Delete: { Objects: targets },
+				}),
+			);
+			totalDeleted += targets.length;
+		}
+
+		keyMarker = listResult.IsTruncated ? listResult.NextKeyMarker : undefined;
+		versionIdMarker = listResult.IsTruncated ? listResult.NextVersionIdMarker : undefined;
+	} while (keyMarker || versionIdMarker);
+
+	return totalDeleted;
+};
