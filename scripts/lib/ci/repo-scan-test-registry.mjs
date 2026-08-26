@@ -121,6 +121,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
 	},
+	'tests/unit/architecture/db-facade-backend-parity.test.ts': {
+		scope: 'bounded',
+		note: '#4719 src/lib/server/db 直下 (単一 dir) の *-repo.ts facade と factory.ts だけを読み、backend 実装の直 import / 3 backend 実装 file の欠落を検出する',
+	},
 	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
 		scope: 'repo',
 		note: '#4348 scripts 配下の .mjs を走査し、PR body の見出し / 宣言を部分一致で判定する新規コードを検出する',
