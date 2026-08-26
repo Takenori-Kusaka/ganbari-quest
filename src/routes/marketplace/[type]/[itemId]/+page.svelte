@@ -50,6 +50,25 @@ const isRuleBonus = $derived(isRulePreset && ruleType === 'bonus');
 const isRulePenalty = $derived(isRulePreset && ruleType === 'penalty');
 const isRuleSpecial = $derived(isRulePreset && ruleType === 'special');
 
+// #4678 (EPIC #4650): 取込 CTA ブロックの「いま出ている分岐」を 1 語で表す。
+// ページガイド (MARKETPLACE_DETAIL_GUIDE) は分岐ごとの optional step を
+// `[data-testid="marketplace-detail-cta"][data-cta-variant="<variant>"]` で指し、
+// 画面に出ている分岐の説明だけが step になる (未ログイン / お子さま未登録 / とくべつルール家庭全体 /
+// penalty・special の警告のみ / お子さまを選ぶ per-child 取込)。
+type CtaVariant = 'per-child' | 'family-rule' | 'rule-unavailable' | 'no-children' | 'login';
+const hasChildren = $derived((data.children?.length ?? 0) > 0);
+const ctaVariant = $derived<CtaVariant>(
+	!data.isAuthenticated
+		? 'login'
+		: isRulePreset && isRuleBonus
+			? 'family-rule'
+			: isRulePreset && (isRulePenalty || isRuleSpecial)
+				? 'rule-unavailable'
+				: hasChildren
+					? 'per-child'
+					: 'no-children',
+);
+
 // #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行したため、
 // 旧 in-page form 経由の `ruleImport` form state / `selectedChildIdForRule` / `importingRule` は撤去。
 // 取込結果表示は admin/rewards 側 toast / banner に移行。
@@ -208,8 +227,10 @@ function deselectAllActivities() {
 					「30 件は多すぎる、歯磨きとお片付けだけ欲しい」「既存と重複する activity の事前説明なし」
 					不満に直接回答する。「すべて選ぶ / すべて外す」で 0 摩擦の subset 編集を提供。 -->
 				{#if data.isAuthenticated && data.children.length > 0}
+					<!-- #4678: ページガイド marketplace-detail-select step (活動セット + ログイン + お子さま登録済のみ) -->
 					<div
 						class="flex items-center justify-between mb-3 pb-2 border-b border-[var(--color-border-default)]"
+						data-tutorial="marketplace-detail-select"
 					>
 						<p
 							class="text-xs font-bold text-[var(--color-text-secondary)]"
@@ -331,9 +352,11 @@ function deselectAllActivities() {
 		</div>
 
 		<!-- CTA -->
+		<!-- #3269 / #4678: ページガイド取込 step のスポットライト対象。data-cta-variant は出ている分岐 (#4678) -->
 		<div
 			class="mt-6 space-y-3 marketplace-cta-sticky"
 			data-testid="marketplace-detail-cta"
+			data-cta-variant={ctaVariant}
 		>
 			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
 				<!-- #2774 (Issue #2774 / User 指摘 #2 #4): 5 type 取込 CTA 統一 — `<a>` 形式 +
