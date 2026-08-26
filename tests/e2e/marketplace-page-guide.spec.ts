@@ -1,28 +1,38 @@
 // tests/e2e/marketplace-page-guide.spec.ts
-// #3263 (EPIC #3260 F2) / #3269 (C5): marketplace ページガイド機構 + 取込 CUJ コンテンツ。
+// #3263 (EPIC #3260 F2) / #3269 (C5) / #4677 (EPIC #4650): marketplace ページガイド機構 + 取込 CUJ コンテンツ。
 //
 // marketplace は AdminLayout 非使用のため独自配線 (marketplace/+layout.svelte)。
 // 検証する機構 (admin-page-guide.spec.ts と同型、open → act → outcome):
 // 1. /marketplace 一覧で ❓ ボタン (`[data-tutorial="page-guide-btn"]`) が 1 個表示される
 // 2. ❓ click で PageGuideOverlay (.guide-overlay) が開く (role/aria 属性正しい)
 // 3. 「とじる」(.guide-nav-end) で PageGuideOverlay が閉じる (dead-end でない)
-// 4. 一覧ガイドを全 3 step 通せる + 各 step でバブル非重複 / viewport 収容 / spotlight (取込 CUJ 案内、#3269)
+// 4. 一覧ガイドを全 step 通せる + 各 step でバブル非重複 / viewport 収容 / spotlight (取込 CUJ 案内、#3269)
+//    #4677: step 構成は「上から下」(概要 → 種類 → 年齢自動フィルタ → しぼりこむ → ならべかえ → カード / 0 件)
+//    で、対象が画面に無い step (年齢自動フィルタ hint / カード / 0 件 empty state) は `optional` で省かれ、
+//    **selector を持つ step は必ず実要素に spotlight する** (0×0 / 中央 fallback を許容しない。EPIC 判断 4)。
+//    desktop / mobile 両 viewport で検証する (mobile は ⚙️ フィルタ ボタン、desktop は「しぼりこむ」パネルが光る)。
 // 5. 詳細ルート /marketplace/<type>/<itemId> では dedicated 詳細ガイドが開く (親へ degrade しない、#3269)
 //    + 全 3 step 通過 + 各 step で非重複 / viewport 収容 / spotlight
 //
 // 非重複 / viewport 収容 / spotlight の幾何検証は page-guide-layout-invariant.spec.ts (#2926) の
 // 確立ロジック (driver.js の #driver-dummy-element 0×0 skip + 幾何回避不能 exempt + bubble-stable 待ち)
-// をそのまま用いる。layout invariant suite は admin 限定 + 静的パスのため、動的 itemId を要する
-// marketplace 詳細・一覧は本 spec で同等検証する (#3269)。
+// をそのまま用いる。layout invariant suite は静的パスのため、動的 itemId を要する
+// marketplace 詳細・条件付き step を持つ一覧は本 spec で同等検証する (#3269 / #4677)。
 //
 // 実行: npx playwright test tests/e2e/marketplace-page-guide.spec.ts
 
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
 const GUIDE_BUBBLE = '.guide-bubble';
 const GUIDE_NEXT = '.guide-nav-next';
 const DRIVER_OVERLAY = '.driver-overlay';
 const DRIVER_ACTIVE_ELEMENT = '.driver-active-element';
+
+const VIEWPORTS = [
+	{ label: 'desktop', width: 1280, height: 800 },
+	{ label: 'mobile', width: 390, height: 844 },
+] as const;
 
 interface Box {
 	x: number;
@@ -124,46 +134,121 @@ async function assertBubbleNotOverlapTarget(
 }
 
 /**
- * 開いたガイドの全 step をループ検証する (#3269)。
- * 各 step で spotlight 表示 / viewport 収容 / 対象非重複を確認し、「つぎへ」で最終 step まで進める。
- * 総 step 数が expectedTotal と一致し、最終 step の完了ボタンでガイドが閉じる (dead-end でない)。
+ * #4677 (EPIC #4650 判断 4): selector を持つ step は**必ず実要素に spotlight する**。
+ * driver.js の active element が存在し、可視で、bounding box が 0×0 でなく viewport 内にあること。
+ * 「押す」と書いた step が中央 fallback / 0×0 spotlight で成立することを許容しない。
  */
-async function traverseGuide(page: Page, bubble: Locator, expectedTotal: number): Promise<void> {
-	await expect(page.locator('.guide-header-progress')).toContainText(`/ ${expectedTotal}`);
+async function assertTargetLit(page: Page, ctx: string): Promise<void> {
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	await expect(target, `${ctx}: 対象要素に driver active class が付く`).toHaveCount(1);
+	await expect(target, `${ctx}: 対象要素が可視`).toBeVisible();
+	const box = await target.boundingBox();
+	expect(box, `${ctx}: 対象要素の boundingBox`).not.toBeNull();
+	if (!box) return;
+	expect(box.width, `${ctx}: spotlight 幅 > 0`).toBeGreaterThan(0);
+	expect(box.height, `${ctx}: spotlight 高 > 0`).toBeGreaterThan(0);
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+	expect(box.x + box.width, `${ctx}: spotlight 右端が viewport 内`).toBeGreaterThan(0);
+	expect(box.x, `${ctx}: spotlight 左端が viewport 内`).toBeLessThan(vp.width);
+	expect(box.y + box.height, `${ctx}: spotlight 下端が viewport 内`).toBeGreaterThan(0);
+	expect(box.y, `${ctx}: spotlight 上端が viewport 内`).toBeLessThan(vp.height);
+}
 
-	let stepCount = 0;
-	const MAX = 8;
+/**
+ * 開いたガイドの全 step をループ検証する (#3269 / #4677)。
+ * 各 step で spotlight 表示 / viewport 収容 / 対象非重複を確認し、「つぎへ」で最終 step まで進める。
+ * 訪れた step id の列が expectedIds と**完全一致**し、selector を持つ step (data-has-target="true")
+ * は必ず実要素に spotlight する。最終 step の完了ボタンでガイドが閉じる (dead-end でない)。
+ */
+async function traverseGuide(page: Page, bubble: Locator, expectedIds: readonly string[]) {
+	await expect(page.locator('.guide-header-progress')).toContainText(`/ ${expectedIds.length}`);
+
+	const visited: string[] = [];
+	const MAX = 12;
 	for (let i = 0; i < MAX; i++) {
-		stepCount++;
-		const ctx = `step#${stepCount}`;
 		await waitForBubbleStable(page, bubble);
+		const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+		visited.push(stepId);
+		const ctx = `step#${visited.length} (${stepId})`;
 		await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
 
 		await assertSpotlightVisible(page, ctx);
 		await assertBubbleWithinViewport(page, bubble, ctx);
 		await assertBubbleNotOverlapTarget(page, bubble, ctx);
+		if ((await bubble.getAttribute('data-has-target')) === 'true') {
+			await assertTargetLit(page, ctx);
+		}
 
 		const nextBtn = bubble.locator(GUIDE_NEXT);
 		const nextText = (await nextBtn.textContent().catch(() => '')) ?? '';
 		const isLast = nextText.includes('かんりょう');
 		if (isLast) break;
-		const prevStepId = await bubble.getAttribute('data-step-id').catch(() => null);
 		await nextBtn.click();
 		await expect(bubble, `${ctx}: step 遷移で data-step-id が更新`).not.toHaveAttribute(
 			'data-step-id',
-			prevStepId ?? '',
+			stepId,
 			{ timeout: 5_000 },
 		);
 	}
-	expect(stepCount, `総 step 数が ${expectedTotal} 件`).toBe(expectedTotal);
+	expect(visited, '訪れた step id の列').toEqual([...expectedIds]);
 
 	// 完了ボタンでガイドが閉じる (dead-end でない)
 	await bubble.locator(GUIDE_NEXT).click();
 	await expect(page.locator('.guide-overlay')).toHaveCount(0);
 }
 
-test.describe('#3263 / #3269 marketplace ページガイド', () => {
-	test.setTimeout(90_000);
+/**
+ * #4677: 一覧ガイドの期待 step 列を**画面の実状態**から導出する。
+ * 年齢自動フィルタ hint (ログイン + お子さま選択中のみ) とカード (0 件時は empty state) は
+ * 画面に有る方だけが step になる。
+ */
+async function expectedListStepIds(page: Page): Promise<string[]> {
+	const hasAgeHint = await page
+		.locator('[data-tutorial="marketplace-age-auto-filter"]')
+		.isVisible()
+		.catch(() => false);
+	const hasCard = (await page.locator('[data-tutorial="marketplace-item-card"]').count()) > 0;
+	return [
+		'marketplace-intro',
+		'marketplace-browse',
+		...(hasAgeHint ? ['marketplace-age-auto'] : []),
+		'marketplace-filter',
+		'marketplace-sort',
+		hasCard ? 'marketplace-open' : 'marketplace-empty',
+	];
+}
+
+/**
+ * /switch で指定のお子さまを選び selectedChildId cookie を立てる。
+ * dev server の cold compile 中は click が失われることがあるため、home 到達まで最大 4 回やり直す
+ * (cuj5-checklist-import-child-visible.spec.ts と同じ対処)。
+ */
+async function selectChildWithRetry(page: Page, name: string): Promise<void> {
+	let arrived = false;
+	for (let attempt = 0; attempt < 4 && !arrived; attempt++) {
+		await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+		const childButton = page.locator('[data-testid^="child-select-"]').filter({ hasText: name });
+		await expect(childButton).toBeVisible({ timeout: 30_000 });
+		await childButton.click();
+		arrived = await page
+			.waitForURL(/\/(baby|preschool|elementary|junior|senior)\/home/, { timeout: 10_000 })
+			.then(() => true)
+			.catch(() => false);
+	}
+	expect(arrived, `${name} 選択後に home へ到達する (selectedChildId cookie が立つ)`).toBe(true);
+}
+
+async function openListGuide(page: Page): Promise<Locator> {
+	const pageGuideBtn = page.locator(GUIDE_BTN);
+	await expect(pageGuideBtn).toBeVisible({ timeout: 15_000 });
+	await pageGuideBtn.click({ force: true });
+	const bubble = page.locator(GUIDE_BUBBLE);
+	await expect(bubble).toBeVisible({ timeout: 10_000 });
+	return bubble;
+}
+
+test.describe('#3263 / #3269 / #4677 marketplace ページガイド', () => {
+	test.setTimeout(120_000);
 
 	test('一覧: ❓ が表示され、開いて閉じられる (機構配線が機能する)', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
@@ -172,7 +257,7 @@ test.describe('#3263 / #3269 marketplace ページガイド', () => {
 		// 1. ❓ ボタンが 1 個表示される。
 		// ガイド解決は registry の動的 import 後に hasPageGuide を立てる非同期処理のため、
 		// 初回 dev コンパイル分を見込んで余裕のある timeout で待つ (CI preview ではほぼ即時)。
-		const pageGuideBtn = page.locator('[data-tutorial="page-guide-btn"]');
+		const pageGuideBtn = page.locator(GUIDE_BTN);
 		await expect(pageGuideBtn).toBeVisible({ timeout: 15_000 });
 		await expect(pageGuideBtn).toHaveCount(1);
 
@@ -192,47 +277,159 @@ test.describe('#3263 / #3269 marketplace ページガイド', () => {
 		await expect(guideOverlay).toHaveCount(0);
 	});
 
-	test('一覧: 取込 CUJ ガイドを全 3 step 通過でき、各 step で非重複 (#3269)', async ({ page }) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		await page.goto('/marketplace');
+	for (const { label, width, height } of VIEWPORTS) {
+		test(`一覧 [${label}]: 上から下の全 step を通過し、selector step は全て光る (#4677)`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			await page.goto('/marketplace');
+			const expected = await expectedListStepIds(page);
+			// 一覧が 0 件でない既定状態ではカード step が出る
+			expect(expected).toContain('marketplace-open');
+			const bubble = await openListGuide(page);
+			await traverseGuide(page, bubble, expected);
+		});
+	}
 
-		const pageGuideBtn = page.locator('[data-tutorial="page-guide-btn"]');
-		await expect(pageGuideBtn).toBeVisible({ timeout: 15_000 });
-		await pageGuideBtn.click();
-
-		const bubble = page.locator(GUIDE_BUBBLE);
-		await expect(bubble).toBeVisible({ timeout: 10_000 });
-		await traverseGuide(page, bubble, 3);
-	});
-
-	test('詳細: dedicated 詳細ガイドが開き、全 3 step 通過 + 非重複 (親へ degrade しない、#3269)', async ({
+	test('一覧: 0 件 (フィルタ不一致) では「カードを開く」でなく empty state の「フィルタをクリア」が光る (#4677 F2)', async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
+		await page.goto('/marketplace?tag=__no_such_tag__');
+		await expect(page.locator('[data-tutorial="marketplace-empty-reset"]')).toBeVisible();
+		const expected = await expectedListStepIds(page);
+		expect(expected).toContain('marketplace-empty');
+		expect(expected).not.toContain('marketplace-open');
+		const bubble = await openListGuide(page);
+		await traverseGuide(page, bubble, expected);
+	});
 
-		// 一覧から最初のテンプレート詳細へ遷移 (固定 itemId に依存しない)
+	test('一覧: お子さま選択中は年齢自動フィルタ hint の step が入り、光る (#4677 F4)', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		// selectedChildId cookie を立てる (たろうくん = preschool)
+		await selectChildWithRetry(page, 'たろうくん');
 		await page.goto('/marketplace');
-		const firstItem = page.locator('a[href^="/marketplace/"]').first();
-		await expect(firstItem).toBeVisible({ timeout: 10_000 });
-		await firstItem.click();
-		await page.waitForURL(/\/marketplace\/[^/]+\/[^/]+/);
+		await expect(page.locator('[data-tutorial="marketplace-age-auto-filter"]')).toBeVisible();
+		const expected = await expectedListStepIds(page);
+		expect(expected).toContain('marketplace-age-auto');
+		const bubble = await openListGuide(page);
+		await traverseGuide(page, bubble, expected);
+	});
 
-		// 詳細ルートでも ❓ が出る
-		const pageGuideBtn = page.locator('[data-tutorial="page-guide-btn"]');
+	test('一覧: 「デモを体験」(LP トップへ redirect される /demo 行き) リンクが無い (#4677 M)', async ({
+		page,
+	}) => {
+		await page.goto('/marketplace');
+		await expect(page.locator('a[href="/demo"]')).toHaveCount(0);
+	});
+
+	/**
+	 * #4678: 詳細ガイドの期待 step 列を**画面の実状態**から導出する。
+	 * 活動セットの選択 UI (ログイン + お子さま登録済のみ) と、取込 CTA ブロックに出ている分岐
+	 * (data-cta-variant) に対応する取り込み step だけが残る。
+	 */
+	async function expectedDetailStepIds(page: Page): Promise<string[]> {
+		const hasSelect = await page
+			.locator('[data-tutorial="marketplace-detail-select"]')
+			.isVisible()
+			.catch(() => false);
+		const variant = await page
+			.locator('[data-testid="marketplace-detail-cta"]')
+			.getAttribute('data-cta-variant');
+		const importStepByVariant: Record<string, string> = {
+			'per-child': 'marketplace-detail-import',
+			'family-rule': 'marketplace-detail-import-rule',
+			'rule-unavailable': 'marketplace-detail-rule-unavailable',
+			'no-children': 'marketplace-detail-no-children',
+			login: 'marketplace-detail-login',
+		};
+		const importStep = importStepByVariant[variant ?? ''];
+		expect(importStep, `CTA 分岐 (${variant}) に対応する取り込み step がある`).toBeTruthy();
+		return [
+			'marketplace-detail-intro',
+			'marketplace-detail-preview',
+			...(hasSelect ? ['marketplace-detail-select'] : []),
+			importStep as string,
+		];
+	}
+
+	async function openDetailGuideAndAssertDedicated(page: Page): Promise<Locator> {
+		const pageGuideBtn = page.locator(GUIDE_BTN);
 		await expect(pageGuideBtn).toBeVisible({ timeout: 15_000 });
 		await expect(pageGuideBtn).toHaveCount(1);
-		await pageGuideBtn.click();
-
+		await pageGuideBtn.click({ force: true });
 		const guideOverlay = page.locator('.guide-overlay');
 		await expect(guideOverlay).toBeVisible({ timeout: 10_000 });
-
 		// dedicated 詳細ガイドが解決されている (= 親 /marketplace ガイドへ degrade していない)。
-		// ① 概要 step の data-step-id が詳細ガイド固有 id であることで判定する。
 		const bubble = page.locator(GUIDE_BUBBLE);
 		await expect(bubble).toBeVisible({ timeout: 10_000 });
 		await expect(bubble).toHaveAttribute('data-step-id', 'marketplace-detail-intro');
+		return bubble;
+	}
 
-		// 全 3 step 通過 + 非重複 + 完了で閉じる
-		await traverseGuide(page, bubble, 3);
+	for (const { label, width, height } of VIEWPORTS) {
+		test(`詳細 (活動セット) [${label}]: dedicated ガイドで 選択 UI + お子さまを選ぶ取込 step が光る (#3269 / #4678)`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			// 一覧 (活動セットに絞る) から最初のテンプレート詳細へ遷移 (固定 itemId に依存しない)
+			await page.goto('/marketplace?type=activity-pack');
+			const firstItem = page.locator('a[href^="/marketplace/activity-pack/"]').first();
+			await expect(firstItem).toBeVisible({ timeout: 10_000 });
+			await firstItem.click();
+			await page.waitForURL(/\/marketplace\/activity-pack\/[^/]+/);
+
+			const expected = await expectedDetailStepIds(page);
+			// AUTH_MODE=local (ログイン + お子さま seed 済) では活動セットの選択 UI と per-child 取込が出る
+			expect(expected).toEqual([
+				'marketplace-detail-intro',
+				'marketplace-detail-preview',
+				'marketplace-detail-select',
+				'marketplace-detail-import',
+			]);
+			const bubble = await openDetailGuideAndAssertDedicated(page);
+			await traverseGuide(page, bubble, expected);
+		});
+	}
+
+	test('詳細 (とくべつルール ボーナス): お子さま選択ではなく家庭全体取込 (設定 > ルール) の step になる (#4678 F1)', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		// rule-preset は一覧に陳列しないが直リンクは残置 (#2896)。bonus の preset を開く
+		await page.goto('/marketplace/rule-preset/early-bird');
+		await expect(page.locator('[data-testid="marketplace-detail-cta"]')).toHaveAttribute(
+			'data-cta-variant',
+			'family-rule',
+		);
+		const expected = await expectedDetailStepIds(page);
+		expect(expected).toEqual([
+			'marketplace-detail-intro',
+			'marketplace-detail-preview',
+			'marketplace-detail-import-rule',
+		]);
+		const bubble = await openDetailGuideAndAssertDedicated(page);
+		await traverseGuide(page, bubble, expected);
+	});
+
+	test('詳細 (ごほうびセット): 選択 UI は無く、お子さまを選ぶ取込 step が光る (#4678)', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await page.goto('/marketplace?type=reward-set');
+		const firstItem = page.locator('a[href^="/marketplace/reward-set/"]').first();
+		await expect(firstItem).toBeVisible({ timeout: 10_000 });
+		await firstItem.click();
+		await page.waitForURL(/\/marketplace\/reward-set\/[^/]+/);
+		const expected = await expectedDetailStepIds(page);
+		expect(expected).toEqual([
+			'marketplace-detail-intro',
+			'marketplace-detail-preview',
+			'marketplace-detail-import',
+		]);
+		const bubble = await openDetailGuideAndAssertDedicated(page);
+		await traverseGuide(page, bubble, expected);
 	});
 });

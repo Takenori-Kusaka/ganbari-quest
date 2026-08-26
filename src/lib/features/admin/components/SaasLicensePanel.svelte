@@ -55,6 +55,11 @@ import {
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
+import {
+	archiveDowngradeSelection,
+	type DowngradeSelection,
+	fetchDowngradePreview,
+} from '$lib/features/admin/downgrade-client';
 import { shouldOpenDowngradeSelector } from '$lib/features/admin/downgrade-dialog-policy';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
@@ -339,55 +344,30 @@ function handlePlanUpgrade(planId: string) {
 	void startCheckout(planId);
 }
 
-// #738: ダウングレードプレビュー取得
-async function fetchDowngradePreview() {
+// #738: ダウングレードプレビュー取得 (#4585-1: 解約フローと同じ downgrade-client を使う)
+async function loadDowngradePreview() {
 	downgradeLoading = true;
 	downgradeError = null;
-	try {
-		const res = await fetch('/api/v1/admin/downgrade-preview?targetTier=free');
-		if (!res.ok) {
-			downgradeError = 'ダウングレード情報の取得に失敗しました';
-			return null;
-		}
-		return await res.json();
-	} catch {
-		downgradeError = 'ダウングレード情報の取得に失敗しました';
+	const result = await fetchDowngradePreview();
+	downgradeLoading = false;
+	if (!result.ok) {
+		downgradeError = result.error;
 		return null;
-	} finally {
-		downgradeLoading = false;
 	}
+	return result.value;
 }
 
-// #738: ダウングレード用リソースアーカイブを実行
-async function executeDowngradeArchive(selection: {
-	childIds: ChildId[];
-	activityIds: ActivityId[];
-	checklistTemplateIds: string[];
-}) {
+// #738: ダウングレード用リソースアーカイブを実行 (#4585-1: 解約フローと共通の client)
+async function executeDowngradeArchive(selection: DowngradeSelection) {
 	downgradeLoading = true;
 	downgradeError = null;
-	try {
-		const res = await fetch('/api/v1/admin/downgrade-archive', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				targetTier: 'free',
-				...selection,
-			}),
-		});
-		if (!res.ok) {
-			const body = await res.json().catch(() => ({}));
-			downgradeError =
-				(body as { message?: string }).message ?? SUBSCRIPTION_PAGE_LABELS.downgradeArchiveError;
-			return false;
-		}
-		return true;
-	} catch {
-		downgradeError = 'リソースのアーカイブに失敗しました';
+	const result = await archiveDowngradeSelection(selection);
+	downgradeLoading = false;
+	if (!result.ok) {
+		downgradeError = result.error;
 		return false;
-	} finally {
-		downgradeLoading = false;
 	}
+	return true;
 }
 
 // #4161: 決済未設定を伝える単一箇所 (Toast + in-page banner の 2 層、ADR-0062 / #3204 整合)
@@ -449,7 +429,7 @@ async function requestPortal() {
 	portalError = null;
 
 	if (planTier !== 'free') {
-		const preview = await fetchDowngradePreview();
+		const preview = await loadDowngradePreview();
 		// #4530: 判定は `hasExcess` だけを見ていたため、超過リソースが無く保持期間だけが
 		//   縮む顧客は警告を 1 つも見ないまま Stripe の確認へ直行し、物理削除に至っていた。
 		//   「失うものがあるなら必ず開く」判定は shouldOpenDowngradeSelector が SSOT
