@@ -39,6 +39,9 @@ const DECLARING_DOCS = [
 	'docs/guides/stripe-setup-guide.md',
 	'docs/design/billing-redesign/phase5-stripe-product-architecture.md',
 	'docs/design/billing-redesign/phase6-phase7-execution-ssot.md',
+	// #4581: 返金 runbook。「返金しても自動で追随しない」という結論が handler 一覧に依存するため、
+	// 散文の例外扱い (NON_DECLARING_DOCS) ではなく突合対象にする。実装が増減したら落ちる。
+	'docs/runbooks/refund-and-billing-incident.md',
 ] as const;
 
 /**

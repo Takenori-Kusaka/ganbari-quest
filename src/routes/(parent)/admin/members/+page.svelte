@@ -562,9 +562,9 @@ const roleLabel = (role: string) => {
 						<NativeSelect
 							bind:value={viewerDuration}
 							options={[
-								{ value: '7d', label: '7日間' },
-								{ value: '30d', label: '30日間' },
-								{ value: 'unlimited', label: '無期限' },
+								{ value: '7d', label: MEMBERS_LABELS.viewerDuration7d },
+								{ value: '30d', label: MEMBERS_LABELS.viewerDuration30d },
+								{ value: 'unlimited', label: MEMBERS_LABELS.viewerDurationUnlimited },
 							]}
 						/>
 					{/snippet}

@@ -5,6 +5,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
@@ -27,6 +28,7 @@ import {
 	deleteActivityWithCleanup,
 	getActivities,
 	getActivityLogCounts,
+	getChildActivities,
 	getMainQuestCount,
 	hasActivityLogs,
 	MAIN_QUEST_MAX,
@@ -46,6 +48,43 @@ import {
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * #4692: 「childIds」form 値 (`all` or CSV) を実 ChildId 配列へ解決する共通 helper。
+ *
+ * 旧実装は action ごとに同じ parse を書き、`importFile` / `clearAll` に至っては childId を
+ * 一切受け取らず tenant 全体 (= 最初の子 / 全員) を対象にしていた。取込・削除の対象範囲は
+ * 「選択中の子」であるべき (ADR-0055 per-child 主軸) なので、解決を 1 箇所に集約する。
+ */
+async function resolveTargetChildIds(raw: string, tenantId: string): Promise<ChildId[]> {
+	if (raw === 'all') {
+		const children = await getAllChildren(tenantId);
+		return children.map((c) => c.id);
+	}
+	return raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((v) => v !== '')
+		.map(asChildId);
+}
+
+/**
+ * #4692: 指定 childId が当該 tenant の子供かを検証する (cross-tenant / 不正 id を弾く)。
+ * rewards の `restoreFile` (#3079) と同型。
+ */
+async function assertOwnChild(
+	childId: ChildId | undefined,
+	tenantId: string,
+): Promise<{ ok: true } | { ok: false; status: 400 | 403; error: string }> {
+	if (!childId) {
+		return { ok: false, status: 400, error: ADMIN_CHILD_SCOPE_LABELS.childRequired };
+	}
+	const allowed = new Set((await getAllChildren(tenantId)).map((c) => c.id));
+	if (!allowed.has(childId)) {
+		return { ok: false, status: 403, error: ADMIN_CHILD_SCOPE_LABELS.childNotFound };
+	}
+	return { ok: true };
+}
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const tenantId = requireTenantId(locals);
@@ -298,6 +337,18 @@ export const actions: Actions = {
 			});
 		}
 
+		// #4692: 取込先 child を明示する (service 側の first-child silent fallback 廃止)。
+		// 本 action は `childIds` を受け取らない旧 form 互換経路のため、未指定は
+		// 「家族全員」に解決する (「最初の子だけに入る」挙動を復活させない)。
+		const importPackChildIdsRaw = String(formData.get('childIds') ?? '').trim();
+		const importPackChildIds = await resolveTargetChildIds(
+			importPackChildIdsRaw === '' ? 'all' : importPackChildIdsRaw,
+			tenantId,
+		);
+		if (importPackChildIds.length === 0) {
+			return fail(400, { error: ADMIN_CHILD_SCOPE_LABELS.childRequired });
+		}
+
 		// #2365 (ADR-0052): Strategy + dispatchImport 経由
 		try {
 			const source = loadFromMarketplace('activity-pack', packId);
@@ -305,7 +356,7 @@ export const actions: Actions = {
 				typeCode: 'activity-pack',
 				rawPayload: source.payload,
 				displayName: source.displayName,
-				ctx: { tenantId, presetId: packId },
+				ctx: { tenantId, presetId: packId, childIds: importPackChildIds },
 			});
 			return result;
 		} catch (e) {
@@ -358,6 +409,15 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const file = formData.get('file') as File | null;
 
+		// #4692 F1: 復元先は「画面で選択中の子」。旧実装は childId を受け取らず service の
+		// first-child fallback に落ちていたため、けんたのタブで復元してもたろうに 94 件入った。
+		// rewards の restoreFile (#3079) と同型に childId 必須 + 所属検証する。
+		const restoreChildId = asChildId(formIdString(formData.get('childId')));
+		const restoreChildCheck = await assertOwnChild(restoreChildId, tenantId);
+		if (!restoreChildCheck.ok) {
+			return fail(restoreChildCheck.status, { error: restoreChildCheck.error });
+		}
+
 		// #2365 (ADR-0052): Strategy + dispatchImport 経由 + file-source adapter
 		let loaded: { activities: unknown[]; displayName: string };
 		try {
@@ -380,7 +440,7 @@ export const actions: Actions = {
 				typeCode: 'activity-pack',
 				rawPayload: { activities: loaded.activities },
 				displayName: loaded.displayName,
-				ctx: { tenantId },
+				ctx: { tenantId, childIds: [restoreChildId] },
 			});
 			return result;
 		} catch (e) {
@@ -439,20 +499,10 @@ export const actions: Actions = {
 			});
 		}
 
-		// childIds: 'all' or comma-separated number list
-		let childIds: ChildId[] | undefined;
-		if (childIdsRaw === 'all') {
-			const children = await getAllChildren(tenantId);
-			childIds = children.map((c) => c.id);
-		} else {
-			childIds = childIdsRaw
-				.split(',')
-				.map((s) => s.trim())
-				.filter((v) => v !== '')
-				.map(asChildId);
-		}
+		// childIds: 'all' or comma-separated id list (#4692 で共通 helper に集約)
+		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 
-		if (!childIds || childIds.length === 0) {
+		if (childIds.length === 0) {
 			return fail(400, { error: '有効な対象が指定されていません' });
 		}
 
@@ -615,17 +665,7 @@ export const actions: Actions = {
 			});
 		}
 
-		let childIds: ChildId[];
-		if (childIdsRaw === 'all') {
-			const children = await getAllChildren(tenantId);
-			childIds = children.map((c) => c.id);
-		} else {
-			childIds = childIdsRaw
-				.split(',')
-				.map((s) => s.trim())
-				.filter((v) => v !== '')
-				.map(asChildId);
-		}
+		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 		if (childIds.length === 0) {
 			return fail(400, { error: '有効な対象が指定されていません' });
 		}
@@ -653,11 +693,20 @@ export const actions: Actions = {
 		}
 	},
 
-	clearAll: async ({ locals }) => {
+	// #4692 F3: 「すべて削除」は選択中の子だけを対象にする。
+	// 旧実装は tenantId だけを見て tenant 全 child の活動を消していたため、まさとのタブで
+	// 押しただけで 5 人 352 件が消えていた (確認文にも対象範囲が無かった)。
+	clearAll: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = asChildId(formIdString(formData.get('childId')));
+		const childCheck = await assertOwnChild(childId, tenantId);
+		if (!childCheck.ok) {
+			return fail(childCheck.status, { error: childCheck.error });
+		}
 
 		try {
-			const activities = await getActivities(tenantId, { includeHidden: true });
+			const activities = await getChildActivities(childId, tenantId, { includeHidden: true });
 			let deleted = 0;
 			let hidden = 0;
 

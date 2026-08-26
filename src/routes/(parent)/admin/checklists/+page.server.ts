@@ -135,8 +135,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			: null;
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 
+	// #4692 F4: `?childId=<n>` で初期選択 child を復元する (activities / rewards と同実装)。
+	// 本画面だけ URL 同期が無く、リロード / 共有リンクで常に最初の子タブに戻っていたため、
+	// 気付かず次のチェックリストを別の子に作ってしまう事故が起きていた。
+	const initialChildIdRaw = url.searchParams.get('childId');
+	const initialChildId =
+		initialChildIdRaw && initialChildIdRaw !== '' ? asChildId(initialChildIdRaw) : null;
+
 	return {
 		children: childrenWithOverrides,
+		initialChildId,
 		familyTemplates,
 		today,
 		isPremium,
@@ -860,7 +868,7 @@ export const actions: Actions = {
 					limitRejected,
 					limitReached: true,
 					// #3474 item2: 上限で取り込めなかった件数は limitRejected のみを提示 (既配信分を過大帰属しない)。
-					message: `${added} 件取り込みました。フリープランの上限に達したため ${limitRejected} 件は取り込めませんでした。スタンダード以上で無制限。${skipNote}`,
+					message: PLAN_GATE_LABELS.bulkImportPartiallyLimited(added, limitRejected, skipNote),
 				};
 			}
 			return { copiedFromChild: true, added, dropped, alreadyDistributed, limitRejected };

@@ -8,7 +8,6 @@ import {
 	INVITE_ACCEPT_ERROR_COOKIE_NAME,
 	INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
 	INVITE_COOKIE_NAME,
-	isInviteAcceptErrorCookieValue,
 } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -222,6 +221,8 @@ export class CognitoAuthProvider implements AuthProvider {
 				logger.warn('[AUTH] Invite not found or expired', {
 					context: { inviteCode },
 				});
+				// #4633 AC-A: ここも「無音で新規家族グループ作成」に化ける経路。理由を通知する。
+				this.setInviteAcceptErrorCookie(event, 'INVALID_OR_EXPIRED');
 				this.clearInviteCookie(event);
 				return null;
 			}
@@ -252,20 +253,13 @@ export class CognitoAuthProvider implements AuthProvider {
 				logger.warn('[AUTH] Invite acceptance failed', {
 					context: { inviteCode, error: result.error, userId: effectiveUserId },
 				});
-				// #3555 ①: 受諾の拒否は受諾者に理由を伝えないと dead-end になる
+				// #3555 ① / #4633 AC-A: 受諾拒否は理由を伝えないと dead-end になる
 				// (この後 fallback の新規テナント自動作成が走り、無説明の空 admin に着地する)。
 				// 1 回限りの通知 cookie を積み、admin +layout が読み取って案内バナーを表示する。
-				// #4704: 対象理由の集合は validation/auth.ts の SSOT で判定する (手書き allowlist は
-				// 新しい失敗理由 MEMBER_LIMIT_REACHED を取りこぼし、案内が出ないまま dead-end になった)。
-				if (isInviteAcceptErrorCookieValue(result.error)) {
-					event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, result.error, {
-						path: '/',
-						httpOnly: true,
-						sameSite: 'lax',
-						secure: true,
-						maxAge: INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
-					});
-				}
+				// #4633: 旧実装は email 束縛の 2 理由限定だったため、それ以外の拒否
+				// (TENANT_NOT_FOUND / ALREADY_IN_TENANT / SELF_INVITE_NOT_ALLOWED /
+				// OWNER_CANNOT_BE_DOWNGRADED …) が無音のまま残っていた。理由を問わず通知する。
+				this.setInviteAcceptErrorCookie(event, result.error);
 				return null;
 			}
 
@@ -283,9 +277,29 @@ export class CognitoAuthProvider implements AuthProvider {
 			logger.error('[AUTH] Failed to accept invite', {
 				error: e instanceof Error ? e.message : String(e),
 			});
+			// #4633 AC-A: 例外経路も無音の新規家族グループ作成に化けるため通知する
+			// (内部例外は露出せず汎用文言のバナーに落とす、ADR-0062)。
+			this.setInviteAcceptErrorCookie(event, 'UNEXPECTED');
 			this.clearInviteCookie(event);
 			return null;
 		}
+	}
+
+	/**
+	 * #4633 AC-A: 招待受諾が拒否されたことを受諾後の admin 画面に伝える 1 回限りの通知 cookie。
+	 *
+	 * 拒否は例外なくこの後の `provisionNewUser` (新規家族グループ自動作成) にフォールバックする。
+	 * 通知を積まないと「招待されたはずの人が、別世帯の owner として空の管理画面に着地する」
+	 * 失敗が成功に見える経路になる。理由の一覧 SSOT は `INVITE_ACCEPT_ERROR_REASONS`。
+	 */
+	private setInviteAcceptErrorCookie(event: RequestEvent, reason: string): void {
+		event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, reason, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: true,
+			maxAge: INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
+		});
 	}
 
 	/**

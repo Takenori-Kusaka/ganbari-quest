@@ -4,10 +4,7 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import {
-	INVITE_ACCEPT_ERROR_COOKIE_NAME,
-	isInviteAcceptErrorCookieValue,
-} from '$lib/domain/validation/auth';
+import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -192,15 +189,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ①: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を読み取り即消費)。
-	// 受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した顧客に
-	// 「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
-	// #4704: 対象理由の集合は validation/auth.ts の SSOT で判定する (手書き union だと
-	// 新しい失敗理由 MEMBER_LIMIT_REACHED が素通りして案内が出なかった)。
+	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
+	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
+	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
+	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
+	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
 	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError = isInviteAcceptErrorCookieValue(rawInviteAcceptError)
-		? rawInviteAcceptError
-		: null;
+	const inviteAcceptError = rawInviteAcceptError ? rawInviteAcceptError : null;
 	if (rawInviteAcceptError) {
 		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
 	}

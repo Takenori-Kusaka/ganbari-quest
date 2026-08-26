@@ -71,30 +71,42 @@ export const INVITE_EXPIRY_DAYS = 7;
  * #3555 ①: 招待受諾が拒否されたことを受諾後の画面 (admin layout) に伝える 1 回限りの通知 cookie。
  * 受諾失敗 → 新規テナント自動作成で顧客が理由不明の dead-end になるのを防ぐ。
  *
- * #4704: 受諾側の席数検査 (`MEMBER_LIMIT_REACHED`) も同じ dead-end を作るため案内対象に含める。
- * 値の集合は `INVITE_ACCEPT_ERROR_COOKIE_VALUES` を SSOT とし、cookie を積む側
- * (`server/auth/providers/cognito.ts`)・読む側 (`admin/+layout.server.ts`)・描く側
- * (`admin/+layout.svelte`) が同じ集合を参照する (手書き allowlist の取りこぼし防止)。
+ * #4633 AC-A: 通知対象は email 束縛の 2 理由だけではない。受諾拒否は **すべて**
+ * 「無音で新しい家族グループの owner になる」に化けるため、`acceptInvite` が返しうる
+ * 全 error 理由を本 cookie に載せる (未知の値も汎用文言でバナー表示する)。
  */
 export const INVITE_ACCEPT_ERROR_COOKIE_NAME = 'invite_accept_error';
 export const INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS = 10 * 60;
 
-/** 案内バナーを出す受諾失敗理由 (#3555 ① / #4704)。 */
-export const INVITE_ACCEPT_ERROR_COOKIE_VALUES = [
+/**
+ * #4633 AC-A: 通知 cookie に載る受諾拒否理由の SSOT。
+ * `acceptInvite` (invite-service.ts) が返す error 文字列と 1:1 で対応する。
+ * 新しい拒否理由を追加したら、本配列と `INVITE_ACCEPT_ERROR_BANNERS` (labels.ts) を同時に足す。
+ */
+export const INVITE_ACCEPT_ERROR_REASONS = [
 	'INVITE_EMAIL_MISMATCH',
 	'INVITE_EMAIL_UNVERIFIED',
+	'INVALID_OR_EXPIRED',
+	'TENANT_NOT_FOUND',
+	'ALREADY_IN_TENANT',
+	'SELF_INVITE_NOT_ALLOWED',
+	'OWNER_CANNOT_BE_DOWNGRADED',
+	// #4704: 受諾すると家族メンバー上限を超えるため受け入れられない。
+	// 汎用文言でも dead-end は防げるが、次アクション (プラン変更 / 未使用の招待を取り消す) は
+	// 理由固有なので専用文言を持たせる。
 	'MEMBER_LIMIT_REACHED',
 ] as const;
 
-export type InviteAcceptErrorCookieValue = (typeof INVITE_ACCEPT_ERROR_COOKIE_VALUES)[number];
+export type InviteAcceptErrorReason = (typeof INVITE_ACCEPT_ERROR_REASONS)[number];
 
-/** cookie の生値が案内対象の失敗理由かを判定する (SSOT 経由、手書き union 禁止)。 */
-export function isInviteAcceptErrorCookieValue(
+/**
+ * cookie 値が既知の拒否理由かを判定する。未知の値 (古い cookie / 改竄) は
+ * 呼び出し側で汎用文言にフォールバックさせる。
+ */
+export function isInviteAcceptErrorReason(
 	value: string | undefined,
-): value is InviteAcceptErrorCookieValue {
-	return (
-		value !== undefined && (INVITE_ACCEPT_ERROR_COOKIE_VALUES as readonly string[]).includes(value)
-	);
+): value is InviteAcceptErrorReason {
+	return value !== undefined && (INVITE_ACCEPT_ERROR_REASONS as readonly string[]).includes(value);
 }
 
 export const createInviteSchema = z.object({
