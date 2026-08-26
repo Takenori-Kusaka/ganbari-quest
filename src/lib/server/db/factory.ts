@@ -241,7 +241,7 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 	return {
 		accountLockout: createDsqlAccountLockoutRepo(db),
 		activationFunnel: createDsqlActivationFunnelRepo(db),
-		battle: createDsqlBattleRepo(db),
+		battle: createDsqlBattleRepo(db, runner),
 		cancellationReason: createDsqlCancellationReasonRepo(db),
 		certificate: createDsqlCertificateRepo(db),
 		auth: createDsqlAuthRepo(db, runner),
