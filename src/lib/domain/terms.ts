@@ -1396,8 +1396,14 @@ export const ADMIN_SCREEN_TERMS = {
 // tests/unit/domain/support-response-time-ssot-4709.test.ts が pin する。
 
 export const SUPPORT_RESPONSE_TERMS = {
-	/** 初回応答の目標時間 (例: 「48 時間以内（営業日ベース）」) */
-	initialResponseTarget: '48 時間以内（営業日ベース）',
+	/**
+	 * 初回応答の目標時間 (例: 「48時間以内（営業日ベース）」)。
+	 * 表記は SLA 第 6 条の既存文言に合わせる — #4508 の pin test が `48時間以内` (半角スペース無し)
+	 * を要求するため、atom 側を SLA に寄せて 3 文書が同一文字列を共有する形にする。
+	 */
+	initialResponseTarget: '48時間以内（営業日ベース）',
+	/** 同じ目標を営業日で言い換えた表記。特商法の電話番号欄で併記する (#4508 finding 3)。 */
+	initialResponseTargetBusinessDays: '2 営業日以内',
 } as const;
 
 // ============================================================
