@@ -150,8 +150,15 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 				failed: 1,
 			};
 		}
+		// #4711: 表示名 / icon は ctx から取る (dispatchImport が displayName を補完する)。
+		// 旧実装は presetName に presetId を入れており、admin/settings/rules のカードに
+		// 内部 ID「streak-bonus」が表示され icon が空だった。
 		const result = await this.applyRulePreset(
-			{ presetId: ctx.presetId, presetName: ctx.presetId, presetIcon: '' },
+			{
+				presetId: ctx.presetId,
+				presetName: ctx.presetName ?? ctx.presetId,
+				presetIcon: ctx.presetIcon ?? '',
+			},
 			payload,
 			ctx,
 		);
