@@ -52,11 +52,11 @@ const WHOLE_BODY_TEST_RE = new RegExp(String.raw`\.test\(\s*(${BODY_IDENT})\s*\)
  * 「この判定を触ったならもう一度理由を書け」という強制になる。
  */
 const ALLOWLIST: Record<string, string> = {
-	// --- #4348 で是正しなかった残置 (Issue #4348 に残件として記録、1 箇所ずつ corpus 比較して消化) ---
-	"scripts/check-ac-verification-map.mjs::const mapHeaderIdx = body.indexOf('AC 検証マップ');":
-		'#4348 残置 (対象 #6): feature lane の AC マップ section 探索。全 feature PR に波及するため別 PR で corpus 比較のうえ是正する',
-	'scripts/check-admin-bypass-evidence.mjs::return EVIDENCE_MARKER_PATTERNS.some((re) => re.test(body));':
-		'#4348 残置 (対象 #3): admin bypass 証跡マーカーの存在検査。nightly 監査 script で PR gate とは別経路のため別 PR で是正する',
+	// #4348 の対象 6 箇所は全て消化済 (残置エントリなし)。
+	//   対象 #6 は **判定関数ごと削除**した — #4305 で PR テンプレートから `## AC 検証マップ` 節が
+	//   消え entry からも外れており、呼び出しが自身の test だけの死んだコードだったため、
+	//   厳格化ではなく削除が正しい対処だった (経緯は check-ac-verification-map.mjs の entry コメント)。
+	//   対象 #3 (admin bypass 証跡 marker) は `hasDeclarationLine` へ移行済。
 	// --- 構造化識別子ではなく prose (自然文) を探す用途。本文全体を見るのが正しい ---
 	'scripts/check-pr-screenshot.mjs::hasBefore: BEFORE_LABEL_PATTERN.test(body),':
 		'prose 検査: 「修正前」ラベルの表記ゆれを本文から探す用途で、見出し等の構造化識別子ではない',
