@@ -73,28 +73,31 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
 		expect(PLAN_GATE_LABELS.childLimitReached(null)).toBeTypeOf('string');
 		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReached(null)).toBeTypeOf('string');
+		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(null)).toBeTypeOf('string');
 		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(null)).toBeTypeOf('string');
+		expect(PLAN_GATE_LABELS.perChildLimitReached(null)).toBeTypeOf('string');
 		// @ts-expect-error メンバー上限メッセージに null は渡せない (#4622)
 		expect(PLAN_GATE_LABELS.memberLimitReached(null)).toBeTypeOf('string');
 	});
 
-	it('文言は移設前とバイト一致で不変', () => {
+	// checklist / メンバー上限の文面は #4512 (プラン名 SSOT = 「無料プラン」/「スタンダードプラン」) と
+	// #4500 (上限は owner を含む合計であることを明示) で更新済み。ここでは移設後の**現行文言**を
+	// バイト一致で pin する (数値と文の組み立てが labels.ts の 1 箇所に閉じていることの回帰)。
+	it('文言はラベル関数の出力とバイト一致で不変', () => {
 		expect(PLAN_GATE_LABELS.activityLimitReached(3)).toBe(
 			'カスタム活動は最大3個まで作成できます。プランをアップグレードしてください。',
 		);
 		expect(PLAN_GATE_LABELS.childLimitReached(2)).toBe(
 			'子供は最大2人まで登録できます。プランをアップグレードしてください。',
 		);
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReached(3)).toBe(
-			'フリープランではお子さま1人あたり 3 個までです。',
+		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(3)).toBe(
+			'無料プランではお子さま1人あたり 3 個までです。',
 		);
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(3)).toBe(
-			'フリープランではお子さま1人あたり 3 個までです。スタンダード以上にアップグレードすると無制限に作成できます。',
+		expect(PLAN_GATE_LABELS.perChildLimitReached(3)).toBe(
+			'無料プランではお子さま1人あたり 3 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。',
 		);
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
-			'メンバー上限（4人）に達しています。プランをアップグレードしてください。',
+			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);
 	});
 });

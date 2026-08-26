@@ -14,6 +14,8 @@ export const ICON_STATUS = '⭐';
 export const ICON_HISTORY = '📋';
 /** チャレンジきろく */
 export const ICON_ACHIEVEMENTS = '🏆';
+/** バトル (#4681: elementary 以上の CharacterTabs 入口。baby / preschool は非提供) */
+export const ICON_BATTLE = '⚔️';
 /** もちものチェック / チェックリスト */
 export const ICON_CHECKLIST = '📋';
 /** かぞく / メンバー（子供選択） */

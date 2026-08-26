@@ -5,6 +5,7 @@ import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import AiInputNotice from './AiInputNotice.svelte';
 import type { AiPreviewData } from './activity-types';
 
 interface Props {
@@ -115,6 +116,7 @@ function acceptPreview() {
 			{/if}
 		</Button>
 	</div>
+	<AiInputNotice testid="ai-input-notice-activity" />
 	{#if aiLoading}
 		<ProgressMessage
 			messages={[COMMON.progressBaseAi, COMMON.progressBaseWait, COMMON.progressBaseFinal]}

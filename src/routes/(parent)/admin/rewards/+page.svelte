@@ -26,6 +26,7 @@ import { CHILD_TERMS, CONCEPT_ICONS, REWARD_TERMS, TEMPLATE_TERMS } from '$lib/d
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
@@ -241,9 +242,12 @@ async function handleDeleteConfirm() {
 // `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
 // effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人では空 dialog を開かず「まずは登録」を案内する (3 admin 画面共通)。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	const pid = data.importPresetId;
-	if (pid && pid !== consumedImportPresetId) {
+	if (pid && pid !== consumedImportPresetId && !hasNoChildren) {
 		consumedImportPresetId = pid;
 		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
@@ -778,6 +782,11 @@ async function handleCopyFromChild() {
 			/>
 		{/snippet}
 	</AdminResourceHeader>
+
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="rewards-import-needs-child" />
+	{/if}
 
 	<!-- #2998 (EPIC #2897) fix: title + 重複説明文は AdminResourceHeader が担うため撤去し、
 	     ごほうび固有の有用なポインタ (応援機能との区別案内 + おうえんメッセージへのクロスリンク) のみ残す。
