@@ -54,6 +54,17 @@ const UNSUBSCRIBED_KEY = MARKETING_UNSUBSCRIBED_KEY;
  */
 const DUNNING_NOTICE_SENT_KEY = 'dunning_notice_sent_marker';
 
+/**
+ * #4721: 期限切れ前リマインドの送信済マーカー (settings KV キー)。
+ *
+ * 値は `${planExpiresAt}:${milestone}` (dunning と同形式)。同じ契約・同じ milestone に
+ * 対して 2 通目を送らない。dispatcher の非同期 retry (Function URL 30 秒 timeout で
+ * 発火しうる) や手動再実行で同日 2 通届くのを防ぐ。
+ *
+ * DUNNING_NOTICE_SENT_KEY と同じく単なる重複送信よけで、消えても次の送信で書き直される。
+ */
+const RENEWAL_REMINDER_SENT_KEY = 'renewal_reminder_sent_marker';
+
 // ============================================================
 // 型
 // ============================================================
@@ -96,9 +107,87 @@ export function daysUntil(expiresAt: string, now: Date): number {
 /**
  * 残日数が「期限切れ前リマインド」のターゲットに該当するかを判定する。
  * 30/7/1 日のいずれかと完全一致したときのみ true。
+ *
+ * **dunning (支払い失敗通知) の判定にのみ使う。** 期限切れ前リマインド本体は
+ * {@link dueRenewalMilestone} を使う (完全一致だと失敗日の catch-up ができないため)。
  */
 export function isRenewalReminderDay(daysRemaining: number): daysRemaining is RenewalReminderDay {
 	return RENEWAL_REMINDER_DAYS.includes(daysRemaining as RenewalReminderDay);
+}
+
+/** 期限切れ前リマインドを 1 通送る。送信できたときだけマーカーを立てる (#4721)。 */
+async function sendRenewalReminder(
+	ctx: TenantContext,
+	daysRemaining: number,
+	marker: string,
+): Promise<'renewal-sent' | 'error'> {
+	const ok = await sendLicenseRenewalReminderEmail({
+		email: ctx.email,
+		tenantId: ctx.tenantId,
+		ownerName: ctx.ownerName,
+		planLabel: getSubscriptionPlanLabel(ctx.plan ?? ''),
+		expiresAt: formatExpiresAt(ctx.planExpiresAt as string),
+		// **本文には実際の残日数を渡す** (milestone はマーカーの識別子であって顧客に見せる値ではない)。
+		// catch-up で 1 日遅れて送るとき「あと 7 日」と書くと嘘になる。
+		daysRemaining,
+	});
+	// 失敗した回はマーカーを立てない (次回実行で再試行される)
+	if (!ok) return 'error';
+	await getRepos().settings.setSetting(RENEWAL_REMINDER_SENT_KEY, marker, ctx.tenantId);
+	await incrementMarketingEmailCount(ctx.tenantId);
+	return 'renewal-sent';
+}
+
+/**
+ * 期限切れ前リマインドの送信対象と送信済状態を 1 度に解決する (#4721)。
+ *
+ * 判定材料が「milestone / マーカー文字列 / 送信済か」の 3 つに増えたため、
+ * 呼び出し側 (processTenant) に散らさず 1 箇所に閉じる。
+ */
+async function resolveRenewalState(
+	ctx: TenantContext,
+	daysRemaining: number | null,
+): Promise<{ milestone: RenewalReminderDay | null; marker: string | null; alreadySent: boolean }> {
+	const milestone = daysRemaining === null ? null : dueRenewalMilestone(daysRemaining);
+	if (milestone === null) return { milestone: null, marker: null, alreadySent: false };
+
+	const marker = `${ctx.planExpiresAt ?? ''}:${milestone}`;
+	const stored = await getRepos().settings.getSetting(RENEWAL_REMINDER_SENT_KEY, ctx.tenantId);
+	return { milestone, marker, alreadySent: stored === marker };
+}
+
+/**
+ * catch-up を許す日数 (#4721)。milestone 当日から数えてこの日数以内なら遅れて送る。
+ *
+ * cron の停止は普通 1〜数日で気付いて直るので、3 日あれば「落ちた日の分」を拾える。
+ * 窓を広くすると「サイクルの途中にいる既存顧客へ、いま初めてマーカーを持つせいで
+ * 一斉に送られる」= 導入時の過剰送信になるため、意図的に狭く取る。
+ */
+export const RENEWAL_REMINDER_CATCHUP_DAYS = 3;
+
+/**
+ * いま送るべき期限切れ前リマインドの milestone を返す (#4721)。該当なしは null。
+ *
+ * **完全一致 (`daysRemaining === 7`) だけをやめた理由**: cron がその日に失敗する /
+ * 実行されないと、そのリマインドは**永久に送られない**。1 日落ちただけで顧客が
+ * 「期限が近い」ことを知る機会を失い、しかも失われたこと自体が誰にも見えない。
+ *
+ * そこで `m - CATCHUP_DAYS < daysRemaining <= m` の窓に入っていれば m として扱う
+ * (30 日 milestone なら残り 30〜28 日)。窓を出た顧客 (残り 14 日など) は対象外のまま —
+ * 「到達済みの milestone すべて」に広げると、マーカーを持たない既存顧客へ導入直後に
+ * 一斉送信してしまう。二重送信は {@link RENEWAL_REMINDER_SENT_KEY} のマーカーが防ぐ
+ * (「送ったか」を日付ではなく契約 × milestone で持つので、catch-up しても 1 通)。
+ *
+ * 期限切れ後 (`daysRemaining < 1`) は対象外。更新を促す意味が無く、
+ * 契約状態の遷移は webhook 側が扱う。
+ */
+export function dueRenewalMilestone(daysRemaining: number): RenewalReminderDay | null {
+	if (daysRemaining < 1) return null;
+	const reached = RENEWAL_REMINDER_DAYS.filter(
+		(day) => daysRemaining <= day && daysRemaining > day - RENEWAL_REMINDER_CATCHUP_DAYS,
+	);
+	if (reached.length === 0) return null;
+	return reached.reduce((min, day) => (day < min ? day : min));
 }
 
 /** 最終アクティブ日からの経過日数を返す (createdAt フォールバック付き)。 */
@@ -259,8 +348,18 @@ async function processTenant(
 	//    #4507: dunning 中 (grace_period) はここに来ない (上の分岐で処理済み)。
 	//    それでも条件に status を含めるのは、将来 reminder 日以外の送信日を足したときに
 	//    「支払い失敗中の顧客へ marketing 便の更新案内」が復活しないようにするため。
+	//    #4721: 完全一致ではなく「到達済みで最も近い milestone」で判定し、cron が 1 日落ちても
+	//    リマインドが永久に失われないようにする。二重送信はマーカーが防ぐ。
+	const {
+		milestone: renewalMilestone,
+		marker: renewalMarker,
+		alreadySent: renewalAlreadySent,
+	} = await resolveRenewalState(ctx, daysRemaining);
 	const renewalEligible =
-		isReminderDay && !!ctx.plan && ctx.status !== SUBSCRIPTION_STATUS.GRACE_PERIOD; // 一般プランのみ (trial 等を除外)
+		renewalMilestone !== null &&
+		!renewalAlreadySent &&
+		!!ctx.plan &&
+		ctx.status !== SUBSCRIPTION_STATUS.GRACE_PERIOD; // 一般プランのみ (trial 等を除外)
 
 	// 3) 休眠復帰判定
 	const {
@@ -270,7 +369,7 @@ async function processTenant(
 	} = await resolveDormantState(ctx, now);
 
 	if (!renewalEligible && !dormantEligible) {
-		return dormantAlreadySent ? 'skipped-already-sent' : 'skipped-no-target';
+		return dormantAlreadySent || renewalAlreadySent ? 'skipped-already-sent' : 'skipped-no-target';
 	}
 
 	// 4) 年 6 回上限チェック
@@ -288,17 +387,7 @@ async function processTenant(
 
 	// 5) 送信実行 (renewal を優先。両方該当しても 1 通だけ。年 6 回枠の節約)
 	if (renewalEligible) {
-		const ok = await sendLicenseRenewalReminderEmail({
-			email: ctx.email,
-			tenantId: ctx.tenantId,
-			ownerName: ctx.ownerName,
-			planLabel: getSubscriptionPlanLabel(ctx.plan ?? ''),
-			expiresAt: formatExpiresAt(ctx.planExpiresAt as string),
-			daysRemaining: daysRemaining as number,
-		});
-		if (!ok) return 'error';
-		await incrementMarketingEmailCount(ctx.tenantId);
-		return 'renewal-sent';
+		return sendRenewalReminder(ctx, daysRemaining as number, renewalMarker as string);
 	}
 
 	// dormant

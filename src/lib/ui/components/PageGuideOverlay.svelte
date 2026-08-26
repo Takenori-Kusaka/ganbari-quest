@@ -241,10 +241,42 @@ function stopClampLoop(): void {
 	}
 }
 
+/**
+ * step の selector を**可視要素優先**で解決する (#4677)。
+ * driver.js の `element: string` は `document.querySelector` (DOM 順の先頭) で解決するため、
+ * responsive で desktop / mobile の片方しか描画されない UI (例: `md:hidden` の ⚙️ フィルタ ボタンと
+ * `hidden md:block` のしぼりこむパネル) をカンマ区切り selector で指すと、非表示の方に 0×0 で
+ * spotlight してしまう。width/height > 0 の先頭候補で解決して回避する (可視候補が無ければ null)。
+ */
+function resolveStepTarget(selector: string): Element | null {
+	for (const el of document.querySelectorAll(selector)) {
+		const rect = el.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) return el;
+	}
+	return null;
+}
+
+/**
+ * `optional: true` の step を、起動時点の DOM に対象が無ければ省く (#4677)。
+ * 条件付き UI (ログイン時のみ / 0 件時のみ 等) を指す step は、その条件下で「押す」文言が
+ * 光らずに出ることを避けるため、ガイド定義側が optional を宣言し engine が起動時に剪定する。
+ * 省いた結果は進捗 (n / total) にも反映される (driver.js の skipMissingElement は total を
+ * 変えないため採用しない)。
+ */
+function pruneOptionalSteps(pageGuide: PageGuide): PageGuide {
+	const steps = pageGuide.steps.filter(
+		(step) => !(step.optional && step.selector && resolveStepTarget(step.selector) === null),
+	);
+	return steps.length === pageGuide.steps.length ? pageGuide : { ...pageGuide, steps };
+}
+
 function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 	return pageGuide.steps.map((step) => ({
 		// selector 省略 step (ページ概要等) は element 無し → driver.js が画面中央 modal で表示 (Sub-2 ①概要 前提)
-		element: step.selector,
+		// selector 付き step は可視要素優先で解決する (#4677)。driver.js の element は関数を受け付ける。
+		element: step.selector
+			? () => resolveStepTarget(step.selector as string) as Element
+			: undefined,
 		popover: {
 			side: toSide(step.position),
 			align: 'center',
@@ -290,9 +322,11 @@ function destroyDriver(): void {
 	}
 }
 
-function startDriver(pageGuide: PageGuide): void {
+function startDriver(rawGuide: PageGuide): void {
 	destroyDriver();
 	completedLastStep = false;
+	// #4677: 条件付き UI を指す optional step を起動時点の DOM で剪定する
+	const pageGuide = pruneOptionalSteps(rawGuide);
 
 	const config: Config = {
 		// 演出を煽らない (ADR-0012): smoothScroll で対象を確実に画面内へ運んでから配置する。
