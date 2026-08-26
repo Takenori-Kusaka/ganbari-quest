@@ -40,24 +40,57 @@ const CRON_JOBS = [
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
+	// #4706: 設定 UI が約束する 3 配信 (週次メールレポート / リマインダー / ストリーク警告)。
+	// リマインダー時刻が HH:MM の任意値なので 15 分間隔で回す。
+	{ name: 'notification-delivery', utcCronExpression: 'cron(0/15 * * * ? *)' },
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
 
-// --- Bedrock (#4367) ---
+// --- Bedrock (#4367 → #4726) ---
 // SSOT は src/lib/server/ai/bedrock-claude-provider.ts の DEFAULT_MODEL_ID。CDK tsconfig の
 // rootDir は infra/ 固定で src/ を import できないため、CRON_JOBS と同じくインライン定義する。
+// drift は tests/unit/infra/multi-lambda-cdk.test.ts が機械検証する。
 //
-// **base model ID を使い、`us.` 等の geo inference profile は使わない**。profile は
-// us-east-1 に投げても us-east-2 / us-west-2 で推論されうる = 子供の活動テキストが
-// 開示リージョン (privacy.html 第 10 条: us-east-1) の外に出る。Pre-PMF で throughput
-// 冗長性は不要なので in-Region に固定する。
+// **US geo inference profile (`us.` 接頭辞) を使う** (#4726、オーナー決裁 2026-08-19)。
+// #4367 AC3 は「profile は us-east-2 / us-west-2 にもデータが渡るので base model ID で
+// in-Region 固定する」と決めたが、**Claude Haiku 4.5 は base model ID の on-demand 呼び出しを
+// 受け付けない**。本番 CloudWatch の実測 (2026-08-19 19:02 JST) では全リクエストが
+// `ValidationException: Invocation of model ID ... with on-demand throughput isn't supported.`
+// で落ち、AI 提案は 100% キーワード fallback だった。この構成では原理的に 1 回も呼べない。
+//
+// #4367 の主目的は「子供の活動テキストを Google 等の外部 AI に出さない」ことであり、
+// 米国内 3 リージョン (すべて同一 AWS アカウント) への推論分散はその懸念とは重さが違う。
+// 分散するのは推論処理であって保存先ではない (保存は us-east-1 のまま)。
+// 「Bedrock は入力を保存しない」の一次情報は #4367 の比較表を参照 — ここでの断定ではない。
+// `global.` profile は米国外を含みうる (privacy の移転先国「米国」が崩れる) ため採らない。
 const BEDROCK_REGION = 'us-east-1';
-const BEDROCK_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
-// foundation-model ARN は account 部が空 (AWS 管理リソース)。
-// profile を使う場合は profile ARN + 対象 3 リージョンの FM ARN を並べる必要があるが、
-// base model 固定なのでこの 1 本だけで足りる。
-const BEDROCK_MODEL_ARN = `arn:aws:bedrock:${BEDROCK_REGION}::foundation-model/${BEDROCK_MODEL_ID}`;
+/** Converse に渡す ID。inference profile ID そのもの。 */
+const BEDROCK_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+/** profile の member となる base model。IAM の foundation-model ARN 側で使う。 */
+const BEDROCK_FOUNDATION_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+/**
+ * `us.` profile の member region (`aws bedrock list-inference-profiles` 実測、いずれも ACTIVE)。
+ * profile 経由の InvokeModel は **profile ARN と member 各リージョンの foundation-model ARN の
+ * 両方**を要求するため、ここを削ると AccessDeniedException になる。
+ */
+const BEDROCK_PROFILE_MEMBER_REGIONS = ['us-east-1', 'us-east-2', 'us-west-2'] as const;
+
+/**
+ * Bedrock InvokeModel に必要な Resource ARN 一式 (#4726)。
+ *
+ * `*` にはしない (#4367 AC2 の方針は維持) — `*` だと将来 model を増やしたとき権限だけ先に
+ * 広がり、何が呼べるかがコードから読めなくなる。
+ * foundation-model ARN は account 部が空 (AWS 管理リソース)、profile ARN は自アカウント配下。
+ */
+function bedrockInvokeResources(account: string): string[] {
+	return [
+		`arn:aws:bedrock:${BEDROCK_REGION}:${account}:inference-profile/${BEDROCK_MODEL_ID}`,
+		...BEDROCK_PROFILE_MEMBER_REGIONS.map(
+			(region) => `arn:aws:bedrock:${region}::foundation-model/${BEDROCK_FOUNDATION_MODEL_ID}`,
+		),
+	];
+}
 
 export interface ComputeStackProps extends cdk.StackProps {
 	assetsBucket: s3.Bucket;
@@ -193,8 +226,38 @@ export class ComputeStack extends cdk.Stack {
 		// アプリ側 (checkAuth) がどちらでも通るようにする。
 		// #4327: 顧客データ物理削除の kill-switch。deploy 時に `-c gracePeriodDeletionDisabled=true`
 		// を渡すと物理削除を停止したまま deploy できる (既定は従来どおり有効)。
+		//
+		// #4721: **EventBridge Rule が無い = 物理削除は走らない**ので、その場合も env を 'true' に倒す。
+		//
+		// これが無いと「削除は止まっているのに、削除予定日を告げる予告メールだけが毎日届く」
+		// 非対称が起きる (deletion-warning-emails の Rule は作られており、アプリ側の
+		// `GRACE_PERIOD_DELETION_DISABLED` は 'false' のままだったため)。
+		// 顧客には「データの削除予定日: X（あと N 日）」と伝わるのにその日が来ても削除されず、
+		// privacy 第 6 条「猶予期間後に完全削除」とも食い違う。
+		//
+		// env を「物理削除が走るか」の唯一の真実にすることで、予告メール側は env を見るだけで
+		// 削除の有効状態に追従できる (CDK の Rule 有無をアプリから知る術は他に無い)。
+		// NUC は registry に job があり scheduler が駆動するため env 未設定 = 有効のままでよい。
+		// `readonly string[]` に落としてから探す。`CRON_JOBS` は `as const` なので直接比較すると
+		// 「grace-period-deletion は要素に無い」と型エラーになる — それは現状の事実だが、
+		// Rule を戻したときに何も直さず追従してほしい判定なので、型で固定しない。
+		const scheduledCronJobNames: readonly string[] = CRON_JOBS.map((job) => job.name);
+		const gracePeriodJobScheduled = scheduledCronJobNames.includes('grace-period-deletion');
+		const gracePeriodDisabledByContext =
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true';
 		const gracePeriodDeletionDisabled =
-			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' ? 'true' : 'false';
+			gracePeriodDisabledByContext || !gracePeriodJobScheduled ? 'true' : 'false';
+
+		// **「有効にしたつもり」を作らない (#4721)。** context で `false` を渡しても Rule が無ければ
+		// 停止のままになる。承認して再有効化したつもりの運用者が、何も起きていないことに
+		// 気付けないまま終わる事故を防ぐため、synth 時に理由と対処を出す。
+		if (!gracePeriodDisabledByContext && !gracePeriodJobScheduled) {
+			cdk.Annotations.of(this).addWarning(
+				'gracePeriodDeletionDisabled=false が渡されましたが、CRON_JOBS に grace-period-deletion が無いため ' +
+					'GRACE_PERIOD_DELETION_DISABLED=true (停止) のまま deploy されます。' +
+					'再有効化するには compute-stack.ts の CRON_JOBS に grace-period-deletion を戻してください (#4327)。',
+			);
+		}
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
@@ -509,13 +572,14 @@ export class ComputeStack extends cdk.Stack {
 		// SES / Cost Explorer と違い外部サービスへの副作用を持たない = 推論のみで保存なし)。
 		//
 		// `bedrock:Converse` という IAM アクションは存在しない — Converse API は
-		// `bedrock:InvokeModel` で認可される (AWS 公式)。Resource は使う 1 モデルの ARN に絞り、
-		// `*` にしない (`*` だと将来 model を増やしたとき権限だけ先に広がり、何が呼べるかが
-		// コードから読めなくなる)。geo inference profile を使わないので ARN は 1 本で足りる。
+		// `bedrock:InvokeModel` で認可される (AWS 公式)。Resource は `*` にせず、
+		// #4726 で US inference profile 構成にしたことに合わせて
+		// **profile ARN 1 本 + member 3 リージョンの foundation-model ARN 3 本**に絞る
+		// (profile 経由の呼び出しは両方を要求する)。
 		this.fn.addToRolePolicy(
 			new iam.PolicyStatement({
 				actions: ['bedrock:InvokeModel'],
-				resources: [BEDROCK_MODEL_ARN],
+				resources: bedrockInvokeResources(this.account),
 			}),
 		);
 
