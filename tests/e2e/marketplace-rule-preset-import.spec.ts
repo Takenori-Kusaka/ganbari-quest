@@ -124,9 +124,15 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 			await expect(page.getByTestId('admin-rules-page')).toBeVisible({ timeout: 30_000 });
 
 			// auto-import 完了後に preset 一覧に streak-bonus が現れる
-			await expect(page.getByTestId('rules-bonus-preset-streak-bonus')).toBeVisible({
-				timeout: 30_000,
-			});
+			const card = page.getByTestId('rules-bonus-preset-streak-bonus');
+			await expect(card).toBeVisible({ timeout: 30_000 });
+			// #4711: カードには内部 ID ではなく表示名 + icon (marketplace SSOT) が出る。
+			// 旧実装は generic dispatchImport が presetName を渡さず「streak-bonus」/ icon 空だった。
+			await expect(card.getByRole('heading', { level: 3 })).toHaveText('れんぞくボーナス');
+			await expect(card).not.toContainText('streak-bonus');
+			await expect(card).toContainText('🔥');
+			// 取込結果 banner (Toast 2 層目) も成功文言
+			await expect(page.getByTestId('rules-action-message')).toContainText('れんぞくボーナス');
 		} else {
 			// 未ログイン: signup CTA が見える (回帰防止のため最低限の assertion)
 			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
@@ -165,6 +171,12 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 			});
 			// 一覧に 1 件のみ表示 (重複追加されない)
 			await expect(page.getByTestId('rules-bonus-preset-early-bird')).toHaveCount(1);
+			// #4711: 2 回目は「取込済み」が出る (旧条件 `skipped === total` は bonus の
+			// skipped=1 / total=rule 数 で一致せず無反応だった)。banner (role=status) を待つ。
+			const msg = page.getByTestId('rules-action-message');
+			await expect(msg).toBeVisible({ timeout: 30_000 });
+			await expect(msg).toContainText('取込済み');
+			await expect(msg).toHaveAttribute('data-tone', 'info');
 		} else {
 			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
 		}
@@ -210,6 +222,33 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 	// 6. 各 rule-preset 全件 200 で開ける (AC2 ruleType 全対応の確認)
 	// #2895: はりぼて sibling-coop 撤去後、bonus 5 + exchange 4 = 9 件。
 	// ============================================================
+	// ============================================================
+	// #4711: 交換型 (exchange) を rules 画面で開くと「失敗 → 再試行」ではなく
+	// 専用文言 + ごほうび管理への正規経路 link が出る (内部 ID 非露出)
+	// ============================================================
+	test('exchange preset を /admin/settings/rules?import= で開くと種類違い案内 + ごほうび管理 link', async ({
+		page,
+	}) => {
+		await page.goto('/admin/settings/rules?import=night-owl-pass', {
+			waitUntil: 'domcontentloaded',
+		});
+		const isLoggedIn = (await page.getByTestId('admin-rules-page').count()) > 0;
+		if (isLoggedIn) {
+			const msg = page.getByTestId('rules-action-message');
+			await expect(msg).toBeVisible({ timeout: 30_000 });
+			await expect(msg).toContainText('よふかしパス');
+			await expect(msg).not.toContainText('night-owl-pass');
+			await expect(msg).not.toContainText('再試行');
+			await expect(page.getByTestId('rules-import-wrong-type-link')).toHaveAttribute(
+				'href',
+				'/admin/rewards?import=night-owl-pass',
+			);
+		} else {
+			// 未ログイン: admin 画面には到達せず login 側に流れる (他 test と同じ 2 分岐 assertion)
+			await expect(page).not.toHaveURL(/\/admin\/settings\/rules/);
+		}
+	});
+
 	test('rule-preset 9 件全 (bonus 5 + exchange 4) が 200 で開ける', async ({ page }) => {
 		test.slow();
 		const presetIds = [

@@ -68,6 +68,7 @@ async function mountDialog() {
 			rewardIcon: '🎮',
 			balance: 100,
 			pointSettings: { mode: 'point' as const, currency: 'JPY' as const, rate: 1 },
+			autoApprove: false,
 			onClose: () => {},
 		},
 	});
