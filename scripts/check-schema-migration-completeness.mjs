@@ -58,11 +58,28 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { escapeRegExp } from './lib/ci/escape-regexp.mjs';
+import { hasDeclarationLine } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const BASE_REF_DEFAULT = 'origin/main';
 const PR_BODY = process.env.PR_BODY || '';
-const SKIP_MARKER = '[skip-schema-migration-check]';
+export const SKIP_MARKER = '[skip-schema-migration-check]';
+
+/**
+ * PR body に skip marker が **宣言として** 書かれているか (#4348)。
+ *
+ * 旧実装は `PR_BODY.includes(SKIP_MARKER)` で、marker の文字列が本文のどこか
+ * (HTML コメント / code block の手順説明 / 引用 / 否定文 / 本 script の案内文の貼り戻し) に
+ * あるだけで **検査がまるごと消えた**。判定規律は他の PR body gate と同じ SSOT
+ * (`scripts/lib/ci/pr-body-sections.mjs`) に揃え、行単位 + 文脈除外で見る。
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasSkipMarker(body) {
+	return hasDeclarationLine(body, [new RegExp(escapeRegExp(SKIP_MARKER))]);
+}
 
 const SCHEMA_FILE = 'src/lib/server/db/schema.ts';
 const LAZY_MIGRATION_FILE = 'src/lib/server/db/migration/lazy-startup-migrations.ts';
@@ -376,7 +393,7 @@ export function detectBreakingChanges(diff, options = {}) {
 }
 
 function main() {
-	if (PR_BODY.includes(SKIP_MARKER)) {
+	if (hasSkipMarker(PR_BODY)) {
 		console.log(`[check-schema-migration-completeness] ${SKIP_MARKER} marker found — skipping.`);
 		return;
 	}

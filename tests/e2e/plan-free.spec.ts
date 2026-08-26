@@ -16,6 +16,7 @@
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-free
 
 import { expect, test } from '@playwright/test';
+import { openMenu } from './helpers/goal-flows';
 
 test.use({ storageState: 'playwright/.auth/free.json' });
 
@@ -110,7 +111,8 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		//   plan-gated-features.spec.ts でも検証済みだが free の正面検証パッケージとしてここでも押さえる。
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
