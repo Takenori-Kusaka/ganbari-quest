@@ -1244,12 +1244,15 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
+	// #4711: 取込 CTA 文言を取込 4 type (activity-pack / reward-set / checklist / rule-preset) で
+	// 統一する。旧実装は type ごとに 4 様 (「ご家族の見守り画面で取り込む (N件を選択中)」/
+	// 「🎁 このごほうびセットを一括追加 (N件)」/「一括追加」/「📜 このルールセットを一括追加 (N件)」)
+	// で、一覧の type 名 (とくべつルール) と不一致な「ルールセット」も混ざっていた。
+	/** 認証済 + 子供登録済: 件数付き統一 CTA */
+	detailCtaImportUnified: (count: number) => `この${TEMPLATE_TERMS.short}を取り込む (${count}件)`,
+	/** 未ログイン: login へ誘導する統一 CTA */
+	detailCtaImportUnifiedSignedOut: `${LOGIN_TERMS.canonical}して${TEMPLATE_TERMS.short}を取り込む`,
 	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わずご家族の見守り画面に delegate)
-	/** activity-pack ログイン済 + 子供登録済: ご家族の見守り画面に遷移して child 選択ダイアログを開く動線 */
-	detailCtaImportActivityPack: 'ご家族の見守り画面で取り込む',
-	/** activity-pack ログイン済 + 子供登録済: 件数付き CTA */
-	detailCtaImportActivityPackWithCount: (count: number) =>
-		`ご家族の見守り画面で取り込む (${count}件の活動)`,
 	/** activity-pack ログイン済 + 子供未登録 */
 	detailCtaImportActivityPackNoChildren: 'まずはお子さまを登録してください',
 	/** activity-pack 未ログイン CTA 説明 (誤新規登録防止) */
@@ -1262,10 +1265,12 @@ export const MARKETPLACE_LABELS = {
 	/** Cluster H: subset 選択セクション見出し */
 	detailActivityPackSelectHeading: '取り込む活動を選ぶ',
 	/** Cluster H: 選択ヒント (preschool 親「30 件は多すぎる」「歯磨きとお片付けだけ欲しい」への直接回答) */
+	// #4711: 「登録済み」判定は家族全体 (全員の活動名) なので、その旨を明記する。取込先の
+	// お子さまに同名の活動があれば admin 側 (child 単位 dedup) でスキップされるため既定は全選択。
 	detailActivityPackSelectHint:
-		'チェックを外すと取り込みません。既に登録済みの活動は最初からチェックを外しています。',
-	/** Cluster H: 既存活動と name 一致した場合のバッジラベル */
-	detailActivityPackAlreadyExistsBadge: '登録済み',
+		'チェックを外すと取り込みません。「ご家族のどなたかに登録済み」の活動も、取り込むお子さまにまだ無ければ追加されます（同じ名前の活動があるお子さまにはスキップされます）。',
+	/** Cluster H: 既存活動と name 一致した場合のバッジラベル (family 全体判定) */
+	detailActivityPackAlreadyExistsBadge: 'ご家族のどなたかに登録済み',
 	/** Cluster H: 全て選択ボタン */
 	detailActivityPackSelectAll: 'すべて選ぶ',
 	/** Cluster H: 全て解除ボタン */
@@ -1275,13 +1280,6 @@ export const MARKETPLACE_LABELS = {
 		`${selected}件 / ${total}件 を取り込みます`,
 	/** Cluster H: 0 件選択時の inert 状態説明 */
 	detailActivityPackSelectedZero: '取り込む活動を 1 件以上選んでください',
-	/** Cluster H: 件数連動 CTA (subset 選択結果を反映、選択件数 = N) */
-	detailCtaImportActivityPackSelected: (count: number) =>
-		`ご家族の見守り画面で取り込む (${count}件を選択中)`,
-	/** #2136 MP-1: reward-set 一括追加 CTA */
-	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
-	/** #2136 MP-1: 件数付き一括追加 CTA */
-	detailCtaImportRewardWithCount: (count: number) => `🎁 このごほうびセットを一括追加 (${count}件)`,
 	/** #2136 MP-1: ログイン後の reward 取込誘導 */
 	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
 	/** #2136 MP-1: 取込先の子供選択ラベル */
@@ -1300,27 +1298,23 @@ export const MARKETPLACE_LABELS = {
 	/** #2362 PR-4 (ADR-0055 / CWE-598): marketplace 取込ボタン下のヒント (admin 側でダイアログ) */
 	detailRewardImportPerChildHint:
 		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
-	// #2137 (MP-2): event-checklist 一括追加 CTA
-	detailCtaImportChecklist: '一括追加',
+	// #2137 (MP-2): event-checklist 取込 CTA 説明 (CTA 本体は detailCtaImportUnified、#4711)
 	detailCtaImportChecklistDesc:
 		'お子さまの「持ち物リスト」へまとめて追加します（重複時はスキップ）',
-	detailCtaSignupToImport: 'がんばりクエストに登録して 一括追加',
 	detailChildSelectLabel: 'どのお子さまに追加しますか？',
 	detailImportSuccess: (n: number) => `${n}件のチェック項目を追加しました`,
 	detailImportDuplicate: (templateName: string) =>
 		`「${templateName}」は既に取込済みのためスキップしました`,
 	detailImportError: 'インポートに失敗しました',
-	// #2138 (MP-3): rule-preset 一括追加 CTA
-	detailCtaImportRule: '一括追加',
-	detailCtaImportRuleWithCount: (count: number) =>
-		`${CONCEPT_ICONS.rule} このルールセットを一括追加 (${count}件)`,
+	// #2138 (MP-3): rule-preset 取込 CTA 説明 (CTA 本体は detailCtaImportUnified、#4711)
 	detailCtaImportRuleDescBonus:
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
+	// #4711: 顧客向け文言に統一 (内部語 penalty / special / ADR / no-op を出さない)
 	detailCtaImportRuleDescPenalty:
-		'⚠️ penalty タイプは ADR-0012 anti-engagement 細則により慎重審査中です。取込試行は警告として記録されます。',
-	detailCtaImportRuleDescSpecial: '⚠️ special タイプは将来枠です。本取込は記録のみで no-op です。',
+		'⚠️ このルールは現在取り込めません（ペナルティ型のルールは慎重に検討中です）。',
+	detailCtaImportRuleDescSpecial: '⚠️ このルールは現在取り込めません（今後追加予定の種類です）。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
 		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
@@ -1369,9 +1363,10 @@ export const MARKETPLACE_FILTER_LABELS = {
 		ageFit: '年齢順',
 	},
 	// Round 18 Cluster C: 年齢 filter 既定 ON 化 (selectedChildId 経由) 時の hint + 解除動線
+	// #4711: 名前 (nickname、「さくらちゃん」等の呼び名を含む) があるときは敬称を重ねない。
 	autoAgeFilterApplied: (childName: string, ageTierLabel: string) =>
 		childName
-			? `${childName}${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`
+			? `${childName} (${ageTierLabel}) に合わせて表示中`
 			: `${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`,
 	clearAgeFilter: 'すべての年齢を表示',
 	// Round 18 Cluster I (#11/#15/#19): 50+ 件 tag 並列が認知負荷過多のため、人気 N 件 default + expansion
@@ -6484,6 +6479,13 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	importToastError: (presetName: string) =>
 		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
 	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	// #4711: 種類違い (exchange / penalty / special) は「失敗 → 再試行」ではなく、
+	// 取り込める画面 (交換型 = ごほうび管理) を案内する。内部 ID は出さない。
+	importToastWrongType: (presetName: string) =>
+		`「${presetName}」はボーナスルールではないため、この画面では取り込めません。`,
+	importWrongTypeExchangeHint: `交換型のルールは${REWARD_TERMS.menu}で取り込みます。`,
+	importWrongTypeGoToRewards: `${REWARD_TERMS.menu}で取り込む`,
+	importWrongTypeNotImportable: 'このルールは取込対象外です。',
 	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
