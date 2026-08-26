@@ -116,7 +116,11 @@ vi.mock('$lib/server/db/factory', () => ({
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), critical: vi.fn() },
 }));
-vi.mock('$lib/server/storage', () => ({ deleteByPrefix: vi.fn(async () => 0) }));
+// #4724: 退会は purgeByPrefix (全バージョン削除) を通る
+vi.mock('$lib/server/storage', () => ({
+	deleteByPrefix: vi.fn(async () => 0),
+	purgeByPrefix: vi.fn(async () => 0),
+}));
 vi.mock('$lib/server/request-context', () => ({
 	invalidateRequestCaches: vi.fn(),
 	getRequestContext: () => null,

@@ -87,6 +87,8 @@ const mockStorageRepo = {
 	saveFile: vi.fn(),
 	readFile: vi.fn(),
 	deleteByPrefix: vi.fn(),
+	// #4724: エクスポート ZIP は完全 PII のため全バージョンごと消す (purgeByPrefix)
+	purgeByPrefix: vi.fn(),
 	getDownloadUrl: vi.fn(),
 };
 
@@ -606,7 +608,7 @@ describe('cloud-export-service', () => {
 
 			await deleteCloudExport('1', 'tenant-1');
 
-			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
+			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith(
 				'exports/tenant-1/ABC123/data.json',
 			);
 			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
@@ -623,7 +625,7 @@ describe('cloud-export-service', () => {
 				id: '1',
 				s3Key: 'exports/tenant-1/ABC123/data.json',
 			});
-			mockStorageRepo.deleteByPrefix.mockRejectedValue(new Error('S3 error'));
+			mockStorageRepo.purgeByPrefix.mockRejectedValue(new Error('S3 error'));
 
 			await deleteCloudExport('1', 'tenant-1');
 

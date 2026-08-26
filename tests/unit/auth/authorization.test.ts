@@ -28,7 +28,6 @@ describe('authorizeCognito', () => {
 			'/auth/signup',
 			'/auth/invite/abc123',
 			'/pricing',
-			'/setup',
 			'/api/health',
 			'/api/ready',
 			'/api/stripe/webhook',
@@ -236,6 +235,59 @@ describe('authorizeCognito', () => {
 				const result = authorizeCognito('/api/v1/admin/downgrade-preview', id, ctx);
 				expect(result.allowed).toBe(false);
 			});
+		});
+	});
+
+	// ============================================================
+	// #4700: /setup (初期セットアップ) は owner / parent 限定。
+	// 旧実装は isPublicRoute に含めてロール検査が無く、child が 9 step 全てに入れた。
+	// ============================================================
+	describe('/setup 初期セットアップ (#4700)', () => {
+		const SETUP_PATHS = [
+			'/setup',
+			'/setup/children',
+			'/setup/activities-defaults',
+			'/setup/packs',
+			'/setup/rewards',
+			'/setup/rules',
+			'/setup/challenges',
+			'/setup/questionnaire',
+			'/setup/first-adventure',
+			'/setup/complete',
+		];
+		const id = cognitoIdentity();
+
+		for (const path of SETUP_PATHS) {
+			it(`${path}: child は 403 + /switch?reason=admin_forbidden`, () => {
+				const result = authorizeCognito(
+					path,
+					id,
+					makeContext({ role: 'child', childId: asChildId(1) }),
+				);
+				expect(result.allowed).toBe(false);
+				if (!result.allowed) {
+					expect(result.status).toBe(403);
+					expect(result.redirect).toBe('/switch?reason=admin_forbidden');
+				}
+			});
+			it(`${path}: owner / parent はアクセス可能`, () => {
+				expect(authorizeCognito(path, id, makeContext({ role: 'owner' })).allowed).toBe(true);
+				expect(authorizeCognito(path, id, makeContext({ role: 'parent' })).allowed).toBe(true);
+			});
+			it(`${path}: 未認証は 401 + /auth/login`, () => {
+				const result = authorizeCognito(path, null, null);
+				expect(result.allowed).toBe(false);
+				if (!result.allowed) {
+					expect(result.status).toBe(401);
+					expect(result.redirect).toBe('/auth/login');
+				}
+			});
+		}
+
+		it('/setup は公開ルートではない (isPublicRoute 経路を通らない)', () => {
+			// 認証済みでも Context なし (テナント未所属) なら /auth/login へ = 公開ルート扱いで素通りしない
+			const result = authorizeCognito('/setup/children', id, null);
+			expect(result.allowed).toBe(false);
 		});
 	});
 

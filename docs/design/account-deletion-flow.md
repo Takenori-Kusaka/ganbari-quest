@@ -111,7 +111,9 @@ else                              pattern = 'member';
 
 > **重要**: パターン 3 (`deleteChildAccount`) は子供レコード自体を削除しない（活動履歴・実績は残す）。代わりに `child.userId` を `null` にしてアカウントだけ切り離す。これは「子供がスマホを返した」「再ログインのため UID を作り直したい」等のケースを想定したもの。
 
-> **S3 実体削除は 2 prefix に及ぶ（#3868）**: 「テナントスコープのデータ削除」は DB 行だけでなく S3 上の payload まで含む。① `fullTenantDeletion` / `deleteOwnerFullDelete` が `deleteByPrefix('tenants/{tenantId}/')` でアバター・音声・画像を削除する（§3 シーケンスの「S3 削除」）のに加え、② クラウドバックアップ ZIP は `exports/{tenantId}/{pinCode}/...` という**別 prefix**に置かれるため `tenants/{tenantId}/` の一括削除では消えない。これを `deleteTenantScopedData` の cloudExports 削除ループ内で、DB 行削除の**前**に `storage.deleteByPrefix(exp.s3Key)` を呼んで削除する（個別削除 `cloud-export-service.deleteCloudExport` と同一手段を再利用）。S3 削除失敗は best-effort（`logger.warn` で記録し DB 行削除・account 削除は継続）。これを怠ると退会後も子供の完全 PII を含むバックアップが S3 lifecycle（30 日）失効まで孤児として滞留する。
+> **S3 実体削除は 2 prefix に及ぶ（#3868）**: 「テナントスコープのデータ削除」は DB 行だけでなく S3 上の payload まで含む。① `fullTenantDeletion` / `deleteOwnerFullDelete` が `purgeByPrefix('tenants/{tenantId}/')` でアバター・音声・画像を削除する（§3 シーケンスの「S3 削除」）のに加え、② クラウドバックアップ ZIP は `exports/{tenantId}/{pinCode}/...` という**別 prefix**に置かれるため `tenants/{tenantId}/` の一括削除では消えない。これを `deleteTenantScopedData` の cloudExports 削除ループ内で、DB 行削除の**前**に `storage.purgeByPrefix(exp.s3Key)` を呼んで削除する（個別削除 `cloud-export-service.deleteCloudExport` と同一手段を再利用）。
+
+> **退会は `purgeByPrefix`（全バージョン削除）を使う（#4724）**。assets バケットはバージョニング有効のため、`deleteByPrefix` は「現行バージョンに delete marker を立てる」だけで実体は lifecycle（非現行 30 日）まで残る。退会は「猶予期間後に完全削除」を約束しているので、退会経路とクラウドエクスポート削除だけはバージョンを名指しして消す。逆に**お子さまの削除（`child-service.deleteChildFiles`）は `deleteByPrefix` のまま**にして 30 日は戻せるようにする（誤削除からの復旧が #4724 の目的）。経路の固定は `tests/unit/infra/assets-backup.test.ts` [D1][D2]。S3 削除失敗は best-effort（`logger.warn` で記録し DB 行削除・account 削除は継続）。これを怠ると退会後も子供の完全 PII を含むバックアップが S3 lifecycle（30 日）失効まで孤児として滞留する。
 
 ---
 
@@ -124,7 +126,7 @@ ADR-0022 の原則に従い、**全データ削除を伴うパターン（1 / 2b
 ```
 fullTenantDeletion(tenantId, ownerId)
   └─ 0. cancelSubscription(tenantId)   ← 失敗したら throw → 以降の処理は走らない
-  └─ 1. S3 削除 (deleteByPrefix)
+  └─ 1. S3 削除 (purgeByPrefix = 全バージョン)
   └─ 2. tenant scoped data 削除 (deleteTenantScopedData)
   └─ 3. children データ削除 (deleteAllChildrenData)
   └─ 4. 全メンバーの Cognito + DB ユーザー削除 (findTenantMembers → deleteCognitoUser + deleteUser)
@@ -139,7 +141,7 @@ fullTenantDeletion(tenantId, ownerId)
 deleteOwnerFullDelete(tenantId, ownerId)
   └─ 0. 他メンバー一覧 + メール情報を事前収集（削除後は取得不能）
   └─ 1. cancelSubscription(tenantId)   ← 失敗したら throw
-  └─ 2. S3 削除 (deleteByPrefix)
+  └─ 2. S3 削除 (purgeByPrefix = 全バージョン)
   └─ 3. tenant scoped data 削除 (deleteTenantScopedData)
   └─ 4. children データ削除 (deleteAllChildrenData)
   └─ 5. 招待リンク無効化 + 物理削除 (revokeAndDeleteAllInvites)

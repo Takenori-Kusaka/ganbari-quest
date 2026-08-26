@@ -281,6 +281,106 @@ test.describe('child ロール詳細', () => {
 });
 
 // ============================================================
+// #4700: child ロールは /setup (初期セットアップ 9 step) に入れない + POST も拒否
+// 旧実装は /setup を公開ルート扱い (ロール検査なし) にしており、招待 child が子供追加 /
+// 活動・ごほうび・ルール・チャレンジ一括追加 / 初期設定の書き換えまでできた。
+// ============================================================
+test.describe('#4700 child ロールの /setup 拒否', () => {
+	const SETUP_PAGES = [
+		'/setup',
+		'/setup/children',
+		'/setup/activities-defaults',
+		'/setup/packs',
+		'/setup/rewards',
+		'/setup/rules',
+		'/setup/challenges',
+		'/setup/questionnaire',
+		'/setup/first-adventure',
+		'/setup/complete',
+	];
+
+	test('child ロールで /setup/* 全 step が /switch?reason=admin_forbidden に弾かれる', async ({
+		page,
+	}) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		for (const path of SETUP_PAGES) {
+			await page.goto(path);
+			await expect(page, `${path} は child に開かない`).toHaveURL(
+				/\/switch\?reason=admin_forbidden/,
+			);
+		}
+	});
+
+	test('child ロールの POST /setup/children?/addChild は実行されず /switch へ (子供が増えない)', async ({
+		page,
+	}) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		const before = await page.locator('[data-testid^="child-select-"]').count();
+
+		// 認可層 (hooks) が handler 到達前に拒否するため、action は走らず redirect が返る。
+		// SvelteKit は `?/action` への非ブラウザ POST (Accept に text/html 無し) には
+		// JSON envelope `{type:'redirect', location}` + HTTP 200 で redirect を表現する。
+		const res = await page.request.post('/setup/children?/addChild', {
+			form: { nickname: 'E2E-CHILD-BY-CHILD-4700', age: '7', theme: 'pink' },
+			maxRedirects: 0,
+		});
+		if (res.status() === 200) {
+			const body = (await res.json()) as { type?: string; location?: string };
+			expect(body.type).toBe('redirect');
+			expect(body.location ?? '').toContain('/switch?reason=admin_forbidden');
+		} else {
+			expect([302, 303]).toContain(res.status());
+			expect(res.headers().location ?? '').toContain('/switch?reason=admin_forbidden');
+		}
+
+		await page.goto('/switch');
+		await expect(page.locator('[data-testid^="child-select-"]')).toHaveCount(before);
+		await expect(page.getByText('E2E-CHILD-BY-CHILD-4700')).toHaveCount(0);
+	});
+
+	test('owner ロールは /setup/children に入れる (setup 完了済テナントの再入は従来どおり)', async ({
+		page,
+	}) => {
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await page.goto('/setup/children');
+		await expect(page).toHaveURL(/\/setup\/children/);
+	});
+
+	test('未認証で /setup/children は /auth/login へ', async ({ page }) => {
+		await page.goto('/setup/children');
+		await expect(page).toHaveURL(/\/auth\/login/);
+	});
+});
+
+// ============================================================
+// #4700: ログアウトで親ゲート PIN session cookie (gq_parent_session) も破棄される
+// 旧実装は identity / context 等 5 cookie だけ消し、gq_parent_session が残った。共有端末で
+// 24 時間以内に同じ家族の大人が再ログインすると PIN 無しで親画面に入れた (PIN gate 前提の崩壊)。
+// ============================================================
+test.describe('#4700 ログアウト時の親ゲート session 破棄', () => {
+	for (const logoutPath of ['/auth/logout', '/auth/signout']) {
+		test(`${logoutPath} 後に gq_parent_session cookie が残らない`, async ({ page, context }) => {
+			await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+			// 親ゲート session を実際に発行する (verify API、seed PIN 1234)
+			const verify = await page.request.post('/api/v1/parent-gate/verify', {
+				data: { pin: '1234' },
+			});
+			expect(verify.ok(), 'verify API で parent session が発行される').toBe(true);
+			const issued = (await context.cookies()).find((c) => c.name === 'gq_parent_session');
+			expect(issued, '前提: gq_parent_session が存在する').toBeDefined();
+
+			await page.goto(logoutPath);
+			await page.waitForURL(/\/auth\/login/);
+
+			const after = (await context.cookies()).map((c) => c.name);
+			expect(after).not.toContain('gq_parent_session');
+			expect(after).not.toContain('identity_token');
+			expect(after).not.toContain('context_token');
+		});
+	}
+});
+
+// ============================================================
 // 12. 未ログイン時の保護ルート（追加）
 // ============================================================
 test.describe('未ログイン時の保護ルート', () => {
