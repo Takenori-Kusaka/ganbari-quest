@@ -88,7 +88,12 @@ function collectStrings(value: unknown, out: string[], depth = 0): void {
 		return;
 	}
 	if (value && typeof value === 'object') {
-		for (const v of Object.values(value)) collectStrings(v, out, depth + 1);
+		for (const [key, v] of Object.entries(value)) {
+			// href は「顧客に見せる文言」ではなくリンク先そのもの (PAGE_GUIDE_LABELS の
+			// relatedLinks 等)。生パス検査は本文が対象なので、遷移先の値は集めない。
+			if (key === 'href') continue;
+			collectStrings(v, out, depth + 1);
+		}
 	}
 }
 

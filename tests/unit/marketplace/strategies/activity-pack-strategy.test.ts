@@ -14,10 +14,14 @@
  * #2458-A1 (2026-05-26): activity-import-service の facade rewrite に伴い、
  *   write は `repos.childActivity.insertActivitiesBulk` 経由に移行。
  *   旧 `insertActivity` mock は呼ばれなくなったため、本 spec も bulk path mock に同期。
- *   childIds 未指定時は `findAllChildren` で tenant 最初の child に fallback bind。
+ *
+ * #4692 (2026-08-20): childIds 未指定時の first-child silent fallback を撤去。
+ *   apply() は ctx.childIds が空なら ActivityImportTargetRequiredError を投げるため、
+ *   全 case で配信先 child を明示する。
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks (#2458-A1: facade rewrite で bulk path に同期) ----------
 
@@ -67,6 +71,8 @@ vi.mock('$lib/server/logger', () => ({
 import { activityPackStrategy } from '../../../../src/lib/marketplace/strategies/activity-pack-strategy';
 
 const TENANT = 'test-tenant-001';
+// #4692: 配信先 child は ctx で必須。既定の取込先 (mockFindAllChildren の id と一致させる)。
+const TARGET_CHILD_IDS = [asChildId('100')];
 
 function makeActivity(overrides: Record<string, unknown> = {}) {
 	return {
@@ -84,8 +90,8 @@ function makeActivity(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
-	// #2458-A1: fallback bind helper — tenant 最初の child を返す。
-	// childIds 未指定 ctx の test ではこの child に per-child instance が bulk insert される。
+	// #4692: 配信先は ctx.childIds で明示する (silent fallback 撤去)。本 mock は
+	// 他 strategy の eager-load 副作用対策として残す。
 	mockFindAllChildren.mockResolvedValue([{ id: '100' }]);
 	// #2824 (取込永続 honesty): insertActivitiesBulk は本実装と同様に「作成した row (name 込み)」
 	//   を返す。importActivities は imported を実 persist 結果から算出するため、mock も入力を
@@ -207,7 +213,10 @@ describe('activityPackStrategy.apply', () => {
 				makeActivity({ name: 'B', categoryCode: 'benkyou' as const }),
 			],
 		};
-		const result = await activityPackStrategy.apply(payload, { tenantId: TENANT });
+		const result = await activityPackStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: TARGET_CHILD_IDS,
+		});
 		expect(result.imported).toBe(2);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
@@ -230,7 +239,10 @@ describe('activityPackStrategy.apply', () => {
 				makeActivity({ name: 'B', categoryCode: 'benkyou' as const }),
 			],
 		};
-		const result = await activityPackStrategy.apply(payload, { tenantId: TENANT });
+		const result = await activityPackStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: TARGET_CHILD_IDS,
+		});
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(1);
 		// #2458-A1: 1 new activity → 1 bulk call with 1 input
@@ -241,7 +253,11 @@ describe('activityPackStrategy.apply', () => {
 
 	it('ctx.presetId が下流 (insertActivitiesBulk) に sourcePresetId として伝播 (#1254 G1)', async () => {
 		const payload = { activities: [makeActivity({ name: 'X' })] };
-		await activityPackStrategy.apply(payload, { tenantId: TENANT, presetId: 'pack-1' });
+		await activityPackStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: 'pack-1',
+			childIds: TARGET_CHILD_IDS,
+		});
 		// #2458-A1: per-child input array 経由で sourcePresetId が伝播
 		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
 			expect.arrayContaining([expect.objectContaining({ sourcePresetId: 'pack-1' })]),
@@ -261,6 +277,7 @@ describe('activityPackStrategy.apply', () => {
 		};
 		await activityPackStrategy.apply(payload, {
 			tenantId: TENANT,
+			childIds: TARGET_CHILD_IDS,
 			applyMustDefault: true,
 		});
 		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
@@ -281,6 +298,7 @@ describe('activityPackStrategy.apply', () => {
 		};
 		await activityPackStrategy.apply(payload, {
 			tenantId: TENANT,
+			childIds: TARGET_CHILD_IDS,
 			applyMustDefault: false,
 		});
 		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
@@ -306,10 +324,20 @@ describe('activityPackStrategy.apply', () => {
 		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
+	// #4692 F1: 取込先未指定は「tenant 最初の child」に silent bind せず fail-fast する。
+	// 旧挙動では、けんたのタブで復元しても 94 件がたろう (最初の子) に入っていた。
+	it('ctx.childIds 未指定 -> 書き込まず ActivityImportTargetRequiredError (最初の子に silent bind しない)', async () => {
+		const payload = { activities: [makeActivity({ name: 'A' })] };
+		await expect(activityPackStrategy.apply(payload, { tenantId: TENANT })).rejects.toThrow(
+			'取込先のお子さまが指定されていません',
+		);
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+	});
+
 	it('insertActivitiesBulk が throw した場合 imported=0 + errors に記録 (#2824 honesty)', async () => {
 		// #2824 取込永続 honesty: bulk write が全失敗したら 1 件も persist していない。
 		//   旧 spec は imported=2 を期待していたが、これは「N 件登録しました」と偽る根因。
-		//   fallback child 1 件 (id=100) への bulk が reject → persist 0 → imported=0 が honest。
+		//   配信先 child 1 件 (id=100) への bulk が reject → persist 0 → imported=0 が honest。
 		mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB error'));
 		const payload = {
 			activities: [
@@ -317,7 +345,10 @@ describe('activityPackStrategy.apply', () => {
 				makeActivity({ name: 'ok', categoryCode: 'benkyou' as const }),
 			],
 		};
-		const result = await activityPackStrategy.apply(payload, { tenantId: TENANT });
+		const result = await activityPackStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: TARGET_CHILD_IDS,
+		});
 		expect(result.imported).toBe(0);
 		// errors: ① per-child bulk 失敗 ② 「2 件を保存できませんでした」
 		expect(result.errors.some((e) => e.includes('per-child instance 作成失敗'))).toBe(true);
@@ -348,7 +379,7 @@ describe('marketplace dispatcher + activity-pack', () => {
 			typeCode: 'activity-pack',
 			rawPayload: payload,
 			displayName: 'test pack',
-			ctx: { tenantId: TENANT, presetId: 'p-1' },
+			ctx: { tenantId: TENANT, presetId: 'p-1', childIds: TARGET_CHILD_IDS },
 		});
 		expect(result.importResult).toBe(true);
 		expect(result.packName).toBe('test pack');
@@ -376,7 +407,7 @@ describe('marketplace dispatcher + activity-pack', () => {
 			typeCode: 'activity-pack',
 			rawPayload: slicedPayload,
 			displayName: 'kinder-starter (subset)',
-			ctx: { tenantId: TENANT, presetId: 'kinder-starter' },
+			ctx: { tenantId: TENANT, presetId: 'kinder-starter', childIds: TARGET_CHILD_IDS },
 		});
 		// subset = 2 件のみ insert / 残り 28 件は payload に含まれないため skip すらされない
 		expect(result.imported).toBe(2);

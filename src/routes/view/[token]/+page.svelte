@@ -1,17 +1,18 @@
 <script lang="ts">
-import { CATEGORIES } from '$lib/domain/categories';
+import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
 import { APP_LABELS, formatChildAge, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
-const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
-	// #4716 item 15: カテゴリ名 / アイコンの実体は domain/categories.ts (CATEGORIES) が SSOT
-	1: { name: CATEGORIES.undou.name, icon: CATEGORIES.undou.icon },
-	2: { name: CATEGORIES.benkyou.name, icon: CATEGORIES.benkyou.icon },
-	3: { name: CATEGORIES.seikatsu.name, icon: CATEGORIES.seikatsu.icon },
-	4: { name: CATEGORIES.kouryuu.name, icon: CATEGORIES.kouryuu.icon },
-	5: { name: CATEGORIES.souzou.name, icon: CATEGORIES.souzou.icon },
-};
+/**
+ * #4703: カテゴリ名 / アイコンは `categories.ts` (SSOT) から引く。
+ * 旧実装は本 component 内に 5 件を直書きしており、SSOT を変えてもこの画面だけ
+ * 古い名前を出し続ける形だった (DESIGN.md §6 用語ハードコード禁止)。
+ */
+function categoryMeta(categoryId: string) {
+	const code = toCategoryCode(categoryId);
+	return code ? CATEGORIES[code] : undefined;
+}
 </script>
 
 <svelte:head>
@@ -41,7 +42,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 					</div>
 
 					<div class="child-stats">
-						<div class="stat-item">
+						<div class="stat-item" data-testid="viewer-child-points">
 							<span class="stat-value">{child.totalPoints.toLocaleString()}</span>
 							<span class="stat-label">{VIEW_PAGE_LABELS.statPointLabel}</span>
 						</div>
@@ -54,7 +55,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 					{#if child.statuses.length > 0}
 						<div class="category-grid">
 							{#each child.statuses as status}
-								{@const cat = CATEGORY_LABELS[status.categoryId]}
+								{@const cat = categoryMeta(status.categoryId)}
 								{#if cat}
 									<div class="category-item">
 										<span class="category-icon">{cat.icon}</span>
@@ -90,12 +91,12 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 
 	.viewer-header h1 {
 		font-size: 1.5rem;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.viewer-label {
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 		margin: 0.25rem 0 0;
 	}
@@ -106,14 +107,14 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 		padding: 0.25rem 0.75rem;
 		border-radius: 9999px;
 		font-size: 0.75rem;
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #94a3b8);
+		background: var(--color-surface-muted);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-empty {
 		text-align: center;
 		padding: 3rem 1rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-children {
@@ -124,8 +125,8 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	}
 
 	.child-card {
-		background: var(--color-surface-card, #fff);
-		border: 1px solid var(--color-border-default, #e2e8f0);
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
 		border-radius: 1rem;
 		padding: 1.25rem;
 	}
@@ -140,13 +141,13 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	.child-name {
 		font-size: 1.25rem;
 		font-weight: 700;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.child-age {
 		font-size: 0.875rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.child-stats {
@@ -163,12 +164,12 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	.stat-value {
 		font-size: 1.5rem;
 		font-weight: 700;
-		color: var(--color-action-primary, #667eea);
+		color: var(--color-action-primary);
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.category-grid {
@@ -183,7 +184,7 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 		align-items: center;
 		padding: 0.5rem;
 		border-radius: 0.5rem;
-		background: var(--color-surface-muted, #f8fafc);
+		background: var(--color-surface-muted);
 	}
 
 	.category-icon {
@@ -192,19 +193,19 @@ const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 
 	.category-name {
 		font-size: 0.75rem;
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.category-level {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 	}
 
 	.viewer-footer {
 		text-align: center;
 		padding: 2rem 0 1rem;
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 </style>

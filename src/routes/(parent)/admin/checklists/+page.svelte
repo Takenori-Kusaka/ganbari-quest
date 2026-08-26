@@ -18,6 +18,7 @@ import { CONCEPT_ICONS } from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
@@ -50,11 +51,35 @@ let { data, form } = $props();
 //   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
 //   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
 let childIdOverride = $state<ChildId | undefined>(undefined);
+// #4692 F4: `?childId=` を fallback chain に追加し activities / rewards と同型にする。
+// load 再実行で `?childId` が変わったら tab click 由来の override を破棄して URL を優先する
+// (activities の #3499 と同じ stale seed 対策)。
+let lastInitialChildId: ChildId | null | undefined;
+$effect(() => {
+	if (lastInitialChildId !== undefined && data.initialChildId !== lastInitialChildId) {
+		childIdOverride = undefined;
+	}
+	lastInitialChildId = data.initialChildId;
+});
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? asChildId('')),
+		: data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
+			? data.initialChildId
+			: (data.children[0]?.id ?? asChildId('')),
 );
+
+// #4692 F4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)。
+function selectChild(childId: ChildId) {
+	childIdOverride = childId;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.set('childId', String(childId));
+		// import param は dialog auto-open でしか使わないので消す (戻ったとき再 open しない)
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -420,12 +445,17 @@ const visibilityChildren = $derived<VisibilityChild[]>(
 // (取込済なのに dialog が出続ける dead-end ループ)。`consumedImportPresetId` で
 // 「処理済みの presetId」をラッチし、同一 presetId に対しては 1 回だけ auto-open する。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人では空 dialog を開かない。旧実装は確定すると配信先 0 件の
+// テンプレートが作られ「0名のお子さまに配信しました」と表示されていた。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	if (
 		data.importPresetId &&
 		data.importPresetId !== consumedImportPresetId &&
 		!showChildSelectionDialog &&
-		pendingImportPresetId === null
+		pendingImportPresetId === null &&
+		!hasNoChildren
 	) {
 		pendingImportPresetId = data.importPresetId;
 		showChildSelectionDialog = true;
@@ -848,6 +878,11 @@ function getChildName(childId: ChildId): string {
 		</AdminResourceHeader>
 	</div>
 
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="checklists-import-needs-child" />
+	{/if}
+
 	<!-- #3097 (EPIC #3096): 子供タブ (slot 2) — 正準スロット契約に conform。
 	     旧: 「2 人以上」表示条件 + Tailwind 直書き styling だったが、activities / rewards と同型に
 	     「1 人以上」常時表示 + `.child-tab-row` styling + role="tablist" に統一する (NN/G #4 consistency)。
@@ -867,7 +902,7 @@ function getChildName(childId: ChildId): string {
 					data-testid="checklists-child-tab-{child.id}"
 					role="tab"
 					aria-selected={selectedChildId === child.id}
-					onclick={() => (childIdOverride = child.id)}
+					onclick={() => selectChild(child.id)}
 				>
 					{child.nickname}
 				</Button>
