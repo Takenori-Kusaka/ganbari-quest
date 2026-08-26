@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { CategoryId } from '$lib/domain/ids';
+import { getCategoryDisplayName } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import Progress from '$lib/ui/primitives/Progress.svelte';
 
@@ -9,13 +10,23 @@ interface Props {
 	maxValue?: number;
 	level?: number;
 	progressPct?: number;
+	/** #4690 F5: 年齢モード。カテゴリ名の表記（ひらがな / 漢字）を決める。 */
+	uiMode?: string;
 }
 
-let { categoryId, value, maxValue = 100, level, progressPct }: Props = $props();
+let {
+	categoryId,
+	value,
+	maxValue = 100,
+	level,
+	progressPct,
+	uiMode = 'preschool',
+}: Props = $props();
 
 const catDef = $derived(getCategoryById(categoryId));
 const color = $derived(catDef?.color ?? 'var(--theme-primary)');
-const categoryName = $derived(catDef?.name ?? '');
+// #4690 F5: レーダー直下の一覧だけひらがな固定にすると同一画面で文体が割れる (docs/DESIGN.md §8)。
+const categoryName = $derived(getCategoryDisplayName(categoryId, uiMode) || (catDef?.name ?? ''));
 const displayPct = $derived(progressPct ?? (maxValue > 0 ? (value / maxValue) * 100 : 0));
 </script>
 
