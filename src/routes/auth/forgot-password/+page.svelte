@@ -25,6 +25,7 @@ let confirmStep = $derived(form?.confirmStep ?? false);
 let resending = $state(false);
 let resendCooldown = $state(0);
 let resendSuccess = $state(false);
+let initialCooldownStarted = $state(false);
 let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 let messageTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -60,9 +61,12 @@ $effect(() => {
 	}
 });
 
-// 初回にコードを送った直後も cooldown を開始する (連打で Cognito の LimitExceeded を踏ませない)
+// 初回にコードを送った直後も cooldown を開始する (連打で Cognito の LimitExceeded を踏ませない)。
+// one-shot 化 (#4748): resendCooldown を条件に読むと startCooldown() 自身がその値を書き換えるため
+// 60 秒ごとに自己再トリガする無限ループになる。confirmStep の false→true 遷移で 1 回だけ発火させる。
 $effect(() => {
-	if (confirmStep && resendCooldown === 0 && !resendSuccess) {
+	if (confirmStep && !initialCooldownStarted) {
+		initialCooldownStarted = true;
 		startCooldown();
 	}
 });
