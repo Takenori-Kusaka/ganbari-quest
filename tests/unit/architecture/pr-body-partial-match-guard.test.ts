@@ -28,8 +28,16 @@ vi.setConfig({ testTimeout: 60_000 });
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SCAN_DIR = resolve(REPO_ROOT, 'scripts');
 
-/** PR body を指す変数名 (これらに対する部分一致判定を検出対象にする)。 */
-const BODY_IDENT = String.raw`(?:[A-Za-z_$][\w$]*)?[Bb]ody`;
+/**
+ * PR body を指す変数名 (これらに対する部分一致判定を検出対象にする)。
+ *
+ * **大文字の `PR_BODY` も含める (#4348 で追加)**。旧実装は `[Bb]ody` しか見ておらず、
+ * env 由来の定数名 `PR_BODY` に対する `.includes(...)` が検出器から漏れていた。
+ * 実際に schema 系 gate 2 本が `PR_BODY.includes(SKIP_MARKER)` で **gate 全体を skip** しており、
+ * 「本 Issue の対象一覧にも ALLOWLIST にも載らない同 class」が残っていた。
+ * 検出できない形を残すと guard 自体が「検査できなかったのに緑」になる (#4084 と同じ穴)。
+ */
+const BODY_IDENT = String.raw`(?:[A-Za-z_$][\w$]*)?(?:[Bb]ody|BODY)`;
 
 /** `<body>.indexOf(` / `<body>.includes(` — 部分一致で section / 宣言を探す形。 */
 const SUBSTRING_RE = new RegExp(String.raw`\b(${BODY_IDENT})\s*\.\s*(indexOf|includes)\s*\(`, 'g');
@@ -49,11 +57,6 @@ const ALLOWLIST: Record<string, string> = {
 		'#4348 残置 (対象 #6): feature lane の AC マップ section 探索。全 feature PR に波及するため別 PR で corpus 比較のうえ是正する',
 	'scripts/check-admin-bypass-evidence.mjs::return EVIDENCE_MARKER_PATTERNS.some((re) => re.test(body));':
 		'#4348 残置 (対象 #3): admin bypass 証跡マーカーの存在検査。nightly 監査 script で PR gate とは別経路のため別 PR で是正する',
-	'scripts/check-pr-screenshot.mjs::return DOM_REF_PATTERN.test(body);':
-		'#4348 残置 (対象 #4): DOM スナップショット参照の存在検査。#4255 の兄弟関数と同様に実在検査へ寄せる別 PR で是正する',
-	'scripts/check-pr-screenshot.mjs::return INTEGRATION_VR_EVIDENCE_PATTERNS.some((p) => p.test(body));':
-		'#4348 残置 (対象 #4): 統合 PR の VR 証跡の存在検査。同上',
-
 	// --- 構造化識別子ではなく prose (自然文) を探す用途。本文全体を見るのが正しい ---
 	'scripts/check-pr-screenshot.mjs::hasBefore: BEFORE_LABEL_PATTERN.test(body),':
 		'prose 検査: 「修正前」ラベルの表記ゆれを本文から探す用途で、見出し等の構造化識別子ではない',
