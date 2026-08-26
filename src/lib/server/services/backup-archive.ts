@@ -15,7 +15,7 @@ import type { ExportData } from '$lib/domain/export-format';
 import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 import { listFiles, readFile } from '$lib/server/storage';
-import { tenantPrefix } from '$lib/server/storage-keys';
+import { RECOVERY_PREFIX_SEGMENT, tenantPrefix } from '$lib/server/storage-keys';
 import {
 	BACKUP_MANIFEST_FILENAME,
 	type BackupManifest,
@@ -142,7 +142,11 @@ export async function buildFullBackupZip(
 	const staticPaths = new Set<string>();
 	try {
 		const prefix = tenantPrefix(tenantId);
-		const fileKeys = await listFiles(prefix);
+		// #4720: 置換インポートの復旧用 snapshot (tenants/<id>/recovery/*.zip) は backup の対象外
+		// (含めると backup の中に過去の backup が入れ子になり肥大化する)。
+		const fileKeys = (await listFiles(prefix)).filter(
+			(key) => !key.startsWith(`${prefix}${RECOVERY_PREFIX_SEGMENT}`),
+		);
 		for (const key of fileKeys) {
 			const fileData = await readFile(key);
 			if (fileData) {
