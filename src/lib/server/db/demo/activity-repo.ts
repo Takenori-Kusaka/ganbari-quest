@@ -407,6 +407,15 @@ export async function countPointLedgerEntriesByTypeAndDate(
 	return 0;
 }
 
+export async function sumPointLedgerByTypeAndDescriptionPrefix(
+	_childId: ChildId,
+	_type: string,
+	_descriptionPrefix: string,
+	_tenantId: string,
+): Promise<number> {
+	return 0;
+}
+
 // ---------- Must activities (#1755) ----------
 
 export async function findMustActivitiesWithToday(

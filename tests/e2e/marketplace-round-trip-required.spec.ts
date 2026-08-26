@@ -17,18 +17,34 @@
  *  - tests/unit/marketplace/round-trip-required.test.ts (5 type schema 経由 round-trip)
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
+
+/**
+ * #4692: export / importFile は「選択中の子」scope になったため childId が必須。
+ * 画面の子供タブ testid (`child-tab-<id>`) から実在の childId を読み、round-trip 全体で使う。
+ */
+async function readFirstChildId(page: Page): Promise<string> {
+	const firstTab = page.locator('[data-testid^="child-tab-"]').first();
+	await expect(firstTab).toBeVisible();
+	const testid = await firstTab.getAttribute('data-testid');
+	const childId = testid?.replace('child-tab-', '') ?? '';
+	expect(childId, '子供タブから childId を読めなかった (seed 破綻)').not.toBe('');
+	return childId;
+}
 
 test.describe('#2374 marketplace round-trip 必須化 (export → import、PO 指摘 ④ 構造的回帰防止)', () => {
+	let childId = '';
+
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/activities');
 		await page.waitForLoadState('domcontentloaded');
+		childId = await readFirstChildId(page);
 	});
 
 	test('activity-pack: export endpoint が v2 envelope (typeCode + checksum + payload.activities) を返す (#3079 AC4)', async ({
 		request,
 	}) => {
-		const res = await request.get('/api/v1/activities/export');
+		const res = await request.get(`/api/v1/activities/export?childId=${childId}`);
 		expect(res.status()).toBe(200);
 		const body = await res.json();
 
@@ -69,6 +85,8 @@ test.describe('#2374 marketplace round-trip 必須化 (export → import、PO �
 		});
 		const importRes = await request.post('/admin/activities?/importFile', {
 			multipart: {
+				// #4692: 復元先は「選択中の子」— childId 必須
+				childId,
 				file: {
 					name: 'roundtrip-source.json',
 					mimeType: 'application/json',
@@ -79,7 +97,7 @@ test.describe('#2374 marketplace round-trip 必須化 (export → import、PO �
 		expect(importRes.status()).toBe(200);
 
 		// 2. export endpoint で全 activity を v2 envelope JSON 取得
-		const exportRes = await request.get('/api/v1/activities/export');
+		const exportRes = await request.get(`/api/v1/activities/export?childId=${childId}`);
 		expect(exportRes.status()).toBe(200);
 		const exported = await exportRes.json();
 		expect(exported.schemaVersion).toBe(2);
@@ -91,6 +109,7 @@ test.describe('#2374 marketplace round-trip 必須化 (export → import、PO �
 		const reimportPayload = JSON.stringify(exported);
 		const reimportRes = await request.post('/admin/activities?/importFile', {
 			multipart: {
+				childId,
 				file: {
 					name: 'roundtrip-reimport.json',
 					mimeType: 'application/json',
@@ -135,6 +154,7 @@ test.describe('#2374 marketplace round-trip 必須化 (export → import、PO �
 		const emptyPayload = JSON.stringify({ activities: [] });
 		const res = await request.post('/admin/activities?/importFile', {
 			multipart: {
+				childId,
 				file: {
 					name: 'roundtrip-empty.json',
 					mimeType: 'application/json',
