@@ -27,12 +27,8 @@ const message = $derived(
 	data-ai-notice-variant={variant}
 >
 	{message}
-	<a
-		href={AI_INPUT_NOTICE_LABELS.linkHref}
-		target="_blank"
-		rel="noopener noreferrer"
-		class="underline text-[var(--color-text-link)]"
-	>
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- 外部 LP の privacy.html 固定 URL を labels.ts SSOT (linkHref) 経由で参照するため resolve() の対象外 -->
+	<a href={AI_INPUT_NOTICE_LABELS.linkHref} target="_blank" rel="noopener noreferrer" class="underline text-[var(--color-text-link)]">
 		{AI_INPUT_NOTICE_LABELS.linkLabel}
 	</a>
 </p>
