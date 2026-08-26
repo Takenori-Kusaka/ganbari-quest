@@ -107,6 +107,18 @@ export const scheduleRegistry: CronJob[] = [
 		description: 'クラウドエクスポート非同期 build バッチ (#3504)',
 	},
 	{
+		// #4706: 設定 UI が約束する 3 配信 (週次メールレポート / リマインダー push /
+		// ストリーク警告 push) の送信本体。**15 分間隔**なのはリマインダー時刻が HH:MM の
+		// 任意値だから — 毎時実行だと「09:30 に設定したのに 10:00 に届く」ことになる。
+		// 判定用の設定はキーごとに 1 クエリで全テナント分を読むため、実行頻度を上げても
+		// クエリ数はテナント数に比例しない (notification-delivery-service の設計参照)。
+		name: 'notification-delivery',
+		endpoint: '/api/cron/notification-delivery',
+		cronExpression: '*/15 * * * *', // 15 分毎 (JST)
+		utcCronExpression: 'cron(0/15 * * * ? *)', // 15 分毎 (UTC、JST と同一間隔)
+		description: '通知 / 週次レポート配信バッチ (#4706, notification-delivery-service.ts)',
+	},
+	{
 		// #3959: Stripe webhook が Lambda に到達していない (沈黙) を外から検知する。
 		// 検知遅延 1 時間以内という要件から毎時実行。毎時 5 分に寄せているのは、他の日次 cron が
 		// 00 分に集中しており同時実行で 30 秒予算を圧迫するのを避けるため。

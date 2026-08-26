@@ -235,13 +235,13 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 `src/lib/domain/terms.ts` の atom 定数。値の変更は本ファイル 1 行修正で全コンテンツに伝播する (ADR-0045)。
 
-> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `check-hardcoded-strings` / `generate-lp-labels --check`）が担保する。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
+> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `generate-lp-labels --check`）が担保する（`check-hardcoded-strings` は #4322 で script ごと削除済み。日本語直書きの機械検出は無く、レビューで担保する）。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
 
 **確認手順**: 新規 atom を追加する前に `grep -n "_TERMS = " src/lib/domain/terms.ts` で既存 atom namespace を確認し、値の直書き複製を作らない。
 
 ### labels.ts エクスポート一覧（compound）
 
-> **全 export の一覧はこのファイルに掲載しない**（135+ namespace を持つ `src/lib/domain/labels.ts` が SSOT）。DESIGN.md は「使う前に SSOT を確認する」ルールのみを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI (`check-no-plan-literals` / `check-hardcoded-strings`) が担保する。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
+> **全 export の一覧はこのファイルに掲載しない**（135+ namespace を持つ `src/lib/domain/labels.ts` が SSOT）。DESIGN.md は「使う前に SSOT を確認する」ルールのみを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI (`check-no-plan-literals`) が担保する（`check-hardcoded-strings` は #4322 で削除済み）。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
 
 **確認手順**: 新規ラベルを追加する前に `grep -n "_LABELS" src/lib/domain/labels.ts` で既存 compound を確認する。代表的な namespace / 関数:
 
