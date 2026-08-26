@@ -88,6 +88,7 @@ import {
 	getTrialTier,
 	isTrialActive,
 	startTrial,
+	TRIAL_TIER,
 } from '$lib/server/services/trial-service';
 
 describe('trial-service (#314)', () => {
@@ -167,7 +168,10 @@ describe('trial-service (#314)', () => {
 
 			const status = await getTrialStatus('tenant1');
 			expect(status.isTrialActive).toBe(true);
-			expect(status.trialTier).toBe('standard');
+			// #4501: 既定 tier は premium (内部コード 'family')。FR-2「対象 tier は family 固定」に
+			// 実装を合わせたもので、旧 'standard' 期待値は LP の「全機能お試し」訴求と食い違う
+			// 実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
+			expect(status.trialTier).toBe(TRIAL_TIER);
 			expect(status.daysRemaining).toBeGreaterThanOrEqual(6);
 			expect(status.daysRemaining).toBeLessThanOrEqual(7);
 			expect(status.source).toBe('user_initiated');

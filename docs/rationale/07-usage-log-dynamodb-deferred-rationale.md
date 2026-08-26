@@ -1,5 +1,7 @@
 # 使用時間ログ DynamoDB 実装延期 設計経緯
 
+> **結論の更新 (#4719)**: DynamoDB backend は #3438 で撤去され、本番は pg-core (Aurora DSQL / NUC PGlite) になった。#4719 で `IUsageLogRepo` を interface 化し dsql 実装 (`src/lib/server/db/dsql/usage-log-repo.ts`) を factory 配線したため、本書の「案 C: no-op fallback」は demo backend (stub repo) にのみ残る。以下は当時の判断記録。
+
 ## 議論の発端
 
 - **日時**: 2026-05-20

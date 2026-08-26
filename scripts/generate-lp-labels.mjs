@@ -31,6 +31,10 @@ const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
+const FAMILY_MEMBER_LIMIT_TS = path.join(
+	REPO_ROOT,
+	'src/lib/domain/constants/family-member-limit.ts',
+);
 const PLAN_PRICE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-price.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
@@ -123,6 +127,42 @@ function parseBlock(src, constName) {
 }
 
 /**
+ * labels.ts の module-local 共有 const を収める疑似 namespace 名 (#4619)。
+ * 実 namespace と衝突しないよう `_` 始まりにしてある (labels.ts / terms.ts の export は
+ * すべて英大文字始まり)。
+ */
+const LOCAL_CONSTS_NS = '_LOCAL_CONSTS';
+
+/**
+ * labels.ts の module-level 共有 const (`const FOO = '...';` / `` const FOO = `...`; ``) を
+ * 抽出する (#4619)。
+ *
+ * なぜ必要か:
+ *   「同じ事実を語る文は 1 度だけ組み立てて共有する」ために labels.ts は module-local const
+ *   (WRITES_CONTINUE_ASSURANCE / FREE_PLAN_RETENTION_NOTICE) を持つ。LP 側の namespace が
+ *   その const を値に使うと、本 script は文字列でも template literal でもないため
+ *   **その key を無言で捨てていた**。捨てられた key は shared-labels.js に載らず、LP は
+ *   HTML の古い fallback を出し続ける (顧客に見える文言が labels.ts と乖離する)。
+ *
+ * @param {string} src - labels.ts のソース
+ * @returns {Record<string, string | TemplateLiteralValue>}
+ */
+function parseLabelsLocalConsts(src) {
+	/** @type {Record<string, string | TemplateLiteralValue>} */
+	const result = {};
+	// 行頭 (インデントなし) の module-level const のみ対象。関数内のローカル変数は拾わない。
+	const singleQuote = /^const ([A-Z][A-Z0-9_]*) = '((?:[^'\\]|\\.)*)';$/gm;
+	for (const m of src.matchAll(singleQuote)) {
+		if (m[1] && m[2] !== undefined) result[m[1]] = m[2];
+	}
+	const template = /^const ([A-Z][A-Z0-9_]*) = `((?:[^`\\]|\\.)*)`;$/gm;
+	for (const m of src.matchAll(template)) {
+		if (m[1] && m[2] !== undefined) result[m[1]] = { __template: true, raw: m[2] };
+	}
+	return result;
+}
+
+/**
  * Template literal 値を表す内部マーカー (#1917)。
  * raw に元の `...` 内側 (バッククォート除く) を保持し、後段の resolveTemplateLiterals で
  * `${NS.key}` 参照を解決する。同名マーカーで判別する。
@@ -171,6 +211,28 @@ function parseBlockLine(trimmed, result, pendingKey) {
 	const sameLineTemplate = trimmed.match(/^(\w+):\s*`((?:[^`\\]|\\.)*)`,?$/);
 	if (sameLineTemplate && sameLineTemplate[1] !== undefined && sameLineTemplate[2] !== undefined) {
 		result[sameLineTemplate[1]] = { __template: true, raw: sameLineTemplate[2] };
+		return null;
+	}
+
+	// key: SHARED_CONST, — labels.ts の module-local const をそのまま値にした形 (#4619)
+	//   labels.ts では「同じ事実を語る文は 1 度だけ組み立てて共有する」
+	//   (WRITES_CONTINUE_ASSURANCE / FREE_PLAN_RETENTION_NOTICE)。この形を parse できないと
+	//   該当 key が **無言で欠落** し、LP は HTML の古い fallback を出し続ける
+	//   (sync-lp-fallback --check も key 不在では何も言わない)。`${IDENT}` の template と
+	//   同じ経路に載せて LOCAL_CONSTS namespace で解決する。
+	const sameLineIdent = trimmed.match(/^(\w+):\s*([A-Z][A-Z0-9_]*),?$/);
+	if (sameLineIdent?.[1] && sameLineIdent[2]) {
+		result[sameLineIdent[1]] = { __template: true, raw: `\${${sameLineIdent[2]}}` };
+		return null;
+	}
+
+	// key: NS_TERMS.member, — atom を template literal で包まず直接値にした形 (#4626)
+	//   `key: \`${NS.member}\`` と意味は同じだが、こちらは #4619 の識別子経路にも
+	//   template 経路にも当たらず **無言で捨てられていた** (LP_HERO_PRICE_BAND_LABELS.itemFree /
+	//   itemCancel が実際にこの形で欠落していた)。同じ解決経路に載せる。
+	const sameLineMemberRef = trimmed.match(/^(\w+):\s*([A-Z][A-Z0-9_]*\.\w+),?$/);
+	if (sameLineMemberRef?.[1] && sameLineMemberRef[2]) {
+		result[sameLineMemberRef[1]] = { __template: true, raw: `\${${sameLineMemberRef[2]}}` };
 		return null;
 	}
 
@@ -226,6 +288,19 @@ function resolveTemplateLiteralValue(raw, namespaces, ownerLabel, depth = 0) {
 	// `${ ... }` を非貪欲マッチ。エスケープ ($ → \$) は対象外 (labels.ts では使わない想定)。
 	return raw.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
 		const trimmed = expr.trim();
+		// "SHARED_CONST" — labels.ts の module-local const 参照 (#4619)。
+		// LOCAL_CONSTS namespace (parseLabelsLocalConsts の結果) から引く。
+		if (/^[A-Z][A-Z0-9_]*$/.test(trimmed)) {
+			const localValue = namespaces[LOCAL_CONSTS_NS]?.[trimmed];
+			if (localValue === undefined) {
+				throw new Error(
+					`Unresolved local const ${trimmed} in ${ownerLabel}: not a module-level string const in labels.ts.`,
+				);
+			}
+			return isTemplateLiteral(localValue)
+				? resolveTemplateLiteralValue(localValue.raw, namespaces, trimmed, depth + 1)
+				: localValue;
+		}
 		// "NS.key" / "NS['key']" / 'NS["key"]' の 3 形式に対応
 		const dotMatch = trimmed.match(/^(\w+)\.(\w+)$/);
 		const bracketMatch = trimmed.match(/^(\w+)\[\s*['"]([^'"]+)['"]\s*\]$/);
@@ -366,6 +441,43 @@ function buildPlanRetentionTerms() {
 }
 
 /**
+ * 家族メンバー上限の値 SSOT (`src/lib/domain/constants/family-member-limit.ts`) を読み、
+ * terms.ts の `FAMILY_MEMBER_LIMIT_TERMS` と同じ内容の namespace を組み立てる (#4500)。
+ *
+ * buildDeletionGraceTerms と同じ理由 (本 script は TS を実行せず text parse するため、
+ * 関数で計算された atom を terms.ts から読めない) で、数値だけを SSOT から読み、
+ * 整形をここで再現する。整形結果が TS 側と一致することは
+ * tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
+ *
+ * @returns {Record<string, string>} `{ standardTotal, standardTotalSpaced, standardInvites, standardInvitesSpaced }`
+ */
+function buildFamilyMemberLimitTerms() {
+	const src = fs.readFileSync(FAMILY_MEMBER_LIMIT_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const FAMILY_MEMBER_LIMIT'));
+	if (block === null) {
+		throw new Error('FAMILY_MEMBER_LIMIT not found in family-member-limit.ts');
+	}
+	const m = block.match(/standard:\s*(\d+)/);
+	if (!m || m[1] === undefined) {
+		throw new Error('FAMILY_MEMBER_LIMIT.standard not parseable in family-member-limit.ts');
+	}
+	const total = Number(m[1]);
+	// invitesAllowedFrom / formatMemberCount (family-member-limit.ts) と同じ規則。差異は上記 test が検出する。
+	const invites = Math.max(0, total - 1);
+	/**
+	 * @param {number} count
+	 * @param {boolean} [spaced]
+	 */
+	const format = (count, spaced = false) => `${count}${spaced ? ' ' : ''}人`;
+	return {
+		standardTotal: format(total),
+		standardTotalSpaced: format(total, true),
+		standardInvites: format(invites),
+		standardInvitesSpaced: format(invites, true),
+	};
+}
+
+/**
  * 退会猶予日数の値 SSOT (`src/lib/domain/constants/deletion-grace.ts`) を読み、
  * terms.ts の `DELETION_GRACE_TERMS` と同じ内容の namespace を組み立てる (#4496)。
  *
@@ -495,7 +607,279 @@ const LP_NAMESPACE_TABLE = [
 	{ constName: 'LP_LEGAL_TERMS_LABELS', returnKey: 'lpLegalTermsLabels' },
 	{ constName: 'LP_LEGAL_SLA_LABELS', returnKey: 'lpLegalSlaLabels' },
 	{ constName: 'LP_LEGAL_TOKUSHOHO_LABELS', returnKey: 'lpLegalTokushohoLabels' },
+	// #4626: hero 直下の価格バンド / 仕様バッジ。site/index.html が data-lp-key で参照して
+	// いるにもかかわらず本表に無く、生成物に載らないまま HTML 直書き文言が固定されていた。
+	{ constName: 'LP_HERO_PRICE_BAND_LABELS', returnKey: 'lpHeroPriceBandLabels' },
+	{ constName: 'LP_HERO_SPEC_BADGES_LABELS', returnKey: 'lpHeroSpecBadgesLabels' },
 ];
+
+/**
+ * 意図的に LP へ配信しない labels.ts の `LP_*` namespace (#4626)。
+ *
+ * key = namespace 名 / value = 除外理由。**理由が無い除外は gate が fail する** (no-silent-gap)。
+ * 該当が無くなった entry も fail する (stale 除外の放置禁止)。
+ *
+ * @type {Record<string, string>}
+ */
+const LP_NAMESPACE_EXCLUSIONS = {};
+
+/**
+ * 意図的に LP へ配信しない個別 key (#4626)。key = `NAMESPACE.key` / value = 除外理由。
+ *
+ * @type {Record<string, string>}
+ */
+const LP_KEY_EXCLUSIONS = {};
+
+/** 除外理由として受理する最小文字数 (定型 stub を弾く)。 */
+const EXCLUSION_REASON_MIN_LENGTH = 12;
+
+/** 理由の体を成さない定型 stub。 */
+const EXCLUSION_REASON_STUB = /^(todo|tbd|n\/?a|none|なし|未定|後で)$/i;
+
+/**
+ * オブジェクトリテラル本文の **宣言されている entry 名**を構造的に列挙する (#4626)。
+ *
+ * parseBlock は「値を parse できた key」しか返さないため、両者を突き合わせると
+ * 「宣言されているのに生成物へ載らなかった entry」= 無言の取りこぼしが分かる。
+ *
+ * 以下は parseBlock が扱えない書き方だが、**宣言としては数える**ことで gate に検出させる:
+ *   - quoted key (`'foo-bar': '...'`)
+ *   - computed key (`[FOO]: '...'`)
+ *   - spread (`...OTHER_LABELS,`) — 展開結果ごと消えるため最も危険
+ *
+ * @param {string} body - `{` `}` を除いたオブジェクト本文
+ * @returns {string[]} 宣言 entry 名 (spread は `...IDENT` 形式)
+ */
+function extractDeclaredEntryNames(body) {
+	/** @type {string[]} */
+	const names = [];
+	let depth = 0;
+	let i = 0;
+	/** 直前に depth 0 で閉じた `[...]` の中身 (computed key 判定用) */
+	let lastBracketContent = null;
+	/** @param {number} from */
+	const nextNonSpace = (from) => {
+		let k = from;
+		while (k < body.length && /\s/.test(body[k] ?? '')) k++;
+		return k;
+	};
+	while (i < body.length) {
+		const c = body[i];
+		if (c === "'" || c === '"' || c === '`') {
+			const quote = c;
+			const start = i + 1;
+			i++;
+			while (i < body.length) {
+				if (body[i] === '\\') {
+					i += 2;
+					continue;
+				}
+				if (body[i] === quote) break;
+				i++;
+			}
+			const content = body.slice(start, i);
+			i++;
+			if (depth === 0 && body[nextNonSpace(i)] === ':') names.push(content);
+			continue;
+		}
+		if (c === '/' && body[i + 1] === '/') {
+			while (i < body.length && body[i] !== '\n') i++;
+			continue;
+		}
+		if (c === '/' && body[i + 1] === '*') {
+			i += 2;
+			while (i < body.length && !(body[i] === '*' && body[i + 1] === '/')) i++;
+			i += 2;
+			continue;
+		}
+		if (depth === 0 && c === '.' && body.slice(i, i + 3) === '...') {
+			let j = i + 3;
+			while (j < body.length && /[\w$.]/.test(body[j] ?? '')) j++;
+			names.push(`...${body.slice(i + 3, j).trim()}`);
+			i = j;
+			continue;
+		}
+		if (c === '{' || c === '[' || c === '(') {
+			if (depth === 0 && c === '[') lastBracketContent = i + 1;
+			depth++;
+			i++;
+			continue;
+		}
+		if (c === '}' || c === ']' || c === ')') {
+			depth--;
+			if (depth === 0 && c === ']' && lastBracketContent !== null) {
+				const inner = body.slice(lastBracketContent, i).trim();
+				lastBracketContent = null;
+				if (body[nextNonSpace(i + 1)] === ':') names.push(`[${inner}]`);
+			}
+			i++;
+			continue;
+		}
+		if (depth === 0 && /[A-Za-z_$]/.test(c ?? '')) {
+			let j = i;
+			while (j < body.length && /[\w$]/.test(body[j] ?? '')) j++;
+			const ident = body.slice(i, j);
+			if (body[nextNonSpace(j)] === ':') names.push(ident);
+			i = j;
+			continue;
+		}
+		i++;
+	}
+	return names;
+}
+
+/**
+ * labels.ts に定義されている `LP_*` namespace 名を列挙する (#4626)。
+ *
+ * @param {string} src
+ * @returns {string[]}
+ */
+function collectDeclaredLpNamespaces(src) {
+	return [...src.matchAll(/^export const (LP_\w+)\s*[:=]/gm)]
+		.map((m) => m[1])
+		.filter((/** @type {string | undefined} */ n) => typeof n === 'string');
+}
+
+/**
+ * 除外理由が「理由の体を成しているか」を判定する (#4626)。
+ *
+ * @param {unknown} reason
+ * @returns {boolean}
+ */
+function isValidExclusionReason(reason) {
+	if (typeof reason !== 'string') return false;
+	const trimmed = reason.trim();
+	if (trimmed.length < EXCLUSION_REASON_MIN_LENGTH) return false;
+	return !EXCLUSION_REASON_STUB.test(trimmed);
+}
+
+/**
+ * labels.ts の宣言と生成結果を突き合わせ、**無言で捨てられた namespace / key** を検出する (#4626)。
+ *
+ * なぜ必要か:
+ *   本 script は値を text parse するため、対応していない書き方 (module-local const / 関数呼び出し /
+ *   quoted key / spread など) の entry を **無言で捨てる**。捨てられた key は shared-labels.js から
+ *   丸ごと消え、`sync-lp-fallback --check` は「生成物にある key」しか照合しないため
+ *   **「同期済み」と答えてしまう**。結果として labels.ts を直しても LP は古い fallback を出し続け、
+ *   CI では誰も気づけない (ADR-0045 の「atom 1 行修正で全 LP に伝播」が静かに崩れる)。
+ *
+ * @param {string} src - labels.ts のソース
+ * @param {Record<string, Record<string, string>>} resolved - 解決済み namespace map
+ * @param {{
+ *   table?: Array<{constName: string, returnKey: string, note?: string}>;
+ *   namespaceExclusions?: Record<string, string>;
+ *   keyExclusions?: Record<string, string>;
+ * }} [options]
+ * @returns {{
+ *   missingNamespaces: string[];
+ *   droppedKeys: string[];
+ *   invalidExclusions: string[];
+ *   staleExclusions: string[];
+ * }}
+ */
+function findSilentDrops(src, resolved, options = {}) {
+	const table = options.table ?? LP_NAMESPACE_TABLE;
+	const namespaceExclusions = options.namespaceExclusions ?? LP_NAMESPACE_EXCLUSIONS;
+	const keyExclusions = options.keyExclusions ?? LP_KEY_EXCLUSIONS;
+
+	const tableNames = table.map((e) => e.constName);
+	const declaredNamespaces = collectDeclaredLpNamespaces(src);
+
+	/** @type {string[]} */
+	const missingNamespaces = [];
+	/** @type {string[]} */
+	const droppedKeys = [];
+	/** @type {string[]} */
+	const invalidExclusions = [];
+	/** @type {string[]} */
+	const staleExclusions = [];
+
+	// 1. namespace レベル: labels.ts に居るのに配信表に無い
+	for (const ns of declaredNamespaces) {
+		if (tableNames.includes(ns)) continue;
+		if (Object.hasOwn(namespaceExclusions, ns)) {
+			if (!isValidExclusionReason(namespaceExclusions[ns])) invalidExclusions.push(ns);
+			continue;
+		}
+		missingNamespaces.push(ns);
+	}
+
+	// 2. key レベル: 宣言されているのに生成結果に載らなかった
+	for (const ns of tableNames) {
+		const startIdx = src.indexOf(`export const ${ns}`);
+		if (startIdx === -1) continue;
+		const block = extractBraceBlock(src, startIdx);
+		if (block === null) continue;
+		const declared = [...new Set(extractDeclaredEntryNames(block))];
+		const produced = Object.keys(resolved[ns] ?? {});
+		for (const name of declared) {
+			if (produced.includes(name)) continue;
+			const dotted = `${ns}.${name}`;
+			if (Object.hasOwn(keyExclusions, dotted)) {
+				if (!isValidExclusionReason(keyExclusions[dotted])) invalidExclusions.push(dotted);
+				continue;
+			}
+			droppedKeys.push(dotted);
+		}
+	}
+
+	// 3. stale 除外: もう該当しない除外が残っている (no-silent-gap の逆方向)
+	for (const ns of Object.keys(namespaceExclusions)) {
+		if (!declaredNamespaces.includes(ns) || tableNames.includes(ns)) staleExclusions.push(ns);
+	}
+	for (const dotted of Object.keys(keyExclusions)) {
+		const sepIdx = dotted.lastIndexOf('.');
+		const ns = dotted.slice(0, sepIdx);
+		const key = dotted.slice(sepIdx + 1);
+		if (!tableNames.includes(ns) || resolved[ns]?.[key] !== undefined) staleExclusions.push(dotted);
+	}
+
+	return { missingNamespaces, droppedKeys, invalidExclusions, staleExclusions };
+}
+
+/**
+ * findSilentDrops の結果が 1 件でもあれば throw する (#4626)。
+ *
+ * @param {string} src
+ * @param {Record<string, Record<string, string>>} resolved
+ * @param {Parameters<typeof findSilentDrops>[2]} [options]
+ * @returns {void}
+ */
+function assertNoSilentDrops(src, resolved, options = {}) {
+	const { missingNamespaces, droppedKeys, invalidExclusions, staleExclusions } = findSilentDrops(
+		src,
+		resolved,
+		options,
+	);
+	/** @type {string[]} */
+	const lines = [];
+	if (missingNamespaces.length > 0) {
+		lines.push(
+			`labels.ts の LP_* namespace が LP_NAMESPACE_TABLE に無く、生成物に載りません (${missingNamespaces.length} 件): ${missingNamespaces.join(', ')}`,
+		);
+	}
+	if (droppedKeys.length > 0) {
+		lines.push(
+			`labels.ts に宣言されているのに値を解決できず捨てられた key (${droppedKeys.length} 件): ${droppedKeys.join(', ')}`,
+		);
+	}
+	if (invalidExclusions.length > 0) {
+		lines.push(
+			`除外理由が未記入または短すぎます (${EXCLUSION_REASON_MIN_LENGTH} 文字以上の具体的な理由が必要): ${invalidExclusions.join(', ')}`,
+		);
+	}
+	if (staleExclusions.length > 0) {
+		lines.push(
+			`もう該当しない除外エントリが残っています (削除してください): ${staleExclusions.join(', ')}`,
+		);
+	}
+	if (lines.length === 0) return;
+	throw new Error(
+		`LP ラベルの取りこぼしを検出しました (#4626)。\n  - ${lines.join('\n  - ')}\n` +
+			'  対処: 配信すべきなら LP_NAMESPACE_TABLE に追加 / parse できる書き方に直す。' +
+			'意図的に配信しないなら LP_NAMESPACE_EXCLUSIONS / LP_KEY_EXCLUSIONS に理由付きで登録する。',
+	);
+}
 
 /**
  * labels.ts の全 namespace を template literal 解決済みで取得する内部実装。
@@ -532,10 +916,13 @@ function parseAllNamespacesResolved() {
 	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
 	const allNamespaces = {
 		...termsNamespaces,
+		// #4619: labels.ts の module-local 共有 const (WRITES_CONTINUE_ASSURANCE 等)
+		[LOCAL_CONSTS_NS]: parseLabelsLocalConsts(src),
 		// #4477: 値 SSOT (plan-retention.ts) 由来。terms.ts 側は関数呼び出しで組み立てるため
 		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
 		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
 		DELETION_GRACE_TERMS: buildDeletionGraceTerms(),
+		FAMILY_MEMBER_LIMIT_TERMS: buildFamilyMemberLimitTerms(),
 		// #4533: 同上 (値 SSOT = plan-price.ts)。金額由来の key だけを上書きし、
 		// literal のままの key (free / taxNote / monthlyPrefix / fromSuffix) は parse 結果を残す。
 		PRICE_TERMS: { ...(termsNamespaces.PRICE_TERMS ?? {}), ...buildPriceTerms() },
@@ -544,7 +931,11 @@ function parseAllNamespacesResolved() {
 		PLAN_LABELS: planLabels,
 		...lpRaw,
 	};
-	return resolveAllTemplates(allNamespaces);
+	const resolved = resolveAllTemplates(allNamespaces);
+	// #4626: 「解決できなかった key を無言で捨てる」を禁止する。生成時点で fail させることで、
+	// 取りこぼした生成物が commit されること自体を防ぐ (--check だけでなく生成側も塞ぐ)。
+	assertNoSilentDrops(src, resolved);
+	return resolved;
 }
 
 /**
@@ -638,6 +1029,8 @@ function generateSharedLabelsJs() {
 		lpLegalTermsLabels,
 		lpLegalSlaLabels,
 		lpLegalTokushohoLabels,
+		lpHeroPriceBandLabels,
+		lpHeroSpecBadgesLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -698,6 +1091,9 @@ function generateSharedLabelsJs() {
 		legalTerms: lpLegalTermsLabels,
 		legalSla: lpLegalSlaLabels,
 		legalTokushoho: lpLegalTokushohoLabels,
+		// #4626: site/index.html hero が data-lp-key で参照する 2 namespace
+		heroPriceBand: lpHeroPriceBandLabels,
+		heroSpecBadges: lpHeroSpecBadgesLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,
@@ -963,13 +1359,21 @@ if (invokedAsCli) {
 // parseAllNamespacesResolved も公開する。個々の parser だけを検査すると「実データでは解決できない」
 // 状態を通してしまう。
 export {
+	assertNoSilentDrops,
 	buildDeletionGraceTerms,
+	buildFamilyMemberLimitTerms,
 	buildPlanRetentionTerms,
 	buildPriceTerms,
+	extractDeclaredEntryNames,
+	findSilentDrops,
 	isTemplateLiteral,
+	isValidExclusionReason,
+	LOCAL_CONSTS_NS,
+	LP_NAMESPACE_TABLE,
 	parseAllNamespacesResolved,
 	parseBlock,
 	parseBlockLine,
+	parseLabelsLocalConsts,
 	parseSimpleBlock,
 	resolveAllTemplates,
 	resolveTemplateLiteralValue,

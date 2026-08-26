@@ -135,6 +135,13 @@ const PREDICATE_ALLOWLIST: AllowlistEntry[] = [
 			'cross-tenant ops 監査集計: 継続月キーの prefix 無し在庫を数える (#4269 ①)。ops 認可下・COUNT 2 スカラーのみ返却で個票非露出 (§11.2 明示例外、cancellation-reason-repo.aggregateRecent と同クラス)',
 	},
 	{
+		file: 'settings-repo.ts',
+		table: 'settings',
+		marker: /SELECT\s+family_id,\s*value\s+FROM\s+settings\s+WHERE\s+key\s*=/i,
+		reason:
+			'cross-tenant 配信判定 (#4706 getSettingForAllTenants): 通知 / 週次レポート cron が「どのテナントが今この時刻に対象か」を判定するために読む。テナントごとに引くと 15 分毎 × テナント数 × キー数の N+1 になる (ADR-0065 原則 2) ため repo 層で 1 キー 1 クエリに畳む。**キーは CROSS_TENANT_READABLE_SETTING_KEYS の 8 キーに限定**し、allowlist 外は実装が throw で拒否する (ADR-0063 の「境界を持たない読み取りを無制限に開けない」)。返すのは配信判定材料 (有効/無効 / 曜日 / 時刻 / 送信済日) のみで、顧客が書いたテキスト (reward_templates 等) は読めない。呼び出し側は tenantId で突き合わせて per-tenant 処理に戻す',
+	},
+	{
 		file: 'graduation-consent-repo.ts',
 		table: 'graduation_consent',
 		marker: /consented_at\s*>=|consented\s*=\s*true/,

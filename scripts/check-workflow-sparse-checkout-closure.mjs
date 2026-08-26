@@ -108,13 +108,17 @@ export function parseSparseCheckoutBlocks(source) {
  * `import ... from './x.mjs'` / `import './x.mjs'` / `export ... from './x.mjs'` の 3 形。
  * bare specifier (`node:fs` / npm) は相対でないため自然に除外される。
  *
+ * 文の終端は `;` のみで区切る (`[^;]`)。改行を境界にすると biome 整形の複数行 import
+ * (`import {\n  a,\n} from './x.mjs';`) の specifier に到達できず、依存を取りこぼして
+ * 閉包検証が無言 PASS する (#4348 で実発生: pr-body-sections.mjs の列挙漏れを見逃した)。
+ *
  * @param {string} source
  * @returns {string[]}
  */
 export function extractRelativeImports(source) {
 	/** @type {string[]} */
 	const specs = [];
-	const re = /(?:^|\n)\s*(?:import|export)\s[^;\n]*?['"](\.[^'"]+)['"]/g;
+	const re = /(?:^|\n)\s*(?:import|export)\s[^;]*?['"](\.[^'"]+)['"]/g;
 	let m = re.exec(source);
 	while (m !== null) {
 		const spec = m[1];

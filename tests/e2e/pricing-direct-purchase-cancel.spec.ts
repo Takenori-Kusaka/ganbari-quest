@@ -1,8 +1,9 @@
 // tests/e2e/pricing-direct-purchase-cancel.spec.ts
-// #2098 AC4 / AC5: pricing.html 直接購入 CTA + 解約 CTA 動作確認
+// #2098 AC5 / #4501: pricing.html の購入導線 + 解約 CTA 動作確認
 //
-// AC4: pricing.html での Standard / Family 直接購入 CTA (Tower 型二段 CTA 下段、#2102 F-1)
-//      が正しい URL (`?direct=true&billing=monthly|yearly`) を持ち、月額/年額トグルで切替される
+// #4501: 「今すぐ購入」CTA (`?direct=true&billing=monthly`) は **消費箇所ゼロの死に配線**
+//        だったため撤去した。本 spec は「復活していないこと」と「購入導線がトライアル
+//        1 本に統一され、1 回限りが開示されていること」を見る
 // AC5: pricing.html 既存ユーザー向け解約導線 (#2103 F-2) が `/admin/subscription` (Stripe Customer
 //      Portal 経由) を正しく指している
 //
@@ -85,65 +86,52 @@ test.afterAll(async () => {
 	await new Promise<void>((resolvePromise) => server.close(() => resolvePromise()));
 });
 
-test.describe('#2098 AC4: pricing.html 直接購入 CTA (Tower 型二段 CTA 下段、#2102 F-1)', () => {
-	test('AC4-1: Standard 直接購入 CTA が `?direct=true&billing=monthly` を含む', async ({
-		page,
-	}) => {
+test.describe('#4501: 直接購入 CTA は撤去され、購入導線はトライアルに統一されている', () => {
+	// 旧 spec (#2098 AC4) は `?direct=true&billing=monthly` を持つ「今すぐ購入」CTA の存在を
+	// 固定していた。**この 2 つのパラメータは src 全体で消費箇所ゼロ**で、CTA を押した顧客は
+	// 通常のトライアル動線に落ち、ボタン文言まで「7日間 無料体験をはじめる」に変わっていた
+	// (#4501 GAMMA-SC-03)。つまり旧 assert は「死んだ配線」を守っていた。
+	// PO 決裁 2「今すぐ購入 CTA は当面トライアル動線に統一する」に従い、CTA と虚偽の注記
+	// (「決済情報の入力が必要です」) を撤去し、**復活したら落ちる**形に置き換える
+	// (assertion の弱体化ではなく、誤りを守っていた期待値の反転 — ADR-0006)。
+
+	test('直接購入 CTA と死にパラメータが存在しない', async ({ page }) => {
 		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-		const standardDirect = page.locator('[data-direct-purchase="standard"]');
-		await expect(standardDirect).toBeVisible({ timeout: 10_000 });
+		await expect(page.locator('[data-direct-purchase]')).toHaveCount(0);
+		await expect(page.locator('.cta-direct-note')).toHaveCount(0);
 
-		const href = (await standardDirect.getAttribute('href')) ?? '';
-		expect(href).toContain('plan=standard');
-		expect(href).toContain('direct=true');
-		expect(href).toContain('billing=monthly'); // 初期状態は monthly
+		const html = await page.content();
+		expect(html, 'direct=true は消費箇所が無いパラメータ').not.toContain('direct=true');
+		expect(html, 'billing= も同様に未消費 (年額は #2719 で廃止済)').not.toContain('billing=');
 	});
 
-	test('AC4-2: Family 直接購入 CTA が `?direct=true&billing=monthly` を含む', async ({ page }) => {
+	test('プランごとの CTA はトライアル 1 本で、?plan= だけを渡す', async ({ page }) => {
 		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-		const familyDirect = page.locator('[data-direct-purchase="family"]');
-		await expect(familyDirect).toBeVisible({ timeout: 10_000 });
+		const ctas = page.locator('a.plan-cta[href*="/auth/signup"]');
+		const count = await ctas.count();
+		expect(count).toBeGreaterThanOrEqual(2); // Standard + Premium
 
-		const href = (await familyDirect.getAttribute('href')) ?? '';
-		expect(href).toContain('plan=family');
-		expect(href).toContain('direct=true');
-		expect(href).toContain('billing=monthly');
-	});
-
-	test('AC4-3: 直接購入 CTA に「決済情報の入力が必要」注記が併設されている (#2102 F-3)', async ({
-		page,
-	}) => {
-		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-
-		// .cta-direct-note (cta-trial-note とペアで存在) — 訴求軸 C 整合 (#2104 F-3)
-		const notes = page.locator('.cta-direct-note');
-		const noteCount = await notes.count();
-		expect(noteCount).toBeGreaterThanOrEqual(2); // Standard + Family の 2 箇所
-
-		// 注記が「決済情報の入力が必要」を含む (CC 登録不要訴求との整合確保)
-		const firstNoteText = await notes.first().textContent();
-		expect(firstNoteText).toMatch(/決済情報|カード|ライセンスキー/);
-	});
-
-	test('AC4-4: 月額/年額トグル (billing-cycle) は撤去され、直接購入 CTA は billing=monthly 固定 (#3212)', async ({
-		page,
-	}) => {
-		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-
-		// #3212: 年額廃止 (#2719) に伴い billing-cycle トグルを撤去。トグル DOM が存在しないこと。
-		await expect(page.locator('input[name="billing-cycle"]')).toHaveCount(0);
-
-		// 直接購入 CTA は billing=monthly 固定 (yearly を生成しない)
-		const directCtas = page.locator('a[data-direct-purchase]');
-		const ctaCount = await directCtas.count();
-		expect(ctaCount).toBeGreaterThanOrEqual(1);
-		for (let i = 0; i < ctaCount; i++) {
-			const href = (await directCtas.nth(i).getAttribute('href')) ?? '';
-			expect(href).toContain('billing=monthly');
-			expect(href).not.toContain('billing=yearly');
+		for (let i = 0; i < count; i++) {
+			const href = (await ctas.nth(i).getAttribute('href')) ?? '';
+			expect(href).toMatch(/\/auth\/signup\?plan=(standard|family|premium)$/);
 		}
+	});
+
+	test('トライアルが 1 回限りであることが CTA の直下に開示されている (#4501 PO 決裁 3)', async ({
+		page,
+	}) => {
+		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+
+		const notes = page.locator('.cta-trial-note');
+		expect(await notes.count()).toBeGreaterThanOrEqual(2);
+		expect(await notes.first().textContent()).toMatch(/1 ?回かぎり|1 ?回限り/);
+	});
+
+	test('月額/年額トグルは撤去されたまま (#3212)', async ({ page }) => {
+		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+		await expect(page.locator('input[name="billing-cycle"]')).toHaveCount(0);
 	});
 });
 
