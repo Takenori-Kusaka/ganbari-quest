@@ -93,8 +93,10 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(3)).toBe(
 			'フリープランではお子さま1人あたり 3 個までです。スタンダード以上にアップグレードすると無制限に作成できます。',
 		);
+		// #4500 (develop) がオーナーを含む合計であることを明示する文面に改めたので、
+		// pin もその値に追随させる (#4622 が守るのは「null を渡せない」型の穴の方)。
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
-			'メンバー上限（4人）に達しています。プランをアップグレードしてください。',
+			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);
 	});
 });
