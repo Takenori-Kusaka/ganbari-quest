@@ -71,6 +71,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
 		getSettings(
 			[
@@ -82,7 +83,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 			],
 			tenantId,
 		),
-		getTrialStatus(tenantId),
+		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
+		getTrialStatus(tenantId, licenseStatus),
 	]);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
@@ -93,11 +95,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
-	const planTier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
@@ -212,11 +210,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		planTier,
 		tutorialStarted,
 		userRole,
+		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
+		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
+		// client まで運ばれ、「flag と値が別々に届く = 相関の消えた形」を増やしていたので落とす。
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,
 			trialUsed: trialStatus.trialUsed,
-			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
 		archivedSummary,

@@ -488,6 +488,44 @@ export const PLAN_GATE_LABELS = {
 		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
+	 * "カスタム活動は最大{max}個まで作成できます。プランをアップグレードしてください。"
+	 *
+	 * 活動 quota 上限 (maxActivities) 到達時の 403 文言 (#4622)。
+	 * 旧実装は routes 7 箇所に直書きされ、`checkActivityLimit` の `max: number | null` を
+	 * そのまま埋めていたため「最大 null 個」を出しうる型の穴になっていた。
+	 * 引数を `number` に狭めることで、null を渡す呼び出しがコンパイルで落ちる。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
+	 */
+	activityLimitReached: (max: number) =>
+		`カスタム活動は最大${max}個まで作成できます。プランをアップグレードしてください。`,
+
+	/**
+	 * "子供は最大{max}人まで登録できます。プランをアップグレードしてください。"
+	 *
+	 * 子供 quota 上限 (maxChildren) 到達時の 403 文言 (#4622)。activityLimitReached と同型。
+	 */
+	childLimitReached: (max: number) =>
+		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
+
+	/**
+	 * "フリープランではお子さま1人あたり {max} 個までです。"
+	 *
+	 * チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言 (#4622)。
+	 * アップグレード導線を併記しない短い版。
+	 */
+	checklistTemplateLimitReached: (max: number) =>
+		`フリープランではお子さま1人あたり ${max} 個までです。`,
+
+	/**
+	 * "フリープランではお子さま1人あたり {max} 個までです。スタンダード以上に…"
+	 *
+	 * 上と同じ上限のアップグレード導線併記版 (#4622)。
+	 */
+	checklistTemplateLimitReachedWithUpgrade: (max: number) =>
+		`フリープランではお子さま1人あたり ${max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+
+	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
 	 *
 	 * PlanLimitError (`upgradeUrl='/admin/subscription'`) を受領した admin 取込フローで、
@@ -3096,7 +3134,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
 	trialActiveTitle: `${PLAN_FULL_TERMS.premium} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
-	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
+	// #4628: トライアル中にしか出ない文なので期限は必ず具体値。旧 `date ?? ''` は
+	// null のとき日付の無い「 まで」を出す band-aid だった (#4622 の `?? 0` と同一 class)。
+	trialActiveUntil: (date: string) => `${date} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
 	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
 	trialStartButton: '無料トライアルを開始する',
