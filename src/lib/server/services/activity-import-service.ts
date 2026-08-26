@@ -367,9 +367,11 @@ export async function importActivities(
 	// #4693: **quota はここで一元強制する。** 経路ごとに `checkActivityLimit` を書く形では、
 	// 経路が増えるたびに書き忘れが起きる (手動 / 一括 / コピー / テンプレ取込には gate があり、
 	// ファイル復元だけ無かった = 無料プランが CSV を作れば無制限に増やせた、#4693 実測。
-	// #2894 / #3740 に続く 3 件目)。全ての取込経路が本関数を通るため、ここで切ると
-	// 「経路を増やしても素通りしない」構造になる (fitness function:
-	// tests/unit/architecture/activity-quota-single-enforcement.test.ts)。
+	// #2894 / #3740 に続く 3 件目)。`dispatchImport` 経由の取込 (marketplace 取込 / ファイル復元 /
+	// api/v1 の merge 取込) は全て本関数を通るため、ここで切れば取込側は経路を足しても素通りしない。
+	// 覆う経路と覆わない経路の境界は activity-quota.ts の冒頭コメントが SSOT。
+	// 回帰 lock: tests/unit/services/activity-quota-import-enforcement.test.ts (取込経路の上限)
+	// / tests/unit/routes/activities-quota-residual-gate.test.ts (本関数を通らない producer 経路)。
 	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
 	// #4693: 上限で外した理由は `errors` (表示ログ) ではなく `blocked` で返す。errors は
 	// per-child catch 行 / 集計行が混ざる内部ログで、UI はこれを読まない (読ませると内部
