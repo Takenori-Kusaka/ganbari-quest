@@ -22,6 +22,18 @@ export interface IStampCardRepo {
 	/** #3329 backup: child の全スタンプカード (status / 期間問わず)。 */
 	findCardsByChild(childId: ChildId, tenantId: string): Promise<StampCard[]>;
 
+	/**
+	 * #4687: 今週より前の未交換 (status='collecting') カードを古い順で返す。
+	 * 旅行 / 病気で数週間ログインしないと、前週 1 枚だけを見る旧実装では前々週以前が永久に
+	 * 未交換のまま残り、最大 100P が失われていた。救済は「見つかった全部を交換する」ため
+	 * 週指定ではなく `week_start < 今週` の範囲で引く。
+	 */
+	findUnredeemedCardsBefore(
+		childId: ChildId,
+		weekStart: string,
+		tenantId: string,
+	): Promise<StampCard[]>;
+
 	/** #3329 backup: card に紐づく押印 raw 行 (master join せず earnedAt まで保全)。 */
 	findEntriesByCardId(
 		cardId: string,

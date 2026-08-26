@@ -25,7 +25,7 @@ import { calcLevelFromXp, clampDecayFloor } from '$lib/domain/validation/status'
 import { findByChildAndActivity as findMastery } from '$lib/server/db/activity-mastery-repo';
 import { findActivityById, findActivityLogById } from '$lib/server/db/activity-repo';
 import { cancelActivityCore } from '$lib/server/db/dsql/cancel-activity-core';
-import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
+import { getPgTransactionRunner } from '$lib/server/db/factory';
 // #4686: optional 付与 (combo / mission / challenge / must / focus) の対称巻き戻し (sqlite 経路と共有)
 import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-cancel-optional';
 
@@ -61,7 +61,7 @@ export async function cancelActivityDsql(
 
 	// 2. core 単一 txn (冪等性の正 = cancel UPDATE の affected 判定、§8)
 	const now = new Date().toISOString();
-	const result = await cancelActivityCore(getDsqlTransactionRunner(), {
+	const result = await cancelActivityCore(getPgTransactionRunner(), {
 		familyId: tenantId,
 		childId: String(log.childId),
 		activityId: String(log.activityId),

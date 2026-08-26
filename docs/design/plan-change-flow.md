@@ -72,6 +72,7 @@
    - `plan` = 新プラン
    - `status` = `'active'`
    - `trialUsedAt` = now（トライアル消化済みフラグ）
+3b. **トライアルを閉じる（#4707）**: `closeTrialOnPaidContract()` → `trial-service.endTrialOnConversion()` で最新 `trial_history` 行に `stripe_subscription_id` / `upgrade_reason` を記録し、トライアルがまだ有効なら `end_date` を今日（JST）に詰める。`invoice.paid`（現行契約）でも同じ処理を通す（W1 未達時の救済、冪等）。詳細は `billing-redesign/contract-state-matrix.md` §5.3
 4. **ライセンスキー発行 (#0247 / #801)**:
    - `issueLicenseKey({ kind: 'purchase', tenantId, plan, stripeSessionId, issuedBy })`
    - 発行されたキーをテナントに紐付け
