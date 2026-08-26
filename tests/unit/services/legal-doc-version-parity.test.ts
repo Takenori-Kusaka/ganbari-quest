@@ -132,8 +132,12 @@ interface BodyPin {
  */
 const BODY_PINS: Record<string, BodyPin> = {
 	privacy: {
+		// #4598 (develop) が第9条④ / 第10条の「生成 AI へ送らない」絶対形を事実に合わせて
+		// 書き直した。本 branch の §3 / §7 / §10 改定と合成した本文の hash に更新している。
+		// 改定日は PO 決裁 A のとおり 3 本とも 2026-08-20 で据え置き (同一リリースで cut し、
+		// 顧客の再同意は 1 回にまとめる)。
 		revision: '2026-08-20',
-		sha256: '675fee7b4241a6ff24542ee259acb399305f8b39fd5a2cb7abe76c72bfdfd78c',
+		sha256: '23c2ae132383d74362e781d8022219f91296cc8f4da6a6c69a8837cc3b4cdfd6',
 	},
 	terms: {
 		// #4503 (develop) が第7条・第8条ほかを改定し、改定日を 2026-08-13 へ動かした。

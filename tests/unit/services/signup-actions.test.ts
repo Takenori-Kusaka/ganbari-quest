@@ -494,7 +494,10 @@ describe('confirm action', () => {
 		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
-	it('#589: tenant provisioning 失敗時 → /auth/login にフォールバック（consent 未記録）', async () => {
+	// #4636: 世帯が確定しなかったとき (招待受諾に失敗した / provisioning に失敗した) の着地は
+	// /auth/login ではなく /auth/join。ログイン画面に戻すと「ログイン → /admin → ログイン」の
+	// 往復になり出口が無いため、理由と次アクションを出す画面へ送る。
+	it('#4636: 世帯が確定しなかったとき → /auth/join に留まる（consent 未記録）', async () => {
 		mockConfirmSignUp.mockResolvedValue({ success: true });
 		mockAuthenticate.mockResolvedValue({
 			success: true,
@@ -520,7 +523,7 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
+			expect((e as { location: string }).location).toBe('/auth/join');
 		}
 
 		expect(mockRecordConsent).not.toHaveBeenCalled();

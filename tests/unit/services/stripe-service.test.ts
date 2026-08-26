@@ -18,12 +18,20 @@ const mockFindTenantByStripeCustomerId = vi.fn();
 const mockWebhookEventClaim = vi.fn();
 const mockWebhookEventRelease = vi.fn();
 
+// #4707: 有料契約確定 (W1 / W2) でトライアルを閉じる経路 (trial_history)
+const mockTrialFindLatestByTenant = vi.fn();
+const mockTrialUpdateConversion = vi.fn();
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findTenantById: mockFindTenantById,
 			updateTenantStripe: mockUpdateTenantStripe,
 			findTenantByStripeCustomerId: mockFindTenantByStripeCustomerId,
+		},
+		trialHistory: {
+			findLatestByTenant: mockTrialFindLatestByTenant,
+			updateConversion: mockTrialUpdateConversion,
 		},
 		webhookEvent: {
 			findByEventId: async () => null,
@@ -214,7 +222,28 @@ beforeEach(() => {
 	mockIsStripeEnabled.mockReturnValue(true);
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
+	// 既定: トライアル履歴なし (= 閉じるものがない)
+	mockTrialFindLatestByTenant.mockResolvedValue(undefined);
+	mockTrialUpdateConversion.mockResolvedValue(undefined);
 });
+
+/** #4707: 進行中 (JST 暦日で未来) のトライアル行 */
+function makeActiveTrialRow(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'trial-1',
+		tenantId: 't-test',
+		startDate: '2026-08-19',
+		endDate: '2099-12-31',
+		tier: 'standard',
+		source: 'user_initiated',
+		campaignId: null,
+		stripeSubscriptionId: null,
+		upgradeReason: null,
+		trialStartSource: null,
+		createdAt: '2026-08-19T00:00:00Z',
+		...overrides,
+	};
+}
 
 // ==========================================================
 // createCheckoutSession
@@ -1291,5 +1320,101 @@ describe('handleWebhookEvent', () => {
 			data: { object: {} },
 		};
 		await expect(handleWebhookEvent(event as never)).resolves.toBeUndefined();
+	});
+});
+
+// ==========================================================
+// #4707: 有料契約の確定でトライアルを閉じる (W1 checkout / W2 invoice.paid)
+// ==========================================================
+
+describe('paid contract closes the trial (#4707)', () => {
+	const checkoutEvent = {
+		type: 'checkout.session.completed',
+		data: {
+			object: {
+				id: 'cs_test',
+				metadata: { tenantId: 't-test', planId: 'monthly' },
+				customer: 'cus_new',
+				subscription: 'sub_new',
+				customer_details: { email: 'test@example.com' },
+				customer_email: null,
+			},
+		},
+	};
+
+	it('W1 checkout.session.completed: 進行中のトライアルを end_date=今日 (JST) + subscription 記録で閉じる', async () => {
+		mockTrialFindLatestByTenant.mockResolvedValue(makeActiveTrialRow());
+		const { toJSTDateString } = await import('$lib/domain/date-utils');
+
+		await handleWebhookEvent(checkoutEvent as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ stripeSubscriptionId: 'sub_new', status: 'active' }),
+		);
+		expect(mockTrialFindLatestByTenant).toHaveBeenCalledWith('t-test');
+		expect(mockTrialUpdateConversion).toHaveBeenCalledWith({
+			id: 'trial-1',
+			tenantId: 't-test',
+			stripeSubscriptionId: 'sub_new',
+			upgradeReason: 'manual',
+			endDate: toJSTDateString(new Date()),
+		});
+	});
+
+	it('W1: トライアル履歴なし → 契約状態だけ確定し trial_history は触らない', async () => {
+		await handleWebhookEvent(checkoutEvent as never);
+		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+		expect(mockTrialUpdateConversion).not.toHaveBeenCalled();
+	});
+
+	it('W1: trial_history の失敗は契約確定を巻き戻さない (error log のみ、webhook は成功)', async () => {
+		mockTrialFindLatestByTenant.mockRejectedValue(new Error('trial db down'));
+		await expect(handleWebhookEvent(checkoutEvent as never)).resolves.toBeUndefined();
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			expect.stringContaining('failed to close trial on paid conversion'),
+			expect.objectContaining({ context: expect.objectContaining({ tenantId: 't-test' }) }),
+		);
+	});
+
+	it('W2 invoice.paid (現行契約): W1 未達の救済として同じくトライアルを閉じる', async () => {
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')) },
+		});
+		mockTrialFindLatestByTenant.mockResolvedValue(makeActiveTrialRow());
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		expect(mockTrialUpdateConversion).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 't-test',
+				stripeSubscriptionId: 'sub_123',
+				upgradeReason: 'manual',
+			}),
+		);
+	});
+
+	it('W2 invoice.paid: 同じ subscription で既に移行済みなら何もしない (冪等、Stripe 再送耐性)', async () => {
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')) },
+		});
+		mockTrialFindLatestByTenant.mockResolvedValue(
+			makeActiveTrialRow({ stripeSubscriptionId: 'sub_123', endDate: '2026-08-19' }),
+		);
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+		expect(mockTrialUpdateConversion).not.toHaveBeenCalled();
 	});
 });

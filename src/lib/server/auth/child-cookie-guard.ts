@@ -11,7 +11,7 @@
 // **dsql backend でのみ**行う (それ以外の backend で有効な数値 id を誤って弾かない)。
 
 import { type Cookies, redirect } from '@sveltejs/kit';
-import { isDsqlBackend } from '$lib/server/db/backend';
+import { isPgBackend } from '$lib/server/db/backend';
 import { isUuidFormat, warnInvalidUuidId } from '$lib/server/db/dsql/pg-uuid';
 
 /**
@@ -30,8 +30,8 @@ import { isUuidFormat, warnInvalidUuidId } from '$lib/server/db/dsql/pg-uuid';
  */
 export function requireValidChildCookieFormat(cookies: Cookies, source: string): string {
 	const childIdStr = cookies.get('selectedChildId') ?? '';
-	// dsql 以外 (sqlite / demo / dynamodb) は数値 id が正当なため形式検証しない。
-	if (!isDsqlBackend()) return childIdStr;
+	// pg 系 (dsql / pglite) 以外 (sqlite / demo) は数値 id が正当なため形式検証しない (#4720: NUC PGlite も対象)。
+	if (!isPgBackend()) return childIdStr;
 	if (isUuidFormat(childIdStr)) return childIdStr;
 	// 非空だが非 uuid の stale id のみ warn (空 cookie = 単なる未選択なので breadcrumb 不要)。
 	if (childIdStr) warnInvalidUuidId(source);
