@@ -30,6 +30,15 @@ export async function markMissionCompleted(
 ) {
 	return getRepos().dailyMission.markMissionCompleted(childId, date, activityId, tenantId);
 }
+// #4686: とりけし時の対称巻き戻し (completed 1 → 0)
+export async function markMissionUncompleted(
+	childId: ChildId,
+	date: string,
+	activityId: ActivityId,
+	tenantId: string,
+) {
+	return getRepos().dailyMission.markMissionUncompleted(childId, date, activityId, tenantId);
+}
 export async function findAllMissionStatuses(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().dailyMission.findAllMissionStatuses(childId, date, tenantId);
 }
