@@ -3847,7 +3847,7 @@ export const CANCELLATION_LABELS = {
 	//   ${STRIPE_PORTAL_TERMS.canonical} を開けないため、フォームを送っても解約は完了しない。
 	//   「お手続きは必要ありません」(freePlanNotice) を出すと課金が続いたまま放置される。
 	//   再試行しても直らない状態なので、最初からサポート窓口へ案内する (#4548 と同じ判断)。
-	paidWithoutStripeNotice: `ご契約の状態を確認できませんでした。この画面からは${CANCEL_TERMS.canonical}のお手続きを完了できません。お手数ですが、下記のサポート窓口までご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	paidWithoutStripeNotice: `ご契約の状態を確認できませんでした。この画面からは${CANCEL_TERMS.canonical}のお手続きを完了できません。お手数ですが、「設定 > サポート」からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 
 	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
 	// 選択せずに手続きが完了した場合の fallback は archiveExcessResources と同じ
