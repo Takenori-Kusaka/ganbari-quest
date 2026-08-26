@@ -1257,6 +1257,21 @@
 			"tableContent": "<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href=\"mailto:ganbari.quest.support@gmail.com\" data-contact-context=\"特商法-所在地\">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href=\"mailto:ganbari.quest.support@gmail.com\" data-contact-context=\"特商法-電話番号\">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（原則 2 営業日以内に返信することを目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href=\"mailto:ganbari.quest.support@gmail.com\" data-contact-context=\"特商法\">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href=\"https://www.ganbari-quest.com\">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>無料プラン: 無料<br>スタンダードプラン: 月額500円（税込）<br>プレミアムプラン: 月額780円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に無料プランに移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身でご家族の見守り画面より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、ご家族の見守り画面の「プラン・お支払い」→「請求管理ページを開く」（Stripe の請求管理ページ）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は無料プランへ自動的に移行し、記録はそのまま保持されます。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント退会（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、ご家族の見守り画面の設定からアカウント退会をお申し込みください。ご利用プランに応じた猶予期間（無料プラン: 即時削除 / スタンダードプラン: 7 日間 / プレミアムプラン: 30 日間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に退会の取消しとデータのエクスポートが可能ですが、無料プランは猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に無料プランに移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>",
 			"effective": "<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>"
 		},
+		"heroPriceBand": {
+			"itemFree": "基本無料",
+			"itemPriceLabel": "必要なら 月",
+			"itemPriceValue": "¥500〜",
+			"itemTrial": "有料は 7 日間無料",
+			"itemCancel": "いつでも解約"
+		},
+		"heroSpecBadges": {
+			"ageRange": "3〜18 歳",
+			"ageRangeSuffix": "対応",
+			"presetCount": "300+",
+			"presetSuffix": "プリセット活動 の候補",
+			"setupTime": "約 5 分",
+			"setupSuffix": "で初期設定"
+		},
 		"lpFaqLabels": {
 			"text1": "よくあるご質問 - がんばりクエスト",
 			"text2": "よくあるご質問",
