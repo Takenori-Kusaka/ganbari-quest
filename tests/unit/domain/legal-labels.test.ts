@@ -10,7 +10,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { LEGAL_LABELS, SIGNUP_LABELS } from '$lib/domain/labels';
+import {
+	LEGAL_LABELS,
+	LP_LEGAL_PRIVACY_LABELS,
+	LP_LEGAL_TERMS_LABELS,
+	SIGNUP_LABELS,
+} from '$lib/domain/labels';
 import {
 	CURRENT_PRIVACY_VERSION,
 	CURRENT_TERMS_VERSION,
@@ -93,15 +98,26 @@ describe('#1638: SIGNUP_LABELS cross-border consent 拡張', () => {
 });
 
 describe('#1638 #1590: consent-service バージョン定数', () => {
-	// #4503: 利用規約を改訂したので version を bump した (既存利用者に再同意が発火する)。
-	// 日付リテラルの pin は「文書と定数が一致しているか」を見ていないため、#4497 で
-	// 「文書の最終改定日との突合」に置き換わる予定。それまでは実装事実に合わせて更新する。
-	it('CURRENT_TERMS_VERSION が利用規約の最終改定日 2026-08-13 に更新されている', () => {
-		expect(CURRENT_TERMS_VERSION).toBe('2026-08-13');
+	// #4497: 旧実装は日付リテラル ('2026-04-28') を直接 pin していた。これは
+	//   (a) 文書を正当に改定するたびに、何の欠陥も示さないまま落ちる
+	//   (b) 「定数が文書と一致しているか」という肝心の不変条件は何も見ていない
+	// の 2 点で有害だった（実際 privacy.html が 3 回改定された間、この pin は
+	// 「2026-04-28 のまま」を守り続け、ズレを検出するどころか固定してしまっていた）。
+	// リテラル pin を捨てるのではなく、**文書の最終改定日との突合**という強い不変条件に
+	// 置き換える。突合の SSOT は tests/unit/services/legal-doc-version-parity.test.ts。
+	/** '<p>…最終改定日: 2026年8月7日</p>' → '2026-08-07' */
+	function revisionDateOf(effectiveHtml: string): string {
+		const m = effectiveHtml.match(/最終改定日\s*[:：]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+		if (!m) throw new Error(`最終改定日を読み取れません: ${effectiveHtml}`);
+		return `${m[1]}-${m[2]?.padStart(2, '0')}-${m[3]?.padStart(2, '0')}`;
+	}
+
+	it('CURRENT_TERMS_VERSION が利用規約の最終改定日と一致する', () => {
+		expect(CURRENT_TERMS_VERSION).toBe(revisionDateOf(LP_LEGAL_TERMS_LABELS.effective));
 	});
 
-	it('CURRENT_PRIVACY_VERSION が 2026-04-28 に更新されている', () => {
-		expect(CURRENT_PRIVACY_VERSION).toBe('2026-04-28');
+	it('CURRENT_PRIVACY_VERSION がプライバシーポリシーの最終改定日と一致する', () => {
+		expect(CURRENT_PRIVACY_VERSION).toBe(revisionDateOf(LP_LEGAL_PRIVACY_LABELS.effective));
 	});
 
 	it('規約バージョンが ISO-like 形式（YYYY-MM-DD）であること', () => {
