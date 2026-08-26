@@ -187,6 +187,8 @@ describe('CognitoAuthProvider', () => {
 				licenseStatus: 'none',
 				tenantStatus: 'active',
 				plan: undefined,
+				// #4585-2: 契約の有無 (S4 停止 / S5 契約終了 の判別軸) も DB から解決する
+				stripeSubscriptionId: null,
 			});
 			// Cookie が有効なのでメンバーシップ再解決は走らないが、課金状態のため DB は引く
 			expect(mockFindUserTenants).not.toHaveBeenCalled();
@@ -247,6 +249,8 @@ describe('CognitoAuthProvider', () => {
 				licenseStatus: 'none',
 				tenantStatus: 'active',
 				plan: undefined,
+				// #4585-2: 契約の有無 (S4 停止 / S5 契約終了 の判別軸) も DB から解決する
+				stripeSubscriptionId: null,
 			});
 			expect(mockFindUserByEmail).toHaveBeenCalledWith('owner@family.com');
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');

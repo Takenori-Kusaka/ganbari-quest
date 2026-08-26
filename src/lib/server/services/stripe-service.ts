@@ -1352,7 +1352,7 @@ type TenantContractStatePatch = Parameters<
  * (`resolveSubscriptionContext` の customer 逆引きの鍵でもあり、消すと後続 webhook が
  * tenant を解決できなくなる)。
  */
-const TERMINAL_CONTRACT_STATE = {
+export const TERMINAL_CONTRACT_STATE = {
 	stripeSubscriptionId: null,
 	plan: null,
 	status: SUBSCRIPTION_STATUS.SUSPENDED,
