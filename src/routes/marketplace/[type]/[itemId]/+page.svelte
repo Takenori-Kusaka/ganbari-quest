@@ -16,6 +16,7 @@ import {
 	MARKETPLACE_TYPE_LABELS,
 	PERSONA_LABELS,
 } from '$lib/domain/marketplace-item';
+import { isBrowseableMarketplaceType } from '$lib/marketplace/types';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -30,10 +31,15 @@ const isActivityPack = $derived(item.type === 'activity-pack');
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
+// #4711: 陳列外 type (rule-preset / challenge-set) は `/marketplace?type=<type>` が filter で
+// 無視され 25 件全件一覧になる (#2896 の非陳列判断は維持)。type 一覧への link は陳列 type のみ出す。
+const hasTypeList = $derived(isBrowseableMarketplaceType(item.type));
 
 // #2362 PR-4 (ADR-0055 / CWE-598): reward-set 一括追加 UI は admin/rewards 側 ChildSelectionDialog
 // に集約。marketplace 詳細では item count のみ表示。selectedChildId / rewardImport state は撤去。
 const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
+// #4711: 統一 CTA「このテンプレートを取り込む (N件)」用の checklist 件数
+const checklistCount = $derived(isChecklist ? (item.payload as ChecklistPayload).items.length : 0);
 
 // #2138 (MP-3): rule-preset 件数 + ruleType 別 CTA 分岐
 const rulePayload = $derived(isRulePreset ? (item.payload as RulePresetPayload) : null);
@@ -73,19 +79,17 @@ const childOptions = $derived(
 );
 
 // Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択 UI state
-// 既存活動 name と一致するものは default unchecked (重複取込で hidden delete 発生回避)
-// それ以外は default checked (現状の 30 件一括取込 UX を後方互換維持)
+// #4711: existingActivityNames は家族全体 (全 child) の集約なので「登録済み」は
+// 「ご家族のどなたかに登録済み」の意味しか持たない。旧実装はこれを既定 unchecked にしており、
+// 活動 0 件の妹に取り込むときも兄にある活動が外れていた。既定は全選択にし、取込先 child に
+// 同名活動があれば admin 側 (child 単位 dedup、#2558) がスキップする。
 const activityPackActivities = $derived(
 	isActivityPack ? (item.payload as ActivityPackPayload).activities : [],
 );
 const existingNameSet = $derived(new Set(data.existingActivityNames ?? []));
 // svelte-ignore state_referenced_locally
 let activitySelections = $state<boolean[]>(
-	isActivityPack
-		? (item.payload as ActivityPackPayload).activities.map(
-				(a) => !(data.existingActivityNames ?? []).includes(a.name),
-			)
-		: [],
+	isActivityPack ? (item.payload as ActivityPackPayload).activities.map(() => true) : [],
 );
 const selectedCount = $derived(activitySelections.filter((b) => b).length);
 const totalCount = $derived(activityPackActivities.length);
@@ -139,12 +143,16 @@ function deselectAllActivities() {
 		<nav class="text-xs text-[var(--color-text-tertiary)] mb-6">
 			<a href="/marketplace" class="hover:text-[var(--color-action-primary)]">{MARKETPLACE_LABELS.breadcrumbRoot}</a>
 			<span class="mx-1">/</span>
-			<a
-				href="/marketplace?type={item.type}"
-				class="hover:text-[var(--color-action-primary)]"
-			>
-				{MARKETPLACE_TYPE_LABELS[item.type]}
-			</a>
+			{#if hasTypeList}
+				<a
+					href="/marketplace?type={item.type}"
+					class="hover:text-[var(--color-action-primary)]"
+				>
+					{MARKETPLACE_TYPE_LABELS[item.type]}
+				</a>
+			{:else}
+				<span>{MARKETPLACE_TYPE_LABELS[item.type]}</span>
+			{/if}
 			<span class="mx-1">/</span>
 			<span class="text-[var(--color-text-secondary)]">{item.name}</span>
 		</nav>
@@ -362,7 +370,7 @@ function deselectAllActivities() {
 					data-testid="reward-set-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(rewardCount)}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -391,7 +399,7 @@ function deselectAllActivities() {
 					data-testid="reward-import-signup-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportReward}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -412,7 +420,7 @@ function deselectAllActivities() {
 					data-testid="checklist-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportChecklist}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(checklistCount)}
 					</Button>
 				</a>
 			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length === 0}
@@ -440,7 +448,7 @@ function deselectAllActivities() {
 					data-testid="marketplace-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaSignupToImport}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 			{:else if isRulePreset && data.isAuthenticated && isRuleBonus}
@@ -459,7 +467,7 @@ function deselectAllActivities() {
 						data-testid="rule-preset-import-bonus-cta"
 					>
 						<Button variant="primary" size="lg" class="w-full">
-							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+							{MARKETPLACE_LABELS.detailCtaImportUnified(ruleCount)}
 						</Button>
 					</a>
 					{/snippet}
@@ -481,7 +489,7 @@ function deselectAllActivities() {
 					data-testid="rule-preset-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(ruleCount)}
 					</Button>
 				</a>
 			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length === 0}
@@ -518,7 +526,7 @@ function deselectAllActivities() {
 					data-testid="rule-import-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRule}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -550,7 +558,7 @@ function deselectAllActivities() {
 				>
 					<Button variant="primary" size="lg" class="w-full" disabled={selectedCount === 0}>
 						{selectedCount > 0
-							? MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(selectedCount)
+							? MARKETPLACE_LABELS.detailCtaImportUnified(selectedCount)
 							: MARKETPLACE_LABELS.detailActivityPackSelectedZero}
 					</Button>
 				</a>
@@ -576,7 +584,7 @@ function deselectAllActivities() {
 					data-testid="activity-pack-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportActivityPack}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -592,15 +600,17 @@ function deselectAllActivities() {
 			{/if}
 		</div>
 
-		<!-- Back -->
-		<div class="text-center mt-6">
-			<a
-				href="/marketplace?type={item.type}"
-				class="text-sm text-[var(--color-action-primary)] hover:underline"
-			>
-				{MARKETPLACE_TYPE_LABELS[item.type]}{MARKETPLACE_LABELS.backToTypeListSuffix}
-			</a>
-		</div>
+		<!-- Back (#4711: 陳列 type のみ。非陳列 type は type 一覧が存在しないため出さない) -->
+		{#if hasTypeList}
+			<div class="text-center mt-6">
+				<a
+					href="/marketplace?type={item.type}"
+					class="text-sm text-[var(--color-action-primary)] hover:underline"
+				>
+					{MARKETPLACE_TYPE_LABELS[item.type]}{MARKETPLACE_LABELS.backToTypeListSuffix}
+				</a>
+			</div>
+		{/if}
 	</div>
 </div>
 

@@ -50,7 +50,52 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 1. biome check / 2. svelte-check / 7. check-no-plan-literals (#972) / 7g. check-local-tz-date-getters (#4015 / #4127, TZ 依存の日付導出禁止 / JST SSOT 強制) / 9. Readiness gate = check-pr-body (PR 番号必須) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail)
 
-**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**pre-ready から外しても CI で hard-fail し続ける検査**は以下がその全部である — vitest は CI `unit-test`、cspell / license-key-leak / CLI entry guard (`check-cli-entry-guard.mjs`) / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml` (対応表は `--help`)。**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。**ここに挙がっていない検査は CI にも無い** — 「pre-ready に無い検査は CI が拾ってくれる」と一般化しないこと。
+**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**pre-ready の 6 step は CI が hard-fail させる検査のごく一部でしかない**。`gh pr checks <num>` で CI 側が pass (skipped でない) ことを確認してから Ready 化する。
+
+#### CI `ci.yml` で hard-fail する検査（実測 SSOT、#4605）
+
+以下 2 ブロックは `.github/workflows/ci.yml` の実測（`continue-on-error: true` も `|| true` も付かない step）であり、`tests/unit/docs/ci-hard-fail-check-list-ssot.test.ts` が ci.yml と突合する（列挙漏れ / 陳腐化 / 理由なし除外 / job 新設漏れで CI fail）。**手で足さない — ci.yml を変えたら test の指示どおり本ブロックを直す。**
+
+`lint-and-test` job の hard-fail step（ローカルで個別に回すときのコマンドがそのまま key）:
+
+<!-- ci-hard-fail-steps:start -->
+- `npx biome check --error-on-warnings .` — Biome (pre-ready Step 1 と同一)
+- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / LP innerHTML / @html)
+- `node scripts/check-no-plan-literals.mjs` — プラン文字列直書き (pre-ready Step 7)
+- `node scripts/check-cli-entry-guard.mjs` — CLI entry 判定の方言禁止
+- `node scripts/check-workflow-sparse-checkout-closure.mjs` — sparse-checkout 列挙の閉包
+- `node scripts/check-readdir-rotation-guard.mjs` — 緩い一致で世代を数える class の禁止
+- `node scripts/check-repo-scan-test-declaration.mjs` — repo 走査 test の区分宣言
+- `node scripts/check-local-tz-date-getters.mjs` — TZ 依存の日付導出禁止 (pre-ready Step 7g)
+- `node scripts/check-license-key-leak.mjs --budget-ms 120000` — license key 再導入禁止
+- `node scripts/check-no-direct-env-access.mjs` — `process.env` 直参照禁止
+- `node scripts/check-no-waitfortimeout.mjs` — `scripts/` の `waitForTimeout` 禁止
+- `node --test "scripts/__tests__/**/*.test.mjs"` — scripts の node:test 全件
+- `npm run check:no-demo-route-dup` — demo route 二重実装禁止
+- `npm run cspell` — スペルチェック (warning=error)
+- `npx stylelint "src/**/*.css"` — CSS hex 直書き
+- `npx eslint "tests/**/*.ts"` — ESLint Playwright (no-networkidle / no-wait-for-timeout)
+- `npm run lint:typed` — ESLint type-aware (no-floating-promises / no-misused-promises、CI 限定)
+- `npm run lint:svelte` — **ESLint Svelte** (recommended + XSS AST。`eslint-suppressions.json` で baseline 凍結 + ratchet = 新規違反のみ fail)
+- `npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold warning` — **pre-ready Step 2 より厳しい**（CI は warning も fail）
+- `cd infra && npx tsc --noEmit` — CDK 型検査
+- `npm run type-coverage` — 型カバレッジ ratchet
+- `npm run build` — 本体ビルド
+- `npm run build-storybook -- --quiet` — Storybook ビルド (stories 変更時のみ)
+<!-- ci-hard-fail-steps:end -->
+
+`ci.yml` のその他 hard-fail job（`lint-and-test` 以外。中身の step までは列挙しない）:
+
+<!-- ci-hard-fail-jobs:start -->
+- `marketplace-registry-integrity-check` / `deps-supply-chain-check` / `dependency-cruiser` / `cdk-cfn-lint`
+- `unit-test` (vitest 2 shard) / `unit-test-merge` (coverage 閾値 ratchet + test anti-pattern)
+- `storybook-test` / `e2e-test` / `e2e-matrix` / `e2e-cognito-dev` / `e2e-demo-lambda` / `a11y`
+- `docker-build`
+- `new-env-distribution-check` / `schema-change-tests-check` / `schema-migration-completeness-check`
+- `main-pr-base-guard`
+<!-- ci-hard-fail-jobs:end -->
+
+**本ブロックが保証するのは `ci.yml` の範囲だけ**。他の workflow（`lp-metrics.yml` の LP 寸法・禁止語、visual regression 3 層、`pr-template-gate.yml` 等の PR body 系 gate）は突合対象外なので、`gh pr checks <num>` で個別に見る（`ci-gate` は skipped を failure に数えないため ci-gate green を根拠にしない）。
 
 **Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 7 / 7g) → 型検査 (2) → SS 系 (11b) の順。
 

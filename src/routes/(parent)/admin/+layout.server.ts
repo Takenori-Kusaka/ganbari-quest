@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
@@ -110,10 +111,22 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
 	}
 
-	// #783: トライアル終了後に free プランの上限を超えるリソースを archive する。
+	// #783 / #4585-2: 有料相当から無料プランに戻ったテナントで、無料プランの上限を超える
+	// リソースを archive する (顧客が選ばずに手続きを終えた場合の fallback)。
 	// 冪等: 既に archive 済みなら超過はなく何もしない。
-	const isTrialExpired = trialStatus.trialUsed && !trialStatus.isTrialActive;
-	if (planTier === 'free' && isTrialExpired) {
+	//
+	// #4585-2: 起動条件を `trialUsed` (体験の履歴) から**プラン遷移**へ移した。判定は
+	// `hasRevertedToFreePlan` が SSOT で、解約フロー / 請求パネル / dunning の 3 経路とも
+	// 同じ終端 (contract-state-matrix S5) を見る。体験を経ず直接課金した顧客が解約しても
+	// 発火しなかった穴 (#4585 ①) が塞がり、#4603 が解約画面で示した fallback が実際に起きる。
+	const revertedToFreePlan = hasRevertedToFreePlan({
+		planTier,
+		tenantStatus,
+		stripeSubscriptionId: locals.context?.stripeSubscriptionId,
+		trialUsed: trialStatus.trialUsed,
+		isTrialActive: trialStatus.isTrialActive,
+	});
+	if (revertedToFreePlan) {
 		try {
 			const result = await archiveExcessResources(tenantId);
 			if (
@@ -121,7 +134,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 				result.archivedActivityIds.length > 0 ||
 				result.archivedChecklistTemplateIds.length > 0
 			) {
-				logger.info('[ARCHIVE] Trial expired — excess resources archived', {
+				logger.info('[ARCHIVE] Reverted to free plan — excess resources archived', {
 					context: {
 						tenantId,
 						children: result.archivedChildIds.length,
@@ -137,11 +150,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #783: archive 済みリソースの概要（UI 表示用）
-	const archivedSummary =
-		planTier === 'free' && isTrialExpired
-			? await getArchivedResourceSummary(tenantId)
-			: { archivedChildCount: 0, hasArchivedResources: false };
+	// #783: archive 済みリソースの概要（UI 表示用）。
+	// #4585-2: 起動条件と同じ述語で判定する。ここだけ体験基準のままだと、解約した顧客に
+	// 「アーカイブしました」の告知が出ないまま archive だけが進む。
+	const archivedSummary = revertedToFreePlan
+		? await getArchivedResourceSummary(tenantId)
+		: { archivedChildCount: 0, hasArchivedResources: false };
 
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
@@ -161,15 +175,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (1 回限りの通知 cookie を
+	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
 	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
 	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
+	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
+	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
 	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError =
-		rawInviteAcceptError === 'INVITE_EMAIL_MISMATCH' ||
-		rawInviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
-			? rawInviteAcceptError
-			: null;
+	const inviteAcceptError = rawInviteAcceptError ? rawInviteAcceptError : null;
 	if (rawInviteAcceptError) {
 		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
 	}

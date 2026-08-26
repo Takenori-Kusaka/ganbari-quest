@@ -268,13 +268,18 @@ export async function getSimpleMonthSummary(
 		tenantId,
 	);
 
+	// #4719: レベルは常に statuses から realtime 導出する (全 backend 共通)。
+	// 集計 summary の `level` は当日 snapshot の意味しか持たず、pg-core (DSQL / PGlite) の
+	// compute-on-read summary は snapshot を持てない (既定 1) ため、summary 経路に乗ると
+	// ホーム / 月次レポートのレベルが常に 1 になっていた (#4680 class)。
+	const currentLevel = await computeCurrentLevel(repos, childId, tenantId);
+
 	if (summaries.length > 0) {
 		const totalActivities = summaries.reduce((sum, s) => sum + s.activityCount, 0);
-		const last = summaries[summaries.length - 1];
 		const totalNewAchievements = summaries.reduce((sum, s) => sum + s.newAchievements, 0);
 		return {
 			totalActivities,
-			currentLevel: last?.level ?? 1,
+			currentLevel,
 			newAchievements: totalNewAchievements,
 		};
 	}
@@ -289,15 +294,26 @@ export async function getSimpleMonthSummary(
 		totalActivities += logs.length;
 	}
 
-	const statuses = await repos.status.findStatuses(childId, tenantId);
-	const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 
 	return {
 		totalActivities,
-		currentLevel: maxLevel,
+		currentLevel,
 		newAchievements,
 	};
+}
+
+/**
+ * #4719: 現在レベル (statuses の最大 level) の realtime 導出。summary 集計表の level snapshot は
+ * backend によって持てない (pg-core は compute-on-read で既定 1) ため、表示用レベルは常にここから取る。
+ */
+async function computeCurrentLevel(
+	repos: ReturnType<typeof getRepos>,
+	childId: ChildId,
+	tenantId: string,
+): Promise<number> {
+	const statuses = await repos.status.findStatuses(childId, tenantId);
+	return statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
 }
 
 /**
@@ -372,6 +388,13 @@ export async function computeDetailedMonthlyReport(
 		tenantId,
 	);
 
+	// #4719: レベル / 累計ポイントは summary snapshot でなく statuses から realtime 導出 (全 backend 共通)。
+	// pg-core の compute-on-read summary は level snapshot を持てず (既定 1)、totalPoints も
+	// 「当日獲得」の意味になるため、summary 経路でもこの 2 値は realtime 値で上書きする。
+	const statuses = await repos.status.findStatuses(childId, tenantId);
+	const realtimeLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
+	const realtimeTotalPoints = statuses.reduce((sum, s) => sum + (s.totalXp ?? 0), 0);
+
 	if (summaries.length > 0) {
 		const built = buildMonthlySummary(childName, childId, yearMonth, summaries);
 		return {
@@ -381,8 +404,8 @@ export async function computeDetailedMonthlyReport(
 			totalActivities: built.totalActivities,
 			categoryBreakdown: built.categoryBreakdown,
 			avgDailyActivities: built.avgDailyActivities,
-			currentLevel: built.currentLevel,
-			totalPoints: built.totalPoints,
+			currentLevel: realtimeLevel,
+			totalPoints: realtimeTotalPoints,
 			maxStreakDays: built.maxStreakDays,
 			totalNewAchievements: built.totalNewAchievements,
 			daysWithActivity: built.daysWithActivity,
@@ -412,9 +435,8 @@ export async function computeDetailedMonthlyReport(
 		}
 	}
 
-	const statuses = await repos.status.findStatuses(childId, tenantId);
-	const totalPoints = statuses.reduce((sum, s) => sum + (s.totalXp ?? 0), 0);
-	const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
+	const totalPoints = realtimeTotalPoints;
+	const maxLevel = realtimeLevel;
 	const streakDays = await calculateStreak(childId, limit, tenantId);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 

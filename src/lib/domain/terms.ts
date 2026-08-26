@@ -49,6 +49,11 @@
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
 
 import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constants/deletion-grace';
+import {
+	FAMILY_MEMBER_LIMIT,
+	formatMemberCount,
+	invitesAllowedFrom,
+} from './constants/family-member-limit';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -72,6 +77,15 @@ import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
 
 export const PLAN_TERMS = {
 	free: '無料',
+	/**
+	 * プランカード / 比較表 / FAQ カテゴリの**短縮名**「フリー」(#4502 PO 決裁)。
+	 *
+	 * LP には「フリー」と「無料」の 2 表記が混在していた。どちらかを消すのではなく
+	 * **使い分けを公式化**する — 名札 (カード見出し・比較表の列・FAQ カテゴリ) は `freeCardName`、
+	 * 文章中は `PLAN_FULL_TERMS.free`「無料プラン」。名札は短いほうが読みやすく、
+	 * 文章中は「無料プラン」でないと「無料」が形容詞と紛れるため。
+	 */
+	freeCardName: 'フリー',
 	standard: 'スタンダード',
 	premium: 'プレミアム',
 	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */
@@ -444,6 +458,24 @@ export const CHILD_TERMS = {
 	honorific: 'お子さま',
 	neutral: '子供',
 	hiragana: 'こども',
+} as const;
+
+// ============================================================
+// AI_TRANSFER_TERMS — 生成 AI への送信を説明するときの語彙 atom (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路は、
+// 入力内容をそのまま生成 AI に送信する。プライバシーポリシー第9条④ (#4583) と
+// 同じ事実を、入力する瞬間に伝えるための語彙をここに集約する。
+//
+// 禁忌: 個別の生成 AI 製品名 (モデル名・サービス名) を atom に持たせない。
+// 送信先は「事業者」と「運営者の環境の内か外か」で述べる (#4370 / #4583 と同一規律)。
+
+export const AI_TRANSFER_TERMS = {
+	/** 送信先の総称 */
+	genAi: '生成 AI',
+	/** 入力してはいけない情報の例示 (単独では主語を持たない断片) */
+	identifyingInfo: 'お名前など特定につながる情報',
 } as const;
 
 // ============================================================
@@ -1263,4 +1295,56 @@ export const DELETION_GRACE_TERMS = {
 	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
+} as const;
+
+// ============================================================
+// FAMILY_MEMBER_LIMIT_TERMS — 家族メンバー上限の atom (#4500)
+// ============================================================
+//
+// 値の SSOT は `constants/family-member-limit.ts` の FAMILY_MEMBER_LIMIT
+// (server 側 plan-limit-service.ts も同じ定数を import する)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+//
+// **合計と招待可能数を必ず区別する**。上限 4 は **owner を含む合計**であり、
+// 実際に招待できるのは 3 人。この 2 つを同一視して「招待 4 人まで」と訴求していたのが
+// #4500 の欠陥そのもので、プラン選択の判断材料を 1 人分過大に見せていた (ADR-0013)。
+// 「招待」の文脈では invites 系を、「ご家族の人数」の文脈では total 系を使う。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てる。両者が一致することは
+// tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
+
+const STANDARD_MEMBER_TOTAL = FAMILY_MEMBER_LIMIT.standard ?? 0;
+
+export const FAMILY_MEMBER_LIMIT_TERMS = {
+	/** スタンダードの合計上限 (owner 含む。例: 「4人」) */
+	standardTotal: formatMemberCount(STANDARD_MEMBER_TOTAL),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「4 人」) */
+	standardTotalSpaced: formatMemberCount(STANDARD_MEMBER_TOTAL, { spaced: true }),
+	/** スタンダードで招待できる人数 (owner の 1 枠を除く。例: 「3人」) */
+	standardInvites: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL)),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「3 人」) */
+	standardInvitesSpaced: formatMemberCount(invitesAllowedFrom(STANDARD_MEMBER_TOTAL), {
+		spaced: true,
+	}),
+} as const;
+
+// ============================================================
+// PWA_TERMS — ホーム画面への追加 (インストール) の atom (#4644)
+// ============================================================
+//
+// 「ホーム画面に追加」は LP (site/index.html) / 親画面の案内バナー / 設定 > サポートの
+// 恒久導線 の 3 箇所に同時に出る。表記が揺れると「LP で読んだ操作名がアプリ内で
+// 見つからない」状態になるため atom で 1 箇所に固定する (ADR-0045)。
+//
+// iOS Safari の共有シート項目名は Apple 側の UI 文言であり、こちらの都合で言い換えると
+// 手順書として機能しなくなる。実機の表記をそのまま atom に持つ。
+
+export const PWA_TERMS = {
+	/** インストール操作の正式名 (Android / iOS 共通の顧客語彙。「PWA」は表に出さない) */
+	installAction: 'ホーム画面に追加',
+	/** standalone 起動の顧客語彙 */
+	standalone: 'アプリのように全画面',
+	/** iOS Safari の共有ボタン (実機の表記) */
+	iosShareButton: '共有',
 } as const;
