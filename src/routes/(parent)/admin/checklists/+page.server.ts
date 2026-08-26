@@ -182,7 +182,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 			error: createPlanLimitError(
 				tier,
 				'standard',
-				`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 			),
 			upgradeRequired: true,
 		});
@@ -332,7 +332,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -498,7 +498,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。`,
+					PLAN_GATE_LABELS.perChildLimitReachedShort(limit.max),
 				),
 			});
 		}
@@ -571,7 +571,7 @@ export const actions: Actions = {
 					error: createPlanLimitError(
 						tier,
 						'standard',
-						`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+						PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 					),
 					upgradeRequired: true,
 				});
@@ -761,7 +761,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -814,7 +814,7 @@ export const actions: Actions = {
 					limitRejected,
 					limitReached: true,
 					// #3474 item2: 上限で取り込めなかった件数は limitRejected のみを提示 (既配信分を過大帰属しない)。
-					message: `${added} 件取り込みました。フリープランの上限に達したため ${limitRejected} 件は取り込めませんでした。スタンダード以上で無制限。${skipNote}`,
+					message: PLAN_GATE_LABELS.bulkImportPartiallyLimited(added, limitRejected, skipNote),
 				};
 			}
 			return { copiedFromChild: true, added, dropped, alreadyDistributed, limitRejected };
