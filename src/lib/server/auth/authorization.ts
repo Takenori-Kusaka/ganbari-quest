@@ -140,6 +140,11 @@ function isPublicRoute(path: string): boolean {
 		// local モードの hooks.server.ts と同様の除外（cognito モードにも適用が必要）。
 		path === '/sitemap.xml' ||
 		path === '/robots.txt' ||
+		// #4644: オフライン着地ページ。プリレンダ対象であることに加え、オフライン時は
+		// 認証 Cookie の検証すら往復できない状態で表示されるため、認可を要求してはならない
+		// (要求すると「オフラインなのでログインへ飛ばす → それも取得できない」で詰む)。
+		// 個人情報を一切含まない静的な案内文のみのページである。
+		path === '/offline' ||
 		path.startsWith('/auth') ||
 		path.startsWith('/pricing') ||
 		path.startsWith('/setup') ||
