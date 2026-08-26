@@ -4296,6 +4296,16 @@ export const CHILD_HOME_LABELS = {
 	resultMasteryLevelUp: (name: string, level: number | string) =>
 		`🎖️ ${name}が Lv.${level} になった！`,
 	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
+	/**
+	 * #4686: コンボは tier 名を「状態」として出し、金額は今回の純増 (台帳増分) だけを出す。
+	 * tier 満額を毎回出すと同日 2 回目以降に「ダイアログの合計 ≠ 残高の増分」になるため。
+	 */
+	resultComboCategoryState: (name: string, catName: string) =>
+		`${name}コンボ たっせい中（${catName}）`,
+	resultComboCrossState: (name: string) => `${name}！ たっせい中`,
+	resultComboNewBonus: 'コンボボーナス',
+	/** #4686: フォーカスモード おすすめ 3 件全完了ボーナス (台帳 type=focus_bonus) の結果ダイアログ表記 */
+	resultFocusBonus: '🎯 きょうのクエスト コンプリート！',
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
@@ -6133,7 +6143,43 @@ export const AUTH_INVITE_LABELS = {
 		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
 	acceptErrorUnverifiedBanner:
 		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
+	// #4633 AC-A: email 束縛以外の受諾拒否も、同じく無音で「新しい家族グループの owner」に
+	// 化ける。理由ごとに「なぜ参加できなかったか + 次アクション」を必ず添える。
+	acceptErrorExpiredBanner:
+		'招待の有効期限が切れていたため参加できず、新しい家族グループが作成されました。招待した方に、新しい招待リンクを発行してもらってください。',
+	acceptErrorTenantNotFoundBanner:
+		'招待元の家族グループが現在ご利用できない状態のため参加できず、新しい家族グループが作成されました。招待した方に、お支払い状況をご確認のうえ改めて招待を発行してもらってください。',
+	acceptErrorAlreadyInTenantBanner:
+		'すでに別の家族グループに参加しているため招待を受けられず、新しい家族グループが作成されました。招待で参加するには、一度ログアウトして別のアカウントで招待リンクを開いてください。',
+	acceptErrorSelfInviteBanner:
+		'ご自身が発行した招待は受け取れないため参加できず、新しい家族グループが作成されました。参加する方ご本人のアカウントで招待リンクを開いてください。',
+	acceptErrorOwnerDowngradeBanner:
+		'すでにこの家族グループの管理者のため招待を受けられず、新しい家族グループが作成されました。管理者のまま参加を続ける場合、この招待は受け取る必要はありません。',
+	acceptErrorGenericBanner:
+		'招待を受け取れなかったため、新しい家族グループが作成されました。招待した方に、招待リンクを発行し直してもらってください。',
 } as const;
+
+/**
+ * #4633 AC-A: 受諾拒否理由 → 案内バナー文言の対応表 (SSOT)。
+ * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
+ */
+export const INVITE_ACCEPT_ERROR_BANNERS = {
+	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.acceptErrorMismatchBanner,
+	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner,
+	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.acceptErrorExpiredBanner,
+	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.acceptErrorTenantNotFoundBanner,
+	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.acceptErrorAlreadyInTenantBanner,
+	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.acceptErrorSelfInviteBanner,
+	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.acceptErrorOwnerDowngradeBanner,
+} as const;
+
+/** 未知の理由 (古い cookie / 想定外) は汎用文言にフォールバックする。 */
+export function getInviteAcceptErrorBanner(reason: string): string {
+	return (
+		(INVITE_ACCEPT_ERROR_BANNERS as Record<string, string>)[reason] ??
+		AUTH_INVITE_LABELS.acceptErrorGenericBanner
+	);
+}
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
 
