@@ -3,6 +3,9 @@
 // #1576 週次使用時間 bar chart の E2E テスト
 
 import { expect, test } from '@playwright/test';
+// #4716 (#4715): 見出しは ADMIN_SCREENS 由来の 1 語に揃った (旧「管理ダッシュボード」)。
+//   リテラル直書きだと画面名が変わるたびに spec が黙って腐るので SSOT を直接読む。
+import { ADMIN_HOME_LABELS } from '../../src/lib/domain/labels';
 import { selectKinderChild } from './helpers';
 
 test.describe('#1292 使用時間ログ', () => {
@@ -45,7 +48,7 @@ test.describe('#1292 使用時間ログ', () => {
 		await page.goto('/admin');
 
 		// ページが表示されるのを確認
-		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
+		await expect(page.locator('h1')).toContainText(ADMIN_HOME_LABELS.heading);
 
 		// 使用時間セクションが表示される（usage_logs にデータがあれば）
 		// データがない場合はセクションが非表示なので条件付き確認
@@ -67,7 +70,7 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 		await page.goto('/admin');
 
 		// ページが表示されるのを確認
-		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
+		await expect(page.locator('h1')).toContainText(ADMIN_HOME_LABELS.heading);
 
 		// 週次使用時間セクションの存在を確認
 		// children が 0 人の場合は weeklyUsage も空になりセクション非表示
@@ -85,7 +88,7 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 		// ご家族の見守り画面に直接遷移（データなし状態はチャート内部で判定）
 		await page.goto('/admin');
 
-		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
+		await expect(page.locator('h1')).toContainText(ADMIN_HOME_LABELS.heading);
 
 		const weeklySection = page.getByTestId('weekly-usage-section');
 		const sectionVisible = await weeklySection.isVisible().catch(() => false);
@@ -116,7 +119,7 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 		// `AdminHome` の `isDemo` 条件が機能していることをコードレベルで確認済の
 		// 回帰防止スモーク test として維持する (実体的なデモ非表示検証は demo Lambda 環境で行う)。
 		await page.goto('/admin');
-		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
+		await expect(page.locator('h1')).toContainText(ADMIN_HOME_LABELS.heading);
 		// isDemo=false のため weekly-usage-section が children > 0 なら表示されることを確認
 		const weeklySection = page.getByTestId('weekly-usage-section');
 		// セクションの存在を確認（children 数に依存するため visibility は条件付き）

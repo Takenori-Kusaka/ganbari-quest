@@ -9,7 +9,7 @@
  *   1. default state (子供タブ + 選択 child の reward 一覧)
  *   2. 2nd child タブ切替後 (URL ?childId 同期 + active タブの aria-selected="true" 確認)
  *   3. ?import=<presetId> → ChildSelectionDialog auto-open (AC5)
- *   4. 「他の子供から copy」 dialog open (AC6)
+ *   4. 「別のお子さまからコピー」 dialog open (AC6、#4716 で header + 追加 dropdown 経由に変更)
  *
  * 設計原則 (PR #2474 Round 2 must-3 / QM-must-2 対応):
  *   - `.catch(() => {})` で UI 動作失敗を SS に偽装しない (PR-3 Round 5 教訓 / ADR-0006)
@@ -113,20 +113,32 @@ export default async (page, capture) => {
 	// Esc で閉じる (後続 step に影響しないように)
 	await page.keyboard.press('Escape');
 
-	// --- 4) 「他の子供から copy」 dialog open ---
+	// --- 4) 「別のお子さまからコピー」 dialog open ---
 	// PR #2474 Round 2 must-3: copy dialog open を必須 wait。失敗時は throw (SS 偽装防止)。
 	// 旧版は `.catch(() => {})` で waitForDialogOpen 失敗を握りつぶし、SS-01 と同一の画面を
 	// SS-04 として保存していた (file 名 `-attempted` 接尾辞が偽装の自認)。
 	await page.goto(`${BASE_URL}/admin/rewards?screenshot=all`);
 	await page.getByTestId('admin-rewards-child-tabs').waitFor({ state: 'visible', timeout: 15_000 });
-	const copyBtn = page.getByTestId('rewards-copy-from-child-btn');
-	const copyBtnCount = await copyBtn.count();
-	if (copyBtnCount === 0) {
+	// #4716: 起動経路が本文の独立ボタン (rewards-copy-from-child-btn) から
+	//   header の「+ 追加」dropdown 内 item (menu-item-copy) に移った
+	//   (活動 / チェックリストと同じ場所に揃えるため)。撮影も dropdown 経由にする。
+	const addMenu = page.getByTestId('rewards-add-menu');
+	await addMenu.waitFor({ state: 'visible', timeout: 15_000 });
+	const copyItem = page.getByTestId('menu-item-copy');
+	let copyItemVisible = false;
+	for (let attempt = 0; attempt < 5 && !copyItemVisible; attempt++) {
+		await addMenu.click();
+		copyItemVisible = await copyItem
+			.waitFor({ state: 'visible', timeout: 2_000 })
+			.then(() => true)
+			.catch(() => false);
+	}
+	if (!copyItemVisible) {
 		throw new Error(
-			'[capture] admin-rewards: rewards-copy-from-child-btn 未表示 (children 2 件以上 + premium 確認)。',
+			'[capture] admin-rewards: + 追加 dropdown に menu-item-copy が出ない (children 2 件以上 + premium 確認)。',
 		);
 	}
-	await copyBtn.click();
+	await copyItem.click();
 	await waitForDialogOpen(page, 'rewards-copy-from-child-dialog');
 	await capture('pr2474-admin-rewards-copy-dialog');
 };
