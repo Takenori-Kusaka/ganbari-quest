@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/setup-route-role-guard-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/setup 直下の route dir を depth 1 で列挙し、全 step が child 拒否 / 未認証 → /auth/login で守られていることを突き合わせる (#4700)。単一 dir だが静的判定は保守的に repo と見なすため明示 timeout を置く',
+	},
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
