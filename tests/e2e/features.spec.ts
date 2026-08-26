@@ -45,6 +45,26 @@ test.describe('#0029: Baby モード', () => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).not.toBeVisible();
 	});
+
+	// #4685 (ADR-0011): 準備モードにゲーミフィケーション UI を出さない。
+	// 旧実装は shop だけ素通りし、1 歳児の名前で交換申請が親の承認待ちに並んでいた。
+	test('ごほうびショップは home へ redirect される (交換申請できない)', async ({ page }) => {
+		await selectBabyChild(page);
+		await dismissOverlays(page);
+
+		await page.goto('/baby/shop');
+
+		await expect(page).toHaveURL(/\/baby\/home/);
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+	});
+
+	test('ヘッダーにスタンプカード UI が出ない', async ({ page }) => {
+		await selectBabyChild(page);
+		await dismissOverlays(page);
+
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+		await expect(page.locator('[data-testid="header-stamp-btn"]')).toHaveCount(0);
+	});
 });
 
 // ============================================================

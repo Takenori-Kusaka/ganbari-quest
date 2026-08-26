@@ -56,7 +56,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json(
 			{
 				error: 'MEMBER_LIMIT_REACHED',
-				message: PLAN_GATE_LABELS.memberLimitReached(memberLimit.max ?? 0),
+				// #4622: PlanLimitCheck が discriminated union になり、!allowed 側で max は number に確定する。
+				// 旧 `?? 0` fallback は「メンバー上限（0人）」という別の嘘を出しうるため撤去した。
+				message: PLAN_GATE_LABELS.memberLimitReached(memberLimit.max),
 				current: memberLimit.current,
 				max: memberLimit.max,
 			},
