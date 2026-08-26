@@ -502,6 +502,15 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 			return scalarCount(result);
 		},
 
+		/** #4696: 子供のポイント台帳 総行数 (データクリア件数表示用)。 */
+		async countPointLedgerEntries(childId, tenantId) {
+			const result = await db.execute(sql`
+				SELECT count(*)::int AS c FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+			`);
+			return Number((result.rows[0] as { c: number } | undefined)?.c ?? 0);
+		},
+
 		async countPointLedgerEntriesByType(childId, type, tenantId) {
 			const result = await db.execute(sql`
 				SELECT count(*)::int AS c FROM point_ledger
