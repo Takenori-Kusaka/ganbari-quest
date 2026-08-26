@@ -4,7 +4,10 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
+import {
+	INVITE_ACCEPT_ERROR_COOKIE_NAME,
+	isInviteAcceptErrorReason,
+} from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -188,15 +191,20 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (1 回限りの通知 cookie を
+	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
 	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
 	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
+	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
+	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
+	// #4638: cookie 値は SSOT (INVITE_ACCEPT_ERROR_REASONS) で検証してから client へ渡す。
+	// 既知理由はそのまま、未知の値は 'UNKNOWN' に正規化する — 生の cookie 文字列を SSR
+	// ペイロードへ素通しせず、かつ「バナーを出さない」握り潰しにも倒さない。
 	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError =
-		rawInviteAcceptError === 'INVITE_EMAIL_MISMATCH' ||
-		rawInviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
+	const inviteAcceptError = rawInviteAcceptError
+		? isInviteAcceptErrorReason(rawInviteAcceptError)
 			? rawInviteAcceptError
-			: null;
+			: 'UNKNOWN'
+		: null;
 	if (rawInviteAcceptError) {
 		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
 	}
