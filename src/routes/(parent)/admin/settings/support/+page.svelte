@@ -5,9 +5,12 @@
 // 競合フォーム research: 単一フォーム + intent セレクタ + 段階表示 (progressive disclosure) が支配的。
 // founder 直接相談の独立ページ (/inquiry/founder) は LP / ライセンス導線から到達するため存続。
 
+import { browser } from '$app/environment';
 import { enhance } from '$app/forms';
-import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, PWA_INSTALL_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import BackupHealthCard from '$lib/features/admin/components/BackupHealthCard.svelte';
+import PwaInstallGuide from '$lib/features/pwa/PwaInstallGuide.svelte';
+import { detectPwaPlatform, type PwaInstallPlatform } from '$lib/features/pwa/pwa-install';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -63,6 +66,16 @@ const successMessage = $derived(
 		: feedbackInquiryId
 			? `${SETTINGS_LABELS.feedbackSuccessFeedbackWithId(feedbackInquiryId)}${feedbackSuccessHadEmail ? SETTINGS_LABELS.feedbackSuccessFeedbackEmailNote : ''}`
 			: SETTINGS_LABELS.feedbackSuccessFeedbackNoId,
+);
+
+// #4644: 「ホーム画面に追加」の恒久導線。バナー (端末ごとに 1 回) を閉じた後でも
+// いつでも手順を開けるようにする。フィードバック導線と同じく 設定 > サポート に置く
+// (DESIGN.md §10「フィードバック導線 = 設定 > サポート 単独 SSOT」と同じ理由 —
+// 各画面に増設すると ADR-0012 の常時露出になる)。
+let pwaGuideOpen = $state(false);
+// SSR では navigator が無いので 'other' (両方の手順を出す) に倒す。hydrate 後に端末が確定する。
+const pwaPlatform = $derived<PwaInstallPlatform>(
+	browser ? detectPwaPlatform(navigator.userAgent) : 'other',
 );
 </script>
 
@@ -241,6 +254,42 @@ const successMessage = $derived(
 	{#if data.backupHealth}
 		<BackupHealthCard health={data.backupHealth} />
 	{/if}
+
+	<!-- #4644: ホーム画面に追加（恒久導線）。既定は折りたたみ、開いたときだけ手順を出す。 -->
+	<Card padding="lg" data-testid="pwa-install-settings-card">
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
+			{PWA_INSTALL_LABELS.settingsCardTitle}
+		</h3>
+		<p class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-4">
+			{PWA_INSTALL_LABELS.settingsCardDesc}
+		</p>
+		{#if pwaGuideOpen}
+			<PwaInstallGuide platform={pwaPlatform} testid="pwa-install-settings-guide" />
+			<div class="mt-4">
+				<Button
+					variant="ghost"
+					size="sm"
+					onclick={() => {
+						pwaGuideOpen = false;
+					}}
+					data-testid="pwa-install-settings-close"
+				>
+					{PWA_INSTALL_LABELS.close}
+				</Button>
+			</div>
+		{:else}
+			<Button
+				variant="outline"
+				size="md"
+				onclick={() => {
+					pwaGuideOpen = true;
+				}}
+				data-testid="pwa-install-settings-open"
+			>
+				{PWA_INSTALL_LABELS.settingsCardAction}
+			</Button>
+		{/if}
+	</Card>
 
 	<!-- アプリ情報・リンク -->
 	<Card padding="lg">

@@ -43,7 +43,21 @@
 ### 3.1 StorageStack
 
 `StorageStack` は S3（assets）+ ECR（Lambda container image）+ AWS Backup vault（RETAIN-orphan、prod のみ）を
-提供する。DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を
+提供する。
+
+**assets バケット（`ganbari-quest-assets-<account>`）は顧客データを保持する**（`tenants/<tenantId>/` 配下に
+子供のアバター写真・録音・AI 生成画像、`exports/` にクラウド共有の預かりデータ）。退会処理が prefix 単位で
+物理削除するため、以下 2 点を持つ（#4724）:
+
+| 保護 | 実装 | 何から守るか |
+|---|---|---|
+| バージョニング | `versioned: true` + 非現行バージョン 30 日 expire + `expiredObjectDeleteMarker` | 誤削除・誤上書き（30 日以内なら元に戻せる。コストは非現行 expire で有界） |
+| AWS Backup | `DsqlStack` の日次 plan（02:00 UTC / 7 日保持 / vault `ganbari-quest-dsql-vault`）に selection を追加 | バケットごとの喪失。DSQL と同一 plan / vault のため復元時点が揃い、失敗通知 rule（`ganbari-quest-dsql-backup-failed`）も 1 本で両方を拾う |
+
+バケット名は `infra/lib/env-config.ts` の `assetsBucketName()` / `assetsBucketArn()` が SSOT で、StorageStack と
+DsqlStack が同じ関数を呼ぶ（cross-stack export を増やさないため ARN を GetAtt で渡さない）。
+**S3 backup はリージョンの Service opt-in で S3 が有効でないと job 自体が走らない**（失敗すらしない）ため、
+opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/dsql-restore.md) を参照する。DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を
 参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL のリレーショナルスキーマは
 [dsql-data-model.md](dsql-data-model.md) を参照。
 
@@ -180,11 +194,18 @@
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 9 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 10 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 10 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
+
+**scheduler コンテナが起動・更新されていることが前提 (#4721)**。`deploy-nuc.yml` は
+`--profile backup --profile scheduler` を build / up の両方に付ける（profile を付けないと
+`profiles: [scheduler]` gate 配下のサービスが build / 再作成の対象外になり、registry にジョブを足しても
+NUC で走らない）。稼働確認は `/api/health` の `scheduler` フィールド（`DATA_SOURCE=pglite` のときのみ出力。
+cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍を過ぎたジョブを `staleJobs` に挙げる。
+全ジョブ未実行なら `critical`）。
 
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
 |---------|-----------------|---------|:-:|:-:|----------|
@@ -192,10 +213,11 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。**Rule を作らない構成では `GRACE_PERIOD_DELETION_DISABLED` env が `'true'` になり (#4721、`compute-stack.ts` が `CRON_JOBS` の有無から導出)、deletion-warning-emails も同じ flag を見て停止する** — 削除されない日付を告げる予告メールだけが届く非対称を作らないため。Rule を戻せば予告も自動的に再開する。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
 | deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
+| notification-delivery | `cron(0/15 * * * ? *)` | 15 分毎 | ✓ | ✓ | 通知 / 週次レポート配信バッチ (#4706, `notification-delivery-service.ts`)。設定 UI が約束する 3 配信をまとめて送る: (a) 週次メールレポート = `weekly_report_enabled` かつ `weekly_report_day` が JST の今日、09:00 JST 以降、standard 以上 (b) リマインダー push = `notification_reminders_enabled` かつ `notification_reminder_time` を過ぎている (c) ストリーク警告 push = `notification_streak_enabled` かつ 19:00 JST 以降で、今日未記録かつストリーク継続中の子供がいる。いずれも送信済マーカー (`weekly_report_sent_week` / `notification_reminder_sent_date` / `notification_streak_sent_date`) で冪等。**15 分間隔なのはリマインダー時刻が HH:MM の任意値だから** (毎時だと最大 59 分遅れる)。判定用の設定は `getSettingForAllTenants` でキーごとに 1 クエリに畳むため、実行頻度を上げてもクエリ数はテナント数に比例しない (ADR-0065 原則 2) |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
 
 - ターゲット: AWS では `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`) が EventBridge から起動され `/api/cron/:job` を HTTP POST する
@@ -672,10 +694,10 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 項目 | 内容 |
 |------|------|
 | サービス | Amazon Bedrock (Converse API) |
-| モデル | Claude Haiku 4.5 (`anthropic.claude-haiku-4-5-20251001-v1:0`) |
-| 推論方式 | in-Region on-demand（base model ID）。cross-region inference profile (`us.` 接頭辞) は使わない — us-east-2 / us-west-2 でも推論されうるため、子供の活動テキストの所在を `site/privacy.html` 第 10 条の開示（us-east-1）と一致させる |
+| モデル | Claude Haiku 4.5。呼び出しに使う ID は US inference profile の `us.anthropic.claude-haiku-4-5-20251001-v1:0`（member base model = `anthropic.claude-haiku-4-5-20251001-v1:0`） |
+| 推論方式 | **US geo inference profile**（`us.` 接頭辞）。Claude Haiku 4.5 は base model ID の on-demand 呼び出しを受け付けない（`ValidationException: ... with on-demand throughput isn't supported`）ため profile が必須。推論は member 3 リージョン（us-east-1 / us-east-2 / us-west-2）に分散しうるが、いずれも運営者の AWS アカウント内であり保存先は us-east-1 のまま。米国外を含みうる `global.` profile は採らない（`site/privacy.html` 第 10 条の移転先国「米国」を保つ） |
 | 構造化出力 | tool_use (function calling) でJSONスキーマ準拠の出力を保証 |
-| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は当該 base model の ARN 1 本 (`arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`) に絞り `*` にしない。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
+| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は **profile ARN 1 本 + member 3 リージョンの foundation-model ARN 3 本**（`arn:aws:bedrock:us-east-1:<account>:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0` / `arn:aws:bedrock:{us-east-1,us-east-2,us-west-2}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`）に絞り `*` にしない。profile 経由の呼び出しは両方を要求する。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
 
 ### モデル選定理由
 
@@ -696,7 +718,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 | 変数 | デフォルト | 説明 |
 |------|----------|------|
-| `BEDROCK_MODEL_ID` | `anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID（US inference profile）。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
 | `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン。AWS 本番 / staging へは `us-east-1` を明示配布する (既定値に委ねると実行環境の `AWS_REGION` 次第でずれる) |
 | `BEDROCK_DISABLED` | (未設定) | `true` でBedrock無効化（フォールバック使用） |
 

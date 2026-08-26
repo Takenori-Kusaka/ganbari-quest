@@ -93,8 +93,11 @@ describe('#1638: SIGNUP_LABELS cross-border consent 拡張', () => {
 });
 
 describe('#1638 #1590: consent-service バージョン定数', () => {
-	it('CURRENT_TERMS_VERSION が 2026-04-28 に更新されている', () => {
-		expect(CURRENT_TERMS_VERSION).toBe('2026-04-28');
+	// #4503: 利用規約を改訂したので version を bump した (既存利用者に再同意が発火する)。
+	// 日付リテラルの pin は「文書と定数が一致しているか」を見ていないため、#4497 で
+	// 「文書の最終改定日との突合」に置き換わる予定。それまでは実装事実に合わせて更新する。
+	it('CURRENT_TERMS_VERSION が利用規約の最終改定日 2026-08-13 に更新されている', () => {
+		expect(CURRENT_TERMS_VERSION).toBe('2026-08-13');
 	});
 
 	it('CURRENT_PRIVACY_VERSION が 2026-04-28 に更新されている', () => {
