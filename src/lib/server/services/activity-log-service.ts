@@ -26,6 +26,8 @@ import {
 // EPIC #3424 Phase Z (#3541): DATA_SOURCE=dsql は core 単一 txn + optional 隔離経路へ dispatch (§8)
 import { isDsqlBackend } from '$lib/server/db/backend';
 import { cancelActivityDsql } from '$lib/server/services/activity-cancel-dsql';
+// #4686: とりけし時の optional 付与 (combo / mission / challenge / must / focus) 対称巻き戻し (両経路共有)
+import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-cancel-optional';
 import {
 	type ActivityLogEntry,
 	type ActivityLogSummary,
@@ -440,6 +442,16 @@ export async function cancelActivityLog(
 		},
 		tenantId,
 	);
+
+	// #4686: 記録時に optional で付与したもの (コンボ / ミッション / チャレンジ進捗 / おやくそく /
+	// フォーカス) を、付与した経路と同じ経路で巻き戻す (#3787 mastery 対称返金と同 class)。
+	await revertOptionalAwardsOnCancel({
+		childId: log.childId,
+		activityId: log.activityId,
+		categoryId: activity ? activity.categoryId : null,
+		today: todayDate(),
+		tenantId,
+	});
 
 	return { refundedPoints: totalPoints };
 }

@@ -141,6 +141,10 @@ export async function markCompleted(_id: string, _tenantId: string): Promise<voi
 	// Stub: no-op
 }
 
+export async function revertCompletion(_id: string, _tenantId: string): Promise<void> {
+	// Stub: no-op
+}
+
 /**
  * #4410: 達成祝福「見せた」記録。demo は write=stub (ADR-0048 stateless、fixture 非 mutate) のため
  * 永続化しない。demo fixture の challenge は全て `completed=0` (child-home visual-regression の
