@@ -14,6 +14,7 @@ import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
 import {
 	getRedemptionRequestsForChild,
+	isRewardAutoApproveEnabled,
 	requestRedemption,
 } from '$lib/server/services/reward-redemption-service';
 import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
@@ -31,13 +32,17 @@ export const load: PageServerLoad = async ({ parent, locals, params }) => {
 	}
 
 	if (!child) {
-		return { rewards: [], balance: 0, redemptionRequests: [] };
+		// #4684: 早期 return の shape を通常経路と一致させる (旧実装は通常経路が返さない
+		// `redemptionRequests` を返し、通常経路にある `autoApprove` を欠いていた)。
+		return { rewards: [], balance: 0, autoApprove: false };
 	}
 
-	const [rewardsData, balance, redemptionRequests] = await Promise.all([
+	const [rewardsData, balance, redemptionRequests, autoApprove] = await Promise.all([
 		getChildSpecialRewards(child.id, tenantId),
 		getBalance(child.id, tenantId),
 		getRedemptionRequestsForChild(child.id, tenantId),
+		// #4684 F1: 確認ダイアログの説明を「このあと実際に起きること」に合わせるために必要。
+		isRewardAutoApproveEnabled(tenantId),
 	]);
 
 	// 各ごほうびに最新の申請状態 + shopCategory (#2157) を付与
@@ -71,6 +76,7 @@ export const load: PageServerLoad = async ({ parent, locals, params }) => {
 	return {
 		rewards: rewardsWithStatus,
 		balance,
+		autoApprove,
 	};
 };
 

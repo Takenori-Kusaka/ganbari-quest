@@ -205,6 +205,11 @@ const deletionGraceDays = $derived(
 	deletionGracePlanTier === null ? null : DELETION_GRACE_PERIOD_DAYS[deletionGracePlanTier],
 );
 
+// #4524: 同意チェックの文言に載せる猶予日数。owner 以外 (child / member) の削除は
+//   猶予なしで即時にログイン情報が消える (accountDeleteChildWarning / MemberWarning 整合)
+//   ため 0 を渡す。owner は plan 由来の猶予をそのまま使う (未解決なら null = 断定しない)。
+const consentGraceDays = $derived($page.data.userRole === 'owner' ? deletionGraceDays : 0);
+
 const canConfirmDelete = $derived(
 	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
 );
@@ -519,7 +524,7 @@ const canConfirmDelete = $derived(
 								data-testid="account-danger-agree-checkbox"
 							/>
 							<span class="text-sm text-[var(--color-text)]">
-								{SETTINGS_LABELS.accountDeleteDangerConsentLabel}
+								{SETTINGS_LABELS.accountDeleteDangerConsentLabel(consentGraceDays)}
 							</span>
 						</label>
 					</div>

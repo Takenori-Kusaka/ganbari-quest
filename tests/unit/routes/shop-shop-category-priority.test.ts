@@ -13,6 +13,7 @@ const mockRequireTenantId = vi.fn();
 const mockGetBalance = vi.fn();
 const mockGetChildSpecialRewards = vi.fn();
 const mockGetRedemptionRequestsForChild = vi.fn();
+const mockIsRewardAutoApproveEnabled = vi.fn();
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
@@ -25,6 +26,8 @@ vi.mock('$lib/server/services/child-service', () => ({
 }));
 vi.mock('$lib/server/services/reward-redemption-service', () => ({
 	getRedemptionRequestsForChild: mockGetRedemptionRequestsForChild,
+	// #4684: load はダイアログ文言の出し分けのため家庭設定 (即時交換 ON/OFF) も読む。
+	isRewardAutoApproveEnabled: mockIsRewardAutoApproveEnabled,
 	requestRedemption: vi.fn(),
 }));
 vi.mock('$lib/server/services/special-reward-service', () => ({
@@ -53,6 +56,7 @@ describe('shop load — shopCategory 列優先 + fallback (#3147)', () => {
 		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockGetBalance.mockResolvedValue(1000);
 		mockGetRedemptionRequestsForChild.mockResolvedValue([]);
+		mockIsRewardAutoApproveEnabled.mockResolvedValue(false);
 	});
 
 	it('shop_category 列値があれば deriveShopCategory 推定より列値を優先する', async () => {
