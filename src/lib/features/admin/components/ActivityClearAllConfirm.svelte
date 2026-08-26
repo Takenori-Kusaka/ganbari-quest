@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import type { ChildId } from '$lib/domain/ids';
+import { ADMIN_CHILD_SCOPE_LABELS, FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 interface Props {
@@ -8,15 +9,31 @@ interface Props {
 	onsubmit: () => void;
 	onresult: (message: string) => void;
 	oncancel: () => void;
+	/** #4692 F3: 削除対象の child (選択中タブ)。tenant 全体ではなくこの子だけを消す */
+	childId: ChildId;
+	/** 確認文に出す対象の子の表示名 */
+	childName: string;
+	/** 確認文に出す対象件数 (非表示分を含む選択中の子の活動数) */
+	activityCount: number;
 }
 
-let { loading = $bindable(), onsubmit, onresult, oncancel }: Props = $props();
+let {
+	loading = $bindable(),
+	onsubmit,
+	onresult,
+	oncancel,
+	childId,
+	childName,
+	activityCount,
+}: Props = $props();
 
 const L = FEATURES_LABELS.activityClearAllConfirm;
 </script>
 
 <div class="clear-confirm">
-	<span class="clear-confirm__text">{L.text}</span>
+	<span class="clear-confirm__text" data-testid="clear-all-confirm-text">
+		{ADMIN_CHILD_SCOPE_LABELS.clearAllScopedConfirm(childName, activityCount)}
+	</span>
 	<form
 		method="POST"
 		action="?/clearAll"
@@ -34,6 +51,7 @@ const L = FEATURES_LABELS.activityClearAllConfirm;
 		}}
 		class="clear-confirm__actions"
 	>
+		<input type="hidden" name="childId" value={childId} />
 		<Button type="submit" disabled={loading} variant="danger" size="sm">
 			{loading ? L.processingText : L.executeBtn}
 		</Button>
@@ -52,11 +70,15 @@ const L = FEATURES_LABELS.activityClearAllConfirm;
 		border-radius: var(--radius-md);
 		background: var(--color-feedback-error-bg);
 		border: 1px solid var(--color-feedback-error-border);
+		/* #4692: the confirm sentence now names the child and the count, so it is long
+		   enough to squash the action buttons on narrow screens. Let the row wrap. */
+		flex-wrap: wrap;
 	}
 	.clear-confirm__text {
 		font-size: 0.8rem;
 		font-weight: 700;
 		color: var(--color-feedback-error-text);
+		flex: 1 1 14rem;
 	}
 	.clear-confirm__actions {
 		display: flex;

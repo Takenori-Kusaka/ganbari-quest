@@ -137,7 +137,16 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 
 - 否定文（「UI 変更なし**ではありません**」）/ 引用行（`> …`）/ コードブロック・インラインコード内
 - **未チェックの checkbox**（`- [ ] UI 変更なし`）— チェックしていない = 宣言していない
-- 手順・条件節（「UI 変更なし**の場合**: …」）
+- 手順・条件節（「UI 変更なし**の場合**: …」）/ 案内文（「〜と書いてください」）
+- **HTML コメント内**（`<!-- UI 変更なし -->`）— レンダリングされた PR body に出ないため、レビュアーにも監査にも見えない（#4348）。宣言は**本文に見える形で**書く
+
+この判定規律（行単位 + HTML コメント / コードブロック / 引用 / 否定 / 未チェック checkbox / 案内文の除外）は `scripts/lib/ci/pr-body-sections.mjs` が SSOT で、**PR body を読む他の gate も同じ規律を使う**（#4348）:
+
+| 判定 | 対象 |
+|---|---|
+| `.dom.html` 参照の有無 | DOM スナップショット併記検証（`check-pr-screenshot.mjs`） |
+| 統合 PR の VR 証跡 | 統合 lane の SS 観点。加えて「含有 PR」は prose の言及ではなく **`## 含有 PR 一覧` に実際の PR 参照がある**ことで判定する |
+| `[skip-schema-test-check]` / `[skip-schema-migration-check]` | schema 系 gate の skip marker |
 
 **テンプレートや案内文に opt-out 宣言そのものを書かない。** テンプレートを消さずに出しただけで gate が skip されるため、案内は「何を書くか」の説明にとどめる（`tests/unit/scripts/check-pr-screenshot.test.ts` が実テンプレートを読んで検証している）。
 

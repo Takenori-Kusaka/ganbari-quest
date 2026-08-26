@@ -45,6 +45,11 @@ interface Props {
 	pointSettings: PointSettings;
 	/** 年齢モード。文言の文体を決める (#4690、docs/DESIGN.md §8)。 */
 	uiMode: string;
+	/**
+	 * #4684 F1: 家庭設定 `reward_auto_approve` が ON か。ON なら「はい」でその場で
+	 * ポイントが減る (親の承認を挟まない) ため、説明文を実際の挙動に合わせて出し分ける。
+	 */
+	autoApprove: boolean;
 	onClose: () => void;
 }
 
@@ -57,6 +62,7 @@ let {
 	balance,
 	pointSettings,
 	uiMode,
+	autoApprove,
 	onClose,
 }: Props = $props();
 
@@ -125,7 +131,10 @@ $effect(() => {
 				{L.remainingAfterLabel}: {remainingAfterText}
 			</span>
 		</div>
-		<p class="confirm-description">{L.exchangeConfirmDescription}</p>
+		<!-- #4684 AC1: 即時交換 ON / OFF で「このあと何が起きるか」を出し分ける (#4690: 文体は年齢帯で切替) -->
+		<p class="confirm-description" data-testid="confirm-exchange-description">
+			{autoApprove ? L.exchangeConfirmDescriptionInstant : L.exchangeConfirmDescriptionApproval}
+		</p>
 
 		<div class="confirm-actions">
 			<form

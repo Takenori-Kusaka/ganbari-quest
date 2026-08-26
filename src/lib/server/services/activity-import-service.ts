@@ -10,9 +10,10 @@ import { asCategoryId } from '$lib/domain/ids';
 //
 // #2362 PR-3 (ADR-0055): per-child instance への配信を `options.childIds` で受領可能化。
 // #2458-A1 (2026-05-26): facade insertActivity が child_activities 経由に変更されたため、
-//   parallel write (family master + per-child instance) を停止。childIds 未指定時は
-//   facade 経由 (= tenant 最初の child に bind) のみ、指定時は per-child bulk 配信のみ。
+//   parallel write (family master + per-child instance) を停止。per-child bulk 配信のみ。
 //   旧 activities table への write はゼロ。
+// #4692 (2026-08-20): childIds 未指定時の「tenant 最初の child に bind」silent fallback を撤去。
+//   取込先未指定なら ActivityImportTargetRequiredError を投げ、呼び出し側に明示を強制する。
 // #2558 (2026-05-28): dedup scope を tenant 全体から child 単位に修正。
 //   activity は ADR-0055 で per-child instance scope (data-model-resource-scope.md §3)。
 //   旧実装は `findActivities(tenantId)` (tenant aggregate) で名前重複を見ていたため、
@@ -25,7 +26,6 @@ import { asCategoryId } from '$lib/domain/ids';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { toLegacyCategoryId } from '$lib/domain/categories';
 import { findActivities } from '$lib/server/db/activity-repo';
-import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
@@ -104,16 +104,15 @@ export async function previewActivityImport(
  *                            true の場合、`ActivityPackItem.mustDefault === true` の活動は
  *                            `priority='must'` でインポートされる（#1758 / #1709-D）。
  *                            false / 未指定の場合は全活動が `priority='optional'`。
- * @property childIds #2362 PR-3 (ADR-0055): per-child instance への配信先。
- *                    1 件以上指定された場合、family master insert に加え、
- *                    各 child の `child_activities` table にも 1 instance ずつ複製する。
- *                    未指定の場合は legacy 動作 (family master のみ insert) を維持。
- *                    Phase 6/7 で family master insert は drop し本フィールド必須化予定。
+ * @property childIds #2362 PR-3 (ADR-0055): per-child instance への配信先 (#4692 で必須化)。
+ *                    指定された各 child の `child_activities` に 1 instance ずつ複製する。
+ *                    空配列は `ActivityImportTargetRequiredError` (silent fallback 廃止)。
  */
 export interface ImportActivitiesOptions {
 	presetId?: string;
 	applyMustDefault?: boolean;
-	childIds?: readonly ChildId[];
+	/** #4692: 取込先は呼び出し側の必須責務 (型で省略できない形にする) */
+	childIds: readonly ChildId[];
 }
 
 /**
@@ -125,15 +124,10 @@ export interface ImportActivitiesOptions {
  *
  * @param activities インポート対象の活動配列（marketplace activity-pack の payload.activities など）
  * @param tenantId   テナントID
- * @param options    presetId（preset_duplicate 検知）と applyMustDefault（must 推奨採用）
- *                   後方互換のため `string` を渡した場合は presetId として扱う。
+ * @param options    childIds（配信先 child、#4692 で必須）/ presetId（preset_duplicate 検知）/
+ *                   applyMustDefault（must 推奨採用）。
+ *                   旧 `string` (presetId 単独) 形式は childIds を表現できないため #4692 で撤去。
  */
-/**
- * options 正規化 (後方互換: string も presetId として受領)
- */
-function normalizeOptions(options?: ImportActivitiesOptions | string): ImportActivitiesOptions {
-	return typeof options === 'string' ? { presetId: options } : (options ?? {});
-}
 
 /**
  * 1 件分の activity の category 解決 + priority 判定を行う。
@@ -253,19 +247,18 @@ async function persistAndCountImported(
 }
 
 /**
- * #2458-A1: childIds 未指定時の fallback bind helper。
- * 旧 path では family master `activities` table へ insert していたが、facade rewrite で
- * 旧 table への write が消えたため、per-child instance を必ず作成する必要がある。
- * tenant 最初の child に bind する。
+ * #4692: 取込先 child が 1 件も指定されていないときに投げるエラー。
+ *
+ * 旧実装は「tenant 最初の child に bind する」silent fallback を持っていたため、
+ * けんたのタブで「バックアップから復元」を押すと 94 件がたろう (最初の子) に入り、
+ * 操作した親から見ると「どこにも増えていない / 別の子が汚れた」状態になっていた。
+ * 取込先は呼び出し側が必ず明示する (ADR-0055 per-child 主軸 / cross-child 誤配信の構造的排除)。
  */
-async function _fallbackChildIds(
-	tenantId: string,
-	current: readonly ChildId[],
-): Promise<readonly ChildId[]> {
-	if (current.length > 0) return current;
-	const all = await findAllChildren(tenantId);
-	if (all.length > 0 && all[0]) return [all[0].id];
-	return [];
+export class ActivityImportTargetRequiredError extends Error {
+	constructor() {
+		super('取込先のお子さまが指定されていません');
+		this.name = 'ActivityImportTargetRequiredError';
+	}
 }
 
 /** planActivityForChildren の per-import 共通コンテキスト (param 数削減のため集約)。 */
@@ -310,11 +303,15 @@ function planActivityForChildren(
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
-	options?: ImportActivitiesOptions | string,
+	options: ImportActivitiesOptions,
 ): Promise<ActivityImportResult> {
-	const opts = normalizeOptions(options);
+	const opts = options;
 	const { presetId } = opts;
-	const childIds: readonly ChildId[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
+	// #4692: 取込先 child は呼び出し側の必須責務。first-child silent fallback は廃止した。
+	const childIds: readonly ChildId[] = opts.childIds ?? [];
+	if (childIds.length === 0) {
+		throw new ActivityImportTargetRequiredError();
+	}
 	const applyMustDefault = opts.applyMustDefault === true;
 
 	const errors: string[] = [];
