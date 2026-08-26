@@ -9,11 +9,24 @@
 // (`?/importFile`) にだけ無く**、無料プランの上限 3 件に達したテナントが CSV / JSON を
 // 用意すれば 119 件でも取り込めた (#4693 実測。#2894 / #3740 に続く同 class 3 件目)。
 //
-// 「経路ごとに gate を書く」設計では、経路が増えるたびに書き忘れが再発する。全ての取込経路が
-// 通る `importActivities` の直前でここを通すことで、**経路を足しても素通りできない**構造にする。
+// 「経路ごとに gate を書く」設計では、経路が増えるたびに書き忘れが再発する。`dispatchImport`
+// 経由の取込が全て通る `importActivities` の直前でここを通すことで、**取込経路を足しても
+// 素通りできない**構造にする。
 //
-// 手動追加 (`createActivity`) は取込ではないため本関数を通らないが、そちらは action 側の
-// `checkActivityLimit` で従来どおり止まる。両者が同じ `getPlanLimits().maxActivities` を読む。
+// # 覆う経路 / 覆わない経路 (境界を書いておかないと再発する)
+//
+// - 本関数が覆う: `dispatchImport` → activity-pack strategy → `importActivities` を通る取込
+//   (marketplace 取込 / ファイル復元 `?/importFile` / `api/v1/activities/import` の merge)
+// - action 側の `checkActivityLimit` が止める: 手動追加 (`createActivity`) / 一括追加 /
+//   別の子からコピー。取込ではないため本関数は通らない。両者が同じ
+//   `getPlanLimits().maxActivities` を読む
+// - **どちらの gate も通らない**: バックアップ ZIP の全体復元 (`import-service.ts` の
+//   `importChildActivitiesData`) と クラウドテンプレート取込 (`api/v1/import/cloud`)。
+//   前者は「自分のデータの原状回復」で上限を掛けるか自体がプロダクト判断のため本 PR の
+//   scope 外 (#4693 は取込経路の是正)
+//
+// 上の対応づけを機械強制する fitness function は無い (レビューで担保する)。新しく
+// `child_activities` を作る経路を足すときは、どちらの gate を通すかを必ず決める。
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
