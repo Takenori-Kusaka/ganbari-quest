@@ -82,6 +82,13 @@ export const actions: Actions = {
 		let totalSkipped = 0;
 		const allErrors: string[] = [];
 
+		// #4692: 取込先 child を明示する (service の first-child silent fallback は撤去済)。
+		// 初期セットアップは「登録済みの全員に最初の活動を配る」意味なので家族全員が対象。
+		const setupChildIds = (await getAllChildren(tenantId)).map((c) => c.id);
+		if (setupChildIds.length === 0) {
+			redirect(302, '/setup/children');
+		}
+
 		const descriptor = marketplaceRegistry.get('activity-pack');
 		for (const packId of packIds) {
 			try {
@@ -94,7 +101,7 @@ export const actions: Actions = {
 						typeCode: 'activity-pack',
 						rawPayload: source.payload,
 						displayName: source.displayName,
-						ctx: { tenantId, presetId: packId, applyMustDefault },
+						ctx: { tenantId, presetId: packId, applyMustDefault, childIds: setupChildIds },
 					});
 					totalImported += result.imported;
 					totalSkipped += result.skipped;
@@ -138,7 +145,13 @@ export const actions: Actions = {
 							typeCode: 'activity-pack',
 							rawPayload: source.payload,
 							displayName: source.displayName,
-							ctx: { tenantId, presetId: p.itemId, applyMustDefault: true },
+							// #4692: 自動適用も配信先を明示 (登録済みの全員)
+							ctx: {
+								tenantId,
+								presetId: p.itemId,
+								applyMustDefault: true,
+								childIds: children.map((c) => c.id),
+							},
 						});
 						autoImported += result.imported;
 					}

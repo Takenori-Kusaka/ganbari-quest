@@ -4,7 +4,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { APP_LABELS, PAGE_TITLES, SIGNUP_LABELS } from '$lib/domain/labels';
 import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
-import { parsePlanForTrial } from '$lib/domain/validation/signup-plan';
+import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -81,11 +81,13 @@ function startCooldown() {
 }
 
 // URL の plan パラメータ（pricing ページからの遷移用）
-const planParam = $derived($page.url.searchParams.get('plan'));
+// #4501: 値域は server と共有の validator に閉じる。旧実装は「truthy なら
+// トライアル訴求を出す」だったため、server が受理しない値 (?plan=premium 以外の未知値) でも
+// 「トライアルが開始されます」と表示していた (表示と挙動の不一致 / GAMMA-SC-04)。
+const planParam = $derived(parseSignupPlanParam($page.url.searchParams.get('plan')));
 // #4702: plan が有効値のときだけ Google 登録 URL に引き継ぐ (無効値は既定の登録フローのまま)
-const googleSignupPlan = $derived(parsePlanForTrial(planParam));
 const googleSignupHref = $derived(
-	googleSignupPlan ? `/auth/oauth/google?plan=${googleSignupPlan}` : '/auth/oauth/google',
+	planParam ? `/auth/oauth/google?plan=${planParam}` : '/auth/oauth/google',
 );
 
 let confirmStep = $derived(form?.confirmStep ?? false);
@@ -370,7 +372,7 @@ $effect(() => {
 
 				{#if planParam}
 					<p class="text-xs text-center text-[var(--color-neutral-400)] -mt-2">
-						{SIGNUP_LABELS.trialPlanNote(planParam === 'family' ? SIGNUP_LABELS.trialPlanFamily : SIGNUP_LABELS.trialPlanStandard)}
+						{SIGNUP_LABELS.trialPlanNote}
 					</p>
 				{/if}
 			</form>

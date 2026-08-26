@@ -10,9 +10,9 @@
 
 import { redirect } from '@sveltejs/kit';
 import { resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
-import { OAUTH_PLAN_COOKIE_NAME, parsePlanForTrial } from '$lib/domain/validation/signup-plan';
+import { OAUTH_PLAN_COOKIE_NAME, parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { logger } from '$lib/server/logger';
-import { startTrial } from '$lib/server/services/trial-service';
+import { startTrial, TRIAL_TIER } from '$lib/server/services/trial-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies, locals, url }) => {
@@ -22,25 +22,31 @@ export const GET: RequestHandler = async ({ cookies, locals, url }) => {
 
 	const target = resolveSafeNextPath(url.searchParams.get('next')) ?? '/admin';
 	const tenantId = locals.context?.tenantId;
-	const tier = parsePlanForTrial(planCookie);
+	// #4501: `?plan=` は「どのプランを見て来たか」だけを表し、トライアルの tier は決めない
+	// (FR-2 により常に TRIAL_TIER = premium)。メール登録経路 (signup ?/confirm) と同じ規則
+	const planInterest = parseSignupPlanParam(planCookie);
 
-	if (!tenantId || !tier) {
+	if (!tenantId || !planInterest) {
 		// 未認証 / テナント未解決 / plan 無効 → 何もせず通常の着地へ (dead-end を作らない)
 		redirect(302, target);
 	}
 
 	// 失敗 (既に使用済み等) は best-effort でログのみ。メール登録経路 (signup ?/confirm) と同じ扱い
 	try {
-		const started = await startTrial({ tenantId, source: 'user_initiated', tier });
+		const started = await startTrial({ tenantId, source: 'user_initiated', tier: TRIAL_TIER });
 		logger.info(
 			started
 				? '[SIGNUP] Trial auto-started from Google signup flow'
 				: '[SIGNUP] Trial auto-start rejected (already used/active) — Google signup flow',
-			{ context: { tenantId, tier } },
+			{ context: { tenantId, tier: TRIAL_TIER, planInterest } },
 		);
 	} catch (err) {
 		logger.error('[SIGNUP] Trial auto-start threw (Google signup flow)', {
-			context: { error: err instanceof Error ? err.message : String(err), tenantId, tier },
+			context: {
+				error: err instanceof Error ? err.message : String(err),
+				tenantId,
+				tier: TRIAL_TIER,
+			},
 		});
 	}
 

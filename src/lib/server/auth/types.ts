@@ -61,6 +61,13 @@ export interface AuthContext {
 	tenantStatus?: SubscriptionStatus;
 	plan?: string;
 	/**
+	 * #4585-2: `families.stripe_subscription_id`。**`tenantStatus` と対で読む**。
+	 * `suspended` は「契約が残る停止 (S4)」と「解約確定 (S5)」を兼ねており、契約の有無 (本値)
+	 * が無いと区別できない (docs/design/billing-redesign/contract-state-matrix.md §4)。
+	 * サーバー側 `locals.context` にのみ載り、クライアントには配布しない。
+	 */
+	stripeSubscriptionId?: string | null;
+	/**
 	 * #4266: **このセッションが MFA を経て開始されたか**。ログイン時に ID token の `amr` から
 	 * 確定し、context token (署名付き) で保持する。
 	 *
@@ -103,4 +110,5 @@ export interface TenantEntitlement {
 	licenseStatus: AuthContext['licenseStatus'];
 	tenantStatus: NonNullable<AuthContext['tenantStatus']>;
 	plan?: string;
+	stripeSubscriptionId?: AuthContext['stripeSubscriptionId'];
 }

@@ -10,7 +10,7 @@ import {
 import {
 	OAUTH_PLAN_COOKIE_NAME,
 	OAUTH_PLAN_MAX_AGE_SECONDS,
-	parsePlanForTrial,
+	parseSignupPlanParam,
 } from '$lib/domain/validation/signup-plan';
 import { buildAuthorizeUrl } from '$lib/server/auth/providers/cognito-oauth';
 import type { RequestHandler } from './$types';
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ cookies, url: requestUrl }) => {
 	}
 	// #4702: 料金ページ → /auth/signup?plan=X → 「Google で登録」の plan を往復させる。
 	// callback 後に /auth/oauth/trial-start がこの cookie を読み、メール登録経路と同じ startTrial を呼ぶ。
-	const plan = parsePlanForTrial(requestUrl.searchParams.get('plan'));
+	const plan = parseSignupPlanParam(requestUrl.searchParams.get('plan'));
 	if (plan) {
 		cookies.set(OAUTH_PLAN_COOKIE_NAME, plan, {
 			path: '/',
