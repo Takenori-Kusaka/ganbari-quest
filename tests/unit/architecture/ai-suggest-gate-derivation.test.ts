@@ -63,8 +63,8 @@ const CALLSITE_PATTERN = /<AiSuggest(\w*)Panel\b[^>]*?isFamily=\{([^}]*)\}/gs;
  * (`findReasonDefect` が空 / stub を弾き、本 file が `#\d+` を追加で要求する)。
  */
 const DEFERRED_DERIVATIONS: Record<string, string> = {
-	'src/routes/(parent)/admin/activities/+page.svelte':
-		'#4506 では checklists の SSOT 統一のみ先行させた。activities を共有述語に移すと standard 加入者の表示が解放 → ロックに変わる (= 実欠陥 GAMMA2-ADM1-02 の是正そのもの) が、この引き締めは PO の順序制約により #4501 (プレミアムのトライアル化) と同 wave か後に実施する。LP が「全機能お試し」を約束している間に先に締めると、見込み客に対する新たな誤認を作るため',
+	// #4506 で activities を共有述語へ移行済み (PR #4578 = #4501 と同 wave)。
+	// **空のまま維持すること** — ここに足すのは「あとで直す」の登録であって免除ではない。
 };
 
 /**
@@ -85,6 +85,9 @@ const DEFERRED_DERIVATIONS: Record<string, string> = {
  */
 const PREDICATE_CALLSITES: Record<string, 'enforcement' | 'display'> = {
 	'src/lib/server/api/suggest-plan-gate.ts': 'enforcement',
+	// #4506: activities も共有述語に移行した (旧 data.isPremium は standard を含むため
+	// 解放表示 → 実行時 403 の有利誤認だった)。これで AI 提案パネル 3 画面が同一述語になる
+	'src/routes/(parent)/admin/activities/+page.svelte': 'display',
 	'src/routes/(parent)/admin/checklists/+page.svelte': 'display',
 	'src/routes/(parent)/admin/rewards/+page.svelte': 'display',
 };

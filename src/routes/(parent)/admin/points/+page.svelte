@@ -118,8 +118,12 @@ async function handleReceiptFile(event: Event) {
 		receiptError = 'JPEG, PNG, WebP形式の画像を選択してください';
 		return;
 	}
-	if (file.size > 5 * 1024 * 1024) {
-		receiptError = '画像サイズは5MB以下にしてください';
+	// #4512: client の事前判定が 5MB 固定で、server の実効上限 (aws-prod は約 4.1MB) と
+	//   食い違っていた。4.1〜5MB の画像は client を通過してから edge で切られ、顧客には
+	//   「通信エラー」しか出ない。**表示 (note) と同じ実効値**で判定する。
+	const maxReceiptBytes = Number(data.maxReceiptImageMb) * 1024 * 1024;
+	if (Number.isFinite(maxReceiptBytes) && file.size > maxReceiptBytes) {
+		receiptError = POINTS_LABELS.receiptImageTooLarge(data.maxReceiptImageMb);
 		return;
 	}
 
