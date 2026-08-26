@@ -921,6 +921,16 @@ favicon の現在パスを返す（`?type=favicon`）。生成済み favicon が
 >
 > **#3078 checklistLogs**: `data.checklistLogs` の `templateName` をインポート後の新 `templateId` へ再マップして `checklist-repo.upsertLog` で復元する。重複（同一 `childId` × `templateId` × `checkedDate`）は事前スキップする（`result.checklistLogsImported` / `checklistLogsSkipped`）。
 
+**replace モードの失敗時セマンティクス（#3326 / #4720）:**
+
+| 状況 | HTTP / code | 文言 | 実際のデータ |
+|---|---|---|---|
+| 取込中に hard error（`errors > 0`） | 400 `VALIDATION_ERROR` | 「インポートに失敗したため中止しました（既存データは保全されています）」 | **旧データが復元済** |
+| 置換前 snapshot の取得・保存に失敗 | 500 `INTERNAL_ERROR` | 「置換前のバックアップ取得に失敗したため、安全のため中止しました」 | **旧データ無傷**（置換を開始していない） |
+| 取込失敗後の自動復元にも失敗（二次故障） | 500 `INTERNAL_ERROR` | 「インポートに失敗し、元のデータの自動復元にも失敗しました。運営に連絡してください（復旧用バックアップは保存されています）」 | `tenants/<tenantId>/recovery/*.zip` から手動復旧（Discord alert 送出） |
+
+保全の実現手段は backend で異なる（sqlite = 単一 tx / pg 系 = clear 前 ZIP 退避の補償トランザクション）。SSOT: `backup-import-redesign.md` §atomicity。
+
 **レスポンス（preview）:**
 ```json
 {
