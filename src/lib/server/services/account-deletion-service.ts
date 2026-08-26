@@ -13,7 +13,7 @@ import {
 import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { deleteByPrefix } from '$lib/server/storage';
+import { purgeByPrefix } from '$lib/server/storage';
 import { sendDeletionCompleteEmail, sendMemberRemovedEmail } from './email-service';
 import type { PlanTier } from './plan-limit-service';
 import { cancelSubscription } from './stripe-service';
@@ -261,7 +261,11 @@ async function fullTenantDeletion(
 	let itemsDeleted = 0;
 
 	// 1. S3 / ストレージファイル削除
-	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
+	// #4724: **全バージョンごと物理削除する** (`deleteByPrefix` ではなく `purgeByPrefix`)。
+	// バージョニング有効化後の `deleteByPrefix` は delete marker を立てるだけで、実体は
+	// lifecycle の 30 日まで残る。退会は「猶予期間後に完全削除」と法務文書で約束しているため、
+	// ここだけはバージョンを名指しして消す。
+	const filesDeleted = await purgeByPrefix(`tenants/${tenantId}/`);
 
 	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
 	// #4327: `settings` だけは消さない (deferSettings)。`settings` は soft-delete 判定材料
@@ -561,7 +565,11 @@ export async function deleteOwnerFullDelete(
 	let itemsDeleted = 0;
 
 	// 1. Storage files
-	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
+	// #4724: **全バージョンごと物理削除する** (`deleteByPrefix` ではなく `purgeByPrefix`)。
+	// バージョニング有効化後の `deleteByPrefix` は delete marker を立てるだけで、実体は
+	// lifecycle の 30 日まで残る。退会は「猶予期間後に完全削除」と法務文書で約束しているため、
+	// ここだけはバージョンを名指しして消す。
+	const filesDeleted = await purgeByPrefix(`tenants/${tenantId}/`);
 
 	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
 	// #4327: `settings` (soft-delete 判定材料) は step 8 まで残す。理由は fullTenantDeletion 参照。

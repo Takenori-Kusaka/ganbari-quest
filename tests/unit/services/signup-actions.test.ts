@@ -69,6 +69,8 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 const mockStartTrial = vi.fn();
 vi.mock('$lib/server/services/trial-service', () => ({
 	startTrial: (...args: unknown[]) => mockStartTrial(...args),
+	// #4501: tier は呼び出し側が選ばず、この定数で固定される (FR-2 premium 固定)
+	TRIAL_TIER: 'family',
 }));
 
 beforeEach(() => {
@@ -503,7 +505,7 @@ describe('confirm action', () => {
 	// ========================================================
 	// #766: /auth/signup?plan=X トライアル自動開始
 	// ========================================================
-	it('#766: plan=standard 指定時は startTrial が tier=standard で呼ばれる', async () => {
+	it('#4501: plan=standard 指定でも startTrial は tier=family (premium 固定) で呼ばれる', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -523,14 +525,17 @@ describe('confirm action', () => {
 			expect((e as { location: string }).location).toBe('/admin');
 		}
 
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 
-	it('#766: plan=family 指定時は startTrial が tier=family で呼ばれる', async () => {
+	it('#4501: plan=family 指定時も startTrial は tier=family で呼ばれる', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -548,6 +553,34 @@ describe('confirm action', () => {
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/admin');
+		}
+
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'family',
+		});
+	});
+
+	// #4501 (GAMMA-SC-04): 現行 SSOT の tier 名 'premium' は server 側で silent 棄却されており、
+	// UI だけが「トライアルが開始されます」と表示していた。共有 validator で受理する。
+	it('#4501: plan=premium (現行 SSOT 名) でもトライアルが開始される', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'premium',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
 		}
 
 		expect(mockStartTrial).toHaveBeenCalledWith({
@@ -619,7 +652,7 @@ describe('confirm action', () => {
 		expect(mockStartTrial).not.toHaveBeenCalled();
 	});
 
-	it('#766: plan=STANDARD（大文字）でも小文字に正規化してトライアル開始する', async () => {
+	it('#766: plan=STANDARD（大文字）でも正規化してトライアル開始する', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -638,10 +671,13 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 		}
 
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 
@@ -667,10 +703,13 @@ describe('confirm action', () => {
 		}
 
 		// license key は読まれず、plan に従いトライアル開始
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 
