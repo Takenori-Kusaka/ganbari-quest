@@ -218,7 +218,7 @@ const noticeVariant = $derived(data.paidWithoutStripe ? 'warning' : 'info');
 		data-testid="cancellation-form"
 		use:enhance={({ cancel }) => {
 			// 選択が済んでいない解約は、まず「どれを残すか」を決めてもらう。
-			// 済ませずに送ると期末の自動アーカイブ (先に登録した順に残す) に倒れる。
+			// 済ませずに送ると期末の自動アーカイブ (子供は直近の利用順に残す、#4585-3) に倒れる。
 			if (returnsToFreePlan && !selectionResolved) {
 				cancel();
 				void resolveSelection();

@@ -1,5 +1,6 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
+import { building } from '$app/environment';
 import { page } from '$app/stores';
 import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
@@ -30,8 +31,13 @@ const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? fa
 // 「これはデモアプリです」表示が映り込み LP 訴求を毀損する事故への対策 (PO 2026-05-17 指摘)。
 // page 側の `?screenshot` 再呼出禁止ルール (src/routes/CLAUDE.md) は **page** が対象であり、
 // root layout は SSOT helper `resolveScreenshotMode` を経由する限り抵触しない。
+//
+// #4644: prerender 中 (`/offline`) は SvelteKit が `url.searchParams` へのアクセスを例外に
+// する (出力が query 依存 = 非決定になるため)。`hooks.server.ts` の `locals.isDemo = building
+// ? false : …` と同じく building 時は 'off' 固定にする。prerender された HTML が hydrate された
+// 後はクライアント側で通常どおり評価されるので、`?screenshot=*` の挙動は変わらない。
 const screenshotKind = $derived(
-	resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null),
+	building ? 'off' : resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null),
 );
 const isScreenshotMode = $derived(screenshotKind !== 'off');
 
