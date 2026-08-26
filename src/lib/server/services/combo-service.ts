@@ -75,11 +75,41 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
 	return null;
 }
 
+/** point_ledger.type。付与も巻き戻しも同 type で計上する (#4686)。 */
+export const COMBO_LEDGER_TYPE = 'combo_bonus';
+
 /**
- * Check today's combo state and grant any new bonus points.
- * Returns the combo result with only the newly granted bonus amount.
+ * 台帳 description を組む。付与 (正) と巻き戻し (負) で語だけ変え、成立中の tier は共通で列挙する。
  */
-export async function checkAndGrantCombo(
+function buildComboLedgerDescription(input: {
+	prefix: string;
+	delta: number;
+	miniCombo: MiniCombo | null;
+	categoryCombo: CategoryComboEntry[];
+	crossCategoryCombo: CrossCategoryCombo | null;
+}): string {
+	const parts: string[] = [];
+	if (input.miniCombo) parts.push('ミニコンボ');
+	for (const cc of input.categoryCombo) {
+		const catName = getCategoryById(cc.categoryId)?.name ?? String(cc.categoryId);
+		parts.push(`${cc.name}コンボ(${catName})`);
+	}
+	if (input.crossCategoryCombo) parts.push(input.crossCategoryCombo.name);
+	const detail = parts.join('・');
+	return input.delta > 0
+		? `${input.prefix} ${detail} +${input.delta}`
+		: `${input.prefix} コンボとりけし${detail ? `（${detail}）` : ''} ${input.delta}`;
+}
+
+/**
+ * Check today's combo state and reconcile the granted bonus with the desired bonus.
+ *
+ * #4686: 付与は「あるべき額 − 当日付与済み合計」の**差分**で行う。記録で差分が正なら加算、
+ * とりけしで差分が負なら同じ経路で負方向に計上する (付与した経路と同じ経路で取り消す、#3787 と同 class)。
+ * 戻り値の `totalNewBonus` は今回の純増 (負値 = 巻き戻し)。結果ダイアログは tier 満額ではなく
+ * この純増を表示する (表示額 = 台帳増分)。
+ */
+export async function reconcileComboBonus(
 	childId: ChildId,
 	date: string,
 	tenantId: string,
@@ -129,29 +159,22 @@ export async function checkAndGrantCombo(
 	// Get already-granted combo bonus for today (match by description prefix with date)
 	const comboBonusPrefix = `[${date}]`;
 	const alreadyAmount = await getComboPointsGranted(childId, comboBonusPrefix, tenantId);
-	const newBonus = Math.max(0, totalDesiredBonus - alreadyAmount);
+	// 差分 (正 = 新規付与 / 負 = とりけしによる巻き戻し / 0 = 変化なし)
+	const newBonus = totalDesiredBonus - alreadyAmount;
 
-	// Grant the difference
-	if (newBonus > 0) {
-		const parts: string[] = [];
-		if (miniCombo) {
-			parts.push('ミニコンボ');
-		}
-		for (const cc of categoryCombo) {
-			const catName = getCategoryById(cc.categoryId)?.name ?? String(cc.categoryId);
-			parts.push(`${cc.name}コンボ(${catName})`);
-		}
-		if (crossCategoryCombo) {
-			parts.push(crossCategoryCombo.name);
-		}
-		const description = `${comboBonusPrefix} ${parts.join('・')} +${newBonus}`;
-
+	if (newBonus !== 0) {
 		await insertPointLedger(
 			{
 				childId,
 				amount: newBonus,
-				type: 'combo_bonus',
-				description,
+				type: COMBO_LEDGER_TYPE,
+				description: buildComboLedgerDescription({
+					prefix: comboBonusPrefix,
+					delta: newBonus,
+					miniCombo,
+					categoryCombo,
+					crossCategoryCombo,
+				}),
 			},
 			tenantId,
 		);
@@ -163,11 +186,14 @@ export async function checkAndGrantCombo(
 	return {
 		categoryCombo,
 		crossCategoryCombo,
-		miniCombo: newBonus > 0 ? miniCombo : null,
+		miniCombo,
 		hints,
 		totalNewBonus: newBonus,
 	};
 }
+
+/** 記録経路の既存呼び出し名 (reconcileComboBonus と同一。差分付与 + 結果返却)。 */
+export const checkAndGrantCombo = reconcileComboBonus;
 
 /**
  * コンボ予告ヒントを生成

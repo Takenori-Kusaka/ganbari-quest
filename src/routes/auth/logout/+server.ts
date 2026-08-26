@@ -2,27 +2,13 @@
 // Cookie 削除 + Cognito ログアウト（cognito モード時）
 
 import { redirect } from '@sveltejs/kit';
-import {
-	CONTEXT_COOKIE_NAME,
-	IDENTITY_COOKIE_NAME,
-	INVITE_COOKIE_NAME,
-	REFRESH_COOKIE_NAME,
-	SESSION_COOKIE_NAME,
-} from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	buildLogoutUrl,
 	revokeCognitoRefreshToken,
 } from '$lib/server/auth/providers/cognito-oauth';
+import { clearAuthSessionCookies } from '$lib/server/auth/session-cookies';
 import type { RequestHandler } from './$types';
-
-function clearSessionCookies(cookies: import('@sveltejs/kit').Cookies) {
-	cookies.delete(IDENTITY_COOKIE_NAME, { path: '/' });
-	cookies.delete(CONTEXT_COOKIE_NAME, { path: '/' });
-	cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
-	cookies.delete(INVITE_COOKIE_NAME, { path: '/' }); // #0203: 残留防止
-	cookies.delete(REFRESH_COOKIE_NAME, { path: '/' }); // #1365: Refresh Token も削除
-}
 
 async function handleLogout(cookies: import('@sveltejs/kit').Cookies): Promise<never> {
 	// Cognito 本番モード: Refresh Token を失効させてから Cookie 削除 (#1365)
@@ -30,7 +16,8 @@ async function handleLogout(cookies: import('@sveltejs/kit').Cookies): Promise<n
 		await revokeCognitoRefreshToken(cookies);
 	}
 
-	clearSessionCookies(cookies);
+	// 親ゲート PIN session を含む全セッション cookie を破棄 (#4700、一覧は session-cookies.ts SSOT)
+	clearAuthSessionCookies(cookies);
 
 	// Cognito 本番モードのみ Hosted UI ログアウトにリダイレクト（dev モードは除外）
 	if (getAuthMode() === 'cognito' && !isCognitoDevMode()) {
