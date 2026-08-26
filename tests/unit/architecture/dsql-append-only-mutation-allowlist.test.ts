@@ -174,6 +174,34 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		marker: /SET\s+stripe_subscription_id\s*=/,
 		reason: 'trial→有償転換の紐付け更新 (updateConversion。trial 事実は不変、転換メタの追記的更新)',
 	},
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'DELETE',
+		marker: /WHERE\s+family_id\s*=\s*\$\{tenantId\}/,
+		reason:
+			'テナント全削除 / データクリア (deleteByTenantId、退会 PII 消去。他 repo の同型経路と同じ)',
+	},
+	// #4719: 利用時間セッションの完了 (自身が INSERT した進行中行の ended_at / duration_sec 確定)。
+	// 記録済み業務事実の書換ではないため app-role.ts でも UPDATE_ALLOWED_TABLES に分類する
+	// (activity_logs / trial_history と同型)。新規の usage_logs mutation は本 allowlist で引き続き止まる。
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'UPDATE',
+		marker:
+			/SET\s+ended_at\s*=\s*\$\{endedAt\}::timestamptz,\s*duration_sec\s*=\s*\$\{durationSec\}/,
+		reason:
+			'セッション終了記録 (updateUsageLogEnd。start で自身が INSERT した進行中行に終了時刻と滞在秒を確定させる)',
+	},
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'UPDATE',
+		marker: /ended_at\s+IS\s+NULL/,
+		reason:
+			'進行中セッションの一括クローズ (closeOpenSessions。次セッション開始 / cleanup 時に ended_at IS NULL の自行のみを完了させる)',
+	},
 ];
 
 // ── SQL 抽出 (tenant-predicate fitness と同機構) ──

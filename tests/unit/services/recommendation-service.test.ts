@@ -16,8 +16,9 @@ import type { Activity } from '../../../src/lib/server/db/types';
 
 const mockGetSetting = vi.fn<(key: string, tenantId: string) => Promise<string | undefined>>();
 const mockSetSetting = vi.fn<(key: string, value: string, tenantId: string) => Promise<void>>();
-const mockCountPointLedgerEntriesByTypeAndDate =
-	vi.fn<(childId: ChildId, type: string, date: string, tenantId: string) => Promise<number>>();
+// #4686: 付与済み判定は件数 (date) ではなく「type × description 前方一致 `[date]` の合計」で行う
+const mockSumPointLedgerByTypeAndDescriptionPrefix =
+	vi.fn<(childId: ChildId, type: string, prefix: string, tenantId: string) => Promise<number>>();
 const mockCountTodayActiveRecords =
 	vi.fn<
 		(childId: ChildId, activityId: ActivityId, date: string, tenantId: string) => Promise<number>
@@ -36,9 +37,9 @@ vi.mock('$lib/server/db/settings-repo', () => ({
 }));
 
 vi.mock('$lib/server/db/activity-repo', () => ({
-	countPointLedgerEntriesByTypeAndDate: (
-		...args: Parameters<typeof mockCountPointLedgerEntriesByTypeAndDate>
-	) => mockCountPointLedgerEntriesByTypeAndDate(...args),
+	sumPointLedgerByTypeAndDescriptionPrefix: (
+		...args: Parameters<typeof mockSumPointLedgerByTypeAndDescriptionPrefix>
+	) => mockSumPointLedgerByTypeAndDescriptionPrefix(...args),
 	countTodayActiveRecords: (...args: Parameters<typeof mockCountTodayActiveRecords>) =>
 		mockCountTodayActiveRecords(...args),
 	insertPointLedger: (...args: Parameters<typeof mockInsertPointLedger>) =>
@@ -431,7 +432,7 @@ describe('checkAndGrantFocusBonus', () => {
 		// フォーカスモード有効（開始日なし = 初回）
 		mockGetSetting.mockResolvedValue(undefined);
 		// 既に付与済み
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(1);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(10);
 
 		const result = await checkAndGrantFocusBonus(
 			asChildId(1),
@@ -444,7 +445,7 @@ describe('checkAndGrantFocusBonus', () => {
 
 	it('おすすめ活動が1つでも未完了なら null を返す', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(0);
 		// 活動1は完了、活動2は未完了
 		mockCountTodayActiveRecords
 			.mockResolvedValueOnce(1) // activity 1: completed
@@ -461,7 +462,7 @@ describe('checkAndGrantFocusBonus', () => {
 
 	it('全おすすめ活動が完了していればボーナスを付与する', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(0);
 		mockCountTodayActiveRecords.mockResolvedValue(1); // 全完了
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
@@ -478,7 +479,8 @@ describe('checkAndGrantFocusBonus', () => {
 				childId: asChildId(1),
 				amount: 10,
 				type: 'focus_bonus',
-				description: 'きょうのクエスト コンプリート！',
+				// #4686: 当日 `[date]` prefix で付与 / 巻き戻し合計を読む
+				description: '[2026-04-01] きょうのクエスト コンプリート！',
 			},
 			TENANT,
 		);
@@ -486,7 +488,7 @@ describe('checkAndGrantFocusBonus', () => {
 
 	it('ボーナスポイントは10ポイント固定（#0288）', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(0);
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
@@ -496,7 +498,7 @@ describe('checkAndGrantFocusBonus', () => {
 
 	it('各おすすめ活動の完了状態を個別にチェックする', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(0);
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
@@ -515,7 +517,7 @@ describe('checkAndGrantFocusBonus', () => {
 
 	it('最後の活動だけ未完了でも null を返す', async () => {
 		mockGetSetting.mockResolvedValue(undefined);
-		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(0);
+		mockSumPointLedgerByTypeAndDescriptionPrefix.mockResolvedValue(0);
 		mockCountTodayActiveRecords
 			.mockResolvedValueOnce(1) // activity 10: done
 			.mockResolvedValueOnce(1) // activity 20: done
