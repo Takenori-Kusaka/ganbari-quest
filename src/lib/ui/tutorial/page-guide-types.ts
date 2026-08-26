@@ -20,8 +20,21 @@ import type { PlanTier } from './tutorial-types';
 export interface GuideStep {
 	/** ステップ一意ID（例: "activities-add"） */
 	id: string;
-	/** 対象要素の CSS セレクタ（省略時は画面中央に表示） */
+	/**
+	 * 対象要素の CSS セレクタ（省略時は画面中央に表示）。
+	 * #4677: カンマ区切りで複数候補を書ける。engine は**可視の候補を優先**して解決する
+	 * （responsive で desktop / mobile の片方しか描画されない UI を 1 step で指すとき、
+	 * DOM 順で先に来る非表示要素ではなく見えている方に spotlight する）。
+	 */
 	selector?: string;
+	/**
+	 * #4677: この step の対象要素が**条件付きでしか描画されない**ことの宣言。
+	 * true のとき、ガイド起動時点で selector が可視要素に解決できなければ step ごと省く
+	 * （例: ログイン + お子さま選択中のみ出る年齢自動フィルタ hint / 一覧 0 件時の empty state）。
+	 * false（既定）の selector 付き step は「常に存在する UI」を指す契約であり、解決できなければ
+	 * 定義側の不具合（中央 fallback で成立させない、EPIC #4650 判断 4）。
+	 */
+	optional?: boolean;
 	/** 機能名（例: 「活動の追加」） */
 	title: string;
 
