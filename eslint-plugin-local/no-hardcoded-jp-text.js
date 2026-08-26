@@ -6,7 +6,8 @@
  *
  * Applied as 'warn' to src/routes/**\/*.svelte via eslint.config.js.
  * Existing violations are tracked in scripts/hardcoded-strings-baseline.json.
- * CI fails if the violation count increases (check-hardcoded-strings.mjs).
+ * NOTE: check-hardcoded-strings.mjs was deleted in #4322 — no CI ratchet exists now.
+ * This rule still reports violations locally / in editors, but nothing hard-fails on count.
  */
 
 const JP_REGEX = /[ぁ-ヿ一-鿿　-〿！-ﾟ]/;
