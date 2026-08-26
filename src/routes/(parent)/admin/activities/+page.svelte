@@ -1,6 +1,7 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
@@ -22,6 +23,7 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
@@ -129,9 +131,13 @@ let showBulkCreateDialog = $state(false);
 // `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
 // effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人で `?import=` を開いたら空 dialog を出さず「まずは登録」を案内する
+// (marketplace 詳細が 0 人のとき /setup/children へ分岐するのと同じ扱い)。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	const pid = data.importPresetId;
-	if (pid && pid !== consumedImportPresetId) {
+	if (pid && pid !== consumedImportPresetId && !hasNoChildren) {
 		consumedImportPresetId = pid;
 		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
@@ -336,12 +342,31 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 		isImporting = false;
 		pendingImportPresetId = null;
 		showChildSelectionDialog = false;
+		// #4692 F5: 取込確定後は URL から `?import=` を消す (rewards / checklists と同実装)。
+		// 残したままだと F5 / 戻るで「どのお子さまに追加?」が再表示される。
+		clearImportParam();
 	}
 }
 
+// #4692 F5: `?import=<presetId>` を URL から除去する (取込確定 / キャンセル / タブ切替時)。
+function clearImportParam() {
+	if (typeof window === 'undefined') return;
+	const url = new URL(window.location.href);
+	if (!url.searchParams.has('import')) return;
+	url.searchParams.delete('import');
+	url.searchParams.delete('indexes');
+	window.history.replaceState({}, '', url.toString());
+}
+
 function handleChildSelectionCancel() {
+	// cancel した presetId もラッチし、effect 再発火による dialog 再 open を防ぐ
+	// (checklists の同名 handler と同型)。
+	if (pendingImportPresetId) {
+		consumedImportPresetId = pendingImportPresetId;
+	}
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
+	clearImportParam();
 }
 
 // #2558 段階2: バックアップから復元 (JSON / CSV ファイルを ?/importFile に POST)。
@@ -358,6 +383,9 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 	restoreLoading = true;
 	const formData = new FormData();
 	formData.append('file', file);
+	// #4692 F1: 復元先は選択中の子。旧実装は childId を送らず、server 側 fallback で
+	// 常に最初の子に入っていた (けんたのタブで復元 → たろうに 94 件)。
+	formData.append('childId', String(selectedChildId));
 	try {
 		const resp = await fetch('?/importFile', { method: 'POST', body: formData });
 		if (!resp.ok) {
@@ -454,6 +482,9 @@ function selectChild(childId: ChildId) {
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
 		url.searchParams.set('childId', String(childId));
+		// import param は dialog auto-open でしか使わないので消す (戻ったとき再 open しない)
+		url.searchParams.delete('import');
+		url.searchParams.delete('indexes');
 		window.history.replaceState({}, '', url.toString());
 	}
 }
@@ -471,7 +502,13 @@ function selectChild(childId: ChildId) {
 		onAddSelect={handleAddSelect}
 		onRestore={() => { showRestoreDialog = true; }}
 		canCopyFromChild={data.children.length >= 2}
+		selectedChildId={selectedChild ? selectedChildId : undefined}
 	/>
+
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="activities-import-needs-child" />
+	{/if}
 
 	<!-- #2362 PR-3 Phase 4: 子供タブ切替 UI -->
 	{#if data.children.length > 0}
@@ -521,12 +558,16 @@ function selectChild(childId: ChildId) {
 		     構造的に発生しない。表示軸が selected child の per-child のみに一本化された。 -->
 	{/if}
 
-	{#if showClearConfirm}
+	<!-- #4692 F3: 「すべて削除」は選択中の子だけが対象。対象の子が確定していないときは出さない。 -->
+	{#if showClearConfirm && selectedChild}
 		<ActivityClearAllConfirm
 			bind:loading={clearLoading}
 			onsubmit={() => {}}
 			onresult={(msg) => { actionMessage = msg; showClearConfirm = false; }}
 			oncancel={() => { showClearConfirm = false; }}
+			childId={selectedChildId}
+			childName={selectedChild.nickname}
+			activityCount={perChildActivities.length}
 		/>
 	{/if}
 
@@ -617,22 +658,12 @@ function selectChild(childId: ChildId) {
 	<!-- #2558 段階2: 'import' (admin 内マーケットプレイス風ブラウズ UI) を撤去。manual / ai のみ。 -->
 	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
 		{#if addMode === 'ai'}
-			<!-- ⚠ この式は **誤り** です (standard 加入者に解放表示 → 実行時 403 = 有利誤認 / legal)。
-			     isPremium は有料 tier 全体 (standard を含む) を指し、AI 提案は premium 限定のため。
-
-			     #2902 の経緯 (#4506 で訂正): 旧 `data.planTier === 'family'` を「load が planTier を
-			     返さないので常に undefined === 'family' = false」と読んで isPremium に置換えたが、
-			     **この読みが誤りだった**。`data` は祖先 layout の戻り値をマージしたものであり、
-			     (parent)/admin/+layout.server.ts が planTier を返しているため解決していた
-			     (#4506 で premium account の実機検証により確認)。つまり動いていた式を壊している。
-
-			     #4506: 是正 (isAiSuggestUnlocked(data.planTier) への置換え) は PO の順序制約により
-			     **#4501 (プレミアムのトライアル化) と同 wave か、その後**に実施する。standard の表示が
-			     解放 → ロックに変わるため、LP が「全機能お試し」を約束している間に先に締めると
-			     見込み客に対する新たな誤認を作る。
-			     この未移行は tests/unit/architecture/ai-suggest-gate-derivation.test.ts の
-			     DEFERRED_DERIVATIONS に理由付きで pin されており、除外を消さない限り再訪される。 -->
-			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.isPremium} />
+			<!-- #4506 (GAMMA2-ADM1-02): 旧 `data.isPremium` は有料 tier 全体 (standard を含む) を指すため、
+			     standard 加入者に解放表示 → 実行時 403 という有利誤認になっていた。enforcement
+			     ($lib/server/api/suggest-plan-gate.ts) と同じ述語を読む。
+			     引き締めのタイミングは #4501 (トライアルの premium 化) と同 wave という制約があり、
+			     #4501 の実装 (PR #4578) と揃えて本 PR で解除した。 -->
+			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={isAiSuggestUnlocked(data.planTier)} />
 		{:else if addMode === 'manual'}
 			<ActivityCreateForm
 				categoryDefs={data.categoryDefs}

@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { FEATURES_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { MenuItem } from '$lib/ui/primitives/Menu.svelte';
@@ -16,10 +17,23 @@ interface Props {
 	onRestore: () => void;
 	/** #2558 段階2: 「別のお子さまからコピー」は 2 child 以上のときのみ提示 */
 	canCopyFromChild: boolean;
+	/**
+	 * #4692 F2: エクスポート対象の child (選択中タブ)。
+	 * 活動は per-child instance (ADR-0055) なので、export も選択中の子だけを出す。
+	 * 未選択 (子供 0 人) のときは export item を出さない。
+	 */
+	selectedChildId?: ChildId | undefined;
 }
 
-let { onClearAll, clearConfirmOpen, canAdd, onAddSelect, onRestore, canCopyFromChild }: Props =
-	$props();
+let {
+	onClearAll,
+	clearConfirmOpen,
+	canAdd,
+	onAddSelect,
+	onRestore,
+	canCopyFromChild,
+	selectedChildId,
+}: Props = $props();
 
 const L = FEATURES_LABELS.activitiesHeader;
 
@@ -85,22 +99,28 @@ const overflowItems = $derived<MenuItem[]>([
 		icon: L.restoreIcon,
 		onSelect: onRestore,
 	},
-	{
-		id: 'export',
-		label: L.exportLabel,
-		icon: L.exportIcon,
-		onSelect: () => {
-			// JSON ダウンロード: Content-Disposition: attachment + filename hint で実行
-			if (typeof document !== 'undefined') {
-				const a = document.createElement('a');
-				a.href = '/api/v1/activities/export';
-				a.download = 'activities-export.json';
-				document.body.appendChild(a);
-				a.click();
-				document.body.removeChild(a);
-			}
-		},
-	},
+	// #4692 F2: export は選択中の子の活動だけを出す (ごほうびと同型)。
+	// child 未選択 (子供 0 人) では対象が決まらないので item 自体を出さない。
+	...(selectedChildId
+		? [
+				{
+					id: 'export',
+					label: L.exportLabel,
+					icon: L.exportIcon,
+					onSelect: () => {
+						// JSON ダウンロード: Content-Disposition: attachment + filename hint で実行
+						if (typeof document !== 'undefined') {
+							const a = document.createElement('a');
+							a.href = `/api/v1/activities/export?childId=${encodeURIComponent(String(selectedChildId))}`;
+							a.download = 'activities-export.json';
+							document.body.appendChild(a);
+							a.click();
+							document.body.removeChild(a);
+						}
+					},
+				} satisfies MenuItem,
+			]
+		: []),
 	...(clearConfirmOpen
 		? []
 		: [

@@ -69,6 +69,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の .ts を再帰的に walk し、status に grace_period を書く関数が dunning 経路 2 件に収まっているかを TypeScript compiler API で検査する (#4507)。lifecycle-email-service の opt-out 迂回はこの一意性を根拠にしているため、走査範囲は src 全体でなければ意味を持たない',
 	},
+	'tests/unit/architecture/e2e-menu-trigger-click-guard.test.ts': {
+		scope: 'repo',
+		note: 'tests/e2e 配下の spec 全件を走査し、Ark UI Menu の trigger を裸の click() で押している箇所を検出する (#4609)。hydration 前 click が握り潰されて menu item が hidden のまま落ちる flake を、spec を書いた時点で止める',
+	},
 	'tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts': {
 		scope: 'repo',
 		note: 'tests/e2e 配下の spec を走査し、worker 分離 fixture (./fixtures) を経由しない spec 数を ratchet する (#4489)',
