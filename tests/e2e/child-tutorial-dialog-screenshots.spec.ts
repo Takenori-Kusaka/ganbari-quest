@@ -72,7 +72,7 @@ async function gotoChildHome(page: Page, uiMode: string) {
 
 /**
  * 子供 home 到達時に auto-open する複数 overlay (login bonus / PIN gate onboarding /
- * ParentMessage / SiblingCheer / SpecialReward 等) を抑制する。
+ * ParentMessage / SpecialReward 等) を抑制する。
  *
  * 子供 home は server-side auto-claim / auto-open 機構が複数同時稼働するため、
  * dismiss attempt は競合状態に陥り易い。本ヘルパーは:
@@ -91,7 +91,7 @@ async function dismissChildHomeOverlays(page: Page) {
 		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
 		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
 		() => page.getByTestId('confirm-cancel-btn'),
-		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// #2558 真因 fix: parent-message dialog の confirm button は Ark UI Dialog 内に
 		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
 		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
 		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
@@ -129,7 +129,6 @@ async function dismissChildHomeOverlays(page: Page) {
 			[data-scope="dialog"][data-part="backdrop"],
 			[data-scope="dialog"][data-part="content"],
 			[data-testid="stamp-press-overlay"],
-			.sibling-cheer-overlay,
 			.parent-message-overlay {
 				pointer-events: none !important;
 			}
@@ -164,7 +163,7 @@ async function startChildTutorial(page: Page) {
 	// スキップするが、browser hit-testing で別 element が上に被さっていると click event が
 	// `?` button の onclick handler に到達しない。dispatchEvent('click') は hit-testing を
 	// 完全にバイパスし要素自身の event listener を直接発火させるため、auto-open dialog
-	// (activity confirm / cheer / message 等) との干渉を確実に回避する。
+	// (activity confirm / message 等) との干渉を確実に回避する。
 	// data-tutorial-active or resume dialog visible で成功判定 (act → outcome 検証維持)。
 	for (let attempt = 0; attempt < 3; attempt++) {
 		await helpBtn.dispatchEvent('click');
@@ -248,7 +247,7 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			await clearTutorialProgress(page);
 			await startChildTutorial(page);
 
-			// tutorial active flag を待つ (.tutorial-overlay-bg は cheer overlay の backdrop と被る可能性)
+			// tutorial active flag を待つ (.tutorial-overlay-bg は他 overlay の backdrop と被る可能性)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 			// bubble 出現待ち (selector 不在ステップは 3s 中央表示 fallback)
 			await page.locator('.tutorial-bubble').waitFor({
