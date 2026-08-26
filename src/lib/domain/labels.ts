@@ -131,6 +131,8 @@ export const PAGE_TITLES = {
 	login: `${LOGIN_TERMS.canonical}`,
 	signup: `${SIGNUP_TERMS.canonical}`,
 	invite: '招待',
+	// #4636: 招待受諾に失敗した人が留まる画面 (membership 未確定状態の正規の着地先)
+	join: '家族グループへの参加',
 	forgotPassword: 'パスワードリセット',
 	// セットアップ
 	setup: 'セットアップ',
@@ -6135,46 +6137,68 @@ export const AUTH_INVITE_LABELS = {
 	// 英語エラーコード (INVITE_EMAIL_MISMATCH) を露出せず、次アクションを必ず添える。
 	emailMismatch: 'この招待は別のメールアドレス宛です。',
 	emailMismatchDesc: '招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
-	// #3555 ①: 受諾失敗 → 新規家族グループ自動作成後に admin 画面で表示する案内バナー
-	acceptErrorMismatchBanner:
-		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
-	acceptErrorUnverifiedBanner:
-		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
-	// #4633 AC-A: email 束縛以外の受諾拒否も、同じく無音で「新しい家族グループの owner」に
-	// 化ける。理由ごとに「なぜ参加できなかったか + 次アクション」を必ず添える。
-	acceptErrorExpiredBanner:
-		'招待の有効期限が切れていたため参加できず、新しい家族グループが作成されました。招待した方に、新しい招待リンクを発行してもらってください。',
-	acceptErrorTenantNotFoundBanner:
-		'招待元の家族グループが現在ご利用できない状態のため参加できず、新しい家族グループが作成されました。招待した方に、お支払い状況をご確認のうえ改めて招待を発行してもらってください。',
-	acceptErrorAlreadyInTenantBanner:
-		'すでに別の家族グループに参加しているため招待を受けられず、新しい家族グループが作成されました。招待で参加するには、一度ログアウトして別のアカウントで招待リンクを開いてください。',
-	acceptErrorSelfInviteBanner:
-		'ご自身が発行した招待は受け取れないため参加できず、新しい家族グループが作成されました。参加する方ご本人のアカウントで招待リンクを開いてください。',
-	acceptErrorOwnerDowngradeBanner:
-		'すでにこの家族グループの管理者のため招待を受けられず、新しい家族グループが作成されました。管理者のまま参加を続ける場合、この招待は受け取る必要はありません。',
-	acceptErrorGenericBanner:
-		'招待を受け取れなかったため、新しい家族グループが作成されました。招待した方に、招待リンクを発行し直してもらってください。',
+	// #4636: 受諾できなかったときは新規家族グループを作らず `/auth/join` に留まる。
+	// 文言は「なぜ参加できなかったか + 次アクション」の 2 点セットで、第三者に
+	// 招待元世帯の支払い状態を推測させない粒度に丸める (ADR-0062 内部例外非露出)。
+	joinBlockedMismatch:
+		'この招待は別のメールアドレス宛のため、参加できませんでした。招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
+	joinBlockedUnverified:
+		'メールアドレスの確認が完了していないため、参加できませんでした。確認メールのリンク（または確認コード）で確認を終えてから、招待リンクをもう一度開いてください。',
+	joinBlockedExpired:
+		'招待の有効期限が切れているため、参加できませんでした。招待した方に、新しい招待リンクを発行してもらってください。',
+	// 支払い状態に触れない粒度に丸める (招待コードを持つだけの第三者に世帯の課金状態を漏らさない)
+	joinBlockedTenantUnavailable:
+		'いまこの家族グループには参加できません。招待した方にご確認のうえ、改めて招待を発行してもらってください。',
+	joinBlockedAlreadyInTenant:
+		'あなたのアカウントはすでに別の家族グループに参加しているため、この招待は受け取れません。参加する方ご本人のアカウントでログインし直してから、招待リンクを開いてください。',
+	joinBlockedSelfInvite:
+		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
+	joinBlockedOwnerDowngrade:
+		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
+	joinBlockedGeneric:
+		'招待を受け取れませんでした。招待した方に、招待リンクを発行し直してもらってください。',
 } as const;
 
 /**
- * #4633 AC-A: 受諾拒否理由 → 案内バナー文言の対応表 (SSOT)。
+ * 受諾拒否理由 → `/auth/join` に出す説明文の対応表 (SSOT、#3555 ① / #4633 AC-A / #4636)。
  * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
  */
-export const INVITE_ACCEPT_ERROR_BANNERS = {
-	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.acceptErrorMismatchBanner,
-	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner,
-	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.acceptErrorExpiredBanner,
-	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.acceptErrorTenantNotFoundBanner,
-	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.acceptErrorAlreadyInTenantBanner,
-	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.acceptErrorSelfInviteBanner,
-	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.acceptErrorOwnerDowngradeBanner,
+export const INVITE_JOIN_BLOCKED_MESSAGES = {
+	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.joinBlockedMismatch,
+	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.joinBlockedUnverified,
+	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.joinBlockedExpired,
+	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.joinBlockedTenantUnavailable,
+	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
+	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
+	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
 } as const;
 
-/** 未知の理由 (古い cookie / 想定外) は汎用文言にフォールバックする。 */
-export function getInviteAcceptErrorBanner(reason: string): string {
+/**
+ * `/auth/join` — 招待受諾に失敗した (または参加先が確定していない) 人が留まる画面 (#4636)。
+ * 旧実装はここで無音のうちに新しい家族グループを作って owner にしていた。作るかどうかは
+ * 本人に選ばせ、選ぶまでは membership 未確定を正規の状態として扱う。
+ */
+export const AUTH_JOIN_LABELS = {
+	blockedTitle: '招待の家族グループに参加できませんでした',
+	noInviteTitle: '参加する家族グループが決まっていません',
+	noInviteDesc:
+		'招待を受けている場合は、招待した方から届いたリンクをもう一度開いてください。ご自身で新しく始める場合は、下のボタンから家族グループを作成できます。',
+	retryHint: '原因を解消してから招待リンクをもう一度開くと、そのまま参加できます。',
+	createSectionTitle: '新しく自分の家族グループを作る',
+	createSectionDesc:
+		'招待での参加はやめて、ご自身が管理者となる新しい家族グループを作成します。招待した方の家族グループのデータは引き継がれません。',
+	createButton: '自分の家族グループを作る',
+	createButtonLoading: '作成しています…',
+	createFailed:
+		'家族グループを作成できませんでした。時間をおいてもう一度お試しください。続く場合はサポートへご連絡ください。',
+	switchAccountLink: '別のアカウントでログインする',
+} as const;
+
+/** 未知の理由 (将来追加された理由 / 想定外) は汎用文言にフォールバックする。 */
+export function getInviteJoinBlockedMessage(reason: string): string {
 	return (
-		(INVITE_ACCEPT_ERROR_BANNERS as Record<string, string>)[reason] ??
-		AUTH_INVITE_LABELS.acceptErrorGenericBanner
+		(INVITE_JOIN_BLOCKED_MESSAGES as Record<string, string>)[reason] ??
+		AUTH_INVITE_LABELS.joinBlockedGeneric
 	);
 }
 
