@@ -20,7 +20,6 @@ import { CATEGORIES } from '../../../src/lib/domain/categories';
 import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	ADMIN_CHECKLISTS_PAGE_LABELS,
-	ADMIN_CHILDREN_PAGE_LABELS,
 	ADMIN_FORM_ERROR_LABELS,
 	CERTIFICATE_DETAIL_LABELS,
 	CERTIFICATES_PAGE_LABELS,
@@ -287,9 +286,14 @@ describe('#4512 (B) 集約した label の値が変わっていない', () => {
 		);
 	});
 
-	it('プラン上限メッセージは max=null でも旧実装と同じ文面になる', () => {
-		expect(ADMIN_CHILDREN_PAGE_LABELS.childLimitReached(3)).toBe(
+	// #4622 (develop) が同一文言を PLAN_GATE_LABELS に集約済みのため、#4512 側の重複定義は
+	// merge 時に削除し、集約先の文面をここで pin する (二重定義を作り直さない)。
+	it('プラン上限メッセージが旧実装と同じ文面になる', () => {
+		expect(PLAN_GATE_LABELS.childLimitReached(3)).toBe(
 			'子供は最大3人まで登録できます。プランをアップグレードしてください。',
+		);
+		expect(PLAN_GATE_LABELS.activityLimitReached(5)).toBe(
+			'カスタム活動は最大5個まで作成できます。プランをアップグレードしてください。',
 		);
 	});
 

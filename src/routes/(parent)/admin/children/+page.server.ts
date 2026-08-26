@@ -4,7 +4,11 @@ import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
-import { ADMIN_CHILDREN_PAGE_LABELS, ADMIN_FORM_ERROR_LABELS } from '$lib/domain/labels';
+import {
+	ADMIN_CHILDREN_PAGE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
+	PLAN_GATE_LABELS,
+} from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -181,7 +185,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_CHILDREN_PAGE_LABELS.childLimitReached(childLimitCheck.max),
+					PLAN_GATE_LABELS.childLimitReached(childLimitCheck.max),
 				),
 			});
 		}

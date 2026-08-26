@@ -10,6 +10,7 @@ import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	ADMIN_CHILD_SCOPE_LABELS,
 	ADMIN_FORM_ERROR_LABELS,
+	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
@@ -224,7 +225,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_ACTIVITIES_PAGE_LABELS.customActivityLimitReached(activityLimitCheck.max),
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -336,7 +337,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_ACTIVITIES_PAGE_LABELS.customActivityLimitReached(importPackLimitCheck.max),
+					PLAN_GATE_LABELS.activityLimitReached(importPackLimitCheck.max),
 				),
 			});
 		}
@@ -498,7 +499,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_ACTIVITIES_PAGE_LABELS.customActivityLimitReached(activityLimitCheck.max),
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -598,7 +599,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_ACTIVITIES_PAGE_LABELS.customActivityLimitReached(copyLimitCheck.max),
+					PLAN_GATE_LABELS.activityLimitReached(copyLimitCheck.max),
 				),
 			});
 		}
@@ -664,7 +665,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					ADMIN_ACTIVITIES_PAGE_LABELS.customActivityLimitReached(bulkActivityLimitCheck.max),
+					PLAN_GATE_LABELS.activityLimitReached(bulkActivityLimitCheck.max),
 				),
 			});
 		}

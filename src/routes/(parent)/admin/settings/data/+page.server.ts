@@ -18,16 +18,9 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 
-	let dataSummary: Awaited<ReturnType<typeof getDataSummary>> = {
-		children: 0,
-		activityLogs: 0,
-		pointLedger: 0,
-		statuses: 0,
-		achievements: 0,
-		loginBonuses: 0,
-		checklistTemplates: 0,
-		voices: 0,
-	};
+	// #4696: 取得に失敗したときだけ使う fallback (件数 0 の表示は「消えるものが無い」と誤読させるため、
+	// 失敗時は dataSummary を null にして件数ブロックごと出さない)。
+	let dataSummary: Awaited<ReturnType<typeof getDataSummary>> | null = null;
 
 	const planTier = await resolveFullPlanTier(
 		tenantId,
