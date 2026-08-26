@@ -47,6 +47,22 @@
 - `--color-text-*`（文字: muted / inverse / accent / link / primary / secondary / tertiary / disabled 系）
 - `--color-feedback-*`（フィードバック: success / error / warning / info × bg / text / border）
 
+### コントラスト（WCAG 1.4.3 AA、#4645）
+
+**同じ色を「白文字を載せる塗り」と「白背景に載せる文字」の両方に使ってよい。ただしその色は白に対して 4.5:1 以上でなければならない**（コントラスト比は前景 / 背景の順序に依存しないため、1 色で両方の用途を満たせる）。ブランド色をそのまま使うと届かないことが多い:
+
+- 塗り + 白文字 / 白背景 + テーマ色文字 → `--color-action-primary-strong`（`--color-action-primary` は白文字で 3.34:1 で不足）
+- `--theme-nav`（テーマの淡い塗り）の上の文字 → `--color-text-on-theme-nav`（通常）/ `--color-text-accent-on-theme-nav`（選択中）
+- ゴールドの数値 → `--color-text-gold` / 暖色の強調 → `--color-text-warning-strong`（`--color-gold-500` / `text-orange-500` は 1.5〜2.2:1）
+
+**利用者データ由来の色（カテゴリ色 / アイコン色）を文字色に使わない。** コントラストを保証できないため、色はドット・バー等の装飾が担い、文字はテキスト色トークンで描く。
+
+#### テーマ配下で解決させる Semantic トークンは各テーマブロックで再宣言する
+
+CSS カスタムプロパティの `var()` は**宣言された要素**で解決される。`:root` に `--color-action-primary-strong: var(--theme-primary-strong)` と書くと、`[data-theme]` 配下でも `:root` で解決済みのブランド色が継承される（実測: ピンクテーマの子供ヘッダーがブランドブルーになった）。テーマごとに値が変わるべき Semantic トークンは、`app.css` の各 `[data-theme="…"]` ブロックでも同じ宣言を繰り返す。
+
+**検証**: `tests/unit/architecture/color-contrast-tokens.test.ts` が app.css を読み、全テーマについて上記の比率と再宣言を数値で assert する。
+
 ---
 
 ## 3. タイポグラフィ
