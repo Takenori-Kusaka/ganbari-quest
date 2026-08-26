@@ -19,7 +19,6 @@ interface Props {
 			isTrialActive: boolean;
 			daysRemaining: number;
 			trialUsed: boolean;
-			trialEndDate: string | null;
 		};
 		archivedSummary?: {
 			archivedChildCount: number;
