@@ -11,9 +11,12 @@
  * #4121 (E5 Wave 2): step が 20 本まで増えて 1 PR が 1 日で回らなくなったため、
  * **hard-fail は 6 本**に絞った。選定は ADR-0007 §1-2「判断原則 v2」に従い、
  * 類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを残す。
- * **pre-ready から外しても CI で hard-fail し続ける検査**は ci.yml lint-and-test / unit-test、
- * lp-metrics.yml のみ（#4322 で doc-code-references / hardcoded-strings / terminology-coherence /
- * lp-fallback-check.yml 等 20 件は script/workflow ごと削除済み、#4420）。対応表は `--help` を参照。
+ * **pre-ready の 6 step は CI が hard-fail させる検査のごく一部**であり、「pre-ready に無い検査は
+ * CI にも無い」ではない（#4605。ci.yml lint-and-test には pre-ready に一度も入っていない hard-fail
+ * step が多数ある = eslint svelte / type-aware / stylelint / type-coverage …）。CI 側の実測一覧は
+ * ルート CLAUDE.md の `ci-hard-fail-steps` / `ci-hard-fail-jobs` marker block が SSOT で、
+ * tests/unit/docs/ci-hard-fail-check-list-ssot.test.ts が ci.yml と突合する。
+ * 下の「pre-ready から外した検査の行き先」は **移した先の記録であって CI 全体の一覧ではない**。
  *
  * 6 step を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
  * 各 Step は既存の `scripts/*.mjs` / `npm run *` を子プロセスで呼ぶラッパー（独自実装は最小化）。
@@ -142,6 +145,14 @@ step の前に走る preflight:
   pre-ready に残す。残りは CI 側で hard-fail のまま走る。
     - 類型 1: Step 9 (Ready checklist / AC 証跡 / 禁止語) / Step 11b (SS 証跡)
     - 類型 2: Step 1 / 2 / 7 / 7g
+
+CI 側の hard-fail 検査の一覧 (#4605):
+  本 --help は **pre-ready から外した検査の行き先**しか書かない。CI が hard-fail させる検査は
+  これより多い (eslint svelte / eslint type-aware / stylelint / CDK tsc / type-coverage / build …)。
+  実測一覧はルート CLAUDE.md の marker block (ci-hard-fail-steps / ci-hard-fail-jobs) が SSOT で、
+  tests/unit/docs/ci-hard-fail-check-list-ssot.test.ts が ci.yml と突合する
+  (列挙漏れ / 陳腐化 / 理由なし除外 / job 新設漏れで fail)。
+  なお svelte-check は **CI の方が厳しい** (CI = --threshold warning / Step 2 = error 閾値)。
 
 pre-ready から外した検査の行き先 (#4121。**現存するものは CI で hard-fail のまま走る**):
   cspell / license-key-leak / cli-entry-guard /
@@ -762,7 +773,9 @@ export function buildSummary({
 		`  pre-ready が保証するのは上の 6 step だけです。以下は保証しません:\n` +
 		`    - 負荷 / タイミング依存の失敗   空いた local では再現しない (実測 #4385: 同一 test が 1,860→6,398ms)\n` +
 		`    - vitest / e2e / Storybook / visual regression   CI (unit-test 2 shard / 重量レーン) で走る\n` +
-		`    - lint-and-test 系   cspell / license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
+		`    - lint-and-test 系   eslint svelte / eslint type-aware / stylelint / cspell / license-key-leak /\n` +
+		`                         CLI entry guard 系 / CDK tsc / type-coverage / build ほか (実測一覧は\n` +
+		`                         CLAUDE.md の ci-hard-fail-steps ブロック。svelte-check は CI の方が厳しい)\n` +
 		`      (hardcoded-strings / doc-code-references / terminology-coherence / lp-fallback-check は #4322 で\n` +
 		`       script/workflow ごと削除済み — CI にも無い。機械強制は無い、#4420)\n` +
 		`    - LP 系   lp-metrics (寸法・禁止語)\n` +
