@@ -194,10 +194,10 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 10 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 11 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 10 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 11 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 **scheduler コンテナが起動・更新されていることが前提 (#4721)**。`deploy-nuc.yml` は
