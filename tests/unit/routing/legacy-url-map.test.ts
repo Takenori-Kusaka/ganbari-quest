@@ -95,6 +95,15 @@ describe('legacy-url-map', () => {
 			expect(entry?.to).toBe('/admin/challenges');
 		});
 
+		// #4691 (EPIC #4680): /admin/packs 撤去 → marketplace (activity-pack) 救済 redirect
+		it('/admin/packs → /marketplace?type=activity-pack (308) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/packs');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/marketplace?type=activity-pack');
+			expect(entry?.status).toBeUndefined();
+			expect(entry?.issue).toBe('#4691');
+		});
+
 		// #2525 Phase 4 (#2620) / Phase 7 PR-L3 (#2818): /admin/license → /admin/subscription rename
 		it('/admin/license → /admin/subscription (308) エントリが存在する', () => {
 			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/license');
@@ -196,6 +205,9 @@ describe('legacy-url-map', () => {
 			['/admin/events', '/admin/events'],
 			['/admin/events/new', '/admin/events'],
 			['/admin/challenges', null],
+			// #4691: /admin/packs 廃止 → /marketplace?type=activity-pack redirect
+			['/admin/packs', '/admin/packs'],
+			['/admin/packs/foo', '/admin/packs'],
 			// #2525 Phase 7 PR-L3 (#2818): /admin/license 廃止 → /admin/subscription redirect
 			['/admin/license', '/admin/license'],
 			['/admin/license/key', '/admin/license'],

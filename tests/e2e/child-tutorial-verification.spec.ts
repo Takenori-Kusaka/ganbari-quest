@@ -72,7 +72,7 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('weekly-redeem-confirm'),
 		// #2558 fix: activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうる
 		() => page.getByTestId('confirm-cancel-btn'),
-		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// #2558 真因 fix: parent-message dialog の confirm button は Ark UI Dialog 内に
 		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
 		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
 		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
@@ -108,7 +108,6 @@ async function dismissChildHomeOverlays(page: Page) {
 			[data-scope="dialog"][data-part="backdrop"],
 			[data-scope="dialog"][data-part="content"],
 			[data-testid="stamp-press-overlay"],
-			.sibling-cheer-overlay,
 			.parent-message-overlay {
 				pointer-events: none !important;
 			}
@@ -148,7 +147,7 @@ async function waitForBubbleAnimations(bubble: ReturnType<Page['locator']>) {
  *
  * #2565: `click({ force: true })` は actionability check (visibility / stable / receives
  * events) をスキップするが、browser hit-testing で別 element (子供 home の auto-open
- * dialog / cheer / parent-message overlay 等) が `?` button の上に被さると click event が
+ * dialog / parent-message overlay 等) が `?` button の上に被さると click event が
  * onclick handler に到達せず、tablet project で `html[data-tutorial-active]` 不在の
  * timeout flake になる (child-tutorial-dialog-screenshots.spec.ts は #2558 で既に
  * `dispatchEvent('click')` に移行済だが、本 spec は `force: true` click のまま取り残されて
@@ -185,7 +184,7 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			// チュートリアル起動 (dispatchEvent('click') で auto-open dialog の hit-testing 被さりを
 			// バイパス、3 retry で flake 解消 — #2565)
 			await startTutorialWithRetry(page);
-			// tutorial active flag を待つ (cheer overlay の backdrop と衝突しない)
+			// tutorial active flag を待つ (他 overlay の backdrop と衝突しない)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 
 			let stepNum = 0;

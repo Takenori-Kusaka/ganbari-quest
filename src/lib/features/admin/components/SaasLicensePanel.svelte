@@ -63,6 +63,7 @@ import {
 import { shouldOpenDowngradeSelector } from '$lib/features/admin/downgrade-dialog-policy';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
+import type { TrialStatusView } from '$lib/server/services/trial-service';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -77,7 +78,10 @@ const license = $derived(data.license);
 const stripeEnabled = $derived(data.stripeEnabled);
 const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
-const trialStatus = $derived(data.trialStatus);
+// #4628: `data` は型注釈が無く any なので、trial 状態だけはここで型を付けて受ける。
+// これがないと `{#if trialStatus.isTrialActive}` の narrowing が働かず、期限表示に
+// null を渡すコードを型検査が素通りさせる (穴が画面まで残る)。
+const trialStatus: TrialStatusView | null = $derived(data.trialStatus ?? null);
 // #771: プラン変更時の二段階確認 (PIN 設定済みなら PIN 必須、未設定なら確認フレーズ)
 const pinConfigured = $derived(data.pinConfigured);
 // #736: 解約時のダウングレード先 (free) の保持期間。PLAN_LIMITS 由来の動的値。
