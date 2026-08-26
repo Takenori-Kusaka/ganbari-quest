@@ -328,4 +328,98 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 			`取込後の baby 一覧に同名活動の重複なし (${names.join(' / ')})`,
 		).toBe(names.length);
 	});
+
+	// ──────────────────────────────────────────────────────────
+	// #4692: 選択中の子と操作対象がずれる class
+	// ──────────────────────────────────────────────────────────
+
+	test('#4692 F1: バックアップから復元は選んだ子にだけ入る (最初の子に入らない)', async ({
+		page,
+	}) => {
+		// PO 実機観察: けんたのタブで ︙「バックアップから復元」→ 94 件が**たろう (最初の子)** に
+		// 入り、けんたは変わらなかった。復元先が service の first-child fallback に落ちていたため。
+		// 本 test は「2 人目を指定した復元が 2 人目にだけ反映される」を goal 完遂で検証する。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		expect(
+			await tabs.count(),
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
+
+		const firstTab = tabs.first();
+		const secondTab = tabs.nth(1);
+		const firstId = (await firstTab.getAttribute('data-testid'))?.replace('child-tab-', '');
+		const secondId = (await secondTab.getAttribute('data-testid'))?.replace('child-tab-', '');
+		expect(firstId, '1 人目 child id 取得').toBeTruthy();
+		expect(secondId, '2 人目 child id 取得').toBeTruthy();
+
+		const parseTabCount = async (locator: typeof firstTab): Promise<number> => {
+			const t = (await locator.textContent()) ?? '';
+			return Number(t.match(/\((\d+)\)/)?.[1] ?? '0');
+		};
+		const firstBefore = await parseTabCount(firstTab);
+		const secondBefore = await parseTabCount(secondTab);
+
+		// 2 人目を復元先に指定して JSON を投入する (UI の restore dialog と同じ form action)。
+		const uniqueName = `restore-scope-4692-${Date.now()}`;
+		const payload = JSON.stringify({
+			activities: [
+				{
+					name: uniqueName,
+					categoryCode: 'undou',
+					icon: '🏃',
+					basePoints: 5,
+					ageMin: null,
+					ageMax: null,
+					gradeLevel: null,
+				},
+			],
+		});
+		const res = await page.request.post('/admin/activities?/importFile', {
+			multipart: {
+				childId: String(secondId),
+				file: {
+					name: 'restore-scope-4692.json',
+					mimeType: 'application/json',
+					buffer: Buffer.from(payload, 'utf-8'),
+				},
+			},
+		});
+		expect(res.status()).toBe(200);
+
+		// 永続反映: 2 人目のタブ件数が増え、1 人目 (最初の子) は増えていない。
+		await page.goto('/admin/activities');
+		const tabsAfter = page.locator('[data-testid^="child-tab-"]');
+		await expect
+			.poll(() => parseTabCount(tabsAfter.nth(1)), { timeout: 30_000 })
+			.toBe(secondBefore + 1);
+		expect(await parseTabCount(tabsAfter.first()), '1 人目 (最初の子) の活動数は変わらない').toBe(
+			firstBefore,
+		);
+
+		// 復元した活動は 2 人目のタブでのみ見える。
+		await tabsAfter.nth(1).click();
+		await expect(page.getByText(uniqueName)).toBeVisible();
+		await tabsAfter.first().click();
+		await expect(page.getByText(uniqueName)).toHaveCount(0);
+	});
+
+	test('#4692 F3: 「すべて削除」の確認文に対象の子と件数が出る', async ({ page }) => {
+		// PO 実機観察: 確認文は「本当に全削除しますか？」の 1 行だけで、まさとのタブで押したら
+		// 5 人 352 件が消えた。対象範囲 (誰の・何件) を確認文で必ず示す。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		const secondTab = tabs.nth(1);
+		await secondTab.click();
+		const nickname = ((await secondTab.textContent()) ?? '').replace(/\s*\(\d+\)\s*$/, '').trim();
+		expect(nickname, '2 人目の表示名を取得').not.toBe('');
+
+		await openMenu(page, 'header-overflow-menu-btn', 'menu-item-clear-all');
+		await page.getByTestId('menu-item-clear-all').click();
+
+		const confirmText = page.getByTestId('clear-all-confirm-text');
+		await expect(confirmText).toBeVisible();
+		await expect(confirmText).toContainText(nickname);
+		await expect(confirmText, '他の子は対象外である旨を明示する').toContainText('他の');
+	});
 });

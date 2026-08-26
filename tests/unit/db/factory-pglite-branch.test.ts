@@ -64,6 +64,7 @@ const REPOSITORY_KEYS = [
 	'status',
 	'storage',
 	'trialHistory',
+	'usageLog',
 	'viewerToken',
 	'voice',
 	'webhookEvent', // #3985: Stripe webhook の event.id dedup 台帳

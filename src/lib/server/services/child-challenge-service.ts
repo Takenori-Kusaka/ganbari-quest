@@ -813,6 +813,52 @@ export async function updateChildChallengeProgress(
 	return results;
 }
 
+/**
+ * #4686: 活動とりけし時のチャレンジ進捗巻き戻し (updateChildChallengeProgress の逆操作)。
+ * 同 category の metric='count' チャレンジについて currentValue を 1 戻し、completed=1 かつ
+ * 未受取なら completed を外す (受取済みは repo 側の条件で触らない = 受取済ポイントとの整合)。
+ * @returns 巻き戻した instance (UI 用途は無し、テスト / 観測用)
+ */
+export async function revertChildChallengeProgress(
+	childId: ChildId,
+	categoryId: CategoryId,
+	tenantId: string,
+): Promise<{ challengeId: string; reverted: boolean; uncompleted: boolean }[]> {
+	const repos = getRepos();
+	const today = todayDateJST();
+	// active + 「完了済だが未受取」を包括 (completed 直後の取消で完了を外せるように)。
+	// 受取済み (status=completed & rewardClaimed=1) は本一覧に含まれない = 触らない。
+	const challenges = await repos.childChallenge.findActiveOrUnclaimedByChildId(
+		childId,
+		today,
+		tenantId,
+	);
+	const results: { challengeId: string; reverted: boolean; uncompleted: boolean }[] = [];
+
+	for (const challenge of challenges) {
+		const targetConfig = JSON.parse(challenge.targetConfig) as Omit<TargetConfig, 'categoryId'> & {
+			categoryId?: number | string;
+		};
+		const cfgCategoryId =
+			targetConfig.categoryId != null ? asCategoryId(targetConfig.categoryId) : undefined;
+		if (cfgCategoryId && cfgCategoryId !== categoryId) continue;
+		if (targetConfig.metric !== 'count') continue;
+		// 受取済みは進捗も完了も触らない (受取済ポイントとの整合。5 秒窓内に受取まで済む経路のみ)
+		if (challenge.completed === 1 && challenge.rewardClaimed === 1) continue;
+		if (challenge.currentValue <= 0) continue;
+
+		const newValue = challenge.currentValue - 1;
+		await repos.childChallenge.updateProgress(challenge.id, newValue, tenantId);
+		let uncompleted = false;
+		if (challenge.completed === 1 && newValue < challenge.targetValue) {
+			await repos.childChallenge.revertCompletion(challenge.id, tenantId);
+			uncompleted = true;
+		}
+		results.push({ challengeId: challenge.id, reverted: true, uncompleted });
+	}
+	return results;
+}
+
 /** ごほうび受取 (per-child instance ごと) */
 export async function claimChildChallengeReward(
 	challengeId: string,
