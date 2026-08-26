@@ -2,6 +2,7 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
+import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import {
 	authenticateWithCognito,
@@ -14,19 +15,8 @@ import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/
 import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
-import { startTrial, type TrialTier } from '$lib/server/services/trial-service';
+import { startTrial, TRIAL_TIER } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
-
-/**
- * #766: /auth/signup?plan=X からのサインアップ時にトライアル自動開始用のティアを決定する。
- * 既知のティア以外（無効値・空文字）は null を返し、呼び出し側でトライアル開始をスキップする。
- */
-function parsePlanForTrial(planInput: string | null | undefined): TrialTier | null {
-	if (!planInput) return null;
-	const normalized = planInput.trim().toLowerCase();
-	if (normalized === 'standard' || normalized === 'family') return normalized;
-	return null;
-}
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
@@ -283,21 +273,24 @@ export const actions: Actions = {
 		// 失敗（既に使用済み等）は best-effort でログのみ記録し /admin に進む。
 		// /pricing の CTA からは新規テナントでのみ遷移する想定だが、万一 trialUsed=true でも
 		// startTrial() 側で拒否されて false が返るだけで致命的影響はない。
-		const trialTier = parsePlanForTrial(planInput);
-		if (trialTier) {
+		// #4501: `?plan=` は「どのプランを見て来たか」だけを表し、**トライアルの tier は決めない**
+		// (FR-2 により常に TRIAL_TIER = premium)。値域は UI と共有の validator に閉じてあり、
+		// 'premium' が silent 棄却される非対称 (GAMMA-SC-04) を解消している。
+		const planInterest = parseSignupPlanParam(planInput);
+		if (planInterest) {
 			try {
 				const started = await startTrial({
 					tenantId,
 					source: 'user_initiated',
-					tier: trialTier,
+					tier: TRIAL_TIER,
 				});
 				if (started) {
 					logger.info('[SIGNUP] Trial auto-started from pricing flow', {
-						context: { tenantId, tier: trialTier },
+						context: { tenantId, tier: TRIAL_TIER, planInterest },
 					});
 				} else {
 					logger.info('[SIGNUP] Trial auto-start rejected (already used/active)', {
-						context: { tenantId, tier: trialTier },
+						context: { tenantId, tier: TRIAL_TIER, planInterest },
 					});
 				}
 			} catch (err) {
@@ -305,7 +298,7 @@ export const actions: Actions = {
 					context: {
 						error: err instanceof Error ? err.message : String(err),
 						tenantId,
-						tier: trialTier,
+						tier: TRIAL_TIER,
 					},
 				});
 			}

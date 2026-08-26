@@ -600,7 +600,7 @@
 <section class="section bg-white" id="age-panel">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k5">お子さまの年齢で、画面とむずかしさが変わります</h2>
-    <p class="section-desc" data-lp-key="indexB.k6">3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
+    <p class="section-desc" data-lp-key="indexB.k6">3 歳から 18 歳まで、年齢に合わせた UI が対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
     <p class="section-sub-note">
       <span data-lp-key="indexB.k7">0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a></span>
     </p>
@@ -798,6 +798,30 @@
 
 <!-- LP-LANDMARK:soft-features end -->
 
+<!-- LP-LANDMARK:home-screen start — #4644: ホーム画面への追加（インストール）訴求。
+     新規 CTA ボタンは置かない（ctaVariants ≤ 3 の ratchet 維持）。手順は既存の
+     .soft-grid / .soft-card を再利用し新規 CSS を足さない（desktopHeight ratchet 対策）。 -->
+<!-- [05a] ホーム画面に追加 -->
+<section class="section bg-white" id="home-screen">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.pwaTitle">タブレットやスマホのホーム画面に追加しよう</h2>
+    <p class="section-desc" data-lp-key="indexB.pwaDesc">ホーム画面に追加するとアプリのように全画面で起動します。お子さまがブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。</p>
+    <div class="soft-grid">
+      <div class="soft-card">
+        <h3 data-lp-key="indexB.pwaAndroidTitle">Android / Chrome</h3>
+        <p data-lp-key="indexB.pwaAndroidSteps">画面右上の「⋮」→「ホーム画面に追加」→「追加」</p>
+      </div>
+      <div class="soft-card">
+        <h3 data-lp-key="indexB.pwaIosTitle">iPhone / iPad（Safari）</h3>
+        <p data-lp-key="indexB.pwaIosSteps">画面下の「共有」（□に↑）→「ホーム画面に追加」→「追加」</p>
+      </div>
+    </div>
+    <p class="section-desc" data-lp-key="indexB.pwaNote">アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。</p>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:home-screen end -->
+
 <!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。詳細は graduation.html へ集約
      #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する。
      #1895 (PO-4-9): CTA を「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化（H2 直接接続で認知ジャンプ解消） -->
@@ -893,7 +917,7 @@
     <div class="faq-list">
       <details class="faq-item">
         <summary data-lp-key="indexB.k85">子供が自分から使ってくれるようになりますか？</summary>
-        <p class="faq-answer" data-lp-key="indexB.k86">多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。</p>
+        <p class="faq-answer" data-lp-key="indexB.k86">「ガミガミ言わなくても、子供のほうから見せに来る」状態を目指して設計しています。最初の 1 週間は、親子で一緒に楽しむ時間を取ることをおすすめします。</p>
       </details>
       <details class="faq-item">
         <summary data-lp-key="indexB.k72">無料トライアルにクレジットカードは必要ですか？</summary>

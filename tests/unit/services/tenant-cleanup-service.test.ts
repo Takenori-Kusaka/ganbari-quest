@@ -41,9 +41,13 @@ const mockCloudExportRepo = {
 };
 
 // #3868: cloudExport の S3 実体 (backup ZIP = 完全 PII) 削除に使う storage repo mock。
-// 個別削除 (cloud-export-service.deleteCloudExport) と同一の deleteByPrefix を再利用する。
+// #4724: バージョニング有効化後は **全バージョンを消す purgeByPrefix** を使う
+// (deleteByPrefix だと delete marker を立てるだけで実体が 30 日残り、#3868 が塞いだ
+//  「退会後も完全 PII が滞留する」がそのまま再発する)。個別削除
+// (cloud-export-service.deleteCloudExport) と同一手段を再利用する点は変わらない。
 const mockStorageRepo = {
 	deleteByPrefix: vi.fn().mockResolvedValue(0),
+	purgeByPrefix: vi.fn().mockResolvedValue(0),
 };
 
 const mockPushSubscriptionRepo = {
@@ -333,7 +337,7 @@ describe('deleteTenantScopedData', () => {
 	// =========================================================
 
 	describe('#3868 cloudExports S3 実体削除', () => {
-		it('account 削除後、各 cloudExport の S3 実体を deleteByPrefix で削除し DB 行も 0 にする', async () => {
+		it('account 削除後、各 cloudExport の S3 実体を purgeByPrefix (全バージョン) で削除し DB 行も 0 にする', async () => {
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
 				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
 				{ id: 'ex2', s3Key: `exports/${TENANT}/pin2/backup.zip` },
@@ -341,12 +345,12 @@ describe('deleteTenantScopedData', () => {
 
 			await deleteTenantScopedData(TENANT);
 
-			// AC1: S3 実体を各 record の s3Key で削除 (個別削除と同一手段 deleteByPrefix を再利用)
-			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledTimes(2);
-			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
+			// AC1: S3 実体を各 record の s3Key で削除 (個別削除と同一手段 purgeByPrefix を再利用)
+			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledTimes(2);
+			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith(
 				`exports/${TENANT}/pin1/backup.zip`,
 			);
-			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
+			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith(
 				`exports/${TENANT}/pin2/backup.zip`,
 			);
 			// AC3: DB 行も 0 件になる (退会後 cloudExports の DB 行 0 + 対応 S3 object 0)
@@ -360,7 +364,7 @@ describe('deleteTenantScopedData', () => {
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
 				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
 			]);
-			mockStorageRepo.deleteByPrefix.mockImplementationOnce(async () => {
+			mockStorageRepo.purgeByPrefix.mockImplementationOnce(async () => {
 				callOrder.push('s3');
 				return 1;
 			});
@@ -379,7 +383,7 @@ describe('deleteTenantScopedData', () => {
 				{ id: 'ex2', s3Key: `exports/${TENANT}/pin2/backup.zip` },
 			]);
 			// 1 件目の S3 削除を失敗させる
-			mockStorageRepo.deleteByPrefix
+			mockStorageRepo.purgeByPrefix
 				.mockRejectedValueOnce(new Error('s3 err'))
 				.mockResolvedValueOnce(1);
 
@@ -395,7 +399,7 @@ describe('deleteTenantScopedData', () => {
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
 				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
 			]);
-			mockStorageRepo.deleteByPrefix.mockRejectedValueOnce(new Error('s3 err'));
+			mockStorageRepo.purgeByPrefix.mockRejectedValueOnce(new Error('s3 err'));
 
 			await deleteTenantScopedData(TENANT);
 

@@ -131,11 +131,20 @@ describe('#3269 C5: marketplace 詳細の dedicated guide 解決', () => {
 	it('詳細 /marketplace/<type>/<itemId> は dedicated 詳細ガイド (marketplace-detail) を解決する (親へ degrade しない)', async () => {
 		const guide = await getPageGuide('/marketplace/activity-pack/kinder-starter');
 		expect(guide?.pageId).toBe('marketplace-detail');
-		// 取込 CUJ 終盤を案内する 3 部構成 (#3269)
-		expect(guide?.steps.length).toBe(3);
-		// 取込 CTA を selector に持つ step が含まれる (dead-end 防止 / 取り込みへ誘導)
-		expect(guide?.steps.some((s) => s.selector === '[data-testid="marketplace-detail-cta"]')).toBe(
-			true,
+		// #4678: 概要 / 中身 / (活動セットの選択, optional) / 取り込み 5 分岐 (optional、出ている 1 つが残る)
+		const ids = guide?.steps.map((s) => s.id) ?? [];
+		expect(ids.slice(0, 2)).toEqual(['marketplace-detail-intro', 'marketplace-detail-preview']);
+		// 取込 CTA を selector に持つ step が含まれる (dead-end 防止 / 取り込みへ誘導)。
+		// CTA ブロックの分岐 (data-cta-variant) ごとに optional step を持ち、分岐ごとに selector が異なる。
+		const importSteps = guide?.steps.filter((s) =>
+			s.selector?.startsWith('[data-testid="marketplace-detail-cta"]'),
+		);
+		expect(importSteps?.length).toBe(5);
+		expect(importSteps?.every((s) => s.optional === true)).toBe(true);
+		expect(importSteps?.map((s) => s.selector)).toEqual(
+			['per-child', 'family-rule', 'rule-unavailable', 'no-children', 'login'].map(
+				(v) => `[data-testid="marketplace-detail-cta"][data-cta-variant="${v}"]`,
+			),
 		);
 	});
 
@@ -272,8 +281,10 @@ describe('#3307: ガイド step の selector anchor が描画側 src に実在�
 		return buf;
 	};
 
-	const extractAnchor = (selector: string): string | null =>
-		selector.match(/\[data-(?:tutorial|testid)="([^"]+)"\]/)?.[1] ?? null;
+	// #4677: カンマ区切り selector (responsive で desktop / mobile の片方だけ描画される UI を 1 step で
+	// 指す) は**全候補**の anchor を検査する (先頭だけ見ると 2 つ目の typo を見逃す)。
+	const extractAnchors = (selector: string): string[] =>
+		[...selector.matchAll(/\[data-(?:tutorial|testid)="([^"]+)"\]/g)].map((m) => m[1] as string);
 
 	// anchor が描画側マークアップに wiring されているか。静的属性 (data-testid="x") / prop 経由
 	// (addMenuDataTutorial="x") / 動的束縛 ({cond ? 'x' : undefined}) いずれも quote 付きトークンで
@@ -294,9 +305,16 @@ describe('#3307: ガイド step の selector anchor が描画側 src に実在�
 			.filter((g): g is NonNullable<typeof g> => g !== null)
 			.flatMap((g) =>
 				g.steps
-					.map((step) => ({ step, anchor: step.selector ? extractAnchor(step.selector) : null }))
-					.filter(({ anchor }) => anchor !== null && !isRenderedAnchor(srcText, anchor))
-					.map(({ step }) => `${g.pageId}/${step.id} → ${step.selector}`),
+					.flatMap((step) =>
+						(step.selector ? extractAnchors(step.selector) : []).map((anchor) => ({
+							step,
+							anchor,
+						})),
+					)
+					.filter(({ anchor }) => !isRenderedAnchor(srcText, anchor))
+					.map(
+						({ step, anchor }) => `${g.pageId}/${step.id} → ${step.selector} (anchor: ${anchor})`,
+					),
 			);
 		expect(
 			missing,
