@@ -15,6 +15,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { openMenu } from './helpers/goal-flows';
 
 test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 	test('ページ header に OverflowMenu (top-right ⋮) が表示される', async ({ page }) => {
@@ -29,11 +30,23 @@ test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 	}) => {
 		await page.goto('/admin/checklists');
 		await expect(page.getByTestId('admin-checklists-page')).toBeVisible({ timeout: 15_000 });
-		await page.getByTestId('checklists-overflow-menu').click();
+
+		// #4609: **裸の click() を使わない。**
+		//
+		// Ark UI Menu の listener は hydration 完了後に attach される。SSR された ⋮ は先に
+		// visible になるため、`toBeVisible()` は通るのに click が握り潰され、menu が開かないまま
+		// item が `hidden` のままになる (「not found」ではなく `hidden` なのは Portal の DOM が
+		// 常に存在するため)。負荷の高い環境ほど hydration が遅れて再現しやすい。
+		//
+		// 共有 helper は menu item の visible を成功条件に再 click する (#2260 Fix-6 で確立)。
+		//
+		// #4716: menu が開いたことの判定に使う item は marketplace から restore に移した
+		//   (marketplace item 自体を撤去したため。撤去した item を「開いた印」にはできない)。
+		await openMenu(page, 'checklists-overflow-menu', 'overflow-menu-item-restore');
 
 		// Ark UI Menu Portal で render される menu item を確認
 		// 各 item は overflow-menu-item-<id> data-testid を持つ
-		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible({ timeout: 5_000 });
+		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-export')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-help')).toBeVisible();
 
