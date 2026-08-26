@@ -2,9 +2,9 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/usage-log-service.ts
 // 子供の使用時間ログ管理サービス (#1292)
 //
-// #2338 (2026-05-20): usage-log-repo は SQLite のみ実装 (Pre-PMF: ADR-0010 Bucket B)。
-// DATA_SOURCE が 'demo' の場合は no-op fallback で graceful degradation。
-// PMF 後の他 backend 完全実装 roadmap は docs/rationale/07-usage-log-dynamodb-deferred-rationale.md 参照。
+// #4719: backend 分岐は持たない。usage-log-repo facade → factory (getRepos().usageLog) が
+// sqlite / pg-core (DSQL・PGlite) / demo (stub) を選ぶ。以前の「DATA_SOURCE=demo だけ no-op、
+// それ以外は sqlite 固定」は本番 pg で表未作成 throw → WARN + 0 分に化けていた (#4680 class)。
 
 import {
 	addDaysJST,
@@ -12,7 +12,6 @@ import {
 	todayDateJST,
 	toJSTDateString,
 } from '$lib/domain/date-utils';
-import { getEnv } from '$lib/runtime/env';
 import {
 	closeOpenSessions,
 	findTodayUsageLogs,
@@ -22,47 +21,11 @@ import {
 } from '$lib/server/db/usage-log-repo';
 import { logger } from '$lib/server/logger';
 
-/**
- * DATA_SOURCE が usage-log 非対応 backend (demo) かを判定。
- * `getEnv()` は cache を持つが、テストでは `resetEnvForTesting()` を beforeEach で
- * 呼ぶことで `vi.stubEnv` での切替を可能にしている (ADR-0040 P1 整合)。
- */
-function isUsageLogNoopBackend(): boolean {
-	const dataSource = getEnv().DATA_SOURCE;
-	return dataSource === 'demo';
-}
-
-let noopNotified = false;
-/**
- * no-op 動作を 1 回だけ logger.info で可視化する (隠蔽防止、
- * `feedback_no_escape_to_haribote_implementation.md` 整合)。
- * テスト用に `resetNoopNotifiedForTesting()` でリセット可能。
- */
-function notifyNoopOnce(): void {
-	if (noopNotified) return;
-	noopNotified = true;
-	logger.info(
-		'[usage-log] DATA_SOURCE 非 sqlite 環境を検出。no-op fallback で動作 (ADR-0010 Bucket B、#2338)',
-		{
-			context: { dataSource: getEnv().DATA_SOURCE },
-		},
-	);
-}
-
-/** テスト専用: notifyNoopOnce の状態リセット */
-export function resetNoopNotifiedForTesting(): void {
-	noopNotified = false;
-}
-
 /** セッション開始を記録する */
 export async function startUsageSession(
 	tenantId: string,
 	childId: ChildId,
 ): Promise<{ id: string } | null> {
-	if (isUsageLogNoopBackend()) {
-		notifyNoopOnce();
-		return { id: '0' }; // dummy id (client は fire-and-forget なので未参照)
-	}
 	try {
 		// 既存の進行中セッションを終了させてから新規作成
 		const now = new Date().toISOString();
@@ -87,10 +50,6 @@ export async function endUsageSession(
 	id: string,
 	tenantId: string,
 ): Promise<{ durationSec: number } | null> {
-	if (isUsageLogNoopBackend()) {
-		notifyNoopOnce();
-		return { durationSec: 0 };
-	}
 	try {
 		const now = new Date().toISOString();
 		const updated = await updateUsageLogEnd(id, now, 0, tenantId);
@@ -116,14 +75,6 @@ export async function getTodayUsageSummary(
 	tenantId: string,
 	children: { id: ChildId; nickname: string }[],
 ): Promise<{ childId: ChildId; childName: string; durationMin: number }[]> {
-	if (isUsageLogNoopBackend()) {
-		notifyNoopOnce();
-		return children.map((child) => ({
-			childId: child.id,
-			childName: child.nickname,
-			durationMin: 0,
-		}));
-	}
 	try {
 		// 「今日」は JST 基準。UTC 暦日で絞ると JST 00:00〜09:00 の利用が前日集計に入り、
 		// 保護者画面の「今日の利用時間」が 9 時間ぶん 0 分のままになる (#4127)。
@@ -158,16 +109,6 @@ export async function getWeeklyUsageSummary(
 	tenantId: string,
 	childId: ChildId,
 ): Promise<{ date: string; durationMin: number }[]> {
-	if (isUsageLogNoopBackend()) {
-		notifyNoopOnce();
-		// 直近 7 日の空エントリを返す (call side が空配列を空 chart として描画する想定)
-		const today = todayDateJST();
-		const entries: { date: string; durationMin: number }[] = [];
-		for (let i = 6; i >= 0; i--) {
-			entries.push({ date: addDaysJST(today, -i), durationMin: 0 });
-		}
-		return entries;
-	}
 	try {
 		// 範囲も日次バケットも JST 基準で揃える (書き込みは UTC ISO、読み出しは JST 暦日、#4127)
 		const today = todayDateJST();

@@ -1,6 +1,12 @@
 <script lang="ts">
 import { page } from '$app/stores';
-import { getModeLabels, ICON_ACHIEVEMENTS, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
+import {
+	getModeLabels,
+	ICON_ACHIEVEMENTS,
+	ICON_BATTLE,
+	ICON_HISTORY,
+	ICON_STATUS,
+} from '$lib/domain/icons';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 
 interface Props {
@@ -34,22 +40,27 @@ const tabsByMode: Record<string, TabDef[]> = {
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryYoung, icon: ICON_HISTORY, path: 'history' },
 	],
+	// #4681: elementary 以上にバトル入口 (BottomNav つよさ → バトル = 2 タップ)。
+	// baby / preschool はバトル非提供 (route 側 404) のため tab を出さない。
 	elementary: [
 		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
+		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	junior: [
 		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
+		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	senior: [
 		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
+		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 };
@@ -69,6 +80,7 @@ const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.preschool);
 			class="character-tab"
 			class:active
 			aria-current={active ? 'page' : undefined}
+			data-testid="character-tab-{tab.path}"
 		>
 			<span class="character-tab__icon">{tab.icon}</span>
 			<span class="character-tab__label">{tab.label}</span>
