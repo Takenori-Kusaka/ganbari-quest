@@ -95,8 +95,12 @@ export default async (page, capture) => {
 			if (attempt > 0) await box.uncheck();
 			await box.check();
 		}
-		enabled = await submit.isEnabled();
-		if (!enabled) await page.waitForTimeout(500);
+		// 固定 sleep ではなく「有効化された」条件で待つ (#1208: scripts/ の waitForTimeout 禁止)。
+		// hydration が間に合えば即抜けるので、無駄な再チェック試行も減る。
+		enabled = await page
+			.waitForSelector('[data-testid="consent-submit"]:not([disabled])', { timeout: 500 })
+			.then(() => true)
+			.catch(() => false);
 	}
 
 	// 押せないまま撮ると SS が実装と食い違うので、ここで落とす (握り潰しを黙って通さない)
