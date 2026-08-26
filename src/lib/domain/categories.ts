@@ -70,6 +70,20 @@ export type CategoryNumericId = (typeof CATEGORIES)[CategoryCode]['legacyNumeric
 /** 全カテゴリコード (定義順 = legacyNumericId 昇順) */
 export const CATEGORY_CODES = Object.keys(CATEGORIES) as readonly CategoryCode[];
 
+/**
+ * 全カテゴリの日本語表示名 (定義順)。**文言で 5 カテゴリを列挙するときは必ずここから作る** (#4512)。
+ *
+ * ページガイドが実在しない「おてつだい」を挙げ「こうりゅう」を落としていた
+ * (labels.ts 内でも別の箇所は正しく列挙しており、文言どうしが矛盾していた)。
+ * 列挙を手で書くと、カテゴリを増減したときに文言だけが取り残される。
+ */
+export const CATEGORY_NAMES: readonly CategoryName[] = CATEGORY_CODES.map(
+	(code) => CATEGORIES[code].name,
+);
+
+/** 5 カテゴリを「・」区切りで並べた表示用文字列 (例: 「うんどう・べんきょう・…」)。 */
+export const CATEGORY_NAME_LIST = CATEGORY_NAMES.join('・');
+
 /** 全 legacy 数値 id (定義順)。valibot `v.picklist(CATEGORY_NUMERIC_IDS)` 等の値域 SSOT */
 export const CATEGORY_NUMERIC_IDS = CATEGORY_CODES.map(
 	(code) => CATEGORIES[code].legacyNumericId,
