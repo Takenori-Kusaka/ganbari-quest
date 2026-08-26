@@ -172,6 +172,26 @@ W4（`past_due` の updated）を送る。retry ごとに `now + 7d` を書き�
 規則の固定は `tests/unit/services/stripe-contract-state-classification.test.ts`（#4416、W3 / W4 を
 同じ入力で駆動して突き合わせる）と `tests/unit/services/lifecycle-email-service.test.ts`（残り日数）。
 
+### 5.3 有料契約の確定でトライアルを閉じる（#4707）
+
+`trial_history` は本表の 4 列の外にあるが、**S1（trial 中）→ S2 の遷移と同時に閉じる**。閉じないと
+`planTier` は `standard` / `family` に解決される一方で `computeTrialStatus` が「トライアル中（残り N 日）」
+を返し続け、払った直後の顧客に「本契約が必要です」と「⭐ 残り N 日」が出続け、終了予告メールも届く。
+
+| 契機 | 実装 | 書く内容 |
+|---|---|---|
+| W1 `checkout.session.completed`（reconcile 経由を含む） | `stripe-service.ts` `closeTrialOnPaidContract` → `trial-service.ts` `endTrialOnConversion` | 最新 trial 行に `stripe_subscription_id` / `upgrade_reason` を記録。trial が有効（JST 暦日で `end_date ≥ 今日`）なら `end_date = 今日`。終了済みなら `end_date` は触らない |
+| W2 `invoice.paid`（現行契約に適用されたときだけ） | 同上 | 同上（W1 未達時の救済。同一 subscription で移行済みなら no-op） |
+
+規則:
+
+- **移行済み（`stripe_subscription_id` あり）の trial 行は `end_date` に関わらず終了扱い**（`isTrialActive=false`、`trialUsed=true`）。`findActiveTrials`（終了予告 cron の対象抽出）も除外する
+- **第 2 防御**: 表示（admin layout / `/admin/subscription`）と通知（`getNotificationSchedule` / `getTrialExpirationInfo`）は `getTrialStatus(tenantId, licenseStatus)` を通し、`licenseStatus = active`（S2 / S3）なら trial 行の状態に関わらず「トライアル中」にしない。webhook 未達 / 旧データでも払った顧客にトライアル表示を出さない
+- trial 行の書き込み失敗で webhook 全体を失敗させない（契約状態の確定が主。失敗は error log、次の event で再試行）
+- トライアルの有効期間は **JST 暦日で `end_date` 当日いっぱい**。tier 判定（`resolvePlanTier`）と表示判定（`computeTrialStatus`）は同じ述語 `isTrialEndDateActiveJST`（`src/lib/domain/trial-period.ts`）を共有する
+
+検証: `tests/unit/services/stripe-service.test.ts`（W1 / W2 で閉じる・冪等・失敗非伝播）/ `tests/unit/services/trial-service.test.ts`（移行済み行・licenseStatus 射影）/ `tests/unit/services/plan-limit-service.test.ts`（最終日 JST 全時間帯の tier）/ `tests/unit/db/dsql-family-satellite-repos.test.ts`（repo 層）。
+
 ### 書き手を増やさない起動点: checkout reconciliation（#3958）
 
 `/admin/subscription?session_id=cs_…`（Stripe checkout の success_url）は `reconcileCheckoutSession`
@@ -206,7 +226,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 |---|---|---|
 | 置き場 | `families.status` ほか 4 列 | `settings` の `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` |
 | 書き手 | W1〜W9 | `softDeleteTenant()`（`grace-period-service.ts:67-110`） |
-| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`） |
+| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`。**コード上の key は `family`** — 顧客向け表示名 premium の内部コード） |
 
 **`softDeleteTenant()` は `families` を一切触らない。** したがって「退会申請済み」は本表のどの行にも現れない。読み取り専用ロックと物理削除は契約軸ではなくこちらを条件とする（#3993）。
 

@@ -44,12 +44,16 @@ function handleValueChange(details: { value: string }) {
 		class="flex gap-1 bg-[var(--theme-nav)] rounded-[var(--radius-md)] p-1"
 	>
 		{#each items as item (item.value)}
+			<!-- #4645: 選択中は白背景の上の文字色 / 非選択は --theme-nav の上の文字色。
+				いずれも WCAG 1.4.3 AA (4.5:1) を満たすトークンを使う
+				(旧 --theme-primary は pink テーマで 2.64:1、--color-text-muted は nav 上で 4.42:1)。 -->
 			<ArkTabs.Trigger
 				value={item.value}
 				data-testid="tab-{item.value}"
 				class="tap-target flex-1 px-3 py-2 rounded-[var(--radius-sm)] text-sm font-bold text-center
-					transition-colors data-[selected]:bg-white data-[selected]:text-[var(--theme-primary)]
-					data-[selected]:shadow-sm text-[var(--color-text-muted)]"
+					transition-colors data-[selected]:bg-white
+					data-[selected]:text-[var(--color-action-primary-strong)]
+					data-[selected]:shadow-sm text-[var(--color-text-on-theme-nav)]"
 			>
 				{item.label}
 			</ArkTabs.Trigger>

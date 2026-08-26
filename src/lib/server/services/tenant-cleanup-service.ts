@@ -59,21 +59,39 @@ export const SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM =
 	'[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存)';
 
 /**
+ * 子供の DB 削除に 1 件でも失敗したことを表す (#4696)。
+ *
+ * 旧実装は失敗を warn で握り潰して「成功件数」だけを返していたため、FK 制約で子供を消せなくても
+ * 画面には「完了しました」と出て、実際には子供・活動ログが残っていた (置換インポートでは
+ * 旧データが残ったまま新データが入り二重化した)。全 child を試行したうえで、1 件でも失敗したら
+ * 本エラーを送出し、呼び出し側 (API / 置換インポートの原子境界) に失敗として伝える。
+ */
+export class ChildDeletionFailedError extends Error {
+	constructor(
+		readonly failures: { childId: ChildId; error: string }[],
+		readonly deleted: number,
+	) {
+		super(`子供データの削除に失敗しました (${failures.length} 件)`);
+		this.name = 'ChildDeletionFailedError';
+	}
+}
+
+/**
  * テナント内の全子供データとファイルを削除する。
  *
- * 子供テーブルの cascade delete により、子供に紐づく activity_logs / point_ledger /
- * statuses / status_history / stamp_cards / achievements / login_streaks /
- * character_images / evaluations / special_rewards / checklist_logs /
- * checklist_overrides が同時に消える。
+ * 子供に紐づく全表 (`child-scoped-tables.ts` の SSOT) は repo の `deleteChild` が単一 txn で消す。
  *
  * ファイル削除と DB 削除は独立してエラーハンドリングされるため、
- * ストレージ側のファイル削除が失敗しても DB 側の子供削除は実行される。
+ * ストレージ側のファイル削除が失敗しても DB 側の子供削除は実行される
+ * (ファイルは再生成不能でも「消えていない」だけで、DB の一貫性は損なわない)。
  *
  * @returns 削除に成功した子供の件数（DB レコード基準）
+ * @throws {ChildDeletionFailedError} DB 削除に 1 件でも失敗した場合 (全件試行した後に送出)
  */
 export async function deleteAllChildrenData(tenantId: string): Promise<number> {
 	const children = await repos().child.findAllChildren(tenantId);
 	let deleted = 0;
+	const failures: { childId: ChildId; error: string }[] = [];
 
 	// 1. ファイル削除（失敗は warn ログのみで処理続行）
 	for (const child of children) {
@@ -84,16 +102,21 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
 		}
 	}
 
-	// 2. DB レコード削除（cascade delete で関連データも消える）
+	// 2. DB レコード削除（子供に紐づく全表を repo が単一 txn で削除する）
 	for (const child of children) {
 		try {
 			await repos().child.deleteChild(child.id, tenantId);
 			deleted++;
 		} catch (err) {
-			logger.warn(`[tenant-cleanup] 子供DB削除失敗 childId=${child.id}: ${String(err)}`);
+			// 1 件の失敗で残りを諦めない (消せるものは消す)。ただし最後に必ず throw する。
+			logger.error(`[tenant-cleanup] 子供DB削除失敗 childId=${child.id}: ${String(err)}`);
+			failures.push({ childId: child.id, error: String(err) });
 		}
 	}
 
+	if (failures.length > 0) {
+		throw new ChildDeletionFailedError(failures, deleted);
+	}
 	return deleted;
 }
 
@@ -182,14 +205,18 @@ export async function deleteTenantScopedData(
 	// cloudExport の s3Key は `exports/${tenantId}/...` で fullTenantDeletion の
 	// `tenants/${tenantId}/` prefix 一括削除の外側にあるため、ここで明示削除しないと退会後も
 	// S3 lifecycle (30 日) の失効まで孤児として滞留する。個別削除
-	// (cloud-export-service.deleteCloudExport) と同一手段 storage.deleteByPrefix を再利用する。
+	// (cloud-export-service.deleteCloudExport) と同一手段 storage.purgeByPrefix を再利用する。
+	//
+	// #4724: バージョニング有効化後は **purge (全バージョン削除)** を使う。`deleteByPrefix` は
+	// delete marker を立てるだけで、非現行バージョンは lifecycle の 30 日まで残る = 本 block が
+	// #3868 で塞いだ「退会後も完全 PII を含む ZIP が滞留する」がそのまま再発する。
 	try {
 		const exports = await r.cloudExport.findByTenant(tenantId);
 		for (const exp of exports) {
 			// S3 削除は best-effort: 失敗しても DB 行削除 + account 削除を継続する。
 			// ただし削除漏れを silent にせず warn で記録する (ADR-0006)。
 			try {
-				await r.storage.deleteByPrefix(exp.s3Key);
+				await r.storage.purgeByPrefix(exp.s3Key);
 			} catch (err) {
 				logger.warn(
 					`[tenant-cleanup] cloudExport S3 実体削除失敗 (DB 行削除は継続) id=${exp.id} s3Key=${exp.s3Key}: ${String(err)}`,

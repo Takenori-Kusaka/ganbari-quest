@@ -1331,11 +1331,9 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</li>
 						<li>{SETTINGS_LABELS.dataImportPreviewStatuses(data.dataSummary.statuses)}</li>
 						<li>
-							{SETTINGS_LABELS.dataImportPreviewAchievements(data.dataSummary.achievements)}
+							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginStreaks)}
 						</li>
-						<li>
-							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginBonuses)}
-						</li>
+						<li>{SETTINGS_LABELS.dataImportPreviewVoices(data.dataSummary.voices)}</li>
 						<li>
 							{SETTINGS_LABELS.dataImportPreviewChecklists(
 								data.dataSummary.checklistTemplates,

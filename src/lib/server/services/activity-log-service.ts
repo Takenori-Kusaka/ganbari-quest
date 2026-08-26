@@ -24,8 +24,10 @@ import {
 	markActivityLogCancelled,
 } from '$lib/server/db/activity-repo';
 // EPIC #3424 Phase Z (#3541): DATA_SOURCE=dsql は core 単一 txn + optional 隔離経路へ dispatch (§8)
-import { isDsqlBackend } from '$lib/server/db/backend';
+import { isPgBackend } from '$lib/server/db/backend';
 import { cancelActivityDsql } from '$lib/server/services/activity-cancel-dsql';
+// #4686: とりけし時の optional 付与 (combo / mission / challenge / must / focus) 対称巻き戻し (両経路共有)
+import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-cancel-optional';
 import {
 	type ActivityLogEntry,
 	type ActivityLogSummary,
@@ -115,9 +117,10 @@ export async function recordActivity(
 	| { error: 'DAILY_LIMIT_REACHED' }
 	| { error: 'NOT_FOUND'; target: string }
 > {
-	// EPIC #3424 Phase Z (#3541): DSQL backend は core 単一 txn + optional 隔離の専用経路。
-	// sqlite / dynamo / demo は従来経路 (以下) を無変更で通る (現行挙動の凍結)。
-	if (isDsqlBackend()) {
+	// EPIC #3424 Phase Z (#3541): pg 系 backend (DSQL / NUC PGlite) は core 単一 txn + optional 隔離の
+	// 専用経路。sqlite / demo は従来経路 (以下) を無変更で通る (現行挙動の凍結)。
+	// #4720: 判定は isPgBackend (dsql だけ見ると NUC PGlite が逐次 await 経路に落ちる)。
+	if (isPgBackend()) {
 		return recordActivityDsql(childId, activityId, tenantId);
 	}
 
@@ -389,10 +392,10 @@ export async function cancelActivityLog(
 	logId: string,
 	tenantId: string,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
-	// #3596 ②: DSQL backend は cancel core 単一 txn (log-cancel / mastery / ledger+total_point /
-	// status / history を all-or-nothing)。sqlite / dynamo / demo は従来の逐次 await 経路 (以下、
-	// 現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐。
-	if (isDsqlBackend()) {
+	// #3596 ②: pg 系 backend (DSQL / NUC PGlite) は cancel core 単一 txn (log-cancel / mastery /
+	// ledger+total_point / status / history を all-or-nothing)。sqlite / demo は従来の逐次 await 経路
+	// (以下、現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐 (#4720: isPgBackend)。
+	if (isPgBackend()) {
 		return cancelActivityDsql(logId, tenantId);
 	}
 
@@ -440,6 +443,16 @@ export async function cancelActivityLog(
 		},
 		tenantId,
 	);
+
+	// #4686: 記録時に optional で付与したもの (コンボ / ミッション / チャレンジ進捗 / おやくそく /
+	// フォーカス) を、付与した経路と同じ経路で巻き戻す (#3787 mastery 対称返金と同 class)。
+	await revertOptionalAwardsOnCancel({
+		childId: log.childId,
+		activityId: log.activityId,
+		categoryId: activity ? activity.categoryId : null,
+		today: todayDate(),
+		tenantId,
+	});
 
 	return { refundedPoints: totalPoints };
 }

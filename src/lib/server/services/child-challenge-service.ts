@@ -337,7 +337,13 @@ export function computeProposal(
 function resolveGroupKey(
 	c: Pick<ChildChallenge, 'sourceTemplateId' | 'title' | 'startDate' | 'endDate'>,
 ): string {
-	return c.sourceTemplateId ?? `${c.title}::${c.startDate}::${c.endDate}`;
+	// #4689: **内容 (title) を必ず key に含める**。
+	// 週次自動生成は子供ごとに別内容 (「うんどうを4回」「そうぞうを2回」) なのに
+	// `sourceTemplateId` が全員 `auto:weekly` で共通のため、旧 key では別内容の instance が
+	// 同一 group に混ざっていた。その結果 `allCompleted` が兄弟全員の達成に依存し、
+	// 達成した子に祝福が出なかった (多子家庭で毎週劣化)。
+	// 同一テンプレート配信 (同 sourceTemplateId + 同 title) は従来どおり 1 group = 「みんなクリア」。
+	return `${c.sourceTemplateId ?? 'manual'}::${c.title}::${c.startDate}::${c.endDate}`;
 }
 
 interface TargetConfig {
@@ -421,11 +427,11 @@ export async function createChildChallengesBulk(
  * admin/challenges 画面: tenant 全体の challenge instance を sourceTemplateId / (title + 期間) で
  * group 化して返す。SiblingChallengeComparison.svelte で兄弟連動比較表示するため。
  *
- * #3513 QM BLOCK fix: groupKey には常に startDate + endDate を含める (sourceTemplateId が
- * 'auto:weekly' のような tenant 内共有の固定文字列であっても、期間が異なれば別 group とする)。
- * #2488 must-2 で `getActiveChildChallengesWithSiblings` に導入された「同一期間のみ同 group」
- * ガードと同じ規約を admin 集計側にも適用し、全週・全子供の auto:weekly challenge が単一 group に
- * 混線する事故を防ぐ (sourceTemplateId 単体キーだと固定値の場合に期間非依存になってしまう)。
+ * groupKey は `resolveGroupKey` (子供画面と共通) を使う。sourceTemplateId + **内容 (title)** +
+ * 期間の 3 点一致で「同じチャレンジ」とみなす。
+ *   - 期間を含める (#3513): `auto:weekly` のような tenant 共有の固定 id でも、週が違えば別 group
+ *   - 内容を含める (#4689): 週次自動生成は子供ごとに別内容なので、title が違えば別 group。
+ *     旧実装は先頭の子のタイトルで全員の進捗を束ねて表示していた
  */
 export async function getChallengeGroupsForAdmin(tenantId: string): Promise<ChildChallengeGroup[]> {
 	const repos = getRepos();
@@ -433,9 +439,10 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 
 	const groupMap = new Map<string, ChildChallenge[]>();
 	for (const c of all) {
-		const key = c.sourceTemplateId
-			? `${c.sourceTemplateId}::${c.startDate}::${c.endDate}`
-			: `${c.title}::${c.startDate}::${c.endDate}`;
+		// #4689: 子供画面と同一規約 (`resolveGroupKey`) を使う。内容 (title) を含めないと
+		// 週次自動生成 (`auto:weekly` 共有) の別内容 instance が 1 group に束ねられ、
+		// 見出しが先頭の子のタイトルのまま全員の進捗を並べてしまう。
+		const key = resolveGroupKey(c);
 		const arr = groupMap.get(key) ?? [];
 		arr.push(c);
 		groupMap.set(key, arr);
@@ -809,6 +816,52 @@ export async function updateChildChallengeProgress(
 			}
 		}
 		results.push({ challengeId: challenge.id, completed: false, challengeTitle: challenge.title });
+	}
+	return results;
+}
+
+/**
+ * #4686: 活動とりけし時のチャレンジ進捗巻き戻し (updateChildChallengeProgress の逆操作)。
+ * 同 category の metric='count' チャレンジについて currentValue を 1 戻し、completed=1 かつ
+ * 未受取なら completed を外す (受取済みは repo 側の条件で触らない = 受取済ポイントとの整合)。
+ * @returns 巻き戻した instance (UI 用途は無し、テスト / 観測用)
+ */
+export async function revertChildChallengeProgress(
+	childId: ChildId,
+	categoryId: CategoryId,
+	tenantId: string,
+): Promise<{ challengeId: string; reverted: boolean; uncompleted: boolean }[]> {
+	const repos = getRepos();
+	const today = todayDateJST();
+	// active + 「完了済だが未受取」を包括 (completed 直後の取消で完了を外せるように)。
+	// 受取済み (status=completed & rewardClaimed=1) は本一覧に含まれない = 触らない。
+	const challenges = await repos.childChallenge.findActiveOrUnclaimedByChildId(
+		childId,
+		today,
+		tenantId,
+	);
+	const results: { challengeId: string; reverted: boolean; uncompleted: boolean }[] = [];
+
+	for (const challenge of challenges) {
+		const targetConfig = JSON.parse(challenge.targetConfig) as Omit<TargetConfig, 'categoryId'> & {
+			categoryId?: number | string;
+		};
+		const cfgCategoryId =
+			targetConfig.categoryId != null ? asCategoryId(targetConfig.categoryId) : undefined;
+		if (cfgCategoryId && cfgCategoryId !== categoryId) continue;
+		if (targetConfig.metric !== 'count') continue;
+		// 受取済みは進捗も完了も触らない (受取済ポイントとの整合。5 秒窓内に受取まで済む経路のみ)
+		if (challenge.completed === 1 && challenge.rewardClaimed === 1) continue;
+		if (challenge.currentValue <= 0) continue;
+
+		const newValue = challenge.currentValue - 1;
+		await repos.childChallenge.updateProgress(challenge.id, newValue, tenantId);
+		let uncompleted = false;
+		if (challenge.completed === 1 && newValue < challenge.targetValue) {
+			await repos.childChallenge.revertCompletion(challenge.id, tenantId);
+			uncompleted = true;
+		}
+		results.push({ challengeId: challenge.id, reverted: true, uncompleted });
 	}
 	return results;
 }

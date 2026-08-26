@@ -47,6 +47,22 @@
 - `--color-text-*`（文字: muted / inverse / accent / link / primary / secondary / tertiary / disabled 系）
 - `--color-feedback-*`（フィードバック: success / error / warning / info × bg / text / border）
 
+### コントラスト（WCAG 1.4.3 AA、#4645）
+
+**同じ色を「白文字を載せる塗り」と「白背景に載せる文字」の両方に使ってよい。ただしその色は白に対して 4.5:1 以上でなければならない**（コントラスト比は前景 / 背景の順序に依存しないため、1 色で両方の用途を満たせる）。ブランド色をそのまま使うと届かないことが多い:
+
+- 塗り + 白文字 / 白背景 + テーマ色文字 → `--color-action-primary-strong`（`--color-action-primary` は白文字で 3.34:1 で不足）
+- `--theme-nav`（テーマの淡い塗り）の上の文字 → `--color-text-on-theme-nav`（通常）/ `--color-text-accent-on-theme-nav`（選択中）
+- ゴールドの数値 → `--color-text-gold` / 暖色の強調 → `--color-text-warning-strong`（`--color-gold-500` / `text-orange-500` は 1.5〜2.2:1）
+
+**利用者データ由来の色（カテゴリ色 / アイコン色）を文字色に使わない。** コントラストを保証できないため、色はドット・バー等の装飾が担い、文字はテキスト色トークンで描く。
+
+#### テーマ配下で解決させる Semantic トークンは各テーマブロックで再宣言する
+
+CSS カスタムプロパティの `var()` は**宣言された要素**で解決される。`:root` に `--color-action-primary-strong: var(--theme-primary-strong)` と書くと、`[data-theme]` 配下でも `:root` で解決済みのブランド色が継承される（実測: ピンクテーマの子供ヘッダーがブランドブルーになった）。テーマごとに値が変わるべき Semantic トークンは、`app.css` の各 `[data-theme="…"]` ブロックでも同じ宣言を繰り返す。
+
+**検証**: `tests/unit/architecture/color-contrast-tokens.test.ts` が app.css を読み、全テーマについて上記の比率と再宣言を数値で assert する。
+
 ---
 
 ## 3. タイポグラフィ
@@ -235,13 +251,13 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 `src/lib/domain/terms.ts` の atom 定数。値の変更は本ファイル 1 行修正で全コンテンツに伝播する (ADR-0045)。
 
-> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `check-hardcoded-strings` / `generate-lp-labels --check`）が担保する。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
+> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `generate-lp-labels --check`）が担保する（`check-hardcoded-strings` は #4322 で script ごと削除済み。日本語直書きの機械検出は無く、レビューで担保する）。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
 
 **確認手順**: 新規 atom を追加する前に `grep -n "_TERMS = " src/lib/domain/terms.ts` で既存 atom namespace を確認し、値の直書き複製を作らない。
 
 ### labels.ts エクスポート一覧（compound）
 
-> **全 export の一覧はこのファイルに掲載しない**（135+ namespace を持つ `src/lib/domain/labels.ts` が SSOT）。DESIGN.md は「使う前に SSOT を確認する」ルールのみを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI (`check-no-plan-literals` / `check-hardcoded-strings`) が担保する。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
+> **全 export の一覧はこのファイルに掲載しない**（135+ namespace を持つ `src/lib/domain/labels.ts` が SSOT）。DESIGN.md は「使う前に SSOT を確認する」ルールのみを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI (`check-no-plan-literals`) が担保する（`check-hardcoded-strings` は #4322 で削除済み）。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
 
 **確認手順**: 新規ラベルを追加する前に `grep -n "_LABELS" src/lib/domain/labels.ts` で既存 compound を確認する。代表的な namespace / 関数:
 
@@ -421,7 +437,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | `--z-overlay` | `40` | overlay | Dialog Backdrop（Ark UI primitive） |
 | `--z-modal` | `50` | modal | Dialog Content（Ark UI primitive）／`AdminLayout` sidebar |
 | `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ）／`PointFlightGhost`（#4448、`pointer-events: none` で操作を奪わない。Dialog が閉じたあとに飛ぶため modal と重ならない） |
-| `--z-tutorial` | `100` | tutorial | `TutorialOverlay` / `PageGuideOverlay` / `SiblingCheerOverlay` 等の操作ガイド系 |
+| `--z-tutorial` | `100` | tutorial | `TutorialOverlay` / `PageGuideOverlay` 等の操作ガイド系 |
 | `--z-celebration` | `200` | celebration | `SiblingCelebration` 等の最上位演出 |
 | `--z-debug` | `9999` | debug | `DebugPlanIndicator` / `NavigationProgress`（dev / 内部用、本番ビルドでは表示されない） |
 

@@ -48,7 +48,6 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
-import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -58,7 +57,7 @@ import { soundService } from '$lib/ui/sound';
 let { data } = $props();
 
 // #2097 EPIC PR-B1 hotfix (2026-05-17): LP SS 撮影時 (`?screenshot=*`) は本番 UI 内の
-// auto-open dialog (SiblingCheerOverlay / MonthlyRewardDialog 等) を抑止する。
+// auto-open dialog (MonthlyRewardDialog 等) を抑止する。
 // 子供画面の demo data には常に pending cheer が 1 件含まれるため、撮影タイミングで
 // dialog が画面中央に被って主要 UI が隠れる事故が発生 (PO 2026-05-17 指摘)。
 const isScreenshotMode = $derived(getScreenshotMode());
@@ -156,7 +155,6 @@ $effect(() => {
 });
 
 // Sibling cheer overlay
-let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
 // #2458-B: per-child instance に flip。
@@ -261,11 +259,16 @@ let stampPressData = $state<{
 	cardFilledSlots: number;
 	cardTotalSlots: number;
 	cardEntries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[];
+	// #4687: 週コンプリート済の日 / おみくじログインボーナスを演出に出すための実データ
+	cardFull: boolean;
+	loginBonusPoints: number;
+	loginBonusRank: string | null;
 	weeklyRedeem: {
 		points: number;
 		filledSlots: number;
 		totalSlots: number;
 		completeBonus: number;
+		weeks?: number;
 	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
@@ -283,6 +286,8 @@ let missionResult = $state<{
 	allComplete: boolean;
 	bonusAwarded: number;
 } | null>(null);
+// #4686: フォーカスボーナス (台帳に載る付与) を結果ダイアログに出す (合計 = 台帳増分)
+let focusBonusResult = $state<{ bonusPoints: number } | null>(null);
 
 // Level up overlay state (kept separate — part of user-initiated record flow)
 let levelUpData = $state<{
@@ -448,6 +453,7 @@ function handleResultClose() {
 	cancelTimerId = null;
 	resultOpen = false;
 	missionResult = null;
+	focusBonusResult = null;
 
 	// XPバーアニメーションを開始
 	if (xpGainData) {
@@ -612,21 +618,11 @@ $effect(() => {
 	// ログインボーナスに祝福の click が吸われ、子供が祝福を閉じられなくなっていた
 	// (z-index では解決しない。docs/DESIGN.md §10「侵襲的演出を重ねない」)。
 	const shouldShowCelebration = f.showSiblingFeatures && celebrationChallenge;
-	// 兄弟の応援 overlay も同じ class の defect (FSM 外で開くため祝福と重なりうる) なので
-	// 同時に arbitration へ載せる (ADR-0061: 同 class は 1 件目で guard 化する)。
-	const shouldShowCheer =
-		!isScreenshotMode &&
-		f.showSiblingFeatures &&
-		showCheerOverlay &&
-		data.unshownCheers &&
-		data.unshownCheers.length > 0;
-
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
 		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
-		siblingCheer: shouldShowCheer ? data.unshownCheers : undefined,
 		celebration: shouldShowCelebration ? celebrationChallenge : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
@@ -681,6 +677,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				allComplete: boolean;
 				bonusAwarded: number;
 			} | null;
+			focusBonus?: { bonusPoints: number } | null;
 			levelUp: {
 				oldLevel: number;
 				oldTitle: string;
@@ -713,6 +710,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			comboBonus: d.comboBonus ?? null,
 		};
 		missionResult = d.missionComplete ?? null;
+		focusBonusResult = d.focusBonus && d.focusBonus.bonusPoints > 0 ? d.focusBonus : null;
 		levelUpData = d.levelUp ?? null;
 		xpGainData = d.xpGain ?? null;
 		startCancelCountdown(d.cancelableUntil);
@@ -786,7 +784,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardFilledSlots: cardData?.filledSlots ?? 0,
 							cardTotalSlots: cardData?.totalSlots ?? 5,
 							cardEntries: cardData?.entries ?? [],
-							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
+							cardFull: d.cardFull === true,
+							loginBonusPoints: (d.loginBonusPoints as number) || 0,
+							loginBonusRank: (d.loginBonusRank as string) ?? null,
+							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number; weeks?: number } | null,
 						};
 						openDialog('stampPress', stampPressData);
 					}
@@ -1048,30 +1049,43 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					</div>
 				{/if}
 				{#if resultData.comboBonus}
-					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<!-- #4686: tier 名は状態、金額は今回の純増 (台帳増分) のみ。tier 満額は出さない -->
+					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-combo">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{CHILD_HOME_LABELS.resultComboCategoryCombo(cc.name, getCategoryById(cc.categoryId)?.name ?? '')} {fmtPts(cc.bonus)}
+								{CHILD_HOME_LABELS.resultComboCategoryState(cc.name, getCategoryById(cc.categoryId)?.name ?? '')}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{resultData.comboBonus.crossCategoryCombo.name + CHILD_HOME_LABELS.crossComboBang} {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
+								{CHILD_HOME_LABELS.resultComboCrossState(resultData.comboBonus.crossCategoryCombo.name)}
 							</p>
 						{/if}
+						<p class="text-sm font-bold text-[var(--color-point)]" data-testid="result-combo-new-bonus">
+							{CHILD_HOME_LABELS.resultComboNewBonus} {fmtPts(resultData.comboBonus.totalNewBonus)}
+						</p>
 					</div>
 				{/if}
 				{#if missionResult}
-					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-mission">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
 							{CHILD_HOME_LABELS.resultMissionComplete}
 							{#if missionResult.bonusAwarded > 0}
-								{fmtPts(missionResult.bonusAwarded)}
+								<span data-testid="result-mission-bonus">{fmtPts(missionResult.bonusAwarded)}</span>
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
 							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
 						{/if}
+					</div>
+				{/if}
+
+				{#if focusBonusResult}
+					<!-- #4686: フォーカスボーナスも台帳に載る付与なのでダイアログに出す (合計 = 台帳増分) -->
+					<div class="bg-[var(--color-feedback-success-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-focus-bonus">
+						<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
+							{CHILD_HOME_LABELS.resultFocusBonus} {fmtPts(focusBonusResult.bonusPoints)}
+						</p>
 					</div>
 				{/if}
 
@@ -1182,15 +1196,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}
-	/>
-{/if}
-
-<!-- Sibling cheer overlay (non-baby) -->
-<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
-{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0 && currentDialog === 'siblingCheer'}
-	<SiblingCheerOverlay
-		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; closeDialog(); }}
 	/>
 {/if}
 

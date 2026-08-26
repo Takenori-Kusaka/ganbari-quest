@@ -168,7 +168,15 @@ const WEEKDAY_VALUES = new Set([
 ]);
 
 const isBoolSetting = (v: string): boolean => BOOL_SETTING_VALUES.has(v);
-const isTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
+/**
+ * `HH:MM` (00:00-23:59) の設定値か。**時刻設定の値域 SSOT** (#4706)。
+ *
+ * 保存 (`/admin/settings/notifications` の action) と取込 (本 file の allowlist) と
+ * 配信 cron (`notification-delivery-service`) が**同じ述語**を通ることで、
+ * 「保存はできたのに配信側が解釈できない値」が生まれないようにする (ADR-0066 と同じ向き)。
+ */
+export const isHhMmTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
+const isTimeSetting = isHhMmTimeSetting;
 const isIsoDatetime = (v: string): boolean => v.length <= 40 && isLegacyCompatibleDateTime(v);
 
 /**
@@ -509,18 +517,6 @@ export interface ExportParentMessage {
 }
 
 /**
- * #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child を参照)。sentAt/shownAt (既読) を
- * 保全して round-trip 復元する (id/childId は import 環境で振り直すため fromChildRef/toChildRef で再結合)。
- */
-export interface ExportSiblingCheer {
-	fromChildRef: string;
-	toChildRef: string;
-	stampCode: string;
-	sentAt: string;
-	shownAt: string | null;
-}
-
-/**
  * #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため activityName で
  * 取込先 childActivity に再結合する。isPinned/pinOrder/日時を round-trip 保全する。
  */
@@ -544,18 +540,6 @@ export interface ExportChecklistOverride {
 	action: string;
 	itemName: string;
 	icon: string;
-	createdAt: string;
-}
-
-/**
- * #3329: per-child おやすみ日 (ステータス減少停止日)。createdAt を保全して round-trip 復元する
- * (id/childId は import で振り直すため childRef で再結合)。週次評価/streak/decay の input であり
- * 活動記録から再構成不能。※DynamoDB には保存されない (NUC/SQLite 専用の Pre-PMF fallback)。
- */
-export interface ExportRestDay {
-	childRef: string;
-	date: string;
-	reason: string;
 	createdAt: string;
 }
 
@@ -658,16 +642,12 @@ export interface ExportTransactionData {
 	certificates: ExportCertificate[];
 	/** #3329: 親→子おうえんメッセージ (sentAt/shownAt 保全) */
 	parentMessages: ExportParentMessage[];
-	/** #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child、sentAt/shownAt 保全) */
-	siblingCheers: ExportSiblingCheer[];
 	/** #3329: per-child 活動設定 (ピン留め、activityName で再結合) */
 	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	/** #3329: per-child チェックリスト日次 override (createdAt 保全) */
 	checklistOverrides: ExportChecklistOverride[];
-	/** #3329: per-child おやすみ日 (createdAt 保全。DynamoDB では空) */
-	restDays: ExportRestDay[];
 	/** #3329: 子のカスタム音声 DB 行 (ファイル本体は #3077 ZIP 同梱で復元、行は voiceRelPath で再結合) */
 	childVoices: ExportChildVoice[];
 	childAvatarItems: never[];

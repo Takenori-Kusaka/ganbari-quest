@@ -39,13 +39,15 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/settings/support',
 	// #3267 (EPIC #3260 C3): プラン・課金 (#4139 で /admin/billing を統合)
 	'/admin/subscription',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー (#4691: /admin/packs はページごと撤去)
 	'/admin/members',
-	'/admin/packs',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'/admin/certificates',
 	'/admin/growth-book',
 	'/admin/rewards/requests',
+	// #4677 (EPIC #4650): みんなのテンプレート一覧 (AdminLayout 非使用だが同じ engine / 静的パス)。
+	// 条件付き step (optional) の step 列・「selector step は必ず光る」は marketplace-page-guide.spec.ts 側。
+	'/marketplace',
 ] as const;
 
 const VIEWPORTS = [

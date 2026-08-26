@@ -31,7 +31,12 @@ import {
 	getCancellationState,
 	reconcileCheckoutSession,
 } from '$lib/server/services/stripe-service';
-import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
+import {
+	getTrialStatus,
+	startTrial,
+	TRIAL_TIER,
+	toTrialStatusView,
+} from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -48,12 +53,25 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		? await reconcileCheckoutSession({ tenantId, sessionId })
 		: null;
 
+	// #3958: `locals.context` は hooks.server.ts が load 前に解決した値なので、本 request 内で
+	// reconcile が契約を反映した場合は古い (無料プランのまま)。反映したときだけ DB から
+	// 引き直す (reconcile 側が request キャッシュを破棄済みなので最新値が返る)。
+	// #4707: トライアル状態の射影 (有料契約中はトライアル中扱いしない) にも同じ entitlement を使うため、
+	// trialStatus の取得より前に解決する。
+	const entitlement =
+		checkoutReconciliation?.status === 'applied'
+			? await resolveTenantEntitlement(tenantId)
+			: {
+					licenseStatus: locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+					plan: locals.context?.plan,
+				};
+
 	const [license, loyaltyInfo, children, trialStatus, pinConfigured, cancellation] =
 		await Promise.all([
 			getLicenseInfo(tenantId),
 			getLoyaltyInfo(tenantId).catch(() => null),
 			getAllChildren(tenantId),
-			getTrialStatus(tenantId),
+			getTrialStatus(tenantId, entitlement.licenseStatus),
 			isPinConfigured(tenantId),
 			// #3991: 「解約申請中か」「いつまで使えるか」の SSOT は Stripe の subscription (NFR-2)。
 			// DB に猶予期限を持たせると `grace_period` (dunning) と再び多重定義になる (#3986) ため、
@@ -63,16 +81,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		]);
 
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
-	// #3958: `locals.context` は hooks.server.ts が load 前に解決した値なので、本 request 内で
-	// reconcile が契約を反映した場合は古い (無料プランのまま)。反映したときだけ DB から
-	// 引き直す (reconcile 側が request キャッシュを破棄済みなので最新値が返る)。
-	const entitlement =
-		checkoutReconciliation?.status === 'applied'
-			? await resolveTenantEntitlement(tenantId)
-			: {
-					licenseStatus: locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-					plan: locals.context?.plan,
-				};
 	const tier = await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan);
 	const planLimits = getPlanLimits(tier);
 	let activityCount = 0;
@@ -124,13 +132,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			const raw = url.searchParams.get(PORTAL_FALLBACK_REASON_PARAM);
 			return isPortalFallbackReason(raw) ? raw : PORTAL_FALLBACK_REASON.FLOW_REJECTED;
 		})(),
-		trialStatus: {
-			isTrialActive: trialStatus.isTrialActive,
-			trialUsed: trialStatus.trialUsed,
-			daysRemaining: trialStatus.daysRemaining,
-			trialEndDate: trialStatus.trialEndDate,
-			trialTier: trialStatus.trialTier,
-		},
+		// #4628: 手で組み直すと `isTrialActive` と `trialEndDate` の相関が推論から消え、
+		// 画面側の `{#if trialStatus.isTrialActive}` で narrowing が効かなくなる。射影は
+		// `toTrialStatusView` に集約する (route での再インライン化は fitness test が止める)。
+		trialStatus: toTrialStatusView(trialStatus),
 		// #3991: 期末解約の予約状態 (null = 契約なし / Stripe 未設定 / 取得失敗)
 		cancellation,
 		// EPIC #2327 / #2328: runtimeMode は +layout.server.ts (admin layout) で
@@ -145,7 +150,8 @@ export const actions: Actions = {
 		const started = await startTrial({
 			tenantId,
 			source: 'user_initiated',
-			tier: 'standard',
+			// #4501: tier は TRIAL_TIER (premium 固定、FR-2)。呼び出し側で選ばない
+			tier: TRIAL_TIER,
 		});
 
 		if (!started) {

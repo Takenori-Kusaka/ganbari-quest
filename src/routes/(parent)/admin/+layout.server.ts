@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import {
@@ -73,6 +74,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
 		getSettings(
 			[
@@ -84,7 +86,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 			],
 			tenantId,
 		),
-		getTrialStatus(tenantId),
+		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
+		getTrialStatus(tenantId, licenseStatus),
 	]);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
@@ -95,11 +98,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
-	const planTier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
@@ -126,10 +125,22 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
 	}
 
-	// #783: トライアル終了後に free プランの上限を超えるリソースを archive する。
+	// #783 / #4585-2: 有料相当から無料プランに戻ったテナントで、無料プランの上限を超える
+	// リソースを archive する (顧客が選ばずに手続きを終えた場合の fallback)。
 	// 冪等: 既に archive 済みなら超過はなく何もしない。
-	const isTrialExpired = trialStatus.trialUsed && !trialStatus.isTrialActive;
-	if (planTier === 'free' && isTrialExpired) {
+	//
+	// #4585-2: 起動条件を `trialUsed` (体験の履歴) から**プラン遷移**へ移した。判定は
+	// `hasRevertedToFreePlan` が SSOT で、解約フロー / 請求パネル / dunning の 3 経路とも
+	// 同じ終端 (contract-state-matrix S5) を見る。体験を経ず直接課金した顧客が解約しても
+	// 発火しなかった穴 (#4585 ①) が塞がり、#4603 が解約画面で示した fallback が実際に起きる。
+	const revertedToFreePlan = hasRevertedToFreePlan({
+		planTier,
+		tenantStatus,
+		stripeSubscriptionId: locals.context?.stripeSubscriptionId,
+		trialUsed: trialStatus.trialUsed,
+		isTrialActive: trialStatus.isTrialActive,
+	});
+	if (revertedToFreePlan) {
 		try {
 			const result = await archiveExcessResources(tenantId);
 			if (
@@ -137,7 +148,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 				result.archivedActivityIds.length > 0 ||
 				result.archivedChecklistTemplateIds.length > 0
 			) {
-				logger.info('[ARCHIVE] Trial expired — excess resources archived', {
+				logger.info('[ARCHIVE] Reverted to free plan — excess resources archived', {
 					context: {
 						tenantId,
 						children: result.archivedChildIds.length,
@@ -153,11 +164,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #783: archive 済みリソースの概要（UI 表示用）
-	const archivedSummary =
-		planTier === 'free' && isTrialExpired
-			? await getArchivedResourceSummary(tenantId)
-			: { archivedChildCount: 0, hasArchivedResources: false };
+	// #783: archive 済みリソースの概要（UI 表示用）。
+	// #4585-2: 起動条件と同じ述語で判定する。ここだけ体験基準のままだと、解約した顧客に
+	// 「アーカイブしました」の告知が出ないまま archive だけが進む。
+	const archivedSummary = revertedToFreePlan
+		? await getArchivedResourceSummary(tenantId)
+		: { archivedChildCount: 0, hasArchivedResources: false };
 
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
@@ -208,11 +220,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		planTier,
 		tutorialStarted,
 		userRole,
+		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
+		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
+		// client まで運ばれ、「flag と値が別々に届く = 相関の消えた形」を増やしていたので落とす。
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,
 			trialUsed: trialStatus.trialUsed,
-			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
 		archivedSummary,
