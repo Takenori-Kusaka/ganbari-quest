@@ -45,6 +45,9 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/certificates',
 	'/admin/growth-book',
 	'/admin/rewards/requests',
+	// #4677 (EPIC #4650): みんなのテンプレート一覧 (AdminLayout 非使用だが同じ engine / 静的パス)。
+	// 条件付き step (optional) の step 列・「selector step は必ず光る」は marketplace-page-guide.spec.ts 側。
+	'/marketplace',
 ] as const;
 
 const VIEWPORTS = [

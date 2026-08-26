@@ -281,6 +281,21 @@ export async function markCompleted(id: string, _tenantId: string): Promise<void
 		.run();
 }
 
+/** #4686: とりけし時の対称巻き戻し (未受取の completed のみ active に戻す)。 */
+export async function revertCompletion(id: string, _tenantId: string): Promise<void> {
+	const now = new Date().toISOString();
+	db.update(childChallenges)
+		.set({ completed: 0, completedAt: null, status: 'active', updatedAt: now })
+		.where(
+			and(
+				eq(childChallenges.id, Number(id)),
+				eq(childChallenges.completed, 1),
+				eq(childChallenges.rewardClaimed, 0),
+			),
+		)
+		.run();
+}
+
 /**
  * #4410: 達成祝福を「見せた」ことを記録する (NULL → 現在時刻)。
  *
