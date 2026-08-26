@@ -14,12 +14,13 @@ describe('#1963 SUBSCRIPTION_PAGE_LABELS — atom 直書き撤廃後の文字列
 		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFree).toBe('無料プラン');
 	});
 
+	// #4501: トライアルの tier を premium 固定 (FR-2) に合わせたため、画面表記も
+	// プレミアムに変わる。本 test の主題は「atom 参照後も文字列値が一致するか」であり、
+	// プラン名の期待値は実挙動に追従させる (トライアルで開くのは premium の全機能)。
 	it('無料トライアル: terms.ts 参照後も文字列値が一致', () => {
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe('スタンダードプラン トライアル中');
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe('プレミアムプラン トライアル中');
 		expect(SUBSCRIPTION_PAGE_LABELS.trialStartTitle).toBe('7日間 無料でお試し');
-		expect(SUBSCRIPTION_PAGE_LABELS.trialStartDesc).toBe(
-			'スタンダードプランの全機能を体験できます',
-		);
+		expect(SUBSCRIPTION_PAGE_LABELS.trialStartDesc).toBe('プレミアムプランの全機能を体験できます');
 	});
 
 	it('スタンダードプラン詳細: terms.ts 参照後も文字列値が一致', () => {
