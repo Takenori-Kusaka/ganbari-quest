@@ -23,8 +23,15 @@ let { step, guide, progress, isFirst, isLast, onEnd, onPrev, onNext }: Props = $
   値は Svelte 5 の reactive プロパティ更新で自然に追従する。
 -->
 <!-- data-step-selector: この step が実要素を指すか (空 = 中央 modal の概要 step) を E2E が読む
-     (#4653: selector 付き step は必ず非 0 の実要素に spotlight する、page-guide-layout-invariant.spec.ts)。 -->
-<div class="guide-bubble" data-step-id={step.id} data-step-selector={step.selector ?? ''}>
+     (#4653: selector 付き step は必ず非 0 の実要素に spotlight する、page-guide-layout-invariant.spec.ts)。
+     data-has-target (#4677): selector を持つ step か。E2E (marketplace-page-guide.spec.ts) が
+     「selector step は必ず実要素に spotlight する」を機械検証するための属性 (EPIC #4650 判断 4)。 -->
+<div
+	class="guide-bubble"
+	data-step-id={step.id}
+	data-step-selector={step.selector ?? ''}
+	data-has-target={step.selector ? 'true' : 'false'}
+>
 	<!-- Header -->
 	<div class="guide-header">
 		<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
