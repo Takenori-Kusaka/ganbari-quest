@@ -42,6 +42,10 @@ const stripShebangPlugin = {
 
 export default defineConfig({
 	plugins: [stripShebangPlugin, tailwindcss(), sveltekit()],
+	// #4677: 並列 worktree が node_modules をジャンクション共有すると、既定の cacheDir (node_modules/.vite)
+	// を複数 dev server が奪い合い「There is a new version of the pre-bundle」で full reload が走る
+	// (E2E 実行中のページガイドが消える等の偽陽性)。VITE_CACHE_DIR で worktree ごとに分離できるようにする。
+	...(process.env.VITE_CACHE_DIR ? { cacheDir: process.env.VITE_CACHE_DIR } : {}),
 	server: {
 		fs: {
 			// git worktree (`tmp/wt-XXXX/` または `.claude/worktrees/<name>/`) で起動した時、

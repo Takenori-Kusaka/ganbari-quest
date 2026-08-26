@@ -19,14 +19,17 @@
 //
 // - 受諾 txn の失敗理由 (`AcceptInviteFailure`) のどれかが、wire の理由コードに写像されない
 // - 理由コードのどれかに案内文が無い
-// - 案内を出す判定が理由コードの SSOT (`isInviteAcceptErrorCode`) を経由しない形に戻る
+// - 案内を出す判定が理由コードの手書き allowlist に戻る (理由を足すと素通りする形)
 
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
-import { INVITE_ACCEPT_ERROR_CODES, isInviteAcceptErrorCode } from '$lib/domain/validation/auth';
+import { INVITE_ACCEPT_ERROR_BANNERS } from '$lib/domain/labels';
+import {
+	INVITE_ACCEPT_ERROR_REASONS,
+	isInviteAcceptErrorReason,
+} from '$lib/domain/validation/auth';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const readSrc = (rel: string) => readFileSync(join(REPO_ROOT, rel), 'utf-8');
@@ -61,7 +64,7 @@ describe('#4704 招待受諾の失敗理由は必ず顧客向け案内を持つ'
 	it('この test 自体が空振りしない (理由と写像を実ファイルから読めている)', () => {
 		expect(acceptInviteFailureReasons().length).toBeGreaterThanOrEqual(4);
 		expect(Object.keys(acceptInviteFailureErrorMap()).length).toBeGreaterThanOrEqual(4);
-		expect(INVITE_ACCEPT_ERROR_CODES.length).toBeGreaterThanOrEqual(4);
+		expect(INVITE_ACCEPT_ERROR_REASONS.length).toBeGreaterThanOrEqual(4);
 	});
 
 	it('受諾 txn の全失敗理由が wire の理由コードに写像される', () => {
@@ -74,16 +77,18 @@ describe('#4704 招待受諾の失敗理由は必ず顧客向け案内を持つ'
 	it('写像先の理由コードが全て SSOT の union に含まれる', () => {
 		for (const code of Object.values(acceptInviteFailureErrorMap())) {
 			expect(
-				isInviteAcceptErrorCode(code),
-				`理由コード ${code} が INVITE_ACCEPT_ERROR_CODES にありません (案内が出ず、` +
+				isInviteAcceptErrorReason(code),
+				`理由コード ${code} が INVITE_ACCEPT_ERROR_REASONS にありません (案内が出ず、` +
 					`受諾失敗 → 新規家族グループ自動作成で無説明の dead-end になります)`,
 			).toBe(true);
 		}
 	});
 
 	it('全ての理由コードに「なぜ」と「次に何を」を含む案内文がある', () => {
-		for (const code of INVITE_ACCEPT_ERROR_CODES) {
-			const banner = AUTH_INVITE_LABELS.acceptErrorBanners[code];
+		for (const code of INVITE_ACCEPT_ERROR_REASONS) {
+			// 汎用 fallback (getInviteAcceptErrorBanner) ではなく対応表を直接引く。
+			// fallback 経由だと「案内が無い理由」が汎用文言で埋まって検出できない。
+			const banner: string = INVITE_ACCEPT_ERROR_BANNERS[code];
 			expect(banner, `${code} の案内文がありません`).toBeTruthy();
 			// 受諾できなかった事実 + 新グループが作られた事実 + 次アクションを必ず含める
 			expect(banner, `${code} の案内が新規グループ作成に触れていません`).toContain(
@@ -93,16 +98,18 @@ describe('#4704 招待受諾の失敗理由は必ず顧客向け案内を持つ'
 		}
 	});
 
-	it('案内を出す判定が理由コードの SSOT を経由している (手書き allowlist に戻っていない)', () => {
+	it('案内を出す判定が理由を選ばない (手書き allowlist に戻っていない)', () => {
 		const provider = readSrc('src/lib/server/auth/providers/cognito.ts');
-		expect(provider).toContain('isInviteAcceptErrorCode(result.error)');
+		// 受諾失敗はどの理由でも通知 cookie を積む (#4633 AC-A)。
+		expect(provider).toContain('this.setInviteAcceptErrorCookie(event, result.error)');
 		// 個別コードの比較で分岐する形に戻ったら落とす (#4704 の再発形)
 		expect(
 			/result\.error === '[A-Z_]+'/.test(provider),
 			'受諾失敗の案内判定が理由コードの直接比較に戻っています (理由を足したとき素通りします)',
 		).toBe(false);
 
+		// admin layout も理由を絞らずに受け取る (未知の理由は汎用文言に落ちる)。
 		const layout = readSrc('src/routes/(parent)/admin/+layout.server.ts');
-		expect(layout).toContain('isInviteAcceptErrorCode(rawInviteAcceptError)');
+		expect(layout).toContain('const inviteAcceptError = rawInviteAcceptError');
 	});
 });

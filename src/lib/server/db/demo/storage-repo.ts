@@ -30,6 +30,11 @@ export async function deleteByPrefix(_prefix: string): Promise<number> {
 	return 0;
 }
 
+/** Stub: demo Lambda はファイル実体を持たない (#4724)。 */
+export async function purgeByPrefix(_prefix: string): Promise<number> {
+	return 0;
+}
+
 export async function getDownloadUrl(
 	_key: string,
 	_opts: { expiresIn: number },

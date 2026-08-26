@@ -240,10 +240,15 @@ export async function suggestActivity(text: string): Promise<SuggestedActivity> 
 		try {
 			return await suggestWithAi(text);
 		} catch (e) {
+			// #4726: **顧客の入力文 (`text`) は載せない**。ここは 30 日保持のアプリ log group へ
+			// 出るうえ、fallback 率 alarm が運営をこの log group へ誘導する。子供の名前を含みうる
+			// 自由文が「AI が壊れている間ずっと積み上がる」形になっていた。
+			// 障害の切り分けに要るのは例外の種類であって入力の中身ではない
+			// (入力起因かどうかは `textLength` の桁で足りる)。
 			logger.error('[activity-suggest] AI API失敗、フォールバック使用', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
-				context: { text },
+				context: { textLength: text.length },
 			});
 		}
 	}

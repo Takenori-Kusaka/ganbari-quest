@@ -1,7 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
-import type { InviteAcceptErrorCode } from '$lib/domain/validation/auth';
+import { getInviteAcceptErrorBanner } from '$lib/domain/labels';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
@@ -43,7 +42,9 @@ interface Props {
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
 		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		inviteAcceptError?: InviteAcceptErrorCode | null;
+		// #4633 AC-A: 拒否理由は email 束縛の 2 種に限らない (文言解決は
+		// getInviteAcceptErrorBanner が担い、未知の理由は汎用文言に落ちる)。
+		inviteAcceptError?: string | null;
 	};
 	children: Snippet;
 }
@@ -91,13 +92,13 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
-	<!-- #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
+	<!-- #3555 ① / #4704: 招待受諾が拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
 	{#if data.inviteAcceptError}
 		<div style:margin-bottom="16px">
 			<Alert
 				variant="warning"
 				data-testid="invite-accept-error-banner"
-				message={AUTH_INVITE_LABELS.acceptErrorBanners[data.inviteAcceptError]}
+				message={getInviteAcceptErrorBanner(data.inviteAcceptError)}
 			/>
 		</div>
 	{/if}

@@ -2,7 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/invite-service.ts
 // 招待リンクサービス (#0129)
 
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { isEntitledStatus } from '$lib/domain/constants/subscription-status';
 import type { Invite, Membership } from '$lib/server/auth/entities';
 import { checkInviteEmailBinding } from '$lib/server/auth/invite-email-binding';
 import type { Role } from '$lib/server/auth/types';
@@ -83,9 +83,13 @@ async function preflightAcceptInvite(
 		return existing?.role === 'owner' ? 'OWNER_CANNOT_BE_DOWNGRADED' : 'ALREADY_IN_TENANT';
 	}
 
-	// テナントの存在確認
+	// テナントの存在確認。
+	// #4633: 判定は「機能が利用可能な status か」= isEntitledStatus (active + grace_period)。
+	// active 厳密一致だと、支払いが 1 回失敗して猶予期間に入っただけの有料世帯からの招待が
+	// すべて TENANT_NOT_FOUND で拒否される (機能自体は使えている世帯なのに受諾だけ落ちる)。
+	// suspended / terminated は従来どおり拒否のまま。
 	const tenant = await repos().auth.findTenantById(invite.tenantId);
-	if (!tenant || tenant.status !== SUBSCRIPTION_STATUS.ACTIVE) return 'TENANT_NOT_FOUND';
+	if (!tenant || !isEntitledStatus(tenant.status)) return 'TENANT_NOT_FOUND';
 
 	return null;
 }

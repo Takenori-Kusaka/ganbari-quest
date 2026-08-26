@@ -31,7 +31,11 @@ const config = {
 			// #832: /sitemap.xml はクローラ経由では到達できない（/ → /setup リダイレクト
 			// のため）。明示的にエントリポイントに追加する。
 			// '*' はデフォルトの「/ から辿れるページを全部クロール」を維持。
-			entries: ['*', '/sitemap.xml'],
+			// #4644: /offline も同様にクローラ経由では到達できない (どのページからもリンク
+			// されない。オフライン時に Service Worker が内部的に返す着地ページのため)。
+			// ここに書かないと prerender されず precache にも載らず、肝心のオフライン時に
+			// 表示できない。
+			entries: ['*', '/sitemap.xml', '/offline'],
 		},
 		// #3829 (EPIC #3408 slice C): アプリ側 CSP を SvelteKit 標準 CSP (kit.csp hash mode) に一本化。
 		// SvelteKit が hydration bootstrap の inline `<script>` を sha256 hash 化して `script-src` に

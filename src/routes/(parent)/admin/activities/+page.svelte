@@ -27,6 +27,7 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
@@ -134,9 +135,13 @@ let showBulkCreateDialog = $state(false);
 // `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
 // effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人で `?import=` を開いたら空 dialog を出さず「まずは登録」を案内する
+// (marketplace 詳細が 0 人のとき /setup/children へ分岐するのと同じ扱い)。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	const pid = data.importPresetId;
-	if (pid && pid !== consumedImportPresetId) {
+	if (pid && pid !== consumedImportPresetId && !hasNoChildren) {
 		consumedImportPresetId = pid;
 		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
@@ -332,12 +337,31 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 		isImporting = false;
 		pendingImportPresetId = null;
 		showChildSelectionDialog = false;
+		// #4692 F5: 取込確定後は URL から `?import=` を消す (rewards / checklists と同実装)。
+		// 残したままだと F5 / 戻るで「どのお子さまに追加?」が再表示される。
+		clearImportParam();
 	}
 }
 
+// #4692 F5: `?import=<presetId>` を URL から除去する (取込確定 / キャンセル / タブ切替時)。
+function clearImportParam() {
+	if (typeof window === 'undefined') return;
+	const url = new URL(window.location.href);
+	if (!url.searchParams.has('import')) return;
+	url.searchParams.delete('import');
+	url.searchParams.delete('indexes');
+	window.history.replaceState({}, '', url.toString());
+}
+
 function handleChildSelectionCancel() {
+	// cancel した presetId もラッチし、effect 再発火による dialog 再 open を防ぐ
+	// (checklists の同名 handler と同型)。
+	if (pendingImportPresetId) {
+		consumedImportPresetId = pendingImportPresetId;
+	}
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
+	clearImportParam();
 }
 
 // #2558 段階2: バックアップから復元 (JSON / CSV ファイルを ?/importFile に POST)。
@@ -354,6 +378,9 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 	restoreLoading = true;
 	const formData = new FormData();
 	formData.append('file', file);
+	// #4692 F1: 復元先は選択中の子。旧実装は childId を送らず、server 側 fallback で
+	// 常に最初の子に入っていた (けんたのタブで復元 → たろうに 94 件)。
+	formData.append('childId', String(selectedChildId));
 	try {
 		// #4693: 復元も ActionResult 判定に統一する (上限で fail したことを握り潰さない)。
 		const resp = await fetch('?/importFile', {
@@ -483,6 +510,9 @@ function selectChild(childId: ChildId) {
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
 		url.searchParams.set('childId', String(childId));
+		// import param は dialog auto-open でしか使わないので消す (戻ったとき再 open しない)
+		url.searchParams.delete('import');
+		url.searchParams.delete('indexes');
 		window.history.replaceState({}, '', url.toString());
 	}
 }
@@ -500,7 +530,13 @@ function selectChild(childId: ChildId) {
 		onAddSelect={handleAddSelect}
 		onRestore={() => { showRestoreDialog = true; }}
 		canCopyFromChild={data.children.length >= 2}
+		selectedChildId={selectedChild ? selectedChildId : undefined}
 	/>
+
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="activities-import-needs-child" />
+	{/if}
 
 	<!-- #2362 PR-3 Phase 4: 子供タブ切替 UI -->
 	{#if data.children.length > 0}
@@ -549,12 +585,16 @@ function selectChild(childId: ChildId) {
 		     構造的に発生しない。表示軸が selected child の per-child のみに一本化された。 -->
 	{/if}
 
-	{#if showClearConfirm}
+	<!-- #4692 F3: 「すべて削除」は選択中の子だけが対象。対象の子が確定していないときは出さない。 -->
+	{#if showClearConfirm && selectedChild}
 		<ActivityClearAllConfirm
 			bind:loading={clearLoading}
 			onsubmit={() => {}}
 			onresult={(msg) => { actionMessage = msg; showClearConfirm = false; }}
 			oncancel={() => { showClearConfirm = false; }}
+			childId={selectedChildId}
+			childName={selectedChild.nickname}
+			activityCount={perChildActivities.length}
 		/>
 	{/if}
 

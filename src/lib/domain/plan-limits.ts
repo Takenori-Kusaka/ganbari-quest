@@ -20,9 +20,11 @@
 // tier の解決 (trial / debug plan / セルフホスト等、環境に依存する判断) は従来どおり
 // `plan-limit-service.ts` の責務であり、ここには置かない。
 
+import { FAMILY_MEMBER_LIMIT } from './constants/family-member-limit';
 import { PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import type { PlanTier } from './constants/plan-tier';
 import { isCustomRewardUnlocked } from './custom-reward-gate';
+import { isFreeTextMessageUnlocked } from './free-text-message-gate';
 
 export interface PlanLimits {
 	maxChildren: number | null; // null = 無制限
@@ -53,11 +55,12 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
 		maxChecklistTemplates: 3,
 		// #1111: フリープランは招待不可（owner のみ）
-		maxFamilyMembers: 1,
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.free,
 		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
 		canExport: false,
-		canFreeTextMessage: false,
+		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
+		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
 		canCustomReward: isCustomRewardUnlocked('free'),
 		canSiblingRanking: false,
 		maxCloudExports: 0,
@@ -67,10 +70,10 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxActivities: null,
 		maxChecklistTemplates: null,
 		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
-		maxFamilyMembers: 4,
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.standard,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
-		canFreeTextMessage: false,
+		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
 		canCustomReward: isCustomRewardUnlocked('standard'),
 		canSiblingRanking: false,
 		maxCloudExports: 3,
@@ -80,10 +83,10 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxActivities: null,
 		maxChecklistTemplates: null,
 		// #1111: PLAN_LABELS.family は無制限
-		maxFamilyMembers: null,
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.family,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
-		canFreeTextMessage: true,
+		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
 		canCustomReward: isCustomRewardUnlocked('family'),
 		canSiblingRanking: true,
 		maxCloudExports: 10,

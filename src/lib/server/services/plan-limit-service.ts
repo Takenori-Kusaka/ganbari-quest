@@ -291,8 +291,16 @@ export async function checkFamilyMemberLimit(
 		repos.auth.findTenantMembers(tenantId),
 		repos.auth.findTenantInvites(tenantId),
 	]);
-	const now = new Date().toISOString();
-	const pendingInvites = invites.filter((i) => i.status === 'pending' && i.expiresAt > now);
+	// #4704: 期限判定は **文字列の辞書順ではなく時刻値** で行う。`Invite.expiresAt` は
+	// repo が raw 行の timestamptz をそのまま渡した値で、Postgres 系 backend では
+	// `2026-09-03 08:47:00+00` のように ISO-8601 (`...T...Z`) と書式が異なり得る。
+	// 辞書順だと同日内の比較が空白 (0x20) と 'T' (0x54) の差で反転し、有効な招待を
+	// 期限切れと誤判定して席に数えなくなる (= 上限を超えて発行できてしまう)。
+	// `invite-service.ts` の期限判定 (`new Date(invite.expiresAt) < new Date()`) と同じ規約に揃える。
+	const nowMs = Date.now();
+	const pendingInvites = invites.filter(
+		(i) => i.status === 'pending' && new Date(i.expiresAt).getTime() > nowMs,
+	);
 	const current = members.length + pendingInvites.length;
 
 	return {
