@@ -4,9 +4,13 @@ import { APP_LABELS, formatAgeKana, VIEW_PAGE_LABELS } from '$lib/domain/labels'
 
 let { data } = $props();
 
-// #4512: 旧実装は 5 カテゴリの name / icon を setup/packs と二重にハードコードしていた
-// (カテゴリを増減しても本画面だけ取り残される並行実装)。SSOT は categories.ts。
-function categoryMeta(categoryId: number | string) {
+/**
+ * #4703 / #4512: カテゴリ名 / アイコンは `categories.ts` (SSOT) から引く。
+ * 旧実装は本 component 内に 5 件を直書きしており (setup/packs との並行実装)、
+ * SSOT を変えてもこの画面だけ古い名前を出し続ける形だった
+ * (DESIGN.md §6 用語ハードコード禁止)。
+ */
+function categoryMeta(categoryId: string) {
 	const code = toCategoryCode(categoryId);
 	return code ? CATEGORIES[code] : undefined;
 }
@@ -39,7 +43,7 @@ function categoryMeta(categoryId: number | string) {
 					</div>
 
 					<div class="child-stats">
-						<div class="stat-item">
+						<div class="stat-item" data-testid="viewer-child-points">
 							<span class="stat-value">{child.totalPoints.toLocaleString()}</span>
 							<span class="stat-label">{VIEW_PAGE_LABELS.statPointLabel}</span>
 						</div>
@@ -88,12 +92,12 @@ function categoryMeta(categoryId: number | string) {
 
 	.viewer-header h1 {
 		font-size: 1.5rem;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.viewer-label {
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 		margin: 0.25rem 0 0;
 	}
@@ -104,14 +108,14 @@ function categoryMeta(categoryId: number | string) {
 		padding: 0.25rem 0.75rem;
 		border-radius: 9999px;
 		font-size: 0.75rem;
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #94a3b8);
+		background: var(--color-surface-muted);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-empty {
 		text-align: center;
 		padding: 3rem 1rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.viewer-children {
@@ -122,8 +126,8 @@ function categoryMeta(categoryId: number | string) {
 	}
 
 	.child-card {
-		background: var(--color-surface-card, #fff);
-		border: 1px solid var(--color-border-default, #e2e8f0);
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
 		border-radius: 1rem;
 		padding: 1.25rem;
 	}
@@ -138,13 +142,13 @@ function categoryMeta(categoryId: number | string) {
 	.child-name {
 		font-size: 1.25rem;
 		font-weight: 700;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
 	.child-age {
 		font-size: 0.875rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.child-stats {
@@ -161,12 +165,12 @@ function categoryMeta(categoryId: number | string) {
 	.stat-value {
 		font-size: 1.5rem;
 		font-weight: 700;
-		color: var(--color-action-primary, #667eea);
+		color: var(--color-action-primary);
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 
 	.category-grid {
@@ -181,7 +185,7 @@ function categoryMeta(categoryId: number | string) {
 		align-items: center;
 		padding: 0.5rem;
 		border-radius: 0.5rem;
-		background: var(--color-surface-muted, #f8fafc);
+		background: var(--color-surface-muted);
 	}
 
 	.category-icon {
@@ -190,19 +194,19 @@ function categoryMeta(categoryId: number | string) {
 
 	.category-name {
 		font-size: 0.75rem;
-		color: var(--color-text-secondary, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.category-level {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-text-primary, #1e293b);
+		color: var(--color-text-primary);
 	}
 
 	.viewer-footer {
 		text-align: center;
 		padding: 2rem 0 1rem;
 		font-size: 0.75rem;
-		color: var(--color-text-muted, #94a3b8);
+		color: var(--color-text-muted);
 	}
 </style>

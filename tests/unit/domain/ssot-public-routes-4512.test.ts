@@ -127,7 +127,9 @@ describe('#4512 SSOT 集約した文言が labels.ts 側に存在する', () => 
 		expect(SETUP_CHILDREN_LABELS.errorNicknameRequired).toBe('ニックネームを入力してください');
 		expect(SETUP_CHILDREN_LABELS.errorNoChildren).toBe('1人以上の子供を登録してください');
 		expect(SWITCH_PAGE_LABELS.errorChildRequired).toBe('こどもをえらんでね');
-		expect(VIEW_PAGE_LABELS.errorInvalidToken).toBe('このリンクは無効か、期限切れです');
+		// #4703 が同一文言を invalidTokenTitle として先に SSOT 化したため、そちらへ寄せる
+		// (重複 atom を作らない)。#4512 の意図 = server 側が直書きしないこと は不変。
+		expect(VIEW_PAGE_LABELS.invalidTokenTitle).toBe('このリンクは無効か、期限切れです');
 		expect(MARKETPLACE_LABELS.errorInvalidType).toBe('コンテンツタイプが不正です');
 		expect(MARKETPLACE_LABELS.errorItemNotFound).toBe('コンテンツが見つかりません');
 	});

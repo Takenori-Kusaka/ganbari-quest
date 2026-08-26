@@ -2,6 +2,7 @@
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { toJSTDateString } from '$lib/domain/date-utils';
 import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, UI_LABELS } from '$lib/domain/labels';
@@ -86,7 +87,18 @@ $effect(() => {
 	}
 	if (data.importPresetError === 'wrong-type' && data.importPresetIdRaw) {
 		autoImportTriggered = true;
-		showToast(ADMIN_RULES_PAGE_LABELS.importToastError(data.importPresetIdRaw), undefined, 'error');
+		// #4711: 種類違いは「失敗 → 再試行」ではなく専用文言 + 正規経路 (交換型 = ごほうび管理)。
+		// 表示名は load 側で marketplace から引く (内部 ID を出さない)。
+		const name = data.importPresetName ?? data.importPresetIdRaw;
+		const hint = data.importWrongTypeRewardPresetId
+			? ADMIN_RULES_PAGE_LABELS.importWrongTypeExchangeHint
+			: ADMIN_RULES_PAGE_LABELS.importWrongTypeNotImportable;
+		showToast(ADMIN_RULES_PAGE_LABELS.importToastWrongType(name), hint, 'error');
+		importMessage = {
+			text: `${ADMIN_RULES_PAGE_LABELS.importToastWrongType(name)} ${hint}`,
+			tone: 'error',
+			rewardPresetId: data.importWrongTypeRewardPresetId,
+		};
 		cleanupImportQueryParam();
 		return;
 	}
@@ -116,6 +128,19 @@ type ImportFormResult = {
 let lastProcessedImportFingerprint = $state<string | null>(null);
 let demoNoopToastShown = $state(false);
 
+// #4711: 取込結果の in-page banner (Toast との 2 層構成、DESIGN.md §5 Toast)。
+// Toast は 3 秒で消えるため、2 回目取込の「取込済み」や種類違いの案内が見逃されないよう
+// role="status" の banner を併置する (E2E もこちらを待つ)。
+type ImportMessage = {
+	text: string;
+	tone: 'success' | 'info' | 'error';
+	/** 交換型を誤って開いたときの正規経路 (admin/rewards?import=<id>) */
+	rewardPresetId?: string | null;
+};
+let importMessage = $state<ImportMessage | null>(null);
+// 正規経路 link の base (svelte/no-navigation-without-resolve: href は resolve() 起点で組む)
+const rewardsImportBase = resolve('/admin/rewards');
+
 $effect(() => {
 	if (!form) return;
 	const r = form as ImportFormResult;
@@ -135,12 +160,21 @@ $effect(() => {
 		const display = r.packName ?? r.presetId;
 		if (r.imported > 0) {
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastSuccess(display), undefined, 'success');
-		} else if (r.skipped === r.total && (r.total ?? 0) > 0) {
+			importMessage = {
+				text: ADMIN_RULES_PAGE_LABELS.importToastSuccess(display),
+				tone: 'success',
+			};
+		} else if ((r.skipped ?? 0) > 0) {
+			// #4711: duplicate 判定は preset 単位 (imported === 0 && skipped > 0)。bonus は
+			// preset 1 件を skipped=1 で返し total は rule 数 (3) なので、旧条件
+			// `skipped === total` では 2 回目取込が無反応だった。
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastDuplicate(display), undefined, 'info');
+			importMessage = { text: ADMIN_RULES_PAGE_LABELS.importToastDuplicate(display), tone: 'info' };
 		} else if ((r.failed ?? 0) > 0) {
 			// #2955: errors.length 判定だと rule-preset の warnings (非失敗) が error toast に
 			// 誤判定される (penalty/special の no-op warning 等)。failed (genuine error 数) で判定する。
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastError(display), undefined, 'error');
+			importMessage = { text: ADMIN_RULES_PAGE_LABELS.importToastError(display), tone: 'error' };
 		}
 		cleanupImportQueryParam();
 	}
@@ -201,6 +235,31 @@ function formatImportedAt(iso: string): string {
 			{ADMIN_RULES_PAGE_LABELS.pageDescription}
 		</p>
 	</header>
+
+	{#if importMessage}
+		<!-- #4711: 取込結果 banner (Toast 2 層目)。種類違いは正規経路への link を添える。 -->
+		<div
+			role="status"
+			class="rounded-xl p-3 text-sm border {importMessage.tone === 'success'
+				? 'bg-[var(--color-feedback-success-bg)] border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)]'
+				: importMessage.tone === 'error'
+					? 'bg-[var(--color-feedback-error-bg)] border-[var(--color-feedback-error-border)] text-[var(--color-feedback-error-text)]'
+					: 'bg-[var(--color-feedback-info-bg)] border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)]'}"
+			data-testid="rules-action-message"
+			data-tone={importMessage.tone}
+		>
+			<span>{importMessage.text}</span>
+			{#if importMessage.rewardPresetId}
+				<a
+					href="{rewardsImportBase}?import={encodeURIComponent(importMessage.rewardPresetId)}"
+					class="ml-2 font-bold underline"
+					data-testid="rules-import-wrong-type-link"
+				>
+					{ADMIN_RULES_PAGE_LABELS.importWrongTypeGoToRewards}
+				</a>
+			{/if}
+		</div>
+	{/if}
 
 	{#if form?.toggleSuccess || form?.removeSuccess || form?.rewardAutoApproveSuccess}
 		<div

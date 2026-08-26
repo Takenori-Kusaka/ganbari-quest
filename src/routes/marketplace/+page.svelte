@@ -228,7 +228,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 		</div>
 
 		<!-- Type counts summary (#2896: 3 type / mobile 3 列・desktop 3 列) -->
-		<!-- #3263 (EPIC #3260 F2): ページガイド marketplace-browse step のスポットライト対象 -->
+		<!-- #3263 (EPIC #3260 F2) / #4677: ページガイド marketplace-browse step のスポットライト対象 -->
 		<div class="grid grid-cols-3 gap-2 mb-6" data-tutorial="marketplace-type-filter">
 			{#each typeKeys as t (t)}
 				<a
@@ -251,6 +251,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 			<div
 				class="mb-4 flex items-center justify-between gap-2 rounded-xl border border-[var(--color-border-success)] bg-[var(--color-feedback-success-bg)] px-3 py-2"
 				data-testid="age-auto-filter-hint"
+				data-tutorial="marketplace-age-auto-filter"
 			>
 				<span class="text-xs font-medium text-[var(--color-feedback-success-text)]">
 					{MARKETPLACE_FILTER_LABELS.autoAgeFilterApplied(
@@ -282,6 +283,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					type="button"
 					class="md:hidden tap-target inline-flex items-center gap-1 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-card)] border border-[var(--color-border-default)] text-sm font-medium text-[var(--color-text-primary)]"
 					data-testid="filter-open-button"
+					data-tutorial="marketplace-filter-open"
 					onclick={() => {
 						mobileFilterOpen = true;
 					}}
@@ -289,7 +291,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					⚙️ {MARKETPLACE_FILTER_LABELS.open}
 				</button>
 				<!-- Sort select -->
-				<div class="w-36" data-testid="sort-select">
+				<div class="w-36" data-testid="sort-select" data-tutorial="marketplace-sort">
 					<Select
 						label=""
 						items={sortSelectItems}
@@ -306,6 +308,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 			<aside class="hidden md:block">
 				<div
 					class="sticky top-4 bg-[var(--color-surface-card)] rounded-xl p-4 border border-[var(--color-border-light)]"
+					data-tutorial="marketplace-filter-panel"
 				>
 					<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">
 						{MARKETPLACE_FILTER_LABELS.sectionTitle}
@@ -377,8 +380,10 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 						<p class="text-lg text-[var(--color-text-secondary)]">
 							{MARKETPLACE_FILTER_LABELS.empty}
 						</p>
+						<!-- #4677: ページガイド marketplace-empty step (0 件時) のスポットライト対象 -->
 						<a
 							href="/marketplace"
+							data-tutorial="marketplace-empty-reset"
 							class="text-sm text-[var(--color-action-primary)] hover:underline mt-2 inline-block"
 						>
 							{MARKETPLACE_FILTER_LABELS.reset}
@@ -386,35 +391,35 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					</div>
 				{/if}
 
-				<!-- CTA -->
-				<Card variant="default" padding="lg">
-					{#snippet children()}
-						<div class="text-center">
-							<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
-								{MARKETPLACE_LABELS.ctaHeading}
-							</p>
-							<p class="text-xs text-[var(--color-text-secondary)] mb-3">
-								{MARKETPLACE_LABELS.ctaSubheading}
-							</p>
-							<!-- #2303: 未ログイン CTA は /auth/login 経由 (誤新規登録防止 / data integrity 保護)。
-								login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
-							<a
-								href="/auth/login"
-								class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
-							>
-								{MARKETPLACE_LABELS.ctaStart}
-							</a>
-						</div>
-					{/snippet}
-				</Card>
+				<!-- CTA (#4711: 「アカウント登録後…」は未認証の訪問者向け。認証済の親には出さない) -->
+				{#if !data.isAuthenticated}
+					<Card variant="default" padding="lg">
+						{#snippet children()}
+							<div class="text-center" data-testid="marketplace-signup-cta-card">
+								<p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
+									{MARKETPLACE_LABELS.ctaHeading}
+								</p>
+								<p class="text-xs text-[var(--color-text-secondary)] mb-3">
+									{MARKETPLACE_LABELS.ctaSubheading}
+								</p>
+								<!-- #2303: 未ログイン CTA は /auth/login 経由 (誤新規登録防止 / data integrity 保護)。
+									login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
+								<a
+									href="/auth/login"
+									class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+								>
+									{MARKETPLACE_LABELS.ctaStart}
+								</a>
+							</div>
+						{/snippet}
+					</Card>
+				{/if}
 
-				<!-- Back links -->
+				<!-- Back links (#4677: 旧「デモを体験」/demo リンクは legacy-url-map で LP トップへ redirect され
+					デモに到達しないため撤去。demo Lambda では本ページ自体が demo 環境で動く) -->
 				<div class="text-center mt-6 flex justify-center gap-4">
 					<a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">
 						{MARKETPLACE_LABELS.backToHome}
-					</a>
-					<a href="/demo" class="text-sm text-[var(--color-action-primary)] hover:underline">
-						{MARKETPLACE_LABELS.backToDemo}
 					</a>
 				</div>
 			</div>
