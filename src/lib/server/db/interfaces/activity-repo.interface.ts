@@ -111,6 +111,11 @@ export interface IActivityRepo {
 		tenantId: string,
 	): Promise<number>;
 	countPointLedgerEntriesByType(childId: ChildId, type: string, tenantId: string): Promise<number>;
+	/**
+	 * #4696: 子供のポイント台帳の総行数。「データクリアで消える件数」を実数で見せるために使う
+	 * (0 件固定の嘘表示を出さない)。type 別ではなく全件。
+	 */
+	countPointLedgerEntries(childId: ChildId, tenantId: string): Promise<number>;
 	countPointLedgerEntriesByTypeAndDate(
 		childId: ChildId,
 		type: string,

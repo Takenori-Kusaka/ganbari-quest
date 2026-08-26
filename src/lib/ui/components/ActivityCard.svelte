@@ -171,7 +171,9 @@ function handleClick(e: Event) {
 	<CompoundIcon {icon} size={iconSize} faded={completed} />
 	<span class="font-bold leading-tight text-center line-clamp-2 {completed ? 'opacity-40' : ''}" style:font-size={textSize}>{name}</span>
 	{#if triggerHint && !completed}
-		<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{triggerHint}</span>
+		<span
+			class="text-[9px] font-bold text-[var(--color-text-warning-strong)] leading-tight text-center line-clamp-1 px-0.5"
+		>{triggerHint}</span>
 	{/if}
 
 	{#if frozen}

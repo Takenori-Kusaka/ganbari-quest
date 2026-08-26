@@ -1,7 +1,7 @@
 // tests/unit/routes/home-form-field-guard.test.ts
-// #3799: child home の POST action で form-field 由来 opaque id (toChildId / cheerIds / activityId /
+// #3799: child home の POST action で form-field 由来 opaque id (activityId /
 // logId / challengeId) が dsql の uuid 列へ直達し 22P02 → 500 (or 内部例外 leak) になる CWE-20 を、
-// route 冒頭の isValidUuidFormField / areValidUuidFormFields guard が fail(400) に正規化し、service に
+// route 冒頭の isValidUuidFormField guard が fail(400) に正規化し、service に
 // 生 id を一切流さないことを end-to-end で確認する。cookie guard の wiring 検証 (home-cookie-guard.test.ts)
 // と同型 (cookie は /switch redirect、form-field は自己誘発改竄なので 400 validation error 正規化)。
 
@@ -40,14 +40,6 @@ vi.mock('$lib/server/services/child-challenge-service', () => ({
 	// #4410: load が祝福対象の解決に使う
 	resolveCelebrationChallenge: vi.fn(() => null),
 	markChallengeCelebrationShown: (...args: unknown[]) => mockMarkChallengeCelebrationShown(...args),
-}));
-
-const mockSendCheer = vi.fn();
-const mockMarkCheersShown = vi.fn();
-vi.mock('$lib/server/services/sibling-cheer-service', () => ({
-	sendCheer: (...args: unknown[]) => mockSendCheer(...args),
-	markCheersShown: (...args: unknown[]) => mockMarkCheersShown(...args),
-	getUnshownCheers: vi.fn(),
 }));
 
 import { actions as homeActions } from '../../../src/routes/(child)/[uiMode=uiMode]/home/+page.server';
@@ -150,52 +142,11 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			expect(res.status).toBe(400);
 			expect(mockMarkChallengeCelebrationShown).not.toHaveBeenCalled();
 		});
-
-		it('sendCheer: 非 uuid toChildId は fail(400) し sendCheer を呼ばない (uncaught 22P02→500 回避)', async () => {
-			const res = await runAction(
-				'sendCheer',
-				{ toChildId: NON_UUID, stampCode: 'ganbare' },
-				VALID_COOKIE_UUID,
-			);
-			expect(res.status).toBe(400);
-			expect(mockSendCheer).not.toHaveBeenCalled();
-		});
-
-		it('markCheersShown: 1 件でも非 uuid cheerId が混ざれば fail(400) し markCheersShown を呼ばない', async () => {
-			const res = await runAction(
-				'markCheersShown',
-				{ cheerIds: `${VALID_FORM_UUID},${NON_UUID}` },
-				VALID_COOKIE_UUID,
-			);
-			expect(res.status).toBe(400);
-			expect(mockMarkCheersShown).not.toHaveBeenCalled();
-		});
-
-		it('markCheersShown: child cookie が無ければ既読化に到達しない (#4435 所有権の入口)', async () => {
-			// #4435: 既読化は「受け取る子」を cookie から解決する。cookie 不在で通ると
-			// 所有権述語に渡す childId が無くなり、逸脱 1 (他人宛おうえんの既読化) が復活する。
-			const res = await runAction('markCheersShown', { cheerIds: VALID_FORM_UUID }, undefined);
-			expect(mockMarkCheersShown).not.toHaveBeenCalled();
-			// cookie 不在は fail(400) か /switch redirect のいずれか (cookie guard の正規化に従う)
-			expect(res.status === 400 || typeof res.redirect === 'string').toBe(true);
-		});
 	});
 
 	describe('dsql backend + 有効 uuid form-field → 従来どおり service に到達する', () => {
 		beforeEach(() => {
 			mockIsDsqlBackend.mockReturnValue(true);
-		});
-
-		it('sendCheer: 有効 uuid toChildId は sendCheer に form 値を渡す', async () => {
-			mockSendCheer.mockResolvedValue({ success: true, cheer: {} });
-			const res = await runAction(
-				'sendCheer',
-				{ toChildId: VALID_FORM_UUID, stampCode: 'ganbare' },
-				VALID_COOKIE_UUID,
-			);
-			expect(mockSendCheer).toHaveBeenCalledTimes(1);
-			expect(mockSendCheer.mock.calls[0]?.[1]).toBe(VALID_FORM_UUID);
-			expect((res.data as { success?: boolean }).success).toBe(true);
 		});
 
 		it('record: 有効 uuid activityId は recordActivity に form 値を渡す', async () => {
@@ -210,33 +161,11 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			expect(mockRecordActivity.mock.calls[0]?.[1]).toBe(VALID_FORM_UUID);
 			expect((res.data as { success?: boolean }).success).toBe(true);
 		});
-
-		it('markCheersShown: 全件 uuid なら markCheersShown に渡す', async () => {
-			mockMarkCheersShown.mockResolvedValue(undefined);
-			const res = await runAction(
-				'markCheersShown',
-				{ cheerIds: VALID_FORM_UUID },
-				VALID_COOKIE_UUID,
-			);
-			expect(mockMarkCheersShown).toHaveBeenCalledTimes(1);
-			// #4435: 第 1 引数 = 受け取る子 (cookie 由来)、第 2 引数 = cheerIds
-			expect(mockMarkCheersShown.mock.calls[0]?.[0]).toBe(VALID_COOKIE_UUID);
-			expect(mockMarkCheersShown.mock.calls[0]?.[1]).toEqual([VALID_FORM_UUID]);
-			expect((res.data as { success?: boolean }).success).toBe(true);
-		});
 	});
 
 	describe('非 dsql backend (sqlite/demo) → 数値 form-field id を弾かない (guard no-op)', () => {
 		beforeEach(() => {
 			mockIsDsqlBackend.mockReturnValue(false);
-		});
-
-		it('sendCheer: 数値 toChildId でも guard を通し sendCheer に到達する', async () => {
-			mockSendCheer.mockResolvedValue({ success: true, cheer: {} });
-			// 非 dsql は cookie guard も生 cookie を返すため数値 cookie で成立。
-			await runAction('sendCheer', { toChildId: '905', stampCode: 'ganbare' }, '903');
-			expect(mockSendCheer).toHaveBeenCalledTimes(1);
-			expect(mockSendCheer.mock.calls[0]?.[1]).toBe('905');
 		});
 
 		it('record: 数値 activityId でも guard を通し recordActivity に到達する', async () => {

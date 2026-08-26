@@ -161,6 +161,8 @@ function handleRetry() {
 </div>
 {/if}
 
+<!-- #4645 スタイルの意図:
+     #4645: 白文字を載せる塗りは AA 版 (4.5:1) を使う。 -->
 <style>
 	.error-page {
 		display: flex;
@@ -170,12 +172,10 @@ function handleRetry() {
 		background: var(--color-surface-base);
 		padding: 1rem;
 	}
-
 	.error-container {
 		text-align: center;
 		max-width: 480px;
 	}
-
 	.error-status {
 		font-size: 4rem;
 		font-weight: 700;
@@ -183,19 +183,16 @@ function handleRetry() {
 		margin: 0 0 0.5rem;
 		line-height: 1;
 	}
-
 	.error-title {
 		font-size: 1.25rem;
 		margin: 0 0 1rem;
 		color: var(--color-text);
 	}
-
 	.error-description {
 		color: var(--color-text-muted);
 		line-height: 1.6;
 		margin: 0 0 1.5rem;
 	}
-
 	.countdown {
 		font-size: 3rem;
 		font-weight: 700;
@@ -203,14 +200,12 @@ function handleRetry() {
 		margin: 1rem 0;
 		line-height: 1;
 	}
-
 	.actions {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
 		margin: 1.5rem 0;
 	}
-
 	.btn {
 		display: inline-block;
 		padding: 0.75rem 1.5rem;
@@ -221,22 +216,18 @@ function handleRetry() {
 		cursor: pointer;
 		font-size: 1rem;
 	}
-
 	.btn-primary {
-		background: var(--color-action-primary);
+		background: var(--color-action-primary-strong);
 		color: var(--color-text-inverse);
 	}
-
 	.btn-primary:hover {
 		opacity: 0.9;
 	}
-
 	.btn-secondary {
 		background: var(--color-surface-card);
 		color: var(--color-text);
 		border: 1px solid var(--color-border);
 	}
-
 	/* child role: larger tap target + simple single action */
 	.error-page[data-role='child'] .error-title {
 		font-size: 1.75rem;
@@ -249,7 +240,6 @@ function handleRetry() {
 		font-size: 1.25rem;
 		min-height: 60px;
 	}
-
 	.error-id {
 		margin-top: 2rem;
 		font-size: 0.75rem;

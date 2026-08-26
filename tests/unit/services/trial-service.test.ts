@@ -13,6 +13,8 @@ let trialRows: Array<{
 	source: string;
 	campaignId: string | null;
 	createdAt: string;
+	stripeSubscriptionId?: string | null;
+	upgradeReason?: string | null;
 }> = [];
 let nextId = 1;
 
@@ -42,6 +44,24 @@ const mockTrialHistoryRepo = {
 			});
 		},
 	),
+	// #4707: 本契約移行の記録 (stripe_subscription_id / upgrade_reason / 任意で end_date)
+	updateConversion: vi.fn(
+		async (input: {
+			id: number | string;
+			tenantId: string;
+			stripeSubscriptionId: string;
+			upgradeReason: string;
+			endDate?: string;
+		}) => {
+			const row = trialRows.find(
+				(r) => String(r.id) === String(input.id) && r.tenantId === input.tenantId,
+			);
+			if (!row) return;
+			row.stripeSubscriptionId = input.stripeSubscriptionId;
+			row.upgradeReason = input.upgradeReason;
+			if (input.endDate) row.endDate = input.endDate;
+		},
+	),
 };
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -58,7 +78,11 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+import { toJSTDateString } from '$lib/domain/date-utils';
+import type { TrialStatus } from '$lib/server/services/trial-service';
 import {
+	applyLicenseToTrialStatus,
+	endTrialOnConversion,
 	getTrialEndDate,
 	getTrialStatus,
 	getTrialTier,
@@ -464,6 +488,159 @@ describe('trial-service (#314)', () => {
 				campaignId: 'test',
 			});
 			expect(second).toBe(true);
+		});
+	});
+
+	// ============================================================
+	// #4707: トライアル中に本契約 → トライアル表示 / 通知対象から外す
+	// ============================================================
+	describe('paid conversion closes the trial (#4707)', () => {
+		function pushActiveTrial(tenantId = 'tenant1', daysLeft = 5) {
+			const todayStr = toJSTDateString(new Date());
+			const end = new Date(`${todayStr}T00:00:00Z`);
+			end.setUTCDate(end.getUTCDate() + daysLeft);
+			trialRows.push({
+				id: nextId++,
+				tenantId,
+				startDate: todayStr,
+				endDate: end.toISOString().slice(0, 10),
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+				stripeSubscriptionId: null,
+			});
+		}
+
+		it('移行済み (stripe_subscription_id あり) の行は end_date が未来でもトライアル中ではない', async () => {
+			pushActiveTrial();
+			trialRows[0]!.stripeSubscriptionId = 'sub_paid';
+
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(false);
+			expect(status.daysRemaining).toBe(0);
+			expect(status.trialUsed).toBe(true);
+			expect(status.convertedToPaid).toBe(true);
+			// 移行済みは再開不可 (user_initiated) — トライアルは消費済み
+			expect(await startTrial({ tenantId: 'tenant1', source: 'user_initiated' })).toBe(false);
+		});
+
+		it('licenseStatus=active を渡すと trial_history が未だ開いていてもトライアル中扱いしない (第 2 防御)', async () => {
+			pushActiveTrial();
+			const raw = await getTrialStatus('tenant1');
+			expect(raw.isTrialActive).toBe(true);
+
+			const projected = await getTrialStatus('tenant1', 'active');
+			expect(projected.isTrialActive).toBe(false);
+			expect(projected.daysRemaining).toBe(0);
+			expect(projected.trialUsed).toBe(true);
+			expect(projected.trialEndDate).toBe(raw.trialEndDate);
+
+			// none / suspended / 未指定 は素の状態
+			expect((await getTrialStatus('tenant1', 'none')).isTrialActive).toBe(true);
+			expect((await getTrialStatus('tenant1', 'suspended')).isTrialActive).toBe(true);
+			expect((await getTrialStatus('tenant1', null)).isTrialActive).toBe(true);
+		});
+
+		it('applyLicenseToTrialStatus は active 以外で同一オブジェクトを返す (純関数)', () => {
+			const st: TrialStatus = {
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-08-19',
+				trialEndDate: '2026-08-26',
+				trialTier: 'standard' as const,
+				daysRemaining: 7,
+				source: 'user_initiated',
+				convertedToPaid: false,
+			};
+			expect(applyLicenseToTrialStatus(st, 'none')).toBe(st);
+			expect(applyLicenseToTrialStatus(st, undefined)).toBe(st);
+			expect(applyLicenseToTrialStatus(st, 'active')).toEqual({
+				...st,
+				isTrialActive: false,
+				daysRemaining: 0,
+			});
+		});
+
+		it('endTrialOnConversion: 有効なトライアルは end_date=今日 (JST) + 移行記録で閉じる', async () => {
+			pushActiveTrial();
+			const todayStr = toJSTDateString(new Date());
+
+			const written = await endTrialOnConversion({
+				tenantId: 'tenant1',
+				stripeSubscriptionId: 'sub_new',
+				upgradeReason: 'manual',
+			});
+			expect(written).toBe(true);
+			expect(mockTrialHistoryRepo.updateConversion).toHaveBeenCalledWith({
+				id: 1,
+				tenantId: 'tenant1',
+				stripeSubscriptionId: 'sub_new',
+				upgradeReason: 'manual',
+				endDate: todayStr,
+			});
+			const status = await getTrialStatus('tenant1');
+			expect(status.isTrialActive).toBe(false);
+			expect(status.trialEndDate).toBe(todayStr);
+			expect(status.convertedToPaid).toBe(true);
+		});
+
+		it('endTrialOnConversion: 終了済みトライアルは end_date を触らず移行だけ記録する (過去日付を今日に延ばさない)', async () => {
+			trialRows.push({
+				id: nextId++,
+				tenantId: 'tenant1',
+				startDate: '2026-01-01',
+				endDate: '2026-01-08',
+				tier: 'standard',
+				source: 'user_initiated',
+				campaignId: null,
+				createdAt: new Date().toISOString(),
+				stripeSubscriptionId: null,
+			});
+			const written = await endTrialOnConversion({
+				tenantId: 'tenant1',
+				stripeSubscriptionId: 'sub_late',
+				upgradeReason: 'manual',
+			});
+			expect(written).toBe(true);
+			const call = mockTrialHistoryRepo.updateConversion.mock.calls[0]?.[0];
+			expect(call?.endDate).toBeUndefined();
+			expect(trialRows[0]?.endDate).toBe('2026-01-08');
+			expect(trialRows[0]?.stripeSubscriptionId).toBe('sub_late');
+		});
+
+		it('endTrialOnConversion: 履歴なし / 同一 subscription で移行済み は何もしない (冪等)', async () => {
+			expect(
+				await endTrialOnConversion({
+					tenantId: 'tenant-none',
+					stripeSubscriptionId: 'sub_x',
+					upgradeReason: 'manual',
+				}),
+			).toBe(false);
+			expect(mockTrialHistoryRepo.updateConversion).not.toHaveBeenCalled();
+
+			pushActiveTrial();
+			trialRows[0]!.stripeSubscriptionId = 'sub_x';
+			expect(
+				await endTrialOnConversion({
+					tenantId: 'tenant1',
+					stripeSubscriptionId: 'sub_x',
+					upgradeReason: 'manual',
+				}),
+			).toBe(false);
+			expect(mockTrialHistoryRepo.updateConversion).not.toHaveBeenCalled();
+		});
+
+		it('endTrialOnConversion: 他 tenant の行は閉じない (tenant scope)', async () => {
+			pushActiveTrial('tenant-other');
+			expect(
+				await endTrialOnConversion({
+					tenantId: 'tenant1',
+					stripeSubscriptionId: 'sub_new',
+					upgradeReason: 'manual',
+				}),
+			).toBe(false);
+			expect((await getTrialStatus('tenant-other')).isTrialActive).toBe(true);
 		});
 	});
 });

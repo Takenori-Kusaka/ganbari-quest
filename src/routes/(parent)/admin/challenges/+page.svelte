@@ -211,7 +211,8 @@ function tabHref(childId: ChildId | 'all'): string {
 							<h3 class="font-bold text-sm">
 								{group.title}
 								{#if group.allCompleted}
-									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.badgeAllCompleted}</span>
+									<!-- #4689: 1 人分の group で「全員クリア！」と出さない (週次自動生成は子供ごとに別内容) -->
+									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{group.instances.length >= 2 ? CHALLENGES_LABELS.badgeAllCompleted : CHALLENGES_LABELS.badgeCompleted}</span>
 								{/if}
 								{#if active}
 									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{CHALLENGES_LABELS.badgeActive}</span>
