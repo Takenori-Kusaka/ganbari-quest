@@ -133,3 +133,51 @@ test.describe('#1171 Marketplace filter UI', () => {
 		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 	});
 });
+
+// ============================================================
+// #4695: 年齢フィルタと公式テンプレートの対象年齢が年齢帯 SSOT で整合している
+// ============================================================
+test.describe('#4695 年齢フィルタ × 公式テンプレートの対象年齢', () => {
+	test('`?age=junior` で名前に「中学生」を含む全テンプレ (活動 3 + ごほうび 1) が出る', async ({
+		page,
+	}) => {
+		await page.goto('/marketplace?age=junior');
+		const cardTitles = page.locator('a[href^="/marketplace/"] h2');
+		await expect(cardTitles.first()).toBeVisible();
+		const names = (await cardTitles.allTextContents()).map((t) => t.trim());
+		// gender variant (男の子 / 女の子) と neutral の 3 枚 + ごほうびセット 1 枚。
+		// 旧 fixture は neutral「中学生チャレンジ」/「中学生ごほうび」が 10〜12 歳で junior (13-15) から漏れていた。
+		for (const expected of [
+			'中学生チャレンジ',
+			'中学生チャレンジ（男の子）',
+			'中学生チャレンジ（女の子）',
+			'中学生ごほうび',
+		]) {
+			expect(names, `「${expected}」が ?age=junior に出る`).toContain(expected);
+		}
+		// 中学生以外の年齢帯語を名前に持つテンプレは junior に出ない (整合の対偶)
+		for (const n of names) {
+			expect(n, `「${n}」は junior フィルタに出ない`).not.toMatch(
+				/小学生|高校生|ようじ|しょうがくせい/,
+			);
+		}
+	});
+
+	test('`?age=senior` / `?age=elementary` でも名前の年齢帯語と一致する', async ({ page }) => {
+		await page.goto('/marketplace?age=senior');
+		let names = (await page.locator('a[href^="/marketplace/"] h2').allTextContents()).map((t) =>
+			t.trim(),
+		);
+		expect(names).toContain('高校生チャレンジ');
+		expect(names).toContain('高校生ごほうび');
+		expect(names.some((n) => /中学生|小学生/.test(n))).toBe(false);
+
+		await page.goto('/marketplace?age=elementary');
+		names = (await page.locator('a[href^="/marketplace/"] h2').allTextContents()).map((t) =>
+			t.trim(),
+		);
+		expect(names).toContain('小学生チャレンジ');
+		expect(names).toContain('小学生ごほうび');
+		expect(names.some((n) => /しょうがくせい|中学生|高校生/.test(n))).toBe(false);
+	});
+});
