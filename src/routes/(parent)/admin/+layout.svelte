@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
+import { getInviteAcceptErrorBanner } from '$lib/domain/labels';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
@@ -42,7 +42,9 @@ interface Props {
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
 		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		inviteAcceptError?: 'INVITE_EMAIL_MISMATCH' | 'INVITE_EMAIL_UNVERIFIED' | null;
+		// #4633 AC-A: 拒否理由は email 束縛の 2 種に限らない (文言解決は
+		// getInviteAcceptErrorBanner が担い、未知の理由は汎用文言に落ちる)。
+		inviteAcceptError?: string | null;
 	};
 	children: Snippet;
 }
@@ -96,9 +98,7 @@ $effect(() => {
 			<Alert
 				variant="warning"
 				data-testid="invite-accept-error-banner"
-				message={data.inviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
-					? AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner
-					: AUTH_INVITE_LABELS.acceptErrorMismatchBanner}
+				message={getInviteAcceptErrorBanner(data.inviteAcceptError)}
 			/>
 		</div>
 	{/if}

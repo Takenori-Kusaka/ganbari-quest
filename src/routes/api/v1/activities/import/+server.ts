@@ -1,17 +1,37 @@
 import { error, json } from '@sveltejs/kit';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import type { ChildId } from '$lib/domain/ids';
+import { ADMIN_CHILD_SCOPE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
-import { planLimitError } from '$lib/server/errors';
+import { apiError, planLimitError } from '$lib/server/errors';
+import { getAllChildren } from '$lib/server/services/child-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 const validCategoryCodes = new Set<string>(CATEGORY_CODES);
+
+/**
+ * #4692: 取込先 child を body から解決する。
+ * `childIds: (string|number)[]` があればその子だけ、無ければ家族全員。
+ * service 側の「tenant 最初の child に silent bind」fallback は撤去済のため、
+ * ここで必ず明示的な配信先を作る。
+ */
+async function resolveImportChildIds(body: unknown, tenantId: string): Promise<ChildId[]> {
+	const raw = (body as { childIds?: unknown } | null)?.childIds;
+	if (Array.isArray(raw) && raw.length > 0) {
+		const requested = new Set(raw.map((v) => String(v)));
+		// 所属外 id を弾く (cross-tenant / 不正 id)
+		return (await getAllChildren(tenantId))
+			.filter((c) => requested.has(String(c.id)))
+			.map((c) => c.id);
+	}
+	return (await getAllChildren(tenantId)).map((c) => c.id);
+}
 
 function validateActivities(data: unknown): ActivityPackItem[] {
 	if (!data || typeof data !== 'object') throw new Error('リクエストボディが不正です');
@@ -109,11 +129,19 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			});
 		}
 
+		// #4692: 取込先 child を明示する (service の first-child silent fallback は撤去済)。
+		// body に `childIds` があればそれを、無ければ家族全員を対象にする
+		// (旧挙動は「最初の子だけに入る」で、API 利用者からは観測できない silent scope だった)。
+		const childIds = await resolveImportChildIds(body, tenantId);
+		if (childIds.length === 0) {
+			return apiError('VALIDATION_ERROR', ADMIN_CHILD_SCOPE_LABELS.childRequired);
+		}
+
 		const result = await dispatchImport({
 			typeCode: 'activity-pack',
 			rawPayload,
 			displayName: 'api-v1-import',
-			ctx: { tenantId },
+			ctx: { tenantId, childIds },
 		});
 		return json({
 			imported: result.imported,

@@ -66,7 +66,11 @@ export interface DispatchImportInput {
  * @throws Error parse / preview / apply のいずれかで失敗した場合
  */
 export async function dispatchImport(input: DispatchImportInput): Promise<DispatchImportResult> {
-	const { typeCode, rawPayload, displayName, ctx } = input;
+	const { typeCode, rawPayload, displayName, ctx: rawCtx } = input;
+	// #4711: 表示名を ImportContext に伝搬する (callsite が presetName を渡していなければ
+	// displayName を補完)。旧実装は displayName を戻り値の packName にしか使わず、rule-preset
+	// bonus の保存レコードに内部 ID (presetId) が表示名として残っていた。
+	const ctx: ImportContext = { ...rawCtx, presetName: rawCtx.presetName ?? displayName };
 	const descriptor = marketplaceRegistry.get(typeCode);
 	const strategy = descriptor.strategy;
 

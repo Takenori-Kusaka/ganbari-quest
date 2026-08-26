@@ -34,6 +34,7 @@ import type {
 	ImportStrategy,
 } from '$lib/marketplace/types.js';
 import {
+	ActivityImportTargetRequiredError,
 	importActivities,
 	previewActivityImport,
 } from '$lib/server/services/activity-import-service.js';
@@ -83,15 +84,19 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 		}
 
 		const activities = payload.activities as ActivityPackItem[];
-		// #2362 PR-3 (ADR-0055): per-child instance 化対応。
-		// activity-pack Descriptor (`requiresChildSelection: true`) では UI 側で必ず
-		// ctx.childIds が注入される。Strangler Fig 期間中は family master insert と
-		// per-child instance 配信を service 内部で並存させる (Phase 6/7 で family master
-		// insert path を drop し本 ctx.childIds を必須化予定)。
+		// #2362 PR-3 (ADR-0055) / #4692: per-child instance 化対応。
+		// activity-pack Descriptor (`requiresChildSelection: true`) では呼び出し側が必ず
+		// ctx.childIds を注入する。旧実装は未注入時に service 内で「tenant 最初の child」へ
+		// silent bind していたため、別の子のタブで復元しても最初の子に入っていた (#4692 F1)。
+		// 未注入は設定ミスなので fallback せず明示的に失敗させる。
+		const childIds = ctx.childIds ?? [];
+		if (childIds.length === 0) {
+			throw new ActivityImportTargetRequiredError();
+		}
 		const raw = await importActivities(activities, ctx.tenantId, {
 			presetId: ctx.presetId,
 			applyMustDefault: ctx.applyMustDefault,
-			childIds: ctx.childIds,
+			childIds,
 		});
 		return {
 			imported: raw.imported,

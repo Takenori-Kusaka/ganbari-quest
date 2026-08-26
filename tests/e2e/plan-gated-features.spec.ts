@@ -21,6 +21,7 @@
 //      (ADR-0006 assertion erosion ban に従い skip ではなく削除)
 
 import { expect, test } from '@playwright/test';
+import { openMenu } from './helpers/goal-flows';
 
 // ============================================================
 // /admin/rewards — #728 カスタムごほうびプランゲート
@@ -37,7 +38,8 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
@@ -109,7 +111,8 @@ test.describe('#776 /admin/rewards プランゲート — standard', () => {
 	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 
@@ -149,7 +152,8 @@ test.describe('#776 /admin/rewards プランゲート — family', () => {
 	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 });
