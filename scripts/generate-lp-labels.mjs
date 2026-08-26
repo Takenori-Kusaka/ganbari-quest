@@ -31,6 +31,10 @@ const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
+const FAMILY_MEMBER_LIMIT_TS = path.join(
+	REPO_ROOT,
+	'src/lib/domain/constants/family-member-limit.ts',
+);
 const PLAN_PRICE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-price.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
@@ -433,6 +437,43 @@ function buildPlanRetentionTerms() {
 		freeSpaced: format(free, true),
 		standard: format(standard),
 		standardSpaced: format(standard, true),
+	};
+}
+
+/**
+ * 家族メンバー上限の値 SSOT (`src/lib/domain/constants/family-member-limit.ts`) を読み、
+ * terms.ts の `FAMILY_MEMBER_LIMIT_TERMS` と同じ内容の namespace を組み立てる (#4500)。
+ *
+ * buildDeletionGraceTerms と同じ理由 (本 script は TS を実行せず text parse するため、
+ * 関数で計算された atom を terms.ts から読めない) で、数値だけを SSOT から読み、
+ * 整形をここで再現する。整形結果が TS 側と一致することは
+ * tests/unit/domain/family-member-limit-terminology.test.ts が機械検証する。
+ *
+ * @returns {Record<string, string>} `{ standardTotal, standardTotalSpaced, standardInvites, standardInvitesSpaced }`
+ */
+function buildFamilyMemberLimitTerms() {
+	const src = fs.readFileSync(FAMILY_MEMBER_LIMIT_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const FAMILY_MEMBER_LIMIT'));
+	if (block === null) {
+		throw new Error('FAMILY_MEMBER_LIMIT not found in family-member-limit.ts');
+	}
+	const m = block.match(/standard:\s*(\d+)/);
+	if (!m || m[1] === undefined) {
+		throw new Error('FAMILY_MEMBER_LIMIT.standard not parseable in family-member-limit.ts');
+	}
+	const total = Number(m[1]);
+	// invitesAllowedFrom / formatMemberCount (family-member-limit.ts) と同じ規則。差異は上記 test が検出する。
+	const invites = Math.max(0, total - 1);
+	/**
+	 * @param {number} count
+	 * @param {boolean} [spaced]
+	 */
+	const format = (count, spaced = false) => `${count}${spaced ? ' ' : ''}人`;
+	return {
+		standardTotal: format(total),
+		standardTotalSpaced: format(total, true),
+		standardInvites: format(invites),
+		standardInvitesSpaced: format(invites, true),
 	};
 }
 
@@ -881,6 +922,7 @@ function parseAllNamespacesResolved() {
 		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
 		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
 		DELETION_GRACE_TERMS: buildDeletionGraceTerms(),
+		FAMILY_MEMBER_LIMIT_TERMS: buildFamilyMemberLimitTerms(),
 		// #4533: 同上 (値 SSOT = plan-price.ts)。金額由来の key だけを上書きし、
 		// literal のままの key (free / taxNote / monthlyPrefix / fromSuffix) は parse 結果を残す。
 		PRICE_TERMS: { ...(termsNamespaces.PRICE_TERMS ?? {}), ...buildPriceTerms() },
@@ -1319,6 +1361,7 @@ if (invokedAsCli) {
 export {
 	assertNoSilentDrops,
 	buildDeletionGraceTerms,
+	buildFamilyMemberLimitTerms,
 	buildPlanRetentionTerms,
 	buildPriceTerms,
 	extractDeclaredEntryNames,
