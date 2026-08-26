@@ -144,6 +144,13 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 		importRewardSet: 1,
 		insertSpecialReward: 1,
 	},
+	// #4687: 未交換スタンプカードの救済。交換対象は「今週より前の collecting カード」= 実測 1〜数枚
+	// (週 1 枚しか作られず、retention で古い週は消える)。カードごとに「status flip → ledger 付与」の
+	// 順序契約があり bulk repo API を持たないため、既存の同型 (child-challenge-service) と同じ形状で pin する。
+	'stamp-card-service.ts': {
+		insertPointEntry: 1,
+		updateCardStatusIfCollecting: 1,
+	},
 	'tenant-cleanup-service.ts': {
 		deleteActivity: 1,
 		deleteByChild: 1,
