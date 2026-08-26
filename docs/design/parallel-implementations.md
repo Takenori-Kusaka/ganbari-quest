@@ -207,6 +207,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/api/v1/parent-gate/setup/+server.ts` (#2992) | 初回 PIN 作成 endpoint (未設定 tenant のみ、設定済へは 403 `ALREADY_CONFIGURED`。成功で verify と同じ cookie 発行) |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
+| `src/lib/server/auth/session-cookies.ts` `LOGOUT_CLEARED_COOKIE_NAMES` (#4700) | アカウントログアウト (`/auth/logout` / `/auth/signout`) で破棄する cookie 一覧 SSOT (parent session を含む)。新しいセッション系 cookie を足したらここに追加 |
 | `src/routes/api/v1/parent-gate/reset-verified/+server.ts` (#2993) | PIN reset (パスワード re-auth → setupPin + session 発行、cognito 専用) |
 | `src/routes/auth/reset-pin/+page.svelte` + `+page.server.ts` (#2993) | PIN reset 1 画面 UI (パスワード + 新 PIN、cognito identity guard) |
 | `src/lib/server/services/pin-operator-reset.ts` (#2994) | operator-level reset (`PARENT_PIN_RESET` env、冪等、local 専用)。hooks.server.ts が初回リクエストで評価 |
@@ -367,7 +368,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | reward-set 詳細ページ CTA、`dispatchImport` 経由 | TypeScript |
 | `src/routes/(parent)/admin/rewards/+page.server.ts` | 「マーケットプレイスから一括追加」、`dispatchImport` 経由 | TypeScript |
 | `src/routes/setup/rewards/+page.server.ts` | setup wizard step 2、`dispatchImport` 経由 | TypeScript |
-| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportReward*` / `REWARDS_LABELS.marketplace*` | TypeScript |
+| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportUnified` (取込 4 type 共通 CTA) / `detailCtaImportRewardSignedOut` / `REWARDS_LABELS.marketplace*` | TypeScript |
 | `src/lib/server/db/schema.ts` | `special_rewards.sourcePresetId` (#1254 G1) | Drizzle |
 
 **同期メカニズム**: `tests/unit/marketplace/strategies/reward-set-strategy.test.ts` (#2366、23 シナリオ + dispatcher integration) + `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ、Strangler Fig 並行) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) + `tests/e2e/admin-rewards-import-marketplace.spec.ts` (#2366 admin 動線) で検証。

@@ -1,15 +1,16 @@
 import type { ChildId } from '$lib/domain/ids';
-// src/lib/server/db/usage-log-repo.ts — Facade for usage-log (#1292)
-// SQLite のみ実装（Pre-PMF: DynamoDB 対応は不要、ADR-0010）
+// src/lib/server/db/usage-log-repo.ts — Facade (delegates to factory、#4719)
+// 以前は sqlite 固定 import で、本番 pg-core (DSQL / PGlite) では表未作成 throw → WARN + 0 分に
+// 化けていた (#4680 class)。backend 選択は factory (getRepos().usageLog) に一本化する。
 
-import * as sqliteRepo from './sqlite/usage-log-repo';
+import { getRepos } from './factory';
 
 export async function insertUsageLog(input: {
 	tenantId: string;
 	childId: ChildId;
 	startedAt: string;
 }) {
-	return sqliteRepo.insertUsageLog(input);
+	return getRepos().usageLog.insertUsageLog(input);
 }
 
 export async function updateUsageLogEnd(
@@ -18,15 +19,15 @@ export async function updateUsageLogEnd(
 	durationSec: number,
 	tenantId: string,
 ) {
-	return sqliteRepo.updateUsageLogEnd(id, endedAt, durationSec, tenantId);
+	return getRepos().usageLog.updateUsageLogEnd(id, endedAt, durationSec, tenantId);
 }
 
 export async function closeOpenSessions(childId: ChildId, endedAt: string, tenantId: string) {
-	return sqliteRepo.closeOpenSessions(childId, endedAt, tenantId);
+	return getRepos().usageLog.closeOpenSessions(childId, endedAt, tenantId);
 }
 
 export async function findTodayUsageLogs(tenantId: string, startedAtFromIso: string) {
-	return sqliteRepo.findTodayUsageLogs(tenantId, startedAtFromIso);
+	return getRepos().usageLog.findTodayUsageLogs(tenantId, startedAtFromIso);
 }
 
 export async function findUsageLogsByChildAndDateRange(
@@ -35,9 +36,9 @@ export async function findUsageLogsByChildAndDateRange(
 	fromDate: string,
 	toDate: string,
 ) {
-	return sqliteRepo.findUsageLogsByChildAndDateRange(childId, tenantId, fromDate, toDate);
+	return getRepos().usageLog.findUsageLogsByChildAndDateRange(childId, tenantId, fromDate, toDate);
 }
 
 export async function deleteByTenantId(tenantId: string): Promise<void> {
-	return sqliteRepo.deleteByTenantId(tenantId);
+	return getRepos().usageLog.deleteByTenantId(tenantId);
 }

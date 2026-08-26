@@ -39,8 +39,11 @@ const SERVICES_DIR = resolve(REPO_ROOT, 'src/lib/server/services');
 
 /** write 系 repo method の prefix。camelCase 継続 ([A-Z_0-9]) を要求し、Map#set / Set#add 等の
  * 単語単体 method は対象外にする。read 系 (find/get/list/count) と送信系 (send*) は含めない。 */
+// #4724: `purge` を足す。バージョニング有効な S3 では「戻せない削除」を `purgeByPrefix` が担い、
+// `delete` prefix を持たない write が生まれた。verb を足さないと本 fitness function が
+// その write を数えなくなり、ループ内逐次 write の ratchet に穴が開く。
 const WRITE_METHOD_RE =
-	/^(insert|create|upsert|update|delete|remove|record|save|persist|issue|archive|restore|copy|mark|import|set|add|increment|decrement)[A-Z_0-9]/;
+	/^(insert|create|upsert|update|delete|purge|remove|record|save|persist|issue|archive|restore|copy|mark|import|set|add|increment|decrement)[A-Z_0-9]/;
 
 // ── baseline (既存違反の pin、2026-07-19 採取。減らしたら本表も下げる) ──
 // 値 = file 内の「ループ body 中の awaited write call」の method 名別出現数。
@@ -71,7 +74,11 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 	},
 	'child-challenge-service.ts': {
 		markCompleted: 1,
-		updateProgress: 1,
+		// #4686: とりけしの巻き戻し (revertChildChallengeProgress) が、記録側
+		// updateChildChallengeProgress と対称な形で同 method を 1 箇所使う (1 → 2)。
+		// どちらも「当該 child の期間内 challenge」= 実測 1〜3 行のループで、bulk repo API が
+		// 無いため既存の記録側と同じ形状で pin する (解消時は両方まとめて bulk 化する)。
+		updateProgress: 2,
 	},
 	'child-reward-copy-service.ts': {
 		insertSpecialReward: 1,
@@ -141,9 +148,11 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 		deleteByChild: 1,
 		deleteByEndpoint: 1,
 		deleteById: 2,
-		deleteByPrefix: 1,
 		deleteChild: 1,
 		deleteChildFiles: 1,
+		// #4724: cloudExport ZIP の削除は `deleteByPrefix` から `purgeByPrefix` (全バージョン削除)
+		// へ移した。件数は 1 のまま (呼び出し箇所は増えていない、名前だけが変わった)。
+		purgeByPrefix: 1,
 	},
 	'voice-service.ts': {
 		setActive: 1,

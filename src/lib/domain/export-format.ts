@@ -168,7 +168,15 @@ const WEEKDAY_VALUES = new Set([
 ]);
 
 const isBoolSetting = (v: string): boolean => BOOL_SETTING_VALUES.has(v);
-const isTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
+/**
+ * `HH:MM` (00:00-23:59) の設定値か。**時刻設定の値域 SSOT** (#4706)。
+ *
+ * 保存 (`/admin/settings/notifications` の action) と取込 (本 file の allowlist) と
+ * 配信 cron (`notification-delivery-service`) が**同じ述語**を通ることで、
+ * 「保存はできたのに配信側が解釈できない値」が生まれないようにする (ADR-0066 と同じ向き)。
+ */
+export const isHhMmTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
+const isTimeSetting = isHhMmTimeSetting;
 const isIsoDatetime = (v: string): boolean => v.length <= 40 && isLegacyCompatibleDateTime(v);
 
 /**
