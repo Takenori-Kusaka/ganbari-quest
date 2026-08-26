@@ -13,7 +13,7 @@ import { logger } from '$lib/server/logger';
  * 文書を改定したらここも上げる。上げないと既存利用者に再同意が発火せず、
  * 新規の同意記録も旧 version で保存され続ける（表示文書と同意証跡の恒常不一致）。
  */
-export const CURRENT_TERMS_VERSION = '2026-04-28';
+export const CURRENT_TERMS_VERSION = '2026-08-13';
 export const CURRENT_PRIVACY_VERSION = '2026-08-20';
 
 /**

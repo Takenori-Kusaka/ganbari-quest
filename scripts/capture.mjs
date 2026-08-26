@@ -70,6 +70,7 @@ const { values, positionals } = parseArgs({
 		// --- QA / PR スクリーンショット用オプション ---
 		pr: { type: 'string' }, // PR 番号 → 出力先自動化 + Markdown 生成
 		'start-server': { type: 'boolean' }, // 未起動なら自動起動（--pr 時デフォルト true）
+		'no-start-server': { type: 'boolean' }, // #4677: --help に載っていた否定形を parseArgs に登録 (未登録だと ERR_PARSE_ARGS_UNKNOWN_OPTION)
 		'server-mode': { type: 'string', default: 'dev' }, // dev | cognito | lp
 		// #1766 (#1747 AC4): SS と DOM HTML スナップショットを同一プロセスで取得する。
 		// デフォルト有効。`--no-dom-snapshot` 指定時のみ無効化される。
@@ -243,7 +244,9 @@ const cellHeight = Number(values['cell-height']);
 const storageState = values['storage-state'];
 
 // --start-server: --pr 指定時はデフォルト true、それ以外は false
-const shouldAutoStart = values['start-server'] ?? prNumber !== null;
+const shouldAutoStart = values['no-start-server']
+	? false
+	: (values['start-server'] ?? prNumber !== null);
 
 // #1766: DOM スナップショット取得有無（--no-dom-snapshot で opt-out）
 const domSnapshotEnabled = !values['no-dom-snapshot'];

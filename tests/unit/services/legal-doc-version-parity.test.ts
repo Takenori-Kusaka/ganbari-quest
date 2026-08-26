@@ -136,8 +136,10 @@ const BODY_PINS: Record<string, BodyPin> = {
 		sha256: '675fee7b4241a6ff24542ee259acb399305f8b39fd5a2cb7abe76c72bfdfd78c',
 	},
 	terms: {
-		revision: '2026-04-28',
-		sha256: 'd6ea00e0fe25d89411c081415c267421c633abe19c8b2ab35e838d8a8793f7d5',
+		// #4503 (develop) が第7条・第8条ほかを改定し、改定日を 2026-08-13 へ動かした。
+		// 本 branch との merge 時に上記 3 点セット (改定日 / CURRENT_TERMS_VERSION / pin) で追随している。
+		revision: '2026-08-13',
+		sha256: '017e04479cd3881311f543374b5876a0ed237c5a37b52de1c5172ea7c9dab4fd',
 	},
 };
 
