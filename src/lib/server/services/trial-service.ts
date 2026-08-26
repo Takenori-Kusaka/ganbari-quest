@@ -9,7 +9,20 @@ import { logger } from '$lib/server/logger';
 import { getRequestContext, invalidateRequestCaches } from '$lib/server/request-context';
 
 const DEFAULT_TRIAL_DAYS = 7;
-const DEFAULT_TRIAL_TIER = 'standard' as const;
+
+/**
+ * トライアルの tier。**premium (内部コード 'family') 固定** (#4501)。
+ *
+ * 設計 SSOT `docs/design/billing-redesign/phase1-trial-requirements.md` FR-2 が
+ * 「対象 tier は family 固定 (PO 確定)」と定めており、FR-6 が「トライアル中は対象 tier の
+ * 全 capability 解放」を求めている。旧実装は standard 固定で、LP の「7 日間すべての有料機能を
+ * お試し」訴求に対し **AI 提案 / きょうだいランキング / ひとことメッセージが試せない**状態だった。
+ * トライアルは 1 tenant 1 回限り (FR-8) なので、体験機会は恒久的に失われていた。
+ *
+ * 定数を 1 つに閉じ、呼び出し側で tier を選ばせない (選べると再び standard 固定に戻りうる)。
+ * 'family' は DB / 内部 tier コードに残る旧名で、顧客向け表示名は 'premium' (terms.ts)。
+ */
+export const TRIAL_TIER = 'family' as const;
 
 export type TrialSource = 'user_initiated' | 'campaign' | 'admin_grant';
 export type TrialTier = 'standard' | 'family';
@@ -205,7 +218,7 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 	const {
 		tenantId,
 		source,
-		tier = DEFAULT_TRIAL_TIER,
+		tier = TRIAL_TIER,
 		durationDays = DEFAULT_TRIAL_DAYS,
 		campaignId,
 		trialStartSource,

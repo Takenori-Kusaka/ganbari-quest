@@ -4,9 +4,11 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { FAMILY_MEMBER_LIMIT } from '$lib/domain/constants/family-member-limit';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
+import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
@@ -60,11 +62,12 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
 		maxChecklistTemplates: 3,
 		// #1111: フリープランは招待不可（owner のみ）
-		maxFamilyMembers: 1,
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.free,
 		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
 		canExport: false,
-		canFreeTextMessage: false,
+		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
+		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
 		canCustomReward: false,
 		canSiblingRanking: false,
 		maxCloudExports: 0,
@@ -74,10 +77,11 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxActivities: null,
 		maxChecklistTemplates: null,
 		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
-		maxFamilyMembers: 4,
+		// #4500: 数値の SSOT は domain leaf。LP / labels もここから引く
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.standard,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
-		canFreeTextMessage: false,
+		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
 		canCustomReward: true,
 		canSiblingRanking: false,
 		maxCloudExports: 3,
@@ -87,10 +91,10 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxActivities: null,
 		maxChecklistTemplates: null,
 		// #1111: PLAN_LABELS.family は無制限
-		maxFamilyMembers: null,
+		maxFamilyMembers: FAMILY_MEMBER_LIMIT.family,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
-		canFreeTextMessage: true,
+		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
 		canCustomReward: true,
 		canSiblingRanking: true,
 		maxCloudExports: 10,

@@ -8,6 +8,7 @@ import { PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
+import { type HtmlSafe, html } from './email-html';
 import { sendEmail } from './email-service';
 import type { TrialTier } from './trial-service';
 import { getTrialStatus } from './trial-service';
@@ -29,6 +30,17 @@ export type TrialNotificationType =
 	| 'trial_ending_1day'
 	| 'trial_ended_today'
 	| 'trial_expired_login';
+
+/**
+ * トライアル通知の送信済マーカー key (#4721)。
+ *
+ * 通知種別ごとに 1 key。値は「そのトライアルの終了日」で、
+ * 同じ契約の同じ通知は 1 通・新しいトライアルなら再送される、を両立する。
+ * 種別は 4 つで固定なので key が無限に増えることはない。
+ */
+export function trialNotificationSentKey(notifType: TrialNotificationType): string {
+	return `trial_notif_sent_${notifType}`;
+}
 
 export interface TrialExpirationInfo {
 	isExpired: boolean;
@@ -106,7 +118,7 @@ export async function sendTrialEnding3DaysEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が残り3日です',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアル期間が残り3日です</h2>
       <p>現在ご利用中の<strong>${tierLabel}</strong>のトライアル期間は <strong>${trialEndDate}</strong> に終了します。</p>
       <p>トライアル終了後は、${PLAN_FULL_TERMS.free}に切り替わります。${PLAN_FULL_TERMS.free}では以下の制限があります:</p>
@@ -138,7 +150,7 @@ export async function sendTrialEnding1DayEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアルが明日終了します',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアルが明日終了します</h2>
       <p><strong>${tierLabel}</strong>のトライアル期間は <strong>明日（${trialEndDate}）</strong> に終了します。終了後は${PLAN_FULL_TERMS.free}に切り替わります。</p>
       <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
@@ -163,7 +175,7 @@ export async function sendTrialEndedTodayEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が終了しました',
-		htmlBody: wrapTrialEmailTemplate(`
+		htmlBody: wrapTrialEmailTemplate(html`
       <h2>トライアル期間が終了しました</h2>
       <p><strong>${tierLabel}</strong>のトライアル期間が終了しました。現在は${PLAN_FULL_TERMS.free}でご利用いただいています。</p>
       <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
@@ -237,6 +249,48 @@ export async function markTrialExpirationModalShown(tenantId: string): Promise<v
 }
 
 /**
+ * 1 テナント × 1 通知種別を送る (#4721)。
+ *
+ * **送信済マーカーで冪等化する。** cron-dispatcher の Lambda 非同期 retry
+ * (Function URL 30 秒 timeout で発火しうる) や手動再実行で、同じトライアルの同じ通知が
+ * 2 通届いていた。値をトライアル終了日にすることで「同じ契約の同じ通知は 1 通」かつ
+ * 「新しいトライアルなら再送される」を両立する (値を日付にすると、同じ日の再実行は
+ * 防げても翌日にもう 1 通出てしまう)。
+ */
+async function sendTrialNotificationOnce(
+	tenantId: string,
+	email: string,
+	schedule: TrialNotificationSchedule,
+	notifType: TrialNotificationType,
+): Promise<'sent' | 'skipped' | 'error'> {
+	const repos = getRepos();
+	const sentKey = trialNotificationSentKey(notifType);
+	if ((await repos.settings.getSetting(sentKey, tenantId)) === schedule.trialEndDate) {
+		return 'skipped';
+	}
+
+	let success = false;
+	switch (notifType) {
+		case 'trial_ending_3days':
+			success = await sendTrialEnding3DaysEmail(email, schedule.trialEndDate, schedule.trialTier);
+			break;
+		case 'trial_ending_1day':
+			success = await sendTrialEnding1DayEmail(email, schedule.trialEndDate, schedule.trialTier);
+			break;
+		case 'trial_ended_today':
+			success = await sendTrialEndedTodayEmail(email, schedule.trialTier);
+			break;
+		default:
+			return 'skipped';
+	}
+
+	if (!success) return 'error';
+	// 送信できたときだけマーカーを立てる (失敗した回は次回実行で再試行される)
+	await repos.settings.setSetting(sentKey, schedule.trialEndDate, tenantId);
+	return 'sent';
+}
+
+/**
  * トライアル通知を一括処理する（cron ジョブ用）。
  *
  * 各テナントのオーナーメールアドレスを取得し、
@@ -279,33 +333,10 @@ export async function processTrialNotifications(
 			}
 
 			for (const notifType of schedule.notifications) {
-				let success = false;
-				switch (notifType) {
-					case 'trial_ending_3days':
-						success = await sendTrialEnding3DaysEmail(
-							user.email,
-							schedule.trialEndDate,
-							schedule.trialTier,
-						);
-						break;
-					case 'trial_ending_1day':
-						success = await sendTrialEnding1DayEmail(
-							user.email,
-							schedule.trialEndDate,
-							schedule.trialTier,
-						);
-						break;
-					case 'trial_ended_today':
-						success = await sendTrialEndedTodayEmail(user.email, schedule.trialTier);
-						break;
-					default:
-						break;
-				}
-				if (success) {
-					sent++;
-				} else {
-					errors++;
-				}
+				const outcome = await sendTrialNotificationOnce(tenantId, user.email, schedule, notifType);
+				if (outcome === 'sent') sent++;
+				else if (outcome === 'skipped') skipped++;
+				else errors++;
 			}
 		} catch (err) {
 			logger.error('[trial-notification] Failed to process tenant', {
@@ -323,7 +354,7 @@ export async function processTrialNotifications(
 // Email template helper
 // ============================================================
 
-function wrapTrialEmailTemplate(content: string): string {
+function wrapTrialEmailTemplate(content: HtmlSafe): string {
 	return `<!DOCTYPE html>
 <html lang="ja">
 <head>

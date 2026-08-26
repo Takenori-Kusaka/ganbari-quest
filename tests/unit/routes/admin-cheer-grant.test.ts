@@ -18,6 +18,15 @@ vi.mock('$lib/server/auth/factory', () => ({
 		if (!locals.context?.tenantId) throw new Error('Unauthorized');
 		return locals.context.tenantId;
 	},
+	// #4504: 自由テキストの plan gate が tier 解決経由で getAuthMode を引く
+	getAuthMode: () => 'cognito',
+}));
+
+// #4504: 自由テキスト (body) は premium 限定になった。本 test の主題は
+// 「form の値が grantCheer に渡るか」なので、tier 解決は premium 固定で mock する
+// (gate 自体の検査は tests/unit/services/free-text-message-gate-4504.test.ts)。
+vi.mock('$lib/server/services/plan-limit-service', () => ({
+	resolveFullPlanTier: async () => 'family',
 }));
 
 const mockGrantCheer = vi.fn();
