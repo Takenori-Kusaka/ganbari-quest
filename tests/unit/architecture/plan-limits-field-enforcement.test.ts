@@ -151,29 +151,28 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 		}
 	});
 
-	it.each(Object.keys(FUNCTION_BACKED_FIELDS))(
-		'%s は強制関数が値を読み、その関数が production から呼ばれている',
-		(field) => {
-			const entry = FUNCTION_BACKED_FIELDS[field];
-			if (!entry) throw new Error(`FUNCTION_BACKED_FIELDS に ${field} がありません`);
-			const { enforcer } = entry;
-			const def = stripComments(readFileSync(join(REPO_ROOT, DEFINITION_FILE), 'utf-8'));
+	it.each(
+		Object.keys(FUNCTION_BACKED_FIELDS),
+	)('%s は強制関数が値を読み、その関数が production から呼ばれている', (field) => {
+		const entry = FUNCTION_BACKED_FIELDS[field];
+		if (!entry) throw new Error(`FUNCTION_BACKED_FIELDS に ${field} がありません`);
+		const { enforcer } = entry;
+		const def = stripComments(readFileSync(join(REPO_ROOT, DEFINITION_FILE), 'utf-8'));
 
-			// 強制関数が実在し、その中でフィールドを読んでいること
-			expect(def, `${enforcer} が ${DEFINITION_FILE} にありません`).toContain(
-				`export async function ${enforcer}`,
-			);
-			expect(def, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
+		// 強制関数が実在し、その中でフィールドを読んでいること
+		expect(def, `${enforcer} が ${DEFINITION_FILE} にありません`).toContain(
+			`export async function ${enforcer}`,
+		);
+		expect(def, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
 
-			// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)
-			const callers = sources.filter((src) => src.text.includes(`${enforcer}(`)).map((s) => s.path);
-			expect(
-				callers.length,
-				`${enforcer} を呼ぶ production code がありません。` +
-					`PlanLimits.${field} は値があるだけで誰も強制していない状態です。`,
-			).toBeGreaterThan(0);
-		},
-	);
+		// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)
+		const callers = sources.filter((src) => src.text.includes(`${enforcer}(`)).map((s) => s.path);
+		expect(
+			callers.length,
+			`${enforcer} を呼ぶ production code がありません。` +
+				`PlanLimits.${field} は値があるだけで誰も強制していない状態です。`,
+		).toBeGreaterThan(0);
+	});
 
 	it.each(
 		Object.keys(PREDICATE_BACKED_FIELDS),
