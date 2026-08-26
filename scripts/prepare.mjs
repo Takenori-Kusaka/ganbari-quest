@@ -13,7 +13,9 @@
 //   - warning 文言は旧実装と同一 (tests/CLAUDE.md の案内 / 既存 grep 互換)
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripGraphifyHookAppendix } from './lib/graphify-hook-appendix.mjs';
 
 const repoRoot = join(import.meta.dirname, '..');
 
@@ -53,6 +55,35 @@ runStep(
 	'graphify',
 	['hook', 'install'],
 );
+
+// #4638 ①の構造的対処: 直前の `graphify hook install` は **追跡ファイル** `.husky/post-commit` に
+// 自分自身を追記し、install したマシンの絶対パスを焼き込む。`npm ci` のたびに working tree が
+// 汚れ、`git add -A` で PR に混入する (#4635 が実際に main を汚した)。
+// merge driver の登録は local git config に残るので、追記ブロックだけ捨てれば #4442 の目的は保てる。
+dropGraphifyHookAppendix();
+
+/** `.husky/post-commit` から graphify の追記ブロックだけを取り除く (追記が無ければ no-op)。 */
+function dropGraphifyHookAppendix() {
+	const hookPath = join(repoRoot, '.husky', 'post-commit');
+	let source;
+	try {
+		source = readFileSync(hookPath, 'utf-8');
+	} catch {
+		return; // husky 未導入 / hook 不在は正常 (CI / Lambda build)
+	}
+
+	const stripped = stripGraphifyHookAppendix(source);
+	if (stripped === null || stripped === source) return;
+
+	try {
+		writeFileSync(hookPath, stripped);
+		console.warn(
+			'[prepare] .husky/post-commit への graphify hook 追記を破棄しました (#4638。merge driver の登録は local git config に残ります)',
+		);
+	} catch {
+		console.warn('[prepare] .husky/post-commit の追記を破棄できませんでした (#4638)');
+	}
+}
 
 runStep(
 	'cd infra && npm ci FAILED — infra/marketplace 系テストが Cannot find module で fail します。手動実行: cd infra && npm ci',
