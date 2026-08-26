@@ -3,7 +3,7 @@ import * as backup from 'aws-cdk-lib/aws-backup';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
-import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
+import { assetsBucketName, type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
 
 export interface StorageStackProps extends cdk.StackProps {
 	/**
@@ -76,12 +76,21 @@ export class StorageStack extends cdk.Stack {
 			cdk.Tags.of(vault).add('gq-lifecycle', 'retained-pending-ops-cleanup');
 		}
 
-		// --- S3: Avatar images & backups ---
+		// --- S3: 子供の写真・声 / アバター / エクスポート預かり ---
+		// **バージョニングは必須 (#4724)**。`tenants/<tenantId>/` 配下には子供のアバター写真と
+		// 録音が入り、退会処理 (`account-deletion-service.ts` の `deleteByPrefix`) が prefix 単位で
+		// 物理削除する。バージョニングが無いと tenantId や猶予判定を誤ったときに**戻す手段が
+		// 一切ない** (DSQL だけ復元しても写真は戻らない = 顧客にとって復元ではない)。
+		// 上書き (同じキーへの再アップロード) からの復旧も同じ理由で要る。
+		//
+		// コストは非現行バージョンの expiration (下の `expire-noncurrent-versions`) で有界にする。
+		// staging は `autoDeleteObjects` が全バージョンを削除するため使い捨ての性質は変わらない。
 		this.assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
-			bucketName: `${prefix}-assets-${this.account}`,
+			bucketName: assetsBucketName(prefix, this.account),
 			removalPolicy: cfg.removalPolicy,
 			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
 			encryption: s3.BucketEncryption.S3_MANAGED,
+			versioned: true,
 			// staging (#2873): DESTROY 時に bucket を空にしてから削除できるようにする
 			autoDeleteObjects: cfg.removalPolicy === cdk.RemovalPolicy.DESTROY,
 			lifecycleRules: [
@@ -99,6 +108,17 @@ export class StorageStack extends cdk.Stack {
 							transitionAfter: cdk.Duration.days(1),
 						},
 					],
+				},
+				{
+					// #4724: バージョニングを入れた分のコストを有界にする。
+					// 30 日は「誤削除・誤上書きに気付いて戻す」のに十分な窓であり、DSQL backup の
+					// 保持 7 日より長い (S3 側だけ先に消えて復元がちぐはぐになるのを避ける)。
+					// **`tenants/` / `exports/` の現行バージョンには expiration を付けない** —
+					// 顧客データを自動削除しない (#4724 No-gos)。消えるのは「上書き / 削除で
+					// 非現行になったバージョン」と、中身を失った delete marker だけ。
+					id: 'expire-noncurrent-versions',
+					noncurrentVersionExpiration: cdk.Duration.days(30),
+					expiredObjectDeleteMarker: true,
 				},
 			],
 		});

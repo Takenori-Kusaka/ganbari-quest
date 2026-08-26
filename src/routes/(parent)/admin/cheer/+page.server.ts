@@ -6,8 +6,10 @@
 // 旧 /admin/messages はスタンプ/テキストのみ (P 付与なし) で存在意義なし → 本機能に統合。
 
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
+import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { asChildId } from '$lib/domain/ids';
 // #4512: エラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)。
 // 上限値そのものは cheer-service.ts が SSOT で、labels 側は引数で受ける。
@@ -23,11 +25,16 @@ import {
 } from '$lib/server/services/cheer-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getMessageHistory, STAMP_PRESETS } from '$lib/server/services/message-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
+	// #4504: 自由テキストのロック表示に使う。UI と server が同じ述語 (isFreeTextMessageUnlocked)
+	// を読むようにして、表示と認可がずれた状態を作れなくする (ai-suggest-gate と同型)。
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 
 	const childrenWithMessages = await Promise.all(
 		children.map(async (child) => {
@@ -38,6 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		children: childrenWithMessages,
+		planTier,
 		stamps: STAMP_PRESETS,
 		categories: CHEER_CATEGORIES,
 		reasonMaxLength: CHEER_REASON_MAX_LENGTH,
@@ -105,6 +113,16 @@ export const actions: Actions = {
 		const validation = parseAndValidateForm(formData);
 		if (!validation.ok) {
 			return fail(validation.status, { error: validation.error });
+		}
+
+		// #4504: 入力欄を隠すだけでは form を直接 POST されると素通しするため server で強制する。
+		// スタンプ (stampCode) とポイント付与は全プランのままで、落とすのは body だけ。
+		if (validation.data.body) {
+			const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			if (!isFreeTextMessageUnlocked(tier)) {
+				return fail(403, { error: CHEER_LABELS.freeTextLockedNote });
+			}
 		}
 
 		const result = await grantCheer(validation.data, tenantId);

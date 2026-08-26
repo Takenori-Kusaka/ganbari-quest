@@ -117,6 +117,47 @@ const latched = new Set<string>();
 export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
 
 /**
+ * AI 呼び出しが **失敗して呼び出し側が fallback に落ちた**ことを表す log 用語 (SSOT、#4726)。
+ *
+ * ## なぜ latch と別の信号が要るか
+ *
+ * `AI_PROVIDER_UNAVAILABLE_LOG_TERM` は **可用性クラスの失敗** (権限 / 資格情報 / モデル未存在)
+ * でしか出ない。#4726 の本番障害はそのどれでもない `ValidationException`
+ * (base model ID を on-demand で呼べない) で、全リクエストが 100% fallback に落ちていたのに
+ * `ganbari-quest-ai-provider-unavailable` alarm は 1 度も鳴らず、発見はオーナーの手動実行だった。
+ *
+ * `ValidationException` を可用性クラスに足すのは不可 — 入力起因の ValidationException で
+ * AI 機能が全停止に倒れる (上の `UNAVAILABLE_MESSAGE_PATTERNS` の設計注意と同じ理由)。
+ * したがって latch ではなく **「呼んで失敗した割合」** を観測する。
+ *
+ * ## 出力粒度
+ *
+ * `AI_PROVIDER_UNAVAILABLE_LOG_TERM` と違い **1 呼び出しにつき 1 行**出す (dedupe しない) —
+ * 率を出すには分子・分母の実件数が要るため。件数は AI 呼び出し数そのもの
+ * (有料機能の実行回数) に等しく、per-request で膨らむ性質の log ではない。
+ * 載せてよいのは分類まで (provider 名 / 例外クラス名)。例外メッセージ本文・顧客入力は載せない。
+ *
+ * **成功・失敗を同じ log level (info) で出す。** 片方だけ level を上げると、`LOG_LEVEL` の
+ * 設定 1 つで分母だけが消えて率が壊れる (「1 件でも失敗すれば 100%」に化ける)。
+ * 対称性は `tests/unit/infra/ai-fallback-rate-alarm.test.ts` [C3] が固定する。
+ *
+ * metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数
+ * (CDK の tsconfig rootDir 制約で src を import できないため literal で持ち、
+ * `tests/unit/infra/ai-fallback-rate-alarm.test.ts` が drift を機械検証する)。
+ */
+export const AI_CALL_FAILED_LOG_TERM = '[ai-alert] ai-call-failed';
+
+/** AI 呼び出しが成功したことを表す log 用語 (SSOT、#4726)。fallback 率の**分母**を作る。 */
+export const AI_CALL_SUCCEEDED_LOG_TERM = '[ai-alert] ai-call-succeeded';
+
+/** 例外から「載せてよい分類」だけを取り出す。メッセージ本文は載せない。 */
+function errorClassOf(err: unknown): string {
+	if (err instanceof Error && err.name) return err.name;
+	const name = (err as { name?: unknown } | null)?.name;
+	return typeof name === 'string' && name.length > 0 ? name : 'UnknownError';
+}
+
+/**
  * AI が使えない理由。**分類までが載せてよい上限**で、識別子・顧客情報・例外メッセージ本文は
  * 載せない (`src/lib/server/stripe/alert.ts` / `[auth-alert]` 系の既存規約と同じ)。
  *
@@ -172,21 +213,35 @@ export function resetAiAvailabilityLatch(): void {
 }
 
 /**
- * converse 系の実行を包み、可用性クラスの失敗だけを latch して例外はそのまま投げ直す。
+ * converse 系の実行を包み、以下 2 つを行う。例外はそのまま投げ直す。
+ *
+ * 1. 可用性クラスの失敗だけを latch する (#4366)
+ * 2. **1 呼び出し = 1 行**で成功 / 失敗の outcome を log に出す (#4726、fallback 率の分子・分母)
  *
  * 「握り潰して false を返す」のではなく rethrow するのは、サービス層が既に `try/catch` で
  * フォールバックを持っており、そこに縮退の責務を集約しているため (#4366 (b))。
+ *
+ * **包む範囲は「SDK 呼び出し」ではなく「使える結果を得るまで」**にすること (#4726)。
+ * レスポンスの取り出しに失敗した場合 (tool_use ブロック無し / JSON パース不能) も
+ * サービス層は fallback に落ちるため、そこを外に出すと fallback 率が実態より小さく出る。
  */
 export async function withAvailabilityTracking<T>(
 	providerName: string,
 	run: () => Promise<T>,
 ): Promise<T> {
 	try {
-		return await run();
+		const result = await run();
+		logger.info(`${AI_CALL_SUCCEEDED_LOG_TERM} provider=${providerName}`);
+		return result;
 	} catch (err) {
 		if (isAiUnavailableError(err)) {
 			markProviderUnavailable(providerName);
 		}
+		// **成功と同じ level (info) で出す。** 分子だけ warn にすると `LOG_LEVEL=warn` を配った
+		// 瞬間に分母 (成功) が消え、fallback 率が「1 件でも失敗すれば 100%」に化ける
+		// (失敗の重大さは呼び出し側の logger.error が別に出しており、ここは metric の材料)。
+		// LOG_LEVEL を上げれば両方消える = 率は算出されず alarm は無風になる (誤発火しない側)。
+		logger.info(`${AI_CALL_FAILED_LOG_TERM} provider=${providerName} error=${errorClassOf(err)}`);
 		throw err;
 	}
 }

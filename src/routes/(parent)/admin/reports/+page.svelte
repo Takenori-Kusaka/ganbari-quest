@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
 import { shiftMonthKey } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, formatYearMonth, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
@@ -61,18 +62,12 @@ function diffColor(current: number, prev: number | undefined): string {
 	return 'text-[var(--color-text-tertiary)]';
 }
 
-// カテゴリ名の取得（IDから）
-const categoryNames: Record<string, string> = {
-	'1': '運動',
-	'2': '勉強',
-	'3': '生活',
-	'4': '交流',
-	'5': '創造',
-	unknown: 'その他',
-};
-
+// #4512: カテゴリ名を漢字で並行実装していた (SSOT はひらがな)。カテゴリを増減しても
+//   このページだけ「カテゴリ6」と表示される構造でもあったため、categories.ts から引く。
 function getCategoryName(catId: string): string {
-	return categoryNames[catId] ?? `カテゴリ${catId}`;
+	const code = toCategoryCode(catId);
+	if (code) return CATEGORIES[code].name;
+	return REPORTS_LABELS.categoryUnknown;
 }
 
 // カテゴリ内訳の最大値を取得（グラフ描画用）

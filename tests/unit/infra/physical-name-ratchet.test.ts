@@ -317,6 +317,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-stripe-webhook-delivery-check',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-trial-notifications',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-aws-health',
+			// #4706: 通知 / 週次レポート配信 cron の EventBridge Rule
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-notification-delivery',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-health-check',
 			'GanbariQuestDsql/AWS::Events::Rule/ganbari-quest-dsql-backup-failed',
 		],
@@ -327,6 +329,9 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			// #4375 follow-up: AI provider が使えない状態の観測 alarm。
 			// runbook / 通知方針表がこの名前で参照する。
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ai-provider-unavailable',
+			// #4726: AI 呼び出しの fallback 率 alarm。ai-provider-unavailable と同じく
+			// 通知方針表 (ops-alert-policy.ts) がこの名前で参照する。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ai-fallback-rate',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
 			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',
