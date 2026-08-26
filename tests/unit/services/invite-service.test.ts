@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { asChildId } from '$lib/domain/ids';
+import { INVITE_ACCEPT_ERROR_BANNERS } from '$lib/domain/labels';
+import {
+	INVITE_ACCEPT_ERROR_REASONS,
+	type InviteAcceptErrorReason,
+	isInviteAcceptErrorReason,
+} from '$lib/domain/validation/auth';
 import type { Invite, Membership, Tenant } from '../../../src/lib/server/auth/entities';
 import type { IAuthRepo } from '../../../src/lib/server/db/interfaces/auth-repo.interface';
 import { assertError, assertSuccess } from '../helpers/assert-result';
@@ -290,6 +297,42 @@ describe('acceptInvite', () => {
 		expect(result.error).toBe('TENANT_NOT_FOUND');
 	});
 
+	// #4633: 支払いが 1 回失敗して猶予期間 (grace_period) に入っただけの有料世帯は、機能自体は
+	// 利用できている (isEntitledStatus=true)。ここを 'active' 厳密一致で判定していたため、
+	// 招待の作成は通るのに受諾だけが TENANT_NOT_FOUND で落ち、しかもその失敗が無音で
+	// 「新しい家族グループの作成」に化けていた。判定は entitled 集合で行う。
+	it('猶予期間 (grace_period) のテナントからの招待は受諾できる (#4633)', async () => {
+		inviteStore.set('acc-grace', makePendingInvite({ inviteCode: 'acc-grace' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertSuccess(await acceptInvite('acc-grace', 'grace-user'));
+		expect(result.membership.tenantId).toBe('t-test');
+		expect(result.membership.role).toBe('parent');
+		expect(inviteStore.get('acc-grace')?.status).toBe('accepted');
+	});
+
+	// #4633: 緩和は grace_period までで、機能停止・退会済からの受諾は従来どおり拒否する
+	// (entitled 判定を「常に true」に緩めた瞬間に落ちる)。
+	it.each([
+		SUBSCRIPTION_STATUS.SUSPENDED,
+		SUBSCRIPTION_STATUS.TERMINATED,
+	])('entitled でないテナント (%s) からの招待は受諾できない (#4633)', async (status) => {
+		inviteStore.set(`acc-${status}`, makePendingInvite({ inviteCode: `acc-${status}` }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status,
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertError(await acceptInvite(`acc-${status}`, `user-${status}`));
+		expect(result.error).toBe('TENANT_NOT_FOUND');
+		expect(membershipStore).toHaveLength(0);
+	});
+
 	it('自分で作成した招待は受諾できない (#0203)', async () => {
 		inviteStore.set(
 			'self-inv',
@@ -316,6 +359,71 @@ describe('acceptInvite', () => {
 
 		const result = assertError(await acceptInvite('downgrade', 'owner-user'));
 		expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
+	});
+
+	// #4633 AC-A (no-silent-gap): 受諾拒否は例外なく「新規家族グループの自動作成」に
+	// フォールバックするため、通知バナーに載らない理由が 1 つでもあると「失敗が成功に見える」
+	// 経路が残る。acceptInvite が実際に返す全 error 理由が、通知理由 SSOT
+	// (INVITE_ACCEPT_ERROR_REASONS) と文言表 (INVITE_ACCEPT_ERROR_BANNERS) の両方に
+	// 登録されていることを固定する。新しい拒否理由を無登録で足した瞬間に落ちる。
+	it('受諾拒否の全理由が通知バナーの SSOT に登録されている (#4633 AC-A)', async () => {
+		const observed = new Set<string>();
+
+		// 無効 / 期限切れ
+		observed.add(assertError(await acceptInvite('no-such-code', 'u1')).error);
+
+		// 自己招待
+		inviteStore.set('g-self', makePendingInvite({ inviteCode: 'g-self', invitedBy: 'u-self' }));
+		observed.add(assertError(await acceptInvite('g-self', 'u-self')).error);
+
+		// email 束縛 (未検証 / 不一致)
+		inviteStore.set(
+			'g-unverified',
+			makePendingInvite({ inviteCode: 'g-unverified', email: 'invited@example.com' }),
+		);
+		observed.add(
+			assertError(
+				await acceptInvite('g-unverified', 'u2', 'invited@example.com', {
+					emailVerified: false,
+				}),
+			).error,
+		);
+		inviteStore.set(
+			'g-mismatch',
+			makePendingInvite({ inviteCode: 'g-mismatch', email: 'invited@example.com' }),
+		);
+		observed.add(
+			assertError(
+				await acceptInvite('g-mismatch', 'u3', 'other@example.com', { emailVerified: true }),
+			).error,
+		);
+
+		// 既に別グループ所属 / owner ダウングレード
+		inviteStore.set('g-already', makePendingInvite({ inviteCode: 'g-already' }));
+		userTenantStore.set('u4', [
+			{ userId: 'u4', tenantId: 't-other', role: 'parent', joinedAt: new Date().toISOString() },
+		]);
+		observed.add(assertError(await acceptInvite('g-already', 'u4')).error);
+		inviteStore.set('g-owner', makePendingInvite({ inviteCode: 'g-owner' }));
+		userTenantStore.set('u5', [
+			{ userId: 'u5', tenantId: 't-test', role: 'owner', joinedAt: new Date().toISOString() },
+		]);
+		observed.add(assertError(await acceptInvite('g-owner', 'u5')).error);
+
+		// テナントが entitled でない
+		inviteStore.set('g-tenant', makePendingInvite({ inviteCode: 'g-tenant' }));
+		observed.add(assertError(await acceptInvite('g-tenant', 'u6')).error);
+
+		// 観測した理由が 1 つも欠けずに通知 SSOT に載っていること
+		for (const reason of observed) {
+			expect(
+				isInviteAcceptErrorReason(reason),
+				`受諾拒否理由 ${reason} が INVITE_ACCEPT_ERROR_REASONS に未登録 (無音の新規家族グループ作成に化ける)`,
+			).toBe(true);
+			expect(INVITE_ACCEPT_ERROR_BANNERS[reason as InviteAcceptErrorReason]).toBeTruthy();
+		}
+		// 逆向き: SSOT にあるのに本 test が踏んでいない理由 (= 観測漏れ) も検出する
+		expect([...observed].sort()).toEqual([...INVITE_ACCEPT_ERROR_REASONS].sort());
 	});
 });
 

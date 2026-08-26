@@ -116,13 +116,12 @@ onMount(() => {
 		})
 			.then((res) => res.json())
 			.then((json: unknown) => {
-				if (
-					json &&
-					typeof json === 'object' &&
-					'id' in json &&
-					typeof (json as { id: unknown }).id === 'number'
-				) {
-					usageSessionId = (json as { id: string }).id;
+				// #4719: id は **文字列** (sqlite=数値 id の文字列 / pg=uuid)。旧実装は
+				// `typeof id === 'number'` を条件にしていたため usageSessionId が常に null のままで
+				// PATCH (セッション終了) が一度も飛ばず、全 backend で「本日の使用時間 0分」になっていた。
+				if (json && typeof json === 'object' && 'id' in json) {
+					const id: unknown = (json as { id: unknown }).id;
+					if (typeof id === 'string' || typeof id === 'number') usageSessionId = String(id);
 				}
 			})
 			.catch(() => {

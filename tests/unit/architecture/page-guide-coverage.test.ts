@@ -131,11 +131,20 @@ describe('#3269 C5: marketplace 詳細の dedicated guide 解決', () => {
 	it('詳細 /marketplace/<type>/<itemId> は dedicated 詳細ガイド (marketplace-detail) を解決する (親へ degrade しない)', async () => {
 		const guide = await getPageGuide('/marketplace/activity-pack/kinder-starter');
 		expect(guide?.pageId).toBe('marketplace-detail');
-		// 取込 CUJ 終盤を案内する 3 部構成 (#3269)
-		expect(guide?.steps.length).toBe(3);
-		// 取込 CTA を selector に持つ step が含まれる (dead-end 防止 / 取り込みへ誘導)
-		expect(guide?.steps.some((s) => s.selector === '[data-testid="marketplace-detail-cta"]')).toBe(
-			true,
+		// #4678: 概要 / 中身 / (活動セットの選択, optional) / 取り込み 5 分岐 (optional、出ている 1 つが残る)
+		const ids = guide?.steps.map((s) => s.id) ?? [];
+		expect(ids.slice(0, 2)).toEqual(['marketplace-detail-intro', 'marketplace-detail-preview']);
+		// 取込 CTA を selector に持つ step が含まれる (dead-end 防止 / 取り込みへ誘導)。
+		// CTA ブロックの分岐 (data-cta-variant) ごとに optional step を持ち、分岐ごとに selector が異なる。
+		const importSteps = guide?.steps.filter((s) =>
+			s.selector?.startsWith('[data-testid="marketplace-detail-cta"]'),
+		);
+		expect(importSteps?.length).toBe(5);
+		expect(importSteps?.every((s) => s.optional === true)).toBe(true);
+		expect(importSteps?.map((s) => s.selector)).toEqual(
+			['per-child', 'family-rule', 'rule-unavailable', 'no-children', 'login'].map(
+				(v) => `[data-testid="marketplace-detail-cta"][data-cta-variant="${v}"]`,
+			),
 		);
 	});
 

@@ -77,6 +77,15 @@ import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
 
 export const PLAN_TERMS = {
 	free: '無料',
+	/**
+	 * プランカード / 比較表 / FAQ カテゴリの**短縮名**「フリー」(#4502 PO 決裁)。
+	 *
+	 * LP には「フリー」と「無料」の 2 表記が混在していた。どちらかを消すのではなく
+	 * **使い分けを公式化**する — 名札 (カード見出し・比較表の列・FAQ カテゴリ) は `freeCardName`、
+	 * 文章中は `PLAN_FULL_TERMS.free`「無料プラン」。名札は短いほうが読みやすく、
+	 * 文章中は「無料プラン」でないと「無料」が形容詞と紛れるため。
+	 */
+	freeCardName: 'フリー',
 	standard: 'スタンダード',
 	premium: 'プレミアム',
 	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */
@@ -452,6 +461,24 @@ export const CHILD_TERMS = {
 } as const;
 
 // ============================================================
+// AI_TRANSFER_TERMS — 生成 AI への送信を説明するときの語彙 atom (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路は、
+// 入力内容をそのまま生成 AI に送信する。プライバシーポリシー第9条④ (#4583) と
+// 同じ事実を、入力する瞬間に伝えるための語彙をここに集約する。
+//
+// 禁忌: 個別の生成 AI 製品名 (モデル名・サービス名) を atom に持たせない。
+// 送信先は「事業者」と「運営者の環境の内か外か」で述べる (#4370 / #4583 と同一規律)。
+
+export const AI_TRANSFER_TERMS = {
+	/** 送信先の総称 */
+	genAi: '生成 AI',
+	/** 入力してはいけない情報の例示 (単独では主語を持たない断片) */
+	identifyingInfo: 'お名前など特定につながる情報',
+} as const;
+
+// ============================================================
 // PARENT_TERMS — 「親」「保護者」2 表記の SSOT atom (#1914)
 // ============================================================
 //
@@ -761,6 +788,19 @@ export const CHEER_TERMS = {
 //   - canonical : 'ごほうび'        ( 短縮形、ナビ / セクションタイトル等の標準形 )
 //
 // 既存 REWARDS_LABELS の '管理' / '一覧' / '申請' 等は本 atom と組み合わせて使う。
+
+// ============================================================
+// RULES_TERMS — 設定 > ごほうび・ボーナスルール (/admin/settings/rules) の画面名 atom (#4678)
+// ============================================================
+//
+// 設定ハブのカード (SETTINGS_LABELS.groupRulesTitle) / 設定サブナビ (SETTINGS_NAV_LABELS.rules) /
+// marketplace 詳細ガイドの取込先案内 (PAGE_GUIDE_LABELS.marketplaceDetail) が同じ画面名を参照する。
+// labels.ts 内の宣言順 (TDZ) に依らず参照できるよう atom として terms.ts に置く。
+
+export const RULES_TERMS = {
+	/** 設定ハブ / サブナビ / ガイドで使う画面名 */
+	settingsMenu: 'ごほうび・ボーナスルール',
+} as const;
 
 export const REWARD_TERMS = {
 	menu: 'ごほうび管理',
