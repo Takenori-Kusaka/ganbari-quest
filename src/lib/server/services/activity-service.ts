@@ -8,12 +8,12 @@ import {
 } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import {
-	countPointLedgerEntriesByTypeAndDate,
 	deleteDailyMissionsByActivity,
 	findMustActivitiesWithToday,
 	getActivityLogCounts as getActivityLogCountsRepo,
 	hasActivityLogs as hasActivityLogsRepo,
 	insertPointLedger,
+	sumPointLedgerByTypeAndDescriptionPrefix,
 } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
@@ -416,6 +416,56 @@ export function computeMustCompletionBonus(uiMode: UiMode, allComplete: boolean)
  */
 export const MUST_COMPLETION_BONUS_TYPE = 'must_completion_bonus';
 
+/** 当日の must bonus ledger description prefix (JST 日付。付与 / 巻き戻し共通、#4686)。 */
+function mustBonusLedgerPrefix(today: string): string {
+	return `[${today}]`;
+}
+
+/**
+ * #4686: 当日付与済みの must bonus 合計 (正負込み)。guard (付与済みか) と巻き戻し額の両方に使う。
+ * 件数 (countPointLedgerEntriesByTypeAndDate) だと巻き戻しの負行を数えて再付与できなくなるため合計を読む。
+ */
+async function getMustBonusGrantedToday(
+	childId: ChildId,
+	today: string,
+	tenantId: string,
+): Promise<number> {
+	return sumPointLedgerByTypeAndDescriptionPrefix(
+		childId,
+		MUST_COMPLETION_BONUS_TYPE,
+		mustBonusLedgerPrefix(today),
+		tenantId,
+	);
+}
+
+/**
+ * #4686: 活動とりけし時の「今日のおやくそく」ボーナス巻き戻し。
+ * 当日付与済み (>0) なのに全達成が崩れていれば、付与済み合計と同額を負方向に計上する
+ * (付与した経路と同じ type / prefix。再び全達成すれば tryGrantMustCompletionBonus が差分で再付与する)。
+ * @returns 計上した差分 (負 or 0)
+ */
+export async function revertMustCompletionBonusIfBroken(
+	childId: ChildId,
+	today: string,
+	tenantId: string,
+): Promise<number> {
+	const granted = await getMustBonusGrantedToday(childId, today, tenantId);
+	if (granted <= 0) return 0;
+	const { logged, total } = await getMustActivitiesToday(childId, today, tenantId);
+	const allComplete = total > 0 && logged === total;
+	if (allComplete) return 0;
+	await insertPointLedger(
+		{
+			childId,
+			amount: -granted,
+			type: MUST_COMPLETION_BONUS_TYPE,
+			description: `${mustBonusLedgerPrefix(today)} きょうのおやくそく ぜんぶできた！ とりけし`,
+		},
+		tenantId,
+	);
+	return -granted;
+}
+
 /**
  * #1757 (#1709-C): 「今日のおやくそく」全達成時のボーナスを冪等に付与する。
  *
@@ -423,12 +473,13 @@ export const MUST_COMPLETION_BONUS_TYPE = 'must_completion_bonus';
  * 1. `getMustActivitiesToday(childId, today, tenantId)` で達成状況を取得
  * 2. `total === 0` または `logged < total` → 付与せず返却（granted=false, points=0）
  * 3. `logged === total && total > 0`:
- *    - 同日にすでに付与済み（`countPointLedgerEntriesByTypeAndDate` > 0）→ 付与せず返却
+ *    - 同日にすでに付与済み（当日付与合計 ≥ bonus、#4686 でとりけし負行込みの合計判定）→ 付与せず返却
  *    - 未付与かつ uiMode に応じた bonus > 0 → point_ledger に挿入
  *
  * 冪等性:
- * - point_ledger を `(childId, type='must_completion_bonus', date(createdAt)=today)` で
- *   1 行のみに保つ。同日 2 回目以降の呼び出しは加算しない。
+ * - point_ledger の `(childId, type='must_completion_bonus', description LIKE '[today]%')` 合計を
+ *   bonus に揃える (差分付与)。同日 2 回目以降の呼び出しは加算しない。とりけしで全達成が崩れた
+ *   場合は revertMustCompletionBonusIfBroken が同額を負方向に計上し、再達成で再付与される (#4686)。
  *
  * Anti-engagement (ADR-0012):
  * - 連続演出禁止 → 同日 2 回目以降の達成判定で再演出しないよう、`granted=false` を返す。
@@ -467,25 +518,22 @@ export async function tryGrantMustCompletionBonus(
 		return { logged, total, allComplete: true, granted: false, points: 0, activities };
 	}
 
-	const existingCount = await countPointLedgerEntriesByTypeAndDate(
-		childId,
-		MUST_COMPLETION_BONUS_TYPE,
-		today,
-		tenantId,
-	);
-	if (existingCount > 0) {
+	// #4686: 件数ではなく当日付与合計で判定 (とりけしの負行を含め「今いくら付与されているか」)。
+	const granted = await getMustBonusGrantedToday(childId, today, tenantId);
+	if (granted >= bonus) {
 		return { logged, total, allComplete: true, granted: false, points: 0, activities };
 	}
 
+	const delta = bonus - granted;
 	await insertPointLedger(
 		{
 			childId,
-			amount: bonus,
+			amount: delta,
 			type: MUST_COMPLETION_BONUS_TYPE,
-			description: `[${today}] きょうのおやくそく ぜんぶできた！`,
+			description: `${mustBonusLedgerPrefix(today)} きょうのおやくそく ぜんぶできた！`,
 		},
 		tenantId,
 	);
 
-	return { logged, total, allComplete: true, granted: true, points: bonus, activities };
+	return { logged, total, allComplete: true, granted: true, points: delta, activities };
 }
