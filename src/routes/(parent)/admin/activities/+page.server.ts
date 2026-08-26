@@ -5,8 +5,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
-import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ADMIN_CHILD_SCOPE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
