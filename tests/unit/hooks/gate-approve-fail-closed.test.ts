@@ -23,7 +23,7 @@
  * 関連: ADR-0056 / ADR-0061 (same-class-N→guard) / #3999 (先行する同 class の fail-open)
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -363,11 +363,27 @@ describe('#4075 AC2 — hook の相対 import は全て dynamic (fitness functio
 		return [...paths].sort();
 	}
 
-	const scripts = registeredHookScripts();
+	/**
+	 * #4571 / ADR-0068: settings.json から呼び出しを外したが、段階的な再導入のため本体を残している
+	 * hook。**残置中も fail-closed 性を検査し続ける** — 再登録の日に「静かに fail-open へ戻っていた」
+	 * を起こさないため (未登録 = 検査対象外、にすると残置期間ぶんだけ腐る)。
+	 */
+	const RETAINED_UNREGISTERED_HOOKS = ['.claude/hooks/gate-approve.mjs'];
+
+	const scripts = [...new Set([...registeredHookScripts(), ...RETAINED_UNREGISTERED_HOOKS])].sort();
 
 	it('抽出が空振りしていない (0 件なら以降が vacuous pass になる)', () => {
 		expect(scripts.length).toBeGreaterThanOrEqual(3);
 		expect(scripts).toContain('.claude/hooks/gate-approve.mjs');
+	});
+
+	it('残置 hook の本体が実在する (消えたら本 describe が静かに空を検査する)', () => {
+		for (const relPath of RETAINED_UNREGISTERED_HOOKS) {
+			expect(
+				existsSync(resolve(process.cwd(), relPath)),
+				`${relPath} が無い。削除したなら RETAINED_UNREGISTERED_HOOKS からも外し、ADR-0068 を改訂すること`,
+			).toBe(true);
+		}
 	});
 
 	it.each(

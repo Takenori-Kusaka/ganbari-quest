@@ -330,7 +330,7 @@ gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
 
 同じ `#4129` の一件で、監査は「`Closes #4129` を追加した」と PO に報告したが、**編集したのはローカル下書きだけで実 PR body には存在しなかった**。他のずれ（本文が古い）と違い、`Closes` の欠落は **GitHub の auto-close が発火しない**という副作用を伴い、merge されると main 上の恒久記録になる。
 
-**運用**: 統合 PR body の下書きを **`tmp/pr-bodies/<PR 番号>.md`** に置く。approve 時に `.claude/hooks/gate-approve.mjs` が下書きと実 body の close 宣言を照合し、不一致なら approve を block する（下書きが無い PR は block せず「未実施」を stderr に出す）。手で確認する場合:
+**運用**: 統合 PR body の下書きを **`tmp/pr-bodies/<PR 番号>.md`** に置く。下書きと実 body の close 宣言の照合は `.claude/hooks/gate-approve.mjs` が持っていたが、**ADR-0068 / #4571 で hook の呼び出しを外したため自動照合は走らない**。手で確認する:
 
 ```bash
 node scripts/check-pr-body.mjs --pr <N> --verify-closes-landed tmp/pr-bodies/<N>.md

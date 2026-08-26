@@ -31,6 +31,13 @@ vi.mock('$lib/marketplace', () => ({
 	marketplaceRegistry: { get: (...args: unknown[]) => mockRegistryGet(...args) },
 }));
 
+// #4692: 取込先 child を明示注入するため handler が getAllChildren を呼ぶ
+// (旧: service 内で「tenant 最初の child」に silent bind していた)。
+const mockGetAllChildren = vi.fn();
+vi.mock('$lib/server/services/child-service', () => ({
+	getAllChildren: (...args: unknown[]) => mockGetAllChildren(...args),
+}));
+
 const { POST } = await import('../../../src/routes/api/v1/activities/import/+server');
 
 function makeEvent(mode: string, activities: unknown[]) {
@@ -59,6 +66,7 @@ beforeEach(() => {
 		},
 	});
 	mockDispatchImport.mockResolvedValue({ imported: 1, skipped: 0, errors: [] });
+	mockGetAllChildren.mockResolvedValue([{ id: '1' }, { id: '2' }]);
 });
 
 describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate', () => {
@@ -85,6 +93,23 @@ describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate'
 		const res = await POST(makeEvent('merge', [validActivity]));
 		expect(res.status).toBe(200);
 		expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+	});
+
+	// #4692: 取込先 child を明示注入する (service 側 first-child silent fallback 撤去の対)。
+	it('mode=merge は家族全員を childIds として dispatchImport に渡す', async () => {
+		mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
+		await POST(makeEvent('merge', [validActivity]));
+		expect(mockDispatchImport).toHaveBeenCalledWith(
+			expect.objectContaining({ ctx: expect.objectContaining({ childIds: ['1', '2'] }) }),
+		);
+	});
+
+	it('子供が 1 人もいない tenant では 400 を返し dispatchImport を呼ばない', async () => {
+		mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
+		mockGetAllChildren.mockResolvedValue([]);
+		const res = await POST(makeEvent('merge', [validActivity]));
+		expect(res.status).toBe(400);
+		expect(mockDispatchImport).not.toHaveBeenCalled();
 	});
 
 	it('mode=preview は quota gate 対象外 (件数見積のみ、活動を作らない)', async () => {
