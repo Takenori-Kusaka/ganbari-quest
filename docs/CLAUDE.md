@@ -206,10 +206,10 @@ Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.gith
 
 ## graphify
 
-- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`、`graphify-out/graph.html`。
+- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`（`graphify-out/graph.html` は閲覧用の派生物で git 追跡しない。必要なら `graphify update .` で手元に再生成される）。
 - **Git運用ベストプラクティス（#4536、develop/main 限定に変更）**:
   - **再生成は develop / main 上でのみ行う**。`.husky/post-commit` は現在の branch が `develop` / `main` の場合だけ `graphify update .`（インクリメンタルビルド、AST解析はトークン消費0）を実行する。feature branch では何もしない（早期 `exit 0`）
   - 理由: 以前は全 branch でコミットのたびに再生成していたため、並行する feature branch がそれぞれ独自の graphify-out (`graph.json` 27MB+) を持ち、develop への merge のたびに残り全 PR が graphify-out だけで conflict していた（実測: PR #4514 merge 時、conflict は graphify-out 3 file のみ）。feature branch 側で再生成しないことで、PR の diff から graphify-out が消え conflict が原理的にゼロになる
   - **develop 上の再生成は push 契機の `.github/workflows/graphify-refresh.yml` が担う**。develop / main は branch ruleset が直接 push を拒否するため、差分があれば bot (GitHub App) が `chore/graphify-refresh` branch + PR を発行し、QM/lab が承認・merge する（`hotfix-back-merge.yml` と同型、ADR-0022 準拠・admin bypass なし）。差分が無ければ PR は発行されない
-  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `graph.html`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます（コールドスタート解消の意図は維持）
+  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `manifest.json`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます（コールドスタート解消の意図は維持）。可視化 HTML `graph.html` は graph.json から再生成できる閲覧用の派生物のため追跡しない（`.gitignore`）
 - **探索クエリ**: AIセッション（Claude Code / Gemini 等）は、ドキュメントの矛盾・依存スキャンのため、自律的に `graphify query "<質問>"` を使用して探索・解説を行います。

@@ -64,7 +64,11 @@ async function seedThreeCategoryRewards(
 			"INSERT INTO point_ledger (child_id, amount, type, description) VALUES (?, ?, 'shop_tabs_test_seed', 'tabs-filter E2E')",
 		).run(cId, balanceTarget - current.total);
 
-		// 既存 shop_tabs_e2e seed があれば削除して seed のクリーン化
+		// 既存 shop_tabs_e2e seed があれば削除して seed のクリーン化。
+		// #4684: 申請行が reward を参照するため、reward より先に申請を消す (FK 順)。
+		db.prepare(
+			"DELETE FROM reward_redemption_requests WHERE reward_id IN (SELECT id FROM special_rewards WHERE child_id = ? AND category = 'shop_tabs_e2e')",
+		).run(cId);
 		db.prepare("DELETE FROM special_rewards WHERE child_id = ? AND category = 'shop_tabs_e2e'").run(
 			cId,
 		);
@@ -102,6 +106,10 @@ async function cleanupSeeds(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(workerDbPath);
 	try {
+		// #4684: reward より先に申請を消す (FK: reward_redemption_requests.reward_id)
+		db.prepare(
+			"DELETE FROM reward_redemption_requests WHERE reward_id IN (SELECT id FROM special_rewards WHERE category = 'shop_tabs_e2e')",
+		).run();
 		db.prepare("DELETE FROM special_rewards WHERE category = 'shop_tabs_e2e'").run();
 		db.prepare("DELETE FROM point_ledger WHERE type = 'shop_tabs_test_seed'").run();
 	} finally {
@@ -250,5 +258,54 @@ test.describe('#2157 / #2160: ごほうびショップ 3 系統タブ + カテ�
 		await moneyPanel.getByTestId('filter-points-range-low').click();
 
 		await expect(moneyPanel.getByTestId('filter-empty')).toBeVisible();
+	});
+
+	// #4684 AC2: 「いまこうかんできる」の件数 = 実際に押せるカード数。
+	// 旧実装は残高だけを見ていたため、承認待ち (交換ボタンが出ない) の ごほうびを
+	// 「こうかんできる」に数え、件数バッジ (「3件中 2件」) が実態と食い違っていた。
+	test('#4684 AC2: 承認待ちのごほうびは「いまこうかんできる」に数えない', async ({
+		page,
+		workerDbPath,
+	}) => {
+		const { childId } = await seedThreeCategoryRewards(workerDbPath);
+
+		// 残高 (200pt) で買える 50pt のごほうびに承認待ち申請を作る
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const reward = db
+				.prepare('SELECT id, points FROM special_rewards WHERE child_id = ? AND title = ?')
+				.get(childId, 'E2E TAB すきなシール') as { id: number; points: number };
+			db.prepare(
+				`INSERT INTO reward_redemption_requests
+					(child_id, reward_id, requested_at, quantity, status, reward_title, reward_points, reward_icon)
+				 VALUES (?, ?, ?, 1, 'pending_parent_approval', 'E2E TAB すきなシール', ?, '⭐')`,
+			).run(childId, reward.id, Math.floor(Date.now() / 1000), reward.points);
+		} finally {
+			db.close();
+		}
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		await page.getByTestId('filter-available').check();
+
+		// 承認待ち = 押せないので一覧に出ない (残高は足りているが「こうかんできる」ではない)
+		await expect(page.getByText('E2E TAB すきなシール')).not.toBeVisible();
+		// 押せるものは残る
+		await expect(page.getByText('E2E TAB ゲーム時間 +30分')).toBeVisible();
+
+		// 件数バッジの「N件」= 可視カード数 = 有効な交換ボタン数 (押せないカードを数えない)
+		const panel = activeTabPanel(page);
+		const badgeText = (await panel.getByTestId('filter-badge').textContent()) ?? '';
+		const filteredCount = Number(badgeText.match(/中\s*(\d+)/)?.[1] ?? -1);
+		const visibleCards = await panel.locator('[data-testid^="reward-card-"]:visible').count();
+		const enabledButtons = await panel
+			.locator('[data-testid^="exchange-btn-"]:not([disabled])')
+			.count();
+		expect(filteredCount).toBe(visibleCards);
+		expect(enabledButtons).toBe(visibleCards);
 	});
 });

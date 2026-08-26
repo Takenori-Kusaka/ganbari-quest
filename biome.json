@@ -145,6 +145,7 @@
 			"!.claude",
 			"!**/*.md",
 			"!**/lp-metrics.json",
+			"!data/cron-status.json",
 			"!**/tmp",
 			"!**/.tmp-screenshots",
 			"!**/drizzle",
