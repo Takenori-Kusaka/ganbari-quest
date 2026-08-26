@@ -16,9 +16,17 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('#2365 marketplace -> activity-pack -> import (PO 指摘 ① 直接解決)', () => {
+	// #4692: `?/importFile` (バックアップから復元) は「選択中の子」scope になり childId 必須。
+	// 画面の子供タブ testid (`child-tab-<id>`) から実在の childId を読む。
+	let childId = '';
+
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/activities');
 		await page.waitForLoadState('domcontentloaded');
+		const firstTab = page.locator('[data-testid^="child-tab-"]').first();
+		await expect(firstTab).toBeVisible();
+		childId = (await firstTab.getAttribute('data-testid'))?.replace('child-tab-', '') ?? '';
+		expect(childId, '子供タブから childId を読めなかった (seed 破綻)').not.toBe('');
 	});
 
 	// #2558 段階2 (PO 方針: マーケットプレイス一本化): admin 内ブラウズ UI を撤去したため、
@@ -81,6 +89,8 @@ test.describe('#2365 marketplace -> activity-pack -> import (PO 指摘 ① 直�
 		});
 		const res = await request.post('/admin/activities?/importFile', {
 			multipart: {
+				// #4692: 復元先は「選択中の子」— childId 必須
+				childId,
 				file: {
 					name: 'e2e-test.json',
 					mimeType: 'application/json',
