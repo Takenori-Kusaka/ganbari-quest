@@ -31,7 +31,7 @@ import {
 	getCancellationState,
 	reconcileCheckoutSession,
 } from '$lib/server/services/stripe-service';
-import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
+import { getTrialStatus, startTrial, TRIAL_TIER } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -145,7 +145,8 @@ export const actions: Actions = {
 		const started = await startTrial({
 			tenantId,
 			source: 'user_initiated',
-			tier: 'standard',
+			// #4501: tier は TRIAL_TIER (premium 固定、FR-2)。呼び出し側で選ばない
+			tier: TRIAL_TIER,
 		});
 
 		if (!started) {
