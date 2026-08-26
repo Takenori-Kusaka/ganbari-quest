@@ -414,6 +414,21 @@ describe('acceptInvite', () => {
 		inviteStore.set('g-tenant', makePendingInvite({ inviteCode: 'g-tenant' }));
 		observed.add(assertError(await acceptInvite('g-tenant', 'u6')).error);
 
+		// #4704: 受諾 txn 内の席数検査で上限超過 (発行後のプラン変更 / 同時受諾の敗者)。
+		// 席数は txn 内でしか数えられないため、repo が返す業務失敗として注入する
+		// (fake txn は席数を持たない = 実装と同じく repo 側の責務)。
+		inviteStore.set('g-seats', makePendingInvite({ inviteCode: 'g-seats' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		mockAuthRepo.acceptInviteTransactional.mockResolvedValueOnce({
+			ok: false as const,
+			reason: 'MEMBER_LIMIT_REACHED' as const,
+		});
+		observed.add(assertError(await acceptInvite('g-seats', 'u7')).error);
+
 		// 観測した理由が 1 つも欠けずに通知 SSOT に載っていること
 		for (const reason of observed) {
 			expect(
