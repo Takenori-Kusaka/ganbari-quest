@@ -34,7 +34,12 @@ import {
 	SETTINGS_LABELS,
 	SUBSCRIPTION_PAGE_LABELS,
 } from '../../../src/lib/domain/labels';
-import { DELETION_GRACE_TERMS, PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
+import {
+	CANCEL_TERMS,
+	DELETION_GRACE_TERMS,
+	PLAN_FULL_TERMS,
+	PLAN_RETENTION_TERMS,
+} from '../../../src/lib/domain/terms';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
@@ -299,6 +304,101 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(repoFile('site/pricing.html')).toContain(
 				`${PLAN_HISTORY_RETENTION_DAYS.free} 日を超えた記録は削除され`,
 			);
+		});
+	});
+
+	// #4619: LP FAQ の解約項目が「退会の仕様」に戻らないよう pin する。
+	//   #4496 は同じ class を LP・特商法・アプリ内 FAQ で是正したが、解約の説明が
+	//   「移行後も使える」ことまでは述べていなかったため、「読み取り専用になる」という
+	//   旧文言由来の誤解が残りうる状態だった。
+	describe('LP FAQ: 解約の項目は解約の仕様だけを述べる (#4619)', () => {
+		/** faq.html が実際に描画する 解約 FAQ の全文言 (k18-k22 + k124) */
+		const cancelFaq = [
+			LP_FAQ_PHASEB_LABELS.k18,
+			LP_FAQ_PHASEB_LABELS.k19,
+			LP_FAQ_PHASEB_LABELS.k20,
+			LP_FAQ_PHASEB_LABELS.k21,
+			LP_FAQ_PHASEB_LABELS.k22,
+			LP_FAQ_PHASEB_LABELS.k124,
+		];
+		/** 未描画の姉妹 namespace。同じ事実を述べる (#4496 で 2 本を同期させた) */
+		const cancelFaqLegacy = [
+			LP_FAQ_LABELS.text19,
+			LP_FAQ_LABELS.text20,
+			LP_FAQ_LABELS.text21,
+			LP_FAQ_LABELS.text22,
+		];
+		const cancelFaqText = [...cancelFaq, ...cancelFaqLegacy].join('\n');
+
+		it('退会の仕様 (完全削除 / 書き込み不可 / 猶予期間) を解約の答えに書かない', () => {
+			// いずれも「退会」の事実。解約の質問に対する答えとしては誤り (#4619 の現象)。
+			expect(cancelFaqText).not.toContain('完全に削除');
+			expect(cancelFaqText).not.toContain('新規作成・編集は不可');
+			expect(cancelFaqText).not.toContain('猶予期間');
+			expect(cancelFaqText).not.toContain('読み取り専用');
+		});
+
+		it('無料プランへの移行と、移行後も記録を続けられることを述べる', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k19).toContain(`${PLAN_FULL_TERMS.free}へ自動的に切り替わります`);
+			// 契約状態の告知 (S3/S4/S5) と同じ保証文を共有する — 別の言い回しに分岐させない
+			expect(LP_FAQ_PHASEB_LABELS.k20).toBe(SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance);
+			expect(LP_FAQ_LABELS.text20).toBe(SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance);
+			expect(LP_FAQ_PHASEB_LABELS.k20).toContain('記録・ポイント付与を続けられます');
+		});
+
+		it('日割り返金が無いことを手続き前に述べる (特商法と同一の事実)', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k19).toContain('日割り計算による返金はありません');
+			expect(LP_FAQ_LABELS.text19).toContain('日割り計算による返金はありません');
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain('日割り計算による返金は行いません');
+		});
+
+		it('保持期間の超過分が復元できないことを特商法と同じ文で述べる', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k21).toContain(IRREVERSIBLE_SENTENCE);
+			expect(LP_FAQ_LABELS.text21).toContain(IRREVERSIBLE_SENTENCE);
+		});
+
+		it('上限超過分は「保管 → 有料プランで復元」と述べ、選択できるとは書かない', () => {
+			// resource-archive-service の archiveExcessResources / restoreArchivedResources が実装事実。
+			// 「どれを残すか選べる」は #4585 で実装中のため、実装前に約束しない (ADR-0013)。
+			expect(LP_FAQ_PHASEB_LABELS.k124).toContain('保管された状態になり');
+			expect(LP_FAQ_PHASEB_LABELS.k124).toContain('有料プランに戻すと');
+			expect(LP_FAQ_PHASEB_LABELS.k124).not.toContain('選べ');
+			expect(LP_FAQ_PHASEB_LABELS.k124).not.toContain('選択');
+		});
+
+		it('猶予期間は退会 FAQ 側に載っている (移設先が空にならない)', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k75).toContain(CANCEL_TERMS.account);
+			expect(LP_FAQ_PHASEB_LABELS.k76).toContain('猶予期間');
+			expect(LP_FAQ_PHASEB_LABELS.k77).toContain('猶予期間');
+			// 猶予日数は値 SSOT (deletion-grace.ts) 由来
+			expect(LP_FAQ_PHASEB_LABELS.k76).toContain(`${DELETION_GRACE_TERMS.standardSpaced}間`);
+		});
+
+		it('解約 / 退会 FAQ の定義に日数を直書きしない (SSOT 経由の強制)', () => {
+			const src = repoFile('src/lib/domain/labels.ts');
+			const nsStart = src.indexOf('export const LP_FAQ_PHASEB_LABELS');
+			expect(nsStart).toBeGreaterThan(-1);
+			const ns = src.slice(nsStart);
+			const pinnedKeys = ['k19', 'k20', 'k21', 'k22', 'k124', 'k75', 'k76', 'k77'];
+			const offenders = pinnedKeys.filter((key) => {
+				const line = ns.match(new RegExp(`^\\t${key}: (.*)$`, 'm'))?.[1] ?? '';
+				return /\d+\s*(日|年)/.test(line);
+			});
+			expect(offenders).toEqual([]);
+		});
+
+		it('生成物 (shared-labels.js / faq.html) に 5 key が届いている', () => {
+			// 値が module-local const だと LP 生成 script が key ごと落としうる (#4619 で判明)。
+			// 落ちると LP は HTML の古い fallback を出し続けるため、生成物側でも pin する。
+			const sharedLabels = repoFile('site/shared-labels.js');
+			const html = repoFile('site/faq.html');
+			for (const value of cancelFaq) {
+				expect(sharedLabels).toContain(value);
+			}
+			for (const key of ['k19', 'k20', 'k21', 'k22', 'k124']) {
+				expect(html).toContain(`data-lp-key="faqB.${key}"`);
+			}
+			expect(html).toContain(LP_FAQ_PHASEB_LABELS.k124);
 		});
 	});
 });

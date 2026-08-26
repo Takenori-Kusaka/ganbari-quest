@@ -2972,6 +2972,18 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
+// #4619: 解約の説明で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた記録が
+// 物理削除される**事実が抜ける。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS
+// .tableContent) と同じ 2 文をここで 1 度だけ組み立て、解約を説明する文言が共有する。
+//
+// 数値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS ただ 1 箇所。
+// 本文言は PLAN_RETENTION_TERMS (terms.ts atom) 経由でしか参照せず、日数を直書きしない。
+//
+// 注: 同名・同内容の定数を PR #4596 (#4540 Q4、解約導線の告知) も導入する。先に merge された
+//   側が正となり、後から rebase する側は同一宣言が 2 つになって TypeScript が即座に落ちる
+//   (silent な二重定義にはならない)。その時点で片方を削り、参照をこの 1 本に寄せること。
+const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
+
 // #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
 // 3 つの告知が同じ事実を語るため、文言をここで 1 度だけ組み立てて共有する
 // (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
@@ -8424,9 +8436,11 @@ export const LP_FAQ_LABELS = {
 	text18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
 	// #4496: 旧文言は退会の猶予期間と物理削除を解約の説明に転用していた (LP_FAQ_PHASEB_LABELS
 	//   k19-k22 と同一内容)。解約はデータを削除しない — 実装事実は PRICING_PAGE_LABELS.faqCancelA 参照。
-	text19: `${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
-	text20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
-	text21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
+	// #4619: LP_FAQ_PHASEB_LABELS k19-k21 と同じ事実を述べる (日割り返金なし / 移行後も
+	//   記録・ポイント付与を継続できる / 保持期間超過分は復元不能)。
+	text19: `${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ（日割り計算による返金はありません）、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
+	text20: WRITES_CONTINUE_ASSURANCE,
+	text21: FREE_PLAN_RETENTION_NOTICE,
 	text22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
@@ -9771,9 +9785,15 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #4496: 旧文言は退会 (アカウント削除) の猶予期間と物理削除を解約の説明に転用しており、
 	//   同ページ k27 (期末まで利用可 = 正) と自己矛盾していた。解約はデータを削除しない。
 	//   解約経路も実導線 (見守り画面「プラン・お支払い」→ Stripe の請求管理ページ) に統一する。
-	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から${CANCEL_TERMS.anytime}できます。${CANCEL_TERMS.canonical}しても<strong>データは削除されません</strong>。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
-	k20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
-	k21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
+	// #4619: 「期末まで使える」だけでなく**日割り返金が無い**ことも手続き前に述べる
+	//   (特商法「返品・キャンセル」/ CANCELLATION_LABELS.paidPlanNotice と同一の事実)。
+	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から${CANCEL_TERMS.anytime}できます。${CANCEL_TERMS.canonical}しても<strong>データは削除されません</strong>。現在の請求期間の終了日までは有料プランをそのままご利用いただけ（日割り計算による返金はありません）、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
+	// #4619: 旧文言は「データは残ります」で止まっており、**移行後も記録・ポイント付与を続けられる**
+	//   ことを述べていなかった。「読み取り専用になる」という誤読 (#4496 の旧文言が広めたもの) を
+	//   打ち消すため、契約状態の告知と同じ WRITES_CONTINUE_ASSURANCE を共有する。
+	k20: WRITES_CONTINUE_ASSURANCE,
+	// #4619: 保持期間の日数と、超過分が復元不能であることを特商法と同じ 2 文で述べる。
+	k21: FREE_PLAN_RETENTION_NOTICE,
 	k22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
@@ -9890,6 +9910,14 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k121: '上記にないご質問や、ご要望・フィードバックは、メールでお気軽にお寄せください。通常 1 〜 2 営業日以内にご返信いたします。',
 	k122: `${FREE_TERMS.tryFree}`,
 	k123: 'デモを見る',
+	// #4619: 解約 FAQ (k18-k22) の 3 番目の箇条書き。無料プランの上限を超えるリソースは
+	//   削除ではなく archive され (resource-archive-service.archiveExcessResources)、
+	//   有料プランへ戻すと復元される (restoreArchivedResources)。
+	//   **どれを残すか「選べる」とは書かない** — 選択導線は #4585 で実装中であり、
+	//   実装前の機能を顧客提示物に書かない (ADR-0013 LP truth)。
+	//   本 key だけ末尾採番なのは、既存 k20-k123 の番号を動かすと全 LP HTML の
+	//   data-lp-key を張り替えることになるため (番号は識別子であり順序ではない)。
+	k124: `${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストは保管された状態になり、有料プランに戻すと元どおりご利用いただけます`,
 } as const;
 
 // #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
