@@ -5,6 +5,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { SIGNUP_LABELS } from '$lib/domain/labels';
 import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
+import { landingForRole } from '$lib/server/auth/post-login-landing';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
@@ -262,6 +263,7 @@ export const actions: Actions = {
 		}
 
 		const tenantId = context.tenantId;
+		const consentUserId = context.userId ?? '';
 
 		// #4192: 新規登録の Discord 通知は**持たないと決めた** (#4174 Q2)。サインアップは嬉しいが
 		// 見ても何もしない通知で、増やすと incident が埋もれる。実数は GitHub / DB で足りる。
@@ -271,8 +273,9 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const ua = request.headers.get('user-agent') ?? '';
 		try {
+			// #4643: consents.user_id は users.user_id。claims.sub (IdP の sub) は別物
 			// #4497: 越境移転同意 (§28) も terms/privacy と同型に version/ip/ua 付きで永続化する。
-			await recordConsent(tenantId, claims.sub, ['terms', 'privacy', 'cross-border'], ip, ua);
+			await recordConsent(tenantId, consentUserId, ['terms', 'privacy', 'cross-border'], ip, ua);
 			logger.info('[SIGNUP] Consent recorded at signup', {
 				context: { tenantId, userId: claims.sub },
 			});
@@ -328,6 +331,7 @@ export const actions: Actions = {
 		}
 
 		// 正常完了
-		redirect(302, '/admin');
+		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
+		redirect(302, landingForRole(context.role));
 	},
 };
