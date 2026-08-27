@@ -10,7 +10,6 @@ import type {
 	Child,
 	Evaluation,
 	InsertEvaluationInput,
-	RestDay,
 } from '../types';
 
 export async function countActivitiesByCategory(
@@ -76,68 +75,6 @@ export async function findLastActivityDateByCategory(
 	_tenantId: string,
 ): Promise<CategoryLastDate[]> {
 	return [];
-}
-
-export async function insertRestDay(
-	childId: ChildId,
-	date: string,
-	reason: string,
-	_tenantId: string,
-): Promise<RestDay | undefined> {
-	return {
-		id: '0',
-		childId,
-		date,
-		reason,
-		createdAt: new Date().toISOString(),
-	};
-}
-
-export async function deleteRestDay(
-	_childId: ChildId,
-	_date: string,
-	_tenantId: string,
-): Promise<void> {
-	// Stub: no-op
-}
-
-export async function isRestDay(
-	_childId: ChildId,
-	_date: string,
-	_tenantId: string,
-): Promise<boolean> {
-	return false;
-}
-
-export async function countRestDaysInMonth(
-	_childId: ChildId,
-	_yearMonth: string,
-	_tenantId: string,
-): Promise<number> {
-	return 0;
-}
-
-export async function findRestDays(
-	_childId: ChildId,
-	_yearMonth: string,
-	_tenantId: string,
-): Promise<RestDay[]> {
-	return [];
-}
-
-export async function findRestDaysByChild(
-	_childId: ChildId,
-	_tenantId: string,
-): Promise<RestDay[]> {
-	return [];
-}
-
-export async function insertRestDayForRestore(
-	_input: Omit<RestDay, 'id'>,
-	_tenantId: string,
-): Promise<RestDay | undefined> {
-	// Stub: demo は書き込み no-op。
-	return undefined;
 }
 
 export async function deleteByTenantId(_tenantId: string): Promise<void> {

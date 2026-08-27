@@ -42,14 +42,6 @@
 //   [MSG2c] #3799: markMessageShown は非 uuid messageId (URL param) でも throw せず undefined
 //   [MSG2d] #4435: markMessageShown は冪等 (再送で初回時刻を保つ) / 既読済み再送も行を返す
 //   [MSG3] insertForRestore (sentAt/shownAt verbatim) + message_type CHECK 実効
-// ── ISiblingCheerRepo ──
-//   [SC1] insertCheer (from/to 2 参照、tenantId=family マップ) + findUnshownCheers + §P9
-//   [SC2] markShown (複数 id 一括、空は no-op) / countTodayCheersFrom (JST 当日境界)
-//   [SC2b] #4435: markShown は to_child_id 所有権 (別の子は既読にできない) + `shown_at IS NULL` 冪等
-//   [SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)
-//   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
-//         (cross-family child は 0 行 → throw、行は書かれない)
-//   [SC5] #3566 ②: insertForRestore も同型 guard (dangling/cross-family backup 行を repo 入口で拒否)
 // ── ILoginBonusRepo (#3330 counter 縮約) ──
 //   [LB1] claimToday 当日冪等 (conditional write、同日 2 回目は undefined) + findStreak + §P9
 //   [LB2] claimToday increment (前日連続 +1) / reset (途切れ 1) / findChildById (§P9)
@@ -63,7 +55,6 @@ import { createDsqlLoginBonusRepo } from '../../../src/lib/server/db/dsql/login-
 import { createDsqlMessageRepo } from '../../../src/lib/server/db/dsql/message-repo';
 import { createDsqlRewardRedemptionRepo } from '../../../src/lib/server/db/dsql/reward-redemption-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
-import { createDsqlSiblingCheerRepo } from '../../../src/lib/server/db/dsql/sibling-cheer-repo';
 import { createDsqlSpecialRewardRepo } from '../../../src/lib/server/db/dsql/special-reward-repo';
 import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 import type { IChildRepo } from '../../../src/lib/server/db/interfaces/child-repo.interface';
@@ -74,7 +65,6 @@ import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	REDEMPTION_EXPIRE_AFTER_SEC,
 } from '../../../src/lib/server/db/interfaces/reward-redemption-repo.interface';
-import type { ISiblingCheerRepo } from '../../../src/lib/server/db/interfaces/sibling-cheer-repo.interface';
 import type { ISpecialRewardRepo } from '../../../src/lib/server/db/interfaces/special-reward-repo.interface';
 import type { TransactionRunner } from '../../../src/lib/server/db/interfaces/transaction.interface';
 import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
@@ -97,7 +87,6 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 	let rewardRepo: ISpecialRewardRepo;
 	let redemptionRepo: IRewardRedemptionRepo;
 	let messageRepo: IMessageRepo;
-	let cheerRepo: ISiblingCheerRepo;
 	let loginBonusRepo: ILoginBonusRepo;
 	let runner: TransactionRunner<SqlExecutor>;
 
@@ -121,7 +110,6 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		rewardRepo = createDsqlSpecialRewardRepo(t.db, runner);
 		redemptionRepo = createDsqlRewardRedemptionRepo(t.db, runner);
 		messageRepo = createDsqlMessageRepo(t.db);
-		cheerRepo = createDsqlSiblingCheerRepo(t.db);
 		loginBonusRepo = createDsqlLoginBonusRepo(t.db);
 	}, 60_000);
 	afterAll(async () => {
@@ -891,85 +879,6 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		).rejects.toThrow(); // parent_messages_message_type_ck
 	});
 
-	// ─────────────────── ISiblingCheerRepo ───────────────────
-
-	it('[SC1] insertCheer (from/to + tenantId=family) + findUnshownCheers + §P9', async () => {
-		const from = await newChild('応援元一郎');
-		const to = await newChild('応援先一郎');
-		const cheer = await cheerRepo.insertCheer(
-			{ fromChildId: from, toChildId: to, stampCode: 'good' },
-			FAMILY,
-		);
-		expect(cheer.id).toMatch(UUID_RE);
-		expect(cheer.fromChildId).toBe(from);
-		expect(cheer.toChildId).toBe(to);
-		expect(cheer.tenantId).toBe(FAMILY); // family_id → tenantId マップ
-		expect(cheer.shownAt).toBe(null);
-
-		const unshown = await cheerRepo.findUnshownCheers(to, FAMILY);
-		expect(unshown.map((c) => c.id)).toEqual([cheer.id]);
-		expect(await cheerRepo.findUnshownCheers(to, OTHER_FAMILY)).toEqual([]);
-		// from 宛には来ない
-		expect(await cheerRepo.findUnshownCheers(from, FAMILY)).toEqual([]);
-	});
-
-	it('[SC2] markShown (一括、空 no-op) / countTodayCheersFrom (JST 当日境界)', async () => {
-		const from = await newChild('応援元二郎');
-		const to = await newChild('応援先二郎');
-		const c1 = await cheerRepo.insertCheer(
-			{ fromChildId: from, toChildId: to, stampCode: 's1' },
-			FAMILY,
-		);
-		const c2 = await cheerRepo.insertCheer(
-			{ fromChildId: from, toChildId: to, stampCode: 's2' },
-			FAMILY,
-		);
-		await cheerRepo.markShown(to, [], FAMILY); // no-op
-		expect((await cheerRepo.findUnshownCheers(to, FAMILY)).length).toBe(2);
-		await cheerRepo.markShown(to, [c1.id, c2.id], FAMILY);
-		expect(await cheerRepo.findUnshownCheers(to, FAMILY)).toEqual([]);
-
-		// 当日送信 2 件 = カウント 2 (今 insert したものは JST 当日)
-		expect(await cheerRepo.countTodayCheersFrom(from, FAMILY)).toBe(2);
-		// 昨日以前の cheer は当日カウントに入らない (restore で過去 sentAt を差し込む)
-		await cheerRepo.insertForRestore(
-			{
-				fromChildId: from,
-				toChildId: to,
-				stampCode: 'old',
-				sentAt: '2020-01-01T00:00:00+09:00',
-				shownAt: null,
-			},
-			FAMILY,
-		);
-		expect(await cheerRepo.countTodayCheersFrom(from, FAMILY)).toBe(2); // 過去分は含まない
-		expect(await cheerRepo.countTodayCheersFrom(from, OTHER_FAMILY)).toBe(0);
-	});
-
-	it('[SC2b] #4435 markShown は to_child_id 所有権 + shown_at IS NULL 冪等', async () => {
-		const family = '00000000-0000-4000-8000-0000000000e1';
-		const sender = await newChild('あに', family);
-		const receiver = await newChild('おとうと', family);
-		const cheer = await cheerRepo.insertCheer(
-			{ fromChildId: sender, toChildId: receiver, stampCode: 'ganbare' },
-			family,
-		);
-
-		// 兄が弟宛のおうえん id を送っても既読にならない (弟は必ず見られる)
-		await cheerRepo.markShown(sender, [cheer.id], family);
-		expect((await cheerRepo.findUnshownCheers(receiver, family)).length).toBe(1);
-
-		// 受け取る子が既読にする → 初回時刻を過去へ固定 → 再送しても上書きされない
-		await cheerRepo.markShown(receiver, [cheer.id], family);
-		await t.db.execute(sql`
-			UPDATE sibling_cheers SET shown_at = '2025-01-02T03:04:05Z'::timestamptz
-			WHERE family_id = ${family} AND cheer_id = ${cheer.id}
-		`);
-		await cheerRepo.markShown(receiver, [cheer.id], family);
-		const rows = await cheerRepo.findAllByTenant(family);
-		expect(Date.parse(rows[0]?.shownAt ?? '')).toBe(Date.parse('2025-01-02T03:04:05Z'));
-	});
-
 	it('[SR2d][MSG2d] #4435 markRewardShown / markMessageShown は冪等 (初回時刻を保つ)', async () => {
 		const family = '00000000-0000-4000-8000-0000000000e2';
 		const childId = await newChild('冪等子', family);
@@ -1001,136 +910,6 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(await rewardRepo.markRewardShown(other, reward.id, family)).toBe(undefined);
 		expect(await messageRepo.markMessageShown(other, msg.id, family)).toBe(undefined);
 	});
-
-	it('[SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)', async () => {
-		const family = '00000000-0000-4000-8000-0000000000d4';
-		const from = await newChild('応援元三郎', family);
-		const to = await newChild('応援先三郎', family);
-		const restored = await cheerRepo.insertForRestore(
-			{
-				fromChildId: from,
-				toChildId: to,
-				stampCode: 'restore',
-				sentAt: '2025-11-01T10:00:00+00:00',
-				shownAt: '2025-11-02T10:00:00+00:00',
-			},
-			family,
-		);
-		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
-		if (!restored) throw new Error('insertForRestore returned null for fresh row');
-		expect(restored.id).toMatch(UUID_RE);
-		expect(Date.parse(restored.sentAt)).toBe(Date.parse('2025-11-01T10:00:00+00:00'));
-		expect(Date.parse(restored.shownAt ?? '')).toBe(Date.parse('2025-11-02T10:00:00+00:00'));
-
-		const all = await cheerRepo.findAllByTenant(family);
-		expect(all.length).toBe(1);
-		expect(all[0]?.stampCode).toBe('restore');
-		expect(await cheerRepo.findAllByTenant(OTHER_FAMILY)).not.toContainEqual(
-			expect.objectContaining({ id: restored.id }),
-		);
-	});
-
-	it('[SC4] #3566 ②: from/to のどちらかが family 外 child なら insert 拒否 (0 行、行は書かれない)', async () => {
-		const family = '00000000-0000-4000-8000-0000000000d5';
-		const from = await newChild('応援元四郎', family);
-		const to = await newChild('応援先四郎', family);
-		// 別 family に属する child (cross-family 混入の攻撃面)
-		const alien = await newChild('他家の子', OTHER_FAMILY);
-
-		// (a) 同一 family の from/to → 成功 (INSERT ... SELECT が 1 行返す)
-		const ok = await cheerRepo.insertCheer(
-			{ fromChildId: from, toChildId: to, stampCode: 'ok' },
-			family,
-		);
-		expect(ok.id).toMatch(UUID_RE);
-		expect(ok.fromChildId).toBe(from);
-		expect(ok.toChildId).toBe(to);
-		expect(ok.tenantId).toBe(family);
-
-		const before = (await cheerRepo.findAllByTenant(family)).length;
-		expect(before).toBe(1);
-
-		// (b1) 送信先が family 外 child → 拒否 (SELECT 0 行 → throw)
-		await expect(
-			cheerRepo.insertCheer({ fromChildId: from, toChildId: alien, stampCode: 'x' }, family),
-		).rejects.toThrow();
-
-		// (b2) 送信元が family 外 child → 拒否
-		await expect(
-			cheerRepo.insertCheer({ fromChildId: alien, toChildId: to, stampCode: 'x' }, family),
-		).rejects.toThrow();
-
-		// (b3) どの family にも存在しない child id → 拒否
-		const ghost = '00000000-0000-4000-8000-0000000009ff' as ChildId;
-		await expect(
-			cheerRepo.insertCheer({ fromChildId: from, toChildId: ghost, stampCode: 'x' }, family),
-		).rejects.toThrow();
-
-		// 拒否ケースでは 1 行も追加されていない (structural: 0 行挿入)
-		expect((await cheerRepo.findAllByTenant(family)).length).toBe(before);
-	});
-
-	it('[SC5] #3566 ②: insertForRestore も from/to child ∈ family を構造強制 (dangling backup 拒否)', async () => {
-		// restore 経路は untrusted backup 由来。insertCheer の [SC4] guard と同型に、
-		// INSERT ... SELECT JOIN children で from/to child ∈ family を強制する (VALUES 直書きだと
-		// dangling / cross-family 行が入る #3566 ② の gap を repo 入口で塞ぐ)。
-		const family = '00000000-0000-4000-8000-0000000000d6';
-		const from = await newChild('復元元五郎', family);
-		const to = await newChild('復元先五郎', family);
-		const alien = await newChild('他家の復元子', OTHER_FAMILY);
-		const ghost = '00000000-0000-4000-8000-00000000faff' as ChildId;
-
-		const before = (await cheerRepo.findAllByTenant(family)).length;
-
-		// (a) 同一 family の from/to → 成功 (sentAt/shownAt verbatim も保全)
-		const ok = await cheerRepo.insertForRestore(
-			{
-				fromChildId: from,
-				toChildId: to,
-				stampCode: 'restore-ok',
-				sentAt: '2025-10-01T09:00:00+00:00',
-				shownAt: '2025-10-02T09:00:00+00:00',
-			},
-			family,
-		);
-		if (!ok) throw new Error('insertForRestore returned null for fresh in-family row');
-		expect(ok.fromChildId).toBe(from);
-		expect(ok.toChildId).toBe(to);
-		expect(Date.parse(ok.sentAt)).toBe(Date.parse('2025-10-01T09:00:00+00:00'));
-		expect(Date.parse(ok.shownAt ?? '')).toBe(Date.parse('2025-10-02T09:00:00+00:00'));
-
-		const seeded = (await cheerRepo.findAllByTenant(family)).length;
-		expect(seeded).toBe(before + 1);
-
-		// (b1) 送信先が family 外 child → 拒否 (SELECT 0 行 → throw、行は書かれない)
-		await expect(
-			cheerRepo.insertForRestore(
-				{ fromChildId: from, toChildId: alien, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
-				family,
-			),
-		).rejects.toThrow();
-
-		// (b2) 送信元が family 外 child → 拒否
-		await expect(
-			cheerRepo.insertForRestore(
-				{ fromChildId: alien, toChildId: to, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
-				family,
-			),
-		).rejects.toThrow();
-
-		// (b3) どの family にも存在しない dangling child id → 拒否
-		await expect(
-			cheerRepo.insertForRestore(
-				{ fromChildId: from, toChildId: ghost, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
-				family,
-			),
-		).rejects.toThrow();
-
-		// 拒否ケースでは 1 行も追加されていない (structural: guard を外すと dangling 行が入り fail する)
-		expect((await cheerRepo.findAllByTenant(family)).length).toBe(seeded);
-	});
-
-	// ─────────────────── ILoginBonusRepo (#3330 counter 縮約) ───────────────────
 
 	it('[LB1] claimToday 当日冪等 (conditional write) + findStreak + §P9', async () => {
 		const childId = await newChild('ボーナス一郎');

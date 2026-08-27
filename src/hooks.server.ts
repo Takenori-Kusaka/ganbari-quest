@@ -625,7 +625,13 @@ export const handle: Handle = ({ event, resolve }) =>
 				!path.startsWith('/api/v1/inquiry/founder') &&
 				// #1598 ADR-0023 I7: PMF 判定アンケート (Sean Ellis Test) は HMAC トークン認証で
 				// メールリンクから直接アクセスする。セットアップ前でもアクセス可能にする。
-				!path.startsWith('/survey/')
+				!path.startsWith('/survey/') &&
+				// #4696: 全削除の直後は子供 0 人 = セットアップ必須になるが、そこで復元画面まで
+				// 遮断すると「エクスポートしておいてください」と案内しておきながら**バックアップから
+				// 戻せない**(ダミーの子供を登録するしか手が無い)。データ設定画面と import API だけは
+				// セットアップ前でも通す (復元すれば子供が戻り、セットアップ必須も自然に解ける)。
+				path !== '/admin/settings/data' &&
+				!path.startsWith('/api/v1/import')
 			) {
 				if (await isSetupRequired(tenantId)) {
 					redirect(302, '/setup');
@@ -714,11 +720,21 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// 同意バージョンチェック（cognito 本番モードのみ、dev モードは除外）
+		//
+		// #4497: 子供セッションは対象外。同意主体は保護者であり (privacy.html 第9条「お子さま本人が
+		// アカウントを作成することはできません」)、子供に法務文書のチェックボックスを操作させると
+		// 同意を得る相手を間違える。UX 上も、3-5 歳のひらがな画面の子が「越境移転」「施行規則17条2項」の
+		// 文書に突き当たり、同意後は行き場のない /admin へ飛ばされる (ADR-0012 の最短経路にも反する)。
+		// 保護者は /admin 等でこの gate に掛かるので、再同意の取得自体は保護者側で成立する。
+		//
+		// この分岐が実際に発火するのは本 PR の version bump が初めてであり、それまでは
+		// 「誰も再同意対象にならない」ため潜在していた (#4497 で顕在化)。
 		if (
 			authMode === 'cognito' &&
 			!COGNITO_DEV_MODE &&
 			identity &&
 			context?.tenantId &&
+			context.role !== 'child' &&
 			!path.startsWith('/consent') &&
 			!path.startsWith('/legal/') &&
 			!path.startsWith('/auth/') &&

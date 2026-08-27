@@ -37,6 +37,12 @@ const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
  */
 const ORPHAN_REWARD_ID = 0;
 
+/**
+ * #4683: 「参照先ごほうびが存在しない」ことを表す reward_id。
+ * `special_rewards.id` は AUTOINCREMENT (1 始まり・再利用なし) のため 0 は永久に採番されない。
+ */
+const ORPHAN_REWARD_ID = 0;
+
 // #2832: 申請時点 snapshot fallback。
 // 新規行は insert 時に reward_* snapshot を保存し、編集後も「申請時点の内容 (名前/ポイント)」で
 // 表示・控除する (DynamoDB 非正規化 item と等価の仕様)。snapshot 列導入前の旧行 (NULL) は

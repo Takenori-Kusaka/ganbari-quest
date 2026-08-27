@@ -1,3 +1,4 @@
+import { REWARD_REJECT_NOTE_MAX_LENGTH } from '$lib/domain/constants/redemption-status';
 import type { ChildId } from '$lib/domain/ids';
 
 // src/lib/server/services/reward-redemption-service.ts
@@ -405,7 +406,7 @@ export async function rejectRedemption(
 		requestId,
 		{
 			status: 'rejected',
-			parentNote: parentNote ? parentNote.slice(0, 100) : null,
+			parentNote: parentNote ? parentNote.slice(0, REWARD_REJECT_NOTE_MAX_LENGTH) : null,
 			resolvedAt: now,
 			resolvedByParentId: parentUserId,
 		},

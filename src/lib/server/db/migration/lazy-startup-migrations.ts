@@ -99,6 +99,48 @@ function hasFkToActivities(db: Database.Database, table: string): boolean {
 }
 
 /**
+ * `AUTOINCREMENT` 表の high-water mark (`sqlite_sequence.seq`) を読む。表が無い / 一度も
+ * INSERT されていない場合は null。
+ *
+ * shadow-table 再作成 (`CREATE *_new` → `INSERT..SELECT` → `DROP old` → `RENAME`) は、
+ * `DROP TABLE` が sqlite_sequence の該当行を道連れにするため **high-water mark を失う**。
+ * 再作成後の seq は「移送した id の max」にしかならず (0 行なら seq 行自体が消える)、
+ * 削除済み行の id が再利用される。id が台帳 (`point_ledger.reference_id` 等) の突合キー
+ * として外部に漏れている表では、再利用された id が過去行を指してしまい突合が壊れる。
+ *
+ * 対策: rebuild の **前** に本関数で旧 seq を控え、RENAME 後の同一 transaction 内で
+ * {@link restoreAutoincrementSeq} により復元する。
+ */
+function readAutoincrementSeq(db: Database.Database, table: string): number | null {
+	// sqlite_sequence は AUTOINCREMENT 表が 1 つも無い DB には存在しない
+	if (!tableExists(db, 'sqlite_sequence')) return null;
+	const row = db.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?').get(table) as
+		| { seq: number }
+		| undefined;
+	return row ? Number(row.seq) : null;
+}
+
+/**
+ * {@link readAutoincrementSeq} で控えた high-water mark を rebuild 後の表に戻す。
+ *
+ * 新表側に seq 行が無ければ INSERT、あれば「旧 seq の方が大きいときだけ」UPDATE する
+ * (引き下げは決してしない — rebuild 中に新しい行が入った場合に id を巻き戻さないため)。
+ */
+function restoreAutoincrementSeq(db: Database.Database, table: string, seq: number | null): void {
+	if (seq === null) return;
+	// rebuild 後の表は AUTOINCREMENT なので sqlite_sequence は必ず存在するが、防御的に確認する
+	if (!tableExists(db, 'sqlite_sequence')) return;
+	const current = db.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?').get(table) as
+		| { seq: number }
+		| undefined;
+	if (current === undefined) {
+		db.prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)').run(table, seq);
+	} else if (Number(current.seq) < seq) {
+		db.prepare('UPDATE sqlite_sequence SET seq = ? WHERE name = ?').run(seq, table);
+	}
+}
+
+/**
  * #1755 (#1709-A) 後半: `checklist_templates.kind` 列削除 + 旧 'routine' レコード drop。
  * 持ち物純化 (旧 routine は `activities.priority='must'` に役割移管)。
  *
@@ -298,6 +340,8 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 
 	if (hasFkToActivities(db, 'activity_logs')) {
 		const run = db.transaction(() => {
+			// DROP TABLE が sqlite_sequence 行を道連れにするため high-water mark を控える
+			const seqBefore = readAutoincrementSeq(db, 'activity_logs');
 			db.exec(`
 				CREATE TABLE activity_logs_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -319,6 +363,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 				CREATE INDEX idx_activity_logs_activity ON activity_logs(activity_id);
 				CREATE INDEX idx_activity_logs_streak ON activity_logs(child_id, activity_id, recorded_date);
 			`);
+			restoreAutoincrementSeq(db, 'activity_logs', seqBefore);
 		});
 		run();
 		console.info('[lazy-migrate #2362-PR3]   → activity_logs done');
@@ -326,6 +371,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 
 	if (hasFkToActivities(db, 'daily_missions')) {
 		const run = db.transaction(() => {
+			const seqBefore = readAutoincrementSeq(db, 'daily_missions');
 			db.exec(`
 				CREATE TABLE daily_missions_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -342,6 +388,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 				CREATE UNIQUE INDEX idx_daily_missions_unique ON daily_missions(child_id, mission_date, activity_id);
 				CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
 			`);
+			restoreAutoincrementSeq(db, 'daily_missions', seqBefore);
 		});
 		run();
 		console.info('[lazy-migrate #2362-PR3]   → daily_missions done');
@@ -349,6 +396,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 
 	if (hasFkToActivities(db, 'activity_mastery')) {
 		const run = db.transaction(() => {
+			const seqBefore = readAutoincrementSeq(db, 'activity_mastery');
 			db.exec(`
 				CREATE TABLE activity_mastery_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -364,6 +412,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 				ALTER TABLE activity_mastery_new RENAME TO activity_mastery;
 				CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
 			`);
+			restoreAutoincrementSeq(db, 'activity_mastery', seqBefore);
 		});
 		run();
 		console.info('[lazy-migrate #2362-PR3]   → activity_mastery done');
@@ -371,6 +420,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 
 	if (hasFkToActivities(db, 'child_activity_preferences')) {
 		const run = db.transaction(() => {
+			const seqBefore = readAutoincrementSeq(db, 'child_activity_preferences');
 			db.exec(`
 				CREATE TABLE child_activity_preferences_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -389,6 +439,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 				CREATE INDEX idx_child_activity_prefs_child ON child_activity_preferences(child_id);
 				CREATE INDEX idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
 			`);
+			restoreAutoincrementSeq(db, 'child_activity_preferences', seqBefore);
 		});
 		run();
 		console.info('[lazy-migrate #2362-PR3]   → child_activity_preferences done');
@@ -776,6 +827,8 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 	// 不在」で fail し永続的 startup loop (Issue #2508 と同型) に陥る。tx で全 step 失敗
 	// 時に ROLLBACK させ、再起動時にも旧 schema から再度 migrate 試行可能な状態を保つ。
 	const run = db.transaction(() => {
+		// DROP TABLE が sqlite_sequence 行を道連れにするため high-water mark を控える
+		const seqBefore = readAutoincrementSeq(db, 'checklist_templates');
 		// 1. 新 schema の shadow table を作成 (create-tables.ts と同一形状)
 		db.exec(`
 			CREATE TABLE checklist_templates_new (
@@ -847,6 +900,7 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 			CREATE INDEX IF NOT EXISTS idx_checklist_templates_tenant_archived
 				ON checklist_templates(tenant_id, is_archived);
 		`);
+		restoreAutoincrementSeq(db, 'checklist_templates', seqBefore);
 	});
 	run();
 	console.info('[lazy-migrate #2362-PR5]   → flip complete');
@@ -1120,6 +1174,11 @@ function migrateRedemptionDropRewardFk(db: Database.Database): void {
 		.all() as { sql: string }[];
 
 	const run = db.transaction(() => {
+		// AUTOINCREMENT の high-water mark を控える。DROP TABLE で sqlite_sequence の行が消え、
+		// 再作成後の seq は「移送した id の max」に落ちる (0 行なら行自体が消える)。id を再利用すると
+		// 削除済み申請の id と衝突し、point_ledger.reference_id との突合が壊れる (#4683 で履歴を
+		// 残す仕様にしたため、id は削除後も台帳側から参照され続ける)。
+		const seqBefore = readAutoincrementSeq(db, 'reward_redemption_requests');
 		db.exec(`
 			CREATE TABLE reward_redemption_requests_new (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1141,6 +1200,8 @@ function migrateRedemptionDropRewardFk(db: Database.Database): void {
 			DROP TABLE reward_redemption_requests;
 			ALTER TABLE reward_redemption_requests_new RENAME TO reward_redemption_requests;
 		`);
+		// RENAME 後の同一 tx 内で high-water mark を復元 (id 再利用の防止)。
+		restoreAutoincrementSeq(db, 'reward_redemption_requests', seqBefore);
 		// 旧表に在った index を復元 (IF NOT EXISTS 化して二重作成を避ける)。
 		for (const idx of existingIndexes) {
 			db.exec(idx.sql.replace(/^CREATE\s+INDEX\s+/i, 'CREATE INDEX IF NOT EXISTS '));

@@ -2,7 +2,14 @@
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
+import {
+	APP_LABELS,
+	formatAgeKana,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+	SWITCH_PAGE_LABELS,
+} from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -334,7 +341,7 @@ async function handlePinComplete(details: { valueAsString: string }) {
 							{/if}
 							<div class="flex-1 min-w-0">
 								<p class="text-lg font-bold text-[var(--color-neutral-900)] m-0">{child.nickname}</p>
-								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age + 'さい'}</p>
+								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{formatAgeKana(child.age)}</p>
 							</div>
 							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
 						</Button>
@@ -377,13 +384,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 					: OYAKAGI_LABELS.gateCreateConfirmDescription}
 			</p>
 			{#key pinInputKey}
-				<PinInput length={4} mask autoFocus onComplete={handleCreateComplete} />
+				<!-- #4661: 桁数は PIN_LENGTH (設定 > アカウントの変更フォーム / API と同一 SSOT) -->
+				<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handleCreateComplete} />
 			{/key}
 		</div>
 	{:else}
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
 		{#key pinInputKey}
-			<PinInput length={4} mask autoFocus onComplete={handlePinComplete} />
+			<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handlePinComplete} />
 		{/key}
 	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->

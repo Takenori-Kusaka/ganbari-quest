@@ -1084,6 +1084,57 @@ describe('applyLazyStartupMigrations', () => {
 			};
 			expect(c.c).toBe(1);
 		});
+
+		/**
+		 * shadow-table 再作成は `DROP TABLE` で sqlite_sequence 行を道連れにするため、
+		 * 対策が無いと再作成後の AUTOINCREMENT が「移送した id の max」まで巻き戻る。
+		 * #4683 で redemption 行は reward 削除後も残る = id が point_ledger.reference_id 等の
+		 * 突合キーとして生き続けるため、id 再利用は削除済み行との衝突を生む。
+		 */
+		function insertRedemption(id: number | null): number {
+			// 再作成後の表は children への FK を持つ (旧表には無い) ため受け皿を用意する
+			db.exec(
+				`CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, nickname TEXT);
+				 INSERT OR IGNORE INTO children (id, nickname) VALUES (10, 'A');`,
+			);
+			const info = db
+				.prepare(
+					`INSERT INTO reward_redemption_requests (${id === null ? '' : 'id, '}child_id, reward_id, requested_at, status)
+					 VALUES (${id === null ? '' : `${id}, `}10, 1, 1700000000, 'approved')`,
+				)
+				.run();
+			return Number(info.lastInsertRowid);
+		}
+
+		it('削除で歯抜けになった id 空間でも migration 後の INSERT が旧 max を超える (id 再利用防止)', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			// id 1 は seed 済。2..5 を足してから後半を削除 → 生存 max=2 / high-water mark=5
+			for (const id of [2, 3, 4, 5]) insertRedemption(id);
+			db.prepare('DELETE FROM reward_redemption_requests WHERE id >= 3').run();
+			expect(
+				(
+					db
+						.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?')
+						.get('reward_redemption_requests') as { seq: number }
+				).seq,
+			).toBe(5);
+
+			applyLazyStartupMigrations(db);
+
+			const newId = insertRedemption(null);
+			expect(newId, '削除済み id (3-5) が再利用されている').toBeGreaterThan(5);
+		});
+
+		it('全行削除済み (0 行) の表でも high-water mark を失わない', () => {
+			seedLegacyRedemptionWithFk({ withNewColumns: true });
+			for (const id of [2, 3]) insertRedemption(id);
+			db.prepare('DELETE FROM reward_redemption_requests').run();
+
+			applyLazyStartupMigrations(db);
+
+			const newId = insertRedemption(null);
+			expect(newId, '0 行の再作成で seq 行ごと消え id が 1 に巻き戻っている').toBeGreaterThan(3);
+		});
 	});
 
 	describe('#3504: cloud_exports status / failure_reason 追加 (既存行 ready backfill)', () => {
