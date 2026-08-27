@@ -55,11 +55,12 @@ describe('PlanStatusCard アップグレード CTA (#4139)', () => {
 			const { container } = render(PlanStatusCard, {
 				planTier: 'free',
 				onUpgrade,
+				// #4628: 旧 fixture は `isTrialActive: true` + `trialEndDate: null` という
+				// 実際には起こらない組み合わせを構成していた (型が許していたため誰も気づけなかった)。
 				trialStatus: {
 					isTrialActive: true,
 					trialUsed: false,
 					daysRemaining: 3,
-					trialEndDate: null,
 					trialTier: 'standard',
 				},
 			});

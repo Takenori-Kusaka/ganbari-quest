@@ -222,10 +222,25 @@ export function getLevelEvaluationText(level: number): { text: string; emoji: st
 // Benchmark / Deviation Score (admin-only, kept for parent analysis)
 // ================================================================
 
-/** 偏差値計算: (個人値 - 平均) / 標準偏差 × 10 + 50 */
+/**
+ * 偏差値の表示下限 / 上限 (#4697)。
+ *
+ * 偏差値は「平均から標準偏差いくつぶん離れているか」を 50 中心で表した指標で、
+ * 実用上は概ね 20〜80 に収まる。ベンチマークの平均・標準偏差が実データのスケールと
+ * ずれていると式は 187 のような数を平気で返し、親向け画面に「偏差値 187」が出る
+ * (#4697 実測: 7 日利用の 4 歳)。統計指標として意味を持つ帯に丸めて表示する。
+ */
+export const DEVIATION_SCORE_MIN = 20;
+export const DEVIATION_SCORE_MAX = 80;
+
+/**
+ * 偏差値計算: (個人値 - 平均) / 標準偏差 × 10 + 50。
+ * 表示に使う値なので [DEVIATION_SCORE_MIN, DEVIATION_SCORE_MAX] にクランプする (#4697)。
+ */
 export function calcDeviationScore(value: number, mean: number, stdDev: number): number {
 	if (stdDev === 0) return 50;
-	return Math.round(((value - mean) / stdDev) * 10 + 50);
+	const raw = Math.round(((value - mean) / stdDev) * 10 + 50);
+	return Math.min(DEVIATION_SCORE_MAX, Math.max(DEVIATION_SCORE_MIN, raw));
 }
 
 /** スコア割合から星評価（5段階） — admin benchmark用 */
@@ -245,6 +260,14 @@ export function calcCharacterType(avgDeviationScore: number): string {
 	if (avgDeviationScore >= 45) return 'normal';
 	return 'ganbari';
 }
+
+/**
+ * 成長レポート (/admin/status) の分析サマリー 3 段階コメントのしきい値 (#4669 F5 / F11)。
+ * 偏差値 >= HIGH で「特に活発」、>= MID で「平均的」、未満で「伸びる余地」。
+ * 表示文言は STATUS_LABELS.analysisHigh / Mid / Low (labels.ts SSOT)。
+ */
+export const ANALYSIS_DEVIATION_HIGH = 60;
+export const ANALYSIS_DEVIATION_MID = 45;
 
 /** 偏差値から比較ラベル（ご家族の見守り画面用） */
 export function getComparisonLabel(deviationScore: number): { text: string; emoji: string } {

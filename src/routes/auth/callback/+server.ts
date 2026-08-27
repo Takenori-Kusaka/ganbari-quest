@@ -2,6 +2,8 @@
 // Authorization Code を受け取り、トークン交換して Cookie にセット
 
 import { redirect } from '@sveltejs/kit';
+import { getAuthProvider } from '$lib/server/auth/factory';
+import { resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
@@ -11,7 +13,8 @@ import {
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async (event) => {
+	const { url, cookies } = event;
 	const code = url.searchParams.get('code');
 	const state = url.searchParams.get('state');
 	const error = url.searchParams.get('error');
@@ -66,6 +69,14 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		redirect(302, '/auth/login?error=token_exchange_failed');
 	}
 
+	// #4641: 子供ロールは /admin に入れないため、着地先をロールで決める。
+	// oauth_next (「Google で本人確認」からの復帰先) は親向け画面なので子供には適用しない。
+	// 直前に積んだ identity cookie から所属を解決する (失敗したら従来どおりの着地先へ)
+	const identity = await getAuthProvider().resolveIdentity(event);
+	const landing = identity
+		? await resolvePostLoginLanding(event, identity, successPath)
+		: successPath;
+
 	// 認証成功 → ご家族の見守り画面 or oauth_next（resolveContext で自動的にテナント選択される）
-	redirect(302, successPath);
+	redirect(302, landing);
 };

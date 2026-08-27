@@ -54,6 +54,7 @@ import {
 	formatMemberCount,
 	invitesAllowedFrom,
 } from './constants/family-member-limit';
+import { PIN_LENGTH } from './constants/oyakagi';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -176,6 +177,11 @@ export const TRIAL_TERMS = {
 //   - anytimeOk    : 'いつでも解約できます（契約期間の縛りなし）' (#1904 PERS-CRT-5)
 //   - account      : '退会' （契約の意味の「解約」と区別したアカウント削除文脈の名詞）
 //                   → 法務文書整合で「退会」用語を維持しつつ atom 経由参照を担保
+//   - confirmPhrase: 'アカウントを削除します' （不可逆操作の実行前に本人が打つ確認語、#4642）
+//                   → 家族グループを物理削除する経路は**すべて**この語の入力を要求する。
+//                     退会 (/admin/settings/account) と 引っ越し合流 (/auth/invite/[code]) は
+//                     結果が同じ (fullTenantDeletion) なので、要求する重さも同じにする。
+//                     経路ごとに別の語を置くと「軽いほうの経路から全損する」を作る。
 //
 // 「ボタンの操作取消（モーダル × ボタン）」は UI_LABELS.cancel に既存集約済み。
 // 本 atom は「サブスク契約の解約 / アカウント退会」専用。
@@ -186,6 +192,7 @@ export const CANCEL_TERMS = {
 	anytime: 'いつでも解約',
 	anytimeOk: 'いつでも解約できます（契約期間の縛りなし）',
 	account: '退会',
+	confirmPhrase: 'アカウントを削除します',
 } as const;
 
 // ============================================================
@@ -467,6 +474,24 @@ export const CHILD_TERMS = {
 } as const;
 
 // ============================================================
+// AI_TRANSFER_TERMS — 生成 AI への送信を説明するときの語彙 atom (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路は、
+// 入力内容をそのまま生成 AI に送信する。プライバシーポリシー第9条④ (#4583) と
+// 同じ事実を、入力する瞬間に伝えるための語彙をここに集約する。
+//
+// 禁忌: 個別の生成 AI 製品名 (モデル名・サービス名) を atom に持たせない。
+// 送信先は「事業者」と「運営者の環境の内か外か」で述べる (#4370 / #4583 と同一規律)。
+
+export const AI_TRANSFER_TERMS = {
+	/** 送信先の総称 */
+	genAi: '生成 AI',
+	/** 入力してはいけない情報の例示 (単独では主語を持たない断片) */
+	identifyingInfo: 'お名前など特定につながる情報',
+} as const;
+
+// ============================================================
 // PARENT_TERMS — 「親」「保護者」2 表記の SSOT atom (#1914)
 // ============================================================
 //
@@ -532,6 +557,29 @@ export const SIGNUP_TERMS = {
 export const LOGIN_TERMS = {
 	canonical: 'ログイン',
 	signin: 'サインイン',
+} as const;
+
+// ============================================================
+// CROSS_BORDER_TERMS — 越境移転同意（個人情報保護法 §28）の atom (#4497)
+// ============================================================
+//
+// 同じ文言が signup フォーム / 再同意画面 (/consent) / LEGAL_LABELS の 3 箇所に必要で、
+// かつ「法務文書と画面に出る説明が食い違わないこと」が同意の有効性そのものに効く。
+// 文言を変えるときに 1 箇所直せば全経路に伝播するよう atom 化する (ADR-0045)。
+
+export const CROSS_BORDER_TERMS = {
+	/** 条項名。privacy.html 第 10 条の見出しと一致させる */
+	transfer: '外国にある第三者への提供',
+	law: '個人情報保護法第28条',
+	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
+	dpa: 'Data Processing Addendum (DPA)',
+	/** 同意チェックボックスの文言。同意記録の意味を定義する文なので画面間で一字一句揃える */
+	consentLabel: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
+	/** 移転の事実の説明（移転先・目的） */
+	notice:
+		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
+	/** 不安の打ち消し（DPIA §5 の実態） */
+	noNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
 } as const;
 
 // ============================================================
@@ -836,6 +884,25 @@ export const BACKUP_TERMS = {
 } as const;
 
 // ============================================================
+// CERTIFICATE_TERMS / GROWTH_BOOK_TERMS — 証明書 / 記録ブックの呼称 atom (#4670 F2)
+// ============================================================
+//
+// レポート画面のリンク「📜 証明書」「📖 記録ブック」/ ナビ「グロースブック」/ 遷移先見出し
+// 「がんばり証明書」「成長記録ブック」/ ガイド「修了証（賞状）」「成長ブック」と 3〜4 表記が混在していた。
+// 画面リンクの短い呼称 (canonical) と遷移先見出しのフル名 (full) の 2 形に絞り、ガイド / ナビ / リンクは
+// canonical、ページ見出しは full を引く (EPIC #4650 PO 判断: 呼称はリンク表示「証明書」「記録ブック」を正とする)。
+
+export const CERTIFICATE_TERMS = {
+	canonical: '証明書',
+	full: 'がんばり証明書',
+} as const;
+
+export const GROWTH_BOOK_TERMS = {
+	canonical: '記録ブック',
+	full: '成長記録ブック',
+} as const;
+
+// ============================================================
 // TEMPLATE_TERMS — みんなのテンプレート atom (#2276 / EPIC #2266)
 // ============================================================
 //
@@ -1054,12 +1121,19 @@ export const OSS_LICENSE_TERMS = {
 // 設計指針:
 //   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
 //   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
+//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661)
 //
 // 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
 
 export const OYAKAGI_TERMS = {
 	name: 'おやカギコード',
 	shortName: 'おやカギ',
+	/**
+	 * 桁数の表示文字列 (#4661 / #4662)。判定に使う `PIN_LENGTH` から導出するため、
+	 * 桁数を変えると入力ラベル・エラー文・ページガイドが同時に追従する
+	 * (以前は 4 / 4〜6 / 4〜8 の 3 表記に割れ、実際に打てるのは 4 桁だけだった)。
+	 */
+	digitRange: `${PIN_LENGTH}桁`,
 } as const;
 
 // ============================================================
@@ -1120,6 +1194,18 @@ export const PIN_DEFAULT_TERMS = {
 //   - challenge : チャレンジ = 的 🎯 (MARKETPLACE_TYPE_ICONS 既存値)
 //   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
 //   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
+
+// ============================================================
+// CHALLENGE_TERMS — チャレンジの呼称 atom (#4671 F3)
+// ============================================================
+//
+// 同一画面で「チャレンジ管理」(ガイド title) / 「👥 きょうだいチャレンジ」(見出し・page title) /
+// 「チャレンジ」(サイドナビ) の 3 表記が混在していた。per-child 自動生成モデルではきょうだい限定機能
+// ではないため、画面で最も広く使われている「チャレンジ」を canonical とする (EPIC #4650 PO 判断)。
+
+export const CHALLENGE_TERMS = {
+	canonical: 'チャレンジ',
+} as const;
 
 export const CONCEPT_ICONS = {
 	activity: '📝',

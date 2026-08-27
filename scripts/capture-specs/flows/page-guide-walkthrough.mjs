@@ -8,6 +8,8 @@
  * 環境変数:
  *   GUIDE_PATH   撮影対象パス (例: /admin/subscription)。既定 /admin
  *   GUIDE_LABEL  撮影ファイル名の prefix (例: subscription-guide)。既定は path から自動生成
+ *   GUIDE_PRE_CLICK  ❓ を押す前に click する Playwright selector (任意。例: タブ切替
+ *                    `button.tab-btn:has-text("週次レポート")`)。タブ依存 step の撮影に使う
  *   BASE_URL     dev server (既定 http://localhost:5173)
  *
  * 使用例 (desktop / mobile は --presets を変えて 2 回実行する):
@@ -21,6 +23,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const GUIDE_PATH = process.env.GUIDE_PATH || '/admin';
 const GUIDE_LABEL =
 	process.env.GUIDE_LABEL || `${GUIDE_PATH.replace(/^\/+/, '').replace(/[^\w]+/g, '-')}-guide`;
+const GUIDE_PRE_CLICK = process.env.GUIDE_PRE_CLICK || '';
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
 const GUIDE_OVERLAY = '[role="dialog"][aria-labelledby="page-guide-title"]';
@@ -77,7 +80,12 @@ export default async (page, capture) => {
 	await dismissWelcome(page);
 
 	const btn = page.locator(GUIDE_BTN);
+	// ❓ は hydration 後の $effect で描画される = これが出れば click 可能 (pre-click を hydration 前に打たない)
 	await btn.waitFor({ state: 'visible', timeout: 15_000 });
+	if (GUIDE_PRE_CLICK) {
+		await page.locator(GUIDE_PRE_CLICK).first().click();
+		await settleFrame(page);
+	}
 	await btn.first().click({ force: true });
 	await page.locator(GUIDE_OVERLAY).waitFor({ state: 'visible', timeout: 8_000 });
 
