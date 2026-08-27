@@ -20,7 +20,6 @@ export type DialogType =
 	| 'adventure'
 	| 'parentMessage'
 	| 'monthlyReward'
-	| 'siblingCheer'
 	| 'celebration'
 	/** #4313: 誕生日で年齢帯 UI が切り替わったことの告知 (次回ログインで 1 回だけ)。 */
 	| 'uiModeChange';
@@ -36,7 +35,6 @@ const PRIORITY_ORDER: DialogType[] = [
 	// (ADR-0012: 2 枚連続演出の禁止) が担保されるため、実際には同時に並ばない。
 	'uiModeChange',
 	'monthlyReward',
-	'siblingCheer',
 	'celebration',
 ];
 
@@ -66,7 +64,6 @@ export interface DialogTriggers {
 	birthday?: unknown;
 	uiModeChange?: unknown;
 	monthlyReward?: unknown;
-	siblingCheer?: unknown;
 	celebration?: unknown;
 }
 

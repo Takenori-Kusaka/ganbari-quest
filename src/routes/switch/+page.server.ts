@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+import { SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { isPinConfigured } from '$lib/server/services/auth-service';
@@ -92,13 +93,13 @@ export const actions: Actions = {
 		const childId = formData.get('childId');
 
 		if (!childId) {
-			return { error: 'こどもをえらんでね' };
+			return { error: SWITCH_PAGE_LABELS.errorChildRequired };
 		}
 
 		// child ロールは紐づけ済みの自分のプロフィールのみ選択可 (#0156)
 		if (locals.context?.role === 'child' && locals.context.childId) {
 			if (asChildId(String(childId)) !== locals.context.childId) {
-				return { error: 'このプロフィールは選べません' };
+				return { error: SWITCH_PAGE_LABELS.errorChildNotSelectable };
 			}
 		}
 

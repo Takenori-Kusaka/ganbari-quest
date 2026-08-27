@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { asChildId } from '$lib/domain/ids';
-import { INVITE_ACCEPT_ERROR_BANNERS } from '$lib/domain/labels';
+import { INVITE_JOIN_BLOCKED_MESSAGES } from '$lib/domain/labels';
 import {
 	INVITE_ACCEPT_ERROR_REASONS,
 	type InviteAcceptErrorReason,
@@ -361,12 +361,11 @@ describe('acceptInvite', () => {
 		expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
 	});
 
-	// #4633 AC-A (no-silent-gap): 受諾拒否は例外なく「新規家族グループの自動作成」に
-	// フォールバックするため、通知バナーに載らない理由が 1 つでもあると「失敗が成功に見える」
-	// 経路が残る。acceptInvite が実際に返す全 error 理由が、通知理由 SSOT
-	// (INVITE_ACCEPT_ERROR_REASONS) と文言表 (INVITE_ACCEPT_ERROR_BANNERS) の両方に
-	// 登録されていることを固定する。新しい拒否理由を無登録で足した瞬間に落ちる。
-	it('受諾拒否の全理由が通知バナーの SSOT に登録されている (#4633 AC-A)', async () => {
+	// #4633 AC-A / #4636 (no-silent-gap): 受諾拒否の理由が 1 つでも文言表に無いと、
+	// `/auth/join` が汎用文言に落ちて「なぜ参加できなかったか」を説明できない。
+	// acceptInvite が実際に返す全 error 理由が、理由 SSOT (INVITE_ACCEPT_ERROR_REASONS) と
+	// 文言表 (INVITE_JOIN_BLOCKED_MESSAGES) の両方に登録されていることを固定する。
+	it('受諾拒否の全理由が案内文言の SSOT に登録されている (#4633 AC-A / #4636)', async () => {
 		const observed = new Set<string>();
 
 		// 無効 / 期限切れ
@@ -418,9 +417,9 @@ describe('acceptInvite', () => {
 		for (const reason of observed) {
 			expect(
 				isInviteAcceptErrorReason(reason),
-				`受諾拒否理由 ${reason} が INVITE_ACCEPT_ERROR_REASONS に未登録 (無音の新規家族グループ作成に化ける)`,
+				`受諾拒否理由 ${reason} が INVITE_ACCEPT_ERROR_REASONS に未登録 (/auth/join が理由を説明できなくなる)`,
 			).toBe(true);
-			expect(INVITE_ACCEPT_ERROR_BANNERS[reason as InviteAcceptErrorReason]).toBeTruthy();
+			expect(INVITE_JOIN_BLOCKED_MESSAGES[reason as InviteAcceptErrorReason]).toBeTruthy();
 		}
 		// 逆向き: SSOT にあるのに本 test が踏んでいない理由 (= 観測漏れ) も検出する
 		expect([...observed].sort()).toEqual([...INVITE_ACCEPT_ERROR_REASONS].sort());
