@@ -24,6 +24,7 @@ import {
 	SWITCH_PAGE_LABELS,
 	VIEW_PAGE_LABELS,
 } from '../../../src/lib/domain/labels';
+import { CHILD_TERMS } from '../../../src/lib/domain/terms';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const read = (rel: string) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
@@ -125,7 +126,9 @@ describe('#4512 SSOT 集約した文言が labels.ts 側に存在する', () => 
 
 	it('setup/switch/view/marketplace の server エラー文言が labels.ts 経由', () => {
 		expect(SETUP_CHILDREN_LABELS.errorNicknameRequired).toBe('ニックネームを入力してください');
-		expect(SETUP_CHILDREN_LABELS.errorNoChildren).toBe('1人以上の子供を登録してください');
+		// #4716: 保護者画面の呼称は CHILD_TERMS.honorific (DESIGN.md §6)。literal を pin すると
+		// atom を変えたとき label だけ追随して test が取り残されるため atom 経由で突き合わせる。
+		expect(SETUP_CHILDREN_LABELS.errorNoChildren).toBe(`1人以上の${CHILD_TERMS.honorific}を登録してください`);
 		expect(SWITCH_PAGE_LABELS.errorChildRequired).toBe('こどもをえらんでね');
 		// #4703 が同一文言を invalidTokenTitle として先に SSOT 化したため、そちらへ寄せる
 		// (重複 atom を作らない)。#4512 の意図 = server 側が直書きしないこと は不変。
