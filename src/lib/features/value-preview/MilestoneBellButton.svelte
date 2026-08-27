@@ -74,7 +74,14 @@ const pendingCount = $derived.by(() => {
 	return n;
 });
 
-function handleClick() {
+async function handleClick() {
+	// #4688 (F2): 通知された当のマイルストーン一覧へ着地させる。
+	// 旧実装は `/${uiMode}/challenges` (今週のチャレンジ) に飛ばしており、通知の中身
+	// (「はじめての きろく」等) はどこにも出ないまま既読化され、二度と気付けなかった。
+	//
+	// 既読化は **遷移が終わってから** 行う (遷移に失敗したら未読のまま残す = 取り逃がさない)。
+	await goto(`/${uiMode}/history?kind=milestones`);
+
 	// 全ての未閲覧マイルストーンを「閲覧済み」として localStorage に記録
 	for (const m of milestones) {
 		if (!m.achieved) continue;
@@ -87,8 +94,6 @@ function handleClick() {
 		if (m.achieved) next.add(m.id);
 	}
 	dismissedIds = next;
-	// チャレンジ画面 (= 新着マイルストーンが累積する画面、MN-3 で履歴 tab 化予定) に遷移
-	goto(`/${uiMode}/challenges`);
 }
 </script>
 
