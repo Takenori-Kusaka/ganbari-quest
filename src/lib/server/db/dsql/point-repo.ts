@@ -97,6 +97,21 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 			});
 		},
 
+		async sumEarnedPointsBetween(childId, startDate, endDate, tenantId) {
+			// #4697: 期間内に獲得したポイントの合計 (正の amount のみ、消費は含まない)。
+			// point_ledger.recorded_date は書込時に JST 今日で埋める NOT NULL 列 (§11.2) なので、
+			// created_at (timestamptz) を session TZ 依存で日付に落とすことなく JST 暦日で絞れる。
+			// 集計は DB 側で閉じる (ADR-0065: 行を client に materialize しない)。
+			const result = await db.execute(sql`
+				SELECT coalesce(sum(amount), 0) AS total FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND amount > 0
+					AND recorded_date >= ${startDate} AND recorded_date <= ${endDate}
+			`);
+			const row = result.rows[0] as { total: number | string } | undefined;
+			return Number(row?.total ?? 0);
+		},
+
 		async findChildById(id, tenantId) {
 			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
 			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
