@@ -595,9 +595,6 @@
     }
   },
   "src/routes/(parent)/admin/status/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    },
     "svelte/no-useless-children-snippet": {
       "count": 3
     }
