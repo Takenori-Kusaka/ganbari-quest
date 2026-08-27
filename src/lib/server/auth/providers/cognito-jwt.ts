@@ -38,6 +38,24 @@ export interface CognitoClaims {
  * **判定できない場合は false = 拒否 (fail-closed、ADR-0024「設定が無ければ止める」)。**
  * 未設定を「たぶん大丈夫」に倒すと、防御層が黙って消える (#4276 が炙り出した失敗様式)。
  */
+/**
+ * `email_verified` claim を boolean に正規化する (#4643)。
+ *
+ * Cognito はこの claim を **boolean で載せることも文字列で載せることもある** (federated IdP 経由や
+ * 属性マッピングの構成によって揺れる)。旧実装は `payload.email_verified as boolean | undefined` と
+ * 素の cast だったため、文字列 `"false"` が `emailVerified === false` の判定をすり抜けて
+ * **未検証 email での束縛招待受諾を通してしまう**穴があった (#3555 ③ の fail-closed が空振りする)。
+ *
+ * 判定できない形 (数値 / null / 想定外の文字列) は `undefined` = 「claim を持たない provider」
+ * 扱いにする。ここで false に倒すと local / dev provider の後方互換が壊れる。
+ */
+export function normalizeEmailVerified(raw: unknown): boolean | undefined {
+	if (typeof raw === 'boolean') return raw;
+	if (raw === 'true') return true;
+	if (raw === 'false') return false;
+	return undefined;
+}
+
 const MFA_AMR_VALUES = ['mfa', 'software_token_mfa', 'sms_mfa'] as const;
 
 export function hasMfaAmr(amr: readonly string[] | undefined): boolean {
@@ -106,7 +124,7 @@ export async function verifyIdentityToken(token: string): Promise<CognitoClaims 
 		return {
 			sub: payload.sub as string,
 			email: payload.email as string,
-			email_verified: payload.email_verified as boolean | undefined,
+			email_verified: normalizeEmailVerified(payload.email_verified),
 			'cognito:username': payload['cognito:username'] as string | undefined,
 			'cognito:groups': groups,
 			identities: Array.isArray(payload.identities) ? payload.identities : undefined,

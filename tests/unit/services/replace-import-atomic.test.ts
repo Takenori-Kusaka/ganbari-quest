@@ -3,7 +3,7 @@
 //
 // 本番 tenant t-82c17558 で「全削除 → 逐次投入」の非原子インポートが途中 hang し家族データ半分消失した
 // 事故の根本対処。`runAtomicReplace` は backend ごとの戦略 (SQLite=BEGIN/ROLLBACK ラッパ /
-// DynamoDB=backup-before-clear) で「clear + import の途中失敗時に旧データを必ず復元可能」にする。
+// pg 系 DSQL・PGlite=backup-before-clear 補償 #4720) で「clear + import の途中失敗時に旧データを必ず復元可能」にする。
 //
 // failing-test-first (ADR-0061): 途中失敗を注入し「clear 済みでも旧データが無傷」を機械再現する。
 // runAtomicReplace 未実装の段階では赤、原子化実装で緑。
@@ -54,7 +54,7 @@ describe('#3326 置換インポートの原子化 — 途中失敗で旧デー�
 		expect(before.length).toBe(2);
 
 		await expect(
-			runAtomicReplace(async () => {
+			runAtomicReplace(T, async () => {
 				// 全削除を tx 内で実行した直後に import 失敗を注入する
 				await clearAllFamilyData(T);
 				throw new Error('import 途中失敗注入');
@@ -70,7 +70,7 @@ describe('#3326 置換インポートの原子化 — 途中失敗で旧デー�
 	it('成功時は COMMIT され置換結果が確定する', async () => {
 		testDb.insert(schema.children).values({ nickname: '旧', age: 8, theme: 'blue' }).run();
 
-		const r = await runAtomicReplace(async () => {
+		const r = await runAtomicReplace(T, async () => {
 			await clearAllFamilyData(T);
 			testDb.insert(schema.children).values({ nickname: '新', age: 7, theme: 'green' }).run();
 			return 'ok';

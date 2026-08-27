@@ -1,6 +1,5 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import { getInviteAcceptErrorBanner } from '$lib/domain/labels';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
@@ -9,7 +8,6 @@ import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.sv
 import { startParentGateInactivityRedirect } from '$lib/features/admin/parent-gate-inactivity';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
-import Alert from '$lib/ui/primitives/Alert.svelte';
 
 interface Props {
 	data: {
@@ -22,7 +20,6 @@ interface Props {
 			isTrialActive: boolean;
 			daysRemaining: number;
 			trialUsed: boolean;
-			trialEndDate: string | null;
 		};
 		archivedSummary?: {
 			archivedChildCount: number;
@@ -38,10 +35,6 @@ interface Props {
 		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
-		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		// #4633 AC-A: 拒否理由は email 束縛の 2 種に限らない (文言解決は
-		// getInviteAcceptErrorBanner が担い、未知の理由は汎用文言に落ちる)。
-		inviteAcceptError?: string | null;
 		// #1781 / #4699: 退会 (アカウント削除) 申請中の猶予状態。全 admin ページで
 		// 「あと N 日 / 復元する」を出すために layout が受け取る
 		gracePeriodStatus?: {
@@ -105,16 +98,6 @@ $effect(() => {
 	{#if data.gracePeriodStatus?.isSoftDeleted}
 		<div style:margin-bottom="16px">
 			<DeletionGraceBanner status={data.gracePeriodStatus} testid="admin-deletion-grace-banner" />
-		</div>
-	{/if}
-	<!-- #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
-	{#if data.inviteAcceptError}
-		<div style:margin-bottom="16px">
-			<Alert
-				variant="warning"
-				data-testid="invite-accept-error-banner"
-				message={getInviteAcceptErrorBanner(data.inviteAcceptError)}
-			/>
 		</div>
 	{/if}
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->

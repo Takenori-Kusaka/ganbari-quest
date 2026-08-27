@@ -202,7 +202,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 		if (contextToken && identity.type === 'cognito') {
 			const claims = verifyContext(contextToken);
 			const devUser = claims ? findDevUser(identity.email) : undefined;
-			if (claims && devUser) {
+			// #4643: userId を持たない旧 token は採用せず発行し直す (本番 provider と同じ扱い)
+			if (claims?.userId && devUser) {
 				return {
 					...claims,
 					licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
@@ -235,6 +236,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 		const context: AuthContext = {
 			tenantId: devUser.tenantId,
 			role: devUser.role,
+			// #4643: dev では DEV_USERS の userId がアプリ側 user id を兼ねる (SSOT は DEV_USERS)
+			userId: devUser.userId,
 			licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: devUser.plan,

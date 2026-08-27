@@ -241,43 +241,6 @@ export async function deleteActivity(
 }
 
 // ============================================================
-// copyActivitiesAcrossChildren — 兄弟共通化 (User §1)
-// ============================================================
-//
-// source child の activity 全件 (isArchived=0) を target child に複製。
-// id / createdAt は新規採番、childId のみ差し替え。
-
-export async function copyActivitiesAcrossChildren(
-	sourceChildId: ChildId,
-	targetChildId: ChildId,
-	tenantId: string,
-): Promise<ChildActivity[]> {
-	const sourceActivities = await findActivitiesByChild(sourceChildId, tenantId, {
-		includeArchived: false,
-		visibleOnly: false,
-	});
-
-	if (sourceActivities.length === 0) return [];
-
-	const inputs: InsertChildActivityInput[] = sourceActivities.map((a) => ({
-		childId: targetChildId,
-		name: a.name,
-		categoryId: a.categoryId,
-		icon: a.icon,
-		basePoints: a.basePoints,
-		triggerHint: a.triggerHint,
-		isMainQuest: a.isMainQuest,
-		sourcePresetId: a.sourcePresetId,
-		priority: a.priority,
-		// #3669: 元活動の source を保全 (custom の copy は custom のまま quota に数える。
-		// copy 経由の quota 迂回と provenance 喪失を防ぐ)
-		source: a.source,
-	}));
-
-	return insertActivitiesBulk(inputs, tenantId);
-}
-
-// ============================================================
 // archive / restore (#783)
 // Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
 // `ARCHIVED_REASONS` SSOT integration)。schema.ts L79 の enum 制約と同期で型安全担保。

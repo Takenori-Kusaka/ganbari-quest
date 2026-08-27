@@ -10,6 +10,7 @@ import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
 import { LOGIN_REASON_CODES } from '$lib/domain/validation/login-redirect';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
 import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
@@ -41,6 +42,8 @@ let deletionInfo = $state<{
 		email?: string;
 		displayName?: string;
 	}>;
+	/** #4640: オーナーを渡せる大人が居るか (判定 SSOT は account-deletion-service)。 */
+	hasTransferableAdult: boolean;
 } | null>(null);
 let deletionInfoLoading = $state(false);
 
@@ -88,7 +91,7 @@ async function fetchDeletionInfo() {
 
 async function handleDeleteAccount() {
 	if (deleteSubmitting) return;
-	if (deleteConfirmText !== 'アカウントを削除します' || !deleteAgreeChecked) return;
+	if (deleteConfirmText !== CANCEL_TERMS.confirmPhrase || !deleteAgreeChecked) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -191,7 +194,7 @@ const deletionGraceDays = $derived(
 const consentGraceDays = $derived($page.data.userRole === 'owner' ? deletionGraceDays : 0);
 
 const canConfirmDelete = $derived(
-	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
+	deleteConfirmText === CANCEL_TERMS.confirmPhrase && deleteAgreeChecked,
 );
 </script>
 
@@ -238,15 +241,17 @@ const canConfirmDelete = $derived(
 			class="flex flex-col gap-4"
 		>
 			<FormField
-				label={`現在の${OYAKAGI_LABELS.name}`}
+				label={OYAKAGI_LABELS.currentInputLabel}
 				type="password"
 				id="currentPin"
 				name="currentPin"
 				required
 			/>
 
+			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= PIN_MIN_LENGTH〜PIN_MAX_LENGTH) 由来。
+			     直書きしていた頃はエラー文の「4〜6桁」と同じ画面で矛盾していた。 -->
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}
+				label={OYAKAGI_LABELS.newInputLabel}
 				type="password"
 				id="newPin"
 				name="newPin"
@@ -254,7 +259,7 @@ const canConfirmDelete = $derived(
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（確認）`}
+				label={OYAKAGI_LABELS.confirmInputLabel}
 				type="password"
 				id="confirmPin"
 				name="confirmPin"
@@ -275,7 +280,9 @@ const canConfirmDelete = $derived(
 
 	<!-- ログアウト (cognito モードのみ) -->
 	{#if $page.data.authMode === 'cognito'}
-		<Card padding="lg">
+		<!-- #4662: ページガイド ③ の anchor。カード自体が cognito 限定描画なので、
+		     ガイド側は requiredRuntime='saas' + optional で「出ているときだけ」案内する -->
+		<Card padding="lg" data-tutorial="account-logout">
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
 				{SETTINGS_LABELS.logoutSectionTitle}
 			</h3>
@@ -297,7 +304,12 @@ const canConfirmDelete = $derived(
 	     **支払い失敗 (dunning) の猶予**と確定している。支払い失敗中の顧客から退会導線を奪っていたため、
 	     判定を「退会申請中か」(soft-delete sentinel) に付け替える (申請中は上の復元バナーが出る) -->
 	{#if $page.data.authMode === 'cognito' && !gracePeriodStatus?.isSoftDeleted}
-		<section class="danger-zone" data-testid="account-danger-zone">
+		<!-- #4662: ページガイド ④ の anchor (同上、cognito 限定描画) -->
+		<section
+			class="danger-zone"
+			data-testid="account-danger-zone"
+			data-tutorial="account-danger-zone"
+		>
 			<header class="danger-zone__header">
 				<h3 class="danger-zone__title">
 					⚠️ {SETTINGS_LABELS.dangerZoneTitle}
@@ -374,17 +386,32 @@ const canConfirmDelete = $derived(
 				{/if}
 
 				{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
+					<!-- #4640: 他が子供だけなら移譲欄を出さない (選択肢が空のまま宙吊りになり退会できなくなる) -->
 					<div
 						class="mt-4 p-4 rounded-lg border-2 border-[var(--color-border-default)] bg-[var(--color-surface-card)]"
 					>
 						<h4 class="font-bold text-[var(--color-text-primary)] mb-3">
-							{SETTINGS_LABELS.accountDeleteTransferTitle}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferTitle
+								: SETTINGS_LABELS.accountDeleteNoAdultTitle}
 						</h4>
 						<p class="text-sm text-[var(--color-text-secondary)] mb-4">
-							{SETTINGS_LABELS.accountDeleteTransferDesc}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferDesc
+								: SETTINGS_LABELS.accountDeleteNoAdultDesc}
 						</p>
 
 						<div class="space-y-4">
+							{#if !deletionInfo.hasTransferableAdult}
+								<p
+									class="text-xs text-[var(--color-text-muted)]"
+									data-testid="account-delete-no-adult-hint"
+								>
+									{SETTINGS_LABELS.accountDeleteNoAdultHint}
+								</p>
+							{/if}
+
+							{#if deletionInfo.hasTransferableAdult}
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
 									class="text-sm font-medium text-[var(--color-text-primary)] mb-2"
@@ -392,7 +419,7 @@ const canConfirmDelete = $derived(
 									{SETTINGS_LABELS.accountDeleteTransferOption}
 								</p>
 								<div class="flex items-center gap-2 mb-2">
-									<div class="flex-1">
+									<div class="flex-1" data-testid="account-delete-transfer-select">
 										<NativeSelect
 											bind:value={transferTargetId}
 											options={[
@@ -417,6 +444,7 @@ const canConfirmDelete = $derived(
 									</Button>
 								</div>
 							</div>
+							{/if}
 
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
@@ -433,6 +461,7 @@ const canConfirmDelete = $derived(
 									size="sm"
 									disabled={deleteSubmitting}
 									onclick={handleFullDelete}
+									data-testid="account-delete-full"
 								>
 									{deleteSubmitting ? '処理中...' : '全て削除する'}
 								</Button>
@@ -457,11 +486,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.dangerStep1Label}
 						</p>
 						<FormField
-							label="確認のため「アカウントを削除します」と入力してください"
+							label={SETTINGS_LABELS.dangerConfirmInputLabel}
 							type="text"
 							id="deleteConfirm"
 							bind:value={deleteConfirmText}
-							placeholder="アカウントを削除します"
+							placeholder={CANCEL_TERMS.confirmPhrase}
 						/>
 					</div>
 
