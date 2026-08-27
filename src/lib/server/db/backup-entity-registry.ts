@@ -177,13 +177,6 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 		reason:
 			'親→子おうえんメッセージ。export/import 実装済 (#3329、sentAt/shownAt を insertForRestore で保全)。clear は tenant-cleanup の message.deleteByTenantId で既に削除済',
 	},
-	siblingCheer: {
-		classification: 'source',
-		schemaTable: 'siblingCheers',
-		backupStatus: 'exported',
-		reason:
-			'きょうだい間おうえんスタンプ。export/import 実装済 (#3329、from/to 2 child を childRef で再結合・sentAt/shownAt 保全)。clear は tenant-cleanup の siblingCheer.deleteByTenantId + child cascade で削除済',
-	},
 	activityPref: {
 		classification: 'source',
 		schemaTable: 'childActivityPreferences',
@@ -213,13 +206,6 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 			'各種設定 (ポイント表示/通知/onboarding 等)。export/import 実装済 (#3329)。default-deny allowlist (EXPORTABLE_SETTING_KEYS) で pin_hash / session_token 等の秘匿キーは構造的に除外 (CWE-522/916、設計 D3)',
 	},
 	// #3329 QM BLOCK 是正: schema.ts 権威列挙で surface した builder-less source テーブル。
-	restDays: {
-		classification: 'source',
-		schemaTable: 'restDays',
-		backupStatus: 'exported',
-		reason:
-			'おやすみ日設定 (per-child、保護者が任意指定)。evaluation-repo が週次評価/streak/decay 計算の input に使い活動記録から再構成不能。export/import 実装済 (#3329、createdAt を insertRestDayForRestore で保全)。NUC/SQLite 専用 (DynamoDB は no-op、そもそも保存されないため backup 対象データなし)。clear は evaluation.deleteByTenantId で削除済',
-	},
 	childCustomVoices: {
 		classification: 'source',
 		schemaTable: 'childCustomVoices',
@@ -277,6 +263,20 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 		schemaTable: 'activities',
 		excludedKind: 'permanent',
 		reason: 'legacy tenant 活動 master。per-child モデルは childActivity を使用 (ADR-0055)',
+	},
+	siblingCheer: {
+		classification: 'excluded',
+		schemaTable: 'siblingCheers',
+		excludedKind: 'permanent',
+		reason:
+			'きょうだい間おうえんスタンプ (機能廃止 #4691: 送信 action / service / 受信 overlay / export・import を撤去、ADR-0012 anti-engagement)。表は空のまま残置し、clear は tenant-cleanup の siblingCheer.deleteByTenantId + child cascade で削除',
+	},
+	restDays: {
+		classification: 'excluded',
+		schemaTable: 'restDays',
+		excludedKind: 'permanent',
+		reason:
+			'おやすみ日 (機能廃止 #4691: 登録導線 / API / 評価連動 / export を撤去)。表は空のまま残置 (schema 変更なし、clear は evaluation.deleteByTenantId で削除)',
 	},
 	achievement: {
 		classification: 'excluded',

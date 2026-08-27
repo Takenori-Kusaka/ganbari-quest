@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -16,6 +16,8 @@ export type ErrorCode =
 	| 'LOCKED_OUT'
 	| 'NOT_FOUND'
 	| 'PLAN_LIMIT_EXCEEDED'
+	| 'EXPORT_NOT_READY'
+	| 'EXPORT_FAILED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -93,6 +95,20 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		status: 403,
 		userMessage: PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade,
 		severity: 'info',
+		action: 'none',
+	},
+	// #4717: クラウド共有データが生成待ち (pending/building)。時間をおけば解決するので retry を促す。
+	EXPORT_NOT_READY: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudImportNotReady,
+		severity: 'info',
+		action: 'retry',
+	},
+	// #4717: クラウド共有データの生成が失敗している。受け取る側の操作では解決しない。
+	EXPORT_FAILED: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudImportBuildFailed,
+		severity: 'error',
 		action: 'none',
 	},
 	INTERNAL_ERROR: {

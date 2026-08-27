@@ -741,6 +741,90 @@ describe('cloud-export-service', () => {
 
 			await expect(fetchCloudExportByPin('ABC123')).rejects.toThrow('ダウンロード');
 		});
+
+		// #4717: 非同期 build (#3504) の完了前 / 失敗時に取り込もうとしたときの分類。
+		// AWS の build cron は 5 分毎なので、発行〜5 分は必ず pending / building に当たる。
+		it('生成待ち (pending) の PIN は not-ready として分類される (500 に落とさない)', async () => {
+			const future = new Date();
+			future.setDate(future.getDate() + 3);
+			mockCloudExportRepo.findByPin.mockResolvedValue({
+				id: '1',
+				tenantId: 'tenant-1',
+				pinCode: 'ABC123',
+				expiresAt: future.toISOString(),
+				downloadCount: 0,
+				maxDownloads: 10,
+				s3Key: 'exports/tenant-1/ABC123/data.json',
+				status: 'pending',
+			});
+
+			await expect(fetchCloudExportByPin('ABC123')).rejects.toMatchObject({
+				name: 'CloudExportFetchError',
+				reason: 'not-ready',
+			});
+			// 生成待ちの判定は S3 read より前に行う (存在しない object を読みにいかない)
+			expect(mockStorageRepo.readFile).not.toHaveBeenCalled();
+		});
+
+		it('生成中 (building) の PIN も not-ready として分類される', async () => {
+			const future = new Date();
+			future.setDate(future.getDate() + 3);
+			mockCloudExportRepo.findByPin.mockResolvedValue({
+				id: '1',
+				expiresAt: future.toISOString(),
+				downloadCount: 0,
+				maxDownloads: 10,
+				status: 'building',
+			});
+
+			await expect(fetchCloudExportByPin('ABC123')).rejects.toMatchObject({
+				reason: 'not-ready',
+			});
+		});
+
+		it('生成に失敗した (failed) PIN は build-failed として分類される', async () => {
+			const future = new Date();
+			future.setDate(future.getDate() + 3);
+			mockCloudExportRepo.findByPin.mockResolvedValue({
+				id: '1',
+				expiresAt: future.toISOString(),
+				downloadCount: 0,
+				maxDownloads: 10,
+				status: 'failed',
+			});
+
+			await expect(fetchCloudExportByPin('ABC123')).rejects.toMatchObject({
+				reason: 'build-failed',
+			});
+		});
+
+		it('生成完了 (ready) の PIN は従来どおり取得できる', async () => {
+			const future = new Date();
+			future.setDate(future.getDate() + 3);
+			mockCloudExportRepo.findByPin.mockResolvedValue({
+				id: '1',
+				tenantId: 'tenant-1',
+				expiresAt: future.toISOString(),
+				downloadCount: 0,
+				maxDownloads: 10,
+				s3Key: 'exports/tenant-1/ABC123/data.json',
+				status: 'ready',
+			});
+			mockStorageRepo.readFile.mockResolvedValue({
+				data: Buffer.from('{"test":"data"}'),
+				contentType: 'application/json',
+			});
+
+			const result = await fetchCloudExportByPin('ABC123');
+			expect(new TextDecoder().decode(result.bytes)).toBe('{"test":"data"}');
+		});
+
+		it('失敗理由は型で運ばれる (route が message の文字列 match に戻らないこと)', async () => {
+			mockCloudExportRepo.findByPin.mockResolvedValue(null);
+			await expect(fetchCloudExportByPin('NOPE')).rejects.toMatchObject({
+				reason: 'invalid-pin',
+			});
+		});
 	});
 
 	describe('consumeCloudExportDownload (#3376 adversarial)', () => {
