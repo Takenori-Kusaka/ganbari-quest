@@ -791,11 +791,6 @@
       "count": 2
     }
   },
-  "src/routes/setup/children/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    }
-  },
   "src/routes/setup/complete/+page.svelte": {
     "svelte/no-navigation-without-resolve": {
       "count": 2

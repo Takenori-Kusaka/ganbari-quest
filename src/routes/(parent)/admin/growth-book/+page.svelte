@@ -149,7 +149,7 @@ function handlePrint() {
 					<div class="text-right">
 						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">{month.totalPoints.toLocaleString()}pt</p>
 						{#if month.maxStreakDays > 0}
-							<p class="text-xs text-orange-500">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
+							<p class="text-xs text-[var(--color-text-warning-strong)]">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
 						{/if}
 					</div>
 				</div>
