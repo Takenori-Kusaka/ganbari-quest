@@ -2418,7 +2418,7 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 | UNAUTHORIZED | 401 | 認証が必要 |
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
-| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照） |
+| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照）。**`planLimitError(requiredTier, message)`（`src/lib/server/errors.ts`）で返す** — `userMessage` は要求 tier で出し分ける（standard 以上 / プレミアム限定）。`apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しは固定文（スタンダード以上の案内）しか返せず、プレミアム限定機能をスタンダード契約者が叩いたときに次の行動を示せないため禁止（`tests/unit/architecture/plan-limit-error-required-tier.test.ts` が検出、#4710） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
 | LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
 | LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |
