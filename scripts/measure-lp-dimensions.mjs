@@ -595,8 +595,60 @@ function collectPresetViolations(presetCheck) {
 	return out;
 }
 
+/**
+ * site/*.html の内部リンクのうち、フラグメント (`#id`) を持つものを全て解決し、
+ * 「リンク先ファイルが無い」「リンク先に該当 id が無い」を違反として返す (#4714)。
+ *
+ * なぜ必要か:
+ *   LP は静的 HTML なので、id を消しても改名してもリンク側は 200 を返し続け、顧客は
+ *   「詳しくはこちら」を押してページ先頭に着地する。実測 (#4714) で 4 本が死んでいた
+ *   (`faq.html#baby-mode` / `pricing.html#family-patterns` / `index.html#features` ×2)。
+ *   HTTP の到達性検査では捕まらないため、id の実在まで含めて機械検証する。
+ *
+ * 対象は site/ 直下の全 HTML (TARGET_HTML_LIST に限定しない — 法務ページの nav も対象)。
+ */
+function collectDeadAnchorViolations() {
+	if (!existsSync(SITE_DIR)) return [];
+	const htmlFiles = readdirSync(SITE_DIR).filter((f) => f.endsWith('.html'));
+	/** @type {Record<string, Set<string>>} */
+	const idsByFile = {};
+	/** @type {Record<string, string>} */
+	const srcByFile = {};
+	for (const f of htmlFiles) {
+		const src = readFileSync(join(SITE_DIR, f), 'utf8');
+		srcByFile[f] = src;
+		idsByFile[f] = new Set([...src.matchAll(/\sid=["']([^"']+)["']/g)].map((m) => m[1]));
+	}
+	const out = [];
+	for (const f of htmlFiles) {
+		for (const m of srcByFile[f].matchAll(/href=["']([^"']+)["']/g)) {
+			const href = m[1];
+			if (/^(?:https?:|mailto:|tel:|javascript:|data:)/i.test(href)) continue;
+			const hashIdx = href.indexOf('#');
+			if (hashIdx === -1) continue;
+			const fragment = href.slice(hashIdx + 1);
+			if (fragment === '') continue; // `#` 単体 (先頭へ戻る) は対象外
+			const targetFile = hashIdx === 0 ? f : href.slice(0, hashIdx);
+			if (!idsByFile[targetFile]) {
+				out.push(
+					`[site/${f}] dead anchor: ${href} — リンク先 site/${targetFile} が存在しません (#4714)`,
+				);
+				continue;
+			}
+			if (!idsByFile[targetFile].has(fragment)) {
+				out.push(
+					`[site/${f}] dead anchor: ${href} — site/${targetFile} に id="${fragment}" がありません ` +
+						`(顧客はページ先頭に着地します。id を付けるかリンク先を実在する id に変える、#4714)`,
+				);
+			}
+		}
+	}
+	return out;
+}
+
 function collectViolations(allResults, presetCheck) {
 	const violations = [];
+	violations.push(...collectDeadAnchorViolations());
 	for (const r of allResults) {
 		// 全ページ共通: 禁止語は 1 件でも検出すれば fail
 		const forbidden = collectForbiddenTermViolations(r);
