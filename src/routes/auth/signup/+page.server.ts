@@ -2,8 +2,10 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
+import { SIGNUP_LABELS } from '$lib/domain/labels';
 import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
+import { landingForRole } from '$lib/server/auth/post-login-landing';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
@@ -46,10 +48,13 @@ export const actions: Actions = {
 		const planInput = (formData.get('plan') as string | null) ?? '';
 		const agreedTerms = formData.get('agreedTerms') === 'on';
 		const agreedPrivacy = formData.get('agreedPrivacy') === 'on';
+		// #4497: 越境移転同意 (個人情報保護法 §28)。旧実装は client 側の submit 制御だけで、
+		// JS 無効 / 直接 POST では同意なしで登録が成立していた。server で必須にする。
+		const agreedCrossBorder = formData.get('agreedCrossBorder') === 'on';
 
-		if (!agreedTerms || !agreedPrivacy) {
+		if (!agreedTerms || !agreedPrivacy || !agreedCrossBorder) {
 			return fail(400, {
-				error: '利用規約とプライバシーポリシーへの同意が必要です',
+				error: SIGNUP_LABELS.errors.consentRequired,
 				email,
 				plan: planInput,
 			});
@@ -57,7 +62,7 @@ export const actions: Actions = {
 
 		if (!email || !password || !passwordConfirm) {
 			return fail(400, {
-				error: '全ての項目を入力してください',
+				error: SIGNUP_LABELS.errors.allFieldsRequired,
 				email,
 				plan: planInput,
 			});
@@ -65,7 +70,7 @@ export const actions: Actions = {
 
 		if (password !== passwordConfirm) {
 			return fail(400, {
-				error: 'パスワードが一致しません',
+				error: SIGNUP_LABELS.passwordMismatchError,
 				email,
 				plan: planInput,
 			});
@@ -73,7 +78,7 @@ export const actions: Actions = {
 
 		if (password.length < 8) {
 			return fail(400, {
-				error: 'パスワードは8文字以上で入力してください',
+				error: SIGNUP_LABELS.errors.passwordTooShort,
 				email,
 				plan: planInput,
 			});
@@ -90,8 +95,10 @@ export const actions: Actions = {
 		}
 
 		// メール認証が必要（通常のケース）
+		// #4497: 同意 3 種の取得済みフラグを確認ステップへ引き継ぐ。実際の記録は tenant が
+		// 確定する confirm アクションで行うため、その間これを持ち回る必要がある。
 		if (!result.userConfirmed) {
-			return { confirmStep: true, email, plan: planInput };
+			return { confirmStep: true, email, plan: planInput, consentGiven: true };
 		}
 
 		// 即時確認（auto-verify が有効な場合）
@@ -106,7 +113,7 @@ export const actions: Actions = {
 
 		if (!email) {
 			return fail(400, {
-				error: 'メールアドレスが指定されていません',
+				error: SIGNUP_LABELS.errors.emailMissing,
 				confirmStep: true,
 				email: '',
 				plan: planInput,
@@ -149,7 +156,7 @@ export const actions: Actions = {
 	 *   6. /admin へリダイレクト
 	 *
 	 * 途中で失敗した場合はログを残して /auth/login?registered=true へフォールバック。
-	 * 手動ログイン後の初回リクエストで hooks.server.ts が provisionNewUser を走らせるが、
+	 * 手動ログイン後の初回リクエストで hooks.server.ts が世帯を provisioning するが、
 	 * その時点でも consent は未記録のままなので /consent 画面で明示的に同意してもらう。
 	 */
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
@@ -162,9 +169,25 @@ export const actions: Actions = {
 		// #766: /pricing からの遷移時の plan パラメータ。トライアル自動開始用
 		const planInput = (formData.get('plan') as string | null) ?? '';
 
+		// #4497: 同意 3 種 (利用規約 / プライバシーポリシー / 越境移転) は confirm でも server 検証する。
+		// consent を実際に記録するのはこのアクション (tenant が確定するのがここ) なので、
+		// 「同意の主張が届いていないまま記録だけ走る」経路を作らないため、確認コード検証より前に落とす。
+		const agreedTerms = formData.get('agreedTerms') === 'on';
+		const agreedPrivacy = formData.get('agreedPrivacy') === 'on';
+		const agreedCrossBorder = formData.get('agreedCrossBorder') === 'on';
+
+		if (!agreedTerms || !agreedPrivacy || !agreedCrossBorder) {
+			return fail(400, {
+				error: SIGNUP_LABELS.errors.consentRequired,
+				email,
+				confirmStep: true,
+				plan: planInput,
+			});
+		}
+
 		if (!email || !code) {
 			return fail(400, {
-				error: '確認コードを入力してください',
+				error: SIGNUP_LABELS.errors.codeRequired,
 				email,
 				confirmStep: true,
 				plan: planInput,
@@ -224,18 +247,23 @@ export const actions: Actions = {
 			email: claims.email,
 		};
 
-		// Tenant を provisioning（初回ユーザーなら provisionNewUser が走る）
+		// Tenant を provisioning（招待 cookie があれば受諾、無ければ新規作成）
 		const authProvider = getAuthProvider();
 		const context = await authProvider.resolveContext(event, identity);
 
 		if (!context) {
-			logger.error('[SIGNUP] Failed to provision tenant after signup confirm', {
+			// #4636: 招待の受諾に失敗したときはここに来る (新規世帯へフォールバックしないため)。
+			// ログイン画面に戻すと「ログイン → /admin → ログイン」の往復になるので、理由と
+			// 次アクション (招待の再試行 / 自分の家族グループを作る) を出す画面へ送る。
+			// consent は tenantId が決まっていないため記録できず、世帯確定後に /consent が拾う。
+			logger.warn('[SIGNUP] Membership undecided after signup confirm', {
 				context: { email, userId: claims.sub },
 			});
-			redirect(302, '/auth/login?registered=true');
+			redirect(302, '/auth/join');
 		}
 
 		const tenantId = context.tenantId;
+		const consentUserId = context.userId ?? '';
 
 		// #4192: 新規登録の Discord 通知は**持たないと決めた** (#4174 Q2)。サインアップは嬉しいが
 		// 見ても何もしない通知で、増やすと incident が埋もれる。実数は GitHub / DB で足りる。
@@ -245,7 +273,9 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const ua = request.headers.get('user-agent') ?? '';
 		try {
-			await recordConsent(tenantId, claims.sub, ['terms', 'privacy'], ip, ua);
+			// #4643: consents.user_id は users.user_id。claims.sub (IdP の sub) は別物
+			// #4497: 越境移転同意 (§28) も terms/privacy と同型に version/ip/ua 付きで永続化する。
+			await recordConsent(tenantId, consentUserId, ['terms', 'privacy', 'cross-border'], ip, ua);
 			logger.info('[SIGNUP] Consent recorded at signup', {
 				context: { tenantId, userId: claims.sub },
 			});
@@ -301,6 +331,7 @@ export const actions: Actions = {
 		}
 
 		// 正常完了
-		redirect(302, '/admin');
+		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
+		redirect(302, landingForRole(context.role));
 	},
 };

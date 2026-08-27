@@ -12,6 +12,7 @@ import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import {
+	filterGuideStepsByPresence,
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
 	filterGuideStepsByTargetPresence,
@@ -120,12 +121,16 @@ async function handleStartPageGuide() {
 		tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
 	const stripeFiltered =
 		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
+	// #4668: ページ状態 (プラン / 件数 / ロール) で出たり消えたりする UI を指す `optional` step は、
+	// 起動時点の DOM で対象が可視のときだけ残す (押すと書いた step を中央 fallback にしない)。
+	const presenceFiltered =
+		stripeFiltered === null ? null : filterGuideStepsByPresence(stripeFiltered);
 	// #4653: 最後段で「対象要素が今の画面に描画されている step」だけに絞る。条件付き UI
 	// (承認待ちバナー / お子さま 0 人で出ない子供タブ / viewport 別 nav 等) を指す step は
 	// 対象が無いとき出さず、残った selector 付き step は必ず実要素に spotlight する
 	// (中央 fallback / 0×0 spotlight を定義層で成立させない、EPIC #4650 PO 判断 4)。
 	const filtered =
-		stripeFiltered === null ? null : filterGuideStepsByTargetPresence(stripeFiltered);
+		presenceFiltered === null ? null : filterGuideStepsByTargetPresence(presenceFiltered);
 	if (filtered) {
 		startPageGuide(filtered);
 	}
@@ -186,6 +191,8 @@ const navCategories: NavCategory[] = $derived([
 		icon: NAV_CATEGORIES.record.icon,
 		items: [
 			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
+			// #4669 F7: 成長レポート (/admin/status) はナビからも各ページからも到達不能だった。record 配下に置く
+			{ href: `${basePath}/status`, label: NAV_ITEM_LABELS.statusReport, icon: '📈' },
 			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
 			// #2284 (EPIC #2283): /admin/analytics 撤去。運用者向け機能は /ops/analytics に移動

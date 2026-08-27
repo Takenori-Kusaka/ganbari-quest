@@ -2,6 +2,7 @@
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import AiInputNotice from './AiInputNotice.svelte';
 
 export interface ChecklistItemPreview {
 	name: string;
@@ -141,6 +142,7 @@ const DIR_LABELS: Record<string, string> = {
 			{/if}
 		</Button>
 	</div>
+	<AiInputNotice testid="ai-input-notice-checklist" />
 	{#if aiLoading}
 		<ProgressMessage
 			messages={[COMMON.progressBaseAi, COMMON.progressChecklistThinking, COMMON.progressBaseFinal]}

@@ -4,10 +4,13 @@
 import { json } from '@sveltejs/kit';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { requireRole } from '$lib/server/auth/factory';
+import type { ErrorCode } from '$lib/server/errors';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
+import type { CloudExportFetchFailure } from '$lib/server/services/cloud-export-service';
 import {
+	CloudExportFetchError,
 	consumeCloudExportDownload,
 	fetchCloudExportByPin,
 } from '$lib/server/services/cloud-export-service';
@@ -18,6 +21,8 @@ import {
 } from '$lib/server/services/import-service';
 import {
 	AtomicReplaceError,
+	ReplaceRestoreFailedError,
+	ReplaceSnapshotError,
 	replaceImportAtomic,
 } from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
@@ -29,6 +34,20 @@ import type { RequestHandler } from './$types';
  * テンプレートインポート: activities/checklists/specialRewards をマージ
  * フルインポート: 既存import-serviceのフローを利用
  */
+
+/**
+ * #4717: PIN 取得の失敗理由 → HTTP エラー種別 (ADR-0062 種別×手段マッピング)。
+ * 新しい理由を追加したら型エラーになるので、分類漏れ (= 500 に落ちる) を構造的に防ぐ。
+ */
+const FETCH_FAILURE_TO_ERROR_CODE: Record<CloudExportFetchFailure, ErrorCode> = {
+	'invalid-pin': 'VALIDATION_ERROR',
+	expired: 'VALIDATION_ERROR',
+	'download-limit': 'VALIDATION_ERROR',
+	'not-ready': 'EXPORT_NOT_READY',
+	'build-failed': 'EXPORT_FAILED',
+	'data-missing': 'NOT_FOUND',
+};
+
 export const POST: RequestHandler = async ({ request, url, locals }) => {
 	const context = locals.context;
 	if (!context) {
@@ -70,10 +89,13 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		record = result.record;
 		bytes = result.bytes;
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		if (msg.includes('PIN') || msg.includes('有効期限') || msg.includes('ダウンロード')) {
-			return apiError('VALIDATION_ERROR', msg);
+		// #4717: 失敗理由は型 (CloudExportFetchError.reason) で受ける。
+		// 旧実装は message の文字列 match で分類しており、新しい理由 (生成待ち) が漏れて
+		// 500「システムに問題が発生しました」になっていた (受け取る側が障害と誤認)。
+		if (err instanceof CloudExportFetchError) {
+			return apiError(FETCH_FAILURE_TO_ERROR_CODE[err.reason], err.message);
 		}
+		const msg = err instanceof Error ? err.message : String(err);
 		logger.error('[cloud-import] PIN検索失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
@@ -154,6 +176,15 @@ async function handleFullZipImport(
 				'VALIDATION_ERROR',
 				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
 			);
+		}
+		if (err instanceof ReplaceSnapshotError || err instanceof ReplaceRestoreFailedError) {
+			// #4720 pg 系: snapshot 取得失敗 (置換未開始、旧データ無傷) / 復元失敗 (手動復旧が必要) は
+			// 「保全されています」と言わず実態の文言を返す。
+			logger.error('[cloud-import] 置換インポート失敗 (pg snapshot 経路)', {
+				error: String(err),
+				context: { kind: err.name },
+			});
+			return apiError('INTERNAL_ERROR', err.message);
 		}
 		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
@@ -387,6 +418,15 @@ async function handleFullImport(
 				'VALIDATION_ERROR',
 				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
 			);
+		}
+		if (err instanceof ReplaceSnapshotError || err instanceof ReplaceRestoreFailedError) {
+			// #4720 pg 系: snapshot 取得失敗 (置換未開始、旧データ無傷) / 復元失敗 (手動復旧が必要) は
+			// 「保全されています」と言わず実態の文言を返す。
+			logger.error('[cloud-import] 置換インポート失敗 (pg snapshot 経路)', {
+				error: String(err),
+				context: { kind: err.name },
+			});
+			return apiError('INTERNAL_ERROR', err.message);
 		}
 		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
