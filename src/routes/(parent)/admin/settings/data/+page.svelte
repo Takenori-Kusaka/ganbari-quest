@@ -12,6 +12,7 @@ import {
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
+	PAID_PLAN_LABEL,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -535,7 +536,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT (「スタンダード以上」直書きは表記ゆれ) -->
+					<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 			{/if}
 		</div>
 
@@ -544,7 +546,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 		{/if}
 
 		<div class="space-y-4">
-			<div data-testid="data-export-section">
+			<!-- #4665: ページガイド「バックアップをダウンロード」step の anchor -->
+			<div data-testid="data-export-section" data-tutorial="data-export-section">
 				<p class="text-sm text-[var(--color-text)] mb-3">
 					{SETTINGS_LABELS.dataExportDesc}
 				</p>
@@ -665,7 +668,11 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 			<!-- インポート -->
 			<div>
-				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
+				<!-- #4665: ページガイド「復元 (インポート)」step の anchor -->
+				<h4
+					class="text-sm font-bold text-[var(--color-text)] mb-2"
+					data-tutorial="data-import-section"
+				>
 					{SETTINGS_LABELS.dataImportTitle}
 				</h4>
 
@@ -980,13 +987,14 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 	<!-- クラウドエクスポート (SaaS モード専用) — #3867: ZIP hint と同一条件 (cloudExportAvailable) でガード -->
 	{#if cloudExportAvailable}
-		<Card padding="lg" data-testid="cloud-export-card">
+		<!-- #4665: ページガイド「クラウド共有」step の anchor (SaaS のみ描画) -->
+		<Card padding="lg" data-testid="cloud-export-card" data-tutorial="cloud-export-card">
 			<div class="flex items-center gap-2 mb-4">
 				<h3 class="text-lg font-bold text-[var(--color-text)]">
 					{SETTINGS_LABELS.cloudSectionTitle}
 				</h3>
 				{#if data.maxCloudExports === 0}
-					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 				{:else}
 					<span
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
@@ -1326,7 +1334,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 	/>
 
 	<!-- Danger Zone: データクリア (#2323 GitHub Danger Zone パターン) -->
-	<section class="danger-zone" data-testid="data-danger-zone">
+	<!-- #4665: ページガイド「すべてのデータを削除」step の anchor -->
+	<section class="danger-zone" data-testid="data-danger-zone" data-tutorial="data-danger-zone">
 		<header class="danger-zone__header">
 			<h3 class="danger-zone__title">⚠️ {SETTINGS_LABELS.dangerZoneTitle}</h3>
 			<p class="danger-zone__desc">{SETTINGS_LABELS.dangerZoneDesc}</p>

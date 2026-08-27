@@ -22,6 +22,7 @@ import {
 	findArchivedChildren,
 	restoreArchivedChildren,
 } from '$lib/server/db/child-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { getPlanLimits } from './plan-limit-service';
 
 // Phase 7 PR-2a (#2688): ARCHIVED_REASONS SSOT (domain) に整合させ ArchivedReason 型注釈で
@@ -219,17 +220,66 @@ export async function restoreArchivedResources(tenantId: string): Promise<void> 
 }
 
 /**
- * archive 済みリソースの概要を返す（UI 表示用）。
+ * archive 済みリソースの概要（UI 表示用、#4708）。
+ *
+ * 3 資源の archive 件数を返す。`archivedSummary` は admin layout が全 admin 画面に配り、
+ * `ArchivedResourceBanner` (「N 人のお子さま / N 件の活動 … が非表示」+ プラン導線) と
+ * `/admin/children` の archive 一覧の表示条件になる。FAQ / pricing が約束する
+ * 「削除されず、管理画面で確認でき、アップグレードで元に戻る」の「確認できる」を成立させる。
  */
-export async function getArchivedResourceSummary(tenantId: string): Promise<{
+export interface ArchivedResourceSummary {
 	archivedChildCount: number;
+	archivedActivityCount: number;
+	archivedChecklistTemplateCount: number;
+	/** 3 資源の合計 */
+	totalCount: number;
 	hasArchivedResources: boolean;
-}> {
-	const archivedChildren = await findArchivedChildren(tenantId);
-	const count = archivedChildren.length;
+}
+
+export const EMPTY_ARCHIVED_RESOURCE_SUMMARY: ArchivedResourceSummary = {
+	archivedChildCount: 0,
+	archivedActivityCount: 0,
+	archivedChecklistTemplateCount: 0,
+	totalCount: 0,
+	hasArchivedResources: false,
+};
+
+export async function getArchivedResourceSummary(
+	tenantId: string,
+): Promise<ArchivedResourceSummary> {
+	const [archivedChildren, activeChildren] = await Promise.all([
+		findArchivedChildren(tenantId),
+		findAllChildren(tenantId),
+	]);
+
+	// 活動 / チェックリストの archive は「表示中の子供に紐づく分」を数える。archive された子供の
+	// 配下はその子ごと非表示で、子供の件数に含まれるため二重に数えない。
+	// チェックリスト template は family master + 配信先 (assignments) なので id で dedupe する。
+	let archivedActivityCount = 0;
+	const archivedTemplateIds = new Set<string>();
+	for (const child of activeChildren) {
+		const [activities, templates] = await Promise.all([
+			getRepos().childActivity.findActivitiesByChild(child.id, tenantId, {
+				includeArchived: true,
+			}),
+			// (includeInactive=true, includeArchived=true): archive 済みを含めて読む
+			findTemplatesByChild(child.id, tenantId, true, true),
+		]);
+		archivedActivityCount += activities.filter((a) => a.isArchived === 1).length;
+		for (const t of templates) {
+			if (t.isArchived === 1) archivedTemplateIds.add(t.id);
+		}
+	}
+
+	const archivedChildCount = archivedChildren.length;
+	const archivedChecklistTemplateCount = archivedTemplateIds.size;
+	const totalCount = archivedChildCount + archivedActivityCount + archivedChecklistTemplateCount;
 	return {
-		archivedChildCount: count,
-		hasArchivedResources: count > 0,
+		archivedChildCount,
+		archivedActivityCount,
+		archivedChecklistTemplateCount,
+		totalCount,
+		hasArchivedResources: totalCount > 0,
 	};
 }
 

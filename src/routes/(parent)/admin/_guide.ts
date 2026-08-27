@@ -7,10 +7,10 @@
  *
  * #4653 (EPIC #4650 PO 判断 4 / 5): 3 step 固定をやめ、画面の上から下の順に主要ブロックを
  * 網羅する。「押す」と書く step は必ず実要素に spotlight する — 条件付き UI (承認待ちバナー /
- * 今月のがんばり) と viewport 別 nav は `optional: true` で宣言し、`filterGuideStepsByPresence`
- * (#4668 / #4677、AdminLayout が起動直前に最後段で適用) が「描画されている step だけ」を残す。
- * desktop では header 下の nav、mobile では画面下部の nav が光る (旧 step 3 は mobile 専用 nav
- * のみを指し desktop で 0×0 だった、F2)。
+ * 今月のがんばり) と viewport 別 nav は `optional: true` で宣言し、AdminLayout が起動直前に
+ * `filterGuideStepsByPresence` (#4668 / #4677) → `filterGuideStepsByTargetPresence` (#4653) を
+ * 最後段で直列適用して「描画されている step だけ」を残す。desktop では header 下の nav、mobile
+ * では画面下部の nav が光る (旧 step 3 は mobile 専用 nav のみを指し desktop で 0×0 だった、F2)。
  *
  * #3264 (EPIC #3260 F3): 表示文言 (title / what / how / goal / tips) は labels.ts の
  * PAGE_GUIDE_LABELS に SSOT 集約。本ファイルは構造フィールド (pageId / icon / selector /
