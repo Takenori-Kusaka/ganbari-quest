@@ -131,6 +131,28 @@ describe('point-service', () => {
 			expect(rows[0]?.description).toBe(POINT_LEDGER_LABELS.initialSetup);
 		});
 
+		it('#4722: 変換の二重送信で残高がマイナスにならない (原子境界)', async () => {
+			seedChild();
+			addPoints(1, 100, 'activity', '元手');
+
+			// 連打 / 二重送信を模す。旧実装は「残高を読む → 台帳に insert」が await を跨いでいたため、
+			// 両方が残高 100 を読んで 100 ずつ引き、残高が -100 になり得た。
+			const results = await Promise.all([
+				convertPoints(asChildId(1), 100, 'test-tenant', 'manual'),
+				convertPoints(asChildId(1), 100, 'test-tenant', 'manual'),
+			]);
+			const ok = results.filter((r) => !('error' in r));
+			const insufficient = results.filter((r) => 'error' in r && r.error === 'INSUFFICIENT_POINTS');
+			expect(ok).toHaveLength(1);
+			expect(insufficient).toHaveLength(1);
+
+			const balance = sqlite
+				.prepare('SELECT coalesce(sum(amount), 0) AS total FROM point_ledger WHERE child_id = 1')
+				.get() as { total: number };
+			expect(balance.total).toBe(0);
+			expect(balance.total).toBeGreaterThanOrEqual(0); // 残高はマイナスにならない
+		});
+
 		it('convertPoints の description は POINT_LEDGER_LABELS.convert(mode) と一致', async () => {
 			seedChild();
 			addPoints(1, 1000, 'activity', '元手');

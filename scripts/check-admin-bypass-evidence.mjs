@@ -28,6 +28,7 @@
 import { execFileSync } from 'node:child_process';
 import { hasDeclarationLine } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { isAtOrAfterInstant } from './lib/iso-instant.mjs';
 
 /**
  * @typedef {Object} PrFile
@@ -148,7 +149,13 @@ function listRecentMergedPrs(sinceIso) {
 		'number,title,author,body,mergedAt,reviewDecision,isCrossRepository,labels,files,baseRefName',
 	]);
 	const all = /** @type {GhPr[]} */ (JSON.parse(out));
-	return all.filter((/** @type {GhPr} */ pr) => pr.mergedAt && pr.mergedAt >= sinceIso);
+	// 時刻比較は必ず epoch 正規化を通す (#4053 / #4624)。`mergedAt` は GitHub の `Z` 形、
+	// sinceIso は本 script の `hoursAgo()` 由来だが、どちらかの表記が変わった瞬間に
+	// 文字列比較は静かに誤った件数を返す (#4053 は 21 本中 3 本しか出なかった)。
+	return all.filter(
+		(/** @type {GhPr} */ pr) =>
+			typeof pr.mergedAt === 'string' && isAtOrAfterInstant(pr.mergedAt, sinceIso),
+	);
 }
 
 /**

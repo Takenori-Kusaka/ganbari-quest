@@ -82,6 +82,7 @@ import {
 	CURRENCY_TERMS,
 	DELETION_EXPORT_TERMS,
 	DELETION_GRACE_TERMS,
+	DEMO_SITE_TERMS,
 	FAMILY_MEMBER_LIMIT_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
@@ -1486,7 +1487,8 @@ export const MARKETPLACE_LABELS = {
 	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
+	// #4511: 陳列は #2896 で 3 type (rule-preset はブラウズ不可)。検索流入者に 4 type を訴求しない
+	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリストを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
 	// #4512: 詳細ルートの 404 文言 (旧: [type]/[itemId]/+page.server.ts 直書き)
@@ -1496,6 +1498,12 @@ export const MARKETPLACE_LABELS = {
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
+	backToDemo: 'デモを体験',
+	// #4511: 旧 href="/demo" は legacy redirect → 「/」→ 未認証は /auth/login に落ちる
+	// 死に導線だった (デモは #2181 で demo.ganbari-quest.com へ移設済み)。URL は atom 参照。
+	// #4677 は「/demo 行きで死んでいる」ことを理由にリンク自体を撤去したが、本 atom で
+	// 実在するデモ環境を指すようになったためリンクを残す (#4677 の禁止対象は href="/demo")
+	backToDemoHref: DEMO_SITE_TERMS.url,
 	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
 	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
 	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
@@ -1588,10 +1596,12 @@ export const MARKETPLACE_LABELS = {
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
-	// #4711: 顧客向け文言に統一 (内部語 penalty / special / ADR / no-op を出さない)
+	// #4511 / #4711: ADR 番号や no-op / penalty / special は社内語彙。顧客には
+	// 「今は使えない」という事実だけを伝える (内部語を出さない #4711 の契約も満たす)
 	detailCtaImportRuleDescPenalty:
-		'⚠️ このルールは現在取り込めません（ペナルティ型のルールは慎重に検討中です）。',
-	detailCtaImportRuleDescSpecial: '⚠️ このルールは現在取り込めません（今後追加予定の種類です）。',
+		'⚠️ このタイプのルールは現在ご利用いただけません（お子さまへの罰を伴う仕組みは提供しない方針のため）。',
+	detailCtaImportRuleDescSpecial:
+		'⚠️ このタイプのルールは準備中です。追加しても、今はまだ画面には反映されません。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
 		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
@@ -1656,149 +1666,28 @@ export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
 export type MarketplaceSortKey = keyof typeof MARKETPLACE_FILTER_LABELS.sortOptions;
 
 // ============================================================
-// チュートリアル関連ラベル（#961 QA: quickMode 対応）
+// チュートリアル（子供画面ガイド）の共通ダイアログ文言
 // ============================================================
+//
+// #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1) 撤去に伴い、章立て専用 key
+// (viewFullGuide / openGuide / quick* = クイックモード) を削除した。本定数は
+// 再開 / 終了確認ダイアログの既定文言のみを持つ。子供画面は年齢帯 variant
+// (`getChildTutorialLabels(uiMode).dialog`、#4652) を使うため、本既定値は
+// `childUiMode` 未指定の呼び出し (将来の親向け再利用) 用のフォールバックである。
 
 export const TUTORIAL_LABELS = {
-	/** AdminHome 等から全チャプターを最初から見る導線 */
-	viewFullGuide: 'くわしいガイドを最初から見る',
-	viewFullGuideHint: 'すべてのチャプター（活動管理・報酬・レポートなど）を順番に確認できます',
-	openGuide: 'ガイドを開く',
-	/** クイック完了ダイアログのボタン */
-	quickFinish: '使い始める',
-	quickContinue: 'もっと詳しく見る',
 	/** #1192: 再開プロンプト */
 	resumeTitle: 'チュートリアルの続き',
 	resumePrompt: '前回の途中から続けますか？',
 	resumeCancel: 'キャンセル',
 	resumeFromStart: '最初から',
 	resumeContinue: '続きから',
-	/** #1192: クイック完了ダイアログ本文 */
-	quickCompleteTitle: '基本の使い方を確認しました！',
-	quickCompleteBody: 'ここからは実際にお子さまを登録して使い始めましょう。',
-	quickCompleteHint:
-		'残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。',
 	/** #1192: 終了確認ダイアログ */
 	exitConfirmAriaLabel: 'チュートリアル終了確認',
 	exitConfirmPrompt: 'チュートリアルを終了しますか？',
 	exitConfirmHint: '進捗は保存されるので、後から続きを再開できます。',
 	exitConfirmCancel: '続ける',
 	exitConfirmConfirm: '終了する',
-} as const;
-
-// ============================================================
-// チュートリアル章・ステップのテキスト SSOT（#1465 Phase B Priority 2）
-// tutorial-chapters.ts から移行。動的テキスト（NAV_CATEGORIES 参照等）は
-// tutorial-chapters.ts 側で PLAN_LABELS 等と組み合わせて構築する。
-// ============================================================
-
-export const TUTORIAL_CHAPTER_LABELS = {
-	chapters: {
-		intro: { title: 'はじめに', icon: '🏠' },
-		children: { title: `${CHILD_TERMS.honorific}の登録`, icon: '👧' },
-		activities: { title: '活動の管理', icon: '📋' },
-		rewards: { title: '報酬とポイント', icon: '🎁' },
-		reports: { icon: '📊' },
-		messages: { icon: '💬' },
-		customize: { icon: '🎮' },
-		settings: { title: '設定と日常の使い方', icon: '⚙️' },
-		upgrade: { title: 'アップグレード', icon: '⭐' },
-	},
-	steps: {
-		'intro-1': {
-			title: 'ナビゲーション',
-		},
-		'intro-2': {
-			title: 'ダッシュボード',
-			description: `${CHILD_TERMS.honorific}の人数やポイントの合計がひと目で分かるサマリーです。「今${CHILD_TERMS.honorific}たちは合計何ポイント持っているかな？」を確認したい時にまずここを見てください。`,
-		},
-		'intro-3': {
-			title: '今月のがんばり',
-			description: `${CHILD_TERMS.honorific}ごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。`,
-		},
-		'intro-4': {
-			title: `${CHILD_TERMS.honorific}一覧（ホーム）`,
-			description: `登録した${CHILD_TERMS.honorific}の名前・年齢・ポイント残高が表示されます。「きょうだいそれぞれ今どのくらい頑張ってるかな？」をホーム画面から確認できます。`,
-		},
-		'children-1': {
-			title: `${CHILD_TERMS.honorific}を追加`,
-			description: `まだ${CHILD_TERMS.honorific}を登録していない場合はここから追加しましょう。ニックネーム・生年月日・テーマカラーを設定すると、${CHILD_TERMS.honorific}専用の画面が作られます。きょうだいがいれば複数登録できます。`,
-		},
-		'children-2': {
-			title: `${CHILD_TERMS.honorific}一覧`,
-			description: `登録済みの${CHILD_TERMS.honorific}が一覧で並びます。「${CHILD_TERMS.honorific}の年齢設定を変更したい」「テーマカラーを変えたい」時は、名前をタップして編集画面へ進みましょう。`,
-		},
-		'children-3': {
-			title: `${CHILD_TERMS.honorific}の詳細`,
-			description: `各${CHILD_TERMS.honorific}の名前・年齢・ポイント残高が表示されます。「${CHILD_TERMS.honorific}ごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ ${PLAN_FULL_TERMS.free}では${CHILD_TERMS.honorific}を2人まで登録できます。3人以上のきょうだいがいる場合は${PLAN_FULL_TERMS.standard}以上で無制限に登録できます。`,
-		},
-		'activities-1': {
-			title: '活動一覧',
-			description: `${CHILD_TERMS.honorific}が記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。`,
-		},
-		'activities-2': {
-			title: 'カテゴリで絞り込み',
-			description:
-				'活動は「うんどう」「べんきょう」「せいかつ」などのカテゴリに分かれています。「うんどう系の活動を見直したい」など、目的に合わせて絞り込めます。',
-		},
-		'activities-3': {
-			title: '活動の追加',
-		},
-		'rewards-1': {
-			title: '特別報酬',
-			description:
-				'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。\n\n⭐ ごほうびアイテムの設定はスタンダードプラン以上で利用できます。',
-		},
-		'rewards-2': {
-			title: 'おこづかい変換',
-			description:
-				'貯まったポイントをおこづかいに交換する画面です。「500ポイント貯まったからおこづかいにしよう」という時に使います。変換履歴で月の合計額も確認できます。',
-		},
-		'reports-1': {
-			title: 'レポート画面',
-			description: `${CHILD_TERMS.honorific}の活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。`,
-		},
-		'reports-2': {
-			// #4670 F2 / #4715: title も本文中のリンク名も画面レジストリから引く（旧「グロースブック」の直書き残存を断つ）。
-			//   リンクの実表示は `REPORTS_LABELS.growthBookLink` = `adminScreenHeading('growthBook')` と同一値。
-			title: ADMIN_SCREENS.growthBook.name,
-			description: `${CHILD_TERMS.honorific}の1年間の成長をまとめた「${ADMIN_SCREENS.growthBook.name}」も用意しています。${ADMIN_SCREENS.reports.name}画面右上の「${adminScreenHeading('growthBook')}」リンクからアクセスできます。印刷して${CHILD_TERMS.honorific}の記念にもなります。`,
-		},
-		'messages-1': {
-			title: 'メッセージ送信',
-			description: `${CHILD_TERMS.honorific}におうえんメッセージを送れる画面です。まず送りたい${CHILD_TERMS.honorific}を選んで、スタンプまたはテキストメッセージを選びましょう。${CHILD_TERMS.honorific}の画面にメッセージが届きます。`,
-		},
-		'messages-2': {
-			title: 'スタンプの送り方',
-			description: `スタンプを選択して「送信」ボタンを押すだけで、${CHILD_TERMS.honorific}におうえんの気持ちを伝えられます。「がんばったね！」「すごい！」など、お子さまが喜ぶスタンプが揃っています。`,
-		},
-		'customize-1': {
-			title: 'データ管理',
-			description: `家族のデータを${BACKUP_TERMS.file}として書き出して保存したり、別の環境で${BACKUP_TERMS.restoreVerb}できます。機種変更やデータの引っ越しに便利です。`,
-		},
-		'settings-1': {
-			title: `${CHILD_TERMS.honorific}の画面へ切替`,
-		},
-		'settings-2': {
-			description: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する`,
-			descriptionSuffix: `を変更できます。${CHILD_TERMS.honorific}に勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。`,
-		},
-		'settings-3': {
-			title: 'フィードバック',
-			description:
-				'「こんな機能がほしい」「ここが使いにくい」など、何でもお聞かせください。いただいた声をもとにアプリを改善していきます。',
-		},
-		'settings-4': {
-			title: 'チュートリアルの再開',
-			description:
-				'このチュートリアルは、ヘッダーの「？」ボタンからいつでも見直せます。使い方に迷った時はお気軽にどうぞ。お疲れさまでした！',
-		},
-		'premium-1': {
-			title: 'プラン比較・アップグレード',
-			description:
-				'各機能のガイドで ⭐ マークが付いた機能はスタンダードプラン以上で利用できます。「⭐ アップグレード」ボタンからプラン比較ページへ進み、お子さまに最適なプランをお選びください。7日間の無料トライアル付きです。',
-		},
-	},
 } as const;
 
 // #4674: PAGE_GUIDE_LABELS.adminCertificates が印刷 / シェアのボタン名を参照するため同様に前置きする
@@ -2037,7 +1926,7 @@ export const MEMBERS_LABELS = {
 // 表示文言 (title / what / how / goal / tips) を本 compound に集約。
 // `_guide.ts` は本定数を参照するだけにし、構造フィールド (pageId / icon / selector /
 // position / requiredTier / step id) は `_guide.ts` 側に残す（表示文言ではないため）。
-// 構造は page → step → field のネスト（TUTORIAL_CHAPTER_LABELS と同型、ADR-0045 compound 層）。
+// 構造は page → step → field のネスト（ADR-0045 compound 層）。
 // 本定数の文言を検査する linter は無い（機械強制は無い。レビューで担保する）。
 // ============================================================
 
@@ -2058,7 +1947,8 @@ export const PAGE_GUIDE_LABELS = {
 	// #4653: /admin ホームのガイド。画面の上から下の順 (承認待ちバナー → 上部カード → 今月のがんばり →
 	// こども一覧 → 子供画面へ切替 → 各機能へ移動) に並べ、要素名は描画側と同じ atom
 	// (ADMIN_HOME_TERMS / NAV_CATEGORIES / NAV_ITEM_LABELS) を参照する。条件付き要素 (承認待ちバナー /
-	// 今月のがんばり) の step は対象が描画されているときだけ出る (filterGuideStepsByTargetPresence)。
+	// 今月のがんばり) の step は `optional: true` で宣言し、対象が描画されているときだけ出る
+	// (filterGuideStepsByPresence #4668 / #4677 → filterGuideStepsByTargetPresence #4653 の直列適用)。
 	// 'home-nav' は desktop (header 下の nav) と mobile (画面下部の nav) の 2 step が同じ文言を共有する。
 	adminHome: {
 		title: NAV_ITEM_LABELS.home,
@@ -6165,7 +6055,8 @@ export const REWARDS_LABELS = {
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
 	// (pageDescHint*) のみ page-description カードに残す。
-	// #4656 F8 / M1 + #4716: 生 URL 露出と旧 /admin/messages 参照をやめ、応援 (ADMIN_SCREENS.cheer) への link に統一
+	// #4656 F8 / M1 + #4716: 生 URL 露出と旧 /admin/messages 参照をやめ、応援 (ADMIN_SCREENS.cheer) への
+	// link に統一 (#4654 B15 の「旧 /admin/messages 参照をやめる」意図も本文言で満たす)
 	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${CHEER_TERMS.canonical}ページから送れます。`,
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	// #4715: 着地先は ADMIN_SCREENS.cheer。旧「おうえんメッセージ」は同画面の別名だった。
