@@ -34,8 +34,8 @@ import {
 import {
 	getTrialStatus,
 	startTrial,
-	toTrialStatusView,
 	TRIAL_TIER,
+	toTrialStatusView,
 } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';

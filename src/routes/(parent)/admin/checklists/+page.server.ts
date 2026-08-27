@@ -182,7 +182,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 			error: createPlanLimitError(
 				tier,
 				'standard',
-				PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
+				PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 			),
 			upgradeRequired: true,
 		});
@@ -356,7 +356,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -522,7 +522,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReached(limit.max),
+					PLAN_GATE_LABELS.perChildLimitReachedShort(limit.max),
 				),
 			});
 		}
@@ -607,7 +607,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+					PLAN_GATE_LABELS.perChildLimitReachedForChildren(
 						overLimitNames,
 						checklistMaxForMessage,
 					),
@@ -676,7 +676,7 @@ export const actions: Actions = {
 					skippedOverLimitNames.length > 0
 						? [
 								...result.errors,
-								PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+								PLAN_GATE_LABELS.perChildLimitReachedForChildren(
 									skippedOverLimitNames,
 									checklistMaxForMessage,
 								),
@@ -815,7 +815,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(limit.max),
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});

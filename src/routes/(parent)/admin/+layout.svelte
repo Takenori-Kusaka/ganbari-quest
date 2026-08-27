@@ -1,6 +1,5 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import { getInviteAcceptErrorBanner } from '$lib/domain/labels';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
@@ -9,7 +8,6 @@ import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.sv
 import { startParentGateInactivityRedirect } from '$lib/features/admin/parent-gate-inactivity';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
-import Alert from '$lib/ui/primitives/Alert.svelte';
 
 interface Props {
 	data: {
@@ -41,10 +39,6 @@ interface Props {
 		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
-		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		// #4633 AC-A: 拒否理由は email 束縛の 2 種に限らない (文言解決は
-		// getInviteAcceptErrorBanner が担い、未知の理由は汎用文言に落ちる)。
-		inviteAcceptError?: string | null;
 	};
 	children: Snippet;
 }
@@ -92,16 +86,6 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
-	<!-- #3555 ① / #4704: 招待受諾が拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
-	{#if data.inviteAcceptError}
-		<div style:margin-bottom="16px">
-			<Alert
-				variant="warning"
-				data-testid="invite-accept-error-banner"
-				message={getInviteAcceptErrorBanner(data.inviteAcceptError)}
-			/>
-		</div>
-	{/if}
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
 	{#if data.setupOnboarding}
 		<div style:margin-bottom="16px">

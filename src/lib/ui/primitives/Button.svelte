@@ -33,14 +33,18 @@ let {
 }: Props = $props();
 
 const variantClasses: Record<Variant, string> = {
-	primary: 'bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80',
+	// #4645: 白文字を載せる塗りは AA 版 (--color-action-primary-strong) を使う。
+	// --theme-primary そのままだと pink テーマで 2.64:1 / brand で 3.34:1 と WCAG 1.4.3 未達。
+	primary:
+		'bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80',
 	secondary:
 		'bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90',
 	danger: 'bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80',
 	ghost: 'bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10',
 	success: 'bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80',
 	outline:
-		'bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]',
+		// #4645: 文字色も白背景に載るため AA 版を使う (枠線は 3:1 で足りるので従来色のまま)。
+		'bg-transparent text-[var(--color-action-primary-strong)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]',
 	warning: 'bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80',
 };
 

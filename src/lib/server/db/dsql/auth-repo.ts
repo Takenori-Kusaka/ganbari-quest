@@ -23,12 +23,13 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { asChildId } from '$lib/domain/ids';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
-import type {
-	AuthUser,
-	ConsentRecord,
-	Invite,
-	Membership,
-	Tenant,
+import {
+	type AuthUser,
+	CONSENT_TYPES,
+	type ConsentRecord,
+	type Invite,
+	type Membership,
+	type Tenant,
 } from '$lib/server/auth/entities';
 import { hashInviteCode } from '$lib/server/auth/invite-code-hash';
 import type { Role } from '$lib/server/auth/types';
@@ -498,6 +499,12 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		// ---------------------------------------------------------- Consent (append-only、§6.6)
 
 		async recordConsent(input) {
+			// #4497: consents.type の DB CHECK は migration 0007 で外した (DSQL は値集合を後から
+			// 広げられない)。法務証跡テーブルなので、DB 制約を落とした分の防衛線を repo 入口にも置く。
+			// service 層 (consent-service.recordConsent) を経由しない直接呼び出しもここで止まる。
+			if (!CONSENT_TYPES.includes(input.type)) {
+				throw new Error(`[dsql-auth-repo] Unknown consent type: ${String(input.type)}`);
+			}
 			// append-only: UPDATE/DELETE は repo 非定義 + GRANT 除外 + fitness 多層禁止 (§6.6)。
 			const result = await db.execute(sql`
 				INSERT INTO consents (family_id, user_id, type, version, ip_address, user_agent)

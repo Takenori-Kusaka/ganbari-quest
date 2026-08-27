@@ -1,5 +1,4 @@
 <script lang="ts">
-import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
@@ -9,6 +8,7 @@ import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/dom
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	APP_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	FEATURES_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -128,6 +128,8 @@ let isImporting = $state(false);
 // 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
 let copySourceChildId = $state<ChildId | null>(null);
+// #4694: コピー実行中フラグ (confirm ボタン loading + 二重送信防止)
+let copyLoading = $state(false);
 
 // 「一括追加」dialog (manual create で複数 child 同時 create)
 let showBulkCreateDialog = $state(false);
@@ -425,9 +427,14 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 }
 
 // 「他の子供から copy」action
+//
+// #4694: 旧実装は結果を読まずに「コピーが完了しました」だけを出していたため、
+//   2 回押して 43 件 → 86 件に二重登録されても、逆に 1 件も増えなくても同じ表示だった。
+//   ActionResult を deserialize して「N 件コピー / M 件は既にあるためスキップ」を出す
+//   (ごほうび / チェックリストと同型、DESIGN.md §5 Toast 2 層防御)。
 async function handleCopyFromChild() {
 	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
-		actionMessage = '違うお子さまを選んでください';
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copyDifferentChildError;
 		return;
 	}
 	const formData = new FormData();
@@ -435,26 +442,57 @@ async function handleCopyFromChild() {
 	formData.append('targetChildId', String(selectedChildId));
 
 	// #4693: `resp.ok` は fail() を成功として読む。ActionResult の type で判定し、
-	// 失敗時はサーバーが返した理由 (上限 + アップグレード導線) をそのまま出す。
-	const resp = await fetch('?/copyFromChild', {
-		method: 'POST',
-		headers: ADMIN_ACTION_FETCH_HEADERS,
-		body: formData,
-	});
-	const result = await readAdminActionResult(resp);
-	if (result.ok) {
-		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copySuccess;
-		actionUpgradeUrl = null;
-		showCopyFromChildDialog = false;
-		copySourceChildId = null;
-		await invalidateAll();
-	} else {
-		const display = getActionErrorDisplay(result.error, ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed);
-		actionMessage = display.message;
-		actionUpgradeUrl = display.upgradeUrl;
-		// #4693: 失敗理由 (上限 + アップグレード導線) は本文の banner に出るため、dialog を閉じて
-		// 読める状態にする (開いたままだと理由が modal の裏に隠れて dead-end になる)。
-		showCopyFromChildDialog = false;
+	// 失敗時はサーバーが返した理由 (上限 + アップグレード導線) をそのまま出す
+	// (読み方は readAdminActionResult に集約。`admin-action-result-no-http-ok` が退行を検出)。
+	// #4694 (DESIGN.md §5 Button loading): await 中はボタンを loading にして再クリックによる
+	// 二重コピーを物理的に塞ぐ (重複 skip は server 側でも効くが、押せてしまう UI 自体が不安)。
+	copyLoading = true;
+	actionUpgradeUrl = null;
+	try {
+		const resp = await fetch('?/copyFromChild', {
+			method: 'POST',
+			headers: ADMIN_ACTION_FETCH_HEADERS,
+			body: formData,
+		});
+		const result = await readAdminActionResult(resp);
+		if (result.ok) {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if (result.data?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_ACTIVITIES_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
+			const copied = Number(result.data?.copiedCount ?? 0);
+			const skipped = Number(result.data?.skippedCount ?? 0);
+			actionMessage = CHILD_COPY_RESULT_LABELS.format(
+				ADMIN_ACTIVITIES_PAGE_LABELS.copyResourceNoun,
+				copied,
+				skipped,
+			);
+			showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(copied));
+			showCopyFromChildDialog = false;
+			copySourceChildId = null;
+			await invalidateAll();
+		} else {
+			// #2894 AC3 と同型: PlanLimitError を `[object Object]` 化せず導線付きで出す。
+			const display = getActionErrorDisplay(result.error, ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
+			showToast(actionMessage, undefined, 'error');
+			// #4693: 失敗理由 (上限 + アップグレード導線) は本文の banner に出るため、dialog を閉じて
+			// 読める状態にする (開いたままだと理由が modal の裏に隠れて dead-end になる)。
+			showCopyFromChildDialog = false;
+		}
+	} catch {
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed;
+		showToast(actionMessage, undefined, 'error');
+	} finally {
+		copyLoading = false;
 	}
 }
 
@@ -786,16 +824,23 @@ function selectChild(childId: ChildId) {
 			{/each}
 		</div>
 		<div class="copy-dialog-footer">
-			<Button variant="ghost" onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}>
+			<Button
+				variant="ghost"
+				disabled={copyLoading}
+				onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}
+			>
 				{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogCancel}
 			</Button>
 			<Button
 				variant="primary"
 				disabled={!copySourceChildId}
+				loading={copyLoading}
 				data-testid="copy-from-child-confirm"
 				onclick={handleCopyFromChild}
 			>
-				{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogConfirm}
+				{copyLoading
+					? CHILD_COPY_RESULT_LABELS.copying
+					: ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogConfirm}
 			</Button>
 		</div>
 	</Dialog>

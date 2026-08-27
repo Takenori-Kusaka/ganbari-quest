@@ -10,7 +10,7 @@
 //   [A3] §P9 tenant 分離: 他 family から不可視・更新/削除不能
 //   [A4] countMainQuestActivities = main quest ∧ visible ∧ 非 archived のみ
 //   [A5] update 部分更新 / setActivityVisibility / deleteActivity (返り値契約 undefined 含む)
-//   [A6] insertActivitiesBulk + copyActivitiesAcrossChildren (archived 除外、sqlite parity の
+//   [A6] insertActivitiesBulk (archived 除外、sqlite parity の
 //        copy 対象 subset、target childId 差替)
 //   [A7] archive/restore (reason 束縛) + CHECK 実効 (priority / archived_reason 不正値 reject)
 //   [A8] findChildById convenience (child-repo compute-on-read へ委譲)
@@ -270,52 +270,6 @@ describe('DSQL child-activity-repo (PR-R3、実 schema PGlite)', () => {
 		expect(bulk.map((x) => x.name)).toEqual(['bulk-1', 'bulk-2']); // 入力順維持
 		expect(bulk[1]?.priority).toBe('must');
 		expect(await activityRepo.findActivitiesByChild(source, FAMILY)).toHaveLength(2);
-	});
-
-	it('[A6b] copyActivitiesAcrossChildren: 空 source は []、copy は sqlite parity subset', async () => {
-		const source = await seedChild(FAMILY, 'A6b-src');
-		const target = await seedChild(FAMILY, 'A6b-dst');
-
-		expect(await activityRepo.copyActivitiesAcrossChildren(source, target, FAMILY)).toEqual([]);
-
-		await activityRepo.insertActivity(
-			activityInput(source, {
-				name: 'コピー元',
-				sortOrder: 5,
-				dailyLimit: 4,
-				triggerHint: 'ヒント',
-				isMainQuest: 1,
-				priority: 'must',
-				sourcePresetId: 'p-9',
-				isVisible: 0,
-			}),
-			FAMILY,
-		);
-		await activityRepo.insertActivity(
-			activityInput(source, {
-				name: 'アーカイブは対象外',
-				isArchived: 1,
-				archivedReason: 'trial_expired',
-			}),
-			FAMILY,
-		);
-
-		const copied = await activityRepo.copyActivitiesAcrossChildren(source, target, FAMILY);
-		expect(copied).toHaveLength(1);
-		const c = copied[0];
-		expect(c?.childId).toBe(target);
-		expect(c?.name).toBe('コピー元');
-		expect(c?.triggerHint).toBe('ヒント');
-		expect(c?.isMainQuest).toBe(1);
-		expect(c?.priority).toBe('must');
-		expect(c?.sourcePresetId).toBe('p-9');
-		// sqlite parity: isVisible/sortOrder/dailyLimit は copy 対象外 → schema default
-		expect(c?.isVisible).toBe(1);
-		expect(c?.sortOrder).toBe(0);
-		expect(c?.dailyLimit).toBe(null);
-		// source 側は不変
-		const srcAfter = await activityRepo.findActivitiesByChild(source, FAMILY);
-		expect(srcAfter).toHaveLength(1);
 	});
 
 	it('[A7] archive → 既定一覧から消え restore (reason 束縛) で復帰', async () => {

@@ -2,16 +2,14 @@ import { error, json } from '@sveltejs/kit';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { ChildId } from '$lib/domain/ids';
-import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ADMIN_CHILD_SCOPE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
-import { apiError } from '$lib/server/errors';
+import { apiError, planLimitError } from '$lib/server/errors';
 import { getAllChildren } from '$lib/server/services/child-service';
-import { planLimitError } from '$lib/server/errors';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 

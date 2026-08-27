@@ -487,7 +487,7 @@ const roleLabel = (role: string) => {
 
 	<!-- 保留中の招待 -->
 	{#if data.invites.length > 0}
-		<Card variant="default" padding="md">
+		<Card variant="default" padding="md" data-tutorial="members-pending">
 			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.pendingInvitesTitle}</h3>
 			<div class="divide-y divide-gray-100">
@@ -538,7 +538,7 @@ const roleLabel = (role: string) => {
 
 	<!-- 閲覧リンク（PLAN_LABELS.family 限定） -->
 	{#if data.isFamily}
-		<Card variant="default" padding="md">
+		<Card variant="default" padding="md" data-tutorial="members-viewer">
 			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.viewerSectionTitle}</h3>
 			<p class="text-xs text-[var(--color-text-tertiary)] mb-3">
