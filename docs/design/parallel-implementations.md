@@ -185,8 +185,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | 場所 | 内容 |
 |------|------|
 | `src/lib/ui/tutorial/tutorial-chapters-child.ts` + `getChildTutorialLabels` | 子供画面チュートリアル (親の章立て v1 は #4654 で撤去) |
-| `src/routes/**/_guide.ts` + `PAGE_GUIDE_LABELS` | 親管理画面 / marketplace の ❓ ページガイド |
-| `src/lib/features/demo/demo-guide-state.svelte.ts` | デモガイドツアー |
+| `src/routes/**/_guide.ts` + `PAGE_GUIDE_LABELS` | 親管理画面 / marketplace の ❓ ページガイド (デモガイドバーは #4679 で撤去済) |
 
 **同期メカニズム**:
 - **現状（別ロジック）**: UI も進行ロジックも独立
@@ -197,6 +196,21 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - ページ追加 → 両方のステップ定義更新が必要
 
 ---
+
+#### 6.4a セッションの user 識別子 2 種 (IdP の sub / アプリ DB の users.user_id) (#4643)
+
+同じ「userId」という名前で **別物**が 2 つ流れる。片方を他方の場所に渡しても例外にならず、行が見つからないだけで静かに壊れるため、触るときは必ず対で確認する。
+
+| 場所 | 内容 |
+|------|------|
+| `Identity.userId` (`src/lib/server/auth/types.ts`) | **IdP (Cognito) の sub**。同じメールでも通常ログインと Google 連携で別値になる |
+| `AuthContext.userId` (同上) | **アプリ DB の `users.user_id`** (DB 生成 UUID)。memberships / invites / children / consents が参照するのはこちら |
+| `CognitoAuthProvider.resolveMembership` | sub → アプリ user の**唯一の解決点** (email 経由。`users` は `email_lower` UNIQUE で 1 メール = 1 行) |
+| `src/lib/server/auth/context-token.ts` | `userId` を context token に載せる。旧 token (userId 無し) は採用せず発行し直す |
+| `requireAppUserId` (`src/lib/server/auth/guards.ts`) | route から `users.user_id` を取る唯一の入口 |
+| `tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts` | `src/routes` / `src/lib/server` の `identity.userId` 参照を検出する fitness function (log 用途のみ allowlist) |
+| `infra/lib/auth-stack.ts` Google IdP `attributeMapping` | `email` + `email_verified` を写す。写さないと federated ユーザーの `email_verified` が false 固定になり、email 束縛招待が Google だけ常に拒否される |
+| `normalizeEmailVerified` (`providers/cognito-jwt.ts`) | claim が boolean / 文字列どちらで載っても同じ判定にする |
 
 #### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware + reset + onboarding) (EPIC #2310 / #2353)
 
@@ -639,7 +653,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
-- [ ] **チュートリアル** → 親 章立て (`tutorial-chapters.ts`) + 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`) + デモ (`demo-guide-state.svelte.ts`)。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
+- [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親 章立ては #4654、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（旧 `check-lp-ssot.mjs` は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)

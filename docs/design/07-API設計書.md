@@ -193,12 +193,6 @@
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
 
-### デモ
-
-| メソッド | パス | 概要 | 認証 |
-|----------|------|------|------|
-| POST | /api/demo-analytics | デモ利用分析イベント記録 | 不要 |
-
 ### Stripe（決済）
 
 | メソッド | パス | 概要 | 認証 |

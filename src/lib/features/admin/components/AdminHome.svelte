@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { ChildId } from '$lib/domain/ids';
-import { ADMIN_HOME_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
+import { ADMIN_HOME_LABELS, DEMO_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
@@ -259,7 +259,7 @@ function childLink(child: ChildSummary): string {
 				{ADMIN_HOME_LABELS.demoCtaHint}
 			</p>
 			<a
-				href="/demo/signup"
+				href={DEMO_LABELS.signupHref}
 				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				{ADMIN_HOME_LABELS.demoCtaButton}
 			</a>
 		</div>
