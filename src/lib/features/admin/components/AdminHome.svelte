@@ -207,7 +207,7 @@ function childLink(child: ChildSummary): string {
 			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryChildrenLabel}</p>
 		</Card>
 		<Card variant="elevated" class="text-center" role="group" aria-label={ADMIN_HOME_LABELS.summaryPointsAria}>
-			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
+			<p class="text-2xl font-bold text-[var(--color-text-gold)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
 			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryPointsTotalPrefix}{unit}</p>

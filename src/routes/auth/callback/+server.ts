@@ -8,6 +8,8 @@ import {
 	resolveSafeNextPath,
 } from '$lib/domain/validation/login-redirect';
 import { OAUTH_PLAN_COOKIE_NAME } from '$lib/domain/validation/signup-plan';
+import { getAuthProvider } from '$lib/server/auth/factory';
+import { resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
@@ -17,7 +19,8 @@ import {
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async (event) => {
+	const { url, cookies } = event;
 	const code = url.searchParams.get('code');
 	const state = url.searchParams.get('state');
 	const error = url.searchParams.get('error');
@@ -73,13 +76,21 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		redirect(302, '/auth/login?error=token_exchange_failed');
 	}
 
+	// #4641: 子供ロールは /admin に入れないため、着地先をロールで決める。
+	// oauth_next (「Google で本人確認」からの復帰先) は親向け画面なので子供には適用しない。
+	// 直前に積んだ identity cookie から所属を解決する (失敗したら従来どおりの着地先へ)
+	const identity = await getAuthProvider().resolveIdentity(event);
+	const landing = identity
+		? await resolvePostLoginLanding(event, identity, successPath)
+		: successPath;
+
 	// #4702: 「無料体験をはじめる」から Google で登録した場合は、テナント自動プロビジョニング後に
 	// トライアルを開始する必要がある (callback 時点ではまだテナントが無い)。plan cookie があるときだけ
-	// /auth/oauth/trial-start を経由させ、そこから本来の着地先へ進む。
+	// /auth/oauth/trial-start を経由させ、そこから本来の着地先 (#4641 のロール別着地) へ進む。
 	if (cookies.get(OAUTH_PLAN_COOKIE_NAME)) {
-		redirect(302, `/auth/oauth/trial-start?${LOGIN_NEXT_PARAM}=${encodeURIComponent(successPath)}`);
+		redirect(302, `/auth/oauth/trial-start?${LOGIN_NEXT_PARAM}=${encodeURIComponent(landing)}`);
 	}
 
 	// 認証成功 → ご家族の見守り画面 or oauth_next（resolveContext で自動的にテナント選択される）
-	redirect(302, successPath);
+	redirect(302, landing);
 };

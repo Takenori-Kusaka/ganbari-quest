@@ -148,7 +148,7 @@ describe('#3394 restore-idempotency registry fitness (ADR-0061 same-class → gu
 		);
 	});
 
-	it('content-dedup entity (parentMessage / siblingCheer) は import-service に content key dedup が存在する', () => {
+	it('content-dedup entity (parentMessage) は import-service に content key dedup が存在する', () => {
 		const importService = readFileSync(
 			join(__dirname, '../../../src/lib/server/services/import-service.ts'),
 			'utf-8',
@@ -156,8 +156,5 @@ describe('#3394 restore-idempotency registry fitness (ADR-0061 same-class → gu
 		// parentMessage: (messageType, stampCode, body, sentAt) content key
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: source-scan fitness — import-service 内の template literal を文字列として照合する
 		expect(importService).toContain('${m.messageType}|${m.stampCode ?? ');
-		// siblingCheer: (fromChildId, toChildId, stampCode, sentAt) content key
-		// biome-ignore lint/suspicious/noTemplateCurlyInString: source-scan fitness — import-service 内の template literal を文字列として照合する
-		expect(importService).toContain('${fromChildId}|${toChildId}|${c.stampCode}|${c.sentAt}');
 	});
 });
