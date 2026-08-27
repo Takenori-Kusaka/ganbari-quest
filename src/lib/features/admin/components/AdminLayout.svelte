@@ -18,6 +18,7 @@ import {
 	filterGuideStepsByPresence,
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
+	filterGuideStepsByTargetPresence,
 	filterGuideStepsByTier,
 	filterGuideStepsToOverview,
 	getPageGuide,
@@ -125,7 +126,14 @@ async function handleStartPageGuide() {
 		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
 	// #4668: ページ状態 (プラン / 件数 / ロール) で出たり消えたりする UI を指す `optional` step は、
 	// 起動時点の DOM で対象が可視のときだけ残す (押すと書いた step を中央 fallback にしない)。
-	const filtered = stripeFiltered === null ? null : filterGuideStepsByPresence(stripeFiltered);
+	const presenceFiltered =
+		stripeFiltered === null ? null : filterGuideStepsByPresence(stripeFiltered);
+	// #4653: さらに最後段で「対象要素が今の画面に描画されている step」だけに絞る。条件付き UI
+	// (承認待ちバナー / お子さま 0 人で出ない子供タブ / viewport 別 nav 等) を指す step は
+	// 対象が無いとき出さず、残った selector 付き step は必ず実要素に spotlight する
+	// (中央 fallback / 0×0 spotlight を定義層で成立させない、EPIC #4650 PO 判断 4)。
+	const filtered =
+		presenceFiltered === null ? null : filterGuideStepsByTargetPresence(presenceFiltered);
 	if (filtered) {
 		startPageGuide(filtered);
 	}

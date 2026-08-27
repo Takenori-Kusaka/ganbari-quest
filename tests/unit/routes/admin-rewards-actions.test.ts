@@ -19,6 +19,12 @@ const mockCopyChildRewardsToSibling = vi.fn();
 const mockCopyChildRewardsToSiblings = vi.fn();
 const mockGetMarketplaceItem = vi.fn();
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: vi.fn(() => 'cognito'),
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
 	getAuthMode: vi.fn(() => 'cognito'),
@@ -70,10 +76,14 @@ vi.mock('$lib/server/logger', () => ({
 
 const mod = await import('../../../src/routes/(parent)/admin/rewards/+page.server');
 // SvelteKit の Actions 型は optional を含むため、テスト用に non-null 化
-const load = mod.load as unknown as (event: {
-	locals: App.Locals;
-	url: URL;
-}) => Promise<{ isPremium: boolean; planTier: string; children: unknown[]; templates: unknown[] }>;
+const load = mod.load as unknown as (event: { locals: App.Locals; url: URL }) => Promise<{
+	isPremium: boolean;
+	planTier: string;
+	children: unknown[];
+	templates: unknown[];
+	importPresetId: string | null;
+	importPresetLocked: boolean;
+}>;
 type PlanLimitErrorShape = {
 	code: 'PLAN_LIMIT_EXCEEDED';
 	message: string;
@@ -170,6 +180,34 @@ describe('/admin/rewards page.server', () => {
 			});
 			expect(result.isPremium).toBe(true);
 			expect(result.planTier).toBe('family');
+		});
+
+		// #4705: marketplace の取込 CTA から無料プランで着地したとき、子供選択 dialog を
+		// 開いてから拒否しない (旧: CTA 活性 → 子供選択 → POST 後に「スタンダード以上」)。
+		it('無料プランで ?import= 付き着地 → dialog を開かず locked を返す', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
+				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
+			);
+			const result = await load({
+				locals: makeLocals({ licenseStatus: 'none' }),
+				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
+			});
+			expect(result.importPresetLocked).toBe(true);
+			expect(result.importPresetId).toBeNull();
+		});
+
+		it('有料プランで ?import= 付き着地 → 従来どおり dialog 用の presetId を返す', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('standard');
+			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
+				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
+			);
+			const result = await load({
+				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
+				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
+			});
+			expect(result.importPresetLocked).toBe(false);
+			expect(result.importPresetId).toBe('kinder-rewards');
 		});
 	});
 
