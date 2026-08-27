@@ -81,9 +81,12 @@ describe('#4699 (3) 猶予中でも子供を選べる / 転送理由が出る', 
 		const hooks = read('src/hooks.server.ts');
 		const block = hooks.slice(
 			hooks.indexOf('const isAllowedWritePath'),
-			hooks.indexOf('const isAllowedWritePath') + 900,
+			hooks.indexOf('const isAllowedWritePath') + 1200,
 		);
-		expect(block).toContain("'/switch'");
+		// 書き込みロックの例外は最小に保つ: /switch は **完全一致**で判定する。
+		// startsWith だと将来 /switchboard のような別ルートを無言でロック外にしてしまう。
+		expect(block).toContain("path === '/switch'");
+		expect(block).not.toMatch(/'\/switch',\s*\n\s*\]\.some\(\(p\) => path\.startsWith/);
 	});
 
 	it('設定トップが reason=account_deletion_pending を説明する (無言転送にしない)', () => {
