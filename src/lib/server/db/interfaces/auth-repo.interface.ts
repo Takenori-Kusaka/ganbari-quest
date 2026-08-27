@@ -29,7 +29,9 @@ export type AcceptInviteFailure =
 	| 'INVALID_OR_EXPIRED'
 	| 'ALREADY_IN_TENANT'
 	| 'EMAIL_MISMATCH'
-	| 'EMAIL_UNVERIFIED';
+	| 'EMAIL_UNVERIFIED'
+	/** #4723: 受諾すると家族グループがプランのメンバー上限を超える。 */
+	| 'MEMBER_LIMIT_REACHED';
 
 export interface AcceptInviteTxnInput {
 	/** invite の管理鍵 (#3585)。raw code ではない。 */
@@ -45,6 +47,14 @@ export interface AcceptInviteTxnInput {
 	userEmailVerified?: boolean;
 	/** 判定基準時刻 (ISO 8601)。呼び出し側が注入する (テスト決定性 + txn 内で一貫)。 */
 	now: string;
+	/**
+	 * #4723: この家族グループのメンバー上限 (`null` = 無制限)。
+	 *
+	 * **txn の中で数え直すために渡す**。service 層の事前 read だけでは、残り 1 枠に対する
+	 * 2 通の同時受諾が両方とも「まだ空いている」を見て通り、上限を超える。上限そのものは
+	 * プラン解決 (DB 読み) が要るため呼び出し側で解決し、数える方を txn 内に置く。
+	 */
+	maxMembers?: number | null;
 }
 
 export type AcceptInviteTxnResult =
