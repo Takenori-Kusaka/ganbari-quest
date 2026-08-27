@@ -5,13 +5,14 @@
 // **JST 暦日**だった。JST 00:00〜09:00 (= UTC の前日 15:00〜24:00) では両者が 1 日ずれ、
 //   - ステータス減衰: 「今日はまだ減衰していない」と誤判定して 1 日 2 回減衰しうる
 //   - おやくそく全達成ボーナス: 当日冪等の判定が外れて二重付与しうる
-//   - おうえん回数: 当日回数の窓が 9 時間ずれる
 // が起きる。dsql 側は既に JST 判定 (`AT TIME ZONE 'Asia/Tokyo'`) なので backend 間でも割れていた。
+//
+// (おうえん当日回数も同じ class だったが、#4691 で「きょうだい間おうえん」機能ごと撤去され
+//  `countTodayCheersFrom` が消えたため、本 spec の対象は減衰 / 当日ボーナスの 2 件になる。)
 //
 // 検証は **JST 00:30 (= UTC 前日 15:30) に書かれた行**を「その JST 暦日の行」として数えられるか。
 // SQL 側で `date(col, '+9 hours')` に揃えたため結果はプロセス TZ に依存しない (2 TZ で同値を確認)。
 
-import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '../helpers/test-db';
@@ -133,51 +134,6 @@ describe('#4722 sqlite の「今日」判定は JST 暦日 (UTC 保存値との 
 					TENANT,
 				),
 			).toBe(0);
-		});
-
-		it(`TZ=${tz}: おうえん当日回数が JST 暦日の窓で数えられる`, async () => {
-			process.env.TZ = tz;
-			vi.useFakeTimers();
-			vi.setSystemTime(new Date(UTC_INSTANT));
-			try {
-				const from = seedChild();
-				testDb
-					.insert(schema.children)
-					.values({ nickname: 'うけとる子', age: 6, theme: 'pink', uiMode: 'elementary' })
-					.run();
-				const to = testDb
-					.select()
-					.from(schema.children)
-					.where(eq(schema.children.nickname, 'うけとる子'))
-					.get()?.id;
-				testDb
-					.insert(schema.siblingCheers)
-					.values([
-						// JST 今日 (= UTC 前日夕方) の 2 件
-						{ fromChildId: from, toChildId: to ?? 0, stampCode: 'good', sentAt: UTC_INSTANT },
-						{
-							fromChildId: from,
-							toChildId: to ?? 0,
-							stampCode: 'good',
-							sentAt: '2026-07-31T16:00:00.000Z',
-						},
-						// JST 前日 (= UTC 前日午前) の 1 件は数えない
-						{
-							fromChildId: from,
-							toChildId: to ?? 0,
-							stampCode: 'good',
-							sentAt: '2026-07-31T09:00:00.000Z',
-						},
-					])
-					.run();
-
-				const { countTodayCheersFrom } = await import(
-					'../../../src/lib/server/db/sqlite/sibling-cheer-repo'
-				);
-				expect(await countTodayCheersFrom(from as never, TENANT)).toBe(2);
-			} finally {
-				vi.useRealTimers();
-			}
 		});
 	}
 });

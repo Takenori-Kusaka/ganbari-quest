@@ -111,9 +111,6 @@ describe('demo/evaluation-repo', () => {
 		const children = await evaluationRepo.findAllChildren('demo');
 		expect(children.length).toBeGreaterThan(0);
 	});
-	it('isRestDay は false', async () => {
-		expect(await evaluationRepo.isRestDay(asChildId(902), '2026-04-01', 'demo')).toBe(false);
-	});
 	// #2097 Phase B-5b: 週次評価 fixture を返す
 	it('findEvaluationsByChild は fixture から件数を返す (902)', async () => {
 		const result = await evaluationRepo.findEvaluationsByChild(asChildId(902), 10, 'demo');
@@ -247,9 +244,9 @@ describe('demo/reward-redemption-repo', () => {
 // repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
 
 describe('demo/sibling-cheer-repo', () => {
-	// #2097 Phase B-5b: 未表示 cheer fixture が含まれるため findUnshownCheers は件数を返す
-	it('countTodayCheersFrom は 0', async () => {
-		expect(await siblingCheerRepo.countTodayCheersFrom(asChildId(902), 'demo')).toBe(0);
+	// #4691: きょうだい間おうえんは機能撤去済。demo は削除 no-op のみ。
+	it('deleteByTenantId は no-op で throw しない', async () => {
+		await expect(siblingCheerRepo.deleteByTenantId('demo')).resolves.toBeUndefined();
 	});
 });
 

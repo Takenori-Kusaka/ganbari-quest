@@ -3,7 +3,7 @@
 
 import { redirect } from '@sveltejs/kit';
 import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
-import { INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
+import { INVITE_COOKIE_MAX_AGE_SECONDS, INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { getInvite } from '$lib/server/services/invite-service';
 import type { PageServerLoad } from './$types';
@@ -60,7 +60,9 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			httpOnly: true,
 			sameSite: 'lax',
 			secure: true,
-			maxAge: 60 * 10, // 10分（#0203: リスク軽減）
+			// #4636: 招待の有効期限 (7 日) まで有効。10 分だとメール確認を挟むだけで cookie が先に
+			// 消え、招待を踏んだのに新規家族グループが作られる経路になっていた。
+			maxAge: INVITE_COOKIE_MAX_AGE_SECONDS,
 		});
 		cookies.delete('context_token', { path: '/' });
 		redirect(302, '/admin');
@@ -72,7 +74,9 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		httpOnly: true,
 		sameSite: 'lax',
 		secure: true,
-		maxAge: 60 * 10, // 10分（#0203: リスク軽減）
+		// #4636: 招待の有効期限 (7 日) まで有効。10 分だとメール確認を挟むだけで cookie が先に
+		// 消え、招待を踏んだのに新規家族グループが作られる経路になっていた。
+		maxAge: INVITE_COOKIE_MAX_AGE_SECONDS,
 	});
 
 	return {

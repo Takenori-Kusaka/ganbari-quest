@@ -294,6 +294,23 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		const updated = await trialRepo.findLatestByTenant(FAMILY);
 		expect(updated?.stripeSubscriptionId).toBe('sub_123');
 		expect(updated?.upgradeReason).toBe('auto');
+		// #4707: endDate 省略 = end_date 保持 (終了済みトライアルの過去日付を延ばさない)
+		expect(updated?.endDate).toBe('2099-12-31');
+
+		// #4707: 本契約へ移行済み (stripe_subscription_id あり) は findActiveTrials (通知対象) から外れる
+		const activeAfter = await trialRepo.findActiveTrials();
+		expect(activeAfter.map((r) => r.endDate)).not.toContain('2099-12-31');
+		expect(activeAfter.map((r) => r.endDate)).toContain('2099-06-30');
+
+		// #4707: endDate 指定で end_date を今日に詰める (購入日でトライアルを閉じる)
+		await trialRepo.updateConversion({
+			id: target.id,
+			tenantId: FAMILY,
+			stripeSubscriptionId: 'sub_123',
+			upgradeReason: 'manual',
+			endDate: '2026-08-19',
+		});
+		expect((await trialRepo.findLatestByTenant(FAMILY))?.endDate).toBe('2026-08-19');
 	});
 
 	it('[TH3] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {

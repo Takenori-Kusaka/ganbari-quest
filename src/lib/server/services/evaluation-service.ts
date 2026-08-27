@@ -11,7 +11,6 @@ import {
 	findEvaluationsByChild,
 	findLastActivityDateByCategory,
 	insertEvaluation,
-	isRestDay,
 } from '$lib/server/db/evaluation-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
@@ -183,13 +182,7 @@ export async function runDailyDecay(
 	}[] = [];
 
 	for (const child of allChildren) {
-		// おやすみ日チェック
-		const resting = await isRestDay(child.id, todayStr, tenantId);
-		if (resting) {
-			results.push({ childId: child.id, decays: [] });
-			continue;
-		}
-
+		// #4691: おやすみ日 (rest_days) による減衰スキップは撤去 (登録導線が無く常に空だった)。
 		const lastActivityDates = await findLastActivityDateByCategory(child.id, tenantId);
 		const decays: { categoryId: CategoryId; amount: number }[] = [];
 
