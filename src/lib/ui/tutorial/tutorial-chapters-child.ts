@@ -1,114 +1,81 @@
+import { getChildTutorialLabels } from '$lib/domain/labels';
 import type { TutorialChapter } from './tutorial-types';
 
 /**
- * 子供画面用チュートリアルチャプター定義
- * 4章9ステップ（親画面の6章19ステップより少なく、子供が飽きない分量）
+ * 子供画面用チュートリアルチャプター定義（#4652、EPIC #4650 判断 3 / 4 / 5）
  *
- * 年齢帯別の文字サイズ・表現はTutorialBubble側で調整する。
- * ここでは全年齢共通の構造を定義。
+ * 「記録して閉じる」最短経路だけを 3 章 5 step で説明する（ADR-0012 anti-engagement）:
+ *   1. きろくしよう: 活動カード（光る）→ とりけし（説明、中央）
+ *   2. まいにち つづけよう: 💮 スタンプ（光る）
+ *   3. ほかの がめん: 下ナビ つよさ / ステータス（光る）→ ショップ（光る）
+ *
+ * - selector を持つ step は**ホームに常在する UI** だけを指す（押す step は必ず光る）。
+ *   コンボ / おみくじ（記録結果 dialog・スタンプ演出の中にしか無い）/ レーダーチャート（/status）は
+ *   ホームに無い仕組みのため step を置かない。
+ * - 文言は labels.ts `getChildTutorialLabels(uiMode)` の年齢帯 variant（preschool / elementary =
+ *   ひらがな、junior / senior = 漢字）で、nav 名（つよさ / ステータス、ショップ）・とりけし秒数は
+ *   画面と同じ定数を参照する。
+ *
+ * uiMode ごとに生成するため関数にしている（(child)/+layout が `setChapters(getChildTutorialChapters(uiMode))`）。
  */
-export const CHILD_TUTORIAL_CHAPTERS: TutorialChapter[] = [
-	{
-		id: 1,
-		title: 'かつどうを きろくしよう',
-		icon: '⭐',
-		steps: [
-			{
-				id: 'child-record-1',
-				chapterId: 1,
-				selector: '[data-tutorial="activity-card"]',
-				title: 'かつどうカード',
-				description: 'このカードを タップしてみよう！やったことを きろく できるよ',
-				position: 'bottom',
-			},
-			{
-				id: 'child-record-2',
-				chapterId: 1,
-				selector: '[data-tutorial="record-button"]',
-				title: 'きろく！ ボタン',
-				description: 'きろく！ を おすと ポイントが もらえるよ！',
-				position: 'top',
-			},
-			{
-				id: 'child-record-3',
-				chapterId: 1,
-				title: 'ポイント ゲット！',
-				description: 'すごい！ まいにち きろくすると もっと たくさん ポイントが もらえるよ！',
-				position: 'bottom',
-			},
-		],
-	},
-	{
-		id: 2,
-		title: 'クエストを クリアしよう',
-		icon: '🎯',
-		steps: [
-			{
-				id: 'child-quest-1',
-				chapterId: 2,
-				selector: '[data-tutorial="daily-missions"]',
-				title: 'きょうのクエスト',
-				description: 'まいにち かわる クエストが あるよ。クリアすると ボーナスポイント！',
-				position: 'bottom',
-			},
-			{
-				id: 'child-quest-2',
-				chapterId: 2,
-				selector: '[data-tutorial="combo-counter"]',
-				title: 'コンボ',
-				description: 'れんぞくで きろくすると コンボ！ コンボが つづくと ポイントアップ！',
-				position: 'bottom',
-			},
-		],
-	},
-	{
-		id: 3,
-		title: 'まいにち ログインしよう',
-		icon: '🎴',
-		steps: [
-			{
-				id: 'child-login-1',
-				chapterId: 3,
-				selector: '[data-tutorial="stamp-progress"]',
-				title: 'スタンプカード',
-				description: 'まいにち ログインすると スタンプが もらえるよ。ぜんぶ あつめると ボーナス！',
-				position: 'bottom',
-			},
-			{
-				id: 'child-login-2',
-				chapterId: 3,
-				selector: '[data-tutorial="omikuji"]',
-				title: 'おみくじ',
-				description: 'ログインすると おみくじも ひけるよ。大吉だと ポイント たくさん！',
-				position: 'bottom',
-			},
-		],
-	},
-	{
-		id: 4,
-		title: 'つよさを みてみよう',
-		icon: '📊',
-		steps: [
-			{
-				id: 'child-status-1',
-				chapterId: 4,
-				selector: '[data-tutorial="nav-status"]',
-				title: 'つよさ がめん',
-				description: 'したの「つよさ」ボタンを おすと、じぶんの つよさが みれるよ！',
-				position: 'top',
-			},
-			{
-				id: 'child-status-2',
-				chapterId: 4,
-				selector: '[data-tutorial="radar-chart"]',
-				title: 'レーダーチャート',
-				description: '5つの ちからが チャートに なっているよ。どの ちからが つよいかな？',
-				position: 'bottom',
-			},
-		],
-	},
-];
-
-export function getChildAllSteps() {
-	return CHILD_TUTORIAL_CHAPTERS.flatMap((ch) => ch.steps);
+export function getChildTutorialChapters(uiMode: string): TutorialChapter[] {
+	const L = getChildTutorialLabels(uiMode);
+	return [
+		{
+			id: 1,
+			title: L.chapters.record.title,
+			icon: L.chapters.record.icon,
+			steps: [
+				{
+					id: 'child-record-card',
+					chapterId: 1,
+					selector: '[data-tutorial="activity-card"]',
+					...L.steps['child-record-card'],
+					position: 'bottom',
+				},
+				{
+					id: 'child-record-cancel',
+					chapterId: 1,
+					// とりけしボタンは記録直後の結果 dialog にしか無い → selector 無し（説明型、中央）
+					...L.steps['child-record-cancel'],
+					position: 'bottom',
+				},
+			],
+		},
+		{
+			id: 2,
+			title: L.chapters.daily.title,
+			icon: L.chapters.daily.icon,
+			steps: [
+				{
+					id: 'child-daily-stamp',
+					chapterId: 2,
+					selector: '[data-tutorial="stamp-progress"]',
+					...L.steps['child-daily-stamp'],
+					position: 'bottom',
+				},
+			],
+		},
+		{
+			id: 3,
+			title: L.chapters.more.title,
+			icon: L.chapters.more.icon,
+			steps: [
+				{
+					id: 'child-nav-status',
+					chapterId: 3,
+					selector: '[data-tutorial="nav-status"]',
+					...L.steps['child-nav-status'],
+					position: 'top',
+				},
+				{
+					id: 'child-nav-shop',
+					chapterId: 3,
+					selector: '[data-tutorial="nav-shop"]',
+					...L.steps['child-nav-shop'],
+					position: 'top',
+				},
+			],
+		},
+	];
 }

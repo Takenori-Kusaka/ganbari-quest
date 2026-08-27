@@ -34,9 +34,19 @@ vi.mock('$lib/server/auth/auth-mode', () => ({
 	isCognitoDevMode: () => false,
 }));
 
+// #4641: ログイン後の着地先は provider 経由で解決する (dev / 本番で ID token の検証方式が
+// 異なるため、page 側で本番 verifier を直接呼ぶと dev の token を検証できない)。
+// getAuthProvider を mock に載せておかないと解決が例外で落ち、/admin 着地が
+// 「fallback で偶然通った」だけになり assert が意味を失う。
+const mockResolveIdentity = vi.fn();
+const mockResolveContext = vi.fn();
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => false,
+	getAuthProvider: () => ({
+		resolveIdentity: (...args: unknown[]) => mockResolveIdentity(...args),
+		resolveContext: (...args: unknown[]) => mockResolveContext(...args),
+	}),
 }));
 
 // --- Account Lockout モック ---
@@ -55,6 +65,14 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 beforeEach(() => {
+	mockResolveIdentity.mockReset();
+	mockResolveIdentity.mockResolvedValue({
+		type: 'cognito',
+		userId: 'cognito-sub-1',
+		email: 'test@example.com',
+	});
+	mockResolveContext.mockReset();
+	mockResolveContext.mockResolvedValue({ tenantId: 'tenant-1', role: 'parent' });
 	mockAuthenticate.mockReset();
 	mockRespondToMfaChallenge.mockReset();
 	mockConfirmSignUp.mockReset();
