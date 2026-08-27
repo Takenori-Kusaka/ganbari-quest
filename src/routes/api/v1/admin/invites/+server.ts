@@ -6,6 +6,7 @@ import { error, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { MEMBERS_LABELS, OWNER_GATE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { createInviteSchema } from '$lib/domain/validation/auth';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
@@ -44,7 +45,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// セルフホストで招待セクションを出さないため、ここは最後の砦。
 		error(401, MEMBERS_LABELS.inviteUnsupportedTitle);
 	}
-	const userId = identity.userId;
+	// #4643: invites.invited_by は users.user_id。IdP の sub を入れていたため、受諾側の
+	// 自己招待 guard (invite.invitedBy === userId) が一度も成立していなかった。
+	const userId = requireAppUserId(locals);
 
 	const body = await request.json();
 	const parsed = createInviteSchema.safeParse(body);
@@ -54,7 +57,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// #1111: プラン別メンバー上限チェック
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus);
+	// #4723: 発行時は「既存メンバー + 未受諾の招待」で数える。発行済みの招待を数えないと
+	// 残り 1 枠に何通でも発行でき、最初に受諾した人以外は受諾時に弾かれる (発行者には成功に見える)。
+	// planId も渡す — 無いと family (無制限) 契約が standard の 4 人で頭打ちになる。
+	const memberLimit = await checkFamilyMemberLimit(tenantId, licenseStatus, {
+		countPendingInvites: true,
+		planId: locals.context?.plan,
+	});
 	if (!memberLimit.allowed) {
 		return json(
 			{

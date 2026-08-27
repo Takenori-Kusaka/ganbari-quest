@@ -26,6 +26,9 @@ vi.mock('$lib/server/debug-plan', () => ({
 	getDebugPlanTier: () => null,
 	getDebugTrialOverride: () => null,
 }));
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({ getAuthMode: () => 'cognito' }));
 vi.mock('$lib/server/auth/factory', () => ({ getAuthMode: () => 'cognito' }));
 vi.mock('$lib/server/db/factory', () => ({ getRepos: () => ({}) }));
 vi.mock('$lib/server/request-context', () => ({
@@ -85,7 +88,10 @@ describe('#4504 自由テキストの premium ゲート', () => {
 		it('API は messageType=text のときだけゲートする (スタンプは全プラン)', () => {
 			const src = repoFile('src/routes/api/v1/messages/[childId]/+server.ts');
 			expect(src).toContain("parsed.data.messageType === 'text'");
-			expect(src).toContain('PLAN_LIMIT_EXCEEDED');
+			// #4710: プラン制限の 403 は `planLimitError(requiredTier, …)` で返す
+			// (`apiError('PLAN_LIMIT_EXCEEDED', …)` の直呼びは
+			//  tests/unit/architecture/plan-limit-error-required-tier.test.ts が禁止する)。
+			expect(src).toContain('planLimitError(');
 		});
 
 		it('cheer action は body があるときだけゲートする (ポイント付与とスタンプは全プラン)', () => {

@@ -36,14 +36,19 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		}),
 	);
 
-	const currentUserId = locals.identity?.type === 'cognito' ? locals.identity.userId : undefined;
+	// #4643: 一覧の userId は users.user_id。IdP の sub を渡していたため「自分」の判定が
+	// 常に false になり、自分の行にも削除ボタンが出ていた。
+	const currentUserId = locals.context?.userId;
 	const currentRole = locals.context?.role ?? 'parent';
 
 	// #4704: 招待フォームは「押して初めて上限で断られる」状態だった。**押す前に**分かるよう、
 	// 上限 (メンバー + 未受諾の招待) を load で解決して画面に渡す。
+	// #4723: 発行時と同じ数え方 (メンバー + 未受諾の招待) / planId を渡す。数え方がずれると
+	// 「画面では出せるのに発行 API が上限で断る」逆の詰まりになる。
 	const memberLimit = await checkFamilyMemberLimit(
 		tenantId,
 		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+		{ countPendingInvites: true, planId: locals.context?.plan },
 	);
 	// #4704: local (NUC セルフホスト) は招待 API 自体が cognito 前提で 401 を返す。
 	// 使えない機能のフォームを出して英語の内部エラーを見せない。

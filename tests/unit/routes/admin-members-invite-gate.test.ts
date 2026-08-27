@@ -77,7 +77,11 @@ describe('#4704 /admin/members は招待可否を load で解決する', () => {
 		const result = await loadFn(event('free'));
 
 		expect(result.memberLimit).toEqual({ allowed: false, current: 1, max: 1 });
-		expect(mockCheckFamilyMemberLimit).toHaveBeenCalledWith('t1', 'none');
+		// #4723: 発行 API と同じ数え方 (メンバー + 未受諾の招待) / planId で解決する
+		expect(mockCheckFamilyMemberLimit).toHaveBeenCalledWith('t1', 'none', {
+			countPendingInvites: true,
+			planId: undefined,
+		});
 	});
 
 	it('上限内なら allowed=true を渡す (フォームを出してよい)', async () => {

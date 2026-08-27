@@ -97,9 +97,8 @@ export const INVITE_ACCEPT_ERROR_REASONS = [
 	'ALREADY_IN_TENANT',
 	'SELF_INVITE_NOT_ALLOWED',
 	'OWNER_CANNOT_BE_DOWNGRADED',
-	// #4704: 受諾すると家族メンバー上限を超えるため受け入れられない。
-	// 汎用文言でも dead-end は防げるが、次アクション (プラン変更 / 未使用の招待を取り消す) は
-	// 理由固有なので専用文言を持たせる。
+	// #4723 / #4704: 受諾するとプランのメンバー上限を超える。次アクション
+	// (プラン変更 / 未使用の招待を取り消す) は理由固有なので専用文言を持たせる。
 	'MEMBER_LIMIT_REACHED',
 ] as const;
 

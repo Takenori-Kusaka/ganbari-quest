@@ -1389,13 +1389,6 @@ export const MARKETPLACE_LABELS = {
 		`${selected}件 / ${total}件 を取り込みます`,
 	/** Cluster H: 0 件選択時の inert 状態説明 */
 	detailActivityPackSelectedZero: '取り込む活動を 1 件以上選んでください',
-	/** Cluster H: 件数連動 CTA (subset 選択結果を反映、選択件数 = N) */
-	detailCtaImportActivityPackSelected: (count: number) =>
-		`ご家族の見守り画面で取り込む (${count}件を選択中)`,
-	/** #2136 MP-1: reward-set 一括追加 CTA */
-	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
-	/** #2136 MP-1: 件数付き一括追加 CTA */
-	detailCtaImportRewardWithCount: (count: number) => `🎁 このごほうびセットを一括追加 (${count}件)`,
 	// #4705: 無料プランは商品登録ができない。押す**前**に条件と次の行き先を示す
 	// (子供を選ばせてから拒否しない)。実ゲートは isCustomRewardUnlocked (#4584)。
 	detailImportLockedTitle: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
@@ -3565,6 +3558,12 @@ export const SETTINGS_LABELS = {
 	accountDeleteFullOption: '家族グループを全て削除する',
 	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
 	accountDeleteCancelAction: 'キャンセル',
+	// #4640: 他が子供だけの家族グループでは、オーナーを渡せる相手が居ない。
+	// 空の移譲欄を出して選ばせようとすると退会そのものができなくなるため、
+	// 移譲欄を出さず「なぜ渡せないか」と「残る選択肢」を述べる。
+	accountDeleteNoAdultTitle: '家族グループに他のメンバーがいます',
+	accountDeleteNoAdultDesc: `いま家族グループにいるのは${CHILD_TERMS.honorific}だけです。${CHILD_TERMS.honorific}にオーナーを引き継ぐことはできないため、この家族グループを全て削除して${CANCEL_TERMS.account}します。`,
+	accountDeleteNoAdultHint: `${CHILD_TERMS.honorific}のデータを残したい場合は、いったんこの画面を閉じて、メンバー管理から別の${PARENT_TERMS.honorific}を招待し、その方にオーナーを引き継いでから${CANCEL_TERMS.account}してください。`,
 
 	// ログアウト
 	logoutSectionTitle: 'ログアウト',
@@ -3601,6 +3600,9 @@ export const SETTINGS_LABELS = {
 	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
+	// #4642: 確認語そのものは CANCEL_TERMS.confirmPhrase が atom (退会 / 引っ越し合流で共通)。
+	// ここは atom を文に組み立てた compound (ADR-0045 §3.3)。
+	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
 	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
@@ -4458,56 +4460,6 @@ export const BILLING_LABELS = {
 	dialogCancelButton: 'キャンセル',
 	dialogConfirmLoading: '確認中…',
 	dialogConfirmButton: `${STRIPE_PORTAL_TERMS.short}へ`,
-} as const;
-
-// ============================================================
-// IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS — 即時ダウン + Stripe credit memo banner (Phase 3 #2574 + 補強 PR #2684 / Phase 7 PR-2b)
-// ============================================================
-//
-// **命名変更履歴 (補強 PR #2684、代替案 D 採用)**:
-//   旧名: SCHEDULED_DOWNGRADE_BANNER_LABELS (Phase 3 #2574 当初設計、期末ダウン予約 3 variant banner)
-//   新名: IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (本 PR、代替案 D で命名整合)
-//
-// 命名変更理由 (補強 PR #2684 / 代替案 D):
-//   PO 手動検証 (2026-05-30) で Stripe Dashboard が「同一 Product 内 2 Price を Customer Portal
-//   `subscription_update.products` 配列に登録不可」と判明 → 1 Product 2 Price 案は破棄、
-//   **2 Product 各 1 Price + ダウン即時 + Stripe `proration_behavior='always_invoice'`** の
-//   業界収束パターン (Slack / Notion / Atlassian / Linear 等 50% SaaS 採用) に変更。
-//   Subscription Schedule API は別 Product 間で機能しないため不使用、ダウンは即時実行 + 未消費期間が
-//   credit memo として自動発行 → 次回 invoice で控除される。よって旧「期末ダウン予約残日数 banner」は
-//   scope 外となり、本 compound は「ダウン即時実行済 + credit memo 残高表示」に再設計。
-//
-// 想定リスク R8 (補強 PR #2684 / phase6-rollback-and-kill-switches.md §3.8) 対処:
-//   「顧客が credit 残高を `/admin/subscription` で確認できない → 信頼毀損」を回避するため、
-//   本 banner で「ダウン即時実行済 + 次回 invoice で ¥X 自動控除見込み」を可視化する。
-//
-// 設計意図:
-//   - ダウン即時完了直後の透明性 (credit memo 発行額 + 次回控除見込みを 1 文で伝達)
-//   - 顧客が「ダウンしたのに金が戻らない」と認識するインシデント (R8) の構造的予防
-//   - ADR-0012 煽り回避: 「失う / 消える / 使えなくなる」atom を含めず、事実説明 + 復活可能性のみ
-//
-// 関連 ADR:
-//   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
-//   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
-//   - kill switch (`USE_LOOKUP_KEY`) で Price 解決経路を切替可能、本 compound は両経路で使用
-//     (webhook shadow mode の kill switch は #4128 で撤去済)
-
-export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
-	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)
-	completedTitle: (targetPlan: string) => `${targetPlan} に切り替わりました`,
-	// credit memo 残高 + 次回控除見込みの透明性 (R8 対処の核、Phase 3 hybrid confirm UI 連動)
-	creditBalanceLine: (creditAmount: string, nextInvoiceDate: string) =>
-		`未消費期間分の ${creditAmount} は、次回ご請求 (${nextInvoiceDate}) で自動的に差し引かれます`,
-	// アーカイブ予告 (Phase 3 #2575 archived listing と機能領域として隣接)
-	archiveNotice: (childCount: number, activityCount: number) =>
-		`お子さま ${childCount} 人 ・ 活動 ${activityCount} 件は${PLAN_CHANGE_TERMS.archiveVerb}が、上位プランで再開すればすぐ${PLAN_CHANGE_TERMS.restore}できます`,
-	// 復活 CTA (アップグレード動線への bridge、Phase 4 #2624 UPGRADE_FLOW_LABELS と隣接)
-	ctaReactivate: (sourcePlan: string) => `${sourcePlan} に戻す`,
-	ctaReactivateAria: `${PLAN_CHANGE_TERMS.changeVerb}でアップグレードして元のプランに戻る`,
-	// 請求履歴詳細リンク (BILLING_LABELS と機能領域として隣接、credit memo 詳細表示)
-	viewBillingHistoryLink: 'ご請求履歴で credit memo を確認する',
-	// banner dismiss (session storage 経由、再表示は次セッション、ADR-0012 連続演出回避)
-	dismissAriaLabel: 'バナーを閉じる',
 } as const;
 
 // ============================================================
@@ -6840,13 +6792,50 @@ export const AUTH_INVITE_LABELS = {
 		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
 	joinBlockedOwnerDowngrade:
 		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
-	// #4704: 受諾 txn 内の席数検査 (MEMBER_LIMIT_REACHED) で拒否されたとき
-	// (発行後のプラン変更 / 同時受諾)。次アクション (プラン変更 / 未使用の招待の取り消し) は
-	// 招待した側にしか取れないので、そちらへ相談する導線を書く。
+	// #4723: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
 	joinBlockedMemberLimit:
-		'ご家族の人数が上限に達しているため、参加できませんでした。招待した方にプランのご変更、または使われていない招待の取り消しをご相談ください。',
+		'この家族グループはメンバーの上限に達しているため、参加できませんでした。招待した方にご確認ください。',
 	joinBlockedGeneric:
 		'招待を受け取れませんでした。招待した方に、招待リンクを発行し直してもらってください。',
+} as const;
+
+/**
+ * `/auth/invite/[code]` の引っ越し合流 (別の家族グループへ移る) 確認画面 (#4642)。
+ *
+ * **不可逆操作**: 元の家族グループのデータは復元できない。文言は「何が消えるか」と
+ * 「取り消せないこと」を明示し、同意チェックを経ないと実行させない。
+ */
+export const INVITE_RELOCATION_LABELS = {
+	title: '今の家族グループを畳んで参加しますか？',
+	lead: 'あなたは今、ご自身が管理者の家族グループをお使いです。この招待に参加すると、いまの家族グループは削除され、招待された家族グループに移ります。',
+	discardHeading: '削除されるもの',
+	discardItems: [
+		`いまの家族グループに登録した${CHILD_TERMS.honorific}のプロフィール`,
+		'活動・ごほうび・チェックリスト・ルールなどの設定',
+		'これまでの記録（ポイント履歴・達成の記録）と、アップロードした画像',
+	],
+	irreversibleWarning: '削除したデータは元に戻せません。この操作は取り消せません。',
+	keepNote:
+		'ログインに使うメールアドレスとアカウントはそのままです。招待された家族グループでそのままお使いいただけます。',
+	backupHint:
+		'記録を残しておきたい場合は、参加する前にいまの家族グループの設定からデータをエクスポートしてください。',
+	acknowledgeLabel: '上記に同意します（いまの家族グループのデータは削除され、元に戻せません）',
+	// #4642 PO 差し戻し: 退会と結果が同じ (fullTenantDeletion) なので要求する重さも同じにする。
+	// 確認語の atom は CANCEL_TERMS.confirmPhrase (退会側と共通、複製を作らない)。
+	confirmInputLabel: SETTINGS_LABELS.dangerConfirmInputLabel,
+	confirmInputPlaceholder: CANCEL_TERMS.confirmPhrase,
+	confirmInputMismatch: `確認のため「${CANCEL_TERMS.confirmPhrase}」と正確に入力してください。`,
+	confirmButton: '同意して参加する',
+	confirmButtonLoading: '参加しています…',
+	cancelButton: 'やめておく',
+	acknowledgeRequired: '同意のチェックを入れてから進んでください。',
+	failed:
+		'参加できませんでした。時間をおいてもう一度お試しください。いまの家族グループはそのまま残っています。',
+	// 引っ越しできないときの案内 (理由ごとに次アクションを添える)
+	blockedHasOtherMembers:
+		'いまの家族グループに他のメンバーがいるため、参加できません。メンバー管理から他のメンバーを削除するか、先に別の方へ管理者を移してから、招待リンクをもう一度開いてください。',
+	blockedNotOwner:
+		'いまの家族グループの管理者ではないため、ここからは参加できません。メンバー管理から今の家族グループを抜けたあと、招待リンクをもう一度開いてください。',
 } as const;
 
 /**
@@ -6861,7 +6850,6 @@ export const INVITE_JOIN_BLOCKED_MESSAGES = {
 	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
 	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
 	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
-	// #4704: 受諾 txn 内の席数検査で拒否されたとき (発行後のプラン変更 / 同時受諾)
 	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.joinBlockedMemberLimit,
 } as const;
 

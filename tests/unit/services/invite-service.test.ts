@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { asChildId } from '$lib/domain/ids';
 import { INVITE_JOIN_BLOCKED_MESSAGES } from '$lib/domain/labels';
@@ -125,6 +127,21 @@ const mockAuthRepo: Partial<IAuthRepo> = {
 		};
 	}),
 };
+
+// #4723: 受諾時のメンバー上限判定。プラン解決 (trial / stripe まで辿る) は別サービスの責務なので、
+// invite-service の unit test では collaborator として差し替える。既定は無制限。
+//
+// **引数は捨てずにそのまま透過する**。初版の stub は `() => mock()` と引数を落としており、
+// 「招待元テナントの契約 (licenseStatus / planId) を渡さず free 相当で判定していた」欠陥
+// — 本番 (AUTH_MODE=cognito) では有料世帯の受諾が全滅する — をテストが検出できなかった。
+const mockCheckFamilyMemberLimit = vi.fn(async (..._args: unknown[]) => ({
+	allowed: true,
+	current: 0,
+	max: null as number | null,
+}));
+vi.mock('$lib/server/services/plan-limit-service', () => ({
+	checkFamilyMemberLimit: (...args: unknown[]) => mockCheckFamilyMemberLimit(...args),
+}));
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({ auth: mockAuthRepo }),
@@ -315,6 +332,77 @@ describe('acceptInvite', () => {
 		expect(inviteStore.get('acc-grace')?.status).toBe('accepted');
 	});
 
+	// #4723: 上限判定は「招待元テナントの契約」で行う。受諾者は招待元の context を持たないため、
+	// tenant 行から licenseStatus / planId を導出して渡す必要がある。これを渡さないと
+	// resolveFullPlanTier がプランを解決できず free (maxFamilyMembers=1) に落ち、
+	// 本番 (AUTH_MODE=cognito) では **有料世帯の受諾が owner 1 人の時点で全部弾かれる**。
+	it.each([
+		{ plan: SUBSCRIPTION_PLAN.MONTHLY, label: 'standard' },
+		{ plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY, label: 'family' },
+	])('上限判定に招待元テナントの契約 (licenseStatus + planId) を渡す — $label 世帯 (#4723)', async ({
+		plan,
+	}) => {
+		inviteStore.set(`acc-paid-${plan}`, makePendingInvite({ inviteCode: `acc-paid-${plan}` }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: SUBSCRIPTION_STATUS.ACTIVE,
+			plan,
+			stripeSubscriptionId: 'sub_123',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertSuccess(await acceptInvite(`acc-paid-${plan}`, `u-paid-${plan}`));
+
+		expect(result.membership.tenantId).toBe('t-test');
+		expect(mockCheckFamilyMemberLimit).toHaveBeenCalledWith(
+			't-test',
+			AUTH_LICENSE_STATUS.ACTIVE,
+			// 受諾時は未受諾の招待を数えない (自分自身を予約として二重に数えるため)
+			{ planId: plan },
+		);
+	});
+
+	// #4723: 猶予期間 (支払いが 1 回失敗しただけ) の有料世帯も、機能は使えている以上
+	// 上限は契約どおり。free に落として弾くと #4633 の修正が上限判定側から巻き戻る。
+	it('猶予期間の有料世帯も上限判定は契約どおり (free に落ちない、#4723)', async () => {
+		inviteStore.set('acc-grace-paid', makePendingInvite({ inviteCode: 'acc-grace-paid' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
+			stripeSubscriptionId: 'sub_123',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		assertSuccess(await acceptInvite('acc-grace-paid', 'u-grace-paid'));
+
+		expect(mockCheckFamilyMemberLimit).toHaveBeenCalledWith('t-test', AUTH_LICENSE_STATUS.ACTIVE, {
+			planId: SUBSCRIPTION_PLAN.MONTHLY,
+		});
+	});
+
+	// #4723: preflight が解決した上限をそのまま受諾 txn に渡す (txn 内の数え直しの基準)。
+	// 別の値を再解決すると、preflight が通した上限と txn が数える上限が食い違う。
+	it('preflight が解決した上限が受諾 txn の maxMembers に渡る (#4723)', async () => {
+		inviteStore.set('acc-max', makePendingInvite({ inviteCode: 'acc-max' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: SUBSCRIPTION_STATUS.ACTIVE,
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
+			stripeSubscriptionId: 'sub_123',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		mockCheckFamilyMemberLimit.mockResolvedValueOnce({ allowed: true, current: 1, max: 4 });
+
+		assertSuccess(await acceptInvite('acc-max', 'u-max'));
+
+		expect(mockAuthRepo.acceptInviteTransactional).toHaveBeenCalledWith(
+			expect.objectContaining({ maxMembers: 4 }),
+		);
+		// 上限は 1 回だけ解決する (preflight と txn で二重に引かない)
+		expect(mockCheckFamilyMemberLimit).toHaveBeenCalledTimes(1);
+	});
+
 	// #4633: 緩和は grace_period までで、機能停止・退会済からの受諾は従来どおり拒否する
 	// (entitled 判定を「常に true」に緩めた瞬間に落ちる)。
 	it.each([
@@ -359,6 +447,52 @@ describe('acceptInvite', () => {
 
 		const result = assertError(await acceptInvite('downgrade', 'owner-user'));
 		expect(result.error).toBe('OWNER_CANNOT_BE_DOWNGRADED');
+	});
+
+	// #4642: 引っ越し合流 (元の家族グループを畳んで別の家族グループへ移る) の許可は opt-in。
+	// 既定で許すと、招待リンクを踏んだだけで元の家族のデータが破棄される。
+	it('allowRelocation を渡さなければ別グループ所属は従来どおり拒否される (#4642)', async () => {
+		inviteStore.set('g-relocate-default', makePendingInvite({ inviteCode: 'g-relocate-default' }));
+		userTenantStore.set('u-mover', [
+			{ userId: 'u-mover', tenantId: 't-own', role: 'owner', joinedAt: new Date().toISOString() },
+		]);
+
+		const result = assertError(await acceptInvite('g-relocate-default', 'u-mover'));
+		expect(result.error).toBe('ALREADY_IN_TENANT');
+	});
+
+	it('allowRelocation=true なら別グループ所属でも受諾できる (#4642)', async () => {
+		inviteStore.set('g-relocate-ok', makePendingInvite({ inviteCode: 'g-relocate-ok' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		userTenantStore.set('u-mover2', [
+			{ userId: 'u-mover2', tenantId: 't-own', role: 'owner', joinedAt: new Date().toISOString() },
+		]);
+
+		const result = await acceptInvite('g-relocate-ok', 'u-mover2', undefined, {
+			allowRelocation: true,
+		});
+		expect('membership' in result).toBe(true);
+	});
+
+	it('allowRelocation=true でも招待元と同じグループへの受諾は拒否する (#4642)', async () => {
+		inviteStore.set('g-relocate-same', makePendingInvite({ inviteCode: 'g-relocate-same' }));
+		userTenantStore.set('u-mover3', [
+			{
+				userId: 'u-mover3',
+				tenantId: 't-test',
+				role: 'parent',
+				joinedAt: new Date().toISOString(),
+			},
+		]);
+
+		const result = assertError(
+			await acceptInvite('g-relocate-same', 'u-mover3', undefined, { allowRelocation: true }),
+		);
+		expect(result.error).toBe('ALREADY_IN_TENANT');
 	});
 
 	// #4633 AC-A / #4636 (no-silent-gap): 受諾拒否の理由が 1 つでも文言表に無いと、
@@ -413,20 +547,21 @@ describe('acceptInvite', () => {
 		inviteStore.set('g-tenant', makePendingInvite({ inviteCode: 'g-tenant' }));
 		observed.add(assertError(await acceptInvite('g-tenant', 'u6')).error);
 
-		// #4704: 受諾 txn 内の席数検査で上限超過 (発行後のプラン変更 / 同時受諾の敗者)。
-		// 席数は txn 内でしか数えられないため、repo が返す業務失敗として注入する
-		// (fake txn は席数を持たない = 実装と同じく repo 側の責務)。
-		inviteStore.set('g-seats', makePendingInvite({ inviteCode: 'g-seats' }));
+		// #4723: プランのメンバー上限に達している
+		inviteStore.set('g-limit', makePendingInvite({ inviteCode: 'g-limit' }));
 		tenantStore.set('t-test', {
 			tenantId: 't-test',
 			status: 'active',
 			createdAt: new Date().toISOString(),
 		} as Tenant);
-		mockAuthRepo.acceptInviteTransactional.mockResolvedValueOnce({
-			ok: false as const,
-			reason: 'MEMBER_LIMIT_REACHED' as const,
+		membershipStore.push({
+			userId: 'u-existing',
+			tenantId: 't-test',
+			role: 'parent',
+			joinedAt: new Date().toISOString(),
 		});
-		observed.add(assertError(await acceptInvite('g-seats', 'u7')).error);
+		mockCheckFamilyMemberLimit.mockResolvedValueOnce({ allowed: false, current: 1, max: 1 });
+		observed.add(assertError(await acceptInvite('g-limit', 'u7')).error);
 
 		// 観測した理由が 1 つも欠けずに通知 SSOT に載っていること
 		for (const reason of observed) {
