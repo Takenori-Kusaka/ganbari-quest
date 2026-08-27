@@ -8,12 +8,13 @@
  *   1. 必須セクション見出しの完全一致漏れ（PR #1718/#1746/#1760）
  *   2. PR body 全体での禁止語 (`予定` `follow-up` `PENDING` `DEFERRED` `別途` `個別起票` `TODO`) 混入
  *      （PR #1763/#1770 の AC マップ外混入を含めて検出する）
- *   3. AC 検証マップの 4 列フォーマット欠落 / 空行
- *   4. Ready for Review チェックリストの未チェック残置
+ *   3. `## 検証` の根拠コマンド `--pr <番号>` が本 PR 以外を指している（#4074、走査節は #4612 で是正）
+ *   4. Ready for Review チェックリストの未チェック残置（integration lane のみ、#4305）
  *   5. `mergeable: CONFLICTING` 事前検知（GitHub API 経由）
- *   6. 変更タイプ checkbox 未選択（#3846、CI gate「変更タイプの選択」の shift-left。
- *      判定は scripts/pr-template-gate-checks.mjs の checkChangeType を SSOT として再利用）
- *   7. `po-decision:required` label 付きなのに PO 決裁ブリーフが body にない（#3944/#3956/#3962）
+ *   6. `po-decision:required` label 付きなのに PO 決裁ブリーフが body にない（#3944/#3956/#3962）
+ *
+ * AC 検証マップ 4 列 / 変更タイプ checkbox の検査は #4305 で対象節ごと撤去され、
+ * 残っていた判定関数も #4612 で削除した（呼ばれない判定を「検査がある」と誤読させないため）。
  *
  * 必須セクション SSOT:
  *   `.github/PULL_REQUEST_TEMPLATE.md` を runtime parse し、
@@ -37,9 +38,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkIntegrationEvidenceTable } from './check-ac-verification-map.mjs';
 import { extractClosedIssues } from './integration-pr-body.mjs';
+import { extractH2Section, stripHtmlComments } from './lib/ci/pr-body-sections.mjs';
+import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 import { classifyLane } from './pr-lane.mjs';
-import { checkChangeType } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -216,107 +218,53 @@ export function scanForbiddenTerms(body) {
 }
 
 // ---------------------------------------------------------------------------
-// AC 検証マップ 4 列フォーマット検証
+// AC 検証マップ 4 列フォーマット検証は **存在しない** (#4305 で撤去 → #4612 で残骸を削除)
+//
+// `checkAcMap` / `extractAcMapSection` は 2026-08-05 の #4305 で
+// `.github/PULL_REQUEST_TEMPLATE.md` から `## AC 検証マップ (ADR-0004)` 節が消えた時点で
+// **入力を失っていた**。それでも判定関数だけが残り、`collectViolations` からは 1 度も
+// 呼ばれないまま `ac-map-missing` / `-empty` / `-incomplete` の 3 id が
+// 「別 job が hard-fail し続ける」表に載り続けた (#4611 で表だけ是正、#4612 で関数を削除)。
+//
+// **再導入するなら判定関数だけでは足りない。** テンプレート節 /
+// `.github/PR_TEMPLATE_SECTIONS.json` / `collectViolations` の呼び出し / workflow 配線を
+// セットで戻すこと。class-lock: tests/unit/scripts/check-pr-body.test.ts
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 検証根拠の参照整合 (#4074、走査対象を `## 検証` に付け替え #4612)
+//
+// ## 旧実装がなぜ空振りしていたか (#4612 で実測)
+//
+// 旧実装は `## AC 検証マップ` 節だけを走査していた。その節は #4305 で PR テンプレートから
+// 消えており、**BLOCKING gate なのに何も検査していない**疑いがあった。merged PR 200 本
+// (#4215〜#4573) を判定関数に直接当てて確定させた:
+//
+//   - `--pr <数字>` を含む body: 87 / 200
+//   - そのうち `## AC 検証マップ` 節の中に書かれていたもの: **4 / 200**
+//   - 旧実装の発火: **0 / 200** (BLOCKING gate が 1 度も働いていない)
+//
+// 根拠コマンドが実際に書かれている節は `## 検証` (36 本) と `## テスト・品質セルフチェック`
+// (41 本、#4305 で撤去された旧テンプレートの検証節) だった。#4074 が狙った「宛先違いの証跡」も
+// そこに 2 件実在した (#4317 が `--pr 4312` / #4278 が `--pr 4276`)。**gate の対象節だけが
+// 証跡の置き場所と食い違っていた**ため、狙った欠陥が 2 件とも素通りしていた。
+//
+// よって走査対象を現行テンプレートの検証節 `## 検証` に付け替える。旧節名は列挙しない —
+// 「入力の来ない節を検査基準に残す」のが本 Issue の欠陥そのものだからである。
+// ---------------------------------------------------------------------------
+
+/** 根拠コマンドを走査する section 見出し。SSOT は `.github/PULL_REQUEST_TEMPLATE.md`。 */
+export const EVIDENCE_SECTION_HEADING = '検証';
 
 /**
- * AC 検証マップセクションを抽出する。`## AC 検証マップ ...` の見出し以降、次の `## ` まで。
- * @param {string} body
- * @returns {string | null}
+ * 「別 PR を指した根拠コマンドを意図して載せている」ことの明示宣言 key (#4612)。
+ *
+ * 実測 (merged PR #4519): 他 PR (#4513) で gate の空振りを再現した console ログを
+ * `## 検証` に貼るのは**正当な証跡**で、走査を `## 検証` に広げるとこれが誤検出になる。
+ * hard-fail のまま逃げ道を塞ぐと「実測ログを削る」方向のインセンティブになるため、
+ * 理由必須の宣言でのみ通す (`ss-identical-ok` / `ng-nonzero-accepted` と同じ SSOT・同じ思想)。
  */
-export function extractAcMapSection(body) {
-	const startMatch = body.match(/^## AC 検証マップ.*$/m);
-	if (!startMatch) return null;
-	const startIdx = body.indexOf(startMatch[0]);
-	const remaining = body.slice(startIdx + startMatch[0].length);
-	const nextSectionIdx = remaining.search(/^## /m);
-	return nextSectionIdx === -1 ? remaining : remaining.slice(0, nextSectionIdx);
-}
-
-/**
- * AC 検証マップの table が「4 列 (`AC 番号 / AC 内容 / 検証手段 / 結果`) を埋めて」いるかを検証する。
- *
- * 検出する違反:
- *   - 空セルが残っている (`| | | | |`)
- *   - Markdown コメントだけのセル (`| <!-- ... --> |`) のみで実体がない
- *   - そもそもデータ行が 1 行も無い
- *
- * skip マーカーがある場合は検証をスキップ（template の `<!-- ac-verification-skip: ... -->`）。
- *
- * @param {string} body
- * @returns {{ id: string; message: string } | null}
- */
-export function checkAcMap(body) {
-	const skipMatch = body.match(/<!--\s*ac-verification-skip:[^>]+-->/);
-	if (skipMatch) return null;
-
-	const section = extractAcMapSection(body);
-	if (!section) {
-		return {
-			id: 'ac-map-missing',
-			message:
-				'`## AC 検証マップ (ADR-0004)` セクションが見つかりません。PR template を使用してください。',
-		};
-	}
-
-	const lines = section.split('\n').map((l) => l.trim());
-	// データ行: `|` で始まり、ヘッダ (`AC 番号`) でも区切り (`---`) でもないもの
-	const dataRows = lines.filter(
-		(l) =>
-			l.startsWith('|') &&
-			!l.includes('AC 番号') &&
-			!/^\|[\s|:-]+\|$/.test(l) &&
-			!/^\|\s*-+\s*\|/.test(l),
-	);
-
-	if (dataRows.length === 0) {
-		return {
-			id: 'ac-map-empty',
-			message:
-				'AC 検証マップのデータ行が 1 行もありません。Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。\n' +
-				'  期待形式 (4 列固定): `| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`\n' +
-				'  参考 PR (4 列 SSOT 実装例): #2588 / #2599',
-		};
-	}
-
-	// 各行が 4 列以上で、各セルがコメント以外の実体を持つかを検証
-	const emptyRows = [];
-	for (const row of dataRows) {
-		// 行頭・行末の `|` を除いた中身を `|` で split
-		const inner = row.replace(/^\|/, '').replace(/\|$/, '');
-		const cells = inner.split('|').map((c) => c.trim());
-		if (cells.length < 4) {
-			emptyRows.push({ row, reason: `列数不足 (${cells.length} < 4)` });
-			continue;
-		}
-		// 各セルから Markdown コメントを除いて空かを判定
-		const filledCells = cells.slice(0, 4).map((c) => stripMarkdownComments(c).trim());
-		if (filledCells.some((c) => c === '')) {
-			emptyRows.push({ row, reason: `空セル (実体: ${JSON.stringify(filledCells)})` });
-		}
-	}
-
-	if (emptyRows.length > 0) {
-		return {
-			id: 'ac-map-incomplete',
-			message:
-				`AC 検証マップに未記入セルが ${emptyRows.length} 行あります:\n` +
-				emptyRows
-					.slice(0, 5)
-					.map((e) => `  - ${e.reason}: ${e.row.slice(0, 100)}`)
-					.join('\n') +
-				`\n  期待形式 (4 列固定): \`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |\`\n` +
-				`  参考 PR (4 列 SSOT 実装例): #2588 / #2599\n` +
-				`  修正手順: PR body の AC マップを上記 4 列 header に置換、各セルに HEAD SHA + file:line + grep + 実体根拠を付与する (2 列簡略形式禁止、#1775 AC2 / #2586)`,
-		};
-	}
-
-	return null;
-}
-
-// ---------------------------------------------------------------------------
-// AC 検証マップ 根拠の参照整合 (#4074)
-// ---------------------------------------------------------------------------
+export const EVIDENCE_PR_REF_OK_KEY = 'evidence-pr-ref-ok';
 
 /**
  * 根拠欄に現れる `--pr <番号>` の PR 番号を抽出する (#4074)。
@@ -327,8 +275,15 @@ export function checkAcMap(body) {
  * @returns {number[]} 出現順・重複除去済みの PR 番号
  */
 export function extractEvidencePrNumbers(body) {
-	const section = extractAcMapSection(body);
-	if (!section) return [];
+	// scrub: false — 根拠コマンドは fenced code block (`$ npm run pre-ready -- --pr N`) に
+	// 書くのが標準形なので、code block を落とすと検査対象がほぼ空になる。
+	// HTML コメントだけは落とす (テンプレートの説明文を根拠と見なさない)。
+	const { found: hasSection, text: section } = extractH2Section(
+		stripHtmlComments(body ?? ''),
+		EVIDENCE_SECTION_HEADING,
+		{ scrub: false },
+	);
+	if (!hasSection) return [];
 	/** @type {number[]} */
 	const found = [];
 	for (const m of section.matchAll(/--pr[=\s]+(\d+)\b/g)) {
@@ -339,9 +294,9 @@ export function extractEvidencePrNumbers(body) {
 }
 
 /**
- * AC 検証マップの根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
+ * `## 検証` の根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
  *
- * 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。
+ * 実測 (#4074): PR #4063 の根拠欄に `npm run pre-ready -- --pr 4059` と書かれていた。
  * #4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は
  * 「OK — 違反なし」を返し CI も全 pass した。**宛先違いの証跡でも Ready 化を通過できた。**
  *
@@ -350,8 +305,8 @@ export function extractEvidencePrNumbers(body) {
  * 一方「自 PR と一致しない番号」は実在・非実在を問わず宛先違いなので、一致判定だけで
  * 本 Issue の欠陥 (実在しない 4059 / 別 PR の番号) を両方とも落とせる。ネットワーク非依存。
  *
- * 対象は AC 検証マップセクションのみ。body の他所 (背景・関連 PR への言及) は正当に他 PR 番号を
- * 含むため対象外にして誤検出を作らない (AC3)。
+ * 対象は `## 検証` セクションのみ (#4612 で走査節を是正)。body の他所 (背景・関連 PR への言及) は
+ * 正当に他 PR 番号を含むため対象外にして誤検出を作らない (AC3)。
  *
  * @param {string} body
  * @param {string | number | null | undefined} prNumber 自 PR 番号 (`--body-file` dry-run では null)
@@ -367,14 +322,25 @@ export function checkEvidencePrReferences(body, prNumber) {
 	const mismatched = extractEvidencePrNumbers(body).filter((n) => n !== self);
 	if (mismatched.length === 0) return null;
 
+	// 他 PR を指した根拠を意図して載せている場合は、理由付き宣言で通す (#4612)。
+	// 理由が stub (`TODO` / `n/a` / 12 文字未満) なら宣言として認めない。
+	const declared = parseReasonDeclaration(body, EVIDENCE_PR_REF_OK_KEY);
+	if (declared.present && declared.valid) return null;
+
+	const declHint = declared.present
+		? `  \`<!-- ${EVIDENCE_PR_REF_OK_KEY}: ... -->\` は書かれていますが理由が ${MIN_REASON_LENGTH} 文字未満 / 定型 stub のため宣言と認めません。\n`
+		: `  他 PR のログを意図して載せている場合 (別 PR で再現した実測など) は ` +
+			`\`<!-- ${EVIDENCE_PR_REF_OK_KEY}: <理由 ${MIN_REASON_LENGTH} 文字以上> -->\` を本文に書いてください。\n`;
+
 	return {
 		id: 'evidence-pr-mismatch',
 		message:
-			`AC 検証マップの根拠が本 PR (#${self}) 以外の PR 番号を指しています: ` +
+			`\`## ${EVIDENCE_SECTION_HEADING}\` の根拠が本 PR (#${self}) 以外の PR 番号を指しています: ` +
 			`${mismatched.map((n) => `--pr ${n}`).join(' / ')}\n` +
 			`  根拠コマンドの \`--pr <番号>\` は **その PR 自身**を検証したものでなければ証跡になりません ` +
 			`(別 PR / 存在しない番号を指した状態で Ready 化を通した実測: PR #4063 の \`--pr 4059\`)。\n` +
 			`  対応: 根拠欄の番号を ${self} に直し、\`npm run pre-ready -- --pr ${self}\` を実際に実行し直して結果を貼る。\n` +
+			declHint +
 			`  番号を書かない形式 (\`--pr <num>\` 等のプレースホルダ) は従来どおり通ります。`,
 	};
 }
@@ -1204,46 +1170,19 @@ export function detectMojibake(body) {
 }
 
 // ---------------------------------------------------------------------------
-// 変更タイプ checkbox 未選択検出 (#3846、shift-left)
+// 変更タイプ checkbox 未選択検出は **存在しない** (#4305 で撤去 → #4612 で残骸を削除)
+//
+// `checkChangeTypeSelection` (#3846) は `## 変更タイプ` 節を見る shift-left 検査だったが、
+// #4305 が同節を「A 削除」判定でテンプレートから外し (`.github/CLAUDE.md` が
+// 「title 接頭辞が SSOT で、本欄はその可読補助」と自認していたため)、
+// `pr-template-gate.yml` の対の job も同時に撤去された。以後この関数は
+// `collectViolations` から呼ばれず、`change-type-unselected` はどこからも出力されない。
+//
+// 判定本体だった `pr-template-gate-checks.mjs` の `checkChangeType` /
+// `detectChangeTypeHeading` も本 PR で同時に削除した (CHECKS registry に無く、
+// 唯一の呼び出しがここだったため)。**配線ごと消す**のが「呼ばれない判定を残さない」の意味。
+// class-lock: tests/unit/scripts/check-pr-body.test.ts
 // ---------------------------------------------------------------------------
-
-/**
- * `## 変更タイプ` セクションで `- [x]` が 1 つも選択されていない場合に violation を返す (#3846)。
- *
- * 背景: PR body の変更タイプ checkbox 未選択のまま提出 → CI 必須 gate「変更タイプの選択」
- * (`pr-template-gate.yml`) hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844)。いずれも実装は
- * 健全で body checkbox のみが原因 = ADR-0061 same-class-N→guard 対象。本検出により
- * `--body-file` mode (PR 作成前) / `--pr` mode (pre-ready Step 9 / pre-push hook) の両方で
- * CI より手前 (shift-left) で機械検出する。
- *
- * 検証ロジックは CI gate と同一 SSOT (`scripts/pr-template-gate-checks.mjs` の `checkChangeType`)
- * を再利用する (二重実装なし)。lane は本 CLI の対象 (feature / hotfix per-PR self-check) で
- * 判定が同一のため 'feature' 固定。section 欠落時は missing-required-sections gate に委譲
- * (checkChangeType 側が skipped=true を返す)。
- *
- * @param {string} body
- * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容
- * @param {string[]} labels PR ラベル (dependencies label skip は SSOT 側で処理)
- * @returns {{ id: string; message: string } | null}
- */
-export function checkChangeTypeSelection(body, template, labels = []) {
-	const result = checkChangeType({
-		body,
-		labels,
-		template,
-		ssotSections: null,
-		lane: 'feature',
-	});
-	if (result.ok) return null;
-	return {
-		id: 'change-type-unselected',
-		message:
-			`${result.message}\n` +
-			'背景: 未選択のまま提出 → CI 必須 gate「変更タイプの選択」hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844)。\n' +
-			'対応: PR 作成前に `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable --no-labels` で本検証を PASS させる。\n' +
-			'      `npm run dev:open-pr -- --issue <num>` 経由なら Issue の type:* label から自動 [x] 化される (init-pr-body.mjs)。',
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Self-Review 証跡検出 (#2475 Phase 2 / #2815 D-1、PO 判断 2026-06-04: 導入必須)
@@ -1591,10 +1530,12 @@ export function resolveLabels(args, fetched) {
  * 本表はかつて `change-type-unselected` / `ac-map-*` も「別 job が hard-fail する」と書いていたが、
  * **#4305 が PR テンプレートから該当節ごと撤去した時点で嘘になっていた**。対の job は無く、
  * さらに本 script 側の判定関数 (`checkChangeTypeSelection` / `checkAcMap`) も runner から
- * 呼ばれておらず、**これらの id はどこからも出力されない**。advisory ですらない。
+ * 呼ばれておらず、**これらの id はどこからも出力されなかった**。advisory ですらない。
  *
- * 復活させるなら判定関数だけでは足りない — テンプレート節 / `.github/PR_TEMPLATE_SECTIONS.json` /
- * runner の呼び出し / workflow 配線をセットで戻すこと。
+ * #4611 で表を是正し、**#4612 で判定関数そのものを削除した** — 呼ばれない判定を残すと、
+ * 次に読む人が「検査がある」と誤読して同じ調査を繰り返す。復活させるなら判定関数だけでは
+ * 足りない: テンプレート節 / `.github/PR_TEMPLATE_SECTIONS.json` / runner の呼び出し /
+ * workflow 配線をセットで戻すこと (class-lock: tests/unit/scripts/check-pr-body.test.ts)。
  *
  * 残り (mojibake / placeholder 各種 / forbidden-terms / hotfix env 節 / mergeable-conflicting) は
  * 本 script が唯一の検出点なので、**真に advisory になる**。うち `mergeable-conflicting` は
@@ -2334,10 +2275,8 @@ export function collectViolations(body, requiredSections, _template, args, notes
 	const poDecision = checkPoDecisionBrief(body, labels);
 	if (poDecision) violations.push({ ...poDecision, issue: '#3944/#3956/#3962' });
 
-	// #3846: 変更タイプ checkbox 未選択 validation is removed as part of Issue #4305.
-	if (!isIntegration) {
-		// Bypassed for feature/hotfix lanes
-	}
+	// #3846 変更タイプ checkbox 未選択 / AC 検証マップ 4 列は #4305 で撤去済 (判定関数も #4612 で削除)。
+	// 「呼ばれない分岐」を残すと next reader が検査があると誤読するため、空 if ごと消してある。
 
 	return violations;
 }
