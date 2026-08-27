@@ -3992,8 +3992,15 @@ export const REPORTS_LABELS = {
 	monthlyChildReport: (childName: string) => `${childName}の がんばりレポート`,
 	monthlyActivityLabel: '活動',
 	monthlyActivityUnit: '回',
+	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (子供画面の所持ポイントと同じ単位)。
+	// 旧実装は XP 累計を出しており、どの月でも同じ数 = 先月比が常に ±0 だった。
 	monthlyPointsLabel: 'ポイント',
 	monthlyPointsUnit: 'pt',
+	monthlyPointsHint: '今月ためた分',
+	// #4697: XP は「ポイント」と別の量 (消費されない成長の累計)。名前を分けて併記する。
+	monthlyXpLabel: 'つよさ (XP)',
+	monthlyXpUnit: 'XP',
+	monthlyXpHint: 'これまでの合計',
 	monthlyLevelLabel: 'レベル',
 	monthlyStreakLabel: '連続',
 	monthlyStreakUnit: '日',
@@ -5128,6 +5135,10 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyActivities: (count: number) => `${count}回`,
 	monthlyDays: (days: number) => `${days}日活動`,
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
+	// #4697: 年度は 4 月〜翌 3 月を必ず 12 行並べるため未来月の枠ができる。
+	// 旧実装はそこにも累計値を出しており、まだ来ていない月に記録があるように見えた。
+	monthlyFutureNote: 'これからの月',
+	valueNotYet: '—',
 
 	// Certificate link
 	certificateLink: `📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →`,
