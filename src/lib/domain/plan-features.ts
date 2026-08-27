@@ -21,7 +21,13 @@
 
 import type { PlanKey } from './labels';
 import { ACTION_LABELS, TRIAL_LABELS } from './labels';
-import { FAMILY_MEMBER_LIMIT_TERMS, PLAN_RETENTION_TERMS, PLAN_TERMS, PRICE_TERMS } from './terms';
+import {
+	FAMILY_MEMBER_LIMIT_TERMS,
+	PLAN_RETENTION_TERMS,
+	PLAN_TERMS,
+	PRICE_TERMS,
+	REWARD_TERMS,
+} from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -43,6 +49,9 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		`${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完
 		'メールサポート（標準）',
+		// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限は
+		// 検討時点で見えている必要がある (実ゲートは isCustomRewardUnlocked、#4584)。
+		`${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
 	],
 	standard: [
 		'お子さまの登録人数：無制限',
@@ -51,7 +60,8 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #1655 R49: pricing.html L188 / 比較表との整合
 		// #4500: 上限は owner 込みの合計なので、招待できる人数と区別して書く (値は terms.ts atom 経由)
 		`家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
-		'特別なごほうび設定（即時付与）',
+		// #4705: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
+		REWARD_TERMS.productRegistration,
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 		'データのダウンロード',
@@ -122,7 +132,7 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	standard: [
 		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: '特別なごほうび設定', icon: '✅' },
+		{ text: REWARD_TERMS.productRegistration, icon: '✅' },
 		{ text: '1年間のデータ保持', icon: '✅' },
 	],
 	family: [

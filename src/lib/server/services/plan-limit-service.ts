@@ -8,6 +8,7 @@ import { FAMILY_MEMBER_LIMIT } from '$lib/domain/constants/family-member-limit';
 import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
@@ -27,7 +28,14 @@ export interface PlanLimits {
 	historyRetentionDays: number | null;
 	canExport: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
+	/**
+	 * 特別なごほうび設定（スタンダード以上、#728）。
+	 *
+	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
+	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
+	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
+	 */
+	canCustomReward: boolean;
 	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
@@ -72,7 +80,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		canExport: false,
 		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
 		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
-		canCustomReward: false,
+		canCustomReward: isCustomRewardUnlocked('free'),
 		canSiblingRanking: false,
 		maxCloudExports: 0,
 	},
@@ -86,7 +94,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
 		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('standard'),
 		canSiblingRanking: false,
 		maxCloudExports: 3,
 	},
@@ -99,7 +107,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
 		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('family'),
 		canSiblingRanking: true,
 		maxCloudExports: 10,
 	},
