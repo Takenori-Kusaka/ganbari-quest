@@ -422,4 +422,72 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await expect(confirmText).toContainText(nickname);
 		await expect(confirmText, '他の子は対象外である旨を明示する').toContainText('他の');
 	});
+
+	// ──────────────────────────────────────────────────────────
+	// #4694: 「別のお子さまからコピー」を 2 回押しても二重登録されない
+	// ──────────────────────────────────────────────────────────
+
+	test('#4694: 同じコピーを 2 回実行しても件数が増えず、2 回目は「すでにあるためスキップ」と出る', async ({
+		page,
+	}) => {
+		// PO 実機観察: はなこ (0 件) にたろうからコピー → 43 件、もう 1 回押すと 86 件
+		// (同名・同 P の完全重複)。banner も「コピーが完了しました」だけで気づけなかった。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		expect(
+			await tabs.count(),
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
+
+		// コピー先 = 2 人目のタブ (選択中の子がコピー先)
+		const targetTab = tabs.nth(1);
+		await targetTab.click();
+		await expect(targetTab).toHaveAttribute('aria-selected', 'true');
+
+		const parseTabCount = async (locator: typeof targetTab): Promise<number> => {
+			const t = (await locator.textContent()) ?? '';
+			return Number(t.match(/\((\d+)\)/)?.[1] ?? '0');
+		};
+
+		const runCopy = async (): Promise<string> => {
+			await openMenu(page, 'header-add-activity-btn', 'menu-item-copy');
+			await page.getByTestId('menu-item-copy').click();
+			await expect(page.getByTestId('copy-from-child-dialog')).toBeVisible();
+			// コピー元は先頭の候補 (選択中の子は候補から除外されている)
+			const sourceOptions = page.locator('[data-testid^="copy-source-"]');
+			expect(await sourceOptions.count(), 'コピー元候補が 1 件以上').toBeGreaterThan(0);
+			await sourceOptions.first().click();
+			const confirm = page.getByTestId('copy-from-child-confirm');
+			await expect(confirm).toBeEnabled();
+			const [resp] = await Promise.all([
+				page.waitForResponse((r) => /\?\/copyFromChild/.test(r.url())),
+				confirm.click(),
+			]);
+			expect(resp.ok(), `copy response not OK (status ${resp.status()})`).toBeTruthy();
+			const message = page.getByTestId('admin-activities-action-message');
+			await expect(message).toBeVisible();
+			return (await message.textContent()) ?? '';
+		};
+
+		// 1 回目: コピーが走り件数が増える (または既に全件ある)
+		const firstMessage = await runCopy();
+		await page.goto('/admin/activities');
+		const tabsAfterFirst = page.locator('[data-testid^="child-tab-"]');
+		await tabsAfterFirst.nth(1).click();
+		const countAfterFirst = await parseTabCount(tabsAfterFirst.nth(1));
+		expect(firstMessage, '1 回目の結果に件数が出る').toMatch(/\d+\s*件/);
+
+		// 2 回目: 同じコピーを実行しても件数は増えない (重複 skip)
+		const secondMessage = await runCopy();
+		await page.goto('/admin/activities');
+		const tabsAfterSecond = page.locator('[data-testid^="child-tab-"]');
+		await tabsAfterSecond.nth(1).click();
+		const countAfterSecond = await parseTabCount(tabsAfterSecond.nth(1));
+
+		expect(
+			countAfterSecond,
+			`2 回目のコピーで件数が増えた (${countAfterFirst} → ${countAfterSecond})`,
+		).toBe(countAfterFirst);
+		expect(secondMessage, '2 回目は「すでに追加済み」と分かる文言を出す').toContain('すでに');
+	});
 });

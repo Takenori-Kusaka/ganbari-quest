@@ -39,9 +39,8 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/settings/support',
 	// #3267 (EPIC #3260 C3): プラン・課金 (#4139 で /admin/billing を統合)
 	'/admin/subscription',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー (#4691: /admin/packs はページごと撤去)
 	'/admin/members',
-	'/admin/packs',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'/admin/certificates',
 	'/admin/growth-book',
@@ -73,6 +72,16 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'subscription-current-plan',
 		'subscription-plan-status',
 		'subscription-cancel',
+	],
+	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
+	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
+	'/admin/settings/account': ['settings-account-pin'],
+	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
+	'/admin/settings/activities': [
+		'settings-activities-decay',
+		'settings-activities-point',
+		'settings-activities-default-child',
+		'settings-activities-sibling',
 	],
 	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
 	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない

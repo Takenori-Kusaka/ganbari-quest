@@ -88,10 +88,36 @@ export function parseHeadingSpec(heading, defaultLevel = 2) {
 }
 
 /**
+ * 各行が fenced code block の内側かどうかを返す (CommonMark: fence 内の `#` は見出しではない)。
+ *
+ * `scrub: true` では fence ごと除去されるので影響しないが、**fence の中身を残したまま
+ * section を切り出す用途** (`scrub: false`) では必須。`$ npm run x  # コメント` のような
+ * console 貼り付け行を H1 見出しと誤認すると、そこで section が打ち切られる。
+ * 実測 (#4612): merged PR #4519 の `## 検証` 節は 3 行目の `# ...` で切れており、
+ * その先にある根拠コマンド 4 行が検査対象から丸ごと外れていた。
+ *
+ * @param {string[]} lines
+ * @returns {boolean[]}
+ */
+function markFencedLines(lines) {
+	/** @type {boolean[]} */
+	const inFence = [];
+	let open = false;
+	for (const line of lines) {
+		const isFenceMarker = /^\s*(?:```|~~~)/.test(line);
+		// fence の開始 / 終了行そのものも「見出しではない」側に倒す
+		inFence.push(open || isFenceMarker);
+		if (isFenceMarker) open = !open;
+	}
+	return inFence;
+}
+
+/**
  * 指定見出しの section 本体を切り出す (**見出し行そのものは含まない**)。
  *
  * 終端は **同レベル以上の見出し** (H2 指定なら `## ` か `# `) の直前。下位見出し (`### `) では
- * 止めない (同一 section 内の小見出しは所属を変えないため)。
+ * 止めない (同一 section 内の小見出しは所属を変えないため)。fenced code block 内の
+ * `#` 始まり行は見出しとして扱わない (#4612)。
  *
  * @param {string} body PR 本文
  * @param {string} heading 見出し (`## X` / `### X` / `X` のいずれか。`#` 省略時は H2)
@@ -103,11 +129,14 @@ export function extractSection(body, heading, options = {}) {
 	const { level, title } = parseHeadingSpec(heading);
 	const source = scrub ? scrubPrBody(body) : (body ?? '').replace(/\r\n?/g, '\n');
 	const lines = source.split('\n');
+	const fenced = markFencedLines(lines);
 	const marker = '#'.repeat(level);
-	const start = lines.findIndex((l) => l.trim() === `${marker} ${title}`);
+	const start = lines.findIndex((l, i) => !fenced[i] && l.trim() === `${marker} ${title}`);
 	if (start === -1) return { found: false, text: '' };
 	const rest = lines.slice(start + 1);
-	const end = rest.findIndex((l) => {
+	const restFenced = fenced.slice(start + 1);
+	const end = rest.findIndex((l, i) => {
+		if (restFenced[i]) return false;
 		const m = l.match(/^(#{1,6})\s/);
 		return m !== null && (m[1] ?? '').length <= level;
 	});

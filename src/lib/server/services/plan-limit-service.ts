@@ -9,7 +9,9 @@ import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retentio
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
-import { getAuthMode } from '$lib/server/auth/factory';
+import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
+// #4723: factory 経由だと provider 側と循環するため、実体の auth-mode から直接引く。
+import { getAuthMode } from '$lib/server/auth/auth-mode';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
@@ -32,6 +34,26 @@ export interface PlanLimits {
 // #3963: 型宣言の SSOT は domain leaf に移した (request-context との循環回避)。
 // 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
 export type { PlanTier };
+
+/**
+ * 上限チェックの結果 (#4622)。
+ *
+ * `max: null` は「無制限」を意味するので、**上限に達した状態 (`allowed: false`) と
+ * 同時には成立しない**。旧実装は `{ allowed: boolean; max: number | null }` という
+ * 単一 shape だったため、この不変条件を型が持たず、`if (!check.allowed)` の内側でも
+ * `max` が `number | null` のままだった。結果、上限到達メッセージに
+ * 「カスタム活動は最大 null 個まで作成できます」と出しうる型の穴が空いていた。
+ *
+ * discriminated union にすることで不正な状態を型で表現不能にし (ADR-0061)、
+ * `!allowed` 側では `max` が `number` に narrowing される。
+ * 上限メッセージのラベル関数 (`PLAN_GATE_LABELS.*LimitReached`) は `max: number` を
+ * 要求するので、この不変条件を崩した瞬間に呼び出し側がコンパイルで落ちる。
+ */
+export type PlanLimitCheck =
+	/** 未到達。`max: null` は無制限プラン (上限なし) を表す */
+	| { allowed: true; current: number; max: number | null }
+	/** 上限到達。到達しうるのは上限が具体値のプランだけなので `max` は必ず number */
+	| { allowed: false; current: number; max: number };
 
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
@@ -118,7 +140,11 @@ export function resolvePlanTier(
 		return planId?.startsWith('family') ? 'family' : 'standard';
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
-	if (trialEndDate && new Date(trialEndDate) > new Date()) {
+	// #4707: 終了日は JST 暦日 ('YYYY-MM-DD') で end_date 当日いっぱい有効。旧実装の
+	// `new Date(trialEndDate) > new Date()` は UTC 00:00 (= JST 09:00) で切れ、表示判定
+	// (`computeTrialStatus`、JST 暦日比較) と 9 時間ずれて「残り 0 日」表示のまま有料機能が
+	// 403 になっていた。同じ述語 `isTrialEndDateActiveJST` を共有して判定を一致させる。
+	if (trialEndDate && isTrialEndDateActiveJST(trialEndDate)) {
 		return trialTier ?? 'standard';
 	}
 	return 'free';
@@ -228,7 +254,7 @@ export async function hasArchivedData(
 export async function checkChildLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChildren === null) {
 		return { allowed: true, current: 0, max: null };
@@ -254,7 +280,7 @@ export async function checkChildLimit(
 export async function checkActivityLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxActivities === null) {
 		return { allowed: true, current: 0, max: null };
@@ -288,7 +314,7 @@ export async function checkChecklistTemplateLimit(
 	tenantId: string,
 	licenseStatus: string,
 	childId: ChildId,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChecklistTemplates === null) {
 		return { allowed: true, current: 0, max: null };
@@ -312,19 +338,41 @@ export async function checkChecklistTemplateLimit(
  * Free は 1（owner のみ、招待不可）。
  * Standard は 4（owner + 3人、核家族想定）。
  * Family は null（無制限）。
+ *
+ * #4723: 数え方は呼び出す場面で変わる。
+ * - **招待の発行時** (`countPendingInvites: true`): 既存メンバー + 未受諾の招待。
+ *   発行済みの招待は「枠の予約」として数える。数えないと、残り 1 枠に何通でも発行でき、
+ *   最初に受諾した人以外は全員が受諾時に弾かれる（発行者には成功に見える）。
+ * - **招待の受諾時** (既定): 既存メンバーのみ。受諾しようとしている招待自身を
+ *   予約として二重に数えないため。
+ *
+ * #4723: `planId` (= `locals.context?.plan` / `tenants.plan`) は **本チェックでは必須**。
+ * `maxFamilyMembers` は standard (4) と family (null = 無制限) で唯一値が割れる上限であり、
+ * `resolveFullPlanTier` は planId が無いと有料契約を一律 standard に落とす。渡し忘れると
+ * family 世帯が 4 人で頭打ちになる (他の check*Limit は standard / family とも null のため
+ * 影響が出ず、この引数を持たない)。
  */
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	opts: { countPendingInvites?: boolean; planId?: string } = {},
+): Promise<PlanLimitCheck> {
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus, opts.planId));
 	if (limits.maxFamilyMembers === null) {
 		return { allowed: true, current: 0, max: null };
 	}
 
 	const repos = getRepos();
 	const members = await repos.auth.findTenantMembers(tenantId);
-	const current = members.length;
+	let current = members.length;
+
+	if (opts.countPendingInvites) {
+		const invites = await repos.auth.findTenantInvites(tenantId);
+		const now = Date.now();
+		current += invites.filter(
+			(i) => i.status === 'pending' && new Date(i.expiresAt).getTime() > now,
+		).length;
+	}
 
 	return {
 		allowed: current < limits.maxFamilyMembers,
