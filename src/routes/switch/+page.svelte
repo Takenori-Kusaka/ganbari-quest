@@ -3,7 +3,13 @@ import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
-import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatAgeKana,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+	SWITCH_PAGE_LABELS,
+} from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -335,7 +341,7 @@ async function handlePinComplete(details: { valueAsString: string }) {
 							{/if}
 							<div class="flex-1 min-w-0">
 								<p class="text-lg font-bold text-[var(--color-neutral-900)] m-0">{child.nickname}</p>
-								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age + 'さい'}</p>
+								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{formatAgeKana(child.age)}</p>
 							</div>
 							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
 						</Button>
