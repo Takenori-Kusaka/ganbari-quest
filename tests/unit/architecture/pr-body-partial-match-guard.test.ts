@@ -57,6 +57,7 @@ const ALLOWLIST: Record<string, string> = {
 	//   消え entry からも外れており、呼び出しが自身の test だけの死んだコードだったため、
 	//   厳格化ではなく削除が正しい対処だった (経緯は check-ac-verification-map.mjs の entry コメント)。
 	//   対象 #3 (admin bypass 証跡 marker) は `hasDeclarationLine` へ移行済。
+	//   対象 #4 (DOM スナップショット参照 / 統合 PR の VR 証跡) は develop 側で是正済 (#4348)。
 	// --- 構造化識別子ではなく prose (自然文) を探す用途。本文全体を見るのが正しい ---
 	'scripts/check-pr-screenshot.mjs::hasBefore: BEFORE_LABEL_PATTERN.test(body),':
 		'prose 検査: 「修正前」ラベルの表記ゆれを本文から探す用途で、見出し等の構造化識別子ではない',

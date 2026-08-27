@@ -42,7 +42,7 @@
 		"lint:typed": "eslint --config eslint.typed.config.js 'src/**/*.ts' 'infra/lib/**/*.ts' 'infra/bin/**/*.ts'",
 		"lint:css": "stylelint 'src/**/*.css'",
 		"lint:colors": "node scripts/lint-color-classes.mjs",
-		"lint:parallel": "node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-no-at-html.mjs",
+		"lint:parallel": "node scripts/generate-lp-labels.mjs --check && node scripts/sync-lp-fallback.mjs --check && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-no-at-html.mjs",
 		"lint:lp-innerhtml-tags": "node scripts/check-lp-innerhtml-tags.mjs",
 		"lint:fix": "biome check --write .",
 		"generate:lp-labels": "node scripts/generate-lp-labels.mjs",

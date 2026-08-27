@@ -30,6 +30,14 @@ vi.mock('$lib/server/services/plan-limit-service', async () => {
 vi.mock('$lib/server/services/resource-archive-service', () => ({
 	archiveExcessResources: (...args: unknown[]) => mockArchiveExcessResources(...args),
 	getArchivedResourceSummary: (...args: unknown[]) => mockGetArchivedResourceSummary(...args),
+	// #4708: 非発火時に layout が配る空サマリ (実装と同じ形)
+	EMPTY_ARCHIVED_RESOURCE_SUMMARY: {
+		archivedChildCount: 0,
+		archivedActivityCount: 0,
+		archivedChecklistTemplateCount: 0,
+		totalCount: 0,
+		hasArchivedResources: false,
+	},
 }));
 
 vi.mock('$lib/server/services/trial-service', () => ({
