@@ -146,4 +146,5 @@ const overflowItems = $derived<MenuItem[]>([
 	overflowTriggerLabel={L.overflowTriggerLabel}
 	overflowMenuAriaLabel={L.overflowMenuAriaLabel}
 	overflowMenuTestid="header-overflow-menu-btn"
+	overflowMenuDataTutorial="activities-overflow-menu"
 />

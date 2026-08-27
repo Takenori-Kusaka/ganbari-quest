@@ -1,4 +1,5 @@
 <script lang="ts">
+import { DEMO_LABELS } from '$lib/domain/labels';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
 
 interface Props {
@@ -12,7 +13,8 @@ let {
 	title = 'いかがでしたか？',
 	description = 'お子さまの「がんばり」を冒険に変えませんか？',
 	ctaText = '無料で はじめる →',
-	ctaHref = '/demo/signup',
+	// #4712: demo host では relative /auth/signup が no-op フォームに着地するため本番 absolute を既定にする
+	ctaHref = DEMO_LABELS.signupHref,
 }: Props = $props();
 </script>
 
