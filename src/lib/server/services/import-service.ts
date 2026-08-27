@@ -570,13 +570,16 @@ async function importRewardRedemptionsData(
 		// #3381: 安定識別子 (rewardExportId) を優先、無ければ snapshot title で fallback 解決。
 		const rewardId =
 			(r.rewardExportId ? rewardIdByExportId.get(childId)?.get(r.rewardExportId) : undefined) ??
-			(await rewardLookup(childId)).get(r.rewardRef);
-		if (!rewardId) {
-			result.rewardRedemptionsSkipped++;
+			(await rewardLookup(childId)).get(r.rewardRef) ??
+			// #4683: 元テナントで削除済のごほうびは backup の specialRewards に含まれず解決できない。
+			// それでも履歴は復元する — ポイント台帳の控除は復元されるため、履歴だけ落とすと
+			// 「使途の分からない減算」が残る (削除時に履歴を残す本 Issue の決定と同じ理由)。
+			// null を渡すと repo が「採番されない id」を書き、表示は snapshot 列が担う。
+			null;
+		if (rewardId === null) {
 			result.warnings.push(
-				`交換履歴スキップ: ごほうび「${r.rewardRef}」(child=${r.childRef}) が取込先に見つかりません`,
+				`交換履歴「${r.rewardTitle ?? r.rewardRef}」(child=${r.childRef}) は取込先にごほうびが無いため、記録だけ復元しました`,
 			);
-			continue;
 		}
 		try {
 			const restored = await insertRedemptionForRestore(
