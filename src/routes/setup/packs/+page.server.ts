@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { SETUP_PACKS_LABELS } from '$lib/domain/labels';
 import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
@@ -110,7 +111,7 @@ export const actions: Actions = {
 					totalSkipped += preview.total;
 				}
 			} catch {
-				allErrors.push(`パック「${packId}」の読み込みに失敗しました`);
+				allErrors.push(SETUP_PACKS_LABELS.errorPackLoadFailed(packId));
 			}
 		}
 
