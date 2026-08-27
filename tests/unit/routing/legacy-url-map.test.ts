@@ -427,3 +427,26 @@ describe('legacy-url-map', () => {
 		});
 	});
 });
+
+// ============================================================
+// #4712: `to: '/'` の entry でプロトコル相対 URL (`//switch`) を作らない
+// ============================================================
+describe('#4712 rewriteLegacyPath は `//` を作らない (プロトコル相対 = 外部ホスト行き)', () => {
+	const cases: Array<[string, string]> = [
+		['/demo/switch', '/switch'],
+		['/demo/', '/'],
+		['/demo', '/'],
+		['/demo/exit', '/'],
+		['/demo/exit/', '/'],
+	];
+	for (const [from, to] of cases) {
+		it(`${from} → ${to} (先頭スラッシュは 1 本)`, () => {
+			const entry = findLegacyRedirect(from);
+			expect(entry, `${from} に legacy entry が存在する`).toBeDefined();
+			if (!entry) return;
+			const rewritten = rewriteLegacyPath(from, entry);
+			expect(rewritten).toBe(to);
+			expect(rewritten.startsWith('//'), `${rewritten} はプロトコル相対 URL`).toBe(false);
+		});
+	}
+});

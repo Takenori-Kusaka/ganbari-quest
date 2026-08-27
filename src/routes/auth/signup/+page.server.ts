@@ -2,9 +2,10 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
-import { SIGNUP_LABELS } from '$lib/domain/labels';
+import { DEMO_LABELS, SIGNUP_LABELS } from '$lib/domain/labels';
 import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
+import { landingForRole } from '$lib/server/auth/post-login-landing';
 import {
 	authenticateWithCognito,
 	confirmSignUp,
@@ -22,6 +23,14 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+
+	// #4712: demo Lambda (AUTH_MODE=anonymous + DATA_SOURCE=demo) には Cognito が無いため、
+	// ここでフォームを出すと入力・送信できてしまい write no-op で「何も起きない」着地になる
+	// (Google 登録は COGNITO_USER_POOL_ID 未設定で 500)。デモを気に入った見込み客をそのまま
+	// 本番の申込画面へ送る (ADR-0048: demo は read-only fixture、申込は本番 host が担う)。
+	if (locals.isDemo) {
+		redirect(302, DEMO_LABELS.signupHref);
+	}
 
 	// local モードやdevモードでは登録不要
 	if (authMode === 'local' || isCognitoDevMode()) {
@@ -272,15 +281,9 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const ua = request.headers.get('user-agent') ?? '';
 		try {
-			// #4497: 越境移転同意 (§28) も terms/privacy と同型に version/ip/ua 付きで永続化する。
 			// #4643: consents.user_id は users.user_id。claims.sub (IdP の sub) は別物
-			await recordConsent(
-				tenantId,
-				consentUserId,
-				['terms', 'privacy', 'cross-border'],
-				ip,
-				ua,
-			);
+			// #4497: 越境移転同意 (§28) も terms/privacy と同型に version/ip/ua 付きで永続化する。
+			await recordConsent(tenantId, consentUserId, ['terms', 'privacy', 'cross-border'], ip, ua);
 			logger.info('[SIGNUP] Consent recorded at signup', {
 				context: { tenantId, userId: claims.sub },
 			});
@@ -336,6 +339,7 @@ export const actions: Actions = {
 		}
 
 		// 正常完了
-		redirect(302, '/admin');
+		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
+		redirect(302, landingForRole(context.role));
 	},
 };
