@@ -194,10 +194,11 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 										</p>
 									{/if}
 								</div>
-								<div class="rounded-lg bg-[var(--color-feedback-warning-bg)] p-3 text-center">
-									<p class="text-xs text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.weeklyPointsLabel}</p>
+								<!-- #4697: ここは「その月に ためた ポイント」。XP 累計ではないので先月比が意味を持つ -->
+								<div class="rounded-lg bg-[var(--color-feedback-warning-bg)] p-3 text-center" data-testid="monthly-points">
+									<p class="text-xs text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.monthlyPointsLabel}</p>
 									<p class="text-xl font-bold text-[var(--color-feedback-warning-text)]">{report.totalPoints}</p>
-									<p class="text-[10px] text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.weeklyPointsUnit}</p>
+									<p class="text-[10px] text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.monthlyPointsHint}</p>
 									{#if prev}
 										<p class="text-[10px] font-semibold {diffColor(report.totalPoints, prev.totalPoints)}">
 											{diffLabel(report.totalPoints, prev.totalPoints)} {REPORTS_LABELS.monthlyPrevMonth}
@@ -222,6 +223,12 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 
 							<!-- Stats row -->
 							<div class="flex gap-3">
+								<!-- #4697: 「つよさ (XP)」は消費されない成長の累計。ポイント (通貨) と別名で併記する -->
+								<div class="flex-1 rounded-lg bg-[var(--color-stat-purple-bg)] p-2 text-center" data-testid="monthly-xp">
+									<p class="text-xs text-[var(--color-stat-purple)]">{REPORTS_LABELS.monthlyXpLabel}</p>
+									<p class="text-lg font-bold text-[var(--color-stat-purple)]">{report.totalXp}</p>
+									<p class="text-[10px] text-[var(--color-stat-purple)]">{REPORTS_LABELS.monthlyXpHint}</p>
+								</div>
 								<div class="flex-1 rounded-lg bg-[var(--color-feedback-success-bg)] p-2 text-center">
 									<p class="text-xs text-[var(--color-feedback-success-text)]">{REPORTS_LABELS.monthlyAchievementsLabel}</p>
 									<p class="text-lg font-bold text-[var(--color-feedback-success-text)]">{report.totalNewAchievements}</p>

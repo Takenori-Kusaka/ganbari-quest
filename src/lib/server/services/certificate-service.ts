@@ -3,6 +3,7 @@ import type { ChildId } from '$lib/domain/ids';
 // がんばり証明書サービス — 証明書の発行判定・一覧取得
 
 import {
+	CERTIFICATE_LEVEL_MILESTONES,
 	MONTHLY_HABIT_DAYS_THRESHOLD,
 	MONTHLY_HABIT_POINTS,
 	STREAK_MILESTONE_DAYS,
@@ -45,7 +46,7 @@ export interface CertificateWithMeta extends Certificate {
 // (本 service / value-preview-service / family-streak-service)。数値だけを domain 定数に集約する。
 // points の割り当ては family 側に残す — 同じ日数でも意味が違うため (PO 決裁 Q5)。
 const STREAK_MILESTONES = STREAK_MILESTONE_DAYS;
-const LEVEL_MILESTONES = [5, 10, 20, 30, 50] as const;
+const LEVEL_MILESTONES = CERTIFICATE_LEVEL_MILESTONES;
 
 function getStreakDef(days: number): CertificateDefinition {
 	return {

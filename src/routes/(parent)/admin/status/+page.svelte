@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
+import { getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, formatAge, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
@@ -41,13 +42,11 @@ let bmInputSd: Record<string, string> = $state({});
 
 const benchmarksForAge = $derived(data.benchmarks.filter((b) => b.age === benchmarkAge));
 
-// 年齢別参考値ガイド（XPスケール）
-// 月30日×2活動×8XP÷5カテゴリ≒96 XP/月/カテゴリを基準
-const guideBaseXp = $derived(Math.round((benchmarkAge - 2) * 80));
-const guideMeanLow = $derived(Math.round(guideBaseXp * 0.8));
-const guideMeanHigh = $derived(Math.round(guideBaseXp * 1.5));
-const guideSdLow = $derived(Math.round(guideBaseXp * 0.3));
-const guideSdHigh = $derived(Math.round(guideBaseXp * 0.6));
+// 年齢別参考値ガイド（#4697: 既定値 SSOT の実値から出す）
+// 旧実装はここで `(age - 2) * 80` という独自式を組んでおり、DB に seed される既定値
+// （4 歳なら平均 18〜38 XP）に対してガイド文が「平均 128〜240 XP」と桁違いの数を出していた。
+// 同じ画面に基準が 2 つ並ぶと、親はどちらに合わせて入力すればよいか判断できない。
+const guideRange = $derived(getBenchmarkGuideRange(benchmarkAge));
 
 // 未設定ベンチマーク警告
 const hasUnsetBenchmarks = $derived(
@@ -380,9 +379,11 @@ let levelTitleInputs: Record<number, string> = $state({});
 		</div>
 
 		<!-- 年齢別参考値ガイド -->
-		<p class="text-xs text-[var(--color-text-muted)] mb-4">
-			{STATUS_LABELS.benchmarkGuide(benchmarkAge, guideMeanLow, guideMeanHigh, guideSdLow, guideSdHigh)}
-		</p>
+		{#if guideRange}
+			<p class="text-xs text-[var(--color-text-muted)] mb-4" data-testid="benchmark-guide">
+				{STATUS_LABELS.benchmarkGuide(benchmarkAge, guideRange.meanLow, guideRange.meanHigh, guideRange.sdLow, guideRange.sdHigh)}
+			</p>
+		{/if}
 
 		<!-- 未設定警告 -->
 		{#if hasUnsetBenchmarks}

@@ -27,7 +27,16 @@ const groupedCerts = $derived.by(() => {
 });
 
 const categoryOrder = ['streak', 'level', 'monthly', 'category_master', 'annual'] as const;
-const categoryNames = CERTIFICATES_PAGE_LABELS.categoryNames;
+// #4674: ページガイドは「最初に描画されるカテゴリ群」を指す (カード 0 件なら anchor 自体が無く step が消える)
+const firstCategoryIndex = $derived(categoryOrder.findIndex((cat) => groupedCerts[cat]?.length));
+// #4674 F5: カテゴリ見出しは CERTIFICATES_PAGE_LABELS (labels SSOT) を引く
+const categoryNames: Record<string, string> = {
+	streak: CERTIFICATES_PAGE_LABELS.categoryStreak,
+	level: CERTIFICATES_PAGE_LABELS.categoryLevel,
+	monthly: CERTIFICATES_PAGE_LABELS.categoryMonthly,
+	category_master: CERTIFICATES_PAGE_LABELS.categoryMaster,
+	annual: CERTIFICATES_PAGE_LABELS.categoryAnnual,
+};
 </script>
 
 <svelte:head>
@@ -50,8 +59,8 @@ const categoryNames = CERTIFICATES_PAGE_LABELS.categoryNames;
 	{/if}
 
 	{#if data.children.length > 0}
-		<!-- Child selector -->
-		<div class="flex gap-2 overflow-x-auto pb-2">
+		<!-- Child selector (#4674: ページガイド anchor) -->
+		<div class="flex gap-2 overflow-x-auto pb-2" data-tutorial="certificates-child-select">
 			{#each data.children as child (child.id)}
 				<Button
 					type="button"
@@ -76,9 +85,9 @@ const categoryNames = CERTIFICATES_PAGE_LABELS.categoryNames;
 					<p class="text-sm">{CERTIFICATES_PAGE_LABELS.emptyDesc}</p>
 				</div>
 			{:else}
-				{#each categoryOrder as cat}
+				{#each categoryOrder as cat, catIndex}
 					{#if groupedCerts[cat]?.length}
-						<div>
+						<div data-tutorial={catIndex === firstCategoryIndex ? 'certificates-open' : undefined}>
 							<h3 class="text-sm font-bold text-[var(--color-text-secondary)] mb-2">{categoryNames[cat]}</h3>
 							<div class="flex flex-col gap-2">
 								{#each groupedCerts[cat] as cert (cert.id)}

@@ -67,12 +67,11 @@ const FORBIDDEN_LITERALS: ReadonlyArray<readonly [file: string, literals: readon
 	],
 	[
 		`${ADMIN}/activities/+page.svelte`,
-		[
-			'違うお子さまを選んでください',
-			'コピーが完了しました',
-			'一括追加しました',
-			'名前を入力してください',
-		],
+		// 「コピーが完了しました」は #4694 (develop) が固定文をやめ CHILD_COPY_RESULT_LABELS の
+		// 件数付き結果文に置換したため、本表から外した (同 PR の説明コメントが旧文を引用しており、
+		// 素の includes では実装ではなくコメントに当たってしまう)。結果文の固定は
+		// tests/unit/domain/child-copy-result-labels.test.ts が担う。
+		['違うお子さまを選んでください', '一括追加しました', '名前を入力してください'],
 	],
 	[`${ADMIN}/activities/[id]/edit/+page.server.ts`, ['不正な活動IDです', '活動が見つかりません']],
 	[`${ADMIN}/certificates/+page.svelte`, ['連続記録', 'カテゴリマスター', '年間がんばり大賞']],
@@ -242,13 +241,13 @@ describe('#4512 (B) 集約した label の値が変わっていない', () => {
 	});
 
 	it('証明書カテゴリ見出しは labels 側に移っても同じ 5 種', () => {
-		expect(CERTIFICATES_PAGE_LABELS.categoryNames).toEqual({
-			streak: '🔥 連続記録',
-			level: '🌟 レベルアップ',
-			monthly: '📜 月間がんばり',
-			category_master: '🎓 カテゴリマスター',
-			annual: '🏆 年間がんばり大賞',
-		});
+		// #4674 F5 が同じ 5 種を flat key (categoryStreak …) で先に集約済みのため、
+		// merge 時に本 PR の categoryNames を削除しそちらへ寄せた (値は同一)。
+		expect(CERTIFICATES_PAGE_LABELS.categoryStreak).toBe('🔥 連続記録');
+		expect(CERTIFICATES_PAGE_LABELS.categoryLevel).toBe('🌟 レベルアップ');
+		expect(CERTIFICATES_PAGE_LABELS.categoryMonthly).toBe('📜 月間がんばり');
+		expect(CERTIFICATES_PAGE_LABELS.categoryMaster).toBe('🎓 カテゴリマスター');
+		expect(CERTIFICATES_PAGE_LABELS.categoryAnnual).toBe('🏆 年間がんばり大賞');
 		expect(CERTIFICATE_DETAIL_LABELS.shareCardBrandText).toBe('がんばりクエスト');
 		expect(CERTIFICATE_DETAIL_LABELS.downloadSuccess).toBe('ダウンロードしました！');
 	});
