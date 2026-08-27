@@ -1584,9 +1584,17 @@ export function resolveLabels(args, fetched) {
  * | 本 script の id | 引き続き hard-fail する job (script) |
  * |---|---|
  * | `missing-required-sections` | `pr-template-gate.yml`「必須セクションの存在確認」(`checkSectionPresence`) |
- * | `change-type-unselected` | 同「変更タイプの選択」(`checkChangeType`) |
- * | `ac-map-missing` / `-empty` / `-incomplete` | `pr-ac-verification-check.yml`「Verify AC map in PR body」(`checkPerPrAcMap`) |
- * | `unchecked-ready-checklist` | `pr-merge-gate.yml`「PR チェックリスト完了確認」(`checkMergeGateChecklist`) |
+ * | `unchecked-ready-checklist` | `pr-merge-gate.yml`「PR チェックリスト完了確認」(`checkMergeGateChecklist`)。**ただし integration lane のみ** — feature / hotfix lane の checklist 検証は #4305 で撤去済 |
+ *
+ * ### #4305 で対になる hard-fail が消えた id (#4348 で是正)
+ *
+ * 本表はかつて `change-type-unselected` / `ac-map-*` も「別 job が hard-fail する」と書いていたが、
+ * **#4305 が PR テンプレートから該当節ごと撤去した時点で嘘になっていた**。対の job は無く、
+ * さらに本 script 側の判定関数 (`checkChangeTypeSelection` / `checkAcMap`) も runner から
+ * 呼ばれておらず、**これらの id はどこからも出力されない**。advisory ですらない。
+ *
+ * 復活させるなら判定関数だけでは足りない — テンプレート節 / `.github/PR_TEMPLATE_SECTIONS.json` /
+ * runner の呼び出し / workflow 配線をセットで戻すこと。
  *
  * 残り (mojibake / placeholder 各種 / forbidden-terms / hotfix env 節 / mergeable-conflicting) は
  * 本 script が唯一の検出点なので、**真に advisory になる**。うち `mergeable-conflicting` は

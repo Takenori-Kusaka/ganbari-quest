@@ -178,9 +178,8 @@ describe('synthetic-staging-dataset (#3412)', () => {
 		// D17: 履歴の深さ (レーダー / MilestoneBanner / 月次レポートが空にならない件数)
 		expect(tx?.activityLogs.length).toBeGreaterThanOrEqual(50);
 
-		// D20: 親→子メッセージ + きょうだい応援
+		// D20: 親→子メッセージ (#4691 できょうだい応援は撤去)
 		expect(tx?.parentMessages.length).toBeGreaterThan(0);
-		expect(tx?.siblingCheers.length).toBeGreaterThan(0);
 
 		// 活動ログの参照整合 (childRef × activityName が per-child 活動に解決できる)
 		const namesByRef = new Map<string, Set<string>>();

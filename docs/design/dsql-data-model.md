@@ -209,6 +209,8 @@ Dynamo は GSI 回避で持たざるを得なかった read-model。DSQL では 
 
 ## §8 recordActivity の原子化（最大の質的改善、grounded + spike#4 実機確証）
 
+> **経路の分岐条件は「pg 系 backend か」= `isPgBackend()`（`db/backend.ts`、#4720）**。cloud Aurora DSQL と NUC PGlite は同一 pg-core repos を共有するため、単一 txn core（`record-activity-core.ts` / `cancel-activity-core.ts`）・uuid 形式 guard・置換 import の補償戦略はすべてこの 2 値判定で切り替える。`isDsqlBackend()` は **DSQL pool を開くか**（接続層の起動判定）専用で、アプリ層の挙動分岐に使わない（NUC PGlite を取り逃し、逐次 await 経路 = 部分コミットに落ちる）。txn runner は `getPgTransactionRunner()`（factory）から注入する（`dsql/connection` 直 import は PGlite 環境でも DSQL pool を開こうとする）。
+
 現行は 5+ 表を **txn 無し・逐次 await・例外握り潰し**（`activity-log-service.ts:340/356/372/395/422`）で書き、部分コミット（point 入ったが status 未更新等）が起きる。DynamoDB 本番も非原子。DSQL 移管で初めて原子性を入れる。
 
 **worst-case 書込量（実コード計測）**: base 必須 5 行（activity_log/mastery/point_ledger/statuses/status_history、ループ無し）+ 条件付き worst 17+2C+S（C=active challenge 数、S=stale push）≈ **現実 25-50 行**。DSQL 1 txn 上限（3,000 行/10MiB/300s）に 2 桁余裕（適合確定）。
@@ -255,7 +257,7 @@ combo / mission / challenge進捗 / certificate(onConflictDoNothing) / special_r
 別チーム（backup export/import）との交点。**申し送り SSOT** = `docs/research/2026-06-29-backup-import-handover-to-dsql-team.md` + backup チーム最新 handover（`Documents/ganbari-quest/tmp/dsql-handover.md`、2026-07-01、PR #3491/#3497/#3509）。backup チーム作業ツリー `Documents/ganbari-quest` branch `fix/3326`、#3326/#3329 merge で develop に入る。**replace import / 家族全置換を単一 txn で all-or-nothing にすることは DSQL でも不可**（§P8: 1 write txn = 3,000 行/10MiB/5分、spike#1 実機 `3,001 行→[54000]`）。よって:
 
 - **単一強制点 = backup チーム PR #3491 で新設される `replaceImportAtomic`（サービス層、develop merge 後に実体化）**（`DATA_SOURCE` dispatch で backend strategy 切替: SQLite=`BEGIN IMMEDIATE`/ROLLBACK 実装済 / DynamoDB=backup-before-clear 補償 実装済・移管で破棄 / **DSQL strategy を 1 本足すだけで合流**）。#3326（import 原子化）と #3436（DSQL chunk+saga）は**同一問題=1 設計にマージ**（二重実装回避）。**新規に data-service 層で並行実装しない**（既設 seam に収束）。呼出元 `/api/v1/data/clear` `/admin/settings/data` `/api/v1/import/cloud` 全経路に効く。
-- **DSQL strategy = import-then-swap（staging→pointer swap）or saga（"import 中"フラグ→全 chunk 成功で commit）**、`errors>0→swap 中止` semantics 維持。
+- **DSQL / PGlite strategy = backup-before-clear（補償トランザクション、#4720 で実装確定）**: clear 前に旧データを full backup ZIP として `tenants/<tenantId>/recovery/` に永続化 → clear + import → 失敗時は ZIP から復元、成功時は ZIP 削除。`errors>0→中止` semantics 維持。staging→pointer swap は tenant の上に切替可能な間接層（schema / pointer）が無く、家族単位の swap には全表二重化が要るため不採用。saga（"import 中"フラグ）は中断時に半端な可視状態が顧客に見えるため不採用。
 - **チャンク化は `insertForRestore` の batch 版に集約し chunk サイズは backend が決める（SQLite=500 / DynamoDB=25 / DSQL=3,000）**（二重実装回避の唯一解、handover §4）。3,000 行未満の真の all-or-nothing（DynamoDB の 100 item 上限より緩い追い風）。現状の 54 個 per-row `await insert`（N+1）は DPU/OCC/行上限すべてで不可 → §8 と同じ batch 機構に乗せる。OCC 40001 retry ラッパ（#3435）必須。
 - **`cloud_exports.status` カラム + lazy migration（#3509 で追加）を DSQL DDL に整合**させる（Family 集約、§11.3。非同期 export の状態管理列）。
 

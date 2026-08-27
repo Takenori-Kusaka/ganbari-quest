@@ -183,6 +183,21 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 			return (result.rows as unknown as CardRow[]).map(toCard);
 		},
 
+		async findUnredeemedCardsBefore(childId, weekStart, tenantId) {
+			// #4687: 今週より前の未交換カード (古い順)。#3581 ②: 非 uuid は「カードなし」に正規化。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('stamp-card-repo.findUnredeemedCardsBefore');
+				return [];
+			}
+			const result = await db.execute(sql`
+				SELECT ${CARD_COLUMNS} FROM stamp_cards
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND week_start < ${weekStart} AND status = 'collecting'
+				ORDER BY week_start
+			`);
+			return (result.rows as unknown as CardRow[]).map(toCard);
+		},
+
 		async findEntriesByCardId(cardId, tenantId) {
 			const result = await db.execute(sql`
 				SELECT ${ENTRY_COLUMNS} FROM stamp_entries
