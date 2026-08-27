@@ -2,7 +2,7 @@
 // Cognito SignUp + メール認証コード確認 + 確認後の自動ログイン
 
 import { fail, redirect } from '@sveltejs/kit';
-import { SIGNUP_LABELS } from '$lib/domain/labels';
+import { DEMO_LABELS, SIGNUP_LABELS } from '$lib/domain/labels';
 import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import { landingForRole } from '$lib/server/auth/post-login-landing';
@@ -23,6 +23,14 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+
+	// #4712: demo Lambda (AUTH_MODE=anonymous + DATA_SOURCE=demo) には Cognito が無いため、
+	// ここでフォームを出すと入力・送信できてしまい write no-op で「何も起きない」着地になる
+	// (Google 登録は COGNITO_USER_POOL_ID 未設定で 500)。デモを気に入った見込み客をそのまま
+	// 本番の申込画面へ送る (ADR-0048: demo は read-only fixture、申込は本番 host が担う)。
+	if (locals.isDemo) {
+		redirect(302, DEMO_LABELS.signupHref);
+	}
 
 	// local モードやdevモードでは登録不要
 	if (authMode === 'local' || isCognitoDevMode()) {

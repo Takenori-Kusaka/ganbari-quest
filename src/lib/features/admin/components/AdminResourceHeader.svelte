@@ -55,6 +55,8 @@ interface Props {
 	overflowMenuAriaLabel?: string;
 	/** ︙ overflow trigger の testid */
 	overflowMenuTestid?: string;
+	/** ︙ overflow trigger の data-tutorial (任意、ページガイドの spotlight anchor #4655) */
+	overflowMenuDataTutorial?: string;
 	/**
 	 * ︙ overflow を独自 primitive (OverflowMenu 等) で描画したい画面用の slot。
 	 * 指定すると `overflowItems` (内蔵 Menu) より優先される。既存 E2E testid を保つため、
@@ -80,6 +82,7 @@ let {
 	overflowTriggerLabel = '︙',
 	overflowMenuAriaLabel,
 	overflowMenuTestid,
+	overflowMenuDataTutorial,
 	overflowSnippet,
 	badge,
 	toolbarLeading,
@@ -120,6 +123,7 @@ let {
 				testid={overflowMenuTestid}
 				triggerClass="admin-resource-header__overflow-btn"
 				triggerLabel={overflowTriggerLabel}
+				dataTutorial={overflowMenuDataTutorial}
 			/>
 		{/if}
 	</div>
