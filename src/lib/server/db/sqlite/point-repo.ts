@@ -1,7 +1,8 @@
 // src/lib/server/db/point-repo.ts
 // ポイント関連のリポジトリ層
 
-import { and, desc, eq, lt, sql, sum } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, lt, sql, sum } from 'drizzle-orm';
+import { addDaysJST } from '$lib/domain/date-utils';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
@@ -154,6 +155,35 @@ export async function findChildById(id: ChildId, _tenantId: string): Promise<Chi
 		.where(eq(children.id, Number(id)))
 		.get();
 	return row ? { ...row, id: asChildId(row.id) } : undefined;
+}
+
+/**
+ * #4697: 期間内に獲得したポイントの合計 (正の `amount` のみ)。
+ *
+ * `created_at` は ISO timestamp (`YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SSZ`) だが、
+ * どちらも先頭が日付なので `deletePointLedgerBeforeDate` と同じ辞書順比較で日付境界を判定する
+ * (`startDate <= created_at < endDate の翌日`)。両端含む。
+ */
+export async function sumEarnedPointsBetween(
+	childId: ChildId,
+	startDate: string,
+	endDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const endExclusive = addDaysJST(endDate, 1);
+	const row = db
+		.select({ total: sql<number>`coalesce(sum(${pointLedger.amount}), 0)`.as('total') })
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, Number(childId)),
+				gt(pointLedger.amount, 0),
+				gte(pointLedger.createdAt, startDate),
+				lt(pointLedger.createdAt, endExclusive),
+			),
+		)
+		.get();
+	return Number(row?.total ?? 0);
 }
 
 /** テナントの全ポイント台帳を削除（SQLite: シングルテナントのため全行削除） */

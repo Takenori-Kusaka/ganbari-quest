@@ -56,6 +56,22 @@ export interface IPointRepo {
 		entry: { type: string; description: string; referenceId?: string },
 		tenantId: string,
 	): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }>;
+	/**
+	 * #4697: 期間内に **獲得** したポイントの合計 (正の `amount` のみ、消費は含まない)。
+	 *
+	 * 月次レポート / 成長記録ブックの「ポイント」はこの値を指す。旧実装は `statuses.total_xp` の
+	 * 累計を「ポイント」として出していたため、子供画面の所持ポイントとも週次タブの当週獲得とも
+	 * 一致せず、累計なので先月比が常に ±0 だった。
+	 *
+	 * `startDate` / `endDate` は `YYYY-MM-DD` (JST 暦日、両端含む)。`created_at` の JST 日付が
+	 * この範囲に入る行を対象にする (retention cleanup と同じ JST 当日境界の解釈)。
+	 */
+	sumEarnedPointsBetween(
+		childId: ChildId,
+		startDate: string,
+		endDate: string,
+		tenantId: string,
+	): Promise<number>;
 	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 
