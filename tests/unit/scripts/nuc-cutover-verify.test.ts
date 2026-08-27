@@ -1,7 +1,7 @@
 // tests/unit/scripts/nuc-cutover-verify.test.ts
 // EPIC #3620 AC-C4 後段 — cutover 件数突合 (nuc-cutover-verify.ts) のテスト。
 //
-//   [CV1] summarizeExportCounts: ExportData から全 14 軸の件数を集計する
+//   [CV1] summarizeExportCounts: ExportData から全 12 軸の件数を集計する
 //   [CV2] collectImportedCounts: pg backend から tenant 限定 count を全軸収集する (fake executor)
 //   [CV3] diffCutoverCounts: 不一致軸のみを人間可読で列挙 (完全一致 = 空)
 //
@@ -35,20 +35,18 @@ function makeExportData(overrides: Partial<Record<string, number>> = {}): Export
 			loginStreaks: arr('loginStreaks'),
 			checklistTemplates: arr('checklistTemplates'),
 			parentMessages: arr('parentMessages'),
-			siblingCheers: arr('siblingCheers'),
-			restDays: arr('restDays'),
 		},
 	} as unknown as ExportData;
 }
 
 describe('nuc-cutover-verify (#3620 AC-C4 後段、件数突合 safety net)', () => {
-	it('[CV1] summarizeExportCounts: 全 14 軸を集計する', () => {
+	it('[CV1] summarizeExportCounts: 全 12 軸を集計する (#4691 で sibling_cheers / rest_days 軸を撤去)', () => {
 		const counts = summarizeExportCounts(
-			makeExportData({ children: 2, activityLogs: 5, restDays: 1 }),
+			makeExportData({ children: 2, activityLogs: 5, checklistTemplates: 1 }),
 		);
 		expect(counts.children).toBe(2);
 		expect(counts.activityLogs).toBe(5);
-		expect(counts.restDays).toBe(1);
+		expect(counts.checklistTemplates).toBe(1);
 		expect(counts.pointLedger).toBe(0);
 		expect(Object.keys(counts).sort()).toEqual(CUTOVER_COUNT_AXES.map((a) => a.key).sort());
 	});

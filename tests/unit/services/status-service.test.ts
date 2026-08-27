@@ -31,8 +31,13 @@ import {
 	getBenchmarkValues,
 	getCategoryXpSummary,
 	getChildStatus,
+	getCustomLevelTitles,
+	getLevelTitleList,
 	getMonthlyComparison,
+	resetAllLevelTitles,
+	resetLevelTitle,
 	resolveLevelTitle,
+	saveLevelTitle,
 	updateStatus,
 } from '../../../src/lib/server/services/status-service';
 
@@ -384,5 +389,62 @@ describe('getCategoryXpSummary', () => {
 		expect(undou?.level).toBe(2);
 		expect(undou?.expToNextLevel).toBe(20); // 40 - 20
 		expect(undou?.progressPct).toBe(20);
+	});
+});
+
+// #4688 (F3): 親が設定したレベル称号が保存され、子供画面 (getChildStatus) にも届く。
+// 旧実装は getCustomLevelTitles / saveLevelTitle が no-op stub で、保存できたように見えて
+// 何も残らなかった (=「親が設定した称号が子供に出ない」の根)。
+describe('レベル称号カスタマイズの永続化 (#4688)', () => {
+	beforeEach(() => {
+		resetDb();
+	});
+
+	it('保存した称号が読み出せ、既定の称号を上書きする', async () => {
+		await saveLevelTitle('test-tenant', 3, 'なわとびマスター');
+
+		const titles = await getCustomLevelTitles('test-tenant');
+		expect(titles.get(3)).toBe('なわとびマスター');
+		expect(resolveLevelTitle(3, titles)).toBe('なわとびマスター');
+		// 未設定レベルは既定の称号のまま
+		expect(resolveLevelTitle(4, titles)).not.toBe('なわとびマスター');
+	});
+
+	it('一覧 (admin 画面用) に customTitle が乗る', async () => {
+		await saveLevelTitle('test-tenant', 2, 'よみきかせ名人');
+
+		const list = await getLevelTitleList('test-tenant');
+		expect(list.find((e) => e.level === 2)?.customTitle).toBe('よみきかせ名人');
+		expect(list.find((e) => e.level === 3)?.customTitle).toBeNull();
+	});
+
+	// tenant 分離は backend が担う: sqlite backend は 1 tenant = 1 DB file の**物理分離**
+	// (settings は tenant 列を持たない)、dsql backend は settings の family_id 述語で分離する。
+	// そのため sqlite を使う本 test で「tenant を跨いで漏れない」を主張すると嘘になる。
+	// dsql 側の述語は tests/unit/db/ の dsql settings repo test が assert している。
+
+	it('空文字保存 / reset で既定に戻る', async () => {
+		await saveLevelTitle('test-tenant', 3, 'なわとびマスター');
+		await saveLevelTitle('test-tenant', 3, '   ');
+		expect((await getCustomLevelTitles('test-tenant')).get(3)).toBeUndefined();
+
+		await saveLevelTitle('test-tenant', 5, 'たいそう王');
+		await resetLevelTitle('test-tenant', 5);
+		expect((await getCustomLevelTitles('test-tenant')).get(5)).toBeUndefined();
+
+		await saveLevelTitle('test-tenant', 6, 'あいさつ名人');
+		await resetAllLevelTitles('test-tenant');
+		expect((await getCustomLevelTitles('test-tenant')).size).toBe(0);
+	});
+
+	it('子供のステータス (getChildStatus) の levelTitle に反映される', async () => {
+		seedChild();
+		// Lv.3 (40 XP) まで上げる
+		await updateStatus(asChildId(1), asCategoryId(1), 45, 'activity_record', 'test-tenant');
+		await saveLevelTitle('test-tenant', 3, 'なわとびマスター');
+
+		const status = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
+		expect(status.statuses['1']?.level).toBe(3);
+		expect(status.statuses['1']?.levelTitle).toBe('なわとびマスター');
 	});
 });

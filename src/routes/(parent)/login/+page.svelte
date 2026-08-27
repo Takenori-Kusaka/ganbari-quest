@@ -1,7 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { PARENT_LOGIN_LABELS } from '$lib/domain/labels';
-import { PIN_MAX_LENGTH } from '$lib/domain/validation/auth';
 import Logo from '$lib/ui/components/Logo.svelte';
 import NumPad from '$lib/ui/components/NumPad.svelte';
 
@@ -12,7 +12,7 @@ let loading = $state(false);
 let formEl: HTMLFormElement | undefined = $state();
 
 function handleInput(digit: string) {
-	if (pin.length < PIN_MAX_LENGTH) {
+	if (pin.length < PIN_LENGTH) {
 		pin += digit;
 	}
 }
@@ -22,7 +22,7 @@ function handleDelete() {
 }
 
 function handleSubmit() {
-	if (pin.length >= 4 && formEl) {
+	if (pin.length === PIN_LENGTH && formEl) {
 		formEl.requestSubmit();
 	}
 }
@@ -68,7 +68,7 @@ function handleSubmit() {
 
 		<!-- ドット表示 -->
 		<div class="flex justify-center gap-3 mb-8" aria-label={PARENT_LOGIN_LABELS.pinInputAriaLabel}>
-			{#each Array(PIN_MAX_LENGTH) as _, i}
+			{#each Array(PIN_LENGTH) as _, i}
 				<div
 					class="w-4 h-4 rounded-full transition-all duration-200
 						{i < pin.length ? 'bg-[var(--color-brand-600)] scale-110' : 'bg-[var(--color-neutral-300)]'}"

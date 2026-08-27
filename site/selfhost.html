@@ -58,7 +58,7 @@ body{line-height:1.8;background:var(--gray-50)}
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+      <img src="logo-compact.png" alt="がんばりクエスト" width="108" height="44">
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">&#9776;</button>
     <nav id="main-nav" class="header-nav">
@@ -130,7 +130,7 @@ body{line-height:1.8;background:var(--gray-50)}
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="selfhost.text18">&#x2705; セルフホスト版のメリット</h2>
     <ul class="feature-list">
-      <li><span>&#x1F512;</span><span data-lp-key="selfhost.text19"> データは完全にご自身の管理下。外部サーバーにデータを送信しません。</span></li>
+      <li><span>&#x1F512;</span><span data-lp-key="selfhost.text19"> 記録は完全にご自身の管理下。AI 機能を使わない限り、データが外部へ送信されることはありません。</span></li>
       <li><span>&#x1F4B0;</span><span data-lp-key="selfhost.text20"> 完全無料。月額料金なし、機能制限なし。</span></li>
       <li><span>&#x1F527;</span><span data-lp-key="selfhost.text21"> カスタマイズ自由。ソースコードを自由に改変できます。</span></li>
       <li><span>&#x1F310;</span><span data-lp-key="selfhost.text22"> オフライン利用可能。インターネット接続なしでも LAN 内で動作します。</span></li>
@@ -181,7 +181,7 @@ body{line-height:1.8;background:var(--gray-50)}
         <tr>
           <td data-lp-key="selfhost.text43">AI 機能</td>
           <td data-lp-key="selfhost.text44">&#x2705; プレミアムプランで利用可</td>
-          <td data-lp-key="selfhost.text45">API キーの自前設定が必要</td>
+          <td data-lp-key="selfhost.text45">API キーの自前設定が必要（入力内容が外部の生成 AI へ送信されます）</td>
         </tr>
       </tbody>
     </table>

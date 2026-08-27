@@ -1,12 +1,14 @@
 // Issue #2945 (Phase A/A-3、親 #2942) AC3/AC4: lane-aware AC 検証マップ judge の unit test。
-// feature/hotfix lane = 現行 AC マップ観点 (回帰ゼロ)、integration lane = マージ判定エビデンス表観点。
+// integration lane = マージ判定エビデンス表観点。
+// feature / hotfix lane は #4305 で AC マップ検証そのものが撤去され、entry は無条件 PASS を返す
+// (判定関数の残骸は #4348 で削除。下部の class-lock がその状態を固定する)。
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import * as acModule from '../../../scripts/check-ac-verification-map.mjs';
 import {
 	checkAcVerification,
 	checkIntegrationEvidenceTable,
-	checkPerPrAcMap,
 	extractH2Section,
 	INTEGRATION_EVIDENCE_SECTION,
 	NG_DECLARATION_SECTION,
@@ -35,109 +37,6 @@ const FEATURE_AC_MAP_EMPTY_CELL = `
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---|---|---|---|
 | AC1 | ログイン後 | \`vitest\` |  |
-`;
-
-// js/bad-tag-filter (#3021 CodeQL): `--!>` 終端のコメントは旧 regex `/^<!--.*-->$/` が
-// 検出できず空欄プレースホルダのまま gate を通過した。robust 化後は空欄扱いで検出される。
-const FEATURE_AC_MAP_COMMENT_EVASION = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | \`vitest\` | <!-- まだ書いてない --!> |
-`;
-
-const FEATURE_AC_MAP_TODO = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | \`vitest\` | 別途追加予定 |
-`;
-
-// #3488: ファイル名 slug の "followup"（区切り無し）は完了済エビデンス参照のトークンであり、
-// 未完了マーカー "follow-up" / "follow up"（区切り 1 文字必須）とは別物。
-// `follow[\s-]up`（区切り必須）にすることで slug を誤検出しない（false-positive 回帰防止）。
-// 拡張子 whitelist の strip 前処理は脆い（収録外拡張子で FP / 密着未完了語で bypass）ため撤去し、
-// 生 cell に直接 pattern を当てる方針（#3488 定方針）。
-const FEATURE_AC_MAP_FILENAME_FOLLOWUP = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC5 | research SSOT を docs/research に保存 | grep | HEAD \`f183e397a\` / docs/research/2026-06-29-followup-treadmill-root-cause.md |
-`;
-
-// #3488: 旧 strip の収録外拡張子で FP 再発していたケース（.sql / .pdf）も、slug "followup"（区切り無し）
-// なので新 pattern では PASS する（strip 不要で FP 回避）。
-const FEATURE_AC_MAP_SLUG_FOLLOWUP_VARIANTS = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | schema 反映 | drizzle | migrations/schema-followup.sql 適用済 |
-| AC2 | 図版 | review | docs/followup.pdf レビュー済 |
-`;
-
-// #3488: 未完了マーカーは区切り 1 文字（空白 or ハイフン）を必ず持つため検出継続する。
-// prose（inline-code 外）の `/` 隣接 / 日本語連続トークンは生 cell に当たる
-// （#3846 で inline-code 内のみ strip 対象になったが、prose 検出は不変）。
-const FEATURE_AC_MAP_TODO_FOLLOWUP_SPACE = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | \`vitest\` | 別途 follow-up で対応 |
-`;
-
-const FEATURE_AC_MAP_TODO_FILENAME_SCHEDULED = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | \`vitest\` | 対応予定.md を参照 |
-`;
-
-const FEATURE_AC_MAP_TODO_JP_TOKEN = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | \`vitest\` | 後で対応する予定 |
-`;
-
-const FEATURE_AC_MAP_MISSING_SECTION = `
-## 概要
-AC マップ section が無い PR
-`;
-
-// #3846 / #3844 BLOCK fix: inline-code (`...`) 内の定数名 \`RANGE_SSOT_TODO\` が
-// TODO_PATTERN の \`todo\` に部分一致して false-positive gate fail していた。
-// inline-code は機械トークン（定数名 / コマンド / ファイル参照）であり未完了宣言の prose ではない。
-const FEATURE_AC_MAP_INLINE_CODE_CONSTANT = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC2 | 値域定数 SSOT 化 | grep | HEAD \`abc1234\` / \`RANGE_SSOT_TODO\` を domain 層へ集約 (src/lib/domain/range.ts:12) |
-`;
-
-// #3846: inline-code 内にコマンド由来の "todo" / "予定" 相当トークンがあっても PASS する。
-const FEATURE_AC_MAP_INLINE_CODE_COMMAND = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | todo list 機能の unit 検証 | vitest | \`npx vitest run tests/unit/todo-list.test.ts\` 12 passed |
-`;
-
-// #3846: inline-code strip 後も prose 側の未完了表記は従来どおり検出する（strip し過ぎ防止）。
-const FEATURE_AC_MAP_INLINE_CODE_PLUS_PROSE_TODO = `
-## AC 検証マップ
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---|---|---|---|
-| AC1 | ログイン | vitest | \`RANGE_SSOT_TODO\` は集約済、残りは後で対応 |
 `;
 
 // #4333: 残 NG 件数の宣言は `## NG 0 件 / カバレッジ宣言` section 内でのみ読む。
@@ -224,94 +123,6 @@ const INTEGRATION_EVIDENCE_NO_ROWS = `
 
 （表をまだ埋めていない）
 ${NG_ZERO_SECTION}`;
-
-// --- feature / hotfix lane (AC4 回帰ゼロ) ---
-
-describe('checkPerPrAcMap (feature/hotfix lane、AC4)', () => {
-	it('PASS: 4 列全行が埋まっている', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_PASS, 'feature');
-		expect(r.ok).toBe(true);
-		expect(r.lane).toBe('feature');
-	});
-
-	it('FAIL: AC マップ section が無い', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_MISSING_SECTION, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('AC 検証マップ');
-	});
-
-	it('FAIL: 空欄セルがある', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_EMPTY_CELL, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('空欄');
-	});
-
-	it('FAIL: `--!>` 終端のコメントプレースホルダも空欄扱い (js/bad-tag-filter, #3021)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_COMMENT_EVASION, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('空欄');
-	});
-
-	it('FAIL: 4 列目に未完了表記 (#1539)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未完了表記');
-	});
-
-	it('PASS: filename 中の "followup"（区切り無し slug）を未完了表記と誤検出しない (#3488)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_FILENAME_FOLLOWUP, 'feature');
-		expect(r.ok).toBe(true);
-	});
-
-	// #3488: 旧 strip の収録外拡張子 FP（.sql / .pdf）も slug followup なので新 pattern で PASS。
-	it('PASS: schema-followup.sql / docs/followup.pdf を誤検出しない (#3488 FP 回避)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_SLUG_FOLLOWUP_VARIANTS, 'feature');
-		expect(r.ok).toBe(true);
-	});
-
-	// #3488: 区切り 1 文字を持つ未完了マーカーは検出継続する（strip 全廃で生 cell に当たる）。
-	it('FAIL: "follow-up" / "follow up"（区切りあり）は検出 (#3488)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_FOLLOWUP_SPACE, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未完了表記');
-	});
-
-	it('FAIL: "対応予定.md" の "予定" を検出（strip 全廃で生 cell 検出、#3488）', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_FILENAME_SCHEDULED, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未完了表記');
-	});
-
-	it('FAIL: 未完了マーカーを日本語連続トークンに置いても検出 (#3488)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_JP_TOKEN, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未完了表記');
-	});
-
-	it('hotfix lane も同観点 (PASS)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_PASS, 'hotfix');
-		expect(r.ok).toBe(true);
-		expect(r.lane).toBe('hotfix');
-	});
-
-	// --- #3846 / #3844: evidence cell の inline-code strip (定数名 false-positive 解消) ---
-
-	it('PASS: inline-code 内の定数名 `RANGE_SSOT_TODO` を未完了表記と誤検出しない (#3846 / #3844)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_CONSTANT, 'feature');
-		expect(r.ok).toBe(true);
-	});
-
-	it('PASS: inline-code 内のコマンド (`npx vitest run tests/unit/todo-list.test.ts`) を誤検出しない (#3846)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_COMMAND, 'feature');
-		expect(r.ok).toBe(true);
-	});
-
-	it('FAIL: inline-code strip 後も prose 側の未完了表記 (「後で対応」) は検出継続 (#3846 strip し過ぎ防止)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_PLUS_PROSE_TODO, 'feature');
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未完了表記');
-	});
-});
 
 // --- integration lane (AC3) ---
 
@@ -615,5 +426,31 @@ describe('checkAcVerification (lane エントリ、AC3/AC4)', () => {
 		});
 		expect(r.ok).toBe(true);
 		expect(r.reason).toContain('removed');
+	});
+});
+
+// --- #4348 対象 #6: 誰も呼ばない判定関数を置き去りにしない (class-lock) ---
+
+describe('#4348 feature lane の per-PR AC マップ判定は存在しない（呼ばれない判定を残さない）', () => {
+	// 背景: #4305 が PR テンプレートから `## AC 検証マップ` 節を撤去し、entry も feature /
+	// hotfix lane を無条件 PASS に変えた。しかし判定関数 `checkPerPrAcMap` は残り、
+	// **唯一の呼び出しが本 test file だけ**という状態で改修 (#3488 / #3846) を受け続けた。
+	// 「検査しているように見えて誰も呼んでいない」状態を再生産させないための固定。
+	//
+	// 再導入するなら判定関数だけでは足りない — テンプレート節 / PR_TEMPLATE_SECTIONS.json /
+	// entry の分岐 / workflow 配線をセットで戻し、本 test も同時に更新すること。
+	it('checkPerPrAcMap は export されていない', () => {
+		expect(Object.keys(acModule)).not.toContain('checkPerPrAcMap');
+	});
+
+	it('entry は feature / hotfix lane で body を一切見ずに PASS を返す', () => {
+		for (const lane of ['feature', 'hotfix'] as const) {
+			const empty = checkAcVerification({ body: '', labels: [], lane });
+			const filled = checkAcVerification({ body: FEATURE_AC_MAP_PASS, labels: [], lane });
+			const broken = checkAcVerification({ body: FEATURE_AC_MAP_EMPTY_CELL, labels: [], lane });
+			expect([empty.ok, filled.ok, broken.ok]).toEqual([true, true, true]);
+			expect(empty.reason).toBe(filled.reason);
+			expect(empty.reason).toBe(broken.reason);
+		}
 	});
 });

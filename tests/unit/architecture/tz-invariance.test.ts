@@ -62,15 +62,6 @@ vi.mock('$lib/server/db/settings-repo', () => ({
 	setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
-const mockFindRestDays = vi.fn();
-const mockCountRestDaysInMonth = vi.fn();
-vi.mock('$lib/server/db/evaluation-repo', () => ({
-	findRestDays: (...args: unknown[]) => mockFindRestDays(...args),
-	countRestDaysInMonth: (...args: unknown[]) => mockCountRestDaysInMonth(...args),
-	insertRestDay: vi.fn(async () => ({ ok: true })),
-	deleteRestDay: vi.fn(),
-}));
-
 import {
 	addDaysJST,
 	jstDayStartUtcIso,
@@ -87,7 +78,6 @@ import {
 	getTodayUsageSummary,
 	getWeeklyUsageSummary,
 } from '$lib/server/services/usage-log-service';
-import { GET as restDaysGet } from '../../../src/routes/api/v1/rest-days/[childId]/+server';
 
 // ---------- harness ----------
 
@@ -237,20 +227,6 @@ tzCase('loyalty/increment-month-key', async () => {
 		'基準 prefix 付きの月キーが 1 件も書かれていません (prefix を落とすと本 probe が空振りします)',
 	).toBeGreaterThan(0);
 	for (const call of monthKeyWrites) expect(call[1]).toBe(`jst:${TZ_PROBE_JST_MONTH}`);
-});
-
-tzCase('rest-days/month-symmetry', async () => {
-	mockFindRestDays.mockResolvedValue([]);
-	mockCountRestDaysInMonth.mockResolvedValue(0);
-	const url = new URL('http://localhost/api/v1/rest-days/1');
-	await restDaysGet({
-		params: { childId: '1' },
-		url,
-		locals: { context: { tenantId: TENANT } },
-		// biome-ignore lint/suspicious/noExplicitAny: RequestEvent の未使用フィールドは省略する
-	} as any);
-	// GET の既定月 (導出) が JST 月キーであること = POST 側 (`date.slice(0, 7)` = JST 日付由来) と同じ基準
-	expect(mockFindRestDays).toHaveBeenCalledWith(expect.anything(), TZ_PROBE_JST_MONTH, TENANT);
 });
 
 // ---------- registry との双方向照合 (no-silent-gap) ----------

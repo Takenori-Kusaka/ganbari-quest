@@ -1,13 +1,31 @@
 // src/lib/server/db/point-repo.ts
 // ポイント関連のリポジトリ層
 
-import { and, desc, eq, lt, sum } from 'drizzle-orm';
+import { and, desc, eq, gt, sql, sum } from 'drizzle-orm';
+import { addDaysJST, jstDayStartUtcIso } from '$lib/domain/date-utils';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
 
 type LedgerRow = typeof pointLedger.$inferSelect;
+
+/**
+ * `point_ledger.created_at` を JST 暦日 (YYYY-MM-DD) の境界と比較するための SQL 片を作る。
+ *
+ * この列は UTC で、しかも書き手によって形が違う (`CURRENT_TIMESTAMP` の `YYYY-MM-DD HH:MM:SS` /
+ * アプリが入れる `YYYY-MM-DDTHH:MM:SS.sssZ`)。文字列の辞書順で比較すると
+ *
+ *   1. 形の違い自体で順序が壊れる (`' '` < `'T'` なので同一時刻でも大小が入れ替わる)
+ *   2. 比較相手が `YYYY-MM-DD` だと **UTC の暦日**で切ることになり、JST 00:00〜09:00 の 9 時間が
+ *      前日側に落ちる
+ *
+ * の 2 つが同時に起きる。両辺を SQLite の `datetime()` に通して UTC の同一表記へ正規化し、
+ * 境界そのものは `jstDayStartUtcIso()` (date-utils SSOT) が返す**瞬間**を使う。JST の offset を
+ * SQL 側に書かないので、TZ の決め方は date-utils 1 箇所に閉じる (#966 / #4015 / #4127)。
+ */
+const createdAtInstant = sql`datetime(${pointLedger.createdAt})`;
+const jstDayStart = (dateStr: string) => sql`datetime(${jstDayStartUtcIso(dateStr)})`;
 
 const toEntry = (r: LedgerRow): PointLedgerEntry => ({
 	...r,
@@ -110,17 +128,47 @@ export async function findChildById(id: ChildId, _tenantId: string): Promise<Chi
 	return row ? { ...row, id: asChildId(row.id) } : undefined;
 }
 
+/**
+ * #4697: 期間内に獲得したポイントの合計 (正の `amount` のみ)。
+ *
+ * `startDate` / `endDate` は **JST 暦日** (両端含む)。JST 00:00〜09:00 に記録したポイントも
+ * その JST 暦日の月に入る — pg-core backend が `recorded_date` (書込時の JST 今日) で絞るのと
+ * 同じ帰属になり、backend を跨いで同じ月に同じ額が出る (`createdAtInstant` の説明参照)。
+ */
+export async function sumEarnedPointsBetween(
+	childId: ChildId,
+	startDate: string,
+	endDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const row = db
+		.select({ total: sql<number>`coalesce(sum(${pointLedger.amount}), 0)`.as('total') })
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, Number(childId)),
+				gt(pointLedger.amount, 0),
+				sql`${createdAtInstant} >= ${jstDayStart(startDate)}`,
+				sql`${createdAtInstant} < ${jstDayStart(addDaysJST(endDate, 1))}`,
+			),
+		)
+		.get();
+	return Number(row?.total ?? 0);
+}
+
 /** テナントの全ポイント台帳を削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(pointLedger).run();
 }
 
 /**
- * 指定した子供の `created_at < cutoffDate` に該当する point_ledger を削除する。
- * cutoffDate は `YYYY-MM-DD` 形式。point_ledger.created_at は ISO timestamp 形式
- * (`YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SSZ`) で格納されているが、いずれも先頭の
- * 日付部分が辞書順で比較できるため、`created_at < cutoffDate` で安全に境界判定できる
- * （cutoffDate 当日は削除対象に含めない）。
+ * 指定した子供の、`cutoffDate` (JST 暦日) の 0:00 より前に記録された point_ledger を削除する
+ * (cutoffDate 当日は削除対象に含めない)。
+ *
+ * cutoffDate は `getHistoryCutoffDate` が返す **JST 当日境界** なので、境界も JST 深夜 0:00 の
+ * 瞬間として解釈する (`createdAtInstant` の説明参照)。UTC の暦日で切ると cutoffDate 当日の
+ * JST 00:00〜09:00 に記録された明細を 1 日早く消してしまう — DSQL 側で #3593 ② が
+ * 「#729 retention 監査契約違反」として直したのと同じずれ。
  * #717, #729
  */
 export async function deletePointLedgerBeforeDate(
@@ -130,7 +178,12 @@ export async function deletePointLedgerBeforeDate(
 ): Promise<number> {
 	const result = db
 		.delete(pointLedger)
-		.where(and(eq(pointLedger.childId, Number(childId)), lt(pointLedger.createdAt, cutoffDate)))
+		.where(
+			and(
+				eq(pointLedger.childId, Number(childId)),
+				sql`${createdAtInstant} < ${jstDayStart(cutoffDate)}`,
+			),
+		)
 		.run();
 	return result.changes;
 }
