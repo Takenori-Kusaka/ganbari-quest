@@ -148,6 +148,53 @@ describe('trial-notification-service', () => {
 			expect(result?.notifications).toEqual(['trial_ended_today']);
 		});
 
+		// #4707: トライアル中に本契約した顧客 (licenseStatus=ACTIVE) に終了予告 / 当日メールを送らない。
+		// 契約状態は tenant 行 (stripe_subscription_id + status) から導出し、getTrialStatus に渡す。
+		it('有料契約中 (sub あり + active) の tenant は licenseStatus=active で getTrialStatus を射影し、通知なし', async () => {
+			mockFindTenantById.mockResolvedValue({
+				tenantId: 'tenant-1',
+				status: 'active',
+				stripeSubscriptionId: 'sub_paid',
+				plan: 'monthly',
+			});
+			mockGetTrialStatus.mockImplementation(async (_tenantId: string, licenseStatus?: string) => ({
+				isTrialActive: licenseStatus !== 'active',
+				trialUsed: true,
+				trialStartDate: '2026-04-13',
+				trialEndDate: '2026-04-20',
+				trialTier: 'standard',
+				daysRemaining: 0,
+				source: 'user_initiated',
+				convertedToPaid: false,
+			}));
+
+			const result = await getNotificationSchedule('tenant-1');
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'active');
+			expect(result).toBeNull();
+		});
+
+		it('未課金 (sub なし) の tenant は licenseStatus=none で getTrialStatus を呼ぶ (通知対象のまま)', async () => {
+			mockFindTenantById.mockResolvedValue({
+				tenantId: 'tenant-1',
+				status: 'active',
+				stripeSubscriptionId: null,
+				plan: null,
+			});
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-04-13',
+				trialEndDate: '2026-04-20',
+				trialTier: 'standard',
+				daysRemaining: 0,
+				source: 'user_initiated',
+			});
+
+			const result = await getNotificationSchedule('tenant-1');
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'none');
+			expect(result?.notifications).toEqual(['trial_ended_today']);
+		});
+
 		it('残り5日の場合は通知なし (null)', async () => {
 			mockGetTrialStatus.mockResolvedValue({
 				isTrialActive: true,
@@ -294,6 +341,8 @@ describe('trial-notification-service', () => {
 			const result = await getTrialExpirationInfo('tenant-1', 'active');
 			expect(result.isExpired).toBe(false);
 			expect(result.showExpirationModal).toBe(false);
+			// #4707: licenseStatus を getTrialStatus にも渡し、契約中はトライアル中扱いしない射影を共有する
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'active');
 		});
 
 		it('トライアル終了後の初回ログインでモーダル表示', async () => {

@@ -3,7 +3,8 @@ import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
 // #2458-B: sibling-challenge-service (legacy) → child-challenge-service (per-child instance) 移行
-import { getActiveChildChallengesWithSiblings } from '$lib/server/services/child-challenge-service';
+// #4688: 達成タブは「受取済みを含む履歴」を読む (active + 未請求だけの一覧を流用しない)
+import { getChildChallengeRecords } from '$lib/server/services/child-challenge-service';
 import { applyRetentionFilter, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForChild } from '$lib/server/services/reward-redemption-service';
 import { getTenantValuePreview } from '$lib/server/services/value-preview-service';
@@ -68,7 +69,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getActiveChildChallengesWithSiblings(child.id, tenantId),
+			getChildChallengeRecords(child.id, tenantId),
 			getRedemptionRequestsForChild(child.id, tenantId),
 			getTenantValuePreview(tenantId),
 		]);
@@ -78,24 +79,8 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 			? activityResult.value
 			: { logs: [], summary: { totalCount: 0, totalPoints: 0, byCategory: {} } };
 
-	const achievements =
-		achievementsResult.status === 'fulfilled'
-			? achievementsResult.value.map((c) => {
-					// #2458-B: per-child instance ベース。self instance の progress を直接読む
-					// (siblings[] は同 group の兄弟比較用、history では allCompleted のみ参照)。
-					return {
-						id: c.id,
-						title: c.title,
-						challengeType: c.challengeType,
-						startDate: c.startDate,
-						endDate: c.endDate,
-						completed: c.completed === 1,
-						allCompleted: c.allCompleted,
-						currentValue: c.currentValue,
-						targetValue: c.targetValue,
-					};
-				})
-			: [];
+	// #4688: 受取済み (rewardClaimed) も含む達成履歴。claim した瞬間に消えないこと (F1)
+	const achievements = achievementsResult.status === 'fulfilled' ? achievementsResult.value : [];
 
 	const purchases =
 		purchasesResult.status === 'fulfilled'

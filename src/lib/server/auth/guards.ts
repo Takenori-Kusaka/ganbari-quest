@@ -14,6 +14,25 @@ export function requireTenantId(locals: App.Locals): string {
 }
 
 /**
+ * 認証済みルートから **アプリ DB の `users.user_id`** を取得する (#4643)。
+ *
+ * `locals.identity.userId` は IdP (Cognito) の sub であり `users.user_id` ではない。
+ * memberships / invites / children / consents はすべて後者を参照するため、sub を渡すと
+ * 一致するレコードが無く「削除したのに消えない」「本人判定が効かない」が静かに起きる。
+ * 取り違えを型と実行時の両方で塞ぐため、DB を触る route は必ず本関数から取る。
+ *
+ * cognito 系 provider のみ `context.userId` を発行する。local / anonymous は users 行を
+ * 持たないため 401 にする (fail-closed。sub へのフォールバックは作らない)。
+ */
+export function requireAppUserId(locals: App.Locals): string {
+	const userId = locals.context?.userId;
+	if (!userId) {
+		throw error(401, 'Unauthorized');
+	}
+	return userId;
+}
+
+/**
  * child ロールの場合、指定された childId が自分のものであるかチェック。
  * owner/parent は常に許可。child は context.childId と一致しなければ 403。
  */
