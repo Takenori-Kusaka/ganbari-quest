@@ -15,28 +15,24 @@ import {
 } from '$lib/domain/validation/auth';
 import { requireAppUserId } from '$lib/server/auth/guards';
 import { getInvite } from '$lib/server/services/invite-service';
+import type { RelocationBlockedReason } from '$lib/server/services/tenant-relocation-service';
 import {
 	checkRelocationEligibility,
-	type RelocationBlockedReason,
 	relocateToInvitedTenant,
 } from '$lib/server/services/tenant-relocation-service';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * #4642: 引っ越し合流ができない理由ごとの次アクション案内。
- *
- * 「ログアウトして踏み直す」では解決しない理由 (他メンバーが居る / owner でない) を
- * 取り違えないよう、理由 → 文言の対応を 1 箇所に置く。表に無い理由 (`NO_CURRENT_TENANT` /
- * `null`) は文脈ごとに意味が違うので、呼び出し側の `fallback` に落とす。
+ * 引っ越しできない理由 → 次アクション付きの案内文 (#4642)。
+ * `Record` にしているので、理由を増やして文言を足し忘れると型エラーになる
+ * (無説明の dead-end を作らない)。
  */
-function relocationBlockedDesc(
-	blockedReason: RelocationBlockedReason | null,
-	fallback: string,
-): string {
-	if (blockedReason === 'HAS_OTHER_MEMBERS') return INVITE_RELOCATION_LABELS.blockedHasOtherMembers;
-	if (blockedReason === 'NOT_OWNER') return INVITE_RELOCATION_LABELS.blockedNotOwner;
-	return fallback;
-}
+const RELOCATION_BLOCKED_MESSAGES: Record<RelocationBlockedReason, string> = {
+	HAS_OTHER_MEMBERS: INVITE_RELOCATION_LABELS.blockedHasOtherMembers,
+	HAS_CHILDREN: INVITE_RELOCATION_LABELS.blockedHasChildren,
+	NOT_OWNER: INVITE_RELOCATION_LABELS.blockedNotOwner,
+	NO_CURRENT_TENANT: AUTH_INVITE_LABELS.alreadyInTenantDesc,
+};
 
 export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	const { code } = params;
@@ -109,12 +105,10 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
 			// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
 			// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
-			// #4642: 引っ越せない理由 (他メンバーが居る / owner でない) は、その理由ごとの
+			// #4642: 引っ越せない理由 (他メンバーが居る / 子供が居る / owner でない) は、その理由ごとの
 			// 次アクションを出す (「ログアウトして踏み直す」では解決しないため)。
-			const errorDesc = relocationBlockedDesc(
-				eligibility.blockedReason,
-				AUTH_INVITE_LABELS.alreadyInTenantDesc,
-			);
+			const errorDesc =
+				RELOCATION_BLOCKED_MESSAGES[eligibility.blockedReason ?? 'NO_CURRENT_TENANT'];
 			return {
 				valid: false as const,
 				relocation: false as const,
@@ -192,7 +186,9 @@ export const actions: Actions = {
 			const message =
 				'acceptError' in result
 					? getInviteJoinBlockedMessage(result.acceptError)
-					: relocationBlockedDesc(result.blockedReason, INVITE_RELOCATION_LABELS.failed);
+					: result.blockedReason === 'NO_CURRENT_TENANT'
+						? INVITE_RELOCATION_LABELS.failed
+						: RELOCATION_BLOCKED_MESSAGES[result.blockedReason];
 			return fail(400, { relocateError: message });
 		}
 
