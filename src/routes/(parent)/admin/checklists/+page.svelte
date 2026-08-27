@@ -887,12 +887,14 @@ function getChildName(childId: ChildId): string {
 			addButtonLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuButton}
 			addMenuAriaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuAriaLabel}
 			addMenuTestid="checklists-add-menu"
+			addMenuDataTutorial="checklists-add-menu"
 		>
 			{#snippet overflowSnippet()}
 				<OverflowMenu
 					items={overflowItems}
 					ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
 					testid="checklists-overflow-menu"
+					dataTutorial="checklists-overflow-menu"
 				/>
 			{/snippet}
 		</AdminResourceHeader>
@@ -911,6 +913,7 @@ function getChildName(childId: ChildId): string {
 		<div
 			class="child-tab-row"
 			data-testid="admin-checklists-child-tabs"
+			data-tutorial="checklists-child-tabs"
 			role="tablist"
 			aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.childTabsAriaLabel}
 		>
@@ -1063,7 +1066,9 @@ function getChildName(childId: ChildId): string {
 			</Card>
 		{/if}
 
-		{#each filteredTemplates as template (template.id)}
+		{#each filteredTemplates as template, ti (template.id)}
+			<!-- data-tutorial: 先頭カードだけをページガイド (#4657) の spotlight 対象にする -->
+			<div data-tutorial={ti === 0 ? 'checklist-card-first' : undefined}>
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<!-- Template header -->
@@ -1229,6 +1234,7 @@ function getChildName(childId: ChildId): string {
 				</div>
 				{/snippet}
 			</Card>
+			</div>
 		{/each}
 		</div>
 
@@ -1238,6 +1244,8 @@ function getChildName(childId: ChildId): string {
 
 		<!-- Today's overrides (slot 8、補助セクション — 一覧の下、(B) checklist 固有の日次 override) -->
 		{#if selectedChild.overrides.length > 0}
+			<!-- data-tutorial: ページガイド (#4657) の spotlight anchor (0 件時は step ごと出ない) -->
+			<div data-tutorial="checklists-today-override">
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<div class="px-4 py-3 bg-[var(--color-feedback-warning-bg)] border-b border-[var(--color-feedback-warning-bg-strong)]">
@@ -1264,6 +1272,7 @@ function getChildName(childId: ChildId): string {
 				</div>
 				{/snippet}
 			</Card>
+			</div>
 		{/if}
 	{/if}
 </div>

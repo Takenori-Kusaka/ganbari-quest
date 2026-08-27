@@ -4,6 +4,11 @@ import { goto, invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
+	AUTO_SLEEP_ACTIVE_MS,
+	AUTO_SLEEP_BATTLE_GRACE_MS,
+	AUTO_SLEEP_INACTIVE_RESET_MS,
+} from '$lib/domain/constants/auto-sleep';
+import {
 	getModeLabels,
 	ICON_CHECKLIST,
 	ICON_HOME,
@@ -73,13 +78,10 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// #1292 自動スリープ設定
+// #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
 // 非アクティブ 1 分でタイマーリセット
 // バトル中は +2 分の grace period
-const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
-const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
-const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
