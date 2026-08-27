@@ -32,6 +32,12 @@ const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
+/**
+ * #4683: 「参照先ごほうびが存在しない」ことを表す reward_id。
+ * `special_rewards.id` は AUTOINCREMENT (1 始まり・再利用なし) のため 0 は永久に採番されない。
+ */
+const ORPHAN_REWARD_ID = 0;
+
 // #2832: 申請時点 snapshot fallback。
 // 新規行は insert 時に reward_* snapshot を保存し、編集後も「申請時点の内容 (名前/ポイント)」で
 // 表示・控除する (DynamoDB 非正規化 item と等価の仕様)。snapshot 列導入前の旧行 (NULL) は
@@ -134,7 +140,7 @@ export async function insertRedemptionRequest(
 export async function insertRedemptionForRestore(
 	input: {
 		childId: ChildId;
-		rewardId: string;
+		rewardId: string | null;
 		requestedAt: number;
 		quantity: number;
 		status: string;
@@ -153,7 +159,9 @@ export async function insertRedemptionForRestore(
 			.insert(rewardRedemptionRequests)
 			.values({
 				childId: Number(input.childId),
-				rewardId: Number(input.rewardId),
+				// #4683: null (取込先に該当ごほうびが無い) は 0 で書く。AUTOINCREMENT は 0 を採番
+				// しないため、別のごほうびを指してしまうことはない。表示は snapshot 列が担う。
+				rewardId: input.rewardId === null ? ORPHAN_REWARD_ID : Number(input.rewardId),
 				requestedAt: input.requestedAt,
 				quantity: normalizeRedemptionQuantity(input.quantity),
 				status: input.status,

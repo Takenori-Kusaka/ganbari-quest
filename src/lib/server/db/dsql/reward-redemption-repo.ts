@@ -48,6 +48,12 @@ const REQUEST_COLUMNS = sql.raw(
 	 resolved_at, resolved_by_parent_id, shown_to_child_at`,
 );
 
+/**
+ * #4683: 「参照先ごほうびが存在しない」ことを表す reward_id (nil UUID)。
+ * `gen_random_uuid()` は nil UUID を返さないため、別のごほうびを指すことはない。
+ */
+const ORPHAN_REWARD_ID = '00000000-0000-0000-0000-000000000000';
+
 /** epoch 秒 (entity) → timestamptz ISO 文字列 (DSQL 格納)。 */
 function epochToIso(sec: number): string {
 	return new Date(sec * 1000).toISOString();
@@ -153,12 +159,15 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 
 		async insertRedemptionForRestore(input, tenantId) {
 			// #3329: status / 解決情報 / snapshot を verbatim 書き戻す (live reward 参照しない)。
+			// #4683: rewardId=null (取込先に該当ごほうびが無い) は nil UUID で書く。
+			// gen_random_uuid() は nil UUID を返さないため、別のごほうびを指すことはない。
+			const rewardId = input.rewardId ?? ORPHAN_REWARD_ID;
 			const result = await db.execute(sql`
 				INSERT INTO reward_redemption_requests
 					(family_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 					 resolved_at, resolved_by_parent_id, shown_to_child_at,
 					 reward_title, reward_points, reward_icon)
-				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
+				VALUES (${tenantId}, ${input.childId}, ${rewardId}, ${epochToIso(input.requestedAt)},
 					${normalizeRedemptionQuantity(input.quantity)}, ${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
 					${normalizeResolvedByParentId(input.resolvedByParentId)},

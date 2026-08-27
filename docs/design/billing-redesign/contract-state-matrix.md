@@ -183,6 +183,8 @@ W4（`past_due` の updated）を送る。retry ごとに `now + 7d` を書き�
 | W1 `checkout.session.completed`（reconcile 経由を含む） | `stripe-service.ts` `closeTrialOnPaidContract` → `trial-service.ts` `endTrialOnConversion` | 最新 trial 行に `stripe_subscription_id` / `upgrade_reason` を記録。trial が有効（JST 暦日で `end_date ≥ 今日`）なら `end_date = 今日`。終了済みなら `end_date` は触らない |
 | W2 `invoice.paid`（現行契約に適用されたときだけ） | 同上 | 同上（W1 未達時の救済。同一 subscription で移行済みなら no-op） |
 
+**同じ契機で archive を復元する（#4708）**: W1 / W2 と、W4 `customer.subscription.updated` で `status=active` に書いたとき、`stripe-service.ts` `restoreArchivedResourcesForPaidContract` → `resource-archive-service.ts` `restoreArchivedResources` で、無料プランの上限により archive されたお子さま / 活動 / チェックリストを全 reason について復元する（S1 / S5 → S2、S3 / S4 → S2 のいずれも）。`past_due` / `unpaid` / `paused` / 終端では復元しない。復元対象が無ければ no-op（冪等）。trial 行の閉鎖と同様、失敗しても webhook を 500 にしない。
+
 規則:
 
 - **移行済み（`stripe_subscription_id` あり）の trial 行は `end_date` に関わらず終了扱い**（`isTrialActive=false`、`trialUsed=true`）。`findActiveTrials`（終了予告 cron の対象抽出）も除外する

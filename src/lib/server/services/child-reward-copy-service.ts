@@ -34,8 +34,12 @@ export interface CopyChildRewardsContext {
 export interface CopyChildRewardsResult {
 	/** 各 target child に作成された SpecialReward 件数の合計 */
 	totalCopied: number;
+	/** #4694: target に同じ title が既にあり skip した件数の合計 */
+	totalSkipped: number;
 	/** target child 別のコピー件数 (UI feedback 用) */
 	byTargetChild: Record<string, number>;
+	/** #4694: target child 別の skip 件数 (UI feedback 用) */
+	skippedByTargetChild: Record<string, number>;
 	/** 個別エラー (target child 単位、tenant 違反 / 親が存在しない等) */
 	errors: { targetChildId: ChildId; message: string }[];
 }
@@ -56,8 +60,10 @@ export async function copyChildRewardsToSiblings(
 	const { tenantId, sourceChildId, targetChildIds } = ctx;
 
 	const byTargetChild: Record<string, number> = {};
+	const skippedByTargetChild: Record<string, number> = {};
 	const errors: { targetChildId: ChildId; message: string }[] = [];
 	let totalCopied = 0;
+	let totalSkipped = 0;
 
 	// 同一 child への self-copy は明示的に拒否 (誤操作防止)
 	const targets = targetChildIds.filter((id) => id !== sourceChildId);
@@ -76,7 +82,13 @@ export async function copyChildRewardsToSiblings(
 		logger.info('[child-reward-copy-service] コピー元に reward が存在しないため skip', {
 			context: { tenantId, sourceChildId },
 		});
-		return { totalCopied: 0, byTargetChild: {}, errors: [] };
+		return {
+			totalCopied: 0,
+			totalSkipped: 0,
+			byTargetChild: {},
+			skippedByTargetChild: {},
+			errors: [],
+		};
 	}
 
 	for (const targetChildId of targets) {
@@ -85,8 +97,13 @@ export async function copyChildRewardsToSiblings(
 			const existing = await findSpecialRewards(targetChildId, tenantId);
 			const existingTitles = new Set(existing.map((r) => r.title));
 			let copiedForTarget = 0;
+			// #4694: skip 件数も返して「N 件コピー / M 件は既にあるためスキップ」を UI に出す。
+			let skippedForTarget = 0;
 			for (const r of sourceRewards) {
-				if (existingTitles.has(r.title)) continue;
+				if (existingTitles.has(r.title)) {
+					skippedForTarget++;
+					continue;
+				}
 				await insertSpecialReward(
 					{
 						childId: targetChildId,
@@ -107,7 +124,9 @@ export async function copyChildRewardsToSiblings(
 				copiedForTarget++;
 			}
 			byTargetChild[targetChildId] = copiedForTarget;
+			skippedByTargetChild[targetChildId] = skippedForTarget;
 			totalCopied += copiedForTarget;
+			totalSkipped += skippedForTarget;
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			errors.push({ targetChildId, message: msg });
@@ -123,24 +142,25 @@ export async function copyChildRewardsToSiblings(
 			sourceChildId,
 			targetCount: targets.length,
 			totalCopied,
+			totalSkipped,
 			errorCount: errors.length,
 		},
 	});
 
-	return { totalCopied, byTargetChild, errors };
+	return { totalCopied, totalSkipped, byTargetChild, skippedByTargetChild, errors };
 }
 
 /**
  * 単一 target に対する copy。`copyChildRewardsToSiblings` の 1 件版 (UI 簡易 wrapper)。
  *
- * @returns 作成された SpecialReward 件数
+ * @returns コピーした件数と、重複 (同 title) で skip した件数 (#4694)
  * @throws Error - tenant 違反 / target child が存在しない / self-copy 等の検証失敗時
  */
 export async function copyChildRewardsToSibling(
 	tenantId: string,
 	sourceChildId: ChildId,
 	targetChildId: ChildId,
-): Promise<number> {
+): Promise<{ copied: number; skipped: number }> {
 	if (sourceChildId === targetChildId) {
 		throw new Error('同じお子さまにはコピーできません');
 	}
@@ -153,5 +173,5 @@ export async function copyChildRewardsToSibling(
 		const first = result.errors[0];
 		throw new Error(first?.message ?? 'コピーに失敗しました');
 	}
-	return result.totalCopied;
+	return { copied: result.totalCopied, skipped: result.totalSkipped };
 }
