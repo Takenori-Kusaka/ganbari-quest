@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
+import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
@@ -20,8 +21,12 @@ interface Props {
 			daysRemaining: number;
 			trialUsed: boolean;
 		};
+		// #4708: 無料プランの上限で archive 中の 3 資源の件数 (+layout.server.ts が配布)
 		archivedSummary?: {
 			archivedChildCount: number;
+			archivedActivityCount: number;
+			archivedChecklistTemplateCount: number;
+			totalCount: number;
 			hasArchivedResources: boolean;
 		};
 		// #2821: setup 由来遷移 (`?from=setup`) 時のみ非 null
@@ -90,6 +95,13 @@ $effect(() => {
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
 			<TrialBanner isTrialActive={trial.isTrialActive} daysRemaining={trial.daysRemaining} />
+		</div>
+	{/if}
+	<!-- #4708: 無料プランの上限で archive 中のお子さま / 活動 / チェックリストの告知 (件数 + プラン導線)。
+	     FAQ / pricing「削除されず、管理画面で確認でき、有料プランで元に戻る」を画面で成立させる -->
+	{#if data.archivedSummary?.hasArchivedResources}
+		<div style:margin-bottom="16px">
+			<ArchivedResourceBanner summary={data.archivedSummary} basePath="/admin" />
 		</div>
 	{/if}
 	{@render children()}

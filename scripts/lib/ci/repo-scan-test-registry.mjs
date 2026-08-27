@@ -81,6 +81,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
 	},
+	'tests/unit/architecture/plan-limits-field-enforcement.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の .ts / .svelte を glob し、PlanLimits の全フィールドが production code から実際に参照されているかを検査する (#4584)。参照ゼロ = 有料の根拠として売っている機能にゲートが掛かっていない状態',
+	},
 	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下の +page.svelte を走査し、AI 提案パネルの isFamily 導出が共有述語 isAiSuggestUnlocked() を経由しているかを検査する (#4506 AC5)',
