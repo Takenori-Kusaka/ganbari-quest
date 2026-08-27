@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { PIN_LENGTH } from '../../../src/lib/domain/constants/oyakagi';
 import {
 	isValidPinFormat,
 	PIN_LENGTH,
