@@ -3,9 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
-import { CATEGORIES } from './categories';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
-import { CATEGORY_NAME_LIST } from './categories';
+import { CATEGORIES, CATEGORY_NAME_LIST } from './categories';
 import {
 	CERTIFICATE_LEVEL_MILESTONES,
 	MONTHLY_HABIT_DAYS_THRESHOLD,
