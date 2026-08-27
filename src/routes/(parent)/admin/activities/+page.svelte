@@ -572,6 +572,7 @@ function selectChild(childId: ChildId) {
 		<div
 			class="child-tab-row"
 			data-testid="admin-activities-child-tabs"
+			data-tutorial="activities-child-tabs"
 			role="tablist"
 			aria-label={ADMIN_ACTIVITIES_PAGE_LABELS.childTabsAriaLabel}
 		>
@@ -686,9 +687,13 @@ function selectChild(childId: ChildId) {
 	<!-- #2902 Phase A: 活動一覧（メインコンテンツ）— 選択中 child の per-child instance を
 	     単一表示。全行が ActivityListItem (編集 / 表示切替 / メインクエスト / 削除のフル CRUD)。
 	     旧 per-child read-only badge 行 + family master 並存表示は撤去 (二重表示 / 件数水増し解消)。 -->
+	<!-- #4654 AC6: 章立てチュートリアル専用の data-tutorial="activity-list" は撤去。
+	     ❓ ページガイド (#4655) は先頭カードの activity-card-first を spotlight する。 -->
 	<div class="space-y-1" data-testid="admin-activities-list">
-		{#each filteredActivities as activity (activity.id)}
-			<div data-testid="per-child-activity-{activity.id}">
+		{#each filteredActivities as activity, i (activity.id)}
+			<!-- data-tutorial: 先頭カードだけをページガイド (#4655) の spotlight 対象にする (一覧全体 864×2705 を
+			     target にすると bubble を置く余地が無い、DESIGN.md / 06-UI設計書 §4.13.1「巨大コンテナを target にしない」) -->
+			<div data-testid="per-child-activity-{activity.id}" data-tutorial={i === 0 ? 'activity-card-first' : undefined}>
 				<ActivityListItem
 					{activity}
 					mainQuestCount={data.mainQuestCount ?? 0}

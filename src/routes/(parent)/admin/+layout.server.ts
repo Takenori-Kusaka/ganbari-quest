@@ -23,6 +23,7 @@ import {
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	archiveExcessResources,
+	EMPTY_ARCHIVED_RESOURCE_SUMMARY,
 	getArchivedResourceSummary,
 } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
@@ -150,9 +151,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// #783: archive 済みリソースの概要（UI 表示用）。
 	// #4585-2: 起動条件と同じ述語で判定する。ここだけ体験基準のままだと、解約した顧客に
 	// 「アーカイブしました」の告知が出ないまま archive だけが進む。
+	// #4708: 3 資源の件数を配り、ArchivedResourceBanner (全 admin 画面) と /admin/children の
+	// archive 一覧の表示条件にする。
 	const archivedSummary = revertedToFreePlan
 		? await getArchivedResourceSummary(tenantId)
-		: { archivedChildCount: 0, hasArchivedResources: false };
+		: EMPTY_ARCHIVED_RESOURCE_SUMMARY;
 
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
