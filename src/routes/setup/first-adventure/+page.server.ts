@@ -4,6 +4,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asChildId } from '$lib/domain/ids';
+import { SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
 import { getChildActivities } from '$lib/server/services/activity-service';
@@ -54,13 +55,13 @@ export const actions: Actions = {
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
-			return fail(400, { error: '活動を選択してください' });
+			return fail(400, { error: SETUP_FIRST_ADVENTURE_LABELS.errorActivityRequired });
 		}
 
 		const result = await recordActivity(childId, activityId, tenantId);
 
 		if ('error' in result) {
-			return fail(400, { error: '記録に失敗しました。もう一度お試しください。' });
+			return fail(400, { error: SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed });
 		}
 
 		trackSetupFunnel('setup_first_adventure_completed', tenantId, {
