@@ -1,12 +1,12 @@
 /**
  * scripts/capture-specs/flows/members-packs-guide-3268.mjs
- * PR #3268 (#3260 C4): /admin/members と /admin/packs の ? ページガイド overlay を撮影。
- * env GUIDE_TARGET=members|packs で対象切替（既定 members）。
+ * PR #3268 (#3260 C4): /admin/members の ? ページガイド overlay を撮影。
+ * (#4691: /admin/packs はページごと撤去したため対象は members のみ。file 名は履歴互換で維持。)
  */
 import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
-const TARGET = process.env.GUIDE_TARGET === 'packs' ? 'packs' : 'members';
+const TARGET = 'members';
 
 export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/admin/${TARGET}`);

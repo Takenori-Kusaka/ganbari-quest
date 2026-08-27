@@ -29,6 +29,8 @@ vi.mock('$lib/server/storage', () => ({
 }));
 vi.mock('$lib/server/storage-keys', () => ({
 	tenantPrefix: (tenantId: string) => `t/${tenantId}/`,
+	// #4720: 置換インポートの復旧用 ZIP (recovery/) は backup 収集から除外される
+	RECOVERY_PREFIX_SEGMENT: 'recovery/',
 }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -246,6 +248,28 @@ describe('buildFullBackupZip (#3376 AC8)', () => {
 		]);
 		expect(res.value.staticFiles['avatars/1/a.png']).toEqual(avatarBytes);
 		expect(res.value.staticFiles['voices/1/v.webm']).toEqual(voiceBytes);
+	});
+
+	it('#4720: 置換インポートの復旧用 ZIP (recovery/) は同梱しない (backup の入れ子防止)', async () => {
+		const avatarBytes = new Uint8Array([1, 2, 3]);
+		mockListFiles.mockResolvedValue([
+			't/T1/avatars/1/a.png',
+			't/T1/recovery/replace-import-2026-08-20T00-00-00-000Z.zip',
+		]);
+		mockReadFile.mockImplementation(async (key: string) => {
+			if (key.endsWith('a.png')) return { data: Buffer.from(avatarBytes) };
+			// recovery ZIP を読もうとしたら除外漏れ (読ませない)
+			return { data: Buffer.from(new Uint8Array([9, 9, 9])) };
+		});
+
+		const zip = await buildFullBackupZip('T1', SAMPLE_EXPORT, false);
+		const res = await parseBackupZip(zip);
+		expect(res.ok).toBe(true);
+		if (!res.ok) return;
+		expect(Object.keys(res.value.staticFiles)).toEqual(['avatars/1/a.png']);
+		expect(mockReadFile).not.toHaveBeenCalledWith(
+			't/T1/recovery/replace-import-2026-08-20T00-00-00-000Z.zip',
+		);
 	});
 
 	it('静的ファイル取得失敗時は JSON のみで graceful degrade (round-trip 可)', async () => {

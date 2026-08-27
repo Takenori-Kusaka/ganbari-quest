@@ -133,7 +133,15 @@ const mockLocals = { authenticated: false, identity: null, context: null };
  */
 function createConfirmEvent(formData: Record<string, string>) {
 	return {
-		request: createRequest(formData),
+		request: createRequest({
+			// #4497: 確認ステップは signup フォームで得た同意 3 種を hidden で持ち回る
+			// (consent を実際に記録するのは confirm 側なので、そこでも server 検証している)。
+			// 既定は「持ち回れている」状態とし、欠落ケースは個別テストで明示的に上書きする。
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
+			...formData,
+		}),
 		cookies: createMockCookies(),
 		locals: mockLocals,
 		getClientAddress: () => '127.0.0.1',
@@ -158,6 +166,26 @@ describe('signup action', () => {
 		expect(result.data.error).toContain('同意が必要');
 	});
 
+	// #4497 GAMMA-SC-01: 越境移転同意 (§28) は client 側の submit 制御だけで、server は
+	// 検証していなかった。JS 無効 / 直接 POST では同意なしで登録が成立してしまう。
+	it('越境移転同意なしで 400 エラーを返す（直接 POST / JS 無効を想定）', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({
+			email: 'test@example.com',
+			password: 'Password1',
+			passwordConfirm: 'Password1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
+			// agreedCrossBorder を送らない
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('同意が必要');
+		expect(mockSignUp).not.toHaveBeenCalled();
+	});
+
 	it('空のフィールドで 400 エラーを返す', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
 		const request = createRequest({
@@ -166,6 +194,7 @@ describe('signup action', () => {
 			passwordConfirm: '',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -182,6 +211,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Different1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -198,6 +228,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Short1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -216,6 +247,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -239,6 +271,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -270,6 +303,25 @@ describe('confirm action', () => {
 			userId: 'cognito-user-id-123',
 		});
 	}
+
+	// #4497: consent を実際に記録するのは confirm アクション。同意の主張が届いていないまま
+	// 記録だけ走る経路を作らないため、確認コード検証より前に落とす。
+	it('越境移転同意が届いていない場合は確認コード検証より前に 400 を返す', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			agreedCrossBorder: '',
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.confirm as any)(event);
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('同意が必要');
+		expect(mockConfirmSignUp).not.toHaveBeenCalled();
+		expect(mockRecordConsent).not.toHaveBeenCalled();
+	});
 
 	it('email/code が空の場合 400 エラーを返し confirmStep を維持', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -336,7 +388,7 @@ describe('confirm action', () => {
 		expect(mockRecordConsent).toHaveBeenCalledWith(
 			'tenant-abc',
 			'cognito-user-id-123',
-			['terms', 'privacy'],
+			['terms', 'privacy', 'cross-border'],
 			'127.0.0.1',
 			'test-ua',
 		);

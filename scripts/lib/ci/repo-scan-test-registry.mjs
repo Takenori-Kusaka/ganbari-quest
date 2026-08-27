@@ -53,6 +53,14 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/services/plan-limit-check-null-type-hole.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下を再帰 walk し、プラン上限メッセージ本文が labels.ts SSOT を経由せず直書きに戻っていないかを検査する (#4622)。直書きに戻ると `max: number` の関門が消え、上限メッセージに null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/services/trial-status-null-type-hole.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下を再帰 walk し、trial 状態 (flag + 期限 / ティア) を route で手で組み直していないかを検査する (#4628)。手組みすると discriminated union の相関が推論から消え、画面側の narrowing が効かなくなって期限表示に null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
+	},
 	'tests/unit/arch/no-direct-db-access.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
@@ -60,6 +68,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
 		scope: 'repo',
 		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
+	},
+	'tests/unit/architecture/unreachable-script-export-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs と .claude/hooks/*.mjs を TypeScript parser で AST 化し、entry / registry から到達しない export された判定関数を検出する (#4623)',
 	},
 	'tests/unit/architecture/setup-route-role-guard-fitness.test.ts': {
 		scope: 'repo',

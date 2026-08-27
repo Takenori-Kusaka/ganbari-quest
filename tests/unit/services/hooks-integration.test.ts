@@ -484,4 +484,67 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(event.locals.context).toBeNull();
 		});
 	});
+	// ── #4497: 同意 gate の適用範囲 ──────────────────────────────────
+	//
+	// CURRENT_PRIVACY_VERSION の bump によって、この gate は本 PR で初めて実際に発火する
+	// (それまでは誰も needsReconsent にならず潜在していた)。誰が再同意画面に流されるのかを
+	// 固定しておかないと、子供まで法務文書に突き当たる事故が silent に混入する。
+	describe('#4497 同意 gate の適用範囲', () => {
+		function setupCognito(role: AuthContext['role']) {
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' } as Identity);
+			mockResolveContext.mockResolvedValue({
+				tenantId: 't-1',
+				role,
+				licenseStatus: 'none',
+			} as AuthContext);
+			mockAuthorize.mockReturnValue({ allowed: true });
+			mockCheckConsent.mockResolvedValue({
+				needsReconsent: true,
+				termsAccepted: true,
+				privacyAccepted: false,
+				crossBorderAccepted: false,
+			});
+		}
+
+		it('保護者 (owner) が再同意対象なら /consent へリダイレクトされる', async () => {
+			setupCognito('owner');
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/consent');
+			}
+		});
+
+		// 同意主体は保護者 (privacy.html 第9条)。子供に法務文書のチェックボックスを操作させると
+		// 同意を得る相手を間違えるうえ、同意後は行き場のない /admin へ飛ばされる。
+		it('子供セッションは再同意対象でも子供画面のまま通す (法務文書へ飛ばさない)', async () => {
+			setupCognito('child');
+			const event = createMockEvent('/preschool/home');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
+
+			expect(response.status).toBe(200);
+			expect(resolve).toHaveBeenCalled();
+		});
+
+		it('子供セッションでは checkConsent 自体を呼ばない (無駄な read も出さない)', async () => {
+			setupCognito('child');
+			const event = createMockEvent('/elementary/home');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await handle({ event, resolve } as any);
+
+			expect(mockCheckConsent).not.toHaveBeenCalled();
+		});
+	});
 });

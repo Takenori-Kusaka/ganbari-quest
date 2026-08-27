@@ -16,6 +16,7 @@ import {
 	PRESET_CHALLENGES,
 	resolvePresetChallengeDates,
 } from '$lib/data/preset-challenges';
+import { SETUP_CHALLENGES_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	buildPerChildTargets,
@@ -76,13 +77,13 @@ async function addPresetsAsChallenges(
 	const childIds = children.map((c) => c.id);
 	if (childIds.length === 0) {
 		// guard: 上流 load() で /setup/children へ redirect 済のため通常は到達しない
-		return { added: 0, errors: ['お子さまが登録されていません'] };
+		return { added: 0, errors: [SETUP_CHALLENGES_LABELS.errorNoChildren] };
 	}
 
 	for (const id of presetIds) {
 		const preset = getPresetChallengeById(id);
 		if (!preset) {
-			errors.push(`プリセット「${id}」が見つかりません`);
+			errors.push(SETUP_CHALLENGES_LABELS.errorPresetNotFound(id));
 			continue;
 		}
 		try {
@@ -127,7 +128,10 @@ async function addPresetsAsChallenges(
 			if (created.length > 0) added++;
 		} catch (e) {
 			errors.push(
-				`「${preset.title}」の追加に失敗: ${e instanceof Error ? e.message : 'unknown error'}`,
+				SETUP_CHALLENGES_LABELS.errorAddFailed(
+					preset.title,
+					e instanceof Error ? e.message : 'unknown error',
+				),
 			);
 		}
 	}
