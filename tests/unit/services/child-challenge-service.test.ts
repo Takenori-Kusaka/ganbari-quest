@@ -88,6 +88,7 @@ import {
 	createChildChallengesBulk,
 	getActiveChildChallengesWithSiblings,
 	getChallengeGroupsForAdmin,
+	getChildChallengeRecords,
 	getLastWeekStart,
 	getOrCreateWeeklyChildChallenge,
 	getWeekStart,
@@ -1352,6 +1353,65 @@ describe('#4410 達成祝福の「見せた」記録', () => {
 			expect(ok).toBe(false);
 			expect(mockMarkCelebrationShown).not.toHaveBeenCalled();
 		});
+	});
+});
+
+// #4688 (F1): 「記録 > 達成」タブは受取済みも含む履歴を読む
+describe('getChildChallengeRecords (達成履歴、#4688)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const row = (over: Record<string, unknown>) => ({
+		id: '1',
+		childId: asChildId(902),
+		title: 'うんどう 3 かい',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: '2026-08-10',
+		endDate: '2026-08-16',
+		targetConfig: '{"metric":"count","categoryId":1,"baseTarget":3}',
+		rewardConfig: '{"points":30}',
+		status: 'completed',
+		isActive: 1,
+		currentValue: 3,
+		targetValue: 3,
+		completed: 1,
+		completedAt: '2026-08-15',
+		rewardClaimed: 1,
+		rewardClaimedAt: '2026-08-15',
+		...over,
+	});
+
+	it('ほうしゅう受取済み (rewardClaimed=1) のチャレンジも履歴に残る', async () => {
+		mockFindByChildId.mockResolvedValueOnce([row({})]);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT);
+
+		expect(records).toHaveLength(1);
+		expect(records[0]).toMatchObject({
+			id: '1',
+			title: 'うんどう 3 かい',
+			completed: true,
+			rewardClaimed: true,
+			currentValue: 3,
+			targetValue: 3,
+		});
+		// 履歴クエリ (findByChildId) を使う。active + 未請求だけの一覧は使わない
+		expect(mockFindByChildId).toHaveBeenCalledWith(asChildId(902), TENANT);
+		expect(mockFindActiveOrUnclaimedByChildId).not.toHaveBeenCalled();
+	});
+
+	it('新しい週から順に並び、limit で打ち切る', async () => {
+		mockFindByChildId.mockResolvedValueOnce([
+			row({ id: '1', startDate: '2026-08-03' }),
+			row({ id: '2', startDate: '2026-08-17' }),
+			row({ id: '3', startDate: '2026-08-10' }),
+		]);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, 2);
+
+		expect(records.map((r) => r.id)).toEqual(['2', '3']);
 	});
 });
 

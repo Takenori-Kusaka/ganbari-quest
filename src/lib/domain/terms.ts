@@ -54,6 +54,7 @@ import {
 	formatMemberCount,
 	invitesAllowedFrom,
 } from './constants/family-member-limit';
+import { PIN_LENGTH } from './constants/oyakagi';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -176,6 +177,11 @@ export const TRIAL_TERMS = {
 //   - anytimeOk    : 'いつでも解約できます（契約期間の縛りなし）' (#1904 PERS-CRT-5)
 //   - account      : '退会' （契約の意味の「解約」と区別したアカウント削除文脈の名詞）
 //                   → 法務文書整合で「退会」用語を維持しつつ atom 経由参照を担保
+//   - confirmPhrase: 'アカウントを削除します' （不可逆操作の実行前に本人が打つ確認語、#4642）
+//                   → 家族グループを物理削除する経路は**すべて**この語の入力を要求する。
+//                     退会 (/admin/settings/account) と 引っ越し合流 (/auth/invite/[code]) は
+//                     結果が同じ (fullTenantDeletion) なので、要求する重さも同じにする。
+//                     経路ごとに別の語を置くと「軽いほうの経路から全損する」を作る。
 //
 // 「ボタンの操作取消（モーダル × ボタン）」は UI_LABELS.cancel に既存集約済み。
 // 本 atom は「サブスク契約の解約 / アカウント退会」専用。
@@ -186,6 +192,7 @@ export const CANCEL_TERMS = {
 	anytime: 'いつでも解約',
 	anytimeOk: 'いつでも解約できます（契約期間の縛りなし）',
 	account: '退会',
+	confirmPhrase: 'アカウントを削除します',
 } as const;
 
 // ============================================================
@@ -1114,12 +1121,19 @@ export const OSS_LICENSE_TERMS = {
 // 設計指針:
 //   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
 //   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
+//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661)
 //
 // 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
 
 export const OYAKAGI_TERMS = {
 	name: 'おやカギコード',
 	shortName: 'おやカギ',
+	/**
+	 * 桁数の表示文字列 (#4661 / #4662)。判定に使う `PIN_LENGTH` から導出するため、
+	 * 桁数を変えると入力ラベル・エラー文・ページガイドが同時に追従する
+	 * (以前は 4 / 4〜6 / 4〜8 の 3 表記に割れ、実際に打てるのは 4 桁だけだった)。
+	 */
+	digitRange: `${PIN_LENGTH}桁`,
 } as const;
 
 // ============================================================

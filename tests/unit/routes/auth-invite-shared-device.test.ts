@@ -52,6 +52,13 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+	isCognitoDevMode: () => true,
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => true,
@@ -92,14 +99,23 @@ function createBrowser() {
 	return { jar, cookies: cookies as any };
 }
 
-/** redirect() は throw されるので catch して結果を正規化する。 */
-async function runLoad(browser: ReturnType<typeof createBrowser>, identity: unknown) {
+/**
+ * redirect() は throw されるので catch して結果を正規化する。
+ *
+ * #4643: 「既に別グループ所属」は解決済 context の有無で判定する (旧実装は IdP の sub で
+ * findUserTenants を引いており、所属済でも必ず 0 件になっていた)。
+ */
+async function runLoad(
+	browser: ReturnType<typeof createBrowser>,
+	identity: unknown,
+	context: unknown = null,
+) {
 	try {
 		return {
 			data: await inviteLoad({
 				params: { code: INVITE_CODE },
 				cookies: browser.cookies,
-				locals: { identity },
+				locals: { identity, context },
 				// biome-ignore lint/suspicious/noExplicitAny: PageServerLoad の部分モック
 			} as any),
 		};
@@ -150,11 +166,12 @@ describe('#4049 招待リンク × 家庭内共有端末', () => {
 		it('既に別グループ所属のエラーは専用 errorDesc を返し、ログアウト → 招待リンク再タップを案内する', async () => {
 			const browser = createBrowser();
 			browser.jar.set(INVITE_COOKIE_NAME, 'stale-code');
-			mockFindUserTenants.mockResolvedValue([
-				{ userId: 'u-parent', tenantId: 't-parent-family', role: 'owner' },
-			]);
 
-			const { data } = await runLoad(browser, parentIdentity);
+			const { data } = await runLoad(browser, parentIdentity, {
+				tenantId: 't-parent-family',
+				role: 'owner',
+				userId: 'u-parent',
+			});
 
 			expect(data).toBeDefined();
 			expect(data?.valid).toBe(false);
@@ -206,10 +223,11 @@ describe('#4049 招待リンク × 家庭内共有端末', () => {
 			const browser = createBrowser();
 
 			// 1. 親がログイン中の端末で招待リンクを開く → 警告 + Cookie 削除 (#0203)
-			mockFindUserTenants.mockResolvedValue([
-				{ userId: 'u-parent', tenantId: 't-parent-family', role: 'owner' },
-			]);
-			const first = await runLoad(browser, parentIdentity);
+			const first = await runLoad(browser, parentIdentity, {
+				tenantId: 't-parent-family',
+				role: 'owner',
+				userId: 'u-parent',
+			});
 			expect(first.data?.valid).toBe(false);
 			expect(browser.jar.has(INVITE_COOKIE_NAME)).toBe(false);
 
