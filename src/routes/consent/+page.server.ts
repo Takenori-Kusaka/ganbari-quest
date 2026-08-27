@@ -4,6 +4,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { CONSENT_LABELS } from '$lib/domain/labels';
 import type { ConsentType } from '$lib/server/auth/entities';
 import { getAuthMode } from '$lib/server/auth/factory';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { logger } from '$lib/server/logger';
 import {
 	CURRENT_CROSS_BORDER_VERSION,
@@ -69,7 +70,9 @@ export const actions: Actions = {
 		}
 
 		const tenantId = locals.context.tenantId;
-		const userId = locals.identity?.type === 'cognito' ? locals.identity.userId : 'unknown';
+		// #4643: consents.user_id は users.user_id (uuid) を指す。IdP の sub を入れると存在しない
+		// user を指す行になり、'unknown' フォールバックは uuid 型で INSERT 自体が落ちていた。
+		const userId = requireAppUserId(locals);
 		const ip = getClientAddress();
 		const ua = request.headers.get('user-agent') ?? '';
 
