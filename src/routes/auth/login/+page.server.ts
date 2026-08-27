@@ -4,8 +4,9 @@
 // - 本番: Cognito InitiateAuth API で直接認証（Hosted UI は使わない）
 
 import { fail, redirect } from '@sveltejs/kit';
+import { DEMO_LABELS } from '$lib/domain/labels';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
-import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
+import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import { PARENT_LANDING, resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
@@ -14,7 +15,6 @@ import {
 	resendConfirmationCode,
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
-import { verifyIdentityToken } from '$lib/server/auth/providers/cognito-jwt';
 import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
@@ -28,6 +28,12 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+
+	// #4712: demo Lambda には Cognito が無く、ログインフォームを出しても送信が write no-op に
+	// なるだけ (「何も起きない」着地)。本番 host のログイン画面へ送る (signup と同型)。
+	if (locals.isDemo) {
+		redirect(302, DEMO_LABELS.loginHref);
+	}
 
 	// local モードではログイン不要 → /admin へ
 	if (authMode === 'local') {
@@ -47,7 +53,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
 	login: async (event) => {
-		const { request, cookies, locals } = event;
+		const { request, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
@@ -60,7 +66,7 @@ export const actions: Actions = {
 		const devMode = isCognitoDevMode();
 
 		if (devMode) {
-			return handleDevLogin(email, password, cookies);
+			return handleDevLogin(email, password, event);
 		}
 
 		return handleCognitoLogin(email, password, event);
@@ -100,7 +106,7 @@ export const actions: Actions = {
 				await resetLoginFailures(email);
 				establishSession(cookies, loginResult);
 				// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
-				redirect(302, await landingAfterSession(event, loginResult.idToken));
+				redirect(302, await landingAfterSession(event));
 			}
 		}
 
@@ -165,7 +171,7 @@ export const actions: Actions = {
 		// MFA成功 → セッション確立
 		establishSession(cookies, result);
 		// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
-		redirect(302, await landingAfterSession(event, result.idToken));
+		redirect(302, await landingAfterSession(event));
 	},
 };
 
@@ -187,8 +193,9 @@ function establishSession(
 async function handleDevLogin(
 	email: string,
 	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
+	event: import('@sveltejs/kit').RequestEvent,
 ) {
+	const { cookies } = event;
 	const user = authenticateDevUser(email, password);
 	if (!user) {
 		return fail(401, { error: 'メールアドレスまたはパスワードが正しくありません', email });
@@ -211,30 +218,29 @@ async function handleDevLogin(
 		maxAge: 60 * 60,
 	});
 
-	const target = user.role === 'child' ? '/switch' : '/admin';
-	redirect(302, target);
+	// #4641: 本番経路 (handleCognitoLogin) と同じ SSOT で着地先を決める。
+	// ここだけロール直書きのままだと `npm run dev:cognito` / e2e-cognito-dev レーンでは
+	// 子供が常に /switch に留まり、本 Issue の「再ログインはホーム直行」が成立しない。
+	redirect(302, await landingAfterSession(event));
 }
 
 /**
  * #4641: セッション確立後の着地先を決める。
  *
- * ID token から identity を組み立てて所属を解決する。解決できない (token 検証に失敗した等)
- * ときは従来どおり親画面へ送る — 次のリクエストで hooks が正しい判定をやり直すため、
+ * 直前に積んだ identity cookie から **provider 経由で** identity を解決する
+ * (`/auth/callback` と同じ形)。ID token の検証方式は provider ごとに異なり
+ * (本番 = Cognito JWKS の RS256 / `COGNITO_DEV_MODE` = `cognito-dev-jwt` の HS256 +
+ * ローカル issuer・audience)、本番用 verifier を直接呼ぶと dev の token が検証できず
+ * ロール判定が落ちて着地先が壊れるため、検証は provider に委ねる。
+ *
+ * 解決できないときは従来どおり親画面へ送る — 次のリクエストで hooks が正しい判定をやり直すため、
  * ここで止めるより一度進ませた方が dead-end を作らない。
  */
-async function landingAfterSession(
-	event: import('@sveltejs/kit').RequestEvent,
-	idToken: string,
-): Promise<string> {
+async function landingAfterSession(event: import('@sveltejs/kit').RequestEvent): Promise<string> {
 	try {
-		const claims = await verifyIdentityToken(idToken);
-		if (!claims) return PARENT_LANDING;
-		return await resolvePostLoginLanding(event, {
-			type: 'cognito',
-			userId: claims.sub,
-			email: claims.email,
-			emailVerified: claims.email_verified,
-		});
+		const identity = await getAuthProvider().resolveIdentity(event);
+		if (!identity) return PARENT_LANDING;
+		return await resolvePostLoginLanding(event, identity);
 	} catch (e) {
 		logger.warn('[AUTH] ログイン後の着地先を解決できず親画面へ送る', {
 			context: { error: e instanceof Error ? e.message : String(e) },
@@ -314,5 +320,5 @@ async function handleCognitoLogin(
 	await resetLoginFailures(email);
 	establishSession(cookies, result);
 	// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
-	redirect(302, await landingAfterSession(event, result.idToken));
+	redirect(302, await landingAfterSession(event));
 }
