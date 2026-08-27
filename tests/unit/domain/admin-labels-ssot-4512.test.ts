@@ -23,6 +23,7 @@ import {
 	ADMIN_FORM_ERROR_LABELS,
 	CERTIFICATE_DETAIL_LABELS,
 	CERTIFICATES_PAGE_LABELS,
+	CHALLENGES_LABELS,
 	CHEER_LABELS,
 	formatMonthOnly,
 	formatYearMonth,
@@ -298,10 +299,10 @@ describe('#4512 (B) 集約した label の値が変わっていない', () => {
 	});
 
 	it('画面固有ラベルの文面が変わっていない', () => {
-		expect(ADMIN_CHALLENGES_PAGE_LABELS.familyStreakRecordedToday(2)).toBe('今日は2人が記録済み');
-		expect(ADMIN_CHALLENGES_PAGE_LABELS.familyStreakNoneToday).toBe(
-			'今日はまだ誰も記録していません',
-		);
+		// #4671 F8 (develop) が同一文言を CHALLENGES_LABELS に集約済みのため、#4512 側の重複定義は
+		// merge 時に削除し、集約先の文面をここで pin する (二重定義を作り直さない)。
+		expect(CHALLENGES_LABELS.familyStreakRecordedToday(2)).toBe('今日は2人が記録済み');
+		expect(CHALLENGES_LABELS.familyStreakNoneToday).toBe('今日はまだ誰も記録していません');
 		expect(ADMIN_CHALLENGES_PAGE_LABELS.deleteChildButton('たろう')).toBe('たろう を削除');
 		expect(ADMIN_CHECKLISTS_PAGE_LABELS.copyAlreadyDistributedNote(3)).toBe(
 			'（3 件はすでに配信済みでした）',
