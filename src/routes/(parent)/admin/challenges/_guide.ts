@@ -1,9 +1,12 @@
 import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
-// #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
-// step 1 は selector 省略で画面中央 modal 表示。ページ全体を包む巨大 wrapper は target にしない。
 // #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+// #4671 (EPIC #4650): 旧実装は 3 step すべて selector 無し = 全部が中央 modal で、
+//   「上のタブで絞り込む」「カードの削除」と操作を案内しても何も光らなかった (PO 判断 4 違反)。
+//   画面の DOM 順 (家族ストリーク → お子さまタブ → 今週のカード → 削除) に anchor を張り、
+//   条件表示 (ストリーク 0 日 / 子供 1 人 / カード 0 件) の step は `optional` で起動時 DOM 判定する。
+//   巨大要素 (challenges-page 全体) は spotlight target にしない (#2926 layout invariant 整合)。
 const L = PAGE_GUIDE_LABELS.adminChallenges;
 
 export const CHALLENGES_GUIDE: PageGuide = {
@@ -16,18 +19,37 @@ export const CHALLENGES_GUIDE: PageGuide = {
 			id: 'challenges-intro',
 			...L.steps['challenges-intro'],
 		},
-		// ② 画面の見方（進捗バー・履歴の確認）— selector 省略で画面中央 modal 表示
-		// (ページ全体の巨大 wrapper は spotlight target にしない、#2926 layout invariant 整合)
+		// ② 家族ストリーク (currentStreak > 0 のときだけ描画)
 		{
-			id: 'challenges-view',
-			...L.steps['challenges-view'],
+			id: 'challenges-family-streak',
+			selector: '[data-tutorial="challenges-family-streak"]',
+			...L.steps['challenges-family-streak'],
+			optional: true,
+			position: 'bottom',
 		},
-		// ③ 最頻操作（お子さま絞り込み・削除）— #3270 (EPIC #3260 C6): 2 step だった guide を
-		// 3 部構成（①概要→②見方→③操作）に補完。child-tabs / 削除は条件表示（子 2 人以上 / カード有無）
-		// のため spotlight target にせず、本ページの確立された center-modal 設計に揃える。
+		// ③ お子さまタブ (子供 2 人以上のときだけ描画)
 		{
-			id: 'challenges-manage',
-			...L.steps['challenges-manage'],
+			id: 'challenges-child-tabs',
+			selector: '[data-tutorial="challenges-child-tabs"]',
+			...L.steps['challenges-child-tabs'],
+			optional: true,
+			position: 'bottom',
+		},
+		// ④ 今週のカードの見方 (カードが 1 件以上あるときだけ描画)
+		{
+			id: 'challenges-card',
+			selector: '[data-tutorial="challenges-card"]',
+			...L.steps['challenges-card'],
+			optional: true,
+			position: 'bottom',
+		},
+		// ⑤ 削除 (カードが 1 件以上あるときだけ描画)
+		{
+			id: 'challenges-delete',
+			selector: '[data-tutorial="challenges-delete"]',
+			...L.steps['challenges-delete'],
+			optional: true,
+			position: 'top',
 		},
 	],
 };
