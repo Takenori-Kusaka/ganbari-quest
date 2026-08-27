@@ -5,10 +5,20 @@
 
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { CATEGORY_NAME_LIST } from './categories';
-import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
+import {
+	CERTIFICATE_LEVEL_MILESTONES,
+	MONTHLY_HABIT_DAYS_THRESHOLD,
+	PRAISE_MILESTONE_IDS,
+	type PraiseMilestoneId,
+	STREAK_MILESTONE_DAYS,
+} from './constants/habit-milestones';
+import { formatRetentionPeriod } from './constants/plan-retention';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
-import { formatRetentionPeriod } from './constants/plan-retention';
+import {
+	REWARD_REJECT_NOTE_MAX_LENGTH,
+	REWARD_REQUEST_HISTORY_LIMIT,
+} from './constants/redemption-status';
 import { jstDayOfWeek } from './date-utils';
 // #4652: 子供チュートリアルの nav 名 / とりけし秒数を画面と同じ SSOT から引く (icons.ts / validation は labels を import しない)
 import { getModeLabels } from './icons';
@@ -1478,6 +1488,207 @@ export const TUTORIAL_LABELS = {
 	exitConfirmConfirm: '終了する',
 } as const;
 
+// #4674: PAGE_GUIDE_LABELS.adminCertificates が印刷 / シェアのボタン名を参照するため同様に前置きする
+export const CERTIFICATE_DETAIL_LABELS = {
+	pageTitle: CERTIFICATE_TERMS.full,
+	backLink: '一覧に戻る',
+	previewTitle: `📜 ${CERTIFICATE_TERMS.canonical}プレビュー`,
+	printButton: '🖨️ 印刷 / PDF保存',
+	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
+	upgradeLink: 'アップグレード',
+	shareCardTitle: '🎉 がんばりカード',
+	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
+	downloadButton: '📥 画像をダウンロード',
+	closeButton: '閉じる',
+	showShareCardButton: '🎉 シェアカードを表示',
+} as const;
+
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests がボタン名・見出しを参照するため前置きする
+export const ADMIN_REWARDS_REQUESTS_LABELS = {
+	pageTitle: '📋 ごほうび申請承認',
+	pageDescTitle: '📋 ごほうび申請承認',
+	// #4676 F5: 保護者向け画面のため CHILD_TERMS.honorific に統一し、英語見出しを日本語にする
+	pageDescText: `${CHILD_TERMS.honorific}からの交換申請に承認/却下します。`,
+	backToRewardsLabel: '← ごほうび管理に戻る',
+	pendingSectionTitle: '未処理の申請',
+	pendingCountSuffix: (count: number) => `${count} 件`,
+	historySectionTitle: `履歴（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
+	emptyPendingMessage: '申請はありません',
+	emptyHistoryMessage: '履歴はありません',
+	approveButton: '承認して渡した',
+	rejectButton: '却下する',
+	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectConfirmButton: '確定',
+	rejectCancelButton: 'キャンセル',
+	requestedAtLabel: '申請日時',
+	rewardPointsUnit: 'ポイント',
+	statusApproved: '承認済み',
+	statusRejected: '却下済み',
+} as const;
+
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests が設定 > ルールの見出しを参照するため前置きする
+export const ADMIN_RULES_PAGE_LABELS = {
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
+	pageDescription:
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
+	emptyTitle: 'ボーナスルールがありません',
+	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
+	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
+	sectionBonusDesc:
+		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
+	enabledBadge: '有効',
+	disabledBadge: '無効',
+	enableButton: '有効化',
+	disableButton: '無効化',
+	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
+	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
+	importedAtLabel: '取込日時',
+	rulesLabel: '含まれるルール',
+	pointBonusSuffix: 'pt',
+	updateSuccess: 'ルールを更新しました',
+	removeSuccess: 'ルールを削除しました',
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
+	importToastSuccess: (presetName: string) =>
+		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
+	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
+	importToastError: (presetName: string) =>
+		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
+	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	// #4711: 種類違い (exchange / penalty / special) は「失敗 → 再試行」ではなく、
+	// 取り込める画面 (交換型 = ごほうび管理) を案内する。内部 ID は出さない。
+	importToastWrongType: (presetName: string) =>
+		`「${presetName}」はボーナスルールではないため、この画面では取り込めません。`,
+	importWrongTypeExchangeHint: `交換型のルールは${REWARD_TERMS.menu}で取り込みます。`,
+	importWrongTypeGoToRewards: `${REWARD_TERMS.menu}で取り込む`,
+	importWrongTypeNotImportable: 'このルールは取込対象外です。',
+	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
+	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
+	rewardApprovalSectionDesc:
+		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
+	rewardApprovalRequireState: '保護者の承認が必要',
+	rewardApprovalInstantState: '承認なしで即時交換',
+	rewardApprovalRequireDesc:
+		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
+	rewardApprovalInstantDesc:
+		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
+	rewardApprovalEnableInstantButton: '即時交換にする',
+	rewardApprovalDisableInstantButton: '承認を必須に戻す',
+	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
+} as const;
+
+// #4672: PAGE_GUIDE_LABELS.adminMembers がボタン名を参照するため PAGE_GUIDE_LABELS より前に置く
+//        (module 初期化順。const は宣言前に参照できない)
+// ============================================================
+// admin/members ページ (#1452 Phase B)
+// ============================================================
+
+export const MEMBERS_LABELS = {
+	// Role labels
+	roleOwner: 'オーナー',
+	roleParent: `${PARENT_TERMS.honorific}`,
+	roleChild: `${CHILD_TERMS.hiragana}`,
+
+	// Current members section
+	currentMembersTitle: '現在のメンバー',
+	noMembersText: 'メンバーがいません',
+	transferButton: '移譲',
+	removeButton: '削除',
+	leaveGroupButton: '家族グループを離れる',
+
+	// Invite section
+	inviteSectionTitle: 'メンバーを招待',
+	inviteRoleLabel: '招待ロール',
+	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
+	inviteEmailLabel: '宛先メールアドレス（任意）',
+	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
+	inviteChildLabel: '対象の子供（任意）',
+	inviteChildNone: '-- 後で紐づけ --',
+	inviteCreateLoading: '作成中...',
+	inviteCreateButton: '招待リンクを作成',
+	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
+	inviteQrAlt: '招待QRコード',
+	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
+	inviteUrlLabel: '招待URL',
+	inviteCopied: 'コピー済み',
+	inviteCopy: 'コピー',
+
+	// Pending invites section
+	pendingInvitesTitle: '保留中の招待',
+	inviteExpiresPrefix: '期限: ',
+	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
+	// 取消し → 再発行できる修正導線)
+	inviteEmailBoundPrefix: '宛先: ',
+	inviteRevokeButton: '取消し',
+	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
+	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
+	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
+	inviteOwnerOnlyNote:
+		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
+
+	// Error messages
+	inviteCreateError: '招待リンクの作成に失敗しました',
+	networkError: '通信エラーが発生しました',
+	removeError: '削除に失敗しました',
+	transferError: '移譲に失敗しました',
+	leaveError: '離脱に失敗しました',
+
+	// Confirm dialogs
+	revokeConfirm: 'この招待リンクを取り消しますか？',
+	removeMemberConfirm: (email: string) =>
+		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
+	transferConfirm: (email: string) =>
+		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
+	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
+
+	// Viewer link section
+	viewerSectionTitle: '閲覧リンク',
+	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
+	viewerLabelField: 'ラベル（任意）',
+	viewerLabelPlaceholder: '例: おばあちゃん用',
+	viewerDurationLabel: '有効期限',
+	// #4500: viewerDuration7d は `TRIAL_TERMS.duration` (無料体験の期間) を流用していた。
+	// 閲覧リンクの有効期限とトライアル期間は無関係で、トライアルを 14 日に変えた瞬間に
+	// 閲覧リンクの選択肢が「14日間」と表示される (誤流用)。閲覧リンク自身の値として持つ。
+	viewerDuration7d: '7日間',
+	viewerDuration30d: '30日間',
+	viewerDurationUnlimited: '無期限',
+	viewerCreateLoading: '作成中...',
+	viewerCreateButton: '閲覧リンクを作成',
+	viewerSuccessMsg: '閲覧リンクが作成されました',
+	viewerQrAlt: '閲覧QRコード',
+	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
+	viewerUrlLabel: '閲覧URL',
+	viewerCopied: 'コピー済み',
+	viewerCopy: 'コピー',
+	viewerNoLabel: '(ラベルなし)',
+	viewerStatusInvalid: '無効',
+	viewerStatusExpired: '期限切れ',
+	viewerStatusValid: '有効',
+	viewerExpiresPrefix: '期限: ',
+	viewerExpiresNone: '無期限',
+	viewerRevokeButton: '無効化',
+	viewerDeleteButton: '削除',
+	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
+	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
+	viewerCreateError: '閲覧リンクの作成に失敗しました',
+
+	// Button titles
+	transferTitle: 'オーナー権限を移譲',
+	removeTitle: 'メンバーを削除',
+} as const;
+
 // ============================================================
 // ページ別オンデマンドガイド（PageGuide）の表示文言 SSOT
 // #3264 (EPIC #3260 F3): 各 `_guide.ts` (admin 11 ページ) にインライン直書きしていた
@@ -1788,7 +1999,9 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-intro': {
 				title: 'このページについて',
 				what: `${ADMIN_VIEW_TERMS.canonical}の各種設定をまとめたページです。アクセスを守る${OYAKAGI_TERMS.shortName}、ポイントの表示単位、データのバックアップなどをここから設定します。`,
-				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
+				// #4661: 「お子さまの年齢モード / お名前 / 追加」を探して設定に来る保護者が多いが、
+				// hub の 7 カードに子供設定は無く、ガイドにも橋渡しが無かった (relatedLinks 0 件)。
+				how: `設定したい項目のカードを選んで、その中の設定画面に進みます。お子さまごとの設定 (お名前・年齢モード・お子さまの追加) はこのページには無く、メニューの「${NAV_ITEM_LABELS.children}」から行います。`,
 				goal: `必要な設定にすぐたどり着けるので、${OYAKAGI_TERMS.shortName}の変更やバックアップなどの「念のための備え」を迷わず行えます。`,
 			},
 			// #3954: hub のカードが 6→7 枚になったため、件数と「上から順に」の並びを実装に合わせる。
@@ -1798,67 +2011,133 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-hub': {
 				title: '画面の見方（7つの設定グループ）',
 				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート・アプリ情報 — 感想・要望や規約\n7. プラン・課金 — 契約と支払い（別ページに移動します）`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
+				tips: [
+					// #4661 F4: 支払いの確認が取れていない間だけ、カード群の上に赤いお知らせが出る。
+					'お支払いの確認が取れていないときは、カードの上に赤いお知らせが出ます。その中のボタンからプラン・お支払いの画面に進めます',
+				],
 			},
 			'settings-account': {
 				title: 'よく使う操作と詳しいガイド',
-				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（4桁の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
+				// #4661 M1: 桁数は実装が受け付ける範囲 (OYAKAGI_TERMS.digitRange) を正とする。
+				// 以前は「4桁の数字」と断定しており、入力ラベルの「4〜8桁」と食い違っていた。
+				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 				how: '1. 目的のカードをタップして開きます\n2. 各ページの「?」を押すと、そのページ専用の詳しい操作ガイドが見られます',
 				goal: 'よく使う操作にすぐ進め、各ページのガイドで迷わず設定できます。',
-				tips: [`${OYAKAGI_TERMS.shortName}の初期値やポイント表示は各カードの中で変更できます`],
+				// #4661 M2: 変えられるのは「今の おやカギコード」。初期値 (DEFAULT_PIN) は定数で変更対象ではない。
+				tips: [`${OYAKAGI_TERMS.name}の変更やポイント表示は各カードの中で行えます`],
+				relatedLinks: [{ label: NAV_ITEM_LABELS.children, href: '/admin/children' }],
 			},
 		},
 	},
 	// #3266 (EPIC #3260 C2): 設定サブ 6 ページの個別ガイド文言。親 adminSettings (ハブ) とは別に、
 	// 各サブページの実セクションを上→下順に説明する (F0 guide-copy-rules 準拠、≤5 step / 3 部構成)。
+	// #4662 (EPIC #4650): 旧 3 step は同じ `pin-settings` カードを 2 回続けて光らせ、内容もほぼ
+	//   同じで実質 1 枚分の情報しか無かった。手順には「新しいおやカギコード（確認）」欄の再入力が
+	//   抜けており、そのとおり操作すると必ず required エラーになる。ページ下部の ログアウト /
+	//   アカウント削除（最も不可逆な操作）は step が無かった。見方と操作を 1 step に統合し、
+	//   空いた枠を ログアウト / アカウント削除 に充てる。呼称は OYAKAGI_TERMS 経由に統一。
 	adminSettingsAccount: {
 		title: 'アカウント',
 		steps: {
 			'settings-account-intro': {
 				title: 'このページについて',
-				// #3307: ログアウト / アカウント削除は cognito 環境限定 (NUC / demo は おやカギ カードのみ)。
-				// 全環境共通の おやカギ変更 を主機能として先頭に置き、条件付き項目は明示的に hedge する
-				// (実態に無い操作を全ユーザーに断定的に案内しない、NN/G #1 visibility / ADR-0013)。
-				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}を変更できるページです。ご利用環境によっては、ログアウトやアカウントの削除もここから行えます。`,
-				how: `まず${OYAKAGI_TERMS.shortName}を変更するカードが表示されます。ログアウト・アカウント削除のカードは、ご利用環境によって表示される場合があります。`,
+				// #4662: ログアウト / アカウント削除の step は saas かつ実描画時のみ出る
+				//   (requiredRuntime + optional) ため、概要側にも「ご利用環境によっては」を残す。
+				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}を変更できるページです。ご利用環境によっては、ログアウトやアカウントの削除（${CANCEL_TERMS.account}）もここから行えます。`,
+				how: `上から順に、${OYAKAGI_TERMS.shortName}を変更するカードが表示されます。その下に、ご利用環境によってログアウトとアカウント削除のカードが並びます。`,
 				goal: `${OYAKAGI_TERMS.shortName}をこまめに変えて、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 			},
+			// ② 見方 + 操作を統合 (旧 settings-account-pin / -pin-change は同一 selector で重複)。
+			//   手順は実フォームの 3 入力欄 + ボタン名に一致させる (確認欄の再入力が抜けていた)。
 			'settings-account-pin': {
-				title: `画面の見方（${OYAKAGI_TERMS.shortName}）`,
-				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの4桁の数字です。このカードから変更できます。`,
-				how: '1. 現在のコードを入力します\n2. 新しいコードを入力します',
-				goal: '今のおやカギと、変更する場所がひと目で分かります。',
-			},
-			'settings-account-pin-change': {
 				title: `よく使う操作（${OYAKAGI_TERMS.shortName}を変える）`,
-				what: `${OYAKAGI_TERMS.shortName}を新しい数字に変えます。お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
-				how: `1. 現在の${OYAKAGI_TERMS.shortName}を入力\n2. 新しい数字を入力\n3. 変更ボタンをタップ`,
-				goal: '次回から新しいコードが必要になり、安心して使えます。',
-				tips: [PIN_DEFAULT_TERMS.hintCompact],
+				// #4661: 桁数は OYAKAGI_TERMS.digitRange (実装の受付範囲) を引く。「4桁」断定は誤り。
+				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの${OYAKAGI_TERMS.digitRange}の数字です。このカードには「現在の${OYAKAGI_TERMS.name}」「新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）」「新しい${OYAKAGI_TERMS.name}（確認）」の 3 つの入力欄と、変更ボタンが縦に並びます。入力した数字は伏せ字で表示されるため、いまのコードそのものは画面に出ません。`,
+				how: `1. 「現在の${OYAKAGI_TERMS.name}」に、いま使っている数字を入力します\n2. 「新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）」に新しい数字を入力します\n3. 「新しい${OYAKAGI_TERMS.name}（確認）」に、同じ数字をもう一度入力します（打ち間違い防止のため 3 つ目の欄も必須です）\n4. 「${OYAKAGI_TERMS.shortName}を変更」を押します`,
+				goal: `「${OYAKAGI_TERMS.name}を変更しました」と表示され、次に${ADMIN_VIEW_TERMS.short}を開くときから新しい数字が必要になります。`,
+				tips: [
+					// #4662 F5: 「初期 5086」は一度も変更していない場合だけの話。無条件に書くと、
+					//   自分で作成した人が「現在の」欄に 5086 を入れて失敗する。
+					`一度も変更していない場合、現在の${OYAKAGI_TERMS.shortName}は${PIN_DEFAULT_TERMS.hintCompact}です`,
+					`忘れてしまったときは、${ADMIN_VIEW_TERMS.short}に入るときの入力画面から、ご本人確認のうえ作り直せます`,
+				],
+			},
+			// ③ ログアウト (cognito 環境のカード。requiredRuntime='saas' + optional)
+			'settings-account-logout': {
+				title: 'ログアウト',
+				what: `この端末からアカウントをログアウトします。共有のパソコンやタブレットを使い終わるときに使います。お子さまの記録や設定は消えません。`,
+				how: `1. 「アカウントからログアウト」を押します\n2. ログイン画面に戻ります`,
+				goal: '次に使うときは、メールアドレスとパスワードでのログインが必要になります。',
+			},
+			// ④ アカウント削除 (Danger Zone。requiredRuntime='saas' + optional)
+			'settings-account-delete': {
+				title: `アカウント削除（${CANCEL_TERMS.account}）`,
+				what: `ページの一番下は「危険な操作」の区画です。${CANCEL_TERMS.account}すると、お子さまのプロフィール・活動記録・ポイント履歴・アバター画像や音声・設定・チェックリスト・メンバーシップが削除されます。ご家族に他のメンバーがいる場合は、オーナー権限を引き継いでもらうか、家族グループごと削除するかを選びます。`,
+				how: `1. 先にデータを持ち出せます（「${CANCEL_TERMS.account}する前にデータを持ち出す」の「データをダウンロード」。どのプランでも使えます）\n2. 確認テキストの入力 → 同意チェック → 実行ボタン の 3 手順で進みます\n3. 実行するとお申し込みが完了します`,
+				goal: `猶予期間はプランで異なります（${PLAN_FULL_TERMS.free}は猶予${DELETION_GRACE_TERMS.free}＝お申し込みと同時に削除され取り消せません／${PLAN_FULL_TERMS.standard}は${DELETION_GRACE_TERMS.standard}／${PLAN_FULL_TERMS.family}は${DELETION_GRACE_TERMS.premium}）。猶予があるプランでは、その間このページの上部に案内と「復元」ボタンが出るので、押せば取り消せます。猶予を過ぎるとデータは復旧できません。`,
+				tips: [
+					`データの持ち出しはお申し込みの**前**に行ってください（猶予のないプランでは、申し込んだ時点で取り出せなくなります）`,
+				],
 			},
 		},
 	},
+	// #4663 (EPIC #4650): 旧 3 step は「段階を選ぶ → すぐに反映されます」「単位を選ぶ → 子供の
+	//   画面に反映されます」と案内していたが、実装はどちらも保存ボタンを押さないと反映されない。
+	//   ガイドどおりに操作した保護者は設定が変わらないまま離れる。手順を実ボタン名で書き直し、
+	//   step が届いていなかったページ後半 (既定の子供 / きょうだいランキング) も追加する。
+	//   ボタン名 / 選択肢名は SETTINGS_LABELS と同一文字列にし、一致は
+	//   tests/unit/routes/settings-activities-guide.test.ts が機械照合する。
 	adminSettingsActivities: {
 		title: '活動・ポイント',
 		steps: {
 			'settings-activities-intro': {
 				title: 'このページについて',
 				what: 'お子さまの活動にまつわる設定をまとめたページです。やる気が続く仕組みや、ポイントの見せ方をここで調整します。',
-				how: '上から順に、ステータス減少・ポイント表示・きょうだいの設定が並びます。',
+				how: '上から順に、ステータス減少・ポイント表示・既定の子供（お子さまが 2 人以上のとき）・きょうだいチャレンジ設定 が並びます。',
 				goal: 'ご家庭に合わせて、活動の続けやすさやポイントの見せ方を整えられます。',
+				tips: [
+					// #4663 F1 / F2: このページのカードはどれも「選ぶ」だけでは保存されない。
+					'どのカードも、選んだあとに一番下の保存ボタンを押すまで反映されません',
+				],
 			},
+			// ② ステータス減少 (常設カード)
 			'settings-activities-decay': {
 				title: '画面の見方（ステータス減少）',
-				what: '何日か活動しないとステータスが少しずつ下がる仕組みです。下がる強さを4段階で選べます。',
-				how: '1. 強さの段階を選びます\n2. すぐに反映されます',
+				what: '何日か活動しないと、お子さまのステータスが少しずつ下がる仕組みです。下がる強さを「なし」「ゆるやか」「ふつう」「きびしめ」の 4 段階から選べます。どの段階でも、活動をお休みした最初の 2 日間は下がりません。',
+				how: '1. 4 つの選択肢から 1 つを選びます（「なし」= 下がらない／「ゆるやか」= 通常の半分／「ふつう」= 猶予 2 日後にゆるやかに／「きびしめ」= 1.5 倍の速さ）\n2. カードの一番下の「設定を保存」を押します\n3. 「ステータス減少設定を保存しました」と出れば完了です',
 				goal: '毎日コツコツ続ける動機づけを、ご家庭の方針に合わせて調整できます。',
+				tips: [
+					'始めたばかりのときは「なし」から試すと、お休みした日に下がって落ち込むことがありません',
+					'旅行などで数日空くときも、最初の 2 日は下がりません',
+				],
 			},
+			// ③ ポイント表示 (常設カード)
 			'settings-activities-point': {
 				title: 'よく使う操作（ポイント表示）',
-				what: 'ポイントの呼び方や単位を選んで、お子さまに分かりやすい見せ方にできます。',
-				how: '1. 表示したい単位を選びます\n2. 子供の画面に反映されます',
-				goal: 'お子さまの年齢に合った言葉でポイントが表示されます。',
+				what: '貯まったポイントを、そのまま「ポイント（P）」で見せるか、円などの通貨に換算して見せるかを選べます。呼び方そのものを変える設定ではありません。',
+				how: '1. 「表示モード」で「ポイント（P）」か「通貨で表示」を選びます\n2. 「通貨で表示」を選んだときは、通貨と「レート（1P = ？）」を入力します（レートは必須です）\n3. すぐ下のプレビューで、お子さまの画面にどう出るかを確かめます\n4. 「ポイント設定を保存」を押します',
+				goal: 'お子さまの画面のポイント表示が、選んだ見せ方に変わります。金額で見せると「あと何円分」が伝わりやすくなります。',
+				tips: ['レートは「1P = 1円なら 1」「1P = 0.01ドルなら 0.01」のように入力します'],
+			},
+			// ④ 既定の子供 (お子さま 2 人以上のときだけ描画 → optional)
+			'settings-activities-default-child': {
+				title: '画面の見方（既定の子供）',
+				what: 'ホーム画面を開いたときに、どのお子さまの画面を自動で表示するかを決められます。お子さまが 2 人以上のご家庭だけに出るカードです。',
+				how: '1. 「未設定（毎回選択画面を表示）」かお子さまの名前を選びます\n2. 「既定を保存」を押します',
+				goal: '次からホーム画面を開くと、選んだお子さまの画面がすぐ出ます。「未設定」に戻せば毎回選ぶ画面に戻ります。',
+				tips: ['この設定は端末ごとではなくアカウント全体に効きます（ご家族のどの端末でも同じ）'],
+			},
+			// ⑤ きょうだいランキング (カード自体は常設。チェックボックスがプランで disabled)
+			'settings-activities-sibling': {
+				title: 'よく使う操作（きょうだいランキング）',
+				what: `きょうだいの記録を並べて見せる「きょうだいランキング」の表示を切り替えます。${PLAN_FULL_TERMS.premium}限定の機能で、それ以外のプランではチェックボックスが押せない状態で表示され、下にご案内が出ます。`,
+				how: '1. 「きょうだいランキングを表示する」にチェックを入れます\n2. 「設定を保存」を押します',
+				goal: 'お子さまの画面にきょうだいの並びが出て、お互いを意識するきっかけになります。競争が合わないご家庭では、チェックを外して保存すれば表示されません。',
+				tips: [
+					`チェックが押せない（グレーになっている）ときは、${PLAN_FULL_TERMS.premium}のご契約が必要です`,
+				],
 			},
 		},
 	},
@@ -2041,26 +2320,51 @@ export const PAGE_GUIDE_LABELS = {
 	// #3268 (EPIC #3260 C4): 家族メンバー / パックページの個別ガイド。常在セクションのみを selector で
 	// 指す（保留中の招待 / 閲覧リンク / 展開コンテンツは条件表示のため step 対象外）。
 	adminMembers: {
-		title: '家族メンバー',
+		// #4672 F6: ガイド title はページ表示名 (PAGE_TITLES.members) に揃える
+		title: PAGE_TITLES.members,
+		// #4672 (EPIC #4650): step を画面の DOM 順 (メンバー一覧 → 招待作成 → 保留中の招待 →
+		// 閲覧リンク) に並べ、role / プラン / 件数で描画が変わるカードは `optional` で起動時 DOM 判定する。
+		// 招待作成カードは owner 専用のため、保護者ロールでは step ごと消える (旧実装は「作成ボタンを
+		// 押す」と案内しながら何も光らなかった)。ボタン名は MEMBERS_LABELS の実表記を引く。
 		steps: {
 			'members-intro': {
 				title: 'このページについて',
-				what: '家族で使う人を増やしたり、離れて暮らす家族に「見るだけ」のリンクを渡したりできるページです。',
-				how: '上から順に、今のメンバー・招待リンクの作成・見るだけのリンクが並びます。表示される項目はご利用環境によって変わります。',
-				goal: '家族みんなで使えるようになり、離れた家族にも成長を共有できます。',
+				what: `家族で使う人を増やしたり、離れて暮らすご家族に「見るだけ」のリンクを渡したりできるページです。招待リンクの発行と取り消しは${MEMBERS_LABELS.roleOwner}のみ行えます。`,
+				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・閲覧リンク（${PLAN_FULL_TERMS.family}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
+				goal: '家族みんなで使えるようになり、離れたご家族にも成長を共有できます。',
 			},
 			'members-list': {
-				title: '画面の見方（今のメンバー）',
-				what: '今この家族で使っている人の一覧です。それぞれの権限もここで分かります。',
-				how: '1. 一覧で今のメンバーを確認します\n2. 必要なら権限の変更や削除ができます',
-				goal: '誰が使っているかをひと目で確認できます。',
+				title: '画面の見方（現在のメンバー）',
+				what: `今この家族で使っている人の一覧です。それぞれの権限（${MEMBERS_LABELS.roleOwner} / ${MEMBERS_LABELS.roleParent} / ${MEMBERS_LABELS.roleChild}）もここで分かります。`,
+				how: `1. 一覧で今のメンバーと権限を確認します\n2. ${MEMBERS_LABELS.roleOwner}は他のメンバーに「${MEMBERS_LABELS.transferButton}」（${MEMBERS_LABELS.roleOwner}を引き継ぐ）と「${MEMBERS_LABELS.removeButton}」ができます\n3. ${MEMBERS_LABELS.roleParent}は自分だけが「${MEMBERS_LABELS.leaveGroupButton}」で抜けられます`,
+				goal: `誰が使っているかをひと目で確認でき、必要なときに${MEMBERS_LABELS.roleOwner}の引き継ぎやメンバーの整理ができます。`,
 			},
+			// ③ 招待リンクを作る (owner のときだけ描画 → optional)
 			'members-invite': {
-				title: 'よく使う操作（招待リンクを作る）',
-				what: '新しく使う人を招くリンクを作れます。リンクやQRコードを渡すだけで参加してもらえます。',
-				how: '1. 役割（保護者か子供）を選びます\n2. 作成ボタンを押し、出てきたリンクを渡します',
+				title: `よく使う操作（${MEMBERS_LABELS.inviteCreateButton}）`,
+				what: '新しく使う人を招くリンクを作れます。リンクや QR コードを渡すだけで参加してもらえます。',
+				how: `1. 「${MEMBERS_LABELS.inviteRoleLabel}」で ${MEMBERS_LABELS.roleParent} か ${MEMBERS_LABELS.roleChild} を選びます\n2. 「${MEMBERS_LABELS.inviteEmailLabel}」を入れると、そのメールアドレスのアカウントだけが受諾できます（空欄なら誰でも受諾できます）\n3. 「${MEMBERS_LABELS.inviteChildLabel}」を選ぶと、参加した人をそのお子さまに紐づけます（後からでも設定できます）\n4. 「${MEMBERS_LABELS.inviteCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
 				goal: '相手がリンクを開くだけで家族に参加でき、すぐ一緒に使い始められます。',
-				tips: ['招待リンクには期限があり、参加が済むと自動で使えなくなります'],
+				tips: [
+					`招待リンクは ${TRIAL_TERMS.duration}有効です（期限は下の「${MEMBERS_LABELS.pendingInvitesTitle}」に表示されます）。参加が済むと自動で使えなくなります`,
+				],
+			},
+			// ④ 保留中の招待 (未受諾の招待があるときだけ描画 → optional)
+			'members-pending': {
+				title: `画面の見方（${MEMBERS_LABELS.pendingInvitesTitle}）`,
+				what: `まだ受諾されていない招待がここに並びます。期限と、宛先を指定した場合はその宛先が表示されます。`,
+				how: `1. 「${MEMBERS_LABELS.inviteExpiresPrefix.trim()}」で使える期限を確認します\n2. 宛先を間違えたときや不要になったときは「${MEMBERS_LABELS.inviteRevokeButton}」で無効にします（${MEMBERS_LABELS.roleOwner}のみ）`,
+				goal: '渡した招待がまだ使われていないかを把握でき、間違えた招待をすぐ取り消せます。',
+			},
+			// ⑤ 閲覧リンク (プレミアムのときだけ描画 → optional)
+			'members-viewer': {
+				title: `よく使う操作（${MEMBERS_LABELS.viewerCreateButton}）`,
+				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.family}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
+				how: `1. 「${MEMBERS_LABELS.viewerLabelField}」に渡す相手が分かる名前を入れます（例: ${MEMBERS_LABELS.viewerLabelPlaceholder.replace('例: ', '')}）\n2. 「${MEMBERS_LABELS.viewerDurationLabel}」を ${MEMBERS_LABELS.viewerDuration7d} / ${MEMBERS_LABELS.viewerDuration30d} / ${MEMBERS_LABELS.viewerDurationUnlimited} から選びます\n3. 「${MEMBERS_LABELS.viewerCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
+				goal: '離れて暮らすご家族が、記録を見るだけの画面で成長を見守れます。',
+				tips: [
+					`渡した後で止めたいときは一覧の「${MEMBERS_LABELS.viewerRevokeButton}」（リンクを使えなくする）、履歴ごと消すときは「${MEMBERS_LABELS.viewerDeleteButton}」を使います`,
+				],
 			},
 		},
 	},
@@ -2295,68 +2599,144 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
-	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（賞状コレクション / 成長記録ブック / ごほうび申請の承認）
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（証明書 / 記録ブック / ごほうび申請の承認）
 	adminCertificates: {
-		title: '賞状コレクション',
+		// #4674 F1 / M: 呼称は画面表記の「証明書」に統一 (旧「賞状コレクション」「賞状」)
+		title: CERTIFICATE_TERMS.full,
+		// #4674 (EPIC #4650): 2 step とも中央 modal で「上のお子さまタブで切り替える」と案内しても
+		// 何も光らなかったため、お子さま切替ボタン行と一覧カードに anchor を張り、印刷 / シェアの
+		// 最頻操作 step を追加する。発行条件の数値は habit-milestones.ts の定数から埋め込む (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'certificates-intro': {
 				title: 'このページについて',
-				what: 'お子さまががんばって獲得した賞状を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに賞状が自動で贈られます。',
-				how: '保護者が作る操作はありません。お子さまが活動を続けると条件を満たした賞状がここに増えていきます。',
-				goal: 'お子さまの「ここまでがんばった」を賞状という形で振り返れて、ご家族で成長をお祝いできます。',
-			},
-			// ② 画面の見方（お子さまタブ + カテゴリ別の一覧）
-			'certificates-view': {
-				title: '画面の見方',
-				what: '上のお子さまタブで子ごとに切り替えると、その子の賞状が「連続記録」「レベルアップ」「月間がんばり」などの種類ごとに並びます。',
-				how: '1. お子さまタブで見たい子を選びます\n2. 種類ごとに並んだ賞状を見ていきます',
-				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+				what: `お子さまががんばって獲得した${CERTIFICATE_TERMS.canonical}を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに${CERTIFICATE_TERMS.canonical}が自動で贈られます。`,
+				how: `保護者が作る操作はありません。お子さまが活動を続けて、たとえば ${STREAK_MILESTONE_DAYS[0]} 日連続の記録・レベル ${CERTIFICATE_LEVEL_MILESTONES[0]} 到達・1 か月に ${MONTHLY_HABIT_DAYS_THRESHOLD} 日以上の記録といった節目を満たすと、ここに増えていきます。`,
+				goal: `お子さまの「ここまでがんばった」を${CERTIFICATE_TERMS.canonical}という形で振り返れて、ご家族で成長をお祝いできます。`,
 				tips: [
-					`賞状は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📜 ${CERTIFICATE_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さまを切り替える（お子さまが 1 人以上のときだけ描画されるボタン行）
+			'certificates-child-select': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: `上のお子さまのボタンで表示する子を切り替えます。ボタンの数字はその子が持っている${CERTIFICATE_TERMS.canonical}の数です。お子さまが 1 人のご家庭ではボタンも 1 つだけ表示されます。`,
+				how: `1. 見たいお子さまのボタンを押します\n2. その子の${CERTIFICATE_TERMS.canonical}が種類ごと（連続記録・レベルアップ・月間がんばり・カテゴリマスター・年間がんばり大賞）に並びます`,
+				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+			},
+			// ③ 証明書を開いて印刷・シェアする（1 件以上あるときだけ描画される一覧）
+			'certificates-open': {
+				title: `よく使う操作（${CERTIFICATE_TERMS.canonical}を開いて印刷・シェアする）`,
+				what: `${CERTIFICATE_TERMS.canonical}のカードを押すと詳細が開き、印刷やご家族へのシェアができます。`,
+				how: `1. 見たい${CERTIFICATE_TERMS.canonical}のカードを押します\n2. 詳細画面の「${CERTIFICATE_DETAIL_LABELS.printButton}」で紙に印刷したり PDF として保存したりできます（${PAID_PLAN_LABEL}）\n3. 「${CERTIFICATE_DETAIL_LABELS.showShareCardButton}」→「${CERTIFICATE_DETAIL_LABELS.downloadButton}」で画像として保存し、離れて暮らすご家族に送れます`,
+				goal: `がんばりを紙や画像で残せるので、お子さまの達成感が形になって残ります。`,
+				tips: [
+					`${CERTIFICATE_TERMS.canonical}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
 				],
 			},
 		},
 	},
 	adminGrowthBook: {
-		title: '成長記録ブック',
+		title: GROWTH_BOOK_TERMS.full,
+		// #4675 (EPIC #4650): 旧 2 step は selector 省略の中央 modal で、しかも存在しない
+		// 年度切替 UI と分野別一覧を案内していた。画面の DOM 順 (お子さま切替 → 表紙 → 年間サマリー →
+		// 月別 → 証明書リンク) に anchor を張り直し、描画条件を持つ step は optional にする。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'growth-book-intro': {
 				title: 'このページについて',
-				what: 'お子さまの 1 年間のがんばりを、月ごと・分野ごとにまとめた記録ブックです。活動の積み重ねが一冊の成長の記録になります。',
+				what: `お子さまの今年度（4月〜翌年3月）のがんばりを 1 冊にまとめた${GROWTH_BOOK_TERMS.full}です。表紙・年間サマリー・月別の記録が並びます。`,
 				how: `保護者が入力する操作はありません。お子さまの記録から自動でまとめられ、${PAID_PLAN_LABEL}では印刷して手元に残すこともできます。`,
 				goal: '1 年の成長をまとめて振り返れて、ご家族の思い出として保存できます。',
-			},
-			// ② 画面の見方 + 最頻操作（年度・お子さまの切り替えと印刷）
-			'growth-book-view': {
-				title: '画面の見方と印刷',
-				what: `お子さまと年度を切り替えると、その子のその年の記録が月ごと・分野ごとに並びます。${PAID_PLAN_LABEL}では印刷ボタンで紙にも残せます。`,
-				how: `1. お子さまと年度を選びます\n2. 月ごと・分野ごとの記録を見ていきます\n3. ${PAID_PLAN_LABEL}なら印刷ボタンで手元に残せます`,
-				goal: '見たいお子さま・年度の成長を選んで振り返り、必要なら印刷して保存できます。',
 				tips: [
-					`成長記録ブックは${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📖 ${GROWTH_BOOK_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さま切替 (子供 2 人以上のときだけ描画)
+			'growth-book-child-tabs': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: 'お子さまが 2 人以上のとき、上のボタンで表示する子を切り替えます。お子さまが 1 人のご家庭ではボタンは出ず、その子の記録がそのまま表示されます。',
+				how: `1. 見たいお子さまのボタンを押します\n2. 下の表紙・年間サマリー・月別の記録がその子の内容に切り替わります`,
+				goal: 'きょうだいそれぞれの 1 年を、同じページで順番に振り返れます。',
+			},
+			// ③ 年間サマリー (記録が 1 件以上あるときだけ描画)
+			'growth-book-summary': {
+				title: '画面の見方（年間サマリー）',
+				what: '今年度の合計が並びます。「活動回数」は記録した回数、「獲得ポイント」はその合計、「最長連続日数」は毎日続いた最長の日数、「証明書」は受け取った証明書の枚数です。下には「いちばんがんばった月」と「とくいなカテゴリ」も出ます。',
+				how: `1. 4 つの数字で 1 年の量をつかみます\n2. 「いちばんがんばった月」「とくいなカテゴリ」でその子らしさを見ます\n3. その下の「📅 月別の記録」で、月ごとの回数・活動日数・連続日数を振り返ります`,
+				goal: '1 年でどれだけ積み上がったかと、得意な分野・伸びた時期がひと目で分かります。',
+			},
+			// ④ 印刷 (有料プラン かつ 記録があるときだけ描画)
+			'growth-book-print': {
+				title: 'よく使う操作（印刷して残す）',
+				what: `${PAID_PLAN_LABEL}では、この${GROWTH_BOOK_TERMS.full}を紙に印刷したり PDF として保存したりできます。ボタンは記録が 1 件以上あるときに右上に出ます。`,
+				how: `1. 右上の「🖨️ 印刷 / PDF」を押します\n2. ブラウザの印刷画面が開きます\n3. そのまま印刷するか、送信先（プリンター）で「PDF に保存」を選んで保存します`,
+				goal: '1 年の記録を手元に残せて、お子さまと一緒に見返したりご家族に渡したりできます。',
+				tips: [
+					`${GROWTH_BOOK_TERMS.full}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+				],
+			},
+			// ⑤ 証明書一覧へ (記録があるときだけ描画)
+			'growth-book-certificates': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}を見る）`,
+				what: `年間サマリーで数えている${CERTIFICATE_TERMS.canonical}の中身は、ページ下部のリンクから一覧で確認できます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →」を押します\n2. ${CERTIFICATE_TERMS.full}のページで、種類ごとに並んだ${CERTIFICATE_TERMS.canonical}を確認します`,
+				goal: `どんな節目で${CERTIFICATE_TERMS.canonical}が贈られたのかまで辿れます。`,
+				relatedLinks: [
+					{ label: 'レポート', href: '/admin/reports' },
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
 				],
 			},
 		},
 	},
 	adminRewardsRequests: {
 		title: 'ごほうび申請の承認',
+		// #4676 (EPIC #4650): 旧 step 2 はページ最外 div (見出し・戻るリンク・履歴を含む) を
+		// spotlight していて概要 step と見分けが付かなかった。未処理セクション / 承認ボタン /
+		// 却下ボタン / 履歴セクションに anchor を分け、申請 0 件のときは操作 step が出ないようにする。
+		// ボタン名・件数・文字数は ADMIN_REWARDS_REQUESTS_LABELS と定数を引く (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'rewards-requests-intro': {
 				title: 'このページについて',
-				what: 'お子さまが「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。お子さまの交換は保護者の承認を経て確定します。',
-				how: '申請があるとここに一覧で並びます。中身を見て、承認するか却下するかを選びます。',
-				goal: 'お子さまの交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。',
+				what: `${CHILD_TERMS.honorific}が「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。初期設定では保護者の承認を経て交換が確定します（設定 > ${ADMIN_RULES_PAGE_LABELS.pageTitle}の「${ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}」で、承認なしの即時交換にも切り替えられます）。`,
+				how: `申請があると「${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}」に並びます。中身を見て、承認するか却下するかを選びます。下の「${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}」には処理済みの申請が残ります。`,
+				goal: `${CHILD_TERMS.honorific}の交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。`,
+				tips: [`申請が届くと管理画面の上部にお知らせが出ます。ごほうび管理の ⋮ からも開けます`],
 			},
-			// ② 最頻操作（承認・却下する）
-			'rewards-requests-act': {
-				title: 'よく使う操作（承認・却下）',
-				what: '最もよく使うのが、申請ごとの承認・却下です。却下するときは、お子さま宛てに理由を添えられます。',
-				how: '1. 申請の内容を確認します\n2. よければ承認、見送るときは却下を押します\n3. 却下のときは理由を入力するとお子さまに伝わります',
-				goal: `承認するとポイントが引かれて交換が確定します。ポイントは承認したときだけ引かれるので、却下してもお子さまの残高は変わりません。`,
-				tips: ['却下の理由を添えると、お子さまが次にどうすればよいか分かります'],
+			// ② 未処理の申請（常設セクション。0 件のときは「申請はありません」が出る）
+			'rewards-requests-pending': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}）`,
+				what: `まだ処理していない申請がここに並びます。1 件ごとに ${CHILD_TERMS.honorific}の名前・ごほうびの内容・必要ポイント・申請日時が表示されます。申請が無いときは「${ADMIN_REWARDS_REQUESTS_LABELS.emptyPendingMessage}」と表示され、${CHILD_TERMS.honorific}が交換を申し込むとここに増えます。`,
+				how: `1. 見出し横の件数で未処理の数を確認します\n2. 各申請の内容と必要ポイントを確認します`,
+				goal: '処理が必要な申請だけを、まとめて確認できます。',
+			},
+			// ③ 承認する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-approve': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}）`,
+				what: `ごほうびを実際に渡したあとに押すボタンです。押すとその場で交換が確定し、必要ポイントが${CHILD_TERMS.honorific}の残高から引かれます。`,
+				how: `1. ごほうびを${CHILD_TERMS.honorific}に渡します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}」を押します\n3. 残高が足りないときは確定できず、画面上部にお知らせが出ます`,
+				goal: '渡したものだけがポイント消費として記録され、渡し忘れ・二重消費を防げます。',
+			},
+			// ④ 却下する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-reject': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}）`,
+				what: `今回は見送るときに使います。却下してもポイントは引かれず、${CHILD_TERMS.honorific}の残高は変わりません。`,
+				how: `1. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}」を押します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectNoteLabel}」に理由を書きます（書かなくても進めます）\n3. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectConfirmButton}」を押すと却下が確定します（「${ADMIN_REWARDS_REQUESTS_LABELS.rejectCancelButton}」でやめられます）`,
+				goal: `理由を添えると${CHILD_TERMS.honorific}の画面に表示され、次にどうすればよいかが伝わります。`,
+				tips: [`却下の理由は最大 ${REWARD_REJECT_NOTE_MAX_LENGTH} 文字です`],
+			},
+			// ⑤ 履歴（常設セクション）
+			'rewards-requests-history': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}）`,
+				what: `処理済みの申請が新しい順に ${REWARD_REQUEST_HISTORY_LIMIT} 件まで残り、「${ADMIN_REWARDS_REQUESTS_LABELS.statusApproved}」「${ADMIN_REWARDS_REQUESTS_LABELS.statusRejected}」のしるしが付きます。`,
+				how: `1. しるしで結果を確認します\n2. ${CHILD_TERMS.honorific}の名前と使ったポイントで、いつ何を渡したかを振り返ります`,
+				goal: '「先週なにを渡したか」をあとから確認でき、ごほうびの出しすぎにも気づけます。',
+				tips: ['確定した承認・却下を取り消す操作はありません。渡してから承認を押すのが確実です'],
+				relatedLinks: [
+					{ label: 'ごほうび管理', href: '/admin/rewards' },
+					{ label: ADMIN_RULES_PAGE_LABELS.pageTitle, href: '/admin/settings/rules' },
+				],
 			},
 		},
 	},
@@ -2426,12 +2806,17 @@ export const OYAKAGI_LABELS = {
 	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
 	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
 	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
-	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	inputLabel: `${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	// #4661: 変更フォームの 3 入力欄。以前は account/+page.svelte に「（4〜8桁）」を
+	// 直書きしており、`formatError` の「4〜6桁」と同一画面で矛盾していた。
+	currentInputLabel: `現在の${OYAKAGI_TERMS.name}`,
+	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
 	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
 	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
 	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
-	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	formatError: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
@@ -2452,7 +2837,7 @@ export const OYAKAGI_LABELS = {
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
 	gateLockedUntilNotice: (timeStr: string) =>
 		`${OYAKAGI_TERMS.name}の入力に連続して失敗しました。${timeStr} まで待ってから再度お試しください`,
-	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
 	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
@@ -2467,7 +2852,7 @@ export const OYAKAGI_LABELS = {
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
 	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
-	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
 	gateCreateConfirmTitle: `もう一度入力してください`,
 	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
 	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
@@ -2499,7 +2884,7 @@ export const PIN_RESET_LABELS = {
 	resetFederatedCodeLabel: '確認コード（6桁の数字）',
 	resetFederatedResendButton: 'コードを再送する',
 	// エラー文言
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
@@ -2509,7 +2894,7 @@ export const PIN_RESET_LABELS = {
 	// エラー文言
 	errorInvalidPassword: 'パスワードが正しくありません',
 	errorPasswordRequired: 'パスワードを入力してください',
-	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorPinFormat: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
 	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
@@ -2547,7 +2932,7 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
-	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -2628,6 +3013,16 @@ export const SETTINGS_LABELS = {
 	decaySaving: '保存中...',
 	decaySaveAction: '設定を保存',
 	decaySaved: 'ステータス減少設定を保存しました',
+	// #4663 F7: 4 段階の選択肢。svelte 内の DECAY_OPTIONS に直書きされており、ガイドが
+	// 同じ語を引けなかった。ラベルと説明はここが SSOT (page は本定数を参照する)。
+	decayOptionNone: 'なし',
+	decayOptionNoneDesc: '減少しません（練習や導入期間向け）',
+	decayOptionGentle: 'ゆるやか',
+	decayOptionGentleDesc: '通常の半分の速度で減少します',
+	decayOptionNormal: 'ふつう',
+	decayOptionNormalDesc: '猶予2日後にゆるやかに減少します',
+	decayOptionStrict: 'きびしめ',
+	decayOptionStrictDesc: '上級者向け。1.5倍の速度で減少します',
 
 	// 既定の子供
 	defaultChildSectionTitle: '🏠 既定の子供',
@@ -2681,6 +3076,11 @@ export const SETTINGS_LABELS = {
 	pointModeCurrency: '通貨で表示',
 	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
 	pointSaveAction: 'ポイント設定を保存',
+	// #4663 F7: 通貨モードの追加入力欄。svelte に直書きされており、ガイドから同じ語を
+	// 引けなかった (DESIGN.md §6 逸脱)。
+	pointCurrencyLabel: '通貨',
+	pointRateLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
+	pointRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
 
 	// データ管理 (#backup-terms: 内部フォーマット JSON/ZIP は UI 露出しない。BACKUP_TERMS 統一)
 	dataSectionTitle: '💾 データ管理',
@@ -2997,7 +3397,10 @@ export const SETTINGS_LABELS = {
 	hubTitle: '設定',
 	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
-	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
+	// #4661: 「おやかぎコード」ひらがな直書きは同一画面のガイド表記 (おやカギコード) と
+	// 揺れていたため atom 参照にする。3 つ目はカード内の見出し (accountDeleteSectionTitle)
+	// と同じ「アカウント削除」に揃える (CANCEL_TERMS.account「退会」はサブスク文脈の語)。
+	groupAccountDesc: `${OYAKAGI_TERMS.name}変更・ログアウト・アカウント削除`,
 	groupActivitiesTitle: '活動・ポイント',
 	groupActivitiesDesc: 'ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ',
 	groupNotificationsTitle: '通知',
@@ -3092,6 +3495,13 @@ const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間
 // (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
 const WRITES_CONTINUE_ASSURANCE = `お子さまの記録はそのまま残り、${PLAN_FULL_TERMS.free}の範囲で記録・ポイント付与を続けられます。`;
 
+// #4585-4: アーカイブされたものが「消えた」のか「戻せる」のかを述べる保証文。
+// `restoreArchivedResources` は 3 reason (体験終了 / 顧客の選択 / 支払い失敗) すべてを復元する
+// (#4585-3) ため、**どの経路でアーカイブされても再契約で戻る**。これを書かないと、実際には
+// 戻せるのに諦める顧客が出る (PO 決裁 4 本目)。解約画面 (`CANCELLATION_LABELS`) と
+// 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) で**同一の文**を共有する。
+const ARCHIVE_RESTORE_ASSURANCE = `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`;
+
 export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
@@ -3180,7 +3590,13 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
-	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
+	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
+	// 顧客本人が操作していないため解約画面 (#4585-1 の fallback 提示 + 選択 UI) を一度も通らず、
+	// 上限超過分がアーカイブされること (#4585-3 で dunning にも適用) をここでしか知れない。
+	// 「記録はそのまま残り」だけで止めると、超過分が見えなくなった顧客に対して事実と食い違う。
+	// #4540 Q4 (#4621): 移行先 (無料プラン) の保持期間も同じ告知で述べる。アーカイブ (戻せる) と
+	// 保持期間超過による物理削除 (戻せない) は別の事象なので、両方を落とさず並べる。
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${PLAN_FULL_TERMS.free}の上限を超える分はアーカイブします。${ARCHIVE_RESTORE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
 	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
@@ -3449,8 +3865,15 @@ export const REPORTS_LABELS = {
 	monthlyChildReport: (childName: string) => `${childName}の がんばりレポート`,
 	monthlyActivityLabel: '活動',
 	monthlyActivityUnit: '回',
+	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (子供画面の所持ポイントと同じ単位)。
+	// 旧実装は XP 累計を出しており、どの月でも同じ数 = 先月比が常に ±0 だった。
 	monthlyPointsLabel: 'ポイント',
 	monthlyPointsUnit: 'pt',
+	monthlyPointsHint: '今月ためた分',
+	// #4697: XP は「ポイント」と別の量 (消費されない成長の累計)。名前を分けて併記する。
+	monthlyXpLabel: 'つよさ (XP)',
+	monthlyXpUnit: 'XP',
+	monthlyXpHint: 'これまでの合計',
 	monthlyLevelLabel: 'レベル',
 	monthlyStreakLabel: '連続',
 	monthlyStreakUnit: '日',
@@ -4002,7 +4425,9 @@ export const CANCELLATION_LABELS = {
 	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
 	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
 		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、この数だけ残して超えた分をアーカイブします。${CHILD_TERMS.honorific}は、最近記録がある${CHILD_TERMS.honorific}から順に残します。`,
-	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
+	// #4585-4: 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) と同一文を共有する。
+	// 解約画面を通る顧客と通らない顧客 (支払い失敗) で「戻せるかどうか」の説明を分けない。
+	archiveFallbackRestore: ARCHIVE_RESTORE_ASSURANCE,
 	selectionButton: '残すデータを選ぶ',
 	selectionLoading: '確認しています…',
 	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度お試しになる場合は下のボタンから、このまま進める場合は送信ボタンを押してください。`,
@@ -4480,105 +4905,6 @@ export const LOGIN_LABELS = {
 	devAccountChildRole: '(子供)',
 } as const;
 
-// ============================================================
-// admin/members ページ (#1452 Phase B)
-// ============================================================
-
-export const MEMBERS_LABELS = {
-	// Role labels
-	roleOwner: 'オーナー',
-	roleParent: `${PARENT_TERMS.honorific}`,
-	roleChild: `${CHILD_TERMS.hiragana}`,
-
-	// Current members section
-	currentMembersTitle: '現在のメンバー',
-	noMembersText: 'メンバーがいません',
-	transferButton: '移譲',
-	removeButton: '削除',
-	leaveGroupButton: '家族グループを離れる',
-
-	// Invite section
-	inviteSectionTitle: 'メンバーを招待',
-	inviteRoleLabel: '招待ロール',
-	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
-	inviteEmailLabel: '宛先メールアドレス（任意）',
-	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
-	inviteChildLabel: '対象の子供（任意）',
-	inviteChildNone: '-- 後で紐づけ --',
-	inviteCreateLoading: '作成中...',
-	inviteCreateButton: '招待リンクを作成',
-	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
-	inviteQrAlt: '招待QRコード',
-	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
-	inviteUrlLabel: '招待URL',
-	inviteCopied: 'コピー済み',
-	inviteCopy: 'コピー',
-
-	// Pending invites section
-	pendingInvitesTitle: '保留中の招待',
-	inviteExpiresPrefix: '期限: ',
-	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
-	// 取消し → 再発行できる修正導線)
-	inviteEmailBoundPrefix: '宛先: ',
-	inviteRevokeButton: '取消し',
-	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
-	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
-	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
-	inviteOwnerOnlyNote:
-		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
-
-	// Error messages
-	inviteCreateError: '招待リンクの作成に失敗しました',
-	networkError: '通信エラーが発生しました',
-	removeError: '削除に失敗しました',
-	transferError: '移譲に失敗しました',
-	leaveError: '離脱に失敗しました',
-
-	// Confirm dialogs
-	revokeConfirm: 'この招待リンクを取り消しますか？',
-	removeMemberConfirm: (email: string) =>
-		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
-	transferConfirm: (email: string) =>
-		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
-	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
-
-	// Viewer link section
-	viewerSectionTitle: '閲覧リンク',
-	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
-	viewerLabelField: 'ラベル（任意）',
-	viewerLabelPlaceholder: '例: おばあちゃん用',
-	viewerDurationLabel: '有効期限',
-	// #4500: viewerDuration7d は `TRIAL_TERMS.duration` (無料体験の期間) を流用していた。
-	// 閲覧リンクの有効期限とトライアル期間は無関係で、トライアルを 14 日に変えた瞬間に
-	// 閲覧リンクの選択肢が「14日間」と表示される (誤流用)。閲覧リンク自身の値として持つ。
-	viewerDuration7d: '7日間',
-	viewerDuration30d: '30日間',
-	viewerDurationUnlimited: '無期限',
-	viewerCreateLoading: '作成中...',
-	viewerCreateButton: '閲覧リンクを作成',
-	viewerSuccessMsg: '閲覧リンクが作成されました',
-	viewerQrAlt: '閲覧QRコード',
-	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
-	viewerUrlLabel: '閲覧URL',
-	viewerCopied: 'コピー済み',
-	viewerCopy: 'コピー',
-	viewerNoLabel: '(ラベルなし)',
-	viewerStatusInvalid: '無効',
-	viewerStatusExpired: '期限切れ',
-	viewerStatusValid: '有効',
-	viewerExpiresPrefix: '期限: ',
-	viewerExpiresNone: '無期限',
-	viewerRevokeButton: '無効化',
-	viewerDeleteButton: '削除',
-	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
-	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
-	viewerCreateError: '閲覧リンクの作成に失敗しました',
-
-	// Button titles
-	transferTitle: 'オーナー権限を移譲',
-	removeTitle: 'メンバーを削除',
-} as const;
-
 /**
  * メンバー role の内部コードを日本語ラベルにする (#4507)。
  *
@@ -4671,8 +4997,9 @@ export const GROWTH_BOOK_LABELS = {
 	annualSummaryTitle: '📊 年間サマリー',
 	statActivities: '活動回数',
 	statPoints: '獲得ポイント',
-	statMaxStreak: 'さいちょうストリーク',
-	statCertificates: 'しょうめいしょ',
+	// #4675 F8: 保護者画面の指標は漢字表記に統一 (同一画面の「証明書一覧」と揺れていた)
+	statMaxStreak: '最長連続日数',
+	statCertificates: `${CERTIFICATE_TERMS.canonical}`,
 	bestMonthLabel: 'いちばんがんばった月: ',
 	bestCategoryLabel: 'とくいなカテゴリ: ',
 
@@ -4681,9 +5008,13 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyActivities: (count: number) => `${count}回`,
 	monthlyDays: (days: number) => `${days}日活動`,
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
+	// #4697: 年度は 4 月〜翌 3 月を必ず 12 行並べるため未来月の枠ができる。
+	// 旧実装はそこにも累計値を出しており、まだ来ていない月に記録があるように見えた。
+	monthlyFutureNote: 'これからの月',
+	valueNotYet: '—',
 
 	// Certificate link
-	certificateLink: '📜 証明書一覧を見る →',
+	certificateLink: `📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →`,
 
 	// Empty states
 	noChildrenEmoji: '👧',
@@ -4794,49 +5125,6 @@ export const OPS_PRESET_DISTRIBUTION_LABELS = {
 	// Note for ratio interpretation
 	ratioNote:
 		'割合は「回答テナント数」ベース（複数選択あり、合計 100% を超える）。「未回答」のみ全テナント数ベース。',
-} as const;
-
-// ============================================================
-// デモ版設定ページ (#1452 Phase B)
-// ============================================================
-
-export const DEMO_SETTINGS_LABELS = {
-	pageTitle: '設定',
-
-	// おやカギ section
-	oyakagiDesc1: `${ADMIN_VIEW_TERMS.canonical}にアクセスするための`,
-	oyakagiDesc2: 'を変更できます。',
-	oyakagiDesc3: '。',
-	oyakagiConfirmLabel: '確認',
-
-	// ポイント表示設定 section
-	pointSectionTitle: '&#x2B50; ポイント表示設定',
-	pointSectionDesc: 'ポイントの表示方法を「ポイント (P)」または「通貨」に切り替えられます。',
-	pointModeTitle: '&#x1F4CA; ポイントモード',
-	pointModeExample: (val: string) => `例: ${val}`,
-	currencyModeTitle: '&#x1F4B0; 通貨モード',
-	currencyModeExample: (val: string) => `例: ${val}`,
-	currencyListTitle: '対応通貨',
-
-	// 減衰設定 section
-	decaySectionTitle: '&#x1F4C9; ステータス減衰設定',
-	decaySectionDesc:
-		'活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。',
-
-	// データ管理 section
-	dataSectionTitle: '&#x1F4BE; データ管理',
-	dataSectionDesc: '登録すると、データのエクスポート・インポート・初期化が利用できます。',
-	dataExport: 'エクスポート',
-	dataImport: 'インポート',
-	dataReset: '初期化',
-
-	// フィードバック section
-	feedbackSectionTitle: '&#x1F4AC; フィードバック',
-	feedbackSectionDesc: 'ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。',
-
-	// CTA
-	ctaTitle: 'すべての設定を利用しませんか？',
-	ctaDesc: '登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。',
 } as const;
 
 // ============================================================
@@ -5472,20 +5760,6 @@ export const SETUP_COMPLETE_LABELS = {
 	pinHintSuffix: '初めて入るときに作成します。',
 } as const;
 
-export const CERTIFICATE_DETAIL_LABELS = {
-	pageTitle: 'がんばり証明書',
-	backLink: '一覧に戻る',
-	previewTitle: '📜 証明書プレビュー',
-	printButton: '🖨️ 印刷 / PDF保存',
-	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
-	upgradeLink: 'アップグレード',
-	shareCardTitle: '🎉 がんばりカード',
-	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
-	downloadButton: '📥 画像をダウンロード',
-	closeButton: '閉じる',
-	showShareCardButton: '🎉 シェアカードを表示',
-} as const;
-
 export const DEMO_CHILD_HOME_LABELS = {
 	checklistTitle: 'もちものチェック',
 	checklistDone: '✅ かんりょう！',
@@ -5670,6 +5944,11 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: 'コピーする',
+	// #4694: コピー結果文の resource 名 (checklists の restoreResourceNoun と同型)。
+	// 結果文の組み立ては CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が行う。
+	copyResourceNoun: '活動',
+	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
+	copyFailed: 'コピーに失敗しました',
 	// bulk dialog
 	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
 	bulkFormName: '活動名',
@@ -5736,6 +6015,44 @@ export const ADMIN_CHILD_SCOPE_LABELS = {
 		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
 	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
 	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
+} as const;
+
+/**
+ * 「別のお子さまからコピー」の結果メッセージ SSOT (#4694)
+ *
+ * 活動 / ごほうび / チェックリストの 3 画面で同じ判定 (すでにあるものは作らない) を行い、
+ * 同じ形で「作った件数 / 既にあって作らなかった件数」を返す (NN/G #1 visibility of system status)。
+ * 旧実装は「コピーが完了しました」だけを出していたため、2 回押して二重登録されたことにも、
+ * 何も起きなかったことにも気づけなかった。
+ */
+export const CHILD_COPY_RESULT_LABELS = {
+	/**
+	 * @param resourceNoun 「活動」「ごほうび」「チェックリスト」
+	 * @param copied 実際に作成した件数
+	 * @param skipped 既に同じものがあり作成しなかった件数
+	 */
+	format: (resourceNoun: string, copied: number, skipped: number): string => {
+		if (copied === 0) {
+			return skipped > 0
+				? `コピーできる${resourceNoun}はありませんでした（${skipped} 件はすでに追加済みです）`
+				: `コピーできる${resourceNoun}がありませんでした`;
+		}
+		return skipped > 0
+			? `📋 ${copied} 件の${resourceNoun}をコピーしました（${skipped} 件はすでにあるためスキップ）`
+			: `📋 ${copied} 件の${resourceNoun}をコピーしました`;
+	},
+	/** 結果に応じた Toast のトーン (0 件は成功と呼ばない) */
+	tone: (copied: number): 'success' | 'info' => (copied > 0 ? 'success' : 'info'),
+	/** コピー実行中のボタン文言 (DESIGN.md §5 Button loading) */
+	copying: 'コピーしています…',
+	/**
+	 * デモ環境 (write no-op) の結果表示。取込 / 復元の demo 分岐と同型 (#2558 bug-1)。
+	 * demo は書き込みを行わないので件数は常に 0 で返る。これを実結果として
+	 * 「コピーできる○○がありませんでした」と出すと、デモを触った人に
+	 * 「重複していないのにコピーできない」と誤解させるため、demo と明示する。
+	 */
+	demo: (resourceNoun: string): string =>
+		`デモではお試し用です（実際の${resourceNoun}のコピーは行われません）`,
 } as const;
 
 /**
@@ -5811,7 +6128,6 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
@@ -5848,7 +6164,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	editFailed: '更新に失敗しました',
 	deleteDialogTitle: 'ごほうびを削除',
 	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
-	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	// #4683: 交換履歴は残す (ポイント台帳の控除が残る以上、履歴だけ消すと辻褄が合わない)。
+	deleteIrreversibleNote:
+		'この操作は取り消せません。交換ずみの履歴は残るので、使ったポイントはあとから確認できます。',
 	deleteConfirmButton: '削除する',
 	deleteDeletingButton: '削除しています…',
 	deleteCancelButton: 'キャンセル',
@@ -6131,12 +6449,24 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 export const CERTIFICATES_PAGE_LABELS = {
 	pageTitle: `📜 ${CERTIFICATE_TERMS.full}`,
 	backToReportsLink: 'レポートへ',
-	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
+	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では${CERTIFICATE_TERMS.canonical}の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
 	freePlanNoteSuffix: 'で利用できます。',
-	emptyTitle: 'まだ証明書がありません',
-	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
+	emptyTitle: `まだ${CERTIFICATE_TERMS.canonical}がありません`,
+	emptyDesc: `活動を記録すると、節目を達成したときに${CERTIFICATE_TERMS.canonical}が発行されます`,
 	noChildrenTitle: '子供が登録されていません',
+	// #4674 F5: カテゴリ見出しは page 直書きをやめて本 SSOT に集約 (ガイド文言も同じ値を引く)。
+	// short はカード上のバッジ表記 (子供にも読めるひらがな)。
+	categoryStreak: '🔥 連続記録',
+	categoryLevel: '🌟 レベルアップ',
+	categoryMonthly: '📜 月間がんばり',
+	categoryMaster: '🎓 カテゴリマスター',
+	categoryAnnual: '🏆 年間がんばり大賞',
+	categoryShortStreak: 'れんぞく',
+	categoryShortLevel: 'レベル',
+	categoryShortMonthly: 'がつかん',
+	categoryShortMaster: 'マスター',
+	categoryShortAnnual: 'ねんかん',
 } as const;
 
 export const OPS_LAYOUT_LABELS = {
@@ -6678,8 +7008,9 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: '取り込む',
 	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
-	copyNoChange: '取り込めるチェックリストがありませんでした（すでに配信済み）',
-	copySuccess: (added: number) => `${added} 件のチェックリストを取り込みました`,
+	// #4694: コピー結果文は CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が組み立てる。
+	// 本 namespace は resource 名だけを持つ (restoreResourceNoun と同型)。
+	copyResourceNoun: 'チェックリスト',
 	copyFailed: '取り込みに失敗しました',
 } as const;
 
@@ -6689,66 +7020,6 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
-export const ADMIN_RULES_PAGE_LABELS = {
-	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
-	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
-	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
-	pageTitle: 'ごほうび・ボーナスルール',
-	pageDescription:
-		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
-	emptyTitle: 'ボーナスルールがありません',
-	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
-	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
-	sectionBonusDesc:
-		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
-	enabledBadge: '有効',
-	disabledBadge: '無効',
-	enableButton: '有効化',
-	disableButton: '無効化',
-	removeButton: '削除',
-	removeConfirmTitle: 'このルールを削除しますか？',
-	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
-	importedAtLabel: '取込日時',
-	rulesLabel: '含まれるルール',
-	pointBonusSuffix: 'pt',
-	updateSuccess: 'ルールを更新しました',
-	removeSuccess: 'ルールを削除しました',
-	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
-	importToastSuccess: (presetName: string) =>
-		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
-	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
-	importToastError: (presetName: string) =>
-		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
-	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
-	// #4711: 種類違い (exchange / penalty / special) は「失敗 → 再試行」ではなく、
-	// 取り込める画面 (交換型 = ごほうび管理) を案内する。内部 ID は出さない。
-	importToastWrongType: (presetName: string) =>
-		`「${presetName}」はボーナスルールではないため、この画面では取り込めません。`,
-	importWrongTypeExchangeHint: `交換型のルールは${REWARD_TERMS.menu}で取り込みます。`,
-	importWrongTypeGoToRewards: `${REWARD_TERMS.menu}で取り込む`,
-	importWrongTypeNotImportable: 'このルールは取込対象外です。',
-	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
-	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
-	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
-	rewardApprovalSectionDesc:
-		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
-	rewardApprovalRequireState: '保護者の承認が必要',
-	rewardApprovalInstantState: '承認なしで即時交換',
-	rewardApprovalRequireDesc:
-		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
-	rewardApprovalInstantDesc:
-		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
-	rewardApprovalEnableInstantButton: '即時交換にする',
-	rewardApprovalDisableInstantButton: '承認を必須に戻す',
-	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
-	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
-	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
-	// 解除後に何が起きるか (結果) を書く (AC3)。
-	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
-	rewardApprovalInstantConfirmBody:
-		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
-} as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
 	aiAddButton: '✨ AI追加',
@@ -7734,7 +8005,7 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 	emptyPendingMessage: '申請はありません',
 	approveButton: '承認して渡した',
 	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectNoteLabel: `却下理由（任意・最大${REWARD_REJECT_NOTE_MAX_LENGTH}文字）`,
 	rejectConfirmButton: '確定',
 	rejectCancelButton: 'キャンセル',
 	requestedAtLabel: '申請日時',
@@ -7749,27 +8020,6 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 // ごほうび申請承認専用画面 (#2269: /admin/rewards/requests)
 // CRUD と承認フローの責務分離（PO 指摘「ごほうび/申請タブ区分が意味不明」）
 // ============================================================
-
-export const ADMIN_REWARDS_REQUESTS_LABELS = {
-	pageTitle: '📋 ごほうび申請承認',
-	pageDescTitle: '📋 ごほうび申請承認',
-	pageDescText: '子供からの交換申請に承認/却下します。',
-	backToRewardsLabel: '← ごほうび管理に戻る',
-	pendingSectionTitle: 'Pending',
-	pendingCountSuffix: (count: number) => `${count} 件`,
-	historySectionTitle: 'History（直近30件）',
-	emptyPendingMessage: '申請はありません',
-	emptyHistoryMessage: '履歴はありません',
-	approveButton: '承認して渡した',
-	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
-	rejectConfirmButton: '確定',
-	rejectCancelButton: 'キャンセル',
-	requestedAtLabel: '申請日時',
-	rewardPointsUnit: 'ポイント',
-	statusApproved: '承認済み',
-	statusRejected: '却下済み',
-} as const;
 
 // ============================================================
 // UI プリミティブ コンポーネントラベル (#1465 Phase B)
@@ -10547,7 +10797,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（原則 2 営業日以内に返信することを目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Stripe が対応する主要ブランド）<br>※Stripe決済サービス経由。ご利用いただけるブランドは決済画面でご確認いただけます</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（原則 2 営業日以内に返信することを目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Stripe が対応する主要ブランド）<br>※Stripe決済サービス経由。ご利用いただけるブランドは決済画面でご確認いただけます</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストはアーカイブされ、画面には表示されなくなります。アーカイブされたデータも削除はされず、有料プランに戻すと元どおりご利用いただけます。お支払いの失敗により契約が終了した場合も同じ取扱いです。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 

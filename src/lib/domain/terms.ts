@@ -54,6 +54,7 @@ import {
 	formatMemberCount,
 	invitesAllowedFrom,
 } from './constants/family-member-limit';
+import { PIN_LENGTH } from './constants/oyakagi';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -1117,12 +1118,19 @@ export const OSS_LICENSE_TERMS = {
 // 設計指針:
 //   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
 //   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
+//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661)
 //
 // 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
 
 export const OYAKAGI_TERMS = {
 	name: 'おやカギコード',
 	shortName: 'おやカギ',
+	/**
+	 * 桁数の表示文字列 (#4661 / #4662)。判定に使う `PIN_LENGTH` から導出するため、
+	 * 桁数を変えると入力ラベル・エラー文・ページガイドが同時に追従する
+	 * (以前は 4 / 4〜6 / 4〜8 の 3 表記に割れ、実際に打てるのは 4 桁だけだった)。
+	 */
+	digitRange: `${PIN_LENGTH}桁`,
 } as const;
 
 // ============================================================
