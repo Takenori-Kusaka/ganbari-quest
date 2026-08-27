@@ -11,6 +11,7 @@ import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -40,6 +41,8 @@ let deletionInfo = $state<{
 		email?: string;
 		displayName?: string;
 	}>;
+	/** #4640: オーナーを渡せる大人が居るか (判定 SSOT は account-deletion-service)。 */
+	hasTransferableAdult: boolean;
 } | null>(null);
 let deletionInfoLoading = $state(false);
 
@@ -109,8 +112,7 @@ async function fetchDeletionInfo() {
 
 async function handleDeleteAccount() {
 	if (deleteSubmitting) return;
-	if (deleteConfirmText !== SETTINGS_LABELS.accountDeleteConfirmPhrase || !deleteAgreeChecked)
-		return;
+	if (deleteConfirmText !== CANCEL_TERMS.confirmPhrase || !deleteAgreeChecked) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -212,7 +214,7 @@ const deletionGraceDays = $derived(
 const consentGraceDays = $derived($page.data.userRole === 'owner' ? deletionGraceDays : 0);
 
 const canConfirmDelete = $derived(
-	deleteConfirmText === SETTINGS_LABELS.accountDeleteConfirmPhrase && deleteAgreeChecked,
+	deleteConfirmText === CANCEL_TERMS.confirmPhrase && deleteAgreeChecked,
 );
 </script>
 
@@ -430,17 +432,32 @@ const canConfirmDelete = $derived(
 				{/if}
 
 				{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
+					<!-- #4640: 他が子供だけなら移譲欄を出さない (選択肢が空のまま宙吊りになり退会できなくなる) -->
 					<div
 						class="mt-4 p-4 rounded-lg border-2 border-[var(--color-border-default)] bg-[var(--color-surface-card)]"
 					>
 						<h4 class="font-bold text-[var(--color-text-primary)] mb-3">
-							{SETTINGS_LABELS.accountDeleteTransferTitle}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferTitle
+								: SETTINGS_LABELS.accountDeleteNoAdultTitle}
 						</h4>
 						<p class="text-sm text-[var(--color-text-secondary)] mb-4">
-							{SETTINGS_LABELS.accountDeleteTransferDesc}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferDesc
+								: SETTINGS_LABELS.accountDeleteNoAdultDesc}
 						</p>
 
 						<div class="space-y-4">
+							{#if !deletionInfo.hasTransferableAdult}
+								<p
+									class="text-xs text-[var(--color-text-muted)]"
+									data-testid="account-delete-no-adult-hint"
+								>
+									{SETTINGS_LABELS.accountDeleteNoAdultHint}
+								</p>
+							{/if}
+
+							{#if deletionInfo.hasTransferableAdult}
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
 									class="text-sm font-medium text-[var(--color-text-primary)] mb-2"
@@ -448,7 +465,7 @@ const canConfirmDelete = $derived(
 									{SETTINGS_LABELS.accountDeleteTransferOption}
 								</p>
 								<div class="flex items-center gap-2 mb-2">
-									<div class="flex-1">
+									<div class="flex-1" data-testid="account-delete-transfer-select">
 										<NativeSelect
 											bind:value={transferTargetId}
 											options={[
@@ -475,6 +492,7 @@ const canConfirmDelete = $derived(
 									</Button>
 								</div>
 							</div>
+							{/if}
 
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
@@ -491,6 +509,7 @@ const canConfirmDelete = $derived(
 									size="sm"
 									disabled={deleteSubmitting}
 									onclick={handleFullDelete}
+									data-testid="account-delete-full"
 								>
 									{deleteSubmitting
 						? SETTINGS_LABELS.accountProcessing
@@ -517,11 +536,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.dangerStep1Label}
 						</p>
 						<FormField
-							label={SETTINGS_LABELS.accountDeleteConfirmInputLabel}
+							label={SETTINGS_LABELS.dangerConfirmInputLabel}
 							type="text"
 							id="deleteConfirm"
 							bind:value={deleteConfirmText}
-							placeholder={SETTINGS_LABELS.accountDeleteConfirmPhrase}
+							placeholder={CANCEL_TERMS.confirmPhrase}
 						/>
 					</div>
 

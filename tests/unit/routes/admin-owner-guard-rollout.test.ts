@@ -123,8 +123,16 @@ type Role = 'owner' | 'parent' | 'child';
 
 function createLocals(role: Role) {
 	return {
-		context: { tenantId: 't-test', role, plan: 'free', licenseStatus: 'none' },
-		identity: { type: 'cognito', userId: 'u-caller', email: 'caller@example.com' },
+		// #4643: DB を触る route はアプリ側 user id (context.userId) を使う。
+		// identity.userId は IdP の sub で users.user_id ではない。
+		context: {
+			tenantId: 't-test',
+			role,
+			userId: 'u-caller',
+			plan: 'free',
+			licenseStatus: 'none',
+		},
+		identity: { type: 'cognito', userId: 'cognito-sub-caller', email: 'caller@example.com' },
 	};
 }
 
