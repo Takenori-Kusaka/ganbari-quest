@@ -53,12 +53,10 @@ const planStats = $derived(data.planStats);
 	</Card>
 
 	<!-- 2. 利用状況 -->
-	<Card variant="default" padding="lg">
+	<!-- #4668: ページガイド anchor は見出しではなく Card 全体 (値行まで光らせる) -->
+	<Card variant="default" padding="lg" data-tutorial="nuc-usage">
 		{#snippet children()}
-			<h3
-				class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4"
-				data-tutorial="nuc-usage"
-			>
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">
 				{NUC_LICENSE_LABELS.usageTitle}
 			</h3>
 			<dl class="grid gap-3" data-testid="nuc-usage-list">
@@ -94,8 +92,8 @@ const planStats = $derived(data.planStats);
 		{/snippet}
 	</Card>
 
-	<!-- 3. サポート link -->
-	<Card variant="default" padding="lg">
+	<!-- 3. サポート link (#4668: ページガイド「困ったときは」step の anchor) -->
+	<Card variant="default" padding="lg" data-tutorial="nuc-support">
 		{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">
 				{NUC_LICENSE_LABELS.supportTitle}

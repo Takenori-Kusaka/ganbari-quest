@@ -3,7 +3,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { UI_MODES } from '$lib/domain/validation/age-tier';
+import { hasAgeTierCapability, UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSetting, getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
@@ -119,8 +119,12 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
 	};
 
+	// #4685 (ADR-0011): 準備モード (baby) はスタンプカード (収集) を持たない。
+	// ヘッダーの「💮 0/5」+ カード dialog が出ないよう、layout の時点で null にする。
 	const stampProgress =
-		!stampCardResult || 'error' in stampCardResult
+		!hasAgeTierCapability(effectiveMode, 'stampCard') ||
+		!stampCardResult ||
+		'error' in stampCardResult
 			? null
 			: { filled: stampCardResult.filledSlots, total: stampCardResult.totalSlots };
 

@@ -608,6 +608,18 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason:
 			'メッセージ単独機能の存在意義がないため廃止、応援機能 /admin/cheer に統合 (EPIC #2266 rewards-cheer-shop 4 系統責務再整理)',
 	},
+	// #4691 (EPIC #4680): /admin/packs 撤去 — nav から到達不能な admin 内 browse UI (DESIGN.md §10
+	// 「admin 内ブラウズ UI 二重管理禁止」に反する残置) で、子供を選べず最初の子に無制限取込していた。
+	// 取込の正規経路は marketplace → `?import=` → ChildSelectionDialog の 1 本に集約。
+	// 前方一致のため `/admin/packs/foo` も一覧にフォールバックする (query は hooks 側で保持)。
+	{
+		from: '/admin/packs',
+		to: '/marketplace?type=activity-pack',
+		deletedAt: '2026-08-19',
+		issue: '#4691',
+		reason:
+			'nav から孤立した admin 内 activity-pack browse UI を撤去 (子供選択 / プラン上限を通らない取込経路の根絶)、marketplace 一覧 (activity-pack) へ救済',
+	},
 ] as const;
 
 /**

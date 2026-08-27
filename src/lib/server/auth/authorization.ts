@@ -105,13 +105,16 @@ export function authorizeCognito(
 		return { allowed: false, redirect: rule?.unauthRedirect ?? '/auth/login', status: 401 };
 	}
 
-	// Context がない場合（テナント未所属）
+	// Context がない場合（テナント未所属 = membership 未確定）
 	if (!context) {
 		// オンボーディング系ルートは Context なしでもアクセス可能
 		if (path.startsWith('/onboarding') || path.startsWith('/auth')) {
 			return { allowed: true };
 		}
-		return { allowed: false, redirect: '/auth/login' };
+		// #4636: ログイン済みなのに所属が無い状態で /auth/login に送ると、ログイン →
+		// /admin → /auth/login の往復になり出口が無い。理由と次アクション (招待の再試行 /
+		// 新しく家族グループを作る) を持つ `/auth/join` に着地させる。
+		return { allowed: false, redirect: '/auth/join' };
 	}
 
 	// ライセンス状態チェック
