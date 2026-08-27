@@ -48,6 +48,12 @@ vi.mock('$lib/server/logger', () => ({
 vi.mock('$lib/server/services/trial-service', () => ({
 	getTrialStatus: (...args: unknown[]) => mockGetTrialStatus(...args),
 }));
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+}));
+
 vi.mock('$lib/server/auth/factory', async (importOriginal) => ({
 	...((await importOriginal()) as Record<string, unknown>),
 	// cloud (cognito) を前提にする。local / anonymous mode の resolvePlanTier は
