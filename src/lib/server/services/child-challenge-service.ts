@@ -28,6 +28,7 @@ import type {
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
 import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 
 // ============================================================
 // 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service より移設)
@@ -672,17 +673,33 @@ export async function getChildChallengeHistory(
 }
 
 /**
- * #4688: 「記録 > 達成」タブ用の**達成履歴**。受取済み (rewardClaimed=1) / 期間終了も含めて
- * 新しい順に返す。
+ * #4688: 「記録 > 達成」タブ用の**達成履歴**。受取済み (rewardClaimed=1) も含めて新しい順に返す。
  *
  * 旧実装は `getActiveChildChallengesWithSiblings` (active + 未請求のみ) を達成タブに流用していたため、
  * ほうしゅうを受け取った瞬間にタブから消え「まだ達成がないよ」になっていた (challenges 画面の
  * 「これまでのチャレンジ」には出るので画面間で矛盾していた)。**履歴は履歴のクエリで引く**。
+ *
+ * 返す集合は 2 つの条件で絞る:
+ *
+ * 1. **保持期間 (`range`、ADR-0049 表示フィルタ層)**。チャレンジは点ではなく期間を持つので、
+ *    `range.from` より前に**期間が終わった**もの / `range.to` より後に**期間が始まった**ものを
+ *    落とす。cutoff をまたぐ期間は保持内に一部が入るため残す (`startDate` で比較すると
+ *    またぎ分を切り過ぎる)。`range` を必須にしているのは、省略可能にすると渡し忘れが
+ *    「全期間を返す」として静かに成立するため (#4763 で実際に起きた)。
+ * 2. **達成タブの意味論**。返すのは「達成済み」または「まだ期間中」のもの。期間が終わった
+ *    未達成は達成でも挑戦中でもないが、画面は `completed` の 2 値でしか描き分けないため
+ *    (`history/+page.svelte`)、そのまま返すと終わったチャレンジが「がんばってるよ」と
+ *    表示され続ける。全チャレンジの通し一覧は challenges 画面の
+ *    `getChildChallengeHistory` が担う (そちらは限定件数の「これまでの」一覧が本務)。
+ *
+ * 件数の上限は設けない。保持期間で母数が閉じるため、活動 / 交換タブと同じく
+ * 「期間で絞る、件数では切らない」に揃える (旧 `limit = 30` は 1 年保持の週次チャレンジ
+ * 約 52 件を無告知に切り捨てていた)。
  */
 export async function getChildChallengeRecords(
 	childId: ChildId,
 	tenantId: string,
-	limit = 30,
+	range: RetentionRange,
 ): Promise<
 	Array<{
 		id: string;
@@ -697,11 +714,15 @@ export async function getChildChallengeRecords(
 	}>
 > {
 	const repos = getRepos();
+	const today = todayDateJST();
 	const all = await repos.childChallenge.findByChildId(childId, tenantId);
 	return all
-		.slice()
+		.filter((c) => {
+			if (range.from && c.endDate < range.from) return false;
+			if (range.to && c.startDate > range.to) return false;
+			return c.completed === 1 || c.endDate >= today;
+		})
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
-		.slice(0, limit)
 		.map((c) => ({
 			id: c.id,
 			title: c.title,
