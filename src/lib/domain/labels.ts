@@ -6247,7 +6247,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	editFailed: '更新に失敗しました',
 	deleteDialogTitle: 'ごほうびを削除',
 	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
-	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	// #4683: 交換履歴は残す (ポイント台帳の控除が残る以上、履歴だけ消すと辻褄が合わない)。
+	deleteIrreversibleNote:
+		'この操作は取り消せません。交換ずみの履歴は残るので、使ったポイントはあとから確認できます。',
 	deleteConfirmButton: '削除する',
 	deleteDeletingButton: '削除しています…',
 	deleteCancelButton: 'キャンセル',
