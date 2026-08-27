@@ -3,6 +3,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
+import { toJSTDateString } from '$lib/domain/date-utils';
 import { formatRewardWithQuantity } from '$lib/domain/labels';
 import {
 	isValidRedemptionQuantity,
@@ -20,6 +21,7 @@ import {
 import { getSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { logger } from '$lib/server/logger';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 
 /**
  * #3339: ごほうび交換の「即時交換（親承認スキップ）」が家庭設定で有効か。
@@ -203,8 +205,30 @@ async function classifyDuplicate(
 // 申請一覧取得（子供向け）
 // ============================================================
 
-export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: string) {
-	return findRedemptionRequestsByChild(childId, tenantId);
+/**
+ * 子供の交換申請一覧。
+ *
+ * `range` は **必須**。`reward_redemption_requests` は ADR-0049 拡張表で P0 (深刻度「高」)
+ * の保持期間対象であり、履歴一覧で渡し忘れると無料プランでも全期間の申請履歴が見える
+ * (実際に「記録 > 交換」タブがこの状態だった、#4818)。履歴ではない用途で意図的に絞らない
+ * ときは `NO_RETENTION_FILTER` を明示的に渡す。
+ *
+ * `requestedAt` は ms unix 時刻なので、比較の前に **JST 暦日へ直す**。UTC 日付のまま
+ * 比較すると JST 00:00〜09:00 の申請が 1 日前扱いになり、cutoff 当日分が落ちる (#4015 同 class)。
+ */
+export async function getRedemptionRequestsForChild(
+	childId: ChildId,
+	tenantId: string,
+	range: RetentionRange,
+) {
+	const requests = await findRedemptionRequestsByChild(childId, tenantId);
+	if (!range.from && !range.to) return requests;
+	return requests.filter((r) => {
+		const requestedDate = toJSTDateString(new Date(r.requestedAt));
+		if (range.from && requestedDate < range.from) return false;
+		if (range.to && requestedDate > range.to) return false;
+		return true;
+	});
 }
 
 // ============================================================

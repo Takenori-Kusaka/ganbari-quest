@@ -5,6 +5,11 @@
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
 import {
+	DEFAULT_QUIET_END,
+	DEFAULT_QUIET_START,
+	MAX_DAILY_NOTIFICATIONS,
+} from '$lib/domain/constants/notification';
+import {
 	addDaysJST,
 	jstDayStartUtcIso,
 	jstMinuteOfDay,
@@ -53,7 +58,8 @@ interface AchievementNotificationData {
 // 定数
 // ============================================================
 
-const MAX_DAILY_NOTIFICATIONS = 3;
+// #4664: 値は domain/constants/notification.ts が SSOT (設定画面 / ページガイドも同じ値を引く)。
+export { MAX_DAILY_NOTIFICATIONS };
 
 // ============================================================
 // ヘルパー
@@ -113,8 +119,8 @@ export async function getNotificationSettings(tenantId: string): Promise<Notific
 		reminderTime: values.notification_reminder_time ?? '09:00',
 		streakEnabled: values.notification_streak_enabled !== 'false',
 		achievementsEnabled: values.notification_achievements_enabled !== 'false',
-		quietStart: values.notification_quiet_start ?? '21:00',
-		quietEnd: values.notification_quiet_end ?? '07:00',
+		quietStart: values.notification_quiet_start ?? DEFAULT_QUIET_START,
+		quietEnd: values.notification_quiet_end ?? DEFAULT_QUIET_END,
 	};
 }
 
@@ -123,7 +129,11 @@ export async function getNotificationSettings(tenantId: string): Promise<Notific
 // ============================================================
 
 /** 現在がサイレント時間帯かチェック (JST基準、ラップアラウンド対応) */
-export function isQuietHours(now?: Date, quietStart = '21:00', quietEnd = '07:00'): boolean {
+export function isQuietHours(
+	now?: Date,
+	quietStart = DEFAULT_QUIET_START,
+	quietEnd = DEFAULT_QUIET_END,
+): boolean {
 	const date = now ?? new Date();
 	const currentMinutes = jstMinuteOfDay(date);
 

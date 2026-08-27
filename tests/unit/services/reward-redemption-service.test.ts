@@ -39,6 +39,9 @@ import {
 
 const TENANT_ID = 'test-tenant';
 
+/** 保持期間で絞らない range。本番の opt-out は NO_RETENTION_FILTER を使う (plan-limit-service)。 */
+const NO_RANGE = {};
+
 beforeAll(() => {
 	const t = createTestDb();
 	sqlite = t.sqlite;
@@ -439,9 +442,85 @@ describe('getRedemptionRequestsForChild', () => {
 		const { childId, rewardId } = seedBaseData();
 		await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 
-		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID);
+		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, NO_RANGE);
 		expect(requests.length).toBe(1);
 		expect(requests[0]!.childId).toBe(String(childId));
+	});
+
+	// #4818: `reward_redemption_requests` は ADR-0049 拡張表で P0 (深刻度「高」) の
+	// 保持期間対象。「記録 > 交換」タブがこれを一切通しておらず、無料プランでも全期間の
+	// 申請履歴が見えていた。`requestedAt` は ms unix 時刻なので、**JST 暦日に直してから**
+	// cutoff と比較する必要がある (UTC 日付のままだと JST 00:00〜09:00 の申請が 1 日ずれる)。
+	describe('保持期間フィルタ (ADR-0049)', () => {
+		/** 指定の UTC 時刻に申請 1 件を直接投入する (requested_at を厳密に置くため repo 経由)。 */
+		async function seedRequestAt(childId: number, rewardId: number, iso: string, id: string) {
+			await insertRedemptionForRestore(
+				{
+					childId: asChildId(childId),
+					rewardId: String(rewardId),
+					requestedAt: Date.parse(iso),
+					quantity: 1,
+					status: 'approved',
+					parentNote: null,
+					resolvedAt: Date.parse(iso),
+					resolvedByParentId: null,
+					shownToChildAt: null,
+					rewardTitle: id,
+					rewardPoints: 80,
+					rewardIcon: '🎮',
+				},
+				TENANT_ID,
+			);
+		}
+
+		it('from より前の申請は返さず、from 当日以降は返す', async () => {
+			const { childId, rewardId } = seedBaseData();
+			// JST 2026-04-10 / 2026-08-20
+			await seedRequestAt(childId, rewardId, '2026-04-10T03:00:00Z', 'old');
+			await seedRequestAt(childId, rewardId, '2026-08-20T03:00:00Z', 'recent');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				from: '2026-05-28',
+			});
+
+			// 子供向けの行型 (RedemptionRequestRow) は rewardTitle を持たないため requestedAt で識別する
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-08-20T03:00:00Z')]);
+		});
+
+		it('cutoff 当日の JST 未明 (UTC では前日) の申請も残る', async () => {
+			const { childId, rewardId } = seedBaseData();
+			// UTC 2026-05-27T15:30Z = JST 2026-05-28 00:30。UTC 日付で判定すると落ちる。
+			await seedRequestAt(childId, rewardId, '2026-05-27T15:30:00Z', 'jst-dawn');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				from: '2026-05-28',
+			});
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-27T15:30:00Z')]);
+		});
+
+		// `to` は現行の呼び出し元 (履歴 load) が渡さないが、型 (`RetentionRange`) が受け取ると
+		// 宣言している以上、渡されたら効く必要がある (黙って無視する枝を残さない)。
+		it('to より後の申請は返さない', async () => {
+			const { childId, rewardId } = seedBaseData();
+			await seedRequestAt(childId, rewardId, '2026-05-20T03:00:00Z', 'before');
+			await seedRequestAt(childId, rewardId, '2026-08-20T03:00:00Z', 'after');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				to: '2026-05-31',
+			});
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-20T03:00:00Z')]);
+		});
+
+		it('range が空 (family = 無期限) なら絞らない', async () => {
+			const { childId, rewardId } = seedBaseData();
+			await seedRequestAt(childId, rewardId, '2020-01-01T03:00:00Z', 'ancient');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, NO_RANGE);
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2020-01-01T03:00:00Z')]);
+		});
 	});
 });
 
@@ -761,7 +840,7 @@ describe('requestRedemption — 個数指定 (#4407)', () => {
 				 VALUES (?, ?, ?, 'pending_parent_approval', 'ゲーム時間30分', 80)`,
 			)
 			.run(Number(childId), Number(rewardId), now);
-		const list = await getRedemptionRequestsForChild(childId, TENANT_ID);
+		const list = await getRedemptionRequestsForChild(childId, TENANT_ID, NO_RANGE);
 		expect(list).toHaveLength(1);
 		expect(list[0]?.quantity).toBe(1);
 	});
