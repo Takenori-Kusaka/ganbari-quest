@@ -17,6 +17,24 @@ export async function findPointHistory(
 	return [];
 }
 
+/** #4682 F2: demo は stateless Fake のため空配列 (findPointHistory と同挙動)。 */
+export async function findPointHistoryByType(
+	_childId: ChildId,
+	_options: { type: string; limit: number; offset?: number },
+	_tenantId: string,
+): Promise<PointLedgerEntry[]> {
+	return [];
+}
+
+/** #4682 F2: demo は台帳を持たないため 0 (件数偽装をしない、#2263 class)。 */
+export async function sumPointsByType(
+	_childId: ChildId,
+	_options: { type: string; fromIso?: string; toIso?: string },
+	_tenantId: string,
+): Promise<number> {
+	return 0;
+}
+
 export async function insertPointEntry(
 	input: InsertPointLedgerInput,
 	_tenantId: string,
@@ -55,6 +73,21 @@ export async function spendPointsAtomic(
 		},
 		tenantId,
 	);
+}
+
+/**
+ * #4697: 期間内の獲得ポイント合計。demo は台帳を持たない stateless fixture のため 0 を返す
+ * (残高 `DEMO_POINT_BALANCES` は「今の所持」であって「期間内の獲得」ではないので流用しない)。
+ * 月次レポートの「ポイント」は demo では 0 に見えるが、これは demo が履歴を持たないためで、
+ * 「XP 累計を混ぜて数字を作る」旧実装よりは正しい (嘘の数字を出さない)。
+ */
+export async function sumEarnedPointsBetween(
+	_childId: ChildId,
+	_startDate: string,
+	_endDate: string,
+	_tenantId: string,
+): Promise<number> {
+	return 0;
 }
 
 export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {

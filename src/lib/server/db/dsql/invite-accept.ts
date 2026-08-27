@@ -58,7 +58,7 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 	runner: TransactionRunner<TTx>,
 	input: AcceptInviteInput,
 ): Promise<AcceptInviteResult> {
-	const { inviteId, userId, userEmail, userEmailVerified, now } = input;
+	const { inviteId, userId, userEmail, userEmailVerified, now, maxMembers } = input;
 	try {
 		return await runner.runInTransaction(async (tx) => {
 			// 状態遷移と条件判定を 1 文に畳む (§6.6): pending かつ未失効の行だけが accepted 化される。
@@ -81,6 +81,18 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 				if (bindingError === 'INVITE_EMAIL_MISMATCH') {
 					throw new AcceptInviteAbort('EMAIL_MISMATCH');
 				}
+			}
+
+			// #4723: メンバー上限は **txn の中で数え直す**。service 層の事前 read だけでは、
+			// 残り 1 枠に対する 2 通の同時受諾が両方とも「まだ空いている」を見て通ってしまう。
+			// DSQL は OCC (楽観的並行制御) なので、同じ family の membership を触る txn が
+			// 競合すれば 40001 で片方が再実行され、数え直した結果で正しく弾かれる。
+			if (typeof maxMembers === 'number') {
+				const counted = await tx.execute(sql`
+					SELECT count(*)::int AS count FROM memberships WHERE family_id = ${invite.family_id}
+				`);
+				const current = Number((counted.rows[0] as { count: number } | undefined)?.count ?? 0);
+				if (current >= maxMembers) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
 			}
 
 			await tx.execute(sql`

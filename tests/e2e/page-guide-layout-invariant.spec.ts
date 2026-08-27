@@ -6,6 +6,7 @@
 //   (a) 説明 card (バブル) が対象要素を覆い隠す  → バブルと対象要素の bounding box 非重複
 //   (b) card が viewport 下に見切れて読めない     → バブルが viewport 内に完全収容
 //   (c) フォーカス先が分からない (spotlight 不全) → spotlight overlay + active ring 表示
+//   (d) selector 付き step が実要素に当たらない (#4653) → 非 0 の実要素 (dummy でない) が viewport 内で光る
 //
 // 全登録 11 ページ × 各 step × desktop + mobile viewport でループ検証する。
 // driver.js は collision-aware positioning / viewport 自動調整 / spotlight cutout を内蔵するため、
@@ -73,6 +74,31 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'subscription-plan-status',
 		'subscription-cancel',
 	],
+	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
+	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
+	'/admin/settings/account': ['settings-account-pin'],
+	// #4667: フォームとアプリ情報は常設。バックアップの状態は NUC (pglite) のみ描画のため
+	// optional のまま列挙しない
+	'/admin/settings/support': ['settings-support-form', 'settings-support-app-info'],
+	// #4664: 通知ページの 4 anchor はいずれも常設 (ブラウザ状態 / 種類 / サイレント時間帯 / 保存)
+	'/admin/settings/notifications': [
+		'settings-notifications-status',
+		'settings-notifications-types',
+		'settings-notifications-quiet',
+		'settings-notifications-save',
+	],
+	// #4666: 承認セクションと、一覧 / 空状態を包む常在ラッパーはどちらも常に描画される
+	'/admin/settings/rules': ['settings-rules-approval', 'settings-rules-list'],
+	// #4665: E2E は AUTH_MODE=local (plan=family) → エクスポート / 復元 / 全削除 は描画される。
+	// クラウド共有は cognito 環境のみ描画のため optional のまま列挙しない
+	'/admin/settings/data': ['settings-data-export', 'settings-data-import', 'settings-data-clear'],
+	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
+	'/admin/settings/activities': [
+		'settings-activities-decay',
+		'settings-activities-point',
+		'settings-activities-default-child',
+		'settings-activities-sibling',
+	],
 	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
 	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
 	'/admin/status': [
@@ -88,6 +114,18 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
 	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
 	'/admin/challenges': ['challenges-child-tabs'],
+	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
+	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
+	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
+	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
+	// optional のまま列挙しない
+	'/admin/certificates': ['certificates-child-select'],
+	// #4675: seed は子供 5 人 → お子さま切替は常に描画。年間サマリー / 印刷 / 証明書リンクは
+	// 記録データとプランに依存するため optional のまま列挙しない
+	'/admin/growth-book': ['growth-book-child-tabs'],
+	// #4676: 未処理 / 履歴セクションは常設 (0 件でも「申請はありません」を表示)。承認 / 却下ボタンは
+	// 未処理の申請があるときだけ描画されるため optional のまま列挙しない
+	'/admin/rewards/requests': ['rewards-requests-pending', 'rewards-requests-history'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
@@ -216,6 +254,72 @@ async function assertBubbleNotOverlapTarget(
 }
 
 /**
+ * (d) selector 付き step は**実要素**に spotlight する (#4653 / EPIC #4650 PO 判断 4)。
+ *
+ * 旧 suite は `.driver-active-element` が無ければ overlap 検証を return し、selector 未解決
+ * (driver.js が 0×0 の `#driver-dummy-element` へ silent fallback) や `display:none` 要素
+ * (0×0 で左上に spotlight、/admin desktop step 3 の実害) を緑にしていた。本 assert は bubble の
+ * `data-step-selector` (PageGuideBubble が step.selector を露出) が非空の step について:
+ *   - active element が dummy ではなく存在する (selector が解決している)
+ *   - bounding box が非 0 (display:none / 空要素ではない)
+ *   - box が viewport と交差する (画面外だけを光らせていない)
+ * を要求する。「押す」と書く step が必ず光ることの機械担保。
+ */
+async function assertSelectorStepSpotlightsRealElement(
+	page: Page,
+	bubble: Locator,
+	ctx: string,
+): Promise<void> {
+	const selector = (await bubble.getAttribute('data-step-selector').catch(() => '')) ?? '';
+	if (selector === '') return; // 中央 modal の概要 step は対象外
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	await expect(
+		target,
+		`${ctx}: (d) selector 付き step (${selector}) の対象要素が解決している (dummy fallback でない)`,
+	).toHaveCount(1, { timeout: 5_000 });
+	const targetId = await target.getAttribute('id').catch(() => null);
+	expect(targetId, `${ctx}: (d) 対象が driver.js の 0×0 placeholder ではない`).not.toBe(
+		'driver-dummy-element',
+	);
+	// driver.js の smoothScroll は非同期に走るため、対象が viewport に入るまで rAF で待ってから
+	// 判定する (待たずに測ると scroll 途中の座標を掴み、真の不具合と区別できない)。待つのは収束まで
+	// であって、収束後の条件は下で hard assert する (assertion の緩和ではない)。
+	const readGeometry = async () => ({
+		box: await target.boundingBox(),
+		vp: await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+	});
+	const isVisible = (b: Box | null, v: { width: number; height: number }): boolean =>
+		b !== null &&
+		b.width > 0 &&
+		b.height > 0 &&
+		b.x < v.width &&
+		b.x + b.width > 0 &&
+		b.y < v.height &&
+		b.y + b.height > 0;
+	let { box, vp } = await readGeometry();
+	for (let i = 0; i < 40 && !isVisible(box, vp); i++) {
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+				),
+		);
+		({ box, vp } = await readGeometry());
+	}
+	expect(box, `${ctx}: (d) 対象要素の bounding box が取得できる`).not.toBeNull();
+	if (!box) return;
+	expect(
+		box.width > 0 && box.height > 0,
+		`${ctx}: (d) 対象要素が 0×0 ではない (display:none 等で光らない状態を検出)`,
+	).toBe(true);
+	const intersects =
+		box.x < vp.width && box.x + box.width > 0 && box.y < vp.height && box.y + box.height > 0;
+	expect(intersects, `${ctx}: (d) 対象要素が viewport と交差する (画面外だけを光らせない)`).toBe(
+		true,
+	);
+}
+
+/**
  * (d) #4650 / #4668: selector 指定 step が**実要素**に spotlight していることを検証する。
  * driver.js は selector 未解決時に 0×0 の `#driver-dummy-element` を差し込んで中央 modal として
  * 成立させる (silent fallback) ため、active element の「存在 + 可視 + 非 0 矩形 + viewport 内」を
@@ -285,12 +389,16 @@ async function waitForBubbleStable(page: Page, bubble: Locator): Promise<void> {
  * ガイドの全 step を「つぎへ」で辿りながら (a)(b)(c)(d) を検証する (上限で無限ループを防ぐ。
  * 1 ページ最大 step は registry 上 12 以下)。
  * @param requiredSpotlight (d) で実要素 spotlight を要求し、走査後に出現も要求する step id (#4650)
+ * @param blanketSelectorAssert selector を持つ全 step に (d) の実要素 spotlight を要求するか
+ *   (#4653: 起動時 filter で「対象が描画済の step」だけが残る AdminLayout 配下は true。
+ *   `/marketplace` は同 assert を `marketplace-page-guide.spec.ts` が担うため false)
  */
 async function walkAllSteps(
 	page: Page,
 	bubble: Locator,
 	pageCtx: string,
 	requiredSpotlight: readonly string[],
+	blanketSelectorAssert: boolean,
 ): Promise<void> {
 	const MAX_STEPS = 12;
 	const seenStepIds: string[] = [];
@@ -304,9 +412,14 @@ async function walkAllSteps(
 		seenStepIds.push(stepId);
 
 		await assertSpotlightVisible(page, ctx);
+		// (d) #4653: selector を持つ step は残っている以上、実要素に spotlight していること
+		// (起動時 filter を通過した = 対象が描画済のはず。dummy fallback / 0×0 を検出する)。
+		if (blanketSelectorAssert) {
+			await assertSelectorStepSpotlightsRealElement(page, bubble, ctx);
+		}
 		await assertBubbleWithinViewport(page, bubble, ctx);
 		await assertBubbleNotOverlapTarget(page, bubble, ctx);
-		// (d) #4650: 列挙した selector 指定 step は実要素に spotlight していること
+		// (d) #4650 / #4668: 列挙した selector 指定 step は viewport 内収容まで含めて要求する
 		if (requiredSpotlight.includes(stepId)) {
 			await assertStepSpotlightsRealTarget(page, `${ctx} (${stepId})`);
 		}
@@ -357,6 +470,7 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 					bubble,
 					`[${vpLabel}] ${path}`,
 					REQUIRED_SPOTLIGHT_STEPS[path] ?? [],
+					path !== '/marketplace',
 				);
 			});
 		}

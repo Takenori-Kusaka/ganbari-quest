@@ -310,6 +310,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 		[
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-age-recalc',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-deletion-warning-emails',
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-expire-redemptions',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-export-build',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-lifecycle-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-pmf-survey',

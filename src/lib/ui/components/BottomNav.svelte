@@ -27,6 +27,18 @@ let { items = defaultItems, iconOnly = false }: Props = $props();
 function isActive(href: string): boolean {
 	return page.url.pathname.startsWith(href);
 }
+
+/**
+ * 子供チュートリアルの spotlight 対象 anchor (#4652)。
+ * 「下の『つよさ / ステータス』を押すと…」「ポイントは『ショップ』で…」の step が
+ * 実要素に spotlight できるよう、該当 nav 項目に data-tutorial を付ける
+ * (対象が無い step を中央 fallback で成立させない、EPIC #4650 判断 4)。
+ */
+function tutorialAnchor(href: string): string | undefined {
+	if (href.includes('/status')) return 'nav-status';
+	if (href.includes('/shop')) return 'nav-shop';
+	return undefined;
+}
 </script>
 
 <nav
@@ -47,7 +59,7 @@ function isActive(href: string): boolean {
 			aria-current={isActive(item.href) ? 'page' : undefined}
 			aria-label={iconOnly ? item.label : undefined}
 			data-testid="nav-{item.href.split('/').pop()}"
-			data-tutorial={item.href.includes('/status') ? 'nav-status' : undefined}
+			data-tutorial={tutorialAnchor(item.href)}
 		>
 			<span class="{iconOnly ? 'text-3xl' : 'text-2xl'}" aria-hidden="true">{item.icon}</span>
 			{#if !iconOnly}

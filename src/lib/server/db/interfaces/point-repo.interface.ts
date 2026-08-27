@@ -3,11 +3,43 @@ import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
 
 export interface IPointRepo {
 	getBalance(childId: ChildId, tenantId: string): Promise<number>;
+	/**
+	 * 台帳の全種別を新しい順に返す一覧。`limit` は**表示件数**であり、
+	 * 特定種別の抽出 / 集計に流用しないこと (#4682 F2)。
+	 */
 	findPointHistory(
 		childId: ChildId,
 		options: { limit: number; offset: number },
 		tenantId: string,
 	): Promise<PointLedgerEntry[]>;
+
+	/**
+	 * #4682 F2: **種別で絞った**台帳一覧を新しい順に返す。
+	 *
+	 * 旧実装は `findPointHistory({ limit: 50 })` を取ってから `type === 'convert'` で filter して
+	 * いたため、活動が多い子では直近 50 行が活動記録で埋まり、`/admin/points` の
+	 * 「おこづかい変換りれき」と累計が**丸ごと消えて**いた (渡し忘れ / 二重払いの原因)。
+	 * 絞り込みを DB 側に置き、limit を「その種別の表示件数」として正しく効かせる。
+	 */
+	findPointHistoryByType(
+		childId: ChildId,
+		options: { type: string; limit: number; offset?: number },
+		tenantId: string,
+	): Promise<PointLedgerEntry[]>;
+
+	/**
+	 * #4682 F2: 種別 (+ 期間) の **SUM を DB 側で計算**する。
+	 *
+	 * 累計は一覧の window に依存してはならない (行数が増えると勝手に減る)。
+	 * `fromIso` / `toIso` は UTC ISO 文字列で、JST 月境界は呼び出し側が
+	 * `jstDayStartUtcIso` (JST SSOT) で作る (#4015 / #4127)。範囲は `from <= created_at < to`。
+	 * 戻り値は amount の総和 (消費は負値のまま)。
+	 */
+	sumPointsByType(
+		childId: ChildId,
+		options: { type: string; fromIso?: string; toIso?: string },
+		tenantId: string,
+	): Promise<number>;
 	insertPointEntry(input: InsertPointLedgerInput, tenantId: string): Promise<PointLedgerEntry>;
 	/**
 	 * #3347: 残高が `amount` 以上のときのみ、原子的にポイントを減算して台帳エントリ（負値）を
@@ -24,6 +56,22 @@ export interface IPointRepo {
 		entry: { type: string; description: string; referenceId?: string },
 		tenantId: string,
 	): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }>;
+	/**
+	 * #4697: 期間内に **獲得** したポイントの合計 (正の `amount` のみ、消費は含まない)。
+	 *
+	 * 月次レポート / 成長記録ブックの「ポイント」はこの値を指す。旧実装は `statuses.total_xp` の
+	 * 累計を「ポイント」として出していたため、子供画面の所持ポイントとも週次タブの当週獲得とも
+	 * 一致せず、累計なので先月比が常に ±0 だった。
+	 *
+	 * `startDate` / `endDate` は `YYYY-MM-DD` (JST 暦日、両端含む)。`created_at` の JST 日付が
+	 * この範囲に入る行を対象にする (retention cleanup と同じ JST 当日境界の解釈)。
+	 */
+	sumEarnedPointsBetween(
+		childId: ChildId,
+		startDate: string,
+		endDate: string,
+		tenantId: string,
+	): Promise<number>;
 	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 

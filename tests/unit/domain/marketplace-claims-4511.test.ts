@@ -17,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { getModeLabels } from '../../../src/lib/domain/icons';
-import { MARKETPLACE_LABELS } from '../../../src/lib/domain/labels';
+import { MARKETPLACE_LABELS, NAV_ITEM_LABELS } from '../../../src/lib/domain/labels';
 import { MARKETPLACE_TYPE_LABELS } from '../../../src/lib/domain/marketplace-item';
 import { DEMO_SITE_TERMS } from '../../../src/lib/domain/terms';
 import { MARKETPLACE_TYPE_METAS_CLIENT } from '../../../src/lib/marketplace/client-types';
@@ -35,7 +35,11 @@ describe('#4511 marketplace の導線と説明', () => {
 		it('page が href を直書きせず label 経由で参照する (移設のたびの取りこぼしを防ぐ)', () => {
 			const page = repoFile('src/routes/marketplace/+page.svelte');
 			expect(page).toContain('MARKETPLACE_LABELS.backToDemoHref');
-			expect(page, '旧 /demo の直書きが残っていない').not.toMatch(/href="\/demo"/);
+			// 検査対象は「描画される markup」であって散文ではない。#4677 の再発防止コメント自身が
+			// href="/demo" を引用しているため、HTML コメントを除いてから直書きを探す
+			// (コメント内の文字列は顧客に描画されないので実害がない)。
+			const markup = page.replace(/<!--[\s\S]*?-->/g, '');
+			expect(markup, '旧 /demo の直書きが残っていない').not.toMatch(/href="\/demo"/);
 		});
 
 		it('LP 側の CTA と同じ遷移先である (LP だけ切替済みの状態に戻らない)', () => {
@@ -78,24 +82,17 @@ describe('#4511 marketplace の導線と説明', () => {
 		//   MARKETPLACE_TYPE_LABELS / registry displayLabel は一致、MARKETPLACE_LABELS.tabs
 		//   だけが 4 つ全部ズレていた (アクティビティ集 / ごほうび集 / 持ち物リスト / ルール集)。
 		// DESIGN.md §6 は前 2 者の一致しか定めていなかったため、3 つ目が外側でズレ続けた。
-		it('tabs の 4 つが MARKETPLACE_TYPE_LABELS と一致する', () => {
-			expect(MARKETPLACE_LABELS.tabs.activities).toBe(MARKETPLACE_TYPE_LABELS['activity-pack']);
-			expect(MARKETPLACE_LABELS.tabs.rewards).toBe(MARKETPLACE_TYPE_LABELS['reward-set']);
-			expect(MARKETPLACE_LABELS.tabs.checklists).toBe(MARKETPLACE_TYPE_LABELS.checklist);
-			expect(MARKETPLACE_LABELS.tabs.rules).toBe(MARKETPLACE_TYPE_LABELS['rule-preset']);
+		//
+		// 3 つ目の tabs は #4657 (2b4dd2c28) で参照ゼロの dead key として削除済み。
+		// 復活を防ぐのは下の「tabs が dead key として復活していない」assert が担い、
+		// 残る 2 SSOT の atom 参照 / 相互一致を以下で pin する。
+		it('tabs が dead key として復活していない (#4657 で削除済)', () => {
+			expect(MARKETPLACE_LABELS).not.toHaveProperty('tabs');
 		});
 
-		it('tabs / MARKETPLACE_TYPE_LABELS が同じ atom を参照し、文字列を複製しない', () => {
+		it('MARKETPLACE_TYPE_LABELS が atom を参照し、文字列を複製しない', () => {
 			// 値の一致だけでは「同じ literal を 2 箇所に書く」状態を許してしまい、片方だけ
 			// 変更されたときにまたズレる。参照そのものを assert して複製の復活を落とす。
-			const labelsSrc = repoFile('src/lib/domain/labels.ts');
-			const tabsBlock = labelsSrc.match(/\ttabs: \{[\s\S]*?\n\t\},/)?.[0] ?? '';
-			expect(tabsBlock, 'tabs ブロックが見つかる').not.toBe('');
-			for (const key of ['activityPack', 'rewardSet', 'checklist', 'rulePreset'] as const) {
-				expect(tabsBlock).toContain(`MARKETPLACE_TYPE_TERMS.${key}`);
-			}
-			expect(tabsBlock, '文字列 literal を書かない').not.toMatch(/: '/);
-
 			const itemSrc = repoFile('src/lib/domain/marketplace-item.ts');
 			const typeLabelsBlock =
 				itemSrc.match(
@@ -132,13 +129,23 @@ describe('#4511 marketplace の導線と説明', () => {
 			expect(all).not.toContain('持ち物リスト');
 		});
 
-		it('引用する画面名が icons.ts の実名称に含まれる', () => {
-			// 子供画面の checklist 名は年齢帯ごとに もちもの / もちものチェック / 持ち物チェック
+		it('引用する画面名が実在する (SSOT 経由で、literal を複製しない)', () => {
+			// #4657 F10 で取込先の呼称は現称「チェックリスト」(NAV_ITEM_LABELS.checklists) に
+			// 統一済。旧「持ち物リスト」は #2909 で撤去された旧称で、実在しない画面名だった。
+			// 値の一致だけでなく、labels.ts が literal を書かず atom を参照することも pin する
+			// (片方だけ変わって再びズレるのを防ぐ)。
+			expect(MARKETPLACE_LABELS.detailCtaImportChecklistDesc).toContain(NAV_ITEM_LABELS.checklists);
+			const labelsSrc = repoFile('src/lib/domain/labels.ts');
+			const descLine = labelsSrc.match(/^\tdetailCtaImportChecklistDesc: .*$/m)?.[0] ?? '';
+			expect(descLine, 'detailCtaImportChecklistDesc の定義行が見つかる').not.toBe('');
+			expect(descLine, '画面名を literal で複製しない').toContain('NAV_ITEM_LABELS.checklists');
+
+			// 子供画面の checklist 名 (icons.ts SSOT) も実在し続けていること。
+			// 年齢帯ごとに もちもの / もちものチェック / 持ち物チェック。
 			const actualNames = ['baby', 'preschool', 'elementary', 'junior', 'senior'].map(
 				(mode) => getModeLabels(mode).checklist,
 			);
 			expect(actualNames).toContain('もちものチェック');
-			expect(MARKETPLACE_LABELS.detailCtaImportChecklistDesc).toContain('もちものチェック');
 		});
 	});
 });
