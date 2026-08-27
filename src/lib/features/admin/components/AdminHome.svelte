@@ -1,25 +1,13 @@
 <script lang="ts">
-import { invalidateAll } from '$app/navigation';
 import type { ChildId } from '$lib/domain/ids';
-import {
-	ADMIN_HOME_LABELS,
-	DEMO_LABELS,
-	TUTORIAL_LABELS,
-	USAGE_TIME_LABELS,
-} from '$lib/domain/labels';
+import { ADMIN_HOME_LABELS, DEMO_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
 import MonthlyValuePreview from '$lib/features/value-preview/MonthlyValuePreview.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import type { TenantValuePreview } from '$lib/server/services/value-preview-service';
-import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import {
-	dismissTutorialBanner,
-	markTutorialStarted,
-	startTutorial,
-} from '$lib/ui/tutorial/tutorial-store.svelte';
 import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
@@ -50,7 +38,6 @@ interface MonthSummaryData {
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
-	tutorialStarted?: boolean;
 	onboarding?: OnboardingProgress | null;
 	mode: 'live' | 'demo';
 	basePath: string;
@@ -74,7 +61,6 @@ interface Props {
 let {
 	children,
 	pointSettings,
-	tutorialStarted = true,
 	onboarding = null,
 	mode,
 	basePath,
@@ -108,25 +94,6 @@ const showOnboarding = $derived(
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
 
 // #3033: ワンクリックアップグレード (#767) は /admin/subscription (SaasLicensePanel) に一本化
-
-async function handleStartTutorial() {
-	await markTutorialStarted();
-	await startTutorial();
-	await invalidateAll();
-}
-
-async function handleDismissBanner() {
-	await dismissTutorialBanner();
-	await invalidateAll();
-}
-
-// #961 QA: クイックモード完了後も全チャプターを明示的に表示する導線
-async function handleViewFullGuide() {
-	await markTutorialStarted();
-	// チャプター1を明示指定 → quickMode=false で全チャプター表示
-	await startTutorial(1);
-	await invalidateAll();
-}
 
 const ps = $derived(pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -162,38 +129,6 @@ function childLink(child: ChildSummary): string {
 			<form method="POST" action="?/dismissOnboarding">
 				<button type="submit" class="dismiss-complete-btn">{ADMIN_HOME_LABELS.onboardingDismissButton}</button>
 			</form>
-		</div>
-	{:else if !isDemo && !tutorialStarted && !onboarding}
-		<!-- Fallback: Legacy tutorial banner -->
-		<div class="bg-[var(--color-feedback-info-bg)] border-l-4 border-[var(--color-brand-500)] p-4 rounded-lg" data-tutorial="tutorial-banner">
-			<div class="flex items-center gap-3">
-				<span class="text-2xl">📖</span>
-				<div class="flex-1">
-					<p class="font-bold text-[var(--color-text)]">{ADMIN_HOME_LABELS.tutorialBannerTitle}</p>
-					<p class="text-sm text-[var(--color-text-muted)]">{ADMIN_HOME_LABELS.tutorialBannerHint}</p>
-				</div>
-				<div class="flex gap-2">
-					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
-						{ADMIN_HOME_LABELS.tutorialStartButton}
-					</Button>
-					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
-						{ADMIN_HOME_LABELS.tutorialLaterButton}
-					</Button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- #961 QA: 全チュートリアル導線（クイックモード完了後でもアクセス可能） -->
-	{#if !isDemo}
-		<div class="tutorial-full-guide-card" data-testid="admin-view-full-guide">
-			<div class="tutorial-full-guide-info">
-				<span class="tutorial-full-guide-label">{TUTORIAL_LABELS.viewFullGuide}</span>
-				<span class="tutorial-full-guide-hint">{TUTORIAL_LABELS.viewFullGuideHint}</span>
-			</div>
-			<Button variant="ghost" size="sm" onclick={handleViewFullGuide}>
-				{TUTORIAL_LABELS.openGuide}
-			</Button>
 		</div>
 	{/if}
 
@@ -395,37 +330,6 @@ function childLink(child: ChildSummary): string {
 		font-size: 0.75rem;
 		cursor: pointer;
 		text-decoration: underline;
-	}
-
-	/* #961 QA: All tutorial guide cards */
-	.tutorial-full-guide-card {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		background: var(--color-surface-accent);
-		border: 1px solid var(--color-feedback-info-border);
-		border-radius: var(--radius-lg, 12px);
-	}
-
-	.tutorial-full-guide-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		flex: 1;
-		min-width: 0;
-	}
-
-	.tutorial-full-guide-label {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: var(--color-text-primary);
-	}
-
-	.tutorial-full-guide-hint {
-		font-size: 0.7rem;
-		color: var(--color-text-tertiary);
 	}
 
 	/* #1292: Today's usage time */

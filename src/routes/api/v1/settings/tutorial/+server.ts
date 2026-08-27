@@ -13,15 +13,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const now = new Date().toISOString();
 
+	// #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1) 撤去に伴い、開始マーク ('start') と
+	// バナー dismiss ('dismiss') の書き手が無くなったため受理しない。完了マークのみ残す
+	// (子供画面チュートリアルの完了で書かれる)。過去に書かれた設定値 (tutorial_started_at /
+	// tutorial_banner_dismissed) は export/import 互換のため保持する (ADR-0066)。
 	switch (action) {
-		case 'start':
-			await setSetting('tutorial_started_at', now, tenantId);
-			break;
 		case 'complete':
 			await setSetting('tutorial_completed_at', now, tenantId);
-			break;
-		case 'dismiss':
-			await setSetting('tutorial_banner_dismissed', 'true', tenantId);
 			break;
 		default:
 			throw error(400, 'Invalid action');

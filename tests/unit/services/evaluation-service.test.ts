@@ -153,11 +153,12 @@ describe('calcEvaluationBonus', () => {
 });
 
 describe('getWeekRange', () => {
-	it('日曜日の場合、その週の月〜日を返す', () => {
-		// 2026-02-22 は日曜日
+	it('#4722: 日曜日でも「直前に完了した週」を返す (当日を含む週で確定させない)', () => {
+		// 2026-02-22 は日曜日。旧実装は当日を週末にして 2/16〜2/22 (まだ終わっていない週) を返し、
+		// child × weekStart で 1 回しか評価しないため日曜の残りの活動が永久に評価へ入らなかった。
 		const { weekStart, weekEnd } = getWeekRange(new Date('2026-02-22'));
-		expect(weekStart).toBe('2026-02-16');
-		expect(weekEnd).toBe('2026-02-22');
+		expect(weekStart).toBe('2026-02-09');
+		expect(weekEnd).toBe('2026-02-15');
 	});
 
 	it('水曜日の場合、前週の月〜日を返す', () => {

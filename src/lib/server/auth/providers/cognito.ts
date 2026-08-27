@@ -116,8 +116,13 @@ export class CognitoAuthProvider implements AuthProvider {
 		return this.issueContextFromMembership(event, identity);
 	}
 
-	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult {
-		return authorizeCognito(path, identity, context);
+	authorize(
+		path: string,
+		identity: Identity | null,
+		context: AuthContext | null,
+		url?: URL,
+	): AuthResult {
+		return authorizeCognito(path, identity, context, url);
 	}
 
 	/**

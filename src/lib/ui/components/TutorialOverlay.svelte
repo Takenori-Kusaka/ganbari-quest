@@ -4,7 +4,6 @@ import {
 	confirmExit,
 	getAnimKey,
 	getShowExitConfirm,
-	getShowQuickComplete,
 	getShowResume,
 	getStep,
 	getTargetRect,
@@ -16,7 +15,7 @@ import {
 	setupTutorialActiveFlag,
 } from '$lib/ui/tutorial/tutorial-step-controller.svelte';
 import TutorialBubble from './TutorialBubble.svelte';
-import TutorialQuickCompleteDialog from './TutorialQuickCompleteDialog.svelte';
+import TutorialDialogs from './TutorialDialogs.svelte';
 
 interface Props {
 	/**
@@ -35,7 +34,6 @@ const step = $derived(getStep());
 const targetRect = $derived(getTargetRect());
 const animKey = $derived(getAnimKey());
 const showResume = $derived(getShowResume());
-const showQuickComplete = $derived(getShowQuickComplete());
 const showExitConfirm = $derived(getShowExitConfirm() && active);
 // #4652: selector 指定 step が実要素に spotlight できたか (E2E が機械検証する)
 const targetResolved = $derived(isTargetResolved());
@@ -46,10 +44,9 @@ setupStepTracking();
 setupResizeScrollTracking();
 </script>
 
-<!-- Dialogs: resume, quickComplete, exitConfirm -->
-<TutorialQuickCompleteDialog
+<!-- Dialogs: resume, exitConfirm -->
+<TutorialDialogs
 	{showResume}
-	{showQuickComplete}
 	{showExitConfirm}
 	{childUiMode}
 	onConfirmExit={confirmExit}
@@ -57,7 +54,7 @@ setupResizeScrollTracking();
 />
 
 <!-- #2105: showExitConfirm 表示中も TutorialBubble を隠し二重ダイアログ状態を防止 (Dialog FSM 排他原則、archive ADR-0019) -->
-{#if active && step && targetRect && !showQuickComplete && !showExitConfirm}
+{#if active && step && targetRect && !showExitConfirm}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div

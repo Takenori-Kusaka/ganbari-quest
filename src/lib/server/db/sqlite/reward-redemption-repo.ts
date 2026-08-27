@@ -28,6 +28,10 @@ const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
 	resolvedAt: r.resolvedAt,
 	resolvedByParentId: r.resolvedByParentId,
 	shownToChildAt: r.shownToChildAt,
+	// #4632: 申請時点 snapshot を row 型でも返す (子供の交換履歴が「何を交換したか」を出せるように)。
+	rewardTitle: r.rewardTitle,
+	rewardPoints: r.rewardPoints,
+	rewardIcon: r.rewardIcon,
 });
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
@@ -180,18 +184,45 @@ export async function insertRedemptionForRestore(
 	);
 }
 
-/** 子供の交換申請一覧を取得（最新順） */
+/**
+ * 子供の交換申請一覧を取得（最新順）。
+ *
+ * #4632: snapshot 3 列は「申請時点 snapshot 優先 / 旧行 (NULL) は live reward に fallback」で
+ * 解決する (`findRedemptionRequestsByTenant` と同じ COALESCE)。reward 削除後も leftJoin なので
+ * 行は脱落しない (#3566 / #4683)。
+ */
 export async function findRedemptionRequestsByChild(
 	childId: ChildId,
 	_tenantId: string,
 ): Promise<RedemptionRequestRow[]> {
-	return db
-		.select()
+	const rows = await db
+		.select({
+			id: rewardRedemptionRequests.id,
+			childId: rewardRedemptionRequests.childId,
+			rewardId: rewardRedemptionRequests.rewardId,
+			requestedAt: rewardRedemptionRequests.requestedAt,
+			quantity: rewardRedemptionRequests.quantity,
+			status: rewardRedemptionRequests.status,
+			parentNote: rewardRedemptionRequests.parentNote,
+			resolvedAt: rewardRedemptionRequests.resolvedAt,
+			resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
+			shownToChildAt: rewardRedemptionRequests.shownToChildAt,
+			rewardTitle: sql<
+				string | null
+			>`COALESCE(${rewardRedemptionRequests.rewardTitle}, ${specialRewards.title})`,
+			rewardIcon: sql<
+				string | null
+			>`COALESCE(${rewardRedemptionRequests.rewardIcon}, ${specialRewards.icon})`,
+			rewardPoints: sql<
+				number | null
+			>`COALESCE(${rewardRedemptionRequests.rewardPoints}, ${specialRewards.points})`,
+		})
 		.from(rewardRedemptionRequests)
+		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
 		.where(eq(rewardRedemptionRequests.childId, Number(childId)))
 		.orderBy(desc(rewardRedemptionRequests.requestedAt))
-		.all()
-		.map(toRequestRow);
+		.all();
+	return rows.map((r) => toRequestRow(r as RequestRow));
 }
 
 /** WithDetails 行の共通 select 定義 (単件取得 / 一覧で共有する)。 */
@@ -330,16 +361,20 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
+	options?: { expectedStatus?: string },
 ): Promise<RedemptionRequestRow | undefined> {
+	// #4722: expectedStatus 指定時は条件付き UPDATE (0 行 = 既に別の承認が確定済)。
+	const conditions = [
+		eq(rewardRedemptionRequests.id, Number(id)),
+		eq(rewardRedemptionRequests.childId, Number(childId)),
+	];
+	if (options?.expectedStatus !== undefined) {
+		conditions.push(eq(rewardRedemptionRequests.status, options.expectedStatus));
+	}
 	const row = db
 		.update(rewardRedemptionRequests)
 		.set(updates)
-		.where(
-			and(
-				eq(rewardRedemptionRequests.id, Number(id)),
-				eq(rewardRedemptionRequests.childId, Number(childId)),
-			),
-		)
+		.where(and(...conditions))
 		.returning()
 		.get();
 	return row ? toRequestRow(row) : undefined;
