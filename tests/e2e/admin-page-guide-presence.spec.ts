@@ -101,8 +101,9 @@ const FALLBACK_PAGES = [
 	'/admin/certificates', // 未登録 top-level (C7 backlog) → /admin にフォールバック
 ] as const;
 
-// #3268 (EPIC #3260 C4): 家族メンバー / パックの個別ガイド（registry 登録済 = REGISTERED）。
-const MEMBERS_PACKS_PAGES = ['/admin/members', '/admin/packs'] as const;
+// #3268 (EPIC #3260 C4): 家族メンバーの個別ガイド（registry 登録済 = REGISTERED）。
+// #4691: /admin/packs はページごと撤去 (legacy-url-map で /marketplace へ 308)。
+const MEMBERS_PACKS_PAGES = ['/admin/members'] as const;
 
 // #3266 (EPIC #3260 C2): 設定サブ 6 ページの個別ガイド。registry 登録済 (REGISTERED) のため、
 // 親 /admin/settings ではなく各サブページ固有のガイドが起動する。
@@ -156,7 +157,7 @@ test.describe('#3266 C2: 設定サブ 6 ページで個別ガイドが開閉で�
 	}
 });
 
-test.describe('#3268 C4: 家族メンバー / パックで個別ガイドが開閉できる (presence inventory)', () => {
+test.describe('#3268 C4: 家族メンバーで個別ガイドが開閉できる (presence inventory)', () => {
 	test.setTimeout(60_000);
 
 	for (const path of MEMBERS_PACKS_PAGES) {

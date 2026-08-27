@@ -189,19 +189,6 @@ export async function deleteActivity(
 	return findActivityById(id, childId, tenantId);
 }
 
-export async function copyActivitiesAcrossChildren(
-	sourceChildId: ChildId,
-	targetChildId: ChildId,
-	tenantId: string,
-): Promise<ChildActivity[]> {
-	const sourceList = await findActivitiesByChild(sourceChildId, tenantId, {
-		includeArchived: false,
-		visibleOnly: false,
-	});
-	// Stub: source の活動を targetChildId 視点に投影して返すのみ (write は no-op)
-	return sourceList.map((a) => ({ ...a, childId: targetChildId }));
-}
-
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
 	_ids: ActivityId[],

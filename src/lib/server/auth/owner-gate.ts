@@ -56,12 +56,13 @@ export function ownerGateResponse(
 		}
 		if (isHttpError(e, 403)) {
 			if (audit) {
-				const identity = locals.identity;
 				logger.warn('[owner-gate] role-mutation を owner 権限外で拒否', {
 					context: {
 						action: audit.auditAction,
 						tenantId: locals.context?.tenantId,
-						actorUserId: identity?.type === 'cognito' ? identity.userId : undefined,
+						// #4643: targetId は users.user_id なので actor 側も同じ空間で残す。
+						// IdP の sub を混ぜると同じログ行の 2 値が別空間になり突合できない。
+						actorUserId: locals.context?.userId,
 						actorRole: locals.context?.role,
 						targetId: audit.targetId,
 					},
