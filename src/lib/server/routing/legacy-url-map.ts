@@ -654,5 +654,9 @@ export function findLegacyRedirect(pathname: string): LegacyUrlEntry | null {
  * @returns 新 URL のパス
  */
 export function rewriteLegacyPath(pathname: string, entry: LegacyUrlEntry): string {
-	return entry.to + pathname.slice(entry.from.length);
+	const rewritten = entry.to + pathname.slice(entry.from.length);
+	// #4712: `to: '/'` の entry (例 `/demo` → `/`) で残余 path を連結すると `//switch` の
+	// **プロトコル相対 URL** になり、ブラウザが `http://switch/` (外部ホスト) へ飛ぶ。
+	// 先頭の連続スラッシュを 1 本に畳んで同一オリジンの絶対パスに正規化する。
+	return rewritten.replace(/^\/{2,}/, '/');
 }
