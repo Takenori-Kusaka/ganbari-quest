@@ -234,7 +234,37 @@ function resolveActiveAccount() {
 	};
 }
 
+/**
+ * `--help` / `-h` の使用法出力 (#4723 で追加)。
+ *
+ * **ネットワークに触らずに返すこと**が要件である。旧実装は `--help` を素通しして
+ * `main()` に落ちており、使用法を見るだけで `gh api graphql` (GitHub への往復) が走っていた。
+ * そのため `cli-entry-guard.test.ts` の「実体経由 / symlink 経由で同結果」probe が
+ * **1 test あたり 2 回の往復**を 5 秒の既定 timeout 内で行うことになり、CI が混んでいる時に
+ * `Test timed out in 5000ms` で落ちていた (実測: 本 script だけ 1137ms / 他の probe は 125-180ms)。
+ * `--help` が I/O を伴わないのは CLI として素直でもある。
+ */
+function printUsage() {
+	process.stdout.write(
+		[
+			'[check-gh-account-before-pr] 使用法:',
+			'  node scripts/check-gh-account-before-pr.mjs',
+			'',
+			`  active な gh アカウントが ${ALLOWED_PR_AUTHOR} (Dev) であることを検証します。`,
+			`  ${QA_ACCOUNT} は QM レビュー専用のため PR 作成は禁止です (ADR-0022 amendment 1、#1728)。`,
+			'  終了コード: 0 = PR 作成可 / 1 = 不可 (対処方法を stderr に出力)',
+			'',
+		].join('\n'),
+	);
+}
+
 function main() {
+	// #4723: 使用法の出力はネットワークに触らない (上の printUsage 参照)
+	if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+		printUsage();
+		process.exit(0);
+	}
+
 	const { account, source, rawStatusOutput } = resolveActiveAccount();
 
 	if (account === null) {

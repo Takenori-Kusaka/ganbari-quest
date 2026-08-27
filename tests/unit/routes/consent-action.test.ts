@@ -3,7 +3,8 @@
 // - 未認証 → 401
 // - 規約未同意 → 400
 // - プライバシー未同意 → 400
-// - 両方同意 → recordConsent 呼び出し + /admin へリダイレクト
+// - 越境移転未同意 → 400 (#4497)
+// - 全て同意 → recordConsent 呼び出し + /admin へリダイレクト
 // - recordConsent 失敗 → 500
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +17,14 @@ vi.mock('$lib/server/services/consent-service', () => ({
 	checkConsent: mockCheckConsent,
 	recordConsent: mockRecordConsent,
 	CURRENT_TERMS_VERSION: '2026-04-28',
-	CURRENT_PRIVACY_VERSION: '2026-04-28',
+	CURRENT_PRIVACY_VERSION: '2026-08-07',
+	CURRENT_CROSS_BORDER_VERSION: '2026-08-07',
+}));
+
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: mockGetAuthMode,
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -80,12 +88,19 @@ describe('consent action (#708)', () => {
 		vi.clearAllMocks();
 		mockGetAuthMode.mockReturnValue('cognito');
 		mockRecordConsent.mockResolvedValue([]);
+		// action は「画面に出していない文書の同意を捏造しない」ため、記録前に現況を読み直す (#4497)
+		mockCheckConsent.mockResolvedValue({
+			termsAccepted: false,
+			privacyAccepted: false,
+			crossBorderAccepted: false,
+			needsReconsent: true,
+		});
 	});
 
 	it('未認証ユーザーは 401 を返す', async () => {
 		const result = await actions.default!(
 			createEvent(
-				{ agreedTerms: 'on', agreedPrivacy: 'on' },
+				{ agreedTerms: 'on', agreedPrivacy: 'on', agreedCrossBorder: 'on' },
 				{ authenticated: false },
 			) as unknown as Parameters<NonNullable<typeof actions.default>>[0],
 		);
@@ -95,7 +110,7 @@ describe('consent action (#708)', () => {
 
 	it('利用規約未同意で 400 を返す（リンク閲覧なしで submit された想定）', async () => {
 		const result = await actions.default!(
-			createEvent({ agreedPrivacy: 'on' }) as unknown as Parameters<
+			createEvent({ agreedPrivacy: 'on', agreedCrossBorder: 'on' }) as unknown as Parameters<
 				NonNullable<typeof actions.default>
 			>[0],
 		);
@@ -105,7 +120,7 @@ describe('consent action (#708)', () => {
 
 	it('プライバシーポリシー未同意で 400 を返す', async () => {
 		const result = await actions.default!(
-			createEvent({ agreedTerms: 'on' }) as unknown as Parameters<
+			createEvent({ agreedTerms: 'on', agreedCrossBorder: 'on' }) as unknown as Parameters<
 				NonNullable<typeof actions.default>
 			>[0],
 		);
@@ -113,12 +128,26 @@ describe('consent action (#708)', () => {
 		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
-	it('両方同意 → recordConsent 呼び出し + /admin リダイレクト', async () => {
+	// #4497: OAuth 経由の登録は signup フォームを通らないため、越境移転同意 (§28) の
+	// 取得点はこの画面しかない。ここで素通りすると全経路で証跡が残らなくなる。
+	it('越境移転未同意で 400 を返す', async () => {
+		const result = await actions.default!(
+			createEvent({ agreedTerms: 'on', agreedPrivacy: 'on' }) as unknown as Parameters<
+				NonNullable<typeof actions.default>
+			>[0],
+		);
+		expect(result).toMatchObject({ status: 400 });
+		expect(mockRecordConsent).not.toHaveBeenCalled();
+	});
+
+	it('全て同意 → recordConsent 呼び出し + /admin リダイレクト', async () => {
 		const r = await captureRedirect(() =>
 			actions.default!(
-				createEvent({ agreedTerms: 'on', agreedPrivacy: 'on' }) as unknown as Parameters<
-					NonNullable<typeof actions.default>
-				>[0],
+				createEvent({
+					agreedTerms: 'on',
+					agreedPrivacy: 'on',
+					agreedCrossBorder: 'on',
+				}) as unknown as Parameters<NonNullable<typeof actions.default>>[0],
 			),
 		);
 		expect(r.location).toBe('/admin');
@@ -126,18 +155,47 @@ describe('consent action (#708)', () => {
 		expect(mockRecordConsent).toHaveBeenCalledWith(
 			'tenant-1',
 			'user-1',
-			['terms', 'privacy'],
+			['terms', 'privacy', 'cross-border'],
+			'127.0.0.1',
+			'test-ua',
+		);
+	});
+
+	// #4497: 同意記録は監査証跡 (append-only)。画面に出していない = 利用者が同意操作を
+	// していない文書について「いま同意した」行を作ってはならない。
+	it('既に最新版へ同意済みの種別は記録し直さない', async () => {
+		mockCheckConsent.mockResolvedValue({
+			termsAccepted: true,
+			privacyAccepted: true,
+			crossBorderAccepted: false,
+			needsReconsent: true,
+		});
+		await captureRedirect(() =>
+			actions.default!(
+				createEvent({
+					agreedTerms: 'on',
+					agreedPrivacy: 'on',
+					agreedCrossBorder: 'on',
+				}) as unknown as Parameters<NonNullable<typeof actions.default>>[0],
+			),
+		);
+		expect(mockRecordConsent).toHaveBeenCalledWith(
+			'tenant-1',
+			'user-1',
+			['cross-border'],
 			'127.0.0.1',
 			'test-ua',
 		);
 	});
 
 	it('recordConsent 失敗時は 500 を返す', async () => {
-		mockRecordConsent.mockRejectedValueOnce(new Error('DynamoDB error'));
+		mockRecordConsent.mockRejectedValueOnce(new Error('DB error'));
 		const result = await actions.default!(
-			createEvent({ agreedTerms: 'on', agreedPrivacy: 'on' }) as unknown as Parameters<
-				NonNullable<typeof actions.default>
-			>[0],
+			createEvent({
+				agreedTerms: 'on',
+				agreedPrivacy: 'on',
+				agreedCrossBorder: 'on',
+			}) as unknown as Parameters<NonNullable<typeof actions.default>>[0],
 		);
 		expect(result).toMatchObject({ status: 500 });
 	});
