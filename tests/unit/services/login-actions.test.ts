@@ -27,6 +27,13 @@ vi.mock('$lib/server/auth/providers/cognito-oauth', () => ({
 }));
 
 // --- Auth Factory モック (本番 cognito モード固定) ---
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+	isCognitoDevMode: () => false,
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => false,

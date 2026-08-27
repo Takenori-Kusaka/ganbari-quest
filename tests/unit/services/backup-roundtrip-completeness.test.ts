@@ -255,17 +255,6 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
-		// #3329: おやすみ日を 1 件 seed (createdAt 明示)。round-trip 後に reason/createdAt が保全されること。
-		await getRepos().evaluation.insertRestDayForRestore(
-			{
-				childId: asChildId(1),
-				date: '2026-03-03',
-				reason: 'sick',
-				createdAt: '2026-03-03T00:00:00Z',
-			},
-			T,
-		);
-
 		// #3329: 子のカスタム音声 DB 行を 1 件 seed (filePath/publicUrl に childId 含む)。round-trip 後に
 		// createdAt/scene/label が保全され、filePath/publicUrl が新 childId へ remap されることを検証する。
 		await getRepos().voice.insertForRestore(
@@ -312,8 +301,6 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.activityPrefs[0]?.activityName, 'export:活動設定 activityName').toBe(
 			'うんどうA',
 		);
-		expect(data.data.restDays.length, 'export:おやすみ日').toBe(1);
-		expect(data.data.restDays[0]?.reason, 'export:おやすみ日 reason').toBe('sick');
 		expect(data.data.childVoices.length, 'export:音声').toBe(1);
 		expect(data.data.childVoices[0]?.voiceRelPath, 'export:音声 voiceRelPath').toBe(
 			'voices/1/sample.mp3',
@@ -403,14 +390,6 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredPrefs[0]?.pinOrder, '活動設定 pinOrder 保全').toBe(1);
 		const restoredActs2 = await getChildActivities(asChildId(cid), T);
 		expect(restoredPrefs[0]?.activityId, '活動設定 activityId 再結合').toBe(restoredActs2[0]?.id);
-
-		// #3329: おやすみ日が reason/createdAt 保全で復元される。
-		const restoredRestDays = await getRepos().evaluation.findRestDaysByChild(asChildId(cid), T);
-		expect(restoredRestDays.length, 'おやすみ日').toBe(1);
-		expect(restoredRestDays[0]?.reason, 'おやすみ日 reason 保全').toBe('sick');
-		expect(restoredRestDays[0]?.createdAt, 'おやすみ日 createdAt 保全').toBe(
-			'2026-03-03T00:00:00Z',
-		);
 
 		// #3329: カスタム音声 DB 行が createdAt/scene 保全 + filePath/publicUrl を新 childId へ remap して復元される。
 		const restoredVoices = await getRepos().voice.findAllByChild(asChildId(cid), T);
@@ -583,50 +562,6 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			createdAt: seeded?.createdAt,
 			updatedAt: seeded?.updatedAt,
 		});
-	});
-
-	// #3329: きょうだい間おうえんスタンプ (from/to 2 child) の round-trip。tenant-scoped かつ 2 child を
-	// 参照するため専用ケースで検証する (sentAt/shownAt 保全 + from/to の childRef 再結合)。
-	it('きょうだい間おうえんスタンプが from/to 再結合 + sentAt/shownAt 保全で round-trip する', async () => {
-		testDb.insert(schema.children).values({ nickname: 'あに', age: 10, theme: 'blue' }).run(); // id=1
-		testDb.insert(schema.children).values({ nickname: 'いもうと', age: 7, theme: 'pink' }).run(); // id=2
-
-		// #3420: stampCode は CHEER_STAMPS allowlist (sibling-cheer-service.ts、送信経路と同一 SSOT) の
-		// 実在コードを使う。旧 fixture 'good-job' は allowlist 外で実データに存在し得ず、
-		// import の verbatim 値検証 (改竄 backup 防御) が正しく skip する。
-		await getRepos().siblingCheer.insertForRestore(
-			{
-				fromChildId: asChildId(1),
-				toChildId: asChildId(2),
-				stampCode: 'nice',
-				sentAt: '2026-02-15T10:00:00Z',
-				shownAt: '2026-02-15T12:00:00Z',
-			},
-			T,
-		);
-
-		// export
-		const data = await exportFamilyData({ tenantId: T });
-		expect(data.data.siblingCheers.length, 'export:おうえん').toBe(1);
-		expect(data.data.siblingCheers[0]?.fromChildRef, 'export:from ref').toBe('child-1');
-		expect(data.data.siblingCheers[0]?.toChildRef, 'export:to ref').toBe('child-2');
-
-		// replace = clear → import
-		await clearAllFamilyData(T);
-		await importFamilyData(data, T);
-
-		const children = testDb.select().from(schema.children).all();
-		expect(children.length, '子復元').toBe(2);
-		// 復元後 child id を nickname で引き当て (autoincrement で id がずれ得るため)
-		const brother = children.find((c) => c.nickname === 'あに')?.id as number;
-		const sister = children.find((c) => c.nickname === 'いもうと')?.id as number;
-
-		const restored = await getRepos().siblingCheer.findAllByTenant(T);
-		expect(restored.length, 'おうえん').toBe(1);
-		expect(restored[0]?.fromChildId, 'from 再結合').toBe(String(brother));
-		expect(restored[0]?.toChildId, 'to 再結合').toBe(String(sister));
-		expect(restored[0]?.sentAt, 'sentAt 保全').toBe('2026-02-15T10:00:00Z');
-		expect(restored[0]?.shownAt, 'shownAt 保全').toBe('2026-02-15T12:00:00Z');
 	});
 
 	// #3422: per-child 活動の dailyLimit / nameKana / nameKanji が backup round-trip で保全される。

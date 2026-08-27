@@ -10,7 +10,8 @@ import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
-import { getAuthMode } from '$lib/server/auth/factory';
+// #4723: factory 経由だと provider 側と循環するため、実体の auth-mode から直接引く。
+import { getAuthMode } from '$lib/server/auth/auth-mode';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
@@ -337,19 +338,41 @@ export async function checkChecklistTemplateLimit(
  * Free は 1（owner のみ、招待不可）。
  * Standard は 4（owner + 3人、核家族想定）。
  * Family は null（無制限）。
+ *
+ * #4723: 数え方は呼び出す場面で変わる。
+ * - **招待の発行時** (`countPendingInvites: true`): 既存メンバー + 未受諾の招待。
+ *   発行済みの招待は「枠の予約」として数える。数えないと、残り 1 枠に何通でも発行でき、
+ *   最初に受諾した人以外は全員が受諾時に弾かれる（発行者には成功に見える）。
+ * - **招待の受諾時** (既定): 既存メンバーのみ。受諾しようとしている招待自身を
+ *   予約として二重に数えないため。
+ *
+ * #4723: `planId` (= `locals.context?.plan` / `tenants.plan`) は **本チェックでは必須**。
+ * `maxFamilyMembers` は standard (4) と family (null = 無制限) で唯一値が割れる上限であり、
+ * `resolveFullPlanTier` は planId が無いと有料契約を一律 standard に落とす。渡し忘れると
+ * family 世帯が 4 人で頭打ちになる (他の check*Limit は standard / family とも null のため
+ * 影響が出ず、この引数を持たない)。
  */
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
+	opts: { countPendingInvites?: boolean; planId?: string } = {},
 ): Promise<PlanLimitCheck> {
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus, opts.planId));
 	if (limits.maxFamilyMembers === null) {
 		return { allowed: true, current: 0, max: null };
 	}
 
 	const repos = getRepos();
 	const members = await repos.auth.findTenantMembers(tenantId);
-	const current = members.length;
+	let current = members.length;
+
+	if (opts.countPendingInvites) {
+		const invites = await repos.auth.findTenantInvites(tenantId);
+		const now = Date.now();
+		current += invites.filter(
+			(i) => i.status === 'pending' && new Date(i.expiresAt).getTime() > now,
+		).length;
+	}
 
 	return {
 		allowed: current < limits.maxFamilyMembers,

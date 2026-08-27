@@ -77,6 +77,13 @@ export const MONTHLY_HABIT_POINTS = 50;
  *
  * 表示層 (`labels.ts` の文言) は本 SSOT の参照側として扱う。
  */
+/**
+ * 証明書 (がんばり証明書) を発行するレベルの節目 (#4674)。
+ * certificate-service.ts の LEVEL_MILESTONES 実体であり、ページガイドの発行条件説明も本定数を引く
+ * (数値をガイド文言に直書きしない、EPIC #4650 PO 判断)。
+ */
+export const CERTIFICATE_LEVEL_MILESTONES = [5, 10, 20, 30, 50] as const;
+
 export const STREAK_MILESTONE_DAYS = [7, 14, 30, 60, 100] as const;
 
 /**

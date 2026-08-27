@@ -26,6 +26,7 @@
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
 import {
 	PORTAL_FALLBACK_CONTEXT,
 	PORTAL_FALLBACK_REASON,
@@ -460,12 +461,8 @@ async function openPortal() {
 	}
 
 	if (pinConfigured) {
-		if (
-			!portalPinValue ||
-			portalPinValue.length < 4 ||
-			portalPinValue.length > 6 ||
-			!/^\d+$/.test(portalPinValue)
-		) {
+		// #4661: 桁数は constants/oyakagi.ts の PIN_PATTERN が SSOT (server 側 /api/stripe/portal と同一)。
+		if (!portalPinValue || !PIN_PATTERN.test(portalPinValue)) {
 			portalError = OYAKAGI_LABELS.formatError;
 			return;
 		}
@@ -619,10 +616,10 @@ async function openPortal() {
 		</section>
 	{/if}
 
-	<!-- 現在のプラン -->
-	<Card variant="default" padding="lg">
+	<!-- 現在のプラン (#4668: ページガイドの anchor は見出しではなく Card 全体に付け、値行まで光らせる) -->
+	<Card variant="default" padding="lg" data-tutorial="subscription-current-plan">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4" data-tutorial="subscription-current-plan">{SUBSCRIPTION_PAGE_LABELS.currentPlanTitle}</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.currentPlanTitle}</h3>
 
 		<div class="grid gap-4">
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
@@ -667,8 +664,9 @@ async function openPortal() {
 		{/snippet}
 	</Card>
 
-	<!-- プラン利用状況 -->
+	<!-- プラン利用状況 (#4668: ページガイド「利用状況と上限」step の anchor) -->
 	{#if planStats}
+		<div data-tutorial="subscription-plan-status">
 		<PlanStatusCard
 			{planTier}
 			activityCount={planStats.activityCount}
@@ -680,6 +678,7 @@ async function openPortal() {
 			onUpgrade={handlePlanUpgrade}
 			upgradeLoading={checkoutLoading || portalLoading}
 		/>
+		</div>
 	{/if}
 
 	<!-- #4161: 決済未設定の配備でアップグレード操作を押したときの理由表示。
@@ -691,9 +690,9 @@ async function openPortal() {
 		</div>
 	{/if}
 
-	<!-- 無料トライアル -->
+	<!-- 無料トライアル (#4668: free + 未使用時のみ描画。ガイド step は optional で DOM 有無を判定) -->
 	{#if planTier === 'free' && trialStatus}
-		<Card variant="default" padding="lg">
+		<Card variant="default" padding="lg" data-tutorial="subscription-trial">
 			{#snippet children()}
 			{#if trialStatus.isTrialActive}
 				<div class="text-center">
@@ -812,9 +811,9 @@ async function openPortal() {
 	<!-- プラン管理 -->
 	<!-- EPIC #2327 子#2330 AC3: stripeEnabled false 分岐 placeholder「決済機能は現在準備中です」削除 -->
 	{#if stripeEnabled}
-	<Card variant="default" padding="lg">
+	<Card variant="default" padding="lg" data-tutorial="subscription-plan-management">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4" data-tutorial="subscription-plan-management">{SUBSCRIPTION_PAGE_LABELS.planManagementTitle}</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.planManagementTitle}</h3>
 
 		{#if hasSubscription}
 			<!-- サブスクリプション有り → Stripe Customer Portal で管理 (#771: PIN 再確認ゲート付き) -->
@@ -969,7 +968,7 @@ async function openPortal() {
 	<!-- #4139: 解約導線。旧 /admin/billing の「解約手続き」リンクを統合先に移設する
 	     (プラン・課金の操作を 1 ページに集約したため、ここが唯一の解約入口)。
 	     Kinde frictionless 整合で控えめ表示 (Phase 3 #2567 §FR-5)。 -->
-	<div class="subscription-cancel-row">
+	<div class="subscription-cancel-row" data-tutorial="subscription-cancel">
 		<a
 			href="/admin/subscription/cancel"
 			class="subscription-cancel-link"
