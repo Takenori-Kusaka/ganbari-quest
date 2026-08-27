@@ -71,7 +71,15 @@ export interface IRewardRedemptionRepo {
 	insertRedemptionForRestore(
 		input: {
 			childId: ChildId;
-			rewardId: string;
+			/**
+			 * 取込先で解決した reward の id。
+			 *
+			 * #4683: **null = 取込先に該当ごほうびが無い** (元テナントで削除済 / backup に reward が
+			 * 含まれない)。この場合も履歴行は復元する — ポイント台帳の控除は復元されるため、
+			 * 履歴だけ落とすと「使途の分からない減算」が残る。各 backend は「絶対に採番されない id」
+			 * (sqlite=0 / pg=nil UUID) を書き、表示は snapshot 列が担う。
+			 */
+			rewardId: string | null;
 			requestedAt: number;
 			/** #4407: 旧 backup (v1.8.0 以前) には無いため、呼び出し側が 1 に正規化して渡す。 */
 			quantity: number;

@@ -20,9 +20,7 @@ import {
 	checkCustomerValue,
 	checkIssueReference,
 	checkSectionPresence,
-	checkTestResults,
 	detectIssueSectionHeading,
-	detectTestSectionKeyword,
 	extractTemplateSections,
 	INTEGRATION_REQUIRED_SECTIONS,
 	parseArgs,
@@ -166,9 +164,6 @@ describe('helper detectors (#2944)', () => {
 	it('detectIssueSectionHeading は closes # を含む section を返す', () => {
 		expect(detectIssueSectionHeading(TEMPLATE)).toBe('## 関連 Issue');
 	});
-	it('detectTestSectionKeyword はテスト結果テーブル直近の見出しを返す', () => {
-		expect(detectTestSectionKeyword(TEMPLATE)).toBe('テスト実行結果');
-	});
 });
 
 // =====================================================================
@@ -263,24 +258,6 @@ describe('feature lane: 現行観点維持 (#2944 AC4)', () => {
 		const r = checkCustomerValue({ ...base, template: tplNoComment, body });
 		expect(r.ok).toBe(false);
 		expect(r.message).toContain('対象ユーザー');
-	});
-	it('test-results PASS: 結果列記入済み', () => {
-		expect(checkTestResults({ ...base, body: VALID_FEATURE_BODY }).ok).toBe(true);
-	});
-	it('test-results FAIL: 結果列 placeholder 残存', () => {
-		const r = checkTestResults({
-			...base,
-			body: VALID_FEATURE_BODY.replace(
-				'| Lint | `npx biome check .` | PASS | |',
-				'| Lint | `npx biome check .` | <!-- PASS / FAIL --> | |',
-			),
-		});
-		expect(r.ok).toBe(false);
-	});
-	it('test-results skip: type:docs label', () => {
-		const r = checkTestResults({ ...base, labels: ['type:docs'], body: VALID_FEATURE_BODY });
-		expect(r.ok).toBe(true);
-		expect(r.skipped).toBe(true);
 	});
 });
 
@@ -387,10 +364,6 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 		expect(r.skipped).toBeFalsy();
 		expect(r.ok).toBe(true);
 	});
-	it('integration + type:docs label でも test-results は skip しない (#3071)', () => {
-		const r = checkTestResults({ ...base, labels: ['type:docs'], body: INTEGRATION_BODY });
-		expect(r.skipped).toBeFalsy();
-	});
 	it('section-presence FAIL: 統合必須 section 欠落で fail (空洞化していない証跡)', () => {
 		const r = checkSectionPresence({
 			...base,
@@ -417,21 +390,10 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 		expect(checkIssueReference({ ...base, body: INTEGRATION_BODY }).ok).toBe(true);
 		expect(INTEGRATION_BODY).not.toContain('closes #');
 	});
-	it('test-results PASS: 統合エビデンス表 (1 行) があれば通過', () => {
-		const r = checkTestResults({ ...base, body: INTEGRATION_BODY });
-		expect(r.ok).toBe(true);
-		expect(r.message).toContain('統合エビデンス表');
-	});
-	it('test-results FAIL: エビデンス表 0 行は integration で fail (skip でなく fail = 空洞化なし)', () => {
-		const noTable = INTEGRATION_BODY.replace(
-			/## マージ判定エビデンス表[\s\S]*?(?=## レビュー依頼事項)/,
-			'## マージ判定エビデンス表\n\n（表なし）\n\n',
-		);
-		const r = checkTestResults({ ...base, body: noTable });
-		expect(r.ok).toBe(false);
-		expect(r.skipped).toBeFalsy();
-		expect(r.message).toContain('統合エビデンス表');
-	});
+	// 統合エビデンス表 (`## マージ判定エビデンス表`) の記入検証は、生きた経路である
+	// `check-ac-verification-map.mjs` の `checkIntegrationEvidenceTable` 側で担保する
+	// (`tests/unit/scripts/check-ac-verification-map.test.ts`)。ここにあった test-results
+	// 版は到達不能な判定関数を検証していたため #4623 で削除した。
 	it('customer-value PASS: placeholder 残存なし (リリースバッチサマリ)', () => {
 		const r = checkCustomerValue({ ...base, body: INTEGRATION_BODY });
 		expect(r.ok).toBe(true);
@@ -571,7 +533,6 @@ describe('dependabot lane: 全 check skip 相当 (#2944 AC5)', () => {
 		['section-presence', checkSectionPresence],
 		['issue-reference', checkIssueReference],
 		['customer-value', checkCustomerValue],
-		['test-results', checkTestResults],
 		['closing-keyword', checkClosingKeyword],
 	] as const) {
 		it(`${name}: dependabot は skip 相当 (ok:true skipped:true)`, () => {
@@ -882,57 +843,10 @@ describe('#4348: 見出し探索は行の完全一致 + 見つからなければ
 		expect(checkSectionPresence({ ...base, body: REAL_BODY }).ok).toBe(true);
 	});
 
-	it('test-results: section 不在は skip でなく fail (検査できなかったものを pass にしない)', () => {
-		const r = checkTestResults({ ...base, body: '## 顧客価値・目的\n\n本文だけ\n' });
-		expect(r.skipped, 'skip に倒れると gate が no-op になる').toBeFalsy();
-		expect(r.ok).toBe(false);
-	});
-
-	it('test-results: 本文中の言及が見出しより前にあっても本物の表を読む (#4325 / #4311 実例)', () => {
-		// 実 merged PR で観測: AC 表のセルに「下記「テスト・品質セルフチェック」参照」があり、
-		// 旧実装はそのセルから section を切り出して表 0 行 → skip していた。
-		const body = [
-			'## 顧客価値・目的',
-			'',
-			'| AC1 | 内容 | 手段 | 下記「テスト・品質セルフチェック」参照 |',
-			'',
-			'## テスト・品質セルフチェック',
-			'',
-			'| テスト種別 | コマンド | 結果 |',
-			'|---|---|---|',
-			'| pre-ready | `npm run pre-ready` | |',
-			'',
-		].join('\n');
-		const r = checkTestResults({ ...base, body });
-		expect(r.skipped).toBeFalsy();
-		expect(r.ok, '結果列が空の行を検出できていない').toBe(false);
-	});
-
-	it('test-results: 結果列が HTML コメントだけの行は未記入として検出する (#4278 実例)', () => {
-		const body = [
-			'## テスト・品質セルフチェック',
-			'',
-			'| テスト種別 | コマンド | 結果 |',
-			'|---|---|---|',
-			'| pre-ready | `npm run pre-ready` | <!-- 実行後に記入 --> |',
-			'',
-		].join('\n');
-		expect(checkTestResults({ ...base, body }).ok).toBe(false);
-	});
-
-	it('test-results: integration lane は統合 PR template のエビデンス表を読む (feature 見出しを探さない)', () => {
-		const body = [
-			'## マージ判定エビデンス表',
-			'',
-			'| 含有 PR | 領域 | テスト | 結果 |',
-			'|---|---|---|---|',
-			'| #1 | admin | unit×3 | pass |',
-			'',
-		].join('\n');
-		const r = checkTestResults({ ...base, lane: 'integration', body });
-		expect(r.skipped, 'feature template の見出しを探して skip していた (#4348)').toBeFalsy();
-		expect(r.ok).toBe(true);
-	});
+	// test-results 系 4 ケース (#4348 で追加) は #4623 で削除した。検証対象だった
+	// `checkTestResults` は `CHECKS` registry にも workflow にも載らない到達不能な判定で、
+	// 走査対象の `## テスト実行結果` / `テスト種別 | コマンド | 結果` 表も現行テンプレートに無い。
+	// integration lane の統合エビデンス表検証は `checkIntegrationEvidenceTable` が継続する。
 });
 
 // =====================================================================
@@ -952,5 +866,48 @@ describe('#4612 変更タイプ判定は存在しない（registry に無い判�
 
 	it('CHECKS registry に change-type は無い（CLI から起動できない）', () => {
 		expect(Object.keys(gateChecksModule.CHECKS)).not.toContain('change-type');
+	});
+});
+
+// =====================================================================
+// #4623: テスト実行結果判定も同じ class だった (class-lock、本 class の 4 件目)
+//
+// `checkTestResults` / `detectTestSectionHeading` / `detectTestSectionKeyword` は
+// #4305 が `pr-template-gate.yml` の「テスト実行結果」job を撤去したあとも残り、
+// `CHECKS` registry に載らないまま (= CLI から起動不能) 到達不能になっていた。
+//
+// 再配線もできない状態だった: 走査対象の `## テスト実行結果` /
+// `テスト種別 | コマンド | 結果` 表はどちらも現行テンプレート (7 節) に存在せず、
+// registry に戻せば feature lane の全 PR が「セクションがありません」で hard-fail する。
+// =====================================================================
+describe('#4623 テスト実行結果判定は存在しない（registry に無い判定を残さない）', () => {
+	for (const name of ['checkTestResults', 'detectTestSectionHeading', 'detectTestSectionKeyword']) {
+		it(`${name} は export されていない`, () => {
+			expect(Object.keys(gateChecksModule)).not.toContain(name);
+		});
+	}
+
+	it('CHECKS registry に test-results は無い（CLI から起動できない）', () => {
+		expect(Object.keys(gateChecksModule.CHECKS)).not.toContain('test-results');
+	});
+
+	it('CHECKS registry は pr-template-gate.yml が呼ぶ 4 check と一致する', () => {
+		// #4305 が残した 4 job。registry 側だけが増えると「CLI からは呼べるが CI では
+		// 走らない判定」= 本 class と同じ誤読を再生産するため、両者の一致を固定する。
+		expect(Object.keys(gateChecksModule.CHECKS).sort()).toEqual([
+			'closing-keyword',
+			'customer-value',
+			'issue-reference',
+			'section-presence',
+		]);
+	});
+
+	it('走査対象だった見出しは現行テンプレートに無い（配線し直しても入力が来ない）', () => {
+		const realTemplate = readFileSync(
+			resolve(dirname(fileURLToPath(import.meta.url)), '../../../.github/PULL_REQUEST_TEMPLATE.md'),
+			'utf8',
+		);
+		expect(realTemplate).not.toContain('## テスト実行結果');
+		expect(realTemplate).not.toMatch(/テスト種別.*コマンド.*結果/);
 	});
 });

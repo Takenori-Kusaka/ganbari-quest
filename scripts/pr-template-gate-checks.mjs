@@ -40,9 +40,8 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { INTEGRATION_EVIDENCE_SECTION } from './check-ac-verification-map.mjs';
 import { extractClosedIssues } from './integration-pr-body.mjs';
-import { extractSection, hasH2Section } from './lib/ci/pr-body-sections.mjs';
+import { hasH2Section } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
@@ -580,150 +579,22 @@ export function checkCustomerValue({ body, labels, template, lane }) {
 	};
 }
 
-/**
- * template からテスト結果テーブルを含むセクション名を動的取得。
- * @param {string} template
- * @returns {string}
- */
-export function detectTestSectionKeyword(template) {
-	return detectTestSectionHeading(template).replace(/^#{1,6}\s+/, '');
-}
-
-/**
- * template からテスト結果テーブルを含むセクションの **見出し行**（`## X` / `### X`）を取得する。
- *
- * #4348: section の切り出しを見出し行の完全一致で行うため、見出しの**レベルまで**必要になった
- * （`detectTestSectionKeyword` は見出し文字列だけを返すため、H2 / H3 の区別が失われる）。
- *
- * @param {string} template
- * @returns {string} 見出し行（例: `## テスト・品質セルフチェック`）
- */
-export function detectTestSectionHeading(template) {
-	const lines = template.split('\n');
-	let heading = '## テスト実行結果';
-	const tableHeaderIdx = lines.findIndex((l) => /テスト種別.*コマンド.*結果/.test(l));
-	if (tableHeaderIdx !== -1) {
-		for (let i = tableHeaderIdx; i >= 0; i -= 1) {
-			const line = lines[i] ?? '';
-			if (/^###?\s/.test(line)) {
-				heading = line.trim();
-				break;
-			}
-		}
-	}
-	return heading;
-}
-
-/**
- * Check 5: テスト実行結果の記入 (lane-aware)。
- * - feature/hotfix: 現行どおり結果列の placeholder / 空欄検出 (type:docs は skip)。
- * - integration: per-PR コマンド結果でなく「統合エビデンス表 (マージ判定エビデンス) の存在」を検証 (#2944)。
- *   → audit-team.md §3.5 のマージ判定エビデンス表。統合 PR では per-PR コマンド表ではなく
- *     最重厚レーンの集約結果表の存在を要求する。本 phase では「テスト結果テーブルが 1 行以上存在し、
- *     その結果列が placeholder/空でない」= エビデンス表が記入されていることを検証する
- *     (feature と同じ table 検証だが、表の意味付けが「集約エビデンス」)。
- * - dependabot / type:docs: skip。
- *
- * @param {CheckInput} input
- * @returns {CheckResult}
- */
-export function checkTestResults({ body, labels, template, lane }) {
-	const dep = dependabotSkip(lane);
-	if (dep) return dep;
-	if (hasDependenciesLabel(labels, lane)) {
-		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
-	}
-	// integration lane では type:docs による skip を無効化する (#3071、空洞化防止)。
-	if (lane !== 'integration' && labels.includes('type:docs')) {
-		return { ok: true, skipped: true, message: 'type:docs PR のためスキップ', lane };
-	}
-
-	// #4348: section の探索を「本文の部分一致 + 見つからなければ skip」から
-	// 「H2 見出し行の完全一致 + 見つからなければ fail」に変える。旧実装の壊れ方は 2 つあった:
-	//
-	//   (a) skip に倒れる: keyword が本文になければ pass 扱い。section-presence への「委譲」を
-	//       名目にしていたが、その section-presence 自身も部分一致だったため
-	//       「コメント内の文字列で section-presence が緑 + 本体不在で本 check が skip」の
-	//       二重空振りが成立していた (#4348 表 #5)。
-	//   (b) integration lane で常に skip: keyword は feature template から導出されるため
-	//       (`テスト・品質セルフチェック`)、その見出しを持たない統合 PR template では必ず
-	//       `indexOf === -1` になり、統合エビデンス表の検証分岐が **一度も実行されていなかった**
-	//       (実測: merged 統合 PR 12 本すべてで skip)。lane ごとに見る section を解決する。
-	const heading =
-		lane === 'integration'
-			? `## ${INTEGRATION_EVIDENCE_SECTION}`
-			: detectTestSectionHeading(template);
-	const keyword = heading.replace(/^#{1,6}\s+/, '');
-	const { found, text: section } = extractSection(body, heading);
-	if (!found) {
-		return {
-			ok: false,
-			lane,
-			message:
-				`❌ 「${heading}」セクションが PR 本文にありません。\n\n` +
-				`見出しは **行全体の完全一致** (\`${heading}\`) で判定します。\n` +
-				'HTML コメント / code block の中や本文中の言及は見出しとして数えません (#4348)。\n' +
-				'PR テンプレートのセクション見出しを削除せず、表に結果を記入してください。',
-		};
-	}
-
-	const tableRows = section
-		.split('\n')
-		.filter((l) => /^\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
-		.filter((l) => !/^\|\s*[-:]+\s*\|/.test(l))
-		.filter((l) => !/テスト種別\s*\|/.test(l));
-
-	if (tableRows.length === 0) {
-		if (lane === 'integration') {
-			// 統合 PR ではエビデンス表 (1 行以上) の存在を必須とする (空洞化禁止)。
-			return {
-				ok: false,
-				lane,
-				message:
-					`❌ [integration] 「${keyword}」に統合エビデンス表 (マージ判定エビデンス) がありません。\n\n` +
-					'統合 PR は per-PR コマンド結果ではなく、最重厚レーンの集約結果 / マージ判定エビデンス表\n' +
-					'(audit-team.md §3.5) を 1 行以上記載してください。\n例:\n' +
-					'| 検証観点 | 集約結果 | エビデンス |\n' +
-					'| 重量レーン E2E | PASS (含有 5 PR 分) | run #12345 |',
-			};
-		}
-		return {
-			ok: true,
-			skipped: true,
-			lane,
-			message: 'テスト実行結果テーブルの行が見つかりません (docs / infra のみの変更の可能性)',
-		};
-	}
-
-	const placeholderPattern = /<!--[^>]*?(?:PASS|FAIL|例:)[^>]*?-->/i;
-	const placeholderRows = tableRows.filter((r) => placeholderPattern.test(r));
-	const emptyResultRows = tableRows.filter((row) => {
-		const cells = row
-			.split('|')
-			.slice(1, -1)
-			.map((c) => c.trim());
-		return cells.length >= 3 && cells[2] === '';
-	});
-	const violations = [...new Set([...placeholderRows, ...emptyResultRows])];
-
-	if (violations.length > 0) {
-		const examples = violations
-			.slice(0, 3)
-			.map((r) => `  ${r.slice(0, 100)}`)
-			.join('\n');
-		const prefix = lane === 'integration' ? '[integration] 統合エビデンス表 ' : '';
-		return {
-			ok: false,
-			lane,
-			message:
-				`❌ ${prefix}「${keyword}」テーブルに ${violations.length} 件の未記入行があります。\n\n` +
-				'各行の「結果」列に結果を記入してください (PASS / FAIL / 実行件数 等)。\n\n' +
-				`未記入行（最大 3 件）:\n${examples}`,
-		};
-	}
-	const tag = lane === 'integration' ? '[integration] 統合エビデンス表' : 'テスト実行結果';
-	return { ok: true, lane, message: `✅ ${tag}: ${tableRows.length} 行すべて記入済み` };
-}
+// 旧 Check 5「テスト実行結果」(`checkTestResults` / `detectTestSectionHeading` /
+// `detectTestSectionKeyword`) は削除した (#4623)。
+// #4305 が `pr-template-gate.yml` の対 job を撤去した際に判定関数だけが残り、`CHECKS`
+// registry に載らないまま (= CLI から起動不能) 到達不能になっていた。#4612 / #4614 の
+// `checkChangeType` と同型。
+//
+// 再配線はできない状態でもあった: 走査対象の `## テスト実行結果` /
+// `テスト種別 | コマンド | 結果` 表はどちらも現行 `.github/PULL_REQUEST_TEMPLATE.md`
+// (7 節) に無く、registry に戻すと feature lane の全 PR が「セクションがありません」で
+// hard-fail する。
+//
+// integration lane が担っていた「マージ判定エビデンス表」の記入検証は
+// `check-ac-verification-map.mjs` の `checkIntegrationEvidenceTable` が**生きた経路で**
+// 継続している (`check-pr-body.mjs` + `.github/workflows/pr-ac-verification-check.yml`)。
+// 復活させるならテンプレート節 / `PR_TEMPLATE_SECTIONS.json` / `CHECKS` 登録 / workflow job を
+// セットで戻すこと (class-lock: tests/unit/github/pr-template-gate-checks.test.ts)。
 
 /** check 名 → 関数の dispatch table (CLI 用)。 */
 export const CHECKS = {
