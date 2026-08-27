@@ -1,7 +1,7 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import {
