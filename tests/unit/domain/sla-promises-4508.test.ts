@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { LP_LEGAL_SLA_LABELS, LP_LEGAL_TOKUSHOHO_LABELS } from '../../../src/lib/domain/labels';
+import { SUPPORT_RESPONSE_TERMS } from '../../../src/lib/domain/terms';
 
 const sla = Object.values(LP_LEGAL_SLA_LABELS).join('\n');
 
@@ -53,10 +54,16 @@ describe('#4508 SLA が履行できない確約を持たない', () => {
 		});
 
 		it('特商法表記が SLA 第6条 (48 時間 = 2 営業日 目標) と同じ強さで書かれている', () => {
-			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain('2 営業日以内');
+			// #4709 で 3 文書 (FAQ / 特商法 / SLA) の応答目標を SUPPORT_RESPONSE_TERMS へ集約した。
+			// 本 it の趣旨は「特商法が SLA と同じ強さで書かれている」ことなので、旧: 特商法だけ
+			// 別表現 (「2 営業日以内」) を pin する → 新: 両文書が同一 atom を参照していることを
+			// 直接 assert する、に振り替える (同一文字列なので「同じ強さ」より強い保証)。
+			const target = SUPPORT_RESPONSE_TERMS.initialResponseTarget;
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain(target);
 			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain('目標');
-			// SLA 側は従来どおり「48時間以内（営業日ベース）を目標」
+			// SLA 側は従来どおり「48時間以内（営業日ベース）を目標」(atom も同値で char 一致)
 			expect(LP_LEGAL_SLA_LABELS.section6).toContain('48時間以内');
+			expect(LP_LEGAL_SLA_LABELS.section6).toContain(target);
 			expect(LP_LEGAL_SLA_LABELS.section6).toContain('目標');
 		});
 	});
