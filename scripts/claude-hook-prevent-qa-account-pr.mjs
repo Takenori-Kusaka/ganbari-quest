@@ -150,16 +150,6 @@ export function detectPrCreation(command) {
 }
 
 /**
- * `detectPrCreation` の boolean ラッパ (既存呼出し互換)。
- *
- * @param {unknown} command  tool_input.command 文字列
- * @returns {boolean}        対象操作なら true
- */
-export function containsGhPrCreate(command) {
-	return detectPrCreation(command).blocked;
-}
-
-/**
  * `gh auth status` 出力から active アカウントを抽出する純粋関数。
  *
  * @param {string} output  spawnSync('gh', ['auth', 'status']).stdout + stderr

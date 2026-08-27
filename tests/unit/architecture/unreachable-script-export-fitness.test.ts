@@ -59,16 +59,6 @@ const EXCLUDED_PATH_PARTS = ['__tests__', 'node_modules'];
 const ALLOWLIST: Record<string, string> = {
 	'scripts/lib/ci/workflow-judgment-registry.mjs#findJudgment':
 		'本 registry の consumer は tests/unit/architecture/workflow-judgment-delegation-guard.test.ts (CI unit lane で常時実行される fitness function) であり、それが production consumer そのもの。findJudgment は [D1] no-silent-gap (covered workflow の全 job が registry に宣言されているか) を実装する唯一の経路で、消すと [D1] が表現できなくなる',
-	'scripts/claude-hook-prevent-qa-account-pr.mjs#containsGhPrCreate':
-		'#4624 で扱う。detectPrCreation の boolean wrapper で production からは呼ばれないが、ADR-0022 の cross-hook 整合 guard (tests/unit/hooks/qm-session-approve-hook-consistency.test.ts) を含む 2 test file 約 30 assertion の呼び先になっている。削除は呼び先の書き換えを伴うため別 Issue',
-	'scripts/collect-integration-prs.mjs#isAtOrAfterInstant':
-		'#4624 で扱う。#4053 が時刻比較そのものを廃した (merge 履歴ベースへ) ため production 経路から外れたが、AC1「時刻比較は必ず epoch 正規化を通す」の sanctioned API として意図的に残された経緯がある。存置/削除の判断は別 Issue',
-	'scripts/collect-integration-prs.mjs#compareIsoInstant':
-		'#4624 で扱う。isAtOrAfterInstant の内部実装で、同じ判断に従う',
-	'scripts/issue-close-gate-skip-judge.mjs#judgeSkipAcGate':
-		'#4624 で扱う。呼び元の issue-close-gate.yml は #4322 で削除済 (完全に死んでいる) が、.github/CLAUDE.md / copilot-instructions.md / ADR-0004 が今も gate の存在を前提に書かれている。script だけ消すと docs が実在しない SSOT を指し続けるため、doc 側の是正と同一 PR で行う',
-	'scripts/issue-close-gate-skip-judge.mjs#countAcCheckboxes':
-		'#4624 で扱う。judgeSkipAcGate と同じ file / 同じ判断に従う',
 };
 
 type Decl = { file: string; name: string; start: number; end: number; nameStart: number };
