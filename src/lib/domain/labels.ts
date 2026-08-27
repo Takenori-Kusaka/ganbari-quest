@@ -12,6 +12,12 @@ import {
 	type PraiseMilestoneId,
 	STREAK_MILESTONE_DAYS,
 } from './constants/habit-milestones';
+// #4664: 通知の配信量 (1 日の上限 / サイレント時間帯の既定) は domain 定数が SSOT。
+import {
+	DEFAULT_QUIET_END,
+	DEFAULT_QUIET_START,
+	MAX_DAILY_NOTIFICATIONS,
+} from './constants/notification';
 import { FREE_PLAN_QUOTA } from './constants/plan-quota';
 import { formatRetentionPeriod } from './constants/plan-retention';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
@@ -2381,26 +2387,59 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4664 (EPIC #4650): 旧ガイドは「お子さま自身が活動を思い出すきっかけ」と書いていたが、
+	//   通知が届くのは購読した**保護者のこの端末**。種類も「連続記録のお祝い」と実項目
+	//   (ストリーク警告) がずれ、リマインダー時刻 / サイレント時間帯 / 1 日の上限 /
+	//   ブロック中の復旧手順に触れていなかった。届く先・種類・条件を画面の事実に合わせる。
+	//   リマインダー / ストリーク警告 は配信スケジューラが無く UI ごと外したため、
+	//   ガイドからも訴求を落とす (ADR-0013: 届かないものを約束しない)。
 	adminSettingsNotifications: {
 		title: '通知',
 		steps: {
 			'settings-notifications-intro': {
 				title: 'このページについて',
-				what: 'ブラウザのお知らせを使って、活動のリマインドや達成のお祝いを届ける設定ページです。',
-				how: '上で通知のオン・オフを切り替え、下で届けるお知らせの種類を選びます。',
-				goal: '声かけしなくても、お子さま自身が活動を思い出すきっかけを作れます。',
+				what: `お知らせが届くのは、この設定を行った${PARENT_TERMS.honorific}の端末（いま見ているブラウザ）です。お子さまの端末には届きません。`,
+				how: '上でこのブラウザの通知をオン・オフし、下で受け取るお知らせの種類・リマインダーの時刻・送らない時間帯を決めます。',
+				goal: 'お子さまが記録した瞬間の「できたよ」を、離れていても受け取れます。',
 			},
+			// ② ブラウザ通知の状態 (常設)
 			'settings-notifications-status': {
 				title: '画面の見方（通知のオン・オフ）',
-				what: '今このブラウザで通知が使えるかどうかと、オン・オフの切り替えボタンがここに出ます。',
-				how: '1. 状態を確認します\n2. ボタンでオン・オフを切り替えます',
-				goal: '通知が使える状態かどうかをひと目で確認できます。',
+				what: 'いまこのブラウザで通知が使える状態かどうかを表します。「オン」なら受け取れます。「ブロック中」はブラウザ側で拒否されている状態で、アプリからはオンに戻せません。',
+				how: '1. 「オン」のときは「通知をオフにする」で止められます\n2. 表示が無いときは「通知をオンにする」を押し、ブラウザの確認で「許可」を選びます\n3. 「ブロック中」のときはボタンが出ません。ブラウザのサイト設定で通知を「許可」に変えてから、このページを再読み込みしてください',
+				goal: '受け取れない状態のまま気づかずに待つことがなくなります。',
+				tips: [
+					'お使いのブラウザや端末が通知に対応していないときは、ボタンが押せない状態で表示されます',
+				],
 			},
+			// ③ 受け取るお知らせの種類 (常設。3 種とも配信経路がある — リマインダー / ストリーク警告は
+			//    #4706 の notification-delivery cron、達成通知は記録時の同期送信)
 			'settings-notifications-types': {
 				title: 'よく使う操作（お知らせの種類）',
-				what: 'リマインダーや連続記録のお祝い、サイレント時間帯など、届けるお知らせを選べます。',
-				how: '1. 届けたいお知らせにチェックします\n2. 保存ボタンをタップします',
-				goal: '必要なお知らせだけが届き、通知が多すぎる状態を避けられます。',
+				what: '受け取るお知らせを 3 つから選べます。「リマインダー通知（毎日の記録を促す）」は決めた時刻に、「ストリーク警告（連続記録が途切れそうな時）」は連続記録が途切れそうな日に、「達成通知（記録完了・レベルアップ時）」はお子さまが記録した直後とレベルが上がったときに届きます。',
+				how: '1. 受け取りたいお知らせにチェックを入れます\n2. 下の「通知設定を保存」を押します\n3. リマインダーにチェックを入れて保存すると、その下に「リマインダー時刻」の欄が出ます。時刻を合わせて、もう一度「通知設定を保存」を押してください',
+				goal: '選んだお知らせだけが、この端末に届くようになります。',
+				tips: [
+					// #4664 M: 時刻欄は「チェックした瞬間」ではなく、保存後の再読込で現れる。
+					'「リマインダー時刻」の欄は、リマインダーにチェックを入れて保存したあとに出ます',
+				],
+			},
+			// ④ サイレント時間帯 (常設)
+			'settings-notifications-quiet': {
+				title: '画面の見方（サイレント時間帯）',
+				what: `この時間帯は通知を送りません。はじめは ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} になっており、夜間や早朝に鳴らないようにしています。`,
+				how: `1. 左の時刻に「送らなくなる時刻」、右の時刻に「また送り始める時刻」を入れます\n2. ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} のように日をまたぐ指定もできます\n3. 「通知設定を保存」を押します`,
+				goal: '寝ている間に通知で起こされることがなくなります。',
+				tips: [
+					`お知らせは 1 日 ${MAX_DAILY_NOTIFICATIONS} 件までにしています（鳴りすぎないための上限です）`,
+				],
+			},
+			// ⑤ 保存 (常設)
+			'settings-notifications-save': {
+				title: 'よく使う操作（保存）',
+				what: 'このページの設定は、保存ボタンを押すまで反映されません。',
+				how: '1. 「通知設定を保存」を押します\n2. 「通知設定を保存しました」と表示されれば完了です',
+				goal: '選んだ種類と時間帯で、次からお知らせが届くようになります。',
 			},
 		},
 	},
@@ -3349,10 +3388,18 @@ export const SETTINGS_LABELS = {
 	notificationDisableSuccess: '通知をオフにしました',
 	notificationDisableFailure: '通知をオフにできませんでした。時間をおいて再度お試しください',
 	notificationReminderLabel: 'リマインダー通知（毎日の記録を促す）',
+	// #4664 F8: リマインダー時刻の見出しが svelte 直書きで、ガイドから同じ語を引けなかった。
+	notificationReminderTimeLabel: 'リマインダー時刻',
 	notificationStreakLabel: 'ストリーク警告（連続記録が途切れそうな時）',
 	notificationAchievementLabel: '達成通知（記録完了・レベルアップ時）',
 	notificationQuietSeparator: '〜',
 	notificationSaveAction: '通知設定を保存',
+	// #4664 F8: サイレント時間帯の見出し / 補足が svelte 直書きで、ガイドから同じ語を
+	//   引けなかった (DESIGN.md §6 逸脱)。
+	notificationQuietLabel: 'サイレント時間帯',
+	notificationQuietHint: 'この時間帯は通知を送信しません',
+	// #4664 F3: 1 日の上限は notification-service.ts の MAX_DAILY_NOTIFICATIONS が値 SSOT。
+	notificationDailyLimitHint: (max: number) => `お知らせは 1 日 ${max} 件までです`,
 
 	// ポイント表示設定
 	pointSectionTitle: '💰 ポイント表示設定',
