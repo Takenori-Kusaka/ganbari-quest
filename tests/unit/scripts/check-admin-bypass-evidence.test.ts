@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	EVIDENCE_MARKER_PATTERNS,
 	hasEvidenceSection,
+	isBotAuthored,
 } from '../../../scripts/check-admin-bypass-evidence.mjs';
 
 /** bot (`postMissingEvidenceComment`) が投稿する追記依頼コメントの実物と同型。 */
@@ -86,5 +87,48 @@ describe('import しても process が落ちない（判定を test から呼べ
 	it('REPO 未設定でも import 済みの判定関数が呼べる', () => {
 		expect(process.env.REPO).toBeUndefined();
 		expect(typeof hasEvidenceSection).toBe('function');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4612: bot 判定は login 文字列ではなくアカウント種別 (`is_bot`) で行う
+//
+// 旧実装は `login.endsWith('[bot]')` で、GitHub App が作成した PR (`app/<slug>`) を
+// 1 件も拾えなかった。統合 PR (App 作成) が毎回 exempt から漏れ、証跡の追記依頼コメントが
+// 投稿され続けた (実測: 2026-08-13 16:05Z に PR #4534 へ投稿)。
+// `is_bot` は gh が GraphQL `author.__typename == 'Bot'` を写した値で、利用者側で騙れない。
+// ---------------------------------------------------------------------------
+
+describe('isBotAuthored — App 作成 PR を拾い、値が無ければ exempt しない', () => {
+	/**
+	 * `gh pr list --json ...` の生 JSON を渡す想定の判定なので、test では PR の一部だけを
+	 * 与える (型を満たすためだけのダミー全項目は、何を検証しているかを隠す)。
+	 * 非 boolean の `is_bot` は「壊れた入力でも exempt しない」ことの負例なので、型を通すためだけに
+	 * 直すと negative case が消える。
+	 */
+	const pr = (partial: unknown) => partial as Parameters<typeof isBotAuthored>[0];
+
+	// 実測値 (`gh pr list --json author`、2026-08-13)。
+	it.each([
+		['app/ganbari-quest-integrator', true],
+		['app/dependabot', true],
+	])('App actor %s は bot と判定する (実測: is_bot=true)', (login, expected) => {
+		expect(isBotAuthored(pr({ author: { login, is_bot: true } }))).toBe(expected);
+	});
+
+	it('人間の作成者は bot ではない', () => {
+		expect(isBotAuthored(pr({ author: { login: 'Takenori-Kusaka', is_bot: false } }))).toBe(false);
+	});
+
+	it('is_bot が無い / author 自体が無いときは exempt しない (fail-closed)', () => {
+		// `[bot]` を含む login を騙っても、種別が取れなければ exempt しない。
+		expect(isBotAuthored(pr({ author: { login: 'not-really-a[bot]' } }))).toBe(false);
+		expect(isBotAuthored(pr({ author: null }))).toBe(false);
+		expect(isBotAuthored(pr({}))).toBe(false);
+	});
+
+	it('is_bot が boolean でない値 (文字列 "true" 等) では exempt しない', () => {
+		expect(isBotAuthored(pr({ author: { login: 'x', is_bot: 'true' } }))).toBe(false);
+		expect(isBotAuthored(pr({ author: { login: 'x', is_bot: 1 } }))).toBe(false);
 	});
 });
