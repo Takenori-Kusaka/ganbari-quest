@@ -23,6 +23,18 @@ export interface RedemptionRequestRow {
 	resolvedAt: number | null;
 	resolvedByParentId: string | null;
 	shownToChildAt: number | null;
+	/**
+	 * #2832 申請時点 snapshot (#4632 で row 型へ昇格)。
+	 *
+	 * 子供の「記録 > 交換」は「いつ・何を・いくらで交換したか」を出す画面なのに、row 型が
+	 * snapshot を落としていたため title / icon / points を渡せず、日付をタイトル代わりに出して
+	 * アイコンを 🎁 固定にしていた (何を交換したか判別不能)。
+	 * 値は「snapshot 優先 / 旧行は live reward に fallback」で解決済 (repo 側 COALESCE)。
+	 * reward が削除済で旧行 (snapshot NULL) の場合のみ null になる。
+	 */
+	rewardTitle: string | null;
+	rewardIcon: string | null;
+	rewardPoints: number | null;
 }
 
 export interface RedemptionRequestWithDetails extends RedemptionRequestRow {

@@ -3,7 +3,7 @@ import * as v from 'valibot';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { apiError, validationError } from '$lib/server/errors';
+import { planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getRewardTemplates,
@@ -35,7 +35,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		context.plan,
 	);
 	if (!isCustomRewardUnlocked(tier)) {
-		return apiError('PLAN_LIMIT_EXCEEDED', 'reward template save requires standard or above', {
+		return planLimitError('standard', 'reward template save requires standard or above', {
 			tenantId,
 			tier,
 		});

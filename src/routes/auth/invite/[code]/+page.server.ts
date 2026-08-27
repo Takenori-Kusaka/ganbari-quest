@@ -34,6 +34,58 @@ const RELOCATION_BLOCKED_MESSAGES: Record<RelocationBlockedReason, string> = {
 	NO_CURRENT_TENANT: AUTH_INVITE_LABELS.alreadyInTenantDesc,
 };
 
+/**
+ * 既にどこかの家族グループに所属している人が招待リンクを開いたときの案内 (#4642 / #4643 / #4704)。
+ *
+ * 招待 Cookie の後始末は呼び出し側が済ませてある前提で、ここは「何を画面に出すか」だけを決める。
+ */
+async function resolveAlreadyInTenantResult(
+	context: { tenantId: string; userId?: string | null },
+	inviteTenantId: string,
+) {
+	// #4704: 招待を発行した本人 (= 同じ家族グループの所属) が自分のリンクを開くケース。
+	// 所属の有無だけを見ると「既に**別の**グループに所属している」と言ってしまい、
+	// 同じグループなので事実と違い、リンクが壊れているように読める (#4636 の入口)。
+	if (context.tenantId === inviteTenantId) {
+		return {
+			valid: false as const,
+			relocation: false as const,
+			error: AUTH_INVITE_LABELS.ownTenantInvite,
+			errorDesc: AUTH_INVITE_LABELS.ownTenantInviteDesc,
+			// ログアウト導線は出さない (自分は既に参加済みで、やることは「相手に送る」)
+			sessionActive: false,
+		};
+	}
+
+	// #4642: 自分ひとりの家族グループの owner なら「引っ越し合流」を選べる。
+	// 誤って自分の家族グループを作ってしまった人が、後から正しい招待に合流する唯一の出口。
+	// **不可逆操作**なので、ここでは確認画面を出すだけで何も実行しない。
+	const eligibility = await checkRelocationEligibility(context.userId ?? '');
+	if (eligibility.blockedReason === null) {
+		return {
+			valid: false as const,
+			relocation: true as const,
+			error: INVITE_RELOCATION_LABELS.title,
+			errorDesc: INVITE_RELOCATION_LABELS.lead,
+			sessionActive: true,
+		};
+	}
+
+	// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
+	// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
+	// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
+	// #4642: 引っ越せない理由 (他メンバーが居る / 子供が居る / owner でない) は、その理由ごとの
+	// 次アクションを出す (「ログアウトして踏み直す」では解決しないため)。
+	const errorDesc = RELOCATION_BLOCKED_MESSAGES[eligibility.blockedReason ?? 'NO_CURRENT_TENANT'];
+	return {
+		valid: false as const,
+		relocation: false as const,
+		error: AUTH_INVITE_LABELS.alreadyInTenant,
+		errorDesc,
+		sessionActive: true,
+	};
+}
+
 export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	const { code } = params;
 
@@ -73,35 +125,7 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		if (locals.context) {
 			// 既にテナント所属 → 招待 Cookie を保存しない (残すと別経路で無断合流しうる)
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
-
-			// #4642: 自分ひとりの家族グループの owner なら「引っ越し合流」を選べる。
-			// 誤って自分の家族グループを作ってしまった人が、後から正しい招待に合流する唯一の出口。
-			// **不可逆操作**なので、ここでは確認画面を出すだけで何も実行しない。
-			const eligibility = await checkRelocationEligibility(locals.context.userId ?? '');
-			if (eligibility.blockedReason === null) {
-				return {
-					valid: false as const,
-					relocation: true as const,
-					error: INVITE_RELOCATION_LABELS.title,
-					errorDesc: INVITE_RELOCATION_LABELS.lead,
-					sessionActive: true,
-				};
-			}
-
-			// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
-			// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
-			// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
-			// #4642: 引っ越せない理由 (他メンバーが居る / 子供が居る / owner でない) は、その理由ごとの
-			// 次アクションを出す (「ログアウトして踏み直す」では解決しないため)。
-			const errorDesc =
-				RELOCATION_BLOCKED_MESSAGES[eligibility.blockedReason ?? 'NO_CURRENT_TENANT'];
-			return {
-				valid: false as const,
-				relocation: false as const,
-				error: AUTH_INVITE_LABELS.alreadyInTenant,
-				errorDesc,
-				sessionActive: true,
-			};
+			return await resolveAlreadyInTenantResult(locals.context, invite.tenantId);
 		}
 
 		// テナント未所属 → 招待処理をトリガー

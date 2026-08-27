@@ -88,20 +88,6 @@ export function toJSTDateString(date: Date): string {
 }
 
 /**
- * **epoch 秒** を JST 暦日 (YYYY-MM-DD) に直す。
- *
- * `new Date(sec)` は引数を **ミリ秒**と解釈するため、秒をそのまま渡すと 1970-01-xx になる。
- * 保持期間 (ADR-0049) の cutoff と比較する経路でこれをやると全件が cutoff より古い判定になり、
- * **履歴が丸ごと消える** (#4688 で `reward_redemption_requests.requested_at` が実際にそうなった。
- * 書き込みは `Math.floor(Date.now() / 1000)` = 秒)。
- *
- * 秒で保存している列を日付に直すときは必ずこの関数を通す。
- */
-export function jstDateOfEpochSeconds(epochSeconds: number): string {
-	return toJSTDateString(new Date(epochSeconds * 1000));
-}
-
-/**
  * JST 日付文字列 (YYYY-MM-DD) の `days` 日後を返す (負値で過去)。
  *
  * 暦日文字列を UTC 深夜として解釈し UTC 算術で加減算するため、プロセス TZ に依存しない。
@@ -165,6 +151,23 @@ export function jstDateOfIso(isoTimestamp: string): string {
  */
 export function jstDayStartUtcIso(dateStr: string): string {
 	return new Date(new Date(`${dateStr}T00:00:00Z`).getTime() - JST_OFFSET_MS).toISOString();
+}
+
+/**
+ * **epoch 秒** (DB 格納値) を JST 暦日 (YYYY-MM-DD) にする (#4632 / #4688)。
+ *
+ * `new Date(x)` は x を **ミリ秒**として解釈するため、秒値をそのまま渡すと 1970 年になる。
+ * DB は `requested_at` / `resolved_at` を epoch 秒で持ち、UI は ISO 文字列 / Date / epoch 秒が
+ * 混在するため、**秒を受ける入口を専用関数に分けて呼び分けを型と名前で強制する**。
+ * ミリ秒を持っているなら `toJSTDateString(new Date(ms))` を使う。
+ *
+ * この取り違えは 2 通りの実害を出した:
+ * - 表示 (#4632): 子供の交換履歴の日付が全件「1月22日（木）」になった
+ * - 保持期間 (#4688): cutoff と比較する経路でやると全件が cutoff より古い判定になり、
+ *   無料プランで**交換履歴が丸ごと消える** (ADR-0049 の表示フィルタ層)
+ */
+export function jstDateOfEpochSeconds(epochSeconds: number): string {
+	return toJSTDateString(new Date(epochSeconds * 1000));
 }
 
 /**

@@ -1,6 +1,11 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
-import { jstDateOfEpochSeconds, jstDateOfIso, jstDayOfWeek } from '$lib/domain/date-utils';
+import {
+	jstDateOfEpochSeconds,
+	jstDateOfIso,
+	jstDayOfWeek,
+	toJSTDateString,
+} from '$lib/domain/date-utils';
 import { asCategoryId } from '$lib/domain/ids';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
@@ -77,10 +82,12 @@ function formatDate(dateStr: string): string {
 	return `${month}${t.dateMonthSuffix}${day}${t.dateDaySuffix}（${weekday}）`;
 }
 
-// #4688: requestedAt は **epoch 秒** (reward-redemption-service の書き込みは
-// Math.floor(Date.now() / 1000))。new Date(秒) は ms 解釈で 1970-01-xx になり、
-// 交換履歴の日付が全件「1月21日」と表示される。
-function formatUnixDate(epochSeconds: number): string {
+/**
+ * #4632: 引数は **epoch 秒** (DB 格納値)。旧実装は `new Date(unix)` で秒を **ミリ秒**として
+ * 解釈しており、交換履歴の日付が全件 1970 年 (「1月22日（木）」) になっていた。
+ * 秒 / ミリ秒の取り違えを名前で防ぐため、変換は date-utils の専用関数に閉じる。
+ */
+function formatEpochSecondsDate(epochSeconds: number): string {
 	return formatDate(jstDateOfEpochSeconds(epochSeconds));
 }
 
@@ -236,15 +243,36 @@ function purchaseStatusTone(status: string): string {
 				{:else}
 					<div class="flex flex-col gap-[var(--sp-sm)]" data-testid="history-list-purchases">
 						{#each data.purchases as p (p.id)}
-							<div class="flex items-center gap-[var(--sp-sm)] bg-white rounded-[var(--radius-sm)] px-[var(--sp-sm)] py-[var(--sp-sm)] shadow-sm">
-								<span class="text-2xl">🎁</span>
+							<!-- #4632: 申請時点 snapshot でごほうびを特定できるようにする
+							     (旧実装は日付をタイトル代わりに出し、アイコンは 🎁 固定だった) -->
+							<div
+								class="flex items-center gap-[var(--sp-sm)] bg-white rounded-[var(--radius-sm)] px-[var(--sp-sm)] py-[var(--sp-sm)] shadow-sm"
+								data-testid="history-purchase-{p.id}"
+							>
+								<span class="text-2xl">{p.rewardIcon ?? '🎁'}</span>
 								<div class="flex-1 min-w-0">
-									<p class="text-sm font-bold truncate">{formatUnixDate(p.requestedAt)}</p>
+									<p class="text-sm font-bold truncate" data-testid="history-purchase-title-{p.id}">
+										{p.rewardTitle ?? t.historyPurchaseUnknownReward}{p.quantity > 1
+											? ` ×${p.quantity}`
+											: ''}
+									</p>
+									<p class="text-xs text-[var(--color-text-muted)]">
+										{formatEpochSecondsDate(p.requestedAt)}
+									</p>
 									{#if p.parentNote}
 										<p class="text-xs text-[var(--color-text-muted)] truncate">{p.parentNote}</p>
 									{/if}
 								</div>
 								<div class="text-right shrink-0">
+									<!-- #4632: ポイントが実際に引かれたのは **承認されたときだけ**
+									     (控除は finalizeApproval の spendPointsAtomic 1 箇所)。
+									     却下 / 期限切れ / 承認待ちの行に「-100P」を出すと、引かれていない
+									     ポイントが引かれたように読め、台帳と食い違う -->
+									{#if p.status === 'approved' && p.rewardPoints !== null}
+										<p class="text-sm font-bold" data-testid="history-purchase-points-{p.id}">
+											{fmtPts(-p.rewardPoints * p.quantity)}
+										</p>
+									{/if}
 									<span
 										class="inline-block text-xs px-2 py-1 rounded-[var(--radius-full)] font-bold"
 										data-status-tone={purchaseStatusTone(p.status)}

@@ -8,11 +8,12 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import { CANCEL_TERMS } from '$lib/domain/terms';
+import { LOGIN_REASON_CODES } from '$lib/domain/validation/login-redirect';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
+import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -46,10 +47,6 @@ let deletionInfo = $state<{
 } | null>(null);
 let deletionInfoLoading = $state(false);
 
-// #1781: 削除後グレースピリオド復元
-let restoreSubmitting = $state(false);
-let restoreError = $state('');
-
 const gracePeriodStatus = $derived(
 	$page.data.gracePeriodStatus as
 		| {
@@ -76,24 +73,6 @@ const gracePeriodDeletionDateLabel = $derived.by(() => {
 		day: 'numeric',
 	});
 });
-
-async function handleRestoreAccount() {
-	if (restoreSubmitting) return;
-	restoreSubmitting = true;
-	restoreError = '';
-	try {
-		const res = await fetch('/api/v1/admin/account/restore', { method: 'POST' });
-		const d = await res.json();
-		if (!res.ok) {
-			throw new Error(d.message ?? d.error ?? SETTINGS_LABELS.deletionGraceRestoreError);
-		}
-		window.location.reload();
-	} catch (err) {
-		restoreError = err instanceof Error ? err.message : SETTINGS_LABELS.deletionGraceRestoreError;
-	} finally {
-		restoreSubmitting = false;
-	}
-}
 
 async function fetchDeletionInfo() {
 	if (deletionInfoLoading) return;
@@ -141,7 +120,8 @@ async function handleDeleteAccount() {
 		});
 		const d = await res.json();
 		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
-		window.location.href = '/auth/signout';
+		// #4699: 削除申請の受付をログイン画面で伝える (旧実装は無言で /auth/login に着地していた)
+		window.location.href = `/auth/signout?reason=${LOGIN_REASON_CODES.deletionPending}`;
 	} catch (err) {
 		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
 	} finally {
@@ -223,38 +203,9 @@ const canConfirmDelete = $derived(
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- #1781: 削除グレースピリオド (soft-delete) バナー -->
-	{#if gracePeriodStatus?.isSoftDeleted && !gracePeriodStatus.isExpired}
-		<div
-			data-testid="deletion-grace-banner"
-			class="bg-[var(--color-feedback-warning-bg)] border-2 border-[var(--color-feedback-warning-border)] rounded-xl p-6"
-		>
-			<h3 class="text-lg font-bold text-[var(--color-feedback-warning-text)] mb-2">
-				{SETTINGS_LABELS.deletionGraceTitle}
-			</h3>
-			<p class="text-sm text-[var(--color-feedback-warning-text)] mb-4">
-				{SETTINGS_LABELS.deletionGraceDesc(
-					gracePeriodStatus.daysRemaining,
-					gracePeriodDeletionDateLabel,
-				)}
-			</p>
-			{#if restoreError}
-				<ErrorAlert message={restoreError} severity="error" action="retry" />
-			{/if}
-			<Button
-				type="button"
-				variant="success"
-				size="md"
-				disabled={restoreSubmitting}
-				onclick={handleRestoreAccount}
-				data-testid="deletion-grace-restore-button"
-			>
-				{restoreSubmitting
-					? SETTINGS_LABELS.deletionGraceRestoreSubmitting
-					: SETTINGS_LABELS.deletionGraceRestoreAction}
-			</Button>
-		</div>
-	{/if}
+	<!-- #1781 / #4699: 退会 (アカウント削除) 申請中のバナー。全 admin 共通 component を使う
+	     (AdminLayout も同じものを出すため、本画面では testid を保って E2E 互換を維持する) -->
+	<DeletionGraceBanner status={gracePeriodStatus} />
 
 	<!-- おやカギコード変更 -->
 	<Card padding="lg" data-tutorial="pin-settings">
@@ -349,7 +300,10 @@ const canConfirmDelete = $derived(
 	{/if}
 
 	<!-- Danger Zone: アカウント削除 (#2321 GitHub Danger Zone パターン) -->
-	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
+	<!-- #4699: 旧条件は `tenantStatus !== GRACE_PERIOD` だったが、#3993 で grace_period は
+	     **支払い失敗 (dunning) の猶予**と確定している。支払い失敗中の顧客から退会導線を奪っていたため、
+	     判定を「退会申請中か」(soft-delete sentinel) に付け替える (申請中は上の復元バナーが出る) -->
+	{#if $page.data.authMode === 'cognito' && !gracePeriodStatus?.isSoftDeleted}
 		<!-- #4662: ページガイド ④ の anchor (同上、cognito 限定描画) -->
 		<section
 			class="danger-zone"
