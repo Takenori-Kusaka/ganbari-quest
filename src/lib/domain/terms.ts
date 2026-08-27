@@ -1258,38 +1258,6 @@ export const CONCEPT_ICONS = {
 } as const;
 
 // ============================================================
-// OVERFLOW_MENU_TERMS — admin route 共通 ⋮ menu atom (EPIC #2362 PR-2)
-// ============================================================
-//
-// 5 admin route (activity / reward / challenge / checklist / rule bonus) 共通の
-// top-right ⋮ overflow menu に並ぶ標準項目 atom。各 route で項目 ON/OFF 可能 (props 制御)。
-//
-// 設計指針 (User 合意済 2026-05-23 §6.1):
-//   - menu trigger 自体は icon button (⋮)、aria-label を本 atom で供給
-//   - 標準 7 項目 (marketplace / ai / divider / restore / export / divider / help)
-//   - AI を menu 内に格下げ = エンジニア独善デザイン排除、顧客目線「単なる追加時のサジェスト機能」
-//
-// 既存 ACTION_LABELS との関係:
-//   - ACTION_LABELS は CRUD 基本動詞 (save / delete / cancel)
-//   - 本 atom は overflow menu 固有の項目ラベル (label + icon emoji)
-
-export const OVERFLOW_MENU_TERMS = {
-	openLabel: 'メニューを開く',
-	itemMarketplace: 'みんなのテンプレから取込',
-	itemMarketplaceIcon: CONCEPT_ICONS.template,
-	itemAiSuggest: 'AI で提案してもらう',
-	itemAiSuggestIcon: CONCEPT_ICONS.aiSuggest,
-	itemRestore: 'バックアップから復元',
-	itemRestoreIcon: '⬇',
-	itemExport: 'エクスポート',
-	itemExportIcon: '⬆',
-	itemHelp: 'このページのヘルプ',
-	itemHelpIcon: CONCEPT_ICONS.help,
-	/** 活動管理 ︙ の全削除 item (#4655) */
-	itemClearAll: 'すべて削除',
-} as const;
-
-// ============================================================
 // ADD_MENU_TERMS — admin リソース管理画面 header「+ 追加」dropdown の item 名 atom (#4655)
 // ============================================================
 //
@@ -1308,6 +1276,72 @@ export const ADD_MENU_TERMS = {
 	/** 活動管理固有 (兄弟共通化) */
 	copyFromChild: `別の${CHILD_TERMS.honorific}からコピー`,
 	bulk: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+} as const;
+
+// ============================================================
+// OVERFLOW_MENU_TERMS — admin route 共通 ⋮ menu atom (EPIC #2362 PR-2)
+// ============================================================
+//
+// 5 admin route (activity / reward / challenge / checklist / rule bonus) 共通の
+// top-right ⋮ overflow menu に並ぶ標準項目 atom。各 route で項目 ON/OFF 可能 (props 制御)。
+//
+// 設計指針 (User 合意済 2026-05-23 §6.1):
+//   - menu trigger 自体は icon button (⋮)、aria-label を本 atom で供給
+//   - 標準 7 項目 (marketplace / ai / divider / restore / export / divider / help)
+//   - AI を menu 内に格下げ = エンジニア独善デザイン排除、顧客目線「単なる追加時のサジェスト機能」
+//
+// 既存 ACTION_LABELS との関係:
+//   - ACTION_LABELS は CRUD 基本動詞 (save / delete / cancel)
+//   - 本 atom は overflow menu 固有の項目ラベル (label + icon emoji)
+
+export const OVERFLOW_MENU_TERMS = {
+	openLabel: 'メニューを開く',
+	// #4657 (EPIC #4650 PO 判断): 同じ遷移先 (/marketplace) を指す 3 箇所 (+ 追加 dropdown / ︙ /
+	// 本文リンク) は「みんなのテンプレートから探す」に統一する (旧「みんなのテンプレから取込」)。
+	itemMarketplace: ADD_MENU_TERMS.browse,
+	itemMarketplaceIcon: CONCEPT_ICONS.template,
+	itemAiSuggest: 'AI で提案してもらう',
+	itemAiSuggestIcon: CONCEPT_ICONS.aiSuggest,
+	itemRestore: 'バックアップから復元',
+	itemRestoreIcon: '⬇',
+	itemExport: 'エクスポート',
+	itemExportIcon: '⬆',
+	itemHelp: 'このページのヘルプ',
+	itemHelpIcon: CONCEPT_ICONS.help,
+	/** 活動管理 ︙ の全削除 item (#4655) */
+	itemClearAll: 'すべて削除',
+} as const;
+
+// ============================================================
+// CHECKLIST_ADMIN_TERMS — チェックリスト管理 (/admin/checklists) 画面の操作ボタン名 atom (#4657)
+// ============================================================
+//
+// 一覧カードの調整 (有効/無効・時間帯・アイテム追加・配信先) / ワンオフ / 検索 に出るボタン名。
+// 描画側 (ADMIN_CHECKLISTS_PAGE_LABELS) とページガイド (PAGE_GUIDE_LABELS.adminChecklists) の
+// 双方が参照する (ACTIVITY_ADMIN_TERMS / REWARD_ADMIN_TERMS と同型)。
+export const CHECKLIST_ADMIN_TERMS = {
+	/** ページ名 (見出し / ガイド title) */
+	pageTitle: 'チェックリスト管理',
+	/** 検索欄ラベル */
+	search: 'チェックリストを検索',
+	/** 一覧カードの操作 */
+	inactiveBadge: '無効',
+	delete: '削除',
+	timeSlot: '時間帯:',
+	addItem: '+ アイテム追加',
+	configureDistribution: '配信先を設定',
+	distributionSection: '配信先のお子さま',
+	perChildProgress: 'お子さまごとの今日の進捗',
+	/** 本日のワンオフ (日次 override) */
+	todayOverride: '本日のワンオフ',
+	addOverride: 'ワンオフ追加',
+	/**
+	 * 兄弟共通化。#4716: 活動 / ごほうび / チェックリストで同じ操作を別名で呼ばないため、
+	 * 値は `ADD_MENU_TERMS.copyFromChild`（= 画面の実ボタン名）と同一にする。
+	 */
+	copyFromChild: ADD_MENU_TERMS.copyFromChild,
+	/** marketplace 詳細の取込 CTA (画面の実ボタン名) */
+	marketplaceImportCta: '一括追加',
 } as const;
 
 // ============================================================
@@ -1583,9 +1617,14 @@ export const ADMIN_SCREEN_TERMS = {
 // 3 文書が同じ atom を参照していることは
 // tests/unit/domain/support-response-time-ssot-4709.test.ts が pin する。
 
+// 値は SLA 第 6 条の既存表記に char-by-char で合わせる (半角スペース無しの「48時間以内」)。
+// SLA は既に公開済みの法的文書で、最終改定日は 2026-08-13 のまま据え置く前提のため、
+// ここに組版用の半角スペースを入れると本文が 1 文字変わり「本文を変えたのに改定日が動かない」
+// (= #4497 / 本 Issue が是正しようとしている欠陥そのもの) を新たに作ってしまう。
+// 特商法 / FAQ 側は本 PR で当該文を書き直しており改定日も動かしているため、こちらに合わせる。
 export const SUPPORT_RESPONSE_TERMS = {
-	/** 初回応答の目標時間 (例: 「48 時間以内（営業日ベース）」) */
-	initialResponseTarget: '48 時間以内（営業日ベース）',
+	/** 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し) */
+	initialResponseTarget: '48時間以内（営業日ベース）',
 } as const;
 
 // ============================================================

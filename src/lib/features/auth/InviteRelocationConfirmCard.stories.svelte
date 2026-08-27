@@ -25,5 +25,7 @@ const { Story } = defineMeta({
 />
 <Story name="AcknowledgeRequired" args={{ errorMessage: INVITE_RELOCATION_LABELS.acknowledgeRequired }} />
 <Story name="BlockedHasOtherMembers" args={{ errorMessage: INVITE_RELOCATION_LABELS.blockedHasOtherMembers }} />
+<!-- 確認画面を開いたあとに子供が登録された場合、サーバー側の再検証がこの理由で弾く (#4642 Q1) -->
+<Story name="BlockedHasChildren" args={{ errorMessage: INVITE_RELOCATION_LABELS.blockedHasChildren }} />
 <Story name="Submitting" args={{ submitting: true }} />
 <Story name="Failed" args={{ errorMessage: INVITE_RELOCATION_LABELS.failed }} />
