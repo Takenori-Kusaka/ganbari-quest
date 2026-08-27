@@ -74,8 +74,10 @@ export function createDsqlTrialHistoryRepo(db: SqlExecutor): ITrialHistoryRepo {
 		async findActiveTrials() {
 			// endDate が今日以降のトライアル履歴 (cron 通知対象、cross-tenant scan 許容 §11.2)。
 			const today = todayDateJST();
+			// #4707: 本契約へ移行済み (stripe_subscription_id あり) の行は終了扱いで通知対象外。
 			const result = await db.execute(sql`
-				SELECT ${TRIAL_COLUMNS} FROM trial_history WHERE end_date >= ${today}
+				SELECT ${TRIAL_COLUMNS} FROM trial_history
+				WHERE end_date >= ${today} AND stripe_subscription_id IS NULL
 			`);
 			return (result.rows as unknown as TrialRow[]).map(toTrialHistory);
 		},
@@ -90,10 +92,12 @@ export function createDsqlTrialHistoryRepo(db: SqlExecutor): ITrialHistoryRepo {
 		},
 
 		async updateConversion(input) {
+			// #4707: endDate 指定時のみ end_date を詰める (COALESCE で「省略 = 保持」を 1 文に畳む)。
 			await db.execute(sql`
 				UPDATE trial_history
 				SET stripe_subscription_id = ${input.stripeSubscriptionId},
-					upgrade_reason = ${input.upgradeReason}
+					upgrade_reason = ${input.upgradeReason},
+					end_date = COALESCE(${input.endDate ?? null}::text, end_date)
 				WHERE family_id = ${input.tenantId} AND trial_id = ${input.id}
 			`);
 		},

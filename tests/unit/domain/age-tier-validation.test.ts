@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+	AGE_TIER_CAPABILITIES,
 	AGE_TIER_CONFIG,
 	getDefaultUiMode,
+	hasAgeTierCapability,
 	isValidUiMode,
 	recalcUiMode,
 	UI_MODES,
@@ -120,5 +122,39 @@ describe('age-tier validation', () => {
 			const child = { uiMode: 'senior' as const, uiModeManuallySet: 1 };
 			expect(recalcUiMode(child, 6)).toBe('senior');
 		});
+	});
+});
+
+// #4685 (ADR-0011): 準備モード (baby) はゲーミフィケーション非適用。
+// 判定を画面に散らさないための SSOT を、ここで直接固定する。
+describe('AGE_TIER_CAPABILITIES / hasAgeTierCapability (#4685)', () => {
+	it('baby はゲーミフィケーション機能を 1 つも持たない', () => {
+		expect(AGE_TIER_CAPABILITIES.baby).toEqual({
+			rewardShop: false,
+			stampCard: false,
+			siblingRanking: false,
+			battle: false,
+		});
+	});
+
+	it('preschool 以上はショップ / スタンプ / ランキングを持つ (battle は elementary 以上)', () => {
+		for (const mode of ['preschool', 'elementary', 'junior', 'senior'] as const) {
+			expect(hasAgeTierCapability(mode, 'rewardShop')).toBe(true);
+			expect(hasAgeTierCapability(mode, 'stampCard')).toBe(true);
+			expect(hasAgeTierCapability(mode, 'siblingRanking')).toBe(true);
+		}
+		expect(hasAgeTierCapability('preschool', 'battle')).toBe(false);
+		expect(hasAgeTierCapability('elementary', 'battle')).toBe(true);
+	});
+
+	it('未知の uiMode は安全側 (機能を持たない) に倒す', () => {
+		expect(hasAgeTierCapability('unknown-mode', 'rewardShop')).toBe(false);
+		expect(hasAgeTierCapability('', 'stampCard')).toBe(false);
+	});
+
+	it('全 UI_MODES が capability 表に登録されている (追加漏れの検出)', () => {
+		for (const mode of UI_MODES) {
+			expect(AGE_TIER_CAPABILITIES[mode]).toBeDefined();
+		}
 	});
 });

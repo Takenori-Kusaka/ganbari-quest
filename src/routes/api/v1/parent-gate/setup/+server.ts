@@ -10,6 +10,8 @@
 // - rate limit は verify 系と同等 (20 req / 15 min per IP)
 
 import { error, json } from '@sveltejs/kit';
+// #4661: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
+import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
@@ -21,7 +23,6 @@ import {
 } from '$lib/server/services/parent-gate-session';
 import type { RequestHandler } from './$types';
 
-const PIN_PATTERN = /^\d{4,6}$/;
 const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // verify と同じ 24 時間 hard max (sliding は 15 分)
 const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;

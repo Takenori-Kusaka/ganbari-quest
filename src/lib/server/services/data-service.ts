@@ -11,27 +11,29 @@ import { deleteAllChildrenData, deleteTenantScopedData } from './tenant-cleanup-
 // Types
 // ============================================================
 
+/**
+ * データクリアで消える件数のサマリー (#4696)。
+ *
+ * 旧実装は children 以外を **0 固定**で返しており、活動ログが 58 件あっても Danger Zone に
+ * 「活動ログ: 0件」と表示していた (顧客が「消えるものが無い」と誤読する)。実数を数えられる
+ * ものだけを field に持ち、数えられない概念 (廃止済の実績等) は field ごと持たない。
+ */
 export interface DataSummary {
 	children: number;
 	activityLogs: number;
 	pointLedger: number;
 	statuses: number;
-	achievements: number;
-	loginBonuses: number;
+	/** ログイン連続記録 (login_streaks) の行数 = 記録を持つ子供の人数 */
+	loginStreaks: number;
 	checklistTemplates: number;
 	voices: number;
 }
 
 export interface ClearResult {
 	deleted: {
+		/** 削除した子供の人数 (子供に紐づく全表は同一 txn で消える) */
 		children: number;
-		activityLogs: number;
-		pointLedger: number;
-		statuses: number;
-		statusHistory: number;
-		achievements: number;
-		loginBonuses: number;
-		checklistTemplates: number;
+		/** テナントスコープ (子供に紐づかない) データの削除操作数 */
 		other: number;
 	};
 }
@@ -41,39 +43,39 @@ export interface ClearResult {
 // ============================================================
 
 /**
- * テナント内のユーザーデータ件数を取得（ファクトリ経由）
+ * テナント内のユーザーデータ件数を取得（ファクトリ経由、#4696 で実数化）。
  *
- * DynamoDB ではフルスキャンが高コストなため、子供数・チェックリスト数のみ正確に返し、
- * その他は 0 を返す（UI側で「-」表示にする想定）。
+ * **0 固定を返さない**。数えられない概念は field を持たない (廃止済の実績など)。
+ * 例外を握り潰して 0 を返すと「消えるものが無い」と誤読させるため、失敗は呼び出し元へ throw する。
  */
 export async function getDataSummary(tenantId: string): Promise<DataSummary> {
-	try {
-		const repos = getRepos();
-		const childList = await repos.child.findAllChildren(tenantId);
+	const repos = getRepos();
+	const childList = await repos.child.findAllChildren(tenantId);
 
-		return {
-			children: childList.length,
-			activityLogs: 0,
-			pointLedger: 0,
-			statuses: 0,
-			achievements: 0,
-			loginBonuses: 0,
-			checklistTemplates: 0,
-			voices: 0,
-		};
-	} catch (err) {
-		logger.error('[data-service] getDataSummary failed', { error: String(err) });
-		return {
-			children: 0,
-			activityLogs: 0,
-			pointLedger: 0,
-			statuses: 0,
-			achievements: 0,
-			loginBonuses: 0,
-			checklistTemplates: 0,
-			voices: 0,
-		};
+	// 子供ごとの集計 (Danger Zone を開いたときだけ走る。子供は家族あたり数人で N+1 にならない)
+	let activityLogs = 0;
+	let pointLedger = 0;
+	let statuses = 0;
+	let loginStreaks = 0;
+	let voices = 0;
+	for (const child of childList) {
+		activityLogs += await repos.activity.countActiveActivityLogs(child.id, tenantId);
+		pointLedger += await repos.activity.countPointLedgerEntries(child.id, tenantId);
+		statuses += (await repos.status.findStatuses(child.id, tenantId)).length;
+		if (await repos.loginBonus.findStreak(child.id, tenantId)) loginStreaks++;
+		voices += (await repos.voice.findAllByChild(child.id, tenantId)).length;
 	}
+	const checklistTemplates = (await repos.checklist.findTemplatesByTenant(tenantId, true)).length;
+
+	return {
+		children: childList.length,
+		activityLogs,
+		pointLedger,
+		statuses,
+		loginStreaks,
+		checklistTemplates,
+		voices,
+	};
 }
 
 /**
@@ -112,13 +114,6 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 	return {
 		deleted: {
 			children: deletedChildren,
-			activityLogs: 0,
-			pointLedger: 0,
-			statuses: 0,
-			statusHistory: 0,
-			achievements: 0,
-			loginBonuses: 0,
-			checklistTemplates: 0,
 			other: deletedOther,
 		},
 	};

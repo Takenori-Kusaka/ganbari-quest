@@ -259,11 +259,16 @@ let stampPressData = $state<{
 	cardFilledSlots: number;
 	cardTotalSlots: number;
 	cardEntries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[];
+	// #4687: 週コンプリート済の日 / おみくじログインボーナスを演出に出すための実データ
+	cardFull: boolean;
+	loginBonusPoints: number;
+	loginBonusRank: string | null;
 	weeklyRedeem: {
 		points: number;
 		filledSlots: number;
 		totalSlots: number;
 		completeBonus: number;
+		weeks?: number;
 	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
@@ -779,7 +784,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardFilledSlots: cardData?.filledSlots ?? 0,
 							cardTotalSlots: cardData?.totalSlots ?? 5,
 							cardEntries: cardData?.entries ?? [],
-							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
+							cardFull: d.cardFull === true,
+							loginBonusPoints: (d.loginBonusPoints as number) || 0,
+							loginBonusRank: (d.loginBonusRank as string) ?? null,
+							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number; weeks?: number } | null,
 						};
 						openDialog('stampPress', stampPressData);
 					}
@@ -1167,6 +1175,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		stampLabel={data.latestMessage.stampLabel}
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
+		bonusPoints={data.latestMessage.bonusPoints ?? null}
 		onClose={handleMessageClose}
 	/>
 {/if}

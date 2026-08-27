@@ -9,16 +9,16 @@ let { children } = $props();
 // #2140 MP-5: setup wizard β 採用 — packs/rewards/rules の 3 step に分割
 // #2298: 家族チャレンジ step を rules の後に追加 (任意 step、auto-add 3 件)
 const steps = [
-	{ path: '/setup/children', label: '子供登録' },
-	{ path: '/setup/questionnaire', label: 'かんたん質問' },
-	{ path: '/setup/packs', label: '活動' },
-	{ path: '/setup/rewards', label: 'ごほうび' },
-	{ path: '/setup/rules', label: 'ルール' },
+	{ path: '/setup/children', label: SETUP_LABELS.stepChildren },
+	{ path: '/setup/questionnaire', label: SETUP_LABELS.stepQuestionnaire },
+	{ path: '/setup/packs', label: SETUP_LABELS.stepPacks },
+	{ path: '/setup/rewards', label: SETUP_LABELS.stepRewards },
+	{ path: '/setup/rules', label: SETUP_LABELS.stepRules },
 	// #2322 (EPIC #2319 ③): 活動・ポイント初期設定 (任意 step、skip 可)
-	{ path: '/setup/activities-defaults', label: '活動初期設定' },
-	{ path: '/setup/challenges', label: '家族チャレンジ' },
-	{ path: '/setup/first-adventure', label: 'はじめての冒険' },
-	{ path: '/setup/complete', label: '冒険の始まり' },
+	{ path: '/setup/activities-defaults', label: SETUP_LABELS.stepActivitiesDefaults },
+	{ path: '/setup/challenges', label: SETUP_LABELS.stepChallenges },
+	{ path: '/setup/first-adventure', label: SETUP_LABELS.stepFirstAdventure },
+	{ path: '/setup/complete', label: SETUP_LABELS.stepComplete },
 ];
 
 const currentStepIndex = $derived(
