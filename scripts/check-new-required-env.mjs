@@ -392,7 +392,16 @@ function detectFailFastGuardedEnvs(lines) {
 		aliases.set(varName, bucket);
 	}
 
-	const negationGuardRe = /if\s*\(\s*!\s*(?:process\.env\.)?([A-Za-z_$][\w$]*)/;
+	// 末尾の `(?![\w$]*\s*[.([])` で「識別子の直後にメソッド呼び出し / プロパティ参照 / 添字が
+	// 続く形」を guard から除外する (#4497)。
+	//   検出する: `if (!STRIPE_WEBHOOK_SECRET)` / `if (!process.env.FOO_BAR)` / `if (!secret)`
+	//   除外する: `if (!CONSENT_TYPES.includes(type))` — ALL_CAPS の**ドメイン定数**への
+	//             メソッド呼び出しであって env 参照ではない。ALL_CAPS_SNAKE という命名だけを
+	//             根拠に env と見なしていたため、定数配列の検証 guard が env 必須化と誤検出された。
+	// `(?![\w$])` を先に置いて識別子を最長一致に固定する (これが無いと正規表現エンジンが
+	// 短く戻って `CONSENT_TYPES` を `CONSENT_TYPE` と拾い、除外が効かない)。
+	const negationGuardRe =
+		/if\s*\(\s*!\s*(?:process\.env\.)?([A-Za-z_$][\w$]*)(?![\w$])(?!\s*[.([])/;
 	const failFastRe = /process\.exit\s*\(\s*[1-9]|throw\s+|exitCode\s*=\s*[1-9]/;
 
 	for (let i = 0; i < lines.length; i++) {
