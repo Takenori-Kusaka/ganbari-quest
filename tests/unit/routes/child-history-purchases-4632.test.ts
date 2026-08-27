@@ -38,6 +38,15 @@ import { getRedemptionRequestsForChild } from '../../../src/lib/server/services/
 
 const TENANT = 'test-tenant';
 
+/**
+ * 保持期間で絞らない range (#4818 で `getRedemptionRequestsForChild` の第 3 引数は必須になった)。
+ * 本 file の主題は「行に何が載るか (snapshot / 個数 / status)」であって保持期間ではないため、
+ * 明示的に絞らない。本番コードの opt-out は `NO_RETENTION_FILTER` (plan-limit-service) を使うが、
+ * 同定数を test から import すると `retention-filter-opt-out-allowlist.test.ts` の allowlist
+ * (本番 opt-out 箇所を数える fitness function) に混ざるため、ここではローカルに置く。
+ */
+const NO_RANGE = {};
+
 beforeAll(() => {
 	const t = createTestDb();
 	sqlite = t.sqlite;
@@ -81,7 +90,7 @@ describe('#4632 AC1 交換履歴にごほうびの詳細 (title / icon / points 
 		// 申請後に親が改名しても、履歴は申請時点の内容を出す
 		sqlite.prepare("UPDATE special_rewards SET title = '改名後', points = 999").run();
 
-		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT, NO_RANGE);
 		expect(row?.rewardTitle).toBe('ゲームじかん +30ぷん');
 		expect(row?.rewardPoints).toBe(80);
 		expect(row?.rewardIcon).toBe('🎮');
@@ -98,7 +107,7 @@ describe('#4632 AC1 交換履歴にごほうびの詳細 (title / icon / points 
 			)
 			.run(childId, rewardId, Math.floor(Date.now() / 1000));
 
-		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT, NO_RANGE);
 		expect(row?.rewardTitle).toBe('ゲームじかん +30ぷん');
 		expect(row?.rewardPoints).toBe(80);
 		expect(row?.rewardIcon).toBe('🎮');
@@ -115,7 +124,7 @@ describe('#4632 AC1 交換履歴にごほうびの詳細 (title / icon / points 
 			.run(childId, rewardId, Math.floor(Date.now() / 1000));
 		sqlite.prepare('DELETE FROM special_rewards WHERE id = ?').run(rewardId);
 
-		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT, NO_RANGE);
 		expect(row, 'ごほうび削除で履歴行が消えている').toBeDefined();
 		expect(row?.rewardTitle).toBe('ゲームじかん +30ぷん');
 		expect(row?.rewardPoints).toBe(80);
@@ -141,7 +150,7 @@ describe('#4632 却下 / 期限切れ / 承認待ちの行も snapshot で読め
 			)
 			.run(childId, rewardId, Math.floor(Date.now() / 1000), status);
 
-		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		const [row] = await getRedemptionRequestsForChild(asChildId(childId), TENANT, NO_RANGE);
 		expect(row?.status).toBe(status);
 		expect(row?.rewardTitle).toBe('ゲームじかん +30ぷん');
 		expect(row?.rewardPoints).toBe(80);
@@ -158,7 +167,7 @@ describe('#4632 却下 / 期限切れ / 承認待ちの行も snapshot で読め
 		ins.run(childId, rewardId, now, 'approved');
 		ins.run(childId, rewardId, now - 10, 'rejected');
 
-		const rows = await getRedemptionRequestsForChild(asChildId(childId), TENANT);
+		const rows = await getRedemptionRequestsForChild(asChildId(childId), TENANT, NO_RANGE);
 		// 控除が起きたのは approved だけ (finalizeApproval の spendPointsAtomic 1 箇所)。
 		// UI はこの status を見て「-80P」を出すか決める (却下行に控除額を出さない)。
 		expect(rows.filter((r) => r.status === 'approved')).toHaveLength(1);
