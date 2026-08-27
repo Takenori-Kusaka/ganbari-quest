@@ -45,6 +45,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'notification-delivery': '/api/cron/notification-delivery',
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	'stripe-webhook-delivery-check': '/api/cron/stripe-webhook-delivery-check',
+	// #4682 F3: 30 日超の未処理ごほうび交換申請を期限切れにするバッチ (日次)
+	'expire-redemptions': '/api/cron/expire-redemptions',
 };
 
 interface CronEvent {

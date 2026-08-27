@@ -69,6 +69,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',
+	},
 	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
 		scope: 'repo',
 		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
