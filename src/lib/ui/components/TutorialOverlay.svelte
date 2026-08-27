@@ -29,18 +29,6 @@ interface Props {
 
 let { childUiMode }: Props = $props();
 
-interface Props {
-	/**
-	 * 子供画面で表示するときの年齢モード (#4652)。
-	 * 指定すると再開 / 終了確認ダイアログの文言を子供向け年齢帯 variant
-	 * (preschool / elementary = ひらがな、junior / senior = 漢字) にする。
-	 * 親管理画面では未指定 (親向け漢字文言のまま)。
-	 */
-	childUiMode?: string;
-}
-
-let { childUiMode }: Props = $props();
-
 const active = $derived(isActive());
 const step = $derived(getStep());
 const targetRect = $derived(getTargetRect());
