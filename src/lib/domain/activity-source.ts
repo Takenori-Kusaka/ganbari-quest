@@ -12,7 +12,7 @@
 //   - marketplace 取込 (activity-import-service / cloud import): 未指定 → repo 既定 `seed`
 //     (取込元は `sourcePresetId` で識別。プリセット取込は custom quota を消費しない)
 //   - 初期 seed (seed.ts): `seed` / 年齢別カリキュラム: `curriculum`
-//   - 兄弟 copy (copyActivitiesAcrossChildren): 元活動の source を保全
+//   - 兄弟 copy (child-activity-copy-service): 元活動の source を保全
 //     (custom の copy は custom のまま。copy による quota 迂回を防ぐ)
 //
 // 設計 doc: docs/design/data-model-resource-scope.md §4.1

@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/report-service.ts
 // 月次レポート・成長分析のサービス層
 
+import { isFutureMonth, resolveChildLevel, resolveChildTotalXp } from '$lib/domain/child-metrics';
 import { addDaysJST, monthEndOfKey, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import type { ReportDailySummary } from '$lib/server/db/types';
@@ -313,7 +314,8 @@ async function computeCurrentLevel(
 	tenantId: string,
 ): Promise<number> {
 	const statuses = await repos.status.findStatuses(childId, tenantId);
-	return statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
+	// #4697: レベル定義は domain SSOT (`resolveChildLevel`) 1 箇所。
+	return resolveChildLevel(statuses);
 }
 
 /**
@@ -360,11 +362,28 @@ export interface DetailedMonthlySummary {
 	categoryBreakdown: Record<string, number>;
 	avgDailyActivities: number;
 	currentLevel: number;
+	/**
+	 * #4697: **その月に台帳 (`point_ledger`) で獲得したポイント**の合計。
+	 *
+	 * 子供画面の所持ポイントと同じ単位で、月ごとに独立した量。旧実装はここに
+	 * `statuses.total_xp` の累計を入れていたため、どの月を見ても同じ数が出て先月比が
+	 * 常に ±0 になり、成長記録ブックは「累計 × 12 ヶ月」を年間合計として出していた。
+	 */
 	totalPoints: number;
+	/**
+	 * #4697: 「つよさ (XP)」= カテゴリ別 totalXp の累計 (登録以降の総量、月に依存しない)。
+	 * ポイントとは別の量なので別フィールドで持ち、画面でも別の名前で出す。
+	 */
+	totalXp: number;
 	maxStreakDays: number;
 	totalNewAchievements: number;
 	daysWithActivity: number;
 	totalDays: number;
+	/**
+	 * #4697: `yearMonth` が今日 (JST) より後の月か。成長記録ブックは 4 月〜翌 3 月を必ず
+	 * 12 行並べるため未来月の枠が生まれる。画面はここを見て数値でなく「—」を出す。
+	 */
+	isFuture: boolean;
 }
 
 /**
@@ -388,12 +407,20 @@ export async function computeDetailedMonthlyReport(
 		tenantId,
 	);
 
-	// #4719: レベル / 累計ポイントは summary snapshot でなく statuses から realtime 導出 (全 backend 共通)。
-	// pg-core の compute-on-read summary は level snapshot を持てず (既定 1)、totalPoints も
-	// 「当日獲得」の意味になるため、summary 経路でもこの 2 値は realtime 値で上書きする。
+	// #4719: レベル / XP は summary snapshot でなく statuses から realtime 導出 (全 backend 共通)。
+	// pg-core の compute-on-read summary は level snapshot を持てない (既定 1)。
+	// #4697: 定義は domain の 1 関数群に寄せる (閲覧リンク / 証明書 / 成長記録ブックと同じ数になる)。
 	const statuses = await repos.status.findStatuses(childId, tenantId);
-	const realtimeLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
-	const realtimeTotalPoints = statuses.reduce((sum, s) => sum + (s.totalXp ?? 0), 0);
+	const realtimeLevel = resolveChildLevel(statuses);
+	const realtimeTotalXp = resolveChildTotalXp(statuses);
+
+	// #4697: 「ポイント」は台帳のその月の獲得合計。旧実装の XP 累計は月ごとに変わらないため
+	// 先月比が常に ±0 になり、成長記録ブックでは 12 ヶ月ぶん足されて年間合計が累計 × 12 になっていた。
+	const today = todayDateJST();
+	const isFuture = isFutureMonth(yearMonth, today);
+	const earnedPoints = isFuture
+		? 0
+		: await repos.point.sumEarnedPointsBetween(childId, startDate, endDate, tenantId);
 
 	if (summaries.length > 0) {
 		const built = buildMonthlySummary(childName, childId, yearMonth, summaries);
@@ -405,11 +432,13 @@ export async function computeDetailedMonthlyReport(
 			categoryBreakdown: built.categoryBreakdown,
 			avgDailyActivities: built.avgDailyActivities,
 			currentLevel: realtimeLevel,
-			totalPoints: realtimeTotalPoints,
+			totalPoints: earnedPoints,
+			totalXp: realtimeTotalXp,
 			maxStreakDays: built.maxStreakDays,
 			totalNewAchievements: built.totalNewAchievements,
 			daysWithActivity: built.daysWithActivity,
 			totalDays: built.totalDays,
+			isFuture,
 		};
 	}
 
@@ -419,7 +448,6 @@ export async function computeDetailedMonthlyReport(
 	let totalDays = 0;
 	const categoryMap: Record<string, number> = {};
 
-	const today = todayDateJST();
 	const limit = endDate < today ? endDate : today;
 
 	for (let dateStr = startDate; dateStr <= limit; dateStr = addDaysJST(dateStr, 1)) {
@@ -435,8 +463,6 @@ export async function computeDetailedMonthlyReport(
 		}
 	}
 
-	const totalPoints = realtimeTotalPoints;
-	const maxLevel = realtimeLevel;
 	const streakDays = await calculateStreak(childId, limit, tenantId);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 
@@ -447,12 +473,14 @@ export async function computeDetailedMonthlyReport(
 		totalActivities,
 		categoryBreakdown: categoryMap,
 		avgDailyActivities: totalDays > 0 ? Math.round((totalActivities / totalDays) * 10) / 10 : 0,
-		currentLevel: maxLevel,
-		totalPoints,
+		currentLevel: realtimeLevel,
+		totalPoints: earnedPoints,
+		totalXp: realtimeTotalXp,
 		maxStreakDays: streakDays,
 		totalNewAchievements: newAchievements,
 		daysWithActivity,
 		totalDays,
+		isFuture,
 	};
 }
 
