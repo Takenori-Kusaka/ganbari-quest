@@ -97,7 +97,7 @@ beforeEach(() => {
 describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () => {
 	// AC2: 解約直後に 24 時間待たずに権限が剥奪される
 	it('Cookie が有効でも DB が suspended なら licenseStatus=suspended になる', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 		findTenantById.mockResolvedValue(
 			makeTenant({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: 'sub_1' }),
 		);
@@ -114,7 +114,7 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 
 	// terminated は hooks.server.ts が完全ブロックする status
 	it('DB が terminated なら tenantStatus=terminated が即座に反映される', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 		findTenantById.mockResolvedValue(
 			makeTenant({ status: SUBSCRIPTION_STATUS.TERMINATED, stripeSubscriptionId: 'sub_1' }),
 		);
@@ -129,7 +129,7 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	// 決済方向: 本 incident (¥280 払ったのに無料プランのまま) の再発防止
 	it('Cookie が無料時に発行されたものでも DB が active なら即座に有料になる', async () => {
 		// Cookie 発行時点では subscription 無し (無料) だった
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 		// その後 Stripe webhook が DB を更新した
 		findTenantById.mockResolvedValue(
 			makeTenant({
@@ -148,7 +148,7 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	});
 
 	it('grace_period は licenseStatus=active のまま tenantStatus=grace_period で返る', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 		findTenantById.mockResolvedValue(
 			makeTenant({ status: SUBSCRIPTION_STATUS.GRACE_PERIOD, stripeSubscriptionId: 'sub_1' }),
 		);
@@ -162,7 +162,12 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	});
 
 	it('role / tenantId / childId は Cookie の claim をそのまま引き継ぐ', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'child', childId: asChildId(42) });
+		const token = signContext({
+			tenantId: 't-1',
+			role: 'child',
+			userId: 'u-1',
+			childId: asChildId(42),
+		});
 		findTenantById.mockResolvedValue(makeTenant({ stripeSubscriptionId: 'sub_1' }));
 
 		const context = await runWithRequestContext(() =>
@@ -178,7 +183,7 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	// null (= 正当に無権限 → ログイン画面) ではなく専用の例外を投げ、
 	// hooks 側が「一時的な障害」として 503 を返せるようにする (PO 条件 2026-07-26)。
 	it('DB 解決に失敗したら context を発行せず TenantEntitlementUnavailableError を投げる', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 		findTenantById.mockRejectedValue(new Error('DSQL unavailable'));
 
 		await expect(
@@ -187,7 +192,7 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	});
 
 	it('identity が無ければ DB を引かずに null', async () => {
-		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		const token = signContext({ tenantId: 't-1', role: 'owner', userId: 'u-1' });
 
 		const context = await runWithRequestContext(() =>
 			provider.resolveContext(makeEvent(token), null),
@@ -198,10 +203,12 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 	});
 
 	// 旧形式 Cookie を持つブラウザが、焼き込まれた古い値で有料機能を使い続けないこと
-	it('旧形式 Cookie の焼き込み licenseStatus は無視され DB 値が使われる', async () => {
+	it('焼き込み licenseStatus を持つ Cookie でも DB 値が使われる', async () => {
 		const legacy = signLegacyToken({
 			tenantId: 't-1',
 			role: 'owner',
+			// #4643: userId (users.user_id) を持つ token は採用される。持たない token の扱いは次の test
+			userId: 'u-1',
 			licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: 'family-monthly',
@@ -221,5 +228,19 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 
 		expect(context?.licenseStatus).toBe(AUTH_LICENSE_STATUS.SUSPENDED);
 		expect(context?.plan).toBe('monthly');
+	});
+
+	// #4643: userId (users.user_id) を持たない旧 token は採用しない。採用すると所有者判定が
+	// undefined 起点になり、離脱 / 削除 / 移譲が静かに空振りする経路がセッション TTL 分残る。
+	it('userId を持たない旧 token は採用せず membership から発行し直す', async () => {
+		const legacy = signLegacyToken({ tenantId: 't-1', role: 'owner' });
+		findTenantById.mockResolvedValue(makeTenant({ status: SUBSCRIPTION_STATUS.ACTIVE }));
+
+		const context = await runWithRequestContext(() =>
+			provider.resolveContext(makeEvent(legacy), identity),
+		);
+
+		// membership 解決の repo は空 mock なので context は発行されない = token を素通ししていない
+		expect(context).toBeNull();
 	});
 });

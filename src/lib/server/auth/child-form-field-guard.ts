@@ -17,7 +17,7 @@
 // fitness [SSOT-1])。guard trip は cookie guard と同じく `warnInvalidUuidId` で observability を保つ
 // (silent guard 禁止、fitness [OBS-2])。
 
-import { isDsqlBackend } from '$lib/server/db/backend';
+import { isPgBackend } from '$lib/server/db/backend';
 import { isUuidFormat, warnInvalidUuidId } from '$lib/server/db/dsql/pg-uuid';
 
 /**
@@ -31,7 +31,8 @@ import { isUuidFormat, warnInvalidUuidId } from '$lib/server/db/dsql/pg-uuid';
  * @returns dsql backend で uuid 形式でなければ `false`、それ以外は `true`。
  */
 export function isValidUuidFormField(value: string, source: string): boolean {
-	if (!isDsqlBackend()) return true;
+	// pg 系 (dsql / pglite) のみ検証 (#4720: NUC PGlite も uuid 列)。
+	if (!isPgBackend()) return true;
 	if (isUuidFormat(value)) return true;
 	// 非空だが非 uuid = 改竄 or 旧数値 id の form 由来直達 (空は各 action の空 guard が既に弾く)。
 	if (value) warnInvalidUuidId(source);
@@ -49,6 +50,6 @@ export function isValidUuidFormField(value: string, source: string): boolean {
  * @returns dsql backend で 1 件でも uuid 形式でなければ `false`、それ以外は `true`。
  */
 export function areValidUuidFormFields(values: string[], source: string): boolean {
-	if (!isDsqlBackend()) return true;
+	if (!isPgBackend()) return true;
 	return values.every((v) => isValidUuidFormField(v, source));
 }

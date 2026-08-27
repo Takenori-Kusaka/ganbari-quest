@@ -10,9 +10,25 @@ import {
 	weekEndJST,
 	weekStartJST,
 } from '$lib/domain/date-utils';
+// #4685 (ADR-0011): 年齢帯ごとの機能可否は age-tier.ts の 1 箇所で判定する
+import { hasAgeTierCapability, normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
+
+/**
+ * #4685: ランキング (競争) の集計対象。準備モード (baby) の子は除外する。
+ * 兄の画面に「はなこちゃん (1 歳) 0かい」が並ぶのは ADR-0011 (baby はゲーミフィケーション
+ * 非適用) に反し、親から見ても意味のない比較になる。
+ *
+ * uiMode は `normalizeUiMode` を通す (旧コード / 未設定は既定モード扱い)。ここで「不明なら除外」に
+ * 倒すと**実在する子がランキングから消える**ため、除外は baby と確定したときだけ行う。
+ */
+function rankingTargets<T extends { uiMode?: string | null }>(children: T[]): T[] {
+	return children.filter((c) =>
+		hasAgeTierCapability(normalizeUiMode(c.uiMode ?? ''), 'siblingRanking'),
+	);
+}
 
 export interface SiblingRanking {
 	childId: ChildId;
@@ -88,7 +104,8 @@ export interface RankingTrendResult {
 
 /** 過去N週のきょうだい活動数推移を取得 */
 export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<RankingTrendResult> {
-	const children = await findAllChildren(tenantId);
+	// #4685: 準備モード (baby) は競争の集計対象外
+	const children = rankingTargets(await findAllChildren(tenantId));
 	if (children.length === 0) return { weeks: [], children: [] };
 
 	const now = new Date();
@@ -164,7 +181,8 @@ async function getRankingForPeriod(
 	from: string,
 	to: string,
 ): Promise<WeeklyRankingResult> {
-	const children = await findAllChildren(tenantId);
+	// #4685: 準備モード (baby) は競争の集計対象外 (兄弟が baby だけなら「1 人」として扱う)
+	const children = rankingTargets(await findAllChildren(tenantId));
 
 	if (children.length <= 1) {
 		const child = children[0];

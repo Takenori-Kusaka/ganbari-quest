@@ -154,9 +154,10 @@ npm run pre-ready -- --pr <PR番号後で発番>
 `check-pr-body.mjs` は以下を検出:
 - 必須セクション欠落（PR template / SSOT JSON との完全一致、#2060 で SSOT 化）
 - 禁止語混入（`予定` / `follow-up` / `PENDING` / `DEFERRED` / `別途` / `個別起票` / `TODO`）
-- AC 検証マップの 4 列空セル / コメントのみセル
-- Ready チェックリスト未チェック残置
-- **変更タイプ checkbox 未選択（`- [x]` 1 つ以上必須、#3846）** — CI 必須 gate「変更タイプの選択」(`pr-template-gate.yml`) と同一 SSOT (`scripts/pr-template-gate-checks.mjs` `checkChangeType`) を PR 作成前に実行。未選択のまま提出して CI hard-fail → QM body-only remediation が 3 PR 連続再発 (#3835 / #3837 / #3844) した same-class defect (ADR-0061) の shift-left 対策。**`gh pr create` 前に必ず本 `--body-file` 検証を PASS させる**
+- **`## 検証` の根拠コマンドが他 PR を指している（`--pr <番号>` が自 PR と不一致、#4074 / 走査節は #4612 で是正）** — 別 PR で再現した実測ログを意図して載せている場合のみ `<!-- evidence-pr-ref-ok: <理由 12 文字以上> -->` で通せる
+- Ready チェックリスト未チェック残置（integration lane のみ。feature / hotfix lane の checklist 検証は #4305 で撤去済）
+
+**AC 検証マップの 4 列検証 / 変更タイプ checkbox 未選択検出は無い。** #4305 が両節を PR テンプレートから撤去した際に対の CI job も外れており、判定関数だけが残っていたものを #4612 で削除した（`ac-map-*` / `change-type-unselected` の違反 id はどこからも出力されない）。
 
 検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT (`.github/PR_TEMPLATE_SECTIONS.json` 経由) に完全準拠** した状態で提供されるが、雛形時点では「AC 検証マップの検証手段 / 結果列」「Ready for Review チェックリスト」が空のため `check-pr-body.mjs` は fail する。**Agent がステップ 2 の穴埋めを完了してから検証 PASS する**設計。穴埋め完了の signal として、本検証 CLI の PASS を使用する。
 
