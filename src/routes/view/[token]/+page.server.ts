@@ -2,6 +2,7 @@
 // 認証不要。トークンの有効性のみ検証。
 
 import { error } from '@sveltejs/kit';
+import { resolveChildLevel } from '$lib/domain/child-metrics';
 import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { VIEW_PAGE_LABELS } from '$lib/domain/labels';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -64,7 +65,10 @@ export const load: PageServerLoad = async ({ params }) => {
 				level: s.level,
 				totalXp: s.value,
 			}));
-			const totalLevel = statusEntries.reduce((sum, s) => sum + s.level, 0);
+			// #4697: レベルの定義は domain SSOT (カテゴリ別レベルの最大値) 1 つ。
+			// 旧実装だけが合計を出しており、同じ子が閲覧リンクで Lv.17、月次レポート /
+			// 成長記録ブック / 証明書では レベル 5 と表示されていた。
+			const totalLevel = resolveChildLevel(statusEntries);
 
 			return {
 				nickname: child.nickname,
