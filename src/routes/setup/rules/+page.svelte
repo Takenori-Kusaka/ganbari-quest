@@ -1,7 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_RULES_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_RULES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -152,7 +152,9 @@ $effect(() => {
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, item.itemId)}
 							>
-								{expandedItem === item.itemId ? '▲ とじる' : '▼ なかみ'}
+								{expandedItem === item.itemId
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>
