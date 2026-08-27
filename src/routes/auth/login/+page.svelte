@@ -117,7 +117,7 @@ $effect(() => {
 
 		{#if notice}
 			{#if notice.kind === 'alert'}
-				<div class="mb-4 p-3 bg-[var(--color-danger-50)] text-[var(--color-danger-600)] border border-[var(--color-danger-200)] rounded-[var(--radius-sm)] text-sm" role="alert" data-testid="login-notice" data-notice-code={notice.code}>
+				<div class="mb-4 p-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] border border-[var(--color-feedback-error-border)] rounded-[var(--radius-sm)] text-sm" role="alert" data-testid="login-notice" data-notice-code={notice.code}>
 					{notice.message}
 				</div>
 			{:else}
