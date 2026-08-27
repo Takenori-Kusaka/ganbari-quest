@@ -604,8 +604,10 @@ export const actions: Actions = {
 				if (sourceChildId === target) {
 					return fail(400, { error: '同じお子さまにはコピーできません' });
 				}
+				// #4694: 重複 (同名 + 同カテゴリ) は service 側で skip される。
+				// 件数を UI に返し「N 件コピー / M 件は既にあるためスキップ」を出す。
 				const copied = await copyChildActivitiesToSibling(tenantId, sourceChildId, target);
-				return { copyResult: true, copiedCount: copied.length };
+				return { copyResult: true, copiedCount: copied.copied, skippedCount: copied.skipped };
 			}
 			const result = await copyChildActivitiesToSiblings({
 				tenantId,
@@ -620,6 +622,7 @@ export const actions: Actions = {
 			return {
 				copyResult: true,
 				copiedCount: result.totalCopied,
+				skippedCount: result.totalSkipped,
 				errorCount: result.errors.length,
 			};
 		} catch (e) {

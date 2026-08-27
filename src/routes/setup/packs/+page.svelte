@@ -1,11 +1,10 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { CATEGORIES } from '$lib/domain/categories';
 import {
 	APP_LABELS,
 	formatCount,
 	PAGE_TITLES,
-	SETUP_CHILDREN_LABELS,
+	SETUP_LABELS,
 	SETUP_PACKS_LABELS,
 } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -44,15 +43,9 @@ function selectSkip() {
 	selectedPacks = new Set();
 }
 
-// Category labels for preview
-const categoryLabels: Record<string, string> = {
-	// #4716 item 15: カテゴリ名の実体は domain/categories.ts (CATEGORIES) が SSOT
-	undou: CATEGORIES.undou.name,
-	benkyou: CATEGORIES.benkyou.name,
-	seikatsu: CATEGORIES.seikatsu.name,
-	kouryuu: CATEGORIES.kouryuu.name,
-	souzou: CATEGORIES.souzou.name,
-};
+// #4512: 5 カテゴリ名の Record をここで持っていたが、この画面からは 1 度も参照されていない
+// 死んだ複製だった (view/[token] の同じ複製とあわせて並行実装 2 本)。SSOT は
+// src/lib/domain/categories.ts の CATEGORIES。参照が要るときは同 SSOT から引く。
 
 // Auto-select recommended packs on mount
 $effect(() => {
@@ -123,8 +116,8 @@ $effect(() => {
 								onclick={(e) => togglePreview(e, pack.packId)}
 							>
 								{expandedPack === pack.packId
-							? SETUP_CHILDREN_LABELS.expandCollapse
-							: SETUP_CHILDREN_LABELS.expandOpen}
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>

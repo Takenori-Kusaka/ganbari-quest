@@ -27,8 +27,7 @@ import {
 	OYAKAGI_LABELS,
 	SETTINGS_LABELS,
 } from '../../../src/lib/domain/labels';
-import { CHILD_TERMS } from '../../../src/lib/domain/terms';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../../../src/lib/domain/validation/auth';
+import { CHILD_TERMS, OYAKAGI_TERMS } from '../../../src/lib/domain/terms';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -143,12 +142,11 @@ describe('#4716 AC2: 英語見出し / 内部語 / 生パスが出ない', () =>
 });
 
 describe('#4716: 同じ操作は 1 つの呼称に寄っている', () => {
-	it('活動 / ごほうび / チェックリスト / チャレンジが同じ呼称を共有している', () => {
+	// チャレンジは #4671 F7 (#3195 の自動生成一本化) で cross-child copy 導線ごと撤去済のため対象外。
+	it('活動 / ごほうび / チェックリストが同じ呼称を共有している', () => {
 		expect(ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton).toBe(COPY_FROM_CHILD_LABELS.action);
 		expect(ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuLabel).toBe(COPY_FROM_CHILD_LABELS.action);
-		expect(ADMIN_CHALLENGES_PAGE_LABELS.copyFromOtherChildAction).toBe(
-			COPY_FROM_CHILD_LABELS.action,
-		);
+		expect(ADMIN_CHALLENGES_PAGE_LABELS).not.toHaveProperty('copyFromOtherChildAction');
 	});
 
 	it('旧表記 (他の子供から copy / 他のお子さまから取り込む) が残っていない', () => {
@@ -242,15 +240,17 @@ describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経�
 	});
 
 	it('おやカギコードの桁数表記が pinSchema から導出されている', () => {
-		expect(OYAKAGI_LABELS.newPinLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
-		expect(OYAKAGI_LABELS.inputLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
-		// 旧実装は変更フォームだけ 4〜8 桁を受理し、6 桁固定の /login で再ログイン
-		// できない値を設定させていた。表記・受理範囲・schema の 3 者が揃っていること。
+		// #4661 (develop) で桁数の SSOT は constants/oyakagi.ts の PIN_LENGTH に一本化された。
+		// 表記 (OYAKAGI_TERMS.digitRange) / 受理範囲 (PIN_PATTERN) / schema の 3 者が揃っていること。
+		expect(OYAKAGI_LABELS.newInputLabel).toContain(OYAKAGI_TERMS.digitRange);
+		expect(OYAKAGI_LABELS.inputLabel).toContain(OYAKAGI_TERMS.digitRange);
+		// 旧実装は変更フォームだけ 4〜8 桁を受理し、入口の PinInput から再入力できない値を
+		// 設定させていた。action は入口と同じ形式でしか受け付けないこと。
 		const serverSrc = readFileSync(
 			resolve(REPO_ROOT, 'src/routes/(parent)/admin/settings/account/+page.server.ts'),
 			'utf-8',
 		);
 		expect(serverSrc).not.toContain('newPin.length > 8');
-		expect(serverSrc).toContain('PIN_MAX_LENGTH');
+		expect(serverSrc).toContain('PIN_PATTERN');
 	});
 });

@@ -31,23 +31,27 @@ $effect(() => {
 	decayIntensity = data.decayIntensity ?? 'normal';
 });
 
+// #4663 F7: ラベル / 説明は SETTINGS_LABELS が SSOT (ページガイドが同じ語を引けるようにする)。
 const DECAY_OPTIONS = [
-	// #4716 item 15: 顧客可視文言は labels.ts (SETTINGS_LABELS) が SSOT
-	{ value: 'none', label: SETTINGS_LABELS.decayNoneLabel, desc: SETTINGS_LABELS.decayNoneDesc },
+	{
+		value: 'none',
+		label: SETTINGS_LABELS.decayOptionNone,
+		desc: SETTINGS_LABELS.decayOptionNoneDesc,
+	},
 	{
 		value: 'gentle',
-		label: SETTINGS_LABELS.decayGentleLabel,
-		desc: SETTINGS_LABELS.decayGentleDesc,
+		label: SETTINGS_LABELS.decayOptionGentle,
+		desc: SETTINGS_LABELS.decayOptionGentleDesc,
 	},
 	{
 		value: 'normal',
-		label: SETTINGS_LABELS.decayNormalLabel,
-		desc: SETTINGS_LABELS.decayNormalDesc,
+		label: SETTINGS_LABELS.decayOptionNormal,
+		desc: SETTINGS_LABELS.decayOptionNormalDesc,
 	},
 	{
 		value: 'strict',
-		label: SETTINGS_LABELS.decayStrictLabel,
-		desc: SETTINGS_LABELS.decayStrictDesc,
+		label: SETTINGS_LABELS.decayOptionStrict,
+		desc: SETTINGS_LABELS.decayOptionStrictDesc,
 	},
 ] as const;
 
@@ -99,7 +103,8 @@ const previewFormatted = $derived(
 
 <div class="space-y-6">
 	<!-- ステータス減少設定 -->
-	<Card padding="lg" data-testid="settings-decay-section">
+	<!-- #4663: ページガイド ② の anchor -->
+	<Card padding="lg" data-testid="settings-decay-section" data-tutorial="settings-decay-section">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{SETTINGS_LABELS.decaySectionTitle}
 		</h3>
@@ -146,7 +151,8 @@ const previewFormatted = $derived(
 	</Card>
 
 	<!-- ポイント表示設定 -->
-	<Card padding="lg" id="point-settings">
+	<!-- #4663: ページガイド ③ の anchor (id は既存の hash 遷移用に残す) -->
+	<Card padding="lg" id="point-settings" data-tutorial="settings-point-section">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{SETTINGS_LABELS.pointSectionTitle}
 		</h3>
@@ -214,7 +220,7 @@ const previewFormatted = $derived(
 				<NativeSelect
 					id="pointCurrency"
 					name="point_currency"
-					label={SETTINGS_LABELS.currencyFieldLabel}
+					label={SETTINGS_LABELS.pointCurrencyLabel}
 					bind:value={pointCurrency}
 					options={CURRENCY_CODES.map((code) => ({
 						value: code,
@@ -223,7 +229,7 @@ const previewFormatted = $derived(
 				/>
 
 				<FormField
-					label={SETTINGS_LABELS.currencyRateFieldLabel(CURRENCY_DEFS[pointCurrency].symbol)}
+					label={SETTINGS_LABELS.pointRateLabel(CURRENCY_DEFS[pointCurrency].symbol)}
 					type="number"
 					id="pointRate"
 					name="point_rate"
@@ -232,7 +238,7 @@ const previewFormatted = $derived(
 					max="10000"
 					step="any"
 					required
-					hint={SETTINGS_LABELS.currencyRateHint}
+					hint={SETTINGS_LABELS.pointRateHint}
 				/>
 			{/if}
 
@@ -259,7 +265,9 @@ const previewFormatted = $derived(
 
 	<!-- 既定の子供 -->
 	{#if data.children.length >= 2}
-		<Card padding="lg">
+		<!-- #4663: ページガイド ④ の anchor。お子さま 2 人以上のときだけ描画されるので、
+		     ガイド側は optional で「出ているときだけ」案内する -->
+		<Card padding="lg" data-tutorial="settings-default-child-section">
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 				{SETTINGS_LABELS.defaultChildSectionTitle}
 			</h3>
@@ -329,7 +337,8 @@ const previewFormatted = $derived(
 	{/if}
 
 	<!-- きょうだいチャレンジ設定 -->
-	<Card padding="lg">
+	<!-- #4663: ページガイド ⑤ の anchor (カード自体は常設。チェックボックスがプランで disabled) -->
+	<Card padding="lg" data-tutorial="settings-sibling-section">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{SETTINGS_LABELS.siblingSectionTitle}
 		</h3>

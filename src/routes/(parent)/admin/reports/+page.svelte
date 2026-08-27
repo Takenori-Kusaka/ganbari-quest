@@ -94,9 +94,11 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		<div class="flex items-center gap-2">
 			<h2 class="text-lg font-bold">{REPORTS_LABELS.pageTitle}</h2>
 		</div>
-		<div class="flex gap-2">
+		<!-- #4670 F3: ページガイドは 2 リンクを包む要素を spotlight する -->
+		<div class="flex gap-2" data-tutorial="report-links">
 			<a
 				href="/admin/certificates"
+				data-tutorial="certificates-link"
 				class="text-sm font-medium px-3 py-1.5 rounded-lg bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] hover:bg-[var(--color-feedback-info-bg-strong)] transition-colors inline-flex items-center gap-1"
 			>
 				{REPORTS_LABELS.certificatesLink}
@@ -121,6 +123,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 	{#if !data.canReceiveWeeklyEmail}
 		<div
 			data-testid="weekly-report-upsell"
+			data-tutorial="weekly-report-upsell"
 			class="rounded-xl border border-[var(--color-border-premium)] bg-[var(--color-surface-trial)] p-4"
 		>
 			<p class="text-sm font-bold text-[var(--color-text-primary)]">
@@ -162,7 +165,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		<!-- Monthly Report Section -->
 		<div class="space-y-4">
 			<!-- Month selector -->
-			<div class="flex items-center justify-center gap-4">
+			<div class="flex items-center justify-center gap-4" data-tutorial="report-month-nav">
 				<button class="month-nav-btn" onclick={() => navigateMonth(-1)}>◀</button>
 				<span class="text-base font-bold text-[var(--color-text-primary)]">{formatMonth(data.selectedMonth)}</span>
 				<button class="month-nav-btn" onclick={() => navigateMonth(1)}>▶</button>
@@ -199,10 +202,11 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 										</p>
 									{/if}
 								</div>
-								<div class="rounded-lg bg-[var(--color-feedback-warning-bg)] p-3 text-center">
-									<p class="text-xs text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.weeklyPointsLabel}</p>
+								<!-- #4697: ここは「その月に ためた ポイント」。XP 累計ではないので先月比が意味を持つ -->
+								<div class="rounded-lg bg-[var(--color-feedback-warning-bg)] p-3 text-center" data-testid="monthly-points">
+									<p class="text-xs text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.monthlyPointsLabel}</p>
 									<p class="text-xl font-bold text-[var(--color-feedback-warning-text)]">{report.totalPoints}</p>
-									<p class="text-[10px] text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.weeklyPointsUnit}</p>
+									<p class="text-[10px] text-[var(--color-feedback-warning-text)]">{REPORTS_LABELS.monthlyPointsHint}</p>
 									{#if prev}
 										<p class="text-[10px] font-semibold {diffColor(report.totalPoints, prev.totalPoints)}">
 											{diffLabel(report.totalPoints, prev.totalPoints)} {REPORTS_LABELS.monthlyPrevMonth}
@@ -227,6 +231,12 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 
 							<!-- Stats row -->
 							<div class="flex gap-3">
+								<!-- #4697: 「つよさ (XP)」は消費されない成長の累計。ポイント (通貨) と別名で併記する -->
+								<div class="flex-1 rounded-lg bg-[var(--color-stat-purple-bg)] p-2 text-center" data-testid="monthly-xp">
+									<p class="text-xs text-[var(--color-stat-purple)]">{REPORTS_LABELS.monthlyXpLabel}</p>
+									<p class="text-lg font-bold text-[var(--color-stat-purple)]">{report.totalXp}</p>
+									<p class="text-[10px] text-[var(--color-stat-purple)]">{REPORTS_LABELS.monthlyXpHint}</p>
+								</div>
 								<div class="flex-1 rounded-lg bg-[var(--color-feedback-success-bg)] p-2 text-center">
 									<p class="text-xs text-[var(--color-feedback-success-text)]">{REPORTS_LABELS.monthlyAchievementsLabel}</p>
 									<p class="text-lg font-bold text-[var(--color-feedback-success-text)]">{report.totalNewAchievements}</p>
@@ -284,7 +294,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 		<!-- #967: free 用 upsell バナーはタブ外へ移動済み。設定セクションの disabled 表示は残す。 -->
 
 		<!-- 設定セクション -->
-		<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4">
+		<form method="POST" action="?/updateSettings" use:enhance class="rounded-xl border bg-white p-4" data-tutorial="weekly-report-settings">
 			<h3 class="mb-3 text-sm font-bold text-[var(--color-text-primary)]">{REPORTS_LABELS.weeklySettingsTitle}</h3>
 			{#if !data.canReceiveWeeklyEmail}
 				<p class="mb-3 text-xs text-[var(--color-text-muted)]">
@@ -292,7 +302,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 				</p>
 			{/if}
 			<div class="flex flex-wrap items-center gap-4">
-				<FormField label="週次レポートを有効にする">
+				<FormField label={REPORTS_LABELS.weeklySettingsEnableLabel}>
 					{#snippet children()}
 						<input
 							type="checkbox"
@@ -303,7 +313,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 						/>
 					{/snippet}
 				</FormField>
-				<FormField label="配信曜日">
+				<FormField label={REPORTS_LABELS.weeklySettingsDayLabel}>
 					{#snippet children()}
 						<select
 							name="day"
@@ -427,7 +437,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 
 	<!-- きょうだいランキング強化セクション (#373) -->
 	{#if data.isFamily && data.rankingData && data.rankingData.rankings.length > 1}
-		<section class="space-y-4">
+		<section class="space-y-4" data-tutorial="sibling-ranking">
 			<h3 class="text-base font-bold text-[var(--color-text-primary)]">{REPORTS_LABELS.rankingTitle}</h3>
 
 			<!-- 今週の概要 -->

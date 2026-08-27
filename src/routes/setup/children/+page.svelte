@@ -86,14 +86,14 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">{SETUP_CHILDREN_LABELS.addFormTitle}</h3>
 
 	<FormField
-		label={SETUP_CHILDREN_LABELS.nicknameFieldLabel}
+		label={SETUP_CHILDREN_LABELS.nicknameLabel}
 		name="nickname"
 		required
 		placeholder={SETUP_CHILDREN_LABELS.nicknamePlaceholder}
 	/>
 
 	<FormField
-		label={SETUP_CHILDREN_LABELS.ageFieldLabel}
+		label={SETUP_CHILDREN_LABELS.ageLabel}
 		type="number"
 		name="age"
 		min={0}

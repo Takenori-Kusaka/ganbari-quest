@@ -59,7 +59,7 @@ function closeRejectForm() {
 	{/if}
 
 	<!-- 未処理の申請 -->
-	<section>
+	<section data-tutorial="rewards-requests-pending">
 		<div class="flex items-baseline gap-2 mb-2">
 			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}</h3>
 			<span class="text-xs text-[var(--color-text-tertiary)]">
@@ -131,7 +131,7 @@ function closeRejectForm() {
 										}}
 									>
 										<input type="hidden" name="requestId" value={req.id} />
-										<Button type="submit" variant="success" size="sm" data-testid="approve-btn-{req.id}">
+										<Button type="submit" variant="success" size="sm" data-testid="approve-btn-{req.id}" data-tutorial="rewards-requests-approve">
 											{ADMIN_REWARDS_REQUESTS_LABELS.approveButton}
 										</Button>
 									</form>
@@ -141,6 +141,7 @@ function closeRejectForm() {
 										size="sm"
 										onclick={() => openRejectForm(req.id)}
 										data-testid="reject-btn-{req.id}"
+										data-tutorial="rewards-requests-reject"
 									>
 										{ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}
 									</Button>
@@ -155,7 +156,7 @@ function closeRejectForm() {
 	</section>
 
 	<!-- 履歴 -->
-	<section>
+	<section data-tutorial="rewards-requests-history">
 		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}</h3>
 		{#if data.historyRequests.length === 0}
 			<Alert variant="info" message={ADMIN_REWARDS_REQUESTS_LABELS.emptyHistoryMessage} />

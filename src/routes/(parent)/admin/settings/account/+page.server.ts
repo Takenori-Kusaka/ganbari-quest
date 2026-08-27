@@ -3,8 +3,8 @@
 // accountDelete / logout は client-side fetch + a href 遷移なので server action 不要。
 
 import { fail } from '@sveltejs/kit';
+import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
 import { OYAKAGI_LABELS } from '$lib/domain/labels';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/domain/validation/auth';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { changePin } from '$lib/server/services/auth-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -27,15 +27,15 @@ export const actions = {
 			return fail(400, { error: OYAKAGI_LABELS.allFieldsRequiredError });
 		}
 
-		// #4716 item 15: 旧実装は 4〜8 桁を受理していたが、/login の PIN 入力は
-		// PIN_MAX_LENGTH (6) 桁固定セルであり 7〜8 桁を設定すると再ログインできなくなる。
-		// 画面ラベル・pinSchema・本 action の 3 者を PIN_MIN_LENGTH〜PIN_MAX_LENGTH に揃える。
-		if (newPin.length < PIN_MIN_LENGTH || newPin.length > PIN_MAX_LENGTH) {
-			return fail(400, { error: OYAKAGI_LABELS.formatError });
-		}
-
+		// #4661: 桁数は constants/oyakagi.ts の PIN_LENGTH が SSOT。以前ここだけが 4〜8 桁を
+		// 受理していたため、5 桁以上に変更すると /switch の入力欄 (ちょうど 4 桁) から二度と
+		// 送れず見守り画面に入れなくなった。入口 (PinInput) と同じ形式でしか受け付けない。
 		if (!/^\d+$/.test(newPin)) {
 			return fail(400, { error: OYAKAGI_LABELS.numberOnlyError });
+		}
+
+		if (!PIN_PATTERN.test(newPin)) {
+			return fail(400, { error: OYAKAGI_LABELS.formatError });
 		}
 
 		if (newPin !== confirmPin) {

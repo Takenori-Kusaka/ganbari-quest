@@ -41,7 +41,7 @@ function handlePrint() {
 			<div class="flex gap-2">
 				<a href="/admin/reports" class="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.backToReports}</a>
 				{#if data.isPremium && data.book}
-					<Button type="button" variant="primary" size="sm" onclick={handlePrint}>
+					<Button type="button" variant="primary" size="sm" onclick={handlePrint} data-tutorial="growth-book-print">
 						{GROWTH_BOOK_LABELS.printButton}
 					</Button>
 				{/if}
@@ -58,7 +58,7 @@ function handlePrint() {
 		{/if}
 
 		{#if data.children.length > 1}
-			<div class="flex gap-2 overflow-x-auto pb-2">
+			<div class="flex gap-2 overflow-x-auto pb-2" data-tutorial="growth-book-child-tabs">
 				{#each data.children as child (child.id)}
 					<Button
 						type="button"
@@ -95,8 +95,8 @@ function handlePrint() {
 			{/snippet}
 		</Card>
 
-		<!-- Annual Summary -->
-		<Card variant="default" padding="md">
+		<!-- Annual Summary (#4675: ページガイド anchor) -->
+		<Card variant="default" padding="md" data-tutorial="growth-book-summary">
 			{#snippet children()}
 			<h3 class="text-base font-bold text-[var(--color-text-primary)] mb-3">{GROWTH_BOOK_LABELS.annualSummaryTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
@@ -134,21 +134,31 @@ function handlePrint() {
 		<h3 class="text-base font-bold text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.monthlyTitle}</h3>
 		{#each book.months as month (month.month)}
 			{@const hasActivity = month.totalActivities > 0}
+			<!-- #4697: まだ来ていない月は数値を出さない。年度は 4 月〜翌 3 月を必ず 12 行並べるため
+			     未来月の枠ができるが、そこに数字が入ると「未来の記録」になってしまう -->
 			<Card variant="default" padding="sm">
 				{#snippet children()}
-				<div class="flex items-center justify-between">
+				<div class="flex items-center justify-between" data-testid="growth-book-month-{month.month}">
 					<div class="flex items-center gap-3">
-						<span class="text-2xl">{hasActivity ? '✅' : '⬜'}</span>
+						<span class="text-2xl">{month.isFuture ? '⋯' : hasActivity ? '✅' : '⬜'}</span>
 						<div>
 							<p class="font-bold text-sm text-[var(--color-text-primary)]">{formatMonth(month.month)}</p>
 							<p class="text-xs text-[var(--color-text-muted)]">
-								{GROWTH_BOOK_LABELS.monthlyActivities(month.totalActivities)} / {GROWTH_BOOK_LABELS.monthlyDays(month.daysWithActivity)}
+								{#if month.isFuture}
+									{GROWTH_BOOK_LABELS.monthlyFutureNote}
+								{:else}
+									{GROWTH_BOOK_LABELS.monthlyActivities(month.totalActivities)} / {GROWTH_BOOK_LABELS.monthlyDays(month.daysWithActivity)}
+								{/if}
 							</p>
 						</div>
 					</div>
 					<div class="text-right">
-						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">{GROWTH_BOOK_LABELS.monthlyTotalPoints(month.totalPoints)}</p>
-						{#if month.maxStreakDays > 0}
+						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">
+							{month.isFuture
+								? GROWTH_BOOK_LABELS.valueNotYet
+								: GROWTH_BOOK_LABELS.monthlyTotalPoints(month.totalPoints)}
+						</p>
+						{#if !month.isFuture && month.maxStreakDays > 0}
 							<p class="text-xs text-[var(--color-text-warning-strong)]">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
 						{/if}
 					</div>
@@ -157,8 +167,8 @@ function handlePrint() {
 			</Card>
 		{/each}
 
-		<!-- Certificate link -->
-		<div class="text-center py-4">
+		<!-- Certificate link (#4675: ページガイド anchor) -->
+		<div class="text-center py-4" data-tutorial="growth-book-certificates">
 			<a
 				href="/admin/certificates"
 				class="text-sm font-medium text-[var(--color-feedback-info-text)] hover:underline"

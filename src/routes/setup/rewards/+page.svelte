@@ -1,12 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import type { ChildId } from '$lib/domain/ids';
-import {
-	APP_LABELS,
-	PAGE_TITLES,
-	SETUP_CHILDREN_LABELS,
-	SETUP_REWARDS_LABELS,
-} from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -136,8 +131,8 @@ $effect(() => {
 								onclick={(e) => togglePreview(e, item.itemId)}
 							>
 								{expandedItem === item.itemId
-							? SETUP_CHILDREN_LABELS.expandCollapse
-							: SETUP_CHILDREN_LABELS.expandOpen}
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>

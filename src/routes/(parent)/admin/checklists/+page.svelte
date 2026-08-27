@@ -8,6 +8,7 @@ import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -45,6 +46,44 @@ import VisibilityChipGroup, {
 } from '$lib/ui/primitives/VisibilityChipGroup.svelte';
 
 let { data, form } = $props();
+
+// #4023 横展開 (#4512): テンプレート削除の確認を native confirm() から Dialog primitive に
+// 置換する (DESIGN.md §5「プリミティブ再実装禁止」/ admin/challenges・admin/settings/rules と同一方式)。
+//
+// 停止は use:enhance の cancel() で行う。旧実装は submit ボタンの onclick で
+// e.preventDefault() しており「click の default が止まれば submit event も発火しない」ため
+// 動いてはいたが (#4023 の掃き出しでも実害なしと判定)、確認 UI が OS ネイティブのままで
+// challenges / rules と見た目・文言・機構が揃っていなかった。
+type PendingConfirm = { formEl: HTMLFormElement; title: string; body: string };
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(formEl: HTMLFormElement, title: string, body: string): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
 
 // #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
@@ -312,11 +351,30 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| {
+					type: 'success';
+					data?: {
+						added?: number;
+						alreadyDistributed?: number;
+						limitReached?: boolean;
+						message?: string;
+					};
+			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
 			const added = Number(actionResult.data?.added ?? 0);
 			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
 			// (limitReached) は server の partial-success message を出し、silent な over-grant /
@@ -325,11 +383,16 @@ async function handleCopyFromChild() {
 				actionMessage = actionResult.data.message;
 				showToast(actionMessage, undefined, 'info');
 			} else {
-				actionMessage =
-					added === 0
-						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
-						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
-				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+				// #4694: 3 画面共通 SSOT で「N 件取り込み / M 件はすでに配信済み」を出す。
+				//   server は既配信 skip を alreadyDistributed で返しているのに、UI は件数を
+				//   捨てて「取り込めるチェックリストがありませんでした」しか出していなかった。
+				const alreadyDistributed = Number(actionResult.data?.alreadyDistributed ?? 0);
+				actionMessage = CHILD_COPY_RESULT_LABELS.format(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+					added,
+					alreadyDistributed,
+				);
+				showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(added));
 			}
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
@@ -470,14 +533,8 @@ $effect(() => {
 	}
 });
 
-// #4716 (#4023 と同 class): 削除確認を Dialog primitive に置き換える。
-//   旧実装は `onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}` だったが、
-//   `use:enhance` の submit handler は preventDefault を見ないため **キャンセルしても削除されていた**。
-//   確認済みの form だけ 1 回素通しし、それ以外は cancel() する形にする。
-type PendingChecklistDelete = { formEl: HTMLFormElement; title: string; body: string };
-let pendingDelete = $state<PendingChecklistDelete | null>(null);
-let deleteConfirmOpen = $state(false);
-let confirmedDeleteForm: HTMLFormElement | null = null;
+// #4716: 削除確認の本文は「対象名 + 配信先 + 一緒に消えるもの」を出す
+//   (確認そのものの機構は上の passConfirm / Dialog を共有する)。
 
 /** 配信先の子供名を読める形にする (未配信なら null)。 */
 function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null {
@@ -485,39 +542,14 @@ function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null
 	return names.length > 0 ? names.join('・') : null;
 }
 
-function passDeleteConfirm(
-	formEl: HTMLFormElement,
+function checklistDeleteConfirmBody(
 	templateName: string,
 	assignedChildIds: readonly ChildId[],
-): boolean {
-	if (confirmedDeleteForm === formEl) {
-		confirmedDeleteForm = null;
-		return true;
-	}
+): string {
 	const names = assignedChildNames(assignedChildIds);
-	pendingDelete = {
-		formEl,
-		title: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
-		body: names
-			? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
-			: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBodyNoChild(templateName),
-	};
-	deleteConfirmOpen = true;
-	return false;
-}
-
-function acceptDeleteConfirm() {
-	const p = pendingDelete;
-	deleteConfirmOpen = false;
-	pendingDelete = null;
-	if (!p) return;
-	confirmedDeleteForm = p.formEl;
-	p.formEl.requestSubmit();
-}
-
-function dismissDeleteConfirm() {
-	deleteConfirmOpen = false;
-	pendingDelete = null;
+	return names
+		? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
+		: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBodyNoChild(templateName);
 }
 
 // OverflowMenu items
@@ -1078,8 +1110,14 @@ function getChildName(childId: ChildId): string {
 							method="POST"
 							action="?/deleteTemplate"
 							use:enhance={({ formElement, cancel }) => {
-								// #4716: 削除は取り消せないので確認を 1 枚挟む (対象名 + 配信先を明示)
-								if (!passDeleteConfirm(formElement, template.name, template.assignedChildIds)) {
+								// #4023 横展開 (#4512): 削除は取り消せないので確認を 1 枚挟む。
+								if (
+									!passConfirm(
+										formElement,
+										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
+										checklistDeleteConfirmBody(template.name, template.assignedChildIds),
+									)
+								) {
 									cancel();
 									return;
 								}
@@ -1092,7 +1130,7 @@ function getChildName(childId: ChildId): string {
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
-								data-testid="checklist-template-delete-{template.id}"
+								data-testid="admin-checklist-delete-{template.id}"
 							>
 								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
@@ -1629,27 +1667,26 @@ function getChildName(childId: ChildId): string {
 	{/if}
 </Dialog>
 
-<!-- #4716 (#4023 と同 class): 削除確認ダイアログ (DESIGN.md §5 Dialog primitive)。
-     旧 native confirm は use:enhance 下で preventDefault が効かず「キャンセルしても削除」だった。 -->
+<!-- #4023 横展開 (#4512): テンプレート削除の確認ダイアログ (DESIGN.md §5 Dialog primitive) -->
 <Dialog
-	bind:open={deleteConfirmOpen}
+	bind:open={confirmOpen}
 	onOpenChange={(details) => {
-		if (!details.open) dismissDeleteConfirm();
+		if (!details.open) dismissConfirm();
 	}}
-	title={pendingDelete?.title ?? ''}
+	title={pendingConfirm?.title ?? ''}
 	size="md"
-	testid="admin-checklists-delete-confirm-dialog"
+	testid="admin-checklists-confirm-dialog"
 >
 	<p class="text-sm text-[var(--color-text-secondary)]">
-		{pendingDelete?.body ?? ''}
+		{pendingConfirm?.body ?? ''}
 	</p>
 	<div class="mt-4 flex items-center justify-end gap-2">
 		<Button
 			type="button"
-			variant="ghost"
+			variant="outline"
 			size="sm"
-			onclick={dismissDeleteConfirm}
-			data-testid="admin-checklists-delete-confirm-cancel"
+			onclick={dismissConfirm}
+			data-testid="admin-checklists-confirm-cancel"
 		>
 			{UI_LABELS.cancel}
 		</Button>
@@ -1657,14 +1694,13 @@ function getChildName(childId: ChildId): string {
 			type="button"
 			variant="danger"
 			size="sm"
-			onclick={acceptDeleteConfirm}
-			data-testid="admin-checklists-delete-confirm-accept"
+			onclick={acceptConfirm}
+			data-testid="admin-checklists-confirm-accept"
 		>
 			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmAccept}
 		</Button>
 	</div>
 </Dialog>
-
 
 <style>
 	/* #3079: restore/export dialog (comments use ASCII for local/no-hardcoded-jp-text in style) */
