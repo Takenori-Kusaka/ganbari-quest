@@ -61,7 +61,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 着地したとき、残りの初期設定 step への再入口が UI 上消えていた問題への対処。
 	// 子ロールには出さない (親の見守り設定タスクのため)。onboarding 取得失敗は導線非表示で
 	// ページ全体を守る。Anti-engagement (ADR-0012): allCompleted なら banner は描画されない。
-	const isParentContext = authMode === 'local' || locals.context?.role !== 'child';
+	// #4712: demo は setup 完了を記録できない (write no-op) ため「あと 2 ステップ」バナーが
+	// 常時出続け、しかも次の step の行き先が /switch 自身 = 自己ループになる。demo では出さない。
+	const isParentContext =
+		locals.isDemo !== true && (authMode === 'local' || locals.context?.role !== 'child');
 	let onboarding: OnboardingProgress | null = null;
 	if (isParentContext) {
 		try {
