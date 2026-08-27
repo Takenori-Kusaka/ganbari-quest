@@ -453,11 +453,9 @@ export const PLAN_GATE_LABELS = {
 	 * (プラン名の SSOT は「無料プラン」で、「フリー」はカード等の短縮名。#4502 の
 	 *  使い分け決裁を server 面にも適用する)。文と数値の組み立てを 1 箇所に閉じる。
 	 *
-	 * #4622: 引数を `number` に狭めた。`checkChecklistTemplateLimit` の `max` は
-	 * `PlanLimitCheck` の discriminated union により `allowed: false` 側で `number` に確定する。
-	 * null を渡す呼び出し (= 「1人あたり null 個までです」) はコンパイルで落ちる。
-	 *
-	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (#4622)。
+	 *   引数を `number` に狭めてあるため、`max: number | null` をそのまま埋めて
+	 *   「1人あたり null 個」を出す経路がコンパイルで落ちる。
 	 */
 	perChildLimitReached: (max: number) =>
 		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
@@ -546,22 +544,16 @@ export const PLAN_GATE_LABELS = {
 	childLimitReached: (max: number) =>
 		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
 
-	/**
-	 * "フリープランではお子さま1人あたり {max} 個までです。"
-	 *
-	 * チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言 (#4622)。
-	 * アップグレード導線を併記しない短い版。
-	 */
-	checklistTemplateLimitReached: (max: number) =>
-		`フリープランではお子さま1人あたり ${max} 個までです。`,
-
-	/**
-	 * "フリープランではお子さま1人あたり {max} 個までです。スタンダード以上に…"
-	 *
-	 * 上と同じ上限のアップグレード導線併記版 (#4622)。
-	 */
-	checklistTemplateLimitReachedWithUpgrade: (max: number) =>
-		`フリープランではお子さま1人あたり ${max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
+	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
+	// #4622 の「上限メッセージに null を渡せない」関門は、そちらの引数を `number` に
+	// 狭めることで満たしている (同じ文言の label を 2 つ置くと SSOT が割れるため統合した)。
+	//
+	// develop 側 (#4707/#4727 経由) に一時的に入っていた `checklistTemplateLimitReached` /
+	// `checklistTemplateLimitReachedWithUpgrade` は、全 callsite (checklists/+page.server.ts 5 箇所) が
+	// `perChildLimitReached*` を参照しており到達不能な重複だった。加えてプラン名を
+	// 「フリープラン」と直書きしており #4512 (プラン名 SSOT = `PLAN_FULL_TERMS.free`) に反するため、
+	// 本 merge で `perChildLimitReached*` に統合した。
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -8313,6 +8305,8 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),

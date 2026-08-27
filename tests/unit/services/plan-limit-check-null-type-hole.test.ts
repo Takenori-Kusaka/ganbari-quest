@@ -76,10 +76,6 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(null)).toBeTypeOf('string');
 		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
 		expect(PLAN_GATE_LABELS.perChildLimitReached(null)).toBeTypeOf('string');
-		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReached(null)).toBeTypeOf('string');
-		// @ts-expect-error 上限到達メッセージに null は渡せない (#4622)
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(null)).toBeTypeOf('string');
 		// @ts-expect-error メンバー上限メッセージに null は渡せない (#4622)
 		expect(PLAN_GATE_LABELS.memberLimitReached(null)).toBeTypeOf('string');
 	});
@@ -91,23 +87,16 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.childLimitReached(2)).toBe(
 			'子供は最大2人まで登録できます。プランをアップグレードしてください。',
 		);
-		// #4512 (develop) がプラン名 SSOT を「無料プラン」/「スタンダードプラン」に是正済。
-		// checklists の 5 callsite が参照するのはこちらで、本 PR は文言を変えず
-		// その関数の引数を `number` に狭めるだけ。
+		// プラン名は #4512 で atom (PLAN_FULL_TERMS) 参照に是正済み (「フリープラン」直書きを撤去)。
 		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。',
 		);
 		expect(PLAN_GATE_LABELS.perChildLimitReached(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。',
 		);
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReached(3)).toBe(
-			'フリープランではお子さま1人あたり 3 個までです。',
-		);
-		expect(PLAN_GATE_LABELS.checklistTemplateLimitReachedWithUpgrade(3)).toBe(
-			'フリープランではお子さま1人あたり 3 個までです。スタンダード以上にアップグレードすると無制限に作成できます。',
-		);
-		// #4500 (develop) でオーナー込みの数え方を明示する文言に是正済み。
-		// byte 一致の回帰ロックは維持したまま、現行 SSOT の値に追従させる。
+		// 文面は #4500 で「オーナーを含めた合計」であることを明示する形に更新済み。
+		// 本 assert が固定するのは「labels.ts 経由の SSOT 1 箇所から出ていること」であり、
+		// 直書きに戻した瞬間にズレて落ちる (下の fitness と両輪)。
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
 			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);
