@@ -222,8 +222,12 @@ jobs:
         # #1739 で導入した scripts/check-ssot-parallel-impl.mjs (labels.ts ⇄ shared-labels.js
         # の key-set 比較による silent drift 検出) は #4322 で削除済み (#4420 で判明)。
         # 現状 `npm run lint:parallel` が実行するのは generate-lp-labels.mjs --check
-        # (full text 比較) + check-lp-innerhtml-tags.mjs + check-no-at-html.mjs のみ。
-        # parser 未対応の新規 namespace 追加による silent drift の検出は無い
+        # (labels.ts ⇄ shared-labels.js の full text 比較) + sync-lp-fallback.mjs --check
+        # (labels.ts ⇄ site/*.html の data-lp-key fallback 比較) + check-lp-innerhtml-tags.mjs
+        # + check-no-at-html.mjs。
+        # sync-lp-fallback --check は develop 上で 3 件 drift していたのを検知できず
+        # 顧客に旧文言 (撤去済みの「約 5 分」) が見えていたため CI に載せた (QM 実測)。
+        # parser 未対応の新規 namespace 追加による silent drift の検出は依然として無い
         # (機械強制は無い。レビューで担保する)。
         run: npm run lint:parallel
 

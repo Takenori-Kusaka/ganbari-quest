@@ -184,11 +184,41 @@ async function disableNotifications() {
 			class="space-y-4"
 			data-tutorial="notification-settings"
 		>
-			<!-- #4664 F5: リマインダー / ストリーク警告 のチェックは、それを送るスケジューラが
-			     存在しない (endpoint はあるが cron 登録が無い) ため、ONにしても通知は届かなかった。
-			     届かないものを設定画面で約束しないよう、実配信が入るまで出さない。保存値
-			     (notification_reminders_enabled / _streak_enabled) は書き換えないので、
-			     配信を実装すれば以前の設定のまま復帰する。 -->
+			<label class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					name="remindersEnabled"
+					checked={data.notificationSettings.remindersEnabled}
+					class="h-4 w-4 rounded border-[var(--color-border-strong)]"
+				/>
+				<span class="text-sm text-[var(--color-text)]">
+					{SETTINGS_LABELS.notificationReminderLabel}
+				</span>
+			</label>
+			<!-- #4664 F3 / M: リマインダー時刻の欄は「チェックした瞬間」ではなく、保存後に
+			     再読込した data が remindersEnabled=true のときだけ描かれる。ページガイドの
+			     「お知らせの種類」step もその出現条件をそのまま述べる。 -->
+			{#if data.notificationSettings.remindersEnabled}
+				<div class="ml-6" data-tutorial="notification-reminder-time">
+					<FormField
+						label={SETTINGS_LABELS.notificationReminderTimeLabel}
+						type="time"
+						name="reminderTime"
+						value={data.notificationSettings.reminderTime}
+					/>
+				</div>
+			{/if}
+			<label class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					name="streakEnabled"
+					checked={data.notificationSettings.streakEnabled}
+					class="h-4 w-4 rounded border-[var(--color-border-strong)]"
+				/>
+				<span class="text-sm text-[var(--color-text)]">
+					{SETTINGS_LABELS.notificationStreakLabel}
+				</span>
+			</label>
 			<label class="flex items-center gap-2">
 				<input
 					type="checkbox"
