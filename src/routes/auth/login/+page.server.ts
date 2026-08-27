@@ -4,6 +4,7 @@
 // - 本番: Cognito InitiateAuth API で直接認証（Hosted UI は使わない）
 
 import { fail, redirect } from '@sveltejs/kit';
+import { DEMO_LABELS } from '$lib/domain/labels';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
 import { PARENT_LANDING, resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
@@ -28,6 +29,12 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+
+	// #4712: demo Lambda には Cognito が無く、ログインフォームを出しても送信が write no-op に
+	// なるだけ (「何も起きない」着地)。本番 host のログイン画面へ送る (signup と同型)。
+	if (locals.isDemo) {
+		redirect(302, DEMO_LABELS.loginHref);
+	}
 
 	// local モードではログイン不要 → /admin へ
 	if (authMode === 'local') {
