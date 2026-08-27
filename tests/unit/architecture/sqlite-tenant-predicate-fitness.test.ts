@@ -41,7 +41,7 @@ const SQLITE_DIR = resolve(REPO_ROOT, 'src/lib/server/db/sqlite');
  * #4546 実測時点の既存違反数 (メソッド単位)。**増やすと CI が落ちる**。
  * burn-down は別 Issue (本 PR の No-gos)。減らしたらこの数を下げる。
  */
-const BASELINE_VIOLATIONS = 19;
+const BASELINE_VIOLATIONS = 15;
 
 // ── schema から「tenant_id 列を持つテーブル」を引く (手書き列挙の drift を避ける) ──
 

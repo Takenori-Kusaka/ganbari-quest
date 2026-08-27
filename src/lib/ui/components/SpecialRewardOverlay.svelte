@@ -44,7 +44,7 @@ function handleClose() {
 		</div>
 
 		<button
-			class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--theme-primary)] text-white font-bold text-lg mt-[var(--sp-sm)]"
+			class="tap-target w-full py-4 rounded-[var(--radius-md)] bg-[var(--color-action-primary-strong)] text-white font-bold text-lg mt-[var(--sp-sm)]"
 			onclick={handleClose}
 		>
 			{UI_COMPONENTS_LABELS.specialRewardConfirmBtn}

@@ -80,22 +80,23 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.memberLimitReached(null)).toBeTypeOf('string');
 	});
 
-	// 期待値は SSOT (labels.ts) の現行文言に固定する。checklist の上限文言は #4512 で
-	// プラン名が「フリープラン」→「無料プラン」に是正され、label 名も perChildLimitReached*
-	// に統合された。メンバー上限は #4500 で「オーナーを含めた合計」を明示する文へ改訂済み。
-	it('文言は SSOT の現行文言とバイト一致', () => {
+	it('文言は移設前とバイト一致で不変', () => {
 		expect(PLAN_GATE_LABELS.activityLimitReached(3)).toBe(
 			'カスタム活動は最大3個まで作成できます。プランをアップグレードしてください。',
 		);
 		expect(PLAN_GATE_LABELS.childLimitReached(2)).toBe(
 			'子供は最大2人まで登録できます。プランをアップグレードしてください。',
 		);
+		// プラン名は #4512 で atom (PLAN_FULL_TERMS) 参照に是正済み (「フリープラン」直書きを撤去)。
 		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。',
 		);
 		expect(PLAN_GATE_LABELS.perChildLimitReached(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。',
 		);
+		// 文面は #4500 で「オーナーを含めた合計」であることを明示する形に更新済み。
+		// 本 assert が固定するのは「labels.ts 経由の SSOT 1 箇所から出ていること」であり、
+		// 直書きに戻した瞬間にズレて落ちる (下の fitness と両輪)。
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
 			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);

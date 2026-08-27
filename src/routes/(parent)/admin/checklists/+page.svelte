@@ -8,6 +8,7 @@ import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -45,6 +46,44 @@ import VisibilityChipGroup, {
 } from '$lib/ui/primitives/VisibilityChipGroup.svelte';
 
 let { data, form } = $props();
+
+// #4023 横展開 (#4512): テンプレート削除の確認を native confirm() から Dialog primitive に
+// 置換する (DESIGN.md §5「プリミティブ再実装禁止」/ admin/challenges・admin/settings/rules と同一方式)。
+//
+// 停止は use:enhance の cancel() で行う。旧実装は submit ボタンの onclick で
+// e.preventDefault() しており「click の default が止まれば submit event も発火しない」ため
+// 動いてはいたが (#4023 の掃き出しでも実害なしと判定)、確認 UI が OS ネイティブのままで
+// challenges / rules と見た目・文言・機構が揃っていなかった。
+type PendingConfirm = { formEl: HTMLFormElement; title: string; body: string };
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(formEl: HTMLFormElement, title: string, body: string): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
 
 // #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
@@ -311,11 +350,30 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| {
+					type: 'success';
+					data?: {
+						added?: number;
+						alreadyDistributed?: number;
+						limitReached?: boolean;
+						message?: string;
+					};
+			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
 			const added = Number(actionResult.data?.added ?? 0);
 			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
 			// (limitReached) は server の partial-success message を出し、silent な over-grant /
@@ -324,11 +382,16 @@ async function handleCopyFromChild() {
 				actionMessage = actionResult.data.message;
 				showToast(actionMessage, undefined, 'info');
 			} else {
-				actionMessage =
-					added === 0
-						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
-						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
-				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+				// #4694: 3 画面共通 SSOT で「N 件取り込み / M 件はすでに配信済み」を出す。
+				//   server は既配信 skip を alreadyDistributed で返しているのに、UI は件数を
+				//   捨てて「取り込めるチェックリストがありませんでした」しか出していなかった。
+				const alreadyDistributed = Number(actionResult.data?.alreadyDistributed ?? 0);
+				actionMessage = CHILD_COPY_RESULT_LABELS.format(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+					added,
+					alreadyDistributed,
+				);
+				showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(added));
 			}
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
@@ -1028,14 +1091,31 @@ function getChildName(childId: ChildId): string {
 								{template.isActive ? '無効化' : '有効化'}
 							</Button>
 						</form>
-						<form method="POST" action="?/deleteTemplate" use:enhance={() => async () => invalidateAll()}>
+						<form
+							method="POST"
+							action="?/deleteTemplate"
+							use:enhance={({ formElement, cancel }) => {
+								// #4023 横展開 (#4512): 削除は取り消せないので確認を 1 枚挟む。
+								if (
+									!passConfirm(
+										formElement,
+										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
+										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(template.name),
+									)
+								) {
+									cancel();
+									return;
+								}
+								return async () => invalidateAll();
+							}}
+						>
 							<input type="hidden" name="templateId" value={template.id} />
 							<Button
 								type="submit"
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
-								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
+								data-testid="admin-checklist-delete-{template.id}"
 							>
 								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
@@ -1548,6 +1628,41 @@ function getChildName(childId: ChildId): string {
 			{/each}
 		</div>
 	{/if}
+</Dialog>
+
+<!-- #4023 横展開 (#4512): テンプレート削除の確認ダイアログ (DESIGN.md §5 Dialog primitive) -->
+<Dialog
+	bind:open={confirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissConfirm();
+	}}
+	title={pendingConfirm?.title ?? ''}
+	size="md"
+	testid="admin-checklists-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingConfirm?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissConfirm}
+			data-testid="admin-checklists-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="danger"
+			size="sm"
+			onclick={acceptConfirm}
+			data-testid="admin-checklists-confirm-accept"
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
+		</Button>
+	</div>
 </Dialog>
 
 <style>

@@ -14,11 +14,14 @@ export async function findRedemptionRequestsByChild(childId: ChildId, tenantId: 
 	return getRepos().rewardRedemption.findRedemptionRequestsByChild(childId, tenantId);
 }
 
-/** #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。 */
+/**
+ * #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。
+ * #4683: rewardId=null は「取込先に該当ごほうびが無い」を表し、履歴は snapshot で復元される。
+ */
 export async function insertRedemptionForRestore(
 	input: {
 		childId: ChildId;
-		rewardId: string;
+		rewardId: string | null;
 		requestedAt: number;
 		quantity: number;
 		status: string;

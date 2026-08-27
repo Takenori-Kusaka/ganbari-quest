@@ -1,14 +1,15 @@
 import { error } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
+import type { ChildId } from '$lib/domain/ids';
+import { MARKETPLACE_LABELS } from '$lib/domain/labels';
+import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 // #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行した結果、
 // `marketplaceRegistry` / `rulePresetStrategy` / `RulePresetPayload` / `fail` / `redirect` は
 // 本 file で未使用となったため import 撤去。5 type 全て admin 側 `?import=` 経路に集約。
 // (#2366 / #2367 / #2368 / #2369 / ADR-0052 の Strategy / dispatcher は admin/rewards 等の
 //  受領先 page で参照される。本 marketplace 詳細 page では type 判別と load のみ。)
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
-import type { ChildId } from '$lib/domain/ids';
-import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findActivities } from '$lib/server/db/activity-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -28,12 +29,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const { type, itemId } = params;
 
 	if (!VALID_TYPES.includes(type as MarketplaceItemType)) {
-		error(404, 'コンテンツタイプが不正です');
+		error(404, MARKETPLACE_LABELS.errorInvalidType);
 	}
 
 	const item = getMarketplaceItem(type as MarketplaceItemType, itemId);
 	if (!item) {
-		error(404, 'コンテンツが見つかりません');
+		error(404, MARKETPLACE_LABELS.errorItemNotFound);
 	}
 
 	// #2136 MP-1 / #2137 MP-2: 認証済みなら一括追加 CTA を出すための情報をロード。
