@@ -6,6 +6,7 @@
 import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { CATEGORIES, CATEGORY_NAME_LIST } from './categories';
+import { CHEER_POINTS } from './constants/cheer-points';
 import {
 	CERTIFICATE_LEVEL_MILESTONES,
 	MONTHLY_HABIT_DAYS_THRESHOLD,
@@ -69,7 +70,9 @@ import {
 	CHALLENGE_TERMS,
 	CHECKLIST_ADMIN_TERMS,
 	CHECKOUT_TERMS,
+	CHEER_ADMIN_TERMS,
 	CHEER_TERMS,
+	CHILD_ADMIN_TERMS,
 	CHILD_SELECTION_TERMS,
 	CHILD_SHOP_TERMS,
 	CHILD_TERMS,
@@ -99,6 +102,7 @@ import {
 	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
+	POINTS_ADMIN_TERMS,
 	PRESET_ACTIVITY_TERMS,
 	PRICE_TERMS,
 	PWA_TERMS,
@@ -2233,84 +2237,137 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4659: /admin/cheer のガイド。画面の上から下 (送り先 → よくある応援 → 理由とポイント → 応援する →
+	// 履歴) の順に、実際に押す要素を spotlight する (旧ガイドは見出し 1 行だけを光らせていた)。
+	// P の範囲・既定値は CHEER_POINTS (domain/constants、cheer-service と同一定数)、例文は
+	// CHEER_LABELS.reasonPlaceholder を参照する。子供 0 人 / 履歴 0 件では該当 step が出ない。
 	adminCheer: {
-		title: '応援',
+		title: CHEER_TERMS.canonical,
 		steps: {
 			'cheer-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりに、その場で応援を届けるページです。理由と任意のボーナスポイントを添えて、すぐに気持ちを伝えられます。',
-				how: '送り先のお子さまを選び、応援する理由を入力して送るだけです。毎日の活動ポイントは活動タブから、その場でひと押ししたい応援はこちらから。',
+				what: `お子さまのがんばりに、その場で${CHEER_TERMS.canonical}を届けるページです。理由と任意のボーナスポイント（${CHEER_POINTS.min}〜${CHEER_POINTS.max}P、はじめは ${CHEER_POINTS.default}P）を添えて、すぐに気持ちを伝えられます。`,
+				how: `上から順に、送り先のお子さま → 「${CHEER_ADMIN_TERMS.presetTitle}」 → 理由・ポイント・カテゴリ・アイコン → 「${CHEER_TERMS.action}」 と並びます。毎日の活動ポイントは${NAV_ITEM_LABELS.activities}から、その場でひと押ししたい${CHEER_TERMS.canonical}はこちらから。`,
 				goal: '「親が見ていて、すぐに認めてくれる」体験になり、お子さまの継続のモチベーションを支えます。',
 			},
 			'cheer-select': {
 				title: '画面の見方（送り先を選ぶ）',
-				what: 'まず上部で、応援を送るお子さまを選びます。選んだお子さま宛てに応援が届きます。',
-				how: '1. お子さまのボタンをタップして選びます\n2. 選んだお子さまが強調表示されます',
-				goal: '兄弟姉妹がいても、応援したいお子さまを取り違えずに選べます。',
+				what: `まず「${CHEER_ADMIN_TERMS.selectChildTitle}」で、${CHEER_TERMS.canonical}を送るお子さまを選びます。選んだお子さま宛てに届きます。`,
+				how: '1. お子さまの名前のボタンを押す\n2. 選ばれたボタンの色が変わります',
+				goal: '兄弟姉妹がいても、送りたいお子さまを取り違えずに選べます。',
+			},
+			'cheer-templates': {
+				title: `よく使う操作（${CHEER_ADMIN_TERMS.presetTitle}）`,
+				what: `「${CHEER_ADMIN_TERMS.presetTitle}」のチップを 1 回押すだけで、理由・ポイント・カテゴリ・アイコンがまとめて入ります。`,
+				how: '1. あてはまるチップを押す\n2. 入った内容はそのまま直せます（ポイントだけ増やす等）',
+				goal: '毎回 7 段の入力をしなくても、数タップで応援を送れます。',
 			},
 			'cheer-reason': {
-				title: 'よく使う操作（応援を送る）',
-				what: '最もよく使うのが応援の送信です。応援する理由を入力し、ボーナスポイントやスタンプを添えて送ります。',
-				how: '1. 応援する理由を入力（例:「うんどうかいで 1いに なったよ！」）\n2. ボーナスポイント・カテゴリ・アイコンを選択\n3. 必要なら付随のスタンプ／メッセージを添える\n4. 「応援する」をタップ',
-				goal: 'お子さまの画面にメッセージとポイントが届きます。具体的に褒めると効果が高まります。',
-				tips: [
-					'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります',
-					'送った応援の履歴は、お子さまを選ぶと下部に表示されます（既読／未読も確認できます）',
-				],
+				title: '画面の見方（理由とポイントを整える）',
+				what: `理由（例:「${CHEER_ADMIN_TERMS.reasonPlaceholder}」）と、ボーナスポイント・カテゴリ・アイコン・付随スタンプを決めます。`,
+				how: `1. 理由を入力する（チップを使ったときは入力済み）\n2. ポイントを ${CHEER_POINTS.min}〜${CHEER_POINTS.max} の範囲で決める（はじめは ${CHEER_POINTS.default}P）\n3. カテゴリを選ぶ（お子さまのカテゴリ別のがんばりに積まれます）\n4. アイコンとスタンプを選ぶ（お子さまの画面と履歴に出ます）`,
+				goal: 'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります。',
+			},
+			'cheer-submit': {
+				title: `よく使う操作（${CHEER_TERMS.action}）`,
+				what: `いちばん下で内容を確認し、「${CHEER_TERMS.action}」を押すと送信されます。`,
+				how: `1. 理由・ポイント・カテゴリ・アイコンの確認欄を見る\n2. 「${CHEER_TERMS.action}」を押す（理由とポイントが未入力のうちは押せません）`,
+				goal: 'お子さまの画面にメッセージとポイントが届き、送信後は入力欄が空に戻ります。具体的に褒めると効果が高まります。',
+			},
+			'cheer-history': {
+				title: `画面の見方（最近の${CHEER_TERMS.canonical}）`,
+				what: `選んでいるお子さまに送った${CHEER_TERMS.canonical}が下に並びます。お子さまが読んだかどうかも分かります。`,
+				how: '1. 送った内容とポイントを確認する\n2. 他のお子さまの履歴は、上でそのお子さまを選ぶと表示されます',
+				goal: '「先週も同じことで応援した」と分かるので、ほめる場面が偏らずに済みます。',
 			},
 		},
 	},
+	// #4660: /admin/children のガイド。上から下 (追加する → お子さま一覧 → 詳細カード) の順に、
+	// 実際に押す要素を spotlight する (旧 step ② は一覧ではなく追加ボタン行を光らせ ③ と重複していた)。
+	// ボタン名 / タブ名は描画側と同じ atom (CHILD_ADMIN_TERMS)、上限人数は FREE_PLAN_QUOTA を参照。
+	// 詳細カードはお子さま選択時のみ描画されるため filterGuideStepsByTargetPresence で出し分ける。
 	adminChildren: {
-		title: `${CHILD_TERMS.honorific}管理`,
+		title: NAV_ITEM_LABELS.children,
 		steps: {
 			'children-intro': {
 				title: 'このページについて',
 				what: 'お子さまを登録・管理するページです。お子さまごとに専用の画面が作られ、活動・ポイント・レベルが個別に記録されます。',
-				how: 'まずはお子さまを 1 人登録するところから始めます。登録すると、年齢に合わせて画面表示（ひらがな／漢字など）が自動で切り替わります。',
+				how: `まずはお子さまを 1 人登録するところから始めます。登録後は画面右上の「← ${ADMIN_HOME_TERMS.switchToChild}」からその子の画面を開けます。`,
 				goal: '兄弟姉妹それぞれの専用画面ができ、テーマカラーで取り違えることなく一人ひとりの成長を見守れます。',
+				relatedLinks: [{ label: ADMIN_HOME_TERMS.switchToChild, href: '/switch' }],
+			},
+			'children-add': {
+				title: `よく使う操作（お子さまの登録）`,
+				what: `いちばん最初に行うのがお子さまの登録です。「${CHILD_ADMIN_TERMS.addButton}」を押すとフォームが開きます。`,
+				how: `1. 「${CHILD_ADMIN_TERMS.addButton}」を押す（もう一度押すと閉じます）\n2. ${CHILD_ADMIN_TERMS.nickname}を入力（ひらがな推奨）\n3. 誕生日を選ぶ（分からないときは${CHILD_ADMIN_TERMS.age}だけでも登録できます）\n4. ${CHILD_ADMIN_TERMS.themeColor}を選ぶ\n5. フォーム下の「${CHILD_ADMIN_TERMS.addButton}」で確定`,
+				goal: 'お子さま専用の画面が作られ、活動の記録・ポイント・レベルアップが個別に追跡されます。',
+				tips: [
+					`${PLAN_FULL_TERMS.free}で登録できるお子さまは ${FREE_PLAN_QUOTA.maxChildren} 人までです。上限に達すると「${CHILD_ADMIN_TERMS.limitReachedButton}」と表示され、上の案内からプランを変更できます`,
+					'誕生日を入れておくと、年齢に合わせて画面の文字表現が自動で変わります（3 歳 → 全部ひらがな、小学生 → 漢字まじり）',
+				],
+				relatedLinks: [{ label: 'プランを見る', href: '/admin/subscription' }],
 			},
 			'children-list': {
 				title: '画面の見方（お子さま一覧）',
-				what: 'このページには登録済みのお子さまのカードが並びます。各カードでポイント残高・レベル・カテゴリ別の活動状況を確認できます。',
-				how: '1. お子さまのカードをタップします\n2. プロフィール詳細が表示されます\n3. 「編集」で名前やテーマカラーを変更できます',
-				goal: 'お子さまが複数いても、それぞれの進捗や得意分野をひと目で見比べられます。',
+				what: `登録済みのお子さまのカードが並びます。カードには${CHILD_ADMIN_TERMS.nickname}・${CHILD_ADMIN_TERMS.age}・区分・テーマ・誕生日・ポイント残高が出ます。`,
+				how: '1. お子さまのカードを押す\n2. 下にそのお子さまの詳細が開きます',
+				goal: '兄弟姉妹の残高や設定を、このページだけで見比べられます。',
 			},
-			'children-add': {
-				title: 'よく使う操作（お子さまの追加）',
-				what: '最初に行うのがお子さまの追加です。名前・生年月日・テーマカラーを登録します。',
-				how: `1. 「＋ ${CHILD_TERMS.honorific}を追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ`,
-				goal: 'お子さま専用の画面が作成され、活動の記録・ポイント管理・レベルアップが個別に追跡されます。',
+			'children-detail': {
+				title: '画面の見方（詳細カード）',
+				what: `カードを押すと開く詳細に、${CHILD_ADMIN_TERMS.tabInfo} / ${CHILD_ADMIN_TERMS.tabStatus} / ${CHILD_ADMIN_TERMS.tabLogs} / ${CHILD_ADMIN_TERMS.tabAchievements} / ${CHILD_ADMIN_TERMS.tabVoice} の 5 つのタブがあります。`,
+				how: `1. タブを押して見たい内容に切り替える\n2. 「${CHILD_ADMIN_TERMS.editButton}」で${CHILD_ADMIN_TERMS.nickname}・誕生日・${CHILD_ADMIN_TERMS.themeColor}・写真・おたんじょうびボーナスを変える\n3. 登録をやめるときは同じ詳細の下にある「${CHILD_ADMIN_TERMS.deleteButton}」から（2 段階の確認があります）`,
+				goal: '名前やテーマを後から変えられ、活動の記録や実績もお子さまごとに振り返れます。',
 				tips: [
-					'年齢によって画面の文字表現が自動で変わります（3歳→全部ひらがな、小学生→漢字まじり）',
-					'テーマカラーは後から変更できます',
+					`「${CHILD_ADMIN_TERMS.tabVoice}」では、活動を記録したときに再生される親の声（最大 10 秒）を録音・登録できます`,
 				],
 			},
 		},
 	},
 	adminPoints: {
-		title: 'ポイント交換',
+		title: NAV_ITEM_LABELS.points,
 		steps: {
 			'points-intro': {
 				title: 'このページについて',
-				what: 'お子さまが活動で貯めたポイントを、おこづかいやご褒美に交換するページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。',
-				how: 'お子さまを選んで交換ポイント数を指定し、交換を確定します。交換すると残高が引かれ、履歴に記録されます。',
-				goal: '「500ポイント貯めたら交換しようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				what: `お子さまが活動で貯めたポイントを、おこづかい（現金）に${POINTS_ADMIN_TERMS.convertVerb}ページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。`,
+				how: `1. お子さまの残高カードを押す\n2. 下に開く${POINTS_ADMIN_TERMS.convert}フォームで金額を決めて確定する`,
+				goal: '「500ポイント貯めたらおこづかいにしようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				tips: [
+					`${REWARD_TERMS.canonical}との交換はこのページではなく、お子さまの画面の${REWARD_TERMS.shop}で行います（用意は${REWARD_TERMS.menu}から）`,
+					'円で表示したいときや 1P あたりの金額を変えたいときは、設定 > 活動・ポイント の「ポイント表示設定」から変更します（はじめは 1P = 1円）',
+				],
+				relatedLinks: [
+					{ label: 'ポイント表示設定を開く', href: '/admin/settings/activities#point-settings' },
+					{ label: `${REWARD_TERMS.menu}を開く`, href: '/admin/rewards' },
+				],
 			},
 			'points-balances': {
 				title: '画面の見方（残高の一覧）',
-				what: '上部にお子さまごとのポイント残高カードが並びます。カードをタップすると、そのお子さまの交換フォームが下に開きます。',
-				how: '1. 交換したいお子さまのカードをタップします\n2. 選んだお子さまの残高が強調表示されます',
-				goal: '誰がどれだけ貯めているかをひと目で把握でき、交換の対象をすぐ選べます。',
+				what: `お子さまごとのカードに「残高」と「${POINTS_ADMIN_TERMS.convertable}」が出ます。${POINTS_ADMIN_TERMS.convertable}は残高を ${POINTS_ADMIN_TERMS.presetUnit}P 単位に切り捨てた額で、「${POINTS_ADMIN_TERMS.tabPreset}」で選べる上限です。`,
+				how: `1. カードで残高と${POINTS_ADMIN_TERMS.convertable}を見比べる\n2. 端数まで${POINTS_ADMIN_TERMS.convertVerb}ときは「${POINTS_ADMIN_TERMS.tabManual}」を使う（1P 単位）`,
+				goal: '誰がどれだけ貯めているかをひと目で把握でき、いくらまで渡せるかがすぐ分かります。',
+				tips: [
+					`残高が ${POINTS_ADMIN_TERMS.presetUnit}P に満たないお子さまはカードを押しても${POINTS_ADMIN_TERMS.convert}できる分がありません`,
+				],
 			},
 			'points-convert': {
-				title: 'よく使う操作（ポイントの交換）',
-				what: '最もよく使うのがポイントの交換です。残高カードをタップすると、その下に交換フォームが開き、「かんたん」「じぶんで」「レシート」の3つの方法から選べます。',
-				how: '1. お子さまの残高カードをタップ\n2. 交換方法のタブを選択\n3. 交換ポイント数を指定（残高が足りない場合はグレーアウト）\n4. 「交換する」をタップで確定',
-				goal: 'お子さまの残高から交換分が引かれ、交換履歴に記録されます。定額おこづかいにも、ご褒美交換にも使えます。',
-				tips: [
-					'交換レートは設定画面で変更できます（例: 100ポイント = 100円）',
-					'画面下部の交換りれきで、月別の交換実績を確認できます',
-				],
+				title: `よく使う操作（おこづかいへの${POINTS_ADMIN_TERMS.convert}）`,
+				what: `残高カードを押すと、その下に${POINTS_ADMIN_TERMS.convert}フォームと「${POINTS_ADMIN_TERMS.historyTitle}」が開きます。`,
+				how: `1. ${POINTS_ADMIN_TERMS.convertVerb}お子さまのカードを押す\n2. 「${POINTS_ADMIN_TERMS.tabPreset}」「${POINTS_ADMIN_TERMS.tabManual}」「${POINTS_ADMIN_TERMS.tabReceipt}」から入力方法を選ぶ\n3. 金額を決めて、下の「〇〇 を${POINTS_ADMIN_TERMS.convertVerb}」（円で表示しているときは「〇〇 を渡す」）を押す`,
+				goal: 'お子さまの残高から その分が引かれ、りれきに記録されます。',
+				tips: ['円で表示しているときは、画面の案内どおり実際のお金をお子さまにお渡しください'],
+			},
+			'points-modes': {
+				title: `画面の見方（3 つの入力方法）`,
+				what: `「${POINTS_ADMIN_TERMS.tabPreset}」は ${POINTS_ADMIN_TERMS.presetUnit}P 単位のボタンから選ぶ方法、「${POINTS_ADMIN_TERMS.tabManual}」は 1P 単位で自分で入れる方法、「${POINTS_ADMIN_TERMS.tabReceipt}」は買ったものの領収書を撮って金額を読み取る方法です。`,
+				how: `1. 「${POINTS_ADMIN_TERMS.tabPreset}」— ${POINTS_ADMIN_TERMS.convertable}を超える金額のボタンは出ません\n2. 「${POINTS_ADMIN_TERMS.tabManual}」— 残高を超えると「残高を超えています」と出ます。「${POINTS_ADMIN_TERMS.maxButton}」で残高いっぱいまで入ります\n3. 「${POINTS_ADMIN_TERMS.tabReceipt}」— 撮影 → 読み取り → 金額を直して確定します`,
+				goal: '「1,000 円ぴったり渡す」「本を買った分だけ引く」など、ご家庭の渡し方に合わせて選べます。',
+			},
+			'points-history': {
+				title: `画面の見方（${POINTS_ADMIN_TERMS.historyTitle}）`,
+				what: `選んでいるお子さまの${POINTS_ADMIN_TERMS.convert}記録が下にまとまります。「今月の合計」「累計」と、${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} の切り替えがあります。`,
+				how: `1. ${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} を押して期間を切り替える\n2. 他のお子さまの記録は、上のカードでそのお子さまを選ぶと表示されます`,
+				goal: '「今月はいくら渡したか」を後から確認でき、渡し忘れ・二重渡しを防げます。',
 			},
 		},
 	},
@@ -4659,10 +4716,7 @@ export const POINTS_LABELS = {
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
 	// 残高カード
-	// #4716: 旧「変換可能: 0P」は「かんたん」タブ (単位切り上げ) だけの値なのに、
-	//   同じ画面の「自由入力」タブでは 1P から変換できるため矛盾して読めた。
-	//   どちらのタブの話かを名前に入れる。
-	convertableLabel: (amount: string) => `かんたん変換ぶん: ${amount}`,
+	convertableLabel: (amount: string) => `${POINTS_ADMIN_TERMS.convertable}: ${amount}`,
 
 	// 変換フォーム
 	// #4716: 同じ画面に「変換可能」「変換P数」(漢字) が並ぶのに見出しだけひらがなだった。
@@ -4671,9 +4725,9 @@ export const POINTS_LABELS = {
 	currencyModeHint: '💡 変換した金額を実際にお子さまへお渡しください',
 
 	// モードタブ
-	tabPreset: 'かんたん',
-	tabManual: '自由入力',
-	tabReceipt: '領収書',
+	tabPreset: POINTS_ADMIN_TERMS.tabPreset,
+	tabManual: POINTS_ADMIN_TERMS.tabManual,
+	tabReceipt: POINTS_ADMIN_TERMS.tabReceipt,
 
 	// プリセットモード
 	presetLabel: (unit: string, minAmount: string) => `変換${unit}数（${minAmount}単位）`,
@@ -4687,7 +4741,7 @@ export const POINTS_LABELS = {
 	manualHintCurrency: (current: string) => `残高: ${current}`,
 	manualHintPoints: (current: string) => `1P = 1円 / 残高: ${current}`,
 	manualPlaceholder: '金額を入力',
-	manualMaxButton: '全額変換',
+	manualMaxButton: POINTS_ADMIN_TERMS.maxButton,
 
 	// 領収書モード
 	// #3694: OCR 画像は base64 JSON body で送るため、AWS 本番は Function URL 6MB request cap に
@@ -4756,12 +4810,12 @@ export const POINTS_LABELS = {
 	resultBalance: (balance: string) => `残高: ${balance}`,
 
 	// 変換履歴
-	historyTitle: 'おこづかい変換りれき',
+	historyTitle: POINTS_ADMIN_TERMS.historyTitle,
 	historySummaryThisMonth: '今月の合計',
 	historySummaryAllTime: '累計',
-	historyFilterThisMonth: '今月',
-	historyFilterLastMonth: '先月',
-	historyFilterAll: '全期間',
+	historyFilterThisMonth: POINTS_ADMIN_TERMS.historyFilterThisMonth,
+	historyFilterLastMonth: POINTS_ADMIN_TERMS.historyFilterLastMonth,
+	historyFilterAll: POINTS_ADMIN_TERMS.historyFilterAll,
 	historyEmpty: 'この期間の変換履歴はありません',
 } as const;
 
@@ -6139,12 +6193,12 @@ export const CHEER_LABELS = {
 	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
 	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
-	selectChildTitle: `1. ${CHILD_TERMS.honorific}を選択`,
+	selectChildTitle: CHEER_ADMIN_TERMS.selectChildTitle,
 	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
-	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+	reasonPlaceholder: CHEER_ADMIN_TERMS.reasonPlaceholder,
 	reasonHint: '100文字以内',
 	pointsTitle: '3. ボーナスポイント',
-	pointsHint: '1〜10000の範囲で入力',
+	pointsHint: `${CHEER_POINTS.min}〜${CHEER_POINTS.max}の範囲で入力`,
 	categoryTitle: '4. カテゴリ',
 	iconTitle: '5. アイコン',
 	iconHint: '絵文字を入れてください',
@@ -6168,7 +6222,7 @@ export const CHEER_LABELS = {
 	noChildrenTitle: `まず${CHILD_TERMS.honorific}を登録してください`,
 	noChildrenDesc: `「${CHILD_TERMS.honorific}」タブから登録できます`,
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
-	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	presetTitle: CHEER_ADMIN_TERMS.presetTitle,
 	// 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥)
 	// 親が現実イベント後に承認する 1 タップ操作（ADR-0012 anti-engagement / 滞在ゼロ）。
 	// シーズン期間中の自動配信は不採用、家族コミュニケーション wedge 強化。
@@ -6354,20 +6408,21 @@ export const SETUP_CHILDREN_LABELS = {
 	ageModeSuffix: 'モード',
 	// #4716: 保護者画面の呼称は honorific に寄せる
 	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
-	// #4512 / #4716 item 15: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
-	nicknameLabel: 'ニックネーム',
+	// #4512: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	nicknamePlaceholder: 'たろうくん',
-	ageLabel: '年齢',
+	ageLabel: CHILD_ADMIN_TERMS.age,
 	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorNicknameRequired: 'ニックネームを入力してください',
 	errorAgeRange: '年齢は0〜18で入力してください',
+	// #4716: 保護者画面の呼称は honorific に寄せる (DESIGN.md §6)
 	errorNoChildren: `1人以上の${CHILD_TERMS.honorific}を登録してください`,
-	themeColorLabel: 'テーマカラー',
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
 	submittingLabel: '登録中...',
-	addButton: '追加する',
+	addButton: CHILD_ADMIN_TERMS.addButton,
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
 	// #4696: 全削除後もこの画面に来るため、バックアップからの復元導線を出す
@@ -6878,14 +6933,14 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	deleteConfirmText: `この${CHILD_TERMS.honorific}を本当に削除しますか？`,
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',
-	deleteOpenButton: `🗑 この${CHILD_TERMS.honorific}を削除`,
-	editButton: '✏️ 編集',
+	deleteOpenButton: CHILD_ADMIN_TERMS.deleteButton,
+	editButton: CHILD_ADMIN_TERMS.editButton,
 	// Tabs
-	tabInfo: '📋 基本情報',
-	tabStatus: '📊 ステータス',
-	tabLogs: '📝 活動記録',
-	tabAchievements: '🏆 実績',
-	tabVoice: '📢 ボイス',
+	tabInfo: CHILD_ADMIN_TERMS.tabInfo,
+	tabStatus: CHILD_ADMIN_TERMS.tabStatus,
+	tabLogs: CHILD_ADMIN_TERMS.tabLogs,
+	tabAchievements: CHILD_ADMIN_TERMS.tabAchievements,
+	tabVoice: CHILD_ADMIN_TERMS.tabVoice,
 	// Info tab
 	infoAgeUnit: '歳',
 	infoAgeLabel: '年齢',
@@ -6940,13 +6995,14 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
 	cancelButton: 'キャンセル',
-	limitReachedButton: '上限に達しています',
+	limitReachedButton: CHILD_ADMIN_TERMS.limitReachedButton,
+	// #4716: 保護者画面の呼称は honorific に寄せる
 	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	// #4716 item 15: 画面直書きだった placeholder を SSOT へ
 	nicknamePlaceholder: '例: たろうくん',
-	nicknameLabel: 'ニックネーム',
 	birthdayHint: '設定すると年齢が自動計算されます',
-	themeColorLabel: 'テーマカラー',
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	addButton: '追加する',
 	ageLabel: '年齢',
 	ageLabelAutoCalc: '年齢（誕生日から自動計算）',

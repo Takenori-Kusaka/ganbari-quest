@@ -1345,6 +1345,82 @@ export const CHECKLIST_ADMIN_TERMS = {
 } as const;
 
 // ============================================================
+// POINTS_ADMIN_TERMS — ポイント管理 (/admin/points) 画面の用語 atom (#4658)
+// ============================================================
+//
+// 変換フォームのモードタブ名 / 確定ボタンの語 / 履歴見出し / 「変換可能」の語。画面側は「変換」で
+// 統一されているのにガイドが「交換」と書き、タブ名も旧称 (じぶんで / レシート) だったため、
+// 描画側 (POINTS_LABELS) とガイド (PAGE_GUIDE_LABELS.adminPoints) の双方が本 atom を参照する。
+export const POINTS_ADMIN_TERMS = {
+	/** 本画面の操作 (「交換」ではない。ごほうび交換は子供画面の shop) */
+	convert: '変換',
+	convertVerb: '変換する',
+	/**
+	 * 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値)。
+	 * #4716: 旧「変換可能」は「かんたん」タブだけの上限なのに、同じ画面の「自由入力」は
+	 * 1P から変換できるため「それ以外は変換できない」と矛盾して読めた。どちらのタブの話かを名前に入れる。
+	 */
+	convertable: 'かんたん変換ぶん',
+	/** 変換フォームのモードタブ */
+	tabPreset: 'かんたん',
+	tabManual: '自由入力',
+	tabReceipt: '領収書',
+	/** 自由入力モードの全額ボタン */
+	maxButton: '全額変換',
+	/** 履歴セクション */
+	historyTitle: 'おこづかい変換りれき',
+	historyFilterThisMonth: '今月',
+	historyFilterLastMonth: '先月',
+	historyFilterAll: '全期間',
+	/** かんたんモードの変換単位 (P)。実装 (+page.svelte の preset 選択肢) と同値 */
+	presetUnit: 500,
+} as const;
+
+// ============================================================
+// CHEER_ADMIN_TERMS — 応援 (/admin/cheer) 画面の見出し・例文 atom (#4659)
+// ============================================================
+//
+// 応援フォームの番号付き見出しと理由の例文。描画側 (CHEER_LABELS) とページガイド
+// (PAGE_GUIDE_LABELS.adminCheer) の双方が参照し、ガイドの例文が画面の placeholder と
+// 1 文字も違わないことを構造的に保つ (旧ガイドは語尾が「なったよ！」で画面は「なったね！」だった)。
+export const CHEER_ADMIN_TERMS = {
+	/** 1 段目の見出し。#4716: 保護者しか見ない画面なので呼称は honorific に揃える */
+	selectChildTitle: `1. ${CHILD_TERMS.honorific}を選択`,
+	/** 定型文チップの見出し */
+	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	/** 理由入力の placeholder (ガイドの例文もこの値を使う) */
+	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+} as const;
+
+// ============================================================
+// CHILD_ADMIN_TERMS — こども管理 (/admin/children) 画面のボタン名・タブ名 atom (#4660)
+// ============================================================
+//
+// 追加フォームの実ボタン名 / 入力項目名 / 詳細カードのタブ名。ガイドが「＋ こどもを追加」「保存」
+// のような画面に無いボタン名を案内していたため、描画側 (ADMIN_CHILDREN_PAGE_LABELS /
+// CHILD_PROFILE_CARD_LABELS) とページガイドの双方が本 atom を参照する。
+export const CHILD_ADMIN_TERMS = {
+	/** 追加フォームを開くボタン / フォーム確定ボタン (同じ「追加する」) */
+	addButton: '追加する',
+	/** 上限到達時の disabled ボタン */
+	limitReachedButton: '上限に達しています',
+	/** 追加フォームの入力項目 */
+	nickname: 'ニックネーム',
+	themeColor: 'テーマカラー',
+	age: '年齢',
+	/** 詳細カードの操作 */
+	editButton: '✏️ 編集',
+	/** #4716: 保護者画面の呼称は honorific に揃える (ガイドも本 atom を引くので同時に動く) */
+	deleteButton: `🗑 この${CHILD_TERMS.honorific}を削除`,
+	/** 詳細カードのタブ (絵文字込みの画面表記) */
+	tabInfo: '📋 基本情報',
+	tabStatus: '📊 ステータス',
+	tabLogs: '📝 活動記録',
+	tabAchievements: '🏆 実績',
+	tabVoice: '📢 ボイス',
+} as const;
+
+// ============================================================
 // REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
 // ============================================================
 //
