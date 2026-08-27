@@ -25,6 +25,7 @@
 //   [B5d] email 前後空白は trim 一致扱い (#3742 service `trim().toLowerCase()` parity)
 //   [B5e] email 未束縛 + userEmailVerified=false → 受諾可 (束縛 opt-in と同原則、#3742)
 //   [B7] consents: append-only 表に insert できる (GRANT/repo 束縛 = fitness#2 は repo 実装 PR)
+//   [B8] メンバー上限 (#4723): txn 内で数え直し、超過なら MEMBER_LIMIT_REACHED + 全 rollback
 
 import { PGlite } from '@electric-sql/pglite';
 import { sql } from 'drizzle-orm';
@@ -281,6 +282,69 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 		expect(result.ok).toBe(true);
 		expect((await inviteStatus(id)).status).toBe('accepted');
 		expect(await membershipCount(ACCEPTOR)).toBe(1);
+	});
+
+	// #4723: 上限は **txn の中で数え直す**。service 層の事前 read だけでは、残り 1 枠に対する
+	// 2 通の同時受諾が両方とも「まだ空いている」を見て通り、上限を超える。
+	it('[B8] メンバー上限に達していたら MEMBER_LIMIT_REACHED + invite も rollback (#4723)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000000008';
+		const user = '20000000-0000-4000-8000-000000000008';
+		await seedInvite({ id });
+		// 既に 1 人所属している家族に、上限 1 の状態で受諾を試みる
+		await db.execute(sql`
+			INSERT INTO memberships (family_id, user_id, role, joined_at)
+			VALUES (${FAMILY}, ${INVITER}, 'owner', ${NOW})
+		`);
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'parent@example.com',
+			now: NOW,
+			maxMembers: 1,
+		});
+
+		expect(result).toEqual({ ok: false, reason: 'MEMBER_LIMIT_REACHED' });
+		// invite の accepted 化ごと rollback される (招待が無駄に消費されない)
+		expect((await inviteStatus(id)).status).toBe('pending');
+		expect(await membershipCount(user)).toBe(0);
+	});
+
+	it('[B8] 上限に余裕があれば従来どおり受諾できる (#4723)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000000009';
+		const user = '20000000-0000-4000-8000-000000000009';
+		await seedInvite({ id });
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'parent@example.com',
+			now: NOW,
+			maxMembers: 4,
+		});
+
+		expect(result.ok).toBe(true);
+		expect(await membershipCount(user)).toBe(1);
+	});
+
+	it('[B8] 上限 null (無制限) なら数え直しもしない (#4723)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-00000000000a';
+		const user = '20000000-0000-4000-8000-00000000000a';
+		await seedInvite({ id });
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'parent@example.com',
+			now: NOW,
+			maxMembers: null,
+		});
+
+		expect(result.ok).toBe(true);
+		expect(await membershipCount(user)).toBe(1);
 	});
 
 	it('[B2] 失効 invite → INVALID_OR_EXPIRED (retry 禁止の業務失敗、状態不変)', async () => {

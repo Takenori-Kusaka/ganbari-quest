@@ -109,7 +109,7 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 	runner: TransactionRunner<TTx>,
 	input: AcceptInviteInput,
 ): Promise<AcceptInviteResult> {
-	const { inviteId, userId, userEmail, userEmailVerified, now } = input;
+	const { inviteId, userId, userEmail, userEmailVerified, now, maxMembers } = input;
 	try {
 		return await runner.runInTransaction(async (tx) => {
 			// 状態遷移と条件判定を 1 文に畳む (§6.6): pending かつ未失効の行だけが accepted 化される。
@@ -134,35 +134,47 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 				}
 			}
 
-			// #4704: **受諾側でも席数を数える。** 上限検査が発行時だけだと、
-			// (a) 発行後にプランが下がった / (b) 上限ぎりぎりで複数の招待が同時に受諾された
-			// 場合に上限を超えられる。同一 txn 内で数えることで、超過した受諾だけが確実に落ちる
-			// (40001 は runner が再実行するので、勝った 1 件だけが通る)。
+			// #4723: メンバー上限は **txn の中で数え直す**。service 層の事前 read だけでは、
+			// 残り 1 枠に対する 2 通の同時受諾が両方とも「まだ空いている」を見て通ってしまう。
+			// DSQL は OCC (楽観的並行制御) なので、同じ family の membership を触る txn が
+			// 競合すれば 40001 で片方が再実行され、数え直した結果で正しく弾かれる。
+			//
+			// #4704: 上限そのものを呼び出し側が渡さなかった場合は **txn の中で導く**
+			// (発行時検査だけだと、発行後の降格 / 同時受諾で超過できた)。呼び出し側が渡した
+			// ときはそれを使う — プラン解決は service 層の SSOT (`resolveFullPlanTier`) が
+			// 環境依存の判断まで含めて持つため、受諾側で上書きしない。
 			//
 			// fitness#7 (§8) 整合: 席数検査を helper 関数に切り出さず inline に置く。work 内の
 			// await は tx-bound call だけを許す規約であり、helper 経由だと transitive await を
 			// 静的に追えないため。判定 (プラン導出・比較) は同期処理で await を挟まない。
-			const contract = await tx.execute(sql`
-				SELECT status, plan, stripe_subscription_id FROM families WHERE family_id = ${invite.family_id}
-			`);
-			const family = contract.rows[0] as FamilyContractRow | undefined;
-			if (!family) throw new AcceptInviteAbort('INVALID_OR_EXPIRED');
-			// トライアル中は発行側 (`resolveFullPlanTier`) が trial の tier で上限を見るので、
-			// 受諾側も同じ行を読む。読まないと「発行は通るのに受諾だけ落ちる」ずれになる。
-			const trial = await tx.execute(sql`
-				SELECT end_date, tier, stripe_subscription_id FROM trial_history
-				WHERE family_id = ${invite.family_id}
-				ORDER BY created_at DESC, trial_id DESC
-				LIMIT 1
-			`);
-			const latestTrial = trial.rows[0] as TrialRow | undefined;
-			const maxSeats = getPlanLimits(planTierOfContract(family, latestTrial)).maxFamilyMembers;
-			if (maxSeats !== null) {
-				const counted = await tx.execute(sql`
-					SELECT count(*)::int AS seats FROM memberships WHERE family_id = ${invite.family_id}
+			let effectiveMaxMembers: number | null;
+			if (maxMembers !== undefined) {
+				effectiveMaxMembers = maxMembers;
+			} else {
+				const contract = await tx.execute(sql`
+					SELECT status, plan, stripe_subscription_id FROM families WHERE family_id = ${invite.family_id}
 				`);
-				const seats = Number((counted.rows[0] as { seats: number } | undefined)?.seats ?? 0);
-				if (seats >= maxSeats) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
+				const family = contract.rows[0] as FamilyContractRow | undefined;
+				if (!family) throw new AcceptInviteAbort('INVALID_OR_EXPIRED');
+				// トライアル中は発行側 (`resolveFullPlanTier`) が trial の tier で上限を見るので、
+				// 受諾側も同じ行を読む。読まないと「発行は通るのに受諾だけ落ちる」ずれになる。
+				const trial = await tx.execute(sql`
+					SELECT end_date, tier, stripe_subscription_id FROM trial_history
+					WHERE family_id = ${invite.family_id}
+					ORDER BY created_at DESC, trial_id DESC
+					LIMIT 1
+				`);
+				const latestTrial = trial.rows[0] as TrialRow | undefined;
+				effectiveMaxMembers = getPlanLimits(
+					planTierOfContract(family, latestTrial),
+				).maxFamilyMembers;
+			}
+			if (typeof effectiveMaxMembers === 'number') {
+				const counted = await tx.execute(sql`
+					SELECT count(*)::int AS count FROM memberships WHERE family_id = ${invite.family_id}
+				`);
+				const current = Number((counted.rows[0] as { count: number } | undefined)?.count ?? 0);
+				if (current >= effectiveMaxMembers) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
 			}
 
 			await tx.execute(sql`
