@@ -10756,9 +10756,10 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
 	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}はご家族合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで＝オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced}までです）。`,
-	// #4713: 招待ロールは 保護者 / こども の 2 択で、閲覧専用ロールは存在しない。
-	//   読み取り専用の共有は premium の VIEWER_LINK_TERMS.name (閲覧リンク) が担う。
-	k108: `招待されたメンバーは保護者として、お子さまの記録の確認と活動の記録ができます（アカウントを持たずに記録を見せたい場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。閲覧専用です）。`,
+	// #4713: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
+	//   読み取り専用の共有は premium の閲覧リンク (別機能)。文面は #4500 の直近決定を採り、
+	//   「閲覧リンク」だけ VIEWER_LINK_TERMS atom 経由に寄せる (値は同一)。
+	k108: `招待されたメンバーは${PARENT_TERMS.honorific}として、${CHILD_TERMS.honorific}の記録の確認と活動の記録ができます（アカウントを持たずに記録を見せたい場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。閲覧専用です）。`,
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	k111: 'スマホ・タブレット・PC、何台まで使えますか？',
