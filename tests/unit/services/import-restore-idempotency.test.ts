@@ -5,7 +5,7 @@
 // 検証する統一契約 (src/lib/server/db/restore-idempotency.ts が SSOT):
 //   1. natural-key 重複 (challenge auto:weekly / stampCard / stampEntry / certificate /
 //      activityPref) は skip され imported に加算されない (count 偽装 #2263 class 防止)
-//   2. content-dedup (parentMessage / siblingCheer) は merge mode で同一 content の重複を skip、
+//   2. content-dedup (parentMessage) は merge mode で同一 content の重複を skip、
 //      verbatim (cutover #3653) では bypass される
 //   3. verbatim 値検証 (#3414/#3420): 未知 messageType / 未知 stampCode / 不正 sentAt は
 //      mode 不問で skip + warning 可視化
@@ -64,7 +64,7 @@ beforeEach(() => {
 
 /** seed → export → 重複/不正行を注入した「corrupted backup」を作る共通 arrange。 */
 async function buildCorruptedBackup() {
-	// --- seed: 2 children (cheer は from/to 2 child 必要) ---
+	// --- seed: 2 children ---
 	testDb.insert(schema.children).values({ nickname: 'ゆうき', age: 8, theme: 'blue' }).run(); // id=1
 	testDb.insert(schema.children).values({ nickname: 'さくら', age: 6, theme: 'pink' }).run(); // id=2
 	seedChildActivities(testDb, 1, [{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' }]);
@@ -156,18 +156,6 @@ async function buildCorruptedBackup() {
 		T,
 	);
 
-	// きょうだいおうえん (#3420: content-dedup 対象、from=2 → to=1)
-	await getRepos().siblingCheer.insertForRestore(
-		{
-			fromChildId: asChildId(2),
-			toChildId: asChildId(1),
-			stampCode: 'ganbare',
-			sentAt: '2026-02-11T10:00:00Z',
-			shownAt: null,
-		},
-		T,
-	);
-
 	// --- export → corrupted backup 化 (重複 + 不正行を注入) ---
 	const data = await exportFamilyData({ tenantId: T });
 	expect(data.data.childChallenges.length).toBe(1);
@@ -175,7 +163,6 @@ async function buildCorruptedBackup() {
 	expect(data.data.certificates.length).toBe(1);
 	expect(data.data.activityPrefs.length).toBe(1);
 	expect(data.data.parentMessages.length).toBe(1);
-	expect(data.data.siblingCheers.length).toBe(1);
 
 	// natural-key 重複 (手編集 backup 相当): 同 (child, week) auto:weekly / 同 (child, week) card /
 	// 同 (card, slot) entry / 同 (child, type) certificate / 同 (child, activity) pref
@@ -185,8 +172,7 @@ async function buildCorruptedBackup() {
 	const cert0 = data.data.certificates[0];
 	const pref0 = data.data.activityPrefs[0];
 	const msg0 = data.data.parentMessages[0];
-	const cheer0 = data.data.siblingCheers[0];
-	if (!challenge0 || !card0 || !entry0 || !cert0 || !pref0 || !msg0 || !cheer0) {
+	if (!challenge0 || !card0 || !entry0 || !cert0 || !pref0 || !msg0) {
 		throw new Error('seed export rows missing');
 	}
 	card0.entries.push({ ...entry0 }); // 同 card 内 slot 重複
@@ -197,8 +183,6 @@ async function buildCorruptedBackup() {
 	// content 重複 (同一 backup 再取込相当) + 不正行 (改竄 backup 相当、#3414/#3420 値検証)
 	data.data.parentMessages.push({ ...msg0 });
 	data.data.parentMessages.push({ ...msg0, messageType: 'evil_type' });
-	data.data.siblingCheers.push({ ...cheer0 });
-	data.data.siblingCheers.push({ ...cheer0, stampCode: 'hacked_code' });
 
 	return data;
 }
@@ -226,11 +210,8 @@ describe('#3394 restore 冪等 guard 統一 (corrupted backup → skip + count �
 		// --- content-dedup + 値検証 (入力 3 = 正 1 + content 重複 1 + 不正 1) ---
 		expect(result.parentMessagesImported, 'message imported').toBe(1);
 		expect(result.parentMessagesSkipped, 'message skipped').toBe(2);
-		expect(result.siblingCheersImported, 'cheer imported').toBe(1);
-		expect(result.siblingCheersSkipped, 'cheer skipped').toBe(2);
 		// 不正行は warning で可視化 (silent skip 禁止、#3414/#3420)
 		expect(result.warnings.some((w) => w.includes('evil_type'))).toBe(true);
-		expect(result.warnings.some((w) => w.includes('hacked_code'))).toBe(true);
 
 		// --- count 恒等式 (入力件数 = imported + skipped、silent loss 検出) ---
 		const identity: Array<[string, number, number, number]> = [
@@ -269,12 +250,6 @@ describe('#3394 restore 冪等 guard 統一 (corrupted backup → skip + count �
 				data.data.parentMessages.length,
 				result.parentMessagesImported,
 				result.parentMessagesSkipped,
-			],
-			[
-				'siblingCheers',
-				data.data.siblingCheers.length,
-				result.siblingCheersImported,
-				result.siblingCheersSkipped,
 			],
 		];
 		for (const [name, input, imported, skipped] of identity) {
@@ -322,7 +297,6 @@ describe('#3394 restore 冪等 guard 統一 (corrupted backup → skip + count �
 		expect(second.certificatesImported).toBe(1);
 		expect(second.activityPrefsImported).toBe(1);
 		expect(second.parentMessagesImported).toBe(1);
-		expect(second.siblingCheersImported).toBe(1);
 	});
 
 	it('verbatim (cutover #3653): content-dedup は bypass されるが natural-key guard と値検証は維持される', async () => {
@@ -334,8 +308,6 @@ describe('#3394 restore 冪等 guard 統一 (corrupted backup → skip + count �
 		// content 重複は正当な複数行として全復元 (dedup bypass)。不正行 (値検証) のみ skip。
 		expect(result.parentMessagesImported, 'verbatim: message 重複を保全').toBe(2);
 		expect(result.parentMessagesSkipped, 'verbatim: 不正行のみ skip').toBe(1);
-		expect(result.siblingCheersImported, 'verbatim: cheer 重複を保全').toBe(2);
-		expect(result.siblingCheersSkipped, 'verbatim: 不正行のみ skip').toBe(1);
 
 		// natural-key guard は DB 一意制約の物理事実のため verbatim でも維持 (二重化不能)。
 		expect(result.childChallengesImported).toBe(1);

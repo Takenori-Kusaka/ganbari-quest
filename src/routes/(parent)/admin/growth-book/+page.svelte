@@ -134,22 +134,32 @@ function handlePrint() {
 		<h3 class="text-base font-bold text-[var(--color-text-primary)]">{GROWTH_BOOK_LABELS.monthlyTitle}</h3>
 		{#each book.months as month (month.month)}
 			{@const hasActivity = month.totalActivities > 0}
+			<!-- #4697: まだ来ていない月は数値を出さない。年度は 4 月〜翌 3 月を必ず 12 行並べるため
+			     未来月の枠ができるが、そこに数字が入ると「未来の記録」になってしまう -->
 			<Card variant="default" padding="sm">
 				{#snippet children()}
-				<div class="flex items-center justify-between">
+				<div class="flex items-center justify-between" data-testid="growth-book-month-{month.month}">
 					<div class="flex items-center gap-3">
-						<span class="text-2xl">{hasActivity ? '✅' : '⬜'}</span>
+						<span class="text-2xl">{month.isFuture ? '⋯' : hasActivity ? '✅' : '⬜'}</span>
 						<div>
 							<p class="font-bold text-sm text-[var(--color-text-primary)]">{formatMonth(month.month)}</p>
 							<p class="text-xs text-[var(--color-text-muted)]">
-								{GROWTH_BOOK_LABELS.monthlyActivities(month.totalActivities)} / {GROWTH_BOOK_LABELS.monthlyDays(month.daysWithActivity)}
+								{#if month.isFuture}
+									{GROWTH_BOOK_LABELS.monthlyFutureNote}
+								{:else}
+									{GROWTH_BOOK_LABELS.monthlyActivities(month.totalActivities)} / {GROWTH_BOOK_LABELS.monthlyDays(month.daysWithActivity)}
+								{/if}
 							</p>
 						</div>
 					</div>
 					<div class="text-right">
-						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">{month.totalPoints.toLocaleString()}pt</p>
-						{#if month.maxStreakDays > 0}
-							<p class="text-xs text-orange-500">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
+						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">
+							{month.isFuture
+								? GROWTH_BOOK_LABELS.valueNotYet
+								: `${month.totalPoints.toLocaleString()}pt`}
+						</p>
+						{#if !month.isFuture && month.maxStreakDays > 0}
+							<p class="text-xs text-[var(--color-text-warning-strong)]">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>
 						{/if}
 					</div>
 				</div>
