@@ -224,13 +224,32 @@ export function getHistoryCutoffDate(tier: PlanTier): string | null {
 }
 
 /**
+ * 履歴を絞る JST 暦日の範囲 (両端含む)。`applyRetentionFilter` の戻り値の形。
+ *
+ * 履歴取得 service (`getActivityLogs` / `getChildChallengeRecords` /
+ * `getRedemptionRequestsForChild`) はこれを **必須引数** で受け取る。省略可能にすると
+ * 渡し忘れが「全期間を返す」= 料金表が約束した保持期間の空洞化として**静かに**成立するため
+ * (#4763 で実際に達成タブが、それ以前から交換タブがこの状態だった)。
+ */
+export interface RetentionRange {
+	from?: string;
+	to?: string;
+}
+
+/**
+ * 保持期間で絞らないことを**明示**するための range。
+ *
+ * 履歴一覧ではない用途 (例: ショップの「このごほうびの最新申請状態」) で使う。
+ * 空オブジェクト `{}` を直接書くと「渡し忘れ」と区別がつかないため、opt-out は必ず
+ * 本定数を経由させる (`grep NO_RETENTION_FILTER` で全 opt-out を数えられる状態を保つ)。
+ */
+export const NO_RETENTION_FILTER: RetentionRange = Object.freeze({});
+
+/**
  * 日付範囲オプションに保持期間フィルタを適用する
  * from が cutoff より前の場合、cutoff に上書き
  */
-export function applyRetentionFilter(
-	tier: PlanTier,
-	options: { from?: string; to?: string } = {},
-): { from?: string; to?: string } {
+export function applyRetentionFilter(tier: PlanTier, options: RetentionRange = {}): RetentionRange {
 	const cutoff = getHistoryCutoffDate(tier);
 	if (cutoff === null) return options;
 	const from = options.from && options.from > cutoff ? options.from : cutoff;
