@@ -16,7 +16,9 @@ let showHidden = $state(false);
 </script>
 
 {#if activities.length > 0}
-	<div class="mt-6">
+	<!-- data-tutorial: ページガイド (#4655) が「非表示の活動」セクションを spotlight する anchor。条件付き描画のため
+	     ガイド側は filterGuideStepsByTargetPresence で描画時のみ step を出す。 -->
+	<div class="mt-6" data-tutorial="hidden-activities">
 		<button
 			type="button"
 			class="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-neutral-100)] rounded-lg text-sm font-bold text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
