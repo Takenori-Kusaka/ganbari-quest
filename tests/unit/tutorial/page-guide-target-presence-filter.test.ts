@@ -41,7 +41,12 @@ const fixture: PageGuide = {
 };
 
 /** 条件付き (= `optional: true`) で宣言されているべき step */
-const CONDITIONAL_STEP_IDS = ['home-pending', 'home-monthly', 'home-nav-desktop', 'home-nav-mobile'];
+const CONDITIONAL_STEP_IDS = [
+	'home-pending',
+	'home-monthly',
+	'home-nav-desktop',
+	'home-nav-mobile',
+];
 /** 常設 UI を指す (= `optional` を付けない) step */
 const ALWAYS_STEP_IDS = ['home-summary', 'home-children', 'home-switch'];
 
