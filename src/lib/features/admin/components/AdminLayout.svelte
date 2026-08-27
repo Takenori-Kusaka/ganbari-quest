@@ -12,6 +12,7 @@ import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import {
+	filterGuideStepsByPresence,
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
 	filterGuideStepsByTargetPresence,
@@ -120,15 +121,16 @@ async function handleStartPageGuide() {
 		tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
 	const stripeFiltered =
 		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
-	// #4653: 最後段で「対象要素が今の画面に描画されている step」だけに絞る。条件付き UI
+	// #4668: ページ状態 (プラン / 件数 / ロール) で出たり消えたりする UI を指す `optional` step は、
+	// 起動時点の DOM で対象が可視のときだけ残す (押すと書いた step を中央 fallback にしない)。
+	const presenceFiltered =
+		stripeFiltered === null ? null : filterGuideStepsByPresence(stripeFiltered);
+	// #4653: さらに最後段で「対象要素が今の画面に描画されている step」だけに絞る。条件付き UI
 	// (承認待ちバナー / お子さま 0 人で出ない子供タブ / viewport 別 nav 等) を指す step は
 	// 対象が無いとき出さず、残った selector 付き step は必ず実要素に spotlight する
 	// (中央 fallback / 0×0 spotlight を定義層で成立させない、EPIC #4650 PO 判断 4)。
-	// #4668 の `optional` step (ページ状態で出たり消えたりする UI) も selector 付きである以上
-	// 本フィルタの部分集合として同じく除外される (marketplace layout は #4668 の
-	// filterGuideStepsByPresence を引き続き使う)。
 	const filtered =
-		stripeFiltered === null ? null : filterGuideStepsByTargetPresence(stripeFiltered);
+		presenceFiltered === null ? null : filterGuideStepsByTargetPresence(presenceFiltered);
 	if (filtered) {
 		startPageGuide(filtered);
 	}

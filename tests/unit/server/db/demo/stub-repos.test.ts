@@ -211,12 +211,15 @@ describe('demo/push-subscription-repo', () => {
 });
 
 describe('demo/report-daily-summary-repo', () => {
-	it('findByChildAndDateRange は空', async () => {
+	// #4712: read は fixture 活動ログの集計を返す Fake になった (旧: 常に空 stub)。
+	// 集計内容の検証は tests/unit/server/db/demo/report-daily-summary-repo.test.ts が担う。
+	// ここでは「fixture 期間外は空」= 範囲条件が効いていることだけを見る。
+	it('fixture 期間外の日付範囲では空', async () => {
 		expect(
 			await reportDailySummaryRepo.findByChildAndDateRange(
 				asChildId(902),
-				'2026-01-01',
-				'2026-12-31',
+				'1999-01-01',
+				'1999-12-31',
 				'demo',
 			),
 		).toEqual([]);
