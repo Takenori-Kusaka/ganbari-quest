@@ -27,8 +27,7 @@ import {
 	OYAKAGI_LABELS,
 	SETTINGS_LABELS,
 } from '../../../src/lib/domain/labels';
-import { CHILD_TERMS } from '../../../src/lib/domain/terms';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../../../src/lib/domain/validation/auth';
+import { CHILD_TERMS, OYAKAGI_TERMS } from '../../../src/lib/domain/terms';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -241,16 +240,18 @@ describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経�
 		expect(src).not.toMatch(/fail\(\d+,\s*\{\s*error:\s*message\s*\}\)/);
 	});
 
-	it('おやカギコードの桁数表記が pinSchema から導出されている', () => {
-		expect(OYAKAGI_LABELS.newPinLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
-		expect(OYAKAGI_LABELS.inputLabel).toContain(`${PIN_MIN_LENGTH}〜${PIN_MAX_LENGTH}桁`);
-		// 旧実装は変更フォームだけ 4〜8 桁を受理し、6 桁固定の /login で再ログイン
+	it('おやカギコードの桁数表記が PIN_LENGTH から導出されている', () => {
+		// #4661 (develop) が桁数の SSOT を constants/oyakagi.ts の PIN_LENGTH に一本化したため、
+		// 表示側は OYAKAGI_TERMS.digitRange を引く (旧「4〜6桁」の範囲表記は撤去済)。
+		expect(OYAKAGI_LABELS.newInputLabel).toContain(OYAKAGI_TERMS.digitRange);
+		expect(OYAKAGI_LABELS.inputLabel).toContain(OYAKAGI_TERMS.digitRange);
+		// 旧実装は変更フォームだけ 4〜8 桁を受理し、入口 (/switch の PinInput) で再ログイン
 		// できない値を設定させていた。表記・受理範囲・schema の 3 者が揃っていること。
 		const serverSrc = readFileSync(
 			resolve(REPO_ROOT, 'src/routes/(parent)/admin/settings/account/+page.server.ts'),
 			'utf-8',
 		);
 		expect(serverSrc).not.toContain('newPin.length > 8');
-		expect(serverSrc).toContain('PIN_MAX_LENGTH');
+		expect(serverSrc).toContain('PIN_PATTERN');
 	});
 });

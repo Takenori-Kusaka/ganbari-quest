@@ -70,7 +70,9 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 		addTemplateItem: 2,
 	},
 	'child-activity-copy-service.ts': {
-		copyActivitiesAcrossChildren: 1,
+		// #4694: repo の copy method を撤去し、service が findActivitiesByChild + bulk insert で
+		// 重複 skip 込みの copy を行う (write は target 1 人につき bulk 1 回)。
+		insertActivitiesBulk: 1,
 	},
 	'child-challenge-service.ts': {
 		markCompleted: 1,

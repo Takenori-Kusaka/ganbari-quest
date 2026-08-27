@@ -115,6 +115,7 @@ const radarCategories = $derived(
 								level={status.level}
 								progressPct={status.progressPct}
 								{uiMode}
+								levelTitle={status.levelTitle}
 							/>
 							{#if f.showTrends}
 								<div class="flex items-center mt-1 px-1">

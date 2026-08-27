@@ -678,6 +678,50 @@ export async function getChildChallengeHistory(
 }
 
 /**
+ * #4688: 「記録 > 達成」タブ用の**達成履歴**。受取済み (rewardClaimed=1) / 期間終了も含めて
+ * 新しい順に返す。
+ *
+ * 旧実装は `getActiveChildChallengesWithSiblings` (active + 未請求のみ) を達成タブに流用していたため、
+ * ほうしゅうを受け取った瞬間にタブから消え「まだ達成がないよ」になっていた (challenges 画面の
+ * 「これまでのチャレンジ」には出るので画面間で矛盾していた)。**履歴は履歴のクエリで引く**。
+ */
+export async function getChildChallengeRecords(
+	childId: ChildId,
+	tenantId: string,
+	limit = 30,
+): Promise<
+	Array<{
+		id: string;
+		title: string;
+		challengeType: string;
+		startDate: string;
+		endDate: string;
+		completed: boolean;
+		currentValue: number;
+		targetValue: number;
+		rewardClaimed: boolean;
+	}>
+> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	return all
+		.slice()
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))
+		.slice(0, limit)
+		.map((c) => ({
+			id: c.id,
+			title: c.title,
+			challengeType: c.challengeType,
+			startDate: c.startDate,
+			endDate: c.endDate,
+			completed: c.completed === 1,
+			currentValue: c.currentValue,
+			targetValue: c.targetValue,
+			rewardClaimed: c.rewardClaimed === 1,
+		}));
+}
+
+/**
  * #2458-B (caller migration): 子供画面 (home / history) 向け per-child instance 配列 +
  * 兄弟連動情報の付与。
  *

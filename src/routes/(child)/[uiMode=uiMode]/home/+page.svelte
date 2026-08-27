@@ -1185,6 +1185,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		stampLabel={data.latestMessage.stampLabel}
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
+		bonusPoints={data.latestMessage.bonusPoints ?? null}
 		onClose={handleMessageClose}
 	/>
 {/if}

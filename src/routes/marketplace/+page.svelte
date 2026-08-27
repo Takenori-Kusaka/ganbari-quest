@@ -1,7 +1,6 @@
 <script lang="ts">
 import {
 	APP_LABELS,
-	formatAge,
 	formatAgeRange,
 	formatCount,
 	MARKETPLACE_FILTER_LABELS,

@@ -50,6 +50,13 @@
       "when": 1786125014215,
       "tag": "0006_redemption_quantity",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786535431171,
+      "tag": "0007_consents_drop_type_check",
+      "breakpoints": true
     }
   ]
 }

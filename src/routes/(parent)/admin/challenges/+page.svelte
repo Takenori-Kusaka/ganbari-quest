@@ -7,7 +7,6 @@ import {
 	APP_LABELS,
 	CHALLENGES_LABELS,
 	formatJstDate,
-	formatPeople,
 	PAGE_TITLES,
 	UI_LABELS,
 	UNRESOLVED_ENTITY_LABELS,
@@ -126,17 +125,15 @@ function tabHref(childId: ChildId | 'all'): string {
 <!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー (最外 wrapper)。 -->
 <div class="space-y-4" data-tutorial="challenges-page">
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<div class="rounded-xl border bg-white p-4">
+		<div class="rounded-xl border bg-white p-4" data-tutorial="challenges-family-streak">
 			<div class="flex items-center gap-2 mb-2">
 				<span class="text-xl">🔥</span>
 				<h3 class="font-bold text-sm">{CHALLENGES_LABELS.familyStreakTitle(data.familyStreak.currentStreak)}</h3>
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
-					? ADMIN_CHALLENGES_PAGE_LABELS.familyStreakRecordedToday(
-							formatPeople(data.familyStreak.todayRecorders.length),
-						)
-					: ADMIN_CHALLENGES_PAGE_LABELS.familyStreakNoRecordToday}
+					? CHALLENGES_LABELS.familyStreakRecordedToday(data.familyStreak.todayRecorders.length)
+					: CHALLENGES_LABELS.familyStreakNoneToday}
 			</p>
 		</div>
 	{/if}
@@ -151,6 +148,7 @@ function tabHref(childId: ChildId | 'all'): string {
 			class="flex gap-1 overflow-x-auto"
 			aria-label={ADMIN_CHALLENGES_PAGE_LABELS.childTabAllAriaLabel}
 			data-testid="admin-challenges-child-tabs"
+			data-tutorial="challenges-child-tabs"
 		>
 			<a
 				href={tabHref('all')}
@@ -204,6 +202,7 @@ function tabHref(childId: ChildId | 'all'): string {
 					class="rounded-xl border bg-white p-4 space-y-3"
 					class:border-[var(--color-feedback-info-border)]={active}
 					data-testid="admin-challenges-group"
+					data-tutorial="challenges-card"
 					data-group-key={group.groupKey}
 				>
 					<div class="flex items-start justify-between gap-2">
@@ -252,8 +251,8 @@ function tabHref(childId: ChildId | 'all'): string {
 						</div>
 					{/if}
 
-					<!-- 削除アクション (group 内 全 instance に対して 1 件ずつ) -->
-					<div class="flex justify-end gap-1 flex-wrap">
+					<!-- 削除アクション (group 内 全 instance に対して 1 件ずつ)。#4671: ページガイド anchor -->
+					<div class="flex justify-end gap-1 flex-wrap" data-tutorial="challenges-delete">
 						{#each group.instances as instance (instance.id)}
 							{@const child = data.children.find((c) => c.id === instance.childId)}
 							<form
