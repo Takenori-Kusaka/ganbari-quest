@@ -6,6 +6,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
+import { PARENT_LANDING, resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
 import {
@@ -13,6 +14,7 @@ import {
 	resendConfirmationCode,
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
+import { verifyIdentityToken } from '$lib/server/auth/providers/cognito-jwt';
 import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
@@ -44,7 +46,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	login: async ({ request, cookies, locals }) => {
+	login: async (event) => {
+		const { request, cookies, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
@@ -60,10 +63,11 @@ export const actions: Actions = {
 			return handleDevLogin(email, password, cookies);
 		}
 
-		return handleCognitoLogin(email, password, cookies);
+		return handleCognitoLogin(email, password, event);
 	},
 
-	confirmCode: async ({ request, cookies }) => {
+	confirmCode: async (event) => {
+		const { request, cookies } = event;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const code = (formData.get('code') as string)?.replace(/\s/g, '');
@@ -95,7 +99,8 @@ export const actions: Actions = {
 			if (loginResult.success) {
 				await resetLoginFailures(email);
 				establishSession(cookies, loginResult);
-				redirect(302, '/admin');
+				// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
+				redirect(302, await landingAfterSession(event, loginResult.idToken));
 			}
 		}
 
@@ -132,7 +137,8 @@ export const actions: Actions = {
 		};
 	},
 
-	mfa: async ({ request, cookies, locals }) => {
+	mfa: async (event) => {
+		const { request, cookies, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const session = formData.get('session') as string;
@@ -158,7 +164,8 @@ export const actions: Actions = {
 
 		// MFA成功 → セッション確立
 		establishSession(cookies, result);
-		redirect(302, '/admin');
+		// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
+		redirect(302, await landingAfterSession(event, result.idToken));
 	},
 };
 
@@ -208,12 +215,41 @@ async function handleDevLogin(
 	redirect(302, target);
 }
 
+/**
+ * #4641: セッション確立後の着地先を決める。
+ *
+ * ID token から identity を組み立てて所属を解決する。解決できない (token 検証に失敗した等)
+ * ときは従来どおり親画面へ送る — 次のリクエストで hooks が正しい判定をやり直すため、
+ * ここで止めるより一度進ませた方が dead-end を作らない。
+ */
+async function landingAfterSession(
+	event: import('@sveltejs/kit').RequestEvent,
+	idToken: string,
+): Promise<string> {
+	try {
+		const claims = await verifyIdentityToken(idToken);
+		if (!claims) return PARENT_LANDING;
+		return await resolvePostLoginLanding(event, {
+			type: 'cognito',
+			userId: claims.sub,
+			email: claims.email,
+			emailVerified: claims.email_verified,
+		});
+	} catch (e) {
+		logger.warn('[AUTH] ログイン後の着地先を解決できず親画面へ送る', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+		return PARENT_LANDING;
+	}
+}
+
 /** 本番: Cognito InitiateAuth API で認証 */
 async function handleCognitoLogin(
 	email: string,
 	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
+	event: import('@sveltejs/kit').RequestEvent,
 ) {
+	const cookies = event.cookies;
 	// アカウントロックアウトチェック
 	const lockout = await checkAccountLockout(email);
 	if (lockout.locked) {
@@ -277,5 +313,6 @@ async function handleCognitoLogin(
 	// 認証成功: ロックアウトカウンターをリセット → セッション確立
 	await resetLoginFailures(email);
 	establishSession(cookies, result);
-	redirect(302, '/admin');
+	// #4641: 子供ロールは /admin に入れない。着地先はロールで決める
+	redirect(302, await landingAfterSession(event, result.idToken));
 }

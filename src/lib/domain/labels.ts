@@ -3513,6 +3513,12 @@ export const SETTINGS_LABELS = {
 	accountDeleteFullOption: '家族グループを全て削除する',
 	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
 	accountDeleteCancelAction: 'キャンセル',
+	// #4640: 他が子供だけの家族グループでは、オーナーを渡せる相手が居ない。
+	// 空の移譲欄を出して選ばせようとすると退会そのものができなくなるため、
+	// 移譲欄を出さず「なぜ渡せないか」と「残る選択肢」を述べる。
+	accountDeleteNoAdultTitle: '家族グループに他のメンバーがいます',
+	accountDeleteNoAdultDesc: `いま家族グループにいるのは${CHILD_TERMS.honorific}だけです。${CHILD_TERMS.honorific}にオーナーを引き継ぐことはできないため、この家族グループを全て削除して${CANCEL_TERMS.account}します。`,
+	accountDeleteNoAdultHint: `${CHILD_TERMS.honorific}のデータを残したい場合は、いったんこの画面を閉じて、メンバー管理から別の${PARENT_TERMS.honorific}を招待し、その方にオーナーを引き継いでから${CANCEL_TERMS.account}してください。`,
 
 	// ログアウト
 	logoutSectionTitle: 'ログアウト',
@@ -3549,6 +3555,9 @@ export const SETTINGS_LABELS = {
 	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
+	// #4642: 確認語そのものは CANCEL_TERMS.confirmPhrase が atom (退会 / 引っ越し合流で共通)。
+	// ここは atom を文に組み立てた compound (ADR-0045 §3.3)。
+	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
 	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
@@ -6691,8 +6700,50 @@ export const AUTH_INVITE_LABELS = {
 		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
 	joinBlockedOwnerDowngrade:
 		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
+	// #4723: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
+	joinBlockedMemberLimit:
+		'この家族グループはメンバーの上限に達しているため、参加できませんでした。招待した方にご確認ください。',
 	joinBlockedGeneric:
 		'招待を受け取れませんでした。招待した方に、招待リンクを発行し直してもらってください。',
+} as const;
+
+/**
+ * `/auth/invite/[code]` の引っ越し合流 (別の家族グループへ移る) 確認画面 (#4642)。
+ *
+ * **不可逆操作**: 元の家族グループのデータは復元できない。文言は「何が消えるか」と
+ * 「取り消せないこと」を明示し、同意チェックを経ないと実行させない。
+ */
+export const INVITE_RELOCATION_LABELS = {
+	title: '今の家族グループを畳んで参加しますか？',
+	lead: 'あなたは今、ご自身が管理者の家族グループをお使いです。この招待に参加すると、いまの家族グループは削除され、招待された家族グループに移ります。',
+	discardHeading: '削除されるもの',
+	discardItems: [
+		`いまの家族グループに登録した${CHILD_TERMS.honorific}のプロフィール`,
+		'活動・ごほうび・チェックリスト・ルールなどの設定',
+		'これまでの記録（ポイント履歴・達成の記録）と、アップロードした画像',
+	],
+	irreversibleWarning: '削除したデータは元に戻せません。この操作は取り消せません。',
+	keepNote:
+		'ログインに使うメールアドレスとアカウントはそのままです。招待された家族グループでそのままお使いいただけます。',
+	backupHint:
+		'記録を残しておきたい場合は、参加する前にいまの家族グループの設定からデータをエクスポートしてください。',
+	acknowledgeLabel: '上記に同意します（いまの家族グループのデータは削除され、元に戻せません）',
+	// #4642 PO 差し戻し: 退会と結果が同じ (fullTenantDeletion) なので要求する重さも同じにする。
+	// 確認語の atom は CANCEL_TERMS.confirmPhrase (退会側と共通、複製を作らない)。
+	confirmInputLabel: SETTINGS_LABELS.dangerConfirmInputLabel,
+	confirmInputPlaceholder: CANCEL_TERMS.confirmPhrase,
+	confirmInputMismatch: `確認のため「${CANCEL_TERMS.confirmPhrase}」と正確に入力してください。`,
+	confirmButton: '同意して参加する',
+	confirmButtonLoading: '参加しています…',
+	cancelButton: 'やめておく',
+	acknowledgeRequired: '同意のチェックを入れてから進んでください。',
+	failed:
+		'参加できませんでした。時間をおいてもう一度お試しください。いまの家族グループはそのまま残っています。',
+	// 引っ越しできないときの案内 (理由ごとに次アクションを添える)
+	blockedHasOtherMembers:
+		'いまの家族グループに他のメンバーがいるため、参加できません。メンバー管理から他のメンバーを削除するか、先に別の方へ管理者を移してから、招待リンクをもう一度開いてください。',
+	blockedNotOwner:
+		'いまの家族グループの管理者ではないため、ここからは参加できません。メンバー管理から今の家族グループを抜けたあと、招待リンクをもう一度開いてください。',
 } as const;
 
 /**
@@ -6707,6 +6758,7 @@ export const INVITE_JOIN_BLOCKED_MESSAGES = {
 	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
 	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
 	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
+	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.joinBlockedMemberLimit,
 } as const;
 
 /**

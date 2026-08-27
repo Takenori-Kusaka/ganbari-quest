@@ -34,7 +34,7 @@ function getSecret(): string {
  */
 export type ContextTokenClaims = Pick<
 	AuthContext,
-	'tenantId' | 'role' | 'childId' | 'mfaAuthenticated'
+	'tenantId' | 'role' | 'userId' | 'childId' | 'mfaAuthenticated'
 >;
 
 interface ContextPayload extends ContextTokenClaims {
@@ -51,6 +51,9 @@ export function signContext(context: ContextTokenClaims): string {
 	const payload: ContextPayload = {
 		tenantId: context.tenantId,
 		role: context.role,
+		// #4643: アプリ DB の users.user_id (IdP の sub ではない)。毎リクエスト DB を引かずに
+		// membership / invite / children の所有者判定を通すためセッションに焼き込む。
+		userId: context.userId,
 		childId: context.childId,
 		// #4266: MFA を経てセッションを開始したか。true のときだけ載せる (旧トークンとの
 		// 互換は「載っていない = undefined = 拒否側」で成立する、fail-closed)。
@@ -96,6 +99,9 @@ export function verifyContext(token: string): ContextTokenClaims | null {
 		return {
 			tenantId: payload.tenantId,
 			role: payload.role,
+			// #4643: 旧形式 (userId 無し) は undefined のまま返す。呼び出し側 (cognito provider) が
+			// membership から発行し直すため、sub での取り違えに落ちない
+			userId: typeof payload.userId === 'string' ? payload.userId : undefined,
 			childId: payload.childId === undefined ? undefined : asChildId(payload.childId),
 			// #4266: 真偽が明示された true のみ採用する (欠落 / 非 boolean は undefined = 拒否側)
 			mfaAuthenticated: payload.mfaAuthenticated === true ? true : undefined,
