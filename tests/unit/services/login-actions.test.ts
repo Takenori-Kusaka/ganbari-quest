@@ -27,9 +27,26 @@ vi.mock('$lib/server/auth/providers/cognito-oauth', () => ({
 }));
 
 // --- Auth Factory モック (本番 cognito モード固定) ---
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+	isCognitoDevMode: () => false,
+}));
+
+// #4641: ログイン後の着地先は provider 経由で解決する (dev / 本番で ID token の検証方式が
+// 異なるため、page 側で本番 verifier を直接呼ぶと dev の token を検証できない)。
+// getAuthProvider を mock に載せておかないと解決が例外で落ち、/admin 着地が
+// 「fallback で偶然通った」だけになり assert が意味を失う。
+const mockResolveIdentity = vi.fn();
+const mockResolveContext = vi.fn();
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => false,
+	getAuthProvider: () => ({
+		resolveIdentity: (...args: unknown[]) => mockResolveIdentity(...args),
+		resolveContext: (...args: unknown[]) => mockResolveContext(...args),
+	}),
 }));
 
 // --- Account Lockout モック ---
@@ -48,6 +65,14 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 beforeEach(() => {
+	mockResolveIdentity.mockReset();
+	mockResolveIdentity.mockResolvedValue({
+		type: 'cognito',
+		userId: 'cognito-sub-1',
+		email: 'test@example.com',
+	});
+	mockResolveContext.mockReset();
+	mockResolveContext.mockResolvedValue({ tenantId: 'tenant-1', role: 'parent' });
 	mockAuthenticate.mockReset();
 	mockRespondToMfaChallenge.mockReset();
 	mockConfirmSignUp.mockReset();

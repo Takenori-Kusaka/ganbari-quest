@@ -220,7 +220,11 @@ describe('#3307 Part 1: settings/data エクスポート step の tier 条件付
 		const ids = free?.steps.map((s) => s.id) ?? [];
 		expect(ids).not.toContain('settings-data-export');
 		expect(ids).toContain('settings-data-intro');
-		expect(ids).toContain('settings-data-management');
+		// #4665: 旧 settings-data-management (データ管理カード全体) は export / import の
+		// step に分解済。free でも使える「復元 (インポート)」と「全削除」が残ることを固定する
+		// (プラン gate で落ちるのは export だけ、という契約はむしろ強くなる)。
+		expect(ids).toContain('settings-data-import');
+		expect(ids).toContain('settings-data-clear');
 	});
 
 	it('standard 以上では settings-data-export が表示される', async () => {
