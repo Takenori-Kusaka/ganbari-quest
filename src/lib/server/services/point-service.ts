@@ -16,6 +16,7 @@ import {
 	findPointHistoryByType,
 	getBalance,
 	insertPointEntry,
+	spendPointsAtomic,
 	sumPointsByType,
 } from '$lib/server/db/point-repo';
 
@@ -173,25 +174,23 @@ export async function convertPoints(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
 
-	const balance = await getBalance(childId, tenantId);
-	if (balance < amount) {
-		return { error: 'INSUFFICIENT_POINTS' };
-	}
-
 	const description = POINT_LEDGER_LABELS.convert(amount, mode);
 
-	// ポイント消費エントリを台帳に記録（マイナス値）
-	await insertPointEntry(
-		{
-			childId,
-			amount: -amount,
-			type: LEDGER_TYPE_CONVERT,
-			description,
-		},
+	// #4722 (#3347 と同型): 残高確認 → 台帳挿入を await を跨いで行うと、二重送信 / 連打で
+	// 両方が同じ残高を読んで二重に引き落とし、**残高がマイナス**になり得た。
+	// 交換 (reward-redemption) と同じ原子境界 `spendPointsAtomic` に寄せ、
+	// 「再読込 → 非負確認 → 挿入」を backend の 1 単位で実行する。
+	// type は本 file の SSOT 定数を通す (直書き 'convert' だと集計側 sumPointsByType と別々に動く)。
+	const spend = await spendPointsAtomic(
+		childId,
+		amount,
+		{ type: LEDGER_TYPE_CONVERT, description },
 		tenantId,
 	);
+	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
 
-	const remainingBalance = balance - amount;
+	// 引き落とし後の残高を実データから読み直す (計算で出すと並行操作とズレる)。
+	const remainingBalance = await getBalance(childId, tenantId);
 
 	return {
 		message: description,
