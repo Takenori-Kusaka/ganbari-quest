@@ -277,6 +277,21 @@ $effect(() => {
 	}
 });
 
+// #4705: 無料プランで marketplace の取込 CTA から着地したとき。dialog は開かず
+// (子供を選ばせてから拒否しない)、条件と行き先だけを伝える。invalid preset と同じ one-shot guard。
+let handledLockedPreset = $state(false);
+$effect(() => {
+	if (data.importPresetLocked) {
+		if (!handledLockedPreset) {
+			handledLockedPreset = true;
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
+		}
+	} else {
+		handledLockedPreset = false;
+	}
+});
+
 // ChildSelectionDialog 用の ChildOption 配列
 const childOptions = $derived<ChildOption[]>(
 	data.children.map((c) => ({
@@ -420,9 +435,21 @@ const filteredTemplates = $derived(
 		: data.templates,
 );
 const hasSearchActive = $derived(searchQuery.trim().length > 0);
+// #4656 F8: 「ごほうびを検索」は選択中 child の一覧にも効かせる (旧: Dialog 内テンプレート grid のみ
+// filter され、検索欄の直下に並ぶ一覧が絞られず「検索が効かない」ように見えた)。
+const visiblePerChildRewards = $derived(
+	hasSearchActive
+		? perChildRewards.filter((r) =>
+				r.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+			)
+		: perChildRewards,
+);
 // #2558 段階2 横展開: 旧 in-page preset browse UI 撤去に伴い、
 // allEmpty 判定は user-created templates のみで行う。
-const allEmpty = $derived(hasSearchActive && filteredTemplates.length === 0);
+// #4656 F8: 一覧 (選択中 child) と Dialog 内テンプレートの両方が検索で 0 件のときだけ「該当なし」を出す。
+const allEmpty = $derived(
+	hasSearchActive && filteredTemplates.length === 0 && visiblePerChildRewards.length === 0,
+);
 
 // #2268: overflow menu (申請承認等) + #3079: 個別 backup/restore (活動と同順序: 復元 → エクスポート)
 const overflowMenuItems = $derived<MenuItem[]>([
@@ -778,6 +805,7 @@ async function handleCopyFromChild() {
 				testid="rewards-overflow-menu"
 				triggerLabel="︙"
 				triggerClass="admin-resource-header__overflow-btn"
+				dataTutorial="rewards-overflow-menu"
 			/>
 		{/snippet}
 	</AdminResourceHeader>
@@ -894,13 +922,16 @@ async function handleCopyFromChild() {
 	{#if selectedChild}
 		<section class="reward-list" data-testid="admin-rewards-list">
 			<div data-testid="rewards-per-child-list">
-				{#if perChildRewards.length === 0}
-					<p class="reward-list__empty" data-testid="rewards-per-child-empty">
-						{ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
-					</p>
+				{#if visiblePerChildRewards.length === 0}
+					{#if !allEmpty}
+						<p class="reward-list__empty" data-testid="rewards-per-child-empty">
+							{hasSearchActive ? REWARDS_LABELS.searchEmptyMessage : ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
+						</p>
+					{/if}
 				{:else}
-					{#each perChildRewards as reward (reward.id)}
-						<div class="reward-item" data-testid="reward-item-{reward.id}">
+					{#each visiblePerChildRewards as reward, i (reward.id)}
+						<!-- data-tutorial: 先頭カードだけをページガイド (#4656) の spotlight 対象にする -->
+						<div class="reward-item" data-testid="reward-item-{reward.id}" data-tutorial={i === 0 ? 'reward-card-first' : undefined}>
 							<span class="reward-item__icon">{reward.icon ?? '🎁'}</span>
 							<span class="reward-item__title">{reward.title}</span>
 							{#if hasPendingRedemption(reward.id)}

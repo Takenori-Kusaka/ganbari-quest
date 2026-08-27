@@ -102,7 +102,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（手動 / 外部呼び出し。`scheduleRegistry` / EventBridge / dispatcher には未登録） | cron 認証 |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -192,12 +192,6 @@
 | POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
-
-### デモ
-
-| メソッド | パス | 概要 | 認証 |
-|----------|------|------|------|
-| POST | /api/demo-analytics | デモ利用分析イベント記録 | 不要 |
 
 ### Stripe（決済）
 

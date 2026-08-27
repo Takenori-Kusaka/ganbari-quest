@@ -39,6 +39,7 @@ import { prepareActivityRecord } from '$lib/server/services/activity-record-prep
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 // Re-export for backward compatibility with existing callers.
@@ -457,11 +458,17 @@ export async function cancelActivityLog(
 	return { refundedPoints: totalPoints };
 }
 
-/** Get activity logs for a child with filtering. */
+/**
+ * 期間で絞った活動ログ + 集計。
+ *
+ * `options` は **必須**。省略可能にすると渡し忘れが「全期間を返す」= 料金表が約束した
+ * 保持期間の空洞化として静かに成立する (同 class が達成タブ / 交換タブで実際に起きた、#4818)。
+ * 保持期間で絞らない用途では `NO_RETENTION_FILTER` を明示的に渡す。
+ */
 export async function getActivityLogs(
 	childId: ChildId,
 	tenantId: string,
-	options: { from?: string; to?: string } = {},
+	options: RetentionRange,
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
 	// #2097 Fix 2: 集計ロジックは activity-log-aggregation.ts (循環依存解消のため抽出済) に委譲。
 	return aggregateActivityLogsByCategory(childId, tenantId, options);
