@@ -47,8 +47,21 @@ const DEFINITION_FILE = 'src/lib/domain/plan-limits.ts';
  * 死んだ参照を書いて通す動機になる。除外は残すが、理由ごと可視化する。
  */
 const UNWIRED_FIELDS: Record<string, string> = {
-	canFreeTextMessage:
-		'#4504 で配線中 (PR #4579)。マージ後に本エントリを削除する。値は isFreeTextMessageUnlocked から導出される予定',
+	// 現在 0 件。#4504 の canFreeTextMessage は PR #4579 マージで配線済みとなったため、
+	// 本エントリから PREDICATE_BACKED_FIELDS へ移した (述語経由で導出・拒否の両方を検査する)。
+};
+
+/**
+ * **強制関数経由**で効いているフィールド。
+ *
+ * フィールド名を呼び出し側に出さず、`plan-limit-service` 内の関数が値を読んで可否を返す形。
+ * 名前が production に現れないので素の参照検査では拾えないが、**未配線ではない** —
+ * 「名前が出ない」を口実に検査を消さないよう、関数側と呼び出し側の両方を検査する。
+ */
+const FUNCTION_BACKED_FIELDS: Record<string, { enforcer: string }> = {
+	// #4584 レビュー是正: 当初は UNWIRED_FIELDS に「grep で 0 件」として入れていたが誤り。
+	// checkFamilyMemberLimit() が limits.maxFamilyMembers を読み、招待 API がそれを呼んでいる。
+	maxFamilyMembers: { enforcer: 'checkFamilyMemberLimit' },
 };
 
 /**
@@ -62,6 +75,14 @@ const PREDICATE_BACKED_FIELDS: Record<string, { predicate: string; enforcedIn: s
 	canCustomReward: {
 		predicate: 'isCustomRewardUnlocked',
 		enforcedIn: ['src/routes/(parent)/admin/rewards/+page.server.ts'],
+	},
+	// #4504 (PR #4579) で同型の配線が入った。値の導出も拒否も isFreeTextMessageUnlocked を読む。
+	canFreeTextMessage: {
+		predicate: 'isFreeTextMessageUnlocked',
+		enforcedIn: [
+			'src/routes/(parent)/admin/cheer/+page.server.ts',
+			'src/routes/api/v1/messages/[childId]/+server.ts',
+		],
 	},
 };
 
@@ -110,6 +131,7 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 	it.each(fields)('%s が production code から参照されている', (field) => {
 		if (field in UNWIRED_FIELDS) return; // 別 it で理由を検証する
 		if (field in PREDICATE_BACKED_FIELDS) return; // 別 it で述語経由を検証する
+		if (field in FUNCTION_BACKED_FIELDS) return; // 別 it で強制関数経由を検証する
 
 		const refs = sources.filter((s) => s.text.includes(field)).map((s) => s.path);
 		expect(
@@ -128,6 +150,29 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 			expect(reason.length, `${field} の除外理由が短すぎる`).toBeGreaterThan(20);
 			expect(reason, `${field} の除外に追跡 Issue 番号がない`).toMatch(/#\d{3,}/);
 		}
+	});
+
+	it.each(
+		Object.keys(FUNCTION_BACKED_FIELDS),
+	)('%s は強制関数が値を読み、その関数が production から呼ばれている', (field) => {
+		const entry = FUNCTION_BACKED_FIELDS[field];
+		if (!entry) throw new Error(`FUNCTION_BACKED_FIELDS に ${field} がありません`);
+		const { enforcer } = entry;
+		const def = stripComments(readFileSync(join(REPO_ROOT, DEFINITION_FILE), 'utf-8'));
+
+		// 強制関数が実在し、その中でフィールドを読んでいること
+		expect(def, `${enforcer} が ${DEFINITION_FILE} にありません`).toContain(
+			`export async function ${enforcer}`,
+		);
+		expect(def, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
+
+		// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)
+		const callers = sources.filter((src) => src.text.includes(`${enforcer}(`)).map((s) => s.path);
+		expect(
+			callers.length,
+			`${enforcer} を呼ぶ production code がありません。` +
+				`PlanLimits.${field} は値があるだけで誰も強制していない状態です。`,
+		).toBeGreaterThan(0);
 	});
 
 	it.each(

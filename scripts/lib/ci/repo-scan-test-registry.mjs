@@ -221,6 +221,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',
 	},
+	'tests/unit/domain/lp-claims-implementation-truth-4713.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/data/marketplace/activity-packs/ の 1 ディレクトリだけを読み、LP 訴求値と突合する (#4713)',
+	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の settings 定義を走査して backup 分類の網羅を検査する',
