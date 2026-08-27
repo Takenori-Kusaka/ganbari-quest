@@ -72,6 +72,8 @@
    - `plan` = 新プラン
    - `status` = `'active'`
    - `trialUsedAt` = now（トライアル消化済みフラグ）
+3b. **トライアルを閉じる（#4707）**: `closeTrialOnPaidContract()` → `trial-service.endTrialOnConversion()` で最新 `trial_history` 行に `stripe_subscription_id` / `upgrade_reason` を記録し、トライアルがまだ有効なら `end_date` を今日（JST）に詰める。`invoice.paid`（現行契約）でも同じ処理を通す（W1 未達時の救済、冪等）。詳細は `billing-redesign/contract-state-matrix.md` §5.3
+3c. **archive を復元する（#4708）**: `restoreArchivedResourcesForPaidContract()` → `resource-archive-service.restoreArchivedResources()` で、無料プランの上限により archive されたお子さま / 活動 / チェックリストを全 reason について復元する。`invoice.paid`（現行契約）/ `customer.subscription.updated`（status=active）でも同じ処理を通す（W1 未達 / dunning 復帰の救済、冪等）。無料プラン中の告知と一覧は `06-UI設計書.md` §10.3「archive（一時非表示）中のリソースの告知と一覧」
 4. **ライセンスキー発行 (#0247 / #801)**:
    - `issueLicenseKey({ kind: 'purchase', tenantId, plan, stripeSessionId, issuedBy })`
    - 発行されたキーをテナントに紐付け

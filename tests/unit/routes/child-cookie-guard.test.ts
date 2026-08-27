@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockIsDsqlBackend = vi.fn();
 vi.mock('$lib/server/db/backend', () => ({
-	isDsqlBackend: () => mockIsDsqlBackend(),
+	isPgBackend: () => mockIsDsqlBackend(),
 }));
 
 const mockRequireTenantId = vi.fn(() => 't-1');

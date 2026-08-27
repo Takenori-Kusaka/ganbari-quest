@@ -4,7 +4,6 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -24,6 +23,7 @@ import {
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	archiveExcessResources,
+	EMPTY_ARCHIVED_RESOURCE_SUMMARY,
 	getArchivedResourceSummary,
 } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
@@ -71,6 +71,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
 		getSettings(
 			[
@@ -82,7 +83,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 			],
 			tenantId,
 		),
-		getTrialStatus(tenantId),
+		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
+		getTrialStatus(tenantId, licenseStatus),
 	]);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
@@ -93,11 +95,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
-	const planTier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
 	const tutorialStarted = !!(
 		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
@@ -166,9 +164,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// #783: archive 済みリソースの概要（UI 表示用）。
 	// #4585-2: 起動条件と同じ述語で判定する。ここだけ体験基準のままだと、解約した顧客に
 	// 「アーカイブしました」の告知が出ないまま archive だけが進む。
+	// #4708: 3 資源の件数を配り、ArchivedResourceBanner (全 admin 画面) と /admin/children の
+	// archive 一覧の表示条件にする。
 	const archivedSummary = revertedToFreePlan
 		? await getArchivedResourceSummary(tenantId)
-		: { archivedChildCount: 0, hasArchivedResources: false };
+		: EMPTY_ARCHIVED_RESOURCE_SUMMARY;
 
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
@@ -188,22 +188,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
-	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
-	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
-	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
-	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
-	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError = rawInviteAcceptError ? rawInviteAcceptError : null;
-	if (rawInviteAcceptError) {
-		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
-	}
-
 	return {
 		pointSettings,
 		authMode,
-		// #3555 ①: 招待受諾失敗の 1 回限り案内 (admin +layout.svelte がバナー表示に使う)
-		inviteAcceptError,
 		// parent-gate inactivity redirect (client): PIN gate 有効時のみ admin で
 		// 15 分アイドル → /switch 自動リダイレクトを起動する (dev/demo では起動しない)
 		pinGateActive,
@@ -212,11 +199,13 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		planTier,
 		tutorialStarted,
 		userRole,
+		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
+		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
+		// client まで運ばれ、「flag と値が別々に届く = 相関の消えた形」を増やしていたので落とす。
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,
 			trialUsed: trialStatus.trialUsed,
-			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
 		archivedSummary,

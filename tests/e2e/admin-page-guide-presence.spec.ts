@@ -101,8 +101,9 @@ const FALLBACK_PAGES = [
 	'/admin/certificates', // 未登録 top-level (C7 backlog) → /admin にフォールバック
 ] as const;
 
-// #3268 (EPIC #3260 C4): 家族メンバー / パックの個別ガイド（registry 登録済 = REGISTERED）。
-const MEMBERS_PACKS_PAGES = ['/admin/members', '/admin/packs'] as const;
+// #3268 (EPIC #3260 C4): 家族メンバーの個別ガイド（registry 登録済 = REGISTERED）。
+// #4691: /admin/packs はページごと撤去 (legacy-url-map で /marketplace へ 308)。
+const MEMBERS_PACKS_PAGES = ['/admin/members'] as const;
 
 // #3266 (EPIC #3260 C2): 設定サブ 6 ページの個別ガイド。registry 登録済 (REGISTERED) のため、
 // 親 /admin/settings ではなく各サブページ固有のガイドが起動する。
@@ -156,7 +157,7 @@ test.describe('#3266 C2: 設定サブ 6 ページで個別ガイドが開閉で�
 	}
 });
 
-test.describe('#3268 C4: 家族メンバー / パックで個別ガイドが開閉できる (presence inventory)', () => {
+test.describe('#3268 C4: 家族メンバーで個別ガイドが開閉できる (presence inventory)', () => {
 	test.setTimeout(60_000);
 
 	for (const path of MEMBERS_PACKS_PAGES) {
@@ -187,20 +188,19 @@ test.describe('#3268 C4: 家族メンバー / パックで個別ガイドが開�
 //   「ガイドから除外される」こと、かつ「残りの非 gate step でガイドが成立する」ことは tier 別
 //   ケースが無く未検証だった (filterGuideStepsByTier の enforcement 回帰が無い)。
 //
-//   #3222 (#3193): challenges guide は全プラン開放に伴い requiredTier を撤去したため、
-//   本 filter テストの fixture を activities guide に移した。activities guide は
-//   `activities-intro` / `activities-filter` (非 gate) + `activities-add` (requiredTier:'standard')
-//   の 3 step 構成。free tier では standard 限定の `activities-add` のみ除外され、非 gate の 2 step
-//   (`activities-intro` / `activities-filter`) が残る。
+//   #3222 (#3193): challenges guide は全プラン開放に伴い requiredTier を撤去したため fixture を
+//   activities guide に移したが、#4655 (EPIC #4650 PO 判断) で活動の追加 step も全プランに出す
+//   (free でも 3 件まで追加できる) ことになり requiredTier を撤去した。fixture は
+//   /admin/settings/data の `settings-data-export` (requiredTier:'standard'、free は upsell 表示で
+//   「ボタンひとつで保存」が成立しないため除外) に移す。
 //
-//   本 test は free tier (`DEBUG_PLAN=free`、#758) で activities ページのガイドを開き:
-//     - standard 限定 step `activities-add` が **全ステップを通して 1 度も出ない**
-//       (上位プラン限定手順を free に見せない / filter enforcement)
-//     - 非 gate step (`activities-intro`) が **出る** (ガイド自体は dead-end にならず成立する)
-//     - 進捗の総数 (total) が 2 になり (「1 / 2」)、family 時 (3 step) から standard 限定 1 件のみ
-//       正しく除外されている
-//   を assert する。filter が壊れて standard step が漏れれば standard 限定 step の検出 or 進捗の total (3) で
-//   必ず fail する。
+//   本 test は free tier (`DEBUG_PLAN=free`、#758) で:
+//     - /admin/activities: 活動の追加 step (`activities-add`) が **free でも出る** (#4655 AC)
+//     - /admin/settings/data: standard 限定 step `settings-data-export` が **全ステップを通して 1 度も出ない**
+//       (上位プラン限定手順を free に見せない / filter enforcement)、かつ非 gate step (`settings-data-intro`)
+//       が **出る** (ガイド自体は dead-end にならず成立する)
+//   を assert する。進捗の総数は assert しない (他 step の増減で壊れる脆い値のため。filter が壊れて
+//   standard step が漏れれば step id の検出で必ず fail する)。
 //
 // 実行: `DEBUG_PLAN=free npx playwright test tests/e2e/admin-page-guide-presence.spec.ts`
 //   DEBUG_PLAN は process.env 駆動 (shared webServer 固定) のため、free 指定の無い既定実行では
@@ -211,11 +211,50 @@ if (process.env.DEBUG_PLAN === 'free') {
 	test.describe('#2919 page guide の requiredTier フィルタ (free tier で上位プラン限定 step が除外される)', () => {
 		test.setTimeout(60_000);
 
-		test('/admin/activities: standard 限定 step は free で非表示・非 gate step でガイドは成立する', async ({
+		/** ガイドを開き、全 step を「次へ」で巡回して出現した data-step-id の集合を返す。 */
+		async function collectStepIds(page: import('@playwright/test').Page): Promise<string[]> {
+			const bubble = page.locator('.guide-bubble');
+			await expect(bubble).toBeVisible({ timeout: 5_000 });
+			const ids: string[] = [];
+			for (let i = 0; i < 15; i++) {
+				const id = await bubble.getAttribute('data-step-id');
+				if (id) ids.push(id);
+				const next = bubble.locator('.guide-nav-next');
+				const text = (await next.textContent().catch(() => '')) ?? '';
+				if (text.includes('かんりょう')) break;
+				await next.click();
+				await expect(bubble).not.toHaveAttribute('data-step-id', id ?? '', { timeout: 5_000 });
+			}
+			return ids;
+		}
+
+		test('/admin/activities: 活動の追加 step は free でも出る (#4655、free も 3 件まで追加できる)', async ({
 			page,
 		}) => {
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await page.goto('/admin/activities');
+			await page.waitForLoadState('domcontentloaded');
+			await expect(page.locator('[data-theme="admin"]')).toHaveAttribute('data-plan', 'free');
+			await dismissWelcome(page);
+
+			const guideBtn = page.locator(GUIDE_BTN);
+			await expect(guideBtn).toBeVisible({ timeout: 10_000 });
+			await guideBtn.first().click({ force: true });
+			await expect(page.locator(GUIDE_OVERLAY)).toBeVisible({ timeout: 5_000 });
+			await expect(page.locator('.guide-bubble[data-step-id="activities-intro"]')).toBeVisible();
+
+			const ids = await collectStepIds(page);
+			expect(ids, 'free でも活動の追加 step が出る').toContain('activities-add');
+
+			await page.keyboard.press('Escape');
+			await expect(page.locator(GUIDE_OVERLAY)).toBeHidden({ timeout: 5_000 });
+		});
+
+		test('/admin/settings/data: standard 限定 step は free で非表示・非 gate step でガイドは成立する', async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			await page.goto('/admin/settings/data');
 			await page.waitForLoadState('domcontentloaded');
 
 			// 前提: DEBUG_PLAN=free がサーバーに伝播し plan=free で描画されていること
@@ -233,16 +272,16 @@ if (process.env.DEBUG_PLAN === 'free') {
 			const overlay = page.locator(GUIDE_OVERLAY);
 			await expect(overlay).toBeVisible({ timeout: 5_000 });
 
-			// PageGuideBubble は常に「現在 step」1 件だけを DOM に描画する。起点は非 gate の `activities-intro`。
-			await expect(page.locator('.guide-bubble[data-step-id="activities-intro"]')).toBeVisible();
+			// PageGuideBubble は常に「現在 step」1 件だけを DOM に描画する。起点は非 gate の概要 step。
+			await expect(page.locator('.guide-bubble[data-step-id="settings-data-intro"]')).toBeVisible();
 
-			// 進捗の総数 (`current / total` の total) が 2 に絞られている
-			// (family 時の 3 step から standard 限定 1 件 `activities-add` のみ除外)。
-			// 起点 step では progress は「1 / 2」。filter が壊れて standard step が漏れれば total が 3 になり必ず fail する。
-			await expect(page.locator('.guide-header-progress')).toHaveText('1 / 2');
-
-			// standard 限定 step (`activities-add`) は free のガイドに含まれない (filter enforcement の回帰検出)。
-			await expect(page.locator('.guide-bubble[data-step-id="activities-add"]')).toHaveCount(0);
+			// standard 限定 step (`settings-data-export`) は free のガイドに全 step を通して含まれない
+			// (filter enforcement の回帰検出)。
+			const ids = await collectStepIds(page);
+			expect(ids).toContain('settings-data-intro');
+			expect(ids, 'standard 限定 step が free に漏れていない').not.toContain(
+				'settings-data-export',
+			);
 
 			await page.keyboard.press('Escape');
 			await expect(overlay).toBeHidden({ timeout: 5_000 });

@@ -120,13 +120,10 @@
 | POST | /api/v1/messages/[childId] | メッセージ送信 | owner/parent |
 | POST | /api/v1/messages/[messageId]/shown | メッセージ表示済みマーク | 全ロール |
 
-### おやすみ日・減少設定
+### 減少設定
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/v1/rest-days/[childId] | おやすみ日一覧取得（月別） | owner/parent |
-| POST | /api/v1/rest-days/[childId] | おやすみ日登録 | owner/parent |
-| DELETE | /api/v1/rest-days/[childId] | おやすみ日削除 | owner/parent |
 | GET | /api/v1/settings/decay | 減少強度設定取得 | owner/parent |
 | PUT | /api/v1/settings/decay | 減少強度設定更新 | owner/parent |
 
@@ -195,12 +192,6 @@
 | POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
-
-### デモ
-
-| メソッド | パス | 概要 | 認証 |
-|----------|------|------|------|
-| POST | /api/demo-analytics | デモ利用分析イベント記録 | 不要 |
 
 ### Stripe（決済）
 
@@ -921,6 +912,16 @@ favicon の現在パスを返す（`?type=favicon`）。生成済み favicon が
 >
 > **#3078 checklistLogs**: `data.checklistLogs` の `templateName` をインポート後の新 `templateId` へ再マップして `checklist-repo.upsertLog` で復元する。重複（同一 `childId` × `templateId` × `checkedDate`）は事前スキップする（`result.checklistLogsImported` / `checklistLogsSkipped`）。
 
+**replace モードの失敗時セマンティクス（#3326 / #4720）:**
+
+| 状況 | HTTP / code | 文言 | 実際のデータ |
+|---|---|---|---|
+| 取込中に hard error（`errors > 0`） | 400 `VALIDATION_ERROR` | 「インポートに失敗したため中止しました（既存データは保全されています）」 | **旧データが復元済** |
+| 置換前 snapshot の取得・保存に失敗 | 500 `INTERNAL_ERROR` | 「置換前のバックアップ取得に失敗したため、安全のため中止しました」 | **旧データ無傷**（置換を開始していない） |
+| 取込失敗後の自動復元にも失敗（二次故障） | 500 `INTERNAL_ERROR` | 「インポートに失敗し、元のデータの自動復元にも失敗しました。運営に連絡してください（復旧用バックアップは保存されています）」 | `tenants/<tenantId>/recovery/*.zip` から手動復旧（Discord alert 送出） |
+
+保全の実現手段は backend で異なる（sqlite = 単一 tx / pg 系 = clear 前 ZIP 退避の補償トランザクション）。SSOT: `backup-import-redesign.md` §atomicity。
+
 **レスポンス（preview）:**
 ```json
 {
@@ -1177,6 +1178,29 @@ PINコードを使って他テナントのクラウドエクスポートデー�
   }
 }
 ```
+
+**エラー (409、#4717): 生成待ち / 生成失敗**
+
+クラウド共有は非同期 build (#3504) のため、PIN 発行直後は `status='pending'`（cron が拾うと `'building'`）で S3 実体がまだ無い。この窓で取り込もうとした場合は **409 + 待てば解決することが分かる案内**を返す（旧実装は 500「システムに問題が発生しました」を返し、受け取る側が障害と誤認していた）。
+
+| status | code | HTTP | 意味 |
+|---|---|---|---|
+| `pending` / `building` | `EXPORT_NOT_READY` | 409 | まだ準備中（数分後に再試行で解決する。`action: retry`） |
+| `failed` | `EXPORT_FAILED` | 409 | 生成に失敗している（共有した側が保管し直す必要がある。`action: none`） |
+
+```json
+{
+  "error": {
+    "code": "EXPORT_NOT_READY",
+    "message": "このデータはまだ準備中です。数分後にもう一度お試しください。",
+    "userMessage": "このデータはまだ準備中です。数分後にもう一度お試しください。",
+    "severity": "info",
+    "action": "retry"
+  }
+}
+```
+
+失敗理由は `CloudExportFetchError.reason`（型）で service → route に渡り、route の写像表 `FETCH_FAILURE_TO_ERROR_CODE` が HTTP 種別を決める。**message の文字列 match で分類しない**（新しい理由を足したときに分類から漏れて 500 に落ちるのを構造的に防ぐ）。
 
 ### 3.11 管理系 API
 
@@ -1890,50 +1914,6 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 **レスポンス:** `200 { success: true }`
-
-### 3.20 おやすみ日
-
-#### GET /api/v1/rest-days/[childId]
-
-おやすみ日一覧取得。`?month=YYYY-MM` で月別フィルタ。
-
-**認証:** owner/parent
-
-**レスポンス:**
-```json
-{
-  "restDays": [
-    { "id": 1, "date": "2026-04-09", "reason": "sick" }
-  ]
-}
-```
-
-#### POST /api/v1/rest-days/[childId]
-
-おやすみ日を登録。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09",
-  "reason": "rest"
-}
-```
-
-#### DELETE /api/v1/rest-days/[childId]
-
-おやすみ日を削除。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09"
-}
-```
 
 ### 3.21 設定
 

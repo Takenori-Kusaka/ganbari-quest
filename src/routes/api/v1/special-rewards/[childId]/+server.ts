@@ -1,10 +1,13 @@
 import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
-import { notFound, validationError } from '$lib/server/errors';
+import { apiError, notFound, validationError } from '$lib/server/errors';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getChildSpecialRewards,
 	grantSpecialReward,
@@ -32,6 +35,21 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+
+	// #4705: ごほうび (ショップ商品) の登録は有料プランの機能。form action 側 (#4584) にしか
+	// gate が無く、本 endpoint は無料プランのまま 201 を返していた。**同じ述語**を読む。
+	const tier = await resolveFullPlanTier(
+		tenantId,
+		context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+		context.plan,
+	);
+	if (!isCustomRewardUnlocked(tier)) {
+		return apiError('PLAN_LIMIT_EXCEEDED', 'special reward grant requires standard or above', {
+			tenantId,
+			tier,
+		});
+	}
+
 	const body = await request.json();
 
 	const parsed = v.safeParse(grantSpecialRewardSchema, {
