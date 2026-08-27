@@ -20,6 +20,15 @@ export async function findCardByChildAndWeek(
 	return getRepos().stampCard.findCardByChildAndWeek(childId, weekStart, tenantId);
 }
 
+/** #4687: 今週より前の未交換カード (古い順)。 */
+export async function findUnredeemedCardsBefore(
+	childId: ChildId,
+	weekStart: string,
+	tenantId: string,
+) {
+	return getRepos().stampCard.findUnredeemedCardsBefore(childId, weekStart, tenantId);
+}
+
 export async function insertCard(input: InsertStampCardInput, tenantId: string) {
 	return getRepos().stampCard.insertCard(input, tenantId);
 }

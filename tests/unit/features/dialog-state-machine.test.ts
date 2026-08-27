@@ -81,7 +81,6 @@ describe('DialogFSM', () => {
 				'adventure',
 				'parentMessage',
 				'monthlyReward',
-				'siblingCheer',
 				'celebration',
 			];
 			for (const type of types) {
@@ -285,10 +284,9 @@ describe('DialogFSM', () => {
 			expect(fsm.queue).toEqual(['stampPress']);
 		});
 
-		it('respects full priority order: adventure > stampPress > specialReward > parentMessage > birthday > monthlyReward > siblingCheer > celebration', () => {
+		it('respects full priority order: adventure > stampPress > specialReward > parentMessage > birthday > monthlyReward > celebration', () => {
 			fsm.onDataLoad({
 				celebration: true,
-				siblingCheer: true,
 				monthlyReward: true,
 				birthday: true,
 				parentMessage: true,
@@ -304,7 +302,6 @@ describe('DialogFSM', () => {
 				'parentMessage',
 				'birthday',
 				'monthlyReward',
-				'siblingCheer',
 				'celebration',
 			]);
 		});
@@ -473,7 +470,7 @@ describe('DialogFSM', () => {
 	// #4433: 達成祝福 / 兄弟の応援を FSM の arbitration に載せる。
 	// Ark UI (zag-js) の dismissable-layer は「最後に開いた layer」以外を pointer-events: none に
 	// するため、同時に 2 枚開くと先に開いた側の click が吸われる (z-index では解決しない)。
-	describe('celebration / siblingCheer arbitration (#4433)', () => {
+	describe('celebration arbitration (#4433)', () => {
 		it('祝福表示中にログインボーナスが来ても同時には開かず queue に積まれる', () => {
 			fsm.onDataLoad({ celebration: { id: 'c1' } });
 			expect(fsm.current).toBe('celebration');
@@ -493,17 +490,6 @@ describe('DialogFSM', () => {
 
 			expect(fsm.current).toBe('stampPress');
 			expect(fsm.queue).toEqual([]);
-		});
-
-		it('兄弟の応援と祝福が同時に pending でも開くのは 1 枚だけ', () => {
-			fsm.onDataLoad({ siblingCheer: [{ id: 1 }], celebration: { id: 'c1' } });
-
-			// PRIORITY_ORDER 上 siblingCheer が先。祝福は queue で待つ
-			expect(fsm.current).toBe('siblingCheer');
-			expect(fsm.queue).toEqual(['celebration']);
-
-			fsm.close();
-			expect(fsm.current).toBe('celebration');
 		});
 	});
 });

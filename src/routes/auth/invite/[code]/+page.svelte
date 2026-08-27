@@ -1,9 +1,10 @@
 <script lang="ts">
 import { resolve } from '$app/paths';
 import { APP_LABELS, AUTH_INVITE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import InviteRelocationConfirmCard from '$lib/features/auth/InviteRelocationConfirmCard.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 </script>
 
 <svelte:head>
@@ -18,7 +19,13 @@ let { data } = $props();
 			<h1 class="text-2xl font-bold text-[var(--color-neutral-900)] m-0">{AUTH_INVITE_LABELS.appTitle}</h1>
 		</div>
 
-		{#if !data.valid}
+		{#if !data.valid && data.relocation}
+			<!-- #4642: 自分ひとりの家族グループの owner が、招待先へ引っ越すかを選ぶ (不可逆) -->
+			<InviteRelocationConfirmCard
+				errorMessage={form?.relocateError ?? null}
+				cancelHref={resolve('/admin')}
+			/>
+		{:else if !data.valid}
 			<div class="text-center">
 				<div class="text-[2.5rem] mb-3">⚠️</div>
 				<p class="text-base font-semibold text-[var(--color-danger)] mb-2">{data.error}</p>

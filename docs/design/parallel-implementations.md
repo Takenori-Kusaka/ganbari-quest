@@ -197,6 +197,21 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 6.4a セッションの user 識別子 2 種 (IdP の sub / アプリ DB の users.user_id) (#4643)
+
+同じ「userId」という名前で **別物**が 2 つ流れる。片方を他方の場所に渡しても例外にならず、行が見つからないだけで静かに壊れるため、触るときは必ず対で確認する。
+
+| 場所 | 内容 |
+|------|------|
+| `Identity.userId` (`src/lib/server/auth/types.ts`) | **IdP (Cognito) の sub**。同じメールでも通常ログインと Google 連携で別値になる |
+| `AuthContext.userId` (同上) | **アプリ DB の `users.user_id`** (DB 生成 UUID)。memberships / invites / children / consents が参照するのはこちら |
+| `CognitoAuthProvider.resolveMembership` | sub → アプリ user の**唯一の解決点** (email 経由。`users` は `email_lower` UNIQUE で 1 メール = 1 行) |
+| `src/lib/server/auth/context-token.ts` | `userId` を context token に載せる。旧 token (userId 無し) は採用せず発行し直す |
+| `requireAppUserId` (`src/lib/server/auth/guards.ts`) | route から `users.user_id` を取る唯一の入口 |
+| `tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts` | `src/routes` / `src/lib/server` の `identity.userId` 参照を検出する fitness function (log 用途のみ allowlist) |
+| `infra/lib/auth-stack.ts` Google IdP `attributeMapping` | `email` + `email_verified` を写す。写さないと federated ユーザーの `email_verified` が false 固定になり、email 束縛招待が Google だけ常に拒否される |
+| `normalizeEmailVerified` (`providers/cognito-jwt.ts`) | claim が boolean / 文字列どちらで載っても同じ判定にする |
+
 #### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware + reset + onboarding) (EPIC #2310 / #2353)
 
 | 場所 | 内容 |
@@ -302,8 +317,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - **services**: `child-challenge-service.ts` のみ (`child-challenge-copy-service.ts` は #3195 で親手動 copyToSiblings 撤去に伴い削除、repo interface の `copyAcrossChildren` は #3213 cleanup で整理)。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
 - **routes**: `/admin/challenges` は per-child instance の閲覧 + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte)。**#3195 (EPIC #3193)**: アプリ自動生成一本化に伴い親手動作成 / 一括追加 / cross-child copy / marketplace challenge-set import を撤去し閲覧専用化、child_challenges はアプリ週次自動生成 (`sourceTemplateId='auto:weekly'`) で埋める
 - **子供画面 (#2458-B caller migration)**:
-  - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
-  - チャレンジ対象表示は `ChildChallengeWithSiblings` 型 (自身の `currentValue` / `targetValue` / `rewardClaimed` / `completed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定) を読む。#3333 で独立横長 `ChallengeBanner.svelte` を撤去し、対象は `CategorySection.svelte` ヘッダーのカード演出バッジ (`challenge-target-badge`) + インライン進捗へ統合。`SiblingCelebration.svelte` は全員完了 (`allCompleted`) の group 祝福のみを担う
+  - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key 兄弟連動情報 (`siblings[]`) を取得。**group key = `sourceTemplateId ?? 'manual'` + 内容 (title) + 期間 (start::end) の 3 点一致** (#4689)。内容を含めるのは、週次自動生成が子供ごとに別内容なのに `sourceTemplateId='auto:weekly'` を共有するため — 含めないと別内容が 1 group になり `allCompleted` が兄弟全員の達成に依存して達成した子に祝福が出ない。admin 集計 (`getChallengeGroupsForAdmin`) も同一の `resolveGroupKey` を使う
+  - チャレンジ対象表示は `ChildChallengeWithSiblings` 型 (自身の `currentValue` / `targetValue` / `rewardClaimed` / `completed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定) を読む。#3333 で独立横長 `ChallengeBanner.svelte` を撤去し、対象は `CategorySection.svelte` ヘッダーのカード演出バッジ (`challenge-target-badge`) + インライン進捗へ統合。`SiblingCelebration.svelte` は group 完了 (`allCompleted`) の祝福を担う。同内容の兄弟がいない group (= 週次自動生成の既定) では見出しを本人向け (`celebrationTitleSolo`) にし兄弟一覧を出さない (#4689)
   - `claimChallengeReward` action は `claimChildChallengeReward(challengeId, childId, tenantId)` を呼ぶ (per-child instance の `rewardClaimed` flip + 自分のみ tenant-scoped point ledger 加算)
 - **setup wizard (#2458-B)**: `/setup/challenges` は preset 選択 → `getAllChildren` で全 child 取得 → `buildPerChildTargets` で age-adjusted target 計算 → `createChildChallengesBulk` で全 child に同 spec instance を bulk insert (sourceTemplateId = `setup-preset:<presetId>` で admin 兄弟連動表示)
 - **demo**: `DEMO_CHILD_CHALLENGES` 4 件 fixture (3 件は `sourceTemplateId: 'challenge-100pt'` を共有して兄弟連動表示 demo、1 件は個別)
@@ -325,15 +340,14 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/domain/activity-pack.ts` | `ActivityPackItem.mustDefault?: boolean` 型 | TypeScript |
 | `src/lib/domain/marketplace-item.ts` | `ActivityPackPayload.activities[].mustDefault?` 型 | TypeScript |
 | `src/lib/server/services/activity-import-service.ts` | `ImportActivitiesOptions.applyMustDefault` で `priority='must'` 制御 | TypeScript |
-| `src/routes/(parent)/admin/packs/+page.{svelte,server.ts}` | チェックボックス + must Badge + form action 受信 | Svelte / TS |
 | `src/routes/setup/packs/+page.{svelte,server.ts}` | setup フローのチェックボックス + must Badge | Svelte / TS |
-| `src/lib/domain/labels.ts` | `PACKS_PAGE_LABELS.mustDefault*` / `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
+| `src/lib/domain/labels.ts` | `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
 
-**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/setup-marketplace-must.spec.ts` (3 シナリオ) で検証。
+**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/admin-activities-import-marketplace.spec.ts` (marketplace → `?import=` → ChildSelectionDialog の正規経路) で検証。
 
 **修正時チェック**:
 - 新しい mustDefault 候補を JSON に追加 → import-service テストで該当パターンが網羅されているか確認
-- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（admin と setup 両方）
+- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（setup / ChildSelectionDialog）
 - `priority` enum を拡張するなら `activities.priority` schema (#1755) と整合チェック
 
 #### 7c. checklist 系 marketplace の純化 (#1758)
@@ -569,7 +583,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 何を記録するか | 媒体 | 実体 | 例 |
 |---|---|---|---|
-| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
+| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
 | 子 / テナントに 1 本の一時的な未読告知 | **B: settings KV**（列追加は不可逆なので避ける） | `settings` テーブル + `export-format.ts` の分類 3 配列 | `habit_certificate_notice:<childId>` / `ui_mode_change_notice:<childId>` / `premium_welcome_shown` ほか |
 | 端末ローカルで十分な UI ガイド（機種変で再表示されてよい） | C: localStorage | 各コンポーネント / store | `ganbari-page-guide-completed` / `gq:milestone-seen:*` |
 

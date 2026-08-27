@@ -12,6 +12,10 @@ import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 // で縦長グリッドにバブルが重なる exempt を解消)。
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom は labels.ts の settings-intro 内で参照。
 // #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+// #4661 (EPIC #4650): ハブ 7 カードにお子さま設定 (お名前 / 年齢モード / 追加) が無く、
+//   ガイドにも relatedLinks が 1 つも無かったため「設定にあると思ったもの」に辿り着けなかった。
+//   ③ に /admin/children への relatedLink を置き、① の how でも行き先を述べる。
+//   桁数 (おやカギコード) は OYAKAGI_TERMS.digitRange 経由で実装の受付範囲と一致させる。
 const L = PAGE_GUIDE_LABELS.adminSettings;
 
 export const SETTINGS_GUIDE: PageGuide = {
