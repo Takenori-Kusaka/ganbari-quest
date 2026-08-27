@@ -21,6 +21,12 @@ vi.mock('$lib/server/services/consent-service', () => ({
 	CURRENT_CROSS_BORDER_VERSION: '2026-08-07',
 }));
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: mockGetAuthMode,
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: mockGetAuthMode,
 }));
@@ -54,8 +60,12 @@ function createEvent(
 		request: createRequest(formData),
 		locals: {
 			authenticated: opts.authenticated ?? true,
-			identity: { type: 'cognito', userId: 'user-1' },
-			context: opts.tenantId !== null ? { tenantId: opts.tenantId ?? 'tenant-1' } : undefined,
+			// #4643: consents.user_id は users.user_id (context.userId)。identity.userId は IdP の sub
+			identity: { type: 'cognito', userId: 'cognito-sub-user-1' },
+			context:
+				opts.tenantId !== null
+					? { tenantId: opts.tenantId ?? 'tenant-1', userId: 'user-1' }
+					: undefined,
 		},
 		getClientAddress: () => '127.0.0.1',
 	};

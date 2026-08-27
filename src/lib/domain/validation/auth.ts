@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { MS_PER_DAY, MS_PER_MINUTE, SECONDS_PER_DAY } from '$lib/domain/constants/time';
+import { OYAKAGI_TERMS } from '$lib/domain/terms';
 import { childIdSchema } from './id-schema';
 
 // Cookie名
@@ -7,8 +9,8 @@ export const IDENTITY_COOKIE_NAME = 'identity_token';
 export const CONTEXT_COOKIE_NAME = 'context_token';
 
 // --- PIN認証関連（ADR-0050 で能動利用中。詳細: docs/operations/pin-auth-legacy-migration-plan.md） ---
-export const PIN_MIN_LENGTH = 4;
-export const PIN_MAX_LENGTH = 6;
+// #4661: 桁数の SSOT は constants/oyakagi.ts の PIN_LENGTH。以前ここだけが 4〜6 桁を許容し、
+// `/switch` の parent-gate (PinInput、ちょうど 4 桁) と食い違っていた。
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCKOUT_DURATION_MS = 15 * MS_PER_MINUTE;
 export const SESSION_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY;
@@ -18,9 +20,8 @@ export const SESSION_COOKIE_NAME = 'sessionToken';
 // Zodスキーマ（おやカギコード認証用）
 export const pinSchema = z
 	.string()
-	.min(PIN_MIN_LENGTH, `おやカギコードは${PIN_MIN_LENGTH}桁以上です`)
-	.max(PIN_MAX_LENGTH, `おやカギコードは${PIN_MAX_LENGTH}桁以下です`)
-	.regex(/^\d+$/, 'おやカギコードは数字のみです');
+	.length(PIN_LENGTH, `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}です`)
+	.regex(/^\d+$/, `${OYAKAGI_TERMS.name}は数字のみです`);
 
 export const loginSchema = z.object({
 	pin: pinSchema,
@@ -96,6 +97,8 @@ export const INVITE_ACCEPT_ERROR_REASONS = [
 	'ALREADY_IN_TENANT',
 	'SELF_INVITE_NOT_ALLOWED',
 	'OWNER_CANNOT_BE_DOWNGRADED',
+	// #4723: 受諾するとプランのメンバー上限を超える
+	'MEMBER_LIMIT_REACHED',
 ] as const;
 
 export type InviteAcceptErrorReason = (typeof INVITE_ACCEPT_ERROR_REASONS)[number];

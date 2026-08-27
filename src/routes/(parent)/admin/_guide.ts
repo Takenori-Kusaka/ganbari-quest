@@ -5,10 +5,11 @@
  * 本ガイドは「ユーザーマニュアルを別途用意しない」という
  * プロダクト判断を可能にする唯一の手段である。
  *
- * #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」の
- * 3 部構成に統一。step 1 は selector を省略し画面中央 modal で「このページは何か」を提示する
- * (巨大要素を step target にしないことで PageGuideOverlay の幾何回避不能ケースを根絶する)。
- * 各ステップは三部構成（what/how/goal）を必ず満たすこと。
+ * #4653 (EPIC #4650 PO 判断 4 / 5): 3 step 固定をやめ、画面の上から下の順に主要ブロックを
+ * 網羅する。「押す」と書く step は必ず実要素に spotlight する — 条件付き UI (承認待ちバナー /
+ * 今月のがんばり) と viewport 別 nav は `filterGuideStepsByTargetPresence` (AdminLayout が起動直前に
+ * 適用) で「描画されている step だけ」を出す。desktop では header 下の nav、mobile では画面下部の
+ * nav が光る (旧 step 3 は mobile 専用 nav のみを指し desktop で 0×0 だった、F2)。
  *
  * #3264 (EPIC #3260 F3): 表示文言 (title / what / how / goal / tips) は labels.ts の
  * PAGE_GUIDE_LABELS に SSOT 集約。本ファイルは構造フィールド (pageId / icon / selector /
@@ -30,17 +31,51 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			id: 'home-intro',
 			...L.steps['home-intro'],
 		},
-		// ② 画面の見方
+		// 承認待ちバナー (交換申請が 1 件以上あるときだけ描画される条件付き step)
+		{
+			id: 'home-pending',
+			selector: '[data-tutorial="redemption-pending-banner"]',
+			...L.steps['home-pending'],
+			position: 'bottom',
+		},
+		// ② 画面の見方 — 上部カード (こどもの数 / 合計 = 残高合計)
 		{
 			id: 'home-summary',
-			// summary-cards 行は横長 (~864px) かつ viewport 下端付近に位置するため、driver.js が
-			// バブルを上下左右どこにも非重複で置けない (短く幅広な要素 + 下端 = clear 余地不足)。
-			// 中央 modal (selector 省略) で「画面の見方」を説明し、確実に非重複・viewport 内に収める。
+			selector: '[data-tutorial="summary-cards"]',
 			...L.steps['home-summary'],
+			position: 'bottom',
 		},
-		// ③ 最頻操作
+		// 今月のがんばり (お子さま 1 人以上のときだけ描画される条件付き step)
 		{
-			id: 'home-nav',
+			id: 'home-monthly',
+			selector: '[data-tutorial="monthly-summary"]',
+			...L.steps['home-monthly'],
+			position: 'bottom',
+		},
+		// こども一覧 (0 人のときも section は描画される)
+		{
+			id: 'home-children',
+			selector: '[data-tutorial="children-overview"]',
+			...L.steps['home-children'],
+			position: 'top',
+		},
+		// ③ 最頻操作 — 子供画面へ切替 (header 右端、常設)
+		{
+			id: 'home-switch',
+			selector: '[data-tutorial="switch-to-child"]',
+			...L.steps['home-switch'],
+			position: 'bottom',
+		},
+		// ③ 最頻操作 — 各機能へ移動。desktop は header 下の nav (mobile では display:none で除外)、
+		// mobile は画面下部の nav (desktop では display:none で除外)。文言は共通 ('home-nav')。
+		{
+			id: 'home-nav-desktop',
+			selector: '[data-tutorial="nav-desktop"]',
+			...L.steps['home-nav'],
+			position: 'bottom',
+		},
+		{
+			id: 'home-nav-mobile',
 			selector: '[data-tutorial="nav-primary"]',
 			...L.steps['home-nav'],
 			position: 'top',

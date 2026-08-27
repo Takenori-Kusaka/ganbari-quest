@@ -26,6 +26,7 @@
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
 import {
 	PORTAL_FALLBACK_CONTEXT,
 	PORTAL_FALLBACK_REASON,
@@ -460,12 +461,8 @@ async function openPortal() {
 	}
 
 	if (pinConfigured) {
-		if (
-			!portalPinValue ||
-			portalPinValue.length < 4 ||
-			portalPinValue.length > 6 ||
-			!/^\d+$/.test(portalPinValue)
-		) {
+		// #4661: 桁数は constants/oyakagi.ts の PIN_PATTERN が SSOT (server 側 /api/stripe/portal と同一)。
+		if (!portalPinValue || !PIN_PATTERN.test(portalPinValue)) {
 			portalError = OYAKAGI_LABELS.formatError;
 			return;
 		}

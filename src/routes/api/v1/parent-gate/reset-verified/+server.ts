@@ -17,6 +17,9 @@
 //   - local モードは対象外 (gate 無効 + 救済は operator reset #2994 が担当)
 
 import { error, json } from '@sveltejs/kit';
+// #4661: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
+import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+import { PIN_RESET_OTP_PATTERN } from '$lib/domain/constants/pin-reset-otp';
 import { isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { authenticateWithCognito } from '$lib/server/auth/providers/cognito-direct-auth';
@@ -31,8 +34,8 @@ import {
 import { PIN_RESET_OTP_COOKIE_NAME, verifyPinResetOtp } from '$lib/server/services/pin-reset-otp';
 import type { RequestHandler } from './$types';
 
-const PIN_PATTERN = /^\d{4,6}$/;
-const OTP_PATTERN = /^\d{6}$/;
+// #4661: 確認コードの形式は domain/constants/pin-reset-otp.ts が SSOT (おやカギ本体とは別概念)。
+const OTP_PATTERN = PIN_RESET_OTP_PATTERN;
 const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // verify と同じ 24 時間 hard max (sliding は 15 分)
 /** パスワード / コード brute force 防止 (Cognito 側 throttle / OTP attempts と多重) */
 const RATE_LIMIT_MAX = 5;

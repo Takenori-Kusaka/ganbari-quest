@@ -5,6 +5,7 @@
 // service 層は既存 reward-redemption-service.ts を再利用。
 
 import { fail } from '@sveltejs/kit';
+import { REWARD_REQUEST_HISTORY_LIMIT } from '$lib/domain/constants/redemption-status';
 import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
@@ -26,11 +27,11 @@ function resolverUserId(locals: App.Locals): string | null {
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 
-	// pending + 最近30件の承認/却下履歴を取得
+	// pending + 直近の承認/却下履歴 (件数は REWARD_REQUEST_HISTORY_LIMIT SSOT) を取得
 	const [pendingRequests, historyRequests] = await Promise.all([
 		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
-		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((requests) =>
-			requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
+		getRedemptionRequestsForParent(tenantId, { limit: REWARD_REQUEST_HISTORY_LIMIT }).then(
+			(requests) => requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
 		),
 	]);
 
