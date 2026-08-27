@@ -75,8 +75,15 @@ describe('#4510 LP 訴求と実装事実の一致', () => {
 			expect(badges).not.toContain('約 5 分');
 		});
 
-		it('プリセット数 (300+) は残す — こちらは CI が実数を gate している', () => {
-			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe('300+');
+		// #4713 が本 assertion を supersede した。旧値 '300+' は activity-packs の**延べ**件数
+		// (325) を根拠にしていたが、男の子 / 女の子 variant が同名活動を重複して持つため
+		// **名前のユニークは 129 種**しかなく、延べ基準では「選べる種類」を 2 倍以上に見せていた
+		// (ADR-0013 LP truth)。ユニーク基準の訴求値は PRESET_ACTIVITY_TERMS.uniqueCountBadge に
+		// 集約され、実数を下回っていることは scripts/measure-lp-dimensions.mjs と
+		// tests/unit/domain/lp-claims-implementation-truth-4713.test.ts が gate する。
+		// 本 test の意図 (= プリセット数バッジを消さない) は据え置き、値だけを是正した。
+		it('プリセット数バッジは残す — こちらは CI が実数を gate している', () => {
+			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe('120+');
 		});
 	});
 
