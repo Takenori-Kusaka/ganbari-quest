@@ -99,6 +99,15 @@ import {
 
 const TENANT = 'test-tenant-001';
 
+/**
+ * 保持期間で絞らない range (family = 無期限 相当)。
+ *
+ * 本番コードの opt-out は `NO_RETENTION_FILTER` (plan-limit-service) を使うが、同 module は
+ * auth / request-context / trial-service を引き込むため、repo だけを mock した本 test では
+ * 素の空 range を置く。検証対象は service の絞り込み挙動であって定数の同一性ではない。
+ */
+const NO_RANGE = {};
+
 beforeEach(() => {
 	vi.clearAllMocks();
 });
@@ -1386,7 +1395,7 @@ describe('getChildChallengeRecords (達成履歴、#4688)', () => {
 	it('ほうしゅう受取済み (rewardClaimed=1) のチャレンジも履歴に残る', async () => {
 		mockFindByChildId.mockResolvedValueOnce([row({})]);
 
-		const records = await getChildChallengeRecords(asChildId(902), TENANT);
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
 
 		expect(records).toHaveLength(1);
 		expect(records[0]).toMatchObject({
@@ -1402,16 +1411,118 @@ describe('getChildChallengeRecords (達成履歴、#4688)', () => {
 		expect(mockFindActiveOrUnclaimedByChildId).not.toHaveBeenCalled();
 	});
 
-	it('新しい週から順に並び、limit で打ち切る', async () => {
+	it('新しい週から順に並ぶ', async () => {
 		mockFindByChildId.mockResolvedValueOnce([
 			row({ id: '1', startDate: '2026-08-03' }),
 			row({ id: '2', startDate: '2026-08-17' }),
 			row({ id: '3', startDate: '2026-08-10' }),
 		]);
 
-		const records = await getChildChallengeRecords(asChildId(902), TENANT, 2);
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
 
-		expect(records.map((r) => r.id)).toEqual(['2', '3']);
+		expect(records.map((r) => r.id)).toEqual(['2', '3', '1']);
+	});
+
+	// 旧実装は `limit = 30` を既定で持ち、31 件目以降を無告知に捨てていた。スタンダード
+	// (1 年保持) の週次チャレンジは 52 件になりうるため、顧客には「古い達成が消えた」と
+	// しか見えない。母数は保持期間で閉じる — 件数では切らない (活動 / 交換タブと同じ規律)。
+	it('件数では打ち切らない (保持期間内の達成を無告知に捨てない)', async () => {
+		const many = Array.from({ length: 40 }, (_, i) =>
+			row({ id: `w${i}`, startDate: '2026-08-10', endDate: '2026-08-16' }),
+		);
+		mockFindByChildId.mockResolvedValueOnce(many);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+		expect(records).toHaveLength(40);
+	});
+
+	// ADR-0049 表示フィルタ層。cutoff は呼び出し側 (`applyRetentionFilter`) が決め、
+	// ここは「期間が丸ごと cutoff より前なら返さない」だけを守る。
+	describe('保持期間 (retentionFrom、ADR-0049)', () => {
+		// この test file の todayDateJST は '2026-05-25' 固定 (先頭の vi.mock)。
+		const CUTOFF = '2026-04-01';
+
+		it('cutoff より前に期間が終わったチャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'old', startDate: '2026-03-16', endDate: '2026-03-22' }),
+				row({ id: 'new', startDate: '2026-05-18', endDate: '2026-05-24' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, { from: CUTOFF });
+
+			expect(records.map((r) => r.id)).toEqual(['new']);
+		});
+
+		it('cutoff をまたぐ期間のチャレンジは残す (保持内に一部が入る)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'spans', startDate: '2026-03-30', endDate: '2026-04-05' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, { from: CUTOFF });
+
+			expect(records.map((r) => r.id)).toEqual(['spans']);
+		});
+
+		it('cutoff 未指定 (family = 無期限) では期間で切らない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'ancient', startDate: '2020-01-06', endDate: '2020-01-12' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['ancient']);
+		});
+
+		// `to` は現行の呼び出し元 (履歴 load) が渡さないが、型 (`RetentionRange`) が受け取ると
+		// 宣言している以上、渡されたら効く必要がある (黙って無視する枝を残さない)。
+		it('to より後に期間が始まったチャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'before', startDate: '2026-05-18', endDate: '2026-05-24' }),
+				row({ id: 'after', startDate: '2026-05-25', endDate: '2026-05-31' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, {
+				to: '2026-05-24',
+			});
+
+			expect(records.map((r) => r.id)).toEqual(['before']);
+		});
+	});
+
+	// 画面は `completed` の 2 値でしか描き分けない (`history/+page.svelte`)。期間が終わった
+	// 未達成をそのまま返すと、終わったチャレンジが「がんばってるよ」と表示され続ける。
+	describe('達成タブの意味論 (達成済み or 期間中)', () => {
+		it('期間が終わった未達成チャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'expired', startDate: '2026-05-04', endDate: '2026-05-10', completed: 0 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records).toEqual([]);
+		});
+
+		it('まだ期間中の未達成チャレンジは返す (挑戦中として出す)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'ongoing', startDate: '2026-05-25', endDate: '2026-05-31', completed: 0 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['ongoing']);
+			expect(records[0]?.completed).toBe(false);
+		});
+
+		it('期間が終わっていても達成済みなら返す (履歴として残る)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'done', startDate: '2026-05-04', endDate: '2026-05-10', completed: 1 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['done']);
+		});
 	});
 });
 
