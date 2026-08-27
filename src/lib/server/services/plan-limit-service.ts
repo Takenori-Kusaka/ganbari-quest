@@ -5,8 +5,10 @@ import type { ChildId } from '$lib/domain/ids';
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { FAMILY_MEMBER_LIMIT } from '$lib/domain/constants/family-member-limit';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
 import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
@@ -26,7 +28,14 @@ export interface PlanLimits {
 	historyRetentionDays: number | null;
 	canExport: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
+	/**
+	 * 特別なごほうび設定（スタンダード以上、#728）。
+	 *
+	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
+	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
+	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
+	 */
+	canCustomReward: boolean;
 	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
@@ -57,12 +66,13 @@ export type PlanLimitCheck =
 
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {
-		maxChildren: 2,
-		maxActivities: 3,
+		// 値の SSOT は domain/constants/plan-quota.ts (ページガイドの上限表示も同じ定数から引く、#4655)
+		maxChildren: FREE_PLAN_QUOTA.maxChildren,
+		maxActivities: FREE_PLAN_QUOTA.maxActivities,
 		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
 		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
 		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
-		maxChecklistTemplates: 3,
+		maxChecklistTemplates: FREE_PLAN_QUOTA.maxChecklistTemplates,
 		// #1111: フリープランは招待不可（owner のみ）
 		maxFamilyMembers: FAMILY_MEMBER_LIMIT.free,
 		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
@@ -70,7 +80,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		canExport: false,
 		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
 		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
-		canCustomReward: false,
+		canCustomReward: isCustomRewardUnlocked('free'),
 		canSiblingRanking: false,
 		maxCloudExports: 0,
 	},
@@ -84,7 +94,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
 		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('standard'),
 		canSiblingRanking: false,
 		maxCloudExports: 3,
 	},
@@ -97,7 +107,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
 		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
-		canCustomReward: true,
+		canCustomReward: isCustomRewardUnlocked('family'),
 		canSiblingRanking: true,
 		maxCloudExports: 10,
 	},
@@ -214,13 +224,32 @@ export function getHistoryCutoffDate(tier: PlanTier): string | null {
 }
 
 /**
+ * 履歴を絞る JST 暦日の範囲 (両端含む)。`applyRetentionFilter` の戻り値の形。
+ *
+ * 履歴取得 service (`getActivityLogs` / `getChildChallengeRecords` /
+ * `getRedemptionRequestsForChild`) はこれを **必須引数** で受け取る。省略可能にすると
+ * 渡し忘れが「全期間を返す」= 料金表が約束した保持期間の空洞化として**静かに**成立するため
+ * (#4763 で実際に達成タブが、それ以前から交換タブがこの状態だった)。
+ */
+export interface RetentionRange {
+	from?: string;
+	to?: string;
+}
+
+/**
+ * 保持期間で絞らないことを**明示**するための range。
+ *
+ * 履歴一覧ではない用途 (例: ショップの「このごほうびの最新申請状態」) で使う。
+ * 空オブジェクト `{}` を直接書くと「渡し忘れ」と区別がつかないため、opt-out は必ず
+ * 本定数を経由させる (`grep NO_RETENTION_FILTER` で全 opt-out を数えられる状態を保つ)。
+ */
+export const NO_RETENTION_FILTER: RetentionRange = Object.freeze({});
+
+/**
  * 日付範囲オプションに保持期間フィルタを適用する
  * from が cutoff より前の場合、cutoff に上書き
  */
-export function applyRetentionFilter(
-	tier: PlanTier,
-	options: { from?: string; to?: string } = {},
-): { from?: string; to?: string } {
+export function applyRetentionFilter(tier: PlanTier, options: RetentionRange = {}): RetentionRange {
 	const cutoff = getHistoryCutoffDate(tier);
 	if (cutoff === null) return options;
 	const from = options.from && options.from > cutoff ? options.from : cutoff;
