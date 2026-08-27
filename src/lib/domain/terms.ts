@@ -155,6 +155,9 @@ export const TRIAL_TERMS = {
 	// 注: ここに撤去済 export の識別子を literal で書くと check-orphan-labels が
 	// それを「参照 1 件」と数え、復活させても検出できなくなる (#4408 mutation 検証で実証)。
 	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
+	// #4668: プラン・課金ページのトライアル開始ボタン表記。画面 (SUBSCRIPTION_PAGE_LABELS.trialStartButton)
+	// とページガイド文言が同じ atom を引き、ボタン名の食い違いを作らない。
+	startButton: '無料トライアルを開始する',
 } as const;
 
 // ============================================================
@@ -433,6 +436,9 @@ export const STRIPE_PORTAL_TERMS = {
 	canonical: 'Stripe の請求管理ページ',
 	short: '請求管理ページ',
 	billingPortal: '請求管理ページ',
+	// #4668: 画面見出し「請求履歴」(SUBSCRIPTION_PAGE_LABELS.billingHistoryTitle) とガイド文言が同じ
+	// atom を引く。ガイド側で「支払い履歴」等の別表記を作らない (EPIC #4650 PO 判断)。
+	history: '請求履歴',
 } as const;
 
 // ============================================================
@@ -871,6 +877,25 @@ export const BACKUP_TERMS = {
 } as const;
 
 // ============================================================
+// CERTIFICATE_TERMS / GROWTH_BOOK_TERMS — 証明書 / 記録ブックの呼称 atom (#4670 F2)
+// ============================================================
+//
+// レポート画面のリンク「📜 証明書」「📖 記録ブック」/ ナビ「グロースブック」/ 遷移先見出し
+// 「がんばり証明書」「成長記録ブック」/ ガイド「修了証（賞状）」「成長ブック」と 3〜4 表記が混在していた。
+// 画面リンクの短い呼称 (canonical) と遷移先見出しのフル名 (full) の 2 形に絞り、ガイド / ナビ / リンクは
+// canonical、ページ見出しは full を引く (EPIC #4650 PO 判断: 呼称はリンク表示「証明書」「記録ブック」を正とする)。
+
+export const CERTIFICATE_TERMS = {
+	canonical: '証明書',
+	full: 'がんばり証明書',
+} as const;
+
+export const GROWTH_BOOK_TERMS = {
+	canonical: '記録ブック',
+	full: '成長記録ブック',
+} as const;
+
+// ============================================================
 // TEMPLATE_TERMS — みんなのテンプレート atom (#2276 / EPIC #2266)
 // ============================================================
 //
@@ -1155,6 +1180,18 @@ export const PIN_DEFAULT_TERMS = {
 //   - challenge : チャレンジ = 的 🎯 (MARKETPLACE_TYPE_ICONS 既存値)
 //   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
 //   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
+
+// ============================================================
+// CHALLENGE_TERMS — チャレンジの呼称 atom (#4671 F3)
+// ============================================================
+//
+// 同一画面で「チャレンジ管理」(ガイド title) / 「👥 きょうだいチャレンジ」(見出し・page title) /
+// 「チャレンジ」(サイドナビ) の 3 表記が混在していた。per-child 自動生成モデルではきょうだい限定機能
+// ではないため、画面で最も広く使われている「チャレンジ」を canonical とする (EPIC #4650 PO 判断)。
+
+export const CHALLENGE_TERMS = {
+	canonical: 'チャレンジ',
+} as const;
 
 export const CONCEPT_ICONS = {
 	activity: '📝',

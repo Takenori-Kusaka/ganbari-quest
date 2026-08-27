@@ -42,6 +42,8 @@ import {
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
+	CERTIFICATE_TERMS,
+	CHALLENGE_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
@@ -55,6 +57,7 @@ import {
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
+	GROWTH_BOOK_TERMS,
 	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
@@ -110,22 +113,24 @@ export const PAGE_TITLES = {
 	activitiesIntroduce: '活動紹介スライド',
 	reports: 'レポート',
 	achievements: 'チャレンジ管理',
-	growth: '成長記録ブック',
+	growth: GROWTH_BOOK_TERMS.full,
 	points: 'ポイント管理',
 	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
 	cheer: '応援',
 	rewards: 'ごほうび',
 	checklists: 'チェックリスト管理',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'きょうだいチャレンジ',
+	// #4671 F3: 呼称は CHALLENGE_TERMS.canonical に統一 (旧「きょうだいチャレンジ」)
+	challenges: CHALLENGE_TERMS.canonical,
 	children: 'こども管理',
 	members: 'メンバー管理',
 	settings: '設定',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	billing: '請求書・支払い管理',
-	certificates: 'がんばり証明書',
+	certificates: CERTIFICATE_TERMS.full,
 	license: 'プラン・お支払い',
-	statusBenchmark: 'ベンチマーク管理',
+	// #4669 F6: 親に見えるのは成長レポートのみ (ベンチマーク編集は ops / NUC 限定) のため表題を画面内容に揃える
+	statusReport: '成長レポート',
 	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
 	packs: TEMPLATE_TERMS.userFacing,
 	// 認証
@@ -153,7 +158,7 @@ export const PAGE_TITLES = {
 	// デモ ご家族の見守り画面 (#2057)
 	demoAdminAchievements: 'チャレンジ履歴（デモ）',
 	demoAdminActivities: '活動管理',
-	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
+	demoAdminChallenges: `${CHALLENGE_TERMS.canonical}（デモ）`,
 	demoAdminChecklists: 'もちものチェックリスト',
 	demoAdminChildren: 'こども管理',
 	demoAdminEvents: 'イベント管理（デモ）',
@@ -315,7 +320,10 @@ export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
 	reports: 'レポート',
-	growthBook: 'グロースブック',
+	// #4670 F2: 呼称をレポート画面リンクと同じ「記録ブック」に統一 (旧「グロースブック」)
+	growthBook: GROWTH_BOOK_TERMS.canonical,
+	// #4669 F7: /admin/status への到達導線 (record カテゴリ)
+	statusReport: '成長レポート',
 	achievements: 'チャレンジ履歴',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	points: 'ポイント',
@@ -329,7 +337,7 @@ export const NAV_ITEM_LABELS = {
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'チャレンジ',
+	challenges: CHALLENGE_TERMS.canonical,
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
 	marketplace: TEMPLATE_TERMS.short,
@@ -670,7 +678,7 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 
 export const FEATURE_LABELS = {
 	report: 'レポート',
-	growthBook: 'グロースブック',
+	growthBook: GROWTH_BOOK_TERMS.canonical,
 	message: 'おうえんメッセージ',
 	reward: 'ごほうび',
 	// #1168: チェックリストを「持ち物」「ルーティン」に分離
@@ -681,7 +689,7 @@ export const FEATURE_LABELS = {
 	loginBonus: 'ログインボーナス',
 	challenge: 'チャレンジ',
 	event: 'イベント',
-	certificate: 'がんばり証明書',
+	certificate: CERTIFICATE_TERMS.full,
 	stamp: 'スタンプ',
 	// #1311: 「シールガチャ」語彙を撤回、実装実体 (日 1 回 cap login omikuji + 週次 stamp card) に合わせた SSOT
 	// 旧: 'シールガチャ' → 新: 'おみくじ' + 'スタンプカード' の 2 mechanic 分離 (ADR-0012 / ADR-0013 準拠)
@@ -1664,26 +1672,47 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminChallenges: {
-		title: 'チャレンジ管理',
+		title: CHALLENGE_TERMS.canonical,
+		// #4671 (EPIC #4650): 全 step が中央 modal で何も光らなかったため、画面の DOM 順
+		// (家族ストリーク → お子さまタブ → 今週のカード → 削除) に anchor を張り直す。
+		// 削除の説明は実装の事実 (同じ週のうちは再び用意され進捗は 0 に戻る) を正とする (PO 判断)。
 		steps: {
 			'challenges-intro': {
 				title: 'このページについて',
-				what: 'チャレンジは、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、そのチャレンジを保護者が一覧で見守れます。',
-				how: '設定や作成は不要です。お子さまがアプリを開くと今週のチャレンジが自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。',
+				what: `${CHALLENGE_TERMS.canonical}は、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、その${CHALLENGE_TERMS.canonical}を保護者が一覧で見守れます。`,
+				how: `設定や作成は不要です。お子さまがアプリを開くと今週の${CHALLENGE_TERMS.canonical}が自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。`,
 				goal: 'お子さまの画面に進捗バーが表示され、達成に近づく様子が見えます。期間内に達成すると特別な演出でお祝いされます。',
 			},
-			'challenges-view': {
-				title: '画面の見方',
-				what: '自動で用意された今週のチャレンジと、これまでの履歴が並びます。お子さまごとの進捗バーで達成までの道のりが見え、きょうだいで同じ目標に取り組むときはみんなの進捗が並んで表示されます。',
-				how: '上に今週のチャレンジ、その下に過去の履歴が並びます。各カードの進捗バーで達成度を確認できます。',
+			// ② 家族ストリーク (誰かが記録した日が続くと表示される。0 日の日は描画されない → optional)
+			'challenges-family-streak': {
+				title: '画面の見方（家族ストリーク）',
+				what: `一番上の「🔥 家族ストリーク」は、ご家族の誰かが記録した日が何日続いているかを表します。その下に今日すでに記録した人数が出ます。${CHALLENGE_TERMS.canonical}とは別の「家族全体の連続記録」です。`,
+				how: `1. 「家族ストリーク: N日」で連続日数を確認します\n2. 「今日は N人が記録済み」で今日の状況を確認します（誰も記録していない日はその旨が出ます）`,
+				goal: '「あと 1 人記録すれば今日も続くね」と、家族で声をかけ合うきっかけになります。',
+			},
+			// ③ お子さまタブ (子供 2 人以上のときだけ描画 → optional)
+			'challenges-child-tabs': {
+				title: '画面の見方（お子さまで絞り込む）',
+				what: `お子さまが 2 人以上のとき、上のタブで表示する子を切り替えられます。お子さまが 1 人のご家庭ではタブは出ず、その子の${CHALLENGE_TERMS.canonical}がそのまま並びます。`,
+				how: `1. 「すべて」を押すと全員分が並びます\n2. お子さまの名前のタブを押すと、その子の${CHALLENGE_TERMS.canonical}だけが表示されます`,
+				goal: '見たいお子さまの取り組みだけを表示して、進み具合を確認できます。',
+			},
+			// ④ 今週のカードの見方 (1 件以上あるときだけ描画 → optional)
+			'challenges-card': {
+				title: '画面の見方（今週のカード）',
+				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「報酬 N P」（P はポイント）が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
+				how: `1. 進捗バーで達成までの距離を確認します\n2. 「報酬 N P」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
 				goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
 			},
-			'challenges-manage': {
-				title: 'よく使う操作（絞り込みと削除）',
-				what: 'お子さまが複数いるときは、上のタブで子ごとに絞り込めます。合わないチャレンジはカードから取り除けます。',
-				how: '1. お子さまタブで見たい子に切り替えます\n2. 不要なチャレンジは各カードの「削除」で取り除きます',
-				goal: '見たいお子さまの取り組みだけを表示でき、合わない目標を整理できます。削除しても翌週また自動で用意されます。',
-				tips: ['チャレンジはアプリが自動で用意するので、保護者が目標を作る必要はありません'],
+			// ⑤ 削除 (カードが 1 件以上あるときだけ描画 → optional)
+			'challenges-delete': {
+				title: 'よく使う操作（削除）',
+				what: `お子さまに合わない${CHALLENGE_TERMS.canonical}は、カードから取り除けます。消えるのは押したお子さまの分だけです。`,
+				how: `1. カード右下の「削除」（きょうだいのカードでは「<お名前> を削除」）を押します\n2. 確認画面で「削除」を選びます`,
+				goal: `そのお子さまの今週の進捗は消えます。同じ週のうちは、次にお子さまがアプリを開くと今週分が改めて用意されます（進捗は 0 からになります）。翌週は新しい${CHALLENGE_TERMS.canonical}が届きます。`,
+				tips: [
+					`${CHALLENGE_TERMS.canonical}はアプリが自動で用意するので、保護者が目標を作る必要はありません`,
+				],
 			},
 		},
 	},
@@ -1797,24 +1826,64 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminReports: {
 		title: 'レポート',
+		// #4670 (EPIC #4650): step は画面の DOM 順 (右上リンク → upsell → タブ → 月の移動 → 週次設定 →
+		// きょうだいランキング)。呼称はリンク実表示 (CERTIFICATE_TERMS / GROWTH_BOOK_TERMS canonical) と
+		// タブ実表示 (REPORTS_LABELS.tabMonthly / tabWeekly と同文) に合わせ、週次に無い「曜日別」は書かない。
 		steps: {
 			'reports-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・レベルアップ・前の期間との比較がひと目でわかります。',
-				how: '「月次」「週次」のタブを切り替えて、見たい期間のレポートを表示します。',
+				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・ポイント・レベル・カテゴリ別の内訳がひと目でわかります。',
+				how: '上から順に、証明書・記録ブックへのリンク、「月次レポート」「週次レポート」のタブ、レポート本体が並びます。週次レポートのメール配信設定ときょうだいランキングは週次タブ / ページ下部にあります。',
 				goal: '「今月はうんどうを20回頑張ったね！先月より5回多いよ」と、具体的な数字でお子さまを褒められます。',
 			},
-			'reports-tabs': {
-				title: '画面の見方（月次／週次の切り替え）',
-				what: 'タブで「月次」と「週次」を切り替えます。月次は1ヶ月の総まとめ、週次は曜日別・カテゴリ別の傾向が見られます。',
-				how: '1. 「月次」「週次」タブをタップして切り替えます\n2. 月次は ◀ ▶ で月を移動できます\n3. 前の期間との差分が色付きで表示されます（赤=減少、緑=増加）',
-				goal: '「平日は頑張っているけど土日が少ない」のような傾向に気づけ、次の声かけのヒントになります。',
-			},
-			'reports-growth-book': {
-				title: 'よく使う操作（賞状・成長ブック）',
-				what: 'レポートから、お子さまの頑張りを「修了証（賞状）」として印刷したり、長期的な成長を「成長ブック」で振り返ったりできます。',
-				how: '1. このリンクから賞状・成長ブックのページを開きます\n2. 印刷・保存して、お子さまと一緒に振り返ります',
+			// ② 右上の証明書 / 記録ブック リンク (2 本を包む要素を spotlight)
+			'reports-links': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}・${GROWTH_BOOK_TERMS.canonical}）`,
+				what: `右上の 2 つのリンクから、がんばりの節目ごとに発行される「${CERTIFICATE_TERMS.canonical}」と、長期的な成長をまとめた「${GROWTH_BOOK_TERMS.canonical}」のページを開けます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}」を押すと${CERTIFICATE_TERMS.full}の一覧を開きます\n2. 「📖 ${GROWTH_BOOK_TERMS.canonical}」を押すと${GROWTH_BOOK_TERMS.full}を開きます\n3. どちらも画面で閲覧でき、印刷や PDF 保存はそれぞれのページから行います`,
 				goal: 'がんばりを形に残せるので、お子さまの達成感が大きくなり、次の目標への意欲につながります。',
+				tips: [`PDF 保存・印刷は${PAID_PLAN_LABEL}で利用できます（閲覧はどのプランでもできます）`],
+				relatedLinks: [
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
+					{ label: GROWTH_BOOK_TERMS.full, href: '/admin/growth-book' },
+				],
+			},
+			// ③ 無料プラン向け upsell バナー (free のときだけ描画、optional)
+			'reports-weekly-upsell': {
+				title: '画面の見方（週次メールレポートのご案内）',
+				what: `週次レポートを毎週メールで受け取る機能は${PAID_PLAN_LABEL}の特典です。${PLAN_FULL_TERMS.free}では、このお知らせと「週次レポート」タブのプレビューが表示されます。`,
+				how: `1. メールで受け取りたいときは「プランを見る →」からプランを確認します\n2. 今のプランのままでも、「週次レポート」タブで今週のまとめを画面で見られます`,
+				goal: 'メール配信を使うかどうかを、内容をプレビューで確かめてから決められます。',
+			},
+			'reports-tabs': {
+				title: '画面の見方（月次レポート／週次レポートの切り替え）',
+				what: 'タブで「月次レポート」と「週次レポート」を切り替えます。月次は 1 か月の総まとめ（先月との比較つき）、週次は今週のカテゴリ別の活動数・ハイライト・新しい実績・アドバイスです。',
+				how: '1. 「月次レポート」「週次レポート」のタブを押して切り替えます\n2. 週次レポートタブの上部には「⚙️ レポート設定」（メール配信の有効化・配信曜日）があります',
+				goal: '「今週はうんどうが多かった」「今月は先月より活動が増えた」のように、期間ごとの傾向に気づけ、次の声かけのヒントになります。',
+			},
+			// ⑤ 月の移動と先月比 (月次タブのときだけ描画、optional)
+			'reports-month-nav': {
+				title: 'よく使う操作（月の移動と先月比）',
+				what: '◀ ▶ で見たい月に移動します。月次レポートの数字には先月との差が色付きで表示されます（緑＝増加、赤＝減少）。',
+				how: '1. ◀ で前の月、▶ で次の月に移動します\n2. 各数字の下の「先月比」で増減を確認します',
+				goal: '「先月より 5 回多いよ」と根拠のある声かけができ、月ごとの伸びを追えます。',
+			},
+			// ⑥ 週次メール配信設定 (週次タブのときだけ描画、optional)
+			'reports-weekly-settings': {
+				title: 'よく使う操作（週次レポートのメール配信設定）',
+				what: `「⚙️ レポート設定」で、週次レポートをメールで受け取るかどうかと配信曜日を設定します。メール配信は${PAID_PLAN_LABEL}で利用できます。`,
+				how: '1. 「週次レポートを有効にする」にチェックを入れます\n2. 「配信曜日」を選びます\n3. 「保存」を押します',
+				goal: '毎週決まった曜日に、お子さまのがんばりのまとめが保護者のメールに届きます。',
+			},
+			// ⑦ きょうだいランキング (プレミアム + ランキング ON + 子 2 人以上のときだけ描画、optional)
+			'reports-sibling-ranking': {
+				title: '画面の見方（きょうだいランキング）',
+				what: `きょうだいの今週の活動数をくらべる「👫 きょうだいランキング」です。${PLAN_FULL_TERMS.premium}で、設定の「きょうだいランキング」が ON、かつお子さまが 2 人以上のときに表示されます。`,
+				how: '1. 「今週のまとめ」でもっとも活発だったお子さまを確認します\n2. 「週別 活動数のうつりかわり」「カテゴリ別くらべっこ」のグラフで推移と得意分野をくらべます',
+				goal: 'きょうだいそれぞれの得意・がんばりどころが分かり、比べて責めるのではなく、それぞれを認める声かけに使えます。',
+				tips: [
+					'表示されないときは、プラン・設定の「きょうだいランキング」・お子さまの人数を確認してください',
+				],
 			},
 		},
 	},
@@ -2020,6 +2089,10 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminSubscription: {
 		title: 'プラン・課金',
+		// #4668 (EPIC #4650): step は SaasLicensePanel / NucLicensePanel の DOM 順に「上から下」で並べ、
+		// ボタン名・見出しは画面と同じ atom (TRIAL_TERMS / STRIPE_PORTAL_TERMS / CANCEL_TERMS 等) を引く。
+		// 環境依存 UI (Checkout 照合バナー / Portal fallback / 期末解約バナー / 請求履歴カード) は出た
+		// ときに画面自身が説明するため step 化しない (ガイドは常設要素だけを扱う)。
 		steps: {
 			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
 			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
@@ -2027,23 +2100,48 @@ export const PAGE_GUIDE_LABELS = {
 			'subscription-intro': {
 				title: 'このページについて',
 				what: '今ご利用中のプランや契約の状況を確認するページです。プランに関する操作の入り口がここに集まっています。',
-				how: '上から順に、現在の状況・プランの管理・支払い履歴への入り口が並びます。表示される項目はご利用環境によって変わります。',
+				how: `上から順に、現在のプラン・利用状況と上限・${PLAN_CHANGE_TERMS.changeNoun}や${STRIPE_PORTAL_TERMS.history}への入り口が並びます。表示される項目はご利用環境やプランによって変わります。`,
 				goal: `プランの状況をひと目で把握でき、必要なときに${PLAN_CHANGE_TERMS.changeNoun}や支払いの管理へ迷わず進めます。`,
 			},
-			// ② 画面の見方（現在のプラン）— SaaS 版のみ（NUC では本セクション非表示のため除外）。
+			// ② 画面の見方（現在のプラン）— SaaS 版のみ。カード全体を spotlight。残り日数はここには出ない
+			// (利用状況カードの step で説明する、PO 判断)。
 			'subscription-current-plan': {
 				title: '画面の見方（現在のプラン）',
-				what: 'いま契約中のプランと、無料トライアル中ならその残り期間がここに表示されます。',
-				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
-				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
+				what: 'いま契約中のプランの名前と、ステータス（有効・猶予期間など）・有効期限・家族名・登録日がここに表示されます。',
+				how: '1. 「プラン」の行で今のプランを確認します\n2. 「ステータス」と「有効期限」で契約が続いているかを確認します',
+				goal: '今どのプランで、いつまで使えるかをすぐに確認できます。',
 			},
-			// ③ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			// ③ 画面の見方（利用状況と上限）— SaaS 版のみ。PlanStatusCard (上限 / トライアル残り日数 / アップグレード CTA)。
+			'subscription-plan-status': {
+				title: '画面の見方（利用状況と上限）',
+				what: '今のプランで登録できるお子さまの人数・カスタム活動の数・データ保持期間と、現在の使用数が並びます。無料トライアル中なら残り日数もここに表示されます。',
+				how: '1. 「こども」「カスタム活動」の「使用数 / 上限」を見ます\n2. 上限に近づいたら、このカードのアップグレードボタンから上のプランに進めます',
+				goal: 'あと何人・何件まで登録できるかが分かり、足りなくなる前にプランを見直せます。',
+			},
+			// ④ 最頻操作（無料トライアルを開始する）— 無料プランで未使用のときだけ出るカード (optional)。
+			'subscription-trial': {
+				title: `よく使う操作（${TRIAL_TERMS.startButton}）`,
+				what: `${PLAN_FULL_TERMS.standard}の全機能を${TRIAL_TERMS.duration}無料で試せます。${TRIAL_TERMS.noCreditCard}で、自動で課金されることはありません。`,
+				how: `1. 「${TRIAL_TERMS.startButton}」を押します\n2. すぐに${PLAN_FULL_TERMS.standard}の機能が使えるようになり、残り日数が上の利用状況カードに表示されます`,
+				goal: `${TRIAL_TERMS.duration}のあいだ上位プランを実際に使ってみてから、続けるかどうかを決められます。`,
+			},
+			// ⑤ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。契約状況で分岐するため両分岐を記述。
+			// 契約済み分岐は PIN / 確認フレーズ dialog (+ ダウングレード確認) を省略せず書く (PO 判断)。
 			'subscription-plan-management': {
 				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
 				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
-				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
-				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
-				tips: [`${CANCEL_TERMS.anytime}できます`],
+				how: `・未契約のとき: 1. プランを選びます 2. 「${PLAN_TERMS.standard}プランで始める」など選んだプランのボタンを押し、お支払い手続きに進みます\n・契約済みのとき: 1. 「${STRIPE_PORTAL_TERMS.short}を開く」を押します 2. 上位プランからの変更で使えなくなるデータがある場合は、先に確認画面が出ます 3. ${OYAKAGI_TERMS.shortName}（親 PIN）か確認フレーズを入力します 4. ${STRIPE_PORTAL_TERMS.canonical}でプラン変更や支払い方法を手続きします`,
+				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法や請求書も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
+				tips: [
+					`${STRIPE_PORTAL_TERMS.short}を開く前に${OYAKAGI_TERMS.shortName}の入力を求めるのは、お子さまの誤操作で${CANCEL_TERMS.canonical}やダウングレードが起きないようにするためです`,
+				],
+			},
+			// ⑥ 解約の入口 — SaaS 版のみ。ページ末尾の控えめなリンクを spotlight。
+			'subscription-cancel': {
+				title: `${CANCEL_TERMS.canonical}の入口`,
+				what: `${CANCEL_TERMS.anytime}できます。有料プランをやめるときは、ページの一番下にあるこのリンクから進みます。`,
+				how: `1. 「${CANCEL_TERMS.canonical}をご検討の方」を押します\n2. 次の画面で${CANCEL_TERMS.canonical}の内容を確認して手続きします`,
+				goal: `${CANCEL_TERMS.canonical}の場所を探し回らずに済み、続けるかやめるかをいつでも自分で決められます。`,
 			},
 			// ②' 画面の見方（ご利用中の版）— NUC セルフホスト版のみ（#3296）。NucLicensePanel の
 			// Edition badge を spotlight し、全機能が制限なく使える旨を案内する。
@@ -2053,38 +2151,19 @@ export const PAGE_GUIDE_LABELS = {
 				how: 'ここに版の名前と、使える範囲が表示されます。お申し込みや支払いの手続きは必要ありません。',
 				goal: '追加の費用や手続きなしで、すべての機能をそのまま使えることが分かります。',
 			},
-			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況セクションを spotlight。
+			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況カード全体を spotlight。
 			'subscription-nuc-usage': {
 				title: '画面の見方（利用状況）',
 				what: '今このアプリに登録されているお子さまの人数や、これまでに作った活動の数を確認できます。',
 				how: '1. 登録人数や活動数の一覧を見ます\n2. データの保存期間もあわせて確認できます',
 				goal: 'どれくらい使っているかをひと目で把握できます。',
 			},
-		},
-	},
-	adminBilling: {
-		title: 'お支払い',
-		steps: {
-			// ① ページ概要（selector 省略で画面中央 modal）。
-			'billing-intro': {
-				title: 'このページについて',
-				what: `ご契約の状況確認と、${STRIPE_PORTAL_TERMS.short}での支払い管理・${CANCEL_TERMS.canonical}をまとめたページです。`,
-				how: '上から「ご契約状況」「請求管理」の順に並びます。',
-				goal: `支払いの状況を把握でき、必要なら${STRIPE_PORTAL_TERMS.short}や${CANCEL_TERMS.canonicalVerb}手続きに進めます。`,
-			},
-			// ② 画面の見方（ご契約状況）。
-			'billing-overview': {
-				title: '画面の見方（ご契約状況）',
-				what: '契約中のプランの状態と、次回の請求予定がここに表示されます。',
-				how: '1. 契約状況を確認します\n2. 下の「請求管理」で支払い方法を変えられます',
-				goal: '今の契約と請求予定をひと目で確認できます。',
-			},
-			// ③ 最頻操作（請求管理ページ）。ご契約があるときに「請求管理ページを開く」ボタンが出る。
-			'billing-portal': {
-				title: `よく使う操作（${STRIPE_PORTAL_TERMS.short}）`,
-				what: `支払い方法の変更や領収書の確認は${STRIPE_PORTAL_TERMS.canonical}から行います。ご契約があるときに開くボタンが表示されます。`,
-				how: `1. ${STRIPE_PORTAL_TERMS.short}を開きます\n2. 支払い方法や${CANCEL_TERMS.canonical}を手続きします`,
-				goal: `支払い方法を最新に保て、${CANCEL_TERMS.anytime}できます。`,
+			// ④' サポート — NUC セルフホスト版のみ (#4668 F5)。お問い合わせ / ドキュメントへのリンク。
+			'subscription-nuc-support': {
+				title: '困ったときは（サポート）',
+				what: 'セルフホスト版で困ったときの相談先とドキュメントへのリンクがここにまとまっています。',
+				how: '1. 使い方や不具合の相談は「お問い合わせ」を押します\n2. 設定やバックアップの手順は「ドキュメント」で確認します',
+				goal: '問い合わせ先を探し回らずに、困りごとをすぐ相談できます。',
 			},
 		},
 	},
@@ -2116,25 +2195,72 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminStatus: {
 		title: '成長レポート',
+		// #4669 (EPIC #4650): step は画面の DOM 順 (子供タブ → 編集リンク → チャート → 分析サマリー →
+		// 先月からの変化 → レベル称号 → (ops / NUC) ベンチマーク編集)。比較線の呼称は凡例と同じ
+		// 「同年齢の平均」(STATUS_LABELS.comparisonLabel) に統一し、「翌月以降のチャートで変化を確認」の
+		// 誤案内は「先月からの変化」テーブルへ差し替える (PO 判断)。
 		steps: {
 			'status-intro': {
 				title: 'このページについて',
-				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。`,
-				how: 'レーダーチャートで5軸のバランスを見ます。同年代の目安（ベンチマーク）と重ねて表示されるので、平均との比較もできます。',
+				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。見出しに表示中のお子さまの名前が出ます。`,
+				how: '上のタブでお子さまを選ぶと、その子のレーダーチャート・分析サマリー・先月からの変化が表示されます。チャートには同年齢の平均が重ねて表示されるので、平均との比較もできます。',
 				goal: '「今月はうんどうが伸びた」「べんきょうが少なめ」といった傾向が数値とグラフで分かり、声かけや活動設計の参考になります。',
+			},
+			// ② お子さまの切替タブ (子供 1 人以上で表示。0 人時は登録案内カードを指す step に置き換わる)
+			'status-child-tabs': {
+				title: '画面の見方（お子さまを選ぶ）',
+				what: 'きょうだいがいるご家庭では、ここでどのお子さまのレポートを見るかを切り替えます。選んだお子さまの名前が下の見出しに表示されます。',
+				how: '1. 見たいお子さまの名前のタブを押します\n2. 下のレポートがそのお子さまの内容に切り替わります',
+				goal: 'きょうだい全員の成長を、同じページで順番に確認できます。',
+			},
+			// ②' 子供 0 人時の登録案内 (optional: 0 人のときだけ描画される)
+			'status-empty': {
+				title: 'まずお子さまを登録する',
+				what: 'お子さまが 1 人も登録されていないため、成長レポートはまだ表示できません。',
+				how: '1. 「こども管理でお子さまを登録する →」を押します\n2. お子さまを登録して活動を記録すると、このページにレポートが表示されます',
+				goal: '登録後は、5 つの軸のバランスと同年齢の平均との比較がここに出ます。',
+			},
+			// ③ 右上「こども管理でステータス編集 →」
+			'status-edit-link': {
+				title: '画面の見方（数値を手で調整する）',
+				what: '各分野の★（ステータス）を手で調整したいときは、このリンクからこども管理に移動します。',
+				how: '1. 「こども管理でステータス編集 →」を押します\n2. こども管理で対象のお子さまを開き、ステータスを編集します',
+				goal: '記録だけでは反映しきれない頑張りを、保護者の判断で補正できます。',
 			},
 			'status-radar': {
 				title: '画面の見方（バランスチャート）',
-				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。',
-				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. ベンチマーク（目安）との差を見比べます',
+				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。重ねて表示される線は「同年齢の平均」です。',
+				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. 「同年齢の平均」の線との差を見比べます',
 				goal: 'バランスの偏りにひと目で気づけるので、お子さまの今の状態を客観的に把握できます。',
 			},
 			'status-act': {
-				title: 'よく使う操作（次の一手を決める）',
-				what: 'このページの使いどころは「どの分野を伸ばすか」を決めることです。分析サマリーでへこんでいる軸を見つけ、活動管理で新しい活動を足してバランスを整えます。',
-				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します\n3. 翌月以降のチャートで変化を確認します',
+				title: '画面の見方（分析サマリーで次の一手を決める）',
+				what: '分析サマリーは分野ごとに「特に活発」「平均的」「伸びる余地」の 3 段階でコメントします。コメントは同年齢の平均との比較（偏差値）に基づきます。ここでへこんでいる分野を見つけるのが、このページの使いどころです。',
+				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します',
 				goal: '「得意をもっと伸ばす」「苦手を少しだけ足す」など、お子さまに合った関わり方を選べます。',
 				tips: ['無理に全軸を均等にする必要はありません。得意分野を伸ばす視点も大切です'],
+			},
+			// ⑤ 先月からの変化 (optional: 先月の記録が無いお子さまでは描画されない)
+			'status-monthly-change': {
+				title: '画面の見方（先月からの変化）',
+				what: '「先月からの変化」は、分野ごとのポイントが先月と比べてどれだけ増減したかを数字と矢印で表します。',
+				how: '1. 「+12 ↑」のように増えた分野はそのまま続けます\n2. 「-5 ↓」のように減った分野は、声かけや活動の見直しのきっかけにします',
+				goal: '今月の取り組みが先月より増えたか減ったかを、分野ごとに確認できます。',
+			},
+			// ⑥ レベル称号カスタマイズ (本ページで保護者が操作できる唯一の書き込み機能)
+			'status-level-titles': {
+				title: 'よく使う操作（レベル称号カスタマイズ）',
+				what: 'お子さまのレベル（Lv.1〜10）ごとの称号を、ご家庭オリジナルの言葉に変えられます。お子さまの画面に表示される称号がここで決まります。',
+				how: '1. 「▼ 開く」を押してセクションを開きます\n2. 変えたい Lv. の欄に称号を入力して「保存」を押します\n3. 元に戻したいときは「リセット」、全部戻すときは「全ての称号をデフォルトに戻す」を押します',
+				goal: '「見習い」「冒険者」などの既定の称号を、お子さまが喜ぶ言葉に変えてやる気につなげられます。',
+				tips: ['空欄で保存はできません。既定に戻すときは「リセット」を使います'],
+			},
+			// ⑦ ベンチマーク編集 (ops / NUC 単一運用者のみ描画。optional で DOM 有無を判定)
+			'status-benchmark-edit': {
+				title: '画面の見方（同年齢の平均を設定する）',
+				what: 'ここでは年齢ごとに「同年齢の平均」の値（平均と SD = ばらつきの大きさ）を設定できます。チャートの比較線と分析サマリーのコメントは、この値をもとに計算されます。',
+				how: '1. 年齢を選びます\n2. 分野ごとに平均と SD を入力して「保存」を押します\n3. 目安の範囲は年齢ボタンの下に表示されます',
+				goal: 'ご家庭の実態に合った基準で比較できるようになります。',
 			},
 		},
 	},
@@ -3153,7 +3279,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	trialActiveUntil: (date: string) => `${date} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
 	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
-	trialStartButton: '無料トライアルを開始する',
+	trialStartButton: TRIAL_TERMS.startButton,
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
 
@@ -3192,7 +3318,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
 	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
 	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
-	billingHistoryTitle: '請求履歴',
+	billingHistoryTitle: STRIPE_PORTAL_TERMS.history,
 	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
 	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
 	billingHistoryFeatureReceipts: 'お支払い履歴の確認',
@@ -3430,8 +3556,8 @@ export const REPORTS_LABELS = {
 	categoryUnknown: 'その他',
 	// ページヘッダー
 	pageTitle: '📊 レポート',
-	certificatesLink: '📜 証明書',
-	growthBookLink: '📖 記録ブック',
+	certificatesLink: `📜 ${CERTIFICATE_TERMS.canonical}`,
+	growthBookLink: `📖 ${GROWTH_BOOK_TERMS.canonical}`,
 
 	// 設定更新完了
 	settingsUpdated: '設定を更新しました',
@@ -4420,10 +4546,13 @@ export const CHALLENGES_LABELS = {
 	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
 	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: `${CONCEPT_ICONS.challenge} ${CHALLENGE_TERMS.canonical}`,
 	deletedNotice: 'チャレンジを削除しました',
-	noChallengeTitleIcon: '👥',
-	noChallengeTitle: 'チャレンジはまだありません',
+	noChallengeTitleIcon: CONCEPT_ICONS.challenge,
+	noChallengeTitle: `${CHALLENGE_TERMS.canonical}はまだありません`,
+	// #4671 F8: 家族ストリークカードの日本語直書きを SSOT 化
+	familyStreakRecordedToday: (count: number) => `今日は${formatPeople(count)}が記録済み`,
+	familyStreakNoneToday: '今日はまだ誰も記録していません',
 	badgeAllCompleted: '全員クリア！',
 	/** #4689: その子だけのチャレンジ (週次自動生成は子供ごとに内容が違うためこちらが既定) */
 	badgeCompleted: 'クリア！',
@@ -4655,7 +4784,7 @@ export const DEMO_TOP_LABELS = {
 // ============================================================
 
 export const GROWTH_BOOK_LABELS = {
-	pageHeading: '📖 成長記録ブック',
+	pageHeading: `📖 ${GROWTH_BOOK_TERMS.full}`,
 	backToReports: '← レポートへ',
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
@@ -4936,8 +5065,14 @@ export const STATUS_LABELS = {
 	benchmarkInfoDesc2:
 		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
 
-	// Preview label
-	previewLabel: 'プレビュー:',
+	// #4669 F2: 表示対象のお子さま切替タブ (全保護者) / F1: 子供 0 人時の案内
+	childTabsAriaLabel: '表示するお子さまを選ぶ',
+	emptyNoChildren: 'お子さまが登録されると、ここに成長レポートが表示されます。',
+	emptyNoChildrenLink: 'こども管理でお子さまを登録する →',
+	// #4669 F11: 分析サマリー 3 段階コメント (しきい値は validation/status.ts ANALYSIS_DEVIATION_*)
+	analysisHigh: '同年齢の中でも特に活発です',
+	analysisMid: '平均的なペースで成長しています',
+	analysisLow: 'これから伸びる余地がたくさんあります',
 
 	// Benchmark guide
 	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
@@ -6098,17 +6233,9 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// 子供別タブ
 	childTabAllLabel: 'すべて',
 	childTabAllAriaLabel: 'すべてのお子さま',
-	// 一括追加 / cross-child copy
-	bulkAddAction: '全員にこのチャレンジを追加',
-	copyFromOtherChildAction: '他のお子さまから取り込む',
-	copyConfirmTitle: (sourceName: string, targetCount: number) =>
-		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
-	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
-	// 一括追加 完了通知 (#2362 PR-7)
-	bulkCreatedMessage: (createdCount: number) => `${createdCount} 件のチャレンジを追加しました。`,
 	// per-child empty state
+	// #4671 F7: 一括追加 / cross-child copy の label は #3195 の機能撤去で参照 0 件になったため削除
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
-	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
 	// #3195: アプリ自動生成への一本化 (親手動作成撤去、読み取り専用ビュー)
 	autoGeneratedDesc:
 		'チャレンジはアプリが毎週自動で用意します。お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標が届きます。',
@@ -6129,7 +6256,7 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
-	pageTitle: '📜 がんばり証明書',
+	pageTitle: `📜 ${CERTIFICATE_TERMS.full}`,
 	backToReportsLink: 'レポートへ',
 	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
