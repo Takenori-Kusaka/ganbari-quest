@@ -203,6 +203,49 @@ describe('plan-limit-service', () => {
 			const endStr = futureDate.toISOString().slice(0, 10);
 			expect(resolvePlanTier('active', 'monthly', endStr)).toBe('standard');
 		});
+
+		// #4707: 最終日の tier 判定は JST 暦日で end_date 当日いっぱい有効 (表示判定と同じ述語)。
+		// 旧実装 `new Date('YYYY-MM-DD') > new Date()` は UTC 00:00 (= JST 09:00) で free に落ち、
+		// ヘッダー「⭐ 残り 0 日 / トライアル中」のまま有料機能が 403 になっていた。
+		describe('trial final day is JST calendar-day inclusive (#4707)', () => {
+			const END = '2026-08-26';
+			afterEach(() => {
+				vi.useRealTimers();
+			});
+
+			it.each([
+				// [UTC instant, JST 表記, 期待 tier]
+				['2026-08-25T15:00:00Z', '08-26 00:00 JST (最終日 開始)', 'standard'],
+				['2026-08-25T23:59:59Z', '08-26 08:59 JST', 'standard'],
+				['2026-08-26T00:00:00Z', '08-26 09:00 JST (旧実装が free に落ちた境界)', 'standard'],
+				['2026-08-26T14:59:59Z', '08-26 23:59 JST (最終日 終了直前)', 'standard'],
+				['2026-08-26T15:00:00Z', '08-27 00:00 JST (翌日)', 'free'],
+			])('now=%s (%s) → %s', (instant, _label, expected) => {
+				process.env.AUTH_MODE = 'cognito';
+				vi.useFakeTimers();
+				vi.setSystemTime(new Date(instant));
+				expect(resolvePlanTier('none', undefined, END, 'standard')).toBe(expected);
+			});
+
+			it.each([
+				'UTC',
+				'Asia/Tokyo',
+				'America/Los_Angeles',
+			])('process TZ=%s でも JST 09:00 の最終日は standard のまま (TZ 非依存)', (tz) => {
+				const prev = process.env.TZ;
+				process.env.TZ = tz;
+				try {
+					process.env.AUTH_MODE = 'cognito';
+					vi.useFakeTimers();
+					vi.setSystemTime(new Date('2026-08-26T00:00:00Z'));
+					expect(resolvePlanTier('none', undefined, END, 'standard')).toBe('standard');
+					vi.setSystemTime(new Date('2026-08-26T15:00:00Z'));
+					expect(resolvePlanTier('none', undefined, END, 'standard')).toBe('free');
+				} finally {
+					process.env.TZ = prev;
+				}
+			});
+		});
 	});
 
 	describe('resolveFullPlanTier', () => {

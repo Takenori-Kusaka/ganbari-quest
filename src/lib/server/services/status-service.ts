@@ -309,14 +309,56 @@ export async function updateStatus(
 }
 
 // ============================================================
-// レベル称号解決（カスタムレベル称号テーブル廃止後はデフォルトのみ）
+// レベル称号解決（#4688: settings 1 行に JSON で保持する）
+//
+// 旧実装は `level_titles` table 撤去後に **getCustomLevelTitles / saveLevelTitle を no-op stub の
+// まま放置**していた。親の `/admin/status`「レベル称号カスタマイズ」は保存できたように見えて
+// 何も残らず、子供画面にも当然出ない (#4688 F3 の根)。専用 table を復活させず、既存の
+// settings (tenant scope の key-value) に JSON 1 行で持たせる (Pre-PMF、ADR-0010)。
 // ============================================================
 
 import { LEVEL_TABLE } from '$lib/domain/validation/status';
+import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 
-/** テナントのカスタムレベル称号を取得（廃止済み — 常に空Mapを返す） */
-export async function getCustomLevelTitles(_tenantId: string): Promise<Map<number, string>> {
-	return new Map<number, string>();
+/** settings key。値は `{ "<level>": "<title>" }` の JSON。 */
+const CUSTOM_LEVEL_TITLES_KEY = 'custom_level_titles';
+
+/** settings の JSON を Map<level, title> に読み出す (壊れていれば空 Map)。 */
+async function readCustomLevelTitles(tenantId: string): Promise<Map<number, string>> {
+	const raw = await getSetting(CUSTOM_LEVEL_TITLES_KEY, tenantId);
+	if (!raw) return new Map<number, string>();
+	try {
+		const parsed = JSON.parse(typeof raw === 'string' ? raw : String(raw)) as Record<
+			string,
+			unknown
+		>;
+		const map = new Map<number, string>();
+		for (const [level, title] of Object.entries(parsed)) {
+			const n = Number(level);
+			if (Number.isFinite(n) && typeof title === 'string' && title.trim() !== '') {
+				map.set(n, title);
+			}
+		}
+		return map;
+	} catch {
+		// 壊れた値は「カスタム無し」に倒す (画面を落とさない)
+		return new Map<number, string>();
+	}
+}
+
+/** Map<level, title> を settings に書き戻す (空なら空 JSON)。 */
+async function writeCustomLevelTitles(
+	tenantId: string,
+	titles: Map<number, string>,
+): Promise<void> {
+	const obj: Record<string, string> = {};
+	for (const [level, title] of titles) obj[String(level)] = title;
+	await setSetting(CUSTOM_LEVEL_TITLES_KEY, JSON.stringify(obj), tenantId);
+}
+
+/** テナントのカスタムレベル称号を取得 (#4688: settings から実データを読む)。 */
+export async function getCustomLevelTitles(tenantId: string): Promise<Map<number, string>> {
+	return readCustomLevelTitles(tenantId);
 }
 
 /** レベルに対応する称号を解決 */
@@ -327,32 +369,42 @@ export function resolveLevelTitle(level: number, customTitles: Map<number, strin
 	return entry?.title ?? '';
 }
 
-/** レベル称号一覧を取得（デフォルトのみ） */
+/** レベル称号一覧を取得（デフォルト + 親が設定したカスタム、#4688）。 */
 export async function getLevelTitleList(
-	_tenantId: string,
+	tenantId: string,
 ): Promise<{ level: number; defaultTitle: string; customTitle: string | null }[]> {
+	const custom = await readCustomLevelTitles(tenantId);
 	return LEVEL_TABLE.map((entry) => ({
 		level: entry.level,
 		defaultTitle: entry.title,
-		customTitle: null,
+		customTitle: custom.get(entry.level) ?? null,
 	}));
 }
 
-/** カスタムレベル称号を保存（廃止済み — no-op） */
+/** カスタムレベル称号を保存する (#4688: 空文字は「解除」として扱う)。 */
 export async function saveLevelTitle(
-	_tenantId: string,
-	_level: number,
-	_customTitle: string,
+	tenantId: string,
+	level: number,
+	customTitle: string,
 ): Promise<void> {
-	// level_titles table removed — no-op
+	const titles = await readCustomLevelTitles(tenantId);
+	const trimmed = customTitle.trim();
+	if (trimmed === '') {
+		titles.delete(level);
+	} else {
+		titles.set(level, trimmed);
+	}
+	await writeCustomLevelTitles(tenantId, titles);
 }
 
-/** カスタムレベル称号を削除（廃止済み — no-op） */
-export async function resetLevelTitle(_tenantId: string, _level: number): Promise<void> {
-	// level_titles table removed — no-op
+/** カスタムレベル称号を削除する (既定の称号に戻す)。 */
+export async function resetLevelTitle(tenantId: string, level: number): Promise<void> {
+	const titles = await readCustomLevelTitles(tenantId);
+	if (!titles.delete(level)) return;
+	await writeCustomLevelTitles(tenantId, titles);
 }
 
-/** 全カスタム称号をリセット（廃止済み — no-op） */
-export async function resetAllLevelTitles(_tenantId: string): Promise<void> {
-	// level_titles table removed — no-op
+/** 全カスタム称号をリセットする。 */
+export async function resetAllLevelTitles(tenantId: string): Promise<void> {
+	await writeCustomLevelTitles(tenantId, new Map<number, string>());
 }

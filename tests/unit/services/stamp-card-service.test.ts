@@ -815,5 +815,65 @@ describe('stamp-card-service', () => {
 			expect(result?.points).toBe(20);
 			expect(result?.multiplier).toBe(2);
 		});
+
+		// #4687 ①: 1 週間まるごと空けても、前々週以前のカードが未交換のまま残らない
+		it('2 週分の未交換カードが次回ログインで全て redeemed になり、ポイントが合算される', () => {
+			return (async () => {
+				// 2 週前 (2026-03-16 週): 5/5 コンプリート = 50 + 50 = 100pt
+				mockToday = '2026-03-16';
+				const twoWeeksAgo = await getOrCreateCurrentCard(asChildId(1), TENANT);
+				for (let i = 1; i <= 5; i++) {
+					insertStampEntry(twoWeeksAgo.id, ((i - 1) % 3) + 1, i, `2026-03-${15 + i}`);
+				}
+				// 前週 (2026-03-23 週): 3/5 = 30pt
+				mockToday = '2026-03-23';
+				const lastWeek = await getOrCreateCurrentCard(asChildId(1), TENANT);
+				insertStampEntry(lastWeek.id, 1, 1, '2026-03-23');
+				insertStampEntry(lastWeek.id, 2, 2, '2026-03-24');
+				insertStampEntry(lastWeek.id, 3, 3, '2026-03-25');
+
+				// 1 週間ぶりのログイン
+				mockToday = '2026-03-30';
+				const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
+				expect(result).not.toBeNull();
+				expect(result?.weeks).toBe(2);
+				expect(result?.points).toBe(130); // 100 + 30
+				expect(result?.filledSlots).toBe(8); // 5 + 3
+				expect(result?.totalSlots).toBe(10); // 5 枠 × 2 週
+
+				// 両方の card が redeemed になっている (前々週が collecting のまま残らない)
+				const cards = testDb.select().from(schema.stampCards).all();
+				expect(
+					cards.filter((c) => c.status === 'collecting' && c.weekStart < '2026-03-30'),
+				).toEqual([]);
+				// 台帳の合計 = 演出で見せる points
+				const ledgerTotal = testDb
+					.select()
+					.from(schema.pointLedger)
+					.all()
+					.filter((e) => e.type === 'stamp_card')
+					.reduce((sum, e) => sum + e.amount, 0);
+				expect(ledgerTotal).toBe(result?.points);
+
+				// 2 回目の呼び出しは何も交換しない (冪等)
+				expect(await autoRedeemPreviousWeek(asChildId(1), TENANT)).toBeNull();
+			})();
+		});
+
+		it('空カード (押印 0) は交換対象にせず、押印のあるカードだけを数える', async () => {
+			// 2 週前: 押印なし (旅行で 1 度もログインしなかった週)
+			mockToday = '2026-03-16';
+			await getOrCreateCurrentCard(asChildId(1), TENANT);
+			// 前週: 1 枠だけ
+			mockToday = '2026-03-23';
+			const lastWeek = await getOrCreateCurrentCard(asChildId(1), TENANT);
+			insertStampEntry(lastWeek.id, 1, 1, '2026-03-23');
+
+			mockToday = '2026-03-30';
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
+			expect(result?.weeks).toBe(1);
+			expect(result?.points).toBe(10);
+			expect(result?.filledSlots).toBe(1);
+		});
 	});
 });

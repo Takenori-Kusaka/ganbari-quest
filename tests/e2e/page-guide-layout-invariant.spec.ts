@@ -55,6 +55,63 @@ const VIEWPORTS = [
 	{ label: 'mobile', width: 390, height: 844 },
 ] as const;
 
+/**
+ * #4650 / #4668: 「selector 指定 step は必ず実要素に spotlight する」を機械固定する対象。
+ * 各ページで (AUTH_MODE=local / plan=family / Stripe 無効 の E2E 環境において) 表示されるべき
+ * selector 付き step の id を DOM 順で列挙する。ガイド走査中にこの id の step が出たら、
+ * driver.js の active element が「存在 + 可視 + 非 0 矩形 + viewport 内」であることを assert し、
+ * 走査終了時に全 id が出現した (= 黙って落ちていない) ことも assert する。
+ * 中央 fallback (0×0 dummy) で成立する step を緑にしない (EPIC #4650 PO 判断 4 / 6)。
+ * 各ページの是正 PR がここに行を足す (ページ単位で増やす。engine 側の汎用 assert は #4651)。
+ */
+const REQUIRED_SPOTLIGHT_STEPS: Partial<
+	Record<(typeof ADMIN_GUIDE_PAGES)[number], readonly string[]>
+> = {
+	// #4668: plan=family + Stripe 無効 → トライアル (optional) / プラン管理 (requiredStripe) は出ない
+	'/admin/subscription': [
+		'subscription-current-plan',
+		'subscription-plan-status',
+		'subscription-cancel',
+	],
+	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
+	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
+	'/admin/settings/account': ['settings-account-pin'],
+	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
+	'/admin/settings/activities': [
+		'settings-activities-decay',
+		'settings-activities-point',
+		'settings-activities-default-child',
+		'settings-activities-sibling',
+	],
+	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
+	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
+	'/admin/status': [
+		'status-child-tabs',
+		'status-edit-link',
+		'status-radar',
+		'status-act',
+		'status-level-titles',
+	],
+	// #4670: 右上リンク 2 本 / タブ / 月の移動 (既定の月次タブ) は常に描画。upsell (free) / 週次設定 (週次タブ) /
+	// きょうだいランキング (プレミアム + ON + 2 人以上) は optional で列挙しない
+	'/admin/reports': ['reports-links', 'reports-tabs', 'reports-month-nav'],
+	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
+	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
+	'/admin/challenges': ['challenges-child-tabs'],
+	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
+	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
+	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
+	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
+	// optional のまま列挙しない
+	'/admin/certificates': ['certificates-child-select'],
+	// #4675: seed は子供 5 人 → お子さま切替は常に描画。年間サマリー / 印刷 / 証明書リンクは
+	// 記録データとプランに依存するため optional のまま列挙しない
+	'/admin/growth-book': ['growth-book-child-tabs'],
+	// #4676: 未処理 / 履歴セクションは常設 (0 件でも「申請はありません」を表示)。承認 / 却下ボタンは
+	// 未処理の申請があるときだけ描画されるため optional のまま列挙しない
+	'/admin/rewards/requests': ['rewards-requests-pending', 'rewards-requests-history'],
+};
+
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
 const GUIDE_BUBBLE = '.guide-bubble';
 const GUIDE_NEXT = '.guide-nav-next';
@@ -180,6 +237,38 @@ async function assertBubbleNotOverlapTarget(
 	).toBe(false);
 }
 
+/**
+ * (d) #4650 / #4668: selector 指定 step が**実要素**に spotlight していることを検証する。
+ * driver.js は selector 未解決時に 0×0 の `#driver-dummy-element` を差し込んで中央 modal として
+ * 成立させる (silent fallback) ため、active element の「存在 + 可視 + 非 0 矩形 + viewport 内」を
+ * 直接 assert する。対象は REQUIRED_SPOTLIGHT_STEPS に列挙した step のみ。
+ */
+async function assertStepSpotlightsRealTarget(page: Page, ctx: string): Promise<void> {
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	await expect(target, `${ctx}: (d) selector 指定 step は active element を持つ`).toHaveCount(1);
+	await expect(target, `${ctx}: (d) active element が可視`).toBeVisible();
+	const box = await target.boundingBox();
+	expect(box, `${ctx}: (d) active element の矩形`).not.toBeNull();
+	if (!box) return;
+	expect(box.width, `${ctx}: (d) spotlight 幅が 0 でない (dummy element でない)`).toBeGreaterThan(
+		0,
+	);
+	expect(
+		box.height,
+		`${ctx}: (d) spotlight 高さが 0 でない (dummy element でない)`,
+	).toBeGreaterThan(0);
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+	const tol = 1;
+	expect(box.x, `${ctx}: (d) spotlight 左端が viewport 内`).toBeGreaterThanOrEqual(-tol);
+	expect(box.y, `${ctx}: (d) spotlight 上端が viewport 内`).toBeGreaterThanOrEqual(-tol);
+	expect(box.x + box.width, `${ctx}: (d) spotlight 右端が viewport 内`).toBeLessThanOrEqual(
+		vp.width + tol,
+	);
+	expect(box.y + box.height, `${ctx}: (d) spotlight 下端が viewport 内`).toBeLessThanOrEqual(
+		vp.height + tol,
+	);
+}
+
 /** (c) spotlight (driver.js backdrop overlay) が表示中であることを検証する。 */
 async function assertSpotlightVisible(page: Page, ctx: string): Promise<void> {
 	const overlay = page.locator(DRIVER_OVERLAY);
@@ -214,6 +303,54 @@ async function waitForBubbleStable(page: Page, bubble: Locator): Promise<void> {
 	}
 }
 
+/**
+ * ガイドの全 step を「つぎへ」で辿りながら (a)(b)(c)(d) を検証する (上限で無限ループを防ぐ。
+ * 1 ページ最大 step は registry 上 12 以下)。
+ * @param requiredSpotlight (d) で実要素 spotlight を要求し、走査後に出現も要求する step id (#4650)
+ */
+async function walkAllSteps(
+	page: Page,
+	bubble: Locator,
+	pageCtx: string,
+	requiredSpotlight: readonly string[],
+): Promise<void> {
+	const MAX_STEPS = 12;
+	const seenStepIds: string[] = [];
+	for (let i = 0; i < MAX_STEPS; i++) {
+		const ctx = `${pageCtx} step#${i + 1}`;
+
+		// driver.js の scroll-into-view + fade + 再配置が静止するまで待ってから計測する。
+		await waitForBubbleStable(page, bubble);
+		await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
+		const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+		seenStepIds.push(stepId);
+
+		await assertSpotlightVisible(page, ctx);
+		await assertBubbleWithinViewport(page, bubble, ctx);
+		await assertBubbleNotOverlapTarget(page, bubble, ctx);
+		// (d) #4650: 列挙した selector 指定 step は実要素に spotlight していること
+		if (requiredSpotlight.includes(stepId)) {
+			await assertStepSpotlightsRealTarget(page, `${ctx} (${stepId})`);
+		}
+
+		// 次へ。最終 step なら「かんりょう！」になり、押すとガイドが閉じる。
+		const nextBtn = bubble.locator(GUIDE_NEXT);
+		const nextText = (await nextBtn.textContent().catch(() => '')) ?? '';
+		if (nextText.includes('かんりょう')) break;
+		// 現 step の data-step-id を控え、click 後に値が変わる (= 新 step に遷移) のを待つ。
+		await nextBtn.click();
+		await expect(bubble, `${ctx}: step 遷移で data-step-id が更新`).not.toHaveAttribute(
+			'data-step-id',
+			stepId,
+			{ timeout: 5_000 },
+		);
+	}
+	// (d) #4650: 列挙した step が全て出現した (filter / 起動時判定で黙って落ちていない) こと。
+	for (const id of requiredSpotlight) {
+		expect(seenStepIds, `${pageCtx}: step "${id}" がガイドに現れる`).toContain(id);
+	}
+}
+
 test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b)(c) 機械固定', () => {
 	test.setTimeout(120_000);
 
@@ -237,33 +374,12 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 				const bubble = page.locator(GUIDE_BUBBLE);
 				await expect(bubble).toBeVisible({ timeout: 5_000 });
 
-				// 全 step をループ検証 (上限で無限ループを防ぐ。1 ページ最大 step は registry 上 5 以下)。
-				const MAX_STEPS = 12;
-				for (let i = 0; i < MAX_STEPS; i++) {
-					const ctx = `[${vpLabel}] ${path} step#${i + 1}`;
-
-					// driver.js の scroll-into-view + fade + 再配置が静止するまで待ってから計測する。
-					await waitForBubbleStable(page, bubble);
-					await expect(bubble, `${ctx}: バブル表示`).toBeVisible();
-
-					await assertSpotlightVisible(page, ctx);
-					await assertBubbleWithinViewport(page, bubble, ctx);
-					await assertBubbleNotOverlapTarget(page, bubble, ctx);
-
-					// 次へ。最終 step なら「かんりょう！」になり、押すとガイドが閉じる。
-					const nextBtn = bubble.locator(GUIDE_NEXT);
-					const nextText = (await nextBtn.textContent().catch(() => '')) ?? '';
-					const isLast = nextText.includes('かんりょう');
-					if (isLast) break;
-					// 現 step の data-step-id を控え、click 後に値が変わる (= 新 step に遷移) のを待つ。
-					const prevStepId = await bubble.getAttribute('data-step-id').catch(() => null);
-					await nextBtn.click();
-					await expect(bubble, `${ctx}: step 遷移で data-step-id が更新`).not.toHaveAttribute(
-						'data-step-id',
-						prevStepId ?? '',
-						{ timeout: 5_000 },
-					);
-				}
+				await walkAllSteps(
+					page,
+					bubble,
+					`[${vpLabel}] ${path}`,
+					REQUIRED_SPOTLIGHT_STEPS[path] ?? [],
+				);
 			});
 		}
 	}

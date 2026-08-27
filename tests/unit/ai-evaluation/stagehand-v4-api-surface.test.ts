@@ -1,22 +1,24 @@
 /**
- * Stagehand v3 API surface assertion test (PR #2695 Day 3 fatal 真因解消)
+ * Stagehand v4 API surface assertion test (#4618 dependabot v3→v4 migration、
+ * 旧 PR #2695 Day 3 fatal 真因解消の後継)
  *
- * 目的: v2 → v3 breaking change の **実装 / mock からの乖離** を CI で機械的に検出する。
- * 本回 (Day 3) の fatal は v3 SDK install 状態で v2 API surface のコードを書いていた実装バグ。
- * 同 class の bug を二度と通さないため、以下の structural invariant を assert する。
+ * 目的: v3 → v4 breaking change の **実装 / mock からの乖離** を CI で機械的に検出する。
+ * v3 (constructor 経由 `new Stagehand(...)`) から v4 (`Stagehand.create()` static factory、
+ * constructor private 化) への SDK 移行で、実装が旧 API のまま残る class の bug を CI で防ぐ。
  *
- * SSOT: tmp/stagehand-v3-migration-notes.md
+ * SSOT: node_modules/@browserbasehq/stagehand/dist/index.d.mts (直読、推測禁止)
  *
  * 範囲:
- *   1. @browserbasehq/stagehand v3 module の named export 存在 (Stagehand / V3)
- *   2. Mock Stagehand instance が v3 API surface に整合
+ *   1. @browserbasehq/stagehand v4 module の named export 存在 (Stagehand / localBrowser)
+ *   2. Mock Stagehand instance が v4 wrapper API surface に整合
  *      (`stagehand.context.addCookies`, `stagehand.context.activePage`,
  *       `stagehand.act`, `stagehand.observe`, `stagehand.extract`)
- *   3. Mock 経路で setChildContext / executeStep が v3 形態で動作 (`stagehand.page` 経由禁止)
+ *   3. Mock 経路で setChildContext / executeStep が v4 wrapper 形態で動作
+ *      (`stagehand.page` 経由禁止、v3 から不変の invariant)
  *   4. runAxeAudit が mock mode で realistic 5 violations 返す
  *   5. runChildFriendlyAudit が age-tier SSOT に整合
  *
- * Anti-pattern guard: v3 では `stagehand.page` プロパティは存在しないため、
+ * Anti-pattern guard: v4 でも `stagehand.page` プロパティは存在しないため、
  * mock 含めて `.page` を持たせない (assert で `undefined` を確認)。
  */
 
@@ -122,13 +124,20 @@ async function loadAxe(): Promise<AxeRunnerModule> {
 // describe-level timeout で吸収する (assertion 内容は不変、ADR-0061 same-class 対処)。
 const HEAVY_INIT_TIMEOUT = 30_000;
 
-describe('Stagehand v3 module export surface', { timeout: HEAVY_INIT_TIMEOUT }, () => {
-	it('@browserbasehq/stagehand exports Stagehand and V3 (alias) classes', async () => {
+describe('Stagehand v4 module export surface', { timeout: HEAVY_INIT_TIMEOUT }, () => {
+	it('@browserbasehq/stagehand exports Stagehand class + localBrowser factory', async () => {
 		const sdk = await import('@browserbasehq/stagehand');
 		expect(sdk.Stagehand).toBeDefined();
-		expect(sdk.V3).toBeDefined();
-		// v3 では Stagehand === V3 (index.d.ts alias)
-		expect(sdk.Stagehand).toBe(sdk.V3);
+		expect(sdk.localBrowser).toBeDefined();
+		// v4: browser 起動は Stagehand と分離した factory (localBrowser.launch / .connect)
+		expect(typeof sdk.localBrowser.launch).toBe('function');
+	});
+
+	it('Stagehand constructor は private 化され、static create() のみが公式経路', async () => {
+		const sdk = await import('@browserbasehq/stagehand');
+		// v4 breaking change: `new Stagehand(...)` は TS コンパイルエラーになる (private constructor)。
+		// runtime でも同義に「create 経由以外の生成手段を提供しない」ことを構造的に確認する。
+		expect(typeof sdk.Stagehand.create).toBe('function');
 	});
 
 	it('Stagehand class has act / observe / extract on instance (not on .page)', async () => {
@@ -137,24 +146,28 @@ describe('Stagehand v3 module export surface', { timeout: HEAVY_INIT_TIMEOUT }, 
 		expect(typeof proto.act).toBe('function');
 		expect(typeof proto.observe).toBe('function');
 		expect(typeof proto.extract).toBe('function');
-		// v3 では context は getter (descriptor)
+		// v4 では Stagehand instance に `.context` getter は存在しない
+		// (BrowserContext は `.browser.context` 経由、src/stagehand.d.ts)
 		const ctxDesc = Object.getOwnPropertyDescriptor(proto, 'context');
-		expect(ctxDesc?.get).toBeDefined();
+		expect(ctxDesc).toBeUndefined();
+		// `.browser` getter 経由で StagehandBrowser (→ .context) を取得する
+		const browserDesc = Object.getOwnPropertyDescriptor(proto, 'browser');
+		expect(browserDesc?.get).toBeDefined();
 	});
 });
 
-describe('Mock Stagehand instance — v3 API surface 整合', { timeout: HEAVY_INIT_TIMEOUT }, () => {
+describe('Mock Stagehand wrapper — v4 API surface 整合', { timeout: HEAVY_INIT_TIMEOUT }, () => {
 	it('createStagehand({ mock: true }) は context.addCookies / context.activePage を持つ', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
 		try {
 			expect(sh._mockMode).toBe(true);
-			// v3: context は instance property
+			// wrapper: context は instance property (v4 実装では browser.context を re-export)
 			expect(sh.context).toBeDefined();
 			expect(typeof sh.context.addCookies).toBe('function');
 			expect(typeof sh.context.activePage).toBe('function');
 
-			// v3 breaking change guard: stagehand.page は存在してはならない
+			// v3/v4 共通の breaking change guard: stagehand.page は存在してはならない
 			// (v2 では存在したプロパティ。本 PR で撤去済を assert)
 			expect((sh as unknown as { page?: unknown }).page).toBeUndefined();
 		} finally {
@@ -162,7 +175,7 @@ describe('Mock Stagehand instance — v3 API surface 整合', { timeout: HEAVY_I
 		}
 	});
 
-	it('Mock instance は act / observe / extract を持つ (V3 直呼出 API)', async () => {
+	it('Mock instance は act / observe / extract を持つ (Stagehand instance 直呼出 API)', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
 		try {
@@ -189,12 +202,13 @@ describe('Mock Stagehand instance — v3 API surface 整合', { timeout: HEAVY_I
 		}
 	});
 
-	it('activePage() は同期メソッド (context.d.ts §64 整合、Promise なし) を返す', async () => {
+	it('context.activePage() は await 経由で Page を返す (v4 は Promise<Page|undefined> 化)', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
 		try {
-			const page = sh.context.activePage();
-			// 同期メソッドなので Promise ではなく Page object を直接返す
+			// v4 BrowserContext.activePage() は async 化されている (src/browserContext.d.ts)。
+			// mock 実装は同期値を返すが、呼出側は常に await するため両対応。
+			const page = await sh.context.activePage();
 			expect(page).toBeDefined();
 			expect(page._mockMode).toBe(true);
 			expect(typeof page.goto).toBe('function');
@@ -205,7 +219,9 @@ describe('Mock Stagehand instance — v3 API surface 整合', { timeout: HEAVY_I
 	});
 });
 
-describe('setChildContext / executeStep — v3 形態で動作', { timeout: HEAVY_INIT_TIMEOUT }, () => {
+describe('setChildContext / executeStep — v4 wrapper 形態で動作', {
+	timeout: HEAVY_INIT_TIMEOUT,
+}, () => {
 	it('setChildContext は stagehand.context.addCookies 経由で cookie 追加', async () => {
 		const { createStagehand, setChildContext } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
@@ -227,10 +243,10 @@ describe('setChildContext / executeStep — v3 形態で動作', { timeout: HEAV
 		}
 	});
 
-	it('executeStep は stagehand.page 経由を **使わず** v3 経路で SS + observe', async () => {
+	it('executeStep は stagehand.page 経由を **使わず** wrapper 経路で SS + observe', async () => {
 		const { createStagehand, executeStep, ACTIVITY_PACK_FLOW } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
-		const tmp = await mkdtemp(join(tmpdir(), 'stagehand-v3-test-'));
+		const tmp = await mkdtemp(join(tmpdir(), 'stagehand-v4-test-'));
 		try {
 			const ssPath = join(tmp, 'ss-step1.png');
 			const step1 = ACTIVITY_PACK_FLOW[0];
@@ -244,7 +260,7 @@ describe('setChildContext / executeStep — v3 形態で動作', { timeout: HEAV
 			expect(bytes.length).toBeGreaterThan(0);
 			// observed は Mock 経由で構造化 array
 			expect(Array.isArray(result.observed)).toBe(true);
-			// v3: executeStep の戻り値に page も含まれる (run-poc 側で axe に渡す)
+			// executeStep の戻り値に page も含まれる (run-poc 側で axe に渡す)
 			expect(result.page).toBeDefined();
 			expect(result.page._mockMode).toBe(true);
 		} finally {
@@ -253,7 +269,7 @@ describe('setChildContext / executeStep — v3 形態で動作', { timeout: HEAV
 		}
 	});
 
-	it('getActivePage は v3 context.activePage() を wrap (mock も同形態)', async () => {
+	it('getActivePage は context.activePage() を await で wrap (mock も同形態)', async () => {
 		const { createStagehand, getActivePage } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
 		try {
@@ -273,7 +289,7 @@ describe('axe-runner — mock mode で realistic 5 violations', {
 	it('runAxeAudit が mock page で 5 件 dummy violations を返す + JSON 出力', async () => {
 		const { runAxeAudit } = await loadAxe();
 		const mockPage = { _mockMode: true };
-		const tmp = await mkdtemp(join(tmpdir(), 'axe-v3-test-'));
+		const tmp = await mkdtemp(join(tmpdir(), 'axe-v4-test-'));
 		try {
 			const jsonPath = join(tmp, 'axe-mock.json');
 			const result = await runAxeAudit(mockPage, jsonPath);
@@ -337,7 +353,7 @@ describe('axe-runner — mock mode で realistic 5 violations', {
 	});
 });
 
-describe('Anti-regression — v2 API patterns must NOT appear in mock', {
+describe('Anti-regression — v2/v3 API patterns must NOT appear in mock', {
 	timeout: HEAVY_INIT_TIMEOUT,
 }, () => {
 	it('mock instance は **v2 の stagehand.page プロパティ** を持たない', async () => {
@@ -351,12 +367,12 @@ describe('Anti-regression — v2 API patterns must NOT appear in mock', {
 		}
 	});
 
-	it('mock page は v2 の page.context() メソッドを持たない (v3 では stagehand.context に hoist 済)', async () => {
+	it('mock page は v2 の page.context() メソッドを持たない (v4 では browser.context に hoist 済)', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
 		try {
-			const page = sh.context.activePage();
-			// v2 の Playwright Page は page.context() で BrowserContext を返したが、v3 で撤去
+			const page = await sh.context.activePage();
+			// v2 の Playwright Page は page.context() で BrowserContext を返したが、v3/v4 で撤去
 			expect(typeof (page as unknown as { context?: () => unknown }).context).not.toBe('function');
 		} finally {
 			await sh.close();
