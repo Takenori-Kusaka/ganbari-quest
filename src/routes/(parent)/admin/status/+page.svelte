@@ -1,11 +1,17 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
+import {
+	ANALYSIS_DEVIATION_HIGH,
+	ANALYSIS_DEVIATION_MID,
+	calcDeviationScore,
+	getComparisonLabel,
+} from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import { notifyActionError } from '$lib/ui/error-notify';
@@ -15,16 +21,16 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 
 let { data } = $props();
 
-/** 偏差値帯から親向け自然言語へ変換 */
+/** 偏差値帯から親向け自然言語へ変換 (#4669 F11: 文言は STATUS_LABELS SSOT、しきい値は domain 定数) */
 function getAnalysisText(deviationScore: number): { text: string; color: string } {
-	if (deviationScore >= 60)
+	if (deviationScore >= ANALYSIS_DEVIATION_HIGH)
 		return {
-			text: '同年齢の中でも特に活発です',
+			text: STATUS_LABELS.analysisHigh,
 			color: 'text-[var(--color-feedback-success-text)]',
 		};
-	if (deviationScore >= 45)
-		return { text: '平均的なペースで成長しています', color: 'text-[var(--color-brand-600)]' };
-	return { text: 'これから伸びる余地がたくさんあります', color: 'text-[var(--color-warning)]' };
+	if (deviationScore >= ANALYSIS_DEVIATION_MID)
+		return { text: STATUS_LABELS.analysisMid, color: 'text-[var(--color-brand-600)]' };
+	return { text: STATUS_LABELS.analysisLow, color: 'text-[var(--color-warning)]' };
 }
 
 let benchmarkAge = $state(4);
@@ -85,7 +91,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 </script>
 
 <svelte:head>
-	<title>{PAGE_TITLES.statusBenchmark}{APP_LABELS.pageTitleSuffix}</title>
+	<title>{PAGE_TITLES.statusReport}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <!-- #2905: ❓ ページガイド (STATUS_GUIDE) のアンカー。全 admin ページで ? が機能する規約のため
@@ -93,12 +99,50 @@ let levelTitleInputs: Record<number, string> = $state({});
 <div class="space-y-6" data-tutorial="status-report">
 	<div class="flex items-center justify-end">
 		<a
-			href="/admin/children"
+			href={resolve('/admin/children')}
 			class="text-sm text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] font-bold"
+			data-tutorial="status-edit-link"
 		>
 			{STATUS_LABELS.childrenEditLink}
 		</a>
 	</div>
+
+	<!-- #4669 F2: 表示対象のお子さまを切り替えるタブ (全保護者に開放。旧実装は ops / NUC 限定の
+	     「プレビュー」選択で、SaaS 保護者は children[0] 固定だった)。3 admin リソース画面と同じ
+	     child-tab-row 共有 class / role=tablist (docs/DESIGN.md §10 正準スロット 2)。 -->
+	{#if data.children.length > 0}
+		<div
+			class="child-tab-row"
+			data-testid="admin-status-child-tabs"
+			data-tutorial="status-child-tabs"
+			role="tablist"
+			aria-label={STATUS_LABELS.childTabsAriaLabel}
+		>
+			{#each data.children as child (child.id)}
+				<Button
+					variant={previewChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="child-tab {previewChildId === child.id ? '' : 'child-tab--inactive'}"
+					data-testid="status-child-tab-{child.id}"
+					role="tab"
+					aria-selected={previewChildId === child.id}
+					onclick={() => { previewChildIdOverride = child.id; }}
+				>
+					{child.nickname}
+				</Button>
+			{/each}
+		</div>
+	{:else}
+		<!-- #4669 F1: 子供 0 人の家庭では成長レポートが描画されないため、登録への導線を出す -->
+		<Card>
+			<div class="text-center space-y-2" data-tutorial="status-empty" data-testid="status-empty-state">
+				<p class="text-sm text-[var(--color-text-muted)]">{STATUS_LABELS.emptyNoChildren}</p>
+				<a href={resolve('/admin/children')} class="text-sm font-bold text-[var(--color-text-link)] underline">
+					{STATUS_LABELS.emptyNoChildrenLink}
+				</a>
+			</div>
+		</Card>
+	{/if}
 
 	<!-- 成長レポート -->
 	{#if previewChild?.status}
@@ -144,7 +188,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			<!-- 月次変化量テーブル (G9) -->
 			{#if previewChild.monthlyComparison}
 				{@const mc = previewChild.monthlyComparison}
-				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3">
+				<div class="bg-[var(--color-surface-muted)] rounded-lg p-3" data-tutorial="status-monthly-change">
 					<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{STATUS_LABELS.monthlyChangeTitle}</h4>
 					<div class="space-y-1">
 						{#each CATEGORY_DEFS as catDef (catDef.id)}
@@ -165,8 +209,8 @@ let levelTitleInputs: Record<number, string> = $state({});
 		</Card>
 	{/if}
 
-	<!-- 称号カスタマイズセクション -->
-	<Card padding="none">
+	<!-- 称号カスタマイズセクション (#4669 F3: ページガイド step の anchor) -->
+	<Card padding="none" data-tutorial="status-level-titles">
 		<Button
 			type="button"
 			variant="ghost"
@@ -307,7 +351,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 		(RadarChart + comparisonValues) が担う。書込は updateBenchmark action が server で再強制する
 		(UI hide + server enforce の防御多層)。 -->
 	{#if data.canEditBenchmark}
-	<div>
+	<div data-tutorial="status-benchmark-edit">
 		<!-- 機能説明 -->
 		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
 			<p class="font-bold mb-1">{STATUS_LABELS.benchmarkInfoTitle}</p>
@@ -317,25 +361,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			</p>
 		</div>
 
-		<!-- プレビュー用の子供選択 -->
-		{#if data.children.length > 0}
-			<div class="flex items-center gap-2 mb-4">
-				<span class="text-xs text-[var(--color-text-muted)]">{STATUS_LABELS.previewLabel}</span>
-				<div class="flex gap-1 flex-wrap">
-					{#each data.children as child (child.id)}
-						<Button
-							type="button"
-							variant={previewChildId === child.id ? 'primary' : 'outline'}
-							size="sm"
-							class="text-xs {previewChildId === child.id ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
-							onclick={() => { previewChildIdOverride = child.id; }}
-						>
-							{child.nickname}
-						</Button>
-					{/each}
-				</div>
-			</div>
-		{/if}
+		<!-- #4669 F2: プレビュー用の子供選択はページ上部の child-tab-row (全保護者共通) に統合済 -->
 
 		<!-- 年齢選択 -->
 		<div class="flex gap-1 mb-2 overflow-x-auto pb-2">

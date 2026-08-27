@@ -261,6 +261,14 @@ export function calcCharacterType(avgDeviationScore: number): string {
 	return 'ganbari';
 }
 
+/**
+ * 成長レポート (/admin/status) の分析サマリー 3 段階コメントのしきい値 (#4669 F5 / F11)。
+ * 偏差値 >= HIGH で「特に活発」、>= MID で「平均的」、未満で「伸びる余地」。
+ * 表示文言は STATUS_LABELS.analysisHigh / Mid / Low (labels.ts SSOT)。
+ */
+export const ANALYSIS_DEVIATION_HIGH = 60;
+export const ANALYSIS_DEVIATION_MID = 45;
+
 /** 偏差値から比較ラベル（ご家族の見守り画面用） */
 export function getComparisonLabel(deviationScore: number): { text: string; emoji: string } {
 	if (deviationScore >= 65) return { text: 'みんなよりすっごくすごい！', emoji: '🌟' };
