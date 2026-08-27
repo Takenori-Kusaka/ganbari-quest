@@ -34,11 +34,7 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
-import {
-	findEvaluationsByChild,
-	insertEvaluation,
-	insertRestDayForRestore,
-} from '$lib/server/db/evaluation-repo';
+import { findEvaluationsByChild, insertEvaluation } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { upsertStreak } from '$lib/server/db/login-bonus-repo';
@@ -47,7 +43,6 @@ import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
-import { getStampByCode } from '$lib/server/services/sibling-cheer-service';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
@@ -165,8 +160,6 @@ export interface ImportResult {
 	parentMessagesImported: number;
 	parentMessagesSkipped: number;
 	/** #3329: きょうだい間おうえんスタンプの取込件数 */
-	siblingCheersImported: number;
-	siblingCheersSkipped: number;
 	/** #3329: per-child 活動設定 (ピン留め) の取込件数 */
 	activityPrefsImported: number;
 	activityPrefsSkipped: number;
@@ -174,8 +167,6 @@ export interface ImportResult {
 	checklistOverridesImported: number;
 	checklistOverridesSkipped: number;
 	/** #3329: per-child おやすみ日の取込件数 (DynamoDB では no-op で skip) */
-	restDaysImported: number;
-	restDaysSkipped: number;
 	/** #3329: 子のカスタム音声 DB 行の取込件数 (ファイル本体は #3077 が復元) */
 	childVoicesImported: number;
 	childVoicesSkipped: number;
@@ -436,7 +427,6 @@ export async function importFamilyData(
 	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
 	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
-	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
 	// #3781: DB 行↔ファイル本体の dangling 相互整合を fail-closed 検証するため staticFiles を渡す。
 	await importChildVoicesData(data, childIdMap, tenantId, result, staticFiles);
@@ -454,9 +444,6 @@ export async function importFamilyData(
 	// #3329: 親→子おうえんメッセージを sentAt/shownAt 保全で復元。childIdMap のみ必要。
 	// #3414: merge mode は content dedup で再取込冪等 (verbatim = cutover は bypass)。
 	await importParentMessagesData(data, childIdMap, tenantId, result, mode);
-	// #3329: きょうだい間おうえんスタンプ。from/to 両 childRef を解決して復元。childIdMap のみ必要。
-	// #3420: merge mode は content dedup で再取込冪等 (verbatim = cutover は bypass)。
-	await importSiblingCheersData(data, childIdMap, tenantId, result, mode);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -583,13 +570,16 @@ async function importRewardRedemptionsData(
 		// #3381: 安定識別子 (rewardExportId) を優先、無ければ snapshot title で fallback 解決。
 		const rewardId =
 			(r.rewardExportId ? rewardIdByExportId.get(childId)?.get(r.rewardExportId) : undefined) ??
-			(await rewardLookup(childId)).get(r.rewardRef);
-		if (!rewardId) {
-			result.rewardRedemptionsSkipped++;
+			(await rewardLookup(childId)).get(r.rewardRef) ??
+			// #4683: 元テナントで削除済のごほうびは backup の specialRewards に含まれず解決できない。
+			// それでも履歴は復元する — ポイント台帳の控除は復元されるため、履歴だけ落とすと
+			// 「使途の分からない減算」が残る (削除時に履歴を残す本 Issue の決定と同じ理由)。
+			// null を渡すと repo が「採番されない id」を書き、表示は snapshot 列が担う。
+			null;
+		if (rewardId === null) {
 			result.warnings.push(
-				`交換履歴スキップ: ごほうび「${r.rewardRef}」(child=${r.childRef}) が取込先に見つかりません`,
+				`交換履歴「${r.rewardTitle ?? r.rewardRef}」(child=${r.childRef}) は取込先にごほうびが無いため、記録だけ復元しました`,
 			);
-			continue;
 		}
 		try {
 			const restored = await insertRedemptionForRestore(
@@ -1022,103 +1012,6 @@ async function importParentMessagesData(
 }
 
 /**
- * siblingCheer の verbatim 値検証 (#3420 item 3、default-deny)。
- * 不正 stampCode は SiblingCheerOverlay 描画破損、不正 sentAt は countTodayCheersFrom の
- * 日次上限 (辞書順比較) とソートを汚染するため import 境界で弾く。
- * stampCode は CHEER_STAMPS allowlist (送信経路 sendCheer と同一の getStampByCode 判定)。
- * @returns 不正理由 (valid なら null)
- */
-function validateSiblingCheerRow(c: {
-	stampCode: string;
-	sentAt: string;
-	shownAt: string | null;
-}): string | null {
-	if (!getStampByCode(c.stampCode)) return `未知の stampCode「${c.stampCode}」`;
-	if (!isValidIsoDateTime(c.sentAt)) return `sentAt が不正 (${c.sentAt})`;
-	if (c.shownAt !== null && !isValidIsoDateTime(c.shownAt)) return `shownAt が不正 (${c.shownAt})`;
-	return null;
-}
-
-/**
- * きょうだい間おうえんスタンプを復元する (#3329)。
- * from/to 両 childRef を取込先 child に解決し、insertForRestore で sentAt/shownAt (既読) を保全する。
- * どちらかの child が解決できない行は skip + warning 可視化 (FK NOT NULL を満たせないため、#3420 item 2)。
- *
- * #3420: id-addressable append で DB 自然キーが無いため、merge mode では
- * (fromChildId, toChildId, stampCode, sentAt) の content key で 既存行 + 同一 import 内 を dedup し、
- * 同一 backup 再取込のおうえん履歴二重化を防ぐ (verbatim = cutover は bypass)。
- */
-async function importSiblingCheersData(
-	data: ExportData,
-	childIdMap: Map<string, ChildId>,
-	tenantId: string,
-	result: ImportResult,
-	mode: ImportMode = 'merge',
-): Promise<void> {
-	const cheers = data.data.siblingCheers ?? [];
-	if (cheers.length === 0) return;
-
-	// merge mode: 既存 cheer の content key を tenant 一括 prefetch (findAllByTenant は export でも使用)。
-	let existingKeys: Set<string> | undefined;
-	if (mode === 'merge') {
-		const rows = await getRepos().siblingCheer.findAllByTenant(tenantId);
-		existingKeys = new Set(
-			rows.map((r) => `${r.fromChildId}|${r.toChildId}|${r.stampCode}|${r.sentAt}`),
-		);
-	}
-
-	for (const c of cheers) {
-		const fromChildId = childIdMap.get(c.fromChildRef);
-		const toChildId = childIdMap.get(c.toChildRef);
-		if (!fromChildId || !toChildId) {
-			// #3420 item 2: silent skip をやめ、欠落を親に可視化する。
-			result.siblingCheersSkipped++;
-			result.warnings.push(
-				`おうえんスタンプスキップ: childRef (from=${c.fromChildRef}, to=${c.toChildRef}) が解決できません`,
-			);
-			continue;
-		}
-		const invalidReason = validateSiblingCheerRow(c);
-		if (invalidReason) {
-			result.siblingCheersSkipped++;
-			result.warnings.push(
-				`おうえんスタンプスキップ (from=${c.fromChildRef}, to=${c.toChildRef}): ${invalidReason}`,
-			);
-			continue;
-		}
-		if (existingKeys) {
-			const key = `${fromChildId}|${toChildId}|${c.stampCode}|${c.sentAt}`;
-			if (existingKeys.has(key)) {
-				result.siblingCheersSkipped++;
-				result.skipped.constraint++;
-				continue;
-			}
-			existingKeys.add(key);
-		}
-		try {
-			const restored = await getRepos().siblingCheer.insertForRestore(
-				{
-					fromChildId,
-					toChildId,
-					stampCode: c.stampCode,
-					sentAt: c.sentAt,
-					shownAt: c.shownAt,
-				},
-				tenantId,
-			);
-			// null = 永続化なし (demo no-op stub)。imported に加算せず虚偽サマリを防ぐ (#3420 item 2)。
-			if (restored) result.siblingCheersImported++;
-			else result.siblingCheersSkipped++;
-		} catch (e) {
-			result.siblingCheersSkipped++;
-			result.errors.push(
-				`おうえんスタンプ insert 失敗 (from=${c.fromChildRef}, to=${c.toChildRef}): ${String(e)}`,
-			);
-		}
-	}
-}
-
-/**
  * per-child 活動設定 (ピン留め) を復元する (#3329)。
  * childRef で取込先 child を、activityName で取込先 childActivity (activityLookupByChild) を解決し、
  * insertForRestore で isPinned/pinOrder/日時を保全する。child or activity が解決できない pref は skip。
@@ -1225,40 +1118,6 @@ async function importChecklistOverridesData(
 			result.checklistOverridesSkipped++;
 			result.errors.push(
 				`チェックリスト override insert 失敗 (child=${o.childRef}, date=${o.targetDate}): ${String(e)}`,
-			);
-		}
-	}
-}
-
-/**
- * おやすみ日を復元する (#3329)。
- * childRef で取込先 child に解決し insertRestDayForRestore で createdAt を保全して書き戻す。
- * DynamoDB 環境では insertRestDayForRestore が no-op (undefined) を返すため import されない
- * (restDays は NUC/SQLite 専用、DynamoDB には保存されない)。
- */
-async function importRestDaysData(
-	data: ExportData,
-	childIdMap: Map<string, ChildId>,
-	tenantId: string,
-	result: ImportResult,
-): Promise<void> {
-	for (const r of data.data.restDays ?? []) {
-		const childId = childIdMap.get(r.childRef);
-		if (!childId) {
-			result.restDaysSkipped++;
-			continue;
-		}
-		try {
-			const restored = await insertRestDayForRestore(
-				{ childId, date: r.date, reason: r.reason, createdAt: r.createdAt },
-				tenantId,
-			);
-			if (restored) result.restDaysImported++;
-			else result.restDaysSkipped++;
-		} catch (e) {
-			result.restDaysSkipped++;
-			result.errors.push(
-				`おやすみ日 insert 失敗 (child=${r.childRef}, date=${r.date}): ${String(e)}`,
 			);
 		}
 	}
@@ -1408,12 +1267,8 @@ function createEmptyImportResult(): ImportResult {
 		checklistOverridesSkipped: 0,
 		childVoicesImported: 0,
 		childVoicesSkipped: 0,
-		restDaysImported: 0,
-		restDaysSkipped: 0,
 		activityPrefsImported: 0,
 		activityPrefsSkipped: 0,
-		siblingCheersImported: 0,
-		siblingCheersSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,

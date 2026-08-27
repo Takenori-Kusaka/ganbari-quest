@@ -7,9 +7,10 @@
  *
  * #4653 (EPIC #4650 PO 判断 4 / 5): 3 step 固定をやめ、画面の上から下の順に主要ブロックを
  * 網羅する。「押す」と書く step は必ず実要素に spotlight する — 条件付き UI (承認待ちバナー /
- * 今月のがんばり) と viewport 別 nav は `filterGuideStepsByTargetPresence` (AdminLayout が起動直前に
- * 適用) で「描画されている step だけ」を出す。desktop では header 下の nav、mobile では画面下部の
- * nav が光る (旧 step 3 は mobile 専用 nav のみを指し desktop で 0×0 だった、F2)。
+ * 今月のがんばり) と viewport 別 nav は `optional: true` で宣言し、`filterGuideStepsByPresence`
+ * (#4668 / #4677、AdminLayout が起動直前に最後段で適用) が「描画されている step だけ」を残す。
+ * desktop では header 下の nav、mobile では画面下部の nav が光る (旧 step 3 は mobile 専用 nav
+ * のみを指し desktop で 0×0 だった、F2)。
  *
  * #3264 (EPIC #3260 F3): 表示文言 (title / what / how / goal / tips) は labels.ts の
  * PAGE_GUIDE_LABELS に SSOT 集約。本ファイルは構造フィールド (pageId / icon / selector /
@@ -36,6 +37,7 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			id: 'home-pending',
 			selector: '[data-tutorial="redemption-pending-banner"]',
 			...L.steps['home-pending'],
+			optional: true,
 			position: 'bottom',
 		},
 		// ② 画面の見方 — 上部カード (こどもの数 / 合計 = 残高合計)
@@ -50,6 +52,7 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			id: 'home-monthly',
 			selector: '[data-tutorial="monthly-summary"]',
 			...L.steps['home-monthly'],
+			optional: true,
 			position: 'bottom',
 		},
 		// こども一覧 (0 人のときも section は描画される)
@@ -72,12 +75,14 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			id: 'home-nav-desktop',
 			selector: '[data-tutorial="nav-desktop"]',
 			...L.steps['home-nav'],
+			optional: true,
 			position: 'bottom',
 		},
 		{
 			id: 'home-nav-mobile',
 			selector: '[data-tutorial="nav-primary"]',
 			...L.steps['home-nav'],
+			optional: true,
 			position: 'top',
 		},
 	],

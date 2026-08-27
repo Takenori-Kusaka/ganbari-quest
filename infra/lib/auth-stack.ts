@@ -200,6 +200,12 @@ export class AuthStack extends cdk.Stack {
 				scopes: ['openid', 'email'],
 				attributeMapping: {
 					email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+					// #4643: email だけを写すと、Google 連携ユーザーの `email_verified` は
+					// Cognito 側で false のまま固定される。アプリは宛先 email 束縛招待の受諾を
+					// `email_verified === false` で fail-closed 拒否する (#3555 ③) ため、
+					// Google でサインアップした招待者は 100% 受諾に失敗していた。
+					// Google の verified フラグを写して、判定が実態を見るようにする。
+					emailVerified: cognito.ProviderAttribute.other('email_verified'),
 				},
 			});
 

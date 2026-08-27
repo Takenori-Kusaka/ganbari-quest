@@ -30,6 +30,8 @@
 	--gold-300: #ffed80;
 	--gold-100: #fffbe6;
 	/* Violet */
+	/* #4645: 白背景の文字色として AA (4.5:1) を満たす紫。--violet-500 は 4.23:1。 */
+	--violet-700: #6d28d9;
 	--violet-600: #7c3aed;
 	--violet-500: #8b5cf6;
 	--violet-100: #ede9fe;
@@ -37,6 +39,9 @@
 	--green-500: #4caf50;
 	--green-100: #e8f5e9;
 	--orange-500: #ff9800;
+	/* #4645: 白文字を載せる塗り / 白背景の文字として AA (4.5:1) を満たす暖色。
+	   --orange-500 は白に対し 2.15:1 しかない。--orange-700 は 5.85:1。 */
+	--orange-700: #a34c00;
 	--orange-100: #fff3e0;
 	--red-500: #f44336;
 	--red-100: #fde8e7;
@@ -273,11 +278,21 @@ body {
 	text-wrap: pretty;
 	word-break: auto-phrase;
 }
+/* #4645: --brand-700 は白背景で 4.62:1 だが、薄い背景 (--gray-50 等) の上では 4.41:1 と
+   WCAG 1.4.3 AA (4.5:1) を割る。リンク色は --brand-800 (白で 6.50:1) に統一する。 */
 a {
-	color: var(--brand-700);
+	color: var(--brand-800);
 	text-decoration: none;
 }
 a:hover {
+	text-decoration: underline;
+}
+/* #4645: 本文 (段落) 中のリンクは色だけでは区別できない。
+   リンク色 (--brand-700) と本文色のコントラスト比は実測 1.03〜2.24:1 で、axe が要求する
+   3:1 に届かないため、色覚特性のある読者がリンクを見つけられない (axe link-in-text-block /
+   WCAG 1.4.1 色だけに依存しない)。段落内リンクは常時下線を引く。
+   ボタン化されたリンク (.btn) とナビ / フッターのリンク一覧は「本文中」ではないため対象外。 */
+p a:not(.btn) {
 	text-decoration: underline;
 }
 h1, h2, h3, h4 {
@@ -752,7 +767,8 @@ img[data-lightbox] {
 .age-panel-shot img{width:100%;height:100%;max-height:680px;object-fit:contain;border-radius:20px;border:1px solid var(--gray-200);background:#f9fbfe;display:block}
 .age-panel-shot picture{display:block;width:100%;height:100%}
 .age-panel-body{display:flex;flex-direction:column;align-items:flex-start}
-.age-panel-feature{margin:0 0 var(--space-3);padding:8px 12px;border-radius:999px;background:var(--brand-50);color:var(--brand-700);font-size:14px;font-weight:700;display:inline-block}
+/* #4645: --brand-700 は --brand-50 の上で 4.34:1 と WCAG 1.4.3 AA (4.5:1) 未達。--brand-800 で 6.12:1 */
+.age-panel-feature{margin:0 0 var(--space-3);padding:8px 12px;border-radius:999px;background:var(--brand-50);color:var(--brand-800);font-size:14px;font-weight:700;display:inline-block}
 .age-panel-body h3{margin:0 0 var(--space-3);font-size:clamp(30px, 4vw, 46px);line-height:1.2;letter-spacing:-0.02em;color:var(--gray-900)}
 .age-panel-desc{margin:0 0 var(--space-4);color:var(--gray-600);font-size:18px;max-width:34rem;line-height:1.6}
 .age-panel-checklist{display:grid;gap:var(--space-2);margin:0 0 var(--space-5);padding:0;list-style:none}

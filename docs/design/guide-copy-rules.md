@@ -25,7 +25,7 @@
 | 5 | **キーワードを強調** — 操作対象・結果の要語を視覚強調（specific > generic microcopy） | UXPin microcopy | △ review |
 | 6 | **そのページの上から順に説明** — step の `selector` 対象が DOM 上で上→下の順になるよう step を並べる | reading order / contextual gradual | △ review + layout-invariant |
 | 7 | **吹き出しが説明対象に被らない** — bubble は target を隠さない | NN/g（tooltip must not obscure）/ Material smart positioning | ○ `page-guide-layout-invariant.spec.ts`（#2926/#2971）|
-| 8 | **3 部構成を骨格に、そのページの主要操作を上から下に網羅する** — ①概要 →②画面の見方 →③最頻操作 を骨格とし、必要な数だけ step を置く（固定上限は設けない。ADR-0012 の趣旨で冗長にしない、EPIC #4650 PO 判断 5）。「押す」と書く step は必ず実要素に spotlight する（条件付き UI は `filterGuideStepsByTargetPresence` で描画時のみ案内、PO 判断 4） | #2927 / #4650 / ADR-0012 anti-engagement | △ review + layout-invariant (d) |
+| 8 | **3 部構成を骨格に、そのページの主要操作を上から下に網羅する** — ①概要 →②画面の見方 →③最頻操作 を骨格とし、必要な数だけ step を置く（固定上限は設けない。ADR-0012 の趣旨で冗長にしない、EPIC #4650 PO 判断 5）。「押す」と書く step は必ず実要素に spotlight する（条件付き UI は `optional: true` + `filterGuideStepsByPresence` で描画時のみ案内、PO 判断 4） | #2927 / #4650 / ADR-0012 anti-engagement | △ review + layout-invariant (d) |
 
 ## 3. 仕様
 

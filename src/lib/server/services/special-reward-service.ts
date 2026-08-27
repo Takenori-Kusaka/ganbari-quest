@@ -189,7 +189,11 @@ export type DeleteRewardResult =
 /**
  * #2832 AC1: reward 削除。pending redemption が存在する場合は削除を拒否する
  * (`hasPendingByReward` ガード配線)。親は申請を承認/却下してから削除する。
- * 削除時は当該 reward の解決済交換申請履歴行も削除される (repo 層、FK 整合)。
+ *
+ * #4683: 解決済の交換申請履歴は**削除しない**。ポイント台帳 (point_ledger) の控除は残るため、
+ * 履歴だけ消すと「子供からはポイントが理由なく減り、親からは何に使ったか辿れない」状態になる。
+ * repo 層は削除前に snapshot (title / points / icon) を backfill し、reward が消えても
+ * 子供履歴 / 親の承認履歴が申請時点の内容で読めるようにする。
  */
 export async function deleteReward(
 	rewardId: string,
