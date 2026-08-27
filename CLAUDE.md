@@ -60,7 +60,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 <!-- ci-hard-fail-steps:start -->
 - `npx biome check --error-on-warnings .` — Biome (pre-ready Step 1 と同一)
-- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / LP innerHTML / @html)
+- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / sync-lp-fallback --check / LP innerHTML / @html)
 - `node scripts/check-no-plan-literals.mjs` — プラン文字列直書き (pre-ready Step 7)
 - `node scripts/check-cli-entry-guard.mjs` — CLI entry 判定の方言禁止
 - `node scripts/check-workflow-sparse-checkout-closure.mjs` — sparse-checkout 列挙の閉包

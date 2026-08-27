@@ -60,6 +60,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #1655 R49: pricing.html L188 / 比較表との整合
 		// #4500: 上限は owner 込みの合計なので、招待できる人数と区別して書く (値は terms.ts atom 経由)
 		`家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
+		// #4705: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
 		REWARD_TERMS.productRegistration,
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
