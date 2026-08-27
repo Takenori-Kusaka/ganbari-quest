@@ -458,7 +458,6 @@ LEGACY_URL_MAP に `/activity-packs` → `/marketplace` を追加 (1 entry, 前�
 | 領域 | 対応ファイル | 同期内容 |
 |------|------------|---------|
 | **UI ラベル・用語 (#1212-H)** | `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts` | 「マーケットプレイス」→「みんなのテンプレート」/「テンプレート」 |
-| **デモガイド** | `src/lib/features/demo/demo-guide-state.svelte.ts` | テンプレート用語に沿った文言 |
 | **チュートリアル** | `src/lib/data/tutorial-chapters.ts` | 「マーケットプレイスを使ってみよう」→「テンプレートを使ってみよう」 |
 | **ナビゲーション** | `AdminLayout` + `AdminMobileNav` + `BottomNav` + ボトムナビ | NAV_ITEM_LABELS の「テンプレート」適用 |
 

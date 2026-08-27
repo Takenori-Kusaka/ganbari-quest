@@ -5,7 +5,7 @@
 // - `resolveDemoActive(env)`: env-only signature が AUTH_MODE × DATA_SOURCE matrix で
 //   厳密 AND 判定されているか
 // - `DEMO_WRITE_ALLOWLIST`: PR-B3 で /demo/** 撤去後の最小集合 (/api/feedback /
-//   /api/demo-analytics / /api/health / /switch) が維持されているか
+//   /api/health / /switch) が維持されているか
 // - 旧 cookie/path/query signal 由来の API (DEMO_MODE_COOKIE / isDemoLambda) が
 //   完全撤去されているか (import error で構造的に検出)
 
@@ -79,10 +79,13 @@ describe('DEMO_WRITE_ALLOWLIST — PR-B3 で /demo/** 撤去後の最小集合',
 		expect(DEMO_WRITE_ALLOWLIST).toContain('/switch');
 	});
 
-	it('/api/feedback / /api/demo-analytics / /api/health が含まれる (運用最小集合)', () => {
+	it('/api/feedback / /api/health が含まれる (運用最小集合)', () => {
 		expect(DEMO_WRITE_ALLOWLIST).toContain('/api/feedback');
-		expect(DEMO_WRITE_ALLOWLIST).toContain('/api/demo-analytics');
 		expect(DEMO_WRITE_ALLOWLIST).toContain('/api/health');
+	});
+
+	it('/api/demo-analytics は含まれない (#4679 でデモガイドバーごと撤去、送信元 0)', () => {
+		expect(DEMO_WRITE_ALLOWLIST).not.toContain('/api/demo-analytics');
 	});
 
 	it('/api/demo/exit は含まれない (PR-B4 #2189 で撤去、demo Lambda には /demo/exit route なし)', () => {

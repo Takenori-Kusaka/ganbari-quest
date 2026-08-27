@@ -429,6 +429,32 @@ export const ADMIN_VIEW_TERMS = {
 } as const;
 
 // ============================================================
+// ADMIN_HOME_TERMS — ご家族の見守り画面 ホーム (/admin) に出る UI 要素名 atom (#4653)
+// ============================================================
+//
+// ホーム画面のカード名 / セクション名 / リンク名と、それを説明するページガイド
+// (labels.ts `PAGE_GUIDE_LABELS.adminHome`) の文言を 1 箇所で同期するための atom。
+// ガイドが「画面に無い名前」を案内する乖離 (#4650 / #4653 F1・F3) を、描画側
+// (`ADMIN_HOME_LABELS` / `FEATURES_LABELS.adminLayout`) とガイド側の双方がこの atom を
+// `${...}` 参照することで構造的に防ぐ (ADR-0045 atom / compound 責務分離)。
+export const ADMIN_HOME_TERMS = {
+	/** 上部 summary card: 登録こども数 */
+	childrenCountCard: 'こどもの数',
+	/** 上部 summary card: 全員のポイント残高合計 (獲得ではなく残高) */
+	totalCard: '合計',
+	/** 月次セクション見出しの接尾辞 (「📊 YYYY年M月のがんばり」) */
+	monthlySuffix: 'のがんばり',
+	/** 月次セクション右上のレポート遷移リンク */
+	monthlyDetailsLink: '詳しく見る →',
+	/** こども一覧セクション見出し */
+	childrenSection: 'こども一覧',
+	/** header 右端の子供画面への切替リンク */
+	switchToChild: '子供画面へ',
+	/** ごほうび交換申請の承認待ちバナーの状態語 */
+	pendingApproval: '承認待ち',
+} as const;
+
+// ============================================================
 // STRIPE_PORTAL_TERMS — Stripe billing portal の用語 atom (#2057)
 // ============================================================
 //
@@ -843,6 +869,14 @@ export const REWARD_TERMS = {
 	shop: 'ごほうびショップ',
 	preset: 'プリセット',
 	canonical: 'ごほうび',
+	/**
+	 * #4705: 有料プランで解放される機能そのものの名前。
+	 *
+	 * 実ゲート (`isCustomRewardUnlocked`、#4584) が止めているのは「子供のショップに並べる商品を
+	 * 登録すること」であり、旧称「特別なごほうび設定（即時付与）」は別機能 (応援の即時付与) を
+	 * 指すと読めた。LP 比較表 / pricing / FAQ / アプリ内 plan カードはすべて本 atom を参照する。
+	 */
+	productRegistration: 'ごほうびショップへの商品登録',
 } as const;
 
 // ============================================================
@@ -1246,6 +1280,81 @@ export const OVERFLOW_MENU_TERMS = {
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
 	itemHelpIcon: CONCEPT_ICONS.help,
+	/** 活動管理 ︙ の全削除 item (#4655) */
+	itemClearAll: 'すべて削除',
+} as const;
+
+// ============================================================
+// ADD_MENU_TERMS — admin リソース管理画面 header「+ 追加」dropdown の item 名 atom (#4655)
+// ============================================================
+//
+// DESIGN.md §10「admin リソース管理ページの add 経路は同型に揃える」: 活動 / チェックリスト /
+// ごほうび の 3 画面は先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一名称・
+// 同一順序で出す。以前は 3 画面の labels compound にそれぞれ同じ文字列が直書きされ、ページガイド
+// (PAGE_GUIDE_LABELS) からは labels.ts 定義順の都合で参照できなかった。本 atom を描画側とガイド側の
+// 双方が参照することで「ガイドが案内するボタン名 = 画面のボタン名」を構造的に保つ。
+export const ADD_MENU_TERMS = {
+	/** dropdown trigger */
+	trigger: '+ 追加',
+	/** 先頭 3 経路 (3 画面共通、同一順序) */
+	manual: '手動で1つ追加',
+	ai: 'AI で提案してもらう',
+	browse: `${TEMPLATE_TERMS.userFacing}から探す`,
+	/** 活動管理固有 (兄弟共通化) */
+	copyFromChild: `別の${CHILD_TERMS.honorific}からコピー`,
+	bulk: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+} as const;
+
+// ============================================================
+// REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
+// ============================================================
+//
+// 子供タブ行 / 一覧カード / 手動追加 Dialog / ︙ に出るボタン名・見出し。描画側
+// (REWARDS_LABELS / ADMIN_REWARDS_PAGE_LABELS) とページガイド (PAGE_GUIDE_LABELS.adminRewards) の
+// 双方が参照する (ADMIN_HOME_TERMS / ACTIVITY_ADMIN_TERMS と同型)。
+export const REWARD_ADMIN_TERMS = {
+	/** 検索欄ラベル */
+	search: 'ごほうびを検索',
+	/** 兄弟共通化: 他の子供からコピー (子供タブ行の右端ボタン) */
+	copyFromChild: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	/** ︙ の申請承認 item (件数付きは labels compound 側) */
+	requestsMenu: '申請承認',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	delete: '削除',
+	pendingBadge: '交換申請 処理待ち',
+	/** 手動追加 Dialog の入力項目 */
+	formTitle: 'タイトル',
+	formPoints: 'ポイント',
+	formIcon: 'アイコン',
+	shopCategory: 'ショップの並び（タブ）',
+	/** 追加フォーム送信ボタンの接尾辞 (「🎁 タイトル (NP) を追加する」) */
+	submitSuffix: ' を追加する',
+} as const;
+
+// ============================================================
+// ACTIVITY_ADMIN_TERMS — 活動管理 (/admin/activities) 画面の操作ボタン名 atom (#4655)
+// ============================================================
+//
+// 一覧カード (ActivityListItem) / 非表示の活動 (HiddenActivitiesSection) / 追加フォーム /
+// 検索欄 に出るボタン名・見出し。描画側 (FEATURES_LABELS / ADMIN_ACTIVITIES_PAGE_LABELS) と
+// ページガイド (PAGE_GUIDE_LABELS.adminActivities) の双方が参照する。
+export const ACTIVITY_ADMIN_TERMS = {
+	/** 追加フォームの送信ボタン接尾辞 (「〇〇 を追加する」) */
+	submitSuffix: ' を追加する',
+	/** 検索欄ラベル */
+	search: '活動を検索',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	visible: '表示',
+	hidden: '非表示',
+	mainQuestEnable: '⚔️設定',
+	mainQuestDisable: '⚔️解除',
+	delete: '削除',
+	/** 非表示の活動セクション */
+	hiddenSection: '非表示の活動',
+	restore: '復活',
+	permanentDelete: '完全削除',
 } as const;
 
 // ============================================================
