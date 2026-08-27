@@ -291,16 +291,10 @@ export function isPullsCollectionPath(path) {
 	return /^repos\/[^/]+\/[^/]+\/pulls$/i.test(path);
 }
 
-/**
- * `repos/<owner>/<repo>/pulls/<n>/<subresource>` か。
- *
- * @param {string} path  normalizeApiPath 済みのパス
- * @param {string} subresource  `reviews` / `merge` 等 (正規表現に埋め込むため呼出側で定数を渡すこと)
- * @returns {boolean}
- */
-export function isPullsSubresourcePath(path, subresource) {
-	return new RegExp(`^repos/[^/]+/[^/]+/pulls/\\d+/${subresource}(?:/.*)?$`, 'i').test(path);
-}
+// 旧 `isPullsSubresourcePath` (PR 識別子を `\d+` に固定した版) は削除した (#4623)。
+// #4057 が「番号の書き方だけで approve gate の有無が変わる」欠陥として下の
+// `isPullsSubresourcePathAnyRef` に置き換えたあとも export だけが残り、呼び出し元は 0 だった。
+// **すり抜ける方の述語が選べる状態で並んでいること自体が危険**なため、生きている側だけを残す。
 
 /**
  * `repos/<owner>/<repo>/pulls/<何か>/<subresource>` か — **PR 識別子の形を問わない** (#4057)。
