@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
@@ -23,12 +24,12 @@ export const actions: Actions = {
 		const theme = formData.get('theme')?.toString() || 'pink';
 
 		if (!nickname || nickname.length === 0) {
-			return fail(400, { error: 'ニックネームを入力してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorNicknameRequired });
 		}
 
 		const age = Number(ageStr);
 		if (Number.isNaN(age) || age < 0 || age > 18) {
-			return fail(400, { error: '年齢は0〜18で入力してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorAgeRange });
 		}
 
 		// #0262 / #4419: UI モードは年齢から自動判定する。判定は addChild (service 層) の
@@ -46,7 +47,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const children = await getAllChildren(tenantId);
 		if (children.length === 0) {
-			return fail(400, { error: '1人以上の子供を登録してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorNoChildren });
 		}
 		redirect(302, '/setup/questionnaire');
 	},

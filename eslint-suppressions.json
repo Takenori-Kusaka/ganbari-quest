@@ -595,9 +595,6 @@
     }
   },
   "src/routes/(parent)/admin/status/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    },
     "svelte/no-useless-children-snippet": {
       "count": 3
     }
@@ -792,11 +789,6 @@
     },
     "svelte/prefer-svelte-reactivity": {
       "count": 2
-    }
-  },
-  "src/routes/setup/children/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
     }
   },
   "src/routes/setup/complete/+page.svelte": {

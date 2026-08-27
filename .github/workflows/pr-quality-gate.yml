@@ -36,6 +36,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/pr-body-sections.mjs
             scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/reason-declaration.mjs
             # #4285 の story 実在確認 (storyFileExists) は src/ を走査する。
@@ -196,6 +197,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/pr-body-sections.mjs
             scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/reason-declaration.mjs
           sparse-checkout-cone-mode: false

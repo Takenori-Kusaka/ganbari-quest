@@ -1,6 +1,8 @@
 <script lang="ts">
 import {
 	APP_LABELS,
+	formatAgeRange,
+	formatCount,
 	MARKETPLACE_FILTER_LABELS,
 	MARKETPLACE_LABELS,
 	type MarketplaceSortKey,
@@ -238,7 +240,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 				>
 					<span class="text-xl block">{MARKETPLACE_TYPE_ICONS[t]}</span>
 					<span class="text-xs font-bold block mt-1">{MARKETPLACE_TYPE_LABELS[t]}</span>
-					<span class="text-xs opacity-70">{data.counts[t] + '種'}</span>
+					<span class="text-xs opacity-70">{data.counts[t]}{MARKETPLACE_LABELS.typeCountSuffix}</span>
 				</a>
 			{/each}
 		</div>
@@ -348,11 +350,11 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 											</p>
 											<div class="flex items-center gap-2 mt-2">
 												<span class="text-[10px] text-[var(--color-text-tertiary)]">
-													{item.targetAgeMin + '〜'}{item.targetAgeMax + '歳'}
+													{formatAgeRange(item.targetAgeMin, item.targetAgeMax)}
 												</span>
 												{#if item.itemCount > 0}
 													<span class="text-[10px] text-[var(--color-text-tertiary)]">
-														{item.itemCount + '件'}
+														{formatCount(item.itemCount)}
 													</span>
 												{/if}
 											</div>
