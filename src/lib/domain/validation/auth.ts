@@ -97,6 +97,8 @@ export const INVITE_ACCEPT_ERROR_REASONS = [
 	'ALREADY_IN_TENANT',
 	'SELF_INVITE_NOT_ALLOWED',
 	'OWNER_CANNOT_BE_DOWNGRADED',
+	// #4723: 受諾するとプランのメンバー上限を超える
+	'MEMBER_LIMIT_REACHED',
 ] as const;
 
 export type InviteAcceptErrorReason = (typeof INVITE_ACCEPT_ERROR_REASONS)[number];
