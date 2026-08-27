@@ -11,8 +11,9 @@
 //     CRUD のみで、point_ledger / total_point の共更新経路を持たない。
 //   - **#2845 課題① composite-key addressing**: mutation は (childId, rewardId) の複合キーで
 //     child 所有権を repo 入口で構造的に検証する (id-only mutation 禁止、不一致は undefined)。
-//   - **deleteSpecialReward = reward + 解決済 redemption 履歴を単一 txn 削除** (FK 整合、§P4 は
-//     CASCADE 非対応のため repo が明示 DELETE。work は inline + tx-bound await のみ = fitness#7)。
+//   - **deleteSpecialReward = snapshot backfill + reward 削除を単一 txn** (#4683)。交換申請履歴は
+//     残す (point_ledger の控除が残る以上、履歴だけ消すと三者が食い違う)。work は inline +
+//     tx-bound await のみ = fitness#7。
 //   - entity 境界: reward_id (uuid) を id 文字列に、family_id 由来の値は entity 非公開。
 
 import { sql } from 'drizzle-orm';
@@ -173,11 +174,19 @@ export function createDsqlSpecialRewardRepo<TTx extends SqlExecutor>(
 		},
 
 		async deleteSpecialReward(childId, rewardId, tenantId) {
-			// reward per-child のため cascade も同 child scope に閉じる (§P4 明示 DELETE、fitness#7)。
+			// #4683: **交換申請履歴は削除しない** (sqlite backend と同挙動)。point_ledger の控除は
+			// 残るため、履歴だけ消すと子供からは「ポイントが勝手に減った」、親からは「何に使ったか
+			// 辿れない」状態になる。代わりに snapshot 未設定の旧行を live reward の値で backfill し、
+			// reward が消えても表示が空にならないようにする (§P4、fitness#7 = tx-bound await のみ)。
 			return runner.runInTransaction(async (tx) => {
 				await tx.execute(sql`
-					DELETE FROM reward_redemption_requests
-					WHERE family_id = ${tenantId} AND child_id = ${childId} AND reward_id = ${rewardId}
+					UPDATE reward_redemption_requests rr
+					SET reward_title = COALESCE(rr.reward_title, sr.title),
+						reward_points = COALESCE(rr.reward_points, sr.points),
+						reward_icon = COALESCE(rr.reward_icon, sr.icon)
+					FROM special_rewards sr
+					WHERE sr.family_id = ${tenantId} AND sr.child_id = ${childId} AND sr.reward_id = ${rewardId}
+						AND rr.family_id = ${tenantId} AND rr.child_id = ${childId} AND rr.reward_id = ${rewardId}
 				`);
 				const deleted = await tx.execute(sql`
 					DELETE FROM special_rewards
