@@ -37,6 +37,12 @@ vi.mock('$lib/server/auth/tenant-entitlement', () => ({
 	resolveTenantEntitlement: (...args: unknown[]) => mockResolveTenantEntitlement(...args),
 }));
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service は
+// 実体を直接 import するため、両方を差し替えないと selfhost 扱い (上限なし) になる。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 }));

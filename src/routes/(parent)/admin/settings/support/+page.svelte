@@ -292,7 +292,8 @@ const pwaPlatform = $derived<PwaInstallPlatform>(
 	</Card>
 
 	<!-- アプリ情報・リンク -->
-	<Card padding="lg">
+	<!-- #4667: ページガイド「アプリ情報」step の anchor -->
+	<Card padding="lg" data-tutorial="app-info-card">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{SETTINGS_LABELS.appInfoSectionTitle}
 		</h3>
