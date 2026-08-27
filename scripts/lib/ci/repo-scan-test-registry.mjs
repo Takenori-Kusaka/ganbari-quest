@@ -69,6 +69,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査しておやカギコード桁数 (PIN_LENGTH) の直書き (regex / PinInput length / ラベル / 5086 案内) を検出する (#4698)',
 	},
+	'tests/unit/architecture/unreachable-script-export-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs と .claude/hooks/*.mjs を TypeScript parser で AST 化し、entry / registry から到達しない export された判定関数を検出する (#4623)',
+	},
 	'tests/unit/architecture/setup-route-role-guard-fitness.test.ts': {
 		scope: 'repo',
 		note: 'src/routes/setup 直下の route dir を depth 1 で列挙し、全 step が child 拒否 / 未認証 → /auth/login で守られていることを突き合わせる (#4700)。単一 dir だが静的判定は保守的に repo と見なすため明示 timeout を置く',

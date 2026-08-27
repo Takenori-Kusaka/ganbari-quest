@@ -467,12 +467,16 @@ export const PLAN_GATE_LABELS = {
 	 * #4512: checklists の上限エラー 5 箇所が「フリープラン」を直書きしていた
 	 * (プラン名の SSOT は「無料プラン」で、「フリー」はカード等の短縮名。#4502 の
 	 *  使い分け決裁を server 面にも適用する)。文と数値の組み立てを 1 箇所に閉じる。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (#4622)。
+	 *   引数を `number` に狭めてあるため、`max: number | null` をそのまま埋めて
+	 *   「1人あたり null 個」を出す経路がコンパイルで落ちる。
 	 */
-	perChildLimitReached: (max: number | string | null) =>
+	perChildLimitReached: (max: number) =>
 		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
 
 	/** 同上の短い版 (上限値だけを述べ、アップグレード導線は呼び出し側が別に出す場合)。 */
-	perChildLimitReachedShort: (max: number | string | null) =>
+	perChildLimitReachedShort: (max: number) =>
 		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。`,
 
 	/** 一括取込で一部だけ入った場合の結果通知。 */
@@ -531,7 +535,7 @@ export const PLAN_GATE_LABELS = {
 	 * 「4 人まで招待できる」と読んだ顧客が 3 人目の招待でブロックされた時に不具合と誤認する。
 	 * オーナーを含む数え方であることを、ブロックされたその場で明示する。
 	 */
-	memberLimitReached: (max: number | string) =>
+	memberLimitReached: (max: number) =>
 		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
@@ -555,22 +559,16 @@ export const PLAN_GATE_LABELS = {
 	childLimitReached: (max: number) =>
 		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
 
-	/**
-	 * "フリープランではお子さま1人あたり {max} 個までです。"
-	 *
-	 * チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言 (#4622)。
-	 * アップグレード導線を併記しない短い版。
-	 */
-	checklistTemplateLimitReached: (max: number) =>
-		`フリープランではお子さま1人あたり ${max} 個までです。`,
-
-	/**
-	 * "フリープランではお子さま1人あたり {max} 個までです。スタンダード以上に…"
-	 *
-	 * 上と同じ上限のアップグレード導線併記版 (#4622)。
-	 */
-	checklistTemplateLimitReachedWithUpgrade: (max: number) =>
-		`フリープランではお子さま1人あたり ${max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
+	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
+	// #4622 の「上限メッセージに null を渡せない」関門は、そちらの引数を `number` に
+	// 狭めることで満たしている (同じ文言の label を 2 つ置くと SSOT が割れるため統合した)。
+	//
+	// develop 側 (#4707/#4727 経由) に一時的に入っていた `checklistTemplateLimitReached` /
+	// `checklistTemplateLimitReachedWithUpgrade` は、全 callsite (checklists/+page.server.ts 5 箇所) が
+	// `perChildLimitReached*` を参照しており到達不能な重複だった。加えてプラン名を
+	// 「フリープラン」と直書きしており #4512 (プラン名 SSOT = `PLAN_FULL_TERMS.free`) に反するため、
+	// 本 merge で `perChildLimitReached*` に統合した。
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -3740,6 +3738,13 @@ const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間
 // (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
 const WRITES_CONTINUE_ASSURANCE = `お子さまの記録はそのまま残り、${PLAN_FULL_TERMS.free}の範囲で記録・ポイント付与を続けられます。`;
 
+// #4585-4: アーカイブされたものが「消えた」のか「戻せる」のかを述べる保証文。
+// `restoreArchivedResources` は 3 reason (体験終了 / 顧客の選択 / 支払い失敗) すべてを復元する
+// (#4585-3) ため、**どの経路でアーカイブされても再契約で戻る**。これを書かないと、実際には
+// 戻せるのに諦める顧客が出る (PO 決裁 4 本目)。解約画面 (`CANCELLATION_LABELS`) と
+// 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) で**同一の文**を共有する。
+const ARCHIVE_RESTORE_ASSURANCE = `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`;
+
 export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
@@ -3828,7 +3833,13 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
-	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
+	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
+	// 顧客本人が操作していないため解約画面 (#4585-1 の fallback 提示 + 選択 UI) を一度も通らず、
+	// 上限超過分がアーカイブされること (#4585-3 で dunning にも適用) をここでしか知れない。
+	// 「記録はそのまま残り」だけで止めると、超過分が見えなくなった顧客に対して事実と食い違う。
+	// #4540 Q4 (#4621): 移行先 (無料プラン) の保持期間も同じ告知で述べる。アーカイブ (戻せる) と
+	// 保持期間超過による物理削除 (戻せない) は別の事象なので、両方を落とさず並べる。
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${PLAN_FULL_TERMS.free}の上限を超える分はアーカイブします。${ARCHIVE_RESTORE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
 	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
@@ -4097,8 +4108,15 @@ export const REPORTS_LABELS = {
 	monthlyChildReport: (childName: string) => `${childName}の がんばりレポート`,
 	monthlyActivityLabel: '活動',
 	monthlyActivityUnit: '回',
+	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (子供画面の所持ポイントと同じ単位)。
+	// 旧実装は XP 累計を出しており、どの月でも同じ数 = 先月比が常に ±0 だった。
 	monthlyPointsLabel: 'ポイント',
 	monthlyPointsUnit: 'pt',
+	monthlyPointsHint: '今月ためた分',
+	// #4697: XP は「ポイント」と別の量 (消費されない成長の累計)。名前を分けて併記する。
+	monthlyXpLabel: 'つよさ (XP)',
+	monthlyXpUnit: 'XP',
+	monthlyXpHint: 'これまでの合計',
 	monthlyLevelLabel: 'レベル',
 	monthlyStreakLabel: '連続',
 	monthlyStreakUnit: '日',
@@ -4650,7 +4668,9 @@ export const CANCELLATION_LABELS = {
 	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
 	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
 		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、この数だけ残して超えた分をアーカイブします。${CHILD_TERMS.honorific}は、最近記録がある${CHILD_TERMS.honorific}から順に残します。`,
-	archiveFallbackRestore: `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`,
+	// #4585-4: 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) と同一文を共有する。
+	// 解約画面を通る顧客と通らない顧客 (支払い失敗) で「戻せるかどうか」の説明を分けない。
+	archiveFallbackRestore: ARCHIVE_RESTORE_ASSURANCE,
 	selectionButton: '残すデータを選ぶ',
 	selectionLoading: '確認しています…',
 	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度お試しになる場合は下のボタンから、このまま進める場合は送信ボタンを押してください。`,
@@ -5231,6 +5251,10 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyActivities: (count: number) => `${count}回`,
 	monthlyDays: (days: number) => `${days}日活動`,
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
+	// #4697: 年度は 4 月〜翌 3 月を必ず 12 行並べるため未来月の枠ができる。
+	// 旧実装はそこにも累計値を出しており、まだ来ていない月に記録があるように見えた。
+	monthlyFutureNote: 'これからの月',
+	valueNotYet: '—',
 
 	// Certificate link
 	certificateLink: `📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →`,
@@ -6161,6 +6185,11 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: 'コピーする',
+	// #4694: コピー結果文の resource 名 (checklists の restoreResourceNoun と同型)。
+	// 結果文の組み立ては CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が行う。
+	copyResourceNoun: '活動',
+	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
+	copyFailed: 'コピーに失敗しました',
 	// bulk dialog
 	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
 	bulkFormName: '活動名',
@@ -6227,6 +6256,44 @@ export const ADMIN_CHILD_SCOPE_LABELS = {
 		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
 	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
 	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
+} as const;
+
+/**
+ * 「別のお子さまからコピー」の結果メッセージ SSOT (#4694)
+ *
+ * 活動 / ごほうび / チェックリストの 3 画面で同じ判定 (すでにあるものは作らない) を行い、
+ * 同じ形で「作った件数 / 既にあって作らなかった件数」を返す (NN/G #1 visibility of system status)。
+ * 旧実装は「コピーが完了しました」だけを出していたため、2 回押して二重登録されたことにも、
+ * 何も起きなかったことにも気づけなかった。
+ */
+export const CHILD_COPY_RESULT_LABELS = {
+	/**
+	 * @param resourceNoun 「活動」「ごほうび」「チェックリスト」
+	 * @param copied 実際に作成した件数
+	 * @param skipped 既に同じものがあり作成しなかった件数
+	 */
+	format: (resourceNoun: string, copied: number, skipped: number): string => {
+		if (copied === 0) {
+			return skipped > 0
+				? `コピーできる${resourceNoun}はありませんでした（${skipped} 件はすでに追加済みです）`
+				: `コピーできる${resourceNoun}がありませんでした`;
+		}
+		return skipped > 0
+			? `📋 ${copied} 件の${resourceNoun}をコピーしました（${skipped} 件はすでにあるためスキップ）`
+			: `📋 ${copied} 件の${resourceNoun}をコピーしました`;
+	},
+	/** 結果に応じた Toast のトーン (0 件は成功と呼ばない) */
+	tone: (copied: number): 'success' | 'info' => (copied > 0 ? 'success' : 'info'),
+	/** コピー実行中のボタン文言 (DESIGN.md §5 Button loading) */
+	copying: 'コピーしています…',
+	/**
+	 * デモ環境 (write no-op) の結果表示。取込 / 復元の demo 分岐と同型 (#2558 bug-1)。
+	 * demo は書き込みを行わないので件数は常に 0 で返る。これを実結果として
+	 * 「コピーできる○○がありませんでした」と出すと、デモを触った人に
+	 * 「重複していないのにコピーできない」と誤解させるため、demo と明示する。
+	 */
+	demo: (resourceNoun: string): string =>
+		`デモではお試し用です（実際の${resourceNoun}のコピーは行われません）`,
 } as const;
 
 /**
@@ -6302,7 +6369,6 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
@@ -6339,7 +6405,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	editFailed: '更新に失敗しました',
 	deleteDialogTitle: 'ごほうびを削除',
 	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
-	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	// #4683: 交換履歴は残す (ポイント台帳の控除が残る以上、履歴だけ消すと辻褄が合わない)。
+	deleteIrreversibleNote:
+		'この操作は取り消せません。交換ずみの履歴は残るので、使ったポイントはあとから確認できます。',
 	deleteConfirmButton: '削除する',
 	deleteDeletingButton: '削除しています…',
 	deleteCancelButton: 'キャンセル',
@@ -7181,8 +7249,9 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: '取り込む',
 	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
-	copyNoChange: '取り込めるチェックリストがありませんでした（すでに配信済み）',
-	copySuccess: (added: number) => `${added} 件のチェックリストを取り込みました`,
+	// #4694: コピー結果文は CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が組み立てる。
+	// 本 namespace は resource 名だけを持つ (restoreResourceNoun と同型)。
+	copyResourceNoun: 'チェックリスト',
 	copyFailed: '取り込みに失敗しました',
 } as const;
 
@@ -8602,6 +8671,8 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
@@ -10967,7 +11038,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（原則 2 営業日以内に返信することを目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Stripe が対応する主要ブランド）<br>※Stripe決済サービス経由。ご利用いただけるブランドは決済画面でご確認いただけます</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（原則 2 営業日以内に返信することを目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Stripe が対応する主要ブランド）<br>※Stripe決済サービス経由。ご利用いただけるブランドは決済画面でご確認いただけます</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストはアーカイブされ、画面には表示されなくなります。アーカイブされたデータも削除はされず、有料プランに戻すと元どおりご利用いただけます。お支払いの失敗により契約が終了した場合も同じ取扱いです。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 

@@ -2,7 +2,6 @@
 import { enhance } from '$app/forms';
 import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { PARENT_LOGIN_LABELS } from '$lib/domain/labels';
-
 import Logo from '$lib/ui/components/Logo.svelte';
 import NumPad from '$lib/ui/components/NumPad.svelte';
 
