@@ -5,15 +5,14 @@ import type { RequestEvent } from '@sveltejs/kit';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
-	INVITE_ACCEPT_ERROR_COOKIE_NAME,
-	INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
 	INVITE_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { acceptInvite, getInvite } from '$lib/server/services/invite-service';
+import { acceptInvite } from '$lib/server/services/invite-service';
 import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
+import { ensureAuthUser, provisionOwnTenant } from '../provisioning';
 import { resolveTenantEntitlement, TenantEntitlementUnavailableError } from '../tenant-entitlement';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 import { hasMfaAmr, verifyIdentityToken } from './cognito-jwt';
@@ -173,9 +172,12 @@ export class CognitoAuthProvider implements AuthProvider {
 
 	/**
 	 * Cognito identity から所属メンバーシップを解決する (1ユーザー=1テナント)。
-	 * メンバーシップが無い場合は初回ログインとして招待受諾 → 自動プロビジョニングを試みる。
 	 *
-	 * #3963: `issueContextFromMembership` から切り出した。挙動は変えていない。
+	 * #4636: 招待 Cookie を持つ人の受諾が失敗した場合は **null を返して止める**。
+	 * 旧実装はここで `provisionNewUser` にフォールバックしていたため、招待された人が
+	 * 「別世帯の owner」として空の管理画面に着地していた (PO 報告の実害 2 件)。
+	 * membership 未確定は異常ではなく正規の状態として扱い (`/auth/join`)、世帯を作るかどうかは
+	 * 顧客自身に選ばせる。招待を持たない通常のサインアップは従来どおり自動作成する。
 	 */
 	private async resolveMembership(
 		event: RequestEvent,
@@ -194,20 +196,27 @@ export class CognitoAuthProvider implements AuthProvider {
 		// 初回ログイン: 招待コード Cookie があれば招待受諾を試行
 		const inviteCode = event.cookies.get(INVITE_COOKIE_NAME);
 		if (inviteCode) {
-			const membership = await this.acceptInviteForUser(event, identity, inviteCode);
-			if (membership) return membership;
+			// #4636: 失敗しても新規世帯は作らない。招待 Cookie は残したままにして
+			// (a) `/auth/join` が理由を再導出でき、(b) 原因 (メール未確認など) が解消されたら
+			// 次のリクエストで自動的に合流できるようにする。
+			return this.acceptInviteForUser(event, identity, inviteCode);
 		}
 
-		// 招待受諾失敗 or 招待なし → 新規テナント自動作成
+		// 招待なしの初回ログイン (通常のサインアップ) → 新規テナント自動作成
 		logger.info('[AUTH] First login detected, auto-provisioning', {
 			context: { userId: identity.userId, email: identity.email },
 		});
-		return this.provisionNewUser(identity);
+		return provisionOwnTenant(identity.email);
 	}
 
 	/**
-	 * 招待コードによるテナント参加
-	 * AuthUser を確保してから invite-service.acceptInvite を呼ぶ
+	 * 招待コードによるテナント参加。
+	 * AuthUser を確保してから invite-service.acceptInvite を呼ぶ。
+	 *
+	 * #4636: 失敗しても新規テナントは作らず null を返す (呼び出し元が context 未発行のまま
+	 * `/auth/join` に留める)。招待 Cookie は成功時のみ消費し、失敗時は残す —
+	 * 理由の再導出 (`/auth/join` が `previewInviteAcceptance` で引き直す) と、
+	 * メール確認などの原因が解消されたときの自動合流のため。
 	 */
 	private async acceptInviteForUser(
 		event: RequestEvent,
@@ -215,53 +224,25 @@ export class CognitoAuthProvider implements AuthProvider {
 		inviteCode: string,
 	): Promise<import('$lib/server/auth/entities').Membership | null> {
 		try {
-			// 招待の存在・有効性チェック
-			const invite = await getInvite(inviteCode);
-			if (!invite) {
-				logger.warn('[AUTH] Invite not found or expired', {
-					context: { inviteCode },
-				});
-				// #4633 AC-A: ここも「無音で新規家族グループ作成」に化ける経路。理由を通知する。
-				this.setInviteAcceptErrorCookie(event, 'INVALID_OR_EXPIRED');
-				this.clearInviteCookie(event);
-				return null;
-			}
-
 			// AuthUser を確保（Email で既存ユーザーを検索、なければ作成）
-			const repos = getRepos();
-			const existingUser = await repos.auth.findUserByEmail(identity.email);
-			let effectiveUserId: string;
-			if (existingUser) {
-				effectiveUserId = existingUser.userId;
-			} else {
-				const user = await repos.auth.createUser({
-					email: identity.email,
-					provider: 'cognito',
-				});
-				effectiveUserId = user.userId;
-			}
+			const effectiveUserId = await ensureAuthUser(identity.email);
 
-			// 招待受諾 (#3555 ③: email 束縛招待は email_verified=false を fail-closed 拒否)
+			// 招待受諾 (#3555 ③: email 束縛招待は email_verified=false を fail-closed 拒否)。
+			// 招待の存在・有効性・期限は acceptInvite 内の getInvite が判定し
+			// INVALID_OR_EXPIRED を返すため、ここで二重に引かない。
 			const result = await acceptInvite(inviteCode, effectiveUserId, identity.email, {
 				emailVerified: identity.emailVerified,
 			});
 
-			// Cookie を消費（成功でも失敗でも消す）
-			this.clearInviteCookie(event);
-
 			if ('error' in result) {
-				logger.warn('[AUTH] Invite acceptance failed', {
+				logger.warn('[AUTH] Invite acceptance failed (membership stays undecided)', {
 					context: { inviteCode, error: result.error, userId: effectiveUserId },
 				});
-				// #3555 ① / #4633 AC-A: 受諾拒否は理由を伝えないと dead-end になる
-				// (この後 fallback の新規テナント自動作成が走り、無説明の空 admin に着地する)。
-				// 1 回限りの通知 cookie を積み、admin +layout が読み取って案内バナーを表示する。
-				// #4633: 旧実装は email 束縛の 2 理由限定だったため、それ以外の拒否
-				// (TENANT_NOT_FOUND / ALREADY_IN_TENANT / SELF_INVITE_NOT_ALLOWED /
-				// OWNER_CANNOT_BE_DOWNGRADED …) が無音のまま残っていた。理由を問わず通知する。
-				this.setInviteAcceptErrorCookie(event, result.error);
 				return null;
 			}
+
+			// 成功時のみ Cookie を消費 (#0203: 共有端末での取り違え参加を物理排除する)
+			this.clearInviteCookie(event);
 
 			logger.info('[AUTH] User joined tenant via invite', {
 				context: {
@@ -275,90 +256,6 @@ export class CognitoAuthProvider implements AuthProvider {
 			return result.membership;
 		} catch (e) {
 			logger.error('[AUTH] Failed to accept invite', {
-				error: e instanceof Error ? e.message : String(e),
-			});
-			// #4633 AC-A: 例外経路も無音の新規家族グループ作成に化けるため通知する
-			// (内部例外は露出せず汎用文言のバナーに落とす、ADR-0062)。
-			this.setInviteAcceptErrorCookie(event, 'UNEXPECTED');
-			this.clearInviteCookie(event);
-			return null;
-		}
-	}
-
-	/**
-	 * #4633 AC-A: 招待受諾が拒否されたことを受諾後の admin 画面に伝える 1 回限りの通知 cookie。
-	 *
-	 * 拒否は例外なくこの後の `provisionNewUser` (新規家族グループ自動作成) にフォールバックする。
-	 * 通知を積まないと「招待されたはずの人が、別世帯の owner として空の管理画面に着地する」
-	 * 失敗が成功に見える経路になる。理由の一覧 SSOT は `INVITE_ACCEPT_ERROR_REASONS`。
-	 */
-	private setInviteAcceptErrorCookie(event: RequestEvent, reason: string): void {
-		event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, reason, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: true,
-			maxAge: INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
-		});
-	}
-
-	/**
-	 * 初回ログインユーザーのプロビジョニング
-	 * AuthUser → Tenant → Membership を作成し、owner ロールを付与
-	 */
-	private async provisionNewUser(
-		identity: Extract<Identity, { type: 'cognito' }>,
-	): Promise<import('$lib/server/auth/entities').Membership | null> {
-		try {
-			const repos = getRepos();
-
-			// Email で既存ユーザーを検索（Cognito sub と内部 u-xxx ID が異なるため）
-			const existingUser = await repos.auth.findUserByEmail(identity.email);
-
-			let effectiveUserId: string;
-			if (existingUser) {
-				effectiveUserId = existingUser.userId;
-			} else {
-				// 本当に初回 → AuthUser を作成
-				const user = await repos.auth.createUser({
-					email: identity.email,
-					provider: 'cognito',
-				});
-				effectiveUserId = user.userId;
-			}
-
-			// 既にテナントに所属していないか再確認
-			const existing = await repos.auth.findUserTenants(effectiveUserId);
-			if (existing.length > 0) return existing[0] ?? null;
-
-			// Tenant 作成（家族名はメールアドレスのローカル部から仮名を生成）
-			const familyName = identity.email.split('@')[0] ?? 'family';
-			const tenant = await repos.auth.createTenant({
-				name: `${familyName}の家族`,
-				ownerId: effectiveUserId,
-			});
-
-			// Membership 作成（初回ユーザーは owner）
-			const membership = await repos.auth.createMembership({
-				userId: effectiveUserId,
-				tenantId: tenant.tenantId,
-				role: 'owner',
-			});
-
-			// #314: サインアップ時の自動トライアル開始を廃止
-			// トライアルはユーザーがご家族の見守り画面から明示的に開始する
-
-			logger.info('[AUTH] Auto-provisioned new user', {
-				context: {
-					userId: effectiveUserId,
-					tenantId: tenant.tenantId,
-					role: 'owner',
-				},
-			});
-
-			return membership;
-		} catch (e) {
-			logger.error('[AUTH] Failed to provision new user', {
 				error: e instanceof Error ? e.message : String(e),
 			});
 			return null;

@@ -117,8 +117,9 @@ export interface CreateInviteInput {
 }
 
 /** 同意種別の固定集合。
- * runtime 配列は DSQL consents.type の CHECK 生成 SSOT (#3528、手書き二重化禁止)。 */
-export const CONSENT_TYPES = ['terms', 'privacy'] as const;
+ * runtime 配列は DSQL consents.type の CHECK 生成 SSOT (#3528、手書き二重化禁止)。
+ * 'cross-border' = 外国にある第三者への提供に対する同意 (個人情報保護法 §28、#4497)。 */
+export const CONSENT_TYPES = ['terms', 'privacy', 'cross-border'] as const;
 export type ConsentType = (typeof CONSENT_TYPES)[number];
 
 /** 利用規約・PP 同意記録 (#0192) */

@@ -1,6 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, PAGE_TITLES, SETUP_PACKS_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatCount,
+	PAGE_TITLES,
+	SETUP_LABELS,
+	SETUP_PACKS_LABELS,
+} from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -37,14 +43,9 @@ function selectSkip() {
 	selectedPacks = new Set();
 }
 
-// Category labels for preview
-const categoryLabels: Record<string, string> = {
-	undou: 'うんどう',
-	benkyou: 'べんきょう',
-	seikatsu: 'せいかつ',
-	kouryuu: 'こうりゅう',
-	souzou: 'そうぞう',
-};
+// #4512: 5 カテゴリ名の Record をここで持っていたが、この画面からは 1 度も参照されていない
+// 死んだ複製だった (view/[token] の同じ複製とあわせて並行実装 2 本)。SSOT は
+// src/lib/domain/categories.ts の CATEGORIES。参照が要るときは同 SSOT から引く。
 
 // Auto-select recommended packs on mount
 $effect(() => {
@@ -102,7 +103,7 @@ $effect(() => {
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-bold text-[var(--color-text)]">{pack.packName}</span>
-							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount + '件'}</span>
+							<span class="text-xs text-[var(--color-text-muted)]">{formatCount(pack.activityCount)}</span>
 						</div>
 						<p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
 						<div class="flex items-center gap-1 mt-2">
@@ -114,7 +115,9 @@ $effect(() => {
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, pack.packId)}
 							>
-								{expandedPack === pack.packId ? '▲ とじる' : '▼ なかみ'}
+								{expandedPack === pack.packId
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>
