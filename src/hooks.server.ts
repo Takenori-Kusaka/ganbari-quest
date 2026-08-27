@@ -689,13 +689,14 @@ export const handle: Handle = ({ event, resolve }) =>
 		if (isWriteRequest && context?.tenantId) {
 			// 退会申請中でも「データを持ち出す」「退会を取り消す」「ログアウトする」は通す。
 			// これらを塞ぐと、申請を撤回する手段まで失う。
-			const isAllowedWritePath = [
-				'/api/v1/admin/account/restore',
-				'/api/v1/admin/account/export',
-				'/api/v1/export',
-				'/api/v1/auth/logout',
-				'/auth/logout',
-			].some((p) => path.startsWith(p)) ||
+			const isAllowedWritePath =
+				[
+					'/api/v1/admin/account/restore',
+					'/api/v1/admin/account/export',
+					'/api/v1/export',
+					'/api/v1/auth/logout',
+					'/auth/logout',
+				].some((p) => path.startsWith(p)) ||
 				// #4699: /switch の子供選択は cookie を書くだけで DB を書き換えない (読み取り用途の POST)。
 				// ここを塞ぐと退会申請中に子供画面へ入れず、設定画面へ無言で飛ばされる。
 				// **完全一致で判定する** — startsWith だと将来 /switchboard 等の別ルートを
