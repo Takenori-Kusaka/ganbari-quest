@@ -88,6 +88,20 @@ export function toJSTDateString(date: Date): string {
 }
 
 /**
+ * **epoch 秒** を JST 暦日 (YYYY-MM-DD) に直す。
+ *
+ * `new Date(sec)` は引数を **ミリ秒**と解釈するため、秒をそのまま渡すと 1970-01-xx になる。
+ * 保持期間 (ADR-0049) の cutoff と比較する経路でこれをやると全件が cutoff より古い判定になり、
+ * **履歴が丸ごと消える** (#4688 で `reward_redemption_requests.requested_at` が実際にそうなった。
+ * 書き込みは `Math.floor(Date.now() / 1000)` = 秒)。
+ *
+ * 秒で保存している列を日付に直すときは必ずこの関数を通す。
+ */
+export function jstDateOfEpochSeconds(epochSeconds: number): string {
+	return toJSTDateString(new Date(epochSeconds * 1000));
+}
+
+/**
  * JST 日付文字列 (YYYY-MM-DD) の `days` 日後を返す (負値で過去)。
  *
  * 暦日文字列を UTC 深夜として解釈し UTC 算術で加減算するため、プロセス TZ に依存しない。

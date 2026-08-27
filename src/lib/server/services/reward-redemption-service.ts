@@ -3,7 +3,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
-import { toJSTDateString } from '$lib/domain/date-utils';
+import { jstDateOfEpochSeconds } from '$lib/domain/date-utils';
 import { formatRewardWithQuantity } from '$lib/domain/labels';
 import {
 	isValidRedemptionQuantity,
@@ -212,7 +212,9 @@ async function classifyDuplicate(
  * (実際に「記録 > 交換」タブがこの状態だった、#4818)。履歴ではない用途で意図的に絞らない
  * ときは `NO_RETENTION_FILTER` を明示的に渡す。
  *
- * `requestedAt` は ms unix 時刻なので、比較の前に **JST 暦日へ直す**。UTC 日付のまま
+ * `requestedAt` は **epoch 秒** (書き込みは L129 の `Math.floor(Date.now() / 1000)`) なので、
+ * `jstDateOfEpochSeconds` で JST 暦日へ直す。`new Date(秒)` は ms 解釈で 1970-01-xx になり、
+ * cutoff 比較で全件が古い判定 = 履歴が丸ごと消える。UTC 日付のまま
  * 比較すると JST 00:00〜09:00 の申請が 1 日前扱いになり、cutoff 当日分が落ちる (#4015 同 class)。
  */
 export async function getRedemptionRequestsForChild(
@@ -223,7 +225,7 @@ export async function getRedemptionRequestsForChild(
 	const requests = await findRedemptionRequestsByChild(childId, tenantId);
 	if (!range.from && !range.to) return requests;
 	return requests.filter((r) => {
-		const requestedDate = toJSTDateString(new Date(r.requestedAt));
+		const requestedDate = jstDateOfEpochSeconds(r.requestedAt);
 		if (range.from && requestedDate < range.from) return false;
 		if (range.to && requestedDate > range.to) return false;
 		return true;

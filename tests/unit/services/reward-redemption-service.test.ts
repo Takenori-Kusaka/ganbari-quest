@@ -88,6 +88,11 @@ function seedBaseData() {
 	return { childId, rewardId: rewardRow.id };
 }
 
+/** ISO 文字列を **epoch 秒** に直す (requestedAt の実際の保存単位に合わせる、#4688)。 */
+function epochSeconds(iso: string): number {
+	return Math.floor(Date.parse(iso) / 1000);
+}
+
 describe('requestRedemption', () => {
 	it('正常申請が作成される', async () => {
 		const { childId, rewardId } = seedBaseData();
@@ -416,7 +421,8 @@ describe('getRedemptionRequestsForChild', () => {
 
 	// #4818: `reward_redemption_requests` は ADR-0049 拡張表で P0 (深刻度「高」) の
 	// 保持期間対象。「記録 > 交換」タブがこれを一切通しておらず、無料プランでも全期間の
-	// 申請履歴が見えていた。`requestedAt` は ms unix 時刻なので、**JST 暦日に直してから**
+	// 申請履歴が見えていた。`requestedAt` は **epoch 秒** (書き込みは `Math.floor(Date.now() / 1000)`) なので、
+	// 秒 → **JST 暦日に直してから**
 	// cutoff と比較する必要がある (UTC 日付のままだと JST 00:00〜09:00 の申請が 1 日ずれる)。
 	describe('保持期間フィルタ (ADR-0049)', () => {
 		/** 指定の UTC 時刻に申請 1 件を直接投入する (requested_at を厳密に置くため repo 経由)。 */
@@ -425,7 +431,7 @@ describe('getRedemptionRequestsForChild', () => {
 				{
 					childId: asChildId(childId),
 					rewardId: String(rewardId),
-					requestedAt: Date.parse(iso),
+					requestedAt: epochSeconds(iso),
 					quantity: 1,
 					status: 'approved',
 					parentNote: null,
@@ -451,7 +457,7 @@ describe('getRedemptionRequestsForChild', () => {
 			});
 
 			// 子供向けの行型 (RedemptionRequestRow) は rewardTitle を持たないため requestedAt で識別する
-			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-08-20T03:00:00Z')]);
+			expect(list.map((r) => r.requestedAt)).toEqual([epochSeconds('2026-08-20T03:00:00Z')]);
 		});
 
 		it('cutoff 当日の JST 未明 (UTC では前日) の申請も残る', async () => {
@@ -463,7 +469,7 @@ describe('getRedemptionRequestsForChild', () => {
 				from: '2026-05-28',
 			});
 
-			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-27T15:30:00Z')]);
+			expect(list.map((r) => r.requestedAt)).toEqual([epochSeconds('2026-05-27T15:30:00Z')]);
 		});
 
 		// `to` は現行の呼び出し元 (履歴 load) が渡さないが、型 (`RetentionRange`) が受け取ると
@@ -477,7 +483,7 @@ describe('getRedemptionRequestsForChild', () => {
 				to: '2026-05-31',
 			});
 
-			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-20T03:00:00Z')]);
+			expect(list.map((r) => r.requestedAt)).toEqual([epochSeconds('2026-05-20T03:00:00Z')]);
 		});
 
 		it('range が空 (family = 無期限) なら絞らない', async () => {
@@ -486,7 +492,7 @@ describe('getRedemptionRequestsForChild', () => {
 
 			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, NO_RANGE);
 
-			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2020-01-01T03:00:00Z')]);
+			expect(list.map((r) => r.requestedAt)).toEqual([epochSeconds('2020-01-01T03:00:00Z')]);
 		});
 	});
 });

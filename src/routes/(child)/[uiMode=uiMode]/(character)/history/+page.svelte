@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
-import { jstDateOfIso, jstDayOfWeek, toJSTDateString } from '$lib/domain/date-utils';
+import { jstDateOfEpochSeconds, jstDateOfIso, jstDayOfWeek } from '$lib/domain/date-utils';
 import { asCategoryId } from '$lib/domain/ids';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
@@ -77,8 +77,11 @@ function formatDate(dateStr: string): string {
 	return `${month}${t.dateMonthSuffix}${day}${t.dateDaySuffix}（${weekday}）`;
 }
 
-function formatUnixDate(unix: number): string {
-	return formatDate(toJSTDateString(new Date(unix)));
+// #4688: requestedAt は **epoch 秒** (reward-redemption-service の書き込みは
+// Math.floor(Date.now() / 1000))。new Date(秒) は ms 解釈で 1970-01-xx になり、
+// 交換履歴の日付が全件「1月21日」と表示される。
+function formatUnixDate(epochSeconds: number): string {
+	return formatDate(jstDateOfEpochSeconds(epochSeconds));
 }
 
 function purchaseStatusLabel(status: string): string {
