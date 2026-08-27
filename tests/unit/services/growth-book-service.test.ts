@@ -75,11 +75,13 @@ function makeReport(
 		totalActivities: number;
 		categoryBreakdown: Record<string, number>;
 		totalPoints: number;
+		totalXp: number;
 		currentLevel: number;
 		maxStreakDays: number;
 		totalNewAchievements: number;
 		daysWithActivity: number;
 		totalDays: number;
+		isFuture: boolean;
 	}> = {},
 ) {
 	return {
@@ -90,11 +92,14 @@ function makeReport(
 		categoryBreakdown: {},
 		avgDailyActivities: 0,
 		currentLevel: 1,
+		// #4697: totalPoints = その月に台帳で獲得したポイント / totalXp = 累計 XP (別の量)
 		totalPoints: 0,
+		totalXp: 0,
 		maxStreakDays: 0,
 		totalNewAchievements: 0,
 		daysWithActivity: 0,
 		totalDays: 30,
+		isFuture: false,
 		...overrides,
 	};
 }

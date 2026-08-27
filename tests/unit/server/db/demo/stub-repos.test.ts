@@ -111,9 +111,6 @@ describe('demo/evaluation-repo', () => {
 		const children = await evaluationRepo.findAllChildren('demo');
 		expect(children.length).toBeGreaterThan(0);
 	});
-	it('isRestDay は false', async () => {
-		expect(await evaluationRepo.isRestDay(asChildId(902), '2026-04-01', 'demo')).toBe(false);
-	});
 	// #2097 Phase B-5b: 週次評価 fixture を返す
 	it('findEvaluationsByChild は fixture から件数を返す (902)', async () => {
 		const result = await evaluationRepo.findEvaluationsByChild(asChildId(902), 10, 'demo');
@@ -214,12 +211,15 @@ describe('demo/push-subscription-repo', () => {
 });
 
 describe('demo/report-daily-summary-repo', () => {
-	it('findByChildAndDateRange は空', async () => {
+	// #4712: read は fixture 活動ログの集計を返す Fake になった (旧: 常に空 stub)。
+	// 集計内容の検証は tests/unit/server/db/demo/report-daily-summary-repo.test.ts が担う。
+	// ここでは「fixture 期間外は空」= 範囲条件が効いていることだけを見る。
+	it('fixture 期間外の日付範囲では空', async () => {
 		expect(
 			await reportDailySummaryRepo.findByChildAndDateRange(
 				asChildId(902),
-				'2026-01-01',
-				'2026-12-31',
+				'1999-01-01',
+				'1999-12-31',
 				'demo',
 			),
 		).toEqual([]);
@@ -241,9 +241,9 @@ describe('demo/reward-redemption-repo', () => {
 // repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
 
 describe('demo/sibling-cheer-repo', () => {
-	// #2097 Phase B-5b: 未表示 cheer fixture が含まれるため findUnshownCheers は件数を返す
-	it('countTodayCheersFrom は 0', async () => {
-		expect(await siblingCheerRepo.countTodayCheersFrom(asChildId(902), 'demo')).toBe(0);
+	// #4691: きょうだい間おうえんは機能撤去済。demo は削除 no-op のみ。
+	it('deleteByTenantId は no-op で throw しない', async () => {
+		await expect(siblingCheerRepo.deleteByTenantId('demo')).resolves.toBeUndefined();
 	});
 });
 

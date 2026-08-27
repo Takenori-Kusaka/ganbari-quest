@@ -29,7 +29,7 @@ export async function insertRedemptionRequest(
 export async function insertRedemptionForRestore(
 	_input: {
 		childId: ChildId;
-		rewardId: string;
+		rewardId: string | null;
 		requestedAt: number;
 		quantity: number;
 		status: string;

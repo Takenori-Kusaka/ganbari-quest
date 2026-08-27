@@ -17,13 +17,24 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
-import { PLAN_TERMS } from '../../../src/lib/domain/terms';
+import { PLAN_TERMS, REWARD_TERMS } from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
-		it('free プランは 8 項目（#1654 R48 メールサポート補完後）', () => {
+		it('free プランは 9 項目（#4705 ごほうび登録の制限明記後）', () => {
 			// #1654 R48: footer / tokushoho.html / sla.html がメールサポート全プラン提示済 → SSOT 補完で 7→8
-			expect(PRICING_PAGE_FEATURES.free).toHaveLength(8);
+			// #4705: 無料プランで**できない**ことのうち、貯めたポイントの使い道に直結する
+			//   「ごほうびショップへの商品登録はスタンダード以上」を明記 → 8→9
+			expect(PRICING_PAGE_FEATURES.free).toHaveLength(9);
+		});
+
+		it('free プランに ごほうび登録の制限が明記される (#4705)', () => {
+			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.productRegistration)
+			expect(
+				PRICING_PAGE_FEATURES.free.some(
+					(f) => f.includes(REWARD_TERMS.productRegistration) && f.includes(PLAN_TERMS.standard),
+				),
+			).toBe(true);
 		});
 
 		it('standard プランは 9 項目（#1655 R49 家族メンバー招待補完後）', () => {
@@ -68,9 +79,12 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).not.toContain('特別なごほうび設定（即時付与）');
 		});
 
-		it('standard に特別なごほうび設定が含まれるが、AI提案は含まない (#722)', () => {
+		it('standard に ごほうび登録が含まれるが、AI提案は含まない (#722 / #4705 行名是正)', () => {
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('AI による活動提案');
-			expect(PRICING_PAGE_FEATURES.standard).toContain('特別なごほうび設定（即時付与）');
+			// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲート (isCustomRewardUnlocked、#4584 が
+			// 止めるのはショップ商品の登録) と別機能を指して読めたため atom に是正。
+			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.productRegistration);
+			expect(PRICING_PAGE_FEATURES.standard).not.toContain('特別なごほうび設定（即時付与）');
 		});
 
 		it('family にのみ AI 自動提案が含まれる (#722)', () => {

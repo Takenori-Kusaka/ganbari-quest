@@ -78,6 +78,47 @@ test.describe('正常ログイン', () => {
 	test('child でログインすると /switch にリダイレクトされる', async ({ page }) => {
 		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
 	});
+
+	// #4641: 子供はログイン直後に /admin へ跳ね返され、身に覚えのない
+	// 「おやのアカウントでログインしてね」を最初に見せられていた。着地先をロールで決めるため出ない。
+	test('child ログイン直後に「おやのアカウントで」警告が出ない (#4641)', async ({ page }) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await expect(page).not.toHaveURL(/reason=admin_forbidden/);
+		await expect(page.getByRole('alert').filter({ hasText: 'おやのアカウント' })).toHaveCount(0);
+	});
+
+	// #4641: 一度どの子として使うかが決まっていれば、次のログインは選択画面を挟まずホームへ着地する
+	// (紐づけ済みなら初回から直行する。dev ユーザーは childId 未紐づけのため 1 回選んでから確認する)
+	test('子供の再ログインは選択画面を挟まずホームに着地する (#4641)', async ({ page }) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await page
+			.getByTestId(/^child-select-/)
+			.first()
+			.click();
+		await expect(page).toHaveURL(/\/(baby|preschool|elementary|junior|senior)\/home/);
+
+		await page.goto('/auth/logout');
+		await loginAs(
+			page,
+			'child@example.com',
+			'Gq!Dev#Child2026x',
+			/\/(baby|preschool|elementary|junior|senior)\/home/,
+		);
+	});
+
+	// #4641: 子供用ナビの「きりかえ」と自動スリープ (#1292) は /switch へ来る。
+	// ここで自動スキップすると、その 2 つが機能しなくなる (ボタンが無反応 / 休憩導線が消える)。
+	test('選択済みでも /switch を自分で開いたときは留まる (#4641)', async ({ page }) => {
+		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await page
+			.getByTestId(/^child-select-/)
+			.first()
+			.click();
+		await expect(page).toHaveURL(/\/(baby|preschool|elementary|junior|senior)\/home/);
+
+		await page.goto('/switch');
+		await expect(page).toHaveURL(/\/switch/);
+	});
 });
 
 // ============================================================

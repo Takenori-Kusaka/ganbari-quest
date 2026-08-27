@@ -10,6 +10,7 @@
 | Phase 7 rename 方針 | `/admin/license` → `/admin/subscription` / `family` → `プレミアム` (atom 1 行) / 月額のみ (年額廃止)。本 docs 内では Phase 7 rename 後の名称を前提に記述、既存実装 reference (`SaasLicensePanel.svelte` 等) は現名維持 |
 | license key 全廃 / rename 整合 (#2788) | 本 docs の reactivation banner / archived listing は **license key UI を含まない**ため license key 全廃 (#2788、PR #2790) の影響なし。本文中の `license +page.server.ts` 等の `license` を含むパス・名称は **現名の既存実装 reference** で、Phase 7 で `/admin/subscription/` に rename される (naming rename)。naming rename と license key 概念削除 (全廃軸、`tenant.status=ACTIVE` が唯一の entitlement SSOT) は別軸 (Phase 5 補強 #2798 §2 原則 4 踏襲) |
 | 採用案 | Notion 型 Pattern A (Phase 2 #2549 既確定) + Calendly 型 「toggle-back restore」(One-click) を融合。read-only listing + 常時表示 reactivation banner |
+| 実装 (#4708) | banner = `ArchivedResourceBanner.svelte` (admin layout、3 資源の件数 + 「プランを見る」+ 「非表示のお子さまを見る」) / listing = `ArchivedChildrenSection.svelte` を **`/admin/children#archived`** に配置 (PO 判断: 「閲覧できる」はお子さま一覧の画面で成立させる。本 docs が候補とした `/admin/subscription#archived` ではない) / 復元 = Stripe webhook W1 / W2 / W4 (status=active) で `restoreArchivedResources`。文言 SSOT は `ARCHIVED_RESOURCE_LABELS`。画面仕様の SSOT は `06-UI設計書.md` §10.3「archive（一時非表示）中のリソースの告知と一覧」 |
 | `premium` 階層 signal 打消 | reactivation banner は **「データは保護されています」**を主訴求とし、「上位プランで restore」を副訴求にとどめる (上位プラン誘導を一次目的化しない)。LP コピー (`FREE_PLAN_TERMS.forever` 等) と連動して「無料が排除されている印象を与えない」設計を貫徹 (refs #2594 D-2) |
 
 ## 設計背景 (なぜこの設計が必要か)

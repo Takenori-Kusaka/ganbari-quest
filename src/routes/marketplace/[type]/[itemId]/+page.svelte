@@ -363,7 +363,29 @@ function deselectAllActivities() {
 			data-testid="marketplace-detail-cta"
 			data-cta-variant={ctaVariant}
 		>
-			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
+			{#if data.importLocked && data.isAuthenticated && (isRewardSet || isRuleExchange)}
+				<!-- #4705: 無料プランは商品登録ができない。押す前に条件と行き先を出す
+				     (旧: CTA 活性 → 子供選択 → 取込 POST 後に有料プラン必須で拒否)。
+				     文言は MARKETPLACE_LABELS (atom 経由) を読む。 -->
+				<div
+					class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-xl p-3 text-sm"
+					data-testid="marketplace-import-locked"
+				>
+					<p class="font-bold">{MARKETPLACE_LABELS.detailImportLockedTitle}</p>
+					<p class="mt-1 text-[var(--color-text-secondary)]">
+						{MARKETPLACE_LABELS.detailImportLockedDesc}
+					</p>
+				</div>
+				<Button
+					variant="primary"
+					size="lg"
+					class="w-full"
+					href="/admin/subscription"
+					data-testid="marketplace-import-locked-cta"
+				>
+					{MARKETPLACE_LABELS.detailImportLockedCta}
+				</Button>
+			{:else if isRewardSet && data.isAuthenticated && data.children.length > 0}
 				<!-- #2774 (Issue #2774 / User 指摘 #2 #4): 5 type 取込 CTA 統一 — `<a>` 形式 +
 				     `?import=` query 一本化。reward-set は admin/rewards 側で
 				     ChildSelectionDialog auto-open する mechanism が既存 (#2362 PR-4)、

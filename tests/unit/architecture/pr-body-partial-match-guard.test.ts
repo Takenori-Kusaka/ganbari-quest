@@ -28,8 +28,16 @@ vi.setConfig({ testTimeout: 60_000 });
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SCAN_DIR = resolve(REPO_ROOT, 'scripts');
 
-/** PR body を指す変数名 (これらに対する部分一致判定を検出対象にする)。 */
-const BODY_IDENT = String.raw`(?:[A-Za-z_$][\w$]*)?[Bb]ody`;
+/**
+ * PR body を指す変数名 (これらに対する部分一致判定を検出対象にする)。
+ *
+ * **大文字の `PR_BODY` も含める (#4348 で追加)**。旧実装は `[Bb]ody` しか見ておらず、
+ * env 由来の定数名 `PR_BODY` に対する `.includes(...)` が検出器から漏れていた。
+ * 実際に schema 系 gate 2 本が `PR_BODY.includes(SKIP_MARKER)` で **gate 全体を skip** しており、
+ * 「本 Issue の対象一覧にも ALLOWLIST にも載らない同 class」が残っていた。
+ * 検出できない形を残すと guard 自体が「検査できなかったのに緑」になる (#4084 と同じ穴)。
+ */
+const BODY_IDENT = String.raw`(?:[A-Za-z_$][\w$]*)?(?:[Bb]ody|BODY)`;
 
 /** `<body>.indexOf(` / `<body>.includes(` — 部分一致で section / 宣言を探す形。 */
 const SUBSTRING_RE = new RegExp(String.raw`\b(${BODY_IDENT})\s*\.\s*(indexOf|includes)\s*\(`, 'g');
@@ -44,16 +52,12 @@ const WHOLE_BODY_TEST_RE = new RegExp(String.raw`\.test\(\s*(${BODY_IDENT})\s*\)
  * 「この判定を触ったならもう一度理由を書け」という強制になる。
  */
 const ALLOWLIST: Record<string, string> = {
-	// --- #4348 で是正しなかった残置 (Issue #4348 に残件として記録、1 箇所ずつ corpus 比較して消化) ---
-	"scripts/check-ac-verification-map.mjs::const mapHeaderIdx = body.indexOf('AC 検証マップ');":
-		'#4348 残置 (対象 #6): feature lane の AC マップ section 探索。全 feature PR に波及するため別 PR で corpus 比較のうえ是正する',
-	'scripts/check-admin-bypass-evidence.mjs::return EVIDENCE_MARKER_PATTERNS.some((re) => re.test(body));':
-		'#4348 残置 (対象 #3): admin bypass 証跡マーカーの存在検査。nightly 監査 script で PR gate とは別経路のため別 PR で是正する',
-	'scripts/check-pr-screenshot.mjs::return DOM_REF_PATTERN.test(body);':
-		'#4348 残置 (対象 #4): DOM スナップショット参照の存在検査。#4255 の兄弟関数と同様に実在検査へ寄せる別 PR で是正する',
-	'scripts/check-pr-screenshot.mjs::return INTEGRATION_VR_EVIDENCE_PATTERNS.some((p) => p.test(body));':
-		'#4348 残置 (対象 #4): 統合 PR の VR 証跡の存在検査。同上',
-
+	// #4348 の対象 6 箇所は全て消化済 (残置エントリなし)。
+	//   対象 #6 は **判定関数ごと削除**した — #4305 で PR テンプレートから `## AC 検証マップ` 節が
+	//   消え entry からも外れており、呼び出しが自身の test だけの死んだコードだったため、
+	//   厳格化ではなく削除が正しい対処だった (経緯は check-ac-verification-map.mjs の entry コメント)。
+	//   対象 #3 (admin bypass 証跡 marker) は `hasDeclarationLine` へ移行済。
+	//   対象 #4 (DOM スナップショット参照 / 統合 PR の VR 証跡) は develop 側で是正済 (#4348)。
 	// --- 構造化識別子ではなく prose (自然文) を探す用途。本文全体を見るのが正しい ---
 	'scripts/check-pr-screenshot.mjs::hasBefore: BEFORE_LABEL_PATTERN.test(body),':
 		'prose 検査: 「修正前」ラベルの表記ゆれを本文から探す用途で、見出し等の構造化識別子ではない',
@@ -72,7 +76,7 @@ const ALLOWLIST: Record<string, string> = {
 	'scripts/check-pr-body.mjs::const startIdx = body.indexOf(section);':
 		'#4348 scope 外: check-pr-body の section 切り出し。同上',
 	'scripts/pr-template-gate-checks.mjs::const start = body.indexOf(heading);':
-		'#4348 scope 外: sliceSection / detectChangeTypeHeading の見出し探索。同 class のため後続 PR で移行する',
+		'#4348 scope 外: sliceSection の見出し探索 (detectChangeTypeHeading は #4612 で削除済)。同 class のため後続 PR で移行する',
 	"scripts/pr-template-gate-checks.mjs::const end = body.indexOf('\\n## ', start + 1);":
 		'#4348 scope 外: 上記 sliceSection の終端探索 (見出しの存在判定ではない)。同上',
 	'scripts/pr-template-gate-checks.mjs::const idx = body.indexOf(`**${field}**:`);':
