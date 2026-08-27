@@ -543,10 +543,7 @@ function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null
 }
 
 /** 削除確認の本文 (配信先が居れば その子の画面から消えることも述べる)。 */
-function deleteConfirmBodyFor(
-	templateName: string,
-	assignedChildIds: readonly ChildId[],
-): string {
+function deleteConfirmBodyFor(templateName: string, assignedChildIds: readonly ChildId[]): string {
 	const names = assignedChildNames(assignedChildIds);
 	return names
 		? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
