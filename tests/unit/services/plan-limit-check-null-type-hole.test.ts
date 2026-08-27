@@ -87,15 +87,16 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.childLimitReached(2)).toBe(
 			'子供は最大2人まで登録できます。プランをアップグレードしてください。',
 		);
-		// #4512: チェックリスト上限文はプラン名 SSOT に寄せた `perChildLimitReached*` が正 (旧
-		// `checklistTemplateLimitReached*` は同文の重複 atom だったため削除)。
+		// プラン名は #4512 で atom (PLAN_FULL_TERMS) 参照に是正済み (「フリープラン」直書きを撤去)。
 		expect(PLAN_GATE_LABELS.perChildLimitReachedShort(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。',
 		);
 		expect(PLAN_GATE_LABELS.perChildLimitReached(3)).toBe(
 			'無料プランではお子さま1人あたり 3 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。',
 		);
-		// #4500: メンバー上限は「オーナーを含めた合計」であることを文面で示す
+		// 文面は #4500 で「オーナーを含めた合計」であることを明示する形に更新済み。
+		// 本 assert が固定するのは「labels.ts 経由の SSOT 1 箇所から出ていること」であり、
+		// 直書きに戻した瞬間にズレて落ちる (下の fitness と両輪)。
 		expect(PLAN_GATE_LABELS.memberLimitReached(4)).toBe(
 			'ご家族の人数が上限（オーナーを含めて4人）に達しています。これ以上の招待はプランのアップグレードが必要です。',
 		);

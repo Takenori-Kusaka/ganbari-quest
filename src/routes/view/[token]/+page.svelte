@@ -1,13 +1,14 @@
 <script lang="ts">
 import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
-import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatAgeKana, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
 /**
- * #4703: カテゴリ名 / アイコンは `categories.ts` (SSOT) から引く。
- * 旧実装は本 component 内に 5 件を直書きしており、SSOT を変えてもこの画面だけ
- * 古い名前を出し続ける形だった (DESIGN.md §6 用語ハードコード禁止)。
+ * #4703 / #4512: カテゴリ名 / アイコンは `categories.ts` (SSOT) から引く。
+ * 旧実装は本 component 内に 5 件を直書きしており (setup/packs との並行実装)、
+ * SSOT を変えてもこの画面だけ古い名前を出し続ける形だった
+ * (DESIGN.md §6 用語ハードコード禁止)。
  */
 function categoryMeta(categoryId: string) {
 	const code = toCategoryCode(categoryId);
@@ -38,7 +39,7 @@ function categoryMeta(categoryId: string) {
 				<div class="child-card">
 					<div class="child-header">
 						<h2 class="child-name">{child.nickname}</h2>
-						<span class="child-age">{child.age + 'さい'}</span>
+						<span class="child-age">{formatAgeKana(child.age)}</span>
 					</div>
 
 					<div class="child-stats">

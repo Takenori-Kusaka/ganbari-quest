@@ -8,6 +8,7 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import type { ChildId } from '$lib/domain/ids';
+import { MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findActivities } from '$lib/server/db/activity-repo';
@@ -28,12 +29,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const { type, itemId } = params;
 
 	if (!VALID_TYPES.includes(type as MarketplaceItemType)) {
-		error(404, 'コンテンツタイプが不正です');
+		error(404, MARKETPLACE_LABELS.errorInvalidType);
 	}
 
 	const item = getMarketplaceItem(type as MarketplaceItemType, itemId);
 	if (!item) {
-		error(404, 'コンテンツが見つかりません');
+		error(404, MARKETPLACE_LABELS.errorItemNotFound);
 	}
 
 	// #2136 MP-1 / #2137 MP-2: 認証済みなら一括追加 CTA を出すための情報をロード。

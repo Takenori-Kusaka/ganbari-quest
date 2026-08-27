@@ -184,9 +184,10 @@
 /* #1911 (B-1): card 系統合トークン --lp-card-padding-* に集約。tour-card / soft-card と padding 揃え */
 .core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-card-padding-y) var(--lp-card-padding-x);display:flex;flex-direction:column;gap:8px}
 .core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
-.core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
+/* #4645: 白文字を載せる塗りは AA (4.5:1) が要る。--brand-500 は 2.68:1、--orange-500 は 2.15:1 */
+.core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-700)}
 .core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
-.core-loop-card[data-card="l3"] .cll-badge{background:var(--orange-500)}
+.core-loop-card[data-card="l3"] .cll-badge{background:var(--orange-700)}
 .core-loop-card h3{font-size:1.02rem;font-weight:700;margin:0;color:var(--gray-900);line-height:1.4}
 .core-loop-card p{font-size:.86rem;color:var(--gray-700);line-height:1.6;margin:0}
 @media(min-width:768px){
@@ -267,7 +268,8 @@
 .pricing-promise{max-width:760px;margin:0 auto;text-align:center}
 .pp-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;padding:var(--lp-pp-band-padding-y) var(--lp-pp-band-padding-x);background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid var(--gray-300);border-radius:var(--radius);margin:0 auto 20px;font-size:1.05rem;color:var(--gray-900);line-height:1.6}
 .pp-item{display:inline-flex;align-items:center}
-.pp-item strong{color:#8b5cf6;font-size:1.1rem}
+/* #4645: #8b5cf6 は白背景で 4.23:1。--violet-700 (#6d28d9) は 7.10:1 */
+.pp-item strong{color:var(--violet-700);font-size:1.1rem}
 /* #1906 a11y bundle (Re-Review broader audit): gray-400 → gray-500 (.hpb-dot と同種、price promise band 区切り) */
 .pp-dot{color:var(--gray-500);font-weight:400}
 .pp-footnote{font-size:.9rem;color:var(--gray-600);line-height:1.7;margin:0 auto 22px;max-width:560px}
@@ -443,7 +445,7 @@
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+      <img src="logo-compact.png" alt="がんばりクエスト" width="108" height="44">
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
@@ -551,7 +553,7 @@
         <div class="versus-visual">
           <picture>
             <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-point-level.webp" alt="親管理画面の活動カスタマイズ画面" loading="lazy" data-lightbox>
+            <img src="screenshots/feature-point-level.webp" alt="小学生のホーム画面 — ポイントとレベルの表示" loading="lazy" data-lightbox>
           </picture>
         </div>
       </article>
@@ -568,7 +570,7 @@
         <div class="versus-visual">
           <picture>
             <source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/age-kinder.webp" alt="子ども入力画面の過去の記録画面" loading="lazy" data-lightbox>
+            <img src="screenshots/age-kinder.webp" alt="幼児のホーム画面 — ひらがなで大きなタップ領域" loading="lazy" data-lightbox>
           </picture>
         </div>
       </article>
@@ -585,7 +587,7 @@
         <div class="versus-visual">
           <picture>
             <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-cheer-message.webp" alt="家族からおうえんメッセージを送る親管理画面 — 離れていても家族で繋がれる" loading="lazy" data-lightbox>
+            <img src="screenshots/feature-cheer-message.webp" alt="家族からおうえんメッセージを送るご家族の見守り画面 — 離れていても家族で繋がれる" loading="lazy" data-lightbox>
           </picture>
         </div>
       </article>
@@ -684,7 +686,7 @@
       <div class="core-loop-card" data-card="l1">
         <span class="cll-badge" data-lp-key="coreloop.l1Badge">活動</span>
         <h3 data-lp-key="coreloop.l1Title">毎日の活動を記録</h3>
-        <p data-lp-key="coreloop.l1Desc">「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
+        <p data-lp-key="coreloop.l1Desc">「はみがきした」「宿題おわった」をタップだけで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
       </div>
       <div class="core-loop-card" data-card="l2">
         <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
@@ -829,7 +831,7 @@
 <section class="section bg-gray" id="growth-roadmap">
   <div class="section-inner growth-roadmap-cta">
     <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
-    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」子育てステージへ。</p>
+    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて画面の見た目と情報量が変化。最後は「アプリを使わなくても自分で計画できる」子育てステージへ。</p>
     <p class="growth-roadmap-link"><a href="graduation.html" class="btn btn-secondary" data-lp-key="growthRoadmap.linkLabel">3 歳から 18 歳までの成長ストーリーを見る →</a></p>
   </div>
 </section>
@@ -896,7 +898,7 @@
       <div class="trust-badge">
         <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k67">データを家族の手元に</h3>
-        <p data-lp-key="indexB.k68">家族のデータが第三者にも使われない設計です。サービス停止時は事前にお知らせ + データの書き出しができます。お子さまの記録は確実に手元に残せます。</p>
+        <p data-lp-key="indexB.k68">家族のデータが第三者にも使われない設計です。サービス停止時は事前にお知らせします。記録の書き出し（有料プランの機能）で、お子さまの記録を手元に残せます。</p>
         <!-- #1905 (PERS-MAJ-11): 親向け本文 (k68) と技術者向け補足 (k69) を視覚的に分離。
              `.trust-badge-tech-note` クラスで小文字 + muted 色にし、親ペルソナが selfhost.html に
              直接誘導されないようリーダー本文と区別する -->
@@ -985,7 +987,7 @@
      可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
      初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
      SEO / no-JS 環境でも初期文言は読める。 -->
-<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内">
+<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" inert role="complementary" aria-label="ページ追従の登録案内">
   <div class="floating-cta-inner">
     <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる<small>7 日間無料</small></div>
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="無料トライアルへのご案内">無料で始める</a>
@@ -1013,6 +1015,12 @@
       // CDN 未ロード時は plain text として描画されるため fallback safe（Web Component 未登録扱い）
       label.innerHTML='<budoux-ja>'+text.replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;'})+'</budoux-ja>';
     }
+  });
+  // #4645: Splide は slide の <li> に role="tabpanel" を付けるが、<li> に許可された role では
+  // ない (axe aria-allowed-role)。group も同様に許可されていないため、role を外して <li> の
+  // 暗黙 role (listitem) に戻す。カルーセルであることは region の aria-roledescription が伝える。
+  splide.on('mounted',function(){
+    splide.Components.Slides.forEach(function(s){s.slide.removeAttribute('role')});
   });
   splide.mount();
 })();
@@ -1077,7 +1085,7 @@
 
 <!-- Lightbox (#297, #1906 TECH-D-2: alt 空のままだと SR で「unlabeled image」読み上げ。
      非表示時は aria-hidden=true で a11y tree から外す。表示時に JS で alt を動的注入する） -->
-<div class="lightbox-overlay" id="lightbox" aria-hidden="true" role="dialog" aria-label="拡大画像表示">
+<div class="lightbox-overlay" id="lightbox" aria-hidden="true" inert role="dialog" aria-label="拡大画像表示">
   <button class="lightbox-close" aria-label="閉じる">&#10005;</button>
   <img src="" alt="" role="presentation">
 </div>
@@ -1091,10 +1099,10 @@
     lbImg.src=src;lbImg.alt=alt||'';
     // #1906 TECH-D-2: alt 注入時は role を presentation → img に切替て SR に説明させる
     if(alt){lbImg.setAttribute('role','img')}else{lbImg.setAttribute('role','presentation')}
-    overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');
+    overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');overlay.removeAttribute('inert');
   }
   function close(){
-    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');lbImg.src='';lbImg.alt='';lbImg.setAttribute('role','presentation');
+    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');overlay.setAttribute('inert','');lbImg.src='';lbImg.alt='';lbImg.setAttribute('role','presentation');
   }
   document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
     img.addEventListener('click',function(){open(this.currentSrc||this.src,this.alt)});
@@ -1190,6 +1198,10 @@
       visible=nextVisible;
       el.classList.toggle('visible',visible);
       el.setAttribute('aria-hidden',!visible);
+      // #4645: aria-hidden だけだと中の CTA リンクがキーボード focus 可能なまま残り、
+      // スクリーンリーダー利用者が「読み上げられないのに focus が入る」状態になる
+      // (axe aria-hidden-focus)。inert を同時に切り替えて focus も外す。
+      if(visible){el.removeAttribute('inert')}else{el.setAttribute('inert','')}
     }
 
     var phase='hero';

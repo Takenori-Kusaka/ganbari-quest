@@ -11,7 +11,7 @@
 // ── Canon TDD (red-first) ── check-constraints helper + children CHECK 未実装で fail。
 
 import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
 import { UI_MODES } from '$lib/domain/validation/age-tier-types';
 
@@ -170,10 +170,56 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const r of ROLES) expect(roleSql).toContain(`'${r}'`);
 	});
 
-	it('consents type CHECK が CONSENT_TYPES 全値を含む (SSOT 生成)', async () => {
+	// #4497: consents.type は 'cross-border' の追加で「作成時に確定した不変集合」でなくなった。
+	// DSQL は ALTER で CHECK を張り直せない (§10-5 / transform.ts は ADD CONSTRAINT を throw) ため、
+	// 0000 の inline CHECK は migration 0007 で DROP し、許可値の強制を app 層へ移した。
+	// CHECK の再導入は本番 DSQL に適用不能な DDL を生むので、無いことを固定する。
+	it('consents.type には CHECK を張らない (値集合が増える型、#4497 / migration 0007)', async () => {
+		const { consents } = await import('../../../src/lib/server/db/dsql/schema');
+		const checks = getTableConfig(consents).checks.map((c) => c.name);
+		expect(
+			checks,
+			'consents.type の CHECK は DSQL で後から広げられない。許可値は CONSENT_TYPES + recordConsent で強制する',
+		).toEqual([]);
+	});
+
+	it('consents.type の許可値強制が app 層に存在する (DB CHECK の代替、#4497)', async () => {
+		vi.resetModules();
+		vi.doMock('$lib/server/db/factory', () => ({
+			getRepos: () => ({
+				auth: {
+					recordConsent: async (input: unknown) => input,
+					findLatestConsent: async () => undefined,
+					findAllConsents: async () => [],
+				},
+			}),
+		}));
+		vi.doMock('$lib/server/logger', () => ({
+			logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+		}));
+
+		const { recordConsent } = await import('../../../src/lib/server/services/consent-service');
 		const { CONSENT_TYPES } = await import('../../../src/lib/server/auth/entities');
-		const s = await checkSql('consents_type_ck', 'consents');
-		for (const t of CONSENT_TYPES) expect(s).toContain(`'${t}'`);
+
+		// SSOT に載っている種別は書ける
+		await expect(
+			recordConsent('t-1', 'u-1', CONSENT_TYPES, '127.0.0.1', 'ua'),
+		).resolves.toHaveLength(CONSENT_TYPES.length);
+
+		// 載っていない種別は拒否される (旧 DB CHECK と同じ役割)
+		await expect(
+			recordConsent(
+				't-1',
+				'u-1',
+				['marketing' as unknown as (typeof CONSENT_TYPES)[number]],
+				'127.0.0.1',
+				'ua',
+			),
+		).rejects.toThrow(/Unknown consent type/);
+
+		vi.doUnmock('$lib/server/db/factory');
+		vi.doUnmock('$lib/server/logger');
+		vi.resetModules();
 	});
 
 	it('families.plan には CHECK を張らない (plans lookup 参照、§6.6 営業パネル 2026-07-01)', async () => {
