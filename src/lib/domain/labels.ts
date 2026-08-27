@@ -453,15 +453,15 @@ export const PLAN_GATE_LABELS = {
 	 * (プラン名の SSOT は「無料プラン」で、「フリー」はカード等の短縮名。#4502 の
 	 *  使い分け決裁を server 面にも適用する)。文と数値の組み立てを 1 箇所に閉じる。
 	 *
-	 * #4622: 上限到達メッセージに `null` は渡せない (到達しうるのは上限が具体値のプランだけで、
-	 * `PlanLimitCheck` も `allowed: false` 側の `max` を `number` に確定させている)。
-	 * 「上限 null」を文字列化して `個までです` と言わせないよう、型で塞ぐ。
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (#4622)。
+	 *   引数を `number` に狭めてあるため、`max: number | null` をそのまま埋めて
+	 *   「1人あたり null 個」を出す経路がコンパイルで落ちる。
 	 */
-	perChildLimitReached: (max: number | string) =>
+	perChildLimitReached: (max: number) =>
 		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
 
 	/** 同上の短い版 (上限値だけを述べ、アップグレード導線は呼び出し側が別に出す場合)。 */
-	perChildLimitReachedShort: (max: number | string) =>
+	perChildLimitReachedShort: (max: number) =>
 		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。`,
 
 	/** 一括取込で一部だけ入った場合の結果通知。 */
@@ -530,7 +530,7 @@ export const PLAN_GATE_LABELS = {
 	 * 「4 人まで招待できる」と読んだ顧客が 3 人目の招待でブロックされた時に不具合と誤認する。
 	 * オーナーを含む数え方であることを、ブロックされたその場で明示する。
 	 */
-	memberLimitReached: (max: number | string) =>
+	memberLimitReached: (max: number) =>
 		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
@@ -8394,6 +8394,8 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
