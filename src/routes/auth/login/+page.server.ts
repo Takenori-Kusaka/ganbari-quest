@@ -12,7 +12,11 @@ import {
 	resolveSafeNextPath,
 } from '$lib/domain/validation/login-redirect';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
-import { PARENT_LANDING, resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
+import {
+	CHILD_LANDING,
+	PARENT_LANDING,
+	resolvePostLoginLanding,
+} from '$lib/server/auth/post-login-landing';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
 import {
@@ -37,7 +41,8 @@ import type { Actions, PageServerLoad } from './$types';
  * child が `/admin/...` を next に持っていても hooks の認可が /switch へ戻すため、ここでは役割で絞らない。
  */
 function resolveLoginTarget(next: string | null | undefined, role: Role | null) {
-	return resolveSafeNextPath(next) ?? (role === 'child' ? '/switch' : '/admin');
+	// 着地先の既定値は #4641 の SSOT (post-login-landing.ts) を参照する
+	return resolveSafeNextPath(next) ?? (role === 'child' ? CHILD_LANDING : PARENT_LANDING);
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -125,8 +130,8 @@ export const actions: Actions = {
 			if (loginResult.success) {
 				await resetLoginFailures(email);
 				establishSession(cookies, loginResult);
-				// #4641 / #4701: 子供ロールは /admin に入れないため着地先はロールで決め、
-				// 親ロールでは検証済みの `?next=` を優先する
+				// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+				// 検証済みの next は親ロールにだけ preferredPath として適用する
 				redirect(302, await landingAfterSession(event, next));
 			}
 		}
@@ -192,8 +197,8 @@ export const actions: Actions = {
 
 		// MFA成功 → セッション確立
 		establishSession(cookies, result);
-		// #4641 / #4701: 子供ロールは /admin に入れないため着地先はロールで決め、
-		// 親ロールでは検証済みの `?next=` を優先する
+		// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+		// 検証済みの next は親ロールにだけ preferredPath として適用する
 		redirect(302, await landingAfterSession(event, next));
 	},
 };
@@ -252,7 +257,7 @@ async function handleDevLogin(
 	// #4641: 本番経路 (handleCognitoLogin) と同じ SSOT で着地先を決める。
 	// ここだけロール直書きのままだと `npm run dev:cognito` / e2e-cognito-dev レーンでは
 	// 子供が常に /switch に留まり、本 Issue の「再ログインはホーム直行」が成立しない。
-	// #4701: 親ロールでは検証済みの `?next=` を優先する (子供には適用されない)。
+	// #4701: 検証済みの next は親ロールにだけ preferredPath として適用される。
 	redirect(302, await landingAfterSession(event, next));
 }
 
@@ -268,8 +273,8 @@ async function handleDevLogin(
  * 解決できないときは従来どおり親画面へ送る — 次のリクエストで hooks が正しい判定をやり直すため、
  * ここで止めるより一度進ませた方が dead-end を作らない。
  *
- * @param next #4701 の検証済み `?next=` (安全な相対パスのみ)。親ロールの着地先として優先する。
- *   子供ロールには `resolvePostLoginLanding` が適用しない (親向け画面を渡されても弾かれるだけのため)。
+ * #4701: 検証済みの `next` は `preferredPath` として渡す。resolvePostLoginLanding は
+ * 子供ロールには preferredPath を適用しない (親向け画面へ送ると認可で跳ね返るため)。
  */
 async function landingAfterSession(
 	event: import('@sveltejs/kit').RequestEvent,
@@ -277,13 +282,13 @@ async function landingAfterSession(
 ): Promise<string> {
 	try {
 		const identity = await getAuthProvider().resolveIdentity(event);
-		if (!identity) return next ?? PARENT_LANDING;
+		if (!identity) return resolveLoginTarget(next, null);
 		return await resolvePostLoginLanding(event, identity, next ?? undefined);
 	} catch (e) {
 		logger.warn('[AUTH] ログイン後の着地先を解決できず親画面へ送る', {
 			context: { error: e instanceof Error ? e.message : String(e) },
 		});
-		return next ?? PARENT_LANDING;
+		return resolveLoginTarget(next, null);
 	}
 }
 
@@ -358,7 +363,7 @@ async function handleCognitoLogin(
 	// 認証成功: ロックアウトカウンターをリセット → セッション確立 → next または /admin
 	await resetLoginFailures(email);
 	establishSession(cookies, result);
-	// #4641 / #4701: 子供ロールは /admin に入れないため着地先はロールで決め、
-	// 親ロールでは検証済みの `?next=` を優先する
+	// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+	// 検証済みの next は親ロールにだけ preferredPath として適用する
 	redirect(302, await landingAfterSession(event, next));
 }

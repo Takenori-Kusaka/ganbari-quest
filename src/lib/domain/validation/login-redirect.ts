@@ -117,6 +117,8 @@ export const LOGIN_ERROR_CODES = {
 /** hooks が付ける `?reason=` の値 (送り側 SSOT: src/hooks.server.ts terminated テナント)。 */
 export const LOGIN_REASON_CODES = {
 	deleted: 'deleted',
+	/** #4699: 退会 (アカウント削除) 申請直後の着地。受付完了 + 猶予中は取り消せることを伝える */
+	deletionPending: 'deletion_pending',
 } as const;
 
 /**
@@ -138,6 +140,14 @@ export function resolveLoginNotice(params: URLSearchParams): LoginNotice | null 
 	}
 	const reason = params.get('reason');
 	if (reason !== null) {
+		// #4699: 退会申請の受付は「失敗」ではないので status (成功系) で出す
+		if (reason === LOGIN_REASON_CODES.deletionPending) {
+			return {
+				kind: 'status',
+				message: LOGIN_LABELS.noticeDeletionPending,
+				code: `reason=${reason}`,
+			};
+		}
 		const message =
 			reason === LOGIN_REASON_CODES.deleted
 				? LOGIN_LABELS.noticeAccountDeleted

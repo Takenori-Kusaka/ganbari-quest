@@ -93,6 +93,14 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'src 配下の .ts / .svelte を glob し、PlanLimits の全フィールドが production code から実際に参照されているかを検査する (#4584)。参照ゼロ = 有料の根拠として売っている機能にゲートが掛かっていない状態',
 	},
+	'tests/unit/architecture/admin-action-result-no-http-ok.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下の .svelte を再帰 walk し、form action を fetch した戻り値を `.ok` で判定していないかを検査する (#4693)。fail() は HTTP status に現れないため、ok 判定だと「サーバーは拒否したのに画面は成功」になる。走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/architecture/plan-limit-error-required-tier.test.ts': {
+		scope: 'repo',
+		note: "src 配下の .ts / .svelte を再帰 walk し、apiError('PLAN_LIMIT_EXCEEDED') の直接呼び出しが無いことを検査する (#4710)。要求 tier を伴わない 403 は「スタンダード以上に」しか言えず、スタンダード契約者が premium 限定機能を叩いたときに次の行動を示せないため、走査範囲は src 全体でなければ意味を持たない",
+	},
 	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下の +page.svelte を走査し、AI 提案パネルの isFamily 導出が共有述語 isAiSuggestUnlocked() を経由しているかを検査する (#4506 AC5)',

@@ -94,7 +94,10 @@ describe('#4700 ログアウトは親ゲート PIN session を含む全セッシ
 
 	it('/auth/signout (GET) は gq_parent_session を delete する', async () => {
 		const { cookies, deleted } = makeCookies();
-		await runExpectingRedirect(() => signoutRoute.GET({ cookies } as never));
+		// #4699 で signout は url.searchParams の reason を読むようになったため、
+		// SvelteKit が常に渡す url を fake event にも持たせる (実 handler の契約に合わせる)
+		const url = new URL('http://localhost/auth/signout');
+		await runExpectingRedirect(() => signoutRoute.GET({ cookies, url } as never));
 		expect(deleted).toContain(PARENT_SESSION_COOKIE_NAME);
 		expect(deleted).toEqual(expect.arrayContaining([...LOGOUT_CLEARED_COOKIE_NAMES]));
 	});
