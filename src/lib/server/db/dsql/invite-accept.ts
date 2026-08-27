@@ -102,6 +102,31 @@ interface AcceptedInviteRow {
 }
 
 /**
+ * email 束縛 (§6.6 ⚠️) を検査し、違反なら txn を rollback させる abort を投げる。
+ *
+ * 判定本体は service 層と共有の SSOT (`checkInviteEmailBinding`、#3742) で、
+ * email_verified=false の fail-closed + trim/lower 正規化を含む。`invite.email` が
+ * `null` (宛先無指定の招待) なら束縛は無く、検査せず通す。
+ *
+ * fitness#7 (§8) の対象外: await を含まない同期判定であり、txn work の await allowlist
+ * (`tests/unit/architecture/dsql-txn-work-allowlist.test.ts`) が見る AwaitExpression を持たない。
+ */
+function assertInviteEmailBinding(
+	inviteEmail: string | null,
+	userEmail: string,
+	userEmailVerified: boolean | undefined,
+): void {
+	if (inviteEmail === null) return;
+	const bindingError = checkInviteEmailBinding(inviteEmail, userEmail, userEmailVerified);
+	if (bindingError === 'INVITE_EMAIL_UNVERIFIED') {
+		throw new AcceptInviteAbort('EMAIL_UNVERIFIED');
+	}
+	if (bindingError === 'INVITE_EMAIL_MISMATCH') {
+		throw new AcceptInviteAbort('EMAIL_MISMATCH');
+	}
+}
+
+/**
  * invite を受諾し membership を作成する (単一 txn、§6.6)。
  * 40001 は runner の withOccRetry が txn 全体を再実行する (work は再実行可能)。
  */
@@ -124,15 +149,7 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 
 			// email 束縛 (§6.6 ⚠️)。判定は service 層と共有の SSOT (#3742):
 			// email_verified=false fail-closed + trim/lower 正規化 (email_lower と同じ原則)。
-			if (invite.email !== null) {
-				const bindingError = checkInviteEmailBinding(invite.email, userEmail, userEmailVerified);
-				if (bindingError === 'INVITE_EMAIL_UNVERIFIED') {
-					throw new AcceptInviteAbort('EMAIL_UNVERIFIED');
-				}
-				if (bindingError === 'INVITE_EMAIL_MISMATCH') {
-					throw new AcceptInviteAbort('EMAIL_MISMATCH');
-				}
-			}
+			assertInviteEmailBinding(invite.email, userEmail, userEmailVerified);
 
 			// #4723: メンバー上限は **txn の中で数え直す**。service 層の事前 read だけでは、
 			// 残り 1 枠に対する 2 通の同時受諾が両方とも「まだ空いている」を見て通ってしまう。
