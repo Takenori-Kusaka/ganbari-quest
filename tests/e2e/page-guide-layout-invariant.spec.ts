@@ -77,6 +77,11 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
 	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
 	'/admin/settings/account': ['settings-account-pin'],
+	// #4666: 承認セクションと、一覧 / 空状態を包む常在ラッパーはどちらも常に描画される
+	'/admin/settings/rules': ['settings-rules-approval', 'settings-rules-list'],
+	// #4665: E2E は AUTH_MODE=local (plan=family) → エクスポート / 復元 / 全削除 は描画される。
+	// クラウド共有は cognito 環境のみ描画のため optional のまま列挙しない
+	'/admin/settings/data': ['settings-data-export', 'settings-data-import', 'settings-data-clear'],
 	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
 	'/admin/settings/activities': [
 		'settings-activities-decay',
