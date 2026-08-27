@@ -267,8 +267,11 @@ function extractClaimedPresetCount(siteDir) {
 	const indexHtml = join(siteDir, 'index.html');
 	if (existsSync(indexHtml)) {
 		const html = readFileSync(indexHtml, 'utf8');
-		// 例: <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>
-		const re = /<strong>\s*(\d+)\+\s*<\/strong>\s*プリセット活動/g;
+		// 例: <li><strong data-lp-key="heroSpecBadges.presetCount">300+</strong>
+		//       <span data-lp-key="heroSpecBadges.presetSuffix">プリセット活動 の候補</span></li>
+		// #4626: hero バッジは値と後続語を別 data-lp-key で注入する形になったため、
+		// <strong> の属性と間に挟まる 1 タグを許容する (訴求値と語句の隣接という assert 内容は不変)。
+		const re = /<strong\b[^>]*>\s*(\d+)\+\s*<\/strong>\s*(?:<[^>]*>\s*)?プリセット活動/g;
 		let m;
 		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
 		while ((m = re.exec(html)) !== null) {

@@ -293,10 +293,29 @@ describe('copyChildRewardsToSibling', () => {
 			])
 			.mockResolvedValueOnce([]);
 
-		const count = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
+		// #4694: 件数は { copied, skipped } で返す (UI が「N 件コピー / M 件スキップ」を出すため)
+		const result = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
 
-		expect(count).toBe(2);
+		expect(result).toEqual({ copied: 2, skipped: 0 });
 		expect(mockInsertSpecialReward).toHaveBeenCalledTimes(2);
+	});
+
+	it('#4694: target に同 title が既にある分は skipped として返す (2 回押しても増えない)', async () => {
+		mockFindSpecialRewards
+			.mockResolvedValueOnce([
+				makeReward({ id: '1', title: 'A' }),
+				makeReward({ id: '2', title: 'B' }),
+			])
+			// target は前回のコピーで A / B を既に持っている
+			.mockResolvedValueOnce([
+				makeReward({ id: '9', title: 'A' }),
+				makeReward({ id: '8', title: 'B' }),
+			]);
+
+		const result = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
+
+		expect(result).toEqual({ copied: 0, skipped: 2 });
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
 	});
 
 	it('source == target -> Error throw (insert 呼出ゼロ)', async () => {
@@ -314,10 +333,10 @@ describe('copyChildRewardsToSibling', () => {
 		);
 	});
 
-	it('source reward 0 件 -> count=0 で返す (throw しない)', async () => {
+	it('source reward 0 件 -> copied=0 で返す (throw しない)', async () => {
 		mockFindSpecialRewards.mockResolvedValueOnce([]); // source 0 件
-		const count = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
-		expect(count).toBe(0);
+		const result = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
+		expect(result).toEqual({ copied: 0, skipped: 0 });
 		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
 	});
 });
