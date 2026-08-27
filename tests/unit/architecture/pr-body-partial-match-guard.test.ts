@@ -75,7 +75,7 @@ const ALLOWLIST: Record<string, string> = {
 	'scripts/check-pr-body.mjs::const startIdx = body.indexOf(section);':
 		'#4348 scope 外: check-pr-body の section 切り出し。同上',
 	'scripts/pr-template-gate-checks.mjs::const start = body.indexOf(heading);':
-		'#4348 scope 外: sliceSection / detectChangeTypeHeading の見出し探索。同 class のため後続 PR で移行する',
+		'#4348 scope 外: sliceSection の見出し探索 (detectChangeTypeHeading は #4612 で削除済)。同 class のため後続 PR で移行する',
 	"scripts/pr-template-gate-checks.mjs::const end = body.indexOf('\\n## ', start + 1);":
 		'#4348 scope 外: 上記 sliceSection の終端探索 (見出しの存在判定ではない)。同上',
 	'scripts/pr-template-gate-checks.mjs::const idx = body.indexOf(`**${field}**:`);':

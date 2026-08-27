@@ -73,6 +73,16 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 		'subscription-plan-status',
 		'subscription-cancel',
 	],
+	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
+	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
+	'/admin/settings/account': ['settings-account-pin'],
+	// #4663: seed は子供 5 人 → 既定の子供カード (2 人以上で描画) も含め 4 カードすべてが出る
+	'/admin/settings/activities': [
+		'settings-activities-decay',
+		'settings-activities-point',
+		'settings-activities-default-child',
+		'settings-activities-sibling',
+	],
 	// #4669: seed は子供 5 人 → タブ / チャート注記 / 分析サマリー が描画される。
 	// 先月からの変化 (先月データ依存) / ベンチマーク編集 (ops・NUC のみ) は optional で列挙しない
 	'/admin/status': [
@@ -88,6 +98,18 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
 	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
 	'/admin/challenges': ['challenges-child-tabs'],
+	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
+	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
+	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
+	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
+	// optional のまま列挙しない
+	'/admin/certificates': ['certificates-child-select'],
+	// #4675: seed は子供 5 人 → お子さま切替は常に描画。年間サマリー / 印刷 / 証明書リンクは
+	// 記録データとプランに依存するため optional のまま列挙しない
+	'/admin/growth-book': ['growth-book-child-tabs'],
+	// #4676: 未処理 / 履歴セクションは常設 (0 件でも「申請はありません」を表示)。承認 / 却下ボタンは
+	// 未処理の申請があるときだけ描画されるため optional のまま列挙しない
+	'/admin/rewards/requests': ['rewards-requests-pending', 'rewards-requests-history'],
 };
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
