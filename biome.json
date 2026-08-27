@@ -136,6 +136,7 @@
 			"!**/test-results",
 			"!**/test-results.json",
 			"!**/playwright-report",
+			"!**/playwright/.auth",
 			"!**/*.db",
 			"!**/site",
 			"!**/cdk.out",

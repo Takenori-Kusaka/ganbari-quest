@@ -361,7 +361,6 @@ export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
 	children: { reason: 'お子さま登録・編集画面 (resource-list ではない)' },
 	'growth-book': { reason: '成長記録 (グロースブック) 閲覧画面 (resource-list ではない)' },
 	members: { reason: '家族メンバー管理画面 (resource-list ではない)' },
-	packs: { reason: 'バックアップ/エクスポート (パック) 画面 (resource-list ではない)' },
 	points: { reason: 'ポイント調整・履歴画面 (resource-list ではない)' },
 	reports: { reason: 'レポート閲覧画面 (resource-list ではない)' },
 	settings: { reason: '設定ハブ (サブページ集約)。配下の各サブページは個別に分類' },
