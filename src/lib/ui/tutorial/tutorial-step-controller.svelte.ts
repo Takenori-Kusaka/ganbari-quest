@@ -21,6 +21,13 @@ import {
 
 // ── Reactive state ──
 let targetRect = $state<DOMRect | null>(null);
+/**
+ * 現在の step が**実要素に spotlight できているか** (#4652)。
+ * selector 指定 step で false = 対象が見つからず中央 fallback で出ている状態
+ * （顧客には「押せと言われたボタンが光らない」と見える）。E2E が
+ * `.tutorial-overlay[data-tutorial-target]` で機械検証する。
+ */
+let targetResolved = $state(false);
 let animKey = $state(0);
 let showExitConfirm = $state(false);
 
@@ -33,6 +40,11 @@ const showQuickComplete = $derived(isQuickCompleteShown());
 // ── Getters (for external consumers) ──
 export function getTargetRect(): DOMRect | null {
 	return targetRect;
+}
+
+/** 現 step が実要素に spotlight できているか (#4652)。selector 無し step では false */
+export function isTargetResolved(): boolean {
+	return targetResolved;
 }
 
 export function getAnimKey(): number {
@@ -107,12 +119,14 @@ export function setupStepTracking() {
 
 			const showCentered = () => {
 				targetRect = createCenteredRect();
+				targetResolved = false;
 				animKey++;
 			};
 
 			const onFocus = (el: Element) => {
 				focusElement(el, (rect) => {
 					targetRect = rect;
+					targetResolved = true;
 					animKey++;
 				});
 			};
@@ -130,6 +144,7 @@ export function setupStepTracking() {
 			return () => controller.abort();
 		}
 		targetRect = null;
+		targetResolved = false;
 		return;
 	});
 }
