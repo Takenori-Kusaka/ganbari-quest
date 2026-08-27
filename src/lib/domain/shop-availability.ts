@@ -26,3 +26,20 @@ export interface ExchangeCandidate {
 export function canExchangeReward(reward: ExchangeCandidate, balance: number): boolean {
 	return balance >= reward.points && reward.latestRequestStatus !== 'pending_parent_approval';
 }
+
+/**
+ * #4631: 陳列棚 (ショップ一覧) のカードにバッジを出すかどうか。
+ *
+ * **出すのは「承認待ち」だけ**。approved / rejected / expired は**完了した状態**であり、
+ * 陳列棚は「これから交換するもの」を並べる場所なので残さない。旧実装は承認後も
+ * 「こうかん済み」、却下後も「まってね」が永久に残り、同じカードに有効な「こうかんする」
+ * ボタンが同居していたため、複数回交換できるごほうびでも「もう交換できない」と誤解させていた。
+ *
+ * 完了した交換の結果 (いつ / いくら / 却下理由) は「記録 > 交換」が担う
+ * (ショップからその導線を張る)。
+ *
+ * @returns バッジ種別。出さないときは null。
+ */
+export function shopStatusBadge(latestRequestStatus: string | null): 'pending' | null {
+	return latestRequestStatus === 'pending_parent_approval' ? 'pending' : null;
+}

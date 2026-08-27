@@ -69,6 +69,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',
+	},
 	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
 		scope: 'repo',
 		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
@@ -212,6 +216,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts': {
 		scope: 'repo',
 		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',
+	},
+	'tests/unit/domain/lp-claims-implementation-truth-4713.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/data/marketplace/activity-packs/ の 1 ディレクトリだけを読み、LP 訴求値と突合する (#4713)',
 	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',
