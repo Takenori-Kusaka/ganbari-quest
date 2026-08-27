@@ -20,10 +20,15 @@ import { logger } from '$lib/server/logger';
 import { previewInviteAcceptance } from '$lib/server/services/invite-service';
 import type { Actions, PageServerLoad } from './$types';
 
-/** 内部 userId を解決する (Cognito sub と内部 u-xxx ID は別物。email が鍵)。 */
-async function resolveInternalUserId(email: string, fallbackId: string): Promise<string> {
+/**
+ * アプリ DB の `users.user_id` を解決する (#4643)。
+ * IdP の sub (`identity.userId`) は `users.user_id` ではないため、フォールバックに使わない。
+ * users 行がまだ無ければ null (= 所有者依存の判定は行わない)。
+ */
+async function resolveAppUserId(locals: App.Locals, email: string): Promise<string | null> {
+	if (locals.context?.userId) return locals.context.userId;
 	const existing = await getRepos().auth.findUserByEmail(email);
-	return existing?.userId ?? fallbackId;
+	return existing?.userId ?? null;
 }
 
 export const load: PageServerLoad = async ({ locals, cookies }) => {
@@ -42,7 +47,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 		return { blockedReason: null, message: null };
 	}
 
-	const userId = await resolveInternalUserId(locals.identity.email, locals.identity.userId);
+	const userId = await resolveAppUserId(locals, locals.identity.email);
 	const reason = await previewInviteAcceptance(inviteCode, userId, locals.identity.email, {
 		emailVerified: locals.identity.emailVerified,
 	});
