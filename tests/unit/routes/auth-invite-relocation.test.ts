@@ -119,6 +119,23 @@ describe('#4642 引っ越し合流の確認画面 (load)', () => {
 		expect(data?.errorDesc).toBe(INVITE_RELOCATION_LABELS.blockedHasOtherMembers);
 	});
 
+	// #4642 PO 決裁 Q1: 子供が居る世帯は確認画面すら出さず、次アクション付きで阻止する。
+	it('子供が居る場合は確認画面を出さず、記録が残っている旨と次アクションを出す', async () => {
+		mockCheckEligibility.mockResolvedValue({
+			currentTenantId: 't-own',
+			blockedReason: 'HAS_CHILDREN',
+		});
+		const { cookies } = createCookies();
+
+		const { data } = await run(() =>
+			// biome-ignore lint/suspicious/noExplicitAny: PageServerLoad の部分モック
+			load({ params: { code: CODE }, cookies, locals: { identity, context } } as any),
+		);
+
+		expect(data?.relocation).toBe(false);
+		expect(data?.errorDesc).toBe(INVITE_RELOCATION_LABELS.blockedHasChildren);
+	});
+
 	it('owner でないメンバーには「先に抜ける」導線を出す', async () => {
 		mockCheckEligibility.mockResolvedValue({
 			currentTenantId: 't-own',

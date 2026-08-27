@@ -25,6 +25,7 @@ import {
 	LP_INDEX_EXTRA_LABELS,
 	LP_INDEX_PHASEB_LABELS,
 } from '../../../src/lib/domain/labels';
+import { PRESET_ACTIVITY_TERMS } from '../../../src/lib/domain/terms';
 
 /**
  * namespace の値を全て文字列化して 1 本にする (関数値は除く)。
@@ -75,8 +76,14 @@ describe('#4510 LP 訴求と実装事実の一致', () => {
 			expect(badges).not.toContain('約 5 分');
 		});
 
-		it('プリセット数 (300+) は残す — こちらは CI が実数を gate している', () => {
-			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe('300+');
+		it('プリセット数の訴求は残す — こちらは CI が実数を gate している', () => {
+			// #4713: 旧「300+」は activity-packs の**延べ**件数 (325) を根拠にしていたが、
+			// 男の子 / 女の子 variant が neutral とほぼ同内容のため名前のユニークは 129 種しかなく、
+			// 延べ数の訴求は ADR-0013 (LP 訴求 ≤ 実数) 違反だった。ユニーク数を下回る「120+」へ
+			// 是正済み。値は PRESET_ACTIVITY_TERMS が SSOT で、実数がこれを下回らないことは
+			// scripts/measure-lp-dimensions.mjs (presetActivityCountClaimedMin: 120) が CI で assert する。
+			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe(PRESET_ACTIVITY_TERMS.uniqueCountBadge);
+			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe('120+');
 		});
 	});
 
