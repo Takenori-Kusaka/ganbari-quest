@@ -24,8 +24,8 @@ let { step, guide, progress, isFirst, isLast, onEnd, onPrev, onNext }: Props = $
 -->
 <!-- data-step-selector: この step が実要素を指すか (空 = 中央 modal の概要 step) を E2E が読む
      (#4653: selector 付き step は必ず非 0 の実要素に spotlight する、page-guide-layout-invariant.spec.ts)。
-  data-has-target (#4677): 同じ判定の真偽値版。marketplace-page-guide.spec.ts が読む
-  (EPIC #4650 判断 4)。両者は step.selector という同一の SSOT から導出する。 -->
+     data-has-target (#4677): selector を持つ step か。E2E が「selector step は必ず実要素に spotlight する」を
+     機械検証するための属性 (EPIC #4650 判断 4)。 -->
 <div
 	class="guide-bubble"
 	data-step-id={step.id}

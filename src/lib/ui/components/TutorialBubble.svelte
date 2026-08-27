@@ -164,6 +164,8 @@ function handleEnd() {
 <div
 	bind:this={bubbleEl}
 	class="tutorial-bubble"
+	data-step-id={step.id}
+	data-has-target={step.selector ? 'true' : 'false'}
 	style:top={bubbleStyle.top}
 	style:left={bubbleStyle.left}
 	style:width={bubbleStyle.width}

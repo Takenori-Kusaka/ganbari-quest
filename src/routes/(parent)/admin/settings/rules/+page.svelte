@@ -227,7 +227,7 @@ function formatImportedAt(iso: string): string {
 </form>
 
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-6" data-testid="admin-rules-page">
-	<header class="space-y-2" data-tutorial="rules-overview">
+	<header class="space-y-2">
 		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
 			{ADMIN_RULES_PAGE_LABELS.pageTitle}
 		</h1>
@@ -353,6 +353,10 @@ function formatImportedAt(iso: string): string {
 		{/snippet}
 	</Card>
 
+	<!-- #4666 F1/F2: 一覧は取込件数で {#if}/{:else} に分かれるため、ページガイド ③ が
+	     どちらの状態でも同じ場所を指せるよう、両方を包む常在ラッパーを anchor にする
+	     (以前は header を代用しており、説明対象より上へ視線が戻っていた) -->
+	<div data-tutorial="rules-bonus-list">
 	{#if data.bonusPresets.length === 0}
 		<!-- 取込済が無い場合。CX-DoR #11: empty state を共通 SSOT に統一 (NN/G #4 consistency)。
 		     #2895: marketplace 陳列撤去に伴い browse link / primary CTA は出さない。 -->
@@ -498,6 +502,7 @@ function formatImportedAt(iso: string): string {
 			{/snippet}
 		</Card>
 	{/if}
+	</div>
 </div>
 
 <!-- #4023: 確認ダイアログ (DESIGN.md §5 Dialog primitive)。承認必須の解除 / ルール削除で共用。 -->
