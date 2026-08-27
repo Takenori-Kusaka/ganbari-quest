@@ -1777,7 +1777,8 @@ export const PAGE_GUIDE_LABELS = {
 	// #4653: /admin ホームのガイド。画面の上から下の順 (承認待ちバナー → 上部カード → 今月のがんばり →
 	// こども一覧 → 子供画面へ切替 → 各機能へ移動) に並べ、要素名は描画側と同じ atom
 	// (ADMIN_HOME_TERMS / NAV_CATEGORIES / NAV_ITEM_LABELS) を参照する。条件付き要素 (承認待ちバナー /
-	// 今月のがんばり) の step は対象が描画されているときだけ出る (filterGuideStepsByTargetPresence)。
+	// 今月のがんばり) の step は `optional: true` で宣言し、対象が描画されているときだけ出る
+	// (filterGuideStepsByPresence #4668 / #4677 → filterGuideStepsByTargetPresence #4653 の直列適用)。
 	// 'home-nav' は desktop (header 下の nav) と mobile (画面下部の nav) の 2 step が同じ文言を共有する。
 	adminHome: {
 		title: NAV_ITEM_LABELS.home,
