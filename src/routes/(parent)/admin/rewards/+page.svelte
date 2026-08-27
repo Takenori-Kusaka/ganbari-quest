@@ -776,7 +776,7 @@ async function handleCopyFromChild() {
 	<title>{PAGE_TITLES.rewards}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4" data-tutorial="rewards-section">
+<div class="space-y-4">
 	<!-- #2998 (EPIC #2897): 3 画面共通 AdminResourceHeader に統一 (title + 説明 + + 追加 dropdown + ︙)。
 	     旧: inline h2 + overflow Menu。AI 提案パネルの本文直置きを撤去し、+ 追加 dropdown → Dialog 起動に
 	     統一した (activities / checklists と同型、NN/G #4 consistency)。
@@ -824,6 +824,7 @@ async function handleCopyFromChild() {
 		</p>
 		<p class="page-description__hint">
 			{REWARDS_LABELS.pageDescHintPrefix}
+			<!-- #4654 (B15): 旧 /admin/messages (308 redirect) 直リンクを廃止し、統合先の応援画面へ直接繋ぐ -->
 			<a href="/admin/cheer" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
 			{REWARDS_LABELS.pageDescHintSuffix}
 		</p>

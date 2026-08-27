@@ -40,7 +40,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import { setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -167,7 +167,8 @@ onMount(() => {
 
 	return () => {
 		clearInterval(autoReloadTimer);
-		if (!isBaby) resetChapters();
+		// #4654: 親の章立て撤去で store の既定は空配列。子供画面を離れるときは章を空に戻す
+		if (!isBaby) setChapters([]);
 		cleanupSleep?.();
 	};
 });
