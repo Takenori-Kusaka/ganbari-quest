@@ -12,6 +12,7 @@ import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-gua
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
+import { NO_RETENTION_FILTER } from '$lib/server/services/plan-limit-service';
 import {
 	getRedemptionRequestsForChild,
 	isRewardAutoApproveEnabled,
@@ -40,7 +41,11 @@ export const load: PageServerLoad = async ({ parent, locals, params }) => {
 	const [rewardsData, balance, redemptionRequests, autoApprove] = await Promise.all([
 		getChildSpecialRewards(child.id, tenantId),
 		getBalance(child.id, tenantId),
-		getRedemptionRequestsForChild(child.id, tenantId),
+		// ここは履歴一覧ではなく「各ごほうびの最新申請状態」(交換済みバッジ / 再申請ガード) の
+		// 導出に使う。保持期間で絞ると、古い申請しか無いごほうびのバッジだけが消えて
+		// 状態表示が不定になるため絞らない。履歴として見せる場所は「記録 > 交換」タブ側
+		// (そちらは保持期間を通す、#4818)。
+		getRedemptionRequestsForChild(child.id, tenantId, NO_RETENTION_FILTER),
 		// #4684 F1: 確認ダイアログの説明を「このあと実際に起きること」に合わせるために必要。
 		isRewardAutoApproveEnabled(tenantId),
 	]);
