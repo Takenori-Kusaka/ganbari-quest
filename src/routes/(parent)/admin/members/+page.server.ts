@@ -36,7 +36,9 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		}),
 	);
 
-	const currentUserId = locals.identity?.type === 'cognito' ? locals.identity.userId : undefined;
+	// #4643: 一覧の userId は users.user_id。IdP の sub を渡していたため「自分」の判定が
+	// 常に false になり、自分の行にも削除ボタンが出ていた。
+	const currentUserId = locals.context?.userId;
 	const currentRole = locals.context?.role ?? 'parent';
 
 	return {

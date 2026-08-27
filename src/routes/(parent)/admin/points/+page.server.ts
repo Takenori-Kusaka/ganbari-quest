@@ -11,8 +11,8 @@ import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-
 import { toDisplayMb } from '$lib/server/services/import-limit';
 import {
 	convertPoints,
+	getConvertSummary,
 	getPointBalance,
-	getPointHistory,
 } from '$lib/server/services/point-service';
 import { RECEIPT_MAX_IMAGE_BYTES } from '$lib/server/services/receipt-ocr-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -28,15 +28,27 @@ export const load: PageServerLoad = async ({ locals }) => {
 					context: { childId: child.id, error: balance.error },
 				});
 			}
-			// 変換履歴（type=convert）を取得
-			const historyResult = await getPointHistory(child.id, { limit: 50, offset: 0 }, tenantId);
-			const convertHistory = !('error' in historyResult)
-				? historyResult.history.filter((h) => h.type === 'convert')
-				: [];
+			// #4682 F2: 変換履歴と累計は DB 側で絞る / 合計する。
+			// 旧実装は「直近 50 行の台帳」を取ってから convert を filter していたため、
+			// 活動が多い子では変換履歴セクションと累計が丸ごと消えていた。
+			const summary = await getConvertSummary(child.id, tenantId);
+			if ('error' in summary) {
+				logger.warn('[admin/points] 変換履歴取得フォールバック', {
+					context: { childId: child.id, error: summary.error },
+				});
+			}
 			return {
 				...child,
 				balance: 'error' in balance ? null : balance,
-				convertHistory,
+				convertHistory: 'error' in summary ? [] : summary.history,
+				convertTotals:
+					'error' in summary
+						? { allTime: 0, thisMonth: 0, lastMonth: 0 }
+						: {
+								allTime: summary.allTimeTotal,
+								thisMonth: summary.thisMonthTotal,
+								lastMonth: summary.lastMonthTotal,
+							},
 			};
 		}),
 	);

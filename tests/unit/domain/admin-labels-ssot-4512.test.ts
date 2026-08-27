@@ -45,6 +45,29 @@ function read(relPath: string): string {
 	return readFileSync(path.join(REPO_ROOT, relPath), 'utf8');
 }
 
+/**
+ * (A) の走査対象から**コメントだけ**を落とした source を返す。
+ *
+ * 本 guard が禁じているのは「SSOT を経由しない**表示文言**」であって、開発者向けの注記ではない。
+ * 是正の意図を説明するコメント (例: `<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT
+ * (「スタンダード以上」直書きは表記ゆれ) -->`) やガイド anchor の由来コメントは、直書き文言を
+ * 引用するのが自然であり、それを直書き扱いにすると「是正した理由を書けない」ことになる。
+ *
+ * 落とすのは以下 2 つだけで、判定は緩めない (markup / 属性 / 文字列リテラルは素通しのまま):
+ *   - HTML コメント `<!-- ... -->` (svelte markup、複数行可)
+ *   - 行全体がコメントの JS 行 (`//` 始まり / ブロックコメント始まり / jsdoc の `*` 継続行)
+ *
+ * 行末の trailing コメントは**あえて残す** (文字列中の `https://` を巻き込んで
+ * 同一行の後続 literal を消す事故を避けるため。保守側に倒す)。
+ */
+function readCodeWithoutComments(relPath: string): string {
+	return read(relPath)
+		.replace(/<!--[\s\S]*?-->/g, '')
+		.split(/\r?\n/)
+		.filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+		.join('\n');
+}
+
 // ------------------------------------------------------------
 // (A) 直書きが戻ってきたら落ちる regression guard
 //
@@ -195,7 +218,7 @@ const FORBIDDEN_LITERALS: ReadonlyArray<readonly [file: string, literals: readon
 describe('#4512 (A) admin route の直書き復活を封じる', () => {
 	for (const [file, literals] of FORBIDDEN_LITERALS) {
 		it(`${file} に SSOT を経由しない表示文言が無い`, () => {
-			const src = read(file);
+			const src = readCodeWithoutComments(file);
 			const found = literals.filter((literal) => src.includes(literal));
 			expect(
 				found,

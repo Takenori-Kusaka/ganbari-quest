@@ -429,8 +429,10 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 		expect(await deleteReward(rewardId, childId, 'test-tenant')).toEqual({ deleted: true });
 
-		// ① 子供履歴 (findRedemptionRequestsByChild 経由)
-		const childHistory = await getRedemptionRequestsForChild(childId, 'test-tenant');
+		// ① 子供履歴 (findRedemptionRequestsByChild 経由)。
+		// 検証対象は「ごほうび削除後も申請履歴が snapshot で残るか」なので、保持期間では絞らない
+		// (本番の opt-out は NO_RETENTION_FILTER、plan-limit-service)。
+		const childHistory = await getRedemptionRequestsForChild(childId, 'test-tenant', {});
 		expect(childHistory).toHaveLength(1);
 		expect(childHistory[0]?.status).toBe('approved');
 

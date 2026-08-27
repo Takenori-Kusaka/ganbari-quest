@@ -17,6 +17,7 @@ import {
 	addChild,
 	editChild,
 	getAllChildren,
+	getArchivedChildren,
 	removeChild,
 } from '$lib/server/services/child-service';
 import {
@@ -44,11 +45,17 @@ function calculateAge(birthDate: string): number {
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export const load: PageServerLoad = async ({ url, locals }) => {
+export const load: PageServerLoad = async ({ url, locals, parent }) => {
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const children = await getAllChildren(tenantId);
 	const selectedId = url.searchParams.get('id');
+
+	// #4708: 無料プランの上限で archive 中のお子さまを読み取り専用で一覧する (FAQ「管理画面で確認できる」)。
+	// 件数は layout が配る archivedSummary (無料プランに戻ったときだけ計算) を見て、0 件なら読まない。
+	const { archivedSummary } = await parent();
+	const archivedChildren =
+		archivedSummary.archivedChildCount > 0 ? await getArchivedChildren(tenantId) : [];
 
 	const childrenSummary = await Promise.all(
 		children.map(async (child) => {
@@ -131,6 +138,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	return {
 		children: childrenSummary,
+		archivedChildren,
 		selectedChild,
 		childLimit,
 		categoryDefs: CATEGORY_DEFS,

@@ -5,6 +5,7 @@ import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS, REPORTS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
+import { DEMO_FIXTURE_MONTH_KEY } from '$lib/server/demo/demo-data';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -23,7 +24,10 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 
 	// 月パラメータ（デフォルト: 今月）。月キーは JST SSOT 経由 (#4015) —
 	// ローカル getter だと Lambda (UTC) で月初 00:00〜09:00 に前月レポートが既定表示になる。
-	const selectedMonth = url.searchParams.get('month') ?? monthKeyJST();
+	// #4712: デモは fixture 基準日 (固定) のデータしか持たないため、実時刻の当月を既定にすると
+	// 全員「活動 0 回」に見える。デモのときだけ fixture の月を既定にする (月送りは従来どおり)。
+	const defaultMonth = locals.isDemo ? DEMO_FIXTURE_MONTH_KEY : monthKeyJST();
+	const selectedMonth = url.searchParams.get('month') ?? defaultMonth;
 
 	const [children, reportSettings] = await Promise.all([
 		getAllChildren(tenantId),

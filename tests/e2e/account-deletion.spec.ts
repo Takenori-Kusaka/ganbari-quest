@@ -105,7 +105,10 @@ test.describe('#755 deletion-info — API', () => {
 			const body = await res.json();
 			expect(body).toHaveProperty('isOnlyMember');
 			expect(body).toHaveProperty('otherMembers');
+			// #4640: 「オーナーを渡せる大人が居るか」も同じ応答で配る (画面側で組み立てない)
+			expect(body).toHaveProperty('hasTransferableAdult');
 			expect(typeof body.isOnlyMember).toBe('boolean');
+			expect(typeof body.hasTransferableAdult).toBe('boolean');
 			expect(Array.isArray(body.otherMembers)).toBe(true);
 		} else {
 			// 未認証: 応答構造の検証はスキップ（ステータス検証は上で完了）
@@ -427,5 +430,68 @@ test.describe('#755 ロール別アクセス — 削除 API', () => {
 		// 未認証: 401
 		const status = res.status();
 		expect(status === 400 || status === 401).toBe(true);
+	});
+});
+
+// ============================================================
+// 9. #4640 移譲先が居ないときの退会 UI
+// ============================================================
+
+// 「他が子供だけの家族グループ」は dev ユーザーの構成では作れない (dev-tenant-001 には
+// parent が居る)。削除情報 API を差し替えて、その状態の画面だけを確かめる。
+// 実データでの通しは staging (docs/runbooks/staging-live-verification.md) で行う。
+test.describe('#4640 オーナー退会 — 移譲先が居ないとき', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
+
+	async function openDeleteOptions(page: import('@playwright/test').Page) {
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
+		const section = page.getByTestId('account-danger-zone');
+		if ((await section.count()) === 0) return false;
+		await expect(section).toBeVisible({ timeout: 15_000 });
+		await page.locator('#deleteConfirm').fill('アカウントを削除します');
+		await page.getByRole('checkbox').last().check();
+		await page.getByRole('button', { name: /削除/ }).last().click();
+		return true;
+	}
+
+	test('他が子供だけなら移譲欄を出さず、全削除だけを提示する', async ({ page }) => {
+		await page.route('**/api/v1/admin/account/deletion-info', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					isOnlyMember: false,
+					otherMembers: [{ userId: 'u-child', role: 'child', displayName: 'こども' }],
+					hasTransferableAdult: false,
+				}),
+			}),
+		);
+
+		if (!(await openDeleteOptions(page))) return;
+
+		// 選択肢が空の移譲欄を出さない (出すと選べず退会できなくなる)
+		await expect(page.getByTestId('account-delete-transfer-select')).toHaveCount(0);
+		// 代わりに「なぜ渡せないか」と残る選択肢を出す
+		await expect(page.getByTestId('account-delete-no-adult-hint')).toBeVisible();
+		await expect(page.getByTestId('account-delete-full')).toBeVisible();
+	});
+
+	test('大人が居るときは従来どおり移譲欄を出す', async ({ page }) => {
+		await page.route('**/api/v1/admin/account/deletion-info', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					isOnlyMember: false,
+					otherMembers: [{ userId: 'u-parent', role: 'parent', displayName: 'おとな' }],
+					hasTransferableAdult: true,
+				}),
+			}),
+		);
+
+		if (!(await openDeleteOptions(page))) return;
+
+		await expect(page.getByTestId('account-delete-transfer-select')).toBeVisible();
+		await expect(page.getByTestId('account-delete-no-adult-hint')).toHaveCount(0);
 	});
 });

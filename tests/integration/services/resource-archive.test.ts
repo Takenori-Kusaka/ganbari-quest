@@ -143,6 +143,23 @@ const SQL_TABLES = `
 		cancelled INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
+
+	-- #4708: webhook 経路 (checkout.session.completed → 復元) を実 DB で駆動するために必要。
+	-- local (sqlite) の auth repo は契約 4 列を settings に永続する (#4156)。
+	CREATE TABLE settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE stripe_webhook_events (
+		event_id TEXT PRIMARY KEY,
+		event_type TEXT NOT NULL,
+		processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		handler_result TEXT NOT NULL,
+		error_message TEXT,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		tenant_id TEXT
+	);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -175,6 +192,9 @@ afterAll(() => {
 });
 
 function resetDb() {
+	// #4708: webhook 経路 test 用 (契約状態 / dedup 台帳)
+	sqlite.exec('DELETE FROM settings');
+	sqlite.exec('DELETE FROM stripe_webhook_events');
 	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
 	sqlite.exec('DELETE FROM activity_logs');
 	sqlite.exec('DELETE FROM checklist_template_assignments');
@@ -505,5 +525,32 @@ describe('#783 getArchivedResourceSummary', () => {
 
 		expect(summary.archivedChildCount).toBe(2);
 		expect(summary.hasArchivedResources).toBe(true);
+	});
+
+	// #4708: 3 資源の件数 (banner「お子さま N 人 / 活動 N 件 / チェックリスト N 件」の根拠、実 DB)
+	it('活動 / チェックリストの archive 件数も返し、restore で 0 に戻る (実 DB)', async () => {
+		seedChildren(1); // free 上限内 (子供は archive されない)
+		seedCustomActivities(5); // free 上限 3 → 2 件 archive
+		seedChecklistTemplates(1, 4); // free 上限 (maxChecklistTemplates) 超過分 archive
+
+		const archived = await archiveExcessResources(TENANT);
+		expect(archived.archivedChildIds).toHaveLength(0);
+		expect(archived.archivedActivityIds).toHaveLength(2);
+		expect(archived.archivedChecklistTemplateIds.length).toBeGreaterThan(0);
+
+		const summary = await getArchivedResourceSummary(TENANT);
+		expect(summary.archivedChildCount).toBe(0);
+		expect(summary.archivedActivityCount).toBe(2);
+		expect(summary.archivedChecklistTemplateCount).toBe(
+			archived.archivedChecklistTemplateIds.length,
+		);
+		expect(summary.totalCount).toBe(2 + archived.archivedChecklistTemplateIds.length);
+		expect(summary.hasArchivedResources).toBe(true);
+
+		// 有料化 (webhook W1/W2/W4) と同じ復元関数で全件戻る
+		await restoreArchivedResources(TENANT);
+		const after = await getArchivedResourceSummary(TENANT);
+		expect(after.totalCount).toBe(0);
+		expect(after.hasArchivedResources).toBe(false);
 	});
 });

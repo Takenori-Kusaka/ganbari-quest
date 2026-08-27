@@ -100,7 +100,10 @@ export class CognitoAuthProvider implements AuthProvider {
 		const contextToken = event.cookies.get(CONTEXT_COOKIE_NAME);
 		if (contextToken) {
 			const claims = verifyContext(contextToken);
-			if (claims) {
+			// #4643: userId (アプリ DB の users.user_id) を持たない旧 token は採用しない。
+			// 採用すると所有者判定が undefined 起点になり、静かに空振りする経路が残る。
+			// membership から発行し直せば 1 リクエストで新形式に移行する。
+			if (claims?.userId) {
 				// 課金状態は token を信用せず DB から解決する。解決できなければ
 				// `TenantEntitlementUnavailableError` が throw され context は発行されない
 				// (fail-closed、握り潰さない)。呼び出し元の hooks.server.ts が 503 に変換する。
@@ -142,6 +145,8 @@ export class CognitoAuthProvider implements AuthProvider {
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
+				// #4643: アプリ DB の users.user_id。IdP の sub (identity.userId) は入れない
+				userId: membership.userId,
 				// #4266: ログイン時点で確定した MFA をセッションに焼き込む。以後 silent refresh で
 				// ID token の amr が落ちても、context token が生きている間は /ops に入れる。
 				mfaAuthenticated: identity.mfaAuthenticated === true ? true : undefined,
@@ -149,8 +154,10 @@ export class CognitoAuthProvider implements AuthProvider {
 			};
 
 			// child ロールの場合、userId から childId を解決 (#0156)
+			// #4643: children.user_id はアプリ DB の users.user_id を指す。identity.userId (sub) で
+			// 引くと必ず 0 件になり、招待で参加した子供の childId が永久に解決されなかった。
 			if (membership.role === 'child') {
-				const child = await repos.child.findChildByUserId(identity.userId, membership.tenantId);
+				const child = await repos.child.findChildByUserId(membership.userId, membership.tenantId);
 				if (child) {
 					context.childId = child.id;
 				}
@@ -185,12 +192,13 @@ export class CognitoAuthProvider implements AuthProvider {
 	): Promise<import('$lib/server/auth/entities').Membership | null> {
 		const repos = getRepos();
 
-		// Cognito sub → 内部 userId の解決
-		// identity.userId は Cognito sub だが、DynamoDB は u-<uuid> で管理
+		// #4643: IdP の sub (identity.userId) は users.user_id ではない。email が両者の唯一の橋で、
+		// users は email_lower UNIQUE のため 1 メール = 1 行 (通常ログインと Google 連携は
+		// Cognito 上で別 sub でも、アプリ上は同じ人として同じ行に解決される)。
+		// users 行が無ければ memberships (user_id 外部参照) も原理的に存在しないため、
+		// sub で findUserTenants を撃たない (存在しない id での空振りクエリを作らない)。
 		const existingUser = await repos.auth.findUserByEmail(identity.email);
-		const internalUserId = existingUser?.userId ?? identity.userId;
-
-		const memberships = await repos.auth.findUserTenants(internalUserId);
+		const memberships = existingUser ? await repos.auth.findUserTenants(existingUser.userId) : [];
 		if (memberships.length > 0) return memberships[0] ?? null;
 
 		// 初回ログイン: 招待コード Cookie があれば招待受諾を試行
