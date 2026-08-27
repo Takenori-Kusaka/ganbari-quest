@@ -288,15 +288,17 @@ const canConfirmDelete = $derived(
 			class="flex flex-col gap-4"
 		>
 			<FormField
-				label={`現在の${OYAKAGI_LABELS.name}`}
+				label={OYAKAGI_LABELS.currentInputLabel}
 				type="password"
 				id="currentPin"
 				name="currentPin"
 				required
 			/>
 
+			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= PIN_MIN_LENGTH〜PIN_MAX_LENGTH) 由来。
+			     直書きしていた頃はエラー文の「4〜6桁」と同じ画面で矛盾していた。 -->
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}
+				label={OYAKAGI_LABELS.newInputLabel}
 				type="password"
 				id="newPin"
 				name="newPin"
@@ -304,7 +306,7 @@ const canConfirmDelete = $derived(
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（確認）`}
+				label={OYAKAGI_LABELS.confirmInputLabel}
 				type="password"
 				id="confirmPin"
 				name="confirmPin"
@@ -325,7 +327,9 @@ const canConfirmDelete = $derived(
 
 	<!-- ログアウト (cognito モードのみ) -->
 	{#if $page.data.authMode === 'cognito'}
-		<Card padding="lg">
+		<!-- #4662: ページガイド ③ の anchor。カード自体が cognito 限定描画なので、
+		     ガイド側は requiredRuntime='saas' + optional で「出ているときだけ」案内する -->
+		<Card padding="lg" data-tutorial="account-logout">
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
 				{SETTINGS_LABELS.logoutSectionTitle}
 			</h3>
@@ -344,7 +348,12 @@ const canConfirmDelete = $derived(
 
 	<!-- Danger Zone: アカウント削除 (#2321 GitHub Danger Zone パターン) -->
 	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
-		<section class="danger-zone" data-testid="account-danger-zone">
+		<!-- #4662: ページガイド ④ の anchor (同上、cognito 限定描画) -->
+		<section
+			class="danger-zone"
+			data-testid="account-danger-zone"
+			data-tutorial="account-danger-zone"
+		>
 			<header class="danger-zone__header">
 				<h3 class="danger-zone__title">
 					⚠️ {SETTINGS_LABELS.dangerZoneTitle}

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { PIN_LENGTH } from '../../../src/lib/domain/constants/oyakagi';
 import {
 	loginSchema,
 	MAX_FAILED_ATTEMPTS,
-	PIN_MAX_LENGTH,
-	PIN_MIN_LENGTH,
 	pinSchema,
 	SESSION_COOKIE_NAME,
 	SESSION_MAX_AGE_SECONDS,
@@ -16,14 +15,16 @@ describe('pinSchema', () => {
 		expect(result.success).toBe(true);
 	});
 
-	it('5桁のPINを受け入れる', () => {
+	// #4661: 桁数は「入口 (/switch の PinInput) が実際に打てる 4 桁」に統一した。
+	// 5〜6 桁を通していた頃は、その桁数で設定した保護者が /switch から入れなくなっていた。
+	it('5桁のPINを拒否する (入口が 4 桁固定のため設定させない)', () => {
 		const result = pinSchema.safeParse('12345');
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
 	});
 
-	it('6桁のPINを受け入れる', () => {
+	it('6桁のPINを拒否する (同上)', () => {
 		const result = pinSchema.safeParse('123456');
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
 	});
 
 	it('3桁のPINを拒否する', () => {
@@ -94,9 +95,11 @@ describe('signupSchema', () => {
 });
 
 describe('auth定数', () => {
-	it('PIN長の範囲が正しい', () => {
-		expect(PIN_MIN_LENGTH).toBe(4);
-		expect(PIN_MAX_LENGTH).toBe(6);
+	// #4661: PIN 長は constants/oyakagi.ts の PIN_LENGTH 単独が SSOT (min/max の 2 値は廃止)。
+	it('PIN長が SSOT (PIN_LENGTH) と一致する', () => {
+		expect(PIN_LENGTH).toBe(4);
+		expect(pinSchema.safeParse('0'.repeat(PIN_LENGTH)).success).toBe(true);
+		expect(pinSchema.safeParse('0'.repeat(PIN_LENGTH + 1)).success).toBe(false);
 	});
 
 	it('最大失敗回数が5回', () => {

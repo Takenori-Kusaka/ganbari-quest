@@ -19,7 +19,7 @@
 //   [SR2c] #3799: markRewardShown は非 uuid rewardId (URL param) でも throw せず undefined
 //   [SR2d] #4435: markRewardShown は冪等 (再送で初回時刻を保つ) / 既読済み再送も行を返す
 //   [SR3] updateSpecialReward (composite key、部分更新 / 空更新 = 現状返却 / 他 child no-op)
-//   [SR4] deleteSpecialReward (解決済 redemption も同 txn cascade、他 child no-op) + hasPending は残す
+//   [SR4] deleteSpecialReward (#4683: 解決済 redemption は残す + snapshot backfill、他 child no-op)
 //   [SR5] deleteByTenantId は §P9 tenant 限定 (他 tenant 無傷)
 //   [SR6] #3566 ③: granted_by (polymorphic text 旧int/新uuid/null) を verbatim 保全 + tenant-scoped read (COPPA 追跡性)
 // ── IRewardRedemptionRepo ──
@@ -214,7 +214,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(noop?.points).toBe(99);
 	});
 
-	it('[SR4] deleteSpecialReward: 解決済 redemption も同 txn 削除、他 child no-op', async () => {
+	it('[SR4] #4683 deleteSpecialReward: 解決済 redemption は残り snapshot で読める、他 child no-op', async () => {
 		const childId = await newChild('報酬四郎');
 		const stranger = await newChild('他人四郎');
 		const reward = await seedReward(childId, '削除対象', 15);
@@ -238,12 +238,42 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 		expect(await rewardRepo.deleteSpecialReward(childId, reward.id, FAMILY)).toBe(true);
 		expect((await rewardRepo.findSpecialRewards(childId, FAMILY)).length).toBe(0);
-		// FK 整合: 交換申請履歴も同 txn で消える
+		// #4683: 交換申請履歴は残る (ポイント台帳の控除が残る以上、履歴だけ消すと辻褄が合わない)。
+		// 旧仕様 (同 txn で cascade 削除) からの反転。sqlite backend と同挙動 (backend parity)。
 		expect(
 			await countRows(
 				sql`SELECT count(*) AS c FROM reward_redemption_requests WHERE reward_id = ${reward.id}`,
 			),
-		).toBe(0);
+		).toBe(1);
+		// 表示は snapshot が権威 (live reward は消えている)
+		const [detail] = await redemptionRepo.findRedemptionRequestsByTenant(FAMILY, { childId });
+		expect(detail?.rewardTitle).toBe('削除対象');
+		expect(detail?.rewardPoints).toBe(15);
+	});
+
+	it('[SR4b] #4683 deleteSpecialReward: snapshot 未設定の旧行は削除時に live 値で backfill される', async () => {
+		const childId = await newChild('旧行四郎');
+		const reward = await seedReward(childId, 'backfill 対象', 23);
+		const req = mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
+				FAMILY,
+			),
+		);
+		// #2832 より前に作られた行を模す (snapshot 3 列を NULL に戻す)
+		await t.db.execute(sql`
+			UPDATE reward_redemption_requests
+			SET reward_title = NULL, reward_points = NULL, reward_icon = NULL, status = 'approved'
+			WHERE family_id = ${FAMILY} AND redemption_id = ${req.id}
+		`);
+
+		expect(await rewardRepo.deleteSpecialReward(childId, reward.id, FAMILY)).toBe(true);
+
+		const [detail] = await redemptionRepo.findRedemptionRequestsByTenant(FAMILY, { childId });
+		expect(detail?.rewardTitle, 'live 値で backfill されず空表示になっている').toBe(
+			'backfill 対象',
+		);
+		expect(detail?.rewardPoints).toBe(23);
 	});
 
 	it('[SR5] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {
