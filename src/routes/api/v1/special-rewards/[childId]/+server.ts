@@ -6,7 +6,7 @@ import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
-import { apiError, notFound, validationError } from '$lib/server/errors';
+import { notFound, planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getChildSpecialRewards,
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		context.plan,
 	);
 	if (!isCustomRewardUnlocked(tier)) {
-		return apiError('PLAN_LIMIT_EXCEEDED', 'special reward grant requires standard or above', {
+		return planLimitError('standard', 'special reward grant requires standard or above', {
 			tenantId,
 			tier,
 		});

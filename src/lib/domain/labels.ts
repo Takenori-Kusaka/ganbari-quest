@@ -674,6 +674,16 @@ export const PLAN_GATE_LABELS = {
 	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。プランをアップグレードしてください。`,
 
 	/**
+	 * "この機能はプレミアムプラン限定です。プランをアップグレードしてください。"
+	 *
+	 * #4710: `PLAN_LIMIT_EXCEEDED` の userMessage が要求 tier を見ずに常に
+	 * `standardOrAboveGenericWithUpgrade` を返しており、**スタンダード契約者が
+	 * プレミアム限定機能 (AI 提案) を叩くと「スタンダード以上にしてください」**と言われた。
+	 * 既にスタンダードなので次の行動が取れない。要求 tier 別に文を出し分けるための片割れ。
+	 */
+	familyLimitedGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.premium}限定です。プランをアップグレードしてください。`,
+
+	/**
 	 * "{feature}はファミリープラン限定です。アップグレードすると利用できます。"
 	 *
 	 * カバー対象:
@@ -734,6 +744,23 @@ export const PLAN_GATE_LABELS = {
 	// `perChildLimitReached*` を参照しており到達不能な重複だった。加えてプラン名を
 	// 「フリープラン」と直書きしており #4512 (プラン名 SSOT = `PLAN_FULL_TERMS.free`) に反するため、
 	// 本 merge で `perChildLimitReached*` に統合した。
+
+	/**
+	 * **誰が**上限に達しているのかを言う版 (#4693)。
+	 *
+	 * 旧実装は上限に達した子の名前を出さず、しかも 1 人でも超過していれば全員分の配信を
+	 * 丸ごと失敗させていた。「誰の上限か分からない / 余裕のある子にも入らない」の 2 重の
+	 * 詰まりになるため、名前を出したうえで**余裕のある子には配信する**。
+	 */
+	/**
+	 * プランを確認できないため取込を中止したときの文言 (#4693 fail-closed)。
+	 * 障害中だけ上限が消える経路を作らないための拒否であり、顧客には再試行を促す。
+	 */
+	planUnverifiableImportAborted:
+		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
+
+	checklistTemplateLimitReachedForChildren: (names: readonly string[], max: number) =>
+		`${names.join('・')}はフリープランの上限（お子さま1人あたり ${max} 個）に達しているため配信をスキップしました。スタンダード以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -1896,6 +1923,19 @@ export const ADMIN_RULES_PAGE_LABELS = {
 // ============================================================
 
 export const MEMBERS_LABELS = {
+	// #4704: 招待できない状態を **押す前に** 伝える (旧: フォームが活性のまま、送信して初めて 403)。
+	/** 上限到達 (free = 自分 1 人まで / standard = 4 人まで) */
+	inviteLimitTitle: '今のプランではこれ以上ご招待いただけません',
+	inviteLimitDesc: (current: number, max: number) =>
+		`ご家族のメンバーと発行済みの招待をあわせて ${current} / ${max} 人です。${PLAN_FULL_TERMS.standard}以上にすると人数を増やせます。`,
+	/** free は「上限 1 人」= 実質「自分だけ」なので、人数ではなく意味で伝える */
+	inviteLimitDescFree: `${PLAN_FULL_TERMS.free}ではご家族の招待をご利用いただけません（${ADMIN_VIEW_TERMS.canonical}はご本人のみ）。${PLAN_FULL_TERMS.standard}以上にすると、ご家族を招待できます。`,
+	inviteLimitCta: 'プランを見る',
+	/** セルフホスト (NUC) では招待 API 自体が使えない */
+	inviteUnsupportedTitle: 'この環境では招待をご利用いただけません',
+	inviteUnsupportedDesc:
+		'ご自宅のサーバーでお使いの場合、同じ端末・同じネットワークからそのままご利用いただけるため、招待の仕組みはありません。',
+
 	// Role labels
 	roleOwner: 'オーナー',
 	roleParent: `${PARENT_TERMS.honorific}`,
@@ -3625,6 +3665,10 @@ export const SETTINGS_LABELS = {
 		'カードの有効期限切れなどでお支払いが完了していない可能性があります。プラン・お支払い画面からお支払い方法をご確認ください。お子さまの記録はそのままご利用いただけます。',
 	gracePeriodAction: 'プラン・お支払いを確認する',
 
+	// #4699: 退会申請中に書き込み操作をして設定画面へ戻されたときの説明 (旧実装は
+	// `?reason=account_deletion_pending` を誰も表示せず、無言で設定トップに飛ばしていた)
+	deletionPendingReadOnlyNotice:
+		'アカウント削除のお手続き中のため、設定の変更は行えません（読み取り専用）。下の「アカウント」から復元すると、これまでどおりご利用いただけます。',
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
 	// #4496: 呼び出し側 (admin/settings/account) が渡すのは `daysRemaining` (残日数) なのに、
@@ -5603,6 +5647,22 @@ export const AUTH_FORM_LABELS = {
 export const LOGIN_LABELS = {
 	mfaBadge: 'MFA認証',
 	passwordResetSuccess: 'パスワードがリセットされました。新しいパスワードでログインしてください。',
+	// #4701: ログイン画面に戻された理由 (query → 文言)。mapping は $lib/domain/validation/login-redirect.ts
+	noticeRegistered:
+		'アカウントの登録が完了しました。登録したメールアドレスとパスワードでログインしてください。',
+	noticeConfirmed: 'メールアドレスの確認が完了しました。ログインして始めましょう。',
+	noticeAccountDeleted: `このアカウントは${CANCEL_TERMS.account}（削除）済みのためログインできません。もう一度ご利用になる場合は、新しいアカウントを登録してください。`,
+	// #4699: 退会 (アカウント削除) を申請した直後の着地。受付と、猶予中は取り消せることを伝える
+	noticeDeletionPending: `アカウント削除のお申し込みを受け付けました。猶予期間中にもう一度ログインすると、${ADMIN_VIEW_TERMS.canonical}から取り消し（復元）できます。`,
+	noticeOauthFailed:
+		'Google でのログインを完了できませんでした。もう一度お試しいただくか、メールアドレスとパスワードでログインしてください。',
+	noticeOauthStateLost:
+		'ログインの途中で情報が失われました（時間切れ、または別のタブやブラウザで開いた可能性があります）。もう一度「Google でログイン」からやり直してください。',
+	noticeOauthTokenExchangeFailed:
+		'Google アカウントの確認に失敗しました。時間をおいてもう一度お試しください。続く場合はメールアドレスとパスワードでログインしてください。',
+	noticeLoginFailedGeneric: 'ログインを完了できませんでした。もう一度お試しください。',
+	// #4701: ?next= 付きでログイン画面に来たとき、ログイン後に元の画面へ戻ることを予告する
+	nextReturnNotice: 'ログインすると、見ていた画面に戻ります。',
 
 	// Confirm code step
 	confirmBadge: 'メール認証',
@@ -6531,7 +6591,14 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
+	// #4716: 3 画面 (活動 / ごほうび / チェックリスト) で同一表記に集約 (旧「📋 他の子供から copy」)。
 	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
+	// #4693: copy / 一括追加の結果文言 (旧: +page.svelte に直書き、SSOT 逸脱)。
+	// 失敗時はサーバーが返す理由 (上限 + アップグレード導線) を優先し、本文言は fallback。
+	copySuccess: 'コピーが完了しました',
+	copyFailed: 'コピーに失敗しました',
+	bulkCreateSuccess: '一括追加しました',
+	bulkCreateFailed: '一括追加に失敗しました',
 	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
 	// 選択中 child banner
 	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,
@@ -6551,7 +6618,6 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// 結果文の組み立ては CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が行う。
 	copyResourceNoun: '活動',
 	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
-	copyFailed: 'コピーに失敗しました',
 	// bulk dialog
 	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
 	bulkFormName: '活動名',
@@ -7133,6 +7199,11 @@ export const AUTH_INVITE_LABELS = {
 	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
 	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
 	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	// #4704: 招待を発行した本人 (同じ家族グループ) がリンクを開いたときは「別のグループ」ではない。
+	// リンクの使い方 (渡す相手が違う) を伝える。
+	ownTenantInvite: 'このリンクはご自身のご家族グループへの招待です。',
+	ownTenantInviteDesc:
+		'招待したい方（別のアカウントをお使いの方）にこのリンクをお送りください。お送りした方がリンクを開くと参加できます。',
 	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
 	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
 	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)

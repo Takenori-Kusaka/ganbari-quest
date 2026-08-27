@@ -6,7 +6,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
 import { findChildById } from '$lib/server/db/activity-repo';
-import { apiError, validationError } from '$lib/server/errors';
+import { planLimitError, validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -54,7 +54,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 	if (!limitCheck.allowed) {
-		return apiError('PLAN_LIMIT_EXCEEDED', PLAN_GATE_LABELS.activityLimitReached(limitCheck.max), {
+		return planLimitError('standard', PLAN_GATE_LABELS.activityLimitReached(limitCheck.max), {
 			current: limitCheck.current,
 			max: limitCheck.max,
 		});

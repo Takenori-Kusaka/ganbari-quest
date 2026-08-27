@@ -23,6 +23,10 @@ export async function insertRedemptionRequest(
 		resolvedAt: null,
 		resolvedByParentId: null,
 		shownToChildAt: null,
+		// #4632: demo Fake は live reward を持たないため snapshot は null (sqlite の旧行と同じ扱い)。
+		rewardTitle: null,
+		rewardPoints: null,
+		rewardIcon: null,
 	};
 }
 
