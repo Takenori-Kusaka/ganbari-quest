@@ -27,7 +27,14 @@ const leveledUp = $derived(xp.levelAfter > xp.levelBefore);
 	class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full"
 	data-testid="result-xp-row"
 >
-	<span style:color={catDef?.color ?? 'inherit'}>{xp.categoryName}</span>
+	<!-- #4645: カテゴリ色は利用者データ由来でコントラストを保証できない (実測 #f9a825 で 1.78:1)。
+		色は左のドット (装飾) が担い、カテゴリ名は本文と同じ AA 準拠のテキスト色で描く。 -->
+	<span
+		class="inline-block w-2 h-2 rounded-full align-middle"
+		style:background-color={catDef?.color ?? 'currentColor'}
+		aria-hidden="true"
+	></span>
+	<span class="text-[var(--color-text-secondary)]">{xp.categoryName}</span>
 	{CHILD_HOME_LABELS.resultXpLabel}
 	<span class="font-bold text-[var(--color-text)]" data-testid="result-xp-delta">{deltaText}</span>
 	{#if leveledUp}

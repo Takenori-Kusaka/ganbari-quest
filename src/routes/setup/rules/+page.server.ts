@@ -12,6 +12,7 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { asChildId } from '$lib/domain/ids';
+import { SETUP_RULES_LABELS } from '$lib/domain/labels';
 import type { RulePresetPayload } from '$lib/domain/marketplace-item';
 // #2368 (ADR-0052 P3): Strategy 経由 (Registry 経由) で 4 ruleType sub-dispatcher を呼ぶ
 import { marketplaceRegistry } from '$lib/marketplace';
@@ -99,7 +100,7 @@ export const actions: Actions = {
 			try {
 				const item = getMarketplaceItem('rule-preset', itemId);
 				if (!item) {
-					allErrors.push(`ルール「${itemId}」が見つかりません`);
+					allErrors.push(SETUP_RULES_LABELS.errorRuleNotFound(itemId));
 					continue;
 				}
 				const payload = item.payload as RulePresetPayload;
@@ -132,7 +133,7 @@ export const actions: Actions = {
 				allErrors.push(...result.errors);
 				allWarnings.push(...result.warnings);
 			} catch {
-				allErrors.push(`ルール「${itemId}」の読み込みに失敗しました`);
+				allErrors.push(SETUP_RULES_LABELS.errorRuleLoadFailed(itemId));
 			}
 		}
 
