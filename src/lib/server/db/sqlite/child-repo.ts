@@ -1,4 +1,4 @@
-import { eq, isNull, or } from 'drizzle-orm';
+import { eq, isNull, or, type SQL, sql } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	deriveChildAge,
@@ -12,25 +12,13 @@ import {
 	isExplicitUiModeOverride,
 	normalizeUiMode,
 } from '$lib/domain/validation/age-tier';
+import { SQLITE_CHILD_SCOPED_TABLES_IN_DELETE_ORDER } from '../child-scoped-tables';
 import { db } from '../client';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate } from '../migration';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
-import {
-	activityLogs,
-	characterImages,
-	checklistLogs,
-	checklistOverrides,
-	childAchievements,
-	children,
-	evaluations,
-	loginStreaks,
-	pointLedger,
-	specialRewards,
-	statuses,
-	statusHistory,
-} from '../schema';
+import { activityLogs, childAchievements, children, loginStreaks, pointLedger } from '../schema';
 
 type ChildRow = typeof children.$inferSelect;
 type Child = import('../types').Child;
@@ -204,21 +192,35 @@ export async function updateChild(
 
 export async function deleteChild(childIdArg: ChildId, _tenantId: string) {
 	const id = Number(childIdArg);
-	// トランザクションで関連データをすべて削除
+	// #4696: 削除対象は backend 共通 SSOT (`child-scoped-tables.ts`) から引く。
+	// 旧実装は 11 表だけを消していたため `usage_logs` 等が残り、children 行の DELETE が
+	// FK 制約で失敗 → 呼び出し側が warn で握り潰して「完了しました」と表示していた
+	// (子供が消えない / 置換インポートで二重化)。失敗はここで throw し、呼び出し側へ伝える。
 	return db.transaction((tx) => {
-		tx.delete(checklistOverrides).where(eq(checklistOverrides.childId, id)).run();
-		tx.delete(checklistLogs).where(eq(checklistLogs.childId, id)).run();
-		tx.delete(specialRewards).where(eq(specialRewards.childId, id)).run();
-		tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run();
-		tx.delete(loginStreaks).where(eq(loginStreaks.childId, id)).run();
-		tx.delete(characterImages).where(eq(characterImages.childId, id)).run();
-		tx.delete(evaluations).where(eq(evaluations.childId, id)).run();
-		tx.delete(statusHistory).where(eq(statusHistory.childId, id)).run();
-		tx.delete(statuses).where(eq(statuses.childId, id)).run();
-		tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run();
-		tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run();
-		tx.delete(children).where(eq(children.id, id)).run();
+		for (const table of SQLITE_CHILD_SCOPED_TABLES_IN_DELETE_ORDER) {
+			if (!sqliteTableExists(tx, table)) continue; // 旧 DB に無い表は skip (冪等)
+			if (table === 'stamp_cards') {
+				// stamp_entries は card_id 参照 (child_id 列なし) のため cards より先に subquery 削除。
+				tx.run(
+					sql`DELETE FROM stamp_entries WHERE card_id IN (SELECT id FROM stamp_cards WHERE child_id = ${id})`,
+				);
+			}
+			tx.run(sql`DELETE FROM ${sql.identifier(table)} WHERE child_id = ${id}`);
+		}
+		// sibling_cheers は from/to の 2 参照軸 (child_id 列でないため個別)。
+		if (sqliteTableExists(tx, 'sibling_cheers')) {
+			tx.run(sql`DELETE FROM sibling_cheers WHERE from_child_id = ${id} OR to_child_id = ${id}`);
+		}
+		tx.run(sql`DELETE FROM children WHERE id = ${id}`);
 	});
+}
+
+/** 表の実在確認 (旧 DB / 部分 migration 環境でも冪等に動かすため)。 */
+function sqliteTableExists(tx: { get: (q: SQL) => unknown }, table: string): boolean {
+	return (
+		tx.get(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${table}`) !==
+		undefined
+	);
 }
 
 export async function resetChildProgressData(

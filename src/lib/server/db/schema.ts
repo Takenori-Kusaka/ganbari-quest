@@ -433,9 +433,15 @@ export const rewardRedemptionRequests = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id, { onDelete: 'cascade' }),
-		rewardId: integer('reward_id')
-			.notNull()
-			.references(() => specialRewards.id),
+		// #4683: **FK 制約は張らない**。ごほうびを削除しても交換履歴 (子供の「記録 > 交換」/
+		// 親の承認履歴 / point_ledger の控除) は残す仕様であり、FK があると reward 削除時に
+		// 履歴行を道連れにするか削除自体が失敗するかの二択になる。表示の権威は申請時点 snapshot
+		// (reward_title / reward_points / reward_icon) 側にあり (#2832 / #3566)、reward_id は
+		// 「消えたごほうびを指しうる識別子」として保持する。
+		// DSQL / PGlite は元から FK を持たない (migration/transform.ts 責務 1 で剥がす方針) ため、
+		// FK を外すことで 3 backend の挙動が揃う。id は sqlite=AUTOINCREMENT / pg=uuid で
+		// **再利用されない**ため、宙に浮いた reward_id が別のごほうびを指すことはない。
+		rewardId: integer('reward_id').notNull(),
 		requestedAt: integer('requested_at').notNull(),
 		// #4407: 1 申請 = N 個。単位量のごほうび (ゲーム時間 +30分 等) を現実の消費 (2 時間 = 4 個)
 		// に対応させる。申請を N 行に増やさず 1 行で表す (承認操作も 1 件のまま)。

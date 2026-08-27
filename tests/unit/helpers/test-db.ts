@@ -327,7 +327,8 @@ export const SQL_TABLES = `
 	CREATE TABLE reward_redemption_requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+		-- #4683: FK は張らない (ごほうび削除後も交換履歴を残す。create-tables.ts と同期)
+		reward_id INTEGER NOT NULL,
 		requested_at INTEGER NOT NULL,
 		-- #4407: 1 申請 = N 個
 		quantity INTEGER NOT NULL DEFAULT 1,

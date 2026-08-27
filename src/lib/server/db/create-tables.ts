@@ -273,7 +273,9 @@ export const SQL_CREATE_TABLES = `
 	CREATE TABLE IF NOT EXISTS reward_redemption_requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+		-- #4683: FK を張らない (ごほうび削除後も交換履歴を残す。表示の権威は下の reward_* snapshot)。
+		-- 詳細は schema.ts の rewardId 定義コメント / docs/design/08-データベース設計書.md。
+		reward_id INTEGER NOT NULL,
 		requested_at INTEGER NOT NULL,
 		-- #4407: 1 申請 = N 個 (単位量のごほうびを「単価 × 個数」で消費する)
 		quantity INTEGER NOT NULL DEFAULT 1,

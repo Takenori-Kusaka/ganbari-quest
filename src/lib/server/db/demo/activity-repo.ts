@@ -398,6 +398,17 @@ export async function countPointLedgerEntriesByType(
 	return 0;
 }
 
+/**
+ * #4696: demo は台帳 fixture を持たない (findPointHistory も空配列) ため 0。
+ * 実データが無いことによる 0 であり、集計不能を 0 で偽装しているわけではない。
+ */
+export async function countPointLedgerEntries(
+	_childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
+	return 0;
+}
+
 export async function countPointLedgerEntriesByTypeAndDate(
 	_childId: ChildId,
 	_type: string,

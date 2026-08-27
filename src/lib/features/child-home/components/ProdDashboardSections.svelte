@@ -310,7 +310,9 @@ const activitiesByCategory = $derived(
 								<CompoundIcon icon={activity.icon} size="lg" />
 								<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{activity.displayName}</span>
 								{#if activity.triggerHint}
-									<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
+									<span
+										class="text-[9px] font-bold text-[var(--color-text-warning-strong)] leading-tight text-center line-clamp-1 px-0.5"
+									>{activity.triggerHint}</span>
 								{/if}
 							{/if}
 						</Button>

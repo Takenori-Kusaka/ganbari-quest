@@ -28,7 +28,7 @@ export const actions: Actions = {
 		const birthDate = formData.get('birthDate')?.toString() || null;
 
 		if (!nickname || nickname.length === 0) {
-			return fail(400, { error: 'ニックネームを入力してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorNicknameRequired });
 		}
 		if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
 			return fail(400, { error: SETUP_CHILDREN_LABELS.birthdayInvalidFormat });
@@ -40,7 +40,7 @@ export const actions: Actions = {
 		// 誕生日があれば年齢は誕生日から自動計算 (入力欄は disabled で送信されない)。
 		const age = birthDate ? calculateAgeFromBirthDate(birthDate) : Number(ageStr);
 		if (Number.isNaN(age) || age < 0 || age > 18) {
-			return fail(400, { error: '年齢は0〜18で入力してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorAgeRange });
 		}
 
 		// #0262 / #4419: UI モードは年齢から自動判定する。判定は addChild (service 層) の
@@ -61,7 +61,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const children = await getAllChildren(tenantId);
 		if (children.length === 0) {
-			return fail(400, { error: '1人以上の子供を登録してください' });
+			return fail(400, { error: SETUP_CHILDREN_LABELS.errorNoChildren });
 		}
 		redirect(302, '/setup/questionnaire');
 	},

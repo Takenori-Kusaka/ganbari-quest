@@ -9,7 +9,7 @@
 //   [A3] 誕生日を入力した子は birthDate が実値で age も一致
 //   [A4] 年齢のみ編集: 実誕生日を持つ子は上書きされず、推定の子は年齢が更新される
 //   [A5] backup import (export の birthDate null + age) でも 0 歳にならない
-//   [A6] 旧行 (birth_date NULL) の backfill: migration 0007 が ui_mode から推定誕生日を合成する
+//   [A6] 旧行 (birth_date NULL) の backfill: migration 0008 が ui_mode から推定誕生日を合成する
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -117,7 +117,7 @@ describe('#4718 pg-core (PGlite 実 migration) で年齢だけの子供登録', 
 	});
 
 	it('[A6] 旧行 (birth_date NULL) は backfill されて ui_mode 帯の代表年齢になる', async () => {
-		// 0007 適用前の旧行を模して birth_date NULL で直接 INSERT し、0007 の backfill 文を再適用する
+		// 0008 適用前の旧行を模して birth_date NULL で直接 INSERT し、0008 の backfill 文を再適用する
 		// (冪等: WHERE birth_date IS NULL)。
 		const db = await pgliteConn.getPgliteDb();
 		const otherFamily = '00000000-0000-4000-8000-00000000a719';
@@ -128,7 +128,7 @@ describe('#4718 pg-core (PGlite 実 migration) で年齢だけの子供登録', 
 		const { readFileSync } = await import('node:fs');
 		const { resolve } = await import('node:path');
 		const migration = readFileSync(
-			resolve(process.cwd(), 'drizzle', 'pglite', '0007_child_birth_date_estimated.sql'),
+			resolve(process.cwd(), 'drizzle', 'pglite', '0008_child_birth_date_estimated.sql'),
 			'utf8',
 		);
 		for (const stmt of migration.split('--> statement-breakpoint')) {

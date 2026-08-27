@@ -33,6 +33,7 @@ import {
 	recalcUiMode,
 	type UiMode,
 } from '$lib/domain/validation/age-tier';
+import { CHILD_SCOPED_TABLES } from '../child-scoped-tables';
 import type { ChildProgressResetCounts, IChildRepo } from '../interfaces/child-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
@@ -99,38 +100,10 @@ export function toChild(row: ChildRow): Child {
 	};
 }
 
-/** deleteChild で消す child 配下の表 (child_id 列を持つ全テナント表、§3 集約境界)。
- * #3584 ①: schema との網羅性突合は tests/unit/architecture/dsql-child-scoped-tables-fitness.test.ts
- * が機械保証する (新表追加時の list 未更新 = orphan 行残存を CI で検出)。export は同 fitness 用。 */
-export const CHILD_SCOPED_TABLES = [
-	'child_activities',
-	'activity_logs',
-	'point_ledger',
-	'statuses',
-	'status_history',
-	'activity_mastery',
-	'child_activity_preferences',
-	'daily_missions',
-	'login_streaks',
-	'stamp_cards',
-	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items 廃止、M3 §4.2)。
-	'checklist_logs',
-	'checklist_overrides',
-	'checklist_template_assignments',
-	'certificates',
-	// evaluations.scoresJson は text 据置 (子表 evaluation_scores 廃止、M3 §4.2)。
-	'evaluations',
-	'rest_days',
-	'daily_battles',
-	'enemy_collection',
-	'special_rewards',
-	'reward_redemption_requests',
-	'parent_messages',
-	'character_images',
-	'child_custom_voices',
-	'child_challenges',
-	'usage_logs',
-] as const;
+// deleteChild で消す child 配下の表の一覧は **`../child-scoped-tables.ts` が SSOT** (#4696:
+// sqlite と同じ一覧を共有し、backend ごとに削除対象が食い違う状態を作らない)。
+// #3584 ①: schema との網羅性突合は tests/unit/architecture/dsql-child-scoped-tables-fitness.test.ts
+// が機械保証する (新表追加時の list 未更新 = orphan 行残存を CI で検出)。
 
 /** DSQL 用 IChildRepo を生成する (db/runner は注入、fitness#8)。 */
 export function createDsqlChildRepo<TTx extends SqlExecutor>(

@@ -1,5 +1,5 @@
 {
-  "id": "afdce988-4206-4bd6-8701-e7b1ffcf7a4b",
+  "id": "d388d58e-9637-4ff5-b8f9-e8a215601413",
   "prevId": "7e268817-9e0b-43a6-83e0-4fdf6fec7246",
   "version": "7",
   "dialect": "postgresql",
@@ -1564,13 +1564,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "birth_date_estimated": {
-          "name": "birth_date_estimated",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "theme": {
           "name": "theme",
           "type": "text",
@@ -1927,12 +1920,7 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "consents_type_ck": {
-          "name": "consents_type_ck",
-          "value": "\"consents\".\"type\" IN ('terms', 'privacy')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.daily_battles": {
