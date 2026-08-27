@@ -3057,16 +3057,13 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
-// #4619: 解約の説明で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた記録が
-// 物理削除される**事実が抜ける。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS
-// .tableContent) と同じ 2 文をここで 1 度だけ組み立て、解約を説明する文言が共有する。
+// #4540 Q4 (#4619): 解約導線で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた
+// 記録が物理削除される**事実が解約を決める瞬間に見えない (PO 決裁: 顧客に有利に見える方向の
+// 不正確さ)。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS.tableContent) と同じ 2 文
+// をここで 1 度だけ組み立て、解約導線の各文言が共有する。
 //
 // 数値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS ただ 1 箇所。
 // 本文言は PLAN_RETENTION_TERMS (terms.ts atom) 経由でしか参照せず、日数を直書きしない。
-//
-// 注: 同名・同内容の定数を PR #4596 (#4540 Q4、解約導線の告知) も導入する。先に merge された
-//   側が正となり、後から rebase する側は同一宣言が 2 つになって TypeScript が即座に落ちる
-//   (silent な二重定義にはならない)。その時点で片方を削り、参照をこの 1 本に寄せること。
 const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
 
 // #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
@@ -3140,8 +3137,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 「解約申請中か」「いつまで使えるか」は Stripe が SSOT のため、load で都度取得した値を表示する。
 	cancelPendingTitle: `${CANCEL_TERMS.canonical}手続き中です`,
 	cancelPendingDesc: (date: string) =>
-		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
-	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
+	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
 	cancelPendingRevertAction: `${CANCEL_TERMS.canonical}を取り消して継続する`,
 	cancelPendingRevertSubmitting: '取り消しています…',
 	cancelPendingRevertError: `${CANCEL_TERMS.canonical}の取り消しに失敗しました。時間をおいて再度お試しください`,
@@ -3162,7 +3159,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
-	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
 	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
@@ -3933,8 +3930,12 @@ export const CANCELLATION_LABELS = {
 	// #4585-1 QM: 体験中の顧客は「請求は無い」が「無料プランの上限でもない」。freePlanNotice を
 	// そのまま出すと、同じ画面で「無料プランをご利用中」と「無料プランに戻ると」が並び、
 	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
-	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
-	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
+	//   #4540 Q4: 体験中の顧客も手続き後は無料プランに戻るため、保持期間の告知対象に含める。
+	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。${FREE_PLAN_RETENTION_NOTICE}データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
+	//   #4540 Q4: 「お子さまの記録は残ります」だけで終えると、無料プランの保持期間を超えた記録が
+	//   物理削除される事実が解約を決める瞬間に見えない (顧客に有利に見える方向の不正確さ)。
+	//   保持期間は FREE_PLAN_RETENTION_NOTICE (= 特商法と同一文) を共有し、日数は直書きしない。
+	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。${FREE_PLAN_RETENTION_NOTICE}次回以降の請求は発生しません。`,
 
 	// Submit
 	submitButton: '解約手続きへ進む',
@@ -3966,6 +3967,12 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4525: 有料プランだが Stripe 契約が紐づいていない異常状態。この画面から
+	//   ${STRIPE_PORTAL_TERMS.canonical} を開けないため、フォームを送っても解約は完了しない。
+	//   「お手続きは必要ありません」(freePlanNotice) を出すと課金が続いたまま放置される。
+	//   再試行しても直らない状態なので、最初からサポート窓口へ案内する (#4548 と同じ判断)。
+	paidWithoutStripeNotice: `ご契約の状態を確認できませんでした。この画面からは${CANCEL_TERMS.canonical}のお手続きを完了できません。お手数ですが、「設定 > サポート」からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 
 	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
 	// #4585-3: fallback 規則を子供だけ「直近の利用順」に変更 (PO 決裁 Q1 / Q3)。
