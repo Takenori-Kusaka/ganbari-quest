@@ -5215,53 +5215,6 @@ export function getMemberRoleLabel(role: string): string {
 // demo/+page.svelte (#1452 Phase B)
 // ============================================================
 
-export const DEMO_TOP_LABELS = {
-	// Hero
-	heroSubtitle: 'デモ体験',
-	heroDesc: 'がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！',
-
-	// Guide section
-	guideDismissedTitle: 'ガイドをとじました',
-	guideDismissedDesc: 'もう一度はじめから体験できます',
-	guideRestartButton: 'ガイドを再開する',
-	guideFirstTimeTitle: 'はじめてですか？',
-	guideStepsDesc: (n: number) => `${n}ステップで主な機能をご案内します`,
-	guideStartButton: 'ガイド付きデモを はじめる',
-
-	// Family section
-	familyTitle: 'がんばり家のこどもたち',
-	childAgeLabel: (age: number) => `${age}さい`,
-	childAgeModeLabel: (age: number, modeLabel: string) => `${age}さい・${modeLabel}`,
-
-	// Mode labels
-	modeBaby: 'はじめの一歩',
-	modePreschool: 'じぶんでタップ',
-	modeElementary: '冒険スタート',
-	modeJunior: 'チャレンジ',
-	modeSenior: 'みらい設計',
-
-	// Admin link section
-	adminTitle: `おやの${ADMIN_VIEW_TERMS.canonical}`,
-	adminDesc: '活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。',
-	adminButton: `${ADMIN_VIEW_TERMS.canonical}をみる`,
-
-	// Feature highlights
-	featuresTitle: '体験できる機能',
-	feature1Title: '活動きろく',
-	feature1Desc: '— お子さまの日々のがんばりをワンタップで記録',
-	feature2Title: 'ステータス',
-	feature2Desc: '— 5軸のレーダーチャートで成長を可視化',
-	feature3Title: '週間チャレンジ',
-	feature3Desc: '— アプリが毎週、苦手・得意に合わせた目標を自動で提案',
-	feature4Title: 'デイリーミッション',
-	feature4Desc: '— 毎日の目標で継続をサポート',
-
-	// Conversion CTA
-	ctaTitle: 'お子さまの冒険、はじめませんか？',
-	ctaNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
-	ctaButton: '無料で はじめる',
-} as const;
-
 // ============================================================
 // admin/growth-book ページ (#1452 Phase B)
 // ============================================================
@@ -5662,14 +5615,6 @@ export const CONSENT_LABELS = {
 // デモ版ベンチマーク管理ページ (#1452 Phase B)
 // ============================================================
 
-export const DEMO_STATUS_LABELS = {
-	ctaTitle: 'ベンチマークを自由に設定しませんか？',
-	ctaDesc: '登録すると、年齢別の目安値を自由に設定して成長レポートをカスタマイズできます。',
-	levelTitleLabel: '称号',
-	meanLabel: '平均',
-	sdLabel: 'SD',
-} as const;
-
 // ============================================================
 // Ops AWS費用ページ (#1452 Phase B)
 // ============================================================
@@ -5748,27 +5693,6 @@ export const REWARDS_LABELS = {
 // ============================================================
 // デモメンバー管理ページ (#1452 Phase B)
 // ============================================================
-
-export const DEMO_MEMBERS_LABELS = {
-	sectionTitle: '👥 メンバー管理',
-	sectionDesc:
-		'QRコードでご家族をかんたんに招待できます。パートナーやおじいちゃん・おばあちゃんもお子さまの成長を一緒に見守れます。',
-	qrPlaceholder: '登録するとQRコードが生成されます',
-	invitedMembersTitle: '招待済みメンバー',
-	demoMember1Name: 'がんばり太郎',
-	demoMember1Role: 'オーナー',
-	demoMember2Name: 'がんばり花子',
-	demoMember2Role: 'メンバー',
-	memberStatusActive: 'アクティブ',
-	permissionsTitle: '権限について',
-	permissionOwner: 'オーナー',
-	permissionOwnerDesc: 'すべての設定変更・メンバー管理が可能',
-	permissionMember: 'メンバー',
-	permissionMemberDesc: '活動記録・閲覧が可能（設定変更は不可）',
-	inviteLimit: '招待は最大5名まで（オーナー含む）',
-	ctaTitle: 'ご家族みんなで使いませんか？',
-	ctaDesc: '登録すると、QRコードで簡単にご家族を招待できます。',
-} as const;
 
 // ============================================================
 // OPS エクスポートページ (#1452 Phase B)
@@ -5938,24 +5862,6 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 // デモポイント変換ページ (#1452 Phase B)
 // ============================================================
 
-export const DEMO_POINTS_LABELS = {
-	currentBalanceLabel: (unit: string) => `現在の${unit}残高`,
-	convertSectionTitle: 'ポイント変換',
-	modeSimple: 'かんたん',
-	modeFreeInput: '自由入力',
-	modeOcr: '領収書OCR',
-	demoConvertDisabled: 'デモでは変換できません',
-	thisMonthConvertLabel: '今月の変換合計',
-	totalConvertLabel: '累計変換合計',
-	aboutTitle: 'ポイント変換について',
-	aboutNote1: 'お子さまが活動で貯めたポイントを、おこづかいに変換できます',
-	aboutNote2: '変換レートは設定画面で自由にカスタマイズ可能です',
-	aboutNote3: '3つの変換モード: かんたん / 自由入力 / 領収書OCR',
-	aboutNote4: '変換履歴も記録されるので、安心して管理できます',
-	ctaTitle: 'ポイントをおこづかいに変換しませんか？',
-	ctaDesc: '登録すると、ポイント変換やレート設定が自由にできます。',
-} as const;
-
 // ============================================================
 // 実績ページ (#1452 Phase B)
 // ============================================================
@@ -6014,16 +5920,6 @@ export const FORGOT_PASSWORD_LABELS = {
 // デモごほうびページ (#1452 Phase B)
 // ============================================================
 
-export const DEMO_REWARDS_LABELS = {
-	upgradeBannerDesc: `${PLAN_FULL_TERMS.free}ではプリセット閲覧のみ可能です。${PLAN_FULL_TERMS.standard}以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。`,
-	// #2272 AC2: 「テンプレート」UI 露出を REWARD_TERMS.preset 経由「プリセット」に置換
-	selectTemplateTitleDemo: `2. ${REWARD_TERMS.preset}を選択（またはカスタム）`,
-	confirmGrantTitleDemo: '3. 内容を確認して付与',
-	demoGrantDisabled: 'デモでは報酬を付与できません',
-	ctaTitle: `特別報酬で${CHILD_TERMS.honorific}をもっと応援しませんか？`,
-	ctaDesc: `${SIGNUP_TERMS.canonical}すると、テンプレートやカスタム報酬を自由に付与できます。`,
-} as const;
-
 // ============================================================
 // セットアップ完了ページ (#1452 Phase B)
 // ============================================================
@@ -6044,45 +5940,6 @@ export const SETUP_COMPLETE_LABELS = {
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
 	// #2992: 初回は既定 PIN 入力でなく新規作成フローのため、旧 5086 注記 (defaultValueHint) を置換
 	pinHintSuffix: '初めて入るときに作成します。',
-} as const;
-
-export const DEMO_CHILD_HOME_LABELS = {
-	checklistTitle: 'もちものチェック',
-	checklistDone: '✅ かんりょう！',
-	dailyMissionTitle: 'きょうのミッション',
-	missionComplete: (pts: string) => `🎉 ミッションコンプリート！ ${pts}`,
-	activitiesEmpty: 'かつどうがまだありません',
-	recordingLabel: 'きろくちゅう...',
-	recordButton: 'きろくする！',
-	resultStreakSuffix: '！',
-	resultTodayPrefix: 'きょう',
-	resultTodaySuffix: 'かいめ！',
-	demoDataNote: '（デモモード：データは保存されません）',
-	signupCta: 'お子さまの名前で はじめる →',
-	closeButton: 'とじる',
-
-	// #1757 (#1709-C) 「今日のおやくそく」N/M バー（demo 同期）
-	mustTitle: '今日のおやくそく',
-	mustTitleKana: 'きょうのおやくそく',
-	mustProgressText: (logged: number | string, total: number | string) => `${logged}/${total}`,
-	mustRemaining: (n: number | string) => `あと ${n}こ`,
-	mustAllComplete: 'ぜんぶできた！',
-	mustAllCompleteEmoji: '✨',
-	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
-} as const;
-
-export const DEMO_ADMIN_HOME_LABELS = {
-	planSwitcherAriaLabel: 'デモ用プラン切替',
-	planSwitcherLabel: 'デモ: プランを切り替えて体験',
-	freePlanButton: `${PLAN_FULL_TERMS.free}`,
-	standardPlanButton: `⭐ ${PLAN_TERMS.standard}`,
-	familyPlanButton: `⭐⭐ ${PLAN_TERMS.premium}`,
-	statsActivityLabel: 'カスタム活動',
-	statsChildLabel: 'こども',
-	statsRetentionLabel: 'データ保持',
-	trialCtaTitle: '7日間の無料体験',
-	trialCtaDesc: 'スタンダードプランの全機能を7日間無料で体験できます。',
-	trialCtaButton: 'プランを見る',
 } as const;
 
 export const SETUP_CHILDREN_LABELS = {
@@ -6668,19 +6525,6 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	headerBirthdayPrefix: '🎂 ',
 } as const;
 
-export const DEMO_REPORTS_LABELS = {
-	pageTitle: '📊 週間レポート',
-	reportTitleSuffix: '週間レポート',
-	statActivityLabel: '活動',
-	statActivityUnit: '回',
-	statPointLabel: 'ポイント',
-	statAchievementLabel: '実績',
-	statAchievementUnit: '獲得',
-	highlightTitle: '🏆 今週のハイライト',
-	categoryTitle: '📈 カテゴリ別の様子',
-	adviceTitle: '💡 アドバイス',
-} as const;
-
 export const ADMIN_CHILDREN_PAGE_LABELS = {
 	pageTitle: '👧 こども管理',
 	// #4546 ③: 仮アバターの作り直しをレースで見送ったときの通知 (ADR-0062 §1「一時的・回復可能」= Toast)。
@@ -6949,16 +6793,6 @@ export function getInviteJoinBlockedMessage(reason: string): string {
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
 
-export const DEMO_LAYOUT_LABELS = {
-	backToHpLink: 'HPに戻る',
-	demoNotice: 'これはデモです。データは保存されません。',
-	tryRealButton: '本番で使ってみる',
-	planSwitcherLabel: 'プラン体験:',
-	floatingCtaTitle: 'お子さまの ぼうけん、はじめよう！',
-	floatingCtaDesc: `7日間無料・いつでも${CANCEL_TERMS.canonical}OK`,
-	floatingCtaButton: '無料で はじめる →',
-} as const;
-
 export const SETUP_PACKS_LABELS = {
 	// Round 18 Cluster A (ADR-0045): かつどうパック → TEMPLATE_TERMS atom 経由
 	pageTitle: `${TEMPLATE_TERMS.userFacing}をえらぼう`,
@@ -7096,15 +6930,6 @@ export const VIEW_PAGE_LABELS = {
 	invalidTokenDesc: `リンクの有効期限が切れたか、共有した${PARENT_TERMS.honorific}が無効にした可能性があります。共有元の${PARENT_TERMS.honorific}に新しいリンクの発行を依頼してください。`,
 } as const;
 
-export const DEMO_BATTLE_LABELS = {
-	pageTitle: '⚔️ きょうの バトル',
-	startButton: 'バトル かいし！',
-	demoNotice: '（デモモード：データは保存されません）',
-	signupLink: 'お子さまの名前で はじめる →',
-	replayButton: 'もういちど あそぶ',
-	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
-} as const;
-
 /**
  * チェックリスト画面の文言 (年齢帯 variant)。
  *
@@ -7203,10 +7028,6 @@ export function getChildChecklistLabels(ctx: {
 	const tier = normalizeUiMode(ctx.ageTier ?? '');
 	return tier === 'baby' || tier === 'preschool' ? CHILD_CHECKLIST_HIRAGANA : CHILD_CHECKLIST_KANJI;
 }
-
-export const DEMO_CHILD_CHECKLIST_LABELS = {
-	demoNotice: 'これはデモです。チェックは保存されません。',
-} as const;
 
 export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// #3097 (EPIC #3096): 正準スロット契約に conform — 子供タブ / 子供コンテキストバナー / 検索を
@@ -7355,20 +7176,6 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 
-export const DEMO_ACTIVITIES_LABELS = {
-	aiAddButton: '✨ AI追加',
-	manualAddButton: '+ 手動追加',
-	allFilter: 'すべて',
-	emptyFilter: '該当する活動がありません',
-} as const;
-
-export const DEMO_CHECKLISTS_LABELS = {
-	addTemplateButton: '+ テンプレート追加',
-	addItemButton: '+ アイテム追加',
-	emptyTitle: 'チェックリストがありません',
-	emptyDesc: '登録するとお子さまの持ち物チェックリストを管理できます',
-} as const;
-
 // #2295 (EPIC #2294 ①): DEMO_EVENTS_LABELS 削除済 (2026-05-19) — シーズンイベント機構撤去
 
 export const SWITCH_PAGE_LABELS = {
@@ -7386,23 +7193,6 @@ export const SWITCH_PAGE_LABELS = {
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
 //     license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除、割引配布は Stripe Coupon 代替)。
-
-export const DEMO_CHALLENGES_LABELS = {
-	sectionTitle: '👥 きょうだいチャレンジ',
-	allClearedBadge: '全員クリア！',
-	activeBadge: '開催中',
-	dateRangeSeparator: '〜',
-	targetPrefix: '目標',
-	rewardPrefix: '報酬',
-} as const;
-
-export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
-	sectionTitle: '🏅 チャレンジきろく',
-	emptyTitle: 'まだチャレンジきろくがないよ',
-	emptyDesc: 'チャレンジがはじまったら ここにきろくされるよ',
-	clearedBadge: 'クリア！',
-	inProgressBadge: 'ちょうせん中',
-} as const;
 
 // ============================================================
 // LP コンテンツ (#1344 C1-LP-RETENTION)
@@ -8908,17 +8698,6 @@ export const FEATURES_LABELS = {
 		hintTitle: 'つかいかた ガイド あるよ！',
 		hintSub: 'いつでも ❓ ボタンで みれるよ',
 		hintCloseAriaLabel: '閉じる',
-	},
-
-	// ---- features/demo/ ----
-	demo: {
-		// DemoGuideBar
-		guideBackAriaLabel: 'もどる',
-		guideSeePricing: 'プランを見る',
-		guideStartBtn: 'はじめる',
-		guideActionHint: 'やってみよう',
-		guideNextBtn: 'つぎへ',
-		guideDismissAriaLabel: 'ガイドを閉じる',
 	},
 
 	// ---- features/loyalty/ ----
