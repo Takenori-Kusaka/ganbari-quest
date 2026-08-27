@@ -145,6 +145,30 @@ import {
 	previewPendingExports,
 } from '$lib/server/services/cloud-export-service';
 
+/**
+ * reject された error を **その型のまま** 取り出す。
+ *
+ * `promise.catch((e: unknown) => e as X)` は解決値との union (`X | CloudExportResult`) を返すため、
+ * 続く `err.requiredTier` 等が型エラーになる (svelte-check は warning=error なので CI が落ちる)。
+ * `as X` を `.catch` の外に出しても、それは「reject しなかった」場合を静かに通す点で危うい
+ * (解決値に対して `undefined` を assert することになり、失敗の理由が読めない)。
+ *
+ * ここでは **実際に reject したこと** と **その class であること** を検査してから narrow する。
+ * 型を通すためだけの cast ではなく、assertion がひとつ増えている。
+ */
+async function rejectionOf<T extends Error>(
+	promise: Promise<unknown>,
+	ctor: new (...args: never[]) => T,
+): Promise<T> {
+	try {
+		await promise;
+	} catch (e) {
+		expect(e).toBeInstanceOf(ctor);
+		return e as T;
+	}
+	throw new Error(`${ctor.name} で reject するはずが解決した`);
+}
+
 describe('cloud-export-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -253,11 +277,14 @@ describe('cloud-export-service', () => {
 
 		it('プラン未達の案内はアップグレード先 tier を言う', async () => {
 			mockPlanTier = 'free';
-			const err = await createCloudExport({
-				tenantId: 'tenant-1',
-				exportType: 'template',
-				licenseStatus: 'none',
-			}).catch((e: unknown) => e as CloudExportPlanGateError);
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'none',
+				}),
+				CloudExportPlanGateError,
+			);
 
 			expect(err.requiredTier).toBe('standard');
 			expect(err.userMessage).toContain('スタンダードプラン以上');
@@ -277,11 +304,14 @@ describe('cloud-export-service', () => {
 
 		it('保管数上限の案内は削除を促し、アップグレードを求めない (#4710)', async () => {
 			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
-			const err = await createCloudExport({
-				tenantId: 'tenant-1',
-				exportType: 'template',
-				licenseStatus: 'active',
-			}).catch((e: unknown) => e as CloudExportQuotaError);
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
 
 			expect(err.current).toBe(3);
 			expect(err.max).toBe(3);
@@ -295,13 +325,15 @@ describe('cloud-export-service', () => {
 			mockPlanTier = 'family';
 			mockCloudExportRepo.countByTenant.mockResolvedValue(10);
 
-			const err = await createCloudExport({
-				tenantId: 'tenant-1',
-				exportType: 'template',
-				licenseStatus: 'active',
-			}).catch((e: unknown) => e as CloudExportQuotaError);
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
 
-			expect(err).toBeInstanceOf(CloudExportQuotaError);
 			expect(err.max).toBe(10);
 			expect(err.userMessage).not.toContain('アップグレード');
 		});
