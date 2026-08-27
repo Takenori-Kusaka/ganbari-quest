@@ -32,6 +32,16 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivityLogs: (...args: unknown[]) => mockFindActivityLogs(...args),
 }));
 
+// #4708: archive 済み活動の件数は per-child repo (includeArchived) から数える
+const mockFindActivitiesByChild = vi.fn();
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childActivity: {
+			findActivitiesByChild: (...args: unknown[]) => mockFindActivitiesByChild(...args),
+		},
+	}),
+}));
+
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 	archiveChecklistTemplates: (...args: unknown[]) => mockArchiveChecklistTemplates(...args),
@@ -442,6 +452,12 @@ describe('restoreArchivedResources', () => {
 });
 
 describe('getArchivedResourceSummary', () => {
+	beforeEach(() => {
+		mockFindAllChildren.mockResolvedValue([]);
+		mockFindActivitiesByChild.mockResolvedValue([]);
+		mockFindTemplatesByChild.mockResolvedValue([]);
+	});
+
 	it('archive 済みの子供がいない場合', async () => {
 		mockFindArchivedChildren.mockResolvedValue([]);
 
@@ -460,5 +476,51 @@ describe('getArchivedResourceSummary', () => {
 
 		expect(summary.archivedChildCount).toBe(1);
 		expect(summary.hasArchivedResources).toBe(true);
+	});
+
+	// #4708: 3 資源の件数を返す (banner「お子さま N 人 / 活動 N 件 / チェックリスト N 件」の根拠)
+	it('表示中の子供に紐づく archive 済み活動 / チェックリストも数える (template は id で dedupe)', async () => {
+		mockFindArchivedChildren.mockResolvedValue([]);
+		mockFindAllChildren.mockResolvedValue([makeChild(1, 'たろう'), makeChild(2, 'はなこ')]);
+		mockFindActivitiesByChild.mockImplementation(async (childId: unknown) =>
+			String(childId) === '1'
+				? [
+						{ ...makeActivity(10, 'A'), isArchived: 1, archivedReason: 'trial_expired' },
+						{ ...makeActivity(11, 'B'), isArchived: 1, archivedReason: 'trial_expired' },
+						makeActivity(12, 'C'),
+					]
+				: [{ ...makeActivity(20, 'D'), isArchived: 1, archivedReason: 'downgrade_user_selected' }],
+		);
+		// 同じ template (id=100) が 2 人に配信されていても 1 件
+		mockFindTemplatesByChild.mockImplementation(async (childId: unknown) => [
+			{ ...makeTemplate(100, Number(childId), '朝のしたく'), isArchived: 1 },
+			{ ...makeTemplate(200 + Number(childId), Number(childId), '表示中'), isArchived: 0 },
+		]);
+
+		const summary = await getArchivedResourceSummary(TENANT);
+
+		expect(mockFindActivitiesByChild).toHaveBeenCalledWith(asChildId(1), TENANT, {
+			includeArchived: true,
+		});
+		expect(mockFindTemplatesByChild).toHaveBeenCalledWith(asChildId(1), TENANT, true, true);
+		expect(summary).toEqual({
+			archivedChildCount: 0,
+			archivedActivityCount: 3,
+			archivedChecklistTemplateCount: 1,
+			totalCount: 4,
+			hasArchivedResources: true,
+		});
+	});
+
+	it('子供の archive が無くても活動だけ archive されていれば hasArchivedResources=true', async () => {
+		mockFindArchivedChildren.mockResolvedValue([]);
+		mockFindAllChildren.mockResolvedValue([makeChild(1, 'たろう')]);
+		mockFindActivitiesByChild.mockResolvedValue([
+			{ ...makeActivity(10, 'A'), isArchived: 1, archivedReason: 'trial_expired' },
+		]);
+
+		const summary = await getArchivedResourceSummary(TENANT);
+		expect(summary.hasArchivedResources).toBe(true);
+		expect(summary.totalCount).toBe(1);
 	});
 });

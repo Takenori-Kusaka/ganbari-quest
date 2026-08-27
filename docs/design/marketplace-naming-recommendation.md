@@ -249,7 +249,6 @@ export const MARKETPLACE_LABELS = {
 - [ ] `site/pamphlet.html` 同様
 - [ ] `site/shared-labels.js` 同様（LP / アプリ間の SSOT）
 - [ ] `tutorial-chapters.ts` チュートリアル文言更新
-- [ ] `demo-guide-state.svelte.ts` デモガイド文言更新
 - [ ] LP メトリクス ratchet（docs/CLAUDE.md §LP メトリクス）の `forbiddenTerms` に「マーケットプレイス」を追加検討（移行完了後）
 
 ---
