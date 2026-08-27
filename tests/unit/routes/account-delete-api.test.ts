@@ -68,10 +68,12 @@ function makeEvent(opts: {
 			context: {
 				tenantId: opts.tenantId ?? 'tenant-1781',
 				role: opts.role ?? 'owner',
+				// #4643: 削除サービスに渡すのは users.user_id (context.userId)。identity.userId は IdP の sub
+				userId: 'user-1',
 				licenseStatus: opts.licenseStatus ?? 'none',
 				plan: opts.plan,
 			},
-			identity: { type: 'cognito' as const, userId: 'user-1', email: 'a@b' },
+			identity: { type: 'cognito' as const, userId: 'cognito-sub-user-1', email: 'a@b' },
 		},
 	} as unknown as Parameters<typeof POST>[0];
 }
@@ -287,8 +289,8 @@ describe('POST /api/v1/admin/account/delete (#1781 プラン別グレースピ�
 					body: JSON.stringify({}),
 				}),
 				locals: {
-					context: { tenantId: 't', role: 'owner', licenseStatus: 'none' },
-					identity: { type: 'cognito', userId: 'u', email: 'a@b' },
+					context: { tenantId: 't', role: 'owner', userId: 'u', licenseStatus: 'none' },
+					identity: { type: 'cognito', userId: 'cognito-sub-u', email: 'a@b' },
 				},
 			} as unknown as Parameters<typeof POST>[0];
 			const res = await POST(event);

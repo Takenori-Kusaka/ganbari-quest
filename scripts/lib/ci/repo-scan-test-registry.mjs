@@ -65,6 +65,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
+		scope: 'repo',
+		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
+	},
 	'tests/unit/architecture/unreachable-script-export-fitness.test.ts': {
 		scope: 'repo',
 		note: 'scripts/**/*.mjs と .claude/hooks/*.mjs を TypeScript parser で AST 化し、entry / registry から到達しない export された判定関数を検出する (#4623)',
@@ -76,6 +80,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
+	},
+	'tests/unit/architecture/plan-limits-field-enforcement.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の .ts / .svelte を glob し、PlanLimits の全フィールドが production code から実際に参照されているかを検査する (#4584)。参照ゼロ = 有料の根拠として売っている機能にゲートが掛かっていない状態',
 	},
 	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
 		scope: 'repo',
