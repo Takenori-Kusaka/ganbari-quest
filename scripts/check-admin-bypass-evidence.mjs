@@ -39,6 +39,7 @@ import { isMain as isMainModule } from './lib/is-main.mjs';
 /**
  * @typedef {Object} PrAuthor
  * @property {string} login
+ * @property {boolean} [is_bot] `gh` が GraphQL `author.__typename == 'Bot'` を写した値 (#4612)
  */
 
 /**
@@ -151,14 +152,36 @@ function listRecentMergedPrs(sinceIso) {
 }
 
 /**
+ * PR の作成者が **bot アクターか** を判定する (#4612)。
+ *
+ * # なぜ login 文字列で判定しないのか
+ *
+ * 旧実装は `login.endsWith('[bot]')` と `login === 'dependabot' | 'renovate'` の 3 パターンで、
+ * **GitHub App が作成した PR を拾えなかった**。App の actor は `gh` では
+ * `app/<slug>` (例: `app/ganbari-quest-integrator` / `app/dependabot`) と表示され、
+ * `[bot]` サフィックスを持たない。結果として統合 PR (App 作成) が毎回 exempt から漏れ、
+ * 証跡の追記依頼コメントが投稿され続けていた (実測: 2026-08-13 16:05Z に PR #4534 へ投稿)。
+ *
+ * `is_bot` は `gh` が GraphQL の `author.__typename == 'Bot'` を写したもので、
+ * **アカウント種別そのもの**。login 文字列と違い利用者側で騙れない (ユーザー名に `[` は
+ * 使えないため旧判定も詐称はできなかったが、App を拾えないという別の穴があった)。
+ * 未定義 / 非 boolean のときは **exempt しない**方向 (= 催促は出る) に倒す。
+ * 緩める判定を「値が無いから true」に倒さない。
+ *
+ * @param {GhPr} pr
+ * @returns {boolean}
+ */
+export function isBotAuthored(pr) {
+	return pr?.author?.is_bot === true;
+}
+
+/**
  * @param {GhPr} pr
  * @returns {{ exempted: boolean, reason?: string }}
  */
 function isExempted(pr) {
-	const author = pr.author?.login || '';
-	if (author.endsWith('[bot]')) return { exempted: true, reason: 'bot-authored PR' };
-	if (author === 'dependabot' || author === 'renovate') {
-		return { exempted: true, reason: 'dependabot/renovate' };
+	if (isBotAuthored(pr)) {
+		return { exempted: true, reason: `bot-authored PR (${pr.author?.login ?? 'unknown'})` };
 	}
 	const files = pr.files || [];
 	const nonDocs = files.filter((/** @type {PrFile} */ f) => !f.path.startsWith('docs/'));
