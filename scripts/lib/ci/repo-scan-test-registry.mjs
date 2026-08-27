@@ -53,6 +53,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/architecture/retention-filter-opt-out-allowlist.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を再帰 walk し、保持期間フィルタの opt-out (`NO_RETENTION_FILTER` の import) が allowlist と完全一致するかを検査する (#4818)。「履歴取得が保持期間 (ADR-0049) を通っていない」が達成タブ / 交換タブで 2 度起きたため、opt-out の増殖を PR での明示判断に縛る。走査範囲は src 全体でなければ新規 opt-out を捕まえられない',
+	},
 	'tests/unit/services/plan-limit-check-null-type-hole.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下を再帰 walk し、プラン上限メッセージ本文が labels.ts SSOT を経由せず直書きに戻っていないかを検査する (#4622)。直書きに戻ると `max: number` の関門が消え、上限メッセージに null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
@@ -212,6 +216,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts': {
 		scope: 'repo',
 		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',
+	},
+	'tests/unit/domain/lp-claims-implementation-truth-4713.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/data/marketplace/activity-packs/ の 1 ディレクトリだけを読み、LP 訴求値と突合する (#4713)',
 	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',

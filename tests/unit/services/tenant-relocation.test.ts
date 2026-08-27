@@ -12,6 +12,8 @@ const mockFindUserTenants = vi.fn();
 const mockFindTenantMembers = vi.fn();
 const mockFindUserById = vi.fn();
 const mockDeleteMembership = vi.fn();
+const mockFindAllChildren = vi.fn();
+const mockFindArchivedChildren = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -20,6 +22,10 @@ vi.mock('$lib/server/db/factory', () => ({
 			findTenantMembers: mockFindTenantMembers,
 			findUserById: mockFindUserById,
 			deleteMembership: mockDeleteMembership,
+		},
+		child: {
+			findAllChildren: mockFindAllChildren,
+			findArchivedChildren: mockFindArchivedChildren,
 		},
 	}),
 }));
@@ -59,12 +65,14 @@ const NEW_TENANT = 't-invited-family';
 const CODE = 'inv-relocate-4642';
 const EMAIL = 'mover@example.com';
 
-/** 「自分ひとりの家族グループの owner」= 引っ越し可能な既定状態。 */
+/** 「自分ひとりの家族グループの owner」かつ子供 0 人 = 引っ越し可能な既定状態。 */
 function seedSoleOwner() {
 	mockFindUserTenants.mockResolvedValue([
 		{ userId: USER_ID, tenantId: OLD_TENANT, role: 'owner', joinedAt: '2026-01-01' },
 	]);
 	mockGetOwnerDeletionInfo.mockResolvedValue({ isOnlyMember: true, otherMembers: [] });
+	mockFindAllChildren.mockResolvedValue([]);
+	mockFindArchivedChildren.mockResolvedValue([]);
 }
 
 beforeEach(() => {
@@ -93,6 +101,36 @@ describe('#4642 引っ越し合流の可否判定', () => {
 		await expect(checkRelocationEligibility(USER_ID)).resolves.toEqual({
 			currentTenantId: OLD_TENANT,
 			blockedReason: 'HAS_OTHER_MEMBERS',
+		});
+	});
+
+	// #4642 PO 決裁 Q1: 子供が 1 人でも居たら阻止する。
+	// 子供はログインアカウントを持たない (memberships に行が無い) 場合があり、
+	// `isOnlyMember` だけで判定すると「自分ひとり」と誤判定してその子の記録ごと消える。
+	it('ログインアカウントを持たない子供が居れば引っ越せない (memberships は自分だけでも)', async () => {
+		mockFindAllChildren.mockResolvedValue([{ id: 'c-1', name: 'はなこ' }]);
+
+		await expect(checkRelocationEligibility(USER_ID)).resolves.toEqual({
+			currentTenantId: OLD_TENANT,
+			blockedReason: 'HAS_CHILDREN',
+		});
+	});
+
+	it('アーカイブ済みの子供が居ても引っ越せない (記録は消える対象のまま)', async () => {
+		mockFindArchivedChildren.mockResolvedValue([{ id: 'c-archived', name: 'たろう' }]);
+
+		await expect(checkRelocationEligibility(USER_ID)).resolves.toEqual({
+			currentTenantId: OLD_TENANT,
+			blockedReason: 'HAS_CHILDREN',
+		});
+	});
+
+	it('子供の在籍確認に失敗したら引っ越させない (確認できない = 居ない、にしない)', async () => {
+		mockFindAllChildren.mockRejectedValue(new Error('db down'));
+
+		await expect(checkRelocationEligibility(USER_ID)).resolves.toEqual({
+			currentTenantId: OLD_TENANT,
+			blockedReason: 'HAS_CHILDREN',
 		});
 	});
 
@@ -163,6 +201,17 @@ describe('#4642 引っ越し合流の実行', () => {
 		const result = await relocateToInvitedTenant(CODE, USER_ID, EMAIL);
 
 		expect(result).toEqual({ ok: false, blockedReason: 'HAS_OTHER_MEMBERS' });
+		expect(mockAcceptInvite).not.toHaveBeenCalled();
+		expect(mockDeleteMembership).not.toHaveBeenCalled();
+		expect(mockDeleteVacatedTenant).not.toHaveBeenCalled();
+	});
+
+	it('子供が居るときは受諾も削除も行わない (画面の同意だけを信用しない)', async () => {
+		mockFindAllChildren.mockResolvedValue([{ id: 'c-1', name: 'はなこ' }]);
+
+		const result = await relocateToInvitedTenant(CODE, USER_ID, EMAIL);
+
+		expect(result).toEqual({ ok: false, blockedReason: 'HAS_CHILDREN' });
 		expect(mockAcceptInvite).not.toHaveBeenCalled();
 		expect(mockDeleteMembership).not.toHaveBeenCalled();
 		expect(mockDeleteVacatedTenant).not.toHaveBeenCalled();
