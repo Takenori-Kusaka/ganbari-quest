@@ -5753,10 +5753,6 @@ export const OPS_MFA_SETUP_LABELS = {
 export const STATUS_LABELS = {
 	// #4715: nav / title と同じ画面名を画面内見出しにも出す (registry SSOT)
 	pageHeading: adminScreenHeading('status'),
-	// #4716 item 15: /admin/status に直書きされていた分析文言を SSOT へ
-	analysisHigh: '同年齢の中でも特に活発です',
-	analysisMid: '平均的なペースで成長しています',
-	analysisLow: 'これから伸びる余地がたくさんあります',
 	// Navigation link
 	childrenEditLink: `${ADMIN_SCREENS.children.name}でステータス編集 →`,
 
@@ -6392,9 +6388,7 @@ export const SETUP_CHILDREN_LABELS = {
 	addSuccessMessage: `${CHILD_TERMS.honorific}を登録しました！`,
 	// #4716 item 15: setup 画面に直書きされていた顧客可視文言を SSOT へ
 	nicknameFieldLabel: 'ニックネーム',
-	nicknamePlaceholder: 'たろうくん',
 	ageFieldLabel: '年齢',
-	autoUiModeHint: (modeLabel: string) => `${modeLabel}モードが自動で設定されます`,
 	expandCollapse: '▲ とじる',
 	expandOpen: '▼ なかみ',
 } as const;
