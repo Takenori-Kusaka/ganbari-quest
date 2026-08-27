@@ -524,6 +524,22 @@ export const PLAN_GATE_LABELS = {
 		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
 
 	/**
+	 * "クラウド保管は最大{max}件までです。古いエクスポートを削除してから、もう一度お試しください。"
+	 *
+	 * クラウド保管の同時保管数上限 (maxCloudExports) 到達時の 403 文言 (#4710)。
+	 *
+	 * `activityLimitReached` / `childLimitReached` と違い **アップグレードを案内しない**。
+	 * maxCloudExports は free=0 / standard=3 / family=10 で、free は 0 なのでプランゲート側で
+	 * 弾かれる。つまり**この上限に達するのは契約中の顧客だけ**であり、その顧客に
+	 * 「プランをアップグレードしてください」と言うのが #4710 の症状そのものになる
+	 * (最上位の family=10 に至っては上げ先が無い)。その場で取れる行動を案内する。
+	 *
+	 * @param max 上限値。上限に達した分岐でのみ呼ぶこと
+	 */
+	cloudExportLimitReached: (max: number) =>
+		`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`,
+
+	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
 	 *
 	 * PlanLimitError (`upgradeUrl='/admin/subscription'`) を受領した admin 取込フローで、

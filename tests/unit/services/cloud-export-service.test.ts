@@ -127,6 +127,8 @@ vi.mock('$lib/server/db/factory', () => ({
 
 // SUT
 import {
+	CloudExportPlanGateError,
+	CloudExportQuotaError,
 	cleanupExpiredExports,
 	consumeCloudExportDownload,
 	createCloudExport,
@@ -228,7 +230,10 @@ describe('cloud-export-service', () => {
 			expect(mockCloudExportRepo.insert).toHaveBeenCalledOnce();
 		});
 
-		it('無料プランではエラーになる', async () => {
+		// #4710: プラン未達と保管上限は **別の型** で throw する。両方を素の Error にすると
+		// 呼び出し元は message の部分一致で見分けるしかなくなり、契約済みの顧客にも
+		// 「スタンダード以上でご利用いただけます」と案内してしまう。
+		it('無料プランは CloudExportPlanGateError (プラン未達)', async () => {
 			mockPlanTier = 'free';
 
 			await expect(
@@ -237,19 +242,62 @@ describe('cloud-export-service', () => {
 					exportType: 'template',
 					licenseStatus: 'none',
 				}),
-			).rejects.toThrow('スタンダードプラン以上');
+			).rejects.toBeInstanceOf(CloudExportPlanGateError);
 		});
 
-		it('保管数上限に達している場合はエラーになる', async () => {
+		it('プラン未達の案内はアップグレード先 tier を言う', async () => {
+			mockPlanTier = 'free';
+			const err = await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'none',
+			}).catch((e: unknown) => e as CloudExportPlanGateError);
+
+			expect(err.requiredTier).toBe('standard');
+			expect(err.userMessage).toContain('スタンダードプラン以上');
+		});
+
+		it('保管数上限は CloudExportQuotaError (プラン未達ではない)', async () => {
 			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
 
-			await expect(
-				createCloudExport({
-					tenantId: 'tenant-1',
-					exportType: 'template',
-					licenseStatus: 'active',
-				}),
-			).rejects.toThrow('上限');
+			const promise = createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			});
+			await expect(promise).rejects.toBeInstanceOf(CloudExportQuotaError);
+			await expect(promise).rejects.not.toBeInstanceOf(CloudExportPlanGateError);
+		});
+
+		it('保管数上限の案内は削除を促し、アップグレードを求めない (#4710)', async () => {
+			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
+			const err = await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			}).catch((e: unknown) => e as CloudExportQuotaError);
+
+			expect(err.current).toBe(3);
+			expect(err.max).toBe(3);
+			expect(err.userMessage).toContain('削除');
+			// standard で契約済みの顧客にプラン案内をしない (これが #4710 の症状)
+			expect(err.userMessage).not.toContain('スタンダードプラン以上');
+			expect(err.userMessage).not.toContain('アップグレード');
+		});
+
+		it('family (最上位) でも保管上限に達しうる — 上げ先が無いのでプラン案内は誤り (#4710)', async () => {
+			mockPlanTier = 'family';
+			mockCloudExportRepo.countByTenant.mockResolvedValue(10);
+
+			const err = await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			}).catch((e: unknown) => e as CloudExportQuotaError);
+
+			expect(err).toBeInstanceOf(CloudExportQuotaError);
+			expect(err.max).toBe(10);
+			expect(err.userMessage).not.toContain('アップグレード');
 		});
 
 		it('PINコードは6文字の英数字', async () => {

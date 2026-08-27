@@ -72,4 +72,50 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 		const src = readFileSync(join(SRC_ROOT, 'lib/server/errors.ts'), 'utf-8');
 		expect(src).toMatch(/export function planLimitError\(\s*requiredTier: 'standard' \| 'family',/);
 	});
+
+	// #4710 追加: 要求 tier を引数で受け取れても、**そもそも何の失敗かを message の部分一致で
+	// 見分けていたら**同じ穴が開く。実際 `POST /api/v1/export/cloud` は
+	// 「プラン未達」と「保管上限」の 2 事象を `msg.includes('スタンダード') || msg.includes('上限')`
+	// で拾い、**両方**を planLimitError('standard') に潰していた。上限に達するのは契約中の顧客
+	// だけなので、既にスタンダードな顧客に「スタンダード以上でご利用いただけます」と返っていた。
+	//
+	// 加えてこの判定はプラン名・文言を変えた瞬間に外れ、403 が 500 に化ける (文言は labels.ts
+	// SSOT から組み立てられるので、変わることが前提の値である)。
+	//
+	// 失敗の種類は**型で**運ぶこと (専用 Error class を throw し `instanceof` で分岐する)。
+	it('プラン / 上限の判定を例外 message の部分一致で行っていない', () => {
+		// `.includes('…スタンダード…')` 等、プラン系の語の部分一致で分岐している呼び出し形。
+		// コメント中の言及に当たらないよう、`.includes(` を伴う形だけを見る。
+		const sniff =
+			/\.includes\(\s*['"`][^'"`]*(スタンダード|プラン|アップグレード|上限)[^'"`]*['"`]/;
+
+		/**
+		 * 既知の同 class 残置 (accepted residual、ADR-0061)。
+		 *
+		 * `DashboardService` は client 層で **HTTP レスポンス body** の message を見ており、
+		 * 是正には activity-pin API 側に固有 code を足す必要がある (別 endpoint の契約変更)。
+		 * #4710 の症状 (契約済みの顧客へのプラン案内) は起こさない — マッピング先は内部の
+		 * `'LIMIT_EXCEEDED'` であって顧客に見える文言ではないため、本 PR の scope 外とする。
+		 * ここを消すときは entry ごと削除して guard を締める。
+		 */
+		const ACCEPTED_RESIDUAL = new Set(['src/lib/services/production/DashboardService.ts']);
+
+		const violations: string[] = [];
+		for (const file of files) {
+			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
+			if (ACCEPTED_RESIDUAL.has(rel)) continue;
+			if (sniff.test(readFileSync(file, 'utf-8'))) violations.push(rel);
+		}
+		expect(
+			violations,
+			[
+				'失敗の種類をプラン系の語の部分一致で判定しています。',
+				`  該当: ${violations.join(', ')}`,
+				'→ service 側で専用 Error class を throw し、instanceof で分岐してください。',
+				'  文言は labels.ts SSOT から組み立てられる = 変わる値なので、部分一致は',
+				'  いずれ外れて 403 が 500 になります。外れる前も「プラン未達」と「上限到達」を',
+				'  同じ案内に潰し、契約済みの顧客に契約を促します (#4710)。',
+			].join('\n'),
+		).toEqual([]);
+	});
 });

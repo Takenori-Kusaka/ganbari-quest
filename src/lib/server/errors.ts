@@ -165,6 +165,46 @@ export function planLimitError(
 	);
 }
 
+/**
+ * **枠が埋まっている**ことによる 403 を返す (#4710)。
+ *
+ * {@link planLimitError} は「その tier では機能が使えない」前提で userMessage を要求 tier から
+ * 組み立てる (次の行動 = アップグレード)。一方 quota (クラウド保管 3 件等) の上限に達するのは
+ * **既に契約している顧客**なので、同じ文言を返すと「スタンダードプラン以上でご利用いただけます」と
+ * 契約済みの顧客に言うことになり、次の行動が取れない (#4710 の症状そのもの)。最上位プランの
+ * 顧客に至っては上げ先すら無い。
+ *
+ * したがって userMessage は要求 tier からではなく、**呼び出し側が labels SSOT から渡した
+ * 「その場で取れる行動」を言う文言**をそのまま使う。
+ *
+ * status / code は `planLimitError` と同じ 403 / `PLAN_LIMIT_EXCEEDED` を保つ (枠を決めるのは
+ * プランなので client の分岐条件は変わらない)。変えるのは顧客に見える文言だけ。
+ *
+ * `message` にも同じ文言を入れる: `message` は本来開発者向けだが、admin 設定画面は
+ * `resolveApiErrorMessage(status, d.error.message)` で **`message` の方を表示している**ため、
+ * ここに開発者向け文字列を入れると顧客側だけ generic 文言に落ちる。内訳 (current / max) は
+ * `context` に入れてログにだけ残す。
+ *
+ * @param userMessage 顧客向け文言。**必ず `PLAN_GATE_LABELS` 等の labels SSOT 経由で渡す** (ADR-0045)
+ * @param context ログに残す内訳 (current / max / tenantId 等)。顧客には出さない
+ */
+export function quotaLimitError(userMessage: string, context?: Record<string, unknown>) {
+	logger.warn(`[API] PLAN_LIMIT_EXCEEDED (quota): ${userMessage}`, { context });
+	const def = ERROR_DEFINITIONS.PLAN_LIMIT_EXCEEDED;
+	return json(
+		{
+			error: {
+				code: 'PLAN_LIMIT_EXCEEDED',
+				message: userMessage,
+				userMessage,
+				severity: def.severity,
+				action: def.action,
+			},
+		},
+		{ status: def.status },
+	);
+}
+
 export function notFound(message = 'みつかりませんでした') {
 	return apiError('NOT_FOUND', message);
 }
