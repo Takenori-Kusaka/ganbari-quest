@@ -4,6 +4,11 @@ import { goto, invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
+	AUTO_SLEEP_ACTIVE_MS,
+	AUTO_SLEEP_BATTLE_GRACE_MS,
+	AUTO_SLEEP_INACTIVE_RESET_MS,
+} from '$lib/domain/constants/auto-sleep';
+import {
 	getModeLabels,
 	ICON_CHECKLIST,
 	ICON_HOME,
@@ -34,7 +39,7 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
 import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
@@ -73,13 +78,10 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// #1292 自動スリープ設定
+// #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
 // 非アクティブ 1 分でタイマーリセット
 // バトル中は +2 分の grace period
-const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
-const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
-const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
@@ -91,7 +93,8 @@ onMount(() => {
 		if (config) {
 			soundService.preload(config.enabledSounds);
 		}
-		setChapters(CHILD_TUTORIAL_CHAPTERS);
+		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
+		setChapters(getChildTutorialChapters(uiMode));
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）
@@ -206,7 +209,7 @@ function handleStartChildTutorial() {
 			onStampClick={() => {
 				stampDialogOpen = true;
 			}}
-			onHelpClick={handleStartChildTutorial}
+			onHelpClick={isBaby ? undefined : handleStartChildTutorial}
 			isPremium={data.isPremium}
 			animateBalance={pointFlightEnabled}
 		>
@@ -238,7 +241,7 @@ function handleStartChildTutorial() {
 
 	{#if !isBaby}
 		<BottomNav items={navItems} />
-		<TutorialOverlay />
+		<TutorialOverlay childUiMode={uiMode} />
 	{/if}
 </div>
 

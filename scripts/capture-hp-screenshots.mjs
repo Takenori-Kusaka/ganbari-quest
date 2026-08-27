@@ -158,7 +158,8 @@ const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-3-admin-main',
 		url: '/junior/home',
-		description: 'Carousel 3: 中高生（13-18 歳代表）ホーム画面 — 自己管理ダッシュボード',
+		// #4714: 旧 description「自己管理ダッシュボード」に相当する UI は junior ホームに無い。
+		description: 'Carousel 3: 中高生（13-18 歳代表）ホーム画面 — 今日の活動とポイントの一覧',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
@@ -169,7 +170,8 @@ const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-4-admin-sub',
 		url: '/admin/children',
-		description: 'Carousel 4: 子供管理画面（家族メンバーの登録と切替）',
+		// #4714: 画面名は ADMIN_SCREEN_TERMS.children (= こども管理)。alt / data-label と揃える。
+		description: 'Carousel 4: こども管理画面（お子さまの登録と切り替え）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
@@ -239,7 +241,9 @@ const FEATURE_SCREENSHOTS = [
 	{
 		name: 'feature-monthly-report',
 		url: '/admin/status?childId=903',
-		description: 'Features: 月次レポート（活動・ポイント推移）',
+		// #4714: 撮影元は /admin/status の成長レポート (5 軸レーダー + 同年齢の平均)。
+		//   推移グラフ・前月比は写らないため、LP 側の文言もレーダーに合わせてある。
+		description: 'Features: 成長レポート（5 軸レーダーと同年齢の平均）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	// #1707 R2 / #1901 / #2201: soft-features 「家庭に寄り添う運用補助」
