@@ -42,11 +42,14 @@ import {
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
+	CERTIFICATE_TERMS,
+	CHALLENGE_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
 	CHILD_TERMS,
 	CONCEPT_ICONS,
+	CROSS_BORDER_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
 	DELETION_GRACE_TERMS,
@@ -54,6 +57,7 @@ import {
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
+	GROWTH_BOOK_TERMS,
 	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
@@ -109,22 +113,24 @@ export const PAGE_TITLES = {
 	activitiesIntroduce: '活動紹介スライド',
 	reports: 'レポート',
 	achievements: 'チャレンジ管理',
-	growth: '成長記録ブック',
+	growth: GROWTH_BOOK_TERMS.full,
 	points: 'ポイント管理',
 	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
 	cheer: '応援',
 	rewards: 'ごほうび',
 	checklists: 'チェックリスト管理',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'きょうだいチャレンジ',
+	// #4671 F3: 呼称は CHALLENGE_TERMS.canonical に統一 (旧「きょうだいチャレンジ」)
+	challenges: CHALLENGE_TERMS.canonical,
 	children: 'こども管理',
 	members: 'メンバー管理',
 	settings: '設定',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	billing: '請求書・支払い管理',
-	certificates: 'がんばり証明書',
+	certificates: CERTIFICATE_TERMS.full,
 	license: 'プラン・お支払い',
-	statusBenchmark: 'ベンチマーク管理',
+	// #4669 F6: 親に見えるのは成長レポートのみ (ベンチマーク編集は ops / NUC 限定) のため表題を画面内容に揃える
+	statusReport: '成長レポート',
 	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
 	packs: TEMPLATE_TERMS.userFacing,
 	// 認証
@@ -152,7 +158,7 @@ export const PAGE_TITLES = {
 	// デモ ご家族の見守り画面 (#2057)
 	demoAdminAchievements: 'チャレンジ履歴（デモ）',
 	demoAdminActivities: '活動管理',
-	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
+	demoAdminChallenges: `${CHALLENGE_TERMS.canonical}（デモ）`,
 	demoAdminChecklists: 'もちものチェックリスト',
 	demoAdminChildren: 'こども管理',
 	demoAdminEvents: 'イベント管理（デモ）',
@@ -245,6 +251,13 @@ export function formatCount(n: number): string {
 export function formatAge(n: number): string {
 	return `${n}歳`;
 }
+/**
+ * 子供向け画面のひらがな年齢表記 (#4512)。`formatAge` の漢字版と対。
+ * /switch / /view/[token] のように子供・来訪者が読む画面はこちらを使う。
+ */
+export function formatAgeKana(n: number): string {
+	return `${n}さい`;
+}
 export function formatAgeRange(min: number, max: number): string {
 	return `${min}〜${max}歳`;
 }
@@ -267,6 +280,20 @@ export function formatDateRange(start: string, end: string): string {
 
 export const SETUP_LABELS = {
 	layoutTitle: '初期セットアップ',
+	// #4512: setup wizard の step 名。旧実装は setup/+layout.svelte に直書きだった。
+	stepChildren: '子供登録',
+	stepQuestionnaire: 'かんたん質問',
+	stepPacks: '活動',
+	stepRewards: 'ごほうび',
+	stepRules: 'ルール',
+	stepActivitiesDefaults: '活動初期設定',
+	stepChallenges: '家族チャレンジ',
+	stepFirstAdventure: 'はじめての冒険',
+	stepComplete: '冒険の始まり',
+	// #4512: プレビュー開閉トグル。packs / rewards / rules / challenges の 4 step で同一文言のため
+	//   step 個別 namespace ではなく setup 共通に置く (SETUP_CHALLENGES_LABELS からも参照する)。
+	previewToggleOpen: '▼ なかみ',
+	previewToggleClose: '▲ とじる',
 } as const;
 
 // ============================================================
@@ -293,7 +320,10 @@ export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
 	reports: 'レポート',
-	growthBook: 'グロースブック',
+	// #4670 F2: 呼称をレポート画面リンクと同じ「記録ブック」に統一 (旧「グロースブック」)
+	growthBook: GROWTH_BOOK_TERMS.canonical,
+	// #4669 F7: /admin/status への到達導線 (record カテゴリ)
+	statusReport: '成長レポート',
 	achievements: 'チャレンジ履歴',
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	points: 'ポイント',
@@ -307,7 +337,7 @@ export const NAV_ITEM_LABELS = {
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'チャレンジ',
+	challenges: CHALLENGE_TERMS.canonical,
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
 	marketplace: TEMPLATE_TERMS.short,
@@ -648,7 +678,7 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 
 export const FEATURE_LABELS = {
 	report: 'レポート',
-	growthBook: 'グロースブック',
+	growthBook: GROWTH_BOOK_TERMS.canonical,
 	message: 'おうえんメッセージ',
 	reward: 'ごほうび',
 	// #1168: チェックリストを「持ち物」「ルーティン」に分離
@@ -659,7 +689,7 @@ export const FEATURE_LABELS = {
 	loginBonus: 'ログインボーナス',
 	challenge: 'チャレンジ',
 	event: 'イベント',
-	certificate: 'がんばり証明書',
+	certificate: CERTIFICATE_TERMS.full,
 	stamp: 'スタンプ',
 	// #1311: 「シールガチャ」語彙を撤回、実装実体 (日 1 回 cap login omikuji + 週次 stamp card) に合わせた SSOT
 	// 旧: 'シールガチャ' → 新: 'おみくじ' + 'スタンプカード' の 2 mechanic 分離 (ADR-0012 / ADR-0013 準拠)
@@ -1254,6 +1284,9 @@ export const MARKETPLACE_LABELS = {
 	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
+	// #4512: 詳細ルートの 404 文言 (旧: [type]/[itemId]/+page.server.ts 直書き)
+	errorInvalidType: 'コンテンツタイプが不正です',
+	errorItemNotFound: 'コンテンツが見つかりません',
 	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
@@ -1639,26 +1672,47 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminChallenges: {
-		title: 'チャレンジ管理',
+		title: CHALLENGE_TERMS.canonical,
+		// #4671 (EPIC #4650): 全 step が中央 modal で何も光らなかったため、画面の DOM 順
+		// (家族ストリーク → お子さまタブ → 今週のカード → 削除) に anchor を張り直す。
+		// 削除の説明は実装の事実 (同じ週のうちは再び用意され進捗は 0 に戻る) を正とする (PO 判断)。
 		steps: {
 			'challenges-intro': {
 				title: 'このページについて',
-				what: 'チャレンジは、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、そのチャレンジを保護者が一覧で見守れます。',
-				how: '設定や作成は不要です。お子さまがアプリを開くと今週のチャレンジが自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。',
+				what: `${CHALLENGE_TERMS.canonical}は、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、その${CHALLENGE_TERMS.canonical}を保護者が一覧で見守れます。`,
+				how: `設定や作成は不要です。お子さまがアプリを開くと今週の${CHALLENGE_TERMS.canonical}が自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。`,
 				goal: 'お子さまの画面に進捗バーが表示され、達成に近づく様子が見えます。期間内に達成すると特別な演出でお祝いされます。',
 			},
-			'challenges-view': {
-				title: '画面の見方',
-				what: '自動で用意された今週のチャレンジと、これまでの履歴が並びます。お子さまごとの進捗バーで達成までの道のりが見え、きょうだいで同じ目標に取り組むときはみんなの進捗が並んで表示されます。',
-				how: '上に今週のチャレンジ、その下に過去の履歴が並びます。各カードの進捗バーで達成度を確認できます。',
+			// ② 家族ストリーク (誰かが記録した日が続くと表示される。0 日の日は描画されない → optional)
+			'challenges-family-streak': {
+				title: '画面の見方（家族ストリーク）',
+				what: `一番上の「🔥 家族ストリーク」は、ご家族の誰かが記録した日が何日続いているかを表します。その下に今日すでに記録した人数が出ます。${CHALLENGE_TERMS.canonical}とは別の「家族全体の連続記録」です。`,
+				how: `1. 「家族ストリーク: N日」で連続日数を確認します\n2. 「今日は N人が記録済み」で今日の状況を確認します（誰も記録していない日はその旨が出ます）`,
+				goal: '「あと 1 人記録すれば今日も続くね」と、家族で声をかけ合うきっかけになります。',
+			},
+			// ③ お子さまタブ (子供 2 人以上のときだけ描画 → optional)
+			'challenges-child-tabs': {
+				title: '画面の見方（お子さまで絞り込む）',
+				what: `お子さまが 2 人以上のとき、上のタブで表示する子を切り替えられます。お子さまが 1 人のご家庭ではタブは出ず、その子の${CHALLENGE_TERMS.canonical}がそのまま並びます。`,
+				how: `1. 「すべて」を押すと全員分が並びます\n2. お子さまの名前のタブを押すと、その子の${CHALLENGE_TERMS.canonical}だけが表示されます`,
+				goal: '見たいお子さまの取り組みだけを表示して、進み具合を確認できます。',
+			},
+			// ④ 今週のカードの見方 (1 件以上あるときだけ描画 → optional)
+			'challenges-card': {
+				title: '画面の見方（今週のカード）',
+				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「報酬 N P」（P はポイント）が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
+				how: `1. 進捗バーで達成までの距離を確認します\n2. 「報酬 N P」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
 				goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
 			},
-			'challenges-manage': {
-				title: 'よく使う操作（絞り込みと削除）',
-				what: 'お子さまが複数いるときは、上のタブで子ごとに絞り込めます。合わないチャレンジはカードから取り除けます。',
-				how: '1. お子さまタブで見たい子に切り替えます\n2. 不要なチャレンジは各カードの「削除」で取り除きます',
-				goal: '見たいお子さまの取り組みだけを表示でき、合わない目標を整理できます。削除しても翌週また自動で用意されます。',
-				tips: ['チャレンジはアプリが自動で用意するので、保護者が目標を作る必要はありません'],
+			// ⑤ 削除 (カードが 1 件以上あるときだけ描画 → optional)
+			'challenges-delete': {
+				title: 'よく使う操作（削除）',
+				what: `お子さまに合わない${CHALLENGE_TERMS.canonical}は、カードから取り除けます。消えるのは押したお子さまの分だけです。`,
+				how: `1. カード右下の「削除」（きょうだいのカードでは「<お名前> を削除」）を押します\n2. 確認画面で「削除」を選びます`,
+				goal: `そのお子さまの今週の進捗は消えます。同じ週のうちは、次にお子さまがアプリを開くと今週分が改めて用意されます（進捗は 0 からになります）。翌週は新しい${CHALLENGE_TERMS.canonical}が届きます。`,
+				tips: [
+					`${CHALLENGE_TERMS.canonical}はアプリが自動で用意するので、保護者が目標を作る必要はありません`,
+				],
 			},
 		},
 	},
@@ -1772,24 +1826,64 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminReports: {
 		title: 'レポート',
+		// #4670 (EPIC #4650): step は画面の DOM 順 (右上リンク → upsell → タブ → 月の移動 → 週次設定 →
+		// きょうだいランキング)。呼称はリンク実表示 (CERTIFICATE_TERMS / GROWTH_BOOK_TERMS canonical) と
+		// タブ実表示 (REPORTS_LABELS.tabMonthly / tabWeekly と同文) に合わせ、週次に無い「曜日別」は書かない。
 		steps: {
 			'reports-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・レベルアップ・前の期間との比較がひと目でわかります。',
-				how: '「月次」「週次」のタブを切り替えて、見たい期間のレポートを表示します。',
+				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・ポイント・レベル・カテゴリ別の内訳がひと目でわかります。',
+				how: '上から順に、証明書・記録ブックへのリンク、「月次レポート」「週次レポート」のタブ、レポート本体が並びます。週次レポートのメール配信設定ときょうだいランキングは週次タブ / ページ下部にあります。',
 				goal: '「今月はうんどうを20回頑張ったね！先月より5回多いよ」と、具体的な数字でお子さまを褒められます。',
 			},
-			'reports-tabs': {
-				title: '画面の見方（月次／週次の切り替え）',
-				what: 'タブで「月次」と「週次」を切り替えます。月次は1ヶ月の総まとめ、週次は曜日別・カテゴリ別の傾向が見られます。',
-				how: '1. 「月次」「週次」タブをタップして切り替えます\n2. 月次は ◀ ▶ で月を移動できます\n3. 前の期間との差分が色付きで表示されます（赤=減少、緑=増加）',
-				goal: '「平日は頑張っているけど土日が少ない」のような傾向に気づけ、次の声かけのヒントになります。',
-			},
-			'reports-growth-book': {
-				title: 'よく使う操作（賞状・成長ブック）',
-				what: 'レポートから、お子さまの頑張りを「修了証（賞状）」として印刷したり、長期的な成長を「成長ブック」で振り返ったりできます。',
-				how: '1. このリンクから賞状・成長ブックのページを開きます\n2. 印刷・保存して、お子さまと一緒に振り返ります',
+			// ② 右上の証明書 / 記録ブック リンク (2 本を包む要素を spotlight)
+			'reports-links': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}・${GROWTH_BOOK_TERMS.canonical}）`,
+				what: `右上の 2 つのリンクから、がんばりの節目ごとに発行される「${CERTIFICATE_TERMS.canonical}」と、長期的な成長をまとめた「${GROWTH_BOOK_TERMS.canonical}」のページを開けます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}」を押すと${CERTIFICATE_TERMS.full}の一覧を開きます\n2. 「📖 ${GROWTH_BOOK_TERMS.canonical}」を押すと${GROWTH_BOOK_TERMS.full}を開きます\n3. どちらも画面で閲覧でき、印刷や PDF 保存はそれぞれのページから行います`,
 				goal: 'がんばりを形に残せるので、お子さまの達成感が大きくなり、次の目標への意欲につながります。',
+				tips: [`PDF 保存・印刷は${PAID_PLAN_LABEL}で利用できます（閲覧はどのプランでもできます）`],
+				relatedLinks: [
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
+					{ label: GROWTH_BOOK_TERMS.full, href: '/admin/growth-book' },
+				],
+			},
+			// ③ 無料プラン向け upsell バナー (free のときだけ描画、optional)
+			'reports-weekly-upsell': {
+				title: '画面の見方（週次メールレポートのご案内）',
+				what: `週次レポートを毎週メールで受け取る機能は${PAID_PLAN_LABEL}の特典です。${PLAN_FULL_TERMS.free}では、このお知らせと「週次レポート」タブのプレビューが表示されます。`,
+				how: `1. メールで受け取りたいときは「プランを見る →」からプランを確認します\n2. 今のプランのままでも、「週次レポート」タブで今週のまとめを画面で見られます`,
+				goal: 'メール配信を使うかどうかを、内容をプレビューで確かめてから決められます。',
+			},
+			'reports-tabs': {
+				title: '画面の見方（月次レポート／週次レポートの切り替え）',
+				what: 'タブで「月次レポート」と「週次レポート」を切り替えます。月次は 1 か月の総まとめ（先月との比較つき）、週次は今週のカテゴリ別の活動数・ハイライト・新しい実績・アドバイスです。',
+				how: '1. 「月次レポート」「週次レポート」のタブを押して切り替えます\n2. 週次レポートタブの上部には「⚙️ レポート設定」（メール配信の有効化・配信曜日）があります',
+				goal: '「今週はうんどうが多かった」「今月は先月より活動が増えた」のように、期間ごとの傾向に気づけ、次の声かけのヒントになります。',
+			},
+			// ⑤ 月の移動と先月比 (月次タブのときだけ描画、optional)
+			'reports-month-nav': {
+				title: 'よく使う操作（月の移動と先月比）',
+				what: '◀ ▶ で見たい月に移動します。月次レポートの数字には先月との差が色付きで表示されます（緑＝増加、赤＝減少）。',
+				how: '1. ◀ で前の月、▶ で次の月に移動します\n2. 各数字の下の「先月比」で増減を確認します',
+				goal: '「先月より 5 回多いよ」と根拠のある声かけができ、月ごとの伸びを追えます。',
+			},
+			// ⑥ 週次メール配信設定 (週次タブのときだけ描画、optional)
+			'reports-weekly-settings': {
+				title: 'よく使う操作（週次レポートのメール配信設定）',
+				what: `「⚙️ レポート設定」で、週次レポートをメールで受け取るかどうかと配信曜日を設定します。メール配信は${PAID_PLAN_LABEL}で利用できます。`,
+				how: '1. 「週次レポートを有効にする」にチェックを入れます\n2. 「配信曜日」を選びます\n3. 「保存」を押します',
+				goal: '毎週決まった曜日に、お子さまのがんばりのまとめが保護者のメールに届きます。',
+			},
+			// ⑦ きょうだいランキング (プレミアム + ランキング ON + 子 2 人以上のときだけ描画、optional)
+			'reports-sibling-ranking': {
+				title: '画面の見方（きょうだいランキング）',
+				what: `きょうだいの今週の活動数をくらべる「👫 きょうだいランキング」です。${PLAN_FULL_TERMS.premium}で、設定の「きょうだいランキング」が ON、かつお子さまが 2 人以上のときに表示されます。`,
+				how: '1. 「今週のまとめ」でもっとも活発だったお子さまを確認します\n2. 「週別 活動数のうつりかわり」「カテゴリ別くらべっこ」のグラフで推移と得意分野をくらべます',
+				goal: 'きょうだいそれぞれの得意・がんばりどころが分かり、比べて責めるのではなく、それぞれを認める声かけに使えます。',
+				tips: [
+					'表示されないときは、プラン・設定の「きょうだいランキング」・お子さまの人数を確認してください',
+				],
 			},
 		},
 	},
@@ -1995,6 +2089,10 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminSubscription: {
 		title: 'プラン・課金',
+		// #4668 (EPIC #4650): step は SaasLicensePanel / NucLicensePanel の DOM 順に「上から下」で並べ、
+		// ボタン名・見出しは画面と同じ atom (TRIAL_TERMS / STRIPE_PORTAL_TERMS / CANCEL_TERMS 等) を引く。
+		// 環境依存 UI (Checkout 照合バナー / Portal fallback / 期末解約バナー / 請求履歴カード) は出た
+		// ときに画面自身が説明するため step 化しない (ガイドは常設要素だけを扱う)。
 		steps: {
 			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
 			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
@@ -2002,23 +2100,48 @@ export const PAGE_GUIDE_LABELS = {
 			'subscription-intro': {
 				title: 'このページについて',
 				what: '今ご利用中のプランや契約の状況を確認するページです。プランに関する操作の入り口がここに集まっています。',
-				how: '上から順に、現在の状況・プランの管理・支払い履歴への入り口が並びます。表示される項目はご利用環境によって変わります。',
+				how: `上から順に、現在のプラン・利用状況と上限・${PLAN_CHANGE_TERMS.changeNoun}や${STRIPE_PORTAL_TERMS.history}への入り口が並びます。表示される項目はご利用環境やプランによって変わります。`,
 				goal: `プランの状況をひと目で把握でき、必要なときに${PLAN_CHANGE_TERMS.changeNoun}や支払いの管理へ迷わず進めます。`,
 			},
-			// ② 画面の見方（現在のプラン）— SaaS 版のみ（NUC では本セクション非表示のため除外）。
+			// ② 画面の見方（現在のプラン）— SaaS 版のみ。カード全体を spotlight。残り日数はここには出ない
+			// (利用状況カードの step で説明する、PO 判断)。
 			'subscription-current-plan': {
 				title: '画面の見方（現在のプラン）',
-				what: 'いま契約中のプランと、無料トライアル中ならその残り期間がここに表示されます。',
-				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
-				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
+				what: 'いま契約中のプランの名前と、ステータス（有効・猶予期間など）・有効期限・家族名・登録日がここに表示されます。',
+				how: '1. 「プラン」の行で今のプランを確認します\n2. 「ステータス」と「有効期限」で契約が続いているかを確認します',
+				goal: '今どのプランで、いつまで使えるかをすぐに確認できます。',
 			},
-			// ③ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			// ③ 画面の見方（利用状況と上限）— SaaS 版のみ。PlanStatusCard (上限 / トライアル残り日数 / アップグレード CTA)。
+			'subscription-plan-status': {
+				title: '画面の見方（利用状況と上限）',
+				what: '今のプランで登録できるお子さまの人数・カスタム活動の数・データ保持期間と、現在の使用数が並びます。無料トライアル中なら残り日数もここに表示されます。',
+				how: '1. 「こども」「カスタム活動」の「使用数 / 上限」を見ます\n2. 上限に近づいたら、このカードのアップグレードボタンから上のプランに進めます',
+				goal: 'あと何人・何件まで登録できるかが分かり、足りなくなる前にプランを見直せます。',
+			},
+			// ④ 最頻操作（無料トライアルを開始する）— 無料プランで未使用のときだけ出るカード (optional)。
+			'subscription-trial': {
+				title: `よく使う操作（${TRIAL_TERMS.startButton}）`,
+				what: `${PLAN_FULL_TERMS.standard}の全機能を${TRIAL_TERMS.duration}無料で試せます。${TRIAL_TERMS.noCreditCard}で、自動で課金されることはありません。`,
+				how: `1. 「${TRIAL_TERMS.startButton}」を押します\n2. すぐに${PLAN_FULL_TERMS.standard}の機能が使えるようになり、残り日数が上の利用状況カードに表示されます`,
+				goal: `${TRIAL_TERMS.duration}のあいだ上位プランを実際に使ってみてから、続けるかどうかを決められます。`,
+			},
+			// ⑤ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。契約状況で分岐するため両分岐を記述。
+			// 契約済み分岐は PIN / 確認フレーズ dialog (+ ダウングレード確認) を省略せず書く (PO 判断)。
 			'subscription-plan-management': {
 				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
 				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
-				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
-				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
-				tips: [`${CANCEL_TERMS.anytime}できます`],
+				how: `・未契約のとき: 1. プランを選びます 2. 「${PLAN_TERMS.standard}プランで始める」など選んだプランのボタンを押し、お支払い手続きに進みます\n・契約済みのとき: 1. 「${STRIPE_PORTAL_TERMS.short}を開く」を押します 2. 上位プランからの変更で使えなくなるデータがある場合は、先に確認画面が出ます 3. ${OYAKAGI_TERMS.shortName}（親 PIN）か確認フレーズを入力します 4. ${STRIPE_PORTAL_TERMS.canonical}でプラン変更や支払い方法を手続きします`,
+				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法や請求書も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
+				tips: [
+					`${STRIPE_PORTAL_TERMS.short}を開く前に${OYAKAGI_TERMS.shortName}の入力を求めるのは、お子さまの誤操作で${CANCEL_TERMS.canonical}やダウングレードが起きないようにするためです`,
+				],
+			},
+			// ⑥ 解約の入口 — SaaS 版のみ。ページ末尾の控えめなリンクを spotlight。
+			'subscription-cancel': {
+				title: `${CANCEL_TERMS.canonical}の入口`,
+				what: `${CANCEL_TERMS.anytime}できます。有料プランをやめるときは、ページの一番下にあるこのリンクから進みます。`,
+				how: `1. 「${CANCEL_TERMS.canonical}をご検討の方」を押します\n2. 次の画面で${CANCEL_TERMS.canonical}の内容を確認して手続きします`,
+				goal: `${CANCEL_TERMS.canonical}の場所を探し回らずに済み、続けるかやめるかをいつでも自分で決められます。`,
 			},
 			// ②' 画面の見方（ご利用中の版）— NUC セルフホスト版のみ（#3296）。NucLicensePanel の
 			// Edition badge を spotlight し、全機能が制限なく使える旨を案内する。
@@ -2028,38 +2151,19 @@ export const PAGE_GUIDE_LABELS = {
 				how: 'ここに版の名前と、使える範囲が表示されます。お申し込みや支払いの手続きは必要ありません。',
 				goal: '追加の費用や手続きなしで、すべての機能をそのまま使えることが分かります。',
 			},
-			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況セクションを spotlight。
+			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況カード全体を spotlight。
 			'subscription-nuc-usage': {
 				title: '画面の見方（利用状況）',
 				what: '今このアプリに登録されているお子さまの人数や、これまでに作った活動の数を確認できます。',
 				how: '1. 登録人数や活動数の一覧を見ます\n2. データの保存期間もあわせて確認できます',
 				goal: 'どれくらい使っているかをひと目で把握できます。',
 			},
-		},
-	},
-	adminBilling: {
-		title: 'お支払い',
-		steps: {
-			// ① ページ概要（selector 省略で画面中央 modal）。
-			'billing-intro': {
-				title: 'このページについて',
-				what: `ご契約の状況確認と、${STRIPE_PORTAL_TERMS.short}での支払い管理・${CANCEL_TERMS.canonical}をまとめたページです。`,
-				how: '上から「ご契約状況」「請求管理」の順に並びます。',
-				goal: `支払いの状況を把握でき、必要なら${STRIPE_PORTAL_TERMS.short}や${CANCEL_TERMS.canonicalVerb}手続きに進めます。`,
-			},
-			// ② 画面の見方（ご契約状況）。
-			'billing-overview': {
-				title: '画面の見方（ご契約状況）',
-				what: '契約中のプランの状態と、次回の請求予定がここに表示されます。',
-				how: '1. 契約状況を確認します\n2. 下の「請求管理」で支払い方法を変えられます',
-				goal: '今の契約と請求予定をひと目で確認できます。',
-			},
-			// ③ 最頻操作（請求管理ページ）。ご契約があるときに「請求管理ページを開く」ボタンが出る。
-			'billing-portal': {
-				title: `よく使う操作（${STRIPE_PORTAL_TERMS.short}）`,
-				what: `支払い方法の変更や領収書の確認は${STRIPE_PORTAL_TERMS.canonical}から行います。ご契約があるときに開くボタンが表示されます。`,
-				how: `1. ${STRIPE_PORTAL_TERMS.short}を開きます\n2. 支払い方法や${CANCEL_TERMS.canonical}を手続きします`,
-				goal: `支払い方法を最新に保て、${CANCEL_TERMS.anytime}できます。`,
+			// ④' サポート — NUC セルフホスト版のみ (#4668 F5)。お問い合わせ / ドキュメントへのリンク。
+			'subscription-nuc-support': {
+				title: '困ったときは（サポート）',
+				what: 'セルフホスト版で困ったときの相談先とドキュメントへのリンクがここにまとまっています。',
+				how: '1. 使い方や不具合の相談は「お問い合わせ」を押します\n2. 設定やバックアップの手順は「ドキュメント」で確認します',
+				goal: '問い合わせ先を探し回らずに、困りごとをすぐ相談できます。',
 			},
 		},
 	},
@@ -2091,25 +2195,72 @@ export const PAGE_GUIDE_LABELS = {
 	},
 	adminStatus: {
 		title: '成長レポート',
+		// #4669 (EPIC #4650): step は画面の DOM 順 (子供タブ → 編集リンク → チャート → 分析サマリー →
+		// 先月からの変化 → レベル称号 → (ops / NUC) ベンチマーク編集)。比較線の呼称は凡例と同じ
+		// 「同年齢の平均」(STATUS_LABELS.comparisonLabel) に統一し、「翌月以降のチャートで変化を確認」の
+		// 誤案内は「先月からの変化」テーブルへ差し替える (PO 判断)。
 		steps: {
 			'status-intro': {
 				title: 'このページについて',
-				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。`,
-				how: 'レーダーチャートで5軸のバランスを見ます。同年代の目安（ベンチマーク）と重ねて表示されるので、平均との比較もできます。',
+				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。見出しに表示中のお子さまの名前が出ます。`,
+				how: '上のタブでお子さまを選ぶと、その子のレーダーチャート・分析サマリー・先月からの変化が表示されます。チャートには同年齢の平均が重ねて表示されるので、平均との比較もできます。',
 				goal: '「今月はうんどうが伸びた」「べんきょうが少なめ」といった傾向が数値とグラフで分かり、声かけや活動設計の参考になります。',
+			},
+			// ② お子さまの切替タブ (子供 1 人以上で表示。0 人時は登録案内カードを指す step に置き換わる)
+			'status-child-tabs': {
+				title: '画面の見方（お子さまを選ぶ）',
+				what: 'きょうだいがいるご家庭では、ここでどのお子さまのレポートを見るかを切り替えます。選んだお子さまの名前が下の見出しに表示されます。',
+				how: '1. 見たいお子さまの名前のタブを押します\n2. 下のレポートがそのお子さまの内容に切り替わります',
+				goal: 'きょうだい全員の成長を、同じページで順番に確認できます。',
+			},
+			// ②' 子供 0 人時の登録案内 (optional: 0 人のときだけ描画される)
+			'status-empty': {
+				title: 'まずお子さまを登録する',
+				what: 'お子さまが 1 人も登録されていないため、成長レポートはまだ表示できません。',
+				how: '1. 「こども管理でお子さまを登録する →」を押します\n2. お子さまを登録して活動を記録すると、このページにレポートが表示されます',
+				goal: '登録後は、5 つの軸のバランスと同年齢の平均との比較がここに出ます。',
+			},
+			// ③ 右上「こども管理でステータス編集 →」
+			'status-edit-link': {
+				title: '画面の見方（数値を手で調整する）',
+				what: '各分野の★（ステータス）を手で調整したいときは、このリンクからこども管理に移動します。',
+				how: '1. 「こども管理でステータス編集 →」を押します\n2. こども管理で対象のお子さまを開き、ステータスを編集します',
+				goal: '記録だけでは反映しきれない頑張りを、保護者の判断で補正できます。',
 			},
 			'status-radar': {
 				title: '画面の見方（バランスチャート）',
-				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。',
-				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. ベンチマーク（目安）との差を見比べます',
+				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。重ねて表示される線は「同年齢の平均」です。',
+				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. 「同年齢の平均」の線との差を見比べます',
 				goal: 'バランスの偏りにひと目で気づけるので、お子さまの今の状態を客観的に把握できます。',
 			},
 			'status-act': {
-				title: 'よく使う操作（次の一手を決める）',
-				what: 'このページの使いどころは「どの分野を伸ばすか」を決めることです。分析サマリーでへこんでいる軸を見つけ、活動管理で新しい活動を足してバランスを整えます。',
-				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します\n3. 翌月以降のチャートで変化を確認します',
+				title: '画面の見方（分析サマリーで次の一手を決める）',
+				what: '分析サマリーは分野ごとに「特に活発」「平均的」「伸びる余地」の 3 段階でコメントします。コメントは同年齢の平均との比較（偏差値）に基づきます。ここでへこんでいる分野を見つけるのが、このページの使いどころです。',
+				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します',
 				goal: '「得意をもっと伸ばす」「苦手を少しだけ足す」など、お子さまに合った関わり方を選べます。',
 				tips: ['無理に全軸を均等にする必要はありません。得意分野を伸ばす視点も大切です'],
+			},
+			// ⑤ 先月からの変化 (optional: 先月の記録が無いお子さまでは描画されない)
+			'status-monthly-change': {
+				title: '画面の見方（先月からの変化）',
+				what: '「先月からの変化」は、分野ごとのポイントが先月と比べてどれだけ増減したかを数字と矢印で表します。',
+				how: '1. 「+12 ↑」のように増えた分野はそのまま続けます\n2. 「-5 ↓」のように減った分野は、声かけや活動の見直しのきっかけにします',
+				goal: '今月の取り組みが先月より増えたか減ったかを、分野ごとに確認できます。',
+			},
+			// ⑥ レベル称号カスタマイズ (本ページで保護者が操作できる唯一の書き込み機能)
+			'status-level-titles': {
+				title: 'よく使う操作（レベル称号カスタマイズ）',
+				what: 'お子さまのレベル（Lv.1〜10）ごとの称号を、ご家庭オリジナルの言葉に変えられます。お子さまの画面に表示される称号がここで決まります。',
+				how: '1. 「▼ 開く」を押してセクションを開きます\n2. 変えたい Lv. の欄に称号を入力して「保存」を押します\n3. 元に戻したいときは「リセット」、全部戻すときは「全ての称号をデフォルトに戻す」を押します',
+				goal: '「見習い」「冒険者」などの既定の称号を、お子さまが喜ぶ言葉に変えてやる気につなげられます。',
+				tips: ['空欄で保存はできません。既定に戻すときは「リセット」を使います'],
+			},
+			// ⑦ ベンチマーク編集 (ops / NUC 単一運用者のみ描画。optional で DOM 有無を判定)
+			'status-benchmark-edit': {
+				title: '画面の見方（同年齢の平均を設定する）',
+				what: 'ここでは年齢ごとに「同年齢の平均」の値（平均と SD = ばらつきの大きさ）を設定できます。チャートの比較線と分析サマリーのコメントは、この値をもとに計算されます。',
+				how: '1. 年齢を選びます\n2. 分野ごとに平均と SD を入力して「保存」を押します\n3. 目安の範囲は年齢ボタンの下に表示されます',
+				goal: 'ご家庭の実態に合った基準で比較できるようになります。',
 			},
 		},
 	},
@@ -3056,16 +3207,13 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
-// #4619: 解約の説明で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた記録が
-// 物理削除される**事実が抜ける。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS
-// .tableContent) と同じ 2 文をここで 1 度だけ組み立て、解約を説明する文言が共有する。
+// #4540 Q4 (#4619): 解約導線で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた
+// 記録が物理削除される**事実が解約を決める瞬間に見えない (PO 決裁: 顧客に有利に見える方向の
+// 不正確さ)。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS.tableContent) と同じ 2 文
+// をここで 1 度だけ組み立て、解約導線の各文言が共有する。
 //
 // 数値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS ただ 1 箇所。
 // 本文言は PLAN_RETENTION_TERMS (terms.ts atom) 経由でしか参照せず、日数を直書きしない。
-//
-// 注: 同名・同内容の定数を PR #4596 (#4540 Q4、解約導線の告知) も導入する。先に merge された
-//   側が正となり、後から rebase する側は同一宣言が 2 つになって TypeScript が即座に落ちる
-//   (silent な二重定義にはならない)。その時点で片方を削り、参照をこの 1 本に寄せること。
 const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
 
 // #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
@@ -3131,7 +3279,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	trialActiveUntil: (date: string) => `${date} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
 	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
-	trialStartButton: '無料トライアルを開始する',
+	trialStartButton: TRIAL_TERMS.startButton,
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
 
@@ -3139,8 +3287,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 「解約申請中か」「いつまで使えるか」は Stripe が SSOT のため、load で都度取得した値を表示する。
 	cancelPendingTitle: `${CANCEL_TERMS.canonical}手続き中です`,
 	cancelPendingDesc: (date: string) =>
-		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
-	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
+	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
 	cancelPendingRevertAction: `${CANCEL_TERMS.canonical}を取り消して継続する`,
 	cancelPendingRevertSubmitting: '取り消しています…',
 	cancelPendingRevertError: `${CANCEL_TERMS.canonical}の取り消しに失敗しました。時間をおいて再度お試しください`,
@@ -3161,7 +3309,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
-	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
 	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
@@ -3170,7 +3318,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
 	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
 	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
-	billingHistoryTitle: '請求履歴',
+	billingHistoryTitle: STRIPE_PORTAL_TERMS.history,
 	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
 	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
 	billingHistoryFeatureReceipts: 'お支払い履歴の確認',
@@ -3408,8 +3556,8 @@ export const REPORTS_LABELS = {
 	categoryUnknown: 'その他',
 	// ページヘッダー
 	pageTitle: '📊 レポート',
-	certificatesLink: '📜 証明書',
-	growthBookLink: '📖 記録ブック',
+	certificatesLink: `📜 ${CERTIFICATE_TERMS.canonical}`,
+	growthBookLink: `📖 ${GROWTH_BOOK_TERMS.canonical}`,
 
 	// 設定更新完了
 	settingsUpdated: '設定を更新しました',
@@ -3738,9 +3886,8 @@ export const SIGNUP_LABELS = {
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
 	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
 	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
-	crossBorderNotice:
-		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
-	crossBorderNoNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
+	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
 	crossBorderAgreePrefix:
 		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
 	crossBorderAgreeLink: '詳細',
@@ -3768,6 +3915,17 @@ export const SIGNUP_LABELS = {
 	blockTermsRequired: '利用規約への同意が必要です',
 	blockPrivacyRequired: 'プライバシーポリシーへの同意が必要です',
 	blockCrossBorderRequired: '米国への個人データ移転への同意が必要です',
+
+	// #4497 rider: signup server action のエラー文言。
+	// 旧実装は +page.server.ts に直書きで、うち 1 件は上の passwordMismatchError と同一文言の
+	// 重複定義だった。重複分はここに再定義せず、server 側から passwordMismatchError を参照する。
+	errors: {
+		consentRequired: '利用規約・プライバシーポリシー・データの保存/処理への同意が必要です',
+		allFieldsRequired: '全ての項目を入力してください',
+		passwordTooShort: 'パスワードは8文字以上で入力してください',
+		emailMissing: 'メールアドレスが指定されていません',
+		codeRequired: '確認コードを入力してください',
+	},
 } as const;
 
 // ANALYTICS_LABELS: 削除 (#2284 EPIC #2283)
@@ -3922,8 +4080,12 @@ export const CANCELLATION_LABELS = {
 	// #4585-1 QM: 体験中の顧客は「請求は無い」が「無料プランの上限でもない」。freePlanNotice を
 	// そのまま出すと、同じ画面で「無料プランをご利用中」と「無料プランに戻ると」が並び、
 	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
-	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
-	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
+	//   #4540 Q4: 体験中の顧客も手続き後は無料プランに戻るため、保持期間の告知対象に含める。
+	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。${FREE_PLAN_RETENTION_NOTICE}データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
+	//   #4540 Q4: 「お子さまの記録は残ります」だけで終えると、無料プランの保持期間を超えた記録が
+	//   物理削除される事実が解約を決める瞬間に見えない (顧客に有利に見える方向の不正確さ)。
+	//   保持期間は FREE_PLAN_RETENTION_NOTICE (= 特商法と同一文) を共有し、日数は直書きしない。
+	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。${FREE_PLAN_RETENTION_NOTICE}次回以降の請求は発生しません。`,
 
 	// Submit
 	submitButton: '解約手続きへ進む',
@@ -3955,6 +4117,12 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4525: 有料プランだが Stripe 契約が紐づいていない異常状態。この画面から
+	//   ${STRIPE_PORTAL_TERMS.canonical} を開けないため、フォームを送っても解約は完了しない。
+	//   「お手続きは必要ありません」(freePlanNotice) を出すと課金が続いたまま放置される。
+	//   再試行しても直らない状態なので、最初からサポート窓口へ案内する (#4548 と同じ判断)。
+	paidWithoutStripeNotice: `ご契約の状態を確認できませんでした。この画面からは${CANCEL_TERMS.canonical}のお手続きを完了できません。お手数ですが、「設定 > サポート」からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 
 	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
 	// #4585-3: fallback 規則を子供だけ「直近の利用順」に変更 (PO 決裁 Q1 / Q3)。
@@ -4378,10 +4546,13 @@ export const CHALLENGES_LABELS = {
 	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
 	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: `${CONCEPT_ICONS.challenge} ${CHALLENGE_TERMS.canonical}`,
 	deletedNotice: 'チャレンジを削除しました',
-	noChallengeTitleIcon: '👥',
-	noChallengeTitle: 'チャレンジはまだありません',
+	noChallengeTitleIcon: CONCEPT_ICONS.challenge,
+	noChallengeTitle: `${CHALLENGE_TERMS.canonical}はまだありません`,
+	// #4671 F8: 家族ストリークカードの日本語直書きを SSOT 化
+	familyStreakRecordedToday: (count: number) => `今日は${formatPeople(count)}が記録済み`,
+	familyStreakNoneToday: '今日はまだ誰も記録していません',
 	badgeAllCompleted: '全員クリア！',
 	/** #4689: その子だけのチャレンジ (週次自動生成は子供ごとに内容が違うためこちらが既定) */
 	badgeCompleted: 'クリア！',
@@ -4613,7 +4784,7 @@ export const DEMO_TOP_LABELS = {
 // ============================================================
 
 export const GROWTH_BOOK_LABELS = {
-	pageHeading: '📖 成長記録ブック',
+	pageHeading: `📖 ${GROWTH_BOOK_TERMS.full}`,
 	backToReports: '← レポートへ',
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
@@ -4894,8 +5065,14 @@ export const STATUS_LABELS = {
 	benchmarkInfoDesc2:
 		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
 
-	// Preview label
-	previewLabel: 'プレビュー:',
+	// #4669 F2: 表示対象のお子さま切替タブ (全保護者) / F1: 子供 0 人時の案内
+	childTabsAriaLabel: '表示するお子さまを選ぶ',
+	emptyNoChildren: 'お子さまが登録されると、ここに成長レポートが表示されます。',
+	emptyNoChildrenLink: 'こども管理でお子さまを登録する →',
+	// #4669 F11: 分析サマリー 3 段階コメント (しきい値は validation/status.ts ANALYSIS_DEVIATION_*)
+	analysisHigh: '同年齢の中でも特に活発です',
+	analysisMid: '平均的なペースで成長しています',
+	analysisLow: 'これから伸びる余地がたくさんあります',
 
 	// Benchmark guide
 	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
@@ -4983,10 +5160,14 @@ export const CONSENT_LABELS = {
 	descNew: 'サービスの利用を開始するには、規約への同意が必要です。',
 
 	// Previous consent info
-	previousConsentPrefix: '前回同意: ',
+	// #4497: 旧実装は「前回同意 → 最新」を利用規約の version 固定で描画していたため、
+	// プライバシーポリシーだけを改定すると「2026-04-28 → 2026-04-28」と嘘を表示した。
+	// 文書ごとに 1 行ずつ、その文書自身の前回 / 最新を出す。
+	previousConsentHeading: '前回同意したバージョン',
 	previousConsentArrow: ' → ',
-	previousConsentLatest: '最新: ',
 	previousConsentNone: '未同意',
+	previousConsentLine: (docName: string, previous: string, latest: string) =>
+		`${docName}: ${previous} → ${latest}`,
 
 	// Terms
 	termsSectionTitle: '利用規約',
@@ -5000,17 +5181,35 @@ export const CONSENT_LABELS = {
 	privacyReadLink: 'プライバシーポリシーを確認する ↗',
 	privacyCheckLabel: 'プライバシーポリシーに同意します',
 
+	// Cross-border transfer (#4497 / 個人情報保護法 §28)
+	// Google OAuth 経由の登録では signup フォームを通らないため、越境移転同意は
+	// この画面が唯一の取得点になる（全サインアップ経路で証跡を残す）。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.transfer,
+	crossBorderVersionPrefix: 'バージョン: ',
+	crossBorderReadLink: '移転先・提供情報を確認する ↗',
+	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	crossBorderCheckLabel: CROSS_BORDER_TERMS.consentLabel,
+
 	// Submit button
 	submitLoading: '同意中...',
 	submitButton: '同意して続ける',
 
+	// Exit (#4497): 同意しない選択肢が画面から到達できないと「同意するしかない」状態になる。
+	// /auth/logout は実在するので、そこへの導線を明示する。
+	declineHeading: '同意しない場合',
+	declineDescription:
+		'同意されない場合、本サービスをご利用いただけません。ログアウトのうえ、ご利用の継続をご検討ください。データは削除されません。',
+	declineLogoutLink: '同意せずログアウト',
+
 	// Error messages (used in +page.svelte and +page.server.ts)
 	errors: {
 		loginRequired: 'ログインが必要です',
-		bothRequired: '利用規約とプライバシーポリシーの両方に同意してください',
+		bothRequired: '表示されている項目すべてに同意してください',
 		recordFailed: '同意の記録に失敗しました。もう一度お試しください。',
 		termsRequired: '利用規約への同意が必要です',
 		privacyRequired: 'プライバシーポリシーへの同意が必要です',
+		crossBorderRequired: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	},
 } as const;
 
@@ -5283,6 +5482,9 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	recordButton: 'タップしてきろく！',
 	selectActivityHint: 'がんばりをえらんでね！',
 	skipButton: 'あとでやる（スキップ）',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorActivityRequired: '活動を選択してください',
+	errorRecordFailed: '記録に失敗しました。もう一度お試しください。',
 } as const;
 
 // ============================================================
@@ -5456,6 +5658,15 @@ export const SETUP_CHILDREN_LABELS = {
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
 	addFormTitle: '子供を追加',
+	// #4512: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
+	nicknameLabel: 'ニックネーム',
+	nicknamePlaceholder: 'たろうくん',
+	ageLabel: '年齢',
+	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNicknameRequired: 'ニックネームを入力してください',
+	errorAgeRange: '年齢は0〜18で入力してください',
+	errorNoChildren: `1人以上の${CHILD_TERMS.neutral}を登録してください`,
 	themeColorLabel: 'テーマカラー',
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
@@ -6022,17 +6233,9 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// 子供別タブ
 	childTabAllLabel: 'すべて',
 	childTabAllAriaLabel: 'すべてのお子さま',
-	// 一括追加 / cross-child copy
-	bulkAddAction: '全員にこのチャレンジを追加',
-	copyFromOtherChildAction: '他のお子さまから取り込む',
-	copyConfirmTitle: (sourceName: string, targetCount: number) =>
-		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
-	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
-	// 一括追加 完了通知 (#2362 PR-7)
-	bulkCreatedMessage: (createdCount: number) => `${createdCount} 件のチャレンジを追加しました。`,
 	// per-child empty state
+	// #4671 F7: 一括追加 / cross-child copy の label は #3195 の機能撤去で参照 0 件になったため削除
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
-	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
 	// #3195: アプリ自動生成への一本化 (親手動作成撤去、読み取り専用ビュー)
 	autoGeneratedDesc:
 		'チャレンジはアプリが毎週自動で用意します。お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標が届きます。',
@@ -6053,7 +6256,7 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
-	pageTitle: '📜 がんばり証明書',
+	pageTitle: `📜 ${CERTIFICATE_TERMS.full}`,
 	backToReportsLink: 'レポートへ',
 	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
@@ -6235,6 +6438,8 @@ export const SETUP_PACKS_LABELS = {
 	mustDefaultCheckboxHint:
 		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。',
 	mustDefaultBadge: 'おやくそく推奨',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorPackLoadFailed: (packId: string) => `パック「${packId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 2「ごほうび一括追加」labels
@@ -6252,6 +6457,9 @@ export const SETUP_REWARDS_LABELS = {
 	childPickerLabel: 'どのお子さまに追加しますか？',
 	rewardsCountSuffix: '件のごほうび',
 	emptyChildrenNotice: 'お子さまが登録されていないため、このステップはスキップされます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorSetNotFound: (itemId: string) => `セット「${itemId}」が見つかりません`,
+	errorSetLoadFailed: (itemId: string) => `セット「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 3「ルール一括追加」labels
@@ -6275,6 +6483,9 @@ export const SETUP_RULES_LABELS = {
 	ruleTypeSpecial: 'スペシャル（取込未対応）',
 	bonusOnlyNotice:
 		'ボーナスルールは家族全体に適用されます。交換ルールはお子さまごとのごほうびとして登録されます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorRuleNotFound: (itemId: string) => `ルール「${itemId}」が見つかりません`,
+	errorRuleLoadFailed: (itemId: string) => `ルール「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels
@@ -6316,8 +6527,13 @@ export const SETUP_CHALLENGES_LABELS = {
 	targetSuffix: '回',
 	rewardSuffix: 'P',
 	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
-	previewToggleOpen: '▼ なかみ',
-	previewToggleClose: '▲ とじる',
+	// #4512: 同一文言が packs / rewards / rules にも直書きされていたため SETUP_LABELS に集約
+	previewToggleOpen: SETUP_LABELS.previewToggleOpen,
+	previewToggleClose: SETUP_LABELS.previewToggleClose,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNoChildren: `${CHILD_TERMS.honorific}が登録されていません`,
+	errorPresetNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません`,
+	errorAddFailed: (title: string, reason: string) => `「${title}」の追加に失敗: ${reason}`,
 } as const;
 
 export const PARENT_LOGIN_LABELS = {
@@ -6338,6 +6554,7 @@ export const VIEW_PAGE_LABELS = {
 	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
 	// #4703: 無効 / 期限切れ token 専用の説明。汎用 404「ページが みつかりません」だと
 	// リンクを共有された人 (祖父母等) が「自分の操作を間違えた」と受け取ってしまう。
+	// (#4512 の errorInvalidToken は同一文言の重複 atom だったため本 SSOT に統合)
 	invalidTokenTitle: 'このリンクは無効か、期限切れです',
 	invalidTokenDesc: `リンクの有効期限が切れたか、共有した${PARENT_TERMS.honorific}が無効にした可能性があります。共有元の${PARENT_TERMS.honorific}に新しいリンクの発行を依頼してください。`,
 } as const;
@@ -6475,6 +6692,13 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	namePlaceholderItem: '例: がっこうのもちもの',
 	inactiveBadge: '無効',
 	deleteButton: '削除',
+	// #4023 横展開 (#4512): native confirm() を Dialog primitive に置換 (DESIGN.md §5)。
+	//   本文は admin/challenges の deleteConfirmBody と同型で「何が一緒に消えるか」を書く。
+	//   deleteTemplate は assignments / items / logs を cascade 削除する
+	//   (src/lib/server/db/sqlite/checklist-repo.ts deleteTemplate)。
+	deleteConfirmTitle: 'このチェックリストを削除しますか？',
+	deleteConfirmBody: (templateName: string) =>
+		`「${templateName}」を削除します。ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
@@ -6677,6 +6901,9 @@ export const SWITCH_PAGE_LABELS = {
 	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
 	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
 	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorChildRequired: 'こどもをえらんでね',
+	errorChildNotSelectable: 'このプロフィールは選べません',
 } as const;
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
@@ -8573,11 +8800,11 @@ export const LEGAL_LABELS = {
 	externalTransmissionLaw: '電気通信事業法第27条の12',
 	familyUniqueId: '家族内一意 ID',
 	underAge: '未成年者',
-	crossBorderTransfer: '外国にある第三者への提供',
-	crossBorderLaw: '個人情報保護法第28条',
-	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
-	dpa: 'Data Processing Addendum (DPA)',
-	signupCrossBorderConsent: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
+	crossBorderTransfer: CROSS_BORDER_TERMS.transfer,
+	crossBorderLaw: CROSS_BORDER_TERMS.law,
+	scc: CROSS_BORDER_TERMS.scc,
+	dpa: CROSS_BORDER_TERMS.dpa,
+	signupCrossBorderConsent: CROSS_BORDER_TERMS.consentLabel,
 } as const;
 
 // ============================================================
@@ -10266,7 +10493,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 	section2:
 		'<h2>第2条（情報の利用目的）</h2><p>運営者は、収集した情報を以下の目的で利用します。</p><ol><li>本サービスの提供・運営・維持</li><li>利用者の認証・本人確認</li><li>サービスの改善・新機能の開発</li><li>利用状況の分析・統計処理（個人を特定しない形式）</li><li>重要なお知らせ・サービス変更の通知</li><li>不正利用の防止・セキュリティの確保</li><li>利用者からの問い合わせへの対応</li></ol>',
 	section3:
-		'<h2>第3条（情報の第三者提供）</h2><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（アプリケーションの実行・データの保存）、認証基盤、メール送信。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。運営者が管理する AWS 環境内で処理され、AWS 以外の第三者には送信されません。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li></ul></li></ol>',
+		'<h2>第3条（情報の第三者提供）</h2><p>本条に記載する外部サービスのうち、外国にある第三者に該当するもの（AWS / Stripe / Google、いずれも米国）への提供については、移転先の国名・当該国の個人情報の保護に関する制度・移転先が講ずる措置を<a href="#cross-border-transfer">第10条</a>に記載しています。お申し込み時（またはログイン後の同意画面）に、第10条の内容をご確認のうえ同意をいただきます。</p><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（アプリケーションの実行・データの保存）、認証基盤、メール送信。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。運営者が管理する AWS 環境内で処理され、AWS 以外の第三者には送信されません。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li></ul></li></ol>',
 	section4:
 		'<h2>第4条（データの安全管理）</h2><p>運営者は、個人情報への不正アクセス、紛失、破壊、改ざん、漏洩の防止のため、以下の安全管理措置を講じています。</p><ul><li>通信は全て TLS 1.2 以上で暗号化されます。</li><li>保存データは AES-256 で暗号化されます。</li><li>パスワードは不可逆のハッシュ化処理を施して保存されます。</li><li>データベースは定期的に自動バックアップされます。</li></ul>',
 	section5:
@@ -10277,12 +10504,12 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 	section6_2:
 		'<h2>第6条の2（卒業フローと事例公開承諾）</h2><p>本サービスは「お子さまが自律して使う必要がなくなった」ことを「卒業」と定義し、ポジティブな解約として扱います。卒業選択時に表示される専用ページで、ご家庭が任意で「事例として公開してもよい」旨を承諾された場合、以下の情報を保管します。</p><ol><li><strong>保管する情報</strong>: ご家庭が任意指定したニックネーム（実名禁止）、卒業時点の残ポイント数、ご利用期間（日数）、任意の卒業メッセージ。</li><li><strong>利用目的</strong>: サービス紹介ページ等での事例として公開し、他のご家庭の参考となる卒業ストーリーの提示に活用します。</li><li><strong>公開時の取り扱い</strong>: 実名は使用せず、お預かりしたニックネームのみを表示します。お子さまが特定されない形でのみ公開します。</li><li><strong>承諾の撤回</strong>: 公開承諾の撤回は、サービス問い合わせ窓口からご連絡いただくことで対応します。撤回後は当該事例を 30 日以内に非公開化します。</li><li><strong>承諾なしの場合</strong>: 公開を承諾されない場合も「卒業者数」「平均利用期間」等の集計値（個人を特定しない形式）には含まれます。</li></ol>',
 	section7:
-		'<h2>第7条（Cookieの使用）</h2><p>本サービスは、認証状態の維持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p><ul><li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li><li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li><li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）<ul><li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li><li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li></ul></li><li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li></ul><p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>',
+		'<h2>第7条（Cookieの使用）</h2><p>本サービスは、認証状態の維持および利用者の設定の保持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p><ul><li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li><li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li><li><strong>利用設定Cookie</strong> — 前回選択されたお子さまのプロフィール（<code>selectedChildId</code>）。次回アクセス時に同じプロフィールを表示するため、最長1年間ブラウザに保持されます。プロフィールを選び直すと上書きされます。</li><li><strong>保護者確認Cookie</strong> — 保護者確認（おやカギ）の通過状態を保持するCookie（<code>gq_parent_session</code>、最長24時間。お子さまのプロフィールへ切り替えた時点でも削除されます）</li><li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）<ul><li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li><li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li><li><code>oauth_next</code> — OAuth認証後の戻り先ページの一時保持（認証完了後に削除）</li><li><code>pin_reset_otp</code> — PIN再設定の確認コードの一時保持（10分間）</li></ul></li><li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li></ul><p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>',
 	section8:
 		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（運営者が管理する AWS 環境。アプリケーションの実行・データの保存・認証・生成 AI）</li><li>Stripe, Inc.（課金処理）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
 	section9:
 		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>お子さまのデータを一括して生成 AI に渡さない</strong>: お子さまの活動記録・プロフィール等のデータベース上のデータを、生成 AI に送信することはありません。ただし、保護者ご自身が AI 提案機能（活動・チェックリスト・ごほうび）に入力した文章と、ポイント変換でアップロードされた領収書画像は、生成 AI に送信されます。送信先は、当社が提供するクラウド版では<strong>運営者が管理する AWS 環境内の生成 AI</strong>です（外部の生成 AI 事業者には渡りません）。ご自身のサーバーで運用されるセルフホスト版では、設定により<strong>運営者の環境外の生成 AI（Google LLC）</strong>が使われる場合があります。<strong>入力欄にお子さまのお名前など特定につながる情報を書かれた場合、その文章は上記の送信先に送られます</strong>のでご注意ください。</li><li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
-	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>運営者は、お預かりしたデータを機械学習・AI モデルの学習データに流用しません</strong>（セルフホスト版でご自身が設定された外部の生成 AI 事業者における取扱いは、その事業者の規約によります。運営者は関与せず、保証もできません）</li><li>${CHILD_TERMS.neutral}のニックネーム・活動記録などをデータベースから取り出して生成 AI に渡す機能はありません（生成 AI に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです。詳細は第9条④）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。加えて、<strong>セルフホスト版で外部の生成 AI を使う設定にした場合</strong>は、AI 提案機能に入力された文章と領収書画像の送信先になります（第9条④）。当社が提供するクラウド版では生成 AI の送信先になりません。</li></ul></li></ol>`,
+	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>運営者は、お預かりしたデータを機械学習・AI モデルの学習データに流用しません</strong>（セルフホスト版でご自身が設定された外部の生成 AI 事業者における取扱いは、その事業者の規約によります。運営者は関与せず、保証もできません）</li><li>${CHILD_TERMS.neutral}のニックネーム・活動記録などをデータベースから取り出して生成 AI に渡す機能はありません（生成 AI に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです。詳細は第9条④）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>当該国の個人情報の保護に関する制度</strong>: 米国には個人情報の保護に関する包括的な連邦法はなく、分野別の法律（金融・医療分野等）と州法（カリフォルニア州消費者プライバシー法等）により規律されています。日本の個人情報保護法と同等の水準にあると認められる外国（EU・英国）としては指定されていません。詳細は、個人情報保護委員会が公表する<a href="https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/#gaikoku" target="_blank" rel="noopener">外国における個人情報の保護に関する制度等の調査結果</a>（米国）をご参照ください。</li><li><strong>移転先が講ずる個人情報の保護のための措置</strong>: AWS との間で Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) を締結し、AWS は OECD プライバシーガイドラインに対応する措置（保存データの暗号化、アクセス制御、監査、再委託先の管理等）を講じています。これにより、日本の個人情報保護法に基づき運営者が講ずべき措置に相当する体制を継続的に確保しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「${CROSS_BORDER_TERMS.consentLabel}」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。Google アカウントでの登録など${SIGNUP_TERMS.canonical}フォームを経由しない場合は、ログイン後の同意画面で同じ同意を取得します。取得した同意は、同意日時・対象バージョンとともに記録されます。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。加えて、<strong>セルフホスト版で外部の生成 AI を使う設定にした場合</strong>は、AI 提案機能に入力された文章と領収書画像の送信先になります（第9条④）。当社が提供するクラウド版では生成 AI の送信先になりません。</li></ul></li></ol>`,
 	section11:
 		'<h2>第11条（本ポリシーの変更）</h2><ol><li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li><li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li><li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li></ol>',
 	section12:
