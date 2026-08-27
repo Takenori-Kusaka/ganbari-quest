@@ -14,7 +14,10 @@
 //   2. 【self-limiting + 持ち越し】処理量がデータ量 (テナント数 / pending 件数等) に比例する
 //      ジョブは、1 回の実行で処理する量に件数上限 + 時間予算 ($lib/server/cron/time-budget.ts
 //      createTimeBudget) を設け、残りは次回実行に持ち越す。持ち越し件数は log + レスポンスで
-//      必ず報告する (silent 持ち越し禁止)。前例: cloud-export-service.drainPendingExports /
+//      必ず報告する (silent 持ち越し禁止)。
+//      **テナント単位の上限は `$lib/server/cron/tenant-slice.ts` の `selectTenantSlice` を使う**
+//      (#4682)。`tenants.slice(0, limit)` は上限超過分が永久に処理されないのに「次回へ持ち越し」と
+//      log に書く嘘になる。前例: cloud-export-service.drainPendingExports /
 //      grace-period-service.purgeExpiredSoftDeletedTenants /
 //      age-recalc-service.recalcAllChildrenAges (処理済みが消えないジョブで「同じ先頭 N 件」を
 //      繰り返さないための、実行日から決まる決定的スライス周回の例)。
@@ -124,5 +127,16 @@ export const scheduleRegistry: CronJob[] = [
 		cronExpression: '5 * * * *', // 毎時 5 分 (JST)
 		utcCronExpression: 'cron(5 * * * ? *)', // 毎時 5 分 (UTC、JST と同一間隔)
 		description: 'Stripe webhook 未達の検知バッチ (#3959)',
+	},
+	{
+		// #4682 F3: 30 日以上 pending の交換申請を expired に移す。旧実装は registry に載らず
+		// どの runtime でもスケジュールされていなかったため、子供のごほうびが「うけとりまち」の
+		// まま無期限に残り、履歴の「きげんぎれ」ラベルが到達不能だった。
+		// 他の日次 cron が 00 / 30 分に寄っているため 03:00 にずらし、30 秒予算の食い合いを避ける。
+		name: 'expire-redemptions',
+		endpoint: '/api/cron/expire-redemptions',
+		cronExpression: '0 3 * * *', // 毎日 03:00 JST
+		utcCronExpression: 'cron(0 18 * * ? *)', // 毎日 18:00 UTC = 翌日 03:00 JST
+		description: '30 日超の未処理ごほうび交換申請を期限切れにするバッチ (#1337 / #4682)',
 	},
 ];
