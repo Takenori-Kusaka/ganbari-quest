@@ -62,20 +62,29 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
+	// 活動タブだけが期間タブ (today / week / month) を持つ。期間タブは +page.svelte で
+	// activities パネル内にのみ描画され、`handleKindChange` も activities のときしか period を
+	// 引き継がない。
 	const filtered = applyRetentionFilter(planTier, dateRange);
-	// 期間タブ (today / week / month) は活動タブ専用の UI (+page.svelte で activities パネル内に
-	// のみ描画される)。達成タブは全期間の履歴を出すタブなので、期間ではなく**保持期間 cutoff
-	// だけ**を適用する (ADR-0049 表示フィルタ層)。`from` を渡さないと無料プランでも達成タブが
-	// 全期間を見せてしまう。
+	// 達成 / 交換タブは全期間の履歴を出すタブなので、期間ではなく**保持期間 cutoff だけ**を
+	// 適用する (ADR-0049 表示フィルタ層)。ここで `filtered` を渡すと「直近 7 日の達成しか
+	// 出ない」別の後退になる。
 	const retention = applyRetentionFilter(planTier, {});
 
 	// 4 種類のデータを並列取得 (Promise.all、AC2/AC3/AC4)
 	// 取得失敗時はそのタブのみ空配列フォールバック (history 全体は守る)
+	//
+	// 保持期間 (ADR-0049) の適用方針:
+	//   activities / achievements / purchases = event 行なので絞る (前 3 者は range 必須引数)
+	//   milestones                            = **集計値なので絞らない** (ADR-0049 §6)
+	// `getTenantValuePreview` だけ range を取らないのは実装漏れではない。マイルストーンは
+	// `MILESTONES` 定義から導出される「がんばりの証」で、保存期間の影響を受けない集計値として
+	// 恒久保持する (同 §6 が report_daily_summaries 等の集計に対して定めた扱いと同じ)。
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getChildChallengeRecords(child.id, tenantId, retention.from),
-			getRedemptionRequestsForChild(child.id, tenantId),
+			getChildChallengeRecords(child.id, tenantId, retention),
+			getRedemptionRequestsForChild(child.id, tenantId, retention),
 			getTenantValuePreview(tenantId),
 		]);
 

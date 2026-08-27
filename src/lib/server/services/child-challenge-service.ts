@@ -28,6 +28,7 @@ import type {
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
 import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 
 // ============================================================
 // 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service より移設)
@@ -680,10 +681,11 @@ export async function getChildChallengeHistory(
  *
  * 返す集合は 2 つの条件で絞る:
  *
- * 1. **保持期間 (`retentionFrom`、ADR-0049 表示フィルタ層)**。この日より前に期間が終わった
- *    チャレンジは返さない。期間が cutoff をまたぐものは保持内に一部が入るため残す。
- *    呼び出し側が `applyRetentionFilter` の結果を渡さないと、料金表が約束する保持期間
- *    (無料 90 日 / スタンダード 1 年) が達成タブでだけ空洞化する。
+ * 1. **保持期間 (`range`、ADR-0049 表示フィルタ層)**。チャレンジは点ではなく期間を持つので、
+ *    `range.from` より前に**期間が終わった**もの / `range.to` より後に**期間が始まった**ものを
+ *    落とす。cutoff をまたぐ期間は保持内に一部が入るため残す (`startDate` で比較すると
+ *    またぎ分を切り過ぎる)。`range` を必須にしているのは、省略可能にすると渡し忘れが
+ *    「全期間を返す」として静かに成立するため (#4763 で実際に起きた)。
  * 2. **達成タブの意味論**。返すのは「達成済み」または「まだ期間中」のもの。期間が終わった
  *    未達成は達成でも挑戦中でもないが、画面は `completed` の 2 値でしか描き分けないため
  *    (`history/+page.svelte`)、そのまま返すと終わったチャレンジが「がんばってるよ」と
@@ -697,7 +699,7 @@ export async function getChildChallengeHistory(
 export async function getChildChallengeRecords(
 	childId: ChildId,
 	tenantId: string,
-	retentionFrom?: string,
+	range: RetentionRange,
 ): Promise<
 	Array<{
 		id: string;
@@ -716,7 +718,8 @@ export async function getChildChallengeRecords(
 	const all = await repos.childChallenge.findByChildId(childId, tenantId);
 	return all
 		.filter((c) => {
-			if (retentionFrom && c.endDate < retentionFrom) return false;
+			if (range.from && c.endDate < range.from) return false;
+			if (range.to && c.startDate > range.to) return false;
 			return c.completed === 1 || c.endDate >= today;
 		})
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
