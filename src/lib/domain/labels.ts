@@ -8305,6 +8305,8 @@ export const UI_COMPONENTS_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
