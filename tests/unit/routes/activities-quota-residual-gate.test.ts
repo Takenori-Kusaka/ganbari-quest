@@ -114,6 +114,8 @@ type ActionResult = {
 	data?: { error: PlanLimitErrorShape | string };
 	copyResult?: boolean;
 	copiedCount?: number;
+	/** #4694: 重複 (同名 + 同カテゴリ) で作らなかった件数 */
+	skippedCount?: number;
 	errorCount?: number;
 };
 
@@ -282,7 +284,8 @@ describe('#3740 quota 残余経路 gate (api/v1 POST + copyFromChild)', () => {
 		it('上限未満なら単一 target への copy を実行する', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 1, max: 3 });
-			mockCopyToSibling.mockResolvedValue([{ id: 'a1' }, { id: 'a2' }]);
+			// #4694: service は { copied, skipped } を返す (重複 skip 件数を UI に出すため)
+			mockCopyToSibling.mockResolvedValue({ copied: 2, skipped: 1 });
 
 			const result = await copyFromChildAction({
 				request: makeFormRequest({ sourceChildId: '902', targetChildId: '903' }),
@@ -292,13 +295,14 @@ describe('#3740 quota 残余経路 gate (api/v1 POST + copyFromChild)', () => {
 			expect(result.status).toBeUndefined();
 			expect(result.copyResult).toBe(true);
 			expect(result.copiedCount).toBe(2);
+			expect(result.skippedCount).toBe(1);
 			expect(mockCopyToSibling).toHaveBeenCalledTimes(1);
 		});
 
 		it('paid tier (standard、max=null) は複数 target への copy を実行する', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
-			mockCopyToSiblings.mockResolvedValue({ totalCopied: 4, errors: [] });
+			mockCopyToSiblings.mockResolvedValue({ totalCopied: 4, totalSkipped: 0, errors: [] });
 
 			const result = await copyFromChildAction({
 				request: makeFormRequest({ sourceChildId: '902', targetChildIds: '903,904' }),
