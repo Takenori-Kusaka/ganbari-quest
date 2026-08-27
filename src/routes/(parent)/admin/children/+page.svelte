@@ -9,6 +9,7 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
+import ArchivedChildrenSection from '$lib/features/admin/components/ArchivedChildrenSection.svelte';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
@@ -180,6 +181,9 @@ const addCalculatedAge = $derived(
 			/>
 		{/each}
 	</div>
+
+	<!-- #4708: 無料プランの上限で非表示 (archive) 中のお子さま — 読み取り専用一覧 -->
+	<ArchivedChildrenSection children={data.archivedChildren} basePath="/admin" />
 
 	<!-- Selected child detail -->
 	{#if data.selectedChild}

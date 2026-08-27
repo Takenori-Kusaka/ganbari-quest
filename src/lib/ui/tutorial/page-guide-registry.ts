@@ -389,8 +389,9 @@ export function isGuideSelectorVisible(selector: string): boolean {
  * 除外する。ページの状態 (プラン / 件数 / ロール / 招待の有無) で出たり消えたりする UI を指す step
  * を、tier / runtime / stripe の静的軸では表現できないため、起動時 DOM で判定する第 4 の軸。
  * これにより「押す」と書いた step が中央 fallback (0×0 spotlight) で成立することを防ぐ
- * (PO 判断 4: 押すと書く step は必ず光る)。`optional` 無しの step は常に残す (常設 UI の anchor
- * 退行は静的 gate `page-guide-coverage.test.ts` #3307 と E2E `page-guide-layout-invariant` が検出)。
+ * (PO 判断 4: 押すと書く step は必ず光る)。`optional` 無しの step は本フィルタでは常に残す
+ * (常設 UI の anchor 退行は静的 gate `page-guide-coverage.test.ts` #3307 と E2E
+ * `page-guide-layout-invariant` が検出する)。
  *
  * {@link filterGuideStepsByTier} 等と同型 (filter → 残 0 なら null)。最後段で直列適用する。
  *

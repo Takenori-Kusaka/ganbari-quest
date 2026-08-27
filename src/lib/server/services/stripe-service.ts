@@ -31,7 +31,7 @@ import {
 	planIdFromPriceId,
 } from '$lib/server/stripe/config';
 import { redactPii } from '$lib/server/stripe/pii-redaction';
-import { archiveExcessResources } from './resource-archive-service';
+import { archiveExcessResources, restoreArchivedResources } from './resource-archive-service';
 
 // ============================================================
 // Checkout Session
@@ -994,6 +994,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	if (subscriptionId) {
 		await closeTrialOnPaidContract(tenantId, subscriptionId, 'checkout.session.completed');
 	}
+	// #4708: 有料プランに戻った (S1 / S5 → S2) ので、無料プランの上限で archive されていた
+	// お子さま / 活動 / チェックリストを全 reason について復元する (FAQ / pricing の約束)。
+	await restoreArchivedResourcesForPaidContract(tenantId, 'checkout.session.completed');
 
 	logger.info(
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,
@@ -1081,6 +1084,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 
 	// #4707: 支払い確定 = 有料契約中。進行中のトライアルは本契約へ移行済みとして閉じる (W1 未達時の救済)。
 	await closeTrialOnPaidContract(tenant.tenantId, subscription.id, 'invoice.paid');
+	// #4708: 有料契約中に archive が残っていれば復元する (W1 未達 / dunning 復帰 S3→S2 の救済、冪等)。
+	await restoreArchivedResourcesForPaidContract(tenant.tenantId, 'invoice.paid');
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId} plan=${plan ?? 'unresolved'}`);
 
@@ -1209,6 +1214,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 	);
 	if (!applied) return;
 
+	// #4708: 有料機能が戻る遷移 (S4 → S2 等、status=active) で archive を復元する。
+	// past_due (S3) / unpaid (S4) は有料機能の維持・停止であり復元契機ではない。
+	if (status === SUBSCRIPTION_STATUS.ACTIVE) {
+		await restoreArchivedResourcesForPaidContract(tenant.tenantId, 'customer.subscription.updated');
+	}
+
 	logger.info(`[STRIPE] Subscription updated: tenant=${tenant.tenantId} status=${status}`);
 
 	// #4192: プラン変更の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
@@ -1235,6 +1246,34 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 	await archiveForDunningCancellation(subscription, tenant.tenantId);
 
 	// #4192: 解約 (subscription 消滅) の Discord 通知は持たないと決めた (#4174 Q2)。
+}
+
+/**
+ * 有料契約の確定で、無料プランの上限により archive されたリソースを復元する (#4708)。
+ *
+ * 契機は W1 `checkout.session.completed` (reconcile 経由を含む) / W2 `invoice.paid` /
+ * W4 `customer.subscription.updated` (status=active)。`restoreArchivedResources` は
+ * 全 reason (`trial_expired` / `downgrade_user_selected` / `dunning_canceled`) を戻し、
+ * 復元対象が無ければ no-op なので、同じ契約で何度届いても安全 (冪等)。
+ *
+ * 失敗しても throw しない: 契約状態の書き込み (呼び出し元) は完了しており、ここで例外を投げると
+ * webhook が失敗扱いになって Stripe が再送する。次の event (invoice.paid 等) で再試行される。
+ */
+async function restoreArchivedResourcesForPaidContract(
+	tenantId: string,
+	eventType: string,
+): Promise<void> {
+	try {
+		await restoreArchivedResources(tenantId);
+		logger.info('[ARCHIVE] Paid contract — archived resources restored', {
+			context: { tenantId, eventType },
+		});
+	} catch (err) {
+		logger.error(`[ARCHIVE] ${eventType}: failed to restore archived resources`, {
+			error: err instanceof Error ? err.message : String(err),
+			context: { tenantId, eventType },
+		});
+	}
 }
 
 /**
