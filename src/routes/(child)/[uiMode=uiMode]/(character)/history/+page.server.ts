@@ -63,13 +63,18 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 		locals.context?.plan,
 	);
 	const filtered = applyRetentionFilter(planTier, dateRange);
+	// 期間タブ (today / week / month) は活動タブ専用の UI (+page.svelte で activities パネル内に
+	// のみ描画される)。達成タブは全期間の履歴を出すタブなので、期間ではなく**保持期間 cutoff
+	// だけ**を適用する (ADR-0049 表示フィルタ層)。`from` を渡さないと無料プランでも達成タブが
+	// 全期間を見せてしまう。
+	const retention = applyRetentionFilter(planTier, {});
 
 	// 4 種類のデータを並列取得 (Promise.all、AC2/AC3/AC4)
 	// 取得失敗時はそのタブのみ空配列フォールバック (history 全体は守る)
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getChildChallengeRecords(child.id, tenantId),
+			getChildChallengeRecords(child.id, tenantId, retention.from),
 			getRedemptionRequestsForChild(child.id, tenantId),
 			getTenantValuePreview(tenantId),
 		]);
