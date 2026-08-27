@@ -4,11 +4,9 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { FAMILY_MEMBER_LIMIT } from '$lib/domain/constants/family-member-limit';
-import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
-import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
+import { getPlanLimits, type PlanLimits, resolvePaidPlanTier } from '$lib/domain/plan-limits';
 import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
 // #4723: factory 経由だと provider 側と循環するため、実体の auth-mode から直接引く。
 import { getAuthMode } from '$lib/server/auth/auth-mode';
@@ -18,22 +16,12 @@ import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-co
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 
-export interface PlanLimits {
-	maxChildren: number | null; // null = 無制限
-	maxActivities: number | null;
-	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
-	maxFamilyMembers: number | null; // null = 無制限, 招待によるメンバー上限（owner含む） (#1111)
-	historyRetentionDays: number | null;
-	canExport: boolean;
-	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
-	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
-	maxCloudExports: number; // クラウド保管の同時保管数上限
-}
-
 // #3963: 型宣言の SSOT は domain leaf に移した (request-context との循環回避)。
+// #4704: 上限値の表 (PLAN_LIMITS / PlanLimits / getPlanLimits) も domain leaf に移した
+// (repo 層から service 層への循環を断つため、$lib/domain/plan-limits.ts が SSOT)。
 // 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
 export type { PlanTier };
+export { getPlanLimits, type PlanLimits };
 
 /**
  * 上限チェックの結果 (#4622)。
@@ -54,54 +42,6 @@ export type PlanLimitCheck =
 	| { allowed: true; current: number; max: number | null }
 	/** 上限到達。到達しうるのは上限が具体値のプランだけなので `max` は必ず number */
 	| { allowed: false; current: number; max: number };
-
-const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-	free: {
-		maxChildren: 2,
-		maxActivities: 3,
-		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
-		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
-		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
-		maxChecklistTemplates: 3,
-		// #1111: フリープランは招待不可（owner のみ）
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.free,
-		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
-		canExport: false,
-		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
-		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
-		canCustomReward: false,
-		canSiblingRanking: false,
-		maxCloudExports: 0,
-	},
-	standard: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
-		// #4500: 数値の SSOT は domain leaf。LP / labels もここから引く
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.standard,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
-		canExport: true,
-		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
-		canCustomReward: true,
-		canSiblingRanking: false,
-		maxCloudExports: 3,
-	},
-	family: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: PLAN_LABELS.family は無制限
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.family,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
-		canExport: true,
-		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
-		canCustomReward: true,
-		canSiblingRanking: true,
-		maxCloudExports: 10,
-	},
-};
 
 /**
  * テナントのプランティアを判定する同期版（低レベル・internal 用途）。
@@ -137,7 +77,7 @@ export function resolvePlanTier(
 	if (mode === 'anonymous') return 'family';
 	// アクティブな有料プラン
 	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) {
-		return planId?.startsWith('family') ? 'family' : 'standard';
+		return resolvePaidPlanTier(planId);
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
 	// #4707: 終了日は JST 暦日 ('YYYY-MM-DD') で end_date 当日いっぱい有効。旧実装の
@@ -193,11 +133,6 @@ export function isPaidTier(tier: PlanTier): boolean {
 	return tier === 'standard' || tier === 'family';
 }
 
-/** プラン別制限を取得 */
-export function getPlanLimits(tier: PlanTier): PlanLimits {
-	return PLAN_LIMITS[tier];
-}
-
 /**
  * 保持期間カットオフ日 (YYYY-MM-DD、JST 基準) を取得。null = 制限なし。
  *
@@ -208,19 +143,38 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
  * これを JST 深夜 0:00 の instant として TZ-qualified に解釈する。
  */
 export function getHistoryCutoffDate(tier: PlanTier): string | null {
-	const limits = PLAN_LIMITS[tier];
+	const limits = getPlanLimits(tier);
 	if (limits.historyRetentionDays === null) return null;
 	return addDaysJST(todayDateJST(), -limits.historyRetentionDays);
 }
 
 /**
+ * 履歴を絞る JST 暦日の範囲 (両端含む)。`applyRetentionFilter` の戻り値の形。
+ *
+ * 履歴取得 service (`getActivityLogs` / `getChildChallengeRecords` /
+ * `getRedemptionRequestsForChild`) はこれを **必須引数** で受け取る。省略可能にすると
+ * 渡し忘れが「全期間を返す」= 料金表が約束した保持期間の空洞化として**静かに**成立するため
+ * (#4763 で実際に達成タブが、それ以前から交換タブがこの状態だった)。
+ */
+export interface RetentionRange {
+	from?: string;
+	to?: string;
+}
+
+/**
+ * 保持期間で絞らないことを**明示**するための range。
+ *
+ * 履歴一覧ではない用途 (例: ショップの「このごほうびの最新申請状態」) で使う。
+ * 空オブジェクト `{}` を直接書くと「渡し忘れ」と区別がつかないため、opt-out は必ず
+ * 本定数を経由させる (`grep NO_RETENTION_FILTER` で全 opt-out を数えられる状態を保つ)。
+ */
+export const NO_RETENTION_FILTER: RetentionRange = Object.freeze({});
+
+/**
  * 日付範囲オプションに保持期間フィルタを適用する
  * from が cutoff より前の場合、cutoff に上書き
  */
-export function applyRetentionFilter(
-	tier: PlanTier,
-	options: { from?: string; to?: string } = {},
-): { from?: string; to?: string } {
+export function applyRetentionFilter(tier: PlanTier, options: RetentionRange = {}): RetentionRange {
 	const cutoff = getHistoryCutoffDate(tier);
 	if (cutoff === null) return options;
 	const from = options.from && options.from > cutoff ? options.from : cutoff;

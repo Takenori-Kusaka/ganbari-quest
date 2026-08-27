@@ -193,7 +193,7 @@ soft delete されたテナントは以下の状態になる:
 - `settings` テーブルに `physical_deletion_date` → `deletion_grace_plan_tier` → `soft_deleted_at` の順で記録される（**sentinel-last**）
 - Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
-- ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+- ユーザはサインアウトされる（`/auth/signout?reason=deletion_pending`）。ログイン画面が受付完了と「猶予中は取り消せる」を表示し、再ログインすれば全 admin ページで復元 UI を見られる（§4.3a）
 
 #### 3 キーの書き込み順序と不完全メタデータの扱い
 
@@ -212,6 +212,19 @@ soft delete されたテナントは以下の状態になる:
 - **復元できる**（宙吊りからの脱出経路。復元 → 退会し直しで正常な状態に戻せる）
 - **物理削除の母集団に入らない**（`findExpiredSoftDeletedTenants`）
 - 発生は `logger.warn` で検出する（専用の通知機構は持たない）
+
+### 4.3a 猶予中に顧客へ見せるもの（#4699）
+
+申請したことを忘れた / 家族の別端末で気づかない保護者が、猶予経過で全データを失う経路を塞ぐ。**猶予中の状態と復元導線は 1 画面に閉じない**。
+
+| 場所 | 出すもの | 実装 |
+|---|---|---|
+| ログイン画面 | 申請の受付完了 + 猶予中は取り消せる旨 | 削除 API 成功後に `/auth/signout?reason=deletion_pending` へ。`signout` は**既知の reason コードのみ** login へ引き継ぐ。表示は `LOGIN_LABELS.noticeDeletionPending`（`role="status"`） |
+| **全 admin ページ** | 「アカウント削除のお手続き中です / あと N 日（日付）/ アカウントを復元する」 | `DeletionGraceBanner.svelte`（共通コンポーネント）を admin `+layout.svelte` が `gracePeriodStatus.isSoftDeleted` で描画。設定 > アカウントも同一コンポーネントを使う（バナーの二重実装を作らない） |
+| 設定トップ | 書き込みが止められた理由 | 読み取り専用ロックの redirect 先 `?reason=account_deletion_pending` を `SETTINGS_LABELS.deletionPendingReadOnlyNotice` で説明する |
+| 設定 > アカウント | 退会セクションの出し分け | **退会申請中は出さない**（復元バナーに集約）。判定は `gracePeriodStatus.isSoftDeleted` であり `families.status` ではない — `grace_period` は支払い失敗（dunning）の猶予であり（#3993）、**支払い失敗中でも退会できる** |
+
+**猶予中でも子供画面は使える**: `/switch` の子供選択は `selectedChildId` cookie の set と親ゲート cookie の delete だけで DB を書かないため、読み取り専用ロックの許可 path に含める（塞ぐと猶予中に子供が使えなくなり、しかも設定画面へ無言で飛ばされる）。
 
 ### 4.4 復元フロー
 
@@ -314,7 +327,7 @@ soft delete 状態のテナントに対し、物理削除の **残り 14 日 (fa
 
 ### 5.4 削除完了後
 
-- 全パターンで `window.location.href = '/auth/signout'` → サインアウト経由で `/` に戻す
+- 全パターンで `/auth/signout?reason=deletion_pending` → サインアウト経由でログイン画面に戻し、そこで受付完了と取り消し可を伝える（#4699。旧実装は無言でログイン画面に着地していた）
 - セッションが切れているため admin 画面の再読込は不要
 
 ---

@@ -23,6 +23,18 @@ export interface RedemptionRequestRow {
 	resolvedAt: number | null;
 	resolvedByParentId: string | null;
 	shownToChildAt: number | null;
+	/**
+	 * #2832 申請時点 snapshot (#4632 で row 型へ昇格)。
+	 *
+	 * 子供の「記録 > 交換」は「いつ・何を・いくらで交換したか」を出す画面なのに、row 型が
+	 * snapshot を落としていたため title / icon / points を渡せず、日付をタイトル代わりに出して
+	 * アイコンを 🎁 固定にしていた (何を交換したか判別不能)。
+	 * 値は「snapshot 優先 / 旧行は live reward に fallback」で解決済 (repo 側 COALESCE)。
+	 * reward が削除済で旧行 (snapshot NULL) の場合のみ null になる。
+	 */
+	rewardTitle: string | null;
+	rewardIcon: string | null;
+	rewardPoints: number | null;
 }
 
 export interface RedemptionRequestWithDetails extends RedemptionRequestRow {
@@ -100,9 +112,44 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow[]>;
 
+	/**
+	 * #4682 F1: **1 件を id で直接引く**（tenant 検査込み、limit の影響を受けない）。
+	 *
+	 * 承認 / 却下は「一覧の中に対象があるか」ではなく「その id の申請が存在するか」を知りたい。
+	 * 旧実装は `findRedemptionRequestsByTenant(tenantId)`（一覧用 limit 50、requestedAt desc）から
+	 * `find` していたため、申請総数が 50 件を超えると古い承認待ちが window から落ち、親が承認 /
+	 * 却下しようとすると「申請が見つかりません」になり子供側は「うけとりまち」で固定していた。
+	 * **一覧の limit を存在確認に流用しない**（同 class の再発を型で断つ）。
+	 */
+	findRedemptionRequestById(
+		id: string,
+		tenantId: string,
+	): Promise<RedemptionRequestWithDetails | undefined>;
+
+	/**
+	 * 親の一覧表示用。`limit` は**表示件数**であり、存在確認 / 件数集計には使わないこと
+	 * (#3144 は count を `countRedemptionRequestsByTenant`、#4682 は単件取得を
+	 * `findRedemptionRequestById` に分離した)。
+	 *
+	 * #4682 F4: `statuses` は複数状態の OR 取得 (承認履歴 = approved か rejected の直近 N 件)。
+	 * 一覧を取ってから client 側で filter すると、window が pending で埋まったときに履歴が
+	 * 0 件表示になる (実測: 承認待ち 30 件で履歴が消える)。`status` と併用しない。
+	 */
 	findRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: ChildId; limit?: number },
+		opts?: {
+			status?: string;
+			statuses?: readonly string[];
+			childId?: ChildId;
+			limit?: number;
+			/**
+			 * #4682 F1: `requestedAt` の並び。既定 `'desc'` (新しい順、履歴向け)。
+			 * **承認待ちキューは `'asc'` (古い順)** で取る — desc + limit だと「一番長く待っている
+			 * 申請」が window の外に落ち、親が画面から永久に処理できなくなる (実測: pending 61 件で
+			 * 最古 11 件が不可視)。
+			 */
+			order?: 'asc' | 'desc';
+		},
 	): Promise<RedemptionRequestWithDetails[]>;
 
 	/**
@@ -112,7 +159,7 @@ export interface IRewardRedemptionRepo {
 	 */
 	countRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: ChildId },
+		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
 	): Promise<number>;
 
 	/**

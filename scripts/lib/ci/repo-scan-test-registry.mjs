@@ -53,6 +53,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/architecture/retention-filter-opt-out-allowlist.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を再帰 walk し、保持期間フィルタの opt-out (`NO_RETENTION_FILTER` の import) が allowlist と完全一致するかを検査する (#4818)。「履歴取得が保持期間 (ADR-0049) を通っていない」が達成タブ / 交換タブで 2 度起きたため、opt-out の増殖を PR での明示判断に縛る。走査範囲は src 全体でなければ新規 opt-out を捕まえられない',
+	},
 	'tests/unit/services/plan-limit-check-null-type-hole.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下を再帰 walk し、プラン上限メッセージ本文が labels.ts SSOT を経由せず直書きに戻っていないかを検査する (#4622)。直書きに戻ると `max: number` の関門が消え、上限メッセージに null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
@@ -64,6 +68,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/arch/no-direct-db-access.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
+	},
+	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',
 	},
 	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
 		scope: 'repo',
@@ -80,6 +88,18 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
+	},
+	'tests/unit/architecture/plan-limits-field-enforcement.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の .ts / .svelte を glob し、PlanLimits の全フィールドが production code から実際に参照されているかを検査する (#4584)。参照ゼロ = 有料の根拠として売っている機能にゲートが掛かっていない状態',
+	},
+	'tests/unit/architecture/admin-action-result-no-http-ok.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下の .svelte を再帰 walk し、form action を fetch した戻り値を `.ok` で判定していないかを検査する (#4693)。fail() は HTTP status に現れないため、ok 判定だと「サーバーは拒否したのに画面は成功」になる。走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/architecture/plan-limit-error-required-tier.test.ts': {
+		scope: 'repo',
+		note: "src 配下の .ts / .svelte を再帰 walk し、apiError('PLAN_LIMIT_EXCEEDED') の直接呼び出しが無いことを検査する (#4710)。要求 tier を伴わない 403 は「スタンダード以上に」しか言えず、スタンダード契約者が premium 限定機能を叩いたときに次の行動を示せないため、走査範囲は src 全体でなければ意味を持たない",
 	},
 	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
 		scope: 'repo',

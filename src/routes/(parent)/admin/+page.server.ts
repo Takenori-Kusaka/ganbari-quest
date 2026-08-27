@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
+import { DEMO_FIXTURE_MONTH_KEY } from '$lib/server/demo/demo-data';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
@@ -82,7 +83,15 @@ async function loadMonthlySummaries(
 }
 
 /** 有料プラン歓迎画面フラグ (トライアル中も有料扱い)。 */
-async function loadPremiumWelcome(isPaid: boolean, tenantId: string): Promise<boolean> {
+async function loadPremiumWelcome(
+	isPaid: boolean,
+	tenantId: string,
+	isDemo: boolean,
+): Promise<boolean> {
+	// #4712: demo は settings write が no-op のため「閉じた」記録が残らず、開くたびに
+	// 祝福モーダルが再表示される (ADR-0012「記録する → 数秒で閉じる」の体験がデモで壊れる)。
+	// demo では最初から出さない。
+	if (isDemo) return false;
 	if (!isPaid) return false;
 	const welcomeSettings = await getSettings(['premium_welcome_shown'], tenantId);
 	return welcomeSettings.premium_welcome_shown !== 'true';
@@ -152,7 +161,9 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 
 	// 当月キーは JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) で月初
 	// 00:00〜09:00 に前月キーで集計を取得していた。
-	const yearMonth = monthKeyJST();
+	// #4712: デモは fixture 基準日 (固定) のデータしか持たないため、当月キーだと月次サマリーが
+	// 全員 0 になる。デモのときだけ fixture の月を使う (本番は従来どおり当月)。
+	const yearMonth = locals.isDemo ? DEMO_FIXTURE_MONTH_KEY : monthKeyJST();
 	const isPaid = isPaidTier(tier);
 
 	// #3088: 以降の 6 ブロックは children + tenantId のみ依存で相互独立 → 並列実行して wall-clock を短縮。
@@ -167,7 +178,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	] = await Promise.all([
 		loadChildrenWithStatus(children, tenantId),
 		loadMonthlySummaries(tenantId, yearMonth),
-		loadPremiumWelcome(isPaid, tenantId),
+		loadPremiumWelcome(isPaid, tenantId, locals.isDemo === true),
 		loadTodayUsage(children, tenantId),
 		loadWeeklyUsage(children, tenantId),
 		loadValuePreview(tenantId),

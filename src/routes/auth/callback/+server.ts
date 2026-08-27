@@ -2,6 +2,7 @@
 // Authorization Code を受け取り、トークン交換して Cookie にセット
 
 import { redirect } from '@sveltejs/kit';
+import { OAUTH_NEXT_COOKIE_NAME, resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
 import { getAuthProvider } from '$lib/server/auth/factory';
 import { resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import {
@@ -52,14 +53,15 @@ export const GET: RequestHandler = async (event) => {
 			setRefreshCookie(cookies, tokens.refreshToken);
 		}
 
-		// #3025: 「Google で本人確認」(PIN reset 等) から来た場合は oauth_next cookie の
-		// 内部 path へ戻す (open redirect 防止: "//" と "/\" の両方を拒否する。
-		// ブラウザは Location の "\" を "/" に正規化するため "/\evil.com" も外部遷移し得る)
-		const next = cookies.get('oauth_next');
+		// #3025 / #4701: 「Google で本人確認」(PIN reset 等) や login 画面の `?next=` から来た場合は
+		// oauth_next cookie の内部 path へ戻す (open redirect 防止の検証は login-redirect.ts SSOT:
+		// "//" と "/\" を拒否。ブラウザは Location の "\" を "/" に正規化するため "/\evil.com" も外部遷移し得る)
+		const next = cookies.get(OAUTH_NEXT_COOKIE_NAME);
 		if (next) {
-			cookies.delete('oauth_next', { path: '/' });
-			if (/^\/(?![/\\])/.test(next)) {
-				successPath = next;
+			cookies.delete(OAUTH_NEXT_COOKIE_NAME, { path: '/' });
+			const safe = resolveSafeNextPath(next);
+			if (safe) {
+				successPath = safe;
 			}
 		}
 	} catch (e) {
