@@ -12,6 +12,12 @@ import {
 	type PraiseMilestoneId,
 	STREAK_MILESTONE_DAYS,
 } from './constants/habit-milestones';
+// #4664: 通知の配信量 (1 日の上限 / サイレント時間帯の既定) は domain 定数が SSOT。
+import {
+	DEFAULT_QUIET_END,
+	DEFAULT_QUIET_START,
+	MAX_DAILY_NOTIFICATIONS,
+} from './constants/notification';
 import { FREE_PLAN_QUOTA } from './constants/plan-quota';
 import { formatRetentionPeriod } from './constants/plan-retention';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
@@ -21,6 +27,8 @@ import {
 	REWARD_REQUEST_HISTORY_LIMIT,
 } from './constants/redemption-status';
 import { jstDayOfWeek } from './date-utils';
+// #4652: 子供チュートリアルの nav 名 / とりけし秒数を画面と同じ SSOT から引く (icons.ts / validation は labels を import しない)
+import { getModeLabels } from './icons';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -100,6 +108,7 @@ import {
 	UPGRADE_TERMS,
 	VISIBILITY_CHIP_TERMS,
 } from './terms';
+import { CANCEL_WINDOW_MS } from './validation/activity';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -1581,7 +1590,8 @@ export const TUTORIAL_CHAPTER_LABELS = {
 				'こどもの活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。',
 		},
 		'reports-2': {
-			title: 'グロースブック',
+			// #4670 F2: リンク実表示と同じ canonical を引く (旧「グロースブック」の直書き残存)
+			title: GROWTH_BOOK_TERMS.canonical,
 			description:
 				'こどもの1年間の成長をまとめた「成長記録ブック」も用意しています。レポート画面右上の「📖 記録ブック」リンクからアクセスできます。印刷してお子さまの記念にもなります。',
 		},
@@ -2377,26 +2387,59 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #4664 (EPIC #4650): 旧ガイドは「お子さま自身が活動を思い出すきっかけ」と書いていたが、
+	//   通知が届くのは購読した**保護者のこの端末**。種類も「連続記録のお祝い」と実項目
+	//   (ストリーク警告) がずれ、リマインダー時刻 / サイレント時間帯 / 1 日の上限 /
+	//   ブロック中の復旧手順に触れていなかった。届く先・種類・条件を画面の事実に合わせる。
+	//   リマインダー / ストリーク警告 は配信スケジューラが無く UI ごと外したため、
+	//   ガイドからも訴求を落とす (ADR-0013: 届かないものを約束しない)。
 	adminSettingsNotifications: {
 		title: '通知',
 		steps: {
 			'settings-notifications-intro': {
 				title: 'このページについて',
-				what: 'ブラウザのお知らせを使って、活動のリマインドや達成のお祝いを届ける設定ページです。',
-				how: '上で通知のオン・オフを切り替え、下で届けるお知らせの種類を選びます。',
-				goal: '声かけしなくても、お子さま自身が活動を思い出すきっかけを作れます。',
+				what: `お知らせが届くのは、この設定を行った${PARENT_TERMS.honorific}の端末（いま見ているブラウザ）です。お子さまの端末には届きません。`,
+				how: '上でこのブラウザの通知をオン・オフし、下で受け取るお知らせの種類・リマインダーの時刻・送らない時間帯を決めます。',
+				goal: 'お子さまが記録した瞬間の「できたよ」を、離れていても受け取れます。',
 			},
+			// ② ブラウザ通知の状態 (常設)
 			'settings-notifications-status': {
 				title: '画面の見方（通知のオン・オフ）',
-				what: '今このブラウザで通知が使えるかどうかと、オン・オフの切り替えボタンがここに出ます。',
-				how: '1. 状態を確認します\n2. ボタンでオン・オフを切り替えます',
-				goal: '通知が使える状態かどうかをひと目で確認できます。',
+				what: 'いまこのブラウザで通知が使える状態かどうかを表します。「オン」なら受け取れます。「ブロック中」はブラウザ側で拒否されている状態で、アプリからはオンに戻せません。',
+				how: '1. 「オン」のときは「通知をオフにする」で止められます\n2. 表示が無いときは「通知をオンにする」を押し、ブラウザの確認で「許可」を選びます\n3. 「ブロック中」のときはボタンが出ません。ブラウザのサイト設定で通知を「許可」に変えてから、このページを再読み込みしてください',
+				goal: '受け取れない状態のまま気づかずに待つことがなくなります。',
+				tips: [
+					'お使いのブラウザや端末が通知に対応していないときは、ボタンが押せない状態で表示されます',
+				],
 			},
+			// ③ 受け取るお知らせの種類 (常設。3 種とも配信経路がある — リマインダー / ストリーク警告は
+			//    #4706 の notification-delivery cron、達成通知は記録時の同期送信)
 			'settings-notifications-types': {
 				title: 'よく使う操作（お知らせの種類）',
-				what: 'リマインダーや連続記録のお祝い、サイレント時間帯など、届けるお知らせを選べます。',
-				how: '1. 届けたいお知らせにチェックします\n2. 保存ボタンをタップします',
-				goal: '必要なお知らせだけが届き、通知が多すぎる状態を避けられます。',
+				what: '受け取るお知らせを 3 つから選べます。「リマインダー通知（毎日の記録を促す）」は決めた時刻に、「ストリーク警告（連続記録が途切れそうな時）」は連続記録が途切れそうな日に、「達成通知（記録完了・レベルアップ時）」はお子さまが記録した直後とレベルが上がったときに届きます。',
+				how: '1. 受け取りたいお知らせにチェックを入れます\n2. 下の「通知設定を保存」を押します\n3. リマインダーにチェックを入れて保存すると、その下に「リマインダー時刻」の欄が出ます。時刻を合わせて、もう一度「通知設定を保存」を押してください',
+				goal: '選んだお知らせだけが、この端末に届くようになります。',
+				tips: [
+					// #4664 M: 時刻欄は「チェックした瞬間」ではなく、保存後の再読込で現れる。
+					'「リマインダー時刻」の欄は、リマインダーにチェックを入れて保存したあとに出ます',
+				],
+			},
+			// ④ サイレント時間帯 (常設)
+			'settings-notifications-quiet': {
+				title: '画面の見方（サイレント時間帯）',
+				what: `この時間帯は通知を送りません。はじめは ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} になっており、夜間や早朝に鳴らないようにしています。`,
+				how: `1. 左の時刻に「送らなくなる時刻」、右の時刻に「また送り始める時刻」を入れます\n2. ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} のように日をまたぐ指定もできます\n3. 「通知設定を保存」を押します`,
+				goal: '寝ている間に通知で起こされることがなくなります。',
+				tips: [
+					`お知らせは 1 日 ${MAX_DAILY_NOTIFICATIONS} 件までにしています（鳴りすぎないための上限です）`,
+				],
+			},
+			// ⑤ 保存 (常設)
+			'settings-notifications-save': {
+				title: 'よく使う操作（保存）',
+				what: 'このページの設定は、保存ボタンを押すまで反映されません。',
+				how: '1. 「通知設定を保存」を押します\n2. 「通知設定を保存しました」と表示されれば完了です',
+				goal: '選んだ種類と時間帯で、次からお知らせが届くようになります。',
 			},
 		},
 	},
@@ -3345,10 +3388,18 @@ export const SETTINGS_LABELS = {
 	notificationDisableSuccess: '通知をオフにしました',
 	notificationDisableFailure: '通知をオフにできませんでした。時間をおいて再度お試しください',
 	notificationReminderLabel: 'リマインダー通知（毎日の記録を促す）',
+	// #4664 F8: リマインダー時刻の見出しが svelte 直書きで、ガイドから同じ語を引けなかった。
+	notificationReminderTimeLabel: 'リマインダー時刻',
 	notificationStreakLabel: 'ストリーク警告（連続記録が途切れそうな時）',
 	notificationAchievementLabel: '達成通知（記録完了・レベルアップ時）',
 	notificationQuietSeparator: '〜',
 	notificationSaveAction: '通知設定を保存',
+	// #4664 F8: サイレント時間帯の見出し / 補足が svelte 直書きで、ガイドから同じ語を
+	//   引けなかった (DESIGN.md §6 逸脱)。
+	notificationQuietLabel: 'サイレント時間帯',
+	notificationQuietHint: 'この時間帯は通知を送信しません',
+	// #4664 F3: 1 日の上限は notification-service.ts の MAX_DAILY_NOTIFICATIONS が値 SSOT。
+	notificationDailyLimitHint: (max: number) => `お知らせは 1 日 ${max} 件までです`,
 
 	// ポイント表示設定
 	pointSectionTitle: '💰 ポイント表示設定',
@@ -6799,6 +6850,8 @@ export const INVITE_RELOCATION_LABELS = {
 	// 引っ越しできないときの案内 (理由ごとに次アクションを添える)
 	blockedHasOtherMembers:
 		'いまの家族グループに他のメンバーがいるため、参加できません。メンバー管理から他のメンバーを削除するか、先に別の方へ管理者を移してから、招待リンクをもう一度開いてください。',
+	// #4642 PO 決裁 Q1: 子供が 1 人でも居たら阻止する (その子の記録ごと消えるため)。
+	blockedHasChildren: `いまの家族グループに${CHILD_TERMS.honorific}の記録が残っているため、参加できません。記録を残しておきたい場合は先にデータをエクスポートし、${CHILD_TERMS.honorific}の登録を削除してから、招待リンクをもう一度開いてください。`,
 	blockedNotOwner:
 		'いまの家族グループの管理者ではないため、ここからは参加できません。メンバー管理から今の家族グループを抜けたあと、招待リンクをもう一度開いてください。',
 } as const;
@@ -11080,6 +11133,127 @@ export const POINT_LEDGER_LABELS = {
 		return base;
 	},
 } as const;
+
+// ============================================================
+// 子供チュートリアル（子供ホーム ❓）の文言 SSOT（#4652、EPIC #4650 判断 3 / 4 / 5）
+// ============================================================
+//
+// 「記録して閉じる」最短経路だけを説明する（ADR-0012）: 活動カード → とりけし → 💮 スタンプ → 下ナビ
+// （つよさ / ステータス、ショップ）。ホームに無い仕組み（コンボ / おみくじ / 別ページのレーダー
+// チャート）は説明しない。
+//
+// 年齢帯 variant: preschool / elementary = ひらがな分かち書き、junior / senior = 漢字（nav ラベルと同表記）。
+// nav 名は `getModeLabels(uiMode).status` / `CHILD_SHOP_LABELS.navLabel`、とりけし秒数は
+// `CANCEL_WINDOW_MS` を参照し、画面の実表記・実値と一致させる（直書きしない）。
+// 関数にしているのは CHILD_SHOP_LABELS 等の宣言順（TDZ）に依らず参照するため。
+
+/**
+ * 子供チュートリアルの文言 variant。preschool / elementary = kana、junior / senior = kanji。
+ * 外部公開せず本ファイル内で `getChildTutorialLabels` からのみ使う (公開 API は同関数 1 本)。
+ */
+type ChildTutorialVariant = 'kana' | 'kanji';
+
+function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
+	return uiMode === 'junior' || uiMode === 'senior' ? 'kanji' : 'kana';
+}
+
+export function getChildTutorialLabels(uiMode: string) {
+	const variant = getChildTutorialVariant(uiMode);
+	const mode = getModeLabels(uiMode);
+	const statusNav = mode.status;
+	const shopNav = CHILD_SHOP_LABELS.navLabel;
+	const cancelSec = Math.round(CANCEL_WINDOW_MS / 1000);
+	if (variant === 'kanji') {
+		return {
+			variant,
+			chapters: {
+				record: { title: '記録しよう', icon: '⭐' },
+				daily: { title: '毎日つづけよう', icon: '🎴' },
+				more: { title: 'ほかの画面', icon: '📊' },
+			},
+			steps: {
+				'child-record-card': {
+					title: '活動カード',
+					description:
+						'やったことのカードをタップすると「きろく！」ボタンが出ます。きろく！ を押すとポイントがもらえます。',
+				},
+				'child-record-cancel': {
+					title: 'とりけし',
+					description: `まちがえて記録しても、記録のあと ${cancelSec} 秒のあいだは「とりけし」ボタンで取り消せます。`,
+				},
+				'child-daily-stamp': {
+					title: 'スタンプ',
+					description:
+						'毎日ひらくと 💮 スタンプがたまります。タップするとスタンプカードが見られます。',
+				},
+				'child-nav-status': {
+					title: statusNav,
+					description: `下の「${statusNav}」で、自分の成長（5 つの力）が見られます。`,
+				},
+				'child-nav-shop': {
+					title: shopNav,
+					description: `ためたポイントは下の「${shopNav}」でごほうびに交換できます。`,
+				},
+			},
+			dialog: {
+				resumeTitle: 'ガイドの続き',
+				resumePrompt: '前回の途中から続けますか？',
+				resumeCancel: 'やめる',
+				resumeFromStart: '最初から',
+				resumeContinue: '続きから',
+				exitConfirmAriaLabel: 'ガイド終了の確認',
+				exitConfirmPrompt: 'ガイドを終了しますか？',
+				exitConfirmHint: '途中からあとで再開できます。',
+				exitConfirmCancel: '続ける',
+				exitConfirmConfirm: '終了する',
+			},
+		} as const;
+	}
+	return {
+		variant,
+		chapters: {
+			record: { title: 'きろくしよう', icon: '⭐' },
+			daily: { title: 'まいにち つづけよう', icon: '🎴' },
+			more: { title: 'ほかの がめん', icon: '📊' },
+		},
+		steps: {
+			'child-record-card': {
+				title: 'かつどうカード',
+				description:
+					'やったことの カードを タップすると「きろく！」ボタンが でるよ。きろく！ を おすと ポイントが もらえるよ。',
+			},
+			'child-record-cancel': {
+				title: 'とりけし',
+				description: `まちがえて きろくしても、きろくの あと ${cancelSec}びょうの あいだは「とりけし」ボタンで とりけせるよ。`,
+			},
+			'child-daily-stamp': {
+				title: 'スタンプ',
+				description:
+					'まいにち ひらくと 💮 スタンプが たまるよ。タップすると スタンプカードが みられるよ。',
+			},
+			'child-nav-status': {
+				title: statusNav,
+				description: `したの「${statusNav}」で、じぶんの つよさ（5つの ちから）が みられるよ。`,
+			},
+			'child-nav-shop': {
+				title: shopNav,
+				description: `ためた ポイントは したの「${shopNav}」で ごほうびに かえられるよ。`,
+			},
+		},
+		dialog: {
+			resumeTitle: 'ガイドの つづき',
+			resumePrompt: 'まえの つづきから みる？',
+			resumeCancel: 'やめる',
+			resumeFromStart: 'さいしょから',
+			resumeContinue: 'つづきから',
+			exitConfirmAriaLabel: 'ガイドを やめる かくにん',
+			exitConfirmPrompt: 'ガイドを やめる？',
+			exitConfirmHint: 'あとで つづきから みられるよ。',
+			exitConfirmCancel: 'つづける',
+			exitConfirmConfirm: 'やめる',
+		},
+	} as const;
+}
 
 // #4644: オフライン着地ページ (`/offline`) の文言。
 //
