@@ -127,6 +127,17 @@ describe('#4719 pg-core backend parity (PGlite 実 migration)', () => {
 		expect(simple.currentLevel).toBe(6);
 		expect(simple.totalActivities).toBe(5);
 
+		// #4697: 台帳に当月の獲得を 2 件入れる。「ポイント」は台帳のその月の獲得合計であり、
+		// statuses の XP 累計とは別の量になった (pg-core 実装 sumEarnedPointsBetween の疎通も兼ねる)。
+		await repos.point.insertPointEntry(
+			{ childId, amount: 42, type: 'activity', description: 'はみがき' },
+			TENANT,
+		);
+		await repos.point.insertPointEntry(
+			{ childId, amount: 26, type: 'activity', description: 'はみがき' },
+			TENANT,
+		);
+
 		const detailed = await report.computeDetailedMonthlyReport(
 			TENANT,
 			childId,
@@ -134,7 +145,11 @@ describe('#4719 pg-core backend parity (PGlite 実 migration)', () => {
 			yearMonth,
 		);
 		expect(detailed.currentLevel).toBe(6);
-		expect(detailed.totalPoints).toBe(210);
+		// #4697: XP 累計は statuses から realtime 導出 (#4719 の意図はこちらに移動)
+		expect(detailed.totalXp).toBe(210);
+		// #4697: ポイントは当月の台帳獲得合計 (42 + 26)。XP 累計 (210) とは一致しない
+		expect(detailed.totalPoints).toBe(68);
+		expect(detailed.isFuture).toBe(false);
 		expect(detailed.totalActivities).toBe(5);
 	});
 

@@ -18,6 +18,7 @@ import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
@@ -276,6 +277,21 @@ $effect(() => {
 	}
 });
 
+// #4705: 無料プランで marketplace の取込 CTA から着地したとき。dialog は開かず
+// (子供を選ばせてから拒否しない)、条件と行き先だけを伝える。invalid preset と同じ one-shot guard。
+let handledLockedPreset = $state(false);
+$effect(() => {
+	if (data.importPresetLocked) {
+		if (!handledLockedPreset) {
+			handledLockedPreset = true;
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
+		}
+	} else {
+		handledLockedPreset = false;
+	}
+});
+
 // ChildSelectionDialog 用の ChildOption 配列
 const childOptions = $derived<ChildOption[]>(
 	data.children.map((c) => ({
@@ -419,9 +435,21 @@ const filteredTemplates = $derived(
 		: data.templates,
 );
 const hasSearchActive = $derived(searchQuery.trim().length > 0);
+// #4656 F8: 「ごほうびを検索」は選択中 child の一覧にも効かせる (旧: Dialog 内テンプレート grid のみ
+// filter され、検索欄の直下に並ぶ一覧が絞られず「検索が効かない」ように見えた)。
+const visiblePerChildRewards = $derived(
+	hasSearchActive
+		? perChildRewards.filter((r) =>
+				r.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+			)
+		: perChildRewards,
+);
 // #2558 段階2 横展開: 旧 in-page preset browse UI 撤去に伴い、
 // allEmpty 判定は user-created templates のみで行う。
-const allEmpty = $derived(hasSearchActive && filteredTemplates.length === 0);
+// #4656 F8: 一覧 (選択中 child) と Dialog 内テンプレートの両方が検索で 0 件のときだけ「該当なし」を出す。
+const allEmpty = $derived(
+	hasSearchActive && filteredTemplates.length === 0 && visiblePerChildRewards.length === 0,
+);
 
 // #2268: overflow menu (申請承認等) + #3079: 個別 backup/restore (活動と同順序: 復元 → エクスポート)
 const overflowMenuItems = $derived<MenuItem[]>([
@@ -699,15 +727,28 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { copiedCount?: number } }
+			| { type: 'success'; data?: { copiedCount?: number; skippedCount?: number } }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(REWARD_TERMS.canonical);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
+			// #4694: 3 画面共通の SSOT で「N 件コピー / M 件は既にあるためスキップ」を出す。
+			//   旧実装は copied 件数だけを出しており、2 回目に 0 件でも「0 件のごほうびを
+			//   コピーしました」と表示され、何が起きたか分からなかった。
 			const cnt = Number(actionResult.data?.copiedCount ?? 0);
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
-			showToast(ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt), undefined, 'success');
+			const skipped = Number(actionResult.data?.skippedCount ?? 0);
+			actionMessage = CHILD_COPY_RESULT_LABELS.format(REWARD_TERMS.canonical, cnt, skipped);
+			showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(cnt));
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();
@@ -764,6 +805,7 @@ async function handleCopyFromChild() {
 				testid="rewards-overflow-menu"
 				triggerLabel="︙"
 				triggerClass="admin-resource-header__overflow-btn"
+				dataTutorial="rewards-overflow-menu"
 			/>
 		{/snippet}
 	</AdminResourceHeader>
@@ -782,7 +824,7 @@ async function handleCopyFromChild() {
 		</p>
 		<p class="page-description__hint">
 			{REWARDS_LABELS.pageDescHintPrefix}
-			<a href="/admin/messages" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
+			<a href="/admin/cheer" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
 			{REWARDS_LABELS.pageDescHintSuffix}
 		</p>
 	</div>
@@ -880,13 +922,16 @@ async function handleCopyFromChild() {
 	{#if selectedChild}
 		<section class="reward-list" data-testid="admin-rewards-list">
 			<div data-testid="rewards-per-child-list">
-				{#if perChildRewards.length === 0}
-					<p class="reward-list__empty" data-testid="rewards-per-child-empty">
-						{ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
-					</p>
+				{#if visiblePerChildRewards.length === 0}
+					{#if !allEmpty}
+						<p class="reward-list__empty" data-testid="rewards-per-child-empty">
+							{hasSearchActive ? REWARDS_LABELS.searchEmptyMessage : ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
+						</p>
+					{/if}
 				{:else}
-					{#each perChildRewards as reward (reward.id)}
-						<div class="reward-item" data-testid="reward-item-{reward.id}">
+					{#each visiblePerChildRewards as reward, i (reward.id)}
+						<!-- data-tutorial: 先頭カードだけをページガイド (#4656) の spotlight 対象にする -->
+						<div class="reward-item" data-testid="reward-item-{reward.id}" data-tutorial={i === 0 ? 'reward-card-first' : undefined}>
 							<span class="reward-item__icon">{reward.icon ?? '🎁'}</span>
 							<span class="reward-item__title">{reward.title}</span>
 							{#if hasPendingRedemption(reward.id)}

@@ -176,14 +176,6 @@ export interface Setting {
 	updatedAt: string;
 }
 
-export interface RestDay {
-	id: string;
-	childId: ChildId;
-	date: string;
-	reason: string;
-	createdAt: string;
-}
-
 export interface CharacterImage {
 	id: string;
 	childId: ChildId;
@@ -906,22 +898,6 @@ export interface ChildChallengeWithSiblings extends ChildChallenge {
 // ============================================================
 // Sibling Cheers (きょうだい間おうえんスタンプ)
 // ============================================================
-
-export interface SiblingCheer {
-	id: string;
-	fromChildId: ChildId;
-	toChildId: ChildId;
-	stampCode: string;
-	tenantId: string;
-	sentAt: string;
-	shownAt: string | null;
-}
-
-export interface InsertSiblingCheerInput {
-	fromChildId: ChildId;
-	toChildId: ChildId;
-	stampCode: string;
-}
 
 // ============================================================
 // Push Subscriptions (プッシュ通知購読)

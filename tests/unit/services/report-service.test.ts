@@ -18,6 +18,8 @@ const mockRepos = {
 		findByTenantAndDateRange: vi.fn(),
 		upsert: vi.fn(),
 	},
+	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (XP 累計ではない)
+	point: { sumEarnedPointsBetween: vi.fn() },
 };
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -68,6 +70,7 @@ beforeEach(() => {
 	mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 	mockRepos.reportDailySummary.findByTenantAndDateRange.mockResolvedValue([]);
 	mockRepos.reportDailySummary.upsert.mockResolvedValue(undefined);
+	mockRepos.point.sumEarnedPointsBetween.mockResolvedValue(0);
 });
 
 // ============================================================
@@ -409,6 +412,8 @@ describe('computeDetailedMonthlyReport', () => {
 			{ totalXp: 150, level: 7 },
 			{ totalXp: 60, level: 4 },
 		]);
+		// #4697: ポイントは台帳、XP は statuses。別々の量として返る
+		mockRepos.point.sumEarnedPointsBetween.mockResolvedValue(64);
 
 		const result = await computeDetailedMonthlyReport(
 			TENANT,
@@ -422,7 +427,8 @@ describe('computeDetailedMonthlyReport', () => {
 		expect(result.month).toBe('2026-04');
 		expect(result.totalActivities).toBe(7);
 		expect(result.currentLevel).toBe(7);
-		expect(result.totalPoints).toBe(210);
+		expect(result.totalPoints).toBe(64);
+		expect(result.totalXp).toBe(210);
 		expect(result.maxStreakDays).toBe(3);
 		expect(result.totalNewAchievements).toBe(1);
 		expect(result.daysWithActivity).toBe(2);
@@ -437,6 +443,7 @@ describe('computeDetailedMonthlyReport', () => {
 		mockRepos.activity.findTodayLogsWithCategory.mockResolvedValue([]);
 		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 300, level: 10 }]);
 		mockRepos.achievement.findUnlockedAchievements.mockResolvedValue([]);
+		mockRepos.point.sumEarnedPointsBetween.mockResolvedValue(12);
 
 		const result = await computeDetailedMonthlyReport(
 			TENANT,
@@ -447,8 +454,80 @@ describe('computeDetailedMonthlyReport', () => {
 
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.currentLevel).toBe(10);
-		expect(result.totalPoints).toBe(300);
+		expect(result.totalPoints).toBe(12);
+		expect(result.totalXp).toBe(300);
 		expect(mockRepos.status.findStatuses).toHaveBeenCalled();
+	});
+
+	// ========================================================
+	// #4697: 「ポイント」の定義 (台帳のその月の獲得) と未来月の扱い
+	// ========================================================
+
+	it('#4697 ポイントは台帳のその月の獲得合計で、XP 累計とは別に返る', async () => {
+		mockRepos.status.findStatuses.mockResolvedValue([
+			{ totalXp: 400, level: 5 },
+			{ totalXp: 321, level: 3 },
+		]);
+		mockRepos.point.sumEarnedPointsBetween.mockResolvedValue(68);
+
+		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2026-04');
+
+		// 旧実装はここに XP 累計 (721) を入れていたため、どの月でも同じ数 = 先月比が常に ±0 だった
+		expect(result.totalPoints).toBe(68);
+		expect(result.totalXp).toBe(721);
+		expect(mockRepos.point.sumEarnedPointsBetween).toHaveBeenCalledWith(
+			'1',
+			'2026-04-01',
+			'2026-04-30',
+			TENANT,
+		);
+	});
+
+	it('#4697 月ごとに台帳の獲得が違えば totalPoints も違う (先月比が意味を持つ)', async () => {
+		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 721, level: 5 }]);
+		mockRepos.point.sumEarnedPointsBetween.mockResolvedValueOnce(30).mockResolvedValueOnce(95);
+
+		const march = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2026-03');
+		const april = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2026-04');
+
+		expect(march.totalPoints).toBe(30);
+		expect(april.totalPoints).toBe(95);
+		expect(april.totalPoints).not.toBe(march.totalPoints);
+	});
+
+	it('#4697 未来月は isFuture=true かつ台帳を引かず 0 を返す', async () => {
+		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 721, level: 5 }]);
+		mockRepos.point.sumEarnedPointsBetween.mockResolvedValue(999);
+
+		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2999-12');
+
+		expect(result.isFuture).toBe(true);
+		expect(result.totalPoints).toBe(0);
+		expect(mockRepos.point.sumEarnedPointsBetween).not.toHaveBeenCalled();
+	});
+
+	it('#4697 過去 / 当月は isFuture=false', async () => {
+		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 10, level: 1 }]);
+
+		const past = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2020-01');
+
+		expect(past.isFuture).toBe(false);
+	});
+
+	it('#4697 レベルはカテゴリ別レベルの最大値 (合計にしない)', async () => {
+		mockRepos.status.findStatuses.mockResolvedValue([
+			{ totalXp: 100, level: 4 },
+			{ totalXp: 60, level: 2 },
+			{ totalXp: 120, level: 5 },
+			{ totalXp: 80, level: 3 },
+			{ totalXp: 80, level: 3 },
+		]);
+
+		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2026-04');
+
+		expect(result.currentLevel).toBe(5);
+		// 閲覧リンクが出していた合計 (17) にはならない
+		expect(result.currentLevel).not.toBe(17);
 	});
 
 	it('カテゴリ別内訳を正しくマージする', async () => {

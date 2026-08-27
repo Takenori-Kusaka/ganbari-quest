@@ -5,7 +5,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
-import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
+import { ADMIN_CHILD_SCOPE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
@@ -219,7 +219,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -331,7 +331,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${importPackLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(importPackLimitCheck.max),
 				),
 			});
 		}
@@ -493,7 +493,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -593,7 +593,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${copyLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(copyLimitCheck.max),
 				),
 			});
 		}
@@ -604,8 +604,10 @@ export const actions: Actions = {
 				if (sourceChildId === target) {
 					return fail(400, { error: '同じお子さまにはコピーできません' });
 				}
+				// #4694: 重複 (同名 + 同カテゴリ) は service 側で skip される。
+				// 件数を UI に返し「N 件コピー / M 件は既にあるためスキップ」を出す。
 				const copied = await copyChildActivitiesToSibling(tenantId, sourceChildId, target);
-				return { copyResult: true, copiedCount: copied.length };
+				return { copyResult: true, copiedCount: copied.copied, skippedCount: copied.skipped };
 			}
 			const result = await copyChildActivitiesToSiblings({
 				tenantId,
@@ -620,6 +622,7 @@ export const actions: Actions = {
 			return {
 				copyResult: true,
 				copiedCount: result.totalCopied,
+				skippedCount: result.totalSkipped,
 				errorCount: result.errors.length,
 			};
 		} catch (e) {
@@ -659,7 +662,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${bulkActivityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(bulkActivityLimitCheck.max),
 				),
 			});
 		}

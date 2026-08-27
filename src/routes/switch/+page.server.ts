@@ -2,8 +2,9 @@ import { redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+import { SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
-import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import { setSelectedChildCookie } from '$lib/server/auth/selected-child-cookie';
 import { isPinConfigured } from '$lib/server/services/auth-service';
 import { resetChildData } from '$lib/server/services/child-data-reset-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
@@ -37,6 +38,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		children = children.filter((c) => c.id === locals.context?.childId);
 	}
 
+	// #4641: **本画面では自動スキップしない**。子供用ナビの「きりかえ」と自動スリープ (#1292) が
+	// ここへ来るため、無条件にホームへ送り返すとその 2 つが機能しなくなる (ボタンが無反応になり、
+	// 15 分の休憩導線が消える)。ログイン直後の 1 回だけをホームへ送る責務は
+	// `resolvePostLoginLanding` (`$lib/server/auth/post-login-landing.ts`) が持つ。
+
 	const authMode = getAuthMode();
 	// #4050: 親ゲート modal をクライアント側で開けるか (= 既にログイン済で /admin を要求できる状態)。
 	// 旧実装は cognito モードで adminLink を常に '/auth/login' 固定にしていたため、ログイン済
@@ -55,7 +61,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 着地したとき、残りの初期設定 step への再入口が UI 上消えていた問題への対処。
 	// 子ロールには出さない (親の見守り設定タスクのため)。onboarding 取得失敗は導線非表示で
 	// ページ全体を守る。Anti-engagement (ADR-0012): allCompleted なら banner は描画されない。
-	const isParentContext = authMode === 'local' || locals.context?.role !== 'child';
+	// #4712: demo は setup 完了を記録できない (write no-op) ため「あと 2 ステップ」バナーが
+	// 常時出続け、しかも次の step の行き先が /switch 自身 = 自己ループになる。demo では出さない。
+	const isParentContext =
+		locals.isDemo !== true && (authMode === 'local' || locals.context?.role !== 'child');
 	let onboarding: OnboardingProgress | null = null;
 	if (isParentContext) {
 		try {
@@ -92,23 +101,17 @@ export const actions: Actions = {
 		const childId = formData.get('childId');
 
 		if (!childId) {
-			return { error: 'こどもをえらんでね' };
+			return { error: SWITCH_PAGE_LABELS.errorChildRequired };
 		}
 
 		// child ロールは紐づけ済みの自分のプロフィールのみ選択可 (#0156)
 		if (locals.context?.role === 'child' && locals.context.childId) {
 			if (asChildId(String(childId)) !== locals.context.childId) {
-				return { error: 'このプロフィールは選べません' };
+				return { error: SWITCH_PAGE_LABELS.errorChildNotSelectable };
 			}
 		}
 
-		cookies.set('selectedChildId', String(childId), {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: COOKIE_SECURE,
-			maxAge: 60 * 60 * 24 * 365,
-		});
+		setSelectedChildCookie(cookies, asChildId(String(childId)));
 
 		// EPIC #2310 子#2314: 子供モード切替時の PIN session 破棄 (構造的核心)
 		// 親が /admin で作業 → /switch で別の子供 profile 選択 → cookie 削除しないと
