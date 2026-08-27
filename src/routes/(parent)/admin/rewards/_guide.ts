@@ -1,39 +1,52 @@
 import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
-// #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
-// step 1 は selector 省略で画面中央 modal 表示。step 2 はお子さまタブ (小要素) を target にする
-// (旧 step 1 の rewards-section は巨大要素のため target にしない)。
+// #4656 (EPIC #4650 PO 判断 4 / 5): 3 step 固定をやめ、画面の上から下 (+ 追加 → ︙ → お子さまタブ →
+// 一覧カード) の順に主要操作を網羅する。旧 step 3 は「+ 追加」trigger を光らせながら「下の作成フォーム」
+// (#2998 で Dialog 化済) を案内して乖離していた。「押す」と書く step は必ず実要素に spotlight する —
+// お子さまタブ (0 人で非表示) / 一覧カード (0 件で非表示) は filterGuideStepsByTargetPresence
+// (AdminLayout が起動直前に適用) で描画時のみ出る。
 // #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
 const L = PAGE_GUIDE_LABELS.adminRewards;
 
 export const REWARDS_GUIDE: PageGuide = {
 	pageId: 'admin-rewards',
 	title: L.title,
-	icon: '🎁',
+	icon: CONCEPT_ICONS.reward,
 	steps: [
 		// ① ページ概要
 		{
 			id: 'rewards-intro',
 			...L.steps['rewards-intro'],
 		},
-		// ② 画面の見方
+		// + 追加 dropdown (header 右上、常設)
+		{
+			id: 'rewards-add',
+			selector: '[data-tutorial="rewards-add-start"]',
+			...L.steps['rewards-add'],
+			position: 'bottom',
+		},
+		// ︙ overflow (申請承認 / 復元 / エクスポート、常設)
+		{
+			id: 'rewards-overflow',
+			selector: '[data-tutorial="rewards-overflow-menu"]',
+			...L.steps['rewards-overflow'],
+			position: 'bottom',
+		},
+		// お子さまタブ (お子さま 1 人以上のとき)
 		{
 			id: 'rewards-child-tabs',
 			selector: '[data-tutorial="rewards-child-tabs"]',
 			...L.steps['rewards-child-tabs'],
 			position: 'bottom',
 		},
-		// ③ 最頻操作（ごほうび追加の起点 = 追加ボタンを target にする）
+		// 一覧の先頭カード (選択中のお子さまにごほうびが 1 件以上あるとき)
 		{
-			id: 'rewards-add',
-			// 追加フォームの「追加する」ボタン (Card 末尾の主 CTA) を highlight する。
-			// position hint は撤去して driver.js collision-aware auto 配置に委譲する (#2968 round2)。
-			// per-step 手書き hint は driver.js auto と競合して一方の viewport で overflow を引き起こす
-			// (mobile を直して desktop を壊す whack-a-mole)。auto 配置が bottom → top flip を viewport
-			// 状況に応じて選択することで全 viewport PASS が保証される。
-			selector: '[data-tutorial="rewards-add-start"]',
-			...L.steps['rewards-add'],
+			id: 'rewards-list',
+			selector: '[data-tutorial="reward-card-first"]',
+			...L.steps['rewards-list'],
+			position: 'top',
 		},
 	],
 };
