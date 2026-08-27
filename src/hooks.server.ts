@@ -720,11 +720,21 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// 同意バージョンチェック（cognito 本番モードのみ、dev モードは除外）
+		//
+		// #4497: 子供セッションは対象外。同意主体は保護者であり (privacy.html 第9条「お子さま本人が
+		// アカウントを作成することはできません」)、子供に法務文書のチェックボックスを操作させると
+		// 同意を得る相手を間違える。UX 上も、3-5 歳のひらがな画面の子が「越境移転」「施行規則17条2項」の
+		// 文書に突き当たり、同意後は行き場のない /admin へ飛ばされる (ADR-0012 の最短経路にも反する)。
+		// 保護者は /admin 等でこの gate に掛かるので、再同意の取得自体は保護者側で成立する。
+		//
+		// この分岐が実際に発火するのは本 PR の version bump が初めてであり、それまでは
+		// 「誰も再同意対象にならない」ため潜在していた (#4497 で顕在化)。
 		if (
 			authMode === 'cognito' &&
 			!COGNITO_DEV_MODE &&
 			identity &&
 			context?.tenantId &&
+			context.role !== 'child' &&
 			!path.startsWith('/consent') &&
 			!path.startsWith('/legal/') &&
 			!path.startsWith('/auth/') &&
