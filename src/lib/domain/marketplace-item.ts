@@ -8,7 +8,7 @@
 import type { CategoryNumericId } from './categories.js';
 import { AGE_TIER_LABELS } from './labels.js';
 import type { ShopCategory } from './shop-category.js';
-import { CONCEPT_ICONS } from './terms.js';
+import { CONCEPT_ICONS, MARKETPLACE_TYPE_TERMS } from './terms.js';
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
 import type { UiMode } from './validation/age-tier-types.js';
 import type { RewardCategory } from './validation/special-reward.js';
@@ -206,12 +206,14 @@ export interface MarketplaceItemMeta {
 // する。「みんなのテンプレート（活動）」(旧) は page title と重複し命名規則も不一致
 // だったため「活動セット」(= 活動の束、ごほうびセットと同型) に是正した。
 // 命名規則は DESIGN.md §6「marketplace type 命名規則」を参照。
+// #4511: 値は MARKETPLACE_TYPE_TERMS atom (terms.ts) を SSOT とする。同じ 5 type 名が
+// MARKETPLACE_LABELS.tabs に別表記で複製されていたため、複製を作れない形に集約した。
 export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = {
-	'activity-pack': '活動セット',
-	'reward-set': 'ごほうびセット',
-	checklist: 'チェックリスト',
-	'rule-preset': 'とくべつルール',
-	'challenge-set': 'チャレンジ集',
+	'activity-pack': MARKETPLACE_TYPE_TERMS.activityPack,
+	'reward-set': MARKETPLACE_TYPE_TERMS.rewardSet,
+	checklist: MARKETPLACE_TYPE_TERMS.checklist,
+	'rule-preset': MARKETPLACE_TYPE_TERMS.rulePreset,
+	'challenge-set': MARKETPLACE_TYPE_TERMS.challengeSet,
 };
 
 // #2899: 概念アイコンは CONCEPT_ICONS atom (terms.ts) を SSOT とする。

@@ -82,6 +82,7 @@ import {
 	CURRENCY_TERMS,
 	DELETION_EXPORT_TERMS,
 	DELETION_GRACE_TERMS,
+	DEMO_SITE_TERMS,
 	FAMILY_MEMBER_LIMIT_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
@@ -1344,7 +1345,8 @@ export const MARKETPLACE_LABELS = {
 	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
+	// #4511: 陳列は #2896 で 3 type (rule-preset はブラウズ不可)。検索流入者に 4 type を訴求しない
+	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリストを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
 	// #4512: 詳細ルートの 404 文言 (旧: [type]/[itemId]/+page.server.ts 直書き)
@@ -1354,6 +1356,12 @@ export const MARKETPLACE_LABELS = {
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
+	backToDemo: 'デモを体験',
+	// #4511: 旧 href="/demo" は legacy redirect → 「/」→ 未認証は /auth/login に落ちる
+	// 死に導線だった (デモは #2181 で demo.ganbari-quest.com へ移設済み)。URL は atom 参照。
+	// #4677 は「/demo 行きで死んでいる」ことを理由にリンク自体を撤去したが、本 atom で
+	// 実在するデモ環境を指すようになったためリンクを残す (#4677 の禁止対象は href="/demo")
+	backToDemoHref: DEMO_SITE_TERMS.url,
 	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
 	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
 	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
@@ -1446,10 +1454,12 @@ export const MARKETPLACE_LABELS = {
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
-	// #4711: 顧客向け文言に統一 (内部語 penalty / special / ADR / no-op を出さない)
+	// #4511 / #4711: ADR 番号や no-op / penalty / special は社内語彙。顧客には
+	// 「今は使えない」という事実だけを伝える (内部語を出さない #4711 の契約も満たす)
 	detailCtaImportRuleDescPenalty:
-		'⚠️ このルールは現在取り込めません（ペナルティ型のルールは慎重に検討中です）。',
-	detailCtaImportRuleDescSpecial: '⚠️ このルールは現在取り込めません（今後追加予定の種類です）。',
+		'⚠️ このタイプのルールは現在ご利用いただけません（お子さまへの罰を伴う仕組みは提供しない方針のため）。',
+	detailCtaImportRuleDescSpecial:
+		'⚠️ このタイプのルールは準備中です。追加しても、今はまだ画面には反映されません。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
 		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
