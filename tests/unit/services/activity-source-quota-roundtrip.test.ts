@@ -61,6 +61,7 @@ import { countsTowardActivityQuota, PARENT_CREATED_SOURCE } from '$lib/domain/ac
 import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { getRepos } from '$lib/server/db/factory';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
+import { copyChildActivitiesToSibling } from '$lib/server/services/child-activity-copy-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 
 const TENANT = 't-3669';
@@ -187,8 +188,8 @@ describe('#3669 activity source round-trip (producer × consumer 整合)', () =>
 
 	it('AC4: 兄弟 copy 経路は元活動の source を保全する (custom の copy は custom のまま数えられる)', async () => {
 		await createActivity(uiCreateInput('カスタム活動'), TENANT, asChildId(1));
-		const repos = getRepos();
-		await repos.childActivity.copyActivitiesAcrossChildren(asChildId(1), asChildId(2), TENANT);
+		// #4694: 兄弟 copy は service 層 (重複 skip 込み) に一本化済。
+		await copyChildActivitiesToSibling(TENANT, asChildId(1), asChildId(2));
 
 		const rows = sqlite
 			.prepare('SELECT child_id, source FROM child_activities ORDER BY id')
