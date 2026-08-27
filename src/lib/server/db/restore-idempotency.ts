@@ -146,18 +146,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		reason:
 			'#3414: id-addressable append のため DB 自然キーなし。同一 backup 再取込の複製を service 層 content dedup で防ぐ (verbatim=cutover は bypass)',
 	},
-	siblingCheer: {
-		kind: 'content-dedup',
-		repoFile: 'sibling-cheer-repo',
-		functionNames: ['insertForRestore'],
-		contentKey: '(fromChildId, toChildId, stampCode, sentAt) — import-service merge mode',
-		guards: {
-			sqlite: 'none',
-			dsql: 'none',
-			demo: 'null-stub',
-		},
-		reason: '#3420: parentMessage と同型。demo stub の虚偽 imported カウントも null 返却で根治',
-	},
 	childVoice: {
 		kind: 'append',
 		repoFile: 'voice-repo',
@@ -169,19 +157,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		},
 		reason:
 			'音声 DB 行は filePath (uuid) が実質識別子で、静的ファイル復元 (#3077) と対で管理される。再取込複製は既知の制約 (backup 対象は同一 uuid path へ上書き復元されるため実害は DB 行の重複のみ)。#3781: import-service 層で DB 行↔本体ファイル (staticFiles) の相互整合を fail-closed 検証 — 本体を欠く行は insert せず skip + warning で dangling publicUrl を生まない',
-	},
-	restDay: {
-		kind: 'natural-key',
-		repoFile: 'evaluation-repo',
-		functionNames: ['insertRestDayForRestore'],
-		naturalKey: '(childId, date)。sqlite=idx_rest_days_child_date / dsql=自然複合 PK + ON CONFLICT',
-		guards: {
-			sqlite: 'on-conflict-do-nothing',
-			dsql: 'on-conflict-sql',
-			demo: 'null-stub',
-		},
-		reason:
-			'統一契約の既存模範実装 (#3329)。重複 → undefined 返却 + import 側 skip 計上が全 backend で成立済',
 	},
 	checklistOverride: {
 		kind: 'append',

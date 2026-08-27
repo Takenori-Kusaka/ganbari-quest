@@ -4,10 +4,7 @@ import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
-import {
-	areValidUuidFormFields,
-	isValidUuidFormField,
-} from '$lib/server/auth/child-form-field-guard';
+import { isValidUuidFormField } from '$lib/server/auth/child-form-field-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -47,11 +44,6 @@ import {
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
-import {
-	getUnshownCheers,
-	markCheersShown,
-	sendCheer,
-} from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
 import type { SpecialRewardResult } from '$lib/server/services/special-reward-service';
 import {
@@ -107,7 +99,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			celebrationChallenge: null,
 			challengeTargets: [],
 			siblingRanking: null,
-			unshownCheers: [],
 			mustStatus: null,
 			uiModeChangeNotice: null,
 			habitCertificateNotice: null,
@@ -136,7 +127,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			celebrationChallenge: null,
 			challengeTargets: [],
 			siblingRanking: null,
-			unshownCheers: [],
 			familyStreak: null,
 			mustStatus: null,
 			// #4313: 年齢は減らないため「切替後が baby」の notice は発生しない。
@@ -164,7 +154,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		hasRecords,
 		birthdayBonusStatus,
 		activeChallenges,
-		unshownCheers,
 		familyStreakData,
 		uiModeChangeNotice,
 		habitCertificateNotice,
@@ -190,7 +179,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
 		getActiveChildChallengesWithSiblings(child.id, tenantId),
-		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
 		// #4313: 誕生日で年齢帯 UI が切り替わったことの未読告知 (settings KV)
 		getUiModeChangeNotice(child.id, tenantId),
@@ -317,13 +305,12 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		birthdayBonus,
 		activeChallenges,
 		// #4410: 祝福ダイアログを出すべき instance は **load 側で** `celebrationShownAt IS NULL`
-		// を含めて解決する (getUnshownCheers / getUnshownMessage と同型)。client の $state を
+		// を含めて解決する (getUnshownMessage と同型)。client の $state を
 		// 表示可否の唯一の根拠にしないことで、ページ遷移・リロード・invalidateAll のたびに
 		// 再表示される問題 (ADR-0012 違反) を構造的に断つ。
 		celebrationChallenge: resolveCelebrationChallenge(activeChallenges, child.id),
 		challengeTargets,
 		siblingRanking,
-		unshownCheers,
 		familyStreak: familyStreakData
 			? {
 					...familyStreakData,
@@ -485,6 +472,14 @@ export const actions: Actions = {
 			weeklyRedeem = null;
 		}
 
+		// #4687 ②: 押印できない日 (週 5 枠が埋まった CARD_FULL / 今日は押印済 ALREADY_STAMPED) は
+		// stamp=null になる。旧実装はそのまま返していたため演出が「今週 0回目！ / +0pt /
+		// あと5回でコンプリート！」と空カードになり、ヘッダー (5/5) と画面内で矛盾していた。
+		// 今のカードを読み直して渡し、埋まっていれば演出側で「コンプリート」を出す。
+		const currentCard = stamp ? null : await getStampCardStatus(childId, tenantId);
+		const cardData = stamp?.cardData ?? currentCard;
+		const cardFull = !stamp && !!currentCard && currentCard.filledSlots >= currentCard.totalSlots;
+
 		return {
 			success: true,
 			loginStamp: true,
@@ -494,7 +489,12 @@ export const actions: Actions = {
 			instantPoints: stamp?.instantPoints ?? 0,
 			consecutiveLoginDays: bonus?.consecutiveLoginDays ?? 0,
 			multiplier: bonus?.multiplier ?? 1,
-			cardData: stamp?.cardData ?? null,
+			cardData,
+			// #4687 ②③: 台帳に載る付与を演出に全部出す (表示額 = stamp_instant + login_bonus の増分)。
+			// おみくじの結果 (吉 / 大吉 …) も返し、子供が「何を引いたか」を画面で見られるようにする。
+			cardFull,
+			loginBonusPoints: bonus?.totalPoints ?? 0,
+			loginBonusRank: bonus?.rank ?? null,
 			weeklyRedeem,
 		};
 	},
@@ -683,66 +683,6 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 		return { success: true, challengeCelebrationShown: true };
-	},
-
-	sendCheer: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
-		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.sendCheer'));
-		const toChildId = asChildId(formIdString(formData.get('toChildId')));
-		const stampCode = formData.get('stampCode')?.toString() ?? '';
-
-		if (!childId || !toChildId || !stampCode) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-		// #3799 (確定残渣): form-field 由来 toChildId が sendCheer → insertCheer の
-		// `JOIN children ct ON ct.child_id = ${toChildId}` (dsql uuid 列) へ無 guard 直達し、
-		// 非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。fromChildId は
-		// requireValidChildCookieFormat で cookie guard 済のため、残る form-field toChildId を検証する。
-		if (!isValidUuidFormField(toChildId, 'route.home.sendCheer.toChildId')) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		const result = await sendCheer(childId, toChildId, stampCode, tenantId);
-		if ('error' in result) {
-			return fail(400, { error: result.error });
-		}
-
-		return { success: true, cheerSent: true };
-	},
-
-	/**
-	 * #4435 (逸脱 1): 受け取る子 (cookie の selectedChildId) を必ず解決して渡す。
-	 * 旧実装は cheer id 配列だけを service へ素通ししており、id は本 route の load が
-	 * 返す値なので、同じ家族のきょうだいが**別の子宛のおうえん**を既読にできた
-	 * (既読になると次から出ないため、受け取る側は一度も見られない)。
-	 * `markChallengeCelebrationShown` と同型に child cookie を trust 境界とする。
-	 */
-	markCheersShown: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.markCheersShown'));
-		if (!childId) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-		const formData = await request.formData();
-		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';
-		const cheerIds = cheerIdsStr
-			.split(',')
-			.map((v) => v.trim())
-			.filter((v) => v !== '');
-
-		if (cheerIds.length === 0) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-		// #3799: form-field 由来 cheerIds が markShown の `cheer_id IN (${...})` (dsql uuid 列) へ
-		// 無 guard 直達し、非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。
-		if (!areValidUuidFormFields(cheerIds, 'route.home.markCheersShown.cheerIds')) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		await markCheersShown(childId, cheerIds, tenantId);
-		return { success: true };
 	},
 
 	/**

@@ -129,6 +129,26 @@ const ACCEPT_INVITE_FAILURE_ERRORS: Record<AcceptInviteFailure, string> = {
 	EMAIL_UNVERIFIED: 'INVITE_EMAIL_UNVERIFIED',
 };
 
+/**
+ * 受諾を **試さずに** 拒否理由だけを引く (#4636)。書き込みを一切伴わない。
+ *
+ * `/auth/join` が「なぜ参加できなかったか」を画面表示のたびに再導出するために使う。
+ * 判定は `acceptInvite` と同じ `getInvite` + `preflightAcceptInvite` を通すので、
+ * 表示された理由と実際の受諾結果が食い違わない (理由の SSOT が 1 つになる)。
+ *
+ * @returns 拒否理由 (`INVITE_ACCEPT_ERROR_REASONS` の値)。受諾できる状態なら null。
+ */
+export async function previewInviteAcceptance(
+	inviteCode: string,
+	userId: string,
+	userEmail?: string,
+	opts?: { emailVerified?: boolean },
+): Promise<string | null> {
+	const invite = await getInvite(inviteCode);
+	if (!invite) return 'INVALID_OR_EXPIRED';
+	return preflightAcceptInvite(invite, userId, userEmail, opts?.emailVerified);
+}
+
 /** 招待を受諾してテナントに参加 */
 export async function acceptInvite(
 	inviteCode: string,
