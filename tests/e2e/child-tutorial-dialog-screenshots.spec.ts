@@ -20,6 +20,9 @@
 
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+// #4652: ダイアログ文言は年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字)。
+// 期待値を labels SSOT から引き、文言変更時に spec 側が自動追従する (直書きの二重管理を作らない)。
+import { getChildTutorialLabels } from '../../src/lib/domain/labels';
 
 const OUT = path.resolve('docs/screenshots/2393-child-tutorial-dialog');
 
@@ -219,12 +222,19 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 				fullPage: false,
 			});
 
-			// AC: resume prompt 内に「前回の途中から続けますか？」テキストが含まれる
-			await expect(resumeDlg).toContainText('前回の途中から続けますか');
-			// AC: 「続きから」「最初から」「キャンセル」3 ボタンが存在
-			await expect(resumeDlg.locator('button:has-text("続きから")')).toBeVisible();
-			await expect(resumeDlg.locator('button:has-text("最初から")')).toBeVisible();
-			await expect(resumeDlg.locator('button:has-text("キャンセル")')).toBeVisible();
+			// AC (#4652): resume prompt が年齢帯 variant の文言で出る (preschool はひらがな)
+			const dialogLabels = getChildTutorialLabels(uiMode).dialog;
+			await expect(resumeDlg).toContainText(dialogLabels.resumePrompt);
+			// AC: 「続きから」「最初から」「やめる」相当の 3 ボタンが存在
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeContinue}")`),
+			).toBeVisible();
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeFromStart}")`),
+			).toBeVisible();
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeCancel}")`).first(),
+			).toBeVisible();
 		});
 
 		test(`${uiMode}: exit confirm dialog`, async ({ page }) => {
@@ -252,11 +262,16 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 				fullPage: false,
 			});
 
-			// AC: exit confirm 内に「チュートリアルを終了しますか？」が含まれる
-			await expect(exitDlg).toContainText('チュートリアルを終了しますか');
-			// AC: 「続ける」「終了する」ボタン存在
-			await expect(exitDlg.locator('button:has-text("続ける")')).toBeVisible();
-			await expect(exitDlg.locator('button:has-text("終了する")')).toBeVisible();
+			// AC (#4652): exit confirm が年齢帯 variant の文言で出る (preschool はひらがな)
+			const exitLabels = getChildTutorialLabels(uiMode).dialog;
+			await expect(exitDlg).toContainText(exitLabels.exitConfirmPrompt);
+			// AC: 「続ける」「終了する」相当のボタン存在
+			await expect(
+				exitDlg.locator(`button:has-text("${exitLabels.exitConfirmCancel}")`).first(),
+			).toBeVisible();
+			await expect(
+				exitDlg.locator(`button:has-text("${exitLabels.exitConfirmConfirm}")`).first(),
+			).toBeVisible();
 		});
 	}
 });
