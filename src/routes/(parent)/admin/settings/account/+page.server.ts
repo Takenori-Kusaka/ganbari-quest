@@ -3,7 +3,7 @@
 // accountDelete / logout は client-side fetch + a href 遷移なので server action 不要。
 
 import { fail } from '@sveltejs/kit';
-import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { changePin } from '$lib/server/services/auth-service';
@@ -27,14 +27,16 @@ export const actions = {
 			return fail(400, { error: OYAKAGI_LABELS.allFieldsRequiredError });
 		}
 
-		// #4661: 桁数は constants/oyakagi.ts の PIN_LENGTH が SSOT。以前ここだけが 4〜8 桁を
+		// #4661 / #4698: 桁数は constants/oyakagi.ts の PIN_LENGTH が SSOT。以前ここだけが 4〜8 桁を
 		// 受理していたため、5 桁以上に変更すると /switch の入力欄 (ちょうど 4 桁) から二度と
 		// 送れず見守り画面に入れなくなった。入口 (PinInput) と同じ形式でしか受け付けない。
+		// currentPin は桁数検証しない — 旧ポリシーで 5〜8 桁を保存した世帯が、現コードを入れて
+		// 4 桁へ移行できる救済経路を残すため (#4698 AC3)。
 		if (!/^\d+$/.test(newPin)) {
 			return fail(400, { error: OYAKAGI_LABELS.numberOnlyError });
 		}
 
-		if (!PIN_PATTERN.test(newPin)) {
+		if (!isValidPinFormat(newPin)) {
 			return fail(400, { error: OYAKAGI_LABELS.formatError });
 		}
 

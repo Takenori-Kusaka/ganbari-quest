@@ -7,6 +7,7 @@
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
@@ -24,7 +25,9 @@ import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 let { form } = $props();
 const errorMessage = $derived(getErrorMessage(form?.error));
 
+// #4698: JS 未 hydrate の native POST (SSR 再描画) でも成功表示が出るよう form prop を初期値にする
 let success = $state(false);
+const changeSucceeded = $derived(success || form?.success === true);
 let submitting = $state(false);
 
 // アカウント削除関連
@@ -213,12 +216,12 @@ const canConfirmDelete = $derived(
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{OYAKAGI_LABELS.sectionTitle}
 		</h3>
-		<p class="text-sm text-[var(--color-text-muted)] mb-4">
-			{OYAKAGI_LABELS.defaultValueHint}
+		<p class="text-sm text-[var(--color-text-muted)] mb-4" data-testid="oyakagi-forgot-hint">
+			{OYAKAGI_LABELS.forgotHint}
 		</p>
 
-		{#if success}
-			<SuccessAlert message={OYAKAGI_LABELS.changeSuccess} />
+		{#if changeSucceeded}
+			<div data-testid="oyakagi-change-success"><SuccessAlert message={OYAKAGI_LABELS.changeSuccess} /></div>
 		{/if}
 
 		{#if errorMessage}
@@ -256,6 +259,8 @@ const canConfirmDelete = $derived(
 				type="password"
 				id="newPin"
 				name="newPin"
+				inputmode="numeric"
+				maxlength={PIN_LENGTH}
 				required
 			/>
 
@@ -264,6 +269,8 @@ const canConfirmDelete = $derived(
 				type="password"
 				id="confirmPin"
 				name="confirmPin"
+				inputmode="numeric"
+				maxlength={PIN_LENGTH}
 				required
 			/>
 
@@ -273,6 +280,7 @@ const canConfirmDelete = $derived(
 				size="md"
 				class="w-full"
 				disabled={submitting}
+				data-testid="oyakagi-change-submit"
 			>
 				{submitting ? '変更中...' : OYAKAGI_LABELS.changeAction}
 			</Button>
