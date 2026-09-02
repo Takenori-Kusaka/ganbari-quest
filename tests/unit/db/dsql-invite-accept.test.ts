@@ -184,6 +184,11 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 	beforeEach(async () => {
 		await seedFamily();
 		await db.execute(sql`DELETE FROM trial_history WHERE family_id = ${FAMILY}`);
+		// #4505 (QM): memberships を消さないと owner 席が test 間で残り、
+		// 素の INSERT をする test ([B8]) が memberships_pkey 重複で落ちる。
+		// 「残る前提」で ON CONFLICT を各所に足す形だと、足し忘れた test だけが
+		// 実行順に依存して落ちるので、掃除する側に寄せる。
+		await db.execute(sql`DELETE FROM memberships WHERE family_id = ${FAMILY}`);
 	});
 
 	const makeRunner = async () => {
