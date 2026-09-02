@@ -83,10 +83,10 @@ async function fetchDeletionInfo() {
 	try {
 		const res = await fetch('/api/v1/admin/account/deletion-info');
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? '情報取得に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteInfoFetchFailed);
 		deletionInfo = d;
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : '情報取得に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteInfoFetchFailed;
 	} finally {
 		deletionInfoLoading = false;
 	}
@@ -122,11 +122,11 @@ async function handleDeleteAccount() {
 			body: JSON.stringify({ pattern }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		// #4699: 削除申請の受付をログイン画面で伝える (旧実装は無言で /auth/login に着地していた)
 		window.location.href = `/auth/signout?reason=${LOGIN_REASON_CODES.deletionPending}`;
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -147,10 +147,10 @@ async function handleTransferAndDelete() {
 			}),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -168,10 +168,10 @@ async function handleFullDelete() {
 			body: JSON.stringify({ pattern: 'owner-full-delete' }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -281,7 +281,7 @@ const canConfirmDelete = $derived(
 				disabled={submitting}
 				data-testid="oyakagi-change-submit"
 			>
-				{submitting ? '変更中...' : OYAKAGI_LABELS.changeAction}
+				{submitting ? SETTINGS_LABELS.oyakagiChangeSubmitting : OYAKAGI_LABELS.changeAction}
 			</Button>
 		</form>
 	</Card>
@@ -431,7 +431,7 @@ const canConfirmDelete = $derived(
 										<NativeSelect
 											bind:value={transferTargetId}
 											options={[
-												{ value: '', label: '移譲先を選択...' },
+												{ value: '', label: SETTINGS_LABELS.accountDeleteTransferPlaceholder },
 												...deletionInfo.otherMembers
 													.filter((m) => m.role !== 'child')
 													.map((member) => ({
@@ -448,7 +448,7 @@ const canConfirmDelete = $derived(
 										disabled={deleteSubmitting || !transferTargetId}
 										onclick={handleTransferAndDelete}
 									>
-										{deleteSubmitting ? '処理中...' : '移譲して退会'}
+										{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteTransferSubmit}
 									</Button>
 								</div>
 							</div>
@@ -471,7 +471,7 @@ const canConfirmDelete = $derived(
 									onclick={handleFullDelete}
 									data-testid="account-delete-full"
 								>
-									{deleteSubmitting ? '処理中...' : '全て削除する'}
+									{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteFullSubmit}
 								</Button>
 							</div>
 
@@ -540,8 +540,8 @@ const canConfirmDelete = $derived(
 							data-testid="account-danger-execute-button"
 						>
 							{deleteSubmitting || deletionInfoLoading
-								? '処理中...'
-								: 'アカウントを削除する'}
+								? SETTINGS_LABELS.accountDeleteProcessing
+								: SETTINGS_LABELS.accountDeleteSubmit}
 						</Button>
 					</div>
 				{/if}

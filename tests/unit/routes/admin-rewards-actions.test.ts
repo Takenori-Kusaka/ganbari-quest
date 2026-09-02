@@ -66,8 +66,10 @@ vi.mock('$lib/server/services/child-reward-copy-service', () => ({
 	copyChildRewardsToSiblings: mockCopyChildRewardsToSiblings,
 }));
 
+// #4682: load は一覧 API ではなく COUNT / DISTINCT を呼ぶ (limit を集計に流用しない)。
 vi.mock('$lib/server/services/reward-redemption-service', () => ({
-	getRedemptionRequestsForParent: vi.fn(async () => []),
+	countPendingRedemptionsForParent: vi.fn(async () => 0),
+	getPendingRewardIdsForParent: vi.fn(async () => []),
 }));
 
 vi.mock('$lib/server/logger', () => ({
