@@ -11,12 +11,7 @@ import {
 	isResumePromptShown,
 	isTutorialActive,
 } from './tutorial-store.svelte';
-import {
-	createCenteredRect,
-	findVisibleElement,
-	focusElement,
-	waitForElement,
-} from './useStepHighlight.svelte';
+import { findVisibleElement, focusElement, waitForElement } from './useStepHighlight.svelte';
 
 // ── Reactive state ──
 let targetRect = $state<DOMRect | null>(null);
@@ -110,11 +105,27 @@ export function setupStepTracking() {
 	$effect(() => {
 		if (active && step) {
 			const controller = new AbortController();
+			// #4651: step が変わったら**まず前 step の rect を捨てる**。
+			// 旧実装は解決 (最大 3 秒) まで前 step の rect を残しており、その間だけ
+			// 「前の step の位置が光ったまま新しい step の文言が出る」状態になっていた。
+			targetRect = null;
+			targetResolved = false;
 
-			const showCentered = () => {
-				targetRect = createCenteredRect();
+			// #4651: 対象が見つからない step は「明示的な中央表示」に切り替える。
+			// 旧実装は 200×40 の偽 rect を作って spotlight を描いていたため、顧客には
+			// 「画面中央の何もない場所が光る」ように見え、開発側にも何も伝わらなかった。
+			// rect は null のままにして overlay 側が cutout / ring を描かないようにし、
+			// dev では console.warn で「ガイドが指す対象が画面に無い」ことを可視化する。
+			const showCenteredWithoutSpotlight = () => {
+				targetRect = null;
 				targetResolved = false;
 				animKey++;
+				if (import.meta.env.DEV && typeof console !== 'undefined') {
+					console.warn(
+						`[tutorial] step "${step.id}" の対象要素が見つかりません (selector: ${step.selector}). ` +
+							'中央表示に切り替えました。selector を実要素へ再アンカーするか、selector 無しの説明 step にしてください。',
+					);
+				}
 			};
 
 			const onFocus = (el: Element) => {
@@ -126,12 +137,16 @@ export function setupStepTracking() {
 			};
 
 			if (step.selector) {
-				// セレクタ指定あり — MutationObserver で要素出現を待機
-				waitForElement(step.selector, onFocus, controller.signal, showCentered);
+				// セレクタ指定あり — MutationObserver で要素出現を待機 (timeout 後も監視継続、#4651 d)
+				waitForElement(step.selector, onFocus, controller.signal, showCenteredWithoutSpotlight);
 			} else {
-				// セレクタなし — 中央表示
+				// セレクタなし — 概要 step。中央表示が正 (spotlight は描かない)
 				requestAnimationFrame(() => {
-					if (!controller.signal.aborted) showCentered();
+					if (!controller.signal.aborted) {
+						targetRect = null;
+						targetResolved = false;
+						animKey++;
+					}
 				});
 			}
 
@@ -155,6 +170,12 @@ export function setupResizeScrollTracking() {
 			const el = step?.selector ? findVisibleElement(step.selector) : null;
 			if (el) {
 				targetRect = el.getBoundingClientRect();
+				targetResolved = true;
+			} else if (targetResolved) {
+				// #4651: resize / scroll で対象が非表示になったら spotlight を消す
+				// (breakpoint 切替で消えた要素の位置を光らせ続けない)。
+				targetRect = null;
+				targetResolved = false;
 			}
 		}
 

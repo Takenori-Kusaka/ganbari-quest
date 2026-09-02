@@ -46,6 +46,14 @@ export default async function globalSetup() {
 				// カラムが既に存在する場合は無視
 			}
 
+			// #4718: children.birth_date_estimated カラム追加マイグレーション (推定誕生日の印)
+			try {
+				db.exec('ALTER TABLE children ADD COLUMN birth_date_estimated INTEGER NOT NULL DEFAULT 0');
+				console.log('[E2E Setup]   Added birth_date_estimated column to children.');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
+
 			// #783: is_archived + archived_reason カラム追加マイグレーション
 			for (const table of ['children', 'activities', 'checklist_templates']) {
 				try {

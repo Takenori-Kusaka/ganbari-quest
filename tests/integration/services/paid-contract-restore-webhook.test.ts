@@ -29,6 +29,10 @@ const SQL_TABLES = `
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
+		-- #4718: 年齢だけで登録した子供の誕生日は「推定値」であることを持つ列。
+		-- drizzle schema (src/lib/server/db/schema) に合わせないと insert が
+		-- 「table children has no column named birth_date_estimated」で落ちる。
+		birth_date_estimated INTEGER NOT NULL DEFAULT 0,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		ui_mode_manually_set INTEGER NOT NULL DEFAULT 0,

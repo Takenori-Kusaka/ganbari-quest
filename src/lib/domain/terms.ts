@@ -339,6 +339,8 @@ export const POINT_TERMS = {
 export const CURRENCY_TERMS = {
 	yen: '¥',
 	yenFull: '円',
+	/** 「通貨」そのものを指す名詞 (設定画面の選択ラベル等、#4512) */
+	canonical: '通貨',
 } as const;
 
 // ============================================================
@@ -830,6 +832,9 @@ export const LIFESTAGE_TERMS = {
 //
 // 既存リテラル (CHEER_LABELS '応援' 多数) との段階的 atom 化のため本 atom を導入。
 // 1 行修正で 「応援」→「がんばり応援」等のリブランディング時に伝播可能。
+
+// GROWTH_BOOK_TERMS は #4670 F2 で CERTIFICATE_TERMS と対で再定義された (本ファイル下部)。
+// canonical (リンク / ナビ / ガイド) と full (ページ見出し) の 2 形を引く。
 
 export const CHEER_TERMS = {
 	canonical: '応援',
@@ -1596,6 +1601,39 @@ export const DELETION_GRACE_TERMS = {
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
 } as const;
+
+// ============================================================
+// WEEKDAY_TERMS — 曜日名 atom (漢字フル形、#4512)
+// ============================================================
+//
+// 「月曜日」等の曜日名は本 atom が SSOT。以前は週次レポート設定 (admin/reports) と
+// 子供チェックリスト (labels.ts CHILD_CHECKLIST_KANJI) がそれぞれ別に列挙しており、
+// 同じ語を 2 箇所で持っていた (ADR-0045 §3.3 atom 直書き複製)。
+//
+// ひらがな形 (「げつようび」) は子供 UI の年齢帯 variant であり、本 atom とは別値として
+// labels.ts の CHILD_CHECKLIST_HIRAGANA が持つ (漢字/ひらがなは同一 atom の表記ゆれではなく
+// 対象年齢で出し分ける別文言のため、ここには置かない)。
+
+export const WEEKDAY_TERMS = {
+	sunday: '日曜日',
+	monday: '月曜日',
+	tuesday: '火曜日',
+	wednesday: '水曜日',
+	thursday: '木曜日',
+	friday: '金曜日',
+	saturday: '土曜日',
+} as const;
+
+/** 日曜始まりの曜日名配列 (Date#getDay() の index と一致する) */
+export const WEEKDAY_NAMES_SUNDAY_FIRST = [
+	WEEKDAY_TERMS.sunday,
+	WEEKDAY_TERMS.monday,
+	WEEKDAY_TERMS.tuesday,
+	WEEKDAY_TERMS.wednesday,
+	WEEKDAY_TERMS.thursday,
+	WEEKDAY_TERMS.friday,
+	WEEKDAY_TERMS.saturday,
+] as const;
 
 // ============================================================
 // DEMO_SITE_TERMS — デモ環境の URL atom (#4511)

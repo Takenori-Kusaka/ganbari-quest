@@ -3,7 +3,7 @@ import { asChildId, type ChildId } from '$lib/domain/ids';
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import type { ArchivedReason } from '$lib/domain/archive-types';
-import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
+import { getDefaultUiMode, isExplicitUiModeOverride } from '$lib/domain/validation/age-tier';
 import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
@@ -33,7 +33,9 @@ export async function insertChild(input: InsertChildInput, _tenantId: string): P
 		birthDate: input.birthDate ?? null,
 		theme: input.theme ?? 'blue',
 		uiMode,
-		uiModeManuallySet: 0,
+		// #4718 (QM): 復元は保存済みの手動フラグをそのまま渡す (導出すると誤認する)。
+		uiModeManuallySet:
+			input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,

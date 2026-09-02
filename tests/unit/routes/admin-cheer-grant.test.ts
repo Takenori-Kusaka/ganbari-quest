@@ -10,6 +10,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
+import { CHEER_LABELS } from '$lib/domain/labels';
 
 // ---------- mocks ----------
 
@@ -119,7 +120,9 @@ describe('POST /admin/cheer?/grant (#2267)', () => {
 		const result = await actions.grant!(createEvent({ ...validForm, childId: '0' }));
 		expect(result).toMatchObject({
 			status: 400,
-			data: { error: 'こどもを選択してください' },
+			// #4716: 保護者画面の呼称は honorific に寄せた。literal を複製せず SSOT を参照する
+			// (呼称を変えたときに test だけ取り残されないようにする)。
+			data: { error: CHEER_LABELS.errorChildRequired },
 		});
 		expect(mockGrantCheer).not.toHaveBeenCalled();
 	});
