@@ -4,6 +4,7 @@ import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
+import { sanitizeActivitySource } from '$lib/domain/activity-source';
 import { toLegacyCategoryId } from '$lib/domain/categories';
 import { sanitizeChecklistOverrideRestore } from '$lib/domain/checklist-override';
 import {
@@ -1339,6 +1340,11 @@ async function importChildActivitiesData(
 					dailyLimit: sanitizeDailyLimit(a.dailyLimit),
 					nameKana: sanitizeActivityNameField(a.nameKana),
 					nameKanji: sanitizeActivityNameField(a.nameKanji),
+					// #4693 (QM): 作成経路を round-trip 復元する。落とすと repo 既定 `seed` に化け、
+					// 保護者が自分で作った活動 (`custom`) が quota の集計から消える
+					// = backup → restore を 1 回するだけで「オリジナル活動 3 個まで」が無効になる。
+					// 値域外 / 旧 backup (field 無し) は既定に落とす (default-deny、#3463 item1 と同方針)。
+					source: sanitizeActivitySource(a.source),
 				},
 				tenantId,
 			);

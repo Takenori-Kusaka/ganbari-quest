@@ -81,3 +81,16 @@ export function normalizeParentCreatedSource(source: string | undefined): string
 export function countsTowardActivityQuota(source: string): boolean {
 	return source === PARENT_CREATED_SOURCE || source === LEGACY_PARENT_SOURCE;
 }
+
+/**
+ * import 境界で `source` を値域内に正規化する (#4693 QM、default-deny)。
+ *
+ * backup ZIP / JSON は顧客が編集できるファイルなので、**値域 SSOT の外の文字列が来る前提**で扱う。
+ * 未知値・欠落は最も権限の弱い既定 (`seed` = quota 非対象) に倒す。
+ * ここで `custom` に倒すと、改竄した backup で他人の quota 集計を歪められる。
+ */
+export function sanitizeActivitySource(raw: unknown): ActivitySourceCode {
+	return typeof raw === 'string' && raw in ACTIVITY_SOURCES
+		? (raw as ActivitySourceCode)
+		: ACTIVITY_SOURCES.seed.value;
+}

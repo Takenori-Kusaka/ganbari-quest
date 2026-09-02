@@ -738,6 +738,9 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 		'dailyLimit',
 		'nameKana',
 		'nameKanji',
+		// #4693 (QM): 作成経路。落とすと custom が seed に化けて quota 集計から消え、
+		// 復元 1 回で「オリジナル活動の作成：3個まで」が無効になる。
+		'source',
 	].sort();
 	const CHECKLIST_TEMPLATE_EXPORT_KEYS = [
 		'childRef',
@@ -774,6 +777,13 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 				nameKanji: '漢字表記',
 			},
 		]);
+		// #4693 (QM): source は seed helper 対象外 + schema default が 'seed' なので、
+		// quota 対象の 'custom' (= 非既定値) を直接入れて round-trip を見る。
+		testDb
+			.update(schema.childActivities)
+			.set({ source: 'custom' })
+			.where(eq(schema.childActivities.name, 'フィールド網羅活動'))
+			.run();
 		// isArchived / archivedReason は seed helper 対象外のため直接 archive (archivedReason は valid enum)。
 		testDb
 			.update(schema.childActivities)
@@ -813,6 +823,10 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 		expect(restored?.dailyLimit, 'dailyLimit').toBe(3);
 		expect(restored?.nameKana, 'nameKana').toBe('かなよみ');
 		expect(restored?.nameKanji, 'nameKanji').toBe('漢字表記');
+		// #4693 (QM): custom が seed に化けると quota 集計から消えるので、round-trip 後も custom のまま。
+		expect(restored?.source, 'source (custom のまま復元されないと quota から消える)').toBe(
+			'custom',
+		);
 	});
 
 	it('checklistTemplate: 全 export field key が frozen set と一致し、非既定値で round-trip する', async () => {

@@ -272,6 +272,16 @@ export interface ExportChildActivity {
 	dailyLimit?: number | null;
 	nameKana?: string | null;
 	nameKanji?: string | null;
+	/**
+	 * #4693 (QM): 作成経路 (`custom` / `seed` / `curriculum`)。値域 SSOT は
+	 * `$lib/domain/activity-source.ts` の `ACTIVITY_SOURCES`。
+	 *
+	 * これを round-trip しないと、保護者が自分で作った活動 (`custom`) を backup → restore した
+	 * だけで repo 既定の `seed` に化け、**quota の集計から消える**。
+	 * 「オリジナル活動の作成：3個まで」という無料プランの約束が、復元 1 回で無効になっていた。
+	 * optional なのは旧 backup (本 field 無し) を受け付けるため — 未指定は復元側で既定に落ちる。
+	 */
+	source?: string;
 }
 
 export interface ExportTitle {
