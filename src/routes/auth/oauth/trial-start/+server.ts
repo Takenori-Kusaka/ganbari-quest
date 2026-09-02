@@ -16,20 +16,33 @@ import { startTrial, TRIAL_TIER } from '$lib/server/services/trial-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies, locals, url }) => {
-	// cookie は 1 回限り。以降のリクエストで再度トライアル開始を試みない (冪等)
 	const planCookie = cookies.get(OAUTH_PLAN_COOKIE_NAME);
-	cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
-
 	const target = resolveSafeNextPath(url.searchParams.get('next')) ?? '/admin';
 	const tenantId = locals.context?.tenantId;
 	// #4501: `?plan=` は「どのプランを見て来たか」だけを表し、トライアルの tier は決めない
 	// (FR-2 により常に TRIAL_TIER = premium)。メール登録経路 (signup ?/confirm) と同じ規則
 	const planInterest = parseSignupPlanParam(planCookie);
 
-	if (!tenantId || !planInterest) {
-		// 未認証 / テナント未解決 / plan 無効 → 何もせず通常の着地へ (dead-end を作らない)
+	// #4702 (QM): **cookie の破棄は「開始を試みた後」に限る**。
+	// テナント自動プロビジョニング (hooks の resolveContext) が初回リクエストで
+	// 間に合わない / 失敗すると tenantId が取れないが、その時点で cookie を消していると
+	// 「無料体験をはじめる」を押した顧客のトライアルが**再試行不能なまま永久に失われる**
+	// (顧客にもサポートにも見えず、サーバログにしか残らない)。
+	// plan が無効なときは再試行しても意味が無いので、そこは消す。
+	if (!planInterest) {
+		cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
 		redirect(302, target);
 	}
+	if (!tenantId) {
+		// cookie は残す。次のリクエスト (リロード / 後続の遷移) で再試行できる。
+		logger.warn('[SIGNUP] Trial auto-start deferred — tenant unresolved (Google signup flow)', {
+			context: { planInterest },
+		});
+		redirect(302, target);
+	}
+
+	// ここから先は「開始を試みた」ので cookie を落とす (冪等。多重開始は startTrial 側も拒否する)
+	cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
 
 	// 失敗 (既に使用済み等) は best-effort でログのみ。メール登録経路 (signup ?/confirm) と同じ扱い
 	try {

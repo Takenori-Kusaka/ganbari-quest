@@ -178,6 +178,30 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 		expect(mockStartTrial).not.toHaveBeenCalled();
 	});
 
+	it('テナント未解決のときは cookie を残し、次の機会に再試行できる (#4702 QM)', async () => {
+		// hooks のテナント自動プロビジョニングが初回リクエストで間に合わない / 失敗する場合。
+		// ここで cookie を捨てると「無料体験をはじめる」を押した顧客のトライアルが
+		// 再試行不能なまま永久に失われる (顧客にもサポートにも見えない)。
+		const jar = makeCookieJar({ oauth_plan: 'standard' });
+		expect(await getRedirectLocation(() => trialStartGET(makeEvent(jar, { tenantId: null })))).toBe(
+			'/admin',
+		);
+		expect(mockStartTrial).not.toHaveBeenCalled();
+		expect(jar.jar.has('oauth_plan'), 'cookie を残して再試行可能にする').toBe(true);
+
+		// テナントが解決できた次の機会に、同じ cookie で開始できる
+		expect(await getRedirectLocation(() => trialStartGET(makeEvent(jar)))).toBe('/admin');
+		expect(mockStartTrial).toHaveBeenCalledTimes(1);
+		expect(jar.jar.has('oauth_plan'), '開始を試みたら cookie は落とす').toBe(false);
+	});
+
+	it('plan が無効なら cookie を落とす (再試行しても意味が無い)', async () => {
+		const jar = makeCookieJar({ oauth_plan: 'free' });
+		expect(await getRedirectLocation(() => trialStartGET(makeEvent(jar)))).toBe('/admin');
+		expect(mockStartTrial).not.toHaveBeenCalled();
+		expect(jar.jar.has('oauth_plan')).toBe(false);
+	});
+
 	it('startTrial が throw しても着地は妨げない (best-effort)', async () => {
 		mockStartTrial.mockRejectedValue(new Error('boom'));
 		const jar = makeCookieJar({ oauth_plan: 'standard' });
