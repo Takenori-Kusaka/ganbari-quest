@@ -1,3 +1,6 @@
+// cspell:ignore Fimport Dkinder
+// ↑ percent-encode 済み URL (`%3Fimport%3Dkinder-starter`) の断片。`?` `=` を encode した形が
+//   そのまま検証値なので綴りを直すと「入れ子 query を壊さず往復できる」ことの検証が成立しない (#4701)。
 // tests/e2e/cognito-auth.spec.ts
 // Cognito dev モードの認証 E2E テスト
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts
@@ -18,6 +21,27 @@ async function loginAs(page: Page, email: string, password: string, expectedUrl:
 	await page.getByLabel('パスワード', { exact: true }).fill(password);
 	await page.getByRole('button', { name: 'ログイン' }).click();
 	await page.waitForURL(expectedUrl, { timeout: 30_000 });
+}
+
+/**
+ * 現在開いている /auth/login (query 付き) でフォーム送信する (#4701)。
+ * hydration 前に fill すると Svelte の bind が空で上書きしてボタンが disabled のままになるため、
+ * 「fill → ボタンが enabled」を確認してから click する (enabled にならなければ fill をやり直す)。
+ */
+async function submitLoginForm(page: Page, email: string, password: string) {
+	const submit = page.getByRole('button', { name: 'ログイン' });
+	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 15_000 });
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await page.getByLabel('メールアドレス').fill(email);
+		await page.getByLabel('パスワード', { exact: true }).fill(password);
+		try {
+			await expect(submit).toBeEnabled({ timeout: 3_000 });
+			break;
+		} catch {
+			// hydration 競合。再 fill する
+		}
+	}
+	await submit.click();
 }
 
 // ============================================================
@@ -170,6 +194,80 @@ test.describe('ログアウト', () => {
 		await page.waitForURL(/\/auth\/login/);
 		await page.goto('/admin');
 		await expect(page).toHaveURL(/\/auth\/login/);
+	});
+});
+
+// ============================================================
+// #4701: ログイン画面は「なぜ戻されたか」を query から表示し、`?next=` で元の画面に戻す
+// ============================================================
+test.describe('#4701 ログイン画面の状態表示 (query → 文言)', () => {
+	const cases: Array<{ query: string; role: 'status' | 'alert'; text: RegExp }> = [
+		{ query: 'registered=true', role: 'status', text: /登録が完了/ },
+		{ query: 'confirmed=true', role: 'status', text: /確認が完了/ },
+		{ query: 'passwordReset=true', role: 'status', text: /パスワードがリセット/ },
+		{ query: 'reason=deleted', role: 'alert', text: /ログインできません/ },
+		{ query: 'error=oauth_failed', role: 'alert', text: /Google でのログインを完了できません/ },
+		{ query: 'error=missing_params', role: 'alert', text: /途中で情報が失われ/ },
+		{ query: 'error=invalid_state', role: 'alert', text: /途中で情報が失われ/ },
+		{ query: 'error=token_exchange_failed', role: 'alert', text: /Google アカウントの確認に失敗/ },
+		{ query: 'error=something_unknown', role: 'alert', text: /ログインを完了できませんでした/ },
+	];
+	for (const c of cases) {
+		test(`/auth/login?${c.query} → role=${c.role} の説明が出る`, async ({ page }) => {
+			await page.goto(`/auth/login?${c.query}`);
+			const notice = page.getByTestId('login-notice');
+			await expect(notice).toBeVisible();
+			await expect(notice).toHaveAttribute('role', c.role);
+			await expect(notice).toContainText(c.text);
+		});
+	}
+
+	test('query 無しでは通知が出ない (回帰: 常時表示にならない)', async ({ page }) => {
+		await gotoLogin(page);
+		await expect(page.getByTestId('login-notice')).toHaveCount(0);
+	});
+});
+
+test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
+	test('?next=/admin/settings/account → ログイン後に同 URL に着地 (password 経路)', async ({
+		page,
+	}) => {
+		await page.goto('/auth/login?next=/admin/settings/account');
+		await expect(page.getByTestId('login-next-notice')).toBeVisible();
+		await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+		await page.waitForURL(/\/admin\/settings\/account/, { timeout: 30_000 });
+	});
+
+	test('?next= に入れ子 query (/admin/activities?import=x) を encode で引き継げる', async ({
+		page,
+	}) => {
+		await page.goto('/auth/login?next=/admin/activities%3Fimport%3Dkinder-starter');
+		await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+		await page.waitForURL(/\/admin\/activities\?import=kinder-starter/, { timeout: 30_000 });
+	});
+
+	for (const evil of ['//evil.com', 'https://evil.com/x', `/${String.fromCharCode(92)}evil.com`]) {
+		test(`?next=${evil} (外部 / protocol-relative) は無視して /admin に着地`, async ({ page }) => {
+			await page.goto(`/auth/login?next=${encodeURIComponent(evil)}`);
+			await expect(page.getByTestId('login-next-notice')).toHaveCount(0);
+			await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+			await page.waitForURL(/\/admin(\/|\?|$)/, { timeout: 30_000 });
+			expect(page.url()).not.toContain('evil.com');
+		});
+	}
+
+	test('ログイン済みで /auth/login?next=/admin/settings/account → 即 next へ', async ({ page }) => {
+		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await page.goto('/auth/login?next=/admin/settings/account');
+		await expect(page).toHaveURL(/\/admin\/settings\/account/);
+	});
+
+	test('child が ?next=/admin/... でログインしても認可で /switch に戻る (権限昇格にならない)', async ({
+		page,
+	}) => {
+		await page.goto('/auth/login?next=/admin/settings/account');
+		await submitLoginForm(page, 'child@example.com', 'Gq!Dev#Child2026x');
+		await page.waitForURL(/\/switch/, { timeout: 30_000 });
 	});
 });
 

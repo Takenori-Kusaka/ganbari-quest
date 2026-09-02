@@ -304,6 +304,30 @@ async function copyDistributionWithQuota(params: {
 	return { added, alreadyDistributed, limitRejected, limitReached };
 }
 
+/**
+ * #4693: 配信先のうち **上限に達している子だけ**を切り分ける。
+ *
+ * 旧実装は「1 人でも超過なら全員分 fail」で、誰の上限かも言わなかった。呼び出し側が
+ * 「超過した子を配信先から外す」「全員超過なら 403」を判断できるよう、名前と上限値も返す。
+ */
+async function partitionOverLimitChildren(
+	childIds: readonly ChildId[],
+	tenantChildren: readonly { id: ChildId; nickname: string }[],
+	ctx: { tenantId: string; licenseStatus: string },
+): Promise<{ overLimitChildIds: Set<ChildId>; names: string[]; max: number }> {
+	const overLimitChildIds = new Set<ChildId>();
+	const names: string[] = [];
+	let max = 0;
+	for (const cId of childIds) {
+		const limit = await checkChecklistTemplateLimit(ctx.tenantId, ctx.licenseStatus, cId);
+		if (limit.allowed) continue;
+		overLimitChildIds.add(cId);
+		names.push(tenantChildren.find((c) => c.id === cId)?.nickname ?? String(cId));
+		max = limit.max;
+	}
+	return { overLimitChildIds, names, max };
+}
+
 export const actions: Actions = {
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -563,19 +587,33 @@ export const actions: Actions = {
 							.map((s) => s.trim())
 							.filter((v) => v !== '')
 							.map(asChildId);
-		for (const cId of childIdsForLimitCheck) {
-			const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, cId);
-			if (!limit.allowed) {
-				const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-				return fail(403, {
-					error: createPlanLimitError(
-						tier,
-						'standard',
-						PLAN_GATE_LABELS.perChildLimitReached(limit.max),
+		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
+		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
+		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
+		const {
+			overLimitChildIds,
+			names: overLimitNames,
+			max: checklistMaxForMessage,
+		} = await partitionOverLimitChildren(childIdsForLimitCheck, tenantChildren, {
+			tenantId,
+			licenseStatus,
+		});
+		if (
+			childIdsForLimitCheck.length > 0 &&
+			overLimitChildIds.size === childIdsForLimitCheck.length
+		) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+						overLimitNames,
+						checklistMaxForMessage,
 					),
-					upgradeRequired: true,
-				});
-			}
+				),
+				upgradeRequired: true,
+			});
 		}
 
 		// childIds: 'all' or comma-separated id list ('' で配信先未指定 = template のみ作成)
@@ -592,6 +630,12 @@ export const actions: Actions = {
 				.filter((v) => v !== '')
 				.map(asChildId);
 		}
+
+		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
+		const skippedOverLimitNames = childIds
+			.filter((id) => overLimitChildIds.has(id))
+			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
+		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
 
 		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
 		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
@@ -627,7 +671,17 @@ export const actions: Actions = {
 				imported: result.imported,
 				skipped: result.skipped,
 				total: result.total,
-				errors: result.errors,
+				// #4693: 上限で配信を外した子を明示する (無音でスキップしない)。
+				errors:
+					skippedOverLimitNames.length > 0
+						? [
+								...result.errors,
+								PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+									skippedOverLimitNames,
+									checklistMaxForMessage,
+								),
+							]
+						: result.errors,
 				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
 				failed: result.failed,
 				presetId,

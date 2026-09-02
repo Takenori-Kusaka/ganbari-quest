@@ -141,7 +141,7 @@ function childLink(child: ChildSummary): string {
 	     /admin/subscription (SaasLicensePanel) に一本化 (body 常設プランカードは業界慣行外) -->
 
 	<!-- Summary Cards -->
-	<div class="grid grid-cols-2 gap-3">
+	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
 		<Card variant="elevated" class="text-center" role="group" aria-label={ADMIN_HOME_LABELS.summaryChildrenAria}>
 			<p class="text-2xl font-bold text-[var(--color-action-primary)]">{children.length}</p>
 			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryChildrenLabel}</p>
@@ -160,7 +160,7 @@ function childLink(child: ChildSummary): string {
 		{@const monthLabel = monthMatch && monthMatch[1] && monthMatch[2] ? ADMIN_HOME_LABELS.monthLabel(monthMatch[1], monthMatch[2]) : currentMonth}
 		<section>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-lg font-bold text-[var(--color-text)]">{ADMIN_HOME_LABELS.monthlyHeadingPrefix}{monthLabel}{ADMIN_HOME_LABELS.monthlyHeadingSuffix}</h2>
+				<h2 class="text-lg font-bold text-[var(--color-text)]" data-tutorial="monthly-summary">{ADMIN_HOME_LABELS.monthlyHeadingPrefix}{monthLabel}{ADMIN_HOME_LABELS.monthlyHeadingSuffix}</h2>
 				<a href="{basePath}/reports" class="text-xs text-[var(--color-brand-500)] hover:underline">{ADMIN_HOME_LABELS.monthlyDetailsLink}</a>
 			</div>
 			<div class="grid gap-3">
@@ -229,7 +229,7 @@ function childLink(child: ChildSummary): string {
 	{/if}
 
 	<!-- Children Overview -->
-	<section>
+	<section data-tutorial="children-overview">
 		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{ADMIN_HOME_LABELS.childrenSectionTitle}</h2>
 		{#if children.length === 0}
 			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">

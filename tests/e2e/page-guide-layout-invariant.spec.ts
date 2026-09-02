@@ -77,16 +77,10 @@ const ACCEPTED_RESIDUAL_SPOTLIGHT: readonly {
 	pr: string;
 }[] = [
 	// 各行は「対象 PR が develop に入れば解消する」ものだけ。解消したら行ごと削除する。
-	{
-		// /admin step 3 (home-nav) は `[data-tutorial="nav-primary"]` = AdminLayout の mobile nav を
-		// 指しており、desktop では `md:hidden` で非表示。#4651 で「非可視候補は採用しない」ようにしたため
-		// 0×0 spotlight は消え中央 modal になるが、**実要素に光る**状態にするには step の再アンカーが要る。
-		// 再アンカーは /admin ガイド担当 PR #4732 (Issue #4653) が行う。
-		path: '/admin',
-		viewport: 'desktop',
-		stepId: 'home-nav',
-		pr: '#4732 (Issue #4653)',
-	},
+	//
+	// 現在 0 件。`/admin` desktop の `home-nav` は #4732 (Issue #4653) が
+	// `home-nav-desktop` (`[data-tutorial="nav-desktop"]`) / `home-nav-mobile` に分割して
+	// 再アンカーしたため、develop への取り込みに合わせて当該行を削除した。
 ];
 
 /** allowlist 判定 (path × viewport × stepId 完全一致)。 */
@@ -108,6 +102,10 @@ function residualEntry(path: string, viewport: string, stepId: string) {
 const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	Record<(typeof ADMIN_GUIDE_PAGES)[number], readonly string[]>
 > = {
+	// #4653: 上部カード / こども一覧 / 子供画面へ切替 は常設。承認待ちバナー (申請 0 件で消える) /
+	// 今月のがんばり / viewport 別 nav (desktop=nav-desktop, mobile=nav-primary) は optional のため
+	// 列挙しない (どちらが残るかは viewport 依存。残った側が実要素に当たることは optional filter が担保)
+	'/admin': ['home-summary', 'home-children', 'home-switch'],
 	// #4668: plan=family + Stripe 無効 → トライアル (optional) / プラン管理 (requiredStripe) は出ない
 	'/admin/subscription': [
 		'subscription-current-plan',
@@ -117,6 +115,9 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4662: おやカギ変更カードは全環境で常設。ログアウト / アカウント削除は cognito 限定描画
 	// (E2E は AUTH_MODE=local) のため optional のまま列挙しない
 	'/admin/settings/account': ['settings-account-pin'],
+	// #4667: フォームとアプリ情報は常設。バックアップの状態は NUC (pglite) のみ描画のため
+	// optional のまま列挙しない
+	'/admin/settings/support': ['settings-support-form', 'settings-support-app-info'],
 	// #4664: 通知ページの 4 anchor はいずれも常設 (ブラウザ状態 / 種類 / サイレント時間帯 / 保存)
 	'/admin/settings/notifications': [
 		'settings-notifications-status',
@@ -318,14 +319,37 @@ async function assertSelectorStepSpotlightsRealElement(
 	expect(targetId, `${ctx}: (d) 対象が driver.js の 0×0 placeholder ではない`).not.toBe(
 		'driver-dummy-element',
 	);
-	const box = await target.boundingBox();
+	// driver.js の smoothScroll は非同期に走るため、対象が viewport に入るまで rAF で待ってから
+	// 判定する (待たずに測ると scroll 途中の座標を掴み、真の不具合と区別できない)。待つのは収束まで
+	// であって、収束後の条件は下で hard assert する (assertion の緩和ではない)。
+	const readGeometry = async () => ({
+		box: await target.boundingBox(),
+		vp: await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+	});
+	const isVisible = (b: Box | null, v: { width: number; height: number }): boolean =>
+		b !== null &&
+		b.width > 0 &&
+		b.height > 0 &&
+		b.x < v.width &&
+		b.x + b.width > 0 &&
+		b.y < v.height &&
+		b.y + b.height > 0;
+	let { box, vp } = await readGeometry();
+	for (let i = 0; i < 40 && !isVisible(box, vp); i++) {
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+				),
+		);
+		({ box, vp } = await readGeometry());
+	}
 	expect(box, `${ctx}: (d) 対象要素の bounding box が取得できる`).not.toBeNull();
 	if (!box) return;
 	expect(
 		box.width > 0 && box.height > 0,
 		`${ctx}: (d) 対象要素が 0×0 ではない (display:none 等で光らない状態を検出)`,
 	).toBe(true);
-	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
 	const intersects =
 		box.x < vp.width && box.x + box.width > 0 && box.y < vp.height && box.y + box.height > 0;
 	expect(intersects, `${ctx}: (d) 対象要素が viewport と交差する (画面外だけを光らせない)`).toBe(
@@ -453,6 +477,7 @@ async function assertSelectorStepLights(
 /**
  * ガイドの全 step を「つぎへ」で辿りながら (a)(b)(c)(d) を検証する (上限で無限ループを防ぐ。
  * 1 ページ最大 step は registry 上 12 以下)。
+ * @param target 走査対象のページ path と viewport ラベル (allowlist 照合 / ログ文脈に使う)
  * @param requiredSpotlight (d) で実要素 spotlight を要求し、走査後に出現も要求する step id (#4650)
  * @param blanketSelectorAssert selector を持つ全 step に (d) の実要素 spotlight を要求するか
  *   (#4653: 起動時 filter で「対象が描画済の step」だけが残る AdminLayout 配下は true。
@@ -465,11 +490,11 @@ async function assertSelectorStepLights(
 async function walkAllSteps(
 	page: Page,
 	bubble: Locator,
-	path: string,
-	viewport: string,
+	target: { path: string; viewport: string },
 	requiredSpotlight: readonly string[],
 	blanketSelectorAssert: boolean,
 ): Promise<void> {
+	const { path, viewport } = target;
 	const pageCtx = `[${viewport}] ${path}`;
 	const MAX_STEPS = 12;
 	const seenStepIds: string[] = [];
@@ -543,8 +568,7 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 				await walkAllSteps(
 					page,
 					bubble,
-					path,
-					vpLabel,
+					{ path, viewport: vpLabel },
 					REQUIRED_SPOTLIGHT_STEPS[path] ?? [],
 					path !== '/marketplace',
 				);

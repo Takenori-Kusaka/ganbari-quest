@@ -102,7 +102,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（手動 / 外部呼び出し。`scheduleRegistry` / EventBridge / dispatcher には未登録） | cron 認証 |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -2420,7 +2420,7 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 | UNAUTHORIZED | 401 | 認証が必要 |
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
-| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照） |
+| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照）。**`planLimitError(requiredTier, message)`（`src/lib/server/errors.ts`）で返す** — `userMessage` は要求 tier で出し分ける（standard 以上 / プレミアム限定）。`apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しは固定文（スタンダード以上の案内）しか返せず、プレミアム限定機能をスタンダード契約者が叩いたときに次の行動を示せないため禁止（`tests/unit/architecture/plan-limit-error-required-tier.test.ts` が検出、#4710） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
 | LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
 | LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |

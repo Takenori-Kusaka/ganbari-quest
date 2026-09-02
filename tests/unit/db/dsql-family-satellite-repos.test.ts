@@ -30,7 +30,7 @@
 //   [VT2] findByToken (無 tenant 単点 lookup) / revoke (tenant no-op → soft revoke) / deleteById
 // ── IPushSubscriptionRepo ──
 //   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)
-//   [PS2] insertLog (success boolean→0/1) + countTodayLogs (UTC 日境界) + findRecentLogs 降順 limit
+//   [PS2] insertLog (success boolean→0/1) + countLogsBetween (instant 範囲、#4722) + findRecentLogs 降順 limit
 // ── ICancellationReasonRepo ──
 //   [CR1] create shape + listByTenant 降順 + §P9
 //   [CR2] aggregateRecent (全カテゴリ 0 初期化 + percentage) + searchFreeText (ILIKE / 空 query)
@@ -409,7 +409,7 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect((await pushRepo.findByTenant(FAMILY)).length).toBe(1);
 	});
 
-	it('[PS2] insertLog (success 0/1) + countTodayLogs (UTC 日境界) + findRecentLogs 降順 limit', async () => {
+	it('[PS2] insertLog (success 0/1) + countLogsBetween (instant 範囲) + findRecentLogs 降順 limit', async () => {
 		const ok = await pushRepo.insertLog({
 			tenantId: FAMILY,
 			notificationType: 'reminder',
@@ -440,16 +440,21 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		const today = new Date(ok.sentAt as string | number | Date).toISOString().slice(0, 10);
 		// 2 行が同じ UTC 日に入ったことを明示 (跨いだ場合は count 2 の前提が崩れるため先に落とす)
 		expect(new Date(ng.sentAt as string | number | Date).toISOString().slice(0, 10)).toBe(today);
-		expect(await pushRepo.countTodayLogs(FAMILY, today)).toBe(2);
-		expect(await pushRepo.countTodayLogs(OTHER_FAMILY, today)).toBe(0); // §P9
-		expect(await pushRepo.countTodayLogs(FAMILY, '2000-01-01')).toBe(0); // 日境界
+		// #4722: 境界は instant (UTC ISO) で渡す。ここでは「その UTC 日」の 24 時間窓を作る。
+		const dayStart = `${today}T00:00:00Z`;
+		const dayEnd = new Date(Date.parse(dayStart) + 86_400_000).toISOString();
+		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd)).toBe(2);
+		expect(await pushRepo.countLogsBetween(OTHER_FAMILY, dayStart, dayEnd)).toBe(0); // §P9
+		expect(
+			await pushRepo.countLogsBetween(FAMILY, '2000-01-01T00:00:00Z', '2000-01-02T00:00:00Z'),
+		).toBe(0); // 範囲外
 
 		// 過去日の log は当日カウントに入らない (直 INSERT で過去 sent_at を差し込む)
 		await t.db.execute(sql`
 			INSERT INTO notification_logs (family_id, notification_type, title, body, sent_at)
 			VALUES (${FAMILY}, 'reminder', '過去分', 'y', '2020-01-01T00:00:00Z'::timestamptz)
 		`);
-		expect(await pushRepo.countTodayLogs(FAMILY, today)).toBe(2);
+		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd)).toBe(2);
 
 		const recent = await pushRepo.findRecentLogs(FAMILY, 2);
 		expect(recent.map((l) => l.title)).toEqual(['失敗分', 'きろくの時間']); // sent_at 降順 + limit

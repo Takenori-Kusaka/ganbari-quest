@@ -231,11 +231,14 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 			// #3518-2 retention: cutoffDate (YYYY-MM-DD) 当日 0:00 前の status_history を削除。
 			// point-repo.deletePointLedgerBeforeDate と同じ CTE count 契約 — 削除行を DB 側 count(*) 集約し、
 			// 返すのは単一スカラのみ (長期利用 child の大量履歴で全 hist_id を client に materialize しない)。
+			// #4722: 境界は **JST 深夜 0:00 に TZ-qualify** する。`${cutoffDate}::timestamptz` は session TZ
+			// 依存で、DSQL の既定 session (UTC) では point_ledger (JST 固定 #3593②) と 9 時間ずれ、
+			// 境界日 JST 0〜9 時の推移データが 1 日早く消えていた。
 			const deleted = await db.execute(sql`
 				WITH deleted AS (
 					DELETE FROM status_history
 					WHERE family_id = ${tenantId} AND child_id = ${childId}
-						AND recorded_at < ${cutoffDate}::timestamptz
+						AND recorded_at < (${cutoffDate} || 'T00:00:00+09:00')::timestamptz
 					RETURNING 1
 				)
 				SELECT count(*)::int AS c FROM deleted

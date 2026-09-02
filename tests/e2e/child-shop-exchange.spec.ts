@@ -591,7 +591,7 @@ test.describe('#3339: ごほうび即時交換オプション', () => {
 		await resetKinderChildBalance(workerDbPath);
 	});
 
-	test('即時交換 ON: 交換が承認待ちにならず「こうかん済み」バッジ + 即時減算', async ({
+	test('即時交換 ON: 交換が承認待ちにならず即時減算され、陳列棚にバッジを残さない (#4631)', async ({
 		page,
 		workerDbPath,
 	}) => {
@@ -619,10 +619,13 @@ test.describe('#3339: ごほうび即時交換オプション', () => {
 			timeout: 10000,
 		});
 
-		// 即時交換 = 親承認をスキップして approved 化。invalidateAll 後にカードへ
-		// 「こうかん済み」(statusApproved) が出て、「うけとりまち」(承認待ち) は出ない。
-		await expect(affordableCard.getByText('こうかん済み')).toBeVisible({ timeout: 10000 });
+		// #4631: 即時交換 = 親承認をスキップして approved 化。**完了した状態は陳列棚に残さない**ので
+		// 「こうかん済み」バッジは出ない (旧仕様の反転)。承認待ちバッジも当然出ない。
+		// 交換の結果は Toast (上で assert 済) と「記録 > 交換」で読む。
+		await expect(affordableCard.getByText('こうかん済み')).toHaveCount(0);
 		await expect(affordableCard.getByText('うけとりまち')).toHaveCount(0);
+		// #4631 AC2: 完了しても交換ボタンは活性のまま (複数回交換できるごほうびを閉ざさない)
+		await expect(exchangeBtn).toBeEnabled();
 
 		// 親の承認待ちは作られていない（即時交換のため）+ DB 上 approved 1 件
 		const { default: Database } = await import('better-sqlite3');
@@ -646,5 +649,174 @@ test.describe('#3339: ごほうび即時交換オプション', () => {
 		} finally {
 			db.close();
 		}
+	});
+});
+
+// #4631: 承認 / 却下が済んだ交換を陳列棚に残さない (「もう交換できない」誤解の除去)。
+// serial 実行はファイル先頭の test.describe.configure({ mode: 'serial' }) が本 describe にも適用される。
+test.describe('#4631: 完了した交換は陳列棚に残さない', () => {
+	test.beforeEach(async ({ workerDbPath }) => {
+		await resetKinderChildBalance(workerDbPath);
+	});
+
+	test.afterEach(async ({ workerDbPath }) => {
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const child = db
+				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+				.get('たろうくん') as { id: number } | undefined;
+			if (child) {
+				db.prepare(
+					"DELETE FROM reward_redemption_requests WHERE child_id = ? AND status IN ('approved','rejected')",
+				).run(child.id);
+			}
+		} finally {
+			db.close();
+		}
+	});
+
+	/** 指定タイトルのごほうびに、解決済 (approved / rejected) の申請を 1 件作る。 */
+	async function seedResolvedRedemption(
+		workerDbPath: string,
+		rewardTitle: string,
+		status: 'approved' | 'rejected',
+	): Promise<void> {
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const child = db
+				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+				.get('たろうくん') as { id: number };
+			const reward = db
+				.prepare('SELECT id, points FROM special_rewards WHERE child_id = ? AND title = ? LIMIT 1')
+				.get(child.id, rewardTitle) as { id: number; points: number };
+			const now = Math.floor(Date.now() / 1000);
+			db.prepare(
+				`INSERT INTO reward_redemption_requests
+					(child_id, reward_id, requested_at, quantity, status, resolved_at, parent_note,
+					 reward_title, reward_points, reward_icon)
+				 VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, '🎁')`,
+			).run(
+				child.id,
+				reward.id,
+				// dedup 窓 (10 秒) の外に置く。再申請できることを検証したいため。
+				now - 3600,
+				status,
+				now - 3500,
+				status === 'rejected' ? 'こんしゅうは もう つかったからね' : null,
+				rewardTitle,
+				reward.points,
+			);
+		} finally {
+			db.close();
+		}
+	}
+
+	for (const status of ['approved', 'rejected'] as const) {
+		test(`AC1/AC2: ${status} のごほうびはバッジが出ず、交換ボタンは活性のまま`, async ({
+			page,
+			workerDbPath,
+		}) => {
+			await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', status);
+
+			await selectKinderChild(page);
+			await dismissOverlays(page);
+			await page.goto('/preschool/shop');
+			await expect(page.getByTestId('shop-page')).toBeVisible();
+
+			const card = page.locator('[data-testid^="reward-card-"]').filter({
+				hasText: 'E2Eテスト用ごほうび（交換可）',
+			});
+			await expect(card).toHaveCount(1);
+
+			// 完了した状態はバッジを出さない (旧: 「こうかん済み」/「まってね」が永続表示)
+			await expect(card.getByText('こうかん済み')).toHaveCount(0);
+			await expect(card.getByText('まってね')).toHaveCount(0);
+			await expect(card.getByText('うけとりまち')).toHaveCount(0);
+
+			// 交換ボタンは活性のまま = もう一度交換できる
+			await expect(card.locator('button[data-testid^="exchange-btn-"]')).toBeEnabled();
+		});
+	}
+
+	test('AC3: ショップから「記録 > 交換」へ辿れる (却下理由を読む導線)', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', 'rejected');
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		const link = page.getByTestId('shop-history-link');
+		await expect(link).toBeVisible();
+		await link.click();
+
+		// 遷移先で交換履歴が出て、親が書いた却下理由が読める
+		await expect(page.getByTestId('history-list-purchases')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByText('こんしゅうは もう つかったからね')).toBeVisible();
+	});
+
+	// #4632: 交換履歴が「いつ・何を・いくらで」を出す (旧: タイトル位置に日付 / アイコン 🎁 固定 /
+	// 日付は全件 1970 年)。#4631 で張った導線の着地点が実際に読めることまで見る。
+	test('#4632: 交換履歴にごほうび名・アイコン・ポイント・申請日 (JST) が出る', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', 'approved');
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/history?kind=purchases');
+
+		const list = page.getByTestId('history-list-purchases');
+		await expect(list).toBeVisible({ timeout: 30_000 });
+
+		// ごほうび名 (旧実装はここに日付が出ていた)
+		await expect(list.getByText('E2Eテスト用ごほうび（交換可）').first()).toBeVisible();
+		// 消費ポイントが符号付きで出る (seed の単価 50pt × 1 個)
+		await expect(list.locator('[data-testid^="history-purchase-points-"]').first()).toContainText(
+			'50',
+		);
+
+		// 申請日が 1970 年でない = epoch 秒を ms と取り違えていない。
+		// seed は「1 時間前」なので JST の今日 (00:00〜01:00 JST に走ると前日) の日付が出る。
+		const jstToday = new Date(Date.now() + 9 * 60 * 60 * 1000);
+		const m = jstToday.getUTCMonth() + 1;
+		const d = jstToday.getUTCDate();
+		const prev = new Date(jstToday.getTime() - 24 * 60 * 60 * 1000);
+		const rowText = (await list.textContent()) ?? '';
+		expect(
+			rowText.includes(`${m}月${d}日`) ||
+				rowText.includes(`${prev.getUTCMonth() + 1}月${prev.getUTCDate()}日`),
+			`申請日が JST の今日/前日でない (1970 年退行の疑い): ${rowText.slice(0, 200)}`,
+		).toBe(true);
+		expect(rowText, '1970 年に戻っている').not.toContain('1月22日');
+	});
+
+	// #4632: 控除が起きたのは承認されたときだけ。却下の行に「-50P」が出ると、
+	// 引かれていないポイントが引かれたように読め、台帳と食い違う。
+	test('#4632: 却下された交換には消費ポイントを出さない (控除は承認時のみ)', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await seedResolvedRedemption(workerDbPath, 'E2Eテスト用ごほうび（交換可）', 'rejected');
+
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/history?kind=purchases');
+
+		const list = page.getByTestId('history-list-purchases');
+		await expect(list).toBeVisible({ timeout: 30_000 });
+		// 却下行はごほうび名と却下理由を出すが、消費ポイントは出さない
+		await expect(list.getByText('E2Eテスト用ごほうび（交換可）').first()).toBeVisible();
+		await expect(list.getByText('こんしゅうは もう つかったからね')).toBeVisible();
+		await expect(
+			list.locator('[data-testid^="history-purchase-points-"]'),
+			'却下なのに控除額が出ている',
+		).toHaveCount(0);
 	});
 });
