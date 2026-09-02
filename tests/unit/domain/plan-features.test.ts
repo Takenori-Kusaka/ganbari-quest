@@ -61,7 +61,6 @@ describe('plan-features.ts SSOT', () => {
 			);
 		});
 
-
 		it('free には「90日間の履歴保持」が含まれる', () => {
 			expect(PRICING_PAGE_FEATURES.free).toContain('90日間の履歴保持');
 		});
