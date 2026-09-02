@@ -192,6 +192,11 @@ function registerParentGateTests(): void {
 			//   同じ画面が 3 つの名前で呼ばれる状態を作らないため、literal ではなく SSOT を参照する。
 			await expect(adminLink).toContainText(ADMIN_SCREENS.home.name);
 			await expect(adminLink).toHaveText(SWITCH_PAGE_LABELS.adminLink);
+			// #2353 の意図 (「親しか押さないボタンなのにひらがな表記する理由がない」) を
+			// **文字種**で pin する (QM #4789 レビュー)。上 2 行は同じ SSOT 由来なので
+			// 「描画されているか」は見るが「呼称がひらがなに戻っていないか」は見ない。
+			// 旧 literal 1 つを禁止するだけでは、別のひらがな表記に変わった場合に素通りする。
+			await expect(adminLink).toHaveText(/[一-鿿]/);
 			await expect(adminLink).not.toContainText('おやのかんりがめん');
 		});
 
