@@ -75,7 +75,7 @@ Family Link 流の subject-first を最優先採用。理由: ターゲットユ
 - [ ] テナント名 (家族グループ名) 設定 (aspirational → committed 昇格) の Issue 起票時期 — 同上
 - [ ] family カテゴリ dropdown に items 2 件のみは少ない印象もあるが、aspirational 昇格で 3-5 件まで自然に育つ想定。Phase 1 では 2 件のまま許容
 - [ ] iPhone SE 375pt で 5 tab + label が破綻しないかの実機検証 — #2178 で 3 breakpoint SS + responsive E2E で担保
-- [ ] チュートリアル (tutorial-chapters.ts) のカテゴリ数言及があれば追従更新 — #2178 で同時対応
+- [ ] ガイド (❓ ページガイドの `PAGE_GUIDE_LABELS`) のカテゴリ数言及があれば追従更新 — #2178 で同時対応
 
 ## 関連
 

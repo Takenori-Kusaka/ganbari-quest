@@ -948,7 +948,9 @@ describe('plan-limit-service', () => {
 				{ inviteId: 'i2', status: 'pending', expiresAt: future },
 				{ inviteId: 'i3', status: 'pending', expiresAt: future },
 			]);
-			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			const result = await checkFamilyMemberLimit('tenant1', 'active', {
+				countPendingInvites: true,
+			});
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(4);
 		});
@@ -965,7 +967,9 @@ describe('plan-limit-service', () => {
 				{ inviteId: 'accepted', status: 'accepted', expiresAt: future },
 				{ inviteId: 'revoked', status: 'revoked', expiresAt: future },
 			]);
-			const result = await checkFamilyMemberLimit('tenant1', 'active');
+			const result = await checkFamilyMemberLimit('tenant1', 'active', {
+				countPendingInvites: true,
+			});
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(1);
 		});
@@ -998,7 +1002,9 @@ describe('plan-limit-service', () => {
 					{ inviteId: 'i2', status: 'pending', expiresAt: '2026-09-03 23:59:59+00' },
 					{ inviteId: 'i3', status: 'pending', expiresAt: '2026-09-10 08:47:00+00' },
 				]);
-				const result = await checkFamilyMemberLimit('tenant1', 'active');
+				const result = await checkFamilyMemberLimit('tenant1', 'active', {
+					countPendingInvites: true,
+				});
 				expect(result.current).toBe(4); // owner 1 + 未受諾 3
 				expect(result.allowed).toBe(false);
 			});
@@ -1018,7 +1024,9 @@ describe('plan-limit-service', () => {
 				mockFindTenantInvites.mockResolvedValue([
 					{ inviteId: 'expired', status: 'pending', expiresAt: '2026-09-03 08:47:00+00' },
 				]);
-				const result = await checkFamilyMemberLimit('tenant1', 'active');
+				const result = await checkFamilyMemberLimit('tenant1', 'active', {
+					countPendingInvites: true,
+				});
 				expect(result.current).toBe(1);
 				expect(result.allowed).toBe(true);
 			});

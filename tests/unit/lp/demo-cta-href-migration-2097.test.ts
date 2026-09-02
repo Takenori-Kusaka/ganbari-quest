@@ -65,7 +65,7 @@ describe('LP demo CTA href migration (#2097 Phase B-10, ADR-0048)', () => {
 		});
 	}
 
-	it(`AC2: LP 配下ファイル合計で新 URL '${NEW_URL}' が 12 件出現すること`, () => {
+	it(`AC2: LP 配下ファイル合計で新 URL '${NEW_URL}' が 10 件出現すること`, () => {
 		let total = 0;
 		for (const rel of LP_FILES) {
 			const abs = path.join(REPO_ROOT, rel);
@@ -73,16 +73,21 @@ describe('LP demo CTA href migration (#2097 Phase B-10, ADR-0048)', () => {
 			const matches = content.match(/https:\/\/demo\.ganbari-quest\.com\//g);
 			if (matches) total += matches.length;
 		}
-		// 内訳 (#2836 PR-L4 で help/license-key.html 削除後):
+		// 内訳 (#2836 PR-L4 で help/license-key.html 削除後、#4714 で sla / tokushoho の nav 統一後):
 		//   site/index.html         : 4 (hero CTA + age-panel k13 + age-panel k17 + age-switcher k18)
 		//   site/faq.html           : 1 (bottom CTA)
 		//   site/pricing.html       : 1 (bottom CTA)
-		//   site/sla.html           : 1 (header nav)
-		//   site/tokushoho.html     : 1 (header nav)
+		//   site/sla.html           : 0 (#4714: header nav を他 8 ページと同構成に揃え「デモを見る」を撤去)
+		//   site/tokushoho.html     : 0 (#4714: 同上)
 		//   site/shared-labels.js   : 4 (midHref + k13 + k17 + k18)
 		//   ─────────────────────────────
-		//   合計                    : 12
-		expect(total).toBe(12);
+		//   合計                    : 10
+		//
+		// #4714: sla / tokushoho だけが他 8 ページと違う nav (ホーム / できること / 料金プラン /
+		// デモを見る / 無料で始める) を持ち、その「できること」が index.html#features という
+		// 存在しない id を指していた。privacy / terms と同じ nav 構成に揃えた結果、
+		// この 2 ページから「デモを見る」CTA が外れる。**期待値の緩和ではなく、意図した撤去の反映**。
+		expect(total).toBe(10);
 	});
 
 	it(`AC3: labels.ts SSOT に新 URL '${NEW_URL}' が 4 箇所存在すること (midHref / k13 / k17 / k18)`, () => {

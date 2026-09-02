@@ -102,7 +102,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（手動 / 外部呼び出し。`scheduleRegistry` / EventBridge / dispatcher には未登録） | cron 認証 |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -1940,16 +1940,18 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 #### POST /api/v1/settings/tutorial
 
-チュートリアル完了をマーク。
+チュートリアル完了をマーク（子供画面チュートリアルの最終ステップで送信）。
 
 **認証:** owner/parent
 
 **リクエスト:**
 ```json
 {
-  "completed": true
+  "action": "complete"
 }
 ```
+
+`action` は `complete` のみ受理する（それ以外は 400）。親の章立てチュートリアル撤去に伴い、開始マーク・バナー dismiss の action は受理しない。
 
 #### GET /api/v1/settings/vapid-key
 

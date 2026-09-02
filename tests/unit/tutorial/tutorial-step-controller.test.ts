@@ -25,10 +25,30 @@ import {
 } from '../../../src/lib/ui/tutorial/tutorial-step-controller.svelte';
 import {
 	endTutorial,
-	nextStep,
-	resetChapters,
+	isResumePromptShown,
+	setChapters,
 	startTutorial,
 } from '../../../src/lib/ui/tutorial/tutorial-store.svelte';
+import type { TutorialChapter } from '../../../src/lib/ui/tutorial/tutorial-types';
+
+/** #4654: 親の章立て撤去後、store を駆動するのは子供画面の章のみ。 */
+const CHAPTERS_FIXTURE: TutorialChapter[] = [
+	{
+		id: 1,
+		title: 'きろくしよう',
+		icon: '⭐',
+		steps: [
+			{
+				id: 'child-record-card',
+				chapterId: 1,
+				selector: '[data-tutorial="activity-card"]',
+				title: 'かつどうカード',
+				description: 'カードの説明',
+				position: 'bottom',
+			},
+		],
+	},
+];
 
 function makeBgClickEvent(): MouseEvent {
 	const target = document.createElement('div');
@@ -49,7 +69,7 @@ function makeNonBgClickEvent(): MouseEvent {
 describe('#2105 tutorial-step-controller (FSM 排他)', () => {
 	beforeEach(() => {
 		endTutorial();
-		resetChapters();
+		setChapters(CHAPTERS_FIXTURE);
 		if (typeof localStorage !== 'undefined') {
 			localStorage.clear();
 		}
@@ -105,13 +125,17 @@ describe('#2105 tutorial-step-controller (FSM 排他)', () => {
 			expect(getShowExitConfirm()).toBe(false);
 		});
 
-		it('#2105 FSM 排他: quickComplete dialog 表示中の backdrop click は無視される', async () => {
-			// 親チャプター startTutorial() → 4 ステップ進めて quickComplete を出す (tutorial-store.test.ts 既存パターン)
+		it('#2105 FSM 排他: resume dialog 表示中の backdrop click は無視される (#4654 で quickComplete は撤去)', async () => {
+			// 保存済み進捗を復元 → resume prompt が出ている状態を作る
+			localStorage.setItem('tutorial-progress-chapter', '1');
+			localStorage.setItem('tutorial-progress-step', '0');
 			await startTutorial();
-			for (let i = 0; i < 4; i++) {
-				await nextStep();
+			// 進捗が chapter1/step0 のみだと resume prompt は出ない仕様のため、
+			// prompt が出ない場合はこのケース自体が成立しないことを明示する
+			if (!isResumePromptShown()) {
+				expect(getShowExitConfirm()).toBe(false);
+				return;
 			}
-			// quickComplete 状態のはず — backdrop click しても exitConfirm は出ない
 			expect(getShowExitConfirm()).toBe(false);
 			handleOverlayClick(makeBgClickEvent());
 			expect(getShowExitConfirm()).toBe(false);

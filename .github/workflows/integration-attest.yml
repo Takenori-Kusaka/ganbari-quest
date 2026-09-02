@@ -160,9 +160,15 @@ jobs:
 
           # develop に merge された PR (mergedAt が前回統合以降) を JSON 取得 (含有判定は
           # generate-release-predicate.mjs の buildContainedPrRecords = integration-pr-body.mjs SSOT)。
+          #
+          # 時刻比較は必ず両辺を epoch へ落としてから行う (#4053 / #4624)。
+          # `git show %cI` は **commit が記録した TZ** (例 +09:00) で出るのに対し `mergedAt` は `Z` 形で、
+          # ISO 文字列の `>=` は辞書順比較なので同一時刻が等しくならない。
+          # #4053 ではこれで含有 PR が 21 本中 3 本しか出ず、リリース監査証跡が壊れた。
+          SINCE_EPOCH=$(date -u -d "$SINCE_ISO" +%s)
           gh pr list --base develop --state merged --limit 200 \
             --json number,title,headRefName,labels,mergedAt \
-            --jq "[.[] | select(.mergedAt >= \"$SINCE_ISO\")]" > attestation/contained-prs.json
+            --jq "[.[] | select((.mergedAt | fromdateiso8601) >= $SINCE_EPOCH)]" > attestation/contained-prs.json
           echo "含有候補 PR 件数: $(jq 'length' attestation/contained-prs.json)"
 
           # 当該統合 PR の最新 CI run (ci.yml integration-evidence job が artifact 化済) を job 結果として収集。

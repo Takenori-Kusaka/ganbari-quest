@@ -97,7 +97,16 @@ export type AuthResult =
 export interface AuthProvider {
 	resolveIdentity(event: RequestEvent): Promise<Identity | null>;
 	resolveContext(event: RequestEvent, identity: Identity | null): Promise<AuthContext | null>;
-	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult;
+	/**
+	 * ルート保護。`url` は query を見たい判定 (#4701: `/auth/login?next=` のログイン済み転送先) 用の
+	 * 任意引数で、path だけで判断する実装は受け取らなくてよい。
+	 */
+	authorize(
+		path: string,
+		identity: Identity | null,
+		context: AuthContext | null,
+		url?: URL,
+	): AuthResult;
 }
 
 /**

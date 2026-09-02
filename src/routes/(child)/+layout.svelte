@@ -4,6 +4,11 @@ import { goto, invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
+	AUTO_SLEEP_ACTIVE_MS,
+	AUTO_SLEEP_BATTLE_GRACE_MS,
+	AUTO_SLEEP_INACTIVE_RESET_MS,
+} from '$lib/domain/constants/auto-sleep';
+import {
 	getModeLabels,
 	ICON_CHECKLIST,
 	ICON_HOME,
@@ -35,7 +40,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import { setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -73,13 +78,10 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// #1292 自動スリープ設定
+// #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
 // 非アクティブ 1 分でタイマーリセット
 // バトル中は +2 分の grace period
-const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
-const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
-const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
@@ -165,7 +167,8 @@ onMount(() => {
 
 	return () => {
 		clearInterval(autoReloadTimer);
-		if (!isBaby) resetChapters();
+		// #4654: 親の章立て撤去で store の既定は空配列。子供画面を離れるときは章を空に戻す
+		if (!isBaby) setChapters([]);
 		cleanupSleep?.();
 	};
 });

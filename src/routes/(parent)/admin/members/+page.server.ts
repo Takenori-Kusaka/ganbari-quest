@@ -43,8 +43,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 
 	// #4704: 招待フォームは「押して初めて上限で断られる」状態だった。**押す前に**分かるよう、
 	// 上限 (メンバー + 未受諾の招待) を load で解決して画面に渡す。
-	// #4723: 数え方は **発行時と同じ** (`countPendingInvites` + `planId`) にする。発行 API
-	// (`/api/v1/admin/invites`) と数え方がずれると「画面は招待できると言うのに 403」になる。
+	// #4723: 発行時と同じ数え方 (メンバー + 未受諾の招待) / planId を渡す。数え方がずれると
+	// 「画面では出せるのに発行 API が上限で断る」逆の詰まりになる。
 	const memberLimit = await checkFamilyMemberLimit(
 		tenantId,
 		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,

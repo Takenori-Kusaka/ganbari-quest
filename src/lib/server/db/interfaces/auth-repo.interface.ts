@@ -31,9 +31,9 @@ export type AcceptInviteFailure =
 	| 'EMAIL_MISMATCH'
 	| 'EMAIL_UNVERIFIED'
 	/**
-	 * #4704: 受諾するとメンバー上限を超える。発行時 (`checkFamilyMemberLimit`) だけの検査では、
-	 * 発行後にプランが下がった場合や、同時受諾が重なった場合に上限を超えられるため、
-	 * **受諾 txn の中でも**数える (最後の砦)。
+	 * #4723 / #4704: 受諾すると家族グループがプランのメンバー上限を超える。発行時
+	 * (`checkFamilyMemberLimit`) だけの検査では、発行後にプランが下がった場合や、同時受諾が
+	 * 重なった場合に上限を超えられるため、**受諾 txn の中でも**数える (最後の砦)。
 	 */
 	| 'MEMBER_LIMIT_REACHED';
 
