@@ -9,8 +9,8 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { type ActivityId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
-	CHILD_HOME_LABELS,
 	FEATURES_LABELS,
+	getChildHomeLabels,
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
@@ -81,6 +81,8 @@ setDashboardService(
 );
 
 const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
+// #4690 F6: 記録ダイアログ / 結果 / ピン操作の文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
+const HL = $derived(getChildHomeLabels(data.uiMode ?? 'preschool'));
 const f = $derived(variant.features);
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
@@ -604,8 +606,8 @@ $effect(() => {
 	if (must?.granted && must.points > 0) {
 		mustToastShown = true;
 		showToast(
-			`${CHILD_HOME_LABELS.mustAllCompleteEmoji} ${CHILD_HOME_LABELS.mustAllComplete}`,
-			CHILD_HOME_LABELS.mustBonusGranted(must.points),
+			`${HL.mustAllCompleteEmoji} ${HL.mustAllComplete}`,
+			HL.mustBonusGranted(must.points),
 			'success',
 		);
 	}
@@ -826,7 +828,11 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 
 	<!-- Tutorial hint banner (one-time) -->
-	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
+	<TutorialHintBanner
+		visible={showTutorialHint}
+		uiMode={data.uiMode ?? 'preschool'}
+		onDismiss={dismissTutorialHint}
+	/>
 
 	<!--
 		Issue #2084 (ADR-0046 follow-up): 共通 dashboard sections は派生コンポーネント
@@ -941,9 +947,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{#if pinSubmitting}
 					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 				{:else if pinMenuActivity.isPinned}
-					{CHILD_HOME_LABELS.pinActionUnpin}
+					{HL.pinActionUnpin}
 				{:else}
-					{CHILD_HOME_LABELS.pinActionPin}
+					{HL.pinActionPin}
 				{/if}
 			</Button>
 			<Button
@@ -952,7 +958,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				class="w-full text-[var(--color-text-muted)]"
 				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
 			>
-				{CHILD_HOME_LABELS.pinCloseButton}
+				{HL.pinCloseButton}
 			</Button>
 		</div>
 	{/if}
@@ -965,7 +971,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
-			<p class="text-lg font-bold">{CHILD_HOME_LABELS.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{CHILD_HOME_LABELS.confirmTitleBrLine2}</p>
+			<p class="text-lg font-bold">{HL.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{HL.confirmTitleBrLine2}</p>
 			<div class="flex gap-[var(--sp-sm)] w-full">
 				<Button
 					variant="ghost"
@@ -975,7 +981,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
-					{CHILD_HOME_LABELS.confirmCancelButton}
+					{HL.confirmCancelButton}
 				</Button>
 				<form
 					method="POST"
@@ -1002,9 +1008,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					>
 						{#if submitting}
 							<span class="pending-dot" aria-hidden="true"></span>
-							{CHILD_HOME_LABELS.confirmSubmitLoading}
+							{HL.confirmSubmitLoading}
 						{:else}
-							{CHILD_HOME_LABELS.confirmSubmitButton}
+							{HL.confirmSubmitButton}
 						{/if}
 					</Button>
 				</form>
@@ -1019,8 +1025,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if resultData}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 			{#if cancelledMessage}
-				<span class="text-5xl">{CHILD_HOME_LABELS.resultCancelledIcon}</span>
-				<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultCancelledTitle}</p>
+				<span class="text-5xl">{HL.resultCancelledIcon}</span>
+				<p class="text-lg font-bold">{HL.resultCancelledTitle}</p>
 				<Button
 					variant="ghost"
 					size="md"
@@ -1033,17 +1039,17 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						void syncBalanceWithFlight(null);
 					}}
 				>
-					{CHILD_HOME_LABELS.resultCancelledClose}
+					{HL.resultCancelledClose}
 				</Button>
 			{:else}
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
 				{#if isFirstRecord}
-					<p class="text-lg font-bold text-[var(--theme-accent)]">{CHILD_HOME_LABELS.resultFirstRecord}</p>
-					<p class="text-sm font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+					<p class="text-lg font-bold text-[var(--theme-accent)]">{HL.resultFirstRecord}</p>
+					<p class="text-sm font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{:else}
-					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+					<p class="text-lg font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
 				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
 				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
@@ -1051,18 +1057,18 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
-						{CHILD_HOME_LABELS.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
+						{HL.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
 					<p class="text-sm text-[var(--color-stat-purple)]">
-						{CHILD_HOME_LABELS.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
+						{HL.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
 					</p>
 				{/if}
 				{#if resultData.masteryLeveledUp}
 					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-[var(--color-stat-purple)]">
-							{CHILD_HOME_LABELS.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
+							{HL.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
 						</p>
 					</div>
 				{/if}
@@ -1071,29 +1077,29 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-combo">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{CHILD_HOME_LABELS.resultComboCategoryState(cc.name, getCategoryById(cc.categoryId)?.name ?? '')}
+								{HL.resultComboCategoryState(cc.name, getCategoryById(cc.categoryId)?.name ?? '')}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{CHILD_HOME_LABELS.resultComboCrossState(resultData.comboBonus.crossCategoryCombo.name)}
+								{HL.resultComboCrossState(resultData.comboBonus.crossCategoryCombo.name)}
 							</p>
 						{/if}
 						<p class="text-sm font-bold text-[var(--color-point)]" data-testid="result-combo-new-bonus">
-							{CHILD_HOME_LABELS.resultComboNewBonus} {fmtPts(resultData.comboBonus.totalNewBonus)}
+							{HL.resultComboNewBonus} {fmtPts(resultData.comboBonus.totalNewBonus)}
 						</p>
 					</div>
 				{/if}
 				{#if missionResult}
 					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-mission">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
-							{CHILD_HOME_LABELS.resultMissionComplete}
+							{HL.resultMissionComplete}
 							{#if missionResult.bonusAwarded > 0}
 								<span data-testid="result-mission-bonus">{fmtPts(missionResult.bonusAwarded)}</span>
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
-							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
+							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{HL.resultMissionAllClear}</p>
 						{/if}
 					</div>
 				{/if}
@@ -1102,17 +1108,17 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					<!-- #4686: フォーカスボーナスも台帳に載る付与なのでダイアログに出す (合計 = 台帳増分) -->
 					<div class="bg-[var(--color-feedback-success-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-focus-bonus">
 						<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
-							{CHILD_HOME_LABELS.resultFocusBonus} {fmtPts(focusBonusResult.bonusPoints)}
+							{HL.resultFocusBonus} {fmtPts(focusBonusResult.bonusPoints)}
 						</p>
 					</div>
 				{/if}
 
 				{#if xpGainData}
 					<!-- #4509 ①: 増分は XpGainRow が xpAfter - xpBefore から導出する (旧: +0.3 固定リテラル) -->
-					<XpGainRow xp={xpGainData} />
+					<XpGainRow xp={xpGainData} uiMode={data.uiMode ?? 'preschool'} />
 				{/if}
 
-				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
+				<p class="text-xs text-[var(--color-text-muted)]">{HL.resultTodayCount(todayTotalCount + 1)}</p>
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
@@ -1139,7 +1145,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 								data-testid="activity-cancel-btn"
 								class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
 							>
-								{CHILD_HOME_LABELS.resultCancelButton(cancelCountdown)}
+								{HL.resultCancelButton(cancelCountdown)}
 							</Button>
 						</form>
 					{/if}
@@ -1150,7 +1156,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						data-testid="activity-confirm-btn"
 						onclick={handleResultClose}
 					>
-						{CHILD_HOME_LABELS.resultConfirmButton}
+						{HL.resultConfirmButton}
 					</Button>
 				</div>
 			{/if}

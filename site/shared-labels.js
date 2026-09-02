@@ -919,7 +919,7 @@
 			"carouselSlide1Alt": "幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン",
 			"carouselSlide2Alt": "小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得",
 			"carouselSlide3Alt": "中高生（13〜18 歳代表）のホーム画面 — 今日の活動とポイントの一覧",
-			"carouselSlide4Alt": "こども管理 — お子さまの登録と切り替え",
+			"carouselSlide4Alt": "お子さま管理 — 登録と切り替え",
 			"pwaTitle": "タブレットやスマホのホーム画面に追加しよう",
 			"pwaDesc": "ホーム画面に追加するとアプリのように全画面で起動します。お子さまがブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。",
 			"pwaAndroidTitle": "Android / Chrome",

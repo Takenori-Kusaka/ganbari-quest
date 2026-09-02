@@ -3,7 +3,12 @@ import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import { CHILD_PROFILE_CARD_LABELS, getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
+import {
+	CHILD_PROFILE_CARD_LABELS,
+	formatJstDate,
+	getAgeTierLabel,
+	getThemeOptions,
+} from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import {
 	formatPointValue,
@@ -573,7 +578,7 @@ $effect(() => {
 								<span>{log.activityIcon}</span>
 								<span class="logs-item__name">{log.activityName}</span>
 								<span class="logs-item__points">{fmtPts(log.points)}</span>
-								<span class="logs-item__date">{new Date(log.recordedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</span>
+								<span class="logs-item__date">{formatJstDate(log.recordedAt)}</span>
 							</div>
 						{/each}
 					</div>

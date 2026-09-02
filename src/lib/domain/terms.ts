@@ -440,18 +440,18 @@ export const ADMIN_VIEW_TERMS = {
 // (`ADMIN_HOME_LABELS` / `FEATURES_LABELS.adminLayout`) とガイド側の双方がこの atom を
 // `${...}` 参照することで構造的に防ぐ (ADR-0045 atom / compound 責務分離)。
 export const ADMIN_HOME_TERMS = {
-	/** 上部 summary card: 登録こども数 */
-	childrenCountCard: 'こどもの数',
+	/** 上部 summary card: 登録お子さま数 (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
+	childrenCountCard: 'お子さまの数',
 	/** 上部 summary card: 全員のポイント残高合計 (獲得ではなく残高) */
 	totalCard: '合計',
 	/** 月次セクション見出しの接尾辞 (「📊 YYYY年M月のがんばり」) */
 	monthlySuffix: 'のがんばり',
 	/** 月次セクション右上のレポート遷移リンク */
 	monthlyDetailsLink: '詳しく見る →',
-	/** こども一覧セクション見出し */
-	childrenSection: 'こども一覧',
-	/** header 右端の子供画面への切替リンク */
-	switchToChild: '子供画面へ',
+	/** お子さま一覧セクション見出し (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
+	childrenSection: 'お子さま一覧',
+	/** header 右端のお子さま画面への切替リンク (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
+	switchToChild: 'お子さまの画面へ',
 	/** ごほうび交換申請の承認待ちバナーの状態語 */
 	pendingApproval: '承認待ち',
 } as const;
@@ -920,6 +920,16 @@ export const BACKUP_TERMS = {
 	// 2 つ受けるのか」が曖昧なため廃止。compound 側で「以前書き出した ${file} か、
 	// 表計算ソフトで作った ${csvFile}」の形で 2 つの入力源を平易に並べて使う。
 	csvFile: 'CSV ファイル',
+	// #4716 item 7: 「データクリア」「すべてのデータを削除」「データを全消去」の 3 表記があった。
+	// 「クリア」は開発者語なので顧客文言としては採らない。
+	clearAll: 'すべてのデータを削除',
+	// #4690 (QM): 復元の読み込み方 2 択。**画面のラジオラベルとページガイドの説明文が
+	// 同じ文字列でなければならない** — ガイドは「画面に出ている選択肢名」を引用して
+	// 「置換は元に戻せない」と警告するので、片方だけ呼称を変えると
+	// 存在しない選択肢を指す案内になる (tests/unit/routes/settings-data-guide.test.ts [D3])。
+	// 呼称を変えるときはここ 1 行を直す。
+	importModeReplace: '置き換える（既存データを削除してから復元）',
+	importModeAdd: '追加する（既存データを残して足す）',
 } as const;
 
 // ============================================================
@@ -1350,8 +1360,11 @@ export const CHECKLIST_ADMIN_TERMS = {
 	/** 本日のワンオフ (日次 override) */
 	todayOverride: '本日のワンオフ',
 	addOverride: 'ワンオフ追加',
-	/** 兄弟共通化 */
-	copyFromChild: `他の${CHILD_TERMS.honorific}から取り込む`,
+	/**
+	 * 兄弟共通化。#4716: 同じ操作が 3 表記 (別のお子さまからコピー / 他の子供から copy /
+	 * 他のお子さまから取り込む) に割れていたため、値は ADD_MENU_TERMS.copyFromChild (3 画面共通) を参照する。
+	 */
+	copyFromChild: ADD_MENU_TERMS.copyFromChild,
 	/** marketplace 詳細の取込 CTA (画面の実ボタン名) */
 	marketplaceImportCta: '一括追加',
 } as const;
@@ -1367,8 +1380,13 @@ export const POINTS_ADMIN_TERMS = {
 	/** 本画面の操作 (「交換」ではない。ごほうび交換は子供画面の shop) */
 	convert: '変換',
 	convertVerb: '変換する',
-	/** 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値) */
-	convertable: '変換可能',
+	/**
+	 * 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値)。
+	 *
+	 * #4716: 旧称「変換可能」は、同じ画面の「自由入力」タブなら 1P から変換できるのに
+	 * 「これ以上は変換できない」と読めて矛盾していた。どのタブの話かを語に入れる。
+	 */
+	convertable: 'かんたん変換ぶん',
 	/** 変換フォームのモードタブ */
 	tabPreset: 'かんたん',
 	tabManual: '自由入力',
@@ -1392,8 +1410,8 @@ export const POINTS_ADMIN_TERMS = {
 // (PAGE_GUIDE_LABELS.adminCheer) の双方が参照し、ガイドの例文が画面の placeholder と
 // 1 文字も違わないことを構造的に保つ (旧ガイドは語尾が「なったよ！」で画面は「なったね！」だった)。
 export const CHEER_ADMIN_TERMS = {
-	/** 1 段目の見出し (画面表記どおり「こども」) */
-	selectChildTitle: '1. こどもを選択',
+	/** 1 段目の見出し。#4716: 保護者画面の呼称は honorific に統一する (旧「1. こどもを選択」) */
+	selectChildTitle: `1. ${CHILD_TERMS.honorific}を選択`,
 	/** 定型文チップの見出し */
 	presetTitle: `よくある${CHEER_TERMS.canonical}`,
 	/** 理由入力の placeholder (ガイドの例文もこの値を使う) */
@@ -1418,7 +1436,8 @@ export const CHILD_ADMIN_TERMS = {
 	age: '年齢',
 	/** 詳細カードの操作 */
 	editButton: '✏️ 編集',
-	deleteButton: '🗑 この子供を削除',
+	/** #4716: 保護者画面の呼称は honorific に統一する (旧「🗑 この子供を削除」) */
+	deleteButton: `🗑 この${CHILD_TERMS.honorific}を削除`,
 	/** 詳細カードのタブ (絵文字込みの画面表記) */
 	tabInfo: '📋 基本情報',
 	tabStatus: '📊 ステータス',
@@ -1437,8 +1456,13 @@ export const CHILD_ADMIN_TERMS = {
 export const REWARD_ADMIN_TERMS = {
 	/** 検索欄ラベル */
 	search: 'ごほうびを検索',
-	/** 兄弟共通化: 他の子供からコピー (子供タブ行の右端ボタン) */
-	copyFromChild: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	/**
+	 * 兄弟共通化: 別のお子さまからコピー。
+	 * #4716 で活動 / ごほうび / チェックリストの 3 表記割れを解消し、ボタン自体も
+	 * ごほうび管理の header 「+ 追加」dropdown に移した (旧: 子供タブ行の右端)。
+	 * 値は ADD_MENU_TERMS.copyFromChild (3 画面共通) を参照する。
+	 */
+	copyFromChild: ADD_MENU_TERMS.copyFromChild,
 	/** ︙ の申請承認 item (件数付きは labels compound 側) */
 	requestsMenu: '申請承認',
 	/** 一覧カードの操作 */
@@ -1710,8 +1734,39 @@ export const VIEWER_LINK_TERMS = {
 // LP 側 (labels.ts の LP_* namespace) とアプリ側 (NAV_ADMIN_LABELS) の両方がここから引く。
 
 export const ADMIN_SCREEN_TERMS = {
-	/** `/admin/children` — お子さまの登録・切り替え */
-	children: 'こども管理',
+	/** `/admin` — 保護者側のトップ */
+	home: ADMIN_VIEW_TERMS.canonical,
+	/** `/admin/children` — お子さまの登録・切り替え。#4716: 親画面は honorific に寄せる */
+	children: `${CHILD_TERMS.honorific}管理`,
+	/** `/admin/members` — 招待した大人の管理 */
+	members: 'メンバー管理',
+	/** `/admin/activities` */
+	activities: '活動管理',
+	/** `/admin/checklists` */
+	checklists: 'チェックリスト管理',
+	/**
+	 * `/admin/challenges` — #4671 F3 (EPIC #4650 PO 判断) で「きょうだいチャレンジ」を廃し
+	 * `CHALLENGE_TERMS.canonical` に統一。per-child 自動生成モデルではきょうだい限定機能ではない。
+	 */
+	challenges: CHALLENGE_TERMS.canonical,
+	/** `/admin/rewards` */
+	rewards: 'ごほうび管理',
+	/** `/admin/cheer` */
+	cheer: '応援',
+	/** `/admin/reports` */
+	reports: 'レポート',
+	/** `/admin/growth-book` — 旧 nav 表記「グロースブック」を廃止 (#4715) */
+	growthBook: '成長記録ブック',
+	/** `/admin/points` */
+	points: 'ポイント管理',
+	/** `/admin/status` — 旧 title「ベンチマーク管理」を廃止 (#4715) */
+	status: '成長レポート',
+	/** `/admin/certificates` */
+	certificates: 'がんばり証明書',
+	/** `/admin/settings` */
+	settings: '設定',
+	/** `/admin/subscription` — 「プラン・課金」「プラン」表記を廃止し本表記に統一 (#4715) */
+	subscription: 'プラン・お支払い',
 } as const;
 
 // ============================================================
@@ -1730,7 +1785,12 @@ export const ADMIN_SCREEN_TERMS = {
 // (= #4497 / 本 Issue が是正しようとしている欠陥そのもの) を新たに作ってしまう。
 // 特商法 / FAQ 側は本 PR で当該文を書き直しており改定日も動かしているため、こちらに合わせる。
 export const SUPPORT_RESPONSE_TERMS = {
-	/** 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し) */
+	/**
+	 * 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し)。
+	 *
+	 * #4508: 特商法側は「原則 2 営業日以内」と同義で書く (48 時間 = 2 営業日)。
+	 * (tests/unit/domain/sla-promises-4508.test.ts が `48時間以内` を pin する)。
+	 */
 	initialResponseTarget: '48時間以内（営業日ベース）',
 } as const;
 
@@ -1743,6 +1803,17 @@ export const SUPPORT_RESPONSE_TERMS = {
 // 無条件に読める案内が残っており、無料プランの顧客が実行すると必ず失敗していた。
 // 退会フローだけは別経路 (`/api/v1/admin/account/export`) で、無料プランでも最小限の内容を
 // 持ち出せる (#4472)。その「最小限の内容」の呼び方をここに 1 つだけ置く。
+
+// ============================================================
+// CHILD_SHOP_TERMS — ごほうびショップの画面名 atom (#4716)
+// ============================================================
+//
+// 親画面の説明文が「子供 shop に並べるごほうび…」と英語 + 内部語で書かれており、
+// 子供側の実画面名 (ごほうびショップ) と一致していなかった。両方がここから引く。
+
+export const CHILD_SHOP_TERMS = {
+	pageName: 'ごほうびショップ',
+} as const;
 
 export const DELETION_EXPORT_TERMS = {
 	/** 無料プランが退会画面で持ち出せる範囲 (`deletion-export-scope.ts` の free scope に対応) */

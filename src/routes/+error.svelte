@@ -2,7 +2,8 @@
 import { onDestroy, onMount } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import { APP_LABELS, ERROR_PAGE_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, ERROR_PAGE_LABELS, getChildErrorPageLabels } from '$lib/domain/labels';
+import { UI_MODES } from '$lib/domain/validation/age-tier';
 import OpsMfaSetupNotice from '$lib/features/ops/OpsMfaSetupNotice.svelte';
 
 /**
@@ -16,8 +17,26 @@ import OpsMfaSetupNotice from '$lib/features/ops/OpsMfaSetupNotice.svelte';
 const status = $derived(page.status);
 const requestId = $derived((page.data as { requestId?: string | null })?.requestId ?? null);
 const role = $derived((page.data as { role?: string | null })?.role ?? null);
-// "child" ロールは子供画面。それ以外（owner/editor/viewer/null）は親扱い
-const isChild = $derived(role === 'child');
+/**
+ * #4690 F3: 子供画面かどうかを **URL からも** 判定する。
+ *
+ * 旧実装は `page.data.role` だけを見ていたが、存在しないパス (例 `/preschool/battle`)
+ * では子供 layout の load が走らず role が null になり、3〜5 歳の画面に保護者向けの
+ * 「お探しのページは存在しないか、移動した可能性があります。」が出ていた。
+ * URL 先頭が年齢モードなら、role が解決できなくても子供画面として扱う。
+ */
+const uiModeFromPath = $derived.by(() => {
+	// エラー画面自身が例外で落ちると復旧導線ごと消えるため、URL の欠落に耐える形で読む。
+	const first = page.url?.pathname?.split('/')[1] ?? '';
+	return (UI_MODES as readonly string[]).includes(first) ? first : null;
+});
+// "child" ロール、または URL が年齢モード配下なら子供画面。それ以外は親扱い。
+// role が解決できているときは role を優先する (保護者が子供 route 配下で 403 / 429 を踏んだときに
+// 拒否理由や requestId 導線を持つ保護者向け文言へ到達できるようにする、QM #4809 レビュー)。
+// URL 先頭で子供扱いにするのは role が null (子供 layout の load が走らないパス) のときだけ。
+const isChild = $derived(role === 'child' || (role === null && uiModeFromPath !== null));
+/** 子供文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。mode 不明時はひらがな側に倒す。 */
+const childLabels = $derived(getChildErrorPageLabels(uiModeFromPath ?? 'preschool'));
 
 /**
  * #4282: `/ops` が MFA 未設定で 403 になったときだけ、汎用の 403 ではなく設定導線を出す。
@@ -74,20 +93,20 @@ function handleRetry() {
 		<p class="error-status">{status}</p>
 		<h1 class="error-title">
 			{#if status === 404}
-				{ERROR_PAGE_LABELS.title404}
+				{isChild ? childLabels.title404 : ERROR_PAGE_LABELS.title404}
 			{:else if status === 429}
-				{ERROR_PAGE_LABELS.title429}
+				{isChild ? childLabels.title429 : ERROR_PAGE_LABELS.title429}
 			{:else if status === 403}
-				{ERROR_PAGE_LABELS.title403}
+				{isChild ? childLabels.title403 : ERROR_PAGE_LABELS.title403}
 			{:else}
-				{ERROR_PAGE_LABELS.titleDefault}
+				{isChild ? childLabels.titleDefault : ERROR_PAGE_LABELS.titleDefault}
 			{/if}
 		</h1>
 
 		<p class="error-description">
 			{#if status === 404}
 				{#if isChild}
-					{ERROR_PAGE_LABELS.desc404Child}
+					{childLabels.desc404}
 				{:else}
 					{ERROR_PAGE_LABELS.desc404Parent}
 				{/if}
@@ -95,12 +114,12 @@ function handleRetry() {
 				{ERROR_PAGE_LABELS.desc429}
 			{:else if status === 403}
 				{#if isChild}
-					{ERROR_PAGE_LABELS.desc403Child}
+					{childLabels.desc403}
 				{:else}
 					{ERROR_PAGE_LABELS.desc403Parent}
 				{/if}
 			{:else if isChild}
-				{ERROR_PAGE_LABELS.descGenericChild}
+				{childLabels.descGeneric}
 			{:else}
 				{ERROR_PAGE_LABELS.descGenericParent}
 			{/if}
@@ -116,7 +135,7 @@ function handleRetry() {
 			{#if isChild}
 				<!-- 子供は単一の大きな戻るボタン（カウントダウン中も手動で即遷移可能） -->
 				<a href="/switch" class="btn btn-primary btn-child">
-					{ERROR_PAGE_LABELS.btnBackNow}
+					{childLabels.btnBackNow}
 				</a>
 			{:else}
 				<!-- 親は状況に応じた導線 -->

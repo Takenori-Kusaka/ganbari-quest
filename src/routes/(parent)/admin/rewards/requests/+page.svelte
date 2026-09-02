@@ -11,6 +11,7 @@ import {
 	ADMIN_REWARDS_REQUESTS_LABELS,
 	ADMIN_SHOP_REQUEST_LABELS,
 	APP_LABELS,
+	formatJstDate,
 	formatRewardWithQuantity,
 } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -99,7 +100,7 @@ function closeRejectForm() {
 								</p>
 								<p class="request-date">
 									{ADMIN_REWARDS_REQUESTS_LABELS.requestedAtLabel}:
-									{formatJstDateTime(req.requestedAt)}
+									{formatJstDate(req.requestedAt * 1000)}
 								</p>
 							</div>
 							<div class="request-actions">

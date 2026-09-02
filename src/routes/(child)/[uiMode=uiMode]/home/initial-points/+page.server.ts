@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { CHILD_ACTION_ERROR_LABELS } from '$lib/domain/labels';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { grantInitialPoints } from '$lib/server/services/point-service';
@@ -17,17 +18,18 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.initial-points.grant'));
-		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
 
 		const formData = await request.formData();
 		const points = Number(formData.get('points'));
 
-		if (Number.isNaN(points)) return fail(400, { error: '有効なポイント数を入力してください' });
+		if (Number.isNaN(points))
+			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.pointsNotNumber });
 
 		const result = await grantInitialPoints(childId, points, tenantId);
 		if ('error' in result) {
 			if (result.error === 'INVALID_AMOUNT')
-				return fail(400, { error: '1〜10000の範囲でポイントを入力してください' });
+				return fail(400, { error: CHILD_ACTION_ERROR_LABELS.pointsOutOfRange(1, 10000) });
 			return fail(404, { error: 'みつかりません' });
 		}
 

@@ -12,7 +12,27 @@ import {
 import { findActivityById } from '$lib/server/db/activity-repo';
 import type { Activity, ChildActivity } from '$lib/server/db/types';
 
-const MAX_PINS_PER_CATEGORY = 5;
+export const MAX_PINS_PER_CATEGORY = 5;
+
+/** ピン留めの拒否理由。route 側が顧客文言 (年齢帯別) に対応付けるための code。 */
+export type ActivityPinErrorCode = 'ACTIVITY_NOT_FOUND' | 'PIN_LIMIT_EXCEEDED';
+
+/**
+ * #4716 item 15 / ADR-0062: 旧実装は素の `Error` を投げ、route 側が
+ * `err.message` をそのまま `fail()` に載せていた。結果として (a) 想定外の例外
+ * (DB エラー等) の内部メッセージが顧客に漏れ、(b) 漢字のサービス層文言が
+ * 3〜5 歳向け preschool 画面に出ていた。code を持たせて、顧客文言の決定を
+ * 表示層 (labels.ts) に戻す。
+ */
+export class ActivityPinError extends Error {
+	readonly code: ActivityPinErrorCode;
+
+	constructor(code: ActivityPinErrorCode, message: string) {
+		super(message);
+		this.name = 'ActivityPinError';
+		this.code = code;
+	}
+}
 const USAGE_DAYS = 30;
 
 /**
@@ -47,11 +67,14 @@ export async function toggleActivityPin(
 		// 上限チェック
 		const activity = await findActivityById(activityId, tenantId);
 		if (!activity) {
-			throw new Error('活動が見つかりません');
+			throw new ActivityPinError('ACTIVITY_NOT_FOUND', '活動が見つかりません');
 		}
 		const currentCount = await countPinnedInCategory(childId, activity.categoryId, tenantId);
 		if (currentCount >= MAX_PINS_PER_CATEGORY) {
-			throw new Error(`1カテゴリあたりのピン留め上限（${MAX_PINS_PER_CATEGORY}件）を超えています`);
+			throw new ActivityPinError(
+				'PIN_LIMIT_EXCEEDED',
+				`1カテゴリあたりのピン留め上限（${MAX_PINS_PER_CATEGORY}件）を超えています`,
+			);
 		}
 	}
 
