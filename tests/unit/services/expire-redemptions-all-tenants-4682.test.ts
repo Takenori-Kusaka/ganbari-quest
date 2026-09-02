@@ -33,8 +33,10 @@ vi.mock('$lib/server/db/reward-redemption-repo', () => ({
 	findRedemptionRequestsByTenant: vi.fn(),
 	updateRedemptionRequestStatus: vi.fn(),
 	hasPendingByReward: vi.fn(),
+	findPendingRewardIdsByTenant: vi.fn(),
 }));
 
+import { REDEMPTION_EXPIRE_AFTER_SEC } from '../../../src/lib/server/db/interfaces/reward-redemption-repo.interface';
 import {
 	EXPIRE_REDEMPTIONS_TENANT_LIMIT,
 	expireOldRedemptionsForAllTenants,
@@ -170,6 +172,24 @@ describe('#4682 F3 dry-run (本番投入前に影響件数を観測する)', () 
 		expect(countRedemptionRequestsByTenant).toHaveBeenCalledTimes(2);
 		expect(r.dryRun).toBe(true);
 		expect(r.expiredCount).toBe(6);
+	});
+
+	it('dry-run の COUNT は実処理と同じ 30 日 cutoff で絞る (件数を過大報告しない)', async () => {
+		listAllTenants.mockResolvedValue(tenants(1));
+		const before = Math.floor(Date.now() / 1000);
+
+		await expireOldRedemptionsForAllTenants({ today: '2026-08-20', dryRun: true });
+
+		const [, opts] = countRedemptionRequestsByTenant.mock.calls[0] as [
+			string,
+			{ status?: string; requestedBeforeEpoch?: number },
+		];
+		expect(opts.status).toBe('pending_parent_approval');
+		// cutoff が無いと「承認待ち全件」を失効予定として報告してしまう (旧実装)
+		expect(opts.requestedBeforeEpoch, 'dry-run に期間条件が無い').toBeDefined();
+		const expected = before - REDEMPTION_EXPIRE_AFTER_SEC;
+		expect(opts.requestedBeforeEpoch as number).toBeGreaterThanOrEqual(expected - 5);
+		expect(opts.requestedBeforeEpoch as number).toBeLessThanOrEqual(expected + 5);
 	});
 
 	it('既定は dryRun=false (実際に expired へ移す)', async () => {

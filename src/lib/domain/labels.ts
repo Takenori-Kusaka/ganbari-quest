@@ -1602,7 +1602,7 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	// #4682 F1: 承認待ちが表示上限を超えたとき、「見えている件数 = 全件」と誤解させない。
 	// 表示は古い順なので、長く待っている申請から必ず画面に出る。
 	pendingTruncatedNote: (shown: number, total: number) =>
-		`古い順に ${shown} 件を表示しています（承認待ちは全 ${total} 件）。処理すると次の申請が出ます`,
+		`古い順に ${shown} 件を表示しています（未処理の申請は全 ${total} 件）。処理すると次の申請が出ます`,
 	// #4682 F4: 「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」を出す。
 	historySectionTitle: `履歴（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
 	emptyPendingMessage: '申請はありません',
