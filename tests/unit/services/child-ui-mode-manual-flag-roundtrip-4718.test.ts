@@ -1,4 +1,4 @@
-// tests/unit/services/child-uimode-manual-flag-roundtrip-4718.test.ts (#4718 QM)
+// tests/unit/services/child-ui-mode-manual-flag-roundtrip-4718.test.ts (#4718 QM)
 //
 // 年齢帯を「手動で選んだか」は保護者の意思なので、復元側で推測してはいけない。
 // 復元は uiMode を常に明示で渡すため、`isExplicitUiModeOverride(age, uiMode)` は
