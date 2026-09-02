@@ -159,6 +159,9 @@ async function collectExportBody(options: ExportOptions): Promise<Omit<ExportDat
 		activeTitle: null, // 称号システム廃止（#322）
 		createdAt: child.createdAt,
 		sourceChildId: child.id, // #3077: ZIP 静的ファイルの id 再マップ用
+		// #4718 (QM): 手動で年齢帯を選んだかを round-trip する。落とすと復元側が
+		// 「保存時の uiMode ≠ 復元時の既定」を手動指定と誤認し、年齢帯の自動遷移が固定される。
+		uiModeManuallySet: child.uiModeManuallySet,
 	}));
 
 	// childId → exportId マッピング

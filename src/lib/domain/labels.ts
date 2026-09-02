@@ -6236,7 +6236,15 @@ export const SETUP_CHILDREN_LABELS = {
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	nicknamePlaceholder: 'たろうくん',
 	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	// 呼び出し側は src/routes/(parent)/admin/children/+page.svelte と setup/children/+page.svelte。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
 	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
+	// #4718: 誕生日は任意。入れた子だけ誕生日ボーナス (🎂) の対象になる。
+	birthdayLabel: '誕生日（任意）',
+	birthdayHint: '誕生日を入れると誕生日ボーナスが使えます。年齢だけでも登録できます。',
+	birthdayInvalidFormat: '誕生日の形式が正しくありません（YYYY-MM-DD）',
+	birthdayInFuture: '未来の日付は設定できません',
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorNicknameRequired: 'ニックネームを入力してください',
 	errorAgeRange: '年齢は0〜18で入力してください',
@@ -6892,9 +6900,10 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
-	addButton: '追加する',
-	ageLabel: '年齢',
-	ageLabelAutoCalc: '年齢（誕生日から自動計算）',
+	addButton: CHILD_ADMIN_TERMS.addButton,
+	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
 	agePlaceholder: '4',
 	birthdayOrAgeRequired: '誕生日または年齢を入力してください',
 	ageRange: '0〜18で入力してください',
