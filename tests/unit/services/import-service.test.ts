@@ -31,6 +31,17 @@ const mockInsertSpecialReward = vi.fn();
 const mockSaveFile = vi.fn();
 const mockUpdateChildAvatarUrl = vi.fn();
 
+// #4693 (QM #4784): quota gate は activity-quota-import-enforcement.test.ts で単体検証する。
+// ここでは復元 / 取込の配線だけを見るため、gate は「何も外さない」stub にする。
+vi.mock('$lib/server/services/activity-quota', () => ({
+	enforceActivityQuota: vi.fn(async () => ({
+		rejectedNames: new Set<string>(),
+		rejectedRows: 0,
+		message: '',
+		upgradeUrl: null,
+	})),
+}));
+
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
 	findActivityLogs: (...args: unknown[]) => mockFindActivityLogs(...args),

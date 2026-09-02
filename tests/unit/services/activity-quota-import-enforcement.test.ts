@@ -8,7 +8,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
-import { asChildId } from '$lib/domain/ids';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+import type { InsertChildActivityInput } from '$lib/server/db/types';
 
 const mockFindAllChildren = vi.fn();
 const mockFindActivitiesByChild = vi.fn();
@@ -65,10 +66,12 @@ vi.mock('$lib/server/services/trial-service', () => ({
 }));
 
 import { importActivities } from '$lib/server/services/activity-import-service';
+import { enforceActivityQuota } from '$lib/server/services/activity-quota';
 
 const TENANT = 'tenant-1';
 const CHILD = asChildId(1);
 const SIBLING = asChildId(2);
+const CAT = asCategoryId(2);
 
 /** insertActivitiesBulk に渡された **行数** の合計 (child × activity)。 */
 function writtenRowCount(): number {
@@ -231,7 +234,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		}
 	});
 
-	it('手動 3/3 で上限到達なら、プリセット取込も拒否される (#4693 PO 判断: 取込も素通りさせない)', async () => {
+	it('手動 3/3 で上限到達でも、プリセット取込 (seed 行) は strategy 層の quota では切らない (#3669 SSOT / LP「プリセットは無料」)', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // free の maxActivities=3 に到達
 
@@ -240,11 +243,82 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 			presetId: 'pack-1',
 		});
 
-		// Issue #4693 の症状欄は「手動 / 一括 / コピー / テンプレ取込は 403」を*正しい挙動*として
-		// 挙げ、JSON/CSV 復元だけが素通りすることを欠陥としている。取込も同じ gate に掛ける。
+		// quota の母集団は custom (activity-source.ts #3669)。seed 行を数えると 10 件の活動セットや
+		// 初期 seed 20 件を含む backup 全体復元が「残枠 3 行」で切り詰められ、LP の
+		// 「プリセットを使って無料で始められます」と食い違う。admin 画面での 3/3 到達時の
+		// テンプレ取込 403 は action 側の checkActivityLimit が担う (本関数の責務ではない)。
+		expect(result.imported).toBe(5);
+		expect(result.blocked).toBeUndefined();
+	});
+
+	it('custom 行と seed 行が混ざる計画 (backup 全体復元) は custom 行だけを残枠と比べる', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(2)); // 残枠 1
+
+		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>([
+			[
+				CHILD,
+				[
+					{
+						childId: CHILD,
+						name: 'seed-a',
+						categoryId: CAT,
+						icon: '🌱',
+						basePoints: 1,
+						source: 'seed',
+					},
+					{
+						childId: CHILD,
+						name: 'seed-b',
+						categoryId: CAT,
+						icon: '🌱',
+						basePoints: 1,
+						source: 'seed',
+					},
+					{
+						childId: CHILD,
+						name: 'custom-1',
+						categoryId: CAT,
+						icon: '✏️',
+						basePoints: 1,
+						source: 'custom',
+					},
+					{
+						childId: CHILD,
+						name: 'custom-2',
+						categoryId: CAT,
+						icon: '✏️',
+						basePoints: 1,
+						source: 'custom',
+					},
+				],
+			],
+		]);
+		const planned = new Set(['seed-a', 'seed-b', 'custom-1', 'custom-2']);
+		const quota = await enforceActivityQuota(TENANT, childInputsByChild, planned);
+
+		// seed 2 行はそのまま、custom は残枠 1 に収まる 1 件だけ残る
+		expect(quota.rejectedRows).toBe(1);
+		expect([...quota.rejectedNames]).toEqual(['custom-2']);
+		expect(childInputsByChild.get(CHILD)?.map((i) => i.name)).toEqual([
+			'seed-a',
+			'seed-b',
+			'custom-1',
+		]);
+		expect(planned.has('custom-2')).toBe(false);
+	});
+
+	it('現在数の取得に失敗したときも fail-closed で全件止め、再試行の文言を返す (500 に突き抜けない)', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		// 1 回目 (取込側の既存名 dedup) は成功、2 回目 (quota の現在数) で落とす
+		mockFindActivitiesByChild
+			.mockResolvedValueOnce(existing(0))
+			.mockRejectedValueOnce(new Error('OCC 40001'));
+
+		const result = await importActivities(pack(2), TENANT, { childIds: [CHILD] });
 		expect(result.imported).toBe(0);
-		expect(result.blocked?.count).toBe(5);
-		expect(result.blocked?.upgradeUrl).toBe('/admin/subscription');
+		expect(result.blocked?.count).toBe(2);
+		expect(result.blocked?.upgradeUrl).toBeNull();
 	});
 
 	it('ファイル復元を繰り返しても累積で上限を超えない', async () => {

@@ -19,6 +19,7 @@ import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/valid
 import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
+import type { ImportBlocked } from '$lib/marketplace/types';
 import {
 	findActivities,
 	findActivityLogs,
@@ -43,9 +44,11 @@ import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-rep
 import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
+import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
+import { enforceActivityQuota } from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -195,6 +198,11 @@ export interface ImportResult {
 	};
 	errors: string[];
 	warnings: string[];
+	/**
+	 * #4693 (QM #4784): プラン上限で **意図的に復元対象から外した** 活動行数と、その顧客向け理由。
+	 * `warnings` (内部ログ寄り) とは別に、画面が理由 + アップグレード導線を出すための channel。
+	 */
+	blocked?: ImportBlocked;
 }
 
 /**
@@ -1303,7 +1311,48 @@ async function importChildActivitiesData(
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
+	// #4693 (QM #4784): 復元も他の取込経路と同じ quota gate を通す (PO 判断「復元 / REST も
+	// 素通りさせない」)。先に書き込み計画を作り、上限超過分 (custom 行のみが対象、seed 行は
+	// 数えない = 初期 seed の復元を切り詰めない) を計画から外してから insert する。
+	const { childInputsByChild, plannedNewNames } = planChildActivityRestores(
+		data,
+		childIdMap,
+		result,
+	);
+
+	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
+	if (quota.rejectedRows > 0) {
+		result.blocked = {
+			count: quota.rejectedRows,
+			message: quota.message,
+			upgradeUrl: quota.upgradeUrl,
+		};
+		for (const name of quota.rejectedNames) {
+			result.warnings.push(`活動「${name}」はプラン上限のため復元しませんでした: ${quota.message}`);
+		}
+	}
+
+	for (const [childId, inputs] of childInputsByChild) {
+		for (const input of inputs) {
+			try {
+				await getRepos().childActivity.insertActivity(input, tenantId);
+				result.activitiesCreated++;
+			} catch (e) {
+				result.warnings.push(`活動「${input.name}」(child=${childId}) の作成に失敗: ${String(e)}`);
+			}
+		}
+	}
+}
+
+/** 復元する child_activities の書き込み計画 (childRef / category が解決できない行は warnings に落とす)。 */
+function planChildActivityRestores(
+	data: ExportData,
+	childIdMap: Map<string, ChildId>,
+	result: ImportResult,
+): { childInputsByChild: Map<ChildId, InsertChildActivityInput[]>; plannedNewNames: Set<string> } {
 	const childActivities = data.data.childActivities ?? [];
+	const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
+	const plannedNewNames = new Set<string>();
 	for (const a of childActivities) {
 		const childId = childIdMap.get(a.childRef);
 		if (!childId) {
@@ -1315,44 +1364,41 @@ async function importChildActivitiesData(
 			result.warnings.push(`活動「${a.name}」のカテゴリ「${a.categoryCode}」が不明のためスキップ`);
 			continue;
 		}
-		try {
-			await getRepos().childActivity.insertActivity(
-				{
-					childId,
-					name: a.name,
-					categoryId,
-					icon: a.icon,
-					basePoints: a.basePoints,
-					triggerHint: a.triggerHint ?? null,
-					isMainQuest: a.isMainQuest ?? 0,
-					sourcePresetId: a.sourcePresetId ?? null,
-					priority: a.priority === 'must' ? 'must' : 'optional',
-					// #3358: 表示状態 / 並び順 / アーカイブ状態を round-trip 復元
-					// (省略 = 旧 backup 後方互換で schema default)。archived→active 復活防止。
-					isVisible: a.isVisible,
-					sortOrder: a.sortOrder,
-					isArchived: a.isArchived,
-					archivedReason: a.archivedReason ?? null,
-					// #3422: 1 日上限 / 読み仮名 / 漢字表記を round-trip 復元 (省略 = 旧 backup は
-					// schema default)。dailyLimit=0 (無制限) を null=1 回固定へ落とさず保全する。
-					// #3463 item1: import 境界で値検証。改竄/破損 ZIP の範囲外 dailyLimit (NaN/負/巨大/非整数) を
-					// [0,99] int or null に、巨大 nameKana/nameKanji を max 50 char に正規化する (default-deny)。
-					dailyLimit: sanitizeDailyLimit(a.dailyLimit),
-					nameKana: sanitizeActivityNameField(a.nameKana),
-					nameKanji: sanitizeActivityNameField(a.nameKanji),
-					// #4693 (QM): 作成経路を round-trip 復元する。落とすと repo 既定 `seed` に化け、
-					// 保護者が自分で作った活動 (`custom`) が quota の集計から消える
-					// = backup → restore を 1 回するだけで「オリジナル活動 3 個まで」が無効になる。
-					// 値域外 / 旧 backup (field 無し) は既定に落とす (default-deny、#3463 item1 と同方針)。
-					source: sanitizeActivitySource(a.source),
-				},
-				tenantId,
-			);
-			result.activitiesCreated++;
-		} catch (e) {
-			result.warnings.push(`活動「${a.name}」(child=${a.childRef}) の作成に失敗: ${String(e)}`);
-		}
+		const inputs = childInputsByChild.get(childId) ?? [];
+		inputs.push({
+			childId,
+			name: a.name,
+			categoryId,
+			icon: a.icon,
+			basePoints: a.basePoints,
+			triggerHint: a.triggerHint ?? null,
+			isMainQuest: a.isMainQuest ?? 0,
+			sourcePresetId: a.sourcePresetId ?? null,
+			priority: a.priority === 'must' ? 'must' : 'optional',
+			// #3358: 表示状態 / 並び順 / アーカイブ状態を round-trip 復元
+			// (省略 = 旧 backup 後方互換で schema default)。archived→active 復活防止。
+			isVisible: a.isVisible,
+			sortOrder: a.sortOrder,
+			isArchived: a.isArchived,
+			archivedReason: a.archivedReason ?? null,
+			// #3422: 1 日上限 / 読み仮名 / 漢字表記を round-trip 復元 (省略 = 旧 backup は
+			// schema default)。dailyLimit=0 (無制限) を null=1 回固定へ落とさず保全する。
+			// #3463 item1: import 境界で値検証。改竄/破損 ZIP の範囲外 dailyLimit (NaN/負/巨大/非整数) を
+			// [0,99] int or null に、巨大 nameKana/nameKanji を max 50 char に正規化する (default-deny)。
+			dailyLimit: sanitizeDailyLimit(a.dailyLimit),
+			nameKana: sanitizeActivityNameField(a.nameKana),
+			nameKanji: sanitizeActivityNameField(a.nameKanji),
+			// #4693 (QM): 作成経路を round-trip 復元する。落とすと repo 既定 `seed` に化け、
+			// 保護者が自分で作った活動 (`custom`) が quota の集計から消える
+			// = backup → restore を 1 回するだけで「オリジナル活動 3 個まで」が無効になる。
+			// 値域外 / 旧 backup (field 無し) は既定に落とす (default-deny、#3463 item1 と同方針)。
+			// 顧客が backup を編集して `custom` を並べても、下の quota gate が上限で切る。
+			source: sanitizeActivitySource(a.source),
+		});
+		childInputsByChild.set(childId, inputs);
+		plannedNewNames.add(a.name);
 	}
+	return { childInputsByChild, plannedNewNames };
 }
 
 /**

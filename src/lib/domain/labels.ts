@@ -3611,6 +3611,9 @@ export const SETTINGS_LABELS = {
 	dataImportComplete: 'インポート完了',
 	dataImportResultChildren: (n: number | string) => `子供: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
+	// #4693 (QM #4784): 復元がプラン上限で一部を外したときの件数行 (理由文は server の quota.message)
+	dataImportResultBlocked: (n: number | string) =>
+		`プラン上限のため ${n} 件の活動は復元していません`,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>

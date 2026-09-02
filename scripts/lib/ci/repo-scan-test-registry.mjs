@@ -53,6 +53,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/architecture/activity-quota-all-producers-gated.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes を走査し child_activities を作る producer を列挙 (#4693 quota fitness)',
+	},
 	'tests/unit/architecture/retention-filter-opt-out-allowlist.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を再帰 walk し、保持期間フィルタの opt-out (`NO_RETENTION_FILTER` の import) が allowlist と完全一致するかを検査する (#4818)。「履歴取得が保持期間 (ADR-0049) を通っていない」が達成タブ / 交換タブで 2 度起きたため、opt-out の増殖を PR での明示判断に縛る。走査範囲は src 全体でなければ新規 opt-out を捕まえられない',

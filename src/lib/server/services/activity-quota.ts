@@ -20,15 +20,15 @@
 // - action 側の `checkActivityLimit` が止める: 手動追加 (`createActivity`) / 一括追加 /
 //   別の子からコピー。取込ではないため本関数は通らない。両者が同じ
 //   `getPlanLimits().maxActivities` を読む
-// - **どちらの gate も通らない**: バックアップ ZIP の全体復元 (`import-service.ts` の
+// - 本関数が覆う (QM #4784 で追加): バックアップ ZIP / JSON の全体復元 (`import-service.ts` の
 //   `importChildActivitiesData`) と クラウドテンプレート取込 (`api/v1/import/cloud`)。
-//   前者は「自分のデータの原状回復」で上限を掛けるか自体がプロダクト判断のため本 PR の
-//   scope 外 (#4693 は取込経路の是正)
+//   Issue #4693 の PO 判断「復元 / REST も含め全 insert 経路が quota 関数を通ること」に合わせる
 //
-// 上の対応づけを機械強制する fitness function は無い (レビューで担保する)。新しく
-// `child_activities` を作る経路を足すときは、どちらの gate を通すかを必ず決める。
+// 上の対応づけは tests/unit/architecture/activity-quota-all-producers-gated.test.ts が機械強制する
+// (child_activities を新しく作る呼び出し箇所を列挙し、各経路の gate 位置を registry で宣言する。
+// 新しい producer を足すと registry 未宣言で落ちる = no-silent-gap)。
 
-import { countsTowardActivityQuota } from '$lib/domain/activity-source';
+import { ACTIVITY_SOURCES, countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import type { ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
@@ -89,11 +89,21 @@ export async function enforceActivityQuota(
 	};
 	if (plannedNewNames.size === 0) return empty;
 
-	// プラン解決できない (DB 障害等) ときは **取り込まない**。ここで握り潰して通すと、
-	// 障害中だけ上限が消える経路になる (fail-closed、ADR-0006)。
-	let entitlement: { licenseStatus: string; plan?: string };
+	// プラン解決 / 現在数の取得ができない (DB 障害等) ときは **取り込まない**。ここで握り潰して
+	// 通すと、障害中だけ上限が消える経路になる (fail-closed、ADR-0006)。
+	// 3 つの DB 呼び出し (entitlement / tier / 現在数) をまとめて包む。現在数の 1+N 読み取りが
+	// 最も transient に当たりやすく、ここが catch の外だと form action の 500 に突き抜けて
+	// 「再試行してください」も blocked も出ない dead-end になる (QM #4784 レビュー)。
+	let max: number | null;
+	let current: number;
 	try {
-		entitlement = await resolveTenantEntitlement(tenantId);
+		const entitlement = await resolveTenantEntitlement(tenantId);
+		const limits = getPlanLimits(
+			await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan),
+		);
+		max = limits.maxActivities;
+		if (max === null) return empty;
+		current = await countQuotaActivities(tenantId);
 	} catch (e) {
 		logger.error('[activity-quota] プランを確認できないため取込を中止しました', {
 			error: e instanceof Error ? e.message : String(e),
@@ -116,13 +126,6 @@ export async function enforceActivityQuota(
 			upgradeUrl: null,
 		};
 	}
-	const limits = getPlanLimits(
-		await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan),
-	);
-	const max = limits.maxActivities;
-	if (max === null) return empty;
-
-	const current = await countQuotaActivities(tenantId);
 	const remaining = Math.max(0, max - current);
 	const plannedRows = countPlannedRows(childInputsByChild);
 	if (plannedRows <= remaining) return empty;
@@ -167,31 +170,40 @@ export async function enforceActivityQuota(
 	};
 }
 
-/** 書き込み計画の総行数 (child × activity)。quota はこの単位で数える。 */
 /**
- * 取込で新しく書く行数。
+ * quota に数える行かどうか。母集団は activity-source.ts (#3669 SSOT) の `countsTowardQuota`:
+ * 親が自分で作った `custom` だけを数え、プリセット / 初期 seed (`seed` / `curriculum`) は数えない
+ * (LP の約束は「オリジナル活動の作成：3個まで」「プリセットを使って無料で始められます」)。
+ * `source` 未指定は repo 既定 `seed` に落ちるので、ここでも seed として扱う。
+ */
+function rowCountsTowardQuota(input: InsertChildActivityInput): boolean {
+	return countsTowardActivityQuota(input.source ?? ACTIVITY_SOURCES.seed.value);
+}
+
+/**
+ * 取込で新しく書く quota 対象行数 (child × activity、`custom` のみ)。
  *
- * **source では絞らない。** Issue #4693 の PO 判断は「quota は strategy 層で一元強制し、
- * 経路 (手動 / 一括 / コピー / **取込** / 復元 / REST) が増えても素通りしない構造にする」で、
- * 症状欄も「手動 / 一括 / コピー / **テンプレ取込は 403**なのに JSON/CSV 復元だけ上限が効かない」と
- * *プリセット取込が 403 になること自体を正しい挙動として*書いている。
- * ここで `custom` だけを数えると取込が上限を素通りするので、計画行はすべて数える。
- *
- * (QM が一度 source で絞る変更を入れたが、上記 PO 判断と逆向きだったため戻した。#4784 レビュー)
+ * seed 行を数えると、無料世帯のバックアップ全体復元 (初期 seed 20 件 + custom 3 件) や
+ * 10 件の活動セット取込が「残枠 3 行」で切り詰められ、LP の「プリセットは無料」と食い違う。
+ * 逆に custom 行を数えないと、JSON/CSV 復元で上限を素通りする (#4693 症状 1)。
+ * どの経路でも「custom 行 <= 残枠」の 1 つの規則で判定する。
  */
 function countPlannedRows(childInputsByChild: Map<ChildId, InsertChildActivityInput[]>): number {
 	let rows = 0;
-	for (const inputs of childInputsByChild.values()) rows += inputs.length;
+	for (const inputs of childInputsByChild.values()) {
+		for (const input of inputs) if (rowCountsTowardQuota(input)) rows += 1;
+	}
 	return rows;
 }
 
-/** 活動名ごとの計画行数 (= その名前を新規計画した child の数)。 */
+/** 活動名ごとの quota 対象行数 (= その名前を custom として新規計画した child の数)。 */
 function countRowsByName(
 	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>,
 ): Map<string, number> {
 	const rowsByName = new Map<string, number>();
 	for (const inputs of childInputsByChild.values()) {
 		for (const input of inputs) {
+			if (!rowCountsTowardQuota(input)) continue;
 			rowsByName.set(input.name, (rowsByName.get(input.name) ?? 0) + 1);
 		}
 	}
