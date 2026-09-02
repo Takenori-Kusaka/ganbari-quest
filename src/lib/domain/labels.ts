@@ -97,7 +97,6 @@ import {
 	OVERFLOW_MENU_TERMS,
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
-	PIN_DEFAULT_TERMS,
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_RETENTION_TERMS,
@@ -2318,9 +2317,10 @@ export const PAGE_GUIDE_LABELS = {
 				how: `1. 「現在の${OYAKAGI_TERMS.name}」に、いま使っている数字を入力します\n2. 「新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）」に新しい数字を入力します\n3. 「新しい${OYAKAGI_TERMS.name}（確認）」に、同じ数字をもう一度入力します（打ち間違い防止のため 3 つ目の欄も必須です）\n4. 「${OYAKAGI_TERMS.shortName}を変更」を押します`,
 				goal: `「${OYAKAGI_TERMS.name}を変更しました」と表示され、次に${ADMIN_VIEW_TERMS.short}を開くときから新しい数字が必要になります。`,
 				tips: [
-					// #4662 F5: 「初期 5086」は一度も変更していない場合だけの話。無条件に書くと、
-					//   自分で作成した人が「現在の」欄に 5086 を入れて失敗する。
-					`一度も変更していない場合、現在の${OYAKAGI_TERMS.shortName}は${PIN_DEFAULT_TERMS.hintCompact}です`,
+					// #4698 (PO 判断): 既定値 (旧「初期 5086」) は顧客可視 UI に出さない。#2992 以降は
+					//   初回に親ゲートで**自分で作成する**フローのため既定値は存在せず、案内すると
+					//   「5086 を入れたのに現在のコードが違うと言われる」誤案内になる。加えて子供が
+					//   同じ端末で読める場所に既定値を書くこと自体が #2353 で塞いだ脆弱性に戻る。
 					`忘れてしまったときは、${ADMIN_VIEW_TERMS.short}に入るときの入力画面から、ご本人確認のうえ作り直せます`,
 				],
 			},
@@ -3161,6 +3161,9 @@ export const DEMO_LABELS = {
  *     `${OYAKAGI_TERMS.name}` / `${ADMIN_VIEW_TERMS.canonical}` template literal 経由化
  *   - 設計欠陥 5 (初期 PIN 5086 ヒント): `gateDefaultHint` を空文字に変更
  *     (子が見て即入力する脆弱性。setup 完了画面 / onboarding dialog でのみ伝達)
+ *
+ * #4698: 桁数は `${OYAKAGI_TERMS.digitRange}` (PIN_LENGTH 由来) 経由に統一 (4 / 4〜6 / 4〜8 の三重食い違い是正)。
+ *   旧 `defaultValueHint` (初期値 5086) は誤案内のため撤去し `forgotHint` (忘れた場合の導線) に置換。
  *   - 設計欠陥 4 (PIN 忘れ救済導線): `gateForgotPinLink` 等 PIN reset 関連 compound 追加
  */
 export const OYAKAGI_LABELS = {
@@ -3177,7 +3180,9 @@ export const OYAKAGI_LABELS = {
 	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
 	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
 	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
-	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
+	// #4698: 忘れた場合の導線 (cognito = ゲートの「忘れた方」リンクからメール / パスワード確認で再設定、
+	// self-host = サーバー管理者向け手順)。ゲート側 (gateForgotPinLink / gateOperatorResetNotice) と同じ 2 経路を案内する
+	forgotHint: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です。忘れた場合は、${ADMIN_VIEW_TERMS.canonical}に入るときの「${OYAKAGI_TERMS.name}を忘れた方」から再設定できます（セルフホスト環境ではサーバー管理者向けのリセット手順をご利用ください）`,
 	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
 	formatError: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
@@ -3204,7 +3209,7 @@ export const OYAKAGI_LABELS = {
 	gateFormatNotice: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
-	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
+	// (#2992 以降は初回作成フローのため既定 PIN ヒント自体が不要。#4698 で設定画面の defaultValueHint も撤去)
 	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
 	// 親管理画面で一定時間操作がなく自動的に子供選択画面へ戻った旨の通知 (parent-gate inactivity redirect)
 	gateTimedOutNotice: `しばらく操作がなかったため${ADMIN_VIEW_TERMS.canonical}を閉じました。もう一度入るには${OYAKAGI_TERMS.name}を入力してください`,

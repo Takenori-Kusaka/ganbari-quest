@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { PIN_LENGTH } from '../../../src/lib/domain/constants/oyakagi';
+import {
+	isValidPinFormat,
+	PIN_LENGTH,
+	PIN_PATTERN,
+} from '../../../src/lib/domain/constants/oyakagi';
 import {
 	loginSchema,
 	MAX_FAILED_ATTEMPTS,
@@ -50,6 +54,36 @@ describe('pinSchema', () => {
 	it('数字以外の記号を拒否する', () => {
 		const result = pinSchema.safeParse('12-3');
 		expect(result.success).toBe(false);
+	});
+});
+
+describe('isValidPinFormat / PIN_PATTERN (#4698 全 PIN 入口共通の形式判定)', () => {
+	it.each(['1234', '0000', '9999'])('%s (PIN_LENGTH 桁の数字) を受け入れる', (pin) => {
+		expect(isValidPinFormat(pin)).toBe(true);
+		expect(PIN_PATTERN.test(pin)).toBe(true);
+	});
+
+	it.each([
+		'123',
+		'12345',
+		'123456',
+		'12345678',
+		'12ab',
+		'',
+		' 1234',
+		'１２３４',
+	])('%j を拒否する', (pin) => {
+		expect(isValidPinFormat(pin)).toBe(false);
+	});
+
+	it('string 以外 (undefined / number / null) は false (API body の型ゆらぎ)', () => {
+		expect(isValidPinFormat(undefined)).toBe(false);
+		expect(isValidPinFormat(1234)).toBe(false);
+		expect(isValidPinFormat(null)).toBe(false);
+	});
+
+	it('PIN_PATTERN は PIN_LENGTH から導出される (定数を変えれば pattern も追随)', () => {
+		expect(PIN_PATTERN.source).toBe(`^\\d{${PIN_LENGTH}}$`);
 	});
 });
 
