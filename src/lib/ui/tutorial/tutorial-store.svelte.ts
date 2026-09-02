@@ -1,6 +1,5 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { TUTORIAL_CHAPTERS } from './tutorial-chapters';
 import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
 // ── localStorage persistence keys ──
@@ -17,15 +16,6 @@ interface TutorialState {
 	savedChapter: number;
 	/** Saved step index from previous session */
 	savedStepIndex: number;
-	/** #955: クイックモード — 初回はチャプター1のみ表示し、終了後に継続を提案 */
-	quickMode: boolean;
-	/** #955: クイックモード完了（チャプター1終了後の選択画面） */
-	showQuickComplete: boolean;
-	/**
-	 * #961 QA: クイックモード対象（親チャプター）かどうか。
-	 * 子チャプターに切替中は false になり、quickMode は有効化されない。
-	 */
-	isParentChapters: boolean;
 }
 
 const state = $state<TutorialState>({
@@ -35,25 +25,21 @@ const state = $state<TutorialState>({
 	showResumePrompt: false,
 	savedChapter: 1,
 	savedStepIndex: 0,
-	quickMode: false,
-	showQuickComplete: false,
-	isParentChapters: true,
 });
 
-// Configurable chapter source (default: parent admin chapters)
-let activeChapters = $state<TutorialChapter[]>(TUTORIAL_CHAPTERS);
+/**
+ * 表示中の章定義。
+ *
+ * #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1、22 step) を撤去したため、
+ * 本 store の利用者は子供画面チュートリアル (`getChildTutorialChapters(uiMode)`) のみ。
+ * 親管理画面の説明は ❓ ページガイド (`PageGuideOverlay`) が唯一の経路。
+ * 既定は空配列で、`setChapters()` を呼ぶ画面 (子供 layout) でのみガイドが起動する。
+ */
+let activeChapters = $state<TutorialChapter[]>([]);
 
-/** Switch the chapter set (e.g. for child tutorial) */
+/** 章定義を差し替える (子供 layout が uiMode に応じた章を渡す) */
 export function setChapters(chapters: TutorialChapter[]) {
 	activeChapters = chapters;
-	// #961 QA: 親チャプター（TUTORIAL_CHAPTERS）のみクイックモード対象
-	state.isParentChapters = chapters === TUTORIAL_CHAPTERS;
-}
-
-/** Reset to default parent admin chapters */
-export function resetChapters() {
-	activeChapters = TUTORIAL_CHAPTERS;
-	state.isParentChapters = true;
 }
 
 // ── localStorage helpers (SSR-safe) ──
@@ -141,12 +127,10 @@ export function getChapters() {
 
 /**
  * 共通のチュートリアル開始処理: state をリセットして最初のステップのページへ遷移する。
- * startTutorial / startFromBeginning / startTutorialForPage で共通利用。
+ * startTutorial / startFromBeginning で共通利用。
  */
-async function activateChapter(chapterId: number, quickMode: boolean) {
+async function activateChapter(chapterId: number) {
 	state.showResumePrompt = false;
-	state.showQuickComplete = false;
-	state.quickMode = quickMode;
 	state.isActive = true;
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
@@ -171,46 +155,7 @@ export async function startTutorial(chapter?: number) {
 		}
 	}
 
-	const chapterId = chapter ?? 1;
-	// #955: 明示的なチャプター指定なし（初回開始）の場合はクイックモード
-	// #961 QA: ただし親チャプター中のみ有効。子チャプター等では全ステップ通常表示
-	const isQuickStart = chapter == null && state.isParentChapters;
-	await activateChapter(chapterId, isQuickStart);
-}
-
-/** #955: クイック完了画面が表示中か */
-export function isQuickCompleteShown(): boolean {
-	return state.showQuickComplete;
-}
-
-/** #955: クイックモード中か（チャプター1のみ表示） */
-export function isQuickModeActive(): boolean {
-	return state.quickMode;
-}
-
-/** #955: クイック完了から全チュートリアルを継続（チャプター2から） */
-export async function continueFullTutorial() {
-	state.showQuickComplete = false;
-	state.quickMode = false;
-	const nextChapter = activeChapters.find((ch) => ch.id === 2);
-	if (nextChapter) {
-		state.currentChapter = nextChapter.id;
-		state.currentStepIndex = 0;
-		saveProgress(nextChapter.id, 0);
-		const step = getCurrentStep();
-		if (step?.page) {
-			await goto(resolve(step.page));
-		}
-	} else {
-		await completeTutorial();
-	}
-}
-
-/** #955: クイック完了でチュートリアルを終了 */
-export async function finishQuickTutorial() {
-	state.showQuickComplete = false;
-	state.quickMode = false;
-	await completeTutorial();
+	await activateChapter(chapter ?? 1);
 }
 
 /** Resume from saved progress */
@@ -229,49 +174,12 @@ export async function resumeTutorial() {
 /** Start from the beginning, discarding saved progress */
 export async function startFromBeginning(chapter?: number) {
 	clearSavedProgress();
-	// #955: 明示的なチャプター指定なし（最初から）の場合はクイックモード
-	// #961 QA: ただし親チャプター中のみ有効
-	await activateChapter(chapter ?? 1, chapter == null && state.isParentChapters);
+	await activateChapter(chapter ?? 1);
 }
 
 /** Dismiss the resume prompt without starting */
 export function dismissResumePrompt() {
 	state.showResumePrompt = false;
-}
-
-/**
- * Start tutorial from the chapter most relevant to the current URL path.
- * Falls back to chapter 1 if no matching chapter is found.
- */
-export async function startTutorialForPage(pathname: string) {
-	const chapterId = resolveChapterForPath(pathname);
-
-	// If a matching chapter is found (not chapter 1), skip directly there
-	if (chapterId > 1) {
-		await activateChapter(chapterId, false);
-		return;
-	}
-
-	// Otherwise, fall back to normal start (which may show resume prompt)
-	await startTutorial();
-}
-
-/**
- * Map a URL pathname to the best-matching tutorial chapter ID.
- * Returns the chapter id, or 1 (intro) as fallback.
- */
-function resolveChapterForPath(pathname: string): number {
-	// Build a mapping from page paths to chapter IDs
-	// Check the most specific paths first
-	for (const chapter of activeChapters) {
-		for (const step of chapter.steps) {
-			if (step.page && pathname.startsWith(step.page) && step.page !== '/admin') {
-				return chapter.id;
-			}
-		}
-	}
-	// Default to intro
-	return 1;
 }
 
 export async function nextStep() {
@@ -284,11 +192,6 @@ export async function nextStep() {
 		// Move to next chapter
 		const nextChapter = activeChapters.find((ch) => ch.id === state.currentChapter + 1);
 		if (nextChapter) {
-			// #955: クイックモードではチャプター1終了後に選択画面を表示
-			if (state.quickMode && state.currentChapter === 1) {
-				state.showQuickComplete = true;
-				return;
-			}
 			state.currentChapter = nextChapter.id;
 			state.currentStepIndex = 0;
 		} else {
@@ -354,8 +257,6 @@ export function endTutorial() {
 	state.isActive = false;
 	state.currentChapter = 1;
 	state.currentStepIndex = 0;
-	state.quickMode = false;
-	state.showQuickComplete = false;
 }
 
 async function completeTutorial() {
@@ -368,30 +269,6 @@ async function completeTutorial() {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'complete' }),
-		});
-	} catch {
-		// silently ignore
-	}
-}
-
-export async function markTutorialStarted() {
-	try {
-		await fetch('/api/v1/settings/tutorial', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action: 'start' }),
-		});
-	} catch {
-		// silently ignore
-	}
-}
-
-export async function dismissTutorialBanner() {
-	try {
-		await fetch('/api/v1/settings/tutorial', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action: 'dismiss' }),
 		});
 	} catch {
 		// silently ignore

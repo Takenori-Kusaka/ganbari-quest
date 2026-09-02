@@ -6,6 +6,7 @@
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { formatJSTDateTime } from '$lib/domain/date-utils';
 import {
 	ADMIN_REWARDS_REQUESTS_LABELS,
 	ADMIN_SHOP_REQUEST_LABELS,
@@ -23,6 +24,9 @@ let { data, form } = $props();
 const redemptionError = $derived(
 	(form as Record<string, unknown> | null)?.redemptionError as string | undefined,
 );
+
+// #4682 F4: 申請 / 処理日時は epoch 秒。JST SSOT の formatter を通す (#4127 ローカル TZ 依存の禁止)。
+const formatJstDateTime = (epochSec: number) => formatJSTDateTime(new Date(epochSec * 1000));
 
 let rejectingRequestId = $state<string | null>(null);
 let rejectNote = $state('');
@@ -62,10 +66,19 @@ function closeRejectForm() {
 	<section data-tutorial="rewards-requests-pending">
 		<div class="flex items-baseline gap-2 mb-2">
 			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}</h3>
-			<span class="text-xs text-[var(--color-text-tertiary)]">
-				{ADMIN_REWARDS_REQUESTS_LABELS.pendingCountSuffix(data.pendingRequests.length)}
+			<!-- #4682 F1: 件数は COUNT の総数 (表示件数ではない)。表示上限を超えたら差を明示する -->
+			<span class="text-xs text-[var(--color-text-tertiary)]" data-testid="pending-count">
+				{ADMIN_REWARDS_REQUESTS_LABELS.pendingCountSuffix(data.pendingTotal)}
 			</span>
 		</div>
+		{#if data.pendingTotal > data.pendingRequests.length}
+			<p class="pending-truncated-note" data-testid="pending-truncated-note">
+				{ADMIN_REWARDS_REQUESTS_LABELS.pendingTruncatedNote(
+					data.pendingRequests.length,
+					data.pendingTotal,
+				)}
+			</p>
+		{/if}
 		{#if data.pendingRequests.length === 0}
 			<Alert variant="info" message={ADMIN_REWARDS_REQUESTS_LABELS.emptyPendingMessage} />
 		{:else}
@@ -163,11 +176,22 @@ function closeRejectForm() {
 		{:else}
 			<div class="space-y-2">
 				{#each data.historyRequests as req (req.id)}
-					<div class="history-item">
+					<div class="history-item" data-testid="request-history-{req.id}">
 						<span class="history-icon" aria-hidden="true">{req.rewardIcon ?? '🎁'}</span>
 						<div class="history-info">
 							<p class="history-title">{formatRewardWithQuantity(req.rewardTitle, req.quantity)}</p>
 							<p class="history-meta">{req.childName} · {req.totalPoints}{ADMIN_SHOP_REQUEST_LABELS.rewardPointsUnit}</p>
+							<!-- #4682 F4: いつ処理したか / なぜ却下したか を履歴行に出す -->
+							{#if req.resolvedAt !== null}
+								<p class="history-meta" data-testid="request-history-resolved-{req.id}">
+									{ADMIN_REWARDS_REQUESTS_LABELS.resolvedAtLabel}: {formatJstDateTime(req.resolvedAt)}
+								</p>
+							{/if}
+							{#if req.parentNote}
+								<p class="history-note" data-testid="request-history-note-{req.id}">
+									{ADMIN_REWARDS_REQUESTS_LABELS.rejectNoteHistoryLabel}: {req.parentNote}
+								</p>
+							{/if}
 						</div>
 						<span class="history-status {req.status === 'approved' ? 'history-status--approved' : 'history-status--rejected'}">
 							{req.status === 'approved' ? ADMIN_REWARDS_REQUESTS_LABELS.statusApproved : ADMIN_REWARDS_REQUESTS_LABELS.statusRejected}
@@ -269,6 +293,17 @@ function closeRejectForm() {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
 		margin: 0;
+	}
+	.pending-truncated-note {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin: 0 0 0.5rem;
+	}
+	.history-note {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 0;
+		overflow-wrap: anywhere;
 	}
 	.history-status {
 		font-size: 0.75rem;

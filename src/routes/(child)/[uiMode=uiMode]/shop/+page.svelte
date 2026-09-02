@@ -1,9 +1,10 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { APP_LABELS, getChildShopLabels } from '$lib/domain/labels';
 import { formatPointDisplayText, splitPointDisplay } from '$lib/domain/point-display';
 // #4684 F3: 「押せるか」の判定は 1 箇所 (domain SSOT)。カードとフィルタで条件が割れないようにする。
-import { canExchangeReward } from '$lib/domain/shop-availability';
+import { canExchangeReward, shopStatusBadge } from '$lib/domain/shop-availability';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -146,6 +147,18 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 		</span>
 	</div>
 
+	<!-- #4631: 交換の結果 (いつ / いくら / 親が書いた却下理由) を読みに行く導線。
+	     旧実装は却下理由がショップから辿れず、子供は理由を知る手段が無かった -->
+	<!-- eslint svelte/no-navigation-without-resolve は href の式そのものが resolve() 呼び出しで
+	     あることを要求する (変数経由 / 文字列連結は不可) ため、query 込みで 1 式にする -->
+	<a
+		class="history-link"
+		href={resolve(`/${uiMode}/history?kind=purchases`)}
+		data-testid="shop-history-link"
+	>
+		{L.historyLinkLabel}
+	</a>
+
 	{#if form?.error}
 		<Alert variant="danger" message={form.error} />
 	{/if}
@@ -285,12 +298,11 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 													{/if}
 												</p>
 
-												{#if reward.latestRequestStatus === 'pending_parent_approval'}
+												<!-- #4631: バッジは承認待ちのときだけ。完了した状態 (approved / rejected /
+												     expired) を陳列棚に残すと「もう交換できない」と誤解させる。
+												     結果は「記録 > 交換」で読む (下の導線) -->
+												{#if shopStatusBadge(reward.latestRequestStatus) === 'pending'}
 													<Badge variant="warning">{L.statusPending}</Badge>
-												{:else if reward.latestRequestStatus === 'approved'}
-													<Badge variant="success">{L.statusApproved}</Badge>
-												{:else if reward.latestRequestStatus === 'rejected'}
-													<Badge variant="neutral">{L.statusRejected}</Badge>
 												{/if}
 
 												{#if data.balance < reward.points && reward.latestRequestStatus !== 'pending_parent_approval'}
@@ -389,6 +401,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 	.filter-badge-row {
 		display: flex; align-items: center; gap: var(--sp-sm);
 		flex-wrap: wrap;
+	}
+	.history-link {
+		display: inline-block;
+		margin-bottom: var(--sp-md);
+		font-size: 0.9rem;
+		color: var(--color-text-link);
+		text-decoration: underline;
 	}
 	.empty-state { margin-top: var(--sp-md); }
 	.reward-list {

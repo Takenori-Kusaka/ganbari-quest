@@ -37,7 +37,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../');
 
 /** 型定義と既定値を持つ SSOT 自身。ここでの出現は「参照」に数えない。 */
-const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
+// #4704: 表の置き場所を server/services から domain leaf に移した (repo → service の循環を断つため)。
+const DEFINITION_FILE = 'src/lib/domain/plan-limits.ts';
 
 /**
  * 未配線のまま残すフィールド。**理由と追跡 Issue が必須**。
@@ -46,12 +47,30 @@ const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
  * 死んだ参照を書いて通す動機になる。除外は残すが、理由ごと可視化する。
  */
 const UNWIRED_FIELDS: Record<string, string> = {
-	canFreeTextMessage:
-		'#4504 で配線中 (PR #4579)。マージ後に本エントリを削除する。値は isFreeTextMessageUnlocked から導出される予定',
-	// 本 gate を書いて初めて見つかった 3 件目。招待の上限は plan-limit-service に値があるだけで、
-	// invite-service にも admin/members にも上限チェックが無い (grep で 0 件)。
-	maxFamilyMembers:
-		'#4577 で family-member-limit.ts に集約中。強制の有無は同 PR の scope。マージ後に本エントリを見直す',
+	// 現在 0 件。#4504 の canFreeTextMessage は PR #4579 マージで配線済みとなったため、
+	// 本エントリから PREDICATE_BACKED_FIELDS へ移した (述語経由で導出・拒否の両方を検査する)。
+};
+
+/**
+ * **強制関数経由**で効いているフィールド。
+ *
+ * フィールド名を呼び出し側に出さず、強制関数が値を読んで可否を返す形。
+ * 名前が production に現れないので素の参照検査では拾えないが、**未配線ではない** —
+ * 「名前が出ない」を口実に検査を消さないよう、関数側と呼び出し側の両方を検査する。
+ *
+ * #4704: 強制関数の置き場所は `DEFINITION_FILE` と一致しない。値の表 (`PLAN_LIMITS`) は
+ * 環境非依存の葉として `domain/` に移したが、強制関数は tier 解決と DB 参照を伴うため
+ * service 層に残っている。**どの file に居るかを宣言させる** ことで、関数が別 file へ
+ * 移動したり消えたりしたら「宣言と実物の不一致」で落ちる (定義 file を読み続けて
+ * 「関数が無い」と誤報するのでも、検査を消すのでもなく、置き場所を SSOT に持つ)。
+ */
+const FUNCTION_BACKED_FIELDS: Record<string, { enforcer: string; enforcerFile: string }> = {
+	// #4584 レビュー是正: 当初は UNWIRED_FIELDS に「grep で 0 件」として入れていたが誤り。
+	// checkFamilyMemberLimit() が limits.maxFamilyMembers を読み、招待 API がそれを呼んでいる。
+	maxFamilyMembers: {
+		enforcer: 'checkFamilyMemberLimit',
+		enforcerFile: 'src/lib/server/services/plan-limit-service.ts',
+	},
 };
 
 /**
@@ -65,6 +84,14 @@ const PREDICATE_BACKED_FIELDS: Record<string, { predicate: string; enforcedIn: s
 	canCustomReward: {
 		predicate: 'isCustomRewardUnlocked',
 		enforcedIn: ['src/routes/(parent)/admin/rewards/+page.server.ts'],
+	},
+	// #4504 (PR #4579) で同型の配線が入った。値の導出も拒否も isFreeTextMessageUnlocked を読む。
+	canFreeTextMessage: {
+		predicate: 'isFreeTextMessageUnlocked',
+		enforcedIn: [
+			'src/routes/(parent)/admin/cheer/+page.server.ts',
+			'src/routes/api/v1/messages/[childId]/+server.ts',
+		],
 	},
 };
 
@@ -113,6 +140,7 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 	it.each(fields)('%s が production code から参照されている', (field) => {
 		if (field in UNWIRED_FIELDS) return; // 別 it で理由を検証する
 		if (field in PREDICATE_BACKED_FIELDS) return; // 別 it で述語経由を検証する
+		if (field in FUNCTION_BACKED_FIELDS) return; // 別 it で強制関数経由を検証する
 
 		const refs = sources.filter((s) => s.text.includes(field)).map((s) => s.path);
 		expect(
@@ -131,6 +159,35 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 			expect(reason.length, `${field} の除外理由が短すぎる`).toBeGreaterThan(20);
 			expect(reason, `${field} の除外に追跡 Issue 番号がない`).toMatch(/#\d{3,}/);
 		}
+	});
+
+	it.each(
+		Object.keys(FUNCTION_BACKED_FIELDS),
+	)('%s は強制関数が値を読み、その関数が production から呼ばれている', (field) => {
+		const entry = FUNCTION_BACKED_FIELDS[field];
+		if (!entry) throw new Error(`FUNCTION_BACKED_FIELDS に ${field} がありません`);
+		const { enforcer, enforcerFile } = entry;
+		const enforcerSrc = stripComments(readFileSync(join(REPO_ROOT, enforcerFile), 'utf-8'));
+
+		// 強制関数が実在し、その中でフィールドを読んでいること
+		expect(enforcerSrc, `${enforcer} が ${enforcerFile} にありません`).toContain(
+			`export async function ${enforcer}`,
+		);
+		expect(enforcerSrc, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
+
+		// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)。
+		// #4704: 定義そのもの (`export async function checkFamilyMemberLimit(`) を「呼び出し」と
+		// 数えないよう、enforcerFile を除外する。除外しないと関数が誰にも呼ばれなくなっても
+		// 自分自身の宣言で 1 件ヒットして緑のままになる (旧実装は DEFINITION_FILE = enforcerFile
+		// だったため sources から除かれており、この抜け道は無かった)。
+		const callers = sources
+			.filter((src) => src.path !== enforcerFile && src.text.includes(`${enforcer}(`))
+			.map((s) => s.path);
+		expect(
+			callers.length,
+			`${enforcer} を呼ぶ production code がありません。` +
+				`PlanLimits.${field} は値があるだけで誰も強制していない状態です。`,
+		).toBeGreaterThan(0);
 	});
 
 	it.each(

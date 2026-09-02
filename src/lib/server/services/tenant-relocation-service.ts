@@ -20,6 +20,8 @@ import { resolveFullPlanTier } from './plan-limit-service';
 export type RelocationBlockedReason =
 	/** 今の家族グループに自分以外のメンバーが居る (勝手に畳めない) */
 	| 'HAS_OTHER_MEMBERS'
+	/** 今の家族グループに子供が登録されている (その子の記録ごと消える) */
+	| 'HAS_CHILDREN'
 	/** 今の家族グループの owner ではない (先に自分だけ抜ければよい) */
 	| 'NOT_OWNER'
 	/** そもそもどこにも所属していない (通常の受諾で足りる) */
@@ -47,7 +49,38 @@ export async function checkRelocationEligibility(userId: string): Promise<Reloca
 	if (!isOnlyMember) {
 		return { currentTenantId: current.tenantId, blockedReason: 'HAS_OTHER_MEMBERS' };
 	}
+
+	// #4642 PO 決裁 Q1: 子供が 1 人でも居たら阻止する。
+	// `isOnlyMember` は memberships しか数えないため、**ログインアカウントを持たない子供**
+	// (children 行のみ / membership なし) が居ても true になる。それだけで可否を決めると、
+	// その子のプロフィール・ポイント履歴・画像が確認画面 1 枚で不可逆に消える。
+	if (await hasChildren(current.tenantId)) {
+		return { currentTenantId: current.tenantId, blockedReason: 'HAS_CHILDREN' };
+	}
 	return { currentTenantId: current.tenantId, blockedReason: null };
+}
+
+/**
+ * 家族グループに子供が 1 人でも残っているか (在籍 + アーカイブ)。
+ *
+ * どちらも `fullTenantDeletion` で消える対象なので両方数える。
+ * 集計に失敗したときは **「居ない」と答えない** — 確認できなかったことを「居ない」と
+ * 読み替えると不可逆削除に進んでしまうため、居るものとして扱って阻止する (fail-closed)。
+ */
+async function hasChildren(tenantId: string): Promise<boolean> {
+	try {
+		const [active, archived] = await Promise.all([
+			getRepos().child.findAllChildren(tenantId),
+			getRepos().child.findArchivedChildren(tenantId),
+		]);
+		return active.length + archived.length > 0;
+	} catch (e) {
+		logger.error('[relocation] 子供の在籍確認に失敗したため引っ越しを許可しない (fail-closed)', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId },
+		});
+		return true;
+	}
 }
 
 export type RelocationResult =

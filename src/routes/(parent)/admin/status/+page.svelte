@@ -154,7 +154,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			</h3>
 
 			<!-- ベンチマーク比較レーダーチャート (G7) -->
-			<div class="flex justify-center mb-4" data-tutorial="status-radar">
+			<div class="flex justify-center mb-4">
 				<RadarChart
 					categories={previewRadarCategories}
 					comparisonValues={previewChild.benchmarkValues}

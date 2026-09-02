@@ -76,10 +76,12 @@ describe('#4510 LP 訴求と実装事実の一致', () => {
 			expect(badges).not.toContain('約 5 分');
 		});
 
-		// #4713: 実数 (marketplace activity-packs のユニーク活動名) は 120+ であり、
-		// 旧「300+」は overclaim だった。訴求は SSOT atom (PRESET_ACTIVITY_TERMS.uniqueCountBadge)
-		// を経由し、claim ≦ 実数 は scripts/measure-lp-dimensions.mjs が gate する。
-		it('プリセット数は実数 SSOT atom を経由した値になっている', () => {
+		it('プリセット数の訴求は残す — こちらは CI が実数を gate している', () => {
+			// #4713: 旧「300+」は activity-packs の**延べ**件数 (325) を根拠にしていたが、
+			// 男の子 / 女の子 variant が neutral とほぼ同内容のため名前のユニークは 129 種しかなく、
+			// 延べ数の訴求は ADR-0013 (LP 訴求 ≤ 実数) 違反だった。ユニーク数を下回る「120+」へ
+			// 是正済み。値は PRESET_ACTIVITY_TERMS が SSOT で、実数がこれを下回らないことは
+			// scripts/measure-lp-dimensions.mjs (presetActivityCountClaimedMin: 120) が CI で assert する。
 			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe(PRESET_ACTIVITY_TERMS.uniqueCountBadge);
 			expect(LP_HERO_SPEC_BADGES_LABELS.presetCount).toBe('120+');
 		});

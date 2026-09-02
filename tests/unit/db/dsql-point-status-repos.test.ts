@@ -272,6 +272,45 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		// pruning 後は SUM(=7) < total_point(=22) となるのが仕様 (fitness#14 は非 pruning scope)
 	});
 
+	it('[P9c] #4722 deleteStatusHistoryBeforeDate の境界は JST 深夜 0:00 (point_ledger と同基準)', async () => {
+		const childId = await newChild('境界十郎');
+		const id = String(childId);
+		const catId = String(asCategoryId(3));
+		// 本番 DSQL は session TZ=UTC 固定 (§P10)。PGlite は起動環境のローカル TZ を継承するため、
+		// **UTC に固定してから**検証する (JST マシンだと session TZ 依存の欠陥が偶然通ってしまう)。
+		await t.db.execute(sql`SET TIME ZONE 'UTC'`);
+		// 境界日 (2026-06-01) の JST 0〜9 時 = UTC 前日 15〜24 時。JST 基準なら「境界日当日」= 残す。
+		// 旧実装は session TZ (UTC) の 0:00 を境界にしていたため、この行を 1 日早く消していた。
+		await t.db.execute(sql`
+			INSERT INTO status_history (family_id, child_id, category_id, value, change_amount, change_type, recorded_at)
+			VALUES
+				(${FAMILY}, ${id}, ${catId}, 10, 1, 'activity_record', '2026-05-31T15:30:00Z'),
+				(${FAMILY}, ${id}, ${catId}, 11, 1, 'activity_record', '2026-05-31T10:00:00Z')
+		`);
+
+		const deleted = await statusRepo.deleteStatusHistoryBeforeDate(childId, '2026-06-01', FAMILY);
+		// JST 2026-06-01 00:30 の行 (UTC 5/31 15:30) は保持、JST 5/31 19:00 の行 (UTC 10:00) だけ削除
+		expect(deleted).toBe(1);
+		const rows = await t.db.execute(sql`
+			SELECT count(*)::int AS c FROM status_history WHERE family_id = ${FAMILY} AND child_id = ${id}
+		`);
+		expect(Number((rows.rows[0] as { c: number }).c)).toBe(1);
+	});
+
+	it('[P9d] #4722 deletePointLedgerBeforeDate も同じ JST 境界 (2 表で基準が割れない)', async () => {
+		const childId = await newChild('境界十一郎');
+		const id = String(childId);
+		await t.db.execute(sql`SET TIME ZONE 'UTC'`);
+		await t.db.execute(sql`
+			INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date, created_at)
+			VALUES
+				(${FAMILY}, ${id}, 3, 'activity', '2026-06-01', '2026-05-31T15:30:00Z'),
+				(${FAMILY}, ${id}, 4, 'activity', '2026-05-31', '2026-05-31T10:00:00Z')
+		`);
+		const deleted = await pointRepo.deletePointLedgerBeforeDate(childId, '2026-06-01', FAMILY);
+		expect(deleted).toBe(1); // JST 6/1 00:30 の行は残る
+	});
+
 	it('[P9b] deletePointLedgerBeforeDate: 対象 0 件は何も書かない (carryover 生成 0)', async () => {
 		const childId = await newChild('保持九郎');
 		await pointRepo.insertPointEntry(

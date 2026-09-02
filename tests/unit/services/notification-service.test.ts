@@ -7,7 +7,7 @@ vi.mock('$lib/server/db/push-subscription-repo', () => ({
 	insert: vi.fn(),
 	deleteByEndpoint: vi.fn(),
 	insertLog: vi.fn(),
-	countTodayLogs: vi.fn(),
+	countLogsBetween: vi.fn(),
 	findRecentLogs: vi.fn(),
 }));
 
@@ -33,7 +33,7 @@ vi.mock('$lib/server/logger', () => ({
 
 import webpush from 'web-push';
 import {
-	countTodayLogs,
+	countLogsBetween,
 	deleteByEndpoint,
 	findByTenant,
 	insertLog,
@@ -50,7 +50,7 @@ import {
 const mockFindByTenant = vi.mocked(findByTenant);
 const mockDeleteByEndpoint = vi.mocked(deleteByEndpoint);
 const mockInsertLog = vi.mocked(insertLog);
-const mockCountTodayLogs = vi.mocked(countTodayLogs);
+const mockCountLogsBetween = vi.mocked(countLogsBetween);
 const mockGetSettings = vi.mocked(getSettings);
 const mockSendNotification = vi.mocked(webpush.sendNotification);
 
@@ -165,20 +165,20 @@ describe('notification-service', () => {
 	describe('canSendNotification', () => {
 		it('3通以上送信済みの場合 false', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(3);
+			mockCountLogsBetween.mockResolvedValue(3);
 			expect(await canSendNotification('T1')).toBe(false);
 		});
 
 		it('制限内＋非サイレント時間帯で true', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(1);
+			mockCountLogsBetween.mockResolvedValue(1);
 			expect(await canSendNotification('T1')).toBe(true);
 		});
 
 		it('サイレント時間帯で false', async () => {
 			vi.useFakeTimers();
 			vi.setSystemTime(new Date('2026-04-01T13:00:00Z')); // 22:00 JST
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			expect(await canSendNotification('T1')).toBe(false);
 		});
 	});
@@ -200,7 +200,7 @@ describe('notification-service', () => {
 
 		it('全subscription宛に送信', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -233,7 +233,7 @@ describe('notification-service', () => {
 
 		it('410応答で stale subscription を削除', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -263,7 +263,7 @@ describe('notification-service', () => {
 
 		it('#1593 child role の subscription への送信を二重防御で skip', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -305,7 +305,7 @@ describe('notification-service', () => {
 
 		it('#1593 不明な subscriber_role の subscription への送信を skip', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -329,7 +329,7 @@ describe('notification-service', () => {
 
 		it('#1593 全 subscription が child role の場合 0 件で完結', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -362,7 +362,7 @@ describe('notification-service', () => {
 			setDaytimeJST();
 			process.env.VAPID_PUBLIC_KEY = '';
 			process.env.VAPID_PRIVATE_KEY = '';
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 
 			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
 			expect(result).toEqual({ sent: 0, failed: 0 });
@@ -371,7 +371,7 @@ describe('notification-service', () => {
 
 		it('subscription なしの場合 0 件返却', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([]);
 
 			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
@@ -380,7 +380,7 @@ describe('notification-service', () => {
 
 		it('#3404 allowlist 外 endpoint (internal host) への送信を skip (送信側 SSRF defense-in-depth)', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -420,7 +420,7 @@ describe('notification-service', () => {
 
 		it('#3421 allowlist 外 endpoint は deleteByEndpoint で cleanup される (stale 410/404 と対称化)', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -460,7 +460,7 @@ describe('notification-service', () => {
 
 		it('#3455 allowlist 網羅漏れ (https の新ベンダー host) は skip のみで削除されない (正規購読の恒久喪失防止)', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -525,7 +525,7 @@ describe('notification-service', () => {
 
 		it('#3455 cleanup の deleteByEndpoint 失敗は有効 subscriber 配信を巻き込まない (try/catch 隔離)', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',
@@ -565,7 +565,7 @@ describe('notification-service', () => {
 
 		it('#3421 全 subscription が allowlist 外で 0 件のとき insertLog に証跡を残す (silent 全消失防止)', async () => {
 			setDaytimeJST();
-			mockCountTodayLogs.mockResolvedValue(0);
+			mockCountLogsBetween.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
 					id: '1',

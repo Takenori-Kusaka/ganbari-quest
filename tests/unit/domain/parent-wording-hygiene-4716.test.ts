@@ -57,7 +57,8 @@ const PARENT_NAMESPACES = [
 	'REWARDS_LABELS',
 	'ADMIN_CHILDREN_LABELS',
 	'SETUP_CHILDREN_LABELS',
-	'TUTORIAL_CHAPTER_LABELS',
+	// TUTORIAL_CHAPTER_LABELS は #4654 で親の章立てチュートリアルごと撤去済み
+	// (❓ ページガイド = PAGE_GUIDE_LABELS に一本化)。同 namespace の文言はもう顧客に出ない。
 	'POINTS_LABELS',
 	'ADMIN_CHECKLISTS_PAGE_LABELS',
 	'ADMIN_CHALLENGES_PAGE_LABELS',
@@ -88,8 +89,8 @@ function collectStrings(value: unknown, out: string[], depth = 0): void {
 	}
 	if (value && typeof value === 'object') {
 		for (const [key, v] of Object.entries(value)) {
-			// `href` は遷移先 URL であって顧客に見せる文言ではない (PAGE_GUIDE_LABELS の
-			// relatedLinks)。生パス検査の対象は表示文字列だけなので走査から外す。
+			// href は「顧客に見せる文言」ではなくリンク先そのもの (PAGE_GUIDE_LABELS の
+			// relatedLinks 等)。生パス検査は本文が対象なので、遷移先の値は集めない。
 			if (key === 'href') continue;
 			collectStrings(v, out, depth + 1);
 		}
@@ -142,12 +143,11 @@ describe('#4716 AC2: 英語見出し / 内部語 / 生パスが出ない', () =>
 });
 
 describe('#4716: 同じ操作は 1 つの呼称に寄っている', () => {
-	it('活動 / ごほうび / チェックリスト / チャレンジが同じ呼称を共有している', () => {
+	// チャレンジは #4671 F7 (#3195 の自動生成一本化) で cross-child copy 導線ごと撤去済のため対象外。
+	it('活動 / ごほうび / チェックリストが同じ呼称を共有している', () => {
 		expect(ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton).toBe(COPY_FROM_CHILD_LABELS.action);
 		expect(ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuLabel).toBe(COPY_FROM_CHILD_LABELS.action);
-		expect(ADMIN_CHALLENGES_PAGE_LABELS.copyFromOtherChildAction).toBe(
-			COPY_FROM_CHILD_LABELS.action,
-		);
+		expect(ADMIN_CHALLENGES_PAGE_LABELS).not.toHaveProperty('copyFromOtherChildAction');
 	});
 
 	it('旧表記 (他の子供から copy / 他のお子さまから取り込む) が残っていない', () => {
@@ -240,18 +240,27 @@ describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経�
 		expect(src).not.toMatch(/fail\(\d+,\s*\{\s*error:\s*message\s*\}\)/);
 	});
 
-	it('おやカギコードの桁数表記が PIN_LENGTH から導出されている', () => {
-		// #4661 (develop) が桁数の SSOT を constants/oyakagi.ts の PIN_LENGTH に一本化したため、
-		// 表示側は OYAKAGI_TERMS.digitRange を引く (旧「4〜6桁」の範囲表記は撤去済)。
+	it('おやカギコードの桁数表記が pinSchema から導出されている', () => {
+		// #4661 (develop) で桁数の SSOT は constants/oyakagi.ts の PIN_LENGTH に一本化された。
+		// 表記 (OYAKAGI_TERMS.digitRange) / 受理範囲 (PIN_PATTERN) / schema の 3 者が揃っていること。
 		expect(OYAKAGI_LABELS.newInputLabel).toContain(OYAKAGI_TERMS.digitRange);
 		expect(OYAKAGI_LABELS.inputLabel).toContain(OYAKAGI_TERMS.digitRange);
-		// 旧実装は変更フォームだけ 4〜8 桁を受理し、入口 (/switch の PinInput) で再ログイン
-		// できない値を設定させていた。表記・受理範囲・schema の 3 者が揃っていること。
+		// 旧実装は変更フォームだけ 4〜8 桁を受理し、入口の PinInput から再入力できない値を
+		// 設定させていた。action は入口と同じ形式でしか受け付けないこと。
 		const serverSrc = readFileSync(
 			resolve(REPO_ROOT, 'src/routes/(parent)/admin/settings/account/+page.server.ts'),
 			'utf-8',
 		);
 		expect(serverSrc).not.toContain('newPin.length > 8');
-		expect(serverSrc).toContain('PIN_PATTERN');
+		// #4698 (develop) が形式判定を `isValidPinFormat()` に集約したため、action が参照するのは
+		// `PIN_PATTERN` 直接ではなくその accessor になった。**どちらでも SSOT 経由であることは同じ**
+		// なので、literal な桁数判定に戻っていないことを見る形に改める (QM #4802 レビュー時)。
+		expect(
+			/isValidPinFormat|PIN_PATTERN|PIN_LENGTH/.test(serverSrc),
+			'account action が桁数 SSOT (constants/oyakagi.ts) を経由していない',
+		).toBe(true);
+		// 桁数を literal で書き戻していないこと (`\d{4}` / `length === 4` / `length > 6` 等)。
+		expect(serverSrc).not.toMatch(/newPin\.length\s*[<>=]+\s*\d/);
+		expect(serverSrc).not.toMatch(/\d\{\d+(,\d+)?\}/);
 	});
 });
