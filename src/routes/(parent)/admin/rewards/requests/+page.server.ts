@@ -10,10 +10,20 @@ import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	approveRedemption,
+	countPendingRedemptionsForParent,
 	getRedemptionRequestsForParent,
 	rejectRedemption,
 } from '$lib/server/services/reward-redemption-service';
 import type { Actions, PageServerLoad } from './$types';
+
+/** #4682 F4: 履歴として出す状態 (処理済み)。 */
+const RESOLVED_REDEMPTION_STATUSES = ['approved', 'rejected'] as const;
+
+/**
+ * #4682 F1: 承認待ちの表示上限。古い順に取るため、超過しても「長く待っている申請」は必ず出る。
+ * 超過時は総数との差を画面に明示する (見えている件数を全件と誤解させない)。
+ */
+const PENDING_DISPLAY_LIMIT = 200;
 
 // #3320: 承認/却下した保護者の認証 userId を監査証跡 (resolved_by_parent_id) に記録する。
 // cognito / anonymous(demo) identity は userId(sub) を持つ。local 実行モードは userId を
@@ -27,17 +37,30 @@ function resolverUserId(locals: App.Locals): string | null {
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 
-	// pending + 直近の承認/却下履歴 (件数は REWARD_REQUEST_HISTORY_LIMIT SSOT) を取得
-	const [pendingRequests, historyRequests] = await Promise.all([
-		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
-		getRedemptionRequestsForParent(tenantId, { limit: REWARD_REQUEST_HISTORY_LIMIT }).then(
-			(requests) => requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
-		),
+	// #4682 F1: 承認待ちは **古い順** に取る。既定の新しい順 + limit 50 だと、
+	// 一番長く待っている申請が window の外に落ちて画面に出ず、親が永久に処理できない
+	// (実測: pending 61 件で最古 11 件が不可視、見出しの件数も「50 件」と嘘になっていた)。
+	// #4682 F4: 履歴は「直近 N 申請の中の処理済み」ではなく「処理済みの直近 N 件」。
+	// 件数は REWARD_REQUEST_HISTORY_LIMIT (labels の見出しと同じ SSOT) を使う。
+	// 承認待ちの件数は COUNT (limit なし) で取り、表示件数と混同しない。
+	const [pendingRequests, historyRequests, pendingTotal] = await Promise.all([
+		getRedemptionRequestsForParent(tenantId, {
+			status: 'pending_parent_approval',
+			order: 'asc',
+			limit: PENDING_DISPLAY_LIMIT,
+		}),
+		getRedemptionRequestsForParent(tenantId, {
+			statuses: RESOLVED_REDEMPTION_STATUSES,
+			limit: REWARD_REQUEST_HISTORY_LIMIT,
+		}),
+		countPendingRedemptionsForParent(tenantId),
 	]);
 
 	return {
 		pendingRequests,
 		historyRequests,
+		/** 承認待ちの正確な総数 (COUNT)。表示件数 `pendingRequests.length` と区別する。 */
+		pendingTotal,
 	};
 };
 

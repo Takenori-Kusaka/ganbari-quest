@@ -311,7 +311,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
         ▼
   Dialog: showPortalConfirm = true
         │
-        ├─ pinConfigured === true   → 親 PIN コード（4〜6桁数字）入力
+        ├─ pinConfigured === true   → 親 PIN コード（4桁数字、`PIN_LENGTH` SSOT）入力
         └─ pinConfigured === false  → 確認フレーズ「プランを変更します」入力
         │
         ▼

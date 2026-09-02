@@ -2,9 +2,10 @@
 // ログイン後の戻り先 (`?next=`) と、ログイン画面に渡される状態 query の SSOT (#4701)。
 //
 // - `next`: 同一オリジンの相対パスのみ受け取り、password / Google 両経路のログイン後着地に使う。
-//   open redirect 防止: 先頭 "/" 必須、直後の "/" と "\" を拒否 (ブラウザは Location の "\" を
-//   "/" に正規化するため "/\evil.com" は protocol-relative "//evil.com" になる、#3025 QM 指摘)、
-//   CR/LF 等の制御文字と絶対 URL (scheme) を拒否する。
+//   open redirect 防止は 3 段: ① 先頭 "/" 必須 + 直後の "/" と "\" を拒否 (ブラウザは Location の
+//   "\" を "/" に正規化するため "/\evil.com" は protocol-relative "//evil.com" になる、#3025 QM 指摘)
+//   ② 許可文字の allowlist (制御文字 / 空白 / 非 ASCII を排除) ③ percent-decode + 正規化後の再検査。
+//   ① だけでは "/<TAB>//evil.com" のように 1 文字挟むだけで抜けられる (PR #4743 QM review fix)。
 // - 状態 query: 送り側 (signup / login confirm / OAuth callback / hooks) が付ける
 //   `registered` / `confirmed` / `error` / `reason` / `passwordReset` を顧客向け文言にマップする。
 //   送り側の値はここで列挙し、未知の値でも汎用文言で黙らない。
@@ -31,13 +32,66 @@ export function buildLoginHrefWithNext(path: string): string {
 	return `/auth/login?${LOGIN_NEXT_PARAM}=${encodeNextParam(path)}`;
 }
 
-/** 相対パス (`/` 始まり、`//` `/\` 不可、制御文字不可、2KB 以内)。 */
+/**
+ * 相対パスに現れてよい文字 **以外** (1 文字でも含めば拒否する)。
+ * 許可するのは RFC 3986 の unreserved (`A-Za-z0-9-._~`) + sub-delims (`!$&'()*+,;=`) +
+ * pchar の `:` `@` + 区切り `/` `?` `#` + percent-encoding の `%`。
+ *
+ * deny list ではなく allowlist にする理由: 先頭 2 文字だけを見る `^\/(?![/\\])` は、間に
+ * 1 文字挟むだけですり抜ける (`/<TAB>//evil.com`)。Location ヘッダやブラウザの正規化で
+ * その 1 文字が除去されると protocol-relative `//evil.com` に縮退し、外部サイトへ飛ぶ。
+ * 「危険な文字」を数え上げる方式は C0 / C1 / Unicode 行区切り / BOM と取りこぼしが続くため、
+ * 許可する文字を positive に定義する。非 ASCII は Location ヘッダに載せられないので、
+ * 送り側 (encodeNextParam) が percent-encode した形だけを受け取る。
+ */
+const DISALLOWED_NEXT_PATH_CHAR = /[^A-Za-z0-9._~%!$&'()*+,;=:@/?#-]/;
+
+/**
+ * 正規化で消える文字の code point 範囲 (C0 制御文字 + 半角スペース / DEL + C1 制御文字 +
+ * NBSP / Unicode 行区切り / BOM)。regex リテラルに直接書くと制御文字が生のまま source に
+ * 載り、editor / lint / diff で黙って消えるため範囲で持つ。
+ */
+const STRIPPED_ON_NORMALIZE_RANGES = [
+	[0x00, 0x20],
+	[0x7f, 0xa0],
+	[0x2028, 0x2029],
+	[0xfeff, 0xfeff],
+] as const;
+
+function isStrippedOnNormalize(char: string): boolean {
+	const code = char.charCodeAt(0);
+	return STRIPPED_ON_NORMALIZE_RANGES.some(([lo, hi]) => code >= lo && code <= hi);
+}
+
+/**
+ * well-formed な `%XX` だけを復号する。`decodeURIComponent` と違い、
+ * `50%` のような裸の `%` を含むパスで throw しない (throw を握り潰すと正常系まで落ちる)。
+ */
+function decodePercentPairs(path: string): string {
+	return path.replace(/%([0-9A-Fa-f]{2})/g, (_, hex: string) =>
+		String.fromCharCode(Number.parseInt(hex, 16)),
+	);
+}
+
+/**
+ * percent-decode + 正規化除去を通しても相対パスのままか。
+ * `/%09//evil.com` のように「encode した制御文字」経由で `//evil.com` へ縮退する経路を塞ぐ。
+ */
+function staysRelativeAfterNormalize(path: string): boolean {
+	const normalized = [...decodePercentPairs(path)]
+		.filter((c) => !isStrippedOnNormalize(c))
+		.join('');
+	return /^\/(?![/\\])/.test(normalized);
+}
+
+/** 相対パス (`/` 始まり、`//` `/\` 不可、許可文字のみ、正規化後も相対、2KB 以内)。 */
 export const safeNextPathSchema = z
 	.string()
 	.min(1)
 	.max(2048)
 	.regex(/^\/(?![/\\])/, 'next は同一オリジンの相対パスのみ')
-	.regex(/^[^\r\n\0]*$/, 'next に制御文字は使えない');
+	.refine((p) => !DISALLOWED_NEXT_PATH_CHAR.test(p), 'next に使えない文字が含まれている')
+	.refine(staysRelativeAfterNormalize, 'next は正規化後も同一オリジンの相対パスである必要がある');
 
 /**
  * `next` 候補を検証し、安全な相対パスなら返す。それ以外 (外部 URL / `//evil` / 空 / 未指定) は null。
@@ -63,6 +117,8 @@ export const LOGIN_ERROR_CODES = {
 /** hooks が付ける `?reason=` の値 (送り側 SSOT: src/hooks.server.ts terminated テナント)。 */
 export const LOGIN_REASON_CODES = {
 	deleted: 'deleted',
+	/** #4699: 退会 (アカウント削除) 申請直後の着地。受付完了 + 猶予中は取り消せることを伝える */
+	deletionPending: 'deletion_pending',
 } as const;
 
 /**
@@ -84,6 +140,14 @@ export function resolveLoginNotice(params: URLSearchParams): LoginNotice | null 
 	}
 	const reason = params.get('reason');
 	if (reason !== null) {
+		// #4699: 退会申請の受付は「失敗」ではないので status (成功系) で出す
+		if (reason === LOGIN_REASON_CODES.deletionPending) {
+			return {
+				kind: 'status',
+				message: LOGIN_LABELS.noticeDeletionPending,
+				code: `reason=${reason}`,
+			};
+		}
 		const message =
 			reason === LOGIN_REASON_CODES.deleted
 				? LOGIN_LABELS.noticeAccountDeleted

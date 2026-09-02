@@ -4,9 +4,19 @@
 
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
-import { jstMinuteOfDay, todayDateJST } from '$lib/domain/date-utils';
 import {
-	countTodayLogs,
+	DEFAULT_QUIET_END,
+	DEFAULT_QUIET_START,
+	MAX_DAILY_NOTIFICATIONS,
+} from '$lib/domain/constants/notification';
+import {
+	addDaysJST,
+	jstDayStartUtcIso,
+	jstMinuteOfDay,
+	todayDateJST,
+} from '$lib/domain/date-utils';
+import {
+	countLogsBetween,
 	deleteByEndpoint,
 	findByTenant,
 	insertLog,
@@ -48,7 +58,8 @@ interface AchievementNotificationData {
 // 定数
 // ============================================================
 
-const MAX_DAILY_NOTIFICATIONS = 3;
+// #4664: 値は domain/constants/notification.ts が SSOT (設定画面 / ページガイドも同じ値を引く)。
+export { MAX_DAILY_NOTIFICATIONS };
 
 // ============================================================
 // ヘルパー
@@ -108,8 +119,8 @@ export async function getNotificationSettings(tenantId: string): Promise<Notific
 		reminderTime: values.notification_reminder_time ?? '09:00',
 		streakEnabled: values.notification_streak_enabled !== 'false',
 		achievementsEnabled: values.notification_achievements_enabled !== 'false',
-		quietStart: values.notification_quiet_start ?? '21:00',
-		quietEnd: values.notification_quiet_end ?? '07:00',
+		quietStart: values.notification_quiet_start ?? DEFAULT_QUIET_START,
+		quietEnd: values.notification_quiet_end ?? DEFAULT_QUIET_END,
 	};
 }
 
@@ -118,7 +129,11 @@ export async function getNotificationSettings(tenantId: string): Promise<Notific
 // ============================================================
 
 /** 現在がサイレント時間帯かチェック (JST基準、ラップアラウンド対応) */
-export function isQuietHours(now?: Date, quietStart = '21:00', quietEnd = '07:00'): boolean {
+export function isQuietHours(
+	now?: Date,
+	quietStart = DEFAULT_QUIET_START,
+	quietEnd = DEFAULT_QUIET_END,
+): boolean {
 	const date = now ?? new Date();
 	const currentMinutes = jstMinuteOfDay(date);
 
@@ -147,9 +162,15 @@ export async function canSendNotification(tenantId: string): Promise<boolean> {
 		return false;
 	}
 
-	// 日次上限チェック
+	// 日次上限チェック。#4722: 「今日」は **JST 暦日**。境界を instant (UTC ISO) に直して渡す
+	// (旧実装は JST の日付文字列をそのまま UTC 日境界として比較しており、カウント窓が 9 時間ずれ、
+	// JST 0〜9 時の送信が前日の枠で数えられていた)。
 	const today = todayDateJST();
-	const count = await countTodayLogs(tenantId, today);
+	const count = await countLogsBetween(
+		tenantId,
+		jstDayStartUtcIso(today),
+		jstDayStartUtcIso(addDaysJST(today, 1)),
+	);
 	return count < MAX_DAILY_NOTIFICATIONS;
 }
 

@@ -157,6 +157,18 @@ export async function notifyApiError(res: Response, opts?: NotifyOpts): Promise<
 }
 
 /**
+ * form action が失敗 (`fail()`) を返したことをユーザに通知する (#4693)。
+ *
+ * `fail()` の失敗は HTTP status に現れないため `notifyApiError(res)` では拾えない。
+ * 内部メッセージを露出せず、年齢帯に合った汎用文言だけを出す (ADR-0062)。
+ */
+export function notifyActionFailure(opts?: NotifyOpts): ApiErrorResult {
+	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
+	showToast(opts?.toastTitle ?? labels.title, labels.generic, 'error');
+	return { shown: true, message: labels.generic, status: 0 };
+}
+
+/**
  * ネットワーク例外 (fetch reject / throw / タイムアウト) をユーザに通知する。
  */
 export function notifyNetworkError(opts?: NotifyOpts): ApiErrorResult {
