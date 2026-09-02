@@ -23,6 +23,10 @@ export async function insertRedemptionRequest(
 		resolvedAt: null,
 		resolvedByParentId: null,
 		shownToChildAt: null,
+		// #4632: demo Fake は live reward を持たないため snapshot は null (sqlite の旧行と同じ扱い)。
+		rewardTitle: null,
+		rewardPoints: null,
+		rewardIcon: null,
 	};
 }
 
@@ -103,6 +107,7 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
+	_options?: { expectedStatus?: string },
 ): Promise<RedemptionRequestRow | undefined> {
 	return undefined;
 }

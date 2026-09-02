@@ -39,6 +39,35 @@ vi.mock('$lib/server/db/factory', () => ({
 			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
 			findActivitiesByChild: (...args: unknown[]) => mockFindActivitiesByChild(...args),
 		},
+		child: { findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args) },
+		// #4693: importActivities は取込直前に quota を強制するため、プラン解決 (契約 4 列) を読む。
+		// 本 file の関心は dedup / 件数集計なので、上限のない有料テナントを返して素通りさせる
+		// (上限そのものの検証は tests/unit/services/activity-quota-import-enforcement.test.ts)。
+		auth: {
+			findTenantById: async () => ({
+				tenantId: 'test-tenant-001',
+				status: 'active',
+				plan: 'monthly',
+				stripeSubscriptionId: 'sub_test',
+			}),
+		},
+	}),
+}));
+
+vi.mock('$lib/server/auth/factory', () => ({
+	getAuthMode: () => 'cognito',
+}));
+
+vi.mock('$lib/server/services/trial-service', () => ({
+	getTrialStatus: async () => ({
+		isTrialActive: false,
+		trialUsed: false,
+		trialStartDate: null,
+		trialEndDate: null,
+		trialTier: null,
+		daysRemaining: 0,
+		source: null,
+		convertedToPaid: false,
 	}),
 }));
 

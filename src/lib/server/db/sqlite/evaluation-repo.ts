@@ -1,7 +1,7 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import {
@@ -127,7 +127,10 @@ export async function hasDecayRunToday(
 			and(
 				eq(statusHistory.childId, Number(childId)),
 				eq(statusHistory.changeType, 'daily_decay'),
-				like(statusHistory.recordedAt, `${today}%`),
+				// #4722: recorded_at は UTC ISO で保存されるため、JST 暦日 (today) と比べるには
+				// +9h してから日付にする。旧実装の prefix LIKE は UTC 暦日との比較で、
+				// JST 0〜9 時に「今日まだ減衰していない」と誤判定していた (dsql 側は JST 判定済)。
+				sql`date(${statusHistory.recordedAt}, '+9 hours') = ${today}`,
 			),
 		)
 		.get();

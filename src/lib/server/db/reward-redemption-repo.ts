@@ -88,8 +88,16 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	tenantId: string,
+	// #4722: 条件付き UPDATE (期待状態と一致するときだけ更新。同時承認の勝者を DB で 1 つに確定させる)
+	options?: { expectedStatus?: string },
 ) {
-	return getRepos().rewardRedemption.updateRedemptionRequestStatus(childId, id, updates, tenantId);
+	return getRepos().rewardRedemption.updateRedemptionRequestStatus(
+		childId,
+		id,
+		updates,
+		tenantId,
+		options,
+	);
 }
 
 // findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は

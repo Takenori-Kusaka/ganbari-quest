@@ -4,9 +4,9 @@
 // 既存 verifyPin (auth-service) の lockout / NIST throttling を流用
 
 import { error, json } from '@sveltejs/kit';
-// #4661: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT
+// #4661 / #4698: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT
 // (以前は本 file / setup / reset-verified / stripe portal がそれぞれ /^\d{4,6}$/ を書いていた)。
-import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { verifyPin } from '$lib/server/services/auth-service';
@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 		error(400, 'INVALID_BODY');
 	}
 
-	if (!pin || !PIN_PATTERN.test(pin)) {
+	if (!isValidPinFormat(pin)) {
 		return json({ ok: false, error: 'PIN_FORMAT' }, { status: 400 });
 	}
 

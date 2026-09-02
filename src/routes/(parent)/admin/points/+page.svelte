@@ -174,13 +174,13 @@ async function handleReceiptFile(event: Event) {
 	<title>{PAGE_TITLES.points}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6" data-tutorial="points-section">
+<div class="space-y-6">
 	<div class="flex items-center justify-between mb-1">
 		<div class="flex items-center gap-2">
 			<h2 class="text-lg font-bold">{POINTS_LABELS.pageTitle}</h2>
 		</div>
 		<a
-			href="/admin/settings#point-settings"
+			href="/admin/settings/activities#point-settings"
 			class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-info-text)] flex items-center gap-1 transition-colors"
 		>
 			<span>{POINTS_LABELS.displaySetting(isCurrencyMode, ps.currency)}</span>
@@ -529,6 +529,8 @@ async function handleReceiptFile(event: Event) {
 
 	<!-- Convert History -->
 	{#if selectedChild && convertHistory.length > 0}
+		<!-- data-tutorial: ページガイド (#4658) の spotlight anchor (履歴 0 件時は step ごと出ない) -->
+		<div data-tutorial="points-history">
 		<Card padding="lg">
 			<h3 class="font-bold text-[var(--color-text-primary)] mb-4">{POINTS_LABELS.historyTitle}</h3>
 
@@ -596,5 +598,6 @@ async function handleReceiptFile(event: Event) {
 				<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">{POINTS_LABELS.historyEmpty}</p>
 			{/if}
 		</Card>
+		</div>
 	{/if}
 </div>

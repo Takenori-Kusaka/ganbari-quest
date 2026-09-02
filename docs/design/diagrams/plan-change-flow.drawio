@@ -108,7 +108,7 @@
         </mxCell>
         <mxCell id="p2-e2" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-dialog" target="p2-pinq" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="p2-pin" value="親 PIN 入力&#xa;(4〜6桁数字)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
+        <mxCell id="p2-pin" value="親 PIN 入力&#xa;(4桁数字)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;" vertex="1" parent="1">
           <mxGeometry x="780" y="40" width="180" height="60" as="geometry" />
         </mxCell>
         <mxCell id="p2-e3a" value="Yes" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-pinq" target="p2-pin" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>

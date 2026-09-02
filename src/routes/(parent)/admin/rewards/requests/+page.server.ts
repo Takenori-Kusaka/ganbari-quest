@@ -40,8 +40,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// #4682 F1: 承認待ちは **古い順** に取る。既定の新しい順 + limit 50 だと、
 	// 一番長く待っている申請が window の外に落ちて画面に出ず、親が永久に処理できない
 	// (実測: pending 61 件で最古 11 件が不可視、見出しの件数も「50 件」と嘘になっていた)。
-	// #4682 F4: 履歴は「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」。
-	// 表示件数は REWARD_REQUEST_HISTORY_LIMIT SSOT (labels の見出しと同じ定数) を引く。
+	// #4682 F4: 履歴は「直近 N 申請の中の処理済み」ではなく「処理済みの直近 N 件」。
+	// 件数は REWARD_REQUEST_HISTORY_LIMIT (labels の見出しと同じ SSOT) を使う。
 	// 承認待ちの件数は COUNT (limit なし) で取り、表示件数と混同しない。
 	const [pendingRequests, historyRequests, pendingTotal] = await Promise.all([
 		getRedemptionRequestsForParent(tenantId, {

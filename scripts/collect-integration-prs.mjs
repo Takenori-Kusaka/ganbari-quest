@@ -32,7 +32,7 @@
  * 候補集合を **`git log --first-parent <base>..<head>` の merge 履歴**から取る。
  * 「main に未取込の commit」は git が構造として持っている事実であり、時計・TZ・anchor に一切
  * 依存しない。時刻 (anchor) は **統合対象期間の表示と drift 日数**にのみ使い、その比較も
- * epoch 正規化 (`toEpochMs`) 経由で行う (文字列比較しない)。
+ * epoch 正規化 (`lib/iso-instant.mjs` の `toEpochMs`) 経由で行う (文字列比較しない)。
  *
  * anchor 自体も main HEAD ではなく **main 上の直近の統合 merge** を探す
  * (`findLastIntegrationAnchor`)。hotfix が main に直接入っても anchor は前進しない。
@@ -61,6 +61,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { toEpochMs } from './lib/iso-instant.mjs';
 
 /** git log のフォーマット (`%H|%cI|%s`)。sha / committer ISO / subject。 */
 export const GIT_LOG_FORMAT = '%H|%cI|%s';
@@ -165,50 +166,6 @@ export function findLastIntegrationAnchor(entries) {
 		if (isIntegrationMergeSubject(e?.subject ?? '')) return e;
 	}
 	return null;
-}
-
-/**
- * ISO8601 文字列を epoch ミリ秒へ正規化する純粋関数 (#4053 AC1)。
- *
- * `2026-07-26T08:01:03+09:00` (ローカルオフセット形) と `2026-07-25T23:01:03Z` (Z 形) は
- * **同一時刻**であり、本関数を通すと同じ値になる。文字列比較 (`>=`) はこの同一性を壊す。
- *
- * @param {string} iso
- * @returns {number} epoch ms。解釈不能なら NaN
- */
-export function toEpochMs(iso) {
-	const ms = Date.parse(String(iso ?? ''));
-	return Number.isFinite(ms) ? ms : Number.NaN;
-}
-
-/**
- * 2 つの ISO8601 を **時刻として** 比較する純粋関数 (#4053 AC1)。TZ 表記の違いに影響されない。
- *
- * @param {string} a
- * @param {string} b
- * @returns {-1 | 0 | 1} a<b: -1 / a==b: 0 / a>b: 1
- * @throws {Error} どちらかが解釈不能な場合 (silent に false を返さない)
- */
-export function compareIsoInstant(a, b) {
-	const ea = toEpochMs(a);
-	const eb = toEpochMs(b);
-	if (Number.isNaN(ea) || Number.isNaN(eb)) {
-		throw new Error(`[collect-integration-prs] ISO8601 として解釈できない値: a=${a} / b=${b}`);
-	}
-	if (ea < eb) return -1;
-	if (ea > eb) return 1;
-	return 0;
-}
-
-/**
- * `a >= b` を **時刻として** 判定する純粋関数 (#4053 AC1)。
- *
- * @param {string} a
- * @param {string} b
- * @returns {boolean}
- */
-export function isAtOrAfterInstant(a, b) {
-	return compareIsoInstant(a, b) >= 0;
 }
 
 /**

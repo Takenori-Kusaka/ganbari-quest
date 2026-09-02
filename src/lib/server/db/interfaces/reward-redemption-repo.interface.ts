@@ -23,6 +23,18 @@ export interface RedemptionRequestRow {
 	resolvedAt: number | null;
 	resolvedByParentId: string | null;
 	shownToChildAt: number | null;
+	/**
+	 * #2832 申請時点 snapshot (#4632 で row 型へ昇格)。
+	 *
+	 * 子供の「記録 > 交換」は「いつ・何を・いくらで交換したか」を出す画面なのに、row 型が
+	 * snapshot を落としていたため title / icon / points を渡せず、日付をタイトル代わりに出して
+	 * アイコンを 🎁 固定にしていた (何を交換したか判別不能)。
+	 * 値は「snapshot 優先 / 旧行は live reward に fallback」で解決済 (repo 側 COALESCE)。
+	 * reward が削除済で旧行 (snapshot NULL) の場合のみ null になる。
+	 */
+	rewardTitle: string | null;
+	rewardIcon: string | null;
+	rewardPoints: number | null;
 }
 
 export interface RedemptionRequestWithDetails extends RedemptionRequestRow {
@@ -184,6 +196,14 @@ export interface IRewardRedemptionRepo {
 	 * #2845 課題①: full composite-key addressing。childId + id の複合キーで対象を直接
 	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら undefined。
 	 */
+	/**
+	 * 申請の状態を更新する。
+	 *
+	 * #4722: `options.expectedStatus` を渡すと **その状態のときだけ**更新する条件付き UPDATE になり、
+	 * 一致しなければ 0 行 = `undefined` を返す。同一申請を 2 人の保護者 (or 連打) が同時承認したとき、
+	 * 勝者を DB 側で 1 つに確定させ、敗者を「状態が違う」として綺麗に落とすために使う
+	 * (旧実装は無条件 UPDATE のため両者が承認へ進み、2 件目が台帳の冪等 UNIQUE 違反で 500 になっていた)。
+	 */
 	updateRedemptionRequestStatus(
 		childId: ChildId,
 		id: string,
@@ -194,6 +214,7 @@ export interface IRewardRedemptionRepo {
 			resolvedByParentId?: string | null;
 		},
 		tenantId: string,
+		options?: { expectedStatus?: string },
 	): Promise<RedemptionRequestRow | undefined>;
 
 	// findPendingByChildAndReward は #3356 (1) で撤去 (check-then-act TOCTOU の温床)。
