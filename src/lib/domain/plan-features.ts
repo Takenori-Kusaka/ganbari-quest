@@ -27,7 +27,6 @@ import {
 	PLAN_TERMS,
 	PRICE_TERMS,
 	REWARD_TERMS,
-	VIEWER_LINK_TERMS,
 } from './terms';
 
 /**
@@ -75,12 +74,6 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'✨ AI 自動提案（活動・ごほうび・チェックリスト）',
 		'きょうだいランキング',
 		'ひとことメッセージ（自由テキスト）',
-		// #4716 (QM): 閲覧リンクは `/view/[token]` として実装済で、admin/members でも
-		// `{#if data.isFamily}` = 家族プラン限定で描画される差別化機能。
-		// LICENSE_PAGE_HIGHLIGHTS (4〜5 項目の短縮版) から外した結果、
-		// **どのプラン一覧にも載らなくなっていた**ので、項目数に余裕のある本 list に残す。
-		// 呼称は VIEWER_LINK_TERMS が SSOT (ADR-0045)。
-		`祖父母・家族向けの${VIEWER_LINK_TERMS.name}（閲覧のみの共有）`,
 		// #1644 R39: 実装は cloud-export-service.ts の手動エクスポート + 同時保管数上限のみ。
 		// 「自動」要素が実装に 0 件のため、景表法 5 条 1 号 (優良誤認) 回避のため表記を実態へ合致
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
