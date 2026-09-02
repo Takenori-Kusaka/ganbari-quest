@@ -40,9 +40,9 @@ describe('#4716 子供向け失敗文言の年齢モード出し分け', () => {
 	});
 
 	it('key の集合は年齢モードで一致する (片方だけ増えて未定義になるのを防ぐ)', () => {
-		const hira = Object.keys(getChildActionErrorLabels('preschool')).sort();
-		const kanji = Object.keys(getChildActionErrorLabels('senior')).sort();
-		expect(kanji).toEqual(hira);
+		const kanaKeys = Object.keys(getChildActionErrorLabels('preschool')).sort();
+		const kanjiKeys = Object.keys(getChildActionErrorLabels('senior')).sort();
+		expect(kanjiKeys).toEqual(kanaKeys);
 	});
 
 	it('年齢帯を渡せない経路 (undefined / 未知の値) はひらがなに落ちる', () => {
