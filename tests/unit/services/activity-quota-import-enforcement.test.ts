@@ -231,7 +231,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		}
 	});
 
-	it('手動 3/3 で上限到達でも、プリセット取込は拒否されない (恒久ロックアウトを作らない)', async () => {
+	it('手動 3/3 で上限到達なら、プリセット取込も拒否される (#4693 PO 判断: 取込も素通りさせない)', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // free の maxActivities=3 に到達
 
@@ -240,8 +240,11 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 			presetId: 'pack-1',
 		});
 
-		expect(result.imported, 'quota を消費しない取込を quota で止めてはいけない').toBe(5);
-		expect(result.blocked ?? null).toBeNull();
+		// Issue #4693 の症状欄は「手動 / 一括 / コピー / テンプレ取込は 403」を*正しい挙動*として
+		// 挙げ、JSON/CSV 復元だけが素通りすることを欠陥としている。取込も同じ gate に掛ける。
+		expect(result.imported).toBe(0);
+		expect(result.blocked?.count).toBe(5);
+		expect(result.blocked?.upgradeUrl).toBe('/admin/subscription');
 	});
 
 	it('ファイル復元を繰り返しても累積で上限を超えない', async () => {
