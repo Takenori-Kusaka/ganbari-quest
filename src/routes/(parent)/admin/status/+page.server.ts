@@ -1,6 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { ADMIN_FORM_ERROR_LABELS, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { isOpsMember, requireGlobalMasterWriteAccess } from '$lib/server/auth/ops-authz';
@@ -82,10 +84,10 @@ export const actions = {
 		const customTitle = String(form.get('customTitle') ?? '').trim();
 
 		if (!level || level < 1 || level > 10) {
-			return fail(400, { error: 'レベルが不正です' });
+			return fail(400, { error: STATUS_LABELS.levelInvalid });
 		}
 		if (!customTitle || customTitle.length > 20) {
-			return fail(400, { error: '称号は1〜20文字で入力してください' });
+			return fail(400, { error: STATUS_LABELS.titleLengthInvalid });
 		}
 
 		await saveLevelTitle(tenantId, level, customTitle);
@@ -98,7 +100,7 @@ export const actions = {
 		const level = Number(form.get('level'));
 
 		if (!level || level < 1 || level > 10) {
-			return fail(400, { error: 'レベルが不正です' });
+			return fail(400, { error: STATUS_LABELS.levelInvalid });
 		}
 
 		await resetLevelTitle(tenantId, level);
@@ -124,10 +126,10 @@ export const actions = {
 		const stdDev = Number(form.get('stdDev'));
 
 		if (!age || !categoryId || Number.isNaN(mean) || Number.isNaN(stdDev)) {
-			return fail(400, { error: '必須項目が不足しています' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.requiredFieldsMissing });
 		}
 		if (mean < 0 || stdDev <= 0) {
-			return fail(400, { error: '平均は0以上、標準偏差は0より大きい値を入力してください' });
+			return fail(400, { error: STATUS_LABELS.benchmarkValueInvalid });
 		}
 
 		// #2057: 内部 source identifier (DB 保存値、UI 表示なし)。既存レコードとの履歴整合のため

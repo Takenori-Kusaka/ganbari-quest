@@ -104,6 +104,17 @@ export function getDefaultUiMode(age: number): UiMode {
 }
 
 /**
+ * #4718: 登録時に明示指定された uiMode が年齢既定と異なるか (= 保護者の意図的な上書き)。
+ * 登録経路 (insertChild) はこの判定で ui_mode_manually_set を初期化する。年齢既定と同じ値の
+ * 明示指定 (backup 復元の大半) は自動扱いのまま残し、年齢帯境界の自動遷移を殺さない。
+ * pg-core backend は ui_mode を compute-on-read (manually_set=false なら年齢から再導出) する
+ * ため、この初期化が無いと明示指定が読み出しで消え sqlite と食い違う (parity fitness #4419)。
+ */
+export function isExplicitUiModeOverride(age: number, uiMode: string | undefined): boolean {
+	return uiMode !== undefined && uiMode !== getDefaultUiMode(age);
+}
+
+/**
  * uiModeManuallySet フラグを考慮して、年齢変更時の UIMode を決定する。
  * フラグが立っている場合は保護者が手動設定した値を維持する。
  */

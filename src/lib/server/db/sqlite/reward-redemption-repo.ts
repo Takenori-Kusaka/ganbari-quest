@@ -7,6 +7,7 @@ import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-rewa
 import { db } from '../client';
 import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
+	REDEMPTION_EXPIRE_AFTER_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
 } from '../interfaces/reward-redemption-repo.interface';
@@ -33,8 +34,6 @@ const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
 	rewardPoints: r.rewardPoints,
 	rewardIcon: r.rewardIcon,
 });
-
-const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * #4683: 「参照先ごほうびが存在しない」ことを表す reward_id。
@@ -325,7 +324,12 @@ export async function findRedemptionRequestsByTenant(
  */
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		requestedBeforeEpoch?: number;
+	},
 ) {
 	const conditions = [];
 	if (opts?.status) {
@@ -336,6 +340,10 @@ export async function countRedemptionRequestsByTenant(
 	}
 	if (opts?.childId) {
 		conditions.push(eq(rewardRedemptionRequests.childId, Number(opts.childId)));
+	}
+	// #4682: 失効 cron の dry-run が expireOldRedemptions と同じ母集団を数えるための期間条件。
+	if (opts?.requestedBeforeEpoch !== undefined) {
+		conditions.push(lt(rewardRedemptionRequests.requestedAt, opts.requestedBeforeEpoch));
 	}
 
 	const row = db
@@ -389,9 +397,9 @@ export async function updateRedemptionRequestStatus(
 // `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
 // 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
-/** 30日以上 pending の申請を expired に移行 */
+/** 30日以上 pending の申請を expired に移行 (cutoff は REDEMPTION_EXPIRE_AFTER_SEC が SSOT) */
 export async function expireOldRedemptions(_tenantId: string) {
-	const cutoff = Math.floor(Date.now() / 1000) - THIRTY_DAYS_SECONDS;
+	const cutoff = Math.floor(Date.now() / 1000) - REDEMPTION_EXPIRE_AFTER_SEC;
 	const result = db
 		.update(rewardRedemptionRequests)
 		.set({ status: 'expired' })
@@ -404,6 +412,19 @@ export async function expireOldRedemptions(_tenantId: string) {
 		.returning()
 		.all();
 	return result.length;
+}
+
+/**
+ * #4682: 承認待ち申請が存在する reward id の集合 (DISTINCT、limit なし)。
+ * 一覧 (表示用 limit つき) の map から導くと、申請が limit を超えた時点で種別が抜け落ちる。
+ */
+export async function findPendingRewardIdsByTenant(_tenantId: string): Promise<string[]> {
+	const rows = db
+		.selectDistinct({ rewardId: rewardRedemptionRequests.rewardId })
+		.from(rewardRedemptionRequests)
+		.where(eq(rewardRedemptionRequests.status, 'pending_parent_approval'))
+		.all();
+	return rows.map((r) => String(r.rewardId));
 }
 
 /** 特定の reward_id に pending 申請が存在するか確認（削除前チェック用） */

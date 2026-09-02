@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
+import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import {
 	APP_LABELS,
 	formatAge,
@@ -10,6 +11,7 @@ import {
 } from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -18,6 +20,14 @@ let submitting = $state(false);
 let addSuccess = $state(false);
 
 let ageInput = $state<number | undefined>(undefined);
+// #4718: 誕生日は任意。入れたら年齢は誕生日から自動計算 (admin/children と同じ挙動)。
+let birthDateInput = $state<string | undefined>(undefined);
+const calculatedAge = $derived(
+	birthDateInput ? calculateAgeFromBirthDate(birthDateInput) : undefined,
+);
+$effect(() => {
+	if (calculatedAge !== undefined) ageInput = calculatedAge;
+});
 const autoUiMode = $derived(ageInput !== undefined ? getDefaultUiMode(ageInput) : null);
 const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : '');
 </script>
@@ -77,6 +87,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 			if (result.type === 'success') {
 				addSuccess = true;
 				ageInput = undefined;
+				birthDateInput = undefined;
 			}
 			await update({ reset: true });
 		};
@@ -93,14 +104,23 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	/>
 
 	<FormField
-		label={SETUP_CHILDREN_LABELS.ageLabel}
+		label={birthDateInput ? SETUP_CHILDREN_LABELS.ageLabelAutoCalc : SETUP_CHILDREN_LABELS.ageLabel}
 		type="number"
 		name="age"
 		min={0}
 		max={18}
-		required
+		required={!birthDateInput}
+		disabled={!!birthDateInput}
 		bind:value={ageInput}
 		hint={autoUiMode ? SETUP_CHILDREN_LABELS.autoUiModeHint(autoUiLabel) : undefined}
+	/>
+
+	<BirthdayInput
+		label={SETUP_CHILDREN_LABELS.birthdayLabel}
+		name="birthDate"
+		id="setup-birthDate"
+		bind:value={birthDateInput}
+		hint={SETUP_CHILDREN_LABELS.birthdayHint}
 	/>
 
 	<div>

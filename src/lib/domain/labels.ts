@@ -120,6 +120,8 @@ import {
 	USAGE_SUMMARY_TERMS,
 	VIEWER_LINK_TERMS,
 	VISIBILITY_CHIP_TERMS,
+	WEEKDAY_NAMES_SUNDAY_FIRST,
+	WEEKDAY_TERMS,
 } from './terms';
 import { CANCEL_WINDOW_MS } from './validation/activity';
 import type { UiMode } from './validation/age-tier-types';
@@ -310,6 +312,19 @@ export function formatPeople(n: number): string {
 }
 export function formatDateRange(start: string, end: string): string {
 	return `${start} 〜 ${end}`;
+}
+/**
+ * 「YYYY年M月」表記 (#4512)。
+ *
+ * 旧実装は admin/reports・admin/growth-book・ADMIN_HOME_LABELS・OPS_COSTS_LABELS が
+ * それぞれ同じ組版を持っていた。年月の見せ方を変えるときに 4 箇所直す状態を解消する。
+ */
+export function formatYearMonth(year: number | string, month: number | string): string {
+	return `${year}年${Number(month)}月`;
+}
+/** 「M月」表記 (年を伴わない月見出し、#4512) */
+export function formatMonthOnly(month: number | string): string {
+	return `${Number(month)}月`;
 }
 
 // ============================================================
@@ -530,6 +545,14 @@ export const PLAN_GATE_LABELS = {
 	 *   - server/errors.ts: 'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。'
 	 */
 	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。プランをアップグレードしてください。`,
+
+	/**
+	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)
+	 *
+	 * PremiumBadge の label / ヘッダーの premium バッジ / pricing の家族パターンタグが
+	 * それぞれ同じ文字列を持っていた (3 重定義)。短縮プラン名 atom から組み立てる。
+	 */
+	standardOrAboveBadge: `${PLAN_TERMS.standard}以上`,
 
 	/**
 	 * "この機能はプレミアムプラン限定です。プランをアップグレードしてください。"
@@ -1560,6 +1583,11 @@ export const CERTIFICATE_DETAIL_LABELS = {
 	downloadButton: '📥 画像をダウンロード',
 	closeButton: '閉じる',
 	showShareCardButton: '🎉 シェアカードを表示',
+	// #4512: シェアカード生成 (canvas) / ダウンロード結果の文言を SSOT へ集約
+	shareCardBrandText: APP_LABELS.name,
+	downloadSuccess: 'ダウンロードしました！',
+	downloadFailed: 'ダウンロードに失敗しました',
+	certificateNotFound: `${CERTIFICATE_TERMS.canonical}が見つかりません`,
 } as const;
 
 // #4676: PAGE_GUIDE_LABELS.adminRewardsRequests がボタン名・見出しを参照するため前置きする
@@ -1574,7 +1602,7 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	// #4682 F1: 承認待ちが表示上限を超えたとき、「見えている件数 = 全件」と誤解させない。
 	// 表示は古い順なので、長く待っている申請から必ず画面に出る。
 	pendingTruncatedNote: (shown: number, total: number) =>
-		`古い順に ${shown} 件を表示しています（承認待ちは全 ${total} 件）。処理すると次の申請が出ます`,
+		`古い順に ${shown} 件を表示しています（未処理の申請は全 ${total} 件）。処理すると次の申請が出ます`,
 	// #4682 F4: 「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」を出す。
 	historySectionTitle: `履歴（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
 	emptyPendingMessage: '申請はありません',
@@ -1637,6 +1665,10 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	importWrongTypeNotImportable: 'このルールは取込対象外です。',
 	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	// #4512: form action の失敗メッセージ (旧: +page.server.ts 直書き)
+	rewardApprovalUpdateFailed: 'ごほうび交換設定の更新に失敗しました',
+	updateFailed: 'ルール更新に失敗しました',
+	removeFailed: 'ルール削除に失敗しました',
 	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
 	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
 	rewardApprovalSectionDesc:
@@ -3187,6 +3219,11 @@ export const OYAKAGI_LABELS = {
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
 	formatError: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
+	// #4512: 変更フォームのエラー (旧: settings/account の server 直書き)。
+	// 入力欄ラベル 3 種は #4661 が currentInputLabel / newInputLabel / confirmInputLabel として
+	// 先に集約済みのため、merge 時に重複定義を削除しそちらに寄せた。
+	confirmMismatchError: `新しい${OYAKAGI_TERMS.name}が一致しません`,
+	currentInvalidError: `現在の${OYAKAGI_TERMS.name}が正しくありません`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
 	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
@@ -3448,6 +3485,8 @@ export const SETTINGS_LABELS = {
 	notificationQuietHint: 'この時間帯は通知を送信しません',
 	// #4664 F3: 1 日の上限は notification-service.ts の MAX_DAILY_NOTIFICATIONS が値 SSOT。
 	notificationDailyLimitHint: (max: number) => `お知らせは 1 日 ${max} 件までです`,
+	// #4512: settings/notifications の時刻入力の検証エラー文言。
+	notificationTimeFormatInvalid: '時刻の形式が不正です',
 
 	// ポイント表示設定
 	pointSectionTitle: '💰 ポイント表示設定',
@@ -3456,12 +3495,22 @@ export const SETTINGS_LABELS = {
 	pointModePoint: 'ポイント（P）',
 	pointModeCurrency: '通貨で表示',
 	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
-	pointSaveAction: 'ポイント設定を保存',
 	// #4663 F7: 通貨モードの追加入力欄。svelte に直書きされており、ガイドから同じ語を
 	// 引けなかった (DESIGN.md §6 逸脱)。
-	pointCurrencyLabel: '通貨',
+	// #4512: 「通貨」は CURRENCY_TERMS atom に集約し、検証エラー文言もここへ寄せた。
+	pointCurrencyLabel: `${CURRENCY_TERMS.canonical}`,
 	pointRateLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
 	pointRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	// #4512: 活動・ポイント設定 (settings/activities) の form action 検証エラー (旧: server 直書き)。
+	pointModeInvalid: 'モードが不正です',
+	pointCurrencyInvalid: `${CURRENCY_TERMS.canonical}コードが不正です`,
+	pointRateRange: 'レートは0より大きく10000以下で入力してください',
+	defaultChildIdInvalid: '子供IDが不正です',
+	defaultChildNotFound: '指定された子供が見つかりません',
+	// #4512: ステータス減少強度 (DECAY_OPTIONS) のラベル / 説明は #4663 F7 が
+	// decayOptionNone / .decayOptionNoneDesc … として先に集約済みのため、
+	// merge 時に重複定義 (decayOption*Label) を削除しそちらに寄せた。
+	pointSaveAction: 'ポイント設定を保存',
 
 	// データ管理 (#backup-terms: 内部フォーマット JSON/ZIP は UI 露出しない。BACKUP_TERMS 統一)
 	dataSectionTitle: '💾 データ管理',
@@ -3681,6 +3730,18 @@ export const SETTINGS_LABELS = {
 		'返信のためメールアドレスを入力してください（通常 1〜2 日以内）。',
 	feedbackConsultReplyRequiredError: '相談・困りごとは返信先メールアドレスを入力してください',
 	feedbackInvalidIntentError: 'ご用件の選択が不正です',
+	// #4512: 旧実装は上 2 つの error label を定義しながら +page.server.ts 側で同じ文字列を
+	// 直書きしており (二重定義)、残りの validation メッセージも server にしか無かった。
+	feedbackContentRequiredError: '内容を入力してください',
+	feedbackContentTooLongError: '1000文字以内で入力してください',
+	feedbackInvalidCategoryError: 'カテゴリが不正です',
+	feedbackInvalidEmailError: 'メールアドレスの形式が正しくありません',
+	feedbackChildAgeTooLongError: 'お子さまの年齢は100文字以内で入力してください',
+	feedbackSendFailedError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
+	/** 問い合わせ本文に付記する年齢の見出し (Discord / 問い合わせレコード向け) */
+	feedbackChildAgeBodyPrefix: (childAge: string) => `【お子さまの年齢】${childAge}`,
+	/** 通知本文で使う分類名 (intent=consult は「（返信を希望）」を含まない短い形) */
+	feedbackCategoryConsult: '相談・困りごと',
 	feedbackSubmitButton: '送信する',
 	feedbackSubmittingText: '送信中...',
 	feedbackSuccessConsult: (inquiryId: string) =>
@@ -3774,6 +3835,24 @@ export const SETTINGS_LABELS = {
 	accountDeleteNoAdultTitle: '家族グループに他のメンバーがいます',
 	accountDeleteNoAdultDesc: `いま家族グループにいるのは${CHILD_TERMS.honorific}だけです。${CHILD_TERMS.honorific}にオーナーを引き継ぐことはできないため、この家族グループを全て削除して${CANCEL_TERMS.account}します。`,
 	accountDeleteNoAdultHint: `${CHILD_TERMS.honorific}のデータを残したい場合は、いったんこの画面を閉じて、メンバー管理から別の${PARENT_TERMS.honorific}を招待し、その方にオーナーを引き継いでから${CANCEL_TERMS.account}してください。`,
+	// #4512: 退会フローの確認テキスト / ボタン / エラー (旧: settings/account/+page.svelte 直書き)。
+	// 合言葉は入力欄・placeholder・判定の 3 箇所が同じ定数を見るようにする
+	// (data グループの clearConfirmKeyword と同型)。
+	// #4642 整合: 合言葉の値そのものは CANCEL_TERMS.confirmPhrase (atom) が SSOT。
+	// ここで文字列リテラルを複製すると atom を変えても追従せず、確認語と判定がずれる
+	// (DESIGN.md §6「terms.ts atom 値の文字列リテラル直書き複製」禁止)。
+	accountDeleteConfirmKeyword: CANCEL_TERMS.confirmPhrase,
+	accountDeleteConfirmFieldLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
+	accountDeleteTransferPlaceholder: '移譲先を選択...',
+	accountDeleteTransferSubmit: `移譲して${CANCEL_TERMS.account}`,
+	accountDeleteFullSubmit: '全て削除する',
+	accountDeleteSubmit: 'アカウントを削除する',
+	accountDeleteProcessing: '処理中...',
+	accountDeleteInfoFetchFailed: '情報取得に失敗しました',
+	accountDeleteFailed: 'アカウント削除に失敗しました',
+	// おやカギコード変更フォーム
+	oyakagiChangeSubmitting: '変更中...',
+	oyakagiAllFieldsRequired: 'すべてのフィールドを入力してください',
 
 	// ログアウト
 	logoutSectionTitle: 'ログアウト',
@@ -3816,6 +3895,16 @@ export const SETTINGS_LABELS = {
 	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
+	// #4512: データクリアの確認テキスト / 実行ボタン。旧実装は画面 (+page.svelte) と
+	// 検証 (+page.server.ts) が '削除' を別々に直書きしており、合言葉を変えると
+	// 「入力しても通らない」状態になり得た。両者が同じ定数を見るようにする。
+	clearConfirmKeyword: '削除',
+	clearConfirmFieldLabel: '確認のため「削除」と入力してください',
+	clearConfirmRequired: '確認テキスト「削除」を入力してください',
+	clearAgreeRequired: '同意チェックを入れてください',
+	clearSubmitting: 'データクリア中...',
+	clearSubmitButton: 'すべてのデータを削除',
+	clearFailed: 'データクリアに失敗しました',
 	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
 	//   旧実装はプランに依らない固定文で「元に戻せません」と断定しており、猶予のある有料プラン
 	//   では直上の notice (「N 日間は復元で取り消せます」) と正面から矛盾していた。最も不可逆性の
@@ -4285,6 +4374,10 @@ export const REPORTS_LABELS = {
 	weeklySettingsUpgradeNote: 'スタンダードプラン以上でメール配信設定を変更できます',
 	weeklySettingsEnableLabel: '週次レポートを有効にする',
 	weeklySettingsDayLabel: '配信曜日',
+	// #4512: 配信曜日セレクトの表示名。旧実装は +page.svelte で 7 曜日を別に列挙していた
+	// (WEEKDAY_TERMS atom の直書き複製、ADR-0045 §3.3)。
+	weeklySettingsDayNames: WEEKDAY_TERMS as Record<string, string>,
+	weeklySettingsDayInvalid: '無効な曜日です',
 	weeklySettingsSave: '保存',
 
 	// 週次レポート - 空状態
@@ -4480,6 +4573,17 @@ export const POINTS_LABELS = {
 	receiptConfirmButton: 'この金額で変換する',
 	receiptConfirmedLabel: '金額確定済み',
 	receiptRetakeOtherButton: '別の領収書を撮影する',
+	// #4512: OCR 呼び出しの失敗表示 (旧: +page.svelte 直書き)。
+	// receiptScanFailed は API が error.message を返さなかったときの fallback。
+	receiptScanFailed: '読み取りに失敗しました',
+	receiptNetworkError: '通信エラーが発生しました',
+	// #4512: convert action の validation / service エラー表示 (旧: +page.server.ts 直書き)
+	convertInputInvalid: '入力が不正です',
+	convertAmountNotInteger: `${POINT_TERMS.unitFull}は整数で入力してください`,
+	convertPresetUnit: `${POINT_TERMS.unitFull}は500単位で変換できます`,
+	convertChildNotFound: 'こどもが見つかりません',
+	convertInsufficientPoints: `${POINT_TERMS.unitFull}が足りません`,
+	convertInvalidAmount: '金額が不正です',
 	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
 	//
@@ -5649,6 +5753,15 @@ export const STATUS_LABELS = {
 	// Form labels
 	meanLabel: '平均（目安値）',
 	sdLabel: 'SD（ばらつき）',
+
+	// #4512: 偏差値帯 → 親向け自然言語 (旧: +page.svelte の getAnalysisText 内直書き) は
+	// #4669 F11 が同一文言を analysisHigh / analysisMid / analysisLow として先に集約済みのため、
+	// merge 時に重複定義を削除し #4669 側の命名に寄せた (二重定義を作り直さない)。
+
+	// #4512: benchmark form action の validation メッセージ (旧: +page.server.ts 直書き)
+	levelInvalid: 'レベルが不正です',
+	titleLengthInvalid: '称号は1〜20文字で入力してください',
+	benchmarkValueInvalid: '平均は0以上、標準偏差は0より大きい値を入力してください',
 } as const;
 
 // ============================================================
@@ -5785,7 +5898,7 @@ export const OPS_COSTS_LABELS = {
 	pageTitle: 'OPS - AWS費用',
 	prevMonthLink: '← 前月',
 	nextMonthLink: '翌月 →',
-	yearMonthDisplay: (year: number, month: number) => `${year}年${month}月`,
+	yearMonthDisplay: (year: number, month: number) => formatYearMonth(year, month),
 	currentCostLabel: '当月 AWS 費用',
 	prevMonthDiffLabel: '前月比',
 	serviceCountLabel: 'サービス数',
@@ -5913,6 +6026,9 @@ export const CHEER_LABELS = {
 	iconHint: '絵文字を入れてください',
 	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
 	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
+	// #4512: 旧実装は +page.svelte に直書きしていた入力補助文言
+	reasonCounterHint: (length: number, maxLength: number, remaining: number) =>
+		`${length}/${maxLength}（あと${remaining}文字）`,
 	// #4504: 自由テキストは premium 限定 (LP の訴求どおり)。定型スタンプは全プランで使える。
 	/** プランゲートのエラー文言 / ロック表示に使う機能名 */
 	freeTextFeatureName: 'ひとことメッセージ（自由テキスト）',
@@ -5969,11 +6085,16 @@ export const CHEER_LABELS = {
 	confirmCategoryLabel: 'カテゴリ',
 	confirmIconLabel: 'アイコン',
 	// エラーメッセージ
+	// #4512: 旧実装はここに固定値 (1〜10000 / 100文字) を持ちつつ、実際に表示していたのは
+	// +page.server.ts が cheer-service の定数から組み立てた別の文字列だった (二重定義)。
+	// 上限値は server 側 (cheer-service.ts) が SSOT なので、labels は引数で受ける形にする。
 	errorReasonRequired: `${CHEER_TERMS.canonical}の理由を入力してください`,
-	errorReasonTooLong: '理由は100文字以内で入力してください',
-	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
+	errorReasonTooLong: (maxLength: number) => `理由は${maxLength}文字以内で入力してください`,
+	errorPointsRange: (min: number, max: number) =>
+		`ポイントは${min}〜${max}の範囲で入力してください`,
 	errorCategoryRequired: 'カテゴリを選択してください',
 	errorChildRequired: 'こどもを選択してください',
+	errorChildNotFound: 'こどもが見つかりません',
 } as const;
 
 // ============================================================
@@ -6125,7 +6246,15 @@ export const SETUP_CHILDREN_LABELS = {
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	nicknamePlaceholder: 'たろうくん',
 	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	// 呼び出し側は src/routes/(parent)/admin/children/+page.svelte と setup/children/+page.svelte。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
 	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
+	// #4718: 誕生日は任意。入れた子だけ誕生日ボーナス (🎂) の対象になる。
+	birthdayLabel: '誕生日（任意）',
+	birthdayHint: '誕生日を入れると誕生日ボーナスが使えます。年齢だけでも登録できます。',
+	birthdayInvalidFormat: '誕生日の形式が正しくありません（YYYY-MM-DD）',
+	birthdayInFuture: '未来の日付は設定できません',
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorNicknameRequired: 'ニックネームを入力してください',
 	errorAgeRange: '年齢は0〜18で入力してください',
@@ -6236,6 +6365,58 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
  * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
  * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
  */
+/**
+ * admin 各ページの form action が返す共通エラーメッセージ (#4512)
+ *
+ * `fail(400, { error: '名前を入力してください' })` のような同一文言が admin 配下の
+ * `+page.server.ts` 11 ファイルに散在し、同じ語を最大 6 箇所で別々に持っていた
+ * (docs/DESIGN.md §6 / ADR-0045)。ページ固有の文言は各ページの `*_PAGE_LABELS` に置き、
+ * 「ID が不正」「保存に失敗」のようにリソース非依存で使い回されるものだけを本 namespace に集約する。
+ *
+ * 表示先は form の `form?.error` (顧客に見えるエラーバナー)。logger.* の内部ログ文言は
+ * 顧客に見えないため対象外 (SSOT 集約しない)。
+ */
+export const ADMIN_FORM_ERROR_LABELS = {
+	// ---- 識別子 ----
+	idRequired: 'IDが必要です',
+	idInvalid: 'IDが不正です',
+	presetIdRequired: 'プリセットIDが必要です',
+	presetNotFound: 'プリセットが見つかりません',
+	presetNotFoundNamed: (presetId: string) => `プリセット「${presetId}」が見つかりません`,
+	presetNotSpecified: 'プリセットが指定されていません',
+	packIdRequired: 'パックIDが必要です',
+	packNotFound: 'パックが見つかりません',
+	templateIdInvalid: 'テンプレートIDが不正です',
+	itemIdInvalid: 'アイテムIDが不正です',
+	// ---- 入力必須 ----
+	nameRequired: '名前を入力してください',
+	itemNameRequired: 'アイテム名を入力してください',
+	itemInvalid: 'アイテムが不正です',
+	categoryRequired: 'カテゴリを選択してください',
+	dateRequired: '日付を入力してください',
+	requiredFieldsMissing: '必須項目が不足しています',
+	// ---- 子供の指定 ----
+	childRequired: 'こどもを選択してください',
+	childRequiredHonorific: `${CHILD_TERMS.honorific}を選択してください`,
+	targetChildRequired: `対象の${CHILD_TERMS.honorific}を選択してください`,
+	sameChildNotAllowed: `違う${CHILD_TERMS.honorific}を選んでください`,
+	childNotFound: 'こどもが見つかりません',
+	childNotFoundNeutral: `${CHILD_TERMS.neutral}が見つかりません`,
+	someChildrenNotFound: `指定された${CHILD_TERMS.honorific}の一部が見つかりませんでした`,
+	childrenNotFound: `指定された${CHILD_TERMS.honorific}が見つかりませんでした`,
+	noValidTargets: '有効な対象が指定されていません',
+	// ---- 保存系の失敗 ----
+	addFailed: '追加に失敗しました',
+	updateFailed: '更新に失敗しました',
+	deleteFailed: '削除に失敗しました',
+	importFailed: 'インポートに失敗しました',
+	copyFailed: 'コピーに失敗しました',
+	bulkAddFailed: '一括追加に失敗しました',
+	bulkClearFailed: '一括クリアに失敗しました',
+	fileParseFailed: 'ファイルの解析に失敗しました',
+	genericError: 'エラーが発生しました',
+} as const;
+
 export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// #3097 (EPIC #3096): 検索ラベルを SSOT 化 (旧 inline hardcoded `活動名で検索` を labels へ移管)
 	searchLabel: ACTIVITY_ADMIN_TERMS.search,
@@ -6314,6 +6495,16 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	ageFilterBypassedHint: (name: string, age: number) =>
 		`年齢フィルタ無効 (${name}${CHILD_TERMS.honorific} ${age}歳)。全 family scope activity を表示中`,
 	ageFilterReapply: '年齢フィルタを再適用',
+	// #4512: +page.svelte / +page.server.ts に直書きされていた活動固有の action 結果・
+	// validation メッセージ。リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	// copySuccess / 一括追加の成功文言は #4693 / #4694 (develop) が上で定義済みのため
+	// ここでは重複させない (後勝ちで先の定義が黙って死ぬのを避ける)。
+	activityIdInvalid: '不正な活動IDです',
+	activityNotFound: '活動が見つかりません',
+	sameChildCopyNotAllowed: `同じ${CHILD_TERMS.honorific}にはコピーできません`,
+	copySourceChildRequired: `コピー元の${CHILD_TERMS.honorific}が必要です`,
+	copyTargetChildRequired: `コピー先の${CHILD_TERMS.honorific}が必要です`,
+	noActivitiesSelectedToImport: '取り込む活動が選択されていません',
 } as const;
 
 /**
@@ -6538,7 +6729,7 @@ export const ADMIN_HOME_LABELS = {
 	summaryChildrenLabel: ADMIN_HOME_TERMS.childrenCountCard,
 	summaryPointsAria: '全ポイント合計',
 	summaryPointsTotalPrefix: ADMIN_HOME_TERMS.totalCard,
-	monthLabel: (year: string, month: string) => `${year}年${month}月`,
+	monthLabel: (year: string, month: string) => formatYearMonth(year, month),
 	monthlyHeadingPrefix: '📊 ',
 	monthlyHeadingSuffix: ADMIN_HOME_TERMS.monthlySuffix,
 	monthlyDetailsLink: ADMIN_HOME_TERMS.monthlyDetailsLink,
@@ -6719,12 +6910,28 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
 	themeColorLabel: 'テーマカラー',
-	addButton: '追加する',
-	ageLabel: '年齢',
-	ageLabelAutoCalc: '年齢（誕生日から自動計算）',
+	addButton: CHILD_ADMIN_TERMS.addButton,
+	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
 	agePlaceholder: '4',
 	birthdayOrAgeRequired: '誕生日または年齢を入力してください',
 	ageRange: '0〜18で入力してください',
+	// #4512: +page.svelte / +page.server.ts に直書きされていた子供管理固有の文言。
+	// リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	nicknamePlaceholder: '例: たろうくん',
+	nicknameRequired: 'ニックネームを入力してください',
+	birthdayFormatInvalid: '誕生日の形式が正しくありません（YYYY-MM-DD）',
+	birthdayFutureNotAllowed: '未来の日付は設定できません',
+	statusValueRange: '値は0〜100000の範囲で入力してください',
+	birthdayMultiplierRange: '倍率は0.5〜3.0の範囲で設定してください',
+	// おうえんボイス (uploadVoice action)
+	voiceLabelRequired: 'ラベルを入力してください',
+	voiceFileRequired: '音声ファイルを選択してください',
+	voiceErrorInvalidFile: 'ファイルが不正です',
+	voiceErrorFileTooLarge: '5MB以下にしてください',
+	voiceErrorUnsupportedType: 'MP3/M4A/WAV/WebM/OGG形式のみ',
+	voiceErrorTooMany: '10件まで登録可能です',
 } as const;
 
 // #2362 PR-7 (ADR-0055、User §6): per-child challenge instance + 兄弟連動 UI
@@ -6757,6 +6964,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	deleteConfirmTitle: 'このチャレンジを削除しますか？',
 	deleteConfirmBody: (challengeTitle: string, childName: string) =>
 		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
+	// #4512: 家族ストリークの今日の記録状況 (旧: +page.svelte の三項演算子内直書き) は
+	// #4671 F8 が同一文言を CHALLENGES_LABELS.familyStreakRecordedToday / .familyStreakNoneToday
+	// として先に集約済みのため、merge 時に重複定義を削除しそちらに寄せた。
+	// #4512: 兄弟 instance がある場合の削除ボタンラベル (旧: 直書きの ` を削除`)
+	deleteChildButton: (childName: string) => `${childName} を削除`,
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
@@ -7184,7 +7396,7 @@ const CHILD_CHECKLIST_KANJI: ChildChecklistTextVariant = {
 	completeTitle: '全部できた！',
 	completeMsg: '忘れ物なし！すごい！',
 	completeButton: 'やったね！',
-	dayNames: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+	dayNames: [...WEEKDAY_NAMES_SUNDAY_FIRST],
 	timeSlotLabels: {
 		morning: '朝',
 		afternoon: '昼',
@@ -7353,6 +7565,14 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// 本 namespace は resource 名だけを持つ (restoreResourceNoun と同型)。
 	copyResourceNoun: 'チェックリスト',
 	copyFailed: '取り込みに失敗しました',
+	// #4512: +page.server.ts に直書きされていたチェックリスト固有の validation / 結果文言。
+	// リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	timeSlotInvalid: '時間帯が不正です',
+	overrideIdInvalid: 'オーバーライドIDが不正です',
+	templateNameRequired: 'テンプレート名が必要です',
+	distributionSyncFailed: '配信先の同期に失敗しました',
+	copyAlreadyDistributedNote: (count: number) => `（${count} 件はすでに配信済みでした）`,
+	restoreFallbackName: '復元したチェックリスト',
 } as const;
 
 // ============================================================
@@ -7719,7 +7939,9 @@ export const LP_PRICING_LABELS = {
 	familyPatternSharedTitle: '親アカウント共用型',
 	familyPatternSharedDesc:
 		'親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。',
-	familyPatternInviteTag: 'スタンダード以上',
+	// #4512: PLAN_GATE_LABELS.standardOrAboveBadge と同値。LP 生成 (generate-lp-labels) は
+	// namespace 跨ぎの参照を解決できないため、ここは atom を直接 template literal で参照する。
+	familyPatternInviteTag: `${PLAN_TERMS.standard}以上`,
 	familyPatternInviteTitle: '個別アカウント＋招待リンク型',
 	familyPatternInviteDesc: `家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。${PLAN_TERMS.standard}はご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}まで（オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで）、${PLAN_TERMS.premium}は無制限で招待できます。`,
 
@@ -8631,7 +8853,7 @@ export const UI_COMPONENTS_LABELS = {
 	googleSignInLabel: 'Google でログイン',
 
 	// ---- Header ----
-	headerPremiumTitle: 'スタンダード以上',
+	headerPremiumTitle: PLAN_GATE_LABELS.standardOrAboveBadge,
 	headerHelpAriaLabel: 'つかいかたガイド',
 	/* #4645: ボタンの可視テキストは「<たまった数>/<全体>」。aria-label がそれを含まないと
 	   音声操作 (「『スタンプカードを見る』をクリック」) と画面上の文字が一致せず、
@@ -11224,6 +11446,8 @@ export const UNRESOLVED_ENTITY_LABELS = {
 	child: `不明な${CHILD_TERMS.honorific}`,
 	/** カテゴリ定義から引けなかったカテゴリの表示名 */
 	category: '不明なカテゴリ',
+	/** 認証基盤から email を解決できなかったメンバーの表示 (#4512) */
+	email: '(不明)',
 } as const;
 
 // #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。
