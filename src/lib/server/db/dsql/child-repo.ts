@@ -162,7 +162,11 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 			// (birth_date_estimated=true)。規約は domain SSOT (child-age.ts)。
 			const birth = resolveBirthDateForInsert(input);
 			// 年齢既定と異なる明示 uiMode は手動 override として保存する (compute-on-read で消さない)。
-			const manual = isExplicitUiModeOverride(input.age, input.uiMode);
+			// #4718 (QM): 復元 (backup restore) は保存済みの手動フラグをそのまま渡す。
+			// 導出すると「保存時の uiMode ≠ 復元時の年齢から導く既定」を手動指定と誤認し、
+			// 年齢帯の自動遷移が固定される。省略時は従来どおり導出する。
+			const manual =
+				input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0);
 			const result = await db.execute(sql`
 				INSERT INTO children (family_id, nickname, birth_date, birth_date_estimated, theme, ui_mode, ui_mode_manually_set)
 				VALUES (${tenantId}, ${input.nickname}, ${birth.birthDate}, ${birth.birthDateEstimated},

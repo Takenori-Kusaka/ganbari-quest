@@ -124,6 +124,8 @@ export async function insertChild(
 		theme?: string;
 		uiMode?: string;
 		birthDate?: string;
+		/** #4718 (QM): 復元専用。省略時は age / uiMode から導出する。 */
+		uiModeManuallySet?: number;
 	},
 	_tenantId: string,
 ) {
@@ -136,7 +138,11 @@ export async function insertChild(
 			age: input.age,
 			theme: input.theme ?? 'pink',
 			uiMode: input.uiMode ?? getDefaultUiMode(input.age),
-			uiModeManuallySet: isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0,
+			// #4718 (QM): 復元 (backup restore) は保存済みの手動フラグをそのまま渡す。
+			// 導出すると「保存時の uiMode ≠ 復元時の年齢から導く既定」を手動指定と誤認し、
+			// 年齢帯の自動遷移が固定される。省略時は従来どおり導出する。
+			uiModeManuallySet:
+				input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0),
 			birthDate: birth.birthDate,
 			birthDateEstimated: birth.birthDateEstimated ? 1 : 0,
 			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,

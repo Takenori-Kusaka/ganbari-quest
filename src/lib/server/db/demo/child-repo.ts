@@ -33,7 +33,9 @@ export async function insertChild(input: InsertChildInput, _tenantId: string): P
 		birthDate: input.birthDate ?? null,
 		theme: input.theme ?? 'blue',
 		uiMode,
-		uiModeManuallySet: isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0,
+		// #4718 (QM): 復元は保存済みの手動フラグをそのまま渡す (導出すると誤認する)。
+		uiModeManuallySet:
+			input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0),
 		avatarUrl: null,
 		displayConfig: null,
 		userId: null,

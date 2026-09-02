@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { calculateAgeFromBirthDate, todayDateJST } from '$lib/domain/date-utils';
+import { childAgeFromBirthDate } from '$lib/domain/child-age';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
@@ -38,7 +39,10 @@ export const actions: Actions = {
 		}
 
 		// 誕生日があれば年齢は誕生日から自動計算 (入力欄は disabled で送信されない)。
-		const age = birthDate ? calculateAgeFromBirthDate(birthDate) : Number(ageStr);
+		// #4718 (QM): 丸めは domain SSOT (childAgeFromBirthDate) に委譲する。生値のままだと
+		// 19 歳以上になる誕生日で「年齢は 0〜18 で入力してください」と返るのに、その年齢欄は
+		// disabled で直せない = 初回セットアップの行き止まりになる (admin 側は元から丸めていた)。
+		const age = birthDate ? childAgeFromBirthDate(birthDate) : Number(ageStr);
 		if (Number.isNaN(age) || age < 0 || age > 18) {
 			return fail(400, { error: SETUP_CHILDREN_LABELS.errorAgeRange });
 		}

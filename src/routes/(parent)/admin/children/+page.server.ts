@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
+import { childAgeFromBirthDate } from '$lib/domain/child-age';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
@@ -33,11 +33,12 @@ import {
 } from '$lib/server/services/voice-service';
 import type { Actions, PageServerLoad } from './$types';
 
-// 年齢計算は date-utils の SSOT (calculateAgeFromBirthDate) に委譲する (#4015)。
+// 年齢計算は domain SSOT (childAgeFromBirthDate) に委譲する (#4015 / #4718)。
 // 旧実装は `new Date()` のローカル TZ getter で「今日」を決めており、Lambda (UTC) では
-// JST 00:00〜09:00 に誕生日当日の年齢が 1 歳ずれていた。
+// JST 00:00〜09:00 に誕生日当日の年齢が 1 歳ずれていた。上限での丸めも同 SSOT が持つ
+// (setup 側だけ丸めが無く、直せない欄を指すエラーを返していた、#4718 QM)。
 function calculateAge(birthDate: string): number {
-	return Math.min(18, calculateAgeFromBirthDate(birthDate));
+	return childAgeFromBirthDate(birthDate);
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定

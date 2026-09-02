@@ -75,19 +75,15 @@ export function resolveBirthDateForUpdate(
 		if (input.age !== undefined) {
 			return { birthDate: estimateBirthDateFromAge(input.age, today), birthDateEstimated: true };
 		}
-		// #4718 (QM): 誕生日欄を空にしたら **保存値も実際に消す**。
+		// 誕生日欄だけを空にして保存した場合 (年齢欄も空 / 不正で age が来ないケース)。
 		//
-		// 旧実装は `{ birthDateEstimated: true }` だけを返し `birth_date` を残していた。
-		// `publicBirthDate` が estimated=true を null で返すため保護者の画面からは消えたように
-		// 見えるが、実際の生年月日 (月日まで) は DB に残り続け、年齢導出にも使われ続ける。
-		// 「消したのに消えていない」ものが**子供の生年月日**なので、これは残せない。
-		//
-		// ただし単純に null にすると pg 系 backend では年齢ソースが消えて 0 歳に戻る
-		// (本 Issue が直している症状そのもの)。**消す前の値から年齢だけを引き継ぎ**、
-		// 1 月 1 日に丸めた推定誕生日に置き換える。月日は失われ、年齢は保たれる。
-		if (!current.birthDate) return {};
-		const carriedAge = calculateAgeFromBirthDate(current.birthDate, today);
-		return { birthDate: estimateBirthDateFromAge(carriedAge, today), birthDateEstimated: true };
+		// **保存値は消さず「推定扱いへの降格」に留める**。`publicBirthDate` が
+		// estimated=true を null で返すため、画面・export・誕生日ボーナスの対象からは外れる。
+		// 月日を実際に破棄すると、誤って空にした保護者が再入力するまで復旧できない
+		// (再入力を促す導線も無い)。一方で「保存値が残ること」自体を消去要求と読むかは
+		// プロダクト判断なので、QM #4729 レビューで PO 判断事項として起票した。
+		// ここでは既存契約 (降格) を維持する。
+		return current.birthDate ? { birthDateEstimated: true } : {};
 	}
 	if (input.age === undefined) return {};
 	if (current.birthDate && !current.birthDateEstimated) return {};
@@ -113,4 +109,23 @@ export function publicBirthDate(row: {
 }): string | null {
 	if (!row.birthDate || row.birthDateEstimated) return null;
 	return row.birthDate;
+}
+
+/**
+ * アプリの対象年齢の上限 (ADR-0011: コアターゲット 3〜18 歳、0〜2 歳は親の準備モード)。
+ * 誕生日から導出した年齢はここで丸める。
+ */
+export const CHILD_AGE_MAX = 18;
+
+/**
+ * 誕生日から**登録に使う年齢**を導く (#4718 QM)。
+ *
+ * `calculateAgeFromBirthDate` の生値ではなく {@link CHILD_AGE_MAX} で丸める。
+ * 丸めないと、19 歳以上になる誕生日を入れた保護者に「年齢は 0〜18 で入力してください」と返るが、
+ * **その年齢欄は誕生日を入れた時点で disabled になっていて直せない** (初回セットアップの行き止まり)。
+ * admin 側 (`admin/children/+page.server.ts`) は元から丸めており、setup 側だけが生値を見ていた。
+ * 両者が同じ規則を使うよう、丸めをここ 1 箇所に閉じる。
+ */
+export function childAgeFromBirthDate(birthDate: string, today: string = todayDateJST()): number {
+	return Math.min(CHILD_AGE_MAX, calculateAgeFromBirthDate(birthDate, today));
 }
