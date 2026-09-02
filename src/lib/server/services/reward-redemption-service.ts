@@ -218,7 +218,7 @@ async function classifyDuplicate(
  * (実際に「記録 > 交換」タブがこの状態だった、#4818)。履歴ではない用途で意図的に絞らない
  * ときは `NO_RETENTION_FILTER` を明示的に渡す。
  *
- * `requestedAt` は **epoch 秒** (書き込みは L129 の `Math.floor(Date.now() / 1000)`) なので、
+ * `requestedAt` は **epoch 秒** (`insertRedemptionRequest` に渡す値が `Math.floor(Date.now() / 1000)`) なので、
  * `jstDateOfEpochSeconds` で JST 暦日へ直す。`new Date(秒)` は ms 解釈で 1970-01-xx になり、
  * cutoff 比較で全件が古い判定 = 履歴が丸ごと消える。UTC 日付のまま
  * 比較すると JST 00:00〜09:00 の申請が 1 日前扱いになり、cutoff 当日分が落ちる (#4015 同 class)。
