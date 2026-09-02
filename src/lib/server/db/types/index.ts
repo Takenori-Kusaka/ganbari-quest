@@ -450,6 +450,15 @@ export interface InsertChildInput {
 	theme?: string;
 	uiMode?: string;
 	birthDate?: string;
+	/**
+	 * #4718 (QM): 年齢帯を保護者が手動で選んだか。**復元 (backup restore) 専用**。
+	 *
+	 * 省略時は従来どおり `isExplicitUiModeOverride(age, uiMode)` で導出する。
+	 * 復元だけは導出してはいけない — 復元側は `uiMode` を常に明示で渡すため、
+	 * 保存時の uiMode と復元時の年齢から導く既定がずれた瞬間に「手動指定」と誤認され、
+	 * 年齢帯の自動遷移 (docs/DESIGN.md §8) が二度と働かなくなる。
+	 */
+	uiModeManuallySet?: number;
 }
 
 export interface UpdateChildInput {

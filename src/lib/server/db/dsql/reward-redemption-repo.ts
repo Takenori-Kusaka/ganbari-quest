@@ -23,6 +23,7 @@ import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-rewa
 import {
 	type IRewardRedemptionRepo,
 	REDEMPTION_DEDUP_WINDOW_SEC,
+	REDEMPTION_EXPIRE_AFTER_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
 } from '../interfaces/reward-redemption-repo.interface';
@@ -113,7 +114,12 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 	/** status / statuses / childId filter を組み立てる (findByTenant / countByTenant 共有)。 */
 	const tenantConditions = (
 		tenantId: string,
-		opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
+		opts?: {
+			status?: string;
+			statuses?: readonly string[];
+			childId?: ChildId;
+			requestedBeforeEpoch?: number;
+		},
 	): ReturnType<typeof sql> => {
 		let where = sql`rr.family_id = ${tenantId}`;
 		if (opts?.status) where = sql`${where} AND rr.status = ${opts.status}`;
@@ -123,6 +129,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			where = sql`${where} AND rr.status IN (${sql.join(list, sql`, `)})`;
 		}
 		if (opts?.childId) where = sql`${where} AND rr.child_id = ${opts.childId}`;
+		// #4682: 失効 cron の dry-run が expireOldRedemptions と同じ母集団を数えるための期間条件。
+		if (opts?.requestedBeforeEpoch !== undefined) {
+			where = sql`${where} AND rr.requested_at < ${epochToIso(opts.requestedBeforeEpoch)}::timestamptz`;
+		}
 		return where;
 	};
 
@@ -337,15 +347,26 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
 		// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
+		async findPendingRewardIdsByTenant(tenantId) {
+			// #4682: 一覧 (表示用 LIMIT つき) の map から種別抽出すると、申請が LIMIT を超えた時点で
+			// 「処理待ちのごほうび」が抜け落ちる。DISTINCT を DB 側で取り、LIMIT を掛けない。
+			const result = await db.execute(sql`
+				SELECT DISTINCT reward_id FROM reward_redemption_requests
+				WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
+			`);
+			return (result.rows as unknown as { reward_id: string }[]).map((r) => String(r.reward_id));
+		},
+
 		async expireOldRedemptions(tenantId) {
 			// 30 日超 pending → expired。timestamptz 比較で now() - interval を使う (§11.3)。
+			// 経過秒は REDEMPTION_EXPIRE_AFTER_SEC が SSOT (dry-run の集計条件と同じ値を見る)。
 			// #3625: affected 件数は CTE で DB 側 count 集約し、更新全行を client に materialize しない
 			// (tenant 全体走査で大量 pending を expire しうる)。
 			const result = await db.execute(sql`
 				WITH updated AS (
 					UPDATE reward_redemption_requests SET status = 'expired'
 					WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
-						AND requested_at < now() - interval '30 days'
+						AND requested_at < now() - (${REDEMPTION_EXPIRE_AFTER_SEC} * interval '1 second')
 					RETURNING 1
 				)
 				SELECT count(*)::int AS c FROM updated

@@ -32,7 +32,10 @@ import {
 } from '$lib/server/services/child-reward-copy-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { type PlanTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
+import {
+	countPendingRedemptionsForParent,
+	getPendingRewardIdsForParent,
+} from '$lib/server/services/reward-redemption-service';
 import {
 	addReward,
 	deleteReward,
@@ -126,18 +129,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// #2268: 申請承認画面は /admin/rewards/requests に分離 (子#3)。
 	// 本画面は pending 件数のみ取得し、overflow menu のバッジに使用する。
-	const pendingRequests = await getRedemptionRequestsForParent(tenantId, {
-		status: 'pending_parent_approval',
-	});
+	//
+	// #4682: 旧実装は表示用一覧 (`getRedemptionRequestsForParent`、既定 limit 50) を取り、
+	// その `.length` をバッジ件数、`.map(r => r.rewardId)` を種別抽出に流用していた。
+	// 申請が 51 件以上になるとバッジが 50 で飽和し、処理待ちのごほうびも抜け落ちるため、
+	// 件数は COUNT、種別は DISTINCT クエリで取る (一覧の limit を集計に流用しない)。
+	//
+	// #2832 AC2: pendingRewardIds は編集 dialog の「申請時点の内容で処理」note +
+	// 削除前の処理待ちバッジ表示に使う。
+	const [pendingRequestsCount, pendingRewardIds] = await Promise.all([
+		countPendingRedemptionsForParent(tenantId),
+		getPendingRewardIdsForParent(tenantId),
+	]);
 
 	// #2558 段階2 横展開: 旧 in-page marketplace browse UI で参照していた `rewardSets` /
 	// `presetGroups` は、marketplace への画面遷移統一に伴い load 出力から削除。
 	// 取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
 	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
-
-	// #2832 AC2: pending redemption が存在する reward の集合。
-	// 編集 dialog の「申請時点の内容で処理」note + 削除前の処理待ちバッジ表示に使う。
-	const pendingRewardIds = [...new Set(pendingRequests.map((r) => r.rewardId))];
 
 	return {
 		// #4705: 無料プランで取込 CTA から着地したことを画面に伝える (dialog は開かない)
@@ -148,7 +156,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		templates,
 		isPremium,
 		planTier: tier,
-		pendingRequestsCount: pendingRequests.length,
+		pendingRequestsCount,
 		pendingRewardIds,
 		importPresetId,
 		// #2775: rule-preset (exchange) も `?import=` で受領可能化 — typeCode を svelte に伝達して

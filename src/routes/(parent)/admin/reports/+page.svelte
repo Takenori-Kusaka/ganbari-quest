@@ -4,7 +4,7 @@ import { goto } from '$app/navigation';
 import { CATEGORIES, toCategoryCode } from '$lib/domain/categories';
 import { shiftMonthKey } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatYearMonth, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';
 import SiblingTrendChart from '$lib/ui/components/SiblingTrendChart.svelte';
@@ -16,15 +16,7 @@ let { data, form } = $props();
 type TabId = 'monthly' | 'weekly';
 let activeTab = $state<TabId>('monthly');
 
-const dayLabels: Record<string, string> = {
-	monday: '月曜日',
-	tuesday: '火曜日',
-	wednesday: '水曜日',
-	thursday: '木曜日',
-	friday: '金曜日',
-	saturday: '土曜日',
-	sunday: '日曜日',
-};
+const dayLabels: Record<string, string> = REPORTS_LABELS.weeklySettingsDayNames;
 
 function formatWeek(start: string, end: string): string {
 	return `${start.replace(/-/g, '/')} 〜 ${end.replace(/-/g, '/')}`;
@@ -41,7 +33,7 @@ function progressPct(xp: number, level: number): number {
 
 function formatMonth(ym: string): string {
 	const [y, m] = ym.split('-');
-	return `${y}年${Number(m)}月`;
+	return formatYearMonth(y ?? '', m ?? '');
 }
 
 function navigateMonth(offset: number) {

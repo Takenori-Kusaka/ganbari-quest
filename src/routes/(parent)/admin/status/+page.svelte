@@ -4,7 +4,7 @@ import { invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatAge, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
 	ANALYSIS_DEVIATION_HIGH,
@@ -375,7 +375,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
-					{age + '歳'}
+					{formatAge(age)}
 				</Button>
 			{/each}
 		</div>

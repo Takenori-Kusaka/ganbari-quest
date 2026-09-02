@@ -25,6 +25,9 @@ export const children = sqliteTable('children', {
 	nickname: text('nickname').notNull(),
 	age: integer('age').notNull(),
 	birthDate: text('birth_date'),
+	// #4718: 年齢だけで登録した子供は推定誕生日 (今年−年齢 の 1/1) を保存し、
+	// birth_date_estimated=1 で実誕生日と区別する (規約 SSOT: $lib/domain/child-age.ts)。
+	birthDateEstimated: integer('birth_date_estimated').notNull().default(0),
 	theme: text('theme').notNull().default('pink'),
 	uiMode: text('ui_mode').notNull().default('preschool'),
 	uiModeManuallySet: integer('ui_mode_manually_set').notNull().default(0),

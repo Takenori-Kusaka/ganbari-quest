@@ -308,6 +308,17 @@ export interface ExportChild {
 	 * 新 childId へ再マップするために用いる (v1.3.0+、省略時は静的ファイル再配置スキップ)。
 	 */
 	sourceChildId?: ChildId;
+	/**
+	 * #4718 (QM): 年齢帯を保護者が手動で選んだか。
+	 *
+	 * 復元側は `uiMode` を常に明示で渡すため、`isExplicitUiModeOverride(age, uiMode)` が
+	 * 「保存時の uiMode ≠ 復元時の年齢から導く既定」を **手動指定**と誤認する。
+	 * 推定誕生日は 1/1 に +1 されるので、年をまたいだ復元で普通に起きる。
+	 * 誤認すると `recalcUiMode` が固定され、**年齢帯の自動遷移 (docs/DESIGN.md §8) が
+	 * 二度と働かない**（UI 上の印も解除導線も無い）。手動かどうかは推測せず round-trip する。
+	 * optional なのは旧 backup 後方互換 — 未指定は従来どおり導出に落ちる。
+	 */
+	uiModeManuallySet?: number;
 }
 
 // ============================================================
