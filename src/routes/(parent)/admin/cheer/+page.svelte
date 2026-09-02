@@ -1,5 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
+import { CATEGORIES } from '$lib/domain/categories';
 import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import type { ChildId } from '$lib/domain/ids';
@@ -29,7 +31,7 @@ $effect(() => {
 
 let reason = $state('');
 let points = $state<number>(CHEER_POINTS.default);
-let category = $state<string>('うんどう');
+let category = $state<string>(CATEGORIES.undou.name);
 let icon = $state('🎉');
 let stampCode = $state('');
 let body = $state('');
@@ -54,7 +56,7 @@ const categoryOptions = $derived(data.categories.map((c) => ({ value: c, label: 
 function resetForm() {
 	reason = '';
 	points = 50;
-	category = 'うんどう';
+	category = CATEGORIES.undou.name;
 	icon = '🎉';
 	stampCode = '';
 	body = '';
@@ -171,7 +173,7 @@ $effect(() => {
 						name="reason"
 						maxlength={data.reasonMaxLength}
 						placeholder={CHEER_LABELS.reasonPlaceholder}
-						hint="{reasonLength}/{data.reasonMaxLength}（あと{reasonRemaining}文字）"
+						hint={CHEER_LABELS.reasonCounterHint(reasonLength, data.reasonMaxLength, reasonRemaining)}
 						bind:value={reason}
 					/>
 				</Card>

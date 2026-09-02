@@ -8,6 +8,9 @@
 //   - local モードでは authMode!='cognito' によりセクション非表示なので env-skip 注釈
 
 import { expect, test } from '@playwright/test';
+// #4512: データクリア / 退会の合言葉は labels.ts の SSOT を参照する (画面側と同じ定数を
+// 見ることで、合言葉変更時に E2E が古い literal のまま追随しない事故を防ぐ)。
+import { SETTINGS_LABELS } from '../../src/lib/domain/labels';
 
 test.describe('#2319 Danger Zone — data clear (/admin/settings/data)', () => {
 	test('data-danger-zone が表示され、3-step 確認ガードが機能する', async ({ page }) => {
@@ -23,7 +26,7 @@ test.describe('#2319 Danger Zone — data clear (/admin/settings/data)', () => {
 		await expect(executeBtn).toBeDisabled();
 
 		// Step 1 のみ満たしても disabled (Step 2 同意 checkbox 未チェック)
-		await page.fill('#clearConfirm', '削除');
+		await page.fill('#clearConfirm', SETTINGS_LABELS.clearConfirmKeyword);
 		await expect(executeBtn).toBeDisabled();
 
 		// Step 2 のみ満たしても disabled (Step 1 確認テキスト未入力ならクリア)
@@ -32,7 +35,7 @@ test.describe('#2319 Danger Zone — data clear (/admin/settings/data)', () => {
 		await expect(executeBtn).toBeDisabled();
 
 		// Step 1 + Step 2 両方満たして初めて enabled
-		await page.fill('#clearConfirm', '削除');
+		await page.fill('#clearConfirm', SETTINGS_LABELS.clearConfirmKeyword);
 		await expect(executeBtn).toBeEnabled();
 	});
 });
@@ -80,7 +83,7 @@ test.describe('#2319 Danger Zone — accountDelete (/admin/settings/account)', (
 		await expect(executeBtn).toBeDisabled();
 
 		// Step 1: 確認テキスト入力
-		await page.fill('#deleteConfirm', 'アカウントを削除します');
+		await page.fill('#deleteConfirm', SETTINGS_LABELS.accountDeleteConfirmKeyword);
 		// Step 2 未チェックでも disabled
 		await expect(executeBtn).toBeDisabled();
 
