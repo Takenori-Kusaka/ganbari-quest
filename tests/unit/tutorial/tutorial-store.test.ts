@@ -1,11 +1,10 @@
 // tests/unit/tutorial/tutorial-store.test.ts
-// #961 QA: tutorial-store の quickMode 周辺ロジックのユニットテスト
+// #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1) 撤去後の tutorial-store の振る舞い。
 //
-// - startTutorial(1) でチャプター明示指定 → quickMode=false
-// - startTutorial() で引数なし + 親チャプター → quickMode=true
-// - startTutorial() で引数なし + 子チャプター → quickMode=false（①ガード）
-// - continueFullTutorial / finishQuickTutorial の状態遷移
-// - nextStep でクイックモード最終ステップ → showQuickComplete=true
+// 旧 spec は quickMode（親チャプター専用の「チャプター1 だけ表示して継続を提案」機構）を検証していたが、
+// 親チャプター (TUTORIAL_CHAPTERS) ごと撤去したため quickMode 自体が存在しない。
+// 撤去後に残るのは「setChapters で渡された章 (= 子供画面ガイド) を順に進める」機構のみで、
+// 本 spec はその進行 / 再開 / 終了と、**章未設定 (既定 = 空配列) では起動しても step が無い**ことを固定する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,191 +13,140 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn(async () => {}),
 }));
 
-// fetch をモック（completeTutorial / markTutorialStarted が叩く）
+// fetch をモック（completeTutorial が叩く）
 globalThis.fetch = vi.fn(async () => new Response(null, { status: 200 })) as typeof fetch;
 
 import {
-	continueFullTutorial,
 	endTutorial,
-	finishQuickTutorial,
+	getChapters,
 	getCurrentStep,
-	isQuickCompleteShown,
-	isQuickModeActive,
+	getProgress,
+	isResumePromptShown,
 	isTutorialActive,
 	nextStep,
-	resetChapters,
+	prevStep,
+	resumeTutorial,
 	setChapters,
+	startFromBeginning,
 	startTutorial,
 } from '../../../src/lib/ui/tutorial/tutorial-store.svelte';
-// テスト対象の store を読み込む。注意: state はモジュール singleton なので、
-// beforeEach で endTutorial/resetChapters を呼んでクリーンに戻す。
 import type { TutorialChapter } from '../../../src/lib/ui/tutorial/tutorial-types';
 
-// 子チャプターの最小定義（parent と別オブジェクト参照であることが重要）
-const CHILD_CHAPTERS_FIXTURE: TutorialChapter[] = [
+/** 子供画面ガイド相当の最小 fixture（2 章 3 step）。 */
+const CHAPTERS_FIXTURE: TutorialChapter[] = [
 	{
 		id: 1,
-		title: 'こどもチャプター1',
+		title: 'きろくしよう',
 		icon: '⭐',
 		steps: [
 			{
-				id: 'child-1',
+				id: 'child-record-card',
 				chapterId: 1,
 				selector: '[data-tutorial="activity-card"]',
 				title: 'かつどうカード',
-				description: 'これはかつどうカード',
-				position: 'top',
+				description: 'カードの説明',
+				position: 'bottom',
 			},
 			{
-				id: 'child-2',
+				id: 'child-record-cancel',
 				chapterId: 1,
-				selector: '[data-tutorial="record-button"]',
-				title: 'きろくボタン',
-				description: 'これはきろくボタン',
-				position: 'top',
+				title: 'とりけし',
+				description: 'とりけしの説明',
+				position: 'bottom',
 			},
 		],
 	},
 	{
 		id: 2,
-		title: 'こどもチャプター2',
-		icon: '🎯',
+		title: 'ほかの がめん',
+		icon: '📊',
 		steps: [
 			{
-				id: 'child-2-1',
+				id: 'child-nav-status',
 				chapterId: 2,
-				selector: '[data-tutorial="stamp"]',
-				title: 'スタンプ',
-				description: 'スタンプの説明',
+				selector: '[data-tutorial="nav-status"]',
+				title: 'つよさ',
+				description: 'つよさの説明',
 				position: 'top',
 			},
 		],
 	},
 ];
 
-describe('tutorial-store (#961 QA)', () => {
+describe('tutorial-store (#4654 章立て撤去後)', () => {
 	beforeEach(() => {
-		// 親チャプターにリセット、進捗クリア、localStorage クリア
 		endTutorial();
-		resetChapters();
+		setChapters(CHAPTERS_FIXTURE);
 		if (typeof localStorage !== 'undefined') {
 			localStorage.clear();
 		}
 		vi.clearAllMocks();
 	});
 
-	describe('startTutorial (quickMode 判定)', () => {
-		it('startTutorial(1) — チャプター明示指定時は quickMode=false', async () => {
-			await startTutorial(1);
-			expect(isQuickModeActive()).toBe(false);
-			expect(isTutorialActive()).toBe(true);
+	describe('章の差し替え', () => {
+		it('setChapters で渡した章が有効になる', () => {
+			expect(getChapters()).toStrictEqual(CHAPTERS_FIXTURE);
 		});
 
-		it('startTutorial() — 引数なし + 親チャプター中は quickMode=true', async () => {
-			// デフォルトで親チャプター（resetChapters 済み）
+		it('setChapters([]) で章が空になり、起動しても step が無い（親の章立てが既定で復活しない）', async () => {
+			setChapters([]);
 			await startTutorial();
-			expect(isQuickModeActive()).toBe(true);
-			expect(isTutorialActive()).toBe(true);
-		});
-
-		it('startTutorial() — 引数なし + 子チャプター中は quickMode=false（#961 QA ①ガード）', async () => {
-			// 子チャプターに切替
-			setChapters(CHILD_CHAPTERS_FIXTURE);
-			await startTutorial();
-			expect(isQuickModeActive()).toBe(false);
-			expect(isTutorialActive()).toBe(true);
-		});
-
-		it('setChapters で親チャプター以外に切替後、resetChapters で親チャプターに戻ると quickMode 判定も親側になる', async () => {
-			setChapters(CHILD_CHAPTERS_FIXTURE);
-			resetChapters();
-			await startTutorial();
-			expect(isQuickModeActive()).toBe(true);
+			expect(getChapters()).toEqual([]);
+			expect(getCurrentStep()).toBeNull();
 		});
 	});
 
-	describe('continueFullTutorial', () => {
-		it('showQuickComplete→false, quickMode→false, currentChapter=2, currentStepIndex=0', async () => {
-			// 前提: quickMode + showQuickComplete を true にするため、親チャプターで
-			// チャプター1 を最後まで進める
+	describe('進行', () => {
+		it('startTutorial() は chapter1 の先頭 step から始まる（quickMode は存在しない）', async () => {
 			await startTutorial();
-			// チャプター1 の最終ステップまで nextStep を回す
-			// TUTORIAL_CHAPTERS の chapter1 は intro-1..4 の4ステップ
-			// 最終ステップで nextStep → showQuickComplete=true になる
-			for (let i = 0; i < 4; i++) {
-				// eslint-disable-next-line no-await-in-loop
-				await nextStep();
-			}
-			expect(isQuickCompleteShown()).toBe(true);
-
-			// continueFullTutorial を呼ぶ
-			await continueFullTutorial();
-
-			expect(isQuickCompleteShown()).toBe(false);
-			expect(isQuickModeActive()).toBe(false);
-			// チャプター2 の最初のステップにいる
-			const step = getCurrentStep();
-			expect(step?.chapterId).toBe(2);
+			expect(isTutorialActive()).toBe(true);
+			expect(getCurrentStep()?.id).toBe('child-record-card');
+			expect(getProgress()).toEqual({ current: 1, total: 3 });
 		});
-	});
 
-	describe('finishQuickTutorial', () => {
-		it('showQuickComplete→false, quickMode→false, isActive→false', async () => {
+		it('nextStep で章をまたいで最後まで進み、最終 step の次で完了して非 active になる', async () => {
 			await startTutorial();
-			for (let i = 0; i < 4; i++) {
-				// eslint-disable-next-line no-await-in-loop
-				await nextStep();
-			}
-			expect(isQuickCompleteShown()).toBe(true);
-
-			await finishQuickTutorial();
-
-			expect(isQuickCompleteShown()).toBe(false);
-			expect(isQuickModeActive()).toBe(false);
+			await nextStep();
+			expect(getCurrentStep()?.id).toBe('child-record-cancel');
+			await nextStep();
+			// 章 1 の最後 → 章 2 の先頭へ（途中で完了ダイアログを挟まない）
+			expect(getCurrentStep()?.id).toBe('child-nav-status');
+			expect(getProgress()).toEqual({ current: 3, total: 3 });
+			await nextStep();
 			expect(isTutorialActive()).toBe(false);
 		});
-	});
 
-	describe('isQuickCompleteShown', () => {
-		it('初期状態は false', () => {
-			expect(isQuickCompleteShown()).toBe(false);
-		});
-
-		it('quickMode でチャプター1 最終ステップの nextStep 後に true', async () => {
+		it('prevStep で前章の最終 step に戻れる', async () => {
 			await startTutorial();
-			for (let i = 0; i < 4; i++) {
-				// eslint-disable-next-line no-await-in-loop
-				await nextStep();
-			}
-			expect(isQuickCompleteShown()).toBe(true);
+			await nextStep();
+			await nextStep();
+			expect(getCurrentStep()?.id).toBe('child-nav-status');
+			await prevStep();
+			expect(getCurrentStep()?.id).toBe('child-record-cancel');
 		});
 	});
 
-	describe('nextStep (quickMode + chapter 1 最終ステップ)', () => {
-		it('quickMode かつ chapter 1 の最後で showQuickComplete=true', async () => {
+	describe('再開', () => {
+		it('保存済み進捗があると resume prompt を出し、resumeTutorial でその step から再開する', async () => {
+			// #4651: 進捗 key は setChapters の scope 単位 (本 spec は既定 scope)
+			localStorage.setItem('tutorial-progress:default:chapter', '2');
+			localStorage.setItem('tutorial-progress:default:step', '0');
 			await startTutorial();
-			// チャプター1 の intro-1 (index 0) からスタート
-			// intro-1 → intro-2 → intro-3 → intro-4 → (最終) nextStep で showQuickComplete
-			for (let i = 0; i < 4; i++) {
-				// eslint-disable-next-line no-await-in-loop
-				await nextStep();
-			}
-			expect(isQuickCompleteShown()).toBe(true);
-			// quickMode はまだ維持されたまま（ダイアログで使う）
-			expect(isQuickModeActive()).toBe(true);
+			expect(isResumePromptShown()).toBe(true);
+			expect(isTutorialActive()).toBe(false);
+
+			await resumeTutorial();
+			expect(isTutorialActive()).toBe(true);
+			expect(getCurrentStep()?.id).toBe('child-nav-status');
 		});
 
-		it('非 quickMode（チャプター明示指定）では chapter 1 最終で chapter 2 に遷移する', async () => {
-			await startTutorial(1); // 明示指定 → quickMode=false
-			expect(isQuickModeActive()).toBe(false);
-			// 4回 nextStep で chapter2 に遷移するはず
-			for (let i = 0; i < 4; i++) {
-				// eslint-disable-next-line no-await-in-loop
-				await nextStep();
-			}
-			expect(isQuickCompleteShown()).toBe(false);
-			const step = getCurrentStep();
-			expect(step?.chapterId).toBe(2);
+		it('startFromBeginning は保存済み進捗を捨てて先頭から始める', async () => {
+			// #4651: 進捗 key は setChapters の scope 単位 (本 spec は既定 scope)
+			localStorage.setItem('tutorial-progress:default:chapter', '2');
+			localStorage.setItem('tutorial-progress:default:step', '0');
+			await startFromBeginning();
+			expect(isTutorialActive()).toBe(true);
+			expect(getCurrentStep()?.id).toBe('child-record-card');
 		});
 	});
 });

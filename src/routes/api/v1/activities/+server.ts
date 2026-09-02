@@ -3,9 +3,10 @@ import * as v from 'valibot';
 // #3740: client-facing 経路の wire source は信頼せず正準 'custom' を強制する (trust 境界分離)
 import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
 import { findChildById } from '$lib/server/db/activity-repo';
-import { apiError, validationError } from '$lib/server/errors';
+import { planLimitError, validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -53,11 +54,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 	if (!limitCheck.allowed) {
-		return apiError(
-			'PLAN_LIMIT_EXCEEDED',
-			`カスタム活動は最大${limitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
-			{ current: limitCheck.current, max: limitCheck.max },
-		);
+		return planLimitError('standard', PLAN_GATE_LABELS.activityLimitReached(limitCheck.max), {
+			current: limitCheck.current,
+			max: limitCheck.max,
+		});
 	}
 
 	// #3740: wire `source` ('seed'/'curriculum' 含む) を信頼すると quota 集計対象外の値を

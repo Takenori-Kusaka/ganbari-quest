@@ -8,8 +8,9 @@
 //   - **compute-on-read (§11.1)**: age 列は持たない。birth_date から calculateAgeFromBirthDate で
 //     導出し、ui_mode は ui_mode_manually_set=false のとき年齢から recalcUiMode で再導出する
 //     (誕生日跨ぎの tier 自動遷移。stored 値は手動 override 時のみ正)。
-//     ⚠️ birth_date NULL 行は age=0 fallback (PO B2: cutover backfill 必須が前提。新規作成は
-//     入力 age から birth_date を合成しない — 出し分けで逃げない §11.1)。
+//     #4718: 年齢だけで登録した子供は `$lib/domain/child-age.ts` の規約で推定誕生日
+//     (今年−年齢 の 1/1) を birth_date に保存し birth_date_estimated=true で印を付ける。
+//     年齢導出 (deriveChildAge) と公開 birthDate (publicBirthDate = 実誕生日のみ) は domain SSOT。
 //   - **deleteChild = 集約全削除を単一 txn** (§3「deleteChild が 11+ 表を 1 txn 削除」、DSQL は
 //     FK/CASCADE 非対応 §P4 のため repo が全表を明示 DELETE。work は inline + tx-bound await のみ
 //     = fitness#7 準拠)。invites.child_id は auth 集約のため touch しない (招待は期限切れで自然消滅)。
@@ -18,14 +19,21 @@
 //     (残高は point facade 経由、§5)。
 
 import { sql } from 'drizzle-orm';
-import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
+import {
+	deriveChildAge,
+	publicBirthDate,
+	resolveBirthDateForInsert,
+	resolveBirthDateForUpdate,
+} from '$lib/domain/child-age';
 import { asChildId } from '$lib/domain/ids';
 import {
 	getDefaultUiMode,
+	isExplicitUiModeOverride,
 	isValidUiMode,
 	recalcUiMode,
 	type UiMode,
 } from '$lib/domain/validation/age-tier';
+import { CHILD_SCOPED_TABLES } from '../child-scoped-tables';
 import type { ChildProgressResetCounts, IChildRepo } from '../interfaces/child-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
@@ -36,6 +44,7 @@ export interface ChildRow {
 	child_id: string;
 	nickname: string;
 	birth_date: string | null;
+	birth_date_estimated: boolean;
 	theme: string;
 	ui_mode: string;
 	ui_mode_manually_set: boolean;
@@ -52,7 +61,7 @@ export interface ChildRow {
 
 /** children の SELECT 列 (point/status repo の findChildById も共有、二重管理禁止)。 */
 export const CHILD_COLUMNS = sql.raw(
-	`child_id, nickname, birth_date, theme, ui_mode, ui_mode_manually_set, avatar_url,
+	`child_id, nickname, birth_date, birth_date_estimated, theme, ui_mode, ui_mode_manually_set, avatar_url,
 	 display_config, user_id, birthday_bonus_multiplier, last_birthday_bonus_year,
 	 is_archived, archived_reason, created_at, updated_at`,
 );
@@ -60,7 +69,7 @@ export const CHILD_COLUMNS = sql.raw(
 /** row → Child entity (compute-on-read: age 導出 + ui_mode 再導出、§11.1)。
  * point/status repo の findChildById からも共有する (mapping 二重実装禁止)。 */
 export function toChild(row: ChildRow): Child {
-	const age = row.birth_date ? calculateAgeFromBirthDate(row.birth_date) : 0;
+	const age = deriveChildAge({ birthDate: row.birth_date });
 	const storedUiMode: UiMode = isValidUiMode(row.ui_mode) ? row.ui_mode : 'preschool';
 	const uiMode = row.birth_date
 		? recalcUiMode(
@@ -72,7 +81,10 @@ export function toChild(row: ChildRow): Child {
 		id: asChildId(row.child_id),
 		nickname: row.nickname,
 		age,
-		birthDate: row.birth_date,
+		birthDate: publicBirthDate({
+			birthDate: row.birth_date,
+			birthDateEstimated: row.birth_date_estimated,
+		}),
 		theme: row.theme,
 		uiMode,
 		uiModeManuallySet: row.ui_mode_manually_set ? 1 : 0,
@@ -88,44 +100,32 @@ export function toChild(row: ChildRow): Child {
 	};
 }
 
-/** deleteChild で消す child 配下の表 (child_id 列を持つ全テナント表、§3 集約境界)。
- * #3584 ①: schema との網羅性突合は tests/unit/architecture/dsql-child-scoped-tables-fitness.test.ts
- * が機械保証する (新表追加時の list 未更新 = orphan 行残存を CI で検出)。export は同 fitness 用。 */
-export const CHILD_SCOPED_TABLES = [
-	'child_activities',
-	'activity_logs',
-	'point_ledger',
-	'statuses',
-	'status_history',
-	'activity_mastery',
-	'child_activity_preferences',
-	'daily_missions',
-	'login_streaks',
-	'stamp_cards',
-	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items 廃止、M3 §4.2)。
-	'checklist_logs',
-	'checklist_overrides',
-	'checklist_template_assignments',
-	'certificates',
-	// evaluations.scoresJson は text 据置 (子表 evaluation_scores 廃止、M3 §4.2)。
-	'evaluations',
-	'rest_days',
-	'daily_battles',
-	'enemy_collection',
-	'special_rewards',
-	'reward_redemption_requests',
-	'parent_messages',
-	'character_images',
-	'child_custom_voices',
-	'child_challenges',
-	'usage_logs',
-] as const;
+// deleteChild で消す child 配下の表の一覧は **`../child-scoped-tables.ts` が SSOT** (#4696:
+// sqlite と同じ一覧を共有し、backend ごとに削除対象が食い違う状態を作らない)。
+// #3584 ①: schema との網羅性突合は tests/unit/architecture/dsql-child-scoped-tables-fitness.test.ts
+// が機械保証する (新表追加時の list 未更新 = orphan 行残存を CI で検出)。
 
 /** DSQL 用 IChildRepo を生成する (db/runner は注入、fitness#8)。 */
 export function createDsqlChildRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IChildRepo {
+	const readBirth = async (
+		id: string,
+		tenantId: string,
+	): Promise<{ birthDate: string | null; birthDateEstimated: boolean } | undefined> => {
+		const result = await db.execute(sql`
+			SELECT birth_date, birth_date_estimated FROM children
+			WHERE family_id = ${tenantId} AND child_id = ${id}
+		`);
+		const row = result.rows[0] as
+			| { birth_date: string | null; birth_date_estimated: boolean }
+			| undefined;
+		return row
+			? { birthDate: row.birth_date, birthDateEstimated: row.birth_date_estimated }
+			: undefined;
+	};
+
 	const findMany = async (tenantWhere: ReturnType<typeof sql>): Promise<Child[]> => {
 		const result = await db.execute(
 			sql`SELECT ${CHILD_COLUMNS} FROM children WHERE ${tenantWhere} ORDER BY created_at, child_id`,
@@ -158,12 +158,19 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 		},
 
 		async insertChild(input, tenantId) {
-			// age は列に持たない (§11.1)。birth_date 未指定の新規行は age=0 で読める
-			// (cutover backfill / UI の生年月日入力が正、入力 age から birth_date を合成しない)。
+			// age は列に持たない (§11.1)。#4718: 誕生日未入力なら年齢から推定誕生日を合成して保存する
+			// (birth_date_estimated=true)。規約は domain SSOT (child-age.ts)。
+			const birth = resolveBirthDateForInsert(input);
+			// 年齢既定と異なる明示 uiMode は手動 override として保存する (compute-on-read で消さない)。
+			// #4718 (QM): 復元 (backup restore) は保存済みの手動フラグをそのまま渡す。
+			// 導出すると「保存時の uiMode ≠ 復元時の年齢から導く既定」を手動指定と誤認し、
+			// 年齢帯の自動遷移が固定される。省略時は従来どおり導出する。
+			const manual =
+				input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0);
 			const result = await db.execute(sql`
-				INSERT INTO children (family_id, nickname, birth_date, theme, ui_mode)
-				VALUES (${tenantId}, ${input.nickname}, ${input.birthDate ?? null},
-					${input.theme ?? 'pink'}, ${input.uiMode ?? getDefaultUiMode(input.age)})
+				INSERT INTO children (family_id, nickname, birth_date, birth_date_estimated, theme, ui_mode, ui_mode_manually_set)
+				VALUES (${tenantId}, ${input.nickname}, ${birth.birthDate}, ${birth.birthDateEstimated},
+					${input.theme ?? 'pink'}, ${input.uiMode ?? getDefaultUiMode(input.age)}, ${manual})
 				RETURNING ${CHILD_COLUMNS}
 			`);
 			return toChild(result.rows[0] as unknown as ChildRow);
@@ -177,7 +184,11 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 				warnInvalidUuidId('child-repo.updateChild');
 				return undefined;
 			}
-			const sets = buildUpdateSets(input);
+			// #4718: age / birthDate の更新は現在行の推定フラグに依存する (実誕生日は年齢入力で
+			// 上書きしない) ため、現在値を読んでから domain 規約で差分を決める。
+			const current = await readBirth(id, tenantId);
+			if (!current) return undefined;
+			const sets = buildUpdateSets(input, resolveBirthDateForUpdate(input, current));
 			if (sets.length === 0) return this.findChildById(id, tenantId);
 			const result = await db.execute(sql`
 				UPDATE children SET ${sql.join(sets, sql`, `)}, updated_at = now()
@@ -286,15 +297,21 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 	};
 }
 
-/** UpdateChildInput → SET 句 (age は列に無いため無視 = compute-on-read §11.1)。 */
-function buildUpdateSets(input: UpdateChildInput) {
+/** UpdateChildInput → SET 句 (age は列に無い = compute-on-read §11.1。birth_date / 推定フラグは
+ * domain 規約 resolveBirthDateForUpdate の差分 `birth` で書く、#4718)。 */
+function buildUpdateSets(
+	input: UpdateChildInput,
+	birth: { birthDate?: string; birthDateEstimated?: boolean },
+) {
 	const sets: ReturnType<typeof sql>[] = [];
 	if (input.nickname !== undefined) sets.push(sql`nickname = ${input.nickname}`);
 	if (input.theme !== undefined) sets.push(sql`theme = ${input.theme}`);
 	if (input.uiMode !== undefined) sets.push(sql`ui_mode = ${input.uiMode}`);
 	if (input.uiModeManuallySet !== undefined)
 		sets.push(sql`ui_mode_manually_set = ${input.uiModeManuallySet !== 0}`);
-	if (input.birthDate !== undefined) sets.push(sql`birth_date = ${input.birthDate}`);
+	if (birth.birthDate !== undefined) sets.push(sql`birth_date = ${birth.birthDate}`);
+	if (birth.birthDateEstimated !== undefined)
+		sets.push(sql`birth_date_estimated = ${birth.birthDateEstimated}`);
 	if (input.displayConfig !== undefined) sets.push(sql`display_config = ${input.displayConfig}`);
 	if (input.userId !== undefined) sets.push(sql`user_id = ${input.userId}`);
 	if (input.birthdayBonusMultiplier !== undefined)

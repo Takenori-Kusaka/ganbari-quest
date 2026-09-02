@@ -9,6 +9,7 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
+import ArchivedChildrenSection from '$lib/features/admin/components/ArchivedChildrenSection.svelte';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
@@ -79,7 +80,9 @@ const addCalculatedAge = $derived(
 		</div>
 	{/if}
 
-	<div class="children-page__toolbar" data-tutorial="children-list">
+	<!-- #4660 F1: children-list anchor は「追加する」ボタン行ではなく下のカード一覧に付ける
+	     (旧: 本 toolbar に付いており、「カードが並ぶ」という文言と光る場所が食い違っていた) -->
+	<div class="children-page__toolbar">
 		{#if !childLimit || childLimit.allowed}
 			<Button
 				variant="primary"
@@ -126,7 +129,7 @@ const addCalculatedAge = $derived(
 						id="add-nickname"
 						name="nickname"
 						required
-						placeholder="例: たろうくん"
+						placeholder={ADMIN_CHILDREN_PAGE_LABELS.nicknamePlaceholder}
 					/>
 					<BirthdayInput
 						name="birthDate"
@@ -167,7 +170,7 @@ const addCalculatedAge = $derived(
 	{/if}
 
 	<!-- Children list -->
-	<div class="children-page__list">
+	<div class="children-page__list" data-tutorial="children-list">
 		{#each data.children as child, i}
 			<ChildListCard
 				{child}
@@ -179,9 +182,13 @@ const addCalculatedAge = $derived(
 		{/each}
 	</div>
 
+	<!-- #4708: 無料プランの上限で非表示 (archive) 中のお子さま — 読み取り専用一覧 -->
+	<ArchivedChildrenSection children={data.archivedChildren} basePath="/admin" />
+
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
-		<div class="children-page__detail">
+		<!-- data-tutorial: ページガイド (#4660) の詳細カード step の spotlight anchor (未選択時は出ない) -->
+		<div class="children-page__detail" data-tutorial="child-detail">
 			{#key data.selectedChild.id}
 				<ChildProfileCard
 					child={data.selectedChild}

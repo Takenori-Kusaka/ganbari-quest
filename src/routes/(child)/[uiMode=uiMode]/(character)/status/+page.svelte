@@ -54,7 +54,7 @@ const radarCategories = $derived(
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
-		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]" data-tutorial="radar-chart">
+		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]">
 			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]" data-testid="growth-chart-heading">{CHILD_STATUS_LABELS.growthChartTitle}</h2>
 			<div class="flex justify-center">
@@ -104,6 +104,7 @@ const radarCategories = $derived(
 								value={status.value}
 								level={status.level}
 								progressPct={status.progressPct}
+								levelTitle={status.levelTitle}
 							/>
 							{#if f.showTrends}
 								<div class="flex items-center mt-1 px-1">

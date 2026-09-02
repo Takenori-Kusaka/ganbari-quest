@@ -74,6 +74,22 @@ module.exports = {
 			},
 		},
 
+		// ── #4704: DB (repo/backend) 層 ↛ service 層 ─────────────────────────
+		// 層の向きは service → db の一方向。逆向きに引くと 2 つ壊れる:
+		//   1. 循環依存 (db/factory → dsql/auth-repo → dsql/invite-accept → services/... → db/factory)
+		//   2. SvelteKit 依存の混入 — service は `$app/environment` (debug-plan 経由) を引くため、
+		//      SvelteKit の外で repo 層を読む CLI (NUC cutover 等) が `Cannot find package '$app'` で落ちる
+		// repo 層が要るのは値の表や述語であり、それらは domain leaf ($lib/domain/*) に置く。
+		{
+			name: 'db-no-services',
+			severity: 'error',
+			comment:
+				'DB (repo/backend) 層が service 層を import している。層の向きは service → db の一方向で、' +
+				'逆向きは循環依存と $app の CLI 流入を生む。共有したい値・述語は $lib/domain/ の葉に置く (#4704)。',
+			from: { path: '^src/lib/server/db/' },
+			to: { path: '^src/lib/server/services/' },
+		},
+
 		// ── AC2: route ↛ raw ORM (drizzle-orm) 直呼び ─────────────────────────
 		// CLAUDE.md「+server.ts から ORM 直呼び禁止」。ORM は service / db facade に閉じ込める。
 		{

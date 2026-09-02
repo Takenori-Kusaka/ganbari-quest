@@ -56,6 +56,16 @@ export type Identity =
 export interface AuthContext {
 	tenantId: string;
 	role: Role;
+	/**
+	 * #4643: **アプリ DB の `users.user_id`**。`Identity.userId` (IdP の sub) とは別物で、
+	 * 両者が一致することはない (users.user_id は DB 生成 UUID)。
+	 *
+	 * Cognito は同じメールでも「通常ログイン」と「Google 連携」を別 sub の別ユーザーとして
+	 * 扱う一方、アプリの `users` は `email_lower` UNIQUE で 1 メール = 1 行に統合する。
+	 * memberships / invites / children が指すのはこの id であり、sub を渡すと必ず空振りする。
+	 * cognito 系 provider のみ設定する (local / anonymous は users 行を持たない)。
+	 */
+	userId?: string;
 	childId?: ChildId;
 	licenseStatus: AuthLicenseStatus;
 	tenantStatus?: SubscriptionStatus;
@@ -87,7 +97,16 @@ export type AuthResult =
 export interface AuthProvider {
 	resolveIdentity(event: RequestEvent): Promise<Identity | null>;
 	resolveContext(event: RequestEvent, identity: Identity | null): Promise<AuthContext | null>;
-	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult;
+	/**
+	 * ルート保護。`url` は query を見たい判定 (#4701: `/auth/login?next=` のログイン済み転送先) 用の
+	 * 任意引数で、path だけで判断する実装は受け取らなくてよい。
+	 */
+	authorize(
+		path: string,
+		identity: Identity | null,
+		context: AuthContext | null,
+		url?: URL,
+	): AuthResult;
 }
 
 /**

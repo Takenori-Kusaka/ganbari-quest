@@ -184,8 +184,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 場所 | 内容 |
 |------|------|
-| `src/lib/features/tutorial/tutorial-chapters.ts` | 本番チュートリアル |
-| `src/lib/features/demo/demo-guide-state.svelte.ts` | デモガイドツアー |
+| `src/lib/ui/tutorial/tutorial-chapters-child.ts` + `getChildTutorialLabels` | 子供画面チュートリアル (親の章立て v1 は #4654 で撤去) |
+| `src/routes/**/_guide.ts` + `PAGE_GUIDE_LABELS` | 親管理画面 / marketplace の ❓ ページガイド (デモガイドツアーは #4679 で撤去済) |
 
 **同期メカニズム**:
 - **現状（別ロジック）**: UI も進行ロジックも独立
@@ -196,6 +196,21 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - ページ追加 → 両方のステップ定義更新が必要
 
 ---
+
+#### 6.4a セッションの user 識別子 2 種 (IdP の sub / アプリ DB の users.user_id) (#4643)
+
+同じ「userId」という名前で **別物**が 2 つ流れる。片方を他方の場所に渡しても例外にならず、行が見つからないだけで静かに壊れるため、触るときは必ず対で確認する。
+
+| 場所 | 内容 |
+|------|------|
+| `Identity.userId` (`src/lib/server/auth/types.ts`) | **IdP (Cognito) の sub**。同じメールでも通常ログインと Google 連携で別値になる |
+| `AuthContext.userId` (同上) | **アプリ DB の `users.user_id`** (DB 生成 UUID)。memberships / invites / children / consents が参照するのはこちら |
+| `CognitoAuthProvider.resolveMembership` | sub → アプリ user の**唯一の解決点** (email 経由。`users` は `email_lower` UNIQUE で 1 メール = 1 行) |
+| `src/lib/server/auth/context-token.ts` | `userId` を context token に載せる。旧 token (userId 無し) は採用せず発行し直す |
+| `requireAppUserId` (`src/lib/server/auth/guards.ts`) | route から `users.user_id` を取る唯一の入口 |
+| `tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts` | `src/routes` / `src/lib/server` の `identity.userId` 参照を検出する fitness function (log 用途のみ allowlist) |
+| `infra/lib/auth-stack.ts` Google IdP `attributeMapping` | `email` + `email_verified` を写す。写さないと federated ユーザーの `email_verified` が false 固定になり、email 束縛招待が Google だけ常に拒否される |
+| `normalizeEmailVerified` (`providers/cognito-jwt.ts`) | claim が boolean / 文字列どちらで載っても同じ判定にする |
 
 #### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware + reset + onboarding) (EPIC #2310 / #2353)
 
@@ -208,12 +223,15 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/api/v1/parent-gate/setup/+server.ts` (#2992) | 初回 PIN 作成 endpoint (未設定 tenant のみ、設定済へは 403 `ALREADY_CONFIGURED`。成功で verify と同じ cookie 発行) |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
+| `src/lib/server/auth/session-cookies.ts` `LOGOUT_CLEARED_COOKIE_NAMES` (#4700) | アカウントログアウト (`/auth/logout` / `/auth/signout`) で破棄する cookie 一覧 SSOT (parent session を含む)。新しいセッション系 cookie を足したらここに追加 |
 | `src/routes/api/v1/parent-gate/reset-verified/+server.ts` (#2993) | PIN reset (パスワード re-auth → setupPin + session 発行、cognito 専用) |
 | `src/routes/auth/reset-pin/+page.svelte` + `+page.server.ts` (#2993) | PIN reset 1 画面 UI (パスワード + 新 PIN、cognito identity guard) |
 | `src/lib/server/services/pin-operator-reset.ts` (#2994) | operator-level reset (`PARENT_PIN_RESET` env、冪等、local 専用)。hooks.server.ts が初回リクエストで評価 |
 | `docs/runbooks/operator-pin-reset.md` (#2994) | 形態別 reset 手順 SSOT (docker / PaaS / sqlite3 / DynamoDB + unset 手順) |
 | `src/lib/domain/labels.ts` `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
-| `src/lib/domain/terms.ts` `OYAKAGI_TERMS` / `PIN_DEFAULT_TERMS` (#2353) | atom (おやカギコード / 初期値 5086 ヒント) |
+| `src/lib/domain/terms.ts` `OYAKAGI_TERMS` (#2353 / #4698) | atom (おやカギコード / 桁数 `digits` = `PIN_LENGTH` 由来) |
+| `src/lib/domain/constants/oyakagi.ts` `PIN_LENGTH` / `PIN_PATTERN` / `isValidPinFormat` (#4661 / #4698) | 桁数と形式の SSOT。ゲート UI / 全 PIN API / 設定画面 action / reset-pin / ラベル (`OYAKAGI_TERMS.digitRange`) が import (直書きは `oyakagi-pin-length-ssot.test.ts` + `pin-length-ssot-fitness.test.ts` が検出) |
+| `src/lib/domain/constants/pin-reset-otp.ts` `PIN_RESET_OTP_LENGTH` / `PIN_RESET_OTP_PATTERN` (#4661) | 再設定メールの確認コード (6 桁) SSOT。**おやカギ本体の桁数とは別概念**なので混ぜない |
 | `src/routes/(child)/+layout.server.ts` `loadPinGateOnboardingSeen` (#2353) | onboarding dialog 表示要否 (settings.pin_gate_onboarding_seen) |
 | `src/routes/(child)/+layout.svelte` (#2353) | PIN gate 初心者導線 dialog (baby モード除外) |
 | `src/routes/api/v1/settings/pin-gate-onboarding/+server.ts` (#2353) | onboarding 既読 persist endpoint |
@@ -225,7 +243,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 新規 PO 系 endpoint で「子供モード切替時 cookie 破棄」相当ロジックが必要になった場合は `/api/v1/parent-gate/logout` を呼ぶ
 - PIN reset 方式 (cognito=パスワード再入力 / local=operator reset) の変更は 14-セキュリティ設計書.md §4.3b〜4.4 + 06-UI設計書.md §4.6.2 + `runbooks/operator-pin-reset.md` + ADR-0050 §7 と同期
 - onboarding dialog 文言変更は `PIN_GATE_ONBOARDING_LABELS` SSOT 経由 (Svelte 直書き禁止)
-- PIN 初期値 5086 ヒント (`OYAKAGI_LABELS.defaultValueHint`) は `/admin/settings/account` PIN 変更画面でのみ表示 (legacy local `changePin` の現コード照合文脈)。setup 完了画面 / onboarding dialog は初回作成フロー案内 (#2992、`pinHintSuffix` / `dialogPinHint`)、`/switch` PIN gate modal は非表示 (#2353 設計欠陥 5)。SSOT: 14-セキュリティ設計書.md §4.3「初期 PIN ヒント表示ポリシー」
+- PIN の桁数を変える場合は `PIN_LENGTH` (`constants/oyakagi.ts`) 1 箇所のみ変更し、ゲート UI / API / 設定画面 / ラベルに桁数リテラルを書かない (#4698、fitness function が検出)
+- 既定値 5086 の案内は顧客可視 UI のどこにも出さない (#4698、`DEFAULT_PIN` は legacy local 照合専用)。setup 完了画面 / onboarding dialog は初回作成フロー案内 (#2992、`pinHintSuffix` / `dialogPinHint`)、設定画面は桁数 + 忘れた場合の導線 (`forgotHint`)、`/switch` PIN gate modal はヒント無し (#2353 設計欠陥 5)。SSOT: 14-セキュリティ設計書.md §4.3「おやカギコードの桁数 SSOT」「初期 PIN ヒント表示ポリシー」
 
 ---
 
@@ -301,8 +320,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - **services**: `child-challenge-service.ts` のみ (`child-challenge-copy-service.ts` は #3195 で親手動 copyToSiblings 撤去に伴い削除、repo interface の `copyAcrossChildren` は #3213 cleanup で整理)。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
 - **routes**: `/admin/challenges` は per-child instance の閲覧 + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte)。**#3195 (EPIC #3193)**: アプリ自動生成一本化に伴い親手動作成 / 一括追加 / cross-child copy / marketplace challenge-set import を撤去し閲覧専用化、child_challenges はアプリ週次自動生成 (`sourceTemplateId='auto:weekly'`) で埋める
 - **子供画面 (#2458-B caller migration)**:
-  - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
-  - チャレンジ対象表示は `ChildChallengeWithSiblings` 型 (自身の `currentValue` / `targetValue` / `rewardClaimed` / `completed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定) を読む。#3333 で独立横長 `ChallengeBanner.svelte` を撤去し、対象は `CategorySection.svelte` ヘッダーのカード演出バッジ (`challenge-target-badge`) + インライン進捗へ統合。`SiblingCelebration.svelte` は全員完了 (`allCompleted`) の group 祝福のみを担う
+  - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key 兄弟連動情報 (`siblings[]`) を取得。**group key = `sourceTemplateId ?? 'manual'` + 内容 (title) + 期間 (start::end) の 3 点一致** (#4689)。内容を含めるのは、週次自動生成が子供ごとに別内容なのに `sourceTemplateId='auto:weekly'` を共有するため — 含めないと別内容が 1 group になり `allCompleted` が兄弟全員の達成に依存して達成した子に祝福が出ない。admin 集計 (`getChallengeGroupsForAdmin`) も同一の `resolveGroupKey` を使う
+  - チャレンジ対象表示は `ChildChallengeWithSiblings` 型 (自身の `currentValue` / `targetValue` / `rewardClaimed` / `completed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定) を読む。#3333 で独立横長 `ChallengeBanner.svelte` を撤去し、対象は `CategorySection.svelte` ヘッダーのカード演出バッジ (`challenge-target-badge`) + インライン進捗へ統合。`SiblingCelebration.svelte` は group 完了 (`allCompleted`) の祝福を担う。同内容の兄弟がいない group (= 週次自動生成の既定) では見出しを本人向け (`celebrationTitleSolo`) にし兄弟一覧を出さない (#4689)
   - `claimChallengeReward` action は `claimChildChallengeReward(challengeId, childId, tenantId)` を呼ぶ (per-child instance の `rewardClaimed` flip + 自分のみ tenant-scoped point ledger 加算)
 - **setup wizard (#2458-B)**: `/setup/challenges` は preset 選択 → `getAllChildren` で全 child 取得 → `buildPerChildTargets` で age-adjusted target 計算 → `createChildChallengesBulk` で全 child に同 spec instance を bulk insert (sourceTemplateId = `setup-preset:<presetId>` で admin 兄弟連動表示)
 - **demo**: `DEMO_CHILD_CHALLENGES` 4 件 fixture (3 件は `sourceTemplateId: 'challenge-100pt'` を共有して兄弟連動表示 demo、1 件は個別)
@@ -324,15 +343,14 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/domain/activity-pack.ts` | `ActivityPackItem.mustDefault?: boolean` 型 | TypeScript |
 | `src/lib/domain/marketplace-item.ts` | `ActivityPackPayload.activities[].mustDefault?` 型 | TypeScript |
 | `src/lib/server/services/activity-import-service.ts` | `ImportActivitiesOptions.applyMustDefault` で `priority='must'` 制御 | TypeScript |
-| `src/routes/(parent)/admin/packs/+page.{svelte,server.ts}` | チェックボックス + must Badge + form action 受信 | Svelte / TS |
 | `src/routes/setup/packs/+page.{svelte,server.ts}` | setup フローのチェックボックス + must Badge | Svelte / TS |
-| `src/lib/domain/labels.ts` | `PACKS_PAGE_LABELS.mustDefault*` / `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
+| `src/lib/domain/labels.ts` | `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
 
-**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/setup-marketplace-must.spec.ts` (3 シナリオ) で検証。
+**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/admin-activities-import-marketplace.spec.ts` (marketplace → `?import=` → ChildSelectionDialog の正規経路) で検証。
 
 **修正時チェック**:
 - 新しい mustDefault 候補を JSON に追加 → import-service テストで該当パターンが網羅されているか確認
-- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（admin と setup 両方）
+- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（setup / ChildSelectionDialog）
 - `priority` enum を拡張するなら `activities.priority` schema (#1755) と整合チェック
 
 #### 7c. checklist 系 marketplace の純化 (#1758)
@@ -568,7 +586,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 何を記録するか | 媒体 | 実体 | 例 |
 |---|---|---|---|
-| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
+| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
 | 子 / テナントに 1 本の一時的な未読告知 | **B: settings KV**（列追加は不可逆なので避ける） | `settings` テーブル + `export-format.ts` の分類 3 配列 | `habit_certificate_notice:<childId>` / `ui_mode_change_notice:<childId>` / `premium_welcome_shown` ほか |
 | 端末ローカルで十分な UI ガイド（機種変で再表示されてよい） | C: localStorage | 各コンポーネント / store | `ganbari-page-guide-completed` / `gq:milestone-seen:*` |
 
@@ -631,18 +649,18 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
 
-- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
+- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
 - [ ] **本番画面** → **#2097 PR-B3 #2188 完了で `src/routes/demo/` 並行実装は 0 file**。本番 routes のみが SSOT (demo Lambda は env 駆動で本番 routes を直接 host、ADR-0048)。新規 `src/routes/demo/` の追加は禁止
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
-- [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
+- [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（旧 `check-lp-ssot.mjs` は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
-- [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
+- [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
 - [ ] **route 分割 / rename / `data-testid` 移動** (#2410) → `scripts/capture-hp-screenshots.mjs` の `HERO_CAROUSEL_SCREENSHOTS` / `FEATURE_SCREENSHOTS` / `GROWTH_STAGE_SCREENSHOTS` / `AGE_SCREENSHOTS` 全 4 配列の `url:` と `scrollTo:` selector を grep し、移動先 URL に同期する。`docs/design/asset-catalog.md` §「LP スクショ」表 + `tests/e2e/lp-screenshot-baseline/README.md` の撮影元 URL 列も同期。同期漏れ実例: #2319 で `/admin/settings` 分割した際 capture script の URL 未更新で 19 連続 deploy fail (`feature-auto-sleep` の `[data-testid="settings-decay-section"]` が空 wrapper 経由で 10s timeout)
 

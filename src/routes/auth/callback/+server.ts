@@ -2,6 +2,9 @@
 // Authorization Code を受け取り、トークン交換して Cookie にセット
 
 import { redirect } from '@sveltejs/kit';
+import { OAUTH_NEXT_COOKIE_NAME, resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
+import { getAuthProvider } from '$lib/server/auth/factory';
+import { resolvePostLoginLanding } from '$lib/server/auth/post-login-landing';
 import {
 	exchangeCodeForTokens,
 	setIdentityCookie,
@@ -11,7 +14,8 @@ import {
 import { logger } from '$lib/server/logger';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async (event) => {
+	const { url, cookies } = event;
 	const code = url.searchParams.get('code');
 	const state = url.searchParams.get('state');
 	const error = url.searchParams.get('error');
@@ -49,14 +53,15 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			setRefreshCookie(cookies, tokens.refreshToken);
 		}
 
-		// #3025: 「Google で本人確認」(PIN reset 等) から来た場合は oauth_next cookie の
-		// 内部 path へ戻す (open redirect 防止: "//" と "/\" の両方を拒否する。
-		// ブラウザは Location の "\" を "/" に正規化するため "/\evil.com" も外部遷移し得る)
-		const next = cookies.get('oauth_next');
+		// #3025 / #4701: 「Google で本人確認」(PIN reset 等) や login 画面の `?next=` から来た場合は
+		// oauth_next cookie の内部 path へ戻す (open redirect 防止の検証は login-redirect.ts SSOT:
+		// "//" と "/\" を拒否。ブラウザは Location の "\" を "/" に正規化するため "/\evil.com" も外部遷移し得る)
+		const next = cookies.get(OAUTH_NEXT_COOKIE_NAME);
 		if (next) {
-			cookies.delete('oauth_next', { path: '/' });
-			if (/^\/(?![/\\])/.test(next)) {
-				successPath = next;
+			cookies.delete(OAUTH_NEXT_COOKIE_NAME, { path: '/' });
+			const safe = resolveSafeNextPath(next);
+			if (safe) {
+				successPath = safe;
 			}
 		}
 	} catch (e) {
@@ -66,6 +71,14 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		redirect(302, '/auth/login?error=token_exchange_failed');
 	}
 
+	// #4641: 子供ロールは /admin に入れないため、着地先をロールで決める。
+	// oauth_next (「Google で本人確認」からの復帰先) は親向け画面なので子供には適用しない。
+	// 直前に積んだ identity cookie から所属を解決する (失敗したら従来どおりの着地先へ)
+	const identity = await getAuthProvider().resolveIdentity(event);
+	const landing = identity
+		? await resolvePostLoginLanding(event, identity, successPath)
+		: successPath;
+
 	// 認証成功 → ご家族の見守り画面 or oauth_next（resolveContext で自動的にテナント選択される）
-	redirect(302, successPath);
+	redirect(302, landing);
 };

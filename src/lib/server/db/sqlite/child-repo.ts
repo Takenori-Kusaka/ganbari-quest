@@ -1,31 +1,45 @@
-import { eq, isNull, or } from 'drizzle-orm';
+import { eq, isNull, or, type SQL, sql } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import {
+	deriveChildAge,
+	publicBirthDate,
+	resolveBirthDateForInsert,
+	resolveBirthDateForUpdate,
+} from '$lib/domain/child-age';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { getDefaultUiMode, normalizeUiMode } from '$lib/domain/validation/age-tier';
+import {
+	getDefaultUiMode,
+	isExplicitUiModeOverride,
+	normalizeUiMode,
+} from '$lib/domain/validation/age-tier';
+import { SQLITE_CHILD_SCOPED_TABLES_IN_DELETE_ORDER } from '../child-scoped-tables';
 import { db } from '../client';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate } from '../migration';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
-import {
-	activityLogs,
-	characterImages,
-	checklistLogs,
-	checklistOverrides,
-	childAchievements,
-	children,
-	evaluations,
-	loginStreaks,
-	pointLedger,
-	specialRewards,
-	statuses,
-	statusHistory,
-} from '../schema';
+import { activityLogs, childAchievements, children, loginStreaks, pointLedger } from '../schema';
 
 type ChildRow = typeof children.$inferSelect;
 type Child = import('../types').Child;
 
-const toChild = (r: ChildRow): Child => ({ ...r, id: asChildId(r.id) });
+/**
+ * row → Child entity。#4718: 年齢は birth_date から導出 (pg-core backend と同じ domain 規約)、
+ * birth_date が無い旧行だけ age 列にフォールバック。公開 birthDate は実誕生日のみ
+ * (推定値は null)。birthDateEstimated 列は entity に出さない (storage 内部の印)。
+ */
+const toChild = (r: ChildRow): Child => {
+	const { birthDateEstimated, ...rest } = r;
+	return {
+		...rest,
+		id: asChildId(r.id),
+		age: deriveChildAge({ birthDate: r.birthDate, age: r.age }),
+		birthDate: publicBirthDate({
+			birthDate: r.birthDate,
+			birthDateEstimated: birthDateEstimated === 1,
+		}),
+	};
+};
 
 /**
  * SQLite child row を最新スキーマに hydrate し、必要なら DB に書き戻す。
@@ -110,9 +124,13 @@ export async function insertChild(
 		theme?: string;
 		uiMode?: string;
 		birthDate?: string;
+		/** #4718 (QM): 復元専用。省略時は age / uiMode から導出する。 */
+		uiModeManuallySet?: number;
 	},
 	_tenantId: string,
 ) {
+	// #4718: 誕生日未入力なら年齢から推定誕生日を合成して保存する (domain 規約 SSOT)。
+	const birth = resolveBirthDateForInsert(input);
 	const row = db
 		.insert(children)
 		.values({
@@ -120,7 +138,13 @@ export async function insertChild(
 			age: input.age,
 			theme: input.theme ?? 'pink',
 			uiMode: input.uiMode ?? getDefaultUiMode(input.age),
-			birthDate: input.birthDate ?? null,
+			// #4718 (QM): 復元 (backup restore) は保存済みの手動フラグをそのまま渡す。
+			// 導出すると「保存時の uiMode ≠ 復元時の年齢から導く既定」を手動指定と誤認し、
+			// 年齢帯の自動遷移が固定される。省略時は従来どおり導出する。
+			uiModeManuallySet:
+				input.uiModeManuallySet ?? (isExplicitUiModeOverride(input.age, input.uiMode) ? 1 : 0),
+			birthDate: birth.birthDate,
+			birthDateEstimated: birth.birthDateEstimated ? 1 : 0,
 			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
 		})
 		.returning()
@@ -143,9 +167,29 @@ export async function updateChild(
 	},
 	_tenantId: string,
 ) {
+	// #4718: birth_date / 推定フラグの差分は現在行の推定状態に依存する (実誕生日は年齢入力で
+	// 上書きしない) ため、現在値を読んでから domain 規約で決める。age 列は互換のため併記する。
+	const current = db
+		.select({ birthDate: children.birthDate, birthDateEstimated: children.birthDateEstimated })
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	if (!current) return undefined;
+	const birth = resolveBirthDateForUpdate(input, {
+		birthDate: current.birthDate,
+		birthDateEstimated: current.birthDateEstimated === 1,
+	});
+	const { birthDate: _ignoredBirthDate, ...rest } = input;
 	const row = db
 		.update(children)
-		.set({ ...input, updatedAt: new Date().toISOString() })
+		.set({
+			...rest,
+			...(birth.birthDate !== undefined ? { birthDate: birth.birthDate } : {}),
+			...(birth.birthDateEstimated !== undefined
+				? { birthDateEstimated: birth.birthDateEstimated ? 1 : 0 }
+				: {}),
+			updatedAt: new Date().toISOString(),
+		})
 		.where(eq(children.id, Number(id)))
 		.returning()
 		.get();
@@ -154,21 +198,35 @@ export async function updateChild(
 
 export async function deleteChild(childIdArg: ChildId, _tenantId: string) {
 	const id = Number(childIdArg);
-	// トランザクションで関連データをすべて削除
+	// #4696: 削除対象は backend 共通 SSOT (`child-scoped-tables.ts`) から引く。
+	// 旧実装は 11 表だけを消していたため `usage_logs` 等が残り、children 行の DELETE が
+	// FK 制約で失敗 → 呼び出し側が warn で握り潰して「完了しました」と表示していた
+	// (子供が消えない / 置換インポートで二重化)。失敗はここで throw し、呼び出し側へ伝える。
 	return db.transaction((tx) => {
-		tx.delete(checklistOverrides).where(eq(checklistOverrides.childId, id)).run();
-		tx.delete(checklistLogs).where(eq(checklistLogs.childId, id)).run();
-		tx.delete(specialRewards).where(eq(specialRewards.childId, id)).run();
-		tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run();
-		tx.delete(loginStreaks).where(eq(loginStreaks.childId, id)).run();
-		tx.delete(characterImages).where(eq(characterImages.childId, id)).run();
-		tx.delete(evaluations).where(eq(evaluations.childId, id)).run();
-		tx.delete(statusHistory).where(eq(statusHistory.childId, id)).run();
-		tx.delete(statuses).where(eq(statuses.childId, id)).run();
-		tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run();
-		tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run();
-		tx.delete(children).where(eq(children.id, id)).run();
+		for (const table of SQLITE_CHILD_SCOPED_TABLES_IN_DELETE_ORDER) {
+			if (!sqliteTableExists(tx, table)) continue; // 旧 DB に無い表は skip (冪等)
+			if (table === 'stamp_cards') {
+				// stamp_entries は card_id 参照 (child_id 列なし) のため cards より先に subquery 削除。
+				tx.run(
+					sql`DELETE FROM stamp_entries WHERE card_id IN (SELECT id FROM stamp_cards WHERE child_id = ${id})`,
+				);
+			}
+			tx.run(sql`DELETE FROM ${sql.identifier(table)} WHERE child_id = ${id}`);
+		}
+		// sibling_cheers は from/to の 2 参照軸 (child_id 列でないため個別)。
+		if (sqliteTableExists(tx, 'sibling_cheers')) {
+			tx.run(sql`DELETE FROM sibling_cheers WHERE from_child_id = ${id} OR to_child_id = ${id}`);
+		}
+		tx.run(sql`DELETE FROM children WHERE id = ${id}`);
 	});
+}
+
+/** 表の実在確認 (旧 DB / 部分 migration 環境でも冪等に動かすため)。 */
+function sqliteTableExists(tx: { get: (q: SQL) => unknown }, table: string): boolean {
+	return (
+		tx.get(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${table}`) !==
+		undefined
+	);
 }
 
 export async function resetChildProgressData(

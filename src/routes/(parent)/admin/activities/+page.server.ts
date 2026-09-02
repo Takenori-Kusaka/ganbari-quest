@@ -5,7 +5,13 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
-import { ADMIN_CHILD_SCOPE_LABELS } from '$lib/domain/labels';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import {
+	ADMIN_ACTIVITIES_PAGE_LABELS,
+	ADMIN_CHILD_SCOPE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
+	PLAN_GATE_LABELS,
+} from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
@@ -168,7 +174,7 @@ export const actions: Actions = {
 		const id = asActivityId(formIdString(formData.get('id')));
 		const visible = formData.get('visible') === 'true';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		try {
 			await setActivityVisibility(id, visible, tenantId);
@@ -179,7 +185,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id, visible },
 			});
-			return fail(500, { error: '更新に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.updateFailed });
 		}
 	},
 
@@ -204,9 +210,9 @@ export const actions: Actions = {
 		const childId =
 			childIdRaw != null && String(childIdRaw) !== '' ? asChildId(String(childIdRaw)) : undefined;
 
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
 
 		// プラン制限チェック（カスタム活動数）
@@ -219,7 +225,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -249,7 +255,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { name, categoryId },
 			});
-			return fail(500, { error: '追加に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.addFailed });
 		}
 	},
 
@@ -275,10 +281,10 @@ export const actions: Actions = {
 		const priorityRaw = formData.get('priority');
 		const priority: 'must' | 'optional' = priorityRaw === 'must' ? 'must' : 'optional';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
 
 		try {
@@ -306,7 +312,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id, name, priority },
 			});
-			return fail(500, { error: '更新に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.updateFailed });
 		}
 	},
 
@@ -315,7 +321,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const packId = String(formData.get('packId') ?? '').trim();
 
-		if (!packId) return fail(400, { error: 'パックIDが必要です' });
+		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
 
 		// #2894 AC2: marketplace 取込経路でも free tier のカスタム活動上限を enforce
 		// (importPackToChildren と同型、`create` 単発の gate を取込経路に横展開)。
@@ -331,7 +337,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${importPackLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(importPackLimitCheck.max),
 				),
 			});
 		}
@@ -360,13 +366,13 @@ export const actions: Actions = {
 			return result;
 		} catch (e) {
 			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
-				return fail(404, { error: 'パックが見つかりません' });
+				return fail(404, { error: ADMIN_FORM_ERROR_LABELS.packNotFound });
 			}
 			logger.error('[admin/activities] パックインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { packId },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -375,7 +381,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const id = asActivityId(formIdString(formData.get('id')));
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		try {
 			if (await hasActivityLogs(id, tenantId)) {
@@ -399,7 +405,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id },
 			});
-			return fail(500, { error: '削除に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.deleteFailed });
 		}
 	},
 
@@ -431,7 +437,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] ファイル解析失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(400, { error: 'ファイルの解析に失敗しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.fileParseFailed });
 		}
 
 		try {
@@ -446,7 +452,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] ファイルインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -456,7 +462,7 @@ export const actions: Actions = {
 		const id = asActivityId(formIdString(formData.get('id')));
 		const enabled = formData.get('enabled') === 'true';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		const result = await setMainQuest(id, enabled, tenantId);
 		if ('error' in result) {
@@ -478,8 +484,8 @@ export const actions: Actions = {
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 		const selectedIndexesRaw = String(formData.get('selectedIndexes') ?? '').trim();
 
-		if (!packId) return fail(400, { error: 'パックIDが必要です' });
-		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
+		if (!childIdsRaw) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.targetChildRequired });
 
 		// #2894 AC2: free tier のカスタム活動上限 (maxActivities=3, tenant-wide) を取込経路でも
 		// enforce する。`create` action には上限 check があったが import 経路は漏れており
@@ -493,7 +499,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -502,7 +508,7 @@ export const actions: Actions = {
 		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 
 		if (childIds.length === 0) {
-			return fail(400, { error: '有効な対象が指定されていません' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.noValidTargets });
 		}
 
 		// Round 18 Cluster H: subset 取込 — selectedIndexes が指定されたら payload を slice。
@@ -513,7 +519,7 @@ export const actions: Actions = {
 		// 明示的な空指定 ('' でない空 csv 例: ',,,') は次の `=== ''` 分岐で fail させる。
 		const selectedIndexes = parseImportIndexes(selectedIndexesRaw);
 		if (selectedIndexesRaw !== '' && selectedIndexes === null) {
-			return fail(400, { error: '取り込む活動が選択されていません' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.noActivitiesSelectedToImport });
 		}
 
 		try {
@@ -526,7 +532,7 @@ export const actions: Actions = {
 					.filter((i) => i < allActivities.length)
 					.map((i) => allActivities[i]);
 				if (subset.length === 0) {
-					return fail(400, { error: '取り込む活動が選択されていません' });
+					return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.noActivitiesSelectedToImport });
 				}
 				rawPayload = {
 					...(source.payload as Record<string, unknown>),
@@ -542,13 +548,13 @@ export const actions: Actions = {
 			return { perChildImport: true, ...result };
 		} catch (e) {
 			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
-				return fail(404, { error: 'パックが見つかりません' });
+				return fail(404, { error: ADMIN_FORM_ERROR_LABELS.packNotFound });
 			}
 			logger.error('[admin/activities] per-child 取込失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { packId, childIds, selectedIndexCount: selectedIndexes?.length ?? null },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -563,7 +569,7 @@ export const actions: Actions = {
 		const singleTargetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId) {
-			return fail(400, { error: 'コピー元のお子さまが必要です' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.copySourceChildRequired });
 		}
 
 		// targetChildIds (CSV) 優先、なければ targetChildId (単一) を使う
@@ -579,7 +585,7 @@ export const actions: Actions = {
 		}
 
 		if (!targetChildIds || targetChildIds.length === 0) {
-			return fail(400, { error: 'コピー先のお子さまが必要です' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.copyTargetChildRequired });
 		}
 
 		// #3740: copy は元活動の source ('custom' 含む) を保全して複製するため quota を消費する。
@@ -593,7 +599,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${copyLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(copyLimitCheck.max),
 				),
 			});
 		}
@@ -602,10 +608,12 @@ export const actions: Actions = {
 			const target = targetChildIds[0];
 			if (targetChildIds.length === 1 && target !== undefined) {
 				if (sourceChildId === target) {
-					return fail(400, { error: '同じお子さまにはコピーできません' });
+					return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.sameChildCopyNotAllowed });
 				}
+				// #4694: 重複 (同名 + 同カテゴリ) は service 側で skip される。
+				// 件数を UI に返し「N 件コピー / M 件は既にあるためスキップ」を出す。
 				const copied = await copyChildActivitiesToSibling(tenantId, sourceChildId, target);
-				return { copyResult: true, copiedCount: copied.length };
+				return { copyResult: true, copiedCount: copied.copied, skippedCount: copied.skipped };
 			}
 			const result = await copyChildActivitiesToSiblings({
 				tenantId,
@@ -620,6 +628,7 @@ export const actions: Actions = {
 			return {
 				copyResult: true,
 				copiedCount: result.totalCopied,
+				skippedCount: result.totalSkipped,
 				errorCount: result.errors.length,
 			};
 		} catch (e) {
@@ -627,7 +636,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { sourceChildId, targetChildIds },
 			});
-			return fail(500, { error: 'コピーに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.copyFailed });
 		}
 	},
 
@@ -644,11 +653,11 @@ export const actions: Actions = {
 		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item4: NaN/負/巨大/非整数を [0,99] int or null に clamp
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
-		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+		if (!childIdsRaw) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.targetChildRequired });
 
 		// #2894 AC2: bulk create も free tier のカスタム活動上限を enforce (`create` 単発と同型)。
 		const bulkLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
@@ -659,14 +668,14 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${bulkActivityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(bulkActivityLimitCheck.max),
 				),
 			});
 		}
 
 		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 		if (childIds.length === 0) {
-			return fail(400, { error: '有効な対象が指定されていません' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.noValidTargets });
 		}
 
 		const repos = getRepos();
@@ -688,7 +697,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { name, categoryId, childIds },
 			});
-			return fail(500, { error: '一括追加に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.bulkAddFailed });
 		}
 	},
 
@@ -724,7 +733,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] 一括クリア失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(500, { error: '一括クリアに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.bulkClearFailed });
 		}
 	},
 };

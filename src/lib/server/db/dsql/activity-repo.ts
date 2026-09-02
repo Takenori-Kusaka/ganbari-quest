@@ -502,6 +502,15 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 			return scalarCount(result);
 		},
 
+		/** #4696: 子供のポイント台帳 総行数 (データクリア件数表示用)。 */
+		async countPointLedgerEntries(childId, tenantId) {
+			const result = await db.execute(sql`
+				SELECT count(*)::int AS c FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+			`);
+			return Number((result.rows[0] as { c: number } | undefined)?.c ?? 0);
+		},
+
 		async countPointLedgerEntriesByType(childId, type, tenantId) {
 			const result = await db.execute(sql`
 				SELECT count(*)::int AS c FROM point_ledger
@@ -516,6 +525,16 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 				SELECT count(*)::int AS c FROM point_ledger
 				WHERE family_id = ${tenantId} AND child_id = ${childId}
 					AND type = ${type} AND recorded_date = ${date}
+			`);
+			return scalarCount(result);
+		},
+
+		async sumPointLedgerByTypeAndDescriptionPrefix(childId, type, descriptionPrefix, tenantId) {
+			// #4686: type × description 前方一致の付与合計 (正負込み)。getComboPointsGranted の type 汎用版。
+			const result = await db.execute(sql`
+				SELECT coalesce(sum(amount), 0)::int AS c FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND type = ${type} AND description LIKE ${`${descriptionPrefix}%`}
 			`);
 			return scalarCount(result);
 		},

@@ -42,7 +42,7 @@
 
 > **注**: パターン 2 は内部的に 2a と 2b に分岐するが、API としては別々の DeletionPattern として渡す。UI では owner かつ他メンバーがいるとき、まず移譲ダイアログを表示し、ユーザーが「移譲」か「全削除」を選ぶ。
 
-判定の擬似コード（`src/routes/(parent)/admin/settings/+page.svelte` の `handleDeleteAccount`）:
+判定の擬似コード（`src/routes/(parent)/admin/settings/account/+page.svelte` の `handleDeleteAccount`）:
 
 ```ts
 const role = $page.data.userRole;
@@ -52,6 +52,36 @@ if (role === 'owner') {
 } else if (role === 'child')      pattern = 'child';
 else                              pattern = 'member';
 ```
+
+**移譲先の有無で提示する選択肢を変える（#4640）**: 他メンバーが居ても、**オーナーを渡せるのは大人（`role !== 'child'`）だけ**。他が子供しか居ないときに移譲を求めると選択肢が空のまま宙吊りになり、**退会そのものができなくなる**。判定は `getOwnerDeletionInfo` が返す `hasTransferableAdult`（削除情報 API の一部）を唯一の出所とし、画面側で `otherMembers` から組み立てない。
+
+| 状態 | 出す選択肢 |
+|---|---|
+| 自分ひとり（`isOnlyMember`） | 確認入力 → `owner-only`（ダイアログを出さない） |
+| 他に大人が居る（`hasTransferableAdult`） | 移譲先の選択 + 「移譲して退会」 / 「全て削除する」 |
+| 他は子供だけ | **移譲欄を出さず**、渡せない理由と「別の保護者を招待してから引き継ぐ」案内 + 「全て削除する」 |
+
+固定は `tests/unit/services/owner-deletion-transferable-adult.test.ts`（判定）と `tests/e2e/account-deletion.spec.ts` §9（画面の出し分け）。
+
+---
+
+## 1.5 引っ越し合流で無人になった家族グループの掃除（#4642）
+
+退会（アカウント削除）とは**別事象**の削除経路。招待リンクをうまく踏めず誤って自分だけの家族グループを作ってしまった人が、後から正しい招待に合流するときに、抜けたあとの無人グループを掃除する。
+
+| 項目 | 内容 |
+|---|---|
+| 入口 | `/auth/invite/[code]` の確認画面 → `?/relocate` action（顧客の明示同意が必須） |
+| 実行条件 | 招待を受ける人が、いまの家族グループの **owner かつ唯一のメンバー**であること（`checkRelocationEligibility`） |
+| 順序 | ① 可否をサーバーで再検証 → ② 招待を受諾 → ③ 元の membership を削除 → ④ 無人になった元テナントを削除 |
+| 削除範囲 | `deleteVacatedTenant`（`fullTenantDeletion` を再利用。§2 マトリクスの owner-only と同一） |
+| **人は消さない** | 引っ越した本人は合流先で使い続けるため、Cognito ユーザーと `users` 行は残る（メンバー 0 人なので削除ループが 1 度も回らない） |
+| 削除記録 | `DeletionRoute = 'relocation'`。退会ではないので**削除完了メールは送らない** |
+| 失敗時 | ②で失敗 → 元の家族グループは無傷のまま理由を表示。④で失敗 → 引っ越しは成立させ、残骸はログに残す（合流できたのにエラー画面にしない） |
+
+**他メンバーが居る家族グループの owner は引っ越せない**（勝手に畳むと他の人のデータが消えるため）。メンバーを削除するか、先に owner を移譲してもらう。owner でないメンバーは、メンバー管理から自分だけ抜けてから招待リンクを開き直す。
+
+確認画面の要件は `06-UI設計書.md` §引っ越し合流の確認画面。実装は `src/lib/server/services/tenant-relocation-service.ts`、固定は `tests/unit/services/tenant-relocation.test.ts` / `tests/unit/routes/auth-invite-relocation.test.ts`。
 
 ---
 
@@ -163,7 +193,7 @@ soft delete されたテナントは以下の状態になる:
 - `settings` テーブルに `physical_deletion_date` → `deletion_grace_plan_tier` → `soft_deleted_at` の順で記録される（**sentinel-last**）
 - Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
-- ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+- ユーザはサインアウトされる（`/auth/signout?reason=deletion_pending`）。ログイン画面が受付完了と「猶予中は取り消せる」を表示し、再ログインすれば全 admin ページで復元 UI を見られる（§4.3a）
 
 #### 3 キーの書き込み順序と不完全メタデータの扱い
 
@@ -182,6 +212,19 @@ soft delete されたテナントは以下の状態になる:
 - **復元できる**（宙吊りからの脱出経路。復元 → 退会し直しで正常な状態に戻せる）
 - **物理削除の母集団に入らない**（`findExpiredSoftDeletedTenants`）
 - 発生は `logger.warn` で検出する（専用の通知機構は持たない）
+
+### 4.3a 猶予中に顧客へ見せるもの（#4699）
+
+申請したことを忘れた / 家族の別端末で気づかない保護者が、猶予経過で全データを失う経路を塞ぐ。**猶予中の状態と復元導線は 1 画面に閉じない**。
+
+| 場所 | 出すもの | 実装 |
+|---|---|---|
+| ログイン画面 | 申請の受付完了 + 猶予中は取り消せる旨 | 削除 API 成功後に `/auth/signout?reason=deletion_pending` へ。`signout` は**既知の reason コードのみ** login へ引き継ぐ。表示は `LOGIN_LABELS.noticeDeletionPending`（`role="status"`） |
+| **全 admin ページ** | 「アカウント削除のお手続き中です / あと N 日（日付）/ アカウントを復元する」 | `DeletionGraceBanner.svelte`（共通コンポーネント）を admin `+layout.svelte` が `gracePeriodStatus.isSoftDeleted` で描画。設定 > アカウントも同一コンポーネントを使う（バナーの二重実装を作らない） |
+| 設定トップ | 書き込みが止められた理由 | 読み取り専用ロックの redirect 先 `?reason=account_deletion_pending` を `SETTINGS_LABELS.deletionPendingReadOnlyNotice` で説明する |
+| 設定 > アカウント | 退会セクションの出し分け | **退会申請中は出さない**（復元バナーに集約）。判定は `gracePeriodStatus.isSoftDeleted` であり `families.status` ではない — `grace_period` は支払い失敗（dunning）の猶予であり（#3993）、**支払い失敗中でも退会できる** |
+
+**猶予中でも子供画面は使える**: `/switch` の子供選択は `selectedChildId` cookie の set と親ゲート cookie の delete だけで DB を書かないため、読み取り専用ロックの許可 path に含める（塞ぐと猶予中に子供が使えなくなり、しかも設定画面へ無言で飛ばされる）。
 
 ### 4.4 復元フロー
 
@@ -284,7 +327,7 @@ soft delete 状態のテナントに対し、物理削除の **残り 14 日 (fa
 
 ### 5.4 削除完了後
 
-- 全パターンで `window.location.href = '/auth/signout'` → サインアウト経由で `/` に戻す
+- 全パターンで `/auth/signout?reason=deletion_pending` → サインアウト経由でログイン画面に戻し、そこで受付完了と取り消し可を伝える（#4699。旧実装は無言でログイン画面に着地していた）
 - セッションが切れているため admin 画面の再読込は不要
 
 ---

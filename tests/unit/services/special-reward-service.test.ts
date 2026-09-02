@@ -29,6 +29,7 @@ vi.mock('$lib/server/db/client', () => ({
 
 import {
 	approveRedemption,
+	getRedemptionRequestsForChild,
 	getRedemptionRequestsForParent,
 	rejectRedemption,
 	requestRedemption,
@@ -384,7 +385,10 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		expect(remaining.c).toBe(1);
 	});
 
-	it('AC3: pending 解消 (却下) 後は削除でき、解決済の申請履歴行も削除される', async () => {
+	// #4683: 旧仕様は「reward 削除時に解決済の申請履歴行も削除する」だった (FK 整合のため)。
+	// しかし point_ledger の控除は残るため、子供からは「ポイントが勝手に減った」、親からは
+	// 「何に使ったか辿れない」状態になっていた。履歴を残す仕様に反転する (PO 判断)。
+	it('AC3 (#4683): pending 解消 (却下) 後は削除でき、解決済の申請履歴行は残る', async () => {
 		const { childId, rewardId } = seedRewardWithBalance();
 		const req = await requestRedemption(childId, rewardId, 'test-tenant');
 		expect('error' in req).toBe(false);
@@ -400,11 +404,84 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 			.prepare('SELECT COUNT(*) AS c FROM special_rewards WHERE id = ?')
 			.get(Number(rewardId)) as { c: number };
 		expect(remaining.c).toBe(0);
-		// FK 整合: 解決済の交換申請履歴行も削除される (repo 層 cascade)
+		// #4683: 交換申請履歴は残る (FK は外してあるので reward 消失後も行が生き残る)
 		const requests = sqlite
 			.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests WHERE reward_id = ?')
 			.get(Number(rewardId)) as { c: number };
-		expect(requests.c).toBe(0);
+		expect(requests.c).toBe(1);
+	});
+
+	it('#4683: 承認済みの交換があるごほうびを削除しても、子供履歴・親 History・台帳の 3 者が残る', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+		if ('error' in req) return;
+		const approved = await approveRedemption(req.id, 'parent-1', 'test-tenant');
+		expect('error' in approved).toBe(false);
+
+		// 削除前: 台帳に控除が立っている (= 「何に使ったか」の事実)
+		const ledgerBefore = sqlite
+			.prepare(
+				"SELECT COUNT(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(Number(childId)) as { c: number };
+		expect(ledgerBefore.c).toBe(1);
+
+		expect(await deleteReward(rewardId, childId, 'test-tenant')).toEqual({ deleted: true });
+
+		// ① 子供履歴 (findRedemptionRequestsByChild 経由)。
+		// 検証対象は「ごほうび削除後も申請履歴が snapshot で残るか」なので、保持期間では絞らない
+		// (本番の opt-out は NO_RETENTION_FILTER、plan-limit-service)。
+		const childHistory = await getRedemptionRequestsForChild(childId, 'test-tenant', {});
+		expect(childHistory).toHaveLength(1);
+		expect(childHistory[0]?.status).toBe('approved');
+
+		// ② 親の承認履歴 (WithDetails。reward は消えているので snapshot が権威)
+		const parentHistory = await getRedemptionRequestsForParent('test-tenant');
+		expect(parentHistory).toHaveLength(1);
+		expect(parentHistory[0]?.rewardTitle).toBe('ゲーム時間30分');
+		expect(parentHistory[0]?.rewardPoints).toBe(80);
+		expect(parentHistory[0]?.rewardIcon).toBe('🎮');
+
+		// ③ 台帳の控除は削除前と同じまま残る
+		const ledgerAfter = sqlite
+			.prepare(
+				"SELECT COUNT(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(Number(childId)) as { c: number };
+		expect(ledgerAfter.c).toBe(1);
+	});
+
+	it('#4683: snapshot 未設定の旧行は削除時に live reward の値で backfill される', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		// #2832 より前に作られた行を模す (snapshot 3 列が NULL)
+		sqlite
+			.prepare(
+				`INSERT INTO reward_redemption_requests
+					(child_id, reward_id, requested_at, quantity, status, resolved_at)
+				 VALUES (?, ?, ?, 1, 'approved', ?)`,
+			)
+			.run(
+				Number(childId),
+				Number(rewardId),
+				Math.floor(Date.now() / 1000) - 3600,
+				Math.floor(Date.now() / 1000) - 3500,
+			);
+
+		expect(await deleteReward(rewardId, childId, 'test-tenant')).toEqual({ deleted: true });
+
+		const row = sqlite
+			.prepare(
+				'SELECT reward_title, reward_points, reward_icon FROM reward_redemption_requests WHERE reward_id = ?',
+			)
+			.get(Number(rewardId)) as {
+			reward_title: string | null;
+			reward_points: number | null;
+			reward_icon: string | null;
+		};
+		expect(row.reward_title).toBe('ゲーム時間30分');
+		expect(row.reward_points).toBe(80);
+		expect(row.reward_icon).toBe('🎮');
 	});
 
 	it('pending が無い reward は削除できる', async () => {

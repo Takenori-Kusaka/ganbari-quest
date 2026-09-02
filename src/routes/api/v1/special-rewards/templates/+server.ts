@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { validationError } from '$lib/server/errors';
+import { planLimitError, validationError } from '$lib/server/errors';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getRewardTemplates,
 	saveRewardTemplates,
@@ -24,6 +27,20 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+
+	// #4705: プリセット (ショップ商品の雛形) の保存も有料プランの機能。GET (閲覧) は無料でも通す。
+	const tier = await resolveFullPlanTier(
+		tenantId,
+		context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+		context.plan,
+	);
+	if (!isCustomRewardUnlocked(tier)) {
+		return planLimitError('standard', 'reward template save requires standard or above', {
+			tenantId,
+			tier,
+		});
+	}
+
 	const body = await request.json();
 
 	const parsed = v.safeParse(rewardTemplatesArraySchema, body.templates ?? body);

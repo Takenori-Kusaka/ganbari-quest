@@ -1,6 +1,8 @@
 <script lang="ts">
 import {
 	APP_LABELS,
+	formatAgeRange,
+	formatCount,
 	MARKETPLACE_FILTER_LABELS,
 	MARKETPLACE_LABELS,
 	type MarketplaceSortKey,
@@ -238,7 +240,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 				>
 					<span class="text-xl block">{MARKETPLACE_TYPE_ICONS[t]}</span>
 					<span class="text-xs font-bold block mt-1">{MARKETPLACE_TYPE_LABELS[t]}</span>
-					<span class="text-xs opacity-70">{data.counts[t] + '種'}</span>
+					<span class="text-xs opacity-70">{data.counts[t]}{MARKETPLACE_LABELS.typeCountSuffix}</span>
 				</a>
 			{/each}
 		</div>
@@ -348,11 +350,11 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 											</p>
 											<div class="flex items-center gap-2 mt-2">
 												<span class="text-[10px] text-[var(--color-text-tertiary)]">
-													{item.targetAgeMin + '〜'}{item.targetAgeMax + '歳'}
+													{formatAgeRange(item.targetAgeMin, item.targetAgeMax)}
 												</span>
 												{#if item.itemCount > 0}
 													<span class="text-[10px] text-[var(--color-text-tertiary)]">
-														{item.itemCount + '件'}
+														{formatCount(item.itemCount)}
 													</span>
 												{/if}
 											</div>
@@ -413,11 +415,19 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					</Card>
 				{/if}
 
-				<!-- Back links (#4677: 旧「デモを体験」/demo リンクは legacy-url-map で LP トップへ redirect され
-					デモに到達しないため撤去。demo Lambda では本ページ自体が demo 環境で動く) -->
+				<!-- Back links (#4677 は「デモを体験」が href="/demo" = legacy-url-map で LP トップへ
+					redirect されデモに到達しないことを理由にリンクを撤去した。#4511 で href を
+					実在するデモ環境 (DEMO_SITE_TERMS.url) の atom 参照に是正したためリンクを残す。
+					href="/demo" の直書きは復活させない) -->
 				<div class="text-center mt-6 flex justify-center gap-4">
 					<a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">
 						{MARKETPLACE_LABELS.backToHome}
+					</a>
+					<a
+						href={MARKETPLACE_LABELS.backToDemoHref}
+						class="text-sm text-[var(--color-action-primary)] hover:underline"
+					>
+						{MARKETPLACE_LABELS.backToDemo}
 					</a>
 				</div>
 			</div>

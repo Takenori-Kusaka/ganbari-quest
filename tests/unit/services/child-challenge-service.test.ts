@@ -88,6 +88,7 @@ import {
 	createChildChallengesBulk,
 	getActiveChildChallengesWithSiblings,
 	getChallengeGroupsForAdmin,
+	getChildChallengeRecords,
 	getLastWeekStart,
 	getOrCreateWeeklyChildChallenge,
 	getWeekStart,
@@ -97,6 +98,15 @@ import {
 } from '../../../src/lib/server/services/child-challenge-service';
 
 const TENANT = 'test-tenant-001';
+
+/**
+ * 保持期間で絞らない range (family = 無期限 相当)。
+ *
+ * 本番コードの opt-out は `NO_RETENTION_FILTER` (plan-limit-service) を使うが、同 module は
+ * auth / request-context / trial-service を引き込むため、repo だけを mock した本 test では
+ * 素の空 range を置く。検証対象は service の絞り込み挙動であって定数の同一性ではない。
+ */
+const NO_RANGE = {};
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -756,8 +766,9 @@ describe('getChallengeGroupsForAdmin', () => {
 		const groups = await getChallengeGroupsForAdmin(TENANT);
 		expect(groups.length).toBe(2);
 		// 開始日降順 (新しい順): A (2026-05-25) > B (2026-05-20)
-		// #3513 QM BLOCK fix: groupKey は sourceTemplateId + 期間 (startDate::endDate) の複合になる
-		expect(groups[0]?.groupKey).toBe('tmpl-1::2026-05-25::2026-06-01');
+		// groupKey = sourceTemplateId + 内容 (title) + 期間 の複合
+		// (#3513 期間を含める / #4689 内容を含める)。同 template + 同内容なので 1 group に束ねる
+		expect(groups[0]?.groupKey).toBe('tmpl-1::A::2026-05-25::2026-06-01');
 		expect(groups[0]?.instances.length).toBe(2);
 		expect(groups[0]?.allCompleted).toBe(false);
 		expect(groups[1]?.groupKey).toContain('B (individual)');
@@ -1351,5 +1362,255 @@ describe('#4410 達成祝福の「見せた」記録', () => {
 			expect(ok).toBe(false);
 			expect(mockMarkCelebrationShown).not.toHaveBeenCalled();
 		});
+	});
+});
+
+// #4688 (F1): 「記録 > 達成」タブは受取済みも含む履歴を読む
+describe('getChildChallengeRecords (達成履歴、#4688)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const row = (over: Record<string, unknown>) => ({
+		id: '1',
+		childId: asChildId(902),
+		title: 'うんどう 3 かい',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: '2026-08-10',
+		endDate: '2026-08-16',
+		targetConfig: '{"metric":"count","categoryId":1,"baseTarget":3}',
+		rewardConfig: '{"points":30}',
+		status: 'completed',
+		isActive: 1,
+		currentValue: 3,
+		targetValue: 3,
+		completed: 1,
+		completedAt: '2026-08-15',
+		rewardClaimed: 1,
+		rewardClaimedAt: '2026-08-15',
+		...over,
+	});
+
+	it('ほうしゅう受取済み (rewardClaimed=1) のチャレンジも履歴に残る', async () => {
+		mockFindByChildId.mockResolvedValueOnce([row({})]);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+		expect(records).toHaveLength(1);
+		expect(records[0]).toMatchObject({
+			id: '1',
+			title: 'うんどう 3 かい',
+			completed: true,
+			rewardClaimed: true,
+			currentValue: 3,
+			targetValue: 3,
+		});
+		// 履歴クエリ (findByChildId) を使う。active + 未請求だけの一覧は使わない
+		expect(mockFindByChildId).toHaveBeenCalledWith(asChildId(902), TENANT);
+		expect(mockFindActiveOrUnclaimedByChildId).not.toHaveBeenCalled();
+	});
+
+	it('新しい週から順に並ぶ', async () => {
+		mockFindByChildId.mockResolvedValueOnce([
+			row({ id: '1', startDate: '2026-08-03' }),
+			row({ id: '2', startDate: '2026-08-17' }),
+			row({ id: '3', startDate: '2026-08-10' }),
+		]);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+		expect(records.map((r) => r.id)).toEqual(['2', '3', '1']);
+	});
+
+	// 旧実装は `limit = 30` を既定で持ち、31 件目以降を無告知に捨てていた。スタンダード
+	// (1 年保持) の週次チャレンジは 52 件になりうるため、顧客には「古い達成が消えた」と
+	// しか見えない。母数は保持期間で閉じる — 件数では切らない (活動 / 交換タブと同じ規律)。
+	it('件数では打ち切らない (保持期間内の達成を無告知に捨てない)', async () => {
+		const many = Array.from({ length: 40 }, (_, i) =>
+			row({ id: `w${i}`, startDate: '2026-08-10', endDate: '2026-08-16' }),
+		);
+		mockFindByChildId.mockResolvedValueOnce(many);
+
+		const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+		expect(records).toHaveLength(40);
+	});
+
+	// ADR-0049 表示フィルタ層。cutoff は呼び出し側 (`applyRetentionFilter`) が決め、
+	// ここは「期間が丸ごと cutoff より前なら返さない」だけを守る。
+	describe('保持期間 (retentionFrom、ADR-0049)', () => {
+		// この test file の todayDateJST は '2026-05-25' 固定 (先頭の vi.mock)。
+		const CUTOFF = '2026-04-01';
+
+		it('cutoff より前に期間が終わったチャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'old', startDate: '2026-03-16', endDate: '2026-03-22' }),
+				row({ id: 'new', startDate: '2026-05-18', endDate: '2026-05-24' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, { from: CUTOFF });
+
+			expect(records.map((r) => r.id)).toEqual(['new']);
+		});
+
+		it('cutoff をまたぐ期間のチャレンジは残す (保持内に一部が入る)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'spans', startDate: '2026-03-30', endDate: '2026-04-05' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, { from: CUTOFF });
+
+			expect(records.map((r) => r.id)).toEqual(['spans']);
+		});
+
+		it('cutoff 未指定 (family = 無期限) では期間で切らない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'ancient', startDate: '2020-01-06', endDate: '2020-01-12' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['ancient']);
+		});
+
+		// `to` は現行の呼び出し元 (履歴 load) が渡さないが、型 (`RetentionRange`) が受け取ると
+		// 宣言している以上、渡されたら効く必要がある (黙って無視する枝を残さない)。
+		it('to より後に期間が始まったチャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'before', startDate: '2026-05-18', endDate: '2026-05-24' }),
+				row({ id: 'after', startDate: '2026-05-25', endDate: '2026-05-31' }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, {
+				to: '2026-05-24',
+			});
+
+			expect(records.map((r) => r.id)).toEqual(['before']);
+		});
+	});
+
+	// 画面は `completed` の 2 値でしか描き分けない (`history/+page.svelte`)。期間が終わった
+	// 未達成をそのまま返すと、終わったチャレンジが「がんばってるよ」と表示され続ける。
+	describe('達成タブの意味論 (達成済み or 期間中)', () => {
+		it('期間が終わった未達成チャレンジは返さない', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'expired', startDate: '2026-05-04', endDate: '2026-05-10', completed: 0 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records).toEqual([]);
+		});
+
+		it('まだ期間中の未達成チャレンジは返す (挑戦中として出す)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'ongoing', startDate: '2026-05-25', endDate: '2026-05-31', completed: 0 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['ongoing']);
+			expect(records[0]?.completed).toBe(false);
+		});
+
+		it('期間が終わっていても達成済みなら返す (履歴として残る)', async () => {
+			mockFindByChildId.mockResolvedValueOnce([
+				row({ id: 'done', startDate: '2026-05-04', endDate: '2026-05-10', completed: 1 }),
+			]);
+
+			const records = await getChildChallengeRecords(asChildId(902), TENANT, NO_RANGE);
+
+			expect(records.map((r) => r.id)).toEqual(['done']);
+		});
+	});
+});
+
+// #4689: 週次自動生成は子供ごとに内容が違う (sourceTemplateId は全員 'auto:weekly' 共有)。
+// 旧実装は内容を key に含めなかったため別内容の instance が 1 group になり、
+// allCompleted が兄弟全員の達成に依存して「達成した子に祝福が出ない」状態だった。
+describe('#4689 週次自動生成の group 化は内容 (title) で分かれる', () => {
+	function autoRow(overrides: Record<string, unknown>) {
+		return {
+			id: '0',
+			childId: asChildId(902),
+			title: '今週は「うんどう」を4回',
+			startDate: '2026-08-17',
+			endDate: '2026-08-23',
+			periodType: 'weekly' as const,
+			sourceTemplateId: 'auto:weekly',
+			completed: 0,
+			targetValue: 4,
+			currentValue: 0,
+			description: null,
+			rewardConfig: '{}',
+			targetConfig: '{}',
+			status: 'active' as const,
+			isActive: 1,
+			challengeType: 'cooperative' as const,
+			completedAt: null,
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			celebrationShownAt: null,
+			createdAt: '',
+			updatedAt: '',
+			...overrides,
+		};
+	}
+
+	/** 兄弟 3 人・別内容の週次自動生成 (自分 = 902 が達成済み)。 */
+	const tenantRows = [
+		autoRow({ id: '1', childId: asChildId(902), completed: 1, currentValue: 4 }),
+		autoRow({ id: '2', childId: asChildId(903), title: '今週は「そうぞう」を2回', targetValue: 2 }),
+		autoRow({
+			id: '3',
+			childId: asChildId(904),
+			title: '今週は「こうりゅう」を3回',
+			targetValue: 3,
+		}),
+	];
+
+	it('別内容の兄弟 instance は siblings[] に混ざらず、自分の達成で allCompleted になる', async () => {
+		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([tenantRows[0]]);
+		mockFindAllByTenant.mockResolvedValueOnce(tenantRows);
+
+		const result = await getActiveChildChallengesWithSiblings(asChildId(902), TENANT);
+
+		expect(result).toHaveLength(1);
+		expect(result[0]?.siblings.map((s) => s.id)).toEqual(['1']);
+		expect(result[0]?.allCompleted).toBe(true);
+		// 祝福が出る条件 (celebrationShownAt=null かつ allCompleted) を満たす
+		expect(resolveCelebrationChallenge(result, asChildId(902))?.id).toBe('1');
+	});
+
+	it('同内容 (同 template + 同 title) の配信は従来どおり 1 group = 全員達成で「みんなクリア」', async () => {
+		const sameContent = [
+			autoRow({ id: '1', childId: asChildId(902), sourceTemplateId: 'tmpl-9', completed: 1 }),
+			autoRow({ id: '2', childId: asChildId(903), sourceTemplateId: 'tmpl-9', completed: 0 }),
+		];
+		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([sameContent[0]]);
+		mockFindAllByTenant.mockResolvedValueOnce(sameContent);
+
+		const result = await getActiveChildChallengesWithSiblings(asChildId(902), TENANT);
+
+		expect(result[0]?.siblings.map((s) => s.id)).toEqual(['1', '2']);
+		// 兄弟が未達成なのでまだ「みんなクリア」ではない
+		expect(result[0]?.allCompleted).toBe(false);
+		expect(resolveCelebrationChallenge(result, asChildId(902))).toBeNull();
+	});
+
+	it('admin: 別内容の週次自動生成はそれぞれ別 group (先頭の子のタイトルで束ねない)', async () => {
+		mockFindAllByTenant.mockResolvedValueOnce(tenantRows);
+
+		const groups = await getChallengeGroupsForAdmin(TENANT);
+
+		expect(groups).toHaveLength(3);
+		expect(groups.map((g) => g.title).sort()).toEqual(
+			['今週は「うんどう」を4回', '今週は「こうりゅう」を3回', '今週は「そうぞう」を2回'].sort(),
+		);
+		// 各 group は自分の instance だけを持つ (他の子の進捗を巻き込まない)
+		for (const g of groups) {
+			expect(g.instances).toHaveLength(1);
+		}
 	});
 });

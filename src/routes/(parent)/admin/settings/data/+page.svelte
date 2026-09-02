@@ -12,6 +12,7 @@ import {
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
+	PAID_PLAN_LABEL,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -100,6 +101,38 @@ let cloudExportType = $state<'template' | 'full'>('template');
 let cloudImportPin = $state('');
 let cloudImportLoading = $state(false);
 let cloudImportError = $state('');
+// #4717: server の error 種別 (ADR-0062 severity × action) をそのまま案内に反映する。
+// 「準備中 (待てば解決)」を warning + 「入力を直して」と表示すると、待つべき場面で
+// 顧客が PIN を疑って入力し直す (誤った回復行動を促す)。
+type CloudImportErrorKind = {
+	severity: 'info' | 'warning' | 'error';
+	action: 'retry' | 'fix_input' | 'contact_admin' | 'none';
+};
+const DEFAULT_CLOUD_IMPORT_ERROR_KIND: CloudImportErrorKind = {
+	severity: 'warning',
+	action: 'fix_input',
+};
+let cloudImportErrorKind = $state<CloudImportErrorKind>(DEFAULT_CLOUD_IMPORT_ERROR_KIND);
+
+/** server の error body から severity / action を取り出す (無ければ既定)。 */
+function resolveCloudImportErrorKind(errorBody: unknown): CloudImportErrorKind {
+	const e = errorBody as { severity?: unknown; action?: unknown } | null | undefined;
+	const severity = e?.severity;
+	const action = e?.action;
+	return {
+		severity:
+			severity === 'info' || severity === 'warning' || severity === 'error'
+				? severity
+				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.severity,
+		action:
+			action === 'retry' ||
+			action === 'fix_input' ||
+			action === 'contact_admin' ||
+			action === 'none'
+				? action
+				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.action,
+	};
+}
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
@@ -382,6 +415,7 @@ async function handleCloudImportPreview() {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
 			return;
 		}
 		cloudImportPreview = d.preview;
@@ -426,6 +460,7 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
 			return;
 		}
 		cloudImportResult = d.result;
@@ -455,6 +490,7 @@ function resetCloudImport() {
 	cloudImportPreview = null;
 	cloudImportResult = null;
 	cloudImportError = '';
+	cloudImportErrorKind = DEFAULT_CLOUD_IMPORT_ERROR_KIND;
 	cloudImportStep = 'input';
 	childSelectionOpen = false;
 }
@@ -485,7 +521,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 
-const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
+const canConfirmClear = $derived(
+	clearConfirmText === SETTINGS_LABELS.clearConfirmKeyword && clearAgreeChecked,
+);
 </script>
 
 <svelte:head>
@@ -500,7 +538,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+				<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT (「スタンダード以上」直書きは表記ゆれ) -->
+				<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 			{/if}
 		</div>
 
@@ -509,7 +548,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 		{/if}
 
 		<div class="space-y-4">
-			<div data-testid="data-export-section">
+			<!-- #4665: ページガイド「バックアップをダウンロード」step の anchor -->
+			<div data-testid="data-export-section" data-tutorial="data-export-section">
 				<p class="text-sm text-[var(--color-text)] mb-3">
 					{SETTINGS_LABELS.dataExportDesc}
 				</p>
@@ -630,7 +670,11 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 			<!-- インポート -->
 			<div>
-				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
+				<!-- #4665: ページガイド「復元 (インポート)」step の anchor -->
+				<h4
+					class="text-sm font-bold text-[var(--color-text)] mb-2"
+					data-tutorial="data-import-section"
+				>
 					{SETTINGS_LABELS.dataImportTitle}
 				</h4>
 
@@ -945,13 +989,14 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 	<!-- クラウドエクスポート (SaaS モード専用) — #3867: ZIP hint と同一条件 (cloudExportAvailable) でガード -->
 	{#if cloudExportAvailable}
-		<Card padding="lg" data-testid="cloud-export-card">
+		<!-- #4665: ページガイド「クラウド共有」step の anchor (SaaS のみ描画) -->
+		<Card padding="lg" data-testid="cloud-export-card" data-tutorial="cloud-export-card">
 			<div class="flex items-center gap-2 mb-4">
 				<h3 class="text-lg font-bold text-[var(--color-text)]">
 					{SETTINGS_LABELS.cloudSectionTitle}
 				</h3>
 				{#if data.maxCloudExports === 0}
-					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 				{:else}
 					<span
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
@@ -1146,8 +1191,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						{#if cloudImportError}
 							<ErrorAlert
 								message={cloudImportError}
-								severity="warning"
-								action="fix_input"
+								severity={cloudImportErrorKind.severity}
+								action={cloudImportErrorKind.action}
 							/>
 						{/if}
 
@@ -1291,7 +1336,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 	/>
 
 	<!-- Danger Zone: データクリア (#2323 GitHub Danger Zone パターン) -->
-	<section class="danger-zone" data-testid="data-danger-zone">
+	<!-- #4665: ページガイド「すべてのデータを削除」step の anchor -->
+	<section class="danger-zone" data-testid="data-danger-zone" data-tutorial="data-danger-zone">
 		<header class="danger-zone__header">
 			<h3 class="danger-zone__title">⚠️ {SETTINGS_LABELS.dangerZoneTitle}</h3>
 			<p class="danger-zone__desc">{SETTINGS_LABELS.dangerZoneDesc}</p>
@@ -1331,11 +1377,9 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</li>
 						<li>{SETTINGS_LABELS.dataImportPreviewStatuses(data.dataSummary.statuses)}</li>
 						<li>
-							{SETTINGS_LABELS.dataImportPreviewAchievements(data.dataSummary.achievements)}
+							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginStreaks)}
 						</li>
-						<li>
-							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginBonuses)}
-						</li>
+						<li>{SETTINGS_LABELS.dataImportPreviewVoices(data.dataSummary.voices)}</li>
 						<li>
 							{SETTINGS_LABELS.dataImportPreviewChecklists(
 								data.dataSummary.checklistTemplates,
@@ -1380,12 +1424,12 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				<div class="danger-zone__step">
 					<p class="danger-zone__step-label">{SETTINGS_LABELS.dangerStep1Label}</p>
 					<FormField
-						label="確認のため「削除」と入力してください"
+						label={SETTINGS_LABELS.clearConfirmFieldLabel}
 						type="text"
 						id="clearConfirm"
 						name="confirm"
 						bind:value={clearConfirmText}
-						placeholder="削除"
+						placeholder={SETTINGS_LABELS.clearConfirmKeyword}
 					/>
 				</div>
 
@@ -1418,7 +1462,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						disabled={clearSubmitting || !canConfirmClear}
 						data-testid="data-danger-execute-button"
 					>
-						{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
+						{clearSubmitting ? SETTINGS_LABELS.clearSubmitting : SETTINGS_LABELS.clearSubmitButton}
 					</Button>
 				</div>
 			</form>

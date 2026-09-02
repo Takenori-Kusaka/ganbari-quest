@@ -191,7 +191,7 @@
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+      <img src="logo-compact.png" alt="がんばりクエスト" width="108" height="44">
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
@@ -250,9 +250,10 @@
           <li data-lp-key="pricingB.k3">オリジナル活動の作成：3個まで</li>
           <li data-lp-key="pricingB.k4">レベル・ポイント・おみくじ・スタンプカード</li>
           <li data-lp-key="pricingB.k5">毎日のごほうび・続けるごほうび</li>
-          <li data-lp-key="pricingB.k6">持ち物チェックリスト 3個/子まで</li>
+          <li data-lp-key="pricingB.k6">持ち物チェックリスト 3個/子まで（取込を含む）</li>
           <li data-lp-key="pricingB.k7">90日間の履歴保持</li>
           <li data-lp-key="pricingB.k8">メールサポート（標準）</li>
+          <li data-lp-key="pricingB.k8b">ごほうびショップへの商品登録はスタンダード以上</li>
         </ul>
       </div>
 
@@ -270,7 +271,7 @@
           <li data-lp-key="pricingB.k10">オリジナル活動の作成：無制限</li>
           <li data-lp-key="pricingB.k11">チェックリスト自由作成（無制限）</li>
           <li data-lp-key="pricingB.k12">家族メンバー招待：3人まで（オーナーを含めご家族4人）</li>
-          <li data-lp-key="pricingB.k13">特別なごほうび設定（即時付与）</li>
+          <li data-lp-key="pricingB.k13">ごほうびショップへの商品登録</li>
           <li data-lp-key="pricingB.k14">家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）</li>
           <li data-lp-key="pricingB.k15">データのダウンロード</li>
           <li data-lp-key="pricingB.k16">1年間の履歴保持</li>
@@ -332,14 +333,14 @@
         <tr data-lp-key="pricingB.k34"><td>活動履歴の保持</td><td>90日</td><td>1年</td><td class="check">無制限</td></tr>
 
         <tr class="cat-row" data-lp-key="pricingB.k35"><td colspan="4">カスタマイズ</td></tr>
-        <tr data-lp-key="pricingB.k36"><td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <!-- #1708 R3-A: pricingB.k37 (旧 朝夜の習慣リスト / 旧 ルーチン-CL) は削除（kind=routine 廃止、毎日 must は活動マスタ priority 属性へ移管） -->
-        <tr data-lp-key="pricingB.k38"><td>持ち物チェックリスト自由作成</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
-        <tr data-lp-key="pricingB.k39"><td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <!-- #4713: 旧 pricingB.k38 (自由作成の別行) は k36 に統合（取込ぶんも同じ 3 個/子の枠を消費するため） -->
+        <tr data-lp-key="pricingB.k36"><td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k39"><td>ごほうびショップへの商品登録</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr data-lp-key="pricingB.k40"><td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row" data-lp-key="pricingB.k41"><td colspan="4">レポート・家族機能</td></tr>
-        <tr data-lp-key="pricingB.k42"><td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr data-lp-key="pricingB.k42"><td>本日の使用時間・今週の使用時間</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr data-lp-key="pricingB.k43"><td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>3人まで（オーナー含め4人）</td><td class="check">無制限</td></tr>
         <tr data-lp-key="pricingB.k44"><td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
         <tr data-lp-key="pricingB.k45"><td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
@@ -383,7 +384,7 @@
       <div class="trial-reassure">
         <span class="trial-reassure-icon">&#128274;</span>
         <div class="trial-reassure-text">
-          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後もそのまま保持されます。</span></p>
+          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後も削除されません。上限を超える分は一時的に非表示（アーカイブ）になり、有料プランにアップグレードすると自動で元に戻ります。</span></p>
           <p>ただし<strong data-lp-key="pricing.trialDataReassureLine2Strong">活動履歴・ポイント獲得履歴・毎日のごほうび履歴</strong><span data-lp-key="pricing.trialDataReassureLine2Suffix">は無料プランの保持期間（90 日）を超えたものから順次削除されます。</span></p>
           <p data-lp-key="pricing.trialDataReassureLine3">有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / プレミアム: 無制限）の履歴をご利用いただけます。</p>
         </div>
@@ -393,7 +394,7 @@
 </section>
 
 <!-- Family Usage Patterns -->
-<section class="family-patterns">
+<section class="family-patterns" id="family-patterns">
   <div class="family-patterns-inner">
     <h2 class="family-patterns-title" data-lp-key="pricing.familyPatternsTitle">家族での使い方</h2>
     <p class="family-patterns-subtitle" data-lp-key="pricing.familyPatternsSubtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
@@ -421,7 +422,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqFreeQ">無料プランでも十分使えますか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqFreeA">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqFreeA">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。ただしごほうびショップへの商品登録（貯めたポイントと交換する商品の登録）はスタンダードプラン以上の機能です。</div>
     </details>
 
     <details class="faq-item">
@@ -432,7 +433,7 @@
     <details class="faq-item">
       <summary data-lp-key="pricing.faqCancelQ">解約したらデータはすぐに削除されますか？</summary>
       <div class="faq-answer">
-        <p data-lp-key="pricing.faqCancelA">いいえ。解約してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は無料プランへ自動的に切り替わります（お子さまの記録は残ります）。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント退会のお手続きです。</p>
+        <p data-lp-key="pricing.faqCancelA">いいえ。解約してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は無料プランへ自動的に切り替わります（お子さまの記録は残ります）。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は、有料プランのご利用期間中に書き出してください。記録の書き出し（エクスポート）はスタンダードプラン以上の機能です。無料プランでは、退会のお手続きの画面からお子さまの名前と活動のまとめのみ保存できます。データそのものを消すのはアカウント退会のお手続きです。</p>
         <!-- #2103 F-2: 解約経路明示 -->
         <p data-lp-key="pricing.faqCancelPathNote">解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (Stripe の請求管理ページ) でいつでもお手続きいただけます。</p>
       </div>
@@ -451,7 +452,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqPaymentQ">支払い方法は？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqPaymentA">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqPaymentA">クレジットカード（Stripe が対応する主要ブランド）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
     </details>
 
     <details class="faq-item">

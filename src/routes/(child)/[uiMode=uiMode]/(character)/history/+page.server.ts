@@ -3,7 +3,8 @@ import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
 // #2458-B: sibling-challenge-service (legacy) → child-challenge-service (per-child instance) 移行
-import { getActiveChildChallengesWithSiblings } from '$lib/server/services/child-challenge-service';
+// #4688: 達成タブは「受取済みを含む履歴」を読む (active + 未請求だけの一覧を流用しない)
+import { getChildChallengeRecords } from '$lib/server/services/child-challenge-service';
 import { applyRetentionFilter, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForChild } from '$lib/server/services/reward-redemption-service';
 import { getTenantValuePreview } from '$lib/server/services/value-preview-service';
@@ -61,15 +62,29 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 		locals.context?.plan,
 	);
+	// 活動タブだけが期間タブ (today / week / month) を持つ。期間タブは +page.svelte で
+	// activities パネル内にのみ描画され、`handleKindChange` も activities のときしか period を
+	// 引き継がない。
 	const filtered = applyRetentionFilter(planTier, dateRange);
+	// 達成 / 交換タブは全期間の履歴を出すタブなので、期間ではなく**保持期間 cutoff だけ**を
+	// 適用する (ADR-0049 表示フィルタ層)。ここで `filtered` を渡すと「直近 7 日の達成しか
+	// 出ない」別の後退になる。
+	const retention = applyRetentionFilter(planTier, {});
 
 	// 4 種類のデータを並列取得 (Promise.all、AC2/AC3/AC4)
 	// 取得失敗時はそのタブのみ空配列フォールバック (history 全体は守る)
+	//
+	// 保持期間 (ADR-0049) の適用方針:
+	//   activities / achievements / purchases = event 行なので絞る (前 3 者は range 必須引数)
+	//   milestones                            = **集計値なので絞らない** (ADR-0049 §6)
+	// `getTenantValuePreview` だけ range を取らないのは実装漏れではない。マイルストーンは
+	// `MILESTONES` 定義から導出される「がんばりの証」で、保存期間の影響を受けない集計値として
+	// 恒久保持する (同 §6 が report_daily_summaries 等の集計に対して定めた扱いと同じ)。
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getActiveChildChallengesWithSiblings(child.id, tenantId),
-			getRedemptionRequestsForChild(child.id, tenantId),
+			getChildChallengeRecords(child.id, tenantId, retention),
+			getRedemptionRequestsForChild(child.id, tenantId, retention),
 			getTenantValuePreview(tenantId),
 		]);
 
@@ -78,30 +93,21 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 			? activityResult.value
 			: { logs: [], summary: { totalCount: 0, totalPoints: 0, byCategory: {} } };
 
-	const achievements =
-		achievementsResult.status === 'fulfilled'
-			? achievementsResult.value.map((c) => {
-					// #2458-B: per-child instance ベース。self instance の progress を直接読む
-					// (siblings[] は同 group の兄弟比較用、history では allCompleted のみ参照)。
-					return {
-						id: c.id,
-						title: c.title,
-						challengeType: c.challengeType,
-						startDate: c.startDate,
-						endDate: c.endDate,
-						completed: c.completed === 1,
-						allCompleted: c.allCompleted,
-						currentValue: c.currentValue,
-						targetValue: c.targetValue,
-					};
-				})
-			: [];
+	// #4688: 受取済み (rewardClaimed) も含む達成履歴。claim した瞬間に消えないこと (F1)
+	const achievements = achievementsResult.status === 'fulfilled' ? achievementsResult.value : [];
 
+	// #4632: 交換履歴は「いつ・何を・いくらで交換したか」を出す画面。
+	// 申請時点 snapshot (title / icon / points) と個数を渡さないと、UI は日付をタイトル代わりに
+	// 出しアイコンを 🎁 固定にするしかなく、何を交換したか判別できない。
 	const purchases =
 		purchasesResult.status === 'fulfilled'
 			? purchasesResult.value.map((r) => ({
 					id: r.id,
 					rewardId: r.rewardId,
+					rewardTitle: r.rewardTitle,
+					rewardIcon: r.rewardIcon,
+					rewardPoints: r.rewardPoints,
+					quantity: r.quantity,
 					status: r.status,
 					requestedAt: r.requestedAt,
 					resolvedAt: r.resolvedAt,

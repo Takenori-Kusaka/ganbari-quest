@@ -308,6 +308,17 @@ export interface ExportChild {
 	 * 新 childId へ再マップするために用いる (v1.3.0+、省略時は静的ファイル再配置スキップ)。
 	 */
 	sourceChildId?: ChildId;
+	/**
+	 * #4718 (QM): 年齢帯を保護者が手動で選んだか。
+	 *
+	 * 復元側は `uiMode` を常に明示で渡すため、`isExplicitUiModeOverride(age, uiMode)` が
+	 * 「保存時の uiMode ≠ 復元時の年齢から導く既定」を **手動指定**と誤認する。
+	 * 推定誕生日は 1/1 に +1 されるので、年をまたいだ復元で普通に起きる。
+	 * 誤認すると `recalcUiMode` が固定され、**年齢帯の自動遷移 (docs/DESIGN.md §8) が
+	 * 二度と働かない**（UI 上の印も解除導線も無い）。手動かどうかは推測せず round-trip する。
+	 * optional なのは旧 backup 後方互換 — 未指定は従来どおり導出に落ちる。
+	 */
+	uiModeManuallySet?: number;
 }
 
 // ============================================================
@@ -517,18 +528,6 @@ export interface ExportParentMessage {
 }
 
 /**
- * #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child を参照)。sentAt/shownAt (既読) を
- * 保全して round-trip 復元する (id/childId は import 環境で振り直すため fromChildRef/toChildRef で再結合)。
- */
-export interface ExportSiblingCheer {
-	fromChildRef: string;
-	toChildRef: string;
-	stampCode: string;
-	sentAt: string;
-	shownAt: string | null;
-}
-
-/**
  * #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため activityName で
  * 取込先 childActivity に再結合する。isPinned/pinOrder/日時を round-trip 保全する。
  */
@@ -552,18 +551,6 @@ export interface ExportChecklistOverride {
 	action: string;
 	itemName: string;
 	icon: string;
-	createdAt: string;
-}
-
-/**
- * #3329: per-child おやすみ日 (ステータス減少停止日)。createdAt を保全して round-trip 復元する
- * (id/childId は import で振り直すため childRef で再結合)。週次評価/streak/decay の input であり
- * 活動記録から再構成不能。※DynamoDB には保存されない (NUC/SQLite 専用の Pre-PMF fallback)。
- */
-export interface ExportRestDay {
-	childRef: string;
-	date: string;
-	reason: string;
 	createdAt: string;
 }
 
@@ -666,16 +653,12 @@ export interface ExportTransactionData {
 	certificates: ExportCertificate[];
 	/** #3329: 親→子おうえんメッセージ (sentAt/shownAt 保全) */
 	parentMessages: ExportParentMessage[];
-	/** #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child、sentAt/shownAt 保全) */
-	siblingCheers: ExportSiblingCheer[];
 	/** #3329: per-child 活動設定 (ピン留め、activityName で再結合) */
 	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	/** #3329: per-child チェックリスト日次 override (createdAt 保全) */
 	checklistOverrides: ExportChecklistOverride[];
-	/** #3329: per-child おやすみ日 (createdAt 保全。DynamoDB では空) */
-	restDays: ExportRestDay[];
 	/** #3329: 子のカスタム音声 DB 行 (ファイル本体は #3077 ZIP 同梱で復元、行は voiceRelPath で再結合) */
 	childVoices: ExportChildVoice[];
 	childAvatarItems: never[];

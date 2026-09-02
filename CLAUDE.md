@@ -60,7 +60,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 <!-- ci-hard-fail-steps:start -->
 - `npx biome check --error-on-warnings .` — Biome (pre-ready Step 1 と同一)
-- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / LP innerHTML / @html)
+- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / sync-lp-fallback --check / LP innerHTML / @html)
 - `node scripts/check-no-plan-literals.mjs` — プラン文字列直書き (pre-ready Step 7)
 - `node scripts/check-cli-entry-guard.mjs` — CLI entry 判定の方言禁止
 - `node scripts/check-workflow-sparse-checkout-closure.mjs` — sparse-checkout 列挙の閉包
@@ -107,12 +107,12 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 
 修正前に `docs/design/parallel-implementations.md` を確認:
 
-- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
+- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - 年齢モード → `src/routes/(child)/[uiMode=uiMode]/` + `src/lib/domain/validation/age-tier.ts`
 - 本番画面 → デモ Lambda (#2097 PR-B3 で `src/routes/demo/**` 全削除、本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動)
 - ナビ → `AdminLayout` + `AdminMobileNav` + `BottomNav`
 - DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
-- チュートリアル → `tutorial-chapters.ts` + `demo-guide-state.svelte.ts`
+- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` (子供) + `demo-guide-state.svelte.ts` (デモ)
 
 ## Things Not To Do
 

@@ -1,13 +1,17 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
+import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import {
 	APP_LABELS,
+	formatAge,
 	getAgeTierLabel,
 	PAGE_TITLES,
 	SETUP_CHILDREN_LABELS,
 } from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -16,6 +20,14 @@ let submitting = $state(false);
 let addSuccess = $state(false);
 
 let ageInput = $state<number | undefined>(undefined);
+// #4718: 誕生日は任意。入れたら年齢は誕生日から自動計算 (admin/children と同じ挙動)。
+let birthDateInput = $state<string | undefined>(undefined);
+const calculatedAge = $derived(
+	birthDateInput ? calculateAgeFromBirthDate(birthDateInput) : undefined,
+);
+$effect(() => {
+	if (calculatedAge !== undefined) ageInput = calculatedAge;
+});
 const autoUiMode = $derived(ageInput !== undefined ? getDefaultUiMode(ageInput) : null);
 const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : '');
 </script>
@@ -54,7 +66,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 					<div>
 						<p class="font-bold text-sm text-[var(--color-text)]">{child.nickname}</p>
 						<p class="text-xs text-[var(--color-text-muted)]">
-							{child.age + '歳'} / {getAgeTierLabel(child.uiMode)}{SETUP_CHILDREN_LABELS.ageModeSuffix}
+							{formatAge(child.age)} / {getAgeTierLabel(child.uiMode)}{SETUP_CHILDREN_LABELS.ageModeSuffix}
 						</p>
 					</div>
 				</div>
@@ -75,6 +87,7 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 			if (result.type === 'success') {
 				addSuccess = true;
 				ageInput = undefined;
+				birthDateInput = undefined;
 			}
 			await update({ reset: true });
 		};
@@ -84,21 +97,30 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 	<h3 class="text-sm font-bold text-[var(--color-text-secondary)]">{SETUP_CHILDREN_LABELS.addFormTitle}</h3>
 
 	<FormField
-		label="ニックネーム"
+		label={SETUP_CHILDREN_LABELS.nicknameLabel}
 		name="nickname"
 		required
-		placeholder="たろうくん"
+		placeholder={SETUP_CHILDREN_LABELS.nicknamePlaceholder}
 	/>
 
 	<FormField
-		label="年齢"
+		label={birthDateInput ? SETUP_CHILDREN_LABELS.ageLabelAutoCalc : SETUP_CHILDREN_LABELS.ageLabel}
 		type="number"
 		name="age"
 		min={0}
 		max={18}
-		required
+		required={!birthDateInput}
+		disabled={!!birthDateInput}
 		bind:value={ageInput}
-		hint={autoUiMode ? `${autoUiLabel}モードが自動で設定されます` : undefined}
+		hint={autoUiMode ? SETUP_CHILDREN_LABELS.autoUiModeHint(autoUiLabel) : undefined}
+	/>
+
+	<BirthdayInput
+		label={SETUP_CHILDREN_LABELS.birthdayLabel}
+		name="birthDate"
+		id="setup-birthDate"
+		bind:value={birthDateInput}
+		hint={SETUP_CHILDREN_LABELS.birthdayHint}
 	/>
 
 	<div>
@@ -137,12 +159,23 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 <!-- #2821: 離脱先を / でなく /switch に固定。/ は子供 1 人だと child home に自動 redirect され -->
 <!-- 親向けの SetupResumeBanner が見えず AC1 の first-view 視認が壊れる。/switch は親向けの子供選択 -->
 <!-- 画面で、残りの初期設定 step を案内する resume バナーを先頭に出す。詳細は SetupResumeBanner.svelte。 -->
-<div class="mt-4 text-center">
-	<a
-		href="/switch"
-		class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
-		data-testid="setup-skip-link"
-	>{SETUP_CHILDREN_LABELS.backToHome}</a>
+<div class="mt-4 text-center space-y-2">
+	<!-- #4696: 全削除の直後もここに来る (子供 0 人 = セットアップ必須)。バックアップを持っている人が -->
+	<!-- ダミーの子供を作らずに戻せるよう、復元画面への導線を出す。 -->
+	<p>
+		<a
+			href={resolve('/admin/settings/data')}
+			class="text-sm text-[var(--color-text-link)] underline"
+			data-testid="setup-restore-link"
+		>{SETUP_CHILDREN_LABELS.restoreFromBackup}</a>
+	</p>
+	<p>
+		<a
+			href={resolve('/switch')}
+			class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
+			data-testid="setup-skip-link"
+		>{SETUP_CHILDREN_LABELS.backToHome}</a>
+	</p>
 </div>
 
 <style>

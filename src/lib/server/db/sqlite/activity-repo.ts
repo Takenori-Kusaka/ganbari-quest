@@ -722,6 +722,19 @@ export async function countActiveActivityLogsByCategory(
 }
 
 /** 指定タイプのポイント台帳エントリ数を取得 */
+/** #4696: 子供のポイント台帳 総行数 (データクリア件数表示用)。 */
+export async function countPointLedgerEntries(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: count() })
+		.from(pointLedger)
+		.where(eq(pointLedger.childId, Number(childId)))
+		.get();
+	return result?.total ?? 0;
+}
+
 export async function countPointLedgerEntriesByType(
 	childId: ChildId,
 	type: string,
@@ -749,11 +762,36 @@ export async function countPointLedgerEntriesByTypeAndDate(
 			and(
 				eq(pointLedger.childId, Number(childId)),
 				eq(pointLedger.type, type),
-				sql`date(${pointLedger.createdAt}) = ${date}`,
+				// #4722: created_at は CURRENT_TIMESTAMP (UTC) で入るため、JST 暦日 (date) と
+				// 比べるには +9h してから日付にする。旧実装は UTC 暦日と比較しており、
+				// JST 0〜9 時に「今日まだ付与していない」と誤判定して二重付与しうる
+				// (おやくそく全達成ボーナス等の当日冪等判定)。
+				sql`date(${pointLedger.createdAt}, '+9 hours') = ${date}`,
 			),
 		)
 		.get();
 	return result?.total ?? 0;
+}
+
+/** #4686: type × description 前方一致の付与合計 (正負込み)。getComboPointsGranted の type 汎用版。 */
+export async function sumPointLedgerByTypeAndDescriptionPrefix(
+	childId: ChildId,
+	type: string,
+	descriptionPrefix: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = await db
+		.select({ total: sql<number>`coalesce(sum(amount), 0)`.as('total') })
+		.from(pointLedger)
+		.where(
+			and(
+				eq(pointLedger.childId, Number(childId)),
+				eq(pointLedger.type, type),
+				sql`${pointLedger.description} LIKE ${`${descriptionPrefix}%`}`,
+			),
+		)
+		.get();
+	return Number(result?.total ?? 0);
 }
 
 // ============================================================

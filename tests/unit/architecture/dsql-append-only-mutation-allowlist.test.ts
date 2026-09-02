@@ -144,9 +144,11 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		file: 'status-repo.ts',
 		table: 'status_history',
 		op: 'DELETE',
-		marker: /recorded_at\s*<\s*\$\{cutoffDate\}/,
+		// #4722: point_ledger (#3593 ②) と同じく cutoff を JST 深夜 0:00 の instant に TZ-qualify した
+		// (session TZ 依存の裸 cast だと DSQL 既定 session=UTC で 9 時間ずれ、境界日 JST 0〜9 時を 1 日早く消す)。
+		marker: /recorded_at\s*<\s*\(\$\{cutoffDate\}\s*\|\|\s*'T00:00:00\+09:00'\)/,
 		reason:
-			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + recorded_at cutoff 述語、#3518-2)',
+			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + JST-qualified cutoff 述語、#3518-2 / #4722)',
 	},
 	// ── 設計済み状態遷移 (行の業務データ本体は不変、フラグ/紐付けのみ) ──
 	{
@@ -171,6 +173,34 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		op: 'UPDATE',
 		marker: /SET\s+stripe_subscription_id\s*=/,
 		reason: 'trial→有償転換の紐付け更新 (updateConversion。trial 事実は不変、転換メタの追記的更新)',
+	},
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'DELETE',
+		marker: /WHERE\s+family_id\s*=\s*\$\{tenantId\}/,
+		reason:
+			'テナント全削除 / データクリア (deleteByTenantId、退会 PII 消去。他 repo の同型経路と同じ)',
+	},
+	// #4719: 利用時間セッションの完了 (自身が INSERT した進行中行の ended_at / duration_sec 確定)。
+	// 記録済み業務事実の書換ではないため app-role.ts でも UPDATE_ALLOWED_TABLES に分類する
+	// (activity_logs / trial_history と同型)。新規の usage_logs mutation は本 allowlist で引き続き止まる。
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'UPDATE',
+		marker:
+			/SET\s+ended_at\s*=\s*\$\{endedAt\}::timestamptz,\s*duration_sec\s*=\s*\$\{durationSec\}/,
+		reason:
+			'セッション終了記録 (updateUsageLogEnd。start で自身が INSERT した進行中行に終了時刻と滞在秒を確定させる)',
+	},
+	{
+		file: 'usage-log-repo.ts',
+		table: 'usage_logs',
+		op: 'UPDATE',
+		marker: /ended_at\s+IS\s+NULL/,
+		reason:
+			'進行中セッションの一括クローズ (closeOpenSessions。次セッション開始 / cleanup 時に ended_at IS NULL の自行のみを完了させる)',
 	},
 ];
 

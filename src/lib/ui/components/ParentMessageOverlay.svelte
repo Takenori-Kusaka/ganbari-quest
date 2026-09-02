@@ -9,10 +9,23 @@ interface Props {
 	stampLabel: string;
 	body: string | null;
 	icon: string;
+	/**
+	 * #4688 (F4): 応援 (cheer) で親が付けたボーナスポイント。残高は増えているのにダイアログに
+	 * 出ていなかったため、「何がもらえたのか」が子供に伝わらなかった。0 / null なら出さない。
+	 */
+	bonusPoints?: number | null;
 	onClose?: () => void;
 }
 
-let { open = $bindable(), messageType, stampLabel, body, icon, onClose }: Props = $props();
+let {
+	open = $bindable(),
+	messageType,
+	stampLabel,
+	body,
+	icon,
+	bonusPoints = null,
+	onClose,
+}: Props = $props();
 
 $effect(() => {
 	if (open) {
@@ -42,6 +55,12 @@ function handleClose() {
 			<p class="text-xl font-bold">{stampLabel}</p>
 		{:else if body}
 			<p class="{body.length > 30 ? 'text-sm' : 'text-lg'} font-bold leading-relaxed max-h-40 overflow-y-auto px-2">{UI_COMPONENTS_LABELS.parentMessageBody(body)}</p>
+		{/if}
+
+		{#if bonusPoints && bonusPoints > 0}
+			<p class="text-xl font-bold text-[var(--color-point)]" data-testid="parent-message-bonus">
+				{UI_COMPONENTS_LABELS.parentMessageBonusPoints(bonusPoints)}
+			</p>
 		{/if}
 
 		<p class="text-sm text-[var(--color-text-muted)]">{UI_COMPONENTS_LABELS.parentMessageFrom}</p>

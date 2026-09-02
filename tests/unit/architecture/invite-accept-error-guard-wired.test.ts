@@ -1,49 +1,65 @@
 // tests/unit/architecture/invite-accept-error-guard-wired.test.ts
 //
-// #4638 (fitness function): 招待受諾拒否の通知 cookie を読む唯一の消費地点が、
-// SSOT の型ガード `isInviteAcceptErrorReason` を **実際に通している**ことを固定する。
+// #4638 / #4636 (fitness function): 招待受諾拒否の理由を扱う唯一の消費地点が、SSOT の理由一覧を
+// **実際に通している**ことを固定する (SSOT を作ったのに配線しない = 到達不能な判定関数を作らない、
+// #4623 / #4624 で削除中の class と同型)。
 //
-// #4633 で SSOT (INVITE_ACCEPT_ERROR_REASONS) と型ガードを新設したが、消費側
-// (`admin/+layout.server.ts`) は生の cookie 文字列をそのまま client へ渡しており、
-// ガードは export されているだけで src からの参照が 0 件だった (= 到達不能な判定関数)。
-// これはリポジトリが #4623 / #4624 で削除中の class と同型であり、
-// 「SSOT を作ったのに配線しない」を機械検出する。
+// #4636 で理由の伝達手段が 1 回限りの通知 cookie (admin +layout.server.ts で読取) から
+// `/auth/join` 画面へ移った (cookie は TTL 切れで理由が永久に失われ、one-shot なのでリロードで
+// 二度と出ない、という構造を廃止した)。したがって本 guard の対象も join 画面に移る。
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+	getInviteJoinBlockedMessage,
+	INVITE_JOIN_BLOCKED_MESSAGES,
+} from '../../../src/lib/domain/labels';
 import {
 	INVITE_ACCEPT_ERROR_REASONS,
 	isInviteAcceptErrorReason,
 } from '../../../src/lib/domain/validation/auth';
 
 const REPO_ROOT = join(__dirname, '../../..');
-const LAYOUT_SERVER = join(REPO_ROOT, 'src/routes/(parent)/admin/+layout.server.ts');
+const JOIN_PAGE_SERVER = join(REPO_ROOT, 'src/routes/auth/join/+page.server.ts');
+const ADMIN_LAYOUT_SERVER = join(REPO_ROOT, 'src/routes/(parent)/admin/+layout.server.ts');
 
-describe('#4638 招待受諾拒否 cookie の型ガード配線', () => {
-	it('admin +layout.server.ts が isInviteAcceptErrorReason を通している (到達不能な判定関数を作らない)', () => {
-		const source = readFileSync(LAYOUT_SERVER, 'utf8');
+describe('#4636 招待受諾拒否理由の配線', () => {
+	it('/auth/join が理由 → 文言の SSOT (getInviteJoinBlockedMessage) を通している', () => {
+		const source = readFileSync(JOIN_PAGE_SERVER, 'utf8');
 
-		// import されている
 		expect(
-			source.includes('isInviteAcceptErrorReason'),
-			'admin/+layout.server.ts が isInviteAcceptErrorReason を参照していない。' +
-				'SSOT の型ガードを新設したまま消費側で配線しないと、未検証の cookie 値が SSR ペイロードに素通しになる (#4638)',
+			source.includes('getInviteJoinBlockedMessage'),
+			'/auth/join が getInviteJoinBlockedMessage を参照していない。理由 → 文言の SSOT を' +
+				'経由しないと、画面ごとに文言が分岐して未知の理由が無説明になる (#4636)',
 		).toBe(true);
 
-		// cookie を読んだ結果をガードに通している (読むだけで捨てていない)
+		// 理由は招待 cookie から **その都度再導出** する (1 回限りの通知 cookie に戻さない)
 		expect(
-			/isInviteAcceptErrorReason\(\s*rawInviteAcceptError\s*\)/.test(source),
-			'cookie 値 (rawInviteAcceptError) が isInviteAcceptErrorReason に渡されていない',
+			source.includes('previewInviteAcceptance'),
+			'/auth/join が previewInviteAcceptance で理由を再導出していない。' +
+				'理由が cookie の寿命に依存する構造に戻ると、リロード / 再訪で理由が消える (#4636)',
 		).toBe(true);
 	});
 
-	it('型ガードが SSOT の全理由を受理し、未知の値を拒否する', () => {
+	it('admin layout に受諾拒否の通知 cookie 経路が残っていない (理由の SSOT を 2 つにしない)', () => {
+		const source = readFileSync(ADMIN_LAYOUT_SERVER, 'utf8');
+
+		expect(
+			source.includes('INVITE_ACCEPT_ERROR_COOKIE_NAME'),
+			'admin +layout.server.ts に旧通知 cookie の読取が残っている。' +
+				'/auth/join と併存すると理由の SSOT が 2 つになる (#4636 AC8)',
+		).toBe(false);
+	});
+
+	it('理由 SSOT の全値に文言があり、未知の値は汎用文言に落ちる', () => {
 		for (const reason of INVITE_ACCEPT_ERROR_REASONS) {
-			expect(isInviteAcceptErrorReason(reason), `${reason} が拒否された`).toBe(true);
+			expect(isInviteAcceptErrorReason(reason)).toBe(true);
+			expect(INVITE_JOIN_BLOCKED_MESSAGES[reason]).toBeTruthy();
+			expect(getInviteJoinBlockedMessage(reason)).toBe(INVITE_JOIN_BLOCKED_MESSAGES[reason]);
 		}
-		expect(isInviteAcceptErrorReason('UNKNOWN')).toBe(false);
-		expect(isInviteAcceptErrorReason('')).toBe(false);
+		expect(isInviteAcceptErrorReason('SOMETHING_NEW')).toBe(false);
 		expect(isInviteAcceptErrorReason(undefined)).toBe(false);
+		expect(getInviteJoinBlockedMessage('SOMETHING_NEW')).toBeTruthy();
 	});
 });

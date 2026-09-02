@@ -4,6 +4,11 @@ import { goto, invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
+	AUTO_SLEEP_ACTIVE_MS,
+	AUTO_SLEEP_BATTLE_GRACE_MS,
+	AUTO_SLEEP_INACTIVE_RESET_MS,
+} from '$lib/domain/constants/auto-sleep';
+import {
 	getModeLabels,
 	ICON_CHECKLIST,
 	ICON_HOME,
@@ -34,8 +39,8 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -73,13 +78,10 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// #1292 自動スリープ設定
+// #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
 // 非アクティブ 1 分でタイマーリセット
 // バトル中は +2 分の grace period
-const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
-const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
-const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
@@ -91,7 +93,9 @@ onMount(() => {
 		if (config) {
 			soundService.preload(config.enabledSounds);
 		}
-		setChapters(CHILD_TUTORIAL_CHAPTERS);
+		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
+		// #4651 (a): 進捗 key を子供ガイド (年齢モード別) の namespace に分ける
+		setChapters(getChildTutorialChapters(uiMode), `child:${uiMode}`);
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）
@@ -116,13 +120,12 @@ onMount(() => {
 		})
 			.then((res) => res.json())
 			.then((json: unknown) => {
-				if (
-					json &&
-					typeof json === 'object' &&
-					'id' in json &&
-					typeof (json as { id: unknown }).id === 'number'
-				) {
-					usageSessionId = (json as { id: string }).id;
+				// #4719: id は **文字列** (sqlite=数値 id の文字列 / pg=uuid)。旧実装は
+				// `typeof id === 'number'` を条件にしていたため usageSessionId が常に null のままで
+				// PATCH (セッション終了) が一度も飛ばず、全 backend で「本日の使用時間 0分」になっていた。
+				if (json && typeof json === 'object' && 'id' in json) {
+					const id: unknown = (json as { id: unknown }).id;
+					if (typeof id === 'string' || typeof id === 'number') usageSessionId = String(id);
 				}
 			})
 			.catch(() => {
@@ -165,7 +168,8 @@ onMount(() => {
 
 	return () => {
 		clearInterval(autoReloadTimer);
-		if (!isBaby) resetChapters();
+		// #4654: 親の章立て撤去で store の既定は空配列。子供画面を離れるときは章を空に戻す
+		if (!isBaby) setChapters([]);
 		cleanupSleep?.();
 	};
 });
@@ -207,7 +211,7 @@ function handleStartChildTutorial() {
 			onStampClick={() => {
 				stampDialogOpen = true;
 			}}
-			onHelpClick={handleStartChildTutorial}
+			onHelpClick={isBaby ? undefined : handleStartChildTutorial}
 			isPremium={data.isPremium}
 			animateBalance={pointFlightEnabled}
 		>
@@ -239,7 +243,7 @@ function handleStartChildTutorial() {
 
 	{#if !isBaby}
 		<BottomNav items={navItems} />
-		<TutorialOverlay />
+		<TutorialOverlay childUiMode={uiMode} />
 	{/if}
 </div>
 

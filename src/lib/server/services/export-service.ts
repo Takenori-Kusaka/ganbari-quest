@@ -34,10 +34,8 @@ import {
 	type ExportOptions,
 	type ExportParentMessage,
 	type ExportPointLedger,
-	type ExportRestDay,
 	type ExportRewardRedemption,
 	type ExportSetting,
-	type ExportSiblingCheer,
 	type ExportSpecialReward,
 	type ExportStampCard,
 	type ExportStatus,
@@ -53,7 +51,7 @@ import {
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
-import { findEvaluationsByChild, findRestDaysByChild } from '$lib/server/db/evaluation-repo';
+import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { findStreak } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
@@ -161,6 +159,9 @@ async function collectExportBody(options: ExportOptions): Promise<Omit<ExportDat
 		activeTitle: null, // 称号システム廃止（#322）
 		createdAt: child.createdAt,
 		sourceChildId: child.id, // #3077: ZIP 静的ファイルの id 再マップ用
+		// #4718 (QM): 手動で年齢帯を選んだかを round-trip する。落とすと復元側が
+		// 「保存時の uiMode ≠ 復元時の既定」を手動指定と誤認し、年齢帯の自動遷移が固定される。
+		uiModeManuallySet: child.uiModeManuallySet,
 	}));
 
 	// childId → exportId マッピング
@@ -297,7 +298,6 @@ interface ChildTransactionData {
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	checklistOverrides: ExportChecklistOverride[];
-	restDays: ExportRestDay[];
 	childVoices: ExportChildVoice[];
 }
 
@@ -663,16 +663,6 @@ async function collectForChild(
 		createdAt: o.createdAt,
 	}));
 
-	// #3329: per-child おやすみ日 (createdAt 保全)。DynamoDB では findRestDaysByChild が空を返す。
-	const restDaysRaw = await findRestDaysByChild(childId, tenantId);
-	warnIfTruncated('restDays', childId, restDaysRaw.length);
-	const restDaysOut: ExportRestDay[] = restDaysRaw.map((r) => ({
-		childRef,
-		date: r.date,
-		reason: r.reason,
-		createdAt: r.createdAt,
-	}));
-
 	// #3329: 子のカスタム音声 DB 行。filePath から tenant prefix を除いた相対パス (voices/<childId>/<rest>)
 	// を voiceRelPath として出力し、import 時に新 tenant+childId へ再構成する。音声ファイル本体は
 	// #3077 ZIP 同梱機構が別途復元する。
@@ -707,7 +697,6 @@ async function collectForChild(
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 		checklistOverrides: checklistOverridesOut,
-		restDays: restDaysOut,
 		childVoices: childVoicesOut,
 	};
 }
@@ -733,22 +722,6 @@ async function collectTransactionData(
 		.map((key) => ({ key, value: settingsMap[key] as string }));
 
 	// #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child)。childExportIdMap で
-	// 両 childId を childRef に解決し、どちらかが export 対象外なら skip する (childRef 解決不能を防ぐ)。
-	const siblingCheersRaw = await getRepos().siblingCheer.findAllByTenant(tenantId);
-	const siblingCheersOut: ExportSiblingCheer[] = [];
-	for (const c of siblingCheersRaw) {
-		const fromRef = childExportIdMap.get(c.fromChildId);
-		const toRef = childExportIdMap.get(c.toChildId);
-		if (!fromRef || !toRef) continue;
-		siblingCheersOut.push({
-			fromChildRef: fromRef,
-			toChildRef: toRef,
-			stampCode: c.stampCode,
-			sentAt: c.sentAt,
-			shownAt: c.shownAt,
-		});
-	}
-
 	return {
 		childActivities: perChild.flatMap((p) => p.childActivities),
 		activityLogs: perChild.flatMap((p) => p.activityLogs),
@@ -769,11 +742,9 @@ async function collectTransactionData(
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		checklistOverrides: perChild.flatMap((p) => p.checklistOverrides), // #3329
-		restDays: perChild.flatMap((p) => p.restDays), // #3329
 		childVoices: perChild.flatMap((p) => p.childVoices), // #3329
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 		settings: settingsOut, // #3329
-		siblingCheers: siblingCheersOut, // #3329
 	};
 }

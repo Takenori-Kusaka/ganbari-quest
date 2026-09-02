@@ -23,13 +23,17 @@ export async function insertRedemptionRequest(
 		resolvedAt: null,
 		resolvedByParentId: null,
 		shownToChildAt: null,
+		// #4632: demo Fake は live reward を持たないため snapshot は null (sqlite の旧行と同じ扱い)。
+		rewardTitle: null,
+		rewardPoints: null,
+		rewardIcon: null,
 	};
 }
 
 export async function insertRedemptionForRestore(
 	_input: {
 		childId: ChildId;
-		rewardId: string;
+		rewardId: string | null;
 		requestedAt: number;
 		quantity: number;
 		status: string;
@@ -55,18 +59,42 @@ export async function findRedemptionRequestsByChild(
 	return [];
 }
 
+/** #4682 F1: demo は stateless Fake のため常に「見つからない」を返す (write no-op と整合)。 */
+export async function findRedemptionRequestById(
+	_id: string,
+	_tenantId: string,
+): Promise<RedemptionRequestWithDetails | undefined> {
+	return undefined;
+}
+
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: ChildId; limit?: number },
+	_opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ): Promise<RedemptionRequestWithDetails[]> {
 	return [];
 }
 
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: ChildId },
+	_opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		requestedBeforeEpoch?: number;
+	},
 ): Promise<number> {
 	return 0;
+}
+
+/** #4682: 承認待ち reward id の集合 (demo は stateless stub のため常に空)。 */
+export async function findPendingRewardIdsByTenant(_tenantId: string): Promise<string[]> {
+	return [];
 }
 
 export async function updateRedemptionRequestStatus(
@@ -79,6 +107,7 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
+	_options?: { expectedStatus?: string },
 ): Promise<RedemptionRequestRow | undefined> {
 	return undefined;
 }

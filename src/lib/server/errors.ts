@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -16,6 +16,8 @@ export type ErrorCode =
 	| 'LOCKED_OUT'
 	| 'NOT_FOUND'
 	| 'PLAN_LIMIT_EXCEEDED'
+	| 'EXPORT_NOT_READY'
+	| 'EXPORT_FAILED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -95,6 +97,20 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		severity: 'info',
 		action: 'none',
 	},
+	// #4717: クラウド共有データが生成待ち (pending/building)。時間をおけば解決するので retry を促す。
+	EXPORT_NOT_READY: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudImportNotReady,
+		severity: 'info',
+		action: 'retry',
+	},
+	// #4717: クラウド共有データの生成が失敗している。受け取る側の操作では解決しない。
+	EXPORT_FAILED: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudImportBuildFailed,
+		severity: 'error',
+		action: 'none',
+	},
 	INTERNAL_ERROR: {
 		status: 500,
 		userMessage: 'システムに問題が発生しました。しばらくしてからお試しください。',
@@ -116,6 +132,47 @@ export function apiError(code: ErrorCode, message: string, context?: Record<stri
 				code,
 				message,
 				userMessage: def.userMessage,
+				severity: def.severity,
+				action: def.action,
+			},
+		},
+		{ status: def.status },
+	);
+}
+
+/**
+ * プラン制限による 403 を **要求 tier 込み**で返す (#4710)。
+ *
+ * `apiError('PLAN_LIMIT_EXCEEDED', …)` は userMessage を `ERROR_DEFINITIONS` の固定文
+ * (スタンダード以上の案内) から取るため、**プレミアム限定機能をスタンダード契約者が叩いても
+ * 「スタンダード以上でご利用いただけます」** と返していた。既にスタンダードな顧客は
+ * 次の行動が取れない (実測: AI 提案 `POST /api/v1/activities/suggest`)。
+ *
+ * 呼び出し側は「その機能が何 tier を要求するか」を必ず知っている (gate 判定をしている当人)
+ * ので、それを引数で受け取り userMessage を出し分ける。`PLAN_LIMIT_EXCEEDED` を
+ * `apiError` で直接返す経路は `tests/unit/architecture/plan-limit-error-required-tier.test.ts`
+ * が禁止する (同じ穴を別 endpoint で再生産させない)。
+ *
+ * @param requiredTier その機能が要求する最低 tier
+ * @param message 開発者向け (ログ / `error.message`)。顧客には出さない
+ */
+export function planLimitError(
+	requiredTier: 'standard' | 'family',
+	message: string,
+	context?: Record<string, unknown>,
+) {
+	const userMessage =
+		requiredTier === 'family'
+			? PLAN_GATE_LABELS.familyLimitedGenericWithUpgrade
+			: PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade;
+	logger.warn(`[API] PLAN_LIMIT_EXCEEDED: ${message}`, { context: { ...context, requiredTier } });
+	const def = ERROR_DEFINITIONS.PLAN_LIMIT_EXCEEDED;
+	return json(
+		{
+			error: {
+				code: 'PLAN_LIMIT_EXCEEDED',
+				message,
+				userMessage,
 				severity: def.severity,
 				action: def.action,
 			},

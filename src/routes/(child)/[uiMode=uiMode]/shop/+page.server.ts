@@ -1,15 +1,18 @@
 // src/routes/(child)/[uiMode=uiMode]/shop/+page.server.ts
 // ごほうびショップ 子供側 (#1337)
 
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { deriveShopCategory } from '$lib/domain/shop-category';
+// #4685 (ADR-0011): 年齢帯ごとの機能可否は age-tier.ts の 1 箇所で判定する (散在 if を作らない)
+import { hasAgeTierCapability } from '$lib/domain/validation/age-tier';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
+import { NO_RETENTION_FILTER } from '$lib/server/services/plan-limit-service';
 import {
 	getRedemptionRequestsForChild,
 	isRewardAutoApproveEnabled,
@@ -18,10 +21,16 @@ import {
 import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ parent, locals }) => {
+export const load: PageServerLoad = async ({ parent, locals, params }) => {
 	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
 	const { child } = parentData;
+
+	// #4685: 準備モード (baby) はごほうびショップを持たない。history / status と同じく home へ倒す
+	// (旧実装は shop だけ素通りし、1 歳児の名前で交換申請が親の承認待ちに並んでいた)。
+	if (!hasAgeTierCapability(params.uiMode, 'rewardShop')) {
+		redirect(302, `/${params.uiMode}/home`);
+	}
 
 	if (!child) {
 		// #4684: 早期 return の shape を通常経路と一致させる (旧実装は通常経路が返さない
@@ -32,7 +41,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	const [rewardsData, balance, redemptionRequests, autoApprove] = await Promise.all([
 		getChildSpecialRewards(child.id, tenantId),
 		getBalance(child.id, tenantId),
-		getRedemptionRequestsForChild(child.id, tenantId),
+		// ここは履歴一覧ではなく「各ごほうびの最新申請状態」(交換済みバッジ / 再申請ガード) の
+		// 導出に使う。保持期間で絞ると、古い申請しか無いごほうびのバッジだけが消えて
+		// 状態表示が不定になるため絞らない。履歴として見せる場所は「記録 > 交換」タブ側
+		// (そちらは保持期間を通す、#4818)。
+		getRedemptionRequestsForChild(child.id, tenantId, NO_RETENTION_FILTER),
 		// #4684 F1: 確認ダイアログの説明を「このあと実際に起きること」に合わせるために必要。
 		isRewardAutoApproveEnabled(tenantId),
 	]);
@@ -80,6 +93,11 @@ export const actions: Actions = {
 		if (!childIdStr) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
 		const child = await getChildById(asChildId(childIdStr), tenantId);
 		if (!child) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
+		// #4685: 画面を塞ぐだけでなく **action 側でも** 拒否する (直接 POST を通さない)。
+		// 判定は cookie の uiMode ではなく DB 上の子供の uiMode で行う。
+		if (!hasAgeTierCapability(child.uiMode ?? '', 'rewardShop')) {
+			return fail(403, { error: CHILD_SHOP_LABELS.errorGeneric });
+		}
 
 		const formData = await request.formData();
 		const rewardId = formIdString(formData.get('rewardId'));

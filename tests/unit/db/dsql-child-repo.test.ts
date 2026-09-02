@@ -4,7 +4,7 @@
 // DSQL IChildRepo 実装のテスト。実 schema (pushSchema 適用、dsql-test-db helper) に対して:
 //   [C1] insert → findById round-trip (uuid 採番、entity 0/1 変換)
 //   [C2] compute-on-read: birth_date から age 導出 + 非手動児は年齢で ui_mode 再導出 (§11.1)
-//   [C3] 手動 override 児は stored ui_mode 維持 / birth_date NULL は age=0 + stored
+//   [C3] 手動 override 児は stored ui_mode 維持 / 年齢のみ登録は推定誕生日で age=入力値 (#4718)
 //   [C4] §P9 tenant 分離: 他 family の child は見えない・更新できない
 //   [C5] update の部分更新 + updated_at 更新
 //   [C6] archive/restore/findArchived (findAll から archived が消える)
@@ -72,10 +72,13 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 		const foundManual = await repo.findChildById(manual.id, FAMILY);
 		expect(foundManual?.uiMode).toBe('junior'); // 手動 override 維持
 
+		// #4718: 年齢のみの登録は推定誕生日 (今年−age の 1/1) を保存するので age は入力値で読める。
+		// 推定値は公開 birthDate に出さない (誕生日ボーナス対象外)。
 		const noBirth = await repo.insertChild({ nickname: 'ふめい', age: 5 }, FAMILY);
 		const foundNoBirth = await repo.findChildById(noBirth.id, FAMILY);
-		expect(foundNoBirth?.age).toBe(0); // PO B2: backfill 必須の明示 fallback
-		expect(foundNoBirth?.uiMode).toBe('preschool'); // stored 既定
+		expect(foundNoBirth?.age).toBe(5);
+		expect(foundNoBirth?.birthDate).toBeNull();
+		expect(foundNoBirth?.uiMode).toBe('preschool');
 	});
 
 	it('[C4b] #3709: 非 uuid の stale id は throw せず undefined (22P02 正規化)', async () => {

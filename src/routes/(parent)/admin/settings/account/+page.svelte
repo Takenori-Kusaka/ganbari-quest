@@ -7,11 +7,14 @@
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
+import { LOGIN_REASON_CODES } from '$lib/domain/validation/login-redirect';
 import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
+import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -22,7 +25,9 @@ import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 let { form } = $props();
 const errorMessage = $derived(getErrorMessage(form?.error));
 
+// #4698: JS 未 hydrate の native POST (SSR 再描画) でも成功表示が出るよう form prop を初期値にする
 let success = $state(false);
+const changeSucceeded = $derived(success || form?.success === true);
 let submitting = $state(false);
 
 // アカウント削除関連
@@ -40,12 +45,10 @@ let deletionInfo = $state<{
 		email?: string;
 		displayName?: string;
 	}>;
+	/** #4640: オーナーを渡せる大人が居るか (判定 SSOT は account-deletion-service)。 */
+	hasTransferableAdult: boolean;
 } | null>(null);
 let deletionInfoLoading = $state(false);
-
-// #1781: 削除後グレースピリオド復元
-let restoreSubmitting = $state(false);
-let restoreError = $state('');
 
 const gracePeriodStatus = $derived(
 	$page.data.gracePeriodStatus as
@@ -74,34 +77,16 @@ const gracePeriodDeletionDateLabel = $derived.by(() => {
 	});
 });
 
-async function handleRestoreAccount() {
-	if (restoreSubmitting) return;
-	restoreSubmitting = true;
-	restoreError = '';
-	try {
-		const res = await fetch('/api/v1/admin/account/restore', { method: 'POST' });
-		const d = await res.json();
-		if (!res.ok) {
-			throw new Error(d.message ?? d.error ?? SETTINGS_LABELS.deletionGraceRestoreError);
-		}
-		window.location.reload();
-	} catch (err) {
-		restoreError = err instanceof Error ? err.message : SETTINGS_LABELS.deletionGraceRestoreError;
-	} finally {
-		restoreSubmitting = false;
-	}
-}
-
 async function fetchDeletionInfo() {
 	if (deletionInfoLoading) return;
 	deletionInfoLoading = true;
 	try {
 		const res = await fetch('/api/v1/admin/account/deletion-info');
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? '情報取得に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteInfoFetchFailed);
 		deletionInfo = d;
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : '情報取得に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteInfoFetchFailed;
 	} finally {
 		deletionInfoLoading = false;
 	}
@@ -109,7 +94,7 @@ async function fetchDeletionInfo() {
 
 async function handleDeleteAccount() {
 	if (deleteSubmitting) return;
-	if (deleteConfirmText !== 'アカウントを削除します' || !deleteAgreeChecked) return;
+	if (deleteConfirmText !== CANCEL_TERMS.confirmPhrase || !deleteAgreeChecked) return;
 	deleteSubmitting = true;
 	deleteError = '';
 
@@ -137,10 +122,11 @@ async function handleDeleteAccount() {
 			body: JSON.stringify({ pattern }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
-		window.location.href = '/auth/signout';
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
+		// #4699: 削除申請の受付をログイン画面で伝える (旧実装は無言で /auth/login に着地していた)
+		window.location.href = `/auth/signout?reason=${LOGIN_REASON_CODES.deletionPending}`;
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -161,10 +147,10 @@ async function handleTransferAndDelete() {
 			}),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -182,10 +168,10 @@ async function handleFullDelete() {
 			body: JSON.stringify({ pattern: 'owner-full-delete' }),
 		});
 		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		if (!res.ok) throw new Error(d.error ?? SETTINGS_LABELS.accountDeleteFailed);
 		window.location.href = '/auth/signout';
 	} catch (err) {
-		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
+		deleteError = err instanceof Error ? err.message : SETTINGS_LABELS.accountDeleteFailed;
 	} finally {
 		deleteSubmitting = false;
 	}
@@ -211,7 +197,7 @@ const deletionGraceDays = $derived(
 const consentGraceDays = $derived($page.data.userRole === 'owner' ? deletionGraceDays : 0);
 
 const canConfirmDelete = $derived(
-	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
+	deleteConfirmText === CANCEL_TERMS.confirmPhrase && deleteAgreeChecked,
 );
 </script>
 
@@ -220,50 +206,21 @@ const canConfirmDelete = $derived(
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- #1781: 削除グレースピリオド (soft-delete) バナー -->
-	{#if gracePeriodStatus?.isSoftDeleted && !gracePeriodStatus.isExpired}
-		<div
-			data-testid="deletion-grace-banner"
-			class="bg-[var(--color-feedback-warning-bg)] border-2 border-[var(--color-feedback-warning-border)] rounded-xl p-6"
-		>
-			<h3 class="text-lg font-bold text-[var(--color-feedback-warning-text)] mb-2">
-				{SETTINGS_LABELS.deletionGraceTitle}
-			</h3>
-			<p class="text-sm text-[var(--color-feedback-warning-text)] mb-4">
-				{SETTINGS_LABELS.deletionGraceDesc(
-					gracePeriodStatus.daysRemaining,
-					gracePeriodDeletionDateLabel,
-				)}
-			</p>
-			{#if restoreError}
-				<ErrorAlert message={restoreError} severity="error" action="retry" />
-			{/if}
-			<Button
-				type="button"
-				variant="success"
-				size="md"
-				disabled={restoreSubmitting}
-				onclick={handleRestoreAccount}
-				data-testid="deletion-grace-restore-button"
-			>
-				{restoreSubmitting
-					? SETTINGS_LABELS.deletionGraceRestoreSubmitting
-					: SETTINGS_LABELS.deletionGraceRestoreAction}
-			</Button>
-		</div>
-	{/if}
+	<!-- #1781 / #4699: 退会 (アカウント削除) 申請中のバナー。全 admin 共通 component を使う
+	     (AdminLayout も同じものを出すため、本画面では testid を保って E2E 互換を維持する) -->
+	<DeletionGraceBanner status={gracePeriodStatus} />
 
 	<!-- おやカギコード変更 -->
 	<Card padding="lg" data-tutorial="pin-settings">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 			{OYAKAGI_LABELS.sectionTitle}
 		</h3>
-		<p class="text-sm text-[var(--color-text-muted)] mb-4">
-			{OYAKAGI_LABELS.defaultValueHint}
+		<p class="text-sm text-[var(--color-text-muted)] mb-4" data-testid="oyakagi-forgot-hint">
+			{OYAKAGI_LABELS.forgotHint}
 		</p>
 
-		{#if success}
-			<SuccessAlert message={OYAKAGI_LABELS.changeSuccess} />
+		{#if changeSucceeded}
+			<div data-testid="oyakagi-change-success"><SuccessAlert message={OYAKAGI_LABELS.changeSuccess} /></div>
 		{/if}
 
 		{#if errorMessage}
@@ -287,26 +244,32 @@ const canConfirmDelete = $derived(
 			class="flex flex-col gap-4"
 		>
 			<FormField
-				label={`現在の${OYAKAGI_LABELS.name}`}
+				label={OYAKAGI_LABELS.currentInputLabel}
 				type="password"
 				id="currentPin"
 				name="currentPin"
 				required
 			/>
 
+			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= PIN_MIN_LENGTH〜PIN_MAX_LENGTH) 由来。
+			     直書きしていた頃はエラー文の「4〜6桁」と同じ画面で矛盾していた。 -->
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（4〜8桁）`}
+				label={OYAKAGI_LABELS.newInputLabel}
 				type="password"
 				id="newPin"
 				name="newPin"
+				inputmode="numeric"
+				maxlength={PIN_LENGTH}
 				required
 			/>
 
 			<FormField
-				label={`新しい${OYAKAGI_LABELS.name}（確認）`}
+				label={OYAKAGI_LABELS.confirmInputLabel}
 				type="password"
 				id="confirmPin"
 				name="confirmPin"
+				inputmode="numeric"
+				maxlength={PIN_LENGTH}
 				required
 			/>
 
@@ -316,15 +279,18 @@ const canConfirmDelete = $derived(
 				size="md"
 				class="w-full"
 				disabled={submitting}
+				data-testid="oyakagi-change-submit"
 			>
-				{submitting ? '変更中...' : OYAKAGI_LABELS.changeAction}
+				{submitting ? SETTINGS_LABELS.oyakagiChangeSubmitting : OYAKAGI_LABELS.changeAction}
 			</Button>
 		</form>
 	</Card>
 
 	<!-- ログアウト (cognito モードのみ) -->
 	{#if $page.data.authMode === 'cognito'}
-		<Card padding="lg">
+		<!-- #4662: ページガイド ③ の anchor。カード自体が cognito 限定描画なので、
+		     ガイド側は requiredRuntime='saas' + optional で「出ているときだけ」案内する -->
+		<Card padding="lg" data-tutorial="account-logout">
 			<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
 				{SETTINGS_LABELS.logoutSectionTitle}
 			</h3>
@@ -342,8 +308,16 @@ const canConfirmDelete = $derived(
 	{/if}
 
 	<!-- Danger Zone: アカウント削除 (#2321 GitHub Danger Zone パターン) -->
-	{#if $page.data.authMode === 'cognito' && $page.data.tenantStatus !== SUBSCRIPTION_STATUS.GRACE_PERIOD}
-		<section class="danger-zone" data-testid="account-danger-zone">
+	<!-- #4699: 旧条件は `tenantStatus !== GRACE_PERIOD` だったが、#3993 で grace_period は
+	     **支払い失敗 (dunning) の猶予**と確定している。支払い失敗中の顧客から退会導線を奪っていたため、
+	     判定を「退会申請中か」(soft-delete sentinel) に付け替える (申請中は上の復元バナーが出る) -->
+	{#if $page.data.authMode === 'cognito' && !gracePeriodStatus?.isSoftDeleted}
+		<!-- #4662: ページガイド ④ の anchor (同上、cognito 限定描画) -->
+		<section
+			class="danger-zone"
+			data-testid="account-danger-zone"
+			data-tutorial="account-danger-zone"
+		>
 			<header class="danger-zone__header">
 				<h3 class="danger-zone__title">
 					⚠️ {SETTINGS_LABELS.dangerZoneTitle}
@@ -420,17 +394,32 @@ const canConfirmDelete = $derived(
 				{/if}
 
 				{#if showTransferDialog && deletionInfo && !deletionInfo.isOnlyMember}
+					<!-- #4640: 他が子供だけなら移譲欄を出さない (選択肢が空のまま宙吊りになり退会できなくなる) -->
 					<div
 						class="mt-4 p-4 rounded-lg border-2 border-[var(--color-border-default)] bg-[var(--color-surface-card)]"
 					>
 						<h4 class="font-bold text-[var(--color-text-primary)] mb-3">
-							{SETTINGS_LABELS.accountDeleteTransferTitle}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferTitle
+								: SETTINGS_LABELS.accountDeleteNoAdultTitle}
 						</h4>
 						<p class="text-sm text-[var(--color-text-secondary)] mb-4">
-							{SETTINGS_LABELS.accountDeleteTransferDesc}
+							{deletionInfo.hasTransferableAdult
+								? SETTINGS_LABELS.accountDeleteTransferDesc
+								: SETTINGS_LABELS.accountDeleteNoAdultDesc}
 						</p>
 
 						<div class="space-y-4">
+							{#if !deletionInfo.hasTransferableAdult}
+								<p
+									class="text-xs text-[var(--color-text-muted)]"
+									data-testid="account-delete-no-adult-hint"
+								>
+									{SETTINGS_LABELS.accountDeleteNoAdultHint}
+								</p>
+							{/if}
+
+							{#if deletionInfo.hasTransferableAdult}
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
 									class="text-sm font-medium text-[var(--color-text-primary)] mb-2"
@@ -438,11 +427,11 @@ const canConfirmDelete = $derived(
 									{SETTINGS_LABELS.accountDeleteTransferOption}
 								</p>
 								<div class="flex items-center gap-2 mb-2">
-									<div class="flex-1">
+									<div class="flex-1" data-testid="account-delete-transfer-select">
 										<NativeSelect
 											bind:value={transferTargetId}
 											options={[
-												{ value: '', label: '移譲先を選択...' },
+												{ value: '', label: SETTINGS_LABELS.accountDeleteTransferPlaceholder },
 												...deletionInfo.otherMembers
 													.filter((m) => m.role !== 'child')
 													.map((member) => ({
@@ -459,10 +448,11 @@ const canConfirmDelete = $derived(
 										disabled={deleteSubmitting || !transferTargetId}
 										onclick={handleTransferAndDelete}
 									>
-										{deleteSubmitting ? '処理中...' : '移譲して退会'}
+										{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteTransferSubmit}
 									</Button>
 								</div>
 							</div>
+							{/if}
 
 							<div class="p-3 rounded-lg bg-[var(--color-surface-card)]">
 								<p
@@ -479,8 +469,9 @@ const canConfirmDelete = $derived(
 									size="sm"
 									disabled={deleteSubmitting}
 									onclick={handleFullDelete}
+									data-testid="account-delete-full"
 								>
-									{deleteSubmitting ? '処理中...' : '全て削除する'}
+									{deleteSubmitting ? SETTINGS_LABELS.accountDeleteProcessing : SETTINGS_LABELS.accountDeleteFullSubmit}
 								</Button>
 							</div>
 
@@ -503,11 +494,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.dangerStep1Label}
 						</p>
 						<FormField
-							label="確認のため「アカウントを削除します」と入力してください"
+							label={SETTINGS_LABELS.dangerConfirmInputLabel}
 							type="text"
 							id="deleteConfirm"
 							bind:value={deleteConfirmText}
-							placeholder="アカウントを削除します"
+							placeholder={CANCEL_TERMS.confirmPhrase}
 						/>
 					</div>
 
@@ -549,8 +540,8 @@ const canConfirmDelete = $derived(
 							data-testid="account-danger-execute-button"
 						>
 							{deleteSubmitting || deletionInfoLoading
-								? '処理中...'
-								: 'アカウントを削除する'}
+								? SETTINGS_LABELS.accountDeleteProcessing
+								: SETTINGS_LABELS.accountDeleteSubmit}
 						</Button>
 					</div>
 				{/if}

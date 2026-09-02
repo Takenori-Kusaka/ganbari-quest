@@ -1,12 +1,90 @@
 // /auth/invite/[code] — 招待リンクランディングページ (#0129)
 // 招待コードを検証し、ログイン/サインアップへ誘導する
 
-import { redirect } from '@sveltejs/kit';
-import { AUTH_INVITE_LABELS } from '$lib/domain/labels';
-import { INVITE_COOKIE_NAME } from '$lib/domain/validation/auth';
-import { getRepos } from '$lib/server/db/factory';
+import { fail, redirect } from '@sveltejs/kit';
+import {
+	AUTH_INVITE_LABELS,
+	getInviteJoinBlockedMessage,
+	INVITE_RELOCATION_LABELS,
+} from '$lib/domain/labels';
+import { CANCEL_TERMS } from '$lib/domain/terms';
+import {
+	CONTEXT_COOKIE_NAME,
+	INVITE_COOKIE_MAX_AGE_SECONDS,
+	INVITE_COOKIE_NAME,
+} from '$lib/domain/validation/auth';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { getInvite } from '$lib/server/services/invite-service';
-import type { PageServerLoad } from './$types';
+import type { RelocationBlockedReason } from '$lib/server/services/tenant-relocation-service';
+import {
+	checkRelocationEligibility,
+	relocateToInvitedTenant,
+} from '$lib/server/services/tenant-relocation-service';
+import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * 引っ越しできない理由 → 次アクション付きの案内文 (#4642)。
+ * `Record` にしているので、理由を増やして文言を足し忘れると型エラーになる
+ * (無説明の dead-end を作らない)。
+ */
+const RELOCATION_BLOCKED_MESSAGES: Record<RelocationBlockedReason, string> = {
+	HAS_OTHER_MEMBERS: INVITE_RELOCATION_LABELS.blockedHasOtherMembers,
+	HAS_CHILDREN: INVITE_RELOCATION_LABELS.blockedHasChildren,
+	NOT_OWNER: INVITE_RELOCATION_LABELS.blockedNotOwner,
+	NO_CURRENT_TENANT: AUTH_INVITE_LABELS.alreadyInTenantDesc,
+};
+
+/**
+ * 既にどこかの家族グループに所属している人が招待リンクを開いたときの案内 (#4642 / #4643 / #4704)。
+ *
+ * 招待 Cookie の後始末は呼び出し側が済ませてある前提で、ここは「何を画面に出すか」だけを決める。
+ */
+async function resolveAlreadyInTenantResult(
+	context: { tenantId: string; userId?: string | null },
+	inviteTenantId: string,
+) {
+	// #4704: 招待を発行した本人 (= 同じ家族グループの所属) が自分のリンクを開くケース。
+	// 所属の有無だけを見ると「既に**別の**グループに所属している」と言ってしまい、
+	// 同じグループなので事実と違い、リンクが壊れているように読める (#4636 の入口)。
+	if (context.tenantId === inviteTenantId) {
+		return {
+			valid: false as const,
+			relocation: false as const,
+			error: AUTH_INVITE_LABELS.ownTenantInvite,
+			errorDesc: AUTH_INVITE_LABELS.ownTenantInviteDesc,
+			// ログアウト導線は出さない (自分は既に参加済みで、やることは「相手に送る」)
+			sessionActive: false,
+		};
+	}
+
+	// #4642: 自分ひとりの家族グループの owner なら「引っ越し合流」を選べる。
+	// 誤って自分の家族グループを作ってしまった人が、後から正しい招待に合流する唯一の出口。
+	// **不可逆操作**なので、ここでは確認画面を出すだけで何も実行しない。
+	const eligibility = await checkRelocationEligibility(context.userId ?? '');
+	if (eligibility.blockedReason === null) {
+		return {
+			valid: false as const,
+			relocation: true as const,
+			error: INVITE_RELOCATION_LABELS.title,
+			errorDesc: INVITE_RELOCATION_LABELS.lead,
+			sessionActive: true,
+		};
+	}
+
+	// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
+	// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
+	// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
+	// #4642: 引っ越せない理由 (他メンバーが居る / 子供が居る / owner でない) は、その理由ごとの
+	// 次アクションを出す (「ログアウトして踏み直す」では解決しないため)。
+	const errorDesc = RELOCATION_BLOCKED_MESSAGES[eligibility.blockedReason ?? 'NO_CURRENT_TENANT'];
+	return {
+		valid: false as const,
+		relocation: false as const,
+		error: AUTH_INVITE_LABELS.alreadyInTenant,
+		errorDesc,
+		sessionActive: true,
+	};
+}
 
 export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	const { code } = params;
@@ -16,6 +94,7 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	if (!invite) {
 		return {
 			valid: false as const,
+			relocation: false as const,
 			error: AUTH_INVITE_LABELS.invalidLink,
 			errorDesc: AUTH_INVITE_LABELS.invalidLinkDesc,
 			// 次アクションは「招待の再発行を依頼する」であり、ログアウトでは解決しない
@@ -33,25 +112,20 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
 			return {
 				valid: false as const,
+				relocation: false as const,
 				error: AUTH_INVITE_LABELS.emailMismatch,
 				errorDesc: AUTH_INVITE_LABELS.emailMismatchDesc,
 				// ログイン中なので、別アカウントで受け直すためのログアウト導線を出す
 				sessionActive: true,
 			};
 		}
-		const existingTenants = await getRepos().auth.findUserTenants(locals.identity.userId);
-		if (existingTenants.length > 0) {
-			// 既にテナント所属 → 招待 Cookie を保存せず警告表示
+		// #4643: 所属の有無は解決済の context で判定する。旧実装は IdP の sub で
+		// findUserTenants を引いており、所属済でも必ず 0 件になって「別グループ所属」の
+		// 警告が一度も出ず、そのまま招待 Cookie を積んでいた。
+		if (locals.context) {
+			// 既にテナント所属 → 招待 Cookie を保存しない (残すと別経路で無断合流しうる)
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
-			// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
-			// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
-			// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
-			return {
-				valid: false as const,
-				error: AUTH_INVITE_LABELS.alreadyInTenant,
-				errorDesc: AUTH_INVITE_LABELS.alreadyInTenantDesc,
-				sessionActive: true,
-			};
+			return await resolveAlreadyInTenantResult(locals.context, invite.tenantId);
 		}
 
 		// テナント未所属 → 招待処理をトリガー
@@ -60,7 +134,9 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			httpOnly: true,
 			sameSite: 'lax',
 			secure: true,
-			maxAge: 60 * 10, // 10分（#0203: リスク軽減）
+			// #4636: 招待の有効期限 (7 日) まで有効。10 分だとメール確認を挟むだけで cookie が先に
+			// 消え、招待を踏んだのに新規家族グループが作られる経路になっていた。
+			maxAge: INVITE_COOKIE_MAX_AGE_SECONDS,
 		});
 		cookies.delete('context_token', { path: '/' });
 		redirect(302, '/admin');
@@ -72,15 +148,63 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		httpOnly: true,
 		sameSite: 'lax',
 		secure: true,
-		maxAge: 60 * 10, // 10分（#0203: リスク軽減）
+		// #4636: 招待の有効期限 (7 日) まで有効。10 分だとメール確認を挟むだけで cookie が先に
+		// 消え、招待を踏んだのに新規家族グループが作られる経路になっていた。
+		maxAge: INVITE_COOKIE_MAX_AGE_SECONDS,
 	});
 
 	return {
 		valid: true as const,
+		relocation: false as const,
 		invite: {
 			role: invite.role,
 			childId: invite.childId,
 			expiresAt: invite.expiresAt,
 		},
 	};
+};
+
+export const actions: Actions = {
+	/**
+	 * #4642: 引っ越し合流の実行。**不可逆** (元の家族グループのデータを削除する) なので、
+	 * 明示同意のチェックを必須にし、可否はサーバー側で再検証する (画面の同意だけを信用しない)。
+	 */
+	relocate: async ({ params, locals, cookies, request }) => {
+		if (!locals.identity || locals.identity.type !== 'cognito' || !locals.context) {
+			redirect(302, '/auth/login');
+		}
+
+		const form = await request.formData();
+		if (form.get('acknowledge') !== 'on') {
+			return fail(400, { relocateError: INVITE_RELOCATION_LABELS.acknowledgeRequired });
+		}
+		// #4642 PO 差し戻し: 退会と結果が同じ (家族グループの物理削除) なので、確認語の入力も
+		// 退会と同じく要求する。画面側の disabled だけに頼らず、ここでも同じ 2 条件を検証する。
+		if (String(form.get('confirmText') ?? '').trim() !== CANCEL_TERMS.confirmPhrase) {
+			return fail(400, { relocateError: INVITE_RELOCATION_LABELS.confirmInputMismatch });
+		}
+
+		const result = await relocateToInvitedTenant(
+			params.code,
+			requireAppUserId(locals),
+			locals.identity.email,
+			{ emailVerified: locals.identity.emailVerified },
+		);
+
+		if (!result.ok) {
+			// 受諾拒否は理由ごとの文言 (SSOT)、引っ越し不可は理由ごとの案内に落とす
+			const message =
+				'acceptError' in result
+					? getInviteJoinBlockedMessage(result.acceptError)
+					: result.blockedReason === 'NO_CURRENT_TENANT'
+						? INVITE_RELOCATION_LABELS.failed
+						: RELOCATION_BLOCKED_MESSAGES[result.blockedReason];
+			return fail(400, { relocateError: message });
+		}
+
+		// 所属が変わったので古い context を破棄し、次のリクエストで新しい家族グループとして発行させる
+		cookies.delete(CONTEXT_COOKIE_NAME, { path: '/' });
+		cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
+		redirect(303, '/admin');
+	},
 };

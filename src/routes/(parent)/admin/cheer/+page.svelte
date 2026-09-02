@@ -1,5 +1,8 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
+import { CATEGORIES } from '$lib/domain/categories';
+import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
@@ -27,8 +30,8 @@ $effect(() => {
 });
 
 let reason = $state('');
-let points = $state(50);
-let category = $state<string>('うんどう');
+let points = $state<number>(CHEER_POINTS.default);
+let category = $state<string>(CATEGORIES.undou.name);
 let icon = $state('🎉');
 let stampCode = $state('');
 let body = $state('');
@@ -53,7 +56,7 @@ const categoryOptions = $derived(data.categories.map((c) => ({ value: c, label: 
 function resetForm() {
 	reason = '';
 	points = 50;
-	category = 'うんどう';
+	category = CATEGORIES.undou.name;
 	icon = '🎉';
 	stampCode = '';
 	body = '';
@@ -140,7 +143,7 @@ $effect(() => {
 					<!-- 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥) — 1 タップで reason / P / category / icon を prefill -->
 					<div class="preset-templates">
 						<p class="preset-templates__label">{CHEER_LABELS.presetTitle}</p>
-						<div class="preset-templates__chips" data-testid="cheer-reason-templates">
+						<div class="preset-templates__chips" data-testid="cheer-reason-templates" data-tutorial="cheer-templates">
 							{#each CHEER_LABELS.reasonTemplates as tpl}
 								<Button
 									type="button"
@@ -170,7 +173,7 @@ $effect(() => {
 						name="reason"
 						maxlength={data.reasonMaxLength}
 						placeholder={CHEER_LABELS.reasonPlaceholder}
-						hint="{reasonLength}/{data.reasonMaxLength}（あと{reasonRemaining}文字）"
+						hint={CHEER_LABELS.reasonCounterHint(reasonLength, data.reasonMaxLength, reasonRemaining)}
 						bind:value={reason}
 					/>
 				</Card>
@@ -260,7 +263,7 @@ $effect(() => {
 			</section>
 
 			<!-- Step 7: confirm + submit -->
-			<section>
+			<section data-tutorial="cheer-submit">
 				<h3 class="step-title">{CHEER_LABELS.confirmTitle}</h3>
 				<Card>
 					<dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm mb-3">
@@ -305,7 +308,7 @@ $effect(() => {
 
 	<!-- Recent messages history -->
 	{#if selectedChild?.recentMessages && selectedChild.recentMessages.length > 0}
-		<section>
+		<section data-tutorial="cheer-history">
 			<h3 class="step-title">{CHEER_LABELS.historyTitle}</h3>
 			<div class="space-y-2">
 				{#each selectedChild.recentMessages as msg}

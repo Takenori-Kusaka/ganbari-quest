@@ -5,6 +5,7 @@
 
 import { getPlanLabel, TRIAL_EMAIL_LABELS } from '$lib/domain/labels';
 import { PLAN_FULL_TERMS } from '$lib/domain/terms';
+import { resolveTenantEntitlement } from '$lib/server/auth/tenant-entitlement';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
@@ -68,9 +69,16 @@ const _NOTIFICATION_THRESHOLDS = [3, 1, 0] as const;
 export async function getNotificationSchedule(
 	tenantId: string,
 ): Promise<TrialNotificationSchedule | null> {
-	const status = await getTrialStatus(tenantId);
+	// #4707: 有料契約中 (licenseStatus=ACTIVE) のテナントはトライアル中ではない。トライアル中に
+	// 本契約した顧客へ「トライアル本日終了」メールを送らないよう、契約状態を AND で掛ける
+	// (`findActiveTrials` の移行済み除外と独立した第 2 防御)。
+	const { licenseStatus } = await resolveTenantEntitlement(tenantId);
+	const status = await getTrialStatus(tenantId, licenseStatus);
 
-	if (!status.isTrialActive || !status.trialEndDate || !status.trialTier) {
+	// #4628: `isTrialActive` で narrowing すれば trialEndDate / trialTier は具体値に確定する
+	// (旧実装の `|| !status.trialEndDate || !status.trialTier` は、型が保証しない分を
+	// 実行時に手で埋め合わせていたもの)。
+	if (!status.isTrialActive) {
 		return null;
 	}
 
@@ -202,7 +210,7 @@ export async function getTrialExpirationInfo(
 	tenantId: string,
 	licenseStatus: string,
 ): Promise<TrialExpirationInfo> {
-	const status = await getTrialStatus(tenantId);
+	const status = await getTrialStatus(tenantId, licenseStatus);
 
 	const isExpired = status.trialUsed && !status.isTrialActive;
 	const isNotPaid = licenseStatus !== 'active';

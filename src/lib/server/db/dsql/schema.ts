@@ -47,7 +47,6 @@ import { MESSAGE_TYPES } from '$lib/domain/validation/message';
 import {
 	AUTH_PROVIDERS,
 	type AuthProviderKind,
-	CONSENT_TYPES,
 	type ConsentType,
 	INVITE_STATUSES,
 	type InviteStatus,
@@ -69,7 +68,10 @@ export const children = pgTable(
 		childId: uuid('child_id').notNull().default(sql`gen_random_uuid()`),
 		nickname: text('nickname').notNull(),
 		// age 列は持たない (§11.1 compute-on-read)。birth_date が唯一の年齢ソース。
+		// #4718: 年齢だけで登録した子供は推定誕生日 (今年−年齢 の 1/1) を保存し、
+		// birth_date_estimated=true で実誕生日と区別する (規約 SSOT: $lib/domain/child-age.ts)。
 		birthDate: text('birth_date'),
+		birthDateEstimated: boolean('birth_date_estimated').notNull().default(false),
 		theme: text('theme').notNull().default('pink'),
 		uiMode: text('ui_mode').notNull().default('preschool'),
 		uiModeManuallySet: boolean('ui_mode_manually_set').notNull().default(false),
@@ -239,7 +241,11 @@ export const consents = pgTable(
 		primaryKey({ columns: [t.consentId] }),
 		// findLatestConsent (HTML GET 毎 2 read、§3.5.3) 用 secondary (§6.6)。
 		index('consents_family_type_at_idx').on(t.familyId, t.type, t.consentedAt),
-		check('consents_type_ck', enumCheck(t.type, CONSENT_TYPES)),
+		// type には CHECK を張らない (#4497)。0000 で inline 付与した 2 値 CHECK は
+		// migration 0007 で DROP 済み — DSQL は `ALTER TABLE … ADD CONSTRAINT` 非対応 (§10-5) ゆえ
+		// 値集合が増えた時点で「作成時 CHECK」は維持できなくなる。許可値の強制は app 層
+		// (CONSENT_TYPES + consent-service.recordConsent の実行時検証) が担う。
+		// FK を剥がして app 層で担保する既存方針 (migration/transform.ts 責務 1) と同型。
 	],
 );
 

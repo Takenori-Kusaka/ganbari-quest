@@ -1,7 +1,7 @@
 // tests/unit/domain/plan-retention-ssot.test.ts (#4477)
 //
 // 履歴保持日数の SSOT (src/lib/domain/constants/plan-retention.ts) が
-// 実装 (plan-limit-service の PLAN_LIMITS) と 表示 (labels.ts / plan-features.ts / LP) の
+// 実装 (domain/plan-limits の PLAN_LIMITS) と 表示 (labels.ts / plan-features.ts / LP) の
 // 双方に伝播していることを機械検証する。
 //
 // これが無いと「historyRetentionDays を変えても LP 料金表は 90 日のまま」という
@@ -184,10 +184,10 @@ describe('plan retention days SSOT (#4477)', () => {
 		});
 	});
 
-	describe('実装側 (plan-limit-service) も同じ SSOT を引く', () => {
+	describe('実装側 (domain/plan-limits) も同じ SSOT を引く', () => {
 		it('PLAN_LIMITS の historyRetentionDays に数値 literal を書かない', () => {
 			const src = readFileSync(
-				resolve(__dirname, '../../../src/lib/server/services/plan-limit-service.ts'),
+				resolve(__dirname, '../../../src/lib/domain/plan-limits.ts'),
 				'utf-8',
 			);
 			const assignments = [...src.matchAll(/historyRetentionDays:\s*([^,\n]+)/g)]

@@ -4,12 +4,15 @@ import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import { insertPointLedger } from '$lib/server/db/activity-repo';
+import {
+	countTodayActiveRecords,
+	insertPointLedger,
+	sumPointLedgerByTypeAndDescriptionPrefix,
+} from '$lib/server/db/activity-repo';
 import {
 	findAllMissionStatuses,
 	findAllRecordedActivityIds,
 	findChildForMission,
-	findMissionBonusRecord,
 	findMissionByActivity,
 	findPreviousDayMissionIds,
 	findRecentActivityIds,
@@ -17,15 +20,60 @@ import {
 	findVisibleActivities,
 	insertDailyMission,
 	markMissionCompleted,
+	markMissionUncompleted,
 } from '$lib/server/db/daily-mission-repo';
 
 const MISSION_COUNT = 3;
 
-/** ボーナステーブル */
+/** ボーナステーブル (達成数 → 当日のあるべき累計ボーナス) */
 const MISSION_BONUS: Record<number, number> = {
 	2: 5,
 	3: 20,
 };
+
+/** point_ledger.type。付与も巻き戻しも同 type・同 `[date]` prefix で計上する (#4686)。 */
+export const MISSION_LEDGER_TYPE = 'daily_mission';
+
+/** 当日ミッションボーナス ledger の description prefix (JST 日付、付与 / 巻き戻し共通)。 */
+function missionLedgerPrefix(date: string): string {
+	return `[${date}]`;
+}
+
+/**
+ * #4686: 当日のミッションボーナスを「あるべき額 (達成数に応じた MISSION_BONUS) − 当日付与済み合計」の
+ * 差分で台帳に揃える。記録で達成数が増えれば正の差分、とりけしで達成数が減れば負の差分を
+ * **同じ type / 同じ prefix** で計上する (付与した経路と同じ経路で取り消す)。
+ * @returns 今回計上した差分 (0 = 変化なし)
+ */
+async function reconcileMissionBonus(
+	childId: ChildId,
+	date: string,
+	completedCount: number,
+	tenantId: string,
+): Promise<number> {
+	const desired = MISSION_BONUS[completedCount] ?? 0;
+	const granted = await sumPointLedgerByTypeAndDescriptionPrefix(
+		childId,
+		MISSION_LEDGER_TYPE,
+		missionLedgerPrefix(date),
+		tenantId,
+	);
+	const delta = desired - granted;
+	if (delta === 0) return 0;
+	await insertPointLedger(
+		{
+			childId,
+			amount: delta,
+			type: MISSION_LEDGER_TYPE,
+			description:
+				delta > 0
+					? `${missionLedgerPrefix(date)} ミッションボーナス (${completedCount}/${MISSION_COUNT}) +${delta}`
+					: `${missionLedgerPrefix(date)} ミッションボーナスとりけし (${completedCount}/${MISSION_COUNT}) ${delta}`,
+		},
+		tenantId,
+	);
+	return delta;
+}
 
 export interface DailyMission {
 	id: string;
@@ -63,10 +111,11 @@ export async function getTodayMissions(
 
 	const completedCount = missions.filter((m) => m.completed === 1).length;
 
-	// 既に付与されたボーナスを確認
-	const bonusRecord = await findMissionBonusRecord(
+	// 当日付与済みボーナス合計 (#4686: 付与 / 巻き戻しの正負込み)
+	const bonusAwarded = await sumPointLedgerByTypeAndDescriptionPrefix(
 		childId,
-		`[${today}] ミッションボーナス`,
+		MISSION_LEDGER_TYPE,
+		missionLedgerPrefix(today),
 		tenantId,
 	);
 
@@ -81,7 +130,7 @@ export async function getTodayMissions(
 		})),
 		completedCount,
 		allComplete: completedCount >= MISSION_COUNT,
-		bonusAwarded: bonusRecord?.amount ?? 0,
+		bonusAwarded,
 	};
 }
 
@@ -111,46 +160,38 @@ export async function checkMissionCompletion(
 	const completedCount = allMissions.filter((m) => m.completed === 1).length;
 	const allComplete = completedCount >= MISSION_COUNT;
 
-	// ボーナス計算（差分付与）
-	const bonus = MISSION_BONUS[completedCount] ?? 0;
-	let bonusAwarded = 0;
-
-	if (bonus > 0) {
-		// 既に付与済みか確認
-		const existing = await findMissionBonusRecord(
-			childId,
-			`[${today}] ミッションボーナス`,
-			tenantId,
-		);
-
-		if (!existing) {
-			await insertPointLedger(
-				{
-					childId,
-					amount: bonus,
-					type: 'daily_mission',
-					description: `[${today}] ミッションボーナス`,
-				},
-				tenantId,
-			);
-			bonusAwarded = bonus;
-		} else if (existing.amount < bonus) {
-			// 2/3→3/3 のように追加ボーナスが発生
-			const diff = bonus - existing.amount;
-			await insertPointLedger(
-				{
-					childId,
-					amount: diff,
-					type: 'daily_mission',
-					description: `[${today}] ミッションコンプリートボーナス`,
-				},
-				tenantId,
-			);
-			bonusAwarded = diff;
-		}
-	}
+	// ボーナス計算（差分付与、#4686: 巻き戻しと同じ reconcile 経路）
+	const bonusAwarded = await reconcileMissionBonus(childId, today, completedCount, tenantId);
 
 	return { missionCompleted: true, allComplete, bonusAwarded };
+}
+
+/**
+ * #4686: 活動とりけし時のミッション巻き戻し。
+ * 当該 activity の当日 active log が 0 件になった場合のみ達成を外し (dailyLimit>1 で 1 件だけ
+ * 取り消した場合は達成のまま)、ボーナスを達成数に応じた額へ reconcile する (負の差分を計上)。
+ * @returns revertedMission: 達成を外したか / bonusDelta: 台帳に計上した差分 (負 or 0)
+ */
+export async function revertMissionCompletion(
+	childId: ChildId,
+	activityId: ActivityId,
+	tenantId: string,
+): Promise<{ revertedMission: boolean; bonusDelta: number }> {
+	const today = todayDateJST();
+	const mission = await findMissionByActivity(childId, today, activityId, tenantId);
+	if (!mission || mission.completed !== 1) {
+		return { revertedMission: false, bonusDelta: 0 };
+	}
+	const remaining = await countTodayActiveRecords(childId, activityId, today, tenantId);
+	if (remaining > 0) {
+		return { revertedMission: false, bonusDelta: 0 };
+	}
+	await markMissionUncompleted(childId, today, activityId, tenantId);
+
+	const allMissions = await findAllMissionStatuses(childId, today, tenantId);
+	const completedCount = allMissions.filter((m) => m.completed === 1).length;
+	const bonusDelta = await reconcileMissionBonus(childId, today, completedCount, tenantId);
+	return { revertedMission: true, bonusDelta };
 }
 
 /**

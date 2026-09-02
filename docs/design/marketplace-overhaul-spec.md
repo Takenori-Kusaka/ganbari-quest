@@ -421,7 +421,6 @@ interface ActivityItem {
 
 ```
 src/routes/(parent)/admin/activities/+page.server.ts
-src/routes/(parent)/admin/packs/+page.server.ts
 src/routes/setup/packs/+page.server.ts
 src/lib/domain/activity-pack.ts
 ```
@@ -458,10 +457,8 @@ LEGACY_URL_MAP に `/activity-packs` → `/marketplace` を追加 (1 entry, 前�
 
 | 領域 | 対応ファイル | 同期内容 |
 |------|------------|---------|
-| **UI ラベル・用語 (#1212-H)** | `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts` | 「マーケットプレイス」→「みんなのテンプレート」/「テンプレート」 |
-| **本番画面 → デモ画面** | `src/routes/(parent)/admin/packs/` + `src/routes/demo/admin/packs/` | パック一覧 UI 同期 |
-| **デモガイド** | `src/lib/features/demo/demo-guide-state.svelte.ts` | テンプレート用語に沿った文言 |
-| **チュートリアル** | `src/lib/data/tutorial-chapters.ts` | 「マーケットプレイスを使ってみよう」→「テンプレートを使ってみよう」 |
+| **UI ラベル・用語 (#1212-H)** | `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` | 「マーケットプレイス」→「みんなのテンプレート」/「テンプレート」 |
+| **チュートリアル** | `src/routes/marketplace/**/_guide.ts` + `PAGE_GUIDE_LABELS.marketplace*` | 「マーケットプレイスを使ってみよう」→「テンプレートを使ってみよう」 |
 | **ナビゲーション** | `AdminLayout` + `AdminMobileNav` + `BottomNav` + ボトムナビ | NAV_ITEM_LABELS の「テンプレート」適用 |
 
 ### 7.2 LP メトリクス ratchet (#1163)

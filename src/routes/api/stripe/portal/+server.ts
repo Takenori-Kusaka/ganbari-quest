@@ -5,6 +5,7 @@
 //       PIN 未設定テナントは確認フレーズ (`プランを変更します`) でフォールバックする。
 
 import { error, json } from '@sveltejs/kit';
+import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { SUBSCRIPTION_PAGE_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
@@ -63,8 +64,8 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const pinConfigured = await isPinConfigured(tenantId);
 
 	if (pinConfigured) {
-		// PIN 設定済み: PIN 再入力を必須とする（4〜6桁の数字のみ許容）
-		if (!body.pin || typeof body.pin !== 'string' || !/^\d{4,6}$/.test(body.pin)) {
+		// PIN 設定済み: PIN 再入力を必須とする（形式は constants/oyakagi.ts の PIN_LENGTH 桁、#4661 / #4698）
+		if (!isValidPinFormat(body.pin)) {
 			error(401, 'PIN_REQUIRED');
 		}
 		const result = await verifyPin(body.pin, tenantId);

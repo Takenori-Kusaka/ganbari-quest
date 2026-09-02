@@ -24,6 +24,10 @@
 // `UNCLASSIFIED` を返して明示する。`UNCLASSIFIED` は「不正と判っている」ではなく
 // 「**表がまだ何も言っていない**」であり、X* とは意味が違う (混ぜると是正の当て先を誤る)。
 
+import {
+	AUTH_LICENSE_STATUS,
+	type AuthLicenseStatus,
+} from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 
 /** 正常状態 (matrix §4 の表)。 */
@@ -148,4 +152,27 @@ export function isInvalidContractState(
 	classification: ContractStateClassification,
 ): classification is InvalidContractState {
 	return (INVALID_CONTRACT_STATES as readonly string[]).includes(classification);
+}
+
+/**
+ * 契約列から `licenseStatus` (算出値) を導く。
+ *
+ * 「契約があり、status が active / grace_period なら有効」という規則は
+ * `docs/design/billing-redesign/contract-state-matrix.md` §4 の写しであり、
+ * **環境にも DB 接続にも依存しない純粋な判定**である。
+ *
+ * #4704: 規則の写しが 2 つに増えかけた。`deriveTenantEntitlement` (server/auth) が
+ * 唯一の実装だったが、受諾 txn (repo 層) から同じ判定が要ったとき、server/auth を
+ * import すると循環になるため判定を書き写す誘因が生まれた。規則を葉に置いて両者が
+ * 同じ関数を読む形にすることで、片方だけ直してずれる余地を消す。
+ */
+export function deriveLicenseStatus(columns: {
+	status: string | undefined;
+	stripeSubscriptionId: string | null | undefined;
+}): AuthLicenseStatus {
+	if (!columns.stripeSubscriptionId) return AUTH_LICENSE_STATUS.NONE;
+	return columns.status === SUBSCRIPTION_STATUS.ACTIVE ||
+		columns.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
+		? AUTH_LICENSE_STATUS.ACTIVE
+		: AUTH_LICENSE_STATUS.SUSPENDED;
 }

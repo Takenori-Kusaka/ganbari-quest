@@ -6,6 +6,7 @@
 // ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { LOGIN_NEXT_PARAM, resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
 import type { AuthContext, AuthResult, Identity, Role } from './types';
 
 interface RouteRule {
@@ -46,6 +47,16 @@ const ROUTE_RULES: RouteRule[] = [
 		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/switch?reason=admin_forbidden',
 	},
+	// 初期セットアップ (/setup/*: 子供追加 / 活動・ごほうび・ルール・チャレンジ一括追加 / 初期設定)
+	// — owner + parent (#4700)。旧実装は isPublicRoute に含めてロール検査が無く、child ロールが
+	// 9 step 全てに入って子供追加や一括取込・初期設定の書き換えができた。未認証は /auth/login、
+	// child は /switch へ (admin と同じ理由コード)。setup 完了済テナントの再入は従来どおり可。
+	{
+		pattern: '/setup',
+		roles: ['owner', 'parent'],
+		unauthRedirect: '/auth/login',
+		forbiddenRedirect: '/switch?reason=admin_forbidden',
+	},
 	// 子供画面 — 全ロール（/switch, /preschool/*, /baby/*, /checklist/*）
 	{ pattern: '/switch', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 	{ pattern: '/preschool', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
@@ -78,12 +89,16 @@ export function authorizeCognito(
 	path: string,
 	identity: Identity | null,
 	context: AuthContext | null,
+	url?: URL,
 ): AuthResult {
 	// 公開ルート（認証不要）
 	if (isPublicRoute(path)) {
-		// 認証済みで /auth/login にアクセスしたら適切な画面へ
+		// 認証済みで /auth/login にアクセスしたら適切な画面へ。
+		// #4701: `?next=` が安全な相対パスならそこへ送る (marketplace CTA からログイン済みで来た顧客が
+		// 見ていた画面に戻れる)。外部 URL / `//evil` は resolveSafeNextPath が null にするので既定へ。
 		if (path.startsWith('/auth/login') && identity && context) {
-			const redirect = context.role === 'child' ? '/switch' : '/admin';
+			const next = resolveSafeNextPath(url?.searchParams.get(LOGIN_NEXT_PARAM));
+			const redirect = next ?? (context.role === 'child' ? '/switch' : '/admin');
 			return { allowed: false, redirect };
 		}
 		return { allowed: true };
@@ -95,13 +110,16 @@ export function authorizeCognito(
 		return { allowed: false, redirect: rule?.unauthRedirect ?? '/auth/login', status: 401 };
 	}
 
-	// Context がない場合（テナント未所属）
+	// Context がない場合（テナント未所属 = membership 未確定）
 	if (!context) {
 		// オンボーディング系ルートは Context なしでもアクセス可能
 		if (path.startsWith('/onboarding') || path.startsWith('/auth')) {
 			return { allowed: true };
 		}
-		return { allowed: false, redirect: '/auth/login' };
+		// #4636: ログイン済みなのに所属が無い状態で /auth/login に送ると、ログイン →
+		// /admin → /auth/login の往復になり出口が無い。理由と次アクション (招待の再試行 /
+		// 新しく家族グループを作る) を持つ `/auth/join` に着地させる。
+		return { allowed: false, redirect: '/auth/join' };
 	}
 
 	// ライセンス状態チェック
@@ -142,7 +160,6 @@ function isPublicRoute(path: string): boolean {
 		path === '/offline' ||
 		path.startsWith('/auth') ||
 		path.startsWith('/pricing') ||
-		path.startsWith('/setup') ||
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
 		path.startsWith('/api/health') ||

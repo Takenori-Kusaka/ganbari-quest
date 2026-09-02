@@ -102,7 +102,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（手動 / 外部呼び出し。`scheduleRegistry` / EventBridge / dispatcher には未登録） | cron 認証 |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -120,13 +120,10 @@
 | POST | /api/v1/messages/[childId] | メッセージ送信 | owner/parent |
 | POST | /api/v1/messages/[messageId]/shown | メッセージ表示済みマーク | 全ロール |
 
-### おやすみ日・減少設定
+### 減少設定
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/v1/rest-days/[childId] | おやすみ日一覧取得（月別） | owner/parent |
-| POST | /api/v1/rest-days/[childId] | おやすみ日登録 | owner/parent |
-| DELETE | /api/v1/rest-days/[childId] | おやすみ日削除 | owner/parent |
 | GET | /api/v1/settings/decay | 減少強度設定取得 | owner/parent |
 | PUT | /api/v1/settings/decay | 減少強度設定更新 | owner/parent |
 
@@ -137,8 +134,8 @@
 | POST | /api/v1/usage | セッション開始記録 | 全ロール |
 | PATCH | /api/v1/usage | セッション終了記録 | 全ロール |
 
-**no-op fallback 仕様 (#2338、2026-05-20)**:
-`DATA_SOURCE=dynamodb` / `DATA_SOURCE=demo` モード時、`usage-log-service` は SQLite repo を呼ばず no-op で動作し、endpoint は `204 No Content` を返す（旧来は `null` → 500 で本番 cognito Lambda エラーログ汚染）。SQLite mode (`DATA_SOURCE=sqlite`、NUC / dev) では従来通り `200 OK` + `{ id }`。DynamoDB 完全実装は PMF 後に評価（ADR-0010 Bucket B、`docs/rationale/07-usage-log-dynamodb-deferred-rationale.md`）。
+**backend 別挙動 (#4719)**:
+`usage-log-service` は backend 分岐を持たず、facade `usage-log-repo.ts` → factory `getRepos().usageLog` (`IUsageLogRepo`) が backend を選ぶ。sqlite (NUC local / dev) と pg-core (cloud DSQL / NUC PGlite、`dsql/usage-log-repo.ts`、`usage_logs` 表) は記録・集計を行い `201 Created` + `{ id }` / PATCH は `200 OK` + `{ durationSec }`。`DATA_SOURCE=demo` は stub repo (永続化なし) で POST は dummy id `'0'` を返し、PATCH は行が無いため `204 No Content`。DB エラー時は service が `null` に正規化し endpoint は `204`（client は fire-and-forget、5xx alarm 抑止）。
 
 ### 画像・エクスポート
 
@@ -195,12 +192,6 @@
 | POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
-
-### デモ
-
-| メソッド | パス | 概要 | 認証 |
-|----------|------|------|------|
-| POST | /api/demo-analytics | デモ利用分析イベント記録 | 不要 |
 
 ### Stripe（決済）
 
@@ -921,6 +912,16 @@ favicon の現在パスを返す（`?type=favicon`）。生成済み favicon が
 >
 > **#3078 checklistLogs**: `data.checklistLogs` の `templateName` をインポート後の新 `templateId` へ再マップして `checklist-repo.upsertLog` で復元する。重複（同一 `childId` × `templateId` × `checkedDate`）は事前スキップする（`result.checklistLogsImported` / `checklistLogsSkipped`）。
 
+**replace モードの失敗時セマンティクス（#3326 / #4720）:**
+
+| 状況 | HTTP / code | 文言 | 実際のデータ |
+|---|---|---|---|
+| 取込中に hard error（`errors > 0`） | 400 `VALIDATION_ERROR` | 「インポートに失敗したため中止しました（既存データは保全されています）」 | **旧データが復元済** |
+| 置換前 snapshot の取得・保存に失敗 | 500 `INTERNAL_ERROR` | 「置換前のバックアップ取得に失敗したため、安全のため中止しました」 | **旧データ無傷**（置換を開始していない） |
+| 取込失敗後の自動復元にも失敗（二次故障） | 500 `INTERNAL_ERROR` | 「インポートに失敗し、元のデータの自動復元にも失敗しました。運営に連絡してください（復旧用バックアップは保存されています）」 | `tenants/<tenantId>/recovery/*.zip` から手動復旧（Discord alert 送出） |
+
+保全の実現手段は backend で異なる（sqlite = 単一 tx / pg 系 = clear 前 ZIP 退避の補償トランザクション）。SSOT: `backup-import-redesign.md` §atomicity。
+
 **レスポンス（preview）:**
 ```json
 {
@@ -1177,6 +1178,29 @@ PINコードを使って他テナントのクラウドエクスポートデー�
   }
 }
 ```
+
+**エラー (409、#4717): 生成待ち / 生成失敗**
+
+クラウド共有は非同期 build (#3504) のため、PIN 発行直後は `status='pending'`（cron が拾うと `'building'`）で S3 実体がまだ無い。この窓で取り込もうとした場合は **409 + 待てば解決することが分かる案内**を返す（旧実装は 500「システムに問題が発生しました」を返し、受け取る側が障害と誤認していた）。
+
+| status | code | HTTP | 意味 |
+|---|---|---|---|
+| `pending` / `building` | `EXPORT_NOT_READY` | 409 | まだ準備中（数分後に再試行で解決する。`action: retry`） |
+| `failed` | `EXPORT_FAILED` | 409 | 生成に失敗している（共有した側が保管し直す必要がある。`action: none`） |
+
+```json
+{
+  "error": {
+    "code": "EXPORT_NOT_READY",
+    "message": "このデータはまだ準備中です。数分後にもう一度お試しください。",
+    "userMessage": "このデータはまだ準備中です。数分後にもう一度お試しください。",
+    "severity": "info",
+    "action": "retry"
+  }
+}
+```
+
+失敗理由は `CloudExportFetchError.reason`（型）で service → route に渡り、route の写像表 `FETCH_FAILURE_TO_ERROR_CODE` が HTTP 種別を決める。**message の文字列 match で分類しない**（新しい理由を足したときに分類から漏れて 500 に落ちるのを構造的に防ぐ）。
 
 ### 3.11 管理系 API
 
@@ -1891,50 +1915,6 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 **レスポンス:** `200 { success: true }`
 
-### 3.20 おやすみ日
-
-#### GET /api/v1/rest-days/[childId]
-
-おやすみ日一覧取得。`?month=YYYY-MM` で月別フィルタ。
-
-**認証:** owner/parent
-
-**レスポンス:**
-```json
-{
-  "restDays": [
-    { "id": 1, "date": "2026-04-09", "reason": "sick" }
-  ]
-}
-```
-
-#### POST /api/v1/rest-days/[childId]
-
-おやすみ日を登録。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09",
-  "reason": "rest"
-}
-```
-
-#### DELETE /api/v1/rest-days/[childId]
-
-おやすみ日を削除。
-
-**認証:** owner/parent
-
-**リクエスト:**
-```json
-{
-  "date": "2026-04-09"
-}
-```
-
 ### 3.21 設定
 
 #### GET /api/v1/settings/decay
@@ -1960,16 +1940,18 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 #### POST /api/v1/settings/tutorial
 
-チュートリアル完了をマーク。
+チュートリアル完了をマーク（子供画面チュートリアルの最終ステップで送信）。
 
 **認証:** owner/parent
 
 **リクエスト:**
 ```json
 {
-  "completed": true
+  "action": "complete"
 }
 ```
+
+`action` は `complete` のみ受理する（それ以外は 400）。親の章立てチュートリアル撤去に伴い、開始マーク・バナー dismiss の action は受理しない。
 
 #### GET /api/v1/settings/vapid-key
 
@@ -2438,7 +2420,7 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 | UNAUTHORIZED | 401 | 認証が必要 |
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
-| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照） |
+| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照）。**`planLimitError(requiredTier, message)`（`src/lib/server/errors.ts`）で返す** — `userMessage` は要求 tier で出し分ける（standard 以上 / プレミアム限定）。`apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しは固定文（スタンダード以上の案内）しか返せず、プレミアム限定機能をスタンダード契約者が叩いたときに次の行動を示せないため禁止（`tests/unit/architecture/plan-limit-error-required-tier.test.ts` が検出、#4710） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
 | LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
 | LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |

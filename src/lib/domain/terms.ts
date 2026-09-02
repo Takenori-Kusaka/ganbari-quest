@@ -54,6 +54,7 @@ import {
 	formatMemberCount,
 	invitesAllowedFrom,
 } from './constants/family-member-limit';
+import { PIN_LENGTH } from './constants/oyakagi';
 import { formatYen, PLAN_PRICE_YEN } from './constants/plan-price';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 import { SUBSCRIPTION_PLAN } from './constants/subscription-plan';
@@ -155,6 +156,9 @@ export const TRIAL_TERMS = {
 	// 注: ここに撤去済 export の識別子を literal で書くと check-orphan-labels が
 	// それを「参照 1 件」と数え、復活させても検出できなくなる (#4408 mutation 検証で実証)。
 	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
+	// #4668: プラン・課金ページのトライアル開始ボタン表記。画面 (SUBSCRIPTION_PAGE_LABELS.trialStartButton)
+	// とページガイド文言が同じ atom を引き、ボタン名の食い違いを作らない。
+	startButton: '無料トライアルを開始する',
 } as const;
 
 // ============================================================
@@ -173,6 +177,11 @@ export const TRIAL_TERMS = {
 //   - anytimeOk    : 'いつでも解約できます（契約期間の縛りなし）' (#1904 PERS-CRT-5)
 //   - account      : '退会' （契約の意味の「解約」と区別したアカウント削除文脈の名詞）
 //                   → 法務文書整合で「退会」用語を維持しつつ atom 経由参照を担保
+//   - confirmPhrase: 'アカウントを削除します' （不可逆操作の実行前に本人が打つ確認語、#4642）
+//                   → 家族グループを物理削除する経路は**すべて**この語の入力を要求する。
+//                     退会 (/admin/settings/account) と 引っ越し合流 (/auth/invite/[code]) は
+//                     結果が同じ (fullTenantDeletion) なので、要求する重さも同じにする。
+//                     経路ごとに別の語を置くと「軽いほうの経路から全損する」を作る。
 //
 // 「ボタンの操作取消（モーダル × ボタン）」は UI_LABELS.cancel に既存集約済み。
 // 本 atom は「サブスク契約の解約 / アカウント退会」専用。
@@ -183,6 +192,7 @@ export const CANCEL_TERMS = {
 	anytime: 'いつでも解約',
 	anytimeOk: 'いつでも解約できます（契約期間の縛りなし）',
 	account: '退会',
+	confirmPhrase: 'アカウントを削除します',
 } as const;
 
 // ============================================================
@@ -329,6 +339,8 @@ export const POINT_TERMS = {
 export const CURRENCY_TERMS = {
 	yen: '¥',
 	yenFull: '円',
+	/** 「通貨」そのものを指す名詞 (設定画面の選択ラベル等、#4512) */
+	canonical: '通貨',
 } as const;
 
 // ============================================================
@@ -419,6 +431,32 @@ export const ADMIN_VIEW_TERMS = {
 } as const;
 
 // ============================================================
+// ADMIN_HOME_TERMS — ご家族の見守り画面 ホーム (/admin) に出る UI 要素名 atom (#4653)
+// ============================================================
+//
+// ホーム画面のカード名 / セクション名 / リンク名と、それを説明するページガイド
+// (labels.ts `PAGE_GUIDE_LABELS.adminHome`) の文言を 1 箇所で同期するための atom。
+// ガイドが「画面に無い名前」を案内する乖離 (#4650 / #4653 F1・F3) を、描画側
+// (`ADMIN_HOME_LABELS` / `FEATURES_LABELS.adminLayout`) とガイド側の双方がこの atom を
+// `${...}` 参照することで構造的に防ぐ (ADR-0045 atom / compound 責務分離)。
+export const ADMIN_HOME_TERMS = {
+	/** 上部 summary card: 登録こども数 */
+	childrenCountCard: 'こどもの数',
+	/** 上部 summary card: 全員のポイント残高合計 (獲得ではなく残高) */
+	totalCard: '合計',
+	/** 月次セクション見出しの接尾辞 (「📊 YYYY年M月のがんばり」) */
+	monthlySuffix: 'のがんばり',
+	/** 月次セクション右上のレポート遷移リンク */
+	monthlyDetailsLink: '詳しく見る →',
+	/** こども一覧セクション見出し */
+	childrenSection: 'こども一覧',
+	/** header 右端の子供画面への切替リンク */
+	switchToChild: '子供画面へ',
+	/** ごほうび交換申請の承認待ちバナーの状態語 */
+	pendingApproval: '承認待ち',
+} as const;
+
+// ============================================================
 // STRIPE_PORTAL_TERMS — Stripe billing portal の用語 atom (#2057)
 // ============================================================
 //
@@ -433,6 +471,9 @@ export const STRIPE_PORTAL_TERMS = {
 	canonical: 'Stripe の請求管理ページ',
 	short: '請求管理ページ',
 	billingPortal: '請求管理ページ',
+	// #4668: 画面見出し「請求履歴」(SUBSCRIPTION_PAGE_LABELS.billingHistoryTitle) とガイド文言が同じ
+	// atom を引く。ガイド側で「支払い履歴」等の別表記を作らない (EPIC #4650 PO 判断)。
+	history: '請求履歴',
 } as const;
 
 // ============================================================
@@ -458,6 +499,24 @@ export const CHILD_TERMS = {
 	honorific: 'お子さま',
 	neutral: '子供',
 	hiragana: 'こども',
+} as const;
+
+// ============================================================
+// AI_TRANSFER_TERMS — 生成 AI への送信を説明するときの語彙 atom (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路は、
+// 入力内容をそのまま生成 AI に送信する。プライバシーポリシー第9条④ (#4583) と
+// 同じ事実を、入力する瞬間に伝えるための語彙をここに集約する。
+//
+// 禁忌: 個別の生成 AI 製品名 (モデル名・サービス名) を atom に持たせない。
+// 送信先は「事業者」と「運営者の環境の内か外か」で述べる (#4370 / #4583 と同一規律)。
+
+export const AI_TRANSFER_TERMS = {
+	/** 送信先の総称 */
+	genAi: '生成 AI',
+	/** 入力してはいけない情報の例示 (単独では主語を持たない断片) */
+	identifyingInfo: 'お名前など特定につながる情報',
 } as const;
 
 // ============================================================
@@ -526,6 +585,29 @@ export const SIGNUP_TERMS = {
 export const LOGIN_TERMS = {
 	canonical: 'ログイン',
 	signin: 'サインイン',
+} as const;
+
+// ============================================================
+// CROSS_BORDER_TERMS — 越境移転同意（個人情報保護法 §28）の atom (#4497)
+// ============================================================
+//
+// 同じ文言が signup フォーム / 再同意画面 (/consent) / LEGAL_LABELS の 3 箇所に必要で、
+// かつ「法務文書と画面に出る説明が食い違わないこと」が同意の有効性そのものに効く。
+// 文言を変えるときに 1 箇所直せば全経路に伝播するよう atom 化する (ADR-0045)。
+
+export const CROSS_BORDER_TERMS = {
+	/** 条項名。privacy.html 第 10 条の見出しと一致させる */
+	transfer: '外国にある第三者への提供',
+	law: '個人情報保護法第28条',
+	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
+	dpa: 'Data Processing Addendum (DPA)',
+	/** 同意チェックボックスの文言。同意記録の意味を定義する文なので画面間で一字一句揃える */
+	consentLabel: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
+	/** 移転の事実の説明（移転先・目的） */
+	notice:
+		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
+	/** 不安の打ち消し（DPIA §5 の実態） */
+	noNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
 } as const;
 
 // ============================================================
@@ -749,6 +831,9 @@ export const LIFESTAGE_TERMS = {
 // 既存リテラル (CHEER_LABELS '応援' 多数) との段階的 atom 化のため本 atom を導入。
 // 1 行修正で 「応援」→「がんばり応援」等のリブランディング時に伝播可能。
 
+// GROWTH_BOOK_TERMS は #4670 F2 で CERTIFICATE_TERMS と対で再定義された (本ファイル下部)。
+// canonical (リンク / ナビ / ガイド) と full (ページ見出し) の 2 形を引く。
+
 export const CHEER_TERMS = {
 	canonical: '応援',
 	action: '応援する',
@@ -789,6 +874,14 @@ export const REWARD_TERMS = {
 	shop: 'ごほうびショップ',
 	preset: 'プリセット',
 	canonical: 'ごほうび',
+	/**
+	 * #4705: 有料プランで解放される機能そのものの名前。
+	 *
+	 * 実ゲート (`isCustomRewardUnlocked`、#4584) が止めているのは「子供のショップに並べる商品を
+	 * 登録すること」であり、旧称「特別なごほうび設定（即時付与）」は別機能 (応援の即時付与) を
+	 * 指すと読めた。LP 比較表 / pricing / FAQ / アプリ内 plan カードはすべて本 atom を参照する。
+	 */
+	productRegistration: 'ごほうびショップへの商品登録',
 } as const;
 
 // ============================================================
@@ -827,6 +920,25 @@ export const BACKUP_TERMS = {
 	// 2 つ受けるのか」が曖昧なため廃止。compound 側で「以前書き出した ${file} か、
 	// 表計算ソフトで作った ${csvFile}」の形で 2 つの入力源を平易に並べて使う。
 	csvFile: 'CSV ファイル',
+} as const;
+
+// ============================================================
+// CERTIFICATE_TERMS / GROWTH_BOOK_TERMS — 証明書 / 記録ブックの呼称 atom (#4670 F2)
+// ============================================================
+//
+// レポート画面のリンク「📜 証明書」「📖 記録ブック」/ ナビ「グロースブック」/ 遷移先見出し
+// 「がんばり証明書」「成長記録ブック」/ ガイド「修了証（賞状）」「成長ブック」と 3〜4 表記が混在していた。
+// 画面リンクの短い呼称 (canonical) と遷移先見出しのフル名 (full) の 2 形に絞り、ガイド / ナビ / リンクは
+// canonical、ページ見出しは full を引く (EPIC #4650 PO 判断: 呼称はリンク表示「証明書」「記録ブック」を正とする)。
+
+export const CERTIFICATE_TERMS = {
+	canonical: '証明書',
+	full: 'がんばり証明書',
+} as const;
+
+export const GROWTH_BOOK_TERMS = {
+	canonical: '記録ブック',
+	full: '成長記録ブック',
 } as const;
 
 // ============================================================
@@ -1048,37 +1160,25 @@ export const OSS_LICENSE_TERMS = {
 // 設計指針:
 //   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
 //   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
+//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661 / #4698)
 //
-// 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
+// 参照: docs/DESIGN.md §6 / Issue #2353 / #4698 / ADR-0045
 
 export const OYAKAGI_TERMS = {
 	name: 'おやカギコード',
 	shortName: 'おやカギ',
+	/**
+	 * 桁数の表示文字列 (#4661 / #4662 / #4698)。判定に使う `PIN_LENGTH` から導出するため、
+	 * 桁数を変えると入力ラベル・エラー文・ページガイドが同時に追従する
+	 * (以前は 4 / 4〜6 / 4〜8 の 3 表記に割れ、実際に打てるのは 4 桁だけだった)。
+	 */
+	digitRange: `${PIN_LENGTH}桁`,
 } as const;
 
-// ============================================================
-// PIN_DEFAULT_TERMS — 初期 PIN 表示用 atom (#2353 設計欠陥 5 関連)
-// ============================================================
-//
-// #2353 設計欠陥 5: PIN modal に「初期値は 5086（がんばり）です」を表示すると
-// 子供が見て即入力できる脆弱性。gate modal では非表示が PO 確定方針。
-//
-// #2992 (EPIC #2990) で parent-gate 経路は「初回は新規作成」フローになり既定 PIN の
-// 事前伝達自体が不要化。setup 完了画面 / onboarding dialog の案内も作成フロー型
-// (SETUP_COMPLETE_LABELS.pinHintSuffix / PIN_GATE_ONBOARDING_LABELS.dialogPinHint) に置換済。
-// 本 atom の現役利用は legacy local 経路 (changePin の現コード = DEFAULT_PIN 照合、#1360 互換)
-// を案内する PIN 変更画面 (OYAKAGI_LABELS.defaultValueHint) のみ。
-// 値そのものは src/lib/domain/constants/oyakagi.ts の DEFAULT_PIN (= '5086') を SSOT とし、
-// 本 atom は表示用の文字列だけ。
-//
-// 設計指針:
-//   - hintFull       : '初期値は 5086（がんばり）です'  (PIN 変更画面 = legacy local 文脈用)
-//   - hintCompact    : '初期 5086（がんばり）'           (短縮版、checklist 等向け)
-
-export const PIN_DEFAULT_TERMS = {
-	hintFull: '初期値は 5086（がんばり）です',
-	hintCompact: '初期 5086（がんばり）',
-} as const;
+// #4698: 旧 PIN_DEFAULT_TERMS (「初期値は 5086（がんばり）です」) は撤去。#2992 以降は初回に
+// 親ゲートで新規作成するため既定 5086 は存在せず、設定画面 / ページガイド / チュートリアルに
+// 残っていた案内は誤案内 (5086 を入れても「現在のおやカギコードが正しくありません」) だった。
+// 忘れた場合の導線は OYAKAGI_LABELS.forgotHint* (メール OTP / 運用者向け手順) が担う。
 
 // ============================================================
 // CONCEPT_ICONS — システム概念 → 絵文字アイコンの SSOT atom (#2899)
@@ -1115,6 +1215,18 @@ export const PIN_DEFAULT_TERMS = {
 //   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
 //   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
 
+// ============================================================
+// CHALLENGE_TERMS — チャレンジの呼称 atom (#4671 F3)
+// ============================================================
+//
+// 同一画面で「チャレンジ管理」(ガイド title) / 「👥 きょうだいチャレンジ」(見出し・page title) /
+// 「チャレンジ」(サイドナビ) の 3 表記が混在していた。per-child 自動生成モデルではきょうだい限定機能
+// ではないため、画面で最も広く使われている「チャレンジ」を canonical とする (EPIC #4650 PO 判断)。
+
+export const CHALLENGE_TERMS = {
+	canonical: 'チャレンジ',
+} as const;
+
 export const CONCEPT_ICONS = {
 	activity: '📝',
 	reward: '🎁',
@@ -1124,6 +1236,61 @@ export const CONCEPT_ICONS = {
 	template: '🏪',
 	aiSuggest: '🤖',
 	help: '❓',
+} as const;
+
+// ============================================================
+// ADD_MENU_TERMS — admin リソース管理画面 header「+ 追加」dropdown の item 名 atom (#4655)
+// ============================================================
+//
+// DESIGN.md §10「admin リソース管理ページの add 経路は同型に揃える」: 活動 / チェックリスト /
+// ごほうび の 3 画面は先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一名称・
+// 同一順序で出す。以前は 3 画面の labels compound にそれぞれ同じ文字列が直書きされ、ページガイド
+// (PAGE_GUIDE_LABELS) からは labels.ts 定義順の都合で参照できなかった。本 atom を描画側とガイド側の
+// 双方が参照することで「ガイドが案内するボタン名 = 画面のボタン名」を構造的に保つ。
+export const ADD_MENU_TERMS = {
+	/** dropdown trigger */
+	trigger: '+ 追加',
+	/** 先頭 3 経路 (3 画面共通、同一順序) */
+	manual: '手動で1つ追加',
+	ai: 'AI で提案してもらう',
+	browse: `${TEMPLATE_TERMS.userFacing}から探す`,
+	/** 活動管理固有 (兄弟共通化) */
+	copyFromChild: `別の${CHILD_TERMS.honorific}からコピー`,
+	bulk: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+} as const;
+
+// ============================================================
+// MARKETPLACE_TYPE_TERMS — marketplace 5 type の表示名 atom (#4511)
+// ============================================================
+//
+// 同じ 5 type の名前が 3 箇所に別々の文字列で書かれていた (origin/main 実測):
+//   - MARKETPLACE_TYPE_LABELS (marketplace top の type カード): 活動セット / …
+//   - registry displayLabel   (UnifiedImportHub タブ):          活動セット / …
+//   - MARKETPLACE_LABELS.tabs (marketplace 一覧タブ):           アクティビティ集 /
+//     ごほうび集 / 持ち物リスト / ルール集
+// DESIGN.md §6「marketplace type 命名規則」は上 2 つの一致だけを定めていたため、
+// 3 つ目 (tabs) がその外側でズレ続けていた。値を atom に集約し、複製を作らせない。
+//
+// 値は既存の一致している 2 SSOT (MARKETPLACE_TYPE_LABELS / registry displayLabel) を
+// 採る。DESIGN.md §10「リソース名は単独名詞 (「持ち物」等の限定語を付けない)」に整合
+// する側であり、checklist は持ち物専用ではない (朝の準備 / 帰宅後の手順など) ため、
+// 限定語付きの「持ち物リスト」「もちものチェック集」は採らない。
+//
+// ※ 子供画面の実名称 (もちもの / もちものチェック / 持ち物チェック、icons.ts が SSOT)
+//    とは別物。取込説明文が子供画面名を引用するのは正しく、本 atom の管轄外。
+//
+// ※ 配置が terms.ts である理由: labels.ts ← marketplace-item.ts の import が既にあり
+//    (AGE_TIER_LABELS)、labels.ts から MARKETPLACE_TYPE_LABELS を直接 import すると
+//    循環参照になる (marketplace-item.ts 側は top-level で AGE_TIER_LABELS を評価する
+//    ため、読み込み順によっては TDZ で落ちる)。両者が既に依存している terms.ts に
+//    atom を置き、双方が参照する形にする (ADR-0045 の atom / compound 責務分離)。
+
+export const MARKETPLACE_TYPE_TERMS = {
+	activityPack: '活動セット',
+	rewardSet: 'ごほうびセット',
+	checklist: 'チェックリスト',
+	rulePreset: 'とくべつルール',
+	challengeSet: 'チャレンジ集',
 } as const;
 
 // ============================================================
@@ -1144,7 +1311,9 @@ export const CONCEPT_ICONS = {
 
 export const OVERFLOW_MENU_TERMS = {
 	openLabel: 'メニューを開く',
-	itemMarketplace: 'みんなのテンプレから取込',
+	// #4657 (EPIC #4650 PO 判断): 同じ遷移先 (/marketplace) を指す 3 箇所 (+ 追加 dropdown / ︙ /
+	// 本文リンク) は「みんなのテンプレートから探す」に統一する (旧「みんなのテンプレから取込」)。
+	itemMarketplace: ADD_MENU_TERMS.browse,
 	itemMarketplaceIcon: CONCEPT_ICONS.template,
 	itemAiSuggest: 'AI で提案してもらう',
 	itemAiSuggestIcon: CONCEPT_ICONS.aiSuggest,
@@ -1154,6 +1323,160 @@ export const OVERFLOW_MENU_TERMS = {
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
 	itemHelpIcon: CONCEPT_ICONS.help,
+	/** 活動管理 ︙ の全削除 item (#4655) */
+	itemClearAll: 'すべて削除',
+} as const;
+
+// ============================================================
+// CHECKLIST_ADMIN_TERMS — チェックリスト管理 (/admin/checklists) 画面の操作ボタン名 atom (#4657)
+// ============================================================
+//
+// 一覧カードの調整 (有効/無効・時間帯・アイテム追加・配信先) / ワンオフ / 検索 に出るボタン名。
+// 描画側 (ADMIN_CHECKLISTS_PAGE_LABELS) とページガイド (PAGE_GUIDE_LABELS.adminChecklists) の
+// 双方が参照する (ACTIVITY_ADMIN_TERMS / REWARD_ADMIN_TERMS と同型)。
+export const CHECKLIST_ADMIN_TERMS = {
+	/** ページ名 (見出し / ガイド title) */
+	pageTitle: 'チェックリスト管理',
+	/** 検索欄ラベル */
+	search: 'チェックリストを検索',
+	/** 一覧カードの操作 */
+	inactiveBadge: '無効',
+	delete: '削除',
+	timeSlot: '時間帯:',
+	addItem: '+ アイテム追加',
+	configureDistribution: '配信先を設定',
+	distributionSection: '配信先のお子さま',
+	perChildProgress: 'お子さまごとの今日の進捗',
+	/** 本日のワンオフ (日次 override) */
+	todayOverride: '本日のワンオフ',
+	addOverride: 'ワンオフ追加',
+	/** 兄弟共通化 */
+	copyFromChild: `他の${CHILD_TERMS.honorific}から取り込む`,
+	/** marketplace 詳細の取込 CTA (画面の実ボタン名) */
+	marketplaceImportCta: '一括追加',
+} as const;
+
+// ============================================================
+// POINTS_ADMIN_TERMS — ポイント管理 (/admin/points) 画面の用語 atom (#4658)
+// ============================================================
+//
+// 変換フォームのモードタブ名 / 確定ボタンの語 / 履歴見出し / 「変換可能」の語。画面側は「変換」で
+// 統一されているのにガイドが「交換」と書き、タブ名も旧称 (じぶんで / レシート) だったため、
+// 描画側 (POINTS_LABELS) とガイド (PAGE_GUIDE_LABELS.adminPoints) の双方が本 atom を参照する。
+export const POINTS_ADMIN_TERMS = {
+	/** 本画面の操作 (「交換」ではない。ごほうび交換は子供画面の shop) */
+	convert: '変換',
+	convertVerb: '変換する',
+	/** 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値) */
+	convertable: '変換可能',
+	/** 変換フォームのモードタブ */
+	tabPreset: 'かんたん',
+	tabManual: '自由入力',
+	tabReceipt: '領収書',
+	/** 自由入力モードの全額ボタン */
+	maxButton: '全額変換',
+	/** 履歴セクション */
+	historyTitle: 'おこづかい変換りれき',
+	historyFilterThisMonth: '今月',
+	historyFilterLastMonth: '先月',
+	historyFilterAll: '全期間',
+	/** かんたんモードの変換単位 (P)。実装 (+page.svelte の preset 選択肢) と同値 */
+	presetUnit: 500,
+} as const;
+
+// ============================================================
+// CHEER_ADMIN_TERMS — 応援 (/admin/cheer) 画面の見出し・例文 atom (#4659)
+// ============================================================
+//
+// 応援フォームの番号付き見出しと理由の例文。描画側 (CHEER_LABELS) とページガイド
+// (PAGE_GUIDE_LABELS.adminCheer) の双方が参照し、ガイドの例文が画面の placeholder と
+// 1 文字も違わないことを構造的に保つ (旧ガイドは語尾が「なったよ！」で画面は「なったね！」だった)。
+export const CHEER_ADMIN_TERMS = {
+	/** 1 段目の見出し (画面表記どおり「こども」) */
+	selectChildTitle: '1. こどもを選択',
+	/** 定型文チップの見出し */
+	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	/** 理由入力の placeholder (ガイドの例文もこの値を使う) */
+	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+} as const;
+
+// ============================================================
+// CHILD_ADMIN_TERMS — こども管理 (/admin/children) 画面のボタン名・タブ名 atom (#4660)
+// ============================================================
+//
+// 追加フォームの実ボタン名 / 入力項目名 / 詳細カードのタブ名。ガイドが「＋ こどもを追加」「保存」
+// のような画面に無いボタン名を案内していたため、描画側 (ADMIN_CHILDREN_PAGE_LABELS /
+// CHILD_PROFILE_CARD_LABELS) とページガイドの双方が本 atom を参照する。
+export const CHILD_ADMIN_TERMS = {
+	/** 追加フォームを開くボタン / フォーム確定ボタン (同じ「追加する」) */
+	addButton: '追加する',
+	/** 上限到達時の disabled ボタン */
+	limitReachedButton: '上限に達しています',
+	/** 追加フォームの入力項目 */
+	nickname: 'ニックネーム',
+	themeColor: 'テーマカラー',
+	age: '年齢',
+	/** 詳細カードの操作 */
+	editButton: '✏️ 編集',
+	deleteButton: '🗑 この子供を削除',
+	/** 詳細カードのタブ (絵文字込みの画面表記) */
+	tabInfo: '📋 基本情報',
+	tabStatus: '📊 ステータス',
+	tabLogs: '📝 活動記録',
+	tabAchievements: '🏆 実績',
+	tabVoice: '📢 ボイス',
+} as const;
+
+// ============================================================
+// REWARD_ADMIN_TERMS — ごほうび管理 (/admin/rewards) 画面の操作ボタン名 atom (#4656)
+// ============================================================
+//
+// 子供タブ行 / 一覧カード / 手動追加 Dialog / ︙ に出るボタン名・見出し。描画側
+// (REWARDS_LABELS / ADMIN_REWARDS_PAGE_LABELS) とページガイド (PAGE_GUIDE_LABELS.adminRewards) の
+// 双方が参照する (ADMIN_HOME_TERMS / ACTIVITY_ADMIN_TERMS と同型)。
+export const REWARD_ADMIN_TERMS = {
+	/** 検索欄ラベル */
+	search: 'ごほうびを検索',
+	/** 兄弟共通化: 他の子供からコピー (子供タブ行の右端ボタン) */
+	copyFromChild: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	/** ︙ の申請承認 item (件数付きは labels compound 側) */
+	requestsMenu: '申請承認',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	delete: '削除',
+	pendingBadge: '交換申請 処理待ち',
+	/** 手動追加 Dialog の入力項目 */
+	formTitle: 'タイトル',
+	formPoints: 'ポイント',
+	formIcon: 'アイコン',
+	shopCategory: 'ショップの並び（タブ）',
+	/** 追加フォーム送信ボタンの接尾辞 (「🎁 タイトル (NP) を追加する」) */
+	submitSuffix: ' を追加する',
+} as const;
+
+// ============================================================
+// ACTIVITY_ADMIN_TERMS — 活動管理 (/admin/activities) 画面の操作ボタン名 atom (#4655)
+// ============================================================
+//
+// 一覧カード (ActivityListItem) / 非表示の活動 (HiddenActivitiesSection) / 追加フォーム /
+// 検索欄 に出るボタン名・見出し。描画側 (FEATURES_LABELS / ADMIN_ACTIVITIES_PAGE_LABELS) と
+// ページガイド (PAGE_GUIDE_LABELS.adminActivities) の双方が参照する。
+export const ACTIVITY_ADMIN_TERMS = {
+	/** 追加フォームの送信ボタン接尾辞 (「〇〇 を追加する」) */
+	submitSuffix: ' を追加する',
+	/** 検索欄ラベル */
+	search: '活動を検索',
+	/** 一覧カードの操作 */
+	edit: '編集',
+	visible: '表示',
+	hidden: '非表示',
+	mainQuestEnable: '⚔️設定',
+	mainQuestDisable: '⚔️解除',
+	delete: '削除',
+	/** 非表示の活動セクション */
+	hiddenSection: '非表示の活動',
+	restore: '復活',
+	permanentDelete: '完全削除',
 } as const;
 
 // ============================================================
@@ -1264,6 +1587,181 @@ export const DELETION_GRACE_TERMS = {
 	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
+} as const;
+
+// ============================================================
+// WEEKDAY_TERMS — 曜日名 atom (漢字フル形、#4512)
+// ============================================================
+//
+// 「月曜日」等の曜日名は本 atom が SSOT。以前は週次レポート設定 (admin/reports) と
+// 子供チェックリスト (labels.ts CHILD_CHECKLIST_KANJI) がそれぞれ別に列挙しており、
+// 同じ語を 2 箇所で持っていた (ADR-0045 §3.3 atom 直書き複製)。
+//
+// ひらがな形 (「げつようび」) は子供 UI の年齢帯 variant であり、本 atom とは別値として
+// labels.ts の CHILD_CHECKLIST_HIRAGANA が持つ (漢字/ひらがなは同一 atom の表記ゆれではなく
+// 対象年齢で出し分ける別文言のため、ここには置かない)。
+
+export const WEEKDAY_TERMS = {
+	sunday: '日曜日',
+	monday: '月曜日',
+	tuesday: '火曜日',
+	wednesday: '水曜日',
+	thursday: '木曜日',
+	friday: '金曜日',
+	saturday: '土曜日',
+} as const;
+
+/** 日曜始まりの曜日名配列 (Date#getDay() の index と一致する) */
+export const WEEKDAY_NAMES_SUNDAY_FIRST = [
+	WEEKDAY_TERMS.sunday,
+	WEEKDAY_TERMS.monday,
+	WEEKDAY_TERMS.tuesday,
+	WEEKDAY_TERMS.wednesday,
+	WEEKDAY_TERMS.thursday,
+	WEEKDAY_TERMS.friday,
+	WEEKDAY_TERMS.saturday,
+] as const;
+
+// ============================================================
+// DEMO_SITE_TERMS — デモ環境の URL atom (#4511)
+// ============================================================
+//
+// デモは #2181 で demo.ganbari-quest.com へ移設した。LP 側の CTA は切り替わったが
+// **marketplace だけ旧 `/demo` のまま**残り、legacy redirect → `/` → 未認証は
+// `/auth/login` という死に導線になっていた (「デモを体験」と表示してログイン画面へ誘導)。
+//
+// URL が複数箇所に literal で散っていると、移設のたびに同じ取りこぼしが起きる。
+// 表示側は必ず本 atom を参照する。
+//
+// **www. canonical を使う理由** (#2261): LP は www. で配信されており、apex 経由だと
+// 301 が挟まって UX が劣化する。デモは demo. サブドメインなのでそのまま。
+
+export const DEMO_SITE_TERMS = {
+	/** デモ環境のトップ (末尾スラッシュ込み) */
+	url: 'https://demo.ganbari-quest.com/',
+} as const;
+
+// ============================================================
+// AUTO_SLEEP_TERMS — 使いすぎ防止タイマーの説明 atom (#4713)
+// ============================================================
+//
+// 値の SSOT は `constants/auto-sleep.ts`。本 atom は表示用の整形文字列だけを持つ。
+// 一致は tests/unit/domain/auto-sleep-terms-ssot.test.ts が pin する (数値を変えると落ちる)。
+//
+// **挙動を取り違えないこと**: 対象は「連続で使い続けた時間」であり、無操作の放置では
+// 画面は閉じない。旧 LP / FAQ 文言「15 分の無操作で画面が自動で閉じる」は逆の説明だった。
+
+export const AUTO_SLEEP_TERMS = {
+	/** 連続利用の上限 (例: 「15 分」) */
+	activeDuration: '15 分',
+	/** 連続利用の累積がリセットされる無操作時間 (例: 「1 分」) */
+	inactiveReset: '1 分',
+	/** 戻り先の画面名 (`/switch`) */
+	returnScreen: 'お子さま選択画面',
+} as const;
+
+// ============================================================
+// PRESET_ACTIVITY_TERMS — あらかじめ用意された活動の規模 atom (#4713)
+// ============================================================
+//
+// 実データ: `src/lib/data/marketplace/activity-packs/*.json` は 12 セット・延べ 325 件だが、
+// 男の子 / 女の子 variant が neutral とほぼ同内容のため **名前のユニークは 129 種**。
+// LP は延べ数ではなくユニーク数を下回る値だけを訴求する (ADR-0013 LP truth)。
+// 実数がこの訴求を下回っていないことは `scripts/measure-lp-dimensions.mjs` が CI で assert する。
+
+export const PRESET_ACTIVITY_TERMS = {
+	/** hero バッジ用の短縮訴求 (例: 「120+」) */
+	uniqueCountBadge: '120+',
+	/** 本文用のユニーク種類数訴求 (例: 「120 種類以上」) */
+	uniqueCount: '120 種類以上',
+	/** セット (パック) 数の訴求 (例: 「12 セット」) */
+	packCount: '12 セット',
+} as const;
+
+// ============================================================
+// USAGE_SUMMARY_TERMS — 管理ホームの使用時間セクション名 atom (#4713)
+// ============================================================
+//
+// LP 料金比較表の行名とアプリ内の見出しが別語 (LP「日次サマリー」／アプリ「本日の使用時間」)
+// になっており、顧客が表の行に対応する画面を見つけられなかった。両方をここから引く。
+
+export const USAGE_SUMMARY_TERMS = {
+	today: '本日の使用時間',
+	weekly: '今週の使用時間',
+} as const;
+
+// ============================================================
+// VIEWER_LINK_TERMS — 閲覧のみの共有 (閲覧リンク) atom (#4713)
+// ============================================================
+//
+// 招待メンバーのロールは「保護者 / こども」の 2 択で、閲覧専用ロールは存在しない。
+// 読み取り専用の共有は別機能の「閲覧リンク」(premium 限定、`/api/v1/admin/viewer-tokens`)。
+
+export const VIEWER_LINK_TERMS = {
+	name: '閲覧リンク',
+} as const;
+
+// ============================================================
+// ADMIN_SCREEN_TERMS — 保護者側の画面名 atom (#4714)
+// ============================================================
+//
+// LP の SS キャプション / alt は「その SS がどの画面か」を顧客に伝えるためのものなので、
+// アプリのナビゲーションに出ている画面名と同じ文字列でなければ結び付けられない。
+// LP 側 (labels.ts の LP_* namespace) とアプリ側 (NAV_ADMIN_LABELS) の両方がここから引く。
+
+export const ADMIN_SCREEN_TERMS = {
+	/** `/admin/children` — お子さまの登録・切り替え */
+	children: 'こども管理',
+} as const;
+
+// ============================================================
+// SUPPORT_RESPONSE_TERMS — 問い合わせ応答目標 atom (#4709)
+// ============================================================
+//
+// 同じ「返信までの目安」が FAQ (「通常 1〜2 営業日以内」) / 特商法 (「即日〜翌営業日」) /
+// SLA (「48 時間以内を目標」) で 3 通りに割れていた。顧客がどれを信じればよいか決められず、
+// かつ一番短い表現を根拠に苦情になりうる。値は SLA の目標 (最も保守的) に寄せて 1 箇所に集約する。
+// 3 文書が同じ atom を参照していることは
+// tests/unit/domain/support-response-time-ssot-4709.test.ts が pin する。
+
+// 値は SLA 第 6 条の既存表記に char-by-char で合わせる (半角スペース無しの「48時間以内」)。
+// SLA は既に公開済みの法的文書で、最終改定日は 2026-08-13 のまま据え置く前提のため、
+// ここに組版用の半角スペースを入れると本文が 1 文字変わり「本文を変えたのに改定日が動かない」
+// (= #4497 / 本 Issue が是正しようとしている欠陥そのもの) を新たに作ってしまう。
+// 特商法 / FAQ 側は本 PR で当該文を書き直しており改定日も動かしているため、こちらに合わせる。
+export const SUPPORT_RESPONSE_TERMS = {
+	/** 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し) */
+	initialResponseTarget: '48時間以内（営業日ベース）',
+} as const;
+
+// ============================================================
+// DELETION_EXPORT_TERMS — 退会フローだけの持ち出し経路 atom (#4709 / #4472)
+// ============================================================
+//
+// 通常のエクスポート (`/api/v1/export`) は `PlanLimits.canExport` gate で無料プランを 403 で
+// 拒否する。一方 LP / FAQ には「必要な記録は保持期間内にエクスポートしてください」と
+// 無条件に読める案内が残っており、無料プランの顧客が実行すると必ず失敗していた。
+// 退会フローだけは別経路 (`/api/v1/admin/account/export`) で、無料プランでも最小限の内容を
+// 持ち出せる (#4472)。その「最小限の内容」の呼び方をここに 1 つだけ置く。
+
+export const DELETION_EXPORT_TERMS = {
+	/** 無料プランが退会画面で持ち出せる範囲 (`deletion-export-scope.ts` の free scope に対応) */
+	freeScopeSummary: 'お子さまの名前と活動のまとめ',
+} as const;
+
+// ============================================================
+// STATUS_AXIS_TERMS — ステータスの軸名 atom (#4713)
+// ============================================================
+//
+// アプリが顧客に見せる軸は カテゴリ名 (うんどう / べんきょう / せいかつ / こうりゅう / そうぞう)。
+// LP にあった「やる気・体力など」は UI のどこにも出ない語だった
+// (`battle-types.ts` の内部 RPG ステータス名との混線)。
+
+export const STATUS_AXIS_TERMS = {
+	/** LP 本文で例示する代表 2 軸 */
+	examplePair: 'うんどう・べんきょう',
+	/** 軸の総数表記 */
+	axisCount: '5 つの軸',
 } as const;
 
 // ============================================================

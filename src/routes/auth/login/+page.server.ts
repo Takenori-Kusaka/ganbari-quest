@@ -4,8 +4,19 @@
 // - 本番: Cognito InitiateAuth API で直接認証（Hosted UI は使わない）
 
 import { fail, redirect } from '@sveltejs/kit';
+import { DEMO_LABELS } from '$lib/domain/labels';
 import { IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
-import { getAuthMode, isCognitoDevMode } from '$lib/server/auth/factory';
+import {
+	encodeNextParam,
+	LOGIN_NEXT_PARAM,
+	resolveSafeNextPath,
+} from '$lib/domain/validation/login-redirect';
+import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
+import {
+	CHILD_LANDING,
+	PARENT_LANDING,
+	resolvePostLoginLanding,
+} from '$lib/server/auth/post-login-landing';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
 import {
@@ -14,6 +25,7 @@ import {
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
 import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
+import type { Role } from '$lib/server/auth/types';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 import {
@@ -23,32 +35,53 @@ import {
 } from '$lib/server/security/account-lockout';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+/**
+ * ログイン後の着地先 (#4701)。`?next=` が安全な相対パス (同一オリジン、`/` 始まり、`//` `/\` 不可) なら
+ * それを、無ければロール既定 (child → /switch、それ以外 → /admin) を返す。
+ * child が `/admin/...` を next に持っていても hooks の認可が /switch へ戻すため、ここでは役割で絞らない。
+ */
+function resolveLoginTarget(next: string | null | undefined, role: Role | null) {
+	// 着地先の既定値は #4641 の SSOT (post-login-landing.ts) を参照する
+	return resolveSafeNextPath(next) ?? (role === 'child' ? CHILD_LANDING : PARENT_LANDING);
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();
+	// #4701: `?next=` は検証済みの値だけを page data に載せる (外部 URL / `//evil` は null = 無視)
+	const next = resolveSafeNextPath(url.searchParams.get(LOGIN_NEXT_PARAM));
+
+	// #4712: demo Lambda には Cognito が無く、ログインフォームを出しても送信が write no-op に
+	// なるだけ (「何も起きない」着地)。本番 host のログイン画面へ送る (signup と同型)。
+	if (locals.isDemo) {
+		redirect(302, DEMO_LABELS.loginHref);
+	}
 
 	// local モードではログイン不要 → /admin へ
 	if (authMode === 'local') {
-		redirect(302, '/admin');
+		redirect(302, next ?? '/admin');
 	}
 
-	// 既にログイン済み → /admin へ
+	// 既にログイン済み → next または /admin へ
 	if (locals.identity) {
-		const target = locals.context?.role === 'child' ? '/switch' : '/admin';
-		redirect(302, target);
+		redirect(302, resolveLoginTarget(next, locals.context?.role ?? null));
 	}
 
 	return {
 		devMode: isCognitoDevMode(),
+		next,
 	};
 };
 
 export const actions: Actions = {
-	login: async ({ request, cookies, locals }) => {
+	login: async (event) => {
+		const { request, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const password = formData.get('password') as string;
+		// #4701: hidden input で往復した next (再検証する。form 改竄で外部 URL を入れても無視される)
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!email || !password) {
 			return fail(400, { error: 'メールアドレスとパスワードを入力してください', email });
@@ -57,17 +90,19 @@ export const actions: Actions = {
 		const devMode = isCognitoDevMode();
 
 		if (devMode) {
-			return handleDevLogin(email, password, cookies);
+			return handleDevLogin(email, password, event, next);
 		}
 
-		return handleCognitoLogin(email, password, cookies);
+		return handleCognitoLogin(email, password, event, next);
 	},
 
-	confirmCode: async ({ request, cookies }) => {
+	confirmCode: async (event) => {
+		const { request, cookies } = event;
 		const formData = await request.formData();
 		const email = formData.get('email') as string;
 		const code = (formData.get('code') as string)?.replace(/\s/g, '');
 		const password = formData.get('password') as string;
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!email || !code) {
 			return fail(400, {
@@ -95,12 +130,14 @@ export const actions: Actions = {
 			if (loginResult.success) {
 				await resetLoginFailures(email);
 				establishSession(cookies, loginResult);
-				redirect(302, '/admin');
+				// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+				// 検証済みの next は親ロールにだけ preferredPath として適用する
+				redirect(302, await landingAfterSession(event, next));
 			}
 		}
 
-		// 自動ログインできなかった場合はログインページへ
-		redirect(302, '/auth/login?confirmed=true');
+		// 自動ログインできなかった場合はログインページへ (確認完了を表示、next は引き継ぐ)
+		redirect(302, withNext('/auth/login?confirmed=true', next));
 	},
 
 	resendFromLogin: async ({ request }) => {
@@ -132,13 +169,15 @@ export const actions: Actions = {
 		};
 	},
 
-	mfa: async ({ request, cookies, locals }) => {
+	mfa: async (event) => {
+		const { request, cookies, locals } = event;
 		const _tenantId = locals.context?.tenantId;
 		const formData = await request.formData();
 		const session = formData.get('session') as string;
 		const mfaCode = (formData.get('mfaCode') as string)?.replace(/\s/g, '');
 		const challengeName = formData.get('challengeName') as string;
 		const email = formData.get('email') as string;
+		const next = resolveSafeNextPath(formData.get(LOGIN_NEXT_PARAM)?.toString());
 
 		if (!session || !mfaCode || !challengeName) {
 			return fail(400, { error: 'MFA認証コードを入力してください', email, mfaStep: true });
@@ -158,9 +197,18 @@ export const actions: Actions = {
 
 		// MFA成功 → セッション確立
 		establishSession(cookies, result);
-		redirect(302, '/admin');
+		// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+		// 検証済みの next は親ロールにだけ preferredPath として適用する
+		redirect(302, await landingAfterSession(event, next));
 	},
 };
+
+/** `next` があれば query に付けて返す (login 画面への戻りで引き継ぐ用)。 */
+function withNext(path: string, next: string | null): string {
+	if (!next) return path;
+	const sep = path.includes('?') ? '&' : '?';
+	return `${path}${sep}${LOGIN_NEXT_PARAM}=${encodeNextParam(next)}`;
+}
 
 /**
  * 認証成功時のセッション cookie 確立
@@ -180,8 +228,10 @@ function establishSession(
 async function handleDevLogin(
 	email: string,
 	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
+	event: import('@sveltejs/kit').RequestEvent,
+	next: string | null,
 ) {
+	const { cookies } = event;
 	const user = authenticateDevUser(email, password);
 	if (!user) {
 		return fail(401, { error: 'メールアドレスまたはパスワードが正しくありません', email });
@@ -204,16 +254,52 @@ async function handleDevLogin(
 		maxAge: 60 * 60,
 	});
 
-	const target = user.role === 'child' ? '/switch' : '/admin';
-	redirect(302, target);
+	// #4641: 本番経路 (handleCognitoLogin) と同じ SSOT で着地先を決める。
+	// ここだけロール直書きのままだと `npm run dev:cognito` / e2e-cognito-dev レーンでは
+	// 子供が常に /switch に留まり、本 Issue の「再ログインはホーム直行」が成立しない。
+	// #4701: 検証済みの next は親ロールにだけ preferredPath として適用される。
+	redirect(302, await landingAfterSession(event, next));
+}
+
+/**
+ * #4641: セッション確立後の着地先を決める。
+ *
+ * 直前に積んだ identity cookie から **provider 経由で** identity を解決する
+ * (`/auth/callback` と同じ形)。ID token の検証方式は provider ごとに異なり
+ * (本番 = Cognito JWKS の RS256 / `COGNITO_DEV_MODE` = `cognito-dev-jwt` の HS256 +
+ * ローカル issuer・audience)、本番用 verifier を直接呼ぶと dev の token が検証できず
+ * ロール判定が落ちて着地先が壊れるため、検証は provider に委ねる。
+ *
+ * 解決できないときは従来どおり親画面へ送る — 次のリクエストで hooks が正しい判定をやり直すため、
+ * ここで止めるより一度進ませた方が dead-end を作らない。
+ *
+ * #4701: 検証済みの `next` は `preferredPath` として渡す。resolvePostLoginLanding は
+ * 子供ロールには preferredPath を適用しない (親向け画面へ送ると認可で跳ね返るため)。
+ */
+async function landingAfterSession(
+	event: import('@sveltejs/kit').RequestEvent,
+	next: string | null,
+): Promise<string> {
+	try {
+		const identity = await getAuthProvider().resolveIdentity(event);
+		if (!identity) return resolveLoginTarget(next, null);
+		return await resolvePostLoginLanding(event, identity, next ?? undefined);
+	} catch (e) {
+		logger.warn('[AUTH] ログイン後の着地先を解決できず親画面へ送る', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+		return resolveLoginTarget(next, null);
+	}
 }
 
 /** 本番: Cognito InitiateAuth API で認証 */
 async function handleCognitoLogin(
 	email: string,
 	password: string,
-	cookies: import('@sveltejs/kit').Cookies,
+	event: import('@sveltejs/kit').RequestEvent,
+	next: string | null,
 ) {
+	const cookies = event.cookies;
 	// アカウントロックアウトチェック
 	const lockout = await checkAccountLockout(email);
 	if (lockout.locked) {
@@ -274,8 +360,10 @@ async function handleCognitoLogin(
 		return fail(401, { error: result.message, email });
 	}
 
-	// 認証成功: ロックアウトカウンターをリセット → セッション確立
+	// 認証成功: ロックアウトカウンターをリセット → セッション確立 → next または /admin
 	await resetLoginFailures(email);
 	establishSession(cookies, result);
-	redirect(302, '/admin');
+	// #4641 / #4701: 子供ロールは /admin に入れない。着地先はロールで決め、
+	// 検証済みの next は親ロールにだけ preferredPath として適用する
+	redirect(302, await landingAfterSession(event, next));
 }

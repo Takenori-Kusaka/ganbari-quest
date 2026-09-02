@@ -4,82 +4,44 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { FAMILY_MEMBER_LIMIT } from '$lib/domain/constants/family-member-limit';
-import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
-import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
-import { getAuthMode } from '$lib/server/auth/factory';
+import { getPlanLimits, type PlanLimits, resolvePaidPlanTier } from '$lib/domain/plan-limits';
+import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
+// #4723: factory 経由だと provider 側と循環するため、実体の auth-mode から直接引く。
+import { getAuthMode } from '$lib/server/auth/auth-mode';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
 
-export interface PlanLimits {
-	maxChildren: number | null; // null = 無制限
-	maxActivities: number | null;
-	maxChecklistTemplates: number | null; // 1子あたりのチェックリストテンプレート数 (#723)
-	maxFamilyMembers: number | null; // null = 無制限, 招待によるメンバー上限（owner含む） (#1111)
-	historyRetentionDays: number | null;
-	canExport: boolean;
-	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
-	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
-	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
-	maxCloudExports: number; // クラウド保管の同時保管数上限
-}
-
 // #3963: 型宣言の SSOT は domain leaf に移した (request-context との循環回避)。
+// #4704: 上限値の表 (PLAN_LIMITS / PlanLimits / getPlanLimits) も domain leaf に移した
+// (repo 層から service 層への循環を断つため、$lib/domain/plan-limits.ts が SSOT)。
 // 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
 export type { PlanTier };
+export { getPlanLimits, type PlanLimits };
 
-const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-	free: {
-		maxChildren: 2,
-		maxActivities: 3,
-		// #723: Free は pricing で「チェックリスト（テンプレート）」と表記。
-		// 現状 preset テンプレ機構がないため、maxActivities と同様に「少数で自由作成可」に寄せ、
-		// 1子あたり 3 テンプレまでに制限（朝/昼/夜 の 3 枠想定）。
-		maxChecklistTemplates: 3,
-		// #1111: フリープランは招待不可（owner のみ）
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.free,
-		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
-		canExport: false,
-		// #4504: 値は述語 SSOT から導出する (定義だけで参照ゼロのデッド設定だった)
-		canFreeTextMessage: isFreeTextMessageUnlocked('free'),
-		canCustomReward: false,
-		canSiblingRanking: false,
-		maxCloudExports: 0,
-	},
-	standard: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
-		// #4500: 数値の SSOT は domain leaf。LP / labels もここから引く
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.standard,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
-		canExport: true,
-		canFreeTextMessage: isFreeTextMessageUnlocked('standard'),
-		canCustomReward: true,
-		canSiblingRanking: false,
-		maxCloudExports: 3,
-	},
-	family: {
-		maxChildren: null,
-		maxActivities: null,
-		maxChecklistTemplates: null,
-		// #1111: PLAN_LABELS.family は無制限
-		maxFamilyMembers: FAMILY_MEMBER_LIMIT.family,
-		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
-		canExport: true,
-		canFreeTextMessage: isFreeTextMessageUnlocked('family'),
-		canCustomReward: true,
-		canSiblingRanking: true,
-		maxCloudExports: 10,
-	},
-};
+/**
+ * 上限チェックの結果 (#4622)。
+ *
+ * `max: null` は「無制限」を意味するので、**上限に達した状態 (`allowed: false`) と
+ * 同時には成立しない**。旧実装は `{ allowed: boolean; max: number | null }` という
+ * 単一 shape だったため、この不変条件を型が持たず、`if (!check.allowed)` の内側でも
+ * `max` が `number | null` のままだった。結果、上限到達メッセージに
+ * 「カスタム活動は最大 null 個まで作成できます」と出しうる型の穴が空いていた。
+ *
+ * discriminated union にすることで不正な状態を型で表現不能にし (ADR-0061)、
+ * `!allowed` 側では `max` が `number` に narrowing される。
+ * 上限メッセージのラベル関数 (`PLAN_GATE_LABELS.*LimitReached`) は `max: number` を
+ * 要求するので、この不変条件を崩した瞬間に呼び出し側がコンパイルで落ちる。
+ */
+export type PlanLimitCheck =
+	/** 未到達。`max: null` は無制限プラン (上限なし) を表す */
+	| { allowed: true; current: number; max: number | null }
+	/** 上限到達。到達しうるのは上限が具体値のプランだけなので `max` は必ず number */
+	| { allowed: false; current: number; max: number };
 
 /**
  * テナントのプランティアを判定する同期版（低レベル・internal 用途）。
@@ -115,10 +77,14 @@ export function resolvePlanTier(
 	if (mode === 'anonymous') return 'family';
 	// アクティブな有料プラン
 	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) {
-		return planId?.startsWith('family') ? 'family' : 'standard';
+		return resolvePaidPlanTier(planId);
 	}
 	// トライアル期間中 → トライアルのティアを適用（デフォルト: standard）
-	if (trialEndDate && new Date(trialEndDate) > new Date()) {
+	// #4707: 終了日は JST 暦日 ('YYYY-MM-DD') で end_date 当日いっぱい有効。旧実装の
+	// `new Date(trialEndDate) > new Date()` は UTC 00:00 (= JST 09:00) で切れ、表示判定
+	// (`computeTrialStatus`、JST 暦日比較) と 9 時間ずれて「残り 0 日」表示のまま有料機能が
+	// 403 になっていた。同じ述語 `isTrialEndDateActiveJST` を共有して判定を一致させる。
+	if (trialEndDate && isTrialEndDateActiveJST(trialEndDate)) {
 		return trialTier ?? 'standard';
 	}
 	return 'free';
@@ -167,11 +133,6 @@ export function isPaidTier(tier: PlanTier): boolean {
 	return tier === 'standard' || tier === 'family';
 }
 
-/** プラン別制限を取得 */
-export function getPlanLimits(tier: PlanTier): PlanLimits {
-	return PLAN_LIMITS[tier];
-}
-
 /**
  * 保持期間カットオフ日 (YYYY-MM-DD、JST 基準) を取得。null = 制限なし。
  *
@@ -182,19 +143,38 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
  * これを JST 深夜 0:00 の instant として TZ-qualified に解釈する。
  */
 export function getHistoryCutoffDate(tier: PlanTier): string | null {
-	const limits = PLAN_LIMITS[tier];
+	const limits = getPlanLimits(tier);
 	if (limits.historyRetentionDays === null) return null;
 	return addDaysJST(todayDateJST(), -limits.historyRetentionDays);
 }
 
 /**
+ * 履歴を絞る JST 暦日の範囲 (両端含む)。`applyRetentionFilter` の戻り値の形。
+ *
+ * 履歴取得 service (`getActivityLogs` / `getChildChallengeRecords` /
+ * `getRedemptionRequestsForChild`) はこれを **必須引数** で受け取る。省略可能にすると
+ * 渡し忘れが「全期間を返す」= 料金表が約束した保持期間の空洞化として**静かに**成立するため
+ * (#4763 で実際に達成タブが、それ以前から交換タブがこの状態だった)。
+ */
+export interface RetentionRange {
+	from?: string;
+	to?: string;
+}
+
+/**
+ * 保持期間で絞らないことを**明示**するための range。
+ *
+ * 履歴一覧ではない用途 (例: ショップの「このごほうびの最新申請状態」) で使う。
+ * 空オブジェクト `{}` を直接書くと「渡し忘れ」と区別がつかないため、opt-out は必ず
+ * 本定数を経由させる (`grep NO_RETENTION_FILTER` で全 opt-out を数えられる状態を保つ)。
+ */
+export const NO_RETENTION_FILTER: RetentionRange = Object.freeze({});
+
+/**
  * 日付範囲オプションに保持期間フィルタを適用する
  * from が cutoff より前の場合、cutoff に上書き
  */
-export function applyRetentionFilter(
-	tier: PlanTier,
-	options: { from?: string; to?: string } = {},
-): { from?: string; to?: string } {
+export function applyRetentionFilter(tier: PlanTier, options: RetentionRange = {}): RetentionRange {
 	const cutoff = getHistoryCutoffDate(tier);
 	if (cutoff === null) return options;
 	const from = options.from && options.from > cutoff ? options.from : cutoff;
@@ -228,7 +208,7 @@ export async function hasArchivedData(
 export async function checkChildLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChildren === null) {
 		return { allowed: true, current: 0, max: null };
@@ -254,7 +234,7 @@ export async function checkChildLimit(
 export async function checkActivityLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxActivities === null) {
 		return { allowed: true, current: 0, max: null };
@@ -288,7 +268,7 @@ export async function checkChecklistTemplateLimit(
 	tenantId: string,
 	licenseStatus: string,
 	childId: ChildId,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
+): Promise<PlanLimitCheck> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChecklistTemplates === null) {
 		return { allowed: true, current: 0, max: null };
@@ -312,19 +292,41 @@ export async function checkChecklistTemplateLimit(
  * Free は 1（owner のみ、招待不可）。
  * Standard は 4（owner + 3人、核家族想定）。
  * Family は null（無制限）。
+ *
+ * #4723: 数え方は呼び出す場面で変わる。
+ * - **招待の発行時** (`countPendingInvites: true`): 既存メンバー + 未受諾の招待。
+ *   発行済みの招待は「枠の予約」として数える。数えないと、残り 1 枠に何通でも発行でき、
+ *   最初に受諾した人以外は全員が受諾時に弾かれる（発行者には成功に見える）。
+ * - **招待の受諾時** (既定): 既存メンバーのみ。受諾しようとしている招待自身を
+ *   予約として二重に数えないため。
+ *
+ * #4723: `planId` (= `locals.context?.plan` / `tenants.plan`) は **本チェックでは必須**。
+ * `maxFamilyMembers` は standard (4) と family (null = 無制限) で唯一値が割れる上限であり、
+ * `resolveFullPlanTier` は planId が無いと有料契約を一律 standard に落とす。渡し忘れると
+ * family 世帯が 4 人で頭打ちになる (他の check*Limit は standard / family とも null のため
+ * 影響が出ず、この引数を持たない)。
  */
 export async function checkFamilyMemberLimit(
 	tenantId: string,
 	licenseStatus: string,
-): Promise<{ allowed: boolean; current: number; max: number | null }> {
-	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
+	opts: { countPendingInvites?: boolean; planId?: string } = {},
+): Promise<PlanLimitCheck> {
+	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus, opts.planId));
 	if (limits.maxFamilyMembers === null) {
 		return { allowed: true, current: 0, max: null };
 	}
 
 	const repos = getRepos();
 	const members = await repos.auth.findTenantMembers(tenantId);
-	const current = members.length;
+	let current = members.length;
+
+	if (opts.countPendingInvites) {
+		const invites = await repos.auth.findTenantInvites(tenantId);
+		const now = Date.now();
+		current += invites.filter(
+			(i) => i.status === 'pending' && new Date(i.expiresAt).getTime() > now,
+		).length;
+	}
 
 	return {
 		allowed: current < limits.maxFamilyMembers,
