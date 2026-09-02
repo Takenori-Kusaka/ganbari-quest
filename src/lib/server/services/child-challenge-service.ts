@@ -51,6 +51,26 @@ export const CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
 	CATEGORY_CODES.map((code) => [String(CATEGORIES[code].legacyNumericId), CATEGORIES[code].name]),
 );
 
+/**
+ * 保存済み title (漢字固定の `formatChallengeTitle` 出力) を画面に出さず、targetConfig の
+ * categoryId + targetValue から年齢帯の文体で解決し直す (#4690 / QM #4809)。
+ * preschool は「こんしゅうは「うんどう」を3かい」、保護者画面 ('senior') は「今週は「運動」を3回」。
+ * categoryId が無い旧行は保存値をそのまま返す。
+ */
+export function resolveChallengeDisplayTitle(
+	c: { title: string; targetConfig: string; targetValue: number },
+	uiMode: string,
+): string {
+	try {
+		const cfg = JSON.parse(c.targetConfig) as { categoryId?: unknown };
+		if (typeof cfg.categoryId !== 'number' && typeof cfg.categoryId !== 'string') return c.title;
+		const name = getCategoryDisplayName(cfg.categoryId, uiMode);
+		return name ? formatChallengeTitle(name, c.targetValue, uiMode) : c.title;
+	} catch {
+		return c.title;
+	}
+}
+
 /** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 (#3194) */
 export type ChallengeProposalMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
 
@@ -449,7 +469,8 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 		if (!first) continue;
 		groups.push({
 			groupKey,
-			title: first.title,
+			// 保護者画面は漢字 + 漢字カテゴリ名で解決し直す (保存値は「うんどう」混在、QM #4809)
+			title: resolveChallengeDisplayTitle(first, 'senior'),
 			description: first.description,
 			startDate: first.startDate,
 			endDate: first.endDate,
@@ -706,6 +727,7 @@ export async function getChildChallengeRecords(
 	childId: ChildId,
 	tenantId: string,
 	range: RetentionRange,
+	uiMode = 'senior',
 ): Promise<
 	Array<{
 		id: string;
@@ -731,7 +753,7 @@ export async function getChildChallengeRecords(
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
 		.map((c) => ({
 			id: c.id,
-			title: c.title,
+			title: resolveChallengeDisplayTitle(c, uiMode),
 			challengeType: c.challengeType,
 			startDate: c.startDate,
 			endDate: c.endDate,

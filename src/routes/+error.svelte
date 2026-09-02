@@ -31,7 +31,10 @@ const uiModeFromPath = $derived.by(() => {
 	return (UI_MODES as readonly string[]).includes(first) ? first : null;
 });
 // "child" ロール、または URL が年齢モード配下なら子供画面。それ以外は親扱い。
-const isChild = $derived(role === 'child' || uiModeFromPath !== null);
+// role が解決できているときは role を優先する (保護者が子供 route 配下で 403 / 429 を踏んだときに
+// 拒否理由や requestId 導線を持つ保護者向け文言へ到達できるようにする、QM #4809 レビュー)。
+// URL 先頭で子供扱いにするのは role が null (子供 layout の load が走らないパス) のときだけ。
+const isChild = $derived(role === 'child' || (role === null && uiModeFromPath !== null));
 /** 子供文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。mode 不明時はひらがな側に倒す。 */
 const childLabels = $derived(getChildErrorPageLabels(uiModeFromPath ?? 'preschool'));
 

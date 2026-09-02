@@ -282,6 +282,17 @@ export const activitiesQuerySchema = v.object({
 export const KANJI_AGE_THRESHOLD = 6;
 
 /** 子供の年齢に応じた活動の表示名を返す */
+/**
+ * seed 由来で名前に漢字を含む活動の読み (#4690 / QM #4809)。
+ * seed.ts に kana を足しても、既に seed 済みの DB (NUC / local) の activities / child_activities 行には
+ * 追補経路 (name 一致で skip) では入らないため、表示時にここで補う。
+ * seed.ts の「漢字を含む name + nameKana」の全組と一致することを
+ * tests/unit/domain/seed-kanji-name-kana-4690.test.ts が固定する。
+ */
+export const SEED_KANJI_NAME_KANA: Readonly<Record<string, string>> = Object.freeze({
+	水やりをする: 'みずやりをする',
+});
+
 export function getActivityDisplayName(
 	activity: { name: string; nameKana?: string | null; nameKanji?: string | null },
 	childAge: number,
@@ -289,8 +300,9 @@ export function getActivityDisplayName(
 	if (childAge >= KANJI_AGE_THRESHOLD && activity.nameKanji) {
 		return activity.nameKanji;
 	}
-	if (childAge < KANJI_AGE_THRESHOLD && activity.nameKana) {
-		return activity.nameKana;
+	if (childAge < KANJI_AGE_THRESHOLD) {
+		const kana = activity.nameKana || SEED_KANJI_NAME_KANA[activity.name];
+		if (kana) return kana;
 	}
 	return activity.name;
 }

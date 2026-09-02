@@ -5997,7 +5997,9 @@ const ERROR_PAGE_CHILD_KANJI = {
  * @param category カテゴリ code、または legacy 数値 id / branded CategoryId 文字列
  */
 export function getCategoryDisplayName(category: string | number, uiMode: string): string {
-	const code = (category in CATEGORIES ? category : toCategoryCode(category)) as
+	// `in` は継承プロパティ ('toString' 等) にも true を返し、DB 汚染時に Function を meta として
+	// 返してしまうため own property 判定にする (QM #4809 レビュー)。
+	const code = (Object.hasOwn(CATEGORIES, category) ? category : toCategoryCode(category)) as
 		| CategoryCode
 		| undefined;
 	if (!code) return '';
@@ -6046,8 +6048,20 @@ export function getChallengeReason(
 	}
 }
 
-/** 週次チャレンジのタイトル。保護者の管理画面にも出るため漢字表記で保存する。 */
-export function formatChallengeTitle(categoryName: string, targetCount: number): string {
+/**
+ * 週次チャレンジのタイトル。DB には既定 (漢字) で保存し、表示時は
+ * `resolveChallengeDisplayTitle` (child-challenge-service) が targetConfig の構造値から
+ * 年齢帯の文体で解決し直す (#4690 / src/routes/CLAUDE.md「保存値を出さず構造値から解決」)。
+ * baby / preschool はひらがな。
+ */
+export function formatChallengeTitle(
+	categoryName: string,
+	targetCount: number,
+	uiMode: string = 'senior',
+): string {
+	const m = normalizeUiMode(uiMode);
+	if (m === 'baby' || m === 'preschool')
+		return `こんしゅうは「${categoryName}」を${targetCount}かい`;
 	return `今週は「${categoryName}」を${targetCount}回`;
 }
 
