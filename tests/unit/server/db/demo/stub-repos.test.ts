@@ -205,8 +205,14 @@ describe('demo/push-subscription-repo', () => {
 	it('findByTenant は空', async () => {
 		expect(await pushSubscriptionRepo.findByTenant('demo')).toEqual([]);
 	});
-	it('countTodayLogs は 0', async () => {
-		expect(await pushSubscriptionRepo.countTodayLogs('demo', '2026-04-01')).toBe(0);
+	it('countLogsBetween は 0', async () => {
+		expect(
+			await pushSubscriptionRepo.countLogsBetween(
+				'demo',
+				'2026-04-01T00:00:00Z',
+				'2026-04-02T00:00:00Z',
+			),
+		).toBe(0);
 	});
 });
 

@@ -60,9 +60,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const tier = await resolveFullPlanTier(tenantId, licenseStatus, context.plan);
 		if (!isFreeTextMessageUnlocked(tier)) {
-			// #4710: 自由テキストは premium 限定。要求 tier を伴わない 403 は
-			// 「スタンダード以上でご利用いただけます」しか言えず、既にスタンダードな顧客が
-			// 次の行動を選べない。planLimitError で要求 tier を明示する。
+			// #4710: プラン制限の 403 は要求 tier つきで返す。固定 userMessage だと
+			// 「スタンダード以上に」しか言えず、スタンダード契約者が premium 限定の
+			// 本機能を叩いたときに次の行動を示せない。自由テキストは premium 限定 (#4504)。
 			return planLimitError(
 				'family',
 				PLAN_GATE_LABELS.familyOnlyFor(CHEER_LABELS.freeTextFeatureName),

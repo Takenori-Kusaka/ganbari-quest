@@ -8,7 +8,6 @@
 import {
 	endTutorial,
 	getCurrentStep,
-	isQuickCompleteShown,
 	isResumePromptShown,
 	isTutorialActive,
 } from './tutorial-store.svelte';
@@ -35,7 +34,6 @@ let showExitConfirm = $state(false);
 const active = $derived(isTutorialActive());
 const step = $derived(getCurrentStep());
 const showResume = $derived(isResumePromptShown());
-const showQuickComplete = $derived(isQuickCompleteShown());
 
 // ── Getters (for external consumers) ──
 export function getTargetRect(): DOMRect | null {
@@ -67,15 +65,11 @@ export function getShowResume(): boolean {
 	return showResume;
 }
 
-export function getShowQuickComplete(): boolean {
-	return showQuickComplete;
-}
-
 // ── Actions ──
 export function handleOverlayClick(e: MouseEvent) {
-	// #2105: FSM 排他 — quick-complete / resume / exit-confirm dialog 表示中は二重 state 遷移を防ぐ
+	// #2105: FSM 排他 — resume / exit-confirm dialog 表示中は二重 state 遷移を防ぐ
 	// (Dialog FSM 原則、archive ADR-0019)。既に exit-confirm が出ている場合は noop。
-	if (showExitConfirm || showQuickComplete || showResume) return;
+	if (showExitConfirm || showResume) return;
 	// Show exit confirmation instead of closing immediately
 	if ((e.target as HTMLElement).classList.contains('tutorial-overlay-bg')) {
 		showExitConfirm = true;

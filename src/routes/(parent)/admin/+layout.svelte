@@ -2,6 +2,7 @@
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
+import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
@@ -39,6 +40,17 @@ interface Props {
 		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
+		// #1781 / #4699: 退会 (アカウント削除) 申請中の猶予状態。全 admin ページで
+		// 「あと N 日 / 復元する」を出すために layout が受け取る
+		gracePeriodStatus?: {
+			isSoftDeleted: boolean;
+			softDeletedAt: string | null;
+			gracePeriodDays: number;
+			physicalDeletionDate: string | null;
+			daysRemaining: number;
+			isExpired: boolean;
+			planTier: string | null;
+		} | null;
 	};
 	children: Snippet;
 }
@@ -86,6 +98,13 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
+	<!-- #4699: 退会 (アカウント削除) 申請中は全 admin ページで状態と復元導線を出す。
+	     旧実装は設定 > アカウントの 1 画面だけで、申請を忘れた保護者が猶予経過で全データを失っていた -->
+	{#if data.gracePeriodStatus?.isSoftDeleted}
+		<div style:margin-bottom="16px">
+			<DeletionGraceBanner status={data.gracePeriodStatus} testid="admin-deletion-grace-banner" />
+		</div>
+	{/if}
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
 	{#if data.setupOnboarding}
 		<div style:margin-bottom="16px">

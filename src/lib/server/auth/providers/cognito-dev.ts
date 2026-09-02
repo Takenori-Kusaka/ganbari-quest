@@ -217,8 +217,13 @@ export class DevCognitoAuthProvider implements AuthProvider {
 		return this.issueContextFromDevUsers(event, identity);
 	}
 
-	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult {
-		return authorizeCognito(path, identity, context);
+	authorize(
+		path: string,
+		identity: Identity | null,
+		context: AuthContext | null,
+		url?: URL,
+	): AuthResult {
+		return authorizeCognito(path, identity, context, url);
 	}
 
 	private issueContextFromDevUsers(event: RequestEvent, identity: Identity): AuthContext | null {

@@ -68,24 +68,27 @@ describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 	});
 
 	describe('サーバ実装との一致', () => {
-		it('plan-limit-service は数値を直書きせず値 SSOT を参照する', () => {
-			const src = repoFile('src/lib/server/services/plan-limit-service.ts');
+		// #4704: 上限値の表 (PLAN_LIMITS) は domain leaf (`$lib/domain/plan-limits.ts`) に移した
+		// (repo 層 → service 層の循環と、CLI からの `$app` 流入を断つため)。検査対象も移す。
+		it('PLAN_LIMITS は数値を直書きせず値 SSOT を参照する', () => {
+			const src = repoFile('src/lib/domain/plan-limits.ts');
 			expect(src).toContain('FAMILY_MEMBER_LIMIT.standard');
 			expect(src, 'maxFamilyMembers に数値を直書きすると LP と二重管理になる').not.toMatch(
 				/maxFamilyMembers:\s*\d+/,
 			);
 		});
 
-		// #4710: 未配線のままプラン条件を持っていた 3 capability (invite.family_member /
-		// export.activity_history / purchase.upgrade) は削除された。矛盾しうる定義そのものを
-		// 無くしたので、ここでは「policy 層にプラン条件が戻っていない」ことを確認する
-		// (述語の再登場の全面検出は capabilities-no-plan-tier-predicate.test.ts が担う)。
-		it('capabilities は家族メンバー上限のプラン条件を持たない (SSOT = plan-limit-service)', () => {
+		// #4710: 本 assertion が守っていた「capabilities のプラン判定が PLAN_LIMITS と食い違う」
+		// リスクは、**capability そのものを削除する**ことで根治した (未配線 + 二重定義だった
+		// invite.family_member / export.activity_history / purchase.upgrade の 3 件)。
+		// よって「整合していること」ではなく「プラン判定を持たないこと」を検査する。
+		// 網羅的な再発検出は tests/unit/architecture/capabilities-no-plan-tier-predicate.test.ts。
+		it('capabilities はプラン判定を持たない (SSOT は plan-limit-service 側、#4710)', () => {
 			const src = repoFile('src/lib/policy/capabilities.ts');
 			expect(src, "旧実装の `tier !== 'family'` 一律 deny は standard の招待を壊す").not.toContain(
 				"if (ctx.plan?.tier !== 'family') return deny('plan-tier-insufficient');",
 			);
-			expect(src, 'プラン条件を policy 層に複製すると片方だけ直る (#4710)').not.toContain(
+			expect(src, 'プラン別の可否は plan-limit-service に集約する').not.toContain(
 				"'invite.family_member':",
 			);
 		});
