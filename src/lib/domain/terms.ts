@@ -831,6 +831,9 @@ export const LIFESTAGE_TERMS = {
 // 既存リテラル (CHEER_LABELS '応援' 多数) との段階的 atom 化のため本 atom を導入。
 // 1 行修正で 「応援」→「がんばり応援」等のリブランディング時に伝播可能。
 
+// GROWTH_BOOK_TERMS は #4670 F2 で CERTIFICATE_TERMS と対で再定義された (本ファイル下部)。
+// canonical (リンク / ナビ / ガイド) と full (ページ見出し) の 2 形を引く。
+
 export const CHEER_TERMS = {
 	canonical: '応援',
 	action: '応援する',

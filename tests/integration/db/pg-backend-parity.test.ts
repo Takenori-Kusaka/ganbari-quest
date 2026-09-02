@@ -65,12 +65,32 @@ describe('#4719 pg-core backend parity (PGlite 実 migration)', () => {
 		const ended = await svc.endUsageSession(started?.id ?? '', TENANT);
 		expect(ended?.durationSec).toBeGreaterThanOrEqual(599);
 
+		// 「今日」の集計は **JST 暦日**で切られる (#4127)。`now() - 10 分` を開始時刻にしているので、
+		// JST 00:00〜00:10 に実行すると開始時刻が前日に落ちて today が 0 分になる
+		// (CI が 15:07 UTC = 前日 23:07 JST を作って実際に落ちた)。
+		// 集計そのものの検証は週次 (7 日ぶん = 境界に依らない) で厳密に行い、
+		// today は **開始時刻が JST で今日かどうか**から期待値を決める。
+		const { todayDateJST, toJSTDateString } = await import('../../../src/lib/domain/date-utils');
+		const startedAtJstDate = toJSTDateString(new Date(Date.now() - 10 * 60 * 1000));
+		const expectedTodayMin = startedAtJstDate === todayDateJST() ? 10 : 0;
+
 		const today = await svc.getTodayUsageSummary(TENANT, [{ id: childId, nickname: 'ぱりてぃ' }]);
-		expect(today[0]?.durationMin).toBe(10);
+		expect(today[0]?.durationMin, `JST ${startedAtJstDate} 開始のセッション`).toBe(
+			expectedTodayMin,
+		);
 
 		const weekly = await svc.getWeeklyUsageSummary(TENANT, childId);
 		expect(weekly).toHaveLength(7);
+		// 週次は 7 日ぶんを合算するので JST 日境界に依らない。
+		// 旧実装は pg で表未作成 → WARN + 0 分だったので、ここが 0 なら本来の欠陥。
 		expect(weekly.reduce((s, e) => s + e.durationMin, 0)).toBe(10);
+		// **どの JST 暦日に計上されたか**まで固定する。境界に依らずに
+		// 「今日の集計が壊れている」を検出できるようにするため、日付は条件分岐ではなく
+		// 開始時刻の JST 暦日で決め打ちする (これは develop の today 固定 assertion より強い)。
+		expect(
+			weekly.find((e) => e.date === startedAtJstDate)?.durationMin,
+			`JST ${startedAtJstDate} に 10 分が計上されていない`,
+		).toBe(10);
 
 		// 旧実装の兆候 (「セッション開始記録に失敗」WARN) が出ていない
 		expect(vi.mocked(logger.warn)).not.toHaveBeenCalledWith(
