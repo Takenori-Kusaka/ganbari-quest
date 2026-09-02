@@ -11,7 +11,9 @@ import { getErrorMessage } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { asChildId } from '$lib/domain/ids';
-import { CHEER_LABELS } from '$lib/domain/labels';
+// #4512: エラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)。
+// 上限値そのものは cheer-service.ts が SSOT で、labels 側は引数で受ける。
+import { ADMIN_FORM_ERROR_LABELS, CHEER_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	CHEER_CATEGORIES,
@@ -53,8 +55,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 // 入力バリデーションエラーメッセージ表 (route + service 層で共通利用)
-const POINTS_ERROR_MSG = `ポイントは${CHEER_POINTS_MIN}〜${CHEER_POINTS_MAX}の範囲で入力してください`;
-const REASON_TOO_LONG_MSG = `理由は${CHEER_REASON_MAX_LENGTH}文字以内で入力してください`;
+const POINTS_ERROR_MSG = CHEER_LABELS.errorPointsRange(CHEER_POINTS_MIN, CHEER_POINTS_MAX);
+const REASON_TOO_LONG_MSG = CHEER_LABELS.errorReasonTooLong(CHEER_REASON_MAX_LENGTH);
 
 /** form input をパースして validation 結果を返す (フォーム / service 層エラーいずれにも対応する分岐回避) */
 function parseAndValidateForm(
@@ -71,8 +73,8 @@ function parseAndValidateForm(
 	const bodyRaw = String(formData.get('body') ?? '').trim();
 
 	if (!childId || childId === asChildId(0))
-		return { ok: false, status: 400, error: 'こどもを選択してください' };
-	if (!reason) return { ok: false, status: 400, error: '応援の理由を入力してください' };
+		return { ok: false, status: 400, error: CHEER_LABELS.errorChildRequired };
+	if (!reason) return { ok: false, status: 400, error: CHEER_LABELS.errorReasonRequired };
 	if (reason.length > CHEER_REASON_MAX_LENGTH) {
 		return { ok: false, status: 400, error: REASON_TOO_LONG_MSG };
 	}
@@ -80,7 +82,7 @@ function parseAndValidateForm(
 		return { ok: false, status: 400, error: POINTS_ERROR_MSG };
 	}
 	if (!CHEER_CATEGORIES.includes(category as CheerCategory)) {
-		return { ok: false, status: 400, error: 'カテゴリを選択してください' };
+		return { ok: false, status: 400, error: CHEER_LABELS.errorCategoryRequired };
 	}
 	return {
 		ok: true,
@@ -97,10 +99,10 @@ function parseAndValidateForm(
 }
 
 const SERVICE_ERROR_MESSAGES: Record<string, { status: 400 | 404; message: string }> = {
-	NOT_FOUND: { status: 404, message: 'こどもが見つかりません' },
-	INVALID_REASON: { status: 400, message: '応援の理由を入力してください' },
+	NOT_FOUND: { status: 404, message: CHEER_LABELS.errorChildNotFound },
+	INVALID_REASON: { status: 400, message: CHEER_LABELS.errorReasonRequired },
 	INVALID_POINTS: { status: 400, message: POINTS_ERROR_MSG },
-	INVALID_CATEGORY: { status: 400, message: 'カテゴリを選択してください' },
+	INVALID_CATEGORY: { status: 400, message: CHEER_LABELS.errorCategoryRequired },
 };
 
 export const actions: Actions = {
@@ -132,7 +134,7 @@ export const actions: Actions = {
 					error: mapped.status === 404 ? getErrorMessage(mapped.message) : mapped.message,
 				});
 			}
-			return fail(400, { error: 'エラーが発生しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.genericError });
 		}
 
 		return {

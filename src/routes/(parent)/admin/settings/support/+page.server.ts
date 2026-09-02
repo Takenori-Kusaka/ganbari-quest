@@ -8,6 +8,8 @@ import {
 	evaluateBackupHealth,
 	isBackupNotificationConfigured,
 } from '$lib/domain/backup-health';
+// #4512: validation / 通知本文の文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { getEnv } from '$lib/runtime/env';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
@@ -83,26 +85,26 @@ function validateFeedbackForm(
 	const rawCategory = form.get('category')?.toString() ?? '';
 
 	if (intent !== 'feedback' && intent !== 'consult') {
-		return { error: 'ご用件の選択が不正です' };
+		return { error: SETTINGS_LABELS.feedbackInvalidIntentError };
 	}
 	if (!text || text.length === 0) {
-		return { error: '内容を入力してください' };
+		return { error: SETTINGS_LABELS.feedbackContentRequiredError };
 	}
 	if (text.length > 1000) {
-		return { error: '1000文字以内で入力してください' };
+		return { error: SETTINGS_LABELS.feedbackContentTooLongError };
 	}
 	if (intent === 'feedback' && !['feature', 'bug', 'other'].includes(rawCategory)) {
-		return { error: 'カテゴリが不正です' };
+		return { error: SETTINGS_LABELS.feedbackInvalidCategoryError };
 	}
 	if (replyEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyEmail) || replyEmail.length > 254)) {
-		return { error: 'メールアドレスの形式が正しくありません' };
+		return { error: SETTINGS_LABELS.feedbackInvalidEmailError };
 	}
 	if (childAge && childAge.length > 100) {
-		return { error: 'お子さまの年齢は100文字以内で入力してください' };
+		return { error: SETTINGS_LABELS.feedbackChildAgeTooLongError };
 	}
 	// 相談は返信が前提のため、返信先 (入力 or アカウントメール) を必須にする。
 	if (intent === 'consult' && !replyEmail && !accountEmail) {
-		return { error: '相談・困りごとは返信先メールアドレスを入力してください' };
+		return { error: SETTINGS_LABELS.feedbackConsultReplyRequiredError };
 	}
 
 	// intent='consult' は category='consult' 固定。intent='feedback' のみ内容分類を要求する。
@@ -123,16 +125,18 @@ export const actions = {
 		const { intent, category, text, replyEmail, childAge } = parsed.ok;
 
 		const categoryLabel = {
-			feature: '機能要望',
-			bug: 'バグ報告',
-			other: 'その他',
-			consult: '相談・困りごと',
+			feature: SETTINGS_LABELS.feedbackCategoryFeature,
+			bug: SETTINGS_LABELS.feedbackCategoryBug,
+			other: SETTINGS_LABELS.feedbackCategoryOther,
+			consult: SETTINGS_LABELS.feedbackCategoryConsult,
 		}[category as 'feature' | 'bug' | 'other' | 'consult'];
 		const email = accountEmail || 'local-user';
 
 		// InquiryRecord は childAge 列を持たないため、相談時のみ本文先頭に付記する
 		// (3 repo schema 変更を避ける最小実装、ADR-0010)。
-		const body = childAge ? `【お子さまの年齢】${childAge}\n\n${text}` : text;
+		const body = childAge
+			? `${SETTINGS_LABELS.feedbackChildAgeBodyPrefix(childAge)}\n\n${text}`
+			: text;
 
 		let inquiryId = '';
 		try {
@@ -157,7 +161,7 @@ export const actions = {
 			// 「届いたのに誰からか分からない」状態にはならない。
 			notifyInquiry(category, body, inquiryId).catch(() => {});
 			return fail(500, {
-				feedbackError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
+				feedbackError: SETTINGS_LABELS.feedbackSendFailedError,
 			});
 		}
 

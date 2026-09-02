@@ -280,7 +280,7 @@ function tabHref(childId: ChildId | 'all'): string {
 									size="sm"
 									data-testid="admin-challenge-delete-{instance.id}"
 								>
-									{group.instances.length >= 2 ? `${child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child} を削除` : CHALLENGES_LABELS.deleteButton}
+									{group.instances.length >= 2 ? ADMIN_CHALLENGES_PAGE_LABELS.deleteChildButton(child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child) : CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
 						{/each}

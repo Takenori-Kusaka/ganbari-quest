@@ -13,10 +13,12 @@ import {
 import { selectTenantSlice } from '$lib/server/cron/tenant-slice';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
+import { REDEMPTION_EXPIRE_AFTER_SEC } from '$lib/server/db/interfaces/reward-redemption-repo.interface';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
+	findPendingRewardIdsByTenant,
 	findRedemptionRequestById,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
@@ -279,6 +281,18 @@ export async function countPendingRedemptionsForParent(tenantId: string): Promis
 	return countRedemptionRequestsByTenant(tenantId, {
 		status: 'pending_parent_approval',
 	});
+}
+
+/**
+ * #4682: 承認待ち申請が存在するごほうびの id 集合 (DISTINCT、limit なし)。
+ *
+ * ごほうび管理画面の「申請時点の内容で処理」note と削除前の処理待ちバッジで使う。
+ * 表示用一覧 (`getRedemptionRequestsForParent`、既定 limit 50) を map して導くと、
+ * 申請が 51 件以上になった時点で種別が静かに抜け落ち、親が「処理待ちがある」ことに
+ * 気づかないままごほうびを編集 / 削除してしまう。
+ */
+export async function getPendingRewardIdsForParent(tenantId: string): Promise<string[]> {
+	return findPendingRewardIdsByTenant(tenantId);
 }
 
 // ============================================================
@@ -580,6 +594,12 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 	const today = options?.today ?? todayDateJST();
 	const dryRun = options?.dryRun ?? false;
 
+	// #4682: dry-run は「実際に失効する件数」を報告しなければ観測の意味がない。
+	// 実処理 (expireOldRedemptions) と同一の経過秒 (REDEMPTION_EXPIRE_AFTER_SEC) から cutoff を
+	// 導き、count にも同じ期間条件を渡す (cutoff の無い COUNT は承認待ち全件を「失効予定」と
+	// 過大報告し、運用判断を誤らせる)。
+	const expireCutoffEpoch = Math.floor(Date.now() / 1000) - REDEMPTION_EXPIRE_AFTER_SEC;
+
 	const tenants = await getRepos().auth.listAllTenants();
 	// #4682: 先頭固定 (`slice(0, limit)`) にすると上限超過分が永久に処理されない。
 	// 実行日から決まるスライスを選び、ceil(total / limit) 日で全テナントを重複なく周回する。
@@ -600,6 +620,7 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 			expiredCount += dryRun
 				? await countRedemptionRequestsByTenant(tenant.tenantId, {
 						status: 'pending_parent_approval',
+						requestedBeforeEpoch: expireCutoffEpoch,
 					})
 				: await expireOldRedemptionsRepo(tenant.tenantId);
 		} catch (err) {

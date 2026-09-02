@@ -1399,6 +1399,9 @@ async function importChildrenData(
 					theme: exportChild.theme,
 					uiMode: exportChild.uiMode,
 					birthDate: exportChild.birthDate ?? undefined,
+					// #4718 (QM): 手動フラグは round-trip した値を使い、復元側で導出しない。
+					// 旧 backup (本 field 無し) は undefined → repo 側で従来どおり導出に落ちる。
+					uiModeManuallySet: exportChild.uiModeManuallySet,
 				},
 				tenantId,
 			);

@@ -7,6 +7,7 @@ import { splitIcon } from '$lib/domain/icon-utils';
 import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
 	APP_LABELS,
 	CHILD_COPY_RESULT_LABELS,
 	FEATURES_LABELS,
@@ -514,7 +515,7 @@ let bulkTargets = $state<'all' | ChildId[]>('all');
 
 async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	if (!bulkName.trim()) {
-		actionMessage = '名前を入力してください';
+		actionMessage = ADMIN_FORM_ERROR_LABELS.nameRequired;
 		return;
 	}
 	const childIdsValue = targets === 'all' ? 'all' : targets.join(',');
