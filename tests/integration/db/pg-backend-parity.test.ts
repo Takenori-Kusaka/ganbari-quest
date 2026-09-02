@@ -79,11 +79,18 @@ describe('#4719 pg-core backend parity (PGlite 実 migration)', () => {
 			expectedTodayMin,
 		);
 
-		// 週次は 7 日ぶんを合算するので JST 日境界に依らず 10 分が入っていること
-		// (旧実装は pg で表未作成 → WARN + 0 分だったので、ここが 0 なら本来の欠陥)。
 		const weekly = await svc.getWeeklyUsageSummary(TENANT, childId);
 		expect(weekly).toHaveLength(7);
+		// 週次は 7 日ぶんを合算するので JST 日境界に依らない。
+		// 旧実装は pg で表未作成 → WARN + 0 分だったので、ここが 0 なら本来の欠陥。
 		expect(weekly.reduce((s, e) => s + e.durationMin, 0)).toBe(10);
+		// **どの JST 暦日に計上されたか**まで固定する。境界に依らずに
+		// 「今日の集計が壊れている」を検出できるようにするため、日付は条件分岐ではなく
+		// 開始時刻の JST 暦日で決め打ちする (これは develop の today 固定 assertion より強い)。
+		expect(
+			weekly.find((e) => e.date === startedAtJstDate)?.durationMin,
+			`JST ${startedAtJstDate} に 10 分が計上されていない`,
+		).toBe(10);
 
 		// 旧実装の兆候 (「セッション開始記録に失敗」WARN) が出ていない
 		expect(vi.mocked(logger.warn)).not.toHaveBeenCalledWith(
