@@ -69,6 +69,14 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/pin-length-ssot-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を走査しておやカギコード桁数 (PIN_LENGTH) の直書き (regex / PinInput length / ラベル / 5086 案内) を検出する (#4698)',
+	},
+	'tests/unit/architecture/iso-instant-comparison-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs / .claude/hooks/**/*.mjs を AST 化し、.github/workflows/*.yml を行走査して、ISO8601 を文字列のまま順序比較している箇所を検出する (#4624 / #4053 AC1)',
+	},
 	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
 		scope: 'repo',
 		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',

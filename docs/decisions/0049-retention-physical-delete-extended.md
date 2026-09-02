@@ -135,6 +135,8 @@ UX 層はそのまま残す。理由:
    - `family` （`historyRetentionDays === null`）はスキップ
 3. `getHistoryCutoffDate(tier)` で cutoff 日（YYYY-MM-DD）を算出
 4. そのテナントの各 child について以下 3 テーブルから `recorded_date < cutoffDate` を物理削除
+   （**境界は JST 深夜 0:00 に固定する**。timestamptz 列の裸 cast は session TZ 依存で、
+   DSQL 既定 session (UTC) では JST と 9 時間ずれ、境界日 JST 0〜9 時のデータを 1 日早く消す。#4722）
    - `activity_logs`
    - `point_ledger`
    - `status_history`（#3518-2 で追加）

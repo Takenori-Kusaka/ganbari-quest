@@ -79,15 +79,13 @@
 ```
 [セットアップ未完了時]
 ├── OnboardingChecklist（大）          ← 既存 onboarding-checklist, 6ステップ
-├── PlanStatusCard / プランバナー      ← トライアル残日数・プラン状態
-└── くわしいガイドを開く（tutorial-full-guide-card）
+└── PlanStatusCard / プランバナー      ← トライアル残日数・プラン状態
 ```
 
 **現行実装との対応**:
 
 - `OnboardingChecklist` — `src/lib/features/admin/components/OnboardingChecklist.svelte`
 - `PlanStatusCard` — `src/lib/features/admin/components/PlanStatusCard.svelte`
-- `tutorial-full-guide-card` — `AdminHome.svelte` 内のインライン div
 
 ### 3.3 セットアップ完了後のコンテンツ構成
 
