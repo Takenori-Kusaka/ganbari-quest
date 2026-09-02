@@ -27,6 +27,24 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+// #4722 (QM): 減算が **throw** した場合の補償を検証するための注入口。
+// 既定は素通し (実 repo)。`spendThrow.message` を立てた 1 回だけ throw する。
+const spendThrow = vi.hoisted(() => ({ message: null as string | null }));
+vi.mock('$lib/server/db/point-repo', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/server/db/point-repo')>();
+	return {
+		...actual,
+		spendPointsAtomic: async (...args: Parameters<typeof actual.spendPointsAtomic>) => {
+			if (spendThrow.message !== null) {
+				const message = spendThrow.message;
+				spendThrow.message = null;
+				throw new Error(message);
+			}
+			return actual.spendPointsAtomic(...args);
+		},
+	};
+});
+
 import {
 	approveRedemption,
 	countPendingRedemptionsForParent,
@@ -333,6 +351,80 @@ describe('approveRedemption', () => {
 			.get(childId) as { amount: number } | undefined;
 		expect(ledgerEntry).toBeTruthy();
 		expect(ledgerEntry!.amount).toBe(-80);
+	});
+
+	it('#4722: 同一申請の同時承認は 1 件だけ成立し、2 件目は 500 でなく INVALID_STATUS', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
+		if ('error' in reqResult) return;
+
+		// 2 人の保護者 (or 連打) が同時に承認する。旧実装は両方が「pending だ」と読んでから減算へ進み、
+		// 2 件目が台帳の冪等 UNIQUE 違反 (未 catch) で throw = API 500 になっていた。
+		const [a, b] = await Promise.all([
+			approveRedemption(reqResult.id, 'parent-A', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+			approveRedemption(reqResult.id, 'parent-B', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+		]);
+		for (const r of [a, b]) {
+			expect(r, '承認は throw しない (500 にしない)').not.toHaveProperty('thrown');
+		}
+		const results = [a, b] as Array<Record<string, unknown>>;
+		const approved = results.filter((r) => r.status === 'approved');
+		const invalid = results.filter((r) => r.error === 'INVALID_STATUS');
+		expect(approved).toHaveLength(1); // 勝者は 1 人
+		expect(invalid).toHaveLength(1); // 敗者は綺麗な業務エラー
+
+		// 二重減算していない (台帳は 1 行だけ)
+		const ledger = sqlite
+			.prepare(
+				"SELECT count(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		expect(ledger.c).toBe(1);
+	});
+
+	it('#4722: 減算が throw しても「承認済だが未控除」を残さず pending に戻す', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
+		if ('error' in reqResult) return;
+
+		// 承認を減算より先に確定させる設計 (#4722) では、減算が throw したときの失敗方向が
+		// 「対価なしにごほうびが渡る」に反転する。throw は残高不足では起きないが、DSQL の
+		// OCC 衝突 (40001) / point_ledger の referenceId 冪等 UNIQUE 違反 / 実行時間切れ で起きうる。
+		spendThrow.message = 'OCC conflict (40001)';
+		await expect(
+			approveRedemption(reqResult.id, 'parent-throw', TENANT_ID),
+			'減算の失敗理由を INSUFFICIENT_POINTS に丸めて「ポイントが足りません」と嘘を見せない',
+		).rejects.toThrow('OCC conflict (40001)');
+
+		// 補償が走り、申請は承認前 (pending) に戻っている
+		const row = sqlite
+			.prepare(
+				'SELECT status, resolved_at, resolved_by_parent_id FROM reward_redemption_requests WHERE id = ?',
+			)
+			.get(reqResult.id) as
+			| { status: string; resolved_at: number | null; resolved_by_parent_id: string | null }
+			| undefined;
+		expect(row?.status, '承認済のまま残すと対価なしでごほうびが渡る').toBe(
+			'pending_parent_approval',
+		);
+		expect(row?.resolved_at).toBeNull();
+		expect(row?.resolved_by_parent_id).toBeNull();
+
+		// 台帳は 1 行も増えていない (throw した減算が部分適用されていない)
+		const ledger = sqlite
+			.prepare(
+				"SELECT count(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		expect(ledger.c).toBe(0);
+
+		// 戻っているので、再承認すれば正常に成立する (回復可能であること)
+		const retry = await approveRedemption(reqResult.id, 'parent-throw', TENANT_ID);
+		expect(retry).not.toHaveProperty('error');
 	});
 
 	it('既に承認済みの申請を承認しようとすると INVALID_STATUS', async () => {

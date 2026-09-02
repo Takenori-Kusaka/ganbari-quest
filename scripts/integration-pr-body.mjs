@@ -275,8 +275,8 @@ function isConventionalCommitPrefixLine(rest) {
  * over-close なく収集する純粋関数。
  *
  * close漏れ（fix は main 反映済だが issue が open のまま）を構造的に防ぐため、統合 PR 本文に
- * `Closes #N` を集約し、main merge 時に GitHub auto-close を発火させる（issue-close-gate は
- * PR-keyword close を skip 既定のため AC gate reopen も起きない）。
+ * `Closes #N` を集約し、main merge 時に GitHub auto-close を発火させる（close 後に AC を検証して
+ * reopen する機械 gate は無いので、auto-close された issue が reopen されることはない）。
  *
  * over-close を避けるため 3 段で絞り込む（#3444 QM BLOCK 是正）:
  *   1. **走査範囲を `## 関連 Issue` section 内に限定**（見出し 〜 次の `## ` 見出し）。
@@ -317,8 +317,8 @@ export function extractClosedIssues(prs) {
  * 集約 close 候補から tracking issue（`epic` label 付き）を分離する純粋関数（#3462）。
  *
  * EPIC/tracking issue が含有 PR の closes 宣言に紛れると、統合 PR の main merge で
- * AC 未検証のまま force-close される（issue-close-gate は PR-keyword close を skip するため
- * gate も掛からない）。tracking issue は集約 `Closes #N` から除外し、統合 PR 本文には
+ * AC 未検証のまま force-close される（close 後に AC を検証して reopen する機械 gate は無いため、
+ * 一度閉じると誰も気づかない）。tracking issue は集約 `Closes #N` から除外し、統合 PR 本文には
  * 「(tracking, close 対象外)」と注記する（close は AC 検証のうえ手動で行う）。
  * tracking issue 番号の取得（gh api）は workflow 側の責務（本 file は純粋関数のみ、責務分担コメント参照）。
  *
