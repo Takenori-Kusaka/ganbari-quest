@@ -75,7 +75,19 @@ export function resolveBirthDateForUpdate(
 		if (input.age !== undefined) {
 			return { birthDate: estimateBirthDateFromAge(input.age, today), birthDateEstimated: true };
 		}
-		return current.birthDate ? { birthDateEstimated: true } : {};
+		// #4718 (QM): 誕生日欄を空にしたら **保存値も実際に消す**。
+		//
+		// 旧実装は `{ birthDateEstimated: true }` だけを返し `birth_date` を残していた。
+		// `publicBirthDate` が estimated=true を null で返すため保護者の画面からは消えたように
+		// 見えるが、実際の生年月日 (月日まで) は DB に残り続け、年齢導出にも使われ続ける。
+		// 「消したのに消えていない」ものが**子供の生年月日**なので、これは残せない。
+		//
+		// ただし単純に null にすると pg 系 backend では年齢ソースが消えて 0 歳に戻る
+		// (本 Issue が直している症状そのもの)。**消す前の値から年齢だけを引き継ぎ**、
+		// 1 月 1 日に丸めた推定誕生日に置き換える。月日は失われ、年齢は保たれる。
+		if (!current.birthDate) return {};
+		const carriedAge = calculateAgeFromBirthDate(current.birthDate, today);
+		return { birthDate: estimateBirthDateFromAge(carriedAge, today), birthDateEstimated: true };
 	}
 	if (input.age === undefined) return {};
 	if (current.birthDate && !current.birthDateEstimated) return {};

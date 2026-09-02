@@ -21,6 +21,16 @@ UPDATE "children" SET "birth_date_estimated" = false WHERE "birth_date_estimated
 -- baby 1 / preschool 4 / elementary 9 / junior 14 / senior 17) から推定誕生日を合成し
 -- estimated=true にする。保護者は管理画面の編集で年齢 / 誕生日を修正できる。
 -- 冪等 (WHERE birth_date IS NULL)。JST 暦日基準 (AT TIME ZONE 'Asia/Tokyo'、TZ 非依存)。
+--
+-- ⚠️ 誤差の上限について (QM #4729 レビューで明文化):
+--    ui_mode_manually_set = true の行では ui_mode が**年齢を表していない**。保護者が
+--    読みやすさ等の理由で帯を手動変更した子は、帯の代表年齢と実年齢が最大 16 年ずれうる
+--    (senior の子に preschool を選んだ場合など)。この母集団に対する誤差は
+--    「帯の幅 ±3 歳」では **ない**。
+--    それでも合成するのは、pg 系 backend には age 列が無く birth_date NULL のままだと
+--    **0 歳表示 (= baby 向けの内容が中高生に出る)** が続くためで、0 歳より帯由来の推定値の方が
+--    実害が小さいという判断による。全行 birth_date_estimated = true が付き、保護者は
+--    管理画面の編集でいつでも修正できる。ずれの是正は保護者の 1 操作で完了する。
 -- ⚠️ DSQL は 1 トランザクションで 3,000 行までしか変更できない。children は家族あたり数行で
 --    現行規模では 1 文で収まるが、3,000 行を超える規模では本形で書かない (バッチ分割が要る)。
 UPDATE "children"

@@ -55,7 +55,12 @@ describe('child-age (#4718)', () => {
 			birthDate: '2022-01-01',
 			birthDateEstimated: true,
 		});
+		// #4718 (QM): 誕生日欄を空にしたら保存値も実際に置き換える。
+		// 旧契約は `{ birthDateEstimated: true }` だけを返して birth_date を残していたため、
+		// 保護者の画面からは消えたように見えて実際の生年月日 (月日まで) が DB に残っていた。
+		// 年齢だけ引き継いで 1/1 に丸める = 月日は失われ、年齢は保たれる。
 		expect(resolveBirthDateForUpdate({ birthDate: null }, real, TODAY)).toEqual({
+			birthDate: '2018-01-01',
 			birthDateEstimated: true,
 		});
 		// 何も来なければ触らない
@@ -72,12 +77,59 @@ describe('child-age (#4718)', () => {
 		expect(publicBirthDate({ birthDate: null, birthDateEstimated: false })).toBeNull();
 	});
 
-	it('backfill: ui_mode 帯の代表年齢 (migration 0007 の CASE と同値)', () => {
+	it('backfill: ui_mode 帯の代表年齢 (migration 0008 の CASE と同値)', () => {
 		expect(representativeAgeForUiMode('baby')).toBe(1);
 		expect(representativeAgeForUiMode('preschool')).toBe(4);
 		expect(representativeAgeForUiMode('elementary')).toBe(9);
 		expect(representativeAgeForUiMode('junior')).toBe(14);
 		expect(representativeAgeForUiMode('senior')).toBe(17);
 		expect(representativeAgeForUiMode('unknown')).toBe(9);
+	});
+});
+
+describe('#4718 (QM) 誕生日を空にしたときに保存値が残らない', () => {
+	const TODAY_LOCAL = '2026-09-02';
+
+	it('実誕生日 → 空にすると月日が消え、年齢だけが 1/1 の推定値として残る', () => {
+		const stored = { birthDate: '2018-05-05', birthDateEstimated: false };
+		const next = resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
+
+		// 保存値そのものが置き換わる (残置しない)
+		expect(next.birthDate, '実誕生日が DB に残ってはいけない').not.toBe('2018-05-05');
+		expect(next.birthDateEstimated).toBe(true);
+		// 年齢は保たれる (0 歳に戻らない)
+		expect(deriveChildAge({ birthDate: next.birthDate ?? null }, TODAY_LOCAL)).toBe(
+			deriveChildAge({ birthDate: '2018-05-05' }, TODAY_LOCAL),
+		);
+		// 月日は 1/1 に丸められている
+		expect(next.birthDate?.endsWith('-01-01')).toBe(true);
+	});
+
+	it('推定値 → 空にしても年齢は変わらない (何度消しても劣化しない)', () => {
+		const stored = { birthDate: '2018-01-01', birthDateEstimated: true };
+		const next = resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
+		expect(next.birthDate).toBe('2018-01-01');
+		expect(next.birthDateEstimated).toBe(true);
+	});
+
+	it('元から誕生日が無い行は何も書かない', () => {
+		expect(
+			resolveBirthDateForUpdate(
+				{ birthDate: null },
+				{ birthDate: null, birthDateEstimated: false },
+				TODAY_LOCAL,
+			),
+		).toEqual({});
+	});
+
+	it('公開値は推定に降格した時点で null になる (誕生日ボーナスの対象外)', () => {
+		const stored = { birthDate: '2018-05-05', birthDateEstimated: false };
+		const next = resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
+		expect(
+			publicBirthDate({
+				birthDate: next.birthDate ?? null,
+				birthDateEstimated: next.birthDateEstimated ?? false,
+			}),
+		).toBeNull();
 	});
 });
