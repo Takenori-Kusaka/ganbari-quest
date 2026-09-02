@@ -1,5 +1,6 @@
 <script lang="ts">
 import { resolve } from '$app/paths';
+import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
