@@ -3359,6 +3359,38 @@ export const CHILD_ACTION_ERROR_LABELS = {
 	pinLimitExceeded: (max: number) => `おきにいりは ${max}こまでだよ`,
 } as const;
 
+/**
+ * 中高生 (junior / senior) 向けの失敗文言 (#4716 QM)。
+ *
+ * docs/DESIGN.md §8 は preschool / elementary = ひらがな、junior / senior = 漢字と定めている。
+ * `CHILD_ACTION_ERROR_LABELS` は 5 年齢モード共通のひらがなだったため、16〜18 歳にも
+ * 「うまく おくれなかったよ」を返していた。**key と意味は同一**にして本文だけ差し替える。
+ */
+const CHILD_ACTION_ERROR_LABELS_KANJI = {
+	invalidInput: '送信できませんでした。もう一度お試しください',
+	pointsNotNumber: '数字で入力してください',
+	pointsOutOfRange: (min: number, max: number) => `${min}から${max}までの数字で入力してください`,
+	unexpected: 'うまくいきませんでした。もう一度お試しください',
+	pinActivityNotFound: 'その活動が見つかりませんでした',
+	pinLimitExceeded: (max: number) => `お気に入りは${max}個までです`,
+} as const;
+
+/**
+ * 年齢モードに応じた子供向け失敗文言を返す (#4716 QM)。
+ *
+ * `uiMode` を渡せない経路 (年齢帯を持たない route) では既定のひらがなに落ちる。
+ * `if (uiMode === 'junior')` を呼び出し側に散らさないため、分岐は本関数 1 箇所に閉じる
+ * (src/routes/CLAUDE.md §年齢帯 variant の A1「散在する uiMode 分岐」を作らない)。
+ */
+export function getChildActionErrorLabels(
+	uiMode?: string,
+): typeof CHILD_ACTION_ERROR_LABELS | typeof CHILD_ACTION_ERROR_LABELS_KANJI {
+	const mode = uiMode ? normalizeUiMode(uiMode) : 'preschool';
+	return mode === 'junior' || mode === 'senior'
+		? CHILD_ACTION_ERROR_LABELS_KANJI
+		: CHILD_ACTION_ERROR_LABELS;
+}
+
 export const OYAKAGI_LABELS = {
 	name: `${OYAKAGI_TERMS.name}`,
 	shortName: `${OYAKAGI_TERMS.shortName}`,

@@ -252,6 +252,15 @@ describe('#4716 item 15: 顧客可視の直書き日本語が labels.ts を経�
 			'utf-8',
 		);
 		expect(serverSrc).not.toContain('newPin.length > 8');
-		expect(serverSrc).toContain('PIN_PATTERN');
+		// #4698 (develop) が形式判定を `isValidPinFormat()` に集約したため、action が参照するのは
+		// `PIN_PATTERN` 直接ではなくその accessor になった。**どちらでも SSOT 経由であることは同じ**
+		// なので、literal な桁数判定に戻っていないことを見る形に改める (QM #4802 レビュー時)。
+		expect(
+			/isValidPinFormat|PIN_PATTERN|PIN_LENGTH/.test(serverSrc),
+			'account action が桁数 SSOT (constants/oyakagi.ts) を経由していない',
+		).toBe(true);
+		// 桁数を literal で書き戻していないこと (`\d{4}` / `length === 4` / `length > 6` 等)。
+		expect(serverSrc).not.toMatch(/newPin\.length\s*[<>=]+\s*\d/);
+		expect(serverSrc).not.toMatch(/\d\{\d+(,\d+)?\}/);
 	});
 });

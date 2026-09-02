@@ -17,7 +17,7 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
-import { PLAN_TERMS, REWARD_TERMS } from '../../../src/lib/domain/terms';
+import { PLAN_TERMS, REWARD_TERMS, VIEWER_LINK_TERMS } from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
@@ -43,11 +43,30 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(9);
 		});
 
-		it('family プランは 9 項目（#1911 B-5 plan-card 3 種揃え）', () => {
+		it('family プランは 10 項目（#4716 QM: 閲覧リンク復帰で 9→10）', () => {
 			// #722: AI 自動提案をファミリー限定機能として追加
 			// #1655 R49: 家族メンバー招待: 無制限を明示で 7→8 項目
 			// #1911 (B-5): plan-card 3 種で項目数 8/9/8 不揃い解消、データのダウンロード明示で 8→9 項目
-			expect(PRICING_PAGE_FEATURES.family).toHaveLength(9);
+			// #4716 (QM): 閲覧リンク (`/view/[token]`、admin/members で family 限定描画) が
+			//   LICENSE_PAGE_HIGHLIGHTS から外れた結果どのプラン一覧にも載らなくなったため復帰 → 10 項目
+			expect(PRICING_PAGE_FEATURES.family).toHaveLength(10);
+		});
+
+		it('上位プランほど掲載項目が少なくならない (#1911 B-5 の本来の不変条件)', () => {
+			// 個数そのものより「family が standard より少なく見える」ことが問題だった。
+			// マジックナンバーだけを pin すると、項目を入れ替えたときにこの意図が失われる。
+			expect(PRICING_PAGE_FEATURES.standard.length).toBeGreaterThanOrEqual(
+				PRICING_PAGE_FEATURES.free.length,
+			);
+			expect(PRICING_PAGE_FEATURES.family.length).toBeGreaterThanOrEqual(
+				PRICING_PAGE_FEATURES.standard.length,
+			);
+		});
+
+		it('family の一覧に閲覧リンクが載っている (実装済みの有料差別化を隠さない)', () => {
+			expect(PRICING_PAGE_FEATURES.family.some((f) => f.includes(VIEWER_LINK_TERMS.name))).toBe(
+				true,
+			);
 		});
 
 		it('free には「90日間の履歴保持」が含まれる', () => {
