@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
@@ -893,7 +894,7 @@ const canConfirmClear = $derived(
 								<li class="text-[var(--color-feedback-warning-text)]" data-testid="data-import-blocked">
 									{SETTINGS_LABELS.dataImportResultBlocked(importResult.blocked.count)} — {importResult.blocked.message}
 									{#if importResult.blocked.upgradeUrl}
-										<a href={importResult.blocked.upgradeUrl} class="underline ml-1"
+										<a href={resolve(PLAN_UPGRADE_URL)} class="underline ml-1"
 											>{PLAN_GATE_LABELS.upgradeLinkLabel}</a
 										>
 									{/if}
