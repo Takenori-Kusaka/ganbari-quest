@@ -4,7 +4,7 @@
 
 import { fail } from '@sveltejs/kit';
 import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { OYAKAGI_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { changePin } from '$lib/server/services/auth-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -24,7 +24,7 @@ export const actions = {
 		const confirmPin = form.get('confirmPin')?.toString() ?? '';
 
 		if (!currentPin || !newPin || !confirmPin) {
-			return fail(400, { error: OYAKAGI_LABELS.allFieldsRequiredError });
+			return fail(400, { error: SETTINGS_LABELS.oyakagiAllFieldsRequired });
 		}
 
 		// #4661 / #4698: 桁数は constants/oyakagi.ts の PIN_LENGTH が SSOT。以前ここだけが 4〜8 桁を
@@ -41,13 +41,13 @@ export const actions = {
 		}
 
 		if (newPin !== confirmPin) {
-			return fail(400, { error: OYAKAGI_LABELS.mismatchError });
+			return fail(400, { error: OYAKAGI_LABELS.confirmMismatchError });
 		}
 
 		const result = await changePin(currentPin, newPin, tenantId);
 		if ('error' in result) {
 			if (result.error === 'INVALID_CURRENT_PIN') {
-				return fail(400, { error: OYAKAGI_LABELS.currentPinInvalidError });
+				return fail(400, { error: OYAKAGI_LABELS.currentInvalidError });
 			}
 			if (result.error === 'LOCKED_OUT') {
 				return fail(429, { error: OYAKAGI_LABELS.lockedError });

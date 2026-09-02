@@ -56,12 +56,25 @@ export async function findRedemptionRequestsByTenant(
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
 
-/** #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。 */
+/**
+ * #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。
+ * #4682: `requestedBeforeEpoch` で期間を絞れる (失効 cron の dry-run が実処理と同じ母集団を数える)。
+ */
 export async function countRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; statuses?: readonly string[]; childId?: ChildId },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		requestedBeforeEpoch?: number;
+	},
 ) {
 	return getRepos().rewardRedemption.countRedemptionRequestsByTenant(tenantId, opts);
+}
+
+/** #4682: 承認待ち申請が存在する reward id の集合 (DISTINCT、limit なし)。 */
+export async function findPendingRewardIdsByTenant(tenantId: string) {
+	return getRepos().rewardRedemption.findPendingRewardIdsByTenant(tenantId);
 }
 
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
 import { CATEGORIES } from '$lib/domain/categories';
 import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
@@ -172,7 +173,7 @@ $effect(() => {
 						name="reason"
 						maxlength={data.reasonMaxLength}
 						placeholder={CHEER_LABELS.reasonPlaceholder}
-						hint={CHEER_LABELS.reasonLengthHint(reasonLength, data.reasonMaxLength, reasonRemaining)}
+						hint={CHEER_LABELS.reasonCounterHint(reasonLength, data.reasonMaxLength, reasonRemaining)}
 						bind:value={reason}
 					/>
 				</Card>

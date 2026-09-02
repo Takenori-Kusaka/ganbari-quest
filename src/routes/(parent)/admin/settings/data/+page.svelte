@@ -520,7 +520,7 @@ $effect(() => {
 });
 
 const canConfirmClear = $derived(
-	clearConfirmText === SETTINGS_LABELS.clearConfirmInputPlaceholder && clearAgreeChecked,
+	clearConfirmText === SETTINGS_LABELS.clearConfirmKeyword && clearAgreeChecked,
 );
 </script>
 
@@ -1422,12 +1422,12 @@ const canConfirmClear = $derived(
 				<div class="danger-zone__step">
 					<p class="danger-zone__step-label">{SETTINGS_LABELS.dangerStep1Label}</p>
 					<FormField
-						label={SETTINGS_LABELS.clearConfirmInputLabel}
+						label={SETTINGS_LABELS.clearConfirmFieldLabel}
 						type="text"
 						id="clearConfirm"
 						name="confirm"
 						bind:value={clearConfirmText}
-						placeholder={SETTINGS_LABELS.clearConfirmInputPlaceholder}
+						placeholder={SETTINGS_LABELS.clearConfirmKeyword}
 					/>
 				</div>
 
@@ -1460,7 +1460,7 @@ const canConfirmClear = $derived(
 						disabled={clearSubmitting || !canConfirmClear}
 						data-testid="data-danger-execute-button"
 					>
-						{clearSubmitting ? SETTINGS_LABELS.clearExecuting : SETTINGS_LABELS.clearExecuteButton}
+						{clearSubmitting ? SETTINGS_LABELS.clearSubmitting : SETTINGS_LABELS.clearSubmitButton}
 					</Button>
 				</div>
 			</form>
