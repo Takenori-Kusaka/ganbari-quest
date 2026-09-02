@@ -94,7 +94,8 @@ onMount(() => {
 			soundService.preload(config.enabledSounds);
 		}
 		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
-		setChapters(getChildTutorialChapters(uiMode));
+		// #4651 (a): 進捗 key を子供ガイド (年齢モード別) の namespace に分ける
+		setChapters(getChildTutorialChapters(uiMode), `child:${uiMode}`);
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）

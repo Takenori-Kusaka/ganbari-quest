@@ -107,4 +107,17 @@ function handleExitOpenChange(details: { open: boolean }) {
 		margin-top: var(--sp-md);
 		flex-wrap: wrap;
 	}
+
+	/* #4651 (e): the resume dialog has 3 buttons. On narrow widths one of them wrapped to the
+	   bottom-right on its own, breaking the reading order, so stack them full width instead. */
+	@media (max-width: 480px) {
+		.dialog-actions {
+			flex-direction: column-reverse;
+			align-items: stretch;
+		}
+
+		.dialog-actions :global(button) {
+			width: 100%;
+		}
+	}
 </style>
