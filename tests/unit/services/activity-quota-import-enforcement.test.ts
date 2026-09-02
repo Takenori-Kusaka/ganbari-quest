@@ -191,4 +191,96 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		expect(result.imported).toBe(0);
 		expect(result.blocked?.count).toBe(4);
 	});
+	// ------------------------------------------------------------------
+	// #4693 QM: gate が数える母集団と、制限する母集団を一致させる
+	//
+	// 旧実装は取込を全部 repo 既定 `seed` で書きつつ、gate は custom quota で判定していた。
+	// その結果 (a) 取込行が current を増やさず繰り返せば上限を超え、
+	// (b) 手動作成だけで上限に達した世帯がプリセット取込まで恒久的に拒否された。
+	// ------------------------------------------------------------------
+
+	it('ファイル復元 (presetId 無し) は custom として書かれ、quota を消費する', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(0));
+
+		await importActivities(pack(2), TENANT, { childIds: [CHILD] });
+
+		const written = mockInsertActivitiesBulk.mock.calls.flatMap(
+			(call) => call[0] as { source?: string }[],
+		);
+		expect(written.length).toBe(2);
+		for (const row of written) {
+			expect(row.source, '親が自分で用意した取込は手動作成と同じ custom で数える').toBe('custom');
+		}
+	});
+
+	it('プリセット取込 (presetId あり) は seed で書かれ、quota を消費しない', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(0));
+
+		await importActivities(pack(2), TENANT, { childIds: [CHILD], presetId: 'pack-1' });
+
+		const written = mockInsertActivitiesBulk.mock.calls.flatMap(
+			(call) => call[0] as { source?: string }[],
+		);
+		expect(written.length).toBe(2);
+		for (const row of written) {
+			expect(row.source, 'プリセットは配布物なので quota 非対象 (activity-source.ts の方針)').toBe(
+				'seed',
+			);
+		}
+	});
+
+	it('手動 3/3 で上限到達でも、プリセット取込は拒否されない (恒久ロックアウトを作らない)', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // free の maxActivities=3 に到達
+
+		const result = await importActivities(pack(5), TENANT, {
+			childIds: [CHILD],
+			presetId: 'pack-1',
+		});
+
+		expect(result.imported, 'quota を消費しない取込を quota で止めてはいけない').toBe(5);
+		expect(result.blocked ?? null).toBeNull();
+	});
+
+	it('ファイル復元を繰り返しても累積で上限を超えない', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		// 1 回目: 0 件から 2 件入る
+		mockFindActivitiesByChild.mockResolvedValue(existing(0));
+		const first = await importActivities(pack(2), TENANT, { childIds: [CHILD] });
+		expect(first.imported).toBe(2);
+
+		// 2 回目: 1 回目で入った 2 件が custom として数えられている状態 (残枠 1)
+		mockFindActivitiesByChild.mockResolvedValue([
+			{ id: '1', name: '復元活動1', source: 'custom', isArchived: 0 },
+			{ id: '2', name: '復元活動2', source: 'custom', isArchived: 0 },
+		]);
+		const second = await importActivities(
+			[
+				{
+					name: '別の活動A',
+					categoryCode: 'benkyou' as const,
+					icon: '📚',
+					basePoints: 5,
+					ageMin: null,
+					ageMax: null,
+					gradeLevel: null,
+				},
+				{
+					name: '別の活動B',
+					categoryCode: 'benkyou' as const,
+					icon: '📚',
+					basePoints: 5,
+					ageMin: null,
+					ageMax: null,
+					gradeLevel: null,
+				},
+			],
+			TENANT,
+			{ childIds: [CHILD] },
+		);
+		expect(second.imported, '残枠 1 なので 1 件だけ入る').toBe(1);
+		expect(second.blocked?.count).toBe(1);
+	});
 });

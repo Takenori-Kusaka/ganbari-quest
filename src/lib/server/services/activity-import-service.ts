@@ -24,6 +24,7 @@ import { asCategoryId } from '$lib/domain/ids';
 //   生んだ activity 数」、skipped は「全 target child で既存だった activity 数」。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { ACTIVITY_SOURCES, PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { toLegacyCategoryId } from '$lib/domain/categories';
 import type { ImportBlocked } from '$lib/marketplace/types';
 import { findActivities } from '$lib/server/db/activity-repo';
@@ -302,6 +303,19 @@ function planActivityForChildren(
 			basePoints: a.basePoints,
 			triggerHint: a.triggerHint ?? null,
 			sourcePresetId: ctx.presetId ?? null,
+			// #4693 (QM): 取込の作成経路を quota の母集団と一致させる。
+			//
+			// `presetId` の有無が「配布物か、その家庭が自分で足したものか」の唯一の判別子:
+			//   - あり = marketplace プリセット取込 → `seed` (activity-source.ts の方針どおり quota 非対象)
+			//   - なし = ファイル復元 (`?/importFile`) / `api/v1/activities/import`
+			//            → 親が自分で用意した内容なので `custom` (手動作成と同じ扱い = quota 対象)
+			//
+			// 旧実装は source を渡さず repo 既定 `seed` に落ちていた。その状態で
+			// `enforceActivityQuota` が全取込を custom quota で判定していたため、
+			//   (a) 取込行が current を増やさず、3 件ずつ繰り返せば上限を超えて入る
+			//   (b) 手動 3 件で上限に達した無料世帯は、自分のバックアップ復元まで恒久的に拒否される
+			// の両方が起きていた (#4693 QM レビュー)。
+			source: ctx.presetId ? ACTIVITY_SOURCES.seed.value : PARENT_CREATED_SOURCE,
 			priority,
 		});
 		plannedForAnyChild = true;

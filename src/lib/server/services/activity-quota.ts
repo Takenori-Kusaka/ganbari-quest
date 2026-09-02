@@ -28,7 +28,7 @@
 // 上の対応づけを機械強制する fitness function は無い (レビューで担保する)。新しく
 // `child_activities` を作る経路を足すときは、どちらの gate を通すかを必ず決める。
 
-import { countsTowardActivityQuota } from '$lib/domain/activity-source';
+import { ACTIVITY_SOURCES, countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import type { ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
@@ -168,10 +168,27 @@ export async function enforceActivityQuota(
 }
 
 /** 書き込み計画の総行数 (child × activity)。quota はこの単位で数える。 */
+/**
+ * quota を消費する計画行だけを数える (#4693 QM)。
+ *
+ * **数える母集団と、制限する母集団は同じでなければならない。** `countQuotaActivities` は
+ * `countsTowardActivityQuota` (= custom のみ) で現在数を数えるので、計画側も同じ述語で数える。
+ * 揃っていないと次の 2 つが同時に起きる:
+ *   (a) 数えない行を書かせ続ける → 残枠が減らず、繰り返せば上限を超える
+ *   (b) 数えない行を上限で拒否する → 手動作成だけで上限に達した世帯が、
+ *       quota を消費しないはずのプリセット取込まで恒久的に拒否される
+ */
 function countPlannedRows(childInputsByChild: Map<ChildId, InsertChildActivityInput[]>): number {
 	let rows = 0;
-	for (const inputs of childInputsByChild.values()) rows += inputs.length;
+	for (const inputs of childInputsByChild.values()) {
+		rows += inputs.filter(countsTowardQuotaInput).length;
+	}
 	return rows;
+}
+
+/** 計画中の 1 行が quota を消費するか。repo 既定 (`seed`) に落ちる場合も含めて判定する。 */
+function countsTowardQuotaInput(input: InsertChildActivityInput): boolean {
+	return countsTowardActivityQuota(input.source ?? ACTIVITY_SOURCES.seed.value);
 }
 
 /** 活動名ごとの計画行数 (= その名前を新規計画した child の数)。 */
@@ -181,6 +198,8 @@ function countRowsByName(
 	const rowsByName = new Map<string, number>();
 	for (const inputs of childInputsByChild.values()) {
 		for (const input of inputs) {
+			// quota を消費しない行 (プリセット取込) は残枠を食わないので数えない。
+			if (!countsTowardQuotaInput(input)) continue;
 			rowsByName.set(input.name, (rowsByName.get(input.name) ?? 0) + 1);
 		}
 	}
