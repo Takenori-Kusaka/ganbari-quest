@@ -177,6 +177,10 @@ export async function enforceActivityQuota(
  * `source` 未指定は repo 既定 `seed` に落ちるので、ここでも seed として扱う。
  */
 function rowCountsTowardQuota(input: InsertChildActivityInput): boolean {
+	// 分母 (`countQuotaActivities` / `checkActivityLimit`) は archived 行を数えないので、計画側も
+	// 数えない。無料へ戻った世帯は超過分をアーカイブして残す仕様 (archiveFallbackRule) のため、
+	// backup には archived custom 行が多く、ここで数えると復元で残枠を食い潰して捨てられる (QM #4784)。
+	if (input.isArchived === 1) return false;
 	return countsTowardActivityQuota(input.source ?? ACTIVITY_SOURCES.seed.value);
 }
 

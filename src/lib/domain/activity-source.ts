@@ -9,8 +9,13 @@
 //
 // 経路別の source 値 (producer 4 経路):
 //   - 手動作成 (admin UI 単体/一括追加、api/v1/activities): `custom` (quota 集計対象)
-//   - marketplace 取込 (activity-import-service / cloud import): 未指定 → repo 既定 `seed`
-//     (取込元は `sourcePresetId` で識別。プリセット取込は custom quota を消費しない)
+//   - marketplace プリセット取込 (activity-import-service、presetId あり) / クラウドテンプレート取込
+//     (api/v1/import/cloud): `seed` (取込元は `sourcePresetId` で識別。プリセット取込は custom quota を
+//     消費しない = LP「プリセットを使って無料で始められます」)
+//   - ファイル復元 (?/importFile、api/v1/activities/import、presetId なし): 親が自分で用意した内容
+//     なので `custom` (手動作成と同じ扱い、#4693)
+//   - backup ZIP / JSON の全体復元 (import-service): 保存値を round-trip (`sanitizeActivitySource`)。
+//     落とすと custom が seed に化けて quota から消える
 //   - 初期 seed (seed.ts): `seed` / 年齢別カリキュラム: `curriculum`
 //   - 兄弟 copy (child-activity-copy-service): 元活動の source を保全
 //     (custom の copy は custom のまま。copy による quota 迂回を防ぐ)
@@ -90,7 +95,9 @@ export function countsTowardActivityQuota(source: string): boolean {
  * ここで `custom` に倒すと、改竄した backup で他人の quota 集計を歪められる。
  */
 export function sanitizeActivitySource(raw: unknown): ActivitySourceCode {
-	return typeof raw === 'string' && raw in ACTIVITY_SOURCES
+	// `in` は継承プロパティ ('constructor' / '__proto__' 等) にも true を返し、その文字列が
+	// `child_activities.source` に書かれてしまう。own property だけを値域とする (QM #4784)。
+	return typeof raw === 'string' && Object.hasOwn(ACTIVITY_SOURCES, raw)
 		? (raw as ActivitySourceCode)
 		: ACTIVITY_SOURCES.seed.value;
 }

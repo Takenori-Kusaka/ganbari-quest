@@ -2,7 +2,6 @@
 // PINコードによるクラウドインポートAPI
 
 import { json } from '@sveltejs/kit';
-import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { requireRole } from '$lib/server/auth/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
@@ -319,9 +318,8 @@ async function handleTemplateImport(
 
 		// #4693 (QM #4784): クラウドテンプレート取込も他の取込経路と同じ quota gate を通す
 		// (PO 判断「REST も素通りさせない」)。先に全 child の書き込み計画を作り、上限超過分を
-		// 外してから insert する。テンプレートは家族自身が作った活動の持ち出しなので custom
-		// として書く (repo 既定 `seed` に落とすと quota から消え、export → import の 1 往復で
-		// 「オリジナル活動 3 個まで」が無効になる)。
+		// 外してから insert する。source は activity-source.ts (#3669 SSOT) のとおり repo 既定
+		// `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ扱い)。
 		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
 		const plannedNewNames = new Set<string>();
 		for (const cid of targetChildIds) {
@@ -339,7 +337,6 @@ async function handleTemplateImport(
 					isMainQuest: a.isMainQuest ?? 0,
 					priority: a.priority ?? 'optional',
 					sourcePresetId: null,
-					source: PARENT_CREATED_SOURCE,
 				}));
 			for (const input of inputs) plannedNewNames.add(input.name);
 			childInputsByChild.set(cid, inputs);

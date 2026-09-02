@@ -308,6 +308,43 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		expect(planned.has('custom-2')).toBe(false);
 	});
 
+	it('archived な custom 行は残枠を消費しない (分母が archived を数えないのと対称、無料へ戻った世帯の復元を守る)', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // 残枠 0
+
+		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>([
+			[
+				CHILD,
+				[
+					{
+						childId: CHILD,
+						name: 'archived-custom',
+						categoryId: CAT,
+						icon: '✏️',
+						basePoints: 1,
+						source: 'custom',
+						isArchived: 1,
+					},
+					{
+						childId: CHILD,
+						name: 'active-custom',
+						categoryId: CAT,
+						icon: '✏️',
+						basePoints: 1,
+						source: 'custom',
+						isArchived: 0,
+					},
+				],
+			],
+		]);
+		const planned = new Set(['archived-custom', 'active-custom']);
+		const quota = await enforceActivityQuota(TENANT, childInputsByChild, planned);
+
+		expect([...quota.rejectedNames]).toEqual(['active-custom']);
+		expect(quota.rejectedRows).toBe(1);
+		expect(childInputsByChild.get(CHILD)?.map((i) => i.name)).toEqual(['archived-custom']);
+	});
+
 	it('現在数の取得に失敗したときも fail-closed で全件止め、再試行の文言を返す (500 に突き抜けない)', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		// 1 回目 (取込側の既存名 dedup) は成功、2 回目 (quota の現在数) で落とす
