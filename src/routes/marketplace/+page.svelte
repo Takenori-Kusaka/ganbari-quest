@@ -415,11 +415,19 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					</Card>
 				{/if}
 
-				<!-- Back links (#4677: 旧「デモを体験」/demo リンクは legacy-url-map で LP トップへ redirect され
-					デモに到達しないため撤去。demo Lambda では本ページ自体が demo 環境で動く) -->
+				<!-- Back links (#4677 は「デモを体験」が href="/demo" = legacy-url-map で LP トップへ
+					redirect されデモに到達しないことを理由にリンクを撤去した。#4511 で href を
+					実在するデモ環境 (DEMO_SITE_TERMS.url) の atom 参照に是正したためリンクを残す。
+					href="/demo" の直書きは復活させない) -->
 				<div class="text-center mt-6 flex justify-center gap-4">
 					<a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">
 						{MARKETPLACE_LABELS.backToHome}
+					</a>
+					<a
+						href={MARKETPLACE_LABELS.backToDemoHref}
+						class="text-sm text-[var(--color-action-primary)] hover:underline"
+					>
+						{MARKETPLACE_LABELS.backToDemo}
 					</a>
 				</div>
 			</div>

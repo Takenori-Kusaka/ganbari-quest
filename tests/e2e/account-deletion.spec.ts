@@ -434,7 +434,118 @@ test.describe('#755 ロール別アクセス — 削除 API', () => {
 });
 
 // ============================================================
-// 9. #4640 移譲先が居ないときの退会 UI
+// 9. #4699: 退会 (アカウント削除) 申請後の導線が途切れない
+//   - 猶予中は **全 admin ページ**でバナー + 復元導線が見える (設定 1 画面に閉じない)
+//   - 猶予中でも /switch で子供を選べる (子供選択は cookie のみで DB を書かない)
+//   - 書き込みで設定トップへ戻されたときは理由が出る (無言転送にしない)
+//   - 猶予中は退会セクションを出さない (復元バナーに集約)
+//
+// 猶予状態は共有 worker DB の settings に直接書いて再現し、afterAll で snapshot 復元する
+// (#2851 パターン。消したまま終えると後続 spec の前提を壊す)。
+// ============================================================
+test.describe('#4699 退会申請後の導線 (猶予バナー / 子供選択 / 転送理由)', () => {
+	test.use({ storageState: 'playwright/.auth/family.json' });
+
+	const DB_PATH = 'data/ganbari-quest.db';
+	const GRACE_KEYS = ['soft_deleted_at', 'deletion_grace_plan_tier', 'physical_deletion_date'];
+	let snapshot: Record<string, string | null> = {};
+
+	async function withDb<T>(fn: (db: import('better-sqlite3').Database) => T): Promise<T> {
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(DB_PATH);
+		try {
+			return fn(db);
+		} finally {
+			db.close();
+		}
+	}
+
+	test.beforeAll(async () => {
+		snapshot = await withDb((db) => {
+			const out: Record<string, string | null> = {};
+			for (const key of GRACE_KEYS) {
+				const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+					| { value: string }
+					| undefined;
+				out[key] = row?.value ?? null;
+			}
+			return out;
+		});
+
+		// 猶予中 (残り日数あり) を再現する
+		const physicalDeletionDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+		await withDb((db) => {
+			const upsert = db.prepare(
+				"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+			);
+			upsert.run('soft_deleted_at', new Date().toISOString());
+			upsert.run('deletion_grace_plan_tier', 'standard');
+			upsert.run('physical_deletion_date', physicalDeletionDate);
+		});
+	});
+
+	test.afterAll(async () => {
+		await withDb((db) => {
+			const upsert = db.prepare(
+				"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+			);
+			const del = db.prepare('DELETE FROM settings WHERE key = ?');
+			for (const key of GRACE_KEYS) {
+				const value = snapshot[key];
+				if (value === null || value === undefined) {
+					del.run(key);
+				} else {
+					upsert.run(key, value);
+				}
+			}
+		});
+	});
+
+	test('猶予中は admin ホーム (設定以外) でも「あと N 日 / 復元」バナーが出る', async ({
+		page,
+	}) => {
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+		const banner = page.getByTestId('admin-deletion-grace-banner');
+		await expect(banner).toBeVisible({ timeout: 15_000 });
+		await expect(banner).toContainText('アカウント削除のお手続き中');
+		await expect(banner).toContainText('日');
+		await expect(page.getByTestId('admin-deletion-grace-banner-restore-button')).toBeVisible();
+	});
+
+	test('猶予中は活動管理ページでもバナーが出る (1 画面に閉じない)', async ({ page }) => {
+		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByTestId('admin-deletion-grace-banner')).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('猶予中も /switch で子供を選べる (設定トップに転送されない)', async ({ page }) => {
+		await page.goto('/switch', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+		const firstChild = page.locator('[data-testid^="child-select-"]').first();
+		await expect(firstChild).toBeVisible({ timeout: 15_000 });
+		await firstChild.click();
+		// child home は CI / 初回アクセスで cold compile が入るため余裕を持たせる (#4699 実測 21s)
+		await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\/home/, { timeout: 45_000 });
+		expect(page.url()).not.toContain('/admin/settings');
+	});
+
+	test('書き込みで設定トップへ戻されたときは理由が表示される', async ({ page }) => {
+		await page.goto('/admin/settings?reason=account_deletion_pending', {
+			waitUntil: 'commit',
+			timeout: 30_000,
+		});
+		const notice = page.getByTestId('settings-deletion-pending-notice');
+		await expect(notice).toBeVisible({ timeout: 15_000 });
+		await expect(notice).toContainText('読み取り専用');
+	});
+
+	test('猶予中は退会セクションを出さず、復元バナーに集約する', async ({ page }) => {
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByTestId('deletion-grace-banner')).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByTestId('account-danger-zone')).toHaveCount(0);
+	});
+});
+
+// ============================================================
+// 10. #4640 移譲先が居ないときの退会 UI
 // ============================================================
 
 // 「他が子供だけの家族グループ」は dev ユーザーの構成では作れない (dev-tenant-001 には

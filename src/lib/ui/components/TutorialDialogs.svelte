@@ -3,16 +3,13 @@ import { getChildTutorialLabels, TUTORIAL_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import {
-	continueFullTutorial,
 	dismissResumePrompt,
-	finishQuickTutorial,
 	resumeTutorial,
 	startFromBeginning,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface Props {
 	showResume: boolean;
-	showQuickComplete: boolean;
 	showExitConfirm: boolean;
 	onConfirmExit: () => void;
 	onCancelExit: () => void;
@@ -24,14 +21,7 @@ interface Props {
 	childUiMode?: string;
 }
 
-let {
-	showResume,
-	showQuickComplete,
-	showExitConfirm,
-	onConfirmExit,
-	onCancelExit,
-	childUiMode,
-}: Props = $props();
+let { showResume, showExitConfirm, onConfirmExit, onCancelExit, childUiMode }: Props = $props();
 
 // 子供画面では年齢帯 variant、親管理画面では従来の TUTORIAL_LABELS を使う。
 const L = $derived(childUiMode ? getChildTutorialLabels(childUiMode).dialog : TUTORIAL_LABELS);
@@ -70,28 +60,6 @@ function handleExitOpenChange(details: { open: boolean }) {
 		</Button>
 		<Button variant="primary" size="sm" onclick={() => resumeTutorial()}>
 			{L.resumeContinue}
-		</Button>
-	</div>
-</Dialog>
-
-<!-- #955: Quick complete dialog — チャプター1終了後の選択画面 -->
-<Dialog
-	open={showQuickComplete}
-	title={TUTORIAL_LABELS.quickCompleteTitle}
-	closable={false}
-	size="sm"
-	testid="tutorial-quick-complete-dialog"
->
-	<div class="dialog-body">
-		<p>{TUTORIAL_LABELS.quickCompleteBody}</p>
-		<p class="dialog-hint">{TUTORIAL_LABELS.quickCompleteHint}</p>
-	</div>
-	<div class="dialog-actions">
-		<Button variant="secondary" size="sm" onclick={() => continueFullTutorial()}>
-			{TUTORIAL_LABELS.quickContinue}
-		</Button>
-		<Button variant="primary" size="sm" onclick={() => finishQuickTutorial()}>
-			{TUTORIAL_LABELS.quickFinish}
 		</Button>
 	</div>
 </Dialog>

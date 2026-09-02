@@ -17,6 +17,10 @@ import {
 	UI_LABELS,
 } from '$lib/domain/labels';
 import { CHILD_TERMS } from '$lib/domain/terms';
+import {
+	ADMIN_ACTION_FETCH_HEADERS,
+	readAdminActionResult,
+} from '$lib/features/admin/action-result';
 import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.svelte';
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
@@ -251,12 +255,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 // #2894 AC3: 取込失敗 (resp.ok=false) 時に ActionResult を deserialize し、PlanLimitError を
 // `[object Object]` 化せず構造化メッセージ + upgrade 導線として banner / toast に出す。
 // handleChildSelectionConfirm の cognitive complexity を上げないため helper に切り出す。
-function applyImportFailure(failText: string) {
-	const failResult = deserialize(failText);
-	const failError =
-		failResult.type === 'failure'
-			? (failResult.data as { error?: unknown } | undefined)?.error
-			: undefined;
+function applyImportFailure(failError: unknown) {
 	const display = getActionErrorDisplay(failError, ADMIN_ACTIVITIES_PAGE_LABELS.importFailed);
 	actionMessage = display.message;
 	actionUpgradeUrl = display.upgradeUrl;
@@ -299,15 +298,13 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	try {
 		const resp = await fetch('?/importPackToChildren', {
 			method: 'POST',
-			headers: {
-				accept: 'application/json',
-				'x-sveltekit-action': 'true',
-			},
+			headers: ADMIN_ACTION_FETCH_HEADERS,
 			body: formData,
 		});
-		if (resp.ok) {
-			const result = deserialize(await resp.text());
-			const data = result.type === 'success' ? result.data : undefined;
+		// #4693: 判定を ActionResult の type に統一 (fail() は HTTP status に現れない)。
+		const actionResult = await readAdminActionResult(resp);
+		if (actionResult.ok) {
+			const data = actionResult.data;
 			// デモ環境 no-op (data.demo===true) は成功偽装せず明示 (reward / challenge と統一)。
 			if (data?.demo === true) {
 				actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importDemo;
@@ -333,10 +330,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 			showToast(feedback.message, undefined, feedback.tone);
 			await invalidateAll();
 		} else {
-			// #2894 AC3: 403 (PlanLimitError) を含む失敗 body を deserialize し、
-			// `[object Object]` 化せず構造化メッセージ + upgrade 導線を表示する (helper 経由)。
-			// 旧実装は resp.ok=false 時に error body を読まず generic な importFailed のみ出していた。
-			applyImportFailure(await resp.text());
+			// #2894 AC3: PlanLimitError を `[object Object]` 化せず構造化メッセージ + upgrade 導線で出す。
+			applyImportFailure(actionResult.error);
 		}
 	} catch {
 		// SvelteKit deserialize / network exception を捕捉。in-page banner で
@@ -391,14 +386,24 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 	// 常に最初の子に入っていた (けんたのタブで復元 → たろうに 94 件)。
 	formData.append('childId', String(selectedChildId));
 	try {
-		const resp = await fetch('?/importFile', { method: 'POST', body: formData });
-		if (!resp.ok) {
-			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
+		// #4693: 復元も ActionResult 判定に統一する (上限で fail したことを握り潰さない)。
+		const resp = await fetch('?/importFile', {
+			method: 'POST',
+			headers: ADMIN_ACTION_FETCH_HEADERS,
+			body: formData,
+		});
+		const actionResult = await readAdminActionResult(resp);
+		if (!actionResult.ok) {
+			const display = getActionErrorDisplay(
+				actionResult.error,
+				FEATURES_LABELS.activitiesHeader.restoreFailed,
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
 			return;
 		}
-		const result = deserialize(await resp.text());
-		if (result.type === 'success' && result.data) {
-			const d = result.data as Record<string, unknown>;
+		if (actionResult.data) {
+			const d = actionResult.data;
 			// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装しない。
 			if (d.demo === true) {
 				actionMessage = FEATURES_LABELS.activitiesHeader.restoreDemo;
@@ -413,10 +418,6 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 			}
 			showRestoreDialog = false;
 			await invalidateAll();
-		} else if (result.type === 'failure') {
-			const err = (result.data as Record<string, unknown> | undefined)?.error;
-			actionMessage =
-				typeof err === 'string' ? err : FEATURES_LABELS.activitiesHeader.restoreFailed;
 		} else {
 			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
 		}
@@ -447,21 +448,18 @@ async function handleCopyFromChild() {
 	copyLoading = true;
 	actionUpgradeUrl = null;
 	try {
+		// #4693: `resp.ok` は fail() を成功として読む。判定は ActionResult の type に統一し
+		// (readAdminActionResult)、失敗時はサーバーが返した理由 (上限 + アップグレード導線) を出す。
 		const resp = await fetch('?/copyFromChild', {
 			method: 'POST',
-			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			headers: ADMIN_ACTION_FETCH_HEADERS,
 			body: formData,
 		});
-		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { copiedCount?: number; skippedCount?: number } }
-			| { type: 'failure'; data?: { error?: unknown } }
-			| { type: 'redirect'; location: string }
-			| { type: 'error'; error: unknown };
-
-		if (actionResult.type === 'success') {
+		const result = await readAdminActionResult(resp);
+		if (result.ok) {
 			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
 			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
-			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+			if (result.data?.demo === true) {
 				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
 					ADMIN_ACTIVITIES_PAGE_LABELS.copyResourceNoun,
 				);
@@ -470,8 +468,8 @@ async function handleCopyFromChild() {
 				copySourceChildId = null;
 				return;
 			}
-			const copied = Number(actionResult.data?.copiedCount ?? 0);
-			const skipped = Number(actionResult.data?.skippedCount ?? 0);
+			const copied = Number(result.data?.copiedCount ?? 0);
+			const skipped = Number(result.data?.skippedCount ?? 0);
 			actionMessage = CHILD_COPY_RESULT_LABELS.format(
 				ADMIN_ACTIVITIES_PAGE_LABELS.copyResourceNoun,
 				copied,
@@ -481,18 +479,15 @@ async function handleCopyFromChild() {
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();
-		} else if (actionResult.type === 'failure') {
+		} else {
 			// #2894 AC3 と同型: PlanLimitError を `[object Object]` 化せず導線付きで出す。
-			const display = getActionErrorDisplay(
-				actionResult.data?.error,
-				ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed,
-			);
+			const display = getActionErrorDisplay(result.error, ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed);
 			actionMessage = display.message;
 			actionUpgradeUrl = display.upgradeUrl;
 			showToast(actionMessage, undefined, 'error');
-		} else {
-			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed;
-			showToast(actionMessage, undefined, 'error');
+			// #4693: 失敗理由 (上限 + アップグレード導線) は本文の banner に出るため、dialog を閉じて
+			// 読める状態にする (開いたままだと理由が modal の裏に隠れて dead-end になる)。
+			showCopyFromChildDialog = false;
 		}
 	} catch {
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed;
@@ -523,14 +518,28 @@ async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	formData.append('basePoints', String(bulkPoints));
 	formData.append('childIds', childIdsValue);
 
-	const resp = await fetch('?/bulkCreateForChildren', { method: 'POST', body: formData });
-	if (resp.ok) {
-		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.bulkAddSuccess;
+	// #4693: 同上。上限到達時に「一括追加しました」と偽らない。
+	const resp = await fetch('?/bulkCreateForChildren', {
+		method: 'POST',
+		headers: ADMIN_ACTION_FETCH_HEADERS,
+		body: formData,
+	});
+	const result = await readAdminActionResult(resp);
+	if (result.ok) {
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateSuccess;
+		actionUpgradeUrl = null;
 		showBulkCreateDialog = false;
 		bulkName = '';
 		await invalidateAll();
 	} else {
-		actionMessage = ADMIN_FORM_ERROR_LABELS.bulkAddFailed;
+		const display = getActionErrorDisplay(
+			result.error,
+			ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateFailed,
+		);
+		actionMessage = display.message;
+		actionUpgradeUrl = display.upgradeUrl;
+		// #4693: 同上 (理由を読める位置に出す)。
+		showBulkCreateDialog = false;
 	}
 }
 
@@ -688,7 +697,9 @@ function selectChild(childId: ChildId) {
 	<!-- #2902 Phase A: 活動一覧（メインコンテンツ）— 選択中 child の per-child instance を
 	     単一表示。全行が ActivityListItem (編集 / 表示切替 / メインクエスト / 削除のフル CRUD)。
 	     旧 per-child read-only badge 行 + family master 並存表示は撤去 (二重表示 / 件数水増し解消)。 -->
-	<div class="space-y-1" data-tutorial="activity-list" data-testid="admin-activities-list">
+	<!-- #4654 AC6: 章立てチュートリアル専用の data-tutorial="activity-list" は撤去。
+	     ❓ ページガイド (#4655) は先頭カードの activity-card-first を spotlight する。 -->
+	<div class="space-y-1" data-testid="admin-activities-list">
 		{#each filteredActivities as activity, i (activity.id)}
 			<!-- data-tutorial: 先頭カードだけをページガイド (#4655) の spotlight 対象にする (一覧全体 864×2705 を
 			     target にすると bubble を置く余地が無い、DESIGN.md / 06-UI設計書 §4.13.1「巨大コンテナを target にしない」) -->

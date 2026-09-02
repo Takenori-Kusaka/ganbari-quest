@@ -96,11 +96,18 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	// #4688: 受取済み (rewardClaimed) も含む達成履歴。claim した瞬間に消えないこと (F1)
 	const achievements = achievementsResult.status === 'fulfilled' ? achievementsResult.value : [];
 
+	// #4632: 交換履歴は「いつ・何を・いくらで交換したか」を出す画面。
+	// 申請時点 snapshot (title / icon / points) と個数を渡さないと、UI は日付をタイトル代わりに
+	// 出しアイコンを 🎁 固定にするしかなく、何を交換したか判別できない。
 	const purchases =
 		purchasesResult.status === 'fulfilled'
 			? purchasesResult.value.map((r) => ({
 					id: r.id,
 					rewardId: r.rewardId,
+					rewardTitle: r.rewardTitle,
+					rewardIcon: r.rewardIcon,
+					rewardPoints: r.rewardPoints,
+					quantity: r.quantity,
 					status: r.status,
 					requestedAt: r.requestedAt,
 					resolvedAt: r.resolvedAt,

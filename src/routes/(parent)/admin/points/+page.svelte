@@ -174,7 +174,7 @@ async function handleReceiptFile(event: Event) {
 	<title>{PAGE_TITLES.points}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6" data-tutorial="points-section">
+<div class="space-y-6">
 	<div class="flex items-center justify-between mb-1">
 		<div class="flex items-center gap-2">
 			<h2 class="text-lg font-bold">{POINTS_LABELS.pageTitle}</h2>

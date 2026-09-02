@@ -96,7 +96,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 
 <!-- #2905: ❓ ページガイド (STATUS_GUIDE) のアンカー。全 admin ページで ? が機能する規約のため
 	page-guide-registry に登録し、本 wrapper を起点ステップの selector に紐付ける。 -->
-<div class="space-y-6" data-tutorial="status-report">
+<div class="space-y-6">
 	<div class="flex items-center justify-end">
 		<a
 			href={resolve('/admin/children')}
@@ -152,7 +152,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			</h3>
 
 			<!-- ベンチマーク比較レーダーチャート (G7) -->
-			<div class="flex justify-center mb-4" data-tutorial="status-radar">
+			<div class="flex justify-center mb-4">
 				<RadarChart
 					categories={previewRadarCategories}
 					comparisonValues={previewChild.benchmarkValues}

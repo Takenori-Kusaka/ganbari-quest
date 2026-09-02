@@ -37,7 +37,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../');
 
 /** 型定義と既定値を持つ SSOT 自身。ここでの出現は「参照」に数えない。 */
-const DEFINITION_FILE = 'src/lib/server/services/plan-limit-service.ts';
+// #4704: 表の置き場所を server/services から domain leaf に移した (repo → service の循環を断つため)。
+const DEFINITION_FILE = 'src/lib/domain/plan-limits.ts';
 
 /**
  * 未配線のまま残すフィールド。**理由と追跡 Issue が必須**。
@@ -53,14 +54,23 @@ const UNWIRED_FIELDS: Record<string, string> = {
 /**
  * **強制関数経由**で効いているフィールド。
  *
- * フィールド名を呼び出し側に出さず、`plan-limit-service` 内の関数が値を読んで可否を返す形。
+ * フィールド名を呼び出し側に出さず、強制関数が値を読んで可否を返す形。
  * 名前が production に現れないので素の参照検査では拾えないが、**未配線ではない** —
  * 「名前が出ない」を口実に検査を消さないよう、関数側と呼び出し側の両方を検査する。
+ *
+ * #4704: 強制関数の置き場所は `DEFINITION_FILE` と一致しない。値の表 (`PLAN_LIMITS`) は
+ * 環境非依存の葉として `domain/` に移したが、強制関数は tier 解決と DB 参照を伴うため
+ * service 層に残っている。**どの file に居るかを宣言させる** ことで、関数が別 file へ
+ * 移動したり消えたりしたら「宣言と実物の不一致」で落ちる (定義 file を読み続けて
+ * 「関数が無い」と誤報するのでも、検査を消すのでもなく、置き場所を SSOT に持つ)。
  */
-const FUNCTION_BACKED_FIELDS: Record<string, { enforcer: string }> = {
+const FUNCTION_BACKED_FIELDS: Record<string, { enforcer: string; enforcerFile: string }> = {
 	// #4584 レビュー是正: 当初は UNWIRED_FIELDS に「grep で 0 件」として入れていたが誤り。
 	// checkFamilyMemberLimit() が limits.maxFamilyMembers を読み、招待 API がそれを呼んでいる。
-	maxFamilyMembers: { enforcer: 'checkFamilyMemberLimit' },
+	maxFamilyMembers: {
+		enforcer: 'checkFamilyMemberLimit',
+		enforcerFile: 'src/lib/server/services/plan-limit-service.ts',
+	},
 };
 
 /**
@@ -156,17 +166,23 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 	)('%s は強制関数が値を読み、その関数が production から呼ばれている', (field) => {
 		const entry = FUNCTION_BACKED_FIELDS[field];
 		if (!entry) throw new Error(`FUNCTION_BACKED_FIELDS に ${field} がありません`);
-		const { enforcer } = entry;
-		const def = stripComments(readFileSync(join(REPO_ROOT, DEFINITION_FILE), 'utf-8'));
+		const { enforcer, enforcerFile } = entry;
+		const enforcerSrc = stripComments(readFileSync(join(REPO_ROOT, enforcerFile), 'utf-8'));
 
 		// 強制関数が実在し、その中でフィールドを読んでいること
-		expect(def, `${enforcer} が ${DEFINITION_FILE} にありません`).toContain(
+		expect(enforcerSrc, `${enforcer} が ${enforcerFile} にありません`).toContain(
 			`export async function ${enforcer}`,
 		);
-		expect(def, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
+		expect(enforcerSrc, `${enforcer} が ${field} を読んでいません`).toContain(`limits.${field}`);
 
-		// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)
-		const callers = sources.filter((src) => src.text.includes(`${enforcer}(`)).map((s) => s.path);
+		// 呼び出し側が production に存在すること (呼ばれなくなったら未配線に戻る)。
+		// #4704: 定義そのもの (`export async function checkFamilyMemberLimit(`) を「呼び出し」と
+		// 数えないよう、enforcerFile を除外する。除外しないと関数が誰にも呼ばれなくなっても
+		// 自分自身の宣言で 1 件ヒットして緑のままになる (旧実装は DEFINITION_FILE = enforcerFile
+		// だったため sources から除かれており、この抜け道は無かった)。
+		const callers = sources
+			.filter((src) => src.path !== enforcerFile && src.text.includes(`${enforcer}(`))
+			.map((s) => s.path);
 		expect(
 			callers.length,
 			`${enforcer} を呼ぶ production code がありません。` +

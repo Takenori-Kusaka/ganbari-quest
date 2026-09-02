@@ -9,7 +9,7 @@ import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
-import { apiError } from '$lib/server/errors';
+import { planLimitError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { restoreArchivedResources } from '$lib/server/services/resource-archive-service';
@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 		locals.context?.plan,
 	);
 	if (!isPaidTier(tier)) {
-		return apiError('PLAN_LIMIT_EXCEEDED', 'restore requires a paid plan', { tenantId, tier });
+		return planLimitError('standard', 'restore requires a paid plan', { tenantId, tier });
 	}
 
 	await restoreArchivedResources(tenantId);

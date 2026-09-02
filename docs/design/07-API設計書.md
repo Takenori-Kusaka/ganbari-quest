@@ -1940,16 +1940,18 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 #### POST /api/v1/settings/tutorial
 
-チュートリアル完了をマーク。
+チュートリアル完了をマーク（子供画面チュートリアルの最終ステップで送信）。
 
 **認証:** owner/parent
 
 **リクエスト:**
 ```json
 {
-  "completed": true
+  "action": "complete"
 }
 ```
+
+`action` は `complete` のみ受理する（それ以外は 400）。親の章立てチュートリアル撤去に伴い、開始マーク・バナー dismiss の action は受理しない。
 
 #### GET /api/v1/settings/vapid-key
 
@@ -2418,7 +2420,7 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 | UNAUTHORIZED | 401 | 認証が必要 |
 | LOCKED_OUT | 429 | ロックアウト中 |
 | NOT_FOUND | 404 | リソースが見つからない |
-| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照） |
+| PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照）。**`planLimitError(requiredTier, message)`（`src/lib/server/errors.ts`）で返す** — `userMessage` は要求 tier で出し分ける（standard 以上 / プレミアム限定）。`apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しは固定文（スタンダード以上の案内）しか返せず、プレミアム限定機能をスタンダード契約者が叩いたときに次の行動を示せないため禁止（`tests/unit/architecture/plan-limit-error-required-tier.test.ts` が検出、#4710） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
 | LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
 | LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |

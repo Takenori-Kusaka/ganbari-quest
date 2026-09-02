@@ -8,7 +8,7 @@ import type { ExportData } from '$lib/domain/export-format';
 import { asChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
-import { apiError } from '$lib/server/errors';
+import { apiError, planLimitError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
 import { exportFamilyData, exportFamilyDataForZip } from '$lib/server/services/export-service';
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
 	);
 	if (!limits.canExport) {
-		return apiError('PLAN_LIMIT_EXCEEDED', PLAN_GATE_LABELS.standardOrAboveFor('エクスポート機能'));
+		return planLimitError('standard', PLAN_GATE_LABELS.standardOrAboveFor('エクスポート機能'));
 	}
 
 	const childIdsParam = url.searchParams.get('childIds');
