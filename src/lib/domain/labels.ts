@@ -5930,6 +5930,8 @@ export const REWARDS_LABELS = {
 	// #4656 F8 / M1: 生 URL 露出と旧 /admin/messages 参照をやめ、応援 (NAV_ITEM_LABELS.cheer) への link に統一
 	// (#4654 B15 の「旧 /admin/messages 参照をやめる」意図も本文言で満たす)
 	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${CHEER_TERMS.canonical}ページから送れます。`,
+	// #4654 (B15): 旧「おうえんメッセージ」(/admin/messages) は #2270 で応援画面に統合済。
+	// リンク文言も統合先の画面名 (応援) に合わせる。
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: CHEER_TERMS.canonical,
 	pageDescHintSuffix: 'から送れます',
