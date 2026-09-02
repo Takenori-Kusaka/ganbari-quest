@@ -17,8 +17,8 @@
 //   - local モードは対象外 (gate 無効 + 救済は operator reset #2994 が担当)
 
 import { error, json } from '@sveltejs/kit';
-// #4661: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
-import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+// #4661 / #4698: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
+import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { PIN_RESET_OTP_PATTERN } from '$lib/domain/constants/pin-reset-otp';
 import { isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
@@ -71,7 +71,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 		error(400, 'INVALID_BODY');
 	}
 
-	if (!newPin || !PIN_PATTERN.test(newPin)) {
+	if (!isValidPinFormat(newPin)) {
 		return json({ ok: false, error: 'PIN_FORMAT' }, { status: 400 });
 	}
 
