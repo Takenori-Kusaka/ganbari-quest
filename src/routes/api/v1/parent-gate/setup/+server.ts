@@ -10,8 +10,8 @@
 // - rate limit は verify 系と同等 (20 req / 15 min per IP)
 
 import { error, json } from '@sveltejs/kit';
-// #4661: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
-import { PIN_PATTERN } from '$lib/domain/constants/oyakagi';
+// #4661 / #4698: おやカギコードの形式は constants/oyakagi.ts が唯一の SSOT。
+import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 		error(400, 'INVALID_BODY');
 	}
 
-	if (!pin || !PIN_PATTERN.test(pin)) {
+	if (!isValidPinFormat(pin)) {
 		return json({ ok: false, error: 'PIN_FORMAT' }, { status: 400 });
 	}
 

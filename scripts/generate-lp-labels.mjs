@@ -584,7 +584,8 @@ function buildOyakagiTerms() {
 	if (!m || m[1] === undefined) {
 		throw new Error('PIN_LENGTH not parseable in constants/oyakagi.ts');
 	}
-	// terms.ts 側 `digitRange: \`${PIN_LENGTH}桁\`` と同じ整形規則。差異は上記 test が検出する。
+	// terms.ts 側 `digitRange: \`${PIN_LENGTH}桁\`` と同じ整形規則。差異は上記 test (#4661 [P1b]) と
+	// tests/unit/architecture/pin-length-ssot-fitness.test.ts (#4698) の双方が検出する。
 	return { digitRange: `${Number(m[1])}桁` };
 }
 
