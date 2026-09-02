@@ -24,18 +24,27 @@ describe('#4690 resolveChallengeDisplayTitle', () => {
 	});
 
 	it('旧行 (categoryId 無し / 壊れた JSON) は保存値を返す', () => {
-		expect(resolveChallengeDisplayTitle({ ...stored, targetConfig: '{}' }, 'preschool')).toBe(stored.title);
-		expect(resolveChallengeDisplayTitle({ ...stored, targetConfig: 'not json' }, 'preschool')).toBe(stored.title);
+		expect(resolveChallengeDisplayTitle({ ...stored, targetConfig: '{}' }, 'preschool')).toBe(
+			stored.title,
+		);
+		expect(resolveChallengeDisplayTitle({ ...stored, targetConfig: 'not json' }, 'preschool')).toBe(
+			stored.title,
+		);
 	});
 
 	it('数値 categoryId (legacy 行) も解決できる', () => {
 		expect(
-			resolveChallengeDisplayTitle({ ...stored, targetConfig: JSON.stringify({ categoryId: 1 }) }, 'elementary'),
+			resolveChallengeDisplayTitle(
+				{ ...stored, targetConfig: JSON.stringify({ categoryId: 1 }) },
+				'elementary',
+			),
 		).toBe('今週は「運動」を3回');
 	});
 
 	it('formatChallengeTitle の既定 (保存形) は従来どおり漢字', () => {
 		expect(formatChallengeTitle('うんどう', 3)).toBe('今週は「うんどう」を3回');
-		expect(formatChallengeTitle('うんどう', 3, 'preschool')).toBe('こんしゅうは「うんどう」を3かい');
+		expect(formatChallengeTitle('うんどう', 3, 'preschool')).toBe(
+			'こんしゅうは「うんどう」を3かい',
+		);
 	});
 });

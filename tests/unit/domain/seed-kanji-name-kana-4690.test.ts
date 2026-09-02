@@ -6,7 +6,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getActivityDisplayName, SEED_KANJI_NAME_KANA } from '../../../src/lib/domain/validation/activity';
+import {
+	getActivityDisplayName,
+	SEED_KANJI_NAME_KANA,
+} from '../../../src/lib/domain/validation/activity';
 
 const SEED = join(__dirname, '../../../src/lib/server/db/seed.ts');
 
@@ -30,12 +33,20 @@ describe('#4690 seed 由来の漢字活動名の読み辞書', () => {
 	});
 
 	it('nameKana が無い既存行でも preschool には読みが出る (seed 済 DB の救済)', () => {
-		expect(getActivityDisplayName({ name: '水やりをする', nameKana: null }, 4)).toBe('みずやりをする');
+		expect(getActivityDisplayName({ name: '水やりをする', nameKana: null }, 4)).toBe(
+			'みずやりをする',
+		);
 		// 行に kana があればそちらが優先
-		expect(getActivityDisplayName({ name: '水やりをする', nameKana: 'みずやり' }, 4)).toBe('みずやり');
+		expect(getActivityDisplayName({ name: '水やりをする', nameKana: 'みずやり' }, 4)).toBe(
+			'みずやり',
+		);
 		// 漢字を読む年齢は name のまま
-		expect(getActivityDisplayName({ name: '水やりをする', nameKana: null }, 10)).toBe('水やりをする');
+		expect(getActivityDisplayName({ name: '水やりをする', nameKana: null }, 10)).toBe(
+			'水やりをする',
+		);
 		// 辞書に無い名前は従来どおり name
-		expect(getActivityDisplayName({ name: 'たいそうした', nameKana: null }, 4)).toBe('たいそうした');
+		expect(getActivityDisplayName({ name: 'たいそうした', nameKana: null }, 4)).toBe(
+			'たいそうした',
+		);
 	});
 });
