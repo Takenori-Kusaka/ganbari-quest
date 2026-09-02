@@ -1,25 +1,30 @@
 <script lang="ts">
-import { TUTORIAL_LABELS } from '$lib/domain/labels';
+import { getChildTutorialLabels, TUTORIAL_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import {
-	continueFullTutorial,
 	dismissResumePrompt,
-	finishQuickTutorial,
 	resumeTutorial,
 	startFromBeginning,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface Props {
 	showResume: boolean;
-	showQuickComplete: boolean;
 	showExitConfirm: boolean;
 	onConfirmExit: () => void;
 	onCancelExit: () => void;
+	/**
+	 * 子供画面で表示するときの年齢モード (#4652)。指定時は再開 / 終了確認の文言を
+	 * 子供向け年齢帯 variant にする (preschool / elementary はひらがな)。
+	 * 親向け漢字文言を子供画面にそのまま出していた不具合の是正 (EPIC #4650 F9)。
+	 */
+	childUiMode?: string;
 }
 
-let { showResume, showQuickComplete, showExitConfirm, onConfirmExit, onCancelExit }: Props =
-	$props();
+let { showResume, showExitConfirm, onConfirmExit, onCancelExit, childUiMode }: Props = $props();
+
+// 子供画面では年齢帯 variant、親管理画面では従来の TUTORIAL_LABELS を使う。
+const L = $derived(childUiMode ? getChildTutorialLabels(childUiMode).dialog : TUTORIAL_LABELS);
 
 function handleResumeOpenChange(details: { open: boolean }) {
 	if (!details.open) {
@@ -38,45 +43,23 @@ function handleExitOpenChange(details: { open: boolean }) {
 <Dialog
 	open={showResume}
 	onOpenChange={handleResumeOpenChange}
-	title={TUTORIAL_LABELS.resumeTitle}
+	title={L.resumeTitle}
 	closable={false}
 	size="sm"
 	testid="tutorial-resume-dialog"
 >
 	<div class="dialog-body">
-		<p>{TUTORIAL_LABELS.resumePrompt}</p>
+		<p>{L.resumePrompt}</p>
 	</div>
 	<div class="dialog-actions">
 		<Button variant="secondary" size="sm" onclick={dismissResumePrompt}>
-			{TUTORIAL_LABELS.resumeCancel}
+			{L.resumeCancel}
 		</Button>
 		<Button variant="secondary" size="sm" onclick={() => startFromBeginning()}>
-			{TUTORIAL_LABELS.resumeFromStart}
+			{L.resumeFromStart}
 		</Button>
 		<Button variant="primary" size="sm" onclick={() => resumeTutorial()}>
-			{TUTORIAL_LABELS.resumeContinue}
-		</Button>
-	</div>
-</Dialog>
-
-<!-- #955: Quick complete dialog — チャプター1終了後の選択画面 -->
-<Dialog
-	open={showQuickComplete}
-	title={TUTORIAL_LABELS.quickCompleteTitle}
-	closable={false}
-	size="sm"
-	testid="tutorial-quick-complete-dialog"
->
-	<div class="dialog-body">
-		<p>{TUTORIAL_LABELS.quickCompleteBody}</p>
-		<p class="dialog-hint">{TUTORIAL_LABELS.quickCompleteHint}</p>
-	</div>
-	<div class="dialog-actions">
-		<Button variant="secondary" size="sm" onclick={() => continueFullTutorial()}>
-			{TUTORIAL_LABELS.quickContinue}
-		</Button>
-		<Button variant="primary" size="sm" onclick={() => finishQuickTutorial()}>
-			{TUTORIAL_LABELS.quickFinish}
+			{L.resumeContinue}
 		</Button>
 	</div>
 </Dialog>
@@ -85,21 +68,21 @@ function handleExitOpenChange(details: { open: boolean }) {
 <Dialog
 	open={showExitConfirm}
 	onOpenChange={handleExitOpenChange}
-	ariaLabel={TUTORIAL_LABELS.exitConfirmAriaLabel}
+	ariaLabel={L.exitConfirmAriaLabel}
 	closable={true}
 	size="sm"
 	testid="tutorial-exit-confirm-dialog"
 >
 	<div class="dialog-body">
-		<p>{TUTORIAL_LABELS.exitConfirmPrompt}</p>
-		<p class="dialog-hint">{TUTORIAL_LABELS.exitConfirmHint}</p>
+		<p>{L.exitConfirmPrompt}</p>
+		<p class="dialog-hint">{L.exitConfirmHint}</p>
 	</div>
 	<div class="dialog-actions">
 		<Button variant="secondary" size="sm" onclick={onCancelExit}>
-			{TUTORIAL_LABELS.exitConfirmCancel}
+			{L.exitConfirmCancel}
 		</Button>
 		<Button variant="danger" size="sm" onclick={onConfirmExit}>
-			{TUTORIAL_LABELS.exitConfirmConfirm}
+			{L.exitConfirmConfirm}
 		</Button>
 	</div>
 </Dialog>

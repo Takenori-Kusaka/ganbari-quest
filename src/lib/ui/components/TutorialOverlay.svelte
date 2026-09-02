@@ -4,26 +4,39 @@ import {
 	confirmExit,
 	getAnimKey,
 	getShowExitConfirm,
-	getShowQuickComplete,
 	getShowResume,
 	getStep,
 	getTargetRect,
 	handleOverlayClick,
 	isActive,
+	isTargetResolved,
 	setupResizeScrollTracking,
 	setupStepTracking,
 	setupTutorialActiveFlag,
 } from '$lib/ui/tutorial/tutorial-step-controller.svelte';
 import TutorialBubble from './TutorialBubble.svelte';
-import TutorialQuickCompleteDialog from './TutorialQuickCompleteDialog.svelte';
+import TutorialDialogs from './TutorialDialogs.svelte';
+
+interface Props {
+	/**
+	 * 子供画面で表示するときの年齢モード (#4652)。
+	 * 指定すると再開 / 終了確認ダイアログの文言を子供向け年齢帯 variant
+	 * (preschool / elementary = ひらがな、junior / senior = 漢字) にする。
+	 * 親管理画面では未指定 (親向け漢字文言のまま)。
+	 */
+	childUiMode?: string;
+}
+
+let { childUiMode }: Props = $props();
 
 const active = $derived(isActive());
 const step = $derived(getStep());
 const targetRect = $derived(getTargetRect());
 const animKey = $derived(getAnimKey());
 const showResume = $derived(getShowResume());
-const showQuickComplete = $derived(getShowQuickComplete());
 const showExitConfirm = $derived(getShowExitConfirm() && active);
+// #4652: selector 指定 step が実要素に spotlight できたか (E2E が機械検証する)
+const targetResolved = $derived(isTargetResolved());
 
 // Setup effects (must be called within component context)
 setupTutorialActiveFlag();
@@ -31,20 +44,24 @@ setupStepTracking();
 setupResizeScrollTracking();
 </script>
 
-<!-- Dialogs: resume, quickComplete, exitConfirm -->
-<TutorialQuickCompleteDialog
+<!-- Dialogs: resume, exitConfirm -->
+<TutorialDialogs
 	{showResume}
-	{showQuickComplete}
 	{showExitConfirm}
+	{childUiMode}
 	onConfirmExit={confirmExit}
 	onCancelExit={cancelExit}
 />
 
 <!-- #2105: showExitConfirm 表示中も TutorialBubble を隠し二重ダイアログ状態を防止 (Dialog FSM 排他原則、archive ADR-0019) -->
-{#if active && step && targetRect && !showQuickComplete && !showExitConfirm}
+{#if active && step && targetRect && !showExitConfirm}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="tutorial-overlay" onclick={handleOverlayClick}>
+	<div
+		class="tutorial-overlay"
+		data-tutorial-target={targetResolved ? 'resolved' : 'fallback'}
+		onclick={handleOverlayClick}
+	>
 		<!-- Dark overlay with spotlight cutout (装飾的マスクのみ。情報は TutorialBubble が保持するため SR は skip) -->
 		<svg class="tutorial-overlay-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>

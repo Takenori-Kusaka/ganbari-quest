@@ -27,6 +27,24 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+// #4722 (QM): 減算が **throw** した場合の補償を検証するための注入口。
+// 既定は素通し (実 repo)。`spendThrow.message` を立てた 1 回だけ throw する。
+const spendThrow = vi.hoisted(() => ({ message: null as string | null }));
+vi.mock('$lib/server/db/point-repo', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/server/db/point-repo')>();
+	return {
+		...actual,
+		spendPointsAtomic: async (...args: Parameters<typeof actual.spendPointsAtomic>) => {
+			if (spendThrow.message !== null) {
+				const message = spendThrow.message;
+				spendThrow.message = null;
+				throw new Error(message);
+			}
+			return actual.spendPointsAtomic(...args);
+		},
+	};
+});
+
 import {
 	approveRedemption,
 	countPendingRedemptionsForParent,
@@ -38,6 +56,9 @@ import {
 } from '../../../src/lib/server/services/reward-redemption-service';
 
 const TENANT_ID = 'test-tenant';
+
+/** 保持期間で絞らない range。本番の opt-out は NO_RETENTION_FILTER を使う (plan-limit-service)。 */
+const NO_RANGE = {};
 
 beforeAll(() => {
 	const t = createTestDb();
@@ -327,6 +348,80 @@ describe('approveRedemption', () => {
 		expect(ledgerEntry!.amount).toBe(-80);
 	});
 
+	it('#4722: 同一申請の同時承認は 1 件だけ成立し、2 件目は 500 でなく INVALID_STATUS', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
+		if ('error' in reqResult) return;
+
+		// 2 人の保護者 (or 連打) が同時に承認する。旧実装は両方が「pending だ」と読んでから減算へ進み、
+		// 2 件目が台帳の冪等 UNIQUE 違反 (未 catch) で throw = API 500 になっていた。
+		const [a, b] = await Promise.all([
+			approveRedemption(reqResult.id, 'parent-A', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+			approveRedemption(reqResult.id, 'parent-B', TENANT_ID).catch((e) => ({
+				thrown: String(e),
+			})),
+		]);
+		for (const r of [a, b]) {
+			expect(r, '承認は throw しない (500 にしない)').not.toHaveProperty('thrown');
+		}
+		const results = [a, b] as Array<Record<string, unknown>>;
+		const approved = results.filter((r) => r.status === 'approved');
+		const invalid = results.filter((r) => r.error === 'INVALID_STATUS');
+		expect(approved).toHaveLength(1); // 勝者は 1 人
+		expect(invalid).toHaveLength(1); // 敗者は綺麗な業務エラー
+
+		// 二重減算していない (台帳は 1 行だけ)
+		const ledger = sqlite
+			.prepare(
+				"SELECT count(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		expect(ledger.c).toBe(1);
+	});
+
+	it('#4722: 減算が throw しても「承認済だが未控除」を残さず pending に戻す', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
+		if ('error' in reqResult) return;
+
+		// 承認を減算より先に確定させる設計 (#4722) では、減算が throw したときの失敗方向が
+		// 「対価なしにごほうびが渡る」に反転する。throw は残高不足では起きないが、DSQL の
+		// OCC 衝突 (40001) / point_ledger の referenceId 冪等 UNIQUE 違反 / 実行時間切れ で起きうる。
+		spendThrow.message = 'OCC conflict (40001)';
+		await expect(
+			approveRedemption(reqResult.id, 'parent-throw', TENANT_ID),
+			'減算の失敗理由を INSUFFICIENT_POINTS に丸めて「ポイントが足りません」と嘘を見せない',
+		).rejects.toThrow('OCC conflict (40001)');
+
+		// 補償が走り、申請は承認前 (pending) に戻っている
+		const row = sqlite
+			.prepare(
+				'SELECT status, resolved_at, resolved_by_parent_id FROM reward_redemption_requests WHERE id = ?',
+			)
+			.get(reqResult.id) as
+			| { status: string; resolved_at: number | null; resolved_by_parent_id: string | null }
+			| undefined;
+		expect(row?.status, '承認済のまま残すと対価なしでごほうびが渡る').toBe(
+			'pending_parent_approval',
+		);
+		expect(row?.resolved_at).toBeNull();
+		expect(row?.resolved_by_parent_id).toBeNull();
+
+		// 台帳は 1 行も増えていない (throw した減算が部分適用されていない)
+		const ledger = sqlite
+			.prepare(
+				"SELECT count(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		expect(ledger.c).toBe(0);
+
+		// 戻っているので、再承認すれば正常に成立する (回復可能であること)
+		const retry = await approveRedemption(reqResult.id, 'parent-throw', TENANT_ID);
+		expect(retry).not.toHaveProperty('error');
+	});
+
 	it('既に承認済みの申請を承認しようとすると INVALID_STATUS', async () => {
 		const { childId, rewardId } = seedBaseData();
 		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
@@ -406,9 +501,85 @@ describe('getRedemptionRequestsForChild', () => {
 		const { childId, rewardId } = seedBaseData();
 		await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 
-		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID);
+		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, NO_RANGE);
 		expect(requests.length).toBe(1);
 		expect(requests[0]!.childId).toBe(String(childId));
+	});
+
+	// #4818: `reward_redemption_requests` は ADR-0049 拡張表で P0 (深刻度「高」) の
+	// 保持期間対象。「記録 > 交換」タブがこれを一切通しておらず、無料プランでも全期間の
+	// 申請履歴が見えていた。`requestedAt` は ms unix 時刻なので、**JST 暦日に直してから**
+	// cutoff と比較する必要がある (UTC 日付のままだと JST 00:00〜09:00 の申請が 1 日ずれる)。
+	describe('保持期間フィルタ (ADR-0049)', () => {
+		/** 指定の UTC 時刻に申請 1 件を直接投入する (requested_at を厳密に置くため repo 経由)。 */
+		async function seedRequestAt(childId: number, rewardId: number, iso: string, id: string) {
+			await insertRedemptionForRestore(
+				{
+					childId: asChildId(childId),
+					rewardId: String(rewardId),
+					requestedAt: Date.parse(iso),
+					quantity: 1,
+					status: 'approved',
+					parentNote: null,
+					resolvedAt: Date.parse(iso),
+					resolvedByParentId: null,
+					shownToChildAt: null,
+					rewardTitle: id,
+					rewardPoints: 80,
+					rewardIcon: '🎮',
+				},
+				TENANT_ID,
+			);
+		}
+
+		it('from より前の申請は返さず、from 当日以降は返す', async () => {
+			const { childId, rewardId } = seedBaseData();
+			// JST 2026-04-10 / 2026-08-20
+			await seedRequestAt(childId, rewardId, '2026-04-10T03:00:00Z', 'old');
+			await seedRequestAt(childId, rewardId, '2026-08-20T03:00:00Z', 'recent');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				from: '2026-05-28',
+			});
+
+			// 子供向けの行型 (RedemptionRequestRow) は rewardTitle を持たないため requestedAt で識別する
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-08-20T03:00:00Z')]);
+		});
+
+		it('cutoff 当日の JST 未明 (UTC では前日) の申請も残る', async () => {
+			const { childId, rewardId } = seedBaseData();
+			// UTC 2026-05-27T15:30Z = JST 2026-05-28 00:30。UTC 日付で判定すると落ちる。
+			await seedRequestAt(childId, rewardId, '2026-05-27T15:30:00Z', 'jst-dawn');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				from: '2026-05-28',
+			});
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-27T15:30:00Z')]);
+		});
+
+		// `to` は現行の呼び出し元 (履歴 load) が渡さないが、型 (`RetentionRange`) が受け取ると
+		// 宣言している以上、渡されたら効く必要がある (黙って無視する枝を残さない)。
+		it('to より後の申請は返さない', async () => {
+			const { childId, rewardId } = seedBaseData();
+			await seedRequestAt(childId, rewardId, '2026-05-20T03:00:00Z', 'before');
+			await seedRequestAt(childId, rewardId, '2026-08-20T03:00:00Z', 'after');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, {
+				to: '2026-05-31',
+			});
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2026-05-20T03:00:00Z')]);
+		});
+
+		it('range が空 (family = 無期限) なら絞らない', async () => {
+			const { childId, rewardId } = seedBaseData();
+			await seedRequestAt(childId, rewardId, '2020-01-01T03:00:00Z', 'ancient');
+
+			const list = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID, NO_RANGE);
+
+			expect(list.map((r) => r.requestedAt)).toEqual([Date.parse('2020-01-01T03:00:00Z')]);
+		});
 	});
 });
 
@@ -728,7 +899,7 @@ describe('requestRedemption — 個数指定 (#4407)', () => {
 				 VALUES (?, ?, ?, 'pending_parent_approval', 'ゲーム時間30分', 80)`,
 			)
 			.run(Number(childId), Number(rewardId), now);
-		const list = await getRedemptionRequestsForChild(childId, TENANT_ID);
+		const list = await getRedemptionRequestsForChild(childId, TENANT_ID, NO_RANGE);
 		expect(list).toHaveLength(1);
 		expect(list[0]?.quantity).toBe(1);
 	});

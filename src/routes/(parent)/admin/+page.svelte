@@ -53,7 +53,6 @@ const showPwaInstallBanner = $derived(
 <AdminHome
 	children={data.children}
 	pointSettings={data.pointSettings}
-	tutorialStarted={data.tutorialStarted}
 	onboarding={data.onboarding}
 	mode={adminMode}
 	basePath="/admin"

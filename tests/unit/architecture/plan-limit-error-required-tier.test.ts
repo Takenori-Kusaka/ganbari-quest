@@ -1,0 +1,75 @@
+// tests/unit/architecture/plan-limit-error-required-tier.test.ts (#4710 / ADR-0061)
+//
+// **プラン制限の 403 は、要求 tier を知っている経路からしか返せない**ことを機械で保証する。
+//
+// # なぜ必要か
+//
+// `apiError('PLAN_LIMIT_EXCEEDED', …)` は userMessage を `ERROR_DEFINITIONS` の固定文
+// (「この機能はスタンダードプラン以上でご利用いただけます」) から取る。呼び出し側が
+// premium 限定機能を拒否しても文面は変わらないため、**スタンダード契約者が AI 提案を叩くと
+// 「スタンダード以上にしてください」と言われる** (#4710 実測 `POST /api/v1/activities/suggest`)。
+// 既にスタンダードなので、顧客はこの案内では次の行動を取れない。
+//
+// 個々の endpoint で文言を足すのではなく、**要求 tier を引数で受ける `planLimitError()` を
+// 唯一の入口にする**ことで、tier を知らずに 403 を返すこと自体を不可能にする。
+//
+// # 何を fail させるか
+//
+// `apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しが production code に現れた状態。
+
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const SRC_ROOT = join(REPO_ROOT, 'src');
+
+/** src 配下の .ts / .svelte を再帰列挙する。 */
+function walk(dir: string, acc: string[] = []): string[] {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const full = join(dir, entry.name);
+		if (entry.isDirectory()) walk(full, acc);
+		else if (entry.name.endsWith('.ts') || entry.name.endsWith('.svelte')) acc.push(full);
+	}
+	return acc;
+}
+
+/**
+ * `apiError('PLAN_LIMIT_EXCEEDED'` を書いてよい file。
+ * 定義側 (errors.ts) は ERROR_DEFINITIONS に code を持つため一致するが、呼び出しではない。
+ */
+const ALLOWED = new Set(['src/lib/server/errors.ts', 'src/lib/domain/errors.ts']);
+
+// repo 走査 test (#4085): src 全体を歩くため既定 5s では並列実行の負荷で落ちる。
+vi.setConfig({ testTimeout: 60_000 });
+
+describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ返す', () => {
+	const files = walk(SRC_ROOT);
+
+	it("production code に apiError('PLAN_LIMIT_EXCEEDED') の直接呼び出しが無い", () => {
+		const violations: string[] = [];
+		for (const file of files) {
+			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
+			if (ALLOWED.has(rel)) continue;
+			const src = readFileSync(file, 'utf-8');
+			// 呼び出し形のみを見る (コメント中の言及は `apiError(` を伴わないので当たらない)
+			if (/apiError\(\s*'PLAN_LIMIT_EXCEEDED'/.test(src)) violations.push(rel);
+		}
+		expect(
+			violations,
+			[
+				'プラン制限の 403 を要求 tier 無しで返しています。',
+				`  該当: ${violations.join(', ')}`,
+				"→ planLimitError('standard' | 'family', message) を使ってください。",
+				'  固定 userMessage は「スタンダード以上に」しか言えず、',
+				'  スタンダード契約者が premium 限定機能を叩いたときに次の行動を示せません (#4710)。',
+			].join('\n'),
+		).toEqual([]);
+	});
+
+	it('planLimitError が実在し、要求 tier を引数に取る', () => {
+		const src = readFileSync(join(SRC_ROOT, 'lib/server/errors.ts'), 'utf-8');
+		expect(src).toMatch(/export function planLimitError\(\s*requiredTier: 'standard' \| 'family',/);
+	});
+});

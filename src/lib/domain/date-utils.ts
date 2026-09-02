@@ -154,6 +154,19 @@ export function jstDayStartUtcIso(dateStr: string): string {
 }
 
 /**
+ * **epoch 秒** (DB 格納値) を JST 暦日 (YYYY-MM-DD) にする (#4632)。
+ *
+ * `new Date(x)` は x を **ミリ秒**として解釈するため、秒値をそのまま渡すと 1970 年になる
+ * (実害: 子供の交換履歴が全件「1月22日（木）」と表示された)。DB は `requested_at` /
+ * `resolved_at` を epoch 秒で持ち、UI は ISO 文字列 / Date / epoch 秒が混在するため、
+ * **秒を受ける入口を専用関数に分けて呼び分けを型と名前で強制する**。
+ * ミリ秒を持っているなら `toJSTDateString(new Date(ms))` を使う。
+ */
+export function jstDateOfEpochSeconds(epochSeconds: number): string {
+	return toJSTDateString(new Date(epochSeconds * 1000));
+}
+
+/**
  * JST 基準の年 / 月 (月は 1-12) を返す。
  * `now.getFullYear()` / `now.getMonth() + 1` の置換先。
  */

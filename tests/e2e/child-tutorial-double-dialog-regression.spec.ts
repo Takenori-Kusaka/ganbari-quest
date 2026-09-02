@@ -16,6 +16,8 @@
 // 実行: npx playwright test tests/e2e/child-tutorial-double-dialog-regression.spec.ts
 
 import { expect, type Page, test } from '@playwright/test';
+// #4652: 終了確認のボタン文言は年齢帯 variant (preschool / elementary = ひらがな)。labels SSOT から引く。
+import { getChildTutorialLabels } from '../../src/lib/domain/labels';
 
 const MODES = ['preschool', 'elementary', 'junior', 'senior'] as const;
 
@@ -188,8 +190,10 @@ test.describe('#2393 / #2105 子供画面ガイドモード二重ダイアログ
 
 			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
 
-			// 「続ける」(キャンセル) クリック
-			const cancelBtn = exitDlg.locator('button:has-text("続ける")');
+			// 「続ける」(キャンセル) クリック (#4652: 年齢帯 variant の文言)
+			const cancelBtn = exitDlg
+				.locator(`button:has-text("${getChildTutorialLabels(uiMode).dialog.exitConfirmCancel}")`)
+				.first();
 			await expect(cancelBtn).toBeVisible();
 			await cancelBtn.click();
 
@@ -213,8 +217,10 @@ test.describe('#2393 / #2105 子供画面ガイドモード二重ダイアログ
 
 			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
 
-			// 「終了する」(確定) クリック
-			const confirmBtn = exitDlg.locator('button:has-text("終了する")');
+			// 「終了する」(確定) クリック (#4652: 年齢帯 variant の文言)
+			const confirmBtn = exitDlg
+				.locator(`button:has-text("${getChildTutorialLabels(uiMode).dialog.exitConfirmConfirm}")`)
+				.first();
 			await expect(confirmBtn).toBeVisible();
 			await confirmBtn.click();
 
