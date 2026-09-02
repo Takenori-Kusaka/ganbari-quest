@@ -17,15 +17,19 @@
 // 「がんばり証明書 N 枚」が表示される。
 
 import { expect, test } from '@playwright/test';
+import { GROWTH_BOOK_TERMS } from '../../../src/lib/domain/terms';
 
 test.describe('Demo Lambda /admin/growth-book 500 修正 (#2262)', () => {
-	test('未指定 (?childId なし) で 200 / 「成長記録」見出しが表示される', async ({ page }) => {
+	test('未指定 (?childId なし) で 200 / 画面名の見出しが表示される', async ({ page }) => {
 		const res = await page.goto('/admin/growth-book');
 		expect(res?.status()).toBeLessThan(400);
 		await expect(page).toHaveURL(/\/admin\/growth-book/);
-		// page.svelte: <h2>📖 成長記録ブック</h2> (GROWTH_BOOK_LABELS.pageHeading)。
-		// チュートリアル / フィードバック等 dialog の h2 と混ざるため role+name で一意特定する。
-		await expect(page.getByRole('heading', { level: 2, name: /成長記録/ })).toBeVisible();
+		// page.svelte: <h2>📖 {GROWTH_BOOK_TERMS.full}</h2> (GROWTH_BOOK_LABELS.pageHeading)。
+		// #4654 (B8) / #4670 (F2): 画面名を atom に統一したため、SSOT から期待値を引く
+		// (「成長記録」直書きだと呼称統一で silent に外れる)。dialog の h2 と混ざるため role+name で一意特定する。
+		await expect(
+			page.getByRole('heading', { level: 2, name: new RegExp(GROWTH_BOOK_TERMS.full) }),
+		).toBeVisible();
 	});
 
 	test('?childId=903 (elementary けんた) で 200 / 証明書 4 件が反映される', async ({ page }) => {

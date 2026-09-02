@@ -382,6 +382,7 @@ Oyakagi
 OYAKAGI
 Paraglide
 PATHCONV
+pchar
 PERS
 pglite
 PHASEB

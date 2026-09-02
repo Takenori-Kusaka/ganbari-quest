@@ -1155,44 +1155,25 @@ export const OSS_LICENSE_TERMS = {
 // 設計指針:
 //   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
 //   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
-//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661)
+//   - digitRange : '4桁'             (桁数。値は constants/oyakagi.ts の PIN_LENGTH が SSOT、#4661 / #4698)
 //
-// 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
+// 参照: docs/DESIGN.md §6 / Issue #2353 / #4698 / ADR-0045
 
 export const OYAKAGI_TERMS = {
 	name: 'おやカギコード',
 	shortName: 'おやカギ',
 	/**
-	 * 桁数の表示文字列 (#4661 / #4662)。判定に使う `PIN_LENGTH` から導出するため、
+	 * 桁数の表示文字列 (#4661 / #4662 / #4698)。判定に使う `PIN_LENGTH` から導出するため、
 	 * 桁数を変えると入力ラベル・エラー文・ページガイドが同時に追従する
 	 * (以前は 4 / 4〜6 / 4〜8 の 3 表記に割れ、実際に打てるのは 4 桁だけだった)。
 	 */
 	digitRange: `${PIN_LENGTH}桁`,
 } as const;
 
-// ============================================================
-// PIN_DEFAULT_TERMS — 初期 PIN 表示用 atom (#2353 設計欠陥 5 関連)
-// ============================================================
-//
-// #2353 設計欠陥 5: PIN modal に「初期値は 5086（がんばり）です」を表示すると
-// 子供が見て即入力できる脆弱性。gate modal では非表示が PO 確定方針。
-//
-// #2992 (EPIC #2990) で parent-gate 経路は「初回は新規作成」フローになり既定 PIN の
-// 事前伝達自体が不要化。setup 完了画面 / onboarding dialog の案内も作成フロー型
-// (SETUP_COMPLETE_LABELS.pinHintSuffix / PIN_GATE_ONBOARDING_LABELS.dialogPinHint) に置換済。
-// 本 atom の現役利用は legacy local 経路 (changePin の現コード = DEFAULT_PIN 照合、#1360 互換)
-// を案内する PIN 変更画面 (OYAKAGI_LABELS.defaultValueHint) のみ。
-// 値そのものは src/lib/domain/constants/oyakagi.ts の DEFAULT_PIN (= '5086') を SSOT とし、
-// 本 atom は表示用の文字列だけ。
-//
-// 設計指針:
-//   - hintFull       : '初期値は 5086（がんばり）です'  (PIN 変更画面 = legacy local 文脈用)
-//   - hintCompact    : '初期 5086（がんばり）'           (短縮版、checklist 等向け)
-
-export const PIN_DEFAULT_TERMS = {
-	hintFull: '初期値は 5086（がんばり）です',
-	hintCompact: '初期 5086（がんばり）',
-} as const;
+// #4698: 旧 PIN_DEFAULT_TERMS (「初期値は 5086（がんばり）です」) は撤去。#2992 以降は初回に
+// 親ゲートで新規作成するため既定 5086 は存在せず、設定画面 / ページガイド / チュートリアルに
+// 残っていた案内は誤案内 (5086 を入れても「現在のおやカギコードが正しくありません」) だった。
+// 忘れた場合の導線は OYAKAGI_LABELS.forgotHint* (メール OTP / 運用者向け手順) が担う。
 
 // ============================================================
 // CONCEPT_ICONS — システム概念 → 絵文字アイコンの SSOT atom (#2899)
@@ -1271,6 +1252,40 @@ export const ADD_MENU_TERMS = {
 	/** 活動管理固有 (兄弟共通化) */
 	copyFromChild: `別の${CHILD_TERMS.honorific}からコピー`,
 	bulk: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+} as const;
+
+// ============================================================
+// MARKETPLACE_TYPE_TERMS — marketplace 5 type の表示名 atom (#4511)
+// ============================================================
+//
+// 同じ 5 type の名前が 3 箇所に別々の文字列で書かれていた (origin/main 実測):
+//   - MARKETPLACE_TYPE_LABELS (marketplace top の type カード): 活動セット / …
+//   - registry displayLabel   (UnifiedImportHub タブ):          活動セット / …
+//   - MARKETPLACE_LABELS.tabs (marketplace 一覧タブ):           アクティビティ集 /
+//     ごほうび集 / 持ち物リスト / ルール集
+// DESIGN.md §6「marketplace type 命名規則」は上 2 つの一致だけを定めていたため、
+// 3 つ目 (tabs) がその外側でズレ続けていた。値を atom に集約し、複製を作らせない。
+//
+// 値は既存の一致している 2 SSOT (MARKETPLACE_TYPE_LABELS / registry displayLabel) を
+// 採る。DESIGN.md §10「リソース名は単独名詞 (「持ち物」等の限定語を付けない)」に整合
+// する側であり、checklist は持ち物専用ではない (朝の準備 / 帰宅後の手順など) ため、
+// 限定語付きの「持ち物リスト」「もちものチェック集」は採らない。
+//
+// ※ 子供画面の実名称 (もちもの / もちものチェック / 持ち物チェック、icons.ts が SSOT)
+//    とは別物。取込説明文が子供画面名を引用するのは正しく、本 atom の管轄外。
+//
+// ※ 配置が terms.ts である理由: labels.ts ← marketplace-item.ts の import が既にあり
+//    (AGE_TIER_LABELS)、labels.ts から MARKETPLACE_TYPE_LABELS を直接 import すると
+//    循環参照になる (marketplace-item.ts 側は top-level で AGE_TIER_LABELS を評価する
+//    ため、読み込み順によっては TDZ で落ちる)。両者が既に依存している terms.ts に
+//    atom を置き、双方が参照する形にする (ADR-0045 の atom / compound 責務分離)。
+
+export const MARKETPLACE_TYPE_TERMS = {
+	activityPack: '活動セット',
+	rewardSet: 'ごほうびセット',
+	checklist: 'チェックリスト',
+	rulePreset: 'とくべつルール',
+	challengeSet: 'チャレンジ集',
 } as const;
 
 // ============================================================
@@ -1567,6 +1582,25 @@ export const DELETION_GRACE_TERMS = {
 	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
 	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
+} as const;
+
+// ============================================================
+// DEMO_SITE_TERMS — デモ環境の URL atom (#4511)
+// ============================================================
+//
+// デモは #2181 で demo.ganbari-quest.com へ移設した。LP 側の CTA は切り替わったが
+// **marketplace だけ旧 `/demo` のまま**残り、legacy redirect → `/` → 未認証は
+// `/auth/login` という死に導線になっていた (「デモを体験」と表示してログイン画面へ誘導)。
+//
+// URL が複数箇所に literal で散っていると、移設のたびに同じ取りこぼしが起きる。
+// 表示側は必ず本 atom を参照する。
+//
+// **www. canonical を使う理由** (#2261): LP は www. で配信されており、apex 経由だと
+// 301 が挟まって UX が劣化する。デモは demo. サブドメインなのでそのまま。
+
+export const DEMO_SITE_TERMS = {
+	/** デモ環境のトップ (末尾スラッシュ込み) */
+	url: 'https://demo.ganbari-quest.com/',
 } as const;
 
 // ============================================================

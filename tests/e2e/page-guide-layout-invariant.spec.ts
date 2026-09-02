@@ -68,6 +68,10 @@ const VIEWPORTS = [
 const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	Record<(typeof ADMIN_GUIDE_PAGES)[number], readonly string[]>
 > = {
+	// #4653: 上部カード / こども一覧 / 子供画面へ切替 は常設。承認待ちバナー (申請 0 件で消える) /
+	// 今月のがんばり / viewport 別 nav (desktop=nav-desktop, mobile=nav-primary) は optional のため
+	// 列挙しない (どちらが残るかは viewport 依存。残った側が実要素に当たることは optional filter が担保)
+	'/admin': ['home-summary', 'home-children', 'home-switch'],
 	// #4668: plan=family + Stripe 無効 → トライアル (optional) / プラン管理 (requiredStripe) は出ない
 	'/admin/subscription': [
 		'subscription-current-plan',

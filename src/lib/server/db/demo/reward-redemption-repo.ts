@@ -97,6 +97,7 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
+	_options?: { expectedStatus?: string },
 ): Promise<RedemptionRequestRow | undefined> {
 	return undefined;
 }

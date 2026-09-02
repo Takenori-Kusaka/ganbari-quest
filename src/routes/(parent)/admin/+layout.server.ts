@@ -73,16 +73,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
-		getSettings(
-			[
-				'point_unit_mode',
-				'point_currency',
-				'point_rate',
-				'tutorial_started_at',
-				'tutorial_banner_dismissed',
-			],
-			tenantId,
-		),
+		getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
 		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
 		getTrialStatus(tenantId, licenseStatus),
 	]);
@@ -97,10 +88,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
 	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
-	const tutorialStarted = !!(
-		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
-	);
-
 	const userRole = locals.context?.role ?? 'owner';
 
 	// #770: トライアル終了検知 — cookie で前回の trial 状態を記憶し、
@@ -197,7 +184,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		tenantStatus,
 		isPremium,
 		planTier,
-		tutorialStarted,
 		userRole,
 		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
 		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
