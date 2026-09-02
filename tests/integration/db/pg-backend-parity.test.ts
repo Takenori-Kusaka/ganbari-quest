@@ -65,9 +65,22 @@ describe('#4719 pg-core backend parity (PGlite 実 migration)', () => {
 		const ended = await svc.endUsageSession(started?.id ?? '', TENANT);
 		expect(ended?.durationSec).toBeGreaterThanOrEqual(599);
 
-		const today = await svc.getTodayUsageSummary(TENANT, [{ id: childId, nickname: 'ぱりてぃ' }]);
-		expect(today[0]?.durationMin).toBe(10);
+		// 「今日」の集計は **JST 暦日**で切られる (#4127)。`now() - 10 分` を開始時刻にしているので、
+		// JST 00:00〜00:10 に実行すると開始時刻が前日に落ちて today が 0 分になる
+		// (CI が 15:07 UTC = 前日 23:07 JST を作って実際に落ちた)。
+		// 集計そのものの検証は週次 (7 日ぶん = 境界に依らない) で厳密に行い、
+		// today は **開始時刻が JST で今日かどうか**から期待値を決める。
+		const { todayDateJST, toJSTDateString } = await import('../../../src/lib/domain/date-utils');
+		const startedAtJstDate = toJSTDateString(new Date(Date.now() - 10 * 60 * 1000));
+		const expectedTodayMin = startedAtJstDate === todayDateJST() ? 10 : 0;
 
+		const today = await svc.getTodayUsageSummary(TENANT, [{ id: childId, nickname: 'ぱりてぃ' }]);
+		expect(today[0]?.durationMin, `JST ${startedAtJstDate} 開始のセッション`).toBe(
+			expectedTodayMin,
+		);
+
+		// 週次は 7 日ぶんを合算するので JST 日境界に依らず 10 分が入っていること
+		// (旧実装は pg で表未作成 → WARN + 0 分だったので、ここが 0 なら本来の欠陥)。
 		const weekly = await svc.getWeeklyUsageSummary(TENANT, childId);
 		expect(weekly).toHaveLength(7);
 		expect(weekly.reduce((s, e) => s + e.durationMin, 0)).toBe(10);
