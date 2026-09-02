@@ -164,7 +164,11 @@ export function jstDayStartUtcIso(dateStr: string): string {
  * この取り違えは 2 通りの実害を出した:
  * - 表示 (#4632): 子供の交換履歴の日付が全件「1月22日（木）」になった
  * - 保持期間 (#4688): cutoff と比較する経路でやると全件が cutoff より古い判定になり、
- *   無料プランで**交換履歴が丸ごと消える** (ADR-0049 の表示フィルタ層)
+ *   無料プランで**交換履歴が丸ごと消える**
+ *   (ADR-0049 は retention を「表示フィルタ + 物理削除」の二層と定めており、
+ *    `reward_redemption_requests` は §拡張削除対象テーブル の **P0 = 物理削除対象**。
+ *    物理削除関数の追加は同 ADR §実装方針で別フォローとされているため、現状は表示側の
+ *    フィルタだけが効いている — 「表示フィルタ層が正仕様」という意味ではない)
  */
 export function jstDateOfEpochSeconds(epochSeconds: number): string {
 	return toJSTDateString(new Date(epochSeconds * 1000));
