@@ -53,6 +53,12 @@ jobs:
           ref: develop
           # PR 発行は後段で App install トークンを使う。checkout は既定 token で十分。
           token: ${{ secrets.GITHUB_TOKEN }}
+          # 既定 (true) だと GITHUB_TOKEN が .git/config の http.extraheader に残り、後段の
+          # `git push "https://x-access-token:<App token>@…"` でも extraheader が優先されて
+          # github-actions[bot] (contents: read) として push → 403 になる (#4536 導入以来 1 度も
+          # 成功していなかった、2026-09-03 実測)。以降の step は local の git status と App token の
+          # gh / git push しか使わないので、checkout の資格情報は残さない。
+          persist-credentials: false
 
       - uses: actions/setup-python@v7
         with:
