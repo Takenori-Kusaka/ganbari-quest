@@ -41,6 +41,19 @@ export const GET: RequestHandler = async ({ cookies, locals, url }) => {
 		redirect(302, target);
 	}
 
+	// #4702 (QM #4748): `/auth` 配下は isPublicRoute で全ロール allowed になるため、ここでロールを見る。
+	// 世帯の課金状態を変える操作は owner にしか許さない (Google 連携の child / 招待で合流した parent が
+	// ?plan= 付きで Google ログインしても、世帯の 1 回限りのトライアルを消費させない)。
+	// callback 側で「初回 provisioning のときだけ本 route へ来る」ようにしているので、通常は
+	// 新規テナントの作成者 (owner) だけがここに到達する。二重防御。
+	const role = locals.context?.role;
+	if (role !== 'owner') {
+		cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
+		logger.warn('[SIGNUP] Trial auto-start skipped — non-owner role (Google signup flow)', {
+			context: { tenantId, role: role ?? null, planInterest },
+		});
+		redirect(302, target);
+	}
 	// ここから先は「開始を試みた」ので cookie を落とす (冪等。多重開始は startTrial 側も拒否する)
 	cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
 

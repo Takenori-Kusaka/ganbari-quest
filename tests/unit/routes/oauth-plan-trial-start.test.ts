@@ -21,6 +21,25 @@ vi.mock('$lib/server/auth/providers/cognito-oauth', () => ({
 	setRefreshCookie: vi.fn(),
 	verifyOAuthState: mockVerifyOAuthState,
 }));
+// #4702 (QM #4748): callback は「このログインで初めてアカウントが作られる」ときだけ trial-start へ回す。
+// 本 file は plan cookie の往復と trial-start 本体を見るため、identity あり + 既存アカウント無しで固定する。
+vi.mock('$lib/server/auth/factory', () => ({
+	getAuthProvider: () => ({
+		resolveIdentity: vi.fn(async () => ({
+			type: 'cognito',
+			userId: 'sub-1',
+			email: 'new-parent@example.com',
+			role: 'owner',
+		})),
+	}),
+}));
+vi.mock('$lib/server/auth/post-login-landing', () => ({
+	resolvePostLoginLanding: vi.fn(async (_e: unknown, _i: unknown, path: string) => path),
+}));
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({ auth: { findUserByEmail: vi.fn(async () => null) } }),
+}));
+
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
@@ -136,7 +155,10 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 		const search = opts.next ? `?next=${encodeURIComponent(opts.next)}` : '';
 		return {
 			cookies: cookieJar.cookies,
-			locals: opts.tenantId === null ? {} : { context: { tenantId: opts.tenantId ?? 't-1' } },
+			locals:
+				opts.tenantId === null
+					? {}
+					: { context: { tenantId: opts.tenantId ?? 't-1', role: 'owner' } },
 			url: new URL(`http://localhost/auth/oauth/trial-start${search}`),
 		} as never;
 	}
