@@ -1,6 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { SETTINGS_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import CloudExportStoredList from './CloudExportStoredList.svelte';
 
@@ -63,17 +63,21 @@ const rows = [
 	},
 ];
 
+// 既存 stories (AdminResourceHeader / DowngradeResourceSelector) と同じく module-level spy を使う。
+const deleteSpy = fn();
+
 const { Story } = defineMeta({
 	title: 'Admin/CloudExportStoredList',
 	component: CloudExportStoredList,
 	tags: ['autodocs'],
-	args: { exports: rows, deletingId: null, onDelete: fn() },
+	args: { exports: rows, deletingId: null, onDelete: deleteSpy },
 });
 </script>
 
 <Story
 	name="AllStates"
-	play={async ({ canvasElement, args }) => {
+	play={async ({ canvasElement }) => {
+		deleteSpy.mockClear();
 		const canvas = within(canvasElement);
 		await expect(canvas.getByTestId('cloud-export-stored-list')).toBeVisible();
 		// 5 状態すべてが枠を占有する行として並ぶ (使い切り / 失敗も落とさない)
@@ -101,7 +105,7 @@ const { Story } = defineMeta({
 		await expect(canvas.getAllByRole('button', { name: SETTINGS_LABELS.cloudStoredDelete })).toHaveLength(5);
 		// 操作 → 結果: 使い切り行の削除を押すと id 付きで callback が呼ばれる
 		await userEvent.click(canvas.getByTestId('cloud-export-delete-exhausted'));
-		await expect(args.onDelete).toHaveBeenCalledWith('exhausted');
+		await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith('exhausted'));
 	}}
 />
 
