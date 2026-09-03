@@ -39,6 +39,32 @@ describe('#4716 子供向け失敗文言の年齢モード出し分け', () => {
 		}
 	});
 
+	// adv-4802: 旧 6 key の列挙だと後から足した key が guard 外になる。全 key を走査する
+	// (関数値は代表引数で評価)。
+	function renderAll(labels: ReturnType<typeof getChildActionErrorLabels>): [string, string][] {
+		return Object.entries(labels).map(([key, v]) => [
+			key,
+			typeof v === 'function' ? String((v as (...a: number[]) => string)(1, 10)) : String(v),
+		]);
+	}
+
+	it('preschool / elementary は全 key が漢字を含まない', () => {
+		for (const mode of ['preschool', 'elementary']) {
+			for (const [key, text] of renderAll(getChildActionErrorLabels(mode))) {
+				expect(isHiraganaOnly(text), `${mode}.${key}: ${text}`).toBe(true);
+			}
+		}
+	});
+
+	it('junior / senior は全 key が漢字を含む (ひらがな側と同文にならない)', () => {
+		const kana = new Map(renderAll(getChildActionErrorLabels('preschool')));
+		for (const mode of ['junior', 'senior']) {
+			for (const [key, text] of renderAll(getChildActionErrorLabels(mode))) {
+				expect(text, `${mode}.${key} がひらがな側と同文`).not.toBe(kana.get(key));
+			}
+		}
+	});
+
 	it('key の集合は年齢モードで一致する (片方だけ増えて未定義になるのを防ぐ)', () => {
 		const kanaKeys = Object.keys(getChildActionErrorLabels('preschool')).sort();
 		const kanjiKeys = Object.keys(getChildActionErrorLabels('senior')).sort();

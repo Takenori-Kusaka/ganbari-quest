@@ -39,7 +39,7 @@ export const actions: Actions = {
 		if ('error' in result) {
 			if (result.error === 'INVALID_AMOUNT')
 				return fail(400, { error: childErrors(params).pointsOutOfRange(1, 10000) });
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return { success: true, balance: result.balance };

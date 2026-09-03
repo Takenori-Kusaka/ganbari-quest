@@ -3386,6 +3386,11 @@ export const CHILD_ACTION_ERROR_LABELS = {
 	bonusAlreadyReceived: 'もうもらったよ',
 	noBirthdayBonus: 'おたんじょうびボーナスはありません',
 	bonusClaimFailed: 'ボーナスをもらえませんでした',
+	// チャレンジのごほうび受け取り (claimChildChallengeReward の code に 1:1)
+	challengeNotFound: 'その チャレンジが みつからなかったよ',
+	challengeWrongChild: 'この チャレンジは きみの ものじゃないよ',
+	challengeNotCompleted: 'まだ クリアしていないよ',
+	challengeAlreadyClaimed: 'もう うけとったよ',
 } as const;
 
 /**
@@ -3418,6 +3423,10 @@ const CHILD_ACTION_ERROR_LABELS_KANJI = {
 	bonusAlreadyReceived: '受け取り済みです',
 	noBirthdayBonus: '誕生日ボーナスはありません',
 	bonusClaimFailed: 'ボーナスを受け取れませんでした',
+	challengeNotFound: 'そのチャレンジが見つかりませんでした',
+	challengeWrongChild: 'このチャレンジはあなたのものではありません',
+	challengeNotCompleted: 'まだクリアしていません',
+	challengeAlreadyClaimed: 'すでに受け取り済みです',
 } as const;
 
 /**

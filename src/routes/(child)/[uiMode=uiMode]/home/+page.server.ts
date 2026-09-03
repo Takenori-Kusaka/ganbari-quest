@@ -31,6 +31,7 @@ import {
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 // #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service 撤去済 (2026-05-19)
 // #2458-B: sibling-challenge-service (legacy family-wide) → child-challenge-service (per-child instance) 移行
+import type { ChallengeClaimErrorCode } from '$lib/server/services/child-challenge-service';
 import {
 	claimChildChallengeReward,
 	getActiveChildChallengesWithSiblings,
@@ -673,7 +674,9 @@ export const actions: Actions = {
 			// #2458-B: per-child instance ごとに claim (旧 sibling-challenge service の family scope claim から flip)
 			const result = await claimChildChallengeReward(challengeId, childId, tenantId);
 			if ('error' in result) {
-				return fail(400, { error: result.error });
+				// #4716 (QM #4802): service の文言 (保護者向けの漢字 + 「お子さま」) を 4 歳に素通ししない。
+				// code から年齢帯の文言に解決する
+				return fail(400, { error: challengeClaimErrorLabel(childErrors(params), result.code) });
 			}
 			return {
 				success: true,
@@ -746,3 +749,17 @@ export const actions: Actions = {
 
 	// #2295 (EPIC #2294 ①): claimMonthlyReward action 削除済 (2026-05-19)
 };
+
+/** claimChildChallengeReward の失敗 code → 年齢帯の子供向け文言 (網羅は Record で型強制)。 */
+function challengeClaimErrorLabel(
+	labels: ReturnType<typeof getChildActionErrorLabels>,
+	code: ChallengeClaimErrorCode,
+): string {
+	const byCode: Record<ChallengeClaimErrorCode, string> = {
+		NOT_FOUND: labels.challengeNotFound,
+		WRONG_CHILD: labels.challengeWrongChild,
+		NOT_COMPLETED: labels.challengeNotCompleted,
+		ALREADY_CLAIMED: labels.challengeAlreadyClaimed,
+	};
+	return byCode[code];
+}
