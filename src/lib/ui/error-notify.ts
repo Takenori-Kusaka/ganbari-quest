@@ -132,6 +132,62 @@ export function resolveApiErrorMessage(
 	return labels.generic;
 }
 
+/**
+ * ADR-0062 の「種別 × 通知手段」を client 側で決めるための 2 値。server の error body
+ * (`apiError` が載せる `severity` / `action`) と同じ語彙で、`ErrorAlert` の props に直結する。
+ */
+export type ApiErrorSeverity = 'info' | 'warning' | 'error';
+export type ApiErrorAction = 'retry' | 'fix_input' | 'contact_admin' | 'none';
+
+export interface ApiErrorDisplay {
+	/** 画面に出す文言 (`resolveApiErrorMessage` と同じ規律で無害化済) */
+	message: string;
+	severity: ApiErrorSeverity;
+	/** 顧客が次に取るべき行動。`ErrorAlert` がこの値で案内文 / 再試行ボタンを出し分ける */
+	action: ApiErrorAction;
+}
+
+/** 呼び出し側が server の指定を得られなかったときに使う既定値 (従来の hardcode 値を渡す)。 */
+export interface ApiErrorDisplayFallback {
+	severity: ApiErrorSeverity;
+	action: ApiErrorAction;
+}
+
+const DEFAULT_DISPLAY_FALLBACK: ApiErrorDisplayFallback = { severity: 'error', action: 'retry' };
+
+function isSeverity(v: unknown): v is ApiErrorSeverity {
+	return v === 'info' || v === 'warning' || v === 'error';
+}
+function isAction(v: unknown): v is ApiErrorAction {
+	return v === 'retry' || v === 'fix_input' || v === 'contact_admin' || v === 'none';
+}
+
+/**
+ * server の error body を `ErrorAlert` に渡す 3 props (message / severity / action) に解決する (#4752)。
+ *
+ * **なぜ severity / action を画面側で固定してはいけないか**: server は ADR-0062 の種別マッピングに従って
+ * 「どれくらい重大か」「顧客が次に何をすべきか」を決めている。画面がそれを無視して固定値を描くと、
+ * 例えば復元の自動復旧が半端に終わった 409 (`action: contact_admin` = 運営に連絡) を
+ * 「入力内容をご確認ください」(`fix_input`) と表示し、**顧客に誤った次の行動を促す** (#4752 実測)。
+ *
+ * 値は allowlist で検証する (server 由来の文字列をそのまま props に流さない)。body に指定が無い /
+ * 未知の値なら `fallback` (呼び出し側の従来値) に落ちるため、既存画面の挙動は変わらない。
+ */
+export function resolveApiErrorDisplay(
+	status: number,
+	errorBody: unknown,
+	opts?: { fallback?: ApiErrorDisplayFallback; labels?: ErrorNotifyLabelSet },
+): ApiErrorDisplay {
+	const fallback = opts?.fallback ?? DEFAULT_DISPLAY_FALLBACK;
+	const body = errorBody as { message?: unknown; severity?: unknown; action?: unknown } | null;
+	const serverMessage = typeof body?.message === 'string' ? body.message : '';
+	return {
+		message: resolveApiErrorMessage(status, serverMessage, opts?.labels ?? ERROR_NOTIFY_LABELS),
+		severity: isSeverity(body?.severity) ? body.severity : fallback.severity,
+		action: isAction(body?.action) ? body.action : fallback.action,
+	};
+}
+
 /** Response body から message / error フィールドを安全に取り出す (非 JSON は空文字)。 */
 async function extractServerMessage(res: Response): Promise<string> {
 	try {

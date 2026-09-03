@@ -3630,6 +3630,9 @@ export const PIN_GATE_ONBOARDING_LABELS = {
  * 家族データインポート機能のラベル SSOT (#1254)
  * エラーメッセージ、ダイアログ文言、スキップ理由など
  */
+// #4752: 自動復元まで失敗した半端な状態の顧客向け文言 (IMPORT_LABELS.errorReplaceRestoreFailed* の基底)。
+const REPLACE_RESTORE_FAILED_MESSAGE = `インポートに失敗し、元のデータへの自動復元も途中で止まりました。現在のデータは不完全な状態です。元のデータは復旧用${BACKUP_TERMS.canonical}として保存されているため、設定 > サポートから運営にご連絡ください。運営が復元します`;
+
 export const IMPORT_LABELS = {
 	// エラーメッセージ
 	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
@@ -3642,6 +3645,23 @@ export const IMPORT_LABELS = {
 	// API (import/+server.ts) と UI (settings/data の送信前 pre-check) の双方で共有する。
 	errorFileTooLargeCloudGuide: (maxMb: number | string) =>
 		`ファイルサイズが大きすぎます（最大${maxMb}MB）。大きな${BACKUP_TERMS.canonical}はクラウド共有（PINコード）経由で${BACKUP_TERMS.restoreVerb}してください`,
+
+	// #4752 (PO 回答 2026-09-03): 置換 (復元) 失敗時に顧客へ出す 3 文言。実際のデータ状態と一致させる
+	// (保全できていない状態に「保全されています」を出さない)。3 つとも error-notify の
+	// sanitizeServerMessage を素通りする (日本語のみ / 内部識別子・例外クラス名を含まない) ことを
+	// tests/integration/db/restore-compensation-failure-4752.test.ts が実測で固定する。
+	//   - 中止 + 旧データ復元済 (旧実装は末尾に生の例外文字列を連結しており、client 側 sanitize で
+	//     「入力内容をご確認ください」に落ちて保全の事実が顧客に届かなかった)
+	errorReplaceAbortedPreserved:
+		'インポートに失敗したため中止しました（既存データは保全されています）',
+	//   - 置換前 snapshot を取れず未開始 (旧データ無傷)
+	errorReplaceSnapshotFailed: '置換前のバックアップ取得に失敗したため、安全のため中止しました',
+	//   - 自動復元も途中で止まった (半端な状態)。その旨 + 復旧手段 (運営連絡 + 復旧コード) を必ず出す。
+	//     recoveryCode は storage の復旧用 ZIP を運営が特定するための短い参照 (tenant id や storage key
+	//     そのものは出さない = info-disclosure 回避 + client sanitize の長 ID 検出に掛からない)
+	errorReplaceRestoreFailed: REPLACE_RESTORE_FAILED_MESSAGE,
+	errorReplaceRestoreFailedWithCode: (recoveryCode: string) =>
+		`${REPLACE_RESTORE_FAILED_MESSAGE}（復旧コード: ${recoveryCode}）`,
 
 	// 事前確認ダイアログ
 	previewDialogTitle: 'インポート内容の確認',

@@ -15,12 +15,8 @@ import {
 	validateExportData,
 	verifyChecksum,
 } from '$lib/server/services/import-service';
-import {
-	AtomicReplaceError,
-	ReplaceRestoreFailedError,
-	ReplaceSnapshotError,
-	replaceImportAtomic,
-} from '$lib/server/services/replace-import-service';
+import { replaceImportErrorResponse } from '$lib/server/services/replace-import-response';
+import { replaceImportAtomic } from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
 
 /**
@@ -138,25 +134,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			});
 			return json({ ok: true, result });
 		} catch (err) {
-			if (err instanceof AtomicReplaceError) {
-				// 原子境界を中止し旧データを保全済。インポート失敗の旨を返す。
-				logger.error('[import] 置換インポート中止 (既存データ保全)', {
-					context: { errors: err.result.errors.slice(0, 3) },
-				});
-				return apiError(
-					'VALIDATION_ERROR',
-					`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
-				);
-			}
-			if (err instanceof ReplaceSnapshotError || err instanceof ReplaceRestoreFailedError) {
-				// #4720 pg 系: snapshot 取得失敗 (置換未開始、旧データ無傷) / 復元失敗 (手動復旧が必要) は
-				// 「保全されています」と言わず実態の文言を返す。
-				logger.error('[import] 置換インポート失敗 (pg snapshot 経路)', {
-					error: String(err),
-					context: { kind: err.name },
-				});
-				return apiError('INTERNAL_ERROR', err.message);
-			}
+			// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
+			const mapped = replaceImportErrorResponse(err, '[import]');
+			if (mapped) return mapped;
 			logger.error('[import] 置換インポート失敗', { error: String(err) });
 			return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 		}

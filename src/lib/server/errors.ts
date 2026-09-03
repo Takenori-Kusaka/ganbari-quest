@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import { IMPORT_LABELS, PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -18,6 +18,7 @@ export type ErrorCode =
 	| 'PLAN_LIMIT_EXCEEDED'
 	| 'EXPORT_NOT_READY'
 	| 'EXPORT_FAILED'
+	| 'IMPORT_RESTORE_FAILED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -110,6 +111,18 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		userMessage: SETTINGS_LABELS.cloudImportBuildFailed,
 		severity: 'error',
 		action: 'none',
+	},
+	// #4752 (PO 回答 2026-09-03 条件 2): 置換インポートが失敗し、旧データへの自動復元も途中で止まった
+	// (半端な状態)。500 にすると client (error-notify, ADR-0062 §2) が body を捨てて「時間をおいて再度
+	// お試しください」だけを出し、半端な状態であることも復旧手段も顧客に届かない (再試行を促すのは
+	// 誤った回復行動)。EXPORT_FAILED (#4717) と同じ「状態起因 409」として文言を通し、次の行動を
+	// contact_admin (運営連絡) にする。message は route が復旧コード入り
+	// (IMPORT_LABELS.errorReplaceRestoreFailedWithCode) を渡す。
+	IMPORT_RESTORE_FAILED: {
+		status: 409,
+		userMessage: IMPORT_LABELS.errorReplaceRestoreFailed,
+		severity: 'error',
+		action: 'contact_admin',
 	},
 	INTERNAL_ERROR: {
 		status: 500,

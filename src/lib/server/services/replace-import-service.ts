@@ -23,6 +23,7 @@
 // SQLite startup 副作用を避けるため、SQLite 戦略内でのみ dynamic import する (data-service.ts と同方針)。
 
 import type { ExportData } from '$lib/domain/export-format';
+import { IMPORT_LABELS } from '$lib/domain/labels';
 import { resolveDbBackend } from '$lib/server/db/backend';
 import { logger } from '$lib/server/logger';
 import { recoveryPrefix } from '$lib/server/storage-keys';
@@ -50,7 +51,8 @@ export function resolveReplaceStrategy(dataSource?: string): ReplaceStrategy {
  */
 export class AtomicReplaceError extends Error {
 	constructor(readonly result: ImportResult) {
-		super('インポートにエラーが発生したため置換を中止しました（既存データは保全されています）');
+		// #4752: 顧客に出す文言は labels SSOT。取込失敗の内訳 (result.errors) は route が log にだけ残す。
+		super(IMPORT_LABELS.errorReplaceAbortedPreserved);
 		this.name = 'AtomicReplaceError';
 	}
 }
@@ -60,26 +62,46 @@ export class AtomicReplaceError extends Error {
  */
 export class ReplaceSnapshotError extends Error {
 	constructor(cause: unknown) {
-		super('置換前のバックアップ取得に失敗したため、安全のため中止しました', { cause });
+		super(IMPORT_LABELS.errorReplaceSnapshotFailed, { cause });
 		this.name = 'ReplaceSnapshotError';
 	}
 }
 
 /**
  * pg 系で import 失敗後の復元 (二次故障) まで失敗し、旧データが storage の snapshot にしか残っていない
- * ことを表す。呼び出し側は「保全されています」と言わず、手動復旧が必要な旨を返す。
+ * ことを表す。呼び出し側は「保全されています」と言わず、**半端な状態である旨 + 復旧手段** を顧客に返す
+ * (#4752 PO 回答 2026-09-03 条件 2)。
+ *
+ * - `recoveryKey`: storage 上の復旧用 ZIP の key (運営向け。log / Discord alert にのみ載せる)
+ * - `recoveryCode`: 顧客が運営に伝える短い参照 (ZIP 名の時刻部分)。tenant id / storage key は顧客に出さない。
+ *   **運営側の戻し方は `docs/runbooks/dsql-restore.md` §置換復元が半端に終わったとき に手順がある**
+ *   (顧客に見せる復旧コード → storage 上の ZIP の対応・保持期間・見つからないときの退路)
+ * - `message`: 顧客向け文言 (labels SSOT、復旧コード入り)。route は 409 `IMPORT_RESTORE_FAILED` で返す
+ *   (500 にすると client が文言を捨てて「時間をおいて再度お試しください」になる、ADR-0062 §2)
+ * - `cause`: 復元失敗の原因例外 (原因の連鎖を log に残す)
  */
 export class ReplaceRestoreFailedError extends Error {
+	readonly recoveryCode: string;
 	constructor(
 		readonly recoveryKey: string,
-		cause: unknown,
+		/** 復元 (補償) 自体を止めた例外。`cause` に載せる (二次故障の原因はこちら)。 */
+		restoreCause: unknown,
+		/** 復元の引き金になった元の取込失敗。原因の連鎖を保つため別 field で保持する。 */
+		readonly originalError?: unknown,
 	) {
-		super(
-			'インポートに失敗し、元のデータの自動復元にも失敗しました。運営に連絡してください（復旧用バックアップは保存されています）',
-			{ cause },
-		);
+		const recoveryCode = recoveryCodeFromKey(recoveryKey);
+		super(IMPORT_LABELS.errorReplaceRestoreFailedWithCode(recoveryCode), {
+			cause: restoreCause,
+		});
 		this.name = 'ReplaceRestoreFailedError';
+		this.recoveryCode = recoveryCode;
 	}
+}
+
+/** 復旧用 ZIP key `.../replace-import-<stamp>.zip` から顧客に伝える復旧コード (`<stamp>`) を取り出す。 */
+export function recoveryCodeFromKey(recoveryKey: string): string {
+	const m = /replace-import-([^/]+)\.zip$/.exec(recoveryKey);
+	return m?.[1] ?? recoveryKey.split('/').pop() ?? recoveryKey;
 }
 
 /**
@@ -161,7 +183,9 @@ async function runPgSnapshotProtected<T>(tenantId: string, work: () => Promise<T
 			context: { tenantId, recoveryKey: snapshot.key },
 		});
 		const restored = await restoreFromSnapshot(tenantId, snapshot, err);
-		if (!restored) throw new ReplaceRestoreFailedError(snapshot.key, err);
+		// #4752: 二次故障の cause は「復元を止めた例外」。旧実装は元の取込失敗を cause にしていたため、
+		// 復元がなぜ止まったのかが throw された error からは辿れなかった (log にしか残らなかった)。
+		if (!restored.ok) throw new ReplaceRestoreFailedError(snapshot.key, restored.error, err);
 		throw err;
 	}
 }
@@ -219,7 +243,7 @@ async function restoreFromSnapshot(
 	tenantId: string,
 	snapshot: RecoverySnapshot,
 	originalErr: unknown,
-): Promise<boolean> {
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
 	try {
 		await clearAllFamilyData(tenantId); // 部分投入された新データを除去
 		const restored = await importFamilyData(snapshot.data, tenantId, snapshot.staticFiles); // 旧データを復元
@@ -230,11 +254,16 @@ async function restoreFromSnapshot(
 			context: { tenantId, recoveryKey: snapshot.key },
 		});
 		await deleteRecoveryFile(snapshot.key);
-		return true;
+		return { ok: true };
 	} catch (restoreErr) {
 		logger.error('[replace-import] 復元失敗。永続化済 snapshot で手動復旧が必要', {
 			error: String(restoreErr),
-			context: { tenantId, recoveryKey: snapshot.key, originalError: String(originalErr) },
+			context: {
+				tenantId,
+				recoveryKey: snapshot.key,
+				recoveryCode: recoveryCodeFromKey(snapshot.key),
+				originalError: String(originalErr),
+			},
 		});
 		// #3520: 二次故障 (復元自体の失敗)。ログだけでは誰も気づかず家庭のデータが黙って失われうるため、
 		// この経路に限定してオペレータへ即時 Discord alert を送る (alert 失敗で本来の再送出を阻害しない)。
@@ -247,6 +276,6 @@ async function restoreFromSnapshot(
 		}).catch((alertErr) =>
 			logger.error('[replace-import] 二次故障 alert 送信失敗', { error: String(alertErr) }),
 		);
-		return false;
+		return { ok: false, error: restoreErr };
 	}
 }
