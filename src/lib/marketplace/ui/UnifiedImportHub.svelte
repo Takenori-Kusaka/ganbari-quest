@@ -299,7 +299,7 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 								}
 								const imported = Number(d.imported ?? 0);
 								const skipped = Number(d.skipped ?? 0);
-								const name = String(d.packName ?? 'ファイル');
+								const name = String(d.packName ?? UNIFIED_IMPORT_HUB_LABELS.fallbackImportedName);
 								const msg =
 									imported === 0 && skipped > 0
 										? UNIFIED_IMPORT_HUB_LABELS.resultAllDuplicates(name)

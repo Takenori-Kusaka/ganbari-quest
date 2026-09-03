@@ -1,7 +1,12 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
-import { APP_LABELS, FORGOT_PASSWORD_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	AUTH_FORM_LABELS,
+	FORGOT_PASSWORD_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { PASSWORD_RESET_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import GoogleAccountNotice from '$lib/ui/components/GoogleAccountNotice.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -124,7 +129,7 @@ $effect(() => {
 					{FORGOT_PASSWORD_LABELS.step2CodeExpiryPrefix}{PASSWORD_RESET_CODE_EXPIRY_MINUTES}{FORGOT_PASSWORD_LABELS.step2CodeExpirySuffix}
 				</p>
 
-				<FormField label="確認コード" id="code">
+				<FormField label={AUTH_FORM_LABELS.verificationCodeLabel} id="code">
 					{#snippet children()}
 						<input
 							id="code"
@@ -142,32 +147,36 @@ $effect(() => {
 				</FormField>
 
 				<FormField
-					label="新しいパスワード"
+					label={AUTH_FORM_LABELS.newPasswordLabel}
 					type="password"
 					id="newPassword"
 					name="newPassword"
 					bind:value={newPassword}
-					placeholder="8文字以上（大小英字・数字を含む）"
+					placeholder={AUTH_FORM_LABELS.newPasswordPlaceholder}
 					required
 					minlength={8}
 					autocomplete="new-password"
 					showToggle
-					hint="8文字以上、大文字・小文字・数字を含む"
+					hint={AUTH_FORM_LABELS.newPasswordHint}
 				/>
 
 				<FormField
-					label="新しいパスワード（確認）"
+					label={AUTH_FORM_LABELS.newPasswordConfirmLabel}
 					type="password"
 					id="newPasswordConfirm"
 					name="newPasswordConfirm"
 					bind:value={newPasswordConfirm}
-					placeholder="パスワードを再入力"
+					placeholder={AUTH_FORM_LABELS.newPasswordConfirmPlaceholder}
 					required
 					minlength={8}
 					autocomplete="new-password"
 					showToggle
-					error={newPasswordConfirm && newPassword !== newPasswordConfirm ? 'パスワードが一致しません' : undefined}
-					hint={newPasswordConfirm && newPassword === newPasswordConfirm ? 'パスワードが一致しました' : undefined}
+					error={newPasswordConfirm && newPassword !== newPasswordConfirm
+					? AUTH_FORM_LABELS.passwordMismatch
+					: undefined}
+					hint={newPasswordConfirm && newPassword === newPasswordConfirm
+					? AUTH_FORM_LABELS.passwordMatched
+					: undefined}
 				/>
 
 				<Button type="submit" disabled={loading || code.length < 1 || !newPassword || !newPasswordConfirm} size="md" class="w-full">
@@ -237,7 +246,7 @@ $effect(() => {
 				</p>
 
 				<FormField
-					label="メールアドレス"
+					label={AUTH_FORM_LABELS.emailLabel}
 					type="email"
 					id="email"
 					name="email"

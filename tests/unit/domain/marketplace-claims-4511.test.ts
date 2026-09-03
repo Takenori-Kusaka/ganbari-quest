@@ -16,8 +16,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { getModeLabels } from '../../../src/lib/domain/icons';
-import { MARKETPLACE_LABELS, NAV_ITEM_LABELS } from '../../../src/lib/domain/labels';
+import {
+	getChildNavModeLabels,
+	MARKETPLACE_LABELS,
+	NAV_ITEM_LABELS,
+} from '../../../src/lib/domain/labels';
 import { MARKETPLACE_TYPE_LABELS } from '../../../src/lib/domain/marketplace-item';
 import { DEMO_SITE_TERMS } from '../../../src/lib/domain/terms';
 import { MARKETPLACE_TYPE_METAS_CLIENT } from '../../../src/lib/marketplace/client-types';
@@ -140,12 +143,23 @@ describe('#4511 marketplace の導線と説明', () => {
 			expect(descLine, 'detailCtaImportChecklistDesc の定義行が見つかる').not.toBe('');
 			expect(descLine, '画面名を literal で複製しない').toContain('NAV_ITEM_LABELS.checklists');
 
-			// 子供画面の checklist 名 (icons.ts SSOT) も実在し続けていること。
-			// 年齢帯ごとに もちもの / もちものチェック / 持ち物チェック。
+			// 子供画面の checklist 名も実在し続けていること。
+			// #4715 で 3 表記 (もちものチェック / 持ち物チェック / もちもの) を「チェックリスト」に統一し、
+			// SSOT も icons.ts から labels.ts の getChildNavModeLabels() に移した。
+			// marketplace の説明文が引く親側 NAV_ITEM_LABELS.checklists と**同じ語**になったので、
+			// 「引用した画面名が子供画面にも実在する」ことを全年齢帯で pin する
+			// (旧 assertion は「もちものチェック が 1 モードにでもあること」しか見ておらず、
+			//  残り 4 モードが別表記でも通ってしまっていた)。
 			const actualNames = ['baby', 'preschool', 'elementary', 'junior', 'senior'].map(
-				(mode) => getModeLabels(mode).checklist,
+				(mode) => getChildNavModeLabels(mode).checklist,
 			);
-			expect(actualNames).toContain('もちものチェック');
+			// (a) 5 モードで表記が割れていない (旧 3 表記の再発を止める)
+			expect(new Set(actualNames).size, `子供画面の checklist 名が割れている: ${actualNames}`).toBe(
+				1,
+			);
+			// (b) 子供側の名前が、marketplace が引用する親側の画面名の語幹になっている
+			//     (親は管理画面なので「チェックリスト管理」、子供は一覧そのものなので「チェックリスト」)
+			expect(NAV_ITEM_LABELS.checklists).toContain(actualNames[0]);
 		});
 	});
 });
