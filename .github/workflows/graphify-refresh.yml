@@ -95,14 +95,39 @@ jobs:
       - name: Regenerate knowledge graph
         run: graphify update .
 
+      # fail-closed: `$lib` alias が解けていれば擬似 file node は 0 になる。1 件でも出たら
+      # 上の `svelte-kit sync` が効いていない (= 低忠実度 graph) ので、bot PR を発行せず落とす。
+      # これが無いと「edge が 22% 減った graph」を bot が黙って PR にし続ける (#4827 / #4830 / #4833)。
+      - name: Assert $lib alias resolved (擬似 node 0)
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("node:fs");
+            const g = JSON.parse(fs.readFileSync("graphify-out/graph.json", "utf8"));
+            const nodes = Array.isArray(g.nodes) ? g.nodes : [];
+            if (nodes.length === 0) throw new Error("graph.json に node がありません (生成に失敗)");
+            const FIELDS = ["source_file", "path", "id", "label"];
+            const pseudo = nodes.filter((n) => FIELDS.some((k) => String(n[k] ?? "").includes("$lib/")));
+            if (pseudo.length > 0) {
+              console.error("::error::$lib 擬似 node が " + pseudo.length + " 件あります (例: " + JSON.stringify(pseudo[0]).slice(0, 200) + ")。svelte-kit sync が効いておらず低忠実度の graph です。");
+              process.exit(1);
+            }
+            console.log("node " + nodes.length + " / $lib 擬似 node 0 — alias 解決 OK");
+          '
+
       - name: Detect graphify-out diff
         id: diff
         run: |
           set -euo pipefail
           # 差分は graph.json だけで判定する。manifest.json は file ごとの mtime (= checkout 時刻) を
           # 持つため毎 run 必ず変わり (実測 70% が mtime のみ)、GRAPH_REPORT.md は HEAD commit を
-          # 埋め込む。graph.json は同一ソースなら決定的 (adv-4826 / adv-4827 実測) なので、
-          # これが変わらない = 構造に変化なし。
+          # 埋め込む。
+          #
+          # graph.json が「同じソースなら変わらない」のは、graphify 自身が topology 同一と判定した
+          # ときに graph.json を書き直さないため (adv-4837 実測: 同一入力 2 回で node / edge 集合は
+          # 一致するが community 割当は非決定的で、書き直せば md5 は変わる)。**graph.json の中身が
+          # 決定的なのではない**。graphify の version を上げるときは、この短絡が残っているかを
+          # 手元で確認する (無くなると毎 push で空 PR が出る)。
           if ! git diff --quiet -- graphify-out/graph.json; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             git status --porcelain -- graphify-out
@@ -114,6 +139,21 @@ jobs:
       # ----------------------------------------------------------------------
       # 差分がある場合のみ、bot PR を発行する (App 認証情報が無ければ drift を通知)
       # ----------------------------------------------------------------------
+      # App install token を発行する前に、working tree が graphify-out 以外で汚れていないことを
+      # 確認する。本 job は token 発行の前に `npm ci` で 1300+ package を展開し `svelte-kit sync` /
+      # `graphify update` を走らせる (adv-4837 指摘)。--ignore-scripts で postinstall は止めているが、
+      # それ以外の経路で tree が書き換わったまま token を渡すと、後段の `git add graphify-out` /
+      # `gh` 実行に持ち込まれる。graphify-out 以外に変更があれば token を出さずに落とす。
+      - name: Assert working tree clean outside graphify-out
+        run: |
+          set -euo pipefail
+          DIRTY=$(git status --porcelain | grep -v '^.. graphify-out/' || true)
+          if [ -n "${DIRTY}" ]; then
+            echo "::error::graphify-out 以外に変更があります。App token を発行せず中止します:"
+            echo "${DIRTY}"
+            exit 1
+          fi
+
       - name: Verify GitHub App credentials presence
         id: appcreds
         if: steps.diff.outputs.changed == 'true'
