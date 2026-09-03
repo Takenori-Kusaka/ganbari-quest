@@ -218,10 +218,27 @@ export async function notifyApiError(res: Response, opts?: NotifyOpts): Promise<
  * `fail()` の失敗は HTTP status に現れないため `notifyApiError(res)` では拾えない。
  * 内部メッセージを露出せず、年齢帯に合った汎用文言だけを出す (ADR-0062)。
  */
-export function notifyActionFailure(opts?: NotifyOpts): ApiErrorResult {
+export function notifyActionFailure(
+	opts?: NotifyOpts & {
+		/**
+		 * server が `fail(4xx, { error })` で返した**顧客向けの拒否理由** (PR #4839)。
+		 *
+		 * 旧実装はこれを受け取らず常に `labels.generic` を出していた。そのため
+		 * 「おきにいりは 5こまでだよ」のように server が理由を知っている場合でも、
+		 * 子供には「うまく いかなかったよ」しか出ず、上限に達したことが伝わらなかった。
+		 *
+		 * 内部識別子 / 例外クラス名 / 過大 body は `sanitizeServerMessage` (ADR-0062 §2
+		 * echo hardening) が落として generic に倒すため、server 側が誤って内部文字列を
+		 * 載せても顧客には出ない。
+		 */
+		reason?: unknown;
+	},
+): ApiErrorResult {
 	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
-	showToast(opts?.toastTitle ?? labels.title, labels.generic, 'error');
-	return { shown: true, message: labels.generic, status: 0 };
+	const safeReason = sanitizeServerMessage(typeof opts?.reason === 'string' ? opts.reason : '');
+	const message = safeReason || labels.generic;
+	showToast(opts?.toastTitle ?? labels.title, message, 'error');
+	return { shown: true, message, status: 0 };
 }
 
 /**

@@ -3,7 +3,7 @@
 // read API が空 / write API が no-op であり、いずれも例外を投げないことを一括検証。
 
 import { describe, expect, it } from 'vitest';
-import { asActivityId, asChildId } from '$lib/domain/ids';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import * as accountLockoutRepo from '../../../../../src/lib/server/db/demo/account-lockout-repo';
 import * as activityMasteryRepo from '../../../../../src/lib/server/db/demo/activity-mastery-repo';
 import * as activityPrefRepo from '../../../../../src/lib/server/db/demo/activity-pref-repo';
@@ -65,6 +65,21 @@ describe('demo/activity-pref-repo', () => {
 	it('togglePin は ChildActivityPreference を返す (no-op)', async () => {
 		const r = await activityPrefRepo.togglePin(asChildId(902), asActivityId(1), true, 'demo');
 		expect(r.isPinned).toBe(1);
+	});
+
+	// PR #4839: ピン留め上限の到達可否 (SS 撮影可否の根拠)。
+	// `toggleActivityPin` service は `countPinnedInCategory(...) >= MAX_PINS_PER_CATEGORY` でのみ
+	// PIN_LIMIT_EXCEEDED を投げる。demo backend の count は **常に 0** で、togglePin も永続しないため、
+	// 何回ピン留めしても上限分岐に到達できない = 上限 toast は demo 環境では原理的に描画できない。
+	// (ここが 0 でなくなったら demo でも撮影できるようになったということなので、
+	//  PR body の ss-render-impossible 宣言を見直す。)
+	it('countPinnedInCategory は togglePin を何度呼んでも 0 のまま (上限分岐に到達できない)', async () => {
+		for (let i = 1; i <= 10; i++) {
+			await activityPrefRepo.togglePin(asChildId(902), asActivityId(i), true, 'demo');
+		}
+		expect(
+			await activityPrefRepo.countPinnedInCategory(asChildId(902), asCategoryId(1), 'demo'),
+		).toBe(0);
 	});
 });
 
