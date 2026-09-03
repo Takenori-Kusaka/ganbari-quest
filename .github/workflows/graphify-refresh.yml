@@ -165,6 +165,10 @@ jobs:
             echo "${DIRTY}"
             exit 1
           fi
+          # 成功時も無言にしない。特権 token を発行した時点の tree 状態を後から示せるようにする
+          # (監査証跡。何も出力しないと「検査が動いたのか」自体が log から分からない)
+          echo "working tree は graphify-out/ 以外に変更なし — App token 発行に進みます"
+          git status --porcelain -- graphify-out | sed 's/^/  /'
 
       - name: Verify GitHub App credentials presence
         id: appcreds
