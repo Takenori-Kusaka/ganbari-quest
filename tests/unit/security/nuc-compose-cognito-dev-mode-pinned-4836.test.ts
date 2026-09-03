@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 const compose = readFileSync(join(__dirname, '../../../docker-compose.yml'), 'utf8');
 const setupServer = readFileSync(join(__dirname, '../../../scripts/setup-server.sh'), 'utf8');
+const deployScript = readFileSync(join(__dirname, '../../../scripts/deploy.sh'), 'utf8');
 
 /** `services:` 直下の service block を切り出す (2 space indent の service 名 → 次の service 名の直前まで) */
 function serviceBlock(name: string): string {
@@ -40,6 +41,16 @@ describe('NUC compose は COGNITO_DEV_MODE を false に固定する (#4836)', (
 		const nodeLine = bat.findIndex((l) => /^node index\.js/.test(l));
 		expect(setLine, 'start.bat に `set COGNITO_DEV_MODE=false` が無い').toBeGreaterThanOrEqual(0);
 		expect(nodeLine).toBeGreaterThan(setLine);
+	});
+
+	it('deploy 経路 (deploy.sh の Start-Process) でも起動前に COGNITO_DEV_MODE=false を渡す', () => {
+		// deploy のたびにアプリを起動し直すのはこちら。start.bat (logon 自動起動) だけ固定しても
+		// deploy 直後のプロセスは素通りする (adv-4836 指摘)
+		const lines = deployScript.split('\n');
+		const setLine = lines.findIndex((l) => /env:COGNITO_DEV_MODE\s*=\s*'false'/.test(l));
+		const startLine = lines.findIndex((l) => /Start-Process -FilePath 'node'/.test(l));
+		expect(setLine, "deploy.sh に COGNITO_DEV_MODE = 'false' が無い").toBeGreaterThanOrEqual(0);
+		expect(startLine).toBeGreaterThan(setLine);
 	});
 
 	it('true / 変数展開 (ドル記号 + 波括弧) で上書き可能な形にはなっていない', () => {
