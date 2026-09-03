@@ -127,6 +127,7 @@
 # 𝗲𝘅𝗮𝗺𝗽𝗹𝗲 = Mathematical Sans-Serif Bold "example" (同上、Math Bold Sans variant)
 ABCDEFGHJKLMNPQRSTUVWXYZ
 ABCmouse
+PLANKEY
 achv
 ACHV
 ACTPREF
@@ -277,6 +278,7 @@ hamigaki
 hanako
 hanami
 haribote
+haspopup
 healthcheck
 hina
 hinamatsuri

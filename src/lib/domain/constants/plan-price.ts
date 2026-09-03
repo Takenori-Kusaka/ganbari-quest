@@ -67,6 +67,18 @@ export const PLAN_MRR_UNIT_YEN: Record<SubscriptionPlan, number> = Object.fromEn
 ) as Record<SubscriptionPlan, number>;
 
 /**
+ * 月次の経常収益を生むプランか (#4505)。
+ *
+ * 買い切り (lifetime) は MRR に寄与しないため false。**「単価が 0 円」と「経常収益の対象外」は
+ * 別の意味**であり、画面はこれを区別して描く必要がある (契約 0 件の月額プランは ¥0、
+ * 買い切りは「-」)。判定を課金周期表から導いておかないと、表示側が `mrr > 0` のような
+ * 代用条件を書き、契約 0 件の月額プランまで「-」になる。
+ */
+export function isRecurringPlan(plan: SubscriptionPlan): boolean {
+	return PLAN_BILLING_MONTHS[plan] !== null;
+}
+
+/**
  * 任意の plan 値 (DB 由来の文字列 / null) から MRR 単価を引く。
  *
  * 集計側は `tenant.plan` を `string | null` で扱うため、未知の値・未設定を 0 に落とす

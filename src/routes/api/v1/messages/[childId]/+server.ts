@@ -66,6 +66,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			return planLimitError(
 				'family',
 				PLAN_GATE_LABELS.familyOnlyFor(CHEER_LABELS.freeTextFeatureName),
+				{ tenantId, tier },
 			);
 		}
 	}

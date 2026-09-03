@@ -85,6 +85,10 @@ function startCooldown() {
 // トライアル訴求を出す」だったため、server が受理しない値 (?plan=premium 以外の未知値) でも
 // 「トライアルが開始されます」と表示していた (表示と挙動の不一致 / GAMMA-SC-04)。
 const planParam = $derived(parseSignupPlanParam($page.url.searchParams.get('plan')));
+// #4702: plan が有効値のときだけ Google 登録 URL に引き継ぐ (無効値は既定の登録フローのまま)
+const googleSignupHref = $derived(
+	planParam ? `/auth/oauth/google?plan=${planParam}` : '/auth/oauth/google',
+);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
 
@@ -233,7 +237,9 @@ $effect(() => {
 			</form>
 		{:else}
 			<!-- Google OAuth サインアップ -->
-			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href="/auth/oauth/google" />
+			<!-- #4702: 料金ページからの `?plan=` を Google 登録経路にも引き継ぎ、メール登録と同じく
+			     トライアルを自動開始する (引き継がないと登録手段によって体験の有無が変わる) -->
+			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href={googleSignupHref} />
 			<Divider label={SIGNUP_LABELS.dividerOr} spacing="sm" />
 
 			<!-- 登録フォーム -->

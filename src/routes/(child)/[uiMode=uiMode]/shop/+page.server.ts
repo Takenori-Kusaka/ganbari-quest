@@ -4,7 +4,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { getChildShopLabels } from '$lib/domain/labels';
 import { deriveShopCategory } from '$lib/domain/shop-category';
 // #4685 (ADR-0011): 年齢帯ごとの機能可否は age-tier.ts の 1 箇所で判定する (散在 if を作らない)
 import { hasAgeTierCapability } from '$lib/domain/validation/age-tier';
@@ -86,22 +86,24 @@ export const load: PageServerLoad = async ({ parent, locals, params }) => {
 };
 
 export const actions: Actions = {
-	requestExchange: async ({ request, locals, cookies }) => {
+	requestExchange: async ({ request, locals, cookies, params }) => {
+		// #4690 F4: 失敗文言も年齢帯で文体が変わる (docs/DESIGN.md §8)。
+		const L = getChildShopLabels(params.uiMode);
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childIdStr = requireValidChildCookieFormat(cookies, 'route.shop.requestExchange');
-		if (!childIdStr) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
+		if (!childIdStr) return fail(400, { error: L.errorChildNotSelected });
 		const child = await getChildById(asChildId(childIdStr), tenantId);
-		if (!child) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
+		if (!child) return fail(400, { error: L.errorChildNotSelected });
 		// #4685: 画面を塞ぐだけでなく **action 側でも** 拒否する (直接 POST を通さない)。
 		// 判定は cookie の uiMode ではなく DB 上の子供の uiMode で行う。
 		if (!hasAgeTierCapability(child.uiMode ?? '', 'rewardShop')) {
-			return fail(403, { error: CHILD_SHOP_LABELS.errorGeneric });
+			return fail(403, { error: L.errorGeneric });
 		}
 
 		const formData = await request.formData();
 		const rewardId = formIdString(formData.get('rewardId'));
-		if (!rewardId) return fail(400, { error: CHILD_SHOP_LABELS.errorRewardNotFound });
+		if (!rewardId) return fail(400, { error: L.errorRewardNotFound });
 
 		// #4407: 個数。未指定 (旧 client / JS 無効) は 1 個として扱い、値域外は service が弾く。
 		const rawQuantity = formData.get('quantity');
@@ -113,13 +115,13 @@ export const actions: Actions = {
 			// #4407 AC10: 状態に合わせた文言を返す。即時交換 ON の直後再申請 (RECENTLY_EXCHANGED) に
 			// 「既に申請中です」と出すと事実と違ううえ、子供が次に何をすればよいか分からない。
 			const msgs: Record<string, string> = {
-				INSUFFICIENT_POINTS: CHILD_SHOP_LABELS.errorInsufficientPoints,
-				ALREADY_PENDING: CHILD_SHOP_LABELS.errorAlreadyPending,
-				RECENTLY_EXCHANGED: CHILD_SHOP_LABELS.errorRecentlyExchanged,
-				INVALID_QUANTITY: CHILD_SHOP_LABELS.errorInvalidQuantity,
-				REWARD_NOT_FOUND: CHILD_SHOP_LABELS.errorRewardNotFound,
+				INSUFFICIENT_POINTS: L.errorInsufficientPoints,
+				ALREADY_PENDING: L.errorAlreadyPending,
+				RECENTLY_EXCHANGED: L.errorRecentlyExchanged,
+				INVALID_QUANTITY: L.errorInvalidQuantity,
+				REWARD_NOT_FOUND: L.errorRewardNotFound,
 			};
-			return fail(400, { error: msgs[result.error] ?? CHILD_SHOP_LABELS.errorGeneric });
+			return fail(400, { error: msgs[result.error] ?? L.errorGeneric });
 		}
 
 		// #3339: 即時交換（家庭設定 reward_auto_approve ON）なら requestRedemption が approved 確定済。

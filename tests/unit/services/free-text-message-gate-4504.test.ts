@@ -88,10 +88,10 @@ describe('#4504 自由テキストの premium ゲート', () => {
 		it('API は messageType=text のときだけゲートする (スタンプは全プラン)', () => {
 			const src = repoFile('src/routes/api/v1/messages/[childId]/+server.ts');
 			expect(src).toContain("parsed.data.messageType === 'text'");
-			// #4710: プラン制限の 403 は `planLimitError(requiredTier, …)` で返す
-			// (`apiError('PLAN_LIMIT_EXCEEDED', …)` の直呼びは
-			//  tests/unit/architecture/plan-limit-error-required-tier.test.ts が禁止する)。
-			expect(src).toContain('planLimitError(');
+			// #4710: プラン制限の 403 は要求 tier 込みで返す (planLimitError)。固定 userMessage の
+			// apiError('PLAN_LIMIT_EXCEEDED', …) は「スタンダード以上でご利用いただけます」しか言えず、
+			// premium 限定である自由テキストの案内として成立しない (既にスタンダードな顧客が動けない)。
+			expect(src, 'premium 限定なので要求 tier は family').toMatch(/planLimitError\(\s*'family'/);
 		});
 
 		it('cheer action は body があるときだけゲートする (ポイント付与とスタンプは全プラン)', () => {

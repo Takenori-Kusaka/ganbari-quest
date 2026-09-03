@@ -133,6 +133,8 @@ vi.mock('$lib/server/db/factory', () => ({
 
 // SUT
 import {
+	CloudExportPlanGateError,
+	CloudExportQuotaError,
 	cleanupExpiredExports,
 	consumeCloudExportDownload,
 	createCloudExport,
@@ -143,12 +145,37 @@ import {
 	previewPendingExports,
 } from '$lib/server/services/cloud-export-service';
 
+/**
+ * reject された error を **その型のまま** 取り出す。
+ *
+ * `promise.catch((e: unknown) => e as X)` は解決値との union (`X | CloudExportResult`) を返すため、
+ * 続く `err.requiredTier` 等が型エラーになる (svelte-check は warning=error なので CI が落ちる)。
+ * `as X` を `.catch` の外に出しても、それは「reject しなかった」場合を静かに通す点で危うい
+ * (解決値に対して `undefined` を assert することになり、失敗の理由が読めない)。
+ *
+ * ここでは **実際に reject したこと** と **その class であること** を検査してから narrow する。
+ * 型を通すためだけの cast ではなく、assertion がひとつ増えている。
+ */
+async function rejectionOf<T extends Error>(
+	promise: Promise<unknown>,
+	ctor: new (...args: never[]) => T,
+): Promise<T> {
+	try {
+		await promise;
+	} catch (e) {
+		expect(e).toBeInstanceOf(ctor);
+		return e as T;
+	}
+	throw new Error(`${ctor.name} で reject するはずが解決した`);
+}
+
 describe('cloud-export-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockAuthMode = 'cognito';
 		mockPlanTier = 'standard';
 		mockCloudExportRepo.countByTenant.mockResolvedValue(0);
+		mockCloudExportRepo.findByTenant.mockResolvedValue([]);
 		mockCloudExportRepo.findByPin.mockResolvedValue(null);
 		mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([]);
 		// #3504: 非同期 build mock を毎回リセット (clearAllMocks は実装を残すため override leak を防ぐ)
@@ -210,6 +237,7 @@ describe('cloud-export-service', () => {
 			expect(mockCloudExportRepo.insert.mock.calls[0]?.[0]?.s3Key).toMatch(/\/data\.json$/);
 			vi.clearAllMocks();
 			mockCloudExportRepo.countByTenant.mockResolvedValue(0);
+			mockCloudExportRepo.findByTenant.mockResolvedValue([]);
 			mockCloudExportRepo.findByPin.mockResolvedValue(null);
 			mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
 				id: '1',
@@ -234,7 +262,10 @@ describe('cloud-export-service', () => {
 			expect(mockCloudExportRepo.insert).toHaveBeenCalledOnce();
 		});
 
-		it('無料プランではエラーになる', async () => {
+		// #4710: プラン未達と保管上限は **別の型** で throw する。両方を素の Error にすると
+		// 呼び出し元は message の部分一致で見分けるしかなくなり、契約済みの顧客にも
+		// 「スタンダード以上でご利用いただけます」と案内してしまう。
+		it('無料プランは CloudExportPlanGateError (プラン未達)', async () => {
 			mockPlanTier = 'free';
 
 			await expect(
@@ -243,19 +274,102 @@ describe('cloud-export-service', () => {
 					exportType: 'template',
 					licenseStatus: 'none',
 				}),
-			).rejects.toThrow('スタンダードプラン以上');
+			).rejects.toBeInstanceOf(CloudExportPlanGateError);
 		});
 
-		it('保管数上限に達している場合はエラーになる', async () => {
-			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
+		it('プラン未達の案内はアップグレード先 tier を言う', async () => {
+			mockPlanTier = 'free';
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'none',
+				}),
+				CloudExportPlanGateError,
+			);
 
-			await expect(
+			expect(err.requiredTier).toBe('standard');
+			expect(err.userMessage).toContain('スタンダードプラン以上');
+		});
+
+		it('保管数上限は CloudExportQuotaError (プラン未達ではない)', async () => {
+			// #4767 (QM): 保管数は live 行 (listCloudExports と同じ述語) で数える
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 3 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
+
+			const promise = createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			});
+			await expect(promise).rejects.toBeInstanceOf(CloudExportQuotaError);
+			await expect(promise).rejects.not.toBeInstanceOf(CloudExportPlanGateError);
+		});
+
+		it('保管数上限の案内は削除を促し、アップグレードを求めない (#4710)', async () => {
+			// #4767 (QM): 保管数は live 行 (listCloudExports と同じ述語) で数える
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 3 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
+			const err = await rejectionOf(
 				createCloudExport({
 					tenantId: 'tenant-1',
 					exportType: 'template',
 					licenseStatus: 'active',
 				}),
-			).rejects.toThrow('上限');
+				CloudExportQuotaError,
+			);
+
+			expect(err.current).toBe(3);
+			expect(err.max).toBe(3);
+			expect(err.userMessage).toContain('削除');
+			// standard で契約済みの顧客にプラン案内をしない (これが #4710 の症状)
+			expect(err.userMessage).not.toContain('スタンダードプラン以上');
+			expect(err.userMessage).not.toContain('アップグレード');
+		});
+
+		it('family (最上位) でも保管上限に達しうる — 上げ先が無いのでプラン案内は誤り (#4710)', async () => {
+			mockPlanTier = 'family';
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			expect(err.max).toBe(10);
+			expect(err.userMessage).not.toContain('アップグレード');
 		});
 
 		it('PINコードは6文字の英数字', async () => {

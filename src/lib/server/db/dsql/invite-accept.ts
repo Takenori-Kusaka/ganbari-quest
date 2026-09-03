@@ -17,6 +17,11 @@
 // result に写像し、呼び出し側には throw しない)。
 
 import { sql } from 'drizzle-orm';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
+import { deriveLicenseStatus } from '$lib/domain/contract-state';
+import { getPlanLimits, resolvePaidPlanTier } from '$lib/domain/plan-limits';
+import { isTrialEndDateActiveJST } from '$lib/domain/trial-period';
 import type { Role } from '$lib/server/auth/types';
 import { checkInviteEmailBinding } from '../../auth/invite-email-binding';
 import type {
@@ -43,11 +48,82 @@ class AcceptInviteAbort extends Error {
 	}
 }
 
+/** 席数検査に要る `families` の契約列 (contract-state-matrix §3 の部分集合)。 */
+interface FamilyContractRow {
+	status: string;
+	plan: string | null;
+	stripe_subscription_id: string | null;
+}
+
+/** 席数検査に要る `trial_history` の列 (最新 1 行)。 */
+interface TrialRow {
+	end_date: string;
+	tier: string;
+	stripe_subscription_id: string | null;
+}
+
+/**
+ * #4704: 契約列 (+ 最新トライアル) から plan tier を導く (同期・純粋)。
+ *
+ * 判定規則は domain leaf が SSOT (`deriveLicenseStatus` / `resolvePaidPlanTier` /
+ * `isTrialEndDateActiveJST`) で、発行側の `resolvePlanTier` (service) と同じ述語を読む。
+ * service を直接呼ばないのは repo → service が循環になるため。`resolvePlanTier` が持つ
+ * 環境依存の判断 (DEBUG_PLAN / セルフホスト / demo) は本 txn の対象外である
+ * (受諾は DSQL backend = 本番 cognito 経路でしか走らない)。
+ */
+function planTierOfContract(row: FamilyContractRow, trial: TrialRow | undefined): PlanTier {
+	const licenseStatus = deriveLicenseStatus({
+		status: row.status,
+		stripeSubscriptionId: row.stripe_subscription_id,
+	});
+	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) return resolvePaidPlanTier(row.plan);
+	// #4707 と同じ規則: 本契約へ移行済みの行は end_date に関わらず終了。有効期間は JST 暦日。
+	if (
+		trial &&
+		trial.stripe_subscription_id === null &&
+		isTrialEndDateActiveJST(trial.end_date) &&
+		isPlanTier(trial.tier)
+	) {
+		return trial.tier;
+	}
+	return 'free';
+}
+
+/** `trial_history.tier` は自由文字列列なので、表に無い値を tier として通さない。 */
+function isPlanTier(value: string): value is PlanTier {
+	return value === 'free' || value === 'standard' || value === 'family';
+}
+
 interface AcceptedInviteRow {
 	family_id: string;
 	role: string;
 	invited_by: string | null;
 	email: string | null;
+}
+
+/**
+ * email 束縛 (§6.6 ⚠️) を検査し、違反なら txn を rollback させる abort を投げる。
+ *
+ * 判定本体は service 層と共有の SSOT (`checkInviteEmailBinding`、#3742) で、
+ * email_verified=false の fail-closed + trim/lower 正規化を含む。`invite.email` が
+ * `null` (宛先無指定の招待) なら束縛は無く、検査せず通す。
+ *
+ * fitness#7 (§8) の対象外: await を含まない同期判定であり、txn work の await allowlist
+ * (`tests/unit/architecture/dsql-txn-work-allowlist.test.ts`) が見る AwaitExpression を持たない。
+ */
+function assertInviteEmailBinding(
+	inviteEmail: string | null,
+	userEmail: string,
+	userEmailVerified: boolean | undefined,
+): void {
+	if (inviteEmail === null) return;
+	const bindingError = checkInviteEmailBinding(inviteEmail, userEmail, userEmailVerified);
+	if (bindingError === 'INVITE_EMAIL_UNVERIFIED') {
+		throw new AcceptInviteAbort('EMAIL_UNVERIFIED');
+	}
+	if (bindingError === 'INVITE_EMAIL_MISMATCH') {
+		throw new AcceptInviteAbort('EMAIL_MISMATCH');
+	}
 }
 
 /**
@@ -73,26 +149,49 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 
 			// email 束縛 (§6.6 ⚠️)。判定は service 層と共有の SSOT (#3742):
 			// email_verified=false fail-closed + trim/lower 正規化 (email_lower と同じ原則)。
-			if (invite.email !== null) {
-				const bindingError = checkInviteEmailBinding(invite.email, userEmail, userEmailVerified);
-				if (bindingError === 'INVITE_EMAIL_UNVERIFIED') {
-					throw new AcceptInviteAbort('EMAIL_UNVERIFIED');
-				}
-				if (bindingError === 'INVITE_EMAIL_MISMATCH') {
-					throw new AcceptInviteAbort('EMAIL_MISMATCH');
-				}
-			}
+			assertInviteEmailBinding(invite.email, userEmail, userEmailVerified);
 
 			// #4723: メンバー上限は **txn の中で数え直す**。service 層の事前 read だけでは、
 			// 残り 1 枠に対する 2 通の同時受諾が両方とも「まだ空いている」を見て通ってしまう。
 			// DSQL は OCC (楽観的並行制御) なので、同じ family の membership を触る txn が
 			// 競合すれば 40001 で片方が再実行され、数え直した結果で正しく弾かれる。
-			if (typeof maxMembers === 'number') {
+			//
+			// #4704: 上限そのものを呼び出し側が渡さなかった場合は **txn の中で導く**
+			// (発行時検査だけだと、発行後の降格 / 同時受諾で超過できた)。呼び出し側が渡した
+			// ときはそれを使う — プラン解決は service 層の SSOT (`resolveFullPlanTier`) が
+			// 環境依存の判断まで含めて持つため、受諾側で上書きしない。
+			//
+			// fitness#7 (§8) 整合: 席数検査を helper 関数に切り出さず inline に置く。work 内の
+			// await は tx-bound call だけを許す規約であり、helper 経由だと transitive await を
+			// 静的に追えないため。判定 (プラン導出・比較) は同期処理で await を挟まない。
+			let effectiveMaxMembers: number | null;
+			if (maxMembers !== undefined) {
+				effectiveMaxMembers = maxMembers;
+			} else {
+				const contract = await tx.execute(sql`
+					SELECT status, plan, stripe_subscription_id FROM families WHERE family_id = ${invite.family_id}
+				`);
+				const family = contract.rows[0] as FamilyContractRow | undefined;
+				if (!family) throw new AcceptInviteAbort('INVALID_OR_EXPIRED');
+				// トライアル中は発行側 (`resolveFullPlanTier`) が trial の tier で上限を見るので、
+				// 受諾側も同じ行を読む。読まないと「発行は通るのに受諾だけ落ちる」ずれになる。
+				const trial = await tx.execute(sql`
+					SELECT end_date, tier, stripe_subscription_id FROM trial_history
+					WHERE family_id = ${invite.family_id}
+					ORDER BY created_at DESC, trial_id DESC
+					LIMIT 1
+				`);
+				const latestTrial = trial.rows[0] as TrialRow | undefined;
+				effectiveMaxMembers = getPlanLimits(
+					planTierOfContract(family, latestTrial),
+				).maxFamilyMembers;
+			}
+			if (typeof effectiveMaxMembers === 'number') {
 				const counted = await tx.execute(sql`
 					SELECT count(*)::int AS count FROM memberships WHERE family_id = ${invite.family_id}
 				`);
 				const current = Number((counted.rows[0] as { count: number } | undefined)?.count ?? 0);
-				if (current >= maxMembers) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
+				if (current >= effectiveMaxMembers) throw new AcceptInviteAbort('MEMBER_LIMIT_REACHED');
 			}
 
 			await tx.execute(sql`

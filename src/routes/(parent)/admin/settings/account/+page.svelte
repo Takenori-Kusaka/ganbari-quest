@@ -251,7 +251,7 @@ const canConfirmDelete = $derived(
 				required
 			/>
 
-			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= PIN_MIN_LENGTH〜PIN_MAX_LENGTH) 由来。
+			<!-- #4661: 桁数は OYAKAGI_TERMS.digitRange (= constants/oyakagi.ts の PIN_LENGTH) 由来。
 			     直書きしていた頃はエラー文の「4〜6桁」と同じ画面で矛盾していた。 -->
 			<FormField
 				label={OYAKAGI_LABELS.newInputLabel}

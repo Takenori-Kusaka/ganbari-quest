@@ -5,9 +5,14 @@ import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
-import { apiError, planLimitError, validationError } from '$lib/server/errors';
+import { apiError, planLimitError, quotaLimitError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { createCloudExport, listCloudExports } from '$lib/server/services/cloud-export-service';
+import {
+	CloudExportPlanGateError,
+	CloudExportQuotaError,
+	createCloudExport,
+	listCloudExports,
+} from '$lib/server/services/cloud-export-service';
 import type { RequestHandler } from './$types';
 
 /** GET /api/v1/export/cloud — 自テナントのクラウドエクスポート一覧 */
@@ -64,11 +69,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 		return json({ ok: true, ...result }, { status: 201 });
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		// プラン未達 / 保管上限は起票時点で同期的に弾く。
-		if (msg.includes('スタンダード') || msg.includes('上限')) {
-			return planLimitError('standard', msg);
+		// プラン未達 / 保管上限は起票時点で同期的に弾く。**2 つは別事象**なので型で見分ける (#4710):
+		//   未達 = その tier に機能が無い → 次の行動はアップグレード
+		//   上限 = 契約中でも枠が埋まれば起きる → 次の行動は古いものを削除
+		// 旧実装は両方を message の部分一致で拾って planLimitError('standard') に潰していたため、
+		// 既にスタンダード契約の顧客にも「スタンダードプラン以上でご利用いただけます」と返していた。
+		if (err instanceof CloudExportPlanGateError) {
+			return planLimitError(err.requiredTier, err.userMessage, { tenantId });
 		}
+		if (err instanceof CloudExportQuotaError) {
+			return quotaLimitError(err.userMessage, { tenantId, current: err.current, max: err.max });
+		}
+		const msg = err instanceof Error ? err.message : String(err);
 		logger.error('[cloud-export] 作成失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの作成に失敗しました');
 	}

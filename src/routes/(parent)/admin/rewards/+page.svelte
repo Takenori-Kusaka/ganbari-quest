@@ -11,6 +11,7 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
@@ -19,6 +20,7 @@ import {
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
 	CHILD_COPY_RESULT_LABELS,
+	COPY_FROM_CHILD_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
@@ -358,6 +360,26 @@ const addMenuItems = $derived<MenuItem[]>([
 		icon: ADMIN_REWARDS_PAGE_LABELS.addBrowseTemplatesIcon,
 		onSelect: () => handleAddSelect('browse'),
 	},
+	// #4716: 活動 / チェックリストと同じく「別のお子さまからコピー」を + 追加 dropdown に置く
+	//   (ごほうびだけ本文の独立ボタンで、同じ操作が画面ごとに違う場所にあった)。
+	//   お子さまが 1 人ならコピー元が無いので出さない。
+	...(data.children.length >= 2
+		? [
+				{
+					id: 'copy',
+					label: COPY_FROM_CHILD_LABELS.action,
+					icon: data.isPremium ? COPY_FROM_CHILD_LABELS.icon : PLAN_GATE_LABELS.lockedItemIcon,
+					onSelect: data.isPremium
+						? () => {
+								showCopyFromChildDialog = true;
+							}
+						: // #4716: 新規追加の遷移は resolve() 経由にする (svelte/no-navigation-without-resolve)。
+							// 既存 6 件は eslint-suppressions.json の baseline で凍結されており、
+							// ここで 7 件目を素で足すと baseline を超えて既存分ごと surface する。
+							() => void goto(resolve('/admin/subscription')),
+				},
+			]
+		: []),
 ]);
 
 // #2998: AI 提案を採用したら Dialog を manual フォーム表示に切り替える (activities acceptAiPreview と同型)。
@@ -857,20 +879,7 @@ async function handleCopyFromChild() {
 				</Button>
 			{/each}
 
-			<!-- 兄弟共通化 actions (右寄せ) -->
-			<div class="child-tab-actions">
-				{#if data.children.length >= 2}
-					<Button
-						variant="ghost"
-						size="sm"
-						data-testid="rewards-copy-from-child-btn"
-						disabled={!data.isPremium}
-						onclick={() => { showCopyFromChildDialog = true; }}
-					>
-						{ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton}
-					</Button>
-				{/if}
-			</div>
+			<!-- #4716: 「別のお子さまからコピー」は header の + 追加 dropdown に移動 (活動 / チェックリストと同型) -->
 		</div>
 
 		{#if selectedChild}
