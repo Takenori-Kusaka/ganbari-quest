@@ -10,34 +10,32 @@ import { describe, expect, it } from 'vitest';
 
 const compose = readFileSync(join(__dirname, '../../../docker-compose.yml'), 'utf8');
 
-/** `services:` 直下の service block を切り出す (2 space indent の service 名 → 次の service 名まで) */
+/** `services:` 直下の service block を切り出す (2 space indent の service 名 → 次の service 名の直前まで) */
 function serviceBlock(name: string): string {
-	const re = new RegExp(
-		`^  ${name}:
-([sS]*?)(?=^  [a-z-]+:
-|(?![sS]))`,
-		'm',
-	);
-	const m = compose.match(re);
-	if (!m?.[1]) throw new Error(`docker-compose.yml に service "${name}" が無い`);
-	return m[1];
+	const lines = compose.split('\n');
+	const start = lines.findIndex((l) => l === `  ${name}:`);
+	if (start < 0) throw new Error(`docker-compose.yml に service "${name}" が無い`);
+	const rest = lines.slice(start + 1);
+	const end = rest.findIndex((l) => /^ {2}[a-z-]+:$/.test(l));
+	return (end < 0 ? rest : rest.slice(0, end)).join('\n');
 }
 
 describe('NUC compose は COGNITO_DEV_MODE を false に固定する (#4836)', () => {
 	it('app service の environment に COGNITO_DEV_MODE=false がある (コメント行ではない)', () => {
 		const app = serviceBlock('app');
-		const pinned = app.split('
-').some((line) => /^\s*-\s*COGNITO_DEV_MODE=false\s*$/.test(line));
-		expect(pinned, 'app.environment に `- COGNITO_DEV_MODE=false` を置くこと (env_file より優先される固定値)').toBe(true);
+		const pinned = app.split('\n').some((line) => /^\s*-\s*COGNITO_DEV_MODE=false\s*$/.test(line));
+		expect(
+			pinned,
+			'app.environment に `- COGNITO_DEV_MODE=false` を置くこと (env_file より優先される固定値)',
+		).toBe(true);
 	});
 
 	it('true / 変数展開で上書き可能な形 (COGNITO_DEV_MODE=${...}) にはなっていない', () => {
 		const app = serviceBlock('app');
-		for (const line of app.split('
-')) {
+		for (const line of app.split('\n')) {
 			if (/^\s*#/.test(line)) continue;
 			if (!line.includes('COGNITO_DEV_MODE')) continue;
 			expect(line).not.toMatch(/COGNITO_DEV_MODE=(true|\$)/);
 		}
+	});
 });
-})
