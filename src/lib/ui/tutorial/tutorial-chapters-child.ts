@@ -79,3 +79,23 @@ export function getChildTutorialChapters(uiMode: string): TutorialChapter[] {
 		},
 	];
 }
+
+/**
+ * 子供ガイドの進捗 (localStorage) の namespace。**子供ごと**に分ける (#4765 PO 回答 2026-09-03)。
+ *
+ * #4765 までは `child:<uiMode>` で、同じ端末・同じ年齢モードの兄弟が進捗を共有していた
+ * (兄が途中まで進めると弟に「前回の途中から続けますか？」が出て、弟のガイドが飛ぶ)。
+ * 子供 ID を key に含めることで、同じ端末を使い回す兄弟でも進捗が混ざらない。
+ * uiMode も残す (年齢モードが変わると文言セットが変わるため、モード別に最初から案内する)。
+ */
+export function getChildTutorialProgressScope(childId: string | number, uiMode: string): string {
+	return `child:${childId}:${uiMode}`;
+}
+
+/**
+ * #4765 までの家族共有 key (子供 ID を含まない)。どの子の進捗か判別できないため
+ * **読まずに捨てる** (`discardSavedProgress`)。引き継ぐと兄の進捗が弟に付く不具合がそのまま残る。
+ */
+export function getLegacyChildTutorialProgressScope(uiMode: string): string {
+	return `child:${uiMode}`;
+}

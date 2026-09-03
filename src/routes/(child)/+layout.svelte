@@ -34,8 +34,16 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import {
+	getChildTutorialChapters,
+	getChildTutorialProgressScope,
+	getLegacyChildTutorialProgressScope,
+} from '$lib/ui/tutorial/tutorial-chapters-child';
+import {
+	discardSavedProgress,
+	setChapters,
+	startTutorial,
+} from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -89,8 +97,16 @@ onMount(() => {
 			soundService.preload(config.enabledSounds);
 		}
 		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
-		// #4651 (a): 進捗 key を子供ガイド (年齢モード別) の namespace に分ける
-		setChapters(getChildTutorialChapters(uiMode), `child:${uiMode}`);
+		// #4651 (a): 進捗 key を子供ガイドの namespace に分ける
+		// #4765 PO 回答 (2026-09-03): さらに**子供ごと**に分ける (兄の進捗で弟のガイドが飛ばない)。
+		//   それ以前の家族共有 key は誰の進捗か判別できないので読まずに捨てる
+		if (data.child) {
+			setChapters(
+				getChildTutorialChapters(uiMode),
+				getChildTutorialProgressScope(data.child.id, uiMode),
+			);
+			discardSavedProgress(getLegacyChildTutorialProgressScope(uiMode));
+		}
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）

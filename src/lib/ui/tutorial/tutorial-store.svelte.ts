@@ -18,6 +18,11 @@ function stepKey(): string {
 	return `${STORAGE_KEY_PREFIX}:${progressScope}:step`;
 }
 
+/** 現在の進捗 namespace (test 用。key の形は `tutorial-progress:<scope>:chapter|step`)。 */
+export function getProgressScope(): string {
+	return progressScope;
+}
+
 interface TutorialState {
 	isActive: boolean;
 	currentChapter: number;
@@ -92,10 +97,20 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 }
 
 function clearSavedProgress() {
+	discardSavedProgress(progressScope);
+}
+
+/**
+ * 指定 scope の保存済み進捗を捨てる (現在の scope 以外にも使える)。
+ *
+ * #4765 PO 回答 (2026-09-03): 子供ガイドの進捗 key を子供ごとに分けたため、それ以前の
+ * 家族共有 key (`child:<uiMode>`) は誰の進捗か判別できず、読まずに捨てる。
+ */
+export function discardSavedProgress(scope: string) {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.removeItem(chapterKey());
-			localStorage.removeItem(stepKey());
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:chapter`);
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:step`);
 		}
 	} catch {
 		// silently ignore
