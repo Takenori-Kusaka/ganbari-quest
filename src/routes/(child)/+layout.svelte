@@ -15,7 +15,7 @@ import {
 	PIN_GATE_ONBOARDING_LABELS,
 	UI_COMPONENTS_LABELS,
 } from '$lib/domain/labels';
-import type { UiMode } from '$lib/domain/validation/age-tier';
+import { UI_MODES, type UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // #4448: 動いたポイントをヘッダー残高までつなぐ演出。ghost layer は child 配下で 1 つだけ置く。
@@ -102,11 +102,14 @@ onMount(() => {
 		//   それ以前の家族共有 key は、持ち主が一意に決まるとき (子供 1 人) だけ引き継ぎ、
 		//   決まらないとき (2 人以上) は捨てる。端末ごとに 1 回だけ走る (per-mount で走らせない)
 		if (data.child) {
-			const scope = getChildTutorialProgressScope(data.child.id, uiMode);
-			setChapters(getChildTutorialChapters(uiMode), scope);
+			const childId = data.child.id;
+			setChapters(getChildTutorialChapters(uiMode), getChildTutorialProgressScope(childId, uiMode));
+			// 旧 key は年齢モードごとに分かれているため、今のモードだけでなく**全モード分**を畳む
 			migrateLegacyProgress(
-				getLegacyChildTutorialProgressScope(uiMode),
-				scope,
+				UI_MODES.map((mode) => ({
+					legacyScope: getLegacyChildTutorialProgressScope(mode),
+					targetScope: getChildTutorialProgressScope(childId, mode),
+				})),
 				data.allChildren?.length ?? 0,
 			);
 		}

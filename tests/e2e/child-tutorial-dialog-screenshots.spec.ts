@@ -208,17 +208,23 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			// spec は childId を持たないので、一度ガイドを起動して**アプリ自身に key を書かせ**、
 			// その key を掴んで「章 2 の途中で中断した」状態を作る (key の形を spec 側で再実装しない)。
 			await startChildTutorial(page);
-			const seededKey = await page.evaluate(() => {
-				const chapterKey = Object.keys(localStorage).find(
-					(k) => k.startsWith('tutorial-progress:child:') && k.endsWith(':chapter'),
-				);
+			const seededKey = await page.evaluate((mode) => {
+				// 子供ごとの key だけに一致させる: `child:` と `:<uiMode>:chapter` の**間に 1 セグメント**
+				// (= childId) が要る。#4765 以前の家族共有 key (`child:<uiMode>:chapter`) はこの間が
+				// 空なので一致しない = 退行すれば下の assert が落ちる。
+				const perChild = new RegExp(`^tutorial-progress:child:[^:]+:${mode}:chapter$`);
+				const chapterKey = Object.keys(localStorage).find((k) => perChild.test(k));
 				if (!chapterKey) return null;
 				localStorage.setItem(chapterKey, '2');
 				localStorage.setItem(chapterKey.replace(/:chapter$/, ':step'), '0');
 				return chapterKey;
-			});
-			// 子供ごとの key が書かれていること自体が #4765 の回帰検証 (家族共有 key に戻ったら null)
-			expect(seededKey).not.toBeNull();
+			}, uiMode);
+			// #4765 の回帰検証: 家族共有 key (`tutorial-progress:child:<uiMode>:chapter`) に戻ると
+			// 上の正規表現に一致せず null になり、ここで落ちる
+			expect(seededKey, '子供ごとの進捗 key (childId を含む) が書かれていること').not.toBeNull();
+			expect(seededKey).toMatch(new RegExp(`^tutorial-progress:child:[^:]+:${uiMode}:chapter$`));
+			// childId セグメントが uiMode の重複ではないこと (`child:<uiMode>:<uiMode>` 形の退行検出)
+			expect(seededKey?.split(':')[2]).not.toBe(uiMode);
 			await page.reload();
 			// reload 後 Header help button の再描画を待つ
 			await page.locator('[data-testid="header-help-btn"]').waitFor({

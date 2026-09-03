@@ -128,6 +128,14 @@ export type LegacyProgressMigrationResult =
 	| 'already-done' // 一度処理済み (2 回目以降の mount では何もしない)
 	| 'unavailable'; // localStorage が使えない
 
+/** 旧 scope とその引き継ぎ先の組。年齢モードの数だけ渡す (下記「モード横断」を参照)。 */
+export interface LegacyProgressEntry {
+	/** #4765 以前の家族共有 scope (`child:<uiMode>`) */
+	legacyScope: string;
+	/** 引き継ぎ先 scope (`child:<childId>:<uiMode>`) */
+	targetScope: string;
+}
+
 /**
  * #4765 以前の家族共有 key (`child:<uiMode>`) を後始末する。**端末ごとに 1 回だけ**走る。
  *
@@ -135,42 +143,50 @@ export type LegacyProgressMigrationResult =
  * **一度もこの不具合に当たっていない 1 人っ子の家庭まで進捗を失う**。旧 key の持ち主が
  * 一意に決まるとき (子供が 1 人) は引き継ぎ、決まらないとき (2 人以上) だけ捨てる。
  *
- * - 引き継ぎ先に既に進捗があれば**上書きしない** (新しい方が正しい)
- * - 処理後は印を立てて以降の mount では何もしない (per-mount で走らせない)
+ * **モード横断**: 旧 key は年齢モードごとに分かれている (`child:preschool` / `child:elementary` …)。
+ * 子供の年齢モードは変わるため、「今のモードの旧 key」だけを見ると、モードが変わった子の進捗が
+ * 引き継がれないまま端末に残り続ける。呼び出し側は**全モード分の entry** を渡し、本関数は
+ * 1 回の処理で全部を畳む (子供 1 人 = すべてその子のもの / 2 人以上 = すべて持ち主不明)。
  *
- * @param legacyScope 旧 scope (`child:<uiMode>`)
- * @param targetScope 引き継ぎ先 scope (`child:<childId>:<uiMode>`)
+ * - 引き継ぎ先に既に進捗があれば**上書きしない** (新しい方が正しい)
+ * - 処理後は印 (`tutorial-progress:legacy-migrated`) を立て、以降の mount では何もしない
+ *
+ * @param entries 旧 scope → 引き継ぎ先 scope の組 (年齢モードの数だけ)
  * @param childCount テナントの子供の人数 (1 = 持ち主が一意)
  */
 export function migrateLegacyProgress(
-	legacyScope: string,
-	targetScope: string,
+	entries: readonly LegacyProgressEntry[],
 	childCount: number,
 ): LegacyProgressMigrationResult {
 	try {
 		if (typeof window === 'undefined') return 'unavailable';
 		if (localStorage.getItem(LEGACY_MIGRATION_FLAG_KEY) === '1') return 'already-done';
 
-		const legacyChapter = localStorage.getItem(`${STORAGE_KEY_PREFIX}:${legacyScope}:chapter`);
-		const legacyStep = localStorage.getItem(`${STORAGE_KEY_PREFIX}:${legacyScope}:step`);
+		const found = entries
+			.map((entry) => ({
+				...entry,
+				chapter: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:chapter`),
+				step: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:step`),
+			}))
+			.filter((entry) => entry.chapter != null || entry.step != null);
+
 		localStorage.setItem(LEGACY_MIGRATION_FLAG_KEY, '1');
+		if (found.length === 0) return 'no-legacy';
 
-		if (legacyChapter == null && legacyStep == null) return 'no-legacy';
-
-		if (childCount === 1) {
-			const targetChapterKey = `${STORAGE_KEY_PREFIX}:${targetScope}:chapter`;
-			const targetStepKey = `${STORAGE_KEY_PREFIX}:${targetScope}:step`;
-			// 引き継ぎ先が空のときだけ書く (その子自身の新しい進捗を巻き戻さない)
-			if (localStorage.getItem(targetChapterKey) == null) {
-				if (legacyChapter != null) localStorage.setItem(targetChapterKey, legacyChapter);
-				if (legacyStep != null) localStorage.setItem(targetStepKey, legacyStep);
+		for (const entry of found) {
+			if (childCount === 1) {
+				const targetChapterKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:chapter`;
+				const targetStepKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:step`;
+				// 引き継ぎ先が空のときだけ書く (その子自身の新しい進捗を巻き戻さない)
+				if (localStorage.getItem(targetChapterKey) == null) {
+					if (entry.chapter != null) localStorage.setItem(targetChapterKey, entry.chapter);
+					if (entry.step != null) localStorage.setItem(targetStepKey, entry.step);
+				}
 			}
-			discardSavedProgress(legacyScope);
-			return 'migrated';
+			discardSavedProgress(entry.legacyScope);
 		}
 
-		discardSavedProgress(legacyScope);
-		return 'discarded';
+		return childCount === 1 ? 'migrated' : 'discarded';
 	} catch {
 		return 'unavailable';
 	}
