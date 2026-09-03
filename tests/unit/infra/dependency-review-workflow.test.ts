@@ -21,7 +21,7 @@ function readWorkflow(): string {
 }
 
 /** `allow-ghsas:` 行から GHSA ID を取り出す (行が無ければ `null`)。コメント行は無視する。 */
-export function parseAllowGhsas(workflow: string): string[] | null {
+function parseAllowGhsas(workflow: string): string[] | null {
 	const line = workflow
 		.split('\n')
 		.map((l) => l.trimStart())
