@@ -4,11 +4,27 @@
 // から引く。Playwright の test は SvelteKit の `$lib` alias / server module を import できないため、
 // scripts/capture-specs/lib/dev-users.mjs と同じ方法で SSOT のソースを読んで取り出す。
 // 取り出しが SSOT と一致することは tests/unit/scripts/capture-dev-users-ssot.test.ts が固定する。
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
-const REPO_ROOT = join(__dirname, '../../..');
 export const DEV_USERS_SOURCE = 'src/lib/server/auth/providers/cognito-dev.ts';
+
+/**
+ * repo root を cwd から上向きに探す。Playwright は test を ES module として読むため `__dirname` が
+ * 無く (adv-4832 実測: ReferenceError)、vitest (jsdom) では `import.meta.url` が file: URL でない
+ * (`The URL must be of scheme file`)。どの runner でも成立する「SSOT file が見つかる dir」で解決する。
+ */
+function findRepoRoot(): string {
+	let dir = process.cwd();
+	for (let i = 0; i < 8; i++) {
+		if (existsSync(join(dir, DEV_USERS_SOURCE))) return dir;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	throw new Error(`repo root が見つかりません (cwd=${process.cwd()}、${DEV_USERS_SOURCE} を探索)`);
+}
+const REPO_ROOT = findRepoRoot();
 
 export interface DevUserCredential {
 	email: string;
