@@ -11045,6 +11045,13 @@ export const STORYBOOK_LABELS = {
 	stampPressOverlay: {
 		stampName: 'だいきち',
 	},
+	// #4841: ParentMessageOverlay (応援メッセージ) の年齢帯文体を目視するための固定値。
+	// demo repo (`db/demo/message-repo.ts`) は未読メッセージを常に undefined で返すため
+	// 実環境の SS 撮影で描画できない。本 story が視覚証跡になる。
+	parentMessageOverlay: {
+		body: 'テストがんばったね。応援してるよ',
+		icon: '💌',
+	},
 	// #4429: AvatarDisplay の見た目確認用。取得失敗時に 👤 へ落ちることを目視できるようにする。
 	avatarDisplay: {
 		nickname: 'たろう',
