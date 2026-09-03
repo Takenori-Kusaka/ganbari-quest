@@ -14,6 +14,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type Page, test } from '@playwright/test';
+import { devPassword } from './helpers/dev-users';
 
 const OUT_DIR = path.join(process.cwd(), 'docs', 'screenshots', 'pr-1675');
 
@@ -33,7 +34,7 @@ test.beforeAll(() => {
 test.describe('PR #1675 ops/pmf-survey スクリーンショット', () => {
 	test('desktop (1280×800)', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
-		await loginAs(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+		await loginAs(page, 'ops@example.com', devPassword('ops@example.com'));
 
 		await page.goto('/ops/pmf-survey', { waitUntil: 'domcontentloaded' });
 		await page
@@ -49,7 +50,7 @@ test.describe('PR #1675 ops/pmf-survey スクリーンショット', () => {
 
 	test('mobile (375×812)', async ({ page }) => {
 		await page.setViewportSize({ width: 375, height: 812 });
-		await loginAs(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+		await loginAs(page, 'ops@example.com', devPassword('ops@example.com'));
 
 		await page.goto('/ops/pmf-survey', { waitUntil: 'domcontentloaded' });
 		await page
@@ -65,7 +66,7 @@ test.describe('PR #1675 ops/pmf-survey スクリーンショット', () => {
 
 	test('search active state — desktop', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
-		await loginAs(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+		await loginAs(page, 'ops@example.com', devPassword('ops@example.com'));
 
 		// 検索キーワード「テスト」を投入した URL を直接開く（実データなしでも UI 状態を撮影）
 		await page.goto('/ops/pmf-survey?q=テスト', { waitUntil: 'domcontentloaded' });

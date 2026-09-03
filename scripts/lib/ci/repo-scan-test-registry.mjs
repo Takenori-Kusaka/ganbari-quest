@@ -46,8 +46,8 @@ export const MIN_REPO_SCAN_TIMEOUT_MS = 20_000;
 export const REPO_SCAN_TEST_REGISTRY = {
 	// --- scope: repo (repo ツリーを走査。明示 timeout 必須) ---
 	'tests/unit/scripts/capture-dev-users-ssot.test.ts': {
-		scope: 'bounded',
-		note: 'scripts/capture-specs/flows の単一 dir を走査し DEV_USERS password literal の不在を見る (有界)',
+		scope: 'repo',
+		note: 'scripts と tests/e2e を走査し DEV_USERS password literal の不在を見る (#4831)',
 	},
 	'tests/unit/scripts/check-local-tz-date-getters.test.ts': {
 		scope: 'repo',

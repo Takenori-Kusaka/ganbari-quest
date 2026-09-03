@@ -13,6 +13,7 @@ import { expect, test } from '@playwright/test';
 import { ADMIN_SCREENS } from '../../src/lib/domain/admin-screens';
 import { SWITCH_PAGE_LABELS } from '../../src/lib/domain/labels';
 import { NAV_TIMEOUT_MS } from '../../src/routes/switch/nav-timeout';
+import { devPassword } from './helpers/dev-users';
 
 const PARENT_GATE_ACTIVE = process.env.PARENT_GATE_FORCE_ACTIVE === 'true';
 
@@ -520,7 +521,7 @@ function registerParentGateTests(): void {
 
 		const DB_PATH = 'data/ganbari-quest.db';
 		// DEV_USERS owner (cognito-dev.ts SSOT) — auth.setup.ts が owner.json を生成するアカウント
-		const OWNER_PASSWORD = 'Gq!Dev#Owner2026x';
+		const OWNER_PASSWORD = devPassword('owner@example.com');
 		let pinHashSnapshot: string | null = null;
 
 		test.beforeAll(async () => {
@@ -670,7 +671,7 @@ function registerParentGateTests(): void {
 			// federated 相当ユーザでログイン (識別は JWT の identities claim、ログイン手段は dev form)
 			await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
 			await page.locator('input[name="email"]').fill('google-owner@example.com');
-			await page.locator('input[name="password"]').fill('Gq!Dev#Goog2026xy');
+			await page.locator('input[name="password"]').fill(devPassword('google-owner@example.com'));
 			await page.locator('form button[type="submit"]').first().click();
 			await page.waitForURL(/\/(admin|switch)/, { timeout: 15_000 });
 		}
