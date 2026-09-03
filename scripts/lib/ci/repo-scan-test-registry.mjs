@@ -47,7 +47,7 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	// --- scope: repo (repo ツリーを走査。明示 timeout 必須) ---
 	'tests/unit/scripts/capture-dev-users-ssot.test.ts': {
 		scope: 'repo',
-		note: 'scripts と tests/e2e を走査し DEV_USERS password literal の不在を見る (#4831)',
+		note: 'scripts / tests/e2e / src / docs を走査し DEV_USERS password literal の不在を見る (#4831 / #4834)',
 	},
 	'tests/unit/scripts/check-local-tz-date-getters.test.ts': {
 		scope: 'repo',
