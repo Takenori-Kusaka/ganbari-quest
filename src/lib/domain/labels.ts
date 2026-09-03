@@ -5872,9 +5872,6 @@ export const LOGIN_LABELS = {
 		parent: '(親)',
 		child: `(${CHILD_TERMS.honorific})`,
 	} as Record<'owner' | 'parent' | 'child', string>,
-	devAccountOwnerRole: '(管理者)',
-	devAccountParentRole: '(親)',
-	devAccountChildRole: `(${CHILD_TERMS.honorific})`,
 } as const;
 
 /**
