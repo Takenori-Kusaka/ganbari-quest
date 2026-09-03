@@ -26,7 +26,8 @@ export function loadDevUsers(source = readFileSync(join(REPO_ROOT, DEV_USERS_SOU
 	const users = [];
 	const re = /email:\s*'([^']+)'[\s\S]*?password:\s*'([^']+)'/g;
 	for (const m of body.matchAll(re)) {
-		users.push({ email: m[1], password: m[2] });
+		const [, email, password] = m;
+		if (email && password) users.push({ email, password });
 	}
 	if (users.length === 0) throw new Error(`${DEV_USERS_SOURCE} から資格情報を取り出せません`);
 	return users;
