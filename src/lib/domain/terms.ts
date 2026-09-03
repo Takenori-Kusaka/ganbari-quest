@@ -442,7 +442,7 @@ export const ADMIN_VIEW_TERMS = {
 // #4716: 保護者画面の呼称は CHILD_TERMS.honorific (「お子さま」) に統一する。
 // 本 atom は CHILD_TERMS より前に宣言されるため (TDZ)、値は同語の直書きで持つ。
 export const ADMIN_HOME_TERMS = {
-	/** 上部 summary card: 登録お子さま数 */
+	/** 上部 summary card: 登録お子さま数 (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
 	childrenCountCard: 'お子さまの数',
 	/** 上部 summary card: 全員のポイント残高合計 (獲得ではなく残高) */
 	totalCard: '合計',
@@ -450,9 +450,9 @@ export const ADMIN_HOME_TERMS = {
 	monthlySuffix: 'のがんばり',
 	/** 月次セクション右上のレポート遷移リンク */
 	monthlyDetailsLink: '詳しく見る →',
-	/** お子さま一覧セクション見出し */
+	/** お子さま一覧セクション見出し (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
 	childrenSection: 'お子さま一覧',
-	/** header 右端の子供画面への切替リンク */
+	/** header 右端のお子さま画面への切替リンク (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
 	switchToChild: 'お子さまの画面へ',
 	/** ごほうび交換申請の承認待ちバナーの状態語 */
 	pendingApproval: '承認待ち',
@@ -925,6 +925,13 @@ export const BACKUP_TERMS = {
 	// #4716 item 7: 「データクリア」「すべてのデータを削除」「データを全消去」の 3 表記があった。
 	// 「クリア」は開発者語なので顧客文言としては採らない。
 	clearAll: 'すべてのデータを削除',
+	// #4690 (QM): 復元の読み込み方 2 択。**画面のラジオラベルとページガイドの説明文が
+	// 同じ文字列でなければならない** — ガイドは「画面に出ている選択肢名」を引用して
+	// 「置換は元に戻せない」と警告するので、片方だけ呼称を変えると
+	// 存在しない選択肢を指す案内になる (tests/unit/routes/settings-data-guide.test.ts [D3])。
+	// 呼称を変えるときはここ 1 行を直す。
+	importModeReplace: '置き換える（既存データを削除してから復元）',
+	importModeAdd: '追加する（既存データを残して足す）',
 } as const;
 
 // ============================================================
@@ -1356,8 +1363,8 @@ export const CHECKLIST_ADMIN_TERMS = {
 	todayOverride: '本日のワンオフ',
 	addOverride: 'ワンオフ追加',
 	/**
-	 * 兄弟共通化。#4716: 活動 / ごほうび / チェックリストで同じ操作を別名で呼ばないため、
-	 * 値は `ADD_MENU_TERMS.copyFromChild`（= 画面の実ボタン名）と同一にする。
+	 * 兄弟共通化。#4716: 同じ操作が 3 表記 (別のお子さまからコピー / 他の子供から copy /
+	 * 他のお子さまから取り込む) に割れていたため、値は ADD_MENU_TERMS.copyFromChild (3 画面共通) を参照する。
 	 */
 	copyFromChild: ADD_MENU_TERMS.copyFromChild,
 	/** marketplace 詳細の取込 CTA (画面の実ボタン名) */
@@ -1377,8 +1384,9 @@ export const POINTS_ADMIN_TERMS = {
 	convertVerb: '変換する',
 	/**
 	 * 残高のうち「かんたん」で変換できる額 (500P 単位に切り捨てた値)。
-	 * #4716: 旧「変換可能」は「かんたん」タブだけの上限なのに、同じ画面の「自由入力」は
-	 * 1P から変換できるため「それ以外は変換できない」と矛盾して読めた。どちらのタブの話かを名前に入れる。
+	 *
+	 * #4716: 旧称「変換可能」は、同じ画面の「自由入力」タブなら 1P から変換できるのに
+	 * 「これ以上は変換できない」と読めて矛盾していた。どのタブの話かを語に入れる。
 	 */
 	convertable: 'かんたん変換ぶん',
 	/** 変換フォームのモードタブ */
@@ -1404,7 +1412,7 @@ export const POINTS_ADMIN_TERMS = {
 // (PAGE_GUIDE_LABELS.adminCheer) の双方が参照し、ガイドの例文が画面の placeholder と
 // 1 文字も違わないことを構造的に保つ (旧ガイドは語尾が「なったよ！」で画面は「なったね！」だった)。
 export const CHEER_ADMIN_TERMS = {
-	/** 1 段目の見出し。#4716: 保護者しか見ない画面なので呼称は honorific に揃える */
+	/** 1 段目の見出し。#4716: 保護者画面の呼称は honorific に統一する (旧「1. こどもを選択」) */
 	selectChildTitle: `1. ${CHILD_TERMS.honorific}を選択`,
 	/** 定型文チップの見出し */
 	presetTitle: `よくある${CHEER_TERMS.canonical}`,
@@ -1430,7 +1438,7 @@ export const CHILD_ADMIN_TERMS = {
 	age: '年齢',
 	/** 詳細カードの操作 */
 	editButton: '✏️ 編集',
-	/** #4716: 保護者画面の呼称は honorific に揃える (ガイドも本 atom を引くので同時に動く) */
+	/** #4716: 保護者画面の呼称は honorific に統一する (旧「🗑 この子供を削除」) */
 	deleteButton: `🗑 この${CHILD_TERMS.honorific}を削除`,
 	/** 詳細カードのタブ (絵文字込みの画面表記) */
 	tabInfo: '📋 基本情報',
@@ -1450,7 +1458,12 @@ export const CHILD_ADMIN_TERMS = {
 export const REWARD_ADMIN_TERMS = {
 	/** 検索欄ラベル */
 	search: 'ごほうびを検索',
-	/** 兄弟共通化: 別のお子さまからコピー (#4716 で 3 画面共通の 1 表記に集約、`+ 追加` 内) */
+	/**
+	 * 兄弟共通化: 別のお子さまからコピー。
+	 * #4716 で活動 / ごほうび / チェックリストの 3 表記割れを解消し、ボタン自体も
+	 * ごほうび管理の header 「+ 追加」dropdown に移した (旧: 子供タブ行の右端)。
+	 * 値は ADD_MENU_TERMS.copyFromChild (3 画面共通) を参照する。
+	 */
 	copyFromChild: ADD_MENU_TERMS.copyFromChild,
 	/** ︙ の申請承認 item (件数付きは labels compound 側) */
 	requestsMenu: '申請承認',
@@ -1733,7 +1746,10 @@ export const ADMIN_SCREEN_TERMS = {
 	activities: '活動管理',
 	/** `/admin/checklists` */
 	checklists: 'チェックリスト管理',
-	/** `/admin/challenges` — #4671 F3: 旧「きょうだいチャレンジ」を廃し canonical に統一 */
+	/**
+	 * `/admin/challenges` — #4671 F3 (EPIC #4650 PO 判断) で「きょうだいチャレンジ」を廃し
+	 * `CHALLENGE_TERMS.canonical` に統一。per-child 自動生成モデルではきょうだい限定機能ではない。
+	 */
 	challenges: CHALLENGE_TERMS.canonical,
 	/** `/admin/rewards` */
 	rewards: 'ごほうび管理',
@@ -1771,7 +1787,12 @@ export const ADMIN_SCREEN_TERMS = {
 // (= #4497 / 本 Issue が是正しようとしている欠陥そのもの) を新たに作ってしまう。
 // 特商法 / FAQ 側は本 PR で当該文を書き直しており改定日も動かしているため、こちらに合わせる。
 export const SUPPORT_RESPONSE_TERMS = {
-	/** 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し) */
+	/**
+	 * 初回応答の目標時間。SLA 第 6 条の既存表記に一致させる (スペース無し)。
+	 *
+	 * #4508: 特商法側は「原則 2 営業日以内」と同義で書く (48 時間 = 2 営業日)。
+	 * (tests/unit/domain/sla-promises-4508.test.ts が `48時間以内` を pin する)。
+	 */
 	initialResponseTarget: '48時間以内（営業日ベース）',
 } as const;
 

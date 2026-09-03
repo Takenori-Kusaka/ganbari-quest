@@ -145,7 +145,7 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
 		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
-		{ text: REWARD_TERMS.productRegistration, icon: '✅' },
+		{ text: '特別なごほうび設定（即時付与）', icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
 		{ text: '無制限の履歴保持', icon: '✅' },

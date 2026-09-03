@@ -37,6 +37,7 @@ import {
 	getOrCreateWeeklyChildChallenge,
 	markChallengeCelebrationShown,
 	resolveCelebrationChallenge,
+	resolveChallengeDisplayTitle,
 } from '$lib/server/services/child-challenge-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
@@ -156,7 +157,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		categoryXp,
 		hasRecords,
 		birthdayBonusStatus,
-		activeChallenges,
+		rawActiveChallenges,
 		familyStreakData,
 		uiModeChangeNotice,
 		habitCertificateNotice,
@@ -266,6 +267,12 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	// #3333: チャレンジ対象カテゴリをカード演出へ渡す派生。旧 ChallengeBanner 横長バナーを撤去し、
 	// 対象カテゴリの CategorySection ヘッダーに静的バッジ + インライン進捗で表示する
 	// (#2146/#2168 カード演出統合思想)。categoryId は targetConfig JSON 内に格納される。
+	// #4690 (QM #4809): claim card / SiblingCelebration / 対象バッジに出る title は保存値 (漢字固定)
+	// ではなく targetConfig の構造値から年齢帯の文体で解決し直す。
+	const activeChallenges = rawActiveChallenges.map((c) => ({
+		...c,
+		title: resolveChallengeDisplayTitle(c, parentData.uiMode),
+	}));
 	const challengeTargets = activeChallenges
 		.map((c) => {
 			let categoryId: CategoryId | null = null;

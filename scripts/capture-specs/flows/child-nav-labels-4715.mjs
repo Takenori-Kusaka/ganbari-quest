@@ -27,7 +27,8 @@ const CHILD_ID_BY_UI_MODE = {
 	preschool: '902',
 	elementary: '903',
 	junior: '904',
-	senior: '905',
+	// #4690: demo fixture に 905 は無い (senior = 906)。905 だと /switch でカードが見つからない。
+	senior: '906',
 };
 
 /**

@@ -145,17 +145,22 @@ describe('#4511 marketplace の導線と説明', () => {
 			expect(descLine, '画面名を literal で複製しない').toContain('NAV_ITEM_LABELS.checklists');
 
 			// 子供画面の checklist 名も実在し続けていること。
-			// #4715: SSOT を icons.ts の `getModeLabels` から labels.ts の `getChildNavModeLabels`
-			//   へ移し、年齢帯で割れていた 3 表記 (もちもの / もちものチェック / 持ち物チェック) を
-			//   親画面の「チェックリスト管理」と同じ語幹の「チェックリスト」1 つに統一した。
-			//   本 assertion の趣旨 (引用先の画面名が実在し続ける) は、旧 3 表記のうち 1 つを
-			//   pin する形から「全年齢帯で 1 表記に揃っている」形へ強めて保つ。
+			// #4715 で 3 表記 (もちものチェック / 持ち物チェック / もちもの) を「チェックリスト」に統一し、
+			// SSOT も icons.ts から labels.ts の getChildNavModeLabels() に移した。
+			// marketplace の説明文が引く親側 NAV_ITEM_LABELS.checklists と**同じ語**になったので、
+			// 「引用した画面名が子供画面にも実在する」ことを全年齢帯で pin する
+			// (旧 assertion は「もちものチェック が 1 モードにでもあること」しか見ておらず、
+			//  残り 4 モードが別表記でも通ってしまっていた)。
 			const actualNames = ['baby', 'preschool', 'elementary', 'junior', 'senior'].map(
 				(mode) => getChildNavModeLabels(mode).checklist,
 			);
-			expect(new Set(actualNames), '年齢帯で checklist の呼称が割れていない').toEqual(
-				new Set(['チェックリスト']),
+			// (a) 5 モードで表記が割れていない (旧 3 表記の再発を止める)
+			expect(new Set(actualNames).size, `子供画面の checklist 名が割れている: ${actualNames}`).toBe(
+				1,
 			);
+			// (b) 子供側の名前が、marketplace が引用する親側の画面名の語幹になっている
+			//     (親は管理画面なので「チェックリスト管理」、子供は一覧そのものなので「チェックリスト」)
+			expect(NAV_ITEM_LABELS.checklists).toContain(actualNames[0]);
 		});
 	});
 });

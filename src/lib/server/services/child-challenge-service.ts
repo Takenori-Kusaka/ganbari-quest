@@ -19,6 +19,11 @@ import {
 import { addDaysJST, jstDateToInstant, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
+import {
+	formatChallengeTitle,
+	getCategoryDisplayName,
+	getChallengeReason,
+} from '$lib/domain/labels';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -45,6 +50,26 @@ const ALL_CATEGORY_IDS: readonly CategoryId[] = CATEGORY_NUMERIC_IDS.map(asCateg
 export const CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
 	CATEGORY_CODES.map((code) => [String(CATEGORIES[code].legacyNumericId), CATEGORIES[code].name]),
 );
+
+/**
+ * 保存済み title (漢字固定の `formatChallengeTitle` 出力) を画面に出さず、targetConfig の
+ * categoryId + targetValue から年齢帯の文体で解決し直す (#4690 / QM #4809)。
+ * preschool は「こんしゅうは「うんどう」を3かい」、保護者画面 ('senior') は「今週は「運動」を3回」。
+ * categoryId が無い旧行は保存値をそのまま返す。
+ */
+export function resolveChallengeDisplayTitle(
+	c: { title: string; targetConfig: string; targetValue: number },
+	uiMode: string,
+): string {
+	try {
+		const cfg = JSON.parse(c.targetConfig) as { categoryId?: unknown };
+		if (typeof cfg.categoryId !== 'number' && typeof cfg.categoryId !== 'string') return c.title;
+		const name = getCategoryDisplayName(cfg.categoryId, uiMode);
+		return name ? formatChallengeTitle(name, c.targetValue, uiMode) : c.title;
+	} catch {
+		return c.title;
+	}
+}
 
 /** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 (#3194) */
 export type ChallengeProposalMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
@@ -218,19 +243,6 @@ function weightedWeakPick(
 	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? asCategoryId(CATEGORY_CODE_TO_ID.undou);
 }
 
-function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
-	switch (mode) {
-		case 'explore':
-			return 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
-		case 'strength':
-			return `得意な「${categoryName}」をもっと伸ばしてみよう！`;
-		case 'rescue-strength':
-			return `得意な「${categoryName}」でリズムを取り戻そう！`;
-		default:
-			return `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
-	}
-}
-
 /** カテゴリ選択 (weighted interleaving §3.4)。explore / rescue-strength / strength / weakness を返す。 */
 function selectCategory(
 	counts: Record<string, number>,
@@ -322,7 +334,9 @@ export function computeProposal(
 		targetCount,
 		mode,
 		consecutiveMissCount,
-		reason: reasonFor(mode, categoryName),
+		// #4690 F2: 保存する文言は保護者の管理画面にも出るため漢字表記 (elementary 変種)。
+		// 子供画面はこの行を使わず、view 整形時に uiMode で解決し直す。
+		reason: getChallengeReason(mode, categoryName, 'elementary'),
 	};
 }
 
@@ -455,7 +469,8 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 		if (!first) continue;
 		groups.push({
 			groupKey,
-			title: first.title,
+			// 保護者画面は漢字 + 漢字カテゴリ名で解決し直す (保存値は「うんどう」混在、QM #4809)
+			title: resolveChallengeDisplayTitle(first, 'senior'),
 			description: first.description,
 			startDate: first.startDate,
 			endDate: first.endDate,
@@ -572,7 +587,7 @@ export async function getOrCreateWeeklyChildChallenge(
 	return repos.childChallenge.getOrCreateWeeklyAuto(
 		{
 			childId,
-			title: `今週は「${proposal.categoryName}」を${proposal.targetCount}回`,
+			title: formatChallengeTitle(proposal.categoryName, proposal.targetCount),
 			description: proposal.reason,
 			challengeType: 'cooperative',
 			periodType: 'weekly',
@@ -614,16 +629,24 @@ export interface ChildChallengeView {
 }
 
 /** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
-function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
+function toChildChallengeView(row: ChildChallenge, uiMode: string): ChildChallengeView {
 	let categoryId: CategoryId | undefined;
+	let genMode: ChallengeProposalMode | undefined;
 	try {
 		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化する。
-		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number | string };
+		const cfg = JSON.parse(row.targetConfig) as {
+			categoryId?: number | string;
+			genMode?: ChallengeProposalMode;
+		};
 		categoryId = cfg.categoryId != null ? asCategoryId(cfg.categoryId) : undefined;
+		genMode = cfg.genMode;
 	} catch {
 		// 破損 JSON は categoryName 空で続行
 	}
-	const categoryName = categoryId ? (CATEGORY_NAMES[categoryId] ?? '') : '';
+	// #4690 F2: 表示名も理由文も **保存値ではなく targetConfig から uiMode で解決し直す**。
+	// row.description は生成時の 1 表記しか持てず、既存行も 3〜5 歳に漢字文を出し続けるため。
+	// genMode が無い破損 / 旧行だけ、保存済み description に fallback する。
+	const categoryName = categoryId ? getCategoryDisplayName(categoryId, uiMode) : '';
 	const target = row.targetValue > 0 ? row.targetValue : 1;
 	const current = row.currentValue;
 	const status: ChildChallengeView['status'] =
@@ -640,7 +663,9 @@ function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
 		weekStart: row.startDate,
 		status,
 		progressPercent: Math.min(100, Math.round((current / target) * 100)),
-		description: row.description ?? '',
+		description: genMode
+			? getChallengeReason(genMode, categoryName, uiMode)
+			: (row.description ?? ''),
 	};
 }
 
@@ -652,15 +677,17 @@ function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
 export async function getOrCreateWeeklyChildChallengeView(
 	childId: ChildId,
 	tenantId: string,
+	uiMode: string,
 ): Promise<ChildChallengeView> {
 	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
-	return toChildChallengeView(row);
+	return toChildChallengeView(row, uiMode);
 }
 
 /** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
 export async function getChildChallengeHistory(
 	childId: ChildId,
 	tenantId: string,
+	uiMode: string,
 	limit = 10,
 ): Promise<ChildChallengeView[]> {
 	const repos = getRepos();
@@ -669,7 +696,7 @@ export async function getChildChallengeHistory(
 		.slice()
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
 		.slice(0, limit)
-		.map(toChildChallengeView);
+		.map((row) => toChildChallengeView(row, uiMode));
 }
 
 /**
@@ -700,6 +727,7 @@ export async function getChildChallengeRecords(
 	childId: ChildId,
 	tenantId: string,
 	range: RetentionRange,
+	uiMode = 'senior',
 ): Promise<
 	Array<{
 		id: string;
@@ -725,7 +753,7 @@ export async function getChildChallengeRecords(
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
 		.map((c) => ({
 			id: c.id,
-			title: c.title,
+			title: resolveChallengeDisplayTitle(c, uiMode),
 			challengeType: c.challengeType,
 			startDate: c.startDate,
 			endDate: c.endDate,

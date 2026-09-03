@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getChildChallengeRecords(child.id, tenantId, retention),
+			getChildChallengeRecords(child.id, tenantId, retention, child.uiMode),
 			getRedemptionRequestsForChild(child.id, tenantId, retention),
 			getTenantValuePreview(tenantId),
 		]);

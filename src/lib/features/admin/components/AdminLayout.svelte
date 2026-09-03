@@ -234,7 +234,6 @@ const navCategories: NavCategory[] = $derived([
 				label: ADMIN_SCREENS.growthBook.name,
 				icon: ADMIN_SCREENS.growthBook.icon,
 			},
-			// #4669 F7: 成長レポート (/admin/status) はナビからも各ページからも到達不能だった。record 配下に置く (下記 status 項目)
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
 			// #2284 (EPIC #2283): /admin/analytics 撤去。運用者向け機能は /ops/analytics に移動
 			{

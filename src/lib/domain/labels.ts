@@ -5,7 +5,7 @@
 
 import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
-import { CATEGORIES, CATEGORY_NAME_LIST } from './categories';
+import { CATEGORIES, CATEGORY_NAME_LIST, type CategoryCode, toCategoryCode } from './categories';
 import { CHEER_POINTS } from './constants/cheer-points';
 import {
 	CERTIFICATE_LEVEL_MILESTONES,
@@ -21,9 +21,9 @@ import {
 	MAX_DAILY_NOTIFICATIONS,
 } from './constants/notification';
 import { FREE_PLAN_QUOTA } from './constants/plan-quota';
-import { formatRetentionPeriod } from './constants/plan-retention';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
+import { formatRetentionPeriod } from './constants/plan-retention';
 import {
 	REWARD_REJECT_NOTE_MAX_LENGTH,
 	REWARD_REQUEST_HISTORY_LIMIT,
@@ -159,8 +159,8 @@ export const PAGE_TITLES = {
 	rewards: ADMIN_SCREENS.rewards.name,
 	checklists: ADMIN_SCREENS.checklists.name,
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	// #4671 F3: 呼称は CHALLENGE_TERMS.canonical に統一 (旧「きょうだいチャレンジ」)。
-	//   値は ADMIN_SCREEN_TERMS.challenges 経由 (#4715 registry SSOT) で共有する。
+	// #4671 F3 の呼称統一 (旧「きょうだいチャレンジ」) は ADMIN_SCREEN_TERMS.challenges =
+	// CHALLENGE_TERMS.canonical として registry 側に吸収済み
 	challenges: ADMIN_SCREENS.challenges.name,
 	// #4714 / #4715: LP の carousel alt と nav / 見出しが同じ registry から引く
 	children: ADMIN_SCREENS.children.name,
@@ -171,7 +171,7 @@ export const PAGE_TITLES = {
 	billing: ADMIN_SCREENS.subscription.name,
 	certificates: ADMIN_SCREENS.certificates.name,
 	license: ADMIN_SCREENS.subscription.name,
-	// #4715 / #4669 F6: 旧「ベンチマーク管理」は画面の中身 (成長レポート) と別物だった
+	// #4715: 旧「ベンチマーク管理」は画面の中身 (成長レポート) と別物だった
 	status: ADMIN_SCREENS.status.name,
 	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
 	packs: TEMPLATE_TERMS.userFacing,
@@ -422,8 +422,8 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
  * 「他のお子さまから取り込む」の 3 表記に割れていた。同じ操作なので 1 箇所に置く。
  */
 export const COPY_FROM_CHILD_LABELS = {
-	/** + 追加 dropdown / ボタンのラベル */
-	action: `別の${CHILD_TERMS.honorific}からコピー`,
+	/** + 追加 dropdown / ボタンのラベル (値の atom は ADD_MENU_TERMS.copyFromChild) */
+	action: ADD_MENU_TERMS.copyFromChild,
 	/** dropdown のアイコン (概念アイコンではないので registry 対象外) */
 	icon: '👨‍👩‍👧',
 	/** ダイアログ見出し。resource は「活動」「ごほうび」等 */
@@ -434,8 +434,6 @@ export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
 	// #4715: nav / title / 見出しを同じ registry から引く (旧 nav「グロースブック」等の別名を廃止)
-	// #4670 F2 / #4669 F7 の「1 画面 1 呼称」も registry 経由で満たす
-	// (/admin/status への nav 導線は下の `status` を AdminLayout が引く)。
 	reports: ADMIN_SCREENS.reports.name,
 	growthBook: ADMIN_SCREENS.growthBook.name,
 	achievements: ADMIN_SCREENS.challenges.name,
@@ -513,7 +511,8 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'つよさ',
 		switch: 'かぞく',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		// #4690 F7: 同じ画面群で history が「記録」なのに achievements だけ「きろく」だった
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -522,7 +521,7 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'ステータス',
 		switch: '家族',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -531,7 +530,7 @@ export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
 		status: 'ステータス',
 		switch: '家族',
 		history: '記録',
-		achievements: 'チャレンジきろく',
+		achievements: 'チャレンジ記録',
 		titles: '称号',
 		recordSummary: '今日の記録',
 		checklist: 'チェックリスト',
@@ -906,7 +905,7 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 
 export const FEATURE_LABELS = {
 	report: ADMIN_SCREENS.reports.name,
-	// #4715 / #4670 F2: 画面名 registry (nav = title = 見出し) に合わせる
+	// #4715: 画面名 registry (nav = title = 見出し) に合わせる
 	growthBook: ADMIN_SCREENS.growthBook.name,
 	message: ADMIN_SCREENS.cheer.name,
 	reward: 'ごほうび',
@@ -1737,7 +1736,7 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	// #4716: 他の admin title に絵文字が無いため揃える (title は絵文字なし / 画面内見出しに絵文字)
 	pageTitle: 'ごほうび申請承認',
 	pageDescTitle: `${CONCEPT_ICONS.reward} ごほうび申請承認`,
-	// #4676 F5 / #4716: 保護者向け画面のため CHILD_TERMS.honorific に統一し、英語見出しを日本語にする
+	// #4676 F5: 保護者向け画面のため CHILD_TERMS.honorific に統一し、英語見出しを日本語にする
 	pageDescText: `${CHILD_TERMS.honorific}からの交換申請を承認 / 却下します。`,
 	backToRewardsLabel: `← ${ADMIN_SCREENS.rewards.name}に戻る`,
 	// #4716: 英語の節見出し (Pending / History) を日本語に
@@ -1748,7 +1747,7 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 	pendingTruncatedNote: (shown: number, total: number) =>
 		`古い順に ${shown} 件を表示しています（未処理の申請は全 ${total} 件）。処理すると次の申請が出ます`,
 	// #4682 F4: 「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」を出す。
-	// #4716: 何の履歴かが分かるよう「これまでの申請」と述べる (件数の意味は #4682 のまま)。
+	// #4716: 節見出しは英語 (History) を廃し、何の一覧かが分かる日本語にする。
 	historySectionTitle: `これまでの申請（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
 	emptyPendingMessage: '申請はありません',
 	emptyHistoryMessage: '履歴はありません',
@@ -1960,19 +1959,6 @@ export const MEMBERS_LABELS = {
 // 構造は page → step → field のネスト（ADR-0045 compound 層）。
 // 本定数の文言を検査する linter は無い（機械強制は無い。レビューで担保する）。
 // ============================================================
-
-/**
- * 設定 > データ の「読み込み方」ラジオの名前 (#4665 / #4716)。
- *
- * 画面 (`SETTINGS_LABELS.dataImportMode*`) とページガイド (`PAGE_GUIDE_LABELS.adminSettingsData`)
- * が**同じ名前**を指す必要があるが、`PAGE_GUIDE_LABELS` は `SETTINGS_LABELS` より先に評価される
- * ため labels 側を参照できない (TDZ)。両者が引ける位置に compound を 1 つだけ置く。
- * 両者の一致は `tests/unit/routes/settings-data-guide.test.ts` [D3] が gate する。
- */
-const DATA_IMPORT_MODE_LABELS = {
-	replace: `置き換える（既存データを削除してから${BACKUP_TERMS.restoreVerb}）`,
-	add: '追加する（既存データを残して足す）',
-} as const;
 
 export const PAGE_GUIDE_LABELS = {
 	// #4653: /admin ホームのガイド。画面の上から下の順 (承認待ちバナー → 上部カード → 今月のがんばり →
@@ -2433,7 +2419,8 @@ export const PAGE_GUIDE_LABELS = {
 			'rewards-child-tabs': {
 				title: '画面の見方（お子さまの切り替え）',
 				what: `${REWARD_TERMS.canonical}はお子さまごとに持ちます。タブで選んだお子さまの${REWARD_TERMS.canonical}だけが下に表示され、追加もそのお子さまに入ります。タブの数字は登録済みの件数です。`,
-				how: `1. お子さまのタブを押す\n2. 兄弟に同じ${REWARD_TERMS.canonical}を用意するときは、「${ADD_MENU_TERMS.trigger}」の「${COPY_FROM_CHILD_LABELS.action}」でまとめてコピーする（お子さまが 2 人以上のとき）`,
+				// #4716: コピー操作は子供タブ行の右端ボタンから header 「+ 追加」dropdown に移動した
+				how: `1. お子さまのタブを押す\n2. 兄弟に同じ${REWARD_TERMS.canonical}を用意するときは、右上の「${ADD_MENU_TERMS.trigger}」→「${REWARD_ADMIN_TERMS.copyFromChild}」でまとめてコピーする（お子さまが 2 人以上のとき）`,
 				goal: `お子さまごとに別々の${REWARD_TERMS.canonical}を用意できるので、年齢や興味に合わせた応援ができます。`,
 			},
 			'rewards-list': {
@@ -2681,9 +2668,9 @@ export const PAGE_GUIDE_LABELS = {
 			// ③ 復元 (インポート)。既定が「置換」= 全削除してから読み込むので必ず警告する
 			'settings-data-import': {
 				title: `よく使う操作（${BACKUP_TERMS.restoreVerb}）`,
-				what: `保存した${BACKUP_TERMS.file}を読み込んで元に戻します。読み込み方は 2 つあり、既定は「${DATA_IMPORT_MODE_LABELS.replace}」です。これはいまの${CHILD_TERMS.honorific}・活動ログ・ポイントをすべて削除してから読み込むため、元に戻せません。残したまま足すなら「${DATA_IMPORT_MODE_LABELS.add}」を選びます。`,
-				how: `1. 読み込み方（「${DATA_IMPORT_MODE_LABELS.replace}」か「${DATA_IMPORT_MODE_LABELS.add}」）を選びます\n2. 「${BACKUP_TERMS.file}を選択」でファイルを選びます\n3. 中身のプレビューが出るので、件数を確かめてから実行します`,
-				goal: `${BACKUP_TERMS.file}の内容が反映されます。「${DATA_IMPORT_MODE_LABELS.replace}」を選んだ場合、読み込み前のデータは戻せません。`,
+				what: `保存した${BACKUP_TERMS.file}を読み込んで元に戻します。読み込み方は 2 つあり、既定は「${BACKUP_TERMS.importModeReplace}」です。これはいまのお子さま・活動ログ・ポイントをすべて削除してから読み込むため、元に戻せません。残したまま足すなら「${BACKUP_TERMS.importModeAdd}」を選びます。`,
+				how: `1. 読み込み方（置換 / 追加）を選びます\n2. 「${BACKUP_TERMS.file}を選択」でファイルを選びます\n3. 中身のプレビューが出るので、件数を確かめてから実行します`,
+				goal: `${BACKUP_TERMS.file}の内容が反映されます。置換を選んだ場合、読み込み前のデータは戻せません。`,
 				tips: [
 					`置き換える前に、いまのデータを「${BACKUP_TERMS.canonical}をダウンロード」で保存しておくと安全です`,
 				],
@@ -2943,14 +2930,14 @@ export const PAGE_GUIDE_LABELS = {
 			'status-empty': {
 				title: 'まずお子さまを登録する',
 				what: 'お子さまが 1 人も登録されていないため、成長レポートはまだ表示できません。',
-				how: `1. 「${ADMIN_SCREENS.children.name}でお子さまを登録する →」を押します\n2. お子さまを登録して活動を記録すると、このページにレポートが表示されます`,
+				how: `1. 「${ADMIN_SCREEN_TERMS.children}でお子さまを登録する →」を押します\n2. お子さまを登録して活動を記録すると、このページにレポートが表示されます`,
 				goal: '登録後は、5 つの軸のバランスと同年齢の平均との比較がここに出ます。',
 			},
-			// ③ 右上「<お子さま管理>でステータス編集 →」
+			// ③ 右上「お子さま管理でステータス編集 →」
 			'status-edit-link': {
 				title: '画面の見方（数値を手で調整する）',
-				what: `各分野の★（ステータス）を手で調整したいときは、このリンクから${ADMIN_SCREENS.children.name}に移動します。`,
-				how: `1. 「${ADMIN_SCREENS.children.name}でステータス編集 →」を押します\n2. ${ADMIN_SCREENS.children.name}で対象のお子さまを開き、ステータスを編集します`,
+				what: `各分野の★（ステータス）を手で調整したいときは、このリンクから${ADMIN_SCREEN_TERMS.children}に移動します。`,
+				how: `1. 「${ADMIN_SCREEN_TERMS.children}でステータス編集 →」を押します\n2. ${ADMIN_SCREEN_TERMS.children}で対象のお子さまを開き、ステータスを編集します`,
 				goal: '記録だけでは反映しきれない頑張りを、保護者の判断で補正できます。',
 			},
 			'status-radar': {
@@ -3437,7 +3424,7 @@ export const OYAKAGI_LABELS = {
 	currentInputLabel: `現在の${OYAKAGI_TERMS.name}`,
 	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
 	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
-	// #4716 item 15: 変更フォームの検証結果。画面直書きだった文言を SSOT へ移す。
+	// #4716 item 15: 変更フォーム (server action) のエラー文言も画面直書きから SSOT へ移す
 	mismatchError: `新しい${OYAKAGI_TERMS.name}が一致しません`,
 	allFieldsRequiredError: 'すべての項目を入力してください',
 	currentPinInvalidError: `現在の${OYAKAGI_TERMS.name}が正しくありません`,
@@ -3799,8 +3786,10 @@ export const SETTINGS_LABELS = {
 	dataImportTitle: `${BACKUP_TERMS.canonical}から${BACKUP_TERMS.restoreVerb}`,
 	dataImportDesc: `保存した${BACKUP_TERMS.file}からデータを${BACKUP_TERMS.restoreVerb}できます（画像・音声を含むファイルはアバター画像・音声も${BACKUP_TERMS.restoreVerb}します）。`,
 	dataImportMode: `${BACKUP_TERMS.restoreVerb}のしかた`,
-	dataImportModeReplace: DATA_IMPORT_MODE_LABELS.replace,
-	dataImportModeAdd: DATA_IMPORT_MODE_LABELS.add,
+	// #4690 (QM): ページガイドが引用する選択肢名なので atom を SSOT にする
+	// (片方だけ変えるとガイドが存在しない選択肢を指す)。
+	dataImportModeReplace: BACKUP_TERMS.importModeReplace,
+	dataImportModeAdd: BACKUP_TERMS.importModeAdd,
 	dataImportModeReplaceWarning: `既存の${CHILD_TERMS.honorific}・活動ログ・ポイント等のデータをすべて削除してから${BACKUP_TERMS.restoreVerb}します。`,
 	dataImportModeAddNote: `新しい${CHILD_TERMS.honorific}データとして追加されます（既存データは上書きされません）。`,
 	dataImportLoading: '読み込み中...',
@@ -4112,7 +4101,6 @@ export const SETTINGS_LABELS = {
 	groupRulesTitle: RULES_TERMS.settingsMenu,
 	// #4666 F6: 一覧の実ボタン (有効化 / 無効化) と同じ語にする。
 	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの 有効化 / 無効化',
-	// #4715: 画面名は ADMIN_SCREENS registry が SSOT (旧「プラン・課金」は nav / title と別名だった)
 	groupPlanTitle: ADMIN_SCREENS.subscription.name,
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',
@@ -4127,9 +4115,37 @@ export const SETTINGS_LABELS = {
 	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: `${BACKUP_TERMS.clearAll}することに同意します`,
+	// #4716 item 15: 画面に直書きされていた顧客可視文言を SSOT へ移す
+	// #4716 item 15: /admin/settings/account と /admin/settings/activities /
+	//   /admin/settings/notifications に直書きされていた顧客可視文言を SSOT へ。
+	//   確認語 / その入力ラベルは #4642 の CANCEL_TERMS.confirmPhrase / dangerConfirmInputLabel が
+	//   SSOT (退会と引っ越し合流で共通)。ここで複製しない。
+	accountInfoFetchError: '情報取得に失敗しました',
+	accountDeleteError: 'アカウント削除に失敗しました',
+	accountTransferSelectPlaceholder: '移譲先を選択...',
+	accountProcessing: '処理中...',
+	accountTransferAndLeave: '移譲して退会',
+	accountDeleteAllButton: '全て削除する',
+	accountDeleteButton: 'アカウントを削除する',
+	decayNoneLabel: 'なし',
+	decayNoneDesc: '減少しません（練習や導入期間向け）',
+	decayGentleLabel: 'ゆるやか',
+	decayGentleDesc: '通常の半分の速度で減少します',
+	decayNormalLabel: 'ふつう',
+	decayNormalDesc: '猶予2日後にゆるやかに減少します',
+	decayStrictLabel: 'きびしめ',
+	decayStrictDesc: '上級者向け。1.5倍の速度で減少します',
+	currencyFieldLabel: '通貨',
+	currencyRateFieldLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
+	currencyRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	// #4716 の「直書き文言を SSOT へ」は、#4664 F8 が同じ 3 語を
+	// notificationReminderTimeLabel / notificationQuietLabel / notificationQuietHint として
+	// 先に置いており (ページガイドと共有)、そちらを画面が参照する。同義キーを 2 組持つと
+	// 片方だけ直して割れるので重複を置かない。
 	// #4512: データクリアの確認テキスト / 実行ボタン。旧実装は画面 (+page.svelte) と
 	// 検証 (+page.server.ts) が '削除' を別々に直書きしており、合言葉を変えると
 	// 「入力しても通らない」状態になり得た。両者が同じ定数を見るようにする。
+	// #4716: 文言側は BACKUP_TERMS に寄せる (「データクリア」は内部語)。
 	clearConfirmKeyword: '削除',
 	clearConfirmFieldLabel: '確認のため「削除」と入力してください',
 	clearConfirmRequired: '確認テキスト「削除」を入力してください',
@@ -4141,21 +4157,9 @@ export const SETTINGS_LABELS = {
 	//   /admin/settings/notifications に直書きされていた顧客可視文言を SSOT へ。
 	accountDeleteConfirmPhrase: 'アカウントを削除します',
 	accountDeleteConfirmInputLabel: '確認のため「アカウントを削除します」と入力してください',
-	accountInfoFetchError: '情報取得に失敗しました',
-	accountDeleteError: 'アカウント削除に失敗しました',
-	accountTransferSelectPlaceholder: '移譲先を選択...',
-	accountProcessing: '処理中...',
-	accountTransferAndLeave: '移譲して退会',
-	accountDeleteAllButton: '全て削除する',
-	accountDeleteButton: 'アカウントを削除する',
 	reminderTimeFieldLabel: 'リマインダー時刻',
 	quietHoursFieldLabel: 'サイレント時間帯',
 	quietHoursFieldHint: 'この時間帯は通知を送信しません',
-	// #4716 が足していた clearConfirmInputLabel / clearConfirmInputPlaceholder /
-	// clearExecuteButton / clearExecuting は、#4512 (develop) の clearConfirmFieldLabel /
-	// clearConfirmKeyword / clearSubmitButton / clearSubmitting と同義。
-	// 同じ文言に 2 つの key を残すと片方だけ変えたときに画面と検証がずれるので #4512 側に寄せる。
-	clearExecuting: `${BACKUP_TERMS.clearAll}しています…`,
 	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
 	//   旧実装はプランに依らない固定文で「元に戻せません」と断定しており、猶予のある有料プラン
 	//   では直上の notice (「N 日間は復元で取り消せます」) と正面から矛盾していた。最も不可逆性の
@@ -4576,7 +4580,7 @@ export const REPORTS_LABELS = {
 	categoryUnknown: 'その他',
 	// ページヘッダー
 	pageTitle: adminScreenHeading('reports'),
-	// #4715 / #4670 F2: 着地先の画面名 (registry SSOT) をそのまま出す。旧「証明書」「記録ブック」は
+	// #4715: 着地先の画面名 (registry SSOT) をそのまま出す。旧「証明書」「記録ブック」は
 	//   同じ画面の短縮別名で、着地先の title / 見出しと一致していなかった。
 	certificatesLink: adminScreenHeading('certificates'),
 	growthBookLink: adminScreenHeading('growthBook'),
@@ -4780,6 +4784,10 @@ export const POINTS_LABELS = {
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
 	// 残高カード
+	// #4716: 旧「変換可能: 0P」は「かんたん」タブ (単位切り上げ) だけの値なのに、
+	//   同じ画面の「自由入力」タブでは 1P から変換できるため矛盾して読めた。
+	//   どちらのタブの話かを名前に入れる (語自体は POINTS_ADMIN_TERMS.convertable が SSOT。
+	//   #4658 のページガイドも同じ atom を読むので、カードとガイドの呼称が割れない)。
 	convertableLabel: (amount: string) => `${POINTS_ADMIN_TERMS.convertable}: ${amount}`,
 
 	// 変換フォーム
@@ -5622,6 +5630,63 @@ export const CHILD_HOME_LABELS = {
 		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
 } as const;
 
+/**
+ * 子供ホームの文言セット。値の型は `string` / 関数に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+type ChildHomeLabels = {
+	readonly [K in keyof typeof CHILD_HOME_LABELS]: (typeof CHILD_HOME_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_HOME_LABELS)[K];
+};
+
+/**
+ * #4690 F6: 子供ホームの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯を持たず、高校生の画面にも記録ダイアログ「きろくする？ / きろく！ /
+ * やめる」、結果「やったね！ / けいけんち / きょう 1かいめ！」、「⭐ おやくそく」が
+ * 出ていた (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_HOME_KANJI_OVERRIDES = {
+	completedAriaLabel: (name: string) => `${name}（記録済み）`,
+	pinActionUnpin: '📌 ピン留めを外す',
+	pinActionPin: '📌 ピン留めする',
+	pinCloseButton: '閉じる',
+	confirmTitle: (name: string) => `${name}を
+記録する？`,
+	confirmTitleBr: (name: string) => `${name}を`,
+	confirmTitleBrLine2: '記録する？',
+	confirmCancelButton: 'キャンセル',
+	confirmSubmitLoading: '記録中…',
+	confirmSubmitButton: '記録する',
+	resultCancelledTitle: '取り消しました',
+	resultCancelledClose: '閉じる',
+	resultFirstRecord: '🌟 はじめの一歩！ 🌟',
+	resultActivityRecorded: (name: string) => `${name}を記録しました`,
+	resultStreakBonus: (days: number | string, bonus: number | string) =>
+		`${days}日連続！ +${bonus}ボーナス`,
+	resultMasteryBonus: (bonus: number | string, level: number | string) =>
+		`📗 熟練ボーナス +${bonus} (Lv.${level})`,
+	resultMasteryLevelUp: (name: string, level: number | string) =>
+		`🎖️ ${name}が Lv.${level} になりました`,
+	resultXpLabel: '経験値',
+	siblingUnknownName: 'きょうだい',
+	resultMissionComplete: '🎯 ミッション達成！',
+	resultMissionAllClear: '🎉 すべてクリア！',
+	resultTodayCount: (n: number | string) => `今日 ${n}回目`,
+	resultCancelButton: (sec: number | string) => `取り消し (${sec}s)`,
+	resultConfirmButton: 'OK',
+	mustRemaining: (n: number | string) => `あと ${n}件`,
+	mustAllComplete: 'すべて達成',
+} as const satisfies Partial<ChildHomeLabels>;
+
+/** 子供ホームの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildHomeLabels(uiMode: string): ChildHomeLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_HOME_LABELS;
+	return { ...CHILD_HOME_LABELS, ...CHILD_HOME_KANJI_OVERRIDES };
+}
+
 // ============================================================
 // admin/challenges ページ (#1452 Phase B)
 // ============================================================
@@ -5778,8 +5843,7 @@ export const GROWTH_BOOK_LABELS = {
 	annualSummaryTitle: '📊 年間サマリー',
 	statActivities: '活動回数',
 	statPoints: '獲得ポイント',
-	// #4716 / #4675 F8: 同じ表の中で「活動回数 / 獲得ポイント」(漢字) と混在していた。
-	// 証明書は着地先の画面名 (registry SSOT) をそのまま出す。
+	// #4716: 同じ表の中で「活動回数 / 獲得ポイント」(漢字) と混在していた
 	statMaxStreak: '最長連続日数',
 	statCertificates: `${ADMIN_SCREENS.certificates.name}`,
 	bestMonthLabel: 'いちばんがんばった月: ',
@@ -5940,6 +6004,136 @@ export const ERROR_PAGE_LABELS = {
 } as const;
 
 /**
+ * #4690 F3: 子供画面のエラー文言（年齢帯 2 変種）。
+ *
+ * 旧実装は「子供かどうか」だけで分岐し、子供文言は 1 種類（ひらがな）、
+ * 判定に失敗すると保護者向けの「お探しのページは存在しないか、移動した可能性が
+ * あります。」がそのまま 3〜5 歳の画面に出ていた（実測: `/preschool/battle`）。
+ *
+ * 文体の分かれ目は `child-home/variants` と同じ baby・preschool = ひらがな /
+ * elementary 以上 = 漢字（docs/DESIGN.md §8）。
+ */
+const ERROR_PAGE_CHILD_HIRAGANA = {
+	title404: 'ページが みつかりません',
+	title429: 'アクセスが こんでいます',
+	title403: 'ここは ひらけません',
+	titleDefault: 'エラーが おきました',
+	desc404: 'おうちの がめんに もどります…',
+	desc403: 'おうちの がめんに もどります…',
+	descGeneric: 'おうちの がめんに もどります…',
+	btnBackNow: 'いますぐ もどる',
+} as const;
+
+const ERROR_PAGE_CHILD_KANJI = {
+	title404: 'ページが見つかりません',
+	title429: 'アクセスが混み合っています',
+	title403: 'このページは開けません',
+	titleDefault: 'エラーが発生しました',
+	desc404: 'ホーム画面に戻ります…',
+	desc403: 'ホーム画面に戻ります…',
+	descGeneric: 'ホーム画面に戻ります…',
+	btnBackNow: '今すぐ戻る',
+} as const;
+
+/**
+ * #4690: カテゴリ表示名を年齢帯で選ぶ。
+ *
+ * `CATEGORIES[code].name` はひらがな固定（DB seed 値 / `CategoryName` union /
+ * marketplace payload が依存しているため変えられない）。13-18 歳の画面に
+ * 「うんどう」「べんきょう」が出るのは docs/DESIGN.md §8 と食い違うので、
+ * 同じ SSOT に並べた `kanjiName` を elementary 以上で使う。
+ *
+ * @param category カテゴリ code、または legacy 数値 id / branded CategoryId 文字列
+ */
+export function getCategoryDisplayName(category: string | number, uiMode: string): string {
+	// `in` は継承プロパティ ('toString' 等) にも true を返し、DB 汚染時に Function を meta として
+	// 返してしまうため own property 判定にする (QM #4809 レビュー)。
+	const code = (Object.hasOwn(CATEGORIES, category) ? category : toCategoryCode(category)) as
+		| CategoryCode
+		| undefined;
+	if (!code) return '';
+	const meta = CATEGORIES[code];
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool' ? meta.name : meta.kanjiName;
+}
+
+/**
+ * #4690 F2: 週次チャレンジの提案理由・タイトル（年齢帯 2 変種）。
+ *
+ * 旧実装は `child-challenge-service.ts` に日本語 4 文を直書きし、全年齢に同じ漢字文を
+ * 出していた（実測: `/preschool/challenges` に「最近「こうりゅう」が少なめだったから、
+ * 今週はチャレンジしてみよう！」）。表示文言はサービス層ではなくここが置き場所
+ * （ADR-0045）。文体の分かれ目は docs/DESIGN.md §8。
+ */
+type ChallengeReasonMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+
+/** 子供に見せるチャレンジ理由文。categoryName は呼び出し側が年齢帯に合わせて解決して渡す。 */
+export function getChallengeReason(
+	mode: ChallengeReasonMode,
+	categoryName: string,
+	uiMode: string,
+): string {
+	const kana = (() => {
+		const m = normalizeUiMode(uiMode);
+		return m === 'baby' || m === 'preschool';
+	})();
+	switch (mode) {
+		case 'explore':
+			return kana
+				? 'まだ きろくが すくないから、いろんなことを やってみよう！'
+				: 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
+		case 'strength':
+			return kana
+				? `とくいな「${categoryName}」を もっと のばしてみよう！`
+				: `得意な「${categoryName}」をもっと伸ばしてみよう！`;
+		case 'rescue-strength':
+			return kana
+				? `とくいな「${categoryName}」で ちょうしを とりもどそう！`
+				: `得意な「${categoryName}」でリズムを取り戻そう！`;
+		default:
+			return kana
+				? `さいきん「${categoryName}」が すくなめだったから、こんしゅう やってみよう！`
+				: `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
+	}
+}
+
+/**
+ * 週次チャレンジのタイトル。DB には既定 (漢字) で保存し、表示時は
+ * `resolveChallengeDisplayTitle` (child-challenge-service) が targetConfig の構造値から
+ * 年齢帯の文体で解決し直す (#4690 / src/routes/CLAUDE.md「保存値を出さず構造値から解決」)。
+ * baby / preschool はひらがな。
+ */
+export function formatChallengeTitle(
+	categoryName: string,
+	targetCount: number,
+	uiMode: string = 'senior',
+): string {
+	const m = normalizeUiMode(uiMode);
+	if (m === 'baby' || m === 'preschool')
+		return `こんしゅうは「${categoryName}」を${targetCount}かい`;
+	return `今週は「${categoryName}」を${targetCount}回`;
+}
+
+interface ChildErrorPageLabels {
+	readonly title404: string;
+	readonly title429: string;
+	readonly title403: string;
+	readonly titleDefault: string;
+	readonly desc404: string;
+	readonly desc403: string;
+	readonly descGeneric: string;
+	readonly btnBackNow: string;
+}
+
+/** 子供画面のエラー文言を年齢帯で選ぶ。 */
+export function getChildErrorPageLabels(uiMode: string): ChildErrorPageLabels {
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool'
+		? ERROR_PAGE_CHILD_HIRAGANA
+		: ERROR_PAGE_CHILD_KANJI;
+}
+
+/**
  * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
  *
  * 運営者専用画面のため顧客には出ない。ここで手順まで出し切るのは、
@@ -5979,8 +6173,6 @@ export const OPS_MFA_SETUP_LABELS = {
 export const STATUS_LABELS = {
 	// #4715: nav / title と同じ画面名を画面内見出しにも出す (registry SSOT)
 	pageHeading: adminScreenHeading('status'),
-	// #4716 item 15 の分析文言は #4669 F11 が先に同名・同値で SSOT 化済み（下の analysisHigh/Mid/Low）。
-	//   ここに再掲すると後勝ちで黙って上書きされる重複キーになるため置かない。
 	// Navigation link
 	childrenEditLink: `${ADMIN_SCREENS.children.name}でステータス編集 →`,
 
@@ -6199,19 +6391,22 @@ export const OPS_COSTS_LABELS = {
 export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
+	// #4656 F5: 呼称は ADMIN_SCREENS.rewards.name (ごほうび管理)、icon は CONCEPT_ICONS.reward。
+	// #4715: 画面名の SSOT は ADMIN_SCREENS。adminScreenHeading が「アイコン + 画面名」を組む
 	sectionTitle: adminScreenHeading('rewards'),
 	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
 	// (pageDescHint*) のみ page-description カードに残す。
-	// #4656 F8 / M1 + #4716: 生 URL 露出と旧 /admin/messages 参照をやめ、応援 (ADMIN_SCREENS.cheer) への
-	// link に統一 (#4654 B15 の「旧 /admin/messages 参照をやめる」意図も本文言で満たす)
-	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${CHEER_TERMS.canonical}ページから送れます。`,
+	// #4656 F8 / M1 + #4716: 生 URL 露出と旧 /admin/messages 参照をやめ、応援ページへの link に統一
+	// (#4654 B15 の「旧 /admin/messages 参照をやめる」意図も本文言で満たす)。画面名は #4715 の
+	// registry (ADMIN_SCREENS.cheer.name) から引き、下の pageDescHintLink と同じ語にする。
 	// #4654 (B15): 旧「おうえんメッセージ」(/admin/messages) は #2270 で応援画面に統合済。
-	// リンク文言も統合先の画面名 (応援) に合わせる。
+	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${ADMIN_SCREENS.cheer.name}ページから送れます。`,
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
-	// #4715: 着地先は ADMIN_SCREENS.cheer。旧「おうえんメッセージ」は同画面の別名だった。
+	// #4715: 着地先は /admin/cheer。旧「おうえんメッセージ」は同画面の別名で、
+	//   リンク先も旧 URL /admin/messages (308 redirect) を指していた。
 	pageDescHintLink: ADMIN_SCREENS.cheer.name,
 	pageDescHintSuffix: 'から送れます',
 	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
@@ -6296,6 +6491,7 @@ export const CHEER_LABELS = {
 	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
 	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
+	// #4716: 呼称は honorific。値は CHEER_ADMIN_TERMS が SSOT (#4659 でページガイドと共有)
 	selectChildTitle: CHEER_ADMIN_TERMS.selectChildTitle,
 	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
 	reasonPlaceholder: CHEER_ADMIN_TERMS.reasonPlaceholder,
@@ -6379,8 +6575,7 @@ export const CHEER_LABELS = {
 	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
 	reasonLengthHint: (used: number | string, max: number | string, remaining: number | string) =>
 		`${used}/${max}（あと${remaining}文字）`,
-	// #4716 item 15 の messagePlaceholder は develop 側の freeTextPlaceholder と同値のため
-	// 重複 atom を作らず freeTextPlaceholder (#4504) に寄せる。
+	messagePlaceholder: 'ひとことメッセージを足す（任意）',
 } as const;
 
 // ============================================================
@@ -6517,7 +6712,7 @@ export const SETUP_CHILDREN_LABELS = {
 	pageDesc: `がんばりクエストを使う${CHILD_TERMS.honorific}を登録してください（1人以上）。`,
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
-	// #4716: 保護者画面の呼称は honorific に寄せる
+	// #4716: 親画面の子供呼称は honorific に統一
 	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
 	// #4512: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
@@ -6535,7 +6730,7 @@ export const SETUP_CHILDREN_LABELS = {
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorNicknameRequired: 'ニックネームを入力してください',
 	errorAgeRange: '年齢は0〜18で入力してください',
-	// #4716: 保護者画面の呼称は honorific に寄せる (DESIGN.md §6)
+	// #4716: 親画面の呼称は honorific
 	errorNoChildren: `1人以上の${CHILD_TERMS.honorific}を登録してください`,
 	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	themePink: 'ピンク',
@@ -6547,6 +6742,11 @@ export const SETUP_CHILDREN_LABELS = {
 	// #4696: 全削除後もこの画面に来るため、バックアップからの復元導線を出す
 	restoreFromBackup: 'バックアップから復元する',
 	addSuccessMessage: `${CHILD_TERMS.honorific}を登録しました！`,
+	// #4716 item 15: setup 画面に直書きされていた顧客可視文言を SSOT へ
+	nicknameFieldLabel: 'ニックネーム',
+	ageFieldLabel: '年齢',
+	expandCollapse: '▲ とじる',
+	expandOpen: '▼ なかみ',
 } as const;
 
 export const ADMIN_CHILDREN_LABELS = {
@@ -6702,7 +6902,7 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	// #4716: 3 画面 (活動 / ごほうび / チェックリスト) で同一表記に集約 (旧「📋 他の子供から copy」)。
+	// #4716: 同じ操作の呼称は COPY_FROM_CHILD_LABELS.action に統一 (旧「📋 他の子供から copy」)
 	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
 	// #4693: copy / 一括追加の結果文言 (旧: +page.svelte に直書き、SSOT 逸脱)。
 	// 失敗時はサーバーが返す理由 (上限 + アップグレード導線) を優先し、本文言は fallback。
@@ -6897,6 +7097,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
+	// #4716: 活動 / チェックリストと同じ COPY_FROM_CHILD_LABELS を参照する
+	//   (tests/unit/domain/parent-wording-hygiene-4716.test.ts が一致を assert する)
 	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
 	// 選択中 child banner
 	childContextRewardsSuffix: (count: number) => `のごほうび (${count} 件)`,
@@ -6929,7 +7131,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
 	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
-	// #4656 M2 / #4716: 英語 'shop' 表記をやめ REWARD_TERMS.shop (ごほうびショップ) に、呼称は honorific に統一
+	// #4656 M2: 英語 'shop' 表記をやめ REWARD_TERMS.shop (ごほうびショップ) に統一
+	// #4716: 保護者画面の子供呼称は CHILD_TERMS.honorific に統一
 	headerDescription: `${CHILD_TERMS.honorific}の${REWARD_TERMS.shop}に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します`,
 	addMenuButton: ADD_MENU_TERMS.trigger,
 	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
@@ -6972,7 +7175,7 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
 	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
 	shopCategoryLabel: REWARD_ADMIN_TERMS.shopCategory,
-	// #4716: 呼称は honorific、ショップ名は REWARD_TERMS.shop (atom) 経由
+	// #4716: 保護者画面の子供呼称は CHILD_TERMS.honorific に統一
 	shopCategoryHint: `${CHILD_TERMS.honorific}の${REWARD_TERMS.shop}でどのタブに並べるかを選べます（未選択なら自動で振り分け）`,
 	shopCategoryAuto: '自動で振り分け',
 	shopCategoryPhysical: 'もの（おもちゃ・おやつなど）',
@@ -6991,7 +7194,8 @@ export const ADMIN_HOME_LABELS = {
 		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 ${ADMIN_HOME_TERMS.pendingApproval}です。確認して受け渡しましょう`,
 	// #3148: 承認待ち件数の取得に失敗したときの導線 (silent 非表示で見落とすのを防ぐ)
 	pendingRedemptionLoadFailed: `${REWARD_TERMS.canonical}の承認待ち件数を取得できませんでした。交換申請の確認ページを開いてください`,
-	// #4715: 旧「管理ダッシュボード」は title (ご家族の見守り画面) と別名だった
+	// #4653 F6 / #4715: 旧「管理ダッシュボード」は画面上のどこにも無い語で title と別名だった。
+	// 画面名の SSOT は ADMIN_SCREENS (nav / title / 見出しを同じ registry から引く)。
 	heading: ADMIN_SCREENS.home.name,
 	headingDemoSuffix: '（デモ）',
 	onboardingCompleteText: 'すべてのセットアップが完了しました！',
@@ -7003,6 +7207,7 @@ export const ADMIN_HOME_LABELS = {
 	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: `登録${CHILD_TERMS.honorific}数`,
+	// #4653: カード名はページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
 	summaryChildrenLabel: ADMIN_HOME_TERMS.childrenCountCard,
 	summaryPointsAria: '全ポイント合計',
 	summaryPointsTotalPrefix: ADMIN_HOME_TERMS.totalCard,
@@ -7020,6 +7225,7 @@ export const ADMIN_HOME_LABELS = {
 	monthlyAchievementsUnit: '獲得',
 	todayUsageHeading: '⏱️ ',
 	weeklyUsageHeading: '📈 ',
+	// #4653: セクション名はページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
 	childrenSectionTitle: ADMIN_HOME_TERMS.childrenSection,
 	childrenEmpty: `まだ${CHILD_TERMS.honorific}が登録されていません`,
 	demoCtaTitle: 'いかがでしたか？',
@@ -7120,6 +7326,8 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	deleteConfirmText: `この${CHILD_TERMS.honorific}を本当に削除しますか？`,
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',
+	// #4716 の呼称是正 (honorific) は CHILD_ADMIN_TERMS 側に入れてある。
+	// ここで文字列を作り直すと #4660 のページガイドと実ボタン名が割れる。
 	deleteOpenButton: CHILD_ADMIN_TERMS.deleteButton,
 	editButton: CHILD_ADMIN_TERMS.editButton,
 	// Tabs
@@ -7183,11 +7391,11 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
 	cancelButton: 'キャンセル',
 	limitReachedButton: CHILD_ADMIN_TERMS.limitReachedButton,
-	// #4716: 保護者画面の呼称は honorific に寄せる
+	// #4716: 保護者画面の呼称は honorific (旧「こどもを追加」)
 	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
-	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	// #4716 item 15: 画面直書きだった placeholder を SSOT へ
 	nicknamePlaceholder: '例: たろうくん',
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
 	// #4716: テーマカラーも atom 参照に (develop の #4718 が足した age 系 atom 参照と併存させる)
 	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
@@ -7198,6 +7406,9 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	agePlaceholder: '4',
 	birthdayOrAgeRequired: '誕生日または年齢を入力してください',
 	ageRange: '0〜18で入力してください',
+	// #4512: +page.svelte / +page.server.ts に直書きされていた子供管理固有の文言。
+	// リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	// (nicknamePlaceholder は #4716 item 15 が上で定義済のため重複を置かない)
 	nicknameRequired: 'ニックネームを入力してください',
 	birthdayFormatInvalid: '誕生日の形式が正しくありません（YYYY-MM-DD）',
 	birthdayFutureNotAllowed: '未来の日付は設定できません',
@@ -7222,9 +7433,6 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// 子供別タブ
 	childTabAllLabel: 'すべて',
 	childTabAllAriaLabel: 'すべてのお子さま',
-	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
-	// (家族ストリークの文言は CHALLENGES_LABELS.familyStreak* が SSOT、#4671 F8)
-	deleteChildButton: (childName: string) => `${childName} を削除`,
 	// per-child empty state
 	// #4671 F7: 一括追加 / cross-child copy の label は #3195 の機能撤去で参照 0 件になったため削除
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
@@ -7247,6 +7455,13 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
 	// #4512: 家族ストリークの今日の記録状況 (旧: +page.svelte の三項演算子内直書き) は
 	// #4671 F8 が同一文言を CHALLENGES_LABELS.familyStreakRecordedToday / .familyStreakNoneToday
+	// として先に集約済みのため、merge 時に重複定義を削除しそちらに寄せた。
+	// #4512 / #4716 item 15: 兄弟 instance がある場合の削除ボタンラベル (旧: 直書きの ` を削除`)
+	deleteChildButton: (childName: string) => `${childName} を削除`,
+	// #4716 が「別のお子さまからコピー」の呼称共有として copyFromOtherChildAction を足していたが、
+	// チャレンジの cross-child copy 導線は #4671 F7 (#3195 の自動生成一本化) で撤去済で、
+	// 参照は repo 内 0 件だった。撤去済み機能のラベルを残すと「まだある」と読めるので置かない
+	// (parent-wording-hygiene-4716.test.ts が not.toHaveProperty で固定している、QM #4809 レビュー)。
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
@@ -7315,7 +7530,7 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
 
-export const CHILD_STATUS_LABELS = {
+const CHILD_STATUS_LABELS = {
 	growthChartTitle: 'せいちょうチャート',
 	growthBestCatPrefix: '💬 ',
 	growthBestCatSuffix: 'が',
@@ -7325,7 +7540,45 @@ export const CHILD_STATUS_LABELS = {
 	growthWeakCatPrefix: '🌟 ',
 	growthWeakCatSuffix: 'にチャレンジすると のびしろがたくさん！',
 	emptyStatus: 'ステータスがまだないよ',
+	// #4690 F5: RadarChart の凡例。年齢帯で文体が変わるため page から渡す。
+	radarNow: 'いま',
+	radarComparison: 'せんげつ',
 } as const;
+
+/**
+ * ステータス画面の文言セット。値の型は `string` に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+type ChildStatusLabels = {
+	readonly [K in keyof typeof CHILD_STATUS_LABELS]: string;
+};
+
+/**
+ * #4690 F5: ステータス画面の漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯に関係なく「せいちょうチャート / べんきょうが すごくのびたね！ /
+ * のびしろがたくさん！」を出しており、13-18 歳の画面が幼児向け文体のままだった
+ * (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_STATUS_KANJI_OVERRIDES = {
+	growthChartTitle: '成長チャート',
+	growthHighMessage: '大きく伸びたね！',
+	growthLowMessage: '少しずつ成長しているよ',
+	growthStableMessage: '💬 安定しているね。この調子で続けよう',
+	growthWeakCatSuffix: 'にチャレンジすると伸びしろが大きいよ',
+	emptyStatus: 'ステータスはまだありません',
+	radarNow: '今月',
+	radarComparison: '先月',
+} as const satisfies Partial<ChildStatusLabels>;
+
+/** ステータス画面の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildStatusLabels(uiMode: string): ChildStatusLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_STATUS_LABELS;
+	}
+	return { ...CHILD_STATUS_LABELS, ...CHILD_STATUS_KANJI_OVERRIDES };
+}
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
@@ -7729,6 +7982,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	//   本文は admin/challenges の deleteConfirmBody と同型で「何が一緒に消えるか」を書く。
 	//   deleteTemplate は assignments / items / logs を cascade 削除する
 	//   (src/lib/server/db/sqlite/checklist-repo.ts deleteTemplate)。
+	// #4716: 対象名だけでなく配信先 (どの子の画面から消えるか) も本文に出す。
 	deleteConfirmTitle: 'このチェックリストを削除しますか？',
 	deleteConfirmBody: (templateName: string, childNames: string) =>
 		`「${templateName}」を削除します。${childNames}の画面から消え、ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
@@ -7808,6 +8062,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceSeeMore: `${ADD_MENU_TERMS.browse} →`,
 	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
 	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
+	// #4715: 画面名は registry (nav / title / 見出しが同じ値になる)
 	pageTitle: ADMIN_SCREENS.checklists.name,
 	familyChecklistsSectionTitle: '家族のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い、header 説明を「子供タブで選択中の子のチェックリストを表示」軸に更新。
@@ -7856,6 +8111,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
 	// #3098 (EPIC #3096 Sub-2): 子供主軸 UI 統一に伴う「別の子から copy」(= 配信先追加) 導線。
 	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
+	// #4716: 3 画面で同じ呼称。CHECKLIST_ADMIN_TERMS.copyFromChild も同じ atom を指す
 	copyFromChildMenuLabel: COPY_FROM_CHILD_LABELS.action,
 	copyFromChildMenuIcon: '📋',
 	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('チェックリスト'),
@@ -8830,6 +9086,89 @@ export const CHILD_SHOP_LABELS = {
 	errorGeneric: 'うまく いかなかったよ。もういちど ためしてね',
 } as const;
 
+/**
+ * ごほうびショップの文言セット。値の型は `string` に広げてある
+ * （`as const` のリテラル型のままだと、年齢帯変種が「別の文字列」を入れられない）。
+ */
+type ChildShopLabels = {
+	readonly [K in keyof typeof CHILD_SHOP_LABELS]: (typeof CHILD_SHOP_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_SHOP_LABELS)[K];
+};
+
+/**
+ * #4690 F4: ごほうびショップの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は `CHILD_SHOP_LABELS` をどの年齢帯でも直参照しており、高校生の画面にも
+ * 「いまのポイント / こうかんする / おうちのひとにれんらくがいくよ / はい / やめる」が
+ * 出ていた (docs/DESIGN.md §8 は junior・senior = 漢字・情報密度高)。
+ *
+ * **差分だけ**を持ち、ベース (ひらがな) に spread で重ねる。全キーを二重に持つと
+ * 片方だけ足す事故が起きるため、変える語だけを列挙する。
+ */
+const CHILD_SHOP_KANJI_OVERRIDES = {
+	pointBalanceLabel: '現在のポイント',
+	exchangeButton: '交換する',
+	exchangeConfirmTitle: (rewardTitle: string, points: number) =>
+		`${rewardTitle} と交換する？（${points} ポイント）`,
+	exchangeConfirmYes: 'はい',
+	exchangeConfirmCancel: 'キャンセル',
+	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
+	emptyMessage: 'ごほうびがまだありません',
+	statusPending: '承認待ち',
+	// #4631 で approved / rejected バッジは陳列棚から消えた (ベース側にキーが無い) ため
+	// override も置かない。結果は「記録 > 交換」で読む。
+	historyLinkLabel: '交換の記録を見る',
+	approvedTitle: (rewardTitle: string) => `${rewardTitle} を受け取りました`,
+	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は保留になりました`,
+	overlayCloseButton: '閉じる',
+	exchangeConfirmHeading: '交換しますか？',
+	exchangeConfirmPointsLabel: '必要なポイント',
+	// #4684 の即時交換 / 承認待ちの出し分け文も年齢帯で文体を切り替える (#4690)
+	// (旧 `exchangeConfirmDescription` は #4684 が Instant / Approval の 2 文に分けたため、
+	//  ベース側に対応キーが無い。override だけ残すと死にキーになるので置かない)
+	exchangeConfirmDescriptionInstant: 'すぐに交換します（ポイントが減ります）',
+	exchangeConfirmDescriptionApproval: '保護者が確認したら返事がきます',
+	tabAll: 'すべて',
+	tabPhysical: 'もの',
+	tabAllowance: 'おこづかい',
+	tabPrivilege: '特別',
+	tabEmpty: (categoryLabel: string) => `${categoryLabel} のごほうびはまだありません`,
+	filterPointsRangeLabel: 'ポイントで探す',
+	filterPointsRangeAll: 'すべて',
+	filterAvailable: '今すぐ交換できる',
+	filterAvailableAriaLabel: '今のポイントで交換できるものだけ表示',
+	filterEmptyMessage: '条件に合うごほうびがありません',
+	quantityLabel: 'いくつ交換する？',
+	quantityDecreaseAriaLabel: '個数を減らす',
+	quantityIncreaseAriaLabel: '個数を増やす',
+	quantityUnit: '個',
+	quantityValueAriaLabel: (quantity: number) => `個数 ${quantity}個`,
+	quantityMaxHint: '持っているポイントで交換できる最大の個数です',
+	totalPointsLabel: '合計',
+	remainingAfterLabel: '交換したあとの残り',
+	exchangeSuccessToastTitle: '交換できました',
+	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 残り ${balance} ポイント`,
+	exchangeRequestedToastTitle: '保護者に申請しました',
+	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 返事を待ってください`,
+	errorInsufficientPoints: 'ポイントが足りません',
+	errorAlreadyPending: '保護者の返事を待っています',
+	errorRecentlyExchanged: 'さきほど交換しました。少し待ってからもう一度押してください',
+	errorRewardNotFound: 'このごほうびが見つかりません',
+	errorInvalidQuantity: '個数をもう一度選んでください',
+	errorChildNotSelected: '子供が選ばれていません',
+	errorGeneric: 'うまくいきませんでした。もう一度試してください',
+} as const satisfies Partial<ChildShopLabels>;
+
+/** ごほうびショップの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildShopLabels(uiMode: string): ChildShopLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_SHOP_LABELS;
+	return { ...CHILD_SHOP_LABELS, ...CHILD_SHOP_KANJI_OVERRIDES };
+}
+
 // #4407: 交換の「× 個数」表記 SSOT。個数 1 のときは付けない (従来表示を変えない)。
 // ポイント台帳の description / 親の承認一覧の両方が本 helper を使う。
 export function formatRewardWithQuantity(rewardTitle: string, quantity: number): string {
@@ -9095,6 +9434,8 @@ export const UI_COMPONENTS_LABELS = {
 	// #2146: priority='must' (今日のおやくそく) のカード演出統合用ラベル
 	// 旧 MustProgressBar 専用セクションを廃止し、ActivityCard 自身に ribbon badge を付ける
 	activityCardMustBadge: '⭐ おやくそく',
+	// #4690 F6: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+	activityCardMustBadgeKanji: '⭐ 今日の約束',
 	activityCardMust: '（今日のおやくそく）',
 
 	// ---- ActivityEmptyState ----
@@ -9416,6 +9757,9 @@ export const FEATURES_LABELS = {
 		hintTitle: 'つかいかた ガイド あるよ！',
 		hintSub: 'いつでも ❓ ボタンで みれるよ',
 		hintCloseAriaLabel: '閉じる',
+		// #4690 F5: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+		hintTitleKanji: '使い方ガイドがあります',
+		hintSubKanji: 'いつでも ❓ ボタンから見られます',
 	},
 
 	// ---- features/loyalty/ ----
@@ -9523,6 +9867,7 @@ export const FEATURES_LABELS = {
 		pageGuideTitle: 'このページの使い方',
 		tutorialRestartTitle: 'チュートリアルを開始',
 		demoTopLink: 'デモトップ',
+		// #4653: ページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
 		switchToChild: ADMIN_HOME_TERMS.switchToChild,
 		desktopNavAriaLabel: '管理メニュー',
 		mobileNavAriaLabel: 'メインナビゲーション',
@@ -9575,7 +9920,7 @@ export const FEATURES_LABELS = {
 		addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 		addBrowseTemplatesIcon: '🔍',
 		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
-		addCopyFromChildLabel: ADD_MENU_TERMS.copyFromChild,
+		addCopyFromChildLabel: COPY_FROM_CHILD_LABELS.action,
 		addCopyFromChildIcon: '📋',
 		addBulkLabel: ADD_MENU_TERMS.bulk,
 		addBulkIcon: '👨‍👩‍👧‍👦',
@@ -11089,6 +11434,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
 	// #4714: 実画面 (/admin/children) のタイトルは ADMIN_SCREEN_TERMS.children。
 	//   alt を画面名と一致させる (顧客が SS と画面を結び付けられるようにする)。
+	// #4716 で画面名が「お子さま管理」になったため、説明側の「お子さまの」は重複になる
 	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — 登録と切り替え`,
 	// #4644: ホーム画面への追加 (インストール) 訴求。アプリ内の案内 (PWA_INSTALL_LABELS) と
 	// 同じ操作名を使うため PWA_TERMS.installAction を経由する (LP で読んだ操作名が
@@ -11156,7 +11502,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	//   実装はプリセット取込ぶんも同じ枠を消費する「1 子あたりテンプレ合計 3 件」であり、
 	//   2 行に分けると「プリセットは別枠で使い放題」と読めてしまう (plan-limit-service.maxChecklistTemplates)。
 	k36: '<td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
-	// #4705: 実ゲートに合わせた atom (旧「特別なごほうび設定（即時付与）」は別機能を指して読めた)
+	// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲートと別機能に読めたため atom に統一
 	k39: `<td>${REWARD_TERMS.productRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
@@ -11803,7 +12149,8 @@ function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
 
 export function getChildTutorialLabels(uiMode: string) {
 	const variant = getChildTutorialVariant(uiMode);
-	// #4715: 子供ナビ文言の SSOT は icons.ts の getModeLabels ではなく本ファイルへ移設済み。
+	// #4652 の意図 (チュートリアルの nav 名を画面と同じ SSOT から引く) はそのまま。
+	// #4715 で年齢モード別 nav ラベルの SSOT が icons.ts から本ファイルへ移ったので参照先を合わせる。
 	const mode = getChildNavModeLabels(uiMode);
 	const statusNav = mode.status;
 	const shopNav = CHILD_SHOP_LABELS.navLabel;

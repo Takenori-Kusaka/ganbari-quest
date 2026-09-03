@@ -533,8 +533,8 @@ $effect(() => {
 	}
 });
 
-// #4716: 削除確認の本文は「対象名 + 配信先 + 一緒に消えるもの」を出す
-//   (確認そのものの機構は上の passConfirm / Dialog を共有する)。
+// #4716 (#4023 と同 class): 削除確認の本文は「何が・誰の画面から消えるか」を明示する。
+//   確認ダイアログ自体は上の passConfirm / Dialog (#4512) を共用する。
 
 /** 配信先の子供名を読める形にする (未配信なら null)。 */
 function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null {
@@ -542,10 +542,8 @@ function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null
 	return names.length > 0 ? names.join('・') : null;
 }
 
-function checklistDeleteConfirmBody(
-	templateName: string,
-	assignedChildIds: readonly ChildId[],
-): string {
+/** 削除確認の本文 (配信先が居れば その子の画面から消えることも述べる)。 */
+function deleteConfirmBodyFor(templateName: string, assignedChildIds: readonly ChildId[]): string {
 	const names = assignedChildNames(assignedChildIds);
 	return names
 		? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
@@ -1116,14 +1114,9 @@ function getChildName(childId: ChildId): string {
 							method="POST"
 							action="?/deleteTemplate"
 							use:enhance={({ formElement, cancel }) => {
-								// #4023 横展開 (#4512): 削除は取り消せないので確認を 1 枚挟む。
-								if (
-									!passConfirm(
-										formElement,
-										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
-										checklistDeleteConfirmBody(template.name, template.assignedChildIds),
-									)
-								) {
+								// #4023 横展開 (#4512) / #4716: 削除は取り消せないので確認を 1 枚挟む
+								// (対象名 + 配信先を明示する)。
+								if (!passConfirm(formElement, ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle, deleteConfirmBodyFor(template.name, template.assignedChildIds))) {
 									cancel();
 									return;
 								}
