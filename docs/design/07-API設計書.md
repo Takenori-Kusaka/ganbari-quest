@@ -916,11 +916,11 @@ favicon の現在パスを返す（`?type=favicon`）。生成済み favicon が
 
 | 状況 | HTTP / code | 文言 | 実際のデータ |
 |---|---|---|---|
-| 取込中に hard error（`errors > 0`） | 400 `VALIDATION_ERROR` | 「インポートに失敗したため中止しました（既存データは保全されています）」 | **旧データが復元済** |
-| 置換前 snapshot の取得・保存に失敗 | 500 `INTERNAL_ERROR` | 「置換前のバックアップ取得に失敗したため、安全のため中止しました」 | **旧データ無傷**（置換を開始していない） |
-| 取込失敗後の自動復元にも失敗（二次故障） | 500 `INTERNAL_ERROR` | 「インポートに失敗し、元のデータの自動復元にも失敗しました。運営に連絡してください（復旧用バックアップは保存されています）」 | `tenants/<tenantId>/recovery/*.zip` から手動復旧（Discord alert 送出） |
+| 取込中に hard error（`errors > 0`） | 400 `VALIDATION_ERROR` | `IMPORT_LABELS.errorReplaceAbortedPreserved`（「インポートに失敗したため中止しました（既存データは保全されています）」。生の例外文字列は連結しない — client の sanitize で汎用文言に落ちて保全の事実が届かなくなるため。内訳は log のみ） | **旧データが復元済** |
+| 置換前 snapshot の取得・保存に失敗 | 500 `INTERNAL_ERROR` | `IMPORT_LABELS.errorReplaceSnapshotFailed`（client は 500 の body を捨て「時間をおいて再度お試しください」を出す = 再試行が正しい次の行動） | **旧データ無傷**（置換を開始していない） |
+| 取込失敗後の自動復元にも失敗（二次故障） | **409 `IMPORT_RESTORE_FAILED`**（`severity: error` / `action: contact_admin`） | `IMPORT_LABELS.errorReplaceRestoreFailedWithCode(復旧コード)`（「…自動復元も途中で止まりました。現在のデータは不完全な状態です。…設定 > サポートから運営にご連絡ください（復旧コード: …）」）。500 ではない: 500 は client が文言を捨てるため、半端な状態も復旧手段も顧客に届かない | **半端な状態**（復元途中）。`tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip` から運営が手動復旧（Discord alert 送出、復旧コード = ZIP 名の時刻部分） |
 
-保全の実現手段は backend で異なる（sqlite = 単一 tx / pg 系 = clear 前 ZIP 退避の補償トランザクション）。SSOT: `backup-import-redesign.md` §atomicity。
+保全の実現手段は backend で異なる（sqlite = 単一 tx / pg 系 = clear 前 ZIP 退避の補償トランザクション）。SSOT: `backup-import-redesign.md` §atomicity。3 行とも「文言が実際のデータ状態と一致する」ことを pg backend で途中失敗を起こして実測固定する: `tests/integration/db/restore-compensation-failure-4752.test.ts`。
 
 **レスポンス（preview）:**
 ```json
