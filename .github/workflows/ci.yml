@@ -94,6 +94,8 @@ jobs:
               - 'playwright*.config.*'
               - 'vitest.config.*'
               - 'Dockerfile*'
+              #   docker-compose.yml nuc-compose-cognito-dev-mode-pinned (#4836、NUC 出荷物の固定値を読む)
+              - 'docker-compose.yml'
               # #3871: dependency-cruiser config 変更で依存境界 gate を再検査
               - '.dependency-cruiser.cjs'
               - 'infra/.dependency-cruiser.cjs'

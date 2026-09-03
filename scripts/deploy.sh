@@ -126,6 +126,10 @@ ssh "${SSH_TARGET}" "powershell -Command \"
 
   # Start new process
   \$env:NODE_ENV = 'production'
+  # #4836: dev 専用の固定アカウント (COGNITO_DEV_MODE) は NUC では常に無効にする。
+  # 本アプリは .env を読まない (dotenv 非依存、env.ts は process.env のみ) ので、
+  # 起動プロセスに渡す env が唯一の入口。setup-server.sh の start.bat と同じ値を固定する
+  \$env:COGNITO_DEV_MODE = 'false'
   \$env:HOST = '0.0.0.0'
   \$env:PORT = '3000'
   \$env:ORIGIN = 'http://${REMOTE_HOST}:3000'
