@@ -36,6 +36,8 @@
  *     --actions scripts/capture-specs/flows/irreversible-warning-alert-4545.mjs --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const TARGET = process.env.CAPTURE_TARGET ?? 'account';
 const PLAN = process.env.CAPTURE_PLAN ?? 'free';
@@ -43,9 +45,9 @@ const CAPTURE_NAME = process.env.CAPTURE_NAME ?? `irreversible-warning-${TARGET}
 
 /** DEV_USERS (src/lib/server/auth/providers/cognito-dev.ts) の owner 3 プラン。 */
 const DEV_OWNERS = {
-	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
-	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
-	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+	free: { email: 'free@example.com', password: devPassword('free@example.com') },
+	standard: { email: 'standard@example.com', password: devPassword('standard@example.com') },
+	family: { email: 'family@example.com', password: devPassword('family@example.com') },
 };
 
 /** cognito-dev のログインフォームを通す (cancel-vs-deletion-4496.mjs と同型) */

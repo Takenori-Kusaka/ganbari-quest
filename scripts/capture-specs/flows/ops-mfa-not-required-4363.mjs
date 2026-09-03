@@ -20,6 +20,8 @@
  *     --presets desktop,mobile
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PHASE = process.env.SS_PHASE === 'before' ? 'before' : 'after';
 
@@ -52,7 +54,7 @@ async function login(page, email, password) {
  */
 export default async (page, capture) => {
 	// ops group に居るが MFA 未設定の運営者 (dev SSOT: DEV_USERS)
-	await login(page, 'ops-no-mfa@example.com', 'Gq!Dev#OpsNoMfa26');
+	await login(page, 'ops-no-mfa@example.com', devPassword('ops-no-mfa@example.com'));
 	await page.goto(`${BASE_URL}/ops`);
 	await page.waitForLoadState('domcontentloaded');
 
@@ -68,7 +70,7 @@ export default async (page, capture) => {
 	await capture('after-ops-no-mfa-allowed');
 
 	// 回帰: MFA 済 ops も従来どおり入れる (緩めた側で壊していないこと)
-	await login(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+	await login(page, 'ops@example.com', devPassword('ops@example.com'));
 	await page.goto(`${BASE_URL}/ops`);
 	await page.waitForLoadState('domcontentloaded');
 	await page.locator('h1').first().waitFor({ state: 'visible', timeout: 15_000 });

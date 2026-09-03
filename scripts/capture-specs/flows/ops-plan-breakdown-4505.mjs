@@ -19,6 +19,8 @@
  *     --presets desktop,mobile
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 /** cognito-dev のログインフォームを通す (billing-graduation.mjs と同型) */
@@ -33,7 +35,7 @@ async function loginAsOps(page) {
 	await page.getByLabel('メールアドレス').click();
 	await page.keyboard.type('ops@example.com', { delay: 20 });
 	await page.getByLabel('パスワード', { exact: true }).click();
-	await page.keyboard.type('Gq!Dev#Ops2026xyz', { delay: 20 });
+	await page.keyboard.type(devPassword('ops@example.com'), { delay: 20 });
 
 	await page
 		.locator('button[type="submit"]:not([disabled])')

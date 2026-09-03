@@ -27,6 +27,8 @@
  *     --presets desktop,mobile
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PHASE = process.env.SS_PHASE === 'before' ? 'before' : 'after';
 
@@ -58,7 +60,7 @@ async function login(page, email, password) {
  * @param {(label: string) => Promise<string>} capture
  */
 export default async (page, capture) => {
-	await login(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await login(page, 'owner@example.com', devPassword('owner@example.com'));
 
 	await page.goto(`${BASE_URL}/consent`);
 	await page.waitForLoadState('domcontentloaded');

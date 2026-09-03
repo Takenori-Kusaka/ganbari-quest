@@ -20,6 +20,8 @@
  *     --presets desktop --out tmp/ss-4525-after
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
@@ -38,9 +40,9 @@ const PREFIX = process.env.SS_LABEL_PREFIX || '';
 // 撮影後はこの行を削除して既定状態 (#4525 の再現条件) に戻す。
 const ACCOUNTS = [
 	// 本丸: plan が有料のアカウント。契約列の状態に応じて上記 2 通りの notice を出す
-	{ slug: 'paid', email: 'owner@example.com', password: 'Gq!Dev#Owner2026x' },
+	{ slug: 'paid', email: 'owner@example.com', password: devPassword('owner@example.com') },
 	// 対照: 無料プラン (本 PR で変わらないのが正しい)
-	{ slug: 'free', email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
+	{ slug: 'free', email: 'free@example.com', password: devPassword('free@example.com') },
 ];
 
 /** 描画 frame を n 回待つ。`page.waitForTimeout()` は scripts/ 配下で禁止 (#1208)。 */

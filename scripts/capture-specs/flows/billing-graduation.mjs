@@ -22,6 +22,8 @@
  *     --out docs/screenshots/pr-1603/
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function loginAs(page, email, password) {
@@ -73,7 +75,7 @@ export default async (page, capture) => {
 
 	if (isOpsCapture) {
 		// ops 用: ops@example.com でログイン
-		await loginAs(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+		await loginAs(page, 'ops@example.com', devPassword('ops@example.com'));
 		await page.goto(`${BASE_URL}/ops/analytics`);
 		await page.locator('h1').waitFor({ state: 'visible', timeout: 10_000 });
 		// 卒業セクションが見えるまで scroll
@@ -85,7 +87,7 @@ export default async (page, capture) => {
 	}
 
 	// graduation page 用: owner@example.com でログイン
-	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 	await page.goto(`${BASE_URL}/admin/subscription/cancel/graduation`);
 	await page.getByTestId('graduation-page').waitFor({ state: 'visible', timeout: 15_000 });
 	// ヘッダー + ポイントセクション

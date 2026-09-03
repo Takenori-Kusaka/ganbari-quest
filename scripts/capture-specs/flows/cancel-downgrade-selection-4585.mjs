@@ -19,6 +19,8 @@
  *     --server-mode cognito --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_PREFIX ?? '';
 
@@ -34,7 +36,7 @@ async function loginAsStandardOwner(page) {
 	await page.getByLabel('メールアドレス').click();
 	await page.keyboard.type('standard@example.com', { delay: 20 });
 	await page.getByLabel('パスワード', { exact: true }).click();
-	await page.keyboard.type('Gq!Dev#Std2026xyz', { delay: 20 });
+	await page.keyboard.type(devPassword('standard@example.com'), { delay: 20 });
 
 	await page
 		.locator('button[type="submit"]:not([disabled])')

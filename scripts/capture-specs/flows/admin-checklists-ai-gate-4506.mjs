@@ -19,6 +19,8 @@
  *     --server-mode cognito --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
@@ -153,7 +155,7 @@ async function openAiDialog(page) {
  */
 export default async (page, capture) => {
 	// --- premium (family) : #4506 本丸。修正後はロック無しで入力可能 ---
-	await login(page, 'family@example.com', 'Gq!Dev#Fam2026xyz');
+	await login(page, 'family@example.com', devPassword('family@example.com'));
 	await openAiDialog(page);
 	await capture(`${PREFIX}checklists-ai-premium`);
 	await logout(page);
@@ -164,7 +166,7 @@ export default async (page, capture) => {
 	// 「変わらないこと」は 1 枚 (after) + マトリクス test で示す。
 	if (PREFIX !== 'before-') {
 		await logout(page);
-		await login(page, 'standard@example.com', 'Gq!Dev#Std2026xyz');
+		await login(page, 'standard@example.com', devPassword('standard@example.com'));
 		await openAiDialog(page);
 		await capture(`${PREFIX}checklists-ai-standard-unchanged`);
 	}

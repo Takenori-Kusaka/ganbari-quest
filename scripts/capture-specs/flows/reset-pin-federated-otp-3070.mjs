@@ -19,6 +19,8 @@
  *     --server-mode cognito --presets desktop,mobile --pr 3071
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function login(page, email, password) {
@@ -35,7 +37,7 @@ async function login(page, email, password) {
  */
 export default async (page, capture) => {
 	// --- 1) federated stage 1: 確認コード送信前 (送信ボタンが出る・パスワード欄なし) ---
-	await login(page, 'google-owner@example.com', 'Gq!Dev#Goog2026xy');
+	await login(page, 'google-owner@example.com', devPassword('google-owner@example.com'));
 	await page.goto(`${BASE_URL}/auth/reset-pin`);
 	await page.getByTestId('pin-reset-verified-form').waitFor({ state: 'visible', timeout: 15_000 });
 	await page
@@ -45,7 +47,7 @@ export default async (page, capture) => {
 
 	// --- 2) password ユーザの reset 画面 (現状維持、email-OTP 分岐は federated のみ) ---
 	await page.context().clearCookies();
-	await login(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await login(page, 'owner@example.com', devPassword('owner@example.com'));
 	await page.goto(`${BASE_URL}/auth/reset-pin`);
 	await page.getByTestId('pin-reset-verified-form').waitFor({ state: 'visible', timeout: 15_000 });
 	await page

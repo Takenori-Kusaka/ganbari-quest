@@ -29,6 +29,8 @@
  * 有料プラン tenant では本番でも起こりうるため、別 Issue で追う。
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 /** cognito-dev のログインフォームを通す (cancel-period-end-3991.mjs と同型) */
@@ -43,7 +45,7 @@ async function loginAsOwner(page) {
 	await page.getByLabel('メールアドレス').click();
 	await page.keyboard.type('owner@example.com', { delay: 20 });
 	await page.getByLabel('パスワード', { exact: true }).click();
-	await page.keyboard.type('Gq!Dev#Owner2026x', { delay: 20 });
+	await page.keyboard.type(devPassword('owner@example.com'), { delay: 20 });
 
 	await page
 		.locator('button[type="submit"]:not([disabled])')
