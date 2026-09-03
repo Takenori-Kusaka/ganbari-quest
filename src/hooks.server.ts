@@ -184,8 +184,9 @@ const provider = getAuthProvider();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 // #4834: dev 判定の SSOT は isCognitoDevMode() (顧客 deploy では COGNITO_DEV_MODE=true でも false)。
-// process.env を生で読むと Lambda に誤設定が紛れたとき rate limit / 再同意 gate だけが外れる「半分 dev」になる
-const COGNITO_DEV_MODE = isCognitoDevMode();
+// process.env を生で読むと Lambda に誤設定が紛れたとき rate limit / 再同意 gate だけが外れる「半分 dev」になる。
+// module load 時ではなく request ごとに評価する (getEnv は cached で安価。module load で評価すると
+// auth-mode を部分 mock した test が hooks.server の import だけで suite 初期化に失敗する)
 
 /**
  * #4280 案 b: front door (CloudFront) 検査が secret 未設定で無効なことを、プロセスで 1 回だけ
@@ -392,7 +393,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 0-b) レートリミット（cognito 本番モードのみ、dev モードは除外）
 		if (
 			authMode === 'cognito' &&
-			!COGNITO_DEV_MODE &&
+			!isCognitoDevMode() &&
 			!path.startsWith('/_app/') &&
 			!path.startsWith('/favicon')
 		) {
@@ -741,7 +742,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 「誰も再同意対象にならない」ため潜在していた (#4497 で顕在化)。
 		if (
 			authMode === 'cognito' &&
-			!COGNITO_DEV_MODE &&
+			!isCognitoDevMode() &&
 			identity &&
 			context?.tenantId &&
 			context.role !== 'child' &&
