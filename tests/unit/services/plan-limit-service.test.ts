@@ -125,6 +125,11 @@ describe('plan-limit-service', () => {
 		it('active + planId=monthly → standard', () => {
 			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('active', 'monthly')).toBe('standard');
+			// #4505 GAMMA2-PLANKEY-03: yearly は standard、lifetime は明示写像 (現行 standard、PO 判断待ち)。
+			// 表に無い旧語彙は既定 (standard) に倒すが、接頭辞一致ではない (family を含む未知値も standard)
+			expect(resolvePlanTier('active', 'yearly')).toBe('standard');
+			expect(resolvePlanTier('active', 'lifetime')).toBe('standard');
+			expect(resolvePlanTier('active', 'family_premium_legacy')).toBe('standard');
 		});
 
 		it('active + planId=yearly → standard', () => {
