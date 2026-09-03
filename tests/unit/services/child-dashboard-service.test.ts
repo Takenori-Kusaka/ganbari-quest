@@ -369,17 +369,42 @@ describe('ProductionDashboardService — toggleActivityPin', () => {
 		expect(firstCall[0]).toBe('/api/v1/children/42/activities/5/pin');
 	});
 
-	it('上限エラーは LIMIT_EXCEEDED にマップされる', async () => {
+	// PO 回答 (2026-09-03) §4 #2: API は ADR-0062 統一形 `{ error: { code, message, … } }` で返す
+	// (`$lib/server/errors` apiError)。旧 test は `{ error: 'VALIDATION_ERROR', message }` という
+	// 実在しない形を fixture にしていたため、client が統一形を読めていないことを検出できなかった。
+	const adr0062 = (code: string, message: string) => ({
+		error: { code, message, userMessage: 'x', severity: 'warning', action: 'fix_input' },
+	});
+
+	it('上限エラー (400 VALIDATION_ERROR、統一形) は LIMIT_EXCEEDED にマップされる', async () => {
 		const fetchMock = makeFetchMock([
 			{
 				ok: false,
 				status: 400,
-				body: { error: 'VALIDATION_ERROR', message: '1カテゴリあたりのピン留め上限を超えています' },
+				body: adr0062('VALIDATION_ERROR', '1カテゴリあたりのピン留め上限（5件）を超えています'),
 			},
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
 		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
 		expect(result).toEqual({ ok: false, error: 'LIMIT_EXCEEDED' });
+	});
+
+	it('NOT_FOUND (統一形の code) は NOT_FOUND にマップされる', async () => {
+		const fetchMock = makeFetchMock([
+			{ ok: false, status: 404, body: adr0062('NOT_FOUND', 'みつかりませんでした') },
+		]);
+		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
+		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
+		expect(result).toEqual({ ok: false, error: 'NOT_FOUND' });
+	});
+
+	it('401 UNAUTHORIZED (統一形) は上限 / 不在に誤マップせず NETWORK に落ちる', async () => {
+		const fetchMock = makeFetchMock([
+			{ ok: false, status: 401, body: adr0062('UNAUTHORIZED', '認証が必要です') },
+		]);
+		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
+		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
+		expect(result).toEqual({ ok: false, error: 'NETWORK' });
 	});
 });
 

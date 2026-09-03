@@ -182,12 +182,22 @@ export class ProductionDashboardService implements ChildDashboardService {
 				},
 			);
 			if (!res.ok) {
-				const body = await res.json().catch(() => ({}) as { error?: string });
-				// activity-pin-service は LIMIT 超過時に Error throw → 'VALIDATION_ERROR' で返る
-				// メッセージ中に「上限」が含まれていれば LIMIT_EXCEEDED にマッピング
-				const msg = (body as { message?: string })?.message ?? '';
-				if (msg.includes('上限')) return { ok: false, error: 'LIMIT_EXCEEDED' };
-				if (body?.error === 'NOT_FOUND') return { ok: false, error: 'NOT_FOUND' };
+				// ADR-0062 統一形: `{ error: { code, message, userMessage, severity, action } }`
+				// (`$lib/server/errors` の apiError)。旧実装は `body.message` / `body.error === 'NOT_FOUND'`
+				// (文字列) を読んでいて、統一形では両方とも常に外れていた (PO 回答 2026-09-03 §4 #2)。
+				const body = (await res.json().catch(() => ({}))) as {
+					error?: { code?: string; message?: string };
+				};
+				const code = body.error?.code;
+				const msg = body.error?.message ?? '';
+				if (code === 'NOT_FOUND') return { ok: false, error: 'NOT_FOUND' };
+				// activity-pin-service は上限超過を ActivityPinError('PIN_LIMIT_EXCEEDED') で投げ、
+				// route は 400 VALIDATION_ERROR + その message で返す。API 側に固有 code が無いため
+				// message の部分一致で判定する (accepted residual、
+				// tests/unit/architecture/plan-limit-error-required-tier.test.ts に登録済)。
+				if (code === 'VALIDATION_ERROR' && msg.includes('上限')) {
+					return { ok: false, error: 'LIMIT_EXCEEDED' };
+				}
 				return { ok: false, error: 'NETWORK' };
 			}
 			const data = (await res.json()) as { isPinned: boolean };

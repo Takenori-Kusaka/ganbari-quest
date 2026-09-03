@@ -52,17 +52,19 @@ export interface AcceptInviteTxnInput {
 	/** 判定基準時刻 (ISO 8601)。呼び出し側が注入する (テスト決定性 + txn 内で一貫)。 */
 	now: string;
 	/**
-	 * #4723: この家族グループのメンバー上限 (`null` = 無制限)。
+	 * #4723: この家族グループのメンバー上限 (`null` = 無制限)。**必須**。
 	 *
 	 * **txn の中で数え直すために渡す**。service 層の事前 read だけでは、残り 1 枠に対する
 	 * 2 通の同時受諾が両方とも「まだ空いている」を見て通り、上限を超える。上限そのものは
-	 * プラン解決 (DB 読み) が要るため呼び出し側で解決し、数える方を txn 内に置く。
+	 * プラン解決 (DB 読み + 環境依存の判断) が要るため呼び出し側 (service 層の
+	 * `checkFamilyMemberLimit` → `resolveFullPlanTier`、唯一の SSOT) で解決し、数える方を
+	 * txn 内に置く。
 	 *
-	 * #4704: 省略した場合 (`undefined`) は **txn の中で契約列から上限を導く**。上限検査が
-	 * 発行時だけだと、発行後にプランが下がった / 同時受諾が重なった場合に超過できるため、
-	 * 呼び出し側が渡し忘れても最後の砦が残る。
+	 * 省略は許さない (PO 回答 2026-09-03 §4 #3)。実装は `undefined` を fail-closed で throw し、
+	 * txn を開かない — 渡し忘れた経路が「無制限」や txn 内で導き直した緩い tier で黙って
+	 * 通ることを構造的に防ぐ (上限の導出が 2 箇所にあると片方だけ直して静かにずれる)。
 	 */
-	maxMembers?: number | null;
+	maxMembers: number | null;
 }
 
 export type AcceptInviteTxnResult =

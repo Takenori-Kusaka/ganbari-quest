@@ -3,6 +3,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asActivityId, asChildId } from '$lib/domain/ids';
+import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { apiError } from '$lib/server/errors';
 import { ActivityPinError, toggleActivityPin } from '$lib/server/services/activity-pin-service';
 import type { RequestHandler } from './$types';
@@ -10,7 +11,11 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const context = locals.context;
 	if (!context) {
-		return json({ error: '認証が必要です' }, { status: 401 });
+		// PO 回答 (2026-09-03) §4 #2 / ADR-0062: 401 も他のエラーと同じ統一形
+		// ({ error: { code, message, userMessage, severity, action } }) で返す。旧実装は
+		// error が文字列だけの独自形を直接 json で組んでいて、client の `error.code` 分岐に
+		// 乗らず、文言も labels SSOT を経由していなかった。
+		return apiError('UNAUTHORIZED', OWNER_GATE_LABELS.authRequired);
 	}
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.id);
@@ -50,7 +55,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const context = locals.context;
 	if (!context) {
-		return json({ error: '認証が必要です' }, { status: 401 });
+		// PO 回答 (2026-09-03) §4 #2 / ADR-0062: 401 も他のエラーと同じ統一形
+		// ({ error: { code, message, userMessage, severity, action } }) で返す。旧実装は
+		// error が文字列だけの独自形を直接 json で組んでいて、client の `error.code` 分岐に
+		// 乗らず、文言も labels SSOT を経由していなかった。
+		return apiError('UNAUTHORIZED', OWNER_GATE_LABELS.authRequired);
 	}
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.id);
