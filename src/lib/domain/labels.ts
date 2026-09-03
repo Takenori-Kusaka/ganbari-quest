@@ -748,6 +748,22 @@ export const PLAN_GATE_LABELS = {
 	childLimitReached: (max: number) =>
 		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
 
+	/**
+	 * "クラウド保管は最大{max}件までです。古いエクスポートを削除してから、もう一度お試しください。"
+	 *
+	 * クラウド保管の同時保管数上限 (maxCloudExports) 到達時の 403 文言 (#4710)。
+	 *
+	 * `activityLimitReached` / `childLimitReached` と違い **アップグレードを案内しない**。
+	 * maxCloudExports は free=0 / standard=3 / family=10 で、free は 0 なのでプランゲート側で
+	 * 弾かれる。つまり**この上限に達するのは契約中の顧客だけ**であり、その顧客に
+	 * 「プランをアップグレードしてください」と言うのが #4710 の症状そのものになる
+	 * (最上位の family=10 に至っては上げ先が無い)。その場で取れる行動を案内する。
+	 *
+	 * @param max 上限値。上限に達した分岐でのみ呼ぶこと
+	 */
+	cloudExportLimitReached: (max: number) =>
+		`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`,
+
 	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
 	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
 	// #4622 の「上限メッセージに null を渡せない」関門は、そちらの引数を `number` に
@@ -757,7 +773,7 @@ export const PLAN_GATE_LABELS = {
 	// `checklistTemplateLimitReachedWithUpgrade` は、全 callsite (checklists/+page.server.ts 5 箇所) が
 	// `perChildLimitReached*` を参照しており到達不能な重複だった。加えてプラン名を
 	// 「フリープラン」と直書きしており #4512 (プラン名 SSOT = `PLAN_FULL_TERMS.free`) に反するため、
-	// 本 merge で `perChildLimitReached*` に統合した。
+	// `perChildLimitReached*` に統合した。
 
 	/**
 	 * **誰が**上限に達しているのかを言う版 (#4693)。

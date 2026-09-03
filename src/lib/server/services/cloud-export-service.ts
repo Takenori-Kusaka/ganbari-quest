@@ -170,6 +170,54 @@ async function buildFullExportData(tenantId: string): Promise<CloudExportArtifac
 	};
 }
 
+/**
+ * クラウドエクスポートが **プラン未達**で使えない (#4710)。
+ *
+ * 「その tier には機能自体が無い」ことを表す。顧客の次の行動はアップグレード。
+ * {@link CloudExportQuotaError} (機能は使えるが枠が埋まっている) とは別事象であり、
+ * 呼び出し元が両者を同じ 403 文言に潰さないよう**型で区別できるようにする**。
+ *
+ * 旧実装は両方とも素の `Error` を throw し、route 側が message にプラン名や「上限」という語が
+ * 含まれるかの部分一致で見分けていた。プラン名を変えた瞬間に判定が外れて 403 が 500 になるうえ、
+ * 実際には見分けられておらず、契約済みの顧客にもプラン未達と同じ案内を返していた。
+ */
+export class CloudExportPlanGateError extends Error {
+	/** この機能を使える最低 tier。route が案内文の出し分けに使う。 */
+	readonly requiredTier = 'standard' as const;
+	/** ユーザー向け文言 (labels SSOT、ADR-0062)。 */
+	readonly userMessage: string;
+	constructor() {
+		const userMessage = PLAN_GATE_LABELS.standardOrAboveFor('クラウドエクスポート');
+		super(userMessage);
+		this.name = 'CloudExportPlanGateError';
+		this.userMessage = userMessage;
+	}
+}
+
+/**
+ * クラウド保管の **同時保管数上限**に達している (#4710)。
+ *
+ * free は maxCloudExports=0 で {@link CloudExportPlanGateError} 側に落ちるため、
+ * ここに来るのは **契約中の顧客だけ** (standard=3 / family=10)。したがって
+ * アップグレード案内は次の行動にならない。取れる行動は古いものを削除すること。
+ */
+export class CloudExportQuotaError extends Error {
+	/** ユーザー向け文言 (labels SSOT、ADR-0062)。 */
+	readonly userMessage: string;
+	/** 現在の保管件数 (ログ用。顧客には出さない)。 */
+	readonly current: number;
+	/** プランが許す保管件数上限 (ログ用)。 */
+	readonly max: number;
+	constructor(current: number, max: number) {
+		const userMessage = PLAN_GATE_LABELS.cloudExportLimitReached(max);
+		super(userMessage);
+		this.name = 'CloudExportQuotaError';
+		this.userMessage = userMessage;
+		this.current = current;
+		this.max = max;
+	}
+}
+
 export interface CloudExportOptions {
 	tenantId: string;
 	exportType: CloudExportType;
@@ -207,20 +255,23 @@ function artifactFilename(exportType: CloudExportType): string {
 export async function createCloudExport(options: CloudExportOptions): Promise<CloudExportResult> {
 	const { tenantId, exportType, label, licenseStatus, planId } = options;
 
-	// プラン制限チェック
+	// プラン制限チェック (機能自体が無い tier)
 	const tier: PlanTier = await resolveFullPlanTier(tenantId, licenseStatus, planId);
 	const limits = getPlanLimits(tier);
 	if (limits.maxCloudExports === 0) {
-		throw new Error(PLAN_GATE_LABELS.standardOrAboveFor('クラウドエクスポート'));
+		throw new CloudExportPlanGateError();
 	}
 
-	// 保管数上限チェック
+	// 保管数上限チェック (機能はあるが枠が埋まっている = 契約中の顧客に起きる)
+	// 数えるのは **期限内に S3 に存在する行** (= 保管を占有しているもの)。旧実装は期限切れの
+	// 残骸 (cleanup 前) まで数えていたため、画面の枠表示が「2 / 3」でも 403 になり、「3 件まで」と
+	// 言われた顧客が何を削除すればよいか一覧と噛み合わなかった (QM #4767 レビュー)。
+	// DL 回数を使い切った行 / build 失敗行は一覧から消えるが期限内は S3 に残る (完全 PII の ZIP) ので、
+	// 枠の天井を外さないために数え続ける (一覧に出して削除させる UI は PO 判断待ち)。
 	const repos = getRepos();
-	const currentCount = await repos.cloudExport.countByTenant(tenantId);
+	const currentCount = await countStoredCloudExports(tenantId);
 	if (currentCount >= limits.maxCloudExports) {
-		throw new Error(
-			`クラウド保管数の上限（${limits.maxCloudExports}件）に達しています。既存のエクスポートを削除してください`,
-		);
+		throw new CloudExportQuotaError(currentCount, limits.maxCloudExports);
 	}
 
 	// PIN生成 + s3Key を build 前に確定（filename は exportType から決まる）
@@ -413,6 +464,13 @@ export async function drainPendingExports(
  * ready は DL 上限に達した / 期限切れを除外するが、pending/building/failed は生成状況を
  * UI に見せるため（期限内である限り）返す。
  */
+/** 保管枠を占有している行数 = 期限内の全行 (状態 / DL 回数を問わない)。 */
+async function countStoredCloudExports(tenantId: string): Promise<number> {
+	const now = new Date().toISOString();
+	const all = await getRepos().cloudExport.findByTenant(tenantId);
+	return all.filter((e) => e.expiresAt > now).length;
+}
+
 export async function listCloudExports(tenantId: string): Promise<CloudExportRecord[]> {
 	const repos = getRepos();
 	const all = await repos.cloudExport.findByTenant(tenantId);

@@ -80,7 +80,10 @@ describe('#4622 上限メッセージのラベル関数は null を受け取れ�
 		expect(PLAN_GATE_LABELS.memberLimitReached(null)).toBeTypeOf('string');
 	});
 
-	it('文言は移設前とバイト一致で不変', () => {
+	// checklist / メンバー上限の文面は #4512 (プラン名 SSOT = 「無料プラン」/「スタンダードプラン」) と
+	// #4500 (上限は owner を含む合計であることを明示) で更新済み。ここでは移設後の**現行文言**を
+	// バイト一致で pin する (数値と文の組み立てが labels.ts の 1 箇所に閉じていることの回帰)。
+	it('文言はラベル関数の出力とバイト一致で不変', () => {
 		expect(PLAN_GATE_LABELS.activityLimitReached(3)).toBe(
 			'カスタム活動は最大3個まで作成できます。プランをアップグレードしてください。',
 		);
