@@ -263,12 +263,13 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	}
 
 	// 保管数上限チェック (機能はあるが枠が埋まっている = 契約中の顧客に起きる)
-	// 数えるのは **顧客が一覧で見て削除できる live 行** (`listCloudExports` と同じ述語)。
-	// 旧実装は repo の全行数 (期限切れ / DL 回数を使い切った行を含む) を数えていたため、
-	// 画面の枠表示が「2 / 3」でも 403 になり、「3 件まで」と言われた顧客が何を削除すればよいか
-	// 一覧と噛み合わなかった (QM #4767 レビュー)。
+	// 数えるのは **期限内に S3 に存在する行** (= 保管を占有しているもの)。旧実装は期限切れの
+	// 残骸 (cleanup 前) まで数えていたため、画面の枠表示が「2 / 3」でも 403 になり、「3 件まで」と
+	// 言われた顧客が何を削除すればよいか一覧と噛み合わなかった (QM #4767 レビュー)。
+	// DL 回数を使い切った行 / build 失敗行は一覧から消えるが期限内は S3 に残る (完全 PII の ZIP) ので、
+	// 枠の天井を外さないために数え続ける (一覧に出して削除させる UI は PO 判断待ち)。
 	const repos = getRepos();
-	const currentCount = (await listCloudExports(tenantId)).length;
+	const currentCount = await countStoredCloudExports(tenantId);
 	if (currentCount >= limits.maxCloudExports) {
 		throw new CloudExportQuotaError(currentCount, limits.maxCloudExports);
 	}
@@ -463,6 +464,13 @@ export async function drainPendingExports(
  * ready は DL 上限に達した / 期限切れを除外するが、pending/building/failed は生成状況を
  * UI に見せるため（期限内である限り）返す。
  */
+/** 保管枠を占有している行数 = 期限内の全行 (状態 / DL 回数を問わない)。 */
+async function countStoredCloudExports(tenantId: string): Promise<number> {
+	const now = new Date().toISOString();
+	const all = await getRepos().cloudExport.findByTenant(tenantId);
+	return all.filter((e) => e.expiresAt > now).length;
+}
+
 export async function listCloudExports(tenantId: string): Promise<CloudExportRecord[]> {
 	const repos = getRepos();
 	const all = await repos.cloudExport.findByTenant(tenantId);

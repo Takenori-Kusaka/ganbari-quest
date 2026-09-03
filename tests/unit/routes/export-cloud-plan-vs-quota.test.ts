@@ -109,10 +109,20 @@ beforeEach(() => {
 });
 
 describe('#4710 POST /api/v1/export/cloud — プラン未達と保管上限を混同しない', () => {
-	it('期限切れ / DL 使い切りの行は保管枠を食わない (画面の枠表示 2 / 3 と 403 が食い違わない、QM #4767)', async () => {
+	it('期限切れの残骸は保管枠を食わない (画面の枠表示 2 / 3 と 403 が食い違わない、QM #4767)', async () => {
 		// live 2 件 + 期限切れ 5 件: 旧実装は全 7 行を数えて 403 にしていた
 		const { status } = await postCloudExport('standard', 2, 5);
 		expect(status).toBe(201);
+	});
+
+	it('DL 回数を使い切った行は期限内なら枠を食う (S3 に残る PII の ZIP に天井を残す、QM #4767)', async () => {
+		// この test だけ差し替える (mockResolvedValue は clearAllMocks で戻らないため Once)
+		mockCloudExportRepo.findByTenant.mockResolvedValueOnce(
+			Array.from({ length: 3 }, (_, i) => ({ ...liveRow(i, FUTURE), downloadCount: 3 })),
+		);
+		const { status, body } = await postCloudExport('standard', 0);
+		expect(status).toBe(403);
+		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
 	});
 
 	it('プラン未達 (free) は 403 + 要求 tier を案内する', async () => {
