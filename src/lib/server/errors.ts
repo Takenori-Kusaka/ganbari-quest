@@ -25,6 +25,7 @@ export type ErrorCode =
 	| 'EXPORT_NOT_READY'
 	| 'EXPORT_FAILED'
 	| 'IMPORT_RESTORE_FAILED'
+	| 'EXPORT_DELETE_FAILED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -147,6 +148,16 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		userMessage: IMPORT_LABELS.errorReplaceRestoreFailed,
 		severity: 'error',
 		action: 'contact_admin',
+	},
+	// #4767 QM should: 保管実体 (S3) の削除に失敗して削除を中断した。DB 行は残っているため
+	// 一覧・保管枠・実体は食い違わない。500 にすると error-notify SSOT が「システムに問題が
+	// 発生しました」に潰し (ADR-0062 §内部例外非露出)、**データが残っていることが顧客に伝わらない**ので
+	// 409 (状態の競合) で返し、message と userMessage に同じ labels SSOT の文を載せる。
+	EXPORT_DELETE_FAILED: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudDeleteFailed,
+		severity: 'error',
+		action: 'retry',
 	},
 	INTERNAL_ERROR: {
 		status: 500,

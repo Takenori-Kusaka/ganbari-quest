@@ -165,11 +165,15 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 	// SSOT から組み立てられるので、変わることが前提の値である)。
 	//
 	// 失敗の種類は**型で**運ぶこと (専用 Error class を throw し `instanceof` で分岐する)。
-	it('プラン / 上限の判定を例外 message の部分一致で行っていない', () => {
+	it('失敗の種類を顧客向け文言の部分一致で判定していない (プラン / 上限 / 見つかりません 等)', () => {
 		// `.includes('…スタンダード…')` 等、プラン系の語の部分一致で分岐している呼び出し形。
 		// コメント中の言及に当たらないよう、`.includes(` を伴う形だけを見る。
+		// #4767: プラン系の語だけでなく、**顧客向け文言そのものを制御信号に使う形**を広く見る。
+		// 実測 (#4767 QM): `DELETE /api/v1/export/cloud/[id]` が `msg.includes('見つかりません')` で
+		// 404 を決めており、文言を 1 文字直すと 404 が 500 (「システムに問題が発生しました」) に化ける
+		// 状態だった。理由は型で運ぶ (`CloudExportNotFoundError` / `CloudExportFetchError` と同型)。
 		const sniff =
-			/\.includes\(\s*['"`][^'"`]*(スタンダード|プラン|アップグレード|上限)[^'"`]*['"`]/;
+			/\.includes\(\s*['"`][^'"`]*(スタンダード|プラン|アップグレード|上限|見つかりません|ありません|できません|失敗しました)[^'"`]*['"`]/;
 
 		/**
 		 * accepted residual は **0 件** (PO 回答 2026-09-03 §4 #2 follow-up で解消)。
@@ -181,15 +185,33 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 		 * **残置 entry ごと削除して guard を締める** (旧コメントの指示どおり)。
 		 */
 
+		/**
+		 * 走査対象は **コード行だけ**。コメント行 (`//` / JSDoc の `*` / `/*`) は落とす。
+		 * 本 test 自身が禁じる形をコメントで説明できないと、是正した PR が「説明を書いた」ことで
+		 * 落ちる (実測: #4767 で旧実装の形を JSDoc に引用したら guard が反応した)。
+		 * コード行は `//` / `*` で始まらないため、この落とし方で違反を取りこぼすことはない。
+		 */
+		function codeLinesOf(file: string): string {
+			return readFileSync(file, 'utf-8')
+				.split('\n')
+				.filter((line) => {
+					const t = line.trim();
+					return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+				})
+				.join('\n');
+		}
+
 		const violations: string[] = [];
 		for (const file of files) {
 			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
-			if (sniff.test(readFileSync(file, 'utf-8'))) violations.push(rel);
+			// develop (#4839) が accepted residual を 0 件にしたため skip は無い。
+			// 走査対象は codeLinesOf でコメント行を除いたコード行だけ (#4767)。
+			if (sniff.test(codeLinesOf(file))) violations.push(rel);
 		}
 		expect(
 			violations,
 			[
-				'失敗の種類をプラン系の語の部分一致で判定しています。',
+				'失敗の種類を顧客向け文言の部分一致で判定しています。',
 				`  該当: ${violations.join(', ')}`,
 				'→ service 側で専用 Error class を throw し、instanceof で分岐してください。',
 				'  文言は labels.ts SSOT から組み立てられる = 変わる値なので、部分一致は',

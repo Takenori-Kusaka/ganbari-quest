@@ -1,6 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 import { SETTINGS_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import CloudExportStoredList from './CloudExportStoredList.svelte';
 
@@ -103,8 +103,14 @@ const { Story } = defineMeta({
 		// DL 導線は取り出せる行だけ、削除は全行
 		await expect(canvas.getAllByTestId('cloud-export-download-link')).toHaveLength(1);
 		await expect(canvas.getAllByRole('button', { name: SETTINGS_LABELS.cloudStoredDelete })).toHaveLength(5);
-		// 操作 → 結果: 使い切り行の削除を押すと id 付きで callback が呼ばれる
+		// #4767 QM must: 削除は取り消せないので、押しただけでは実行されず確認 dialog が開く。
+		// (Dialog は Portal 経由で body に出るため screen で引く)
 		await userEvent.click(canvas.getByTestId('cloud-export-delete-exhausted'));
+		const target = await screen.findByTestId('cloud-export-delete-confirm-target');
+		await expect(target).toHaveTextContent('DEF567');
+		await expect(deleteSpy).not.toHaveBeenCalled();
+		// 確定して初めて callback が id 付きで呼ばれる
+		await userEvent.click(screen.getByTestId('cloud-export-delete-execute'));
 		await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith('exhausted'));
 	}}
 />
@@ -119,6 +125,24 @@ const { Story } = defineMeta({
 		await expect(deleting).toHaveTextContent(SETTINGS_LABELS.cloudStoredDeleting);
 		// 削除中は他行の削除も止める (二重送信防止)
 		await expect(canvas.getByTestId('cloud-export-delete-dl')).toBeDisabled();
+	}}
+/>
+
+<!-- 取り消せない操作なので「やめる」で確実に何も起きないことを固定する (#4767 QM must) -->
+<Story
+	name="ConfirmCancel"
+	play={async ({ canvasElement }) => {
+		deleteSpy.mockClear();
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByTestId('cloud-export-delete-dl'));
+		await screen.findByTestId('cloud-export-delete-confirm-target');
+		await userEvent.click(screen.getByTestId('cloud-export-delete-cancel'));
+		await waitFor(() =>
+			expect(screen.queryByTestId('cloud-export-delete-confirm-target')).toBeNull(),
+		);
+		await expect(deleteSpy).not.toHaveBeenCalled();
+		// 行は残ったまま
+		await expect(canvas.getByTestId('cloud-export-row-dl')).toBeVisible();
 	}}
 />
 

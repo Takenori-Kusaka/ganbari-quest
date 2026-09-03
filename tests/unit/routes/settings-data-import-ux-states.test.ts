@@ -17,7 +17,7 @@
 // cloud export/import の一部は #3732 で local 検証困難 (auth repo / uuid 制約) のため、
 // fetch を stub して条件付き UI の描画契約を component 層で検証する (二重防御の component 側)。
 
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/forms', () => ({
@@ -266,11 +266,56 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			expect(status.textContent).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
 			const row = await findByTestId('cloud-export-row-exp-exhausted');
 			expect(row.textContent).toContain(SETTINGS_LABELS.cloudAutoDeleteIn(7));
+			// #4767 QM should: 期限 (絶対日付) と DL 回数は状態によらず消えない
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudStoredExpiry('2026/09/10'));
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudStoredDownloads(5, 5));
 			// もう取り出せないので DL 導線は出さない (押しても失敗する導線を残さない)
 			expect(row.querySelector('[data-testid="cloud-export-download-link"]')).toBeNull();
 		});
 
-		it('削除を押すと DELETE が飛び、一覧が再取得されて枠が空く', async () => {
+		// #4767 QM must: 削除は S3 の全バージョンを消す取り消せない操作。押しただけでは実行されず、
+		// 確認 dialog で「何が消えるか」「元に戻せない」ことを見せてから確定で初めて DELETE が飛ぶ。
+		it('削除を押しただけでは DELETE を送らず、何が消えるかと元に戻せないことを確認 dialog で示す', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+
+			// Dialog は Portal 経由で body に出るため screen (document 起点) で引く
+			const target = await screen.findByTestId('cloud-export-delete-confirm-target');
+			expect(target.textContent).toContain('ABC234');
+			expect(target.textContent).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+			expect(document.body.textContent).toContain(SETTINGS_LABELS.cloudDeleteConfirmIrreversible);
+			// この時点では何も消えていない
+			expect(deleted).toEqual([]);
+		});
+
+		it('確認 dialog をキャンセルすると削除されない (取り消せない操作を誤爆させない)', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-cancel'));
+
+			// dialog が閉じ、DELETE は 1 度も飛ばず、行も消えない
+			await waitFor(() =>
+				expect(screen.queryByTestId('cloud-export-delete-confirm-target')).toBeNull(),
+			);
+			expect(deleted).toEqual([]);
+			expect(await findByTestId('cloud-export-row-exp-exhausted')).toBeTruthy();
+		});
+
+		it('確認 dialog で確定すると DELETE が飛び、一覧が再取得されて枠が空く', async () => {
 			pageStore.set({ data: { authMode: 'cognito' } });
 			const deleted = stubCloudFetch([exhaustedRow]);
 
@@ -279,7 +324,8 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 				form: null,
 			});
 
-			const delBtn = await findByTestId('cloud-export-delete-exp-exhausted');
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+
 			// 削除後の再取得は空一覧を返す (= 枠が戻った状態)
 			vi.mocked(globalThis.fetch).mockImplementation(
 				(url: string | URL | Request, init?: RequestInit) => {
@@ -297,7 +343,7 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 					} as Response);
 				},
 			);
-			await fireEvent.click(delBtn);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
 
 			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
 			await waitFor(() => expect(queryByTestId('cloud-export-stored-list')).toBeNull());

@@ -817,7 +817,17 @@ export const PLAN_GATE_LABELS = {
 	cloudExportLimitReachedNaming: (max: number, candidates: readonly string[]) =>
 		candidates.length === 0
 			? CLOUD_EXPORT_LIMIT_REACHED(max)
-			: `${CLOUD_EXPORT_LIMIT_REACHED(max)}削除の候補: ${candidates.join('、')}`,
+			: `${CLOUD_EXPORT_LIMIT_REACHED(max)}もう使えないものから削除できます: ${candidates.join('、')}`,
+
+	/**
+	 * 上限到達 403 のうち、**消しても損の無い行 (作成失敗 / 回数切れ) が 1 つも無い**場合 (#4767 QM must)。
+	 *
+	 * この状況で候補として挙げられるのは「まだダウンロードできる共有」しかない。
+	 * 「削除の候補」とだけ言うと、まだ必要な共有をワンクリックで消させることになるため、
+	 * **失われるものを明示**したうえで候補を出す (削除自体は取り消せない)。
+	 */
+	cloudExportLimitReachedLiveOnly: (max: number, candidates: readonly string[]) =>
+		`${CLOUD_EXPORT_LIMIT_REACHED(max)}いま保管されているものはすべてまだダウンロードできる共有です。削除すると取り出せなくなります（元に戻せません）: ${candidates.join('、')}`,
 
 	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
 	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
@@ -4031,7 +4041,27 @@ export const SETTINGS_LABELS = {
 	cloudStoredTitle: '保管済みデータ',
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
+	// #4767 QM should: 期限 (絶対日付) は状態によらず常に出す。「あと N 日」だけだと
+	// いつ消えるのかが読み手の暦計算に依存し、状態表示の分岐で欠けやすい。
+	cloudStoredExpiry: (date: string) => `期限: ${date}`,
+	// #4767 QM must: 削除は S3 の全バージョンを消す取り消し不能な操作。押した瞬間に実行せず、
+	// 何が消えるのか (PIN / 種別 / 状態) と「元に戻せない」ことを confirm dialog で名指しする。
+	cloudDeleteConfirmTitle: 'この共有データを削除しますか？',
+	cloudDeleteConfirmTarget: (pinCode: string, type: string, state: string) =>
+		`削除するもの: PIN ${pinCode}（${type}・${state}）`,
+	cloudDeleteConfirmIrreversible:
+		'削除すると保管データも共有リンクも完全に消え、元に戻せません。受け取る側がまだ取り込んでいない場合は取り込めなくなります。',
+	cloudDeleteConfirmQuotaNote: '削除すると保管枠はすぐに空きます。',
+	cloudDeleteConfirmExecute: '削除する',
+	cloudDeleteConfirmCancel: 'やめる',
+	// #4767 QM should: S3 の削除に失敗したときは黙って DB だけ消さない (顧客に見せて再試行させる)。
+	cloudDeleteFailed:
+		'削除できませんでした。時間をおいてもう一度お試しください（データは残っています）。',
 	cloudStoredDeleting: '削除中…',
+	// #4767: 削除しようとした行が既に無い (別端末で削除済 / 期限切れ cleanup 済) ときの案内。
+	// 「見つかりません」を route が文字列一致で 404 に写像していたのを型で運ぶようにした際の SSOT。
+	cloudDeleteAlreadyGone:
+		'このデータは既に削除されています。画面を更新すると最新の状態になります。',
 	// #4767 PO 回答 #3: 枠を占有している全行を状態付きで見せる。
 	// 状態名は PO 回答の 4 語 (ダウンロード可能 / ダウンロード回数を使い切りました / 作成に失敗しました /
 	// あと N 日で自動削除) をそのまま使う。生成待ち / 生成中は既存 cloudStatusPending / cloudStatusBuilding。

@@ -92,10 +92,26 @@ const DELETE_CANDIDATE_RANK: Record<CloudExportRowState, number> = {
 };
 
 /**
+ * **消しても失うものが無い**行か (#4767 QM must)。
+ *
+ * `failed` = 取り出せる成果物が無い / `exhausted` = ダウンロード回数を使い切っていてもう取り出せない。
+ * この 2 つは削除しても顧客は何も失わないので、枠が満杯のときに真っ先に名指ししてよい。
+ * それ以外 (`downloadable` / `pending` / `building`) は**まだ取り出せる (これから取り出せる) 共有**で、
+ * 削除は取り消せないため「候補」として同列に並べない。
+ */
+export function isDisposableCloudExportRow(state: CloudExportRowState): boolean {
+	return state === 'failed' || state === 'exhausted';
+}
+
+/**
  * 枠が満杯のときに「どれを消せばいいか」を名指しする順に並べ替える (入力は変更しない)。
  *
  * 失敗行 (取り出せるものが無い) → DL 回数を使い切った行 (もう取り出せない) → 残りは作成日が古い順。
  * 同順位は createdAt 昇順で安定させる。
+ *
+ * **呼び出し側は `isDisposableCloudExportRow` で 2 群に分けてから使う** (#4767 QM must):
+ * 消しても損の無い行が 1 つでもあればそれだけを候補にし、1 つも無いときだけ
+ * 「まだ取り出せる共有しか無い」と明示したうえで古い順に挙げる。
  */
 export function rankCloudExportDeleteCandidates<T extends CloudExportDeleteCandidateInput>(
 	rows: readonly T[],

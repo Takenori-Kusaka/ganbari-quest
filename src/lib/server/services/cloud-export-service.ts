@@ -6,6 +6,7 @@ import {
 	type CloudExportRowState,
 	cloudExportDaysUntilAutoDelete,
 	cloudRowStateLabel,
+	isDisposableCloudExportRow,
 	rankCloudExportDeleteCandidates,
 	resolveCloudExportRowState,
 } from '$lib/domain/cloud-export-quota';
@@ -243,17 +244,34 @@ export class CloudExportQuotaError extends Error {
 	readonly max: number;
 	/** 403 文言で名指しした候補 (順序どおり)。 */
 	readonly candidates: readonly CloudExportDeleteCandidate[];
+	/**
+	 * 名指しした候補が **まだ取り出せる共有しか無い** か (#4767 QM must)。
+	 * true のとき文言は「削除すると取り出せなくなる (元に戻せない)」ことを明示する。
+	 */
+	readonly namesLiveShares: boolean;
 	constructor(
 		current: number,
 		max: number,
 		candidates: readonly CloudExportDeleteCandidate[] = [],
 	) {
-		const named = candidates.slice(0, QUOTA_DELETE_CANDIDATE_LIMIT);
-		super(PLAN_GATE_LABELS.cloudExportLimitReachedNaming(max, named.map(formatDeleteCandidate)));
+		// #4767 QM must: 消しても損の無い行 (作成失敗 / 回数切れ) が 1 つでもあれば **それだけ** を候補に
+		// する。1 つも無いときだけ、まだ取り出せる共有を古い順に挙げ、失われることを文言で明示する。
+		// 「枠を空けたい顧客」を、まだ必要な共有のワンクリック削除へ誘導しないための出し分け。
+		const disposable = candidates.filter((c) => isDisposableCloudExportRow(c.rowState));
+		const pool = disposable.length > 0 ? disposable : candidates;
+		const named = pool.slice(0, QUOTA_DELETE_CANDIDATE_LIMIT);
+		const namesLiveShares = disposable.length === 0 && named.length > 0;
+		const formatted = named.map(formatDeleteCandidate);
+		super(
+			namesLiveShares
+				? PLAN_GATE_LABELS.cloudExportLimitReachedLiveOnly(max, formatted)
+				: PLAN_GATE_LABELS.cloudExportLimitReachedNaming(max, formatted),
+		);
 		this.name = 'CloudExportQuotaError';
 		this.current = current;
 		this.max = max;
 		this.candidates = named;
+		this.namesLiveShares = namesLiveShares;
 	}
 }
 
@@ -541,20 +559,57 @@ export async function listCloudExports(
 	}));
 }
 
+/**
+ * 削除対象のクラウドエクスポートが (自 tenant に) 存在しない (#4767)。
+ *
+ * 旧実装は素の `Error('エクスポートが見つかりません')` を投げ、route が
+ * `msg.includes('見つかりません')` で 404 に写像していた。**顧客向け文言を制御信号に使う形**であり、
+ * 文言を 1 文字変えた瞬間に 404 が 500 (「システムに問題が発生しました」) に化ける。
+ * 本 PR が 403 の文言で潰したのと同じ class なので、同じやり方 ({@link CloudExportFetchError} と同型の
+ * 理由の型付け) で塞ぐ。
+ */
+export class CloudExportNotFoundError extends Error {
+	constructor() {
+		super(SETTINGS_LABELS.cloudDeleteAlreadyGone);
+		this.name = 'CloudExportNotFoundError';
+	}
+}
+
+/**
+ * 保管実体 (S3) の削除に失敗し、削除を **中断** した (#4767 QM should)。
+ *
+ * DB 行は残してあるので、一覧・保管枠・実体は食い違わない。顧客の次の行動は再試行。
+ */
+export class CloudExportDeleteFailedError extends Error {
+	constructor() {
+		super(SETTINGS_LABELS.cloudDeleteFailed);
+		this.name = 'CloudExportDeleteFailedError';
+	}
+}
+
 /** クラウドエクスポートを削除 */
 export async function deleteCloudExport(id: string, tenantId: string): Promise<void> {
 	const repos = getRepos();
+	// findById は tenantId 束縛なので、他 tenant の id は「無い」として扱われる (IDOR 遮断)。
 	const record = await repos.cloudExport.findById(id, tenantId);
-	if (!record) throw new Error('エクスポートが見つかりません');
+	if (!record) throw new CloudExportNotFoundError();
 
 	// S3 からも削除。**全バージョンごと消す** (#4724) — この ZIP は子供名・アバター・音声を含む
 	// 完全 PII で、delete marker を立てるだけだと非現行バージョンが lifecycle の 30 日まで残る
 	// (#3868 が塞いだ「PII が滞留する」の再発)。顧客が明示的に消したものは戻せなくてよい。
+	//
+	// #4767 QM should: **失敗を握り潰して DB 行だけ消さない**。旧実装は purge 失敗を warn ログに
+	// 落として行を削除していたため、顧客には「削除できました」と見えるのに S3 には完全 PII の ZIP が
+	// 残る (誰も知らない孤児になり、以後どの画面からも消せない)。失敗したら行を残したまま失敗を返し、
+	// 一覧・保管枠・実体の 3 つが食い違わない状態で顧客に再試行させる。
 	try {
 		await repos.storage.purgeByPrefix(record.s3Key);
-	} catch {
-		// S3削除失敗はログのみ（DB側は削除する）
-		logger.warn('[cloud-export] S3削除失敗', { context: { s3Key: record.s3Key } });
+	} catch (err) {
+		logger.error('[cloud-export] S3 削除に失敗したため DB 行も残す (孤児 PII を作らない)', {
+			context: { id, tenantId, s3Key: record.s3Key },
+			error: err instanceof Error ? err.message : String(err),
+		});
+		throw new CloudExportDeleteFailedError();
 	}
 
 	await repos.cloudExport.deleteById(id, tenantId);
