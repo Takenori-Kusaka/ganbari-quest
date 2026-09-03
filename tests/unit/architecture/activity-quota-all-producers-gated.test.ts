@@ -21,7 +21,10 @@ const SCAN_ROOTS = ['src/lib/server/services', 'src/routes'];
 
 /** child_activities に行を作る repo 呼び出し (repo 実装自体と test は対象外) */
 const PRODUCER_CALL = /childActivity(?:Repo)?\s*\.\s*(insertActivity|insertActivitiesBulk)\s*\(/;
-const GATE_CALL = /\b(enforceActivityQuota|checkActivityLimit)\s*\(/;
+// #4693 (PO 回答 2026-09-03 #2): 復元経路の gate は「捨てる」ではなく「archived で入れる」に
+// 変わったため、`archiveActivityQuotaOverflow` も quota gate として数える (どちらも
+// activity-quota.ts の同じ判定 `judgeActivityQuota` を通る)。
+const GATE_CALL = /\b(enforceActivityQuota|archiveActivityQuotaOverflow|checkActivityLimit)\s*\(/;
 
 /**
  * producer file → その経路の quota gate を呼ぶ file (同一 file なら自分自身)。
@@ -30,15 +33,15 @@ const GATE_CALL = /\b(enforceActivityQuota|checkActivityLimit)\s*\(/;
 const GATE_REGISTRY: Record<string, { gateFiles: string[]; why: string }> = {
 	'src/lib/server/services/activity-import-service.ts': {
 		gateFiles: ['src/lib/server/services/activity-import-service.ts'],
-		why: 'dispatchImport 経由の取込 (marketplace / ?/importFile / api/v1/activities/import) は importActivities 内で enforceActivityQuota',
+		why: 'dispatchImport 経由の取込 (marketplace / ?/importFile / api/v1/activities/import) は importActivities 内で enforceActivityQuota。母集団は custom 行のみで、プリセット取込 (seed 行) は 0 行と数えられて通る (#4693 PO 回答 #1)',
 	},
 	'src/lib/server/services/import-service.ts': {
 		gateFiles: ['src/lib/server/services/import-service.ts'],
-		why: 'backup ZIP / JSON の全体復元 (api/v1/import) は importChildActivitiesData 内で enforceActivityQuota (QM #4784)',
+		why: 'backup ZIP / JSON の全体復元 (api/v1/import) は importChildActivitiesData 内で archiveActivityQuotaOverflow (超過分は捨てず archived で復元、#4693 PO 回答 #2)',
 	},
 	'src/routes/api/v1/import/cloud/+server.ts': {
 		gateFiles: ['src/routes/api/v1/import/cloud/+server.ts'],
-		why: 'クラウドテンプレート取込は route 内で enforceActivityQuota (QM #4784)',
+		why: 'クラウドテンプレート取込は route 内で archiveActivityQuotaOverflow (超過分は捨てず archived、#4693 PO 回答 #2)',
 	},
 	'src/lib/server/services/activity-service.ts': {
 		gateFiles: [

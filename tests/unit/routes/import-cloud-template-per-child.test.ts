@@ -26,15 +26,12 @@ const mockFindAllChildren = vi.fn();
 const mockFindActivitiesByChild = vi.fn();
 const mockInsertActivitiesBulk = vi.fn();
 
-// #4693 (QM #4784): quota gate は activity-quota-import-enforcement.test.ts で単体検証する。
-// ここでは復元 / 取込の配線だけを見るため、gate は「何も外さない」stub にする。
+// #4693 (QM #4784 → PO 回答 2026-09-03 #2): quota 判定は activity-quota-import-enforcement.test.ts /
+// activity-quota-restore-archive-4693.test.ts で単体検証する。ここでは取込の配線だけを見るため、
+// gate は「何も archived にしない」stub にする。
+const mockArchiveActivityQuotaOverflow = vi.fn();
 vi.mock('$lib/server/services/activity-quota', () => ({
-	enforceActivityQuota: vi.fn(async () => ({
-		rejectedNames: new Set<string>(),
-		rejectedRows: 0,
-		message: '',
-		upgradeUrl: null,
-	})),
+	archiveActivityQuotaOverflow: (...args: unknown[]) => mockArchiveActivityQuotaOverflow(...args),
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -127,6 +124,15 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		mockInsertActivitiesBulk.mockImplementation(async (inputs: Array<{ name: string }>) =>
 			inputs.map((i, idx) => ({ id: `1000${idx}`, name: i.name })),
 		);
+		// 既定は「1 行も保管しない」= 上限に触れないケース。archived を出すケースは個別に上書きする。
+		mockArchiveActivityQuotaOverflow.mockImplementation(async () => ({
+			total: 0,
+			activated: 0,
+			archived: 0,
+			reason: null,
+			message: '',
+			upgradeUrl: null,
+		}));
 	});
 
 	describe('preview mode', () => {
@@ -220,6 +226,64 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(2);
 			// #3376 adversarial: validate 成功後の execute でちょうど 1 回だけ DL を消費
 			expect(mockConsumeDownload).toHaveBeenCalledTimes(1);
+		});
+
+		// #4693 PO 回答 (2026-09-03) #2: 上限超過分は捨てずに archived で取り込み、結果に
+		// 「入った数 / 保管した数 / 理由 / 次の行動」を返す。旧 `blocked`
+		// (= 外した数だけ) では「入った数」が分からず「復元しました」に畳み込まれていた。
+		it('プラン上限で保管した分は activityQuota として返る (blocked ではない、#4693)', async () => {
+			mockArchiveActivityQuotaOverflow.mockImplementationOnce(async () => ({
+				total: 119,
+				activated: 3,
+				archived: 116,
+				reason: 'plan_limit' as const,
+				message: 'オリジナル活動は 3 個までです（プリセットからの取込は無制限です）',
+				upgradeUrl: '/admin/subscription',
+			}));
+			const payload = templateV2Payload([{ childId: asChildId(99), names: ['はしる'] }]);
+			mockFetchCloudExport.mockResolvedValue({
+				record: { exportType: 'template', description: 'テスト' },
+				bytes: enc(JSON.stringify(payload)),
+			});
+
+			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'));
+
+			expect(res.status).toBe(200);
+			const json = (await res.json()) as {
+				result: {
+					blocked?: unknown;
+					activityQuota?: {
+						total: number;
+						activated: number;
+						archived: number;
+						reason: string;
+						upgradeUrl: string | null;
+					};
+				};
+			};
+			expect(json.result.activityQuota).toMatchObject({
+				total: 119,
+				activated: 3,
+				archived: 116,
+				reason: 'plan_limit',
+				upgradeUrl: '/admin/subscription',
+			});
+			expect(json.result.blocked).toBeUndefined();
+			// 保管した行も **書かれている** (捨てていない)
+			expect(mockInsertActivitiesBulk).toHaveBeenCalled();
+		});
+
+		it('上限に触れていなければ activityQuota は返さない (成功表示を汚さない)', async () => {
+			const payload = templateV2Payload([{ childId: asChildId(99), names: ['はしる'] }]);
+			mockFetchCloudExport.mockResolvedValue({
+				record: { exportType: 'template', description: 'テスト' },
+				bytes: enc(JSON.stringify(payload)),
+			});
+
+			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'));
+
+			const json = (await res.json()) as { result: { activityQuota?: unknown } };
+			expect(json.result.activityQuota).toBeUndefined();
 		});
 
 		it('#3405-2: bulk insert が失敗したら DL を消費しない (consume-on-success)', async () => {

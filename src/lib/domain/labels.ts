@@ -59,6 +59,7 @@ import { jstDayOfWeek, toJSTDateString } from './date-utils';
 //     されているため、本 PR では import 不要
 import {
 	ACTIVITY_ADMIN_TERMS,
+	ACTIVITY_QUOTA_TERMS,
 	ADD_MENU_TERMS,
 	ADMIN_HOME_TERMS,
 	ADMIN_SCREEN_TERMS,
@@ -772,17 +773,23 @@ export const PLAN_GATE_LABELS = {
 		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
-	 * "カスタム活動は最大{max}個まで作成できます。プランをアップグレードしてください。"
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）"
 	 *
 	 * 活動 quota 上限 (maxActivities) 到達時の 403 文言 (#4622)。
 	 * 旧実装は routes 7 箇所に直書きされ、`checkActivityLimit` の `max: number | null` を
 	 * そのまま埋めていたため「最大 null 個」を出しうる型の穴になっていた。
 	 * 引数を `number` に狭めることで、null を渡す呼び出しがコンパイルで落ちる。
 	 *
+	 * #4693 PO 回答 (2026-09-03): 上限の母集団は親が手で作った活動 (custom) だけで、
+	 * プリセット取込は消費しない。旧「カスタム活動は最大 N 個まで作成できます」は
+	 * 「テンプレも入らない」と読めたため、数える対象と数えない経路の両方を言う
+	 * (atom: ACTIVITY_QUOTA_TERMS)。アップグレード導線は呼び出し側 (PlanLimitError の
+	 * upgradeUrl / `upgradeLinkLabel`) が併記する。
+	 *
 	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
 	 */
 	activityLimitReached: (max: number) =>
-		`カスタム活動は最大${max}個まで作成できます。プランをアップグレードしてください。`,
+		`${ACTIVITY_QUOTA_TERMS.original}は ${max} 個までです（${ACTIVITY_QUOTA_TERMS.presetImport}は無制限です）`,
 
 	/**
 	 * "子供は最大{max}人まで登録できます。プランをアップグレードしてください。"
@@ -846,6 +853,15 @@ export const PLAN_GATE_LABELS = {
 	 */
 	planUnverifiableImportAborted:
 		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
+
+	/**
+	 * 復元 (backup ZIP / JSON の全体復元・クラウド取込) でプランを確認できなかったときの文言 (#4693)。
+	 * 取込と違い復元は顧客のデータを落とせない (PO 回答 2026-09-03 #2) ので、中止ではなく
+	 * 「上限超過と同じ扱いで保管 (archived) した」ことを言う。有料プランでは自動で元に戻る
+	 * (ARCHIVED_RESOURCE_LABELS.bannerDesc と同じ約束)。
+	 */
+	planUnverifiableRestoreArchived: (archived: number) =>
+		`ただいまプランを確認できないため、${archived} 件の活動は保管しました。有料プランでは自動で元に戻ります。`,
 
 	/**
 	 * **誰が**上限に達しているのかを言う版 (#4693)。
@@ -3980,9 +3996,19 @@ export const SETTINGS_LABELS = {
 	dataImportComplete: 'インポート完了',
 	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
-	// #4693 (QM #4784): 復元がプラン上限で一部を外したときの件数行 (理由文は server の quota.message)
-	dataImportResultBlocked: (n: number | string) =>
-		`プラン上限のため ${n} 件の活動は復元していません`,
+	/**
+	 * "119 件のうち 3 件を有効化し、116 件はプランの上限のため保管しました（アップグレードで使えます）"
+	 *
+	 * #4693 PO 回答 (2026-09-03) #2: 上限を超える復元で顧客のデータを落とさない。超過分は
+	 * archived (保管) で取り込み、入った数 / 入らなかった数 / 理由 / 次の行動を必ず出す。
+	 * 「復元しました」だけで黙って落とすのは不可。アップグレード導線 (link) は呼び出し側が併記する。
+	 *
+	 * @param total 復元対象だったオリジナル活動の行数 (= activated + archived)
+	 * @param activated 有効な状態で入った行数
+	 * @param archived プランの上限のため保管 (archived) した行数
+	 */
+	dataImportResultQuotaArchived: (total: number, activated: number, archived: number) =>
+		`${total} 件のうち ${activated} 件を有効化し、${archived} 件はプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>

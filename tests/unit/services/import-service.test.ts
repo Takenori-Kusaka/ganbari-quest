@@ -31,16 +31,19 @@ const mockInsertSpecialReward = vi.fn();
 const mockSaveFile = vi.fn();
 const mockUpdateChildAvatarUrl = vi.fn();
 
-// #4693 (QM #4784): quota gate は activity-quota-import-enforcement.test.ts で単体検証する。
-// ここでは復元 / 取込の配線だけを見るため、gate は「何も外さない」stub にする。
-const mockEnforceActivityQuota = vi.fn(async () => ({
-	rejectedNames: new Set<string>(),
-	rejectedRows: 0,
+// #4693 (QM #4784 → PO 回答 2026-09-03 #2): quota 判定は activity-quota-import-enforcement.test.ts /
+// activity-quota-restore-archive-4693.test.ts で単体検証する。ここでは復元 / 取込の配線だけを
+// 見るため、gate は「何も archived にしない」stub にする。
+const mockArchiveActivityQuotaOverflow = vi.fn(async () => ({
+	total: 0,
+	activated: 0,
+	archived: 0,
+	reason: null,
 	message: '',
 	upgradeUrl: null,
 }));
 vi.mock('$lib/server/services/activity-quota', () => ({
-	enforceActivityQuota: mockEnforceActivityQuota,
+	archiveActivityQuotaOverflow: mockArchiveActivityQuotaOverflow,
 }));
 
 vi.mock('$lib/server/db/activity-repo', () => ({
@@ -629,7 +632,7 @@ describe('importFamilyData', () => {
 			);
 		});
 
-		it('#4693 (QM #4784): 復元の quota gate は merge (HTTP) で掛かり、verbatim (cutover / seed) では掛からない', async () => {
+		it('#4693: 復元の quota 判定は merge (HTTP) で掛かり、verbatim (cutover / seed) では掛からない', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
 			data.data.childActivities = [childActivityFixture('c1', '新しい活動')];
@@ -637,20 +640,20 @@ describe('importFamilyData', () => {
 			mockFindActivities.mockResolvedValue([]);
 			mockChildActivityInsert.mockResolvedValue({ id: '1' });
 
-			mockEnforceActivityQuota.mockClear();
+			mockArchiveActivityQuotaOverflow.mockClear();
 			await importFamilyData(data, TENANT);
-			expect(mockEnforceActivityQuota).toHaveBeenCalledTimes(1);
+			expect(mockArchiveActivityQuotaOverflow).toHaveBeenCalledTimes(1);
 
 			// verbatim = 自環境への完全移行 (NUC cutover / staging seed)。プラン上限は掛けず、
 			// activity-quota ($app 依存) も読み込まない (tsx の CLI が起動できなくなるため)
-			mockEnforceActivityQuota.mockClear();
+			mockArchiveActivityQuotaOverflow.mockClear();
 			await importFamilyData(data, TENANT, undefined, { mode: 'verbatim' });
-			expect(mockEnforceActivityQuota).not.toHaveBeenCalled();
+			expect(mockArchiveActivityQuotaOverflow).not.toHaveBeenCalled();
 
 			// 明示指定は mode より優先
-			mockEnforceActivityQuota.mockClear();
+			mockArchiveActivityQuotaOverflow.mockClear();
 			await importFamilyData(data, TENANT, undefined, { mode: 'verbatim', enforceQuota: true });
-			expect(mockEnforceActivityQuota).toHaveBeenCalledTimes(1);
+			expect(mockArchiveActivityQuotaOverflow).toHaveBeenCalledTimes(1);
 		});
 
 		it('同名活動でも per-child は別 instance として復元する (dedup しない、#3327)', async () => {

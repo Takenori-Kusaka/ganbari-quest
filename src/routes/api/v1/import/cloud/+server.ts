@@ -8,7 +8,7 @@ import type { InsertChildActivityInput } from '$lib/server/db/types';
 import type { ErrorCode } from '$lib/server/errors';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { enforceActivityQuota } from '$lib/server/services/activity-quota';
+import { archiveActivityQuotaOverflow } from '$lib/server/services/activity-quota';
 import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
 import type { CloudExportFetchFailure } from '$lib/server/services/cloud-export-service';
 import {
@@ -297,10 +297,11 @@ async function handleTemplateImport(
 		let activitiesCreated = 0;
 		const checklistsCreated = 0;
 
-		// #4693 (QM #4784): クラウドテンプレート取込も他の取込経路と同じ quota gate を通す
-		// (PO 判断「REST も素通りさせない」)。先に全 child の書き込み計画を作り、上限超過分を
-		// 外してから insert する。source は activity-source.ts (#3669 SSOT) のとおり repo 既定
-		// `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ扱い)。
+		// #4693 (QM #4784 → PO 回答 2026-09-03 #2): クラウドテンプレート取込も他の取込経路と同じ
+		// quota 判定を通す。先に全 child の書き込み計画を作り、上限超過分は **捨てずに archived で**
+		// insert する (復元は顧客のデータを落とさない)。source は activity-source.ts (#3669 SSOT) の
+		// とおり repo 既定 `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ
+		// 扱い = quota を消費しないので、通常は archived にならない)。
 		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
 		const plannedNewNames = new Set<string>();
 		for (const cid of targetChildIds) {
@@ -322,11 +323,8 @@ async function handleTemplateImport(
 			for (const input of inputs) plannedNewNames.add(input.name);
 			childInputsByChild.set(cid, inputs);
 		}
-		const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
-		const blocked =
-			quota.rejectedRows > 0
-				? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
-				: undefined;
+		const quota = await archiveActivityQuotaOverflow(tenantId, childInputsByChild, plannedNewNames);
+		const activityQuota = quota.archived > 0 ? quota : undefined;
 
 		// per-child instance bulk insert
 		for (const inputs of childInputsByChild.values()) {
@@ -346,6 +344,7 @@ async function handleTemplateImport(
 				activitiesCreated,
 				checklistsCreated,
 				targetChildCount: targetChildIds.length,
+				archived: quota.archived,
 			},
 		});
 
@@ -356,8 +355,9 @@ async function handleTemplateImport(
 				activitiesCreated,
 				checklistsCreated,
 				targetChildIds,
-				// #4693 (QM #4784): プラン上限で取込から外した分 (理由 + アップグレード導線)
-				blocked,
+				// #4693 (PO 回答 2026-09-03 #2): プラン上限で archived として取り込んだ分
+				// (入った数 / 保管した数 / 理由 + アップグレード導線)。0 件なら省略
+				activityQuota,
 			},
 		});
 	} catch (err) {

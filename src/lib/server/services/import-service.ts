@@ -19,7 +19,6 @@ import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/valid
 import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
-import type { ImportBlocked } from '$lib/marketplace/types';
 import {
 	findActivities,
 	findActivityLogs,
@@ -48,6 +47,8 @@ import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
+// #4693: 型のみ import (値の import は `$app` 依存を tsx の CLI に持ち込むため動的 import のまま)
+import type { ActivityQuotaArchiveOutcome } from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -198,10 +199,12 @@ export interface ImportResult {
 	errors: string[];
 	warnings: string[];
 	/**
-	 * #4693 (QM #4784): プラン上限で **意図的に復元対象から外した** 活動行数と、その顧客向け理由。
-	 * `warnings` (内部ログ寄り) とは別に、画面が理由 + アップグレード導線を出すための channel。
+	 * #4693 (PO 回答 2026-09-03 #2): プラン上限で **archived (保管) として復元した** 活動行数と、
+	 * その顧客向け理由。超過分は捨てない。`warnings` (内部ログ寄り) とは別に、画面が
+	 * 「入った数 / 入らなかった数 / 理由 / 次の行動 (アップグレード導線)」を出すための channel。
+	 * `archived > 0` のときだけ載る (0 件なら undefined)。
 	 */
-	blocked?: ImportBlocked;
+	activityQuota?: ActivityQuotaArchiveOutcome;
 }
 
 /**
@@ -371,9 +374,10 @@ export type ImportMode = 'merge' | 'verbatim';
 
 export interface ImportOptions {
 	/**
-	 * #4693 (QM #4784): 活動の復元にプラン上限 (`enforceActivityQuota`) を掛けるか。
+	 * #4693 (QM #4784): 活動の復元にプラン上限 (`archiveActivityQuotaOverflow`) を掛けるか。
 	 * 既定は `mode` で決まる: `merge` (HTTP の復元 / クラウド取込) = 掛ける、
 	 * `verbatim` (NUC cutover / staging seed = 自環境への完全移行) = 掛けない。
+	 * 掛けた場合も超過分は捨てず archived で取り込む (PO 回答 2026-09-03 #2)。
 	 * verbatim 側では activity-quota を読み込まない (静的 import だと `$app` 依存が tsx の CLI で解決できない)。
 	 */
 	enforceQuota?: boolean;
@@ -1319,9 +1323,10 @@ async function importChildActivitiesData(
 	result: ImportResult,
 	enforceQuota: boolean,
 ): Promise<void> {
-	// #4693 (QM #4784): 復元も他の取込経路と同じ quota gate を通す (PO 判断「復元 / REST も
-	// 素通りさせない」)。先に書き込み計画を作り、上限超過分 (custom 行のみが対象、seed 行は
-	// 数えない = 初期 seed の復元を切り詰めない) を計画から外してから insert する。
+	// #4693 (QM #4784 → PO 回答 2026-09-03 #2): 復元も他の取込経路と同じ quota 判定を通すが、
+	// 超過分は **捨てずに archived (isArchived=1) で取り込む**。先に書き込み計画を作り、上限超過分
+	// (custom 行のみが対象、seed 行は数えない = 初期 seed の復元を切り詰めない) を archived に
+	// 書き換えてから insert する。有料契約に戻れば `restoreArchivedResources` が自動で戻す。
 	const { childInputsByChild, plannedNewNames } = planChildActivityRestores(
 		data,
 		childIdMap,
@@ -1330,21 +1335,17 @@ async function importChildActivitiesData(
 
 	// verbatim (cutover / seed) では quota を掛けず、module も読み込まない (上記 ImportOptions.enforceQuota)。
 	const quota = enforceQuota
-		? await (await import('./activity-quota')).enforceActivityQuota(
+		? await (await import('./activity-quota')).archiveActivityQuotaOverflow(
 				tenantId,
 				childInputsByChild,
 				plannedNewNames,
 			)
 		: null;
-	if (quota && quota.rejectedRows > 0) {
-		result.blocked = {
-			count: quota.rejectedRows,
-			message: quota.message,
-			upgradeUrl: quota.upgradeUrl,
-		};
-		for (const name of quota.rejectedNames) {
-			result.warnings.push(`活動「${name}」はプラン上限のため復元しませんでした: ${quota.message}`);
-		}
+	if (quota && quota.archived > 0) {
+		result.activityQuota = quota;
+		result.warnings.push(
+			`活動 ${quota.archived} 件はプラン上限のため保管 (archived) として復元しました: ${quota.message}`,
+		);
 	}
 
 	for (const [childId, inputs] of childInputsByChild) {
