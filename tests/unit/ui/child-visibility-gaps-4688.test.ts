@@ -7,7 +7,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asCategoryId } from '$lib/domain/ids';
-import { UI_COMPONENTS_LABELS } from '../../../src/lib/domain/labels';
+import { getChildParentMessageLabels } from '../../../src/lib/domain/labels';
 
 const gotoCalls: string[] = [];
 vi.mock('$app/navigation', () => ({
@@ -92,13 +92,27 @@ describe('#4688 F4: 応援のボーナスポイントがダイアログに出る
 	// Dialog は Ark UI Portal で document.body 直下に mount されるため screen + waitFor で待つ
 	// (tests/CLAUDE.md §Portal 経由 component の query 原則)
 	it('bonusPoints > 0 なら「+N pt もらったよ！」を表示する', async () => {
-		render(ParentMessageOverlay, { ...base, bonusPoints: 50 });
+		render(ParentMessageOverlay, { ...base, bonusPoints: 50, uiMode: 'elementary' });
 
 		await waitFor(() =>
 			expect(screen.getByTestId('parent-message-bonus').textContent).toBe(
-				UI_COMPONENTS_LABELS.parentMessageBonusPoints(50),
+				getChildParentMessageLabels('elementary').parentMessageBonusPoints(50),
 			),
 		);
+	});
+
+	// #4841: 同じ画面のログインボーナス受取が漢字文体になったため、応援メッセージも年齢帯で出し分ける
+	// (1 画面に 2 文体を混ぜない、docs/DESIGN.md §6)。
+	it('junior / senior では漢字変種の受取額表示になる', async () => {
+		render(ParentMessageOverlay, { ...base, bonusPoints: 50, uiMode: 'senior' });
+
+		await waitFor(() =>
+			expect(screen.getByTestId('parent-message-bonus').textContent).toBe(
+				getChildParentMessageLabels('senior').parentMessageBonusPoints(50),
+			),
+		);
+		expect(document.body.textContent).not.toContain('もらったよ');
+		expect(document.body.textContent).not.toContain('パパ・ママ');
 	});
 
 	it('bonusPoints 無し (旧 stamp / text メッセージ) では出さない', async () => {

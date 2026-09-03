@@ -20,6 +20,7 @@
 
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { getChildParentMessageLabels } from '../../src/lib/domain/labels';
 
 const SCREENSHOT_DIR = path.resolve('docs/screenshots/2393-child-tutorial-verification');
 const MODES = ['preschool', 'elementary', 'junior', 'senior'] as const;
@@ -80,6 +81,11 @@ async function gotoChildHome(page: Page, uiMode: string) {
 	});
 }
 
+/** #4841: 応援メッセージ dialog の確定ボタン (年齢帯 variant)。dismiss 候補を SSOT から引く。 */
+const PARENT_MESSAGE_CONFIRM_HIRAGANA =
+	getChildParentMessageLabels('preschool').parentMessageConfirmBtn;
+const PARENT_MESSAGE_CONFIRM_KANJI = getChildParentMessageLabels('senior').parentMessageConfirmBtn;
+
 /**
  * 子供 home 到達時に auto-open する複数 overlay を best-effort dismiss + pointer-events 抑制で
  * tutorial 起動を妨げないようにする。詳細は child-tutorial-dialog-screenshots.spec.ts 参照。
@@ -97,7 +103,16 @@ async function dismissChildHomeOverlays(page: Page) {
 		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
 		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
 		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
-		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		// #4841: 確定ボタンは年齢帯で変わる (ひらがな「うれしい！」/ 漢字「OK」)。
+		// labels SSOT から両方を引く (文字列を spec 側に固定すると出し分け追加で黙って空振りする)。
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_HIRAGANA}")`,
+			),
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_KANJI}")`,
+			),
 		() =>
 			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
 		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),

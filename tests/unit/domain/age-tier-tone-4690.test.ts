@@ -20,6 +20,7 @@ import {
 	getChildErrorPageLabels,
 	getChildHomeLabels,
 	getChildNavModeLabels,
+	getChildParentMessageLabels,
 	getChildShopLabels,
 	getChildStampLabels,
 	getChildStatusLabels,
@@ -173,15 +174,24 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		'きょうはもうおした',
 		'おうちの人に追加してもらおう',
 		'ぜんぶできた',
+		// #4841: 応援メッセージ dialog (ログインボーナスと同じ画面に出るので文体を割らない)
+		'おうえんメッセージ',
+		'パパ・ママ',
+		'うれしい！',
+		'もらったよ',
 	];
 
-	it('ショップ / ステータス / ホームの文言に禁止語が残っていない', () => {
+	it('ショップ / ステータス / ホーム / 持ち物チェック / ログインボーナス受取の文言に禁止語が残っていない', () => {
 		for (const uiMode of KANJI_MODES) {
 			const texts = [
 				...stringsOf(getChildShopLabels(uiMode)),
 				...stringsOf(getChildStatusLabels(uiMode)),
 				...stringsOf(getChildHomeLabels(uiMode)),
 				...stringsOf(getChildNavModeLabels(uiMode)),
+				// #4841: 持ち物チェック (`(child)/checklist`) とログインボーナス受取 UI
+				...stringsOf(getChildChecklistLabels({ ageTier: uiMode })),
+				...stringsOf(getChildStampLabels(uiMode)),
+				...stringsOf(getChildParentMessageLabels(uiMode)),
 			].join('\n');
 			for (const word of FORBIDDEN_IN_KANJI_MODE) {
 				expect(texts, `${uiMode} に「${word}」が残っている`).not.toContain(word);

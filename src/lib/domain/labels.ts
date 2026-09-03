@@ -9540,6 +9540,52 @@ export const USAGE_TIME_LABELS = {
 // ============================================================
 
 // ============================================================
+// 応援メッセージ (ParentMessageOverlay) の文言 — 年齢帯 variant
+// ============================================================
+//
+// 保護者からの応援メッセージ dialog も年齢帯を持たず、16-18 歳の画面に
+// 「💌 おうえんメッセージ！」「パパ・ママからのメッセージだよ」「うれしい！」が出ていた。
+// 同じ画面でログインボーナス側だけ漢字にすると 1 画面に 2 文体が混ざる (docs/DESIGN.md §6)
+// ため、押印演出と同じ層で出し分ける。
+
+/** 応援メッセージ dialog の文言 (ベース = ひらがな: baby / preschool / elementary)。 */
+const CHILD_PARENT_MESSAGE_LABELS = {
+	parentMessageTitle: '💌 おうえんメッセージ！',
+	parentMessageFrom: 'パパ・ママからのメッセージだよ',
+	parentMessageBody: (body: string) => `「${body}」`,
+	parentMessageConfirmBtn: 'うれしい！',
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
+} as const;
+
+/**
+ * 応援メッセージ dialog の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildParentMessageLabels = {
+	readonly [K in keyof typeof CHILD_PARENT_MESSAGE_LABELS]: (typeof CHILD_PARENT_MESSAGE_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_PARENT_MESSAGE_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_PARENT_MESSAGE_KANJI_OVERRIDES = {
+	parentMessageTitle: '💌 応援メッセージ',
+	parentMessageFrom: `${PARENT_TERMS.honorific}からのメッセージ`,
+	parentMessageConfirmBtn: 'OK',
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt 受け取りました`,
+} as const satisfies Partial<ChildParentMessageLabels>;
+
+/** 応援メッセージ dialog の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildParentMessageLabels(uiMode: string): ChildParentMessageLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_PARENT_MESSAGE_LABELS;
+	}
+	return { ...CHILD_PARENT_MESSAGE_LABELS, ...CHILD_PARENT_MESSAGE_KANJI_OVERRIDES };
+}
+
+// ============================================================
 // ログインボーナス受取 UI (押印演出 / スタンプカード) の文言 — 年齢帯 variant
 // ============================================================
 //
@@ -9751,10 +9797,7 @@ export const UI_COMPONENTS_LABELS = {
 	pageGuideNextBtn: (isLast: boolean) => (isLast ? 'かんりょう！' : 'つぎへ'),
 
 	// ---- ParentMessageOverlay ----
-	parentMessageTitle: '💌 おうえんメッセージ！',
-	parentMessageFrom: 'パパ・ママからのメッセージだよ',
-	parentMessageBody: (body: string) => `「${body}」`,
-	parentMessageConfirmBtn: 'うれしい！',
+	// 文言は年齢帯 variant を持つため `getChildParentMessageLabels(uiMode)` が SSOT (本 namespace には置かない)
 
 	// ---- PremiumBadge ----
 	premiumBadgeTitle: 'スタンダードプラン以上で利用可能',
@@ -9780,8 +9823,6 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- StampCard / StampPressOverlay ----
 	// 文言は年齢帯 variant を持つため `getChildStampLabels(uiMode)` が SSOT (本 namespace には置かない)
-	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
-	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),

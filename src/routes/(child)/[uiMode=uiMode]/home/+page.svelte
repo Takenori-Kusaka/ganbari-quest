@@ -1200,6 +1200,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
 		bonusPoints={data.latestMessage.bonusPoints ?? null}
+		uiMode={data.uiMode ?? 'preschool'}
 		onClose={handleMessageClose}
 	/>
 {/if}
