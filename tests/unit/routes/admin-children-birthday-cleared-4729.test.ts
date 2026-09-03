@@ -4,6 +4,14 @@
 // 誕生日を消したら推定誕生日に戻り、誕生日ボーナスの対象外になる (間違った日に祝う方が体験を壊す)。
 // ただし **顧客に降格が起きたことが見えること**。黙って降格は不可。
 //
+// **到達性についての注記 (QM レビューで確認)**: 現状この降格を起こせる呼び出し元は存在しない。
+// `editChild` の呼び出しは `admin/children/+page.server.ts` の 2 action だけで、編集画面の
+// `BirthdayInput` は placeholder option が disabled のため誕生日を空に戻せない。import 復元は
+// `import-service.ts` が `birthDate: … ?? undefined` を渡すので null にならず、birthDate を更新する
+// API route も無い。「誕生日を消す」導線を用意するかは PO 判断 (別 Issue / 別 PR)。
+// 本 test は「導線ができた瞬間に黙って降格しない」ことを先に固定するもので、
+// action / 画面の契約 (降格の判定条件と告知) を実経路で assert する。
+//
 // 固定する不変条件:
 //   [A] /admin/children の editChild action は「実誕生日があった子の誕生日欄を空にして保存した」
 //       ときだけ `birthdayCleared: true` を返す (誕生日を入れ直した / 元から無い / 触っていない は false)

@@ -158,6 +158,29 @@ describe('#4598 領収書アップロード画面の注意書き — 氏名・�
 		expect(el.textContent).toContain('住所');
 	});
 
+	// QM レビュー指摘: `getAiProvider()` は `AI_PROVIDER` で送信先を切り替え、領収書 OCR も
+	// AI 提案も同じ factory を通る。同じ画面文言のまま送信先だけが配布形態で変わるため、
+	// 第9条④ が書き分けている 2 ケースを画面が丸めてはならない (氏名・住所が写った画像の行き先)。
+	it('送信先の別 (運営者の環境内 / 環境外) を画面で述べている', () => {
+		for (const t of [AI_INPUT_NOTICE_LABELS.text, AI_INPUT_NOTICE_LABELS.image]) {
+			expect(t).toContain(AI_INPUT_NOTICE_LABELS.destination);
+		}
+		// 条文と同じ 2 ケースを区別している (どちらか一方だけを述べて丸めない)
+		expect(AI_INPUT_NOTICE_LABELS.destination).toContain(AI_TRANSFER_TERMS.destinationCloud);
+		expect(AI_INPUT_NOTICE_LABELS.destination).toContain(AI_TRANSFER_TERMS.destinationSelfHosted);
+		expect(AI_TRANSFER_TERMS.destinationCloud).toContain('運営者が管理する環境内');
+		expect(AI_TRANSFER_TERMS.destinationSelfHosted).toContain('運営者の環境外');
+		// 条文への導線は残す (詳細は条文が持つ)
+		expect(AI_INPUT_NOTICE_LABELS.linkHref).toContain('privacy.html#under-age');
+	});
+
+	it('送信先の別は component が実際に描画する (label 定義だけで終わらない)', () => {
+		render(AiInputNotice, { props: { variant: 'image', testid: 'ai-input-notice-destination' } });
+		expect(screen.getByTestId('ai-input-notice-destination').textContent).toContain(
+			AI_INPUT_NOTICE_LABELS.destination,
+		);
+	});
+
 	it('領収書 OCR 画面は file input と同じブロックで image variant を出している', () => {
 		const source = readFileSync(
 			join(repoRoot, 'src/routes/(parent)/admin/points/+page.svelte'),

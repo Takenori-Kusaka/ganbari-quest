@@ -166,6 +166,13 @@ export async function editChild(
 	// #4729 PO 回答 (2026-09-03): 誕生日を消したら誕生日ボーナスの対象外になる (降格は維持) が、
 	// **黙って降格してはならない**。公開 entity の `birthDate` は実誕生日のときだけ非 null
 	// (`publicBirthDate`) なので、「実誕生日があった行に null を書いた」= 降格が起きた、と判定できる。
+	//
+	// **現状この分岐に入る呼び出し元は存在しない (QM レビューで確認)**: 本関数の呼び出しは
+	// `admin/children/+page.server.ts` の 2 action だけで、編集画面の `BirthdayInput` は
+	// placeholder option が disabled のため誕生日を空に戻せない。import 復元は
+	// `import-service.ts` が `birthDate: … ?? undefined` を渡すので null にならず、birthDate を
+	// 更新する API route も無い。「誕生日を消す」導線を用意するかは PO 判断のため、
+	// 到達可能になったときに黙って降格しないよう判定だけ先に置いている。
 	const birthdayCleared = input.birthDate === null && !!existing?.birthDate;
 
 	if (patched.uiMode !== undefined) {

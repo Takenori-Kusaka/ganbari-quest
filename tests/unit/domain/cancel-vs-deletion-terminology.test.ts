@@ -356,6 +356,41 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice).toBe(FREE_RETENTION_SENTENCE);
 		});
 
+		// QM レビュー指摘: S4 は「再契約でも戻りません」の直後に「お支払い方法を更新すると
+		// 元に戻ります」が並び、顧客には矛盾に読めた。保持期間の 2 文は**必ず末尾**に置き、
+		// 復旧の案内 → 契約終了時の移行先 → その移行先の保持期間、の順で述べる。
+		// 断片が両方あることだけを見る assert では順序の退行を検出できないため、順序を固定する。
+		it.each(
+			ALL_CONTRACT_STATES.filter((s) => CONTRACT_STATE_VIEW[s].statusNotice !== null).map(
+				(s) =>
+					[CONTRACT_STATE_VIEW[s].matrixRow, CONTRACT_STATE_VIEW[s].statusNotice?.desc ?? ''] as [
+						string,
+						string,
+					],
+			),
+		)('%s の告知は保持期間の 2 文で終わる (後ろに別の話を続けない)', (_row, desc) => {
+			expect(desc.endsWith(FREE_RETENTION_SENTENCE)).toBe(true);
+		});
+
+		it('S4 は「元に戻ります」を保持期間の前に置き、移行先を挟んでから保持期間を述べる', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			const recovery = desc.indexOf('お支払い方法を更新すると元に戻ります');
+			const transition = desc.indexOf(`${PLAN_FULL_TERMS.free}へ切り替わります`);
+			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
+
+			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
+			expect(
+				transition,
+				'契約終了時の移行先の説明が無い (復旧と保持期間が直結して矛盾に読める)',
+			).toBeGreaterThan(-1);
+			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
+
+			// 復旧 → 移行先 → 保持期間 の順。「再契約でも戻りません」の直後に「元に戻ります」が
+			// 来る並び (レビュー時の実測) では recovery > retention になり落ちる。
+			expect(recovery).toBeLessThan(transition);
+			expect(transition).toBeLessThan(retention);
+		});
+
 		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {
 			// 「記録は残ります」で止めない (保持期間の言及が消えたら落ちる)
 			expect(text).toContain(`履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}`);
