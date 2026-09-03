@@ -24,8 +24,15 @@ vi.mock('$lib/server/auth/factory', () => ({
 	getAuthProvider: () => ({ resolveIdentity: mockResolveIdentity }),
 }));
 
+// 実物の resolvePostLoginLanding → resolveContext は初回ログインで users 行 / テナントを **作る**。
+// その副作用を mock でも再現し (landing 解決後は findUserByEmail が行を返す)、
+// 「初回 provisioning 判定を landing より前に評価する」順序契約を固定する (adv-4748 再検証の must)。
+let provisionedByLanding = false;
 vi.mock('$lib/server/auth/post-login-landing', () => ({
-	resolvePostLoginLanding: vi.fn(async () => '/admin'),
+	resolvePostLoginLanding: vi.fn(async () => {
+		provisionedByLanding = true;
+		return '/admin';
+	}),
 }));
 
 const mockFindUserByEmail = vi.fn();
@@ -90,6 +97,7 @@ function makeTrialStartEvent(opts: { role?: string; tenantId?: string; planCooki
 describe('#4702 GET /auth/callback — トライアル自動開始は初回 provisioning のときだけ', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		provisionedByLanding = false;
 		mockVerifyOAuthState.mockReturnValue(true);
 		mockExchangeCodeForTokens.mockResolvedValue({
 			idToken: 'id-token',
@@ -98,8 +106,11 @@ describe('#4702 GET /auth/callback — トライアル自動開始は初回 prov
 		mockResolveIdentity.mockResolvedValue(IDENTITY);
 	});
 
-	it('アカウントが無い email (初回 provisioning) なら trial-start へ回す', async () => {
-		mockFindUserByEmail.mockResolvedValue(null);
+	it('アカウントが無い email (初回 provisioning) なら trial-start へ回す — landing 解決 (provisioning) の後に users 行が出来ても判定は変わらない', async () => {
+		// landing 解決前は行なし、解決後は「今作られた行」が返る (実物の挙動)
+		mockFindUserByEmail.mockImplementation(async () =>
+			provisionedByLanding ? { userId: 'u-new', email: 'parent@example.com' } : null,
+		);
 		const { event, cookieDelete } = makeCallbackEvent({ planCookie: 'standard' });
 		const location = await getRedirectLocation(() => callbackGET(event));
 		expect(location).toMatch(/^\/auth\/oauth\/trial-start\?next=/);

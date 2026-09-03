@@ -85,6 +85,14 @@ export const GET: RequestHandler = async (event) => {
 	// oauth_next (「Google で本人確認」からの復帰先) は親向け画面なので子供には適用しない。
 	// 直前に積んだ identity cookie から所属を解決する (失敗したら従来どおりの着地先へ)
 	const identity = await getAuthProvider().resolveIdentity(event);
+	// #4702 (QM #4748 再レビュー): 「初回 provisioning か」は **landing 解決より前**に見る。
+	// resolvePostLoginLanding → resolveContext が初回ログインの users 行 / テナントを作るため、
+	// その後に findUserByEmail を引くと「今作った行」が返って常に既存扱いになり、新規顧客の
+	// トライアルが 1 件も始まらない (adv-4748 再検証で検出)。
+	const planCookiePresent = cookies.get(OAUTH_PLAN_COOKIE_NAME) !== undefined;
+	const email = identity && 'email' in identity ? identity.email : null;
+	const firstProvisioning =
+		planCookiePresent && email !== null ? await isFirstProvisioning(email) : false;
 	const landing = identity
 		? await resolvePostLoginLanding(event, identity, successPath)
 		: successPath;
@@ -97,9 +105,8 @@ export const GET: RequestHandler = async (event) => {
 	// parent / Google 連携の child) の Google ログインは「登録」ではない。?plan= が付いていても世帯の
 	// 1 回限りのトライアルを消費させない (QM #4748 レビュー: child による世帯 trial 開始と、第三者が
 	// 配った `/auth/oauth/google?plan=` リンクからの強制消化を塞ぐ)。
-	if (cookies.get(OAUTH_PLAN_COOKIE_NAME)) {
-		const email = identity && 'email' in identity ? identity.email : null;
-		if (email && (await isFirstProvisioning(email))) {
+	if (planCookiePresent) {
+		if (firstProvisioning) {
 			redirect(302, `/auth/oauth/trial-start?${LOGIN_NEXT_PARAM}=${encodeURIComponent(landing)}`);
 		}
 		dropPlanCookie(cookies);
