@@ -617,10 +617,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
-						overLimitNames,
-						checklistMaxForMessage,
-					),
+					PLAN_GATE_LABELS.perChildLimitReachedForChildren(overLimitNames, checklistMaxForMessage),
 				),
 				upgradeRequired: true,
 			});
@@ -686,7 +683,7 @@ export const actions: Actions = {
 					skippedOverLimitNames.length > 0
 						? [
 								...result.errors,
-								PLAN_GATE_LABELS.checklistTemplateLimitReachedForChildren(
+								PLAN_GATE_LABELS.perChildLimitReachedForChildren(
 									skippedOverLimitNames,
 									checklistMaxForMessage,
 								),

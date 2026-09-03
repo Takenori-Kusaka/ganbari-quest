@@ -123,6 +123,20 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		// findUserTenants を引いており、所属済でも必ず 0 件になって「別グループ所属」の
 		// 警告が一度も出ず、そのまま招待 Cookie を積んでいた。
 		if (locals.context) {
+			// #4704: 招待を発行した本人 (= 同じ家族グループの所属) が自分のリンクを開くケース。
+			// 所属の有無だけを見て「既に**別の**グループに所属している」と言うと事実と違い、
+			// リンクが壊れているように読める (#4636 の入口)。
+			if (locals.context.tenantId === invite.tenantId) {
+				cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
+				return {
+					valid: false as const,
+					relocation: false as const,
+					error: AUTH_INVITE_LABELS.ownTenantInvite,
+					errorDesc: AUTH_INVITE_LABELS.ownTenantInviteDesc,
+					// ログアウト導線は出さない (自分は既に参加済みで、やることは「相手に送る」)
+					sessionActive: false,
+				};
+			}
 			// 既にテナント所属 → 招待 Cookie を保存しない (残すと別経路で無断合流しうる)
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
 			return await resolveAlreadyInTenantResult(locals.context, invite.tenantId);

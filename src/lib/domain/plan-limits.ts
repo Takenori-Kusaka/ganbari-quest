@@ -12,6 +12,7 @@
 //      (dependency-cruiser `no-circular` が 6 件 error)
 //   2. **`$app` の CLI 流入**: service は `server/debug-plan.ts` 経由で `$app/environment` を
 //      import する。SvelteKit の外 (tsx で動く NUC cutover CLI) から repo 層を読むと
+import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from './constants/subscription-plan';
 //      `Cannot find package '$app'` で落ちる
 //
 // 値の表は依存を持たない葉なので、ここに置けば「上限を知りたいだけ」の層は service を
@@ -72,6 +73,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxActivities: null,
 		maxChecklistTemplates: null,
 		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
+		// #4500: 数値の SSOT は domain leaf。LP / labels もここから引く
 		maxFamilyMembers: FAMILY_MEMBER_LIMIT.standard,
 		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
@@ -109,5 +111,30 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
  * 片方だけ直せば静かにずれた。
  */
 export function resolvePaidPlanTier(planId: string | null | undefined): PlanTier {
-	return planId?.startsWith('family') ? 'family' : 'standard';
+	if (planId && Object.hasOwn(PAID_PLAN_TIER, planId)) {
+		return PAID_PLAN_TIER[planId as SubscriptionPlan];
+	}
+	// 表に無い値 (旧 Stripe 語彙 / 欠落)。黙って写像せず既定 tier に倒す規則をここに閉じる。
+	return FALLBACK_PAID_TIER;
 }
+
+/**
+ * 課金プラン値 → tier の写像 (#4505 GAMMA2-PLANKEY-03 / 05)。
+ *
+ * `Record<SubscriptionPlan, PlanTier>` なので **プラン値を足すとここがコンパイルエラーになり**、
+ * 新しい語彙 (将来の 'premium' 等) が黙って standard に降格することが構造的に起きない
+ * (旧実装は `startsWith('family')` の接頭辞一致で、'lifetime' も将来の値も無言で standard だった)。
+ *
+ * `lifetime` (買い切り) の tier は PO 判断待ち: 現行挙動 (standard) を **明示して** 維持する。
+ * 変えるときはこの 1 行だけを直す。
+ */
+const PAID_PLAN_TIER: Record<SubscriptionPlan, PlanTier> = {
+	[SUBSCRIPTION_PLAN.MONTHLY]: 'standard',
+	[SUBSCRIPTION_PLAN.YEARLY]: 'standard',
+	[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: 'family',
+	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: 'family',
+	[SUBSCRIPTION_PLAN.LIFETIME]: 'standard',
+};
+
+/** 表に無い plan 値 (旧語彙 / 欠落) の既定。課金中 (ACTIVE) の顧客なので free には落とさない。 */
+const FALLBACK_PAID_TIER: PlanTier = 'standard';

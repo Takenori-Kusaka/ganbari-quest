@@ -2,7 +2,9 @@
 // 運営管理サービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OpsPlanRow } from '../../../src/lib/domain/ops-plan-rows';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
+import { computeAnalytics } from '../../../src/lib/server/services/ops-analytics-service';
 import type {
 	AWSCostData,
 	InvoiceRow,
@@ -52,6 +54,20 @@ function makeTenant(overrides: Partial<Tenant> & { tenantId: string }): Tenant {
 	};
 }
 
+/**
+ * 行配列を plan → 値の表に畳む (#4505)。
+ *
+ * `toEqual` で表ごと比較することで、**プランが増えて行が生えたときに test が落ちる**
+ * (行を 1 つずつ拾う書き方だと、増えたプランを誰も見ないまま緑になる)。
+ */
+function planTenants(rows: OpsPlanRow[]): Record<string, number> {
+	return Object.fromEntries(rows.map((r) => [r.plan, r.tenants]));
+}
+
+function planMrr(rows: OpsPlanRow[]): Record<string, number | null> {
+	return Object.fromEntries(rows.map((r) => [r.plan, r.mrr]));
+}
+
 // =============================================================
 // getKpiSummary
 // =============================================================
@@ -74,14 +90,16 @@ describe('getKpiSummary', () => {
 		expect(result.tenantStats.terminated).toBe(0);
 		expect(result.activeRate).toBe(0);
 		expect(result.tenantStats.newThisMonth).toBe(0);
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 0,
 			yearly: 0,
-			familyMonthly: 0,
-			familyYearly: 0,
+			'family-monthly': 0,
+			'family-yearly': 0,
 			lifetime: 0,
-			noPlan: 0,
 		});
+		expect(result.tenantStats.noPlan).toBe(0);
+		expect(result.tenantStats.unknownPlan).toBe(0);
+		expect(result.tenantStats.totalMrr).toBe(0);
 	});
 
 	it('複数テナント(異なるステータス)を正しく集計する', async () => {
@@ -115,7 +133,7 @@ describe('getKpiSummary', () => {
 		expect(result.activeRate).toBe(3 / 4);
 	});
 
-	it('planBreakdown は active テナントのみ集計する', async () => {
+	it('プラン内訳は active テナントのみ集計する', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 			makeTenant({ tenantId: 't2', status: 'active', plan: 'yearly' }),
@@ -127,14 +145,15 @@ describe('getKpiSummary', () => {
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 1,
 			yearly: 1,
-			familyMonthly: 0,
-			familyYearly: 0,
+			'family-monthly': 0,
+			'family-yearly': 0,
 			lifetime: 1,
-			noPlan: 1,
 		});
+		expect(result.tenantStats.noPlan).toBe(1);
+		expect(result.tenantStats.unknownPlan).toBe(0);
 	});
 
 	// #4127 (3 instance 目): 実装 (ops-service.ts:69) は `monthStartJST()` 由来の JST 月初で
@@ -169,8 +188,8 @@ describe('getKpiSummary', () => {
 	});
 
 	// #4505: プレミアム (family monthly/yearly) は集計されているが描画側にプレミアム行が無く
-	// テナントが不可視だった。集計 (planBreakdown) だけでなく MRR (mrrBreakdown) も
-	// familyMonthly/familyYearly の寄与を含めて算出されることを回帰確認する。
+	// テナントが不可視だった。行 (planRows) と合計 MRR の両方にプレミアムの寄与が乗ることを
+	// 回帰確認する (行に出ているのに合計から欠ける、の裏返しも起きない)。
 	it('familyMonthly/familyYearly の集計と MRR 寄与が正しく反映される (#4505)', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
@@ -181,39 +200,91 @@ describe('getKpiSummary', () => {
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.planBreakdown).toEqual({
+		expect(planTenants(result.tenantStats.planRows)).toEqual({
 			monthly: 1,
 			yearly: 0,
-			familyMonthly: 2,
-			familyYearly: 1,
+			'family-monthly': 2,
+			'family-yearly': 1,
 			lifetime: 0,
-			noPlan: 0,
 		});
 
-		// monthly: 1 * 500 = 500 / familyMonthly: 2 * 780 = 1560 / familyYearly: 1 * round(7800/12) = 650
-		expect(result.tenantStats.mrrBreakdown).toEqual({
+		// monthly: 1 * 500 = 500 / family-monthly: 2 * 780 = 1560 / family-yearly: 1 * round(7800/12) = 650
+		expect(planMrr(result.tenantStats.planRows)).toEqual({
 			monthly: 500,
 			yearly: 0,
-			familyMonthly: 1560,
-			familyYearly: 650,
-			total: 500 + 1560 + 650,
+			'family-monthly': 1560,
+			'family-yearly': 650,
+			// 買い切りは経常収益の対象外 (0 ではなく null)
+			lifetime: null,
 		});
+		expect(result.tenantStats.totalMrr).toBe(500 + 1560 + 650);
 	});
 
-	it('プレミアムが 0 件のとき mrrBreakdown の familyMonthly/familyYearly/total は 0', async () => {
+	it('プレミアムが 0 件のときプレミアム行の MRR と合計への寄与は 0', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 		]);
 
 		const result = await getKpiSummary();
 
-		expect(result.tenantStats.mrrBreakdown).toEqual({
+		expect(planMrr(result.tenantStats.planRows)).toEqual({
 			monthly: 500,
 			yearly: 0,
-			familyMonthly: 0,
-			familyYearly: 0,
-			total: 500,
+			'family-monthly': 0,
+			'family-yearly': 0,
+			lifetime: null,
 		});
+		expect(result.tenantStats.totalMrr).toBe(500);
+	});
+
+	// #4505 の実害は「どの行にも出ないテナント」。行合計 + 未設定 + 不明 = アクティブ数 を
+	// 不変条件にすることで、プラン値が何であってもテナントが画面から消えない。
+	// 未設定 (正常) と不明 (異常) を分けるのは、混ぜると異常が「トライアル増」に見えるため。
+	it('プラン集合に無い plan 値は「不明」として未設定と分けて数える（行合計 + 未設定 + 不明 = アクティブ）', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
+			// rename 途中の旧値 / 手動投入など、プラン集合に無い値。DB の plan 列は自由文字列
+			// なので、型が塞いでいても**この境界を越えて入りうる** (cognito-dev の DEV_USERS も
+			// 実際に underscore 形の値を返している)。cast はその境界の再現。
+			makeTenant({
+				tenantId: 't2',
+				status: 'active',
+				plan: 'family_monthly' as unknown as Tenant['plan'],
+			}),
+			makeTenant({ tenantId: 't3', status: 'active' }), // 未設定
+		]);
+
+		const result = await getKpiSummary();
+		const { planRows, noPlan, unknownPlan, active } = result.tenantStats;
+
+		expect(unknownPlan).toBe(1); // family_monthly (プラン集合に無い値)
+		expect(noPlan).toBe(1); // plan 未設定
+		expect(planRows.reduce((sum, r) => sum + r.tenants, 0) + noPlan + unknownPlan).toBe(active);
+		// 未知の値は MRR にも寄与しない (単価が引けないため)
+		expect(result.tenantStats.totalMrr).toBe(500);
+	});
+
+	// #4505 (adversarial review business 軸): /ops と /ops/analytics は集計の形が違う
+	// (analytics は存在するプランだけを比率付きで並べる) が、**同じテナント集合から出る MRR は
+	// 一致していなければならない**。片方だけ単価表や換算式を差し替えたらここで落ちる。
+	// 形を無理に統一するのではなく、乖離を landing させないことを不変条件にする。
+	it('/ops の合計 MRR と /ops/analytics のプラン別 MRR 合計が一致する', async () => {
+		const tenants = [
+			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
+			makeTenant({ tenantId: 't2', status: 'active', plan: 'yearly' }),
+			makeTenant({ tenantId: 't3', status: 'active', plan: 'family-monthly' }),
+			makeTenant({ tenantId: 't4', status: 'active', plan: 'family-yearly' }),
+			makeTenant({ tenantId: 't5', status: 'active', plan: 'lifetime' }),
+			makeTenant({ tenantId: 't6', status: 'active' }),
+		];
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const result = await getKpiSummary();
+		const analytics = computeAnalytics(tenants);
+		const analyticsMrr = analytics.planBreakdown.reduce((sum, pb) => sum + pb.mrr, 0);
+
+		expect(analyticsMrr).toBe(result.tenantStats.totalMrr);
+		expect(result.tenantStats.totalMrr).toBeGreaterThan(0); // 0 同士の一致で空振りしない
 	});
 
 	it('stripeEnabled が正しく反映される', async () => {

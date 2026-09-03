@@ -4,6 +4,8 @@
 // 19-プライシング戦略書.md §6 の損益分岐点分析に準拠。
 // Stripe 売上 + AWS Cost Explorer データを統合して事業採算性を算出。
 
+import { PLAN_MRR_UNIT_YEN } from '$lib/domain/constants/plan-price';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { jstYearMonth, monthKeyJST } from '$lib/domain/date-utils';
 import { logger } from '$lib/server/logger';
 import { type AWSCostData, getAWSCostData } from '$lib/server/services/ops-service';
@@ -67,8 +69,12 @@ const USD_TO_JPY = 150;
 /** Stripe 手数料率 (日本: 3.6%) */
 const STRIPE_FEE_RATE = 0.036;
 
-/** 月額単価 (JPY) — 19-プライシング戦略書 §6.2 */
-const MONTHLY_PRICE = 500;
+/**
+ * ARPU が取れないとき (有料 0 件) の単価既定。SSOT (`PLAN_MRR_UNIT_YEN`) のスタンダード月額を引く
+ * (#4505 GAMMA2-PLANKEY-04: 旧 `MONTHLY_PRICE = 500` の固定値は premium (¥780) の構成比を反映せず、
+ * 損益分岐点と進捗率がずれていた。実 ARPU は Stripe 指標から渡す)。
+ */
+const DEFAULT_ARPU_YEN = PLAN_MRR_UNIT_YEN[SUBSCRIPTION_PLAN.MONTHLY];
 
 /** Stripe 手数料率を差し引いた手取り率 */
 const NET_RATE = 1 - STRIPE_FEE_RATE; // 0.964
@@ -138,11 +144,19 @@ export function calculateFixedCosts(): {
 
 /**
  * 損益分岐点ユーザー数を算出。
- * BEP = 固定費合計 / (月額単価 × 手取り率)
+ * BEP = 固定費合計 / (ARPU × 手取り率)
+ *
+ * `arpuYen` は有料テナントの実 ARPU (= MRR / 有料件数、プラン構成比込み)。有料 0 件などで
+ * 実 ARPU が無い (0 以下) ときはスタンダード月額を既定に使う。
  */
-export function calculateBreakevenUsers(totalFixedCosts: number, awsCostJpy: number): number {
+export function calculateBreakevenUsers(
+	totalFixedCosts: number,
+	awsCostJpy: number,
+	arpuYen: number = DEFAULT_ARPU_YEN,
+): number {
 	const totalCosts = totalFixedCosts + awsCostJpy;
-	const netPerUser = MONTHLY_PRICE * NET_RATE;
+	const unit = arpuYen > 0 ? arpuYen : DEFAULT_ARPU_YEN;
+	const netPerUser = unit * NET_RATE;
 	if (netPerUser <= 0) return 0;
 	return Math.ceil(totalCosts / netPerUser);
 }
@@ -224,7 +238,11 @@ function generateMockBreakevenData(): BreakevenData {
 
 	const awsCostJpy = Math.round(mockAwsCosts.total * USD_TO_JPY);
 	const stripeFee = calculateStripeFee(mockMetrics.monthlyRevenue);
-	const breakevenUsers = calculateBreakevenUsers(fixedCostResult.total, awsCostJpy);
+	const breakevenUsers = calculateBreakevenUsers(
+		fixedCostResult.total,
+		awsCostJpy,
+		mockMetrics.arpu,
+	);
 	const progressRate = calculateProgressRate(mockMetrics.activePaidCount, breakevenUsers);
 	const monthlyProfit = calculateMonthlyProfit(
 		mockMetrics.monthlyRevenue,
@@ -282,7 +300,7 @@ export async function getBreakevenData(): Promise<BreakevenData> {
 		const awsCostJpy = Math.round(awsCosts.total * USD_TO_JPY);
 		const fixedCostResult = calculateFixedCosts();
 		const stripeFee = calculateStripeFee(metrics.monthlyRevenue);
-		const breakevenUsers = calculateBreakevenUsers(fixedCostResult.total, awsCostJpy);
+		const breakevenUsers = calculateBreakevenUsers(fixedCostResult.total, awsCostJpy, metrics.arpu);
 		const progressRate = calculateProgressRate(metrics.activePaidCount, breakevenUsers);
 		const monthlyProfit = calculateMonthlyProfit(
 			metrics.monthlyRevenue,

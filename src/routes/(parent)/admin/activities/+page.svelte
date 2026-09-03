@@ -1,5 +1,4 @@
 <script lang="ts">
-import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
@@ -443,6 +442,9 @@ async function handleCopyFromChild() {
 	formData.append('sourceChildId', String(copySourceChildId));
 	formData.append('targetChildId', String(selectedChildId));
 
+	// #4693: `resp.ok` は fail() を成功として読む。ActionResult の type で判定し、
+	// 失敗時はサーバーが返した理由 (上限 + アップグレード導線) をそのまま出す
+	// (読み方は readAdminActionResult に集約。`admin-action-result-no-http-ok` が退行を検出)。
 	// #4694 (DESIGN.md §5 Button loading): await 中はボタンを loading にして再クリックによる
 	// 二重コピーを物理的に塞ぐ (重複 skip は server 側でも効くが、押せてしまう UI 自体が不安)。
 	copyLoading = true;

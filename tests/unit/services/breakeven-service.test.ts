@@ -103,6 +103,21 @@ describe('calculateBreakevenUsers', () => {
 	it('固定費+AWS費が0の場合は0ユーザー', () => {
 		expect(calculateBreakevenUsers(0, 0)).toBe(0);
 	});
+
+	// #4505 GAMMA2-PLANKEY-04: 単価はプラン構成比込みの実 ARPU で、premium (¥780) が混ざるほど BEP は小さい
+	it('実 ARPU を渡すと単価固定 (500) より少ないユーザー数で分岐する', () => {
+		const fixed = 10_000;
+		const byDefault = calculateBreakevenUsers(fixed, 0);
+		const byArpu = calculateBreakevenUsers(fixed, 0, 780);
+		expect(byDefault).toBe(Math.ceil(fixed / (500 * 0.964)));
+		expect(byArpu).toBe(Math.ceil(fixed / (780 * 0.964)));
+		expect(byArpu).toBeLessThan(byDefault);
+	});
+
+	it('実 ARPU が無い (0 以下 = 有料 0 件) ときはスタンダード月額に倒す', () => {
+		expect(calculateBreakevenUsers(10_000, 0, 0)).toBe(calculateBreakevenUsers(10_000, 0));
+		expect(calculateBreakevenUsers(10_000, 0, -1)).toBe(calculateBreakevenUsers(10_000, 0));
+	});
 });
 
 // =============================================================

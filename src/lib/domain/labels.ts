@@ -28,6 +28,8 @@ import {
 	REWARD_REJECT_NOTE_MAX_LENGTH,
 	REWARD_REQUEST_HISTORY_LIMIT,
 } from './constants/redemption-status';
+// #4505: プラン行ラベル表 (OPS_LABELS.planRowLabels) の網羅を型で強制するために型だけを引く
+import type { SubscriptionPlan } from './constants/subscription-plan';
 import { jstDayOfWeek, toJSTDateString } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -127,6 +129,8 @@ import { CANCEL_WINDOW_MS } from './validation/activity';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
+// #4704: 受諾拒否の理由。案内文の網羅を型で強制するために型だけを引く
+import type { InviteAcceptErrorReason } from './validation/auth';
 
 // ============================================================
 // アプリ情報 (#1452 Phase B)
@@ -776,21 +780,23 @@ export const PLAN_GATE_LABELS = {
 	// `perChildLimitReached*` に統合した。
 
 	/**
-	 * **誰が**上限に達しているのかを言う版 (#4693)。
-	 *
-	 * 旧実装は上限に達した子の名前を出さず、しかも 1 人でも超過していれば全員分の配信を
-	 * 丸ごと失敗させていた。「誰の上限か分からない / 余裕のある子にも入らない」の 2 重の
-	 * 詰まりになるため、名前を出したうえで**余裕のある子には配信する**。
-	 */
-	/**
 	 * プランを確認できないため取込を中止したときの文言 (#4693 fail-closed)。
 	 * 障害中だけ上限が消える経路を作らないための拒否であり、顧客には再試行を促す。
 	 */
 	planUnverifiableImportAborted:
 		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
 
-	checklistTemplateLimitReachedForChildren: (names: readonly string[], max: number) =>
-		`${names.join('・')}はフリープランの上限（お子さま1人あたり ${max} 個）に達しているため配信をスキップしました。スタンダード以上にアップグレードすると無制限に作成できます。`,
+	/**
+	 * **誰が**上限に達しているのかを言う版 (#4693)。
+	 *
+	 * 旧実装は上限に達した子の名前を出さず、しかも 1 人でも超過していれば全員分の配信を
+	 * 丸ごと失敗させていた。「誰の上限か分からない / 余裕のある子にも入らない」の 2 重の
+	 * 詰まりになるため、名前を出したうえで**余裕のある子には配信する**。
+	 *
+	 * プラン名は #4512 の SSOT (`PLAN_FULL_TERMS`) 経由で組み立てる。
+	 */
+	perChildLimitReachedForChildren: (names: readonly string[], max: number) =>
+		`${names.join('・')}は${PLAN_FULL_TERMS.free}の上限（お子さま1人あたり ${max} 個）に達しているため配信をスキップしました。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -4678,15 +4684,34 @@ export const OPS_LABELS = {
 	planColPlan: 'プラン',
 	planColTenants: 'テナント数',
 	planColMrr: 'MRR 概算',
-	planMonthly: `月額 (${PRICE_TERMS.standard}/月)`,
-	planYearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
-	// #4505: プレミアム (legacy family monthly/yearly 含む) は集計済みでも描画行が無く
-	// テナントが不可視だった。他行と同じ表記形式 + terms.ts 単価 atom 参照で追加する。
-	planPremiumMonthly: `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
-	planPremiumYearly: `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
-	planLifetime: 'ライフタイム',
+	/** プラン未設定の行 (#4505)。サインアップ直後 / トライアル中の**正常な**状態。 */
 	planNone: '未設定（トライアル等）',
+	/**
+	 * プランは設定されているのにプラン集合に無い値だった行 (#4505)。
+	 *
+	 * 正常なら常に 0。1 以上ならプラン値の書き手がずれている合図なので、未設定と**同じ行に
+	 * まとめない**（まとめると「トライアルが少し増えただけ」に見えて異常が埋もれる）。
+	 */
+	planUnknown: '不明なプラン値（要確認）',
 	planTotalMrr: '合計 MRR',
+	/** 月次経常収益を生まない行 (買い切り / プラン未設定) の MRR 欄。 */
+	planMrrNone: '-',
+	/**
+	 * プラン値 → 行ラベル (#4505)。
+	 *
+	 * 画面はこの表を引いて行を組み立てるため、**プランが増えたら型で表の追加が要求される**
+	 * (`Record<SubscriptionPlan, string>`)。旧実装のように行を手で並べると、追加したプランが
+	 * 画面から抜けても誰も気づかない (プレミアムのテナントが不可視だった原因)。
+	 * 行ごとの個別 key (旧 `planMonthly` / `planPremiumMonthly` 等) は本表に統合済み — key を
+	 * 増やす形に戻すと、プラン追加時に型が何も要求しなくなる。
+	 */
+	planRowLabels: {
+		monthly: `月額 (${PRICE_TERMS.standard}/月)`,
+		yearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
+		'family-monthly': `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
+		'family-yearly': `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
+		lifetime: 'ライフタイム',
+	} satisfies Record<SubscriptionPlan, string>,
 
 	// 価格見直しトリガー
 	triggerTitle: '価格見直しトリガー',
@@ -7603,7 +7628,7 @@ export const AUTH_INVITE_LABELS = {
 		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
 	joinBlockedOwnerDowngrade:
 		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
-	// #4723: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
+	// #4723 / #4704: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
 	joinBlockedMemberLimit:
 		'この家族グループはメンバーの上限に達しているため、参加できませんでした。招待した方にご確認ください。',
 	joinBlockedGeneric:
@@ -7654,6 +7679,12 @@ export const INVITE_RELOCATION_LABELS = {
 /**
  * 受諾拒否理由 → `/auth/join` に出す説明文の対応表 (SSOT、#3555 ① / #4633 AC-A / #4636)。
  * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
+ *
+ * #4704: `Record<InviteAcceptErrorReason, string>` を満たすことを型で強制する。
+ * 受諾の失敗理由を増やしたのに案内文を書かないと**コンパイルが通らない**。
+ * 案内が無い理由が混ざると、顧客は「なぜ参加できなかったか」を知らないまま
+ * `/auth/join` で行き止まる (#4704 で MEMBER_LIMIT_REACHED を足したとき、旧実装の
+ * 2 件 allowlist はこの経路を素通りさせていた)。
  */
 export const INVITE_JOIN_BLOCKED_MESSAGES = {
 	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.joinBlockedMismatch,
@@ -7663,8 +7694,9 @@ export const INVITE_JOIN_BLOCKED_MESSAGES = {
 	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
 	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
 	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
+	// #4723 / #4704: 受諾 txn 内の席数検査で拒否されたとき (発行後のプラン変更 / 同時受諾)
 	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.joinBlockedMemberLimit,
-} as const;
+} as const satisfies Record<InviteAcceptErrorReason, string>;
 
 /**
  * `/auth/join` — 招待受諾に失敗した (または参加先が確定していない) 人が留まる画面 (#4636)。

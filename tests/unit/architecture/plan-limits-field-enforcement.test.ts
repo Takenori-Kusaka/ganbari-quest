@@ -181,7 +181,9 @@ describe('#4584 PlanLimits の全フィールドが実際に効いている', ()
 		// 自分自身の宣言で 1 件ヒットして緑のままになる (旧実装は DEFINITION_FILE = enforcerFile
 		// だったため sources から除かれており、この抜け道は無かった)。
 		const callers = sources
-			.filter((src) => src.path !== enforcerFile && src.text.includes(`${enforcer}(`))
+			.filter(
+				(src) => src.path.replace(/\\/g, '/') !== enforcerFile && src.text.includes(`${enforcer}(`),
+			)
 			.map((s) => s.path);
 		expect(
 			callers.length,

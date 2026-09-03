@@ -1,4 +1,5 @@
 <script lang="ts">
+import { formatYen } from '$lib/domain/constants/plan-price';
 import { OPS_LABELS } from '$lib/domain/labels';
 import ContractStateAuditCard from '$lib/features/admin/components/ContractStateAuditCard.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
@@ -7,6 +8,8 @@ import Card from '$lib/ui/primitives/Card.svelte';
 let { data } = $props();
 const kpi = $derived(data.kpi);
 const stats = $derived(kpi.tenantStats);
+// #4505: プラン行は service が組み立てた 1 つの配列。画面は単価を掛け直さない
+const planRows = $derived(stats.planRows);
 const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
@@ -63,40 +66,32 @@ const contractState = $derived(data.contractState);
 				</tr>
 			</thead>
 			<tbody>
-				<tr>
-					<td>{OPS_LABELS.planMonthly}</td>
-					<td>{stats.planBreakdown.monthly}</td>
-					<td>¥{stats.mrrBreakdown.monthly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planYearly}</td>
-					<td>{stats.planBreakdown.yearly}</td>
-					<td>¥{stats.mrrBreakdown.yearly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planPremiumMonthly}</td>
-					<td>{stats.planBreakdown.familyMonthly}</td>
-					<td>¥{stats.mrrBreakdown.familyMonthly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planPremiumYearly}</td>
-					<td>{stats.planBreakdown.familyYearly}</td>
-					<td>¥{stats.mrrBreakdown.familyYearly.toLocaleString()}</td>
-				</tr>
-				<tr>
-					<td>{OPS_LABELS.planLifetime}</td>
-					<td>{stats.planBreakdown.lifetime}</td>
-					<td>-</td>
-				</tr>
-				<tr>
+				<!-- #4505: 行はプラン集合 (ALL_SUBSCRIPTION_PLANS) から組み立てる。
+				     手で並べていた頃はプレミアムを追加したときに描画側だけ追従漏れし、
+				     テナントが不可視・合計 MRR 過小になった。 -->
+				{#each planRows as row (row.plan)}
+					<tr data-testid="ops-plan-row-{row.plan}">
+						<td>{OPS_LABELS.planRowLabels[row.plan]}</td>
+						<td>{row.tenants}</td>
+						<td>{row.mrr === null ? OPS_LABELS.planMrrNone : formatYen(row.mrr)}</td>
+					</tr>
+				{/each}
+				<tr data-testid="ops-plan-row-none">
 					<td>{OPS_LABELS.planNone}</td>
-					<td>{stats.planBreakdown.noPlan}</td>
-					<td>-</td>
+					<td>{stats.noPlan}</td>
+					<td>{OPS_LABELS.planMrrNone}</td>
 				</tr>
-				<tr class="total-row">
+				<!-- #4505: 「未設定」と分けて出す。同じ行に畳むと、プラン値がずれて
+				     どの行にも入らなくなったテナントが「トライアルが増えただけ」に見える。 -->
+				<tr data-testid="ops-plan-row-unknown">
+					<td>{OPS_LABELS.planUnknown}</td>
+					<td>{stats.unknownPlan}</td>
+					<td>{OPS_LABELS.planMrrNone}</td>
+				</tr>
+				<tr class="total-row" data-testid="ops-plan-row-total">
 					<td>{OPS_LABELS.planTotalMrr}</td>
 					<td>{stats.active}</td>
-					<td>¥{stats.mrrBreakdown.total.toLocaleString()}</td>
+					<td>{formatYen(stats.totalMrr)}</td>
 				</tr>
 			</tbody>
 		</table>
