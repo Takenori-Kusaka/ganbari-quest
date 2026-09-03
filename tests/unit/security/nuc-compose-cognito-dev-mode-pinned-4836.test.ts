@@ -13,7 +13,7 @@ const compose = readFileSync(join(__dirname, '../../../docker-compose.yml'), 'ut
 /** `services:` 直下の service block を切り出す (2 space indent の service 名 → 次の service 名の直前まで) */
 function serviceBlock(name: string): string {
 	const lines = compose.split('\n');
-	const start = lines.findIndex((l) => l === `  ${name}:`);
+	const start = lines.indexOf(`  ${name}:`);
 	if (start < 0) throw new Error(`docker-compose.yml に service "${name}" が無い`);
 	const rest = lines.slice(start + 1);
 	const end = rest.findIndex((l) => /^ {2}[a-z-]+:$/.test(l));
@@ -30,7 +30,7 @@ describe('NUC compose は COGNITO_DEV_MODE を false に固定する (#4836)', (
 		).toBe(true);
 	});
 
-	it('true / 変数展開で上書き可能な形 (COGNITO_DEV_MODE=${...}) にはなっていない', () => {
+	it('true / 変数展開 (ドル記号 + 波括弧) で上書き可能な形にはなっていない', () => {
 		const app = serviceBlock('app');
 		for (const line of app.split('\n')) {
 			if (/^\s*#/.test(line)) continue;
