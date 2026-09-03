@@ -188,16 +188,12 @@ export class ProductionDashboardService implements ChildDashboardService {
 				const body = (await res.json().catch(() => ({}))) as {
 					error?: { code?: string; message?: string };
 				};
+				// 種別は **code だけ**で見分ける。旧実装は顧客向け文言に特定の語が含まれるかの
+				// 部分一致に依存していたが、文言は labels SSOT から組み立てられる = 変わる値なので、
+				// いずれ外れて上限超過が NETWORK に化ける (ADR-0061)。
 				const code = body.error?.code;
-				const msg = body.error?.message ?? '';
 				if (code === 'NOT_FOUND') return { ok: false, error: 'NOT_FOUND' };
-				// activity-pin-service は上限超過を ActivityPinError('PIN_LIMIT_EXCEEDED') で投げ、
-				// route は 400 VALIDATION_ERROR + その message で返す。API 側に固有 code が無いため
-				// message の部分一致で判定する (accepted residual、
-				// tests/unit/architecture/plan-limit-error-required-tier.test.ts に登録済)。
-				if (code === 'VALIDATION_ERROR' && msg.includes('上限')) {
-					return { ok: false, error: 'LIMIT_EXCEEDED' };
-				}
+				if (code === 'PIN_LIMIT_EXCEEDED') return { ok: false, error: 'LIMIT_EXCEEDED' };
 				return { ok: false, error: 'NETWORK' };
 			}
 			const data = (await res.json()) as { isPinned: boolean };

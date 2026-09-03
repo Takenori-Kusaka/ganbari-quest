@@ -96,10 +96,10 @@ describe('#4716 activity pin route — 拒否理由と想定外例外の種別�
 		);
 		const res = await POST(makeEvent({ context: { tenantId: 't-other' } }));
 		expect(mockToggle).toHaveBeenCalledWith(expect.anything(), expect.anything(), true, 't-other');
-		// 他 tenant の活動は service が「不在」として拒否 → 統一形の 400。tenant id は body に出ない
-		expect(res.status).toBe(400);
+		// 他 tenant の活動は service が「不在」として拒否 → 統一形の 404。tenant id は body に出ない
+		expect(res.status).toBe(404);
 		const b = await bodyOf(res);
-		expect(b.error?.code).toBe('VALIDATION_ERROR');
+		expect(b.error?.code).toBe('NOT_FOUND');
 		expect(JSON.stringify(b)).not.toContain('t-other');
 	});
 
@@ -128,15 +128,42 @@ describe('#4716 activity pin route — 拒否理由と想定外例外の種別�
 		expect(mockToggle).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), true, 't-1');
 	});
 
-	it('ActivityPinError (上限 / 不在 = 顧客に説明できる拒否) は 400 で理由を返す', async () => {
-		mockToggle.mockRejectedValue(
+	// PO 回答 (2026-09-03) §4 #2 follow-up: 旧実装は ActivityPinError を code に関わらず
+	// VALIDATION_ERROR (400) に畳んでいたため、この endpoint は NOT_FOUND を返せず、client は
+	// 顧客向け文言の部分一致 (message.includes('上限')) でしか種別を見分けられなかった。
+	// service の拒否理由 → API の code の 1:1 写像を固定する (畳み直した瞬間に落ちる)。
+	it.each([
+		['PIN_LIMIT_EXCEEDED', 'おきにいりは 3こまでだよ', 'PIN_LIMIT_EXCEEDED', 409],
+		['ACTIVITY_NOT_FOUND', 'その かつどうが みつからなかったよ', 'NOT_FOUND', 404],
+	] as const)('ActivityPinError(%s) は API code %s / status %d に写像され、理由の message を返す', async (serviceCode, message, apiCode, status) => {
+		for (const handler of [POST, DELETE]) {
+			mockToggle.mockRejectedValueOnce(new ActivityPinError(serviceCode, message));
+			const res = await handler(makeEvent({}));
+			expect(res.status).toBe(status);
+			const b = await bodyOf(res);
+			expect(b.error?.code).toBe(apiCode);
+			// 顧客に説明できる拒否理由はそのまま返す (汎用文言に潰さない)
+			expect(b.error?.message).toBe(message);
+		}
+	});
+
+	// 2 つの拒否理由が同じ code に潰れていないこと (どちらか一方だけを見る test では検出できない)
+	it('上限と不在は異なる API code / status になる (畳み込みの再導入 guard)', async () => {
+		mockToggle.mockRejectedValueOnce(new ActivityPinError('PIN_LIMIT_EXCEEDED', 'x'));
+		const limit = await bodyOf(await POST(makeEvent({})));
+		mockToggle.mockRejectedValueOnce(new ActivityPinError('ACTIVITY_NOT_FOUND', 'y'));
+		const notFound = await bodyOf(await POST(makeEvent({})));
+		expect(limit.error?.code).not.toBe(notFound.error?.code);
+	});
+
+	// 上限は「プラン由来」ではないので、アップグレード導線を出す code を使ってはいけない
+	it('上限拒否に PLAN_LIMIT_EXCEEDED を使わない (契約済みの顧客にアップグレードを促さない)', async () => {
+		mockToggle.mockRejectedValueOnce(
 			new ActivityPinError('PIN_LIMIT_EXCEEDED', 'おきにいりは 3こまでだよ'),
 		);
-		const res = await POST(makeEvent({}));
-		expect(res.status).toBe(400);
-		const b = await bodyOf(res);
-		expect(b.error?.code).toBe('VALIDATION_ERROR');
-		expect(b.error?.message).toBe('おきにいりは 3こまでだよ');
+		const b = await bodyOf(await POST(makeEvent({})));
+		expect(b.error?.code).not.toBe('PLAN_LIMIT_EXCEEDED');
+		expect(JSON.stringify(b)).not.toContain('アップグレード');
 	});
 
 	it('想定外例外 (DB 障害等) は 500 (INTERNAL_ERROR) で、内部 message を顧客に出さない', async () => {

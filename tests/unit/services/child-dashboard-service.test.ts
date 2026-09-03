@@ -376,26 +376,30 @@ describe('ProductionDashboardService — toggleActivityPin', () => {
 		error: { code, message, userMessage: 'x', severity: 'warning', action: 'fix_input' },
 	});
 
-	it('上限エラー (400 VALIDATION_ERROR、統一形) は LIMIT_EXCEEDED にマップされる', async () => {
+	// PO 回答 (2026-09-03) §4 #2 follow-up: 分岐は **code だけ**で行う。
+	// 各 API code → client の error 値の写像を 1 件ずつ固定する。
+	it.each([
+		['PIN_LIMIT_EXCEEDED', 409, 'LIMIT_EXCEEDED'],
+		['NOT_FOUND', 404, 'NOT_FOUND'],
+		['VALIDATION_ERROR', 400, 'NETWORK'],
+		['INTERNAL_ERROR', 500, 'NETWORK'],
+	] as const)('API code %s (%d) は client の %s になる', async (code, status, expected) => {
+		const fetchMock = makeFetchMock([{ ok: false, status, body: adr0062(code, 'なんらかの理由') }]);
+		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
+		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
+		expect(result).toEqual({ ok: false, error: expected });
+	});
+
+	// 旧実装は message に「上限」が含まれるかで判定していた。文言は labels SSOT から
+	// 組み立てられる = 変わる値なので、部分一致は外れた瞬間に上限超過が NETWORK に化ける。
+	// code が正しければ**文言に「上限」が無くても** LIMIT_EXCEEDED になること (部分一致への逆戻り guard)。
+	it('上限判定は message の文言に依存しない (code だけで LIMIT_EXCEEDED)', async () => {
 		const fetchMock = makeFetchMock([
-			{
-				ok: false,
-				status: 400,
-				body: adr0062('VALIDATION_ERROR', '1カテゴリあたりのピン留め上限（5件）を超えています'),
-			},
+			{ ok: false, status: 409, body: adr0062('PIN_LIMIT_EXCEEDED', 'おきにいりは 3こまでだよ') },
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
 		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
 		expect(result).toEqual({ ok: false, error: 'LIMIT_EXCEEDED' });
-	});
-
-	it('NOT_FOUND (統一形の code) は NOT_FOUND にマップされる', async () => {
-		const fetchMock = makeFetchMock([
-			{ ok: false, status: 404, body: adr0062('NOT_FOUND', 'みつかりませんでした') },
-		]);
-		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
-		expect(result).toEqual({ ok: false, error: 'NOT_FOUND' });
 	});
 
 	it('401 UNAUTHORIZED (統一形) は上限 / 不在に誤マップせず NETWORK に落ちる', async () => {
