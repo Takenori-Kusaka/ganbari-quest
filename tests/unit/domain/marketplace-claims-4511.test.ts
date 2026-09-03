@@ -165,6 +165,10 @@ describe('#4511 marketplace の導線と説明', () => {
 			// (b) 子供側の名前が、marketplace が引用する親側の画面名の語幹になっている
 			//     (親は管理画面なので「チェックリスト管理」、子供は一覧そのものなので「チェックリスト」)
 			expect(NAV_ITEM_LABELS.checklists).toContain(canonicalNames[0]);
+			// (c) baby / preschool の variant も語幹「チェック」を共有する (旧称「もちもの*」の再発防止)
+			for (const mode of ['baby', 'preschool']) {
+				expect(getChildNavModeLabels(mode).checklist.startsWith('チェック')).toBe(true);
+			}
 		});
 	});
 });

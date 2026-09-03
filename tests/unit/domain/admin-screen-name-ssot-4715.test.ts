@@ -187,6 +187,15 @@ describe('#4715 子供ナビの呼称', () => {
 			(['elementary', 'junior', 'senior'] as const).map((m) => CHILD_NAV_MODE_LABELS[m].checklist),
 		);
 		expect(names.size, `elementary 以上で呼称が割れている: ${[...names].join(' / ')}`).toBe(1);
+		// baby / preschool は PO 判断の variant (「チェック」等) を許すが、旧 3 表記のうち
+		// ひらがなの 2 つ (もちもの / もちものチェック) は kana-only guard を素通りするため、
+		// 語幹が「チェック」で始まることを要求して再発を止める (adv-4789 の mutation 実測で判明)。
+		for (const m of ['baby', 'preschool'] as const) {
+			expect(
+				CHILD_NAV_MODE_LABELS[m].checklist.startsWith('チェック'),
+				`${m} の checklist 呼称が旧称に戻っている: ${CHILD_NAV_MODE_LABELS[m].checklist}`,
+			).toBe(true);
+		}
 	});
 
 	it('チェックリストの呼称が親画面の画面名と同じ語幹である', () => {
