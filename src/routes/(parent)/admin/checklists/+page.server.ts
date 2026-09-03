@@ -632,10 +632,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					PLAN_GATE_LABELS.perChildLimitReachedForChildren(
-						overLimitNames,
-						checklistMaxForMessage,
-					),
+					PLAN_GATE_LABELS.perChildLimitReachedForChildren(overLimitNames, checklistMaxForMessage),
 				),
 				upgradeRequired: true,
 			});

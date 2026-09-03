@@ -48,7 +48,6 @@ import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
-import { enforceActivityQuota } from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -371,6 +370,13 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 export type ImportMode = 'merge' | 'verbatim';
 
 export interface ImportOptions {
+	/**
+	 * #4693 (QM #4784): 活動の復元にプラン上限 (`enforceActivityQuota`) を掛けるか。
+	 * 既定は `mode` で決まる: `merge` (HTTP の復元 / クラウド取込) = 掛ける、
+	 * `verbatim` (NUC cutover / staging seed = 自環境への完全移行) = 掛けない。
+	 * verbatim 側では activity-quota を読み込まない (静的 import だと `$app` 依存が tsx の CLI で解決できない)。
+	 */
+	enforceQuota?: boolean;
 	mode?: ImportMode;
 }
 
@@ -392,6 +398,7 @@ export async function importFamilyData(
 	options?: ImportOptions,
 ): Promise<ImportResult> {
 	const mode: ImportMode = options?.mode ?? 'merge';
+	const enforceQuota = options?.enforceQuota ?? mode === 'merge';
 	// #3326 系: lazy マイグレーション。旧 version の backup を現 shape に正規化してから取り込む。
 	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後でなければ mismatch する)。
 	data = migrateExportData(
@@ -412,7 +419,7 @@ export async function importFamilyData(
 	}
 
 	// #3327 P3: per-child 活動を元の子へ復元 (master flatten の first-child 一律 bind を廃止)。
-	await importChildActivitiesData(data, childIdMap, tenantId, result);
+	await importChildActivitiesData(data, childIdMap, tenantId, result, enforceQuota);
 	// #3327: 活動ログ remap 用の lookup は (childId, name) の 2 軸で構築する。name のみ lookup は
 	// 兄弟同名活動を 1 件に縮約 (last-wins) し child1 のログを child2 の activity に bind する
 	// cross-child 誤 bind を生む (ADR-0055 per-child 境界侵害)。per-child 活動 insert 後に構築する。
@@ -1310,6 +1317,7 @@ async function importChildActivitiesData(
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	enforceQuota: boolean,
 ): Promise<void> {
 	// #4693 (QM #4784): 復元も他の取込経路と同じ quota gate を通す (PO 判断「復元 / REST も
 	// 素通りさせない」)。先に書き込み計画を作り、上限超過分 (custom 行のみが対象、seed 行は
@@ -1320,8 +1328,15 @@ async function importChildActivitiesData(
 		result,
 	);
 
-	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
-	if (quota.rejectedRows > 0) {
+	// verbatim (cutover / seed) では quota を掛けず、module も読み込まない (上記 ImportOptions.enforceQuota)。
+	const quota = enforceQuota
+		? await (await import('./activity-quota')).enforceActivityQuota(
+				tenantId,
+				childInputsByChild,
+				plannedNewNames,
+			)
+		: null;
+	if (quota && quota.rejectedRows > 0) {
 		result.blocked = {
 			count: quota.rejectedRows,
 			message: quota.message,
