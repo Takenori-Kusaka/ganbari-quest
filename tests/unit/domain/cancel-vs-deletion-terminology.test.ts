@@ -23,6 +23,10 @@ import {
 } from '../../../src/lib/domain/constants/deletion-grace';
 import { PLAN_HISTORY_RETENTION_DAYS } from '../../../src/lib/domain/constants/plan-retention';
 import {
+	ALL_CONTRACT_STATES,
+	CONTRACT_STATE_VIEW,
+} from '../../../src/lib/domain/contract-state-view';
+import {
 	CANCELLATION_LABELS,
 	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
@@ -321,8 +325,36 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			['解約確認画面 (体験中)', CANCELLATION_LABELS.trialPlanNotice],
 			['解約手続き中バナー (終了日あり)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDesc('2026-09-30')],
 			['解約手続き中バナー (終了日不明)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDescUnknownDate],
-			['解約完了の告知', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
+			// PO 回答 (2026-09-03、PR #4596 コメント) #9: 有料契約が生きている S3 / S4 でも出す。
+			// 「解約したら履歴がいつまで残るか」は解約を決める瞬間に効く情報で、契約が生きているか
+			// どうかで出し分ける理由がない (出さないと「消えると思わなかった / 思った」の両方が起きる)。
+			['支払い猶予中の告知 (S3)', SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc],
+			['支払い停止中の告知 (S4)', SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc],
+			['解約完了の告知 (S5)', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
 		];
+
+		// 画面が実際に描画する経路 (`SaasLicensePanel` は `CONTRACT_STATE_VIEW[state].statusNotice.desc`
+		// を出す) で、告知を持つ全状態 = S3 / S4 / S5 が保持期間を述べることを固定する。
+		// labels の key を直接見る上の表と違い、状態 → 文言の対応表側が差し替わっても落ちる。
+		it('告知を出す全契約状態 (S3 / S4 / S5) の statusNotice が保持期間を述べる', () => {
+			const rowsWithNotice = ALL_CONTRACT_STATES.filter(
+				(state) => CONTRACT_STATE_VIEW[state].statusNotice !== null,
+			).map((state) => CONTRACT_STATE_VIEW[state].matrixRow);
+			expect(rowsWithNotice.sort()).toEqual(['S3', 'S4', 'S5']);
+
+			for (const state of ALL_CONTRACT_STATES) {
+				const view = CONTRACT_STATE_VIEW[state];
+				if (!view.statusNotice) continue;
+				expect(view.statusNotice.desc, `${view.matrixRow} の告知`).toContain(
+					FREE_RETENTION_SENTENCE,
+				);
+				expect(view.statusNotice.desc).toContain(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+			}
+		});
+
+		it('freePlanRetentionNotice (export) は特商法と同一の 2 文そのもの', () => {
+			expect(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice).toBe(FREE_RETENTION_SENTENCE);
+		});
 
 		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {
 			// 「記録は残ります」で止めない (保持期間の言及が消えたら落ちる)
@@ -363,6 +395,8 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 				'trialPlanNotice',
 				'cancelPendingDesc',
 				'cancelPendingDescUnknownDate',
+				'gracePeriodDesc',
+				'paymentSuspendedDesc',
 				'cancelledDesc',
 			]) {
 				expect(definitionSource(key), `${key} に日数が直書きされている`).not.toMatch(

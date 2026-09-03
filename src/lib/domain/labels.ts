@@ -2884,7 +2884,7 @@ export const PAGE_GUIDE_LABELS = {
 			'members-intro': {
 				title: 'このページについて',
 				what: `家族で使う人を増やしたり、離れて暮らすご家族に「見るだけ」のリンクを渡したりできるページです。招待リンクの発行と取り消しは${MEMBERS_LABELS.roleOwner}のみ行えます。`,
-				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・閲覧リンク（${PLAN_FULL_TERMS.family}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
+				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・${VIEWER_LINK_TERMS.name}（${PLAN_FULL_TERMS.premium}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
 				goal: '家族みんなで使えるようになり、離れたご家族にも成長を共有できます。',
 			},
 			'members-list': {
@@ -2913,7 +2913,7 @@ export const PAGE_GUIDE_LABELS = {
 			// ⑤ 閲覧リンク (プレミアムのときだけ描画 → optional)
 			'members-viewer': {
 				title: `よく使う操作（${MEMBERS_LABELS.viewerCreateButton}）`,
-				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.family}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
+				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.premium}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
 				how: `1. 「${MEMBERS_LABELS.viewerLabelField}」に渡す相手が分かる名前を入れます（例: ${MEMBERS_LABELS.viewerLabelPlaceholder.replace('例: ', '')}）\n2. 「${MEMBERS_LABELS.viewerDurationLabel}」を ${MEMBERS_LABELS.viewerDuration7d} / ${MEMBERS_LABELS.viewerDuration30d} / ${MEMBERS_LABELS.viewerDurationUnlimited} から選びます\n3. 「${MEMBERS_LABELS.viewerCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
 				goal: '離れて暮らすご家族が、記録を見るだけの画面で成長を見守れます。',
 				tips: [
@@ -4375,11 +4375,18 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// と書いてはならない。対応表と検証は `contract-state-view.ts` / 同名 test にある。
 	/** 書き込みが許可されている契約状態の告知に必ず添える保証文 */
 	writesContinueAssurance: WRITES_CONTINUE_ASSURANCE,
+	/**
+	 * 無料プランの保持期間 (特商法と同一の 2 文)。#4540 Q4 の PO 回答 (2026-09-03) により、
+	 * 解約導線の**全状態 (S3 猶予 / S4 停止 / S5 契約終了)** で述べる。「解約したら履歴がいつまで
+	 * 残るか」は解約を決める瞬間に効く情報で、契約が生きているかどうかで出し分ける理由がない。
+	 * 出さないと「消えると思わなかった / 消えると思った」の両方が起きる (#4507 系の齟齬)。
+	 */
+	freePlanRetentionNotice: FREE_PLAN_RETENTION_NOTICE,
 	gracePeriodTitle: '⚠️ 猶予期間中',
-	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}`,
+	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
 	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
-	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}お支払い方法を更新すると元に戻ります。`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
 	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
@@ -7477,6 +7484,12 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
 	placeholderAvatarSkippedDesc:
 		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
+	// #4729 PO 回答 (2026-09-03): 誕生日欄を空にして保存すると、実誕生日は「推定扱い」に降格し
+	// 誕生日ボーナス / 🎂 表示の対象から外れる (間違った日に祝う方が体験を壊す)。ただし**黙って
+	// 降格してはならない** — 降格が起きたことを保護者が画面で見られる文言 (Alert、自動消滅しない)。
+	// 再入力で元に戻せることも添え、誤操作の出口を残す。
+	birthdayClearedNotice:
+		'誕生日を消したため、誕生日のお祝いは行われません。もう一度誕生日を入れると、お祝いを再開します。',
 	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
@@ -9736,8 +9749,13 @@ export const UI_COMPONENTS_LABELS = {
 export const AI_INPUT_NOTICE_LABELS = {
 	/** テキスト入力経路 (AI 提案 3 種) */
 	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
-	/** 画像アップロード経路 (領収書 OCR) */
-	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
+	/**
+	 * 画像アップロード経路 (領収書 OCR)。
+	 * #4598 PO 回答 (2026-09-03): 領収書には宛名 (氏名・住所) が印字されていることがあり、
+	 * 第9条④ の注意喚起を法務文書だけに置いて画面に出さないのは届いていないのと同じ。
+	 * 送信される画像に何が写りうるか (宛名の氏名・住所 / お子さまの特定情報) を入力の瞬間に述べる。
+	 */
+	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${AI_TRANSFER_TERMS.receiptPrintedInfo}や${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
 	/** 送信先の詳細 (条文) への導線 */
 	linkLabel: '送信先とあつかい',
 	linkHref: 'https://www.ganbari-quest.com/privacy.html#under-age',

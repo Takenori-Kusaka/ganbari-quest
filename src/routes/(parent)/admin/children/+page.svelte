@@ -12,6 +12,7 @@ import { formatPointValue } from '$lib/domain/point-display';
 import ArchivedChildrenSection from '$lib/features/admin/components/ArchivedChildrenSection.svelte';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -45,6 +46,11 @@ $effect(() => {
 		'info',
 	);
 });
+
+// #4729 PO 回答 (2026-09-03): 誕生日を消すと推定誕生日に戻り誕生日ボーナスの対象外になる (降格は維持)。
+// 黙って降格せず、直前の編集で降格が起きたことを保護者に見せる。Toast (自動消滅) ではなく
+// Alert (`role="status"`、次の操作まで残る) で出す — 見落とすと「祝われなかった理由」を知る場が無い。
+const birthdayCleared = $derived(!!(form as { birthdayCleared?: boolean } | null)?.birthdayCleared);
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -189,6 +195,13 @@ const addCalculatedAge = $derived(
 	{#if data.selectedChild}
 		<!-- data-tutorial: ページガイド (#4660) の詳細カード step の spotlight anchor (未選択時は出ない) -->
 		<div class="children-page__detail" data-tutorial="child-detail">
+			{#if birthdayCleared}
+				<Alert
+					variant="warning"
+					message={ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice}
+					data-testid="child-birthday-cleared-notice"
+				/>
+			{/if}
 			{#key data.selectedChild.id}
 				<ChildProfileCard
 					child={data.selectedChild}

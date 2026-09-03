@@ -154,11 +154,19 @@ export async function editChild(
 	// #4453: 仮アバターは nickname + theme から導出されるので、どちらかが変わったら作り直す。
 	// 判定には「変更前の値」が要る。uiMode 再計算 (#580/#1382) も同じ既存行を見るため、
 	// ここで 1 回だけ引いて両方で使う (同じ行を 2 回引かない)。
+	// #4729: 誕生日クリア (`birthDate: null`) は保存値を「推定扱い」に降格するだけで、月日は DB に残る
+	// (`resolveBirthDateForUpdate`)。降格が起きたか (= 実誕生日があったか) は変更前の行でしか分からない。
 	const needsExisting =
 		input.nickname !== undefined ||
 		input.theme !== undefined ||
+		input.birthDate === null ||
 		(patched.uiMode === undefined && patched.age !== undefined);
 	const existing = needsExisting ? await findChildById(id, tenantId) : null;
+
+	// #4729 PO 回答 (2026-09-03): 誕生日を消したら誕生日ボーナスの対象外になる (降格は維持) が、
+	// **黙って降格してはならない**。公開 entity の `birthDate` は実誕生日のときだけ非 null
+	// (`publicBirthDate`) なので、「実誕生日があった行に null を書いた」= 降格が起きた、と判定できる。
+	const birthdayCleared = input.birthDate === null && !!existing?.birthDate;
 
 	if (patched.uiMode !== undefined) {
 		// #1382: 保護者が明示的に UIMode を指定 → 手動フラグを立てる
@@ -192,7 +200,7 @@ export async function editChild(
 		placeholderAvatarSkipped = attached.skipped;
 	}
 
-	return { child: updated, placeholderAvatarSkipped };
+	return { child: updated, placeholderAvatarSkipped, birthdayCleared };
 }
 
 /**

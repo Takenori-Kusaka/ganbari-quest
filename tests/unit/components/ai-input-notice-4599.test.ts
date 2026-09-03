@@ -18,6 +18,8 @@ import { join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AI_INPUT_NOTICE_LABELS } from '$lib/domain/labels';
+import { AI_TRANSFER_TERMS } from '$lib/domain/terms';
+import AiInputNotice from '$lib/features/admin/components/AiInputNotice.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
@@ -132,5 +134,42 @@ describe('#4599 文言 — #4583 (プライバシーポリシー第9条④) と�
 
 	it('送信先の詳細はプライバシーポリシー第9条④ にリンクする', () => {
 		expect(AI_INPUT_NOTICE_LABELS.linkHref).toContain('privacy.html#under-age');
+	});
+});
+
+// PO 回答 (2026-09-03、PR #4598 コメント): 領収書画像には氏名・住所 (宛名) が写り込みうる。
+// その注意喚起を法務文書 (第9条④) だけに置いて、ポイント変換のアップロード画面そのものに
+// 出さないのは「届いていないのと同じ」。画面側の注意書きが同じ事実を述べていることを固定する。
+describe('#4598 領収書アップロード画面の注意書き — 氏名・住所の写り込みを画面で述べる', () => {
+	it('画像経路の文言が「宛名の氏名・住所」の写り込みに触れている (atom 経由)', () => {
+		expect(AI_INPUT_NOTICE_LABELS.image).toContain(AI_TRANSFER_TERMS.receiptPrintedInfo);
+		expect(AI_TRANSFER_TERMS.receiptPrintedInfo).toContain('氏名');
+		expect(AI_TRANSFER_TERMS.receiptPrintedInfo).toContain('住所');
+		// お子さまの特定情報への注意 (#4599) は落とさない
+		expect(AI_INPUT_NOTICE_LABELS.image).toContain(AI_TRANSFER_TERMS.identifyingInfo);
+	});
+
+	it('共有 component の image variant がその文言を描画する (領収書 OCR 経路が使う variant)', () => {
+		render(AiInputNotice, { props: { variant: 'image', testid: 'ai-input-notice-receipt' } });
+		const el = screen.getByTestId('ai-input-notice-receipt');
+		expect(el.getAttribute('data-ai-notice-variant')).toBe('image');
+		expect(el.textContent).toContain(AI_INPUT_NOTICE_LABELS.image);
+		expect(el.textContent).toContain('氏名');
+		expect(el.textContent).toContain('住所');
+	});
+
+	it('領収書 OCR 画面は file input と同じブロックで image variant を出している', () => {
+		const source = readFileSync(
+			join(repoRoot, 'src/routes/(parent)/admin/points/+page.svelte'),
+			'utf-8',
+		);
+		const notice = source.indexOf(
+			'<AiInputNotice variant="image" testid="ai-input-notice-receipt"',
+		);
+		const fileInput = source.indexOf('type="file"', notice);
+		expect(notice, '領収書経路に image variant の注意書きが無い').toBeGreaterThan(-1);
+		expect(fileInput, '注意書きの後に file input が続いていない').toBeGreaterThan(notice);
+		// 注意書きと file input の間に別の入力欄・見出しを挟まない (隣接して出す)
+		expect(source.slice(notice, fileInput)).not.toMatch(/<(FormField|Button|h[1-6])\b/);
 	});
 });

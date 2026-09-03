@@ -248,8 +248,13 @@ export const actions: Actions = {
 		}
 
 		// #4546 ③: 仮アバターの作り直しをレースで見送ったら画面で知らせる (黙って古いままにしない)。
-		const { placeholderAvatarSkipped } = await editChild(childId, updates, tenantId);
-		return { success: true, editedChildId: childId, placeholderAvatarSkipped };
+		// #4729: 誕生日を消して誕生日ボーナスの対象外になったことも同じく画面で知らせる (黙って降格しない)。
+		const { placeholderAvatarSkipped, birthdayCleared } = await editChild(
+			childId,
+			updates,
+			tenantId,
+		);
+		return { success: true, editedChildId: childId, placeholderAvatarSkipped, birthdayCleared };
 	},
 
 	removeChild: async ({ request, locals }) => {
