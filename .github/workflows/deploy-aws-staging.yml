@@ -245,11 +245,6 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
-      - name: Generate version
-        run: npm run version:generate
-        env:
-          APP_MAJOR_VERSION: ${{ env.APP_MAJOR_VERSION }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -265,6 +260,7 @@ jobs:
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           build-args: |
             BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
+            APP_MAJOR_VERSION=${{ env.APP_MAJOR_VERSION }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
