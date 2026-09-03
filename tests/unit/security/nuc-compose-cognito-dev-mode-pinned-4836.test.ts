@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 const compose = readFileSync(join(__dirname, '../../../docker-compose.yml'), 'utf8');
 const setupServer = readFileSync(join(__dirname, '../../../scripts/setup-server.sh'), 'utf8');
 const deployScript = readFileSync(join(__dirname, '../../../scripts/deploy.sh'), 'utf8');
+const rootPkg = readFileSync(join(__dirname, '../../../package.json'), 'utf8');
 
 /** `services:` 直下の service block を切り出す (2 space indent の service 名 → 次の service 名の直前まで) */
 function serviceBlock(name: string): string {
@@ -51,6 +52,21 @@ describe('NUC compose は COGNITO_DEV_MODE を false に固定する (#4836)', (
 		const startLine = lines.findIndex((l) => /Start-Process -FilePath 'node'/.test(l));
 		expect(setLine, "deploy.sh に COGNITO_DEV_MODE = 'false' が無い").toBeGreaterThanOrEqual(0);
 		expect(startLine).toBeGreaterThan(setLine);
+	});
+
+	it('アプリが .env を読まない前提 (dotenv 非依存) が崩れていない', () => {
+		// `.env.example` と docs/security FINDING-12 が「Windows 直起動経路ではアプリが .env を読まない」
+		// と断言している。dotenv が依存に入ると .env が読まれ始め、その断言が黙って偽になる
+		// (起動 script の固定より .env が後勝ちになる経路が生まれうる)。前提そのものを固定する
+		const pkg = JSON.parse(rootPkg) as {
+			dependencies?: Record<string, string>;
+			devDependencies?: Record<string, string>;
+		};
+		const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+		expect(
+			Object.keys(deps).filter((n) => n === 'dotenv' || n.startsWith('dotenv-')),
+			'dotenv を入れるなら .env.example / FINDING-12 の「アプリは .env を読まない」を先に書き換えること',
+		).toEqual([]);
 	});
 
 	it('true / 変数展開 (ドル記号 + 波括弧) で上書き可能な形にはなっていない', () => {

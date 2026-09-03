@@ -75,7 +75,8 @@ cat > "${STARTUP_SCRIPT}" << BATEOF
 @echo off
 cd /d C:\Apps\ganbari-quest
 set NODE_ENV=production
-REM #4836: dev 専用の固定アカウント (COGNITO_DEV_MODE) は NUC では常に無効。.env より先に固定する
+REM #4836: dev 専用の固定アカウント (COGNITO_DEV_MODE) は NUC では常に無効。
+REM 本アプリは .env を読まない (dotenv 非依存) ので、起動プロセスに渡す env が唯一の入口
 set COGNITO_DEV_MODE=false
 set HOST=0.0.0.0
 set PORT=3000
