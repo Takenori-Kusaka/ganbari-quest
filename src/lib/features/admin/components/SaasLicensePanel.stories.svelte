@@ -137,3 +137,43 @@ const { Story } = defineMeta({
 		await expect(support).toHaveAttribute('href', '/admin/settings/support');
 	}}
 />
+
+<!-- #4596 / PO 回答 (2026-09-03): 支払い猶予中 (S3) の告知。契約はまだ生きているが、
+     解約を決める瞬間に「無料プランへ移ったあと履歴がいつまで残るか」が効くため、
+     S5 (解約済み) と同じ保持期間の 2 文をここでも述べる。
+     猶予 / 停止は Stripe webhook が書く状態で demo 環境では作れないため
+     (ss-render-impossible)、見た目の確認手段は本 story が担う。 -->
+<Story
+	name="GracePeriodNotice"
+	args={{
+		data: mockData({
+			license: { ...BASE_LICENSE, status: SUBSCRIPTION_STATUS.GRACE_PERIOD },
+		}),
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const notice = canvas.getByTestId('contract-state-notice');
+		await expect(notice).toBeVisible();
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.gracePeriodTitle);
+		// 保持期間の 2 文 (特商法と同一) が出ていること
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+	}}
+/>
+
+<!-- #4596 / PO 回答 (2026-09-03): 支払い停止中 (S4) の告知。S3 と同じ理由で保持期間を述べる。
+     契約が残っておりアーカイブはまだ起きていないため、archive の話は持ち込まない。 -->
+<Story
+	name="PaymentSuspendedNotice"
+	args={{
+		data: mockData({
+			license: { ...BASE_LICENSE, status: SUBSCRIPTION_STATUS.SUSPENDED },
+		}),
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const notice = canvas.getByTestId('contract-state-notice');
+		await expect(notice).toBeVisible();
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.paymentSuspendedTitle);
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+	}}
+/>
