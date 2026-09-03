@@ -16,16 +16,28 @@
 //   [C3] 置換前 snapshot を保存できない → 置換を開始せず旧データ無傷、顧客には「保全」を含まない
 //        汎用文言 (再試行) が出る
 //   [C4] 3 文言が client の echo hardening (sanitizeServerMessage) を素通りする (文言が届く契約)
+//   [C5] その 409 応答を **実際の描画 component (ErrorAlert) まで通し**、画面に「運営にご連絡ください」
+//        と復旧コードが出て、severity=error の見た目になり、「入力内容を直して」に**ならない**ことを
+//        DOM で確認する (旧実装は page が severity/action を固定しており、server の指定が画面に届かず
+//        半端な状態の顧客に fix_input = 入力を直せ、と案内していた)
 //
 // 「文言が実態と一致する」を client が実際に表示する関数まで含めて固定する: 500 で返すと
 // resolveApiErrorMessage が body を捨てるため、server の文言がどれだけ正しくても顧客には届かない。
 
+import { cleanup, render, screen } from '@testing-library/svelte';
 import { sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_CODE_TO_ID } from '../../../src/lib/domain/categories';
 import type { ExportData } from '../../../src/lib/domain/export-format';
 import { asCategoryId } from '../../../src/lib/domain/ids';
-import { ERROR_NOTIFY_LABELS, IMPORT_LABELS } from '../../../src/lib/domain/labels';
+import {
+	ERROR_NOTIFY_LABELS,
+	IMPORT_LABELS,
+	UI_COMPONENTS_LABELS,
+} from '../../../src/lib/domain/labels';
+// #4752 [C5]: 描画確認は **実際の component** を通す。`vi.resetModules()` の後に読み込むと
+// Svelte client runtime の実体が入れ替わり render できないため、top-level で静的に読む。
+import ErrorAlert from '../../../src/lib/ui/components/ErrorAlert.svelte';
 
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
@@ -227,6 +239,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+	cleanup();
 	vi.restoreAllMocks();
 });
 
@@ -377,6 +390,50 @@ describe('#4752 PO 条件の実測 (PGlite 実 migration、pg 系 backend で途
 		expect(errorNotify.resolveApiErrorMessage(status, body.error?.message ?? '')).toBe(
 			ERROR_NOTIFY_LABELS.server,
 		);
+	}, 60_000);
+
+	it('[C5] 二次故障の応答を実際の描画 component (ErrorAlert) まで通すと、画面に運営連絡導線 + 復旧コードが出る', async () => {
+		const backup = await buildFailingBackup();
+		const realInsert = repos.specialReward.insertSpecialReward.bind(repos.specialReward);
+		vi.spyOn(repos.specialReward, 'insertSpecialReward').mockImplementation(
+			async (input, tenantId) => {
+				if (input.title === OLD_REWARD) throw new Error('compensation 途中の障害注入');
+				return realInsert(input, tenantId);
+			},
+		);
+
+		const { status, body } = await postReplace(backup);
+
+		// settings/data page と同じ解決経路 (server の error body → ErrorAlert の 3 props)。
+		const display = errorNotify.resolveApiErrorDisplay(status, body.error, {
+			// page 側の既定値 (直接インポート) をそのまま渡す = 固定していたら fix_input に落ちる
+			fallback: { severity: 'warning', action: 'fix_input' },
+		});
+		expect(display.severity, 'server 指定の severity が画面に渡る').toBe('error');
+		expect(display.action, 'server 指定の action (運営に連絡) が画面に渡る').toBe('contact_admin');
+
+		render(ErrorAlert, {
+			props: {
+				message: display.message,
+				severity: display.severity,
+				action: display.action,
+			},
+		});
+
+		// --- 画面に出ている文字列で確認する ---
+		const alert = screen.getByRole('alert');
+		expect(alert.textContent).toContain('自動復元も途中で止まりました');
+		expect(alert.textContent).toContain('不完全な状態');
+		expect(alert.textContent).toContain('設定 > サポートから運営にご連絡ください');
+		expect(alert.textContent).toContain('復旧コード');
+		expect(alert.textContent).not.toContain('保全されています');
+		// 次の行動の案内 = 「管理者にお問い合わせください。」(contact_admin)。
+		// 「入力内容をご確認ください」(fix_input) が出ていたら、半端な状態の顧客に誤った行動を促している。
+		expect(alert.textContent).toContain(UI_COMPONENTS_LABELS.errorAlertContactAdmin);
+		expect(alert.textContent).not.toContain(UI_COMPONENTS_LABELS.errorAlertFixInput);
+		// severity=error の見た目 (feedback-error トークン + ❌)。warning のままなら不一致で落ちる。
+		expect(alert.className).toContain('--color-feedback-error-bg');
+		expect(alert.textContent).toContain('❌');
 	}, 60_000);
 
 	it('[C4] 3 文言は client の echo hardening (sanitizeServerMessage) を素通りする (文言が顧客に届く契約)', () => {

@@ -91,6 +91,9 @@ ssh <NUC_USER>@<NUC_IP> "docker exec -w /app ganbari-quest-backup-1 node scripts
 
 ## 復元手順 (restore)
 
+> **置換復元 (顧客操作) が半端に終わった場合** は本節ではなく [dsql-restore.md §置換復元が半端に終わったとき — 復旧コードから ZIP を戻す](dsql-restore.md) を見る。NUC でも同じ仕組みで `static/tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip` が残る (#4752)。
+
+
 `pglite-*.tgz` は `dumpDataDir('gzip')` の出力 = PGlite dataDir の tarball。展開して
 `PGLITE_DATA_DIR` に置けばそのまま起動できる。
 

@@ -184,6 +184,64 @@ aws backup describe-restore-job --restore-job-id <JobId> --region us-east-1   --
 
 3 と 4 が通って初めて「復元できた」と言える。1 だけで完了扱いにしない。
 
+## 置換復元が半端に終わったとき — 復旧コードから ZIP を戻す (#4752)
+
+顧客が「復元に失敗し、元のデータへの自動復元も途中で止まりました…（復旧コード: `2026-09-03T08-23-21-138Z`）」という画面を見て連絡してきたときの手順。**復旧コードは ZIP のファイル名そのもの**なので、コードが分かればオブジェクトは一意に決まる。
+
+### 前提 — 何が起きたか
+
+置換復元 (バックアップからの復元 / クラウド共有の取込) は、pg 系 backend (cloud DSQL / NUC PGlite) では **clear 前に旧データを full backup ZIP に固めて storage へ置いてから** 置換する (補償トランザクション、`src/lib/server/services/replace-import-service.ts`)。取込に失敗すれば自動でその ZIP から戻す。**その自動復元まで失敗した場合だけ**、ZIP が消されずに残り、顧客に復旧コードが表示される。つまり顧客が復旧コードを持っている = **ZIP は保存されている**。
+
+### オブジェクトの場所と復旧コードの対応
+
+| | 場所 | 復旧コードとの対応 |
+|---|---|---|
+| **cloud (aws-prod)** | S3 `ganbari-quest-assets-<account>` の `tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip` | 復旧コード = キー末尾の `<stamp>`。`stamp` は退避時刻の ISO8601 で `:` `.` を `-` に置換したもの (`2026-09-03T08:23:21.138Z` → `2026-09-03T08-23-21-138Z`) |
+| **NUC (nuc-prod)** | アプリ作業ディレクトリの `static/tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip` (ローカル FS 実装 `src/lib/server/db/sqlite/storage-repo.ts`) | 同上 |
+
+`tenantId` は顧客の家族 ID。顧客は知らないので、問い合わせのメールアドレスから ops で引く。
+
+```bash
+BUCKET="ganbari-quest-assets-$(aws sts get-caller-identity --query Account --output text)"
+# 復旧コードが分かっている場合 (ピンポイント)
+aws s3api head-object --bucket "$BUCKET" --key "tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip"
+# 復旧コードが読み取れない / 複数ある場合 (その家族の残置分を全部見る)
+aws s3 ls "s3://$BUCKET/tenants/<tenantId>/recovery/"
+# 取り出す
+aws s3 cp "s3://$BUCKET/tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip" ./recovery.zip
+```
+
+NUC は SSH で直接取る (`docker cp` が要る構成は [nuc-container-recovery.md](nuc-container-recovery.md))。認証済みの家族本人なら `/tenants/<tenantId>/recovery/replace-import-<復旧コード>.zip` からブラウザでも落とせる (`src/routes/tenants/[...path]/+server.ts` が tenant 一致を検証して配信する。他人からは 404)。
+
+### 戻し方
+
+ZIP は **通常のバックアップ ZIP と同じ形式** (`data.json` + 静的ファイル)。専用ツールは要らない。
+
+1. 顧客に ZIP を渡し、`/admin/settings/data` の復元 (置換) で取り込んでもらう。または ops で同じ ZIP を `POST /api/v1/import?mode=replace` に送る
+2. 取り込み後、DSQL の行だけでなく **画面で確認する** — 保護者アカウントで `/admin/children`、子供画面 `/switch` に子供・活動・ごほうび・アバターが戻っていること (§S3 assets の復元 (C) と同じ完了判定)
+3. 戻ったら残置 ZIP を消す (`aws s3 rm`)。放置しても次のバックアップには入らない (`recovery/` は backup-archive の収集対象外) が、旧データのコピーを残し続ける必要はない
+
+**サイズ上限に注意**: cloud (aws-prod) の取込は Lambda Function URL の 6MB hard cap があるため **5.5MB** で頭打ち (`src/lib/server/services/import-limit.ts`)。写真・録音を含む ZIP は超えることがある。超えた場合は API が明示エラーを返すので、クラウド共有 (PIN コード) 経由の復元に切り替える。NUC は 100MB (`MAX_ZIP_SIZE`) まで受け付ける。
+
+### 保持期間 (実測)
+
+**自動では消えない。** `infra/lib/storage-stack.ts` の lifecycle rule は 3 本だけで、`tenants/` 配下の**現行バージョン**に expiration を持つものは無い (`delete-old-backups` は `backups/` prefix 限定の 30 日、`archive-logs-to-glacier` は `logs/` 限定、`expire-noncurrent-versions` は**非現行**バージョンの 30 日 + 空 delete marker の掃除)。したがって recovery ZIP は次のいずれかが起きるまで残る:
+
+- 置換が成功した / 自動復元が成功した (アプリが削除する。平常時はこれで消える)
+- 運用担当が消した
+- その家族が退会した (`account-deletion-service` の `purgeByPrefix('tenants/<tenantId>/')` が**全バージョンごと**消す)
+
+NUC 側 (ローカル FS) には lifecycle 自体が無く、手で消すまで残る。
+
+### 見つからなかったとき
+
+| 状況 | 行動 |
+|---|---|
+| キーが無い (`head-object` が 404) | 誰かが消した可能性。`aws s3api list-object-versions --bucket "$BUCKET" --prefix "tenants/<tenantId>/recovery/"` で**非現行バージョン**を探す。削除から 30 日以内なら `--version-id` 指定で取り出せる (§S3 assets の復元 (A) と同じ手順) |
+| 非現行バージョンも無い / 30 日超 | AWS Backup の S3 recovery point から復元する (日次 02:00 UTC / **7 日保持**、§S3 assets の復元 (B))。7 日を超えていたら storage 側の退路は無い |
+| 退会済みの家族 | `purgeByPrefix` が全バージョンを消しているため**戻せない**。顧客が自分で持っている backup ファイル / クラウド共有 (PIN) が唯一の退路 |
+| どれも無い | 顧客の手元のバックアップファイルで復元してもらう。DSQL 側の巻き戻し (cluster 全体復元) は他の家族を巻き込むので**行わない** (§エスカレーション の「tenant 単位の誤削除」と同じ判断) |
+
 ## エスカレーション
 | 状況 | 行動 |
 |---|---|
@@ -191,6 +249,7 @@ aws backup describe-restore-job --restore-job-id <JobId> --region us-east-1   --
 | tenant 単位の誤削除・巻戻し | AWS Backup ではなく **アプリ層 backup-archive (JSON/CSV) で該当 tenant を import** (物理 restore は cluster 全体を巻き戻すため不適) |
 | restore job が失敗 | `describe-restore-job` の StatusMessage 確認。metadata 不整合が典型 (IAM role は `ganbari-quest-dsql-backup-role` = backup/restore 両権限付きを使う) |
 | 日次 backup ジョブが失敗 | `ganbari-quest-dsql-backup-failed` の SNS 通知が来る。`aws backup describe-backup-job --backup-job-id <id>` で原因確認 (cluster busy / 権限 / vault full 等)。連日失敗 = DR 空白のため priority:high |
+| 顧客が「復旧コード」を伝えてきた (置換復元の自動復旧が半端に終わった) | §置換復元が半端に終わったとき の手順で ZIP を取り出して戻す。**顧客のデータは storage に残っている**ので、まず ZIP の存在を `head-object` で確認して顧客に「戻せる」と伝える (待たせる間の不安が一番大きい) |
 | 子供の写真・声が消えた | まず §S3 assets の復元 (A) バージョン復元。**30 日以内かつ、バージョンを名指しで消す操作 (`purgeByPrefix` = 退会 / エクスポート削除) を経ていなければ**戻せる。バージョニングが守るのはアプリのバグと通常削除であって、version 指定削除や資格情報漏洩には無力である (Object Lock / MFA Delete は未導入)。30 日を超えている / バケットごと失った場合は (B) AWS Backup。復元後は (C) の 4 点まで確認する |
 | backup job が PARTIAL で終わる | 一部オブジェクトだけ失敗している。`aws backup describe-backup-job` の StatusMessage を見る。`logs/` 配下の Glacier オブジェクトは AWS Backup for S3 の対象外で skip されるのが正常。**`tenants/` / `exports/` のオブジェクトが失敗していたら顧客ファイルが入っていない**ので priority:high |
 | S3 の recovery point が 1 件も無い | リージョンの Service opt-in で S3 が false になっている可能性が高い (`aws backup describe-region-settings`)。この状態は job が失敗すらしないため失敗通知も出ない。有効化して次の日次を待つ |
@@ -198,5 +257,6 @@ aws backup describe-restore-job --restore-job-id <JobId> --region us-east-1   --
 ## 関連
 - 実装: `infra/lib/dsql-stack.ts` (backup vault/plan/role + 2 selection + 失敗検知 rule) + `infra/lib/storage-stack.ts` (assets バケットのバージョニング + 非現行 30 日 expire) + `tests/unit/infra/dsql-cdk.test.ts` [I8][I8c][I8d][N4] + `tests/unit/infra/assets-backup.test.ts` [V][B][S]
 - 論理 backup: `src/lib/server/services/backup-archive.ts` (#3376) / データモデル §6.4
+- 置換復元の補償トランザクションと復旧コード: `src/lib/server/services/replace-import-service.ts` (#4720 / #4752) / 顧客に出る 3 文言と HTTP 種別は [07-API設計書.md](../design/07-API設計書.md) §replace モードの失敗時セマンティクス / 実測 test `tests/integration/db/restore-compensation-failure-4752.test.ts`
 - alarm 一次対応: [dsql-alert-response.md](dsql-alert-response.md)
 - AWS 公式: [Aurora DSQL backups](https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-aurora.html) / [restore](https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-auroradsql.html)

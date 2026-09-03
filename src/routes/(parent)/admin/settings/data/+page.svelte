@@ -22,7 +22,11 @@ import {
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
-import { resolveApiErrorMessage } from '$lib/ui/error-notify';
+import {
+	type ApiErrorDisplayFallback,
+	resolveApiErrorDisplay,
+	resolveApiErrorMessage,
+} from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
@@ -107,38 +111,19 @@ let cloudExportType = $state<'template' | 'full'>('template');
 let cloudImportPin = $state('');
 let cloudImportLoading = $state(false);
 let cloudImportError = $state('');
-// #4717: server の error 種別 (ADR-0062 severity × action) をそのまま案内に反映する。
-// 「準備中 (待てば解決)」を warning + 「入力を直して」と表示すると、待つべき場面で
-// 顧客が PIN を疑って入力し直す (誤った回復行動を促す)。
-type CloudImportErrorKind = {
-	severity: 'info' | 'warning' | 'error';
-	action: 'retry' | 'fix_input' | 'contact_admin' | 'none';
-};
-const DEFAULT_CLOUD_IMPORT_ERROR_KIND: CloudImportErrorKind = {
-	severity: 'warning',
-	action: 'fix_input',
-};
-let cloudImportErrorKind = $state<CloudImportErrorKind>(DEFAULT_CLOUD_IMPORT_ERROR_KIND);
-
-/** server の error body から severity / action を取り出す (無ければ既定)。 */
-function resolveCloudImportErrorKind(errorBody: unknown): CloudImportErrorKind {
-	const e = errorBody as { severity?: unknown; action?: unknown } | null | undefined;
-	const severity = e?.severity;
-	const action = e?.action;
-	return {
-		severity:
-			severity === 'info' || severity === 'warning' || severity === 'error'
-				? severity
-				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.severity,
-		action:
-			action === 'retry' ||
-			action === 'fix_input' ||
-			action === 'contact_admin' ||
-			action === 'none'
-				? action
-				: DEFAULT_CLOUD_IMPORT_ERROR_KIND.action,
-	};
-}
+// #4717 / #4752: server の error 種別 (ADR-0062 severity × action) をそのまま案内に反映する。
+// 「準備中 (待てば解決)」を warning + 「入力を直して」と表示すると、待つべき場面で顧客が PIN を
+// 疑って入力し直す (誤った回復行動)。同じ理由で、復元の自動復旧が半端に終わった 409
+// (action=contact_admin = 運営に連絡) を「入力内容をご確認ください」と表示してはならない (#4752 実測)。
+// 判定は `resolveApiErrorDisplay` (error-notify SSOT) に集約する。
+const IMPORT_ERROR_FALLBACK: ApiErrorDisplayFallback = { severity: 'warning', action: 'fix_input' };
+const RETRY_ERROR_FALLBACK: ApiErrorDisplayFallback = { severity: 'error', action: 'retry' };
+let cloudImportErrorKind = $state<ApiErrorDisplayFallback>(IMPORT_ERROR_FALLBACK);
+// #4752: 直接インポート / エクスポート / クラウド共有も server 指定の severity・action を反映する
+// (旧実装は ErrorAlert の props を画面側で固定しており、server の指定が画面に届かなかった)。
+let importErrorKind = $state<ApiErrorDisplayFallback>(IMPORT_ERROR_FALLBACK);
+let exportErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
+let cloudErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
@@ -275,7 +260,13 @@ async function handleImportFileChange(e: Event) {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			// #3285 uiux-1: 生サーバ message を露出せず error-notify SSOT で無害化
-			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				importError = display.message;
+				importErrorKind = { severity: display.severity, action: display.action };
+			}
 			importFile = null;
 			return;
 		}
@@ -301,7 +292,13 @@ async function handleImportExecute() {
 		const res = await postImport(mode);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				importError = display.message;
+				importErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		importResult = d.result;
@@ -317,6 +314,7 @@ async function handleImportExecute() {
 }
 
 function resetImport() {
+	importErrorKind = IMPORT_ERROR_FALLBACK;
 	importFile = null;
 	importPreview = null;
 	importResult = null;
@@ -336,7 +334,13 @@ async function handleExport() {
 		const res = await fetch(`/api/v1/export${qs}`);
 		if (!res.ok) {
 			const d = await res.json().catch(() => null);
-			exportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				exportError = display.message;
+				exportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		const blob = await res.blob();
@@ -383,7 +387,13 @@ async function handleCloudExport() {
 		});
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				cloudError = display.message;
+				cloudErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(d.pinCode, formatJstDate(d.expiresAt));
@@ -400,7 +410,13 @@ async function handleDeleteCloudExport(id: string) {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
 			const d = await res.json().catch(() => null);
-			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				cloudError = display.message;
+				cloudErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		await loadCloudExports();
@@ -417,8 +433,13 @@ async function handleCloudImportPreview() {
 		const res = await postCloudImport('preview', { pinCode: cloudImportPin.trim() });
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
-			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				cloudImportError = display.message;
+				cloudImportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		cloudImportPreview = d.preview;
@@ -462,8 +483,13 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		const res = await postCloudImport('execute', body);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
-			cloudImportErrorKind = resolveCloudImportErrorKind(d?.error);
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				cloudImportError = display.message;
+				cloudImportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		cloudImportResult = d.result;
@@ -493,7 +519,7 @@ function resetCloudImport() {
 	cloudImportPreview = null;
 	cloudImportResult = null;
 	cloudImportError = '';
-	cloudImportErrorKind = DEFAULT_CLOUD_IMPORT_ERROR_KIND;
+	cloudImportErrorKind = IMPORT_ERROR_FALLBACK;
 	cloudImportStep = 'input';
 	childSelectionOpen = false;
 }
@@ -547,7 +573,11 @@ const canConfirmClear = $derived(
 		</div>
 
 		{#if exportError}
-			<ErrorAlert message={exportError} severity="error" action="retry" />
+			<ErrorAlert
+				message={exportError}
+				severity={exportErrorKind.severity}
+				action={exportErrorKind.action}
+			/>
 		{/if}
 
 		<div class="space-y-4">
@@ -698,7 +728,11 @@ const canConfirmClear = $derived(
 				{/if}
 
 				{#if importError}
-					<ErrorAlert message={importError} severity="warning" action="fix_input" />
+					<ErrorAlert
+						message={importError}
+						severity={importErrorKind.severity}
+						action={importErrorKind.action}
+					/>
 				{/if}
 
 				{#if importStep === 'select'}
@@ -1021,7 +1055,11 @@ const canConfirmClear = $derived(
 			</div>
 
 			{#if cloudError}
-				<ErrorAlert message={cloudError} severity="error" action="retry" />
+				<ErrorAlert
+					message={cloudError}
+					severity={cloudErrorKind.severity}
+					action={cloudErrorKind.action}
+				/>
 			{/if}
 			{#if cloudSuccess}
 				<SuccessAlert message={cloudSuccess} />
@@ -1366,6 +1404,8 @@ const canConfirmClear = $derived(
 			{/if}
 
 			{#if clearError}
+				<!-- #4752: 全削除は API error body を持たない (form action / ローカル state) ため、
+				     server 由来の severity・action は無い。ここだけ固定値で描く。 -->
 				<ErrorAlert message={clearError} severity="error" action="retry" />
 			{/if}
 

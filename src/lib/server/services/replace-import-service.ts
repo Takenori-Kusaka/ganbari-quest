@@ -73,7 +73,9 @@ export class ReplaceSnapshotError extends Error {
  * (#4752 PO 回答 2026-09-03 条件 2)。
  *
  * - `recoveryKey`: storage 上の復旧用 ZIP の key (運営向け。log / Discord alert にのみ載せる)
- * - `recoveryCode`: 顧客が運営に伝える短い参照 (ZIP 名の時刻部分)。tenant id / storage key は顧客に出さない
+ * - `recoveryCode`: 顧客が運営に伝える短い参照 (ZIP 名の時刻部分)。tenant id / storage key は顧客に出さない。
+ *   **運営側の戻し方は `docs/runbooks/dsql-restore.md` §置換復元が半端に終わったとき に手順がある**
+ *   (顧客に見せる復旧コード → storage 上の ZIP の対応・保持期間・見つからないときの退路)
  * - `message`: 顧客向け文言 (labels SSOT、復旧コード入り)。route は 409 `IMPORT_RESTORE_FAILED` で返す
  *   (500 にすると client が文言を捨てて「時間をおいて再度お試しください」になる、ADR-0062 §2)
  * - `cause`: 復元失敗の原因例外 (原因の連鎖を log に残す)
