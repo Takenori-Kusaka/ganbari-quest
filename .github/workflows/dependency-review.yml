@@ -31,7 +31,8 @@ jobs:
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
-          # 既定値と同値だが、下の waiver の根拠が「development scope は元々検査対象外」という
-          # 前提に依存しているため明示する (v5 src/schemas.ts: fail_on_scopes.default(['runtime']))。
-          # 既定が変わったときに waiver の根拠が黙って崩れるのを防ぐ。
+          # 既定値と同値だが、gate の検査範囲 (runtime scope のみ = root の devDependencies は対象外)
+          # を明示して固定する (v5 src/schemas.ts: fail_on_scopes.default(['runtime']))。
+          # 既定が変わる / 誰かが development を足すと検査範囲が黙って変わるため、
+          # tests/unit/infra/dependency-review-workflow.test.ts が本行と allow-ghsas の不在を固定する。
           fail-on-scopes: runtime
