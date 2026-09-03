@@ -13,6 +13,8 @@
  *     --presets desktop,mobile
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function login(page, email, password) {
@@ -42,7 +44,7 @@ async function login(page, email, password) {
  * @param {(label: string) => Promise<string>} capture
  */
 export default async (page, capture) => {
-	await login(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+	await login(page, 'ops@example.com', devPassword('ops@example.com'));
 	await page.goto(`${BASE_URL}/ops`);
 	await page.waitForLoadState('domcontentloaded');
 	await page.locator('h1').first().waitFor({ state: 'visible', timeout: 15_000 });

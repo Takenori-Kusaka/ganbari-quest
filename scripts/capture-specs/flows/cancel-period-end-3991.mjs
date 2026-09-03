@@ -20,6 +20,8 @@
  * (docs/CLAUDE.md §「local 検証不可」と同型)。本フローは「バナー非表示時の回帰なし」を担保する。
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 /** cognito-dev のログインフォームを通す (billing-graduation.mjs と同型) */
@@ -34,7 +36,7 @@ async function loginAsOwner(page) {
 	await page.getByLabel('メールアドレス').click();
 	await page.keyboard.type('owner@example.com', { delay: 20 });
 	await page.getByLabel('パスワード', { exact: true }).click();
-	await page.keyboard.type('Gq!Dev#Owner2026x', { delay: 20 });
+	await page.keyboard.type(devPassword('owner@example.com'), { delay: 20 });
 
 	await page
 		.locator('button[type="submit"]:not([disabled])')

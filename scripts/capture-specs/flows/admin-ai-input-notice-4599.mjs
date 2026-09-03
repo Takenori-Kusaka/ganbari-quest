@@ -18,6 +18,8 @@
  * helper (login / waitFrames / waitForMenuOpen) は admin-checklists-ai-gate-4506.mjs と同型。
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
@@ -153,7 +155,7 @@ export default async (page, capture) => {
 		return;
 	}
 
-	await login(page, 'family@example.com', 'Gq!Dev#Fam2026xyz');
+	await login(page, 'family@example.com', devPassword('family@example.com'));
 
 	// --- 経路 1: AI 提案 (活動) ---
 	await openAiDialog(page, {

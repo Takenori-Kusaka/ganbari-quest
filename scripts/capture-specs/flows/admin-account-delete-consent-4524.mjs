@@ -22,14 +22,20 @@
  *     --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
 /** DEV_USERS SSOT: src/lib/server/auth/providers/cognito-dev.ts */
 const ACCOUNTS = [
-	{ slug: 'free', email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
-	{ slug: 'standard', email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
-	{ slug: 'family', email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+	{ slug: 'free', email: 'free@example.com', password: devPassword('free@example.com') },
+	{
+		slug: 'standard',
+		email: 'standard@example.com',
+		password: devPassword('standard@example.com'),
+	},
+	{ slug: 'family', email: 'family@example.com', password: devPassword('family@example.com') },
 ];
 
 /**

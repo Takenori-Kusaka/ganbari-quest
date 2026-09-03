@@ -15,6 +15,8 @@
  *     --presets mobile,desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function loginAs(page, email, password) {
@@ -50,7 +52,7 @@ async function loginAs(page, email, password) {
  * @param {(label: string) => Promise<string>} capture
  */
 export default async (page, capture) => {
-	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 
 	await page.goto(`${BASE_URL}/switch?timedOut=1`);
 	const banner = page.getByTestId('parent-gate-timed-out-banner');

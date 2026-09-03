@@ -22,6 +22,8 @@
  *     --base-url http://localhost:5271 --no-start-server --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PREFIX = process.env.SS_LABEL_PREFIX || '';
 
@@ -86,7 +88,7 @@ export default async (page, capture) => {
 		await d.dismiss();
 	});
 
-	await login(page, 'family@example.com', 'Gq!Dev#Fam2026xyz');
+	await login(page, 'family@example.com', devPassword('family@example.com'));
 	await page.goto(`${BASE_URL}/admin/checklists`);
 	await page.getByTestId('admin-checklists-page').waitFor({ state: 'visible', timeout: 20_000 });
 	await dismissOverlays(page);
