@@ -1702,7 +1702,7 @@ function getChildName(childId: ChildId): string {
 			onclick={acceptConfirm}
 			data-testid="admin-checklists-confirm-accept"
 		>
-			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
+			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmAccept}
 		</Button>
 	</div>
 </Dialog>

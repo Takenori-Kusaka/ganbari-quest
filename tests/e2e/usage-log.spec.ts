@@ -3,6 +3,8 @@
 // #1576 週次使用時間 bar chart の E2E テスト
 
 import { expect, test } from '@playwright/test';
+// #4716 (#4715): 見出しは ADMIN_SCREENS 由来の 1 語に揃った (旧「管理ダッシュボード」)。
+//   リテラル直書きだと画面名が変わるたびに spec が黙って腐るので SSOT を直接読む。
 import { ADMIN_HOME_LABELS } from '../../src/lib/domain/labels';
 import { selectKinderChild } from './helpers';
 

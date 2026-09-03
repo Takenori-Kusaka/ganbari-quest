@@ -10,7 +10,8 @@
 //   3. rule-preset 詳細に内部語彙が露出 —「ADR-0012 anti-engagement 細則」「no-op」
 //      （現データでは非到達の休眠分岐だが live コード）
 //   4. checklist 取込説明が実在しない画面名「持ち物リスト」を引用
-//      （実際の子供画面名は icons.ts SSOT の もちもの / もちものチェック / 持ち物チェック）
+//      （実際の子供画面名は labels.ts SSOT の `getChildNavModeLabels().checklist`。
+//       #4715 で年齢帯ごとの 3 表記を「チェックリスト」1 つに統一済み）
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';

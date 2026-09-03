@@ -302,8 +302,9 @@ export function formatAge(n: number): string {
 	return `${n}歳`;
 }
 /**
- * 子供向け画面のひらがな年齢表記 (#4512)。`formatAge` の漢字版と対。
- * /switch / /view/[token] のように子供・来訪者が読む画面はこちらを使う。
+ * 子供向け画面のひらがな年齢表記 (#4512 / #4716 item 15)。`formatAge` の漢字版と対。
+ * /switch / /view/[token] のように子供・来訪者が読む画面はこちらを使う
+ * (以前は `child.age + 'さい'` を画面側で直書きしていた)。
  */
 export function formatAgeKana(n: number): string {
 	return `${n}さい`;
@@ -2576,7 +2577,8 @@ export const PAGE_GUIDE_LABELS = {
 				goal: 'お子さまの画面のポイント表示が、選んだ見せ方に変わります。金額で見せると「あと何円分」が伝わりやすくなります。',
 				tips: ['レートは「1P = 1円なら 1」「1P = 0.01ドルなら 0.01」のように入力します'],
 			},
-			// ④ 既定の子供 (お子さま 2 人以上のときだけ描画 → optional)
+			// ④ 既定のお子さま (お子さま 2 人以上のときだけ描画 → optional)
+			//    #4716: カード見出し (SETTINGS_LABELS.defaultChildSectionTitle) と同じ honorific で呼ぶ
 			'settings-activities-default-child': {
 				title: `画面の見方（既定の${CHILD_TERMS.honorific}）`,
 				what: 'ホーム画面を開いたときに、どのお子さまの画面を自動で表示するかを決められます。お子さまが 2 人以上のご家庭だけに出るカードです。',
@@ -2687,7 +2689,7 @@ export const PAGE_GUIDE_LABELS = {
 				how: `1. 読み込み方（置換 / 追加）を選びます\n2. 「${BACKUP_TERMS.file}を選択」でファイルを選びます\n3. 中身のプレビューが出るので、件数を確かめてから実行します`,
 				goal: `${BACKUP_TERMS.file}の内容が反映されます。置換を選んだ場合、読み込み前のデータは戻せません。`,
 				tips: [
-					`置換で読み込む前に、いまのデータを「${BACKUP_TERMS.canonical}をダウンロード」で保存しておくと安全です`,
+					`置き換える前に、いまのデータを「${BACKUP_TERMS.canonical}をダウンロード」で保存しておくと安全です`,
 				],
 			},
 			// ④ クラウド共有 (SaaS のみ描画 → requiredRuntime + optional)
@@ -3391,7 +3393,81 @@ export const CHILD_ACTION_ERROR_LABELS = {
 	/** 活動のピン留め (おきにいり) 拒否理由。service 層の code に 1:1 で対応する。 */
 	pinActivityNotFound: 'その かつどうが みつからなかったよ',
 	pinLimitExceeded: (max: number) => `おきにいりは ${max}こまでだよ`,
+	// #4716 (QM #4802): home の action が直書きしていた失敗文言。年齢帯 variant は KANJI 側と key を揃える
+	alreadyRecordedToday: 'きょうはもうきろくしたよ！',
+	dailyLimitReached: 'きょうはこれいじょうきろくできないよ',
+	notFound: 'みつかりません',
+	cancelWindowPassed: 'とりけしじかんがすぎたよ',
+	bonusAlreadyClaimed: 'きょうのボーナスはもうもらったよ！',
+	stampAlreadyToday: 'きょうはもうスタンプをおしたよ！',
+	stampAlreadyPressed: 'きょうはもうおしたよ',
+	cardFull: 'カードがいっぱいだよ',
+	stampUnavailable: 'いまスタンプをおせません。あとでもういちどためしてね',
+	stampFailed: 'スタンプをおせませんでした',
+	alreadyRedeemed: 'もうこうかんしたよ',
+	emptyCard: 'スタンプがないよ',
+	redeemFailed: 'こうかんできませんでした',
+	bonusAlreadyReceived: 'もうもらったよ',
+	noBirthdayBonus: 'おたんじょうびボーナスはありません',
+	bonusClaimFailed: 'ボーナスをもらえませんでした',
+	// チャレンジのごほうび受け取り (claimChildChallengeReward の code に 1:1)
+	challengeNotFound: 'その チャレンジが みつからなかったよ',
+	challengeWrongChild: 'この チャレンジは きみの ものじゃないよ',
+	challengeNotCompleted: 'まだ クリアしていないよ',
+	challengeAlreadyClaimed: 'もう うけとったよ',
 } as const;
+
+/**
+ * 中高生 (junior / senior) 向けの失敗文言 (#4716 QM)。
+ *
+ * docs/DESIGN.md §8 は preschool / elementary = ひらがな、junior / senior = 漢字と定めている。
+ * `CHILD_ACTION_ERROR_LABELS` は 5 年齢モード共通のひらがなだったため、16〜18 歳にも
+ * 「うまく おくれなかったよ」を返していた。**key と意味は同一**にして本文だけ差し替える。
+ */
+const CHILD_ACTION_ERROR_LABELS_KANJI = {
+	invalidInput: '送信できませんでした。もう一度お試しください',
+	pointsNotNumber: '数字で入力してください',
+	pointsOutOfRange: (min: number, max: number) => `${min}から${max}までの数字で入力してください`,
+	unexpected: 'うまくいきませんでした。もう一度お試しください',
+	pinActivityNotFound: 'その活動が見つかりませんでした',
+	pinLimitExceeded: (max: number) => `お気に入りは${max}個までです`,
+	alreadyRecordedToday: '今日はもう記録しました',
+	dailyLimitReached: '今日はこれ以上記録できません',
+	notFound: '見つかりません',
+	cancelWindowPassed: '取り消しできる時間を過ぎました',
+	bonusAlreadyClaimed: '今日のボーナスは受け取り済みです',
+	stampAlreadyToday: '今日はもうスタンプを押しました',
+	stampAlreadyPressed: '今日はもう押しました',
+	cardFull: 'カードがいっぱいです',
+	stampUnavailable: 'いまスタンプを押せません。あとでもう一度お試しください',
+	stampFailed: 'スタンプを押せませんでした',
+	alreadyRedeemed: 'もう交換しました',
+	emptyCard: 'スタンプがありません',
+	redeemFailed: '交換できませんでした',
+	bonusAlreadyReceived: '受け取り済みです',
+	noBirthdayBonus: '誕生日ボーナスはありません',
+	bonusClaimFailed: 'ボーナスを受け取れませんでした',
+	challengeNotFound: 'そのチャレンジが見つかりませんでした',
+	challengeWrongChild: 'このチャレンジはあなたのものではありません',
+	challengeNotCompleted: 'まだクリアしていません',
+	challengeAlreadyClaimed: 'すでに受け取り済みです',
+} as const;
+
+/**
+ * 年齢モードに応じた子供向け失敗文言を返す (#4716 QM)。
+ *
+ * `uiMode` を渡せない経路 (年齢帯を持たない route) では既定のひらがなに落ちる。
+ * `if (uiMode === 'junior')` を呼び出し側に散らさないため、分岐は本関数 1 箇所に閉じる
+ * (src/routes/CLAUDE.md §年齢帯 variant の A1「散在する uiMode 分岐」を作らない)。
+ */
+export function getChildActionErrorLabels(
+	uiMode?: string,
+): typeof CHILD_ACTION_ERROR_LABELS | typeof CHILD_ACTION_ERROR_LABELS_KANJI {
+	const mode = uiMode ? normalizeUiMode(uiMode) : 'preschool';
+	return mode === 'junior' || mode === 'senior'
+		? CHILD_ACTION_ERROR_LABELS_KANJI
+		: CHILD_ACTION_ERROR_LABELS;
+}
 
 export const OYAKAGI_LABELS = {
 	name: `${OYAKAGI_TERMS.name}`,
@@ -3403,6 +3479,7 @@ export const OYAKAGI_LABELS = {
 	inputLabel: `${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
 	// #4661: 変更フォームの 3 入力欄。以前は account/+page.svelte に「（4〜8桁）」を
 	// 直書きしており、`formatError` の「4〜6桁」と同一画面で矛盾していた。
+	// 桁数の SSOT は constants/oyakagi.ts の PIN_LENGTH (= OYAKAGI_TERMS.digitRange)。
 	currentInputLabel: `現在の${OYAKAGI_TERMS.name}`,
 	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
 	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
@@ -4069,7 +4146,7 @@ export const SETTINGS_LABELS = {
 	hubTitle: '設定',
 	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
-	// #4661: 「おやかぎコード」ひらがな直書きは同一画面のガイド表記 (おやカギコード) と
+	// #4661 / #4716: 「おやかぎコード」ひらがな直書きは同一画面のガイド表記 (おやカギコード) と
 	// 揺れていたため atom 参照にする。3 つ目はカード内の見出し (accountDeleteSectionTitle)
 	// と同じ「アカウント削除」に揃える (CANCEL_TERMS.account「退会」はサブスク文脈の語)。
 	groupAccountDesc: `${OYAKAGI_TERMS.name}変更・ログアウト・アカウント削除`,
@@ -7408,7 +7485,8 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	nicknamePlaceholder: '例: たろうくん',
 	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
-	themeColorLabel: 'テーマカラー',
+	// #4716: テーマカラーも atom 参照に (develop の #4718 が足した age 系 atom 参照と併存させる)
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	addButton: CHILD_ADMIN_TERMS.addButton,
 	ageLabel: CHILD_ADMIN_TERMS.age,
 	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
@@ -8005,6 +8083,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`「${templateName}」を削除します。${childNames}の画面から消え、ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
 	deleteConfirmBodyNoChild: (templateName: string) =>
 		`「${templateName}」を削除します。ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
+	deleteConfirmAccept: '削除する',
 	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
 	frequencyDaily: 'まいにち',
 	frequencyWeekday: (day: string) => `${day}よう`,
@@ -10275,9 +10354,11 @@ export const LP_FAQ_LABELS = {
 	text106: '祖父母や親戚も使えますか？',
 	text107: `${PLAN_FULL_TERMS.premium}`,
 	text108: '無制限',
-	// #4713 / #4704: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
-	//   読み取り専用の共有は premium の閲覧リンク (別機能)。実装に合わせる (ADR-0013)。
-	text109: `招待した${PARENT_TERMS.honorific}は${CHILD_TERMS.honorific}の記録の確認・コメントやスタンプ送付・設定変更ができます。閲覧のみの共有をご希望の場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。`,
+	// #4713: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
+	//   読み取り専用の共有は premium の閲覧リンク (別機能)。
+	//   #4500: 招待メンバーから子供へのコメント・スタンプ送付機能は存在しないため述べない
+	//   (LP_FAQ_PHASEB_LABELS.k108 と同一文を保つ)。
+	text109: `招待されたメンバーは${PARENT_TERMS.honorific}として、${CHILD_TERMS.honorific}の記録の確認と活動の記録ができます（アカウントを持たずに記録を見せたい場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。閲覧専用です）。`,
 	text110: '技術的なご質問',
 	text111: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	text112: 'スマホ・タブレット・PC、何台まで使えますか？',
@@ -11447,7 +11528,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 今日の活動とポイントの一覧`,
 	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
-	// #4714: 実画面 (/admin/children) のタイトルは NAV_ADMIN_LABELS.children = 「こども管理」。
+	// #4714: 実画面 (/admin/children) のタイトルは ADMIN_SCREEN_TERMS.children。
 	//   alt を画面名と一致させる (顧客が SS と画面を結び付けられるようにする)。
 	// #4716 で画面名が「お子さま管理」になったため、説明側の「お子さまの」は重複になる
 	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — 登録と切り替え`,

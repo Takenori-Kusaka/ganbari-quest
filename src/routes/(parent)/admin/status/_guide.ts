@@ -39,7 +39,7 @@ export const STATUS_GUIDE: PageGuide = {
 			optional: true,
 			position: 'bottom',
 		},
-		// ③ 右上「こども管理でステータス編集 →」(常設)
+		// ③ 右上「<お子さま管理>でステータス編集 →」(STATUS_LABELS.childrenEditLink、常設)
 		{
 			id: 'status-edit-link',
 			selector: '[data-tutorial="status-edit-link"]',

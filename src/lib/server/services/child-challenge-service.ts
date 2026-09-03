@@ -959,18 +959,31 @@ export async function revertChildChallengeProgress(
 	return results;
 }
 
+/**
+ * claim 失敗の理由 code (#4716 QM #4802)。route は `error` (保護者向けの漢字文) を子供画面に素通し
+ * せず、code から年齢帯の文言 (`getChildActionErrorLabels`) に解決する (ADR-0062 境界)。
+ */
+export type ChallengeClaimErrorCode =
+	| 'NOT_FOUND'
+	| 'WRONG_CHILD'
+	| 'NOT_COMPLETED'
+	| 'ALREADY_CLAIMED';
+
 /** ごほうび受取 (per-child instance ごと) */
 export async function claimChildChallengeReward(
 	challengeId: string,
 	childId: ChildId,
 	tenantId: string,
-): Promise<{ points: number; message?: string } | { error: string }> {
+): Promise<
+	{ points: number; message?: string } | { error: string; code: ChallengeClaimErrorCode }
+> {
 	const repos = getRepos();
 	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
-	if (!challenge) return { error: 'チャレンジが見つかりません' };
+	if (!challenge) return { error: 'チャレンジが見つかりません', code: 'NOT_FOUND' };
 	// IDOR 防御 + 事前 gate (childId 所有権 / completed)。rewardClaimed の最終判定は下の原子 primitive で行う。
-	if (challenge.childId !== childId) return { error: 'このチャレンジは別のお子さま用です' };
-	if (challenge.completed !== 1) return { error: 'まだクリアしていません' };
+	if (challenge.childId !== childId)
+		return { error: 'このチャレンジは別のお子さま用です', code: 'WRONG_CHILD' };
+	if (challenge.completed !== 1) return { error: 'まだクリアしていません', code: 'NOT_COMPLETED' };
 
 	// #3284 / #3342 (#3333 claim-first の後継): 条件付き flip + point ledger insert を repo 層の
 	// **単一原子 primitive** で実行する。旧 2 段構成 (claimReward flip → 別呼び出しで
@@ -987,7 +1000,7 @@ export async function claimChildChallengeReward(
 		},
 		tenantId,
 	);
-	if (flipped !== 1) return { error: 'すでに受け取り済みです' };
+	if (flipped !== 1) return { error: 'すでに受け取り済みです', code: 'ALREADY_CLAIMED' };
 	return { points: rewardConfig.points, message: rewardConfig.message };
 }
 

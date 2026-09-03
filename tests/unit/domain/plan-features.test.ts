@@ -50,6 +50,17 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.family).toHaveLength(9);
 		});
 
+		it('上位プランほど掲載項目が少なくならない (#1911 B-5 の本来の不変条件)', () => {
+			// 個数そのものより「family が standard より少なく見える」ことが問題だった。
+			// マジックナンバーだけを pin すると、項目を入れ替えたときにこの意図が失われる。
+			expect(PRICING_PAGE_FEATURES.standard.length).toBeGreaterThanOrEqual(
+				PRICING_PAGE_FEATURES.free.length,
+			);
+			expect(PRICING_PAGE_FEATURES.family.length).toBeGreaterThanOrEqual(
+				PRICING_PAGE_FEATURES.standard.length,
+			);
+		});
+
 		it('free には「90日間の履歴保持」が含まれる', () => {
 			expect(PRICING_PAGE_FEATURES.free).toContain('90日間の履歴保持');
 		});

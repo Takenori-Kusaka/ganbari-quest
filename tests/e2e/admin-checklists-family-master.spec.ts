@@ -4,7 +4,8 @@
  * #2362 PR-5 Phase 2 (ADR-0055): admin/checklists family master UX E2E 回帰
  *
  * 検証対象:
- * - admin/checklists ページの OverflowMenu (top-right ⋮) + 4 menu items 表示
+ * - admin/checklists ページの OverflowMenu (top-right ⋮) + 3 menu items 表示
+ *   (#4716: 「みんなのテンプレから取込」item は + 追加 dropdown と同じ遷移先の重複導線のため撤去)
  * - ChecklistDistributionDialog auto-open (`?import=<presetId>` 経由)
  * - 配信先 children 設定 dialog: VisibilityChipGroup 経由で per-child visibility 切替
  * - per-child progress 表示: 配信中 child ごとの今日のチェック進捗
@@ -24,7 +25,7 @@ test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 		await expect(overflowBtn).toBeVisible();
 	});
 
-	test('OverflowMenu クリックで 4 menu items (marketplace / restore / export / help) が表示される', async ({
+	test('OverflowMenu クリックで 3 menu items (restore / export / help) が表示される', async ({
 		page,
 	}) => {
 		await page.goto('/admin/checklists');
@@ -38,14 +39,22 @@ test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 		// 常に存在するため)。負荷の高い環境ほど hydration が遅れて再現しやすい。
 		//
 		// 共有 helper は menu item の visible を成功条件に再 click する (#2260 Fix-6 で確立)。
-		await openMenu(page, 'checklists-overflow-menu', 'overflow-menu-item-marketplace');
+		//
+		// #4716: menu が開いたことの判定に使う item は marketplace から restore に移した
+		//   (marketplace item 自体を撤去したため。撤去した item を「開いた印」にはできない)。
+		await openMenu(page, 'checklists-overflow-menu', 'overflow-menu-item-restore');
 
 		// Ark UI Menu Portal で render される menu item を確認
 		// 各 item は overflow-menu-item-<id> data-testid を持つ
-		await expect(page.getByTestId('overflow-menu-item-marketplace')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-export')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-help')).toBeVisible();
+
+		// #4716: 「みんなのテンプレから取込」は + 追加 dropdown の「みんなのテンプレートから探す」と
+		//   同じ遷移先の重複導線だったため ︙ から撤去した (活動 / ごほうびの ︙ にも無い)。
+		//   assertion を消すだけだと「撤去されたか」を誰も見なくなるので、不在を積極的に固定する
+		//   (ADR-0006 Safety Assertion Erosion Ban)。
+		await expect(page.getByTestId('overflow-menu-item-marketplace')).toHaveCount(0);
 	});
 
 	test('?import=<presetId> で ChildSelectionDialog auto-open', async ({ page }) => {

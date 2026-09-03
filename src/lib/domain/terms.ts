@@ -439,6 +439,8 @@ export const ADMIN_VIEW_TERMS = {
 // ガイドが「画面に無い名前」を案内する乖離 (#4650 / #4653 F1・F3) を、描画側
 // (`ADMIN_HOME_LABELS` / `FEATURES_LABELS.adminLayout`) とガイド側の双方がこの atom を
 // `${...}` 参照することで構造的に防ぐ (ADR-0045 atom / compound 責務分離)。
+// #4716: 保護者画面の呼称は CHILD_TERMS.honorific (「お子さま」) に統一する。
+// 本 atom は CHILD_TERMS より前に宣言されるため (TDZ)、値は同語の直書きで持つ。
 export const ADMIN_HOME_TERMS = {
 	/** 上部 summary card: 登録お子さま数 (#4716: 保護者画面の呼称は CHILD_TERMS.honorific に統一) */
 	childrenCountCard: 'お子さまの数',

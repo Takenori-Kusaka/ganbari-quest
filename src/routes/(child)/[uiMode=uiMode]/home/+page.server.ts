@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
-import { CHILD_ACTION_ERROR_LABELS } from '$lib/domain/labels';
+import { getChildActionErrorLabels } from '$lib/domain/labels';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { isValidUuidFormField } from '$lib/server/auth/child-form-field-guard';
@@ -31,6 +31,7 @@ import {
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 // #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service 撤去済 (2026-05-19)
 // #2458-B: sibling-challenge-service (legacy family-wide) → child-challenge-service (per-child instance) 移行
+import type { ChallengeClaimErrorCode } from '$lib/server/services/child-challenge-service';
 import {
 	claimChildChallengeReward,
 	getActiveChildChallengesWithSiblings,
@@ -333,8 +334,18 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	};
 };
 
+/**
+ * #4716 (QM): 失敗文言を年齢モードで出し分ける (docs/DESIGN.md §8)。
+ * 本 route は `[uiMode=uiMode]` 配下なので URL パラメータがそのまま年齢帯になる。
+ */
+function childErrors(params?: { uiMode?: string }) {
+	// 本関数は **失敗経路でしか呼ばれない**。ここで throw すると 400 が 500 に化けて
+	// 「入力を直せば済む」拒否が障害に見えるため、uiMode を取れないときは既定 (ひらがな) に落とす。
+	return getChildActionErrorLabels(params?.uiMode);
+}
+
 export const actions: Actions = {
-	record: async ({ request, cookies, locals }) => {
+	record: async ({ params, request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
@@ -342,23 +353,23 @@ export const actions: Actions = {
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id) へ
 		// 直達し 22P02 → 500 になる CWE-20 を trust 境界で断つ (自己誘発改竄なので 400 正規化)。
 		if (!isValidUuidFormField(activityId, 'route.home.record.activityId')) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		const result = await recordActivity(childId, activityId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_RECORDED') {
-				return fail(409, { error: 'きょうはもうきろくしたよ！' });
+				return fail(409, { error: childErrors(params).alreadyRecordedToday });
 			}
 			if (result.error === 'DAILY_LIMIT_REACHED') {
-				return fail(409, { error: 'きょうはこれいじょうきろくできないよ' });
+				return fail(409, { error: childErrors(params).dailyLimitReached });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return {
@@ -380,7 +391,7 @@ export const actions: Actions = {
 		};
 	},
 
-	cancelRecord: async ({ request, cookies, locals }) => {
+	cancelRecord: async ({ params, request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
@@ -388,39 +399,39 @@ export const actions: Actions = {
 		const logId = formIdString(formData.get('logId'));
 
 		if (!childId || !logId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		// #3799: form-field 由来 logId が dsql の uuid 列 (activity_logs.log_id) へ直達し
 		// 22P02 → 500 になる CWE-20 を trust 境界で断つ。
 		if (!isValidUuidFormField(logId, 'route.home.cancelRecord.logId')) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		const result = await cancelActivityLog(logId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'CANCEL_EXPIRED') {
-				return fail(410, { error: 'とりけしじかんがすぎたよ' });
+				return fail(410, { error: childErrors(params).cancelWindowPassed });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return { success: true, cancelled: true, refundedPoints: result.refundedPoints };
 	},
 
-	claimBonus: async ({ cookies, locals }) => {
+	claimBonus: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBonus'));
 		if (!childId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		const result = await claimLoginBonus(childId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_CLAIMED') {
-				return fail(409, { error: 'きょうのボーナスはもうもらったよ！' });
+				return fail(409, { error: childErrors(params).bonusAlreadyClaimed });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return {
@@ -435,7 +446,7 @@ export const actions: Actions = {
 	},
 
 	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
-	loginStamp: async ({ cookies, locals }) => {
+	loginStamp: async ({ cookies, locals, params }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
 		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
@@ -466,7 +477,7 @@ export const actions: Actions = {
 		}
 
 		if (!bonus && !stamp) {
-			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
+			return fail(409, { error: childErrors(params).stampAlreadyToday });
 		}
 
 		// 3. Auto-redeem previous week's card (if available)
@@ -509,7 +520,7 @@ export const actions: Actions = {
 		};
 	},
 
-	togglePin: async ({ request, cookies, locals }) => {
+	togglePin: async ({ params, request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
@@ -518,12 +529,12 @@ export const actions: Actions = {
 		const pinned = formData.get('pinned') === 'true';
 
 		if (!childId || !activityId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id /
 		// child_activity_preferences.activity_id) へ直達し 22P02 になる CWE-20 を trust 境界で断つ。
 		if (!isValidUuidFormField(activityId, 'route.home.togglePin.activityId')) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		try {
@@ -536,36 +547,37 @@ export const actions: Actions = {
 				return fail(400, {
 					error:
 						err.code === 'PIN_LIMIT_EXCEEDED'
-							? CHILD_ACTION_ERROR_LABELS.pinLimitExceeded(MAX_PINS_PER_CATEGORY)
-							: CHILD_ACTION_ERROR_LABELS.pinActivityNotFound,
+							? childErrors(params).pinLimitExceeded(MAX_PINS_PER_CATEGORY)
+							: childErrors(params).pinActivityNotFound,
 				});
 			}
 			logger.error('[child-home] togglePin failed', {
 				error: err instanceof Error ? err.message : String(err),
 			});
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.unexpected });
+			return fail(400, { error: childErrors(params).unexpected });
 		}
 	},
 
-	stampCard: async ({ cookies, locals }) => {
+	stampCard: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
 		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
 		// なる CWE-20 を trust 境界で断つ)。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.stampCard'));
-		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+		if (!childId) return fail(400, { error: childErrors(params).invalidInput });
 
 		const result = await stampToday(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_STAMPED') return fail(409, { error: 'きょうはもうおしたよ' });
-			if (result.error === 'CARD_FULL') return fail(409, { error: 'カードがいっぱいだよ' });
+			if (result.error === 'ALREADY_STAMPED')
+				return fail(409, { error: childErrors(params).stampAlreadyPressed });
+			if (result.error === 'CARD_FULL') return fail(409, { error: childErrors(params).cardFull });
 			if (result.error === 'NO_STAMPS_AVAILABLE') {
 				logger.error('[stampCard] NO_STAMPS_AVAILABLE — onboarding seed missing', {
 					context: { childId, tenantId },
 				});
-				return fail(503, { error: 'いまスタンプをおせません。あとでもういちどためしてね' });
+				return fail(503, { error: childErrors(params).stampUnavailable });
 			}
-			return fail(400, { error: 'スタンプをおせませんでした' });
+			return fail(400, { error: childErrors(params).stampFailed });
 		}
 
 		return {
@@ -576,17 +588,18 @@ export const actions: Actions = {
 		};
 	},
 
-	redeemStampCard: async ({ cookies, locals }) => {
+	redeemStampCard: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.redeemStampCard'));
-		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+		if (!childId) return fail(400, { error: childErrors(params).invalidInput });
 
 		const result = await redeemStampCard(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_REDEEMED') return fail(409, { error: 'もうこうかんしたよ' });
-			if (result.error === 'EMPTY_CARD') return fail(400, { error: 'スタンプがないよ' });
-			return fail(400, { error: 'こうかんできませんでした' });
+			if (result.error === 'ALREADY_REDEEMED')
+				return fail(409, { error: childErrors(params).alreadyRedeemed });
+			if (result.error === 'EMPTY_CARD') return fail(400, { error: childErrors(params).emptyCard });
+			return fail(400, { error: childErrors(params).redeemFailed });
 		}
 
 		return {
@@ -597,18 +610,19 @@ export const actions: Actions = {
 		};
 	},
 
-	claimBirthday: async ({ cookies, locals }) => {
+	claimBirthday: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBirthday'));
-		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+		if (!childId) return fail(400, { error: childErrors(params).invalidInput });
 
 		const result = await claimBirthdayBonus(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_CLAIMED') return fail(409, { error: 'もうもらったよ' });
+			if (result.error === 'ALREADY_CLAIMED')
+				return fail(409, { error: childErrors(params).bonusAlreadyReceived });
 			if (result.error === 'NOT_ELIGIBLE')
-				return fail(400, { error: 'おたんじょうびボーナスはありません' });
-			return fail(400, { error: 'ボーナスをもらえませんでした' });
+				return fail(400, { error: childErrors(params).noBirthdayBonus });
+			return fail(400, { error: childErrors(params).bonusClaimFailed });
 		}
 
 		return {
@@ -624,12 +638,12 @@ export const actions: Actions = {
 	 * #4313: 年齢帯 UI 切替の告知を既読にする。
 	 * ダイアログを閉じた時点で 1 回だけ呼ばれ、以後どの日に再ログインしても再表示されない。
 	 */
-	dismissUiModeChangeNotice: async ({ cookies, locals }) => {
+	dismissUiModeChangeNotice: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const childId = asChildId(
 			requireValidChildCookieFormat(cookies, 'route.home.dismissUiModeChangeNotice'),
 		);
-		if (!childId) return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+		if (!childId) return fail(400, { error: childErrors(params).invalidInput });
 
 		await clearUiModeChangeNotice(childId, tenantId);
 		return { success: true, uiModeChangeNoticeDismissed: true };
@@ -637,7 +651,7 @@ export const actions: Actions = {
 
 	// #2295 (EPIC #2294 ①): claimEventReward action 削除済 (2026-05-19)
 
-	claimChallengeReward: async ({ request, cookies, locals }) => {
+	claimChallengeReward: async ({ params, request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
@@ -647,20 +661,22 @@ export const actions: Actions = {
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		// #3799: form-field 由来 challengeId が dsql の uuid 列 (child_challenges.challenge_id) へ
 		// 直達し 22P02 になる CWE-20 を trust 境界で断つ。下の try/catch は 22P02 を握り潰し
 		// 生 err.message を fail(400) に載せる (ADR-0062 内部例外 leak) ため、事前 guard で防ぐ。
 		if (!isValidUuidFormField(challengeId, 'route.home.claimChallengeReward.challengeId')) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		try {
 			// #2458-B: per-child instance ごとに claim (旧 sibling-challenge service の family scope claim から flip)
 			const result = await claimChildChallengeReward(challengeId, childId, tenantId);
 			if ('error' in result) {
-				return fail(400, { error: result.error });
+				// #4716 (QM #4802): service の文言 (保護者向けの漢字 + 「お子さま」) を 4 歳に素通ししない。
+				// code から年齢帯の文言に解決する
+				return fail(400, { error: challengeClaimErrorLabel(childErrors(params), result.code) });
 			}
 			return {
 				success: true,
@@ -673,7 +689,7 @@ export const actions: Actions = {
 			logger.error('[child-home] claimChallengeReward failed', {
 				error: err instanceof Error ? err.message : String(err),
 			});
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.unexpected });
+			return fail(400, { error: childErrors(params).unexpected });
 		}
 	},
 
@@ -684,7 +700,7 @@ export const actions: Actions = {
 	 * `$state` を false にするだけで、ホームに入るたび全画面モーダルが再表示されていた
 	 * (ADR-0012 anti-engagement 違反 / docs/DESIGN.md §10 連続演出禁止)。
 	 */
-	markChallengeCelebrationShown: async ({ request, cookies, locals }) => {
+	markChallengeCelebrationShown: async ({ params, request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = asChildId(
@@ -693,19 +709,19 @@ export const actions: Actions = {
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		// #3799 と同型: form-field 由来 id が dsql uuid 列へ直達して 22P02 になる CWE-20 を断つ。
 		if (
 			!isValidUuidFormField(challengeId, 'route.home.markChallengeCelebrationShown.challengeId')
 		) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		// 他 child の instance / 存在しない id は false (IDOR 防止)。
 		const marked = await markChallengeCelebrationShown(challengeId, childId, tenantId);
 		if (!marked) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 		return { success: true, challengeCelebrationShown: true };
 	},
@@ -717,14 +733,14 @@ export const actions: Actions = {
 	 * × ボタンではなく**表示できた時点**で client が自動で 1 回だけ叩く。
 	 * 失敗しても画面は壊さず、次回起動でもう一度出す (安全側 = 無音より再掲)。
 	 */
-	ackHabitCertificateNotice: async ({ cookies, locals }) => {
+	ackHabitCertificateNotice: async ({ params, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childId = asChildId(
 			requireValidChildCookieFormat(cookies, 'route.home.ackHabitCertificateNotice'),
 		);
 		if (!childId) {
-			return fail(400, { error: CHILD_ACTION_ERROR_LABELS.invalidInput });
+			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
 		await clearHabitCertificateNotice(childId, tenantId);
@@ -733,3 +749,17 @@ export const actions: Actions = {
 
 	// #2295 (EPIC #2294 ①): claimMonthlyReward action 削除済 (2026-05-19)
 };
+
+/** claimChildChallengeReward の失敗 code → 年齢帯の子供向け文言 (網羅は Record で型強制)。 */
+function challengeClaimErrorLabel(
+	labels: ReturnType<typeof getChildActionErrorLabels>,
+	code: ChallengeClaimErrorCode,
+): string {
+	const byCode: Record<ChallengeClaimErrorCode, string> = {
+		NOT_FOUND: labels.challengeNotFound,
+		WRONG_CHILD: labels.challengeWrongChild,
+		NOT_COMPLETED: labels.challengeNotCompleted,
+		ALREADY_CLAIMED: labels.challengeAlreadyClaimed,
+	};
+	return byCode[code];
+}

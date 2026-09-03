@@ -1246,7 +1246,7 @@ describe('claimChildChallengeReward — 単一原子 primitive + fail-closed gat
 		const successes = results.filter(
 			(r): r is { points: number; message?: string } => 'points' in r,
 		);
-		const failures = results.filter((r): r is { error: string } => 'error' in r);
+		const failures = results.filter((r) => 'error' in r) as { error: string; code: string }[];
 		expect(successes).toHaveLength(1);
 		expect(failures).toHaveLength(1);
 		expect(successes[0]?.points).toBe(30);

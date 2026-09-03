@@ -33,8 +33,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json(result);
 	} catch (err) {
 		// #4716 / ADR-0062: 拒否理由 (ActivityPinError) のみ返し、想定外例外の内部 message は返さない。
-		const message = err instanceof ActivityPinError ? err.message : 'ピン留めに失敗しました';
-		return apiError('VALIDATION_ERROR', message);
+		if (err instanceof ActivityPinError) {
+			return apiError('VALIDATION_ERROR', err.message);
+		}
+		// #4716 (QM): 想定外例外を VALIDATION_ERROR に畳むと、DB 障害が「入力内容に問題があります」
+		// という 400 になり、顧客には誤った原因が出て運用側は warn 1 行しか残らない。
+		// 種別 (顧客の入力ミス / システム障害) を取り違えないよう INTERNAL_ERROR (500) に倒す。
+		return apiError('INTERNAL_ERROR', 'ピン留めに失敗しました', {
+			childId,
+			activityId,
+			cause: err instanceof Error ? err.message : String(err),
+		});
 	}
 };
 
@@ -55,7 +64,14 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		const result = await toggleActivityPin(childId, activityId, false, tenantId);
 		return json(result);
 	} catch (err) {
-		const message = err instanceof ActivityPinError ? err.message : 'ピン留め解除に失敗しました';
-		return apiError('VALIDATION_ERROR', message);
+		if (err instanceof ActivityPinError) {
+			return apiError('VALIDATION_ERROR', err.message);
+		}
+		// POST 側と同じ理由で、想定外例外は 400 ではなく INTERNAL_ERROR (500) に倒す。
+		return apiError('INTERNAL_ERROR', 'ピン留め解除に失敗しました', {
+			childId,
+			activityId,
+			cause: err instanceof Error ? err.message : String(err),
+		});
 	}
 };

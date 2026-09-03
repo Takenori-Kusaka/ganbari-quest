@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { CHILD_ACTION_ERROR_LABELS } from '$lib/domain/labels';
 import { apiError, validationError } from '$lib/server/errors';
 import { claimLoginBonus } from '$lib/server/services/login-bonus-service';
 import type { RequestHandler } from './$types';
@@ -20,7 +21,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			return apiError('NOT_FOUND', 'こどもがみつかりません');
 		}
 		if (result.error === 'ALREADY_CLAIMED') {
-			return apiError('ALREADY_CLAIMED', 'きょうのボーナスはもうもらったよ！');
+			return apiError('ALREADY_CLAIMED', CHILD_ACTION_ERROR_LABELS.bonusAlreadyClaimed);
 		}
 	}
 

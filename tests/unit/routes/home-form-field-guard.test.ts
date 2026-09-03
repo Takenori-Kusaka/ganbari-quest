@@ -82,6 +82,9 @@ async function runAction(
 			request: makeRequest(fields),
 			cookies: makeCookies(cookieValue),
 			locals: {},
+			// #4716: action は失敗文言を年齢モードで出し分けるため params.uiMode を読む。
+			// 実 route は `[uiMode=uiMode]` 配下なので必ず入る値を、harness でも与える。
+			params: { uiMode: 'elementary' },
 		} as never)) as { status?: number; data?: unknown } | undefined;
 		return { status: result?.status, data: result?.data ?? result };
 	} catch (e) {

@@ -50,7 +50,7 @@ export const actions: Actions = {
 		const result = await toggleCheckItem(childId, templateId, itemId, today, checked, tenantId);
 
 		if ('error' in result) {
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: CHILD_ACTION_ERROR_LABELS.notFound });
 		}
 
 		return {

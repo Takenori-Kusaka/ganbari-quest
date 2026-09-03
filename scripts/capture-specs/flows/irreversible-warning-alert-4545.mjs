@@ -110,7 +110,7 @@ export default async (page, capture) => {
 	await loginAs(page, owner);
 
 	if (TARGET === 'child-delete') {
-		// 子供カードの削除確認 (ChildProfileCard)。編集モード → 「この子供を削除」で確認文が出る。
+		// 子供カードの削除確認 (ChildProfileCard)。編集モード → 「このお子さまを削除」で確認文が出る。
 		await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' });
 		// ChildProfileCard は「選択中の子供」でのみ描画される (`?id=<childId>`)。
 		// 一覧カード (ChildListCard) の link が出るまで待ち、チュートリアル /
@@ -127,7 +127,9 @@ export default async (page, capture) => {
 		await dismissOverlays(page);
 		await editBtn.click();
 		await dismissOverlays(page);
-		const deleteBtn = page.getByRole('button', { name: '🗑 この子供を削除' }).first();
+		// #4716: 「この子供を削除」→「このお子さまを削除」(CHILD_TERMS.honorific)。
+		//   .mjs から labels.ts (TS) は import できないので、呼称部分だけ許容する正規表現で照合する。
+		const deleteBtn = page.getByRole('button', { name: /^🗑 この.+を削除$/ }).first();
 		await deleteBtn.waitFor({ state: 'visible', timeout: 30_000 });
 		await deleteBtn.click();
 		await page
