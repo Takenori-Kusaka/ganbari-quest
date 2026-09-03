@@ -203,12 +203,22 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await gotoChildHome(page, uiMode);
 
-			// 保存進捗をセットし reload → resume prompt を発火させる
-			// #4651: key は章セットごとの namespace (`tutorial-progress:child:<uiMode>:*`)
-			await page.evaluate((mode) => {
-				localStorage.setItem(`tutorial-progress:child:${mode}:chapter`, '2');
-				localStorage.setItem(`tutorial-progress:child:${mode}:step`, '0');
-			}, uiMode);
+			// 保存進捗をセットし reload → resume prompt を発火させる。
+			// #4765: 進捗 key は**子供ごと** (`tutorial-progress:child:<childId>:<uiMode>:*`)。
+			// spec は childId を持たないので、一度ガイドを起動して**アプリ自身に key を書かせ**、
+			// その key を掴んで「章 2 の途中で中断した」状態を作る (key の形を spec 側で再実装しない)。
+			await startChildTutorial(page);
+			const seededKey = await page.evaluate(() => {
+				const chapterKey = Object.keys(localStorage).find(
+					(k) => k.startsWith('tutorial-progress:child:') && k.endsWith(':chapter'),
+				);
+				if (!chapterKey) return null;
+				localStorage.setItem(chapterKey, '2');
+				localStorage.setItem(chapterKey.replace(/:chapter$/, ':step'), '0');
+				return chapterKey;
+			});
+			// 子供ごとの key が書かれていること自体が #4765 の回帰検証 (家族共有 key に戻ったら null)
+			expect(seededKey).not.toBeNull();
 			await page.reload();
 			// reload 後 Header help button の再描画を待つ
 			await page.locator('[data-testid="header-help-btn"]').waitFor({

@@ -30,6 +30,7 @@ import {
 	getProgressScope,
 	isResumePromptShown,
 	isTutorialActive,
+	migrateLegacyProgress,
 	nextStep,
 	resumeTutorial,
 	setChapters,
@@ -145,14 +146,83 @@ describe('#4765 子供ガイドの進捗 key は子供ごと', () => {
 		});
 	});
 
+	describe('旧 key の後始末 (adversarial 対応: 持ち主が一意なら引き継ぐ)', () => {
+		const legacyScope = getLegacyChildTutorialProgressScope('preschool');
+		const targetScope = getChildTutorialProgressScope(OLDER, 'preschool');
+
+		function seedLegacy(chapter: string, step: string) {
+			localStorage.setItem(`tutorial-progress:${legacyScope}:chapter`, chapter);
+			localStorage.setItem(`tutorial-progress:${legacyScope}:step`, step);
+		}
+
+		it('子供が 1 人なら旧 key の進捗をその子に引き継ぐ (一度も不具合に当たっていない家庭の進捗を捨てない)', async () => {
+			seedLegacy('2', '0');
+
+			expect(migrateLegacyProgress(legacyScope, targetScope, 1)).toBe('migrated');
+
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:chapter`)).toBe('2');
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:step`)).toBe('0');
+			// 旧 key は残さない (次回以降の判断材料にしない)
+			expect(localStorage.getItem(`tutorial-progress:${legacyScope}:chapter`)).toBeNull();
+
+			// 実際に「前回の途中から」再開できる
+			useChild(OLDER);
+			await startTutorial();
+			expect(isResumePromptShown()).toBe(true);
+			await resumeTutorial();
+			expect(getCurrentStep()?.id).toBe('child-daily-stamp');
+		});
+
+		it('子供が 2 人以上なら持ち主が決まらないので捨てる (兄の進捗が弟に付かない)', async () => {
+			seedLegacy('2', '0');
+
+			expect(migrateLegacyProgress(legacyScope, targetScope, 2)).toBe('discarded');
+
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:chapter`)).toBeNull();
+			expect(localStorage.getItem(`tutorial-progress:${legacyScope}:chapter`)).toBeNull();
+
+			useChild(YOUNGER);
+			await startTutorial();
+			expect(isResumePromptShown()).toBe(false);
+			expect(getCurrentStep()?.id).toBe('child-record-card');
+		});
+
+		it('引き継ぎ先に進捗があれば上書きしない (その子の新しい進捗を巻き戻さない)', () => {
+			seedLegacy('1', '0');
+			localStorage.setItem(`tutorial-progress:${targetScope}:chapter`, '3');
+			localStorage.setItem(`tutorial-progress:${targetScope}:step`, '1');
+
+			expect(migrateLegacyProgress(legacyScope, targetScope, 1)).toBe('migrated');
+
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:chapter`)).toBe('3');
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:step`)).toBe('1');
+		});
+
+		it('一度きり: 2 回目以降は何もしない (mount のたびに走らない)', () => {
+			seedLegacy('2', '0');
+			expect(migrateLegacyProgress(legacyScope, targetScope, 1)).toBe('migrated');
+
+			// 2 回目: 旧 key を書き戻しても、もう引き継がない / 捨てない
+			seedLegacy('1', '1');
+			expect(migrateLegacyProgress(legacyScope, targetScope, 1)).toBe('already-done');
+			expect(localStorage.getItem(`tutorial-progress:${legacyScope}:chapter`)).toBe('1');
+		});
+
+		it('旧 key が無ければ何もしない (新規ユーザー)', () => {
+			expect(migrateLegacyProgress(legacyScope, targetScope, 1)).toBe('no-legacy');
+			expect(localStorage.getItem(`tutorial-progress:${targetScope}:chapter`)).toBeNull();
+		});
+	});
+
 	describe('子供 layout の配線', () => {
 		const layout = readFileSync(join(REPO_ROOT, 'src/routes/(child)/+layout.svelte'), 'utf8');
 
-		it('setChapters には子供 ID 付きの scope を渡し、旧 key を捨てる', () => {
+		it('setChapters には子供 ID 付きの scope を渡し、旧 key は人数を見て後始末する', () => {
 			expect(layout).toMatch(/getChildTutorialProgressScope\(data\.child\.id,\s*uiMode\)/);
-			expect(layout).toMatch(
-				/discardSavedProgress\(getLegacyChildTutorialProgressScope\(uiMode\)\)/,
-			);
+			expect(layout).toMatch(/migrateLegacyProgress\(/);
+			expect(layout).toMatch(/data\.allChildren\?\.length/);
+			// 無条件に捨てる旧実装に戻していない
+			expect(layout).not.toMatch(/discardSavedProgress\(/);
 		});
 
 		it('家族共有の scope literal (child:<uiMode>) を直接渡さない', () => {

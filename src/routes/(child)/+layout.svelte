@@ -40,7 +40,7 @@ import {
 	getLegacyChildTutorialProgressScope,
 } from '$lib/ui/tutorial/tutorial-chapters-child';
 import {
-	discardSavedProgress,
+	migrateLegacyProgress,
 	setChapters,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
@@ -99,13 +99,16 @@ onMount(() => {
 		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
 		// #4651 (a): 進捗 key を子供ガイドの namespace に分ける
 		// #4765 PO 回答 (2026-09-03): さらに**子供ごと**に分ける (兄の進捗で弟のガイドが飛ばない)。
-		//   それ以前の家族共有 key は誰の進捗か判別できないので読まずに捨てる
+		//   それ以前の家族共有 key は、持ち主が一意に決まるとき (子供 1 人) だけ引き継ぎ、
+		//   決まらないとき (2 人以上) は捨てる。端末ごとに 1 回だけ走る (per-mount で走らせない)
 		if (data.child) {
-			setChapters(
-				getChildTutorialChapters(uiMode),
-				getChildTutorialProgressScope(data.child.id, uiMode),
+			const scope = getChildTutorialProgressScope(data.child.id, uiMode);
+			setChapters(getChildTutorialChapters(uiMode), scope);
+			migrateLegacyProgress(
+				getLegacyChildTutorialProgressScope(uiMode),
+				scope,
+				data.allChildren?.length ?? 0,
 			);
-			discardSavedProgress(getLegacyChildTutorialProgressScope(uiMode));
 		}
 	}
 
