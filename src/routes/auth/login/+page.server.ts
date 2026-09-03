@@ -17,7 +17,7 @@ import {
 	PARENT_LANDING,
 	resolvePostLoginLanding,
 } from '$lib/server/auth/post-login-landing';
-import { authenticateDevUser } from '$lib/server/auth/providers/cognito-dev';
+import { authenticateDevUser, listDevLoginAccounts } from '$lib/server/auth/providers/cognito-dev';
 import { signDevIdentityToken } from '$lib/server/auth/providers/cognito-dev-jwt';
 import {
 	authenticateWithCognito,
@@ -67,8 +67,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		redirect(302, resolveLoginTarget(next, locals.context?.role ?? null));
 	}
 
+	const devMode = isCognitoDevMode();
 	return {
-		devMode: isCognitoDevMode(),
+		devMode,
+		// dev ログイン画面の案内 (owner / parent / child)。値は cognito-dev.ts の DEV_USERS (SSOT) から
+		// 引き、画面に literal を持たない (QM #4832 残置指摘)。cognito-dev 以外では空
+		devAccounts: devMode ? listDevLoginAccounts() : [],
 		next,
 	};
 };

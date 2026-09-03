@@ -258,3 +258,20 @@ describe('confirmCode action — refresh token cookie (#3022)', () => {
 		expect(mockSetRefreshCookie).toHaveBeenCalledWith(event.cookies, 'auto-refresh-token');
 	});
 });
+
+// #4834: dev 案内 (DEV_USERS の資格情報) は cognito-dev でしか page data に載らない。
+// load を触る改修で三項演算子が外れても CI で落ちるよう固定する。
+describe('login load — dev 案内の資格情報 (#4834)', () => {
+	it('cognito-dev でない (isCognitoDevMode=false) と devAccounts は空で、password が page data に出ない', async () => {
+		const { load } = await import('../../../src/routes/auth/login/+page.server');
+		const event = {
+			locals: { authenticated: false, identity: null, context: null, isDemo: false },
+			url: new URL('http://localhost/auth/login'),
+		};
+		// biome-ignore lint/suspicious/noExplicitAny: PageServerLoad の event 型を最小限で満たす
+		const data = (await (load as any)(event)) as { devMode: boolean; devAccounts: unknown[] };
+		expect(data.devMode).toBe(false);
+		expect(data.devAccounts).toEqual([]);
+		expect(JSON.stringify(data)).not.toMatch(/password/i);
+	});
+});

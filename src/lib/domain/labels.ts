@@ -5866,9 +5866,12 @@ export const LOGIN_LABELS = {
 
 	// Dev mode test accounts
 	devAccountsSummary: 'テスト用アカウント',
-	devAccountOwnerRole: '(管理者)',
-	devAccountParentRole: '(親)',
-	devAccountChildRole: `(${CHILD_TERMS.honorific})`,
+	/** dev 案内の role 表示 (login/+page.svelte が DEV_USERS 由来の role から引く) */
+	devAccountRoles: {
+		owner: '(管理者)',
+		parent: '(親)',
+		child: `(${CHILD_TERMS.honorific})`,
+	} as Record<'owner' | 'parent' | 'child', string>,
 } as const;
 
 /**

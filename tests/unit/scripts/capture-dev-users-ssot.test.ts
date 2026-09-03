@@ -4,7 +4,8 @@
 // Playwright E2E (.ts) はそれぞれ helper (scripts/capture-specs/lib/dev-users.mjs /
 // tests/e2e/helpers/dev-users.ts) で SSOT のソースを読んで取り出す。
 // - 両 helper の取り出し結果が SSOT の DEV_USERS と 1:1 で一致すること (regex が書式変更で黙って壊れない)
-// - flow / E2E / scripts に password の literal 複製が残っていないこと (QM #4831: 29 flow + E2E 44 箇所に散在していた)
+// - scripts / tests/e2e / src / docs に password の literal 複製が残っていないこと
+//   (QM #4831: 29 flow + E2E 44 箇所、#4834: login 画面の案内 3 行 + docs/security に散在していた)
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,13 +15,14 @@ import * as e2eHelper from '../../e2e/helpers/dev-users';
 // biome-ignore lint/suspicious/noExplicitAny: .mjs には型が無い
 const mjsHelper: any = await import('../../../scripts/capture-specs/lib/dev-users.mjs');
 
-// repo 走査 test (tests/CLAUDE.md §repo 走査 test、#4085): scripts + tests/e2e を歩くため明示 timeout
+// repo 走査 test (tests/CLAUDE.md §repo 走査 test、#4085): scripts / tests/e2e / src / docs を歩くため明示 timeout
 vi.setConfig({ testTimeout: 60_000 });
 
 const REPO_ROOT = join(__dirname, '../../..');
 /** literal 複製を禁止する範囲 (SSOT 本体と helper 自身は除く) */
-const SCAN_DIRS = ['scripts', 'tests/e2e'];
+const SCAN_DIRS = ['scripts', 'tests/e2e', 'src', 'docs'];
 const EXEMPT = new Set([
+	'src/lib/server/auth/providers/cognito-dev.ts',
 	'scripts/capture-specs/lib/dev-users.mjs',
 	'tests/e2e/helpers/dev-users.ts',
 ]);
@@ -30,7 +32,7 @@ function walk(dir: string, out: string[] = []): string[] {
 		const full = join(dir, name);
 		if (name === 'node_modules') continue;
 		if (statSync(full).isDirectory()) walk(full, out);
-		else if (/\.(ts|mjs|js|cjs)$/.test(name)) out.push(full);
+		else if (/\.(ts|mjs|js|cjs|svelte|md)$/.test(name)) out.push(full);
 	}
 	return out;
 }
@@ -56,7 +58,7 @@ describe('dev 専用資格情報 (DEV_USERS) の SSOT', () => {
 		expect(() => e2eHelper.devUser('nobody@example.com')).toThrow();
 	});
 
-	it('scripts / tests/e2e に DEV_USERS の password literal が複製されていない', () => {
+	it('scripts / tests/e2e / src / docs に DEV_USERS の password literal が複製されていない', () => {
 		const passwords = DEV_USERS.map((u) => u.password);
 		const offenders: string[] = [];
 		for (const dir of SCAN_DIRS) {

@@ -394,9 +394,9 @@ Checkout Session ID が URL パラメータとしてブラウザに渡される�
 
 ```typescript
 export const DEV_USERS: DevUser[] = [
-    { email: 'owner@example.com', password: 'Gq!Dev#Owner2026x', ... },
-    { email: 'parent@example.com', password: 'Gq!Dev#Parent2026', ... },
-    { email: 'child@example.com', password: 'Gq!Dev#Child2026x', ... },
+    { email: 'owner@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
+    { email: 'parent@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
+    { email: 'child@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
 ];
 ```
 
@@ -406,10 +406,12 @@ export const DEV_USERS: DevUser[] = [
 - 本番環境では `COGNITO_DEV_MODE` は未設定のため、直接的なリスクは低い
 - ただし、環境変数の設定ミスが発生した場合の影響は大きい
 
-**推奨対策**:
+**対策 (#4834、実装済)**:
 
-1. `isProduction` フラグによる二重チェックを追加する
-2. Lambda 環境（`AWS_LAMBDA_FUNCTION_NAME` が設定されている場合）では dev モードを強制的に無効化する
+- `isCognitoDevMode()` (`src/lib/server/auth/auth-mode.ts`) が、生の `AWS_LAMBDA_FUNCTION_NAME` / `IS_NUC_DEPLOY=true` / `resolveRuntimeMode` = `aws-prod` | `nuc-prod` のいずれかで dev モードを無効化する (fail-closed、拒否時はプロセスで 1 回 warn)。`NODE_ENV` では判定しない (`vite preview` の e2e-cognito-dev lane は `NODE_ENV=production` で正当に使う)。**Lambda は runtime が `AWS_LAMBDA_FUNCTION_NAME` を必ず設定するため config で解除できない。一方 `IS_NUC_DEPLOY` / `APP_MODE` は repo の出荷物 (infra / Dockerfile / compose) が設定しておらず、NUC セルフホストは operator が自分の env で `AUTH_MODE=cognito` + `COGNITO_DEV_MODE=true` を置かない限り dev モードに入らない (dev モードは `AUTH_MODE=cognito` でしか効かない)。NUC 側の遮断は operator の env 規律に依存する (残存リスク、selfhost 案内で `COGNITO_DEV_MODE` を本番 env に置かないことを明記する)**
+- `src/hooks.server.ts` の rate limit / 再同意 gate の dev 除外も同関数を使う (生の `process.env` 判定を残すと Lambda 誤設定時に gate だけ外れる「半分 dev」になる)
+- `/auth/login` の案内は `listDevLoginAccounts()` で DEV_USERS (SSOT) から導出し、cognito-dev 以外では page data に載らない
+- 回帰固定: `tests/unit/auth/cognito-dev-mode-guard-4834.test.ts` / `tests/unit/auth/cognito-dev-login-hint-4834.test.ts` / `tests/unit/services/login-actions.test.ts` (load) / `tests/unit/scripts/capture-dev-users-ssot.test.ts` (password literal の複製禁止)
 
 ---
 
