@@ -363,12 +363,12 @@ export const actions: Actions = {
 		const result = await recordActivity(childId, activityId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_RECORDED') {
-				return fail(409, { error: 'きょうはもうきろくしたよ！' });
+				return fail(409, { error: childErrors(params).alreadyRecordedToday });
 			}
 			if (result.error === 'DAILY_LIMIT_REACHED') {
-				return fail(409, { error: 'きょうはこれいじょうきろくできないよ' });
+				return fail(409, { error: childErrors(params).dailyLimitReached });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return {
@@ -409,9 +409,9 @@ export const actions: Actions = {
 		const result = await cancelActivityLog(logId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'CANCEL_EXPIRED') {
-				return fail(410, { error: 'とりけしじかんがすぎたよ' });
+				return fail(410, { error: childErrors(params).cancelWindowPassed });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return { success: true, cancelled: true, refundedPoints: result.refundedPoints };
@@ -428,9 +428,9 @@ export const actions: Actions = {
 		const result = await claimLoginBonus(childId, tenantId);
 		if ('error' in result) {
 			if (result.error === 'ALREADY_CLAIMED') {
-				return fail(409, { error: 'きょうのボーナスはもうもらったよ！' });
+				return fail(409, { error: childErrors(params).bonusAlreadyClaimed });
 			}
-			return fail(404, { error: 'みつかりません' });
+			return fail(404, { error: childErrors(params).notFound });
 		}
 
 		return {
@@ -445,7 +445,7 @@ export const actions: Actions = {
 	},
 
 	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
-	loginStamp: async ({ cookies, locals }) => {
+	loginStamp: async ({ cookies, locals, params }) => {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
 		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
@@ -476,7 +476,7 @@ export const actions: Actions = {
 		}
 
 		if (!bonus && !stamp) {
-			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
+			return fail(409, { error: childErrors(params).stampAlreadyToday });
 		}
 
 		// 3. Auto-redeem previous week's card (if available)
@@ -567,15 +567,16 @@ export const actions: Actions = {
 
 		const result = await stampToday(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_STAMPED') return fail(409, { error: 'きょうはもうおしたよ' });
-			if (result.error === 'CARD_FULL') return fail(409, { error: 'カードがいっぱいだよ' });
+			if (result.error === 'ALREADY_STAMPED')
+				return fail(409, { error: childErrors(params).stampAlreadyPressed });
+			if (result.error === 'CARD_FULL') return fail(409, { error: childErrors(params).cardFull });
 			if (result.error === 'NO_STAMPS_AVAILABLE') {
 				logger.error('[stampCard] NO_STAMPS_AVAILABLE — onboarding seed missing', {
 					context: { childId, tenantId },
 				});
-				return fail(503, { error: 'いまスタンプをおせません。あとでもういちどためしてね' });
+				return fail(503, { error: childErrors(params).stampUnavailable });
 			}
-			return fail(400, { error: 'スタンプをおせませんでした' });
+			return fail(400, { error: childErrors(params).stampFailed });
 		}
 
 		return {
@@ -594,9 +595,10 @@ export const actions: Actions = {
 
 		const result = await redeemStampCard(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_REDEEMED') return fail(409, { error: 'もうこうかんしたよ' });
-			if (result.error === 'EMPTY_CARD') return fail(400, { error: 'スタンプがないよ' });
-			return fail(400, { error: 'こうかんできませんでした' });
+			if (result.error === 'ALREADY_REDEEMED')
+				return fail(409, { error: childErrors(params).alreadyRedeemed });
+			if (result.error === 'EMPTY_CARD') return fail(400, { error: childErrors(params).emptyCard });
+			return fail(400, { error: childErrors(params).redeemFailed });
 		}
 
 		return {
@@ -615,10 +617,11 @@ export const actions: Actions = {
 
 		const result = await claimBirthdayBonus(childId, tenantId);
 		if ('error' in result) {
-			if (result.error === 'ALREADY_CLAIMED') return fail(409, { error: 'もうもらったよ' });
+			if (result.error === 'ALREADY_CLAIMED')
+				return fail(409, { error: childErrors(params).bonusAlreadyReceived });
 			if (result.error === 'NOT_ELIGIBLE')
-				return fail(400, { error: 'おたんじょうびボーナスはありません' });
-			return fail(400, { error: 'ボーナスをもらえませんでした' });
+				return fail(400, { error: childErrors(params).noBirthdayBonus });
+			return fail(400, { error: childErrors(params).bonusClaimFailed });
 		}
 
 		return {

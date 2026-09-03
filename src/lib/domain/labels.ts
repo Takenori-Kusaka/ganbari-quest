@@ -242,13 +242,6 @@ export const PAGE_TITLES = {
 // 汎用 UI メッセージ (#1452 Phase B)
 // ============================================================
 
-/**
- * 「すべてのデータを削除する」操作の呼称 (#4716)。
- *
- * 旧「データクリア」は内部語で、同意チェックの「すべてのデータを削除することに同意します」と
- * 別語だったため、同じ操作が 2 つあるように読めた。実行内容をそのまま名乗る 1 語に寄せる。
- */
-
 export const UI_LABELS = {
 	// #4716: 「この日から」を表す接尾辞。子供画面の週次チャレンジ履歴などで使う。
 	dateFromSuffix: '〜',
@@ -3376,6 +3369,23 @@ export const CHILD_ACTION_ERROR_LABELS = {
 	/** 活動のピン留め (おきにいり) 拒否理由。service 層の code に 1:1 で対応する。 */
 	pinActivityNotFound: 'その かつどうが みつからなかったよ',
 	pinLimitExceeded: (max: number) => `おきにいりは ${max}こまでだよ`,
+	// #4716 (QM #4802): home の action が直書きしていた失敗文言。年齢帯 variant は KANJI 側と key を揃える
+	alreadyRecordedToday: 'きょうはもうきろくしたよ！',
+	dailyLimitReached: 'きょうはこれいじょうきろくできないよ',
+	notFound: 'みつかりません',
+	cancelWindowPassed: 'とりけしじかんがすぎたよ',
+	bonusAlreadyClaimed: 'きょうのボーナスはもうもらったよ！',
+	stampAlreadyToday: 'きょうはもうスタンプをおしたよ！',
+	stampAlreadyPressed: 'きょうはもうおしたよ',
+	cardFull: 'カードがいっぱいだよ',
+	stampUnavailable: 'いまスタンプをおせません。あとでもういちどためしてね',
+	stampFailed: 'スタンプをおせませんでした',
+	alreadyRedeemed: 'もうこうかんしたよ',
+	emptyCard: 'スタンプがないよ',
+	redeemFailed: 'こうかんできませんでした',
+	bonusAlreadyReceived: 'もうもらったよ',
+	noBirthdayBonus: 'おたんじょうびボーナスはありません',
+	bonusClaimFailed: 'ボーナスをもらえませんでした',
 } as const;
 
 /**
@@ -3392,6 +3402,22 @@ const CHILD_ACTION_ERROR_LABELS_KANJI = {
 	unexpected: 'うまくいきませんでした。もう一度お試しください',
 	pinActivityNotFound: 'その活動が見つかりませんでした',
 	pinLimitExceeded: (max: number) => `お気に入りは${max}個までです`,
+	alreadyRecordedToday: '今日はもう記録しました',
+	dailyLimitReached: '今日はこれ以上記録できません',
+	notFound: '見つかりません',
+	cancelWindowPassed: '取り消しできる時間を過ぎました',
+	bonusAlreadyClaimed: '今日のボーナスは受け取り済みです',
+	stampAlreadyToday: '今日はもうスタンプを押しました',
+	stampAlreadyPressed: '今日はもう押しました',
+	cardFull: 'カードがいっぱいです',
+	stampUnavailable: 'いまスタンプを押せません。あとでもう一度お試しください',
+	stampFailed: 'スタンプを押せませんでした',
+	alreadyRedeemed: 'もう交換しました',
+	emptyCard: 'スタンプがありません',
+	redeemFailed: '交換できませんでした',
+	bonusAlreadyReceived: '受け取り済みです',
+	noBirthdayBonus: '誕生日ボーナスはありません',
+	bonusClaimFailed: 'ボーナスを受け取れませんでした',
 } as const;
 
 /**
@@ -4153,13 +4179,6 @@ export const SETTINGS_LABELS = {
 	clearSubmitting: `${BACKUP_TERMS.clearAll}しています…`,
 	clearSubmitButton: BACKUP_TERMS.clearAll,
 	clearFailed: `${BACKUP_TERMS.clearAll}に失敗しました`,
-	// #4716 item 15: /admin/settings/account と /admin/settings/activities /
-	//   /admin/settings/notifications に直書きされていた顧客可視文言を SSOT へ。
-	accountDeleteConfirmPhrase: 'アカウントを削除します',
-	accountDeleteConfirmInputLabel: '確認のため「アカウントを削除します」と入力してください',
-	reminderTimeFieldLabel: 'リマインダー時刻',
-	quietHoursFieldLabel: 'サイレント時間帯',
-	quietHoursFieldHint: 'この時間帯は通知を送信しません',
 	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
 	//   旧実装はプランに依らない固定文で「元に戻せません」と断定しており、猶予のある有料プラン
 	//   では直上の notice (「N 日間は復元で取り消せます」) と正面から矛盾していた。最も不可逆性の
