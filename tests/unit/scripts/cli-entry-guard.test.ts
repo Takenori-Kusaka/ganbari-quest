@@ -437,6 +437,13 @@ describe('meta-gate — gate が no-op で exit 0 を返さない (#3969)', () =
 describe.skipIf(!SYMLINK_OK)(
 	'symlink 経由と実体経由で主要 gate の結果が一致する (#3969 AC3)',
 	() => {
+		// 1 case で node を 2 回 spawn する (実体経由 / symlink 経由)。unit lane の並列実行で CPU / FS を
+		// 奪い合うと既定 5s (vite.config.ts) を超える — 実測 (CI shard 1、2026-09-03):
+		// check-new-required-env.mjs が 6050ms で timeout する一方、同 commit の単独実行は 39 passed。
+		// 「落ちても壊れていない」失敗を各 PR に配らないよう、spawn 分の明示 timeout を class として置く
+		// (tests/CLAUDE.md §「全体実行だと落ち単独だと通る」— timeout を都度伸ばすのではなく 1 回宣言する)。
+		const PROBE_TIMEOUT_MS = 30_000;
+
 		const PROBE_SCRIPTS = [
 			'pre-ready.mjs',
 			'check-pr-body.mjs',
@@ -460,21 +467,25 @@ describe.skipIf(!SYMLINK_OK)(
 		});
 
 		for (const script of PROBE_SCRIPTS) {
-			it(`${script}`, () => {
-				const args = [path.join('scripts', script), '--help'];
-				const viaReal = spawnSync(process.execPath, args, { cwd: REPO_ROOT, encoding: 'utf8' });
-				const viaLink = spawnSync(process.execPath, args, { cwd: linkedRoot, encoding: 'utf8' });
+			it(
+				`${script}`,
+				() => {
+					const args = [path.join('scripts', script), '--help'];
+					const viaReal = spawnSync(process.execPath, args, { cwd: REPO_ROOT, encoding: 'utf8' });
+					const viaLink = spawnSync(process.execPath, args, { cwd: linkedRoot, encoding: 'utf8' });
 
-				const realOut = `${viaReal.stdout ?? ''}${viaReal.stderr ?? ''}`.trim();
-				const linkOut = `${viaLink.stdout ?? ''}${viaLink.stderr ?? ''}`.trim();
+					const realOut = `${viaReal.stdout ?? ''}${viaReal.stderr ?? ''}`.trim();
+					const linkOut = `${viaLink.stdout ?? ''}${viaLink.stderr ?? ''}`.trim();
 
-				// 実体経由で無出力なら probe 自体が無効なので、まずそこを守る
-				expect(realOut, '実体経由で無出力 (probe が無効)').not.toBe('');
-				// 本 Issue の事故形: symlink 経由だけ main() 未実行で無出力 exit 0 になる
-				expect(linkOut, 'symlink 経由で無出力 (main() 未実行の疑い)').not.toBe('');
-				expect(linkOut).toBe(realOut);
-				expect(viaLink.status).toBe(viaReal.status);
-			});
+					// 実体経由で無出力なら probe 自体が無効なので、まずそこを守る
+					expect(realOut, '実体経由で無出力 (probe が無効)').not.toBe('');
+					// 本 Issue の事故形: symlink 経由だけ main() 未実行で無出力 exit 0 になる
+					expect(linkOut, 'symlink 経由で無出力 (main() 未実行の疑い)').not.toBe('');
+					expect(linkOut).toBe(realOut);
+					expect(viaLink.status).toBe(viaReal.status);
+				},
+				PROBE_TIMEOUT_MS,
+			);
 		}
 	},
 );
