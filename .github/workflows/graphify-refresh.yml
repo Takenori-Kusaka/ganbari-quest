@@ -89,7 +89,9 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --ignore-scripts --no-audit --no-fund
-          npx svelte-kit sync
+          # --no-install: npm ci が @sveltejs/kit を入れているので registry を引く必要はない。
+          # App token を発行する job 内に「無い時に取りに行く」経路を残さない (adv-4837 指摘)
+          npx --no-install svelte-kit sync
           test -f .svelte-kit/tsconfig.json
 
       - name: Regenerate knowledge graph
@@ -106,10 +108,12 @@ jobs:
             const g = JSON.parse(fs.readFileSync("graphify-out/graph.json", "utf8"));
             const nodes = Array.isArray(g.nodes) ? g.nodes : [];
             if (nodes.length === 0) throw new Error("graph.json に node がありません (生成に失敗)");
-            const FIELDS = ["source_file", "path", "id", "label"];
-            const pseudo = nodes.filter((n) => FIELDS.some((k) => String(n[k] ?? "").includes("$lib/")));
+            // 擬似 node は「source_file が $lib/ で始まる」形で出る (実測: 低忠実度 graph 203 件すべて)。
+            // slash 込みで前方一致に絞る — slash 無しだと tsconfig.depcruise.json の paths key `$lib` と
+            // .cspell.json の正規表現を巻き込んで偽陽性になる (どちらも alias 解決とは無関係)。
+            const pseudo = nodes.filter((n) => String(n.source_file ?? "").startsWith("$lib/"));
             if (pseudo.length > 0) {
-              console.error("::error::$lib 擬似 node が " + pseudo.length + " 件あります (例: " + JSON.stringify(pseudo[0]).slice(0, 200) + ")。svelte-kit sync が効いておらず低忠実度の graph です。");
+              console.error("::error::$lib 擬似 node が " + pseudo.length + " 件あります (例: " + String(pseudo[0].source_file) + ")。tsconfig の $lib alias が解決されていません — 直前の svelte-kit sync が失敗したか、tsconfig.json の extends / paths が変わった可能性があります。低忠実度の graph なので bot PR は発行しません。");
               process.exit(1);
             }
             console.log("node " + nodes.length + " / $lib 擬似 node 0 — alias 解決 OK");
@@ -147,7 +151,15 @@ jobs:
       - name: Assert working tree clean outside graphify-out
         run: |
           set -euo pipefail
-          DIRTY=$(git status --porcelain | grep -v '^.. graphify-out/' || true)
+          # `git status | grep -v ... || true` と書くと git 自体の失敗まで `|| true` が飲み込み、
+          # tree が汚れていても検査が通る (fail-open)。git の終了 status を先に確定させてから絞る。
+          if ! STATUS=$(git status --porcelain); then
+            echo "::error::git status に失敗しました。App token を発行せず中止します。"
+            exit 1
+          fi
+          # grep の `|| true` は「一致行が無い = clean」の正常系を拾うためのもの。
+          # git の失敗は上で先に落としてあるので、ここで fail-open にはならない。
+          DIRTY=$(echo "${STATUS}" | grep -v '^.. graphify-out/' || true)
           if [ -n "${DIRTY}" ]; then
             echo "::error::graphify-out 以外に変更があります。App token を発行せず中止します:"
             echo "${DIRTY}"
