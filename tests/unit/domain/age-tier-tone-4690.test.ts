@@ -16,10 +16,12 @@ import { CATEGORIES, CATEGORY_CODES } from '../../../src/lib/domain/categories';
 import {
 	getCategoryDisplayName,
 	getChallengeReason,
+	getChildChecklistLabels,
 	getChildErrorPageLabels,
 	getChildHomeLabels,
 	getChildNavModeLabels,
 	getChildShopLabels,
+	getChildStampLabels,
 	getChildStatusLabels,
 } from '../../../src/lib/domain/labels';
 
@@ -165,6 +167,12 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		'かいめ！',
 		'つかいかた ガイド あるよ',
 		'チャレンジきろく',
+		// #4841: 持ち物チェック / ログインボーナス受取 (押印演出・スタンプカード)
+		'にちれんぞく',
+		'おしたよ',
+		'きょうはもうおした',
+		'おうちの人に追加してもらおう',
+		'ぜんぶできた',
 	];
 
 	it('ショップ / ステータス / ホームの文言に禁止語が残っていない', () => {
@@ -204,5 +212,61 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		expect(getCategoryDisplayName('1', 'senior')).toBe(CATEGORIES.undou.kanjiName);
 		// 未知の値は空文字（呼び出し側が既存値へ fallback する）
 		expect(getCategoryDisplayName('unknown-category', 'senior')).toBe('');
+	});
+});
+
+describe('#4841: 持ち物チェック / ログインボーナス受取が年齢帯を持つ', () => {
+	/** ひらがな側 (baby / preschool / elementary) に漢字変種が漏れていないこと。 */
+	const KANJI_OVERRIDE_VALUES = ['OK', '全部達成！', '日連続！', '次へ', '今日は押印済み'];
+
+	it('junior / senior のチェックリストが幼児文体に着地しない', () => {
+		for (const uiMode of KANJI_MODES) {
+			const t = getChildChecklistLabels({ ageTier: uiMode });
+			expect(t.completeButton, uiMode).toBe('OK');
+			expect(t.emptyDesc, uiMode).not.toContain('おうちの人');
+			expect(t.dayNames[0], uiMode).toBe('日曜日');
+		}
+	});
+
+	it('junior / senior のログインボーナス受取 (押印 / スタンプカード) が漢字文体になる', () => {
+		for (const uiMode of KANJI_MODES) {
+			const t = getChildStampLabels(uiMode);
+			expect(t.stampPressStreakLabel(3), uiMode).toBe('3日連続！');
+			expect(t.stampPressConfirmBtn, uiMode).toBe('OK');
+			expect(t.stampPressNextBtn, uiMode).toBe('次へ');
+			expect(t.stampCardStampedToday, uiMode).not.toContain('おした');
+			expect(t.stampPressWeeklyCount(3, 5), uiMode).not.toContain('おしたよ');
+		}
+	});
+
+	it('preschool / elementary は従来どおりひらがなのまま (漢字変種が漏れていない)', () => {
+		for (const uiMode of ['baby', 'preschool', 'elementary'] as const) {
+			const stamp = getChildStampLabels(uiMode);
+			expect(stamp.stampPressStreakLabel(3), uiMode).toBe('3にちれんぞく！');
+			expect(stamp.stampPressConfirmBtn, uiMode).toBe('やったね！');
+			expect(stamp.stampCardStampedToday, uiMode).toContain('おした');
+			const texts = stringsOf(stamp).join('\n');
+			for (const value of KANJI_OVERRIDE_VALUES) {
+				expect(texts, `${uiMode} に漢字変種「${value}」が漏れている`).not.toContain(value);
+			}
+		}
+		// チェックリストは elementary が漢字ベース (#4509) なので、ひらがな判定は baby / preschool のみ
+		for (const uiMode of HIRAGANA_MODES) {
+			const t = getChildChecklistLabels({ ageTier: uiMode });
+			expect(t.completeButton, uiMode).toBe('やったね！');
+			expect(t.dayNames[0], uiMode).toBe('にちようび');
+		}
+	});
+
+	it('ログインボーナス受取 UI が画面側で年齢帯を判定していない (labels SSOT 経由)', () => {
+		for (const file of [
+			'src/lib/ui/components/StampPressOverlay.svelte',
+			'src/lib/ui/components/StampCard.svelte',
+		]) {
+			const src = readFileSync(resolve(REPO_ROOT, file), 'utf-8');
+			expect(src, file).toContain('getChildStampLabels(uiMode)');
+			// 画面側の年齢帯分岐 (アンチパターン A1) が再発していないこと
+			expect(src, file).not.toMatch(/uiMode ===\s*'(baby|preschool|elementary|junior|senior)'/);
+		}
 	});
 });

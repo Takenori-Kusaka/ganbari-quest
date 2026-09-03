@@ -7,7 +7,13 @@
  *
  * env:
  *   CHILD_TONE_UI_MODES  撮る年齢帯（カンマ区切り、既定 `preschool,junior,senior`）
- *   CHILD_TONE_PAGES     子供ルート配下のパス（カンマ区切り、既定 `home,shop,status,challenges`）
+ *   CHILD_TONE_PAGES     子供ルート配下のパス（カンマ区切り、既定 `home,shop,status,challenges`）。
+ *                        先頭が `/` の項目は `/{mode}/` を挟まずそのまま開く（`/checklist` のように
+ *                        `[uiMode]` 配下に無い子供ルート用）
+ *   CHILD_TONE_LOGIN_BONUS  `1` なら子供選択直後に出るログインボーナス (押印) 演出も撮る
+ *                        （当日未受取の fixture でのみ開く。開かなければ warn して先へ進む）
+ *   CHILD_TONE_STAMP_CARD   `1` ならヘッダーのスタンプカード dialog も開いて撮る
+ *   CHILD_TONE_PREFIX    撮影ラベルの接頭辞（Before / After を撮り分けるとき `before-` / `after-`）
  *
  * 使用例 (BASE_URL は AUTH_MODE=anonymous DATA_SOURCE=demo で起動した dev server):
  *   MSYS_NO_PATHCONV=1 BASE_URL=http://localhost:5190 node scripts/capture.mjs \
@@ -24,6 +30,9 @@ import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const UI_MODES = (process.env.CHILD_TONE_UI_MODES || 'preschool,junior,senior').split(',');
 const PAGES = (process.env.CHILD_TONE_PAGES || 'home,shop,status,challenges').split(',');
+const CAPTURE_LOGIN_BONUS = process.env.CHILD_TONE_LOGIN_BONUS === '1';
+const CAPTURE_STAMP_CARD = process.env.CHILD_TONE_STAMP_CARD === '1';
+const PREFIX = process.env.CHILD_TONE_PREFIX ?? '';
 
 /** demo fixture の uiMode → childId（`scripts/capture-hp-screenshots.mjs` と同じ対応表）。 */
 const CHILD_ID_BY_UI_MODE = {
@@ -86,9 +95,48 @@ export default async (page, capture) => {
 			console.warn(`[child-age-tone-4690] unknown uiMode: ${mode}`);
 			continue;
 		}
+		if (CAPTURE_LOGIN_BONUS) {
+			// 子供選択直後の home で自動 claim → StampPressOverlay。points フェーズ (確定ボタン表示) まで待つ。
+			// demo fixture で当日 claim 済の子供 (DEMO_LOGIN_STREAKS) は overlay が出ないので warn して先へ進む。
+			const shown = await page
+				.getByTestId('login-bonus-confirm')
+				.waitFor({ state: 'visible', timeout: 20_000 })
+				.then(() => true)
+				.catch(() => false);
+			if (shown) {
+				await waitForStablePage(page);
+				await capture(`${PREFIX}child-${mode}-login-bonus`);
+			} else {
+				console.warn(
+					`[child-age-tone-4690] ${mode}: ログインボーナス演出が出ませんでした (claim 済 fixture?)`,
+				);
+			}
+		}
+		if (CAPTURE_STAMP_CARD) {
+			// ヘッダーの「💮 n/5」からスタンプカード dialog を開く (年齢帯で文言が変わる)
+			const trigger = page.getByTestId('header-stamp-btn');
+			const shown = await trigger
+				.waitFor({ state: 'visible', timeout: 20_000 })
+				.then(() => true)
+				.catch(() => false);
+			if (shown) {
+				await trigger.click();
+				await page.getByTestId('stamp-card').waitFor({ state: 'visible', timeout: 20_000 });
+				await waitForStablePage(page);
+				await capture(`${PREFIX}child-${mode}-stamp-card`);
+				await page.keyboard.press('Escape');
+			} else {
+				console.warn(
+					`[child-age-tone-4690] ${mode}: スタンプカードのヘッダーボタンが出ませんでした`,
+				);
+			}
+		}
 		for (const path of PAGES) {
 			// client-side router を経由せず、毎回まっさらな document から開く。
-			await freshGoto(page, `${BASE_URL}/${mode}/${path}?screenshot=all`);
+			const url = path.startsWith('/')
+				? `${BASE_URL}${path}?screenshot=all`
+				: `${BASE_URL}/${mode}/${path}?screenshot=all`;
+			await freshGoto(page, url);
 			// 本文が入るまで待つ。`main` の可視化だけでは skeleton の瞬間を撮って全白 PNG になる。
 			await page.waitForFunction(
 				() => {
@@ -99,7 +147,7 @@ export default async (page, capture) => {
 				{ timeout: 20_000 },
 			);
 			await waitForStablePage(page);
-			await capture(`child-${mode}-${path}`);
+			await capture(`${PREFIX}child-${mode}-${path.replace(/^\//, '')}`);
 		}
 	}
 };

@@ -5753,6 +5753,9 @@ const CHILD_HOME_KANJI_OVERRIDES = {
 	resultConfirmButton: 'OK',
 	mustRemaining: (n: number | string) => `あと ${n}件`,
 	mustAllComplete: 'すべて達成',
+	// #4841: 読み上げ文だけ「ぜんぶできた」が残り、表示 (すべて達成) と文体が割れていた
+	mustBonusGrantedAriaLabel: (pts: number | string) =>
+		`今日のおやくそく すべて達成 ボーナス ${pts}ポイント`,
 } as const satisfies Partial<ChildHomeLabels>;
 
 /** 子供ホームの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
@@ -8043,6 +8046,20 @@ export const CHILD_CHECKLIST_TIME_SLOT_ICONS: Readonly<Record<string, string>> =
 };
 
 /**
+ * 13-18 歳 (junior / senior) の変種。漢字変種の上に差分だけを重ねる。
+ *
+ * elementary 向けの漢字変種には「やったね！」「おうちの人に追加してもらおう」という
+ * 年少者向けの言い回しが残っており、中高生の画面がそのまま着地していた (docs/DESIGN.md §8)。
+ */
+const CHILD_CHECKLIST_TEEN_OVERRIDES = {
+	emptyDesc: `${PARENT_TERMS.honorific}に追加してもらおう`,
+	completedAll: '🎉 全部達成！',
+	completeTitle: '全部達成！',
+	completeMsg: '忘れ物なし！',
+	completeButton: 'OK',
+} as const satisfies Partial<ChildChecklistTextVariant>;
+
+/**
  * 年齢帯に応じたチェックリスト文言を返す。
  *
  * `ageTier` は必ず呼び出し側から渡すこと (アンチパターン A1: `if (uiMode === 'baby')` 散在の回避)。
@@ -8052,7 +8069,11 @@ export function getChildChecklistLabels(ctx: {
 	ageTier: UiMode | string | null | undefined;
 }): ChildChecklistTextVariant {
 	const tier = normalizeUiMode(ctx.ageTier ?? '');
-	return tier === 'baby' || tier === 'preschool' ? CHILD_CHECKLIST_HIRAGANA : CHILD_CHECKLIST_KANJI;
+	if (tier === 'baby' || tier === 'preschool') return CHILD_CHECKLIST_HIRAGANA;
+	if (tier === 'junior' || tier === 'senior') {
+		return { ...CHILD_CHECKLIST_KANJI, ...CHILD_CHECKLIST_TEEN_OVERRIDES };
+	}
+	return CHILD_CHECKLIST_KANJI;
 }
 
 export const ADMIN_CHECKLISTS_PAGE_LABELS = {
@@ -9518,6 +9539,77 @@ export const USAGE_TIME_LABELS = {
 // src/lib/ui/components/ 配下のハードコード文字列を集約
 // ============================================================
 
+// ============================================================
+// ログインボーナス受取 UI (押印演出 / スタンプカード) の文言 — 年齢帯 variant
+// ============================================================
+//
+// ログインの押印演出 (`StampPressOverlay`) とヘッダーのスタンプカード (`StampCard`) は
+// 年齢帯を持たず、13-18 歳にも「3にちれんぞく！」「きょうはもうおしたよ！」「やったね！」と
+// いう幼児文体が出ていた (docs/DESIGN.md §8)。ひらがなをベースに、junior / senior だけ差分を
+// override で重ねる (`src/routes/CLAUDE.md` §年齢帯 variant)。
+
+/** ログインボーナス受取 UI の文言 (ベース = ひらがな: baby / preschool / elementary)。 */
+export const CHILD_STAMP_LABELS = {
+	// ---- StampCard ----
+	stampCardTitle: 'スタンプカード',
+	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
+	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
+	stampCardComplete: '🎊 コンプリート！',
+	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
+	stampCardStampedToday: '✅ きょうはもうおしたよ！',
+	stampCardRemaining: (remaining: number) => `✨ あと${remaining}回でコンプリート！`,
+
+	// ---- StampPressOverlay ----
+	stampPressWeekLabel: (count: number) => `今週 ${count}回目！`,
+	stampPressStreakLabel: (days: number) => `${days}にちれんぞく！`,
+	stampPressComplete: 'コンプリート！',
+	stampPressCompleteSub: '週末にボーナスポイント！',
+	stampPressRemaining: (remaining: number) => `あと${remaining}回でコンプリート！`,
+	stampPressNextBtn: 'つぎへ',
+	stampPressConfirmBtn: 'やったね！',
+	stampPressWeeklyTitle: '先週のがんばり',
+	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
+	stampPressWeeklyComplete: 'コンプリート！',
+	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
+	stampPressWeeklyMessage: '今週もがんばろう！',
+	/** #4687 ②: 週 5 枠が埋まっている日のログイン (スタンプは押せない) */
+	stampPressAlreadyComplete: '今週はコンプリート！',
+	/** #4687 ③: おみくじログインボーナス (台帳に載る額をそのまま出す) */
+	stampPressLoginBonus: (rank: string, points: number | string) =>
+		`おみくじ ${rank}！ +${points}pt`,
+	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
+	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
+	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+} as const;
+
+/**
+ * ログインボーナス受取 UI の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildStampLabels = {
+	readonly [K in keyof typeof CHILD_STAMP_LABELS]: (typeof CHILD_STAMP_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_STAMP_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_STAMP_KANJI_OVERRIDES = {
+	stampCardRedeemed: (points: number) => `✅ ${points}pt 受け取り済み`,
+	stampCardCompleteSub: '週明けにボーナスポイントを受け取れます',
+	stampCardStampedToday: '✅ 今日は押印済み',
+	stampPressStreakLabel: (days: number) => `${days}日連続！`,
+	stampPressNextBtn: '次へ',
+	stampPressConfirmBtn: 'OK',
+	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
+} as const satisfies Partial<ChildStampLabels>;
+
+/** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildStampLabels(uiMode: string): ChildStampLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_STAMP_LABELS;
+	return { ...CHILD_STAMP_LABELS, ...CHILD_STAMP_KANJI_OVERRIDES };
+}
+
 export const UI_COMPONENTS_LABELS = {
 	// ---- ActivityCard ----
 	activityCardFrozenToast: 'おうちのひとに おねがいしてね',
@@ -9681,36 +9773,8 @@ export const UI_COMPONENTS_LABELS = {
 	specialRewardPoints: (points: number) => `+${points} ポイント！`,
 	specialRewardConfirmBtn: 'やったー！',
 
-	// ---- StampCard ----
-	stampCardTitle: 'スタンプカード',
-	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
-	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
-	stampCardComplete: '🎊 コンプリート！',
-	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
-	stampCardStampedToday: '✅ きょうはもうおしたよ！',
-	stampCardRemaining: (remaining: number) => `✨ あと${remaining}回でコンプリート！`,
-
-	// ---- StampPressOverlay ----
-	stampPressWeekLabel: (count: number) => `今週 ${count}回目！`,
-	stampPressStreakLabel: (days: number) => `${days}にちれんぞく！`,
-	stampPressComplete: 'コンプリート！',
-	stampPressCompleteSub: '週末にボーナスポイント！',
-	stampPressRemaining: (remaining: number) => `あと${remaining}回でコンプリート！`,
-	stampPressNextBtn: 'つぎへ',
-	stampPressConfirmBtn: 'やったね！',
-	stampPressWeeklyTitle: '先週のがんばり',
-	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
-	stampPressWeeklyComplete: 'コンプリート！',
-	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
-	stampPressWeeklyMessage: '今週もがんばろう！',
-	/** #4687 ②: 週 5 枠が埋まっている日のログイン (スタンプは押せない) */
-	stampPressAlreadyComplete: '今週はコンプリート！',
-	/** #4687 ③: おみくじログインボーナス (台帳に載る額をそのまま出す) */
-	stampPressLoginBonus: (rank: string, points: number | string) =>
-		`おみくじ ${rank}！ +${points}pt`,
-	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
-	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
-	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	// ---- StampCard / StampPressOverlay ----
+	// 文言は年齢帯 variant を持つため `getChildStampLabels(uiMode)` が SSOT (本 namespace には置かない)
 	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
 	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
 
@@ -10928,6 +10992,12 @@ export const STORYBOOK_LABELS = {
 	specialRewardOverlay: {
 		title: 'ゲーム 30 分',
 		titleLong: 'にちようびに こうえんで あそぶ',
+	},
+	// #4841: StampPressOverlay (ログインボーナス受取) の年齢帯文体を目視するための固定値。
+	// 実環境 (`DATA_SOURCE=demo`) では当日の押印状態を作れず SS 撮影で描画できないため、
+	// 本 story が junior / senior 文体の視覚証跡になる。
+	stampPressOverlay: {
+		stampName: 'だいきち',
 	},
 	// #4429: AvatarDisplay の見た目確認用。取得失敗時に 👤 へ落ちることを目視できるようにする。
 	avatarDisplay: {
