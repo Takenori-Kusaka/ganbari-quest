@@ -4203,7 +4203,254 @@ h1, h2, h3, h4 {
 		padding: 0.125rem 0.375rem;
 		border-radius: 4px;
 	}
- .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-qm/.claude/worktrees/agent-afe7994d0826b0aaa/src/lib/features/point-flight/PointFlightGhost.svelte?svelte&amp;type=style&amp;lang.css">
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-qm/.claude/worktrees/agent-afe7994d0826b0aaa/src/lib/ui/components/CelebrationEffect.svelte?svelte&amp;type=style&amp;lang.css">
+	.celeb.svelte-dvv180 {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	/* ===== Confetti ===== */
+	.confetti-piece.svelte-dvv180 {
+		position: absolute;
+		top: -10%;
+		left: var(--x);
+		width: 8px;
+		height: 8px;
+		background: var(--color);
+		border-radius: 2px;
+		animation: svelte-dvv180-confetti-fall 1.5s ease-in var(--delay) forwards;
+	}
+
+	@keyframes svelte-dvv180-confetti-fall {
+		0% {
+			transform: translateY(0) rotate(0deg);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(300px) rotate(720deg);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Fireworks ===== */
+	.firework.svelte-dvv180 {
+		position: absolute;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		animation: svelte-dvv180-firework-burst 1s ease-out forwards;
+	}
+
+	.firework--1.svelte-dvv180 {
+		top: 30%;
+		left: 20%;
+		box-shadow:
+			0 0 0 0 #ff6b6b,
+			20px -30px 0 0 #ff6b6b,
+			-20px -30px 0 0 #ff6b6b,
+			30px 0 0 0 #ff6b6b,
+			-30px 0 0 0 #ff6b6b,
+			20px 30px 0 0 #ff6b6b,
+			-20px 30px 0 0 #ff6b6b,
+			0 -40px 0 0 #ff6b6b;
+		animation-delay: 0s;
+	}
+
+	.firework--2.svelte-dvv180 {
+		top: 20%;
+		left: 70%;
+		box-shadow:
+			0 0 0 0 #4ecdc4,
+			20px -30px 0 0 #4ecdc4,
+			-20px -30px 0 0 #4ecdc4,
+			30px 0 0 0 #4ecdc4,
+			-30px 0 0 0 #4ecdc4,
+			20px 30px 0 0 #4ecdc4,
+			-20px 30px 0 0 #4ecdc4,
+			0 -40px 0 0 #4ecdc4;
+		animation-delay: 0.3s;
+	}
+
+	.firework--3.svelte-dvv180 {
+		top: 50%;
+		left: 45%;
+		box-shadow:
+			0 0 0 0 #ffe66d,
+			20px -30px 0 0 #ffe66d,
+			-20px -30px 0 0 #ffe66d,
+			30px 0 0 0 #ffe66d,
+			-30px 0 0 0 #ffe66d,
+			20px 30px 0 0 #ffe66d,
+			-20px 30px 0 0 #ffe66d,
+			0 -40px 0 0 #ffe66d;
+		animation-delay: 0.6s;
+	}
+
+	@keyframes svelte-dvv180-firework-burst {
+		0% {
+			opacity: 0;
+			transform: scale(0);
+		}
+		30% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.5);
+		}
+	}
+
+	/* ===== Stars ===== */
+	.star-particle.svelte-dvv180 {
+		position: absolute;
+		top: var(--x);
+		left: var(--x);
+		width: var(--size);
+		height: var(--size);
+		background: #ffd54f;
+		clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+		animation: svelte-dvv180-star-twinkle 1.5s ease-out var(--delay) forwards;
+	}
+
+	@keyframes svelte-dvv180-star-twinkle {
+		0% {
+			transform: scale(0) rotate(0deg);
+			opacity: 1;
+		}
+		50% {
+			transform: scale(1.2) rotate(180deg);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(0.5) rotate(360deg) translateY(60px);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Cracker ===== */
+	.cracker-piece.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 6px;
+		height: 6px;
+		background: var(--color);
+		border-radius: 50%;
+		animation: svelte-dvv180-cracker-explode 0.8s ease-out var(--delay) forwards;
+		--rad: 80px;
+	}
+
+	@keyframes svelte-dvv180-cracker-explode {
+		0% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+			opacity: 1;
+		}
+		100% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(var(--rad));
+			opacity: 0;
+		}
+	}
+
+	/* ===== Rainbow ===== */
+	.rainbow-ring.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		border-radius: 50%;
+		border: 3px solid transparent;
+		transform: translate(-50%, -50%) scale(0);
+		animation: svelte-dvv180-rainbow-expand 1.2s ease-out forwards;
+	}
+
+	.rainbow-ring--1.svelte-dvv180 {
+		width: 80px;
+		height: 80px;
+		border-color: #ff6b6b #ff9800 #ffe66d #4ecdc4;
+		animation-delay: 0s;
+	}
+
+	.rainbow-ring--2.svelte-dvv180 {
+		width: 140px;
+		height: 140px;
+		border-color: #4ecdc4 #2196f3 #9c27b0 #ff6b6b;
+		animation-delay: 0.2s;
+	}
+
+	.rainbow-ring--3.svelte-dvv180 {
+		width: 200px;
+		height: 200px;
+		border-color: #dda0dd #ff6b6b #ff9800 #ffe66d;
+		animation-delay: 0.4s;
+	}
+
+	@keyframes svelte-dvv180-rainbow-expand {
+		0% {
+			transform: translate(-50%, -50%) scale(0);
+			opacity: 1;
+		}
+		70% {
+			opacity: 0.8;
+		}
+		100% {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Legend ===== */
+	.legend-aura.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 120px;
+		height: 120px;
+		border-radius: 50%;
+		background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
+		transform: translate(-50%, -50%);
+		animation: svelte-dvv180-legend-pulse 1.5s ease-in-out infinite;
+	}
+
+	.legend-particle.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 4px;
+		height: 4px;
+		background: #ffd700;
+		border-radius: 50%;
+		box-shadow: 0 0 6px #ffd700;
+		animation: svelte-dvv180-legend-orbit 2s linear var(--delay) infinite;
+	}
+
+	@keyframes svelte-dvv180-legend-pulse {
+		0%,
+		100% {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 0.4;
+		}
+		50% {
+			transform: translate(-50%, -50%) scale(1.3);
+			opacity: 0.7;
+		}
+	}
+
+	@keyframes svelte-dvv180-legend-orbit {
+		0% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-50px) scale(1);
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.6;
+		}
+		100% {
+			transform: translate(-50%, -50%) rotate(calc(var(--angle) + 360deg)) translateY(-50px) scale(0.5);
+			opacity: 0;
+		}
+	}
+ .svelte-dvv180{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-qm/.claude/worktrees/agent-afe7994d0826b0aaa/src/lib/features/point-flight/PointFlightGhost.svelte?svelte&amp;type=style&amp;lang.css">
 	.pf-layer.svelte-xahj9k {
 		position: fixed;
 		inset: 0;
@@ -4852,254 +5099,7 @@ h1, h2, h3, h4 {
 	[data-tutorial-active] .desktop-dropdown {
 		z-index: 10 !important;
 	}
- .svelte-c315ht{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-qm/.claude/worktrees/agent-afe7994d0826b0aaa/src/lib/ui/components/CelebrationEffect.svelte?svelte&amp;type=style&amp;lang.css">
-	.celeb.svelte-dvv180 {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		overflow: hidden;
-	}
-
-	/* ===== Confetti ===== */
-	.confetti-piece.svelte-dvv180 {
-		position: absolute;
-		top: -10%;
-		left: var(--x);
-		width: 8px;
-		height: 8px;
-		background: var(--color);
-		border-radius: 2px;
-		animation: svelte-dvv180-confetti-fall 1.5s ease-in var(--delay) forwards;
-	}
-
-	@keyframes svelte-dvv180-confetti-fall {
-		0% {
-			transform: translateY(0) rotate(0deg);
-			opacity: 1;
-		}
-		100% {
-			transform: translateY(300px) rotate(720deg);
-			opacity: 0;
-		}
-	}
-
-	/* ===== Fireworks ===== */
-	.firework.svelte-dvv180 {
-		position: absolute;
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		animation: svelte-dvv180-firework-burst 1s ease-out forwards;
-	}
-
-	.firework--1.svelte-dvv180 {
-		top: 30%;
-		left: 20%;
-		box-shadow:
-			0 0 0 0 #ff6b6b,
-			20px -30px 0 0 #ff6b6b,
-			-20px -30px 0 0 #ff6b6b,
-			30px 0 0 0 #ff6b6b,
-			-30px 0 0 0 #ff6b6b,
-			20px 30px 0 0 #ff6b6b,
-			-20px 30px 0 0 #ff6b6b,
-			0 -40px 0 0 #ff6b6b;
-		animation-delay: 0s;
-	}
-
-	.firework--2.svelte-dvv180 {
-		top: 20%;
-		left: 70%;
-		box-shadow:
-			0 0 0 0 #4ecdc4,
-			20px -30px 0 0 #4ecdc4,
-			-20px -30px 0 0 #4ecdc4,
-			30px 0 0 0 #4ecdc4,
-			-30px 0 0 0 #4ecdc4,
-			20px 30px 0 0 #4ecdc4,
-			-20px 30px 0 0 #4ecdc4,
-			0 -40px 0 0 #4ecdc4;
-		animation-delay: 0.3s;
-	}
-
-	.firework--3.svelte-dvv180 {
-		top: 50%;
-		left: 45%;
-		box-shadow:
-			0 0 0 0 #ffe66d,
-			20px -30px 0 0 #ffe66d,
-			-20px -30px 0 0 #ffe66d,
-			30px 0 0 0 #ffe66d,
-			-30px 0 0 0 #ffe66d,
-			20px 30px 0 0 #ffe66d,
-			-20px 30px 0 0 #ffe66d,
-			0 -40px 0 0 #ffe66d;
-		animation-delay: 0.6s;
-	}
-
-	@keyframes svelte-dvv180-firework-burst {
-		0% {
-			opacity: 0;
-			transform: scale(0);
-		}
-		30% {
-			opacity: 1;
-			transform: scale(1);
-		}
-		100% {
-			opacity: 0;
-			transform: scale(1.5);
-		}
-	}
-
-	/* ===== Stars ===== */
-	.star-particle.svelte-dvv180 {
-		position: absolute;
-		top: var(--x);
-		left: var(--x);
-		width: var(--size);
-		height: var(--size);
-		background: #ffd54f;
-		clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-		animation: svelte-dvv180-star-twinkle 1.5s ease-out var(--delay) forwards;
-	}
-
-	@keyframes svelte-dvv180-star-twinkle {
-		0% {
-			transform: scale(0) rotate(0deg);
-			opacity: 1;
-		}
-		50% {
-			transform: scale(1.2) rotate(180deg);
-			opacity: 1;
-		}
-		100% {
-			transform: scale(0.5) rotate(360deg) translateY(60px);
-			opacity: 0;
-		}
-	}
-
-	/* ===== Cracker ===== */
-	.cracker-piece.svelte-dvv180 {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 6px;
-		height: 6px;
-		background: var(--color);
-		border-radius: 50%;
-		animation: svelte-dvv180-cracker-explode 0.8s ease-out var(--delay) forwards;
-		--rad: 80px;
-	}
-
-	@keyframes svelte-dvv180-cracker-explode {
-		0% {
-			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
-			opacity: 1;
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(var(--rad));
-			opacity: 0;
-		}
-	}
-
-	/* ===== Rainbow ===== */
-	.rainbow-ring.svelte-dvv180 {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		border-radius: 50%;
-		border: 3px solid transparent;
-		transform: translate(-50%, -50%) scale(0);
-		animation: svelte-dvv180-rainbow-expand 1.2s ease-out forwards;
-	}
-
-	.rainbow-ring--1.svelte-dvv180 {
-		width: 80px;
-		height: 80px;
-		border-color: #ff6b6b #ff9800 #ffe66d #4ecdc4;
-		animation-delay: 0s;
-	}
-
-	.rainbow-ring--2.svelte-dvv180 {
-		width: 140px;
-		height: 140px;
-		border-color: #4ecdc4 #2196f3 #9c27b0 #ff6b6b;
-		animation-delay: 0.2s;
-	}
-
-	.rainbow-ring--3.svelte-dvv180 {
-		width: 200px;
-		height: 200px;
-		border-color: #dda0dd #ff6b6b #ff9800 #ffe66d;
-		animation-delay: 0.4s;
-	}
-
-	@keyframes svelte-dvv180-rainbow-expand {
-		0% {
-			transform: translate(-50%, -50%) scale(0);
-			opacity: 1;
-		}
-		70% {
-			opacity: 0.8;
-		}
-		100% {
-			transform: translate(-50%, -50%) scale(1);
-			opacity: 0;
-		}
-	}
-
-	/* ===== Legend ===== */
-	.legend-aura.svelte-dvv180 {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 120px;
-		height: 120px;
-		border-radius: 50%;
-		background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
-		transform: translate(-50%, -50%);
-		animation: svelte-dvv180-legend-pulse 1.5s ease-in-out infinite;
-	}
-
-	.legend-particle.svelte-dvv180 {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 4px;
-		height: 4px;
-		background: #ffd700;
-		border-radius: 50%;
-		box-shadow: 0 0 6px #ffd700;
-		animation: svelte-dvv180-legend-orbit 2s linear var(--delay) infinite;
-	}
-
-	@keyframes svelte-dvv180-legend-pulse {
-		0%,
-		100% {
-			transform: translate(-50%, -50%) scale(1);
-			opacity: 0.4;
-		}
-		50% {
-			transform: translate(-50%, -50%) scale(1.3);
-			opacity: 0.7;
-		}
-	}
-
-	@keyframes svelte-dvv180-legend-orbit {
-		0% {
-			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-50px) scale(1);
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.6;
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(calc(var(--angle) + 360deg)) translateY(-50px) scale(0.5);
-			opacity: 0;
-		}
-	}
- .svelte-dvv180{}</style></head>
+ .svelte-c315ht{}</style></head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="pink" data-age-tier="preschool" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--color-action-primary-strong)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[-1--><span class="avatar-fallback svelte-1uv6grs" style="font-size: 1rem;">👤</span><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">ひなちゃん<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[0--><button type="button" class="milestone-bell svelte-1h1heob" data-testid="milestone-bell" data-pending-count="2" aria-label="新着のおしらせ 2件 を見る"><span class="milestone-bell__icon svelte-1h1heob" aria-hidden="true">🔔</span> <span class="milestone-bell__badge svelte-1h1heob" aria-hidden="true">2</span></button><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカード 0/5 を見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">0/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e" data-testid="header-balance">1,250P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[-1--><!--[--><div class="px-[var(--sp-sm)] py-[var(--sp-sm)]"><div class="text-center mb-[var(--sp-md)]"><p class="text-sm text-[var(--color-text-muted)]">きょうは</p> <p class="text-lg font-bold">もくようび</p> <p class="text-sm text-[var(--color-text-muted)]">🌙 いまは <span class="font-bold">よる</span> のじかん</p></div> <!--[0--><div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]"><span class="text-4xl mb-[var(--sp-md)]">📋</span> <p class="text-lg font-bold">チェックリストがないよ</p> <p class="text-sm">おやにおねがいしてね</p></div><!--]--></div> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!----><!--]--></main> <!--[0--><nav class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom svelte-1sje7wr" data-testid="bottom-nav" aria-label="メインナビゲーション"><!--[--><a href="/preschool/home" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
 				transition-colors min-h-16
@@ -5128,7 +5128,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 2, 11],
-							data: [{type:"data",data:{role:"owner",requestId:"9a98f1be-e988-45a8-a40b-91adb8f2b33a",isDemo:true},uses:{}},(function(a){a.id="902";a.nickname="ひなちゃん";a.age=5;a.birthDate="2020-06-10";a.theme="pink";a.uiMode="preschool";a.uiModeManuallySet=0;a.avatarUrl=null;a.displayConfig=null;a.userId=null;a.birthdayBonusMultiplier=1;a.lastBirthdayBonusYear=null;a.isArchived=0;a.archivedReason=null;a.createdAt="2025-09-01T00:00:00.000Z";a.updatedAt="2026-03-27T09:00:00.000Z";return {type:"data",data:{child:a,balance:1250,level:4,levelTitle:"つよつよチャレンジャー",allChildren:[{id:"901",nickname:"たろうくん",age:1,birthDate:"2025-01-15",theme:"blue",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2026-01-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},a,{id:"903",nickname:"けんたくん",age:8,birthDate:"2018-03-22",theme:"green",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"904",nickname:"さくらちゃん",age:14,birthDate:"2011-08-05",theme:"purple",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"906",nickname:"けいすけくん",age:17,birthDate:"2008-11-20",theme:"orange",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"}],uiMode:"preschool",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:0,total:5},stampCard:{id:"0",childId:"902",weekStart:"2026-08-31",weekEnd:"2026-09-06",status:"collecting",entries:[],canStampToday:true,totalSlots:5,filledSlots:0,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:true,achievedAt:"2026-03-14"},{id:"streak_7",threshold:7,achieved:true,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:true},uses:{url:1}}}({})),{type:"data",data:{checklists:[],currentTimeSlot:"evening"},uses:{parent:1}}],
+							data: [{type:"data",data:{role:"owner",requestId:"a14c1c35-9247-4087-9de2-9184f402dd2e",isDemo:true},uses:{}},(function(a){a.id="902";a.nickname="ひなちゃん";a.age=5;a.birthDate="2020-06-10";a.theme="pink";a.uiMode="preschool";a.uiModeManuallySet=0;a.avatarUrl=null;a.displayConfig=null;a.userId=null;a.birthdayBonusMultiplier=1;a.lastBirthdayBonusYear=null;a.isArchived=0;a.archivedReason=null;a.createdAt="2025-09-01T00:00:00.000Z";a.updatedAt="2026-03-27T09:00:00.000Z";return {type:"data",data:{child:a,balance:1250,level:4,levelTitle:"つよつよチャレンジャー",allChildren:[{id:"901",nickname:"たろうくん",age:1,birthDate:"2025-01-15",theme:"blue",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2026-01-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},a,{id:"903",nickname:"けんたくん",age:8,birthDate:"2018-03-22",theme:"green",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"904",nickname:"さくらちゃん",age:14,birthDate:"2011-08-05",theme:"purple",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"906",nickname:"けいすけくん",age:17,birthDate:"2008-11-20",theme:"orange",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"}],uiMode:"preschool",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:0,total:5},stampCard:{id:"0",childId:"902",weekStart:"2026-08-31",weekEnd:"2026-09-06",status:"collecting",entries:[],canStampToday:true,totalSlots:5,filledSlots:0,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:true,achievedAt:"2026-03-14"},{id:"streak_7",threshold:7,achieved:true,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:true},uses:{url:1}}}({})),{type:"data",data:{checklists:[],currentTimeSlot:"evening"},uses:{parent:1}}],
 							form: null,
 							error: null
 						});
