@@ -15,11 +15,14 @@ export const DEV_USERS_SOURCE = 'src/lib/server/auth/providers/cognito-dev.ts';
 /**
  * cognito-dev.ts の DEV_USERS 配列から `{ email, password }` を列挙する。
  * オブジェクトリテラルごとに email → password の順で並ぶ前提 (SSOT の書式)。
+ * @param {string} [source] SSOT のソース (test で差し替える)
+ * @returns {{ email: string; password: string }[]}
  */
 export function loadDevUsers(source = readFileSync(join(REPO_ROOT, DEV_USERS_SOURCE), 'utf8')) {
 	const start = source.indexOf('export const DEV_USERS');
 	if (start < 0) throw new Error(`${DEV_USERS_SOURCE} に DEV_USERS が見つかりません`);
 	const body = source.slice(start);
+	/** @type {{ email: string; password: string }[]} */
 	const users = [];
 	const re = /email:\s*'([^']+)'[\s\S]*?password:\s*'([^']+)'/g;
 	for (const m of body.matchAll(re)) {
@@ -29,14 +32,22 @@ export function loadDevUsers(source = readFileSync(join(REPO_ROOT, DEV_USERS_SOU
 	return users;
 }
 
-/** email で DEV_USER を引く。無ければ throw (撮影 flow が黙って別 user で通らないように)。 */
+/**
+ * email で DEV_USER を引く。無ければ throw (撮影 flow が黙って別 user で通らないように)。
+ * @param {string} email
+ * @returns {{ email: string; password: string }}
+ */
 export function devUser(email) {
 	const found = loadDevUsers().find((u) => u.email === email);
 	if (!found) throw new Error(`DEV_USERS に ${email} がありません (${DEV_USERS_SOURCE})`);
 	return found;
 }
 
-/** password だけ引く (login(page, email, password) 形の flow 向け)。 */
+/**
+ * password だけ引く (login(page, email, password) 形の flow 向け)。
+ * @param {string} email
+ * @returns {string}
+ */
 export function devPassword(email) {
 	return devUser(email).password;
 }
