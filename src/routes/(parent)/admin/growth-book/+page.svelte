@@ -156,7 +156,7 @@ function handlePrint() {
 						<p class="text-sm font-bold text-[var(--color-feedback-info-text)]">
 							{month.isFuture
 								? GROWTH_BOOK_LABELS.valueNotYet
-								: `${month.totalPoints.toLocaleString()}pt`}
+								: GROWTH_BOOK_LABELS.monthlyTotalPoints(month.totalPoints)}
 						</p>
 						{#if !month.isFuture && month.maxStreakDays > 0}
 							<p class="text-xs text-[var(--color-text-warning-strong)]">{GROWTH_BOOK_LABELS.monthlyStreak(month.maxStreakDays)}</p>

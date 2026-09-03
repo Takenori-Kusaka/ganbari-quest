@@ -39,6 +39,9 @@ async function mountDialog(autoApprove: boolean) {
 			rewardPoints: 10,
 			rewardIcon: '🎮',
 			balance: 100,
+			// #4690: 文言は年齢帯で文体が変わる。本 test の assert 対象 (ひらがな) は
+			// baby / preschool / elementary 側の文言なので preschool を渡す。
+			uiMode: 'preschool',
 			autoApprove,
 			pointSettings: { mode: 'point' as const, currency: 'JPY' as const, rate: 1 },
 			onClose: () => {},

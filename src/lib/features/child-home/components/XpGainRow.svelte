@@ -7,15 +7,19 @@
  * 増分は必ず xpAfter - xpBefore から導出する。表示の唯一の出所を本 component に集約し、
  * 呼び出し側 (home/+page.svelte) が数値を組み立て直せないようにする。
  */
-import { CHILD_HOME_LABELS } from '$lib/domain/labels';
+import { getCategoryDisplayName, getChildHomeLabels } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { XpGainInfo } from '$lib/server/services/activity-log-service';
 
 interface Props {
 	xp: XpGainInfo;
+	/** #4690 F6: 年齢モード。「けいけんち」/「経験値」の出し分けに使う (docs/DESIGN.md §8)。 */
+	uiMode?: string;
 }
 
-let { xp }: Props = $props();
+let { xp, uiMode = 'preschool' }: Props = $props();
+
+const HL = $derived(getChildHomeLabels(uiMode));
 
 const catDef = $derived(getCategoryById(xp.categoryId));
 const delta = $derived(xp.xpAfter - xp.xpBefore);
@@ -34,13 +38,15 @@ const leveledUp = $derived(xp.levelAfter > xp.levelBefore);
 		style:background-color={catDef?.color ?? 'currentColor'}
 		aria-hidden="true"
 	></span>
-	<span class="text-[var(--color-text-secondary)]">{xp.categoryName}</span>
-	{CHILD_HOME_LABELS.resultXpLabel}
+	<span class="text-[var(--color-text-secondary)]"
+		>{getCategoryDisplayName(xp.categoryId, uiMode) || xp.categoryName}</span
+	>
+	{HL.resultXpLabel}
 	<span class="font-bold text-[var(--color-text)]" data-testid="result-xp-delta">{deltaText}</span>
 	{#if leveledUp}
 		<span
 			class="font-bold text-[var(--color-feedback-warning-text)]"
-			data-testid="result-xp-levelup">{CHILD_HOME_LABELS.resultXpLevelUp(xp.levelAfter)}</span
+			data-testid="result-xp-levelup">{HL.resultXpLevelUp(xp.levelAfter)}</span
 		>
 	{/if}
 </div>
