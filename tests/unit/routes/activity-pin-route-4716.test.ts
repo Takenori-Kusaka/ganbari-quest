@@ -12,8 +12,9 @@ vi.mock('$lib/server/services/activity-pin-service', async () => {
 	);
 	return { ...actual, toggleActivityPin: mockToggle };
 });
+const mockLoggerError = vi.fn();
 vi.mock('$lib/server/logger', () => ({
-	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+	logger: { error: mockLoggerError, info: vi.fn(), warn: vi.fn() },
 }));
 
 const { ActivityPinError } = await import('$lib/server/services/activity-pin-service');
@@ -96,6 +97,10 @@ describe('#4716 activity pin route — 拒否理由と想定外例外の種別�
 			expect(JSON.stringify(b)).not.toContain('connection refused');
 			expect(JSON.stringify(b)).not.toContain('dsql-endpoint');
 		}
+		// 顧客に出さない代わりに、運用側の log には原因 (cause) が残ること (adv-4831 指摘: 両方消える改修を止める)
+		expect(mockLoggerError).toHaveBeenCalled();
+		const logged = JSON.stringify(mockLoggerError.mock.calls);
+		expect(logged).toContain('connection refused');
 	});
 
 	it('DELETE は pinned=false で service を呼ぶ', async () => {

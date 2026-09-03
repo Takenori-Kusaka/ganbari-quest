@@ -352,9 +352,14 @@ $effect(() => {
 				<details>
 					<summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">{LOGIN_LABELS.devAccountsSummary}</summary>
 					<ul class="mt-2 pl-4 text-xs text-[var(--color-text-muted)] leading-7">
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> {LOGIN_LABELS.devAccountOwnerRole}</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> {LOGIN_LABELS.devAccountParentRole}</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> {LOGIN_LABELS.devAccountChildRole}</li>
+						{#each data.devAccounts as acct (acct.email)}
+							<li>
+								<code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">{acct.email}</code>
+								/
+								<code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">{acct.password}</code>
+								{LOGIN_LABELS.devAccountRoles[acct.role]}
+							</li>
+						{/each}
 					</ul>
 				</details>
 			</div>

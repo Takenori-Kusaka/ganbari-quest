@@ -394,9 +394,9 @@ Checkout Session ID が URL パラメータとしてブラウザに渡される�
 
 ```typescript
 export const DEV_USERS: DevUser[] = [
-    { email: 'owner@example.com', password: 'Gq!Dev#Owner2026x', ... },
-    { email: 'parent@example.com', password: 'Gq!Dev#Parent2026', ... },
-    { email: 'child@example.com', password: 'Gq!Dev#Child2026x', ... },
+    { email: 'owner@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
+    { email: 'parent@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
+    { email: 'child@example.com', password: '<cognito-dev.ts の DEV_USERS 参照>', ... },
 ];
 ```
 

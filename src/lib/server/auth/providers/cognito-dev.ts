@@ -146,6 +146,26 @@ export const DEV_USERS: DevUser[] = [
 	},
 ];
 
+/** dev ログイン画面の案内に出す 3 role (owner / parent / child)。表示順は固定。 */
+const DEV_LOGIN_HINT_ROLES = ['owner', 'parent', 'child'] as const;
+export type DevLoginHintRole = (typeof DEV_LOGIN_HINT_ROLES)[number];
+
+/**
+ * dev ログイン画面 (`/auth/login`、cognito-dev のみ) の「テスト用アカウント」案内に渡す最小情報。
+ * 画面が email / password を literal で持つと DEV_USERS を変えたときに案内だけ古くなるため、
+ * SSOT から導出する (QM #4832)。cognito-dev 以外の環境では呼ばない (呼び出し側が devMode で gate)。
+ */
+export function listDevLoginAccounts(): {
+	role: DevLoginHintRole;
+	email: string;
+	password: string;
+}[] {
+	return DEV_LOGIN_HINT_ROLES.flatMap((role) => {
+		const u = DEV_USERS.find((d) => d.role === role && d.tenantId === DEV_USERS[0]?.tenantId);
+		return u ? [{ role, email: u.email, password: u.password }] : [];
+	});
+}
+
 /** Email でダミーユーザーを検索 */
 export function findDevUser(email: string): DevUser | undefined {
 	return DEV_USERS.find((u) => u.email === email);
