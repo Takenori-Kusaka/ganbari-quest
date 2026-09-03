@@ -26,8 +26,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 let mockPlanTier = 'standard';
 let mockStoredCount = 0;
 
+// #4767 (QM): 保管数は「顧客が一覧で見て削除できる live 行」で数える (listCloudExports と同じ述語)。
+// 期限切れ / DL 回数を使い切った行は数えない。
+const FUTURE = '2999-01-01T00:00:00.000Z';
+const PAST = '2000-01-01T00:00:00.000Z';
+let mockExpiredCount = 0;
+function liveRow(i: number, expiresAt: string) {
+	return {
+		id: `e-${i}`,
+		tenantId: 't-1',
+		pinCode: `00000${i}`,
+		expiresAt,
+		downloadCount: 0,
+		maxDownloads: 3,
+		status: 'ready',
+	};
+}
 const mockCloudExportRepo = {
-	countByTenant: vi.fn(async () => mockStoredCount),
+	countByTenant: vi.fn(async () => mockStoredCount + mockExpiredCount),
+	findByTenant: vi.fn(async () => [
+		...Array.from({ length: mockStoredCount }, (_, i) => liveRow(i, FUTURE)),
+		...Array.from({ length: mockExpiredCount }, (_, i) => liveRow(100 + i, PAST)),
+	]),
 	findByPin: vi.fn(async () => null),
 	insert: vi.fn(async (input: Record<string, unknown>) => ({ id: '1', ...input })),
 };
@@ -62,9 +82,10 @@ interface ApiErrorBody {
 	error: { code: string; message: string; userMessage: string };
 }
 
-async function postCloudExport(tier: string, storedCount: number) {
+async function postCloudExport(tier: string, storedCount: number, expiredCount = 0) {
 	mockPlanTier = tier;
 	mockStoredCount = storedCount;
+	mockExpiredCount = expiredCount;
 	const res = (await POST({
 		request: new Request('http://localhost/api/v1/export/cloud', {
 			method: 'POST',
@@ -80,7 +101,6 @@ async function postCloudExport(tier: string, storedCount: number) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockCloudExportRepo.countByTenant.mockImplementation(async () => mockStoredCount);
 	mockCloudExportRepo.findByPin.mockImplementation(async () => null);
 	mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
 		id: '1',
@@ -89,6 +109,12 @@ beforeEach(() => {
 });
 
 describe('#4710 POST /api/v1/export/cloud — プラン未達と保管上限を混同しない', () => {
+	it('期限切れ / DL 使い切りの行は保管枠を食わない (画面の枠表示 2 / 3 と 403 が食い違わない、QM #4767)', async () => {
+		// live 2 件 + 期限切れ 5 件: 旧実装は全 7 行を数えて 403 にしていた
+		const { status } = await postCloudExport('standard', 2, 5);
+		expect(status).toBe(201);
+	});
+
 	it('プラン未達 (free) は 403 + 要求 tier を案内する', async () => {
 		const { status, body } = await postCloudExport('free', 0);
 

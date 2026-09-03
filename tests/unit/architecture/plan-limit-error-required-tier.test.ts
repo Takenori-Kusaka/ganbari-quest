@@ -68,6 +68,26 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 		).toEqual([]);
 	});
 
+	// QM #4767: `apiError('PLAN_LIMIT_EXCEEDED')` を避けても、`json({ error: { code: 'PLAN_LIMIT_EXCEEDED' … } })`
+	// を route で手組みすれば同じ穴が開く (errors.ts の quotaLimitError 自体がその形で書かれていた)。
+	// code リテラルの出現そのものを errors.ts の外で禁止し、「入口は errors.ts の helper だけ」を保つ。
+	it("production code に code: 'PLAN_LIMIT_EXCEEDED' の手組みが無い (入口は errors.ts の helper だけ)", () => {
+		const violations: string[] = [];
+		for (const file of files) {
+			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
+			if (ALLOWED.has(rel)) continue;
+			const src = readFileSync(file, 'utf-8');
+			if (/code:\s*['"`]PLAN_LIMIT_EXCEEDED['"`]/.test(src)) violations.push(rel);
+		}
+		expect(
+			violations,
+			[
+				'PLAN_LIMIT_EXCEEDED を errors.ts の helper (planLimitError / quotaLimitError) を通さず手組みしています。',
+				`  該当: ${violations.join(', ')}`,
+			].join('\n'),
+		).toEqual([]);
+	});
+
 	it('planLimitError が実在し、要求 tier を引数に取る', () => {
 		const src = readFileSync(join(SRC_ROOT, 'lib/server/errors.ts'), 'utf-8');
 		expect(src).toMatch(/export function planLimitError\(\s*requiredTier: 'standard' \| 'family',/);

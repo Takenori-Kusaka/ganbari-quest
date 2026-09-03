@@ -263,8 +263,12 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	}
 
 	// 保管数上限チェック (機能はあるが枠が埋まっている = 契約中の顧客に起きる)
+	// 数えるのは **顧客が一覧で見て削除できる live 行** (`listCloudExports` と同じ述語)。
+	// 旧実装は repo の全行数 (期限切れ / DL 回数を使い切った行を含む) を数えていたため、
+	// 画面の枠表示が「2 / 3」でも 403 になり、「3 件まで」と言われた顧客が何を削除すればよいか
+	// 一覧と噛み合わなかった (QM #4767 レビュー)。
 	const repos = getRepos();
-	const currentCount = await repos.cloudExport.countByTenant(tenantId);
+	const currentCount = (await listCloudExports(tenantId)).length;
 	if (currentCount >= limits.maxCloudExports) {
 		throw new CloudExportQuotaError(currentCount, limits.maxCloudExports);
 	}

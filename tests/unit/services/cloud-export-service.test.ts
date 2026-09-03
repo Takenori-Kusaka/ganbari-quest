@@ -175,6 +175,7 @@ describe('cloud-export-service', () => {
 		mockAuthMode = 'cognito';
 		mockPlanTier = 'standard';
 		mockCloudExportRepo.countByTenant.mockResolvedValue(0);
+		mockCloudExportRepo.findByTenant.mockResolvedValue([]);
 		mockCloudExportRepo.findByPin.mockResolvedValue(null);
 		mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([]);
 		// #3504: 非同期 build mock を毎回リセット (clearAllMocks は実装を残すため override leak を防ぐ)
@@ -236,6 +237,7 @@ describe('cloud-export-service', () => {
 			expect(mockCloudExportRepo.insert.mock.calls[0]?.[0]?.s3Key).toMatch(/\/data\.json$/);
 			vi.clearAllMocks();
 			mockCloudExportRepo.countByTenant.mockResolvedValue(0);
+			mockCloudExportRepo.findByTenant.mockResolvedValue([]);
 			mockCloudExportRepo.findByPin.mockResolvedValue(null);
 			mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
 				id: '1',
@@ -291,7 +293,18 @@ describe('cloud-export-service', () => {
 		});
 
 		it('保管数上限は CloudExportQuotaError (プラン未達ではない)', async () => {
-			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
+			// #4767 (QM): 保管数は live 行 (listCloudExports と同じ述語) で数える
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 3 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
 
 			const promise = createCloudExport({
 				tenantId: 'tenant-1',
@@ -303,7 +316,18 @@ describe('cloud-export-service', () => {
 		});
 
 		it('保管数上限の案内は削除を促し、アップグレードを求めない (#4710)', async () => {
-			mockCloudExportRepo.countByTenant.mockResolvedValue(3);
+			// #4767 (QM): 保管数は live 行 (listCloudExports と同じ述語) で数える
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 3 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
 			const err = await rejectionOf(
 				createCloudExport({
 					tenantId: 'tenant-1',
@@ -323,7 +347,17 @@ describe('cloud-export-service', () => {
 
 		it('family (最上位) でも保管上限に達しうる — 上げ先が無いのでプラン案内は誤り (#4710)', async () => {
 			mockPlanTier = 'family';
-			mockCloudExportRepo.countByTenant.mockResolvedValue(10);
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `00000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
 
 			const err = await rejectionOf(
 				createCloudExport({
