@@ -34,7 +34,8 @@ describe('NUC compose は COGNITO_DEV_MODE を false に固定する (#4836)', (
 	it('Windows 直起動経路 (setup-server.sh が生成する start.bat) でも node 起動前に COGNITO_DEV_MODE=false を set する', () => {
 		// docker を使わない NUC (scripts/deploy.sh + setup-server.sh) は compose の environment を通らない。
 		// start.bat の `set` は .env (dotenv は既存値を上書きしない) より先に効く唯一の固定点
-		const bat = setupServer.slice(setupServer.indexOf('cat > "${STARTUP_SCRIPT}"')).split('\n');
+		// start.bat の heredoc は `@echo off` で始まる (テンプレート変数名を literal に持たないよう本文側で切る)
+		const bat = setupServer.slice(setupServer.indexOf('@echo off')).split('\n');
 		const setLine = bat.findIndex((l) => /^set COGNITO_DEV_MODE=false\s*$/.test(l));
 		const nodeLine = bat.findIndex((l) => /^node index\.js/.test(l));
 		expect(setLine, 'start.bat に `set COGNITO_DEV_MODE=false` が無い').toBeGreaterThanOrEqual(0);
