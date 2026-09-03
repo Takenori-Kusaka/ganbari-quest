@@ -1,4 +1,5 @@
 import { asCategoryId, asChildId } from '../../src/lib/domain/ids';
+import { getChildNavModeLabels } from '../../src/lib/domain/labels';
 // tests/e2e/features.spec.ts
 // Done チケット機能検証テスト
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
@@ -94,7 +95,12 @@ test.describe('#0037: もちものチェックリスト', () => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
-		const checklistLink = page.locator('a').filter({ hasText: 'もちものチェック' }).first();
+		// #4715: 子供ナビの checklist ラベルは年齢帯別 SSOT (旧「もちものチェック」→「チェックリスト」)。
+		//   literal を直書きすると呼称変更のたびに黙って落ちるため SSOT から引く。
+		const checklistLink = page
+			.locator('a')
+			.filter({ hasText: getChildNavModeLabels('preschool').checklist })
+			.first();
 		await expect(checklistLink).toBeVisible();
 	});
 });

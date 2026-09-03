@@ -31,6 +31,8 @@ import {
 // #4505: プラン行ラベル表 (OPS_LABELS.planRowLabels) の網羅を型で強制するために型だけを引く
 import type { SubscriptionPlan } from './constants/subscription-plan';
 import { jstDayOfWeek, toJSTDateString } from './date-utils';
+// #4652 / #4715: 子供チュートリアルの nav 名 / とりけし秒数は画面と同じ SSOT から引く。
+//   年齢モード別 nav ラベルの SSOT は本ファイルの `getChildNavModeLabels()` (旧 icons.ts の getModeLabels)。
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -5162,13 +5164,14 @@ export const CANCELLATION_LABELS = {
 	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
 	//   #4540 Q4: 体験中の顧客も手続き後は無料プランに戻るため、保持期間の告知対象に含める。
 	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。${FREE_PLAN_RETENTION_NOTICE}データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
+	// #4709: 「記録の書き出しは請求期間の終了日まで」を解約を決める画面でも述べる。
+	//   `/api/v1/export` は canExport gate で無料プランを 403 にするため、期間終了後は
+	//   退会画面の最小エクスポート (#4472) しか持ち出し手段が残らない。
 	//   #4540 Q4: 「お子さまの記録は残ります」だけで終えると、無料プランの保持期間を超えた記録が
 	//   物理削除される事実が解約を決める瞬間に見えない (顧客に有利に見える方向の不正確さ)。
 	//   保持期間は FREE_PLAN_RETENTION_NOTICE (= 特商法と同一文) を共有し、日数は直書きしない。
-	// #4709: 「記録の書き出しは請求期間の終了日まで」を解約を決める画面でも述べる。
-	//   `/api/v1/export` は canExport gate で無料プランを 403 にするため、期間終了後は
-	//   退会画面の最小エクスポート (#4472) しか持ち出し手段が残らない。保持期間の告知
-	//   (残る記録がいつまで残るか) と持ち出し期限 (いつまで書き出せるか) は別の論点なので併記する。
+	//   保持期間の告知 (残る記録がいつまで残るか) と持ち出し期限 (いつまで書き出せるか) は
+	//   別の論点なので併記する。
 	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。${FREE_PLAN_RETENTION_NOTICE}次回以降の請求は発生しません。記録の書き出し（エクスポート）は請求期間の終了日までのご利用となり、${PLAN_FULL_TERMS.free}へ切り替わったあとは、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。`,
 
 	// Submit
@@ -10163,7 +10166,8 @@ export const LP_FAQ_LABELS = {
 	text19: `${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ（日割り計算による返金はありません）、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
 	text20: WRITES_CONTINUE_ASSURANCE,
 	text21: FREE_PLAN_RETENTION_NOTICE,
-	// #4709: 無料プランは /api/v1/export が canExport gate で 403。条件を明記する。
+	// #4709: 無料プランは /api/v1/export が canExport gate で 403。条件を明記する
+	//   (tests/unit/domain/legal-docs-implementation-truth-4709.test.ts が pin)。
 	text22: `必要な記録がある場合は、有料プランのご利用期間中に${ADMIN_VIEW_TERMS.canonical}から書き出してください。記録の書き出し（エクスポート）は${PLAN_FULL_TERMS.standard}以上の機能です。${PLAN_FULL_TERMS.free}では、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
@@ -11513,6 +11517,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
 	k42: `<td>${USAGE_SUMMARY_TERMS.today}・${USAGE_SUMMARY_TERMS.weekly}</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+	// #4500: 招待できる人数 (owner の 1 枠を除く) と合計上限を区別する。
 	k43: `<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナー含め${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）</td><td class="check">無制限</td>`,
 	k44: '<td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k45: '<td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
@@ -11559,7 +11564,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k20: WRITES_CONTINUE_ASSURANCE,
 	// #4619: 保持期間の日数と、超過分が復元不能であることを特商法と同じ 2 文で述べる。
 	k21: FREE_PLAN_RETENTION_NOTICE,
-	// #4709: 無料プランは /api/v1/export が canExport gate で 403。条件を明記する。
+	// #4709: 無料プランは /api/v1/export が canExport gate で 403。条件と代替手段を明記する。
 	k22: `必要な記録がある場合は、有料プランのご利用期間中に${ADMIN_VIEW_TERMS.canonical}から書き出してください。記録の書き出し（エクスポート）は${PLAN_FULL_TERMS.standard}以上の機能です。${PLAN_FULL_TERMS.free}では、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
@@ -11661,6 +11666,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k104: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻る使いすぎ防止タイマーで、長時間の滞在を防止 (${AUTO_SLEEP_TERMS.inactiveReset}操作がなければ計測はリセット)`,
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
+	// #4500: 招待できる人数 (owner の 1 枠を除く) と合計上限を区別する。
 	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}はご家族合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで＝オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced}までです）。`,
 	// #4713: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
 	//   読み取り専用の共有は premium の閲覧リンク (別機能)。文面は #4500 の直近決定を採り、
@@ -11988,6 +11994,7 @@ export const LP_LEGAL_SLA_LABELS = {
 		'<h2>第4条（データ保護）</h2><p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p><ul><li>日次の自動バックアップを実施しています。</li><li>全ての通信はTLS 1.2以上で暗号化されます。</li><li>保存データはAES-256で暗号化されます。</li><li>障害発生時の復旧目標時間は4時間以内です。</li><li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li></ul>',
 	section5:
 		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
+	// #4709: 応答目標は SUPPORT_RESPONSE_TERMS.initialResponseTarget が SSOT。
 	section6: `<h2>第6条（サポート対応）</h2><p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています。対応言語は日本語です。</p><p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>`,
 	section7:
 		'<h2>第7条（SLA未達時の対応）</h2><ol><li>本SLAに定める目標値を達成できなかった場合、運営者は原因の調査と再発防止に努めます。</li><li>本SLAは法的な保証ではなく、目標未達に対するサービスクレジット（返金・減額）の提供は行いません。</li><li>重大な障害（連続24時間以上のサービス停止等）が発生した場合、有料プランの利用者は障害期間に相当する日数分のサービス期間延長を申請できます。申請は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA-期間延長">サポートメール</a>宛にご連絡ください（対象期間と発生事象をお知らせください）。延長の可否は運営者が判断し、個別にご対応します。</li></ol>',

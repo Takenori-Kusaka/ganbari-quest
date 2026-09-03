@@ -147,19 +147,28 @@ describe('#4511 marketplace の導線と説明', () => {
 			// #4715 で 3 表記 (もちものチェック / 持ち物チェック / もちもの) を「チェックリスト」に統一し、
 			// SSOT も icons.ts から labels.ts の getChildNavModeLabels() に移した。
 			// marketplace の説明文が引く親側 NAV_ITEM_LABELS.checklists と**同じ語**になったので、
-			// 「引用した画面名が子供画面にも実在する」ことを全年齢帯で pin する
+			// 「引用した画面名が子供画面にも実在する」ことを pin する
 			// (旧 assertion は「もちものチェック が 1 モードにでもあること」しか見ておらず、
 			//  残り 4 モードが別表記でも通ってしまっていた)。
-			const actualNames = ['baby', 'preschool', 'elementary', 'junior', 'senior'].map(
+			//
+			// ただし **全 5 モードを 1 語に固定しない** — Issue #4715 の PO 判断は
+			// 「子供側も『チェックリスト』に寄せる (preschool は「チェック」等、ひらがな variant)」で、
+			// 幼児向け variant を認めている (QM #4789 レビューで是正)。
+			const canonicalNames = (['elementary', 'junior', 'senior'] as const).map(
 				(mode) => getChildNavModeLabels(mode).checklist,
 			);
-			// (a) 5 モードで表記が割れていない (旧 3 表記の再発を止める)
-			expect(new Set(actualNames).size, `子供画面の checklist 名が割れている: ${actualNames}`).toBe(
-				1,
-			);
+			// (a) elementary 以上で表記が割れていない (旧 3 表記の再発を止める)
+			expect(
+				new Set(canonicalNames).size,
+				`子供画面の checklist 名が割れている: ${canonicalNames}`,
+			).toBe(1);
 			// (b) 子供側の名前が、marketplace が引用する親側の画面名の語幹になっている
 			//     (親は管理画面なので「チェックリスト管理」、子供は一覧そのものなので「チェックリスト」)
-			expect(NAV_ITEM_LABELS.checklists).toContain(actualNames[0]);
+			expect(NAV_ITEM_LABELS.checklists).toContain(canonicalNames[0]);
+			// (c) baby / preschool の variant も語幹「チェック」を共有する (旧称「もちもの*」の再発防止)
+			for (const mode of ['baby', 'preschool']) {
+				expect(getChildNavModeLabels(mode).checklist.startsWith('チェック')).toBe(true);
+			}
 		});
 	});
 });

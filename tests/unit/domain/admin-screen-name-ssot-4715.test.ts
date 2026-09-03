@@ -175,9 +175,27 @@ describe('#4715 子供ナビの呼称', () => {
 		}
 	});
 
-	it('チェックリストの呼称が全年齢帯で 1 つに揃っている', () => {
-		const names = new Set(Object.values(CHILD_NAV_MODE_LABELS).map((m) => m.checklist));
-		expect(names.size).toBe(1);
+	it('チェックリストの呼称が elementary 以上で 1 つに揃っている', () => {
+		// Issue #4715 の PO 判断:「子供側も『チェックリスト』に寄せる
+		// (**preschool は「チェック」等、ひらがな variant**)」。
+		// 全 5 モードを 1 語に固定すると、PO が認めた幼児向け variant を後から入れられなくなる
+		// (旧 assertion は size === 1 で全モードを縛っていた、QM #4789 レビューで是正)。
+		// 旧 3 表記 (もちものチェック / 持ち物チェック / もちもの) の再発は
+		// elementary 以上の一致 + baby/preschool の kana-only guard
+		// (child-nav-age-tier-kana.test.ts) の 2 本で塞ぐ。
+		const names = new Set(
+			(['elementary', 'junior', 'senior'] as const).map((m) => CHILD_NAV_MODE_LABELS[m].checklist),
+		);
+		expect(names.size, `elementary 以上で呼称が割れている: ${[...names].join(' / ')}`).toBe(1);
+		// baby / preschool は PO 判断の variant (「チェック」等) を許すが、旧 3 表記のうち
+		// ひらがなの 2 つ (もちもの / もちものチェック) は kana-only guard を素通りするため、
+		// 語幹が「チェック」で始まることを要求して再発を止める (adv-4789 の mutation 実測で判明)。
+		for (const m of ['baby', 'preschool'] as const) {
+			expect(
+				CHILD_NAV_MODE_LABELS[m].checklist.startsWith('チェック'),
+				`${m} の checklist 呼称が旧称に戻っている: ${CHILD_NAV_MODE_LABELS[m].checklist}`,
+			).toBe(true);
+		}
 	});
 
 	it('チェックリストの呼称が親画面の画面名と同じ語幹である', () => {

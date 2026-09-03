@@ -1,6 +1,7 @@
 <script lang="ts">
 import { page } from '$app/stores';
 import { ICON_ACHIEVEMENTS, ICON_BATTLE, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
+// #4715: 年齢モード別ラベルの SSOT は icons.ts から labels.ts へ移設済 (旧 getModeLabels)。
 import { FEATURES_LABELS, getChildNavModeLabels } from '$lib/domain/labels';
 
 interface Props {
