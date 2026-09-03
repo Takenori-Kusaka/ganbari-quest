@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Browser } from '@playwright/test';
 import { test as setup } from '@playwright/test';
+import { devPassword } from './helpers/dev-users';
 
 const AUTH_DIR = 'playwright/.auth';
 
@@ -20,33 +21,33 @@ type Role = 'owner' | 'free' | 'standard' | 'family' | 'trial-expired' | 'ops';
 const DEV_USERS: Record<Role, { email: string; password: string; expectedUrlPattern: RegExp }> = {
 	owner: {
 		email: 'owner@example.com',
-		password: 'Gq!Dev#Owner2026x',
+		password: devPassword('owner@example.com'),
 		expectedUrlPattern: /\/admin/,
 	},
 	free: {
 		email: 'free@example.com',
-		password: 'Gq!Dev#Free2026xy',
+		password: devPassword('free@example.com'),
 		expectedUrlPattern: /\/admin/,
 	},
 	// #1500: plan 別プロジェクト用に standard / family / trial-expired を追加
 	standard: {
 		email: 'standard@example.com',
-		password: 'Gq!Dev#Std2026xyz',
+		password: devPassword('standard@example.com'),
 		expectedUrlPattern: /\/admin/,
 	},
 	family: {
 		email: 'family@example.com',
-		password: 'Gq!Dev#Fam2026xyz',
+		password: devPassword('family@example.com'),
 		expectedUrlPattern: /\/admin/,
 	},
 	'trial-expired': {
 		email: 'trial-expired@example.com',
-		password: 'Gq!Dev#TrialExp26',
+		password: devPassword('trial-expired@example.com'),
 		expectedUrlPattern: /\/admin/,
 	},
 	ops: {
 		email: 'ops@example.com',
-		password: 'Gq!Dev#Ops2026xyz',
+		password: devPassword('ops@example.com'),
 		expectedUrlPattern: /\/(admin|ops)/,
 	},
 };

@@ -7,6 +7,7 @@
 
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+import { devPassword } from './helpers/dev-users';
 
 /** ログインページに遷移し、フォームの表示を待つ */
 async function gotoLogin(page: Page) {
@@ -68,21 +69,21 @@ test.describe('ログインページ', () => {
 // ============================================================
 test.describe('正常ログイン', () => {
 	test('owner でログインすると /admin にリダイレクトされる', async ({ page }) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 	});
 
 	test('parent でログインすると /admin にリダイレクトされる', async ({ page }) => {
-		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
+		await loginAs(page, 'parent@example.com', devPassword('parent@example.com'), /\/admin/);
 	});
 
 	test('child でログインすると /switch にリダイレクトされる', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 	});
 
 	// #4641: 子供はログイン直後に /admin へ跳ね返され、身に覚えのない
 	// 「おやのアカウントでログインしてね」を最初に見せられていた。着地先をロールで決めるため出ない。
 	test('child ログイン直後に「おやのアカウントで」警告が出ない (#4641)', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await expect(page).not.toHaveURL(/reason=admin_forbidden/);
 		await expect(page.getByRole('alert').filter({ hasText: 'おやのアカウント' })).toHaveCount(0);
 	});
@@ -90,7 +91,7 @@ test.describe('正常ログイン', () => {
 	// #4641: 一度どの子として使うかが決まっていれば、次のログインは選択画面を挟まずホームへ着地する
 	// (紐づけ済みなら初回から直行する。dev ユーザーは childId 未紐づけのため 1 回選んでから確認する)
 	test('子供の再ログインは選択画面を挟まずホームに着地する (#4641)', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page
 			.getByTestId(/^child-select-/)
 			.first()
@@ -101,7 +102,7 @@ test.describe('正常ログイン', () => {
 		await loginAs(
 			page,
 			'child@example.com',
-			'Gq!Dev#Child2026x',
+			devPassword('child@example.com'),
 			/\/(baby|preschool|elementary|junior|senior)\/home/,
 		);
 	});
@@ -109,7 +110,7 @@ test.describe('正常ログイン', () => {
 	// #4641: 子供用ナビの「きりかえ」と自動スリープ (#1292) は /switch へ来る。
 	// ここで自動スキップすると、その 2 つが機能しなくなる (ボタンが無反応 / 休憩導線が消える)。
 	test('選択済みでも /switch を自分で開いたときは留まる (#4641)', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page
 			.getByTestId(/^child-select-/)
 			.first()
@@ -136,7 +137,7 @@ test.describe('ログイン失敗', () => {
 	test('存在しないメールアドレスでエラーが表示される', async ({ page }) => {
 		await gotoLogin(page);
 		await page.getByLabel('メールアドレス').fill('nobody@example.com');
-		await page.getByLabel('パスワード', { exact: true }).fill('Gq!Dev#Owner2026x');
+		await page.getByLabel('パスワード', { exact: true }).fill(devPassword('owner@example.com'));
 		await page.getByRole('button', { name: 'ログイン' }).click();
 		await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible();
 	});
@@ -164,13 +165,13 @@ test.describe('認可チェック', () => {
 // ============================================================
 test.describe('ロール別アクセス制御', () => {
 	test('child ロールで /admin にアクセスすると /switch にリダイレクトされる', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page.goto('/admin');
 		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('owner ロールで /admin にアクセスできる', async ({ page }) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/admin');
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -181,7 +182,7 @@ test.describe('ロール別アクセス制御', () => {
 // ============================================================
 test.describe('ログアウト', () => {
 	test('ログアウト後に /auth/login にリダイレクトされる', async ({ page }) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/auth/logout');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
@@ -189,7 +190,7 @@ test.describe('ログアウト', () => {
 	test('ログアウト後に /admin にアクセスすると /auth/login にリダイレクトされる', async ({
 		page,
 	}) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/auth/logout');
 		await page.waitForURL(/\/auth\/login/);
 		await page.goto('/admin');
@@ -234,7 +235,7 @@ test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
 	}) => {
 		await page.goto('/auth/login?next=/admin/settings/account');
 		await expect(page.getByTestId('login-next-notice')).toBeVisible();
-		await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+		await submitLoginForm(page, 'owner@example.com', devPassword('owner@example.com'));
 		await page.waitForURL(/\/admin\/settings\/account/, { timeout: 30_000 });
 	});
 
@@ -242,7 +243,7 @@ test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
 		page,
 	}) => {
 		await page.goto('/auth/login?next=/admin/activities%3Fimport%3Dkinder-starter');
-		await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+		await submitLoginForm(page, 'owner@example.com', devPassword('owner@example.com'));
 		await page.waitForURL(/\/admin\/activities\?import=kinder-starter/, { timeout: 30_000 });
 	});
 
@@ -250,14 +251,14 @@ test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
 		test(`?next=${evil} (外部 / protocol-relative) は無視して /admin に着地`, async ({ page }) => {
 			await page.goto(`/auth/login?next=${encodeURIComponent(evil)}`);
 			await expect(page.getByTestId('login-next-notice')).toHaveCount(0);
-			await submitLoginForm(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+			await submitLoginForm(page, 'owner@example.com', devPassword('owner@example.com'));
 			await page.waitForURL(/\/admin(\/|\?|$)/, { timeout: 30_000 });
 			expect(page.url()).not.toContain('evil.com');
 		});
 	}
 
 	test('ログイン済みで /auth/login?next=/admin/settings/account → 即 next へ', async ({ page }) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/auth/login?next=/admin/settings/account');
 		await expect(page).toHaveURL(/\/admin\/settings\/account/);
 	});
@@ -266,7 +267,7 @@ test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
 		page,
 	}) => {
 		await page.goto('/auth/login?next=/admin/settings/account');
-		await submitLoginForm(page, 'child@example.com', 'Gq!Dev#Child2026x');
+		await submitLoginForm(page, 'child@example.com', devPassword('child@example.com'));
 		await page.waitForURL(/\/switch/, { timeout: 30_000 });
 	});
 });
@@ -276,7 +277,7 @@ test.describe('#4701 ログイン後の戻り先 (?next=)', () => {
 // ============================================================
 test.describe('セッション継続', () => {
 	test('ログイン後にリロードしても認証が維持される', async ({ page }) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.reload();
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -284,7 +285,7 @@ test.describe('セッション継続', () => {
 	test('ログイン済みで /auth/login にアクセスすると /admin にリダイレクトされる', async ({
 		page,
 	}) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/auth/login');
 		await expect(page).toHaveURL(/\/admin/);
 	});
@@ -335,13 +336,13 @@ test.describe('サインアップ', () => {
 // ============================================================
 test.describe('parent ロール詳細', () => {
 	test('parent ロールで /admin/subscription にアクセスできる', async ({ page }) => {
-		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
+		await loginAs(page, 'parent@example.com', devPassword('parent@example.com'), /\/admin/);
 		await page.goto('/admin/subscription');
 		await expect(page).toHaveURL(/\/admin\/subscription/);
 	});
 
 	test('parent ロールで /admin/members にアクセスできる', async ({ page }) => {
-		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
+		await loginAs(page, 'parent@example.com', devPassword('parent@example.com'), /\/admin/);
 		await page.goto('/admin/members');
 		await expect(page).toHaveURL(/\/admin\/members/);
 	});
@@ -352,19 +353,19 @@ test.describe('parent ロール詳細', () => {
 // ============================================================
 test.describe('child ロール詳細', () => {
 	test('child ロールで /admin/subscription にアクセスできない', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page.goto('/admin/subscription');
 		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('child ロールで /admin/members にアクセスできない', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page.goto('/admin/members');
 		await expect(page).toHaveURL(/\/switch/);
 	});
 
 	test('child ロールで /switch にアクセスできる', async ({ page }) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page.goto('/switch');
 		await expect(page).toHaveURL(/\/switch/);
 	});
@@ -372,7 +373,7 @@ test.describe('child ロール詳細', () => {
 	test('child ログイン済みで /auth/login にアクセスすると /switch にリダイレクトされる', async ({
 		page,
 	}) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		await page.goto('/auth/login');
 		await expect(page).toHaveURL(/\/switch/);
 	});
@@ -400,7 +401,7 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 	test('child ロールで /setup/* 全 step が /switch?reason=admin_forbidden に弾かれる', async ({
 		page,
 	}) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		for (const path of SETUP_PAGES) {
 			await page.goto(path);
 			await expect(page, `${path} は child に開かない`).toHaveURL(
@@ -412,7 +413,7 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 	test('child ロールの POST /setup/children?/addChild は実行されず /switch へ (子供が増えない)', async ({
 		page,
 	}) => {
-		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
+		await loginAs(page, 'child@example.com', devPassword('child@example.com'), /\/switch/);
 		const before = await page.locator('[data-testid^="child-select-"]').count();
 
 		// 認可層 (hooks) が handler 到達前に拒否するため、action は走らず redirect が返る。
@@ -439,7 +440,7 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 	test('owner ロールは /setup/children に入れる (setup 完了済テナントの再入は従来どおり)', async ({
 		page,
 	}) => {
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/setup/children');
 		await expect(page).toHaveURL(/\/setup\/children/);
 	});
@@ -458,7 +459,7 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 test.describe('#4700 ログアウト時の親ゲート session 破棄', () => {
 	for (const logoutPath of ['/auth/logout', '/auth/signout']) {
 		test(`${logoutPath} 後に gq_parent_session cookie が残らない`, async ({ page, context }) => {
-			await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x', /\/admin/);
+			await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 			// 親ゲート session を実際に発行する (verify API、seed PIN 1234)
 			const verify = await page.request.post('/api/v1/parent-gate/verify', {
 				data: { pin: '1234' },

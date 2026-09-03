@@ -13,6 +13,7 @@
 
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
+import { devPassword } from './capture-specs/lib/dev-users.mjs';
 
 // #3551: --email/--password で DEV_USERS の任意アカウント (parent 等) に汎用化 (#1442 使い捨て script 禁止)
 const { values } = parseArgs({
@@ -20,7 +21,7 @@ const { values } = parseArgs({
 		'base-url': { type: 'string', default: 'http://localhost:5174' },
 		output: { type: 'string', default: 'tmp/auth-state-owner.json' },
 		email: { type: 'string', default: 'owner@example.com' },
-		password: { type: 'string', default: 'Gq!Dev#Owner2026x' },
+		password: { type: 'string', default: devPassword('owner@example.com') },
 	},
 });
 const EMAIL = values.email;
