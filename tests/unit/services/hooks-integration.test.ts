@@ -43,6 +43,9 @@ const mockAuthorize = vi.fn();
 // 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
 vi.mock('$lib/server/auth/auth-mode', () => ({
 	getAuthMode: () => currentAuthMode,
+	// #4834: hooks の rate limit / 再同意 gate の dev 除外は isCognitoDevMode() (SSOT) を読む。本結合テストは
+	// 「cognito 本番」として gate が効く側を検証するため false 固定
+	isCognitoDevMode: () => false,
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({
