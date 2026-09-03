@@ -41,6 +41,11 @@ services:
       - BACKUP_OFFSITE_EXPECTED=${HOST_BACKUP_DIR:+true}
       - HOST=0.0.0.0
       - PORT=3000
+      # #4834 / #4836: COGNITO_DEV_MODE は開発専用 (固定パスワードの DEV_USERS で誰でも入れる)。
+      # NUC は IS_NUC_DEPLOY / APP_MODE を持たず isCognitoDevMode() の deploy guard が効かないため、
+      # 出荷物である本 compose で false に固定する。`environment` は env_file (.env) より優先されるので、
+      # operator が .env に誤って true を書いても dev mode には入らない (fail-closed)。
+      - COGNITO_DEV_MODE=false
       - ORIGIN=${ORIGIN:-http://localhost:3000}
       - TZ=Asia/Tokyo
     env_file:
