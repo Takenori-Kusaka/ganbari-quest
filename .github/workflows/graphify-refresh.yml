@@ -76,6 +76,22 @@ jobs:
       - name: Install graphify (graphifyy on PyPI, pinned)
         run: pip install "graphifyy==0.9.32"
 
+      # graphify 0.9.32 は tsconfig.json の `extends: ./.svelte-kit/tsconfig.json` を辿って
+      # `$lib` alias を解決するが、生成物が無いと無言で skip し、`$lib/...` を擬似 file node にして
+      # import / call 系 edge を落とす (実測: 同一ソースで edge -22.5% / 擬似 node 203、adv-4827)。
+      # 手元の graphify-out は .svelte-kit が揃った状態で作られているので、CI でも
+      # `svelte-kit sync` で同じ前提を作ってから再生成する。
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Generate .svelte-kit/tsconfig.json ($lib alias の解決に必要)
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx svelte-kit sync
+          test -f .svelte-kit/tsconfig.json
+
       - name: Regenerate knowledge graph
         run: graphify update .
 
@@ -83,7 +99,11 @@ jobs:
         id: diff
         run: |
           set -euo pipefail
-          if git status --porcelain -- graphify-out | grep -q .; then
+          # 差分は graph.json だけで判定する。manifest.json は file ごとの mtime (= checkout 時刻) を
+          # 持つため毎 run 必ず変わり (実測 70% が mtime のみ)、GRAPH_REPORT.md は HEAD commit を
+          # 埋め込む。graph.json は同一ソースなら決定的 (adv-4826 / adv-4827 実測) なので、
+          # これが変わらない = 構造に変化なし。
+          if ! git diff --quiet -- graphify-out/graph.json; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             git status --porcelain -- graphify-out
           else
