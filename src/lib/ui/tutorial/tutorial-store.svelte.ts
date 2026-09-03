@@ -3,8 +3,20 @@ import { resolve } from '$app/paths';
 import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
 // ── localStorage persistence keys ──
-const STORAGE_KEY_CHAPTER = 'tutorial-progress-chapter';
-const STORAGE_KEY_STEP = 'tutorial-progress-step';
+//
+// #4651 (a): 進捗 key は **章セットごとに分離**する。旧実装は全ガイドが同じ 2 key を共有し、
+// 同一端末で別のガイドを中断すると「前回の途中から続けますか？」が無関係なガイドで出た。
+// `setChapters(chapters, scope)` の scope が key の namespace になる (既定 'default')。
+const STORAGE_KEY_PREFIX = 'tutorial-progress';
+let progressScope = 'default';
+
+function chapterKey(): string {
+	return `${STORAGE_KEY_PREFIX}:${progressScope}:chapter`;
+}
+
+function stepKey(): string {
+	return `${STORAGE_KEY_PREFIX}:${progressScope}:step`;
+}
 
 interface TutorialState {
 	isActive: boolean;
@@ -37,17 +49,23 @@ const state = $state<TutorialState>({
  */
 let activeChapters = $state<TutorialChapter[]>([]);
 
-/** 章定義を差し替える (子供 layout が uiMode に応じた章を渡す) */
-export function setChapters(chapters: TutorialChapter[]) {
+/**
+ * 章定義を差し替える (子供 layout が uiMode に応じた章を渡す)。
+ *
+ * `scope` は進捗 (localStorage) の namespace。別のガイドの中断進捗を引き継がないよう、
+ * ガイドの種類ごとに固有の値を渡す (例: `child:preschool`)。省略時は 'default'。
+ */
+export function setChapters(chapters: TutorialChapter[], scope = 'default') {
 	activeChapters = chapters;
+	progressScope = scope;
 }
 
 // ── localStorage helpers (SSR-safe) ──
 function saveProgress(chapterId: number, stepIndex: number) {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.setItem(STORAGE_KEY_CHAPTER, String(chapterId));
-			localStorage.setItem(STORAGE_KEY_STEP, String(stepIndex));
+			localStorage.setItem(chapterKey(), String(chapterId));
+			localStorage.setItem(stepKey(), String(stepIndex));
 		}
 	} catch {
 		// localStorage unavailable — silently ignore
@@ -57,8 +75,8 @@ function saveProgress(chapterId: number, stepIndex: number) {
 function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 	try {
 		if (typeof window === 'undefined') return null;
-		const ch = localStorage.getItem(STORAGE_KEY_CHAPTER);
-		const st = localStorage.getItem(STORAGE_KEY_STEP);
+		const ch = localStorage.getItem(chapterKey());
+		const st = localStorage.getItem(stepKey());
 		if (ch == null || st == null) return null;
 		const chapter = Number.parseInt(ch, 10);
 		const stepIndex = Number.parseInt(st, 10);
@@ -76,8 +94,8 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 function clearSavedProgress() {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.removeItem(STORAGE_KEY_CHAPTER);
-			localStorage.removeItem(STORAGE_KEY_STEP);
+			localStorage.removeItem(chapterKey());
+			localStorage.removeItem(stepKey());
 		}
 	} catch {
 		// silently ignore

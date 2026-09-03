@@ -127,8 +127,9 @@ describe('#2105 tutorial-step-controller (FSM 排他)', () => {
 
 		it('#2105 FSM 排他: resume dialog 表示中の backdrop click は無視される (#4654 で quickComplete は撤去)', async () => {
 			// 保存済み進捗を復元 → resume prompt が出ている状態を作る
-			localStorage.setItem('tutorial-progress-chapter', '1');
-			localStorage.setItem('tutorial-progress-step', '0');
+			// #4651: 進捗 key は setChapters の scope 単位 (本 spec は既定 scope)
+			localStorage.setItem('tutorial-progress:default:chapter', '1');
+			localStorage.setItem('tutorial-progress:default:step', '0');
 			await startTutorial();
 			// 進捗が chapter1/step0 のみだと resume prompt は出ない仕様のため、
 			// prompt が出ない場合はこのケース自体が成立しないことを明示する

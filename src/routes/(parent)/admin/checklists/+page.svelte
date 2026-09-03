@@ -183,26 +183,27 @@ let overrideIcon = $state('📦');
 let aiDialogOpen = $state(false);
 
 const FREQUENCY_OPTIONS = [
-	{ value: 'daily', label: 'まいにち' },
-	{ value: 'weekday:月', label: '月よう' },
-	{ value: 'weekday:火', label: '火よう' },
-	{ value: 'weekday:水', label: '水よう' },
-	{ value: 'weekday:木', label: '木よう' },
-	{ value: 'weekday:金', label: '金よう' },
-	{ value: 'weekday:土', label: '土よう' },
+	// #4716 item 15: 顧客可視文言は labels.ts (ADMIN_CHECKLISTS_PAGE_LABELS) が SSOT
+	{ value: 'daily', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyDaily },
+	{ value: 'weekday:月', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('月') },
+	{ value: 'weekday:火', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('火') },
+	{ value: 'weekday:水', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('水') },
+	{ value: 'weekday:木', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('木') },
+	{ value: 'weekday:金', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('金') },
+	{ value: 'weekday:土', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('土') },
 ];
 
 const DIRECTION_OPTIONS = [
-	{ value: 'bring', label: '持参' },
-	{ value: 'return', label: '持帰' },
-	{ value: 'both', label: '往復' },
+	{ value: 'bring', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionBring },
+	{ value: 'return', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionReturn },
+	{ value: 'both', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionBoth },
 ];
 
 const TIME_SLOT_OPTIONS = [
-	{ value: 'anytime', label: 'いつでも', icon: '🕐' },
-	{ value: 'morning', label: 'あさ', icon: '☀️' },
-	{ value: 'afternoon', label: 'ひる', icon: '🌤️' },
-	{ value: 'evening', label: 'よる', icon: '🌙' },
+	{ value: 'anytime', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotAnytime, icon: '🕐' },
+	{ value: 'morning', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotMorning, icon: '☀️' },
+	{ value: 'afternoon', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotAfternoon, icon: '🌤️' },
+	{ value: 'evening', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotEvening, icon: '🌙' },
 ];
 
 const TIME_SLOT_SELECT_OPTIONS = TIME_SLOT_OPTIONS.map((o) => ({
@@ -532,18 +533,27 @@ $effect(() => {
 	}
 });
 
+// #4716 (#4023 と同 class): 削除確認の本文は「何が・誰の画面から消えるか」を明示する。
+//   確認ダイアログ自体は上の passConfirm / Dialog (#4512) を共用する。
+
+/** 配信先の子供名を読める形にする (未配信なら null)。 */
+function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null {
+	const names = data.children.filter((c) => assignedChildIds.includes(c.id)).map((c) => c.nickname);
+	return names.length > 0 ? names.join('・') : null;
+}
+
+/** 削除確認の本文 (配信先が居れば その子の画面から消えることも述べる)。 */
+function deleteConfirmBodyFor(templateName: string, assignedChildIds: readonly ChildId[]): string {
+	const names = assignedChildNames(assignedChildIds);
+	return names
+		? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
+		: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBodyNoChild(templateName);
+}
+
 // OverflowMenu items
 const overflowItems = $derived<OverflowMenuItem[]>([
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
-		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
-		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
-		onSelect: () => {
-			window.location.href = '/marketplace?type=checklist';
-		},
-	},
-	{ type: 'divider', id: 'divider-1' },
+	// #4716: 「みんなのテンプレから取込」は + 追加 dropdown の「みんなのテンプレートから探す」と
+	//   同じ遷移先の重複導線だったため撤去 (活動 / ごほうびの ︙ にも無い)。
 	{
 		type: 'action',
 		id: OVERFLOW_MENU_LABELS.items.restore.id,
@@ -851,11 +861,12 @@ async function saveDistribution() {
 					: ADMIN_CHECKLISTS_PAGE_LABELS.distributionUpdated(added, removed);
 			showToast(actionMessage, undefined, added === 0 && removed === 0 ? 'info' : 'success');
 		} else if (actionResult.type === 'failure') {
-			actionMessage = actionResult.data?.error ?? '配信先の保存に失敗しました';
+			actionMessage =
+				actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
 			showToast(actionMessage, undefined, 'error');
 		}
 	} catch {
-		actionMessage = '配信先の保存に失敗しました';
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
 		showToast(actionMessage, undefined, 'error');
 	}
 
@@ -1090,23 +1101,22 @@ function getChildName(childId: ChildId): string {
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
-								title={template.isActive ? '無効にする' : '有効にする'}
+								title={template.isActive
+									? ADMIN_CHECKLISTS_PAGE_LABELS.templateDeactivateAction
+									: ADMIN_CHECKLISTS_PAGE_LABELS.templateActivateAction}
 							>
-								{template.isActive ? '無効化' : '有効化'}
+								{template.isActive
+									? ADMIN_CHECKLISTS_PAGE_LABELS.templateDeactivateButton
+									: ADMIN_CHECKLISTS_PAGE_LABELS.templateActivateButton}
 							</Button>
 						</form>
 						<form
 							method="POST"
 							action="?/deleteTemplate"
 							use:enhance={({ formElement, cancel }) => {
-								// #4023 横展開 (#4512): 削除は取り消せないので確認を 1 枚挟む。
-								if (
-									!passConfirm(
-										formElement,
-										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle,
-										ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(template.name),
-									)
-								) {
+								// #4023 横展開 (#4512) / #4716: 削除は取り消せないので確認を 1 枚挟む
+								// (対象名 + 配信先を明示する)。
+								if (!passConfirm(formElement, ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle, deleteConfirmBodyFor(template.name, template.assignedChildIds))) {
 									cancel();
 									return;
 								}
@@ -1258,7 +1268,9 @@ function getChildName(childId: ChildId): string {
 								<span>{ov.icon}</span>
 								<span class="text-sm">{ov.itemName}</span>
 								<span class="text-xs px-1.5 py-0.5 {ov.action === 'add' ? 'bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]' : 'bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)]'} rounded">
-									{ov.action === 'add' ? '追加' : '除外'}
+									{ov.action === 'add'
+								? ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionAdd
+								: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionRemove}
 								</span>
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
@@ -1292,7 +1304,7 @@ function getChildName(childId: ChildId): string {
 
 		<!-- #1755 (#1709-A): kind 選択削除 — 持ち物純化 -->
 
-		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.namePlaceholderItem} required />
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldNameLabel} type="text" name="name" bind:value={templateName} placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.namePlaceholderItem} required />
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
@@ -1310,7 +1322,7 @@ function getChildName(childId: ChildId): string {
 			<input type="hidden" name="icon" value={templateIcon} />
 		</div>
 
-		<FormField label="時間帯">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldTimeSlotLabel}>
 			{#snippet children()}
 				<NativeSelect
 					name="timeSlot"
@@ -1344,7 +1356,14 @@ function getChildName(childId: ChildId): string {
 	>
 		<input type="hidden" name="templateId" value={addItemTemplateId} />
 
-		<FormField label="名前" type="text" name="name" bind:value={itemName} placeholder="例: ハンカチ" required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldNameLabel}
+					type="text"
+					name="name"
+					bind:value={itemName}
+					placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.itemNamePlaceholder}
+					required
+				/>
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
@@ -1362,13 +1381,13 @@ function getChildName(childId: ChildId): string {
 			<input type="hidden" name="icon" value={itemIcon} />
 		</div>
 
-		<FormField label="頻度">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldFrequencyLabel}>
 			{#snippet children()}
 				<NativeSelect name="frequency" bind:value={itemFrequency} options={FREQUENCY_OPTIONS} />
 			{/snippet}
 		</FormField>
 
-		<FormField label="方向">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldDirectionLabel}>
 			{#snippet children()}
 				<NativeSelect name="direction" bind:value={itemDirection} options={DIRECTION_OPTIONS} />
 			{/snippet}
@@ -1398,22 +1417,35 @@ function getChildName(childId: ChildId): string {
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 
-		<FormField label="日付" type="date" name="targetDate" bind:value={overrideDate} required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldDateLabel}
+					type="date"
+					name="targetDate"
+					bind:value={overrideDate}
+					required
+				/>
 
-		<FormField label="操作">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldOverrideActionLabel}>
 			{#snippet children()}
 				<NativeSelect
 					name="action"
 					bind:value={overrideAction}
 					options={[
-						{ value: 'add', label: '追加' },
-						{ value: 'remove', label: '除外' },
+						{ value: 'add', label: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionAdd },
+						{ value: 'remove', label: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionRemove },
 					]}
 				/>
 			{/snippet}
 		</FormField>
 
-		<FormField label="アイテム名" type="text" name="itemName" bind:value={overrideName} placeholder="例: リュック（遠足）" required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldItemNameLabel}
+					type="text"
+					name="itemName"
+					bind:value={overrideName}
+					placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.overrideItemNamePlaceholder}
+					required
+				/>
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>

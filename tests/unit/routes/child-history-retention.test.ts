@@ -143,9 +143,10 @@ function fixture(id: string) {
 // ------------------------------------------------------------------
 // fixture: ごほうび交換申請 (交換タブ)
 //
-// `requestedAt` は **ミリ秒 unix 時刻** (画面側 `formatUnixDate` が `new Date(unix)` に
-// そのまま渡している)。保持期間の cutoff は JST 暦日なので、実装は必ず JST 暦日に
-// 直してから比較する必要がある。[C4] がその境界を突く。
+// `requestedAt` は **epoch 秒** (書き込みは reward-redemption-service の
+// `Math.floor(Date.now() / 1000)`)。ms として `new Date()` に渡すと 1970-01-xx になり、
+// cutoff 比較で全件が古い判定 = 履歴が丸ごと消える (#4688)。保持期間の cutoff は
+// JST 暦日なので、実装は秒 → JST 暦日 に直してから比較する。[C4] がその境界を突く。
 // ------------------------------------------------------------------
 
 interface PurchaseSeed {
@@ -161,8 +162,8 @@ function purchase(seed: PurchaseSeed) {
 		rewardId: `reward-${seed.id}`,
 		quantity: 1,
 		status: 'approved',
-		requestedAt: Date.parse(seed.requestedAtIso),
-		resolvedAt: Date.parse(seed.requestedAtIso),
+		requestedAt: Math.floor(Date.parse(seed.requestedAtIso) / 1000),
+		resolvedAt: Math.floor(Date.parse(seed.requestedAtIso) / 1000),
 		parentNote: null,
 		resolvedByParentId: null,
 		shownToChildAt: null,
@@ -384,7 +385,7 @@ describe('#4688 follow-up — 交換タブは保持期間 (ADR-0049) を通る',
 		expect(idsOf(data.purchases)).toContain('p-old');
 	});
 
-	// requestedAt は ms unix 時刻。JST 暦日に直さず UTC 日付で比較すると、
+	// requestedAt は epoch 秒。JST 暦日に直さず UTC 日付で比較すると、
 	// **JST 00:00〜09:00 に交換した申請が 1 日前扱いになり cutoff 当日分が消える** (#4015 の同 class)。
 	it('[C4] cutoff 当日の JST 未明 (UTC では前日) の交換履歴も残る', async () => {
 		const data = await runLoad();

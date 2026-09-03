@@ -1,6 +1,8 @@
 // /admin/members — メンバー管理（招待・一覧） (#0129, #0156, #371)
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+// #4512: 解決できなかった値の表示は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -31,7 +33,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 				userId: m.userId,
 				role: m.role,
 				joinedAt: m.joinedAt,
-				email: user?.email ?? '(不明)',
+				email: user?.email ?? UNRESOLVED_ENTITY_LABELS.email,
 			};
 		}),
 	);

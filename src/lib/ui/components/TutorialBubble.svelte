@@ -13,7 +13,12 @@ import type { TutorialStep } from '$lib/ui/tutorial/tutorial-types';
 
 interface Props {
 	step: TutorialStep;
-	targetRect: DOMRect;
+	/**
+	 * spotlight 対象の矩形。#4651: 対象が無い step (概要 step / 対象未発見) は **null**。
+	 * その場合バブルは画面中央に置き、overlay 側も cutout / ring を描かない
+	 * (中央に偽の spotlight を描いて「対象があるかのように」見せない)。
+	 */
+	targetRect: DOMRect | null;
 	animKey: number;
 }
 
@@ -57,7 +62,11 @@ const bubbleStyle = $derived.by(() => {
 
 	// --- 固定要素の占有領域を動的に検出 ---
 	const stickyHeader = document.querySelector('.admin-header, [class*="sticky"][class*="top-"]');
-	const bottomNav = document.querySelector('[data-tutorial="nav-primary"]');
+	// #4651 (b): 下端セーフゾーンは admin の mobile nav だけでなく子供画面の BottomNav も見る
+	// (子供画面ではバブルが固定ナビに被っていた)。
+	const bottomNav = document.querySelector(
+		'[data-tutorial="nav-primary"], [data-testid="bottom-nav"]',
+	);
 
 	const headerRect = stickyHeader?.getBoundingClientRect();
 	const navRect = bottomNav?.getBoundingClientRect();
@@ -69,6 +78,24 @@ const bubbleStyle = $derived.by(() => {
 	// セーフゾーン: ヘッダー下端 ～ ボトムナビ上端
 	const safeTop = Math.max(headerH + edgePad, edgePad);
 	const safeBottom = Math.min(navTop - edgePad, window.innerHeight - edgePad);
+
+	// #4651: 対象が無い step は画面中央 (セーフゾーン内) に置く
+	if (!targetRect) {
+		const centerTop = Math.max(
+			safeTop,
+			Math.min((window.innerHeight - bubbleEstHeight) / 2, safeBottom - bubbleEstHeight),
+		);
+		const centerLeft = Math.max(
+			edgePad,
+			Math.min((window.innerWidth - bubbleWidth) / 2, window.innerWidth - bubbleWidth - edgePad),
+		);
+		return {
+			top: `${Math.round(centerTop)}px`,
+			left: `${Math.round(centerLeft)}px`,
+			width: `${bubbleWidth}px`,
+			placement: 'bottom' as const,
+		};
+	}
 
 	// --- 各方向の利用可能スペースを計算 ---
 	const spaceAbove = targetRect.top - safeTop;
@@ -345,6 +372,9 @@ function handleEnd() {
 		color: #475569;
 		line-height: 1.5;
 		margin: 0;
+		/* #4651 (c): keep the newline paragraph breaks of step.description visible
+		   (they used to collapse into a single line). */
+		white-space: pre-line;
 	}
 
 	.tutorial-progress {

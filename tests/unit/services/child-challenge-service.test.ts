@@ -1400,7 +1400,8 @@ describe('getChildChallengeRecords (達成履歴、#4688)', () => {
 		expect(records).toHaveLength(1);
 		expect(records[0]).toMatchObject({
 			id: '1',
-			title: 'うんどう 3 かい',
+			// #4690 (QM #4809): title は保存値でなく targetConfig から解決し直す (既定 uiMode='senior' = 漢字)
+			title: '今週は「運動」を3回',
 			completed: true,
 			rewardClaimed: true,
 			currentValue: 3,

@@ -9,6 +9,7 @@ import type { ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
 	ERROR_NOTIFY_LABELS,
+	formatJstDate,
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
@@ -380,10 +381,7 @@ async function handleCloudExport() {
 			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
 			return;
 		}
-		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(
-			d.pinCode,
-			new Date(d.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-		);
+		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(d.pinCode, formatJstDate(d.expiresAt));
 		await loadCloudExports();
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
@@ -521,7 +519,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 
-const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
+const canConfirmClear = $derived(
+	clearConfirmText === SETTINGS_LABELS.clearConfirmKeyword && clearAgreeChecked,
+);
 </script>
 
 <svelte:head>
@@ -536,8 +536,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-					<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT (「スタンダード以上」直書きは表記ゆれ) -->
-					<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
+				<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT (「スタンダード以上」直書きは表記ゆれ) -->
+				<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 			{/if}
 		</div>
 
@@ -1118,7 +1118,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 											</p>
 											<p class="text-xs text-[var(--color-text-muted)]">
 												{SETTINGS_LABELS.cloudStoredExpiry(
-													new Date(exp.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
+													formatJstDate(exp.expiresAt),
 												)}
 												· {SETTINGS_LABELS.cloudStoredDownloads(
 													exp.downloadCount,
@@ -1422,12 +1422,12 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				<div class="danger-zone__step">
 					<p class="danger-zone__step-label">{SETTINGS_LABELS.dangerStep1Label}</p>
 					<FormField
-						label="確認のため「削除」と入力してください"
+						label={SETTINGS_LABELS.clearConfirmFieldLabel}
 						type="text"
 						id="clearConfirm"
 						name="confirm"
 						bind:value={clearConfirmText}
-						placeholder="削除"
+						placeholder={SETTINGS_LABELS.clearConfirmKeyword}
 					/>
 				</div>
 
@@ -1460,7 +1460,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						disabled={clearSubmitting || !canConfirmClear}
 						data-testid="data-danger-execute-button"
 					>
-						{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
+						{clearSubmitting ? SETTINGS_LABELS.clearSubmitting : SETTINGS_LABELS.clearSubmitButton}
 					</Button>
 				</div>
 			</form>

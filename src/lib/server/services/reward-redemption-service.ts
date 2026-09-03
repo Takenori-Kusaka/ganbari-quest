@@ -4,7 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
-import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
+import { jstDateOfEpochSeconds, todayDateJST } from '$lib/domain/date-utils';
 import { formatRewardWithQuantity } from '$lib/domain/labels';
 import {
 	isValidRedemptionQuantity,
@@ -13,10 +13,12 @@ import {
 import { selectTenantSlice } from '$lib/server/cron/tenant-slice';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
+import { REDEMPTION_EXPIRE_AFTER_SEC } from '$lib/server/db/interfaces/reward-redemption-repo.interface';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
+	findPendingRewardIdsByTenant,
 	findRedemptionRequestById,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
@@ -218,7 +220,9 @@ async function classifyDuplicate(
  * (実際に「記録 > 交換」タブがこの状態だった、#4818)。履歴ではない用途で意図的に絞らない
  * ときは `NO_RETENTION_FILTER` を明示的に渡す。
  *
- * `requestedAt` は ms unix 時刻なので、比較の前に **JST 暦日へ直す**。UTC 日付のまま
+ * `requestedAt` は **epoch 秒** (`insertRedemptionRequest` に渡す値が `Math.floor(Date.now() / 1000)`) なので、
+ * `jstDateOfEpochSeconds` で JST 暦日へ直す。`new Date(秒)` は ms 解釈で 1970-01-xx になり、
+ * cutoff 比較で全件が古い判定 = 履歴が丸ごと消える。UTC 日付のまま
  * 比較すると JST 00:00〜09:00 の申請が 1 日前扱いになり、cutoff 当日分が落ちる (#4015 同 class)。
  */
 export async function getRedemptionRequestsForChild(
@@ -229,7 +233,7 @@ export async function getRedemptionRequestsForChild(
 	const requests = await findRedemptionRequestsByChild(childId, tenantId);
 	if (!range.from && !range.to) return requests;
 	return requests.filter((r) => {
-		const requestedDate = toJSTDateString(new Date(r.requestedAt));
+		const requestedDate = jstDateOfEpochSeconds(r.requestedAt);
 		if (range.from && requestedDate < range.from) return false;
 		if (range.to && requestedDate > range.to) return false;
 		return true;
@@ -279,6 +283,18 @@ export async function countPendingRedemptionsForParent(tenantId: string): Promis
 	return countRedemptionRequestsByTenant(tenantId, {
 		status: 'pending_parent_approval',
 	});
+}
+
+/**
+ * #4682: 承認待ち申請が存在するごほうびの id 集合 (DISTINCT、limit なし)。
+ *
+ * ごほうび管理画面の「申請時点の内容で処理」note と削除前の処理待ちバッジで使う。
+ * 表示用一覧 (`getRedemptionRequestsForParent`、既定 limit 50) を map して導くと、
+ * 申請が 51 件以上になった時点で種別が静かに抜け落ち、親が「処理待ちがある」ことに
+ * 気づかないままごほうびを編集 / 削除してしまう。
+ */
+export async function getPendingRewardIdsForParent(tenantId: string): Promise<string[]> {
+	return findPendingRewardIdsByTenant(tenantId);
 }
 
 // ============================================================
@@ -580,6 +596,12 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 	const today = options?.today ?? todayDateJST();
 	const dryRun = options?.dryRun ?? false;
 
+	// #4682: dry-run は「実際に失効する件数」を報告しなければ観測の意味がない。
+	// 実処理 (expireOldRedemptions) と同一の経過秒 (REDEMPTION_EXPIRE_AFTER_SEC) から cutoff を
+	// 導き、count にも同じ期間条件を渡す (cutoff の無い COUNT は承認待ち全件を「失効予定」と
+	// 過大報告し、運用判断を誤らせる)。
+	const expireCutoffEpoch = Math.floor(Date.now() / 1000) - REDEMPTION_EXPIRE_AFTER_SEC;
+
 	const tenants = await getRepos().auth.listAllTenants();
 	// #4682: 先頭固定 (`slice(0, limit)`) にすると上限超過分が永久に処理されない。
 	// 実行日から決まるスライスを選び、ceil(total / limit) 日で全テナントを重複なく周回する。
@@ -600,6 +622,7 @@ export async function expireOldRedemptionsForAllTenants(options?: {
 			expiredCount += dryRun
 				? await countRedemptionRequestsByTenant(tenant.tenantId, {
 						status: 'pending_parent_approval',
+						requestedBeforeEpoch: expireCutoffEpoch,
 					})
 				: await expireOldRedemptionsRepo(tenant.tenantId);
 		} catch (err) {
