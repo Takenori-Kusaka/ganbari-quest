@@ -4029,7 +4029,6 @@ export const SETTINGS_LABELS = {
 	cloudSaving: '保管中...',
 	cloudSaveAction: 'クラウドに保管',
 	cloudStoredTitle: '保管済みデータ',
-	cloudStoredExpiry: (date: string) => `期限: ${date}`,
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
 	cloudStoredDeleting: '削除中…',
