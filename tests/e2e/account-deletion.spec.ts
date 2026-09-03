@@ -26,6 +26,9 @@
 //   - test.slow() 廃止 / page.goto() タイムアウトを 30s に短縮
 
 import { expect, test } from '@playwright/test';
+// #4512: 退会の合言葉は labels.ts の SSOT を参照する (画面側と同じ定数を見ることで、
+// 合言葉変更時に E2E が古い literal のまま追随しない事故を防ぐ)。
+import { SETTINGS_LABELS } from '../../src/lib/domain/labels';
 import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
@@ -268,7 +271,7 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）free'
 		// hydration 待ち: SSR 直後の DOM は click しても handler が無く無反応になる。
 		// 3-step ガード (確認テキスト + 同意 checkbox → 実行ボタン enabled) は client state
 		// なので、これが成立することを hydration の probe に使う (削除は実行しない)。
-		await page.fill('#deleteConfirm', 'アカウントを削除します');
+		await page.fill('#deleteConfirm', SETTINGS_LABELS.accountDeleteConfirmKeyword);
 		await page.getByTestId('account-danger-agree-checkbox').check();
 		await expect(page.getByTestId('account-danger-execute-button')).toBeEnabled({
 			timeout: 30_000,
@@ -320,7 +323,7 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 		// Step 1: 確認テキストを入力
 		const confirmInput = page.locator('#deleteConfirm');
 		await expect(confirmInput).toBeVisible({ timeout: 5_000 });
-		await confirmInput.fill('アカウントを削除します');
+		await confirmInput.fill(SETTINGS_LABELS.accountDeleteConfirmKeyword);
 
 		// Step 2: 同意チェックボックス (#2319 EPIC Danger Zone 3-step ガード)
 		const agreeCheckbox = page.getByTestId('account-danger-agree-checkbox');

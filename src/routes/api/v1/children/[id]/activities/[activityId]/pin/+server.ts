@@ -4,7 +4,7 @@
 import { json } from '@sveltejs/kit';
 import { asActivityId, asChildId } from '$lib/domain/ids';
 import { apiError } from '$lib/server/errors';
-import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
+import { ActivityPinError, toggleActivityPin } from '$lib/server/services/activity-pin-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
@@ -32,7 +32,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const result = await toggleActivityPin(childId, activityId, pinned, tenantId);
 		return json(result);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : 'ピン留めに失敗しました';
+		// #4716 / ADR-0062: 拒否理由 (ActivityPinError) のみ返し、想定外例外の内部 message は返さない。
+		const message = err instanceof ActivityPinError ? err.message : 'ピン留めに失敗しました';
 		return apiError('VALIDATION_ERROR', message);
 	}
 };
@@ -54,7 +55,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		const result = await toggleActivityPin(childId, activityId, false, tenantId);
 		return json(result);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : 'ピン留め解除に失敗しました';
+		const message = err instanceof ActivityPinError ? err.message : 'ピン留め解除に失敗しました';
 		return apiError('VALIDATION_ERROR', message);
 	}
 };

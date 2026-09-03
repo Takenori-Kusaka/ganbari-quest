@@ -4,7 +4,7 @@ import { invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, formatAge, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
 	ANALYSIS_DEVIATION_HIGH,
@@ -91,13 +91,15 @@ let levelTitleInputs: Record<number, string> = $state({});
 </script>
 
 <svelte:head>
-	<title>{PAGE_TITLES.statusReport}{APP_LABELS.pageTitleSuffix}</title>
+	<title>{PAGE_TITLES.status}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <!-- #2905: ❓ ページガイド (STATUS_GUIDE) のアンカー。全 admin ページで ? が機能する規約のため
 	page-guide-registry に登録し、本 wrapper を起点ステップの selector に紐付ける。 -->
-<div class="space-y-6">
-	<div class="flex items-center justify-end">
+<div class="space-y-6" data-tutorial="status-report">
+	<!-- #4715: nav / title と同じ画面名を画面内にも出す (旧 title「ベンチマーク管理」は中身と別物だった) -->
+	<div class="flex items-center justify-between gap-3">
+		<h2 class="text-lg font-bold text-[var(--color-text-primary)]">{STATUS_LABELS.pageHeading}</h2>
 		<a
 			href={resolve('/admin/children')}
 			class="text-sm text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] font-bold"
@@ -373,7 +375,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
 					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
-					{age + '歳'}
+					{formatAge(age)}
 				</Button>
 			{/each}
 		</div>

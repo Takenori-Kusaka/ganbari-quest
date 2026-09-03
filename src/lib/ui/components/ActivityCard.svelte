@@ -3,6 +3,7 @@ import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import type { ActivityId, CategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
+import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import CompoundIcon from './CompoundIcon.svelte';
 
@@ -34,6 +35,8 @@ interface Props {
 	 * 完了時の追加アニメーションは行わず、既存 completed 演出のみ）。
 	 */
 	isMust?: boolean;
+	/** #4690 F6: 年齢モード。must ribbon の表記（ひらがな / 漢字）を決める。 */
+	uiMode?: string;
 	onclick?: () => void;
 	onlongpress?: () => void;
 }
@@ -54,9 +57,17 @@ let {
 	isMainQuest = false,
 	eventBadge = null,
 	isMust = false,
+	uiMode = 'preschool',
 	onclick,
 	onlongpress,
 }: Props = $props();
+
+// #4690 F6: 13-18 歳の画面はひらがな固定にしない (docs/DESIGN.md §8)。
+const mustBadgeText = $derived(
+	normalizeUiMode(uiMode) === 'junior' || normalizeUiMode(uiMode) === 'senior'
+		? UI_COMPONENTS_LABELS.activityCardMustBadgeKanji
+		: UI_COMPONENTS_LABELS.activityCardMustBadge,
+);
 
 const iconSize = $derived(ICON_SIZE_MAP[cardSize]);
 const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
@@ -130,7 +141,7 @@ function handleClick(e: Event) {
 	{/if}
 
 	{#if showMust}
-		<span class="must-ribbon" aria-hidden="true" data-testid={activityId != null ? `must-ribbon-${activityId}` : undefined}>{UI_COMPONENTS_LABELS.activityCardMustBadge}</span>
+		<span class="must-ribbon" aria-hidden="true" data-testid={activityId != null ? `must-ribbon-${activityId}` : undefined}>{mustBadgeText}</span>
 	{/if}
 
 	{#if showMission}

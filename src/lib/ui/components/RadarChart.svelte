@@ -27,10 +27,12 @@ interface Props {
 	categories: CategoryData[];
 	comparisonValues?: Record<string, number>;
 	comparisonLabel?: string;
+	/** 「いま」側の凡例。年齢帯で文体が変わるため呼び出し側が渡す (#4690)。 */
+	nowLabel?: string;
 	size?: number;
 }
 
-let { categories, comparisonValues, comparisonLabel, size = 300 }: Props = $props();
+let { categories, comparisonValues, comparisonLabel, nowLabel, size = 300 }: Props = $props();
 
 const LEVELS = [25, 50, 75, 100];
 const padding = 60;
@@ -235,7 +237,7 @@ function gridPolygon(pct: number): string {
 	{#if compNormalized}
 		<g transform="translate({center - 60}, {size / 2 + maxRadius + 20})">
 			<line x1="0" y1="0" x2="16" y2="0" stroke="var(--theme-primary, #ff69b4)" stroke-width="2" />
-			<text x="20" y="4" class="radar-legend" fill="var(--color-text)">{UI_COMPONENTS_LABELS.radarChartNow}</text>
+			<text x="20" y="4" class="radar-legend" fill="var(--color-text)">{nowLabel ?? UI_COMPONENTS_LABELS.radarChartNow}</text>
 			<line x1="56" y1="0" x2="72" y2="0" stroke="var(--color-text-muted, #999)" stroke-width="1.5" stroke-dasharray="4,3" />
 			<text x="76" y="4" class="radar-legend" fill="var(--color-text-muted)">{comparisonLabel ?? UI_COMPONENTS_LABELS.radarChartDefaultComparisonLabel}</text>
 		</g>

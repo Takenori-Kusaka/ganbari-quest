@@ -128,8 +128,9 @@ describe('tutorial-store (#4654 章立て撤去後)', () => {
 
 	describe('再開', () => {
 		it('保存済み進捗があると resume prompt を出し、resumeTutorial でその step から再開する', async () => {
-			localStorage.setItem('tutorial-progress-chapter', '2');
-			localStorage.setItem('tutorial-progress-step', '0');
+			// #4651: 進捗 key は setChapters の scope 単位 (本 spec は既定 scope)
+			localStorage.setItem('tutorial-progress:default:chapter', '2');
+			localStorage.setItem('tutorial-progress:default:step', '0');
 			await startTutorial();
 			expect(isResumePromptShown()).toBe(true);
 			expect(isTutorialActive()).toBe(false);
@@ -140,8 +141,9 @@ describe('tutorial-store (#4654 章立て撤去後)', () => {
 		});
 
 		it('startFromBeginning は保存済み進捗を捨てて先頭から始める', async () => {
-			localStorage.setItem('tutorial-progress-chapter', '2');
-			localStorage.setItem('tutorial-progress-step', '0');
+			// #4651: 進捗 key は setChapters の scope 単位 (本 spec は既定 scope)
+			localStorage.setItem('tutorial-progress:default:chapter', '2');
+			localStorage.setItem('tutorial-progress:default:step', '0');
 			await startFromBeginning();
 			expect(isTutorialActive()).toBe(true);
 			expect(getCurrentStep()?.id).toBe('child-record-card');

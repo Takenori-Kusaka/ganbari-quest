@@ -57,6 +57,40 @@ const VIEWPORTS = [
 ] as const;
 
 /**
+ * #4651 (EPIC #4650 判断 4 / 6): **selector を持つ step は必ず実要素に spotlight する**。
+ *
+ * 判定は DOM から行う (spec 側で step 一覧を二重管理しない):
+ *   `.guide-bubble[data-has-target="true"]` = ガイド定義が selector を持つ step。
+ *   その step では driver.js の `.driver-active-element` が 1 件・可視・非 0 サイズで存在すること。
+ *
+ * ### accepted-residual allowlist (ADR-0061)
+ * 「対象が画面に無い step」は本来 0 件であるべきだが、同一 EPIC の各画面 PR が develop に
+ * merge されるまでの間だけ残る。下表に **対応 PR 番号付きで** 明示列挙し、それ以外は hard-fail する。
+ * - 追加は必ずレビューを通る (定数の diff として見える) = allowlist が増える方向は PR で止まる
+ * - 列挙した組み合わせが **通ってしまった場合も fail** させる (merge 済なのに残置 = 記録の腐り)。
+ *   → allowlist は縮む方向にしか動かない
+ */
+const ACCEPTED_RESIDUAL_SPOTLIGHT: readonly {
+	path: string;
+	viewport: 'desktop' | 'mobile';
+	stepId: string;
+	pr: string;
+}[] = [
+	// 各行は「対象 PR が develop に入れば解消する」ものだけ。解消したら行ごと削除する。
+	//
+	// 現在 0 件。`/admin` desktop の `home-nav` は #4732 (Issue #4653) が
+	// `home-nav-desktop` (`[data-tutorial="nav-desktop"]`) / `home-nav-mobile` に分割して
+	// 再アンカーしたため、develop への取り込みに合わせて当該行を削除した。
+];
+
+/** allowlist 判定 (path × viewport × stepId 完全一致)。 */
+function residualEntry(path: string, viewport: string, stepId: string) {
+	return ACCEPTED_RESIDUAL_SPOTLIGHT.find(
+		(e) => e.path === path && e.viewport === viewport && e.stepId === stepId,
+	);
+}
+
+/**
  * #4650 / #4668: 「selector 指定 step は必ず実要素に spotlight する」を機械固定する対象。
  * 各ページで (AUTH_MODE=local / plan=family / Stripe 無効 の E2E 環境において) 表示されるべき
  * selector 付き step の id を DOM 順で列挙する。ガイド走査中にこの id の step が出たら、
@@ -390,20 +424,78 @@ async function waitForBubbleStable(page: Page, bubble: Locator): Promise<void> {
 }
 
 /**
+ * (d) #4651: selector を持つ step が実要素に spotlight したことを検証する。
+ * 戻り値は「実要素に spotlight したか」。allowlist 判定のため boolean を返す。
+ */
+async function isSpotlightingRealTarget(page: Page): Promise<boolean> {
+	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
+	if ((await target.count()) !== 1) return false;
+	if (!(await target.isVisible().catch(() => false))) return false;
+	const box = await target.boundingBox();
+	if (!box || box.width <= 0 || box.height <= 0) return false;
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+	const tol = 1;
+	return (
+		box.x + box.width > -tol &&
+		box.y + box.height > -tol &&
+		box.x < vp.width + tol &&
+		box.y < vp.height + tol
+	);
+}
+
+/**
+ * (d) #4651: `data-has-target="true"` の step は実要素に spotlight する。
+ * allowlist 記載の組み合わせのみ「まだ光らない」ことを許容し、逆に光っていたら
+ * 「allowlist から外せ」と fail する (記録が腐らないようにする)。
+ */
+async function assertSelectorStepLights(
+	page: Page,
+	bubble: Locator,
+	path: string,
+	viewport: string,
+	ctx: string,
+): Promise<void> {
+	if ((await bubble.getAttribute('data-has-target')) !== 'true') return;
+	const stepId = (await bubble.getAttribute('data-step-id')) ?? '';
+	const lit = await isSpotlightingRealTarget(page);
+	const residual = residualEntry(path, viewport, stepId);
+	if (residual) {
+		expect(
+			lit,
+			`${ctx}: ${stepId} は allowlist (${residual.pr}) に載っているが実要素に spotlight した。` +
+				' 対象 PR が merge 済なら ACCEPTED_RESIDUAL_SPOTLIGHT から当該行を削除すること',
+		).toBe(false);
+		return;
+	}
+	expect(
+		lit,
+		`${ctx}: ${stepId} は selector 指定 step なので実要素に spotlight する必要がある` +
+			' (中央 fallback / 0×0 spotlight で成立させない、EPIC #4650 判断 4)',
+	).toBe(true);
+}
+
+/**
  * ガイドの全 step を「つぎへ」で辿りながら (a)(b)(c)(d) を検証する (上限で無限ループを防ぐ。
  * 1 ページ最大 step は registry 上 12 以下)。
+ * @param target 走査対象のページ path と viewport ラベル (allowlist 照合 / ログ文脈に使う)
  * @param requiredSpotlight (d) で実要素 spotlight を要求し、走査後に出現も要求する step id (#4650)
  * @param blanketSelectorAssert selector を持つ全 step に (d) の実要素 spotlight を要求するか
  *   (#4653: 起動時 filter で「対象が描画済の step」だけが残る AdminLayout 配下は true。
  *   `/marketplace` は同 assert を `marketplace-page-guide.spec.ts` が担うため false)
+ *
+ * (d) は 2 段構え: #4651 の汎用 assert (`data-has-target="true"` の step は全て実要素に光る、
+ * allowlist 以外 hard-fail) を `blanketSelectorAssert` の範囲で適用しつつ、`requiredSpotlight` に
+ * 列挙した step はさらに「ガイドに出現すること」まで要求する (#4650 のページ単位 ratchet)。
  */
 async function walkAllSteps(
 	page: Page,
 	bubble: Locator,
-	pageCtx: string,
+	target: { path: string; viewport: string },
 	requiredSpotlight: readonly string[],
 	blanketSelectorAssert: boolean,
 ): Promise<void> {
+	const { path, viewport } = target;
+	const pageCtx = `[${viewport}] ${path}`;
 	const MAX_STEPS = 12;
 	const seenStepIds: string[] = [];
 	for (let i = 0; i < MAX_STEPS; i++) {
@@ -420,6 +512,10 @@ async function walkAllSteps(
 		// (起動時 filter を通過した = 対象が描画済のはず。dummy fallback / 0×0 を検出する)。
 		if (blanketSelectorAssert) {
 			await assertSelectorStepSpotlightsRealElement(page, bubble, ctx);
+			// (d) #4651: selector 指定 step は実要素に spotlight する (allowlist 以外は hard-fail)。
+			// scope は #4653 の blanketSelectorAssert に揃える (/marketplace は
+			// marketplace-page-guide.spec.ts が同等 assert を担う)。
+			await assertSelectorStepLights(page, bubble, path, viewport, ctx);
 		}
 		await assertBubbleWithinViewport(page, bubble, ctx);
 		await assertBubbleNotOverlapTarget(page, bubble, ctx);
@@ -472,7 +568,7 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 				await walkAllSteps(
 					page,
 					bubble,
-					`[${vpLabel}] ${path}`,
+					{ path, viewport: vpLabel },
 					REQUIRED_SPOTLIGHT_STEPS[path] ?? [],
 					path !== '/marketplace',
 				);

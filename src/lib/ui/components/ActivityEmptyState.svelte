@@ -1,13 +1,13 @@
 <script lang="ts">
-import { getModeLabels, ICON_STATUS } from '$lib/domain/icons';
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { ICON_STATUS } from '$lib/domain/icons';
+import { getChildNavModeLabels, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface Props {
 	uiMode: string;
 }
 
 let { uiMode }: Props = $props();
-const labels = $derived(getModeLabels(uiMode));
+const labels = $derived(getChildNavModeLabels(uiMode));
 </script>
 
 <div class="empty-state" data-testid="activity-empty-state">

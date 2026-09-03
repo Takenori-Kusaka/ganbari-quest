@@ -4,6 +4,8 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { ChildId } from '$lib/domain/ids';
+// #4512: 確認テキストの合言葉と文言は labels SSOT (画面側と同じ定数を見る)
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { notYetExportedSourceLabels } from '$lib/server/db/backup-entity-registry';
 import { findAllChildren } from '$lib/server/db/child-repo';
@@ -66,11 +68,11 @@ export const actions = {
 		const confirm = form.get('confirm')?.toString() ?? '';
 		const agree = form.get('agree')?.toString() ?? '';
 
-		if (confirm !== '削除') {
-			return fail(400, { clearError: '確認テキスト「削除」を入力してください' });
+		if (confirm !== SETTINGS_LABELS.clearConfirmKeyword) {
+			return fail(400, { clearError: SETTINGS_LABELS.clearConfirmRequired });
 		}
 		if (agree !== 'true') {
-			return fail(400, { clearError: '同意チェックを入れてください' });
+			return fail(400, { clearError: SETTINGS_LABELS.clearAgreeRequired });
 		}
 
 		try {
@@ -79,7 +81,7 @@ export const actions = {
 			return { clearSuccess: true, cleared: result.deleted };
 		} catch (err) {
 			logger.error('[data-clear] データクリア失敗', { error: String(err) });
-			return fail(500, { clearError: 'データクリアに失敗しました' });
+			return fail(500, { clearError: SETTINGS_LABELS.clearFailed });
 		}
 	},
 } satisfies Actions;

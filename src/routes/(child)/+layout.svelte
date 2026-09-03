@@ -8,15 +8,10 @@ import {
 	AUTO_SLEEP_BATTLE_GRACE_MS,
 	AUTO_SLEEP_INACTIVE_RESET_MS,
 } from '$lib/domain/constants/auto-sleep';
-import {
-	getModeLabels,
-	ICON_CHECKLIST,
-	ICON_HOME,
-	ICON_STATUS,
-	ICON_SWITCH,
-} from '$lib/domain/icons';
+import { ICON_CHECKLIST, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
 import {
 	CHILD_SHOP_LABELS,
+	getChildNavModeLabels,
 	PIN_GATE_ONBOARDING_LABELS,
 	UI_COMPONENTS_LABELS,
 } from '$lib/domain/labels';
@@ -68,7 +63,7 @@ const isBaby = $derived(uiMode === 'baby');
 const isScreenshotMode = getScreenshotMode();
 const pointFlightEnabled = $derived(!isBaby && !isScreenshotMode);
 // #0289: モード別ラベルを一元定数から取得
-const modeLabels = $derived(getModeLabels(uiMode));
+const modeLabels = $derived(getChildNavModeLabels(uiMode));
 const navItems = $derived([
 	// #4509 ⑥: 直書きを labels SSOT へ (BottomNav の既定項目と同じ出所を使う)
 	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: UI_COMPONENTS_LABELS.bottomNavHome },
@@ -94,7 +89,8 @@ onMount(() => {
 			soundService.preload(config.enabledSounds);
 		}
 		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
-		setChapters(getChildTutorialChapters(uiMode));
+		// #4651 (a): 進捗 key を子供ガイド (年齢モード別) の namespace に分ける
+		setChapters(getChildTutorialChapters(uiMode), `child:${uiMode}`);
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）

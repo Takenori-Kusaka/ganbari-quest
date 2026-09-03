@@ -119,7 +119,8 @@ describe('POST /admin/cheer?/grant (#2267)', () => {
 		const result = await actions.grant!(createEvent({ ...validForm, childId: '0' }));
 		expect(result).toMatchObject({
 			status: 400,
-			data: { error: 'こどもを選択してください' },
+			// #4716 AC2: 保護者画面の呼称は honorific (CHEER_LABELS.errorChildRequired)
+			data: { error: 'お子さまを選択してください' },
 		});
 		expect(mockGrantCheer).not.toHaveBeenCalled();
 	});
