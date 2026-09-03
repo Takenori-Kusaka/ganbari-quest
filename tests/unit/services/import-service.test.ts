@@ -629,6 +629,30 @@ describe('importFamilyData', () => {
 			);
 		});
 
+		it('#4693 (QM #4784): 復元の quota gate は merge (HTTP) で掛かり、verbatim (cutover / seed) では掛からない', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childActivities = [childActivityFixture('c1', '新しい活動')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockFindActivities.mockResolvedValue([]);
+			mockChildActivityInsert.mockResolvedValue({ id: '1' });
+
+			mockEnforceActivityQuota.mockClear();
+			await importFamilyData(data, TENANT);
+			expect(mockEnforceActivityQuota).toHaveBeenCalledTimes(1);
+
+			// verbatim = 自環境への完全移行 (NUC cutover / staging seed)。プラン上限は掛けず、
+			// activity-quota ($app 依存) も読み込まない (tsx の CLI が起動できなくなるため)
+			mockEnforceActivityQuota.mockClear();
+			await importFamilyData(data, TENANT, undefined, { mode: 'verbatim' });
+			expect(mockEnforceActivityQuota).not.toHaveBeenCalled();
+
+			// 明示指定は mode より優先
+			mockEnforceActivityQuota.mockClear();
+			await importFamilyData(data, TENANT, undefined, { mode: 'verbatim', enforceQuota: true });
+			expect(mockEnforceActivityQuota).toHaveBeenCalledTimes(1);
+		});
+
 		it('同名活動でも per-child は別 instance として復元する (dedup しない、#3327)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1', 'ゆうき'), makeChild('c2', 'たくみ')];
