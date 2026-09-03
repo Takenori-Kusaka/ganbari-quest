@@ -88,6 +88,68 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 		).toEqual([]);
 	});
 
+	// #4767 PO 回答 #4: 顧客に届く文字列は 1 本。
+	//
+	// 旧実装は 403 body に `message` (呼び出し側の自由文字列 = 多くは開発者向け英語) と
+	// `userMessage` (tier 別の固定文) の 2 本を載せ、**client が実際に読むのは `message`** だった
+	// (admin 設定画面の `resolveApiErrorMessage(status, error.message)`)。結果、顧客には
+	// アップグレード導線の無い文や英語が出て、導線入りの文は誰にも読まれていなかった。
+	//
+	// 2 本ある限り「どちらが本物か」が実装ごとに割れるため、**別々の文字列を持てないこと**を固定する。
+	it('プラン制限 403 の message と userMessage は常に同一の文字列 (二重チャネルを作らない)', () => {
+		const src = readFileSync(join(SRC_ROOT, 'lib/server/errors.ts'), 'utf-8');
+
+		/**
+		 * 対象は **プラン制限 403 を返す 2 helper の本体だけ**。
+		 * `ERROR_DEFINITIONS` (apiError の汎用カタログ) は「code ごとの定型文」を持つ別機構で、
+		 * 本 test の対象ではない (#4767 の scope は 403 プラン制限の文言チャネル)。
+		 */
+		function bodyOf(fnName: string): string {
+			const start = src.indexOf(`export function ${fnName}(`);
+			expect(start, `${fnName} が errors.ts に無い = 検査対象を見失っている`).toBeGreaterThan(-1);
+			const next = src.indexOf('\nexport function ', start + 1);
+			return src.slice(start, next === -1 ? undefined : next);
+		}
+
+		const userMessageProps = ['planLimitError', 'quotaLimitError'].flatMap(
+			(fn) => bodyOf(fn).match(/userMessage:[^,\n]+/g) ?? [],
+		);
+		expect(
+			userMessageProps.length,
+			'2 helper に userMessage の代入が 1 つも無い = 検査対象を見失っている (検査が黙って消えた)',
+		).toBeGreaterThan(0);
+		const nonAlias = userMessageProps.filter((m) => !/userMessage:\s*message\b/.test(m));
+		expect(
+			nonAlias,
+			[
+				'403 body の userMessage に message と別の文字列を入れています。',
+				`  該当: ${nonAlias.join(' / ')}`,
+				'→ 顧客が読むのは message です (画面は resolveApiErrorMessage(status, error.message) を描く)。',
+				'  2 本持つと、導線入りの文が誰にも読まれないまま残ります (#4767 PO 回答 #4)。',
+			].join('\n'),
+		).toEqual([]);
+	});
+
+	it('plan gate / quota の Error class が独自の顧客向け文言 field を持たない (文言の入口は errors.ts の helper だけ)', () => {
+		const violations: string[] = [];
+		for (const file of files) {
+			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
+			const src = readFileSync(file, 'utf-8');
+			// 「plan gate / quota の Error class が顧客向け文言を自前で抱える」形だけを見る
+			// (BackupSizeLimitError 等の非プラン系は 403 の二重チャネルとは別事象なので対象外)。
+			if (!/class\s+\w*(PlanGate|Quota)\w*Error\s+extends\s+Error/.test(src)) continue;
+			if (/readonly\s+userMessage/.test(src)) violations.push(rel);
+		}
+		expect(
+			violations,
+			[
+				'plan gate / quota の Error class が独自の userMessage を持っています。',
+				`  該当: ${violations.join(', ')}`,
+				'→ 文言は errors.ts の planLimitError / quotaLimitError が labels SSOT から 1 本だけ組み立てます。',
+			].join('\n'),
+		).toEqual([]);
+	});
+
 	it('planLimitError が実在し、要求 tier を引数に取る', () => {
 		const src = readFileSync(join(SRC_ROOT, 'lib/server/errors.ts'), 'utf-8');
 		expect(src).toMatch(/export function planLimitError\(\s*requiredTier: 'standard' \| 'family',/);

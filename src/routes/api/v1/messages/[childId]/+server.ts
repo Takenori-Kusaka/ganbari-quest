@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
-import { CHEER_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { CHEER_LABELS } from '$lib/domain/labels';
 import { messageQuerySchema, sendMessageSchema } from '$lib/domain/validation/message';
 import { planLimitError, validationError } from '$lib/server/errors';
 import {
@@ -63,11 +63,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			// #4710: プラン制限の 403 は要求 tier つきで返す。固定 userMessage だと
 			// 「スタンダード以上に」しか言えず、スタンダード契約者が premium 限定の
 			// 本機能を叩いたときに次の行動を示せない。自由テキストは premium 限定 (#4504)。
-			return planLimitError(
-				'family',
-				PLAN_GATE_LABELS.familyOnlyFor(CHEER_LABELS.freeTextFeatureName),
-				{ tenantId, tier },
-			);
+			// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+			return planLimitError('family', CHEER_LABELS.freeTextFeatureName, { tenantId, tier });
 		}
 	}
 

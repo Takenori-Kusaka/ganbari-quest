@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
+import { REWARD_TERMS } from '$lib/domain/terms';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
@@ -44,10 +45,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		context.plan,
 	);
 	if (!isCustomRewardUnlocked(tier)) {
-		return planLimitError('standard', 'special reward grant requires standard or above', {
-			tenantId,
-			tier,
-		});
+		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+		return planLimitError('standard', REWARD_TERMS.productRegistration, { tenantId, tier });
 	}
 
 	const body = await request.json();

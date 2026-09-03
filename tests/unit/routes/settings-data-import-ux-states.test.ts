@@ -184,6 +184,9 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 											createdAt: '2026-07-16T00:00:00Z',
 											status: 'building',
 											failureReason: null,
+											// #4767: server が付ける行の表示状態 / 自動削除までの残日数
+											rowState: 'building',
+											daysUntilAutoDelete: 5,
 										},
 									],
 								}),
@@ -203,6 +206,101 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			expect(status.textContent).toContain(SETTINGS_LABELS.cloudStatusBuilding);
 			// spinner (animate-spin) が併置される
 			expect(status.querySelector('.animate-spin')).not.toBeNull();
+		});
+	});
+
+	// ── #4767 PO 回答 #3: 枠を占有している行 (DL 使い切り / 失敗) が一覧に出て削除できる ──
+	describe('cloud export 保管枠の可視化と削除 (#4767)', () => {
+		/** GET /api/v1/export/cloud を任意の行で解決し、DELETE の呼び出しを記録する stub。 */
+		function stubCloudFetch(rows: unknown[]) {
+			const deleted: string[] = [];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string, init?: RequestInit) => {
+					if (typeof url === 'string' && url.includes('/api/v1/export/cloud')) {
+						if (init?.method === 'DELETE') {
+							deleted.push(url.split('/').pop() ?? '');
+							return Promise.resolve({
+								ok: true,
+								json: () => Promise.resolve({ ok: true }),
+							} as Response);
+						}
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ exports: rows }),
+						} as Response);
+					}
+					return Promise.reject(new Error(`unexpected fetch: ${url}`));
+				}),
+			);
+			return deleted;
+		}
+
+		const exhaustedRow = {
+			id: 'exp-exhausted',
+			exportType: 'template',
+			pinCode: 'ABC234',
+			expiresAt: '2026-09-10T00:00:00Z',
+			fileSizeBytes: 1024,
+			description: null,
+			downloadCount: 5,
+			maxDownloads: 5,
+			createdAt: '2026-09-01T00:00:00Z',
+			status: 'ready',
+			failureReason: null,
+			rowState: 'exhausted',
+			daysUntilAutoDelete: 7,
+		};
+
+		it('DL 回数を使い切った行も一覧に出て、状態と自動削除までの日数が読める', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			const status = await findByTestId('cloud-export-status-exp-exhausted');
+			expect(status.getAttribute('role')).toBe('status');
+			expect(status.textContent).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+			const row = await findByTestId('cloud-export-row-exp-exhausted');
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudAutoDeleteIn(7));
+			// もう取り出せないので DL 導線は出さない (押しても失敗する導線を残さない)
+			expect(row.querySelector('[data-testid="cloud-export-download-link"]')).toBeNull();
+		});
+
+		it('削除を押すと DELETE が飛び、一覧が再取得されて枠が空く', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId, queryByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			const delBtn = await findByTestId('cloud-export-delete-exp-exhausted');
+			// 削除後の再取得は空一覧を返す (= 枠が戻った状態)
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve({ exports: [] }),
+					} as Response);
+				},
+			);
+			await fireEvent.click(delBtn);
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+			await waitFor(() => expect(queryByTestId('cloud-export-stored-list')).toBeNull());
 		});
 	});
 

@@ -6,6 +6,7 @@ import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import type { CloudExportStoredRow } from '$lib/domain/cloud-export-quota';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import {
@@ -19,6 +20,7 @@ import {
 	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
+import CloudExportStoredList from '$lib/features/admin/components/CloudExportStoredList.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
@@ -88,22 +90,11 @@ let importStep = $state<'select' | 'preview' | 'done'>('select');
 let importMode = $state<'add' | 'replace'>('replace');
 
 // クラウドエクスポート
-let cloudExports = $state<
-	Array<{
-		id: string;
-		exportType: string;
-		pinCode: string;
-		expiresAt: string;
-		fileSizeBytes: number;
-		description: string | null;
-		downloadCount: number;
-		maxDownloads: number;
-		createdAt: string;
-		// #3324 / #3509: 非同期 build 状態。旧レコードは server 側で 'ready' に backfill 済。
-		status: 'pending' | 'building' | 'ready' | 'failed';
-		failureReason: string | null;
-	}>
->([]);
+// #4767 PO 回答 #3: 一覧は「枠を占有している全行」。行の表示状態 (rowState) と自動削除までの
+// 残日数 (daysUntilAutoDelete) は server (cloud-export-service) が付けて返す (画面と 403 文言で同じ判定)。
+let cloudExports = $state<CloudExportStoredRow[]>([]);
+/** 削除リクエスト中の行 id (その行だけ loading にし、他行の削除は止める)。 */
+let cloudDeletingId = $state<string | null>(null);
 let cloudLoading = $state(false);
 let cloudError = $state('');
 let cloudSuccess = $state('');
@@ -406,6 +397,10 @@ async function handleCloudExport() {
 }
 
 async function handleDeleteCloudExport(id: string) {
+	// #4767 PO 回答 #3: 削除は枠が即戻る操作。押した行を loading にして二重送信を防ぐ。
+	if (cloudDeletingId !== null) return;
+	cloudDeletingId = id;
+	cloudError = '';
 	try {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
@@ -422,6 +417,8 @@ async function handleDeleteCloudExport(id: string) {
 		await loadCloudExports();
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
+	} finally {
+		cloudDeletingId = null;
 	}
 }
 
@@ -1147,89 +1144,14 @@ const canConfirmClear = $derived(
 						</Button>
 					</div>
 
-					<!-- 保管済み一覧 -->
+					<!-- 保管済み一覧 (#4767 PO 回答 #3): 枠を占有している全行を状態付きで出し、各行を削除できる -->
 					{#if cloudExports.length > 0}
 						<hr class="my-4 border-[var(--color-border-default)]" />
-						<div>
-							<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
-								{SETTINGS_LABELS.cloudStoredTitle}
-							</h4>
-							<div class="space-y-2">
-								{#each cloudExports as exp}
-									<div
-										class="bg-[var(--color-surface-muted)] rounded-lg p-3 flex items-center justify-between"
-									>
-										<div>
-											<p class="text-sm font-mono font-bold text-[var(--color-brand-600)]">
-												{exp.pinCode}
-											</p>
-											<p class="text-xs text-[var(--color-text-muted)]">
-												{exp.exportType === 'template'
-													? SETTINGS_LABELS.cloudExportTypeTemplate
-													: SETTINGS_LABELS.cloudExportTypeFull}
-												{#if exp.description}· {exp.description}{/if}
-											</p>
-											<p class="text-xs text-[var(--color-text-muted)]">
-												{SETTINGS_LABELS.cloudStoredExpiry(
-													formatJstDate(exp.expiresAt),
-												)}
-												· {SETTINGS_LABELS.cloudStoredDownloads(
-													exp.downloadCount,
-													exp.maxDownloads,
-												)}
-											</p>
-											<!-- #3324: 非同期 build の進捗フィードバック (受付/生成中/失敗)。 -->
-											{#if exp.status === 'pending' || exp.status === 'building'}
-												<p
-													class="text-xs text-[var(--color-feedback-info-text)] flex items-center gap-1"
-													role="status"
-													data-testid="cloud-export-status-{exp.id}"
-												>
-													<span
-														class="inline-block w-3 h-3 border-2 border-[var(--color-feedback-info-text)] border-t-transparent rounded-full animate-spin"
-														aria-hidden="true"
-													></span>
-													{exp.status === 'pending'
-														? SETTINGS_LABELS.cloudStatusPending
-														: SETTINGS_LABELS.cloudStatusBuilding}
-												</p>
-											{:else if exp.status === 'failed'}
-												<p
-													class="text-xs text-[var(--color-feedback-error-text)]"
-													role="status"
-													data-testid="cloud-export-status-{exp.id}"
-												>
-													{SETTINGS_LABELS.cloudStatusFailed(exp.failureReason ?? '')}
-												</p>
-											{/if}
-										</div>
-										<div class="flex items-center gap-2">
-											<!-- #3324: ready 時のみ DL 導線を出す (#3509 の一時 DL 経路へ)。 -->
-											{#if exp.status === 'ready'}
-												<Button
-													href="/api/v1/export/cloud/{exp.id}/download"
-													variant="ghost"
-													size="sm"
-													class="text-[var(--color-text-link)] hover:brightness-75"
-													data-testid="cloud-export-download-link"
-												>
-													{SETTINGS_LABELS.cloudDownloadAction}
-												</Button>
-											{/if}
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												class="text-[var(--color-feedback-error-text)] hover:brightness-75"
-												onclick={() => handleDeleteCloudExport(exp.id)}
-											>
-												{SETTINGS_LABELS.cloudStoredDelete}
-											</Button>
-										</div>
-									</div>
-								{/each}
-							</div>
-						</div>
+						<CloudExportStoredList
+							exports={cloudExports}
+							deletingId={cloudDeletingId}
+							onDelete={handleDeleteCloudExport}
+						/>
 					{/if}
 
 					<!-- PIN インポート -->

@@ -4,7 +4,6 @@
 import { error } from '@sveltejs/kit';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { planLimitError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 
@@ -46,7 +45,8 @@ export async function validateSuggestRequest(
 		return {
 			ok: false,
 			// #4710: AI 提案は premium 限定。standard 契約者に「スタンダード以上に」と言わない。
-			response: planLimitError('family', PLAN_GATE_LABELS.familyOnlyFor(featureLabel)),
+			// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+			response: planLimitError('family', featureLabel),
 		};
 	}
 

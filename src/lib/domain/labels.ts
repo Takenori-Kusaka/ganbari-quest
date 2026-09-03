@@ -625,6 +625,14 @@ export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
 //   - viewerTokenFamilyOnly                  : "ファミリープラン限定の機能です"
 //
 // 参照: docs/DESIGN.md §6 / Issue #1925 / terms.ts (PLAN_FULL_TERMS atom)
+
+/** プラン制限 403 の末尾導線文 (#4767 PO 回答 #4)。PLAN_GATE_LABELS 内の各 compound が共有する。 */
+const PLAN_UPGRADE_CTA = 'プランをアップグレードしてください。';
+
+/** クラウド保管上限 403 の本文。`cloudExportLimitReached` / `cloudExportLimitReachedNaming` が共有する。 */
+const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
+	`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`;
+
 export const PLAN_GATE_LABELS = {
 	/**
 	 * "{feature}はスタンダードプラン以上でご利用いただけます"
@@ -684,7 +692,36 @@ export const PLAN_GATE_LABELS = {
 	 * カバー対象:
 	 *   - server/errors.ts: 'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。'
 	 */
-	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。プランをアップグレードしてください。`,
+	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
+
+	/**
+	 * "プランをアップグレードしてください。" — プラン制限 403 の末尾に付ける導線文 (#4767 PO 回答 #4)。
+	 * 画面 / test が「導線が載っているか」を照合するための export。
+	 */
+	upgradeCta: PLAN_UPGRADE_CTA,
+
+	/**
+	 * "{feature}はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。"
+	 * "{feature}はプレミアムプラン限定です。プランをアップグレードしてください。"
+	 *
+	 * プラン制限 403 (`planLimitError`) の**唯一の顧客向け文言** (#4767 PO 回答 #4)。
+	 * 旧実装は `message` (機能名入り・導線なし) と `userMessage` (導線入り・機能名なし) の 2 本を
+	 * 別々の文字列で持ち、client が読む `message` には導線が載っていなかった。
+	 * 機能名 + 要求 tier + アップグレード導線を 1 文に組み立て、両チャネルに同じ文字列を載せる。
+	 *
+	 * @param feature 機能名 (`FEATURE_LABELS` 等の labels SSOT から渡す)
+	 * @param requiredTier その機能が要求する最低 tier
+	 */
+	requiredTierWithUpgradeFor: (feature: string, requiredTier: 'standard' | 'family') =>
+		requiredTier === 'family'
+			? `${feature}は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`
+			: `${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
+
+	/**
+	 * "カスタム活動の追加（現在のプランでは最大{max}個まで）" — 活動 quota 上限 403 の機能名 (#4767 PO 回答 #4)。
+	 * `requiredTierWithUpgradeFor` に渡すと上限値 + 要求 tier + 導線が 1 文になる。
+	 */
+	activityAddFeature: (max: number) => `カスタム活動の追加（現在のプランでは最大${max}個まで）`,
 
 	/**
 	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)
@@ -702,7 +739,7 @@ export const PLAN_GATE_LABELS = {
 	 * プレミアム限定機能 (AI 提案) を叩くと「スタンダード以上にしてください」**と言われた。
 	 * 既にスタンダードなので次の行動が取れない。要求 tier 別に文を出し分けるための片割れ。
 	 */
-	familyLimitedGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.premium}限定です。プランをアップグレードしてください。`,
+	familyLimitedGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`,
 
 	/**
 	 * "{feature}はファミリープラン限定です。アップグレードすると利用できます。"
@@ -768,8 +805,19 @@ export const PLAN_GATE_LABELS = {
 	 *
 	 * @param max 上限値。上限に達した分岐でのみ呼ぶこと
 	 */
-	cloudExportLimitReached: (max: number) =>
-		`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`,
+	cloudExportLimitReached: CLOUD_EXPORT_LIMIT_REACHED,
+
+	/**
+	 * 上限到達 403 に「どれを消せばいいか」を名指しで添える (#4767 PO 回答 #3)。
+	 *
+	 * 候補は service が失敗 → DL 使い切り → 作成日が古い順に並べた先頭数件
+	 * (`SETTINGS_LABELS.cloudDeleteCandidate` で 1 件ずつ整形済み)。候補が無ければ上の文だけ。
+	 * 画面側 (`resolveApiErrorMessage`) は 200 字で切るため、候補は呼び出し側で 3 件までに絞る。
+	 */
+	cloudExportLimitReachedNaming: (max: number, candidates: readonly string[]) =>
+		candidates.length === 0
+			? CLOUD_EXPORT_LIMIT_REACHED(max)
+			: `${CLOUD_EXPORT_LIMIT_REACHED(max)}削除の候補: ${candidates.join('、')}`,
 
 	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
 	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
@@ -949,6 +997,9 @@ export const FEATURE_LABELS = {
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
+	// #4767 PO 回答 #4: プラン制限 403 の機能名 (planLimitError に渡す)。route に直書きしない。
+	cloudExport: 'クラウドエクスポート',
+	archiveRestore: 'アーカイブしたデータの復元',
 	// #1660 R53: 実装は activities / special-rewards / checklists の 3 endpoint で family-only gate 完備のため
 	// 内部 SSOT も外部訴求 (pricing.html / plan-features.ts) と並列に「活動・ごほうび・チェックリスト」を明示
 	aiActivitySuggest: 'AI による活動・ごほうび・チェックリスト提案',
@@ -3981,6 +4032,20 @@ export const SETTINGS_LABELS = {
 	cloudStoredExpiry: (date: string) => `期限: ${date}`,
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
+	cloudStoredDeleting: '削除中…',
+	// #4767 PO 回答 #3: 枠を占有している全行を状態付きで見せる。
+	// 状態名は PO 回答の 4 語 (ダウンロード可能 / ダウンロード回数を使い切りました / 作成に失敗しました /
+	// あと N 日で自動削除) をそのまま使う。生成待ち / 生成中は既存 cloudStatusPending / cloudStatusBuilding。
+	cloudRowStateDownloadable: 'ダウンロード可能',
+	cloudRowStateExhausted: 'ダウンロード回数を使い切りました',
+	cloudRowStateFailed: '作成に失敗しました',
+	cloudAutoDeleteIn: (days: number) => `あと${days}日で自動削除`,
+	cloudStoredCreated: (date: string) => `${date} 作成`,
+	// 上限到達 403 で名指しする 1 件分: "ABC123（ダウンロード回数を使い切りました・2026/08/28 作成）"
+	cloudDeleteCandidate: (pinCode: string, state: string, created: string) =>
+		`${pinCode}（${state}・${created}）`,
+	cloudStoredListDesc:
+		'ここに並ぶデータはすべて保管枠を使っています。不要なものは削除すると枠がすぐに空きます。',
 	// #3324 / #3509: 非同期 build 状態 (pending/building/ready/failed) の可視フィードバック
 	cloudStatusPending: '受付済み・生成待ち',
 	cloudStatusBuilding: '生成中…',
@@ -11105,6 +11170,12 @@ export const LP_PRICING_EXTRA_LABELS = {
 export const STORYBOOK_LABELS = {
 	buttonDefault: 'ボタン',
 	loading: '読み込み中...',
+	// #4767: CloudExportStoredList の見た目確認用 (demo 環境は cloud 行を持たないため SS が撮れない)。
+	cloudExportStoredList: {
+		descriptionTemplate: '活動12件（2人分）、チェックリスト3件',
+		descriptionFull: 'フルバックアップ（子供2人、ログ340件、画像同梱）',
+		failureReason: 'ビルドがタイムアウトしました。再度エクスポートしてください',
+	},
 	badgeDefault: 'バッジ',
 	cardDefault: 'カード',
 	toastDefault: 'トースト',

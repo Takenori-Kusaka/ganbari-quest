@@ -1,10 +1,21 @@
-import type { CategoryId, ChildId } from '$lib/domain/ids';
-import { SETTINGS_LABELS } from '$lib/domain/labels';
 // src/lib/server/services/cloud-export-service.ts
 // クラウドエクスポート共有サービス（PIN付きS3保管 + インポート）
 
 import { randomInt } from 'node:crypto';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import {
+	type CloudExportRowState,
+	cloudExportDaysUntilAutoDelete,
+	cloudRowStateLabel,
+	rankCloudExportDeleteCandidates,
+	resolveCloudExportRowState,
+} from '$lib/domain/cloud-export-quota';
+import type { CategoryId, ChildId } from '$lib/domain/ids';
+import {
+	FEATURE_LABELS,
+	formatJstDate,
+	PLAN_GATE_LABELS,
+	SETTINGS_LABELS,
+} from '$lib/domain/labels';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
@@ -184,14 +195,34 @@ async function buildFullExportData(tenantId: string): Promise<CloudExportArtifac
 export class CloudExportPlanGateError extends Error {
 	/** この機能を使える最低 tier。route が案内文の出し分けに使う。 */
 	readonly requiredTier = 'standard' as const;
-	/** ユーザー向け文言 (labels SSOT、ADR-0062)。 */
-	readonly userMessage: string;
+	/** 機能名 (labels SSOT)。route が `planLimitError(requiredTier, feature)` に渡す。 */
+	readonly feature = FEATURE_LABELS.cloudExport;
 	constructor() {
-		const userMessage = PLAN_GATE_LABELS.standardOrAboveFor('クラウドエクスポート');
-		super(userMessage);
+		// 顧客向け文言は route が planLimitError で 1 本だけ組み立てる (#4767 PO 回答 #4)。
+		// ここで別の文字列を持つと 2 チャネルに戻るため、message は機能名 + tier の同じ文にする。
+		super(PLAN_GATE_LABELS.requiredTierWithUpgradeFor(FEATURE_LABELS.cloudExport, 'standard'));
 		this.name = 'CloudExportPlanGateError';
-		this.userMessage = userMessage;
 	}
+}
+
+/** 上限到達 403 で名指しする「消す候補」1 件分 (顧客が一覧で見分けられる情報だけ)。 */
+export interface CloudExportDeleteCandidate {
+	pinCode: string;
+	rowState: CloudExportRowState;
+	/** UTC ISO (record.createdAt)。 */
+	createdAt: string;
+}
+
+/** 403 文言に載せる候補の上限。画面側が 200 字で切る (`MAX_SERVER_MESSAGE_LENGTH`) ため 3 件に絞る。 */
+const QUOTA_DELETE_CANDIDATE_LIMIT = 3;
+
+/** 候補 1 件を顧客向けの 1 句に整形する: "ABC123（ダウンロード回数を使い切りました・2026/08/28 作成）"。 */
+function formatDeleteCandidate(c: CloudExportDeleteCandidate): string {
+	return SETTINGS_LABELS.cloudDeleteCandidate(
+		c.pinCode,
+		cloudRowStateLabel(c.rowState),
+		SETTINGS_LABELS.cloudStoredCreated(formatJstDate(c.createdAt)),
+	);
 }
 
 /**
@@ -200,21 +231,29 @@ export class CloudExportPlanGateError extends Error {
  * free は maxCloudExports=0 で {@link CloudExportPlanGateError} 側に落ちるため、
  * ここに来るのは **契約中の顧客だけ** (standard=3 / family=10)。したがって
  * アップグレード案内は次の行動にならない。取れる行動は古いものを削除すること。
+ *
+ * #4767 PO 回答 #3: 「どれを消せばいいか」を名指しする。候補は失敗 → DL 使い切り → 作成日が
+ * 古い順 (`rankCloudExportDeleteCandidates`) の先頭 {@link QUOTA_DELETE_CANDIDATE_LIMIT} 件。
+ * 顧客向け文言は `message` の 1 本 (#4 単一チャネル)。
  */
 export class CloudExportQuotaError extends Error {
-	/** ユーザー向け文言 (labels SSOT、ADR-0062)。 */
-	readonly userMessage: string;
 	/** 現在の保管件数 (ログ用。顧客には出さない)。 */
 	readonly current: number;
 	/** プランが許す保管件数上限 (ログ用)。 */
 	readonly max: number;
-	constructor(current: number, max: number) {
-		const userMessage = PLAN_GATE_LABELS.cloudExportLimitReached(max);
-		super(userMessage);
+	/** 403 文言で名指しした候補 (順序どおり)。 */
+	readonly candidates: readonly CloudExportDeleteCandidate[];
+	constructor(
+		current: number,
+		max: number,
+		candidates: readonly CloudExportDeleteCandidate[] = [],
+	) {
+		const named = candidates.slice(0, QUOTA_DELETE_CANDIDATE_LIMIT);
+		super(PLAN_GATE_LABELS.cloudExportLimitReachedNaming(max, named.map(formatDeleteCandidate)));
 		this.name = 'CloudExportQuotaError';
-		this.userMessage = userMessage;
 		this.current = current;
 		this.max = max;
+		this.candidates = named;
 	}
 }
 
@@ -263,15 +302,19 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	}
 
 	// 保管数上限チェック (機能はあるが枠が埋まっている = 契約中の顧客に起きる)
-	// 数えるのは **期限内に S3 に存在する行** (= 保管を占有しているもの)。旧実装は期限切れの
-	// 残骸 (cleanup 前) まで数えていたため、画面の枠表示が「2 / 3」でも 403 になり、「3 件まで」と
-	// 言われた顧客が何を削除すればよいか一覧と噛み合わなかった (QM #4767 レビュー)。
-	// DL 回数を使い切った行 / build 失敗行は一覧から消えるが期限内は S3 に残る (完全 PII の ZIP) ので、
-	// 枠の天井を外さないために数え続ける (一覧に出して削除させる UI は PO 判断待ち)。
+	// 数えるのは **期限内の全行** (= 保管を占有しているもの、listCloudExports と同じ述語)。
+	// DL 回数を使い切った行 / build 失敗行も期限内は S3 に残る (完全 PII の ZIP) ので枠として
+	// 数え続け (PO 回答 #3: 天井を残す)、そのかわり一覧に出して削除できるようにし、
+	// 上限のエラーでは「どれを消せばいいか」を名指しする。
 	const repos = getRepos();
-	const currentCount = await countStoredCloudExports(tenantId);
-	if (currentCount >= limits.maxCloudExports) {
-		throw new CloudExportQuotaError(currentCount, limits.maxCloudExports);
+	const occupying = await listQuotaOccupyingCloudExports(tenantId);
+	if (occupying.length >= limits.maxCloudExports) {
+		const candidates = rankCloudExportDeleteCandidates(occupying).map((e) => ({
+			pinCode: e.pinCode,
+			rowState: resolveCloudExportRowState(e),
+			createdAt: e.createdAt,
+		}));
+		throw new CloudExportQuotaError(occupying.length, limits.maxCloudExports, candidates);
 	}
 
 	// PIN生成 + s3Key を build 前に確定（filename は exportType から決まる）
@@ -460,29 +503,42 @@ export async function drainPendingExports(
 }
 
 /**
- * 自テナントのクラウドエクスポート一覧を取得（#3504: 生成中/失敗も返す）。
- * ready は DL 上限に達した / 期限切れを除外するが、pending/building/failed は生成状況を
- * UI に見せるため（期限内である限り）返す。
+ * 保管枠を占有している行 = **期限内の全行** (状態 / DL 回数を問わない、#4767 PO 回答 #3)。
+ *
+ * 上限判定 ({@link createCloudExport}) と一覧 ({@link listCloudExports}) は**必ずこの 1 つの述語**を
+ * 使う。旧実装は一覧だけ DL 使い切り行を落としていたため、「保管枠 2 / 3」と見せながら 3 件目で
+ * 403 になり、顧客には消す対象が見えなかった。失敗行 / 使い切り行も期限内は S3 に PII ZIP が
+ * 残るので枠として数え続け、そのかわり一覧に出して削除できるようにする。
  */
-/** 保管枠を占有している行数 = 期限内の全行 (状態 / DL 回数を問わない)。 */
-async function countStoredCloudExports(tenantId: string): Promise<number> {
-	const now = new Date().toISOString();
+export async function listQuotaOccupyingCloudExports(
+	tenantId: string,
+	now: Date = new Date(),
+): Promise<CloudExportRecord[]> {
+	const nowIso = now.toISOString();
 	const all = await getRepos().cloudExport.findByTenant(tenantId);
-	return all.filter((e) => e.expiresAt > now).length;
+	return all.filter((e) => e.expiresAt > nowIso);
 }
 
-export async function listCloudExports(tenantId: string): Promise<CloudExportRecord[]> {
-	const repos = getRepos();
-	const all = await repos.cloudExport.findByTenant(tenantId);
-	const now = new Date().toISOString();
-	return all.filter((e) => {
-		if (e.expiresAt <= now) return false;
-		// 既存行の NULL 安全性: status 未設定 (旧 backfill 漏れ) は 'ready' 扱い。
-		const status = e.status ?? 'ready';
-		if (status === 'ready') return e.downloadCount < e.maxDownloads;
-		// pending / building / failed は生成状況として表示する。
-		return true;
-	});
+/** 一覧の 1 行 (#4767 PO 回答 #3): record + 表示状態 + 自動削除までの残日数 (JST 暦日)。 */
+export interface CloudExportListItem extends CloudExportRecord {
+	rowState: CloudExportRowState;
+	daysUntilAutoDelete: number;
+}
+
+/**
+ * 自テナントのクラウドエクスポート一覧 = 枠を占有している全行 (#4767 PO 回答 #3)。
+ * 各行に表示状態 (ダウンロード可能 / 使い切り / 失敗 / 生成待ち / 生成中) と自動削除までの残日数を付ける。
+ */
+export async function listCloudExports(
+	tenantId: string,
+	now: Date = new Date(),
+): Promise<CloudExportListItem[]> {
+	const rows = await listQuotaOccupyingCloudExports(tenantId, now);
+	return rows.map((e) => ({
+		...e,
+		rowState: resolveCloudExportRowState(e),
+		daysUntilAutoDelete: cloudExportDaysUntilAutoDelete(e.expiresAt, now),
+	}));
 }
 
 /** クラウドエクスポートを削除 */

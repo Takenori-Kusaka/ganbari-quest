@@ -37,6 +37,8 @@ function liveRow(i: number, expiresAt: string) {
 		tenantId: 't-1',
 		pinCode: `00000${i}`,
 		expiresAt,
+		// #4767: 上限 403 は「どれを消せばいいか」を作成日つきで名指しするため createdAt を持つ
+		createdAt: `2026-09-0${(i % 9) + 1}T00:00:00.000Z`,
 		downloadCount: 0,
 		maxDownloads: 3,
 		status: 'ready',
@@ -76,6 +78,10 @@ vi.mock('$lib/server/services/export-service', () => ({
 	exportFamilyDataForZip: vi.fn(),
 }));
 
+import { FEATURE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_FULL_TERMS } from '$lib/domain/terms';
+import { planLimitError } from '$lib/server/errors';
+import { resolveApiErrorMessage } from '$lib/ui/error-notify';
 import { POST } from '../../../src/routes/api/v1/export/cloud/+server';
 
 interface ApiErrorBody {
@@ -154,6 +160,30 @@ describe('#4710 POST /api/v1/export/cloud — プラン未達と保管上限を�
 		expect(status).toBe(403);
 		expect(body.error.userMessage).not.toContain('アップグレード');
 		expect(body.error.userMessage).toContain('10件');
+	});
+
+	it('プラン未達 403 で画面が描く文字列に、要求 tier とアップグレード導線の両方が載る (#4767 PO 回答 #4)', async () => {
+		const { status, body } = await postCloudExport('free', 0);
+		expect(status).toBe(403);
+
+		// 画面 (admin/settings/data) は resolveApiErrorMessage(status, error.message) を描く。
+		// 同じ経路を通した結果を assert する = 「顧客が読む文字列」そのものを固定する。
+		const shown = resolveApiErrorMessage(status, body.error.message);
+		expect(shown).toContain(PLAN_FULL_TERMS.standard);
+		expect(shown).toContain(PLAN_GATE_LABELS.upgradeCta);
+		expect(shown).toContain(FEATURE_LABELS.cloudExport);
+		// 単一チャネル: message と userMessage は同じ文字列 (別々の真実を持たない)
+		expect(body.error.userMessage).toBe(body.error.message);
+	});
+
+	it('premium 限定機能の 403 は「スタンダード以上に」と言わない (単一チャネルでも tier 別に出し分く)', async () => {
+		const res = planLimitError('family', FEATURE_LABELS.aiActivitySuggest);
+		const parsed = (await res.json()) as ApiErrorBody;
+		const shown = resolveApiErrorMessage(res.status, parsed.error.message);
+
+		expect(shown).toContain(PLAN_FULL_TERMS.premium);
+		expect(shown).toContain(PLAN_GATE_LABELS.upgradeCta);
+		expect(shown).not.toContain(`${PLAN_FULL_TERMS.standard}以上`);
 	});
 
 	it('上限内なら 201 で起票される (上の 403 が単なる無条件拒否でないことの対照)', async () => {

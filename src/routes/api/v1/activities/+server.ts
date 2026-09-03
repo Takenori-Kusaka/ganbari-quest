@@ -54,7 +54,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 	if (!limitCheck.allowed) {
-		return planLimitError('standard', PLAN_GATE_LABELS.activityLimitReached(limitCheck.max), {
+		// #4767 PO 回答 #4: 上限値 + 要求 tier + 導線を errors.ts が 1 文に組み立てる (機能名だけ渡す)
+		return planLimitError('standard', PLAN_GATE_LABELS.activityAddFeature(limitCheck.max), {
 			current: limitCheck.current,
 			max: limitCheck.max,
 		});
