@@ -20,6 +20,9 @@ import { recordConsent } from '$lib/server/services/consent-service';
 import { startTrial, TRIAL_TIER } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
 
+// #766 / #4702: `?plan=` の解釈は $lib/domain/validation/signup-plan の parseSignupPlanParam が SSOT。
+// Google 登録経路 (/auth/oauth/trial-start) と同じ規則を使う。
+
 export const load: PageServerLoad = async ({ locals }) => {
 	const _tenantId = locals.context?.tenantId;
 	const authMode = getAuthMode();

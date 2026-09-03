@@ -7,6 +7,11 @@ import {
 	OAUTH_NEXT_COOKIE_NAME,
 	resolveSafeNextPath,
 } from '$lib/domain/validation/login-redirect';
+import {
+	OAUTH_PLAN_COOKIE_NAME,
+	OAUTH_PLAN_MAX_AGE_SECONDS,
+	parseSignupPlanParam,
+} from '$lib/domain/validation/signup-plan';
 import { buildAuthorizeUrl } from '$lib/server/auth/providers/cognito-oauth';
 import type { RequestHandler } from './$types';
 
@@ -25,6 +30,18 @@ export const GET: RequestHandler = async ({ cookies, url: requestUrl }) => {
 			maxAge: 600,
 		});
 	}
+	// #4702: 料金ページ → /auth/signup?plan=X → 「Google で登録」の plan を往復させる。
+	// callback 後に /auth/oauth/trial-start がこの cookie を読み、メール登録経路と同じ startTrial を呼ぶ。
+	const plan = parseSignupPlanParam(requestUrl.searchParams.get('plan'));
+	if (plan) {
+		cookies.set(OAUTH_PLAN_COOKIE_NAME, plan, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: OAUTH_PLAN_MAX_AGE_SECONDS,
+		});
+	}
+
 	const url = buildAuthorizeUrl(cookies, 'Google');
 	redirect(302, url);
 };

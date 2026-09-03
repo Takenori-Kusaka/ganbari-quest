@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import {
 	APP_LABELS,
@@ -7,6 +8,7 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { PASSWORD_RESET_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
+import GoogleAccountNotice from '$lib/ui/components/GoogleAccountNotice.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -22,6 +24,57 @@ let newPasswordConfirm = $state('');
 let loading = $state(false);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
+
+// #4702: step 2 の再送 (login 画面の resendFromLogin と同じ 60 秒 cooldown)。
+// 「届かない場合は再送してください」と書きながら再送手段が無い dead-end を解消する。
+let resending = $state(false);
+let resendCooldown = $state(0);
+let resendSuccess = $state(false);
+let initialCooldownStarted = $state(false);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+let messageTimeout: ReturnType<typeof setTimeout> | null = null;
+
+onDestroy(() => {
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	if (messageTimeout) clearTimeout(messageTimeout);
+});
+
+function startCooldown() {
+	resendCooldown = 60;
+	if (cooldownTimer) clearInterval(cooldownTimer);
+	cooldownTimer = setInterval(() => {
+		resendCooldown -= 1;
+		if (resendCooldown <= 0) {
+			resendCooldown = 0;
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer);
+				cooldownTimer = null;
+			}
+		}
+	}, 1000);
+}
+
+// 再送成功 (server が resent を返す) で cooldown 開始 + 3 秒で通知を消す
+$effect(() => {
+	if (form && 'resent' in form && form.resent) {
+		resendSuccess = true;
+		startCooldown();
+		if (messageTimeout) clearTimeout(messageTimeout);
+		messageTimeout = setTimeout(() => {
+			resendSuccess = false;
+		}, 3000);
+	}
+});
+
+// 初回にコードを送った直後も cooldown を開始する (連打で Cognito の LimitExceeded を踏ませない)。
+// one-shot 化 (#4748): resendCooldown を条件に読むと startCooldown() 自身がその値を書き換えるため
+// 60 秒ごとに自己再トリガする無限ループになる。confirmStep の false→true 遷移で 1 回だけ発火させる。
+$effect(() => {
+	if (confirmStep && !initialCooldownStarted) {
+		initialCooldownStarted = true;
+		startCooldown();
+	}
+});
 
 // Restore email from server response
 $effect(() => {
@@ -46,6 +99,10 @@ $effect(() => {
 				{form.error}
 			</div>
 		{/if}
+
+		<!-- #4702: Google 登録の顧客には Cognito にパスワードが無く、リセットコードも届かない。
+		     Cognito はアカウントの存在を伏せる仕様のため、step 1 / 2 とも全員に常時案内する -->
+		<GoogleAccountNotice class="mb-4" />
 
 		{#if confirmStep}
 			<!-- Step 2: Verification code + new password -->
@@ -128,6 +185,44 @@ $effect(() => {
 						{FORGOT_PASSWORD_LABELS.resettingLabel}
 					{:else}
 						{FORGOT_PASSWORD_LABELS.resetButton}
+					{/if}
+				</Button>
+			</form>
+
+			{#if resendSuccess}
+				<div class="mt-3 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm text-center" role="status" data-testid="forgot-password-resend-success">
+					{FORGOT_PASSWORD_LABELS.step2ResendSuccess}
+				</div>
+			{/if}
+
+			<!-- #4702: 確認コード再送 (文言と操作の一致)。requestReset を再実行して新しいコードを送る -->
+			<form
+				method="POST"
+				action="?/requestReset"
+				use:enhance={() => {
+					resending = true;
+					return async ({ update }) => {
+						resending = false;
+						await update({ reset: false });
+					};
+				}}
+				class="mt-4 text-center"
+			>
+				<input type="hidden" name="email" value={email} />
+				<input type="hidden" name="resend" value="1" />
+				<Button
+					type="submit"
+					variant="ghost"
+					size="sm"
+					disabled={resending || resendCooldown > 0}
+					data-testid="forgot-password-resend"
+				>
+					{#if resending}
+						{FORGOT_PASSWORD_LABELS.step2ResendLoading}
+					{:else if resendCooldown > 0}
+						{FORGOT_PASSWORD_LABELS.step2ResendCooldown(resendCooldown)}
+					{:else}
+						{FORGOT_PASSWORD_LABELS.step2ResendButton}
 					{/if}
 				</Button>
 			</form>

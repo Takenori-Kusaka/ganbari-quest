@@ -6622,7 +6622,17 @@ export const FORGOT_PASSWORD_LABELS = {
 	step2ConfirmSentPrefix: 'に確認コードを送信しました。',
 	step2ConfirmEnterInstruction: 'メールに記載されたコードと新しいパスワードを入力してください。',
 	step2CodeExpiryPrefix: '確認コードは',
-	step2CodeExpirySuffix: '分間有効です。届かない場合は再送してください',
+	// #4702: 旧文言は「届かない場合は再送してください」だが画面に再送ボタンが無く dead-end だった。
+	// 再送ボタン (step2ResendButton) を追加したうえで文言を操作と一致させる
+	step2CodeExpirySuffix: '分間有効です。届かない場合は下の「コードを再送する」からやり直せます',
+	step2ResendButton: 'コードを再送する',
+	step2ResendLoading: '再送中...',
+	step2ResendCooldown: (seconds: number) => `コードを再送する（${seconds}秒後に再試行可能）`,
+	step2ResendSuccess: '確認コードを再送しました',
+	// #4702: Google (federated) で登録した顧客は Cognito にパスワードが無く、リセットコードも届かない。
+	// Cognito はアカウントの存在を伏せる (UserNotFound も成功扱い) ため、全員に常時案内する
+	googleUserNotice: `Google で${LOGIN_TERMS.canonical}した方はパスワードがありません。${LOGIN_TERMS.canonical}画面の「Google」ボタンからお進みください。`,
+	googleUserNoticeLink: `${LOGIN_TERMS.canonical}画面へ`,
 	resettingLabel: 'リセット中...',
 	resetButton: 'パスワードをリセット',
 	step1Instruction1: '登録済みのメールアドレスを入力してください。',
