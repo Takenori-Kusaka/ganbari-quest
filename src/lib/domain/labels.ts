@@ -9548,8 +9548,13 @@ export const USAGE_TIME_LABELS = {
 // いう幼児文体が出ていた (docs/DESIGN.md §8)。ひらがなをベースに、junior / senior だけ差分を
 // override で重ねる (`src/routes/CLAUDE.md` §年齢帯 variant)。
 
-/** ログインボーナス受取 UI の文言 (ベース = ひらがな: baby / preschool / elementary)。 */
-export const CHILD_STAMP_LABELS = {
+/**
+ * ログインボーナス受取 UI の文言 (ベース = ひらがな: baby / preschool / elementary)。
+ *
+ * export しない — 画面側は必ず `getChildStampLabels(uiMode)` を通す (ベースを直接読むと
+ * 年齢帯の出し分けを迂回できてしまう)。
+ */
+const CHILD_STAMP_LABELS = {
 	// ---- StampCard ----
 	stampCardTitle: 'スタンプカード',
 	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
