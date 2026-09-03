@@ -11,13 +11,19 @@ const envState: Record<string, unknown> = {};
 vi.mock('$lib/runtime/env', () => ({
 	getEnv: () => envState,
 }));
+const mockWarn = vi.fn();
+vi.mock('$lib/server/logger', () => ({
+	logger: { warn: mockWarn, error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
 
 function setEnv(overrides: Record<string, unknown>) {
 	for (const k of Object.keys(envState)) delete envState[k];
 	Object.assign(envState, { NODE_ENV: 'development', AUTH_MODE: 'cognito' }, overrides);
 }
 
-const { isCognitoDevMode } = await import('../../../src/lib/server/auth/auth-mode');
+const { isCognitoDevMode, cognitoDevModeDenialReason } = await import(
+	'../../../src/lib/server/auth/auth-mode'
+);
 
 describe('isCognitoDevMode の deploy guard (#4834)', () => {
 	afterEach(() => setEnv({}));
@@ -54,5 +60,19 @@ describe('isCognitoDevMode の deploy guard (#4834)', () => {
 		expect(isCognitoDevMode()).toBe(false);
 		setEnv({ COGNITO_DEV_MODE: true, APP_MODE: 'nuc-prod' });
 		expect(isCognitoDevMode()).toBe(false);
+	});
+
+	it('Lambda 上で APP_MODE=local-debug が紛れても false (resolveRuntimeMode の APP_MODE override より生の Lambda signal が優先)', () => {
+		setEnv({ COGNITO_DEV_MODE: true, APP_MODE: 'local-debug', AWS_LAMBDA_FUNCTION_NAME: 'gq-app' });
+		expect(isCognitoDevMode()).toBe(false);
+		expect(cognitoDevModeDenialReason(envState as never)).toContain('AWS_LAMBDA_FUNCTION_NAME');
+	});
+
+	it('拒否したときは理由付きで warn を出す (dev:cognito で案内が消えた原因を log で追える)', () => {
+		setEnv({ COGNITO_DEV_MODE: true, IS_NUC_DEPLOY: true });
+		expect(isCognitoDevMode()).toBe(false);
+		// warn はプロセスで 1 回だけ (前の case が先に拒否していれば、その理由が残る)
+		expect(mockWarn).toHaveBeenCalledTimes(1);
+		expect(JSON.stringify(mockWarn.mock.calls)).toMatch(/AWS_LAMBDA_FUNCTION_NAME|IS_NUC_DEPLOY/);
 	});
 });

@@ -13,7 +13,7 @@ import { can } from '$lib/policy/capabilities';
 import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
-import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
 import type { AuthContext } from '$lib/server/auth/types';
 import { cronJobNameFromPath, recordCronRun } from '$lib/server/cron/cron-heartbeat';
@@ -182,7 +182,9 @@ function respondEntitlementUnavailable(
 const provider = getAuthProvider();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
-const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
+// #4834: dev 判定の SSOT は isCognitoDevMode() (顧客 deploy では COGNITO_DEV_MODE=true でも false)。
+// process.env を生で読むと Lambda に誤設定が紛れたとき rate limit / 再同意 gate だけが外れる「半分 dev」になる
+const COGNITO_DEV_MODE = isCognitoDevMode();
 
 /**
  * #4280 案 b: front door (CloudFront) 検査が secret 未設定で無効なことを、プロセスで 1 回だけ
