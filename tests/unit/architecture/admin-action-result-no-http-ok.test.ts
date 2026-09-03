@@ -22,7 +22,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const ROUTES_ROOT = join(REPO_ROOT, 'src/routes');
+// #4693: 走査は `src/routes` だけでは足りない。form action を fetch する `.svelte` は
+// `src/lib/features/**` にも実在する (`AdminHome.svelte` の `?/dismissPremiumWelcome`) ため、
+// routes だけを見た「`resp.ok` 判定 0 件」は主張より狭い保証になる。UI コードのある 2 root を歩く。
+const SCAN_ROOTS = [join(REPO_ROOT, 'src/routes'), join(REPO_ROOT, 'src/lib')];
 
 function walkSvelte(dir: string, acc: string[] = []): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -67,7 +70,7 @@ vi.setConfig({ testTimeout: 60_000 });
 describe('#4693 form action の結果は ActionResult で判定する', () => {
 	it('?/action を fetch する .svelte が resp.ok で成否を分岐していない', () => {
 		const violations: string[] = [];
-		for (const file of walkSvelte(ROUTES_ROOT)) {
+		for (const file of SCAN_ROOTS.flatMap((root) => walkSvelte(root))) {
 			const src = readFileSync(file, 'utf-8');
 			const vars = formActionResponseVars(src);
 			if (vars.length === 0) continue;

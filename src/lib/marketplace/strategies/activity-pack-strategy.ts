@@ -104,6 +104,9 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 			errors: raw.errors,
 			// #2830: errors.length ではなく実失敗 activity 数を UI 件数表示用に伝播する。
 			failed: raw.failed,
+			// #4693: プラン上限で外した分と理由。ここで drop すると UI が「0 件を復元しました」と
+			// 成功トーンで出す (adversarial D2) ため素通しする。
+			blocked: raw.blocked,
 		};
 	},
 };

@@ -386,6 +386,9 @@ async function collectForChild(
 		dailyLimit: a.dailyLimit,
 		nameKana: a.nameKana,
 		nameKanji: a.nameKanji,
+		// #4693 (QM): 作成経路を round-trip する。落とすと custom が seed に化けて
+		// quota 集計から消え、復元 1 回で「オリジナル活動 3 個まで」が無効になる。
+		source: a.source,
 	}));
 
 	// ステータス履歴は全カテゴリ分を取得

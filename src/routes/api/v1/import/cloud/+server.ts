@@ -4,9 +4,11 @@
 import { json } from '@sveltejs/kit';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { requireRole } from '$lib/server/auth/factory';
+import type { InsertChildActivityInput } from '$lib/server/db/types';
 import type { ErrorCode } from '$lib/server/errors';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import { enforceActivityQuota } from '$lib/server/services/activity-quota';
 import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
 import type { CloudExportFetchFailure } from '$lib/server/services/cloud-export-service';
 import {
@@ -314,11 +316,16 @@ async function handleTemplateImport(
 		let activitiesCreated = 0;
 		const checklistsCreated = 0;
 
-		// per-child instance bulk insert
+		// #4693 (QM #4784): クラウドテンプレート取込も他の取込経路と同じ quota gate を通す
+		// (PO 判断「REST も素通りさせない」)。先に全 child の書き込み計画を作り、上限超過分を
+		// 外してから insert する。source は activity-source.ts (#3669 SSOT) のとおり repo 既定
+		// `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ扱い)。
+		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
+		const plannedNewNames = new Set<string>();
 		for (const cid of targetChildIds) {
 			const existingInChild = await repos.childActivity.findActivitiesByChild(cid, tenantId);
 			const existingNames = new Set(existingInChild.map((a) => a.name));
-			const inputs = Array.from(uniqByName.values())
+			const inputs: InsertChildActivityInput[] = Array.from(uniqByName.values())
 				.filter((a) => !existingNames.has(a.name))
 				.map((a) => ({
 					childId: cid,
@@ -331,6 +338,17 @@ async function handleTemplateImport(
 					priority: a.priority ?? 'optional',
 					sourcePresetId: null,
 				}));
+			for (const input of inputs) plannedNewNames.add(input.name);
+			childInputsByChild.set(cid, inputs);
+		}
+		const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
+		const blocked =
+			quota.rejectedRows > 0
+				? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
+				: undefined;
+
+		// per-child instance bulk insert
+		for (const inputs of childInputsByChild.values()) {
 			if (inputs.length > 0) {
 				const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
 				activitiesCreated += created.length;
@@ -357,6 +375,8 @@ async function handleTemplateImport(
 				activitiesCreated,
 				checklistsCreated,
 				targetChildIds,
+				// #4693 (QM #4784): プラン上限で取込から外した分 (理由 + アップグレード導線)
+				blocked,
 			},
 		});
 	} catch (err) {

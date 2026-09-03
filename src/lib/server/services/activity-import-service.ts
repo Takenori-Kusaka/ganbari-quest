@@ -24,7 +24,9 @@ import { asCategoryId } from '$lib/domain/ids';
 //   生んだ activity 数」、skipped は「全 target child で既存だった activity 数」。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { ACTIVITY_SOURCES, PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { toLegacyCategoryId } from '$lib/domain/categories';
+import type { ImportBlocked } from '$lib/marketplace/types';
 import { findActivities } from '$lib/server/db/activity-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
@@ -56,6 +58,13 @@ export interface ActivityImportResult {
 	 *   partial-failure 件数表示は本フィールドを使う。
 	 */
 	failed: number;
+	/**
+	 * #4693: プラン上限で **意図的に取込対象から外した**分と、その顧客向け理由。
+	 *   旧実装は理由を `errors` (表示ログ) にだけ push しており、UI がそれを読まないため
+	 *   上限で全件弾かれても「0 件を復元しました」と成功トーンで出ていた。顧客に見せる
+	 *   channel を別フィールドにして、`resolveImportFeedback` が 1 箇所で表示を決める。
+	 */
+	blocked?: ImportBlocked;
 }
 
 /**
@@ -294,6 +303,19 @@ function planActivityForChildren(
 			basePoints: a.basePoints,
 			triggerHint: a.triggerHint ?? null,
 			sourcePresetId: ctx.presetId ?? null,
+			// #4693 (QM): 取込の作成経路を quota の母集団と一致させる。
+			//
+			// `presetId` の有無が「配布物か、その家庭が自分で足したものか」の唯一の判別子:
+			//   - あり = marketplace プリセット取込 → `seed` (activity-source.ts の方針どおり quota 非対象)
+			//   - なし = ファイル復元 (`?/importFile`) / `api/v1/activities/import`
+			//            → 親が自分で用意した内容なので `custom` (手動作成と同じ扱い = quota 対象)
+			//
+			// 旧実装は source を渡さず repo 既定 `seed` に落ちていた。その状態で
+			// `enforceActivityQuota` が全取込を custom quota で判定していたため、
+			//   (a) 取込行が current を増やさず、3 件ずつ繰り返せば上限を超えて入る
+			//   (b) 手動 3 件で上限に達した無料世帯は、自分のバックアップ復元まで恒久的に拒否される
+			// の両方が起きていた (#4693 QM レビュー)。
+			source: ctx.presetId ? ACTIVITY_SOURCES.seed.value : PARENT_CREATED_SOURCE,
 			priority,
 		});
 		plannedForAnyChild = true;
@@ -356,13 +378,19 @@ export async function importActivities(
 	// #4693: **quota はここで一元強制する。** 経路ごとに `checkActivityLimit` を書く形では、
 	// 経路が増えるたびに書き忘れが起きる (手動 / 一括 / コピー / テンプレ取込には gate があり、
 	// ファイル復元だけ無かった = 無料プランが CSV を作れば無制限に増やせた、#4693 実測。
-	// #2894 / #3740 に続く 3 件目)。全ての取込経路が本関数を通るため、ここで切ると
-	// 「経路を増やしても素通りしない」構造になる (fitness function:
-	// tests/unit/architecture/activity-quota-single-enforcement.test.ts)。
+	// #2894 / #3740 に続く 3 件目)。`dispatchImport` 経由の取込 (marketplace 取込 / ファイル復元 /
+	// api/v1 の merge 取込) は全て本関数を通るため、ここで切れば取込側は経路を足しても素通りしない。
+	// 覆う経路と覆わない経路の境界は activity-quota.ts の冒頭コメントが SSOT。
+	// 回帰 lock: tests/unit/services/activity-quota-import-enforcement.test.ts (取込経路の上限)
+	// / tests/unit/routes/activities-quota-residual-gate.test.ts (本関数を通らない producer 経路)。
 	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
-	if (quota.rejectedNames.size > 0) {
-		errors.push(quota.message);
-	}
+	// #4693: 上限で外した理由は `errors` (表示ログ) ではなく `blocked` で返す。errors は
+	// per-child catch 行 / 集計行が混ざる内部ログで、UI はこれを読まない (読ませると内部
+	// 例外文字列が顧客に出る、ADR-0062)。顧客向け channel を型で分けておく。
+	const blocked: ImportBlocked | undefined =
+		quota.rejectedRows > 0
+			? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
+			: undefined;
 
 	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
 	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
@@ -385,11 +413,12 @@ export async function importActivities(
 			skipped,
 			failed,
 			errors: errors.length,
+			blocked: blocked?.count ?? 0,
 			presetId: presetId ?? null,
 			applyMustDefault,
 			childIdsCount: childIds.length,
 		},
 	});
 
-	return { imported, skipped, errors, failed };
+	return { imported, skipped, errors, failed, blocked };
 }

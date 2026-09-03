@@ -3,7 +3,7 @@
 // チェックリスト取込の上限エラーは **誰の上限か**を言い、**余裕のある子には配信する**。
 //
 // 旧実装は「1 人でも上限超過なら全員分を fail」+ 文言に子の名前が無かったため、
-// 「フリープランではお子さま1人あたり 3 個までです」だけが出て、
+// 「無料プランではお子さま1人あたり 3 個までです」だけが出て、
 // (a) どの子が上限なのか分からず (b) 空きのある子にも取り込まれない、の 2 重の詰まりだった。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -97,7 +97,12 @@ const { actions } = await import('../../../src/routes/(parent)/admin/checklists/
 // (他の admin action テストと同型: tests/unit/routes/admin-rewards-actions.test.ts)。
 const importPresetToChildren = actions.importPresetToChildren as unknown as (
 	event: unknown,
-) => Promise<{ status?: number; data?: { error?: { message: string } }; errors?: string[] }>;
+) => Promise<{
+	status?: number;
+	data?: { error?: { message: string } };
+	errors?: string[];
+	blocked?: { count: number; message: string; upgradeUrl: string | null };
+}>;
 
 const FULL = asChildId(1); // 上限に達している子
 const ROOM = asChildId(2); // 空きのある子
@@ -140,9 +145,24 @@ describe('#4693 チェックリスト取込の上限は「誰が」を言い、�
 		expect(mockDispatchImport).toHaveBeenCalledWith(
 			expect.objectContaining({ ctx: expect.objectContaining({ childIds: [ROOM] }) }),
 		);
-		const errors = (result as { errors: string[] }).errors.join(' ');
-		expect(errors).toContain('たろう');
-		expect(errors).not.toContain('はなこ');
+		// #4693 fix (adversarial D3): スキップした子の名前は `errors` (UI が読まない表示ログ)
+		// ではなく `blocked` に載せる。resolveImportFeedback が blocked を読んで
+		// 「1 人に配信しました。たろうは上限のためスキップ」+ アップグレード導線を出す。
+		const blocked = (result as { blocked?: { count: number; message: string } }).blocked;
+		expect(blocked?.message).toContain('たろう');
+		expect(blocked?.message).not.toContain('はなこ');
+		expect(blocked?.count).toBe(1);
+		expect((result as { blocked?: { upgradeUrl: string | null } }).blocked?.upgradeUrl).toBe(
+			'/admin/subscription',
+		);
+	});
+
+	it('誰も上限に達していなければ blocked を付けない', async () => {
+		mockRepoFindTemplatesByChild.mockResolvedValue([{}]);
+
+		const result = await importPresetToChildren(event(`${FULL},${ROOM}`));
+
+		expect((result as { blocked?: unknown }).blocked).toBeUndefined();
 	});
 
 	it('全員が上限 → 403 で拒否し、エラー文に対象の子が並ぶ', async () => {
@@ -156,6 +176,20 @@ describe('#4693 チェックリスト取込の上限は「誰が」を言い、�
 		expect(result.status).toBe(403);
 		expect(result.data.error.message).toContain('たろう');
 		expect(result.data.error.message).toContain('はなこ');
+		expect(mockDispatchImport).not.toHaveBeenCalled();
+	});
+
+	// #4693 fix (adversarial D3 security): 上限判定は child 1 人につき DB を 1 往復する。
+	// tenant 所有権の検査より後ろに置くと、未検証の child ID 列で往復を増幅させられる
+	// (ADR-0065 DPU 規約にも逆行)。認可 → 上限判定 の順序を固定する。
+	it('tenant 外 child は上限判定に入る前に弾く (DB 往復を発生させない)', async () => {
+		const result = (await importPresetToChildren(event(`${FULL},9999`))) as {
+			status: number;
+			data: { error: unknown };
+		};
+
+		expect(result.status).toBe(403);
+		expect(mockRepoFindTemplatesByChild).not.toHaveBeenCalled();
 		expect(mockDispatchImport).not.toHaveBeenCalled();
 	});
 

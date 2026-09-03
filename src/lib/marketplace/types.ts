@@ -134,6 +134,27 @@ export interface ImportResult {
 	skipped: number;
 	errors: string[];
 	failed: number;
+	blocked?: ImportBlocked;
+}
+
+/**
+ * #4693: **プラン上限のため意図的に取込対象から外した分**と、その顧客向け理由。
+ *
+ * `failed` (persist しようとして失敗した数) とは別物。旧実装はこの理由を `errors` 配列
+ * (= 表示ログ) にだけ push しており、画面がそれを読んでいなかったため、
+ * 上限で全件弾かれても「0 件を復元しました」と成功トーンで出ていた (#4693 adversarial D2)。
+ * 顧客に見せる channel を型で分けることで、UI が読み落とせば型と test が気づく。
+ *
+ * @property count     外した対象数。単位は type が「上限をどこで数えるか」に従う
+ *   (activity-pack = 書き込み行数 / checklist = 配信を外した child 数)。表示は `message` が担い、
+ *   `count` は「0 なら blocked 無し」の判定と診断に使う — 単位の違う数を並べて出さないこと。
+ * @property message   顧客に見せる理由 (PLAN_GATE_LABELS 経由。内部例外文字列は入れない、ADR-0062)
+ * @property upgradeUrl プラン上限が理由のときのアップグレード導線 (それ以外は null)
+ */
+export interface ImportBlocked {
+	count: number;
+	message: string;
+	upgradeUrl: string | null;
 }
 
 // ── ImportStrategy interface ─────────────────────────────────────

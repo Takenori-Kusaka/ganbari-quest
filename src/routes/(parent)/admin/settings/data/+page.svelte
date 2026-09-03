@@ -1,4 +1,6 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
+import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
@@ -14,6 +16,7 @@ import {
 	type ImportSkipReason,
 	PAGE_TITLES,
 	PAID_PLAN_LABEL,
+	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
@@ -72,6 +75,8 @@ let importResult = $state<{
 	settingsSkipped: number;
 	errors: string[];
 	warnings: string[];
+	// #4693 (QM #4784): プラン上限で復元から外した分 (理由 + アップグレード導線)
+	blocked?: { count: number; message: string; upgradeUrl: string | null };
 } | null>(null);
 // #3095: errors があれば partial-restore (置換時は家族データ半損)。「完了」でなく警告として surface する。
 const importHadErrors = $derived((importResult?.errors.length ?? 0) > 0);
@@ -882,6 +887,16 @@ const canConfirmClear = $derived(
 							{#if importResult.activitiesCreated > 0}
 								<li>
 									{SETTINGS_LABELS.dataImportResultActivities(importResult.activitiesCreated)}
+								</li>
+							{/if}
+							{#if importResult.blocked && importResult.blocked.count > 0}
+								<li class="text-[var(--color-feedback-warning-text)]" data-testid="data-import-blocked">
+									{SETTINGS_LABELS.dataImportResultBlocked(importResult.blocked.count)} — {importResult.blocked.message}
+									{#if importResult.blocked.upgradeUrl}
+										<a href={resolve(PLAN_UPGRADE_URL)} class="underline ml-1"
+											>{PLAN_GATE_LABELS.upgradeLinkLabel}</a
+										>
+									{/if}
 								</li>
 							{/if}
 							<li>

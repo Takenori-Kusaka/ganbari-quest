@@ -18,7 +18,7 @@
  */
 
 import { marketplaceRegistry } from './registry.js';
-import type { ImportContext, MarketplaceTypeCode } from './types.js';
+import type { ImportBlocked, ImportContext, MarketplaceTypeCode } from './types.js';
 
 /**
  * dispatchImport の戻り値 (旧 actions が返していた shape と互換)
@@ -38,6 +38,11 @@ export interface DispatchImportResult {
 	 * UI の partial-failure 件数表示はこのフィールドが SSOT (errors.length は表示ログ専用)。
 	 */
 	failed: number;
+	/**
+	 * #4693: プラン上限で意図的に取込対象から外した分と、その顧客向け理由
+	 * (`ImportResult.blocked` の素通し)。UI は `resolveImportFeedback` 経由でこれを表示する。
+	 */
+	blocked?: ImportBlocked;
 }
 
 /**
@@ -91,5 +96,8 @@ export async function dispatchImport(input: DispatchImportInput): Promise<Dispat
 		// #2955: Strategy 算出の failed (実失敗数) を素通しする。旧実装はここで drop しており、
 		// UI が errors.length に fallback して失敗規模を誤表示する経路の根因だった。
 		failed: result.failed,
+		// #4693: プラン上限で外した分と理由 (`blocked`) も素通しする。ここで drop すると
+		// 「上限で 1 件も入らなかった」が画面に届かず成功表示になる。
+		blocked: result.blocked,
 	};
 }

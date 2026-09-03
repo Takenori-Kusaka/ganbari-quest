@@ -44,6 +44,14 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  * @see ADR-0024 plan-tier-resolution-pattern
  * @see PLAN_GATE_LABELS in src/lib/domain/labels.ts (プラン制限メッセージ SSOT)
  */
+/**
+ * アップグレード導線の URL (SSOT)。
+ *
+ * `PlanLimitError.upgradeUrl` だけでなく、取込結果の `blocked.upgradeUrl` (#4693) も
+ * ここを参照する。文字列を各所に散らすと、導線先を変えたときに一部だけ古い URL に残る。
+ */
+export const PLAN_UPGRADE_URL = '/admin/subscription' as const;
+
 export interface PlanLimitError {
 	/** 常に 'PLAN_LIMIT_EXCEEDED' */
 	code: 'PLAN_LIMIT_EXCEEDED';
@@ -92,7 +100,7 @@ export function createPlanLimitError(
 		message,
 		currentTier,
 		requiredTier,
-		upgradeUrl: '/admin/subscription',
+		upgradeUrl: PLAN_UPGRADE_URL,
 	};
 }
 
@@ -109,7 +117,7 @@ export function isPlanLimitError(value: unknown): value is PlanLimitError {
 		typeof v.message === 'string' &&
 		(v.currentTier === 'free' || v.currentTier === 'standard' || v.currentTier === 'family') &&
 		(v.requiredTier === 'standard' || v.requiredTier === 'family') &&
-		v.upgradeUrl === '/admin/subscription'
+		v.upgradeUrl === PLAN_UPGRADE_URL
 	);
 }
 

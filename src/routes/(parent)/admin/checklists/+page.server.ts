@@ -3,7 +3,7 @@ import * as v from 'valibot';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { createPlanLimitError } from '$lib/domain/errors';
+import { createPlanLimitError, PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 // #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
@@ -586,42 +586,6 @@ export const actions: Actions = {
 		// 配信先 child 0 件でも family template 自体は作成可能 (後で distribution 編集)
 		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const tenantChildren = await getAllChildren(tenantId);
-		// 配信先 child が指定済みなら各 child の per-child quota を事前確認
-		const childIdsForLimitCheck =
-			childIdsRaw === 'all'
-				? tenantChildren.map((c) => c.id)
-				: childIdsRaw === ''
-					? []
-					: childIdsRaw
-							.split(',')
-							.map((s) => s.trim())
-							.filter((v) => v !== '')
-							.map(asChildId);
-		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
-		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
-		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
-		const {
-			overLimitChildIds,
-			names: overLimitNames,
-			max: checklistMaxForMessage,
-		} = await partitionOverLimitChildren(childIdsForLimitCheck, tenantChildren, {
-			tenantId,
-			licenseStatus,
-		});
-		if (
-			childIdsForLimitCheck.length > 0 &&
-			overLimitChildIds.size === childIdsForLimitCheck.length
-		) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					PLAN_GATE_LABELS.perChildLimitReachedForChildren(overLimitNames, checklistMaxForMessage),
-				),
-				upgradeRequired: true,
-			});
-		}
 
 		// childIds: 'all' or comma-separated id list ('' で配信先未指定 = template のみ作成)
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
@@ -638,13 +602,9 @@ export const actions: Actions = {
 				.map(asChildId);
 		}
 
-		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
-		const skippedOverLimitNames = childIds
-			.filter((id) => overLimitChildIds.has(id))
-			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
-		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
-
-		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
+		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject。
+		// #4693: **上限判定より先に**置く。上限判定は child 1 人につき DB を 1 往復するため、
+		// 後ろに置くと未検証の child ID 列で往復を増幅させられる (ADR-0065 DPU 規約にも逆行)。
 		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
 		if (foreignChildIds.length > 0) {
 			logger.warn('[admin/checklists] tenant 外 child ID が importPresetToChildren に指定された', {
@@ -654,6 +614,35 @@ export const actions: Actions = {
 				error: ADMIN_FORM_ERROR_LABELS.someChildrenNotFound,
 			});
 		}
+
+		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
+		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
+		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
+		const {
+			overLimitChildIds,
+			names: overLimitNames,
+			max: checklistMaxForMessage,
+		} = await partitionOverLimitChildren(childIds, tenantChildren, {
+			tenantId,
+			licenseStatus,
+		});
+		if (childIds.length > 0 && overLimitChildIds.size === childIds.length) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.perChildLimitReachedForChildren(overLimitNames, checklistMaxForMessage),
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
+		const skippedOverLimitNames = childIds
+			.filter((id) => overLimitChildIds.has(id))
+			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
+		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
 
 		const item = getMarketplaceItem('checklist', presetId);
 		if (!item) {
@@ -678,17 +667,22 @@ export const actions: Actions = {
 				imported: result.imported,
 				skipped: result.skipped,
 				total: result.total,
-				// #4693: 上限で配信を外した子を明示する (無音でスキップしない)。
-				errors:
+				errors: result.errors,
+				// #4693 (adversarial D3): 上限で配信を外した子を明示する (無音でスキップしない)。
+				//   旧実装はこの文言を `errors` に append していたが、UI (resolveImportFeedback) は
+				//   errors を読まないため親の画面に一度も出なかった = AC4 が server 側でしか
+				//   成立していなかった。顧客向け channel (`blocked`) に載せて表示まで届かせる。
+				blocked:
 					skippedOverLimitNames.length > 0
-						? [
-								...result.errors,
-								PLAN_GATE_LABELS.perChildLimitReachedForChildren(
+						? {
+								count: skippedOverLimitNames.length,
+								message: PLAN_GATE_LABELS.perChildLimitReachedForChildren(
 									skippedOverLimitNames,
 									checklistMaxForMessage,
 								),
-							]
-						: result.errors,
+								upgradeUrl: PLAN_UPGRADE_URL,
+							}
+						: undefined,
 				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
 				failed: result.failed,
 				presetId,

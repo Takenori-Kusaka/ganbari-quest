@@ -3811,6 +3811,9 @@ export const SETTINGS_LABELS = {
 	dataImportComplete: 'インポート完了',
 	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
+	// #4693 (QM #4784): 復元がプラン上限で一部を外したときの件数行 (理由文は server の quota.message)
+	dataImportResultBlocked: (n: number | string) =>
+		`プラン上限のため ${n} 件の活動は復元していません`,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>
@@ -6841,6 +6844,9 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
 		imported > 0
 			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
 			: '保存に失敗しました。もう一度お試しください',
+	// #4693: プラン上限で一部だけ入ったときに「入った件数」と「外した理由」を並べる。
+	//   片方だけ出すと、顧客は「全部入った」か「何も入らなかった」のどちらかに誤解する。
+	blockedAfterImport: (successText: string, reason: string) => `${successText}。${reason}`,
 } as const;
 
 /**

@@ -326,6 +326,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 				partialFailure: ADMIN_ACTIVITIES_PAGE_LABELS.importPartialFailure,
 			});
 			actionMessage = feedback.message;
+			// #4693: プラン上限で外した分がある場合はアップグレード導線も併記する。
+			actionUpgradeUrl = feedback.upgradeUrl;
 			showToast(feedback.message, undefined, feedback.tone);
 			await invalidateAll();
 		} else {
@@ -407,13 +409,19 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 			if (d.demo === true) {
 				actionMessage = FEATURES_LABELS.activitiesHeader.restoreDemo;
 			} else {
-				const imported = Number(d.imported ?? 0);
+				// #4693 (adversarial D2): 復元も取込結果の feedback SSOT に合流させる。
+				//   旧実装は imported / skipped だけを見て文言を組み立てていたため、
+				//   プラン上限で全件弾かれた (imported=0 / skipped=0) ケースが success 側に落ち、
+				//   「0 件を復元しました」と成功トーンで出ていた (理由も upsell 導線も出ない)。
+				//   同じ理由で server 算出の `failed` も無視していた。
 				const skipped = Number(d.skipped ?? 0);
 				const name = String(d.packName ?? FEATURES_LABELS.activitiesHeader.restoreFileFallbackName);
-				actionMessage =
-					imported === 0 && skipped > 0
-						? FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name)
-						: FEATURES_LABELS.activitiesHeader.restoreSuccess(name, imported, skipped);
+				const feedback = resolveImportFeedback(d, {
+					success: (count) => FEATURES_LABELS.activitiesHeader.restoreSuccess(name, count, skipped),
+					allDuplicates: FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name),
+				});
+				actionMessage = feedback.message;
+				actionUpgradeUrl = feedback.upgradeUrl;
 			}
 			showRestoreDialog = false;
 			await invalidateAll();
@@ -450,8 +458,8 @@ async function handleCopyFromChild() {
 	copyLoading = true;
 	actionUpgradeUrl = null;
 	try {
-		// #4693: `resp.ok` は fail() を成功として読む。判定は ActionResult の type に統一し
-		// (readAdminActionResult)、失敗時はサーバーが返した理由 (上限 + アップグレード導線) を出す。
+		// #4693: `resp.ok` は fail() を成功として読む。ActionResult の type で判定し、
+		// 失敗時はサーバーが返した理由 (上限 + アップグレード導線) をそのまま出す。
 		const resp = await fetch('?/copyFromChild', {
 			method: 'POST',
 			headers: ADMIN_ACTION_FETCH_HEADERS,
@@ -490,6 +498,7 @@ async function handleCopyFromChild() {
 			// #4693: 失敗理由 (上限 + アップグレード導線) は本文の banner に出るため、dialog を閉じて
 			// 読める状態にする (開いたままだと理由が modal の裏に隠れて dead-end になる)。
 			showCopyFromChildDialog = false;
+			copySourceChildId = null;
 		}
 	} catch {
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.copyFailed;

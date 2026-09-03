@@ -147,6 +147,11 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			imported: result.imported,
 			skipped: result.skipped,
 			errors: result.errors,
+			// #2830 / #4693: 実 persist 失敗数と、プラン上限で外した分 + その理由。
+			// ここで drop すると API 利用者には「imported=0 だが理由不明」しか届かない
+			// (上限で外した理由はもう errors には積まれない)。
+			failed: result.failed,
+			blocked: result.blocked,
 		});
 	}
 
