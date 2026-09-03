@@ -510,7 +510,7 @@ export async function drainPendingExports(
  * 403 になり、顧客には消す対象が見えなかった。失敗行 / 使い切り行も期限内は S3 に PII ZIP が
  * 残るので枠として数え続け、そのかわり一覧に出して削除できるようにする。
  */
-export async function listQuotaOccupyingCloudExports(
+async function listQuotaOccupyingCloudExports(
 	tenantId: string,
 	now: Date = new Date(),
 ): Promise<CloudExportRecord[]> {
