@@ -241,6 +241,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src + .github/workflows を走査して cron schedule の整合を検査する',
 	},
+	'tests/unit/docs/design-doc-reference-existence.test.ts': {
+		scope: 'repo',
+		note: '設計書 3 本が名指しする repo 内 path の実在 (glob 解決を含む) と、src/routes/api 配下の +server.ts 全列挙 vs 07-API設計書.md の endpoint 集合を突合する',
+	},
 	'tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts': {
 		scope: 'repo',
 		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',

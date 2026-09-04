@@ -2,9 +2,6 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | 2.17 |
-| 作成日 | 2026-02-19 |
-| 更新日 | 2026-04-17 |
 | 作成者 | 日下武紀 |
 
 ---
@@ -69,7 +66,6 @@
 | POST | /api/v1/points/ocr-receipt | レシートOCR読取 | owner/parent |
 | GET | /api/v1/status/[childId] | ステータス取得 | 全ロール |
 | GET | /api/v1/evaluations/[childId] | 評価履歴取得 | 全ロール |
-| GET | /api/v1/achievements/[childId] | 実績一覧取得 | 全ロール |
 | GET | /api/v1/login-bonus/[childId] | ログインボーナス状態取得 | 全ロール |
 | POST | /api/v1/login-bonus/[childId]/claim | ログインボーナス受取 | 全ロール |
 | POST | /api/v1/children/[id]/activities/[activityId]/pin | ピン留め設定 | 全ロール |
@@ -102,7 +98,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
+| POST / GET | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST、GET は dryRun 固定のヘルスチェック。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -158,8 +154,6 @@
 | GET | /api/v1/admin/invites | 招待一覧取得 | owner/parent |
 | POST | /api/v1/admin/invites | 招待リンク作成 | owner/parent |
 | DELETE | /api/v1/admin/invites/[id] | 招待リンク取消 | owner/parent |
-| GET | /api/v1/admin/license | ライセンス情報取得 (Epic #2525 で削除済、§3.X 参照) | — |
-| POST | /admin/license?/applyLicenseKey | ライセンスキー適用 (Epic #2525 で削除済、§3.X 参照) | — |
 | DELETE | /api/v1/admin/members/[userId] | メンバー削除 | owner |
 | POST | /api/v1/admin/members/[userId]/transfer-ownership | owner権限移譲 | owner |
 | POST | /api/v1/admin/members/leave | テナントから脱退 | 全ロール |
@@ -169,11 +163,20 @@
 | POST | /api/v1/admin/tenant-cleanup | テナントクリーンアップ（管理用） | 内部API |
 | POST | /api/v1/admin/cleanup-orphans | 孤立データクリーンアップ | 内部API |
 | GET | /api/v1/admin/migration | マイグレーション統計取得 | 内部API |
+| POST | /api/v1/admin/migration | バッチマイグレーション実行 | 内部API |
 | POST | /api/v1/admin/weekly-report | 週次レポート生成トリガー | 内部API |
 | POST | /api/v1/admin/notifications/reminder | リマインダー通知送信 | 内部API |
 | POST | /api/v1/admin/notifications/streak-warning | ストリーク途切れ警告送信 | 内部API |
 | POST | /api/v1/admin/account/delete | アカウント（テナント）完全削除 | owner |
 | GET | /api/v1/admin/account/deletion-info | 削除対象データ概要取得 | owner |
+| GET | /api/v1/admin/account/export | 削除前データエクスポート（#740）。プランで範囲が変わる（free = 子供名 + 活動サマリ / standard = フル / family = フル + きょうだい比較）。応答は PII を含むため `Content-Disposition: attachment` + `Cache-Control: no-store`（#4472） | owner |
+| GET | /api/v1/admin/account/grace-status | 猶予期間（ソフトデリート）状態取得（#742） | owner/parent |
+| POST | /api/v1/admin/account/restore | 猶予期間内のソフトデリート済テナントを復元（#742）。期限切れは 400 `RESTORE_FAILED` | owner |
+| GET | /api/v1/admin/downgrade-preview | ダウングレード時に上限超過となるリソースの事前提示（#738）。`?targetTier=free\|standard\|family` 必須、不正値は 400 | owner/parent |
+| POST | /api/v1/admin/downgrade-archive | ダウングレードに伴う超過リソースのアーカイブ実行（#738）。body `{ targetTier, childIds[], activityIds[], checklistTemplateIds[] }` | owner/parent |
+| POST | /api/v1/admin/downgrade-restore | アーカイブ済リソースの手動復元（#738）。**有料プラン（standard / family）でのみ許可**し、無料プランは `PLAN_LIMIT_EXCEEDED`（#4708）。有料化時の自動復元は Stripe webhook が担う | owner/parent |
+| GET | /api/v1/admin/trial-expiration | トライアル終了情報取得（#737） | owner/parent |
+| POST | /api/v1/admin/trial-expiration | トライアル終了モーダルの表示済みマーク（#737） | owner/parent |
 | GET | /api/v1/admin/viewer-tokens | 閲覧専用トークン一覧取得 | owner/parent |
 | POST | /api/v1/admin/viewer-tokens | 閲覧専用トークン作成 | owner/parent |
 | DELETE | /api/v1/admin/viewer-tokens/[id] | 閲覧専用トークン無効化 | owner/parent |
@@ -183,6 +186,7 @@
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
 | POST | /api/v1/feedback | アプリ内フィードバック送信（Discord webhook 転送） | 必須 |
+| POST | /api/v1/inquiry/founder | 創業者への直接相談フォーム送信（#1594 / ADR-0023 I8、Discord `inquiry` チャネルへ転送）。IP 単位 1 分のインメモリ簡易レート制限 | 不要 |
 
 ### 設定 API
 
@@ -190,6 +194,7 @@
 |----------|------|------|------|
 | GET | /api/v1/settings/vapid-key | VAPID公開鍵取得（Push通知用） | 不要 |
 | POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
+| POST | /api/v1/settings/pin-gate-onboarding | 親ゲート初心者導線 dialog の「以降表示しない」を tenant scope で保存（#2353）。payload なし・冪等 | 必須（ロール不問） |
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
 
@@ -283,25 +288,20 @@
 
 ### アナリティクス
 
-| メソッド | パス | 概要 | 認証 |
-|----------|------|------|------|
-| POST | /api/v1/analytics | クライアント側イベント記録 | 不要（tenantIdは自動付与） |
-| GET | /api/v1/analytics/status | アナリティクス設定状態取得 | 全ロール |
+**HTTP エンドポイントは持たない。** 分析値は運営者向け `/ops/analytics` の `+page.server.ts` が
+service 層を直接呼んで組み立てる（顧客テナントに公開する API 面は無い）。
 
-#### analytics-service 集計 API（service 層、HTTP 経由ではなく `+page.server.ts` から直接呼出）
+| 関数 | 所在 | 引数 | 戻り値 | 集計元 |
+|------|------|------|--------|--------|
+| `getActivationFunnelOnDemand(period)` | `src/lib/server/services/analytics-ondemand-service.ts` | `'7d' \| '30d'` | `ActivationFunnelResult { period, steps[4], scannedDates, fetchedAt }` | `activation-funnel-repo`（backend 別実装） |
+| `getCancellationReasonsOnDemand(period)` | 同上 | `'30d' \| '90d'` | `CancellationReasonResult { period, total, breakdown[], fetchedAt }` | `cancellation-service` の集計を再利用 |
 
-`/admin/analytics` 画面 (#1639) が消費する 4 種集計関数。Pre-PMF (ADR-0010) のため事前集計レコードは未導入で直接 query（~100 テナント想定）。
+集約は `src/lib/server/services/ops-analytics-service.ts` が担い、LTV / コホート / MRR 内訳 /
+setup challenges 選択分布とあわせて `OpsAnalyticsData` を返す。Pre-PMF (ADR-0010) のため事前集計
+レコードは持たず都度 query する（~100 テナント想定）。
 
-| 関数 | 引数 | 戻り値 | 集計元 | キャッシュ |
-|------|------|--------|--------|---------|
-| `getActivationFunnel(period)` | `'7d' \| '30d'` | `ActivationFunnelResult { period, steps[4], scannedDates, fetchedAt }` | DynamoDB GSI2 (`GSI2PK=ANALYTICS#EVENT#<name>`、4 events × 期間内日付) | なし |
-| `getRetentionCohort(period)` | `'weekly' \| 'monthly'` | `RetentionCohortResult { period, dayPoints, cohorts[], fetchedAt }` | `cohort-analysis-service.getCohortAnalysis` を再利用（Day 1/7/14/30/60/90） | なし |
-| `getSeanEllisScore(round?)` | `'YYYY-H1' \| 'YYYY-H2' \| undefined` | `PmfSurveyAggregation` (既存型、totalResponses / seanEllisScore / pmfAchieved 等) | `pmf-survey-service.aggregateSurveyResponses` を再利用 | なし |
-| `getCancellationReasons(period)` | `'30d' \| '90d'` | `CancellationReasonResult { period, total, breakdown[], fetchedAt }` | `cancellation-service.getCancellationReasonAggregation` を再利用 | なし |
-
-**エラー方針**: 各関数の失敗は `+page.server.ts` 側で `Promise.allSettled` を使い部分縮退（1 セクションが落ちても他セクションは表示）。`getActivationFunnel` 内部の DynamoDB query 失敗時は zero counts で fallback（Pre-PMF: 個別エラーログのみ、画面全体は崩さない）。
-
-**Follow-up（事前集計）**: 集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する（別 Issue）。
+**エラー方針**: 各関数の失敗は `+page.server.ts` 側で部分縮退させる（1 セクションが落ちても他
+セクションは表示）。funnel の query 失敗時は zero counts で fallback する。
 
 ---
 
@@ -309,52 +309,10 @@
 
 ### 3.1 子供関連
 
-#### GET /api/v1/children
-
-子供一覧を取得する。
-
-**レスポンス:**
-```json
-{
-  "children": [
-    {
-      "id": 1,
-      "nickname": "おじょうさま",
-      "age": 4,
-      "theme": "pink",
-      "level": 4,
-      "totalPoints": 1250,
-      "createdAt": "2026-01-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-#### GET /api/v1/children/[id]
-
-子供の詳細情報を取得する。
-
-**レスポンス:**
-```json
-{
-  "id": 1,
-  "nickname": "おじょうさま",
-  "age": 4,
-  "theme": "pink",
-  "level": 4,
-  "levelTitle": "つよつよチャレンジャー",
-  "totalPoints": 1250,
-  "statuses": {
-    "うんどう": { "value": 72, "deviationScore": 58, "stars": 3 },
-    "べんきょう": { "value": 58, "deviationScore": 52, "stars": 2 },
-    "おてつだい": { "value": 85, "deviationScore": 65, "stars": 3 },
-    "コミュニケーション": { "value": 45, "deviationScore": 48, "stars": 2 },
-    "せいかつ": { "value": 62, "deviationScore": 55, "stars": 3 }
-  },
-  "characterImage": "/images/characters/hero-1.png",
-  "createdAt": "2026-01-01T00:00:00Z"
-}
-```
+子供の一覧 / 詳細を返す HTTP エンドポイントは持たない。画面が必要とする子供データは各
+`+page.server.ts` の `load` が service 層（`child-service` / `child-dashboard-service`）を直接呼んで
+組み立てる。API 面を持つのは子供に紐づく副リソース（アバター / カスタム音声 / ピン留め）だけで、
+それらは §2「子供関連」の表を参照する。
 
 ### 3.2 活動関連
 
@@ -702,25 +660,8 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 
 ### 3.8 実績関連
 
-#### GET /api/v1/achievements/[childId]
-
-子供の実績一覧を取得する。
-
-**レスポンス:**
-```json
-{
-  "achievements": [
-    {
-      "id": 1,
-      "achievementId": "first-activity",
-      "name": "はじめてのきろく",
-      "description": "はじめてかつどうをきろくした",
-      "icon": "🌟",
-      "unlockedAt": "2026-02-20T10:00:00Z"
-    }
-  ]
-}
-```
+実績（`achievements` / `child_achievements`）を返す HTTP エンドポイントは持たない。子供画面が
+表示する実績は `+page.server.ts` の `load` が service 層から取得する。
 
 ### 3.9 特別報酬関連
 
@@ -1245,25 +1186,6 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 
 招待リンクを取り消す。パスセグメントは招待レコードの内部 ID（`inviteId`、`inv-<uuid v4>`）。取消（`revokeInvite` → `updateInviteStatus`）は query 層で `family_id` 述語により対象テナントの招待に限定され、cross-tenant mutation を物理排除する（ADR-0063 単一強制点）。
 
-#### GET /api/v1/admin/license — deprecated (Epic #2525 で削除)
-
-> **deprecated (Epic #2525 license key 全廃)**: 本 endpoint は物理削除された (PR-L3 PR #2822)。プラン情報は Stripe Subscription (`tenant.status`) から取得する。
-
-テナントのライセンス情報を取得する。
-
-#### POST /admin/license?/applyLicenseKey（SvelteKit form action）— deprecated (Epic #2525 で削除)
-
-> **deprecated (Epic #2525 license key 全廃)**: 本 form action は物理削除された (PR-L1 PR #2812 で入力経路削除 → PR-L3 PR #2822 で route 削除)。有料化は Stripe Checkout webhook が唯一の経路。`license-subscription-causality.md` は deprecated (歴史記録)。
-
-既存テナントにライセンスキーを適用する。owner ロール限定。
-
-- **認可**: `requireRole(locals, ['owner'])`（parent/child → 403）
-- **リクエスト**: FormData `licenseKey: string`
-- **処理**: `validateLicenseKey` → `consumeLicenseKey(key, tenantId)`
-- **成功レスポンス**: `{ apply: { success: true, plan, planExpiresAt } }`
-- **エラーレスポンス**: `fail(400, { apply: { error, licenseKey } })` / `fail(500, { apply: { error } })`
-- **因果関係**: `docs/design/license-subscription-causality.md` §2.8 を参照
-
 ### 3.12 Stripe（決済）
 
 > 全エンドポイントの状態遷移と画面遷移は `docs/design/plan-change-flow.md` (#747) を SSOT とする。
@@ -1325,7 +1247,7 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
 
 Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（`stripe-signature`）で検証。
 
-**処理する event 種別と因果関係**: 現行 SSOT は `docs/design/billing-redesign/`。entitlement は Stripe Subscription (`tenant.stripeSubscriptionId` + `tenant.status`) を正とし license key を経由しない。`docs/design/license-subscription-causality.md` は deprecated (Epic #2525 で License Key 側全廃、歴史記録)。
+**処理する event 種別と因果関係**: 現行 SSOT は `docs/design/billing-redesign/`。entitlement は Stripe Subscription (`tenant.stripeSubscriptionId` + `tenant.status`) を正とする。
 
 **受信口はこの 1 本のみ**: Stripe Dashboard の destination はこの URL を指す。**署名検証だけして 200 を返す route を増やしてはならない** — Stripe は 200 を受けると再送しないため、event が台帳にも残らず消える。受信口が 1 本であること・すべての受信口が `handleWebhookEvent` に dispatch することは `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が CI で固定する。
 
@@ -1509,56 +1431,8 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 > `tests/unit/architecture/ops-route-auth-fitness.test.ts` が FS 列挙で機械強制する。詳細は 14-セキュリティ設計書 §5.2.9。
 >
 > 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
-> なお `/api/cron/retention-cleanup` / `/api/cron/license-expire` は EventBridge から呼ばれる別経路のため、独自の shared secret
+> なお `/api/cron/*` は EventBridge から呼ばれる別経路のため、独自の shared secret
 > （`CRON_SECRET`、移行期は `OPS_SECRET_KEY` も後方互換で受け入れ）を使用する（ADR-0033）。
-
-#### POST /api/cron/license-expire （期限切れライセンスキー自動失効バッチ #821）— deprecated (Epic #2525 で削除)
-
-> **deprecated (Epic #2525 license key 全廃)**: 本 cron endpoint は物理削除された (PR-L3 PR #2822、EventBridge Scheduled Rule は PR-L5 PR #2879 で CDK から撤去)。期限管理は `customer.subscription.deleted` webhook が代替する。本節以降の license-expire 仕様は歴史記録。
-
-**認証:** `Authorization: Bearer <CRON_SECRET>` （移行期は `OPS_SECRET_KEY` も許可）
-
-**呼び出し元:** EventBridge Scheduled Rule（日次 JST 00:00）または運用手動
-
-**処理:**
-
-1. `auth.listActiveExpiredKeys(now)` で `status='active'` かつ `expiresAt <= now` のキーを全列挙
-2. 各キーに `revokeLicenseKey({reason:'expired', revokedBy:'system'})` を順次実行
-3. 失敗は `failures` に記録、1 件失敗しても他は続行
-4. `license_events` に `revoked` イベントが記録される（#804）
-
-**リクエストボディ (任意):**
-
-```json
-{ "dryRun": true }
-```
-
-`dryRun=true` のときは対象件数のみ返し、revoke は実行しない（ヘルスチェック用）。
-
-**レスポンス (200):**
-
-```json
-{
-  "ok": true,
-  "scanned": 12,
-  "revoked": 12,
-  "failures": [],
-  "dryRun": false
-}
-```
-
-- `scanned`: 対象として抽出された active + expired なキー総数
-- `revoked`: 実際に revoke 成功した件数
-- `failures`: `{licenseKey, reason}` の配列。DynamoDB throttle 等で失敗したキー
-- `dryRun`: リクエスト通りのフラグ
-
-**エラー:**
-
-- `401 Unauthorized`: Bearer token 不一致
-- `404 Not Found`: `CRON_SECRET` / `OPS_SECRET_KEY` どちらも未設定（エンドポイント無効化）
-- `500 Internal Error`: `listActiveExpiredKeys` 自体が throw（DynamoDB 障害等）。部分失敗は 200 に含める
-
-**GET /api/cron/license-expire** はヘルスチェック用の dry-run 固定版（副作用なし）。
 
 #### GET /ops （KPI サマリーページ）
 
@@ -1572,119 +1446,6 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 - プラン別内訳（monthly / yearly / lifetime / noPlan）
 - MRR 概算
 - Stripe 連携状態
-
-#### `/ops/license/*` 系統 (一覧 / 詳細 / 失効 / キャンペーン発行 / legacy-count) — deprecated (Epic #2525 で削除)
-
-> **deprecated (Epic #2525 license key 全廃)**: 以下の `/ops/license` / `/ops/license/[key]` / `/ops/license/issue` / `/ops/license/legacy-count` 系統はすべて物理削除された (PR-L3 PR #2822)。割引・campaign 配布は Stripe Coupon / Promotion Code (Stripe Dashboard) で代替する。リンク先 `license-hmac-migration-plan.md` も deprecated (HMAC 移行は機構全廃により不要、歴史記録)。本節以降の `/ops/license/*` 仕様は歴史記録として残す。
-
-#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること
-
-**機能:**
-- 最近のライセンスイベント一覧 (`license_events` 最新 50 件) の表示
-- 特定キーへの検索フォーム（POST → `/ops/license/[key]` へリダイレクト）
-
-**URL パラメータ:**
-- `limit` (query, number): イベント取得件数。デフォルト 50、最大 200
-
-#### GET /ops/license/[key] （ライセンスキー詳細 #805） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること
-
-**パラメータ:**
-- `key` (path): ライセンスキー（URL エンコード。内部で upper-case に正規化）
-
-**機能:**
-- `LicenseRecord` の全フィールド表示（tenantId / plan / kind / createdAt / expiresAt / consumedBy / revokedAt 等）
-- 当該キーの `license_events` 履歴（最新 200 件）
-- `status='active'` のときのみ「失効」ボタンを表示
-
-#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること
-
-**入力 (form-data):**
-| フィールド | 型 | 必須 | 説明 |
-|-----------|----|------|------|
-| reason | `'ops-manual' \| 'leaked' \| 'refund' \| 'expired'` | ✓ | 失効理由 |
-| note | string | - | CS チケット番号・状況メモ |
-
-**レスポンス:**
-| status | 意味 | ケース |
-|--------|------|--------|
-| 200 (form success) | `{ revoked: true, reason, revokedAt }` | 成功 |
-| 400 (form failure) | `{ error: '失効理由が不正です' }` | reason が enum 外 |
-| 403 | `Forbidden` | identity が ops group 未所属（layout で既に弾かれる想定） |
-| 409 (form failure) | `{ error: string }` | `findLicenseKey` で記録が見つからない / 既に revoked / consumed |
-
-**副作用:**
-- `license-key-service.revokeLicenseKey` が `status='revoked'` + `revokedAt` + `revokedReason` + `revokedBy='ops:<userId>'` を更新
-- `license_events` に `eventType='revoked'` を記録 (#804)
-- `ops_audit_log` に `action='license.revoke'` / `target=<key>` / `metadata={reason, note}` を記録 (#820)
-
-#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること
-
-**機能:**
-- Stripe を経由しないキャンペーン配布・サポート補償・プレゼント用のライセンスキーを一括発行する入力画面
-- 発行結果は同一ページでテキスト表示 + CSV ダウンロード（`campaign-keys-YYYY-MM-DD.csv`）
-
-#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること
-
-**入力 (form-data):**
-| フィールド | 型 | 必須 | 説明 |
-|-----------|----|------|------|
-| plan | `LicensePlan` (monthly / yearly / family-monthly / family-yearly / lifetime) | ✓ | 発行するキーのプラン |
-| quantity | number (1-500) | ✓ | 発行件数。500 件/req が上限 |
-| reason | string (1-200) | ✓ | キャンペーン名・理由。`ops_audit_log.metadata.reason` と `record.tenantId` の自動採番に使われる |
-| expiresAt | `'default' \| 'never' \| ISO8601` | - | `default`=90日後、`never`=期限なし、その他は指定日時 |
-| tenantId | string | - | `record.tenantId` に入る発行プール識別子。省略時は `campaign:<reason>` を自動採番 |
-
-**レスポンス:**
-| status | 意味 | ケース |
-|--------|------|--------|
-| 200 (form success) | `{ issued: true, plan, reason, tenantId, issuedBy, expiresAt, keys: string[], errors?: string[] }` | 全件または一部成功 |
-| 400 (form failure) | `{ error: string }` | plan / quantity / reason / expiresAt の検証失敗 |
-| 403 | `Forbidden` | identity が ops group 未所属 |
-| 500 (form failure) | `{ error: string }` | 全件発行失敗（DB エラー等） |
-
-**副作用:**
-- `license-key-service.issueLicenseKey` を `quantity` 回呼び、`kind='campaign'` / `issuedBy='ops:<userId>'` のキーを生成
-- `license_events` に `eventType='issued'` を各キー分記録 (#804)
-- `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
-
-#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484） — deprecated (Epic #2525 で削除)
-
-**認証:** Cognito User Pool `ops` group メンバーであること (`src/routes/ops/+layout.server.ts` の `isOpsMember(locals.identity)` で gate)
-
-**機能:**
-- HMAC 未署名 (legacy 形式 `GQ-XXXX-XXXX-XXXX`、17 文字) の license key 残存数を DB から集計
-- HMAC 必須化計画 (`docs/operations/license-hmac-migration-plan.md`) Phase 1 — Phase 2 (新規 legacy 発行禁止) / Phase 3 (legacy code 物理削除) への移行判断材料を取得する ops 観測 endpoint
-
-**実装:** `getRepos().auth.countLicenseKeys({ format: 'legacy' })` を呼ぶ。
-- DynamoDB backend: `size(licenseKey) = 17` FilterExpression で legacy 形式を抽出
-- SQLite backend: 既存 no-op (`return 0`)、migration plan §4 line 90「Phase 1 集計は SaaS DynamoDB only」整合
-
-**レスポンス (200):**
-```json
-{
-  "legacyCount": 42,
-  "queriedAt": "2026-05-25T12:34:56.789Z",
-  "backend": "dynamodb"
-}
-```
-
-| フィールド | 型 | 説明 |
-|-----------|----|------|
-| `legacyCount` | number | legacy 形式 license key の総数 |
-| `queriedAt` | ISO8601 | 集計実行時刻 |
-| `backend` | `'dynamodb' \| 'sqlite'` | 集計対象 backend (DATA_SOURCE env 駆動) |
-
-**レスポンス (403):** `Forbidden` — identity が ops group 未所属 (`/ops/*` layout gate)
 
 ### 3.x バトルアドベンチャー
 
@@ -2049,36 +1810,13 @@ Push 通知の購読解除。
 
 ### 3.25 アナリティクス
 
-#### POST /api/v1/analytics
+**クライアント側イベントを受ける HTTP エンドポイントは持たない。** activation funnel は常設収集
+（イベント記録 API + 集計 cron + 専用ストア）を持たず、`families` / `children` / `activity_logs`
+という本体データから **必要時に単一集約 SQL で導出**する（#3805）。抽象は
+`src/lib/server/db/interfaces/activation-funnel-repo.interface.ts`、呼び出し口は §2「アナリティクス」を参照。
 
-クライアント側イベントを記録（ページビュー、ボタンクリック等）。
-
-**認証:** 不要（tenantId は自動付与）
-
-**リクエスト:**
-```json
-{
-  "event": "page_view",
-  "properties": { "path": "/admin" }
-}
-```
-
-#### GET /api/v1/analytics/status
-
-アナリティクスプロバイダーの設定状態を取得。
-
-**認証:** 全ロール
-
-**レスポンス:**
-```json
-{
-  "providers": ["dynamo"],
-  "dynamoEnabled": true
-}
-```
-
-> #1591 (ADR-0023 I2): umami / Sentry プロバイダは削除済み。AWS 内完結 (DynamoDB) のみ。
-> 詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照。
+- 起点は signup コホート（`families.created_at >= since`）で、① signup → ② 子供 1 人以上 → ③ 非取消の活動記録 1 件以上 → ④ retention 窓内の活動、の 4 段を家庭数で数える
+- cross-tenant 走査だが、フルスキャンではなく `created_at` range + 単一 GROUP BY 集約に閉じる（ADR-0065 の N+1 禁止に整合）。on-demand なので常時コストは 0
 
 ---
 
@@ -2273,7 +2011,7 @@ ADR-0023 §3.6 が定める PMF 達成度の客観的判定（Sean Ellis 40%）�
 
 | メソッド | パス | 認証 | 用途 |
 |---------|------|------|------|
-| POST | `/api/cron/pmf-survey` | `verifyCronAuth` | 年 2 回 (6/1, 12/1 09:00 JST) 全テナント走査して owner email へ配信 |
+| POST / GET | `/api/cron/pmf-survey` | `verifyCronAuth` | 年 2 回 (6/1, 12/1 09:00 JST) 全テナント走査して owner email へ配信（GET は dryRun 固定のヘルスチェックで、env 注入と DB 接続だけを検証する） |
 | GET | `/survey/sean-ellis/[token]` | HMAC トークン | 回答 UI レンダリング (SvelteKit `+page.server.ts` load) |
 | POST | `/survey/sean-ellis/[token]?/submit` | HMAC トークン | 回答送信 form action |
 | ops | `/ops/pmf-survey?round=<r>&q=<keyword>` | Cognito ops group | 集計表示 + 自由記述検索 (AC12) |
@@ -2362,37 +2100,6 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 
 ---
 
-### 3.X ライセンスキー API (#808) — deprecated (Epic #2525 で全廃)
-
-> **deprecated (Epic #2525 license key 全廃)**: 本節が記述する license validate / consume / 適用 API はすべて物理削除された (PR-L3 PR #2822)。entitlement は Stripe Subscription webhook が唯一の付与経路。`/admin/license` は `/admin/subscription` に統合 (LEGACY_URL_MAP redirect)、`/ops/license/*` / `/api/cron/license-expire` / `/api/v1/admin/license` は削除済。リンク先 `license-key-lifecycle.md` は deprecated (歴史記録)。本節は当時の API 仕様の歴史記録として残す。
-
-| メソッド | パス | 説明 | 権限 |
-|---------|------|------|------|
-| POST | `/api/v1/license/verify` | キー検証（署名 + DB 照合） | 認証済みユーザー |
-| POST | `/api/v1/license/consume` | キー消費 → 有料プラン昇格 | 認証済みユーザー |
-| GET | `/api/v1/ops/license-keys` | Ops 一覧（フィルタ対応） | Ops ロール |
-| POST | `/api/v1/ops/license-keys` | Ops 手動発行 | Ops ロール |
-| POST | `/api/v1/ops/license-keys/:key/revoke` | Ops 失効 | Ops ロール |
-
-関連エラーコード: `LICENSE_FORMAT_INVALID` / `LICENSE_SIGNATURE_INVALID` / `LICENSE_NOT_FOUND` / `LICENSE_ALREADY_CONSUMED` / `LICENSE_REVOKED` / `RATE_LIMITED` — §4 参照。
-
-#### レート制限 (#813)
-
-ライセンスキーの検証・消費および signup 時のキー適用には、ブルートフォース攻撃防止のための二次元レート制限が適用される。
-
-| 次元 | 上限 | ウィンドウ | 超過時 |
-|------|------|----------|--------|
-| IP アドレス | 10 req/min | 1 分 | HTTP 429 + `Retry-After` ヘッダ |
-| email アドレス | 20 req/hour | 1 時間 | HTTP 429 + `Retry-After` ヘッダ |
-
-- **適用対象**: `/admin/license?/applyLicenseKey`（form action）、`/auth/signup`（signup 時のキー入力）
-- **超過時のレスポンス**: `{ apply: { error: '試行回数が上限を超えました。N秒後にお試しください' } }`
-- **Discord 通知**: レート制限超過時に incident チャネルへ自動通知（10 分間の重複抑制付き）
-<!-- doc-code-refs: ignore-line -->
-- **実装**: 旧 `src/lib/server/services/rate-limit-service.ts` は Phase 7 PR-L4 (#2836、QM 申し送り② #2818) で**物理削除済**（license key 全廃に伴い唯一の利用元 `/admin/license?/applyLicenseKey` が消滅。ADR-0001 設計書同期）。本節記載のレート制限仕様は license key 機構の歴史記録であり、現存実装ではない。
-
----
-
 ## 4. エラーレスポンス仕様
 
 ### 共通エラー形式
@@ -2422,12 +2129,6 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 | NOT_FOUND | 404 | リソースが見つからない |
 | PLAN_LIMIT_EXCEEDED | 403 | プラン制限により拒否（§4.2 参照）。**`planLimitError(requiredTier, message)`（`src/lib/server/errors.ts`）で返す** — `userMessage` は要求 tier で出し分ける（standard 以上 / プレミアム限定）。`apiError('PLAN_LIMIT_EXCEEDED', …)` の直接呼び出しは固定文（スタンダード以上の案内）しか返せず、プレミアム限定機能をスタンダード契約者が叩いたときに次の行動を示せないため禁止（`tests/unit/architecture/plan-limit-error-required-tier.test.ts` が検出、#4710） |
 | INTERNAL_ERROR | 500 | サーバー内部エラー |
-| LICENSE_FORMAT_INVALID | 400 | ライセンスキー形式が不正 |
-| LICENSE_SIGNATURE_INVALID | 400 | ライセンスキー HMAC 署名不一致 |
-| LICENSE_NOT_FOUND | 404 | ライセンスキーが存在しない |
-| LICENSE_ALREADY_CONSUMED | 409 | ライセンスキー消費済み |
-| LICENSE_REVOKED | 410 | ライセンスキー失効済み |
-| LICENSE_RATE_LIMITED | 429 | ライセンスキー検証/消費のレート制限超過（IP: 10 req/min, email: 20 req/hour） |
 
 ### 4.2 プラン制限エラー (`PLAN_LIMIT_EXCEEDED`) — #744
 
@@ -2475,7 +2176,7 @@ export interface PlanLimitError {
 
 - `currentTier` にはトライアル中のティア（`standard` / `family`）が入る。
 - トライアル終了後にもう一度叩かれた場合は `currentTier: 'free'` で 403 が返る。
-- クライアント側でトライアル残日数を表示するには `GET /api/v1/admin/plan-status`（別）を併用する。
+- クライアント側でトライアル残日数を表示するには `GET /api/v1/admin/trial-expiration` を併用する。
 
 #### 実装ヘルパー
 
@@ -2637,9 +2338,13 @@ if (authError) return authError;
 |------|---------|------|
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
+| `/api/cron/age-recalc` | POST / GET | 子供の年齢の日次インクリメント（#1381）。日次 JST 00:00。1 回の実行は件数上限 + 20 秒予算で self-limiting し、走査しきれなかったテナントは `tenantsRemaining` として次回以降が回収する（#4337 / #4345。「今日の担当外」= `tenantsSkippedByRotation` と「担当スライス内の打ち切り」= `tenantsSkippedByBudget` を分けて返し、warn の対象は後者だけ） |
+| `/api/cron/lifecycle-emails` | POST / GET | 期限切れ前リマインド + 休眠復帰メールの日次送信（#1601 / ADR-0023 §3.2 §3.3 §5 I11）。owner ロールの email にのみ送信し、1 テナント年 6 回のマーケティングメール上限（`marketing-email-counter`）を守り、List-Unsubscribe ヘッダを必ず付ける（特定電子メール法 + RFC 8058）。`dryRun=true` は状態を変えず送信予定件数だけを返す |
+| `/api/cron/expire-redemptions` | POST / GET | 30 日経過したごほうび交換申請を `expired` に移行（#1337）。日次 03:00 JST |
+| `/api/cron/stripe-webhook-delivery-check` | POST | Stripe 側で配信成功（`pending_webhooks=0`）なのに台帳に記録が無い event を検出し Discord に通知（kind `stripe-webhook-ledger-gap`） |
 | `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` の 02:00 JST 定義に従い、AWS は EventBridge Rule `ganbari-quest-cron-grace-period-deletion`、NUC は scheduler が駆動する。**`dryRun=true` は 1 件も削除しないが、`tenantsProcessed` / `tenantsRemaining` は定数ではなく実行時と同じ打ち切り条件（`limit` / 時間予算）から算出した予測値を返す**（#4373。実績値である `tenantsDeleted` / `tenantsFailed` は削除を行わないため 0）|
 | `/api/cron/deletion-warning-emails` | POST / GET | アカウント削除予告メールの日次バッチ（#2399, `deletion-warning-service.ts`）。EventBridge cron `cron(0 1 * * ? *)` (UTC) = 毎日 10:00 JST 実行。soft-delete 済テナントを走査し、物理削除予定日までの残日数（JST 暦日）がしきい値以下になった**保護者ロール (owner/parent) 全員**へ、削除予定日と復元導線を含むメールをそれぞれ送る（#4325 follow-up、オーナー決裁 2026-08-06。owner 1 名固定だと owner 不在 / アドレス失効時に予告が単一障害点で届かないため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる）。しきい値は family = 14 日 / standard = 1 日 / **free = 送信なし（猶予 0 日 = 即時物理削除のため予告する時間が存在しない）**。重複送信は `deletion_warning_sent_at` settings KV で防止し（1 通以上の送信成功でセット、復元 / 再予約時にクリア）、対象保護者が 1 件も見つからない場合は `skippedNoRecipients++`（削除自体は止めずログで観測可能にする）。全宛先で送信に失敗した場合のみ再試行対象（`errors++`、sent_at 未設定）。法務通知扱いのため `marketing-email-counter`（年 6 回上限）を経由せず List-Unsubscribe も付けない（購読解除で止まらない）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告 |
-| `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
+| `/api/cron/pmf-survey` | POST / GET | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
 | `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる。**`dryRun=true` と `GET`（ヘルスチェック）は build も status 書き換えも行わないが、`processed` は定数ではなく pending の実数を返す**（#4373。write を伴う stale reclaim は dryRun では実行しないため `reclaimed` は返さない）|
 | `/api/cron/notification-delivery` | POST / GET | 通知 / 週次レポート配信バッチ（#4706, `notification-delivery-service.ts`）。EventBridge cron `cron(0/15 * * * ? *)` (UTC) = 15 分毎実行（AWS cron-dispatcher / NUC scheduler 双方が同一 endpoint を駆動）。設定 UI が保存した値を読んで 3 配信を送る: **(a) 週次メールレポート** = `weekly_report_enabled` かつ `weekly_report_day` が JST の今日、09:00 JST 以降、`resolveFullPlanTier` が standard 以上（#735 の有料特典 gate を送信 endpoint と共有）/ **(b) リマインダー push** = `notification_reminders_enabled` かつ `notification_reminder_time` を過ぎている / **(c) ストリーク警告 push** = `notification_streak_enabled` かつ 19:00 JST 以降で、今日未記録かつ連続記録が継続中の子供がいる。quiet hours と 1 日 3 通上限は `sendPushNotification` 内の `canSendNotification` が担う。重複送信は送信済マーカー（`weekly_report_sent_week` = 週頭の JST 暦日 / `notification_reminder_sent_date` / `notification_streak_sent_date` = JST 暦日）で防ぎ、**1 通以上の送信に成功したときだけマーカーを立てる**（失敗した回は次回再試行される）。判定用の設定は `getSettingForAllTenants` でキーごとに 1 クエリに畳むため、実行頻度を上げてもクエリ数はテナント数に比例しない（ADR-0065 原則 2）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告。**`dryRun=true` と `GET`（ヘルスチェック）は送信もマーカー書き込みも行わないが、対象件数は実行時と同じ判定で数える** |
 | `/api/cron/pglite-backup` | POST | **NUC 専用** PGlite 本番データの日次バックアップ（#3950）。NUC ローカルの crond（`docker-compose.yml` backup profile、03:00 JST）が `scripts/backup-nuc.cjs` 経由で起動する。`runPgliteBackup()` が PGlite 公式 `dumpDataDir()` でダウンタイム 0 の整合スナップショットを取得し、**取得物を別インスタンスへ実際に復元して検証**（V1 全テーブル `count(*)` / V2 `__drizzle_migrations` 非空 / V3 journal ↔ 適用実績の突合）した上で確定、3 世代へローテーションする。`DATA_SOURCE != pglite` では 409 を返す（AWS は DSQL のため対象外）。EventBridge / `scheduleRegistry` には登録しない（NUC 専用のため）。運用手順は `docs/runbooks/pglite-restore-drill.md` |
@@ -2650,38 +2355,3 @@ if (authError) return authError;
 | `/api/v1/admin/notifications/reminder` | POST | リマインダー通知送信 |
 | `/api/v1/admin/notifications/streak-warning` | POST | ストリーク途切れ警告送信 |
 
----
-
-## 6. 更新履歴
-
-| 日付 | 版数 | 内容 |
-|------|------|------|
-| 2026-02-19 | 1.0 | 初版作成 |
-| 2026-03-27 | 2.0 | 全エンドポイント最新化（認証, Stripe, 招待, キャリア, 特別報酬, 画像, エクスポート, ピン留め, サジェスト等を追加）。認証フローを Cognito 二層認証に更新 |
-| 2026-03-30 | 2.1 | #0176 運営管理ダッシュボード Phase 1（/ops KPIサマリー + Bearer認証）追加 |
-| 2026-03-30 | 2.2 | #0205 データクリア/サマリーAPI追加、インポートにreplaceモード追加 |
-| 2026-03-31 | 2.3 | #0257 廃止機能削除に伴い関連記述を除去（キャリアプランAPI、アバターアップロードAPI、データサマリーから廃止項目削除） |
-| 2026-04-03 | 2.4 | #0294 クラウドエクスポート共有機能のAPI追加（export/cloud CRUD、import/cloud PINコードインポート） |
-| 2026-04-04 | 2.5 | #344 実装とのAPI同期: メンバー管理（削除/移譲/脱退）、テナント操作（status/cancel/reactivate）、通知（reminder/streak-warning/subscribe/unsubscribe）、カスタム音声（voices CRUD）、アバター、活動パック export/import、設定（vapid-key/tutorial）、デモ分析、管理用内部API（cleanup-orphans/migration/weekly-report/tenant-cleanup）追加 |
-| 2026-04-06 | 2.6 | #550 アナリティクス基盤: POST /api/v1/analytics（イベント記録）、GET /api/v1/analytics/status（設定確認）追加。3層プロバイダー（Sentry/Umami/DynamoDB）アーキテクチャ |
-| 2026-04-10 | 2.7 | #605 バトルアドベンチャーAPI追加: GET/POST /api/v1/battle/[childId]（日次バトル取得・実行） |
-| 2026-04-09 | 2.8 | #609 設計書同期: アカウント削除(2)・閲覧専用トークン(3)エンドポイントを一覧追加。未記載だった9カテゴリのエンドポイント詳細仕様（3.17-3.25）を追記 |
-| 2026-04-12 | 2.9 | #744 プラン制限エラー仕様 (§4.2) 追加。`PLAN_LIMIT_EXCEEDED` の body フォーマット (`currentTier` / `requiredTier` / `upgradeUrl`) を正仕様化。型定義を `src/lib/domain/errors.ts` として新設し client/server で共有。既存実装の移行は #787 で追跡 |
-| 2026-04-11 | 2.10 | #787 プラン制限エラー形式統一。全 form action (`/admin/children`, `/admin/activities`, `/admin/checklists`, `/admin/rewards`, `/admin/messages`, `/admin/settings`) が `createPlanLimitError()` 形式の `PlanLimitError` body を返すように統一。クライアント側表示を共通化する `getErrorMessage()` ヘルパーを `src/lib/domain/errors.ts` に追加 |
-| 2026-04-12 | 2.11 | #721 AIモデルを Gemini → AWS Bedrock Claude Haiku に移行。活動サジェスト・レシートOCR の AI バックエンドを `@aws-sdk/client-bedrock-runtime` の Converse API (tool_use) に変更。構造化出力により `extractJson()` 手動パースを廃止。画像生成（`image-service.ts`）のみ Gemini 維持 |
-| 2026-04-12 | 2.12 | #720 AI チェックリスト提案 API (`POST /api/v1/checklists/suggest`) 追加。Bedrock Claude Haiku + プリセット/キーワードフォールバック。ファミリープラン限定 |
-| 2026-04-12 | 2.13 | #770 トライアル終了検知の cookie 仕様追加。admin layout server load で `trial_was_active` cookie（HttpOnly, Secure, SameSite=Lax, 30日有効）を使い、トライアル active → inactive 遷移を検出。遷移検知後は cookie を削除し、`trialJustExpired` フラグをクライアントに返却 |
-| 2026-04-12 | 2.14 | #722 AI suggest 3 エンドポイントのプランゲートを `standard` → `family` 限定に変更。`createFromAi` form action も `tier !== 'family'` ガードに統一。デモ版 3 画面に AI 提案パネルを追加 |
-| 2026-04-13 | 2.15 | #839 アプリ内フィードバック送信 API (`POST /api/v1/feedback`) 追加。種別（opinion/bug/feature/other）+ テキスト（1000文字以内）+ スクリーンショット（dataURL, 最大 2MB, 任意）を受け取り Discord webhook (inquiry チャネル) に転送。レート制限: 1テナント/5分1件（インメモリ Map、TTL 自動クリーンアップ付き） |
-| 2026-04-13 | 2.16 | #813 ライセンスキー validate/consume API レート制限仕様追加。§3.X にレート制限表（IP: 10 req/min, email: 20 req/hour）、§4 に `LICENSE_RATE_LIMITED` (429) エラーコード追加 |
-| 2026-04-17 | 2.17 | #1093 cron エンドポイント認証パターン（`verifyCronAuth`）を §5 に追加。実装コード・呼び出しパターン・環境別挙動・使用エンドポイント一覧を文書化。ADR-0033 への相互参照 |
-| 2026-04-18 | 2.18 | #1111 POST /api/v1/admin/invites にプラン別メンバー上限チェック (`maxFamilyMembers`) と `MEMBER_LIMIT_REACHED` エラー仕様を追記 |
-| 2026-04-26 | 2.19 | #1337 §3.26 ごほうびショップ交換申請 API 追加（POST /api/v1/reward-redemption-requests, GET /api/v1/reward-redemption-requests, PATCH /api/v1/reward-redemption-requests/:id, POST /api/cron/expire-redemptions）。エラーコード・ポイント減算タイミング・承認/却下フロー仕様を定義 |
-| 2026-04-27 | 2.20 | #1591 §3.25 GET /api/v1/analytics/status のレスポンスを `providers: []` + `dynamoEnabled` 形式に更新。umami / Sentry プロバイダ削除に伴う ADR-0023 I2 対応。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照 |
-| 2026-04-28 | 2.21 | #1648 R43 §5 cron 使用エンドポイント一覧に `/api/cron/grace-period-deletion` を追加。grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service の物理削除フロー。EventBridge 02:00 JST 実行。プラン別猶予期間 (standard:7 / family:30) 後の物理削除を担保 |
-| 2026-04-29 | 2.22 | #1598 §5 cron 使用エンドポイント一覧に `/api/cron/pmf-survey` を追加。半期 (6/1 / 12/1 09:00 JST) PMF 判定アンケート (Sean Ellis Test) 一括送信バッチ。契約 14 日超 owner ロールが対象、round 内重複送信防止、`marketing-email-counter` 年 6 回上限と共有。ADR-0023 §3.6 PMF 判定 (40% 閾値) 連動 |
-| 2026-04-29 | 2.23 | #1598 §3.27 PMF 判定アンケート API 詳細追加 — POST /api/cron/pmf-survey (リクエスト/レスポンス仕様)、GET/POST /survey/sean-ellis/[token] (HMAC トークン回答 UI)、ops 集計画面の `q` 自由記述検索パラメータ仕様。AC4 文言整合 (60 日カウンタ→半期 round 内重複防止 PO 承認 2026-04-29)。AC12 自由記述検索を本 PR で実装 (Q2/Q4 + tenantId 部分一致 case-insensitive substring) |
-| 2026-04-29 | 2.24 | #1693 §5 cron 使用エンドポイント一覧に `/api/cron/analytics-aggregate` を追加。EventBridge `cron(0 18 * * ? *)` (UTC) = 03:00 JST 実行で前日分 funnel + cancellation reason を `PK=ANALYTICS_AGG#<date>` (TTL 365 日) に書き込み、`/admin/analytics` read 側の集計優先 → ライブ計算 fallback ロジックを駆動 (#1639 follow-up) |
-| 2026-04-30 | 2.25 | #1742 §5 cron 使用エンドポイント一覧に `/api/cron/challenge-aggregate` を追加。EventBridge `cron(30 18 * * ? *)` (UTC) = 03:30 JST 実行で当日分の全テナント `questionnaire_challenges` 設定値スナップショットを `PK=CHALLENGE_AGG#<date>` (TTL 365 日) に書き込み、`/ops/analytics` プリセット選択分布画面の `fetchChallengesPerTenant` N+1 GetItem を集計テーブル方式へ移行（#1602 follow-up）。集計優先 → ライブ計算 fallback の二段構造で post-PMF テナント数 1,000+ 想定に対応 |
-| 2026-05-17 | 2.26 | #2138 (MP-3) マーケットプレイス rule-preset 4 ruleType 全対応 API 追加。`POST /marketplace/[type]/[itemId] ?/importRulePreset` (4 ruleType 分岐: exchange→`special_rewards` 挿入 / bonus→`settings.rule_preset_bonus_overrides` JSON / penalty / special→audit log のみ)、`POST /admin/settings/rules ?/togglePreset` (bonus preset enabled 切替)、`POST /admin/settings/rules ?/removePreset` (bonus preset 削除)。`bonus-hook-service.ts` が `activity-log-service.recordActivity()` から呼ばれ、enabled な 6 bonus preset (streak-bonus / early-bird / weekend-special / category-challenge / sibling-coop / self-study-reward) を活動記録時に評価。ADR-0012 §6 細則表に penalty / special 行追加 |
-| 2026-07-26 | 2.27 | #3950 §5 cron 使用エンドポイント一覧に `/api/cron/pglite-backup` を追加。NUC 専用の PGlite 日次バックアップ（RPO 日次 / 保持 3 世代 / ダウンタイム 0、オーナー決裁 2026-07-26）。PGlite は dataDir を単一プロセスで占有するため、整合スナップショットを採れるのは DB を掴んでいるアプリプロセスのみ = `dumpDataDir()` をアプリ内で実行し、外部の crond は本エンドポイントを起動するだけの役割に分離。取得物は毎回別インスタンスへ復元して V1/V2/V3 を検証し、通ったものだけを確定する（verify-then-commit）。V3 は journal と `__drizzle_migrations` の突合で、#3951 の gate が塞げていなかった「journal と本番適用実績の関係」を日次で担保する |
