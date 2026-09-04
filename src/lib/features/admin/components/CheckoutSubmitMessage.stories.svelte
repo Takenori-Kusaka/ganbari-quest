@@ -46,10 +46,8 @@ const { Story } = defineMeta({
 		await expect(text).not.toContain('すべての機能');
 	}}
 >
-	{#snippet children()}
-		<p>{L.caption}</p>
-		{#each lines as line (line)}
-			<p>{line}</p>
-		{/each}
-	{/snippet}
+	<p>{L.caption}</p>
+	{#each lines as line (line)}
+		<p>{line}</p>
+	{/each}
 </Story>
