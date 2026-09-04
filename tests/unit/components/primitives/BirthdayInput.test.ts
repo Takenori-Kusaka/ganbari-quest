@@ -73,6 +73,54 @@ describe('BirthdayInput', () => {
 		expect(daySelect.value).toBe('30');
 	});
 
+	// --- #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので「未設定に戻せる」 ---
+	//
+	// 旧実装は placeholder option が `disabled` だったため、**画面からは**一度入れた誕生日を
+	// 空に戻せなかった (下の "resets to undefined when all fields are cleared" は
+	// `fireEvent.change` で programmatic に値を入れるため disabled でも通ってしまい、
+	// 顧客の到達性を保証していなかった)。以下 3 件が「保護者が実際に消せる」ことを固定する。
+
+	/** placeholder (未設定) option だけを取り出す */
+	function placeholderOption(select: HTMLElement): HTMLOptionElement {
+		const opt = select.querySelector('option[value=""]');
+		if (!opt) throw new Error('未設定 option が無い (placeholder が描画されていない)');
+		return opt as HTMLOptionElement;
+	}
+
+	it('未設定 option を選択できる（誕生日は任意入力なので消せる、#4729）', () => {
+		const { getByLabelText } = render(BirthdayInput, { value: '2020-05-15', name: 'birthDate' });
+
+		for (const labelText of ['生まれた年', '生まれた月', '生まれた日']) {
+			expect(placeholderOption(getByLabelText(labelText)).disabled).toBe(false);
+		}
+	});
+
+	it('required のときは未設定 option を選べない（必須入力が成立しなくなるため）', () => {
+		const { getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+			required: true,
+		});
+
+		expect(placeholderOption(getByLabelText('生まれた年')).disabled).toBe(true);
+	});
+
+	it('年を未設定に戻すと月日も未設定になり、value が空になる（#4729）', async () => {
+		const { container, getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+		});
+
+		// 年だけを未設定に戻す。月 / 日の select は `disabled` になるため自力では空に戻せず、
+		// 連動して空にならないと value が '2020-05-15' のまま固まる。
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '' } });
+
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('');
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+		const hiddenInput = container.querySelector('input[type="hidden"]') as HTMLInputElement;
+		expect(hiddenInput.value).toBe('');
+	});
+
 	it('resets to undefined when all fields are cleared', async () => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2023-01-31',

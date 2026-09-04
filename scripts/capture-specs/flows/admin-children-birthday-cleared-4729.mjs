@@ -1,8 +1,8 @@
 /**
  * scripts/capture-specs/flows/admin-children-birthday-cleared-4729.mjs
  *
- * #4729 (PO 回答 2026-09-03): お子さまの誕生日を消して保存すると、推定誕生日へ「降格」し
- * 誕生日ボーナスの対象から外れる。降格が起きたことを保護者が画面で見られるかを撮る。
+ * #4729 (PO 決定 2026-09-04): 保護者はお子さまの誕生日を消せる。消すと推定誕生日へ「降格」し
+ * 誕生日ボーナスの対象から外れるため、**確認 → 保存 → 告知** の 3 点セットを撮る。
  *
  * demo 環境 (`DATA_SOURCE=demo`) は POST を allowlist で塞いでいる (`DEMO_WRITE_ALLOWLIST`) ため
  * 編集を保存できない。cognito dev (`npm run dev:cognito`、#1026) の sqlite backend で撮る。
@@ -12,7 +12,7 @@
  *
  * 使用例:
  *   MSYS_NO_PATHCONV=1 SS_LABEL_PREFIX=after- BASE_URL=http://localhost:5174 \
- *   node scripts/capture.mjs --pr 4844 \
+ *   node scripts/capture.mjs --pr 4849 \
  *     --flow admin-children-birthday-cleared-4729 --url /admin/children \
  *     --actions scripts/capture-specs/flows/admin-children-birthday-cleared-4729.mjs \
  *     --server-mode cognito --presets desktop --no-start-server
@@ -83,19 +83,22 @@ async function setBirthday(page, scope, { year, month, day }) {
 }
 
 /**
- * 誕生日を空にして保存する。
+ * 誕生日を「未設定」に戻す — **保護者と同じ操作で**行う。
  *
- * **UI の年 / 月 / 日 select からは空に戻せない** — `NativeSelect` の placeholder option は
- * `disabled` で、選び直して空にする経路が無い (本 PR の観察。修正は PO 判断待ちで本 PR の scope 外)。
- * 撮影対象は「誕生日が消えたときに保護者が何を見るか」なので、`BirthdayInput` が出す hidden input
- * (`name="birthDate"`) を空にして **同じ form を同じ action へ送る**。サーバ側の経路 (editChild →
- * 降格 → 告知) は実物そのままで、client 側の入力手段だけを迂回している。
+ * `selectOption('')` は disabled option でも DOM を直接書き換えてしまい before / after の差が
+ * 出ない (= 修正の有無を SS で見分けられない) ため使わない。年の select にフォーカスして `Home`
+ * を押す = ブラウザのネイティブ挙動で「先頭の**選択可能な**option」へ動く。
+ * placeholder が disabled のままなら先頭の年 (最新年) に動くだけで空にはならず、
+ * 選択可能になっていれば「未設定」に入る。**この差がそのまま SS の差**になる。
  */
-async function submitWithClearedBirthday(editForm) {
-	await editForm.locator('input[name="birthDate"]').evaluate((el) => {
-		el.value = '';
-	});
-	await editForm.getByRole('button', { name: /保存/ }).first().click();
+async function clearBirthdayLikeAParent(page, editForm) {
+	const yearSelect = editForm.getByLabel('生まれた年');
+	await yearSelect.focus();
+	await page.keyboard.press('Home');
+	await waitFrames(page, 3);
+	const hidden = await editForm.locator('input[name="birthDate"]').inputValue();
+	console.log(`[flow] 誕生日欄の値 = ${JSON.stringify(hidden)} (空なら未設定に戻せている)`);
+	return hidden === '';
 }
 
 /**
@@ -133,7 +136,7 @@ export default async (page, capture) => {
 	const addedCard = page.getByText(NICKNAME, { exact: true }).first();
 	await addedCard.waitFor({ state: 'visible', timeout: 30_000 });
 
-	// --- 2. そのお子さまを選んで編集モードに入り、誕生日を空にして保存する ---
+	// --- 2. そのお子さまを選んで編集モードに入り、誕生日を未設定に戻す ---
 	await addedCard.click();
 	const editButton = page.getByRole('button', { name: /編集/ }).first();
 	await editButton.waitFor({ state: 'visible', timeout: 30_000 });
@@ -141,9 +144,26 @@ export default async (page, capture) => {
 
 	const editForm = page.locator('.profile-edit__form');
 	await editForm.waitFor({ state: 'visible', timeout: 30_000 });
-	await submitWithClearedBirthday(editForm);
+	await clearBirthdayLikeAParent(page, editForm);
+	await capture(`${PREFIX}children-birthday-edit`);
 
-	// --- 3. 保存結果 (降格の告知が出るか) を撮る ---
+	// --- 3. 保存 → 確認ダイアログ (修正前は出ずにそのまま保存される) ---
+	await editForm.getByRole('button', { name: /保存/ }).first().click();
+	const confirmDialog = page.locator('[data-testid="child-birthday-clear-confirm-dialog"]');
+	const confirmShown = await confirmDialog
+		.waitFor({ state: 'visible', timeout: 5_000 })
+		.then(() => true)
+		.catch(() => false);
+	console.log(`[flow] 確認ダイアログ = ${confirmShown ? '出た' : '出ない'}`);
+	await waitFrames(page, 2);
+	await capture(`${PREFIX}children-birthday-clear-confirm`);
+
+	if (confirmShown) {
+		await page.locator('[data-testid="child-birthday-clear-accept"]').click();
+		await confirmDialog.waitFor({ state: 'hidden', timeout: 30_000 }).catch(() => {});
+	}
+
+	// --- 4. 保存結果 (降格の告知 + 「誕生日: 未設定」) を撮る ---
 	await page
 		.locator('[data-tutorial="child-detail"]')
 		.waitFor({ state: 'visible', timeout: 30_000 });

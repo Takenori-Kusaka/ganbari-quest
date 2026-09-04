@@ -14,6 +14,15 @@ interface Props extends Omit<HTMLSelectAttributes, 'value'> {
 	error?: string;
 	hint?: string;
 	placeholder?: string;
+	/**
+	 * placeholder option (`value=""`) を選択可能にするか (#4729)。既定 false =
+	 * 「一度選んだら未選択に戻せない」従来挙動 (未選択のまま送らせないための disabled 表示)。
+	 *
+	 * 任意入力で「未設定に戻す」経路が必要な callsite だけ opt-in で true にする。
+	 * 既定値を変えると全画面の select が未選択に戻せるようになってしまうため、
+	 * **既定は false のまま**にする (`tests/unit/components/primitives/NativeSelect.test.ts` が pin)。
+	 */
+	placeholderSelectable?: boolean;
 }
 
 let {
@@ -24,6 +33,7 @@ let {
 	hint,
 	id,
 	placeholder,
+	placeholderSelectable = false,
 	class: className = '',
 	...rest
 }: Props = $props();
@@ -54,7 +64,11 @@ const fieldId =
 		{...rest}
 	>
 		{#if placeholder}
-			<option value="" disabled selected={value === undefined || value === ''}>
+			<option
+				value=""
+				disabled={!placeholderSelectable}
+				selected={value === undefined || value === ''}
+			>
 				{placeholder}
 			</option>
 		{/if}

@@ -93,6 +93,23 @@ $effect(() => {
 		dayStr = String(daysInMonth);
 	}
 });
+
+// #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので「未設定に戻せる」。
+// 年を未設定に戻したときに月 / 日が残ると、上の合成 effect の `!y && !m && !d` に到達せず
+// value が前の日付のまま固まる (月 / 日の select は `disabled` になり自分では空に戻せない) ため、
+// 上位が空になったら下位も連動して空にする。
+$effect(() => {
+	if (!yearStr && (monthStr || dayStr)) {
+		monthStr = '';
+		dayStr = '';
+	} else if (!monthStr && dayStr) {
+		dayStr = '';
+	}
+});
+
+// 任意入力のときだけ「未設定」option を選べるようにする (#4729)。`required` 指定の callsite では
+// 未選択に戻せると必須入力が成立しないため、従来どおり disabled のままにする。
+const placeholderSelectable = $derived(!required);
 </script>
 
 <FormField {label} {id} {error} {required} {hint}>
@@ -103,6 +120,7 @@ $effect(() => {
 				bind:value={yearStr}
 				options={yearOptions}
 				placeholder={UI_PRIMITIVES_LABELS.birthYearPlaceholder}
+				{placeholderSelectable}
 				required={required}
 			/>
 			<NativeSelect
@@ -110,6 +128,7 @@ $effect(() => {
 				bind:value={monthStr}
 				options={monthOptions}
 				placeholder={UI_PRIMITIVES_LABELS.birthMonthPlaceholder}
+				{placeholderSelectable}
 				disabled={!yearStr}
 				required={required}
 			/>
@@ -118,6 +137,7 @@ $effect(() => {
 				bind:value={dayStr}
 				options={dayOptions}
 				placeholder={UI_PRIMITIVES_LABELS.birthDayPlaceholder}
+				{placeholderSelectable}
 				disabled={!monthStr}
 				required={required}
 			/>

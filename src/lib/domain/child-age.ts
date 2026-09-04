@@ -80,9 +80,8 @@ export function resolveBirthDateForUpdate(
 		// **保存値は消さず「推定扱いへの降格」に留める**。`publicBirthDate` が
 		// estimated=true を null で返すため、画面・export・誕生日ボーナスの対象からは外れる。
 		// 月日を実際に破棄すると、誤って空にした保護者が再入力するまで復旧できない
-		// (再入力を促す導線も無い)。一方で「保存値が残ること」自体を消去要求と読むかは
-		// プロダクト判断なので、QM #4729 レビューで PO 判断事項として起票した。
-		// ここでは既存契約 (降格) を維持する。
+		// (再入力を促す導線も無い)。PO 決定 (2026-09-04) は「消せるようにする」であって
+		// 「降格の意味論を変える」ではないため、ここは既存契約 (降格) を維持する。
 		return current.birthDate ? { birthDateEstimated: true } : {};
 	}
 	if (input.age === undefined) return {};

@@ -7674,6 +7674,16 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	themeColorLabel: 'テーマカラー',
 	birthdayBonusTitle: '🎂 おたんじょうびボーナス',
 	birthdayBonusNote: '※ ボーナス倍率の変更は別途保存されます',
+	// #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので消せる。ただし誤って消すと
+	// 誕生日ボーナスを失うため、**保存前に**確認を挟む (事後の Alert は
+	// ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice)。
+	// 「何が起きるか」「何が残るか」「取り消せるか」を 1 文ずつで書く。
+	birthdayClearConfirmTitle: '誕生日を消しますか？',
+	birthdayClearConfirmBody:
+		'誕生日を消すと、誕生日のお祝いが行われなくなります。年齢はそのまま残ります。もう一度誕生日を入れると、お祝いを再開します。',
+	birthdayClearConfirmAccept: '消して保存する',
+	// 誕生日を消したあとのカード表示。推定誕生日 (内部値) は出さず「未設定」と書く。
+	headerBirthdayUnset: '誕生日: 未設定',
 	saveButton: '💾 保存',
 	cancelButton: 'キャンセル',
 	multiplierLabel: '倍率',
@@ -7748,12 +7758,12 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	// 降格してはならない** — 降格が起きたことを保護者が画面で見られる文言 (Alert、自動消滅しない)。
 	// 再入力で元に戻せることも添え、誤操作の出口を残す。
 	//
-	// **現状この文言は表示されない (QM レビューで判明)**。降格を起こせる書き手は
-	// `admin/children/+page.server.ts` の editChild action だけで、その画面の `BirthdayInput` は
-	// placeholder option が disabled のため誕生日を空に戻せない。import 経路は
-	// `import-service.ts` が `birthDate: exportChild.birthDate ?? undefined` を渡すため null にならず、
-	// birthDate を更新する API route も無い。**「誕生日を消す」導線を用意するかは PO 判断**で、
-	// その答えが出るまで本文言は到達不能のまま置く (降格の意味論は PO 回答どおり維持)。
+	// **PO 決定 (2026-09-04) で到達可能になった**: `BirthdayInput` の未設定 option を選べるように
+	// したため、保護者は誕生日を消せる (誕生日は任意入力であり、消せないほうが説明と矛盾する)。
+	// 消す操作は `ChildProfileCard` の確認ダイアログ (birthdayClearConfirm*) → 保存 → 本 Alert の
+	// 3 点セットで、降格の意味論 (推定扱いへ降格 = 誕生日ボーナス / 🎂 表示の対象外) は不変。
+	// 消すのは保護者の明示操作だけ — import 復元は `import-service.ts` が
+	// `birthDate: exportChild.birthDate ?? undefined` を渡すため今も null にならない (黙って消えない)。
 	birthdayClearedNotice:
 		'誕生日を消したため、誕生日のお祝いは行われません。もう一度誕生日を入れると、お祝いを再開します。',
 	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,

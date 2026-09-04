@@ -4,13 +4,12 @@
 // 誕生日を消したら推定誕生日に戻り、誕生日ボーナスの対象外になる (間違った日に祝う方が体験を壊す)。
 // ただし **顧客に降格が起きたことが見えること**。黙って降格は不可。
 //
-// **到達性についての注記 (QM レビューで確認)**: 現状この降格を起こせる呼び出し元は存在しない。
-// `editChild` の呼び出しは `admin/children/+page.server.ts` の 2 action だけで、編集画面の
-// `BirthdayInput` は placeholder option が disabled のため誕生日を空に戻せない。import 復元は
-// `import-service.ts` が `birthDate: … ?? undefined` を渡すので null にならず、birthDate を更新する
-// API route も無い。「誕生日を消す」導線を用意するかは PO 判断 (別 Issue / 別 PR)。
-// 本 test は「導線ができた瞬間に黙って降格しない」ことを先に固定するもので、
-// action / 画面の契約 (降格の判定条件と告知) を実経路で assert する。
+// **PO 決定 (2026-09-04、PR #4729 コメント)**: 「一度入れたら消せない」は仕様にしない。
+// 誕生日は任意入力であり、訂正手段が「別の日付に直す」しかないのは説明と矛盾する
+// (プライバシーポリシー第 5 / 6 条の削除・訂正請求とも整合しない)。`BirthdayInput` の未設定
+// option を選べるようにして保護者が消せるようにし、**確認 → 保存 → Alert の 3 点セット**にする。
+// 降格の意味論 (推定扱いに降格 = 誕生日ボーナス / 🎂 表示の対象外) は変えない。
+// 消せるのは保護者の明示操作だけで、import 復元は今も `birthDate: null` を渡さない。
 //
 // 固定する不変条件:
 //   [A] /admin/children の editChild action は「実誕生日があった子の誕生日欄を空にして保存した」
@@ -18,14 +17,16 @@
 //   [B] 降格の保存契約 (`birthDate: null` を service に渡す) は変えていない (#4729 の決まった挙動)
 //   [C] 画面は `birthdayCleared` を受け取ると、選択中のお子さまの詳細の直上に
 //       「誕生日を消したため、誕生日のお祝いは行われません」を Alert (role="status") で出す
+//   [D] 誕生日を消す保存は確認ダイアログを挟み、**キャンセルすると消えない** (action を実行しない)
+//   [E] 消したあとのカードに「誕生日: 未設定」が出て、年齢は引き継がれ、推定誕生日 (1/1) は出ない
 //
 // route action は child-service を mock せず、repo だけ mock して実経路を通す
 // (placeholder-avatar test と同型)。画面は +page.svelte を render し、action 結果 (form) → 表示 を見る。
 
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ADMIN_CHILDREN_PAGE_LABELS } from '$lib/domain/labels';
+import { ADMIN_CHILDREN_PAGE_LABELS, CHILD_PROFILE_CARD_LABELS } from '$lib/domain/labels';
 
 const mockFindChildById = vi.fn();
 const mockUpdateChild = vi.fn();
@@ -93,7 +94,40 @@ vi.mock('$lib/server/services/voice-service', () => ({
 }));
 
 // --- 画面 (+page.svelte) が掴む SvelteKit runtime ---
-vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+//
+// [D] は「保存を押したら action が実行されるか / 確認で止まるか」を見るため、`enhance` を
+// no-op ではなく **submit を実際に捕まえる薄い実装**にする (fetch はせず、submit callback を呼ぶ
+// ところまで再現する)。`cancel()` が呼ばれた submit = action が実行されなかった、と読める。
+const { submitAttempts } = vi.hoisted(() => ({
+	submitAttempts: [] as Array<{ action: string; birthDate: string | null; canceled: boolean }>,
+}));
+
+vi.mock('$app/forms', () => ({
+	enhance: (formElement: HTMLFormElement, submitFn?: (arg: Record<string, unknown>) => unknown) => {
+		const onSubmit = (event: Event) => {
+			event.preventDefault();
+			const formData = new FormData(formElement);
+			const attempt = {
+				action: formElement.getAttribute('action') ?? '',
+				birthDate: (formData.get('birthDate') as string | null) ?? null,
+				canceled: false,
+			};
+			submitAttempts.push(attempt);
+			submitFn?.({
+				formElement,
+				formData,
+				action: new URL('http://localhost/admin/children'),
+				controller: new AbortController(),
+				submitter: null,
+				cancel: () => {
+					attempt.canceled = true;
+				},
+			});
+		};
+		formElement.addEventListener('submit', onSubmit);
+		return { destroy: () => formElement.removeEventListener('submit', onSubmit) };
+	},
+}));
 vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn(async () => {}) }));
 vi.mock('$lib/ui/primitives/Toast.svelte', () => ({ showToast: vi.fn(), default: () => {} }));
 
@@ -145,6 +179,7 @@ function clearBirthdayForm() {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	submitAttempts.length = 0;
 	mockUpdateChild.mockImplementation(async (_id: unknown, input: Record<string, unknown>) => ({
 		...existingChild(null),
 		...input,
@@ -290,5 +325,148 @@ describe('#4729 [C] 画面は降格が起きたことを保護者に見せる', 
 			props: { data, form: null } as any,
 		});
 		expect(screen.queryByTestId('child-birthday-cleared-notice')).toBeNull();
+	});
+});
+
+describe('#4729 [D]/[E] 保護者は誕生日を消せる (確認 → 保存 → 告知)', () => {
+	const pointSettings = { mode: 'point' as const, currency: 'JPY' as const, rate: 1 };
+
+	/** `birthDate` は publicBirthDate (実誕生日のみ)。null = 推定扱い (= 消したあと) */
+	function pageData(birthDate: string | null) {
+		const base = {
+			id: CHILD_ID,
+			nickname: 'まさと',
+			age: 7,
+			uiMode: 'elementary',
+			theme: 'blue',
+			avatarUrl: null,
+			balance: { balance: 0 },
+		};
+		return {
+			children: [base],
+			archivedChildren: [],
+			selectedChild: {
+				...base,
+				birthDate,
+				birthdayBonusMultiplier: 2,
+				status: null,
+				recentLogs: [],
+				logSummary: null,
+				achievements: [],
+				voices: [],
+			},
+			childLimit: { allowed: true, current: 1, max: null },
+			categoryDefs: [],
+			archiveInfo: { hasArchived: false, retentionDays: null },
+			pointSettings,
+		};
+	}
+
+	function renderPage(birthDate: string | null) {
+		return render(ChildrenPage, {
+			// biome-ignore lint/suspicious/noExplicitAny: PageData / ActionData の型は generated
+			props: { data: pageData(birthDate), form: null } as any,
+		});
+	}
+
+	// Ark UI Dialog の content は閉じていても Portal 内に `hidden` + `data-state="closed"` で
+	// 残る (かつ Portal は document.body 直下なので testing-library の cleanup で消えない)。
+	// 「出ている確認ダイアログ」だけを見るため open 状態で絞る。
+	function openConfirmDialog(): HTMLElement | null {
+		const nodes = Array.from(
+			document.querySelectorAll<HTMLElement>('[data-testid="child-birthday-clear-confirm-dialog"]'),
+		);
+		return nodes.find((n) => n.getAttribute('data-state') === 'open') ?? null;
+	}
+
+	async function findOpenConfirmDialog(): Promise<HTMLElement> {
+		let dialog: HTMLElement | null = null;
+		await waitFor(() => {
+			dialog = openConfirmDialog();
+			expect(dialog).not.toBeNull();
+		});
+		return dialog as unknown as HTMLElement;
+	}
+
+	/** 編集モードに入り、誕生日欄を未設定に戻して「保存」を押す */
+	async function clearBirthdayAndSave() {
+		await fireEvent.click(screen.getByText(CHILD_PROFILE_CARD_LABELS.editButton));
+		// 年を未設定に戻す → 月 / 日も連動して空になる (BirthdayInput、#4729)
+		await fireEvent.change(screen.getByLabelText('生まれた年'), { target: { value: '' } });
+		await fireEvent.click(screen.getByText(CHILD_PROFILE_CARD_LABELS.saveButton));
+	}
+
+	it('誕生日を消して保存すると確認ダイアログが出て、その時点では保存されない', async () => {
+		renderPage('2019-05-01');
+
+		await clearBirthdayAndSave();
+
+		const dialog = await findOpenConfirmDialog();
+		expect(dialog.textContent).toContain(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody);
+		// お祝いが行われなくなることを保存前に伝えている (PO 指定)
+		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain(
+			'誕生日のお祝いが行われなくなります',
+		);
+		// submit は捕まえたが action は実行していない (cancel 済)
+		expect(submitAttempts).toHaveLength(1);
+		expect(submitAttempts[0]).toMatchObject({ action: '?/editChild', canceled: true });
+	});
+
+	it('確認をキャンセルすると誕生日は消えない (action を実行しない)', async () => {
+		renderPage('2019-05-01');
+		await clearBirthdayAndSave();
+		const dialog = await findOpenConfirmDialog();
+
+		await fireEvent.click(within(dialog).getByTestId('child-birthday-clear-cancel'));
+
+		await waitFor(() => expect(openConfirmDialog()).toBeNull());
+		// 追加の submit は起きず、最初の submit も cancel されたまま = 保存されていない
+		expect(submitAttempts).toHaveLength(1);
+		expect(submitAttempts[0]?.canceled).toBe(true);
+	});
+
+	it('確認すると誕生日を空 (birthDate="") にして editChild が実行される', async () => {
+		renderPage('2019-05-01');
+		await clearBirthdayAndSave();
+		const dialog = await findOpenConfirmDialog();
+
+		await fireEvent.click(within(dialog).getByTestId('child-birthday-clear-accept'));
+
+		expect(submitAttempts).toHaveLength(2);
+		expect(submitAttempts[1]).toMatchObject({
+			action: '?/editChild',
+			birthDate: '',
+			canceled: false,
+		});
+	});
+
+	it('誕生日以外の編集 (誕生日を触らない保存) は確認を挟まずそのまま保存する', async () => {
+		renderPage('2019-05-01');
+
+		await fireEvent.click(screen.getByText(CHILD_PROFILE_CARD_LABELS.editButton));
+		await fireEvent.click(screen.getByText(CHILD_PROFILE_CARD_LABELS.saveButton));
+
+		expect(openConfirmDialog()).toBeNull();
+		expect(submitAttempts).toHaveLength(1);
+		expect(submitAttempts[0]).toMatchObject({ birthDate: '2019-05-01', canceled: false });
+	});
+
+	it('消したあとのカードは「誕生日: 未設定」を出し、年齢を引き継ぎ、推定誕生日 (1/1) を見せない', () => {
+		const { container } = renderPage(null);
+
+		const unset = screen.getByTestId('child-birthday-unset');
+		expect(unset.textContent).toContain(CHILD_PROFILE_CARD_LABELS.headerBirthdayUnset);
+		expect(CHILD_PROFILE_CARD_LABELS.headerBirthdayUnset).toContain('未設定');
+		// 🎂 + 日付の表示には切り替わらない
+		expect(screen.queryByTestId('child-birthday-value')).toBeNull();
+
+		// 年齢は引き継がれている (0 歳に戻らない、#4718 / #4729)
+		const meta = container.querySelector('.profile-header__meta');
+		expect(meta?.textContent).toContain('7');
+
+		// 推定誕生日 (1 月 1 日) は内部値なので画面に出ない (DESIGN.md §6 内部コード露出禁止)
+		const shown = document.body.textContent ?? '';
+		expect(shown).not.toContain('-01-01');
+		expect(shown).not.toContain('1月1日');
 	});
 });
