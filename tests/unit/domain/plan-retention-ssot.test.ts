@@ -18,6 +18,7 @@ import {
 	PLAN_HISTORY_RETENTION_DAYS,
 } from '../../../src/lib/domain/constants/plan-retention';
 import {
+	CANCELLATION_LABELS,
 	DELETION_EXPORT_NOTE_LABELS,
 	DOWNGRADE_RESOURCE_SELECTOR_LABELS,
 	FEATURES_LABELS,
@@ -225,35 +226,161 @@ describe('plan retention days SSOT (#4477)', () => {
 	// (スタンダードプランなら 1 年より古い記録が消える) と食い違っていたが、
 	// 保持期間の語を 1 つも含まないため上のどの assert にも引っかからなかった。
 	//
-	// 反転して塞ぐ: 「契約期間を根拠に保存を約束する記述が法務文書に存在しない」ことと、
-	// 活動データの保存期間を述べる文書がプラン別の期間を SSOT 整形で述べることを固定する。
+	// **旧文そのものへの正規表現では塞げない** (adversarial review PR #4852 が変異 2 件で実証):
+	//   N1 新しい key に「お預かりした情報は、ご契約のあいだ保存します」を足す → 素通り
+	//   N2 既存 key の中に同じ意味の 1 文を言い換えて挿入 → 素通り
+	// 依頼された guard は「retention に触れない面 / 別の言い方で契約期間保存を約束する面」の
+	// class guard であって、同じ文字列の再発防止ではない。よって 2 段で組む:
+	//
+	//   [A/B/C] 面 (namespace.key) を宣言集合に分け、**検出集合 == 宣言 ∪ 除外** を要求する。
+	//           新しい面が保存を約束したら、どちらかへの登録を強制される (= no-silent-gap)。
+	//   [E]     文の構造で禁じる: 「契約 / 加入」と「保存 / 保持 / 保管」が同一文に共存する文は、
+	//           同一文に SSOT 由来の期間表現が無い限り violation。言い換えても構造は残る。
 	// ------------------------------------------------------------------
 	describe('法務文書の保存期間の記述が実装と一致する (#4844 follow-up)', () => {
-		/** 顧客に配信される法務文書 3 本の全 value (h1 / 各条 / 表) */
-		const legalDocValues: Array<[string, string]> = [
-			...Object.entries(LP_LEGAL_PRIVACY_LABELS).map(
-				([key, value]) => [`privacy.${key}`, value] as [string, string],
-			),
-			...Object.entries(LP_LEGAL_TERMS_LABELS)
-				.filter(([, value]) => typeof value === 'string')
-				.map(([key, value]) => [`terms.${key}`, value as string] as [string, string]),
-			...Object.entries(LP_LEGAL_TOKUSHOHO_LABELS).map(
-				([key, value]) => [`tokushoho.${key}`, value] as [string, string],
-			),
+		/**
+		 * 走査対象 namespace (明示)。顧客に配信される法務文書 3 本 + 契約状態の告知 / 解約導線。
+		 * ここに無い namespace は本 guard の対象外である (silent gap を隠さないため明記する)。
+		 */
+		const SCANNED_NAMESPACES: Record<string, Record<string, unknown>> = {
+			privacy: LP_LEGAL_PRIVACY_LABELS,
+			terms: LP_LEGAL_TERMS_LABELS,
+			tokushoho: LP_LEGAL_TOKUSHOHO_LABELS,
+		};
+
+		/** [E] は画面側の告知にも効かせる (法務文書と画面で言い方が割れるのを防ぐ)。 */
+		const CONTRACT_SCOPE_SCANNED: Record<string, Record<string, unknown>> = {
+			...SCANNED_NAMESPACES,
+			subscription: SUBSCRIPTION_PAGE_LABELS,
+			cancellation: CANCELLATION_LABELS,
+		};
+
+		/** 利用者データの保存/保持を約束する文か (面として宣言が要る)。 */
+		const STORAGE_PROMISE = /(情報|データ|記録|履歴)[^。]{0,40}(保存|保持|保管)(し|さ|いた)/;
+		/** 保存期間の根拠を「契約の存続」に置く文の構造 (言い換えても残る)。 */
+		const CONTRACT_TOKEN = /(契約|加入)/;
+		const STORAGE_VERB = /(保存|保持|保管)(し|さ|いた)/;
+		/** SSOT 由来の期間表現。同一文にこれがあれば「プラン別保持期間を述べたうえでの言及」。 */
+		const SSOT_PERIODS = [
+			PLAN_RETENTION_TERMS.free,
+			PLAN_RETENTION_TERMS.freeSpaced,
+			PLAN_RETENTION_TERMS.standard,
+			PLAN_RETENTION_TERMS.standardSpaced,
+			'無期限',
 		];
+
+		/**
+		 * [A] 履歴の保存期間を述べる責任を負う面。値は説明 (空を許さない)。
+		 * ここに載る面はプラン別の期間を SSOT 整形で述べなければならない。
+		 */
+		const RETENTION_DISCLOSURE_SURFACES: Record<string, string> = {
+			'privacy.section1': 'プライバシーポリシー 第1条 3. 活動データ',
+			'terms.section7': '利用規約 第7条7項 プラン別の履歴保持期間',
+			'tokushoho.tableContent': '特商法「解約とデータの取扱い」',
+		};
+
+		/**
+		 * [B] 保存に言及するが**履歴保持期間の話ではない**面と、その理由。
+		 * 理由なしで足せない (死に票 allowlist を作らない)。
+		 */
+		const NON_RETENTION_STORAGE_SURFACES: Record<string, string> = {
+			'privacy.section3': '保存「先」(AWS リージョン) の開示。期間の話ではない',
+			'privacy.section6_2': '卒業事例公開の承諾記録の保管。活動履歴の保持期間の対象外',
+			'privacy.section10': '越境移転の対象範囲の開示。期間の話ではない',
+		};
+
+		function entriesOf(namespaces: Record<string, Record<string, unknown>>): [string, string][] {
+			const out: [string, string][] = [];
+			for (const [ns, obj] of Object.entries(namespaces)) {
+				for (const [key, value] of Object.entries(obj)) {
+					if (typeof value === 'string') out.push([`${ns}.${key}`, value]);
+				}
+			}
+			return out;
+		}
+
+		const legalDocValues = entriesOf(SCANNED_NAMESPACES);
+		/** 保存を約束している面 (検出集合)。 */
+		const detectedStorageSurfaces = legalDocValues
+			.filter(([, value]) => value.split('。').some((s) => STORAGE_PROMISE.test(s)))
+			.map(([surface]) => surface);
 
 		it('走査対象が空でない (空振りで緑になるのを防ぐ)', () => {
 			expect(legalDocValues.length).toBeGreaterThan(20);
+			expect(entriesOf(CONTRACT_SCOPE_SCANNED).length).toBeGreaterThan(legalDocValues.length);
+			// 検出器が実際に効いている (何も検出しない正規表現への劣化を防ぐ)
+			expect(STORAGE_PROMISE.test('これらの情報はご契約期間中保存されます')).toBe(true);
+			expect(STORAGE_PROMISE.test('お預かりした情報は、ご契約のあいだ保存します')).toBe(true);
+			expect(detectedStorageSurfaces.length).toBeGreaterThan(0);
 		});
 
-		// 変異試験: 旧文「これらの情報はご契約期間中保存されます。」を 1 箇所でも戻すと落ちる。
-		it('「契約期間中は保存する」型の約束を書かない (実装は契約中でも保持期間で削除する)', () => {
-			const offenders = legalDocValues
-				.filter(([, value]) => /契約期間中[^。]{0,20}保存/.test(value))
-				.map(([key]) => key);
+		// [C] no-silent-gap。**新しい面が保存を約束したら、宣言か除外への登録を強制する**。
+		// 変異 N1 (新 key に「ご契約のあいだ保存します」を足す) はここで落ちる。
+		it('[C] 保存を約束する面はすべて宣言済み (retention 開示 or 理由付き除外)', () => {
+			const declared = new Set([
+				...Object.keys(RETENTION_DISCLOSURE_SURFACES),
+				...Object.keys(NON_RETENTION_STORAGE_SURFACES),
+			]);
+			const undeclared = detectedStorageSurfaces.filter((s) => !declared.has(s));
+			expect(
+				undeclared,
+				[
+					'保存/保持を約束しているのに宣言されていない面があります。',
+					'履歴の保存期間を述べる面なら RETENTION_DISCLOSURE_SURFACES に、',
+					'期間の話でないなら NON_RETENTION_STORAGE_SURFACES に理由付きで登録してください。',
+				].join('\n'),
+			).toEqual([]);
+		});
+
+		// 宣言が腐らないこと (rename / 文面変更で死に票になった宣言を残さない)。
+		it('[D] 宣言した面はすべて実在し、実際に保存を約束している', () => {
+			const detected = new Set(detectedStorageSurfaces);
+			for (const [surface, reason] of Object.entries({
+				...RETENTION_DISCLOSURE_SURFACES,
+				...NON_RETENTION_STORAGE_SURFACES,
+			})) {
+				expect(reason.length, `${surface} の説明が短すぎる`).toBeGreaterThan(5);
+				expect(detected, `${surface} は保存を約束していない (宣言から外せる)`).toContain(surface);
+			}
+		});
+
+		// [A] 宣言した retention 開示面は、プラン別の期間を SSOT 整形で述べる。
+		it.each(
+			Object.entries(RETENTION_DISCLOSURE_SURFACES),
+		)('[A] %s は無料プランの保持期間を SSOT 整形で述べる', (surface) => {
+			const value = legalDocValues.find(([s]) => s === surface)?.[1] ?? '';
+			expect(value, `${surface} が見つからない`).not.toBe('');
+			// 組版の都合で spaced / 非 spaced のどちらかを使う (どちらも同じ atom 由来)
+			const statesFreeRetention =
+				value.includes(PLAN_RETENTION_TERMS.free) ||
+				value.includes(PLAN_RETENTION_TERMS.freeSpaced);
+			expect(statesFreeRetention, `${surface} が無料プランの保持期間を述べていない`).toBe(true);
+		});
+
+		// [E] 「契約の存続」を保存期間の根拠にする文を禁じる。**言い換えても構造は残る**ので、
+		// 旧文そのものを狙う正規表現と違い N2 (既存 key への言い換え挿入) も落とせる。
+		it('[E] 保存期間の根拠を契約の存続に置かない (実装は契約中でも保持期間で削除する)', () => {
+			const offenders: string[] = [];
+			for (const [surface, value] of entriesOf(CONTRACT_SCOPE_SCANNED)) {
+				for (const sentence of value.split('。')) {
+					if (!STORAGE_VERB.test(sentence) || !CONTRACT_TOKEN.test(sentence)) continue;
+					if (SSOT_PERIODS.some((p) => sentence.includes(p))) continue;
+					offenders.push(
+						`${surface} :: ${sentence
+							.replace(/<[^>]+>/g, '')
+							.trim()
+							.slice(0, 80)}`,
+					);
+				}
+			}
 			expect(
 				offenders,
-				'契約期間を根拠に保存を約束している。履歴はプラン別の保持期間で物理削除される',
+				[
+					'契約の存続を保存期間の根拠にしています。履歴はプラン別の保持期間で物理削除され、',
+					'契約が続いていても期間を超えた分は消えます (S4 の免除は一時的な非実行にすぎない)。',
+					'プラン別の期間 (PLAN_RETENTION_TERMS 経由) を同じ文で述べてください。',
+					...offenders,
+				].join('\n'),
 			).toEqual([]);
 		});
 

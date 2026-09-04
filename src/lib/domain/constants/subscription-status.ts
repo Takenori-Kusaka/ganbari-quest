@@ -92,34 +92,3 @@ export function isChurnedContract(tenant: {
 	if (tenant.status === SUBSCRIPTION_STATUS.TERMINATED) return true;
 	return tenant.status === SUBSCRIPTION_STATUS.SUSPENDED && tenant.stripeSubscriptionId == null;
 }
-
-/**
- * S4 (契約が残ったままの停止) 判定の SSOT。
- *
- * `isChurnedContract` の裏側 — `suspended` が兼ねる 2 状態のうち、
- * **subscription 割り当てが解けていない側**だけを指す:
- *
- * | 状態 | `status` | `sub` | 本述語 |
- * |---|---|---|---|
- * | S4 停止 | `suspended` | **あり** | **true** — 契約は残り、`invoice.paid` (W2) で S2 に戻りうる |
- * | S5 契約終了 | `suspended` | なし | false — 解約が確定した終端 (`isChurnedContract` が true) |
- * | S6 退会済 | `terminated` | 任意 | false — 同上 |
- * | S1 / S2 / S3 | `active` / `grace_period` | — | false |
- *
- * **用途**: 「戻ってくる前提の状態で、戻らない処理 (履歴の物理削除) を先に実行しない」
- * ための境界 (PO 決定 2026-09-04)。S4 は `deriveLicenseStatus` で `suspended` →
- * `resolvePlanTier` が `free` に落ちるため、放置すると**契約が生きているうちに**
- * 無料プランの cutoff で `activity_logs` / `point_ledger` / `status_history` が消える。
- * 有料機能を止めるところまでが未収への手当てで、不可逆な削除まで前倒しする理由がない。
- *
- * plan tier の解決そのもの (`resolvePlanTier`) は変えない — 課金ゲート全体に波及し、
- * 未収のテナントに有料機能を返してしまう。止めるのは削除を実行する側 (retention-cleanup)。
- *
- * 契約状態の組み合わせ SSOT は `docs/design/billing-redesign/contract-state-matrix.md` §4。
- */
-export function isRetainedSuspendedContract(tenant: {
-	status: SubscriptionStatus;
-	stripeSubscriptionId?: string | null;
-}): boolean {
-	return tenant.status === SUBSCRIPTION_STATUS.SUSPENDED && tenant.stripeSubscriptionId != null;
-}

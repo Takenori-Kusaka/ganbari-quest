@@ -182,5 +182,8 @@ const { Story } = defineMeta({
 			'ご契約が残っているあいだ、これまでの記録を削除することはありません',
 		);
 		await expect(notice).not.toHaveTextContent('期間を超えた記録から順に削除されています');
+		// 契約終了は崖である (終了日から数え直す猶予があるように読ませない)
+		await expect(notice).toHaveTextContent('最初の削除処理でまとめて削除されます');
+		await expect(notice).not.toHaveTextContent('次の保持期間が適用されます');
 	}}
 />

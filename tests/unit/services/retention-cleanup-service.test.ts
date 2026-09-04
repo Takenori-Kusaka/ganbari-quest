@@ -490,9 +490,54 @@ describe('cleanupExpiredData - 契約が残っている間は物理削除しな�
 		expect(result.activityLogsDeleted).toBe(9);
 	});
 
+	// adversarial review (PR #4852) の指摘: 2 列判定 (`status === suspended && sub != null`) だと
+	// 不正状態まで免除に含まれ、状態監査が是正対象として上げている行を無期限に温存してしまう。
+	// 免除の境界は `classifyContractState(...) === 'S4'` に一致させている。
+	it('X2 (suspended + subscription あり + plan なし) は不正状態なので免除しない', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-x2',
+				status: 'suspended',
+				stripeSubscriptionId: 'sub_orphan',
+				// plan なし = X2 (checkout の metadata.planId が未知だった行。alert が出る是正対象)
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(4);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(result.tenantsSkipped).toBe(0);
+		expect(result.activityLogsDeleted).toBe(4);
+	});
+
+	it('subscription が空文字の行は免除しない (present() が「なし」に倒す)', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-empty-sub',
+				status: 'suspended',
+				stripeSubscriptionId: '',
+				plan: 'monthly',
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(2);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsSkipped).toBe(0);
+		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalled();
+	});
+
 	it('S4 の skip は他テナントの処理を止めない (1 バッチに混在しても S5 は削除される)', async () => {
 		mockListAllTenants.mockResolvedValue([
-			makeTenant({ tenantId: 't-s4', status: 'suspended', stripeSubscriptionId: 'sub_x' }),
+			makeTenant({
+				tenantId: 't-s4',
+				status: 'suspended',
+				stripeSubscriptionId: 'sub_x',
+				plan: 'monthly',
+			}),
 			makeTenant({ tenantId: 't-s5', status: 'suspended' }),
 		]);
 		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);

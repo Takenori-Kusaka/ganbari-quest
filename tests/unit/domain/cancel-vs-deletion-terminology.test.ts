@@ -22,7 +22,7 @@ import {
 	formatDeletionGracePeriod,
 } from '../../../src/lib/domain/constants/deletion-grace';
 import { PLAN_HISTORY_RETENTION_DAYS } from '../../../src/lib/domain/constants/plan-retention';
-import { isRetainedSuspendedContract } from '../../../src/lib/domain/constants/subscription-status';
+import { isRetainedSuspendedContract } from '../../../src/lib/domain/contract-state';
 import {
 	ALL_CONTRACT_STATES,
 	CONTRACT_STATE_VIEW,
@@ -377,21 +377,47 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 		// (`retention-cleanup-service` が `isRetainedSuspendedContract` で skip する)。
 		// よって旧 pin (「すでに適用されており」「削除されています」= 現在形で削除を述べる) は
 		// 実装が行っていないことを述べる文言を固定していたので置き換える。
-		// 順序: いま起きていること → 復旧の案内 → 契約終了後の保持期間 (末尾)。
-		it('S4 は 削除しない事実 → 復旧の案内 → 契約終了後の保持期間 の順で述べる', () => {
+		// 順序: いま起きていること → 復旧の案内 → 契約終了時に起きること → 保持期間 (末尾)。
+		it('S4 は 削除しない事実 → 復旧の案内 → 契約終了時の崖 → 保持期間 の順で述べる', () => {
 			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
 			const noDeletion = desc.indexOf(
 				'ご契約が残っているあいだ、これまでの記録を削除することはありません',
 			);
 			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻り');
+			const cliff = desc.indexOf('最初の削除処理でまとめて削除されます');
 			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
 
 			expect(noDeletion, '契約が残っている間は削除しない事実を述べていない').toBeGreaterThan(-1);
 			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
+			expect(cliff, '契約終了時にまとめて削除されることを述べていない').toBeGreaterThan(-1);
 			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
 
 			expect(noDeletion).toBeLessThan(recovery);
-			expect(recovery).toBeLessThan(retention);
+			expect(recovery).toBeLessThan(cliff);
+			expect(cliff).toBeLessThan(retention);
+		});
+
+		// 保持期間の起算は**レコードの日付**であって契約終了日ではない
+		// (PO 決定 2026-09-04「起算を S5 到達日に付け替える必要はない」/ `getHistoryCutoffDate` は
+		//  `addDaysJST(todayDateJST(), -days)`)。したがって長く停止していた世帯は、契約終了後
+		// 最初の cron で期間を過ぎた分をまとめて失う。「終了してから期間がある」と読ませない。
+		it('S4 は契約終了日からの数え直しを示唆しない (崖であることを書く)', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc, '数え直さないことを明示する').toContain('そこから数え直すのではなく');
+			expect(desc, '「終了したあとは次の保持期間が適用されます」型の猶予表現').not.toContain(
+				'次の保持期間が適用されます',
+			);
+			// 「契約終了を起点に N 日ある」と読める言い回しを禁じる (#4844 の pin の趣旨を維持)
+			expect(desc).not.toMatch(/契約が終了(した場合|すると)/);
+			expect(desc).not.toMatch(/終了(日|時点|後)から[^。]*(日|年)/);
+		});
+
+		// 起算がレコード日付であることを実装で裏取りする。`getHistoryCutoffDate` が
+		// 契約終了日を引数に取るようになったら (= 起算の付け替え) 本 test が落ち、文言を見直す契機になる。
+		it('cutoff の起算は今日基準で、契約終了日を受け取らない (実装の裏取り)', () => {
+			const src = repoFile('src/lib/server/services/plan-limit-service.ts');
+			expect(src).toMatch(/export function getHistoryCutoffDate\(tier: PlanTier\)/);
+			expect(src).toMatch(/addDaysJST\(todayDateJST\(\), -limits\.historyRetentionDays\)/);
 		});
 
 		// 削除は起きていないので現在形で「消えている」と書かない (旧文の再発防止)。
@@ -443,25 +469,45 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			});
 
 			// 文言の根拠は実装。S4 を skip する分岐が消えたら本 test が落ち、文言を見直す契機になる。
-			it('S4 (suspended + subscription あり) は物理削除の対象外である', () => {
+			// 免除の境界そのもの (32 通り) は `tests/unit/domain/contract-state.test.ts` が pin する。
+			it('S4 (suspended + plan あり + subscription あり) は物理削除の対象外である', () => {
+				const s4 = {
+					status: 'suspended',
+					plan: 'monthly',
+					stripeSubscriptionId: 'sub_x',
+					planExpiresAt: null,
+				};
+				expect(isRetainedSuspendedContract(s4)).toBe(true);
+				// S5 / S6 / S1-S3 と不正状態 X2 は対象外ではない (skip が広がっていない)
 				expect(
-					isRetainedSuspendedContract({ status: 'suspended', stripeSubscriptionId: 'sub_x' }),
-				).toBe(true);
-				// S5 / S6 / S1-S3 は対象外ではない (skip が広がっていない)
-				expect(isRetainedSuspendedContract({ status: 'suspended' })).toBe(false);
-				expect(
-					isRetainedSuspendedContract({ status: 'terminated', stripeSubscriptionId: 'sub_x' }),
+					isRetainedSuspendedContract({
+						status: 'suspended',
+						plan: null,
+						stripeSubscriptionId: null,
+						planExpiresAt: null,
+					}),
 				).toBe(false);
 				expect(
-					isRetainedSuspendedContract({ status: 'grace_period', stripeSubscriptionId: 'sub_x' }),
+					isRetainedSuspendedContract({ ...s4, status: 'terminated' }),
+					'S6 は契約が残っていない',
 				).toBe(false);
 				expect(
-					isRetainedSuspendedContract({ status: 'active', stripeSubscriptionId: 'sub_x' }),
+					isRetainedSuspendedContract({
+						...s4,
+						status: 'grace_period',
+						planExpiresAt: '2026-09-30',
+					}),
+					'S3 は有料 tier が維持されるので免除の対象ではない',
+				).toBe(false);
+				expect(isRetainedSuspendedContract({ ...s4, status: 'active' })).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ ...s4, plan: null }),
+					'X2 (不正状態) を免除に含めない',
 				).toBe(false);
 
 				// retention-cleanup が実際にこの述語で skip していること (文言と実装の結合)
 				const svc = repoFile('src/lib/server/services/retention-cleanup-service.ts');
-				expect(svc).toMatch(/if \(isRetainedSuspendedContract\(tenant\)\) \{/);
+				expect(svc).toMatch(/isRetainedSuspendedContract\(\{/);
 			});
 		});
 
