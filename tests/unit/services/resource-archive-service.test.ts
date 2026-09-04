@@ -42,6 +42,13 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+// #4693 (QM 再レビュー 2 巡目): 復元したら「上限のため保管しました」の常設表示も消す。
+const mockClearActivityQuotaArchiveMarker = vi.fn(async (_tenantId: string) => {});
+vi.mock('$lib/server/services/activity-quota', () => ({
+	clearActivityQuotaArchiveMarker: (tenantId: string) =>
+		mockClearActivityQuotaArchiveMarker(tenantId),
+}));
+
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 	archiveChecklistTemplates: (...args: unknown[]) => mockArchiveChecklistTemplates(...args),
@@ -448,6 +455,19 @@ describe('restoreArchivedResources', () => {
 			expect(mockRestoreArchivedChecklistTemplates).toHaveBeenCalledWith(reason, TENANT);
 		}
 		expect(mockRestoreArchivedChildren).toHaveBeenCalledTimes(ARCHIVED_REASONS.length);
+	});
+
+	// #4693 (QM 再レビュー 2 巡目): 記録は「いま保管されているものがある」ことを伝えるための
+	// ものなので、保管が解けたら消さなければ嘘になる。アップグレード済みで何も保管されていない
+	// 世帯に「N 件を上限のため保管しました」と言い続けるのを構造的に止める。
+	it('復元したら「上限のため保管しました」の常設表示 (耐久記録) も消す', async () => {
+		mockRestoreArchivedChildren.mockResolvedValue(undefined);
+		mockRestoreArchivedActivities.mockResolvedValue(undefined);
+		mockRestoreArchivedChecklistTemplates.mockResolvedValue(undefined);
+
+		await restoreArchivedResources(TENANT);
+
+		expect(mockClearActivityQuotaArchiveMarker).toHaveBeenCalledWith(TENANT);
 	});
 });
 

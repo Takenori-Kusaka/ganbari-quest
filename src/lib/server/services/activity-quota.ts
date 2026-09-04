@@ -535,6 +535,29 @@ export async function recordActivityQuotaArchiveMarker(
 }
 
 /**
+ * 上限による自動保管の耐久記録を消す (#4693 QM 再レビュー 2 巡目)。
+ *
+ * 記録は「いま保管されているものがある」ことを親に伝えるためのものなので、**保管が解けたら
+ * 消さなければ嘘になる**。アップグレードした世帯に「N 件を上限のため保管しました」と言い続けると、
+ * 課金しているのに何も保管されていない状態で誤った説明を出し続けることになる。
+ *
+ * 呼び出しは `restoreArchivedResources` の 1 箇所に閉じる。活動の archive を解除する経路は
+ * 実測でそこだけである (webhook 3 種 / `api/v1/admin/downgrade-restore` の 2 caller とも同関数を通り、
+ * repo 層以外に is_archived を 0 に戻す書き込みは無い)。
+ * 記録の削除に失敗しても復元自体は落とさない (記録は補助情報)。
+ */
+export async function clearActivityQuotaArchiveMarker(tenantId: string): Promise<void> {
+	try {
+		await setSetting(ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY, '', tenantId);
+	} catch (e) {
+		logger.warn('[activity-quota] 保管の記録を消せませんでした (復元自体は成功)', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId },
+		});
+	}
+}
+
+/**
  * 親の画面に出す「過去の復元で保管した」常設表示の文言を返す (無ければ null)。
  *
  * 日付は JST 暦日で出す (`jstDateOfIso`)。ISO 文字列の slice は UTC 暦日になり、

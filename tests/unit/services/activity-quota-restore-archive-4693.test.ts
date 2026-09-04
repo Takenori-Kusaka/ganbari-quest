@@ -67,6 +67,7 @@ vi.mock('$lib/server/services/trial-service', () => ({
 import {
 	ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY,
 	archiveActivityQuotaOverflow,
+	clearActivityQuotaArchiveMarker,
 	getActivityQuotaArchiveNotice,
 	RESTORE_OVER_QUOTA_ARCHIVED_REASON,
 	recordActivityQuotaArchiveMarker,
@@ -351,5 +352,24 @@ describe('#4693 上限による自動保管の耐久記録 (行の archived_reas
 		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
 		mockGetSetting.mockResolvedValueOnce(JSON.stringify({ at: 'not-a-date', archived: 5 }));
 		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
+	});
+});
+
+// #4693 (QM 再レビュー 2 巡目 / must): アップグレードして保管が解けた世帯に、
+// 「N 件の活動をプランの上限のため保管しました」と言い続けないこと。
+describe('#4693 保管が解けたら常設表示も消える (課金済み世帯に嘘を言わない)', () => {
+	it('clear は記録を空にし、そのあと常設表示は出なくなる', async () => {
+		await clearActivityQuotaArchiveMarker(TENANT);
+
+		expect(mockSetSetting).toHaveBeenCalledWith(ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY, '', TENANT);
+
+		// clear 後の読み出し (= 空文字) では文言を組み立てない
+		mockGetSetting.mockResolvedValueOnce('');
+		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
+	});
+
+	it('記録の削除に失敗しても復元自体は落とさない (記録は補助情報)', async () => {
+		mockSetSetting.mockRejectedValueOnce(new Error('write failed'));
+		await expect(clearActivityQuotaArchiveMarker(TENANT)).resolves.toBeUndefined();
 	});
 });

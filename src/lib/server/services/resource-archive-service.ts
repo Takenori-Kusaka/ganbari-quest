@@ -23,6 +23,7 @@ import {
 	restoreArchivedChildren,
 } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
+import { clearActivityQuotaArchiveMarker } from './activity-quota';
 import { getPlanLimits } from './plan-limit-service';
 
 // Phase 7 PR-2a (#2688): ARCHIVED_REASONS SSOT (domain) に整合させ ArchivedReason 型注釈で
@@ -217,6 +218,10 @@ export async function restoreArchivedResources(tenantId: string): Promise<void> 
 	await restoreArchivedChildren('dunning_canceled', tenantId);
 	await restoreArchivedActivities('dunning_canceled', tenantId);
 	await restoreArchivedChecklistTemplates('dunning_canceled', tenantId);
+
+	// #4693 (QM 再レビュー 2 巡目): 保管が解けたので「上限のため保管しました」の常設表示も消す。
+	// 残したままだと、アップグレード済みで何も保管されていない世帯に嘘を言い続けることになる。
+	await clearActivityQuotaArchiveMarker(tenantId);
 }
 
 /**
