@@ -355,15 +355,22 @@ async function handleExport() {
 	}
 }
 
-async function loadCloudExports() {
+/**
+ * 一覧を取り直す。**成功したかを返す** (#4767 QM should)。
+ *
+ * 旧実装は失敗を握り潰していたため、削除に成功したあと再取得だけ失敗すると
+ * 「削除しました」と言いながら古い行が残り続け、顧客には「消えていない」ように見えた。
+ * 呼び出し側が結果を見て通知を出し分けられるようにする。
+ */
+async function loadCloudExports(): Promise<boolean> {
 	try {
 		const res = await fetch('/api/v1/export/cloud');
-		if (res.ok) {
-			const d = await res.json();
-			cloudExports = d.exports ?? [];
-		}
+		if (!res.ok) return false;
+		const d = await res.json();
+		cloudExports = d.exports ?? [];
+		return true;
 	} catch {
-		/* ignore */
+		return false;
 	}
 }
 
@@ -419,12 +426,24 @@ async function handleDeleteCloudExport(id: string) {
 			}
 			return;
 		}
-		await loadCloudExports();
+		const reloaded = await loadCloudExports();
 		// #4767 QM should: 取り消せない操作を無言で終わらせない。行が消えるだけでは
 		// 「消えたのか / 失敗して表示が変わっただけなのか」が読めない。DESIGN.md §5 の 2 層
 		// (Toast = role="alert" / 画面内 banner = role="status") で、何を消したかを名指しする。
-		cloudSuccess = SETTINGS_LABELS.cloudDeleteSuccess(deletedPin);
-		showToast(SETTINGS_LABELS.cloudDeleteSuccessTitle, cloudSuccess, 'success');
+		//
+		// ただし **起きたことだけを言う**: 再取得に失敗したなら一覧は古いままなので、
+		// 「削除しました」と言い切らず「表示が最新でないかもしれない」まで含めて伝える
+		// (成功と言いながら消えたはずの行が残っていると、顧客は削除が効いていないと受け取る)。
+		cloudSuccess = reloaded
+			? SETTINGS_LABELS.cloudDeleteSuccess(deletedPin)
+			: SETTINGS_LABELS.cloudDeleteSuccessStale(deletedPin);
+		showToast(
+			reloaded
+				? SETTINGS_LABELS.cloudDeleteSuccessTitle
+				: SETTINGS_LABELS.cloudDeleteSuccessStaleTitle,
+			cloudSuccess,
+			reloaded ? 'success' : 'info',
+		);
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
 	} finally {

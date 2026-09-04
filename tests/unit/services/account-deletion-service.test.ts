@@ -149,6 +149,8 @@ const OWNER_ID = 'u-owner-123';
 const PARENT_ID = 'u-parent-456';
 const CHILD_USER_ID = 'u-child-789';
 
+import { purgeByPrefix } from '$lib/server/storage';
+
 describe('account-deletion-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -216,6 +218,39 @@ describe('account-deletion-service', () => {
 				mockAuthRepo.deleteMembership.mock.invocationCallOrder[0] ?? Infinity;
 			const deleteUserOrder = mockAuthRepo.deleteUser.mock.invocationCallOrder[0] ?? -Infinity;
 			expect(deleteMembershipOrder).toBeLessThan(deleteUserOrder);
+		});
+
+		/**
+		 * #4767 QM must: **S3 の部分失敗で退会フローを壊さない**。
+		 *
+		 * `purgeByPrefix` は cloud export 専用ではなく退会の 2 経路も呼ぶ。呼び出しは try/catch で
+		 * 包まれておらず、直前に「削除記録の書き込み」と「サブスク解約」を終えているため、
+		 * per-key の S3 エラーで throw すると**不可逆な退会が途中で壊れる** (実体は残り、DB は消えず、
+		 * 顧客は解約済み)。fail-closed は `failOnPartialError` を渡す呼び出し (クラウド共有の削除)
+		 * だけに閉じる — ここが opt-out されていないことを退会経路の完走で固定する。
+		 */
+		it('#4767: S3 が per-key エラーを返しても退会は完走する (strict を opt-in にした回帰固定)', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findUserById.mockResolvedValue({
+				userId: OWNER_ID,
+				email: 'owner@example.com',
+			});
+			// tolerant な既定では「消せた分の件数」が返る (throw しない)。
+			// 3 件中 1 件が AccessDenied で残ったケースを模す。
+			vi.mocked(purgeByPrefix).mockResolvedValueOnce(2);
+
+			const result = await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT);
+
+			// 退会は完走する (途中で壊れない)
+			expect(result.success).toBe(true);
+			expect(mockAuthRepo.deleteTenant).toHaveBeenCalledWith(TENANT_ID);
+			expect(mockAuthRepo.deleteUser).toHaveBeenCalledWith(OWNER_ID);
+			// 退会経路は strict を渡さない (渡すと throw して上記が壊れる)
+			expect(vi.mocked(purgeByPrefix)).toHaveBeenCalledWith(`tenants/${TENANT_ID}/`);
 		});
 
 		it('他メンバーがいる場合はエラー', async () => {

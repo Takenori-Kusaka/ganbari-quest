@@ -30,6 +30,9 @@ export async function deleteByPrefix(prefix: string): Promise<number> {
  * 全バージョンごと物理削除する (#4724)。**退会 (完全削除) 専用**。
  * 通常の削除で使うと誤操作から戻せなくなる。
  */
-export async function purgeByPrefix(prefix: string): Promise<number> {
-	return getRepos().storage.purgeByPrefix(prefix);
+export async function purgeByPrefix(
+	prefix: string,
+	opts?: { failOnPartialError?: boolean },
+): Promise<number> {
+	return getRepos().storage.purgeByPrefix(prefix, opts);
 }

@@ -4063,6 +4063,12 @@ export const SETTINGS_LABELS = {
 	cloudDeleteSuccessTitle: '削除しました',
 	cloudDeleteSuccess: (pinCode: string) =>
 		`PIN ${pinCode} の共有データを削除しました。保管枠が 1 つ空きました。`,
+	// #4767 QM should: 削除は成功したが一覧の再取得に失敗した場合。成功と言い切ると、
+	// 画面に残った古い行を見た顧客が「消えていない」と受け取る (実際は消えている)。
+	// 起きたこと (削除は成功) と、いま見えているものの信頼度 (古いかもしれない) を分けて言う。
+	cloudDeleteSuccessStaleTitle: '削除しましたが一覧を更新できませんでした',
+	cloudDeleteSuccessStale: (pinCode: string) =>
+		`PIN ${pinCode} の共有データは削除しました。ただし一覧の再取得に失敗したため、下の表示が最新でない可能性があります。画面を再読み込みしてご確認ください。`,
 	// #4767: 削除しようとした行が既に無い (別端末で削除済 / 期限切れ cleanup 済) ときの案内。
 	// 「見つかりません」を route が文字列一致で 404 に写像していたのを型で運ぶようにした際の SSOT。
 	cloudDeleteAlreadyGone:

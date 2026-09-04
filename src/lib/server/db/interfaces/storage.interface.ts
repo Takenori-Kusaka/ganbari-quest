@@ -38,8 +38,18 @@ export interface IStorageRepo {
 	 * バージョンごと消す経路が要る**。バージョニングを持たない backend では `deleteByPrefix` と同義。
 	 *
 	 * 戻り値は削除したバージョン数 (delete marker を含む) で、オブジェクト数とは一致しない。
+	 *
+	 * **既定は tolerant** (#4767 QM must): S3 の batch delete は個々のキーの失敗を例外にせず
+	 * 応答本文の `Errors[]` に並べる。既定ではそれを **error ログに出したうえで処理を続け**、
+	 * 成功した分だけを件数に数える。退会 (`account-deletion-service`) はこの呼び出しを
+	 * try/catch で包んでおらず、直前に「削除記録の書き込み」と「サブスク解約」を済ませているため、
+	 * ここで throw すると**不可逆な退会フローが途中で壊れる**。
+	 *
+	 * `failOnPartialError: true` を渡した呼び出しだけが fail-closed になる。1 件でも消えていなければ
+	 * throw するので、呼び出し側は「実体が残ったまま DB 行を消す」を避けられる
+	 * (クラウド共有の削除 = `cloud-export-service.deleteCloudExport` がこれを使う)。
 	 */
-	purgeByPrefix(prefix: string): Promise<number>;
+	purgeByPrefix(prefix: string, opts?: { failOnPartialError?: boolean }): Promise<number>;
 	/**
 	 * key に対する一時ダウンロード経路を返す (async-backup-export.md §3.4、CWE-598)。
 	 * - AWS (S3): `getSignedUrl(GetObjectCommand)` で対象 key 限定・短命 TTL の presigned URL を発行し

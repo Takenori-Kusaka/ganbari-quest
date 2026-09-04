@@ -1033,8 +1033,11 @@ describe('cloud-export-service', () => {
 
 			await deleteCloudExport('1', 'tenant-1');
 
+			// #4767 QM must: この経路だけ fail-closed (strict) を opt-in する。
+			// 退会など他の呼び出し元は既定 (tolerant) のままでなければ不可逆フローが途中で壊れる。
 			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith(
 				'exports/tenant-1/ABC123/data.json',
+				{ failOnPartialError: true },
 			);
 			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
 		});

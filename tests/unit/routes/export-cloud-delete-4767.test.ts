@@ -140,7 +140,10 @@ describe('#4767 DELETE /api/v1/export/cloud/:id — 失敗の種類を型で見�
 
 		expect(status).toBe(200);
 		expect(body.ok).toBe(true);
-		expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith('exports/t-1/ABC234/backup.zip');
+		// #4767 QM must: strict は **この経路だけ** の opt-in (退会は既定の tolerant を保つ)
+		expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith('exports/t-1/ABC234/backup.zip', {
+			failOnPartialError: true,
+		});
 		expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('exp-1', 't-1');
 	});
 });

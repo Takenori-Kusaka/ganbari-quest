@@ -628,7 +628,9 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
 	// 残る (誰も知らない孤児になり、以後どの画面からも消せない)。失敗したら行を残したまま失敗を返し、
 	// 一覧・保管枠・実体の 3 つが食い違わない状態で顧客に再試行させる。
 	try {
-		await repos.storage.purgeByPrefix(record.s3Key);
+		// failOnPartialError (#4767 QM must): この経路だけ fail-closed。既定 (tolerant) のままだと
+		// 一部消えていないのに DB 行を消し、誰も辿れない完全 PII の孤児を作る。
+		await repos.storage.purgeByPrefix(record.s3Key, { failOnPartialError: true });
 	} catch (err) {
 		logger.error('[cloud-export] S3 削除に失敗したため DB 行も残す (孤児 PII を作らない)', {
 			context: { id, tenantId, s3Key: record.s3Key },

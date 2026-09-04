@@ -381,6 +381,64 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			});
 		});
 
+		// #4767 QM should: 再取得が失敗したときに「削除しました」と言い切ると、画面に残った古い行を見た
+		// 顧客は「消えていない」と受け取る (実際は消えている)。起きたことだけを言う。
+		it('削除後の一覧再取得が失敗したら、成功と言い切らず表示が古い可能性を伝える', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			reconcileToastStackSpy.mockClear();
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			// DELETE は成功、その後の一覧再取得 (GET) だけ失敗させる
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: false,
+						status: 500,
+						json: () => Promise.resolve({}),
+					} as Response);
+				},
+			);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+
+			const stale = SETTINGS_LABELS.cloudDeleteSuccessStale('ABC234');
+			// banner は「削除した」+「表示が最新でないかもしれない」を両方言う
+			await waitFor(() => {
+				const statuses = screen.getAllByRole('status');
+				expect(statuses.some((el) => el.textContent?.includes(stale))).toBe(true);
+			});
+			// 成功と言い切る文言は出さない
+			expect(document.body.textContent).not.toContain(SETTINGS_LABELS.cloudDeleteSuccess('ABC234'));
+			// Toast も同じ内容 (success ではなく info)
+			await waitFor(() => {
+				expect(reconcileToastStackSpy).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({
+						title: SETTINGS_LABELS.cloudDeleteSuccessStaleTitle,
+						description: stale,
+						type: 'info',
+					}),
+				);
+			});
+			// 古い行はまだ画面に残っている (= だからこそ「最新でないかもしれない」と言う必要がある)
+			expect(await findByTestId('cloud-export-row-exp-exhausted')).toBeTruthy();
+		});
+
 		it('確認 dialog で確定すると DELETE が飛び、一覧が再取得されて枠が空く', async () => {
 			pageStore.set({ data: { authMode: 'cognito' } });
 			const deleted = stubCloudFetch([exhaustedRow]);
