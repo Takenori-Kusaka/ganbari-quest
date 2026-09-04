@@ -103,6 +103,14 @@ jobs:
             deps:
               - 'package.json'
               - 'package-lock.json'
+              # #4859 adversarial: .storybook/main.ts は framework: '@storybook/sveltekit' なので
+              # builder の入力は svelte.config.js / vite.config.ts。filter が .storybook/** を
+              # 含みながら「その .storybook が読むもの」を含まないと、コンパイル結果を変える
+              # 変更が build check を素通りする (package.json と同じ穴)
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'src/app.html'
               - 'scripts/native-dep-smoke.mjs'
               - 'scripts/check-native-dep-pin.mjs'
               # #3298: 高権限 GitHub Actions の SHA pin gate (workflow / guard 変更で再検査)

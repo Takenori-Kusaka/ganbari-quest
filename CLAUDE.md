@@ -81,7 +81,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 - `cd infra && npx tsc --noEmit` — CDK 型検査
 - `npm run type-coverage` — 型カバレッジ ratchet
 - `npm run build` — 本体ビルド
-- `npm run build-storybook -- --quiet` — Storybook ビルド (stories 変更時のみ)
+- `npm run build-storybook -- --quiet` — Storybook ビルド (`stories` filter が true のときのみ。stories / `.storybook/**` / `src/lib/{ui,features}/**` に加え、コンパイル結果を変えうる `package.json` / `package-lock.json` / `svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` も含む = #4859)
 <!-- ci-hard-fail-steps:end -->
 
 `ci.yml` のその他 hard-fail job（`lint-and-test` 以外。中身の step までは列挙しない）:
