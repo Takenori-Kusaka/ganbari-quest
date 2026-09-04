@@ -8,6 +8,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { endUsageSession, startUsageSession } from '$lib/server/services/usage-log-service';
 import type { RequestHandler } from './$types';
 
@@ -30,6 +31,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'childId が必要です' }, { status: 400 });
 	}
 	const childId = asChildId(rawChildId);
+	// childId は **body** で来る。child ロールが兄弟の利用時間ログを汚すのを止める
+	// (自動スリープ #1292 の判定材料であり、他人の休憩タイミングを動かせてしまう)。
+	requireChildAccess(locals, childId);
 
 	const result = await startUsageSession(tenantId, childId);
 	if (result === null) {

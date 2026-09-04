@@ -2,11 +2,13 @@ import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
+import { asChildId } from '$lib/domain/ids';
 import { REWARD_TERMS } from '$lib/domain/terms';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { notFound, planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
@@ -25,6 +27,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!parsed.success) {
 		return validationError(parsed.issues[0]?.message ?? 'パラメータが不正です');
 	}
+	// child ロールは自分のごほうびのみ。
+	requireChildAccess(locals, parsed.output.childId);
 
 	const result = await getChildSpecialRewards(parsed.output.childId, tenantId);
 	return json(result);
@@ -36,6 +40,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+	// child ロールが兄弟にごほうびを付与するのを止める。プラン解決 (DB アクセス) より**前**に置く
+	// — 権限の無い要求のために課金状態を引きに行かない。
+	requireChildAccess(locals, asChildId(params.childId));
 
 	// #4705: ごほうび (ショップ商品) の登録は有料プランの機能。form action 側 (#4584) にしか
 	// gate が無く、本 endpoint は無料プランのまま 201 を返していた。**同じ述語**を読む。
