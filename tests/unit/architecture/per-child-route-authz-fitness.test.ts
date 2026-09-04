@@ -42,8 +42,7 @@
 //        到達すること。[P2] の候補判定は「childId と綴るか」なので、**行 id しか受け取らない**
 //        per-child route (`DELETE /activity-logs/[id]` / `PATCH /usage`) を原理的に拾えない。
 //        母数を handler 単位の全数にすることでその穴を塞ぐ (同時に「多メソッド route で片側だけ守る」
-//        も検出される)。handler 宣言は `export const GET` と `export (async) function GET(` の
-//        **両形式**を見る — 片方しか見ないと書き方を変えるだけで母数から落ちる。
+//        も検出される)。
 //   [P8] handler の除外宣言も機械で反証 / stale 検出する。特に `family-row` は「同じ file の別
 //        **mutation** handler が guard を通していないこと」まで要求する (片側だけ守る形を宣言で
 //        握り潰せない)。
@@ -51,6 +50,12 @@
 //        この guard は呼ぶこと自体には意味が無く、戻り値を service へ渡して初めて効く。
 //        **見ているのは「route が渡したか」までで、渡された service が実際に行の所有者を突合して
 //        いるかは見ていない** (それは service の unit test と `id-only-child-scope.test.ts` が担う)。
+//   [P10] **母数から file が落ちたことの検出**。[P7] の handler 列挙は正規表現なので、
+//        `export { handler as GET }` / `export const fallback` のように綴りを変えると
+//        **file ごと黙って母数から消える**。綴りを 1 つずつ足していく限りこの穴は永久に残るため、
+//        母数の定義を綴りの列挙から **「`+server.ts` が 1 つも handler を寄与しなかったら fail」**
+//        に変えて class を閉じる。正当に handler を持たない file は
+//        `NO_HANDLER_SERVER_FILES` に理由付きで宣言する (無宣言の 0 件 file は fail)。
 //
 // 候補 0 件は異常 (判定の綴りが変わった等) として fail する。
 
@@ -219,10 +224,19 @@ function callsChildGuard(endpoint: ApiEndpoint): boolean {
  * per-child データを返す read** を拾えない。mutation だけを handler 単位で見ていると
  * 同じ穴が read 側に残るため、母数を全 handler に揃える。
  */
-const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as const as string[];
+const HTTP_METHODS = [
+	'GET',
+	'HEAD',
+	'POST',
+	'PUT',
+	'PATCH',
+	'DELETE',
+	// SvelteKit の `fallback` は「他に export していない全 method」を受ける = mutation も受ける。
+	'fallback',
+] as const as string[];
 
 /** 書き換えを行う HTTP メソッド ([P8] の `family-row` 兄弟判定に使う)。 */
-const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const as string[];
+const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE', 'fallback'] as const as string[];
 
 interface MutationHandler {
 	/** repo root からの相対パス */
@@ -447,12 +461,16 @@ const MUTATION_GUARD_EXEMPTIONS: Record<string, MutationExemption> = {
 /**
  * SvelteKit の handler 宣言を拾う正規表現。
  *
- * **2 つの書き方を両方見る**: `export const GET = …` と `export (async) function GET(…)`。
- * 片方しか見ないと、**書き方を変えるだけで母数から落ちる**（= 装置が黙って効かなくなる）。
- * 現時点で `export function` 形式の route は 0 本だが、この fitness は「次に per-child route を
- * 足す人」を守るための装置なので、綴りの違いで素通りさせない (adversarial review M3)。
+ * `export const GET = …` / `export (async) function GET(…)` / `export const fallback = …` を見る。
+ *
+ * **ただしこの正規表現の網羅性に本装置の健全性を賭けていない**。綴りは無限に増やせる
+ * (`export { handler as GET }` / `export default` 経由 / 再 export 等) ので、「次の綴りを足す」
+ * 往復は原理的に終わらない。母数から file ごと落ちたことは **[P10] が「1 つも handler を
+ * 寄与しなかった `+server.ts` があれば fail」で検出する** (adversarial review M3 2 巡目)。
+ * 本正規表現は「見えた分を正しく handler 単位に切る」役割に限定される。
  */
-const HANDLER_DECL_RE = /export\s+(?:const\s+([A-Z]+)\b|(?:async\s+)?function\s+([A-Z]+)\s*\()/g;
+const HANDLER_DECL_RE =
+	/export\s+(?:const\s+([A-Z]+|fallback)\b|(?:async\s+)?function\s+([A-Z]+|fallback)\s*\()/g;
 
 /** 1 つの handler 宣言にマッチしたものから METHOD 名を取り出す。 */
 function methodOfMatch(m: RegExpMatchArray): string {
@@ -460,15 +478,25 @@ function methodOfMatch(m: RegExpMatchArray): string {
 }
 
 /**
- * `/api/v1/**` の handler を列挙する（read / mutation の両方）。
+ * handler を 1 本も持たないことが正当な `+server.ts`（[P10] の除外宣言）。
  *
- * `/api/v1/admin/**` は `ROUTE_RULES` が owner/parent 限定で child が認可層に到達できないため
- * 構造的に対象外 ([P7] の it 内でその前提自体を assert する)。
+ * **現在 0 件**。`+server.ts` は SvelteKit の endpoint 定義そのものなので、handler を持たない
+ * file は本来存在しないはず。ここに足すときは「なぜ endpoint file なのに handler が無いのか」を
+ * 説明できること — 説明できないなら [P7]-[P9] の検査を丸ごと逃れている実装があるということ。
+ */
+const NO_HANDLER_SERVER_FILES: Record<string, string> = {};
+
+/**
+ * `/api/v1/**` の handler を列挙する（read / mutation の両方、admin も含む）。
+ *
+ * **admin をここで除外しない**のは [P10] のため。母数から落ちた file を検出する assert は
+ * 「全 `+server.ts` が 1 本以上寄与する」で成立させたいので、収集は全 file に対して行い、
+ * `/api/v1/admin/**` の構造的除外は [P7] の判定側で適用する
+ * (`ROUTE_RULES` が owner/parent 限定である前提自体も [P7] の it が assert する)。
  */
 function collectHandlers(): MutationHandler[] {
 	const out: MutationHandler[] = [];
 	for (const endpoint of endpoints) {
-		if (endpoint.file.startsWith('src/routes/api/v1/admin/')) continue;
 		// 全 handler 宣言の位置を取り、次の宣言までを body とする。
 		const decls = [...endpoint.code.matchAll(HANDLER_DECL_RE)]
 			.map((m) => ({ method: methodOfMatch(m), index: m.index ?? -1 }))
@@ -657,10 +685,50 @@ describe('per-child route 認可 fitness (/api/v1/** の家庭内 IDOR ガード
 		).toBe(false);
 	});
 
+	it('[P10] 母数から落ちた +server.ts が無い (綴りの列挙に健全性を賭けない)', () => {
+		// **この装置の要**。handler 宣言の綴りは無限に増やせる (`export { handler as GET }` /
+		// `export const fallback` / 再 export 等) ので、正規表現に綴りを足していく限り
+		// 「次の綴り」で file ごと黙って母数から消える穴が残り続ける (adversarial review M3 2 巡目)。
+		// 母数の定義を **「file が 1 つも handler を寄与しなかったら fail」** に変えて class を閉じる。
+		const contributed = new Set(mutationHandlers.map((h) => h.file));
+		const offenders = endpoints
+			.map((e) => e.file)
+			.filter((file) => !contributed.has(file))
+			.filter((file) => !(file in NO_HANDLER_SERVER_FILES));
+
+		expect(
+			offenders,
+			`handler を 1 本も母数に寄与していない +server.ts:\n  ${offenders.join('\n  ')}\n` +
+				'これらは [P7]-[P9] の検査を **1 件も受けていない**。\n' +
+				'原因は (a) HANDLER_DECL_RE が見ていない書き方 (`export { handler as GET }` 等) か、\n' +
+				'(b) 本当に handler を持たない file のどちらか。(a) なら書き方を素直な形に直すか\n' +
+				'HANDLER_DECL_RE を広げる。(b) なら NO_HANDLER_SERVER_FILES に理由付きで宣言する。',
+		).toEqual([]);
+	});
+
+	it('[P10] handler 0 件宣言が stale でない', () => {
+		const stale: string[] = [];
+		const contributed = new Set(mutationHandlers.map((h) => h.file));
+		for (const [file, reason] of Object.entries(NO_HANDLER_SERVER_FILES)) {
+			if (!endpoints.some((e) => e.file === file)) {
+				stale.push(`${file}: file が存在しない`);
+				continue;
+			}
+			if (contributed.has(file)) {
+				stale.push(`${file}: handler を寄与するようになった (宣言を外すこと)`);
+			}
+			if (reason.trim().length < 12) stale.push(`${file}: reason が短すぎる (定型 stub 禁止)`);
+		}
+		expect(stale, `不要になった handler 0 件宣言:\n  ${stale.join('\n  ')}`).toEqual([]);
+	});
+
 	it('[P7] mutation handler は例外なく child guard を通す (片側だけ守る形を残さない)', () => {
 		expect(mutationHandlers.length).toBeGreaterThan(20);
 
 		const offenders = mutationHandlers
+			// `/api/v1/admin/**` は ROUTE_RULES が owner/parent 限定 (直前の it が assert 済) なので
+			// child が認可層に到達できない = 構造的に対象外。収集ではなく判定側で外す ([P10] のため)。
+			.filter((h) => !h.file.startsWith('src/routes/api/v1/admin/'))
 			.filter((h) => !handlerReachesGuard(h))
 			.map((h) => h.key)
 			.filter((key) => !(key in MUTATION_GUARD_EXEMPTIONS));
