@@ -1,9 +1,10 @@
 # 並行実装マップ — がんばりクエスト
 
-**ステータス**: 🟥 **注意** — 本プロジェクトには同じ概念を扱う並行実装が 8 カテゴリ以上存在する。
+**ステータス**: 🟥 **注意** — 本プロジェクトには同じ概念を扱う並行実装が多数存在する。
 修正時には必ずこのマップを参照し、すべての並行実装ペアに対応を行うこと。
 
-**最終更新**: 2026-04-07（#564 Tier 1 対策として新設）
+本マップが挙げるファイルパスは `tests/unit/docs/design-doc-reference-existence.test.ts` が実在を
+機械検証する（撤去済みのファイルを「同期先」として指し続けることを防ぐ）。
 
 ---
 
@@ -38,7 +39,7 @@
 
 **同期メカニズム**:
 - **現状（半自動）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から `site/shared-labels.js` を生成。`--check` モード (CI) で diff があれば fail
-- **key-set 比較による silent drift 検出は無い (#4420)**: `scripts/check-ssot-parallel-impl.mjs`（#1739 R25 で導入、生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出）は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
+- **key-set 比較による silent drift 検出は無い (#4420)**: 生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出していた専用 script は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
 - **Tier 3（#566 で予定）**: LP ビルド時の Svelte から静的 HTML 生成（SSG 統合）
 
 **修正時チェック**:
@@ -153,7 +154,7 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 **同期メカニズム**:
 - **現状（手動）**: 管理画面ナビ項目追加 → `AdminLayout.svelte` の `navCategories` 配列に 1 エントリ追記（Desktop / Mobile の両方が自動で反映される）
 - 子供画面ナビが変わる場合のみ `BottomNav.svelte` を別途更新
-- **Tier 2（#565 で予定）**: `src/lib/domain/navigation.ts` に一元化（現行は `AdminLayout` 内同居で十分機能しているため優先度低）
+- **Tier 2（#565 で予定）**: ナビ定義を domain 層へ一元化（現行は `AdminLayout` 内同居で十分機能しているため優先度低）
 
 **修正時チェック**:
 ```bash
@@ -255,7 +256,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/hooks.server.ts` | `event.locals.runtimeMode` 解決 (ADR-0040 SSOT、既存) |
 | `src/app.d.ts` | `App.Locals.runtimeMode` 型定義 (既存) |
 | `src/routes/(parent)/admin/+layout.server.ts` | `data.runtimeMode = locals.runtimeMode` 配布 (#2328) |
-| `src/routes/(parent)/admin/license/+page.svelte` | 薄ラッパー、`{#if data.runtimeMode === 'nuc-prod'}` 2 分岐 (#2331) |
+| `src/routes/(parent)/admin/subscription/+page.svelte` | 薄ラッパー、`{#if data.runtimeMode === 'nuc-prod'}` 2 分岐 (#2331) |
 | `src/lib/features/admin/components/NucLicensePanel.svelte` | NUC 専用 (Edition badge + 簡略 3 セクション、#2329) |
 | `src/lib/features/admin/components/SaasLicensePanel.svelte` | SaaS 専用 (AWS 用 7 セクション、`planTier` SSOT 統一 + placeholder 削除、#2330) |
 
@@ -272,6 +273,31 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 ---
 
 ### 🟢 優先度: 中 — スキーマ変更時に注意
+
+#### 6.7 DB repo backend 3 実装 (sqlite / dsql / demo)
+
+同じ repo interface を **3 つの backend が別々に実装**している。`DATA_SOURCE` で切り替わるため、
+片方だけ直すと「開発では直っているが顧客が使う backend では壊れている」状態になる（実例 #4419:
+`insertChild` の `uiMode` 既定値が 3 backend で 3 通りに割れ、**顧客が使う dsql が最も壊れていた**）。
+
+| 場所 | 内容 |
+|------|------|
+| `src/lib/server/db/interfaces/` | repo interface（契約の SSOT） |
+| `src/lib/server/db/sqlite/` | NUC local / dev（既定） |
+| `src/lib/server/db/dsql/` | cloud (Aurora DSQL)。**`DATA_SOURCE=pglite` は同じ dsql repo を verbatim 再利用する**（pg 方言が同一のため、`src/lib/server/db/pglite/` は接続とバックアップだけを持つ） |
+| `src/lib/server/db/demo/` | `DATA_SOURCE=demo`（ADR-0048）。非永続 fixture provider |
+| `src/lib/server/db/factory.ts` | `DATA_SOURCE` による束ね口。ここに列挙されない repo はどの backend でも解決されない |
+
+**同期メカニズム**:
+- **facade / 列挙漏れ**: `tests/unit/architecture/db-facade-backend-parity.test.ts` が backend 間の欠落を検出
+- **列の欠落**: `tests/unit/architecture/dsql-column-parity.test.ts`
+- **既定値の割れ**: 型では捕まらないため、同種の既定値には fitness function を置く（実装例: `tests/unit/architecture/child-ui-mode-default-parity.test.ts` が 3 backend に実際に insert して既定値の一致と SSOT 由来を assert する）
+
+**修正時チェック**:
+- repo に関数を足す → interface + 3 backend + `factory.ts` の 4 箇所すべて
+- 既定値 / null 許容 / 引数の型を変える → 3 backend で挙動を一致させ、一致を assert する test を同 PR で足す（`tests/CLAUDE.md` §backend 並行実装の整合性）
+
+---
 
 #### 7. シードデータ vs マイグレーション
 
@@ -299,8 +325,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `child_activities` 並存（旧 `activities` と並列保持） (#2362 PR-3 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_activities` table 追加、`childId NOT NULL ON DELETE CASCADE`) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) | `src/lib/server/demo/demo-data.ts` (Phase 6 で各 child fixture 追加) | #2362 PR-3 (Phase 7 で旧 `activities` drop 予定) |
 | `child_challenges` (#2362 PR-7 / ADR-0055、User §6、#2458 Path B sibling drop で旧 `sibling_challenges` / `sibling_challenge_progress` 物理撤去済 2026-05-26) | `src/lib/server/db/schema.ts` (`child_challenges` table のみ、`childId NOT NULL ON DELETE CASCADE` + `sourceTemplateId` で兄弟連動 group) | `tests/e2e/global-setup.ts` (CREATE TABLE + 3 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 3 INDEX + ALL_TABLES に追加) | `src/lib/server/demo/demo-data.ts` (`DEMO_CHILD_CHALLENGES` 4 件 + 兄弟連動 demo group) | #2362 PR-7 + #2458 (Path B sibling drop 完了) |
 | `checklist_templates` family master 化 (#2362 PR-5 Phase 1 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_id` 列削除 + `tenant_id` 列追加 + `checklist_template_assignments` 中間 table 新規) | `tests/e2e/global-setup.ts` (Phase 1 で migration 実装済) | `tests/unit/helpers/test-db.ts` (同上) | `src/lib/server/demo/demo-data.ts` (`DemoLegacyChecklistTemplate` 局所拡張型 + demo-repo で family scope view 変換) | #2362 PR-5 Phase 2 (#2481、admin UX / 子供画面 / E2E 整備) |
-| `stripe_webhook_events` (#2641 / Phase 5 子 3 / Phase 7 PR-1) | `src/lib/server/db/schema.ts` (新規 table + 2 index、`stripeWebhookEvents`) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) + `src/lib/server/db/migration/lazy-startup-migrations.ts` (`migrateBillingPhase6` で旧 production DB に新規作成、idempotent) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 2 INDEX + `ALL_TABLES` に追加) | `src/lib/server/db/demo/webhook-event-repo.ts` (in-memory `Map<string, WebhookEventRecord>`) + `src/lib/server/db/dynamodb/keys.ts` (`STRIPE_WEBHOOK_EVENT_PK` + `stripeWebhookEventKey` + `STRIPE_WEBHOOK_EVENT_TTL_DAYS=30`、CDK は `storage-stack.ts:29` 既設定) | #2641 (Phase 5 子 3 webhook 冪等性) + #2675 (Phase 6 子 3 DB migration plan) + #2685 (Phase 7 PR-1) |
-| `archived_reason` enum 3 値 (#2642 / Phase 5 子 4 / Phase 7 PR-1 / **PR-2a #2688 で drizzle enum + repo 型強制適用済**) | `src/lib/server/db/schema.ts` 4 location (`children:45` / `activities:79` / `child_activities:123` / `checklist_templates:448`、**PR-2a #2688 で `text('archived_reason', { enum: ARCHIVED_REASONS })` 適用済**) + `src/lib/domain/archive-types.ts` (SSOT、`as const` array + `ArchivedReason` 型 + `getRetentionDays`) + `src/lib/server/db/migration/lazy-startup-migrations.ts` (`migrateBillingPhase6` で既存 NULL row を `'downgrade_user_selected'` で補充、4 location × idempotent + 列存在 guard) | `tests/e2e/global-setup.ts` (NULL 補充 UPDATE 追加、4 location) | `tests/unit/helpers/test-db.ts` (CREATE TABLE 4 location は既存、列定義は `archived_reason TEXT`、enum 制約は drizzle schema 経由) + `src/lib/server/db/create-tables.ts` (同上) | **PR-2a #2688 で 3 backend 同期型強制完了**: `src/lib/server/db/sqlite/{child,activity,child-activity,checklist}-repo.ts` + `src/lib/server/db/dynamodb/{child,activity,child-activity,checklist}-repo.ts` + `src/lib/server/db/demo/{child,activity,child-activity,checklist}-repo.ts` 全 12 file の `archive*` / `restoreArchived*` 引数を `reason: string` → `reason: ArchivedReason` 型強制 + 3 facade (`activity-repo.ts` / `child-repo.ts` / `checklist-repo.ts`) + 2 caller (`resource-archive-service.ts` / `downgrade-service.ts`) の型注釈同期 | #2642 (Phase 5 子 4 archive 統合) + #2675 (Phase 6 子 3 DB migration plan) + #2685 (Phase 7 PR-1) + **#2688 (Phase 7 PR-2a)** |
+| `stripe_webhook_events` (#2641 / Phase 5 子 3 / Phase 7 PR-1) | `src/lib/server/db/schema.ts` (新規 table + 2 index、`stripeWebhookEvents`) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) + `src/lib/server/db/migration/lazy-startup-migrations.ts` (`migrateBillingPhase6` で旧 production DB に新規作成、idempotent) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 2 INDEX + `ALL_TABLES` に追加) | `src/lib/server/db/sqlite/webhook-event-repo.ts` + `src/lib/server/db/dsql/webhook-event-repo.ts` + `src/lib/server/db/demo/webhook-event-repo.ts` (in-memory `Map<string, WebhookEventRecord>`) | #2641 (Phase 5 子 3 webhook 冪等性) + #2675 (Phase 6 子 3 DB migration plan) + #2685 (Phase 7 PR-1) |
+| `archived_reason` enum 3 値 (#2642 / Phase 5 子 4 / Phase 7 PR-1 / **PR-2a #2688 で drizzle enum + repo 型強制適用済**) | `src/lib/server/db/schema.ts` 4 location (`children:45` / `activities:79` / `child_activities:123` / `checklist_templates:448`、**PR-2a #2688 で `text('archived_reason', { enum: ARCHIVED_REASONS })` 適用済**) + `src/lib/domain/archive-types.ts` (SSOT、`as const` array + `ArchivedReason` 型 + `getRetentionDays`) + `src/lib/server/db/migration/lazy-startup-migrations.ts` (`migrateBillingPhase6` で既存 NULL row を `'downgrade_user_selected'` で補充、4 location × idempotent + 列存在 guard) | `tests/e2e/global-setup.ts` (NULL 補充 UPDATE 追加、4 location) | `tests/unit/helpers/test-db.ts` (CREATE TABLE 4 location は既存、列定義は `archived_reason TEXT`、enum 制約は drizzle schema 経由) + `src/lib/server/db/create-tables.ts` (同上) | **PR-2a #2688 で 3 backend 同期型強制完了**: `src/lib/server/db/sqlite/{child,activity,child-activity,checklist}-repo.ts` + `src/lib/server/db/dsql/{child,activity,child-activity,checklist}-repo.ts` + `src/lib/server/db/demo/{child,activity,child-activity,checklist}-repo.ts` 全 12 file の `archive*` / `restoreArchived*` 引数を `reason: string` → `reason: ArchivedReason` 型強制 + 3 facade (`activity-repo.ts` / `child-repo.ts` / `checklist-repo.ts`) + 2 caller (`resource-archive-service.ts` / `downgrade-service.ts`) の型注釈同期 | #2642 (Phase 5 子 4 archive 統合) + #2675 (Phase 6 子 3 DB migration plan) + #2685 (Phase 7 PR-1) + **#2688 (Phase 7 PR-2a)** |
 
 ###### `child_activities` per-child instance への移行 (#2362 PR-3 / ADR-0055)
 
@@ -410,7 +436,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | 場所 | 内容 | 技術 |
 |------|------|------|
 | `src/lib/domain/marketplace-item.ts` | `MarketplaceItemType` enum + `MarketplacePayloadMap` + `MARKETPLACE_TYPE_LABELS` + `MARKETPLACE_TYPE_ICONS` + 新規 `ChallengeSetPayload` interface | TypeScript |
-| `src/lib/data/marketplace/challenge-sets/*.json` | challenge-set preset (15 件入りパック等) | JSON |
+| `tests/fixtures/marketplace/challenge-sets/*.json` | challenge-set の schema 互換検証用 fixture（`src/lib/data/marketplace/` 配下に配信 preset は無い = 陳列されない） | JSON |
 | `src/lib/data/marketplace/index.ts` | `allItems` 配列 + `getMarketplaceCounts` + `countPayloadItems` | TypeScript |
 | `src/routes/marketplace/+page.svelte` | `typeKeys` 配列 (5 type) + grid-cols mobile 2 列 / SP 3 列 / desktop 5 列 | Svelte |
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | `VALID_TYPES` 配列 | TypeScript |
@@ -493,14 +519,14 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/server/services/plan-limit-service.ts` | 機能制限のブール値フラグ定義（`PLAN_LIMITS`） |
 | `src/lib/domain/labels.ts` | `FEATURE_LABELS`（機能名の SSOT） |
 | `src/routes/pricing/+page.svelte` | 料金プラン画面 |
-| `src/routes/(parent)/admin/license/+page.svelte` | 管理画面プラン購入カード (デモ Lambda 環境では `DATA_SOURCE=demo` env でモック動作、ADR-0048) |
+| `src/routes/(parent)/admin/subscription/+page.svelte` | 管理画面プラン購入カード (デモ Lambda 環境では `DATA_SOURCE=demo` env でモック動作、ADR-0048) |
 | `src/lib/features/admin/components/PremiumWelcome.svelte` | アップグレード完了ダイアログ |
 | `site/index.html`, `site/pricing.html`, `site/pamphlet.html` | LP のプラン情報（手動同期） |
 
 **同期メカニズム**:
 - アプリ側 TS/Svelte コンポーネントは `plan-features.ts` を必ず import
 - プラン機能追加時は `plan-limit-service.ts` の `PLAN_LIMITS` ブール値フラグと連動
-- **LP 側の drift 自動検知は無い (#4420)**: `scripts/check-lp-plan-sync.mjs`（#764、`npm run lint:parallel` 経由）は #4322 で削除済み。旧仕様は `site/pricing.html` 全 feature 完全一致（strict）/ `site/index.html`, `site/pamphlet.html` 少なくとも 1 feature 一致（loose）/ 価格数値部の全ファイル一致だったが、現状は機械強制が無い（レビューで担保する）
+- **LP 側の drift 自動検知は無い (#4420)**: `npm run lint:parallel` から呼ばれていた専用 script は #4322 で削除済み。旧仕様は `site/pricing.html` 全 feature 完全一致（strict）/ `site/index.html`, `site/pamphlet.html` 少なくとも 1 feature 一致（loose）/ 価格数値部の全ファイル一致だったが、現状は機械強制が無い（レビューで担保する）
 
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
@@ -539,13 +565,13 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |------|------|
 | `site/privacy.html` | プライバシーポリシー（外部送信規律 / 未成年者取扱い / 域外移転等を含む） |
 | `site/terms.html` | 利用規約（卒業概念 / 未成年者の利用等を含む） |
-| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（旧 `scripts/check-lp-ssot.mjs` が privacy / terms との一致を CI 検証していたが #4322 で削除済み。CI 検証は無い、レビューで担保する、#4420） |
+| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（privacy / terms との一致を CI 検証していた専用 script は #4322 で削除済み。CI 検証は無い、レビューで担保する、#4420） |
 | `src/lib/server/services/consent-service.ts` `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` | 規約改訂日。本ファイルで上書きすると次回ログイン時に再同意フローへ自動誘導 |
 | `src/routes/auth/signup/+page.svelte` | 同意チェックボックス（agreedTerms / agreedPrivacy / agreedCrossBorder の 3 つすべて必須） |
 | `src/routes/legal/privacy/+page.server.ts` | 既存の `301` redirect 維持（LP-truth ADR-0013 整合 — アプリ側プラポリは LP の真実を SSOT として参照する） |
 | `docs/design/14-セキュリティ設計書.md §8.5 / §8.6 / §8.7` | 設計書側の根拠 |
 
-**例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。旧 `scripts/check-lp-ssot.mjs` は `EXCLUDED_LEGAL_FILES` で日本語ハードコード違反検出から除外しつつ `LEGAL_LABELS` のキー用語の両文書出現を CI 検証していたが、script ごと #4322 で削除済み。文言ドリフトの検出は無い（レビューで担保する、#4420）。
+**例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。以前は `LEGAL_LABELS` のキー用語が両文書に出現することを CI 検証していたが、その script は #4322 で削除済み。文言ドリフトの検出は無い（レビューで担保する、#4420）。
 
 **修正時チェック**:
 - [ ] privacy.html / terms.html を変更 → `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新（同意済みユーザーへの再同意フロー誘導）
@@ -658,7 +684,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
-- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（旧 `check-lp-ssot.mjs` は #4322 で削除済み、機械強制は無い）
+- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（検証 script は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
 - [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
