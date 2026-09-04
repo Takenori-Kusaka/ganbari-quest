@@ -15,15 +15,34 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	RECORD_ACTIVITY_ERROR_CODES,
+	RECORD_ACTIVITY_NOT_FOUND_TARGETS,
+	type RecordActivityFailure,
+} from '../../../src/lib/domain/activity-record-failure';
+import {
 	getSetupFirstAdventureRecordError,
 	SETUP_FIRST_ADVENTURE_LABELS,
 } from '../../../src/lib/domain/labels';
 import FirstAdventurePage from '../../../src/routes/setup/first-adventure/+page.svelte';
 
 const recordActivity = vi.fn();
+const loggerWarn = vi.fn();
+const trackSetupFunnel = vi.fn();
+
+/** service が返しうる失敗値の全件 (NOT_FOUND は target ごと)。 */
+const ALL_FAILURES: RecordActivityFailure[] = [
+	{ error: 'ALREADY_RECORDED' },
+	{ error: 'DAILY_LIMIT_REACHED' },
+	...RECORD_ACTIVITY_NOT_FOUND_TARGETS.map(
+		(target) => ({ error: 'NOT_FOUND', target }) as RecordActivityFailure,
+	),
+];
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: () => 'tenant-1',
+}));
+vi.mock('$lib/server/logger', () => ({
+	logger: { warn: (...args: unknown[]) => loggerWarn(...args), info: vi.fn(), error: vi.fn() },
 }));
 vi.mock('$lib/server/services/activity-log-service', () => ({
 	recordActivity: (...args: unknown[]) => recordActivity(...args),
@@ -35,7 +54,7 @@ vi.mock('$lib/server/services/child-service', () => ({
 	getAllChildren: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('$lib/server/services/setup-funnel-service', () => ({
-	trackSetupFunnel: vi.fn(),
+	trackSetupFunnel: (...args: unknown[]) => trackSetupFunnel(...args),
 }));
 
 function formRequest(): Request {
@@ -60,6 +79,8 @@ async function runRecordAction(): Promise<{ status: number; error: string }> {
 describe('[A] 記録失敗の理由が捨てられない (server action)', () => {
 	beforeEach(() => {
 		recordActivity.mockReset();
+		loggerWarn.mockReset();
+		trackSetupFunnel.mockReset();
 	});
 
 	it('同日 2 回目 (ALREADY_RECORDED) は「今日すでに記録ずみ」と返す', async () => {
@@ -82,24 +103,71 @@ describe('[A] 記録失敗の理由が捨てられない (server action)', () =>
 		expect(error).toBe(SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound);
 	});
 
+	it('越境 childId (NOT_FOUND target=child) を活動の話にすり替えない', async () => {
+		recordActivity.mockResolvedValueOnce({ error: 'NOT_FOUND', target: 'child' });
+		const { error } = await runRecordAction();
+		expect(error).toBe(SETUP_FIRST_ADVENTURE_LABELS.errorChildNotFound);
+		expect(error).not.toBe(SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound);
+	});
+
 	it('未知の理由でも汎用文言に落ちる (画面が空にならない)', async () => {
+		// service の union 外の値。型では作れないので runtime 防御だけを確かめる。
 		recordActivity.mockResolvedValueOnce({ error: 'SOMETHING_ELSE' });
 		const { error } = await runRecordAction();
 		expect(error).toBe(SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed);
 	});
 
 	it('内部コードをそのまま画面に出さない (docs/DESIGN.md §6 内部コード露出禁止)', () => {
-		for (const reason of ['ALREADY_RECORDED', 'DAILY_LIMIT_REACHED', 'NOT_FOUND']) {
-			expect(getSetupFirstAdventureRecordError(reason)).not.toContain(reason);
+		for (const failure of ALL_FAILURES) {
+			expect(getSetupFirstAdventureRecordError(failure)).not.toContain(failure.error);
 		}
 	});
 
 	it('状態起因の失敗には次アクションが書かれている (ADR-0062 §1)', () => {
-		for (const reason of ['ALREADY_RECORDED', 'DAILY_LIMIT_REACHED']) {
-			expect(getSetupFirstAdventureRecordError(reason)).toContain(
+		for (const failure of [
+			{ error: 'ALREADY_RECORDED' },
+			{ error: 'DAILY_LIMIT_REACHED' },
+		] as const) {
+			expect(getSetupFirstAdventureRecordError(failure)).toContain(
 				SETUP_FIRST_ADVENTURE_LABELS.skipButton,
 			);
 		}
+	});
+
+	it('失敗は logger と setup ファネルに残る (ADR-0062 §2 の後半 = 内部詳細は監視へ)', async () => {
+		recordActivity.mockResolvedValueOnce({ error: 'ALREADY_RECORDED' });
+		await runRecordAction();
+
+		expect(loggerWarn).toHaveBeenCalledTimes(1);
+		expect(loggerWarn.mock.calls[0]?.[1]).toMatchObject({
+			context: { code: 'ALREADY_RECORDED' },
+		});
+		expect(trackSetupFunnel).toHaveBeenCalledWith(
+			'setup_first_adventure_record_failed',
+			'tenant-1',
+			expect.objectContaining({ code: 'ALREADY_RECORDED' }),
+		);
+	});
+});
+
+describe('失敗コードと文言の対応が型で結ばれている', () => {
+	it('service の失敗コード全件に専用文言がある (汎用文言に落ちるものが無い)', () => {
+		for (const code of RECORD_ACTIVITY_ERROR_CODES) {
+			const failure = (
+				code === 'NOT_FOUND' ? { error: code, target: 'activity' } : { error: code }
+			) as RecordActivityFailure;
+			expect(
+				getSetupFirstAdventureRecordError(failure),
+				`${code} に専用文言が無く汎用文言に落ちている`,
+			).not.toBe(SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed);
+		}
+	});
+
+	it('NOT_FOUND の target 全件が別々の文言に解決される', () => {
+		const messages = RECORD_ACTIVITY_NOT_FOUND_TARGETS.map((target) =>
+			getSetupFirstAdventureRecordError({ error: 'NOT_FOUND', target }),
+		);
+		expect(new Set(messages).size).toBe(RECORD_ACTIVITY_NOT_FOUND_TARGETS.length);
 	});
 });
 

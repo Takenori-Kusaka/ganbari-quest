@@ -3,6 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// 活動記録の失敗契約 (3 service の戻り型と共有)。文言の網羅を型で強制するために型だけを引く
+import type { RecordActivityErrorCode, RecordActivityFailure } from './activity-record-failure';
 import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { CATEGORIES, CATEGORY_NAME_LIST, type CategoryCode, toCategoryCode } from './categories';
@@ -6981,30 +6983,51 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	errorAlreadyRecorded: `この活動は今日すでに記録ずみです。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
 	/** その活動の 1 日の記録上限に達した (DAILY_LIMIT_REACHED)。 */
 	errorDailyLimitReached: `この活動は今日の記録上限に達しました。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
-	/** 選んだ活動が見つからない (NOT_FOUND — 別タブで削除された等)。 */
+	/** 選んだ活動が見つからない (NOT_FOUND target='activity' — 別タブで削除された等)。 */
 	errorActivityNotFound:
 		'選んだ活動が見つかりませんでした。画面を読み込み直してから、もう一度お試しください。',
+	/**
+	 * 記録先の子供が見つからない (NOT_FOUND target='child')。越境 childId の
+	 * cross-child guard (CWE-598 / ADR-0055 §3.1) もここに落ちる。活動の話にすり替えると
+	 * 「活動を選び直す」という誤った次アクションを案内してしまうため、別文言にする。
+	 */
+	errorChildNotFound:
+		'記録するお子さまを特定できませんでした。お子さまの登録をやり直すか、画面を読み込み直してください。',
 } as const;
 
 /**
- * `recordActivity` の失敗理由を、初回記録画面 (`/setup/first-adventure`) に出す文言へ写す。
+ * `recordActivity` の失敗理由 → 初回記録画面 (`/setup/first-adventure`) に出す文言。
+ *
+ * `satisfies Record<RecordActivityErrorCode, string>` が網羅性を担保する。**service が
+ * 失敗コードを増やすと、ここに文言を足すまでビルドが通らない** (domain SSOT
+ * `$lib/domain/activity-record-failure` 経由で 3 service の戻り型と結ばれている)。
+ */
+const SETUP_FIRST_ADVENTURE_RECORD_ERRORS = {
+	ALREADY_RECORDED: SETUP_FIRST_ADVENTURE_LABELS.errorAlreadyRecorded,
+	DAILY_LIMIT_REACHED: SETUP_FIRST_ADVENTURE_LABELS.errorDailyLimitReached,
+	NOT_FOUND: SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound,
+} as const satisfies Record<RecordActivityErrorCode, string>;
+
+/**
+ * `recordActivity` の失敗値を、初回記録画面に出す文言へ写す。
  *
  * #4512 時点では理由に関係なく `errorRecordFailed` を返していたうえ、画面側が `form.error` を
  * 一度も描画していなかったため「押しても何も起きない」= 無音の失敗になっていた (ADR-0062:
  * WCAG 3.3.1 / 4.1.3 の二重違反)。内部コード (`ALREADY_RECORDED` 等) はそのまま出さず
  * (docs/DESIGN.md §6 内部コード露出禁止 / ADR-0062 §2)、次アクションを必ず添える。
+ *
+ * 引数は**コード文字列ではなく失敗値そのもの**。`string` で受けていたときは service が
+ * コードを増減・改名しても TypeScript が無警告で、顧客は黙って汎用文言に戻っていた。
  */
-export function getSetupFirstAdventureRecordError(reason: string): string {
-	switch (reason) {
-		case 'ALREADY_RECORDED':
-			return SETUP_FIRST_ADVENTURE_LABELS.errorAlreadyRecorded;
-		case 'DAILY_LIMIT_REACHED':
-			return SETUP_FIRST_ADVENTURE_LABELS.errorDailyLimitReached;
-		case 'NOT_FOUND':
-			return SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound;
-		default:
-			return SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed;
+export function getSetupFirstAdventureRecordError(failure: RecordActivityFailure): string {
+	// NOT_FOUND だけは target で意味が割れる (越境 childId か、消えた活動か)。
+	if (failure.error === 'NOT_FOUND' && failure.target === 'child') {
+		return SETUP_FIRST_ADVENTURE_LABELS.errorChildNotFound;
 	}
+	return (
+		SETUP_FIRST_ADVENTURE_RECORD_ERRORS[failure.error] ??
+		SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed
+	);
 }
 
 // ============================================================
@@ -10038,7 +10061,7 @@ const CHILD_ADVENTURE_START_KANJI_OVERRIDES = {
 	adventureGreeting: (name: string) => `ようこそ、${name}！`,
 	adventureBigText1: '今日からいっしょに',
 	adventureBigText2: `${ADVENTURE_TERMS.canonical}を始めよう！`,
-	adventureSubText1: 'いろいろなことをがんばると',
+	adventureSubText1: 'いろいろなことに挑戦すると',
 	adventureSubText2: '強くなれます',
 	adventureCharacterAlt: `${ADVENTURE_TERMS.canonical}キャラクター`,
 	adventureReadyText: '🌟 さあ、始めよう！ 🌟',
@@ -10079,7 +10102,9 @@ const CHILD_ACTIVITY_EMPTY_KANJI_OVERRIDES = {
 	activityEmptyTitle: `${ADVENTURE_TERMS.canonical}の準備中...`,
 	activityEmptyDesc: `${PARENT_TERMS.honorific}が活動を用意しています`,
 	activityEmptyWait: 'もう少し待ってね ⏳',
-	activityEmptyCanDo: '── できること ──',
+	// activityEmptyCanDo ('── できること ──') は年齢帯で変わらないので override に置かない。
+	// 同値の override は「差分だけ」の原則から外れ、次に base を直した人が割る
+	// (src/routes/CLAUDE.md §年齢帯 variant)。
 	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}を見る`,
 } as const satisfies Partial<ChildActivityEmptyLabels>;
 
@@ -12893,6 +12918,12 @@ export function getChildTutorialLabels(uiMode: string) {
 					description:
 						'やったことのカードをタップすると「きろく！」ボタンが出ます。きろく！ を押すとポイントがもらえます。',
 				},
+				// 活動 0 件のとき用。カードが 1 枚も無い画面で「カードをタップすると」と案内し、
+				// 光らせる先も無いのは、初回演出と同じ「無いものを指す」欠陥になる。
+				'child-record-card-empty': {
+					title: '活動カード',
+					description: `活動がまだ届いていません。${PARENT_TERMS.honorific}が活動を用意すると、ここにカードが並びます。`,
+				},
 				'child-record-cancel': {
 					title: 'とりけし',
 					description: `まちがえて記録しても、記録のあと ${cancelSec} 秒のあいだは「とりけし」ボタンで取り消せます。`,
@@ -12937,6 +12968,11 @@ export function getChildTutorialLabels(uiMode: string) {
 				title: 'かつどうカード',
 				description:
 					'やったことの カードを タップすると「きろく！」ボタンが でるよ。きろく！ を おすと ポイントが もらえるよ。',
+			},
+			// 活動 0 件のとき用 (漢字側と同じ理由。無いものを指さない)。
+			'child-record-card-empty': {
+				title: 'かつどうカード',
+				description: 'かつどうが まだ とどいてないよ。おうちの人が よういすると ここに ならぶよ。',
 			},
 			'child-record-cancel': {
 				title: 'とりけし',

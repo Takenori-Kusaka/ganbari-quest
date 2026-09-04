@@ -15,9 +15,14 @@
 //   [B] 活動 0 件のときは「したのカード」を指さない
 //   [C] 活動 0 件の空状態も年齢帯で切り替わる
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CATEGORIES } from '../../../src/lib/domain/categories';
 import {
+	getCategoryDisplayName,
 	getChildActivityEmptyLabels,
 	getChildAdventureStartLabels,
 } from '../../../src/lib/domain/labels';
@@ -27,6 +32,8 @@ import AdventureStartOverlay from '../../../src/lib/ui/components/AdventureStart
 vi.mock('../../../src/lib/ui/sound', () => ({
 	soundService: { play: vi.fn(), playRecordComplete: vi.fn(), configure: vi.fn() },
 }));
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 afterEach(() => {
 	vi.useRealTimers();
@@ -46,6 +53,16 @@ async function renderOverlayFinalPhase(uiMode: string, hasActivities: boolean): 
 		props: { open: true, childName: 'たろう', uiMode, hasActivities } as never,
 	});
 	await vi.advanceTimersByTimeAsync(8100);
+	return document.body.textContent ?? '';
+}
+
+/** カテゴリチップは phase 3 (5500ms〜8000ms) にだけ出る。その区間で dump する。 */
+async function renderOverlayCategoryPhase(uiMode: string): Promise<string> {
+	vi.useFakeTimers();
+	render(AdventureStartOverlay as never, {
+		props: { open: true, childName: 'たろう', uiMode, hasActivities: true } as never,
+	});
+	await vi.advanceTimersByTimeAsync(5600);
 	return document.body.textContent ?? '';
 }
 
@@ -73,6 +90,29 @@ describe('[A] 初回の冒険スタート演出が年齢帯で切り替わる', 
 	});
 });
 
+describe('[A] カテゴリチップは背後の画面と同じ SSOT で解決する', () => {
+	// 旧実装は `cat.name` (全年齢ひらがな固定) で、overlay が覆っている dashboard の
+	// `CategorySection` / `StatusBar` / `XpGainRow` (いずれも getCategoryDisplayName(uiMode))
+	// と食い違っていた。elementary は SSOT 上 kanjiName 側なので、本 PR で表記が変わる
+	// (= 背後の画面と一致する)。これは意図した変更であり、事故ではない。
+	it('elementary / junior / senior は SSOT どおり漢字カテゴリ名になる', async () => {
+		for (const uiMode of ['elementary', 'junior', 'senior'] as const) {
+			const text = await renderOverlayCategoryPhase(uiMode);
+			expect(text, uiMode).toContain(getCategoryDisplayName('undou', uiMode));
+			expect(text, uiMode).not.toContain(CATEGORIES.undou.name);
+			cleanup();
+		}
+	});
+
+	it('baby / preschool は従来どおりひらがなカテゴリ名', async () => {
+		for (const uiMode of ['baby', 'preschool'] as const) {
+			const text = await renderOverlayCategoryPhase(uiMode);
+			expect(text, uiMode).toContain(CATEGORIES.undou.name);
+			cleanup();
+		}
+	});
+});
+
 describe('[B] 活動 0 件のとき「下のカード」を指さない', () => {
 	it('hasActivities=false では押すカードを案内しない (5 年齢モード)', async () => {
 		for (const uiMode of [...HIRAGANA_MODES, ...KANJI_MODES]) {
@@ -89,6 +129,29 @@ describe('[B] 活動 0 件のとき「下のカード」を指さない', () => 
 		const t = getChildAdventureStartLabels('elementary');
 		expect(text).toContain(t.adventureReadySub);
 		expect(text).not.toContain(t.adventureReadySubEmpty);
+	});
+});
+
+describe('[B] 呼出側が hasActivities を渡していること', () => {
+	it('子供ホームが activities.length を overlay に配線している', () => {
+		// prop に既定値を持たせると、この 1 行を落としても型検査も 3000 件の test も通り、
+		// 「カードが無いのにカードを指す」が無警告で戻る (adversarial が mutation で実証)。
+		// prop は必須にしたうえで、配線そのものもここで固定する。
+		const src = readFileSync(
+			resolve(REPO_ROOT, 'src/routes/(child)/[uiMode=uiMode]/home/+page.svelte'),
+			'utf-8',
+		);
+		expect(src).toMatch(/hasActivities=\{data\.activities\.length > 0\}/);
+	});
+
+	it('overlay の hasActivities に既定値が付いていない (渡し忘れが型で落ちる)', () => {
+		const src = readFileSync(
+			resolve(REPO_ROOT, 'src/lib/ui/components/AdventureStartOverlay.svelte'),
+			'utf-8',
+		);
+		expect(src).toContain('hasActivities: boolean;');
+		expect(src).not.toContain('hasActivities?: boolean');
+		expect(src).not.toMatch(/hasActivities\s*=\s*true/);
 	});
 });
 

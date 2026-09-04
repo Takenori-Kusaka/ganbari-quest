@@ -245,6 +245,39 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		}
 	});
 
+	/**
+	 * 禁止語リストは「本 PR が消した綴り」しか見ないため、別の言い回しに書き換えると素通りする
+	 * (実測: `したのカードを えらんで きろくしてみてね` を junior override に入れても全 pass)。
+	 * **母数を「その文言セットの全 key」に変え、13-18 歳の値が漢字を含むことを assert する**
+	 * (#4851 の fitness を「次の綴り」で抜けられた件と同じ直し方)。
+	 * 仮名だけが正しい key は下に明示列挙する — 増やすときはレビューで見える。
+	 */
+	const KANA_OK_KEYS_IN_KANJI_MODE = new Set([
+		// あいさつ。「ようこそ、{name}！」に漢字化する語が無い
+		'adventureGreeting',
+		// 区切り線ラベル「── できること ──」。漢字にする語が無く、年齢帯で変えない
+		'activityEmptyCanDo',
+	]);
+
+	it('初回画面の junior / senior は全 key が漢字を含む (禁止語ではなく構造で見る)', () => {
+		for (const uiMode of KANJI_MODES) {
+			const sets = [
+				getChildAdventureStartLabels(uiMode) as Record<string, unknown>,
+				getChildActivityEmptyLabels(uiMode) as Record<string, unknown>,
+			];
+			for (const set of sets) {
+				for (const [key, raw] of Object.entries(set)) {
+					if (KANA_OK_KEYS_IN_KANJI_MODE.has(key)) continue;
+					const values = stringsOf(raw);
+					expect(values.length, `${uiMode}.${key}: 表示文字列が取れない`).toBeGreaterThan(0);
+					for (const value of values) {
+						expect(value, `${uiMode}.${key} が仮名だけ: ${value}`).toMatch(KANJI);
+					}
+				}
+			}
+		}
+	});
+
 	it('カテゴリ名が年齢帯で切り替わる', () => {
 		for (const code of CATEGORY_CODES) {
 			expect(getCategoryDisplayName(code, 'preschool')).toBe(CATEGORIES[code].name);

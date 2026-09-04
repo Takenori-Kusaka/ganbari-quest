@@ -43,7 +43,10 @@ const OLDER = 'child-older';
 const YOUNGER = 'child-younger';
 
 function useChild(childId: string, uiMode = 'preschool') {
-	setChapters(getChildTutorialChapters(uiMode), getChildTutorialProgressScope(childId, uiMode));
+	setChapters(
+		getChildTutorialChapters(uiMode, { hasActivities: true }),
+		getChildTutorialProgressScope(childId, uiMode),
+	);
 }
 
 describe('#4765 子供ガイドの進捗 key は子供ごと', () => {

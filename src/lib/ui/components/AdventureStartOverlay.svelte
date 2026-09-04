@@ -15,12 +15,16 @@ interface Props {
 	/**
 	 * 記録できる活動が 1 件以上あるか。0 件のときに「したのカードをタップしてみてね」と
 	 * 案内すると、閉じた先にカードが 1 枚も無い (overlay とカード一覧は独立に分岐する)。
+	 *
+	 * **既定値を持たせない (必須 prop)**。`= true` にしていると、呼出側が渡し忘れても
+	 * 型検査が通り、「カードが無いのにカードを指す」が無警告で復活する
+	 * (mutation で実測: 渡し忘れても 247 files / 3130 tests が全部通った)。
 	 */
-	hasActivities?: boolean;
+	hasActivities: boolean;
 	onClose?: () => void;
 }
 
-let { open = $bindable(), childName, uiMode, hasActivities = true, onClose }: Props = $props();
+let { open = $bindable(), childName, uiMode, hasActivities, onClose }: Props = $props();
 
 const t = $derived(getChildAdventureStartLabels(uiMode));
 
