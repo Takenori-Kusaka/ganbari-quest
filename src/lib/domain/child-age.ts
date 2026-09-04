@@ -61,7 +61,8 @@ export function resolveBirthDateForInsert(
  * 更新入力 → birth_date / birth_date_estimated の差分。`undefined` = その列は触らない。
  *
  * - `birthDate` に実値 → 実誕生日として保存 (estimated=false)
- * - `birthDate: null` (誕生日をクリア) → age があれば推定値、無ければ現在値を推定扱いに降格
+ * - `birthDate: null` (誕生日をクリア) → age があれば **その年齢の推定誕生日 (1/1) で置き換える**
+ *   (実誕生日の月日は残らない)、age が無ければ現在値を推定扱いに落とすだけ (保存値は据置)
  * - `birthDate` 未指定で `age` のみ → 現在が推定 or 未設定のときだけ推定値を差し替える
  *   (実誕生日は年齢入力で上書きしない。age-recalc cron の age 同期もここを通る)
  */
@@ -77,11 +78,13 @@ export function resolveBirthDateForUpdate(
 		}
 		// 誕生日欄だけを空にして保存した場合 (年齢欄も空 / 不正で age が来ないケース)。
 		//
-		// **保存値は消さず「推定扱いへの降格」に留める**。`publicBirthDate` が
+		// ここだけは保存値を据え置き、estimated フラグを立てるに留める。`publicBirthDate` が
 		// estimated=true を null で返すため、画面・export・誕生日ボーナスの対象からは外れる。
-		// 月日を実際に破棄すると、誤って空にした保護者が再入力するまで復旧できない
-		// (再入力を促す導線も無い)。PO 決定 (2026-09-04) は「消せるようにする」であって
-		// 「降格の意味論を変える」ではないため、ここは既存契約 (降格) を維持する。
+		//
+		// **顧客が通る clear 経路はここではない (#4729)**: `admin/children` の編集フォームは
+		// 年齢欄を `readonly` で常に送るため必ず上の `input.age !== undefined` 分岐に入り、
+		// 実誕生日は 1/1 の推定値で置き換えられる (月日は残らない)。この分岐に来るのは
+		// age が欠けた入力だけで、「消したのに月日が残る」経路として顧客に約束できるものではない。
 		return current.birthDate ? { birthDateEstimated: true } : {};
 	}
 	if (input.age === undefined) return {};

@@ -1,20 +1,22 @@
 // tests/unit/routes/admin-children-birthday-cleared-4729.test.ts
 //
-// PO 回答 (2026-09-03、PR #4729 コメント): 誕生日クリアの意味論 (「降格」) は維持する —
-// 誕生日を消したら推定誕生日に戻り、誕生日ボーナスの対象外になる (間違った日に祝う方が体験を壊す)。
-// ただし **顧客に降格が起きたことが見えること**。黙って降格は不可。
-//
 // **PO 決定 (2026-09-04、PR #4729 コメント)**: 「一度入れたら消せない」は仕様にしない。
 // 誕生日は任意入力であり、訂正手段が「別の日付に直す」しかないのは説明と矛盾する
 // (プライバシーポリシー第 5 / 6 条の削除・訂正請求とも整合しない)。`BirthdayInput` の未設定
 // option を選べるようにして保護者が消せるようにし、**確認 → 保存 → Alert の 3 点セット**にする。
-// 降格の意味論 (推定扱いに降格 = 誕生日ボーナス / 🎂 表示の対象外) は変えない。
 // 消せるのは保護者の明示操作だけで、import 復元は今も `birthDate: null` を渡さない。
+//
+// **消したときに保存値がどうなるか (実測。以前ここに書いてあった「降格 = 月日は DB に残る」は誤り)**:
+// 編集フォームは年齢欄を `readonly` で常に送るため、action は `birthDate: null` + `age` を渡す。
+// `resolveBirthDateForUpdate` はその形を受けると **その年齢の推定誕生日 (1/1) で保存値を置き換える**
+// ので、実誕生日の月日は残らない。「保存値が残る」非破壊分岐は `age` が来ないときだけの経路で、
+// 顧客はそこを通らない。誤操作の出口は保存前の確認ダイアログが引き受ける (PO 決定が条件として明記)。
 //
 // 固定する不変条件:
 //   [A] /admin/children の editChild action は「実誕生日があった子の誕生日欄を空にして保存した」
 //       ときだけ `birthdayCleared: true` を返す (誕生日を入れ直した / 元から無い / 触っていない は false)
-//   [B] 降格の保存契約 (`birthDate: null` を service に渡す) は変えていない (#4729 の決まった挙動)
+//   [B] 消した保存で DB に何が書かれるか — service に渡る input と、それを実際の書き込み変換に
+//       通した結果 (実誕生日は破棄され 1/1 に置換 / 年齢は保たれる / 1/1 は公開 entity に出ない)
 //   [C] 画面は `birthdayCleared` を受け取ると、選択中のお子さまの詳細の直上に
 //       「誕生日を消したため、誕生日のお祝いは行われません」を Alert (role="status") で出す
 //   [D] 誕生日を消す保存は確認ダイアログを挟み、**キャンセルすると消えない** (action を実行しない)
@@ -26,6 +28,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { deriveChildAge, publicBirthDate, resolveBirthDateForUpdate } from '$lib/domain/child-age';
 import { ADMIN_CHILDREN_PAGE_LABELS, CHILD_PROFILE_CARD_LABELS } from '$lib/domain/labels';
 
 const mockFindChildById = vi.fn();
@@ -142,6 +145,9 @@ if (!editChildAction) {
 
 const CHILD_ID = 'c-1';
 
+/** 保存値の検証を暦に依存させないための固定日 (JST SSOT、#4015)。7 歳 → 推定 2019-01-01 */
+const TODAY_JST = '2026-09-04';
+
 function existingChild(birthDate: string | null) {
 	return {
 		id: CHILD_ID,
@@ -236,8 +242,8 @@ describe('#4729 [A] editChild action は降格が起きたときだけ birthdayC
 	});
 });
 
-describe('#4729 [B] 降格の保存契約は変えていない', () => {
-	it('誕生日欄を空にした保存は service に birthDate: null を渡す (月日の破棄ではなく推定扱いへの降格)', async () => {
+describe('#4729 [B] 誕生日を消した保存で DB に何が書かれるか', () => {
+	it('service には birthDate: null と画面が送った年齢が渡る', async () => {
 		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
 
 		await editChildAction(clearBirthdayForm());
@@ -247,6 +253,51 @@ describe('#4729 [B] 降格の保存契約は変えていない', () => {
 		expect(input.birthDate).toBeNull();
 		// 年齢は画面が送った値を引き継ぐ (0 歳に戻さない、#4718)
 		expect(input.age).toBe(7);
+	});
+
+	// action が repo に渡した input を **実際の書き込み変換** (`resolveBirthDateForUpdate`、
+	// sqlite / dsql 両 repo の唯一の書き込み規約) に通して、保存値がどうなるかまで固定する。
+	// 上の test は mock された repo の引数までしか見ておらず、その 1 層下で起きることを
+	// 一度も検証していなかった (adversarial review must 1)。
+	it('実誕生日は破棄され、その年齢の推定誕生日 (1/1) に置き換わる', async () => {
+		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+
+		await editChildAction(clearBirthdayForm());
+		const [, input] = mockUpdateChild.mock.calls[0] as [unknown, Record<string, unknown>];
+
+		const written = resolveBirthDateForUpdate(
+			input as { age?: number; birthDate?: string | null },
+			{ birthDate: '2019-05-01', birthDateEstimated: false },
+			TODAY_JST,
+		);
+
+		// 月日 (05-01) は DB に残らない — 消したあとから元の誕生日は復元できない。
+		// 誤操作の出口は「保存前の確認ダイアログ」が引き受けている (PO 決定 2026-09-04)。
+		expect(written.birthDate).toBe('2019-01-01');
+		expect(written.birthDateEstimated).toBe(true);
+		expect(written.birthDate).not.toBe('2019-05-01');
+	});
+
+	it('置き換わった保存値でも年齢は保たれ、1/1 は顧客に出ない', async () => {
+		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+
+		await editChildAction(clearBirthdayForm());
+		const [, input] = mockUpdateChild.mock.calls[0] as [unknown, Record<string, unknown>];
+		const written = resolveBirthDateForUpdate(
+			input as { age?: number; birthDate?: string | null },
+			{ birthDate: '2019-05-01', birthDateEstimated: false },
+			TODAY_JST,
+		);
+		const row = {
+			birthDate: written.birthDate ?? null,
+			birthDateEstimated: written.birthDateEstimated ?? false,
+		};
+
+		// 年齢は保存値から導出しても 7 のまま (0 歳に戻らない、#4718)
+		expect(deriveChildAge(row, TODAY_JST)).toBe(7);
+		// 公開 entity は null = カード / export / 誕生日ボーナスのどこにも 1/1 が出ない
+		// (DESIGN.md §6 内部コード露出禁止)
+		expect(publicBirthDate(row)).toBeNull();
 	});
 });
 
@@ -407,6 +458,9 @@ describe('#4729 [D]/[E] 保護者は誕生日を消せる (確認 → 保存 →
 		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain(
 			'誕生日のお祝いが行われなくなります',
 		);
+		// 実装の事実 (保存で実誕生日が破棄され復元手段が無い) を保存前に明言している。
+		// ここが「入れ直せば戻る」だけの文面に緩むと、不可逆操作を可逆だと誤解させる。
+		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain('元に戻せません');
 		// submit は捕まえたが action は実行していない (cancel 済)
 		expect(submitAttempts).toHaveLength(1);
 		expect(submitAttempts[0]).toMatchObject({ action: '?/editChild', canceled: true });

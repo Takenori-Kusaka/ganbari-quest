@@ -121,16 +121,25 @@ describe('BirthdayInput', () => {
 		expect(hiddenInput.value).toBe('');
 	});
 
-	it('月だけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async () => {
+	// 部分クリアの沈黙を潰す (#4729 adversarial review must 2)。
+	// 未設定 option を選べるようにした結果、年 / 月 / 日 のうち一部だけを空に戻せるようになった。
+	// 「3 つ揃わなければ未設定」に統一していないと、**画面は空なのに hidden input には古い日付**が
+	// 残り、`isBirthdayClearingSubmit()` (`!formData.get('birthDate')`) が false になって
+	// 確認ダイアログも Alert も出ないまま古い誕生日が保存される = 保護者は「消したつもりで祝われ続ける」。
+	it.each([
+		['月', '生まれた月'],
+		['日', '生まれた日'],
+	])('%s だけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async (_name, labelText) => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2020-05-15',
 			name: 'birthDate',
 		});
 
-		await fireEvent.change(getByLabelText('生まれた月'), { target: { value: '' } });
+		await fireEvent.change(getByLabelText(labelText), { target: { value: '' } });
 
 		const hiddenInput = container.querySelector('input[type="hidden"]') as HTMLInputElement;
 		expect(hiddenInput.value).toBe('');
+		// 空にした欄自体も空のまま (下位の欄が残って「一部だけ埋まった日付」に見えない)
 		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
 	});
 
