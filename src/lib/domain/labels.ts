@@ -7677,14 +7677,17 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	// #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので消せる。ただし誤って消すと
 	// 誕生日ボーナスを失うため、**保存前に**確認を挟む (事後の Alert は
 	// ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice)。
-	// 「何が起きるか」「何が残るか」「元に戻せるか」「どうすれば再開できるか」を 1 文ずつで書く。
+	// 「何が起きるか」「何が残るか」「何が失われるか」「どうすれば再開できるか」を 1 文ずつで書く。
 	//
-	// **「元に戻せません」は実装の事実**: 保存すると実誕生日は破棄され、その年齢の推定誕生日 (1/1)
-	// に置き換わる (`resolveBirthDateForUpdate`)。消したあとから元の月日を復元する手段は無く、
-	// export / バックアップにも残らない (公開値は null)。不可逆操作なのでここで明言する。
+	// **失われるものを名指しする**: 保存すると入力された誕生日は破棄され、その年齢の推定誕生日 (1/1)
+	// に置き換わる (`resolveBirthDateForUpdate`)。取り消し操作は無く、export / バックアップにも
+	// 残らない (公開値は null)。ただし**日付を覚えていれば入れ直せる**ので、「元に戻せません」と
+	// だけ書くと保護者には誇張に読める (実際に失われるのは「アプリが覚えていた日付」)。
+	// 事後の Alert (birthdayClearedNotice) と**同じ 2 点** — 日付は消える / 入れ直せば再開する —
+	// を述べ、保存前と保存後で言うことが食い違わないようにする。
 	birthdayClearConfirmTitle: '誕生日を消しますか？',
 	birthdayClearConfirmBody:
-		'誕生日を消すと、誕生日のお祝いが行われなくなります。年齢はそのまま残ります。消した誕生日は元に戻せません。お祝いを再開するには、もう一度誕生日を入れてください。',
+		'誕生日を消すと、誕生日のお祝いが行われなくなります。年齢はそのまま残ります。入力した誕生日はアプリから消え、取り消す操作はありません。お祝いを再開するには、もう一度誕生日を入れてください。',
 	birthdayClearConfirmAccept: '消して保存する',
 	// 誕生日を消したあとのカード表示。推定誕生日 (内部値) は出さず「未設定」と書く。
 	headerBirthdayUnset: '誕生日: 未設定',
@@ -7768,7 +7771,7 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	// 消すのは保護者の明示操作だけ — import 復元は `import-service.ts` が
 	// `birthDate: exportChild.birthDate ?? undefined` を渡すため今も null にならない (黙って消えない)。
 	birthdayClearedNotice:
-		'誕生日を消したため、誕生日のお祝いは行われません。もう一度誕生日を入れると、お祝いを再開します。',
+		'誕生日を消したため、誕生日のお祝いは行われません。入力した誕生日はアプリに残っていません。もう一度誕生日を入れると、お祝いを再開します。',
 	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',

@@ -1,8 +1,9 @@
 /**
  * scripts/capture-specs/flows/admin-children-birthday-cleared-4729.mjs
  *
- * #4729 (PO 決定 2026-09-04): 保護者はお子さまの誕生日を消せる。消すと推定誕生日へ「降格」し
- * 誕生日ボーナスの対象から外れるため、**確認 → 保存 → 告知** の 3 点セットを撮る。
+ * #4729 (PO 決定 2026-09-04): 保護者はお子さまの誕生日を消せる。保存すると入力された誕生日は破棄され、
+ * その年齢の推定誕生日 (1/1) に置き換わって誕生日ボーナスの対象から外れる (取り消す操作は無い)。
+ * だから **確認 → 保存 → 告知** の 3 点セットを撮る。
  *
  * demo 環境 (`DATA_SOURCE=demo`) は POST を allowlist で塞いでいる (`DEMO_WRITE_ALLOWLIST`) ため
  * 編集を保存できない。cognito dev (`npm run dev:cognito`、#1026) の sqlite backend で撮る。
@@ -163,7 +164,7 @@ export default async (page, capture) => {
 		await confirmDialog.waitFor({ state: 'hidden', timeout: 30_000 }).catch(() => {});
 	}
 
-	// --- 4. 保存結果 (降格の告知 + 「誕生日: 未設定」) を撮る ---
+	// --- 4. 保存結果 (消えたことの告知 + 「誕生日: 未設定」) を撮る ---
 	await page
 		.locator('[data-tutorial="child-detail"]')
 		.waitFor({ state: 'visible', timeout: 30_000 });

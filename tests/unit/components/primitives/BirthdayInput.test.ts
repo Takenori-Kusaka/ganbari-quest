@@ -143,6 +143,26 @@ describe('BirthdayInput', () => {
 		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
 	});
 
+	// 年→月日 の連動 effect が守っているのはこのケース (#4729 adversarial review must-A)。
+	// **完成した日付が一度も作られていない**入力途中の状態では、value はずっと undefined のままなので
+	// 「value → 年月日」の逆同期が走らず、連動 effect だけが月日を空に戻す。
+	// 連動が無いと、年が空なのに月 select が `3月` を表示したまま残り、その select は
+	// `disabled={!yearStr}` なので**顧客は自力で直せない** (本 PR が潰した「UI から戻せない」class)。
+	it('入力途中 (年→月まで選んだだけ) で年を未設定に戻すと、月も未設定に戻る', async () => {
+		const { getByLabelText } = render(BirthdayInput, { name: 'birthDate' });
+
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '2018' } });
+		await fireEvent.change(getByLabelText('生まれた月'), { target: { value: '3' } });
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('3');
+
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '' } });
+
+		expect((getByLabelText('生まれた年') as HTMLSelectElement).value).toBe('');
+		// 連動が無いと '3' が残る (年が空なので月 select は disabled = 顧客は直せない)
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('');
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+	});
+
 	it('resets to undefined when all fields are cleared', async () => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2023-01-31',

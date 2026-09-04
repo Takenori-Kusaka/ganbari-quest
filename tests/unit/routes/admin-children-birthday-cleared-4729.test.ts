@@ -6,7 +6,8 @@
 // option を選べるようにして保護者が消せるようにし、**確認 → 保存 → Alert の 3 点セット**にする。
 // 消せるのは保護者の明示操作だけで、import 復元は今も `birthDate: null` を渡さない。
 //
-// **消したときに保存値がどうなるか (実測。以前ここに書いてあった「降格 = 月日は DB に残る」は誤り)**:
+// **消したときに保存値がどうなるか (実測)**。以前この位置には「消しても月日は DB に残る」と
+// 書かれていたが誤りだった (顧客が通らない分岐の説明を、通る経路の説明として書いていた):
 // 編集フォームは年齢欄を `readonly` で常に送るため、action は `birthDate: null` + `age` を渡す。
 // `resolveBirthDateForUpdate` はその形を受けると **その年齢の推定誕生日 (1/1) で保存値を置き換える**
 // ので、実誕生日の月日は残らない。「保存値が残る」非破壊分岐は `age` が来ないときだけの経路で、
@@ -194,7 +195,7 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe('#4729 [A] editChild action は降格が起きたときだけ birthdayCleared を返す', () => {
+describe('#4729 [A] editChild action は誕生日が消えたときだけ birthdayCleared を返す', () => {
 	it('実誕生日があった子の誕生日欄を空にして保存 → birthdayCleared: true', async () => {
 		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
 
@@ -204,7 +205,7 @@ describe('#4729 [A] editChild action は降格が起きたときだけ birthdayC
 		expect(result.birthdayCleared).toBe(true);
 	});
 
-	it('誕生日を入れ直した保存では出ない (降格ではない)', async () => {
+	it('誕生日を入れ直した保存では出ない (消えていない)', async () => {
 		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
 
 		const result = (await editChildAction(
@@ -220,7 +221,7 @@ describe('#4729 [A] editChild action は降格が起きたときだけ birthdayC
 		expect(result.birthdayCleared).toBe(false);
 	});
 
-	it('元から実誕生日が無い (推定誕生日だけの) 子の欄を空で保存しても出ない (降格は起きていない)', async () => {
+	it('元から実誕生日が無い (推定誕生日だけの) 子の欄を空で保存しても出ない (消えるものが無い)', async () => {
 		mockFindChildById.mockResolvedValueOnce(existingChild(null));
 
 		const result = (await editChildAction(clearBirthdayForm())) as Record<string, unknown>;
@@ -301,7 +302,7 @@ describe('#4729 [B] 誕生日を消した保存で DB に何が書かれるか',
 	});
 });
 
-describe('#4729 [C] 画面は降格が起きたことを保護者に見せる', () => {
+describe('#4729 [C] 画面は誕生日が消えたことを保護者に見せる', () => {
 	const pointSettings = { mode: 'point' as const, currency: 'JPY' as const, rate: 1 };
 	const selectedChild = {
 		id: CHILD_ID,
@@ -310,7 +311,7 @@ describe('#4729 [C] 画面は降格が起きたことを保護者に見せる', 
 		uiMode: 'elementary',
 		theme: 'blue',
 		avatarUrl: null,
-		// 降格後の公開値 (推定扱い → null)
+		// 消したあとの公開値 (推定扱いになるので null)
 		birthDate: null,
 		birthdayBonusMultiplier: 2,
 		balance: { balance: 0 },
@@ -360,7 +361,7 @@ describe('#4729 [C] 画面は降格が起きたことを保護者に見せる', 
 		expect(notice.closest('[data-tutorial="child-detail"]')).not.toBeNull();
 	});
 
-	it('降格が起きていない結果 (birthdayCleared: false / action 無し) では出ない', () => {
+	it('誕生日が消えていない結果 (birthdayCleared: false / action 無し) では出ない', () => {
 		const { unmount } = render(ChildrenPage, {
 			props: {
 				data,
@@ -458,9 +459,17 @@ describe('#4729 [D]/[E] 保護者は誕生日を消せる (確認 → 保存 →
 		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain(
 			'誕生日のお祝いが行われなくなります',
 		);
-		// 実装の事実 (保存で実誕生日が破棄され復元手段が無い) を保存前に明言している。
+		// 実装の事実 (保存で入力された誕生日が破棄され、取り消し操作が無い) を保存前に明言している。
 		// ここが「入れ直せば戻る」だけの文面に緩むと、不可逆操作を可逆だと誤解させる。
-		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain('元に戻せません');
+		// 保存後の Alert と**同じ 2 点** (日付は消える / 入れ直せば再開する) を述べ、
+		// 保存前と保存後で言うことが食い違わないようにする。
+		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain('アプリから消え');
+		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain(
+			'取り消す操作はありません',
+		);
+		expect(CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody).toContain('もう一度誕生日を入れて');
+		expect(ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice).toContain('アプリに残っていません');
+		expect(ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice).toContain('お祝いを再開します');
 		// submit は捕まえたが action は実行していない (cancel 済)
 		expect(submitAttempts).toHaveLength(1);
 		expect(submitAttempts[0]).toMatchObject({ action: '?/editChild', canceled: true });
