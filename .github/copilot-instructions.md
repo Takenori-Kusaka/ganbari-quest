@@ -54,7 +54,7 @@ Changes that affect shared functionality must be applied everywhere. Missing lat
 - **Age modes**: The app has 4 core modes (preschool/elementary/junior/senior) + 1 preparation mode (baby, for parents of 0-2 year-olds). After #664, these are consolidated under `src/routes/(child)/[uiMode=uiMode]/`. If a PR modifies child-facing behavior, verify it works for all 4 core modes. Baby preparation mode has no gamification (BABY_FEATURES: all false). See ADR-0011.
 - **Demo version**: Changes to production app features (`src/routes/(child)/`, `src/routes/(parent)/`) often need corresponding changes in `src/routes/demo/`.
 - **Landing page**: UI label or feature name changes must be synced to `site/index.html`, `site/pamphlet.html`, and `site/shared-labels.js`.
-- **Navigation**: Navigation changes must cover all 3 nav types: `AdminLayout` (desktop), `AdminMobileNav` (mobile), `BottomNav` (child).
+- **Navigation**: Navigation lives in 2 components: `AdminLayout` (admin desktop dropdown and mobile bottom nav in the same file) and `BottomNav` (child). Cover both.
 - **Terminology**: UI labels must come from `src/lib/domain/labels.ts` (the terminology dictionary). Hardcoded strings that duplicate dictionary entries are a `[must]` finding.
 - **Tutorial**: UI structure changes may break tutorial overlays (`tutorial-chapters.ts`). Check that selectors and step descriptions still match.
 

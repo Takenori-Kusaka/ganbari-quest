@@ -158,7 +158,7 @@ Web Platform API (permission 系: Notification API / Geolocation API / Camera/Mi
 | 項目 | 内容 | 確認手段 |
 |---|------|---------|
 | **過去設計整合性確認 (closed Issue / 設計書 / ADR の SSOT 突合)** | 起票時点で関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等の設計書を grep で全件確認、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記 | Issue 本文に過去 SSOT 差分表 + prior art 引用 (Family Link / iOS HIG / Material 3 等) |
-| **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認** | `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅、1-2 種だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保 | PR 本文に grep 結果 + 3 種への反映確認 |
+| **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認** | `AdminLayout.svelte`（Desktop / Mobile 同居）+ `BottomNav.svelte` の 2 種を grep で網羅、1-2 種だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保 | PR 本文に grep 結果 + 3 種への反映確認 |
 
 Phase Admin-Nav-Restructure 由来の累積観察 6 件目 (Push-3 #2117 / MP-4 #2139 / Phase Category-Collapsible #2148 / Phase Reward-Shop-UX #2154 / Phase Milestone-Notification-UX #2167 / Phase Admin-Nav-Restructure #2176) と同型の「設計優先度変更」パターン。本項目で「subject-first 等の業界 prior art を見もしないまま頻度ベース分類で確定」の再発を防ぐ。
 

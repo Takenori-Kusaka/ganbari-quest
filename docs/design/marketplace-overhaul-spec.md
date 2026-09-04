@@ -459,7 +459,7 @@ LEGACY_URL_MAP に `/activity-packs` → `/marketplace` を追加 (1 entry, 前�
 |------|------------|---------|
 | **UI ラベル・用語 (#1212-H)** | `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` | 「マーケットプレイス」→「みんなのテンプレート」/「テンプレート」 |
 | **チュートリアル** | `src/routes/marketplace/**/_guide.ts` + `PAGE_GUIDE_LABELS.marketplace*` | 「マーケットプレイスを使ってみよう」→「テンプレートを使ってみよう」 |
-| **ナビゲーション** | `AdminLayout` + `AdminMobileNav` + `BottomNav` + ボトムナビ | NAV_ITEM_LABELS の「テンプレート」適用 |
+| **ナビゲーション** | `AdminLayout`（Desktop / Mobile 同居）+ `BottomNav` | NAV_ITEM_LABELS の「テンプレート」適用 |
 
 ### 7.2 LP メトリクス ratchet (#1163)
 

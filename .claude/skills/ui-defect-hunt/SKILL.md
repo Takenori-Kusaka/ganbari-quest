@@ -122,7 +122,7 @@ grep -rn "href=\"/admin" src/lib src/routes --include=*.svelte -o | sort -u
 - [ ] `fontScale` が大きいモードで**文字がはみ出す / ボタンからあふれる**箇所
 - [ ] `tapSize` が守られているか（baby で小さいボタンが残っていないか）
 - [ ] 日本語の折り返し（DESIGN.md §3。見出し・ボタンで不自然な位置で切れないか）
-- [ ] ナビ構造が desktop / mobile で異なる（`AdminLayout` / `AdminMobileNav` / `BottomNav`）— 両方見る
+- [ ] ナビ構造が desktop / mobile で異なる（`AdminLayout` に両方が同居 / 子供は `BottomNav`）— 両方見る
 
 ```
 browser_resize { width: 390, height: 844 }    ← Playwright MCP
