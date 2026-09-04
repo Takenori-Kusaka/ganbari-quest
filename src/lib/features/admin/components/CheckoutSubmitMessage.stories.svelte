@@ -33,10 +33,11 @@ const { Story } = defineMeta({
 		await expect(box).toBeVisible();
 
 		const text = box.textContent ?? '';
-		// ① 自動更新
+		// ① 自動更新 (金額が初回と同じとは述べない = allow_promotion_codes と両立させる)
 		await expect(text).toContain(TOKUSHOHO_TERMS.heading4Delivery);
 		await expect(text).toContain('毎月');
-		await expect(text).toContain('自動課金');
+		await expect(text).toContain('自動で更新');
+		await expect(text).not.toContain('同額');
 		// ② 解約方法
 		await expect(text).toContain(TOKUSHOHO_TERMS.heading5Cancel);
 		await expect(text).toContain('請求管理ページを開く');

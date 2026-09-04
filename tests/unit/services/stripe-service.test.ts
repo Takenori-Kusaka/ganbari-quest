@@ -378,14 +378,33 @@ describe('createCheckoutSession', () => {
 		return mockSessionCreate.mock.calls[0]?.[0];
 	}
 
-	it('#2573: custom_text.submit.message が「自動更新」を述べる (毎月 / 自動課金)', async () => {
+	it('#2573: custom_text.submit.message が「自動更新」を述べる (毎月 / そのつど課金)', async () => {
 		const params = await captureSessionParams();
 		const message: string = params.custom_text.submit.message;
 
 		expect(message).toBe(CHECKOUT_LABELS.submitMessage);
 		expect(message).toContain(TOKUSHOHO_TERMS.heading4Delivery);
 		expect(message).toContain('毎月');
-		expect(message).toContain('自動課金');
+		expect(message).toContain('自動で更新');
+		expect(message).toContain('課金します');
+		// 次回以降の金額の確認先を必ず示す (金額に触れずに済ませない)
+		expect(message).toContain(`次回以降のご請求金額は${STRIPE_PORTAL_TERMS.short}`);
+	});
+
+	// #2573 (adversarial must): 同じ session が `allow_promotion_codes: true` を渡しており、
+	// `duration: once` のプロモーションコードが使われると初回と次回以降で請求額が変わる。
+	// 「同額」等の断定は特商法 12 条の 6 の金額表示にあたる部分を事実と食い違わせるため、
+	// **文言側で禁止する**。promotion code を無効化する (顧客に見える機能を消す) 選択は取らない。
+	it('#2573: 初回と更新が同額であるとは述べない (allow_promotion_codes と両立させる)', async () => {
+		const params = await captureSessionParams();
+		const message: string = params.custom_text.submit.message;
+
+		// promotion code は有効なまま (この前提が崩れたら本 assertion の根拠も変わる)
+		expect(params.allow_promotion_codes).toBe(true);
+		expect(params.after_expiration.recovery.allow_promotion_codes).toBe(true);
+
+		expect(message).not.toContain('同額');
+		expect(message).not.toContain('同じ金額');
 	});
 
 	it('#2573: custom_text.submit.message が「解約方法」を述べる (画面 → セクション → ボタンの実経路)', async () => {
@@ -419,6 +438,30 @@ describe('createCheckoutSession', () => {
 		expect(params.custom_text.after_submit.message.length).toBeLessThanOrEqual(
 			STRIPE_CUSTOM_TEXT_MAX_LENGTH,
 		);
+	});
+
+	// #2573 (adversarial must の確認事項 1): 上限検査を「最長インスタンス」で行えているか。
+	// 本文言はプラン名 / 課金周期を差し込まない固定文字列なので、インスタンスは 1 つしか無い。
+	// それを **実際に別プランで session を作って比較する**ことで固定する
+	// (将来 plan 差し込み版に切り替えたら本 test が落ち、上限検査の見直しを強制する)。
+	it('#2573: submit.message はプランに依らず同一 (= 上限検査の対象インスタンスは 1 つ)', async () => {
+		await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+		await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'family-monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+
+		expect(mockSessionCreate).toHaveBeenCalledTimes(2);
+		const first = mockSessionCreate.mock.calls[0]?.[0].custom_text.submit.message;
+		const second = mockSessionCreate.mock.calls[1]?.[0].custom_text.submit.message;
+		expect(second).toBe(first);
 	});
 
 	it('#2573: 利用規約への同意は consent_collection が担い、custom_text で重複させない', async () => {

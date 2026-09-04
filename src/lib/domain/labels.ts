@@ -12478,7 +12478,13 @@ export const LP_LEGAL_TERMS_LABELS = {
 // 提供開始時期は tokushoho.html の「サービス提供時期」行 (お申し込み後、即時ご利用いただけます)、
 // 自動更新は同「支払時期」行 (以後は毎月同じ日に自動課金します) と同じ事実を述べる。
 // 「お選びのプランの機能」は景品表示法 5 条 1 号対応の限定文言 (#2346) をそのまま維持する。
-const CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE = `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。以後は毎月同じ日に自動で更新し、同額を自動課金します。`;
+//
+// **金額が初回と更新で一致するとは述べない**: 同じ session に `allow_promotion_codes: true`
+// (`stripe-service.ts`) があり、`duration: once` のプロモーションコードが使われると初回と
+// 次回以降で請求額が変わる。「同額」等の断定は特商法 12 条の 6 の金額表示にあたる部分を
+// 事実と食い違わせるため書かない (tokushoho.html「支払時期」行にも同種の断定は無い)。
+// 代わりに「そのつど課金される」ことと「次回以降の金額をどこで確認できるか」を述べる。
+const CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE = `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。以後は毎月同じ日に自動で更新し、そのつど課金します。次回以降のご請求金額は${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`;
 
 // 申込確定直前に述べる「申込撤回・解約方法」(同項 5 号相当)。
 // 経路は tokushoho.html の「返品・キャンセル」行と同一の 1 本に揃える
