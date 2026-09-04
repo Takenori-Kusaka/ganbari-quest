@@ -21,8 +21,9 @@
 //   (`ops-route-auth-fitness` #4309 / `cron-route-auth-fitness` #4206 と**同じ狙い**の装置だが、
 //   母数の取り方は同一ではない: cron/ops は「配下の全 route が guard を呼ぶ」で除外リストを持たない。
 //   `/api/v1` は per-child でない route を大量に含むためそれは成立せず、
-//   **読み取りは「childId を綴る route」を候補にする ([P2]-[P6])、mutation は「全 handler」を母数にする
-//   ([P7]-[P9])** の 2 段構えにしている。cron 型の「guard の戻り値を使っている」検査は [P9] が対応する)。
+//   **[P2]-[P6] は「childId を綴る route」を候補にする file 単位の検査、[P7]-[P9] は read / mutation を
+//   問わず全 handler を母数にする handler 単位の検査** という 2 段構えにしている。
+//   cron 型の「guard の戻り値を使っている」検査は [P9] が対応する)。
 //
 // 検証範囲:
 //   [P1] 母数 — 実 FS 上の `src/routes/api/v1/**/+server.ts` を列挙する (literal 固定禁止)。
@@ -37,14 +38,19 @@
 //        実コードに当てて検証する (宣言しただけで通る自由 pass を作らない)。
 //   [P6] stale 宣言の除去 — 実在しない / もう候補でない / 既に guard を呼んでいる route が
 //        除外に残っていたら fail。
-//   [P7] mutation 母数 — `/api/v1/**` (admin 除く) の **全 mutation handler** が guard に到達すること。
-//        [P2] の候補判定は「childId と綴るか」なので、**行 id しか受け取らない** per-child mutation
-//        (`DELETE /activity-logs/[id]` / `PATCH /usage`) を原理的に拾えない。母数を handler 単位の
-//        全数にすることでその穴を塞ぐ (同時に「多メソッド route で片側だけ守る」も検出される)。
-//   [P8] mutation の除外宣言も機械で反証 / stale 検出する。特に `family-row` は「同じ file の別
-//        handler が guard を通していないこと」まで要求する (片側だけ守る形を宣言で握り潰せない)。
-//   [P9] `requireChildScope` の **戻り値が引数としてそのまま渡されている** こと。この guard は
-//        呼ぶこと自体には意味が無く、戻り値を service へ渡して初めて効く。
+//   [P7] handler 母数 — `/api/v1/**` (admin 除く) の **全 handler (read / mutation とも)** が guard に
+//        到達すること。[P2] の候補判定は「childId と綴るか」なので、**行 id しか受け取らない**
+//        per-child route (`DELETE /activity-logs/[id]` / `PATCH /usage`) を原理的に拾えない。
+//        母数を handler 単位の全数にすることでその穴を塞ぐ (同時に「多メソッド route で片側だけ守る」
+//        も検出される)。handler 宣言は `export const GET` と `export (async) function GET(` の
+//        **両形式**を見る — 片方しか見ないと書き方を変えるだけで母数から落ちる。
+//   [P8] handler の除外宣言も機械で反証 / stale 検出する。特に `family-row` は「同じ file の別
+//        **mutation** handler が guard を通していないこと」まで要求する (片側だけ守る形を宣言で
+//        握り潰せない)。
+//   [P9] `requireChildScope` の **戻り値が service 関数の引数としてそのまま渡されている** こと。
+//        この guard は呼ぶこと自体には意味が無く、戻り値を service へ渡して初めて効く。
+//        **見ているのは「route が渡したか」までで、渡された service が実際に行の所有者を突合して
+//        いるかは見ていない** (それは service の unit test と `id-only-child-scope.test.ts` が担う)。
 //
 // 候補 0 件は異常 (判定の綴りが変わった等) として fail する。
 
@@ -205,8 +211,18 @@ function callsChildGuard(endpoint: ApiEndpoint): boolean {
 //       / `requireChildScope` の **戻り値を捨てる** 書き方 (呼び出しの存在しか見ていない)
 // ============================================================
 
-/** mutation を行う HTTP メソッド (GET は読み取りなので [P2]-[P6] の母数に委ねる)。 */
-const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const;
+/**
+ * handler として扱う HTTP メソッド。
+ *
+ * **read (GET/HEAD) も母数に含める** (adversarial review should)。[P2]-[P6] の候補判定は
+ * 「ソースに childId と綴るか」なので、`GET /<per-child-row>/[id]` のように **行 id だけで
+ * per-child データを返す read** を拾えない。mutation だけを handler 単位で見ていると
+ * 同じ穴が read 側に残るため、母数を全 handler に揃える。
+ */
+const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as const as string[];
+
+/** 書き換えを行う HTTP メソッド ([P8] の `family-row` 兄弟判定に使う)。 */
+const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const as string[];
 
 interface MutationHandler {
 	/** repo root からの相対パス */
@@ -343,6 +359,59 @@ const MUTATION_GUARD_EXEMPTIONS: Record<string, MutationExemption> = {
 		basis: 'family-row',
 		reason: '親ゲート PIN 再設定コードの発行。family 単位で child に属する行ではない',
 	},
+	// --- read handler (adversarial review should: read も同じ母数で見る) ---
+	'src/routes/api/v1/activities/[id]/+server.ts#GET': {
+		basis: 'family-row',
+		reason: '活動マスタ 1 件の取得。family 共通で child に属する行ではない',
+	},
+	'src/routes/api/v1/settings/decay/+server.ts#GET': {
+		basis: 'family-row',
+		reason: '家族設定 (ポイント減衰) の取得。child に属する行ではない',
+	},
+	'src/routes/api/v1/settings/vapid-key/+server.ts#GET': {
+		basis: 'family-row',
+		reason: 'push 公開鍵の取得。テナント固有ですらなく child に属する行ではない',
+	},
+	'src/routes/api/v1/special-rewards/templates/+server.ts#GET': {
+		basis: 'family-row',
+		reason: 'ごほうびテンプレート (family 共通の雛形) の取得。child に属する行ではない',
+	},
+	'src/routes/api/v1/images/+server.ts#GET': {
+		basis: 'family-row',
+		reason: 'テナントの favicon パス取得。child に属する行ではない (#4397 で生成経路は撤去済)',
+	},
+	'src/routes/api/v1/data/summary/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: '全データ件数サマリー。requireRole(owner/parent) 済',
+	},
+	'src/routes/api/v1/export/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: '家族全体のバックアップ取得。#3246 で owner/parent 限定済',
+	},
+	'src/routes/api/v1/export/cloud/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: 'クラウド共有 export の一覧取得は親の操作。requireRole(owner/parent) 済',
+	},
+	'src/routes/api/v1/export/cloud/[id]/download/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: 'クラウド共有 export のダウンロードは親の操作。requireRole(owner/parent) 済',
+	},
+	'src/routes/api/v1/activities/export/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: '#3246 で owner/parent 限定済 (export-authz-symmetry-3246 が別途 gate を固定)',
+	},
+	'src/routes/api/v1/checklists/export/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: '#3246 で owner/parent 限定済 (export-authz-symmetry-3246 が別途 gate を固定)',
+	},
+	'src/routes/api/v1/special-rewards/export/+server.ts#GET': {
+		basis: 'role-gate',
+		reason: '#3246 で owner/parent 限定済 (家庭内 IDOR を role gate 側で塞いだ最初の 3 本)',
+	},
+	'src/routes/api/v1/reward-redemption-requests/+server.ts#GET': {
+		basis: 'inline-role-gate',
+		reason: '交換申請の一覧取得。route 内で owner/parent 以外を 403 にしている (#1337)',
+	},
 	// --- role gate 済 ---
 	'src/routes/api/v1/activities/import/+server.ts#POST': {
 		basis: 'role-gate',
@@ -376,39 +445,71 @@ const MUTATION_GUARD_EXEMPTIONS: Record<string, MutationExemption> = {
 };
 
 /**
- * `/api/v1/**` の mutation handler を列挙する。
+ * SvelteKit の handler 宣言を拾う正規表現。
+ *
+ * **2 つの書き方を両方見る**: `export const GET = …` と `export (async) function GET(…)`。
+ * 片方しか見ないと、**書き方を変えるだけで母数から落ちる**（= 装置が黙って効かなくなる）。
+ * 現時点で `export function` 形式の route は 0 本だが、この fitness は「次に per-child route を
+ * 足す人」を守るための装置なので、綴りの違いで素通りさせない (adversarial review M3)。
+ */
+const HANDLER_DECL_RE = /export\s+(?:const\s+([A-Z]+)\b|(?:async\s+)?function\s+([A-Z]+)\s*\()/g;
+
+/** 1 つの handler 宣言にマッチしたものから METHOD 名を取り出す。 */
+function methodOfMatch(m: RegExpMatchArray): string {
+	return (m[1] ?? m[2]) as string;
+}
+
+/**
+ * `/api/v1/**` の handler を列挙する（read / mutation の両方）。
  *
  * `/api/v1/admin/**` は `ROUTE_RULES` が owner/parent 限定で child が認可層に到達できないため
  * 構造的に対象外 ([P7] の it 内でその前提自体を assert する)。
  */
-function collectMutationHandlers(): MutationHandler[] {
+function collectHandlers(): MutationHandler[] {
 	const out: MutationHandler[] = [];
 	for (const endpoint of endpoints) {
 		if (endpoint.file.startsWith('src/routes/api/v1/admin/')) continue;
-		// `export const <METHOD>` の位置で file を切り、次の handler 宣言までを body とする。
-		const marks: { method: string; index: number }[] = [];
-		for (const method of MUTATION_METHODS) {
-			const m = endpoint.code.match(new RegExp(`export\\s+const\\s+${method}\\b`));
-			if (m?.index !== undefined) marks.push({ method, index: m.index });
-		}
-		if (marks.length === 0) continue;
-		// body の終端は「次に現れる export const <任意 METHOD>」まで (GET / OPTIONS 等も境界)
-		const allExports = [...endpoint.code.matchAll(/export\s+const\s+[A-Z]+\b/g)]
-			.map((m) => m.index ?? -1)
-			.filter((i) => i >= 0)
-			.sort((a, b) => a - b);
-		for (const mark of marks) {
-			const next = allExports.find((i) => i > mark.index);
+		// 全 handler 宣言の位置を取り、次の宣言までを body とする。
+		const decls = [...endpoint.code.matchAll(HANDLER_DECL_RE)]
+			.map((m) => ({ method: methodOfMatch(m), index: m.index ?? -1 }))
+			.filter((d) => d.index >= 0 && HTTP_METHODS.includes(d.method))
+			.sort((a, b) => a.index - b.index);
+		for (let i = 0; i < decls.length; i += 1) {
+			const decl = decls[i] as { method: string; index: number };
+			const next = decls[i + 1];
 			out.push({
 				file: endpoint.file,
-				method: mark.method,
-				key: `${endpoint.file}#${mark.method}`,
-				body: endpoint.code.slice(mark.index, next ?? endpoint.code.length),
+				method: decl.method,
+				key: `${endpoint.file}#${decl.method}`,
+				body: endpoint.code.slice(decl.index, next?.index ?? endpoint.code.length),
 				endpoint,
 			});
 		}
 	}
 	return out;
+}
+
+/**
+ * `$lib/server/services/**` から import している名前を集める ([P9] の「渡す先」候補)。
+ *
+ * route から DB を直接触るのは `route-db-boundary` fitness が禁じているので、行の所有者を
+ * 突合できるのは service 層しかない。したがって scope の渡し先も service 関数に限定できる。
+ */
+function serviceImportNames(source: string): string[] {
+	const names: string[] = [];
+	for (const m of source.matchAll(
+		/import\s*\{([^}]*)\}\s*from\s*['"]\$lib\/server\/services\/[^'"]+['"]/g,
+	)) {
+		for (const raw of (m[1] ?? '').split(',')) {
+			const name = raw
+				.trim()
+				.split(/\s+as\s+/)
+				.pop()
+				?.trim();
+			if (name && /^[A-Za-z0-9_$]+$/.test(name) && !name.startsWith('type ')) names.push(name);
+		}
+	}
+	return names;
 }
 
 /** file 内の local 関数のうち、本体に child guard を含むものの名前。 */
@@ -452,13 +553,24 @@ function checkMutationExemptionBasis(
 			? null
 			: 'inline-role-gate を主張しているが route 内の role 判定 + 403 が見つからない';
 	}
-	// family-row: 同じ file の他 handler が child guard を通していたら、その資源は per-child。
-	// 「片側だけ守る」(M1) を宣言で握り潰せなくするための条件。
-	const siblingGuarded = allHandlers.some(
-		(h) => h.file === handler.file && h.key !== handler.key && handlerReachesGuard(h),
+	// family-row: 同じ file の**別の mutation handler**が child guard を通していたら、その file が
+	// 書き換える行は per-child なので `family-row` の主張は嘘になる。「片側だけ守る」(M1 = usage の
+	// POST だけ塞いで PATCH を開ける形) を宣言で握り潰せなくするための条件。
+	//
+	// 比較対象を mutation に限るのは、**read の guard は「行の所有者」ではなく「絞り込み条件」を
+	// 見ていることがある**ため (実測: `GET /api/v1/activities?childId=` は年齢での出し分けに使う
+	// query を guard しているだけで、`POST /api/v1/activities` が作る行は family 共通)。read まで
+	// 含めると、この正当な組み合わせを誤検出して `family-row` が使えなくなる。M1 の形 (mutation 同士)
+	// は引き続き検出される。
+	const siblingMutationGuarded = allHandlers.some(
+		(h) =>
+			h.file === handler.file &&
+			h.key !== handler.key &&
+			MUTATION_METHODS.includes(h.method) &&
+			handlerReachesGuard(h),
 	);
-	return siblingGuarded
-		? 'family-row を主張しているが、同じ file の別 handler は child guard を通している (= その資源は per-child)'
+	return siblingMutationGuarded
+		? 'family-row を主張しているが、同じ file の別 mutation handler は child guard を通している (= その資源は per-child)'
 		: null;
 }
 
@@ -486,7 +598,7 @@ function checkExemptionBasis(endpoint: ApiEndpoint, basis: ExemptionBasis): stri
 
 const endpoints = collectApiEndpoints(API_V1_DIR);
 const candidates = endpoints.filter((e) => readsRequestChildId(e.detectSource));
-const mutationHandlers = collectMutationHandlers();
+const mutationHandlers = collectHandlers();
 
 describe('per-child route 認可 fitness (/api/v1/** の家庭内 IDOR ガード)', () => {
 	it('[P1] 母数: /api/v1 配下の +server.ts を実 FS から列挙できる', () => {
@@ -583,7 +695,7 @@ describe('per-child route 認可 fitness (/api/v1/** の家庭内 IDOR ガード
 		expect(broken, `mutation 除外宣言と実コードの食い違い:\n  ${broken.join('\n  ')}`).toEqual([]);
 	});
 
-	it('[P9] requireChildScope の戻り値は捨てずに引数として渡している', () => {
+	it('[P9] requireChildScope の戻り値は捨てず、service 関数の引数として渡している', () => {
 		const offenders: string[] = [];
 		for (const endpoint of endpoints) {
 			if (!/\brequireChildScope\s*\(/.test(endpoint.code)) continue;
@@ -594,23 +706,33 @@ describe('per-child route 認可 fitness (/api/v1/** の家庭内 IDOR ガード
 				offenders.push(`${endpoint.file}: 戻り値を変数に受けずに呼び出している`);
 				continue;
 			}
+			// `$lib/server/services/**` から import した名前 = 突合を行う側の候補。
+			const serviceFns = serviceImportNames(endpoint.source);
+			if (serviceFns.length === 0) {
+				offenders.push(`${endpoint.file}: service 関数を import していない (渡す先が無い)`);
+				continue;
+			}
 			for (const decl of decls) {
 				const name = decl[1] as string;
-				// 「引数位置にそのまま置かれている」ことを要求する。`f(a, b, scope ? null : null)` のような
-				// 使ったふり (実測 M-d) を弾くため、直前が `(` or `,` / 直後が `,` or `)` の形だけ認める。
-				const usedAsArg = new RegExp(`[(,]\\s*${name}\\s*[,)]`).test(
-					endpoint.code.slice((decl.index ?? 0) + decl[0].length),
+				const after = endpoint.code.slice((decl.index ?? 0) + decl[0].length);
+				// **service 呼び出しの引数位置にそのまま置かれている**ことを要求する。
+				// `f(a, b, scope ? null : null)` のような使ったふり (実測 M-d) は直前が `(`/`,`・
+				// 直後が `,`/`)` の形にならないので弾かれる。
+				const passedToService = serviceFns.some((fn) =>
+					new RegExp(`\\b${fn}\\s*\\([^)]*[(,]\\s*${name}\\s*[,)]`).test(after),
 				);
-				if (!usedAsArg) {
+				if (!passedToService) {
 					offenders.push(
-						`${endpoint.file}: ${name} が引数としてそのまま渡されていない (scope を捨てている)`,
+						`${endpoint.file}: ${name} が service 関数 (${serviceFns.join(' / ')}) の引数としてそのまま渡されていない`,
 					);
 				}
 			}
 		}
 		expect(
 			offenders,
-			'requireChildScope は「呼ぶ」ことではなく「戻り値を service へ渡す」ことに意味がある:\n  ' +
+			'requireChildScope は「呼ぶ」ことではなく「戻り値を service へ渡す」ことに意味がある。\n' +
+				'ただし本検査が見るのは **route が渡したか** までで、渡された service が実際に行の所有者を\n' +
+				'突合しているかは見ていない (それは service の unit test が担う):\n  ' +
 				offenders.join('\n  '),
 		).toEqual([]);
 	});
