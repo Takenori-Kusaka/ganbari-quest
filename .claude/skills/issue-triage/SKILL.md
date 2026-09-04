@@ -234,7 +234,7 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 `NAV_CATEGORIES` / `admin-ia.md` / 親管理画面ナビ / 子供画面ナビ 等のナビ階層を変更する場合:
 
 1. **過去設計整合性確認**: 関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等を grep で全件確認し、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記
-2. **ナビ 2 種の SSOT 確認**: `AdminLayout.svelte`（Desktop ドロップダウンと Mobile ボトムナビが同居）+ `BottomNav.svelte`（子供）を grep で網羅し、片方だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保
+2. **ナビゲーション面の SSOT 確認**: ナビを描画する面を grep で全件洗い出し、一部だけ変更する漏れがないか確認する（主な面: `AdminLayout.svelte` は Desktop ドロップダウンと Mobile ボトムナビが同居 / `BottomNav.svelte`（子供）/ 設定サブナビ / 運営者ナビ。ページ内タブ・パンくずも `<nav>` を持つので、固定の種類数で数えず grep 結果で判断する）。labels.ts SSOT 経由で 3 種同期反映を担保
 
 ### 起票時の判定フロー
 

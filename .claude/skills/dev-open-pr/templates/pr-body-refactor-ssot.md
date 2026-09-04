@@ -42,7 +42,7 @@ grep -r "<旧 path>" src/ tests/ site/ --include="*.{ts,svelte,html,js,mjs}"
 
 <!-- refactor では並行実装ペアの同期が最重要（`docs/design/parallel-implementations.md`） -->
 
-- [ ] **並行実装ペア**が同期されている（labels SSOT / 5 年齢モード / ナビ 3 種 / E2E・unit seed / チュートリアル）
+- [ ] **並行実装ペア**が同期されている（labels SSOT / 5 年齢モード / ナビゲーション面 / E2E・unit seed / チュートリアル）
 - [ ] **設計書同期** (ADR-0001): 移動先 path を設計書にも反映した
 - [ ] **LP ↔ アプリ整合** (ADR-0013)
 - [ ] **並行 PR overlap** 確認 (#1200)
