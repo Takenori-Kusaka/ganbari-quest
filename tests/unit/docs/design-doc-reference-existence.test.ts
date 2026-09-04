@@ -30,9 +30,15 @@
 //
 // # 検査していないこと (誇張しないための明示)
 //
-// **path 文字列が本文に現れることしか見ていない。** メソッド (GET/POST) / 認証 / リクエスト /
+// **path 文字列が本文に現れることしか見ていない。** メソッド (GET/POST) / 認証列 / リクエスト /
 // レスポンス仕様は無検査で、fenced code block 内も対象外。したがって本 test の緑は
 // 「ADR-0001 の Done 基準 (仕様が書かれていること) を満たした」ことを意味しない。
+// 具体的には **`/api/v1/admin/account/export` の認証列が `owner` から `不要` に書き換わっても
+// CI は気づかない** (PII を含む一括 export)。この残存リスクは PR #4854 の Accepted residual
+// に列挙してある — test コメントだけに置くと、docs を触る人の目に入らないため。
+//
+// **ディレクトリ参照は末尾 `/` が検査対象の目印**である (`src/lib/server/db/dsql/`)。
+// slash 無しで書くと今も素通りする。記法は `parallel-implementations.md` 冒頭にも明記した。
 //
 // # 対象を STRICT_DOCS に限る理由 (ratchet)
 //
