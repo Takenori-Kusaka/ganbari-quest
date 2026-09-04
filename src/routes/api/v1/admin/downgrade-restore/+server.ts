@@ -7,6 +7,7 @@
 
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { FEATURE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
 import { planLimitError } from '$lib/server/errors';
@@ -25,7 +26,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 		locals.context?.plan,
 	);
 	if (!isPaidTier(tier)) {
-		return planLimitError('standard', 'restore requires a paid plan', { tenantId, tier });
+		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+		return planLimitError('standard', FEATURE_LABELS.archiveRestore, { tenantId, tier });
 	}
 
 	await restoreArchivedResources(tenantId);

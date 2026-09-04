@@ -183,14 +183,6 @@
       "count": 2
     }
   },
-  "src/lib/features/demo/DemoGuideBar.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 3
-    },
-    "svelte/require-each-key": {
-      "count": 1
-    }
-  },
   "src/lib/features/loyalty/ChurnPreventionModal.svelte": {
     "svelte/require-each-key": {
       "count": 1
@@ -287,11 +279,6 @@
   "src/lib/ui/components/SiblingCategoryChart.svelte": {
     "svelte/require-each-key": {
       "count": 4
-    }
-  },
-  "src/lib/ui/components/SiblingCheerOverlay.svelte": {
-    "svelte/require-each-key": {
-      "count": 1
     }
   },
   "src/lib/ui/components/SiblingRanking.svelte": {
@@ -483,11 +470,6 @@
       "count": 3
     }
   },
-  "src/routes/(parent)/admin/packs/+page.svelte": {
-    "svelte/require-each-key": {
-      "count": 2
-    }
-  },
   "src/routes/(parent)/admin/points/+page.svelte": {
     "svelte/no-navigation-without-resolve": {
       "count": 1
@@ -573,9 +555,6 @@
   "src/routes/(parent)/admin/settings/data/+page.svelte": {
     "svelte/no-navigation-without-resolve": {
       "count": 2
-    },
-    "svelte/require-each-key": {
-      "count": 1
     }
   },
   "src/routes/(parent)/admin/settings/notifications/+page.svelte": {

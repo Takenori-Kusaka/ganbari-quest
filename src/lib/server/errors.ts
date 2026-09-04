@@ -25,6 +25,7 @@ export type ErrorCode =
 	| 'EXPORT_NOT_READY'
 	| 'EXPORT_FAILED'
 	| 'IMPORT_RESTORE_FAILED'
+	| 'EXPORT_DELETE_FAILED'
 	| 'INTERNAL_ERROR';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error';
@@ -148,6 +149,16 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		severity: 'error',
 		action: 'contact_admin',
 	},
+	// #4767 QM should: 保管実体 (S3) の削除に失敗して削除を中断した。DB 行は残っているため
+	// 一覧・保管枠・実体は食い違わない。500 にすると error-notify SSOT が「システムに問題が
+	// 発生しました」に潰し (ADR-0062 §内部例外非露出)、**データが残っていることが顧客に伝わらない**ので
+	// 409 (状態の競合) で返し、message と userMessage に同じ labels SSOT の文を載せる。
+	EXPORT_DELETE_FAILED: {
+		status: 409,
+		userMessage: SETTINGS_LABELS.cloudDeleteFailed,
+		severity: 'error',
+		action: 'retry',
+	},
 	INTERNAL_ERROR: {
 		status: 500,
 		userMessage: 'システムに問題が発生しました。しばらくしてからお試しください。',
@@ -178,7 +189,7 @@ export function apiError(code: ErrorCode, message: string, context?: Record<stri
 }
 
 /**
- * プラン制限による 403 を **要求 tier 込み**で返す (#4710)。
+ * プラン制限による 403 を **要求 tier 込み**で返す (#4710 / #4767 PO 回答 #4)。
  *
  * `apiError('PLAN_LIMIT_EXCEEDED', …)` は userMessage を `ERROR_DEFINITIONS` の固定文
  * (スタンダード以上の案内) から取るため、**プレミアム限定機能をスタンダード契約者が叩いても
@@ -186,30 +197,36 @@ export function apiError(code: ErrorCode, message: string, context?: Record<stri
  * 次の行動が取れない (実測: AI 提案 `POST /api/v1/activities/suggest`)。
  *
  * 呼び出し側は「その機能が何 tier を要求するか」を必ず知っている (gate 判定をしている当人)
- * ので、それを引数で受け取り userMessage を出し分ける。`PLAN_LIMIT_EXCEEDED` を
- * `apiError` で直接返す経路は `tests/unit/architecture/plan-limit-error-required-tier.test.ts`
- * が禁止する (同じ穴を別 endpoint で再生産させない)。
+ * ので、tier と機能名を引数で受け取り、顧客向け文言を labels SSOT (`PLAN_GATE_LABELS.
+ * requiredTierWithUpgradeFor`) で **1 本だけ**組み立てる。
+ *
+ * **顧客に届く文字列は `message` の 1 本** (#4767 PO 回答 #4)。旧実装は `message` (呼び出し側の
+ * 自由文字列 / 開発者向け) と `userMessage` (tier 別の固定文) を別々に持ち、client が実際に読む
+ * `message` にはアップグレード導線が載っていなかった。`userMessage` は同じ文字列の alias として残す
+ * (ADR-0062 の contract を読む既存 consumer 互換。別の文字列を入れる経路は無い —
+ * `tests/unit/architecture/plan-limit-error-required-tier.test.ts` が固定する)。
+ *
+ * `PLAN_LIMIT_EXCEEDED` を `apiError` で直接返す経路も同 test が禁止する。
  *
  * @param requiredTier その機能が要求する最低 tier
- * @param message 開発者向け (ログ / `error.message`)。顧客には出さない
+ * @param feature 機能名 (`FEATURE_LABELS` 等の labels SSOT から渡す)。route に日本語を直書きしない
+ * @param context ログに残す内訳 (tenantId / tier 等)。顧客には出さない
  */
 export function planLimitError(
 	requiredTier: 'standard' | 'family',
-	message: string,
+	feature: string,
 	context?: Record<string, unknown>,
 ) {
-	const userMessage =
-		requiredTier === 'family'
-			? PLAN_GATE_LABELS.familyLimitedGenericWithUpgrade
-			: PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade;
-	logger.warn(`[API] PLAN_LIMIT_EXCEEDED: ${message}`, { context: { ...context, requiredTier } });
+	const message = PLAN_GATE_LABELS.requiredTierWithUpgradeFor(feature, requiredTier);
+	logger.warn(`[API] PLAN_LIMIT_EXCEEDED: ${feature}`, { context: { ...context, requiredTier } });
 	const def = ERROR_DEFINITIONS.PLAN_LIMIT_EXCEEDED;
 	return json(
 		{
 			error: {
 				code: 'PLAN_LIMIT_EXCEEDED',
 				message,
-				userMessage,
+				/** @deprecated `message` と常に同一。読む側は `message` を使う (#4767 PO 回答 #4) */
+				userMessage: message,
 				severity: def.severity,
 				action: def.action,
 			},
@@ -233,23 +250,24 @@ export function planLimitError(
  * status / code は `planLimitError` と同じ 403 / `PLAN_LIMIT_EXCEEDED` を保つ (枠を決めるのは
  * プランなので client の分岐条件は変わらない)。変えるのは顧客に見える文言だけ。
  *
- * `message` にも同じ文言を入れる: `message` は本来開発者向けだが、admin 設定画面は
+ * 顧客に届く文字列は `message` の 1 本 (#4767 PO 回答 #4): admin 設定画面は
  * `resolveApiErrorMessage(status, d.error.message)` で **`message` の方を表示している**ため、
  * ここに開発者向け文字列を入れると顧客側だけ generic 文言に落ちる。内訳 (current / max) は
- * `context` に入れてログにだけ残す。
+ * `context` に入れてログにだけ残す。`userMessage` は同じ文字列の alias。
  *
- * @param userMessage 顧客向け文言。**必ず `PLAN_GATE_LABELS` 等の labels SSOT 経由で渡す** (ADR-0045)
+ * @param message 顧客向け文言。**必ず `PLAN_GATE_LABELS` 等の labels SSOT 経由で渡す** (ADR-0045)
  * @param context ログに残す内訳 (current / max / tenantId 等)。顧客には出さない
  */
-export function quotaLimitError(userMessage: string, context?: Record<string, unknown>) {
-	logger.warn(`[API] PLAN_LIMIT_EXCEEDED (quota): ${userMessage}`, { context });
+export function quotaLimitError(message: string, context?: Record<string, unknown>) {
+	logger.warn(`[API] PLAN_LIMIT_EXCEEDED (quota): ${message}`, { context });
 	const def = ERROR_DEFINITIONS.PLAN_LIMIT_EXCEEDED;
 	return json(
 		{
 			error: {
 				code: 'PLAN_LIMIT_EXCEEDED',
-				message: userMessage,
-				userMessage,
+				message,
+				/** @deprecated `message` と常に同一。読む側は `message` を使う (#4767 PO 回答 #4) */
+				userMessage: message,
 				severity: def.severity,
 				action: def.action,
 			},

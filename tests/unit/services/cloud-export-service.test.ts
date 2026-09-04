@@ -2,7 +2,10 @@
 // クラウドエクスポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_SERVER_MESSAGE_LENGTH } from '$lib/domain/errors';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
+import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import { sanitizeServerMessage } from '$lib/ui/error-notify';
 
 // テスト用グローバル制御変数
 let mockAuthMode = 'cognito';
@@ -133,6 +136,8 @@ vi.mock('$lib/server/db/factory', () => ({
 
 // SUT
 import {
+	CloudExportDeleteFailedError,
+	CloudExportNotFoundError,
 	CloudExportPlanGateError,
 	CloudExportQuotaError,
 	cleanupExpiredExports,
@@ -289,7 +294,7 @@ describe('cloud-export-service', () => {
 			);
 
 			expect(err.requiredTier).toBe('standard');
-			expect(err.userMessage).toContain('スタンダードプラン以上');
+			expect(err.message).toContain('スタンダードプラン以上');
 		});
 
 		it('保管数上限は CloudExportQuotaError (プラン未達ではない)', async () => {
@@ -300,6 +305,7 @@ describe('cloud-export-service', () => {
 					tenantId: 'tenant-1',
 					pinCode: `00000${i}`,
 					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-01T00:00:00.000Z',
 					downloadCount: 0,
 					maxDownloads: 3,
 					status: 'ready',
@@ -323,6 +329,7 @@ describe('cloud-export-service', () => {
 					tenantId: 'tenant-1',
 					pinCode: `00000${i}`,
 					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-01T00:00:00.000Z',
 					downloadCount: 0,
 					maxDownloads: 3,
 					status: 'ready',
@@ -339,10 +346,10 @@ describe('cloud-export-service', () => {
 
 			expect(err.current).toBe(3);
 			expect(err.max).toBe(3);
-			expect(err.userMessage).toContain('削除');
+			expect(err.message).toContain('削除');
 			// standard で契約済みの顧客にプラン案内をしない (これが #4710 の症状)
-			expect(err.userMessage).not.toContain('スタンダードプラン以上');
-			expect(err.userMessage).not.toContain('アップグレード');
+			expect(err.message).not.toContain('スタンダードプラン以上');
+			expect(err.message).not.toContain('アップグレード');
 		});
 
 		it('family (最上位) でも保管上限に達しうる — 上げ先が無いのでプラン案内は誤り (#4710)', async () => {
@@ -353,6 +360,7 @@ describe('cloud-export-service', () => {
 					tenantId: 'tenant-1',
 					pinCode: `00000${i}`,
 					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-01T00:00:00.000Z',
 					downloadCount: 0,
 					maxDownloads: 3,
 					status: 'ready',
@@ -369,7 +377,326 @@ describe('cloud-export-service', () => {
 			);
 
 			expect(err.max).toBe(10);
-			expect(err.userMessage).not.toContain('アップグレード');
+			expect(err.message).not.toContain('アップグレード');
+		});
+
+		it('上限のエラーは「どれを消せばいいか」を名指しする (失敗 → 使い切り → 作成が古い順、#4767 PO 回答 #3)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				// 取り出せる行 (新しい) — 候補としては最後
+				{
+					id: 'live',
+					tenantId: 'tenant-1',
+					pinCode: 'AAA222',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-02T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				// DL 回数を使い切った行 — 2 番目
+				{
+					id: 'exhausted',
+					tenantId: 'tenant-1',
+					pinCode: 'BBB333',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-01T00:00:00.000Z',
+					downloadCount: 3,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				// build 失敗行 — 最優先の候補
+				{
+					id: 'failed',
+					tenantId: 'tenant-1',
+					pinCode: 'CCC444',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-08-31T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'failed',
+				},
+			]);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			// #4767 QM must: 消しても損の無い行 (失敗 → 使い切り) **だけ** を、その順で名指しする。
+			// まだ取り出せる共有 (AAA222) は候補に混ぜない (ワンクリックで失わせない)。
+			expect(err.candidates.map((c) => c.pinCode)).toEqual(['CCC444', 'BBB333']);
+			for (const pin of ['CCC444', 'BBB333']) {
+				expect(err.message).toContain(pin);
+			}
+			expect(err.message).not.toContain('AAA222');
+			expect(err.namesLiveShares).toBe(false);
+			// 状態も文言に出る (何が起きている行なのかが分かる)
+			expect(err.message).toContain(SETTINGS_LABELS.cloudRowStateFailed);
+			expect(err.message).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+			// 契約済みの顧客にプラン案内をしない (#4710 の症状の回帰固定)
+			expect(err.message).not.toContain('アップグレード');
+		});
+
+		it('上限のエラーに載せる候補は 3 件までに絞る (画面側の 200 字上限で切れないため、#4767)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `live-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `P0000${i}`,
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: `2026-08-2${i}T00:00:00.000Z`,
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				})),
+			);
+			mockPlanTier = 'family';
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			// 予算内に収まる件数まで自動で減る (#4767 QM: 切られて候補が消えるより、少なく挙げて全部読める)
+			expect(err.candidates.length).toBeGreaterThan(0);
+			expect(err.candidates.length).toBeLessThanOrEqual(3);
+			expect(err.message.length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_LENGTH);
+			// 全行が「まだ取り出せる共有」なので、失われることを明示する文言になる (#4767 QM must)
+			expect(err.namesLiveShares).toBe(true);
+			expect(err.message).toContain('元に戻せません');
+		});
+
+		it('削除で枠が空けば次の起票が通る (削除 → 即座に枠が戻る、#4767 PO 回答 #3)', async () => {
+			const full = Array.from({ length: 3 }, (_, i) => ({
+				id: `live-${i}`,
+				tenantId: 'tenant-1',
+				pinCode: `00000${i}`,
+				expiresAt: '2999-01-01T00:00:00.000Z',
+				createdAt: '2026-09-01T00:00:00.000Z',
+				downloadCount: 3,
+				maxDownloads: 3,
+				status: 'ready',
+			}));
+			// 1 回目: 3 / 3 で埋まっているので 403 相当の quota error
+			mockCloudExportRepo.findByTenant.mockResolvedValueOnce(full);
+			await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			// 顧客が 1 件削除する
+			mockCloudExportRepo.findById.mockResolvedValue({
+				id: 'live-0',
+				s3Key: 'exports/tenant-1/000000/data.json',
+			});
+			await deleteCloudExport('live-0', 'tenant-1');
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('live-0', 'tenant-1');
+
+			// 2 回目: 残り 2 件なので起票できる (枠が戻っている)
+			mockCloudExportRepo.findByTenant.mockResolvedValueOnce(full.slice(1));
+			const result = await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			});
+			expect(result.status).toBe('pending');
+		});
+
+		it('消しても損の無い行が 1 つも無いときだけ、まだ取り出せる共有を挙げ「元に戻せない」と言う (#4767 QM must)', async () => {
+			// live のみ 3 件 (作成日は新→古の順で与え、古い順に並ぶことも確かめる)
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{
+					id: 'new',
+					tenantId: 'tenant-1',
+					pinCode: 'NEW111',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-03T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				{
+					id: 'mid',
+					tenantId: 'tenant-1',
+					pinCode: 'MID222',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-02T00:00:00.000Z',
+					downloadCount: 1,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				{
+					id: 'old',
+					tenantId: 'tenant-1',
+					pinCode: 'OLD333',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-09-01T00:00:00.000Z',
+					downloadCount: 2,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+			]);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			expect(err.namesLiveShares).toBe(true);
+			// 古い順に挙げる
+			expect(err.candidates.map((c) => c.pinCode)).toEqual(['OLD333', 'MID222', 'NEW111']);
+			// 失われることを明示する (「削除の候補」とだけ言わない)
+			expect(err.message).toContain('元に戻せません');
+			expect(err.message).toContain('ダウンロードできる共有');
+			// 契約済みの顧客にプラン案内はしない (#4710 の回帰固定)
+			expect(err.message).not.toContain('アップグレード');
+		});
+
+		it('使えない行が 1 件でもあれば、まだ取り出せる共有は候補に混ざらない (#4767 QM must)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{
+					id: 'live-1',
+					tenantId: 'tenant-1',
+					pinCode: 'LIVE11',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-08-01T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				{
+					id: 'live-2',
+					tenantId: 'tenant-1',
+					pinCode: 'LIVE22',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-08-02T00:00:00.000Z',
+					downloadCount: 0,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+				{
+					id: 'dead',
+					tenantId: 'tenant-1',
+					pinCode: 'DEAD33',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					createdAt: '2026-08-03T00:00:00.000Z',
+					downloadCount: 3,
+					maxDownloads: 3,
+					status: 'ready',
+				},
+			]);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			expect(err.candidates.map((c) => c.pinCode)).toEqual(['DEAD33']);
+			expect(err.namesLiveShares).toBe(false);
+			expect(err.message).not.toContain('LIVE11');
+			expect(err.message).not.toContain('LIVE22');
+		});
+
+		/**
+		 * #4767 QM: **画面に出る前に切られていないこと**を、最長の現実ケースで固定する。
+		 *
+		 * `sanitizeServerMessage` は 200 字で切って `…` を付ける。切られると末尾の「削除の候補」が
+		 * 途中で消え、この PR の中心的価値 (どれを消せばいいかの名指し) が静かに落ちる。
+		 * 最長ケース = 最長の状態語 (「ダウンロード回数を使い切りました」) × 上限件数 ×
+		 * 2 桁上限 (family=10) × 最長の日付表記。
+		 */
+		it('最長ケースでも画面表示で切り詰められない (候補の名指しが消えない)', async () => {
+			mockPlanTier = 'family';
+			// 全件「使い切り」= 状態語が最長。10 件与えて候補選択と予算調整の両方を通す
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `x-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `ZZZZZ${i}`,
+					expiresAt: '2999-12-31T00:00:00.000Z',
+					createdAt: `2026-12-3${i % 2}T23:59:59.000Z`,
+					downloadCount: 5,
+					maxDownloads: 5,
+					status: 'ready',
+				})),
+			);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			// 予算内 = 画面の sanitize を通しても 1 文字も変わらない (切り詰めも省略記号も起きない)
+			expect(err.message.length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_LENGTH);
+			expect(sanitizeServerMessage(err.message)).toBe(err.message);
+			expect(err.message).not.toContain('…');
+			// 名指しは残っている (0 件に潰れて「候補なし」に落ちていない)
+			expect(err.candidates.length).toBeGreaterThan(0);
+			for (const c of err.candidates) {
+				// PIN が末尾で欠けず完全な形で出ている
+				expect(err.message).toContain(c.pinCode);
+			}
+			// 状態語も欠けていない (候補 1 件分が丸ごと入っている)
+			expect(err.message).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+		});
+
+		it('候補が 1 件も予算に入らないときは候補なしの完全な文に落とす (途中で切れた文を出さない)', async () => {
+			mockPlanTier = 'family';
+			// 現実にはあり得ない長さの description ではなく、候補文字列そのものを長くする代わりに
+			// 「予算に入らない」状況を作るため、状態語 + 日付 + PIN が最長の行を大量に用意する。
+			// buildQuotaMessageWithinBudget は 1 件も入らなければ候補なしの文に落とす。
+			const base = PLAN_GATE_LABELS.cloudExportLimitReached(10);
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `y-${i}`,
+					tenantId: 'tenant-1',
+					// 長い PIN (実装は 6 桁だが、将来伸ばしても切れた文を出さないことを固定する)
+					pinCode: `PIN${'X'.repeat(120)}${i}`,
+					expiresAt: '2999-12-31T00:00:00.000Z',
+					createdAt: '2026-12-31T23:59:59.000Z',
+					downloadCount: 5,
+					maxDownloads: 5,
+					status: 'ready',
+				})),
+			);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			expect(err.message).toBe(base);
+			expect(err.candidates).toHaveLength(0);
+			expect(err.namesLiveShares).toBe(false);
+			expect(sanitizeServerMessage(err.message)).toBe(err.message);
 		});
 
 		it('PINコードは6文字の英数字', async () => {
@@ -623,93 +950,77 @@ describe('cloud-export-service', () => {
 		});
 	});
 
-	describe('listCloudExports', () => {
-		it('有効なエクスポートのみ返す', async () => {
+	describe('listCloudExports (#4767 PO 回答 #3: 枠を占有している全行を状態付きで返す)', () => {
+		/** 期限内 (枠を占有) の行を作る。 */
+		function row(over: Record<string, unknown>) {
 			const future = new Date();
 			future.setDate(future.getDate() + 3);
+			return {
+				id: 'x',
+				tenantId: 'tenant-1',
+				pinCode: 'ABC234',
+				expiresAt: future.toISOString(),
+				createdAt: '2026-09-01T00:00:00.000Z',
+				downloadCount: 0,
+				maxDownloads: 10,
+				status: 'ready',
+				...over,
+			};
+		}
+
+		it('期限切れだけを除外し、DL 使い切り / 失敗も枠を占有する行として返す', async () => {
 			const past = new Date();
 			past.setDate(past.getDate() - 1);
-
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
-				{
-					id: '1',
-					expiresAt: future.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-				},
-				{
-					id: '2',
-					expiresAt: past.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-				},
-				{
-					id: '3',
-					expiresAt: future.toISOString(),
-					downloadCount: 10,
-					maxDownloads: 10,
-				},
+				row({ id: '1' }),
+				// 期限切れ: 枠を占有しないので除外 (cleanup 済み扱い)
+				row({ id: '2', expiresAt: past.toISOString() }),
+				// DL 回数を使い切った行: S3 に PII ZIP が残るので枠を占有する = 一覧に出して消せるようにする
+				row({ id: '3', downloadCount: 10 }),
 			]);
 
 			const result = await listCloudExports('tenant-1');
 
-			expect(result).toHaveLength(1);
-			expect(result[0]?.id).toBe('1');
+			expect(result.map((e) => e.id).sort()).toEqual(['1', '3']);
+			expect(result.find((e) => e.id === '1')?.rowState).toBe('downloadable');
+			expect(result.find((e) => e.id === '3')?.rowState).toBe('exhausted');
 		});
 
-		it('#3504: pending/building/failed も (期限内なら) 生成状況として返す', async () => {
-			const future = new Date();
-			future.setDate(future.getDate() + 3);
+		it('全状態に表示用の rowState が付く (生成待ち / 生成中 / 失敗 / 使い切り / DL 可、旧行は ready 扱い)', async () => {
 			const past = new Date();
 			past.setDate(past.getDate() - 1);
-
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
-				// pending: DL 上限に関係なく表示
-				{
-					id: '1',
-					expiresAt: future.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-					status: 'pending',
-				},
-				// building: 表示
-				{
-					id: '2',
-					expiresAt: future.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-					status: 'building',
-				},
-				// failed: 表示
-				{
-					id: '3',
-					expiresAt: future.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-					status: 'failed',
-				},
-				// ready かつ DL 上限到達: 除外
-				{
-					id: '4',
-					expiresAt: future.toISOString(),
-					downloadCount: 10,
-					maxDownloads: 10,
-					status: 'ready',
-				},
+				row({ id: '1', status: 'pending' }),
+				row({ id: '2', status: 'building' }),
+				row({ id: '3', status: 'failed' }),
+				row({ id: '4', status: 'ready', downloadCount: 10 }),
 				// 期限切れ pending: 除外
-				{
-					id: '5',
-					expiresAt: past.toISOString(),
-					downloadCount: 0,
-					maxDownloads: 10,
-					status: 'pending',
-				},
-				// status 未設定 (旧行) は ready 扱い: 表示
-				{ id: '6', expiresAt: future.toISOString(), downloadCount: 0, maxDownloads: 10 },
+				row({ id: '5', status: 'pending', expiresAt: past.toISOString() }),
+				// status 未設定 (旧行) は ready 扱い
+				row({ id: '6', status: undefined }),
 			]);
 
-			const ids = (await listCloudExports('tenant-1')).map((e) => e.id).sort();
-			expect(ids).toEqual(['1', '2', '3', '6']);
+			const byId = new Map((await listCloudExports('tenant-1')).map((e) => [e.id, e.rowState]));
+
+			expect([...byId.keys()].sort()).toEqual(['1', '2', '3', '4', '6']);
+			expect(byId.get('1')).toBe('pending');
+			expect(byId.get('2')).toBe('building');
+			expect(byId.get('3')).toBe('failed');
+			expect(byId.get('4')).toBe('exhausted');
+			expect(byId.get('6')).toBe('downloadable');
+		});
+
+		it('自動削除までの残日数を JST 暦日で返す (プロセス TZ に依存しない)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				row({ id: '1', expiresAt: '2026-09-10T00:00:00.000Z' }),
+				row({ id: '2', expiresAt: '2026-09-04T00:00:00.000Z' }),
+			]);
+
+			// JST 2026-09-03 12:00 (= UTC 03:00) 時点で判定する
+			const result = await listCloudExports('tenant-1', new Date('2026-09-03T03:00:00.000Z'));
+
+			expect(result.find((e) => e.id === '1')?.daysUntilAutoDelete).toBe(7);
+			expect(result.find((e) => e.id === '2')?.daysUntilAutoDelete).toBe(1);
 		});
 	});
 
@@ -722,29 +1033,42 @@ describe('cloud-export-service', () => {
 
 			await deleteCloudExport('1', 'tenant-1');
 
+			// #4767 QM must: この経路だけ fail-closed (strict) を opt-in する。
+			// 退会など他の呼び出し元は既定 (tolerant) のままでなければ不可逆フローが途中で壊れる。
 			expect(mockStorageRepo.purgeByPrefix).toHaveBeenCalledWith(
 				'exports/tenant-1/ABC123/data.json',
+				{ failOnPartialError: true },
 			);
 			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
 		});
 
-		it('存在しないエクスポートの削除はエラーになる', async () => {
+		it('存在しないエクスポートの削除は CloudExportNotFoundError (route が型で 404 に写像できる、#4767)', async () => {
 			mockCloudExportRepo.findById.mockResolvedValue(null);
 
-			await expect(deleteCloudExport('999', 'tenant-1')).rejects.toThrow('見つかりません');
+			const err = await rejectionOf(deleteCloudExport('999', 'tenant-1'), CloudExportNotFoundError);
+			// 顧客に出る文言は labels SSOT 経由 (route はこれを 404 の message に載せる)
+			expect(err.message).toBe(SETTINGS_LABELS.cloudDeleteAlreadyGone);
+			// 見つからない = 消す対象が無いので DB / S3 には触らない
+			expect(mockCloudExportRepo.deleteById).not.toHaveBeenCalled();
+			expect(mockStorageRepo.purgeByPrefix).not.toHaveBeenCalled();
 		});
 
-		it('S3削除失敗はログのみで続行する', async () => {
+		it('保管実体の削除に失敗したら DB 行を残したまま失敗を返す (孤児 PII を作らない、#4767 QM should)', async () => {
 			mockCloudExportRepo.findById.mockResolvedValue({
 				id: '1',
 				s3Key: 'exports/tenant-1/ABC123/data.json',
 			});
-			mockStorageRepo.purgeByPrefix.mockRejectedValue(new Error('S3 error'));
+			mockStorageRepo.purgeByPrefix.mockRejectedValueOnce(new Error('S3 error'));
 
-			await deleteCloudExport('1', 'tenant-1');
+			const err = await rejectionOf(
+				deleteCloudExport('1', 'tenant-1'),
+				CloudExportDeleteFailedError,
+			);
 
-			// DB側の削除は実行される
-			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
+			// 顧客には「消えていない」ことが伝わる文言を返す (黙って成功にしない)
+			expect(err.message).toBe(SETTINGS_LABELS.cloudDeleteFailed);
+			// 旧実装はここで DB 行だけ消し、S3 に完全 PII の ZIP を孤児として残していた
+			expect(mockCloudExportRepo.deleteById).not.toHaveBeenCalled();
 		});
 	});
 

@@ -3,6 +3,7 @@
 // 旧配置は dynamodb/ だが DynamoDB 依存はゼロ (@aws-sdk/client-s3 のみ)。dsql/pglite/dynamodb
 // いずれの backend でも本 S3 実装を共有する (factory.ts が注入)。
 
+import { logger } from '$lib/server/logger';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
 const ASSETS_BUCKET = process.env.ASSETS_BUCKET ?? '';
@@ -153,7 +154,7 @@ export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => 
  * ListObjectVersions は 1 ページ最大 1000 件を Versions / DeleteMarkers の 2 配列で返す。
  * 両方消さないと delete marker だけが残り続ける (中身は無いがオブジェクトとして列挙される)。
  */
-export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix) => {
+export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix, opts) => {
 	const { DeleteObjectsCommand, ListObjectVersionsCommand } = await import('@aws-sdk/client-s3');
 	const client = await getS3Client();
 	let totalDeleted = 0;
@@ -175,13 +176,33 @@ export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix) => {
 			.map((v) => ({ Key: v.Key as string, VersionId: v.VersionId as string }));
 
 		if (targets.length > 0) {
-			await client.send(
+			const deleteResult = await client.send(
 				new DeleteObjectsCommand({
 					Bucket: ASSETS_BUCKET,
 					Delete: { Objects: targets },
 				}),
 			);
-			totalDeleted += targets.length;
+			// #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。AccessDenied /
+			// object lock / MFA delete で消せなかったものは HTTP 200 の応答本文の `Errors[]` に
+			// 並ぶだけなので、ここを見ないと「消せていないのに全件削除できた」と報告してしまう。
+			//
+			// 既定は **tolerant** (#4767 QM must): error ログに出したうえで続行し、成功分だけ数える。
+			// 退会 (account-deletion-service) はこの呼び出しを try/catch で包んでおらず、直前に
+			// 削除記録の書き込みとサブスク解約を終えているため、ここで throw すると**不可逆な
+			// 退会フローが途中で壊れる** (直そうとした障害より悪い)。
+			// `failOnPartialError` を渡した呼び出しだけ fail-closed にする (クラウド共有の削除)。
+			const errors = deleteResult?.Errors ?? [];
+			if (errors.length > 0) {
+				const detail = errors
+					.slice(0, 3)
+					.map((e) => `${e.Key ?? '?'}:${e.Code ?? '?'}`)
+					.join(', ');
+				const summary = `S3 purge partially failed: ${errors.length}/${targets.length} objects remain (${detail})`;
+				if (opts?.failOnPartialError) throw new Error(summary);
+				// silent にしない (ADR-0006): 消えていない実体が残ったことを必ず記録する。
+				logger.error(`[s3-storage] ${summary}`);
+			}
+			totalDeleted += targets.length - errors.length;
 		}
 
 		keyMarker = listResult.IsTruncated ? listResult.NextKeyMarker : undefined;

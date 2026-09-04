@@ -6,7 +6,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ExportData } from '$lib/domain/export-format';
 import { asChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import { FEATURE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError, planLimitError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -31,7 +31,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
 	);
 	if (!limits.canExport) {
-		return planLimitError('standard', PLAN_GATE_LABELS.standardOrAboveFor('エクスポート機能'));
+		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+		return planLimitError('standard', FEATURE_LABELS.dataExport);
 	}
 
 	const childIdsParam = url.searchParams.get('childIds');

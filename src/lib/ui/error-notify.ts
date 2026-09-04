@@ -15,6 +15,7 @@
 //   - 文言は labels.ts (ERROR_NOTIFY_LABELS) に SSOT 化。
 
 import type { ActionResult } from '@sveltejs/kit';
+import { MAX_SERVER_MESSAGE_LENGTH as MAX_SERVER_MESSAGE_LENGTH_SSOT } from '$lib/domain/errors';
 import { ERROR_NOTIFY_LABELS, type ErrorNotifyLabelSet } from '$lib/domain/labels';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
@@ -38,8 +39,12 @@ export interface ApiErrorResult {
 	status?: number;
 }
 
-/** 4xx serverMessage の最大表示長 (#3225: layout-break / info-disclosure 余地を抑える)。 */
-export const MAX_SERVER_MESSAGE_LENGTH = 200;
+/**
+ * 4xx serverMessage の最大表示長 (#3225: layout-break / info-disclosure 余地を抑える)。
+ * 実体は `$lib/domain/errors` (#4767 QM): 文を組み立てる server 側も同じ予算を見る必要があるため、
+ * client 専用だった定数を domain へ移し、ここは後方互換の re-export にした。
+ */
+export const MAX_SERVER_MESSAGE_LENGTH = MAX_SERVER_MESSAGE_LENGTH_SSOT;
 
 // ユーザ向け文言は labels.ts SSOT のとおり日本語。ひらがな / カタカナ / 漢字 / 半角カナの
 // いずれも含まない 4xx body は内部識別子 (例: 'INVALID_PLAN' / 'ValidationException') や

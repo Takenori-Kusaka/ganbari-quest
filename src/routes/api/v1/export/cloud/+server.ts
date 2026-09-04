@@ -74,11 +74,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		//   上限 = 契約中でも枠が埋まれば起きる → 次の行動は古いものを削除
 		// 旧実装は両方を message の部分一致で拾って planLimitError('standard') に潰していたため、
 		// 既にスタンダード契約の顧客にも「スタンダードプラン以上でご利用いただけます」と返していた。
+		// 顧客に届く文字列は `message` の 1 本 (#4767 PO 回答 #4): 機能名 + 要求 tier + 導線を
+		// errors.ts の helper が labels SSOT で組み立てる。ここで別の文字列を渡さない。
 		if (err instanceof CloudExportPlanGateError) {
-			return planLimitError(err.requiredTier, err.userMessage, { tenantId });
+			return planLimitError(err.requiredTier, err.feature, { tenantId });
 		}
 		if (err instanceof CloudExportQuotaError) {
-			return quotaLimitError(err.userMessage, { tenantId, current: err.current, max: err.max });
+			// #4767 PO 回答 #3: どれを消せばいいかを名指しした文言 (service が組み立て済み)
+			return quotaLimitError(err.message, { tenantId, current: err.current, max: err.max });
 		}
 		const msg = err instanceof Error ? err.message : String(err);
 		logger.error('[cloud-export] 作成失敗', { error: msg });

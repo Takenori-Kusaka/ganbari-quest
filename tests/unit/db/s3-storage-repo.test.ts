@@ -33,6 +33,11 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 	getSignedUrl: mockGetSignedUrl,
 }));
 
+const { loggerError } = vi.hoisted(() => ({ loggerError: vi.fn() }));
+vi.mock('$lib/server/logger', () => ({
+	logger: { error: loggerError, warn: vi.fn(), info: vi.fn() },
+}));
+
 afterEach(() => {
 	vi.clearAllMocks();
 });
@@ -121,6 +126,91 @@ describe('s3 storage-repo purgeByPrefix (#4724)', () => {
 		];
 		expect(secondList.input.KeyMarker).toBe('tenants/t1/a');
 		expect(secondList.input.VersionIdMarker).toBe('v1');
+	});
+
+	/**
+	 * #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。
+	 *
+	 * AccessDenied / object lock / MFA delete で消せなかったオブジェクトは HTTP 200 の応答本文の
+	 * `Errors[]` に並ぶだけで、SDK は throw しない。ここを見ないと「一部残っているのに全件削除できた」
+	 * と報告し、呼び出し元 (クラウド共有の削除 / 退会の完全削除) は **完全 PII の実体が S3 に残ったまま**
+	 * DB 行を消す。以後どの画面からも辿れない孤児になり、退会の「完全削除」の約束も静かに破れる。
+	 */
+	it('failOnPartialError 指定時は 200 応答でも Errors[] があれば投げる (部分削除を成功と報告しない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' },
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v2' },
+				],
+				IsTruncated: false,
+			})
+			// HTTP 200 だが 1 件は消せていない (これが S3 の通常の返し方)
+			.mockResolvedValueOnce({
+				Deleted: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				Errors: [
+					{
+						Key: 'exports/t1/ABC234/backup.zip',
+						VersionId: 'v2',
+						Code: 'AccessDenied',
+						Message: 'Access Denied',
+					},
+				],
+			});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		await expect(purgeByPrefix('exports/t1/ABC234/', { failOnPartialError: true })).rejects.toThrow(
+			/purge partially failed/i,
+		);
+	});
+
+	/**
+	 * #4767 QM must: **既定は tolerant のまま**。
+	 *
+	 * 退会 (`account-deletion-service` の 2 経路) はこの呼び出しを try/catch で包んでおらず、
+	 * 直前に削除記録の書き込みとサブスク解約を終えている。ここで throw すると不可逆な退会フローが
+	 * 途中で壊れる — 直そうとした障害 (孤児 PII) より悪い。
+	 * 既定では error ログに残したうえで続行し、**成功した分だけ**を件数に数える。
+	 */
+	it('既定 (opts なし) は投げずに続行し、成功した分だけ数える + error ログを残す', async () => {
+		loggerError.mockClear();
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v1' },
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v2' },
+					{ Key: 'tenants/t1/b.webm', VersionId: 'v3' },
+				],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({
+				Deleted: [
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v1' },
+					{ Key: 'tenants/t1/b.webm', VersionId: 'v3' },
+				],
+				Errors: [{ Key: 'tenants/t1/a.webp', VersionId: 'v2', Code: 'AccessDenied' }],
+			});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		// 投げない = 呼び出し元 (退会) のフローは続く
+		expect(await purgeByPrefix('tenants/t1/')).toBe(2);
+		// silent にしない (ADR-0006): 消えていない実体があったことは必ず記録する
+		expect(loggerError).toHaveBeenCalledWith(expect.stringContaining('purge partially failed'));
+	});
+
+	it('Errors[] が空なら strict でも成功として件数を返す (上の test が無条件 throw でないことの対照)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({ Deleted: [{ Key: 'exports/t1/ABC234/backup.zip' }], Errors: [] });
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		expect(await purgeByPrefix('exports/t1/ABC234/', { failOnPartialError: true })).toBe(1);
 	});
 
 	// 通常削除は「戻せる削除」のまま。ここが purge に変わると子供の削除が復元不能になる。
