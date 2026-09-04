@@ -103,14 +103,6 @@ jobs:
             deps:
               - 'package.json'
               - 'package-lock.json'
-              # #4859 adversarial: .storybook/main.ts は framework: '@storybook/sveltekit' なので
-              # builder の入力は svelte.config.js / vite.config.ts。filter が .storybook/** を
-              # 含みながら「その .storybook が読むもの」を含まないと、コンパイル結果を変える
-              # 変更が build check を素通りする (package.json と同じ穴)
-              - 'svelte.config.js'
-              - 'vite.config.ts'
-              - 'tsconfig.json'
-              - 'src/app.html'
               - 'scripts/native-dep-smoke.mjs'
               - 'scripts/check-native-dep-pin.mjs'
               # #3298: 高権限 GitHub Actions の SHA pin gate (workflow / guard 変更で再検査)
@@ -134,6 +126,14 @@ jobs:
               #  develop 宛 PR で Storybook を焼く唯一の機会がこの build check)
               - 'package.json'
               - 'package-lock.json'
+              # #4859 adversarial: .storybook/main.ts は framework: '@storybook/sveltekit' なので
+              # builder の入力は svelte.config.js / vite.config.ts。filter が .storybook/** を
+              # 含みながら「その .storybook が読むもの」を含まないと、コンパイル結果を変える
+              # 変更が build check を素通りする (package.json と同じ穴)
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'src/app.html'
             # #1543: 認証・課金・プラン関連ファイルのみ e2e-cognito-dev を起動する
             cognito:
               # 認証コア
