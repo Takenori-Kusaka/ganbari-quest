@@ -146,8 +146,14 @@ if (!editChildAction) {
 
 const CHILD_ID = 'c-1';
 
-/** 保存値の検証を暦に依存させないための固定日 (JST SSOT、#4015)。7 歳 → 推定 2019-01-01 */
+/** 保存値の検証を暦に依存させないための固定日 (JST SSOT、#4015)。7 歳 -> 推定 2019-01-01 */
 const TODAY_JST = '2026-09-04';
+/** 変更前の行が持つ実誕生日。`existingChild()` と書き込み変換の `current` を同じ値から導く */
+const EXISTING_BIRTH_DATE = '2019-05-01';
+const STORED_ROW_BEFORE_CLEAR = {
+	birthDate: EXISTING_BIRTH_DATE,
+	birthDateEstimated: false,
+} as const;
 
 function existingChild(birthDate: string | null) {
 	return {
@@ -197,7 +203,7 @@ afterEach(() => cleanup());
 
 describe('#4729 [A] editChild action は誕生日が消えたときだけ birthdayCleared を返す', () => {
 	it('実誕生日があった子の誕生日欄を空にして保存 → birthdayCleared: true', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		const result = (await editChildAction(clearBirthdayForm())) as Record<string, unknown>;
 
@@ -206,7 +212,7 @@ describe('#4729 [A] editChild action は誕生日が消えたときだけ birthd
 	});
 
 	it('誕生日を入れ直した保存では出ない (消えていない)', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		const result = (await editChildAction(
 			createEvent({
@@ -231,7 +237,7 @@ describe('#4729 [A] editChild action は誕生日が消えたときだけ birthd
 	});
 
 	it('誕生日欄を送らない編集 (年齢だけ) では出ない', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		const result = (await editChildAction(createEvent({ childId: CHILD_ID, age: '8' }))) as Record<
 			string,
@@ -245,7 +251,7 @@ describe('#4729 [A] editChild action は誕生日が消えたときだけ birthd
 
 describe('#4729 [B] 誕生日を消した保存で DB に何が書かれるか', () => {
 	it('service には birthDate: null と画面が送った年齢が渡る', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		await editChildAction(clearBirthdayForm());
 
@@ -261,14 +267,14 @@ describe('#4729 [B] 誕生日を消した保存で DB に何が書かれるか',
 	// 上の test は mock された repo の引数までしか見ておらず、その 1 層下で起きることを
 	// 一度も検証していなかった (adversarial review must 1)。
 	it('実誕生日は破棄され、その年齢の推定誕生日 (1/1) に置き換わる', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		await editChildAction(clearBirthdayForm());
 		const [, input] = mockUpdateChild.mock.calls[0] as [unknown, Record<string, unknown>];
 
 		const written = resolveBirthDateForUpdate(
 			input as { age?: number; birthDate?: string | null },
-			{ birthDate: '2019-05-01', birthDateEstimated: false },
+			STORED_ROW_BEFORE_CLEAR,
 			TODAY_JST,
 		);
 
@@ -276,17 +282,17 @@ describe('#4729 [B] 誕生日を消した保存で DB に何が書かれるか',
 		// 誤操作の出口は「保存前の確認ダイアログ」が引き受けている (PO 決定 2026-09-04)。
 		expect(written.birthDate).toBe('2019-01-01');
 		expect(written.birthDateEstimated).toBe(true);
-		expect(written.birthDate).not.toBe('2019-05-01');
+		expect(written.birthDate).not.toBe(EXISTING_BIRTH_DATE);
 	});
 
 	it('置き換わった保存値でも年齢は保たれ、1/1 は顧客に出ない', async () => {
-		mockFindChildById.mockResolvedValueOnce(existingChild('2019-05-01'));
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
 
 		await editChildAction(clearBirthdayForm());
 		const [, input] = mockUpdateChild.mock.calls[0] as [unknown, Record<string, unknown>];
 		const written = resolveBirthDateForUpdate(
 			input as { age?: number; birthDate?: string | null },
-			{ birthDate: '2019-05-01', birthDateEstimated: false },
+			STORED_ROW_BEFORE_CLEAR,
 			TODAY_JST,
 		);
 		const row = {
