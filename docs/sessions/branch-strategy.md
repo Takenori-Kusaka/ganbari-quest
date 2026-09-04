@@ -122,6 +122,8 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `e2e-cognito-dev` | 認証・課金 E2E | 約 169s |
 | `docker-build` / `e2e-demo-lambda` | Docker build + demo Lambda 等価検証 | 約 133s |
 | `storybook-test` | Storybook interaction（play） | 約 106s |
+
+> `storybook-test` は `deps` / `stories` filter でも発火するため、main 向け PR (hotfix) と push では、`svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` の変更でも走る (#4859)。統合 PR では filter に依らず無条件発火する (#2874)。
 | visual regression（`lp-visual-regression.yml` / `child-home-visual-regression.yml` / `app-visual-regression.yml`） | pixelmatch baseline 比較 | — |
 | `e2e-matrix`（#2874） | ADR-0040 mode×plan matrix（4 project、port 5201-5204、`playwright.matrix.config.ts`） | 約 4-7min（並列、critical path 不変） |
 | `deploy-nuc-staging`（#2872） | NUC staging deploy + migration 込み起動貫通 + health（self-hosted runner） | — |
