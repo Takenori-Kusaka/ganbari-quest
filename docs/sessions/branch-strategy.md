@@ -122,13 +122,13 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `e2e-cognito-dev` | 認証・課金 E2E | 約 169s |
 | `docker-build` / `e2e-demo-lambda` | Docker build + demo Lambda 等価検証 | 約 133s |
 | `storybook-test` | Storybook interaction（play） | 約 106s |
-
-> `storybook-test` は `deps` / `stories` filter でも発火するため、main 向け PR (hotfix) と push では、`svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` の変更でも走る (#4859)。統合 PR では filter に依らず無条件発火する (#2874)。
 | visual regression（`lp-visual-regression.yml` / `child-home-visual-regression.yml` / `app-visual-regression.yml`） | pixelmatch baseline 比較 | — |
 | `e2e-matrix`（#2874） | ADR-0040 mode×plan matrix（4 project、port 5201-5204、`playwright.matrix.config.ts`） | 約 4-7min（並列、critical path 不変） |
 | `deploy-nuc-staging`（#2872） | NUC staging deploy + migration 込み起動貫通 + health（self-hosted runner） | — |
 | `deploy-aws-staging`（#2873） | AWS staging 3 stack deploy + post-deploy health / smoke（Phase 1 advisory → Phase 2 required 化、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | 約 15min |
 | `integration-evidence`（#2874） | audit-team.md §3.5 #3/#4 エビデンス自動生成（`integration-pr-evidence-*` artifact、gate ではない） | 約 1-2min |
+
+> `storybook-test` は `deps` / `stories` filter でも発火する。発火条件は `base_ref != 'develop'` かつ `deps || stories` なので、main 向け PR (hotfix) / push に加え `release/*` や feature branch を base にする PR でも走る。#4859 で `svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` が `stories` に入ったため、これらの変更でも発火するようになった (約 106s、該当 path を触る PR は実測で月 4 本程度)。統合 PR は filter に依らず無条件発火する (#2874)。
 
 ### 全 workflow の gate × lane 対応表（SSOT、#2948 / EPIC #2861 AC6）
 
