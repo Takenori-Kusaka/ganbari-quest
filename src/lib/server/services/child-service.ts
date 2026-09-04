@@ -154,8 +154,7 @@ export async function editChild(
 	// #4453: 仮アバターは nickname + theme から導出されるので、どちらかが変わったら作り直す。
 	// 判定には「変更前の値」が要る。uiMode 再計算 (#580/#1382) も同じ既存行を見るため、
 	// ここで 1 回だけ引いて両方で使う (同じ行を 2 回引かない)。
-	// #4729: 誕生日クリア (`birthDate: null`) は保存値を「推定扱い」に降格するだけで、月日は DB に残る
-	// (`resolveBirthDateForUpdate`)。降格が起きたか (= 実誕生日があったか) は変更前の行でしか分からない。
+	// #4729: 誕生日を消したか (= 変更前に実誕生日があったか) は、変更前の行でしか分からない。
 	const needsExisting =
 		input.nickname !== undefined ||
 		input.theme !== undefined ||
@@ -163,16 +162,19 @@ export async function editChild(
 		(patched.uiMode === undefined && patched.age !== undefined);
 	const existing = needsExisting ? await findChildById(id, tenantId) : null;
 
-	// #4729 PO 回答 (2026-09-03): 誕生日を消したら誕生日ボーナスの対象外になる (降格は維持) が、
-	// **黙って降格してはならない**。公開 entity の `birthDate` は実誕生日のときだけ非 null
-	// (`publicBirthDate`) なので、「実誕生日があった行に null を書いた」= 降格が起きた、と判定できる。
+	// #4729 PO 決定 (2026-09-04): 保護者は誕生日を消せる (`admin/children` の編集フォーム →
+	// 確認ダイアログ → 保存)。消すと誕生日ボーナス / 🎂 表示の対象から外れるので、
+	// **黙って消してはならない** — 呼び出し元 (form action → 画面の Alert) に起きたことを返す。
 	//
-	// **現状この分岐に入る呼び出し元は存在しない (QM レビューで確認)**: 本関数の呼び出しは
-	// `admin/children/+page.server.ts` の 2 action だけで、編集画面の `BirthdayInput` は
-	// placeholder option が disabled のため誕生日を空に戻せない。import 復元は
-	// `import-service.ts` が `birthDate: … ?? undefined` を渡すので null にならず、birthDate を
-	// 更新する API route も無い。「誕生日を消す」導線を用意するかは PO 判断のため、
-	// 到達可能になったときに黙って降格しないよう判定だけ先に置いている。
+	// **消した保存は実誕生日を破棄する**: 編集フォームは年齢欄を `readonly` で常に送るため
+	// action は `birthDate: null` + `age` を渡し、`resolveBirthDateForUpdate` はその形を
+	// 「その年齢の推定誕生日 (1/1) で置き換える」と解決する。月日は残らない (元に戻せない)。
+	// 誤操作の出口は保存前の確認ダイアログが引き受ける。
+	//
+	// 判定は公開 entity の `birthDate` (= `publicBirthDate`、実誕生日のときだけ非 null) で行う。
+	// 消せるのは**保護者の明示操作だけ**で、import 復元は `import-service.ts` が
+	// `birthDate: … ?? undefined` を渡すので今も null にならない
+	// (復元で黙って消えるのは事故、という PO 判断どおり)。birthDate を更新する API route も無い。
 	const birthdayCleared = input.birthDate === null && !!existing?.birthDate;
 
 	if (patched.uiMode !== undefined) {

@@ -22,7 +22,7 @@ export const CURRENT_TERMS_VERSION = '2026-08-13';
 //
 //   PO 決裁 A (#4516 2026-08-20 コメント) により #4516/#4598/#4778 の 3 PR で
 //   2026-08-20 に同値化済み。3 本は同一リリースで cut する。
-export const CURRENT_PRIVACY_VERSION = '2026-08-20';
+export const CURRENT_PRIVACY_VERSION = '2026-09-04';
 
 /**
  * 越境移転同意（個人情報保護法 §28）の version。

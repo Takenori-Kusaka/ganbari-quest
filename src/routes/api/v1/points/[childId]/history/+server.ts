@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { pointHistoryQuerySchema } from '$lib/domain/validation/point';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { notFound, validationError } from '$lib/server/errors';
 import { getPointHistory } from '$lib/server/services/point-service';
 import type { RequestHandler } from './$types';
@@ -13,6 +14,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.childId);
 	if (!childId) return validationError('IDが不正です');
+	// child ロールは自分の履歴のみ (兄弟の記録を覗けない)。
+	requireChildAccess(locals, childId);
 
 	const parsed = pointHistoryQuerySchema.safeParse(Object.fromEntries(url.searchParams));
 	if (!parsed.success) {

@@ -18,8 +18,9 @@ export async function updateUsageLogEnd(
 	endedAt: string,
 	durationSec: number,
 	tenantId: string,
+	scopeChildId?: ChildId | null,
 ) {
-	return getRepos().usageLog.updateUsageLogEnd(id, endedAt, durationSec, tenantId);
+	return getRepos().usageLog.updateUsageLogEnd(id, endedAt, durationSec, tenantId, scopeChildId);
 }
 
 export async function closeOpenSessions(childId: ChildId, endedAt: string, tenantId: string) {

@@ -147,6 +147,35 @@ export function classifyContractState(columns: ContractStateColumns): ContractSt
 	return findInvalid(shape) ?? findValid(shape) ?? UNCLASSIFIED_CONTRACT_STATE;
 }
 
+/**
+ * **S4 (契約が残ったままの停止) か。** 履歴の物理削除を免除する唯一の境界 (PO 決定 2026-09-04)。
+ *
+ * S4 は `invoice.paid` (W2) で S2 に戻りうる状態であり、戻ってくる前提の状態で戻らない処理
+ * (`retention-cleanup-service` の `activity_logs` / `point_ledger` / `status_history` 削除) を
+ * 先に実行してはならない。未収に対して取る手当ては「有料機能を止める」までとする。
+ *
+ * **判定を自前で書かず `classifyContractState` に乗せている**のは、境界を matrix §4 の S4 行と
+ * 一致させるため。`status === 'suspended' && sub != null` の 2 列だけで書くと
+ * **S4 より広くなる** (実測):
+ *
+ * | 4 列 | classify | 2 列版 | 本関数 |
+ * |---|---|---|---|
+ * | suspended / plan あり / sub あり | S4 | true | **true** |
+ * | suspended / plan **なし** / sub あり | **X2** (不正) | true | **false** |
+ * | suspended / plan あり / sub `''` | **X1** (不正、`present()` が空文字を「なし」に倒す) | true | **false** |
+ *
+ * X2 は matrix §4 が「起きうる (checkout の `metadata.planId` が未知のとき。alert は出る)」と
+ * 明記した**不正状態**で、是正すべき対象である。無期限の削除免除で覆い隠すと、
+ * 状態監査 (`contract-state-audit-service`) が X2 として上げている行が retention 上は
+ * 正常な S4 と区別できなくなる。**免除は正常状態 S4 に限る。**
+ *
+ * 32 通り (status 4 × plan 2 × sub 2 × exp 2) の真偽は
+ * `tests/unit/domain/contract-state.test.ts` が `classifyContractState` と突き合わせて pin する。
+ */
+export function isRetainedSuspendedContract(columns: ContractStateColumns): boolean {
+	return classifyContractState(columns) === 'S4';
+}
+
 /** 不正状態 (X*) か。`UNCLASSIFIED` は含めない (意味が違う)。 */
 export function isInvalidContractState(
 	classification: ContractStateClassification,

@@ -161,7 +161,9 @@ const { Story } = defineMeta({
 />
 
 <!-- #4596 / PO 回答 (2026-09-03): 支払い停止中 (S4) の告知。S3 と同じ理由で保持期間を述べる。
-     契約が残っておりアーカイブはまだ起きていないため、archive の話は持ち込まない。 -->
+     契約が残っておりアーカイブはまだ起きていないため、archive の話は持ち込まない。
+     PO 決定 (2026-09-04): S4 では物理削除も走らない (`retention-cleanup-service` が skip する)
+     ため、「契約が残っている間は削除しない」「表示だけが絞られ復帰で戻る」ことを述べる。 -->
 <Story
 	name="PaymentSuspendedNotice"
 	args={{
@@ -175,5 +177,13 @@ const { Story } = defineMeta({
 		await expect(notice).toBeVisible();
 		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.paymentSuspendedTitle);
 		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+		// 削除は起きていない (skip される) ので、現在形で「削除されています」と出さない
+		await expect(notice).toHaveTextContent(
+			'ご契約が残っているあいだ、これまでの記録を削除することはありません',
+		);
+		await expect(notice).not.toHaveTextContent('期間を超えた記録から順に削除されています');
+		// 契約終了は崖である (終了日から数え直す猶予があるように読ませない)
+		await expect(notice).toHaveTextContent('最初の削除処理でまとめて削除されます');
+		await expect(notice).not.toHaveTextContent('次の保持期間が適用されます');
 	}}
 />

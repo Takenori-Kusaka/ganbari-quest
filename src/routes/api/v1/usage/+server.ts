@@ -8,6 +8,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess, requireChildScope } from '$lib/server/auth/factory';
 import { endUsageSession, startUsageSession } from '$lib/server/services/usage-log-service';
 import type { RequestHandler } from './$types';
 
@@ -30,6 +31,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'childId が必要です' }, { status: 400 });
 	}
 	const childId = asChildId(rawChildId);
+	// childId は **body** で来る。child ロールが兄弟の利用時間ログを汚すのを止める
+	// (自動スリープ #1292 の判定材料であり、他人の休憩タイミングを動かせてしまう)。
+	requireChildAccess(locals, childId);
 
 	const result = await startUsageSession(tenantId, childId);
 	if (result === null) {
@@ -55,9 +59,14 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'id が必要です' }, { status: 400 });
 	}
 	const id = String(rawId);
+	// PATCH の入力は **行 id だけ**で、その行が誰のものかを route では知り得ない。
+	// POST 側だけ塞いで PATCH を開けておくと、child ロールが usage_logs.id を差し替えて
+	// 兄弟のセッションを終了させられる (POST で「汚す」のと同じ害の裏返し)。
+	// 「絞り込むべき child」を service → repo の WHERE まで引き回して突合する。
+	const scopeChildId = requireChildScope(locals);
 	// #2338: id === 0 は no-op fallback の dummy id (DATA_SOURCE=dynamodb / demo)。
 	// service 層 endUsageSession() 内で no-op 判定し durationSec: 0 を返す。
-	const result = await endUsageSession(id, tenantId);
+	const result = await endUsageSession(id, tenantId, scopeChildId);
 	if (result === null) {
 		// #2338: DB エラー時は 500 ではなく 204 No Content
 		return new Response(null, { status: 204 });

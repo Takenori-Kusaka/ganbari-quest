@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ConvertMode, convertPointsSchema } from '$lib/domain/validation/point';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { convertPoints } from '$lib/server/services/point-service';
 import type { RequestHandler } from './$types';
@@ -17,6 +18,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
 	}
+	// childId は **body** で来る。child ロールが兄弟のポイントを消費するのを止める。
+	requireChildAccess(locals, parsed.data.childId);
 
 	const result = await convertPoints(
 		parsed.data.childId,

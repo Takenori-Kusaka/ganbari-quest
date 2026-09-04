@@ -33,11 +33,18 @@ export async function updateUsageLogEnd(
 	endedAt: string,
 	durationSec: number,
 	_tenantId: string,
+	scopeChildId?: ChildId | null,
 ) {
+	// scopeChildId 指定時は (id, child_id) 複合キーで更新する。read → check → write にすると
+	// 判定前に ended_at を書いてしまうため、**WHERE 側**で絞る。
 	const row = db
 		.update(usageLogs)
 		.set({ endedAt, durationSec })
-		.where(eq(usageLogs.id, Number(id)))
+		.where(
+			scopeChildId == null
+				? eq(usageLogs.id, Number(id))
+				: and(eq(usageLogs.id, Number(id)), eq(usageLogs.childId, Number(scopeChildId))),
+		)
 		.returning()
 		.get();
 	return row ? toUsageLog(row) : undefined;

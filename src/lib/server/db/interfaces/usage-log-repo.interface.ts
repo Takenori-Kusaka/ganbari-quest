@@ -24,12 +24,20 @@ export interface IUsageLogRepo {
 		startedAt: string;
 	}): Promise<UsageLog>;
 
-	/** セッション終了を記録する (該当行なしは undefined)。 */
+	/**
+	 * セッション終了を記録する (該当行なしは undefined)。
+	 *
+	 * `scopeChildId` を渡すと **WHERE に child 束縛を足す** (= 指定 child の行でなければ 1 行も
+	 * 更新せず undefined)。child ロールの要求で「行 id だけで兄弟のセッションを終了させる」のを
+	 * 止めるための複合キー化であり、**read してから判定するのではなく更新自体を絞る**
+	 * (read → check → write だと判定前に ended_at を書いてしまう)。
+	 */
 	updateUsageLogEnd(
 		id: string,
 		endedAt: string,
 		durationSec: number,
 		tenantId: string,
+		scopeChildId?: ChildId | null,
 	): Promise<UsageLog | undefined>;
 
 	/** 進行中 (ended_at NULL) セッションを全て endedAt で閉じる (cleanup)。 */

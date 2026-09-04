@@ -45,14 +45,22 @@ export async function startUsageSession(
 	}
 }
 
-/** セッション終了を記録する */
+/**
+ * セッション終了を記録する。
+ *
+ * @param scopeChildId 「この child のセッションに限る」制約。child ロールの要求では自分の
+ *   childId が渡り、owner / parent では null が渡る (`requireChildScope`)。PATCH の入力は
+ *   行 id だけで、その行が誰のものかを route では知り得ないため、**更新の WHERE 側**で
+ *   突合する (#2845 の id-only mutation 禁止と同じ扱い)。不一致は「該当行なし」= null。
+ */
 export async function endUsageSession(
 	id: string,
 	tenantId: string,
+	scopeChildId: ChildId | null = null,
 ): Promise<{ durationSec: number } | null> {
 	try {
 		const now = new Date().toISOString();
-		const updated = await updateUsageLogEnd(id, now, 0, tenantId);
+		const updated = await updateUsageLogEnd(id, now, 0, tenantId, scopeChildId);
 		if (!updated) return null;
 
 		const startMs = new Date(updated.startedAt).getTime();
@@ -60,7 +68,7 @@ export async function endUsageSession(
 		const durationSec = Math.max(0, Math.floor((endMs - startMs) / 1000));
 
 		// durationSec を正しく設定し直す
-		await updateUsageLogEnd(id, now, durationSec, tenantId);
+		await updateUsageLogEnd(id, now, durationSec, tenantId, scopeChildId);
 		return { durationSec };
 	} catch (e) {
 		logger.warn('[usage-log] セッション終了記録に失敗', {

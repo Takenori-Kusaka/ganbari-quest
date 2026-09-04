@@ -221,6 +221,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
 	},
+	'tests/unit/architecture/per-child-route-authz-fitness.test.ts': {
+		scope: 'bounded',
+		note: '走査は src/routes/api/v1 配下のみ (再帰だが単一 dir で有界)。要求由来の childId を読む route が requireChildAccess / requireChildScope を通すことを検査する (家庭内 IDOR / CWE-639)',
+	},
 	'tests/unit/architecture/ops-route-auth-fitness.test.ts': {
 		scope: 'repo',
 		note: '実走査は src/routes/ops 配下のみだが、静的判定が repo と見なすため宣言を合わせ明示 timeout を置く。全 ops endpoint が requireOpsAccess を呼ぶことを検査する (#4309)',

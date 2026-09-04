@@ -47,13 +47,14 @@ $effect(() => {
 	);
 });
 
-// #4729 PO 回答 (2026-09-03): 誕生日を消すと推定誕生日に戻り誕生日ボーナスの対象外になる (降格は維持)。
-// 黙って降格せず、直前の編集で降格が起きたことを保護者に見せる。Toast (自動消滅) ではなく
+// #4729 PO 決定 (2026-09-04): 誕生日を消すと誕生日ボーナス / 🎂 表示の対象外になる
+// (保存では実誕生日が破棄され、その年齢の推定誕生日に置き換わる)。
+// 黙って消さず、直前の編集で消えたことを保護者に見せる。Toast (自動消滅) ではなく
 // Alert (`role="status"`、次の操作まで残る) で出す — 見落とすと「祝われなかった理由」を知る場が無い。
 //
-// **現状この画面から降格は起こせない (QM レビューで確認)**: `BirthdayInput` の年 / 月 / 日 select は
-// placeholder option が disabled で、一度入れた誕生日を空に戻せない。「誕生日を消す」導線を
-// 用意するかは PO 判断 (本 PR の scope 外) で、その答えが出るまで本 Alert は表示されない。
+// 誕生日は任意入力なので消せる。`BirthdayInput` の未設定 option を選べるようにし、
+// `ChildProfileCard` が保存前に確認ダイアログを挟む。本 Alert はその保存後の告知で、
+// 「確認 → 保存 → Alert」の 3 点セットの最後にあたる。
 const birthdayCleared = $derived(!!(form as { birthdayCleared?: boolean } | null)?.birthdayCleared);
 
 const ps = $derived(data.pointSettings);

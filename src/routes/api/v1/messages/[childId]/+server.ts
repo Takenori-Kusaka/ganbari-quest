@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
+import { asChildId } from '$lib/domain/ids';
 import { CHEER_LABELS } from '$lib/domain/labels';
 import { messageQuerySchema, sendMessageSchema } from '$lib/domain/validation/message';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { planLimitError, validationError } from '$lib/server/errors';
 import {
 	getMessageHistory,
@@ -23,6 +25,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	if (!parsed.success) {
 		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
 	}
+	// 親から兄弟への私信は「その子だけのもの」。child ロールが URL の childId を
+	// 差し替えて履歴を読むのを止める (家庭内 IDOR / CWE-639)。
+	requireChildAccess(locals, parsed.data.childId);
 
 	const mode = url.searchParams.get('mode');
 
@@ -43,6 +48,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+	// child ロールが親を騙って兄弟へメッセージを送るのを止める (家庭内 IDOR / CWE-639)。
+	// body の読み取りやプラン解決 (DB アクセス) より**前**に置く。
+	requireChildAccess(locals, asChildId(params.childId));
+
 	const body = await request.json();
 
 	const parsed = sendMessageSchema.safeParse({

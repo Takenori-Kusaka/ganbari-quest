@@ -130,19 +130,25 @@ UX 層はそのまま残す。理由:
 `/api/cron/retention-cleanup/+server.ts` から日次呼び出す:
 
 1. 全テナントを走査
-2. 各テナントの現在プランを `resolveFullPlanTier(tenantId, licenseStatus, planId)` で解決
+2. **契約が残っているテナント（S4）はスキップ** — `isRetainedSuspendedContract(4 列)` =
+   `classifyContractState(4 列) === 'S4'`。S4 は `invoice.paid` で S2 に戻りうる状態であり、
+   `resolvePlanTier` が `free` に落とすままだと契約が生きているうちに 90 日 cutoff で消える。
+   物理削除が走るのは S5（契約終了）以降だけとする（`contract-state-matrix.md` §「契約が残っている間
+   （S4）は履歴を物理削除しない」）。**2 列（status / sub）で判定しない** — 不正状態 X2 / X1 まで
+   免除に入り、状態監査が是正対象として上げている行を無期限に温存する
+3. 各テナントの現在プランを `resolveFullPlanTier(tenantId, licenseStatus, planId)` で解決
    - トライアル中はトライアルティアが優先される（ADR-0024）
    - `family` （`historyRetentionDays === null`）はスキップ
-3. `getHistoryCutoffDate(tier)` で cutoff 日（YYYY-MM-DD）を算出
-4. そのテナントの各 child について以下 3 テーブルから `recorded_date < cutoffDate` を物理削除
+4. `getHistoryCutoffDate(tier)` で cutoff 日（YYYY-MM-DD）を算出
+5. そのテナントの各 child について以下 3 テーブルから `recorded_date < cutoffDate` を物理削除
    （**境界は JST 深夜 0:00 に固定する**。timestamptz 列の裸 cast は session TZ 依存で、
    DSQL 既定 session (UTC) では JST と 9 時間ずれ、境界日 JST 0〜9 時のデータを 1 日早く消す。#4722）
    - `activity_logs`
    - `point_ledger`
    - `status_history`（#3518-2 で追加）
    - ~~`login_bonuses`~~（#3330 counter 縮約で 2026-07-19 に対象から除去 — 上記改訂節参照）
-5. テナントごとに try/catch — 1 テナントの失敗が他に波及しないこと
-6. 結果 `{tenantsProcessed, childrenProcessed, *Deleted, errors}` を構造化ログに出力
+6. テナントごとに try/catch — 1 テナントの失敗が他に波及しないこと
+7. 結果 `{tenantsProcessed, childrenProcessed, *Deleted, errors}` を構造化ログに出力
 
 ### 3. 削除対象と非削除対象
 

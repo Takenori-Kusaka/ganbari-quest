@@ -389,20 +389,28 @@ export async function recordActivity(
 }
 
 /** Cancel an activity record (within cancel window). */
+/**
+ * @param scopeChildId 「この child の記録に限る」制約。child ロールの要求では自分の childId が
+ *   渡り、owner / parent では null が渡る (`requireChildScope`)。path が logId しか持たない
+ *   id-only mutation のため、行の所有者はここで突合するしかない (#2845 と同じ扱い)。
+ *   不一致は存在秘匿のため NOT_FOUND (403 ではない)。
+ */
 export async function cancelActivityLog(
 	logId: string,
 	tenantId: string,
+	scopeChildId: ChildId | null = null,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
 	// #3596 ②: pg 系 backend (DSQL / NUC PGlite) は cancel core 単一 txn (log-cancel / mastery /
 	// ledger+total_point / status / history を all-or-nothing)。sqlite / demo は従来の逐次 await 経路
 	// (以下、現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐 (#4720: isPgBackend)。
 	if (isPgBackend()) {
-		return cancelActivityDsql(logId, tenantId);
+		return cancelActivityDsql(logId, tenantId, scopeChildId);
 	}
 
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
+	if (scopeChildId !== null && log.childId !== scopeChildId) return { error: 'NOT_FOUND' };
 
 	const recordedTime = new Date(log.recordedAt).getTime();
 	if (Date.now() - recordedTime > CANCEL_WINDOW_MS) {
