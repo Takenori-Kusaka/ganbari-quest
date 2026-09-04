@@ -65,6 +65,18 @@ export function setChapters(chapters: TutorialChapter[], scope = 'default') {
 	progressScope = scope;
 }
 
+/**
+ * 進捗 namespace を変えずに章定義だけ差し替える。
+ *
+ * 子供 layout は活動件数を持たない (件数のためだけに DB を引くのは ADR-0065 に反する) ので、
+ * 「活動 0 件なら『カードをタップ』step を説明型に落とす」判断はホーム画面が行い、
+ * その結果をここで反映する。`setChapters` を呼ぶと scope が既定値に戻り、
+ * 子供ごとの進捗 (#4765) が壊れるため専用の入口を分けている。
+ */
+export function updateChapters(chapters: TutorialChapter[]) {
+	activeChapters = chapters;
+}
+
 // ── localStorage helpers (SSR-safe) ──
 function saveProgress(chapterId: number, stepIndex: number) {
 	try {

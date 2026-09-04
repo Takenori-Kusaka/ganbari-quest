@@ -17,22 +17,40 @@ import type { TutorialChapter } from './tutorial-types';
  *   画面と同じ定数を参照する。
  *
  * uiMode ごとに生成するため関数にしている（(child)/+layout が `setChapters(getChildTutorialChapters(uiMode))`）。
+ *
+ * `hasActivities` は「活動カードが 1 枚でもあるか」。0 件のときに
+ * `[data-tutorial="activity-card"]` を指して「カードをタップすると」と案内すると、
+ * **光らせる先も押すものも無い**（初回演出 `AdventureStartOverlay` と同じクラスの欠陥）。
+ * 0 件では selector を外して説明型 step に落とし、文言も「まだ届いていない」に差し替える。
+ * 既定値は持たせない（渡し忘れが型で落ちるようにする）。
  */
-export function getChildTutorialChapters(uiMode: string): TutorialChapter[] {
+export function getChildTutorialChapters(
+	uiMode: string,
+	options: { hasActivities: boolean },
+): TutorialChapter[] {
 	const L = getChildTutorialLabels(uiMode);
+	const recordCardStep = options.hasActivities
+		? {
+				id: 'child-record-card',
+				chapterId: 1,
+				selector: '[data-tutorial="activity-card"]',
+				...L.steps['child-record-card'],
+				position: 'bottom' as const,
+			}
+		: {
+				// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
+				id: 'child-record-card',
+				chapterId: 1,
+				...L.steps['child-record-card-empty'],
+				position: 'bottom' as const,
+			};
 	return [
 		{
 			id: 1,
 			title: L.chapters.record.title,
 			icon: L.chapters.record.icon,
 			steps: [
-				{
-					id: 'child-record-card',
-					chapterId: 1,
-					selector: '[data-tutorial="activity-card"]',
-					...L.steps['child-record-card'],
-					position: 'bottom',
-				},
+				recordCardStep,
 				{
 					id: 'child-record-cancel',
 					chapterId: 1,

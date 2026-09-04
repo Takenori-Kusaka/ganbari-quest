@@ -57,6 +57,8 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
+import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { updateChapters } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
 
@@ -84,6 +86,18 @@ const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode))
 // #4690 F6: 記録ダイアログ / 結果 / ピン操作の文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
 const HL = $derived(getChildHomeLabels(data.uiMode ?? 'preschool'));
 const f = $derived(variant.features);
+
+// ❓ ガイドの「活動カードをタップすると」step は、カードが 1 枚も無い画面では
+// 光らせる先も押すものも無い (初回演出 AdventureStartOverlay と同じクラスの欠陥)。
+// 件数を知っているのはこの画面だけなので、実件数で章定義を更新し直す
+// (layout は「ある」前提で置いている。進捗 namespace は触らない = updateChapters)。
+$effect(() => {
+	updateChapters(
+		getChildTutorialChapters(data.uiMode ?? 'preschool', {
+			hasActivities: data.activities.length > 0,
+		}),
+	);
+});
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
 const fsm = new DialogFSM();
@@ -1190,6 +1204,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
+		uiMode={data.uiMode ?? 'preschool'}
+		hasActivities={data.activities.length > 0}
 		onClose={handleAdventureClose}
 	/>
 {/if}

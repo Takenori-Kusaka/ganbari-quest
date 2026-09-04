@@ -3,6 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// 活動記録の失敗契約 (3 service の戻り型と共有)。文言の網羅を型で強制するために型だけを引く
+import type { RecordActivityErrorCode, RecordActivityFailure } from './activity-record-failure';
 import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
 import { CATEGORIES, CATEGORY_NAME_LIST, type CategoryCode, toCategoryCode } from './categories';
@@ -6956,6 +6958,9 @@ export const OPS_COHORT_LABELS = {
 // はじめてのぼうけんページ (#1452 Phase B)
 // ============================================================
 
+/** 「あとでやる」ボタンの文言。失敗時の次アクション案内から同じ語で参照する。 */
+const SETUP_FIRST_ADVENTURE_SKIP_BUTTON = 'あとでやる（スキップ）';
+
 export const SETUP_FIRST_ADVENTURE_LABELS = {
 	successTitle: (nicknameVocative: string) => `${nicknameVocative}すごい！`,
 	recordedDesc: (activityName: string) => `「${activityName}」をきろくしたよ！`,
@@ -6970,11 +6975,60 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	recordingLabel: 'きろくちゅう...',
 	recordButton: 'タップしてきろく！',
 	selectActivityHint: 'がんばりをえらんでね！',
-	skipButton: 'あとでやる（スキップ）',
+	skipButton: SETUP_FIRST_ADVENTURE_SKIP_BUTTON,
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorActivityRequired: '活動を選択してください',
 	errorRecordFailed: '記録に失敗しました。もう一度お試しください。',
+	/** 同じ活動を同じ日にもう一度記録しようとした (recordActivity の ALREADY_RECORDED)。 */
+	errorAlreadyRecorded: `この活動は今日すでに記録ずみです。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
+	/** その活動の 1 日の記録上限に達した (DAILY_LIMIT_REACHED)。 */
+	errorDailyLimitReached: `この活動は今日の記録上限に達しました。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
+	/** 選んだ活動が見つからない (NOT_FOUND target='activity' — 別タブで削除された等)。 */
+	errorActivityNotFound:
+		'選んだ活動が見つかりませんでした。画面を読み込み直してから、もう一度お試しください。',
+	/**
+	 * 記録先の子供が見つからない (NOT_FOUND target='child')。越境 childId の
+	 * cross-child guard (CWE-598 / ADR-0055 §3.1) もここに落ちる。活動の話にすり替えると
+	 * 「活動を選び直す」という誤った次アクションを案内してしまうため、別文言にする。
+	 */
+	errorChildNotFound:
+		'記録するお子さまを特定できませんでした。お子さまの登録をやり直すか、画面を読み込み直してください。',
 } as const;
+
+/**
+ * `recordActivity` の失敗理由 → 初回記録画面 (`/setup/first-adventure`) に出す文言。
+ *
+ * `satisfies Record<RecordActivityErrorCode, string>` が網羅性を担保する。**service が
+ * 失敗コードを増やすと、ここに文言を足すまでビルドが通らない** (domain SSOT
+ * `$lib/domain/activity-record-failure` 経由で 3 service の戻り型と結ばれている)。
+ */
+const SETUP_FIRST_ADVENTURE_RECORD_ERRORS = {
+	ALREADY_RECORDED: SETUP_FIRST_ADVENTURE_LABELS.errorAlreadyRecorded,
+	DAILY_LIMIT_REACHED: SETUP_FIRST_ADVENTURE_LABELS.errorDailyLimitReached,
+	NOT_FOUND: SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound,
+} as const satisfies Record<RecordActivityErrorCode, string>;
+
+/**
+ * `recordActivity` の失敗値を、初回記録画面に出す文言へ写す。
+ *
+ * #4512 時点では理由に関係なく `errorRecordFailed` を返していたうえ、画面側が `form.error` を
+ * 一度も描画していなかったため「押しても何も起きない」= 無音の失敗になっていた (ADR-0062:
+ * WCAG 3.3.1 / 4.1.3 の二重違反)。内部コード (`ALREADY_RECORDED` 等) はそのまま出さず
+ * (docs/DESIGN.md §6 内部コード露出禁止 / ADR-0062 §2)、次アクションを必ず添える。
+ *
+ * 引数は**コード文字列ではなく失敗値そのもの**。`string` で受けていたときは service が
+ * コードを増減・改名しても TypeScript が無警告で、顧客は黙って汎用文言に戻っていた。
+ */
+export function getSetupFirstAdventureRecordError(failure: RecordActivityFailure): string {
+	// NOT_FOUND だけは target で意味が割れる (越境 childId か、消えた活動か)。
+	if (failure.error === 'NOT_FOUND' && failure.target === 'child') {
+		return SETUP_FIRST_ADVENTURE_LABELS.errorChildNotFound;
+	}
+	return (
+		SETUP_FIRST_ADVENTURE_RECORD_ERRORS[failure.error] ??
+		SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed
+	);
+}
 
 // ============================================================
 // デモポイント変換ページ (#1452 Phase B)
@@ -9962,6 +10016,107 @@ export function getChildStampLabels(uiMode: string): ChildStampLabels {
 	return { ...CHILD_STAMP_LABELS, ...CHILD_STAMP_KANJI_OVERRIDES };
 }
 
+// ============================================================
+// 初回の子供画面 (冒険スタート演出 / 活動 0 件の空状態) — 年齢帯 variant
+// ============================================================
+//
+// `AdventureStartOverlay` は初回訪問の子供に出る (`variants/index.ts` の
+// `FULL_FEATURES.showAdventureStart` = elementary / junior / senior)。文言が年齢帯を
+// 持たない平坦な定数だったため、16-18 歳が受け取る**最初の 1 画面**が
+// 「やあ！ / きょうから いっしょに ぼうけんだよ！ / したのカードをタップしてみてね」と
+// いう幼児文体になっていた (docs/DESIGN.md §8)。活動 0 件の空状態 (`ActivityEmptyState`)
+// も同じ理由で平坦だった。
+// ひらがなをベースに、junior / senior だけ差分を spread で重ねる
+// (src/routes/CLAUDE.md §年齢帯 variant)。
+
+const CHILD_ADVENTURE_START_LABELS = {
+	adventureGreeting: (name: string) => `やあ！ ${name}！`,
+	adventureBigText1: 'きょうから いっしょに',
+	adventureBigText2: 'ぼうけんだよ！',
+	adventureSubText1: 'いろんなことを がんばると',
+	adventureSubText2: 'つよくなれるよ！',
+	adventureCharacterAlt: 'ぼうけんキャラクター',
+	adventureReadyText: '🌟 さあ、はじめよう！ 🌟',
+	adventureReadySub: 'したのカードをタップしてみてね',
+	/**
+	 * 活動が 1 件も無いまま初回訪問したとき。overlay とカード一覧は独立に分岐するため、
+	 * 「したのカードをタップしてみてね」と言いながら下にカードが無い状態が起きていた。
+	 */
+	adventureReadySubEmpty: 'かつどうが とどいたら はじめよう',
+	adventureStartBtn: 'ぼうけんスタート！',
+} as const;
+
+/**
+ * 冒険スタート演出の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildAdventureStartLabels = {
+	readonly [K in keyof typeof CHILD_ADVENTURE_START_LABELS]: (typeof CHILD_ADVENTURE_START_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_ADVENTURE_START_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_ADVENTURE_START_KANJI_OVERRIDES = {
+	adventureGreeting: (name: string) => `ようこそ、${name}！`,
+	adventureBigText1: '今日からいっしょに',
+	adventureBigText2: `${ADVENTURE_TERMS.canonical}を始めよう！`,
+	adventureSubText1: 'いろいろなことに挑戦すると',
+	adventureSubText2: '強くなれます',
+	adventureCharacterAlt: `${ADVENTURE_TERMS.canonical}キャラクター`,
+	adventureReadyText: '🌟 さあ、始めよう！ 🌟',
+	adventureReadySub: '下のカードを選んで記録してみよう',
+	adventureReadySubEmpty: '活動が届いたら始めよう',
+	adventureStartBtn: `${ADVENTURE_TERMS.canonical}スタート！`,
+} as const satisfies Partial<ChildAdventureStartLabels>;
+
+/** 冒険スタート演出の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildAdventureStartLabels(uiMode: string): ChildAdventureStartLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_ADVENTURE_START_LABELS;
+	}
+	return { ...CHILD_ADVENTURE_START_LABELS, ...CHILD_ADVENTURE_START_KANJI_OVERRIDES };
+}
+
+const CHILD_ACTIVITY_EMPTY_LABELS = {
+	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
+	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
+	activityEmptyWait: 'もうすこし まってね ⏳',
+	activityEmptyCanDo: '── できること ──',
+	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}をみる`,
+} as const;
+
+/**
+ * 活動 0 件の空状態の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildActivityEmptyLabels = {
+	readonly [K in keyof typeof CHILD_ACTIVITY_EMPTY_LABELS]: (typeof CHILD_ACTIVITY_EMPTY_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_ACTIVITY_EMPTY_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_ACTIVITY_EMPTY_KANJI_OVERRIDES = {
+	activityEmptyTitle: `${ADVENTURE_TERMS.canonical}の準備中...`,
+	activityEmptyDesc: `${PARENT_TERMS.honorific}が活動を用意しています`,
+	activityEmptyWait: 'もう少し待ってね ⏳',
+	// activityEmptyCanDo ('── できること ──') は年齢帯で変わらないので override に置かない。
+	// 同値の override は「差分だけ」の原則から外れ、次に base を直した人が割る
+	// (src/routes/CLAUDE.md §年齢帯 variant)。
+	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}を見る`,
+} as const satisfies Partial<ChildActivityEmptyLabels>;
+
+/** 活動 0 件の空状態の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildActivityEmptyLabels(uiMode: string): ChildActivityEmptyLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_ACTIVITY_EMPTY_LABELS;
+	}
+	return { ...CHILD_ACTIVITY_EMPTY_LABELS, ...CHILD_ACTIVITY_EMPTY_KANJI_OVERRIDES };
+}
+
 export const UI_COMPONENTS_LABELS = {
 	// ---- ActivityCard ----
 	activityCardFrozenToast: 'おうちのひとに おねがいしてね',
@@ -9980,23 +10135,10 @@ export const UI_COMPONENTS_LABELS = {
 	activityCardMustBadgeKanji: '⭐ 今日の約束',
 	activityCardMust: '（今日のおやくそく）',
 
-	// ---- ActivityEmptyState ----
-	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
-	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
-	activityEmptyWait: 'もうすこし まってね ⏳',
-	activityEmptyCanDo: '── できること ──',
-	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}をみる`,
-
-	// ---- AdventureStartOverlay ----
-	adventureGreeting: (name: string) => `やあ！ ${name}！`,
-	adventureBigText1: 'きょうから いっしょに',
-	adventureBigText2: 'ぼうけんだよ！',
-	adventureSubText1: 'いろんなことを がんばると',
-	adventureSubText2: 'つよくなれるよ！',
-	adventureCharacterAlt: 'ぼうけんキャラクター',
-	adventureReadyText: '🌟 さあ、はじめよう！ 🌟',
-	adventureReadySub: 'したのカードをタップしてみてね',
-	adventureStartBtn: 'ぼうけんスタート！',
+	// ---- ActivityEmptyState / AdventureStartOverlay ----
+	// 年齢帯 variant を持つため CHILD_ACTIVITY_EMPTY_LABELS /
+	// CHILD_ADVENTURE_START_LABELS (getChildActivityEmptyLabels /
+	// getChildAdventureStartLabels) へ移動した。ここに戻さない。
 
 	// ---- BottomNav ----
 	bottomNavHome: 'ホーム',
@@ -11387,6 +11529,12 @@ export const STORYBOOK_LABELS = {
 	avatarDisplay: {
 		nickname: 'たろう',
 	},
+	// 初回訪問の子供にだけ出る冒険スタート演出。`isFirstTime = !hasRecords` が条件で、
+	// SS 撮影に使う demo 環境 (`DATA_SOURCE=demo`) の子供は記録済のため描画できない。
+	// 本 story が年齢帯文体 (幼児ひらがな / 13-18 歳漢字) と活動 0 件時の視覚証跡になる。
+	adventureStartOverlay: {
+		childName: 'はると',
+	},
 	// #4538: SiblingChallengeComparison の見た目確認用。children 一覧から引けない childId が
 	// あるときに内部 ID ではなく汎用語へ落ちることを目視できるようにする。
 	siblingChallengeComparison: {
@@ -12770,6 +12918,12 @@ export function getChildTutorialLabels(uiMode: string) {
 					description:
 						'やったことのカードをタップすると「きろく！」ボタンが出ます。きろく！ を押すとポイントがもらえます。',
 				},
+				// 活動 0 件のとき用。カードが 1 枚も無い画面で「カードをタップすると」と案内し、
+				// 光らせる先も無いのは、初回演出と同じ「無いものを指す」欠陥になる。
+				'child-record-card-empty': {
+					title: '活動カード',
+					description: `活動がまだ届いていません。${PARENT_TERMS.honorific}が活動を用意すると、ここにカードが並びます。`,
+				},
 				'child-record-cancel': {
 					title: 'とりけし',
 					description: `まちがえて記録しても、記録のあと ${cancelSec} 秒のあいだは「とりけし」ボタンで取り消せます。`,
@@ -12814,6 +12968,11 @@ export function getChildTutorialLabels(uiMode: string) {
 				title: 'かつどうカード',
 				description:
 					'やったことの カードを タップすると「きろく！」ボタンが でるよ。きろく！ を おすと ポイントが もらえるよ。',
+			},
+			// 活動 0 件のとき用 (漢字側と同じ理由。無いものを指さない)。
+			'child-record-card-empty': {
+				title: 'かつどうカード',
+				description: 'かつどうが まだ とどいてないよ。おうちの人が よういすると ここに ならぶよ。',
 			},
 			'child-record-cancel': {
 				title: 'とりけし',

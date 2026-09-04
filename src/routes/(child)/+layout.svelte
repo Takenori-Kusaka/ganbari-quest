@@ -103,7 +103,12 @@ onMount(() => {
 		//   決まらないとき (2 人以上) は捨てる。端末ごとに 1 回だけ走る (per-mount で走らせない)
 		if (data.child) {
 			const childId = data.child.id;
-			setChapters(getChildTutorialChapters(uiMode), getChildTutorialProgressScope(childId, uiMode));
+			// layout は活動件数を持たない (件数のためだけに DB を引くのは ADR-0065 に反する)。
+			// 「カードがある」前提で置き、ホーム画面が実件数で `updateChapters` し直す。
+			setChapters(
+				getChildTutorialChapters(uiMode, { hasActivities: true }),
+				getChildTutorialProgressScope(childId, uiMode),
+			);
 			// 旧 key は年齢モードごとに分かれているため、今のモードだけでなく**全モード分**を畳む
 			migrateLegacyProgress(
 				UI_MODES.map((mode) => ({

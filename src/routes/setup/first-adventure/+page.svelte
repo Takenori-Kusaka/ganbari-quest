@@ -4,6 +4,7 @@ import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -11,6 +12,26 @@ let submitting = $state(false);
 let selectedActivityId = $state<ActivityId | null>(null);
 
 const child = $derived(data.child);
+
+// 失敗 banner を「押したボタンの視界」に必ず入れる。
+// `use:enhance` の失敗は navigation を起こさないためスクロール位置が据え置きになり、
+// banner を描いただけでは画面外に置ける (= 修正前と同じ「無反応」に見える)。
+// 出た瞬間に focus を移して scroll する = WCAG 3.3.1 のエラーサマリ定石 (GOV.UK パターン)。
+let errorBanner = $state<HTMLElement | null>(null);
+let lastFocusedError = $state<string | null>(null);
+$effect(() => {
+	const message = (form as { error?: string } | null)?.error ?? null;
+	if (!message) {
+		lastFocusedError = null;
+		return;
+	}
+	if (message === lastFocusedError || !errorBanner) return;
+	lastFocusedError = message;
+	errorBanner.focus();
+	// jsdom / 一部の古いブラウザは scrollIntoView を持たない。focus だけでも
+	// ブラウザ既定のスクロールが働くので、無い環境で落とさない。
+	errorBanner.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+});
 
 // 記録成功後の演出状態
 const recorded = $derived(form?.success === true);
@@ -82,6 +103,16 @@ function goToComplete() {
 		</Button>
 	</div>
 {:else}
+	<!-- #4512 の失敗が画面に出ていなかった (form.error を一度も描画していなかった) ため、
+	     同日 2 回目 / 上限到達で「押しても何も起きない」になっていた。setup/children と同じ形で出す
+	     (ADR-0062 §1: 状態起因 = Banner + 次アクション、role="alert" は ErrorAlert が持つ)。 -->
+	{#if form?.error}
+		<!-- tabindex="-1" はエラーサマリへ focus を移すため (tab 順には入らない) -->
+		<div bind:this={errorBanner} tabindex="-1" data-testid="first-adventure-error">
+			<ErrorAlert message={form.error} severity="warning" />
+		</div>
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>

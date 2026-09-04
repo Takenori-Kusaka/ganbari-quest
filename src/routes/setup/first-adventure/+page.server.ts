@@ -4,8 +4,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asChildId } from '$lib/domain/ids';
-import { SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import {
+	getSetupFirstAdventureRecordError,
+	SETUP_FIRST_ADVENTURE_LABELS,
+} from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import { recordActivity } from '$lib/server/services/activity-log-service';
 import { getChildActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -61,7 +65,26 @@ export const actions: Actions = {
 		const result = await recordActivity(childId, activityId, tenantId);
 
 		if ('error' in result) {
-			return fail(400, { error: SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed });
+			// 理由 (同日 2 回目 / 上限 / 活動が消えた / 越境 childId) を捨てると、画面には
+			// 「失敗しました」しか残らず、親は原因も次の一手も分からない
+			// (ADR-0062 §1 状態起因 = Banner + 次アクション)。
+			//
+			// ADR-0062 §2 の後半 = 内部詳細は logger / 監視へ。画面には出さないコードを
+			// ここに残さないと、サポートも事業計測も「なぜ最初の記録で詰まったか」を追えない。
+			logger.warn('[SETUP] first adventure record failed', {
+				service: 'setup-first-adventure',
+				tenantId,
+				context: {
+					code: result.error,
+					target: result.error === 'NOT_FOUND' ? result.target : undefined,
+					activityId,
+				},
+			});
+			trackSetupFunnel('setup_first_adventure_record_failed', tenantId, {
+				code: result.error,
+				target: result.error === 'NOT_FOUND' ? result.target : undefined,
+			});
+			return fail(400, { error: getSetupFirstAdventureRecordError(result) });
 		}
 
 		trackSetupFunnel('setup_first_adventure_completed', tenantId, {

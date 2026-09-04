@@ -23,6 +23,9 @@ export type SetupFunnelEvent =
 	| 'setup_activities_defaults_applied'
 	| 'setup_activities_defaults_skipped'
 	| 'setup_first_adventure_completed'
+	// 初回記録が失敗して先に進めなかった回 (同日 2 回目 / 上限 / NOT_FOUND)。
+	// 成功だけを計測していると「ここで詰まった親」がファネル上は無反応と区別できない。
+	| 'setup_first_adventure_record_failed'
 	| 'setup_first_adventure_skipped'
 	| 'setup_completed'
 	| 'setup_to_child'
