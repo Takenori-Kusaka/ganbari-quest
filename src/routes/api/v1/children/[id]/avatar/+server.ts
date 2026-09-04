@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
@@ -28,6 +29,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!childId) {
 		throw error(400, { message: '不正なIDです' });
 	}
+	// child ロールが兄弟の顔写真を差し替えるのを止める。
+	requireChildAccess(locals, childId);
 
 	const child = await findChildById(childId, tenantId);
 	if (!child) {

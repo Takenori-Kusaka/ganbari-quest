@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { notFound } from '$lib/server/errors';
 import { markAsShown } from '$lib/server/services/message-service';
 import type { RequestHandler } from './$types';
@@ -21,6 +22,9 @@ export const POST: RequestHandler = async ({ params, locals, cookies }) => {
 	if (!childId) {
 		return json({ error: 'こどもが選択されていません' }, { status: 400 });
 	}
+	// cookie は client が書き換えられる。child ロールが兄弟の childId を cookie に入れて
+	// 兄弟宛メッセージを既読にする (= 相手に届かなくする) のを止める。
+	requireChildAccess(locals, childId);
 
 	const result = await markAsShown(childId, messageId, tenantId);
 	if (!result) {

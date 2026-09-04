@@ -11,7 +11,13 @@ import type { AuthMode, AuthProvider } from './types';
 
 // Guard 関数は guards.ts に分離（DB 依存なし）。後方互換のため re-export。
 // biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
-export { requireAppUserId, requireChildAccess, requireRole, requireTenantId } from './guards';
+export {
+	requireAppUserId,
+	requireChildAccess,
+	requireChildScope,
+	requireRole,
+	requireTenantId,
+} from './guards';
 // #4723: モード判定は auth-mode.ts に分離（provider を import しないため循環が生まれない）。
 // 既存の `from '$lib/server/auth/factory'` 経由の参照を壊さないよう、ここから re-export する。
 export { getAuthMode, isCognitoDevMode };

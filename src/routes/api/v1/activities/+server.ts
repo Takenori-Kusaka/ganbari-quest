@@ -5,6 +5,7 @@ import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { quotaLimitError, validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
@@ -24,6 +25,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	let childAge: number | undefined;
 	if (parsed.output.childId) {
+		// `?childId=` は年齢での出し分けにしか使わないが、child ロールが兄弟の childId を
+		// 指定して「兄弟の年齢で絞った一覧」を引けるのは per-child scope の逸脱なので塞ぐ。
+		// childId 省略時 (家族全体の一覧) は従来どおり全ロールに開く。
+		requireChildAccess(locals, parsed.output.childId);
 		const child = await findChildById(parsed.output.childId, tenantId);
 		if (child) childAge = child.age;
 	}

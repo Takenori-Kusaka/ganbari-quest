@@ -343,9 +343,12 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const voiceId = formIdString(form.get('voiceId'));
-		if (!voiceId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
+		// #2845 と同じ「id-only mutation 禁止」。activateVoice と同様に childId も受け取り、
+		// (voiceId, childId) の複合キーで所有者を突合してから消す。
+		const childId = asChildId(formIdString(form.get('childId')));
+		if (!voiceId || !childId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 
-		await deleteVoice(voiceId, tenantId);
+		await deleteVoice(voiceId, childId, tenantId);
 		return { success: true, voiceDeleted: true };
 	},
 

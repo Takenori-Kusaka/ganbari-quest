@@ -754,6 +754,7 @@ $effect(() => {
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>
 										<input type="hidden" name="voiceId" value={voice.id} />
+										<input type="hidden" name="childId" value={child.id} />
 										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:opacity-80">{CHILD_PROFILE_CARD_LABELS.voiceDeleteButton}</Button>
 									</form>
 								</div>
