@@ -356,10 +356,10 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice).toBe(FREE_RETENTION_SENTENCE);
 		});
 
-		// QM レビュー指摘: S4 は「再契約でも戻りません」の直後に「お支払い方法を更新すると
-		// 元に戻ります」が並び、顧客には矛盾に読めた。保持期間の 2 文は**必ず末尾**に置き、
-		// 復旧の案内 → 契約終了時の移行先 → その移行先の保持期間、の順で述べる。
-		// 断片が両方あることだけを見る assert では順序の退行を検出できないため、順序を固定する。
+		// QM レビュー指摘 (2 巡): S4 は (1) 「再契約でも戻りません」の直後に「元に戻ります」が
+		// 並んで矛盾に読め、(2) 直した文が保持期間の短縮を「契約が終了したら」と未来形で書いていた。
+		// (2) は事実と逆で、S4 では削除が**すでに走っている** (下の「S4 の事実」describe 参照)。
+		// 断片が両方あることだけを見る assert では順序も時制も守れないため、順序を固定する。
 		it.each(
 			ALL_CONTRACT_STATES.filter((s) => CONTRACT_STATE_VIEW[s].statusNotice !== null).map(
 				(s) =>
@@ -372,23 +372,69 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(desc.endsWith(FREE_RETENTION_SENTENCE)).toBe(true);
 		});
 
-		it('S4 は「元に戻ります」を保持期間の前に置き、移行先を挟んでから保持期間を述べる', () => {
+		it('S4 は 復旧の案内 → いま起きていること (現在形) → 保持期間 の順で述べる', () => {
 			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
-			const recovery = desc.indexOf('お支払い方法を更新すると元に戻ります');
-			const transition = desc.indexOf(`${PLAN_FULL_TERMS.free}へ切り替わります`);
+			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻ります');
+			const alreadyApplied = desc.indexOf('すでに適用されており');
 			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
 
 			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
 			expect(
-				transition,
-				'契約終了時の移行先の説明が無い (復旧と保持期間が直結して矛盾に読める)',
+				alreadyApplied,
+				'保持期間の短縮が「すでに適用されている」ことを述べていない',
 			).toBeGreaterThan(-1);
 			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
 
-			// 復旧 → 移行先 → 保持期間 の順。「再契約でも戻りません」の直後に「元に戻ります」が
-			// 来る並び (レビュー時の実測) では recovery > retention になり落ちる。
-			expect(recovery).toBeLessThan(transition);
-			expect(transition).toBeLessThan(retention);
+			// 復旧 → 現状 → 保持期間 の順。「再契約でも戻りません」の直後に「元に戻ります」が
+			// 来る並び (1 巡目の実測) では recovery > retention になり落ちる。
+			expect(recovery).toBeLessThan(alreadyApplied);
+			expect(alreadyApplied).toBeLessThan(retention);
+		});
+
+		// 2 巡目の指摘の本体。S4 では削除が**すでに走っている**ので、未来形 / 条件形で書かない。
+		// 未来形だと「まだ書き出す時間がある」と読ませ、矛盾よりも実害が大きい。
+		it('S4 は保持期間の短縮を現在形で述べ、契約終了を条件にしない', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc).toContain('すでに適用されており');
+			expect(desc).toContain('削除されています');
+			expect(desc, '契約終了を条件にすると「まだ猶予がある」と読める').not.toMatch(
+				/契約が終了(した場合|すると)/,
+			);
+			expect(desc, '移行を未来の出来事として書かない').not.toMatch(/へ切り替わります/);
+		});
+
+		// S3 は licenseStatus=ACTIVE のまま有料 tier が維持され、削除は走らない。
+		// S4 の是正を S3 に敷衍すると、起きていないことを述べることになる。
+		it('S3 には「すでに削除されている」を持ち込まない (S3 は有料 tier が維持される)', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc;
+			expect(desc).not.toContain('すでに適用されており');
+			expect(desc).not.toContain('削除されています');
+		});
+
+		// 文言が実装の事実に紐づいていることを、契約状態表 (S3 / S4 の planTier) と突き合わせる。
+		// S4 の planTier が有料に戻る変更が入れば本 test が落ち、文言を見直す契機になる。
+		describe('S4 の事実 (contract-state-matrix.md §4)', () => {
+			const matrixRow = (row: string): string => {
+				const line = repoFile('docs/design/billing-redesign/contract-state-matrix.md')
+					.split('\n')
+					.find((l) => l.startsWith(`| **${row}**`));
+				expect(line, `${row} の行が見つからない`).toBeDefined();
+				return line ?? '';
+			};
+
+			it('S4 の planTier は free (= 無料プランの保持期間が既に効く)', () => {
+				expect(matrixRow('S4')).toContain('`suspended`');
+				expect(matrixRow('S4')).toContain('`free`');
+			});
+
+			it('S3 の planTier は有料のまま (= 保持期間はまだ短縮されない)', () => {
+				expect(matrixRow('S3')).toContain('`active`');
+				expect(matrixRow('S3')).toMatch(/`standard`/);
+			});
+
+			it('無料プランの保持期間は有限 (= 物理削除の cutoff が立つ)', () => {
+				expect(PLAN_HISTORY_RETENTION_DAYS.free).not.toBeNull();
+			});
 		});
 
 		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {

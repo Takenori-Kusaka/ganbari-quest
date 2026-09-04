@@ -4386,10 +4386,19 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
 	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
-	// 保持期間の 2 文は**必ず末尾**に置く。復旧の案内 (「お支払い方法を更新すると元に戻ります」) の
-	// 直前に置くと「再契約でも戻りません」→「元に戻ります」が隣り合い、顧客には矛盾に読める
-	// (QM レビュー指摘)。復旧 → 契約が終了したときの移行先 → その移行先の保持期間、の順で述べる。
-	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。このままお支払いを確認できずに契約が終了した場合は${PLAN_FULL_TERMS.free}へ切り替わります。${FREE_PLAN_RETENTION_NOTICE}`,
+	// S4 の文言は 2 つの事実を落とさない (QM レビュー指摘 2 件):
+	//   (a) 保持期間の 2 文は**必ず末尾**。復旧の案内の直前に置くと
+	//       「再契約でも戻りません」→「元に戻ります」が隣り合い、顧客には矛盾に読める
+	//   (b) S4 では**保持期間の短縮がすでに効いている**。`deriveLicenseStatus` は
+	//       status=suspended を SUSPENDED にし、`resolvePlanTier` は ACTIVE 以外を free に落とすため
+	//       (`contract-state-matrix.md` §4 の S4 行も planTier=`free` と記録)、
+	//       `getHistoryCutoffDate('free')` が非 null になり `retention-cleanup-service` の物理削除が
+	//       **契約が生きているうちから走る** (表示側も `applyRetentionFilter(free)` で切られる)。
+	//       これを「契約が終了したら」と未来形で書くと、書き出す時間がまだあると読ませてしまう。
+	// 順序: 復旧の案内 → いま何が起きているか (現在形) → その保持期間 (末尾)。
+	// S3 (grace_period) は licenseStatus=ACTIVE のまま有料 tier が維持され削除は走らないので、
+	// 本注記は S4 だけに置く (S3 の未来形は正しい)。
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると有料プランの機能に戻ります。ただし機能を止めているあいだは${PLAN_FULL_TERMS.free}と同じ履歴保持期間がすでに適用されており、期間を超えた記録から順に削除されています。${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
 	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
