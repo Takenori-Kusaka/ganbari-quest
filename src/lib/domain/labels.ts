@@ -7683,6 +7683,23 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	themeColorLabel: 'テーマカラー',
 	birthdayBonusTitle: '🎂 おたんじょうびボーナス',
 	birthdayBonusNote: '※ ボーナス倍率の変更は別途保存されます',
+	// #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので消せる。ただし誤って消すと
+	// 誕生日ボーナスを失うため、**保存前に**確認を挟む (事後の Alert は
+	// ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice)。
+	// 「何が起きるか」「何が残るか」「何が失われるか」「どうすれば再開できるか」を 1 文ずつで書く。
+	//
+	// **失われるものを名指しする**: 保存すると入力された誕生日は破棄され、その年齢の推定誕生日 (1/1)
+	// に置き換わる (`resolveBirthDateForUpdate`)。取り消し操作は無く、export / バックアップにも
+	// 残らない (公開値は null)。ただし**日付を覚えていれば入れ直せる**ので、「元に戻せません」と
+	// だけ書くと保護者には誇張に読める (実際に失われるのは「アプリが覚えていた日付」)。
+	// 事後の Alert (birthdayClearedNotice) と**同じ 2 点** — 日付は消える / 入れ直せば再開する —
+	// を述べ、保存前と保存後で言うことが食い違わないようにする。
+	birthdayClearConfirmTitle: '誕生日を消しますか？',
+	birthdayClearConfirmBody:
+		'誕生日を消すと、誕生日のお祝いが行われなくなります。年齢はそのまま残ります。入力した誕生日はアプリから消え、取り消す操作はありません。お祝いを再開するには、もう一度誕生日を入れてください。',
+	birthdayClearConfirmAccept: '消して保存する',
+	// 誕生日を消したあとのカード表示。推定誕生日 (内部値) は出さず「未設定」と書く。
+	headerBirthdayUnset: '誕生日: 未設定',
 	saveButton: '💾 保存',
 	cancelButton: 'キャンセル',
 	multiplierLabel: '倍率',
@@ -7752,19 +7769,18 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
 	placeholderAvatarSkippedDesc:
 		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
-	// #4729 PO 回答 (2026-09-03): 誕生日欄を空にして保存すると、実誕生日は「推定扱い」に降格し
-	// 誕生日ボーナス / 🎂 表示の対象から外れる (間違った日に祝う方が体験を壊す)。ただし**黙って
-	// 降格してはならない** — 降格が起きたことを保護者が画面で見られる文言 (Alert、自動消滅しない)。
-	// 再入力で元に戻せることも添え、誤操作の出口を残す。
+	// #4729 PO 決定 (2026-09-04): 保護者は誕生日を消せる (誕生日は任意入力であり、消せないほうが
+	// 説明と矛盾する)。消すと誕生日ボーナス / 🎂 表示の対象から外れるため、**黙って消してはならない**
+	// — 何が起きたかを保護者が画面で見られる文言 (Alert、自動消滅しない)。
+	// 再入力でお祝いを再開できることも添え、誤操作の出口を残す。
 	//
-	// **現状この文言は表示されない (QM レビューで判明)**。降格を起こせる書き手は
-	// `admin/children/+page.server.ts` の editChild action だけで、その画面の `BirthdayInput` は
-	// placeholder option が disabled のため誕生日を空に戻せない。import 経路は
-	// `import-service.ts` が `birthDate: exportChild.birthDate ?? undefined` を渡すため null にならず、
-	// birthDate を更新する API route も無い。**「誕生日を消す」導線を用意するかは PO 判断**で、
-	// その答えが出るまで本文言は到達不能のまま置く (降格の意味論は PO 回答どおり維持)。
+	// 消す操作は `ChildProfileCard` の確認ダイアログ (birthdayClearConfirm*) → 保存 → 本 Alert の
+	// 3 点セット。**保存では実誕生日が破棄され、その年齢の推定誕生日 (1/1) に置き換わる**ので
+	// 元の月日は戻せない (`resolveBirthDateForUpdate`)。だから「消える」ことを事前に確認する。
+	// 消すのは保護者の明示操作だけ — import 復元は `import-service.ts` が
+	// `birthDate: exportChild.birthDate ?? undefined` を渡すため今も null にならない (黙って消えない)。
 	birthdayClearedNotice:
-		'誕生日を消したため、誕生日のお祝いは行われません。もう一度誕生日を入れると、お祝いを再開します。',
+		'誕生日を消したため、誕生日のお祝いは行われません。入力した誕生日はアプリに残っていません。もう一度誕生日を入れると、お祝いを再開します。',
 	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
