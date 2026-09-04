@@ -1190,6 +1190,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
+		uiMode={data.uiMode ?? 'preschool'}
+		hasActivities={data.activities.length > 0}
 		onClose={handleAdventureClose}
 	/>
 {/if}

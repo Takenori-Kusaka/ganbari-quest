@@ -1,5 +1,5 @@
 <script lang="ts">
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getCategoryDisplayName, getChildAdventureStartLabels } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -7,10 +7,22 @@ import { soundService } from '$lib/ui/sound';
 interface Props {
 	open: boolean;
 	childName: string;
+	/**
+	 * 年齢帯 (docs/DESIGN.md §8)。`page` を読まず prop で受ける (src/routes/CLAUDE.md
+	 * §年齢帯 variant)。この演出は elementary / junior / senior に出る。
+	 */
+	uiMode: string;
+	/**
+	 * 記録できる活動が 1 件以上あるか。0 件のときに「したのカードをタップしてみてね」と
+	 * 案内すると、閉じた先にカードが 1 枚も無い (overlay とカード一覧は独立に分岐する)。
+	 */
+	hasActivities?: boolean;
 	onClose?: () => void;
 }
 
-let { open = $bindable(), childName, onClose }: Props = $props();
+let { open = $bindable(), childName, uiMode, hasActivities = true, onClose }: Props = $props();
+
+const t = $derived(getChildAdventureStartLabels(uiMode));
 
 let phase = $state(0);
 
@@ -65,13 +77,13 @@ function handleClose() {
 			<!-- Greeting -->
 			<div class="adventure__greeting animate-fade-in">
 				<div class="adventure__avatar">🧒</div>
-				<p class="adventure__text">{UI_COMPONENTS_LABELS.adventureGreeting(childName)}</p>
+				<p class="adventure__text">{t.adventureGreeting(childName)}</p>
 			</div>
 		{:else if phase === 2}
 			<!-- Adventure message -->
 			<div class="adventure__message animate-fade-in">
-				<p class="adventure__big-text">{UI_COMPONENTS_LABELS.adventureBigText1}</p>
-				<p class="adventure__big-text adventure__big-text--accent">{UI_COMPONENTS_LABELS.adventureBigText2}</p>
+				<p class="adventure__big-text">{t.adventureBigText1}</p>
+				<p class="adventure__big-text adventure__big-text--accent">{t.adventureBigText2}</p>
 				<div class="adventure__sparkles">
 					{#each Array(5) as _, i}
 						<span class="adventure__star" style:--si={i}>⭐</span>
@@ -81,8 +93,8 @@ function handleClose() {
 		{:else if phase === 3}
 			<!-- Category icons appear one by one -->
 			<div class="adventure__categories animate-fade-in">
-				<p class="adventure__sub-text">{UI_COMPONENTS_LABELS.adventureSubText1}</p>
-				<p class="adventure__sub-text">{UI_COMPONENTS_LABELS.adventureSubText2}</p>
+				<p class="adventure__sub-text">{t.adventureSubText1}</p>
+				<p class="adventure__sub-text">{t.adventureSubText2}</p>
 				<div class="adventure__cat-grid">
 					{#each categories as cat, i (cat.id)}
 						<div
@@ -91,7 +103,7 @@ function handleClose() {
 							style:--cat-color={cat.color}
 						>
 							<span class="adventure__cat-icon">{cat.icon}</span>
-							<span class="adventure__cat-name">{cat.name}</span>
+							<span class="adventure__cat-name">{getCategoryDisplayName(cat.code, uiMode) || cat.name}</span>
 						</div>
 					{/each}
 				</div>
@@ -106,11 +118,13 @@ function handleClose() {
 						{/each}
 					{/each}
 				</div>
-				<img src="/icon-character.png" alt={UI_COMPONENTS_LABELS.adventureCharacterAlt} class="adventure__character" />
-				<p class="adventure__ready-text">{UI_COMPONENTS_LABELS.adventureReadyText}</p>
-				<p class="adventure__ready-sub">{UI_COMPONENTS_LABELS.adventureReadySub}</p>
+				<img src="/icon-character.png" alt={t.adventureCharacterAlt} class="adventure__character" />
+				<p class="adventure__ready-text">{t.adventureReadyText}</p>
+				<p class="adventure__ready-sub">
+					{hasActivities ? t.adventureReadySub : t.adventureReadySubEmpty}
+				</p>
 				<button class="adventure__start-btn tap-target" onclick={handleClose}>
-					{UI_COMPONENTS_LABELS.adventureStartBtn}
+					{t.adventureStartBtn}
 				</button>
 			</div>
 		{/if}

@@ -2,9 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { childAgeFromBirthDate } from '$lib/domain/child-age';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
-import { requireTenantId } from '$lib/server/auth/factory';
+import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
+import { isSetupRequired } from '$lib/server/services/setup-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -14,7 +15,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	trackSetupFunnel('setup_start', tenantId);
 	const children = await getAllChildren(tenantId);
-	return { children };
+	// 「ホームに戻る」は /switch を指すが、local モードの hooks.server.ts は
+	// 「子供 0 人なら全 path を /setup へ 302」を掛けており除外リストに /switch が無い
+	// (/admin も同様)。つまりセットアップ必須のあいだ、この画面に出せる「出口」は
+	// 復元画面 (/admin/settings/data、除外済) だけで、ホームリンクは自分自身に戻る
+	// 無反応リンクになる。出口が実在するときだけ出す。
+	const setupEnforced =
+		getAuthMode() === 'local' && children.length === 0 && (await isSetupRequired(tenantId));
+	return { children, canReturnHome: !setupEnforced };
 };
 
 export const actions: Actions = {

@@ -4,7 +4,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asChildId } from '$lib/domain/ids';
-import { SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import {
+	getSetupFirstAdventureRecordError,
+	SETUP_FIRST_ADVENTURE_LABELS,
+} from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
 import { getChildActivities } from '$lib/server/services/activity-service';
@@ -61,7 +64,9 @@ export const actions: Actions = {
 		const result = await recordActivity(childId, activityId, tenantId);
 
 		if ('error' in result) {
-			return fail(400, { error: SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed });
+			// 理由 (同日 2 回目 / 上限 / 活動が消えた) を捨てると、画面には「失敗しました」しか
+			// 残らず、親は原因も次の一手も分からない (ADR-0062 §1 状態起因 = Banner + 次アクション)。
+			return fail(400, { error: getSetupFirstAdventureRecordError(result.error) });
 		}
 
 		trackSetupFunnel('setup_first_adventure_completed', tenantId, {

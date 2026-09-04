@@ -16,6 +16,8 @@ import { CATEGORIES, CATEGORY_CODES } from '../../../src/lib/domain/categories';
 import {
 	getCategoryDisplayName,
 	getChallengeReason,
+	getChildActivityEmptyLabels,
+	getChildAdventureStartLabels,
 	getChildChecklistLabels,
 	getChildErrorPageLabels,
 	getChildHomeLabels,
@@ -179,9 +181,19 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		'パパ・ママ',
 		'うれしい！',
 		'もらったよ',
+		// 初回の子供画面 (冒険スタート演出 / 活動 0 件の空状態)。
+		// showAdventureStart は elementary / junior / senior に付いているので 16-18 歳が最初に見る。
+		'したのカードをタップしてみてね',
+		'きょうから いっしょに',
+		'ぼうけんだよ！',
+		'つよくなれるよ',
+		'ぼうけんスタート',
+		'ぼうけんの じゅんびちゅう',
+		'よういしているよ',
+		'もうすこし まってね',
 	];
 
-	it('ショップ / ステータス / ホーム / 持ち物チェック / ログインボーナス受取の文言に禁止語が残っていない', () => {
+	it('ショップ / ステータス / ホーム / 持ち物チェック / ログインボーナス受取 / 初回画面の文言に禁止語が残っていない', () => {
 		for (const uiMode of KANJI_MODES) {
 			const texts = [
 				...stringsOf(getChildShopLabels(uiMode)),
@@ -192,6 +204,9 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 				...stringsOf(getChildChecklistLabels({ ageTier: uiMode })),
 				...stringsOf(getChildStampLabels(uiMode)),
 				...stringsOf(getChildParentMessageLabels(uiMode)),
+				// 初回訪問で最初に出る 2 面 (冒険スタート演出 / 活動 0 件の空状態)
+				...stringsOf(getChildAdventureStartLabels(uiMode)),
+				...stringsOf(getChildActivityEmptyLabels(uiMode)),
 			].join('\n');
 			for (const word of FORBIDDEN_IN_KANJI_MODE) {
 				expect(texts, `${uiMode} に「${word}」が残っている`).not.toContain(word);
@@ -206,6 +221,28 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		].join('\n');
 		expect(texts).toContain('こうかんする');
 		expect(texts).toContain('せいちょうチャート');
+	});
+
+	it('初回画面 (冒険スタート演出 / 活動 0 件の空状態) のひらがな側に漢字変種が漏れていない', () => {
+		for (const uiMode of ['baby', 'preschool', 'elementary'] as const) {
+			const texts = [
+				...stringsOf(getChildAdventureStartLabels(uiMode)),
+				...stringsOf(getChildActivityEmptyLabels(uiMode)),
+			].join('\n');
+			expect(texts, uiMode).toContain('したのカードをタップしてみてね');
+			expect(texts, uiMode).toContain('ぼうけんの じゅんびちゅう');
+			for (const value of ['下のカードを選んで記録してみよう', '冒険の準備中', '保護者が活動']) {
+				expect(texts, `${uiMode} に漢字変種「${value}」が漏れている`).not.toContain(value);
+			}
+		}
+	});
+
+	it('初回画面は「押すカードが無いとき」の文言を別に持つ (下にカードが無いのに指さない)', () => {
+		for (const uiMode of [...HIRAGANA_MODES, 'elementary', ...KANJI_MODES] as const) {
+			const t = getChildAdventureStartLabels(uiMode);
+			expect(t.adventureReadySubEmpty, uiMode).not.toBe(t.adventureReadySub);
+			expect(t.adventureReadySubEmpty, uiMode).not.toContain('カード');
+		}
 	});
 
 	it('カテゴリ名が年齢帯で切り替わる', () => {

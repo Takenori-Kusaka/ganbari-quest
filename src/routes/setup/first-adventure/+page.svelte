@@ -4,6 +4,7 @@ import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -82,6 +83,15 @@ function goToComplete() {
 		</Button>
 	</div>
 {:else}
+	<!-- #4512 の失敗が画面に出ていなかった (form.error を一度も描画していなかった) ため、
+	     同日 2 回目 / 上限到達で「押しても何も起きない」になっていた。setup/children と同じ形で出す
+	     (ADR-0062 §1: 状態起因 = Banner + 次アクション、role="alert" は ErrorAlert が持つ)。 -->
+	{#if form?.error}
+		<div data-testid="first-adventure-error">
+			<ErrorAlert message={form.error} severity="warning" />
+		</div>
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>
