@@ -218,6 +218,45 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 `allowed: true` を返す — 解約完了 = 無料プラン相当という扱いであり（#3993 PO 判断）、
 書き込みを止める分岐は存在しない。
 
+### 契約が残っている間（S4）は履歴を物理削除しない
+
+`planTier` が `free` に落ちる（§4 S4 行）のは**表示と機能の範囲**にだけ効かせる。履歴の
+**物理削除**（`retention-cleanup-service` の `activity_logs` / `point_ledger` / `status_history`）は
+S4 のテナントに対して実行しない。物理削除が走るのは **S5（契約終了）以降**だけである。
+
+S4 は `invoice.paid`（W2）で S2 に戻りうる状態であり、戻ってくる前提の状態で戻らない処理を
+先に実行してはならない。未収に対して取る手当ては「有料機能を止める」までとする。
+
+**免除の境界は本表の S4 行そのもの**（`plan` あり + `sub` あり）。判定は
+`isRetainedSuspendedContract(4 列)` = `classifyContractState(4 列) === 'S4'`
+（`src/lib/domain/contract-state.ts`）で、**分類関数を経由させる**。`status === 'suspended' && sub != null`
+の 2 列で書くと不正状態まで免除に入る（実測）:
+
+| 4 列 | 分類 | 2 列判定 | 本表の免除 |
+|---|---|---|---|
+| `suspended` / plan あり / sub あり | S4 | true | **免除する** |
+| `suspended` / plan **なし** / sub あり | **X2** | true | **免除しない** |
+| `suspended` / plan あり / sub が空文字 | **X1**（`present()` が空文字を「なし」に倒す） | true | **免除しない** |
+
+X2 は「起きうる」不正状態（§4 不正状態の表）であり、状態監査（`contract-state-audit-service`）が
+是正対象として上げる行である。無期限の削除免除で覆い隠すと、監査が指している行と retention の
+扱いが食い違う。§2 原則 3（導出値に分岐を足す前に本表に行を足せるか確認する）に従い、
+**免除は正常状態 S4 に限る**。
+
+`resolvePlanTier` 自体は変えない（課金ゲート全体に波及し、未収のテナントに有料機能を返して
+しまう）。したがって S4 では `applyRetentionFilter('free')` により無料プランの期間を超えた履歴が
+**一覧に出ない**が、行は残っており復帰すれば再び表示される。顧客への告知
+（`SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc`）はこの区別を述べる。
+
+**S5 到達時の起算は付け替えない。** `getHistoryCutoffDate` は「今日から保持期間を引いた日」を返す
+（レコードの日付基準）ため、長く S4 に留まったテナントは **S5 到達後の最初の cron で、期間を過ぎた
+分をまとめて削除される**。告知はこれを猶予があるように書かない（「終了したあとは次の保持期間が
+適用されます」型の表現を禁ずる）。
+
+検証: `tests/unit/domain/contract-state.test.ts`（免除の境界 = 32 通りで分類と双方向一致）/
+`tests/unit/services/retention-cleanup-service.test.ts`（S4 skip / S1・S3・S5・S6・X2 は従来どおり削除）
+/ `tests/unit/domain/cancel-vs-deletion-terminology.test.ts`（告知が実装と一致する）。
+
 ---
 
 ## 6. 退会（アカウント削除）は別軸である

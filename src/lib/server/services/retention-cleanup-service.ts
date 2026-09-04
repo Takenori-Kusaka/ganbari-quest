@@ -9,6 +9,11 @@
 //
 // - トライアル期間中はその時点のトライアルティアが適用される（`resolveFullPlanTier`）
 // - `family` (無制限) の場合は何も削除しない
+// - **契約が残っている間 (S4 = suspended かつ subscription あり) は何も削除しない**
+//   (PO 決定 2026-09-04)。物理削除が走るのは S5 (契約終了) 以降だけ。判定は
+//   `isRetainedSuspendedContract` = `classifyContractState(4 列) === 'S4'`
+//   （`contract-state-matrix.md` §4 の **4 列**が SSOT。status / sub の 2 列だけで判定すると
+//    不正状態 X2 / X1 まで免除してしまうため、分類関数そのものに乗せる）
 // - `dryRun=true` の場合は実削除せず件数だけを返す
 // - 各テナントは独立して try/catch。1 テナントの失敗が他に波及しないようにする
 //
@@ -22,6 +27,7 @@ import {
 } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
+import { isRetainedSuspendedContract } from '$lib/domain/contract-state';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -32,7 +38,8 @@ import {
 
 export interface RetentionCleanupResult {
 	tenantsProcessed: number;
-	tenantsSkipped: number; // family tier または errors
+	/** family tier (無制限) / S4 (契約が残ったままの停止) / errors */
+	tenantsSkipped: number;
 	childrenProcessed: number;
 	activityLogsDeleted: number;
 	pointLedgerDeleted: number;
@@ -119,6 +126,38 @@ export async function cleanupExpiredData(
 
 	for (const tenant of tenants) {
 		try {
+			// PO 決定 (2026-09-04): 契約が残っている間 (S4) は履歴の物理削除を行わない。
+			// 物理削除が走るのは S5 (契約終了) 以降だけ。
+			//
+			// S4 は `deriveLicenseStatus` が SUSPENDED を返し、`resolvePlanTier` が ACTIVE 以外を
+			// free に落とすため、そのままだと **契約が生きていて復帰しうるテナント** が無料プランの
+			// cutoff で削除される (`contract-state-matrix.md` §4: S4 =「契約が残り復帰しうる停止」で、
+			// `invoice.paid` (W2) で S2 に戻る)。戻ってくる前提の状態で、戻らない処理を先に実行して
+			// いた。未収への手当ては「有料機能を止める」までで、不可逆な削除まで前倒ししない。
+			//
+			// 境界は **4 列の分類 (`classifyContractState`) が S4 のときだけ**。status / sub の
+			// 2 列で書くと不正状態 X2 (sub あり + plan なし) / X1 (sub が空文字) まで免除に含まれ、
+			// 是正すべき行を無期限に温存してしまう (matrix §2 原則 3)。
+			//
+			// 止めるのは削除の実行側だけ。`resolvePlanTier` は変えないので、S4 の有料機能停止・
+			// 表示側の `applyRetentionFilter(free)` による絞り込みはそのまま (復帰すれば再び見える)。
+			if (
+				isRetainedSuspendedContract({
+					status: tenant.status,
+					plan: tenant.plan ?? null,
+					stripeSubscriptionId: tenant.stripeSubscriptionId ?? null,
+					planExpiresAt: tenant.planExpiresAt ?? null,
+				})
+			) {
+				result.tenantsSkipped++;
+				logger.info('[retention-cleanup] tenant skipped (contract retained)', {
+					service: 'retention-cleanup',
+					tenantId: tenant.tenantId,
+					context: { reason: 'contract-state-S4', status: tenant.status, dryRun },
+				});
+				continue;
+			}
+
 			const licenseStatus = deriveLicenseStatus(tenant);
 			const tier: PlanTier = await resolveFullPlanTier(tenant.tenantId, licenseStatus, tenant.plan);
 
