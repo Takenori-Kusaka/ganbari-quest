@@ -121,6 +121,19 @@ describe('BirthdayInput', () => {
 		expect(hiddenInput.value).toBe('');
 	});
 
+	it('月だけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async () => {
+		const { container, getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+		});
+
+		await fireEvent.change(getByLabelText('生まれた月'), { target: { value: '' } });
+
+		const hiddenInput = container.querySelector('input[type="hidden"]') as HTMLInputElement;
+		expect(hiddenInput.value).toBe('');
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+	});
+
 	it('resets to undefined when all fields are cleared', async () => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2023-01-31',
