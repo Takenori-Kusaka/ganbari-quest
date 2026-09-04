@@ -10006,7 +10006,7 @@ export function getChildStampLabels(uiMode: string): ChildStampLabels {
 // ひらがなをベースに、junior / senior だけ差分を spread で重ねる
 // (src/routes/CLAUDE.md §年齢帯 variant)。
 
-export const CHILD_ADVENTURE_START_LABELS = {
+const CHILD_ADVENTURE_START_LABELS = {
 	adventureGreeting: (name: string) => `やあ！ ${name}！`,
 	adventureBigText1: 'きょうから いっしょに',
 	adventureBigText2: 'ぼうけんだよ！',
@@ -10056,7 +10056,7 @@ export function getChildAdventureStartLabels(uiMode: string): ChildAdventureStar
 	return { ...CHILD_ADVENTURE_START_LABELS, ...CHILD_ADVENTURE_START_KANJI_OVERRIDES };
 }
 
-export const CHILD_ACTIVITY_EMPTY_LABELS = {
+const CHILD_ACTIVITY_EMPTY_LABELS = {
 	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
 	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
 	activityEmptyWait: 'もうすこし まってね ⏳',
