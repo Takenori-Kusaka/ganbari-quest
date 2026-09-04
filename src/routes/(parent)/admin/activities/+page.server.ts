@@ -323,24 +323,10 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
 
-		// #2894 AC2: marketplace 取込経路でも free tier のカスタム活動上限を enforce
-		// (importPackToChildren と同型、`create` 単発の gate を取込経路に横展開)。
-		const importPackLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const importPackLimitCheck = await checkActivityLimit(tenantId, importPackLicenseStatus);
-		if (!importPackLimitCheck.allowed) {
-			const tier = await resolveFullPlanTier(
-				tenantId,
-				importPackLicenseStatus,
-				locals.context?.plan,
-			);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					PLAN_GATE_LABELS.activityLimitReached(importPackLimitCheck.max),
-				),
-			});
-		}
+		// #4693 PO 回答 (2026-09-03) #1: プリセット取込は quota の母集団 (custom) を消費しない
+		// (`seed` 行、LP「プリセット活動の利用 = 無料」)。旧実装 (#2894) はここで
+		// `checkActivityLimit` を通していたため、custom 3/3 のテナントがテンプレを取り込めなかった。
+		// 上限は strategy 層 (`enforceActivityQuota`、custom 行だけを数える) が担う。
 
 		// #4692: 取込先 child を明示する (service 側の first-child silent fallback 廃止)。
 		// 本 action は `childIds` を受け取らない旧 form 互換経路のため、未指定は
@@ -476,7 +462,6 @@ export const actions: Actions = {
 	// childIds=all で全 child、childIds=1,2,3 で個別 child 配列
 	// Round 18 Cluster H (#13/#16/#20/#25/#28): selectedIndexes (CSV) で subset 取込対応。
 	// 未指定なら全件 (後方互換)。指定された index で payload.activities を slice してから strategy へ。
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: subset 取込分岐 + childIds parse + 既存エラーハンドリング統合のため。subset slice ロジックを別 helper に切り出す refactor は別 Issue で対応 (Round 18 Cluster H scope 外)
 	importPackToChildren: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -487,22 +472,12 @@ export const actions: Actions = {
 		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
 		if (!childIdsRaw) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.targetChildRequired });
 
-		// #2894 AC2: free tier のカスタム活動上限 (maxActivities=3, tenant-wide) を取込経路でも
-		// enforce する。`create` action には上限 check があったが import 経路は漏れており
-		// (root cause: SSOT 上の上限が取込で bypass されていた)、free tier が上限超過で取込できた。
-		// `create` と同じ PlanLimitError 形式で 403 を返し、UI 側で構造化メッセージ + upgrade 導線を出す。
-		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
-		if (!activityLimitCheck.allowed) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
-				),
-			});
-		}
+		// #4693 PO 回答 (2026-09-03) #1: marketplace 取込 (プリセット) は `seed` 行しか作らず
+		// quota (custom のみ) を消費しないため、route 側の `checkActivityLimit` gate は通さない。
+		// 旧実装 (#2894 AC2) は「取込経路の gate 漏れ」として custom と同じ gate を掛けていたが、
+		// LP (pricing「プリセット活動の利用 = 無料」) / activity-source.ts / strategy 層の 3 つと
+		// この route だけがずれ、custom 3/3 でテンプレ取込が 403 になっていた。上限は strategy 層
+		// (`enforceActivityQuota`) が custom 行だけを見て切る (プリセット取込では 0 行)。
 
 		// childIds: 'all' or comma-separated id list (#4692 で共通 helper に集約)
 		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);

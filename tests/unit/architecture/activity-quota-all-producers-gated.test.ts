@@ -21,7 +21,67 @@ const SCAN_ROOTS = ['src/lib/server/services', 'src/routes'];
 
 /** child_activities に行を作る repo 呼び出し (repo 実装自体と test は対象外) */
 const PRODUCER_CALL = /childActivity(?:Repo)?\s*\.\s*(insertActivity|insertActivitiesBulk)\s*\(/;
-const GATE_CALL = /\b(enforceActivityQuota|checkActivityLimit)\s*\(/;
+// #4693 (PO 回答 2026-09-03 #2): 復元経路の gate は「捨てる」ではなく「archived で入れる」に
+// 変わったため、`archiveActivityQuotaOverflow` も quota gate として数える (どちらも
+// activity-quota.ts の同じ判定 `judgeActivityQuota` を通る)。
+const GATE_CALL = /\b(enforceActivityQuota|archiveActivityQuotaOverflow|checkActivityLimit)\s*\(/;
+
+/**
+ * route の form action ごとに gate を要求する表 (#4693 QM 再レビュー)。
+ *
+ * 「宣言された file のどこかに gate 呼び出しが 1 つでもあれば通る」検査は、**5 action のうち
+ * 2 つを無 gate にしても緑のまま**だった (実測: `importPack` / `importPackToChildren` から
+ * `checkActivityLimit` を外しても fail しない。極端には 1 action だけ残せば全部外せる)。
+ * これでは「経路を足したら gate 位置を決めさせる」という本 test の目的を満たさないので、
+ * **action 単位**で「gate を通す」か「通さない (理由付き)」を宣言させる。
+ *
+ * `exempt` の理由は空文字だと下の test が落とす (理由なしの素通しを作らない)。
+ */
+const ACTION_GATE_REGISTRY: Record<
+	string,
+	{ gated: readonly string[]; exempt: Readonly<Record<string, string>> }
+> = {
+	'src/routes/(parent)/admin/activities/+page.server.ts': {
+		gated: ['create', 'bulkCreateForChildren', 'copyFromChild'],
+		exempt: {
+			importPack:
+				'marketplace プリセット取込は seed 行しか作らず custom quota を消費しない (#4693 PO 回答 #1)',
+			importPackToChildren:
+				'同上。取込側の上限は strategy 層 enforceActivityQuota が custom 行だけを見て切る',
+			importFile:
+				'バックアップ復元は strategy 層 archiveActivityQuotaOverflow が超過分を保管する。捨てないので route で 403 にしない (#4693 PO 回答 #2)',
+			edit: '既存行の更新のみ。child_activities の行数を増やさないので quota に影響しない',
+			delete: '行を減らす操作。quota を消費しない',
+			toggleVisibility: '既存行の表示切替のみ。行数を増やさない',
+			toggleMainQuest: '既存行のメインクエスト切替のみ。行数を増やさない',
+			clearAll: '行を全削除する操作。quota を消費しない',
+		},
+	},
+};
+
+/**
+ * `actions` オブジェクト直下の action 名 → 本文 (次の action 宣言まで) を切り出す。
+ *
+ * #4693 (QM 再レビュー 3 巡目): 旧実装は `name: async (…) =>` の**アロー代入形しか拾わず**、
+ * `async name(…) {` の method shorthand で書いた無 gate action が素通りしていた
+ * (mutation で実証済)。object literal で action を書ける 2 記法の両方を拾う。
+ */
+function splitActions(src: string): Map<string, string> {
+	const bodies = new Map<string, string>();
+	// `name: async (` / `name: async(` / `async name(` / `name(` のいずれも 1 段インデント直下
+	const decl = /^\t(?:(\w+):\s*async\s*\(|async\s+(\w+)\s*\(|(\w+)\s*\(\s*\{)/gm;
+	const starts: { name: string; at: number }[] = [];
+	let m = decl.exec(src);
+	while (m !== null) {
+		const name = m[1] ?? m[2] ?? m[3];
+		if (name !== undefined) starts.push({ name, at: m.index });
+		m = decl.exec(src);
+	}
+	for (const [i, s] of starts.entries()) {
+		bodies.set(s.name, src.slice(s.at, starts[i + 1]?.at ?? src.length));
+	}
+	return bodies;
+}
 
 /**
  * producer file → その経路の quota gate を呼ぶ file (同一 file なら自分自身)。
@@ -30,15 +90,15 @@ const GATE_CALL = /\b(enforceActivityQuota|checkActivityLimit)\s*\(/;
 const GATE_REGISTRY: Record<string, { gateFiles: string[]; why: string }> = {
 	'src/lib/server/services/activity-import-service.ts': {
 		gateFiles: ['src/lib/server/services/activity-import-service.ts'],
-		why: 'dispatchImport 経由の取込 (marketplace / ?/importFile / api/v1/activities/import) は importActivities 内で enforceActivityQuota',
+		why: 'dispatchImport 経由の取込 (marketplace / ?/importFile / api/v1/activities/import) は importActivities 内で enforceActivityQuota。母集団は custom 行のみで、プリセット取込 (seed 行) は 0 行と数えられて通る (#4693 PO 回答 #1)',
 	},
 	'src/lib/server/services/import-service.ts': {
 		gateFiles: ['src/lib/server/services/import-service.ts'],
-		why: 'backup ZIP / JSON の全体復元 (api/v1/import) は importChildActivitiesData 内で enforceActivityQuota (QM #4784)',
+		why: 'backup ZIP / JSON の全体復元 (api/v1/import) は importChildActivitiesData 内で archiveActivityQuotaOverflow (超過分は捨てず archived で復元、#4693 PO 回答 #2)',
 	},
 	'src/routes/api/v1/import/cloud/+server.ts': {
 		gateFiles: ['src/routes/api/v1/import/cloud/+server.ts'],
-		why: 'クラウドテンプレート取込は route 内で enforceActivityQuota (QM #4784)',
+		why: 'クラウドテンプレート取込は route 内で archiveActivityQuotaOverflow (超過分は捨てず archived、#4693 PO 回答 #2)',
 	},
 	'src/lib/server/services/activity-service.ts': {
 		gateFiles: [
@@ -85,6 +145,24 @@ function producers(): string[] {
 	return found.sort();
 }
 
+/**
+ * 各 producer が **どちらの適用方式** を使うかの宣言 (#4693 QM 再レビュー 3 巡目)。
+ *
+ * 旧実装は「いずれかの gate 関数を呼ぶか」しか見ておらず、drop (捨てる) と archive (保管する) の
+ * 取り違えを原理的に捕まえられなかった。`activity-quota.ts` の冒頭は自らを境界の SSOT と
+ * 宣言しているので、その対応づけが動いたら落ちるようにする。
+ */
+const GATE_METHOD_REGISTRY: Record<string, readonly string[]> = {
+	// 取込 (プリセット) は drop、復元は archive。両方を通るので 2 つとも呼ぶ
+	'src/lib/server/services/activity-import-service.ts': [
+		'enforceActivityQuota',
+		'archiveActivityQuotaOverflow',
+	],
+	// 復元のみ。drop 方式を呼んではいけない (超過分を捨てると PO 回答 #2 に反する)
+	'src/lib/server/services/import-service.ts': ['archiveActivityQuotaOverflow'],
+	'src/routes/api/v1/import/cloud/+server.ts': ['archiveActivityQuotaOverflow'],
+};
+
 describe('#4693 fitness: child_activities を作る全経路が quota gate を通る', () => {
 	const found = producers();
 
@@ -107,6 +185,71 @@ describe('#4693 fitness: child_activities を作る全経路が quota gate を�
 			stale,
 			`registry に producer でなくなった file が残っています: ${stale.join(', ')}`,
 		).toEqual([]);
+	});
+
+	// #4693 QM 再レビュー: 「file のどこかに 1 つあれば通る」を action 単位に締める。
+	describe('route の action ごとに gate の有無を宣言する (file 単位の素通しを作らない)', () => {
+		for (const [file, { gated, exempt }] of Object.entries(ACTION_GATE_REGISTRY)) {
+			const actions = splitActions(readFileSync(join(REPO_ROOT, file), 'utf8'));
+
+			it(`${file}: actions が抽出できている (regex の空振りを見逃さない)`, () => {
+				expect(actions.size).toBeGreaterThan(0);
+			});
+
+			it(`${file}: gate 必須と宣言した action は自分の本文で gate を呼ぶ`, () => {
+				for (const name of gated) {
+					const body = actions.get(name);
+					expect(body, `action "${name}" が ${file} に存在しません`).toBeDefined();
+					expect(
+						GATE_CALL.test(body ?? ''),
+						`action "${name}" は gate 必須と宣言されていますが、本文で ` +
+							`checkActivityLimit / enforceActivityQuota / archiveActivityQuotaOverflow を呼んでいません`,
+					).toBe(true);
+				}
+			});
+
+			it(`${file}: gate 免除と宣言した action は理由を持ち、実際に gate を呼んでいない`, () => {
+				for (const [name, why] of Object.entries(exempt)) {
+					const body = actions.get(name);
+					expect(body, `action "${name}" が ${file} に存在しません`).toBeDefined();
+					expect(why.trim().length, `action "${name}" の免除理由が空です`).toBeGreaterThan(10);
+					expect(
+						GATE_CALL.test(body ?? ''),
+						`action "${name}" は gate 免除と宣言されていますが実際には gate を呼んでいます ` +
+							`(宣言と実装が食い違っています)`,
+					).toBe(false);
+				}
+			});
+
+			it(`${file}: すべての action が gated / exempt のどちらかで宣言されている`, () => {
+				const declared = new Set([...gated, ...Object.keys(exempt)]);
+				const undeclared = [...actions.keys()].filter((name) => !declared.has(name));
+				expect(
+					undeclared,
+					`gate の要否が未宣言の action があります (足したら ACTION_GATE_REGISTRY に書く): ${undeclared.join(', ')}`,
+				).toEqual([]);
+			});
+		}
+	});
+
+	// #4693 QM 再レビュー 3 巡目: drop / archive の取り違えを検出する。
+	it('宣言された適用方式 (drop / archive) と実装が一致する', () => {
+		for (const [file, expected] of Object.entries(GATE_METHOD_REGISTRY)) {
+			const src = readFileSync(join(REPO_ROOT, file), 'utf8');
+			for (const fn of expected) {
+				expect(
+					new RegExp(`\\b${fn}\\s*\\(`).test(src),
+					`${file} は ${fn} を呼ぶと宣言されていますが呼んでいません`,
+				).toBe(true);
+			}
+			if (!expected.includes('enforceActivityQuota')) {
+				expect(
+					/\benforceActivityQuota\s*\(/.test(src),
+					`${file} は復元専用 (archive 方式) と宣言されていますが、超過分を捨てる ` +
+						`enforceActivityQuota を呼んでいます (PO 回答 #2 に反する)`,
+				).toBe(false);
+			}
+		}
 	});
 
 	it('宣言された gate file は実際に quota gate 関数を呼んでいる', () => {

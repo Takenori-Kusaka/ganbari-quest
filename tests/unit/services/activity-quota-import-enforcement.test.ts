@@ -93,6 +93,19 @@ function pack(count: number): ActivityPackItem[] {
 	}));
 }
 
+/**
+ * insertActivitiesBulk に渡された行のうち **有効 (archived でない)** 行数。
+ * #4693 (QM 再レビュー) で復元は超過分を捨てず archived で書くようになったため、
+ * 「上限を超えて使える状態にならない」不変条件は **有効行数**で見る。
+ */
+function activeWrittenRowCount(): number {
+	return mockInsertActivitiesBulk.mock.calls.reduce(
+		(n, call) =>
+			n + (call[0] as { isArchived?: number }[]).filter((i) => i.isArchived !== 1).length,
+		0,
+	);
+}
+
 /** 既存のカスタム活動 n 件 (quota に数える source='custom') */
 function existing(count: number) {
 	return Array.from({ length: count }, (_, i) => ({
@@ -112,31 +125,38 @@ beforeEach(() => {
 });
 
 describe('#4693 取込の上限は importActivities で一元強制される', () => {
-	it('無料プランで 3/3 到達 → 復元しても 1 件も増えず、理由が errors に出る', async () => {
+	// #4693 (QM 再レビュー / PO 回答 #2): 復元 (presetId 無し) は超過分を **捨てず保管**する。
+	// 「使える活動が上限を超えない」不変条件は有効行数で維持しつつ、顧客のデータは 1 行も落とさない。
+	it('無料プランで 3/3 到達 → 復元しても有効になるのは 0 件、119 件は保管されて残る', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // free の maxActivities=3
 
 		const result = await importActivities(pack(119), TENANT, { childIds: [CHILD] });
 
-		expect(result.imported).toBe(0);
-		expect(mockInsertActivitiesBulk).not.toHaveBeenCalledWith(
-			expect.arrayContaining([expect.objectContaining({ name: '復元活動1' })]),
-			expect.anything(),
-		);
-		// #4693 fix: 理由は errors (表示ログ) ではなく blocked (顧客に見せる channel) に載る。
-		expect(result.blocked?.message).toContain('3');
-		expect(result.blocked?.count).toBe(119);
-		expect(result.blocked?.upgradeUrl).toBe('/admin/subscription');
+		// 有効化された行は 0 (上限は守られている)
+		expect(activeWrittenRowCount()).toBe(0);
+		// だが 119 行すべて書かれている (捨てていない)
+		expect(writtenRowCount()).toBe(119);
+		expect(result.activityQuota?.archived).toBe(119);
+		expect(result.activityQuota?.activated).toBe(0);
+		expect(result.activityQuota?.total).toBe(119);
+		expect(result.activityQuota?.reason).toBe('plan_limit');
+		expect(result.activityQuota?.message).toContain('3');
+		expect(result.activityQuota?.upgradeUrl).toBe('/admin/subscription');
+		// 捨てる channel (blocked) は使わない
+		expect(result.blocked).toBeUndefined();
 	});
 
-	it('残枠 1 件 → 1 件だけ入り、残りは弾かれる (余裕のある分は入る)', async () => {
+	it('残枠 1 件 → 1 件だけ有効化され、残り 4 件は保管される (余裕のある分は有効に入る)', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		mockFindActivitiesByChild.mockResolvedValue(existing(2));
 
 		const result = await importActivities(pack(5), TENANT, { childIds: [CHILD] });
 
-		expect(result.imported).toBe(1);
-		expect(result.blocked?.count).toBe(4);
+		expect(activeWrittenRowCount()).toBe(1);
+		expect(writtenRowCount()).toBe(5);
+		expect(result.activityQuota?.activated).toBe(1);
+		expect(result.activityQuota?.archived).toBe(4);
 	});
 
 	it('有料プラン (上限なし) は従来どおり全件入る', async () => {
@@ -148,6 +168,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		expect(result.imported).toBe(10);
 		expect(result.errors).toEqual([]);
 		expect(result.blocked).toBeUndefined();
+		expect(result.activityQuota).toBeUndefined();
 	});
 
 	it('上限内の取込では quota 判定が結果に影響しない', async () => {
@@ -159,6 +180,7 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		expect(result.imported).toBe(2);
 		expect(result.errors).toEqual([]);
 		expect(result.blocked).toBeUndefined();
+		expect(result.activityQuota).toBeUndefined();
 	});
 
 	// #4693 fix (adversarial D1): quota の単位は **行数** (`checkActivityLimit` と同じ)。
@@ -174,8 +196,10 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 
 		const result = await importActivities(pack(3), TENANT, { childIds: [CHILD, SIBLING] });
 
-		expect(writtenRowCount()).toBeLessThanOrEqual(3);
-		expect(result.blocked?.count).toBeGreaterThan(0);
+		// 有効行は 3 を超えない (上限の意味は保たれる)。書かれる行はそれ以上あってよい (保管分)。
+		expect(activeWrittenRowCount()).toBeLessThanOrEqual(3);
+		expect(writtenRowCount()).toBe(6);
+		expect(result.activityQuota?.archived).toBeGreaterThan(0);
 	});
 
 	// 既に 2 行使っているテナントに 2 人分を取り込む: 1 名 = 2 行 > 残枠 1 なので 1 行も入らない。
@@ -190,9 +214,11 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 
 		const result = await importActivities(pack(2), TENANT, { childIds: [CHILD, SIBLING] });
 
-		expect(writtenRowCount()).toBe(0);
-		expect(result.imported).toBe(0);
-		expect(result.blocked?.count).toBe(4);
+		// 有効化は 0 行 (1 名 = 2 行 > 残枠 1)。ただし 4 行とも保管されて残る。
+		expect(activeWrittenRowCount()).toBe(0);
+		expect(writtenRowCount()).toBe(4);
+		expect(result.activityQuota?.archived).toBe(4);
+		expect(result.activityQuota?.activated).toBe(0);
 	});
 	// ------------------------------------------------------------------
 	// #4693 QM: gate が数える母集団と、制限する母集団を一致させる
@@ -345,7 +371,10 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 		expect(childInputsByChild.get(CHILD)?.map((i) => i.name)).toEqual(['archived-custom']);
 	});
 
-	it('現在数の取得に失敗したときも fail-closed で全件止め、再試行の文言を返す (500 に突き抜けない)', async () => {
+	// #4693 (QM 再レビュー): 現在数が数えられない = **無料と確定しているが利用状況が不明**。
+	// 復元は捨てられないので、残枠 0 とみなして全件を保管する (アップグレードで戻せる)。
+	// fail-open (全件有効化) にはしない — 上限の意味が障害中だけ消えるのを防ぐ。
+	it('現在数を数えられないときは全件を保管する (使える状態にはせず、データも落とさない)', async () => {
 		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
 		// 1 回目 (取込側の既存名 dedup) は成功、2 回目 (quota の現在数) で落とす
 		mockFindActivitiesByChild
@@ -353,9 +382,12 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 			.mockRejectedValueOnce(new Error('OCC 40001'));
 
 		const result = await importActivities(pack(2), TENANT, { childIds: [CHILD] });
-		expect(result.imported).toBe(0);
-		expect(result.blocked?.count).toBe(2);
-		expect(result.blocked?.upgradeUrl).toBeNull();
+		expect(activeWrittenRowCount()).toBe(0);
+		expect(writtenRowCount()).toBe(2);
+		expect(result.activityQuota?.archived).toBe(2);
+		expect(result.activityQuota?.reason).toBe('usage_unverifiable');
+		// 無料と確定しているので、アップグレードで戻せることを案内する
+		expect(result.activityQuota?.upgradeUrl).toBe('/admin/subscription');
 	});
 
 	it('ファイル復元を繰り返しても累積で上限を超えない', async () => {
@@ -394,7 +426,39 @@ describe('#4693 取込の上限は importActivities で一元強制される', (
 			TENANT,
 			{ childIds: [CHILD] },
 		);
-		expect(second.imported, '残枠 1 なので 1 件だけ入る').toBe(1);
-		expect(second.blocked?.count).toBe(1);
+		expect(second.activityQuota?.activated, '残枠 1 なので有効化は 1 件').toBe(1);
+		expect(second.activityQuota?.archived, '残り 1 件は保管され、捨てられない').toBe(1);
+	});
+});
+
+// #4693 (QM 再レビュー / must): 同じ「バックアップから復元」なのに入口で結果が変わるのを止める。
+// 活動管理の ︙ →「バックアップから復元」(?/importFile) と api/v1/activities/import merge は
+// presetId を持たない = 復元。settings > データ の ZIP/JSON 復元と同じく **保管**でなければならない。
+describe('#4693 復元 (presetId 無し) と プリセット取込 (presetId あり) で適用方式を分ける', () => {
+	it('復元は超過分を保管する (捨てない) — settings 側の復元と同じ結果になる', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // 残枠 0
+
+		const result = await importActivities(pack(4), TENANT, { childIds: [CHILD] });
+
+		expect(writtenRowCount(), '行は書かれている (捨てていない)').toBe(4);
+		expect(activeWrittenRowCount(), '有効化は 0 (上限は守る)').toBe(0);
+		expect(result.activityQuota?.archived).toBe(4);
+		expect(result.blocked, '復元では「捨てた」channel を使わない').toBeUndefined();
+	});
+
+	it('プリセット取込 (presetId あり) は seed 行なので上限に触れず、保管も発生しない', async () => {
+		mockResolveTenantEntitlement.mockResolvedValue({ licenseStatus: 'none', plan: undefined });
+		mockFindActivitiesByChild.mockResolvedValue(existing(3)); // custom 3/3 到達済
+
+		const result = await importActivities(pack(10), TENANT, {
+			childIds: [CHILD],
+			presetId: 'kinder-starter',
+		});
+
+		expect(result.imported, '3/3 到達後もプリセットは全件入る').toBe(10);
+		expect(activeWrittenRowCount()).toBe(10);
+		expect(result.blocked).toBeUndefined();
+		expect(result.activityQuota).toBeUndefined();
 	});
 });

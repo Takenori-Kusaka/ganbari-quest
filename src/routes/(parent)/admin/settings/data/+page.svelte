@@ -1,6 +1,4 @@
 <script lang="ts">
-import { resolve } from '$app/paths';
-import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
@@ -17,10 +15,10 @@ import {
 	type ImportSkipReason,
 	PAGE_TITLES,
 	PAID_PLAN_LABEL,
-	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 import CloudExportStoredList from '$lib/features/admin/components/CloudExportStoredList.svelte';
+import ImportQuotaArchivedNotice from '$lib/features/admin/components/ImportQuotaArchivedNotice.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
@@ -83,8 +81,16 @@ let importResult = $state<{
 	settingsSkipped: number;
 	errors: string[];
 	warnings: string[];
-	// #4693 (QM #4784): プラン上限で復元から外した分 (理由 + アップグレード導線)
-	blocked?: { count: number; message: string; upgradeUrl: string | null };
+	// #4693 (PO 回答 2026-09-03 #2): プラン上限で archived (保管) として復元した分。
+	// 入った数 / 保管した数 / 理由 / 次の行動 (アップグレード導線) を必ず出す。
+	activityQuota?: {
+		total: number;
+		activated: number;
+		archived: number;
+		reason: 'plan_limit' | 'usage_unverifiable' | 'plan_unresolved' | null;
+		message: string;
+		upgradeUrl: string | null;
+	};
 } | null>(null);
 // #3095: errors があれば partial-restore (置換時は家族データ半損)。「完了」でなく警告として surface する。
 const importHadErrors = $derived((importResult?.errors.length ?? 0) > 0);
@@ -119,6 +125,24 @@ let exportErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
 let cloudErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
+/**
+ * #4693 (PO 回答 2026-09-03 #2): クラウド取込がプラン上限で archived にした分。
+ * `cloudImportResult` は Record<string, unknown> なので、表示に必要な形へここで narrow する
+ * (unknown のまま label 関数に渡すと数値でない値を出しうる)。
+ */
+const cloudImportQuota = $derived.by(() => {
+	const raw = cloudImportResult?.activityQuota;
+	if (!raw || typeof raw !== 'object') return null;
+	const q = raw as Record<string, unknown>;
+	const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+	return {
+		total: num(q.total),
+		activated: num(q.activated),
+		archived: num(q.archived),
+		message: typeof q.message === 'string' ? q.message : '',
+		upgradeUrl: typeof q.upgradeUrl === 'string' ? q.upgradeUrl : null,
+	};
+});
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
 
 // #2362 PR-3 Phase 7b-2: ChildSelectionDialog 統合
@@ -753,6 +777,21 @@ const canConfirmClear = $derived(
 					</div>
 				{/if}
 
+				<!-- #4693 (QM 再レビュー): 過去の復元が上限で保管した記録を常設表示する。
+				     行の archived_reason は「親が自分で選んだ保管」と同じ値なので、行だけでは
+				     「自分で選んだ覚えはない」に答えられない。テナント単位の耐久記録をここで見せる。 -->
+				{#if data.activityQuotaArchiveNotice}
+					<div
+						class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3"
+						role="status"
+						data-testid="activity-quota-archive-notice"
+					>
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">
+							{data.activityQuotaArchiveNotice}
+						</p>
+					</div>
+				{/if}
+
 				{#if importError}
 					<ErrorAlert
 						message={importError}
@@ -949,15 +988,15 @@ const canConfirmClear = $derived(
 									{SETTINGS_LABELS.dataImportResultActivities(importResult.activitiesCreated)}
 								</li>
 							{/if}
-							{#if importResult.blocked && importResult.blocked.count > 0}
-								<li class="text-[var(--color-feedback-warning-text)]" data-testid="data-import-blocked">
-									{SETTINGS_LABELS.dataImportResultBlocked(importResult.blocked.count)} — {importResult.blocked.message}
-									{#if importResult.blocked.upgradeUrl}
-										<a href={resolve(PLAN_UPGRADE_URL)} class="underline ml-1"
-											>{PLAN_GATE_LABELS.upgradeLinkLabel}</a
-										>
-									{/if}
-								</li>
+							{#if importResult.activityQuota}
+								<ImportQuotaArchivedNotice
+									total={importResult.activityQuota.total}
+									activated={importResult.activityQuota.activated}
+									archived={importResult.activityQuota.archived}
+									message={importResult.activityQuota.message}
+									upgradeUrl={importResult.activityQuota.upgradeUrl}
+									testid="data-import-quota-archived"
+								/>
 							{/if}
 							<li>
 								{SETTINGS_LABELS.dataImportResultActivityLogs(
@@ -1308,6 +1347,18 @@ const canConfirmClear = $derived(
 												cloudImportResult.childrenImported,
 											)}
 										</li>
+									{/if}
+									<!-- #4693 (PO 回答 2026-09-03 #2): 上限超過分は捨てずに保管 (archived) する。
+									     入った数 / 保管した数 / 理由 / 次の行動を必ず出す。 -->
+									{#if cloudImportQuota}
+										<ImportQuotaArchivedNotice
+											total={cloudImportQuota.total}
+											activated={cloudImportQuota.activated}
+											archived={cloudImportQuota.archived}
+											message={cloudImportQuota.message}
+											upgradeUrl={cloudImportQuota.upgradeUrl}
+											testid="cloud-import-quota-archived"
+										/>
 									{/if}
 								</ul>
 							</div>

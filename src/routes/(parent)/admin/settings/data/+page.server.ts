@@ -10,6 +10,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { notYetExportedSourceLabels } from '$lib/server/db/backup-entity-registry';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
+import { getActivityQuotaArchiveNotice } from '$lib/server/services/activity-quota';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
 import { resolveMaxImportBytes } from '$lib/server/services/import-limit';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -58,6 +59,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		maxImportBytes: resolveMaxImportBytes(),
 		// #3372: registry 駆動の partial-backup 警告 (未 export source の表示名。空なら警告非表示)。
 		notYetExportedLabels: notYetExportedSourceLabels(),
+		// #4693 (QM 再レビュー): 過去の復元が上限で保管した記録 (無ければ null)。行の
+		// archived_reason では「親が自分で選んだ保管」と区別が付かないため、あとからでも
+		// 「いつ・何件を上限で保管したか」を親が確認できるようにする。
+		activityQuotaArchiveNotice: await getActivityQuotaArchiveNotice(tenantId),
 	};
 };
 

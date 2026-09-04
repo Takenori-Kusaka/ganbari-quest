@@ -8,7 +8,7 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
-import { apiError, planLimitError } from '$lib/server/errors';
+import { apiError, quotaLimitError } from '$lib/server/errors';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -123,10 +123,15 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 		if (!limitCheck.allowed) {
-			// #4767 PO 回答 #4: 上限値 + 要求 tier + 導線を errors.ts が 1 文に組み立てる (機能名だけ渡す)
-			return planLimitError('standard', PLAN_GATE_LABELS.activityAddFeature(limitCheck.max), {
+			// #4693 (QM 4 巡目): 数量制限は **機能ゲートの文型で返さない** (#4710 と同 class)。
+			// planLimitError は `requiredTierWithUpgradeFor` で「〜はスタンダードプラン以上でご利用
+			// いただけます」を組み立てるが、3 個までは実際に使えるので自己矛盾する。数量制限は
+			// quotaLimitError + 「N 個までです」+ 導線 で言い切る。code/status は 403 /
+			// PLAN_LIMIT_EXCEEDED のまま (client の分岐条件は変えない)。内訳は context でログにだけ残す。
+			return quotaLimitError(PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(limitCheck.max), {
 				current: limitCheck.current,
 				max: limitCheck.max,
+				tenantId,
 			});
 		}
 
@@ -153,6 +158,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			// (上限で外した理由はもう errors には積まれない)。
 			failed: result.failed,
 			blocked: result.blocked,
+			// #4693 (QM 再レビュー): 復元 (merge) が上限超過分を保管した結果。捨てていないので
+			// blocked とは別 channel。API 利用者にも「何件が保管されたか」を返す。
+			activityQuota: result.activityQuota,
 		});
 	}
 

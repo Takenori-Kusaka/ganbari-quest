@@ -6,7 +6,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
 import { findChildById } from '$lib/server/db/activity-repo';
-import { planLimitError, validationError } from '$lib/server/errors';
+import { quotaLimitError, validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -54,10 +54,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 	if (!limitCheck.allowed) {
-		// #4767 PO 回答 #4: 上限値 + 要求 tier + 導線を errors.ts が 1 文に組み立てる (機能名だけ渡す)
-		return planLimitError('standard', PLAN_GATE_LABELS.activityAddFeature(limitCheck.max), {
+		// #4693 (QM 4 巡目): 数量制限は **機能ゲートの文型で返さない** (#4710 と同 class)。
+		// planLimitError は `requiredTierWithUpgradeFor` で「〜はスタンダードプラン以上でご利用
+		// いただけます」を組み立てるが、3 個までは実際に使えるので自己矛盾する。数量制限は
+		// quotaLimitError + 「N 個までです」+ 導線 で言い切る。code/status は 403 /
+		// PLAN_LIMIT_EXCEEDED のまま (client の分岐条件は変えない)。内訳は context でログにだけ残す。
+		return quotaLimitError(PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(limitCheck.max), {
 			current: limitCheck.current,
 			max: limitCheck.max,
+			tenantId,
 		});
 	}
 

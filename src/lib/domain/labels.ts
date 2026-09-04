@@ -59,6 +59,7 @@ import { jstDayOfWeek, toJSTDateString } from './date-utils';
 //     されているため、本 PR では import 不要
 import {
 	ACTIVITY_ADMIN_TERMS,
+	ACTIVITY_QUOTA_TERMS,
 	ADD_MENU_TERMS,
 	ADMIN_HOME_TERMS,
 	ADMIN_SCREEN_TERMS,
@@ -633,6 +634,52 @@ const PLAN_UPGRADE_CTA = 'プランをアップグレードしてください。
 const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
 	`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`;
 
+/**
+ * 活動 quota 上限 403 の本文 (#4693)。`activityLimitReached` / `activityLimitReachedWithUpgrade` が共有する。
+ * `CLOUD_EXPORT_LIMIT_REACHED` (#4710) と同型の抽出。
+ */
+const ACTIVITY_LIMIT_REACHED = (max: number) =>
+	`${ACTIVITY_QUOTA_TERMS.original}は ${max} 個までです（${ACTIVITY_QUOTA_TERMS.presetImport}は無制限です）`;
+
+/**
+ * 活動の上限にまつわる復元結果の文言 SSOT (#4693)。
+ *
+ * 復元は 4 経路 (settings > データ の ZIP / JSON 復元、クラウド取込、活動管理の ︙ →
+ * 「バックアップから復元」、`api/v1/activities/import` の merge) あり、**保管が起きたときは
+ * どこから入っても同じ文言**でなければならない (同じ状況で画面ごとに言うことが違うのを防ぐ)。
+ * ただし `api/v1/activities/import` は route 入口の `checkActivityLimit` (#3759) を残しており、
+ * custom が上限ちょうどのときは 403 (`PLAN_GATE_LABELS.activityLimitReached`) で終わり
+ * ここには到達しない (境界の正確な記述は `server/services/activity-quota.ts` 冒頭の但し書き)。
+ * marketplace 側の feedback (`resolveImportFeedback`) と settings 画面の両方がここを読む。
+ */
+export const ACTIVITY_QUOTA_LABELS = {
+	/**
+	 * "119 件のうち 3 件を有効化し、116 件はプランの上限のため保管しました（アップグレードで使えます）"
+	 *
+	 * PO 回答 (2026-09-03) #2: 上限を超える復元で顧客のデータを落とさない。超過分は archived (保管)
+	 * で取り込み、入った数 / 入らなかった数 / 理由 / 次の行動を必ず出す。
+	 * 「復元しました」だけで黙って落とすのは不可。導線 (link) は呼び出し側が併記する。
+	 *
+	 * @param total 復元対象だったオリジナル活動の行数 (= activated + archived)
+	 * @param activated 有効な状態で入った行数
+	 * @param archived プランの上限のため保管 (archived) した行数
+	 */
+	restoreArchivedResult: (total: number, activated: number, archived: number) =>
+		`${total} 件のうち ${activated} 件を有効化し、${archived} 件はプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+
+	/**
+	 * 過去の復元で保管した分を **あとから見ても分かる**ようにする常設の記録 (#4693 QM 再レビュー)。
+	 *
+	 * `archived_reason` は enum (`ARCHIVED_REASONS`) で、上限による自動保管専用の値を足すには
+	 * Aurora DSQL の CHECK 制約を張り替える必要があるが、DSQL は `ALTER TABLE … ADD CONSTRAINT`
+	 * を受け付けない (0A000)。そのため行単位では「親が自分で選んで保管した」分と区別が付かない。
+	 * 代わりに **テナント単位の耐久記録**を残し、この文言で親の画面に出す
+	 * (「自分で選んだ覚えはない」に答えられる状態を、行の外側で成立させる)。
+	 */
+	pastRestoreArchivedNotice: (dateLabel: string, archived: number) =>
+		`${dateLabel} の復元で、${archived} 件の活動をプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+} as const;
+
 export const PLAN_GATE_LABELS = {
 	/**
 	 * "{feature}はスタンダードプラン以上でご利用いただけます"
@@ -717,11 +764,12 @@ export const PLAN_GATE_LABELS = {
 			? `${feature}は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`
 			: `${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
 
-	/**
-	 * "カスタム活動の追加（現在のプランでは最大{max}個まで）" — 活動 quota 上限 403 の機能名 (#4767 PO 回答 #4)。
-	 * `requiredTierWithUpgradeFor` に渡すと上限値 + 要求 tier + 導線が 1 文になる。
-	 */
-	activityAddFeature: (max: number) => `カスタム活動の追加（現在のプランでは最大${max}個まで）`,
+	// 活動 quota 上限 403 の「機能名」だった `activityAddFeature` は #4693 (QM 4 巡目) で撤去した。
+	// 唯一の読み手だった REST 2 面 (`api/v1/activities` POST / `api/v1/activities/import` merge) が
+	// `quotaLimitError` + `activityLimitReachedWithUpgrade` に移ったため、参照ゼロになった。
+	// 数量制限を機能ゲートの文型 (`requiredTierWithUpgradeFor`) に流し込む入口を残すと、
+	// 「3 個までは使えるのに『ご利用いただけます』と言われる」#4710 と同 class の症状が再発する。
+	// 読み手のいない label を置き続けない (#4584「フラグと実装が別々の真実になる」と同じ理由)。
 
 	/**
 	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)
@@ -772,17 +820,46 @@ export const PLAN_GATE_LABELS = {
 		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
 
 	/**
-	 * "カスタム活動は最大{max}個まで作成できます。プランをアップグレードしてください。"
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）"
 	 *
 	 * 活動 quota 上限 (maxActivities) 到達時の 403 文言 (#4622)。
 	 * 旧実装は routes 7 箇所に直書きされ、`checkActivityLimit` の `max: number | null` を
 	 * そのまま埋めていたため「最大 null 個」を出しうる型の穴になっていた。
 	 * 引数を `number` に狭めることで、null を渡す呼び出しがコンパイルで落ちる。
 	 *
+	 * #4693 PO 回答 (2026-09-03): 上限の母集団は親が手で作った活動 (custom) だけで、
+	 * プリセット取込は消費しない。旧「カスタム活動は最大 N 個まで作成できます」は
+	 * 「テンプレも入らない」と読めたため、数える対象と数えない経路の両方を言う
+	 * (atom: ACTIVITY_QUOTA_TERMS)。アップグレード導線は呼び出し側 (PlanLimitError の
+	 * upgradeUrl / `upgradeLinkLabel`) が併記する。
+	 *
 	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
 	 */
-	activityLimitReached: (max: number) =>
-		`カスタム活動は最大${max}個まで作成できます。プランをアップグレードしてください。`,
+	activityLimitReached: ACTIVITY_LIMIT_REACHED,
+
+	/**
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）。プランをアップグレードしてください。"
+	 *
+	 * 上と同じ本文に **アップグレード導線まで載せた** 版 (#4693 QM 4 巡目)。REST の 403 用。
+	 *
+	 * # なぜ REST 用に別 compound が要るか
+	 *
+	 * admin の form action は `createPlanLimitError` が `upgradeUrl` を構造化フィールドで返し、
+	 * 画面が `upgradeLinkLabel` のリンクを併記するので、本文に導線を書く必要がない。
+	 * 一方 REST (`api/v1/activities` POST / `api/v1/activities/import` merge) は顧客に届くのが
+	 * `message` の 1 本だけ (#4767 PO 回答 #4) なので、導線を本文に含めないと案内が消える。
+	 *
+	 * # なぜ `requiredTierWithUpgradeFor` を使わないか (#4710 と同 class)
+	 *
+	 * `requiredTierWithUpgradeFor` は **機能ゲート**の文型 (「〜はスタンダードプラン以上でご利用
+	 * いただけます」) で、**数量制限**に使うと「3 個までは使えるのに『使えません』」という自己矛盾に
+	 * なる。クラウド保管枠で同じ症状を直したのが #4710 の `quotaLimitError` で、活動 quota の
+	 * REST 2 面がその移行から漏れていた。数量制限は「N 個までです」+ 導線で言い切る。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと
+	 */
+	activityLimitReachedWithUpgrade: (max: number) =>
+		`${ACTIVITY_LIMIT_REACHED(max)}。${PLAN_UPGRADE_CTA}`,
 
 	/**
 	 * "子供は最大{max}人まで登録できます。プランをアップグレードしてください。"
@@ -846,6 +923,34 @@ export const PLAN_GATE_LABELS = {
 	 */
 	planUnverifiableImportAborted:
 		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
+
+	/**
+	 * 復元で **プランは無料と分かっているが、現在の利用数を数えられなかった** ときの文言 (#4693 QM 再レビュー)。
+	 *
+	 * 現在数の集計は「子供一覧 → 子ごとに活動一覧」の 1+N 読み取りで、transient に最も当たりやすい。
+	 * 数えられない以上は残枠を 0 とみなして保管するが、**この世帯は無料と確定している**ので
+	 * アップグレードすれば復帰できる (自己回復の導線がある)。だから上限超過と同じ導線を出す。
+	 */
+	usageUnverifiableRestoreArchived: (archived: number) =>
+		`ただいまご利用状況を確認できなかったため、${archived} 件の活動は保管しました。${UPGRADE_TERMS.actionVerb}すると使えます。`,
+
+	/**
+	 * 復元で **プラン自体を判定できなかった** ときの文言 (#4693 QM 再レビュー 3 巡目)。
+	 *
+	 * 倒し方の候補は 3 つあった:
+	 *   (a) 全部保管する → 有料世帯が一時的な読み取り失敗だけで復元データを全部無効化され、
+	 *       自力で戻す導線が無い (アーカイブ解除は課金 webhook 経由しか無い)。却下
+	 *   (b) 上限を適用せず全部有効で入れる → 無料世帯が読み取り失敗を挟むだけで上限 3 のところ
+	 *       119 件を恒久保持できる (#4693 症状 1 の再生産)。しかも「あとで整理されます」と
+	 *       言っても、その整理を行うコードが存在しない (嘘になる)。却下
+	 *   (c) **中止する** → 何も書かないのでデータは失われず (顧客の手元のバックアップは無傷)、
+	 *       課金境界も守られ、文言も嘘にならない。再試行で回復できる。**これを採る**
+	 *
+	 * 取込 (`planUnverifiableImportAborted`) と同じ倒し方に揃うので、判定不能時の挙動が
+	 * 取込 / 復元で分岐しなくなる。
+	 */
+	planUnresolvedRestoreAborted:
+		'ただいまプランを確認できないため、活動の復元を中止しました。データは失われていません。しばらくしてからもう一度お試しください。',
 
 	/**
 	 * **誰が**上限に達しているのかを言う版 (#4693)。
@@ -3980,9 +4085,12 @@ export const SETTINGS_LABELS = {
 	dataImportComplete: 'インポート完了',
 	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
-	// #4693 (QM #4784): 復元がプラン上限で一部を外したときの件数行 (理由文は server の quota.message)
-	dataImportResultBlocked: (n: number | string) =>
-		`プラン上限のため ${n} 件の活動は復元していません`,
+	/**
+	 * 復元がプラン上限で一部を保管したときの結果行 (#4693)。
+	 * **文面の SSOT は `ACTIVITY_QUOTA_LABELS.restoreArchivedResult`** — marketplace 経由の復元
+	 * (活動管理の ︙ →「バックアップから復元」) と同じ文言を出すため、ここでは委譲だけする。
+	 */
+	dataImportResultQuotaArchived: ACTIVITY_QUOTA_LABELS.restoreArchivedResult,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>

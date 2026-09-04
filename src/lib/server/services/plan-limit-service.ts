@@ -226,10 +226,41 @@ export async function checkChildLimit(
 }
 
 /**
+ * quota (maxActivities) に数える活動の現在数を tenant 横断で数える (#4693 分母 SSOT)。
+ *
+ * 母集団は activity-source.ts (#3669) の `countsTowardActivityQuota` = 親が手で作った
+ * `custom` だけ。プリセット / 初期 seed (`seed` / `curriculum`) は数えない
+ * (PO 回答 2026-09-03 #1: LP「プリセット活動の利用 = 無料」「オリジナル活動の作成 = 3 個まで」)。
+ * `findActivitiesByChild` の既定は archived を含まないので、archived 行も数えない
+ * (無料へ戻った世帯の超過分は archived で残る = 分母から外す)。
+ *
+ * route gate (`checkActivityLimit`) と取込 / 復元の gate (`activity-quota.ts`) の両方が
+ * **この 1 関数**を分母にする。別々に数えると母集団がずれ、片方だけがプリセット取込を
+ * 403 にする (#4693 で実際に起きた admin route gate のずれ) を再生産する。
+ */
+export async function countQuotaActivities(tenantId: string): Promise<number> {
+	const repos = getRepos();
+	const children = await repos.child.findAllChildren(tenantId);
+	let current = 0;
+	for (const child of children) {
+		const activities = await repos.childActivity.findActivitiesByChild(child.id, tenantId);
+		// #3669: 集計述語は domain SSOT (producer と同一定義点) を参照
+		current += activities.filter((a) => countsTowardActivityQuota(a.source)).length;
+	}
+	return current;
+}
+
+/**
  * 活動追加の制限チェック (#2362 PR-3 / ADR-0055)
  *
  * Per-child instance 化に伴い、tenant 全体の custom 活動数を per-child loop で集計する。
  * 意味論は不変 (maxActivities=3 は tenant-wide 合計の上限)。プラン見直しは別 Issue #2457 で扱う。
+ *
+ * **呼んでよい経路 = custom 行を作る経路だけ** (#4693 PO 回答 #1): 手動追加 / 一括追加 /
+ * 別の子からコピー / ファイル内容の取込 (api/v1/activities/import merge)。プリセット取込
+ * (marketplace `importPack` / `importPackToChildren`) は `seed` 行しか作らず上限を消費しないため
+ * 本 gate を通さない (3/3 到達後もテンプレ取込は通す)。取込側の上限は strategy 層
+ * (`enforceActivityQuota`) が custom 行だけを見て切る。
  */
 export async function checkActivityLimit(
 	tenantId: string,
@@ -240,14 +271,7 @@ export async function checkActivityLimit(
 		return { allowed: true, current: 0, max: null };
 	}
 
-	const repos = getRepos();
-	const children = await repos.child.findAllChildren(tenantId);
-	let current = 0;
-	for (const child of children) {
-		const activities = await repos.childActivity.findActivitiesByChild(child.id, tenantId);
-		// #3669: 集計述語は domain SSOT (producer と同一定義点) を参照
-		current += activities.filter((a) => countsTowardActivityQuota(a.source)).length;
-	}
+	const current = await countQuotaActivities(tenantId);
 
 	return {
 		allowed: current < limits.maxActivities,
