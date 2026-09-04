@@ -107,7 +107,7 @@ function goToComplete() {
 	     同日 2 回目 / 上限到達で「押しても何も起きない」になっていた。setup/children と同じ形で出す
 	     (ADR-0062 §1: 状態起因 = Banner + 次アクション、role="alert" は ErrorAlert が持つ)。 -->
 	{#if form?.error}
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex -- エラーサマリへ focus を移すための -1 -->
+		<!-- tabindex="-1" はエラーサマリへ focus を移すため (tab 順には入らない) -->
 		<div bind:this={errorBanner} tabindex="-1" data-testid="first-adventure-error">
 			<ErrorAlert message={form.error} severity="warning" />
 		</div>
