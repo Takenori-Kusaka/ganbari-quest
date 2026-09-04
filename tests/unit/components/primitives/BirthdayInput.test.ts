@@ -129,7 +129,7 @@ describe('BirthdayInput', () => {
 	it.each([
 		['月', '生まれた月'],
 		['日', '生まれた日'],
-	])('%s だけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async (_name, labelText) => {
+	])('%sだけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async (_name, labelText) => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2020-05-15',
 			name: 'birthDate',
