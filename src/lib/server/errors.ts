@@ -1,5 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { IMPORT_LABELS, PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import {
+	ACTIVITY_PIN_ERROR_LABELS,
+	IMPORT_LABELS,
+	PLAN_GATE_LABELS,
+	SETTINGS_LABELS,
+} from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -9,6 +14,7 @@ export type ErrorCode =
 	| 'CANCEL_EXPIRED'
 	| 'ALREADY_RECORDED'
 	| 'DAILY_LIMIT_REACHED'
+	| 'PIN_LIMIT_EXCEEDED'
 	| 'ALREADY_CLAIMED'
 	| 'INSUFFICIENT_POINTS'
 	| 'INVALID_PIN'
@@ -53,6 +59,24 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	DAILY_LIMIT_REACHED: {
 		status: 409,
 		userMessage: 'きょうはこれ以上きろくできません。',
+		severity: 'info',
+		action: 'none',
+	},
+	/**
+	 * 活動のピン留め (おきにいり) がカテゴリ上限に達した (PO 回答 2026-09-03 §4 #2 follow-up)。
+	 *
+	 * 旧実装は上限も不在も `VALIDATION_ERROR` (400) に畳んでいたため、client は
+	 * **顧客向け文言に「上限」が含まれるかの部分一致**で種別を見分けるしかなかった。文言は
+	 * labels SSOT から組み立てられる = 変わる値なので、部分一致はいずれ外れる (ADR-0061 /
+	 * `plan-limit-error-required-tier.test.ts` が別 endpoint で禁じている判定形と同型)。
+	 *
+	 * 上限に達するのは入力の誤りではなく既存の状態 (既に 5 件ピン済み) なので、`DAILY_LIMIT_REACHED`
+	 * と同じ 409 / info / none に揃える (ADR-0062 §1 権限・状態起因)。プラン由来の上限ではないため
+	 * `PLAN_LIMIT_EXCEEDED` は使わない (アップグレード導線を出してはいけない)。
+	 */
+	PIN_LIMIT_EXCEEDED: {
+		status: 409,
+		userMessage: ACTIVITY_PIN_ERROR_LABELS.limitExceeded,
 		severity: 'info',
 		action: 'none',
 	},

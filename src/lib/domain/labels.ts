@@ -3381,6 +3381,17 @@ export const LOCAL_DEPLOYMENT_LABELS = {
 	defaultFamilyName: 'わが家',
 } as const;
 
+/**
+ * ピン留め (おきにいり) 上限の **API 層 fallback 文言** (PO 回答 2026-09-03 §4 #2 follow-up)。
+ *
+ * `CHILD_ACTION_ERROR_LABELS.pinLimitExceeded` は子供画面の form action 用で年齢帯 variant を
+ * 持つ。API (`apiError`) の `userMessage` は年齢帯を知らない汎用 fallback なので別に置く
+ * (件数は `message` 側に service が入れる。ここに数値を直書きして SSOT を二重化しない)。
+ */
+export const ACTIVITY_PIN_ERROR_LABELS = {
+	limitExceeded: 'お気に入りの上限に達しました。ほかのお気に入りを外してからお試しください。',
+} as const;
+
 export const CHILD_ACTION_ERROR_LABELS = {
 	/** 送信値が想定の形式でない (uuid 不正 / 欠落など)。原因は子供に説明できないので操作の再試行を促す。 */
 	invalidInput: 'うまく おくれなかったよ。もういちど ためしてね',
@@ -11184,6 +11195,12 @@ export const STORYBOOK_LABELS = {
 		infoBtn: '情報トーストを表示',
 		titleOnlyTitle: 'タイトルのみのお知らせ',
 		titleOnlyBtn: 'タイトルのみトーストを表示',
+		// PR #4839: 子供画面の form action 失敗通知 (拒否理由あり / なし) の見た目確認用。
+		// 上限に達した理由が年齢帯別の文言で出ることを Storybook で目視確認する
+		// (demo 環境では上限分岐に到達できないため SS が撮れない。PR body の ss-render-impossible 参照)。
+		childReasonHiraganaBtn: 'ひらがな帯: 上限の理由つきで通知',
+		childReasonKanjiBtn: '漢字帯: 上限の理由つきで通知',
+		childReasonGenericBtn: '理由なし: 汎用文言にフォールバック',
 	},
 	alert: {
 		successMessage: '保存しました！',

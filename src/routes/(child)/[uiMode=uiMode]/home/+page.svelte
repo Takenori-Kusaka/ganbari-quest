@@ -432,7 +432,11 @@ async function handlePinToggle() {
 		});
 		const actionResult = await readAdminActionResult(res);
 		if (!actionResult.ok) {
-			notifyActionFailure({ labels: errorLabels });
+			// #4839: server は拒否理由 (上限 / 活動が無い) を年齢帯別の文言で返している
+			// (`childErrors(params)` = getChildActionErrorLabels(uiMode))。それを捨てて汎用文言を
+			// 出すと、上限に達したことが子供に伝わらない。理由をそのまま渡す
+			// (内部文字列の混入は notifyActionFailure 側の sanitize が落とす、ADR-0062 §2)。
+			notifyActionFailure({ labels: errorLabels, reason: actionResult.error });
 		}
 	} catch {
 		notifyNetworkError({ labels: errorLabels });

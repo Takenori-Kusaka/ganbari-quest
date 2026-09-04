@@ -106,9 +106,10 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
  * 課金中 (licenseStatus=ACTIVE) のテナントの plan 値を tier に畳む。
  *
  * `plan` は Stripe 上の課金プラン値 (`standard_monthly` / `family_yearly` 等) なので、
- * monthly / yearly を同じ tier に畳む判断がここに要る。`resolvePlanTier` (service) と
- * 受諾 txn の両方が同じ規則を読む — 旧実装は両方に `startsWith('family')` を書いており、
- * 片方だけ直せば静かにずれた。
+ * monthly / yearly を同じ tier に畳む判断がここに要る。読み手は `resolvePlanTier` (service)
+ * の 1 本 — 受諾 txn (`db/dsql/invite-accept.ts`) はプランを導かず、service が解決した
+ * 上限を必須引数で受ける (PO 回答 2026-09-03 §4 #3。導出が 2 箇所にあると片方だけ直して
+ * 静かにずれる)。
  */
 export function resolvePaidPlanTier(planId: string | null | undefined): PlanTier {
 	if (planId && Object.hasOwn(PAID_PLAN_TIER, planId)) {

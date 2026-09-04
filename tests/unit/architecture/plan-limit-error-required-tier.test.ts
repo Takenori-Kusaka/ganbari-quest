@@ -110,20 +110,18 @@ describe('#4710 プラン制限 403 は要求 tier を伴う経路からのみ�
 			/\.includes\(\s*['"`][^'"`]*(スタンダード|プラン|アップグレード|上限)[^'"`]*['"`]/;
 
 		/**
-		 * 既知の同 class 残置 (accepted residual、ADR-0061)。
+		 * accepted residual は **0 件** (PO 回答 2026-09-03 §4 #2 follow-up で解消)。
 		 *
-		 * `DashboardService` は client 層で **HTTP レスポンス body** の message を見ており、
-		 * 是正には activity-pin API 側に固有 code を足す必要がある (別 endpoint の契約変更)。
-		 * #4710 の症状 (契約済みの顧客へのプラン案内) は起こさない — マッピング先は内部の
-		 * `'LIMIT_EXCEEDED'` であって顧客に見える文言ではないため、本 PR の scope 外とする。
-		 * ここを消すときは entry ごと削除して guard を締める。
+		 * 旧: `DashboardService` が client 層で HTTP レスポンス body の message を見ており、
+		 * 是正には activity-pin API 側に固有 code が要るとして残置していた。その固有 code
+		 * (`PIN_LIMIT_EXCEEDED`) を `errors.ts` に足し、route が service の拒否理由を 1:1 で
+		 * 写像するようにしたため、client は code だけで分岐でき部分一致は消えた。
+		 * **残置 entry ごと削除して guard を締める** (旧コメントの指示どおり)。
 		 */
-		const ACCEPTED_RESIDUAL = new Set(['src/lib/services/production/DashboardService.ts']);
 
 		const violations: string[] = [];
 		for (const file of files) {
 			const rel = relative(REPO_ROOT, file).replace(/\\/g, '/');
-			if (ACCEPTED_RESIDUAL.has(rel)) continue;
 			if (sniff.test(readFileSync(file, 'utf-8'))) violations.push(rel);
 		}
 		expect(
