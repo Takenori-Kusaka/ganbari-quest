@@ -119,6 +119,7 @@ import {
 	STRIPE_PORTAL_TERMS,
 	SUPPORT_RESPONSE_TERMS,
 	TEMPLATE_TERMS,
+	TOKUSHOHO_TERMS,
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
@@ -11333,6 +11334,13 @@ export const STORYBOOK_LABELS = {
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
 	},
+	// #2573: Stripe Checkout の申込確定ボタン直前に出る文言 (`custom_text.submit.message`) は
+	// Stripe 側が描画するため、demo 環境でも本番でも手元で SS を撮れない。
+	// 本 story が「顧客が確定前に何を読むか」の視覚証跡になる (SS 規約の ss-render-impossible)。
+	// 本文そのものは CHECKOUT_LABELS.submitMessage が SSOT なので story 側で複製しない。
+	checkoutSubmitMessage: {
+		caption: 'Stripe の申込確定ボタンの直前に表示される文言',
+	},
 	// #4172: SpecialRewardOverlay の見た目確認用。棚に並んだごほうび名 (親が登録した現実世界の報酬)。
 	specialRewardOverlay: {
 		title: 'ゲーム 30 分',
@@ -12466,10 +12474,38 @@ export const LP_LEGAL_TERMS_LABELS = {
 //
 // 参照: docs/decisions/0002-critical-fix-quality-gate.md (本 atom 適用の critical 5 要件履歴)
 
+// 申込確定直前に述べる「引渡時期・自動更新」(特商法 12 条の 6 第 1 項 4 号相当)。
+// 提供開始時期は tokushoho.html の「サービス提供時期」行 (お申し込み後、即時ご利用いただけます)、
+// 自動更新は同「支払時期」行 (以後は毎月同じ日に自動課金します) と同じ事実を述べる。
+// 「お選びのプランの機能」は景品表示法 5 条 1 号対応の限定文言 (#2346) をそのまま維持する。
+const CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE = `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。以後は毎月同じ日に自動で更新し、同額を自動課金します。`;
+
+// 申込確定直前に述べる「申込撤回・解約方法」(同項 5 号相当)。
+// 経路は tokushoho.html の「返品・キャンセル」行と同一の 1 本に揃える
+// (見守り画面 →「プラン・お支払い」→「請求管理ページを開く」)。別経路を新たに名乗らない。
+const CHECKOUT_CANCEL_METHOD_NOTICE = `${ADMIN_VIEW_TERMS.canonical}の「${ADMIN_SCREEN_TERMS.subscription}」→「${STRIPE_PORTAL_TERMS.short}を開く」からいつでも${CANCEL_TERMS.canonical}できます。${CANCEL_TERMS.canonical}後は現在の請求期間の終了日までご利用いただけ、日割り計算による返金は行いません。デジタルサービスのため返品はお受けしておりません。`;
+
 export const CHECKOUT_LABELS = {
-	submitMessage: `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。`,
+	// #2573 (2026-09-04 QM 監査 legal.md [S1]): 申込確定の直前で事業者が文言を出せる枠は
+	// `custom_text.submit.message` ただ 1 つ。ここを販促文 (旧:「お支払い後、すぐに…
+	// ご利用いただけます。」だけ) に使うと、顧客は **毎月自動更新であること / 解約の方法 /
+	// いつから使えるか** を知らないまま確定ボタンを押す。Stripe Checkout の既定表示は金額と
+	// 請求周期しか出さないため、この 3 点はここで述べる以外に出す場所が無い。
+	//
+	// 利用規約への同意は `consent_collection.terms_of_service: 'required'` が Stripe 既定の
+	// チェックボックス (規約リンク付き) で収集するため、本文では繰り返さない
+	// (`custom_text.terms_of_service_acceptance` も設定しない = 同じことを 2 回言わない)。
+	//
+	// Stripe の `custom_text.*.message` は 1200 文字上限
+	// (node_modules/stripe/cjs/resources/Checkout/Sessions.d.ts `namespace CustomText`)。
+	// 超えると session 作成が 400 になり申込導線ごと死ぬため、
+	// tests/unit/services/stripe-service.test.ts が上限内であることを pin する。
+	submitMessage: `【${TOKUSHOHO_TERMS.heading4Delivery}】${CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE}\n【${TOKUSHOHO_TERMS.heading5Cancel}】${CHECKOUT_CANCEL_METHOD_NOTICE}`,
 	afterSubmitMessage: `アプリに戻って${CHECKOUT_TERMS.chosenPlanFeature}をお楽しみください。`,
-	// future-proof: プラン名動的差し込み版 (#2346 No-gos = 本 PR では未使用、定義のみ)
+	// future-proof: プラン名動的差し込み版 (#2346 No-gos = 本 PR では未使用、定義のみ)。
+	// #2573: これは「提供開始時期」しか述べないため、**`custom_text.submit.message` には
+	// そのまま使えない** (自動更新・解約方法が欠ける)。使うときは上の 2 つの notice を
+	// 併せて組み立てること。
 	submitMessageWithPlan: (planLabel: string) =>
 		`お支払い後、すぐに${planLabel}の機能をご利用いただけます。`,
 	afterSubmitMessageWithPlan: (planLabel: string) =>
