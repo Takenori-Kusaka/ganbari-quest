@@ -81,7 +81,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 - `cd infra && npx tsc --noEmit` — CDK 型検査
 - `npm run type-coverage` — 型カバレッジ ratchet
 - `npm run build` — 本体ビルド
-- `npm run build-storybook -- --quiet` — Storybook ビルド (`ci.yml` の `stories` filter が true のときのみ。filter の実体は `ci.yml` が SSOT で、ここには列挙しない。story / `.storybook/` 本体だけでなく、コンパイル結果を変えうる設定・依存も含む = #4859)
+- `npm run build-storybook -- --quiet` — Storybook ビルド (`ci.yml` の `stories` filter が true のときのみ。filter の実体は `ci.yml` が SSOT で、ここには列挙しない。story ファイルと `.storybook/` 本体、story を持つ UI ディレクトリ、およびコンパイル結果を変えうる設定・依存が対象 = #4859)
 <!-- ci-hard-fail-steps:end -->
 
 `ci.yml` のその他 hard-fail job（`lint-and-test` 以外。中身の step までは列挙しない）:

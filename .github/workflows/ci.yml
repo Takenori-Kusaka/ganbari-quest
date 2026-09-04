@@ -382,7 +382,11 @@ jobs:
         run: npm run build
 
       - name: Storybook build check
-        # #923 Phase 1: stories / .storybook 配下が変更された PR でのみ実行 (-13s)
+        # #923 Phase 1: changes job の stories filter が true の PR でのみ実行 (14s)。
+        # 対象は story ファイルと .storybook/ 本体だけでなく、story を持つ UI ディレクトリ
+        # (src/lib/ui / src/lib/features / src/stories) と、コンパイル結果を変えうる
+        # 設定・依存 (package.json / package-lock.json / svelte.config.js / vite.config.ts /
+        # tsconfig.json / src/app.html) も含む。列挙の実体は上の filter (#4857 / #4859)
         if: needs.changes.outputs.stories == 'true'
         run: npm run build-storybook -- --quiet
 
