@@ -22,6 +22,9 @@
 //       「誕生日を消したため、誕生日のお祝いは行われません」を Alert (role="status") で出す
 //   [D] 誕生日を消す保存は確認ダイアログを挟み、**キャンセルすると消えない** (action を実行しない)
 //   [E] 消したあとのカードに「誕生日: 未設定」が出て、年齢は引き継がれ、推定誕生日 (1/1) は出ない
+//   [F] 消したあとの状態は「年齢だけで登録した子供」と**同一**である (保存値 / 年齢の導出 /
+//       年齢帯の解決 / publicBirthDate)。加齢が毎年 1/1 に起きるのは消したことで生まれた挙動
+//       ではなく、年齢のみ登録の子供がもともと持っている挙動 (#4718 の推定誕生日規約)
 //
 // route action は child-service を mock せず、repo だけ mock して実経路を通す
 // (placeholder-avatar test と同型)。画面は +page.svelte を render し、action 結果 (form) → 表示 を見る。
@@ -29,8 +32,14 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { deriveChildAge, publicBirthDate, resolveBirthDateForUpdate } from '$lib/domain/child-age';
+import {
+	deriveChildAge,
+	publicBirthDate,
+	resolveBirthDateForInsert,
+	resolveBirthDateForUpdate,
+} from '$lib/domain/child-age';
 import { ADMIN_CHILDREN_PAGE_LABELS, CHILD_PROFILE_CARD_LABELS } from '$lib/domain/labels';
+import { getDefaultUiMode, recalcUiMode } from '$lib/domain/validation/age-tier';
 
 const mockFindChildById = vi.fn();
 const mockUpdateChild = vi.fn();
@@ -537,5 +546,142 @@ describe('#4729 [D]/[E] 保護者は誕生日を消せる (確認 → 保存 →
 		const shown = document.body.textContent ?? '';
 		expect(shown).not.toContain('-01-01');
 		expect(shown).not.toContain('1月1日');
+	});
+});
+
+describe('#4729 [F] 消したあとは「年齢だけで登録した子供」と同一状態に収束する', () => {
+	// QM 判断 (2026-09-04): 誕生日を消す操作は、その子を **「年齢だけで登録した子供」と同じ状態に戻す**
+	// 操作である。消したあと加齢が毎年 1/1 に起きる (= 実誕生日より最大 1 年弱早く年齢帯が上がりうる)
+	// のは本 PR が持ち込んだ挙動ではなく、年齢のみ登録の子供がもともと持っている挙動
+	// (#4718 の推定誕生日規約: 誕生日が入力されなければ「今年 − 年齢」年の 1/1 を保存する)。
+	//
+	// **その等価性が成り立つ限りにおいてのみ**「既存挙動への収束」と言える。崩れたらそれは本 PR 固有の
+	// 欠陥なので、4 つの面すべてで同一であることを機械的に固定する。
+	//
+	// (A) 年齢だけで登録した子供 = `resolveBirthDateForInsert({ age })` (insertChild が呼ぶ規約)
+	// (B) 誕生日を消した子供 = action が渡した input を `resolveBirthDateForUpdate` に通した結果
+
+	const AGE = 7;
+
+	/** (A) 年齢だけで登録した子供の保存値 */
+	const ageOnly = resolveBirthDateForInsert({ age: AGE }, TODAY_JST);
+
+	/** (B) 実誕生日を持つ子の誕生日を消した保存値 (顧客が通る実経路を action ごと通す) */
+	const clearedByParent = async () => {
+		mockFindChildById.mockResolvedValueOnce(existingChild(EXISTING_BIRTH_DATE));
+		await editChildAction(clearBirthdayForm());
+		const [, input] = mockUpdateChild.mock.calls[0] as [unknown, Record<string, unknown>];
+		const written = resolveBirthDateForUpdate(
+			input as { age?: number; birthDate?: string | null },
+			STORED_ROW_BEFORE_CLEAR,
+			TODAY_JST,
+		);
+		return {
+			input,
+			row: {
+				birthDate: written.birthDate ?? STORED_ROW_BEFORE_CLEAR.birthDate,
+				birthDateEstimated:
+					written.birthDateEstimated ?? STORED_ROW_BEFORE_CLEAR.birthDateEstimated,
+			},
+		};
+	};
+
+	it('保存値 (birth_date / birth_date_estimated) が一致する', async () => {
+		const { row } = await clearedByParent();
+
+		expect(row).toEqual({
+			birthDate: ageOnly.birthDate,
+			birthDateEstimated: ageOnly.birthDateEstimated,
+		});
+		// 念のため中身も固定 (7 歳 → 2019-01-01 / 推定扱い)
+		expect(row.birthDate).toBe('2019-01-01');
+		expect(row.birthDateEstimated).toBe(true);
+	});
+
+	// 「消したことで加齢が早まる」という懸念の本体。**両者が同じタイミングで同じ年齢になる**
+	// ことを暦をまたいで比べる。実誕生日 (05-01) をまたぐ前後も含める。
+	it.each([
+		['消した当日', '2026-09-04'],
+		['年末', '2026-12-31'],
+		['年明け (1/1 で加齢)', '2027-01-01'],
+		['実誕生日の前日', '2027-04-30'],
+		['実誕生日', '2027-05-01'],
+		['さらに翌年', '2028-01-01'],
+	])('年齢の導出が一致する — %s', async (_name, today) => {
+		const { row } = await clearedByParent();
+
+		expect(deriveChildAge(row, today)).toBe(deriveChildAge(ageOnly, today));
+	});
+
+	it.each([
+		['消した当日', '2026-09-04'],
+		['年明け (1/1 で加齢)', '2027-01-01'],
+		['3 年後 (年齢帯をまたぐ)', '2031-01-01'],
+		['7 年後 (さらに年齢帯をまたぐ)', '2035-01-01'],
+	])('年齢帯の解決が一致する (uiModeManuallySet=0) — %s', async (_name, today) => {
+		const { row } = await clearedByParent();
+
+		const clearedTier = recalcUiMode(
+			{ uiMode: 'elementary', uiModeManuallySet: 0 },
+			deriveChildAge(row, today),
+		);
+		const ageOnlyTier = recalcUiMode(
+			{ uiMode: 'elementary', uiModeManuallySet: 0 },
+			deriveChildAge(ageOnly, today),
+		);
+
+		expect(clearedTier).toBe(ageOnlyTier);
+	});
+
+	it('手動で年齢帯を固定している子は、どちらの経路でも固定が保たれる', async () => {
+		const { row } = await clearedByParent();
+		const pinned = { uiMode: 'junior' as const, uiModeManuallySet: 1 };
+
+		expect(recalcUiMode(pinned, deriveChildAge(row, '2031-01-01'))).toBe('junior');
+		expect(recalcUiMode(pinned, deriveChildAge(ageOnly, '2031-01-01'))).toBe('junior');
+	});
+
+	it('action が service に渡す uiMode は、年齢だけで登録したときの既定と同じ', async () => {
+		const { input } = await clearedByParent();
+
+		// insertChild は `input.uiMode ?? getDefaultUiMode(input.age)` を書く。
+		// 消す保存では child-service が recalcUiMode で同じ値に落ち着く (手動固定していない子)。
+		expect(input.uiMode ?? getDefaultUiMode(AGE)).toBe(getDefaultUiMode(AGE));
+		expect(getDefaultUiMode(AGE)).toBe('elementary');
+	});
+
+	it('publicBirthDate はどちらも null (1/1 を顧客に見せない / 誕生日ボーナスの対象外)', async () => {
+		const { row } = await clearedByParent();
+
+		expect(publicBirthDate(row)).toBeNull();
+		expect(publicBirthDate(ageOnly)).toBeNull();
+	});
+
+	// export / backup も顧客が見る面なので、そこに落ちる射影が一致することまで見る
+	// (`export-service.ts` の ExportChild は birthDate = publicBirthDate / age = deriveChildAge /
+	// uiMode / uiModeManuallySet を持ち、誕生日ボーナスの内部列は持たない)。
+	//
+	// **残差 (等価でない列)**: `lastBirthdayBonusYear` / `birthdayBonusMultiplier` は消しても
+	// 消えないので、年齢だけで登録した子供 (どちらも初期値) とは行の中身が違う。ただし
+	//   - export には出ない (上記のとおり ExportChild に含まれない)
+	//   - 消している間は読めない (`getBirthdayBonusStatus` が publicBirthDate=null で NO_BIRTHDATE)
+	//   - 誕生日を入れ直した後に初めて効くが、そのとき「同じ年のボーナスを二重に受け取らせない」
+	//     という**正しい**方向に効く (消さずに入れ直した場合と同じ)
+	// ので顧客に見える差にはならない。ここでは観測可能な面の一致だけを固定する。
+	it('export に落ちる射影が一致する (birthDate / age / 年齢帯 / 手動フラグ)', async () => {
+		const { row } = await clearedByParent();
+		const today = '2027-06-15';
+
+		const projection = (r: { birthDate: string; birthDateEstimated: boolean }) => ({
+			birthDate: publicBirthDate(r),
+			age: deriveChildAge(r, today),
+			uiMode: recalcUiMode(
+				{ uiMode: 'elementary', uiModeManuallySet: 0 },
+				deriveChildAge(r, today),
+			),
+			uiModeManuallySet: 0,
+		});
+
+		expect(projection(row)).toEqual(projection(ageOnly));
 	});
 });
