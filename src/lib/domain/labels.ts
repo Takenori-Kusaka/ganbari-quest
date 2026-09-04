@@ -758,10 +758,19 @@ export const PLAN_GATE_LABELS = {
 			: `${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
 
 	/**
-	 * "カスタム活動の追加（現在のプランでは最大{max}個まで）" — 活動 quota 上限 403 の機能名 (#4767 PO 回答 #4)。
+	 * "オリジナル活動の追加（現在のプランでは最大{max}個まで。プリセットからの取込は無制限）"
+	 * — 活動 quota 上限 403 の機能名 (#4767 PO 回答 #4 の構造 × #4693 PO 回答 #1 の中身)。
 	 * `requiredTierWithUpgradeFor` に渡すと上限値 + 要求 tier + 導線が 1 文になる。
+	 *
+	 * #4693 (rebase 時の判断): #4767 は「機能名だけ渡して errors.ts が 1 文に組み立てる」構造を作り、
+	 * #4693 は「上限が数えるのは custom だけで、プリセット取込は消費しない」ことを顧客に伝える文言を
+	 * 決めた。**構造は #4767 のまま、中身に #4693 の atom を入れる**ことで両方を保つ。
+	 * 旧「カスタム活動の追加（現在のプランでは最大 N 個まで）」は (a) PO が LP 料金表と揃えた
+	 * 「オリジナル活動」ではなく「カスタム活動」を使い、(b)「テンプレも入らない」と読める、の 2 点で
+	 * #4693 PO 回答 #1 が是正した状態に戻ってしまうため、そのまま採らない。
 	 */
-	activityAddFeature: (max: number) => `カスタム活動の追加（現在のプランでは最大${max}個まで）`,
+	activityAddFeature: (max: number) =>
+		`${ACTIVITY_QUOTA_TERMS.original}の追加（現在のプランでは最大${max}個まで。${ACTIVITY_QUOTA_TERMS.presetImport}は無制限）`,
 
 	/**
 	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)

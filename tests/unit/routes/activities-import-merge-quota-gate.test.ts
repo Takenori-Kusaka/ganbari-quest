@@ -14,6 +14,9 @@
 // 上書きしない。本 endpoint は client 供給 source 欄を持たないため #3753 POST の source 強制は N/A)。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_TERMS } from '$lib/domain/terms';
 
 const mockCheckActivityLimit = vi.fn();
 const mockDispatchImport = vi.fn();
@@ -77,6 +80,38 @@ describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate'
 		const body = await res.json();
 		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
 		expect(mockDispatchImport).not.toHaveBeenCalled();
+	});
+
+	// #4693 (rebase 時に追加): **この call site の文言を pin する**。
+	//
+	// #4767 (PO 回答 #4) が「機能名だけ渡して errors.ts が 1 文に組み立てる」構造にし、
+	// #4693 (PO 回答 #1) が「上限が数えるのは custom だけ / プリセット取込は無制限」という中身を
+	// 決めた。両方が同じ 1 行に乗るため、rebase でどちらかの側を採ると**もう一方が黙って消える**。
+	// 実際この endpoint には文言の test が無く、develop 側を採るだけで PO 回答 #1 の半分が
+	// 失われる状態だった。以後は消えたら落ちる。
+	it('403 の文言が「オリジナル活動」と「プリセット取込は無制限」と導線を同時に持つ', async () => {
+		mockCheckActivityLimit.mockResolvedValue({
+			allowed: false,
+			current: FREE_PLAN_QUOTA.maxActivities,
+			max: FREE_PLAN_QUOTA.maxActivities,
+		});
+		const res = await POST(makeEvent('merge', [validActivity]));
+		const body = await res.json();
+
+		// 文面の SSOT は labels 側。route が文を組み立てない (#4767 の単一チャネル構造)
+		expect(body.error.message).toBe(
+			PLAN_GATE_LABELS.requiredTierWithUpgradeFor(
+				PLAN_GATE_LABELS.activityAddFeature(FREE_PLAN_QUOTA.maxActivities),
+				'standard',
+			),
+		);
+		// #4693 PO 回答 #1 の中身: 数える対象と、数えない経路の両方を言う
+		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.original);
+		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.presetImport);
+		// 「カスタム活動」は PO が LP 料金表と揃えて「オリジナル活動」に置き換えた語
+		expect(body.error.message).not.toContain('カスタム活動');
+		// #4767 の構造: 導線まで 1 文に入る
+		expect(body.error.message).toContain('アップグレード');
 	});
 
 	it('上限未達 (allowed=true) では従来通り dispatchImport を実行し 200 を返す', async () => {
