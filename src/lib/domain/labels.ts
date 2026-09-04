@@ -638,8 +638,11 @@ const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
  * 活動の上限にまつわる復元結果の文言 SSOT (#4693)。
  *
  * 復元は 4 経路 (settings > データ の ZIP / JSON 復元、クラウド取込、活動管理の ︙ →
- * 「バックアップから復元」、`api/v1/activities/import` の merge) あり、**どこから入っても
- * 同じ文言**でなければならない (同じ状況で画面ごとに言うことが違うのを構造的に防ぐ)。
+ * 「バックアップから復元」、`api/v1/activities/import` の merge) あり、**保管が起きたときは
+ * どこから入っても同じ文言**でなければならない (同じ状況で画面ごとに言うことが違うのを防ぐ)。
+ * ただし `api/v1/activities/import` は route 入口の `checkActivityLimit` (#3759) を残しており、
+ * custom が上限ちょうどのときは 403 (`PLAN_GATE_LABELS.activityLimitReached`) で終わり
+ * ここには到達しない (境界の正確な記述は `server/services/activity-quota.ts` 冒頭の但し書き)。
  * marketplace 側の feedback (`resolveImportFeedback`) と settings 画面の両方がここを読む。
  */
 export const ACTIVITY_QUOTA_LABELS = {
