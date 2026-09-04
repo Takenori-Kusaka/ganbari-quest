@@ -281,6 +281,7 @@ function handleStartChildTutorial() {
 			filledSlots={data.stampCard.filledSlots}
 			status={data.stampCard.status}
 			redeemedPoints={data.stampCard.redeemedPoints}
+			{uiMode}
 		/>
 	</Dialog>
 {/if}
