@@ -10,6 +10,7 @@ import {
 	rankCloudExportDeleteCandidates,
 	resolveCloudExportRowState,
 } from '$lib/domain/cloud-export-quota';
+import { MAX_SERVER_MESSAGE_LENGTH } from '$lib/domain/errors';
 import type { CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	FEATURE_LABELS,
@@ -214,8 +215,29 @@ export interface CloudExportDeleteCandidate {
 	createdAt: string;
 }
 
-/** 403 文言に載せる候補の上限。画面側が 200 字で切る (`MAX_SERVER_MESSAGE_LENGTH`) ため 3 件に絞る。 */
+/** 403 文言に載せる候補の上限 (これ以上並べても読めない)。実際の件数は文字数予算でさらに減りうる。 */
 const QUOTA_DELETE_CANDIDATE_LIMIT = 3;
+
+/**
+ * 予算 (`MAX_SERVER_MESSAGE_LENGTH`) に収まる **最大件数** の候補で文を組み立てる (#4767 QM)。
+ *
+ * `sanitizeServerMessage` は 200 字で切って `…` を付けるため、長い文を作ると末尾に置いた
+ * 「削除の候補」が途中で切れる — この PR の中心的価値 (どれを消せばいいかの名指し) が落ちる。
+ * PIN の長さや状態語の変化で偶然 199 字に収まっていた、という運任せにしないため、
+ * **実際に組み立てた文字列を測って**入る件数まで減らす。1 件も入らなければ候補なしの文に落とす
+ * (「候補を出すつもりで切れた文」より「候補を出さない完全な文」の方が読める)。
+ */
+function buildQuotaMessageWithinBudget(
+	max: number,
+	formatted: readonly string[],
+	compose: (max: number, candidates: readonly string[]) => string,
+): { message: string; namedCount: number } {
+	for (let count = Math.min(formatted.length, QUOTA_DELETE_CANDIDATE_LIMIT); count > 0; count--) {
+		const message = compose(max, formatted.slice(0, count));
+		if (message.length <= MAX_SERVER_MESSAGE_LENGTH) return { message, namedCount: count };
+	}
+	return { message: PLAN_GATE_LABELS.cloudExportLimitReached(max), namedCount: 0 };
+}
 
 /** 候補 1 件を顧客向けの 1 句に整形する: "ABC123（ダウンロード回数を使い切りました・2026/08/28 作成）"。 */
 function formatDeleteCandidate(c: CloudExportDeleteCandidate): string {
@@ -259,19 +281,22 @@ export class CloudExportQuotaError extends Error {
 		// 「枠を空けたい顧客」を、まだ必要な共有のワンクリック削除へ誘導しないための出し分け。
 		const disposable = candidates.filter((c) => isDisposableCloudExportRow(c.rowState));
 		const pool = disposable.length > 0 ? disposable : candidates;
-		const named = pool.slice(0, QUOTA_DELETE_CANDIDATE_LIMIT);
-		const namesLiveShares = disposable.length === 0 && named.length > 0;
-		const formatted = named.map(formatDeleteCandidate);
-		super(
-			namesLiveShares
-				? PLAN_GATE_LABELS.cloudExportLimitReachedLiveOnly(max, formatted)
-				: PLAN_GATE_LABELS.cloudExportLimitReachedNaming(max, formatted),
+		const liveOnly = disposable.length === 0 && pool.length > 0;
+		// 文字数予算 (#4767 QM): 実際に組み立てて測り、200 字に収まる件数まで候補を減らす。
+		// 途中で切られた候補を出すより、少なく挙げて全部読める方がよい。
+		const { message, namedCount } = buildQuotaMessageWithinBudget(
+			max,
+			pool.map(formatDeleteCandidate),
+			liveOnly
+				? PLAN_GATE_LABELS.cloudExportLimitReachedLiveOnly
+				: PLAN_GATE_LABELS.cloudExportLimitReachedNaming,
 		);
+		super(message);
 		this.name = 'CloudExportQuotaError';
 		this.current = current;
 		this.max = max;
-		this.candidates = named;
-		this.namesLiveShares = namesLiveShares;
+		this.candidates = pool.slice(0, namedCount);
+		this.namesLiveShares = liveOnly && namedCount > 0;
 	}
 }
 

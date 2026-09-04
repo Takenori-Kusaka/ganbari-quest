@@ -175,12 +175,27 @@ export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix) => {
 			.map((v) => ({ Key: v.Key as string, VersionId: v.VersionId as string }));
 
 		if (targets.length > 0) {
-			await client.send(
+			const deleteResult = await client.send(
 				new DeleteObjectsCommand({
 					Bucket: ASSETS_BUCKET,
 					Delete: { Objects: targets },
 				}),
 			);
+			// #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。AccessDenied /
+			// object lock / MFA delete で消せなかったものは HTTP 200 の応答本文の `Errors[]` に
+			// 並ぶだけなので、ここを見ないと「消せていないのに全件削除できた」と報告してしまう
+			// (呼び出し元は完全 PII の ZIP が残ったまま DB 行を消す = 誰も辿れない孤児になる)。
+			// 1 件でも残ったら失敗として投げ、呼び出し元の fail-closed 経路に載せる。
+			const errors = deleteResult?.Errors ?? [];
+			if (errors.length > 0) {
+				const detail = errors
+					.slice(0, 3)
+					.map((e) => `${e.Key ?? '?'}:${e.Code ?? '?'}`)
+					.join(', ');
+				throw new Error(
+					`S3 purge partially failed: ${errors.length}/${targets.length} objects remain (${detail})`,
+				);
+			}
 			totalDeleted += targets.length;
 		}
 

@@ -4058,6 +4058,11 @@ export const SETTINGS_LABELS = {
 	cloudDeleteFailed:
 		'削除できませんでした。時間をおいてもう一度お試しください（データは残っています）。',
 	cloudStoredDeleting: '削除中…',
+	// #4767 QM should: 取り消せない操作の完了を無言で終わらせない (行が消えるだけ = 何が起きたか不明)。
+	// Toast (role="alert") + 画面内 banner (role="status") の 2 層で、**何を消したか**を名指しする。
+	cloudDeleteSuccessTitle: '削除しました',
+	cloudDeleteSuccess: (pinCode: string) =>
+		`PIN ${pinCode} の共有データを削除しました。保管枠が 1 つ空きました。`,
 	// #4767: 削除しようとした行が既に無い (別端末で削除済 / 期限切れ cleanup 済) ときの案内。
 	// 「見つかりません」を route が文字列一致で 404 に写像していたのを型で運ぶようにした際の SSOT。
 	cloudDeleteAlreadyGone:

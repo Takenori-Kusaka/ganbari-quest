@@ -101,6 +101,34 @@ describe('#4767 DELETE /api/v1/export/cloud/:id — 失敗の種類を型で見�
 		expect(mockCloudExportRepo.deleteById).not.toHaveBeenCalled();
 	});
 
+	/**
+	 * #4767 QM: **S3 の batch delete は個々のキーの失敗を例外にしない** (HTTP 200 + `Errors[]`)。
+	 * repo 実装 (`purgeByPrefix`) がその配列を見て投げるようになったので、route まで貫通して
+	 * 「行は残る / 409 が返る」ことを固定する。ここが緩むと、消えていない実体を抱えたまま
+	 * 顧客に「削除できました」と表示する状態に戻る。
+	 */
+	it('実体削除が 200 + Errors[] (AccessDenied 等) で部分失敗しても、行を残して 409 を返す', async () => {
+		mockCloudExportRepo.findById.mockResolvedValue({
+			id: 'exp-1',
+			tenantId: 't-1',
+			s3Key: 'exports/t-1/ABC234/backup.zip',
+		});
+		// repo 層が Errors[] を見て投げる形 (s3-storage-repo.test.ts で実装側を固定済)
+		mockStorageRepo.purgeByPrefix.mockRejectedValueOnce(
+			new Error('S3 purge partially failed: 1/2 objects remain (backup.zip:AccessDenied)'),
+		);
+
+		const { status, body } = await callDelete();
+
+		expect(status).toBe(409);
+		expect(body.ok).toBeUndefined();
+		expect(body.error?.code).toBe('EXPORT_DELETE_FAILED');
+		expect(body.error?.message).toBe(SETTINGS_LABELS.cloudDeleteFailed);
+		// 内部の失敗理由 (バケット名 / AccessDenied 等) は顧客に出さない (ADR-0062 §内部例外非露出)
+		expect(body.error?.message).not.toContain('AccessDenied');
+		expect(mockCloudExportRepo.deleteById).not.toHaveBeenCalled();
+	});
+
 	it('正常時は実体を全バージョン削除してから行を消す (上の 2 つが無条件拒否でないことの対照)', async () => {
 		mockCloudExportRepo.findById.mockResolvedValue({
 			id: 'exp-1',

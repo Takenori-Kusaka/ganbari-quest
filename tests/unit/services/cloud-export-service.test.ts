@@ -2,9 +2,10 @@
 // クラウドエクスポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_SERVER_MESSAGE_LENGTH } from '$lib/domain/errors';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
-import { SETTINGS_LABELS } from '$lib/domain/labels';
-import { MAX_SERVER_MESSAGE_LENGTH } from '$lib/ui/error-notify';
+import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import { sanitizeServerMessage } from '$lib/ui/error-notify';
 
 // テスト用グローバル制御変数
 let mockAuthMode = 'cognito';
@@ -464,7 +465,9 @@ describe('cloud-export-service', () => {
 				CloudExportQuotaError,
 			);
 
-			expect(err.candidates).toHaveLength(3);
+			// 予算内に収まる件数まで自動で減る (#4767 QM: 切られて候補が消えるより、少なく挙げて全部読める)
+			expect(err.candidates.length).toBeGreaterThan(0);
+			expect(err.candidates.length).toBeLessThanOrEqual(3);
 			expect(err.message.length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_LENGTH);
 			// 全行が「まだ取り出せる共有」なので、失われることを明示する文言になる (#4767 QM must)
 			expect(err.namesLiveShares).toBe(true);
@@ -612,6 +615,88 @@ describe('cloud-export-service', () => {
 			expect(err.namesLiveShares).toBe(false);
 			expect(err.message).not.toContain('LIVE11');
 			expect(err.message).not.toContain('LIVE22');
+		});
+
+		/**
+		 * #4767 QM: **画面に出る前に切られていないこと**を、最長の現実ケースで固定する。
+		 *
+		 * `sanitizeServerMessage` は 200 字で切って `…` を付ける。切られると末尾の「削除の候補」が
+		 * 途中で消え、この PR の中心的価値 (どれを消せばいいかの名指し) が静かに落ちる。
+		 * 最長ケース = 最長の状態語 (「ダウンロード回数を使い切りました」) × 上限件数 ×
+		 * 2 桁上限 (family=10) × 最長の日付表記。
+		 */
+		it('最長ケースでも画面表示で切り詰められない (候補の名指しが消えない)', async () => {
+			mockPlanTier = 'family';
+			// 全件「使い切り」= 状態語が最長。10 件与えて候補選択と予算調整の両方を通す
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `x-${i}`,
+					tenantId: 'tenant-1',
+					pinCode: `ZZZZZ${i}`,
+					expiresAt: '2999-12-31T00:00:00.000Z',
+					createdAt: `2026-12-3${i % 2}T23:59:59.000Z`,
+					downloadCount: 5,
+					maxDownloads: 5,
+					status: 'ready',
+				})),
+			);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			// 予算内 = 画面の sanitize を通しても 1 文字も変わらない (切り詰めも省略記号も起きない)
+			expect(err.message.length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_LENGTH);
+			expect(sanitizeServerMessage(err.message)).toBe(err.message);
+			expect(err.message).not.toContain('…');
+			// 名指しは残っている (0 件に潰れて「候補なし」に落ちていない)
+			expect(err.candidates.length).toBeGreaterThan(0);
+			for (const c of err.candidates) {
+				// PIN が末尾で欠けず完全な形で出ている
+				expect(err.message).toContain(c.pinCode);
+			}
+			// 状態語も欠けていない (候補 1 件分が丸ごと入っている)
+			expect(err.message).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+		});
+
+		it('候補が 1 件も予算に入らないときは候補なしの完全な文に落とす (途中で切れた文を出さない)', async () => {
+			mockPlanTier = 'family';
+			// 現実にはあり得ない長さの description ではなく、候補文字列そのものを長くする代わりに
+			// 「予算に入らない」状況を作るため、状態語 + 日付 + PIN が最長の行を大量に用意する。
+			// buildQuotaMessageWithinBudget は 1 件も入らなければ候補なしの文に落とす。
+			const base = PLAN_GATE_LABELS.cloudExportLimitReached(10);
+			mockCloudExportRepo.findByTenant.mockResolvedValue(
+				Array.from({ length: 10 }, (_, i) => ({
+					id: `y-${i}`,
+					tenantId: 'tenant-1',
+					// 長い PIN (実装は 6 桁だが、将来伸ばしても切れた文を出さないことを固定する)
+					pinCode: `PIN${'X'.repeat(120)}${i}`,
+					expiresAt: '2999-12-31T00:00:00.000Z',
+					createdAt: '2026-12-31T23:59:59.000Z',
+					downloadCount: 5,
+					maxDownloads: 5,
+					status: 'ready',
+				})),
+			);
+
+			const err = await rejectionOf(
+				createCloudExport({
+					tenantId: 'tenant-1',
+					exportType: 'template',
+					licenseStatus: 'active',
+				}),
+				CloudExportQuotaError,
+			);
+
+			expect(err.message).toBe(base);
+			expect(err.candidates).toHaveLength(0);
+			expect(err.namesLiveShares).toBe(false);
+			expect(sanitizeServerMessage(err.message)).toBe(err.message);
 		});
 
 		it('PINコードは6文字の英数字', async () => {

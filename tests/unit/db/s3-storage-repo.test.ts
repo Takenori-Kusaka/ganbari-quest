@@ -123,6 +123,54 @@ describe('s3 storage-repo purgeByPrefix (#4724)', () => {
 		expect(secondList.input.VersionIdMarker).toBe('v1');
 	});
 
+	/**
+	 * #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。
+	 *
+	 * AccessDenied / object lock / MFA delete で消せなかったオブジェクトは HTTP 200 の応答本文の
+	 * `Errors[]` に並ぶだけで、SDK は throw しない。ここを見ないと「一部残っているのに全件削除できた」
+	 * と報告し、呼び出し元 (クラウド共有の削除 / 退会の完全削除) は **完全 PII の実体が S3 に残ったまま**
+	 * DB 行を消す。以後どの画面からも辿れない孤児になり、退会の「完全削除」の約束も静かに破れる。
+	 */
+	it('200 応答でも Errors[] があれば失敗として投げる (部分削除を成功と報告しない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' },
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v2' },
+				],
+				IsTruncated: false,
+			})
+			// HTTP 200 だが 1 件は消せていない (これが S3 の通常の返し方)
+			.mockResolvedValueOnce({
+				Deleted: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				Errors: [
+					{
+						Key: 'exports/t1/ABC234/backup.zip',
+						VersionId: 'v2',
+						Code: 'AccessDenied',
+						Message: 'Access Denied',
+					},
+				],
+			});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		await expect(purgeByPrefix('exports/t1/ABC234/')).rejects.toThrow(/purge partially failed/i);
+	});
+
+	it('Errors[] が空なら成功として件数を返す (上の test が無条件 throw でないことの対照)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({ Deleted: [{ Key: 'exports/t1/ABC234/backup.zip' }], Errors: [] });
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		expect(await purgeByPrefix('exports/t1/ABC234/')).toBe(1);
+	});
+
 	// 通常削除は「戻せる削除」のまま。ここが purge に変わると子供の削除が復元不能になる。
 	it('deleteByPrefix は VersionId を指定しない (戻せる削除のまま)', async () => {
 		mockSend

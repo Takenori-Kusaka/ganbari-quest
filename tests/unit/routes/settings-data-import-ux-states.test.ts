@@ -46,6 +46,15 @@ const { pageStore } = vi.hoisted(() => {
 });
 vi.mock('$app/stores', () => ({ page: pageStore }));
 
+// #4767 QM should: 削除完了の 2 層フィードバックのうち Toast 側を観測するための seam。
+// Toast primitive は module-level $state を持つ .svelte で、page 側の import (alias) と
+// test 側の import (相対) が別 instance になり DOM に出ない。showToast が **必ず** 通る
+// `$lib/ui/toast-stack` (純 ts) を mock すると、呼び出し元が .svelte でも確実に観測できる。
+const { reconcileToastStackSpy } = vi.hoisted(() => ({
+	reconcileToastStackSpy: vi.fn((_stack: unknown, item: unknown) => [item]),
+}));
+vi.mock('$lib/ui/toast-stack', () => ({ reconcileToastStack: reconcileToastStackSpy }));
+
 import type { Component } from 'svelte';
 import { IMPORT_LABELS, SETTINGS_LABELS } from '../../../src/lib/domain/labels';
 import DataPageRaw from '../../../src/routes/(parent)/admin/settings/data/+page.svelte';
@@ -313,6 +322,63 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			);
 			expect(deleted).toEqual([]);
 			expect(await findByTestId('cloud-export-row-exp-exhausted')).toBeTruthy();
+		});
+
+		// #4767 QM should: 取り消せない操作の完了を無言で終わらせない。
+		// DESIGN.md §5 の 2 層 = Toast (primitive) + 画面内 banner (role="status") を、
+		// **どちらも実物を描画して** 確かめる (page は Toast を描画しないので test 側で並べる。
+		// showToast は module-level state を共有するため、実際に見えるものを assert できる)。
+		// #4767 QM should: 取り消せない操作の完了を無言で終わらせない。
+		// DESIGN.md §5 の 2 層 (Toast = role="alert" / 画面内 banner = role="status") が
+		// **どちらも** 出て、消した対象を名指しすることを固定する。
+		it('削除完了を Toast と画面内 banner の 2 層で、消した対象を名指しして知らせる', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			reconcileToastStackSpy.mockClear();
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve({ exports: [] }),
+					} as Response);
+				},
+			);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+
+			const expected = SETTINGS_LABELS.cloudDeleteSuccess('ABC234');
+			// 層 1: 画面内 banner (role="status") — 消した PIN を名指しする
+			await waitFor(() => {
+				const statuses = screen.getAllByRole('status');
+				expect(statuses.some((el) => el.textContent?.includes(expected))).toBe(true);
+			});
+			// 層 2: Toast — success 種別で title + 説明が積まれる
+			await waitFor(() => {
+				expect(reconcileToastStackSpy).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({
+						title: SETTINGS_LABELS.cloudDeleteSuccessTitle,
+						description: expected,
+						type: 'success',
+					}),
+				);
+			});
 		});
 
 		it('確認 dialog で確定すると DELETE が飛び、一覧が再取得されて枠が空く', async () => {

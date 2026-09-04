@@ -33,6 +33,8 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+// #4767 QM should: 削除完了の 2 層フィードバック (Toast + 画面内 banner) の Toast 側。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 type DuplicateEntry = { label: string; reason: ImportSkipReason };
 
@@ -401,6 +403,9 @@ async function handleDeleteCloudExport(id: string) {
 	if (cloudDeletingId !== null) return;
 	cloudDeletingId = id;
 	cloudError = '';
+	cloudSuccess = '';
+	// 何を消したかを完了通知で名指しするため、消える前に PIN を控える (再取得後は行が無い)。
+	const deletedPin = cloudExports.find((e) => e.id === id)?.pinCode ?? '';
 	try {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
@@ -415,6 +420,11 @@ async function handleDeleteCloudExport(id: string) {
 			return;
 		}
 		await loadCloudExports();
+		// #4767 QM should: 取り消せない操作を無言で終わらせない。行が消えるだけでは
+		// 「消えたのか / 失敗して表示が変わっただけなのか」が読めない。DESIGN.md §5 の 2 層
+		// (Toast = role="alert" / 画面内 banner = role="status") で、何を消したかを名指しする。
+		cloudSuccess = SETTINGS_LABELS.cloudDeleteSuccess(deletedPin);
+		showToast(SETTINGS_LABELS.cloudDeleteSuccessTitle, cloudSuccess, 'success');
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
