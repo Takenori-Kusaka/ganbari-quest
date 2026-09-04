@@ -20,6 +20,7 @@ import Alert from '$lib/ui/primitives/Alert.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import Select from '$lib/ui/primitives/Select.svelte';
@@ -108,6 +109,47 @@ let recordTimer: ReturnType<typeof setInterval> | null = null;
 
 // Delete confirmation
 let confirmDelete = $state(false);
+
+// #4729 PO 決定 (2026-09-04): 誕生日を消す保存は「誕生日のお祝いが行われなくなる」ため、
+// 保存前に確認を挟む (確認 → 保存 → Alert の 3 点セット。Alert は admin/children/+page.svelte)。
+// 確認 UI は docs/DESIGN.md §5 の Dialog primitive を使う (native confirm() / 独自 modal は不採用)。
+// use:enhance が form に登録する submit listener は defaultPrevented を見ないため、
+// 判定は enhance callback 内で行い、キャンセル時は `cancel()` で action 自体を止める
+// (admin/settings/rules の passConfirm と同型)。
+let birthdayClearConfirmOpen = $state(false);
+let pendingBirthdayClearForm: HTMLFormElement | null = null;
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let birthdayClearConfirmedForm: HTMLFormElement | null = null;
+
+/** 誕生日を消す保存か (実誕生日があった子の誕生日欄を空にして保存しようとしている)。 */
+function isBirthdayClearingSubmit(formData: FormData): boolean {
+	return !!child.birthDate && !formData.get('birthDate');
+}
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passBirthdayClearConfirm(formEl: HTMLFormElement): boolean {
+	if (birthdayClearConfirmedForm === formEl) {
+		birthdayClearConfirmedForm = null;
+		return true;
+	}
+	pendingBirthdayClearForm = formEl;
+	birthdayClearConfirmOpen = true;
+	return false;
+}
+
+function acceptBirthdayClear() {
+	const formEl = pendingBirthdayClearForm;
+	birthdayClearConfirmOpen = false;
+	pendingBirthdayClearForm = null;
+	if (!formEl) return;
+	birthdayClearConfirmedForm = formEl;
+	formEl.requestSubmit();
+}
+
+function dismissBirthdayClear() {
+	birthdayClearConfirmOpen = false;
+	pendingBirthdayClearForm = null;
+}
 
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
@@ -271,7 +313,12 @@ $effect(() => {
 			<form
 				method="POST"
 				action="?/editChild"
-				use:enhance={() => {
+				use:enhance={({ formElement, formData, cancel }) => {
+					// #4729: 誕生日を消す保存だけ確認を挟む。他の編集 (名前 / 年齢 / テーマ) は 1 クリックのまま。
+					if (isBirthdayClearingSubmit(formData) && !passBirthdayClearConfirm(formElement)) {
+						cancel();
+						return;
+					}
 					return async ({ result, update }) => {
 						if (result.type === 'success') {
 							isEditing = false;
@@ -446,8 +493,15 @@ $effect(() => {
 			<div class="profile-header__info">
 				<h3 class="profile-header__name">{child.nickname}</h3>
 				<p class="profile-header__meta">{child.age}{CHILD_PROFILE_CARD_LABELS.headerAgeTierSeparator}{getAgeTierLabel(child.uiMode)}</p>
+				<!-- #4729: 誕生日を消したあとも「消えている」ことが読めるようにする。`child.birthDate` は
+				     publicBirthDate (実誕生日のみ) なので、推定誕生日 (1/1) は顧客に出ない。
+				     年齢は上の profile-header__meta にそのまま残る (消しても 0 歳に戻らない、#4718)。 -->
 				{#if child.birthDate}
-					<p class="profile-header__birthday">{CHILD_PROFILE_CARD_LABELS.headerBirthdayPrefix}{child.birthDate}</p>
+					<p class="profile-header__birthday" data-testid="child-birthday-value">{CHILD_PROFILE_CARD_LABELS.headerBirthdayPrefix}{child.birthDate}</p>
+				{:else}
+					<p class="profile-header__birthday" data-testid="child-birthday-unset">
+						{CHILD_PROFILE_CARD_LABELS.headerBirthdayUnset}
+					</p>
 				{/if}
 			</div>
 			<Button
@@ -700,6 +754,7 @@ $effect(() => {
 									{/if}
 									<form method="POST" action="?/deleteVoice" use:enhance>
 										<input type="hidden" name="voiceId" value={voice.id} />
+										<input type="hidden" name="childId" value={child.id} />
 										<Button type="submit" variant="ghost" size="sm" class="text-[var(--color-action-danger)] hover:opacity-80">{CHILD_PROFILE_CARD_LABELS.voiceDeleteButton}</Button>
 									</form>
 								</div>
@@ -719,6 +774,41 @@ $effect(() => {
 		</div>
 	{/if}
 </Card>
+
+<!-- #4729: 誕生日を消す保存の確認 (DESIGN.md §5 Dialog primitive)。キャンセルすると消えない。 -->
+<Dialog
+	bind:open={birthdayClearConfirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissBirthdayClear();
+	}}
+	title={CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmTitle}
+	size="md"
+	testid="child-birthday-clear-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmBody}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissBirthdayClear}
+			data-testid="child-birthday-clear-cancel"
+		>
+			{CHILD_PROFILE_CARD_LABELS.cancelButton}
+		</Button>
+		<Button
+			type="button"
+			variant="primary"
+			size="sm"
+			onclick={acceptBirthdayClear}
+			data-testid="child-birthday-clear-accept"
+		>
+			{CHILD_PROFILE_CARD_LABELS.birthdayClearConfirmAccept}
+		</Button>
+	</div>
+</Dialog>
 
 <style>
 	/* ======== Edit Mode ======== */

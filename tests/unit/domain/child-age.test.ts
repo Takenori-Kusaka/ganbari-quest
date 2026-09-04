@@ -50,7 +50,7 @@ describe('child-age (#4718)', () => {
 			birthDate: '2019-02-02',
 			birthDateEstimated: false,
 		});
-		// 誕生日クリア + 年齢 → 推定 / 誕生日クリアのみ → 現在値を推定扱いに降格
+		// 誕生日クリア + 年齢 → その年齢の推定値で置き換え / 誕生日クリアのみ → 保存値は据置で推定扱いに落とす
 		expect(resolveBirthDateForUpdate({ birthDate: null, age: 4 }, real, TODAY)).toEqual({
 			birthDate: '2022-01-01',
 			birthDateEstimated: true,
@@ -82,19 +82,22 @@ describe('child-age (#4718)', () => {
 	});
 });
 
-describe('#4718 誕生日欄を空にしたときの契約 (QM #4729 レビューで明文化)', () => {
+// #4729: **顧客が通る clear 経路はこの describe ではない**。編集フォームは年齢欄を readonly で
+// 常に送るため、必ず「年齢が一緒に来た場合」= 保存値を推定誕生日 (1/1) で置き換える分岐に入る。
+// ここで固定しているのは age が欠けた入力だけが通る分岐 (保存値据置 + 推定扱いフラグ)。
+describe('#4718 誕生日欄を空にしたとき (年齢が来ない場合) の契約', () => {
 	const TODAY_LOCAL = '2026-09-02';
 
-	it('年齢も来ない場合は「推定扱いへの降格」で、保存値は消さない', () => {
+	it('年齢も来ない場合は保存値を据え置き、推定扱いフラグだけ立てる', () => {
 		const stored = { birthDate: '2018-05-05', birthDateEstimated: false };
 		const next = resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
 
 		// birth_date は書き換えない (誤って空にした保護者が復旧できるようにする)
 		expect(next.birthDate, '保存値は書き換えない').toBeUndefined();
-		expect(next.birthDateEstimated, '推定扱いへ降格する').toBe(true);
+		expect(next.birthDateEstimated, '推定扱いに落とす').toBe(true);
 	});
 
-	it('降格すると公開値は null になる (画面 / export / 誕生日ボーナスの対象外)', () => {
+	it('推定扱いになると公開値は null になる (画面 / export / 誕生日ボーナスの対象外)', () => {
 		const stored = { birthDate: '2018-05-05', birthDateEstimated: false };
 		const next = resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
 		expect(
@@ -105,7 +108,7 @@ describe('#4718 誕生日欄を空にしたときの契約 (QM #4729 レビュ�
 		).toBeNull();
 	});
 
-	it('降格しても年齢は保たれる (0 歳に戻らない)', () => {
+	it('推定扱いに落ちても年齢は保たれる (0 歳に戻らない)', () => {
 		const stored = { birthDate: '2018-05-05', birthDateEstimated: false };
 		resolveBirthDateForUpdate({ birthDate: null }, stored, TODAY_LOCAL);
 		expect(deriveChildAge({ birthDate: stored.birthDate }, TODAY_LOCAL)).toBe(8);

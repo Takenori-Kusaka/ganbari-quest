@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { listVoices, uploadVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
 
@@ -12,6 +13,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.id);
 	if (!childId) throw error(400, { message: '不正なIDです' });
+	// child ロールは自分のボイスのみ一覧できる。
+	requireChildAccess(locals, childId);
 
 	const scene = url.searchParams.get('scene') ?? 'complete';
 	const voices = await listVoices(childId, scene, tenantId);
@@ -27,6 +30,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.id);
 	if (!childId) throw error(400, { message: '不正なIDです' });
+	// child ロールが兄弟の枠にボイスを登録するのを止める。
+	requireChildAccess(locals, childId);
 
 	const formData = await request.formData();
 	const file = formData.get('file');

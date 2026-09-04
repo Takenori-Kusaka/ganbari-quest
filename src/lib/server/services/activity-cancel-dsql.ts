@@ -16,6 +16,7 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn は core 内)。
 
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
 	calcMasteryBonusRefundOnCancel,
@@ -36,11 +37,14 @@ import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-canc
 export async function cancelActivityDsql(
 	logId: string,
 	tenantId: string,
+	scopeChildId: ChildId | null = null,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
 	// 1. 事前 guard (read-only、legacy と同一)
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
+	// child scope 制約 (legacy 経路と同一契約)。存在秘匿のため NOT_FOUND。
+	if (scopeChildId !== null && log.childId !== scopeChildId) return { error: 'NOT_FOUND' };
 
 	const recordedTime = new Date(log.recordedAt).getTime();
 	if (Date.now() - recordedTime > CANCEL_WINDOW_MS) {

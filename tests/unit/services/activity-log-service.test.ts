@@ -361,6 +361,25 @@ describe('cancelActivityLog', () => {
 		const result = await cancelActivityLog(recorded.id, TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
+
+	// path が logId しか持たない id-only mutation。child ロールの要求では
+	// requireChildScope が「自分の childId」を渡すため、兄弟の記録は消せない。
+	it('scopeChildId が行の所有者と違えば NOT_FOUND (兄弟の記録をとりけせない)', async () => {
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+
+		const denied = await cancelActivityLog(recorded.id, TENANT, asChildId(999));
+		expect(denied).toEqual({ error: 'NOT_FOUND' });
+
+		// 拒否されただけで、行は生きたまま (取り消されていない)
+		const ok = await cancelActivityLog(recorded.id, TENANT, asChildId(1));
+		expect('refundedPoints' in ok).toBe(true);
+	});
+
+	it('scopeChildId 省略 (owner/parent) は従来どおり全 child の記録をとりけせる', async () => {
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		const result = await cancelActivityLog(recorded.id, TENANT);
+		expect('refundedPoints' in result).toBe(true);
+	});
 });
 
 describe('cancelActivityLog: mastery_bonus 対称返金 (#3787)', () => {

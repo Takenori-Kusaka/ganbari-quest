@@ -407,7 +407,9 @@ export const actions: Actions = {
 			return fail(400, { error: childErrors(params).invalidInput });
 		}
 
-		const result = await cancelActivityLog(logId, tenantId);
+		// 表示中の子供の記録に限る。logId だけで消せると、cookie を差し替えるだけで
+		// 兄弟の記録をとりけせてしまう (id-only mutation 禁止、#2845 と同じ扱い)。
+		const result = await cancelActivityLog(logId, tenantId, childId);
 		if ('error' in result) {
 			if (result.error === 'CANCEL_EXPIRED') {
 				return fail(410, { error: childErrors(params).cancelWindowPassed });

@@ -248,7 +248,7 @@ export const actions: Actions = {
 		}
 
 		// #4546 ③: 仮アバターの作り直しをレースで見送ったら画面で知らせる (黙って古いままにしない)。
-		// #4729: 誕生日を消して誕生日ボーナスの対象外になったことも同じく画面で知らせる (黙って降格しない)。
+		// #4729: 誕生日を消して誕生日ボーナスの対象外になったことも同じく画面で知らせる (黙って消さない)。
 		const { placeholderAvatarSkipped, birthdayCleared } = await editChild(
 			childId,
 			updates,
@@ -343,9 +343,12 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const voiceId = formIdString(form.get('voiceId'));
-		if (!voiceId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
+		// #2845 と同じ「id-only mutation 禁止」。activateVoice と同様に childId も受け取り、
+		// (voiceId, childId) の複合キーで所有者を突合してから消す。
+		const childId = asChildId(formIdString(form.get('childId')));
+		if (!voiceId || !childId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 
-		await deleteVoice(voiceId, tenantId);
+		await deleteVoice(voiceId, childId, tenantId);
 		return { success: true, voiceDeleted: true };
 	},
 

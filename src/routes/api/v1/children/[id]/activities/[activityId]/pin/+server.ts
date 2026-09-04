@@ -4,6 +4,7 @@
 import { json } from '@sveltejs/kit';
 import { asActivityId, asChildId } from '$lib/domain/ids';
 import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { apiError, type ErrorCode } from '$lib/server/errors';
 import {
 	ActivityPinError,
@@ -45,6 +46,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!childId || !activityId) {
 		return apiError('VALIDATION_ERROR', '不正なIDです');
 	}
+	// child ロールは自分のホームのピン留めだけを触れる。
+	requireChildAccess(locals, childId);
 
 	let pinned = true;
 	try {
@@ -89,6 +92,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!childId || !activityId) {
 		return apiError('VALIDATION_ERROR', '不正なIDです');
 	}
+	// child ロールは自分のホームのピン留めだけを触れる。
+	requireChildAccess(locals, childId);
 
 	try {
 		const result = await toggleActivityPin(childId, activityId, false, tenantId);
