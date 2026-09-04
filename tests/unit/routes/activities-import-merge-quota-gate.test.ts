@@ -100,18 +100,38 @@ describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate'
 
 		// 文面の SSOT は labels 側。route が文を組み立てない (#4767 の単一チャネル構造)
 		expect(body.error.message).toBe(
-			PLAN_GATE_LABELS.requiredTierWithUpgradeFor(
-				PLAN_GATE_LABELS.activityAddFeature(FREE_PLAN_QUOTA.maxActivities),
-				'standard',
-			),
+			PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(FREE_PLAN_QUOTA.maxActivities),
 		);
 		// #4693 PO 回答 #1 の中身: 数える対象と、数えない経路の両方を言う
 		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.original);
 		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.presetImport);
 		// 「カスタム活動」は PO が LP 料金表と揃えて「オリジナル活動」に置き換えた語
 		expect(body.error.message).not.toContain('カスタム活動');
-		// #4767 の構造: 導線まで 1 文に入る
+		// 導線まで 1 文に入る (REST は message 1 本しか顧客に届かない)
 		expect(body.error.message).toContain('アップグレード');
+		// #4693 (QM 4 巡目 / #4710 と同 class): 数量制限を **機能ゲートの文型で返さない**。
+		// 「3 個までは使えるのに『ご利用いただけます』」の自己矛盾を pin で塞ぐ。
+		expect(body.error.message).not.toContain('ご利用いただけます');
+		// client の分岐条件は変えない (quotaLimitError も 403 / PLAN_LIMIT_EXCEEDED)
+		expect(res.status).toBe(403);
+		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
+	});
+
+	// #4693 (QM 4 巡目): admin の form action は同じ上限に対して
+	// `activityLimitReached` (「N 個までです」) を出す。面ごとに逆のことを言わせない。
+	it('admin route と同じ本文を使う (面ごとに違うことを言わない)', async () => {
+		mockCheckActivityLimit.mockResolvedValue({
+			allowed: false,
+			current: FREE_PLAN_QUOTA.maxActivities,
+			max: FREE_PLAN_QUOTA.maxActivities,
+		});
+		const res = await POST(makeEvent('merge', [validActivity]));
+		const body = await res.json();
+
+		// REST は導線込み / admin は導線を構造化フィールドで返すぶん本文は素、という差だけ
+		expect(body.error.message).toContain(
+			PLAN_GATE_LABELS.activityLimitReached(FREE_PLAN_QUOTA.maxActivities),
+		);
 	});
 
 	it('上限未達 (allowed=true) では従来通り dispatchImport を実行し 200 を返す', async () => {

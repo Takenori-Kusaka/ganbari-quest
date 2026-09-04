@@ -635,6 +635,13 @@ const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
 	`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`;
 
 /**
+ * 活動 quota 上限 403 の本文 (#4693)。`activityLimitReached` / `activityLimitReachedWithUpgrade` が共有する。
+ * `CLOUD_EXPORT_LIMIT_REACHED` (#4710) と同型の抽出。
+ */
+const ACTIVITY_LIMIT_REACHED = (max: number) =>
+	`${ACTIVITY_QUOTA_TERMS.original}は ${max} 個までです（${ACTIVITY_QUOTA_TERMS.presetImport}は無制限です）`;
+
+/**
  * 活動の上限にまつわる復元結果の文言 SSOT (#4693)。
  *
  * 復元は 4 経路 (settings > データ の ZIP / JSON 復元、クラウド取込、活動管理の ︙ →
@@ -757,20 +764,12 @@ export const PLAN_GATE_LABELS = {
 			? `${feature}は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`
 			: `${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
 
-	/**
-	 * "オリジナル活動の追加（現在のプランでは最大{max}個まで。プリセットからの取込は無制限）"
-	 * — 活動 quota 上限 403 の機能名 (#4767 PO 回答 #4 の構造 × #4693 PO 回答 #1 の中身)。
-	 * `requiredTierWithUpgradeFor` に渡すと上限値 + 要求 tier + 導線が 1 文になる。
-	 *
-	 * #4693 (rebase 時の判断): #4767 は「機能名だけ渡して errors.ts が 1 文に組み立てる」構造を作り、
-	 * #4693 は「上限が数えるのは custom だけで、プリセット取込は消費しない」ことを顧客に伝える文言を
-	 * 決めた。**構造は #4767 のまま、中身に #4693 の atom を入れる**ことで両方を保つ。
-	 * 旧「カスタム活動の追加（現在のプランでは最大 N 個まで）」は (a) PO が LP 料金表と揃えた
-	 * 「オリジナル活動」ではなく「カスタム活動」を使い、(b)「テンプレも入らない」と読める、の 2 点で
-	 * #4693 PO 回答 #1 が是正した状態に戻ってしまうため、そのまま採らない。
-	 */
-	activityAddFeature: (max: number) =>
-		`${ACTIVITY_QUOTA_TERMS.original}の追加（現在のプランでは最大${max}個まで。${ACTIVITY_QUOTA_TERMS.presetImport}は無制限）`,
+	// 活動 quota 上限 403 の「機能名」だった `activityAddFeature` は #4693 (QM 4 巡目) で撤去した。
+	// 唯一の読み手だった REST 2 面 (`api/v1/activities` POST / `api/v1/activities/import` merge) が
+	// `quotaLimitError` + `activityLimitReachedWithUpgrade` に移ったため、参照ゼロになった。
+	// 数量制限を機能ゲートの文型 (`requiredTierWithUpgradeFor`) に流し込む入口を残すと、
+	// 「3 個までは使えるのに『ご利用いただけます』と言われる」#4710 と同 class の症状が再発する。
+	// 読み手のいない label を置き続けない (#4584「フラグと実装が別々の真実になる」と同じ理由)。
 
 	/**
 	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)
@@ -836,8 +835,31 @@ export const PLAN_GATE_LABELS = {
 	 *
 	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
 	 */
-	activityLimitReached: (max: number) =>
-		`${ACTIVITY_QUOTA_TERMS.original}は ${max} 個までです（${ACTIVITY_QUOTA_TERMS.presetImport}は無制限です）`,
+	activityLimitReached: ACTIVITY_LIMIT_REACHED,
+
+	/**
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）。プランをアップグレードしてください。"
+	 *
+	 * 上と同じ本文に **アップグレード導線まで載せた** 版 (#4693 QM 4 巡目)。REST の 403 用。
+	 *
+	 * # なぜ REST 用に別 compound が要るか
+	 *
+	 * admin の form action は `createPlanLimitError` が `upgradeUrl` を構造化フィールドで返し、
+	 * 画面が `upgradeLinkLabel` のリンクを併記するので、本文に導線を書く必要がない。
+	 * 一方 REST (`api/v1/activities` POST / `api/v1/activities/import` merge) は顧客に届くのが
+	 * `message` の 1 本だけ (#4767 PO 回答 #4) なので、導線を本文に含めないと案内が消える。
+	 *
+	 * # なぜ `requiredTierWithUpgradeFor` を使わないか (#4710 と同 class)
+	 *
+	 * `requiredTierWithUpgradeFor` は **機能ゲート**の文型 (「〜はスタンダードプラン以上でご利用
+	 * いただけます」) で、**数量制限**に使うと「3 個までは使えるのに『使えません』」という自己矛盾に
+	 * なる。クラウド保管枠で同じ症状を直したのが #4710 の `quotaLimitError` で、活動 quota の
+	 * REST 2 面がその移行から漏れていた。数量制限は「N 個までです」+ 導線で言い切る。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと
+	 */
+	activityLimitReachedWithUpgrade: (max: number) =>
+		`${ACTIVITY_LIMIT_REACHED(max)}。${PLAN_UPGRADE_CTA}`,
 
 	/**
 	 * "子供は最大{max}人まで登録できます。プランをアップグレードしてください。"
