@@ -110,7 +110,7 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 - UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - 年齢モード → `src/routes/(child)/[uiMode=uiMode]/` + `src/lib/domain/validation/age-tier.ts`
 - 本番画面 → デモ Lambda (#2097 PR-B3 で `src/routes/demo/**` 全削除、本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動)
-- ナビ → `AdminLayout` + `AdminMobileNav` + `BottomNav`
+- ナビ → 面を固定数で数えない。`AdminLayout` に管理画面の Desktop ドロップダウンと Mobile ボトムナビが同居（`AdminMobileNav` は存在しない）。他に `BottomNav`（子供）/ 設定サブナビ / 運営者ナビ / ページ内タブ。`grep -rn "<nav\b" src/` で変更が及ぶ面を確認する
 - DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` (子供) + `demo-guide-state.svelte.ts` (デモ)
 
