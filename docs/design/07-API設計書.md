@@ -98,7 +98,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
+| POST / GET | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 03:00 JST、GET は dryRun 固定のヘルスチェック。`scheduleRegistry` / EventBridge / dispatcher に登録済、全テナントを回す。#4682 F3） | cron 認証 |
 
 ### チェックリスト
 
@@ -163,6 +163,7 @@
 | POST | /api/v1/admin/tenant-cleanup | テナントクリーンアップ（管理用） | 内部API |
 | POST | /api/v1/admin/cleanup-orphans | 孤立データクリーンアップ | 内部API |
 | GET | /api/v1/admin/migration | マイグレーション統計取得 | 内部API |
+| POST | /api/v1/admin/migration | バッチマイグレーション実行 | 内部API |
 | POST | /api/v1/admin/weekly-report | 週次レポート生成トリガー | 内部API |
 | POST | /api/v1/admin/notifications/reminder | リマインダー通知送信 | 内部API |
 | POST | /api/v1/admin/notifications/streak-warning | ストリーク途切れ警告送信 | 内部API |
@@ -2010,7 +2011,7 @@ ADR-0023 §3.6 が定める PMF 達成度の客観的判定（Sean Ellis 40%）�
 
 | メソッド | パス | 認証 | 用途 |
 |---------|------|------|------|
-| POST | `/api/cron/pmf-survey` | `verifyCronAuth` | 年 2 回 (6/1, 12/1 09:00 JST) 全テナント走査して owner email へ配信 |
+| POST / GET | `/api/cron/pmf-survey` | `verifyCronAuth` | 年 2 回 (6/1, 12/1 09:00 JST) 全テナント走査して owner email へ配信（GET は dryRun 固定のヘルスチェックで、env 注入と DB 接続だけを検証する） |
 | GET | `/survey/sean-ellis/[token]` | HMAC トークン | 回答 UI レンダリング (SvelteKit `+page.server.ts` load) |
 | POST | `/survey/sean-ellis/[token]?/submit` | HMAC トークン | 回答送信 form action |
 | ops | `/ops/pmf-survey?round=<r>&q=<keyword>` | Cognito ops group | 集計表示 + 自由記述検索 (AC12) |
@@ -2343,7 +2344,7 @@ if (authError) return authError;
 | `/api/cron/stripe-webhook-delivery-check` | POST | Stripe 側で配信成功（`pending_webhooks=0`）なのに台帳に記録が無い event を検出し Discord に通知（kind `stripe-webhook-ledger-gap`） |
 | `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` の 02:00 JST 定義に従い、AWS は EventBridge Rule `ganbari-quest-cron-grace-period-deletion`、NUC は scheduler が駆動する。**`dryRun=true` は 1 件も削除しないが、`tenantsProcessed` / `tenantsRemaining` は定数ではなく実行時と同じ打ち切り条件（`limit` / 時間予算）から算出した予測値を返す**（#4373。実績値である `tenantsDeleted` / `tenantsFailed` は削除を行わないため 0）|
 | `/api/cron/deletion-warning-emails` | POST / GET | アカウント削除予告メールの日次バッチ（#2399, `deletion-warning-service.ts`）。EventBridge cron `cron(0 1 * * ? *)` (UTC) = 毎日 10:00 JST 実行。soft-delete 済テナントを走査し、物理削除予定日までの残日数（JST 暦日）がしきい値以下になった**保護者ロール (owner/parent) 全員**へ、削除予定日と復元導線を含むメールをそれぞれ送る（#4325 follow-up、オーナー決裁 2026-08-06。owner 1 名固定だと owner 不在 / アドレス失効時に予告が単一障害点で届かないため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる）。しきい値は family = 14 日 / standard = 1 日 / **free = 送信なし（猶予 0 日 = 即時物理削除のため予告する時間が存在しない）**。重複送信は `deletion_warning_sent_at` settings KV で防止し（1 通以上の送信成功でセット、復元 / 再予約時にクリア）、対象保護者が 1 件も見つからない場合は `skippedNoRecipients++`（削除自体は止めずログで観測可能にする）。全宛先で送信に失敗した場合のみ再試行対象（`errors++`、sent_at 未設定）。法務通知扱いのため `marketing-email-counter`（年 6 回上限）を経由せず List-Unsubscribe も付けない（購読解除で止まらない）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告 |
-| `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
+| `/api/cron/pmf-survey` | POST / GET | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
 | `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる。**`dryRun=true` と `GET`（ヘルスチェック）は build も status 書き換えも行わないが、`processed` は定数ではなく pending の実数を返す**（#4373。write を伴う stale reclaim は dryRun では実行しないため `reclaimed` は返さない）|
 | `/api/cron/notification-delivery` | POST / GET | 通知 / 週次レポート配信バッチ（#4706, `notification-delivery-service.ts`）。EventBridge cron `cron(0/15 * * * ? *)` (UTC) = 15 分毎実行（AWS cron-dispatcher / NUC scheduler 双方が同一 endpoint を駆動）。設定 UI が保存した値を読んで 3 配信を送る: **(a) 週次メールレポート** = `weekly_report_enabled` かつ `weekly_report_day` が JST の今日、09:00 JST 以降、`resolveFullPlanTier` が standard 以上（#735 の有料特典 gate を送信 endpoint と共有）/ **(b) リマインダー push** = `notification_reminders_enabled` かつ `notification_reminder_time` を過ぎている / **(c) ストリーク警告 push** = `notification_streak_enabled` かつ 19:00 JST 以降で、今日未記録かつ連続記録が継続中の子供がいる。quiet hours と 1 日 3 通上限は `sendPushNotification` 内の `canSendNotification` が担う。重複送信は送信済マーカー（`weekly_report_sent_week` = 週頭の JST 暦日 / `notification_reminder_sent_date` / `notification_streak_sent_date` = JST 暦日）で防ぎ、**1 通以上の送信に成功したときだけマーカーを立てる**（失敗した回は次回再試行される）。判定用の設定は `getSettingForAllTenants` でキーごとに 1 クエリに畳むため、実行頻度を上げてもクエリ数はテナント数に比例しない（ADR-0065 原則 2）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告。**`dryRun=true` と `GET`（ヘルスチェック）は送信もマーカー書き込みも行わないが、対象件数は実行時と同じ判定で数える** |
 | `/api/cron/pglite-backup` | POST | **NUC 専用** PGlite 本番データの日次バックアップ（#3950）。NUC ローカルの crond（`docker-compose.yml` backup profile、03:00 JST）が `scripts/backup-nuc.cjs` 経由で起動する。`runPgliteBackup()` が PGlite 公式 `dumpDataDir()` でダウンタイム 0 の整合スナップショットを取得し、**取得物を別インスタンスへ実際に復元して検証**（V1 全テーブル `count(*)` / V2 `__drizzle_migrations` 非空 / V3 journal ↔ 適用実績の突合）した上で確定、3 世代へローテーションする。`DATA_SOURCE != pglite` では 409 を返す（AWS は DSQL のため対象外）。EventBridge / `scheduleRegistry` には登録しない（NUC 専用のため）。運用手順は `docs/runbooks/pglite-restore-drill.md` |
