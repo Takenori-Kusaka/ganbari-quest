@@ -253,8 +253,8 @@ async function persistAndCountImported(
 	plannedNewNames: Set<string>,
 	tenantId: string,
 	errors: string[],
-): Promise<{ imported: number; failed: number }> {
-	if (childIds.length === 0) return { imported: 0, failed: 0 };
+): Promise<{ imported: number; failed: number; archivedWritten: number }> {
+	if (childIds.length === 0) return { imported: 0, failed: 0, archivedWritten: 0 };
 	const persistedNames = await dispatchPerChildBulk(childInputsByChild, tenantId, errors);
 	let imported = 0;
 	for (const name of plannedNewNames) {
@@ -264,7 +264,16 @@ async function persistAndCountImported(
 	if (failed > 0) {
 		errors.push(`${failed} 件の活動を保存できませんでした`);
 	}
-	return { imported, failed };
+	// #4693 (QM 再レビュー 3 巡目): 耐久記録に載せるのは **実際に書けた** 保管行数。
+	// 計画値 (`outcome.archived`) を保存すると、insert が全滅しても「N 件保管した」と
+	// 主張する証跡ができてしまう。
+	let archivedWritten = 0;
+	for (const inputs of childInputsByChild.values()) {
+		for (const input of inputs) {
+			if (input.isArchived === 1 && persistedNames.has(input.name)) archivedWritten++;
+		}
+	}
+	return { imported, failed, archivedWritten };
 }
 
 /**
@@ -343,7 +352,9 @@ function planActivityForChildren(
  *   - 復元 (`presetId` なし = 活動管理の ︙ →「バックアップから復元」/ `api/v1/activities/import`
  *     の merge) → `custom` 行。**超過分は捨てずに保管**する。ここを drop のままにすると、
  *     settings > データ の ZIP/JSON 復元 (保管) と同じ状況で入口によって顧客のデータが片方だけ
- *     消える (PO 回答 2026-09-03 #2 を復元 4 経路すべてに適用する)
+ *     消える (PO 回答 2026-09-03 #2 を復元経路に適用する。ただし `api/v1/activities/import` は
+ *     route 入口の `checkActivityLimit` (#3759) を残しており、custom が上限ちょうどのときは
+ *     403 で終わりここに到達しない — 境界の正確な記述は activity-quota.ts の冒頭を参照)
  *
  * 返す 2 つは意味が違う channel: `blocked` = 捨てた / `activityQuota` = 保管した。
  * どちらも `errors` (per-child catch 行 / 集計行が混ざる内部ログ) とは別に持つ — errors を
@@ -441,7 +452,8 @@ export async function importActivities(
 	//   - なし = **復元** (活動管理の ︙ →「バックアップから復元」= `?/importFile` /
 	//     `api/v1/activities/import` の merge) → `custom` 行。ここを drop のままにすると、
 	//     settings > データ の ZIP/JSON 復元 (archive 方式) と同じ状況で顧客のデータが片方だけ
-	//     消える。PO 回答 (2026-09-03) #2「超過分は捨てずに archived」を **復元 4 経路すべて**に適用する
+	//     消える。PO 回答 (2026-09-03) #2「超過分は捨てずに archived」を復元経路に適用する
+	//     (`api/v1/activities/import` は route gate 由来の例外あり。activity-quota.ts 冒頭の但し書き参照)
 	const { blocked, activityQuota } = await applyImportQuota(
 		!presetId,
 		tenantId,
@@ -454,7 +466,7 @@ export async function importActivities(
 	//   stub / 容量超過 等) でも UI が「N 件登録しました」と偽る。dispatchPerChildBulk が
 	//   返す persist 成功名のみを imported に算入し、計画したのに persist できなかった分は
 	//   errors として可視化する。これにより「偽の成功件数」を構造的に出さない。
-	const { imported, failed } = await persistAndCountImported(
+	const { imported, failed, archivedWritten } = await persistAndCountImported(
 		childIds,
 		childInputsByChild,
 		plannedNewNames,
@@ -479,7 +491,9 @@ export async function importActivities(
 
 	// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (行の `archived_reason` では
 	// 「親が自分で選んだ保管」と区別できないため)。実書き込みのあとに呼ぶ。
-	if (activityQuota) await recordActivityQuotaArchiveMarker(tenantId, activityQuota);
+	if (activityQuota) {
+		await recordActivityQuotaArchiveMarker(tenantId, activityQuota, archivedWritten);
+	}
 
 	return { imported, skipped, errors, failed, blocked, activityQuota };
 }

@@ -1348,15 +1348,19 @@ async function importChildActivitiesData(
 		result.warnings.push(
 			quota.archived > 0
 				? `活動 ${quota.archived} 件はプラン上限のため保管 (archived) として復元しました: ${quota.message}`
-				: `活動の上限判定を行いませんでした: ${quota.message}`,
+				: quota.message,
 		);
 	}
 
+	// #4693 (QM 再レビュー 3 巡目): 耐久記録には **実際に書けた** 保管行数を載せる
+	// (計画値だと insert 全滅でも「N 件保管した」と主張する証跡になる)。
+	let archivedWritten = 0;
 	for (const [childId, inputs] of childInputsByChild) {
 		for (const input of inputs) {
 			try {
 				await getRepos().childActivity.insertActivity(input, tenantId);
 				result.activitiesCreated++;
+				if (input.isArchived === 1) archivedWritten++;
 			} catch (e) {
 				result.warnings.push(`活動「${input.name}」(child=${childId}) の作成に失敗: ${String(e)}`);
 			}
@@ -1365,8 +1369,12 @@ async function importChildActivitiesData(
 
 	// #4693 (QM 再レビュー): 行の `archived_reason` では「親が自分で選んだ保管」と区別が付かないため、
 	// テナント単位の耐久記録を残す。**実書き込みのあと**に呼ぶ (書けていない件数を記録しない)。
-	if (quota && quota.archived > 0) {
-		await (await import('./activity-quota')).recordActivityQuotaArchiveMarker(tenantId, quota);
+	if (quota && archivedWritten > 0) {
+		await (await import('./activity-quota')).recordActivityQuotaArchiveMarker(
+			tenantId,
+			quota,
+			archivedWritten,
+		);
 	}
 }
 

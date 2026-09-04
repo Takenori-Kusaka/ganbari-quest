@@ -22,19 +22,26 @@
 //
 // # 覆う経路 / 覆わない経路 (境界を書いておかないと再発する)
 //
-// - 本 module が覆う (drop 方式 `enforceActivityQuota`): `dispatchImport` → activity-pack strategy →
-//   `importActivities` を通る取込 (marketplace 取込 / ファイル復元 `?/importFile` /
-//   `api/v1/activities/import` の merge)。プリセット取込は `seed` 行なので計画側で 0 行に数えられ、
-//   3/3 到達後も通る。admin の `importPack` / `importPackToChildren` action は route 側の
-//   `checkActivityLimit` を**通さない** (旧実装は通していたため 3/3 でテンプレ取込が 403 になっていた)
+// - **drop 方式 (`enforceActivityQuota`)**: marketplace プリセット取込 (`dispatchImport` に
+//   `presetId` あり)。行は `seed` なので計画側で 0 行に数えられ、3/3 到達後も通る。
+//   admin の `importPack` / `importPackToChildren` action は route 側の `checkActivityLimit` を
+//   **通さない** (旧実装は通していたため 3/3 でテンプレ取込が 403 になっていた)
+// - **archive 方式 (`archiveActivityQuotaOverflow`、PO 回答 2026-09-03 #2)**: 復元。超過分は
+//   捨てずに `isArchived=1` で取り込み、アップグレードで自動復帰させる (ダウングレード時の
+//   archive と同じ意味論 = `restoreArchivedResources` が戻す reason を使う)。覆うのは
+//     (1) バックアップ ZIP / JSON の全体復元 (`import-service.ts` の `importChildActivitiesData`)
+//     (2) クラウドテンプレート取込 (`api/v1/import/cloud`)
+//     (3) 活動管理の ︙ →「バックアップから復元」(`?/importFile` → strategy、`presetId` 無し)
+//     (4) `api/v1/activities/import` の merge (`presetId` 無し) — **ただし下記の但し書きあり**
 // - action 側の `checkActivityLimit` が止める: 手動追加 (`createActivity`) / 一括追加 /
-//   別の子からコピー / ファイル内容の取込 (`api/v1/activities/import` merge = custom 行)。
-//   両者は同じ `getPlanLimits().maxActivities` と同じ `countQuotaActivities` を読む
-// - 本 module が覆う (archive 方式 `archiveActivityQuotaOverflow`、PO 回答 2026-09-03 #2):
-//   バックアップ ZIP / JSON の全体復元 (`import-service.ts` の `importChildActivitiesData`) と
-//   クラウドテンプレート取込 (`api/v1/import/cloud`)。復元は顧客のデータを落とせないので、
-//   超過分は捨てずに `isArchived=1` で取り込み、アップグレードで自動復帰させる
-//   (ダウングレード時の archive と同じ意味論 = `restoreArchivedResources` が戻す reason を使う)
+//   別の子からコピー。両者は同じ `getPlanLimits().maxActivities` と同じ `countQuotaActivities` を読む
+//
+// **但し書き (統一されていない 1 点、QM 再レビュー 3 巡目で明示)**: `api/v1/activities/import` は
+// route 入口に `checkActivityLimit` を持ったままなので (#3759)、**custom が上限ちょうどのときは
+// 403 で終わり archive 方式に到達しない**。残枠がある状態での部分超過だけが保管される。
+// UI を持たない REST 専用面であり、403 は何も破壊しない (顧客の手元のファイルは無傷で、
+// アップグレード後に再実行できる) ため意図的に据え置いている。**「復元 4 経路が完全に同じ」とは
+// 言えない** — UI の 3 経路が保管方式、REST は上限到達時のみ 403、が正確な記述である。
 //
 // 上の対応づけは tests/unit/architecture/activity-quota-all-producers-gated.test.ts が機械強制する
 // (child_activities を新しく作る呼び出し箇所を列挙し、各経路の gate 位置を registry で宣言する。
@@ -132,8 +139,9 @@ export interface ActivityQuotaEnforcement {
  * - `plan_limit`: 上限を超えた分を保管した (プランも現在数も分かっている)
  * - `usage_unverifiable`: **プランは無料と確定**しているが現在数を数えられなかった →
  *   残枠 0 とみなして保管する (無料世帯なのでアップグレードで自己回復できる)
- * - `plan_unresolved`: **プラン自体が判定できなかった** → 保管しない (上限を適用せず全件有効)。
- *   有料世帯を巻き添えで無効化しない側に倒し、判定を省いたことは顧客に伝える
+ * - `plan_unresolved`: **プラン自体が判定できなかった** → **復元を中止する** (1 行も書かない)。
+ *   有料世帯を巻き添えで無効化せず、無料世帯が上限を恒久的に超えることもない。顧客の手元の
+ *   バックアップは無傷なので再試行で回復できる
  */
 export type ActivityQuotaArchiveReason = 'plan_limit' | 'usage_unverifiable' | 'plan_unresolved';
 
@@ -296,18 +304,23 @@ export async function archiveActivityQuotaOverflow(
 	if (verdict.kind === 'unlimited') return nothing;
 
 	if (verdict.kind === 'plan-unresolved') {
-		// プランが分からない = この世帯が有料かもしれない。保管に倒すと、有料世帯の復元が
-		// まるごと無効化され、画面には「無料プランの上限」と出て、自力の回復手段が無い。
-		// 上限を適用せず全件有効で入れ、判定を省いたことだけを伝える (顧客が回復できる側)。
-		logger.warn('[activity-quota] プラン不明のため上限を適用せず全件有効で復元します', {
+		// プランが分からない = この世帯が有料かもしれない。倒し方の比較は
+		// `PLAN_GATE_LABELS.planUnresolvedRestoreAborted` の docblock 参照。
+		// 保管 (有料世帯を無効化して自力回復不能) も、上限無視で全件有効 (無料世帯が恒久的に
+		// 上限を超える + 存在しない事後整理を約束する) も採らず、**中止**する。
+		// 何も書かないので顧客の手元のバックアップは無傷で、再試行で回復できる。
+		dropNames(childInputsByChild, plannedNewNames, new Set(plannedNewNames));
+		logger.warn('[activity-quota] プラン不明のため活動の復元を中止しました', {
 			context: { tenantId, total },
 		});
 		return {
 			total,
-			activated: total,
+			// 1 行も書かない。`total > 0` かつ activated / archived がともに 0 で「中止」を表す
+			// (`reason` が一次情報。呼び出し側は `message` をそのまま顧客に出す)
+			activated: 0,
 			archived: 0,
 			reason: 'plan_unresolved',
-			message: PLAN_GATE_LABELS.planUnresolvedRestoreNotCapped,
+			message: PLAN_GATE_LABELS.planUnresolvedRestoreAborted,
 			upgradeUrl: null,
 		};
 	}
@@ -515,11 +528,19 @@ function countRowsByName(
 export async function recordActivityQuotaArchiveMarker(
 	tenantId: string,
 	outcome: ActivityQuotaArchiveOutcome,
+	/**
+	 * **実際に DB に書けた**保管行数 (#4693 QM 再レビュー 3 巡目)。
+	 *
+	 * `outcome.archived` は insert 前に確定する**計画値**なので、per-row insert が失敗すると
+	 * 実態とずれる。「自分で選んだ覚えはない」に答えるための証跡が誤った件数を主張しては
+	 * 意味がないため、呼び出し側は書き込み結果を数えて渡す。
+	 */
+	archivedWritten: number,
 ): Promise<void> {
-	if (outcome.archived <= 0 || outcome.reason === null) return;
+	if (archivedWritten <= 0 || outcome.reason === null) return;
 	const marker: ActivityQuotaArchiveMarker = {
 		at: new Date().toISOString(),
-		archived: outcome.archived,
+		archived: archivedWritten,
 		activated: outcome.activated,
 		total: outcome.total,
 		reason: outcome.reason,
@@ -529,7 +550,7 @@ export async function recordActivityQuotaArchiveMarker(
 	} catch (e) {
 		logger.warn('[activity-quota] 保管の記録を残せませんでした (復元自体は成功)', {
 			error: e instanceof Error ? e.message : String(e),
-			context: { tenantId, archived: outcome.archived },
+			context: { tenantId, archived: archivedWritten },
 		});
 	}
 }

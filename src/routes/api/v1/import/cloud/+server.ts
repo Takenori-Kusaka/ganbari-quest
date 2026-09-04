@@ -197,7 +197,6 @@ async function planTemplateWrites<
 >(
 	targetChildIds: readonly ChildId[],
 	activities: readonly T[],
-	_tenantId: string,
 	findExisting: (childId: ChildId) => Promise<{ name: string }[]>,
 ): Promise<{
 	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>;
@@ -357,7 +356,6 @@ async function handleTemplateImport(
 		const { childInputsByChild, plannedNewNames } = await planTemplateWrites(
 			targetChildIds,
 			Array.from(uniqByName.values()),
-			tenantId,
 			(cid) => repos.childActivity.findActivitiesByChild(cid, tenantId),
 		);
 		const quota = await archiveActivityQuotaOverflow(tenantId, childInputsByChild, plannedNewNames);
@@ -366,16 +364,23 @@ async function handleTemplateImport(
 		const activityQuota = quota.message === '' ? undefined : quota;
 
 		// per-child instance bulk insert
+		// #4693 (QM 再レビュー 3 巡目): 耐久記録には **実際に書けた** 保管行数を載せる。
+		// bulk が throw したら外側 catch で 500 になり記録まで到達しないので、
+		// ここで数えた値は「書けた分」と一致する。
+		let archivedWritten = 0;
 		for (const inputs of childInputsByChild.values()) {
 			if (inputs.length > 0) {
 				const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
 				activitiesCreated += created.length;
+				archivedWritten += inputs.filter((i) => i.isArchived === 1).length;
 			}
 		}
 
 		// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (実書き込みのあと)。行の
 		// `archived_reason` では「親が自分で選んだ保管」と区別が付かないため。
-		if (quota.archived > 0) await recordActivityQuotaArchiveMarker(tenantId, quota);
+		if (archivedWritten > 0) {
+			await recordActivityQuotaArchiveMarker(tenantId, quota, archivedWritten);
+		}
 
 		// #3405-2 consume-on-success: 全 child への取込が成功した後に DL を消費する。旧実装は取込前に
 		// 消費していたため、bulk insert 途中失敗で「未取込 + DL 回数消費」が両立して quota を無駄に失っていた。

@@ -87,7 +87,7 @@ let importResult = $state<{
 		total: number;
 		activated: number;
 		archived: number;
-		reason: 'plan_limit' | 'plan_unverifiable' | null;
+		reason: 'plan_limit' | 'usage_unverifiable' | 'plan_unresolved' | null;
 		message: string;
 		upgradeUrl: string | null;
 	};

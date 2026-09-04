@@ -248,7 +248,10 @@ describe('#4693 復元の超過分は捨てずに archived として取り込む
 		expect(byChild.get(CHILD)).toHaveLength(2);
 	});
 
-	it('プラン自体を判定できない → 1 行も保管せず全件有効で復元し、判定を省いたことを伝える', async () => {
+	// #4693 QM 再レビュー 3 巡目: プラン不明を fail-open (全件有効) にすると、無料世帯が
+	// 読み取り失敗を挟むだけで上限 3 のところ 119 件を恒久保持できる (#4693 症状 1 の再生産)。
+	// かつ「あとで整理されます」と言っても整理するコードは存在しない。中止に倒す。
+	it('プラン自体を判定できない → 復元を中止する (1 行も書かない / 保管もしない)', async () => {
 		// プラン解決 (entitlement) の失敗 = free か有料かも分からない状態
 		mockResolveTenantEntitlement.mockRejectedValue(new Error('DSQL connect timeout'));
 		const { byChild, names } = planOf([customRow('復元1'), customRow('復元2')]);
@@ -257,14 +260,18 @@ describe('#4693 復元の超過分は捨てずに archived として取り込む
 
 		expect(outcome).toMatchObject({
 			total: 2,
-			activated: 2,
+			activated: 0,
 			archived: 0,
 			reason: 'plan_unresolved',
 		});
-		// 有料世帯を巻き添えで無効化しない = 1 行も archived にしない
-		expect(byChild.get(CHILD)?.every((r) => r.isArchived === 0)).toBe(true);
-		// 「黙って上限判定をしなかった」状態にしない (顧客に伝える文言を必ず持つ)
+		// 書き込み計画が空 = 1 行も書かない (有料世帯を無効化せず、無料世帯にも上限超えを許さない)
+		expect(byChild.get(CHILD)).toEqual([]);
+		expect(names.size).toBe(0);
+		// 中止したことを顧客に伝える文言を必ず持つ
 		expect(outcome.message).not.toBe('');
+		expect(outcome.message).toContain('中止');
+		// 存在しない事後整理を約束しない
+		expect(outcome.message).not.toContain('あとで');
 		// 上限が理由ではないのでアップグレード導線は出さない
 		expect(outcome.upgradeUrl).toBeNull();
 	});
@@ -287,14 +294,18 @@ describe('#4693 復元結果の文言 (入った数 / 保管した数 / 理由 /
 
 describe('#4693 上限による自動保管の耐久記録 (行の archived_reason で区別できない分を補う)', () => {
 	it('保管が発生したら settings に「いつ / 何件 / 理由」を残す', async () => {
-		await recordActivityQuotaArchiveMarker(TENANT, {
-			total: 119,
-			activated: 3,
-			archived: 116,
-			reason: 'plan_limit',
-			message: 'x',
-			upgradeUrl: '/admin/subscription',
-		});
+		await recordActivityQuotaArchiveMarker(
+			TENANT,
+			{
+				total: 119,
+				activated: 3,
+				archived: 116,
+				reason: 'plan_limit',
+				message: 'x',
+				upgradeUrl: '/admin/subscription',
+			},
+			116,
+		);
 
 		expect(mockSetSetting).toHaveBeenCalledTimes(1);
 		const [key, value, tenant] = mockSetSetting.mock.calls[0] as unknown as [
@@ -310,28 +321,29 @@ describe('#4693 上限による自動保管の耐久記録 (行の archived_reas
 	});
 
 	it('保管が 0 件なら記録しない (使っていない記録で画面を汚さない)', async () => {
-		await recordActivityQuotaArchiveMarker(TENANT, {
-			total: 3,
-			activated: 3,
-			archived: 0,
-			reason: null,
-			message: '',
-			upgradeUrl: null,
-		});
+		await recordActivityQuotaArchiveMarker(
+			TENANT,
+			{ total: 3, activated: 3, archived: 0, reason: null, message: '', upgradeUrl: null },
+			0,
+		);
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
 
 	it('記録の書き込みが失敗しても復元は落とさない (記録は補助情報)', async () => {
 		mockSetSetting.mockRejectedValueOnce(new Error('write failed'));
 		await expect(
-			recordActivityQuotaArchiveMarker(TENANT, {
-				total: 2,
-				activated: 0,
-				archived: 2,
-				reason: 'plan_limit',
-				message: 'x',
-				upgradeUrl: null,
-			}),
+			recordActivityQuotaArchiveMarker(
+				TENANT,
+				{
+					total: 2,
+					activated: 0,
+					archived: 2,
+					reason: 'plan_limit',
+					message: 'x',
+					upgradeUrl: null,
+				},
+				2,
+			),
 		).resolves.toBeUndefined();
 	});
 
@@ -371,5 +383,27 @@ describe('#4693 保管が解けたら常設表示も消える (課金済み世�
 	it('記録の削除に失敗しても復元自体は落とさない (記録は補助情報)', async () => {
 		mockSetSetting.mockRejectedValueOnce(new Error('write failed'));
 		await expect(clearActivityQuotaArchiveMarker(TENANT)).resolves.toBeUndefined();
+	});
+
+	// #4693 (QM 再レビュー 3 巡目): 証跡が「保管したと主張する件数」を実態から外さない。
+	it('計画値ではなく実際に書けた件数を記録する (insert 全滅なら記録しない)', async () => {
+		const planned = {
+			total: 119,
+			activated: 3,
+			archived: 116,
+			reason: 'plan_limit' as const,
+			message: 'x',
+			upgradeUrl: '/admin/subscription',
+		};
+
+		// 116 件保管を計画したが 2 件しか書けなかった → 記録は 2
+		await recordActivityQuotaArchiveMarker(TENANT, planned, 2);
+		const [, value] = mockSetSetting.mock.calls[0] as unknown as [string, string, string];
+		expect((JSON.parse(value) as { archived: number }).archived).toBe(2);
+
+		// 1 件も書けなければ記録自体を残さない (嘘の証跡を作らない)
+		mockSetSetting.mockClear();
+		await recordActivityQuotaArchiveMarker(TENANT, planned, 0);
+		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
 });

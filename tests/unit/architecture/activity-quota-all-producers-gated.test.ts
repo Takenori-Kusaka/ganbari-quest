@@ -59,14 +59,21 @@ const ACTION_GATE_REGISTRY: Record<
 	},
 };
 
-/** `actions` オブジェクト直下の action 名 → 本文 (次の action 宣言まで) を切り出す。 */
+/**
+ * `actions` オブジェクト直下の action 名 → 本文 (次の action 宣言まで) を切り出す。
+ *
+ * #4693 (QM 再レビュー 3 巡目): 旧実装は `name: async (…) =>` の**アロー代入形しか拾わず**、
+ * `async name(…) {` の method shorthand で書いた無 gate action が素通りしていた
+ * (mutation で実証済)。object literal で action を書ける 2 記法の両方を拾う。
+ */
 function splitActions(src: string): Map<string, string> {
 	const bodies = new Map<string, string>();
-	const decl = /^\t(\w+):\s*async\s*\(/gm;
+	// `name: async (` / `name: async(` / `async name(` / `name(` のいずれも 1 段インデント直下
+	const decl = /^\t(?:(\w+):\s*async\s*\(|async\s+(\w+)\s*\(|(\w+)\s*\(\s*\{)/gm;
 	const starts: { name: string; at: number }[] = [];
 	let m = decl.exec(src);
 	while (m !== null) {
-		const name = m[1];
+		const name = m[1] ?? m[2] ?? m[3];
 		if (name !== undefined) starts.push({ name, at: m.index });
 		m = decl.exec(src);
 	}
@@ -138,6 +145,24 @@ function producers(): string[] {
 	return found.sort();
 }
 
+/**
+ * 各 producer が **どちらの適用方式** を使うかの宣言 (#4693 QM 再レビュー 3 巡目)。
+ *
+ * 旧実装は「いずれかの gate 関数を呼ぶか」しか見ておらず、drop (捨てる) と archive (保管する) の
+ * 取り違えを原理的に捕まえられなかった。`activity-quota.ts` の冒頭は自らを境界の SSOT と
+ * 宣言しているので、その対応づけが動いたら落ちるようにする。
+ */
+const GATE_METHOD_REGISTRY: Record<string, readonly string[]> = {
+	// 取込 (プリセット) は drop、復元は archive。両方を通るので 2 つとも呼ぶ
+	'src/lib/server/services/activity-import-service.ts': [
+		'enforceActivityQuota',
+		'archiveActivityQuotaOverflow',
+	],
+	// 復元のみ。drop 方式を呼んではいけない (超過分を捨てると PO 回答 #2 に反する)
+	'src/lib/server/services/import-service.ts': ['archiveActivityQuotaOverflow'],
+	'src/routes/api/v1/import/cloud/+server.ts': ['archiveActivityQuotaOverflow'],
+};
+
 describe('#4693 fitness: child_activities を作る全経路が quota gate を通る', () => {
 	const found = producers();
 
@@ -204,6 +229,26 @@ describe('#4693 fitness: child_activities を作る全経路が quota gate を�
 					`gate の要否が未宣言の action があります (足したら ACTION_GATE_REGISTRY に書く): ${undeclared.join(', ')}`,
 				).toEqual([]);
 			});
+		}
+	});
+
+	// #4693 QM 再レビュー 3 巡目: drop / archive の取り違えを検出する。
+	it('宣言された適用方式 (drop / archive) と実装が一致する', () => {
+		for (const [file, expected] of Object.entries(GATE_METHOD_REGISTRY)) {
+			const src = readFileSync(join(REPO_ROOT, file), 'utf8');
+			for (const fn of expected) {
+				expect(
+					new RegExp(`\\b${fn}\\s*\\(`).test(src),
+					`${file} は ${fn} を呼ぶと宣言されていますが呼んでいません`,
+				).toBe(true);
+			}
+			if (!expected.includes('enforceActivityQuota')) {
+				expect(
+					/\benforceActivityQuota\s*\(/.test(src),
+					`${file} は復元専用 (archive 方式) と宣言されていますが、超過分を捨てる ` +
+						`enforceActivityQuota を呼んでいます (PO 回答 #2 に反する)`,
+				).toBe(false);
+			}
 		}
 	});
 
