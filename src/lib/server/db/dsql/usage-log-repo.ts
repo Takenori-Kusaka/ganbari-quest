@@ -53,14 +53,22 @@ export function createDsqlUsageLogRepo(db: SqlExecutor): IUsageLogRepo {
 			return toUsageLog(result.rows[0] as unknown as UsageLogRow);
 		},
 
-		async updateUsageLogEnd(id, endedAt, durationSec, tenantId) {
+		async updateUsageLogEnd(id, endedAt, durationSec, tenantId, scopeChildId) {
 			if (!isUuidFormat(id)) {
 				warnInvalidUuidId('usage-log-repo.updateUsageLogEnd');
 				return undefined;
 			}
+			// scopeChildId 指定時は (log_id, child_id) 複合キーで更新する。read → check → write に
+			// すると判定前に ended_at を書いてしまうため、**WHERE 側**で絞る。
+			if (scopeChildId != null && !isUuidFormat(String(scopeChildId))) {
+				warnInvalidUuidId('usage-log-repo.updateUsageLogEnd.scopeChildId');
+				return undefined;
+			}
+			const childPredicate =
+				scopeChildId == null ? sql`` : sql` AND child_id = ${String(scopeChildId)}`;
 			const result = await db.execute(sql`
 				UPDATE usage_logs SET ended_at = ${endedAt}::timestamptz, duration_sec = ${durationSec}
-				WHERE family_id = ${tenantId} AND log_id = ${id}
+				WHERE family_id = ${tenantId} AND log_id = ${id}${childPredicate}
 				RETURNING ${COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as UsageLogRow | undefined;

@@ -27,6 +27,7 @@ export async function updateUsageLogEnd(
 	_endedAt: string,
 	_durationSec: number,
 	_tenantId: string,
+	_scopeChildId?: ChildId | null,
 ): Promise<UsageLog | undefined> {
 	return undefined;
 }
