@@ -18,8 +18,6 @@
 		"dev:cognito": "cross-env AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174 --strictPort",
 		"dev:cognito-signup": "cross-env AUTH_MODE=cognito vite dev --port 5174 --strictPort",
 		"dev:open-pr": "node scripts/init-pr-body.mjs",
-		"version:generate": "tsx scripts/generate-version.ts",
-		"prebuild": "npm run version:generate",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "node scripts/prepare.mjs",

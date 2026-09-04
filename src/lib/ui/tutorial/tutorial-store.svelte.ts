@@ -18,6 +18,11 @@ function stepKey(): string {
 	return `${STORAGE_KEY_PREFIX}:${progressScope}:step`;
 }
 
+/** 現在の進捗 namespace (test 用。key の形は `tutorial-progress:<scope>:chapter|step`)。 */
+export function getProgressScope(): string {
+	return progressScope;
+}
+
 interface TutorialState {
 	isActive: boolean;
 	currentChapter: number;
@@ -92,13 +97,98 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 }
 
 function clearSavedProgress() {
+	discardSavedProgress(progressScope);
+}
+
+/**
+ * 指定 scope の保存済み進捗を捨てる (現在の scope 以外にも使える)。
+ *
+ * #4765 PO 回答 (2026-09-03): 子供ガイドの進捗 key を子供ごとに分けたため、それ以前の
+ * 家族共有 key (`child:<uiMode>`) は誰の進捗か判別できず、読まずに捨てる。
+ */
+export function discardSavedProgress(scope: string) {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.removeItem(chapterKey());
-			localStorage.removeItem(stepKey());
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:chapter`);
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:step`);
 		}
 	} catch {
 		// silently ignore
+	}
+}
+
+/** #4765: 旧 key の後始末を一度だけ行ったことを示す端末ローカルの印。 */
+const LEGACY_MIGRATION_FLAG_KEY = `${STORAGE_KEY_PREFIX}:legacy-migrated`;
+
+/** `migrateLegacyProgress` の結果 (呼び出し側の分岐用ではなく、test / 診断用)。 */
+export type LegacyProgressMigrationResult =
+	| 'migrated' // 子供 1 人 = 持ち主が一意 → 引き継いだ
+	| 'discarded' // 子供 2 人以上 = 持ち主不明 → 捨てた
+	| 'no-legacy' // 旧 key が無い (新規ユーザー / 既に処理済)
+	| 'already-done' // 一度処理済み (2 回目以降の mount では何もしない)
+	| 'unavailable'; // localStorage が使えない
+
+/** 旧 scope とその引き継ぎ先の組。年齢モードの数だけ渡す (下記「モード横断」を参照)。 */
+export interface LegacyProgressEntry {
+	/** #4765 以前の家族共有 scope (`child:<uiMode>`) */
+	legacyScope: string;
+	/** 引き継ぎ先 scope (`child:<childId>:<uiMode>`) */
+	targetScope: string;
+}
+
+/**
+ * #4765 以前の家族共有 key (`child:<uiMode>`) を後始末する。**端末ごとに 1 回だけ**走る。
+ *
+ * PO 回答 (2026-09-03) は「進捗 key を子供ごとに分ける」だが、旧 key を無条件に捨てると
+ * **一度もこの不具合に当たっていない 1 人っ子の家庭まで進捗を失う**。旧 key の持ち主が
+ * 一意に決まるとき (子供が 1 人) は引き継ぎ、決まらないとき (2 人以上) だけ捨てる。
+ *
+ * **モード横断**: 旧 key は年齢モードごとに分かれている (`child:preschool` / `child:elementary` …)。
+ * 子供の年齢モードは変わるため、「今のモードの旧 key」だけを見ると、モードが変わった子の進捗が
+ * 引き継がれないまま端末に残り続ける。呼び出し側は**全モード分の entry** を渡し、本関数は
+ * 1 回の処理で全部を畳む (子供 1 人 = すべてその子のもの / 2 人以上 = すべて持ち主不明)。
+ *
+ * - 引き継ぎ先に既に進捗があれば**上書きしない** (新しい方が正しい)
+ * - 処理後は印 (`tutorial-progress:legacy-migrated`) を立て、以降の mount では何もしない
+ *
+ * @param entries 旧 scope → 引き継ぎ先 scope の組 (年齢モードの数だけ)
+ * @param childCount テナントの子供の人数 (1 = 持ち主が一意)
+ */
+export function migrateLegacyProgress(
+	entries: readonly LegacyProgressEntry[],
+	childCount: number,
+): LegacyProgressMigrationResult {
+	try {
+		if (typeof window === 'undefined') return 'unavailable';
+		if (localStorage.getItem(LEGACY_MIGRATION_FLAG_KEY) === '1') return 'already-done';
+
+		const found = entries
+			.map((entry) => ({
+				...entry,
+				chapter: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:chapter`),
+				step: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:step`),
+			}))
+			.filter((entry) => entry.chapter != null || entry.step != null);
+
+		localStorage.setItem(LEGACY_MIGRATION_FLAG_KEY, '1');
+		if (found.length === 0) return 'no-legacy';
+
+		for (const entry of found) {
+			if (childCount === 1) {
+				const targetChapterKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:chapter`;
+				const targetStepKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:step`;
+				// 引き継ぎ先が空のときだけ書く (その子自身の新しい進捗を巻き戻さない)
+				if (localStorage.getItem(targetChapterKey) == null) {
+					if (entry.chapter != null) localStorage.setItem(targetChapterKey, entry.chapter);
+					if (entry.step != null) localStorage.setItem(targetStepKey, entry.step);
+				}
+			}
+			discardSavedProgress(entry.legacyScope);
+		}
+
+		return childCount === 1 ? 'migrated' : 'discarded';
+	} catch {
+		return 'unavailable';
 	}
 }
 

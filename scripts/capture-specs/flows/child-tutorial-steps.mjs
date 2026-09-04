@@ -87,10 +87,13 @@ export default async (page, capture) => {
 		if (arrived) break;
 	}
 	await dismissOverlays(page);
-	// localStorage の進捗を消して常に最初から
+	// localStorage の進捗を消して常に最初から。
+	// key は #4651 で `tutorial-progress:<scope>:chapter|step`、#4765 で scope が子供ごとになったため、
+	// 個別 key 名ではなく prefix 一致で全 scope を掃除する (旧実装は消えた key 名を消していて無効だった)。
 	await page.evaluate(() => {
-		localStorage.removeItem('tutorial-progress-chapter');
-		localStorage.removeItem('tutorial-progress-step');
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('tutorial-progress')) localStorage.removeItem(key);
+		}
 	});
 
 	const helpBtn = page.locator(HELP_BTN);

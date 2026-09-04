@@ -321,7 +321,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 			['const dt = new Date(Date.UTC(y, m - 1, d));', 'calendar-outside-ssot'],
 			// jstHour の再実装 (checklist-service / notification-service の実物)
 			['const jstHour = (now.getUTCHours() + 9) % 24;', 'calendar-outside-ssot'],
-			// JST オフセットの再定義 (scripts/generate-version.ts の実物)
+			// JST オフセットの再定義 (旧 scripts/generate-version.ts の実物。同 script は define 化で削除済)
 			['const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);', 'jst-offset-redefined'],
 			['const t = new Date(Date.now() + 32400000);', 'jst-offset-redefined'],
 			// ISO timestamp を切って暦日にする形 (export-service / 履歴ページの実物)

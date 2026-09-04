@@ -15,7 +15,7 @@ ARG APP_MAJOR_VERSION=1
 # BUILD_TIMESTAMP is a cache-busting build arg (#711 / PR #826 review).
 # Passing a unique value (e.g. $(date +%s)) on every build causes the
 # RUN layer below to be rebuilt even when COPY . . layer cache hits —
-# ensuring npm run version:generate actually runs and stamps a fresh date.
+# ensuring the build actually runs and stamps a fresh APP_VERSION date.
 ARG BUILD_TIMESTAMP=unknown
 # NUC LAN デプロイ時は docker-compose.yml から "true" が渡され、
 # svelte.config.js の csrf.checkOrigin を無効化する (#962)。
@@ -23,13 +23,13 @@ ARG DISABLE_CSRF_ORIGIN_CHECK=false
 ENV APP_MAJOR_VERSION=${APP_MAJOR_VERSION}
 ENV DISABLE_CSRF_ORIGIN_CHECK=${DISABLE_CSRF_ORIGIN_CHECK}
 COPY . .
-# Regenerate APP_VERSION at build time so every deployed image carries the
-# build date, regardless of whether the caller committed a fresh version.ts (#711).
+# APP_VERSION is computed by vite.config.ts (`define`) at build time, so every
+# deployed image carries its own build date (#711). Nothing is generated into the tree.
 # SvelteKit postbuild analysis imports server modules including DB client;
 # create data dir so better-sqlite3 doesn't fail during build.
 # The echo embeds BUILD_TIMESTAMP into the layer's command string, which
 # makes the BuildKit cache key sensitive to the arg value.
-RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run version:generate && npm run build
+RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run build
 
 # Stage 3: Runtime (minimal image)
 FROM node:22-alpine AS runtime

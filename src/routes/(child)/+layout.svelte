@@ -15,7 +15,7 @@ import {
 	PIN_GATE_ONBOARDING_LABELS,
 	UI_COMPONENTS_LABELS,
 } from '$lib/domain/labels';
-import type { UiMode } from '$lib/domain/validation/age-tier';
+import { UI_MODES, type UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // #4448: 動いたポイントをヘッダー残高までつなぐ演出。ghost layer は child 配下で 1 つだけ置く。
@@ -34,8 +34,16 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import {
+	getChildTutorialChapters,
+	getChildTutorialProgressScope,
+	getLegacyChildTutorialProgressScope,
+} from '$lib/ui/tutorial/tutorial-chapters-child';
+import {
+	migrateLegacyProgress,
+	setChapters,
+	startTutorial,
+} from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -89,8 +97,22 @@ onMount(() => {
 			soundService.preload(config.enabledSounds);
 		}
 		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
-		// #4651 (a): 進捗 key を子供ガイド (年齢モード別) の namespace に分ける
-		setChapters(getChildTutorialChapters(uiMode), `child:${uiMode}`);
+		// #4651 (a): 進捗 key を子供ガイドの namespace に分ける
+		// #4765 PO 回答 (2026-09-03): さらに**子供ごと**に分ける (兄の進捗で弟のガイドが飛ばない)。
+		//   それ以前の家族共有 key は、持ち主が一意に決まるとき (子供 1 人) だけ引き継ぎ、
+		//   決まらないとき (2 人以上) は捨てる。端末ごとに 1 回だけ走る (per-mount で走らせない)
+		if (data.child) {
+			const childId = data.child.id;
+			setChapters(getChildTutorialChapters(uiMode), getChildTutorialProgressScope(childId, uiMode));
+			// 旧 key は年齢モードごとに分かれているため、今のモードだけでなく**全モード分**を畳む
+			migrateLegacyProgress(
+				UI_MODES.map((mode) => ({
+					legacyScope: getLegacyChildTutorialProgressScope(mode),
+					targetScope: getChildTutorialProgressScope(childId, mode),
+				})),
+				data.allChildren?.length ?? 0,
+			);
+		}
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）

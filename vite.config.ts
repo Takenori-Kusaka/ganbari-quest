@@ -7,9 +7,23 @@ import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
+import { todayDateJST } from './src/lib/domain/date-utils.js';
 
 const dirname =
 	typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * アプリ版数 `v{major}.{YYYYMMDD}.0` (#0180 日付ベースバージョニング) をビルドのたびに計算し、
+ * `define` で `src/lib/version.ts` の `__APP_VERSION__` / `__APP_VERSION_DATE__` に埋め込む。
+ *
+ * PO 回答 (2026-09-03): 版数は生成物であり、コミットしない。旧実装は `prebuild` が
+ * `src/lib/version.ts` を書き換えていたため、`npm run build` のたびに無関係な PR に版数の diff が混ざった
+ * (#4825 で実際に混入)。define なら repo に生成物が存在せず、build / dev / vitest / Storybook は
+ * すべてこの config を通るので値が欠けることもない。日付部は JST 暦日 (暦 SSOT 経由、#4120)。
+ * major は Dockerfile / deploy workflow が `APP_MAJOR_VERSION` で渡す (既定 1)。
+ */
+const APP_VERSION = `v${process.env.APP_MAJOR_VERSION || '1'}.${todayDateJST().replace(/-/g, '')}.0`;
+const APP_VERSION_DATE = new Date().toISOString();
 
 /**
  * #3984: CRLF の shebang 付き `.mjs` を import すると vite ssr transform が壊れる問題の根本対処。
@@ -42,6 +56,10 @@ const stripShebangPlugin = {
 
 export default defineConfig({
 	plugins: [stripShebangPlugin, tailwindcss(), sveltekit()],
+	define: {
+		__APP_VERSION__: JSON.stringify(APP_VERSION),
+		__APP_VERSION_DATE__: JSON.stringify(APP_VERSION_DATE),
+	},
 	// #4677: 並列 worktree が node_modules をジャンクション共有すると、既定の cacheDir (node_modules/.vite)
 	// を複数 dev server が奪い合い「There is a new version of the pre-bundle」で full reload が走る
 	// (E2E 実行中のページガイドが消える等の偽陽性)。VITE_CACHE_DIR で worktree ごとに分離できるようにする。

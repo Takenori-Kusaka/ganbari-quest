@@ -171,11 +171,6 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
-      - name: Generate version
-        run: npm run version:generate
-        env:
-          APP_MAJOR_VERSION: ${{ env.APP_MAJOR_VERSION }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -190,11 +185,12 @@ jobs:
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.version.outputs.image-tag }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          # BUILD_TIMESTAMP busts the version:generate layer cache (#711 / PR #826 review).
+          # BUILD_TIMESTAMP busts the build layer cache so APP_VERSION is re-stamped (#711 / PR #826 review).
           # Combined with cache-from: type=gha this ensures the image always stamps
           # a fresh build date even for workflow_dispatch redeploys of the same SHA.
           build-args: |
             BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
+            APP_MAJOR_VERSION=${{ env.APP_MAJOR_VERSION }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
