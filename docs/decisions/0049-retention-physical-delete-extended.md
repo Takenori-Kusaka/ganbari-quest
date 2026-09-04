@@ -130,6 +130,10 @@ UX 層はそのまま残す。理由:
 `/api/cron/retention-cleanup/+server.ts` から日次呼び出す:
 
 1. 全テナントを走査
+1.5. **契約が残っているテナント（S4 = `suspended` かつ `stripe_subscription_id` あり）はスキップ**
+   （`isRetainedSuspendedContract`）。S4 は `invoice.paid` で S2 に戻りうる状態であり、
+   `resolvePlanTier` が `free` に落とすままだと契約が生きているうちに 90 日 cutoff で消える。
+   物理削除が走るのは S5（契約終了）以降だけとする（`contract-state-matrix.md` §5.3 節後）
 2. 各テナントの現在プランを `resolveFullPlanTier(tenantId, licenseStatus, planId)` で解決
    - トライアル中はトライアルティアが優先される（ADR-0024）
    - `family` （`historyRetentionDays === null`）はスキップ

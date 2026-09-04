@@ -22,6 +22,7 @@ import {
 	formatDeletionGracePeriod,
 } from '../../../src/lib/domain/constants/deletion-grace';
 import { PLAN_HISTORY_RETENTION_DAYS } from '../../../src/lib/domain/constants/plan-retention';
+import { isRetainedSuspendedContract } from '../../../src/lib/domain/constants/subscription-status';
 import {
 	ALL_CONTRACT_STATES,
 	CONTRACT_STATE_VIEW,
@@ -372,48 +373,53 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(desc.endsWith(FREE_RETENTION_SENTENCE)).toBe(true);
 		});
 
-		it('S4 は 復旧の案内 → いま起きていること (現在形) → 保持期間 の順で述べる', () => {
+		// PO 決定 (2026-09-04) で **S4 では物理削除を行わない**ことになった
+		// (`retention-cleanup-service` が `isRetainedSuspendedContract` で skip する)。
+		// よって旧 pin (「すでに適用されており」「削除されています」= 現在形で削除を述べる) は
+		// 実装が行っていないことを述べる文言を固定していたので置き換える。
+		// 順序: いま起きていること → 復旧の案内 → 契約終了後の保持期間 (末尾)。
+		it('S4 は 削除しない事実 → 復旧の案内 → 契約終了後の保持期間 の順で述べる', () => {
 			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
-			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻ります');
-			const alreadyApplied = desc.indexOf('すでに適用されており');
+			const noDeletion = desc.indexOf(
+				'ご契約が残っているあいだ、これまでの記録を削除することはありません',
+			);
+			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻り');
 			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
 
+			expect(noDeletion, '契約が残っている間は削除しない事実を述べていない').toBeGreaterThan(-1);
 			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
-			expect(
-				alreadyApplied,
-				'保持期間の短縮が「すでに適用されている」ことを述べていない',
-			).toBeGreaterThan(-1);
 			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
 
-			// 復旧 → 現状 → 保持期間 の順。「再契約でも戻りません」の直後に「元に戻ります」が
-			// 来る並び (1 巡目の実測) では recovery > retention になり落ちる。
-			expect(recovery).toBeLessThan(alreadyApplied);
-			expect(alreadyApplied).toBeLessThan(retention);
+			expect(noDeletion).toBeLessThan(recovery);
+			expect(recovery).toBeLessThan(retention);
 		});
 
-		// 2 巡目の指摘の本体。S4 では削除が**すでに走っている**ので、未来形 / 条件形で書かない。
-		// 未来形だと「まだ書き出す時間がある」と読ませ、矛盾よりも実害が大きい。
-		it('S4 は保持期間の短縮を現在形で述べ、契約終了を条件にしない', () => {
+		// 削除は起きていないので現在形で「消えている」と書かない (旧文の再発防止)。
+		// 一方で表示は `applyRetentionFilter(free)` で絞られるため、
+		// 「見えなくなる / 復帰すればまた見える」は述べる (消えたと誤解させない)。
+		it('S4 は「すでに削除されている」と書かず、表示が絞られることと復帰で戻ることを述べる', () => {
 			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
-			expect(desc).toContain('すでに適用されており');
-			expect(desc).toContain('削除されています');
-			expect(desc, '契約終了を条件にすると「まだ猶予がある」と読める').not.toMatch(
-				/契約が終了(した場合|すると)/,
+			expect(desc, '削除は skip されるので現在形で削除を述べない').not.toContain(
+				'すでに適用されており',
 			);
-			expect(desc, '移行を未来の出来事として書かない').not.toMatch(/へ切り替わります/);
+			expect(desc).not.toContain('削除されています');
+			expect(desc, '表示が絞られることを述べる').toContain('一時的に見えなくなります');
+			expect(desc, '復帰でまた見えることを述べる').toContain(
+				'見えなくなっていた記録もまた表示されます',
+			);
 		});
 
-		// S3 は licenseStatus=ACTIVE のまま有料 tier が維持され、削除は走らない。
-		// S4 の是正を S3 に敷衍すると、起きていないことを述べることになる。
-		it('S3 には「すでに削除されている」を持ち込まない (S3 は有料 tier が維持される)', () => {
+		// S3 は licenseStatus=ACTIVE のまま有料 tier が維持され、表示も絞られない。
+		// S4 の注記を S3 に敷衍すると、起きていないことを述べることになる。
+		it('S3 には「見えなくなる」を持ち込まない (S3 は有料 tier が維持される)', () => {
 			const desc = SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc;
 			expect(desc).not.toContain('すでに適用されており');
 			expect(desc).not.toContain('削除されています');
+			expect(desc).not.toContain('一時的に見えなくなります');
 		});
 
-		// 文言が実装の事実に紐づいていることを、契約状態表 (S3 / S4 の planTier) と突き合わせる。
-		// S4 の planTier が有料に戻る変更が入れば本 test が落ち、文言を見直す契機になる。
-		describe('S4 の事実 (contract-state-matrix.md §4)', () => {
+		// 文言が実装の事実に紐づいていることを、契約状態表 (S3 / S4) と実装の述語で突き合わせる。
+		describe('S4 の事実 (contract-state-matrix.md §4 + retention-cleanup-service)', () => {
 			const matrixRow = (row: string): string => {
 				const line = repoFile('docs/design/billing-redesign/contract-state-matrix.md')
 					.split('\n')
@@ -422,18 +428,40 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 				return line ?? '';
 			};
 
-			it('S4 の planTier は free (= 無料プランの保持期間が既に効く)', () => {
+			it('S4 の planTier は free のまま (= 表示は無料プランの範囲に絞られる)', () => {
 				expect(matrixRow('S4')).toContain('`suspended`');
 				expect(matrixRow('S4')).toContain('`free`');
 			});
 
-			it('S3 の planTier は有料のまま (= 保持期間はまだ短縮されない)', () => {
+			it('S3 の planTier は有料のまま (= 表示も絞られない)', () => {
 				expect(matrixRow('S3')).toContain('`active`');
 				expect(matrixRow('S3')).toMatch(/`standard`/);
 			});
 
-			it('無料プランの保持期間は有限 (= 物理削除の cutoff が立つ)', () => {
+			it('無料プランの保持期間は有限 (= 契約終了後は物理削除の cutoff が立つ)', () => {
 				expect(PLAN_HISTORY_RETENTION_DAYS.free).not.toBeNull();
+			});
+
+			// 文言の根拠は実装。S4 を skip する分岐が消えたら本 test が落ち、文言を見直す契機になる。
+			it('S4 (suspended + subscription あり) は物理削除の対象外である', () => {
+				expect(
+					isRetainedSuspendedContract({ status: 'suspended', stripeSubscriptionId: 'sub_x' }),
+				).toBe(true);
+				// S5 / S6 / S1-S3 は対象外ではない (skip が広がっていない)
+				expect(isRetainedSuspendedContract({ status: 'suspended' })).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ status: 'terminated', stripeSubscriptionId: 'sub_x' }),
+				).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ status: 'grace_period', stripeSubscriptionId: 'sub_x' }),
+				).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ status: 'active', stripeSubscriptionId: 'sub_x' }),
+				).toBe(false);
+
+				// retention-cleanup が実際にこの述語で skip していること (文言と実装の結合)
+				const svc = repoFile('src/lib/server/services/retention-cleanup-service.ts');
+				expect(svc).toMatch(/if \(isRetainedSuspendedContract\(tenant\)\) \{/);
 			});
 		});
 

@@ -332,31 +332,6 @@ describe('cleanupExpiredData - licenseStatus 導出', () => {
 		expect(days).toBeLessThanOrEqual(91);
 	});
 
-	it('stripeSubscriptionId あり + status=suspended → suspended (free 扱い)', async () => {
-		mockListAllTenants.mockResolvedValue([
-			makeTenant({
-				tenantId: 't-suspended',
-				status: 'suspended',
-				stripeSubscriptionId: 'sub_x',
-				plan: 'family-monthly',
-			}),
-		]);
-		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
-
-		await cleanupExpiredData();
-
-		// family プランだが suspended → licenseStatus=suspended → free扱い → 90日で削除実行
-		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalled();
-		const suspendedCall = mockDeleteActivityLogsBeforeDate.mock.calls[0];
-		if (!suspendedCall) throw new Error('no call recorded');
-		const cutoffDate = suspendedCall[1] as string;
-		const days = Math.round(
-			(TODAY.getTime() - new Date(cutoffDate).getTime()) / (1000 * 60 * 60 * 24),
-		);
-		expect(days).toBeGreaterThanOrEqual(89);
-		expect(days).toBeLessThanOrEqual(91);
-	});
-
 	it('stripeSubscriptionId あり + status=grace_period → active', async () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({
@@ -373,5 +348,163 @@ describe('cleanupExpiredData - licenseStatus 導出', () => {
 		// grace_period + family-yearly → family tier → skip
 		expect(result.tenantsSkipped).toBe(1);
 		expect(mockDeleteActivityLogsBeforeDate).not.toHaveBeenCalled();
+	});
+});
+
+// ==========================================================
+// 契約状態 (contract-state-matrix.md §4) と物理削除の境界
+//
+// PO 決定 (2026-09-04): **契約が残っている間 (S4 = suspended かつ subscription あり) は
+// 履歴の物理削除を行わない。物理削除が走るのは S5 (契約終了) 以降だけ。**
+//
+// 旧実装は `deriveLicenseStatus` が S4 を SUSPENDED にし、`resolvePlanTier` が ACTIVE 以外を
+// free に落とすため、**契約が生きていて `invoice.paid` (W2) で S2 に戻りうるテナント**の
+// activity_logs / point_ledger / status_history を 90 日 cutoff で消していた。
+// 旧 test 「stripeSubscriptionId あり + status=suspended → suspended (free 扱い)」が
+// その挙動を仕様として固定していたため、本 describe で置き換えている (assertion の弱体化ではなく
+// 仕様変更に伴う置換。旧 test が pin していた「削除が走る」は S5 / S6 / S1 側で維持する)。
+//
+// skip が広がりすぎていないことを同じ describe で pin する — S1 / S3 / S5 / S6 は従来どおり削除する。
+// ==========================================================
+
+describe('cleanupExpiredData - 契約が残っている間は物理削除しない (PO 決定 2026-09-04)', () => {
+	/** cutoff (YYYY-MM-DD) が今日から何日前かを丸めて返す */
+	function cutoffDaysAgo(cutoffDate: string): number {
+		return Math.round((TODAY.getTime() - new Date(cutoffDate).getTime()) / (1000 * 60 * 60 * 24));
+	}
+
+	it('S4 (suspended + subscription あり) → 3 表とも 1 件も削除せず tenantsSkipped++', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-s4',
+				status: 'suspended',
+				stripeSubscriptionId: 'sub_x',
+				plan: 'family-monthly',
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsSkipped).toBe(1);
+		expect(result.tenantsProcessed).toBe(0);
+		expect(result.childrenProcessed).toBe(0);
+		expect(mockDeleteActivityLogsBeforeDate).not.toHaveBeenCalled();
+		expect(mockDeletePointLedgerBeforeDate).not.toHaveBeenCalled();
+		expect(mockDeleteStatusHistoryBeforeDate).not.toHaveBeenCalled();
+		// 子の列挙にすら入らない (skip は tier 解決より前で効く)
+		expect(mockFindAllChildren).not.toHaveBeenCalled();
+	});
+
+	it('S4 は plan が standard でも削除しない (free 降格の有無に依存しない)', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-s4-std',
+				status: 'suspended',
+				stripeSubscriptionId: 'sub_std',
+				plan: 'monthly',
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsSkipped).toBe(1);
+		expect(mockDeleteActivityLogsBeforeDate).not.toHaveBeenCalled();
+	});
+
+	it('S5 (suspended + subscription なし = 契約終了) → 従来どおり無料プランの 90 日で削除する', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-s5',
+				status: 'suspended',
+				// TERMINAL_CONTRACT_STATE は sub / plan を同時にクリアする (matrix §4 S5)
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(3);
+		mockDeletePointLedgerBeforeDate.mockResolvedValue(2);
+		mockDeleteStatusHistoryBeforeDate.mockResolvedValue(4);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(result.tenantsSkipped).toBe(0);
+		expect(result.activityLogsDeleted).toBe(3);
+		expect(result.pointLedgerDeleted).toBe(2);
+		expect(result.statusHistoryDeleted).toBe(4);
+		const call = mockDeleteActivityLogsBeforeDate.mock.calls[0];
+		if (!call) throw new Error('no call recorded');
+		expect(cutoffDaysAgo(call[1] as string)).toBeGreaterThanOrEqual(89);
+		expect(cutoffDaysAgo(call[1] as string)).toBeLessThanOrEqual(91);
+	});
+
+	it('S6 (terminated) → 契約は残っていないので従来どおり削除する', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-s6',
+				status: 'terminated',
+				stripeSubscriptionId: 'sub_legacy',
+				plan: 'monthly',
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(1);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalled();
+	});
+
+	it('S3 (grace_period + standard) → 従来どおり有料プランの 365 日で削除する', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({
+				tenantId: 't-s3-std',
+				status: 'grace_period',
+				stripeSubscriptionId: 'sub_g',
+				plan: 'monthly',
+			}),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(6);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(result.activityLogsDeleted).toBe(6);
+		const call = mockDeleteActivityLogsBeforeDate.mock.calls[0];
+		if (!call) throw new Error('no call recorded');
+		expect(cutoffDaysAgo(call[1] as string)).toBeGreaterThanOrEqual(364);
+		expect(cutoffDaysAgo(call[1] as string)).toBeLessThanOrEqual(366);
+	});
+
+	it('S1 (未課金) は skip に含めない — 契約が無いので無料プランの 90 日で削除する', async () => {
+		mockListAllTenants.mockResolvedValue([makeTenant({ tenantId: 't-s1', status: 'active' })]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(9);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(result.activityLogsDeleted).toBe(9);
+	});
+
+	it('S4 の skip は他テナントの処理を止めない (1 バッチに混在しても S5 は削除される)', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({ tenantId: 't-s4', status: 'suspended', stripeSubscriptionId: 'sub_x' }),
+			makeTenant({ tenantId: 't-s5', status: 'suspended' }),
+		]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
+		mockDeleteActivityLogsBeforeDate.mockResolvedValue(5);
+
+		const result = await cleanupExpiredData();
+
+		expect(result.tenantsSkipped).toBe(1); // S4
+		expect(result.tenantsProcessed).toBe(1); // S5
+		expect(result.activityLogsDeleted).toBe(5);
+		// 削除が呼ばれたのは S5 のテナントだけ
+		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalledTimes(1);
+		expect(mockDeleteActivityLogsBeforeDate.mock.calls[0]?.[2]).toBe('t-s5');
 	});
 });

@@ -218,6 +218,25 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 `allowed: true` を返す — 解約完了 = 無料プラン相当という扱いであり（#3993 PO 判断）、
 書き込みを止める分岐は存在しない。
 
+### 契約が残っている間（S4）は履歴を物理削除しない
+
+`planTier` が `free` に落ちる（§4 S4 行）のは**表示と機能の範囲**にだけ効かせる。履歴の
+**物理削除**（`retention-cleanup-service` の `activity_logs` / `point_ledger` / `status_history`）は
+S4 のテナントに対して実行しない。判定は `isRetainedSuspendedContract(tenant)`
+（`src/lib/domain/constants/subscription-status.ts`、`isChurnedContract` の裏側 = `suspended` かつ
+`sub` あり）で、物理削除が走るのは **S5（契約終了）以降**だけである。
+
+S4 は `invoice.paid`（W2）で S2 に戻りうる状態であり、戻ってくる前提の状態で戻らない処理を
+先に実行してはならない。未収に対して取る手当ては「有料機能を止める」までとする。
+
+`resolvePlanTier` 自体は変えない（課金ゲート全体に波及し、未収のテナントに有料機能を返して
+しまう）。したがって S4 では `applyRetentionFilter('free')` により無料プランの期間を超えた履歴が
+**一覧に出ない**が、行は残っており復帰すれば再び表示される。顧客への告知
+（`SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc`）はこの区別を述べる。
+
+検証: `tests/unit/services/retention-cleanup-service.test.ts`（S4 skip / S1・S3・S5・S6 は従来どおり削除）
+/ `tests/unit/domain/cancel-vs-deletion-terminology.test.ts`（告知が実装と一致する）。
+
 ---
 
 ## 6. 退会（アカウント削除）は別軸である

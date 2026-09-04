@@ -21,6 +21,9 @@ import {
 	DELETION_EXPORT_NOTE_LABELS,
 	DOWNGRADE_RESOURCE_SELECTOR_LABELS,
 	FEATURES_LABELS,
+	LP_LEGAL_PRIVACY_LABELS,
+	LP_LEGAL_TERMS_LABELS,
+	LP_LEGAL_TOKUSHOHO_LABELS,
 	LP_PAMPHLET_PHASEB_LABELS,
 	LP_PRICING_LABELS,
 	LP_PRICING_PHASEB_LABELS,
@@ -28,7 +31,7 @@ import {
 	TRIAL_EMAIL_LABELS,
 } from '../../../src/lib/domain/labels';
 import { PRICING_PAGE_FEATURES } from '../../../src/lib/domain/plan-features';
-import { PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
+import { PLAN_FULL_TERMS, PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -209,6 +212,92 @@ describe('plan retention days SSOT (#4477)', () => {
 			const html = readFileSync(resolve(__dirname, '../../../site/index.html'), 'utf-8');
 			const days = PLAN_HISTORY_RETENTION_DAYS.free;
 			expect(html).toContain(`履歴${days}日`);
+		});
+	});
+
+	// ------------------------------------------------------------------
+	// 法務文書が保持期間の事実を述べている (#4844 follow-up)
+	//
+	// 既存の検査はいずれも「保持期間を述べている文字列」を SSOT と突合するもので、
+	// **述べていない文字列は素通り**した。実測: プライバシーポリシー 第1条は
+	// 「これらの情報はご契約期間中保存されます」と 3 箇所で述べており、
+	// `retention-cleanup-service` が契約中でもプラン別の保持期間で物理削除する事実
+	// (スタンダードプランなら 1 年より古い記録が消える) と食い違っていたが、
+	// 保持期間の語を 1 つも含まないため上のどの assert にも引っかからなかった。
+	//
+	// 反転して塞ぐ: 「契約期間を根拠に保存を約束する記述が法務文書に存在しない」ことと、
+	// 活動データの保存期間を述べる文書がプラン別の期間を SSOT 整形で述べることを固定する。
+	// ------------------------------------------------------------------
+	describe('法務文書の保存期間の記述が実装と一致する (#4844 follow-up)', () => {
+		/** 顧客に配信される法務文書 3 本の全 value (h1 / 各条 / 表) */
+		const legalDocValues: Array<[string, string]> = [
+			...Object.entries(LP_LEGAL_PRIVACY_LABELS).map(
+				([key, value]) => [`privacy.${key}`, value] as [string, string],
+			),
+			...Object.entries(LP_LEGAL_TERMS_LABELS)
+				.filter(([, value]) => typeof value === 'string')
+				.map(([key, value]) => [`terms.${key}`, value as string] as [string, string]),
+			...Object.entries(LP_LEGAL_TOKUSHOHO_LABELS).map(
+				([key, value]) => [`tokushoho.${key}`, value] as [string, string],
+			),
+		];
+
+		it('走査対象が空でない (空振りで緑になるのを防ぐ)', () => {
+			expect(legalDocValues.length).toBeGreaterThan(20);
+		});
+
+		// 変異試験: 旧文「これらの情報はご契約期間中保存されます。」を 1 箇所でも戻すと落ちる。
+		it('「契約期間中は保存する」型の約束を書かない (実装は契約中でも保持期間で削除する)', () => {
+			const offenders = legalDocValues
+				.filter(([, value]) => /契約期間中[^。]{0,20}保存/.test(value))
+				.map(([key]) => key);
+			expect(
+				offenders,
+				'契約期間を根拠に保存を約束している。履歴はプラン別の保持期間で物理削除される',
+			).toEqual([]);
+		});
+
+		it('プライバシーポリシー 第1条の活動データがプラン別の保持期間を SSOT 整形で述べる', () => {
+			const section1 = LP_LEGAL_PRIVACY_LABELS.section1;
+			expect(section1).toContain(`${PLAN_FULL_TERMS.free}: ${PLAN_RETENTION_TERMS.free}間`);
+			expect(section1).toContain(`${PLAN_FULL_TERMS.standard}: ${PLAN_RETENTION_TERMS.standard}間`);
+			expect(section1).toContain(`${PLAN_FULL_TERMS.premium}: 無期限`);
+			// 期限で消えるのは履歴だけ。アカウント / お子さまの登録は保持期間の対象外
+			expect(section1).toContain('アカウントが存在するあいだ保存され');
+			// 削除であって閲覧制限ではない (#4507 と同じ基準)
+			expect(section1).toContain('順次削除します');
+			expect(section1).toContain('復元できません');
+		});
+
+		// 3 文書が同じ事実を指していること。片方だけ直すと文書間で食い違う。
+		it('プライバシーポリシーと利用規約が同じ 3 プランの保持期間を述べる', () => {
+			const triple = (doc: string) =>
+				[
+					doc.includes(`${PLAN_FULL_TERMS.free}: ${PLAN_RETENTION_TERMS.free}間`),
+					doc.includes(`${PLAN_FULL_TERMS.standard}: ${PLAN_RETENTION_TERMS.standard}間`),
+					doc.includes(`${PLAN_FULL_TERMS.premium}: 無期限`),
+				] as const;
+			expect(triple(LP_LEGAL_PRIVACY_LABELS.section1)).toEqual([true, true, true]);
+			expect(triple(LP_LEGAL_TERMS_LABELS.section7)).toEqual([true, true, true]);
+		});
+
+		// 画面 (S3 / S4 の告知) と法務文書が同じ無料プランの保持期間を述べる。
+		it('契約状態の告知 (S3 / S4) と特商法が同じ無料プランの保持期間を述べる', () => {
+			const notice = SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice;
+			expect(notice).toContain(PLAN_RETENTION_TERMS.freeSpaced);
+			expect(SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc).toContain(notice);
+			expect(SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc).toContain(notice);
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain(notice);
+		});
+
+		// S4 の告知は「契約が残っている間は削除しない」と述べる (実装: retention-cleanup が skip)。
+		// privacy / terms は「保持期間を超えた記録は削除される」と述べる。両立するのは
+		// S4 が一時的な非実行であって保持期間の約束を上書きしないため。順序が逆になると
+		// 「消えたのに残ると書いてある」になるので、S4 側は末尾に保持期間の 2 文を置く。
+		it('S4 の告知は削除しない事実を述べたうえで、末尾に保持期間の 2 文を置く', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc).toContain('ご契約が残っているあいだ、これまでの記録を削除することはありません');
+			expect(desc.endsWith(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice)).toBe(true);
 		});
 	});
 
