@@ -23,6 +23,10 @@ import {
 } from '../../../src/lib/domain/constants/deletion-grace';
 import { PLAN_HISTORY_RETENTION_DAYS } from '../../../src/lib/domain/constants/plan-retention';
 import {
+	ALL_CONTRACT_STATES,
+	CONTRACT_STATE_VIEW,
+} from '../../../src/lib/domain/contract-state-view';
+import {
 	CANCELLATION_LABELS,
 	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
@@ -321,8 +325,117 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			['解約確認画面 (体験中)', CANCELLATION_LABELS.trialPlanNotice],
 			['解約手続き中バナー (終了日あり)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDesc('2026-09-30')],
 			['解約手続き中バナー (終了日不明)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDescUnknownDate],
-			['解約完了の告知', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
+			// PO 回答 (2026-09-03、PR #4596 コメント) #9: 有料契約が生きている S3 / S4 でも出す。
+			// 「解約したら履歴がいつまで残るか」は解約を決める瞬間に効く情報で、契約が生きているか
+			// どうかで出し分ける理由がない (出さないと「消えると思わなかった / 思った」の両方が起きる)。
+			['支払い猶予中の告知 (S3)', SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc],
+			['支払い停止中の告知 (S4)', SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc],
+			['解約完了の告知 (S5)', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
 		];
+
+		// 画面が実際に描画する経路 (`SaasLicensePanel` は `CONTRACT_STATE_VIEW[state].statusNotice.desc`
+		// を出す) で、告知を持つ全状態 = S3 / S4 / S5 が保持期間を述べることを固定する。
+		// labels の key を直接見る上の表と違い、状態 → 文言の対応表側が差し替わっても落ちる。
+		it('告知を出す全契約状態 (S3 / S4 / S5) の statusNotice が保持期間を述べる', () => {
+			const rowsWithNotice = ALL_CONTRACT_STATES.filter(
+				(state) => CONTRACT_STATE_VIEW[state].statusNotice !== null,
+			).map((state) => CONTRACT_STATE_VIEW[state].matrixRow);
+			expect(rowsWithNotice.sort()).toEqual(['S3', 'S4', 'S5']);
+
+			for (const state of ALL_CONTRACT_STATES) {
+				const view = CONTRACT_STATE_VIEW[state];
+				if (!view.statusNotice) continue;
+				expect(view.statusNotice.desc, `${view.matrixRow} の告知`).toContain(
+					FREE_RETENTION_SENTENCE,
+				);
+				expect(view.statusNotice.desc).toContain(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+			}
+		});
+
+		it('freePlanRetentionNotice (export) は特商法と同一の 2 文そのもの', () => {
+			expect(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice).toBe(FREE_RETENTION_SENTENCE);
+		});
+
+		// QM レビュー指摘 (2 巡): S4 は (1) 「再契約でも戻りません」の直後に「元に戻ります」が
+		// 並んで矛盾に読め、(2) 直した文が保持期間の短縮を「契約が終了したら」と未来形で書いていた。
+		// (2) は事実と逆で、S4 では削除が**すでに走っている** (下の「S4 の事実」describe 参照)。
+		// 断片が両方あることだけを見る assert では順序も時制も守れないため、順序を固定する。
+		it.each(
+			ALL_CONTRACT_STATES.filter((s) => CONTRACT_STATE_VIEW[s].statusNotice !== null).map(
+				(s) =>
+					[CONTRACT_STATE_VIEW[s].matrixRow, CONTRACT_STATE_VIEW[s].statusNotice?.desc ?? ''] as [
+						string,
+						string,
+					],
+			),
+		)('%s の告知は保持期間の 2 文で終わる (後ろに別の話を続けない)', (_row, desc) => {
+			expect(desc.endsWith(FREE_RETENTION_SENTENCE)).toBe(true);
+		});
+
+		it('S4 は 復旧の案内 → いま起きていること (現在形) → 保持期間 の順で述べる', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻ります');
+			const alreadyApplied = desc.indexOf('すでに適用されており');
+			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
+
+			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
+			expect(
+				alreadyApplied,
+				'保持期間の短縮が「すでに適用されている」ことを述べていない',
+			).toBeGreaterThan(-1);
+			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
+
+			// 復旧 → 現状 → 保持期間 の順。「再契約でも戻りません」の直後に「元に戻ります」が
+			// 来る並び (1 巡目の実測) では recovery > retention になり落ちる。
+			expect(recovery).toBeLessThan(alreadyApplied);
+			expect(alreadyApplied).toBeLessThan(retention);
+		});
+
+		// 2 巡目の指摘の本体。S4 では削除が**すでに走っている**ので、未来形 / 条件形で書かない。
+		// 未来形だと「まだ書き出す時間がある」と読ませ、矛盾よりも実害が大きい。
+		it('S4 は保持期間の短縮を現在形で述べ、契約終了を条件にしない', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc).toContain('すでに適用されており');
+			expect(desc).toContain('削除されています');
+			expect(desc, '契約終了を条件にすると「まだ猶予がある」と読める').not.toMatch(
+				/契約が終了(した場合|すると)/,
+			);
+			expect(desc, '移行を未来の出来事として書かない').not.toMatch(/へ切り替わります/);
+		});
+
+		// S3 は licenseStatus=ACTIVE のまま有料 tier が維持され、削除は走らない。
+		// S4 の是正を S3 に敷衍すると、起きていないことを述べることになる。
+		it('S3 には「すでに削除されている」を持ち込まない (S3 は有料 tier が維持される)', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc;
+			expect(desc).not.toContain('すでに適用されており');
+			expect(desc).not.toContain('削除されています');
+		});
+
+		// 文言が実装の事実に紐づいていることを、契約状態表 (S3 / S4 の planTier) と突き合わせる。
+		// S4 の planTier が有料に戻る変更が入れば本 test が落ち、文言を見直す契機になる。
+		describe('S4 の事実 (contract-state-matrix.md §4)', () => {
+			const matrixRow = (row: string): string => {
+				const line = repoFile('docs/design/billing-redesign/contract-state-matrix.md')
+					.split('\n')
+					.find((l) => l.startsWith(`| **${row}**`));
+				expect(line, `${row} の行が見つからない`).toBeDefined();
+				return line ?? '';
+			};
+
+			it('S4 の planTier は free (= 無料プランの保持期間が既に効く)', () => {
+				expect(matrixRow('S4')).toContain('`suspended`');
+				expect(matrixRow('S4')).toContain('`free`');
+			});
+
+			it('S3 の planTier は有料のまま (= 保持期間はまだ短縮されない)', () => {
+				expect(matrixRow('S3')).toContain('`active`');
+				expect(matrixRow('S3')).toMatch(/`standard`/);
+			});
+
+			it('無料プランの保持期間は有限 (= 物理削除の cutoff が立つ)', () => {
+				expect(PLAN_HISTORY_RETENTION_DAYS.free).not.toBeNull();
+			});
+		});
 
 		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {
 			// 「記録は残ります」で止めない (保持期間の言及が消えたら落ちる)
@@ -363,6 +476,8 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 				'trialPlanNotice',
 				'cancelPendingDesc',
 				'cancelPendingDescUnknownDate',
+				'gracePeriodDesc',
+				'paymentSuspendedDesc',
 				'cancelledDesc',
 			]) {
 				expect(definitionSource(key), `${key} に日数が直書きされている`).not.toMatch(

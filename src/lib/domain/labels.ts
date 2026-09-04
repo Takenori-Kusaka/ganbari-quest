@@ -2884,7 +2884,7 @@ export const PAGE_GUIDE_LABELS = {
 			'members-intro': {
 				title: 'このページについて',
 				what: `家族で使う人を増やしたり、離れて暮らすご家族に「見るだけ」のリンクを渡したりできるページです。招待リンクの発行と取り消しは${MEMBERS_LABELS.roleOwner}のみ行えます。`,
-				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・閲覧リンク（${PLAN_FULL_TERMS.family}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
+				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・${VIEWER_LINK_TERMS.name}（${PLAN_FULL_TERMS.premium}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
 				goal: '家族みんなで使えるようになり、離れたご家族にも成長を共有できます。',
 			},
 			'members-list': {
@@ -2913,7 +2913,7 @@ export const PAGE_GUIDE_LABELS = {
 			// ⑤ 閲覧リンク (プレミアムのときだけ描画 → optional)
 			'members-viewer': {
 				title: `よく使う操作（${MEMBERS_LABELS.viewerCreateButton}）`,
-				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.family}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
+				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.premium}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
 				how: `1. 「${MEMBERS_LABELS.viewerLabelField}」に渡す相手が分かる名前を入れます（例: ${MEMBERS_LABELS.viewerLabelPlaceholder.replace('例: ', '')}）\n2. 「${MEMBERS_LABELS.viewerDurationLabel}」を ${MEMBERS_LABELS.viewerDuration7d} / ${MEMBERS_LABELS.viewerDuration30d} / ${MEMBERS_LABELS.viewerDurationUnlimited} から選びます\n3. 「${MEMBERS_LABELS.viewerCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
 				goal: '離れて暮らすご家族が、記録を見るだけの画面で成長を見守れます。',
 				tips: [
@@ -4395,11 +4395,30 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// と書いてはならない。対応表と検証は `contract-state-view.ts` / 同名 test にある。
 	/** 書き込みが許可されている契約状態の告知に必ず添える保証文 */
 	writesContinueAssurance: WRITES_CONTINUE_ASSURANCE,
+	/**
+	 * 無料プランの保持期間 (特商法と同一の 2 文)。#4540 Q4 の PO 回答 (2026-09-03) により、
+	 * 解約導線の**全状態 (S3 猶予 / S4 停止 / S5 契約終了)** で述べる。「解約したら履歴がいつまで
+	 * 残るか」は解約を決める瞬間に効く情報で、契約が生きているかどうかで出し分ける理由がない。
+	 * 出さないと「消えると思わなかった / 消えると思った」の両方が起きる (#4507 系の齟齬)。
+	 */
+	freePlanRetentionNotice: FREE_PLAN_RETENTION_NOTICE,
 	gracePeriodTitle: '⚠️ 猶予期間中',
-	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}`,
+	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
 	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
-	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
+	// S4 の文言は 2 つの事実を落とさない (QM レビュー指摘 2 件):
+	//   (a) 保持期間の 2 文は**必ず末尾**。復旧の案内の直前に置くと
+	//       「再契約でも戻りません」→「元に戻ります」が隣り合い、顧客には矛盾に読める
+	//   (b) S4 では**保持期間の短縮がすでに効いている**。`deriveLicenseStatus` は
+	//       status=suspended を SUSPENDED にし、`resolvePlanTier` は ACTIVE 以外を free に落とすため
+	//       (`contract-state-matrix.md` §4 の S4 行も planTier=`free` と記録)、
+	//       `getHistoryCutoffDate('free')` が非 null になり `retention-cleanup-service` の物理削除が
+	//       **契約が生きているうちから走る** (表示側も `applyRetentionFilter(free)` で切られる)。
+	//       これを「契約が終了したら」と未来形で書くと、書き出す時間がまだあると読ませてしまう。
+	// 順序: 復旧の案内 → いま何が起きているか (現在形) → その保持期間 (末尾)。
+	// S3 (grace_period) は licenseStatus=ACTIVE のまま有料 tier が維持され削除は走らないので、
+	// 本注記は S4 だけに置く (S3 の未来形は正しい)。
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると有料プランの機能に戻ります。ただし機能を止めているあいだは${PLAN_FULL_TERMS.free}と同じ履歴保持期間がすでに適用されており、期間を超えた記録から順に削除されています。${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
 	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
@@ -7500,6 +7519,19 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
 	placeholderAvatarSkippedDesc:
 		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
+	// #4729 PO 回答 (2026-09-03): 誕生日欄を空にして保存すると、実誕生日は「推定扱い」に降格し
+	// 誕生日ボーナス / 🎂 表示の対象から外れる (間違った日に祝う方が体験を壊す)。ただし**黙って
+	// 降格してはならない** — 降格が起きたことを保護者が画面で見られる文言 (Alert、自動消滅しない)。
+	// 再入力で元に戻せることも添え、誤操作の出口を残す。
+	//
+	// **現状この文言は表示されない (QM レビューで判明)**。降格を起こせる書き手は
+	// `admin/children/+page.server.ts` の editChild action だけで、その画面の `BirthdayInput` は
+	// placeholder option が disabled のため誕生日を空に戻せない。import 経路は
+	// `import-service.ts` が `birthDate: exportChild.birthDate ?? undefined` を渡すため null にならず、
+	// birthDate を更新する API route も無い。**「誕生日を消す」導線を用意するかは PO 判断**で、
+	// その答えが出るまで本文言は到達不能のまま置く (降格の意味論は PO 回答どおり維持)。
+	birthdayClearedNotice:
+		'誕生日を消したため、誕生日のお祝いは行われません。もう一度誕生日を入れると、お祝いを再開します。',
 	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
@@ -9859,15 +9891,32 @@ export const UI_COMPONENTS_LABELS = {
 // 唯一の定義。4 経路にコピペせず、`AiInputNotice.svelte` 経由で参照する。
 //
 // プライバシーポリシー第9条④ (#4583 / PR #4598) と同じ事実を、入力する瞬間に短く述べる。
-// ADR-0012 (anti-engagement) 整合で警告は積み上げず hint 1 行に留め、送信先の詳細
-// (運営者が管理する AWS 環境内 / 運営者の環境外) は条文側へリンクで委ねる。
-// 生成 AI の製品名はここにも UI にも書かない (#4370 / #4583 と同一規律)。
+// ADR-0012 (anti-engagement) 整合で警告は積み上げない。
+//
+// **送信先の別は画面でも述べる (#4598 QM レビュー指摘で方針変更)**。`getAiProvider()` は
+// `AI_PROVIDER` で送信先を切り替え、領収書 OCR も AI 提案も同じ factory を通るため、
+// **同じ画面文言のまま送信先だけが配布形態で変わる**。条文が書き分けている 2 ケース
+// (運営者が管理する環境内 / 設定により運営者の環境外) を画面が丸めてしまうと、
+// 氏名・住所が写った画像がどちらへ行くのかを顧客が画面から判断できない。
+// 旧方針 (「送信先の詳細は条文リンクに委ねる」) は本指摘で置き換える。条文への導線は維持する。
+// 生成 AI の製品名・モデル名はここにも UI にも書かない (#4370 / #4583 と同一規律)。
+
+/** 送信先の別 (第9条④ と同じ粒度)。text / image の両経路で同一文を共有する。 */
+const AI_DESTINATION_NOTICE = `送信先は${AI_TRANSFER_TERMS.destinationCloud}、${AI_TRANSFER_TERMS.destinationSelfHosted}です。`;
 
 export const AI_INPUT_NOTICE_LABELS = {
+	/** 送信先の別 (第9条④ と同じ 2 ケース)。text / image が共有する */
+	destination: AI_DESTINATION_NOTICE,
 	/** テキスト入力経路 (AI 提案 3 種) */
-	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
-	/** 画像アップロード経路 (領収書 OCR) */
-	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
+	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${AI_DESTINATION_NOTICE}${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
+	/**
+	 * 画像アップロード経路 (領収書 OCR)。
+	 * #4598 PO 回答 (2026-09-03): 領収書には宛名 (氏名・住所) が印字されていることがあり、
+	 * 第9条④ の注意喚起を法務文書だけに置いて画面に出さないのは届いていないのと同じ。
+	 * 送信される画像に何が写りうるか (宛名の氏名・住所 / お子さまの特定情報) を入力の瞬間に述べる。
+	 * 送信先の別 (AI_DESTINATION_NOTICE) も同じ hint で述べる (QM レビュー指摘、上記コメント)。
+	 */
+	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${AI_DESTINATION_NOTICE}${AI_TRANSFER_TERMS.receiptPrintedInfo}や${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
 	/** 送信先の詳細 (条文) への導線 */
 	linkLabel: '送信先とあつかい',
 	linkHref: 'https://www.ganbari-quest.com/privacy.html#under-age',
