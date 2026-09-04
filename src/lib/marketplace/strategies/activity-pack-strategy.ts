@@ -107,6 +107,9 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 			// #4693: プラン上限で外した分と理由。ここで drop すると UI が「0 件を復元しました」と
 			// 成功トーンで出す (adversarial D2) ため素通しする。
 			blocked: raw.blocked,
+			// #4693 (QM 再レビュー): 復元 (presetId 無し) の保管結果。drop するとダイアログ経由の
+			// 復元だけ「保管しました」が画面に出ない。
+			activityQuota: raw.activityQuota,
 		};
 	},
 };

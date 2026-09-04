@@ -18,7 +18,10 @@ interface Props {
 	total: number;
 	/** 有効な状態で入った行数 */
 	activated: number;
-	/** プランの上限のため保管した行数。0 なら何も描画しない */
+	/**
+	 * プランの上限のため保管した行数。
+	 * 0 でも `message` があれば理由だけを描画する (プラン判定を省いたケースを黙らせない)。
+	 */
 	archived: number;
 	/** 顧客に見せる理由 (server の quota.message) */
 	message: string;
@@ -31,11 +34,13 @@ interface Props {
 let { total, activated, archived, message, upgradeUrl, testid }: Props = $props();
 </script>
 
-{#if archived > 0}
+{#if archived > 0 || message !== ''}
 	<li class="quota-archived" data-testid={testid}>
-		{SETTINGS_LABELS.dataImportResultQuotaArchived(total, activated, archived)}{message
-			? ` — ${message}`
-			: ''}
+		{#if archived > 0}{SETTINGS_LABELS.dataImportResultQuotaArchived(
+				total,
+				activated,
+				archived,
+			)}{message ? ` — ${message}` : ''}{:else}{message}{/if}
 		{#if upgradeUrl}
 			<a class="quota-archived__link" href={resolve(PLAN_UPGRADE_URL)}
 				>{PLAN_GATE_LABELS.upgradeLinkLabel}</a

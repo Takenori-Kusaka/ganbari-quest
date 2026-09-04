@@ -18,7 +18,12 @@
  */
 
 import { marketplaceRegistry } from './registry.js';
-import type { ImportBlocked, ImportContext, MarketplaceTypeCode } from './types.js';
+import type {
+	ImportBlocked,
+	ImportContext,
+	ImportQuotaArchived,
+	MarketplaceTypeCode,
+} from './types.js';
 
 /**
  * dispatchImport の戻り値 (旧 actions が返していた shape と互換)
@@ -43,6 +48,8 @@ export interface DispatchImportResult {
 	 * (`ImportResult.blocked` の素通し)。UI は `resolveImportFeedback` 経由でこれを表示する。
 	 */
 	blocked?: ImportBlocked;
+	/** #4693: 復元が上限超過分を保管した結果 (`blocked` と違い行は書かれている)。 */
+	activityQuota?: ImportQuotaArchived;
 }
 
 /**
@@ -99,5 +106,8 @@ export async function dispatchImport(input: DispatchImportInput): Promise<Dispat
 		// #4693: プラン上限で外した分と理由 (`blocked`) も素通しする。ここで drop すると
 		// 「上限で 1 件も入らなかった」が画面に届かず成功表示になる。
 		blocked: result.blocked,
+		// #4693 (QM 再レビュー): 復元の「保管しました」も同様に素通しする。ここで drop すると
+		// 活動管理の ︙ →「バックアップから復元」だけ理由が画面に出ない。
+		activityQuota: result.activityQuota,
 	};
 }

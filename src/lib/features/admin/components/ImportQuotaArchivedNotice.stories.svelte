@@ -37,16 +37,16 @@ const { Story } = defineMeta({
 	}}
 />
 
-<!-- プランを確認できず全件を保管した場合 (fail-closed)。アップグレードでは解消しないので導線は出さない -->
+<!-- 無料と確定したが利用状況を数えられず全件を保管した場合。無料なのでアップグレードで戻せる -->
 <Story
-	name="PlanUnverifiableArchived"
+	name="UsageUnverifiableArchived"
 	args={{
 		total: 5,
 		activated: 0,
 		archived: 5,
 		message:
-			'ただいまプランを確認できないため、5 件の活動は保管しました。有料プランでは自動で元に戻ります。',
-		upgradeUrl: null,
+			'ただいまご利用状況を確認できなかったため、5 件の活動は保管しました。アップグレードすると使えます。',
+		upgradeUrl: '/admin/subscription',
 		testid: 'data-import-quota-archived',
 	}}
 	play={async ({ canvasElement }) => {
@@ -54,7 +54,8 @@ const { Story } = defineMeta({
 		await expect(canvas.getByTestId('data-import-quota-archived')).toHaveTextContent(
 			'保管しました',
 		);
-		await expect(canvas.queryByRole('link')).toBeNull();
+		// 無料と確定しているので、自己回復 (アップグレード) の導線を出す
+		await expect(canvas.getByRole('link')).toHaveAttribute('href', '/admin/subscription');
 	}}
 />
 
@@ -72,5 +73,28 @@ const { Story } = defineMeta({
 	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.queryByTestId('data-import-quota-archived')).toBeNull();
+	}}
+/>
+
+<!-- プラン自体を判定できず、上限を適用せず全件有効で復元した場合。
+     保管は 0 件だが「上限判定を省いた」ことは黙らせない (理由だけを出す)。 -->
+<Story
+	name="PlanUnresolvedNotCapped"
+	args={{
+		total: 5,
+		activated: 5,
+		archived: 0,
+		message:
+			'ただいまプランを確認できなかったため、上限を適用せずにすべて復元しました。プランに応じた整理はあとで行われることがあります。',
+		upgradeUrl: null,
+		testid: 'data-import-quota-archived',
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvas.getByTestId('data-import-quota-archived');
+		await expect(row).toHaveTextContent('上限を適用せずにすべて復元しました');
+		// 保管 0 件なので件数行は出さない
+		await expect(row).not.toHaveTextContent('保管しました');
+		await expect(canvas.queryByRole('link')).toBeNull();
 	}}
 />

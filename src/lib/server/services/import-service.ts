@@ -1341,10 +1341,14 @@ async function importChildActivitiesData(
 				plannedNewNames,
 			)
 		: null;
-	if (quota && quota.archived > 0) {
+	// `message` が空 = 上限に触れていない (成功表示を汚さない)。空でなければ archived が 0 でも
+	// 顧客に伝える (プラン判定を省いて全件有効で入れた、を黙らせない)。
+	if (quota && quota.message !== '') {
 		result.activityQuota = quota;
 		result.warnings.push(
-			`活動 ${quota.archived} 件はプラン上限のため保管 (archived) として復元しました: ${quota.message}`,
+			quota.archived > 0
+				? `活動 ${quota.archived} 件はプラン上限のため保管 (archived) として復元しました: ${quota.message}`
+				: `活動の上限判定を行いませんでした: ${quota.message}`,
 		);
 	}
 
@@ -1357,6 +1361,12 @@ async function importChildActivitiesData(
 				result.warnings.push(`活動「${input.name}」(child=${childId}) の作成に失敗: ${String(e)}`);
 			}
 		}
+	}
+
+	// #4693 (QM 再レビュー): 行の `archived_reason` では「親が自分で選んだ保管」と区別が付かないため、
+	// テナント単位の耐久記録を残す。**実書き込みのあと**に呼ぶ (書けていない件数を記録しない)。
+	if (quota && quota.archived > 0) {
+		await (await import('./activity-quota')).recordActivityQuotaArchiveMarker(tenantId, quota);
 	}
 }
 

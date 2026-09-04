@@ -777,6 +777,21 @@ const canConfirmClear = $derived(
 					</div>
 				{/if}
 
+				<!-- #4693 (QM 再レビュー): 過去の復元が上限で保管した記録を常設表示する。
+				     行の archived_reason は「親が自分で選んだ保管」と同じ値なので、行だけでは
+				     「自分で選んだ覚えはない」に答えられない。テナント単位の耐久記録をここで見せる。 -->
+				{#if data.activityQuotaArchiveNotice}
+					<div
+						class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3"
+						role="status"
+						data-testid="activity-quota-archive-notice"
+					>
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">
+							{data.activityQuotaArchiveNotice}
+						</p>
+					</div>
+				{/if}
+
 				{#if importError}
 					<ErrorAlert
 						message={importError}

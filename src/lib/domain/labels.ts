@@ -634,6 +634,42 @@ const PLAN_UPGRADE_CTA = 'プランをアップグレードしてください。
 const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
 	`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`;
 
+/**
+ * 活動の上限にまつわる復元結果の文言 SSOT (#4693)。
+ *
+ * 復元は 4 経路 (settings > データ の ZIP / JSON 復元、クラウド取込、活動管理の ︙ →
+ * 「バックアップから復元」、`api/v1/activities/import` の merge) あり、**どこから入っても
+ * 同じ文言**でなければならない (同じ状況で画面ごとに言うことが違うのを構造的に防ぐ)。
+ * marketplace 側の feedback (`resolveImportFeedback`) と settings 画面の両方がここを読む。
+ */
+export const ACTIVITY_QUOTA_LABELS = {
+	/**
+	 * "119 件のうち 3 件を有効化し、116 件はプランの上限のため保管しました（アップグレードで使えます）"
+	 *
+	 * PO 回答 (2026-09-03) #2: 上限を超える復元で顧客のデータを落とさない。超過分は archived (保管)
+	 * で取り込み、入った数 / 入らなかった数 / 理由 / 次の行動を必ず出す。
+	 * 「復元しました」だけで黙って落とすのは不可。導線 (link) は呼び出し側が併記する。
+	 *
+	 * @param total 復元対象だったオリジナル活動の行数 (= activated + archived)
+	 * @param activated 有効な状態で入った行数
+	 * @param archived プランの上限のため保管 (archived) した行数
+	 */
+	restoreArchivedResult: (total: number, activated: number, archived: number) =>
+		`${total} 件のうち ${activated} 件を有効化し、${archived} 件はプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+
+	/**
+	 * 過去の復元で保管した分を **あとから見ても分かる**ようにする常設の記録 (#4693 QM 再レビュー)。
+	 *
+	 * `archived_reason` は enum (`ARCHIVED_REASONS`) で、上限による自動保管専用の値を足すには
+	 * Aurora DSQL の CHECK 制約を張り替える必要があるが、DSQL は `ALTER TABLE … ADD CONSTRAINT`
+	 * を受け付けない (0A000)。そのため行単位では「親が自分で選んで保管した」分と区別が付かない。
+	 * 代わりに **テナント単位の耐久記録**を残し、この文言で親の画面に出す
+	 * (「自分で選んだ覚えはない」に答えられる状態を、行の外側で成立させる)。
+	 */
+	pastRestoreArchivedNotice: (dateLabel: string, archived: number) =>
+		`${dateLabel} の復元で、${archived} 件の活動をプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+} as const;
+
 export const PLAN_GATE_LABELS = {
 	/**
 	 * "{feature}はスタンダードプラン以上でご利用いただけます"
@@ -855,13 +891,25 @@ export const PLAN_GATE_LABELS = {
 		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
 
 	/**
-	 * 復元 (backup ZIP / JSON の全体復元・クラウド取込) でプランを確認できなかったときの文言 (#4693)。
-	 * 取込と違い復元は顧客のデータを落とせない (PO 回答 2026-09-03 #2) ので、中止ではなく
-	 * 「上限超過と同じ扱いで保管 (archived) した」ことを言う。有料プランでは自動で元に戻る
-	 * (ARCHIVED_RESOURCE_LABELS.bannerDesc と同じ約束)。
+	 * 復元で **プランは無料と分かっているが、現在の利用数を数えられなかった** ときの文言 (#4693 QM 再レビュー)。
+	 *
+	 * 現在数の集計は「子供一覧 → 子ごとに活動一覧」の 1+N 読み取りで、transient に最も当たりやすい。
+	 * 数えられない以上は残枠を 0 とみなして保管するが、**この世帯は無料と確定している**ので
+	 * アップグレードすれば復帰できる (自己回復の導線がある)。だから上限超過と同じ導線を出す。
 	 */
-	planUnverifiableRestoreArchived: (archived: number) =>
-		`ただいまプランを確認できないため、${archived} 件の活動は保管しました。有料プランでは自動で元に戻ります。`,
+	usageUnverifiableRestoreArchived: (archived: number) =>
+		`ただいまご利用状況を確認できなかったため、${archived} 件の活動は保管しました。${UPGRADE_TERMS.actionVerb}すると使えます。`,
+
+	/**
+	 * 復元で **プラン自体を判定できなかった** ときの文言 (#4693 QM 再レビュー)。
+	 *
+	 * ここで保管に倒すと、有料世帯が一時的な読み取り失敗だけで復元データを全部無効化され、
+	 * しかも自力で戻す導線が無い (アーカイブ解除は課金 webhook 経由しか無い) 。
+	 * 顧客が自分で回復できる側 = **上限を適用せず全部そのまま有効で復元する** に倒し、
+	 * 「上限判定をしていない」ことを黙らせずに伝える。
+	 */
+	planUnresolvedRestoreNotCapped:
+		'ただいまプランを確認できなかったため、上限を適用せずにすべて復元しました。プランに応じた整理はあとで行われることがあります。',
 
 	/**
 	 * **誰が**上限に達しているのかを言う版 (#4693)。
@@ -3997,18 +4045,11 @@ export const SETTINGS_LABELS = {
 	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
 	/**
-	 * "119 件のうち 3 件を有効化し、116 件はプランの上限のため保管しました（アップグレードで使えます）"
-	 *
-	 * #4693 PO 回答 (2026-09-03) #2: 上限を超える復元で顧客のデータを落とさない。超過分は
-	 * archived (保管) で取り込み、入った数 / 入らなかった数 / 理由 / 次の行動を必ず出す。
-	 * 「復元しました」だけで黙って落とすのは不可。アップグレード導線 (link) は呼び出し側が併記する。
-	 *
-	 * @param total 復元対象だったオリジナル活動の行数 (= activated + archived)
-	 * @param activated 有効な状態で入った行数
-	 * @param archived プランの上限のため保管 (archived) した行数
+	 * 復元がプラン上限で一部を保管したときの結果行 (#4693)。
+	 * **文面の SSOT は `ACTIVITY_QUOTA_LABELS.restoreArchivedResult`** — marketplace 経由の復元
+	 * (活動管理の ︙ →「バックアップから復元」) と同じ文言を出すため、ここでは委譲だけする。
 	 */
-	dataImportResultQuotaArchived: (total: number, activated: number, archived: number) =>
-		`${total} 件のうち ${activated} 件を有効化し、${archived} 件はプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+	dataImportResultQuotaArchived: ACTIVITY_QUOTA_LABELS.restoreArchivedResult,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>

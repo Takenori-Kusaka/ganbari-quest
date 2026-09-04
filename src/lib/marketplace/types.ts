@@ -135,6 +135,29 @@ export interface ImportResult {
 	errors: string[];
 	failed: number;
 	blocked?: ImportBlocked;
+	/**
+	 * #4693 (QM 再レビュー): **復元** が上限超過分を保管 (archived) した結果。
+	 *
+	 * `blocked` (捨てた) とは意味が違う — 行は書かれており、顧客には
+	 * 「入った数 / 保管した数 / 理由 / 次の行動」を出す。形は
+	 * `server/services/activity-quota.ts` の `ActivityQuotaArchiveOutcome` と同じだが、
+	 * marketplace 層は server module を import できないため構造だけをここに写す。
+	 */
+	activityQuota?: ImportQuotaArchived;
+}
+
+/** #4693: 上限超過分を保管 (archived) した復元結果 (捨てていない)。 */
+export interface ImportQuotaArchived {
+	/** 復元対象だった quota 対象行数 (= activated + archived) */
+	total: number;
+	/** 有効な状態で入った行数 */
+	activated: number;
+	/** プランの上限のため保管した行数 (0 = 保管なし。判定を省いた場合も 0) */
+	archived: number;
+	/** 顧客に見せる理由 (空文字なら表示しない) */
+	message: string;
+	/** アップグレードで解消できるときの導線 (それ以外は null) */
+	upgradeUrl: string | null;
 }
 
 /**

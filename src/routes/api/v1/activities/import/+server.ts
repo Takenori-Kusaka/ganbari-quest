@@ -153,6 +153,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			// (上限で外した理由はもう errors には積まれない)。
 			failed: result.failed,
 			blocked: result.blocked,
+			// #4693 (QM 再レビュー): 復元 (merge) が上限超過分を保管した結果。捨てていないので
+			// blocked とは別 channel。API 利用者にも「何件が保管されたか」を返す。
+			activityQuota: result.activityQuota,
 		});
 	}
 

@@ -19,7 +19,7 @@
  * 関連: ADR-0052 (ImportStrategy) / DESIGN.md §5 (Toast 2 層防御) / §10 (5 type consistency)
  */
 
-import { MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_LABELS, MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
 import type { ImportBlocked } from '$lib/marketplace/types';
 
 export type ImportFeedbackTone = 'success' | 'info' | 'error';
@@ -71,6 +71,36 @@ function readBlocked(data: Record<string, unknown> | undefined): ImportBlocked |
 }
 
 /**
+ * #4693 (QM 再レビュー): 復元が上限超過分を **保管** した結果 (`activityQuota`) を読む。
+ *
+ * `blocked` (捨てた) と違い行は書かれているので、件数の文言は
+ * `ACTIVITY_QUOTA_LABELS.restoreArchivedResult` (settings > データ の復元と同一 SSOT) を使う。
+ * `archived === 0` でも `message` があるケース (プラン判定を省いて全件有効で入れた) は
+ * 理由だけを出す — 「黙って上限判定をしなかった」状態を作らない。
+ */
+function readQuotaArchived(
+	data: Record<string, unknown> | undefined,
+): { summary: string; detail: string; upgradeUrl: string | null } | null {
+	const raw = data?.activityQuota;
+	if (!raw || typeof raw !== 'object') return null;
+	const q = raw as Record<string, unknown>;
+	const message = typeof q.message === 'string' ? q.message : '';
+	if (message === '') return null;
+	const archived = toCount(q.archived);
+	const upgradeUrl = typeof q.upgradeUrl === 'string' ? q.upgradeUrl : null;
+	if (archived === 0) return { summary: message, detail: '', upgradeUrl };
+	return {
+		summary: ACTIVITY_QUOTA_LABELS.restoreArchivedResult(
+			toCount(q.total),
+			toCount(q.activated),
+			archived,
+		),
+		detail: message,
+		upgradeUrl,
+	};
+}
+
+/**
  * 取込成功 ActionResult の data から表示 message / tone / upgrade 導線を解決する。
  *
  * 優先順位 (#2824 取込永続 honesty / #2830 / #4693):
@@ -92,6 +122,7 @@ export function resolveImportFeedback(
 	// #2955: server 算出 failed が件数 SSOT。errors.length への fallback は行わない (冒頭 doc 参照)。
 	const failed = toCount(data?.failed);
 	const blocked = readBlocked(data);
+	const quotaArchived = readQuotaArchived(data);
 	if (failed > 0) {
 		const partialFailure =
 			labels.partialFailure ?? MARKETPLACE_IMPORT_FEEDBACK_LABELS.partialFailure;
@@ -117,6 +148,22 @@ export function resolveImportFeedback(
 					: blocked.message,
 			tone: 'error',
 			upgradeUrl: blocked.upgradeUrl,
+		};
+	}
+	// #4693 (QM 再レビュー): 復元 (活動管理の ︙ →「バックアップから復元」) が上限超過分を
+	// **保管** したケース。捨てていないので blocked とは別 channel だが、顧客に出す情報
+	// (入った数 / 保管した数 / 理由 / 次の行動) は settings > データ の復元と同一文言にする。
+	// ここを見落とすと、同じ「バックアップから復元」なのに入口によって理由が出たり出なかったりする。
+	if (quotaArchived) {
+		return {
+			message: quotaArchived.detail
+				? MARKETPLACE_IMPORT_FEEDBACK_LABELS.blockedAfterImport(
+						quotaArchived.summary,
+						quotaArchived.detail,
+					)
+				: quotaArchived.summary,
+			tone: 'error',
+			upgradeUrl: quotaArchived.upgradeUrl,
 		};
 	}
 	if (imported > 0) {

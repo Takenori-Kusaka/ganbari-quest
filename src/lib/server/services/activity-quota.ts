@@ -42,10 +42,12 @@
 
 import { ACTIVITY_SOURCES, countsTowardActivityQuota } from '$lib/domain/activity-source';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import { jstDateOfIso } from '$lib/domain/date-utils';
 import { PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import type { ChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { resolveTenantEntitlement } from '$lib/server/auth/tenant-entitlement';
+import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { countQuotaActivities, getPlanLimits, resolveFullPlanTier } from './plan-limit-service';
@@ -53,15 +55,54 @@ import { countQuotaActivities, getPlanLimits, resolveFullPlanTier } from './plan
 /**
  * 復元で上限を超えた分を archived にするときの `archived_reason` (#4693 PO 回答 #2)。
  *
- * `downgrade_user_selected` を使う理由:
- * - `restoreArchivedResources` (有料契約の webhook で全 reason を復元) の対象なので、
- *   「アップグレードで使えます」の約束がそのまま成立する
- * - `getRetentionDays` が null (自動物理削除しない)。`trial_expired` / `dunning_canceled` は
- *   90 日で物理削除されるため、顧客が自分で復元したデータに使うと 90 日後に消える
- * - `ARCHIVED_REASONS` (schema の enum 制約 / DSQL の CHECK) を増やさない。専用 reason を足すなら
- *   DB スキーマ変更を伴うため、PO / QM の別判断とする (PR body に記載)
+ * # なぜ専用の reason を足さず既存値を流用しているか (QM 再レビュー指摘への回答)
+ *
+ * 本来は「上限による自動保管」専用の reason を足すべきである。行を見ただけで
+ * 「親が自分で選んで保管した」のか「復元が上限で自動保管した」のかが分かる必要があるため。
+ * だが `archived_reason` は `ARCHIVED_REASONS` から **DB の CHECK 制約**を生成しており
+ * (`dsql/schema.ts` の `child_activities_archived_reason_ck` 等 3 表)、
+ * **Aurora DSQL は `ALTER TABLE … ADD CONSTRAINT` を受け付けない (0A000)**。
+ * migration transform (`dsql/migration/transform.ts`) もこの文を fail-close で弾く。
+ * 前例 (`drizzle/pglite/0007_consents_drop_type_check.sql`) は「CHECK を **外して** アプリ層に
+ * 強制を移す」形で、これは制約を弱める schema 判断であり本 PR の scope ではない。
+ * → **専用 reason の追加は scope 外の別判断**とし、ここでは既存値を流用する。
+ *
+ * 流用先に `downgrade_user_selected` を選ぶ理由: `restoreArchivedResources` (有料契約の webhook が
+ * 全 reason を復元する) の対象なので「アップグレードで使えます」の約束がそのまま成立する。
+ *
+ * **`getRetentionDays` を根拠にしない**: 同関数は本番コードから 1 箇所も呼ばれておらず
+ * (呼ぶ予定だった retention cron は未実装、`archive-types.ts` の記述どおり)、
+ * 「`downgrade_user_selected` なら自動物理削除されない」という保証は**現時点では存在しない**。
+ * 以前この module のコメントと PR body がそれを根拠に挙げていたのは誤りだったので撤回する。
+ *
+ * # 行で区別できない分をどこで担保するか
+ *
+ * `recordActivityQuotaArchiveMarker` がテナント単位の耐久記録 (settings) を残し、
+ * 親の画面 (`/admin/settings/data`) が常設で表示する。ログにしか無い状態にはしない。
  */
 export const RESTORE_OVER_QUOTA_ARCHIVED_REASON: ArchivedReason = 'downgrade_user_selected';
+
+/**
+ * 上限による自動保管をテナント単位で残す耐久記録の settings キー (#4693 QM 再レビュー)。
+ *
+ * `EXPORTABLE_SETTING_KEYS` の allowlist に**入れない**。入れると backup 復元のたびに
+ * 古い記録で上書きされ、「今回の復元で何件保管したか」が失われる。
+ */
+export const ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY = 'activity_quota_archive_last';
+
+/** 耐久記録の中身 (JSON 文字列として settings に保存する)。 */
+export interface ActivityQuotaArchiveMarker {
+	/** 保管した時刻 (ISO8601) */
+	at: string;
+	/** 保管した行数 */
+	archived: number;
+	/** 有効な状態で入った行数 */
+	activated: number;
+	/** 復元対象だった quota 対象行数 */
+	total: number;
+	/** 保管の理由 */
+	reason: ActivityQuotaArchiveReason;
+}
 
 export interface ActivityQuotaEnforcement {
 	/** 上限超過で取込対象から外した活動名 */
@@ -79,8 +120,22 @@ export interface ActivityQuotaEnforcement {
 	upgradeUrl: string | null;
 }
 
-/** 復元で超過分を archived にした理由。`plan_limit` = 上限超過 / `plan_unverifiable` = プラン不明 (fail-closed) */
-export type ActivityQuotaArchiveReason = 'plan_limit' | 'plan_unverifiable';
+/**
+ * 復元の quota 判定の結果理由 (#4693 QM 再レビューで 1 値 → 3 値に分割)。
+ *
+ * 旧実装は「プランを確認できない」を 1 つの `plan_unverifiable` にまとめ、**どの読み取りが
+ * 落ちても復元を全件保管**していた。現在数の集計 (`countQuotaActivities`) は 1+N 読み取りで
+ * transient に最も当たりやすく、そこが 1 回転んだだけで有料世帯の復元が丸ごと無効化され、
+ * しかも画面には「無料プランの上限」と出て、自力で戻す導線が無い (アーカイブ解除は課金
+ * webhook 経由しか無い) 状態になっていた。原因ごとに倒す向きを変える。
+ *
+ * - `plan_limit`: 上限を超えた分を保管した (プランも現在数も分かっている)
+ * - `usage_unverifiable`: **プランは無料と確定**しているが現在数を数えられなかった →
+ *   残枠 0 とみなして保管する (無料世帯なのでアップグレードで自己回復できる)
+ * - `plan_unresolved`: **プラン自体が判定できなかった** → 保管しない (上限を適用せず全件有効)。
+ *   有料世帯を巻き添えで無効化しない側に倒し、判定を省いたことは顧客に伝える
+ */
+export type ActivityQuotaArchiveReason = 'plan_limit' | 'usage_unverifiable' | 'plan_unresolved';
 
 /**
  * 復元 (backup / クラウド取込) の quota 結果 (#4693 PO 回答 #2)。
@@ -107,7 +162,10 @@ export interface ActivityQuotaArchiveOutcome {
 /** 計画に対する quota の判定 (drop / archive どちらの適用でも同じ判定を使う)。 */
 type QuotaVerdict =
 	| { kind: 'unlimited' }
-	| { kind: 'unverifiable' }
+	/** プラン解決そのものが失敗した (free か有料かも分からない) */
+	| { kind: 'plan-unresolved' }
+	/** プランは有限上限 (= 無料) と確定したが、現在数の集計が失敗した */
+	| { kind: 'count-unresolved'; max: number }
 	| {
 			kind: 'limited';
 			max: number;
@@ -157,9 +215,11 @@ export async function enforceActivityQuota(
 	const verdict = await judgeActivityQuota(tenantId, childInputsByChild, plannedNewNames);
 	if (verdict.kind === 'unlimited') return empty;
 
-	if (verdict.kind === 'unverifiable') {
+	if (verdict.kind === 'plan-unresolved' || verdict.kind === 'count-unresolved') {
 		// プラン解決 / 現在数の取得ができない (DB 障害等) ときは **取り込まない**。ここで握り潰して
 		// 通すと、障害中だけ上限が消える経路になる (fail-closed、ADR-0006)。
+		// 取込 (プリセット) は再試行が無害なので、原因を分けずに中止で揃える。
+		// 復元 (`archiveActivityQuotaOverflow`) は「取り込んだうえで保管」なので原因ごとに倒す。
 		const rejectedNames = new Set(plannedNewNames);
 		const rejectedRows = countPlannedRows(childInputsByChild);
 		dropNames(childInputsByChild, plannedNewNames, rejectedNames);
@@ -206,13 +266,15 @@ export async function enforceActivityQuota(
  * `isArchived=1` + `RESTORE_OVER_QUOTA_ARCHIVED_REASON` に書き換える。seed / curriculum /
  * もともと archived の行は quota を消費しないので触らない。
  *
- * - 上限なし → 何もしない (`archived=0`、`reason=null`)
- * - プランを確認できない (DB 障害等) → **全 quota 対象行を archived にする** (fail-closed)。
- *   取込 (`enforceActivityQuota`) は中止で済むが、復元は顧客のデータを落とせないため
- *   「入れるが有効化はしない」に倒す。有料契約の webhook で自動復帰する
+ * - 上限なし (有料 / セルフホスト / demo) → 何もしない (`archived=0`、`reason=null`)
+ * - **プランを判定できない** (`plan-unresolved`) → **1 行も保管しない**。有料世帯が一時的な読み取り
+ *   失敗だけで復元データを全部無効化され、しかも自力で戻す導線が無い (アーカイブ解除は課金 webhook
+ *   経由しか無い) 事故を避ける。上限判定を省いたことは `message` で顧客に伝える
+ * - **無料と確定したが現在数を数えられない** (`count-unresolved`) → 残枠 0 とみなして保管する。
+ *   無料世帯と分かっているのでアップグレードで自己回復できる (導線を併記する)
  *
- * 呼び出し側は戻り値の `total` / `activated` / `archived` / `reason` を顧客向け結果に必ず出す
- * (「復元しました」だけで黙って archived にしない)。
+ * 呼び出し側は戻り値の `total` / `activated` / `archived` / `reason` / `message` を顧客向け結果に
+ * 必ず出す (「復元しました」だけで黙って archived にしない)。
  */
 export async function archiveActivityQuotaOverflow(
 	tenantId: string,
@@ -233,15 +295,37 @@ export async function archiveActivityQuotaOverflow(
 	const verdict = await judgeActivityQuota(tenantId, childInputsByChild, plannedNewNames);
 	if (verdict.kind === 'unlimited') return nothing;
 
-	if (verdict.kind === 'unverifiable') {
+	if (verdict.kind === 'plan-unresolved') {
+		// プランが分からない = この世帯が有料かもしれない。保管に倒すと、有料世帯の復元が
+		// まるごと無効化され、画面には「無料プランの上限」と出て、自力の回復手段が無い。
+		// 上限を適用せず全件有効で入れ、判定を省いたことだけを伝える (顧客が回復できる側)。
+		logger.warn('[activity-quota] プラン不明のため上限を適用せず全件有効で復元します', {
+			context: { tenantId, total },
+		});
+		return {
+			total,
+			activated: total,
+			archived: 0,
+			reason: 'plan_unresolved',
+			message: PLAN_GATE_LABELS.planUnresolvedRestoreNotCapped,
+			upgradeUrl: null,
+		};
+	}
+
+	if (verdict.kind === 'count-unresolved') {
+		// 無料と確定しているが現在数が分からない。残枠 0 とみなして保管する
+		// (アップグレードで戻せるので、顧客の回復手段はある)。
 		const archived = markArchived(childInputsByChild, plannedNewNames);
+		logger.warn('[activity-quota] 利用状況不明のため残枠 0 とみなして保管しました', {
+			context: { tenantId, max: verdict.max, total, archived },
+		});
 		return {
 			total,
 			activated: total - archived,
 			archived,
-			reason: 'plan_unverifiable',
-			message: PLAN_GATE_LABELS.planUnverifiableRestoreArchived(archived),
-			upgradeUrl: null,
+			reason: 'usage_unverifiable',
+			message: PLAN_GATE_LABELS.usageUnverifiableRestoreArchived(archived),
+			upgradeUrl: PLAN_UPGRADE_URL,
 		};
 	}
 
@@ -281,22 +365,36 @@ async function judgeActivityQuota(
 	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>,
 	plannedNewNames: Set<string>,
 ): Promise<QuotaVerdict> {
-	let max: number | null;
-	let current: number;
+	// try を 2 つに割る (#4693 QM 再レビュー)。1 つに束ねると、どの読み取りが落ちても
+	// 同じ「プラン不明」になり、**有料世帯が現在数の 1+N 読み取りの transient だけで**
+	// 復元を全件無効化される。原因を型で分けて、呼び出し側が倒す向きを選べるようにする。
+	let max: number;
 	try {
 		const entitlement = await resolveTenantEntitlement(tenantId);
 		const limits = getPlanLimits(
 			await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan),
 		);
+		if (limits.maxActivities === null) return { kind: 'unlimited' };
 		max = limits.maxActivities;
-		if (max === null) return { kind: 'unlimited' };
-		current = await countQuotaActivities(tenantId);
 	} catch (e) {
-		logger.error('[activity-quota] プランを確認できないため上限超過として扱います', {
+		logger.error('[activity-quota] プランを判定できませんでした', {
 			error: e instanceof Error ? e.message : String(e),
 			context: { tenantId },
 		});
-		return { kind: 'unverifiable' };
+		return { kind: 'plan-unresolved' };
+	}
+
+	// ここに来た時点で「上限のあるプラン (= 無料)」と確定している。有料世帯は上で unlimited に
+	// 抜けており、**この 1+N 読み取りには到達しない**。
+	let current: number;
+	try {
+		current = await countQuotaActivities(tenantId);
+	} catch (e) {
+		logger.error('[activity-quota] 現在のご利用状況を数えられませんでした', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId, max },
+		});
+		return { kind: 'count-unresolved', max };
 	}
 	const remaining = Math.max(0, max - current);
 	const plannedRows = countPlannedRows(childInputsByChild);
@@ -402,4 +500,68 @@ function countRowsByName(
 		}
 	}
 	return rowsByName;
+}
+
+/**
+ * 上限による自動保管を **テナント単位の耐久記録** として残す (#4693 QM 再レビュー)。
+ *
+ * `archived_reason` に専用値を足せない (上記 `RESTORE_OVER_QUOTA_ARCHIVED_REASON` の説明) ため、
+ * 行だけを見ると「親が自分で選んで保管した」分と区別が付かない。あとから
+ * 「自分で選んだ覚えはない」と言われたときに答えられるよう、**ログではなくデータに**残す。
+ *
+ * 復元の実書き込みが終わったあとに呼ぶこと (書けていない件数を記録しないため)。
+ * 記録の失敗で復元自体を失敗させない (記録は補助情報であり、復元済みデータの方が重要)。
+ */
+export async function recordActivityQuotaArchiveMarker(
+	tenantId: string,
+	outcome: ActivityQuotaArchiveOutcome,
+): Promise<void> {
+	if (outcome.archived <= 0 || outcome.reason === null) return;
+	const marker: ActivityQuotaArchiveMarker = {
+		at: new Date().toISOString(),
+		archived: outcome.archived,
+		activated: outcome.activated,
+		total: outcome.total,
+		reason: outcome.reason,
+	};
+	try {
+		await setSetting(ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY, JSON.stringify(marker), tenantId);
+	} catch (e) {
+		logger.warn('[activity-quota] 保管の記録を残せませんでした (復元自体は成功)', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId, archived: outcome.archived },
+		});
+	}
+}
+
+/**
+ * 親の画面に出す「過去の復元で保管した」常設表示の文言を返す (無ければ null)。
+ *
+ * 日付は JST 暦日で出す (`jstDateOfIso`)。ISO 文字列の slice は UTC 暦日になり、
+ * JST 00:00〜09:00 の復元が前日に見える (#4120 と同型)。
+ */
+export async function getActivityQuotaArchiveNotice(tenantId: string): Promise<string | null> {
+	let raw: string | null | undefined;
+	try {
+		raw = await getSetting(ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY, tenantId);
+	} catch (e) {
+		logger.warn('[activity-quota] 保管の記録を読めませんでした', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { tenantId },
+		});
+		return null;
+	}
+	if (typeof raw !== 'string' || raw === '') return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object') return null;
+	const m = parsed as Record<string, unknown>;
+	const archived = typeof m.archived === 'number' && m.archived > 0 ? m.archived : 0;
+	const at = typeof m.at === 'string' ? m.at : '';
+	if (archived === 0 || at === '' || Number.isNaN(new Date(at).getTime())) return null;
+	return ACTIVITY_QUOTA_LABELS.pastRestoreArchivedNotice(jstDateOfIso(at), archived);
 }

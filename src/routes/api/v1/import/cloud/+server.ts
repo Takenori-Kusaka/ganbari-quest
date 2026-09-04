@@ -8,7 +8,10 @@ import type { InsertChildActivityInput } from '$lib/server/db/types';
 import type { ErrorCode } from '$lib/server/errors';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { archiveActivityQuotaOverflow } from '$lib/server/services/activity-quota';
+import {
+	archiveActivityQuotaOverflow,
+	recordActivityQuotaArchiveMarker,
+} from '$lib/server/services/activity-quota';
 import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
 import type { CloudExportFetchFailure } from '$lib/server/services/cloud-export-service';
 import {
@@ -175,6 +178,55 @@ async function handleFullZipImport(
 }
 
 /**
+ * クラウドテンプレート取込の書き込み計画を作る (#4693 QM 再レビュー、複雑度分離)。
+ *
+ * 各取込先 child について「その child にまだ無い名前」だけを instance 化する。
+ * `source` は指定しない = repo 既定 `seed` (activity-source.ts #3669 SSOT)。PIN 共有で他家族から
+ * 来るテンプレートはプリセット取込と同じ扱いで、custom quota を消費しない。
+ */
+async function planTemplateWrites<
+	T extends {
+		name: string;
+		categoryId: CategoryId;
+		icon: string;
+		basePoints: number;
+		triggerHint?: string | null;
+		isMainQuest?: number;
+		priority?: 'must' | 'optional';
+	},
+>(
+	targetChildIds: readonly ChildId[],
+	activities: readonly T[],
+	_tenantId: string,
+	findExisting: (childId: ChildId) => Promise<{ name: string }[]>,
+): Promise<{
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>;
+	plannedNewNames: Set<string>;
+}> {
+	const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
+	const plannedNewNames = new Set<string>();
+	for (const cid of targetChildIds) {
+		const existingNames = new Set((await findExisting(cid)).map((a) => a.name));
+		const inputs: InsertChildActivityInput[] = activities
+			.filter((a) => !existingNames.has(a.name))
+			.map((a) => ({
+				childId: cid,
+				name: a.name,
+				categoryId: a.categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints,
+				triggerHint: a.triggerHint ?? null,
+				isMainQuest: a.isMainQuest ?? 0,
+				priority: a.priority ?? 'optional',
+				sourcePresetId: null,
+			}));
+		for (const input of inputs) plannedNewNames.add(input.name);
+		childInputsByChild.set(cid, inputs);
+	}
+	return { childInputsByChild, plannedNewNames };
+}
+
+/**
  * テンプレートインポート (per-child instance, #2362 PR-3 / ADR-0055)
  *
  * 入力 shape (cloud-export-service v2.0.0 が出力):
@@ -302,29 +354,16 @@ async function handleTemplateImport(
 		// insert する (復元は顧客のデータを落とさない)。source は activity-source.ts (#3669 SSOT) の
 		// とおり repo 既定 `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ
 		// 扱い = quota を消費しないので、通常は archived にならない)。
-		const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
-		const plannedNewNames = new Set<string>();
-		for (const cid of targetChildIds) {
-			const existingInChild = await repos.childActivity.findActivitiesByChild(cid, tenantId);
-			const existingNames = new Set(existingInChild.map((a) => a.name));
-			const inputs: InsertChildActivityInput[] = Array.from(uniqByName.values())
-				.filter((a) => !existingNames.has(a.name))
-				.map((a) => ({
-					childId: cid,
-					name: a.name,
-					categoryId: a.categoryId,
-					icon: a.icon,
-					basePoints: a.basePoints,
-					triggerHint: a.triggerHint ?? null,
-					isMainQuest: a.isMainQuest ?? 0,
-					priority: a.priority ?? 'optional',
-					sourcePresetId: null,
-				}));
-			for (const input of inputs) plannedNewNames.add(input.name);
-			childInputsByChild.set(cid, inputs);
-		}
+		const { childInputsByChild, plannedNewNames } = await planTemplateWrites(
+			targetChildIds,
+			Array.from(uniqByName.values()),
+			tenantId,
+			(cid) => repos.childActivity.findActivitiesByChild(cid, tenantId),
+		);
 		const quota = await archiveActivityQuotaOverflow(tenantId, childInputsByChild, plannedNewNames);
-		const activityQuota = quota.archived > 0 ? quota : undefined;
+		// `message` が空 = 上限に触れていない。空でなければ archived が 0 でも返す
+		// (プラン判定を省いて全件有効で入れた、を黙らせない)。
+		const activityQuota = quota.message === '' ? undefined : quota;
 
 		// per-child instance bulk insert
 		for (const inputs of childInputsByChild.values()) {
@@ -333,6 +372,10 @@ async function handleTemplateImport(
 				activitiesCreated += created.length;
 			}
 		}
+
+		// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (実書き込みのあと)。行の
+		// `archived_reason` では「親が自分で選んだ保管」と区別が付かないため。
+		if (quota.archived > 0) await recordActivityQuotaArchiveMarker(tenantId, quota);
 
 		// #3405-2 consume-on-success: 全 child への取込が成功した後に DL を消費する。旧実装は取込前に
 		// 消費していたため、bulk insert 途中失敗で「未取込 + DL 回数消費」が両立して quota を無駄に失っていた。

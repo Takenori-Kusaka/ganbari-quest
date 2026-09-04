@@ -31,7 +31,12 @@ import { findActivities } from '$lib/server/db/activity-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
-import { enforceActivityQuota } from './activity-quota';
+import {
+	type ActivityQuotaArchiveOutcome,
+	archiveActivityQuotaOverflow,
+	enforceActivityQuota,
+	recordActivityQuotaArchiveMarker,
+} from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -65,6 +70,12 @@ export interface ActivityImportResult {
 	 *   channel を別フィールドにして、`resolveImportFeedback` が 1 箇所で表示を決める。
 	 */
 	blocked?: ImportBlocked;
+	/**
+	 * #4693 (QM 再レビュー): **復元** (presetId 無し = `?/importFile` / `api/v1/activities/import`)
+	 * がプラン上限で保管 (archived) した分。捨てていないので `blocked` とは別物で、
+	 * 「入った数 / 保管した数 / 理由 / 次の行動」を顧客に出すための channel。
+	 */
+	activityQuota?: ActivityQuotaArchiveOutcome;
 }
 
 /**
@@ -323,6 +334,45 @@ function planActivityForChildren(
 	return plannedForAnyChild;
 }
 
+/**
+ * 取込 / 復元に quota を適用する (#4693 QM 再レビュー)。
+ *
+ * 適用方式は「配布物の取込」か「その家庭のデータの復元」かで分ける:
+ *   - プリセット取込 (`presetId` あり) → `seed` 行なので quota 対象 0 行。drop 方式のまま
+ *     (判定不能時は中止 = 再試行すれば済む、無害な倒し方)
+ *   - 復元 (`presetId` なし = 活動管理の ︙ →「バックアップから復元」/ `api/v1/activities/import`
+ *     の merge) → `custom` 行。**超過分は捨てずに保管**する。ここを drop のままにすると、
+ *     settings > データ の ZIP/JSON 復元 (保管) と同じ状況で入口によって顧客のデータが片方だけ
+ *     消える (PO 回答 2026-09-03 #2 を復元 4 経路すべてに適用する)
+ *
+ * 返す 2 つは意味が違う channel: `blocked` = 捨てた / `activityQuota` = 保管した。
+ * どちらも `errors` (per-child catch 行 / 集計行が混ざる内部ログ) とは別に持つ — errors を
+ * 顧客に見せると内部例外文字列が出る (ADR-0062)。
+ */
+async function applyImportQuota(
+	isRestore: boolean,
+	tenantId: string,
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>,
+	plannedNewNames: Set<string>,
+): Promise<{ blocked?: ImportBlocked; activityQuota?: ActivityQuotaArchiveOutcome }> {
+	if (isRestore) {
+		const outcome = await archiveActivityQuotaOverflow(
+			tenantId,
+			childInputsByChild,
+			plannedNewNames,
+		);
+		// `message` が空 = 上限に触れていない。成功表示を汚さないため何も返さない。
+		return { activityQuota: outcome.message === '' ? undefined : outcome };
+	}
+	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
+	return {
+		blocked:
+			quota.rejectedRows > 0
+				? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
+				: undefined,
+	};
+}
+
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
@@ -383,14 +433,21 @@ export async function importActivities(
 	// 覆う経路と覆わない経路の境界は activity-quota.ts の冒頭コメントが SSOT。
 	// 回帰 lock: tests/unit/services/activity-quota-import-enforcement.test.ts (取込経路の上限)
 	// / tests/unit/routes/activities-quota-residual-gate.test.ts (本関数を通らない producer 経路)。
-	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
-	// #4693: 上限で外した理由は `errors` (表示ログ) ではなく `blocked` で返す。errors は
-	// per-child catch 行 / 集計行が混ざる内部ログで、UI はこれを読まない (読ませると内部
-	// 例外文字列が顧客に出る、ADR-0062)。顧客向け channel を型で分けておく。
-	const blocked: ImportBlocked | undefined =
-		quota.rejectedRows > 0
-			? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
-			: undefined;
+	// #4693 (QM 再レビュー): **同じ「バックアップから復元」なのに入口で結果が変わる**のを止める。
+	//
+	// `presetId` の有無がそのまま「配布物の取込」と「その家庭のデータの復元」の境界:
+	//   - あり = marketplace プリセット取込 → `seed` 行 → quota 対象 0 行。従来どおり drop 方式
+	//     (`enforceActivityQuota`)。判定不能時は中止 = 再試行すれば済む、無害な倒し方
+	//   - なし = **復元** (活動管理の ︙ →「バックアップから復元」= `?/importFile` /
+	//     `api/v1/activities/import` の merge) → `custom` 行。ここを drop のままにすると、
+	//     settings > データ の ZIP/JSON 復元 (archive 方式) と同じ状況で顧客のデータが片方だけ
+	//     消える。PO 回答 (2026-09-03) #2「超過分は捨てずに archived」を **復元 4 経路すべて**に適用する
+	const { blocked, activityQuota } = await applyImportQuota(
+		!presetId,
+		tenantId,
+		childInputsByChild,
+		plannedNewNames,
+	);
 
 	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
 	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
@@ -420,5 +477,9 @@ export async function importActivities(
 		},
 	});
 
-	return { imported, skipped, errors, failed, blocked };
+	// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (行の `archived_reason` では
+	// 「親が自分で選んだ保管」と区別できないため)。実書き込みのあとに呼ぶ。
+	if (activityQuota) await recordActivityQuotaArchiveMarker(tenantId, activityQuota);
+
+	return { imported, skipped, errors, failed, blocked, activityQuota };
 }

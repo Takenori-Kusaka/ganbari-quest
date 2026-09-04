@@ -30,8 +30,11 @@ const mockInsertActivitiesBulk = vi.fn();
 // activity-quota-restore-archive-4693.test.ts で単体検証する。ここでは取込の配線だけを見るため、
 // gate は「何も archived にしない」stub にする。
 const mockArchiveActivityQuotaOverflow = vi.fn();
+const mockRecordActivityQuotaArchiveMarker = vi.fn(async (_t: string, _o: unknown) => {});
 vi.mock('$lib/server/services/activity-quota', () => ({
 	archiveActivityQuotaOverflow: (...args: unknown[]) => mockArchiveActivityQuotaOverflow(...args),
+	recordActivityQuotaArchiveMarker: (tenantId: string, outcome: unknown) =>
+		mockRecordActivityQuotaArchiveMarker(tenantId, outcome),
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({

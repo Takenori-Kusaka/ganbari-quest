@@ -26,6 +26,18 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+// #4693 QM 再レビュー: 上限による自動保管の耐久記録 (settings) — 行の archived_reason では
+// 「親が自分で選んだ保管」と区別が付かないため、ここで残す。
+const mockSetSetting = vi.fn(async (_key: string, _value: string, _tenantId: string) => {});
+const mockGetSetting = vi.fn(
+	async (_key: string, _tenantId: string) => undefined as string | undefined,
+);
+vi.mock('$lib/server/db/settings-repo', () => ({
+	setSetting: (key: string, value: string, tenantId: string) =>
+		mockSetSetting(key, value, tenantId),
+	getSetting: (key: string, tenantId: string) => mockGetSetting(key, tenantId),
+}));
+
 vi.mock('$lib/server/auth/tenant-entitlement', () => ({
 	resolveTenantEntitlement: (...args: unknown[]) => mockResolveTenantEntitlement(...args),
 }));
@@ -53,8 +65,11 @@ vi.mock('$lib/server/services/trial-service', () => ({
 }));
 
 import {
+	ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY,
 	archiveActivityQuotaOverflow,
+	getActivityQuotaArchiveNotice,
 	RESTORE_OVER_QUOTA_ARCHIVED_REASON,
+	recordActivityQuotaArchiveMarker,
 } from '$lib/server/services/activity-quota';
 
 const TENANT = 'tenant-1';
@@ -210,7 +225,11 @@ describe('#4693 復元の超過分は捨てずに archived として取り込む
 		expect(byChild.get(CHILD)?.every((r) => r.isArchived === 0)).toBe(true);
 	});
 
-	it('プランを確認できないときも復元は中止せず、全 custom 行を archived にする (fail-closed + データ保全)', async () => {
+	// #4693 QM 再レビュー: 「無料と確定したが利用状況が数えられない」と「プラン自体が分からない」を
+	// 分ける。前者は保管 (無料なのでアップグレードで戻せる)、後者は保管しない (有料世帯を
+	// 一時的な読み取り失敗だけで無効化しないため)。
+	it('無料と確定 + 現在数を数えられない → 全件を保管し、アップグレード導線を出す', async () => {
+		// プラン解決は成功 (無料) させ、現在数の集計だけを落とす
 		mockFindActivitiesByChild.mockRejectedValue(new Error('OCC 40001'));
 		const { byChild, names } = planOf([customRow('復元1'), customRow('復元2')]);
 
@@ -220,12 +239,33 @@ describe('#4693 復元の超過分は捨てずに archived として取り込む
 			total: 2,
 			activated: 0,
 			archived: 2,
-			reason: 'plan_unverifiable',
+			reason: 'usage_unverifiable',
 		});
-		// 上限が理由ではないのでアップグレード導線は出さない
-		expect(outcome.upgradeUrl).toBeNull();
+		// 無料と確定しているので、顧客はアップグレードで自己回復できる
+		expect(outcome.upgradeUrl).toBe('/admin/subscription');
 		expect(outcome.message).not.toBe('');
 		expect(byChild.get(CHILD)).toHaveLength(2);
+	});
+
+	it('プラン自体を判定できない → 1 行も保管せず全件有効で復元し、判定を省いたことを伝える', async () => {
+		// プラン解決 (entitlement) の失敗 = free か有料かも分からない状態
+		mockResolveTenantEntitlement.mockRejectedValue(new Error('DSQL connect timeout'));
+		const { byChild, names } = planOf([customRow('復元1'), customRow('復元2')]);
+
+		const outcome = await archiveActivityQuotaOverflow(TENANT, byChild, names);
+
+		expect(outcome).toMatchObject({
+			total: 2,
+			activated: 2,
+			archived: 0,
+			reason: 'plan_unresolved',
+		});
+		// 有料世帯を巻き添えで無効化しない = 1 行も archived にしない
+		expect(byChild.get(CHILD)?.every((r) => r.isArchived === 0)).toBe(true);
+		// 「黙って上限判定をしなかった」状態にしない (顧客に伝える文言を必ず持つ)
+		expect(outcome.message).not.toBe('');
+		// 上限が理由ではないのでアップグレード導線は出さない
+		expect(outcome.upgradeUrl).toBeNull();
 	});
 });
 
@@ -241,5 +281,75 @@ describe('#4693 復元結果の文言 (入った数 / 保管した数 / 理由 /
 		expect(text).toContain('保管しました');
 		expect(text).toContain('アップグレード');
 		expect(text).not.toContain('復元しませんでした');
+	});
+});
+
+describe('#4693 上限による自動保管の耐久記録 (行の archived_reason で区別できない分を補う)', () => {
+	it('保管が発生したら settings に「いつ / 何件 / 理由」を残す', async () => {
+		await recordActivityQuotaArchiveMarker(TENANT, {
+			total: 119,
+			activated: 3,
+			archived: 116,
+			reason: 'plan_limit',
+			message: 'x',
+			upgradeUrl: '/admin/subscription',
+		});
+
+		expect(mockSetSetting).toHaveBeenCalledTimes(1);
+		const [key, value, tenant] = mockSetSetting.mock.calls[0] as unknown as [
+			string,
+			string,
+			string,
+		];
+		expect(key).toBe(ACTIVITY_QUOTA_ARCHIVE_MARKER_KEY);
+		expect(tenant).toBe(TENANT);
+		const marker = JSON.parse(value) as Record<string, unknown>;
+		expect(marker).toMatchObject({ archived: 116, activated: 3, total: 119, reason: 'plan_limit' });
+		expect(typeof marker.at).toBe('string');
+	});
+
+	it('保管が 0 件なら記録しない (使っていない記録で画面を汚さない)', async () => {
+		await recordActivityQuotaArchiveMarker(TENANT, {
+			total: 3,
+			activated: 3,
+			archived: 0,
+			reason: null,
+			message: '',
+			upgradeUrl: null,
+		});
+		expect(mockSetSetting).not.toHaveBeenCalled();
+	});
+
+	it('記録の書き込みが失敗しても復元は落とさない (記録は補助情報)', async () => {
+		mockSetSetting.mockRejectedValueOnce(new Error('write failed'));
+		await expect(
+			recordActivityQuotaArchiveMarker(TENANT, {
+				total: 2,
+				activated: 0,
+				archived: 2,
+				reason: 'plan_limit',
+				message: 'x',
+				upgradeUrl: null,
+			}),
+		).resolves.toBeUndefined();
+	});
+
+	it('親の画面に出す常設文言を記録から組み立てる (日付は JST 暦日)', async () => {
+		// JST 00:00〜09:00 は UTC 前日。slice せず JST 暦日で出すことを固定する (#4120 同型)
+		mockGetSetting.mockResolvedValueOnce(
+			JSON.stringify({ at: '2026-09-03T22:30:00.000Z', archived: 116, activated: 3, total: 119 }),
+		);
+		const notice = await getActivityQuotaArchiveNotice(TENANT);
+		expect(notice).toContain('2026-09-04');
+		expect(notice).toContain('116');
+	});
+
+	it('記録が無い / 壊れているときは何も出さない', async () => {
+		mockGetSetting.mockResolvedValueOnce(undefined);
+		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
+		mockGetSetting.mockResolvedValueOnce('{ broken');
+		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
+		mockGetSetting.mockResolvedValueOnce(JSON.stringify({ at: 'not-a-date', archived: 5 }));
+		expect(await getActivityQuotaArchiveNotice(TENANT)).toBeNull();
 	});
 });

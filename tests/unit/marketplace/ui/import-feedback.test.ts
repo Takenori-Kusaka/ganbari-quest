@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_LABELS, MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 
 const labels = {
@@ -117,6 +117,60 @@ describe('resolveImportFeedback の blocked 反映 (#4693)', () => {
 	it('壊れた blocked (件数 0 / message 空) は成功表示を汚さない', () => {
 		const fb = resolveImportFeedback(
 			{ imported: 3, failed: 0, blocked: { count: 0, message: '', upgradeUrl: null } },
+			labels,
+		);
+
+		expect(fb).toEqual({ message: 'success:3', tone: 'success', upgradeUrl: null });
+	});
+});
+
+// #4693 (QM 再レビュー): 活動管理の ︙ →「バックアップから復元」も settings > データ の復元と
+// **同じ文言**を出す。旧実装はダイアログ経由だけ超過分を捨てて理由も出さなかった。
+describe('#4693 復元が上限超過分を保管したときの feedback', () => {
+	const quota = {
+		total: 119,
+		activated: 3,
+		archived: 116,
+		message: 'オリジナル活動は 3 個までです（プリセットからの取込は無制限です）',
+		upgradeUrl: '/admin/subscription',
+	};
+
+	it('入った数 / 保管した数 / 理由 / 導線を出す (settings 側と同一 SSOT の文面)', () => {
+		const fb = resolveImportFeedback({ imported: 119, failed: 0, activityQuota: quota }, labels);
+
+		expect(fb.message).toContain(ACTIVITY_QUOTA_LABELS.restoreArchivedResult(119, 3, 116));
+		expect(fb.message).toContain(quota.message);
+		expect(fb.tone).toBe('error');
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
+	it('保管 0 でも理由があれば伝える (上限判定を省いたことを黙らせない)', () => {
+		const fb = resolveImportFeedback(
+			{
+				imported: 5,
+				failed: 0,
+				activityQuota: {
+					...quota,
+					archived: 0,
+					activated: 5,
+					message: '上限判定を省きました',
+					upgradeUrl: null,
+				},
+			},
+			labels,
+		);
+
+		expect(fb.message).toBe('上限判定を省きました');
+		expect(fb.upgradeUrl).toBeNull();
+	});
+
+	it('上限に触れていない (message 空) なら成功表示を汚さない', () => {
+		const fb = resolveImportFeedback(
+			{
+				imported: 3,
+				failed: 0,
+				activityQuota: { total: 3, activated: 3, archived: 0, message: '', upgradeUrl: null },
+			},
 			labels,
 		);
 
