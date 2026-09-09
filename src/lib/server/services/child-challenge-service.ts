@@ -1034,3 +1034,43 @@ export async function buildPerChildTargets(
 	}
 	return result;
 }
+
+/**
+ * セットアップウィザードの preset 由来 challenge を識別する `sourceTemplateId` の接頭辞。
+ *
+ * `/setup/challenges` の action と、その「配信済みか」の判定 (下記) が**同じ文字列**を
+ * 見るようにするために export する (片方だけ書き換わると重複配信に戻るため)。
+ */
+export const SETUP_PRESET_SOURCE_PREFIX = 'setup-preset:';
+
+/**
+ * すでに配信済みの「preset → 受け取り済みの childId 集合」を返す (#4863 / PO 決裁 2026-09-09)。
+ *
+ * **子供ごとに持つ理由** (#4868 adversarial 実測): preset id だけを鍵にすると、
+ * ウィザードの「戻る」で `/setup/children` へ戻って**子供を追加してから前進し直した**ときに、
+ * 後から加わった子だけが setup チャレンジを 1 件も受け取らない。しかも skip は静かに
+ * `continue` するので、親には `challengesAdded=0` としか見えない。
+ *
+ * なぜ要るか: `createChildChallengesBulk` は `insertBulk` するだけで重複を見ない。
+ * ウィザードは中断・再開できる (印が立っている人の「続きをする」は `/setup/*` に戻る) ので、
+ * `/setup/challenges` を 2 周すると**同じ preset の challenge が二重に積まれる**。
+ * 他の step は二重取込にならない — packs / rewards は `sourcePresetId` の重複検知 (#1254 G1)、
+ * rules は `alreadyImported` 判定、activities-defaults は `setSetting` の upsert。
+ * **challenges だけが例外**なので、ここだけ「済んでいれば飛ばす」を持つ。
+ */
+export async function findAppliedSetupPresetChildIds(
+	tenantId: string,
+): Promise<Map<string, Set<string>>> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findAllByTenant(tenantId);
+	const applied = new Map<string, Set<string>>();
+	for (const c of all) {
+		const src = c.sourceTemplateId;
+		if (!src?.startsWith(SETUP_PRESET_SOURCE_PREFIX)) continue;
+		const presetId = src.slice(SETUP_PRESET_SOURCE_PREFIX.length);
+		const set = applied.get(presetId) ?? new Set<string>();
+		set.add(String(c.childId));
+		applied.set(presetId, set);
+	}
+	return applied;
+}

@@ -396,6 +396,12 @@ export const SETUP_LABELS = {
 	//   step 個別 namespace ではなく setup 共通に置く (SETUP_CHALLENGES_LABELS からも参照する)。
 	previewToggleOpen: '▼ なかみ',
 	previewToggleClose: '▲ とじる',
+	// #4863 (PO 決裁 2026-09-09): 全 step 共通の「戻る」文言。step 個別 namespace に散らすと
+	//   step を足したときに片方だけ増えるので、**共通に 1 つだけ**置く。
+	backButton: 'もどる',
+	// #4863: 全 step 共通の出口。ウィザードを最後まで歩かずに降りたい人が、7 回スキップを
+	//   押さずに済むようにする。中断した印は立ったままなので「続きをする」で戻ってこられる。
+	leaveWizard: 'あとでやる',
 } as const;
 
 // ============================================================
@@ -7020,6 +7026,21 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	 */
 	errorChildNotFound:
 		'記録するお子さまを特定できませんでした。お子さまの登録をやり直すか、画面を読み込み直してください。',
+	// #4868 adversarial: 直前の step (チャレンジ) の結果を**誰も読んでいなかった**。
+	//   `?challengesAdded=N` は書き手 4 箇所 / 読み手 0 件で、親は「追加する」を押しても
+	//   追加された / すでにある のどちらの feedback も受け取らなかった (ADR-0062 §1 の
+	//   「状態起因 = banner + 次アクション」未達)。2 周目は必ず 0 件になるので、
+	//   歩き直した親には**押しても何も起きない画面**に見えていた。
+	challengesAddedNotice: (count: number) => `チャレンジを ${count} 件追加しました。`,
+	challengesAlreadyNotice: 'チャレンジはすでに追加ずみでした。',
+	// #4868 adversarial round 4: `added=0` の意味は「すでにある」だけでなく
+	//   「作れなかった」もある。`errors` は書き手 3 / 読み手 0 で、失敗が親に一度も
+	//   届いていなかった。全部失敗したときに「すでに追加ずみ」と言うと嘘になる。
+	challengesFailedNotice: 'チャレンジを追加できませんでした。あとから設定できます。',
+	// #4868 adversarial round 5: **部分失敗**。成功件数だけ出すと、入らなかった分が
+	//   親に一度も届かない (`challengesFailed` を URL に載せながら画面は成功文言だけだった)。
+	challengesPartialNotice: (added: number, failed: number) =>
+		`チャレンジを ${added} 件追加しました。${failed} 件は追加できませんでした（あとから設定できます）。`,
 } as const;
 
 /**
@@ -9238,6 +9259,16 @@ export const SETUP_RESUME_LABELS = {
 	backToSetupCta: 'セットアップに戻る',
 	// 「・次は『<step 名>』」の追記句 (区切り・鉤括弧を SSOT に集約、hardcoded JP 増加回避)。
 	nextStepSuffix: (label: string) => `・次は「${label}」`,
+	// #4863 (PO 決裁 2026-09-09): ウィザードを中断した人に出す説明。
+	//   admin の checklist (6 項目) を母数にした「あと N ステップ」は、9 step の
+	//   ウィザードへ戻す人には**無関係な数字**になる (step 7 まで歩いた人に「あと 2」と出る)。
+	//   行き先が変わるなら本文も変える — CTA だけ差し替えると「次は『活動を追加する』」と
+	//   読んでボタンを押した親がアンケート画面に着く。
+	// 見出しが「セットアップの続き」/「初期セットアップの途中です」なので、本文で
+	//   「初期設定の途中です」と繰り返さない (隣接 2 行で同じことを言い、しかも
+	//   「セットアップ」と「初期設定」で用語が割れる — DESIGN.md §6)。
+	//   本文の仕事は**行き先を予告すること**に絞る (頭から始まることを事前に伝える)。
+	wizardResumeDesc: '最初の質問から順に確認できます',
 } as const;
 
 // ============================================================

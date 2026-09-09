@@ -12,6 +12,7 @@ import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
+import SetupResumeBanner from './SetupResumeBanner.svelte';
 
 interface ChildSummary {
 	id: ChildId;
@@ -88,10 +89,33 @@ async function handleDismissWelcome() {
 }
 
 const isDemo = $derived(mode === 'demo');
+// #4868 adversarial round 5: **ウィザードを歩いている間は admin の checklist を出さない**。
+// required 5 項目は step 1〜4 と `/switch` で埋まるので、印が立っている世帯にはこのカードが
+// 「6/6 完了 (100%)」と出る。しかも「非表示にする」は `allCompleted` の側にしか無いので
+// **消せない**。その間の案内は `admin/+layout.svelte` が出す `SetupResumeBanner`
+// (variant=context) が担う — 案内は 1 つにする。
 const showOnboarding = $derived(
-	!isDemo && onboarding && !onboarding.dismissed && !onboarding.allCompleted,
+	!isDemo &&
+		onboarding &&
+		!onboarding.dismissed &&
+		!onboarding.allCompleted &&
+		!onboarding.wizardInProgress,
 );
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
+// #4868 adversarial round 6: **`/admin` に直接着地したときに案内が全消灯していた**。
+//
+// round 5 で `showOnboarding` から `wizardInProgress` を外したが、その受け皿と書いた
+// `admin/+layout.svelte` の `SetupResumeBanner` は `?from=setup` かつ `pathname !== '/admin'`
+// のときにしか出ない (`+layout.server.ts` の `fromSetup`)。`/admin` は AdminLayout の
+// 「🏠 ホーム」タブと `/switch` の「🔒 ご家族の見守り画面」の遷移先そのものなので、
+// **この PR が新設した「あとでやる」の 1 手先が行き止まり**になっていた (実測: SSR payload で
+// `setupOnboarding: null` / `wizardInProgress: true`、onboarding 系 testid 0 件)。
+//
+// ここは `onboarding` を既に受け取っているので、追加の I/O なしに同じバナーを出せる。
+// layout 側は `/admin` を除外したままなので二重には出ない。
+const showWizardResume = $derived(
+	!isDemo && onboarding && !onboarding.dismissed && onboarding.wizardInProgress,
+);
 
 // #3033: ワンクリックアップグレード (#767) は /admin/subscription (SaasLicensePanel) に一本化
 
@@ -120,7 +144,11 @@ function childLink(child: ChildSummary): string {
 	<h1 class="dashboard-heading">{ADMIN_HOME_LABELS.heading}{isDemo ? ADMIN_HOME_LABELS.headingDemoSuffix : ''}</h1>
 
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
-	{#if showOnboarding && onboarding}
+	{#if showWizardResume && onboarding}
+		<!-- #4868 round 6: ウィザード中断中の `/admin` 着地。checklist は「6/6 完了」と出て
+		     しかも消せないので出さない。代わりにウィザードへ戻す 1 本の導線を出す -->
+		<SetupResumeBanner {onboarding} variant="context" />
+	{:else if showOnboarding && onboarding}
 		<OnboardingChecklist {onboarding} />
 	{:else if onboardingComplete && onboarding}
 		<div class="onboarding-complete-card" data-testid="onboarding-complete">

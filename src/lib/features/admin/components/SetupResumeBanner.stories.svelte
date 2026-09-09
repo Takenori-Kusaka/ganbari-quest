@@ -53,6 +53,7 @@ const incomplete = {
 	allCompleted: false,
 	dismissed: false,
 	nextRecommendation: items[1],
+	wizardInProgress: false,
 };
 
 const complete = {
@@ -62,6 +63,14 @@ const complete = {
 	allCompleted: true,
 	dismissed: false,
 	nextRecommendation: null,
+	wizardInProgress: false,
+};
+
+// #4863 (PO 決裁 2026-09-09): ウィザードを中断した人。印が立っているので、続きは
+// admin の checklist ではなく **ウィザード本体**へ戻す。
+const wizardInterrupted = {
+	...incomplete,
+	wizardInProgress: true,
 };
 
 const { Story } = defineMeta({
@@ -104,13 +113,65 @@ const { Story } = defineMeta({
 	}}
 />
 
-<!-- 完了済みは描画されない (Anti-engagement ADR-0012: 進行中のみ表示)。 -->
+<!-- #4863: ウィザードを中断した人 (印あり)。続きは /setup/* に戻す。
+     #2821 が admin へ誘導していたのは step 2〜9 が原理的に開かなかった時代の判断で、
+     いま admin のままにすると questionnaire / rules / activities-defaults / challenges /
+     first-adventure の 5 step が中断者に二度と届かない。 -->
+<Story
+	name="ResumeIntoWizard"
+	args={{ onboarding: wizardInterrupted, variant: 'resume' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const banner = canvas.getByTestId('setup-resume-banner');
+		await expect(banner).toBeVisible();
+		const cta = canvas.getByTestId('setup-resume-cta');
+		// 印が立っている人はウィザードへ。admin の次項目 (from=setup 付き) には行かない。
+		await expect(cta).toHaveAttribute('href', '/setup/questionnaire');
+		await expect(cta).not.toHaveAttribute('href', '/admin/activities?from=setup');
+	}}
+/>
+
+<!-- #4863: context (admin 着地) でも同じ条件で行き先が変わる。面は増やさない。 -->
+<Story
+	name="ContextIntoWizard"
+	args={{ onboarding: wizardInterrupted, variant: 'context' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const cta = canvas.getByTestId('setup-resume-cta');
+		await expect(cta).toHaveAttribute('href', '/setup/questionnaire');
+	}}
+/>
+
+<!-- 完了済み **かつ 印が降りている** ときだけ描画されない (Anti-engagement ADR-0012)。 -->
 <Story
 	name="CompletedRendersNothing"
 	args={{ onboarding: complete, variant: 'resume' }}
 	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
-		// allCompleted ではバナー自体が render されない。
+		// 歩き終えた人には出さない。
 		await expect(canvas.queryByTestId('setup-resume-banner')).toBeNull();
+	}}
+/>
+
+<!-- #4868 adversarial: 「あとでやる」で降りた人は、step 1〜4 で admin checklist の
+     required が 4/5 まで埋まり、`/switch` から子供の画面を 1 回覗いた時点で 5/5 になる。
+     そこで「完了」と言うと、admin の 🎉 と「非表示にする」が出て戻り道が永久に閉じる。
+     **判定は service 側** (`getOnboardingProgress` の `allCompleted && !wizardInProgress`) に
+     あるので、この状態の `onboarding` は **`allCompleted: false` で届く**。
+     story の fixture もそれに合わせる (round 5 実測: `allCompleted: true` のままだと
+     component は描画せず、この story だけが落ちていた)。 -->
+<Story
+	name="RequiredDoneButWizardInProgress"
+	args={{
+		onboarding: { ...complete, allCompleted: false, wizardInProgress: true },
+		variant: 'resume',
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getByTestId('setup-resume-banner')).toBeVisible();
+		await expect(canvas.getByTestId('setup-resume-cta')).toHaveAttribute(
+			'href',
+			'/setup/questionnaire',
+		);
 	}}
 />

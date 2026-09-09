@@ -1,9 +1,15 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	PAGE_TITLES,
+	SETUP_FIRST_ADVENTURE_LABELS,
+	SETUP_LABELS,
+} from '$lib/domain/labels';
 import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -113,6 +119,39 @@ function goToComplete() {
 		</div>
 	{/if}
 
+	<!-- #4868 adversarial: 直前の step (チャレンジ) の結果を出す。旧実装は
+	     `?challengesAdded=N` を付けて redirect しながら**どこでも読んでいなかった**ので、
+	     親は「追加する」を押しても効いたのか分からなかった (ADR-0062 §1 未達)。
+	     2 周目は必ず 0 件になるため、歩き直した親には無反応に見えていた。
+	     飛ばした人には出さない (`challengesRequested === 0`)。 -->
+	{#if data.challengesRequested > 0}
+		{#if data.challengesFailed > 0}
+			<!-- 失敗を含むときは成功文言と同じ見た目にしない (ADR-0062 §1: サーバ内部起因は
+			     Alert 側)。部分失敗も「入らなかった分がある」ことを必ず出す。 -->
+			<div data-testid="first-adventure-challenges-notice">
+				<ErrorAlert
+					message={data.challengesAdded > 0
+						? SETUP_FIRST_ADVENTURE_LABELS.challengesPartialNotice(
+								data.challengesAdded,
+								data.challengesFailed,
+							)
+						: SETUP_FIRST_ADVENTURE_LABELS.challengesFailedNotice}
+					severity="warning"
+				/>
+			</div>
+		{:else}
+			<p
+				class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+				role="status"
+				data-testid="first-adventure-challenges-notice"
+			>
+				{data.challengesAdded > 0
+					? SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(data.challengesAdded)
+					: SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}
+			</p>
+		{/if}
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>
@@ -186,6 +225,14 @@ function goToComplete() {
 		</form>
 
 		<div class="text-center mt-3">
+			<!-- #4863: 戻る導線が無かった step。戻り先は step 連鎖の 1 つ前 = challenges。 -->
+			<a
+				href={resolve('/setup/challenges')}
+				class="block py-2 text-center text-xs font-bold text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]"
+				data-testid="setup-back-link"
+			>
+				&larr; {SETUP_LABELS.backButton}
+			</a>
 			<form method="POST" action="?/skip">
 				<Button type="submit" variant="ghost" size="sm" class="text-xs underline">
 					{SETUP_FIRST_ADVENTURE_LABELS.skipButton}

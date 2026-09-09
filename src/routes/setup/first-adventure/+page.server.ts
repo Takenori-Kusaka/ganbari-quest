@@ -42,12 +42,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// パックインポート結果を透過
 	const imported = Number(url.searchParams.get('imported') ?? 0);
 	const skipped = Number(url.searchParams.get('skipped') ?? 0);
+	// #4868 adversarial: 直前の step (チャレンジ) の結果。旧実装は `challengesAdded` を
+	// 付けて redirect しながら**どこでも読んでいなかった**ので、親は自分の操作が効いたのか
+	// 分からなかった。`requested` が 0 (= 飛ばした) のときは何も出さない。
+	const challengesRequested = Number(url.searchParams.get('challengesRequested') ?? 0);
+	const challengesAdded = Number(url.searchParams.get('challengesAdded') ?? 0);
+	// 「作れなかった」を「すでにある」と言い換えない (#4868 adversarial round 4)
+	const challengesFailed = Number(url.searchParams.get('challengesFailed') ?? 0);
 
 	return {
 		child: firstChild,
 		activities: ageFiltered,
 		imported,
 		skipped,
+		challengesRequested,
+		challengesAdded,
+		challengesFailed,
 	};
 };
 

@@ -6,6 +6,7 @@ import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { isSetupWizardInProgress } from '$lib/server/services/setup-service';
 import { getRewardTemplates } from '$lib/server/services/special-reward-service';
 
 export interface OnboardingItem {
@@ -24,6 +25,17 @@ export interface OnboardingProgress {
 	allCompleted: boolean;
 	dismissed: boolean;
 	nextRecommendation: OnboardingItem | null;
+	/**
+	 * セットアップウィザードを歩いている最中か (#4863 / PO 決裁 2026-09-09)。
+	 *
+	 * 再開バナー (`SetupResumeBanner`) の行き先をこれ 1 つで分ける。true なら
+	 * `/setup/*` へ戻し、false なら従来どおり admin の次の未完了項目へ送る。
+	 * **面は増やさない** — 1 つのバナーが 1 つの条件で行き先を変えるだけ。
+	 *
+	 * cognito では印が立たない (ウィザードは local モード限定) ため常に false になり、
+	 * 既存の挙動は変わらない。
+	 */
+	wizardInProgress: boolean;
 }
 
 const DISMISSED_KEY = 'onboarding_dismissed';
@@ -101,7 +113,21 @@ export async function getOnboardingProgress(
 
 	const completedCount = items.filter((i) => i.completed).length;
 	const totalCount = items.length;
-	const allCompleted = items.filter((i) => i.required).every((i) => i.completed);
+	const wizardInProgress = await isSetupWizardInProgress(tenantId);
+	// #4868 adversarial round 4: **ウィザードを歩いている間は「完了」と言わない**。
+	//
+	// checklist の required 5 項目は step 1〜4 と `/switch` で埋まってしまうので、
+	// ウィザードの後半 (rules / activities-defaults / challenges / **first-adventure** /
+	// complete) を歩き終える前に `allCompleted` が立つ。その状態で `/admin` に着くと
+	// 🎉「すべてのセットアップが完了しました！」と「非表示にする」が描かれ、押すと
+	// `onboarding_dismissed` が立つ (**解除する経路は src に無い**)。`SetupResumeBanner` は
+	// `/setup/questionnaire` への唯一のリンクなので、そこで戻り道が永久に閉じる。
+	//
+	// 同時刻に 2 つの画面が正反対を言う状態でもあった (バナー「セットアップの続き」と
+	// admin「すべて完了しました」)。**判定を 1 箇所で揃える** — 印が立っている間は
+	// 完了ではない。印は `/setup/complete` の load で降りる。
+	const allCompleted =
+		items.filter((i) => i.required).every((i) => i.completed) && !wizardInProgress;
 	const nextRecommendation =
 		items.find((i) => i.required && !i.completed) ?? items.find((i) => !i.completed) ?? null;
 
@@ -112,6 +138,7 @@ export async function getOnboardingProgress(
 		allCompleted,
 		dismissed: dismissed === 'true',
 		nextRecommendation,
+		wizardInProgress,
 	};
 }
 

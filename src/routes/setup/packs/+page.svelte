@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import {
 	APP_LABELS,
 	formatCount,
@@ -194,8 +195,12 @@ $effect(() => {
 
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
+		<!-- #4863: 戻り先は step 連鎖の 1 つ前 = questionnaire。**children ではない**。
+		     questionnaire (step 2) を後から足したときに、この 1 行だけ追従漏れしていた
+		     (戻ると step 2 を飛ばして step 1 に着く)。全 step の戻り先は
+		     tests/unit/architecture/setup-wizard-back-links.test.ts が layout の steps と突合する。 -->
 		<a
-			href="/setup/children"
+			href={resolve('/setup/questionnaire')}
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; {SETUP_PACKS_LABELS.backButton}

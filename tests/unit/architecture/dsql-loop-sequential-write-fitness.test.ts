@@ -42,8 +42,11 @@ const SERVICES_DIR = resolve(REPO_ROOT, 'src/lib/server/services');
 // #4724: `purge` を足す。バージョニング有効な S3 では「戻せない削除」を `purgeByPrefix` が担い、
 // `delete` prefix を持たない write が生まれた。verb を足さないと本 fitness function が
 // その write を数えなくなり、ループ内逐次 write の ratchet に穴が開く。
+// #4868: `assign` を足す。family master の配信 (`assignTemplateToChildren`) は
+// assignment 行を insert する write なのに、verb が一覧に無く ratchet に入らなかった
+// (#4724 の `purge` と同じ class)。
 const WRITE_METHOD_RE =
-	/^(insert|create|upsert|update|delete|purge|remove|record|save|persist|issue|archive|restore|copy|mark|import|set|add|increment|decrement)[A-Z_0-9]/;
+	/^(insert|create|upsert|update|delete|purge|remove|record|save|persist|issue|archive|restore|copy|mark|import|set|add|assign|increment|decrement)[A-Z_0-9]/;
 
 // ── baseline (既存違反の pin、2026-07-19 採取。減らしたら本表も下げる) ──
 // 値 = file 内の「ループ body 中の awaited write call」の method 名別出現数。
@@ -131,6 +134,9 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 	},
 	'questionnaire-service.ts': {
 		addTemplateItem: 1,
+		// #4868: 孤児 template の配信し直し。preset ごとのループなので
+		// 既存の createTemplate / addTemplateItem と同じ位置づけで pin する
+		assignTemplateToChildren: 1,
 		createTemplate: 1,
 	},
 	'resource-archive-service.ts': {
