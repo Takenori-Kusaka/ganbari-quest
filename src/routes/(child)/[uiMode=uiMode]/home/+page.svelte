@@ -57,8 +57,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
-import { getChildTutorialChapters } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { updateChapters } from '$lib/ui/tutorial/tutorial-store.svelte';
+import { setChildActivityPresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
 
@@ -89,14 +88,12 @@ const f = $derived(variant.features);
 
 // ❓ ガイドの「活動カードをタップすると」step は、カードが 1 枚も無い画面では
 // 光らせる先も押すものも無い (初回演出 AdventureStartOverlay と同じクラスの欠陥)。
-// 件数を知っているのはこの画面だけなので、実件数で章定義を更新し直す
-// (layout は「ある」前提で置いている。進捗 namespace は触らない = updateChapters)。
+// **件数を知っているのはこの画面だけ**なので、有無だけを store に書く。章の組み立ては
+// layout が渡した builder が担い、store 側で derive される (#4860)。
+// 旧実装は完成した章配列を `updateChapters` で押し込んでいたが、layout の `onMount` が
+// 後から仮置きで上書きするため、活動 0 件の初回訪問で訂正が消えていた。
 $effect(() => {
-	updateChapters(
-		getChildTutorialChapters(data.uiMode ?? 'preschool', {
-			hasActivities: data.activities.length > 0,
-		}),
-	);
+	setChildActivityPresence(data.activities.length > 0);
 });
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---

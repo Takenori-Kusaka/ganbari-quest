@@ -2,6 +2,19 @@ import { getChildTutorialLabels } from '$lib/domain/labels';
 import type { TutorialChapter } from './tutorial-types';
 
 /**
+ * 子供 layout が store に渡す builder を作る (#4860)。
+ *
+ * layout に closure を直書きすると「件数を素通しする」配線が **test から見えない場所** に残り、
+ * 純関数の test が通っていても実機で外れる (それが must-A の実害だった)。
+ * builder をここで組み立てて export し、素通しであることを test で固定する。
+ */
+export function makeChildChapterBuilder(
+	uiMode: string,
+): (hasActivities: boolean | undefined) => TutorialChapter[] {
+	return (hasActivities) => getChildTutorialChapters(uiMode, { hasActivities });
+}
+
+/**
  * 子供画面用チュートリアルチャプター定義（#4652、EPIC #4650 判断 3 / 4 / 5）
  *
  * 「記録して閉じる」最短経路だけを 3 章 5 step で説明する（ADR-0012 anti-engagement）:
@@ -26,24 +39,28 @@ import type { TutorialChapter } from './tutorial-types';
  */
 export function getChildTutorialChapters(
 	uiMode: string,
-	options: { hasActivities: boolean },
+	options: { hasActivities: boolean | undefined },
 ): TutorialChapter[] {
 	const L = getChildTutorialLabels(uiMode);
-	const recordCardStep = options.hasActivities
-		? {
-				id: 'child-record-card',
-				chapterId: 1,
-				selector: '[data-tutorial="activity-card"]',
-				...L.steps['child-record-card'],
-				position: 'bottom' as const,
-			}
-		: {
-				// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
-				id: 'child-record-card',
-				chapterId: 1,
-				...L.steps['child-record-card-empty'],
-				position: 'bottom' as const,
-			};
+	// `undefined` = 件数がまだ分からない。**分からないときは「ある」に倒さない** (#4860):
+	// 存在しないカードを spotlight して「タップして」と言うより、説明型で出す方が害が小さい。
+	// 件数を知っているのはホーム画面だけで、checklist 等はそもそも知らないまま描画される。
+	const recordCardStep =
+		options.hasActivities === true
+			? {
+					id: 'child-record-card',
+					chapterId: 1,
+					selector: '[data-tutorial="activity-card"]',
+					...L.steps['child-record-card'],
+					position: 'bottom' as const,
+				}
+			: {
+					// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
+					id: 'child-record-card',
+					chapterId: 1,
+					...L.steps['child-record-card-empty'],
+					position: 'bottom' as const,
+				};
 	return [
 		{
 			id: 1,

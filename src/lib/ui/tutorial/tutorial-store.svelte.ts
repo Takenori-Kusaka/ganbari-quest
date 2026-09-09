@@ -52,7 +52,38 @@ const state = $state<TutorialState>({
  * 親管理画面の説明は ❓ ページガイド (`PageGuideOverlay`) が唯一の経路。
  * 既定は空配列で、`setChapters()` を呼ぶ画面 (子供 layout) でのみガイドが起動する。
  */
-let activeChapters = $state<TutorialChapter[]>([]);
+let explicitChapters = $state<TutorialChapter[]>([]);
+
+/**
+ * 章を「活動の有無」から組み立てる builder (子供 layout が渡す)。
+ *
+ * #4860 (adversarial must-A): 旧実装は layout の `onMount` が
+ * `getChildTutorialChapters(uiMode, { hasActivities: true })` を **推測で** 置き、
+ * ホーム画面が実件数で `updateChapters` し直す 2 段構えだった。しかし Svelte 5 の実行順は
+ * **子の `$effect` → 親の `onMount`** なので、ホームの訂正が先に走り layout の推測が後から
+ * 上書きする。結果、**活動 0 件の子が初めてアプリを開く場面** — つまり修正したかった当の状況 —
+ * で「したのカードをタップ」が出続けた (実測: `{"cards":0,"tapCard":true}`)。
+ * `(child)/checklist` はホームの `$effect` を一度も通らないため常に上書きされないままだった。
+ *
+ * 順序に依存しない形にするため、**layout は builder だけを渡し、件数はホームが state に書く**。
+ * 章は両者の $derived なので、どちらが先に走っても最終値は同じになる。
+ */
+let chapterBuilder = $state<((hasActivities: boolean | undefined) => TutorialChapter[]) | null>(
+	null,
+);
+
+/**
+ * 活動があるか。`undefined` = **まだ分からない**。
+ *
+ * 件数を知っているのはホーム画面だけ (layout が件数のためだけに DB を引くのは ADR-0065 に反する)。
+ * 分からない間は「カードをタップ」と言わせない (builder 側で `false` と同じ安全側に倒す) —
+ * 存在しないカードを指すより、指さない方が害が小さい。
+ */
+let hasActivitiesKnown = $state<boolean | undefined>(undefined);
+
+const activeChapters = $derived(
+	chapterBuilder ? chapterBuilder(hasActivitiesKnown) : explicitChapters,
+);
 
 /**
  * 章定義を差し替える (子供 layout が uiMode に応じた章を渡す)。
@@ -61,8 +92,42 @@ let activeChapters = $state<TutorialChapter[]>([]);
  * ガイドの種類ごとに固有の値を渡す (例: `child:preschool`)。省略時は 'default'。
  */
 export function setChapters(chapters: TutorialChapter[], scope = 'default') {
-	activeChapters = chapters;
+	explicitChapters = chapters;
+	chapterBuilder = null;
+	// 子供画面を離れるとき (`setChapters([])`) に件数の記憶も捨てる。
+	// 持ち越すと、活動のある子から無い子へ切り替えた直後に前の子の件数で
+	// 「カードをタップ」と言ってしまう。次に入った画面のホームが書き直すまでは「未知」が正しい。
+	hasActivitiesKnown = undefined;
 	progressScope = scope;
+}
+
+/**
+ * 子供画面の章を builder 経由で差し替える (進捗 scope も同時に設定)。
+ *
+ * 件数は渡さない — 渡せる立場にないため。件数は `setChildActivityPresence` で別途書かれる。
+ */
+export function setChildChapterBuilder(
+	builder: (hasActivities: boolean | undefined) => TutorialChapter[],
+	scope: string,
+) {
+	chapterBuilder = builder;
+	explicitChapters = [];
+	progressScope = scope;
+}
+
+/**
+ * 活動の有無を記録する。**件数を知っている画面 (ホーム) だけが呼ぶ。**
+ *
+ * builder が入っていれば章は自動的に derive し直される。builder より先に呼ばれても
+ * (Svelte 5 は子の `$effect` が親の `onMount` より先に走る) 値は state に残るため失われない。
+ */
+export function setChildActivityPresence(hasActivities: boolean) {
+	hasActivitiesKnown = hasActivities;
+}
+
+/** test / 検証用。`undefined` は「まだ分からない」。 */
+export function getChildActivityPresence(): boolean | undefined {
+	return hasActivitiesKnown;
 }
 
 /**
@@ -74,7 +139,8 @@ export function setChapters(chapters: TutorialChapter[], scope = 'default') {
  * 子供ごとの進捗 (#4765) が壊れるため専用の入口を分けている。
  */
 export function updateChapters(chapters: TutorialChapter[]) {
-	activeChapters = chapters;
+	explicitChapters = chapters;
+	chapterBuilder = null;
 }
 
 // ── localStorage helpers (SSR-safe) ──

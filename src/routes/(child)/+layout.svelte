@@ -35,13 +35,14 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import {
-	getChildTutorialChapters,
+	makeChildChapterBuilder,
 	getChildTutorialProgressScope,
 	getLegacyChildTutorialProgressScope,
 } from '$lib/ui/tutorial/tutorial-chapters-child';
 import {
 	migrateLegacyProgress,
 	setChapters,
+	setChildChapterBuilder,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 
@@ -104,9 +105,12 @@ onMount(() => {
 		if (data.child) {
 			const childId = data.child.id;
 			// layout は活動件数を持たない (件数のためだけに DB を引くのは ADR-0065 に反する)。
-			// 「カードがある」前提で置き、ホーム画面が実件数で `updateChapters` し直す。
-			setChapters(
-				getChildTutorialChapters(uiMode, { hasActivities: true }),
+			// **件数を推測で置かない** (#4860): 旧実装は `hasActivities: true` を仮置きして
+			// ホームの訂正を待ったが、Svelte 5 は子の `$effect` が親の `onMount` より先に走るため
+			// 訂正が先・仮置きが後になり、活動 0 件の初回訪問で「カードをタップ」が出続けた。
+			// builder だけ渡し、件数はホームが `setChildActivityPresence` で書く (順序非依存)。
+			setChildChapterBuilder(
+				makeChildChapterBuilder(uiMode),
 				getChildTutorialProgressScope(childId, uiMode),
 			);
 			// 旧 key は年齢モードごとに分かれているため、今のモードだけでなく**全モード分**を畳む
