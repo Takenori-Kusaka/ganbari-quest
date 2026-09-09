@@ -123,7 +123,7 @@ jobs:
           esac
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -939,7 +939,7 @@ jobs:
 
       # CloudFront Geo Restriction (JP only) のため、Lambda Function URL 直接でテスト
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -990,7 +990,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
