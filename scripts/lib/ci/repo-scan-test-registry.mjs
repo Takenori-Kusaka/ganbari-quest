@@ -81,6 +81,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'src 配下を glob して s3Key / pinCode を扱う file を列挙し、registry (test 内) の網羅性と、外へ出す口が redact を通っているかを検査する (#4867)。実測 0.2s',
 	},
+	'tests/unit/architecture/workflow-inline-script-syntax.test.ts': {
+		scope: 'bounded',
+		note: ".github/workflows/*.yml を glob し、`node -e '…'` のインライン script が JS として parse できるかを見る (#4866)。CI に actionlint / shellcheck が無く、この class を 3 回踏んだため",
+	},
 	'tests/unit/architecture/pin-length-ssot-fitness.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査しておやカギコード桁数 (PIN_LENGTH) の直書き (regex / PinInput length / ラベル / 5086 案内) を検出する (#4698)',
