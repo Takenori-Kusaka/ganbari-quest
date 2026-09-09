@@ -23,7 +23,9 @@
 // つまり 9 step の通し歩行を確かめているのは**実機計測だけ**。PR body §検証に結果を載せて
 // あるが、それは repo の外なので**やり直せる手順をここに書く** (1 年後に読む人が到達できる形):
 //
-//   1. **手元の開発 DB には触れず**、使い捨ての空 DB で起動する (既定の DB は
+//   1. **手元の開発 DB には触れず**、使い捨ての空 DB で起動する。
+//      **Git Bash / WSL で実行する — PowerShell に `mktemp` は無い** (この repo は Windows 主体)。
+//      (既定の DB は
 //      `./data/ganbari-quest.db` = `src/lib/server/db/client.ts` の `DATABASE_URL` 既定値。
 //      **これを消す手順にしない** — その開発機のローカル開発データが消える):
 //        DATABASE_URL=$(mktemp -d)/setup.db AUTH_MODE=local npx vite dev --port 5399
