@@ -248,8 +248,13 @@ export class CognitoAuthProvider implements AuthProvider {
 			});
 
 			if ('error' in result) {
+				// **招待コードはログに出さない** (#4867 adversarial の同 class 指摘)。
+				// このコードは家族テナントへ参加できる capability そのもので、
+				// **失敗経路では未消費 = まだ生きている**。本番の logger は CloudWatch へ出るため、
+				// ログ閲覧権限が「他人の家族に参加できる」に化ける。
+				// 障害調査に要るのは「誰が・なぜ失敗したか」で、コード自体は要らない。
 				logger.warn('[AUTH] Invite acceptance failed (membership stays undecided)', {
-					context: { inviteCode, error: result.error, userId: effectiveUserId },
+					context: { error: result.error, userId: effectiveUserId },
 				});
 				return null;
 			}
@@ -258,11 +263,13 @@ export class CognitoAuthProvider implements AuthProvider {
 			this.clearInviteCookie(event);
 
 			logger.info('[AUTH] User joined tenant via invite', {
+				// 成功時もコードは出さない。userId / tenantId / role で追跡には足りる。
+				// (成功後は消費済みだが、同じ行が失敗ログと同じ経路で保存される以上、
+				//  「消費済みだから出してよい」という線引きは運用で守られない)
 				context: {
 					userId: effectiveUserId,
 					tenantId: result.membership.tenantId,
 					role: result.membership.role,
-					inviteCode,
 				},
 			});
 

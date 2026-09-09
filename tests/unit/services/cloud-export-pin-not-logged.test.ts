@@ -20,6 +20,8 @@
 //   [P3] 起票ログは「起票と完了/削除を突き合わせる key」を失っていない
 //   [P4] redactStorageKey が fail-closed (想定外の形でも PIN を素通りさせない)
 //   [P5] S3 の部分失敗サマリ (複数 key を含む文字列) も伏せられる
+//
+// 同 class の招待コードは `tests/unit/auth/invite-code-not-logged.test.ts` が持つ。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
