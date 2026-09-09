@@ -80,6 +80,13 @@ const { Story } = defineMeta({
 		deleteSpy.mockClear();
 		const canvas = within(canvasElement);
 		await expect(canvas.getByTestId('cloud-export-stored-list')).toBeVisible();
+		// #4867 (PO 決裁 2026-09-09): PIN が漏れたときの手当ては「削除 = 即時失効」。
+		// rotate という別操作は作らないので、**この案内が出ていることが唯一の導線**になる。
+		// 順序も検査する — 「先に作ってから消す」と旧 PIN が生きている時間が伸びる。
+		const guidance = canvas.getByTestId('cloud-export-pin-leaked-guidance');
+		await expect(guidance).toBeVisible();
+		await expect(guidance).toHaveTextContent(SETTINGS_LABELS.cloudPinLeakedGuidance);
+		await expect(guidance.textContent ?? '').toMatch(/削除[\s\S]*作り直/);
 		// 5 状態すべてが枠を占有する行として並ぶ (使い切り / 失敗も落とさない)
 		await expect(canvas.getByTestId('cloud-export-status-dl')).toHaveTextContent(
 			SETTINGS_LABELS.cloudRowStateDownloadable,

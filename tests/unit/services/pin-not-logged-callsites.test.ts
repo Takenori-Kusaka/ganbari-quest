@@ -8,12 +8,21 @@
 // **戻しても緑のまま**だった。「3 経路すべて塞いだ」という記録が、実際には 1 経路しか
 // 固定していない状態になっていた。ここでは mock の位置を下げて、その 2 経路を通す。
 //
-// 固定する不変条件:
+// **この file が固定するのは [C1] だけ**。宣言と実装をずらさないために、他の経路が
+// どこで守られているかも書いておく (前版はここで [C2] [C3] を宣言しながら実装しておらず、
+// 「宣言だけあって実装が無い」を同じ file で 2 度やった):
+//
 //   [C1] 退会時に S3 削除が失敗しても、ログに PIN が出ない (err の message 経由も含む)
-//   [C2] build 失敗の `failureReason` に PIN が出ない
-//        — これは DB の failure_reason に入り、**保護者の画面にそのまま表示される**
-//   [C3] 起票ログに PIN が出ない (前版で唯一固定できていた経路。振る舞いへ移す過程で
-//        coverage が消えていたので、ここで取り戻す)
+//        → **この file が振る舞いで固定する**
+//   repo 層 (`purgeByPrefix` の tolerant ログ / throw する Error の message)
+//        → `tests/unit/db/s3-storage-repo.test.ts` が **@aws-sdk/client-s3 を mock して
+//          repo の実コードを走らせる** (この file は `$lib/server/db/factory` を mock するので
+//          repo 層に 1 行も到達しない)
+//   削除失敗経路 (`deleteCloudExport`)
+//        → `tests/unit/services/cloud-export-pin-not-logged.test.ts` が振る舞いで固定
+//   build 失敗 / 起票 / cloud-import の呼び出し口
+//        → `tests/unit/services/pin-redaction-callsites-source.test.ts` が **source** で見る
+//          (依存が深く mock の量が釣り合わないため。変数に組んでから渡す形は見えない)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

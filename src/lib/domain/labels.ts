@@ -4163,6 +4163,14 @@ export const SETTINGS_LABELS = {
 	cloudDeleteConfirmIrreversible:
 		'削除すると保管データも共有リンクも完全に消え、元に戻せません。受け取る側がまだ取り込んでいない場合は取り込めなくなります。',
 	cloudDeleteConfirmQuotaNote: '削除すると保管枠はすぐに空きます。',
+	// #4867 (PO 決裁 2026-09-09): **PIN の再発行という操作は作らない**。削除がそのまま
+	//   失効の手段である (削除で DB 行が消え、`fetchCloudExportByPin` は DB を引くので
+	//   旧 PIN はその瞬間に無効になる)。足りていなかったのは機能ではなく、
+	//   「PIN を人に見られたとき何をすればいいか」が顧客に伝わっていないことだった。
+	//   **順序を「削除 → 作り直し」で案内する** — 先に新しいものを作ると、旧 PIN が
+	//   生きている時間が伸びる。
+	cloudPinLeakedGuidance:
+		'PIN を知られてしまったときは、削除するとすぐに使えなくなります。あらためて共有を作り直してください。',
 	cloudDeleteConfirmExecute: '削除する',
 	cloudDeleteConfirmCancel: 'やめる',
 	// #4767 QM should: S3 の削除に失敗したときは黙って DB だけ消さない (顧客に見せて再試行させる)。

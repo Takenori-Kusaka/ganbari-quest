@@ -97,8 +97,13 @@ describe('[P4][P5] redact は fail-closed', () => {
 		}
 	});
 
-	it('exports 配下でなくても PIN の形のセグメントは伏せる', () => {
-		expect(redactStorageKey(`tenants/t-owner/${PIN}/avatar.svg`)).not.toContain(PIN);
+	it('exports を含まない key は伏せない (誤爆を避ける)', () => {
+		// #4867 adversarial: PIN と同じ文字種・長さの語は無関係な key にも現れる
+		// (`assets/BRAND2/logo.svg` の `BRAND2` 等)。実在する PIN key は必ず
+		// `exports/…` の下にあるので、そこへ絞る。判定の詳細は
+		// `tests/unit/domain/storage-key-redaction.test.ts` が持つ。
+		expect(redactStorageKey(`tenants/t-owner/${PIN}/avatar.svg`)).toContain(PIN);
+		expect(redactStorageKey(`exports/t-owner/${PIN}/backup.zip`)).not.toContain(PIN);
 	});
 
 	it('PIN と関係ない key は壊さない', () => {

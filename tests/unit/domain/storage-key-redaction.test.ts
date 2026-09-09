@@ -45,7 +45,6 @@ describe('[K2] 想定外の形でも素通りさせない', () => {
 		`tenants/t-owner/exports/${PIN}/backup.zip`,
 		`exports/t-owner/${PIN}`,
 		`exports/t-owner/${PIN}/nested/dir/backup.zip`,
-		`${PIN}/backup.zip`,
 	]) {
 		it(key, () => {
 			expect(redactStorageKey(key), `PIN が素通りしている: ${key}`).not.toContain(PIN);
@@ -54,6 +53,13 @@ describe('[K2] 想定外の形でも素通りさせない', () => {
 });
 
 describe('[K3] 無関係な key を壊さない', () => {
+	it('exports を含まない key は PIN 形のセグメントがあっても伏せない', () => {
+		// PIN と同じ文字種・長さの語は無関係な key にも現れる (adversarial 実測)。
+		// 実在する PIN key は必ず `exports/…` なので、そこへ絞って誤爆を消す。
+		expect(redactStorageKey('assets/BRAND2/logo.svg')).toBe('assets/BRAND2/logo.svg');
+		expect(redactStorageKey(`${PIN}/backup.zip`)).toBe(`${PIN}/backup.zip`);
+	});
+
 	it('tenants/<id> の id は伏せない', () => {
 		// PIN と同じ文字種・長さの tenant id を誤爆すると、運用がどの家庭か分からなくなる
 		expect(redactStorageKey('tenants/ABC234/children/c-1/avatar.svg')).toBe(
@@ -91,8 +97,24 @@ describe('[K5] 任意の文字列', () => {
 		expect(out, 'テナントまで消してはいけない').toContain('t-a');
 	});
 
-	it('path になっていない裸の PIN も伏せる', () => {
+	it('`pin` の近くにある裸の PIN は伏せる', () => {
 		expect(redactStorageKeysInText(`pin ${PIN} not found`)).not.toContain(PIN);
+		expect(redactStorageKeysInText(`PIN検索失敗: ${PIN}`)).not.toContain(PIN);
+	});
+
+	it('**PIN と同じ形の英単語を誤爆しない** (伏せた文字列は保護者の画面に出る)', () => {
+		// adversarial 実測: 6 文字 ALL-CAPS 40 語のうち 25 語が誤認していた。
+		// PIN の文字種は I/O/0/1 を除くが、これらの語はどれもそれを避けているため
+		// 文字種では分離できない。`pin` の近さで絞る。
+		for (const msg of [
+			"EACCES: permission denied, open '/data/x'",
+			'ERROR: syntax error at or near "SELECT"',
+			'UPDATE failed: DELETE not permitted',
+			'SECRET rotation skipped',
+			'BACKUP window exceeded',
+		]) {
+			expect(redactStorageKeysInText(msg), `誤爆している: ${msg}`).toBe(msg);
+		}
 	});
 
 	it('local FS の絶対パス (backslash) も伏せる', () => {

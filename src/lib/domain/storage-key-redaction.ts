@@ -25,8 +25,16 @@
 /** PIN の文字種・長さ (`cloud-export-service` の `PIN_CHARS` / `PIN_LENGTH` と対応)。 */
 const PIN_LIKE = '[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}';
 const PIN_LIKE_SEGMENT = new RegExp(`^${PIN_LIKE}$`);
-/** 文中に裸で現れる PIN (前後が英数でないこと)。 */
-const BARE_PIN = new RegExp(`(?<![A-Za-z0-9])${PIN_LIKE}(?![A-Za-z0-9])`, 'g');
+/**
+ * 文中に裸で現れる PIN。**`pin` の直近にあるものだけ**を対象にする。
+ *
+ * 文字種だけで拾うと誤爆が多すぎる (#4867 adversarial 実測: 6 文字 ALL-CAPS 40 語のうち
+ * **25 語が誤認** — `EACCES` / `SELECT` / `UPDATE` / `DELETE` / `SECRET` / `BACKUP` …)。
+ * PIN の文字種は `I` `O` `0` `1` を除くが、これらの語はどれもそれを避けているので
+ * 文字種では分離できない。しかも伏せた文字列は**保護者の画面に出る**ため、
+ * `EACCES: permission denied` が `<pin>: permission denied` になるのは実害がある。
+ */
+const BARE_PIN = new RegExp(`(?<=pin[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`, 'gi');
 
 /** 伏せたことが読み手に分かる置換文字列 (空にすると「元から無い」と区別できない)。 */
 const REDACTED = '<pin>';
@@ -46,6 +54,10 @@ export function redactStorageKey(key: string): string {
 	// `/` と `\` の両方を区切りとして扱う (Windows / NUC の local FS エラーは `\` で来る)
 	const segments = key.split(/[/\\]/);
 	const tenantsAt = segments.indexOf('tenants');
+	// **`exports` を含む key にだけ適用する** (#4867 adversarial 実測)。PIN と同じ文字種・
+	// 長さのセグメントは無関係な key にも現れる (`assets/BRAND2/logo.svg` の `BRAND2` 等)。
+	// 実在する PIN key は必ず `exports/…` の下にあるので、そこへ絞れば誤爆が消える。
+	if (!segments.includes('exports')) return key;
 
 	const redacted = segments.map((seg, i) => {
 		if (!seg) return seg;
