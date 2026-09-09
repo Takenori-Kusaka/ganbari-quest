@@ -150,6 +150,72 @@ function endOfQuoted(src: string, i: number, q: string): number {
 	return src.length;
 }
 
+/**
+ * `${` の直後 `from` から、対応する `}` の位置 (無ければ末尾)。
+ *
+ * 中の文字列 / template / 正規表現 / コメントの `{}` は数えない。
+ */
+function endOfInterpolation(src: string, from: number): number {
+	let depth = 0;
+	let prev = '';
+	let i = from;
+	while (i < src.length) {
+		const skip = endOfNonCode(src, i, prev);
+		if (skip >= 0) {
+			prev = src[i] as string;
+			i = skip;
+			continue;
+		}
+		const ch = src[i] as string;
+		if (ch === '{') depth++;
+		else if (ch === '}') {
+			if (depth === 0) return i;
+			depth--;
+		}
+		if (!/\s/.test(ch)) prev = ch;
+		i++;
+	}
+	return src.length;
+}
+
+/** `i` から始まる文字列 / 正規表現リテラルの**次の位置** (該当しなければ -1)。 */
+function endOfSimpleLiteral(src: string, i: number, prev: string): number {
+	const ch = src[i];
+	if (ch === "'" || ch === '"') return endOfQuoted(src, i, ch) + 1;
+	// 正規表現リテラルは「値が来る位置の `/`」でしか始まらない
+	if (ch === '/' && REGEX_START_PREV.test(prev)) {
+		const end = endOfRegex(src, i);
+		if (end >= 0) return end + 1;
+	}
+	return -1;
+}
+
+/** `i` から始まる「コードでない塊」の**次の位置** (該当しなければ -1)。 */
+function endOfNonCode(src: string, i: number, prev: string): number {
+	const commentEnd = endOfComment(src, i);
+	if (commentEnd >= 0) return commentEnd;
+	if (src[i] === '`') return skipTemplate(src, i);
+	return endOfSimpleLiteral(src, i, prev);
+}
+
+/** backtick で開いた template を読み飛ばし、閉じ backtick の**次**を返す。 */
+function skipTemplate(src: string, open: number): number {
+	let i = open + 1;
+	while (i < src.length) {
+		if (src[i] === '\\') {
+			i += 2;
+			continue;
+		}
+		if (src[i] === '`') return i + 1;
+		if (src[i] === '$' && src[i + 1] === '{') {
+			i = endOfInterpolation(src, i + 2) + 1;
+			continue;
+		}
+		i++;
+	}
+	return src.length;
+}
+
 /** 位置 `i` の `/` から始まる正規表現リテラルの閉じ `/` の位置。無ければ -1。 */
 function endOfRegex(src: string, i: number): number {
 	let j = i + 1;
@@ -182,42 +248,79 @@ function endOfRegex(src: string, i: number): number {
  */
 function maskNonCode(src: string): string {
 	const out = src.split('');
-	/** 直前の意味のある文字 — `/` が正規表現の開始か除算かの判定に使う。 */
-	let prev = '';
-	let i = 0;
-	const blank = (from: number, to: number, keep: boolean) => {
+	const blank = (from: number, to: number, keep = false) => {
 		if (keep) return;
-		for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+		for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' ';
 	};
-	while (i < src.length) {
-		const ch = src[i] as string;
-		const commentEnd = endOfComment(src, i);
-		if (commentEnd >= 0) {
-			// `pin-sink-ok:` の marker はコメントに書くので、その 1 件だけ残す
-			blank(i, commentEnd, src.slice(i, commentEnd).includes('pin-sink-ok:'));
-			i = commentEnd;
-			continue;
-		}
-		if (ch === "'" || ch === '"' || ch === '`') {
-			const end = endOfQuoted(src, i, ch);
-			blank(i, Math.min(end + 1, src.length), false);
-			i = end + 1;
-			prev = ch;
-			continue;
-		}
-		// 正規表現リテラルは「値が来る位置の `/`」でしか始まらない
-		if (ch === '/' && REGEX_START_PREV.test(prev)) {
-			const end = endOfRegex(src, i);
-			if (end >= 0) {
-				blank(i, end + 1, false);
-				i = end + 1;
-				prev = '/';
+
+	/**
+	 * template literal を潰す。**`${…}` の中はコードなので潰さない** (#4867 round 11 実測)。
+	 *
+	 * round 10 の版は template をまるごと空白にしていた。その結果
+	 * `` logger.error(`storage failure for ${s3Key}`) `` が **1 件も検出されない**
+	 * (実測: 16/16 passed)。round 7 が「キー名で拾うのをやめ引数全体を見る」ようにした
+	 * 理由そのもの (template literal に混ぜる形) を、round 10 の字句潰しが打ち消していた。
+	 */
+	function scanTemplate(open: number, limit: number): number {
+		blank(open, open + 1);
+		let i = open + 1;
+		while (i < limit) {
+			const ch = src[i];
+			if (ch === '\\') {
+				blank(i, i + 2);
+				i += 2;
 				continue;
 			}
+			if (ch === '`') {
+				blank(i, i + 1);
+				return i + 1;
+			}
+			if (ch === '$' && src[i + 1] === '{') {
+				const end = endOfInterpolation(src, i + 2);
+				blank(i, i + 2);
+				scan(i + 2, end);
+				blank(end, end + 1);
+				i = end + 1;
+				continue;
+			}
+			blank(i, i + 1);
+			i++;
 		}
-		if (!/\s/.test(ch)) prev = ch;
-		i++;
+		return limit;
 	}
+
+	/** `[from, to)` をコードとして走査し、コードでない場所を潰す。 */
+	function scan(from: number, to: number): void {
+		/** 直前の意味のある文字 — `/` が正規表現の開始か除算かの判定に使う。 */
+		let prev = '';
+		let i = from;
+		while (i < to) {
+			const ch = src[i] as string;
+			if (ch === '`') {
+				i = scanTemplate(i, to);
+				prev = '`';
+				continue;
+			}
+			const commentEnd = endOfComment(src, i);
+			if (commentEnd >= 0) {
+				// `pin-sink-ok:` の marker はコメントに書くので、その 1 件だけ残す
+				blank(i, commentEnd, src.slice(i, commentEnd).includes('pin-sink-ok:'));
+				i = commentEnd;
+				continue;
+			}
+			const literalEnd = endOfSimpleLiteral(src, i, prev);
+			if (literalEnd >= 0) {
+				blank(i, Math.min(literalEnd, to));
+				i = literalEnd;
+				prev = ch;
+				continue;
+			}
+			if (!/\s/.test(ch)) prev = ch;
+			i++;
+		}
+	}
+
+	scan(0, src.length);
 	return out.join('');
 }
 
@@ -275,13 +378,22 @@ function scanToCallEnd(src: string, from: number): number {
 	return j;
 }
 
-const SINK_CALL_GLOBAL =
-	/\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/g;
+/**
+ * 外へ出す口の呼び出し (**[F2] と [F3] で同じ定義を使う**)。
+ *
+ * - `logger.*` に加えて `console.*` も見る — #4867 adversarial round 9/10 の M14b
+ *   (`logger.error` を `console.error` に置き換えるだけで検査から外れる) を塞ぐ
+ * - `json` / `apiError` / `validationError` / `error` は **`.` に続く形を除く** —
+ *   `res.json()` (fetch の Response) は外へ出す口ではないため
+ */
+const SINK_CALL_SOURCE =
+	'(?:\\b(?:logger|console)\\.(?:error|warn|info|debug|log)|(?<!\\.)\\b(?:json|apiError|validationError|error))\\s*\\(';
+const SINK_CALL_GLOBAL = new RegExp(SINK_CALL_SOURCE, 'g');
 
 type SinkCall = { args: string; before: string; terminated: boolean };
 
 function sinkCallArguments(code: string): SinkCall[] {
-	const CALL = /\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/;
+	const CALL = new RegExp(SINK_CALL_SOURCE);
 	/** opt-out marker はふつう**直前の行**に書くので、呼び出しの手前も一緒に見る。 */
 	const LOOKBEHIND_CHARS = 300;
 	const out: SinkCall[] = [];
@@ -306,14 +418,60 @@ function sinkCallArguments(code: string): SinkCall[] {
  * 伏せていない値の**字面**。`stripRedacted` で redact 済みの中身を消したあとに
  * これが残っていれば、伏せずに外へ出していると判定する。
  */
-const RAW_VALUE_TOKENS: readonly RegExp[] = [
+const EXCEPTION_TOKENS: readonly RegExp[] = [
 	/\bString\((?:err|e)\b/,
 	/\b(?:err|e)\.(?:message|stack)\b/,
-	// `s3Key:` / `pinCode:` は**キー名**であって値ではない。`s3Key: redactStorageKey(s3Key)` は
-	// `stripRedacted` が中身を消したあとキー名だけが残るので、`:` が続く形は除く。
-	/\bs3Key\b(?!\s*:)/,
-	/\bpinCode\b(?!\s*:)/,
 ];
+
+/**
+ * PIN そのものを指す字面。
+ *
+ * `s3Key:` / `pinCode:` は**キー名**であって値ではない。`s3Key: redactStorageKey(s3Key)` は
+ * `stripRedacted` が中身を消したあとキー名だけが残るので、`:` が続く形は除く。
+ */
+const PIN_VALUE_TOKENS: readonly RegExp[] = [/\bs3Key\b(?!\s*:)/, /\bpinCode\b(?!\s*:)/];
+
+/**
+ * PIN を受けた**ローカル別名**を拾う (#4867 adversarial round 10 の M7b)。
+ *
+ * `RAW_VALUE_TOKENS` は `s3Key` / `pinCode` という**識別子の字面**にしか反応しないので、
+ * `const key = record.s3Key;` と 1 度代入するだけで検査から外れる (実測: 17/17 passed)。
+ * 代入の右辺 (redact を通した部分は除いたもの) に PIN の字面が残る変数名を、同じ扱いにする。
+ *
+ * 拾うのは同一 file 内の宣言だけ。**完全ではない** (関数の戻り値・分割代入のネスト・
+ * オブジェクトへの詰め替えは追えない) が、「1 行の別名で外れる」という一番安い迂回は塞ぐ。
+ */
+function pinAliasTokens(code: string): RegExp[] {
+	const names = new Set<string>();
+	// `const key = record.s3Key;` — 右辺が **PIN そのものへの参照 1 本**のときだけ別名と見る。
+	// `const record = { …, s3Key, … }` のように PIN を**含むオブジェクト**は別名ではない
+	// (`record.id` まで PIN 扱いになり、実測で 5 件の偽陽性が出た)。
+	const ASSIGN = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/g;
+	for (;;) {
+		const m = ASSIGN.exec(code);
+		if (!m) break;
+		if (isDirectPinReference(stripRedacted(m[2] ?? ''))) names.add(m[1] as string);
+	}
+	// `const { s3Key: key } = record;` の形 (分割代入。出力側のオブジェクト literal は含めない)
+	const DESTRUCTURE = /\{[^{}]*\b(?:s3Key|pinCode)\s*:\s*([A-Za-z_$][\w$]*)[^{}]*\}\s*=/g;
+	for (;;) {
+		const m = DESTRUCTURE.exec(code);
+		if (!m) break;
+		names.add(m[1] as string);
+	}
+	return [...names].map((n) => new RegExp(`\\b${n}\\b(?!\\s*:)`));
+}
+
+/** `record.s3Key` / `s3Key` / `record.s3Key ?? ''` のような、PIN 値**そのもの**への参照か。 */
+function isDirectPinReference(rhs: string): boolean {
+	const t = rhs
+		.trim()
+		.replace(/\s*(?:\?\?|\|\|)\s*(?:''|""|``)\s*$/, '')
+		.replace(/[;,]$/, '')
+		.trim();
+	if (!/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(t)) return false;
+	return /(?:^|\.)(?:s3Key|pinCode)$/.test(t);
+}
 
 /**
  * 明示的な opt-out。**理由を 12 文字以上つけて、その場に書く**。
@@ -334,18 +492,23 @@ function msgIsRedactedIn(code: string): boolean {
 }
 
 /** 与えられたコード片から、伏せていない sink を全部拾う。 */
-function rawSinks(block: string, msgIsRedacted: boolean): string[] {
+function rawSinks(
+	block: string,
+	msgIsRedacted: boolean,
+	tokens: readonly RegExp[],
+	checkMsg = true,
+): string[] {
 	const hits: string[] = [];
 	for (const { args: rawArgs, before } of sinkCallArguments(block)) {
 		// その場 (引数の中、または直前の数行) に理由つきの opt-out があれば飛ばす
 		if (OPT_OUT.test(rawArgs) || OPT_OUT.test(before)) continue;
 		// redact を通した部分は取り除いてから、残りに生の字面が居るかを見る
 		const remaining = stripRedacted(rawArgs);
-		for (const token of RAW_VALUE_TOKENS) {
+		for (const token of tokens) {
 			const m = token.exec(remaining);
 			if (m) hits.push(`${m[0]} in ${rawArgs.replace(/\s+/g, ' ').slice(0, 80)}`);
 		}
-		if (!msgIsRedacted && /\bmsg\b/.test(remaining)) {
+		if (checkMsg && !msgIsRedacted && /\bmsg\b/.test(remaining)) {
 			hits.push(`msg in ${rawArgs.replace(/\s+/g, ' ').slice(0, 80)}`);
 		}
 	}
@@ -444,9 +607,20 @@ describe('[F2] 外へ出す口は redact を通す', () => {
 		it(`${file} — 生の例外 / key を外へ出していない (${g.scope ?? 'file'})`, () => {
 			// opt-out marker (`pin-sink-ok:`) を読むため、その marker を含む行だけコメントを残す
 			const code = codeOnly(readSource(file));
-			const blocks = g.scope === 'pin-catch' ? pinScopedCatchBlocks(code) : [code];
 			const redactedMsg = msgIsRedactedIn(code);
-			const hits = blocks.flatMap((b) => rawSinks(stripRedacted(b), redactedMsg));
+			const pinTokens = [...PIN_VALUE_TOKENS, ...pinAliasTokens(code)];
+			const blocks = g.scope === 'pin-catch' ? pinScopedCatchBlocks(code) : [code];
+			const hits = blocks.flatMap((b) =>
+				rawSinks(stripRedacted(b), redactedMsg, [...EXCEPTION_TOKENS, ...pinTokens]),
+			);
+			// #4867 adversarial round 10 の M13: `scope` を `'pin-catch'` に格下げすると、
+			// **catch の外**に置いた `logger.info('…', { context: { s3Key } })` が走査対象から
+			// 丸ごと外れた (実測 16/16 passed)。scope が絞るのは「例外の生文字列」の話であって、
+			// **PIN そのものは file のどこに書いても外に出してはいけない**。PIN の字面だけは
+			// scope に関係なく file 全体で見る。
+			if (g.scope === 'pin-catch') {
+				hits.push(...rawSinks(stripRedacted(code), redactedMsg, pinTokens, false));
+			}
 			expect(
 				hits,
 				`${file} に redact を通していない sink がある。` +
@@ -504,17 +678,20 @@ describe('[F3] no-sink は宣言だけで取れない', () => {
 		// `no-sink` + もっともらしい理由 (実際にその file のコメントに書いてある文とほぼ同じ)
 		// に付け替えるだけで、**直したばかりの 2 つの sink を両方生に戻しても 12 passed** だった。
 		// [F3] が `why` の文字数しか見ていなかったため。**理由文ではなく実物を見る。**
+		//
+		// #4867 adversarial round 10 実測 (M8): ここの語彙は `logger.*` / `apiError` の 2 つだけで、
+		// **[F2] が見ている口の真部分集合**だった。`json({ error: `leak: ${s3Key}` })` しか持たない
+		// 新規 route を `no-sink` + もっともらしい理由で登録すると **16/16 passed** で通る。
+		// 「外へ出す口」の定義は 1 つでなければ意味がないので、[F2] と**同じ** SINK_CALL_GLOBAL を使う。
 		const offenders: string[] = [];
 		for (const [file, g] of Object.entries(REGISTRY)) {
 			if (g.guard !== 'no-sink') continue;
 			const code = codeOnly(readSource(file));
-			if (/\blogger\.(?:error|warn|info|debug)\s*\(/.test(code) || /\bapiError\s*\(/.test(code)) {
-				offenders.push(file);
-			}
+			if (new RegExp(SINK_CALL_SOURCE).test(code)) offenders.push(file);
 		}
 		expect(
 			offenders,
-			'`no-sink` と宣言しているのに logger / apiError の呼び出しを持つ file がある。' +
+			'`no-sink` と宣言しているのに外へ出す口 (logger / console / json / apiError / validationError / error) を持つ file がある。' +
 				`外へ出す口があるなら 'redacted' で宣言すること:\n${offenders.join('\n')}`,
 		).toEqual([]);
 	});
