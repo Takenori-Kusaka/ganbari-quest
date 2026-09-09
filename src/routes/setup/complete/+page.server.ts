@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
+import { clearSetupWizardInProgress } from '$lib/server/services/setup-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -17,6 +18,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const imported = Number(url.searchParams.get('imported') ?? 0);
 	const skipped = Number(url.searchParams.get('skipped') ?? 0);
+
+	// ウィザードを歩き終えた。以降 /setup は従来どおりブロックされる (#4860 must-B)
+	await clearSetupWizardInProgress(tenantId);
 
 	trackSetupFunnel('setup_completed', tenantId, {
 		childCount: children.length,

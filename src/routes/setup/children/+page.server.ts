@@ -5,7 +5,7 @@ import { SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { isSetupRequired } from '$lib/server/services/setup-service';
+import { isSetupRequired, markSetupWizardStarted } from '$lib/server/services/setup-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -66,6 +66,23 @@ export const actions: Actions = {
 			age,
 			uiMode: child.uiMode,
 		});
+		// ウィザードを歩き始めた印を **この action で** 立てる。
+		//
+		// ここに置く理由は 2 つある。
+		//
+		// ① 到達できる唯一の書き込み点である。step 1 の `next` action に置いていたときは
+		//    1 度も走らなかった — `addChild` で子供が 1 人できた瞬間に `isSetupRequired` が
+		//    false になり、hooks の gate が **次の POST (`?/next`) 自体を** 302 `/` で弾く。
+		//    印を立てるコードに到達できないので settings は空のまま、判定は旧条件と数学的に
+		//    等価に潰れていた (adversarial reviewer の実測: settings 0 行)。この POST は
+		//    子供 0 人の時点で処理されるので gate を通る。
+		// ② `load` (GET) ではなく action (POST) に置く。`src/app.html` は
+		//    `data-sveltekit-preload-data="hover"` を全ページに掛けているため、load に
+		//    書き込みを置くと **リンクにカーソルを載せただけで印が立つ**。「子供を 1 人作った」
+		//    という不可逆な出来事にだけ印を紐付ける。
+		//
+		// 印が立たなくても子供の登録自体は成立させる (ウィザードが進めないだけでデータは入る)。
+		await markSetupWizardStarted(tenantId);
 		return { success: true };
 	},
 

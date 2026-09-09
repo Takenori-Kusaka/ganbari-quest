@@ -9,9 +9,20 @@ import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 // hooks.server.ts の全依存をモック化し、並列実行時の深いモジュール解決を回避する
 
 const mockIsSetupRequired = vi.fn();
-vi.mock('$lib/server/services/setup-service', () => ({
-	isSetupRequired: () => mockIsSetupRequired(),
-}));
+// #4860 must-B: 「完了」判定を子供の人数から切り離したため、hooks は 2 つ目の問い
+// (ウィザードを歩いている最中か) も投げる。既定は「歩いていない」= 従来の挙動。
+const mockIsSetupWizardInProgress = vi.fn(() => false);
+vi.mock('$lib/server/services/setup-service', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/services/setup-service')>(
+		'$lib/server/services/setup-service',
+	);
+	return {
+		isSetupRequired: () => mockIsSetupRequired(),
+		isSetupWizardInProgress: () => mockIsSetupWizardInProgress(),
+		// 判定そのものは実物を使う (mock で真理値表を上書きすると gate の意味が消える)
+		shouldBlockSetupAccess: actual.shouldBlockSetupAccess,
+	};
+});
 
 vi.mock('$lib/server/logger', () => ({
 	logger: {
@@ -233,6 +244,65 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(event.locals.authenticated).toBe(false);
 			expect(event.locals.identity).toBeNull();
 			expect(event.locals.context).toBeNull();
+		});
+	});
+
+	describe('#4860 セットアップウィザードの途中は /setup を塞がない', () => {
+		// step 1 で子供を 1 人登録すると isSetupRequired が false になる。旧実装はそれだけで
+		// /setup を全部塞いでいたため、残り 8 step が原理的に開けなかった (実測)。
+		// 真理値表は tests/unit/services/setup-wizard-reachability-4860.test.ts が持つ。
+		// ここでは hooks が実際にその判定を通しているかを見る。
+		// 実装から読んだ実際の遷移順 (各 +page.server.ts の redirect 先を辿ったもの)。
+		// **1 つでも塞がれていれば、その先の step には二度と到達できない**ので、
+		// questionnaire だけでなく 9 path すべてを gate に投げる。
+		//
+		// **ここで分かるのは「gate がその path を塞いでいないこと」だけ**で、その画面が
+		// 実際に描画できるか (各 step の load / action の連鎖) は見ていない。通し歩行の
+		// 保証ではない — 誇張しないために書く (tests/unit/routes/setup-wizard-walkthrough-4863.test.ts
+		// の header に、どの層が何を見ているかの全体を書いてある)。
+		const WIZARD_STEPS = [
+			'/setup/children',
+			'/setup/questionnaire',
+			'/setup/packs',
+			'/setup/rewards',
+			'/setup/rules',
+			'/setup/activities-defaults',
+			'/setup/challenges',
+			'/setup/first-adventure',
+			'/setup/complete',
+		];
+
+		it.each(WIZARD_STEPS)('子供 1 人 + 歩いている最中は %s を通す', async (path) => {
+			currentAuthMode = 'local';
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(true);
+			mockAuthorize.mockReturnValue({ allowed: true });
+
+			const event = createMockEvent(path);
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const result = await handle({ event, resolve } as any);
+			expect(result, `ウィザードの途中なのに ${path} が塞がれている`).toBeDefined();
+		});
+
+		it.each(WIZARD_STEPS)('歩き終えていれば %s も従来どおり / へ 302 する', async (path) => {
+			currentAuthMode = 'local';
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(false);
+			mockAuthorize.mockReturnValue({ allowed: true });
+
+			const event = createMockEvent(path);
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/');
+			}
 		});
 	});
 
