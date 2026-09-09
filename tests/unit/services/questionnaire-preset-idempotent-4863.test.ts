@@ -31,15 +31,28 @@ type FakeTemplate = {
 	id: string;
 	/** 親が書き換えられる。書き換えられていたら「その子のためのもの」= 拾わない。 */
 	name: string;
+	/** #4868 round 6: 名前を変えずに icon / ポイントだけ前の子に合わせる親が居る。 */
+	icon: string;
+	pointsPerItem: number;
+	completionBonus: number;
 	sourcePresetId: string | null;
 	isArchived?: boolean;
 };
 
+/**
+ * item も**親が編集できる値をすべて持つ** (#4868 round 6)。
+ *
+ * round 5 の mock は name しか持たなかったので、`findPristineOrphanForPreset` が
+ * icon / frequency を見ていなくても test は緑のままだった (実測: 同名・別 icon の
+ * item が新しい子に配信された)。
+ */
+type FakeItem = { name: string; icon: string; frequency: string; direction: string };
+
 let templates: FakeTemplate[] = [];
 /** templateId -> 配信先 childId 群 */
 let assignments: Map<string, Set<string>> = new Map();
-/** templateId -> item 名 (親が足す・書き換えることがある) */
-let itemsByTemplate: Map<string, string[]> = new Map();
+/** templateId -> item (親が足す・書き換えることがある) */
+let itemsByTemplate: Map<string, FakeItem[]> = new Map();
 
 const childrenOf = (templateId: string) => assignments.get(templateId) ?? new Set<string>();
 
@@ -60,7 +73,7 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 		[...childrenOf(templateId)].map((childId) => ({ templateId, childId })),
 	),
 	findTemplateItems: vi.fn(async (templateId: string) =>
-		(itemsByTemplate.get(templateId) ?? []).map((name, i) => ({ id: `i-${i}`, name })),
+		(itemsByTemplate.get(templateId) ?? []).map((item, i) => ({ id: `i-${i}`, ...item })),
 	),
 	assignTemplateToChildren: vi.fn(async (templateId: string, childIds: readonly string[]) => {
 		const set = assignments.get(templateId) ?? new Set<string>();
@@ -71,10 +84,20 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 }));
 
 const mockCreateTemplate = vi.fn(
-	async (input: { childId: string; name: string; sourcePresetId?: string | null }) => {
+	async (input: {
+		childId: string;
+		name: string;
+		icon?: string;
+		pointsPerItem?: number;
+		completionBonus?: number;
+		sourcePresetId?: string | null;
+	}) => {
 		const t = {
 			id: `t-${templates.length + 1}`,
 			name: input.name,
+			icon: input.icon ?? '',
+			pointsPerItem: input.pointsPerItem ?? 0,
+			completionBonus: input.completionBonus ?? 0,
 			sourcePresetId: input.sourcePresetId ?? null,
 		};
 		templates.push(t);
@@ -87,9 +110,15 @@ const mockCreateTemplate = vi.fn(
 
 vi.mock('$lib/server/services/checklist-service', () => ({
 	createTemplate: (...args: unknown[]) => mockCreateTemplate(...(args as [never])),
-	addTemplateItem: vi.fn(async (input: { templateId: string; name: string }) => {
+	addTemplateItem: vi.fn(async (input: { templateId: string; name: string; icon?: string }) => {
 		const cur = itemsByTemplate.get(input.templateId) ?? [];
-		cur.push(input.name);
+		// 実装は frequency / direction を渡さないので DB 既定値になる (schema.ts)
+		cur.push({
+			name: input.name,
+			icon: input.icon ?? '',
+			frequency: 'daily',
+			direction: 'bring',
+		});
 		itemsByTemplate.set(input.templateId, cur);
 	}),
 }));
@@ -155,6 +184,9 @@ describe('[Q5] archive 済も見る (親が消したものを黙って復活さ�
 		templates.push({
 			id: 't-archived',
 			name: 'あさのしたく',
+			icon: '🌅',
+			pointsPerItem: 1,
+			completionBonus: 3,
 			sourcePresetId: 'morning-routine',
 			isArchived: true,
 		});
@@ -205,6 +237,9 @@ describe('[Q6] 配信先を外された孤児 template を作り直さない', (
 		templates.push({
 			id: 't-archived',
 			name: 'あさのしたく',
+			icon: '🌅',
+			pointsPerItem: 1,
+			completionBonus: 3,
 			sourcePresetId: 'morning-routine',
 			isArchived: true,
 		});
@@ -228,10 +263,21 @@ describe('[Q7] 別の子のために書き換えられた孤児は拾わない',
 		templates.push({
 			id: 't-personalized',
 			name: 'さくらの あさのしたく',
+			icon: '🌅',
+			pointsPerItem: 1,
+			completionBonus: 3,
 			sourcePresetId: 'morning-routine',
 		});
 		assignments.set('t-personalized', new Set());
-		itemsByTemplate.set('t-personalized', ['はみがき', 'きがえ', 'さくらのピアノ']);
+		itemsByTemplate.set(
+			't-personalized',
+			['はみがき', 'きがえ', 'さくらのピアノ'].map((name) => ({
+				name,
+				icon: '✅',
+				frequency: 'daily',
+				direction: 'bring',
+			})),
+		);
 
 		const created = await applyChecklistPresets(childId('c-new'), ['morning-routine'], 't-1');
 
@@ -274,11 +320,90 @@ describe('[Q7] 別の子のために書き換えられた孤児は拾わない',
 		expect([...childrenOf(original)]).toEqual(['c-2']);
 	});
 
+	it('item の icon を書き換えられた孤児は拾わない (#4868 round 6)', async () => {
+		// round 5 は item を**名前だけ**で比べていたので、同名のまま icon を
+		// 🪥 → 🦷 に変えた item が「まっさら」と判定され、**前の子のために選んだ絵が
+		// 新しい子の画面に出た** (adversarial 実測)。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const original = templates[0]?.id as string;
+		const items = itemsByTemplate.get(original) ?? [];
+		const first = items[0];
+		if (first) first.icon = '🦷';
+		assignments.set(original, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect([...childrenOf(original)], 'icon を書き換えた孤児を新しい子へ配信している').toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
+	it('item の frequency を書き換えられた孤児は拾わない (#4868 round 6)', async () => {
+		// `addTemplateItem` は frequency を渡さないので、新規作成なら必ず 'daily'。
+		// 'weekly' になっているのは親が編集したということ。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const original = templates[0]?.id as string;
+		const first = (itemsByTemplate.get(original) ?? [])[0];
+		if (first) first.frequency = 'weekly';
+		assignments.set(original, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect([...childrenOf(original)], 'frequency を書き換えた孤児を配信している').toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
+	// **1 つの値だけをずらす** (#4868 adversarial round 5 の教訓)。複数ずらすと、
+	// どれか 1 つの検査を消しても残りが拾って落ちないので、検査の有無を証明できない。
+	it('template の icon だけ書き換えられた孤児は拾わない (#4868 round 6)', async () => {
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const t = templates[0];
+		if (t) t.icon = '🎀';
+		assignments.set(t?.id as string, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect(
+			[...childrenOf(t?.id as string)],
+			'名前は同じでも icon が前の子向けのままの孤児を配信している',
+		).toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
+	it('template の pointsPerItem だけ書き換えられた孤児は拾わない (#4868 round 6)', async () => {
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const t = templates[0];
+		if (t) t.pointsPerItem = 99;
+		assignments.set(t?.id as string, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect(
+			[...childrenOf(t?.id as string)],
+			'前の子に合わせたポイント設定のまま新しい子へ配信している',
+		).toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
+	it('template の completionBonus だけ書き換えられた孤児は拾わない (#4868 round 6)', async () => {
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const t = templates[0];
+		if (t) t.completionBonus = 42;
+		assignments.set(t?.id as string, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect([...childrenOf(t?.id as string)], 'ボーナス設定が前の子向けのまま').toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
 	it('item を足された孤児も拾わない (名前はそのままでも中身が違う)', async () => {
 		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
 		const original = templates[0]?.id as string;
 		// 親が item を 1 つ足してから、配信先を外した
-		itemsByTemplate.set(original, [...(itemsByTemplate.get(original) ?? []), 'さくらのピアノ']);
+		itemsByTemplate.set(original, [
+			...(itemsByTemplate.get(original) ?? []),
+			{ name: 'さくらのピアノ', icon: '🎹', frequency: 'daily', direction: 'bring' },
+		]);
 		assignments.set(original, new Set());
 
 		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');

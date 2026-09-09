@@ -27,6 +27,24 @@ interface PresetItem {
 	sortOrder: number;
 }
 
+/**
+ * `addTemplateItem` に `frequency` / `direction` を渡さないので、新規作成した item は
+ * 必ず DB の既定値になる (`schema.ts` の `default('daily')` / `default('bring')`、
+ * dsql / demo backend も同値)。「まっさらか」の判定はこの値と突き合わせる。
+ */
+const FRESH_ITEM_FREQUENCY = 'daily';
+const FRESH_ITEM_DIRECTION = 'bring';
+
+/** 孤児判定に使う family template の形 (repo の戻り値の部分集合)。 */
+interface ChecklistTemplateLike {
+	id: string;
+	name?: string;
+	icon?: string;
+	pointsPerItem?: number;
+	completionBonus?: number;
+	sourcePresetId?: string | null;
+}
+
 /** チェックリストプリセット定義 */
 interface ChecklistPreset {
 	presetId: string;
@@ -247,24 +265,41 @@ export async function applyChecklistPresets(
  * ここでは踏み込まない。
  */
 async function findPristineOrphanForPreset(
-	familyTemplates: readonly { id: string; name?: string; sourcePresetId?: string | null }[],
+	familyTemplates: readonly ChecklistTemplateLike[],
 	preset: ChecklistPreset,
 	presetId: string,
 	tenantId: string,
 ): Promise<{ id: string } | null> {
 	for (const t of familyTemplates) {
 		if ((t.sourcePresetId ?? null) !== presetId) continue;
-		// 名前を書き換えられていたら「その子のためのもの」なので拾わない
+		// template 側の編集可能な値が preset のままか (#4868 adversarial round 6)。
+		// round 5 は name だけを見ていたので、**同じ名前のまま icon / ポイントだけ
+		// 前の子に合わせて書き換えた template** が「まっさら」と判定されていた。
 		if ((t.name ?? '') !== preset.name) continue;
+		if ((t.icon ?? '') !== preset.icon) continue;
+		if (t.pointsPerItem !== preset.pointsPerItem) continue;
+		if (t.completionBonus !== preset.completionBonus) continue;
 		const assignments = await findAssignmentsByTemplate(t.id, tenantId);
 		if (assignments.length > 0) continue;
 		// item まで一致していることを見る (名前はそのままで中身だけ足す親が居る)
 		// **並び順に依存させない** (#4868 adversarial round 5)。`findTemplateItems` は
 		// `sortOrder` 順、preset は JSON の配列順なので、preset を並べ替えるだけで
-		// 「中身が違う」と判定されて静かに無効化される。名前の集合で比べる。
+		// 「中身が違う」と判定されて静かに無効化される。値の集合で比べる。
+		//
+		// **name だけでは足りない** (round 6 実測): 同名のまま icon を 🪥 → 🦷 に変え
+		// frequency を変えた item が「一致」と判定され、前の子のために書いた設定が
+		// そのまま新しい子の画面に出た。`addTemplateItem` に渡すのは name / icon /
+		// sortOrder だけで、`frequency` / `direction` は DB 既定値 (`daily` / `bring`)
+		// になるので、**新規作成したら必ずそうなる値**と突き合わせる。
+		// sortOrder だけは比較しない — 並び替えは個人化というより表示の好みで、
+		// preset の JSON 順と sortOrder 順のずれで round 5 の無効化を招いた側の値。
 		const items = await findTemplateItems(t.id, tenantId);
-		const actual = JSON.stringify([...items.map((i) => i.name)].sort());
-		const expected = JSON.stringify([...preset.items.map((i) => i.name)].sort());
+		const actual = JSON.stringify(
+			items.map((i) => [i.name, i.icon, i.frequency, i.direction]).sort(),
+		);
+		const expected = JSON.stringify(
+			preset.items.map((i) => [i.name, i.icon, FRESH_ITEM_FREQUENCY, FRESH_ITEM_DIRECTION]).sort(),
+		);
 		if (actual !== expected) continue;
 		return t;
 	}

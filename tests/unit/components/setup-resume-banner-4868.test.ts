@@ -24,6 +24,8 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SETUP_RESUME_LABELS } from '../../../src/lib/domain/labels';
+import type { PointSettings } from '../../../src/lib/domain/point-display';
+import AdminHome from '../../../src/lib/features/admin/components/AdminHome.svelte';
 import SetupResumeBanner from '../../../src/lib/features/admin/components/SetupResumeBanner.svelte';
 import type {
 	OnboardingItem,
@@ -130,5 +132,47 @@ describe('[B2] 本文は行き先と一致する', () => {
 		const text = banner()?.textContent ?? '';
 		expect(text).toContain(SETUP_RESUME_LABELS.progressText(1, 5));
 		expect(text).not.toContain(SETUP_RESUME_LABELS.wizardResumeDesc);
+	});
+});
+
+describe('[B3] /admin に直接着地しても案内が消えない (#4868 round 6)', () => {
+	afterEach(cleanup);
+
+	// round 5 は `AdminHome` の `showOnboarding` から `wizardInProgress` を外し、
+	// 「その間の案内は admin/+layout.svelte の SetupResumeBanner が担う」と書いた。
+	// **その受け皿は `/admin` では出ない** — `+layout.server.ts` の `fromSetup` が
+	// `?from=setup` かつ `pathname !== '/admin'` を要求するため。
+	// `/admin` は AdminLayout の「🏠 ホーム」タブと `/switch` の
+	// 「🔒 ご家族の見守り画面」の遷移先なので、**この PR が新設した「あとでやる」の
+	// 1 手先が行き止まり**になっていた (実測: onboarding 系 testid が 0 件)。
+	const adminHomeProps = (onboarding: OnboardingProgress) => ({
+		children: [],
+		pointSettings: { mode: 'point', currency: 'JPY', rate: 1 } as PointSettings,
+		onboarding,
+		mode: 'live' as const,
+		basePath: '/admin',
+	});
+
+	it('ウィザード中断中は再開バナーが出る (checklist ではなく)', () => {
+		render(AdminHome, adminHomeProps({ ...base, completedCount: 5, wizardInProgress: true }));
+
+		expect(banner(), '/admin に案内が 1 つも無い = 行き止まり').not.toBeNull();
+		expect(cta().getAttribute('href'), '再開先がウィザードでない').toBe('/setup/questionnaire');
+		expect(
+			screen.queryByTestId('onboarding-complete'),
+			'歩いている途中なのに「すべて完了しました」を出している',
+		).toBeNull();
+	});
+
+	it('ウィザードを歩いていない人には従来どおり checklist を出す', () => {
+		render(AdminHome, adminHomeProps({ ...base, wizardInProgress: false }));
+
+		expect(banner(), '通常の未完了ユーザーに再開バナーを出している').toBeNull();
+	});
+
+	it('閉じた人には出さない', () => {
+		render(AdminHome, adminHomeProps({ ...base, dismissed: true, wizardInProgress: true }));
+
+		expect(banner()).toBeNull();
 	});
 });
