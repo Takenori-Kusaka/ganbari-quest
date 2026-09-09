@@ -61,6 +61,19 @@ const config = {
 				'object-src': ['none'],
 				'base-uri': ['self'],
 				'frame-ancestors': ['none'],
+				// #4866 系 QM 監査 (security) / PO 差し戻し 2026-09-09: LP 側 (site/*.html の
+				// `<meta http-equiv>`) には `form-action 'self'` があるのに、**アプリ側だけ欠けていた**。
+				// 無いと、注入された `<form action="https://attacker/">` の submit を CSP が止められない
+				// (`default-src` は form-action に fallback しない — CSP3 で明示された非 fallback 系)。
+				//
+				// `billing.stripe.com` を明示的に許すのは、**解約導線が form 送信 → 303 で
+				// Stripe カスタマーポータルへ出る**ため (`admin/subscription/cancel/+page.server.ts:168`
+				// と `cancel/graduation/+page.server.ts:130` の `redirect(303, portalResult.url)`。
+				// URL は `stripe.billingPortal.sessions.create` が返す `https://billing.stripe.com/...`)。
+				// CSP3 の仕様上リダイレクト先は再検査されないが、**過去に検査するブラウザ実装があり**、
+				// ここは「顧客が解約できなくなる」経路なので仕様の解釈に賭けず明示的に許可する。
+				// checkout 側は `window.location.href` によるナビゲーションで form-action の対象外。
+				'form-action': ['self', 'https://billing.stripe.com'],
 			},
 		},
 	},
