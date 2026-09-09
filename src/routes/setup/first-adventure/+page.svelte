@@ -119,6 +119,23 @@ function goToComplete() {
 		</div>
 	{/if}
 
+	<!-- #4868 adversarial: 直前の step (チャレンジ) の結果を出す。旧実装は
+	     `?challengesAdded=N` を付けて redirect しながら**どこでも読んでいなかった**ので、
+	     親は「追加する」を押しても効いたのか分からなかった (ADR-0062 §1 未達)。
+	     2 周目は必ず 0 件になるため、歩き直した親には無反応に見えていた。
+	     飛ばした人には出さない (`challengesRequested === 0`)。 -->
+	{#if data.challengesRequested > 0}
+		<p
+			class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+			role="status"
+			data-testid="first-adventure-challenges-notice"
+		>
+			{data.challengesAdded > 0
+				? SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(data.challengesAdded)
+				: SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}
+		</p>
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>

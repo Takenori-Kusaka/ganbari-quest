@@ -120,14 +120,16 @@ function formEvent(presetIds: string[]) {
 	} as any;
 }
 
-/** action は redirect を throw するので、それは成功として扱う。 */
-async function runAddChallenges(presetIds: string[]): Promise<void> {
+/** action は redirect を throw するので、それは成功として扱う。遷移先も返す。 */
+async function runAddChallenges(presetIds: string[]): Promise<string> {
 	try {
 		await addChallenges(formEvent(presetIds));
 	} catch (e) {
 		// SvelteKit の redirect は throw される
 		if (!(e && typeof e === 'object' && 'status' in e)) throw e;
+		return String((e as { location?: string }).location ?? '');
 	}
+	return '';
 }
 
 describe('[I1][I2] route を 2 周しても二重に積まない', () => {
@@ -176,5 +178,41 @@ describe('[I4] 後から加わった子にも配る (preset 単位で飛ばさ�
 		).toBeGreaterThan(0);
 		const forFirst = stored.filter((c) => c.childId === 'c-1');
 		expect(forFirst.length, '1 人目に二重に積んでいる').toBe(afterFirst);
+	});
+});
+
+describe('[I5] 直前の step の結果が次の画面に届く', () => {
+	// #4868 adversarial: 旧実装は `?challengesAdded=N` を付けて redirect しながら
+	// **その param を読むコードが `src/` に 1 つも無かった** (書き手 4 / 読み手 0)。
+	// 親は「追加する」を押しても、追加された / すでにある のどちらの feedback も
+	// 受け取らない (ADR-0062 §1 未達)。しかも 2 周目は必ず 0 件になるので、
+	// 歩き直した親には**押しても何も起きない画面**に見えていた。
+	//
+	// `added` だけでは足りない — 0 の意味が「飛ばした」と「すでにある」の 2 つあると、
+	// 次画面が正しい文言を選べない。`requested` を併せて渡す。
+	it('1 周目は added>0 / requested>0 を渡す', async () => {
+		const location = await runAddChallenges(['preset-hinamatsuri']);
+		const params = new URLSearchParams(location.split('?')[1] ?? '');
+		expect(location.startsWith('/setup/first-adventure')).toBe(true);
+		expect(Number(params.get('challengesAdded')), '追加できたのに 0 を渡している').toBeGreaterThan(
+			0,
+		);
+		expect(Number(params.get('challengesRequested'))).toBe(1);
+	});
+
+	it('2 周目は added=0 / requested>0 を渡す (「すでにある」と言えるようにする)', async () => {
+		await runAddChallenges(['preset-hinamatsuri']);
+		const location = await runAddChallenges(['preset-hinamatsuri']);
+		const params = new URLSearchParams(location.split('?')[1] ?? '');
+		expect(Number(params.get('challengesAdded'))).toBe(0);
+		expect(
+			Number(params.get('challengesRequested')),
+			'requested が無いと「飛ばした」と区別できず、次画面が無言になる',
+		).toBe(1);
+	});
+
+	it('何も選ばなかったときは param を付けない (要求していないので 0 件も嘘になる)', async () => {
+		const location = await runAddChallenges([]);
+		expect(location).toBe('/setup/first-adventure');
 	});
 });

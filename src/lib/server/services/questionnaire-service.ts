@@ -1,6 +1,11 @@
 import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
-import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
+import {
+	assignTemplateToChildren,
+	findAssignmentsByTemplate,
+	findTemplatesByChild,
+	findTemplatesByTenant,
+} from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -149,9 +154,30 @@ export async function applyChecklistPresets(
 	const appliedPresetIds = new Set(
 		existing.map((t) => t.sourcePresetId).filter((v): v is string => Boolean(v)),
 	);
+	// 配信先を外された結果、**どの子にも配信されていない**同 preset の family template。
+	// `/admin/checklists` の `syncDistribution` は assignment を削る実在の顧客導線なので、
+	// 「あさのしたく は下の子だけにする」と外した親が歩き直すと、per-child 判定だけでは
+	// **別 id の同名 template を新規作成し、旧 template は assignment 0 本の孤児として
+	// family に残る** (#4868 adversarial 実測: template 1 → 2 / item 5 → 10。
+	// `checkChecklistTemplateLimit` は child 経由で数えるので quota には出ず、
+	// admin の一覧にだけ「あさのしたく」が 2 本並ぶ)。孤児があれば**作り直さず配信し直す**。
+	//
+	// 兄弟の扱いは変えない: 別の子に配信中の template は孤児ではないので、この子には
+	// この子の template を作る (family master を共有させると、片方の子だけ item を
+	// 足す・減らすができなくなる = 親のカスタマイズを奪う)。
+	const familyTemplates = await findTemplatesByTenant(tenantId, true);
 	for (const presetId of presetIds) {
 		try {
 			if (appliedPresetIds.has(presetId)) continue;
+
+			const orphan = await findOrphanTemplateForPreset(familyTemplates, presetId, tenantId);
+			if (orphan) {
+				await assignTemplateToChildren(orphan.id, [childId], tenantId);
+				appliedPresetIds.add(presetId);
+				created++;
+				continue;
+			}
+
 			const preset = await loadPreset(presetId);
 			if (!preset) continue;
 
@@ -185,6 +211,30 @@ export async function applyChecklistPresets(
 		}
 	}
 	return created;
+}
+
+/**
+ * 同じ preset から作られ、**どの子にも配信されていない** family template を探す (#4868)。
+ *
+ * 見つかったら、それを作り直さずこの子へ配信し直す。archive 済は
+ * `findTemplatesByTenant` が返さないので、ここには来ない (= 親が消したものは復活しない)。
+ *
+ * **残余**: 別の子に配信中のまま archive された template は family scope の read API が
+ * 返さないため、この子には見えない (`findTemplatesByTenant` に includeArchived が無い)。
+ * その場合はこの子に新しい template が作られる。repo interface を 3 backend ぶん広げる
+ * 変更になるので、ここでは踏み込まない。
+ */
+async function findOrphanTemplateForPreset(
+	familyTemplates: readonly { id: string; sourcePresetId?: string | null }[],
+	presetId: string,
+	tenantId: string,
+): Promise<{ id: string } | null> {
+	for (const t of familyTemplates) {
+		if ((t.sourcePresetId ?? null) !== presetId) continue;
+		const assignments = await findAssignmentsByTemplate(t.id, tenantId);
+		if (assignments.length === 0) return t;
+	}
+	return null;
 }
 
 /**

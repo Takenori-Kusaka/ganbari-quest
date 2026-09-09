@@ -152,6 +152,22 @@ async function addPresetsAsChallenges(
 	return { added, errors };
 }
 
+/**
+ * 次の step (`/setup/first-adventure`) への遷移先。
+ *
+ * #4868 adversarial: 旧実装は常に `?challengesAdded=N` を付けていたが、
+ * **この param を読むコードは `src/` に 1 つも無かった** (書き手 4 / 読み手 0)。
+ * 親は「追加する」を押しても、追加された / すでにある のどちらの feedback も
+ * 受け取らない (ADR-0062 §1 未達)。しかも 2 周目は必ず 0 件になるので、
+ * 歩き直した親には**押しても何も起きない画面**に見える。
+ *
+ * `requested` を併せて渡す — `added=0` の意味が「飛ばした」と「すでにある」の
+ * 2 つあると、次画面は正しい文言を選べない。飛ばした場合は param 自体を付けない。
+ */
+function nextHref(added: number, requested: number): string {
+	return `/setup/first-adventure?challengesAdded=${added}&challengesRequested=${requested}`;
+}
+
 export const actions: Actions = {
 	addChallenges: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -159,7 +175,8 @@ export const actions: Actions = {
 		const presetIds = formData.getAll('presetIds').map((v) => v.toString());
 
 		if (presetIds.length === 0) {
-			redirect(302, '/setup/first-adventure?challengesAdded=0');
+			// 何も選ばなかった = 要求していないので param を付けない (下の skip と同じ)。
+			redirect(302, '/setup/first-adventure');
 		}
 
 		const { added } = await addPresetsAsChallenges(presetIds, tenantId);
@@ -167,7 +184,7 @@ export const actions: Actions = {
 			presetCount: presetIds.length,
 			added,
 		});
-		redirect(302, `/setup/first-adventure?challengesAdded=${added}`);
+		redirect(302, nextHref(added, presetIds.length));
 	},
 
 	autoAdd: async ({ locals }) => {
@@ -179,12 +196,13 @@ export const actions: Actions = {
 			added,
 			autoAdd: true,
 		});
-		redirect(302, `/setup/first-adventure?challengesAdded=${added}`);
+		redirect(302, nextHref(added, recommended.length));
 	},
 
 	skip: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		trackSetupFunnel('setup_challenges_skipped', tenantId, {});
-		redirect(302, '/setup/first-adventure?challengesAdded=0');
+		// 飛ばした人には結果を出さない (要求していないので「0 件」も嘘になる)。
+		redirect(302, '/setup/first-adventure');
 	},
 };

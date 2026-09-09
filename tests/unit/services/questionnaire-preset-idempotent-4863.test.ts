@@ -17,35 +17,59 @@
 //   [Q2] 2 周目は同じ preset を適用しない
 //   [Q3] 同一呼び出しで同じ preset を 2 回渡しても 1 回しか作らない
 //   [Q4] 別の子には独立に適用される (子供ごとの判定であること)
+//   [Q5] archive 済も見る (親が消したものを黙って復活させない)
+//   [Q6] 配信先を外された孤児 template を作り直さず配信し直す (二重の名前と孤児を作らない)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// 実体に合わせて **family template + assignments** で持つ (#4868 adversarial 指摘)。
+// 旧 mock は template に childId を直接持たせていたため、
+// 「配信先を外す」= assignment だけ消える経路を表現できなかった。
 type FakeTemplate = {
 	id: string;
-	childId: string;
 	sourcePresetId: string | null;
 	isArchived?: boolean;
 };
 
 let templates: FakeTemplate[] = [];
+/** templateId -> 配信先 childId 群 */
+let assignments: Map<string, Set<string>> = new Map();
+
+const childrenOf = (templateId: string) => assignments.get(templateId) ?? new Set<string>();
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	// 既定 (includeInactive=false / includeArchived=false) では archive 済を返さない。
 	// service 側が両方 true で呼んでいることを、この mock が区別して確かめる。
 	findTemplatesByChild: vi.fn(
 		async (childId: string, _tenantId: string, _inactive = false, includeArchived = false) =>
-			templates.filter((t) => t.childId === childId && (includeArchived || t.isArchived !== true)),
+			templates.filter(
+				(t) => childrenOf(t.id).has(childId) && (includeArchived || t.isArchived !== true),
+			),
 	),
+	// family scope。実装と同じく **archive 済は返さない** (repo の実挙動)。
+	findTemplatesByTenant: vi.fn(async (_tenantId: string, _includeInactive = false) =>
+		templates.filter((t) => t.isArchived !== true),
+	),
+	findAssignmentsByTemplate: vi.fn(async (templateId: string) =>
+		[...childrenOf(templateId)].map((childId) => ({ templateId, childId })),
+	),
+	assignTemplateToChildren: vi.fn(async (templateId: string, childIds: readonly string[]) => {
+		const set = assignments.get(templateId) ?? new Set<string>();
+		for (const c of childIds) set.add(c);
+		assignments.set(templateId, set);
+		return childIds.map((childId) => ({ templateId, childId }));
+	}),
 }));
 
 const mockCreateTemplate = vi.fn(
 	async (input: { childId: string; sourcePresetId?: string | null }) => {
 		const t = {
 			id: `t-${templates.length + 1}`,
-			childId: input.childId,
 			sourcePresetId: input.sourcePresetId ?? null,
 		};
 		templates.push(t);
+		// 実装の createTemplate は insertTemplate + assignTemplateToChildren を行う
+		assignments.set(t.id, new Set([input.childId]));
 		return t;
 	},
 );
@@ -65,6 +89,7 @@ const { applyChecklistPresets } = await import(
 
 beforeEach(() => {
 	templates = [];
+	assignments = new Map();
 	vi.clearAllMocks();
 });
 
@@ -111,13 +136,59 @@ describe('[Q5] archive 済も見る (親が消したものを黙って復活さ�
 	it('archive 済の preset は再作成しない', async () => {
 		// #3106: archive は親にとって通常の削除経路。archive を見ずに判定すると、
 		// 歩き直したときに**親が消したはずのチェックリストが黙って復活する**。
-		templates.push({
-			id: 't-archived',
-			childId: 'c-1',
-			sourcePresetId: 'morning-routine',
-			isArchived: true,
-		});
+		templates.push({ id: 't-archived', sourcePresetId: 'morning-routine', isArchived: true });
+		assignments.set('t-archived', new Set(['c-1']));
 		const created = await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
 		expect(created, 'archive 済を見落として再作成している = 親が消したものが戻ってくる').toBe(0);
+	});
+});
+
+describe('[Q6] 配信先を外された孤児 template を作り直さない', () => {
+	it('どの子にも配信されていない同 preset があれば、それを配信し直す', async () => {
+		// `/admin/checklists` の `syncDistribution` は assignment を削る**実在の顧客導線**。
+		// 「あさのしたく は下の子だけにする」と外した親が歩き直すと、per-child 判定だけでは
+		// 別 id の同名 template を新規作成し、旧 template は assignment 0 本の孤児として
+		// family に残る (#4868 adversarial 実測: template 1 → 2 / item 5 → 10)。
+		// `checkChecklistTemplateLimit` は child 経由で数えるので quota には出ず、
+		// admin の一覧にだけ「あさのしたく」が 2 本並ぶ。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		expect(templates).toHaveLength(1);
+		const originalId = templates[0]?.id;
+
+		// 親が配信先から外す (template は残り、assignment だけ消える)
+		assignments.set(originalId as string, new Set());
+
+		const created = await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+
+		expect(created, '配信し直したことを 1 件として数える').toBe(1);
+		expect(
+			templates,
+			'新しい template を作っている = 同名が 2 本並び、片方が孤児になる',
+		).toHaveLength(1);
+		expect([...childrenOf(originalId as string)], '元の template が配信し直されていない').toEqual([
+			'c-1',
+		]);
+	});
+
+	it('別の子に配信中の template は孤児ではない (兄弟の扱いを変えない)', async () => {
+		// family master を共有させると、片方の子だけ item を足す・減らすができなくなる
+		// (親のカスタマイズを奪う)。孤児 = **どの子にも配信されていない** ものだけを拾う。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const created = await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect(created).toBe(1);
+		expect(templates, '兄弟の扱いが変わっている').toHaveLength(2);
+	});
+
+	it('archive 済の孤児は拾わない (親が消したものを復活させない)', async () => {
+		templates.push({ id: 't-archived', sourcePresetId: 'morning-routine', isArchived: true });
+		assignments.set('t-archived', new Set());
+
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+
+		expect(
+			[...childrenOf('t-archived')],
+			'archive 済を配信し直している = 親が消したものが戻ってくる',
+		).toEqual([]);
 	});
 });

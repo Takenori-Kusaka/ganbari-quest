@@ -142,13 +142,31 @@ const { Story } = defineMeta({
 	}}
 />
 
-<!-- 完了済みは描画されない (Anti-engagement ADR-0012: 進行中のみ表示)。 -->
+<!-- 完了済み **かつ 印が降りている** ときだけ描画されない (Anti-engagement ADR-0012)。 -->
 <Story
 	name="CompletedRendersNothing"
 	args={{ onboarding: complete, variant: 'resume' }}
 	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
-		// allCompleted ではバナー自体が render されない。
+		// 歩き終えた人には出さない。
 		await expect(canvas.queryByTestId('setup-resume-banner')).toBeNull();
+	}}
+/>
+
+<!-- #4868 adversarial: 「あとでやる」で降りた人は、step 1〜4 で admin checklist の
+     required が 4/5 まで埋まり、`/switch` から子供の画面を 1 回覗いた時点で 5/5 になる。
+     `allCompleted` だけで消すと、印が立っているのにバナーが二度と出ず、
+     rules / activities-defaults / challenges / **first-adventure** / complete が
+     URL 直打ちだけのものに戻る。**印が立っている間は出す。** -->
+<Story
+	name="CompletedButWizardInProgress"
+	args={{ onboarding: { ...complete, wizardInProgress: true }, variant: 'resume' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getByTestId('setup-resume-banner')).toBeVisible();
+		await expect(canvas.getByTestId('setup-resume-cta')).toHaveAttribute(
+			'href',
+			'/setup/questionnaire',
+		);
 	}}
 />

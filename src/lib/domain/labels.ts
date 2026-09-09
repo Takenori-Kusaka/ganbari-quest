@@ -6999,6 +6999,13 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	 */
 	errorChildNotFound:
 		'記録するお子さまを特定できませんでした。お子さまの登録をやり直すか、画面を読み込み直してください。',
+	// #4868 adversarial: 直前の step (チャレンジ) の結果を**誰も読んでいなかった**。
+	//   `?challengesAdded=N` は書き手 4 箇所 / 読み手 0 件で、親は「追加する」を押しても
+	//   追加された / すでにある のどちらの feedback も受け取らなかった (ADR-0062 §1 の
+	//   「状態起因 = banner + 次アクション」未達)。2 周目は必ず 0 件になるので、
+	//   歩き直した親には**押しても何も起きない画面**に見えていた。
+	challengesAddedNotice: (count: number) => `チャレンジを ${count} 件追加しました。`,
+	challengesAlreadyNotice: 'チャレンジはすでに追加ずみでした。',
 } as const;
 
 /**

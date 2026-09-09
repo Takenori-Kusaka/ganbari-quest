@@ -1,8 +1,26 @@
 <script lang="ts">
 // #2821: セットアップ離脱後の再開導線。OnboardingChecklist (/admin 専用) では届かない
 // 「親が実際に着地する画面 (/switch・子供ホーム)」と「setup 由来で admin に着地したとき」
-// の 2 文脈に最小サイズの再開バナーを出す。完了済み (allCompleted) なら描画しない
+// の 2 文脈に最小サイズの再開バナーを出す。完了済みなら描画しない
 // (Anti-engagement ADR-0012: 進行中のみ表示)。
+//
+// **ただし「完了済み」の判定に印を混ぜる** (#4868 adversarial 実測)。`allCompleted` は
+// admin checklist の required 5 項目 (children / activities / rewards / checklist /
+// child_screen) だけで決まり、ウィザードの印を見ていない。ところがウィザードを歩くと
+// step 1〜4 で 4 項目が埋まり、本 PR が足した「あとでやる」で `/switch` に降りて
+// 子供の画面を 1 回覗くと `markChildScreenVisited` が最後の 1 項目を埋める。
+// → `allCompleted = true` → **バナーが二度と出ない**。印は `/setup/complete` の load で
+// しか降りないので立ったまま残り、rules / activities-defaults / challenges /
+// **first-adventure** (= コアループそのもの) / complete の 5 step が URL 直打ちだけの
+// ものに戻る。**本 PR が足した出口が、本 PR が塞いだ行き止まりを作り直していた。**
+//
+// PO 決裁 (2026-09-09 Q3) は「印はその人の戻り道そのもの」として掃除しない判断なので、
+// 戻り道である以上、**印が立っている間はバナーを出す**のが筋が通る。
+//
+// `dismissed` は据え置き (明示的に「閉じる」を押した人に出し続けない、ADR-0012)。
+// ただし `onboarding_dismissed` は admin の OnboardingChecklist と共有なので、
+// admin 側で閉じた親はウィザードへの戻り道も同時に閉じる — 新しい state を持たない
+// 範囲での既知の残余。
 import { SETUP_RESUME_LABELS } from '$lib/domain/labels';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -49,7 +67,7 @@ const resumeHref = $derived(
 );
 </script>
 
-{#if !onboarding.allCompleted && !onboarding.dismissed}
+{#if (onboarding.wizardInProgress || !onboarding.allCompleted) && !onboarding.dismissed}
 	<div class="setup-resume" data-testid="setup-resume-banner" data-variant={variant} role="status">
 		<span class="emoji" aria-hidden="true">{variant === 'context' ? '🧭' : '🚩'}</span>
 		<div class="body">
