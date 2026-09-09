@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { POINTS_LABELS } from '$lib/domain/labels';
 import { resolveAiUnavailableMessage } from '$lib/server/ai/unavailable-message';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
@@ -15,6 +16,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+	// #4866 系 QM 監査 (security) / PO 差し戻し 2026-09-09:
+	// `ROUTE_RULES` は `/api/v1` を `['owner','parent','child']` に開けているので、
+	// **child セッションからこの経路に到達できた**。呼び出し元は `/admin/points` の
+	// 1 箇所だけ (親画面) で、扱うのは**氏名・住所が写り込む領収書画像**、そして
+	// OCR は**顧客の金 (ベンダーコスト)** を動かす。親限定であることに判断の余地は無い。
+	//
+	// **body を読む前**に倒す — 権限の無い要求のために画像を受け取らない。
+	// role 判定はルート横断の唯一の seam 経由 (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5)。
+	//
+	// per-tenant quota (回数上限) は上限値が製品判断なので PO 決裁票に上げてある。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+
 	const body = await request.json();
 	const { image, mimeType } = body as { image?: string; mimeType?: string };
 

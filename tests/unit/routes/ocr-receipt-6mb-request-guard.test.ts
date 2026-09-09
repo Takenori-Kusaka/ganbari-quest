@@ -36,7 +36,10 @@ function makeEvent(image: string, awsMode: boolean) {
 			method: 'POST',
 			body: JSON.stringify({ image, mimeType: 'image/png' }),
 		}),
-		locals: { context: { tenantId: 't1' } },
+		// #4866 系 / PO 差し戻し 2026-09-09: 領収書 OCR は親限定になった。
+		// この test は **6MB 制限の方**を見ているので、呼び手を保護者として明示する。
+		// role の方は api-parent-only-role-guard.test.ts が固定する。
+		locals: { context: { tenantId: 't1', role: 'owner' } },
 		// biome-ignore lint/suspicious/noExplicitAny: minimal RequestEvent stub for handler unit test
 	} as any;
 }

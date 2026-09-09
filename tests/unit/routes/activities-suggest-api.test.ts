@@ -29,7 +29,13 @@ vi.mock('$lib/server/logger', () => ({
 const { POST } = await import('../../../src/routes/api/v1/activities/suggest/+server');
 
 function makeEvent(
-	opts: { text?: string; licenseStatus?: string; plan?: string; tenantId?: string | null } = {},
+	opts: {
+		text?: string;
+		licenseStatus?: string;
+		plan?: string;
+		tenantId?: string | null;
+		role?: string;
+	} = {},
 ) {
 	const body = JSON.stringify({ text: opts.text ?? '' });
 	const request = new Request('http://localhost/api/v1/activities/suggest', {
@@ -45,6 +51,11 @@ function makeEvent(
 					licenseStatus: opts.licenseStatus ?? 'none',
 					plan: opts.plan,
 					tenantId: opts.tenantId ?? 'tenant-1',
+					// #4866 系 / PO 差し戻し 2026-09-09: AI 提案は親限定になった
+					// (共通 gate `validateSuggestRequest` で role を見る)。この test は
+					// **plan gate の方**を見ているので、呼び手を保護者として明示する。
+					// role の方は api-parent-only-role-guard.test.ts が固定する。
+					role: opts.role ?? 'owner',
 				};
 	return {
 		request,

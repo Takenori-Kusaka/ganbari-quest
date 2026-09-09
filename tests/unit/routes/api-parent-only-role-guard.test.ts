@@ -49,6 +49,25 @@ vi.mock('$lib/server/services/plan-limit-service', () => ({
 vi.mock('$lib/server/services/special-reward-service', () => ({
 	getRewardTemplates: vi.fn(async () => []),
 	saveRewardTemplates: vi.fn(async () => undefined),
+	getChildSpecialRewards: vi.fn(async () => []),
+	grantSpecialReward: vi.fn(async () => ({ id: 'sr-1' })),
+}));
+// #4866 系 2 周目: AI 提案 4 経路 + OCR + 特別なごほうび
+vi.mock('$lib/server/services/activity-suggest-service', () => ({
+	suggestActivity: vi.fn(async () => ({})),
+}));
+vi.mock('$lib/server/services/checklist-suggest-service', () => ({
+	suggestChecklist: vi.fn(async () => ({})),
+}));
+vi.mock('$lib/server/services/reward-suggest-service', () => ({
+	suggestReward: vi.fn(async () => ({})),
+}));
+vi.mock('$lib/server/services/cheer-suggest-service', () => ({
+	suggestCheer: vi.fn(async () => ({})),
+}));
+vi.mock('$lib/server/services/receipt-ocr-service', () => ({
+	ocrReceipt: vi.fn(async () => ({ items: [] })),
+	RECEIPT_MAX_IMAGE_BYTES: 5_000_000,
 }));
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findChildById: vi.fn(async () => ({ id: 'c-1', nickname: 'まさと' })),
@@ -81,6 +100,14 @@ const activities = await import('../../../src/routes/api/v1/activities/+server')
 const activityById = await import('../../../src/routes/api/v1/activities/[id]/+server');
 const activityVisibility = await import(
 	'../../../src/routes/api/v1/activities/[id]/visibility/+server'
+);
+const activitySuggest = await import('../../../src/routes/api/v1/activities/suggest/+server');
+const checklistSuggest = await import('../../../src/routes/api/v1/checklists/suggest/+server');
+const cheerSuggest = await import('../../../src/routes/api/v1/cheer/suggest/+server');
+const rewardSuggest = await import('../../../src/routes/api/v1/special-rewards/suggest/+server');
+const ocrReceiptRoute = await import('../../../src/routes/api/v1/points/ocr-receipt/+server');
+const specialRewardGrant = await import(
+	'../../../src/routes/api/v1/special-rewards/[childId]/+server'
 );
 const decay = await import('../../../src/routes/api/v1/settings/decay/+server');
 const rewardTemplates = await import(
@@ -124,6 +151,61 @@ const PARENT_ONLY_WRITES = [
 			activityVisibility.PATCH({
 				params: { id: 'a-1' },
 				request: req('PATCH', { isVisible: false }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/activities/suggest',
+		why: 'AI に活動を提案させる (LLM を叩く = ベンダーコスト)',
+		call: (role: Role) =>
+			activitySuggest.POST({
+				request: req('POST', { text: 'はみがき' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/checklists/suggest',
+		why: 'AI にチェックリストを提案させる',
+		call: (role: Role) =>
+			checklistSuggest.POST({
+				request: req('POST', { text: 'あさのしたく' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/cheer/suggest',
+		why: 'AI に応援メッセージを提案させる',
+		call: (role: Role) =>
+			cheerSuggest.POST({
+				request: req('POST', { text: 'よくがんばった' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/special-rewards/suggest',
+		why: 'AI にごほうびを提案させる',
+		call: (role: Role) =>
+			rewardSuggest.POST({
+				request: req('POST', { text: 'おやつ' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/points/ocr-receipt',
+		why: '領収書画像 (氏名・住所が写り込む) を OCR にかける',
+		call: (role: Role) =>
+			ocrReceiptRoute.POST({
+				request: req('POST', { image: 'x', mimeType: 'image/png' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/special-rewards/[childId]',
+		why: '特別なごほうびを付与する (子供が**自分自身に**付与できた)',
+		call: (role: Role) =>
+			specialRewardGrant.POST({
+				params: { childId: 'c-1' },
+				request: req('POST', { rewardId: 'r-1' }),
 				locals: ctx(role),
 			} as never) as Promise<Response>,
 	},
