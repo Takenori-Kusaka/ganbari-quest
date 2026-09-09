@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { asActivityId } from '$lib/domain/ids';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { notFound, validationError } from '$lib/server/errors';
 import {
 	getActivityById,
@@ -30,6 +31,19 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+	// #4867 系 QM 監査 (S2) / PO 決裁 2026-09-09: **親だけが触ってよい経路**。
+	//
+	// `/api/v1/**` は `authorization.ts` の ROUTE_RULES が `['owner','parent','child']` に
+	// 開けている (既存 test が固定している仕様)。つまり **child セッションはここに到達できる**
+	// ので、「ここは親だけ」は各 route が言う以外にない。無いと子供が親の設定を書き換えられ、
+	// **親が決め、子が記録する**という製品の中核が崩れる (ADR-0012 の前提)。
+	//
+	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
+	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const id = asActivityId(params.id);
 	if (!id) return validationError('IDが不正です');
@@ -52,6 +66,19 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+	// #4867 系 QM 監査 (S2) / PO 決裁 2026-09-09: **親だけが触ってよい経路**。
+	//
+	// `/api/v1/**` は `authorization.ts` の ROUTE_RULES が `['owner','parent','child']` に
+	// 開けている (既存 test が固定している仕様)。つまり **child セッションはここに到達できる**
+	// ので、「ここは親だけ」は各 route が言う以外にない。無いと子供が親の設定を書き換えられ、
+	// **親が決め、子が記録する**という製品の中核が崩れる (ADR-0012 の前提)。
+	//
+	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
+	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const id = asActivityId(params.id);
 	if (!id) return validationError('IDが不正です');
