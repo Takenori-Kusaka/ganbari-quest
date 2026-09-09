@@ -196,8 +196,9 @@ jobs:
           # `updates:` entry を必要としない**。しかも security 経路は `target-branch` を
           # 無視して **default branch (main) に直行する** (`ci.yml` の `main-pr-base-guard`
           # が仕様として明記)。つまり CVE が出れば bump PR は来る。実績は
-          # `app/dependabot` の PR 全 163 件で **develop 60 / main 103**
-          # (`target-branch: develop` を設定している npm ecosystem でも main 直行が起きる)。
+          # **`target-branch: develop` を入れた 2026-06-17 以降**の Dependabot PR 70 件で
+          # develop 60 / main 10、うち main 側の 6 件が security 経路 (#3159 / #3160 / #3161 /
+          # #4478 / #4479 / #4532)。数え方の根拠は `.github/dependabot.yml` のコメント。
           #
           # **その PR をレビューする人へ**: 全 check が緑でも、この pin list を install する
           # job は CI に 1 つも無い。最低限、次の 2 つを手で見ること —
@@ -304,24 +305,25 @@ jobs:
                 + "対象ファイルの増減のどれが原因かを確認してください。"
                 + "**意図した縮みだったときの復旧手順**: develop は直接 push を拒否するので、"
                 + "手元で再生成して PR を出し、QM/lab に承認してもらう (縮んだ理由を PR body に書く)。"
-                + "**再生成の前に、この job が用意している 2 つの前提を手元でも踏むこと** "
-                + "(#4866 adversarial 実測。踏まないと、この検査がまさに弾くはずの低忠実度 graph を "
-                + "人手 PR という検査の通らない経路で develop に入れることになる): "
-                + "(1) この job と同じ pin で入れる: "
-                + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt` "
-                + "(python は 3.12)。**pin 30 件のうち 28 件は linux x86_64 の wheel なので、"
-                + "Windows / macOS では 1 件も通らない**。その場合は linux の container の中で "
-                + "**install と再生成を 1 回の起動でやる** (`--rm` なので install だけして抜けると "
-                + "container ごと消える): "
+                + "**順番どおりに踏むこと** (#4866 adversarial 実測。順番を違えると、この検査が"
+                + "まさに弾くはずの低忠実度 graph を、人手 PR という検査の通らない経路で"
+                + " develop に入れることになる): "
+                + "(1) `npm ci && npx svelte-kit sync` を**先に**実行する。"
+                + "`.svelte-kit/tsconfig.json` が無いと `$lib` alias が解けず、擬似 node が"
+                + "203 件出て edge が -22.5% になる (この job の $lib assert が見ているのがそれ)。"
+                + "(2) この job と同じ pin で install し、そのまま再生成する: "
+                + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt`"
+                + " のあと `graphify update .` (python は 3.12)。"
+                + "**pin 30 件のうち 28 件は linux x86_64 の wheel なので、Windows / macOS では"
+                + " 1 件も通らない**。その場合は linux の container の中で"
+                + " **install と再生成を 1 回の起動で**やる (`--rm` なので install だけして抜けると"
+                + " container ごと消える): "
                 + "`MSYS_NO_PATHCONV=1 docker run --rm --platform=linux/amd64 -v \"$PWD\":/w -w /w "
                 + "python:3.12-slim sh -c \"pip install --require-hashes --only-binary=:all: "
                 + "-r .github/graphify/requirements.txt && graphify update .\"`。"
-                + "(`MSYS_NO_PATHCONV=1` は Git Bash 用。無いと MSYS が `-v \"$PWD\":/w` を "
-                + "`E:\…;W:\` に、`-w /w` を `W:/` に書き換えて別コマンドになる)。"
-                + "(2) `npm ci && npx svelte-kit sync` — `.svelte-kit/tsconfig.json` が無いと "
-                + "`$lib` alias が解けず擬似 node が 203 件出て edge が -22.5% になる "
-                + "(この job の $lib assert が見ているのがそれ)。"
-                + "そのうえで `graphify update .` を実行する。"
+                + "(`MSYS_NO_PATHCONV=1` は Git Bash 用。無いと MSYS が `-v \"$PWD\":/w` と "
+                + "`-w /w` を Windows パスに書き換えて別コマンドになる。**docker daemon での"
+                + " 実走は未検証**なので、通らなければ WSL / linux 機で (1)(2) を踏むこと。)"
                 + "この step の FLOOR を下げて通すのではなく、人が一度見る。");
               process.exit(1);
             }
