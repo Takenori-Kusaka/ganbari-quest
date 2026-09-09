@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -190,7 +191,7 @@ $effect(() => {
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
 		<a
-			href="/setup/packs"
+			href={resolve('/setup/packs')}
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; {SETUP_REWARDS_LABELS.backButton}

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { page } from '$app/stores';
 import { SETUP_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -94,7 +95,7 @@ const showLeaveWizard = $derived(
 		{#if showLeaveWizard}
 			<p class="text-center mt-4">
 				<a
-					href="/switch"
+					href={resolve('/switch')}
 					class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
 					data-testid="setup-leave-wizard"
 				>{SETUP_LABELS.leaveWizard}</a>

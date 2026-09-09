@@ -1044,7 +1044,12 @@ export async function buildPerChildTargets(
 export const SETUP_PRESET_SOURCE_PREFIX = 'setup-preset:';
 
 /**
- * すでにこのテナントへ配信済みの、セットアップ preset の id 集合を返す (#4863 / PO 決裁 2026-09-09)。
+ * すでに配信済みの「preset → 受け取り済みの childId 集合」を返す (#4863 / PO 決裁 2026-09-09)。
+ *
+ * **子供ごとに持つ理由** (#4868 adversarial 実測): preset id だけを鍵にすると、
+ * ウィザードの「戻る」で `/setup/children` へ戻って**子供を追加してから前進し直した**ときに、
+ * 後から加わった子だけが setup チャレンジを 1 件も受け取らない。しかも skip は静かに
+ * `continue` するので、親には `challengesAdded=0` としか見えない。
  *
  * なぜ要るか: `createChildChallengesBulk` は `insertBulk` するだけで重複を見ない。
  * ウィザードは中断・再開できる (印が立っている人の「続きをする」は `/setup/*` に戻る) ので、
@@ -1053,15 +1058,19 @@ export const SETUP_PRESET_SOURCE_PREFIX = 'setup-preset:';
  * rules は `alreadyImported` 判定、activities-defaults は `setSetting` の upsert。
  * **challenges だけが例外**なので、ここだけ「済んでいれば飛ばす」を持つ。
  */
-export async function findAppliedSetupPresetIds(tenantId: string): Promise<Set<string>> {
+export async function findAppliedSetupPresetChildIds(
+	tenantId: string,
+): Promise<Map<string, Set<string>>> {
 	const repos = getRepos();
 	const all = await repos.childChallenge.findAllByTenant(tenantId);
-	const applied = new Set<string>();
+	const applied = new Map<string, Set<string>>();
 	for (const c of all) {
 		const src = c.sourceTemplateId;
-		if (src?.startsWith(SETUP_PRESET_SOURCE_PREFIX)) {
-			applied.add(src.slice(SETUP_PRESET_SOURCE_PREFIX.length));
-		}
+		if (!src?.startsWith(SETUP_PRESET_SOURCE_PREFIX)) continue;
+		const presetId = src.slice(SETUP_PRESET_SOURCE_PREFIX.length);
+		const set = applied.get(presetId) ?? new Set<string>();
+		set.add(String(c.childId));
+		applied.set(presetId, set);
 	}
 	return applied;
 }

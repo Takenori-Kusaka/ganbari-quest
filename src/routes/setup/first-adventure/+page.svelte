@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
 import {
@@ -193,7 +194,7 @@ function goToComplete() {
 		<div class="text-center mt-3">
 			<!-- #4863: 戻る導線が無かった step。戻り先は step 連鎖の 1 つ前 = challenges。 -->
 			<a
-				href="/setup/challenges"
+				href={resolve('/setup/challenges')}
 				class="block py-2 text-center text-xs font-bold text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]"
 				data-testid="setup-back-link"
 			>

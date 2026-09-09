@@ -58,7 +58,14 @@ const resumeHref = $derived(
 					? SETUP_RESUME_LABELS.contextTitle
 					: SETUP_RESUME_LABELS.resumeTitle}
 			</p>
-			{#if variant === 'context'}
+			{#if onboarding.wizardInProgress}
+				<!-- #4863: 行き先がウィザードなら本文もウィザードの話にする。admin checklist を
+				     母数にした「あと N ステップ」と「次は〈checklist 項目名〉」は、9 step の
+				     ウィザードへ戻す人には無関係な数字・無関係な項目名になる
+				     (CTA だけ差し替えると、親は「次は『活動を追加する』」と読んで押し、
+				     アンケート画面に着く)。 -->
+				<p class="desc">{SETUP_RESUME_LABELS.wizardResumeDesc}</p>
+			{:else if variant === 'context'}
 				<p class="desc">
 					{SETUP_RESUME_LABELS.contextDesc}{#if next}{SETUP_RESUME_LABELS.nextStepSuffix(
 							next.label,

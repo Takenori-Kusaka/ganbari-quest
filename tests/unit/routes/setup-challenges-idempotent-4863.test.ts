@@ -24,7 +24,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-type FakeChallenge = { sourceTemplateId: string | null };
+type FakeChallenge = { sourceTemplateId: string | null; childId?: string };
 
 let stored: FakeChallenge[] = [];
 
@@ -47,7 +47,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 // --- route の action を実際に 2 周させるための周辺 mock ---
-const fakeChildren = [{ id: 'c-1', nickname: 'まさと', age: 7, uiMode: 'elementary' }];
+const fakeChildren: { id: string; nickname: string; age: number; uiMode: string }[] = [
+	{ id: 'c-1', nickname: 'まさと', age: 7, uiMode: 'elementary' },
+];
 vi.mock('$lib/server/auth/factory', () => ({ requireTenantId: () => 't-1' }));
 vi.mock('$lib/server/services/child-service', () => ({
 	getAllChildren: vi.fn(async () => fakeChildren),
@@ -55,7 +57,7 @@ vi.mock('$lib/server/services/child-service', () => ({
 vi.mock('$lib/server/db/child-repo', () => ({ findAllChildren: vi.fn(async () => fakeChildren) }));
 vi.mock('$lib/server/services/setup-funnel-service', () => ({ trackSetupFunnel: vi.fn() }));
 
-const { findAppliedSetupPresetIds, SETUP_PRESET_SOURCE_PREFIX } = await import(
+const { findAppliedSetupPresetChildIds, SETUP_PRESET_SOURCE_PREFIX } = await import(
 	'../../../src/lib/server/services/child-challenge-service'
 );
 
@@ -66,19 +68,19 @@ beforeEach(() => {
 
 describe('[I1][I2][I3] setup preset の配信済み判定', () => {
 	it('[I1] 何も配信していなければ空', async () => {
-		expect((await findAppliedSetupPresetIds('t-1')).size).toBe(0);
+		expect((await findAppliedSetupPresetChildIds('t-1')).size).toBe(0);
 	});
 
 	it('[I2] 配信済みの preset id を返す (2 周目はこれで飛ばす)', async () => {
 		stored = [
-			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}family-walk` },
-			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}family-walk` },
-			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}morning-routine` },
+			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}family-walk`, childId: 'c-1' },
+			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}family-walk`, childId: 'c-2' },
+			{ sourceTemplateId: `${SETUP_PRESET_SOURCE_PREFIX}morning-routine`, childId: 'c-1' },
 		];
-		const applied = await findAppliedSetupPresetIds('t-1');
-		expect(applied.has('family-walk')).toBe(true);
-		expect(applied.has('morning-routine')).toBe(true);
-		expect(applied.size, '子供の人数だけ instance があっても preset は 1 件と数える').toBe(2);
+		const applied = await findAppliedSetupPresetChildIds('t-1');
+		expect(applied.get('family-walk')).toEqual(new Set(['c-1', 'c-2']));
+		expect(applied.get('morning-routine')).toEqual(new Set(['c-1']));
+		expect(applied.size, 'preset は 1 件と数え、受け取った子を集合で持つ').toBe(2);
 	});
 
 	it('[I3] setup 由来でない challenge を「配信済み」と誤認しない', async () => {
@@ -87,7 +89,7 @@ describe('[I1][I2][I3] setup preset の配信済み判定', () => {
 			{ sourceTemplateId: null },
 			{ sourceTemplateId: 'marketplace:family-walk' },
 		];
-		const applied = await findAppliedSetupPresetIds('t-1');
+		const applied = await findAppliedSetupPresetChildIds('t-1');
 		expect(
 			applied.size,
 			'接頭辞を見ずに拾うと、手動で作った challenge のせいで preset が配信されなくなる',
@@ -103,8 +105,10 @@ describe('[I1][I2][I3] setup preset の配信済み判定', () => {
 // helper だけを test しても、route が `alreadyApplied` を見なくなれば二重配信に戻る
 // (このセッションで繰り返し踏んだ「契約は正しいが呼ぶ側が呼ばない」型)。
 const challengesRoute = await import('../../../src/routes/setup/challenges/+page.server');
-const addChallenges = challengesRoute.actions.addChallenges;
-if (!addChallenges) throw new Error('addChallenges action が見つからない (action 名が変わった?)');
+const addChallengesAction = challengesRoute.actions.addChallenges;
+if (!addChallengesAction)
+	throw new Error('addChallenges action が見つからない (action 名が変わった?)');
+const addChallenges = addChallengesAction;
 
 function formEvent(presetIds: string[]) {
 	const fd = new FormData();
@@ -147,5 +151,30 @@ describe('[I1][I2] route を 2 周しても二重に積まない', () => {
 		const afterFirst = stored.length;
 		await runAddChallenges(['preset-hinamatsuri', 'preset-kodomonohi']);
 		expect(stored.length, '新しい preset まで飛ばしている').toBeGreaterThan(afterFirst);
+	});
+});
+
+describe('[I4] 後から加わった子にも配る (preset 単位で飛ばさない)', () => {
+	it('1 人目に配信済みでも、2 人目には配信される', async () => {
+		// #4868 adversarial 実測: preset id だけを鍵にすると、「戻る」で子供を追加してから
+		// 前進し直した親の**後から加わった子だけが 1 件も受け取らない**。しかも skip は
+		// 静かに continue するので、親には challengesAdded=0 としか見えない。
+		fakeChildren.length = 0;
+		fakeChildren.push({ id: 'c-1', nickname: 'まさと', age: 7, uiMode: 'elementary' });
+		await runAddChallenges(['preset-hinamatsuri']);
+		const afterFirst = stored.length;
+		expect(afterFirst, '1 人目に配信されていない').toBeGreaterThan(0);
+
+		// ここで子供を 1 人足して、同じ preset をもう一度通す
+		fakeChildren.push({ id: 'c-2', nickname: 'はな', age: 5, uiMode: 'preschool' });
+		await runAddChallenges(['preset-hinamatsuri']);
+
+		const forSecond = stored.filter((c) => c.childId === 'c-2');
+		expect(
+			forSecond.length,
+			'後から加わった子が setup チャレンジを 1 件も受け取っていない',
+		).toBeGreaterThan(0);
+		const forFirst = stored.filter((c) => c.childId === 'c-1');
+		expect(forFirst.length, '1 人目に二重に積んでいる').toBe(afterFirst);
 	});
 });

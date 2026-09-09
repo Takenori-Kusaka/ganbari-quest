@@ -21,7 +21,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	buildPerChildTargets,
 	createChildChallengesBulk,
-	findAppliedSetupPresetIds,
+	findAppliedSetupPresetChildIds,
 	SETUP_PRESET_SOURCE_PREFIX,
 } from '$lib/server/services/child-challenge-service';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -87,7 +87,7 @@ async function addPresetsAsChallenges(
 	// **配信済みの preset は飛ばす**。9 step のうち二重に積むのはここだけ (packs / rewards は
 	// sourcePresetId の重複検知、rules は alreadyImported 判定、activities-defaults は
 	// setSetting の upsert で、いずれも 2 周しても増えない)。
-	const alreadyApplied = await findAppliedSetupPresetIds(tenantId);
+	const alreadyApplied = await findAppliedSetupPresetChildIds(tenantId);
 
 	for (const id of presetIds) {
 		const preset = getPresetChallengeById(id);
@@ -95,7 +95,11 @@ async function addPresetsAsChallenges(
 			errors.push(SETUP_CHALLENGES_LABELS.errorPresetNotFound(id));
 			continue;
 		}
-		if (alreadyApplied.has(preset.id)) continue;
+		// **子供ごとに判定する**。preset 単位で飛ばすと、「戻る」で子供を追加してから
+		// 前進し直した親の子だけが 1 件も受け取らない (#4868 adversarial 実測)。
+		const alreadyFor = alreadyApplied.get(preset.id) ?? new Set<string>();
+		const pendingChildIds = childIds.filter((id) => !alreadyFor.has(String(id)));
+		if (pendingChildIds.length === 0) continue;
 		try {
 			const { startDate, endDate } = resolvePresetChallengeDates(preset, now);
 			const targetConfig = JSON.stringify({
@@ -112,7 +116,7 @@ async function addPresetsAsChallenges(
 			const perChildTargets = await buildPerChildTargets(
 				preset.baseTarget,
 				undefined,
-				childIds,
+				pendingChildIds,
 				tenantId,
 				children,
 			);
@@ -131,7 +135,7 @@ async function addPresetsAsChallenges(
 					sourceTemplateId,
 					perChildTargets,
 				},
-				childIds,
+				pendingChildIds,
 				tenantId,
 			);
 			// 1 preset = 1 challenge (count for funnel analytics). 内部 instance 数は children 数と一致。

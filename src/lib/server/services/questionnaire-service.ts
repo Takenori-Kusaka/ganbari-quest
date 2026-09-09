@@ -1,5 +1,6 @@
 import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
+import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -123,7 +124,16 @@ export function getActivityDisplayCount(level: 'few' | 'normal' | 'many'): numbe
 }
 
 /**
- * チェックリストプリセットを子供に自動適用
+ * チェックリストプリセットを子供に自動適用する。
+ *
+ * **同じ preset を 2 回適用しない** (#4863 / PO 決裁 2026-09-09)。中断した親の
+ * 「続きをする」がウィザードへ戻るようになったので、この step (`/setup/questionnaire`) は
+ * **現実に 2 周する**。`createTemplate` → `insertTemplate` は `sourcePresetId` の重複を
+ * 一切見ないため、2 周すると子供のチェックリスト画面に「あさのしたく」「よるのじゅんび」が
+ * **2 つずつ並ぶ** (実測: template 3 → 6 / item 5 → 10)。
+ *
+ * 判定は marketplace 側の取込と同じ `sourcePresetId` を鍵にする
+ * (`checklist-template-import-service` が同じ鍵で重複検出しているのと揃える)。
  */
 export async function applyChecklistPresets(
 	childId: ChildId,
@@ -131,8 +141,14 @@ export async function applyChecklistPresets(
 	tenantId: string,
 ): Promise<number> {
 	let created = 0;
+	// この子に既に入っている preset (2 周目はここで弾く)
+	const existing = await findTemplatesByChild(childId, tenantId);
+	const appliedPresetIds = new Set(
+		existing.map((t) => t.sourcePresetId).filter((v): v is string => Boolean(v)),
+	);
 	for (const presetId of presetIds) {
 		try {
+			if (appliedPresetIds.has(presetId)) continue;
 			const preset = await loadPreset(presetId);
 			if (!preset) continue;
 
@@ -159,6 +175,7 @@ export async function applyChecklistPresets(
 					tenantId,
 				);
 			}
+			appliedPresetIds.add(presetId);
 			created++;
 		} catch (e) {
 			logger.error('Failed to apply checklist preset', { context: { presetId, error: String(e) } });

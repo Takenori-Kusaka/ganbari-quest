@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import { SETUP_LABELS, SETUP_QUESTIONNAIRE_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -209,7 +210,7 @@ function togglePreset(value: string) {
 		<!-- #4863: 戻る導線が無かった step。中断者をウィザードへ戻すようにした以上、
 		     入口 (step 2) で行き止まりにしない。戻り先は step 連鎖の 1 つ前 = children。 -->
 		<a
-			href="/setup/children"
+			href={resolve('/setup/children')}
 			class="py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 			data-testid="setup-back-link"
 		>

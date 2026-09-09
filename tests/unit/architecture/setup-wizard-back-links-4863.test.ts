@@ -20,6 +20,15 @@
 // 唯一の真実**として、各 page の戻り先がその 1 つ前と一致するかを見る。step を足したら、
 // 配列を直した時点で本 test が「どの page の戻り先がずれているか」を名指しする。
 //
+// **この test が見ているのは markup に書かれた行き先だけで、描画は見ていない**
+// (adversarial 実測: 戻るリンクを `{#if false}` で包んでも、HTML コメントで囲って描画を
+// 消しても 12/12 緑のまま通る)。`docs/rationale/18-…` が「source を正規表現で読む」案を
+// 棄却しているのと同じ弱さを、この test も持っている — **行き先のずれ**という
+// 元の欠陥 (packs が step 2 を飛ばしていた) には効くが、**描画の有無**には効かない。
+// 描画は `tests/e2e/demo-lambda/setup-wizard-navigation.spec.ts` が実ブラウザで見る
+// (demo 環境では `/setup/*` が 200 で返る — setup gate は `authMode === 'local'` の内側に
+// しか無いため)。
+//
 // 固定する不変条件:
 //   [B1] layout の step 配列が、実装の redirect 連鎖と同じ順序である
 //   [B2] 2 番目以降の step は戻る導線を持ち、その href が 1 つ前の step と一致する
@@ -53,7 +62,9 @@ function backHrefOf(stepPath: string): string | null {
 	const anchors = [...src.matchAll(/<a\b[\s\S]*?<\/a>/g)].map((m) => m[0]);
 	for (const a of anchors) {
 		if (!a.includes('&larr;')) continue;
-		const href = a.match(/href="(\/setup\/[a-z-]+)"/);
+		// eslint (`svelte/no-navigation-without-resolve`) が `resolve()` を要求するので、
+		// `href={resolve('/setup/xxx')}` の形を読む
+		const href = a.match(/href=\{resolve\('(\/setup\/[a-z-]+)'\)\}/);
 		if (href) return href[1] as string;
 	}
 	return null;
