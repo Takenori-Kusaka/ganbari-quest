@@ -35,9 +35,9 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import {
-	makeChildChapterBuilder,
 	getChildTutorialProgressScope,
 	getLegacyChildTutorialProgressScope,
+	makeChildChapterBuilder,
 } from '$lib/ui/tutorial/tutorial-chapters-child';
 import {
 	migrateLegacyProgress,
