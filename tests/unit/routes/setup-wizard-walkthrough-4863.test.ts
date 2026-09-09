@@ -1,5 +1,9 @@
 // tests/unit/routes/setup-wizard-walkthrough-4863.test.ts
 //
+// cspell:ignore mktemp
+// ↑ 下の再現手順で使う POSIX コマンド名。既存の開発 DB を消さずに空 DB を作るために
+//   必要なので、綴りを変えたり global words に足したりしない (file scope に閉じる)。
+//
 // ウィザードの**印の立ち下がり** (立つ / 残る / 降りる) を、実際の route を通して固定する。
 //
 // **この test が通す route は 2 本だけ** (`/setup/children?/addChild` と `/setup/complete` の
@@ -19,13 +23,17 @@
 // つまり 9 step の通し歩行を確かめているのは**実機計測だけ**。PR body §検証に結果を載せて
 // あるが、それは repo の外なので**やり直せる手順をここに書く** (1 年後に読む人が到達できる形):
 //
-//   1. `rm -f local.db && npm run dev` (AUTH_MODE=local、子供 0 人の空 DB)
+//   1. **手元の開発 DB には触れず**、使い捨ての空 DB で起動する (既定の DB は
+//      `./data/ganbari-quest.db` = `src/lib/server/db/client.ts` の `DATABASE_URL` 既定値。
+//      **これを消す手順にしない** — その開発機のローカル開発データが消える):
+//        DATABASE_URL=$(mktemp -d)/setup.db AUTH_MODE=local npx vite dev --port 5399
 //   2. `/` を開く → `/setup/children` に着く
 //   3. 名前と年齢を入れて「追加」→ **「次へ」が描画されること** (旧実装ではここが 0 個)
 //   4. 「次へ」から complete まで進む。実測した順は
 //      children → questionnaire → packs → rewards → rules → activities-defaults →
 //      challenges → first-adventure → complete
-//   5. 完了後に `/setup/children` `/setup/packs` 等を直接開く → すべて `/switch` へ 302
+//   5. 完了後に `/setup/children` `/setup/packs` 等を直接開く → gate は `/` へ 302 し、
+//      `/` がさらに送るので最終的に `/switch` に着く (**Location は `/switch` ではなく `/`**)
 //   6. `select * from settings where key='setup_wizard_in_progress'` → 1 行 / 値は false
 //
 // なぜ真理値表 test (`tests/unit/services/setup-wizard-reachability-4860.test.ts`) だけでは
