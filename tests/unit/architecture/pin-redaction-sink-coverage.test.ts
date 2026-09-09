@@ -159,6 +159,31 @@ function stripRedacted(src: string): string {
  * `` logger.error(`… ${record.s3Key}`) `` のような template literal に混ぜる変異を通してみせた
  * (どちらも 13 passed で生存)。キー名で拾うのをやめ、**呼び出しの引数に何が入っているか**を見る。
  */
+/**
+ * 開き括弧の直後 `from` から、対応する閉じ括弧の**次**の位置まで進む。
+ *
+ * **文字列 / template literal の中の括弧は数えない** (#4867 adversarial round 8 実測)。
+ * ログ文言の閉じ括弧を 1 つ打ち忘れただけで引数が EOF まで伸び、その巨大な blob に
+ * `pin-sink-ok` が 1 つでもあると **file の残り全部の sink が skip** される。
+ */
+function scanToCallEnd(src: string, from: number): number {
+	let depth = 1;
+	let quote: string | null = null;
+	let j = from;
+	while (j < src.length && depth > 0) {
+		const ch = src[j] as string;
+		if (quote) {
+			if (ch === '\\') j++;
+			else if (ch === quote) quote = null;
+		} else if (ch === "'" || ch === '"' || ch === '`') {
+			quote = ch;
+		} else if (ch === '(') depth++;
+		else if (ch === ')') depth--;
+		j++;
+	}
+	return j;
+}
+
 function sinkCallArguments(code: string): { args: string; before: string }[] {
 	const CALL = /\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/;
 	/** opt-out marker はふつう**直前の行**に書くので、呼び出しの手前も一緒に見る。 */
@@ -168,15 +193,8 @@ function sinkCallArguments(code: string): { args: string; before: string }[] {
 	for (;;) {
 		const m = CALL.exec(rest);
 		if (!m) return out;
-		let depth = 1;
-		let j = m.index + m[0].length;
-		const start = j;
-		while (j < rest.length && depth > 0) {
-			const ch = rest[j];
-			if (ch === '(') depth++;
-			else if (ch === ')') depth--;
-			j++;
-		}
+		const start = m.index + m[0].length;
+		const j = scanToCallEnd(rest, start);
 		out.push({
 			args: rest.slice(start, Math.max(start, j - 1)),
 			before: rest.slice(Math.max(0, m.index - LOOKBEHIND_CHARS), m.index),

@@ -128,6 +128,31 @@ describe('[C2] build 失敗経路', () => {
 		}
 	});
 
+	it('親の画面に出る合成文字列が二重にならない', async () => {
+		// #4867 adversarial round 8 実測: `cloudStatusFailed` は
+		// `作成に失敗しました（${reason}）` なので、`reason` を文として完結させると
+		// **「作成に失敗しました」が 1 行に 2 回**出る (39 字)。実際に画面へ出る合成を pin する。
+		await drainPendingExports(5);
+
+		const shown = SETTINGS_LABELS.cloudStatusFailed(savedFailureReasons[0] ?? '');
+		expect(shown.match(/作成に失敗しました/g)?.length ?? 0, `同じ句が 2 回出ている: ${shown}`).toBe(
+			1,
+		);
+	});
+
+	it('親が自分で直せる失敗は名指しする (NUC は親が運用者)', async () => {
+		// #4867 adversarial round 8: 容量不足 / 権限を generic に潰すと、空きを作れば直る人が
+		// 「もう一度お試しください」を何度も押すだけになる。
+		const enospc = Object.assign(new Error('ENOSPC: no space left on device'), {
+			code: 'ENOSPC',
+		});
+		state.saveFileError = enospc;
+
+		await drainPendingExports(5);
+
+		expect(savedFailureReasons[0]).toBe(SETTINGS_LABELS.cloudBuildFailedNoSpace);
+	});
+
 	it('親の画面にはサーバの例外を出さない (固定文言)', async () => {
 		// #4867 adversarial round 7: `failureReason` は DB の `failure_reason` に入り、
 		// `CloudExportStoredList` 経由で**保護者の画面**に出る。PIN を伏せてもなお
@@ -138,6 +163,7 @@ describe('[C2] build 失敗経路', () => {
 
 		const reason = savedFailureReasons[0] ?? '';
 		expect(reason).toBe(SETTINGS_LABELS.cloudBuildFailedDefault);
+		expect(reason, 'サーバの例外 message が親の画面に出ている').not.toContain('EACCES');
 		expect(reason, 'errno が親の画面に出ている').not.toContain('EACCES');
 		expect(reason, 'サーバの絶対パスが親の画面に出ている').not.toContain('/srv/');
 	});

@@ -483,6 +483,25 @@ export async function previewPendingExports(
 	return { processed: pending.length, ready: 0, failed: 0 };
 }
 
+/**
+ * build 失敗 → **親の画面に出す文言**。
+ *
+ * サーバの例外 message はそのまま出さない (ADR-0062 §2)。ただし NUC (自宅サーバ) では
+ * **親が運用者**なので、**自分で直せる失敗は名指しする** (#4867 adversarial round 8)。
+ * generic に潰すと、容量を空ければ直る人が「もう一度お試しください」を何度も押すだけになる。
+ *
+ * 返す文字列は `SETTINGS_LABELS.cloudStatusFailed` の括弧の中に入るので、文として
+ * 完結させない (完結させると「作成に失敗しました（…作成に失敗しました。…）」になる)。
+ */
+function buildFailureUserMessage(err: unknown): string {
+	const code = typeof err === 'object' && err !== null ? (err as { code?: unknown }).code : null;
+	if (code === 'ENOSPC') return SETTINGS_LABELS.cloudBuildFailedNoSpace;
+	if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
+		return SETTINGS_LABELS.cloudBuildFailedPermission;
+	}
+	return SETTINGS_LABELS.cloudBuildFailedDefault;
+}
+
 export async function drainPendingExports(
 	limit = 5,
 	budget: TimeBudget = createTimeBudget(),
@@ -546,7 +565,7 @@ export async function drainPendingExports(
 			const failureReason =
 				err instanceof BackupSizeLimitError
 					? redactStorageKeysInText(err.userMessage)
-					: SETTINGS_LABELS.cloudBuildFailedDefault;
+					: buildFailureUserMessage(err);
 			await repos.cloudExport.updateStatus(id, tenantId, 'failed', { failureReason });
 			failed++;
 			logger.error('[cloud-export] build 失敗 (failed)', {
