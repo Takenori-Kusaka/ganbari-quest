@@ -38,10 +38,26 @@
 // 本版は ① import specifier を読んで **alias を解決してから**照合し、② cleanup は
 // `$effect` の引数の中に限って探し、③ 0 件で通る検査を作らない (件数も assert する)。
 //
-// **閉じていない穴 (既知・記録として残す)**: `setChildActivityPresence(data.activities.length >= 0)`
-// のように**形は正しいが値が常に true** になる嘘は、形状検査では原理的に検出できない
-// (adversarial M13)。ここは review で見る。振る舞い test (home を 0 件 / 40 件で mount して
-// `getChildActivityPresence()` を読む) を将来足せば閉じる。
+// **閉じていない穴 (既知・記録として残す)**。いずれも「**コードが、その形が言っているとおりに
+// 動かない**」という 1 つの class であり、形状検査では原理的に閉じられない:
+//
+//   M13: `setChildActivityPresence(data.activities.length >= 0)` — 形は正しいが値が常に true
+//   N1:  実 `$effect` の中の**到達しない分岐**で return する
+//        (`if (data.activities.length < 0) return () => …(undefined);`)
+//        — W4 は ReturnStatement の**存在**を見るだけで、到達可能性は見ない
+//   N2:  `import * as tutorialStore` → `tutorialStore.setChildActivityPresence(true)`
+//        — `callsTo` は MemberExpression を見ない。alias 解決も ImportSpecifier までで、
+//          ImportNamespaceSpecifier は対象外
+//   N3:  `const writeIt = setChildActivityPresence; writeIt(true);` — 局所変数への再束縛
+//
+// **ここで硬化を止める** (adversarial の推奨)。v2 は M6-M9、v3 は M10-M12、v4 は N1-N3 で
+// 破られており、**形状検査には常に「次の形」がある**。閉じ方は硬化ではなく層を変えること —
+// home を活動 0 件 / 40 件で mount し、unmount を跨いで `getChildActivityPresence()` を
+// 読む**振る舞い test 1 本**で、M10 / M11 / M13 / N1 / N2 / N3 がまとめて閉じる
+// (home component の依存が重く、本 PR では入れていない)。
+//
+// つまり本 file が守るのは「**呼び出しの存在と形**」までで、**渡している式の意味**と
+// **到達可能性**は守らない。ここは review で見る。
 //
 // 実行時の挙動 (mount 順に依存しない / 3 状態の出し分け) は tutorial 側の test が見る。
 //
