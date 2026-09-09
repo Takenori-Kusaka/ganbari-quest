@@ -73,8 +73,30 @@ jobs:
       # `graphify --help` / `graphify update .` の CLI surface を本 PR 作成時に実機確認済みの版。
       # 更新する場合は新版で `graphify update .` の出力 (graph.json / manifest.json /
       # GRAPH_REPORT.md) を手元で確認してから version 文字列だけを差し替える。
-      - name: Install graphify (graphifyy on PyPI, pinned)
-        run: pip install "graphifyy==0.9.32"
+      #
+      # **依存も含めて exact pin する (#4853 adversarial 指摘)**。上の脅威モデルを自分で
+      # 書いておきながら、pin は最上位だけで、runtime 依存 29 件 (`networkx>=3.4` /
+      # `numpy>=1.21` / `rapidfuzz>=3.0` + tree-sitter grammar 26 件、いずれも native wheel)
+      # はすべて範囲指定だった。**範囲指定は「その範囲に将来公開される版」を無条件に信用する**
+      # ので、脅威モデルの経路は開いたままだった。node 側には `npm ci --ignore-scripts` が
+      # あるのに python 側に同等の遮断が無い、という非対称でもあった。
+      #
+      # ここに並ぶ 30 件は、**実際に artifact を生成した run のログ (`Successfully installed`)
+      # から採った解決済みの完全な閉包**であり、手で書いたものではない。`--no-deps` を付けて
+      # 「この 30 件以外は入らない」を pip に強制する — 閉包が欠けていれば直後の
+      # `graphify update .` が import で落ちるので、**取りこぼしは無言では通らない**。
+      #
+      # **閉じていないもの**: hash pin ではないので、「PyPI 上の既存 artifact そのものが
+      # 差し替えられる」経路は残る。閉じたのは「範囲内に新しい悪意ある版が公開される」経路
+      # (PyPI は同一 version の再アップロードを禁じている)。hash pin まで行くなら runner 上で
+      # `pip hash` を生成する必要があり、platform wheel 前提なので手元では作れない。
+      #
+      # version を上げるときは、**上げた run のログの `Successfully installed` 行をそのまま
+      # 写して**この list を作り直す (1 件でも古いと `--no-deps` が import 落ちで教える)。
+      - name: Install graphify (graphifyy on PyPI, pinned with its full dependency closure)
+        run: |
+          set -euo pipefail
+          pip install --no-deps             "graphifyy==0.9.32"             "networkx==3.6.1"             "numpy==2.5.3"             "rapidfuzz==3.14.6"             "tree-sitter==0.25.2"             "tree-sitter-bash==0.25.1"             "tree-sitter-c==0.24.2"             "tree-sitter-c-sharp==0.23.5"             "tree-sitter-cpp==0.23.4"             "tree-sitter-elixir==0.3.5"             "tree-sitter-fortran==0.6.0"             "tree-sitter-go==0.25.0"             "tree-sitter-groovy==0.1.2"             "tree-sitter-java==0.23.5"             "tree-sitter-javascript==0.25.0"             "tree-sitter-json==0.24.8"             "tree-sitter-julia==0.23.1"             "tree-sitter-kotlin==1.1.0"             "tree-sitter-lua==0.5.0"             "tree-sitter-objc==3.0.2"             "tree-sitter-php==0.24.1"             "tree-sitter-powershell==0.26.4"             "tree-sitter-python==0.25.0"             "tree-sitter-ruby==0.23.1"             "tree-sitter-rust==0.24.2"             "tree-sitter-scala==0.26.2"             "tree-sitter-swift==0.7.3"             "tree-sitter-typescript==0.23.2"             "tree-sitter-verilog==1.0.3"             "tree-sitter-zig==1.1.2"
 
       # graphify 0.9.32 は tsconfig.json の `extends: ./.svelte-kit/tsconfig.json` を辿って
       # `$lib` alias を解決するが、生成物が無いと無言で skip し、`$lib/...` を擬似 file node にして
