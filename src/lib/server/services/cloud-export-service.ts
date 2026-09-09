@@ -526,12 +526,19 @@ export async function drainPendingExports(
 			});
 		} catch (err) {
 			// #3376 fail-closed: サイズ上限超過は userMessage、その他は generic なエラーメッセージを残す。
-			const failureReason =
+			// **必ず伏せてから残す** (#4867 adversarial 実測)。この文字列は
+			//   (1) 下の logger.error (2) DB の failure_reason カラム
+			//   (3) CloudExportStoredList 経由で**保護者の画面**
+			// の 3 箇所に流れる。NUC の local FS backend では Node の fs エラーが
+			// 解決済み絶対パス (…/data/exports/<tenantId>/<PIN>/backup.zip) を必ず含むため、
+			// 伏せないと**親の画面に自分の共有 PIN が出る**。
+			const failureReason = redactStorageKeysInText(
 				err instanceof BackupSizeLimitError
 					? err.userMessage
 					: err instanceof Error
 						? err.message
-						: String(err);
+						: String(err),
+			);
 			await repos.cloudExport.updateStatus(id, tenantId, 'failed', { failureReason });
 			failed++;
 			logger.error('[cloud-export] build 失敗 (failed)', {

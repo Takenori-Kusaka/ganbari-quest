@@ -206,7 +206,11 @@ export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix, opts)
 				const summary = `S3 purge partially failed: ${errors.length}/${targets.length} objects remain (${detail})`;
 				if (opts?.failOnPartialError) throw new Error(summary);
 				// silent にしない (ADR-0006): 消えていない実体が残ったことを必ず記録する。
-				logger.error(`[s3-storage] ${summary}`);
+				// **どの家庭のどの成果物が残ったか**を残す (#4767 がこのログを足した目的)。
+				// key の PIN 部分だけを伏せるので、テナントと file 名は読める。
+				logger.error(`[s3-storage] ${summary}`, {
+					context: { prefix: redactStorageKey(prefix) },
+				});
 			}
 			totalDeleted += targets.length - errors.length;
 		}

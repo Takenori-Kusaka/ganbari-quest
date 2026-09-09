@@ -3,6 +3,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import type { ErrorCode } from '$lib/server/errors';
@@ -96,7 +97,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		if (err instanceof CloudExportFetchError) {
 			return apiError(FETCH_FAILURE_TO_ERROR_CODE[err.reason], err.message);
 		}
-		const msg = err instanceof Error ? err.message : String(err);
+		// PIN を query 値として渡した先の例外 message は、PIN をそのまま含みうる
+		// (実測: `pin <PIN> not found` 型 / local FS の絶対パス)。伏せてから出す。
+		const msg = redactStorageKeysInText(err instanceof Error ? err.message : String(err));
 		logger.error('[cloud-import] PIN検索失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
