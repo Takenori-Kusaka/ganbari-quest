@@ -36,6 +36,7 @@
 //        も削除する（`fullTenantDeletion` で実装）
 
 import type { ChildId } from '$lib/domain/ids';
+import { redactStorageKey, redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
@@ -218,8 +219,11 @@ export async function deleteTenantScopedData(
 			try {
 				await r.storage.purgeByPrefix(exp.s3Key);
 			} catch (err) {
+				// s3Key は PIN を含む (`exports/<tenantId>/<pinCode>/…`) ので伏せる。
+				// err 側にも S3 の部分失敗サマリ経由で key が載りうるため、そちらも通す。
 				logger.warn(
-					`[tenant-cleanup] cloudExport S3 実体削除失敗 (DB 行削除は継続) id=${exp.id} s3Key=${exp.s3Key}: ${String(err)}`,
+					`[tenant-cleanup] cloudExport S3 実体削除失敗 (DB 行削除は継続) id=${exp.id} ` +
+						`s3Key=${redactStorageKey(exp.s3Key)}: ${redactStorageKeysInText(String(err))}`,
 				);
 			}
 			await r.cloudExport.deleteById(exp.id, tenantId);

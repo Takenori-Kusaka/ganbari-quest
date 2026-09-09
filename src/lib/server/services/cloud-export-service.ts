@@ -18,6 +18,7 @@ import {
 	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
+import { redactStorageKey, redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
@@ -327,18 +328,6 @@ function artifactFilename(exportType: CloudExportType): string {
 }
 
 /**
- * S3 key から PIN 部分を伏せる。
- *
- * `s3Key` は `exports/<tenantId>/<pinCode>/<file>` の形で **PIN をそのまま含む**ので、
- * ログに出すときは必ずこれを通す。PIN は他家庭のフル PII バックアップを引き当てる唯一の
- * 材料であり (`fetchCloudExportByPin` は tenant 述語なしで引く)、ログ閲覧権限を
- * 「他家庭の PII を落とせる」に化けさせない。
- */
-export function redactPinInS3Key(s3Key: string): string {
-	return s3Key.replace(/^(exports\/[^/]+\/)[^/]+/, '$1<pin>');
-}
-
-/**
  * クラウドエクスポートを **起票** する（#3504 async-backup-export.md §3.2）。
  *
  * 同期 build → レスポンス直返しは AWS (Function URL BUFFERED 6MB / Lambda 30 秒) と NUC
@@ -396,7 +385,10 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	// 本番の `logger.info` は CloudWatch へ出るため、ログ閲覧権限が「他家庭の PII を落とせる」に
 	// 化けていた。運用に要るのは「どのテナントが何を起票したか」までで、PIN は要らない。
 	logger.info('[cloud-export] エクスポート起票 (pending)', {
-		context: { tenantId, exportType, expiresAt },
+		// s3Key は伏せたうえで残す。**起票と完了/削除を突き合わせる key** が 1 つも無いと
+		// 「この家庭のこの共有がいつ起票されどう終わったか」を追えない (adversarial 指摘)。
+		// 伏せた形でもテナント配下で一意なので join には足りる。
+		context: { tenantId, exportType, expiresAt, s3Key: redactStorageKey(s3Key) },
 	});
 
 	return {
@@ -652,8 +644,10 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
 		// s3Key は `exports/<tenantId>/<pinCode>/<file>` で **PIN をそのまま含む**ため、
 		// PIN 部分を伏せて出す (上の起票ログと同じ理由)。
 		logger.error('[cloud-export] S3 削除に失敗したため DB 行も残す (孤児 PII を作らない)', {
-			context: { id, tenantId, s3Key: redactPinInS3Key(record.s3Key) },
-			error: err instanceof Error ? err.message : String(err),
+			context: { id, tenantId, s3Key: redactStorageKey(record.s3Key) },
+			// **error 側も通す**。S3 の部分失敗は失敗キーをそのまま message に載せてくるので、
+			// s3Key フィールドだけ伏せても兄弟フィールドから PIN が出る (振る舞い test が実測)。
+			error: redactStorageKeysInText(err instanceof Error ? err.message : String(err)),
 		});
 		throw new CloudExportDeleteFailedError();
 	}
