@@ -46,7 +46,11 @@ import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
 import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
-import { isSetupRequired } from '$lib/server/services/setup-service';
+import {
+	isSetupRequired,
+	isSetupWizardInProgress,
+	shouldBlockSetupAccess,
+} from '$lib/server/services/setup-service';
 
 // Epic #2525 Phase 7 Step 0 PR-L0 (#2806): license key 完全全廃 (#2788) の expand 起点。
 // 旧来の `assertLicenseKeyConfigured()` 起動時呼び出し (AWS_LICENSE_SECRET 未設定時に
@@ -642,9 +646,19 @@ export const handle: Handle = ({ event, resolve }) =>
 				}
 			}
 
-			// セットアップ完了済みなら /setup へのアクセスをブロック
-			if (path.startsWith('/setup') && !(await isSetupRequired(tenantId))) {
-				redirect(302, '/');
+			// セットアップ完了済みなら /setup へのアクセスをブロック。
+			// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
+			// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
+			// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
+			// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
+			if (path.startsWith('/setup')) {
+				const [setupRequired, wizardInProgress] = await Promise.all([
+					isSetupRequired(tenantId),
+					isSetupWizardInProgress(tenantId),
+				]);
+				if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
+					redirect(302, '/');
+				}
 			}
 		}
 
