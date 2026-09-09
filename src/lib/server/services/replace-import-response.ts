@@ -44,6 +44,7 @@ export function replaceImportErrorResponse(err: unknown, logPrefix: string): Res
 				errors: err.result.errors.slice(0, 3).map((e) => redactStorageKeysInText(String(e))),
 			},
 		});
+		// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (#4752 が状態と文言を対応づけた)。
 		return apiError('VALIDATION_ERROR', err.message);
 	}
 	if (err instanceof ReplaceRestoreFailedError) {
@@ -57,6 +58,7 @@ export function replaceImportErrorResponse(err: unknown, logPrefix: string): Res
 				originalError: redactStorageKeysInText(String(err.originalError)),
 			},
 		});
+		// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (半端な状態 + 復旧コードの案内)。
 		return apiError('IMPORT_RESTORE_FAILED', err.message, { recoveryCode: err.recoveryCode });
 	}
 	if (err instanceof ReplaceSnapshotError) {
@@ -65,6 +67,7 @@ export function replaceImportErrorResponse(err: unknown, logPrefix: string): Res
 			error: redactStorageKeysInText(String(err)),
 			context: { kind: err.name, cause: redactStorageKeysInText(String(err.cause)) },
 		});
+		// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (置換未開始 = 旧データ無傷の案内)。
 		return apiError('INTERNAL_ERROR', err.message);
 	}
 	return null;

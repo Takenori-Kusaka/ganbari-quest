@@ -846,7 +846,17 @@ describe('cloud-export-service', () => {
 			// id=1 は failed 遷移 (building → failed) + failureReason
 			const failedCall = mockCloudExportRepo.updateStatus.mock.calls.find((c) => c[2] === 'failed');
 			expect(failedCall?.[0]).toBe('1');
-			expect((failedCall?.[3] as { failureReason: string }).failureReason).toContain('disk full');
+			// #4867 adversarial round 7: **DB に入るのは顧客向けの固定文言**。この値は
+			// `CloudExportStoredList` 経由で保護者の画面に出るので、サーバの例外 message
+			// (errno + 絶対パス + tenant id) をそのまま入れない (ADR-0062 §2)。
+			// 原因は logger.error 側に (PIN を伏せたうえで) 残す。
+			expect((failedCall?.[3] as { failureReason: string }).failureReason).toBe(
+				SETTINGS_LABELS.cloudBuildFailedDefault,
+			);
+			expect(
+				(failedCall?.[3] as { failureReason: string }).failureReason,
+				'サーバの例外 message が親の画面に出ている',
+			).not.toContain('disk full');
 		});
 
 		it('pending 0 件のとき何もしない', async () => {

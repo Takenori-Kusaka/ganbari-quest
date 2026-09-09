@@ -22,6 +22,7 @@
 // **親の画面に自分の共有 PIN が出る**。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SETTINGS_LABELS } from '../../../src/lib/domain/labels';
 
 /** logger に渡った全引数を deep-serialize して貯める (どのフィールドに混ぜても捕まる)。 */
 const logged: string[] = [];
@@ -127,18 +128,29 @@ describe('[C2] build 失敗経路', () => {
 		}
 	});
 
-	it('原因は読める形で残る (伏せすぎて障害が追えなくならない)', async () => {
+	it('親の画面にはサーバの例外を出さない (固定文言)', async () => {
+		// #4867 adversarial round 7: `failureReason` は DB の `failure_reason` に入り、
+		// `CloudExportStoredList` 経由で**保護者の画面**に出る。PIN を伏せてもなお
+		// errno + **サーバの絶対パス** + tenant id が親に見えていた。ADR-0062 §2 は
+		// PIN と無関係に「`err.message` をそのままレスポンスに載せない」を禁じており、
+		// #3376 のコメント自身も「その他は generic なエラーメッセージを残す」と書いていた。
 		await drainPendingExports(5);
 
 		const reason = savedFailureReasons[0] ?? '';
-		expect(reason, 'エラーコードまで消してはいけない (原因が読めなくなる)').toContain('EACCES');
-		expect(reason, 'どの家庭かは残す (運用が追える)').toContain(TENANT);
-		// #4867 adversarial: 前版はここが `EACCES` と tenant だけで、**file 名を見ていなかった**。
-		// そのため置換文字列 `<pin>` 自身が次の `pin` として拾われ `backup.zip` が
-		// `<pin>.zip` に潰れている現物が、この test の中を素通りしていた。
-		expect(reason, 'file 名まで潰している = どの成果物が消し残ったか運用が追えない').toContain(
-			'backup.zip',
-		);
+		expect(reason).toBe(SETTINGS_LABELS.cloudBuildFailedDefault);
+		expect(reason, 'errno が親の画面に出ている').not.toContain('EACCES');
+		expect(reason, 'サーバの絶対パスが親の画面に出ている').not.toContain('/srv/');
+	});
+
+	it('原因は運用側 (ログ) に読める形で残る', async () => {
+		await drainPendingExports(5);
+
+		const line = logged.find((l) => l.includes('build 失敗')) ?? '';
+		expect(line, 'エラーコードまで消してはいけない (原因が読めなくなる)').toContain('EACCES');
+		expect(line, 'どの家庭かは残す (運用が追える)').toContain(TENANT);
+		// 置換文字列 `<pin>` 自身が次の `pin` として拾われると `backup.zip` が `<pin>.zip` に
+		// 潰れる (round 6 で実際に起きた)。**どの成果物が消し残ったか**が読めなくなる。
+		expect(line, 'file 名まで潰している').toContain('backup.zip');
 	});
 
 	it('Windows / NUC の `\\` 区切りパスでも PIN が残らない', async () => {

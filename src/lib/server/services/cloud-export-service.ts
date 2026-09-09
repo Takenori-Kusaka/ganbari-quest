@@ -532,18 +532,29 @@ export async function drainPendingExports(
 			// の 3 箇所に流れる。NUC の local FS backend では Node の fs エラーが
 			// 解決済み絶対パス (…/data/exports/<tenantId>/<PIN>/backup.zip) を必ず含むため、
 			// 伏せないと**親の画面に自分の共有 PIN が出る**。
-			const failureReason = redactStorageKeysInText(
+			// **顧客の画面に出す文字列と、運用が読む文字列を分ける** (#4867 adversarial round 7)。
+			//
+			// `failureReason` は DB の `failure_reason` に入り、`CloudExportStoredList` 経由で
+			// **保護者の画面**に出る。旧実装は `err.message` をそのまま入れていたため、
+			// PIN を伏せてもなお errno + **サーバの絶対パス** + tenant id が親に見えていた。
+			// ADR-0062 §2 は「`err.message` をそのままレスポンスに載せない」を PIN と無関係に
+			// 禁じており、#3376 のコメント自身も「その他は generic なエラーメッセージを残す」と
+			// 書いていた — **コードがそのコメントに反していた**。
+			//
+			// 上限超過だけは `userMessage` (「何 MB を超えた」= 親が行動できる情報) を出す。
+			// それ以外は固定文言にし、**原因は下の logger.error に (伏せたうえで) 残す**。
+			const failureReason =
 				err instanceof BackupSizeLimitError
-					? err.userMessage
-					: err instanceof Error
-						? err.message
-						: String(err),
-			);
+					? redactStorageKeysInText(err.userMessage)
+					: SETTINGS_LABELS.cloudBuildFailedDefault;
 			await repos.cloudExport.updateStatus(id, tenantId, 'failed', { failureReason });
 			failed++;
 			logger.error('[cloud-export] build 失敗 (failed)', {
 				context: { tenantId, exportType, id },
-				error: failureReason,
+				// 運用が原因を追える側。PIN だけ伏せて、errno / path / file 名は残す。
+				error: redactStorageKeysInText(
+					err instanceof Error ? (err.stack ?? err.message) : String(err),
+				),
 			});
 		}
 	}

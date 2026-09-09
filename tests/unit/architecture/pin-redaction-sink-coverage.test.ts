@@ -15,6 +15,11 @@
 //     `cloud-export-build-failure-pin` の 3 本が固定している。
 //   - ここが止めるのは「**次の人が新しい経路を足したとき**」という、この PR で
 //     6 回起きた事象そのもの。形状検査の弱さは承知のうえで、その 1 点に絞っている。
+//   - **registry に載るのは `s3Key` / `pinCode` / `CloudExportRecord` /
+//     `fetchCloudExportByPin` の字面を持つ file だけ**。本 PR が同じ class として直した
+//     cron 4 endpoint (age-recalc / grace-period-deletion / retention-cleanup /
+//     trial-notifications) はどれも持たないので、ここでは見ていない
+//     (PIN が届く経路が無いため。届く `export-build` だけが registry にある)。
 //
 // 規則:
 //   [F1] `s3Key` / `pinCode` を扱う src の file は、必ず registry に現れる
@@ -147,24 +152,61 @@ function stripRedacted(src: string): string {
 }
 
 /**
- * `{ error: … }` / `{ stack: … }` のような**外へ出す口のフィールド**を列挙する。
+ * 外へ出す口の呼び出し (`logger.*` / `json(` / `apiError(` / `error(`) の**引数全体**を返す。
  *
- * key の直前に `{` `,` 行頭 のいずれかを要求する — そうしないと
- * `e instanceof Error ? e.message : String(e)` の**三項演算子のコロン**を
- * 「message というキー」と読んでしまう (実測で踏んだ)。
+ * 前版は `{ error: … }` のような**キー名 7 語**を手で選んで見ていた。adversarial round 7 が
+ * `context: { key: record.s3Key, rawDetail: String(err) }` のように**別のキー名**を使う変異と、
+ * `` logger.error(`… ${record.s3Key}`) `` のような template literal に混ぜる変異を通してみせた
+ * (どちらも 13 passed で生存)。キー名で拾うのをやめ、**呼び出しの引数に何が入っているか**を見る。
  */
-const SINK_FIELD =
-	/(?:^|[{,])[ \t]*(?:error|stack|message|reason|failureReason|cause|originalError)[ \t]*:[ \t]*([^,}\n]+)/gm;
-
-/** そのフィールドに載っている値が「伏せていない例外・key」か。 */
-function isRawValue(value: string, msgIsRedacted: boolean): boolean {
-	const v = value.trim();
-	if (/^String\((?:err|e)\b/.test(v)) return true;
-	if (/^(?:err|e)\.(?:message|stack)\b/.test(v)) return true;
-	if (/^(?:record\.|exp\.)?s3Key\b/.test(v)) return true;
-	if (!msgIsRedacted && /^msg\b/.test(v)) return true;
-	return false;
+function sinkCallArguments(code: string): { args: string; before: string }[] {
+	const CALL = /\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/;
+	/** opt-out marker はふつう**直前の行**に書くので、呼び出しの手前も一緒に見る。 */
+	const LOOKBEHIND_CHARS = 300;
+	const out: { args: string; before: string }[] = [];
+	let rest = code;
+	for (;;) {
+		const m = CALL.exec(rest);
+		if (!m) return out;
+		let depth = 1;
+		let j = m.index + m[0].length;
+		const start = j;
+		while (j < rest.length && depth > 0) {
+			const ch = rest[j];
+			if (ch === '(') depth++;
+			else if (ch === ')') depth--;
+			j++;
+		}
+		out.push({
+			args: rest.slice(start, Math.max(start, j - 1)),
+			before: rest.slice(Math.max(0, m.index - LOOKBEHIND_CHARS), m.index),
+		});
+		rest = rest.slice(j);
+	}
 }
+
+/**
+ * 伏せていない値の**字面**。`stripRedacted` で redact 済みの中身を消したあとに
+ * これが残っていれば、伏せずに外へ出していると判定する。
+ */
+const RAW_VALUE_TOKENS: readonly RegExp[] = [
+	/\bString\((?:err|e)\b/,
+	/\b(?:err|e)\.(?:message|stack)\b/,
+	// `s3Key:` / `pinCode:` は**キー名**であって値ではない。`s3Key: redactStorageKey(s3Key)` は
+	// `stripRedacted` が中身を消したあとキー名だけが残るので、`:` が続く形は除く。
+	/\bs3Key\b(?!\s*:)/,
+	/\bpinCode\b(?!\s*:)/,
+];
+
+/**
+ * 明示的な opt-out。**理由を 12 文字以上つけて、その場に書く**。
+ *
+ * 型付きドメインエラーの `message` は顧客向けに用意された文言であって生の例外ではない
+ * (`AtomicReplaceError` / `ReplaceRestoreFailedError` など、#4752 が文言と HTTP 種別を
+ * 対応づけている)。そこまで一律に禁じると正しい書き方が落ちるので逃げ道を置く。
+ * ただし**宣言だけで抜けられないように理由を要求する** ([F3] と同じ規律)。
+ */
+const OPT_OUT = /pin-sink-ok:\s*(\S[^*\n]{11,})/;
 
 /**
  * `msg` を「伏せ済みの変数」として扱うかは file ごとに決める — `const msg =
@@ -177,21 +219,32 @@ function msgIsRedactedIn(code: string): boolean {
 /** 与えられたコード片から、伏せていない sink を全部拾う。 */
 function rawSinks(block: string, msgIsRedacted: boolean): string[] {
 	const hits: string[] = [];
-	for (const m of block.matchAll(SINK_FIELD)) {
-		const value = m[1] ?? '';
-		if (isRawValue(value, msgIsRedacted)) hits.push(m[0].trim());
+	for (const { args: rawArgs, before } of sinkCallArguments(block)) {
+		// その場 (引数の中、または直前の数行) に理由つきの opt-out があれば飛ばす
+		if (OPT_OUT.test(rawArgs) || OPT_OUT.test(before)) continue;
+		// redact を通した部分は取り除いてから、残りに生の字面が居るかを見る
+		const remaining = stripRedacted(rawArgs);
+		for (const token of RAW_VALUE_TOKENS) {
+			const m = token.exec(remaining);
+			if (m) hits.push(`${m[0]} in ${rawArgs.replace(/\s+/g, ' ').slice(0, 80)}`);
+		}
+		if (!msgIsRedacted && /\bmsg\b/.test(remaining)) {
+			hits.push(`msg in ${rawArgs.replace(/\s+/g, ' ').slice(0, 80)}`);
+		}
 	}
-	// template literal でログ本文に混ぜる形も拾う
-	for (const m of block.matchAll(/\$\{String\((?:err|e)[^}]*\)\}/g)) hits.push(m[0]);
-	if (!msgIsRedacted) for (const m of block.matchAll(/\$\{msg\}/g)) hits.push(m[0]);
 	return hits;
 }
 
-/** 説明用にコード片を書けるよう、行コメントは検査対象から外す。 */
-function codeOnly(src: string): string {
+/**
+ * 説明用にコード片を書けるよう、行コメントは検査対象から外す。
+ *
+ * `keep` に一致する行だけは残す — `pin-sink-ok:` の opt-out marker を読むため。
+ */
+function codeOnly(src: string, opts: { keep?: RegExp } = {}): string {
 	return src
 		.split('\n')
 		.filter((l) => {
+			if (opts.keep?.test(l)) return true;
 			const t = l.trim();
 			return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*');
 		})
@@ -278,7 +331,8 @@ describe('[F2] 外へ出す口は redact を通す', () => {
 
 	for (const [file, g] of redactedFiles) {
 		it(`${file} — 生の例外 / key を外へ出していない (${g.scope ?? 'file'})`, () => {
-			const code = codeOnly(readSource(file));
+			// opt-out marker (`pin-sink-ok:`) を読むため、その marker を含む行だけコメントを残す
+			const code = codeOnly(readSource(file), { keep: /pin-sink-ok:/ });
 			const blocks = g.scope === 'pin-catch' ? pinScopedCatchBlocks(code) : [code];
 			const redactedMsg = msgIsRedactedIn(code);
 			const hits = blocks.flatMap((b) => rawSinks(stripRedacted(b), redactedMsg));
@@ -301,12 +355,43 @@ describe('[F2] 外へ出す口は redact を通す', () => {
 	});
 });
 
-describe('[F3] no-sink は理由が要る', () => {
+describe('[F3] no-sink は宣言だけで取れない', () => {
 	it('空文字・stub の理由を受理しない', () => {
 		for (const [file, g] of Object.entries(REGISTRY)) {
 			if (g.guard !== 'no-sink') continue;
 			expect(g.why.length, `${file} の理由が短すぎる (12 文字以上)`).toBeGreaterThanOrEqual(12);
 			expect(/^(todo|n\/a|なし|-)$/i.test(g.why.trim()), `${file} の理由が stub`).toBe(false);
 		}
+	});
+
+	it('外へ出す口を実際に持つ file は no-sink に格下げできない', () => {
+		// #4867 adversarial round 7 実測: `export-build` の registry 1 行を
+		// `no-sink` + もっともらしい理由 (実際にその file のコメントに書いてある文とほぼ同じ)
+		// に付け替えるだけで、**直したばかりの 2 つの sink を両方生に戻しても 12 passed** だった。
+		// [F3] が `why` の文字数しか見ていなかったため。**理由文ではなく実物を見る。**
+		const offenders: string[] = [];
+		for (const [file, g] of Object.entries(REGISTRY)) {
+			if (g.guard !== 'no-sink') continue;
+			const code = codeOnly(readSource(file));
+			if (/\blogger\.(?:error|warn|info|debug)\s*\(/.test(code) || /\bapiError\s*\(/.test(code)) {
+				offenders.push(file);
+			}
+		}
+		expect(
+			offenders,
+			'`no-sink` と宣言しているのに logger / apiError の呼び出しを持つ file がある。' +
+				`外へ出す口があるなら 'redacted' で宣言すること:\n${offenders.join('\n')}`,
+		).toEqual([]);
+	});
+
+	it('redacted 宣言の数が黙って減らない (registry 編集で赤を消せない)', () => {
+		// 同上。per-file の test が 13 → 12 に減ることを誰も見ていなかったので、下限を置く。
+		// **経路を減らしたときは、この数を下げる commit が必ず要る** (= 判断が記録に残る)。
+		const redactedCount = Object.values(REGISTRY).filter((g) => g.guard === 'redacted').length;
+		expect(
+			redactedCount,
+			'redact 必須と宣言している file が減っている。経路を本当に減らしたのなら ' +
+				'この期待値も同じ commit で下げること (黙って減らせないようにしてある)',
+		).toBeGreaterThanOrEqual(10);
 	});
 });

@@ -4213,6 +4213,13 @@ export const SETTINGS_LABELS = {
 	cloudStatusPending: '受付済み・生成待ち',
 	cloudStatusBuilding: '生成中…',
 	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
+	// #4867 adversarial round 7: build 失敗の既定文言。**サーバの例外 message を親の画面に
+	//   出さない** (ADR-0062 §2)。旧実装は `err.message` をそのまま `failure_reason` に保存し、
+	//   NUC の local FS backend では errno + サーバの絶対パス + tenant id が親に見えていた
+	//   (PIN は伏せていたが、伏せたのは PIN だけ)。#3376 のコメントは元から
+	//   「その他は generic なエラーメッセージを残す」と書いてあり、**コードがそれに反していた**。
+	//   原因の詳細は logger.error 側に (伏せたうえで) 残す。
+	cloudBuildFailedDefault: '保管データの作成に失敗しました。もう一度お試しください。',
 	cloudDownloadAction: 'ダウンロード',
 	// #4717: 発行直後 (pending/building) / 失敗 (failed) の PIN で取り込もうとしたときの案内。
 	// 「システムに問題が発生しました」(500) ではなく、待てば解決することを伝える。

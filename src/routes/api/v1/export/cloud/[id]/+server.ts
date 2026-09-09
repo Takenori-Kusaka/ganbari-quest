@@ -35,12 +35,15 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		// 決めていたため、顧客向け文言を 1 文字直すだけで 404 が 500 に化ける形だった
 		// (本 PR が 403 の文言で潰したのと同じ class)。
 		if (err instanceof CloudExportNotFoundError) {
+			// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (#4767 で型で見分ける形にした)。
+			//   生の例外ではなく、`CloudExportNotFoundError` が自分で組み立てた文で PIN を含まない。
 			return apiError('NOT_FOUND', err.message);
 		}
 		// #4767 QM should: 保管実体の削除に失敗して中断した場合 (DB 行は残っている)。
 		// 「システムに問題が発生しました」で終わらせず、データが残っていること + 再試行を伝える。
 		if (err instanceof CloudExportDeleteFailedError) {
 			logger.error('[cloud-export] 削除中断 (実体削除に失敗)', { context: { id, tenantId } });
+			// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (「データは残っています」の案内)。
 			return apiError('EXPORT_DELETE_FAILED', err.message);
 		}
 		const msg = err instanceof Error ? err.message : String(err);
