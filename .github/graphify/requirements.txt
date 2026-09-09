@@ -1,12 +1,17 @@
 # graphify (PyPI: graphifyy) と依存 29 件の完全な閉包を hash で pin する。
 # 使い手は `.github/workflows/graphify-refresh.yml` の Install step だけ。
 #
-# **実ファイルとして置いている理由** (#4866 adversarial 実測): workflow の heredoc に
-# 埋めていた間、この 30 件は Dependabot / dependency graph / dependency-review /
-# `deps-supply-chain-check` の**どれからも見えなかった**。実 manifest しか parse されない
-# ため、pin した版に CVE が出ても誰にも通知されない状態だった。そしてこの 30 件を
-# install する job は、同一 runner 内で直後に develop へ push できる App install token を
-# 発行する。file に出して `.github/dependabot.yml` の `package-ecosystem: pip` に載せる。
+# **実ファイルとして、この名前で置いている理由** (#4866 adversarial 実測):
+# workflow の heredoc に埋めていた間、この 30 件は **GitHub の dependency graph から
+# 見えなかった** ため、pin した版に CVE が出ても誰にも通知されない状態だった。
+# そしてこの 30 件を install する job は、同一 runner 内で直後に develop へ push できる
+# App install token を発行する。graph が拾うのは `requirements.txt` という **file 名**
+# なので、`.github/graphify/requirements.txt` に置いて alert を受け取れるようにした。
+#
+# **Dependabot の version update は意図的に有効化していない** (`.github/dependabot.yml`
+# にこの ecosystem の `updates:` entry は無い)。`.in` の兄弟を持たない `.txt` は閉包解決を
+# しない resolver で扱われ、`tree-sitter` 0.26.0 (graphifyy が `<0.26` を要求) のような
+# 解決不能な bump を、**CI で検証されないまま緑の PR** として提案してくるため。
 #
 # 由来 / 更新手順 / 各 flag の意味は workflow 側のコメントが SSOT。
 # 版を上げるときは追加していくのではなく、report が出した集合で丸ごと置き換える

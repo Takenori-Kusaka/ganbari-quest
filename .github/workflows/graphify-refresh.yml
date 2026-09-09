@@ -139,14 +139,16 @@ jobs:
       # 入り、全体が comment 扱いで exit 0 / 出力 0 バイトになる。実際に一度そうなった —
       # 本 workflow が塞ごうとしている「緑なのに何もしていない」そのもの):
       #
-      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --quiet --dry-run --only-binary=:all: --report - "graphifyy==<新 version>" > report.json
+      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --quiet --dry-run --only-binary=:all: --report /dev/stdout "graphifyy==<新 version>" > report.json
       #
-      # **`--report` の宛先は `-` にする** (#4866 adversarial 実測)。`/dev/stdout` は
-      # **docker (linux) の中でしか動かない** — Windows ホストの素の pip に同じ形を打つと
-      # `[Errno 2] No such file or directory: '/proc/self/fd/1'` で落ち、`report.json` は
-      # **0 バイト**になる。docker を持たない保守者が素の pip に落としたときに、また
-      # 「出力 0 バイト」を踏む。pip 自身の doc が推奨している `-` なら docker の内でも
-      # 外でも同じ 1 行が使える。
+      # **`--report /dev/stdout` は docker (linux) の中だけの形**。docker を使わずに
+      # 手元の pip で同じことをするなら **`--report report.json`** にする
+      # (`> report.json` のリダイレクトは付けない)。`-` も `/dev/stdout` も駄目で、
+      # 前者は Windows で pip の vendored rich が絵文字を出そうとして
+      # UnicodeEncodeError → **途中で切れた JSON + exit 2** (0 バイトより悪い)、
+      # 後者は `[Errno 2] /proc/self/fd/1` で **0 バイト** になる (#4866 adversarial 実測)。
+      # ただし **docker の外で解決させると閉包が 29 件になる** (platform が違う) ので、
+      # commit する pin list は必ず上の docker の形で作ること。
       #
       # **`--quiet` も必須**。pip は進捗 (`Collecting graphifyy==…`) も **stdout** に出すので、
       # 付けないと `report.json` の先頭がログ行になり `json.load` が
@@ -171,12 +173,19 @@ jobs:
           # pin list は cp312 の実ファイル 2 件を含む。ここが 3.12 でなくなったら、
           # 残り 28 件 (abi3 / pure-python) は黙って入ってしまう — 先に落とす。
           python -c "import sys; assert sys.version_info[:2] == (3, 12), f'pin list は cp312 前提。setup-python の python-version と pin list を一緒に更新すること (実行中: {sys.version_info[:2]})'"
-          # pin list は `.github/graphify-requirements.txt` (実ファイル)。workflow の heredoc に
-          # 埋めていた間、この 30 件は Dependabot / dependency graph / dependency-review /
-          # deps-supply-chain-check の**どれからも見えなかった** (#4866 adversarial 実測) —
-          # 実 manifest しか parse されないため、pin した版に CVE が出ても誰にも通知されない。
-          # file に出して `.github/dependabot.yml` の `package-ecosystem: pip` に載せた。
-          pip install --require-hashes --only-binary=:all: -r .github/graphify-requirements.txt
+          # pin list は `.github/graphify/requirements.txt` (実ファイル)。workflow の heredoc に
+          # 埋めていた間、この 30 件は **GitHub の dependency graph から見えなかった** ため、
+          # pin した版に CVE が出ても誰にも通知されない状態だった (#4866 adversarial 実測)。
+          # graph が拾うのは `requirements.txt` という **file 名**なので、その名前で置く。
+          #
+          # **Dependabot の version update (`updates:` entry) は意図的に入れていない** —
+          # `.in` の兄弟を持たない `.txt` は閉包解決をしない resolver で扱われ、
+          # `tree-sitter` 0.26.0 (graphifyy が `<0.26` を要求) のような**解決不能な bump** を
+          # 提案してくる。CI にこの file を install する job は無く、この workflow 自身も
+          # `ref: develop` 固定 checkout なので Dependabot の PR branch を検証できない
+          # (= 緑のまま merge され、develop 上で初めて落ちる)。**alert は受け取り、
+          # 自動 PR は受け取らない**、が現時点の線。
+          pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt
 
       # graphify 0.9.32 は tsconfig.json の `extends: ./.svelte-kit/tsconfig.json` を辿って
       # `$lib` alias を解決するが、生成物が無いと無言で skip し、`$lib/...` を擬似 file node にして
@@ -278,7 +287,9 @@ jobs:
                 + "**再生成の前に、この job が用意している 2 つの前提を手元でも踏むこと** "
                 + "(#4866 adversarial 実測。踏まないと、この検査がまさに弾くはずの低忠実度 graph を "
                 + "人手 PR という検査の通らない経路で develop に入れることになる): "
-                + "(1) `pip install graphifyy==0.9.32` — version が違えば抽出結果も違う。"
+                + "(1) この job と同じ pin で入れる: "
+                + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt` "
+                + "(version が違えば抽出結果も違う。python は 3.12)。"
                 + "(2) `npm ci && npx svelte-kit sync` — `.svelte-kit/tsconfig.json` が無いと "
                 + "`$lib` alias が解けず擬似 node が 203 件出て edge が -22.5% になる "
                 + "(この job の $lib assert が見ているのがそれ)。"

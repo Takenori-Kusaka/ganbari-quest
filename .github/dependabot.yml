@@ -76,27 +76,21 @@ updates:
           - "minor"
           - "patch"
 
-  # #4866: graphify-refresh.yml が hash pin で入れる python 依存 30 件。
-  # workflow の heredoc に埋めていた間、この 30 件は Dependabot / dependency graph /
-  # dependency-review / deps-supply-chain-check の**どれからも見えなかった** —
-  # 実 manifest しか parse されないため、pin した版に CVE が出ても誰にも通知されない
-  # 状態だった。そしてこの 30 件を install する job は、同一 runner 内で直後に develop へ
-  # push できる App install token を発行する。`.github/graphify-requirements.txt` に
-  # 実ファイルとして出し、ここに載せて既存の装置から見えるようにする (装置は増やさない)。
+
+  # #4866: graphify-refresh.yml が hash pin で入れる python 依存 30 件について。
   #
-  # hash 付き requirements なので Dependabot は version と hash を一緒に更新する。
-  # ただし `--require-hashes` は「載っている全件が必要か」を見ないので、**版を大きく
-  # 上げるときは workflow のコメントにある手順で集合ごと置き換える** (差分更新に頼らない)。
-  - package-ecosystem: "pip"
-    directory: "/.github"
-    # develop 二層: 依存更新 PR を develop 軽量レーン経由にする (#3072 / branch-strategy.md §7)
-    target-branch: "develop"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "infra"
-    groups:
-      graphify-pip:
-        patterns:
-          - "*"
+  # **意図的に `updates:` entry を置いていない。** pin list は
+  # `.github/graphify/requirements.txt` に実ファイルとして出してあり、GitHub の
+  # dependency graph は file 名 `requirements.txt` で拾うので、**CVE の alert は届く**
+  # (workflow の heredoc に埋めていた間はそれすら届かなかった、というのが元の欠陥)。
+  #
+  # 一方で version update を有効にすると害がある (#4866 adversarial 実測):
+  #   - `.in` の兄弟を持たない `.txt` は閉包解決をしない resolver で扱われるため、
+  #     Dependabot は `tree-sitter` 0.26.0 を提案する。graphifyy 0.9.32 は
+  #     `tree-sitter<0.26` を要求するので `ResolutionImpossible` になる
+  #     (最新の graphifyy 0.9.56 も `<0.26` のままなので逃げ道が無い)
+  #   - CI にこの file を install する job は無く、`graphify-refresh` 自身も
+  #     `ref: develop` を固定 checkout するので **Dependabot の PR branch を検証できない**
+  #     = 全 check 緑のまま merge され、develop 上で初めて落ちて graph が stale 化する
+  #
+  # 版を上げるときは workflow のコメントにある手順で、report が出した集合ごと置き換える。
