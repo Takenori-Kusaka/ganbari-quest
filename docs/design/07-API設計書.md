@@ -89,7 +89,6 @@
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | GET | /api/v1/special-rewards/export | 個別バックアップ（#3079）。`?childId=<n>` の reward 全件を marketplace v2 envelope（reward-set）JSON でダウンロード（`Content-Disposition: attachment`）。復元は admin/rewards `?/restoreFile` action | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
-| POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、family 限定、#2273） | owner/parent (family) |
 
 ### ごほうびショップ 交換申請（#1337）
 
@@ -716,35 +715,6 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
-- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
-
-#### POST /api/v1/cheer/suggest
-
-子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。プレミアムプラン限定（#2273）。
-
-**リクエストボディ:**
-```json
-{
-  "text": "運動会で1位"
-}
-```
-
-**レスポンス:**
-```json
-{
-  "reason": "運動会で1位",
-  "points": 500,
-  "icon": "🥇",
-  "category": "うんどう",
-  "source": "gemini"
-}
-```
-
-- `category`: `うんどう` | `べんきょう` | `せいかつ` | `こうりゅう` | `そうぞう` | `とくべつ`
-- `points`: 出来事のすごさ評価（50/100/150/200/300/500/1000 から選択）
-- `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
-- 既存 LLM 連携機構 (special-rewards/suggest と同基盤) を再利用、プロンプト/出力スキーマのみ別
-- Gemini API が利用不可の場合はキーワードマッチングにフォールバック
 - プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/checklists/suggest
@@ -2203,7 +2173,6 @@ export interface PlanLimitError {
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
 | `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
-| `POST /api/v1/cheer/suggest` | family | AI 応援提案 (`tier !== 'family'`, #2273) | `apiError()` 済 |
 | `POST /api/v1/checklists/suggest` | family | AI チェックリスト提案 (`tier !== 'family'`, #720) | `apiError()` 済 |
 | `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
