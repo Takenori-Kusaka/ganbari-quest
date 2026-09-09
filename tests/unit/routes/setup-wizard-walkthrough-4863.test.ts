@@ -16,7 +16,17 @@
 //   - CI             … `e2e-test` / `e2e-matrix` / `e2e-demo-lambda` / `storybook-test` は
 //                       本 PR の変更範囲では全て skipping
 //
-// つまり 9 step の通し歩行を確かめているのは**実機計測だけ** (PR body §検証)。
+// つまり 9 step の通し歩行を確かめているのは**実機計測だけ**。PR body §検証に結果を載せて
+// あるが、それは repo の外なので**やり直せる手順をここに書く** (1 年後に読む人が到達できる形):
+//
+//   1. `rm -f local.db && npm run dev` (AUTH_MODE=local、子供 0 人の空 DB)
+//   2. `/` を開く → `/setup/children` に着く
+//   3. 名前と年齢を入れて「追加」→ **「次へ」が描画されること** (旧実装ではここが 0 個)
+//   4. 「次へ」から complete まで進む。実測した順は
+//      children → questionnaire → packs → rewards → rules → activities-defaults →
+//      challenges → first-adventure → complete
+//   5. 完了後に `/setup/children` `/setup/packs` 等を直接開く → すべて `/switch` へ 302
+//   6. `select * from settings where key='setup_wizard_in_progress'` → 1 行 / 値は false
 //
 // なぜ真理値表 test (`tests/unit/services/setup-wizard-reachability-4860.test.ts`) だけでは
 // 足りないか: あれは `shouldBlockSetupAccess` が正しいことしか言っていない。**その判定に
