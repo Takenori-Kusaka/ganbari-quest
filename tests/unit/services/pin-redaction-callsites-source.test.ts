@@ -10,8 +10,16 @@
 // 起票経路 (`createCloudExport`) は plan gate / claim / budget / storage の依存が深く、
 // 「PIN が出ないこと」を確かめる目的に対して mock の量が釣り合わない。到達できる 2 経路
 // (削除失敗 / 退会) は振る舞いで固定してある (`cloud-export-pin-not-logged` /
-// `pin-not-logged-callsites`)。ここで見るのは**残り 2 経路の呼び出しの形**だけで、
-// 変数に組んでから渡す形は見えない。
+// `pin-not-logged-callsites`)、repo 層は `tests/unit/db/s3-storage-repo.test.ts` が
+// 実 repo を走らせる。
+//
+// **[S1] が見ているのは `const failureReason = …` の組み立て式だけ** (#4867 adversarial 指摘)。
+// その下の `logger.error(..., { error: failureReason })` が**ほかに何を渡しているか**は
+// 見ていないので、`error: \`${failureReason} ${s3Key}\`` のように**別の値を足す形は素通りする**。
+// 前版は限界を「変数に組んでから渡す形は見えない」と書いていたが、実際にはもっと狭い。
+// **この穴は `tests/unit/services/cloud-export-build-failure-pin.test.ts` の [C2] が
+// 振る舞いで塞いである** — logger に渡った引数を丸ごと直列化して見るので、
+// どのフィールドに混ぜても捕まる。ここは「組み立て式が redact を通ること」だけを見る。
 //
 // 固定する不変条件:
 //   [S1] build 失敗の `failureReason` は redact を通してから作る

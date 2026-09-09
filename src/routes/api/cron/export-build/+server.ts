@@ -14,6 +14,7 @@
 //   401 Unauthorized / 404 secret 未設定 / 500 Internal Error
 
 import { json } from '@sveltejs/kit';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import {
@@ -58,10 +59,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ ok: true, ...result });
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
+		// #4867: build 経路は s3Key (= PIN を含む) を scope に持つので、message と stack の
+		// 両方を伏せてから出す (`record` / `pinCode` / `s3Key` が scope にある catch は
+		// 機械的に全部通す方針)。
 		logger.error('[export-build] endpoint failed', {
 			service: 'export-build',
-			error: msg,
-			stack: e instanceof Error ? e.stack : undefined,
+			error: redactStorageKeysInText(msg),
+			stack: e instanceof Error ? redactStorageKeysInText(e.stack ?? '') : undefined,
 		});
 		return json({ ok: false, error: msg }, { status: 500 });
 	}

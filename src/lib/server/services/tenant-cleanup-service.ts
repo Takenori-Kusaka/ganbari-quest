@@ -230,7 +230,11 @@ export async function deleteTenantScopedData(
 			deleted++;
 		}
 	} catch (err) {
-		logger.warn(`[tenant-cleanup] cloudExports 削除失敗: ${String(err)}`);
+		// この catch は `exports` (s3Key / pinCode を持つ行) が scope にある = 例外 message に
+		// key が載りうる。**個別に「載ると証明できたか」で切らず、scope にあるなら機械的に通す**
+		// (#4867 adversarial should-1)。findByTenant / deleteById の失敗は driver 由来で、
+		// PostgreSQL は UNIQUE 違反 detail に `Key (pin_code)=(…)` を素で載せる。
+		logger.warn(`[tenant-cleanup] cloudExports 削除失敗: ${redactStorageKeysInText(String(err))}`);
 	}
 
 	// Push subscriptions（findByTenant + deleteByEndpoint 可能）

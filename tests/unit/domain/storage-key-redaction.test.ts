@@ -1,4 +1,6 @@
 // tests/unit/domain/storage-key-redaction.test.ts
+// cspell:ignore pping
+// ^ `-ping` / `-pping` は誤爆の負例として意図した語尾 (綴りを直すと負例が成立しない)。
 //
 // クラウド共有 export の PIN を伏せる純関数の契約 (#4867)。
 //
@@ -113,6 +115,24 @@ describe('[K5] 任意の文字列', () => {
 			`export pin ${PIN} expired`,
 		]) {
 			expect(redactStorageKeysInText(msg), `素通りしている: ${msg}`).not.toContain(PIN);
+		}
+	});
+
+	it('`pin` を単語の途中で拾わない (-ping / -pping に終わる語)', () => {
+		// #4867 adversarial 実測: 英語で `-ping` / `-pping` に終わる語は例外なく `p-i-n` を
+		// 内部に含むので、`pin` を語頭に限定しないと直後の 6 文字 ALL-CAPS が潰れる
+		// (14 例中 12 例が誤爆)。影響先は failureReason → DB → **保護者の画面**。
+		for (const msg of [
+			'skipping DELETE of remaining objects',
+			'mapping TENANT to bucket',
+			'dropping SELECT cache',
+			'shipping BACKUP to cold storage',
+			'stopping WORKER after timeout',
+			'keeping SECRET out of logs',
+			'wrapping ERRORS for the client',
+			'escaping SEARCH input',
+		]) {
+			expect(redactStorageKeysInText(msg), `誤爆している: ${msg}`).toBe(msg);
 		}
 	});
 

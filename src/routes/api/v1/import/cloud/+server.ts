@@ -97,6 +97,10 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		if (err instanceof CloudExportFetchError) {
 			return apiError(FETCH_FAILURE_TO_ERROR_CODE[err.reason], err.message);
 		}
+		// #4867: **`record` / `pinCode` / `s3Key` が scope にある catch は機械的に全部通す**。
+		// 「PIN が載ると証明できた経路だけ塞ぐ」で 3 ラウンド続けて取りこぼしたので、
+		// 判断の線を「証明できたか」から「値が scope にあるか」へ動かした (adversarial 提案)。
+		//
 		// PIN を query 値として渡した先の例外 message は、PIN をそのまま含みうる
 		// (実測: `pin <PIN> not found` 型 / local FS の絶対パス)。伏せてから出す。
 		const msg = redactStorageKeysInText(err instanceof Error ? err.message : String(err));
@@ -157,7 +161,9 @@ async function handleFullZipImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フル ZIP インポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フル ZIP インポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -175,7 +181,9 @@ async function handleFullZipImport(
 		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
 		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
 		if (mapped) return mapped;
-		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
+		logger.error('[cloud-import] 置換 ZIP インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
 }
@@ -412,7 +420,9 @@ async function handleTemplateImport(
 			},
 		});
 	} catch (err) {
-		logger.error('[cloud-import] テンプレートインポート失敗', { error: String(err) });
+		logger.error('[cloud-import] テンプレートインポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', 'テンプレートのインポートに失敗しました');
 	}
 }
@@ -447,7 +457,9 @@ async function handleFullImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フルインポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フルインポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -465,7 +477,9 @@ async function handleFullImport(
 		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
 		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
 		if (mapped) return mapped;
-		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
+		logger.error('[cloud-import] 置換インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
 }

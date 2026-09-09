@@ -1,3 +1,6 @@
+// cspell:ignore pping
+// ^ `-ping` / `-pping` は「`pin` を単語の途中で拾う」誤爆を説明するための**語尾の負例**。
+//   綴りを直すと負例として成立しないので、file scope で ignore する (tests/CLAUDE.md §負例 fixture)。
 /**
  * ストレージ key / メッセージから秘密 (クラウド共有 export の PIN) を伏せる — ログ・例外・
  * DB の failureReason・顧客画面へ出す文言のすべてで使う。
@@ -41,9 +44,19 @@ const PIN_LIKE_SEGMENT = new RegExp(`^${PIN_LIKE}$`);
  * 出す標準の形**で、`pin_code` に global UNIQUE を張っている以上
  * **PIN を載せる可能性が最も高い実エラー**がちょうど穴に落ちていた。
  * `EACCES` / `SELECT` は前に `pin` が無いので、広げても誤爆は増えない。
+ *
+ * **ただし `pin` は語頭に限る** (#4867 adversarial 実測)。限定しないと `pin` を**単語の
+ * 途中で**拾う — 英語で `-ping` / `-pping` に終わる語は例外なく `p-i-n` を内部に含むので、
+ * `skipping DELETE …` → `skipping <pin> …` のように潰れる (実測 14 例中 12 例が誤爆:
+ * skipping / mapping / dropping / shipping / stopping / keeping / wrapping / spinner /
+ * typing / looping / escaping / helping)。影響先は `failureReason` → DB →
+ * **保護者の画面**で、伏せすぎがそのまま顧客に見える。
+ *
+ * **`pin` という語が近くに無い裸の PIN** (`no row for K7M2QX` 等) は設計上の残余。
+ * 拾おうとすると `EACCES` 型の誤爆が戻るので、ここで線を引く。
  */
 const BARE_PIN = new RegExp(
-	`(?<=pin[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
+	`(?<=(?<![A-Za-z])pin[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
 	'gi',
 );
 
