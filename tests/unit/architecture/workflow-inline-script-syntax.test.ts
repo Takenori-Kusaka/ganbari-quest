@@ -1,4 +1,6 @@
 // tests/unit/architecture/workflow-inline-script-syntax.test.ts
+// cspell:ignore shellcheck
+// ^ 実在の lint ツール名 (この repo には入っていない、という説明で出てくる)。
 //
 // **workflow の `node -e '…'` インライン script が、構文として成立していることを機械で見る**
 // (#4866 / ADR-0061 same-class-N→guard)。
