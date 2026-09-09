@@ -93,4 +93,11 @@ updates:
   #     `ref: develop` を固定 checkout するので **Dependabot の PR branch を検証できない**
   #     = 全 check 緑のまま merge され、develop 上で初めて落ちて graph が stale 化する
   #
+  # **security update は別経路で来る** (adversarial round 5 実測)。
+  # `automated-security-fixes` は repo 設定側で enabled で、`updates:` entry を必要としない。
+  # しかも security 経路は `target-branch` を無視して default branch (main) に直行する
+  # (`ci.yml` の `main-pr-base-guard` が仕様として明記。実績 develop 57 / main 3)。
+  # つまり **CVE が出れば bump PR は来る** — ここで閉じているのは定期の version update だけ。
+  # その PR の見方は `.github/workflows/graphify-refresh.yml` の Install step のコメント。
+  #
   # 版を上げるときは workflow のコメントにある手順で、report が出した集合ごと置き換える。

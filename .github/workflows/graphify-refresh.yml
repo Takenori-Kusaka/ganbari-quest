@@ -147,8 +147,14 @@ jobs:
       # 前者は Windows で pip の vendored rich が絵文字を出そうとして
       # UnicodeEncodeError → **途中で切れた JSON + exit 2** (0 バイトより悪い)、
       # 後者は `[Errno 2] /proc/self/fd/1` で **0 バイト** になる (#4866 adversarial 実測)。
-      # ただし **docker の外で解決させると閉包が 29 件になる** (platform が違う) ので、
-      # commit する pin list は必ず上の docker の形で作ること。
+      # **docker の外で作った pin list を commit しないこと。** 判別を「件数」で行っては
+      # いけない (#4866 adversarial round 5 実測): 手元で 29 件になるのは platform のせいでは
+      # なく、**すでに install 済みの package が `--dry-run` の `install[]` に出ない**という
+      # 環境状態の artifact で、`--ignore-installed` を足せば同じホストで 30 件そろう。
+      # そして**そろった 30 件の中身が win / macOS の wheel** になる — これは 20 行下で
+      # 「ARM ホストで `--platform` を省くと黙って別 platform の hash が出る」と書いている
+      # のと同じ経路で、`--require-hashes` が runner で落とすまで気づけない
+      # (落ちるのは merge 後の develop 上)。**件数が合っていても platform は合っていない。**
       #
       # **`--quiet` も必須**。pip は進捗 (`Collecting graphifyy==…`) も **stdout** に出すので、
       # 付けないと `report.json` の先頭がログ行になり `json.load` が
@@ -183,8 +189,20 @@ jobs:
           # `tree-sitter` 0.26.0 (graphifyy が `<0.26` を要求) のような**解決不能な bump** を
           # 提案してくる。CI にこの file を install する job は無く、この workflow 自身も
           # `ref: develop` 固定 checkout なので Dependabot の PR branch を検証できない
-          # (= 緑のまま merge され、develop 上で初めて落ちる)。**alert は受け取り、
-          # 自動 PR は受け取らない**、が現時点の線。
+          # (= 緑のまま merge され、develop 上で初めて落ちる)。
+          #
+          # **ただし「自動 PR が来ない」わけではない** (#4866 adversarial round 5 実測)。
+          # この repo は `automated-security-fixes` が enabled で、**security update は
+          # `updates:` entry を必要としない**。しかも security 経路は `target-branch` を
+          # 無視して **default branch (main) に直行する** (`ci.yml` の `main-pr-base-guard`
+          # が仕様として明記。実績 develop 57 / main 3)。つまり CVE が出れば bump PR は来る。
+          #
+          # **その PR をレビューする人へ**: 全 check が緑でも、この pin list を install する
+          # job は CI に 1 つも無い。最低限、次の 2 つを手で見ること —
+          #   (1) 上げる package が graphifyy の requires_dist の上限を超えていないか
+          #       (`tree-sitter<0.26` / 各 grammar の `<0.8` 等。超えていれば
+          #        `pip install --dry-run` が ResolutionImpossible で落ちる)
+          #   (2) hash が **linux x86_64 の wheel** のものか (30 件中 28 件が linux wheel)
           pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt
 
       # graphify 0.9.32 は tsconfig.json の `extends: ./.svelte-kit/tsconfig.json` を辿って
@@ -289,7 +307,11 @@ jobs:
                 + "人手 PR という検査の通らない経路で develop に入れることになる): "
                 + "(1) この job と同じ pin で入れる: "
                 + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt` "
-                + "(version が違えば抽出結果も違う。python は 3.12)。"
+                + "(python は 3.12)。**pin 30 件のうち 28 件は linux x86_64 の wheel なので、"
+                + "Windows / macOS では 1 件も通らない**。その場合は linux の container の中で "
+                + "実行する: `docker run --rm --platform=linux/amd64 -v \"$PWD\":/w -w /w "
+                + "python:3.12-slim bash -c 'pip install --require-hashes --only-binary=:all: "
+                + "-r .github/graphify/requirements.txt'`。"
                 + "(2) `npm ci && npx svelte-kit sync` — `.svelte-kit/tsconfig.json` が無いと "
                 + "`$lib` alias が解けず擬似 node が 203 件出て edge が -22.5% になる "
                 + "(この job の $lib assert が見ているのがそれ)。"

@@ -13,6 +13,13 @@
 # しない resolver で扱われ、`tree-sitter` 0.26.0 (graphifyy が `<0.26` を要求) のような
 # 解決不能な bump を、**CI で検証されないまま緑の PR** として提案してくるため。
 #
+# **ただし security update は別経路で来る** (#4866 adversarial round 5 実測)。
+# `automated-security-fixes` は repo 設定側で enabled で、`updates:` entry を必要としない。
+# しかも security 経路は `target-branch` を無視して default branch (main) に直行する。
+# **この file を bump する PR をレビューする人は、workflow 側のコメント
+# (`Install graphify` step) にある 2 点を手で確かめること** — CI にこの file を
+# install する job は 1 つも無いので、全 check 緑は「入る」ことを何も保証しない。
+#
 # 由来 / 更新手順 / 各 flag の意味は workflow 側のコメントが SSOT。
 # 版を上げるときは追加していくのではなく、report が出した集合で丸ごと置き換える
 # (`--require-hashes` は「載っている全件が必要か」を見ないので、不要な entry は腐り続ける)。
