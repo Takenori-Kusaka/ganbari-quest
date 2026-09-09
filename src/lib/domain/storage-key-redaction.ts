@@ -54,10 +54,25 @@ const PIN_LIKE_SEGMENT = new RegExp(`^${PIN_LIKE}$`);
  *
  * **`pin` という語が近くに無い裸の PIN** (`no row for K7M2QX` 等) は設計上の残余。
  * 拾おうとすると `EACCES` 型の誤爆が戻るので、ここで線を引く。
+ *
+ * **大文字小文字は区別する** (#4867 adversarial 実測)。前版は `i` フラグを付けていたため、
+ * **置換文字列 `<pin>` 自身が次の `pin` として拾われ**、その直後の 6 文字を伏せていた。
+ * `redactStorageKeysInText` は key を先に `<pin>` へ置換したあと同じ文字列に
+ * `BARE_PIN` を走らせるので、`exports/t-1/<pin>/backup.zip` の `backup`
+ * (b/a/c/k/u/p — `I` `O` `0` `1` を 1 つも含まない = PIN 文字種に完全一致) が
+ * **`<pin>` に潰れていた** (実測: full export 8/8 で `<pin>/<pin>.zip`)。
+ * `artifactFilename` が返すのは `backup.zip` (full) と `data.json` (template) の 2 つで、
+ * **子供の氏名・生年月日・顔写真・音声が入っている full 側だけ**が、どの成果物を
+ * 消し残したのか読めなくなる — #4767 がこのログを足した目的が最も要る側で失われていた。
+ *
+ * PIN は `PIN_CHARS` から生成するので**必ず大文字**。`i` を外せばこの再帰は止まり、
+ * 同時に小文字の 6 文字語 (`absent` / `failed` …) の誤爆も消える。`pin` / `pinCode` /
+ * `pin_code` の側だけ大文字小文字を許すため、語は文字クラスで書く。
  */
+const PIN_WORD = '[Pp][Ii][Nn]';
 const BARE_PIN = new RegExp(
-	`(?<=(?<![A-Za-z])pin[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
-	'gi',
+	`(?<=(?<![A-Za-z])${PIN_WORD}[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
+	'g',
 );
 
 /** 伏せたことが読み手に分かる置換文字列 (空にすると「元から無い」と区別できない)。 */

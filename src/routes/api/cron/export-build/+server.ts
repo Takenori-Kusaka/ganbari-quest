@@ -67,7 +67,17 @@ export const POST: RequestHandler = async ({ request }) => {
 			error: redactStorageKeysInText(msg),
 			stack: e instanceof Error ? redactStorageKeysInText(e.stack ?? '') : undefined,
 		});
-		return json({ ok: false, error: msg }, { status: 500 });
+		// #4867 adversarial: ここが**同じ `msg` の 3 つ目の sink** だった。この route を
+		// 呼ぶのは `infra/lambda/cron-dispatcher`。dispatcher は response body の先頭
+		// 200 文字を `console.log` するので、生の message を返すと
+		// **log group が app 側から dispatcher 側へ移るだけ**で CloudWatch には出る。
+		// `{"ok":false,"error":"EACCES: … /exports/<tenantId>/<PIN>/backup.zip"}` は
+		// 約 110 文字で 200 文字の切り出しに丸ごと収まる。
+		//
+		// ADR-0062 §2 も PIN と無関係に「`err.message` をそのままレスポンスに載せない」と
+		// している。原因は上の logger.error (伏せ済) に残し、**レスポンスは固定文言**にする。
+		// この endpoint の呼び手は cron dispatcher だけで、人間向け UI は無い。
+		return json({ ok: false, error: 'export build failed' }, { status: 500 });
 	}
 };
 

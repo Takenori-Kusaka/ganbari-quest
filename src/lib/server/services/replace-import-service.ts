@@ -24,6 +24,7 @@
 
 import type { ExportData } from '$lib/domain/export-format';
 import { IMPORT_LABELS } from '$lib/domain/labels';
+import { redactStorageKey, redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { resolveDbBackend } from '$lib/server/db/backend';
 import { logger } from '$lib/server/logger';
 import { recoveryPrefix } from '$lib/server/storage-keys';
@@ -178,9 +179,12 @@ async function runPgSnapshotProtected<T>(tenantId: string, work: () => Promise<T
 		await deleteRecoveryFile(snapshot.key);
 		return result;
 	} catch (err) {
+		// #4867: この経路は cloud import (PIN で引いた export) からも入る。
+		// `record` / `pinCode` / `s3Key` が scope にある catch は機械的に全部通す方針
+		// (redact は `exports/` も `pin` も無い文字列に対して恒等なので副作用は無い)。
 		logger.error('[replace-import] import 失敗、snapshot から復元を試行', {
-			error: String(err),
-			context: { tenantId, recoveryKey: snapshot.key },
+			error: redactStorageKeysInText(String(err)),
+			context: { tenantId, recoveryKey: redactStorageKey(snapshot.key) },
 		});
 		const restored = await restoreFromSnapshot(tenantId, snapshot, err);
 		// #4752: 二次故障の cause は「復元を止めた例外」。旧実装は元の取込失敗を cause にしていたため、
@@ -230,7 +234,8 @@ async function deleteRecoveryFile(key: string): Promise<void> {
 		await deleteFile(key);
 	} catch (err) {
 		logger.warn('[replace-import] 復旧用 snapshot の削除に失敗 (残置しても backup には含めない)', {
-			error: String(err),
+			error: redactStorageKeysInText(String(err)),
+			context: { key: redactStorageKey(key) },
 		});
 	}
 }

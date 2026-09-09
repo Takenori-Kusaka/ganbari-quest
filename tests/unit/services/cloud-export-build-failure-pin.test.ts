@@ -133,6 +133,12 @@ describe('[C2] build 失敗経路', () => {
 		const reason = savedFailureReasons[0] ?? '';
 		expect(reason, 'エラーコードまで消してはいけない (原因が読めなくなる)').toContain('EACCES');
 		expect(reason, 'どの家庭かは残す (運用が追える)').toContain(TENANT);
+		// #4867 adversarial: 前版はここが `EACCES` と tenant だけで、**file 名を見ていなかった**。
+		// そのため置換文字列 `<pin>` 自身が次の `pin` として拾われ `backup.zip` が
+		// `<pin>.zip` に潰れている現物が、この test の中を素通りしていた。
+		expect(reason, 'file 名まで潰している = どの成果物が消し残ったか運用が追えない').toContain(
+			'backup.zip',
+		);
 	});
 
 	it('Windows / NUC の `\\` 区切りパスでも PIN が残らない', async () => {

@@ -15,6 +15,7 @@
 // 二次故障を 500 にしてはならない: client (error-notify / ADR-0062 §2) は 500 の body を捨てて
 // 「時間をおいて再度お試しください」を出すため、半端な状態も復旧手段も顧客に届かない。
 
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import {
@@ -33,20 +34,27 @@ export function replaceImportErrorResponse(err: unknown, logPrefix: string): Res
 	if (err instanceof AtomicReplaceError) {
 		// 原子境界を中止し旧データを復元済。取込失敗の内訳は log にだけ残す (顧客向け文言に
 		// 生の例外文字列を連結すると client の echo hardening が汎用文言に落とし、保全の事実が届かない)。
+		// #4867 adversarial: この helper は `/api/v1/import/cloud` の catch の**内側**から
+		// 呼ばれ、その catch は `record` (= `pinCode` + `s3Key` を持つ) を scope に持つ。
+		// しかも `mapped` が返ると呼び出し側の redact 済み logger.error は実行されないので、
+		// **伏せていない側だけが残る**。`record` / `pinCode` / `s3Key` が scope にある catch は
+		// 機械的に全部通す方針 (redact は `exports/` も `pin` も無い文字列に対して恒等)。
 		logger.error(`${logPrefix} 置換インポート中止 (既存データ保全)`, {
-			context: { errors: err.result.errors.slice(0, 3) },
+			context: {
+				errors: err.result.errors.slice(0, 3).map((e) => redactStorageKeysInText(String(e))),
+			},
 		});
 		return apiError('VALIDATION_ERROR', err.message);
 	}
 	if (err instanceof ReplaceRestoreFailedError) {
 		logger.error(`${logPrefix} 置換インポート失敗 (自動復元も失敗、手動復旧が必要)`, {
-			error: String(err),
+			error: redactStorageKeysInText(String(err)),
 			context: {
 				kind: err.name,
 				recoveryKey: err.recoveryKey,
 				recoveryCode: err.recoveryCode,
-				cause: String(err.cause),
-				originalError: String(err.originalError),
+				cause: redactStorageKeysInText(String(err.cause)),
+				originalError: redactStorageKeysInText(String(err.originalError)),
 			},
 		});
 		return apiError('IMPORT_RESTORE_FAILED', err.message, { recoveryCode: err.recoveryCode });
@@ -54,8 +62,8 @@ export function replaceImportErrorResponse(err: unknown, logPrefix: string): Res
 	if (err instanceof ReplaceSnapshotError) {
 		// 置換未開始 = 旧データ無傷。「保全されています」とは言わない (置換していないため)。
 		logger.error(`${logPrefix} 置換インポート失敗 (pg snapshot 経路)`, {
-			error: String(err),
-			context: { kind: err.name, cause: String(err.cause) },
+			error: redactStorageKeysInText(String(err)),
+			context: { kind: err.name, cause: redactStorageKeysInText(String(err.cause)) },
 		});
 		return apiError('INTERNAL_ERROR', err.message);
 	}

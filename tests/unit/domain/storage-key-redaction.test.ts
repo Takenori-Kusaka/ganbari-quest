@@ -160,3 +160,31 @@ describe('[K5] 任意の文字列', () => {
 		expect(redactStorageKeysInText('')).toBe('');
 	});
 });
+
+describe('[K7] 置換文字列そのものが次の PIN として拾われない', () => {
+	// #4867 adversarial 実測: `i` フラグが付いていたため、`<pin>` の `pin` が語頭として
+	// 認められ、続く `>/` を区切りとして消費したあとの 6 文字が伏せられていた。
+	// `backup` は b/a/c/k/u/p で `I` `O` `0` `1` を 1 つも含まない = PIN 文字種に完全一致。
+	// 結果 full export だけが `<pin>/<pin>.zip` になり、**子供の顔写真・音声が入っている側**
+	// のみ「どの成果物が消し残ったか」を追えなくなっていた (実測 8/8)。
+	it('full export の file 名 backup.zip が残る (potentially 最も追跡が要る側)', () => {
+		const out = redactStorageKeysInText(
+			`EACCES: permission denied, open '/srv/ganbari/data/exports/t-1/${PIN}/backup.zip'`,
+		);
+		expect(out, 'PIN が残っている').not.toContain(PIN);
+		expect(out, 'file 名まで潰している = どの成果物が消し残ったか読めない').toContain('backup.zip');
+	});
+
+	it('template export の file 名 data.json も残る', () => {
+		const out = redactStorageKeysInText(`exports/t-1/${PIN}/data.json missing`);
+		expect(out).not.toContain(PIN);
+		expect(out).toContain('data.json');
+	});
+
+	it('小文字の 6 文字語は伏せない (PIN は必ず大文字)', () => {
+		// `i` を外した副次効果。PIN は `PIN_CHARS` から生成するので必ず大文字で、
+		// 小文字まで拾うと `pinCode: absent` のような普通の文言が潰れる。
+		expect(redactStorageKeysInText('pinCode: absent')).toBe('pinCode: absent');
+		expect(redactStorageKeysInText('pin_code: failed to parse')).toBe('pin_code: failed to parse');
+	});
+});
