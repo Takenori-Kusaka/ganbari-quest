@@ -98,8 +98,22 @@ describe('[K5] 任意の文字列', () => {
 	});
 
 	it('`pin` の近くにある裸の PIN は伏せる', () => {
-		expect(redactStorageKeysInText(`pin ${PIN} not found`)).not.toContain(PIN);
-		expect(redactStorageKeysInText(`PIN検索失敗: ${PIN}`)).not.toContain(PIN);
+		// #4867 adversarial: このコードベースが実際に使う識別子は `pinCode` / `pin_code` で、
+		// `pin` 直後だけを見る形では `Code` / `_code` で外れて素通りしていた。
+		// とくに `Key (pin_code)=(…)` は **PostgreSQL の UNIQUE 制約違反 detail の標準形**で、
+		// `pin_code` に global UNIQUE を張っている以上、PIN を載せる最有力の実エラーである。
+		for (const msg of [
+			`pin ${PIN} not found`,
+			`PIN検索失敗: ${PIN}`,
+			`pinCode=${PIN}`,
+			`pin_code=${PIN}`,
+			`{"pinCode":"${PIN}"}`,
+			`Key (pin_code)=(${PIN}) already exists.`,
+			`no row for pin ${PIN}`,
+			`export pin ${PIN} expired`,
+		]) {
+			expect(redactStorageKeysInText(msg), `素通りしている: ${msg}`).not.toContain(PIN);
+		}
 	});
 
 	it('**PIN と同じ形の英単語を誤爆しない** (伏せた文字列は保護者の画面に出る)', () => {

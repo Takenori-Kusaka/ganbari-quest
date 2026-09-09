@@ -81,6 +81,11 @@ const { Story } = defineMeta({
 		const canvas = within(canvasElement);
 		await expect(canvas.getByTestId('cloud-export-stored-list')).toBeVisible();
 		// #4867 (PO 決裁 2026-09-09): PIN が漏れたときの手当ては「削除 = 即時失効」。
+		//
+		// **この play は develop 宛 PR の CI では走らない** (adversarial 実測)。
+		// `storybook-test` は重量レーン job で `if:` が base==main / release/* 限定
+		// (#2931 / branch-strategy §4)。初回実行は develop → main の統合 PR。
+		// merge 判断では「順序まで検査済み」ではなく「統合 PR まで保留」として扱うこと。
 		// rotate という別操作は作らないので、**この案内が出ていることが唯一の導線**になる。
 		// 順序も検査する — 「先に作ってから消す」と旧 PIN が生きている時間が伸びる。
 		const guidance = canvas.getByTestId('cloud-export-pin-leaked-guidance');

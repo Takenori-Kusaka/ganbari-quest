@@ -33,8 +33,19 @@ const PIN_LIKE_SEGMENT = new RegExp(`^${PIN_LIKE}$`);
  * PIN の文字種は `I` `O` `0` `1` を除くが、これらの語はどれもそれを避けているので
  * 文字種では分離できない。しかも伏せた文字列は**保護者の画面に出る**ため、
  * `EACCES: permission denied` が `<pin>: permission denied` になるのは実害がある。
+ *
+ * **`pin` の直後に英数字が続く形まで届かせる** (#4867 adversarial 実測)。このコードベースが
+ * 実際に使う識別子は `pinCode` / `pin_code` で、`pin` 直後だけを見る形では
+ * `Code` / `_code` で外れて素通りしていた。とくに
+ * `Key (pin_code)=(K7M2QX) already exists.` は **PostgreSQL が UNIQUE 制約違反の detail に
+ * 出す標準の形**で、`pin_code` に global UNIQUE を張っている以上
+ * **PIN を載せる可能性が最も高い実エラー**がちょうど穴に落ちていた。
+ * `EACCES` / `SELECT` は前に `pin` が無いので、広げても誤爆は増えない。
  */
-const BARE_PIN = new RegExp(`(?<=pin[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`, 'gi');
+const BARE_PIN = new RegExp(
+	`(?<=pin[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
+	'gi',
+);
 
 /** 伏せたことが読み手に分かる置換文字列 (空にすると「元から無い」と区別できない)。 */
 const REDACTED = '<pin>';

@@ -4174,8 +4174,12 @@ export const SETTINGS_LABELS = {
 	cloudDeleteConfirmExecute: '削除する',
 	cloudDeleteConfirmCancel: 'やめる',
 	// #4767 QM should: S3 の削除に失敗したときは黙って DB だけ消さない (顧客に見せて再試行させる)。
+	// #4867 adversarial: 削除は #4767 で fail-closed (S3 削除に失敗したら DB 行を残す) なので、
+	//   失敗した時点では **PIN はまだ失効していない**。一覧の案内は「削除すればすぐ使えなくなる」
+	//   と無条件に言うため、失敗時にそれが成立していないことを伝えないと、
+	//   顧客は「消したから安全」と誤解したまま漏れた PIN を放置する。
 	cloudDeleteFailed:
-		'削除できませんでした。時間をおいてもう一度お試しください（データは残っています）。',
+		'削除できませんでした。データは残っており、この PIN はまだ使える状態です。時間をおいてもう一度お試しください。',
 	cloudStoredDeleting: '削除中…',
 	// #4767 QM should: 取り消せない操作の完了を無言で終わらせない (行が消えるだけ = 何が起きたか不明)。
 	// Toast (role="alert") + 画面内 banner (role="status") の 2 層で、**何を消したか**を名指しする。

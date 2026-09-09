@@ -3,6 +3,7 @@
 
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
 import { apiError, planLimitError, quotaLimitError, validationError } from '$lib/server/errors';
@@ -28,7 +29,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 		const exports = await listCloudExports(tenantId);
 		return json({ ok: true, exports });
 	} catch (err) {
-		logger.error('[cloud-export] 一覧取得失敗', { error: String(err) });
+		// #4867: 例外 message は PIN / s3Key を含みうる (PostgreSQL の UNIQUE 制約違反 detail
+		// `Key (pin_code)=(...)` / local FS の絶対パス)。必ず伏せてから出す。
+		logger.error('[cloud-export] 一覧取得失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポート一覧の取得に失敗しました');
 	}
 };
@@ -84,7 +89,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return quotaLimitError(err.message, { tenantId, current: err.current, max: err.max });
 		}
 		const msg = err instanceof Error ? err.message : String(err);
-		logger.error('[cloud-export] 作成失敗', { error: msg });
+		logger.error('[cloud-export] 作成失敗', { error: redactStorageKeysInText(msg) });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの作成に失敗しました');
 	}
 };

@@ -2,6 +2,7 @@
 // クラウドエクスポート個別操作API（削除）
 
 import { json } from '@sveltejs/kit';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -43,7 +44,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			return apiError('EXPORT_DELETE_FAILED', err.message);
 		}
 		const msg = err instanceof Error ? err.message : String(err);
-		logger.error('[cloud-export] 削除失敗', { error: msg });
+		// #4867: 例外 message は PIN / s3Key を含みうるので伏せてから出す。
+		logger.error('[cloud-export] 削除失敗', { error: redactStorageKeysInText(msg) });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの削除に失敗しました');
 	}
 };
