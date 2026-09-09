@@ -1,6 +1,6 @@
 <script lang="ts">
 import { ICON_STATUS } from '$lib/domain/icons';
-import { getChildNavModeLabels, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getChildActivityEmptyLabels, getChildNavModeLabels } from '$lib/domain/labels';
 
 interface Props {
 	uiMode: string;
@@ -8,20 +8,22 @@ interface Props {
 
 let { uiMode }: Props = $props();
 const labels = $derived(getChildNavModeLabels(uiMode));
+// #4690 と同じクラス: 平坦な定数だったため junior / senior にも幼児文体が出ていた。
+const t = $derived(getChildActivityEmptyLabels(uiMode));
 </script>
 
 <div class="empty-state" data-testid="activity-empty-state">
 	<span class="empty-icon">🗺️</span>
-	<p class="empty-title">{UI_COMPONENTS_LABELS.activityEmptyTitle}</p>
-	<p class="empty-desc">{UI_COMPONENTS_LABELS.activityEmptyDesc}</p>
-	<p class="empty-wait">{UI_COMPONENTS_LABELS.activityEmptyWait}</p>
+	<p class="empty-title">{t.activityEmptyTitle}</p>
+	<p class="empty-desc">{t.activityEmptyDesc}</p>
+	<p class="empty-wait">{t.activityEmptyWait}</p>
 
 	<div class="empty-actions">
-		<p class="empty-actions-title">{UI_COMPONENTS_LABELS.activityEmptyCanDo}</p>
+		<p class="empty-actions-title">{t.activityEmptyCanDo}</p>
 		<div class="empty-links">
 			<a href="/{uiMode}/status" class="empty-link">
 				<span>{ICON_STATUS}</span>
-				<span>{UI_COMPONENTS_LABELS.activityEmptyStatusLink(labels.status)}</span>
+				<span>{t.activityEmptyStatusLink(labels.status)}</span>
 			</a>
 		</div>
 	</div>

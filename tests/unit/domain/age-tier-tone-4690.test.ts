@@ -16,6 +16,8 @@ import { CATEGORIES, CATEGORY_CODES } from '../../../src/lib/domain/categories';
 import {
 	getCategoryDisplayName,
 	getChallengeReason,
+	getChildActivityEmptyLabels,
+	getChildAdventureStartLabels,
 	getChildChecklistLabels,
 	getChildErrorPageLabels,
 	getChildHomeLabels,
@@ -179,9 +181,19 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		'パパ・ママ',
 		'うれしい！',
 		'もらったよ',
+		// 初回の子供画面 (冒険スタート演出 / 活動 0 件の空状態)。
+		// showAdventureStart は elementary / junior / senior に付いているので 16-18 歳が最初に見る。
+		'したのカードをタップしてみてね',
+		'きょうから いっしょに',
+		'ぼうけんだよ！',
+		'つよくなれるよ',
+		'ぼうけんスタート',
+		'ぼうけんの じゅんびちゅう',
+		'よういしているよ',
+		'もうすこし まってね',
 	];
 
-	it('ショップ / ステータス / ホーム / 持ち物チェック / ログインボーナス受取の文言に禁止語が残っていない', () => {
+	it('ショップ / ステータス / ホーム / 持ち物チェック / ログインボーナス受取 / 初回画面の文言に禁止語が残っていない', () => {
 		for (const uiMode of KANJI_MODES) {
 			const texts = [
 				...stringsOf(getChildShopLabels(uiMode)),
@@ -192,6 +204,9 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 				...stringsOf(getChildChecklistLabels({ ageTier: uiMode })),
 				...stringsOf(getChildStampLabels(uiMode)),
 				...stringsOf(getChildParentMessageLabels(uiMode)),
+				// 初回訪問で最初に出る 2 面 (冒険スタート演出 / 活動 0 件の空状態)
+				...stringsOf(getChildAdventureStartLabels(uiMode)),
+				...stringsOf(getChildActivityEmptyLabels(uiMode)),
 			].join('\n');
 			for (const word of FORBIDDEN_IN_KANJI_MODE) {
 				expect(texts, `${uiMode} に「${word}」が残っている`).not.toContain(word);
@@ -206,6 +221,61 @@ describe('#4690 F4/F5/F6: junior / senior に幼児向けひらがなが残っ�
 		].join('\n');
 		expect(texts).toContain('こうかんする');
 		expect(texts).toContain('せいちょうチャート');
+	});
+
+	it('初回画面 (冒険スタート演出 / 活動 0 件の空状態) のひらがな側に漢字変種が漏れていない', () => {
+		for (const uiMode of ['baby', 'preschool', 'elementary'] as const) {
+			const texts = [
+				...stringsOf(getChildAdventureStartLabels(uiMode)),
+				...stringsOf(getChildActivityEmptyLabels(uiMode)),
+			].join('\n');
+			expect(texts, uiMode).toContain('したのカードをタップしてみてね');
+			expect(texts, uiMode).toContain('ぼうけんの じゅんびちゅう');
+			for (const value of ['下のカードを選んで記録してみよう', '冒険の準備中', '保護者が活動']) {
+				expect(texts, `${uiMode} に漢字変種「${value}」が漏れている`).not.toContain(value);
+			}
+		}
+	});
+
+	it('初回画面は「押すカードが無いとき」の文言を別に持つ (下にカードが無いのに指さない)', () => {
+		for (const uiMode of [...HIRAGANA_MODES, 'elementary', ...KANJI_MODES] as const) {
+			const t = getChildAdventureStartLabels(uiMode);
+			expect(t.adventureReadySubEmpty, uiMode).not.toBe(t.adventureReadySub);
+			expect(t.adventureReadySubEmpty, uiMode).not.toContain('カード');
+		}
+	});
+
+	/**
+	 * 禁止語リストは「本 PR が消した綴り」しか見ないため、別の言い回しに書き換えると素通りする
+	 * (実測: `したのカードを えらんで きろくしてみてね` を junior override に入れても全 pass)。
+	 * **母数を「その文言セットの全 key」に変え、13-18 歳の値が漢字を含むことを assert する**
+	 * (#4851 の fitness を「次の綴り」で抜けられた件と同じ直し方)。
+	 * 仮名だけが正しい key は下に明示列挙する — 増やすときはレビューで見える。
+	 */
+	const KANA_OK_KEYS_IN_KANJI_MODE = new Set([
+		// あいさつ。「ようこそ、{name}！」に漢字化する語が無い
+		'adventureGreeting',
+		// 区切り線ラベル「── できること ──」。漢字にする語が無く、年齢帯で変えない
+		'activityEmptyCanDo',
+	]);
+
+	it('初回画面の junior / senior は全 key が漢字を含む (禁止語ではなく構造で見る)', () => {
+		for (const uiMode of KANJI_MODES) {
+			const sets = [
+				getChildAdventureStartLabels(uiMode) as Record<string, unknown>,
+				getChildActivityEmptyLabels(uiMode) as Record<string, unknown>,
+			];
+			for (const set of sets) {
+				for (const [key, raw] of Object.entries(set)) {
+					if (KANA_OK_KEYS_IN_KANJI_MODE.has(key)) continue;
+					const values = stringsOf(raw);
+					expect(values.length, `${uiMode}.${key}: 表示文字列が取れない`).toBeGreaterThan(0);
+					for (const value of values) {
+						expect(value, `${uiMode}.${key} が仮名だけ: ${value}`).toMatch(KANJI);
+					}
+				}
+			}
+		}
 	});
 
 	it('カテゴリ名が年齢帯で切り替わる', () => {

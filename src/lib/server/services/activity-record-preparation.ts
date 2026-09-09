@@ -14,6 +14,7 @@
 // (NOT_FOUND child → NOT_FOUND activity → ALREADY_RECORDED / DAILY_LIMIT_REACHED) は
 // 旧 activity-log-service.ts のインライン実装から変更していない。
 
+import type { RecordActivityFailure } from '$lib/domain/activity-record-failure';
 import { prevDateJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
@@ -66,10 +67,12 @@ export interface PreparedActivityRecord {
 	ledgerDescription: string;
 }
 
-export type PrepareActivityRecordError =
-	| { error: 'ALREADY_RECORDED' }
-	| { error: 'DAILY_LIMIT_REACHED' }
-	| { error: 'NOT_FOUND'; target: string };
+/**
+ * 失敗契約は domain SSOT (`$lib/domain/activity-record-failure`) に集約した。
+ * inline union に戻すと、画面側の文言解決が型で結ばれず、コード追加が無警告で
+ * 汎用文言に落ちる (= 本 file が守っている「無音の失敗」と同じクラスの退行)。
+ */
+export type PrepareActivityRecordError = RecordActivityFailure;
 
 /**
  * recordActivity の書込前計算 (検証 → streak → 習熟 → bonus-hook → 倍率 → 合計点)。

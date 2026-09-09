@@ -18,6 +18,7 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn 内 await は core / optional
 // プリミティブの内部のみ)。fitness#16: DB アクセスは repo facade / dsql プリミティブ経由。
 
+import type { RecordActivityFailure } from '$lib/domain/activity-record-failure';
 import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
@@ -53,12 +54,9 @@ export async function recordActivityDsql(
 	childId: ChildId,
 	activityId: ActivityId,
 	tenantId: string,
-): Promise<
-	| RecordActivityResult
-	| { error: 'ALREADY_RECORDED' }
-	| { error: 'DAILY_LIMIT_REACHED' }
-	| { error: 'NOT_FOUND'; target: string }
-> {
+	// 失敗契約は domain SSOT (`$lib/domain/activity-record-failure`)。sqlite 経路と同一の型を
+	// 共有することで、片側だけコードが増える二重実装を型で防ぐ。
+): Promise<RecordActivityResult | RecordActivityFailure> {
 	// 1. 書込前計算 (sqlite 経路と共有。cheap guard: 明白な重複はここで弾く)
 	const prep = await prepareActivityRecord(childId, activityId, tenantId);
 	if ('error' in prep) return prep;

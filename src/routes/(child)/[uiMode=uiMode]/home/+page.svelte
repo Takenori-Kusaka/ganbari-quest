@@ -57,6 +57,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
+import { setChildActivityPresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
 
@@ -84,6 +85,20 @@ const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode))
 // #4690 F6: 記録ダイアログ / 結果 / ピン操作の文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
 const HL = $derived(getChildHomeLabels(data.uiMode ?? 'preschool'));
 const f = $derived(variant.features);
+
+// ❓ ガイドの「活動カードをタップすると」step は、カードが 1 枚も無い画面では
+// 光らせる先も押すものも無い (初回演出 AdventureStartOverlay と同じクラスの欠陥)。
+// **件数を知っているのはこの画面だけ**なので、有無だけを store に書く。章の組み立ては
+// layout が渡した builder が担い、store 側で derive される (#4860)。
+// 旧実装は完成した章配列を store に押し込んでいたが、layout の `onMount` が後から
+// 仮置きで上書きするため、活動 0 件の初回訪問で訂正が消えていた。
+// ホームを離れたら `undefined` に戻す。持ち越すと、活動 40 件の子が `/checklist` へ
+// 遷移したときに「カードをタップすると」と案内し、その画面にカードは 1 枚も無い
+// (adversarial 実測: `cards:0, spotlightRing:0`)。件数の記憶はこの画面の生存期間に閉じる。
+$effect(() => {
+	setChildActivityPresence(data.activities.length > 0);
+	return () => setChildActivityPresence(undefined);
+});
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
 const fsm = new DialogFSM();
@@ -1190,6 +1205,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
+		uiMode={data.uiMode ?? 'preschool'}
+		hasActivities={data.activities.length > 0}
 		onClose={handleAdventureClose}
 	/>
 {/if}
