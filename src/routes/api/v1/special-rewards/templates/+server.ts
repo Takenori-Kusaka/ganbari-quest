@@ -17,14 +17,6 @@ export const GET: RequestHandler = async ({ locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
-	// #4867 系 QM 監査 (S2) / PO 決裁 2026-09-09: **親だけが触ってよい経路**。
-	// `/api/v1/**` は `authorization.ts` の ROUTE_RULES が child まで通すので、role 検査は
-	// この route の責務。無いと子供が親の設定を書き換えられる (ポイント経済が壊れる = ADR-0012
-	// の前提が崩れる)。判定は `forbiddenForNonParent` に集約し、fitness test が漏れを見る。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
-
 	const tenantId = context.tenantId;
 	const templates = await getRewardTemplates(tenantId);
 	return json({ templates });
@@ -34,6 +26,18 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	const context = locals.context;
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
+	}
+	// #4867 系 QM 監査 (S2) / PO 決裁 2026-09-09: **親だけが触ってよい経路**。
+	//
+	// `/api/v1/**` は `authorization.ts` の ROUTE_RULES が `['owner','parent','child']` に
+	// 開けている (既存 test が固定している仕様)。つまり **child セッションはここに到達できる**
+	// ので、「ここは親だけ」は各 route が言う以外にない。無いと子供が親の設定を書き換えられ、
+	// **親が決め、子が記録する**という製品の中核が崩れる (ADR-0012 の前提)。
+	//
+	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
+	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
+	if (context.role !== 'owner' && context.role !== 'parent') {
+		return forbiddenForNonParent();
 	}
 	const tenantId = context.tenantId;
 

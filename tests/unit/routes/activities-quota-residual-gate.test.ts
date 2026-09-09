@@ -137,12 +137,17 @@ const copyFromChildAction = adminMod.actions.copyFromChild as unknown as (event:
 	locals: App.Locals;
 }) => Promise<ActionResult>;
 
-function makeLocals(opts: { licenseStatus?: string; plan?: string } = {}) {
+function makeLocals(opts: { licenseStatus?: string; plan?: string; role?: string } = {}) {
 	return {
 		context: {
 			tenantId: 'tenant-1',
 			licenseStatus: opts.licenseStatus ?? 'none',
 			plan: opts.plan,
+			// #4867 系 QM 監査 (S2): `POST /api/v1/activities` は親限定になった。
+			// role を持たない locals は実運用では作られない (認証が必ず入れる) ので、
+			// fixture 側を実物に合わせる。role 検査そのものは
+			// `tests/unit/routes/api-parent-only-role-guard.test.ts` が固定する。
+			role: opts.role ?? 'owner',
 		},
 	} as unknown as App.Locals;
 }
