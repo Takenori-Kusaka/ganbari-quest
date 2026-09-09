@@ -254,7 +254,12 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 		// ここでは hooks が実際にその判定を通しているかを見る。
 		// 実装から読んだ実際の遷移順 (各 +page.server.ts の redirect 先を辿ったもの)。
 		// **1 つでも塞がれていれば、その先の step には二度と到達できない**ので、
-		// questionnaire だけでなく 9 step 全部を通す。
+		// questionnaire だけでなく 9 path すべてを gate に投げる。
+		//
+		// **ここで分かるのは「gate がその path を塞いでいないこと」だけ**で、その画面が
+		// 実際に描画できるか (各 step の load / action の連鎖) は見ていない。通し歩行の
+		// 保証ではない — 誇張しないために書く (tests/unit/routes/setup-wizard-walkthrough-4863.test.ts
+		// の header に、どの層が何を見ているかの全体を書いてある)。
 		const WIZARD_STEPS = [
 			'/setup/children',
 			'/setup/questionnaire',

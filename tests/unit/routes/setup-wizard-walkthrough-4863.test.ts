@@ -3,10 +3,20 @@
 // ウィザードの**印の立ち下がり** (立つ / 残る / 降りる) を、実際の route を通して固定する。
 //
 // **この test が通す route は 2 本だけ** (`/setup/children?/addChild` と `/setup/complete` の
-// load)。step 2〜8 の各画面は通していない。9 step すべての**到達可否**は
-// `tests/unit/services/hooks-integration.test.ts` が実物の `handle` に 9 path を投げて見る
-// (本 test の `setupGateBlocks()` は hooks と同じ 2 つの問いを同じ順で投げるが、hooks 自体は
-// import していない — その結線は上記 hooks 結合 test の担当)。
+// load)。step 2〜8 の各画面は通していない。本 test の `setupGateBlocks()` は hooks と同じ
+// 2 つの問いを同じ順で投げるが、hooks 自体は import していない — その結線は
+// `tests/unit/services/hooks-integration.test.ts` の担当。
+//
+// **「通しで歩ける」ことを保証している test は、この repo に無い** (誇張しないために書く):
+//
+//   - 本 test        … 印が「立つ / 残る / 降りる」ことだけ
+//   - hooks 結合 test … 実物の `handle` が 9 path を**塞いでいない**ことだけ。
+//                       各 step の `load` も action の連鎖も通していないので、たとえば
+//                       `/setup/rewards` の load が例外を投げるようになっても緑のまま
+//   - CI             … `e2e-test` / `e2e-matrix` / `e2e-demo-lambda` / `storybook-test` は
+//                       本 PR の変更範囲では全て skipping
+//
+// つまり 9 step の通し歩行を確かめているのは**実機計測だけ** (PR body §検証)。
 //
 // なぜ真理値表 test (`tests/unit/services/setup-wizard-reachability-4860.test.ts`) だけでは
 // 足りないか: あれは `shouldBlockSetupAccess` が正しいことしか言っていない。**その判定に
