@@ -3,7 +3,12 @@ import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	PAGE_TITLES,
+	SETUP_FIRST_ADVENTURE_LABELS,
+	SETUP_LABELS,
+} from '$lib/domain/labels';
 import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -186,6 +191,14 @@ function goToComplete() {
 		</form>
 
 		<div class="text-center mt-3">
+			<!-- #4863: 戻る導線が無かった step。戻り先は step 連鎖の 1 つ前 = challenges。 -->
+			<a
+				href="/setup/challenges"
+				class="block py-2 text-center text-xs font-bold text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]"
+				data-testid="setup-back-link"
+			>
+				&larr; {SETUP_LABELS.backButton}
+			</a>
 			<form method="POST" action="?/skip">
 				<Button type="submit" variant="ghost" size="sm" class="text-xs underline">
 					{SETUP_FIRST_ADVENTURE_LABELS.skipButton}

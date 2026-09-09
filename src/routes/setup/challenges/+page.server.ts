@@ -21,6 +21,8 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	buildPerChildTargets,
 	createChildChallengesBulk,
+	findAppliedSetupPresetIds,
+	SETUP_PRESET_SOURCE_PREFIX,
 } from '$lib/server/services/child-challenge-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
@@ -80,12 +82,20 @@ async function addPresetsAsChallenges(
 		return { added: 0, errors: [SETUP_CHALLENGES_LABELS.errorNoChildren] };
 	}
 
+	// #4863 (PO 決裁 2026-09-09): ウィザードは中断・再開できるようになったので、この step を
+	// 2 周しうる。`createChildChallengesBulk` は `insertBulk` するだけで重複を見ないため、
+	// **配信済みの preset は飛ばす**。9 step のうち二重に積むのはここだけ (packs / rewards は
+	// sourcePresetId の重複検知、rules は alreadyImported 判定、activities-defaults は
+	// setSetting の upsert で、いずれも 2 周しても増えない)。
+	const alreadyApplied = await findAppliedSetupPresetIds(tenantId);
+
 	for (const id of presetIds) {
 		const preset = getPresetChallengeById(id);
 		if (!preset) {
 			errors.push(SETUP_CHALLENGES_LABELS.errorPresetNotFound(id));
 			continue;
 		}
+		if (alreadyApplied.has(preset.id)) continue;
 		try {
 			const { startDate, endDate } = resolvePresetChallengeDates(preset, now);
 			const targetConfig = JSON.stringify({
@@ -107,7 +117,7 @@ async function addPresetsAsChallenges(
 				children,
 			);
 			// sourceTemplateId は admin/challenges 兄弟連動表示のため preset id を埋め込む
-			const sourceTemplateId = `setup-preset:${preset.id}`;
+			const sourceTemplateId = `${SETUP_PRESET_SOURCE_PREFIX}${preset.id}`;
 			const created = await createChildChallengesBulk(
 				{
 					title: preset.title,

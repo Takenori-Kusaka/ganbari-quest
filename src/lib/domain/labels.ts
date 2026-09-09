@@ -396,6 +396,12 @@ export const SETUP_LABELS = {
 	//   step 個別 namespace ではなく setup 共通に置く (SETUP_CHALLENGES_LABELS からも参照する)。
 	previewToggleOpen: '▼ なかみ',
 	previewToggleClose: '▲ とじる',
+	// #4863 (PO 決裁 2026-09-09): 全 step 共通の「戻る」文言。step 個別 namespace に散らすと
+	//   step を足したときに片方だけ増えるので、**共通に 1 つだけ**置く。
+	backButton: 'もどる',
+	// #4863: 全 step 共通の出口。ウィザードを最後まで歩かずに降りたい人が、7 回スキップを
+	//   押さずに済むようにする。中断した印は立ったままなので「続きをする」で戻ってこられる。
+	leaveWizard: 'あとでやる',
 } as const;
 
 // ============================================================

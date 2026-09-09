@@ -53,6 +53,7 @@ const incomplete = {
 	allCompleted: false,
 	dismissed: false,
 	nextRecommendation: items[1],
+	wizardInProgress: false,
 };
 
 const complete = {
@@ -62,6 +63,14 @@ const complete = {
 	allCompleted: true,
 	dismissed: false,
 	nextRecommendation: null,
+	wizardInProgress: false,
+};
+
+// #4863 (PO 決裁 2026-09-09): ウィザードを中断した人。印が立っているので、続きは
+// admin の checklist ではなく **ウィザード本体**へ戻す。
+const wizardInterrupted = {
+	...incomplete,
+	wizardInProgress: true,
 };
 
 const { Story } = defineMeta({
@@ -101,6 +110,35 @@ const { Story } = defineMeta({
 		const cta = canvas.getByTestId('setup-resume-cta');
 		await expect(cta).toHaveTextContent(SETUP_RESUME_LABELS.backToSetupCta);
 		await expect(cta).toHaveAttribute('href', '/admin/activities');
+	}}
+/>
+
+<!-- #4863: ウィザードを中断した人 (印あり)。続きは /setup/* に戻す。
+     #2821 が admin へ誘導していたのは step 2〜9 が原理的に開かなかった時代の判断で、
+     いま admin のままにすると questionnaire / rules / activities-defaults / challenges /
+     first-adventure の 5 step が中断者に二度と届かない。 -->
+<Story
+	name="ResumeIntoWizard"
+	args={{ onboarding: wizardInterrupted, variant: 'resume' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const banner = canvas.getByTestId('setup-resume-banner');
+		await expect(banner).toBeVisible();
+		const cta = canvas.getByTestId('setup-resume-cta');
+		// 印が立っている人はウィザードへ。admin の次項目 (from=setup 付き) には行かない。
+		await expect(cta).toHaveAttribute('href', '/setup/questionnaire');
+		await expect(cta).not.toHaveAttribute('href', '/admin/activities?from=setup');
+	}}
+/>
+
+<!-- #4863: context (admin 着地) でも同じ条件で行き先が変わる。面は増やさない。 -->
+<Story
+	name="ContextIntoWizard"
+	args={{ onboarding: wizardInterrupted, variant: 'context' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const cta = canvas.getByTestId('setup-resume-cta');
+		await expect(cta).toHaveAttribute('href', '/setup/questionnaire');
 	}}
 />
 

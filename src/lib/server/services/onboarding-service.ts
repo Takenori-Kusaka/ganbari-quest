@@ -6,6 +6,7 @@ import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { isSetupWizardInProgress } from '$lib/server/services/setup-service';
 import { getRewardTemplates } from '$lib/server/services/special-reward-service';
 
 export interface OnboardingItem {
@@ -24,6 +25,17 @@ export interface OnboardingProgress {
 	allCompleted: boolean;
 	dismissed: boolean;
 	nextRecommendation: OnboardingItem | null;
+	/**
+	 * セットアップウィザードを歩いている最中か (#4863 / PO 決裁 2026-09-09)。
+	 *
+	 * 再開バナー (`SetupResumeBanner`) の行き先をこれ 1 つで分ける。true なら
+	 * `/setup/*` へ戻し、false なら従来どおり admin の次の未完了項目へ送る。
+	 * **面は増やさない** — 1 つのバナーが 1 つの条件で行き先を変えるだけ。
+	 *
+	 * cognito では印が立たない (ウィザードは local モード限定) ため常に false になり、
+	 * 既存の挙動は変わらない。
+	 */
+	wizardInProgress: boolean;
 }
 
 const DISMISSED_KEY = 'onboarding_dismissed';
@@ -112,6 +124,7 @@ export async function getOnboardingProgress(
 		allCompleted,
 		dismissed: dismissed === 'true',
 		nextRecommendation,
+		wizardInProgress: await isSetupWizardInProgress(tenantId),
 	};
 }
 

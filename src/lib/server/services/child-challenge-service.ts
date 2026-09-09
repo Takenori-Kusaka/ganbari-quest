@@ -1034,3 +1034,34 @@ export async function buildPerChildTargets(
 	}
 	return result;
 }
+
+/**
+ * セットアップウィザードの preset 由来 challenge を識別する `sourceTemplateId` の接頭辞。
+ *
+ * `/setup/challenges` の action と、その「配信済みか」の判定 (下記) が**同じ文字列**を
+ * 見るようにするために export する (片方だけ書き換わると重複配信に戻るため)。
+ */
+export const SETUP_PRESET_SOURCE_PREFIX = 'setup-preset:';
+
+/**
+ * すでにこのテナントへ配信済みの、セットアップ preset の id 集合を返す (#4863 / PO 決裁 2026-09-09)。
+ *
+ * なぜ要るか: `createChildChallengesBulk` は `insertBulk` するだけで重複を見ない。
+ * ウィザードは中断・再開できる (印が立っている人の「続きをする」は `/setup/*` に戻る) ので、
+ * `/setup/challenges` を 2 周すると**同じ preset の challenge が二重に積まれる**。
+ * 他の step は二重取込にならない — packs / rewards は `sourcePresetId` の重複検知 (#1254 G1)、
+ * rules は `alreadyImported` 判定、activities-defaults は `setSetting` の upsert。
+ * **challenges だけが例外**なので、ここだけ「済んでいれば飛ばす」を持つ。
+ */
+export async function findAppliedSetupPresetIds(tenantId: string): Promise<Set<string>> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findAllByTenant(tenantId);
+	const applied = new Set<string>();
+	for (const c of all) {
+		const src = c.sourceTemplateId;
+		if (src?.startsWith(SETUP_PRESET_SOURCE_PREFIX)) {
+			applied.add(src.slice(SETUP_PRESET_SOURCE_PREFIX.length));
+		}
+	}
+	return applied;
+}
