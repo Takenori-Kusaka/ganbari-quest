@@ -19,6 +19,7 @@ export type ErrorCode =
 	| 'INSUFFICIENT_POINTS'
 	| 'INVALID_PIN'
 	| 'UNAUTHORIZED'
+	| 'FORBIDDEN'
 	| 'LOCKED_OUT'
 	| 'NOT_FOUND'
 	| 'PLAN_LIMIT_EXCEEDED'
@@ -104,6 +105,12 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		userMessage: `ログインが必要です。${ADMIN_VIEW_TERMS.canonical}からログインしてください。`,
 		severity: 'warning',
 		action: 'fix_input',
+	},
+	FORBIDDEN: {
+		status: 403,
+		userMessage: 'この操作を行う権限がありません。保護者の方に操作してもらってください。',
+		severity: 'error',
+		action: 'none',
 	},
 	LOCKED_OUT: {
 		status: 429,
@@ -282,4 +289,17 @@ export function notFound(message = 'みつかりませんでした') {
 
 export function validationError(message: string) {
 	return apiError('VALIDATION_ERROR', message);
+}
+
+/**
+ * 親 (owner / parent) だけが触ってよい API 経路の 403 (#4867 系 QM 監査 / PO 決裁 2026-09-09)。
+ *
+ * `/api/v1/**` は `authorization.ts` の `ROUTE_RULES` が child まで通すため、**role 検査は
+ * 各 route の責務**になる。監査で 31 本すべてに role 検査が無いことが分かっており、
+ * 「ここは親だけ」という判断が現場ごとにアドホックに書かれて抜けが放置されていた。
+ * 判定を 1 箇所に寄せ、`tests/unit/routes/api-parent-only-role-guard.test.ts` が
+ * 「親限定と決めた経路がこの guard を通っていること」を機械で固定する。
+ */
+export function forbiddenForNonParent(message = '保護者だけが変更できます') {
+	return apiError('FORBIDDEN', message);
 }

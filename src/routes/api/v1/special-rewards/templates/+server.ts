@@ -4,7 +4,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { REWARD_TERMS } from '$lib/domain/terms';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { planLimitError, validationError } from '$lib/server/errors';
+import { forbiddenForNonParent, planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getRewardTemplates,
@@ -17,6 +17,14 @@ export const GET: RequestHandler = async ({ locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+	// #4867 系 QM 監査 (S2) / PO 決裁 2026-09-09: **親だけが触ってよい経路**。
+	// `/api/v1/**` は `authorization.ts` の ROUTE_RULES が child まで通すので、role 検査は
+	// この route の責務。無いと子供が親の設定を書き換えられる (ポイント経済が壊れる = ADR-0012
+	// の前提が崩れる)。判定は `forbiddenForNonParent` に集約し、fitness test が漏れを見る。
+	if (context.role !== 'owner' && context.role !== 'parent') {
+		return forbiddenForNonParent();
+	}
+
 	const tenantId = context.tenantId;
 	const templates = await getRewardTemplates(tenantId);
 	return json({ templates });
