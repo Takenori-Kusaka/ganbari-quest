@@ -259,9 +259,12 @@ async function findPristineOrphanForPreset(
 		const assignments = await findAssignmentsByTemplate(t.id, tenantId);
 		if (assignments.length > 0) continue;
 		// item まで一致していることを見る (名前はそのままで中身だけ足す親が居る)
+		// **並び順に依存させない** (#4868 adversarial round 5)。`findTemplateItems` は
+		// `sortOrder` 順、preset は JSON の配列順なので、preset を並べ替えるだけで
+		// 「中身が違う」と判定されて静かに無効化される。名前の集合で比べる。
 		const items = await findTemplateItems(t.id, tenantId);
-		const actual = JSON.stringify(items.map((i) => i.name));
-		const expected = JSON.stringify(preset.items.map((i) => i.name));
+		const actual = JSON.stringify([...items.map((i) => i.name)].sort());
+		const expected = JSON.stringify([...preset.items.map((i) => i.name)].sort());
 		if (actual !== expected) continue;
 		return t;
 	}

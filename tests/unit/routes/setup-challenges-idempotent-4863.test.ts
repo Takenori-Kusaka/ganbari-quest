@@ -230,6 +230,15 @@ describe('[I6] 全部失敗したときに「すでに追加ずみ」と言わ�
 		).toBeGreaterThan(0);
 	});
 
+	it('部分失敗は added と failed を両方渡す (成功件数だけにしない)', async () => {
+		// #4868 adversarial round 5: `challengesFailed=1` を URL に載せながら、画面は
+		// 「1 件追加しました」だけを出していた = 入らなかった分が親に一度も届かない。
+		const location = await runAddChallenges(['preset-hinamatsuri', 'preset-does-not-exist']);
+		const params = new URLSearchParams(location.split('?')[1] ?? '');
+		expect(Number(params.get('challengesAdded'))).toBeGreaterThan(0);
+		expect(Number(params.get('challengesFailed'))).toBeGreaterThan(0);
+	});
+
 	it('成功したときは challengesFailed を付けない', async () => {
 		const location = await runAddChallenges(['preset-hinamatsuri']);
 		const params = new URLSearchParams(location.split('?')[1] ?? '');

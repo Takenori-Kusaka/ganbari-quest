@@ -7010,6 +7010,10 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	//   「作れなかった」もある。`errors` は書き手 3 / 読み手 0 で、失敗が親に一度も
 	//   届いていなかった。全部失敗したときに「すでに追加ずみ」と言うと嘘になる。
 	challengesFailedNotice: 'チャレンジを追加できませんでした。あとから設定できます。',
+	// #4868 adversarial round 5: **部分失敗**。成功件数だけ出すと、入らなかった分が
+	//   親に一度も届かない (`challengesFailed` を URL に載せながら画面は成功文言だけだった)。
+	challengesPartialNotice: (added: number, failed: number) =>
+		`チャレンジを ${added} 件追加しました。${failed} 件は追加できませんでした（あとから設定できます）。`,
 } as const;
 
 /**

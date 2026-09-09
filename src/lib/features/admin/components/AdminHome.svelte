@@ -88,8 +88,17 @@ async function handleDismissWelcome() {
 }
 
 const isDemo = $derived(mode === 'demo');
+// #4868 adversarial round 5: **ウィザードを歩いている間は admin の checklist を出さない**。
+// required 5 項目は step 1〜4 と `/switch` で埋まるので、印が立っている世帯にはこのカードが
+// 「6/6 完了 (100%)」と出る。しかも「非表示にする」は `allCompleted` の側にしか無いので
+// **消せない**。その間の案内は `admin/+layout.svelte` が出す `SetupResumeBanner`
+// (variant=context) が担う — 案内は 1 つにする。
 const showOnboarding = $derived(
-	!isDemo && onboarding && !onboarding.dismissed && !onboarding.allCompleted,
+	!isDemo &&
+		onboarding &&
+		!onboarding.dismissed &&
+		!onboarding.allCompleted &&
+		!onboarding.wizardInProgress,
 );
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
 

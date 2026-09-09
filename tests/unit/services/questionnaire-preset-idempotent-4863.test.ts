@@ -243,6 +243,37 @@ describe('[Q7] 別の子のために書き換えられた孤児は拾わない',
 		expect(templates.length, '新しい template が作られていない').toBe(2);
 	});
 
+	it('名前だけ書き換えられた孤児も拾わない (item は同じ)', async () => {
+		// #4868 adversarial round 5: `[Q7]` 1 本目は名前と item を両方ずらしていたので、
+		// **名前チェックだけを消しても落ちなかった** (10 passed)。名前だけずらす形を足す。
+		// 実ケース: `deleteChild` のあとに残る「さくらの あさのしたく」。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const original = templates[0]?.id as string;
+		const t = templates.find((x) => x.id === original);
+		if (t) t.name = 'さくらの あさのしたく';
+		assignments.set(original, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect([...childrenOf(original)], '名前を書き換えた孤児を新しい子へ配信している').toEqual([]);
+		expect(templates.length).toBe(2);
+	});
+
+	it('item の並び順が違うだけなら拾う (順序に依存しない)', async () => {
+		// preset JSON を並べ替えただけで判定が静かに無効化されないこと。
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const original = templates[0]?.id as string;
+		const items = itemsByTemplate.get(original) ?? [];
+		itemsByTemplate.set(original, [...items].reverse());
+		assignments.set(original, new Set());
+
+		const created = await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect(created).toBe(1);
+		expect(templates.length, '並び順が違うだけで作り直している').toBe(1);
+		expect([...childrenOf(original)]).toEqual(['c-2']);
+	});
+
 	it('item を足された孤児も拾わない (名前はそのままでも中身が違う)', async () => {
 		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
 		const original = templates[0]?.id as string;

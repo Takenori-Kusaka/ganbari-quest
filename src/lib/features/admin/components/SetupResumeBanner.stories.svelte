@@ -155,12 +155,17 @@ const { Story } = defineMeta({
 
 <!-- #4868 adversarial: 「あとでやる」で降りた人は、step 1〜4 で admin checklist の
      required が 4/5 まで埋まり、`/switch` から子供の画面を 1 回覗いた時点で 5/5 になる。
-     `allCompleted` だけで消すと、印が立っているのにバナーが二度と出ず、
-     rules / activities-defaults / challenges / **first-adventure** / complete が
-     URL 直打ちだけのものに戻る。**印が立っている間は出す。** -->
+     そこで「完了」と言うと、admin の 🎉 と「非表示にする」が出て戻り道が永久に閉じる。
+     **判定は service 側** (`getOnboardingProgress` の `allCompleted && !wizardInProgress`) に
+     あるので、この状態の `onboarding` は **`allCompleted: false` で届く**。
+     story の fixture もそれに合わせる (round 5 実測: `allCompleted: true` のままだと
+     component は描画せず、この story だけが落ちていた)。 -->
 <Story
-	name="CompletedButWizardInProgress"
-	args={{ onboarding: { ...complete, wizardInProgress: true }, variant: 'resume' }}
+	name="RequiredDoneButWizardInProgress"
+	args={{
+		onboarding: { ...complete, allCompleted: false, wizardInProgress: true },
+		variant: 'resume',
+	}}
 	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.getByTestId('setup-resume-banner')).toBeVisible();

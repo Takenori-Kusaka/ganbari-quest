@@ -125,15 +125,31 @@ function goToComplete() {
 	     2 周目は必ず 0 件になるため、歩き直した親には無反応に見えていた。
 	     飛ばした人には出さない (`challengesRequested === 0`)。 -->
 	{#if data.challengesRequested > 0}
-		<p
-			class="text-sm text-[var(--color-text-muted)] text-center mb-3"
-			role="status"
-			data-testid="first-adventure-challenges-notice"
-		>
-			{#if data.challengesAdded > 0}{SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(
-					data.challengesAdded,
-				)}{:else if data.challengesFailed > 0}{SETUP_FIRST_ADVENTURE_LABELS.challengesFailedNotice}{:else}{SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}{/if}
-		</p>
+		{#if data.challengesFailed > 0}
+			<!-- 失敗を含むときは成功文言と同じ見た目にしない (ADR-0062 §1: サーバ内部起因は
+			     Alert 側)。部分失敗も「入らなかった分がある」ことを必ず出す。 -->
+			<div data-testid="first-adventure-challenges-notice">
+				<ErrorAlert
+					message={data.challengesAdded > 0
+						? SETUP_FIRST_ADVENTURE_LABELS.challengesPartialNotice(
+								data.challengesAdded,
+								data.challengesFailed,
+							)
+						: SETUP_FIRST_ADVENTURE_LABELS.challengesFailedNotice}
+					severity="warning"
+				/>
+			</div>
+		{:else}
+			<p
+				class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+				role="status"
+				data-testid="first-adventure-challenges-notice"
+			>
+				{data.challengesAdded > 0
+					? SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(data.challengesAdded)
+					: SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}
+			</p>
+		{/if}
 	{/if}
 
 	<!-- 活動選択画面 -->
