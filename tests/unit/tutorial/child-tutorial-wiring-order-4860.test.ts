@@ -97,14 +97,31 @@ describe('[A] 配線は mount 順に依存しない', () => {
 	});
 });
 
-describe('[B] 件数を誰も書いていない画面', () => {
-	it('checklist のように home を通らない画面では「カードをタップ」と言わない', () => {
+describe('[B] 件数が分からない画面 (ホーム以外)', () => {
+	it('あるとも無いとも言わない — 「タップして」も「まだ届いていません」も出さない', () => {
 		// layout だけが mount された状態 = 件数は未知
 		mountLayout();
 
 		expect(getChildActivityPresence(), '誰も書いていないので未知のはず').toBeUndefined();
 		expect(firstStep().selector, '未知なのに spotlight している').toBeUndefined();
-		expect(firstStep().description).not.toContain('タップする');
+
+		const description = firstStep().description;
+		// 「タップすると」= カードがある前提。元の欠陥
+		expect(description, 'カードがある前提の案内をしている').not.toMatch(/タップすると/);
+		// 「まだ届いていない」= カードが無い前提。活動 40 件の子に出すと嘘になる
+		expect(description, '無い前提の案内をしている (活動がある子には嘘)').not.toMatch(
+			/まだ.*とどいて|まだ.*届いて/,
+		);
+	});
+
+	it('ホームを離れたら (undefined に戻したら) 中立の文言に戻る', () => {
+		mountLayout();
+		mountHome(40); // ホームにいる間は spotlight する
+		expect(firstStep().selector).toBe('[data-tutorial="activity-card"]');
+
+		setChildActivityPresence(undefined); // ホーム離脱時の cleanup
+		expect(firstStep().selector, '離脱後も spotlight したまま').toBeUndefined();
+		expect(firstStep().description).not.toMatch(/タップすると/);
 	});
 });
 

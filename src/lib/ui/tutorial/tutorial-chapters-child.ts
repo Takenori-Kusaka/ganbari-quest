@@ -42,25 +42,39 @@ export function getChildTutorialChapters(
 	options: { hasActivities: boolean | undefined },
 ): TutorialChapter[] {
 	const L = getChildTutorialLabels(uiMode);
-	// `undefined` = 件数がまだ分からない。**分からないときは「ある」に倒さない** (#4860):
-	// 存在しないカードを spotlight して「タップして」と言うより、説明型で出す方が害が小さい。
-	// 件数を知っているのはホーム画面だけで、checklist 等はそもそも知らないまま描画される。
+	// 3 状態を **別々の文言** にする (#4860)。2 状態に潰すと、どちらかが必ず嘘になる画面が出る:
+	//
+	//   true      ホームに活動カードがある      → spotlight して「タップすると」
+	//   false     ホームに活動カードが無い      → 「まだ届いていません」(無いものを指さない)
+	//   undefined ホーム以外 / 件数が分からない → **あるとも無いとも言わない**
+	//
+	// `undefined` を `false` に倒すと、活動が 40 件ある子が `/checklist` を直接開いたときに
+	// 「まだ届いていません」と嘘をつく (adversarial 実測)。`true` に倒すと元の欠陥に戻る。
+	// 件数を知っているのはホーム画面だけなので、ホームを離れたら `undefined` に戻る。
 	const recordCardStep =
-		options.hasActivities === true
+		options.hasActivities === undefined
 			? {
+					// selector 無し = 説明型（中央表示）。その画面にカードは無いので指さない。
 					id: 'child-record-card',
 					chapterId: 1,
-					selector: '[data-tutorial="activity-card"]',
-					...L.steps['child-record-card'],
+					...L.steps['child-record-card-elsewhere'],
 					position: 'bottom' as const,
 				}
-			: {
-					// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
-					id: 'child-record-card',
-					chapterId: 1,
-					...L.steps['child-record-card-empty'],
-					position: 'bottom' as const,
-				};
+			: options.hasActivities
+				? {
+						id: 'child-record-card',
+						chapterId: 1,
+						selector: '[data-tutorial="activity-card"]',
+						...L.steps['child-record-card'],
+						position: 'bottom' as const,
+					}
+				: {
+						// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
+						id: 'child-record-card',
+						chapterId: 1,
+						...L.steps['child-record-card-empty'],
+						position: 'bottom' as const,
+					};
 	return [
 		{
 			id: 1,

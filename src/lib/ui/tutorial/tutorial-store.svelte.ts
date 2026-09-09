@@ -59,7 +59,7 @@ let explicitChapters = $state<TutorialChapter[]>([]);
  *
  * #4860 (adversarial must-A): 旧実装は layout の `onMount` が
  * `getChildTutorialChapters(uiMode, { hasActivities: true })` を **推測で** 置き、
- * ホーム画面が実件数で `updateChapters` し直す 2 段構えだった。しかし Svelte 5 の実行順は
+ * ホーム画面が実件数で章を差し替え直す 2 段構えだった。しかし Svelte 5 の実行順は
  * **子の `$effect` → 親の `onMount`** なので、ホームの訂正が先に走り layout の推測が後から
  * 上書きする。結果、**活動 0 件の子が初めてアプリを開く場面** — つまり修正したかった当の状況 —
  * で「したのカードをタップ」が出続けた (実測: `{"cards":0,"tapCard":true}`)。
@@ -120,27 +120,18 @@ export function setChildChapterBuilder(
  *
  * builder が入っていれば章は自動的に derive し直される。builder より先に呼ばれても
  * (Svelte 5 は子の `$effect` が親の `onMount` より先に走る) 値は state に残るため失われない。
+ *
+ * `undefined` を渡すと「分からない」に戻す。ホームを離れるときに必ず戻すこと —
+ * 持ち越すと、他の画面 (activity カードが存在しない `/checklist` 等) で
+ * 「カードをタップすると」と案内してしまう (#4860 adversarial 実測)。
  */
-export function setChildActivityPresence(hasActivities: boolean) {
+export function setChildActivityPresence(hasActivities: boolean | undefined) {
 	hasActivitiesKnown = hasActivities;
 }
 
 /** test / 検証用。`undefined` は「まだ分からない」。 */
 export function getChildActivityPresence(): boolean | undefined {
 	return hasActivitiesKnown;
-}
-
-/**
- * 進捗 namespace を変えずに章定義だけ差し替える。
- *
- * 子供 layout は活動件数を持たない (件数のためだけに DB を引くのは ADR-0065 に反する) ので、
- * 「活動 0 件なら『カードをタップ』step を説明型に落とす」判断はホーム画面が行い、
- * その結果をここで反映する。`setChapters` を呼ぶと scope が既定値に戻り、
- * 子供ごとの進捗 (#4765) が壊れるため専用の入口を分けている。
- */
-export function updateChapters(chapters: TutorialChapter[]) {
-	explicitChapters = chapters;
-	chapterBuilder = null;
 }
 
 // ── localStorage helpers (SSR-safe) ──
