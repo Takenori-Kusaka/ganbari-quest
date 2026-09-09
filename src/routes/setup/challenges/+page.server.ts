@@ -98,7 +98,7 @@ async function addPresetsAsChallenges(
 		// **子供ごとに判定する**。preset 単位で飛ばすと、「戻る」で子供を追加してから
 		// 前進し直した親の子だけが 1 件も受け取らない (#4868 adversarial 実測)。
 		const alreadyFor = alreadyApplied.get(preset.id) ?? new Set<string>();
-		const pendingChildIds = childIds.filter((id) => !alreadyFor.has(String(id)));
+		const pendingChildIds = childIds.filter((childId) => !alreadyFor.has(String(childId)));
 		if (pendingChildIds.length === 0) continue;
 		try {
 			const { startDate, endDate } = resolvePresetChallengeDates(preset, now);

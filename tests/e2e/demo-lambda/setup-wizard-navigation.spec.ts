@@ -14,6 +14,15 @@
 // HTML コメントで囲って消しても 12/12 緑のまま通る。行き先のずれ (packs が step 2 を
 // 飛ばしていた元の欠陥) には効くが、リンクが消えたことには効かない。ここで描画を見る。
 //
+// **この spec は本 PR の CI では 1 度も走らない** (adversarial 実測、誇張しないために書く)。
+// `e2e-demo-lambda` job の発火条件は push / base=main の統合 PR / (base != develop かつ
+// `area:demo` label) で、本 PR は base=develop なので **skipped**。`area:demo` を貼っても
+// 動かない。workflow の `on: push` も `branches: [main]` なので、**develop に merge しても
+// 走らない** — 初回実行は develop → main の統合レーン (QM の管轄外) になる。
+//
+// つまり develop に入る時点で描画を見ているのは**人の実機確認だけ**である。
+// job の発火条件を変えるのは装置の追加なので、憲章 §0 凍結中はやらない。
+//
 // 固定する不変条件:
 //   [N1] step 2〜8 に**共通の出口**が描画されている (7 回スキップを押させない)
 //   [N2] step 1 (children) と step 9 (complete) には出口を出さない

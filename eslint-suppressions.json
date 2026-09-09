@@ -757,15 +757,7 @@
       "count": 2
     }
   },
-  "src/routes/setup/activities-defaults/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    }
-  },
   "src/routes/setup/challenges/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    },
     "svelte/prefer-svelte-reactivity": {
       "count": 2
     }
@@ -784,9 +776,6 @@
     "local/no-raw-button": {
       "count": 1
     },
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    },
     "svelte/prefer-svelte-reactivity": {
       "count": 2
     },
@@ -798,9 +787,6 @@
     "local/no-raw-button": {
       "count": 2
     },
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    },
     "svelte/prefer-svelte-reactivity": {
       "count": 2
     }
@@ -808,9 +794,6 @@
   "src/routes/setup/rules/+page.svelte": {
     "local/no-raw-button": {
       "count": 3
-    },
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
     },
     "svelte/prefer-svelte-reactivity": {
       "count": 2

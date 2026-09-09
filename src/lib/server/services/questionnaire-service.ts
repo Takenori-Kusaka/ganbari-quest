@@ -141,8 +141,11 @@ export async function applyChecklistPresets(
 	tenantId: string,
 ): Promise<number> {
 	let created = 0;
-	// この子に既に入っている preset (2 周目はここで弾く)
-	const existing = await findTemplatesByChild(childId, tenantId);
+	// この子に既に入っている preset (2 周目はここで弾く)。
+	// **inactive / archive 済も見る** (#4868 adversarial 指摘)。親が「あさのしたく」を
+	// archive するのは #3106 の通常の削除経路なので、archive を見ずに判定すると
+	// **歩き直したときに親が消したはずのチェックリストが黙って復活する**。
+	const existing = await findTemplatesByChild(childId, tenantId, true, true);
 	const appliedPresetIds = new Set(
 		existing.map((t) => t.sourcePresetId).filter((v): v is string => Boolean(v)),
 	);

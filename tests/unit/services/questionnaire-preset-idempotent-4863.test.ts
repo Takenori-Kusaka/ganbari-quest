@@ -20,13 +20,21 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-type FakeTemplate = { id: string; childId: string; sourcePresetId: string | null };
+type FakeTemplate = {
+	id: string;
+	childId: string;
+	sourcePresetId: string | null;
+	isArchived?: boolean;
+};
 
 let templates: FakeTemplate[] = [];
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
-	findTemplatesByChild: vi.fn(async (childId: string) =>
-		templates.filter((t) => t.childId === childId),
+	// 既定 (includeInactive=false / includeArchived=false) では archive 済を返さない。
+	// service 側が両方 true で呼んでいることを、この mock が区別して確かめる。
+	findTemplatesByChild: vi.fn(
+		async (childId: string, _tenantId: string, _inactive = false, includeArchived = false) =>
+			templates.filter((t) => t.childId === childId && (includeArchived || t.isArchived !== true)),
 	),
 }));
 
@@ -96,5 +104,20 @@ describe('[Q4] 子供ごとに独立', () => {
 		const created = await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
 		expect(created, '別の子にまで「配信済み」を適用している').toBe(1);
 		expect(templates).toHaveLength(2);
+	});
+});
+
+describe('[Q5] archive 済も見る (親が消したものを黙って復活させない)', () => {
+	it('archive 済の preset は再作成しない', async () => {
+		// #3106: archive は親にとって通常の削除経路。archive を見ずに判定すると、
+		// 歩き直したときに**親が消したはずのチェックリストが黙って復活する**。
+		templates.push({
+			id: 't-archived',
+			childId: 'c-1',
+			sourcePresetId: 'morning-routine',
+			isArchived: true,
+		});
+		const created = await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		expect(created, 'archive 済を見落として再作成している = 親が消したものが戻ってくる').toBe(0);
 	});
 });
