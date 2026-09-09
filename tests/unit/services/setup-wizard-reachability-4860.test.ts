@@ -2,8 +2,8 @@
 //
 // #4860 must-B の回帰固定。
 //
-// セットアップウィザードは 9 step (children → questionnaire → packs → activities-defaults →
-// rewards → rules → challenges → first-adventure → complete) あるが、**step 2 以降が
+// セットアップウィザードは 9 step (children → questionnaire → packs → rewards → rules →
+// activities-defaults → challenges → first-adventure → complete) あるが、**step 2 以降が
 // 原理的に開けなかった**。
 //
 // 実測 (まっさらな DB、local モード):

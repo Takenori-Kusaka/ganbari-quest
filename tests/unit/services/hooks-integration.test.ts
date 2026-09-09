@@ -252,27 +252,42 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 		// /setup を全部塞いでいたため、残り 8 step が原理的に開けなかった (実測)。
 		// 真理値表は tests/unit/services/setup-wizard-reachability-4860.test.ts が持つ。
 		// ここでは hooks が実際にその判定を通しているかを見る。
-		it('子供 1 人 + 歩いている最中は /setup/questionnaire を通す', async () => {
+		// 実装から読んだ実際の遷移順 (各 +page.server.ts の redirect 先を辿ったもの)。
+		// **1 つでも塞がれていれば、その先の step には二度と到達できない**ので、
+		// questionnaire だけでなく 9 step 全部を通す。
+		const WIZARD_STEPS = [
+			'/setup/children',
+			'/setup/questionnaire',
+			'/setup/packs',
+			'/setup/rewards',
+			'/setup/rules',
+			'/setup/activities-defaults',
+			'/setup/challenges',
+			'/setup/first-adventure',
+			'/setup/complete',
+		];
+
+		it.each(WIZARD_STEPS)('子供 1 人 + 歩いている最中は %s を通す', async (path) => {
 			currentAuthMode = 'local';
 			mockIsSetupRequired.mockResolvedValue(false);
 			mockIsSetupWizardInProgress.mockReturnValue(true);
 			mockAuthorize.mockReturnValue({ allowed: true });
 
-			const event = createMockEvent('/setup/questionnaire');
+			const event = createMockEvent(path);
 			const resolve = createMockResolve();
 
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
 			const result = await handle({ event, resolve } as any);
-			expect(result, 'ウィザードの途中なのに /setup が塞がれている').toBeDefined();
+			expect(result, `ウィザードの途中なのに ${path} が塞がれている`).toBeDefined();
 		});
 
-		it('歩き終えていれば従来どおり / へ 302 する', async () => {
+		it.each(WIZARD_STEPS)('歩き終えていれば %s も従来どおり / へ 302 する', async (path) => {
 			currentAuthMode = 'local';
 			mockIsSetupRequired.mockResolvedValue(false);
 			mockIsSetupWizardInProgress.mockReturnValue(false);
 			mockAuthorize.mockReturnValue({ allowed: true });
 
-			const event = createMockEvent('/setup/questionnaire');
+			const event = createMockEvent(path);
 			const resolve = createMockResolve();
 
 			try {

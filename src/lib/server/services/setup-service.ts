@@ -29,8 +29,8 @@ export async function isSetupRequired(tenantId: string): Promise<boolean> {
 /**
  * セットアップウィザードを歩いている最中かどうかの印 (#4860 must-B)。
  *
- * ウィザードは 9 step (children → questionnaire → packs → activities-defaults → rewards →
- * rules → challenges → first-adventure → complete) あるが、**step 1 で子供を 1 人登録した
+ * ウィザードは 9 step (children → questionnaire → packs → rewards → rules →
+ * activities-defaults → challenges → first-adventure → complete) あるが、**step 1 で子供を 1 人登録した
  * 瞬間に `isSetupRequired` が false になる**。`hooks.server.ts` の「完了済みなら /setup を
  * ブロック」がそれを見ていたため、**残り 8 step が原理的に開けなかった** — step 1 の action が
  * `/setup/questionnaire` へ redirect しても、その先で `/` へ弾かれる (実測)。

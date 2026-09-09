@@ -1,6 +1,12 @@
 // tests/unit/routes/setup-wizard-walkthrough-4863.test.ts
 //
-// セットアップウィザード 9 step の**歩行**を、実際の route を通して固定する。
+// ウィザードの**印の立ち下がり** (立つ / 残る / 降りる) を、実際の route を通して固定する。
+//
+// **この test が通す route は 2 本だけ** (`/setup/children?/addChild` と `/setup/complete` の
+// load)。step 2〜8 の各画面は通していない。9 step すべての**到達可否**は
+// `tests/unit/services/hooks-integration.test.ts` が実物の `handle` に 9 path を投げて見る
+// (本 test の `setupGateBlocks()` は hooks と同じ 2 つの問いを同じ順で投げるが、hooks 自体は
+// import していない — その結線は上記 hooks 結合 test の担当)。
 //
 // なぜ真理値表 test (`tests/unit/services/setup-wizard-reachability-4860.test.ts`) だけでは
 // 足りないか: あれは `shouldBlockSetupAccess` が正しいことしか言っていない。**その判定に
