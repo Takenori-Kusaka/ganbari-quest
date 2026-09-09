@@ -222,6 +222,15 @@ async function jsonBody(res: Response) {
 	return res.json();
 }
 
+/**
+ * 書き込み系の handler は親限定 (#4869)。この test は保護者として呼ぶ。
+ *
+ * `createMockEvent` の既定 context は `role` を持たない。新しい role 検査は
+ * `role` が undefined なら 403 に倒す (fail-closed) ので、書き込みを見る test は
+ * 「誰として呼んでいるか」を明示する。
+ */
+const PARENT_CONTEXT = { tenantId: 'test-tenant', role: 'owner' } as const;
+
 // ===================================================================
 // API-ACT-01: GET /api/v1/activities → 活動一覧取得
 // ===================================================================
@@ -310,6 +319,7 @@ describe('API-ACT-04: POST /api/v1/activities', () => {
 	it('活動を追加できる (201)', async () => {
 		const event = createMockEvent({
 			method: 'POST',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities',
 			body: {
 				name: 'すいえい',
@@ -336,6 +346,7 @@ describe('API-ACT-06: POST /api/v1/activities (validation error)', () => {
 	it('不正なデータで 400 を返す', async () => {
 		const event = createMockEvent({
 			method: 'POST',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities',
 			body: {
 				name: '', // 空文字はバリデーションエラー
@@ -356,6 +367,7 @@ describe('API-ACT-06: POST /api/v1/activities (validation error)', () => {
 	it('不正なカテゴリで 400 を返す', async () => {
 		const event = createMockEvent({
 			method: 'POST',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities',
 			body: {
 				name: 'テスト',
@@ -378,6 +390,7 @@ describe('API-ACT-07: PATCH /api/v1/activities/:id', () => {
 	it('活動を更新できる (200)', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/1',
 			params: { id: '1' },
 			body: { name: 'ラジオたいそう', basePoints: 8 },
@@ -393,6 +406,7 @@ describe('API-ACT-07: PATCH /api/v1/activities/:id', () => {
 	it('存在しない ID で 404 を返す', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/999',
 			params: { id: '999' },
 			body: { name: 'テスト' },
@@ -409,6 +423,7 @@ describe('API-ACT-08: PATCH /api/v1/activities/:id/visibility', () => {
 	it('活動を非表示にできる (200)', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/1/visibility',
 			params: { id: '1' },
 			body: { isVisible: false },
@@ -423,6 +438,7 @@ describe('API-ACT-08: PATCH /api/v1/activities/:id/visibility', () => {
 	it('非表示活動を表示に戻せる', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/3/visibility',
 			params: { id: '3' },
 			body: { isVisible: true },
@@ -437,6 +453,7 @@ describe('API-ACT-08: PATCH /api/v1/activities/:id/visibility', () => {
 	it('存在しない ID で 404 を返す', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/999/visibility',
 			params: { id: '999' },
 			body: { isVisible: false },
@@ -448,6 +465,7 @@ describe('API-ACT-08: PATCH /api/v1/activities/:id/visibility', () => {
 	it('isVisible が boolean でなければ 400', async () => {
 		const event = createMockEvent({
 			method: 'PATCH',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/1/visibility',
 			params: { id: '1' },
 			body: { isVisible: 'yes' },
@@ -490,6 +508,7 @@ describe('DELETE /api/v1/activities/:id', () => {
 	it('活動を非表示にする (200)', async () => {
 		const event = createMockEvent({
 			method: 'DELETE',
+			context: PARENT_CONTEXT,
 			url: '/api/v1/activities/1',
 			params: { id: '1' },
 		});

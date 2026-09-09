@@ -6,8 +6,9 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { activitiesQuerySchema, createActivitySchema } from '$lib/domain/validation/activity';
 import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { findChildById } from '$lib/server/db/activity-repo';
-import { forbiddenForNonParent, quotaLimitError, validationError } from '$lib/server/errors';
+import { quotaLimitError, validationError } from '$lib/server/errors';
 import { createActivity, getActivities } from '$lib/server/services/activity-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -56,9 +57,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	//
 	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
 	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const body = await request.json();
 	const parsed = v.safeParse(createActivitySchema, body);

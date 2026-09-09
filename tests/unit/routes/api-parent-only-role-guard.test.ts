@@ -79,6 +79,9 @@ function req(method: string, body?: unknown): Request {
 
 const activities = await import('../../../src/routes/api/v1/activities/+server');
 const activityById = await import('../../../src/routes/api/v1/activities/[id]/+server');
+const activityVisibility = await import(
+	'../../../src/routes/api/v1/activities/[id]/visibility/+server'
+);
 const decay = await import('../../../src/routes/api/v1/settings/decay/+server');
 const rewardTemplates = await import(
 	'../../../src/routes/api/v1/special-rewards/templates/+server'
@@ -111,6 +114,16 @@ const PARENT_ONLY_WRITES = [
 		call: (role: Role) =>
 			activityById.DELETE({
 				params: { id: 'a-1' },
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'PATCH /api/v1/activities/[id]/visibility',
+		why: 'DELETE と同じ「非表示にする」を別 route から行う (第 2 の入口)',
+		call: (role: Role) =>
+			activityVisibility.PATCH({
+				params: { id: 'a-1' },
+				request: req('PATCH', { isVisible: false }),
 				locals: ctx(role),
 			} as never) as Promise<Response>,
 	},

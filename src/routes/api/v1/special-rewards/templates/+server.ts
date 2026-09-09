@@ -4,7 +4,8 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import { REWARD_TERMS } from '$lib/domain/terms';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { forbiddenForNonParent, planLimitError, validationError } from '$lib/server/errors';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
+import { planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getRewardTemplates,
@@ -36,9 +37,10 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	//
 	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
 	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 
 	// #4705: プリセット (ショップ商品の雛形) の保存も有料プランの機能。GET (閲覧) は無料でも通す。

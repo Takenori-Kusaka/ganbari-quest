@@ -14,6 +14,7 @@
 
 import { isHttpError, json } from '@sveltejs/kit';
 import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { forbiddenForNonParent } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { requireRole } from './guards';
 
@@ -69,6 +70,42 @@ export function ownerGateResponse(
 				});
 			}
 			return json({ error: forbiddenMessage }, { status: 403 });
+		}
+		throw e;
+	}
+}
+
+/**
+ * 親 (owner / parent) 限定 gate を requireRole seam 経由で行い、結果を Response に変換する。
+ *
+ * `ownerGateResponse` の兄弟。違いは 2 つだけ:
+ *   - 許可ロールが `['owner', 'parent']` (owner 専用ではない)
+ *   - 403 body が ADR-0062 の集約先 `forbiddenForNonParent()` (`{ error: { code, message } }`)
+ *
+ * **なぜ seam を通すのか** (#3528 / 14-セキュリティ設計書 §5.2.3 / §5.2.5):
+ * ハンドラ内に `context.role !== 'owner' && context.role !== 'parent'` を直接書くと、
+ * role 判定がルート横断で散り、許可ロールの定義を 1 箇所で読めなくなる。#3528 は
+ * account / tenant 系でそれを `requireRole` に寄せた。`/api/v1` の親限定書き込み (#4869) も
+ * 同じ seam に乗せる。
+ *
+ * **なぜ owner 用と body を分けるのか**: owner-gate 側は既存 client が依存する
+ * `{ error: <文言> }` 形をバイト一致で保存する契約 (§5.2.5)。`/api/v1` の親限定 route は
+ * ADR-0062 の統一形 (`{ error: { code: 'FORBIDDEN' } }`) を返しており、こちらを崩せない。
+ * 許可ロールの判定だけを共有し、表現は各々の契約に合わせる。
+ *
+ * @returns owner / parent なら null (続行可)。それ以外は 403 Response、
+ *          認証コンテキスト欠落なら 401 Response。
+ */
+export function parentGateResponse(locals: App.Locals): Response | null {
+	try {
+		requireRole(locals, ['owner', 'parent']);
+		return null;
+	} catch (e) {
+		if (isHttpError(e, 401)) {
+			return json({ error: OWNER_GATE_LABELS.authRequired }, { status: 401 });
+		}
+		if (isHttpError(e, 403)) {
+			return forbiddenForNonParent();
 		}
 		throw e;
 	}

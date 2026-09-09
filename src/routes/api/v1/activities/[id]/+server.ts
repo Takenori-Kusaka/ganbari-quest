@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { asActivityId } from '$lib/domain/ids';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
-import { forbiddenForNonParent, notFound, validationError } from '$lib/server/errors';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
+import { notFound, validationError } from '$lib/server/errors';
 import {
 	getActivityById,
 	setActivityVisibility,
@@ -39,9 +40,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	//
 	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
 	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const id = asActivityId(params.id);
 	if (!id) return validationError('IDが不正です');
@@ -73,9 +75,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	//
 	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
 	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const id = asActivityId(params.id);
 	if (!id) return validationError('IDが不正です');

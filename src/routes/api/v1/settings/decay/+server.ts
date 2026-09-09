@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
-import { forbiddenForNonParent } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 
 const VALID_INTENSITIES = ['none', 'gentle', 'normal', 'strict'] as const;
@@ -31,9 +31,10 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	//
 	// **読み取り (GET) は閉じない** — 一覧を引けること自体は親限定と言い切れず、
 	// PO 決裁が「判断が要るものは私へ」としているため。閉じるのは書き込みだけ。
-	if (context.role !== 'owner' && context.role !== 'parent') {
-		return forbiddenForNonParent();
-	}
+	// role 判定はルート横断の唯一の seam (`requireRole`) 経由にする
+	// (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5。ハンドラ内の ad-hoc 判定は置かない)。
+	const gate = parentGateResponse(locals);
+	if (gate) return gate;
 	const tenantId = context.tenantId;
 	const body = await request.json();
 	const intensity = body.intensity as string;
