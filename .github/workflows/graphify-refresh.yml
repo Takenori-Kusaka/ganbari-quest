@@ -112,6 +112,11 @@ jobs:
       # 可変 tag のままだと「pin した python 依存」の隣に「pin していない任意コード」が残る。
       # `create-github-app-token` / `github-script` は元から SHA pin されていた。
       #
+      # **`--require-hashes` が機械検証するのは片方向だけ**。「pip が解決した全 dist が
+      # list に載っていること」は見るが、「list に載っている全件が必要であること」は見ない。
+      # つまり**不要になった entry は黙って install され続ける**。version を上げるときは
+      # 追加していくのではなく、**上の report が出した集合で丸ごと置き換える**こと。
+      #
       # **hash は platform 依存**。native wheel (numpy / rapidfuzz / tree-sitter 各種) は
       # `cp312` + `manylinux x86_64` の実ファイルを指しているので、上の `setup-python` の
       # 3.12 と ubuntu-latest x86_64 が前提。runner が変わると install が**落ちる** —
@@ -127,7 +132,14 @@ jobs:
       # 入り、全体が comment 扱いで exit 0 / 出力 0 バイトになる。実際に一度そうなった —
       # 本 workflow が塞ごうとしている「緑なのに何もしていない」そのもの):
       #
-      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --dry-run --only-binary=:all: --report /dev/stdout "graphifyy==<新 version>" > report.json
+      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --quiet --dry-run --only-binary=:all: --report /dev/stdout "graphifyy==<新 version>" > report.json
+      #
+      # **`--quiet` も必須**。pip は進捗 (`Collecting graphifyy==…`) も **stdout** に出すので、
+      # 付けないと `report.json` の先頭がログ行になり `json.load` が
+      # `Expecting value: line 1 column 1` で落ちる (実測。exit code は 0 なので**気づかない**)。
+      # pip 自身の doc も「stdout に書くときは `--quiet` と併用してログ混入を避けること」と
+      # 明記している。これも「緑なのに使えない出力」で、1 行化したときに引用符の問題と一緒に
+      # **ストリーム分離の仕組みごと落として**いた (#4866 adversarial 実測)。
       #
       # **`--platform=linux/amd64` は必須**。`python:3.12-slim` は multi-arch なので、
       # ARM ホストで省くと**黙って arm64 wheel の hash** が出る。それを commit すると
