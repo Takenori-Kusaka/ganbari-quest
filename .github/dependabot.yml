@@ -75,3 +75,28 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # #4866: graphify-refresh.yml が hash pin で入れる python 依存 30 件。
+  # workflow の heredoc に埋めていた間、この 30 件は Dependabot / dependency graph /
+  # dependency-review / deps-supply-chain-check の**どれからも見えなかった** —
+  # 実 manifest しか parse されないため、pin した版に CVE が出ても誰にも通知されない
+  # 状態だった。そしてこの 30 件を install する job は、同一 runner 内で直後に develop へ
+  # push できる App install token を発行する。`.github/graphify-requirements.txt` に
+  # 実ファイルとして出し、ここに載せて既存の装置から見えるようにする (装置は増やさない)。
+  #
+  # hash 付き requirements なので Dependabot は version と hash を一緒に更新する。
+  # ただし `--require-hashes` は「載っている全件が必要か」を見ないので、**版を大きく
+  # 上げるときは workflow のコメントにある手順で集合ごと置き換える** (差分更新に頼らない)。
+  - package-ecosystem: "pip"
+    directory: "/.github"
+    # develop 二層: 依存更新 PR を develop 軽量レーン経由にする (#3072 / branch-strategy.md §7)
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "infra"
+    groups:
+      graphify-pip:
+        patterns:
+          - "*"
