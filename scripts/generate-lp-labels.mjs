@@ -1123,9 +1123,12 @@ function generateSharedLabelsJs() {
 		// #4626: site/index.html hero が data-lp-key で参照する 2 namespace
 		heroPriceBand: lpHeroPriceBandLabels,
 		heroSpecBadges: lpHeroSpecBadgesLabels,
-		lpLicenseKeyLabels,
-		lpFaqLabels,
-		lpSelfhostLabels,
+		// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09:
+		// ここにあった shorthand 3 行 (`lpLicenseKeyLabels` / `lpFaqLabels` /
+		// `lpSelfhostLabels`) は、上の `licenseKey:` / `faq:` / `selfhost:` と
+		// **同じ中身を別の section 名でもう一度配信**していた (185 key の重複)。
+		// どの HTML / test / script からも参照されていないことを実測して削除した。
+		// 顧客が読む文言は 1 文字も変わらない。
 	};
 
 	const header = `/**

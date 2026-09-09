@@ -325,21 +325,6 @@ export interface ChecklistOverride {
 	createdAt: string;
 }
 
-export interface BirthdayReview {
-	id: string;
-	childId: ChildId;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-	createdAt: string;
-}
-
 export interface DailyMission {
 	id: string;
 	childId: ChildId;
@@ -575,19 +560,6 @@ export interface InsertChecklistOverrideInput {
 	action: string;
 	itemName: string;
 	icon?: string;
-}
-
-export interface InsertBirthdayReviewInput {
-	childId: ChildId;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
 }
 
 export interface InsertParentMessageInput {
