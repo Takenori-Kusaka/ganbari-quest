@@ -31,23 +31,54 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = join(__dirname, '../../..');
 
-/** `node -e '` … `'` を、**shell と同じ規則で** (最初の `'` で閉じる) 取り出す。 */
-function extractInlineNodeScripts(yml: string): { script: string; line: number }[] {
-	const OPEN = "node -e '";
-	const found: { script: string; line: number }[] = [];
-	let from = 0;
+type InlineScript = {
+	script: string;
+	line: number;
+	quote: "'" | '"';
+	/** 閉じ引用符のあとに、同じ行で何が残っているか (空でないなら途中で閉じている)。 */
+	trailing: string;
+	terminated: boolean;
+};
+
+/**
+ * `node -e '…'` / `node -e "…"` を、**shell と同じ規則で** (次の同じ引用符で閉じる) 取り出す。
+ *
+ * `--eval` の別綴りも見る。単一引用符は POSIX でエスケープ不可なので、次の `'` で必ず閉じる。
+ * 二重引用符は `\"` でエスケープできるので、それだけは飛ばす。
+ */
+function extractInlineNodeScripts(yml: string): InlineScript[] {
+	const OPEN = /\bnode\s+(?:-e|--eval)\s+(['"])/g;
+	const found: InlineScript[] = [];
 	for (;;) {
-		const i = yml.indexOf(OPEN, from);
-		if (i < 0) return found;
-		const start = i + OPEN.length;
-		// POSIX の single quote は**エスケープ不可**。次の `'` で必ず閉じる。
-		const end = yml.indexOf("'", start);
+		const m = OPEN.exec(yml);
+		if (!m) return found;
+		const quote = m[1] as "'" | '"';
+		const start = m.index + m[0].length;
+		let end = -1;
+		for (let k = start; k < yml.length; k++) {
+			if (yml[k] === '\\' && quote === '"') {
+				k++;
+				continue;
+			}
+			if (yml[k] === quote) {
+				end = k;
+				break;
+			}
+		}
+		const line = yml.slice(0, m.index).split('\n').length;
 		if (end < 0) {
-			found.push({ script: yml.slice(start), line: yml.slice(0, i).split('\n').length });
+			found.push({ script: yml.slice(start), line, quote, trailing: '', terminated: false });
 			return found;
 		}
-		found.push({ script: yml.slice(start, end), line: yml.slice(0, i).split('\n').length });
-		from = end + 1;
+		const lineEnd = yml.indexOf('\n', end);
+		found.push({
+			script: yml.slice(start, end),
+			line,
+			quote,
+			trailing: yml.slice(end + 1, lineEnd < 0 ? yml.length : lineEnd).trim(),
+			terminated: true,
+		});
+		OPEN.lastIndex = end + 1;
 	}
 }
 
@@ -70,48 +101,68 @@ const WORKFLOWS = globSync('.github/workflows/*.yml', { cwd: ROOT })
 	.map((f) => f.replace(/\\/g, '/'))
 	.sort();
 
+/** 検出できているべき最小本数。0 本になったら検査が消えたのと同じ (#4866 round 7)。 */
+const MIN_INLINE_SCRIPTS = 3;
+
+const ALL_SCRIPTS = WORKFLOWS.flatMap((wf) => {
+	const yml = readFileSync(join(ROOT, wf), 'utf8');
+	return extractInlineNodeScripts(yml).map((s) => ({ ...s, wf }));
+});
+
 describe('[W1][W2] workflow の node -e インライン script', () => {
 	it('workflow を 1 件以上見つけている (glob が空振りしていない)', () => {
 		expect(WORKFLOWS.length).toBeGreaterThan(0);
 	});
 
-	for (const wf of WORKFLOWS) {
-		const yml = readFileSync(join(ROOT, wf), 'utf8');
-		const scripts = extractInlineNodeScripts(yml);
-		if (scripts.length === 0) continue;
+	it(`node -e / --eval を ${MIN_INLINE_SCRIPTS} 本以上見つけている (検査が黙って消えない)`, () => {
+		// #4866 adversarial round 7: 前版は per-file の `if (scripts.length === 0) continue;` だけで
+		// 下限が無く、**引用符の綴りを変えるだけで検査ごと消せた** (しかも [W1] の失敗メッセージが
+		// 「文字列は二重引用符で書くこと」と、その逃げ道を自ら案内していた)。単一 / 二重の
+		// 両方を見るようにしたうえで、本数に下限を置く。
+		expect(
+			ALL_SCRIPTS.length,
+			`検出 ${ALL_SCRIPTS.length} 本。workflow から node -e が本当に減ったのなら、` +
+				'この期待値も同じ commit で下げること (黙って減らせないようにしてある)',
+		).toBeGreaterThanOrEqual(MIN_INLINE_SCRIPTS);
+	});
 
-		it(`${wf} — ${scripts.length} 本の node -e が JS として parse できる`, () => {
-			for (const { script, line } of scripts) {
-				const body = dedent(script);
-				let error: string | null = null;
-				try {
-					// `new Function` は eval せずに parse だけする (副作用なし)
-					new Function(body);
-				} catch (e) {
-					error = e instanceof Error ? e.message : String(e);
-				}
-				expect(
-					error,
-					`${wf}:${line} の node -e '…' が JS として parse できない。` +
-						'`node -e` の内側に apostrophe を書くと shell がそこで閉じてしまう ' +
-						'(#4866 で 3 回踏んだ)。文字列は二重引用符で書くこと:\n' +
-						`${error}\n---\n${body.slice(0, 400)}`,
-				).toBeNull();
+	for (const s of ALL_SCRIPTS) {
+		const where = `${s.wf}:${s.line}`;
+
+		it(`${where} — node ${s.quote === "'" ? "-e '…'" : '-e "…"'} が JS として parse できる`, () => {
+			const body = dedent(s.script);
+			let error: string | null = null;
+			try {
+				// `new Function` は eval せずに parse だけする (副作用なし)
+				new Function(body);
+			} catch (e) {
+				error = e instanceof Error ? e.message : String(e);
 			}
+			expect(
+				error,
+				`${where} の node -e が JS として parse できない。引用符の内側に同じ引用符を ` +
+					'書くと shell がそこで閉じてしまう (#4866 で 3 回踏んだ):\n' +
+					`${error}\n---\n${body.slice(0, 400)}`,
+			).toBeNull();
 		});
 
-		it(`${wf} — node -e の内側に途中で閉じる apostrophe が無い`, () => {
-			// `node -e '` の開始位置と、抽出した script の終端の関係を見る。抽出は「最初の `'`」で
-			// 切っているので、**本来の終端より手前で切れていれば** 残りが shell 側に漏れている。
-			// 症状として、script が `+ "…` のような**未終端の文字列**で終わる。
-			for (const { script, line } of scripts) {
-				const quotes = (script.match(/"/g) ?? []).length;
-				expect(
-					quotes % 2,
-					`${wf}:${line} の node -e '…' が二重引用符の途中で切れている = ` +
-						'内側の apostrophe で shell が先に閉じている (#4866 round 6 で実際に起きた)',
-				).toBe(0);
-			}
+		it(`${where} — 引用符が途中で閉じていない`, () => {
+			// #4866 adversarial round 7: 前版は「二重引用符が偶数か」という**代理指標**で、
+			// 宣言している不変条件 (内側に同じ引用符が無い) を見ていなかった。apostrophe を
+			// 2 個入れると偶数のまま素通りする (実測)。**閉じ引用符の直後**を見る。
+			//
+			// 正常な閉じ方のあとに来るのは shell の区切りだけ:
+			//   `node -e '…'` (行末) / `$(node -e "…")` / `$(node -e "…"); then` / `… | …`
+			// 内側の引用符で先に閉じてしまうと、そこには**裸の語**が続く
+			//   `node -e '… bash -c '` + `pip install …`  ← round 6 で assert step 全体が死んだ形
+			expect(s.terminated, `${where} の node -e が閉じられていない`).toBe(true);
+			const afterCloser = s.trailing.replace(/^[)\s]*/, '');
+			expect(
+				afterCloser === '' || /^[;&|<>#]/.test(afterCloser),
+				`${where} の node -e が**途中で閉じている**。内側に同じ引用符を書くと shell が ` +
+					'そこで閉じ、残りは別のコマンドとして解釈される (#4866 round 6 で ' +
+					`assert step 全体が SyntaxError で死んだ)。閉じたあとに続く語: ${afterCloser}`,
+			).toBe(true);
 		});
 	}
 });

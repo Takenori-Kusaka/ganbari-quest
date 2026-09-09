@@ -96,7 +96,8 @@ updates:
   # **security update は別経路で来る** (adversarial round 5 実測)。
   # `automated-security-fixes` は repo 設定側で enabled で、`updates:` entry を必要としない。
   # しかも security 経路は `target-branch` を無視して default branch (main) に直行する
-  # (`ci.yml` の `main-pr-base-guard` が仕様として明記。実績 develop 57 / main 3)。
+  # (`ci.yml` の `main-pr-base-guard` が仕様として明記)。実績は `app/dependabot` の
+  # PR 全 163 件で **develop 60 / main 103**。
   # つまり **CVE が出れば bump PR は来る** — ここで閉じているのは定期の version update だけ。
   # その PR の見方は `.github/workflows/graphify-refresh.yml` の Install step のコメント。
   #

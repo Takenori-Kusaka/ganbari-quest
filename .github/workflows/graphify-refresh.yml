@@ -195,7 +195,9 @@ jobs:
           # この repo は `automated-security-fixes` が enabled で、**security update は
           # `updates:` entry を必要としない**。しかも security 経路は `target-branch` を
           # 無視して **default branch (main) に直行する** (`ci.yml` の `main-pr-base-guard`
-          # が仕様として明記。実績 develop 57 / main 3)。つまり CVE が出れば bump PR は来る。
+          # が仕様として明記)。つまり CVE が出れば bump PR は来る。実績は
+          # `app/dependabot` の PR 全 163 件で **develop 60 / main 103**
+          # (`target-branch: develop` を設定している npm ecosystem でも main 直行が起きる)。
           #
           # **その PR をレビューする人へ**: 全 check が緑でも、この pin list を install する
           # job は CI に 1 つも無い。最低限、次の 2 つを手で見ること —
@@ -309,9 +311,13 @@ jobs:
                 + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt` "
                 + "(python は 3.12)。**pin 30 件のうち 28 件は linux x86_64 の wheel なので、"
                 + "Windows / macOS では 1 件も通らない**。その場合は linux の container の中で "
-                + "実行する: `docker run --rm --platform=linux/amd64 -v \"$PWD\":/w -w /w "
-                + "python:3.12-slim pip install --require-hashes --only-binary=:all: "
-                + "-r .github/graphify/requirements.txt`。"
+                + "**install と再生成を 1 回の起動でやる** (`--rm` なので install だけして抜けると "
+                + "container ごと消える): "
+                + "`MSYS_NO_PATHCONV=1 docker run --rm --platform=linux/amd64 -v \"$PWD\":/w -w /w "
+                + "python:3.12-slim sh -c \"pip install --require-hashes --only-binary=:all: "
+                + "-r .github/graphify/requirements.txt && graphify update .\"`。"
+                + "(`MSYS_NO_PATHCONV=1` は Git Bash 用。無いと MSYS が `-v \"$PWD\":/w` を "
+                + "`E:\…;W:\` に、`-w /w` を `W:/` に書き換えて別コマンドになる)。"
                 + "(2) `npm ci && npx svelte-kit sync` — `.svelte-kit/tsconfig.json` が無いと "
                 + "`$lib` alias が解けず擬似 node が 203 件出て edge が -22.5% になる "
                 + "(この job の $lib assert が見ているのがそれ)。"
