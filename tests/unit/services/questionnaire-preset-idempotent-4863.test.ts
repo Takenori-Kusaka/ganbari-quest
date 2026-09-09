@@ -19,6 +19,8 @@
 //   [Q4] 別の子には独立に適用される (子供ごとの判定であること)
 //   [Q5] archive 済も見る (親が消したものを黙って復活させない)
 //   [Q6] 配信先を外された孤児 template を作り直さず配信し直す (二重の名前と孤児を作らない)
+//   [Q7] ただし**中身がプリセットのまま**の孤児だけ拾う — 子供を削除しても孤児はできるので、
+//        名前や item を書き換えたものを拾うと「別の子のために書いた内容」が新しい子に出る
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +29,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // 「配信先を外す」= assignment だけ消える経路を表現できなかった。
 type FakeTemplate = {
 	id: string;
+	/** 親が書き換えられる。書き換えられていたら「その子のためのもの」= 拾わない。 */
+	name: string;
 	sourcePresetId: string | null;
 	isArchived?: boolean;
 };
@@ -34,6 +38,8 @@ type FakeTemplate = {
 let templates: FakeTemplate[] = [];
 /** templateId -> 配信先 childId 群 */
 let assignments: Map<string, Set<string>> = new Map();
+/** templateId -> item 名 (親が足す・書き換えることがある) */
+let itemsByTemplate: Map<string, string[]> = new Map();
 
 const childrenOf = (templateId: string) => assignments.get(templateId) ?? new Set<string>();
 
@@ -53,6 +59,9 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	findAssignmentsByTemplate: vi.fn(async (templateId: string) =>
 		[...childrenOf(templateId)].map((childId) => ({ templateId, childId })),
 	),
+	findTemplateItems: vi.fn(async (templateId: string) =>
+		(itemsByTemplate.get(templateId) ?? []).map((name, i) => ({ id: `i-${i}`, name })),
+	),
 	assignTemplateToChildren: vi.fn(async (templateId: string, childIds: readonly string[]) => {
 		const set = assignments.get(templateId) ?? new Set<string>();
 		for (const c of childIds) set.add(c);
@@ -62,21 +71,27 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 }));
 
 const mockCreateTemplate = vi.fn(
-	async (input: { childId: string; sourcePresetId?: string | null }) => {
+	async (input: { childId: string; name: string; sourcePresetId?: string | null }) => {
 		const t = {
 			id: `t-${templates.length + 1}`,
+			name: input.name,
 			sourcePresetId: input.sourcePresetId ?? null,
 		};
 		templates.push(t);
 		// 実装の createTemplate は insertTemplate + assignTemplateToChildren を行う
 		assignments.set(t.id, new Set([input.childId]));
+		itemsByTemplate.set(t.id, []);
 		return t;
 	},
 );
 
 vi.mock('$lib/server/services/checklist-service', () => ({
 	createTemplate: (...args: unknown[]) => mockCreateTemplate(...(args as [never])),
-	addTemplateItem: vi.fn(async () => undefined),
+	addTemplateItem: vi.fn(async (input: { templateId: string; name: string }) => {
+		const cur = itemsByTemplate.get(input.templateId) ?? [];
+		cur.push(input.name);
+		itemsByTemplate.set(input.templateId, cur);
+	}),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -90,6 +105,7 @@ const { applyChecklistPresets } = await import(
 beforeEach(() => {
 	templates = [];
 	assignments = new Map();
+	itemsByTemplate = new Map();
 	vi.clearAllMocks();
 });
 
@@ -136,7 +152,12 @@ describe('[Q5] archive 済も見る (親が消したものを黙って復活さ�
 	it('archive 済の preset は再作成しない', async () => {
 		// #3106: archive は親にとって通常の削除経路。archive を見ずに判定すると、
 		// 歩き直したときに**親が消したはずのチェックリストが黙って復活する**。
-		templates.push({ id: 't-archived', sourcePresetId: 'morning-routine', isArchived: true });
+		templates.push({
+			id: 't-archived',
+			name: 'あさのしたく',
+			sourcePresetId: 'morning-routine',
+			isArchived: true,
+		});
 		assignments.set('t-archived', new Set(['c-1']));
 		const created = await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
 		expect(created, 'archive 済を見落として再作成している = 親が消したものが戻ってくる').toBe(0);
@@ -181,7 +202,12 @@ describe('[Q6] 配信先を外された孤児 template を作り直さない', (
 	});
 
 	it('archive 済の孤児は拾わない (親が消したものを復活させない)', async () => {
-		templates.push({ id: 't-archived', sourcePresetId: 'morning-routine', isArchived: true });
+		templates.push({
+			id: 't-archived',
+			name: 'あさのしたく',
+			sourcePresetId: 'morning-routine',
+			isArchived: true,
+		});
 		assignments.set('t-archived', new Set());
 
 		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
@@ -190,5 +216,43 @@ describe('[Q6] 配信先を外された孤児 template を作り直さない', (
 			[...childrenOf('t-archived')],
 			'archive 済を配信し直している = 親が消したものが戻ってくる',
 		).toEqual([]);
+	});
+});
+
+describe('[Q7] 別の子のために書き換えられた孤児は拾わない', () => {
+	it('名前を書き換えられた孤児は配信し直さず、新しく作る', async () => {
+		// #4868 adversarial round 4 実測: 孤児は配信解除だけでなく**子供の削除**でもできる
+		// (`deleteChild` は assignment を消すが family scope の template 本体は残す)。
+		// そのとき template は削除した子のために親が書き換えた名前を持っていることがあり、
+		// 拾うと**別の子のために書いた個人的な内容が、新しく登録した子の画面に出る**。
+		templates.push({
+			id: 't-personalized',
+			name: 'さくらの あさのしたく',
+			sourcePresetId: 'morning-routine',
+		});
+		assignments.set('t-personalized', new Set());
+		itemsByTemplate.set('t-personalized', ['はみがき', 'きがえ', 'さくらのピアノ']);
+
+		const created = await applyChecklistPresets(childId('c-new'), ['morning-routine'], 't-1');
+
+		expect(created).toBe(1);
+		expect(
+			[...childrenOf('t-personalized')],
+			'削除した子のために書き換えた template を新しい子へ配信している',
+		).toEqual([]);
+		expect(templates.length, '新しい template が作られていない').toBe(2);
+	});
+
+	it('item を足された孤児も拾わない (名前はそのままでも中身が違う)', async () => {
+		await applyChecklistPresets(childId('c-1'), ['morning-routine'], 't-1');
+		const original = templates[0]?.id as string;
+		// 親が item を 1 つ足してから、配信先を外した
+		itemsByTemplate.set(original, [...(itemsByTemplate.get(original) ?? []), 'さくらのピアノ']);
+		assignments.set(original, new Set());
+
+		await applyChecklistPresets(childId('c-2'), ['morning-routine'], 't-1');
+
+		expect([...childrenOf(original)], '中身が違う孤児を配信し直している').toEqual([]);
+		expect(templates.length).toBe(2);
 	});
 });

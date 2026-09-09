@@ -47,6 +47,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 分からなかった。`requested` が 0 (= 飛ばした) のときは何も出さない。
 	const challengesRequested = Number(url.searchParams.get('challengesRequested') ?? 0);
 	const challengesAdded = Number(url.searchParams.get('challengesAdded') ?? 0);
+	// 「作れなかった」を「すでにある」と言い換えない (#4868 adversarial round 4)
+	const challengesFailed = Number(url.searchParams.get('challengesFailed') ?? 0);
 
 	return {
 		child: firstChild,
@@ -55,6 +57,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		skipped,
 		challengesRequested,
 		challengesAdded,
+		challengesFailed,
 	};
 };
 

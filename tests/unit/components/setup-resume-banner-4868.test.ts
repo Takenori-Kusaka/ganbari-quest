@@ -60,29 +60,25 @@ const base: OnboardingProgress = {
 const banner = () => screen.queryByTestId('setup-resume-banner');
 const cta = () => screen.getByTestId('setup-resume-cta');
 
-describe('[B1] 印が立っている間は、完了扱いになってもバナーを出す', () => {
+describe('[B1] 完了していない間はバナーを出す', () => {
 	afterEach(cleanup);
 
-	it('allCompleted でも wizardInProgress ならバナーが出て、行き先はウィザード', () => {
+	it('未完了 + wizardInProgress ならバナーが出て、行き先はウィザード', () => {
+		// #4868 round 4: 「印が立っている間は完了と言わない」判定は **service 側**
+		// (`getOnboardingProgress` の `allCompleted && !wizardInProgress`) に移した。
+		// バナー側で条件を足すと admin の 🎉「すべて完了しました」が残り、
+		// 2 画面が同時刻に正反対を言う状態になるため。service の不変条件は
+		// `tests/unit/services/onboarding-wizard-in-progress-4868.test.ts` が固定する。
 		render(SetupResumeBanner, {
-			onboarding: {
-				...base,
-				allCompleted: true,
-				completedCount: 5,
-				nextRecommendation: null,
-				wizardInProgress: true,
-			},
+			onboarding: { ...base, completedCount: 5, wizardInProgress: true },
 			variant: 'resume',
 		});
 
-		expect(
-			banner(),
-			'完了扱いになった瞬間にバナーが消えると、step 5〜9 が URL 直打ちだけのものに戻る',
-		).not.toBeNull();
+		expect(banner()).not.toBeNull();
 		expect(cta().getAttribute('href')).toBe('/setup/questionnaire');
 	});
 
-	it('印が無い完了済みは従来どおり描画しない (ADR-0012 進行中のみ表示)', () => {
+	it('完了済みは描画しない (ADR-0012 進行中のみ表示)', () => {
 		render(SetupResumeBanner, {
 			onboarding: {
 				...base,

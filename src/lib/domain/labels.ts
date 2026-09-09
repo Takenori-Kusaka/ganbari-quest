@@ -7006,6 +7006,10 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	//   歩き直した親には**押しても何も起きない画面**に見えていた。
 	challengesAddedNotice: (count: number) => `チャレンジを ${count} 件追加しました。`,
 	challengesAlreadyNotice: 'チャレンジはすでに追加ずみでした。',
+	// #4868 adversarial round 4: `added=0` の意味は「すでにある」だけでなく
+	//   「作れなかった」もある。`errors` は書き手 3 / 読み手 0 で、失敗が親に一度も
+	//   届いていなかった。全部失敗したときに「すでに追加ずみ」と言うと嘘になる。
+	challengesFailedNotice: 'チャレンジを追加できませんでした。あとから設定できます。',
 } as const;
 
 /**

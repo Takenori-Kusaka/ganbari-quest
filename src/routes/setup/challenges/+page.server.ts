@@ -164,8 +164,16 @@ async function addPresetsAsChallenges(
  * `requested` を併せて渡す — `added=0` の意味が「飛ばした」と「すでにある」の
  * 2 つあると、次画面は正しい文言を選べない。飛ばした場合は param 自体を付けない。
  */
-function nextHref(added: number, requested: number): string {
-	return `/setup/first-adventure?challengesAdded=${added}&challengesRequested=${requested}`;
+function nextHref(added: number, requested: number, failed: number): string {
+	const params = new URLSearchParams({
+		challengesAdded: String(added),
+		challengesRequested: String(requested),
+	});
+	// #4868 adversarial round 4: **全部失敗したときに「すでに追加ずみ」と言わない**。
+	// `added=0` の意味は「すでにある」だけでなく「作れなかった」もありうる。
+	// `errors` は書き手 3 / 読み手 0 で、失敗が親に一度も届いていなかった。
+	if (failed > 0) params.set('challengesFailed', String(failed));
+	return `/setup/first-adventure?${params.toString()}`;
 }
 
 export const actions: Actions = {
@@ -179,24 +187,24 @@ export const actions: Actions = {
 			redirect(302, '/setup/first-adventure');
 		}
 
-		const { added } = await addPresetsAsChallenges(presetIds, tenantId);
+		const { added, errors } = await addPresetsAsChallenges(presetIds, tenantId);
 		trackSetupFunnel('setup_challenges_selected', tenantId, {
 			presetCount: presetIds.length,
 			added,
 		});
-		redirect(302, nextHref(added, presetIds.length));
+		redirect(302, nextHref(added, presetIds.length, errors.length));
 	},
 
 	autoAdd: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		const recommended = getAutoAddRecommendedPresets().map((p) => p.id);
-		const { added } = await addPresetsAsChallenges(recommended, tenantId);
+		const { added, errors } = await addPresetsAsChallenges(recommended, tenantId);
 		trackSetupFunnel('setup_challenges_selected', tenantId, {
 			presetCount: recommended.length,
 			added,
 			autoAdd: true,
 		});
-		redirect(302, nextHref(added, recommended.length));
+		redirect(302, nextHref(added, recommended.length, errors.length));
 	},
 
 	skip: async ({ locals }) => {

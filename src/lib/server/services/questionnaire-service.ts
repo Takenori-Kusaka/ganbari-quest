@@ -3,6 +3,7 @@ import type { ChildId } from '$lib/domain/ids';
 import {
 	assignTemplateToChildren,
 	findAssignmentsByTemplate,
+	findTemplateItems,
 	findTemplatesByChild,
 	findTemplatesByTenant,
 } from '$lib/server/db/checklist-repo';
@@ -147,9 +148,14 @@ export async function applyChecklistPresets(
 ): Promise<number> {
 	let created = 0;
 	// この子に既に入っている preset (2 周目はここで弾く)。
-	// **inactive / archive 済も見る** (#4868 adversarial 指摘)。親が「あさのしたく」を
-	// archive するのは #3106 の通常の削除経路なので、archive を見ずに判定すると
-	// **歩き直したときに親が消したはずのチェックリストが黙って復活する**。
+	// **inactive / archive 済も見る** (#4868 adversarial 指摘)。
+	//
+	// archive を書くのは `downgrade-service` / `resource-archive-service` で、
+	// **親が archive するボタンは無い** (親の削除は `removeTemplate` = 物理削除)。
+	// つまり archive 済 = 「無料プランの上限で退避中」で、#4708 の告知バナーが
+	// 「有料プランで元に戻る」と案内している状態。ここで見ずに判定すると、
+	// **退避中のものと同名の template を歩き直しのたびに作り足す**ことになり、
+	// プランを戻した親の画面に同じチェックリストが 2 つ並ぶ。
 	const existing = await findTemplatesByChild(childId, tenantId, true, true);
 	const appliedPresetIds = new Set(
 		existing.map((t) => t.sourcePresetId).filter((v): v is string => Boolean(v)),
@@ -165,21 +171,29 @@ export async function applyChecklistPresets(
 	// 兄弟の扱いは変えない: 別の子に配信中の template は孤児ではないので、この子には
 	// この子の template を作る (family master を共有させると、片方の子だけ item を
 	// 足す・減らすができなくなる = 親のカスタマイズを奪う)。
+	//
+	// **配信し直すのは「プリセットのままの孤児」だけ** (#4868 adversarial round 4 実測)。
+	// 孤児は配信解除だけでなく **子供の削除**でもできる (`deleteChild` は assignment を
+	// 消すが family scope の template 本体は残す)。そのとき template は削除した子のために
+	// 親が書き換えた内容 (「さくらの あさのしたく」/ item「さくらのピアノ」) を持っている
+	// ことがあり、それを新しい子へ配信すると**別の子のために書いた個人的な内容が、
+	// 新しく登録した子の画面に出る**。名前と item がプリセットと完全一致するものだけを
+	// 拾えば、拾った側は「作り直したのと中身が同じ」なので実害が無い。
 	const familyTemplates = await findTemplatesByTenant(tenantId, true);
 	for (const presetId of presetIds) {
 		try {
 			if (appliedPresetIds.has(presetId)) continue;
 
-			const orphan = await findOrphanTemplateForPreset(familyTemplates, presetId, tenantId);
+			const preset = await loadPreset(presetId);
+			if (!preset) continue;
+
+			const orphan = await findPristineOrphanForPreset(familyTemplates, preset, presetId, tenantId);
 			if (orphan) {
 				await assignTemplateToChildren(orphan.id, [childId], tenantId);
 				appliedPresetIds.add(presetId);
 				created++;
 				continue;
 			}
-
-			const preset = await loadPreset(presetId);
-			if (!preset) continue;
 
 			const template = await createTemplate(
 				{
@@ -214,25 +228,42 @@ export async function applyChecklistPresets(
 }
 
 /**
- * 同じ preset から作られ、**どの子にも配信されていない** family template を探す (#4868)。
+ * 同じ preset から作られ、**どの子にも配信されておらず、中身がプリセットのまま**の
+ * family template を探す (#4868)。
  *
- * 見つかったら、それを作り直さずこの子へ配信し直す。archive 済は
- * `findTemplatesByTenant` が返さないので、ここには来ない (= 親が消したものは復活しない)。
+ * 見つかったら、それを作り直さずこの子へ配信し直す。「作り直したのと中身が同じ」なので、
+ * 同名 template が 2 本並ぶことも、assignment 0 本の孤児が残ることも避けられる。
+ *
+ * **中身の一致を要求する理由** (adversarial round 4 実測): 孤児は配信解除だけでなく
+ * **子供の削除**でもできる (`deleteChild` は assignment を消すが template 本体は残す)。
+ * そのとき template は削除した子のために親が書き換えた内容を持っていることがあり、
+ * 名前だけで拾うと**別の子のために書いた個人的な内容が新しい子の画面に出る**。
+ *
+ * archive 済は `findTemplatesByTenant` が返さないのでここには来ない。
  *
  * **残余**: 別の子に配信中のまま archive された template は family scope の read API が
- * 返さないため、この子には見えない (`findTemplatesByTenant` に includeArchived が無い)。
- * その場合はこの子に新しい template が作られる。repo interface を 3 backend ぶん広げる
- * 変更になるので、ここでは踏み込まない。
+ * 返さないため見えない (`findTemplatesByTenant` に includeArchived が無い)。その場合は
+ * この子に新しい template が作られる。repo interface を 3 backend ぶん広げる変更になるので、
+ * ここでは踏み込まない。
  */
-async function findOrphanTemplateForPreset(
-	familyTemplates: readonly { id: string; sourcePresetId?: string | null }[],
+async function findPristineOrphanForPreset(
+	familyTemplates: readonly { id: string; name?: string; sourcePresetId?: string | null }[],
+	preset: ChecklistPreset,
 	presetId: string,
 	tenantId: string,
 ): Promise<{ id: string } | null> {
 	for (const t of familyTemplates) {
 		if ((t.sourcePresetId ?? null) !== presetId) continue;
+		// 名前を書き換えられていたら「その子のためのもの」なので拾わない
+		if ((t.name ?? '') !== preset.name) continue;
 		const assignments = await findAssignmentsByTemplate(t.id, tenantId);
-		if (assignments.length === 0) return t;
+		if (assignments.length > 0) continue;
+		// item まで一致していることを見る (名前はそのままで中身だけ足す親が居る)
+		const items = await findTemplateItems(t.id, tenantId);
+		const actual = JSON.stringify(items.map((i) => i.name));
+		const expected = JSON.stringify(preset.items.map((i) => i.name));
+		if (actual !== expected) continue;
+		return t;
 	}
 	return null;
 }

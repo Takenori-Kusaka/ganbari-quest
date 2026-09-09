@@ -113,7 +113,21 @@ export async function getOnboardingProgress(
 
 	const completedCount = items.filter((i) => i.completed).length;
 	const totalCount = items.length;
-	const allCompleted = items.filter((i) => i.required).every((i) => i.completed);
+	const wizardInProgress = await isSetupWizardInProgress(tenantId);
+	// #4868 adversarial round 4: **ウィザードを歩いている間は「完了」と言わない**。
+	//
+	// checklist の required 5 項目は step 1〜4 と `/switch` で埋まってしまうので、
+	// ウィザードの後半 (rules / activities-defaults / challenges / **first-adventure** /
+	// complete) を歩き終える前に `allCompleted` が立つ。その状態で `/admin` に着くと
+	// 🎉「すべてのセットアップが完了しました！」と「非表示にする」が描かれ、押すと
+	// `onboarding_dismissed` が立つ (**解除する経路は src に無い**)。`SetupResumeBanner` は
+	// `/setup/questionnaire` への唯一のリンクなので、そこで戻り道が永久に閉じる。
+	//
+	// 同時刻に 2 つの画面が正反対を言う状態でもあった (バナー「セットアップの続き」と
+	// admin「すべて完了しました」)。**判定を 1 箇所で揃える** — 印が立っている間は
+	// 完了ではない。印は `/setup/complete` の load で降りる。
+	const allCompleted =
+		items.filter((i) => i.required).every((i) => i.completed) && !wizardInProgress;
 	const nextRecommendation =
 		items.find((i) => i.required && !i.completed) ?? items.find((i) => !i.completed) ?? null;
 
@@ -124,7 +138,7 @@ export async function getOnboardingProgress(
 		allCompleted,
 		dismissed: dismissed === 'true',
 		nextRecommendation,
-		wizardInProgress: await isSetupWizardInProgress(tenantId),
+		wizardInProgress,
 	};
 }
 

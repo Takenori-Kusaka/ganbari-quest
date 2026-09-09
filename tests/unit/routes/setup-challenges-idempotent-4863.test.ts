@@ -216,3 +216,23 @@ describe('[I5] 直前の step の結果が次の画面に届く', () => {
 		expect(location).toBe('/setup/first-adventure');
 	});
 });
+
+describe('[I6] 全部失敗したときに「すでに追加ずみ」と言わない', () => {
+	// #4868 adversarial round 4: `errors` は書き手 3 / 読み手 0 で、失敗が親に一度も
+	// 届いていなかった。`added=0` の意味は「すでにある」だけでなく「作れなかった」もある。
+	it('未知の preset を渡すと challengesFailed が付く', async () => {
+		const location = await runAddChallenges(['preset-does-not-exist']);
+		const params = new URLSearchParams(location.split('?')[1] ?? '');
+		expect(Number(params.get('challengesAdded'))).toBe(0);
+		expect(
+			Number(params.get('challengesFailed')),
+			'作れなかったのに「すでに追加ずみ」と表示されてしまう',
+		).toBeGreaterThan(0);
+	});
+
+	it('成功したときは challengesFailed を付けない', async () => {
+		const location = await runAddChallenges(['preset-hinamatsuri']);
+		const params = new URLSearchParams(location.split('?')[1] ?? '');
+		expect(params.get('challengesFailed')).toBeNull();
+	});
+});

@@ -130,9 +130,9 @@ function goToComplete() {
 			role="status"
 			data-testid="first-adventure-challenges-notice"
 		>
-			{data.challengesAdded > 0
-				? SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(data.challengesAdded)
-				: SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}
+			{#if data.challengesAdded > 0}{SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(
+					data.challengesAdded,
+				)}{:else if data.challengesFailed > 0}{SETUP_FIRST_ADVENTURE_LABELS.challengesFailedNotice}{:else}{SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}{/if}
 		</p>
 	{/if}
 

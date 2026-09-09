@@ -4,23 +4,17 @@
 // の 2 文脈に最小サイズの再開バナーを出す。完了済みなら描画しない
 // (Anti-engagement ADR-0012: 進行中のみ表示)。
 //
-// **ただし「完了済み」の判定に印を混ぜる** (#4868 adversarial 実測)。`allCompleted` は
-// admin checklist の required 5 項目 (children / activities / rewards / checklist /
-// child_screen) だけで決まり、ウィザードの印を見ていない。ところがウィザードを歩くと
-// step 1〜4 で 4 項目が埋まり、本 PR が足した「あとでやる」で `/switch` に降りて
-// 子供の画面を 1 回覗くと `markChildScreenVisited` が最後の 1 項目を埋める。
-// → `allCompleted = true` → **バナーが二度と出ない**。印は `/setup/complete` の load で
-// しか降りないので立ったまま残り、rules / activities-defaults / challenges /
-// **first-adventure** (= コアループそのもの) / complete の 5 step が URL 直打ちだけの
-// ものに戻る。**本 PR が足した出口が、本 PR が塞いだ行き止まりを作り直していた。**
+// **「完了済み」の判定そのものに印が入っている** (#4868 adversarial 実測)。
+// `getOnboardingProgress` の `allCompleted` は `&& !wizardInProgress` を含むので、
+// ウィザードを歩いている間はここが false になり、バナーは出続ける。
 //
-// PO 決裁 (2026-09-09 Q3) は「印はその人の戻り道そのもの」として掃除しない判断なので、
-// 戻り道である以上、**印が立っている間はバナーを出す**のが筋が通る。
-//
-// `dismissed` は据え置き (明示的に「閉じる」を押した人に出し続けない、ADR-0012)。
-// ただし `onboarding_dismissed` は admin の OnboardingChecklist と共有なので、
-// admin 側で閉じた親はウィザードへの戻り道も同時に閉じる — 新しい state を持たない
-// 範囲での既知の残余。
+// なぜ判定を service 側に置いたか: checklist の required 5 項目は step 1〜4 と
+// `/switch` で埋まるため、ウィザードの後半を歩き終える前に「完了」が立つ。その状態で
+// `/admin` に着くと 🎉「すべてのセットアップが完了しました！」と「非表示にする」が
+// 描かれ、押すと `onboarding_dismissed` が立つ (**解除する経路は src に無い**)。
+// このバナーは `/setup/questionnaire` への唯一のリンクなので、そこで戻り道が
+// 永久に閉じる。**バナー側だけで条件を足すと、admin の「完了しました」は残ったまま
+// 2 画面が正反対を言う。** 判定は 1 箇所に置く。
 import { SETUP_RESUME_LABELS } from '$lib/domain/labels';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -67,7 +61,7 @@ const resumeHref = $derived(
 );
 </script>
 
-{#if (onboarding.wizardInProgress || !onboarding.allCompleted) && !onboarding.dismissed}
+{#if !onboarding.allCompleted && !onboarding.dismissed}
 	<div class="setup-resume" data-testid="setup-resume-banner" data-variant={variant} role="status">
 		<span class="emoji" aria-hidden="true">{variant === 'context' ? '🧭' : '🚩'}</span>
 		<div class="body">
