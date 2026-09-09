@@ -67,7 +67,7 @@ LP SS 撮影用に **全 route** で本番一致演出を強制 ON + demo 固有
 | `?screenshot=1` | `'noise-only'` | demo 固有 UI のみ非表示 (旧挙動、後方互換) |
 | `?screenshot=all` | `'all'` | demo 固有 UI 非表示 + 本番一致演出強制 ON (#1893) |
 
-`?screenshot=all` モード (#1893): demo (child) layout で `MilestoneBanner` を強制表示する等、本番 NUC ユーザの実画面と一致する演出を screenshot 撮影時に再現する。LP 配信 SS が本番乖離する事故 (PO 直接指摘 8 回連続再発) への構造的対策。
+`?screenshot=all` モード (#1893): demo (child) layout でマイルストーン告知 (`MilestoneBellButton`) を強制表示する等、本番 NUC ユーザの実画面と一致する演出を screenshot 撮影時に再現する。LP 配信 SS が本番乖離する事故 (PO 直接指摘 8 回連続再発) への構造的対策。
 
 ```svelte
 <script>
@@ -78,7 +78,7 @@ const kind = getScreenshotModeKind();            // 'off' | 'noise-only' | 'all'
 const isScreenshotAll = $derived(kind === 'all');
 </script>
 {#if !isScreenshot}<div class="demo-only-notice">…</div>{/if}
-{#if isScreenshotAll}<MilestoneBanner ... bypassSeenCheck />{/if}
+{#if isScreenshotAll}<MilestoneBellButton ... bypassSeenCheck />{/if}
 ```
 
 **禁止**: page 側で `$page.url.searchParams.get('screenshot')` 再呼出 / props drilling / global `$state` 化。リグレッション検出: `tests/e2e/demo-lambda/visual-equality.spec.ts`

@@ -433,7 +433,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | `--z-base` | `0` | base | 通常 flow（指定なし相当） |
 | `--z-sticky` | `10` | sticky | 固定 header / sticky 要素 / 通常 stacking 内の前面要素 |
 | `--z-dropdown` | `20` | dropdown | menu / popover（画面の一部を覆う非モーダル） |
-| `--z-banner` | `30` | banner | FAB / inline banner（情報通知レベル、Modal 配下に隠れる）。`MilestoneBanner` は flow なので原則 z-index 不要だが、絶対配置にする派生では `--z-banner` を使う |
+| `--z-banner` | `30` | banner | FAB / inline banner（情報通知レベル、Modal 配下に隠れる）。flow 配置の banner は原則 z-index 不要だが、絶対配置にする派生では `--z-banner` を使う |
 | `--z-overlay` | `40` | overlay | Dialog Backdrop（Ark UI primitive） |
 | `--z-modal` | `50` | modal | Dialog Content（Ark UI primitive）／`AdminLayout` sidebar |
 | `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ）／`PointFlightGhost`（#4448、`pointer-events: none` で操作を奪わない。Dialog が閉じたあとに飛ぶため modal と重ならない） |
@@ -445,7 +445,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 - **同時表示時の優先順位**: celebration > tutorial > reward > modal > overlay > banner > dropdown > sticky > base
 - **#2295 (EPIC #2294 ①) で `MonthlyRewardDialog` 撤去済 (2026-05-19)**:
-  - 旧シーケンス: 月初に reward modal (`--z-reward = 90`) が前面 → 閉じて背面 `MilestoneBanner` 表示
+  - 旧シーケンス: 月初に reward modal (`--z-reward = 90`) が前面 → 閉じて背面のマイルストーン告知を表示 (旧 `MilestoneBanner`。#2168 で `MilestoneBellButton` に置換され、component 自体は #4866 系の孤児整理で削除済)
   - 現状: reward 層は誕生日ボーナス等の限定的な祝福のみ。月替わりプレゼント機構はシーズン機構撤去に伴い廃止
 - **Anti-engagement 適合（ADR-0012）**: 重畳を増やすことで滞在時間を延伸しない。reward / tutorial / celebration は常時 1 件のみ表示され、連続演出を行わない
 
@@ -462,7 +462,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 - トークン定義: `src/lib/ui/styles/app.css`（`@theme` ブロック）
 - 既存利用箇所（参考）:
   - reward (`--z-reward`): 誕生日ボーナス系 modal (旧 `MonthlyRewardDialog` は #2295 で撤去済)
-  - banner: `src/lib/features/value-preview/MilestoneBanner.svelte`（flow 配置のため z-index 未使用）
+  - banner: `src/lib/features/value-preview/MilestoneBellButton.svelte`（Header の bell slot に入る。flow 配置のため z-index 未使用）
 
 ### 構造的ルール (EPIC #2253 admin-activities add UX、#2258)
 
