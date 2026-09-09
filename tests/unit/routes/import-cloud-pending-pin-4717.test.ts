@@ -122,3 +122,36 @@ describe('#4717 生成待ち PIN の取込 (POST /api/v1/import/cloud)', () => {
 		expect(body.error.code).toBe('INTERNAL_ERROR');
 	});
 });
+
+describe('#4867 PIN は境界で大文字に正規化する', () => {
+	// redaction は「PIN は `PIN_CHARS` から生成するので必ず大文字」という前提に乗っている。
+	// client は `cloudImportPin.trim()` をそのまま送るので、`fetchCloudExportByPin` が
+	// 内部で `toUpperCase()` する**手前**に小文字の複製が居座り、この route の catch の
+	// scope に入っていた (#4867 adversarial round 7)。照合結果は不変。
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('小文字で送っても service には大文字で渡る', async () => {
+		mockFetchCloudExportByPin.mockRejectedValue(
+			new CloudExportFetchError('invalid-pin', 'PINコードが正しくありません'),
+		);
+
+		await callPost('k7m2qx');
+
+		expect(
+			mockFetchCloudExportByPin.mock.calls.at(-1)?.[0],
+			'小文字のまま service へ渡している = catch の scope に小文字の PIN が残る',
+		).toBe('K7M2QX');
+	});
+
+	it('前後の空白も落とす (従来どおり)', async () => {
+		mockFetchCloudExportByPin.mockRejectedValue(
+			new CloudExportFetchError('invalid-pin', 'PINコードが正しくありません'),
+		);
+
+		await callPost('  K7M2QX  ');
+
+		expect(mockFetchCloudExportByPin.mock.calls.at(-1)?.[0]).toBe('K7M2QX');
+	});
+});

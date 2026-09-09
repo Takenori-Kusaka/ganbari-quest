@@ -1,0 +1,139 @@
+// cspell:ignore pping
+// ^ `-ping` / `-pping` は「`pin` を単語の途中で拾う」誤爆を説明するための**語尾の負例**。
+//   綴りを直すと負例として成立しないので、file scope で ignore する (tests/CLAUDE.md §負例 fixture)。
+/**
+ * ストレージ key / メッセージから秘密 (クラウド共有 export の PIN) を伏せる — ログ・例外・
+ * DB の failureReason・顧客画面へ出す文言のすべてで使う。
+ *
+ * ## なぜ domain に置くか
+ *
+ * PIN を含む文字列を外へ出しうる場所が **service 層・repo 層・route 層のすべて**にある。
+ * 1 箇所に置いて全部から使う (#4867 adversarial 実測: service だけ直しても repo 層と
+ * 退会経路と build 失敗経路から漏れていた)。
+ *
+ * ## 何を守るか
+ *
+ * クラウド共有 export の key は `exports/<tenantId>/<pinCode>/<file>` で **PIN をそのまま
+ * 含む**。この PIN は他家庭のフル PII バックアップ (子供の氏名・生年月日・顔写真・音声を
+ * 含む ZIP) を引き当てる唯一の材料で、`fetchCloudExportByPin` は **tenant 述語なしで**引く。
+ *
+ * ## 伏せるのは PIN だけ — テナントは残す
+ *
+ * 初版は `exports` セグメント以降を全部伏せたため、出力が
+ * `exports/<redacted>/<redacted>/backup.zip` の **2 定数のいずれか**にしかならず、
+ * 「どの家庭のどの成果物か」を運用が追えなくなった (#4767 が「消せていない実体が残ったことを
+ * 必ず記録する」ためにログを足した目的を失う)。**PIN の位置だけを伏せ、テナントと file 名は残す。**
+ */
+
+/** PIN の文字種・長さ (`cloud-export-service` の `PIN_CHARS` / `PIN_LENGTH` と対応)。 */
+const PIN_LIKE = '[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}';
+const PIN_LIKE_SEGMENT = new RegExp(`^${PIN_LIKE}$`);
+/**
+ * 文中に裸で現れる PIN。**`pin` の直近にあるものだけ**を対象にする。
+ *
+ * 文字種だけで拾うと誤爆が多すぎる (#4867 adversarial 実測: 6 文字 ALL-CAPS 40 語のうち
+ * **25 語が誤認** — `EACCES` / `SELECT` / `UPDATE` / `DELETE` / `SECRET` / `BACKUP` …)。
+ * PIN の文字種は `I` `O` `0` `1` を除くが、これらの語はどれもそれを避けているので
+ * 文字種では分離できない。しかも伏せた文字列は**保護者の画面に出る**ため、
+ * `EACCES: permission denied` が `<pin>: permission denied` になるのは実害がある。
+ *
+ * **`pin` の直後に英数字が続く形まで届かせる** (#4867 adversarial 実測)。このコードベースが
+ * 実際に使う識別子は `pinCode` / `pin_code` で、`pin` 直後だけを見る形では
+ * `Code` / `_code` で外れて素通りしていた。とくに
+ * `Key (pin_code)=(K7M2QX) already exists.` は **PostgreSQL が UNIQUE 制約違反の detail に
+ * 出す標準の形**で、`pin_code` に global UNIQUE を張っている以上
+ * **PIN を載せる可能性が最も高い実エラー**がちょうど穴に落ちていた。
+ * `EACCES` / `SELECT` は前に `pin` が無いので、広げても誤爆は増えない。
+ *
+ * **ただし `pin` は語頭に限る** (#4867 adversarial 実測)。限定しないと `pin` を**単語の
+ * 途中で**拾う — 英語で `-ping` / `-pping` に終わる語は例外なく `p-i-n` を内部に含むので、
+ * `skipping DELETE …` → `skipping <pin> …` のように潰れる (実測 14 例中 12 例が誤爆:
+ * skipping / mapping / dropping / shipping / stopping / keeping / wrapping / spinner /
+ * typing / looping / escaping / helping)。影響先は `failureReason` → DB →
+ * **保護者の画面**で、伏せすぎがそのまま顧客に見える。
+ *
+ * **`pin` という語が近くに無い裸の PIN** (`no row for K7M2QX` 等) は設計上の残余。
+ * 拾おうとすると `EACCES` 型の誤爆が戻るので、ここで線を引く。
+ *
+ * **大文字小文字は区別する** (#4867 adversarial 実測)。前版は `i` フラグを付けていたため、
+ * **置換文字列 `<pin>` 自身が次の `pin` として拾われ**、その直後の 6 文字を伏せていた。
+ * `redactStorageKeysInText` は key を先に `<pin>` へ置換したあと同じ文字列に
+ * `BARE_PIN` を走らせるので、`exports/t-1/<pin>/backup.zip` の `backup`
+ * (b/a/c/k/u/p — `I` `O` `0` `1` を 1 つも含まない = PIN 文字種に完全一致) が
+ * **`<pin>` に潰れていた** (実測: full export 8/8 で `<pin>/<pin>.zip`)。
+ * `artifactFilename` が返すのは `backup.zip` (full) と `data.json` (template) の 2 つで、
+ * **子供の氏名・生年月日・顔写真・音声が入っている full 側だけ**が、どの成果物を
+ * 消し残したのか読めなくなる — #4767 がこのログを足した目的が最も要る側で失われていた。
+ *
+ * PIN は `PIN_CHARS` から生成するので**必ず大文字**。`i` を外せばこの再帰は止まり、
+ * 同時に小文字の 6 文字語 (`absent` / `failed` …) の誤爆も消える。`pin` / `pinCode` /
+ * `pin_code` の側だけ大文字小文字を許すため、語は文字クラスで書く。
+ */
+const PIN_WORD = '[Pp][Ii][Nn]';
+const BARE_PIN = new RegExp(
+	`(?<=(?<![A-Za-z])${PIN_WORD}[A-Za-z_]{0,6}[^A-Za-z0-9]{0,12})${PIN_LIKE}(?![A-Za-z0-9])`,
+	'g',
+);
+
+/** 伏せたことが読み手に分かる置換文字列 (空にすると「元から無い」と区別できない)。 */
+const REDACTED = '<pin>';
+
+/**
+ * ストレージ key をログ・例外メッセージ・顧客文言へ出す前に必ず通す。
+ *
+ * - `exports/<tenant>/<pin>/…` の **pin の位置**を伏せる (tenant と file 名は残す)
+ * - key のどこにあっても **PIN の形をしたセグメント**は伏せる (`exports/<pin>` 等、
+ *   想定外の形で素通りさせない = fail-closed)
+ * - ただし `tenants/<id>/…` の id 位置は伏せない (無関係な key の誤爆を避ける)
+ * - `/` と `\\` の両方を区切りとして扱う (Windows / NUC の local FS エラー対策)
+ * - 空文字・想定外の形でも例外を投げない (ログ経路で throw しない)
+ */
+export function redactStorageKey(key: string): string {
+	if (!key) return key;
+	// `/` と `\` の両方を区切りとして扱う (Windows / NUC の local FS エラーは `\` で来る)
+	const segments = key.split(/[/\\]/);
+	const tenantsAt = segments.indexOf('tenants');
+	// **`exports` を含む key にだけ適用する** (#4867 adversarial 実測)。PIN と同じ文字種・
+	// 長さのセグメントは無関係な key にも現れる (`assets/BRAND2/logo.svg` の `BRAND2` 等)。
+	// 実在する PIN key は必ず `exports/…` の下にあるので、そこへ絞れば誤爆が消える。
+	if (!segments.includes('exports')) return key;
+
+	const redacted = segments.map((seg, i) => {
+		if (!seg) return seg;
+		// `tenants/<id>` の id は伏せない (無関係な key の誤爆を避ける)
+		if (tenantsAt >= 0 && i === tenantsAt + 1) return seg;
+		// PIN は生成規則上かならずこの文字種・長さなので、**形で拾えば位置に依存しない**。
+		// 位置で決め打ちすると `exports/<tenant>/<pin>/<file>` 以外の形 (`exports/<pin>` /
+		// `tenants/<t>/exports/<pin>/<file>`) で外したり、file 名を誤爆したりする。
+		if (PIN_LIKE_SEGMENT.test(seg)) return REDACTED;
+		return seg;
+	});
+
+	// 区切り文字は元の並びを保って戻す
+	let out = '';
+	let si = 0;
+	for (let i = 0; i < key.length; i++) {
+		const ch = key[i] as string;
+		if (ch === '/' || ch === '\\') {
+			out += (redacted[si] ?? '') + ch;
+			si++;
+		}
+	}
+	out += redacted[si] ?? '';
+	return out;
+}
+
+/**
+ * key を含みうる**任意の文字列**を伏せる (S3 の部分失敗サマリ / 例外 message /
+ * DB の failureReason / 顧客画面に出す文言)。
+ *
+ * path 形になっていない**裸の PIN** も伏せる — 実測で `pin K7M2QX not found` のような
+ * message が現に出る経路があり、path だけを見ていると素通りする。
+ */
+export function redactStorageKeysInText(text: string): string {
+	if (!text) return text;
+	const withKeys = text.replace(/(?:[\w.-]+[/\\])*exports[/\\][^\s,'")]*/g, (m) =>
+		redactStorageKey(m),
+	);
+	return withKeys.replace(BARE_PIN, REDACTED);
+}

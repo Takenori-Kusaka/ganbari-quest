@@ -11,6 +11,7 @@
 //   を必須とし、presigned は対象 key 限定・短命 TTL、DL カウンタで消費上限を課す。
 
 import { json } from '@sveltejs/kit';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { apiError, validationError } from '$lib/server/errors';
@@ -85,7 +86,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		});
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
-		logger.error('[cloud-export] DL 失敗', { error: msg, context: { id, tenantId } });
+		// #4867: 例外 message は PIN / s3Key を含みうるので伏せてから出す。
+		logger.error('[cloud-export] DL 失敗', {
+			error: redactStorageKeysInText(msg),
+			context: { id, tenantId },
+		});
 		return apiError('INTERNAL_ERROR', 'ダウンロードに失敗しました');
 	}
 };

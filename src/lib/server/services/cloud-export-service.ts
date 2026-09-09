@@ -18,6 +18,7 @@ import {
 	PLAN_GATE_LABELS,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
+import { redactStorageKey, redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
@@ -378,8 +379,16 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 		status: 'pending',
 	});
 
+	// **PIN はログに出さない** (QM 監査 security / PO 決裁 2026-09-09「今日直してください」)。
+	// この PIN は他家庭のフル PII バックアップ (子供の氏名・生年月日・顔写真・音声を含む ZIP) を
+	// 引き当てる唯一の材料で、`fetchCloudExportByPin` は **tenant 述語なしで** 引く。
+	// 本番の `logger.info` は CloudWatch へ出るため、ログ閲覧権限が「他家庭の PII を落とせる」に
+	// 化けていた。運用に要るのは「どのテナントが何を起票したか」までで、PIN は要らない。
 	logger.info('[cloud-export] エクスポート起票 (pending)', {
-		context: { tenantId, exportType, pinCode },
+		// s3Key は伏せたうえで残す。**起票と完了/削除を突き合わせる key** が 1 つも無いと
+		// 「この家庭のこの共有がいつ起票されどう終わったか」を追えない (adversarial 指摘)。
+		// 伏せた形でもテナント配下で一意なので join には足りる。
+		context: { tenantId, exportType, expiresAt, s3Key: redactStorageKey(s3Key) },
 	});
 
 	return {
@@ -474,6 +483,25 @@ export async function previewPendingExports(
 	return { processed: pending.length, ready: 0, failed: 0 };
 }
 
+/**
+ * build 失敗 → **親の画面に出す文言**。
+ *
+ * サーバの例外 message はそのまま出さない (ADR-0062 §2)。ただし NUC (自宅サーバ) では
+ * **親が運用者**なので、**自分で直せる失敗は名指しする** (#4867 adversarial round 8)。
+ * generic に潰すと、容量を空ければ直る人が「もう一度お試しください」を何度も押すだけになる。
+ *
+ * 返す文字列は `SETTINGS_LABELS.cloudStatusFailed` の括弧の中に入るので、文として
+ * 完結させない (完結させると「作成に失敗しました（…作成に失敗しました。…）」になる)。
+ */
+function buildFailureUserMessage(err: unknown): string {
+	const code = typeof err === 'object' && err !== null ? (err as { code?: unknown }).code : null;
+	if (code === 'ENOSPC') return SETTINGS_LABELS.cloudBuildFailedNoSpace;
+	if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
+		return SETTINGS_LABELS.cloudBuildFailedPermission;
+	}
+	return SETTINGS_LABELS.cloudBuildFailedDefault;
+}
+
 export async function drainPendingExports(
 	limit = 5,
 	budget: TimeBudget = createTimeBudget(),
@@ -517,17 +545,35 @@ export async function drainPendingExports(
 			});
 		} catch (err) {
 			// #3376 fail-closed: サイズ上限超過は userMessage、その他は generic なエラーメッセージを残す。
+			// **必ず伏せてから残す** (#4867 adversarial 実測)。この文字列は
+			//   (1) 下の logger.error (2) DB の failure_reason カラム
+			//   (3) CloudExportStoredList 経由で**保護者の画面**
+			// の 3 箇所に流れる。NUC の local FS backend では Node の fs エラーが
+			// 解決済み絶対パス (…/data/exports/<tenantId>/<PIN>/backup.zip) を必ず含むため、
+			// 伏せないと**親の画面に自分の共有 PIN が出る**。
+			// **顧客の画面に出す文字列と、運用が読む文字列を分ける** (#4867 adversarial round 7)。
+			//
+			// `failureReason` は DB の `failure_reason` に入り、`CloudExportStoredList` 経由で
+			// **保護者の画面**に出る。旧実装は `err.message` をそのまま入れていたため、
+			// PIN を伏せてもなお errno + **サーバの絶対パス** + tenant id が親に見えていた。
+			// ADR-0062 §2 は「`err.message` をそのままレスポンスに載せない」を PIN と無関係に
+			// 禁じており、#3376 のコメント自身も「その他は generic なエラーメッセージを残す」と
+			// 書いていた — **コードがそのコメントに反していた**。
+			//
+			// 上限超過だけは `userMessage` (「何 MB を超えた」= 親が行動できる情報) を出す。
+			// それ以外は固定文言にし、**原因は下の logger.error に (伏せたうえで) 残す**。
 			const failureReason =
 				err instanceof BackupSizeLimitError
-					? err.userMessage
-					: err instanceof Error
-						? err.message
-						: String(err);
+					? redactStorageKeysInText(err.userMessage)
+					: buildFailureUserMessage(err);
 			await repos.cloudExport.updateStatus(id, tenantId, 'failed', { failureReason });
 			failed++;
 			logger.error('[cloud-export] build 失敗 (failed)', {
 				context: { tenantId, exportType, id },
-				error: failureReason,
+				// 運用が原因を追える側。PIN だけ伏せて、errno / path / file 名は残す。
+				error: redactStorageKeysInText(
+					err instanceof Error ? (err.stack ?? err.message) : String(err),
+				),
 			});
 		}
 	}
@@ -632,9 +678,13 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
 		// 一部消えていないのに DB 行を消し、誰も辿れない完全 PII の孤児を作る。
 		await repos.storage.purgeByPrefix(record.s3Key, { failOnPartialError: true });
 	} catch (err) {
+		// s3Key は `exports/<tenantId>/<pinCode>/<file>` で **PIN をそのまま含む**ため、
+		// PIN 部分を伏せて出す (上の起票ログと同じ理由)。
 		logger.error('[cloud-export] S3 削除に失敗したため DB 行も残す (孤児 PII を作らない)', {
-			context: { id, tenantId, s3Key: record.s3Key },
-			error: err instanceof Error ? err.message : String(err),
+			context: { id, tenantId, s3Key: redactStorageKey(record.s3Key) },
+			// **error 側も通す**。S3 の部分失敗は失敗キーをそのまま message に載せてくるので、
+			// s3Key フィールドだけ伏せても兄弟フィールドから PIN が出る (振る舞い test が実測)。
+			error: redactStorageKeysInText(err instanceof Error ? err.message : String(err)),
 		});
 		throw new CloudExportDeleteFailedError();
 	}

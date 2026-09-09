@@ -3,6 +3,7 @@
 // 旧配置は dynamodb/ だが DynamoDB 依存はゼロ (@aws-sdk/client-s3 のみ)。dsql/pglite/dynamodb
 // いずれの backend でも本 S3 実装を共有する (factory.ts が注入)。
 
+import { redactStorageKey } from '$lib/domain/storage-key-redaction';
 import { logger } from '$lib/server/logger';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
@@ -193,14 +194,23 @@ export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix, opts)
 			// `failOnPartialError` を渡した呼び出しだけ fail-closed にする (クラウド共有の削除)。
 			const errors = deleteResult?.Errors ?? [];
 			if (errors.length > 0) {
+				// key は**必ず伏せてから**文字列にする (#4867 adversarial 実測)。
+				// クラウド共有 export の key は `exports/<tenantId>/<pinCode>/…` で PIN を含み、
+				// この summary は (a) tolerant 経路の logger.error (b) fail-closed 経路の
+				// `throw new Error(summary)` → 呼び出し側の `error: err.message` の**両方**に載る。
+				// 生 key のままだと、PIN を出さないために足したはずの上位の redact を素通りする。
 				const detail = errors
 					.slice(0, 3)
-					.map((e) => `${e.Key ?? '?'}:${e.Code ?? '?'}`)
+					.map((e) => `${e.Key ? redactStorageKey(e.Key) : '?'}:${e.Code ?? '?'}`)
 					.join(', ');
 				const summary = `S3 purge partially failed: ${errors.length}/${targets.length} objects remain (${detail})`;
 				if (opts?.failOnPartialError) throw new Error(summary);
 				// silent にしない (ADR-0006): 消えていない実体が残ったことを必ず記録する。
-				logger.error(`[s3-storage] ${summary}`);
+				// **どの家庭のどの成果物が残ったか**を残す (#4767 がこのログを足した目的)。
+				// key の PIN 部分だけを伏せるので、テナントと file 名は読める。
+				logger.error(`[s3-storage] ${summary}`, {
+					context: { prefix: redactStorageKey(prefix) },
+				});
 			}
 			totalDeleted += targets.length - errors.length;
 		}

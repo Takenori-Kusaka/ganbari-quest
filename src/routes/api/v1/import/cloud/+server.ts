@@ -3,6 +3,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import type { ErrorCode } from '$lib/server/errors';
@@ -71,7 +72,14 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return validationError('JSONの解析に失敗しました');
 	}
 
-	const pinCode = body.pinCode?.trim();
+	// #4867 adversarial round 7: **境界で大文字に正規化する**。redaction は
+	// 「PIN は `PIN_CHARS` から生成するので必ず大文字」という前提に乗っているが、
+	// client は `cloudImportPin.trim()` をそのまま送るので、`fetchCloudExportByPin` が
+	// 内部で `toUpperCase()` する**手前**に小文字の複製が居座り、この関数の catch の
+	// scope に入っていた。照合結果は変わらない (内部で同じ正規化をしている) が、
+	// 「値が scope にあれば機械的に redact を通す」という本 PR の方針を成立させるには、
+	// scope に置く値そのものを正規形にしておく必要がある。
+	const pinCode = body.pinCode?.trim().toUpperCase();
 	if (!pinCode || pinCode.length < 4) {
 		return validationError('PINコードを入力してください');
 	}
@@ -94,9 +102,16 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		// 旧実装は message の文字列 match で分類しており、新しい理由 (生成待ち) が漏れて
 		// 500「システムに問題が発生しました」になっていた (受け取る側が障害と誤認)。
 		if (err instanceof CloudExportFetchError) {
+			// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (#4717 で reason を型で受ける形にした)。
 			return apiError(FETCH_FAILURE_TO_ERROR_CODE[err.reason], err.message);
 		}
-		const msg = err instanceof Error ? err.message : String(err);
+		// #4867: **`record` / `pinCode` / `s3Key` が scope にある catch は機械的に全部通す**。
+		// 「PIN が載ると証明できた経路だけ塞ぐ」で 3 ラウンド続けて取りこぼしたので、
+		// 判断の線を「証明できたか」から「値が scope にあるか」へ動かした (adversarial 提案)。
+		//
+		// PIN を query 値として渡した先の例外 message は、PIN をそのまま含みうる
+		// (実測: `pin <PIN> not found` 型 / local FS の絶対パス)。伏せてから出す。
+		const msg = redactStorageKeysInText(err instanceof Error ? err.message : String(err));
 		logger.error('[cloud-import] PIN検索失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
@@ -154,7 +169,9 @@ async function handleFullZipImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フル ZIP インポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フル ZIP インポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -172,7 +189,9 @@ async function handleFullZipImport(
 		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
 		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
 		if (mapped) return mapped;
-		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
+		logger.error('[cloud-import] 置換 ZIP インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
 }
@@ -409,7 +428,9 @@ async function handleTemplateImport(
 			},
 		});
 	} catch (err) {
-		logger.error('[cloud-import] テンプレートインポート失敗', { error: String(err) });
+		logger.error('[cloud-import] テンプレートインポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', 'テンプレートのインポートに失敗しました');
 	}
 }
@@ -444,7 +465,9 @@ async function handleFullImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フルインポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フルインポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -462,7 +485,9 @@ async function handleFullImport(
 		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
 		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
 		if (mapped) return mapped;
-		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
+		logger.error('[cloud-import] 置換インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
 }

@@ -45,6 +45,11 @@ function confirmDelete() {
 		<p class="text-xs text-[var(--color-text-muted)] mb-2">
 			{SETTINGS_LABELS.cloudStoredListDesc}
 		</p>
+		<!-- #4867 (PO 決裁 2026-09-09): PIN が漏れたときの手当ては「削除 = 即時失効」で、
+		     rotate という別操作は作らない。一覧の先頭で、削除がその手段だと分かるようにする。 -->
+		<p class="text-xs text-[var(--color-text-muted)] mb-2" data-testid="cloud-export-pin-leaked-guidance">
+			{SETTINGS_LABELS.cloudPinLeakedGuidance}
+		</p>
 		<div class="space-y-2">
 			{#each exports as exp (exp.id)}
 				<div

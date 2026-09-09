@@ -4163,11 +4163,23 @@ export const SETTINGS_LABELS = {
 	cloudDeleteConfirmIrreversible:
 		'削除すると保管データも共有リンクも完全に消え、元に戻せません。受け取る側がまだ取り込んでいない場合は取り込めなくなります。',
 	cloudDeleteConfirmQuotaNote: '削除すると保管枠はすぐに空きます。',
+	// #4867 (PO 決裁 2026-09-09): **PIN の再発行という操作は作らない**。削除がそのまま
+	//   失効の手段である (削除で DB 行が消え、`fetchCloudExportByPin` は DB を引くので
+	//   旧 PIN はその瞬間に無効になる)。足りていなかったのは機能ではなく、
+	//   「PIN を人に見られたとき何をすればいいか」が顧客に伝わっていないことだった。
+	//   **順序を「削除 → 作り直し」で案内する** — 先に新しいものを作ると、旧 PIN が
+	//   生きている時間が伸びる。
+	cloudPinLeakedGuidance:
+		'PIN を知られてしまったときは、削除するとすぐに使えなくなります。あらためて共有を作り直してください。',
 	cloudDeleteConfirmExecute: '削除する',
 	cloudDeleteConfirmCancel: 'やめる',
 	// #4767 QM should: S3 の削除に失敗したときは黙って DB だけ消さない (顧客に見せて再試行させる)。
+	// #4867 adversarial: 削除は #4767 で fail-closed (S3 削除に失敗したら DB 行を残す) なので、
+	//   失敗した時点では **PIN はまだ失効していない**。一覧の案内は「削除すればすぐ使えなくなる」
+	//   と無条件に言うため、失敗時にそれが成立していないことを伝えないと、
+	//   顧客は「消したから安全」と誤解したまま漏れた PIN を放置する。
 	cloudDeleteFailed:
-		'削除できませんでした。時間をおいてもう一度お試しください（データは残っています）。',
+		'削除できませんでした。データは残っており、この PIN はまだ使える状態です。時間をおいてもう一度お試しください。',
 	cloudStoredDeleting: '削除中…',
 	// #4767 QM should: 取り消せない操作の完了を無言で終わらせない (行が消えるだけ = 何が起きたか不明)。
 	// Toast (role="alert") + 画面内 banner (role="status") の 2 層で、**何を消したか**を名指しする。
@@ -4201,6 +4213,21 @@ export const SETTINGS_LABELS = {
 	cloudStatusPending: '受付済み・生成待ち',
 	cloudStatusBuilding: '生成中…',
 	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
+	// #4867 adversarial round 7: build 失敗の既定文言。**サーバの例外 message を親の画面に
+	//   出さない** (ADR-0062 §2)。旧実装は `err.message` をそのまま `failure_reason` に保存し、
+	//   NUC の local FS backend では errno + サーバの絶対パス + tenant id が親に見えていた
+	//   (PIN は伏せていたが、伏せたのは PIN だけ)。#3376 のコメントは元から
+	//   「その他は generic なエラーメッセージを残す」と書いてあり、**コードがそれに反していた**。
+	//   原因の詳細は logger.error 側に (伏せたうえで) 残す。
+	//   **文言は `cloudStatusFailed` の括弧の中に入る**ので、文として完結させない
+	//   (round 8 実測: 「保管データの作成に失敗しました。もう一度お試しください。」を渡すと
+	//    `作成に失敗しました（保管データの作成に失敗しました。もう一度お試しください。）` と
+	//    **同じ句が 1 行に 2 回**出ていた)。
+	cloudBuildFailedDefault: 'もう一度お試しください',
+	//   NUC (自宅サーバ) では**親が運用者**なので、自分で直せる失敗は名指しする
+	//   (round 8 指摘。generic に潰すと、容量を空ければ直る人が何度も再試行するだけになる)。
+	cloudBuildFailedNoSpace: '保存先の空き容量が足りません。空きを作ってからお試しください',
+	cloudBuildFailedPermission: '保存先に書き込めませんでした。保存先の設定をご確認ください',
 	cloudDownloadAction: 'ダウンロード',
 	// #4717: 発行直後 (pending/building) / 失敗 (failed) の PIN で取り込もうとしたときの案内。
 	// 「システムに問題が発生しました」(500) ではなく、待てば解決することを伝える。

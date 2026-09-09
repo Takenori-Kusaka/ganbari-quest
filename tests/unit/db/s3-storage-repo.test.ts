@@ -196,8 +196,12 @@ describe('s3 storage-repo purgeByPrefix (#4724)', () => {
 
 		// 投げない = 呼び出し元 (退会) のフローは続く
 		expect(await purgeByPrefix('tenants/t1/')).toBe(2);
-		// silent にしない (ADR-0006): 消えていない実体があったことは必ず記録する
-		expect(loggerError).toHaveBeenCalledWith(expect.stringContaining('purge partially failed'));
+		// silent にしない (ADR-0006): 消えていない実体があったことは必ず記録する。
+		// #4867: どの家庭のどの成果物が残ったかを追えるよう prefix も記録する (第 2 引数)。
+		expect(loggerError).toHaveBeenCalledWith(
+			expect.stringContaining('purge partially failed'),
+			expect.objectContaining({ context: expect.objectContaining({ prefix: 'tenants/t1/' }) }),
+		);
 	});
 
 	it('Errors[] が空なら strict でも成功として件数を返す (上の test が無条件 throw でないことの対照)', async () => {
@@ -226,5 +230,58 @@ describe('s3 storage-repo purgeByPrefix (#4724)', () => {
 			{ input: { Delete: { Objects: Array<Record<string, unknown>> } } },
 		];
 		expect(deleteCmd.input.Delete.Objects).toEqual([{ Key: 'tenants/t1/avatars/c1/a.webp' }]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4867: PIN がログ・例外に出ないこと — **repo 層を実際に走らせて**確かめる
+//
+// クラウド共有 export の key は `exports/<tenantId>/<pinCode>/<file>` で PIN を含む。
+// `purgeByPrefix` は失敗キーから `${e.Key}:${e.Code}` を組み、(a) tolerant 経路で
+// logger.error に (b) fail-closed 経路で `throw new Error(summary)` に流す。(b) は
+// 呼び出し元の `error: err.message` に載るので、**ここで伏せないと上位の redact を素通りする**。
+//
+// 別 file の振る舞い test (`pin-not-logged-callsites`) は `$lib/server/db/factory` を
+// mock するため repo 層に 1 行も到達しない (adversarial 実測で N2/N3 が生存)。
+// この file は `@aws-sdk/client-s3` を mock しているので **repo の実コードが動く**。
+// ---------------------------------------------------------------------------
+describe('#4867 purgeByPrefix は PIN をログにも例外にも出さない', () => {
+	const PIN = 'K7M2QX';
+	const KEY = `exports/t-alice/${PIN}/backup.zip`;
+
+	it('tolerant 経路: logger に PIN が出ない (テナントと file 名は残る)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Versions: [{ Key: KEY, VersionId: 'v1' }], IsTruncated: false })
+			.mockResolvedValueOnce({
+				Deleted: [],
+				Errors: [{ Key: KEY, VersionId: 'v1', Code: 'AccessDenied' }],
+			});
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		await purgeByPrefix(`exports/t-alice/${PIN}/`);
+
+		const logged = JSON.stringify(loggerError.mock.calls);
+		expect(
+			logged.includes(PIN),
+			`ログに PIN が出ている:
+${logged}`,
+		).toBe(false);
+		expect(logged, 'テナントまで消すと、どの家庭の実体が残ったか分からない').toContain('t-alice');
+		expect(logged, 'エラーコードが読めない').toContain('AccessDenied');
+	});
+
+	it('fail-closed 経路: throw する Error の message にも PIN が出ない', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Versions: [{ Key: KEY, VersionId: 'v1' }], IsTruncated: false })
+			.mockResolvedValueOnce({
+				Deleted: [],
+				Errors: [{ Key: KEY, VersionId: 'v1', Code: 'AccessDenied' }],
+			});
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		await expect(
+			purgeByPrefix(`exports/t-alice/${PIN}/`, { failOnPartialError: true }),
+		).rejects.toThrow(
+			// message に PIN が含まれていたらここで落ちる (呼び出し元の error フィールドに載るため)
+			expect.objectContaining({ message: expect.not.stringContaining(PIN) }),
+		);
 	});
 });

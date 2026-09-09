@@ -57,7 +57,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			error: e instanceof Error ? e.message : String(e),
 			stack: e instanceof Error ? e.stack : undefined,
 		});
-		const msg = e instanceof Error ? e.message : String(e);
-		return json({ ok: false, error: msg }, { status: 500 });
+		// #4867 adversarial: cron の response body は `infra/lambda/cron-dispatcher` が
+		// 先頭 200 文字を `console.log` するので、生の message を返すと **CloudWatch に出る**
+		// (log group が app 側から dispatcher 側へ移るだけ)。ADR-0062 §2 の
+		// 「`err.message` をそのままレスポンスに載せない」もこれを禁じている。
+		// 原因は上の logger.error に残し、レスポンスは固定文言にする
+		// (この endpoint の呼び手は cron dispatcher だけで人間向け UI は無い)。
+		return json({ ok: false, error: 'trial notifications failed' }, { status: 500 });
 	}
 };
