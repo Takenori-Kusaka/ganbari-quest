@@ -1,3 +1,4 @@
+import type { RecordActivityFailure } from '$lib/domain/activity-record-failure';
 import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
@@ -112,12 +113,10 @@ export async function recordActivity(
 	childId: ChildId,
 	activityId: ActivityId,
 	tenantId: string,
-): Promise<
-	| RecordActivityResult
-	| { error: 'ALREADY_RECORDED' }
-	| { error: 'DAILY_LIMIT_REACHED' }
-	| { error: 'NOT_FOUND'; target: string }
-> {
+	// 失敗契約は domain SSOT (`$lib/domain/activity-record-failure`)。inline union に戻さない —
+	// 画面側の文言解決 (`getSetupFirstAdventureRecordError`) が型で結ばれなくなり、
+	// コードを増減しても無警告で汎用文言に落ちる。
+): Promise<RecordActivityResult | RecordActivityFailure> {
 	// EPIC #3424 Phase Z (#3541): pg 系 backend (DSQL / NUC PGlite) は core 単一 txn + optional 隔離の
 	// 専用経路。sqlite / demo は従来経路 (以下) を無変更で通る (現行挙動の凍結)。
 	// #4720: 判定は isPgBackend (dsql だけ見ると NUC PGlite が逐次 await 経路に落ちる)。

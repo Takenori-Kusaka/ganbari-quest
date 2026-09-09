@@ -2,6 +2,19 @@ import { getChildTutorialLabels } from '$lib/domain/labels';
 import type { TutorialChapter } from './tutorial-types';
 
 /**
+ * 子供 layout が store に渡す builder を作る (#4860)。
+ *
+ * layout に closure を直書きすると「件数を素通しする」配線が **test から見えない場所** に残り、
+ * 純関数の test が通っていても実機で外れる (それが must-A の実害だった)。
+ * builder をここで組み立てて export し、素通しであることを test で固定する。
+ */
+export function makeChildChapterBuilder(
+	uiMode: string,
+): (hasActivities: boolean | undefined) => TutorialChapter[] {
+	return (hasActivities) => getChildTutorialChapters(uiMode, { hasActivities });
+}
+
+/**
  * 子供画面用チュートリアルチャプター定義（#4652、EPIC #4650 判断 3 / 4 / 5）
  *
  * 「記録して閉じる」最短経路だけを 3 章 5 step で説明する（ADR-0012 anti-engagement）:
@@ -17,22 +30,58 @@ import type { TutorialChapter } from './tutorial-types';
  *   画面と同じ定数を参照する。
  *
  * uiMode ごとに生成するため関数にしている（(child)/+layout が `setChapters(getChildTutorialChapters(uiMode))`）。
+ *
+ * `hasActivities` は「活動カードが 1 枚でもあるか」。0 件のときに
+ * `[data-tutorial="activity-card"]` を指して「カードをタップすると」と案内すると、
+ * **光らせる先も押すものも無い**（初回演出 `AdventureStartOverlay` と同じクラスの欠陥）。
+ * 0 件では selector を外して説明型 step に落とし、文言も「まだ届いていない」に差し替える。
+ * 既定値は持たせない（渡し忘れが型で落ちるようにする）。
  */
-export function getChildTutorialChapters(uiMode: string): TutorialChapter[] {
+export function getChildTutorialChapters(
+	uiMode: string,
+	options: { hasActivities: boolean | undefined },
+): TutorialChapter[] {
 	const L = getChildTutorialLabels(uiMode);
+	// 3 状態を **別々の文言** にする (#4860)。2 状態に潰すと、どちらかが必ず嘘になる画面が出る:
+	//
+	//   true      ホームに活動カードがある      → spotlight して「タップすると」
+	//   false     ホームに活動カードが無い      → 「まだ届いていません」(無いものを指さない)
+	//   undefined ホーム以外 / 件数が分からない → **あるとも無いとも言わない**
+	//
+	// `undefined` を `false` に倒すと、活動が 40 件ある子が `/checklist` を直接開いたときに
+	// 「まだ届いていません」と嘘をつく (adversarial 実測)。`true` に倒すと元の欠陥に戻る。
+	// 件数を知っているのはホーム画面だけなので、ホームを離れたら `undefined` に戻る。
+	const recordCardStep =
+		options.hasActivities === undefined
+			? {
+					// selector 無し = 説明型（中央表示）。その画面にカードは無いので指さない。
+					id: 'child-record-card',
+					chapterId: 1,
+					...L.steps['child-record-card-elsewhere'],
+					position: 'bottom' as const,
+				}
+			: options.hasActivities
+				? {
+						id: 'child-record-card',
+						chapterId: 1,
+						selector: '[data-tutorial="activity-card"]',
+						...L.steps['child-record-card'],
+						position: 'bottom' as const,
+					}
+				: {
+						// selector 無し = 説明型（中央表示）。無い要素を spotlight しない。
+						id: 'child-record-card',
+						chapterId: 1,
+						...L.steps['child-record-card-empty'],
+						position: 'bottom' as const,
+					};
 	return [
 		{
 			id: 1,
 			title: L.chapters.record.title,
 			icon: L.chapters.record.icon,
 			steps: [
-				{
-					id: 'child-record-card',
-					chapterId: 1,
-					selector: '[data-tutorial="activity-card"]',
-					...L.steps['child-record-card'],
-					position: 'bottom',
-				},
+				recordCardStep,
 				{
 					id: 'child-record-cancel',
 					chapterId: 1,
