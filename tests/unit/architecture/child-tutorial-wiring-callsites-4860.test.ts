@@ -25,6 +25,24 @@
 // 名前の出現ではなく「何が引数に渡っているか」「その arrow が cleanup として return
 // されているか」を assert するので、上の 3 つはいずれも落ちる。
 //
+// **第 3 版でさらに 3 通り破られた (adversarial 実測)**。AST にしても、照合が「名前」に
+// 依っている限り alias 1 行で外れる:
+//
+//   M10: layout が `import { setChildActivityPresence as writePresence }` と alias して書く
+//        → callee 名が一致しないので「呼んでいない」と数えられ、否定 assertion が通る
+//   M11: `$effect` の外に `function _makeCleanup() { return () => …(undefined) }` を置く
+//        → module 内の**任意の** ReturnStatement を探していたので dead code で満たせる
+//   M12: `import { setChapters as applyChapters }` で章を潰す
+//        → `setChapters` の呼び出しが 0 件になり、for ループが **vacuous に通る**
+//
+// 本版は ① import specifier を読んで **alias を解決してから**照合し、② cleanup は
+// `$effect` の引数の中に限って探し、③ 0 件で通る検査を作らない (件数も assert する)。
+//
+// **閉じていない穴 (既知・記録として残す)**: `setChildActivityPresence(data.activities.length >= 0)`
+// のように**形は正しいが値が常に true** になる嘘は、形状検査では原理的に検出できない
+// (adversarial M13)。ここは review で見る。振る舞い test (home を 0 件 / 40 件で mount して
+// `getChildActivityPresence()` を読む) を将来足せば閉じる。
+//
 // 実行時の挙動 (mount 順に依存しない / 3 状態の出し分け) は tutorial 側の test が見る。
 //
 // 固定する不変条件:
@@ -69,19 +87,93 @@ function walk(node: unknown, visit: (n: Node) => void): void {
 	}
 }
 
-/** `name(...)` の呼び出しを集める (メンバ呼び出し `x.name()` は含めない)。 */
-function callsTo(ast: Node, name: string): Node[] {
+/**
+ * `import { x as y }` を解決し、**その module で `name` を指す全ての局所名**を返す。
+ *
+ * 名前だけで照合すると alias 1 行で検査が外れる (adversarial M10 / M12)。
+ */
+function localNamesFor(ast: Node, importedName: string): Set<string> {
+	const names = new Set<string>([importedName]);
+	walk(ast, (n) => {
+		if (n.type !== 'ImportSpecifier') return;
+		const imported = n.imported as Node | undefined;
+		const local = n.local as Node | undefined;
+		if (imported?.name === importedName && typeof local?.name === 'string') names.add(local.name);
+	});
+	return names;
+}
+
+/** `name(...)` の呼び出しを集める (alias 解決済み。メンバ呼び出し `x.name()` は含めない)。 */
+function callsTo(ast: Node, name: string, aliasSource: Node = ast): Node[] {
+	const names = localNamesFor(aliasSource, name);
 	const found: Node[] = [];
 	walk(ast, (n) => {
 		if (n.type !== 'CallExpression') return;
 		const callee = n.callee as Node | undefined;
-		if (callee?.type === 'Identifier' && callee.name === name) found.push(n);
+		if (callee?.type === 'Identifier' && names.has(callee.name as string)) found.push(n);
+	});
+	return found;
+}
+
+/** `$effect(() => { … })` の引数 (= effect 本体) を集める。 */
+function effectBodies(ast: Node): Node[] {
+	return callsTo(ast, '$effect')
+		.map((call) => args(call)[0])
+		.filter((a): a is Node => a !== undefined);
+}
+
+/** module スコープの `function f(){}` / `const f = () => {}` を名前で引く。 */
+function findLocalFunction(ast: Node, name: string): Node | undefined {
+	let found: Node | undefined;
+	walk(ast, (n) => {
+		if (found) return;
+		if (n.type === 'FunctionDeclaration' && (n.id as Node | undefined)?.name === name) found = n;
+		if (n.type === 'VariableDeclarator' && (n.id as Node | undefined)?.name === name) {
+			const init = n.init as Node | undefined;
+			if (init?.type === 'ArrowFunctionExpression' || init?.type === 'FunctionExpression')
+				found = init;
+		}
 	});
 	return found;
 }
 
 function args(call: Node): Node[] {
 	return (call.arguments as Node[] | undefined) ?? [];
+}
+
+/** その関数本体に `setChildActivityPresence(undefined)` があるか。 */
+function clearsPresence(fn: Node, aliasSource: Node): boolean {
+	return callsTo(fn, 'setChildActivityPresence', aliasSource).some((call) => {
+		const first = args(call)[0];
+		return first?.type === 'Identifier' && first.name === 'undefined';
+	});
+}
+
+/** `return X` の X が関数を指すとき、その名前 (`return f` / `return f()`) を返す。 */
+function returnedFunctionName(returned: Node): string | undefined {
+	if (returned.type === 'Identifier') return returned.name as string;
+	const callee = returned.callee as Node | undefined;
+	if (returned.type === 'CallExpression' && callee?.type === 'Identifier') {
+		return callee.name as string;
+	}
+	return undefined;
+}
+
+/**
+ * `return` された値が「件数の記憶を捨てる関数」か。
+ *
+ * 直接 arrow を返す形に加え、`return makeCleanup()` / `return cleanup` のように 1 段
+ * 挟む形も認める (安全な抽出を false-positive で落とさないため。名前は module スコープで解決)。
+ */
+function returnedFunctionClearsPresence(returned: Node | undefined, ast: Node): boolean {
+	if (!returned) return false;
+	if (returned.type === 'ArrowFunctionExpression' || returned.type === 'FunctionExpression') {
+		return clearsPresence(returned, ast);
+	}
+	const refName = returnedFunctionName(returned);
+	if (!refName) return false;
+	const target = findLocalFunction(ast, refName);
+	return target ? clearsPresence(target, ast) : false;
 }
 
 describe('[W1][W2] 子供 layout の配線', () => {
@@ -125,7 +217,14 @@ describe('[W1][W2] 子供 layout の配線', () => {
 	});
 
 	it('setChapters に渡すのは空配列だけ (teardown 用)', () => {
-		for (const call of callsTo(ast, 'setChapters')) {
+		const calls = callsTo(ast, 'setChapters');
+		// 0 件だと for ループが vacuous に通る (adversarial M12)。teardown は実在が要件でもある
+		expect(
+			calls.length,
+			`${LAYOUT} が setChapters を呼んでいない。子供画面を離れるときに章を空へ戻す ` +
+				'teardown が無いと、親画面に子供の章が残る (#4654)',
+		).toBeGreaterThan(0);
+		for (const call of calls) {
 			const first = args(call)[0];
 			const isEmptyArray =
 				first?.type === 'ArrayExpression' && (first.elements as unknown[]).length === 0;
@@ -165,21 +264,20 @@ describe('[W3][W4] ホームの配線', () => {
 		).toBe(true);
 	});
 
-	it('$effect の cleanup として undefined へ戻す (return された arrow の中)', () => {
+	it('$effect の cleanup として undefined へ戻す ($effect の中で return された関数)', () => {
 		let cleared = false;
-		walk(ast, (n) => {
-			if (n.type !== 'ReturnStatement') return;
-			const returned = n.argument as Node | undefined;
-			if (returned?.type !== 'ArrowFunctionExpression' && returned?.type !== 'FunctionExpression')
-				return;
-			for (const call of callsTo(returned, 'setChildActivityPresence')) {
-				const first = args(call)[0];
-				if (first?.type === 'Identifier' && first.name === 'undefined') cleared = true;
-			}
-		});
+		// module 内の任意の ReturnStatement ではなく **`$effect` の本体の中**だけを見る。
+		// 外に置いた dead code (`function _makeCleanup(){ return () => …(undefined) }`) では
+		// 満たせない (adversarial M11)。
+		for (const body of effectBodies(ast)) {
+			walk(body, (n) => {
+				if (cleared || n.type !== 'ReturnStatement') return;
+				if (returnedFunctionClearsPresence(n.argument as Node | undefined, ast)) cleared = true;
+			});
+		}
 		expect(
 			cleared,
-			`${HOME} が離脱時に件数の記憶を捨てていない (return された cleanup の中に` +
+			`${HOME} が離脱時に件数の記憶を捨てていない ($effect の中で return される cleanup に ` +
 				'setChildActivityPresence(undefined) が無い)。' +
 				'持ち越すと、活動のある子が /checklist へ移ったときに「カードをタップ」と案内し、' +
 				'その画面にカードは 1 枚も無い (#4860 adversarial 実測)',
