@@ -80,11 +80,6 @@
       "count": 4
     }
   },
-  "src/lib/features/admin/components/DemoCta.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 1
-    }
-  },
   "src/lib/features/admin/components/DowngradeResourceSelector.svelte": {
     "svelte/no-useless-children-snippet": {
       "count": 8

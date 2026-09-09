@@ -75,8 +75,15 @@ export const actions: Actions = {
 			applyMustDefaultRaw === 'on' || applyMustDefaultRaw === 'true' || applyMustDefaultRaw === '1';
 
 		if (packIds.length === 0) {
-			// Skip selected — no packs to import
-			redirect(302, '/setup/complete');
+			// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+			// **ここだけ次の step ではなく `/setup/complete` へ飛んでいた**。0 件で入ると
+			// rewards / rules / activities-defaults / challenges / first-adventure の **5 step を
+			// まるごと飛ばして完了扱い**になり、`/setup/complete` の load が
+			// `clearSetupWizardInProgress` で印まで降ろす — 中断者を戻す導線ごと閉じる。
+			//
+			// 兄弟 step (`rewards:83` / `rules:91`) と同じく「0 件でも次へ進む」に揃える。
+			// 取り込んだ件数 0 を query で渡すのも兄弟と同形。
+			redirect(302, '/setup/rewards?packsImported=0&packsSkipped=0');
 		}
 
 		let totalImported = 0;

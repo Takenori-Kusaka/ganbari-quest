@@ -8351,10 +8351,15 @@ export const PARENT_LOGIN_LABELS = {
 export const VIEW_PAGE_LABELS = {
 	appTitle: 'がんばりクエスト',
 	viewOnlyNotice: '閲覧専用リンク',
-	emptyChildren: 'まだ お子さまが とうろくされていません',
+	// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09:
+	// **同一画面で「お子さま」と「こども」を併記**していた (DESIGN.md §6 の 5 ドメイン用語)。
+	// `/view/[token]` は「リンクを共有された大人 (祖父母等)」が見る面なので、
+	// #4716 が保護者画面に適用したのと同じ `CHILD_TERMS.honorific` に寄せる
+	// (同ファイルの `errorNoChildren` が既に honorific 参照で、そちらに揃える形)。
+	emptyChildren: `まだ ${CHILD_TERMS.honorific}が とうろくされていません`,
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',
-	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
+	footerText: `がんばりクエスト — ${CHILD_TERMS.honorific}の がんばりを みんなで おうえん`,
 	// #4703: 無効 / 期限切れ token 専用の説明。汎用 404「ページが みつかりません」だと
 	// リンクを共有された人 (祖父母等) が「自分の操作を間違えた」と受け取ってしまう。
 	// (#4512 の errorInvalidToken は同一文言の重複 atom だったため本 SSOT に統合)
@@ -9244,6 +9249,14 @@ export const ONBOARDING_LABELS = {
 	completedSuffix: '完了',
 	nextRecLabel: '次のおすすめ:',
 	dismissBtn: '非表示にする',
+	// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+	// checklist の項目名 4 件が `onboarding-service.ts` に日本語直書きされていた
+	// (他の 2 件は既に `PAGE_TITLES` / `OYAKAGI_LABELS` 経由で、**半分だけ SSOT を通っていた**)。
+	// 呼称は #4716 の既決事項 (保護者画面は `CHILD_TERMS.honorific`) を適用する。
+	itemChildren: `${CHILD_TERMS.honorific}を登録する`,
+	itemRewards: 'ごほうびプリセットを選ぶ',
+	itemChecklist: 'チェックリストを作る',
+	itemChildScreen: `${CHILD_TERMS.honorific}の画面を確認する`,
 } as const;
 
 // ============================================================

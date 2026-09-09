@@ -1,7 +1,7 @@
 // src/lib/server/services/onboarding-service.ts
 // オンボーディングチェックリスト — 自動完了検知
 
-import { OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { ONBOARDING_LABELS, OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -68,7 +68,7 @@ export async function getOnboardingProgress(
 	const items: OnboardingItem[] = [
 		{
 			key: 'children',
-			label: '子供を登録する',
+			label: ONBOARDING_LABELS.itemChildren,
 			completed: children.length > 0,
 			href: `${basePath}/children`,
 			required: true,
@@ -83,7 +83,7 @@ export async function getOnboardingProgress(
 		},
 		{
 			key: 'rewards',
-			label: 'ごほうびプリセットを選ぶ',
+			label: ONBOARDING_LABELS.itemRewards,
 			completed: rewardTemplates.length > 0,
 			href: `${basePath}/rewards`,
 			required: true,
@@ -97,14 +97,14 @@ export async function getOnboardingProgress(
 		},
 		{
 			key: 'checklist',
-			label: 'チェックリストを作る',
+			label: ONBOARDING_LABELS.itemChecklist,
 			completed: hasChecklist,
 			href: `${basePath}/checklists`,
 			required: true,
 		},
 		{
 			key: 'child_screen',
-			label: '子供の画面を確認する',
+			label: ONBOARDING_LABELS.itemChildScreen,
 			completed: childScreenVisited === 'true',
 			href: '/switch',
 			required: true,

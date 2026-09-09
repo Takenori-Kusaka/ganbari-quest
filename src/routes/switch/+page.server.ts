@@ -69,6 +69,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	if (isParentContext) {
 		try {
 			onboarding = await getOnboardingProgress(tenantId, '/admin');
+			// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+			// **本番でも同じ自己ループが起きる**。checklist の「お子さまの画面を確認する」は
+			// `/switch` を踏んだだけでは完了せず (完了は子供を選んで子供画面に入った時点)、
+			// その項目が最後の 1 つになると `nextRecommendation.href` が `/switch` 自身を指す。
+			// **いま見ている画面へ「次はこちら」と誘う**バナーになり、押しても何も起きない。
+			// demo の #4712 と同じ形なので、同じ場所で同じように出さない。
+			// 子供カード本体は下にあるので導線は失われない。
+			if (onboarding?.nextRecommendation?.href === '/switch') onboarding = null;
 		} catch {
 			onboarding = null;
 		}
