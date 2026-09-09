@@ -122,6 +122,105 @@ function readSource(rel: string): string {
 	return readFileSync(join(ROOT, rel), 'utf8');
 }
 
+/** 位置 `i` がコメントの開始なら、その終端 (exclusive) を返す。コメントでなければ -1。 */
+function endOfComment(src: string, i: number): number {
+	if (src[i] !== '/') return -1;
+	if (src[i + 1] === '/') {
+		const end = src.indexOf('\n', i);
+		return end < 0 ? src.length : end;
+	}
+	if (src[i + 1] === '*') {
+		const end = src.indexOf('*/', i + 2);
+		return end < 0 ? src.length : end + 2;
+	}
+	return -1;
+}
+
+/** `/` が正規表現の開始になりうる直前文字。 */
+const REGEX_START_PREV = /[(,=:[!&|?{};+\-*%<>~^]/;
+
+/** 引用符 `q` で開いた位置 `i` に対応する閉じ引用符の位置 (無ければ末尾)。 */
+function endOfQuoted(src: string, i: number, q: string): number {
+	let j = i + 1;
+	while (j < src.length) {
+		if (src[j] === '\\') j += 2;
+		else if (src[j] === q) return j;
+		else j++;
+	}
+	return src.length;
+}
+
+/** 位置 `i` の `/` から始まる正規表現リテラルの閉じ `/` の位置。無ければ -1。 */
+function endOfRegex(src: string, i: number): number {
+	let j = i + 1;
+	let inClass = false;
+	while (j < src.length && src[j] !== '\n') {
+		if (src[j] === '\\') j += 2;
+		else if (src[j] === '[') {
+			inClass = true;
+			j++;
+		} else if (src[j] === ']') {
+			inClass = false;
+			j++;
+		} else if (src[j] === '/' && !inClass) return j;
+		else j++;
+	}
+	return -1;
+}
+
+/**
+ * **コードでない場所 (文字列 / template / 正規表現 / コメント) を空白で潰す** (#4867 round 9)。
+ *
+ * 括弧や引用符を数える検査は、コードでない場所の記号に必ず引っかかる。round 8 で
+ * 「文字列の中の括弧を数えない」を足したところ、**正規表現リテラルの中の `'`**
+ * (`id.replace(/['"]/g, '')`) と **行末コメントの中の `'`** (`// don't put …`) で
+ * quote モードに入り、round 8 では赤くなっていた変異が緑になる**回帰**を作った。
+ * 場当たりに条件を足すのをやめ、**先に一度だけ字句を潰す**。
+ *
+ * `pin-sink-ok:` の marker はコメントに書くので、**その行のコメントだけは残す**。
+ * 長さは変えない (位置が保たれるので、行番号や近傍の切り出しがずれない)。
+ */
+function maskNonCode(src: string): string {
+	const out = src.split('');
+	/** 直前の意味のある文字 — `/` が正規表現の開始か除算かの判定に使う。 */
+	let prev = '';
+	let i = 0;
+	const blank = (from: number, to: number, keep: boolean) => {
+		if (keep) return;
+		for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+	};
+	while (i < src.length) {
+		const ch = src[i] as string;
+		const commentEnd = endOfComment(src, i);
+		if (commentEnd >= 0) {
+			// `pin-sink-ok:` の marker はコメントに書くので、その 1 件だけ残す
+			blank(i, commentEnd, src.slice(i, commentEnd).includes('pin-sink-ok:'));
+			i = commentEnd;
+			continue;
+		}
+		if (ch === "'" || ch === '"' || ch === '`') {
+			const end = endOfQuoted(src, i, ch);
+			blank(i, Math.min(end + 1, src.length), false);
+			i = end + 1;
+			prev = ch;
+			continue;
+		}
+		// 正規表現リテラルは「値が来る位置の `/`」でしか始まらない
+		if (ch === '/' && REGEX_START_PREV.test(prev)) {
+			const end = endOfRegex(src, i);
+			if (end >= 0) {
+				blank(i, end + 1, false);
+				i = end + 1;
+				prev = '/';
+				continue;
+			}
+		}
+		if (!/\s/.test(ch)) prev = ch;
+		i++;
+	}
+	return out.join('');
+}
+
 /**
  * `redactStorageKey(…)` / `redactStorageKeysInText(…)` の**引数の中身を丸ごと取り除く**。
  *
@@ -139,15 +238,7 @@ function stripRedacted(src: string): string {
 			return out;
 		}
 		out += rest.slice(0, m.index);
-		let depth = 1;
-		let j = m.index + m[0].length;
-		while (j < rest.length && depth > 0) {
-			const ch = rest[j];
-			if (ch === '(') depth++;
-			else if (ch === ')') depth--;
-			j++;
-		}
-		rest = rest.slice(j);
+		rest = rest.slice(scanToCallEnd(rest, m.index + m[0].length));
 	}
 }
 
@@ -184,11 +275,16 @@ function scanToCallEnd(src: string, from: number): number {
 	return j;
 }
 
-function sinkCallArguments(code: string): { args: string; before: string }[] {
+const SINK_CALL_GLOBAL =
+	/\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/g;
+
+type SinkCall = { args: string; before: string; terminated: boolean };
+
+function sinkCallArguments(code: string): SinkCall[] {
 	const CALL = /\b(?:logger\.(?:error|warn|info|debug)|json|apiError|validationError|error)\s*\(/;
 	/** opt-out marker はふつう**直前の行**に書くので、呼び出しの手前も一緒に見る。 */
 	const LOOKBEHIND_CHARS = 300;
-	const out: { args: string; before: string }[] = [];
+	const out: SinkCall[] = [];
 	let rest = code;
 	for (;;) {
 		const m = CALL.exec(rest);
@@ -198,6 +294,9 @@ function sinkCallArguments(code: string): { args: string; before: string }[] {
 		out.push({
 			args: rest.slice(start, Math.max(start, j - 1)),
 			before: rest.slice(Math.max(0, m.index - LOOKBEHIND_CHARS), m.index),
+			// 対応する `)` に届かず末尾まで行った = **この呼び出しを読めていない**。
+			// 読めていないものを「安全」と数えない (#4867 round 8/9)。
+			terminated: j <= rest.length && rest.slice(start, j).endsWith(')'),
 		});
 		rest = rest.slice(j);
 	}
@@ -254,19 +353,13 @@ function rawSinks(block: string, msgIsRedacted: boolean): string[] {
 }
 
 /**
- * 説明用にコード片を書けるよう、行コメントは検査対象から外す。
+ * 検査対象のコードだけにする。
  *
- * `keep` に一致する行だけは残す — `pin-sink-ok:` の opt-out marker を読むため。
+ * 前版は「`//` で始まる**行**を落とす」だけで、行末コメントも正規表現リテラルも
+ * 残っていた。字句を一度だけ潰す形に置き換えた ({@link maskNonCode})。
  */
-function codeOnly(src: string, opts: { keep?: RegExp } = {}): string {
-	return src
-		.split('\n')
-		.filter((l) => {
-			if (opts.keep?.test(l)) return true;
-			const t = l.trim();
-			return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*');
-		})
-		.join('\n');
+function codeOnly(src: string): string {
+	return maskNonCode(src);
 }
 
 /** PIN を含みうる値が scope にあることを示す識別子。 */
@@ -350,7 +443,7 @@ describe('[F2] 外へ出す口は redact を通す', () => {
 	for (const [file, g] of redactedFiles) {
 		it(`${file} — 生の例外 / key を外へ出していない (${g.scope ?? 'file'})`, () => {
 			// opt-out marker (`pin-sink-ok:`) を読むため、その marker を含む行だけコメントを残す
-			const code = codeOnly(readSource(file), { keep: /pin-sink-ok:/ });
+			const code = codeOnly(readSource(file));
 			const blocks = g.scope === 'pin-catch' ? pinScopedCatchBlocks(code) : [code];
 			const redactedMsg = msgIsRedactedIn(code);
 			const hits = blocks.flatMap((b) => rawSinks(stripRedacted(b), redactedMsg));
@@ -369,6 +462,30 @@ describe('[F2] 外へ出す口は redact を通す', () => {
 				/from '\$lib\/domain\/storage-key-redaction'/.test(readSource(file)),
 				`${file} が redact を import していないのに 'redacted' と宣言している`,
 			).toBe(true);
+		}
+	});
+
+	// #4867 adversarial round 8/9: **「読めなかった」を「安全」と数えない**。
+	// parser は正規表現で呼び出しを見つけて括弧を数えるだけなので、書き方次第で
+	// 範囲がずれる。ずれると sink を 1 つも見ないまま緑になる — round 8/9 で
+	// 実際に 3 通りの形が見つかった。**読めた本数と、素朴に数えた本数が合うこと**を
+	// 別の検査として置き、合わなければ落とす (パーサを直す合図になる)。
+	it('すべての sink 呼び出しを最後まで読めている', () => {
+		for (const [file] of redactedFiles) {
+			const code = codeOnly(readSource(file));
+			const calls = sinkCallArguments(code);
+			const unterminated = calls.filter((c) => !c.terminated).length;
+			expect(
+				unterminated,
+				`${file} に、対応する ) まで読めなかった呼び出しがある = その範囲の検査が成立していない`,
+			).toBe(0);
+
+			const naive = (code.match(SINK_CALL_GLOBAL) ?? []).length;
+			expect(
+				calls.length,
+				`${file} の呼び出し本数が素朴な数え方と一致しない (parser=${calls.length} / naive=${naive})。` +
+					'範囲決定がずれている = 検査が一部の sink を見ていない',
+			).toBe(naive);
 		}
 	});
 });

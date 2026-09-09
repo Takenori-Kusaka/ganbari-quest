@@ -140,17 +140,62 @@ describe('[C2] build 失敗経路', () => {
 		);
 	});
 
-	it('親が自分で直せる失敗は名指しする (NUC は親が運用者)', async () => {
-		// #4867 adversarial round 8: 容量不足 / 権限を generic に潰すと、空きを作れば直る人が
-		// 「もう一度お試しください」を何度も押すだけになる。
-		const enospc = Object.assign(new Error('ENOSPC: no space left on device'), {
-			code: 'ENOSPC',
+	// #4867 adversarial round 8/9: 容量不足 / 権限を generic に潰すと、空きを作れば直る人が
+	// 「もう一度お試しください」を何度も押すだけになる。**分岐ごとに固定する** —
+	// round 9 実測では、この分岐を丸ごと削っても 131 passed だった (test 参照 0 件)。
+	/** errno (`EACCES` 等) と path 区切りが文言に混ざっていないか。 */
+	const ERRNO_OR_PATH = /E[A-Z]{3,}|[/\\]/;
+
+	const ERRNO_CASES = [
+		{ code: 'ENOSPC', label: () => SETTINGS_LABELS.cloudBuildFailedNoSpace },
+		{ code: 'EACCES', label: () => SETTINGS_LABELS.cloudBuildFailedPermission },
+		{ code: 'EPERM', label: () => SETTINGS_LABELS.cloudBuildFailedPermission },
+		{ code: 'EROFS', label: () => SETTINGS_LABELS.cloudBuildFailedPermission },
+	] as const;
+
+	for (const c of ERRNO_CASES) {
+		it(`親が自分で直せる失敗は名指しする (${c.code})`, async () => {
+			state.saveFileError = Object.assign(new Error(`${c.code}: …`), { code: c.code });
+
+			await drainPendingExports(5);
+
+			expect(savedFailureReasons[0]).toBe(c.label());
 		});
-		state.saveFileError = enospc;
+	}
+
+	it('code を持たない失敗は既定文言 (AWS SDK の例外は code を持たない)', async () => {
+		// S3 backend の `ServiceException` は `name` / `$metadata` を持ち `code` は無い。
+		// AWS では常に既定に落ちるのが正しい (S3 障害で「空き容量」を出したら実行不能な指示になる)。
+		state.saveFileError = Object.assign(new Error('AccessDenied'), { name: 'S3ServiceException' });
 
 		await drainPendingExports(5);
 
-		expect(savedFailureReasons[0]).toBe(SETTINGS_LABELS.cloudBuildFailedNoSpace);
+		expect(savedFailureReasons[0]).toBe(SETTINGS_LABELS.cloudBuildFailedDefault);
+	});
+
+	it('どの文言も、画面に出る値 (errno / パス) を含まない', () => {
+		// round 9 実測: 分岐の文言を `EACCES: /srv/... に書き込めません` にしても 131 passed
+		// だった = round 7 の出発点 (errno が親の画面に出る) を新しい分岐から再び出せる。
+		for (const label of [
+			SETTINGS_LABELS.cloudBuildFailedDefault,
+			SETTINGS_LABELS.cloudBuildFailedNoSpace,
+			SETTINGS_LABELS.cloudBuildFailedPermission,
+		]) {
+			expect(label, `errno が親の画面に出る文言になっている: ${label}`).not.toMatch(ERRNO_OR_PATH);
+		}
+	});
+
+	it('どの文言も、括弧の中に入れて二重にならない', () => {
+		// `cloudStatusFailed` は `作成に失敗しました（${reason}）`。文として完結させると
+		// 同じ句が 1 行に 2 回出る (round 8 で既定文言がそうなっていた)。
+		for (const label of [
+			SETTINGS_LABELS.cloudBuildFailedDefault,
+			SETTINGS_LABELS.cloudBuildFailedNoSpace,
+			SETTINGS_LABELS.cloudBuildFailedPermission,
+		]) {
+			const shown = SETTINGS_LABELS.cloudStatusFailed(label);
+			expect(shown.match(/作成に失敗しました/g)?.length ?? 0, `二重になる: ${shown}`).toBe(1);
+		}
 	});
 
 	it('親の画面にはサーバの例外を出さない (固定文言)', async () => {
