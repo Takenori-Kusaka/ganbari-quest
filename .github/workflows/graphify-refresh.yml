@@ -123,12 +123,20 @@ jobs:
       # 正しく書き替えた run を成功させねばならない)。加えて Actions の log は既定 90 日で
       # 消えるので、後から hash の出所を再監査できない。**手元で解決だけさせて report を出す**:
       #
-      #   docker run --rm python:3.12-slim bash -lc '      #     pip install --dry-run --only-binary=:all: --report /tmp/r.json       #       "graphifyy==<新 version>" >/dev/null && cat /tmp/r.json' > report.json
+      # **1 物理行で書く** (複数行に折ると、コピーしたときに行頭の `# ` が引用符の内側へ
+      # 入り、全体が comment 扱いで exit 0 / 出力 0 バイトになる。実際に一度そうなった —
+      # 本 workflow が塞ごうとしている「緑なのに何もしていない」そのもの):
+      #
+      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --dry-run --only-binary=:all: --report /dev/stdout "graphifyy==<新 version>" > report.json
+      #
+      # **`--platform=linux/amd64` は必須**。`python:3.12-slim` は multi-arch なので、
+      # ARM ホストで省くと**黙って arm64 wheel の hash** が出る。それを commit すると
+      # runner (x86_64) で hash 不一致の hard-fail になり、**graph が無音で stale 化する**
+      # (供給網の改善が可用性の単一障害点に振れる経路)。
       #
       # `report.json` の `install[].download_info` に、解決された全 dist の
       # `url` (= wheel 実ファイル名) と `archive_info.hashes.sha256` が入っている。
       # そこから `<name>==<version>` と `--hash=sha256:<...>` を機械的に書き出す。
-      # linux/amd64 の image を使うのは、下記のとおり hash が platform 依存だから。
       #
       # (`pip-compile --generate-hashes` でも同じことができるが、pip-tools を足すことになる)
       - name: Install graphify (graphifyy on PyPI, pinned by hash with its full dependency closure)
@@ -267,20 +275,36 @@ jobs:
             const baseNodes = Number(process.env.BASELINE_NODES || 0);
             const baseEdges = Number(process.env.BASELINE_EDGES || 0);
             const FLOOR = 0.9; // 10% を超えて縮んだら人間に見せる
+
+            // **baseline が取れないときは fail-closed** (#4084 の判断と同じ class)。
+            // baseline step は `g.links ?? g.edges` と key 名の不安定さを前提にしているので、
+            // 将来 graphify が `links` を改名すれば 0 が書かれる。そのとき「規模 OK」を
+            // 出して通すと、**検査が無音で消えたまま緑が続く** — この workflow が別 step で
+            // `|| true` の fail-open を名指しで戒めているのと同じ理由で、ここも倒す側にする。
+            if (!(baseNodes > 0) || !(baseEdges > 0)) {
+              console.error("::error::再生成前の graph 規模を取得できませんでした "
+                + "(node=" + baseNodes + " / edge=" + baseEdges + ")。縮み検査が成立しないので "
+                + "bot PR は発行しません。graph.json の key 名 (nodes / links) が変わった可能性が "
+                + "あります — baseline step の読み取りを実装に合わせてください。");
+              process.exit(1);
+            }
+
             const shrunk = [];
-            if (baseNodes > 0 && nodes.length < baseNodes * FLOOR) {
+            if (nodes.length < baseNodes * FLOOR) {
               shrunk.push("node " + baseNodes + " -> " + nodes.length);
             }
-            if (baseEdges > 0 && links.length < baseEdges * FLOOR) {
+            if (links.length < baseEdges * FLOOR) {
               shrunk.push("edge " + baseEdges + " -> " + links.length);
             }
             if (shrunk.length > 0) {
               console.error("::error::graph が 10% を超えて縮みました (" + shrunk.join(" / ") + ")。"
                 + "grammar の欠落や抽出失敗は例外にならず『その言語が空』として出るため、"
                 + "数でしか気づけません。bot PR は発行しません — 依存 pin / graphify version / "
-                + "対象ファイルの増減のどれが原因かを確認してください。意図した縮みなら "
-                + "この step の FLOOR を一時的に下げるのではなく、原因を PR body に書いて"
-                + "手で graphify-out を更新してください。");
+                + "対象ファイルの増減のどれが原因かを確認してください。"
+                + "**意図した縮みだったときの復旧手順**: develop は直接 push を拒否するので、"
+                + "手元で `graphify update .` を実行し、その差分で PR を出して QM/lab に "
+                + "承認してもらう (縮んだ理由を PR body に書く)。この step の FLOOR を "
+                + "下げて通すのではなく、人が一度見る。");
               process.exit(1);
             }
             console.log("規模 OK: node " + nodes.length + " (baseline " + baseNodes + ") / edge "
