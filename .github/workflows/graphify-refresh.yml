@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout develop
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: develop
           # PR 発行は後段で App install トークンを使う。checkout は既定 token で十分。
@@ -60,7 +60,7 @@ jobs:
           # gh / git push しか使わないので、checkout の資格情報は残さない。
           persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
 
@@ -73,15 +73,147 @@ jobs:
       # `graphify --help` / `graphify update .` の CLI surface を本 PR 作成時に実機確認済みの版。
       # 更新する場合は新版で `graphify update .` の出力 (graph.json / manifest.json /
       # GRAPH_REPORT.md) を手元で確認してから version 文字列だけを差し替える。
-      - name: Install graphify (graphifyy on PyPI, pinned)
-        run: pip install "graphifyy==0.9.32"
+      #
+      # **依存も含めて exact pin する (#4853 adversarial 指摘)**。上の脅威モデルを自分で
+      # 書いておきながら、pin は最上位だけで、runtime 依存 29 件 (`networkx>=3.4` /
+      # `numpy>=1.21` / `rapidfuzz>=3.0` + tree-sitter grammar 26 件、いずれも native wheel)
+      # はすべて範囲指定だった。**範囲指定は「その範囲に将来公開される版」を無条件に信用する**
+      # ので、脅威モデルの経路は開いたままだった。node 側には `npm ci --ignore-scripts` が
+      # あるのに python 側に同等の遮断が無い、という非対称でもあった。
+      #
+      # ここに並ぶ 30 件は、**実際に artifact を生成した run のログから採った解決済みの完全な
+      # 閉包**であり、手で書いたものではない (`Successfully installed` 行が version、
+      # `Downloading …whl` 行が wheel の実ファイル名。sha256 は PyPI の JSON API から
+      # その実ファイル名で引いた)。3 つを重ねて「これ以外は入らない」を pip に強制する:
+      #
+      #   --require-hashes  … 記載の sha256 と一致する artifact 以外は拒否する。
+      #                       **PyPI 上の既存 artifact が差し替えられても入らない**。
+      #                       この mode では pip が **依存解決を毎回やり直して**、
+      #                       解決した全 dist が list に載っていることを機械検証する。
+      #                       1 件でも欠ければ、欠けた dist を名指しして hard-fail する
+      #   --only-binary     … sdist からの build (= 任意コード実行) を禁じる
+      #
+      # **`--no-deps` は付けない** (#4866 adversarial 実測)。初版は付けていて、
+      # 「閉包が欠けたら直後の `graphify update .` が import で落ちるので list 自体が
+      # 自己検査になる」と書いていたが、**これは嘘だった** — graphifyy の wheel を展開すると
+      # tree-sitter 系 26 件の import はすべて `try: … except ImportError: return {nodes: [], …}`
+      # の中にあり、**欠けても例外は出ず「その言語の抽出が空になる」だけ**。top-level import で
+      # 落ちるのは networkx / numpy / rapidfuzz の 3 件だけで、第 1 稿が networkx で落ちたのは
+      # たまたまその 3 件を引いたからにすぎない。
+      #
+      # A/B 実測: fortran を 1 行抜いた list を `--require-hashes` だけで dry-run すると
+      # `tree-sitter-fortran<0.8,>=0.6 from graphifyy==0.9.32` を名指しして hard-fail する。
+      # 同じ list に `--no-deps` を足すと 29 件を静かに `Would install` して成功する。
+      # つまり `--no-deps` は不要かつ厳密に弱く、「30 件 = 真の閉包」という不変条件を
+      # **pip の毎回の機械検証から、人間の手作業の主張へ格下げしていた**。
+      #
+      # **action 側も同じ理由で SHA pin にした** (#4866 adversarial 指摘)。App install token を
+      # 発行する**前に** `checkout` / `setup-python` / `setup-node` の 3 本が同一 job で走るので、
+      # 可変 tag のままだと「pin した python 依存」の隣に「pin していない任意コード」が残る。
+      # `create-github-app-token` / `github-script` は元から SHA pin されていた。
+      #
+      # **`--require-hashes` が機械検証するのは片方向だけ**。「pip が解決した全 dist が
+      # list に載っていること」は見るが、「list に載っている全件が必要であること」は見ない。
+      # つまり**不要になった entry は黙って install され続ける**。version を上げるときは
+      # 追加していくのではなく、**上の report が出した集合で丸ごと置き換える**こと。
+      #
+      # **hash は platform 依存**。native wheel は `manylinux x86_64` の実ファイルを指して
+      # いるので、ubuntu-latest x86_64 が前提。runner の arch が変われば hash 不一致で
+      # install が**落ちる** — 黙って別物が入るより落ちるほうが正しい。
+      #
+      # **ただし interpreter version は hash では守れない** (#4866 adversarial 実測)。
+      # 30 件のうち **cp312 専用は numpy 2.5.3 と tree-sitter 0.25.2 の 2 件だけ**で、
+      # grammar 26 件は `cp38-abi3` / `cp39-abi3` / `cp310-abi3`、graphifyy と networkx は
+      # `py3-none-any` — abi3 と pure-python は **3.13 でも 3.14 でもそのまま入る**。つまり
+      # 「python を上げたら落ちてくれる」は偶然 2 件が cp312 だから成立しているだけで、
+      # その 2 件が abi3 化すれば**防御が音もなく 0 件になる**。主張を機械で担保するため、
+      # install の前に interpreter を 1 行 assert する (下記)。
+      #
+      # ## version を上げるときの手順 (実行前に list を作れる形にしてある)
+      #
+      # 「上げた run のログから写す」は**鶏と卵**になる (新 version の log を得るには、先に
+      # 正しく書き替えた run を成功させねばならない)。加えて Actions の log は既定 90 日で
+      # 消えるので、後から hash の出所を再監査できない。**手元で解決だけさせて report を出す**:
+      #
+      # **1 物理行で書く** (複数行に折ると、コピーしたときに行頭の `# ` が引用符の内側へ
+      # 入り、全体が comment 扱いで exit 0 / 出力 0 バイトになる。実際に一度そうなった —
+      # 本 workflow が塞ごうとしている「緑なのに何もしていない」そのもの):
+      #
+      #   docker run --rm --platform=linux/amd64 python:3.12-slim pip install --quiet --dry-run --only-binary=:all: --report /dev/stdout "graphifyy==<新 version>" > report.json
+      #
+      # **`--report /dev/stdout` は docker (linux) の中だけの形**。docker を使わずに
+      # 手元の pip で同じことをするなら **`--report report.json`** にする
+      # (`> report.json` のリダイレクトは付けない)。`-` も `/dev/stdout` も駄目で、
+      # 前者は Windows で pip の vendored rich が絵文字を出そうとして
+      # UnicodeEncodeError → **途中で切れた JSON + exit 2** (0 バイトより悪い)、
+      # 後者は `[Errno 2] /proc/self/fd/1` で **0 バイト** になる (#4866 adversarial 実測)。
+      # **docker の外で作った pin list を commit しないこと。** 判別を「件数」で行っては
+      # いけない (#4866 adversarial round 5 実測): 手元で 29 件になるのは platform のせいでは
+      # なく、**すでに install 済みの package が `--dry-run` の `install[]` に出ない**という
+      # 環境状態の artifact で、`--ignore-installed` を足せば同じホストで 30 件そろう。
+      # そして**そろった 30 件の中身が win / macOS の wheel** になる — これは 20 行下で
+      # 「ARM ホストで `--platform` を省くと黙って別 platform の hash が出る」と書いている
+      # のと同じ経路で、`--require-hashes` が runner で落とすまで気づけない
+      # (落ちるのは merge 後の develop 上)。**件数が合っていても platform は合っていない。**
+      #
+      # **`--quiet` も必須**。pip は進捗 (`Collecting graphifyy==…`) も **stdout** に出すので、
+      # 付けないと `report.json` の先頭がログ行になり `json.load` が
+      # `Expecting value: line 1 column 1` で落ちる (実測。exit code は 0 なので**気づかない**)。
+      # pip 自身の doc も「stdout に書くときは `--quiet` と併用してログ混入を避けること」と
+      # 明記している。これも「緑なのに使えない出力」で、1 行化したときに引用符の問題と一緒に
+      # **ストリーム分離の仕組みごと落として**いた (#4866 adversarial 実測)。
+      #
+      # **`--platform=linux/amd64` は必須**。`python:3.12-slim` は multi-arch なので、
+      # ARM ホストで省くと**黙って arm64 wheel の hash** が出る。それを commit すると
+      # runner (x86_64) で hash 不一致の hard-fail になり、**graph が無音で stale 化する**
+      # (供給網の改善が可用性の単一障害点に振れる経路)。
+      #
+      # `report.json` の `install[].download_info` に、解決された全 dist の
+      # `url` (= wheel 実ファイル名) と `archive_info.hashes.sha256` が入っている。
+      # そこから `<name>==<version>` と `--hash=sha256:<...>` を機械的に書き出す。
+      #
+      # (`pip-compile --generate-hashes` でも同じことができるが、pip-tools を足すことになる)
+      - name: Install graphify (graphifyy on PyPI, pinned by hash with its full dependency closure)
+        run: |
+          set -euo pipefail
+          # pin list は cp312 の実ファイル 2 件を含む。ここが 3.12 でなくなったら、
+          # 残り 28 件 (abi3 / pure-python) は黙って入ってしまう — 先に落とす。
+          python -c "import sys; assert sys.version_info[:2] == (3, 12), f'pin list は cp312 前提。setup-python の python-version と pin list を一緒に更新すること (実行中: {sys.version_info[:2]})'"
+          # pin list は `.github/graphify/requirements.txt` (実ファイル)。workflow の heredoc に
+          # 埋めていた間、この 30 件は **GitHub の dependency graph から見えなかった** ため、
+          # pin した版に CVE が出ても誰にも通知されない状態だった (#4866 adversarial 実測)。
+          # graph が拾うのは `requirements.txt` という **file 名**なので、その名前で置く。
+          #
+          # **Dependabot の version update (`updates:` entry) は意図的に入れていない** —
+          # `.in` の兄弟を持たない `.txt` は閉包解決をしない resolver で扱われ、
+          # `tree-sitter` 0.26.0 (graphifyy が `<0.26` を要求) のような**解決不能な bump** を
+          # 提案してくる。CI にこの file を install する job は無く、この workflow 自身も
+          # `ref: develop` 固定 checkout なので Dependabot の PR branch を検証できない
+          # (= 緑のまま merge され、develop 上で初めて落ちる)。
+          #
+          # **ただし「自動 PR が来ない」わけではない** (#4866 adversarial round 5 実測)。
+          # この repo は `automated-security-fixes` が enabled で、**security update は
+          # `updates:` entry を必要としない**。しかも security 経路は `target-branch` を
+          # 無視して **default branch (main) に直行する** (`ci.yml` の `main-pr-base-guard`
+          # が仕様として明記)。つまり CVE が出れば bump PR は来る。実績は
+          # **`target-branch: develop` を入れた 2026-06-17 以降**の Dependabot PR 70 件で
+          # develop 60 / main 10、うち main 側の 6 件が security 経路 (#3159 / #3160 / #3161 /
+          # #4478 / #4479 / #4532)。数え方の根拠は `.github/dependabot.yml` のコメント。
+          #
+          # **その PR をレビューする人へ**: 全 check が緑でも、この pin list を install する
+          # job は CI に 1 つも無い。最低限、次の 2 つを手で見ること —
+          #   (1) 上げる package が graphifyy の requires_dist の上限を超えていないか
+          #       (`tree-sitter<0.26` / 各 grammar の `<0.8` 等。超えていれば
+          #        `pip install --dry-run` が ResolutionImpossible で落ちる)
+          #   (2) hash が **linux x86_64 の wheel** のものか (30 件中 28 件が linux wheel)
+          pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt
 
       # graphify 0.9.32 は tsconfig.json の `extends: ./.svelte-kit/tsconfig.json` を辿って
       # `$lib` alias を解決するが、生成物が無いと無言で skip し、`$lib/...` を擬似 file node にして
       # import / call 系 edge を落とす (実測: 同一ソースで edge -22.5% / 擬似 node 203、adv-4827)。
       # 手元の graphify-out は .svelte-kit が揃った状態で作られているので、CI でも
       # `svelte-kit sync` で同じ前提を作ってから再生成する。
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -93,6 +225,26 @@ jobs:
           # App token を発行する job 内に「無い時に取りに行く」経路を残さない (adv-4837 指摘)
           npx --no-install svelte-kit sync
           test -f .svelte-kit/tsconfig.json
+
+      # #4866 adversarial (UX must): 承認者が見る diff は 27MB の graph.json で**人間には読めない**。
+      # 承認判断は事実上この job の assertion だけに依存しているのに、floor が「node 0 件でない」
+      # しか無かった。grammar が 1 つ欠けて .ts 由来 node がまるごと消えた graph でも、
+      # install 緑・regenerate 緑・assert 緑で bot PR が発行され、承認者には「読めない巨大 diff +
+      # 全部緑」しか提示されない (#4827 / #4830 / #4833 で実際に edge が 22% 減った graph が
+      # 黙って PR にされ続けた)。**再生成の前に、いま develop に入っている graph の規模を控える。**
+      - name: Record committed graph size (再生成前の baseline)
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("node:fs");
+            const g = JSON.parse(fs.readFileSync("graphify-out/graph.json", "utf8"));
+            const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
+            const edges = Array.isArray(g.links) ? g.links.length : Array.isArray(g.edges) ? g.edges.length : 0;
+            const envFile = process.env.GITHUB_ENV;
+            fs.appendFileSync(envFile, "BASELINE_NODES=" + nodes + "\n");
+            fs.appendFileSync(envFile, "BASELINE_EDGES=" + edges + "\n");
+            console.log(`baseline: node ${nodes} / edge ${edges}`);
+          '
 
       - name: Regenerate knowledge graph
         run: graphify update .
@@ -117,6 +269,66 @@ jobs:
               process.exit(1);
             }
             console.log("node " + nodes.length + " / $lib 擬似 node 0 — alias 解決 OK");
+
+            // #4866: 規模が大きく縮んだら止める。grammar 欠落 / 抽出失敗は「例外」ではなく
+            // 「その言語の抽出が空」として現れる (tree-sitter 系は try/except の中で import
+            // されている) ため、**縮みを数で見る以外に気づく方法が無い**。
+            const links = Array.isArray(g.links) ? g.links : Array.isArray(g.edges) ? g.edges : [];
+            const baseNodes = Number(process.env.BASELINE_NODES || 0);
+            const baseEdges = Number(process.env.BASELINE_EDGES || 0);
+            const FLOOR = 0.9; // 10% を超えて縮んだら人間に見せる
+
+            // **baseline が取れないときは fail-closed** (#4084 の判断と同じ class)。
+            // baseline step は `g.links ?? g.edges` と key 名の不安定さを前提にしているので、
+            // 将来 graphify が `links` を改名すれば 0 が書かれる。そのとき「規模 OK」を
+            // 出して通すと、**検査が無音で消えたまま緑が続く** — この workflow が別 step で
+            // `|| true` の fail-open を名指しで戒めているのと同じ理由で、ここも倒す側にする。
+            if (!(baseNodes > 0) || !(baseEdges > 0)) {
+              console.error("::error::再生成前の graph 規模を取得できませんでした "
+                + "(node=" + baseNodes + " / edge=" + baseEdges + ")。縮み検査が成立しないので "
+                + "bot PR は発行しません。graph.json の key 名 (nodes / links) が変わった可能性が "
+                + "あります — baseline step の読み取りを実装に合わせてください。");
+              process.exit(1);
+            }
+
+            const shrunk = [];
+            if (nodes.length < baseNodes * FLOOR) {
+              shrunk.push("node " + baseNodes + " -> " + nodes.length);
+            }
+            if (links.length < baseEdges * FLOOR) {
+              shrunk.push("edge " + baseEdges + " -> " + links.length);
+            }
+            if (shrunk.length > 0) {
+              console.error("::error::graph が 10% を超えて縮みました (" + shrunk.join(" / ") + ")。"
+                + "grammar の欠落や抽出失敗は例外にならず『その言語が空』として出るため、"
+                + "数でしか気づけません。bot PR は発行しません — 依存 pin / graphify version / "
+                + "対象ファイルの増減のどれが原因かを確認してください。"
+                + "**意図した縮みだったときの復旧手順**: develop は直接 push を拒否するので、"
+                + "手元で再生成して PR を出し、QM/lab に承認してもらう (縮んだ理由を PR body に書く)。"
+                + "**順番どおりに踏むこと** (#4866 adversarial 実測。順番を違えると、この検査が"
+                + "まさに弾くはずの低忠実度 graph を、人手 PR という検査の通らない経路で"
+                + " develop に入れることになる): "
+                + "(1) `npm ci && npx svelte-kit sync` を**先に**実行する。"
+                + "`.svelte-kit/tsconfig.json` が無いと `$lib` alias が解けず、擬似 node が"
+                + "203 件出て edge が -22.5% になる (この job の $lib assert が見ているのがそれ)。"
+                + "(2) この job と同じ pin で install し、そのまま再生成する: "
+                + "`pip install --require-hashes --only-binary=:all: -r .github/graphify/requirements.txt`"
+                + " のあと `graphify update .` (python は 3.12)。"
+                + "**pin 30 件のうち 28 件は linux x86_64 の wheel なので、Windows / macOS では"
+                + " 1 件も通らない**。その場合は linux の container の中で"
+                + " **install と再生成を 1 回の起動で**やる (`--rm` なので install だけして抜けると"
+                + " container ごと消える): "
+                + "`MSYS_NO_PATHCONV=1 docker run --rm --platform=linux/amd64 -v \"$PWD\":/w -w /w "
+                + "python:3.12-slim sh -c \"pip install --require-hashes --only-binary=:all: "
+                + "-r .github/graphify/requirements.txt && graphify update .\"`。"
+                + "(`MSYS_NO_PATHCONV=1` は Git Bash 用。無いと MSYS が `-v \"$PWD\":/w` と "
+                + "`-w /w` を Windows パスに書き換えて別コマンドになる。**docker daemon での"
+                + " 実走は未検証**なので、通らなければ WSL / linux 機で (1)(2) を踏むこと。)"
+                + "この step の FLOOR を下げて通すのではなく、人が一度見る。");
+              process.exit(1);
+            }
+            console.log("規模 OK: node " + nodes.length + " (baseline " + baseNodes + ") / edge "
+              + links.length + " (baseline " + baseEdges + ")");
           '
 
       - name: Detect graphify-out diff
@@ -181,7 +393,12 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定。graphify-refresh PR を発行できない。develop の graphify-out が stale のまま残る (#4536)。"
+            # #4866 adversarial: ここは warning だけで job を success にしていた。差分が
+            # あるのに PR を発行できない = **graph が無音で stale 化する**のに、run は緑で
+            # 終わるので誰も気づかない。この workflow が規模 floor で「検査できなかったら
+            # 倒す」を選んだのと同じ class なので、こちらも倒す。
+            echo "::error::GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) が未設定です。graphify-out に差分があるのに PR を発行できないため、develop の graph が stale のまま残ります (#4536)。secret を設定してください。"
+            exit 1
           fi
 
       - name: Generate GitHub App token
