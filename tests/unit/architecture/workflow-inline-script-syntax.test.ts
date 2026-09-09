@@ -28,6 +28,8 @@
 //        = 閉じ引用符の直後が語の続き (`'don'` + `t …`) になっていない
 //        + その `run:` ブロック全体の引用が閉じている
 //   [W3] どの workflow に何本あるかを file 名つきで固定する (検査が黙って消えない)
+//   [W4] folded scalar (`run: >`) の中で行コメントを使っていない
+//        (改行が空白に潰れるので `//` から先が全部消える)
 
 import { globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -43,7 +45,10 @@ type RunBlock = {
 	wf: string;
 	/** ブロック本文の 1 行目が YAML 上の何行目か (1-origin)。 */
 	startLine: number;
+	/** shell が実際に受け取る文字列 (folded scalar は畳んだあと)。 */
 	text: string;
+	/** `run: >` (folded scalar) か。改行が空白に潰れるので `//` コメントが致命傷になる。 */
+	folded: boolean;
 };
 
 /** `run:` ブロックの中で見つけた `node -e '…'` 1 件。 */
@@ -57,6 +62,8 @@ type InlineScript = {
 	terminated: boolean;
 	/** 閉じ引用符の**直後の 1 文字** (ブロック末尾なら空文字)。 */
 	after: string;
+	/** folded scalar (`run: >`) の中か。 */
+	folded: boolean;
 };
 
 /** `run:` ブロック 1 件のスキャン結果。 */
@@ -90,20 +97,20 @@ function extractRunBlocks(yml: string, wf: string): RunBlock[] {
 	const lines = yml.split('\n');
 	const blocks: RunBlock[] = [];
 	for (let i = 0; i < lines.length; i++) {
-		const m = RUN_KEY.exec(lines[i]);
+		const m = RUN_KEY.exec(lines[i] ?? '');
 		if (!m) continue;
 		// `- run: |` 形式でも「`run` 自身の列」を基準にする (`-` の列を基準にすると、
 		// 同じ step の兄弟 key まで本文に取り込んでしまう)。
 		const keyIndent = m[0].indexOf('run:');
-		const rest = m[2].trim();
+		const rest = (m[2] ?? '').trim();
 		if (rest !== '' && !BLOCK_INDICATOR.test(rest)) {
-			blocks.push({ wf, startLine: i + 1, text: rest });
+			blocks.push({ wf, startLine: i + 1, text: rest, folded: false });
 			continue;
 		}
 		const body: string[] = [];
 		let j = i + 1;
 		for (; j < lines.length; j++) {
-			const l = lines[j];
+			const l = lines[j] ?? '';
 			if (l.trim() === '') {
 				body.push('');
 				continue;
@@ -111,23 +118,66 @@ function extractRunBlocks(yml: string, wf: string): RunBlock[] {
 			if ((/^\s*/.exec(l)?.[0].length ?? 0) <= keyIndent) break;
 			body.push(l);
 		}
-		blocks.push({ wf, startLine: i + 2, text: dedent(body.join('\n')) });
+		const folded = rest.startsWith('>');
+		blocks.push({
+			wf,
+			startLine: i + 2,
+			text: folded ? foldScalar(dedent(body.join('\n'))) : dedent(body.join('\n')),
+			folded,
+		});
 		i = j - 1;
 	}
 	return blocks;
 }
 
-/** `node -e '` / `node --eval="` … 綴りを変えるだけで検査から外れないようにする。 */
-const OPEN = /node[ \t]+(?:-e|--eval)[ \t=]+(['"])/y;
-/** 直前が語の途中でないこと (`mynode -e` / `/usr/bin/node -e` の後半だけを拾わない)。 */
-const WORD_CHAR = /[A-Za-z0-9_./-]/;
+/**
+ * YAML の folded scalar (`run: >-`) を、**shell が実際に受け取る 1 行**に畳む。
+ *
+ * `>` は改行を空白に潰す。`|` と同じに扱うと「書いてある通りに動く」前提の検査になり、
+ * **本物とずれる** (#4866 adversarial round 9)。この repo には `run: >-` が 8 箇所あり、
+ * 生きた書き方なので、そこに `node -e` を足した瞬間に判定が嘘になる。
+ *
+ * 畳み方は YAML 1.2 の folding: 空行は改行 1 つ、それ以外の改行は空白 1 つ。
+ * (より深くインデントした行を畳まない規則もあるが、`run:` に書く shell では使わない。)
+ */
+function foldScalar(text: string): string {
+	const out: string[] = [];
+	for (const line of text.split('\n')) {
+		if (line.trim() === '') {
+			out.push('\n');
+			continue;
+		}
+		if (out.length > 0 && out[out.length - 1] !== '\n') out.push(' ');
+		out.push(line.trim());
+	}
+	return out.join('');
+}
+
+/**
+ * `node -e '` / `node --eval="` / `node -e $'…'` … 綴りを変えるだけで検査から外れないようにする。
+ *
+ * `$'…'` は bash の ANSI-C quoting (#4866 adversarial round 9 実測: これに変えるだけで
+ * **中身が JS として壊れていても 16/16 passed** で素通りした)。
+ */
+const OPEN = /node[ \t]+(?:-e|--eval)[ \t=]+\$?(['"])/y;
+/**
+ * 直前が語の途中でないこと (`mynode -e` を拾わない)。
+ *
+ * **`/` は入れない** — 入れると `/usr/bin/node -e '…'` という正当な書き方が
+ * 「語の途中」と見なされて検査から丸ごと外れる (#4866 adversarial round 9)。
+ */
+const WORD_CHAR = /[A-Za-z0-9_.-]/;
 /** 語として正しく閉じたときに、閉じ引用符の直後に来てよい文字。 */
 const SEPARATOR_AFTER = /[\s;&|)<>#]/;
 
 /** 引用の状態。plain = 引用の外。 */
 type QuoteState = 'plain' | "'" | '"';
 /** 1 文字ぶん進んだ結果。`script` があれば `node -e` の引数を 1 件取り出したという意味。 */
-type Step = { i: number; state: QuoteState; script?: Omit<InlineScript, 'wf' | 'line'> };
+type Step = {
+	i: number;
+	state: QuoteState;
+	script?: Omit<InlineScript, 'wf' | 'line' | 'folded'>;
+};
 
 /** 閉じ引用符の位置を返す (見つからなければ text.length)。二重引用符の `\"` だけ飛ばす。 */
 function findClosingQuote(text: string, from: number, quote: "'" | '"'): number {
@@ -143,7 +193,7 @@ function findClosingQuote(text: string, from: number, quote: "'" | '"'): number 
 
 /** `i` から `node -e '…'` が始まっていれば、引数を読み切って返す。 */
 function readNodeArg(text: string, i: number): Step | null {
-	if (i > 0 && WORD_CHAR.test(text[i - 1])) return null;
+	if (i > 0 && WORD_CHAR.test(text[i - 1] ?? '')) return null;
 	OPEN.lastIndex = i;
 	const m = OPEN.exec(text);
 	if (!m) return null;
@@ -175,7 +225,7 @@ function stepPlain(text: string, i: number): Step {
 	const c = text[i];
 	if (c === '\\') return { i: i + 2, state: 'plain' };
 	// `#` コメント (行頭 or 区切りの直後) の中身は shell が読まないので飛ばす。
-	if (c === '#' && (i === 0 || /[\s;&|(]/.test(text[i - 1]))) {
+	if (c === '#' && (i === 0 || /[\s;&|(]/.test(text[i - 1] ?? ''))) {
 		const nl = text.indexOf('\n', i);
 		return { i: nl < 0 ? text.length : nl, state: 'plain' };
 	}
@@ -200,10 +250,10 @@ function scanRunBlock(block: RunBlock): ScannedBlock {
 	let i = 0;
 	while (i < text.length) {
 		const at = i;
-		const step = state === 'plain' ? stepPlain(text, i) : stepInsideQuote(text, i, state);
+		const step: Step = state === 'plain' ? stepPlain(text, i) : stepInsideQuote(text, i, state);
 		if (step.script) {
 			const line = block.startLine + text.slice(0, at).split('\n').length - 1;
-			scripts.push({ wf: block.wf, line, ...step.script });
+			scripts.push({ wf: block.wf, line, folded: block.folded, ...step.script });
 		}
 		i = step.i;
 		state = step.state;
@@ -238,7 +288,7 @@ const EXPECTED_BY_FILE: Readonly<Record<string, number>> = {
 	'.github/workflows/pr-info.yml': 1,
 };
 
-describe('[W1][W2][W3] workflow の node -e インライン script', () => {
+describe('[W1][W2][W3][W4] workflow の node -e インライン script', () => {
 	it('workflow を 1 件以上見つけている (glob が空振りしていない)', () => {
 		expect(WORKFLOWS.length).toBeGreaterThan(0);
 	});
@@ -294,6 +344,25 @@ describe('[W1][W2][W3] workflow の node -e インライン script', () => {
 					`assert step 全体が SyntaxError で死んだ)。閉じ引用符の直後の文字: ${JSON.stringify(s.after)}`,
 			).toBe(true);
 		});
+
+		if (s.folded) {
+			it(`[W4] ${where} — folded scalar の中で行コメントを使っていない`, () => {
+				// `run: >` は**改行を空白に潰す**。潰したあとは script 全体が 1 行なので、
+				// `//` から先が**すべてコメントになって消える** — しかも `new Function` は
+				// 「末尾までコメント」を正しい JS として通すので [W1] では捕まらない
+				// (#4866 adversarial round 9 実測: 折り畳んだ文字列を実際に node に渡すと
+				//  `console.log` が 1 行も出ない)。この repo には `run: >-` が 8 箇所あり、
+				// 生きた書き方なので、そこに `node -e` を足した瞬間にこれが起きる。
+				//
+				// `://` (URL) は誤検出なので除く。ブロックコメント (`/* */`) は畳んでも生きる。
+				const lineComment = s.script.replace(/:\/\//g, '').includes('//');
+				expect(
+					lineComment,
+					`${where} は folded scalar (\`run: >\`) の中なので、改行が空白に潰れて ` +
+						'`//` から先がすべて消える。`/* … */` に書き換えるか、`run: |` にすること',
+				).toBe(false);
+			});
+		}
 	}
 
 	for (const scanned of SCANNED.filter((b) => b.scripts.length > 0)) {
