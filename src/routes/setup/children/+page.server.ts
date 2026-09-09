@@ -14,6 +14,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 	const tenantId = requireTenantId(locals);
 	trackSetupFunnel('setup_start', tenantId);
+	// ウィザードに入った印を **ここで** 立てる (#4860 must-B)。
+	//
+	// 当初は step 1 の `next` action で立てていたが、**その action には到達できない**。
+	// `addChild` で子供が 1 人できた時点で `isSetupRequired` が false になり、
+	// hooks の gate が **次の POST (`?/next`) 自体を** 302 `/` で弾くため、印を立てる
+	// コードが 1 度も走らない (実測: settings 0 行、旧条件と数学的に等価に潰れていた)。
+	//
+	// この `load` は子供 0 人 = `setupRequired` が true のときに通るので、gate に弾かれない。
+	// 立て忘れると step 2 以降が閉まるだけで、step 1 自体は成立する (fail してもここは止めない)。
+	await markSetupWizardStarted(tenantId);
 	const children = await getAllChildren(tenantId);
 	// 「ホームに戻る」は /switch を指すが、local モードの hooks.server.ts は
 	// 「子供 0 人なら全 path を /setup へ 302」を掛けており除外リストに /switch が無い
@@ -75,9 +85,6 @@ export const actions: Actions = {
 		if (children.length === 0) {
 			return fail(400, { error: SETUP_CHILDREN_LABELS.errorNoChildren });
 		}
-		// step 2 以降を開けるようにする (#4860 must-B)。ここを立てないと、子供を 1 人
-		// 登録した時点で isSetupRequired が false になり、hooks が残り 8 step を弾く
-		await markSetupWizardStarted(tenantId);
 		redirect(302, '/setup/questionnaire');
 	},
 };
