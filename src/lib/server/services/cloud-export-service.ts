@@ -327,6 +327,18 @@ function artifactFilename(exportType: CloudExportType): string {
 }
 
 /**
+ * S3 key から PIN 部分を伏せる。
+ *
+ * `s3Key` は `exports/<tenantId>/<pinCode>/<file>` の形で **PIN をそのまま含む**ので、
+ * ログに出すときは必ずこれを通す。PIN は他家庭のフル PII バックアップを引き当てる唯一の
+ * 材料であり (`fetchCloudExportByPin` は tenant 述語なしで引く)、ログ閲覧権限を
+ * 「他家庭の PII を落とせる」に化けさせない。
+ */
+export function redactPinInS3Key(s3Key: string): string {
+	return s3Key.replace(/^(exports\/[^/]+\/)[^/]+/, '$1<pin>');
+}
+
+/**
  * クラウドエクスポートを **起票** する（#3504 async-backup-export.md §3.2）。
  *
  * 同期 build → レスポンス直返しは AWS (Function URL BUFFERED 6MB / Lambda 30 秒) と NUC
@@ -378,8 +390,13 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 		status: 'pending',
 	});
 
+	// **PIN はログに出さない** (QM 監査 security / PO 決裁 2026-09-09「今日直してください」)。
+	// この PIN は他家庭のフル PII バックアップ (子供の氏名・生年月日・顔写真・音声を含む ZIP) を
+	// 引き当てる唯一の材料で、`fetchCloudExportByPin` は **tenant 述語なしで** 引く。
+	// 本番の `logger.info` は CloudWatch へ出るため、ログ閲覧権限が「他家庭の PII を落とせる」に
+	// 化けていた。運用に要るのは「どのテナントが何を起票したか」までで、PIN は要らない。
 	logger.info('[cloud-export] エクスポート起票 (pending)', {
-		context: { tenantId, exportType, pinCode },
+		context: { tenantId, exportType, expiresAt },
 	});
 
 	return {
@@ -632,8 +649,10 @@ export async function deleteCloudExport(id: string, tenantId: string): Promise<v
 		// 一部消えていないのに DB 行を消し、誰も辿れない完全 PII の孤児を作る。
 		await repos.storage.purgeByPrefix(record.s3Key, { failOnPartialError: true });
 	} catch (err) {
+		// s3Key は `exports/<tenantId>/<pinCode>/<file>` で **PIN をそのまま含む**ため、
+		// PIN 部分を伏せて出す (上の起票ログと同じ理由)。
 		logger.error('[cloud-export] S3 削除に失敗したため DB 行も残す (孤児 PII を作らない)', {
-			context: { id, tenantId, s3Key: record.s3Key },
+			context: { id, tenantId, s3Key: redactPinInS3Key(record.s3Key) },
 			error: err instanceof Error ? err.message : String(err),
 		});
 		throw new CloudExportDeleteFailedError();
