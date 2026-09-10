@@ -470,7 +470,7 @@ export function buildDiscordPayload(result, now = new Date()) {
 /**
  * JSON Lines を読む。壊れた行は握りつぶさず警告してから捨てる。
  *
- * @param {string} filePath
+ * @param {string | undefined} filePath
  * @returns {PullRequestInput[]}
  */
 function readJsonLines(filePath) {
