@@ -153,7 +153,7 @@ const BODY_PINS: Record<string, BodyPin> = {
 		// AI 応援提案の開示撤去 — この 3 件を **1 本の PR** にまとめ、版を 1 回だけ動かす
 		// (別々に出すとそのたびに全顧客が /consent へ飛ぶ)。#4598 / #4516 / #4778 と同じ型。
 		revision: '2026-09-10',
-		sha256: '6240342d8f2dbd6faa39b2e07907e3dbd65523274e3f3d9546e263ec5d00312a',
+		sha256: '4487c1d2d90588b8b7cd10a5ffbcc801b393c540d6a4edcd14500c8f0313b557',
 	},
 	terms: {
 		// #4503 (develop) が第7条・第8条ほかを改定し、改定日を 2026-08-13 へ動かした。

@@ -52,7 +52,8 @@ vi.mock('$lib/server/services/special-reward-service', () => ({
 	getChildSpecialRewards: vi.fn(async () => []),
 	grantSpecialReward: vi.fn(async () => ({ id: 'sr-1' })),
 }));
-// #4866 系 2 周目: AI 提案 4 経路 + OCR + 特別なごほうび
+// #4866 系 2 周目: AI 提案 3 経路 + OCR + 特別なごほうび
+// (応援メッセージの AI 提案は本 PR で機能ごと撤去。PO 決裁 2026-09-10 決定 9)
 vi.mock('$lib/server/services/activity-suggest-service', () => ({
 	suggestActivity: vi.fn(async () => ({})),
 }));
@@ -61,9 +62,6 @@ vi.mock('$lib/server/services/checklist-suggest-service', () => ({
 }));
 vi.mock('$lib/server/services/reward-suggest-service', () => ({
 	suggestReward: vi.fn(async () => ({})),
-}));
-vi.mock('$lib/server/services/cheer-suggest-service', () => ({
-	suggestCheer: vi.fn(async () => ({})),
 }));
 vi.mock('$lib/server/services/receipt-ocr-service', () => ({
 	ocrReceipt: vi.fn(async () => ({ items: [] })),
@@ -103,7 +101,6 @@ const activityVisibility = await import(
 );
 const activitySuggest = await import('../../../src/routes/api/v1/activities/suggest/+server');
 const checklistSuggest = await import('../../../src/routes/api/v1/checklists/suggest/+server');
-const cheerSuggest = await import('../../../src/routes/api/v1/cheer/suggest/+server');
 const rewardSuggest = await import('../../../src/routes/api/v1/special-rewards/suggest/+server');
 const ocrReceiptRoute = await import('../../../src/routes/api/v1/points/ocr-receipt/+server');
 const specialRewardGrant = await import(
@@ -169,15 +166,6 @@ const PARENT_ONLY_WRITES = [
 		call: (role: Role) =>
 			checklistSuggest.POST({
 				request: req('POST', { text: 'あさのしたく' }),
-				locals: ctx(role),
-			} as never) as Promise<Response>,
-	},
-	{
-		name: 'POST /api/v1/cheer/suggest',
-		why: 'AI に応援メッセージを提案させる',
-		call: (role: Role) =>
-			cheerSuggest.POST({
-				request: req('POST', { text: 'よくがんばった' }),
 				locals: ctx(role),
 			} as never) as Promise<Response>,
 	},
