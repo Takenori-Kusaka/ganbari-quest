@@ -25,11 +25,9 @@ vi.mock('$lib/server/security/magic-bytes', () => ({
 	validateBase64ImageMagicBytes: () => ({ valid: true }),
 }));
 
+import { RECEIPT_OCR_QUOTA_PER_TENANT } from '../../../src/lib/domain/constants/receipt-ocr-quota';
 import { POINTS_LABELS } from '../../../src/lib/domain/labels';
-import {
-	POST,
-	RECEIPT_OCR_QUOTA_PER_TENANT,
-} from '../../../src/routes/api/v1/points/ocr-receipt/+server';
+import { POST } from '../../../src/routes/api/v1/points/ocr-receipt/+server';
 
 function makeEvent(tenantId: string, opts: { mimeType?: string } = {}) {
 	return {

@@ -948,7 +948,7 @@ favicon の現在パスを返す（`?type=favicon`）。生成済み favicon が
 
 **画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。受理上限の元定数は `RECEIPT_MAX_IMAGE_BYTES`（`src/lib/server/services/receipt-ocr-service.ts`、5MB）を SSOT とし、route の reject 判定と撮影ボタン note の表示値を同一値から導出する。
 
-**1 世帯あたりの回数上限（PO 決裁 2026-09-10 決定 5）:** 1 回叩くたびに OCR ベンダーを呼ぶ = 顧客の金が動くため、テナント単位で **24 時間あたり 20 回**を上限にする（`RECEIPT_OCR_QUOTA_PER_TENANT` / `RECEIPT_OCR_QUOTA_WINDOW_MS`、SSOT: `src/routes/api/v1/points/ocr-receipt/+server.ts`）。超過は **409 `DAILY_LIMIT_REACHED`**（`severity: info` / `action: none`）で、文言は `POINTS_LABELS.receiptQuotaExceeded`。
+**1 世帯あたりの回数上限（PO 決裁 2026-09-10 決定 5）:** 1 回叩くたびに OCR ベンダーを呼ぶ = 顧客の金が動くため、テナント単位で **24 時間あたり 20 回**を上限にする（`RECEIPT_OCR_QUOTA_PER_TENANT` / `RECEIPT_OCR_QUOTA_WINDOW_MS`、SSOT: `src/lib/domain/constants/receipt-ocr-quota.ts`。route file に置けないのは SvelteKit が `+server.ts` の export を HTTP verb に限っているため）。超過は **409 `DAILY_LIMIT_REACHED`**（`severity: info` / `action: none`）で、文言は `POINTS_LABELS.receiptQuotaExceeded`。
 
 - **プランでは分けない**（決定 5(a)）。`site/pricing.html` の AI 自動提案 3 種に領収書の読み取りは入っておらず、売っていないものを後から有料化することになるため。したがって**上限に達してもアップグレード導線を出さない**（上位プランでも外れない上限へ誘導すると、顧客に効かない支出を勧めることになる）
 - **数えるのは検証をすべて通ったあと、ベンダーを呼ぶ直前**。形式違い / サイズ超過で弾かれた要求は枠を消費しない（顧客はコストを発生させていないため）

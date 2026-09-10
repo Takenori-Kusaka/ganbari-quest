@@ -1,4 +1,8 @@
 import { json } from '@sveltejs/kit';
+import {
+	RECEIPT_OCR_QUOTA_PER_TENANT,
+	RECEIPT_OCR_QUOTA_WINDOW_MS,
+} from '$lib/domain/constants/receipt-ocr-quota';
 import { POINTS_LABELS } from '$lib/domain/labels';
 import { resolveAiUnavailableMessage } from '$lib/server/ai/unavailable-message';
 import { parentGateResponse } from '$lib/server/auth/owner-gate';
@@ -11,19 +15,6 @@ import { ocrReceipt, RECEIPT_MAX_IMAGE_BYTES } from '$lib/server/services/receip
 import type { RequestHandler } from './$types';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-/**
- * 1 世帯あたりの領収書読み取り回数の上限 (PO 決裁 2026-09-10 決定 5)。
- *
- * **プランでは分けない。** `site/pricing.html` が挙げる AI 自動提案 3 種に領収書の読み取りは
- * 入っておらず、有料機能として売っていないものを後から有料化することになるため
- * (PO 決定 5(a): plan gate は掛けない)。
- *
- * 上限に達しても**アップグレード導線は出さない** — 上限は顧客に売った機能の制限ではなく、
- * 1 世帯の誤操作 / 連打がベンダーコストを青天井にしないための線だから。
- */
-export const RECEIPT_OCR_QUOTA_PER_TENANT = 20;
-export const RECEIPT_OCR_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const context = locals.context;
