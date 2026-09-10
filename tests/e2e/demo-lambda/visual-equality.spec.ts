@@ -240,23 +240,29 @@ test.describe('#4417: 320px 幅で横スクロールが発生しない', () => {
 
 	// baby / preschool は #2156 で reward card の最小幅を 320px に広げている (低年齢ほど大きく)。
 	// 320px 画面では左右 padding を引いた実効幅がそれを下回るため、min() で頭打ちにする必要がある。
-	for (const { childId, uiMode } of [
-		{ childId: '901', uiMode: 'baby' },
-		{ childId: '902', uiMode: 'preschool' },
+	//
+	// #4685 / PR #4775 (ADR-0011): baby は `rewardShop` capability を持たなくなり、`/baby/shop` は
+	// `/baby/home` へ 302 する (1 歳児名義の交換申請が親の承認待ちに並んでいた実害の是正)。
+	// 到達不能になった画面を測り続けても 320px 回帰は守れないので、baby の測定対象は
+	// **準備モードのホーム**へ付け替える (AC2「320px で横スクロールさせない」の意図は保持する)。
+	// shop 側の redirect 自体の回帰は tests/e2e/features.spec.ts が担保する。
+	for (const { childId, uiMode, path } of [
+		{ childId: '901', uiMode: 'baby', path: '/baby/home' },
+		{ childId: '902', uiMode: 'preschool', path: '/preschool/shop' },
 	] as const) {
-		test(`${uiMode}/shop で横スクロールが発生しない (AC2)`, async ({ context, page }) => {
+		test(`${uiMode} (${path}) で横スクロールが発生しない (AC2)`, async ({ context, page }) => {
 			await context.clearCookies();
 			await context.addCookies([
 				{ name: 'selectedChildId', value: childId, domain: 'localhost', path: '/' },
 			]);
-			const res = await page.goto(`/${uiMode}/shop`, { waitUntil: 'domcontentloaded' });
+			const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
 			expect(res?.status() ?? 0).toBeLessThan(400);
-			await expect(page).toHaveURL(new RegExp(`/${uiMode}/shop`));
+			await expect(page).toHaveURL(new RegExp(path));
 			// demo fixture では baby (901) の ごほうびが 0 件のため、カード有無で待ち方を分ける。
 			// grid track のはみ出しはカードが 1 枚以上ある時だけ現れるので、preschool 側が本命の回帰検証。
 			const cards = page.locator('.reward-list > *');
 			if ((await cards.count()) > 0) await expect(cards.first()).toBeVisible();
-			await expectNoHorizontalOverflow(page, `/${uiMode}/shop`);
+			await expectNoHorizontalOverflow(page, path);
 		});
 	}
 });

@@ -7,6 +7,10 @@ COPY package*.json ./
 # package*.json のみの stage では MODULE_NOT_FOUND で npm ci が exit 1 するため同 script を
 # 先に COPY する (staging PDCA cycle 2 で検出、EPIC #3424。prepare.mjs は常に exit 0 設計)。
 COPY scripts/prepare.mjs ./scripts/prepare.mjs
+# prepare.mjs が static import する module も同じ stage に要る (#4811 で追加された
+# stripGraphifyHookAppendix が COPY 追随せず ERR_MODULE_NOT_FOUND で npm ci が落ちた)。
+# COPY ↔ import の整合は tests/unit/architecture/dockerfile-copy-import-fitness.test.ts が機械検証する。
+COPY scripts/lib/graphify-hook-appendix.mjs ./scripts/lib/graphify-hook-appendix.mjs
 RUN npm ci
 
 # Stage 2: Build

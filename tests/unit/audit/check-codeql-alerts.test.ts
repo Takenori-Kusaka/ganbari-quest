@@ -67,7 +67,29 @@ const OBSERVED_2026_08_13 = [
 ];
 
 /** 現時点で ledger が受容している alert 集合 (= 起票時点 7 件 + 以後の追加受容)。 */
-const OBSERVED_CURRENT = [...OBSERVED_2026_08_01, ...OBSERVED_2026_08_13];
+const OBSERVED_2026_09_10 = [
+	{ number: 48, path: 'tests/unit/domain/admin-labels-ssot-4512.test.ts' },
+	{ number: 49, path: 'tests/unit/domain/marketplace-claims-4511.test.ts' },
+	{ number: 50, path: 'tests/unit/domain/oyakagi-pin-length-ssot.test.ts' },
+	{ number: 51, path: 'tests/unit/domain/plan-retention-ssot.test.ts' },
+	{ number: 52, path: 'tests/unit/routes/settings-data-guide.test.ts' },
+].map(({ number, path }) => ({
+	number,
+	state: 'open',
+	rule: {
+		id: 'js/incomplete-multi-character-sanitization',
+		security_severity_level: 'high',
+	},
+	most_recent_instance: { location: { path } },
+}));
+
+const OBSERVED_CURRENT = [
+	...OBSERVED_2026_08_01,
+	...OBSERVED_2026_08_13,
+	// 2026-09-10 (第22回統合監査 PR #4887) に追加受容した 5 件。#47 と同一 root class の
+	// instance 2-6 で、ledger 登録は解決ではなく受容の記録 (class-lock は別 Issue、ADR-0061 原則 2)。
+	...OBSERVED_2026_09_10,
+];
 
 const realBaseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
 
@@ -147,7 +169,7 @@ describe('normalizeAlerts / groupAlerts', () => {
 });
 
 describe('evaluateCodeqlAlerts (AC5 — baseline 一致で PASS / 1 件追加で FAIL)', () => {
-	it('現時点の受容集合 8 件は baseline に載っており PASS する', () => {
+	it('現時点の受容集合 13 件は baseline に載っており PASS する', () => {
 		const r = evaluateCodeqlAlerts({
 			alerts: OBSERVED_CURRENT,
 			baseline: realBaseline,
@@ -155,8 +177,8 @@ describe('evaluateCodeqlAlerts (AC5 — baseline 一致で PASS / 1 件追加で
 			ref: 'refs/pull/4155/merge',
 		});
 		expect(r.newAlerts).toEqual([]);
-		expect(r.observedCount).toBe(8);
-		expect(r.acceptedCount).toBe(8);
+		expect(r.observedCount).toBe(13);
+		expect(r.acceptedCount).toBe(13);
 		expect(r.staleEntries).toEqual([]);
 		expect(r.pass).toBe(true);
 	});
