@@ -43,6 +43,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractH2Section } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 import { parseSimpleBlock } from './lib/parse-labels-ts.mjs';
 
@@ -236,14 +237,13 @@ export function findCustomerUnsafeReason(text) {
  */
 export function extractCustomerValueSentence(body) {
 	if (typeof body !== 'string') return null;
-	const start = body.indexOf(CUSTOMER_VALUE_HEADING);
-	if (start === -1) return null;
 
-	const afterHeading = body.slice(start + CUSTOMER_VALUE_HEADING.length);
-	const nextHeading = afterHeading.search(/^##\s/m);
-	const section = nextHeading === -1 ? afterHeading : afterHeading.slice(0, nextHeading);
+	// 見出しの判定は共有 util に委ねる（#4348: 行全体の完全一致 + HTML コメント / code block 除去）。
+	// 部分一致で自前実装すると `## 顧客価値・目的 の補足` 等を誤って掴む。
+	const section = extractH2Section(body, CUSTOMER_VALUE_HEADING);
+	if (!section.found) return null;
 
-	const cleaned = section.replace(/<!--[\s\S]*?-->/g, '').trim();
+	const cleaned = section.text.trim();
 	if (cleaned === '') return null;
 
 	const firstLine = cleaned.split('\n').find((l) => l.trim() !== '');
