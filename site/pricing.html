@@ -65,12 +65,7 @@
 .cta-disclaimer{font-size:.72rem;color:var(--gray-700);background:var(--green-50,#f0fdf4);border:1px solid var(--green-200,#bbf7d0);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.6;text-align:center}
 .cta-disclaimer .badges{font-weight:600;color:var(--green-700,#15803d);display:block;margin-bottom:2px}
 .cta-disclaimer small{display:block;font-size:.7rem;color:var(--gray-500)}
-/* #2102 F-1: Tower 型二段 CTA — 既存「7 日間無料体験」CTA と新規「今すぐ購入」CTA の並列配置
-   padding / margin はすべて --space-* Base トークン経由 (ADR-0042 / docs/DESIGN.md §4) */
-.plan-cta-direct{background:#fff;color:var(--brand-700);border:2px solid var(--brand-600);display:block;text-align:center;padding:var(--space-3) var(--space-6);border-radius:2rem;font-size:.9rem;font-weight:600;text-decoration:none;margin-bottom:var(--space-2);transition:all .2s}
-.plan-cta-direct:hover{background:var(--brand-50);text-decoration:none}
 .cta-trial-note{font-size:.7rem;color:var(--gray-500);text-align:center;margin:0 0 var(--space-2);line-height:1.5}
-.cta-direct-note{font-size:.7rem;color:var(--gray-700);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:var(--space-2) var(--space-2);margin:0 0 var(--space-3);line-height:1.5;text-align:center}
 /* #2103 F-2: CTA-bottom 直下の解約 small リンク (既存有料ユーザー誘導) */
 .existing-cancel-link{font-size:.82rem;color:var(--gray-700);margin-top:var(--space-4);line-height:1.6}
 .existing-cancel-link a{color:var(--brand-700);text-decoration:underline}
@@ -527,6 +522,5 @@
 <script src="js/contact.js"></script>
 <!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) -->
 <script src="js/auto-budoux.js" defer></script>
-<!-- #3212: 月額/年額トグル撤去に伴い、トグル連動の直接購入 URL 切替 JS を撤去 (billing=monthly 固定) -->
 </body>
 </html>
