@@ -9,6 +9,7 @@ import {
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
 import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { notFound, planLimitError, validationError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
@@ -40,8 +41,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	// child ロールが兄弟にごほうびを付与するのを止める。プラン解決 (DB アクセス) より**前**に置く
-	// — 権限の無い要求のために課金状態を引きに行かない。
+	// #4866 系 QM 監査 (security) / PO 差し戻し 2026-09-09:
+	// `requireChildAccess` は「child が**兄弟**に付与する」ことしか止めておらず、
+	// **child が自分自身に特別なごほうびを付与できた**。特別なごほうびは
+	// 「親が子に贈る」ものなので (`/admin` の 1 画面からしか作られない)、親限定にする。
+	// role 判定はルート横断の唯一の seam 経由 (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。プラン解決 (DB アクセス)
+	// より**前**に置く — 権限の無い要求のために課金状態を引きに行かない。
 	requireChildAccess(locals, asChildId(params.childId));
 
 	// #4705: ごほうび (ショップ商品) の登録は有料プランの機能。form action 側 (#4584) にしか
