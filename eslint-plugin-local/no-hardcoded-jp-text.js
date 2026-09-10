@@ -4,10 +4,12 @@
  * Flags hardcoded Japanese text (hiragana, katakana, kanji) directly in Svelte templates.
  * Forces usage of constants from $lib/domain/labels.ts instead.
  *
- * Applied as 'warn' to src/routes/**\/*.svelte via eslint.config.js.
- * Existing violations are tracked in scripts/hardcoded-strings-baseline.json.
- * NOTE: check-hardcoded-strings.mjs was deleted in #4322 — no CI ratchet exists now.
- * This rule still reports violations locally / in editors, but nothing hard-fails on count.
+ * Applied as 'error' to src/routes/**\/*.svelte and src/lib/**\/*.svelte via eslint.config.js,
+ * so `npm run lint:svelte` (a hard-fail step of the CI `lint-and-test` job) rejects new violations.
+ * Scope is the Svelte *template* only: SvelteText nodes and the JP_ATTRS attributes.
+ * `<script>` blocks and plain .ts files are NOT covered — those stay a review concern.
+ * NOTE: check-hardcoded-strings.mjs (the count ratchet) was deleted in #4322; the rule itself
+ * is what enforces the ban now, per violation rather than per count.
  */
 
 const JP_REGEX = /[ぁ-ヿ一-鿿　-〿！-ﾟ]/;
