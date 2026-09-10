@@ -8,6 +8,7 @@ import {
 	SETUP_LABELS,
 	SETUP_PACKS_LABELS,
 } from '$lib/domain/labels';
+import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -68,6 +69,8 @@ $effect(() => {
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
 	{SETUP_PACKS_LABELS.pageDesc}
 </p>
+
+<SetupNoScriptNotice />
 
 <form
 	method="POST"

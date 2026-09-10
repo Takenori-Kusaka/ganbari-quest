@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { formatJSTDate } from '$lib/domain/date-utils';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
@@ -199,6 +200,17 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 			trialUsed: trialStatus.trialUsed,
 		},
 		trialJustExpired,
+		// PO 決裁 2026-09-10 決定 3(a): 申込経路からの自動開始を着地直後に 1 度だけ告げる。
+		// **`?trialStarted=1` が付いていて、かつ実際に体験中のときだけ**値を持たせる
+		// (#4628 と同じ規律: 誰も描かない値を client まで運ばない)。
+		// 出す日付は「その日いっぱい使える最後の日」= trialEndDate そのもの
+		// (有効判定 isTrialEndDateActiveJST が `trialEndDate >= 今日` で当日を含む)。
+		trialStartedNoticeEndDate:
+			url.searchParams.get('trialStarted') === '1' &&
+			trialStatus.isTrialActive &&
+			trialStatus.trialEndDate
+				? formatJSTDate(trialStatus.trialEndDate)
+				: null,
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 		gracePeriodStatus,

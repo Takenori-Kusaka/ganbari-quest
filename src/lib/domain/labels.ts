@@ -1226,6 +1226,12 @@ export const TRIAL_LABELS = {
 	durationDays: TRIAL_TERMS.durationDays,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
+	// PO 決裁 2026-09-10 決定 3(a): トライアルは申込経路から**自動で開始**する。
+	// 始まったことを顧客に告げないと、「無料体験を始める」を押しに行って
+	// 「すでに使用済みです」に当たる (自分が始めた覚えが無いのに使い切っている)。
+	// 終了日は**その日いっぱい使える最後の日**を出す (判定は isTrialEndDateActiveJST の `>=`)。
+	startedNotice: (endDate: string) =>
+		`${TRIAL_TERMS.duration}の${ACTION_LABELS.freeTrial}が始まりました。${endDate}まで全機能をお使いいただけます`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
 	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
 	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
@@ -7013,6 +7019,21 @@ export const OPS_COHORT_LABELS = {
 /** 「あとでやる」ボタンの文言。失敗時の次アクション案内から同じ語で参照する。 */
 const SETUP_FIRST_ADVENTURE_SKIP_BUTTON = 'あとでやる（スキップ）';
 
+/**
+ * セットアップの選択画面 (パック / ごほうび / ルール) を JavaScript 無しで開いたときの案内
+ * (PO 決裁 2026-09-10 決定 7)。
+ *
+ * これらの画面は取り込む対象を **`<button type="button">` + client state** で選ばせるため、
+ * JavaScript が無効だと選択そのものが成立しない。**no-JS での前進は支えないと決めた**ので、
+ * 「動かない画面を黙って見せる」のをやめ、何が必要かと次の一手だけを伝える。
+ */
+export const SETUP_NOSCRIPT_LABELS = {
+	title: 'この画面には JavaScript が必要です',
+	body: 'このページは、取り込む内容を選ぶために JavaScript を使います。ブラウザの設定で JavaScript を有効にしてから、このページを開き直してください。',
+	// 有効化できない事情がある人を行き止まりにしない。設定は後から管理画面でも変えられる。
+	fallback: `JavaScript を有効にできない場合は、この手順を飛ばして先に進んでいただいても、あとから${ADMIN_VIEW_TERMS.canonical}で同じ内容を追加できます。`,
+} as const;
+
 export const SETUP_FIRST_ADVENTURE_LABELS = {
 	successTitle: (nicknameVocative: string) => `${nicknameVocative}すごい！`,
 	recordedDesc: (activityName: string) => `「${activityName}」をきろくしたよ！`,
@@ -7027,6 +7048,12 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	recordingLabel: 'きろくちゅう...',
 	recordButton: 'タップしてきろく！',
 	selectActivityHint: 'がんばりをえらんでね！',
+	// PO 決裁 2026-09-10 決定 8: きょうだいが複数いる家庭で、最初の 1 件を
+	// **だれと一緒にやるか選ばせる**。旧実装は先頭の子で固定していたため、
+	// 2 人目以降の保護者は「この子は無視されるのか」と受け取れた。
+	childPickerLabel: 'だれといっしょにやる？',
+	// 選ばせると今度は「1 人しか選べないのか」が不安になるので、必ず添える。
+	childPickerReassurance: 'まずは 1 人と一緒に。ほかのお子さまはあとからでも大丈夫です',
 	skipButton: SETUP_FIRST_ADVENTURE_SKIP_BUTTON,
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorActivityRequired: '活動を選択してください',

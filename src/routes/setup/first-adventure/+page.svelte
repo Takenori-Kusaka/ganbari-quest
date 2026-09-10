@@ -152,6 +152,38 @@ function goToComplete() {
 		{/if}
 	{/if}
 
+	<!-- PO 決裁 2026-09-10 決定 8: だれと一緒にやるかを選ばせる。
+	     きょうだいが 2 人以上いるときだけ出す (1 人の家庭に選択肢を見せない)。
+	     GET form にしているのは、活動が per-child で選び直すたびに一覧を取り直すため
+	     (client state で持つと、選んだ子と表示中の活動がずれる)。 -->
+	{#if data.children.length > 1}
+		<div class="mb-4" data-testid="first-adventure-child-picker">
+			<div class="text-xs text-[var(--color-text-muted)] mb-1">
+				{SETUP_FIRST_ADVENTURE_LABELS.childPickerLabel}
+			</div>
+			<form method="GET" class="flex flex-wrap gap-2">
+				{#each data.children as pickChild (pickChild.id)}
+					<Button
+						type="submit"
+						name="childId"
+						value={String(pickChild.id)}
+						variant="ghost"
+						size="sm"
+						class="px-3 py-2 rounded-lg border-2 text-sm {pickChild.id === child?.id
+							? 'border-[var(--color-brand-600)] bg-[var(--color-brand-200)] text-[var(--color-text)] font-bold'
+							: 'border-[var(--color-border-default)] bg-[var(--color-surface-card)] text-[var(--color-text-muted)]'}"
+					>
+						{pickChild.nickname}
+					</Button>
+				{/each}
+			</form>
+			<!-- 選ばせると今度は「1 人しか選べないのか」が不安になるので必ず添える (決定 8) -->
+			<p class="mt-2 mb-0 text-xs text-[var(--color-text-muted)]" data-testid="first-adventure-child-picker-reassurance">
+				{SETUP_FIRST_ADVENTURE_LABELS.childPickerReassurance}
+			</p>
+		</div>
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>

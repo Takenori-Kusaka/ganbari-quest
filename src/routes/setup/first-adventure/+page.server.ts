@@ -27,12 +27,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		redirect(302, '/setup/children');
 	}
 
+	// PO 決裁 2026-09-10 決定 8: **だれと一緒にやるかを選ばせる**。
+	// 旧実装は `children[0]` に固定しており、きょうだいがいる家庭では
+	// 2 人目以降の保護者が「この子は無視されるのか」と受け取れた。
+	// 選択は `?childId=` で持つ (活動は per-child なので、選び直したら一覧も入れ替わる)。
+	const requestedChildId = url.searchParams.get('childId');
+	const selectedChild = children.find((c) => String(c.id) === requestedChildId) ?? children[0];
 	// redirect 済みなので children[0] は確実に存在
-	const firstChild = children[0];
-	if (!firstChild) redirect(302, '/setup/children');
-	// #2471: per-child API に絞り込み (firstChild を持っているのに tenant 全 child の
+	if (!selectedChild) redirect(302, '/setup/children');
+	// #2471: per-child API に絞り込み (selectedChild を持っているのに tenant 全 child の
 	// activity を aggregate して filter していた点を是正)
-	const activities = await getChildActivities(firstChild.id, tenantId);
+	const activities = await getChildActivities(selectedChild.id, tenantId);
 
 	// 子供の年齢に合う活動を3〜5件選ぶ
 	// #2362 PR-3 Phase 7b-2c: ChildActivity は per-child instance のため、その子供向けに
@@ -51,7 +56,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const challengesFailed = Number(url.searchParams.get('challengesFailed') ?? 0);
 
 	return {
-		child: firstChild,
+		child: selectedChild,
+		// 決定 8: 2 人以上いるときだけ選択 UI を出す (1 人の家庭に選択肢を見せない)
+		children: children.map((c) => ({ id: c.id, nickname: c.nickname })),
 		activities: ageFiltered,
 		imported,
 		skipped,

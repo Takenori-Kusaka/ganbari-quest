@@ -581,7 +581,9 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
+			// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、
+			// 着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+			expect((e as { location: string }).location).toBe('/admin?trialStarted=1');
 		}
 
 		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
@@ -611,7 +613,9 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
+			// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、
+			// 着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+			expect((e as { location: string }).location).toBe('/admin?trialStarted=1');
 		}
 
 		expect(mockStartTrial).toHaveBeenCalledWith({

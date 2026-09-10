@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_RULES_LABELS } from '$lib/domain/labels';
+import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -70,6 +71,8 @@ $effect(() => {
 <p class="text-xs text-[var(--color-text-muted)] bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded p-2 mb-4">
 	{SETUP_RULES_LABELS.bonusOnlyNotice}
 </p>
+
+<SetupNoScriptNotice />
 
 <form
 	method="POST"

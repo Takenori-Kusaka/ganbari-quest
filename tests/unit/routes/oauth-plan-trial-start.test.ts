@@ -176,7 +176,8 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 			source: 'user_initiated',
 			tier: 'family',
 		});
-		expect(location).toBe('/admin/subscription');
+		// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+		expect(location).toBe('/admin/subscription?trialStarted=1');
 	});
 
 	it('cookie は 1 回限り (再訪でトライアルを二重開始しない)', async () => {
@@ -212,7 +213,10 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 		expect(jar.jar.has('oauth_plan'), 'cookie を残して再試行可能にする').toBe(true);
 
 		// テナントが解決できた次の機会に、同じ cookie で開始できる
-		expect(await getRedirectLocation(() => trialStartGET(makeEvent(jar)))).toBe('/admin');
+		// (PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる)
+		expect(await getRedirectLocation(() => trialStartGET(makeEvent(jar)))).toBe(
+			'/admin?trialStarted=1',
+		);
 		expect(mockStartTrial).toHaveBeenCalledTimes(1);
 		expect(jar.jar.has('oauth_plan'), '開始を試みたら cookie は落とす').toBe(false);
 	});
@@ -235,6 +239,8 @@ describe('GET /auth/oauth/trial-start (#4702)', () => {
 		const location = await getRedirectLocation(() =>
 			trialStartGET(makeEvent(jar, { next: 'https://evil.com/x' })),
 		);
-		expect(location).toBe('/admin');
+		// 外部 URL は捨てて既定の着地先に落ちる。開始自体は成立するので告知の旗は付く
+		// (PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる)
+		expect(location).toBe('/admin?trialStarted=1');
 	});
 });
