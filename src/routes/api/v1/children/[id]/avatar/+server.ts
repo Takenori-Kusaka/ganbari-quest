@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
@@ -29,7 +30,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!childId) {
 		throw error(400, { message: '不正なIDです' });
 	}
-	// child ロールが兄弟の顔写真を差し替えるのを止める。
+	// PO 決裁 2026-09-10 決定 6: **親限定**。候補から選ぶのではなく**画像をアップロードする**
+	// 経路であり、上がるのは子供の顔写真 = PII そのもの。だれの写真を家庭内に置くかは
+	// 保護者が決める。role 判定は単一 seam 経由 (#3528)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。
 	requireChildAccess(locals, childId);
 
 	const child = await findChildById(childId, tenantId);

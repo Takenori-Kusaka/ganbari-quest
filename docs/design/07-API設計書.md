@@ -193,7 +193,7 @@
 |----------|------|------|------|
 | GET | /api/v1/settings/vapid-key | VAPID公開鍵取得（Push通知用） | 不要 |
 | POST | /api/v1/settings/tutorial | チュートリアル完了マーク | owner/parent |
-| POST | /api/v1/settings/pin-gate-onboarding | 親ゲート初心者導線 dialog の「以降表示しない」を tenant scope で保存（#2353）。payload なし・冪等 | 必須（ロール不問） |
+| POST | /api/v1/settings/pin-gate-onboarding | 親ゲート初心者導線 dialog の「以降表示しない」を tenant scope で保存（#2353）。payload なし・冪等 | **owner/parent**（PO 決裁 2026-09-10 決定 6。dialog の文言も宛先も保護者向けで、既読は tenant 全体に効くため。`(child)/+layout.svelte` は保護者のセッションにだけ dialog を出す = 子供に「閉じられない dialog」を作らない対） |
 | POST | /api/v1/notifications/subscribe | Push通知購読登録 | owner/parent |
 | POST | /api/v1/notifications/unsubscribe | Push通知購読解除 | owner/parent |
 

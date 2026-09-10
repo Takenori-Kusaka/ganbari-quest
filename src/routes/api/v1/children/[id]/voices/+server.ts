@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { listVoices, uploadVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
 
@@ -30,7 +31,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.id);
 	if (!childId) throw error(400, { message: '不正なIDです' });
-	// child ロールが兄弟の枠にボイスを登録するのを止める。
+	// PO 決裁 2026-09-10 決定 6: **親限定**。録音そのものが PII で、しかも登録した音声は
+	// きょうだいの画面で再生される (家庭内の他の子に届く)。だれの声を家庭内に流すかは
+	// 保護者が決める。role 判定は単一 seam 経由 (#3528)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。
 	requireChildAccess(locals, childId);
 
 	const formData = await request.formData();

@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { activateVoice, deleteVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
 
@@ -14,7 +15,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const childId = asChildId(params.id);
 	const voiceId = params.voiceId;
 	if (!childId || !voiceId) throw error(400, { message: '不正なIDです' });
-	// child ロールは自分のボイスのみ操作できる。
+	// PO 決裁 2026-09-10 決定 6: **親限定**。録音そのものが PII で、しかも登録済みの音声は
+	// きょうだいの画面で再生される。だれの声を家庭内に流すかは保護者が決める。role 判定は単一 seam 経由 (#3528)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。
 	requireChildAccess(locals, childId);
 
 	const body = await request.json();
@@ -41,6 +46,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const childId = asChildId(params.id);
 	const voiceId = params.voiceId;
 	if (!childId || !voiceId) throw error(400, { message: '不正なIDです' });
+	// PO 決裁 2026-09-10 決定 6: **親限定**。録音そのものが PII で、しかも登録済みの音声は
+	// きょうだいの画面で再生される。だれの声を家庭内に流すかは保護者が決める。role 判定は単一 seam 経由 (#3528)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。
 	requireChildAccess(locals, childId);
 
 	const ok = await deleteVoice(voiceId, childId, tenantId);
