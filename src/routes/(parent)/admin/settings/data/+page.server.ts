@@ -7,6 +7,7 @@ import type { ChildId } from '$lib/domain/ids';
 // #4512: 確認テキストの合言葉と文言は labels SSOT (画面側と同じ定数を見る)
 import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { notYetExportedSourceLabels } from '$lib/server/db/backup-entity-registry';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
@@ -66,7 +67,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions = {
+export const actions = withParentGate({
 	clearData: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -89,4 +90,4 @@ export const actions = {
 			return fail(500, { clearError: SETTINGS_LABELS.clearFailed });
 		}
 	},
-} satisfies Actions;
+} satisfies Actions);

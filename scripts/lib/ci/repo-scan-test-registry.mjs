@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/architecture/parent-gate-action-seam.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/(parent)/admin 配下の +page.server.ts を再帰走査し、form action が親 PIN gate の seam (withParentGate) を通ることを見る (#4866 系 / PO 決裁 2026-09-10 決定 4)。走査は admin 部分木に限るが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/architecture/activity-quota-all-producers-gated.test.ts': {
 		scope: 'repo',
 		note: 'src/lib/server/services と src/routes を走査し child_activities を作る producer を列挙 (#4693 quota fitness)',

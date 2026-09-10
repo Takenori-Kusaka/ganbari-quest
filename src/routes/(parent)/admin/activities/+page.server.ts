@@ -26,6 +26,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadActivityPackFromFile } from '$lib/marketplace/sources/file-source';
 import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -167,7 +168,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	toggleVisibility: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -711,6 +712,6 @@ export const actions: Actions = {
 			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.bulkClearFailed });
 		}
 	},
-};
+} satisfies Actions);
 
 // #2365 (ADR-0052): 旧 parseCsvActivities は `$lib/marketplace/sources/file-source.ts` に移管

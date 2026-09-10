@@ -12,6 +12,7 @@ import {
 } from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
+import { resolvePinVerifyError } from '$lib/features/parent-gate/pin-verify-error';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -244,27 +245,11 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		}
 		// 失敗: input 欄をリセット
 		pinInputKey += 1;
-		if (body.error === 'LOCKED_OUT' && body.lockedUntil) {
-			lockoutUntil = new Date(body.lockedUntil).getTime();
-			// #2991: 解除の絶対時刻 (HH:MM、ローカルタイム) を提示し「いつ再試行できるか」を明示する。
-			// lockedUntil が parse 不能な場合のみ時刻なし fallback (lockedError)。
-			const unlockTime = new Date(body.lockedUntil);
-			pinError = Number.isNaN(unlockTime.getTime())
-				? OYAKAGI_LABELS.lockedError
-				: OYAKAGI_LABELS.gateLockedUntilNotice(
-						unlockTime.toLocaleTimeString('ja-JP', {
-							timeZone: 'Asia/Tokyo',
-							hour: '2-digit',
-							minute: '2-digit',
-						}),
-					);
-		} else if (body.error === 'PIN_FORMAT') {
-			pinError = OYAKAGI_LABELS.gateFormatNotice;
-		} else if (body.error === 'INVALID_PIN' || body.error === 'PIN_NOT_SET') {
-			pinError = OYAKAGI_LABELS.invalidError;
-		} else {
-			pinError = OYAKAGI_LABELS.gateGenericError;
-		}
+		// #4866 系: 失敗 body → 文言 の対応表は admin の再入力ダイアログと共有する
+		// (面ごとに文言がずれると「いつ再試行できるか」の案内が割れる)。
+		const failure = resolvePinVerifyError(body);
+		pinError = failure.message;
+		if (failure.lockedUntilMs !== null) lockoutUntil = failure.lockedUntilMs;
 	} catch {
 		pinInputKey += 1;
 		pinError = OYAKAGI_LABELS.gateGenericError;

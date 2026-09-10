@@ -11,6 +11,7 @@ import {
 } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
 import {
@@ -150,7 +151,7 @@ export const load: PageServerLoad = async ({ url, locals, parent }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	addChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -366,4 +367,4 @@ export const actions: Actions = {
 		await editChild(childId, { birthdayBonusMultiplier: multiplier }, tenantId);
 		return { success: true, multiplierUpdated: true, childId };
 	},
-};
+} satisfies Actions);

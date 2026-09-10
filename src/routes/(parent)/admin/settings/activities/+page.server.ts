@@ -9,6 +9,7 @@ import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -53,7 +54,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions = {
+export const actions = withParentGate({
 	updateDefaultChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -133,4 +134,4 @@ export const actions = {
 
 		return { siblingSuccess: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

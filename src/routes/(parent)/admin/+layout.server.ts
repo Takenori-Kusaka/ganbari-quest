@@ -4,8 +4,12 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { getEnv } from '$lib/runtime/env';
-import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
+import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
+import {
+	isParentGateActive,
+	parentGateBlocked,
+	parentGateRedirectUrl,
+} from '$lib/server/auth/parent-gate';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
@@ -18,7 +22,6 @@ import {
 import {
 	PARENT_SESSION_COOKIE_NAME,
 	refreshParentSession,
-	verifyParentSession,
 } from '$lib/server/services/parent-gate-session';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
@@ -48,13 +51,15 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	//   - cognito production mode: PIN gate 有効 (同端末共有家庭の構造的 privacy 保護)
 	//
 	// cognito-dev で手動動作確認したい場合は `PARENT_GATE_FORCE_ACTIVE=true` env で強制 ON。
-	const forceActive = getEnv().PARENT_GATE_FORCE_ACTIVE === true;
-	const pinGateActive = forceActive || (authMode === 'cognito' && !isCognitoDevMode());
+	// #4866 系 / PO 決裁 2026-09-10 決定 4: 判定の SSOT を
+	// `$lib/server/auth/parent-gate.ts` に寄せた。ここにインラインで書いていたため
+	// **page の load しか通らず**、`/api/v1/admin/**` 25 本と form action 22 file が
+	// 素通りしていた (設計書は「アプリ層（全経路）」と書いていた = 守っているつもり)。
+	// API 側は `hooks.server.ts` が同じ SSOT で倒す。
+	const pinGateActive = isParentGateActive();
 	const sessionCookie = cookies.get(PARENT_SESSION_COOKIE_NAME);
-	if (pinGateActive && !verifyParentSession(sessionCookie, tenantId)) {
-		const nextPath = url.pathname + (url.search ?? '');
-		const redirectUrl = `/switch?pinRequired=1&next=${encodeURIComponent(nextPath)}`;
-		redirect(303, redirectUrl);
+	if (parentGateBlocked(sessionCookie, tenantId)) {
+		redirect(303, parentGateRedirectUrl(url.pathname, url.search));
 	}
 
 	// sliding refresh: lastActiveAt 更新 → 再 sign して cookie 再発行 (15 分 inactivity timeout 延長)

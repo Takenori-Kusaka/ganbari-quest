@@ -3662,6 +3662,21 @@ export const OYAKAGI_LABELS = {
 	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
 	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
 	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
+	// #4866 系 / PO 決裁 2026-09-10 決定 4: PIN gate 不成立時の文言。
+	// API の 403 と form action の `fail()` の**両方**がこれを使う (1 つにする)。
+	gateRequired: `${OYAKAGI_TERMS.name}の確認が必要です`,
+	// form action で使う形。**入力は保持されている**ことを伝える
+	// (PO 決定 4(a):「保護者が書いた内容を黙って捨てるのは、gate が守るものより大きい損害」)。
+	gateRequiredKeepInput: `${OYAKAGI_TERMS.name}の確認が必要です。入力内容はそのままにしてあります。`,
+	// 再入力ダイアログの説明文。**この画面から離れなくてよい**ことを明示する
+	// (離れると入力が消えるため、離れないで済むこと自体が案内の主眼)。
+	gateReauthDescription: `この画面のまま${OYAKAGI_TERMS.name}を入力できます。入力内容は消えません。`,
+	// 確認できた直後の案内。**保存の成否は一切述べない** (PO 決裁 2026-09-10b)。
+	// 述べてよいのは「確認できたので、続きの操作ができます」まで。
+	// 「確認しました」だけで止めると次にすることが分からず、「保存しました」と書くと
+	// 保護者は「押したはずなのに入っていない」を経験する。確認と保存が**別の操作**である
+	// ことが 1 回で分かる形にする。
+	gateReauthSuccess: `${OYAKAGI_TERMS.name}を確認しました。もう一度「保存」を押してください。`,
 	inputLabel: `${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
 	// #4661: 変更フォームの 3 入力欄。以前は account/+page.svelte に「（4〜8桁）」を
 	// 直書きしており、`formatError` の「4〜6桁」と同一画面で矛盾していた。

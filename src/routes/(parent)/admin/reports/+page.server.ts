@@ -4,6 +4,7 @@ import { monthKeyJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS, REPORTS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { DEMO_FIXTURE_MONTH_KEY } from '$lib/server/demo/demo-data';
 import { logger } from '$lib/server/logger';
@@ -126,7 +127,7 @@ function getPrevMonth(yearMonth: string): [number, number] {
 	return [y, m - 1];
 }
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	updateSettings: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
@@ -170,4 +171,4 @@ export const actions: Actions = {
 
 		return { settingsUpdated: true };
 	},
-};
+} satisfies Actions);

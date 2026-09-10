@@ -15,6 +15,7 @@ import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evalu
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { isCognitoDevMode } from '$lib/server/auth/auth-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { enforceParentGate } from '$lib/server/auth/parent-gate';
 import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
 import type { AuthContext } from '$lib/server/auth/types';
 import { cronJobNameFromPath, recordCronRun } from '$lib/server/cron/cron-heartbeat';
@@ -45,6 +46,7 @@ import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
+import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import {
 	isSetupRequired,
@@ -682,6 +684,30 @@ export const handle: Handle = ({ event, resolve }) =>
 			}
 			redirect(302, authResult.redirect);
 		}
+
+		// 2-b) 親 PIN gate (#4866 系 QM 監査 / PO 決裁 2026-09-10 決定 4)
+		//
+		// **これまで PIN gate は `(parent)/admin/+layout.server.ts` の 1 箇所にしか無く、
+		// page の load しか通らなかった** — `/api/v1/admin/**` 25 本と form action 22 file が
+		// 素通りしていた (設計書は「アプリ層（全経路）」と書いており実装より広かった)。
+		//
+		// ここで倒すのは **`/api/` の書き込みと一括 PII の読み取り**だけ。form action は
+		// page への POST なので、ここで 303 に倒すと**保護者が書いた内容が黙って捨てられる**
+		// (PO 決定 4(a) が明示的に禁じている)。form action 側は `parentGateBlocked()` を見て
+		// `fail()` を返し、入力を保持したまま画面上で PIN を求める。
+		//
+		// 範囲と返し方の根拠は `parent-gate.ts` の header を読むこと。
+		//
+		// **認可 (`provider.authorize`) の後に置く。** 判定に `context.tenantId` が要り、
+		// それが確定するのは認証解決の後だから (前に置くと tenantId が undefined のまま
+		// 照合され、正しい PIN session を持つ保護者まで 403 にする)。
+		const parentGateBlock = enforceParentGate(
+			path,
+			event.request.method,
+			event.cookies.get(PARENT_SESSION_COOKIE_NAME),
+			context?.tenantId,
+		);
+		if (parentGateBlock) return parentGateBlock;
 
 		// 退会 (アカウント削除) 申請済みテナントの読み取り専用制御（#0193 / #3993）
 		//

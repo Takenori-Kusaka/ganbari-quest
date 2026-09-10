@@ -6,7 +6,7 @@ import {
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
-import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
+import { ADMIN_VIEW_TERMS, OYAKAGI_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 
 export type ErrorCode =
@@ -20,6 +20,7 @@ export type ErrorCode =
 	| 'INVALID_PIN'
 	| 'UNAUTHORIZED'
 	| 'FORBIDDEN'
+	| 'PARENT_GATE_REQUIRED'
 	| 'LOCKED_OUT'
 	| 'NOT_FOUND'
 	| 'PLAN_LIMIT_EXCEEDED'
@@ -111,6 +112,17 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 		userMessage: 'この操作を行う権限がありません。保護者の方に操作してもらってください。',
 		severity: 'error',
 		action: 'none',
+	},
+	// #4866 系 / PO 決裁 2026-09-10 決定 4(a): 親 PIN gate 不成立。
+	// **`FORBIDDEN` と別にする理由**: 顧客の次の一手が違う。
+	// `FORBIDDEN` は「保護者に操作してもらう」(別の人に交代する) だが、
+	// こちらは「自分でおやカギを入れれば進める」。client がこの code で
+	// PIN modal を開けるようにする。
+	PARENT_GATE_REQUIRED: {
+		status: 403,
+		userMessage: `${OYAKAGI_TERMS.name}の確認が必要です。お子さまの画面から${OYAKAGI_TERMS.shortName}を入力してください。`,
+		severity: 'warning',
+		action: 'fix_input',
 	},
 	LOCKED_OUT: {
 		status: 429,

@@ -37,6 +37,11 @@ const mockGetAllChildren = vi.fn();
 // 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
 vi.mock('$lib/server/auth/auth-mode', () => ({
 	getAuthMode: vi.fn(() => 'cognito'),
+	// #4866 系: admin の form action は `withParentGate` を通るため、auth-mode が
+	// 親 PIN gate の有効化条件にも使われる。本 test が測るのは**プラン上限**であって
+	// PIN gate ではないので、`dev:cognito` 相当 (gate 無効) の fixture に揃える。
+	// PIN gate 自体の範囲は tests/unit/auth/parent-gate-scope.test.ts が測る。
+	isCognitoDevMode: vi.fn(() => true),
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({

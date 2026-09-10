@@ -15,6 +15,7 @@ import { asChildId } from '$lib/domain/ids';
 // 上限値そのものは cheer-service.ts が SSOT で、labels 側は引数で受ける。
 import { ADMIN_FORM_ERROR_LABELS, CHEER_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import {
 	CHEER_CATEGORIES,
 	CHEER_POINTS_MAX,
@@ -105,7 +106,7 @@ const SERVICE_ERROR_MESSAGES: Record<string, { status: 400 | 404; message: strin
 	INVALID_CATEGORY: { status: 400, message: CHEER_LABELS.errorCategoryRequired },
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	grant: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -145,4 +146,4 @@ export const actions: Actions = {
 			icon: validation.data.icon,
 		};
 	},
-};
+} satisfies Actions);

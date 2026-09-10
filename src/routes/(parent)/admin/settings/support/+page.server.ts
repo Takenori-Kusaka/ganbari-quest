@@ -12,6 +12,7 @@ import {
 import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { getEnv } from '$lib/runtime/env';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { logger } from '$lib/server/logger';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
@@ -112,7 +113,7 @@ function validateFeedbackForm(
 	return { ok: { intent, category, text, replyEmail, childAge } };
 }
 
-export const actions = {
+export const actions = withParentGate({
 	sendFeedback: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -175,4 +176,4 @@ export const actions = {
 		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
 		return { feedbackSuccess: true, inquiryId, intent };
 	},
-} satisfies Actions;
+} satisfies Actions);

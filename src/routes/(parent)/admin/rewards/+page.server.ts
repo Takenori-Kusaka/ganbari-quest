@@ -24,6 +24,7 @@ import { FileSourceError, loadRewardSetFromFile } from '$lib/marketplace/sources
 // 経由 generic dispatch ではなく拡張 method `applyRulePreset` を呼ぶ)。
 import { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 // #2362 PR-4 (ADR-0055): per-child reward 兄弟共通化 copy
 import {
@@ -173,7 +174,7 @@ async function resolveTier(locals: App.Locals, tenantId: string): Promise<PlanTi
 	return resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 }
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// #2268: grant → add リネーム (実態は special_rewards INSERT、子供 shop に並べる商品の追加)
 	add: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -726,4 +727,4 @@ export const actions: Actions = {
 			return fail(500, { error: 'インポートに失敗しました' });
 		}
 	},
-};
+} satisfies Actions);

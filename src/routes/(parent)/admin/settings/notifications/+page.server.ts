@@ -7,6 +7,7 @@ import { isHhMmTimeSetting } from '$lib/domain/export-format';
 // #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
 import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
@@ -50,7 +51,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { notificationSettings };
 };
 
-export const actions = {
+export const actions = withParentGate({
 	updateNotificationSettings: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -83,4 +84,4 @@ export const actions = {
 
 		return { notificationSuccess: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

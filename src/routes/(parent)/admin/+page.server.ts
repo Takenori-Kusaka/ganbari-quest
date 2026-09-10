@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { DEMO_FIXTURE_MONTH_KEY } from '$lib/server/demo/demo-data';
@@ -201,7 +202,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	dismissOnboarding: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		try {
@@ -220,4 +221,4 @@ export const actions: Actions = {
 			return fail(500, { error: '歓迎画面の非表示に失敗しました' });
 		}
 	},
-};
+} satisfies Actions);
