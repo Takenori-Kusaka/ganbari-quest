@@ -48,10 +48,12 @@ export type Identity =
 
 /** Layer 2: Context（何として操作しているか）
  *
- * plan は Stripe price ID 相当（例: 'standard_monthly', 'family_monthly'）
- * または DB Tenant.plan（'monthly' | 'family-monthly' 等）のいずれか。
- * 呼び出し側は `startsWith('family')` 等でゆるく判定しているため、ここでは
- * string のまま保持する（#972 も含め今後整理予定）。
+ * plan は DB `families.plan` の生値。**正準値の SSOT は `subscription-plan.ts`**。
+ * ここが `string` なのは、DB 列が自由文字列で歴史的な値を持ちうるため
+ * (`dsql/auth-repo.ts` が無検査 cast する)。**「ゆるく判定してよい」という意味ではない**:
+ * #4804 以降、tier 写像 (`resolvePaidPlanTier`) は完全一致表で、表に無い値は
+ * `FALLBACK_PAID_TIER='standard'` に落ちる。値を作る側 (dev fixture 含む) は
+ * `SubscriptionPlan` 型で書くこと。
  */
 export interface AuthContext {
 	tenantId: string;
