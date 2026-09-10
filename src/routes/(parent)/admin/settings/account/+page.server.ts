@@ -6,6 +6,7 @@ import { fail } from '@sveltejs/kit';
 import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { OYAKAGI_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { changePin } from '$lib/server/services/auth-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -15,7 +16,7 @@ export const load: PageServerLoad = async () => {
 	return {};
 };
 
-export const actions = {
+export const actions = withParentGate({
 	changePin: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -56,4 +57,4 @@ export const actions = {
 
 		return { success: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

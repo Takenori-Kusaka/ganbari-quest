@@ -20,6 +20,7 @@ import {
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { TRIAL_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { resolveTenantEntitlement } from '$lib/server/auth/tenant-entitlement';
 import { getActivities } from '$lib/server/services/activity-service';
 import { isPinConfigured } from '$lib/server/services/auth-service';
@@ -144,7 +145,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	startTrial: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		const started = await startTrial({
@@ -162,4 +163,4 @@ export const actions: Actions = {
 
 		return { success: true };
 	},
-};
+} satisfies Actions);

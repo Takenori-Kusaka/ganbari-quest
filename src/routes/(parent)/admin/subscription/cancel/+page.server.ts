@@ -18,6 +18,7 @@ import {
 	CANCELLATION_LABELS,
 } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 import { submitCancellationReason } from '$lib/server/services/cancellation-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
@@ -100,7 +101,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	default: async ({ request, locals, url }) => {
 		const tenantId = requireTenantId(locals);
 		const license = await getLicenseInfo(tenantId);
@@ -180,4 +181,4 @@ export const actions: Actions = {
 		// 無料プラン or Portal 未利用時は thanks ページに遷移
 		throw redirect(303, '/admin/subscription/cancel/thanks');
 	},
-};
+} satisfies Actions);

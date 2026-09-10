@@ -5,6 +5,7 @@ import { asChildId } from '$lib/domain/ids';
 import { POINTS_LABELS } from '$lib/domain/labels';
 import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
@@ -61,7 +62,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { children: childrenWithBalance, maxReceiptImageMb };
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	convert: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -99,4 +100,4 @@ export const actions: Actions = {
 			remainingBalance: result.remainingBalance,
 		};
 	},
-};
+} satisfies Actions);

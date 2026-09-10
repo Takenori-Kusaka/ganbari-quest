@@ -14,6 +14,7 @@ import {
 	sanitizeDailyLimit,
 } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 import { getActivityById, updateActivity } from '$lib/server/services/activity-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -34,7 +35,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 多項目編集 form の単純な分解。複雑度より読みやすさを優先
 	save: async ({ request, locals, params }) => {
 		const tenantId = requireTenantId(locals);
@@ -98,4 +99,4 @@ export const actions: Actions = {
 		// 更新成功 → 一覧画面にリダイレクト
 		redirect(303, '/admin/activities');
 	},
-};
+} satisfies Actions);

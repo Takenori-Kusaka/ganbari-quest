@@ -25,6 +25,7 @@ import {
 	setBonusPresetEnabled,
 } from '$lib/marketplace/strategies/rule-preset/bonus-state';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
@@ -87,7 +88,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// #3339: ごほうび交換の即時交換 ON/OFF を settings KVS に保存する。
 	setRewardAutoApprove: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -191,4 +192,4 @@ export const actions: Actions = {
 			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
-};
+} satisfies Actions);

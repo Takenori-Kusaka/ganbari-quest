@@ -6,6 +6,7 @@ import { ADMIN_FORM_ERROR_LABELS, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { isOpsMember, requireGlobalMasterWriteAccess } from '$lib/server/auth/ops-authz';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -76,7 +77,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-export const actions = {
+export const actions = withParentGate({
 	saveLevelTitle: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -137,4 +138,4 @@ export const actions = {
 		await upsertBenchmark(age, categoryId, mean, stdDev, '管理画面', tenantId);
 		return { success: true, benchmarkUpdated: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

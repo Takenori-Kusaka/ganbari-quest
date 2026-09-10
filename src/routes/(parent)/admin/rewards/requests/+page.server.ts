@@ -8,6 +8,7 @@ import { fail } from '@sveltejs/kit';
 import { REWARD_REQUEST_HISTORY_LIMIT } from '$lib/domain/constants/redemption-status';
 import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import {
 	approveRedemption,
 	countPendingRedemptionsForParent,
@@ -64,7 +65,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	approveRedemption: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -104,4 +105,4 @@ export const actions: Actions = {
 
 		return { redemptionRejected: true };
 	},
-};
+} satisfies Actions);

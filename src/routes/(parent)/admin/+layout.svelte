@@ -1,8 +1,10 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
+import { page } from '$app/state';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
 import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
+import ParentGateReauthDialog from '$lib/features/admin/components/ParentGateReauthDialog.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
@@ -74,6 +76,22 @@ $effect(() => {
 	});
 });
 
+// #4866 系 / PO 決裁 2026-09-10 決定 4(a): form action が親 PIN gate で止められたとき、
+// **この画面のまま**おやカギを入れ直せるようにする。
+//
+// 旗を立てるのは `withParentGate` (単一の seam) なので、どの admin 画面のどの action で
+// 起きても同じ体験になる。各 page が `form?.error` を描いているとは限らない
+// (実測: 22 file 中、汎用の `error` を画面に出しているのは一部だけ) ため、
+// **layout 側で旗を拾う**のが要点。
+const parentGateRequired = $derived(
+	(page.form as { parentGateRequired?: boolean } | null | undefined)?.parentGateRequired === true,
+);
+let parentGateReauthOpen = $state(false);
+$effect(() => {
+	// 保護者が閉じた後に再度開かないよう、旗が false → true に変わったときだけ開く。
+	if (parentGateRequired) parentGateReauthOpen = true;
+});
+
 const trial = $derived(data.trialStatus);
 // #3033 (PO 指摘 2026-06-12): body バナーは urgent (trial 残 1 日以下) のみ。
 // 残日数 = header pill / 開始導線 = /admin/subscription / 期限切れ = TrialEndedDialog (#770)。
@@ -128,5 +146,9 @@ $effect(() => {
 <TrialEndedDialog
 	bind:open={showTrialEndedDialog}
 	onDismiss={() => { showTrialEndedDialog = false; }}
+/>
+<ParentGateReauthDialog
+	bind:open={parentGateReauthOpen}
+	onClose={() => { parentGateReauthOpen = false; }}
 />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />

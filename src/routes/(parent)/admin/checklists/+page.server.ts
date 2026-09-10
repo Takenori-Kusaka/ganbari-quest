@@ -25,6 +25,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
 import { resolveAuditActor } from '$lib/server/auth/audit-actor';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import {
 	findAssignmentsByChild,
 	findAssignmentsByTemplate,
@@ -335,7 +336,7 @@ async function partitionOverLimitChildren(
 	return { overLimitChildIds, names, max };
 }
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -986,7 +987,7 @@ export const actions: Actions = {
 			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
-};
+} satisfies Actions);
 
 /**
  * #3079: 復元ファイル名からテンプレート名を導出する。
