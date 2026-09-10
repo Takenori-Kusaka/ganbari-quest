@@ -118,7 +118,7 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 
 CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313)
 
-**機械強制が無くレビューで担保するもの**: UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045)。プラン文字列だけは `check-no-plan-literals.mjs` が拾うが、それ以外の日本語直書きを検出する CI は無い。**ルールは生きているので、CI が緑でもレビューで見る。**
+**UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045) の検出範囲**: プラン文字列は `check-no-plan-literals.mjs` が拾う。加えて `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する。**対象外の範囲では CI が緑でもレビューで見る。**
 
 その他禁忌:
 - `src/routes` ページにビジネスロジック直書き / DB 直接アクセス（必ず `$lib/server/db` 経由）
