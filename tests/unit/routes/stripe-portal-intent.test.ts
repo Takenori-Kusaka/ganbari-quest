@@ -15,6 +15,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PORTAL_FALLBACK_REASON } from '$lib/domain/constants/stripe-portal';
+import { PLAN_TERMS } from '$lib/domain/terms';
 
 const mockCreatePortalSession = vi.fn();
 const mockIsPinConfigured = vi.fn();
@@ -36,7 +37,7 @@ vi.mock('$lib/server/logger', () => ({
 const { POST } = await import('../../../src/routes/api/stripe/portal/+server');
 
 /** PIN 未設定テナント想定。確認フレーズ経路で PIN 入力を迂回する (本 test の関心は intent)。 */
-const CONFIRM_PHRASE = 'プランを変更します';
+const CONFIRM_PHRASE = PLAN_TERMS.downgradeConfirmPhrase;
 
 function callPortal(body: Record<string, unknown>) {
 	return (

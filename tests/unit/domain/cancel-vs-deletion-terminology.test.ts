@@ -29,7 +29,6 @@ import {
 } from '../../../src/lib/domain/contract-state-view';
 import {
 	CANCELLATION_LABELS,
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	LP_LEGAL_DISCLAIMER_LABELS,
 	LP_LEGAL_TERMS_LABELS,
@@ -107,7 +106,6 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			['LP pricing hero 打消し表示', LP_PRICING_LABELS.heroCancelDisclaimer],
 			['LP pricing 解約 vs 退会 FAQ', LP_PRICING_LABELS.faqCancelVsDeleteA],
 			['LP index / pamphlet 打消し表示', LP_LEGAL_DISCLAIMER_LABELS.cancelDisclaimer],
-			['LP faq (text)', LP_FAQ_LABELS.text19],
 			['LP faq (k)', LP_FAQ_PHASEB_LABELS.k19],
 			['解約確認画面 (有料)', CANCELLATION_LABELS.paidPlanNotice],
 			['解約確認画面 (無料)', CANCELLATION_LABELS.freePlanNotice],
@@ -126,7 +124,6 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(PRICING_PAGE_LABELS.faqCancelA).toContain('データは削除されません');
 			expect(LP_PRICING_LABELS.faqCancelA).toContain('データは削除されません');
 			expect(LP_FAQ_PHASEB_LABELS.k19).toContain('データは削除されません');
-			expect(LP_FAQ_LABELS.text19).toContain('データは削除されません');
 		});
 
 		it('解約 FAQ / 特商法 は保持期間超過分の物理削除と復元不能まで述べる (PO 採択条件)', () => {
@@ -171,7 +168,7 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 
 	describe('退会 (アカウント削除) の猶予はプラン別に述べる', () => {
 		it('LP FAQ の退会説明が一律 30 日と述べない', () => {
-			for (const text of [LP_FAQ_PHASEB_LABELS.k76, LP_FAQ_LABELS.text76]) {
+			for (const text of [LP_FAQ_PHASEB_LABELS.k76]) {
 				expect(text).not.toContain('申請後 30 日間の猶予期間があり');
 				expect(text).toContain(`${DELETION_GRACE_TERMS.free}削除`);
 				expect(text).toContain(`${DELETION_GRACE_TERMS.standardSpaced}間`);
@@ -180,7 +177,7 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 		});
 
 		it('無料プランは取消し不可であることを述べる', () => {
-			for (const text of [LP_FAQ_PHASEB_LABELS.k77, LP_FAQ_LABELS.text77]) {
+			for (const text of [LP_FAQ_PHASEB_LABELS.k77]) {
 				expect(text).toContain('申請と同時に削除される');
 			}
 		});
@@ -575,14 +572,9 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			LP_FAQ_PHASEB_LABELS.k22,
 			LP_FAQ_PHASEB_LABELS.k124,
 		];
-		/** 未描画の姉妹 namespace。同じ事実を述べる (#4496 で 2 本を同期させた) */
-		const cancelFaqLegacy = [
-			LP_FAQ_LABELS.text19,
-			LP_FAQ_LABELS.text20,
-			LP_FAQ_LABELS.text21,
-			LP_FAQ_LABELS.text22,
-		];
-		const cancelFaqText = [...cancelFaq, ...cancelFaqLegacy].join('\n');
+		// 未描画の姉妹 namespace は削除済み。配信されている faqB 側の assertion が
+		// そのまま残っているので、ここで見る事実の担保は変わらない。
+		const cancelFaqText = cancelFaq.join(String.fromCharCode(10));
 
 		it('退会の仕様 (完全削除 / 書き込み不可 / 猶予期間) を解約の答えに書かない', () => {
 			// いずれも「退会」の事実。解約の質問に対する答えとしては誤り (#4619 の現象)。
@@ -596,19 +588,16 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(LP_FAQ_PHASEB_LABELS.k19).toContain(`${PLAN_FULL_TERMS.free}へ自動的に切り替わります`);
 			// 契約状態の告知 (S3/S4/S5) と同じ保証文を共有する — 別の言い回しに分岐させない
 			expect(LP_FAQ_PHASEB_LABELS.k20).toBe(SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance);
-			expect(LP_FAQ_LABELS.text20).toBe(SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance);
 			expect(LP_FAQ_PHASEB_LABELS.k20).toContain('記録・ポイント付与を続けられます');
 		});
 
 		it('日割り返金が無いことを手続き前に述べる (特商法と同一の事実)', () => {
 			expect(LP_FAQ_PHASEB_LABELS.k19).toContain('日割り計算による返金はありません');
-			expect(LP_FAQ_LABELS.text19).toContain('日割り計算による返金はありません');
 			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain('日割り計算による返金は行いません');
 		});
 
 		it('保持期間の超過分が復元できないことを特商法と同じ文で述べる', () => {
 			expect(LP_FAQ_PHASEB_LABELS.k21).toContain(IRREVERSIBLE_SENTENCE);
-			expect(LP_FAQ_LABELS.text21).toContain(IRREVERSIBLE_SENTENCE);
 		});
 
 		it('上限超過分は「保管 → 有料プランで復元」と述べ、選択できるとは書かない', () => {

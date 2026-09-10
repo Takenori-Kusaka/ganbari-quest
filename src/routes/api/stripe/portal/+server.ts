@@ -7,12 +7,15 @@
 import { error, json } from '@sveltejs/kit';
 import { isValidPinFormat } from '$lib/domain/constants/oyakagi';
 import { SUBSCRIPTION_PAGE_LABELS } from '$lib/domain/labels';
+import { PLAN_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
 import { createPortalSession, type PortalFlow } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
-const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
+// #4866 系 QM 監査 / PO 差し戻し 2026-09-09: client / server / test の 3 重直書きを atom に集約。
+// server と画面がずれると、顧客は「画面の指示どおり打っているのに通らない」に当たる。
+const DOWNGRADE_CONFIRM_PHRASE = PLAN_TERMS.downgradeConfirmPhrase;
 
 /**
  * 顧客の意図として受け付ける値 (#4270 決裁 3)。

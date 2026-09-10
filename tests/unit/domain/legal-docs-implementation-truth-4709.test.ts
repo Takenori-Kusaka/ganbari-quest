@@ -12,7 +12,6 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	LP_LEGAL_PRIVACY_LABELS,
 	LP_LEGAL_SLA_LABELS,
@@ -100,7 +99,6 @@ describe('#4709 問い合わせ応答目標が 3 文書で一致する', () => {
 	});
 
 	it('FAQ が atom を参照している', () => {
-		expect(LP_FAQ_LABELS.text124).toContain(target);
 		expect(LP_FAQ_PHASEB_LABELS.k121).toContain(target);
 	});
 
@@ -108,7 +106,6 @@ describe('#4709 問い合わせ応答目標が 3 文書で一致する', () => {
 		const all = [
 			LP_LEGAL_SLA_LABELS.section6,
 			LP_LEGAL_TOKUSHOHO_LABELS.tableContent,
-			LP_FAQ_LABELS.text124,
 			LP_FAQ_PHASEB_LABELS.k121,
 		].join('\n');
 		expect(all).not.toMatch(/1\s*〜\s*2\s*営業日以内/);
@@ -120,7 +117,6 @@ describe('#4709 エクスポートの提供条件が canExport gate と一致す
 	const texts = [
 		LP_PRICING_LABELS.faqCancelA,
 		PRICING_PAGE_LABELS.faqCancelA,
-		LP_FAQ_LABELS.text22,
 		LP_FAQ_PHASEB_LABELS.k22,
 	];
 

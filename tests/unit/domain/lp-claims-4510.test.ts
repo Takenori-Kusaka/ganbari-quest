@@ -19,7 +19,6 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	LP_HERO_SPEC_BADGES_LABELS,
 	LP_INDEX_EXTRA_LABELS,
@@ -40,7 +39,7 @@ function textOf(...namespaces: Record<string, unknown>[]): string {
 		.join('\n');
 }
 
-const allFaq = textOf(LP_FAQ_LABELS, LP_FAQ_PHASEB_LABELS);
+const allFaq = textOf(LP_FAQ_PHASEB_LABELS);
 
 describe('#4510 LP 訴求と実装事実の一致', () => {
 	describe('オフライン動作 (finding 1 / data-high)', () => {

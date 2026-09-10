@@ -91,6 +91,15 @@ export const PLAN_TERMS = {
 	premium: 'プレミアム',
 	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */
 	family: 'プレミアム',
+	/**
+	 * ダウングレードを確定する前に保護者が**自分で打つ確認語** (#4866 系 QM 監査 / PO 差し戻し 2026-09-09)。
+	 *
+	 * client (`SaasLicensePanel`) / server (`/api/stripe/portal`) / test の **3 箇所に同じ文字列が
+	 * 直書き**されていた。3 つのうち 1 つだけ変えると、顧客は「正しく打っているのに通らない」に当たる
+	 * (画面の指示と server の照合がずれるため、原因が顧客からは見えない)。
+	 * 不可逆操作の確認語を atom に置く規律は `CANCEL_TERMS.confirmPhrase` (#4642) と同じ。
+	 */
+	downgradeConfirmPhrase: 'プランを変更します',
 } as const;
 
 // ============================================================

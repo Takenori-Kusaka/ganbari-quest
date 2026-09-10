@@ -20,7 +20,6 @@ import { describe, expect, it } from 'vitest';
 import type { PlanTier } from '../../../src/lib/domain/constants/plan-tier';
 import {
 	getPlanLabel,
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	MEMBERS_LABELS,
 	PAGE_GUIDE_LABELS,
@@ -50,7 +49,6 @@ const VIEWER_LINK_TEXTS: Array<[string, string]> = [
 	['PLAN_GATE_LABELS.viewerTokenFamilyOnly', PLAN_GATE_LABELS.viewerTokenFamilyOnly],
 	['ページガイド members-intro.how', PAGE_GUIDE_LABELS.adminMembers.steps['members-intro'].how],
 	['ページガイド members-viewer.what', PAGE_GUIDE_LABELS.adminMembers.steps['members-viewer'].what],
-	['LP FAQ text109', LP_FAQ_LABELS.text109],
 	['LP FAQ (Phase B) k108', LP_FAQ_PHASEB_LABELS.k108],
 ];
 

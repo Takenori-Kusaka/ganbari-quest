@@ -66,9 +66,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const isParentContext =
 		locals.isDemo !== true && (authMode === 'local' || locals.context?.role !== 'child');
 	let onboarding: OnboardingProgress | null = null;
+	// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+	// checklist の「お子さまの画面を確認する」は **`/switch` を開いただけでは完了しない**。
+	// 完了を書くのは `(child)/+layout.server.ts`、つまり**子供を選んで子供画面に入った時点**。
+	// リンクを踏んだ保護者には「押したのに終わらない」に見えるので、あと 1 タップ要ることを
+	// この画面で出す。banner (SetupResumeBanner) は下の自己ループ回避で消えるため、
+	// **banner を消したあとも残る**よう別の値として持つ。
+	let childScreenPending = false;
 	if (isParentContext) {
 		try {
 			onboarding = await getOnboardingProgress(tenantId, '/admin');
+			childScreenPending =
+				onboarding?.items?.some((item) => item.key === 'child_screen' && !item.completed) === true;
 			// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
 			// **本番でも同じ自己ループが起きる**。checklist の「お子さまの画面を確認する」は
 			// `/switch` を踏んだだけでは完了せず (完了は子供を選んで子供画面に入った時点)、
@@ -96,6 +105,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		pinRequired,
 		nextPath,
 		onboarding,
+		childScreenPending,
 		pinConfigured,
 		// #2993: PIN 忘れ救済 (/auth/reset-pin) は cognito identity でのみ提供 (local は operator reset #2994)
 		pinResetAvailable: locals.identity?.type === 'cognito',
