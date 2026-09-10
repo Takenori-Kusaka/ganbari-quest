@@ -93,6 +93,12 @@ export const SETUP_REDIRECT_EXEMPT_PATHS: readonly {
 		kind: 'prefix',
 		reason: '#4696 復元の実行経路。画面だけ開けても戻せないと意味が無い',
 	},
+	{
+		path: '/api/v1/export',
+		kind: 'prefix',
+		reason:
+			'#4696 と対の持ち出し経路。画面 (/admin/settings/data) だけ通しても、この API が 302 になると fetch が redirect を追って /setup の HTML を 200 で受け取り、そのまま .json のバックアップとして保存される。/api/v1/export/cloud の一覧・作成・削除・ダウンロードも同じ画面の導線で、一覧が死ぬと保管済みバックアップの PIN が読めず復元できない。認可は後段 (route の requireRole と親 PIN gate の PII_EXPORT_READ_PATHS) が担う',
+	},
 
 	// --- PO 決裁 2026-09-10c: cognito へ広げるにあたって足した 4 系統 ---
 	{
@@ -126,6 +132,20 @@ export const SETUP_REDIRECT_EXEMPT_PATHS: readonly {
 		path: '/legal',
 		kind: 'prefix',
 		reason: '法務。規約・プライバシーは、いつでも読めなければいけない',
+	},
+
+	// --- 運営ダッシュボード (顧客導線ではない) ---
+	{
+		path: '/ops',
+		kind: 'exact',
+		reason:
+			'運営ダッシュボードは専用テナントで子供の行を持たないため isSetupRequired が true になる。塞ぐと requireOpsAccess (ops-authz.ts、fail-closed) に到達する前に /setup へ 302 され、ダミーの子供を作る以外に入る手が無くなる。認可は route 側が担うので gate を外しても無認可では入れない',
+	},
+	{
+		path: '/ops/',
+		kind: 'prefix',
+		reason:
+			'/ops 配下 (page gate が走らない売上台帳 CSV = /ops/export/+server.ts を含む)。境界は authorization.ts の isPublicRoute と同じく完全一致 + 末尾スラッシュに限る — 素朴な前方一致は /ops に前方一致する別 route まで巻き込む',
 	},
 ];
 

@@ -12,6 +12,8 @@
 //   - ログアウト — **local には無い**。塞ぐと setup を終えるまでログアウトできない
 //   - 同意 — 再同意が必要な顧客は、同意できないまま何もできなくなる
 //   - 法務文書 — 規約・プライバシーはいつでも読めなければならない
+//   - 運営 (/ops) — 運営テナントは子供の行を持たない。塞ぐと requireOpsAccess の手前で締め出す
+//   - 持ち出し (/api/v1/export**) — 復元側だけ通すと、API が返す /setup の HTML が .json で保存される
 //
 // ## 固定する不変条件
 //
@@ -38,6 +40,8 @@ describe('[S1] setup へ連れて行くべき path は除外しない', () => {
 		'/switch',
 		'/',
 		'/api/v1/activities',
+		// 境界: /ops に前方一致するだけの別 route は除外しない (authorization.ts の isPublicRoute と同じ規律)
+		'/ops-report',
 	];
 
 	for (const path of MUST_REDIRECT) {
@@ -68,6 +72,12 @@ describe('[S2] 顧客が setup より先にやる必要があることは塞が�
 		['/legal/terms', '利用規約'],
 		['/legal/privacy', 'プライバシーポリシー'],
 		['/legal/tokushoho', '特商法表記'],
+		// 運営 — 運営テナントは子供の行を持たないので、塞ぐと requireOpsAccess の手前で締め出す
+		['/ops', '運営ダッシュボード'],
+		['/ops/export', '売上台帳 CSV (page gate が走らない +server.ts)'],
+		// 持ち出し — 画面 (/admin/settings/data) だけ通しても、API が 302 だと /setup の HTML が .json で保存される
+		['/api/v1/export', 'バックアップのエクスポート API'],
+		['/api/v1/export/cloud', 'クラウド保管の一覧 (復元で PIN を読む側)'],
 	];
 
 	for (const [path, why] of MUST_PASS) {
