@@ -301,10 +301,6 @@ const MUTATION_GUARD_EXEMPTIONS: Record<string, MutationExemption> = {
 		basis: 'family-row',
 		reason: 'AI 提案の生成のみ。永続化せず child に属する行を触らない',
 	},
-	'src/routes/api/v1/cheer/suggest/+server.ts#POST': {
-		basis: 'family-row',
-		reason: 'AI 提案の生成のみ。永続化せず child に属する行を触らない',
-	},
 	'src/routes/api/v1/special-rewards/suggest/+server.ts#POST': {
 		basis: 'family-row',
 		reason: 'AI 提案の生成のみ。永続化せず child に属する行を触らない',

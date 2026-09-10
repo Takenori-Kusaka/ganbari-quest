@@ -14,7 +14,7 @@ import { logger } from '$lib/server/logger';
  * 新規の同意記録も旧 version で保存され続ける（表示文書と同意証跡の恒常不一致）。
  */
 // #4587 (#4503) が利用規約の条項不足・誤約束を改訂し 2026-08-13 に bump 済み。
-export const CURRENT_TERMS_VERSION = '2026-08-13';
+export const CURRENT_TERMS_VERSION = '2026-09-10';
 // #4583: 第9条④ / 第10条 が「生成 AI へは送らない」と絶対形で書いていたが、実装は
 //   AI 提案 3 種 (保護者の入力文) と領収書 OCR (画像) を実際に送っている。条文を事実に
 //   合わせて書き直したため再同意を発火させる。
@@ -22,7 +22,7 @@ export const CURRENT_TERMS_VERSION = '2026-08-13';
 //
 //   PO 決裁 A (#4516 2026-08-20 コメント) により #4516/#4598/#4778 の 3 PR で
 //   2026-08-20 に同値化済み。3 本は同一リリースで cut する。
-export const CURRENT_PRIVACY_VERSION = '2026-09-04';
+export const CURRENT_PRIVACY_VERSION = '2026-09-10';
 
 /**
  * 越境移転同意（個人情報保護法 §28）の version。
