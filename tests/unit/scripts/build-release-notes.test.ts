@@ -20,6 +20,7 @@ import {
 	classifyCommitType,
 	extractCustomerValueSentence,
 	formatJstDate,
+	loadLabels,
 	parseCommitSubject,
 	resolveReleaseNote,
 	sanitizeNoteText,
@@ -355,5 +356,103 @@ describe('#4883 buildReleaseNotes — 統合', () => {
 		expect(result.title).toBe('🎉 アップデートのお知らせ');
 		expect(result.description).toContain('設定 > サポート');
 		expect(result.footer).toContain('がんばりクエスト');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4883 adversarial review (tmp/adversarial-evidence/4884.json) で挙がった経路の封鎖
+// ---------------------------------------------------------------------------
+
+describe('#4883 顧客向け判定の境界（adversarial review 反映）', () => {
+	const body = (s: string) => `## 顧客価値・目的\n\n${s}\n\n## 関連 Issue\n\nCloses #1\n`;
+
+	it('顧客が画面で目にする固有名詞は落とさない', () => {
+		for (const s of [
+			'記録をまとめた PDF を保存できるようになりました。',
+			'ごほうびの一覧を CSV で書き出せるようになりました。',
+			'QR コードでお子さまの画面をひらけるようになりました。',
+		]) {
+			expect(resolveReleaseNote(body(s)).status, s).toBe('included');
+		}
+	});
+
+	it('画面の作りを指す内部語彙は落とす', () => {
+		for (const s of [
+			'解約フローの行き止まりを塞ぎました。',
+			'交換確認ダイアログの表記を揃えました。',
+			'設定パネルのトグルを直しました。',
+		]) {
+			expect(resolveReleaseNote(body(s)).status, s).toBe('rejected');
+		}
+	});
+
+	it('明示宣言でもリンクは通さない（配信面へのフィッシング注入を塞ぐ）', () => {
+		const withLink =
+			'## 顧客価値・目的\n\n<!-- release-note: [重要なお知らせ](https://example.com/phish) をご確認ください。 -->\n本文\n';
+		expect(resolveReleaseNote(withLink).status).toBe('rejected');
+
+		const withBareUrl =
+			'## 顧客価値・目的\n\n<!-- release-note: 詳しくは https://example.com/phish をご覧ください。 -->\n本文\n';
+		expect(resolveReleaseNote(withBareUrl).status).toBe('rejected');
+	});
+
+	it('明示宣言も顧客向け文として成立しない語は落とす（判定の素通りを作らない）', () => {
+		const decl = '## 顧客価値・目的\n\n<!-- release-note: 孤立 childId を観測する。 -->\n本文\n';
+		expect(resolveReleaseNote(decl).status).toBe('rejected');
+	});
+
+	it('security ラベルの PR は自動配信しない（開示順序は人が決める）', () => {
+		const result = buildReleaseNotes({
+			commits: ['fix(auth): #1 他の家庭の記録が見えていた問題を直す (#601)'],
+			pullRequests: [
+				{
+					number: 601,
+					body: body('他の家庭の記録が見えていた問題を直しました。'),
+					labels: ['security'],
+				},
+			],
+		});
+		expect(result.status).toBe('skip');
+		expect(result.warnings.join('\n')).toContain('601');
+	});
+
+	it('上限を超えた分は無言で捨てず「ほか N 件」を出す', () => {
+		const commits: string[] = [];
+		const pullRequests: { number: number; body: string; labels: string[] }[] = [];
+		for (let i = 0; i < 12; i++) {
+			const n = 700 + i;
+			commits.push(`fix(ui): #1 直した (#${n})`);
+			pullRequests.push({ number: n, body: body(`表示のずれが直りました。その${i}`), labels: [] });
+		}
+		const result = buildReleaseNotes({ commits, pullRequests });
+		expect(result.items).toHaveLength(8);
+		expect(result.description).toContain('ほか 4 件');
+	});
+
+	it('上限内なら「ほか N 件」を出さない', () => {
+		const result = buildReleaseNotes({
+			commits: ['fix(ui): #1 直した (#801)'],
+			pullRequests: [{ number: 801, body: body('表示のずれが直りました。'), labels: [] }],
+		});
+		expect(result.description).not.toContain('ほか');
+	});
+});
+
+describe('#4883 labels.ts SSOT の読み取り', () => {
+	it('RELEASE_NOTES_LABELS の全キーを実 labels.ts から読める', () => {
+		// build-time パーサは namespace ブロックを最初の閉じ波括弧で切る。値かコメントに
+		// 波括弧を 1 つ足すだけで、そこから下のキーが静かに欠落する（実際に踏んだ）。
+		const { release, app } = loadLabels();
+		for (const key of [
+			'title',
+			'sectionFeature',
+			'sectionFix',
+			'feedbackGuide',
+			'bullet',
+			'moreItems',
+		]) {
+			expect(release[key], `RELEASE_NOTES_LABELS.${key}`).toBeTruthy();
+		}
+		expect(app.name).toBeTruthy();
 	});
 });

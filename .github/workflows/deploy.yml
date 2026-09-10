@@ -1035,7 +1035,10 @@ jobs:
           PREV=$(git describe --tags --match 'deploy-*' --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -z "$PREV" ]; then
             # 範囲が確定できないときは「直近 N 件」へ無言で落ちない（#4883 RC2 の再発防止）。
-            echo "::warning::直近の deploy タグを解決できませんでした。範囲が確定しないためリリース通知をスキップします"
+            # ただし **タグは進める**（下の Tag step は本 step の失敗時も走る）。ここで
+            # タグを打たないと、次回も同じ理由で解決できず配信が恒久的に止まる。
+            # 1 リリース分の告知を落としてでも自己回復させる。
+            echo "::warning::直近の deploy タグを解決できませんでした。今回のリリース通知はスキップし、次回のためにタグだけ進めます"
             echo "resolved=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -1090,15 +1093,50 @@ jobs:
             -H "Content-Type: application/json" -d @/tmp/discord-payload.json
           echo "posted=true" >> "$GITHUB_OUTPUT"
 
+      # 何を顧客へ送ったか / 何を落としたかを後から再構成できるようにする。
+      # 対外コミュニケーションの内容は job ログの流れに任せず証跡として残す。
+      - name: Record what was sent
+        if: always() && steps.range.outputs.resolved == 'true'
+        run: |
+          {
+            echo "## リリース通知"
+            echo ""
+            echo "- 対象範囲: \`${{ steps.range.outputs.prev }}..HEAD\`"
+            echo "- 判定: \`${{ steps.notes.outputs.status }}\`"
+            echo ""
+            if [ -f /tmp/discord-payload.json ]; then
+              echo "### 配信本文"
+              echo ""
+              echo '```json'
+              cat /tmp/discord-payload.json
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release notes evidence
+        if: always() && steps.range.outputs.resolved == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes-${{ github.sha }}
+          path: |
+            /tmp/commits.txt
+            /tmp/release-notes.json
+            /tmp/discord-payload.json
+          if-no-files-found: warn
+          retention-days: 90
+
       # 投稿が終わってからタグを進める。先にタグを打つと、投稿が落ちたリリースの
       # 差分がそのまま失われる（次回はもう範囲に入らない）。
       #
-      # `posted=false`（webhook 未設定）のときも進めない。伝えるものがあったのに伝えられて
+      # `posted=false`（webhook 未設定）のときだけ進めない。伝えるものがあったのに伝えられて
       # いないため、次回 deploy で同じ範囲を再評価させる（warning は毎回出る）。
-      # status=skip（伝えることが無い）のとき本 step は実行されず output は空になるので、
-      # その場合はタグを進めてよい。
+      # それ以外は進める:
+      #   - status=skip（伝えることが無い）… 本 step は走らず output は空
+      #   - resolved=false（範囲を確定できない）… ここで進めないと恒久的に止まる（自己回復）
+      # （`if` に status 関数を書かないので暗黙の `success()` が付く = 先行 step が
+      #   失敗したときは進めない。失敗は job が赤くなって可視化される）
       - name: Tag current deploy
-        if: steps.range.outputs.resolved == 'true' && steps.post.outputs.posted != 'false'
+        if: steps.post.outputs.posted != 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

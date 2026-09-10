@@ -75,10 +75,32 @@ const MAX_ITEM_LENGTH = 140;
  * (`approve gate` / `childId` / `fail-closed` / `API` …)。よって
  * 「2 文字以上の英字の連なりは原則不可、明示した語だけ許可」という構造的な規則にする。
  * denylist と違い、新しい開発者語彙が増えても穴が開かない。
+ *
+ * ただし **顧客自身が画面や案内で目にする固有名詞** まで落とすと、有料機能の告知が
+ * 丸ごと沈黙する（`PDF` を含むだけで落ちる、等）。ここに載せるのは
+ * 「顧客がその語をアプリ / LP / 請求メールで実際に見る」ものだけに限る。
  */
-const ALLOWED_ASCII_WORDS = new Set(['AI']);
+const ALLOWED_ASCII_WORDS = new Set([
+	'AI',
+	'PDF',
+	'CSV',
+	'QR',
+	'PIN',
+	'Discord',
+	'Stripe',
+	'LINE',
+	'Google',
+	'Apple',
+]);
 
-/** 顧客向け文でないことが明らかな日本語の開発者語彙（英字を含まないため上の規則で拾えない） */
+/**
+ * 顧客向け文でないことが明らかな語（英字を含まないため上の英字語規則では拾えない）。
+ *
+ * 開発者語彙だけでなく、**画面の作りを指す UI 用語**も含める。`## 顧客価値・目的` は
+ * レビュアー向けに書かれる文であり、「解約フロー」「交換確認ダイアログ」のように
+ * 実装側の呼び名がそのまま出る（実測: PR #4560 / #4559）。顧客は自分の操作を
+ * その名前では呼ばない。
+ */
 const DEVELOPER_JARGON = [
 	'述語',
 	'冪等',
@@ -94,10 +116,24 @@ const DEVELOPER_JARGON = [
 	'カバレッジ',
 	'開発チーム',
 	'開発者向け',
+	// 画面の作りを指す UI 用語
+	'ダイアログ',
+	'モーダル',
+	'パネル',
+	'フロー',
+	'トグル',
+	'バナー',
+	'ナビゲーション',
 ];
 
-/** 顧客向け通知の対象外であることを PR が明示するラベル */
-const EXCLUDED_PR_LABELS = new Set(['refactor:internal-no-doc-impact']);
+/**
+ * 顧客向け通知の対象外である PR ラベル。
+ *
+ * `security`: 脆弱性修正の `## 顧客価値・目的` には「顧客の何が守られたか」= 影響そのものが
+ * 書かれる。coordinated disclosure / 個人情報漏えい報告の順序を機械が先回りしてはならないため、
+ * 自動配信しない（伝えると決めたら `<!-- release-note: -->` で人が明示する）。
+ */
+const EXCLUDED_PR_LABELS = new Set(['refactor:internal-no-doc-impact', 'security']);
 
 /** PR body 内の明示宣言。`none` で opt-out */
 const DECLARATION_PATTERN = /<!--\s*release-note:\s*([\s\S]*?)\s*-->/i;
@@ -125,6 +161,27 @@ export function loadLabels() {
 		};
 	}
 	return cachedLabels;
+}
+
+/**
+ * labels.ts から引けなかった文言を空文字で代替しない。
+ *
+ * 代替すると「空の見出し」「空の箇条書き」が顧客へ配信され、しかも CI は緑のままになる。
+ * build-time パーサは namespace ブロックを最初の `}` で切る等の制約があり、値の書き方 1 つで
+ * 静かに欠落しうるため、欠落は例外にして job を止める。
+ *
+ * @param {Record<string, string>} labels
+ * @param {string} key
+ * @returns {string}
+ */
+function requireLabel(labels, key) {
+	const value = labels[key];
+	if (value === undefined || value === '') {
+		throw new Error(
+			`RELEASE_NOTES_LABELS.${key} を src/lib/domain/labels.ts から読めませんでした（値に波括弧を含めていませんか）`,
+		);
+	}
+	return value;
 }
 
 // ============================================================
@@ -216,6 +273,11 @@ export function findCustomerUnsafeReason(text) {
 	if (text === '') return '本文が空';
 	if (text.length > MAX_ITEM_LENGTH) return `長すぎる (${text.length} 文字 > ${MAX_ITEM_LENGTH})`;
 	if (text.includes('`')) return 'コード片 (バッククォート) を含む';
+	// リンクは配信面をフィッシングの運び先にする。merge 後の PR body 編集で差し替えられる
+	// テキストをそのまま公開チャネルへ流すため、本文中のリンクは一律で通さない。
+	if (/\]\(\s*[a-z]+:/i.test(text) || /[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
+		return 'リンクを含む';
+	}
 	if (/[/\\][A-Za-z0-9_.-]+/.test(text)) return 'パスらしき文字列を含む';
 
 	for (const word of text.match(/[A-Za-z][A-Za-z0-9_-]+/g) ?? []) {
@@ -282,10 +344,10 @@ export function resolveReleaseNote(body) {
 			return { status: 'opted-out' };
 		}
 		const text = sanitizeNoteText(declared);
-		if (text === '') return { status: 'rejected', reason: '明示宣言が空' };
-		if (text.length > MAX_ITEM_LENGTH) {
-			return { status: 'rejected', reason: `明示宣言が長すぎる (${text.length} 文字)` };
-		}
+		// 明示宣言も同じ判定を通す。ここを素通りにすると「PR body を書き換えれば
+		// 任意テキスト（リンクを含む）を顧客の Discord へ流せる」経路になる。
+		const unsafe = findCustomerUnsafeReason(text);
+		if (unsafe !== null) return { status: 'rejected', reason: `明示宣言が${unsafe}` };
 		return { status: 'included', text, source: 'declaration' };
 	}
 
@@ -375,7 +437,13 @@ export function buildReleaseNotes(input) {
 			);
 			continue;
 		}
-		if ((pr.labels ?? []).some((l) => EXCLUDED_PR_LABELS.has(l))) continue;
+		const excludedLabel = (pr.labels ?? []).find((l) => EXCLUDED_PR_LABELS.has(l));
+		if (excludedLabel !== undefined) {
+			warnings.push(
+				`PR #${parsed.prNumber} は ${excludedLabel} ラベルのため自動配信しません（伝えるなら人が判断して告知してください）`,
+			);
+			continue;
+		}
 
 		const note = resolveReleaseNote(pr.body ?? '');
 		if (note.status === 'opted-out') continue;
@@ -410,6 +478,11 @@ export function buildReleaseNotes(input) {
 		const lines = selected.filter((i) => i.category === category).map((i) => `${bullet}${i.text}`);
 		if (lines.length > 0) blocks.push(`${heading}\n${lines.join('\n')}`);
 	}
+	// 上限超過を無言で捨てない。「まだある」ことは顧客に伝わってよい情報である。
+	const omitted = items.length - selected.length;
+	if (omitted > 0)
+		blocks.push(`${bullet}${requireLabel(release, 'moreItems').replace('N', String(omitted))}`);
+
 	blocks.push(release.feedbackGuide ?? '');
 
 	return {

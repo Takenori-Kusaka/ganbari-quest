@@ -169,6 +169,11 @@ export const RELEASE_NOTES_LABELS = {
 	// フィードバック導線は 設定 > サポート の単独 SSOT（docs/DESIGN.md §10 / #2904）
 	feedbackGuide: 'ご意見・ご要望は **設定 > サポート** からどうぞ！',
 	bullet: '• ',
+	// 上限を超えた分。`N` を件数で置換する（無言で切り捨てない）。
+	// 本 namespace には値にもコメントにも波括弧を書かないこと — build-time パーサ
+	// (scripts/lib/parse-labels-ts.mjs) が namespace ブロックを最初の閉じ波括弧で切るため、
+	// そこから下の行が丸ごと読めなくなる（欠落は build-release-notes.mjs が例外で止める）
+	moreItems: 'ほか N 件の改善をしました。',
 } as const;
 
 // ============================================================
