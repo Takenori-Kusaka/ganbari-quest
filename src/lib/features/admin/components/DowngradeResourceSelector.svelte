@@ -114,6 +114,12 @@ function handleConfirm() {
 	bind:open
 	title={L.dialogTitle}
 	testid="downgrade-resource-selector"
+	onOpenChange={(details) => {
+		// × / Esc / 外側クリックで閉じた場合も「選ばずに閉じた」を caller に伝える。
+		// 伝えないと解約フロー側の selectionResolved が立たず、送信のたびに同じダイアログが
+		// 開き直して解約を完了できない (cancel/+page.svelte:383-388 が避けようとした状態)。
+		if (!details.open) onCancel();
+	}}
 >
 	{#snippet children()}
 	{#if preview}

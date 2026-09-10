@@ -107,6 +107,19 @@ function neverTrialed() {
 	});
 }
 
+/** 体験を使い切った (体験 → 課金 → 停止 という現実の多数派はここに属する) */
+function trialEnded() {
+	mockGetTrialStatus.mockResolvedValue({
+		isTrialActive: false,
+		trialUsed: true,
+		trialStartDate: '2026-08-01',
+		trialEndDate: '2026-08-08',
+		trialTier: 'family',
+		daysRemaining: 0,
+		source: 'user_initiated',
+	});
+}
+
 describe('(parent)/admin/+layout.server.ts — 上限超過リソースの自動アーカイブ起動 (#4585-2)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -155,6 +168,21 @@ describe('(parent)/admin/+layout.server.ts — 上限超過リソースの自動
 
 	it('S4 停止 (契約が残り復帰しうる) では archive を発火しない', async () => {
 		neverTrialed();
+
+		await load(
+			makeEvent({
+				licenseStatus: 'suspended',
+				tenantStatus: SUBSCRIPTION_STATUS.SUSPENDED,
+				plan: 'standard_monthly',
+				stripeSubscriptionId: 'sub_unpaid',
+			}),
+		);
+
+		expect(mockArchiveExcessResources).not.toHaveBeenCalled();
+	});
+
+	it('S4 停止 + 体験済み (体験 → 課金 → 停止) でも archive を発火しない', async () => {
+		trialEnded();
 
 		await load(
 			makeEvent({

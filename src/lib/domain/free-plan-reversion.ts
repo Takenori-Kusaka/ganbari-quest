@@ -45,14 +45,21 @@ export function hasRevertedToFreePlan(input: FreePlanReversionInput): boolean {
 	// 実効プランが有料のあいだは無料プランの上限を適用しない (体験中 / dunning 猶予中)。
 	if (input.planTier !== 'free') return false;
 
-	// (a) 体験の終了
-	if (input.trialUsed && !input.isTrialActive) return true;
+	// **契約状態を先に確定させる。** 体験の履歴だけで先に true を返すと、体験 → 課金 →
+	// S4 停止 (契約が残る) の顧客で発火する。S4 は invoice.paid (W2) で S2 に戻りうる状態で、
+	// 「戻ってくる前提の状態で戻らない処理を先に実行してはならない」
+	// (contract-state-matrix.md §契約が残っている間 (S4) は履歴を物理削除しない)。
+	const contractState = resolveContractState({
+		status: input.tenantStatus,
+		stripeSubscriptionId: input.stripeSubscriptionId,
+	});
 
-	// (b) 契約の終了 (S5)。S4 停止は契約が残るため対象外、S6 退会は hooks が画面ごと遮断する。
-	return (
-		resolveContractState({
-			status: input.tenantStatus,
-			stripeSubscriptionId: input.stripeSubscriptionId,
-		}) === CONTRACT_STATE.CANCELLED
-	);
+	// (b) 契約の終了 (S5)。解約フロー / 請求パネル / dunning の 3 経路とも同じ終端に着地する。
+	if (contractState === CONTRACT_STATE.CANCELLED) return true;
+
+	// (a) 体験の終了。**契約を一度も持っていない (S1) ときだけ**。
+	// S4 停止 (契約が残る) / S6 退会 / S2・S3 (実効プランが有料) はここに入らない。
+	if (contractState === CONTRACT_STATE.FREE) return input.trialUsed && !input.isTrialActive;
+
+	return false;
 }
