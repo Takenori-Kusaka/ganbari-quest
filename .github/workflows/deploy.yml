@@ -1076,21 +1076,29 @@ jobs:
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
 
       - name: Post release notes to Discord
+        id: post
         if: steps.notes.outputs.status == 'post'
         env:
           WEBHOOK_URL: ${{ vars.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL is not set. Skipping Discord notification."
+            echo "posted=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" -d @/tmp/discord-payload.json
+          echo "posted=true" >> "$GITHUB_OUTPUT"
 
       # 投稿が終わってからタグを進める。先にタグを打つと、投稿が落ちたリリースの
       # 差分がそのまま失われる（次回はもう範囲に入らない）。
+      #
+      # `posted=false`（webhook 未設定）のときも進めない。伝えるものがあったのに伝えられて
+      # いないため、次回 deploy で同じ範囲を再評価させる（warning は毎回出る）。
+      # status=skip（伝えることが無い）のとき本 step は実行されず output は空になるので、
+      # その場合はタグを進めてよい。
       - name: Tag current deploy
-        if: steps.range.outputs.resolved == 'true'
+        if: steps.range.outputs.resolved == 'true' && steps.post.outputs.posted != 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
