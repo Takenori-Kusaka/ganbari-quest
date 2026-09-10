@@ -55,10 +55,13 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			optional: true,
 			position: 'bottom',
 		},
-		// こども一覧 (0 人のときも section は描画される)
+		// こども一覧の先頭カード (#4887): セクション全体を指すと人数に比例して要素高が viewport を超え、
+		// driver.js が block:'start' で上端を固定するため spotlight 下端が画面外に出る。
+		// 「お子さまのカードを押します」と書く step なので押す対象そのものを光らせる (#4656 と同型)。
+		// お子さま 0 人なら対象が無く filterGuideStepsByTargetPresence が step ごと落とす。
 		{
 			id: 'home-children',
-			selector: '[data-tutorial="children-overview"]',
+			selector: '[data-tutorial="child-card-first"]',
 			...L.steps['home-children'],
 			position: 'top',
 		},

@@ -4,7 +4,8 @@ import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 // #3268 (EPIC #3260 C4): 家族メンバー（招待・閲覧リンク）ページガイド。文言は labels.ts に集約（#3264）。
 // #4672 (EPIC #4650): step を画面の DOM 順（メンバー一覧 → 招待作成 → 保留中の招待 → 閲覧リンク）に
 //   並べ、描画条件を持つカードは `optional` で起動時 DOM 判定する:
-//     - 招待作成カードは `currentRole === 'owner'` 内にしか無い。保護者ロールでは step ごと消える
+//     - 招待作成カードは `currentRole === 'owner'` かつ `inviteSupported`（= AUTH_MODE=cognito、#4704）
+//       かつ上限未到達のときだけ描画される。保護者ロール / セルフホスト / 上限到達では step ごと消える
 //       （旧実装は「作成ボタンを押す」と案内しながら何も光らない中央バブルになっていた、PO 判断 4）
 //     - 保留中の招待は未受諾の招待が 1 件以上あるときだけ、閲覧リンクは family プランのときだけ描画
 const L = PAGE_GUIDE_LABELS.adminMembers;
