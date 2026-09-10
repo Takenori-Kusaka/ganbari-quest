@@ -9303,6 +9303,11 @@ export const ONBOARDING_LABELS = {
 	itemRewards: 'ごほうびプリセットを選ぶ',
 	itemChecklist: 'チェックリストを作る',
 	itemChildScreen: `${CHILD_TERMS.honorific}の画面を確認する`,
+	// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+	// この項目は `/switch` を開いただけでは完了しない (完了するのは子供を選んで
+	// **子供画面に入った時点**)。リンクを踏んだ保護者には「押したのに終わらない」に見えるため、
+	// 着地先で**あと 1 タップ要ること**を明示する。
+	itemChildScreenHint: `${CHILD_TERMS.honorific}のカードを選ぶと、この手順が完了します`,
 } as const;
 
 // ============================================================

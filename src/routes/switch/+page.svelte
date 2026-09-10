@@ -6,6 +6,7 @@ import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import {
 	APP_LABELS,
 	formatAgeKana,
+	ONBOARDING_LABELS,
 	OYAKAGI_LABELS,
 	PAGE_TITLES,
 	SWITCH_PAGE_LABELS,
@@ -286,6 +287,19 @@ async function handlePinComplete(details: { valueAsString: string }) {
 			<div class="mb-4">
 				<SetupResumeBanner onboarding={data.onboarding} variant="resume" />
 			</div>
+		{/if}
+
+		<!-- #4866 系 / PO 差し戻し 2026-09-09: checklist の「お子さまの画面を確認する」は
+		     この画面に来ただけでは完了しない (完了は子供を選んで子供画面に入った時点)。
+		     あと 1 タップ要ることを出さないと「押したのに終わらない」に見える。 -->
+		{#if data.childScreenPending && data.children.length > 0}
+			<p
+				class="mb-4 text-center text-sm text-[var(--color-text-muted)]"
+				role="status"
+				data-testid="switch-child-screen-hint"
+			>
+				{ONBOARDING_LABELS.itemChildScreenHint}
+			</p>
 		{/if}
 
 		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">{SWITCH_PAGE_LABELS.heading}</h1>
