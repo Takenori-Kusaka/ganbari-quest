@@ -47,6 +47,13 @@ export default defineConfig({
 	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
 		baseURL: `http://localhost:${PORT}`,
+		// #4887: CI はこの lane を `npm run preview` (本番ビルド) で起動するため SvelteKit の
+		// CSRF origin 検査が有効になる (dev は `!__SVELTEKIT_DEV__` guard で無効。
+		// @sveltejs/kit respond.js)。Origin を持たない form / multipart POST は **hooks に
+		// 到達する前に 403** になり、認可の検証がすり抜ける (実測: cognito-auth.spec.ts:413 が
+		// #4740 以来ずっと 403 を見ていた)。ブラウザが送るのと同じ Origin を付けて認可層まで届かせる。
+		// local lane の #2846 (playwright.config.ts / tests/e2e/fixtures.ts) と同型。
+		extraHTTPHeaders: { Origin: `http://localhost:${PORT}` },
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,

@@ -2,27 +2,45 @@ import { fail, redirect } from '@sveltejs/kit';
 import { childAgeFromBirthDate } from '$lib/domain/child-age';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { SETUP_CHILDREN_LABELS } from '$lib/domain/labels';
+import {
+	resolveTrialStartedNoticeEndDate,
+	TRIAL_STARTED_QUERY_KEY,
+} from '$lib/domain/trial-started-notice';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
+import { resolveSetupGateTenantId } from '$lib/server/routing/setup-gate';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import { isSetupRequired, markSetupWizardStarted } from '$lib/server/services/setup-service';
+import { getTrialStatus } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.context) {
 		redirect(302, '/auth/login');
 	}
 	const tenantId = requireTenantId(locals);
 	trackSetupFunnel('setup_start', tenantId);
 	const children = await getAllChildren(tenantId);
-	// 「ホームに戻る」は /switch を指すが、local モードの hooks.server.ts は
+	// 「ホームに戻る」は /switch を指すが、hooks.server.ts のセットアップ誘導は
 	// 「子供 0 人なら全 path を /setup へ 302」を掛けており除外リストに /switch が無い
 	// (/admin も同様)。つまりセットアップ必須のあいだ、この画面に出せる「出口」は
 	// 復元画面 (/admin/settings/data、除外済) だけで、ホームリンクは自分自身に戻る
 	// 無反応リンクになる。出口が実在するときだけ出す。
+	//
+	// #4885 でセットアップ誘導は cognito にも掛かる。判定を実行モードのリテラルで持たず、
+	// gate 自身の SSOT (resolveSetupGateTenantId) に問う — 「gate を回すテナントか」が
+	// そのまま「/switch が自分自身に戻るか」と一致する (demo は回さないので従来どおり出す)。
 	const setupEnforced =
-		getAuthMode() === 'local' && children.length === 0 && (await isSetupRequired(tenantId));
-	return { children, canReturnHome: !setupEnforced };
+		resolveSetupGateTenantId({ authMode: getAuthMode(), tenantId }) !== undefined &&
+		children.length === 0 &&
+		(await isSetupRequired(tenantId));
+	// PO 決裁 2026-09-10 決定 3(a): #4885 以降、申込経路の顧客はここが事実上の着地画面になる
+	// (/admin?trialStarted=1 は setup gate に倒され、admin layout の告知に到達しない)。
+	// 旗が立っているときだけ問い合わせる (通常の setup 表示に DB 1 回を足さない)。
+	const trialStartedNoticeEndDate = url.searchParams.has(TRIAL_STARTED_QUERY_KEY)
+		? resolveTrialStartedNoticeEndDate(url.searchParams, await getTrialStatus(tenantId))
+		: null;
+	return { children, canReturnHome: !setupEnforced, trialStartedNoticeEndDate };
 };
 
 export const actions: Actions = {

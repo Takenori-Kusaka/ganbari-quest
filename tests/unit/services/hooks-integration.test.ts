@@ -211,7 +211,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			}
 		});
 
-		it('セットアップ完了済みで /setup アクセス → / にリダイレクト', async () => {
+		it('セットアップ完了済みで /setup アクセス → /admin にリダイレクト (保護者の戻り先。/ は子供の着地 router)', async () => {
 			currentAuthMode = 'local';
 			mockIsSetupRequired.mockResolvedValue(false);
 			mockAuthorize.mockReturnValue({ allowed: true });
@@ -225,7 +225,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 				expect.fail('redirect should have been thrown');
 			} catch (e) {
 				expect(e).toBeInstanceOf(RedirectError);
-				expect((e as RedirectError).location).toBe('/');
+				expect((e as RedirectError).location).toBe('/admin');
 			}
 		});
 
@@ -286,7 +286,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(result, `ウィザードの途中なのに ${path} が塞がれている`).toBeDefined();
 		});
 
-		it.each(WIZARD_STEPS)('歩き終えていれば %s も従来どおり / へ 302 する', async (path) => {
+		it.each(WIZARD_STEPS)('歩き終えていれば %s は /admin へ 302 する', async (path) => {
 			currentAuthMode = 'local';
 			mockIsSetupRequired.mockResolvedValue(false);
 			mockIsSetupWizardInProgress.mockReturnValue(false);
@@ -301,7 +301,40 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 				expect.fail('redirect should have been thrown');
 			} catch (e) {
 				expect(e).toBeInstanceOf(RedirectError);
-				expect((e as RedirectError).location).toBe('/');
+				expect((e as RedirectError).location).toBe('/admin');
+			}
+		});
+
+		// #4887 監査 §2-4 の回帰 pin: 「完了済みブロック」が認可より前にあると child の /setup が
+		// `/` に落ち、#4700 の理由コードが消える。判定の中身は
+		// tests/unit/architecture/setup-route-role-guard-fitness.test.ts が持つ (あれは authorizeCognito
+		// 単体なので、hooks の順序が壊れても緑のままだった)。ここは **順序だけ**を見る。
+		it('認可で拒否される role の /setup は認可の redirect 先へ倒れる (完了済みブロックより先)', async () => {
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' } as Identity);
+			mockResolveContext.mockResolvedValue({
+				tenantId: 't-1',
+				role: 'child',
+				licenseStatus: 'none',
+			} as AuthContext);
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(false);
+			mockAuthorize.mockReturnValue({
+				allowed: false,
+				redirect: '/switch?reason=admin_forbidden',
+				status: 403,
+			});
+
+			const event = createMockEvent('/setup/children');
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/switch?reason=admin_forbidden');
 			}
 		});
 	});

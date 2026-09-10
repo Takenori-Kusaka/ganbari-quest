@@ -9,6 +9,7 @@
 // Google で登録したときだけ無料プランに着地する不整合 (#4702 症状 3) をここで塞ぐ。
 
 import { redirect } from '@sveltejs/kit';
+import { TRIAL_STARTED_QUERY_KEY } from '$lib/domain/trial-started-notice';
 import { resolveSafeNextPath } from '$lib/domain/validation/login-redirect';
 import { OAUTH_PLAN_COOKIE_NAME, parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { logger } from '$lib/server/logger';
@@ -82,6 +83,8 @@ export const GET: RequestHandler = async ({ cookies, locals, url }) => {
 
 	redirect(
 		302,
-		trialStarted ? `${target}${target.includes('?') ? '&' : '?'}trialStarted=1` : target,
+		trialStarted
+			? `${target}${target.includes('?') ? '&' : '?'}${TRIAL_STARTED_QUERY_KEY}=1`
+			: target,
 	);
 };
