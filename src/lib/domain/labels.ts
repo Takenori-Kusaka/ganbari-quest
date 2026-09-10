@@ -5234,6 +5234,10 @@ export const POINTS_LABELS = {
 	receiptRetakeOtherButton: '別の領収書を撮影する',
 	// #4512: OCR 呼び出しの失敗表示 (旧: +page.svelte 直書き)。
 	// receiptScanFailed は API が error.message を返さなかったときの fallback。
+	// PO 決裁 2026-09-10 決定 5: 1 世帯あたりの読み取り回数の上限に達したときの文言。
+	// **アップグレード導線を出さない** — 上限は売った機能の制限ではなく、連打・誤操作で
+	// ベンダーコストが青天井になるのを止める線なので、上位プランでも外れない。
+	receiptQuotaExceeded: '今日はここまでです。明日またお使いいただけます',
 	receiptScanFailed: '読み取りに失敗しました',
 	receiptNetworkError: '通信エラーが発生しました',
 	// #4512: convert action の validation / service エラー表示 (旧: +page.server.ts 直書き)
