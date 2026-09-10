@@ -30,7 +30,7 @@ vi.mock('$lib/server/logger', () => ({
 const { GET } = await import('../../../src/routes/auth/oauth/trial-start/+server');
 
 /** SvelteKit の `redirect()` は throw するので、Location を例外から取り出す。 */
-async function locationOf(run: () => Promise<unknown>): Promise<string> {
+async function locationOf(run: () => unknown): Promise<string> {
 	try {
 		await run();
 	} catch (e) {
