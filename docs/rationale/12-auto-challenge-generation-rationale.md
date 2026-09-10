@@ -20,7 +20,6 @@ PO 判断で **`child_challenges` 一本化** に訂正:
 - **発端**: PO 本番レビュー（2026-06-19、設定画面キャプチャ）→「きょうだいチャレンジ設定の『チャレンジモード』は現状どう効いているのか」。調査で `sibling_mode`（協力/競争/両方）が **dead setting**（書き込むだけで挙動分岐の consumer が無い）と判明。競争タイプは EPIC #2294②/#2296 で撤去済みだが設定 UI に残骸が残っていた。
 - **問題意識**: dead UI 撤去をきっかけに、チャレンジ機能をゼロベースで再考。目的（子供が日々の活動とは別軸で苦手を底上げ・得意を伸ばす中期目標）は不変だが、それを実現する「アプリが自動生成する週間チャレンジ」のアルゴリズムが洗練されていない。
 <!-- #3194 時点の旧実装の歴史的記録。#3213 で auto-challenge-service.ts は廃止し child-challenge-service.ts へ移設済 -->
-<!-- doc-code-refs: ignore-line -->
 - **現行実装の構造的欠陥**（`src/lib/server/services/auto-challenge-service.ts` 実読、#3194 時点）:
   - **D1 翌週適応なし**: `getOrCreateWeeklyChallenge` が前週 challenge の `status`/`currentCount` を参照しない。未達でも翌週同じ難度。
   - **D2 target が素朴平均で下限3固定**: `max(3, ceil(minCount/2)+1)`。苦手カテゴリ（記録が少ない）にいきなり週3回を課し難度過大。

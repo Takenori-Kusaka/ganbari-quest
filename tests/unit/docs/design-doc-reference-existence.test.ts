@@ -70,7 +70,9 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
  * 増やす方向にだけ動かす (ratchet)。減らすと、その doc の drift が再び検出されなくなる。
  */
 const STRICT_DOCS = [
+	'docs/design/06-UI設計書.md',
 	'docs/design/07-API設計書.md',
+	'docs/design/08-データベース設計書.md',
 	'docs/design/09-テスト設計書.md',
 	'docs/design/parallel-implementations.md',
 ] as const;
@@ -108,6 +110,33 @@ const ASSERTED_ABSENT: readonly { path: string; reason: string }[] = [
 		path: 'src/routes/demo/',
 		reason:
 			'#2097 PR-B3 (#2188) で全削除済み。demo Lambda は AUTH_MODE=anonymous + DATA_SOURCE=demo で本番 routes を直接 host する (ADR-0048) ため、demo 専用ルートの新設は本番との UI 並行実装を復活させる。設計書は「0 file」「新規追加禁止」と書いており、その主張の真偽をここで機械検証する',
+	},
+	// --- #4866 系 / PO 差し戻し 2026-09-09: 06 / 08 を STRICT_DOCS に入れるにあたり、
+	// 「削除済みと本文が言っている path」を不在側で固定する。**文を消さない**のが要点で、
+	// 「その検査はもう無い」と書いてあること自体が読み手への情報 (無いものを有ると誤解させない)。
+	{
+		path: 'scripts/check-guide-copy.ts',
+		reason:
+			'#4322 で削除済み (#4420)。06-UI設計書 §ガイド文言ルールが「機械検証していた script は削除済み。現状は機械強制が無くレビューで担保する」と明記しており、その主張が真であること (= script が復活していないのに「無い」と書き続けていないこと) をここで固定する',
+	},
+	{
+		path: 'tests/unit/scripts/check-guide-copy.test.ts',
+		reason: '上と同じ #4322 の削除対象 (script とその test は対で消えている)',
+	},
+	{
+		path: 'scripts/check-lp-ssot.mjs',
+		reason:
+			'#4322 で削除済み (#4420)。06-UI設計書 §CI gate が「無い」と書いており、その主張の真偽をここで機械検証する',
+	},
+	{
+		path: 'site/screenshots/',
+		reason:
+			'LP の SS は `scripts/capture-hp-screenshots.mjs` が撮影時に生成する成果物で、git 追跡していない (baseline は scripts/lp-screenshot-baseline/)。06-UI設計書 §12.6 は撮影パスとして言及するだけで、リポジトリに存在することは主張していない',
+	},
+	{
+		path: 'src/lib/server/services/license-key-service.ts',
+		reason:
+			'Phase 7 PR-L3 (#2818) で物理削除済み。08-データベース設計書 §実装リファレンスが「旧 …（物理削除済）」と書いており、ライセンスキー機構が復活していないことを `check-license-key-leak.mjs` とは別の角度で固定する',
 	},
 ];
 
