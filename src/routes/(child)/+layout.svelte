@@ -202,11 +202,20 @@ onMount(() => {
 
 let stampDialogOpen = $state(false);
 
+// PO 決裁 2026-09-10 決定 6: 既読 API (`/api/v1/settings/pin-gate-onboarding`) は親限定。
+// role は上位 layout が既に配っているので、ここでは読むだけにする。
+const viewerIsParent = $derived(data.role === 'owner' || data.role === 'parent');
+
 // #2353 設計欠陥 6: PIN gate 初心者導線 dialog
 // data.pinGateOnboardingSeen が false (settings 未保存) のとき初回 mount 時に開く。
 // 「今後表示しない」checkbox で確認のうえ閉じる → POST /api/v1/settings/pin-gate-onboarding。
+//
+// PO 決裁 2026-09-10 決定 6: 既読 API は**親限定**になった。文言も宛先も保護者向け
+// (「初めて見守り画面に入るときに、親がおやカギを作成します」) だから。
+// **閉じられないセッションには出さない** — 子供に出すと 403 で既読にできず、
+// 画面遷移のたびに開き続ける閉じられない dialog になる。
 // svelte-ignore state_referenced_locally
-let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby);
+let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby && viewerIsParent);
 let dontShowAgainChecked = $state(true);
 
 async function closePinGateOnboarding() {
@@ -296,7 +305,7 @@ function handleStartChildTutorial() {
 {/if}
 
 <!-- #2353 設計欠陥 6: PIN gate 初心者導線 onboarding dialog -->
-{#if !isBaby}
+{#if !isBaby && viewerIsParent}
 	<Dialog bind:open={pinGateOnboardingOpen} title={PIN_GATE_ONBOARDING_LABELS.dialogTitle} size="sm" testid="pin-gate-onboarding-dialog">
 		<div class="flex flex-col gap-3">
 			<p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">{PIN_GATE_ONBOARDING_LABELS.dialogIntro}</p>

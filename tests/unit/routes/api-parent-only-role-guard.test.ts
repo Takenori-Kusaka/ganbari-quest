@@ -79,11 +79,31 @@ vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: () => 't-1',
 	requireRole: vi.fn(),
 }));
+// PO 決裁 2026-09-10 決定 6 で親限定にした 5 経路が触るもの
+vi.mock('$lib/server/db/image-repo', () => ({
+	updateChildAvatarUrl: vi.fn(async () => undefined),
+}));
+vi.mock('$lib/server/services/point-service', () => ({
+	convertPoints: vi.fn(async () => ({ converted: true, message: 'ok' })),
+}));
+vi.mock('$lib/server/services/voice-service', () => ({
+	listVoices: vi.fn(async () => []),
+	uploadVoice: vi.fn(async () => ({ id: 'v-1' })),
+	activateVoice: vi.fn(async () => true),
+	deleteVoice: vi.fn(async () => true),
+}));
 
 type Role = 'owner' | 'parent' | 'child';
 
 function ctx(role: Role) {
 	return { context: { tenantId: 't-1', role, licenseStatus: 'active' } };
+}
+
+/** multipart を受ける route 用。role gate を抜けた先で formData() が落ちないようにする。 */
+function formReq(method: string, fields: Record<string, string> = {}): Request {
+	const form = new FormData();
+	for (const [k, v] of Object.entries(fields)) form.append(k, v);
+	return new Request('http://localhost/api/v1/x', { method, body: form });
 }
 
 function req(method: string, body?: unknown): Request {
@@ -109,6 +129,16 @@ const specialRewardGrant = await import(
 const decay = await import('../../../src/routes/api/v1/settings/decay/+server');
 const rewardTemplates = await import(
 	'../../../src/routes/api/v1/special-rewards/templates/+server'
+);
+// PO 決裁 2026-09-10 決定 6 の 5 経路
+const childAvatar = await import('../../../src/routes/api/v1/children/[id]/avatar/+server');
+const childVoices = await import('../../../src/routes/api/v1/children/[id]/voices/+server');
+const childVoiceById = await import(
+	'../../../src/routes/api/v1/children/[id]/voices/[voiceId]/+server'
+);
+const pointsConvert = await import('../../../src/routes/api/v1/points/convert/+server');
+const pinGateOnboarding = await import(
+	'../../../src/routes/api/v1/settings/pin-gate-onboarding/+server'
 );
 
 /** 親限定と決めた**書き込み**。読み取りは含めない (PO 決裁の線)。 */
@@ -215,6 +245,65 @@ const PARENT_ONLY_WRITES = [
 				locals: ctx(role),
 			} as never) as Promise<Response>,
 	},
+	// --- PO 決裁 2026-09-10 決定 6 (線引き: 子供が「自分の記録・自分の画面の並び」を
+	// 触るのは child 可。家族の設定・お金・PII・他人に届くものは親限定) ---
+	{
+		name: 'POST /api/v1/children/[id]/avatar',
+		why: '子供の顔写真をアップロードする (候補選択ではなく PII そのもの)',
+		call: (role: Role) =>
+			childAvatar.POST({
+				params: { id: 'c-1' },
+				request: formReq('POST'),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/children/[id]/voices',
+		why: '録音した声を登録する (PII、しかも再生されるのはきょうだいの画面)',
+		call: (role: Role) =>
+			childVoices.POST({
+				params: { id: 'c-1' },
+				request: formReq('POST'),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'PATCH /api/v1/children/[id]/voices/[voiceId]',
+		why: '登録済みの声を差し替える',
+		call: (role: Role) =>
+			childVoiceById.PATCH({
+				params: { id: 'c-1', voiceId: 'v-1' },
+				request: req('PATCH', { label: 'x' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'DELETE /api/v1/children/[id]/voices/[voiceId]',
+		why: '登録済みの声を消す',
+		call: (role: Role) =>
+			childVoiceById.DELETE({
+				params: { id: 'c-1', voiceId: 'v-1' },
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/points/convert',
+		why: 'ポイントを現金・金券に換える (家庭のお金が動く)',
+		call: (role: Role) =>
+			pointsConvert.POST({
+				request: req('POST', { childId: 'c-1', amount: 500, mode: 'preset' }),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
+	{
+		name: 'POST /api/v1/settings/pin-gate-onboarding',
+		why: '保護者向け案内の既読フラグを tenant 全体に立てる',
+		call: (role: Role) =>
+			pinGateOnboarding.POST({
+				request: req('POST'),
+				locals: ctx(role),
+			} as never) as Promise<Response>,
+	},
 ] as const;
 
 beforeEach(() => {
@@ -236,12 +325,30 @@ describe('[A1] 親限定の書き込みは child で 403', () => {
 	}
 });
 
+/**
+ * 「403 かどうか」だけを取り出す。
+ *
+ * gate を抜けた先で入力不足の 400 を **throw** する route があるため
+ * (`error(400, …)` は Response ではなく HttpError を投げる)、返り値と throw の
+ * 両方から status を拾う。**403 でないこと**を見るのが目的で、その先の妥当性は
+ * それぞれの route の test が見る。
+ */
+async function statusOf(call: () => Promise<Response>): Promise<number> {
+	try {
+		return (await call()).status;
+	} catch (e) {
+		const status = (e as { status?: unknown })?.status;
+		if (typeof status === 'number') return status;
+		throw e;
+	}
+}
+
 describe('[A2] 閉じすぎていない (owner / parent は通る)', () => {
 	for (const entry of PARENT_ONLY_WRITES) {
 		for (const role of ['owner', 'parent'] as const) {
 			it(`${entry.name} は ${role} で 403 にならない`, async () => {
-				const res = await entry.call(role);
-				expect(res.status, `${role} まで閉じている = 親が自分の設定を触れない`).not.toBe(403);
+				const status = await statusOf(() => entry.call(role));
+				expect(status, `${role} まで閉じている = 親が自分の設定を触れない`).not.toBe(403);
 			});
 		}
 	}
@@ -257,10 +364,44 @@ describe('[A3] 読み取りは閉じない (PO 決裁「判断が要るものは
 	});
 });
 
+describe('[A5] child 可の経路でも、宛先の妥当性は seam が見ている', () => {
+	// PO 決裁 2026-09-10 決定 6:「`POST /messages/[childId]` は child 可。
+	// **`requireChildAccess` が配線済みであることを確認する**」。
+	// child 可 = 誰の childId でもよい、ではない。きょうだい間は許すが、
+	// **別テナントの子**や**自分と無関係な child scope**は seam が止める。
+	it('POST /api/v1/messages/[childId] は requireChildAccess を通る', async () => {
+		const { readFileSync } = await import('node:fs');
+		const { join } = await import('node:path');
+		const src = readFileSync(
+			join(__dirname, '../../..', 'src/routes/api/v1/messages/[childId]/+server.ts'),
+			'utf8',
+		);
+		expect(
+			src.includes('requireChildAccess(locals, asChildId(params.childId))'),
+			'child 可のまま requireChildAccess が外れると、tenant 跨ぎの childId に送れる',
+		).toBe(true);
+	});
+});
+
 describe('[A4] 子供が記録する経路は閉じない', () => {
 	// 閉じすぎの回帰は source で見る (この経路を呼ぶには記録 service の mock が要り、
 	// 「閉じていないこと」の確認に対して釣り合わないため)。
-	const CHILD_ALLOWED = ['src/routes/api/v1/activity-logs/+server.ts'];
+	//
+	// PO 決裁 2026-09-10 決定 6: 「子供が自分の記録・自分の画面の並びを触る」経路は
+	// **現状維持 (child 可)** と決まった。決まったものは決まったまま動かないよう、
+	// ここに載せて**閉じすぎの回帰**を検出する。
+	const CHILD_ALLOWED = [
+		// 子供が自分のがんばりを記録する = この製品の中核体験そのもの
+		'src/routes/api/v1/activity-logs/+server.ts',
+		// 自分のホームの並び (おきにいり)
+		'src/routes/api/v1/children/[id]/activities/[activityId]/pin/+server.ts',
+		// 自分の利用時間の記録
+		'src/routes/api/v1/usage/+server.ts',
+		// きょうだい間のメッセージ (宛先の妥当性は requireChildAccess が見る)
+		'src/routes/api/v1/messages/[childId]/+server.ts',
+		// 自分が見たチュートリアルの既読
+		'src/routes/api/v1/settings/tutorial/+server.ts',
+	];
 	for (const file of CHILD_ALLOWED) {
 		it(`${file} は親限定にしない`, async () => {
 			const { readFileSync } = await import('node:fs');

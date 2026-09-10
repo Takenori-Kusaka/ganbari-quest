@@ -65,7 +65,10 @@ async function postAvatar(avatarUrl: string | null) {
 	return (await POST({
 		params: { id: String(CHILD_ID) },
 		request,
-		locals: { context: { tenantId: TENANT_ID } },
+		// PO 決裁 2026-09-10 決定 6: アバターのアップロードは親限定になった (顔写真 = PII)。
+		// 本 test が測るのは**旧ファイルの削除**なので、呼び手を保護者で固定する
+		// (role の方は api-parent-only-role-guard.test.ts が測る)。
+		locals: { context: { tenantId: TENANT_ID, role: 'owner' } },
 		// biome-ignore lint/suspicious/noExplicitAny: route handler の RequestEvent を最小限で組み立てる
 	} as any)) as Response;
 }
