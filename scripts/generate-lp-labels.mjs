@@ -616,13 +616,10 @@ const LP_NAMESPACE_TABLE = [
 	// 注: ADR-0028 (#1713 R7) で LP の founder 直接相談 namespace は #1772 で完全撤去済
 	// 注: LP_LICENSEKEY_LABELS (旧 site/help/license-key.html 用) は Epic #2525 Phase 7 PR-L4 (#2836)
 	//     license key 全廃 + help ページ完全削除に伴い撤去済 (lpLicenseKeyLabels namespace 消滅)。
-	{ constName: 'LP_FAQ_LABELS', returnKey: 'lpFaqLabels' },
 	{ constName: 'LP_SELFHOST_LABELS', returnKey: 'lpSelfhostLabels' },
 	{ constName: 'LP_INDEX_EXTRA_LABELS', returnKey: 'lpIndexExtraLabels' },
 	// #1732: floating-cta 深度別文言
 	{ constName: 'LP_FLOATING_CTA_LABELS', returnKey: 'lpFloatingCtaLabels' },
-	{ constName: 'LP_PAMPHLET_LABELS', returnKey: 'lpPamphletLabels' },
-	{ constName: 'LP_PRICING_EXTRA_LABELS', returnKey: 'lpPricingExtraLabels' },
 	// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
 	{ constName: 'LP_INDEX_PHASEB_LABELS', returnKey: 'lpIndexPhaseBLabels' },
 	{ constName: 'LP_PRICING_PHASEB_LABELS', returnKey: 'lpPricingPhaseBLabels' },

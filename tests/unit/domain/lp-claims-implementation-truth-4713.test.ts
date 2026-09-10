@@ -21,7 +21,6 @@ import {
 	AUTO_SLEEP_INACTIVE_RESET_MINUTES,
 } from '../../../src/lib/domain/constants/auto-sleep';
 import {
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	LP_HERO_SPEC_BADGES_LABELS,
 	LP_INDEX_PHASEB_LABELS,
@@ -64,7 +63,7 @@ describe('#4713 使いすぎ防止タイマー (auto-sleep) の説明', () => {
 	});
 
 	it('LP / FAQ が「連続利用で戻る」挙動を述べており、逆の「無操作で閉じる」を述べていない', () => {
-		for (const text of [LP_FAQ_LABELS.text104, LP_FAQ_PHASEB_LABELS.k104]) {
+		for (const text of [LP_FAQ_PHASEB_LABELS.k104]) {
 			expect(text).toContain(`${AUTO_SLEEP_ACTIVE_MINUTES} 分つづけて使う`);
 			expect(text).toContain(AUTO_SLEEP_TERMS.returnScreen);
 			// 旧文言「15 分の無操作で画面が自動で閉じる」の再発防止 (挙動が逆)
@@ -142,7 +141,7 @@ describe('#4713 料金比較表の行名', () => {
 
 describe('#4713 FAQ の招待説明', () => {
 	it('存在しない「閲覧権限」ロールを述べず、閲覧のみの共有を閲覧リンクに誘導する', () => {
-		for (const text of [LP_FAQ_LABELS.text109, LP_FAQ_PHASEB_LABELS.k108]) {
+		for (const text of [LP_FAQ_PHASEB_LABELS.k108]) {
 			expect(text).not.toMatch(/閲覧権限/);
 			expect(text).toContain('閲覧リンク');
 		}
