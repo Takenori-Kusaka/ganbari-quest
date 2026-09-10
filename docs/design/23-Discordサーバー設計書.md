@@ -144,10 +144,19 @@
 
 | チャンネル | Webhook 用途 | GitHub Actions 登録先 | 種別 |
 |-----------|-------------|---------------------|------|
-| 📢 アップデート情報 | Gemini 生成リリースノート | Variable: `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Variable |
+| 📢 アップデート情報 | 顧客向けリリースノート | Variable: `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Variable |
 | 🔧 deploy-log | デプロイ成否通知 | Variable: `DISCORD_WEBHOOK_URL` | Variable |
 | 📩 お問い合わせ受信 | アプリ内フィードバックフォーム | Secret: `FEEDBACK_DISCORD_WEBHOOK_URL` | Secret |
 | 📩 お問い合わせ受信（メール） | support@ メール受信通知 | Secret: `DISCORD_WEBHOOK_SUPPORT` | Secret |
+
+#### 📢 アップデート情報の本文の出典（#4883）
+
+顧客向けリリースノートの本文は、**merge 済み PR の `## 顧客価値・目的` 第 1 文**、または PR body の `<!-- release-note: 顧客向けの 1 文 -->` 宣言だけを出典とする。`<!-- release-note: none -->` で個別に配信対象から外す。
+
+- **コミット件名を顧客向け本文に使わない**。コミット件名は開発者が開発者向けに書いた文であり、顧客には意味を成さない
+- **fail-closed**: 顧客向けと確定できる項目が 0 件なら投稿しない。判定に落ちた PR は deploy の `::warning::` に理由付きで列挙され、Dev は明示宣言で載せ直せる
+- 判定・整形は `scripts/build-release-notes.mjs`（`tests/unit/scripts/build-release-notes.test.ts` で単体検証）。差分範囲は直近の `deploy-*` タグ（HEAD の祖先）から HEAD まで
+- 固定文言（タイトル / 見出し / フィードバック導線）は `RELEASE_NOTES_LABELS`（`src/lib/domain/labels.ts`）が SSOT
 
 ### 4.2 Webhook アーキテクチャ
 
