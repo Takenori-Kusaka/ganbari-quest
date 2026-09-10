@@ -1,9 +1,14 @@
 import { json } from '@sveltejs/kit';
+import {
+	RECEIPT_OCR_QUOTA_PER_TENANT,
+	RECEIPT_OCR_QUOTA_WINDOW_MS,
+} from '$lib/domain/constants/receipt-ocr-quota';
 import { POINTS_LABELS } from '$lib/domain/labels';
 import { resolveAiUnavailableMessage } from '$lib/server/ai/unavailable-message';
 import { parentGateResponse } from '$lib/server/auth/owner-gate';
-import { validationError } from '$lib/server/errors';
+import { apiError, validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
+import { checkRateLimit } from '$lib/server/security/rate-limiter';
 import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
 import { toDisplayMb } from '$lib/server/services/import-limit';
 import { ocrReceipt, RECEIPT_MAX_IMAGE_BYTES } from '$lib/server/services/receipt-ocr-service';
@@ -53,6 +58,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const magicCheck = validateBase64ImageMagicBytes(image, mimeType);
 	if (!magicCheck.valid) {
 		return validationError('ファイルの内容が宣言された形式と一致しません');
+	}
+
+	// 1 世帯あたりの回数上限 (PO 決裁 2026-09-10 決定 5)。
+	//
+	// **検証をすべて通ったあと、実際にベンダーを呼ぶ直前に数える。** 手前に置くと、
+	// 形式違い / サイズ超過で弾かれた要求まで顧客の残り回数を減らしてしまう
+	// (顧客はコストを発生させていないのに枠を失う)。
+	//
+	// **既存の `checkRateLimit` をそのまま使う (新しい装置を作らない、PO 決定 5)。**
+	// 制約もそのまま引き継ぐ: 実体は Lambda プロセス内の in-memory Map なので、
+	// **プロセスが入れ替われば数え直しになる**。厳密な 1 日 20 回の保証ではなく、
+	// 連打・誤操作でベンダーコストが青天井になるのを止めるための線として置いている。
+	const quota = checkRateLimit(
+		`ocr-receipt:${context.tenantId}`,
+		RECEIPT_OCR_QUOTA_PER_TENANT,
+		RECEIPT_OCR_QUOTA_WINDOW_MS,
+	);
+	if (!quota.allowed) {
+		// アップグレード導線は出さない (PO 決定 5)。`DAILY_LIMIT_REACHED` は
+		// severity=info / action=none で、顧客が今できることが無い状況にそのまま合う。
+		return apiError('DAILY_LIMIT_REACHED', POINTS_LABELS.receiptQuotaExceeded, {
+			tenantId: context.tenantId,
+			resetAt: new Date(quota.resetAt).toISOString(),
+		});
 	}
 
 	const result = await ocrReceipt(image, mimeType);
