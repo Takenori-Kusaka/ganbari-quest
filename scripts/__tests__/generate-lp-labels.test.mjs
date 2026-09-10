@@ -328,7 +328,9 @@ describe('実 labels.ts / terms.ts は template literal を含み、かつ全て
 			'LP_CORELOOP_LABELS',
 			'LP_NAV_LABELS',
 			'LP_PRICING_LABELS',
-			'LP_FAQ_LABELS',
+			// #4866 系: 配信されていない LP_FAQ_LABELS は削除済み。
+			// **実際に配信されている** faqB 側を sample にする (死んだ namespace を見張っても意味が無い)。
+			'LP_FAQ_PHASEB_LABELS',
 		];
 		let templateCount = 0;
 		for (const name of samples) {
