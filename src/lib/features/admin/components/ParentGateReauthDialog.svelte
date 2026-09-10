@@ -13,6 +13,7 @@
 // この旗は `withParentGate` (単一の seam) が立てるので、**どの画面のどの action で
 // 起きても同じ体験になる** (各 page が `form?.error` を描いているとは限らない)。
 
+import { resolve } from '$app/paths';
 import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
 import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { resolvePinVerifyError } from '$lib/features/parent-gate/pin-verify-error';
@@ -103,7 +104,7 @@ async function handleComplete(details: { valueAsString: string }) {
 	     出口が無いほうが致命的なので必ず出す (#2993/#2994 と同じ導線)。 -->
 	<div class="mt-4 text-center">
 		<a
-			href="/auth/reset-pin"
+			href={resolve('/auth/reset-pin')}
 			class="text-sm text-[var(--color-text-link)] no-underline hover:underline"
 			data-testid="parent-gate-reauth-forgot-pin-link"
 		>
