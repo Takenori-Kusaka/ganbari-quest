@@ -109,14 +109,20 @@ test.describe('#4501: 直接購入 CTA は撤去され、購入導線はトラ�
 	test('プランごとの CTA はトライアル 1 本で、?plan= だけを渡す', async ({ page }) => {
 		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-		const ctas = page.locator('a.plan-cta[href*="/auth/signup"]');
-		const count = await ctas.count();
-		expect(count).toBeGreaterThanOrEqual(2); // Standard + Premium
+		// 有料 2 プランの CTA は「トライアル 1 本 + ?plan= だけ」
+		const paidCtas = page.locator('a.plan-cta-standard, a.plan-cta-family');
+		const count = await paidCtas.count();
+		expect(count).toBe(2); // Standard + Premium
 
 		for (let i = 0; i < count; i++) {
-			const href = (await ctas.nth(i).getAttribute('href')) ?? '';
+			const href = (await paidCtas.nth(i).getAttribute('href')) ?? '';
 			expect(href).toMatch(/\/auth\/signup\?plan=(standard|family|premium)$/);
 		}
+
+		// 無料プランの CTA は体験の対象外なので ?plan= を持たない (この差を固定する)
+		const freeCta = page.locator('a.plan-cta-free');
+		await expect(freeCta).toHaveCount(1);
+		expect((await freeCta.getAttribute('href')) ?? '').toMatch(/\/auth\/signup$/);
 	});
 
 	test('トライアルが 1 回限りであることが CTA の直下に開示されている (#4501 PO 決裁 3)', async ({

@@ -11,10 +11,23 @@
  * (ユーザーメンタルモデル assert: 2 重表示なし / 全行から編集に到達 / 取込件数の整合) を検証する。
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { openMenu } from './helpers/goal-flows';
 
 test.describe('admin/activities per-child UX (Phase 4)', () => {
+	test.afterEach(async ({ workerDbPath }) => {
+		// #3163: 共有 worker DB を seed 状態へ戻す。?/importFile で入れた custom 活動を残すと
+		// 後続 spec (無料プラン上限を数える downgrade 系) の母集団を汚す。
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			db.prepare("DELETE FROM child_activities WHERE name LIKE 'restore-scope-4692-%'").run();
+			db.prepare("DELETE FROM activities WHERE name LIKE 'restore-scope-4692-%'").run();
+		} finally {
+			db.close();
+		}
+	});
+
 	test('子供タブ row + actions が表示される', async ({ page }) => {
 		await page.goto('/admin/activities');
 		// 子供タブ row は children >= 1 で表示
@@ -398,10 +411,18 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		);
 
 		// 復元した活動は 2 人目のタブでのみ見える。
+		// 一覧行に限定して数える: ActivityListItem は行ごとに削除確認 Dialog を持ち、Ark Dialog の
+		// Content は閉じていても Portal 配下に残る (Dialog.svelte:93-120、同じ事実が
+		// admin-unified-import-hub.spec.ts:65-66)。素の getByText は「一覧行」と「隠れた Dialog の
+		// title」の 2 件に解決して strict mode violation になる。
+		const restoredRow = page
+			.locator('[data-testid^="per-child-activity-"]')
+			.filter({ hasText: uniqueName });
 		await tabsAfter.nth(1).click();
-		await expect(page.getByText(uniqueName)).toBeVisible();
+		await expect(restoredRow).toHaveCount(1);
+		await expect(restoredRow).toBeVisible();
 		await tabsAfter.first().click();
-		await expect(page.getByText(uniqueName)).toHaveCount(0);
+		await expect(restoredRow).toHaveCount(0);
 	});
 
 	test('#4692 F3: 「すべて削除」の確認文に対象の子と件数が出る', async ({ page }) => {

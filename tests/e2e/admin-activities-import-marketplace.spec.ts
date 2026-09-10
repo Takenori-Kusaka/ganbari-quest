@@ -13,7 +13,7 @@
  * 検証は actions 戻り値の shape (`importResult / imported / skipped / total / errors`) 維持で行う。
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('#2365 marketplace -> activity-pack -> import (PO 指摘 ① 直接解決)', () => {
 	// #4692: `?/importFile` (バックアップから復元) は「選択中の子」scope になり childId 必須。

@@ -7,7 +7,7 @@
 
 import { expect, test } from '@playwright/test';
 // Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) で family カード名は PLAN_TERMS.premium 表示。
-import { PLAN_TERMS } from '../../src/lib/domain/terms';
+import { PLAN_TERMS, REWARD_TERMS } from '../../src/lib/domain/terms';
 
 test.describe('#792 /pricing features 棚卸し', () => {
 	test.beforeEach(async ({ page }) => {
@@ -24,7 +24,9 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		// 棚卸しで確定した項目（#722: AI 提案は family 専用に移動）
 		await expect(standardCard).toContainText('お子さまの登録人数：無制限');
 		await expect(standardCard).toContainText('オリジナル活動の作成：無制限');
-		await expect(standardCard).toContainText('特別なごほうび設定');
+		// #4705: 行名は REWARD_TERMS.productRegistration が SSOT (旧称『特別なごほうび設定（即時付与）』は
+		// 応援の即時付与を指す別機能)。literal を置くと atom 改名のたびにここだけ取り残される。
+		await expect(standardCard).toContainText(REWARD_TERMS.productRegistration);
 		await expect(standardCard).toContainText('1年間の履歴保持');
 	});
 
@@ -73,6 +75,10 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(freeCard).toContainText('90日間の履歴保持');
 		// 有料機能が誤って free に混入していないこと
 		await expect(freeCard).not.toContainText('AI 自動提案');
-		await expect(freeCard).not.toContainText('特別なごほうび');
+		// #4705: ごほうびショップへの商品登録は free では「制限」として明示される (plan-features.ts:57)。
+		// 旧 literal 「特別なごほうび」は製品から消えており、negative assertion が空振りしていた。
+		await expect(freeCard).toContainText(
+			`${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
+		);
 	});
 });

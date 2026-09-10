@@ -13,6 +13,7 @@
 //   - 375px は Mobile bottom nav 表示
 
 import { expect, test } from '@playwright/test';
+import { ADMIN_SCREENS } from '../../src/lib/domain/admin-screens';
 
 const BREAKPOINTS = {
 	mobile: { width: 375, height: 667 }, // iPhone SE
@@ -20,9 +21,11 @@ const BREAKPOINTS = {
 	desktop: { width: 1920, height: 1080 }, // PC FullHD
 } as const;
 
+// #4715 / #4716: nav ラベルと href は ADMIN_SCREENS registry が SSOT。
+// literal を置くと呼称変更のたびにこの spec だけ取り残される (実測: 「こども」→「お子さま管理」)。
 const FAMILY_ITEMS = [
-	{ label: 'こども', href: '/admin/children' },
-	{ label: 'メンバー', href: '/admin/members' },
+	{ label: ADMIN_SCREENS.children.name, href: ADMIN_SCREENS.children.path },
+	{ label: ADMIN_SCREENS.members.name, href: ADMIN_SCREENS.members.path },
 ] as const;
 
 test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
@@ -54,7 +57,9 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 		}
 	});
 
-	test('Mobile 375×667: 家族 submenu に こども + メンバー が含まれる', async ({ browser }) => {
+	test('Mobile 375×667: 家族 submenu に family カテゴリの 2 画面が含まれる', async ({
+		browser,
+	}) => {
 		test.slow();
 		const ctx = await browser.newContext({ viewport: BREAKPOINTS.mobile });
 		const page = await ctx.newPage();
@@ -68,7 +73,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 
 			// family submenu 内の link 確認 (subject-first 上位化)
 			for (const item of FAMILY_ITEMS) {
-				const link = page.getByRole('link', { name: new RegExp(item.label) }).first();
+				const link = mobileNav.getByRole('link', { name: item.label });
 				await expect(link).toBeVisible();
 				await expect(link).toHaveAttribute('href', item.href);
 			}
@@ -123,7 +128,9 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 		}
 	});
 
-	test('Desktop 1920×1080: 家族 dropdown に こども + メンバー が含まれる', async ({ browser }) => {
+	test('Desktop 1920×1080: 家族 dropdown に family カテゴリの 2 画面が含まれる', async ({
+		browser,
+	}) => {
 		test.slow();
 		const ctx = await browser.newContext({ viewport: BREAKPOINTS.desktop });
 		const page = await ctx.newPage();
@@ -137,7 +144,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 
 			// family dropdown 内の link 確認
 			for (const item of FAMILY_ITEMS) {
-				const link = page.getByRole('menuitem', { name: new RegExp(item.label) }).first();
+				const link = desktopNav.getByRole('menuitem', { name: item.label });
 				await expect(link).toBeVisible();
 				await expect(link).toHaveAttribute('href', item.href);
 			}

@@ -9,6 +9,7 @@
 // - 解約ページで「卒業」を選択しても 500 で落ちない（redirect 連鎖）
 
 import { expect, test } from '@playwright/test';
+import { DOWNGRADE_RESOURCE_SELECTOR_LABELS } from '../../src/lib/domain/labels';
 
 test.describe('#1603 Graduation flow', () => {
 	test('/admin/subscription/cancel/graduation が 200 で表示される', async ({ page }) => {
@@ -78,6 +79,18 @@ test.describe('#1603 Graduation flow', () => {
 	test('解約フローで「卒業」を選んで送信すると専用ページへ遷移する', async ({ page }) => {
 		await page.goto('/admin/subscription/cancel', { waitUntil: 'domcontentloaded' });
 		await page.getByTestId('cancellation-category-graduation').check();
+		// #4585-1: 無料プランに戻る顧客 (E2E local = family) は送信前に「残すデータを選ぶ」が挟まる。
+		// 1 回目の submit は use:enhance が cancel() し DowngradeResourceSelector が開く
+		// (cancel/+page.svelte:219-225)。ここでアーカイブを確定させると共有 worker DB の
+		// 子供が消えるため、選ばずに閉じて手続きを続けられること (#4585-1 の dead-end 回避) を確認する。
+		await page.getByTestId('cancellation-submit').click();
+		const selector = page.getByTestId('downgrade-resource-selector');
+		await expect(selector).toBeVisible();
+		await selector
+			.getByRole('button', { name: DOWNGRADE_RESOURCE_SELECTOR_LABELS.cancelButton })
+			.click();
+		await expect(page.getByTestId('cancellation-selection-skipped')).toBeVisible();
+		// 2 回目の submit で実際に POST → 卒業ページへ 303 (+page.server.ts:142-144)。
 		await page.getByTestId('cancellation-submit').click();
 		// #4139 で /admin/billing → /admin/subscription へ統合済 (旧 URL は 308 で転送されるが、
 		// 解約 submit は `subscription/cancel/+page.server.ts:78/92` から新 URL へ 303 する)。
