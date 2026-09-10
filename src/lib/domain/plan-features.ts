@@ -45,7 +45,10 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		//   日本語化（IT リテラシーなし親 P1 の認知ジャンプ防止、LP_PRICING_PHASEB_LABELS.k5 と同方針）
 		'毎日のごほうび・続けるごほうび',
 		// #1710 R3-C: 持ち物純化（毎日 must は活動 priority 属性へ移管）
-		'持ち物チェックリスト 3個/子まで',
+		// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09: LP pricing だけが
+		// 「（取込を含む）」に直り、この画面 (アプリ内 /pricing) が旧文言のまま残っていた。
+		// 取込んだチェックリストも同じ 3 個/子の枠を消費する (#4713)。
+		'持ち物チェックリスト 3個/子まで（取込を含む）',
 		`${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完
 		'メールサポート（標準）',

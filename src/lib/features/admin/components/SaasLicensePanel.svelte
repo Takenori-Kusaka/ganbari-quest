@@ -54,6 +54,7 @@ import {
 	TRIAL_LABELS,
 } from '$lib/domain/labels';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
+import { PLAN_TERMS } from '$lib/domain/terms';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
 import {
@@ -142,7 +143,10 @@ let checkoutError = $state<string | null>(null);
 let billingUnavailable = $state<string | null>(null);
 
 // #771 Portal を開く前の PIN / 確認フレーズ入力
-const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
+// #4866 系 QM 監査 / PO 差し戻し 2026-09-09: この文字列は client / server / test に
+// 3 重直書きされていた。1 つだけ変えると顧客は「正しく打っているのに通らない」に当たる
+// (画面の指示と server の照合がずれ、原因が顧客からは見えない)。atom を唯一の出所にする。
+const DOWNGRADE_CONFIRM_PHRASE = PLAN_TERMS.downgradeConfirmPhrase;
 // #4156: 同じ Portal でも「プランを変えに行く」のか「領収書を見に行く」のかで、
 // 顧客が確認ダイアログで読むべき文が違う。確認フレーズ自体はサーバー契約
 // (`/api/stripe/portal` の CONFIRM_PHRASE_REQUIRED) と同値である必要があるため変えない。

@@ -12557,7 +12557,11 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	// #1912 (F-6): 「ログインボーナス・連続達成ボーナス」→「毎日のごほうび・続けるごほうび」へ日本語化
 	k33: '<span class="check">&#x2713;</span>毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
-	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで',
+	// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09: LP pricing だけが
+	// 「（取込を含む）」に直り、パンフとアプリ内 /pricing が旧文言のまま残っていた。
+	// 取込んだチェックリストも同じ 3 個/子の枠を消費する (#4713) ので、
+	// **枠の数え方を面によって違う言い方にしない**。
+	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで（取込を含む）',
 	k35: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k36: '&#x2B50; おすすめ',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard 参照化。
