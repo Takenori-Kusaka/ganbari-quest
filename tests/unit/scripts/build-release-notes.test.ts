@@ -168,7 +168,9 @@ describe('#4883 resolveReleaseNote — 顧客向けと確定できないもの�
 	});
 
 	it('開発チーム宛と明記された PR は落とす', () => {
-		const r = resolveReleaseNote(customerValueBody('**対象ユーザー**: 開発チーム（並行して作業する全員）'));
+		const r = resolveReleaseNote(
+			customerValueBody('**対象ユーザー**: 開発チーム（並行して作業する全員）'),
+		);
 		expect(r.status).toBe('rejected');
 	});
 
@@ -184,7 +186,9 @@ describe('#4883 resolveReleaseNote — 顧客向けと確定できないもの�
 	});
 
 	it('明示的な none 宣言は静かに除外する', () => {
-		const r = resolveReleaseNote('## 顧客価値・目的\n\n<!-- release-note: none -->\n内部改善です。\n');
+		const r = resolveReleaseNote(
+			'## 顧客価値・目的\n\n<!-- release-note: none -->\n内部改善です。\n',
+		);
 		expect(r.status).toBe('opted-out');
 	});
 
@@ -221,7 +225,9 @@ describe('#4883 buildReleaseNotes — 統合', () => {
 			],
 		});
 		expect(result.status).toBe('post');
-		expect(result.description).toContain('ごほうびの交換履歴を、あとから見返せるようになりました。');
+		expect(result.description).toContain(
+			'ごほうびの交換履歴を、あとから見返せるようになりました。',
+		);
 		expect(result.description).toContain('家族からの招待を正しく受け取れるようになりました。');
 		expect(result.items.filter((i) => i.category === 'feature')).toHaveLength(1);
 		expect(result.items.filter((i) => i.category === 'fix')).toHaveLength(1);
@@ -233,9 +239,7 @@ describe('#4883 buildReleaseNotes — 統合', () => {
 				'fix: #4556 レビューで拾った残懸念 3 件（認可述語の兼務明示） (#4559)',
 				'chore(audit): CodeQL new-alert を baseline に登録 (#4571)',
 			],
-			pullRequests: [
-				{ number: 4559, body: prBody('認可述語の兼務を明示する。'), labels: [] },
-			],
+			pullRequests: [{ number: 4559, body: prBody('認可述語の兼務を明示する。'), labels: [] }],
 		});
 		expect(result.status).toBe('skip');
 		expect(result.description).toBe('');
@@ -319,7 +323,11 @@ describe('#4883 buildReleaseNotes — 統合', () => {
 		for (let i = 0; i < 20; i++) {
 			const n = 500 + i;
 			commits.push(`fix(ui): #1 直した (#${n})`);
-			pullRequests.push({ number: n, body: prBody(`表示のずれが直りました。その${i}`), labels: [] });
+			pullRequests.push({
+				number: n,
+				body: prBody(`表示のずれが直りました。その${i}`),
+				labels: [],
+			});
 		}
 		const result = buildReleaseNotes({ commits, pullRequests });
 		expect(result.items.length).toBeLessThanOrEqual(8);

@@ -107,7 +107,7 @@ const CUSTOMER_VALUE_HEADING = '## 顧客価値・目的';
 // labels.ts SSOT
 // ============================================================
 
-/** @type {Record<string, string> | null} */
+/** @type {{ release: Record<string, string>, app: Record<string, string> } | null} */
 let cachedLabels = null;
 
 /**
@@ -119,41 +119,11 @@ export function loadLabels() {
 	if (cachedLabels === null) {
 		const src = fs.readFileSync(LABELS_TS, 'utf8');
 		cachedLabels = {
-			...prefixKeys(parseSimpleBlock(src, 'RELEASE_NOTES_LABELS'), 'release.'),
-			...prefixKeys(parseSimpleBlock(src, 'APP_LABELS'), 'app.'),
+			release: parseSimpleBlock(src, 'RELEASE_NOTES_LABELS'),
+			app: parseSimpleBlock(src, 'APP_LABELS'),
 		};
 	}
-	const flat = cachedLabels;
-	return {
-		release: unprefixKeys(flat, 'release.'),
-		app: unprefixKeys(flat, 'app.'),
-	};
-}
-
-/**
- * @param {Record<string, string>} obj
- * @param {string} prefix
- * @returns {Record<string, string>}
- */
-function prefixKeys(obj, prefix) {
-	/** @type {Record<string, string>} */
-	const out = {};
-	for (const [k, v] of Object.entries(obj)) out[`${prefix}${k}`] = v;
-	return out;
-}
-
-/**
- * @param {Record<string, string>} obj
- * @param {string} prefix
- * @returns {Record<string, string>}
- */
-function unprefixKeys(obj, prefix) {
-	/** @type {Record<string, string>} */
-	const out = {};
-	for (const [k, v] of Object.entries(obj)) {
-		if (k.startsWith(prefix)) out[k.slice(prefix.length)] = v;
-	}
-	return out;
+	return cachedLabels;
 }
 
 // ============================================================
@@ -520,10 +490,10 @@ function readJsonLines(filePath) {
 
 function main() {
 	const args = process.argv.slice(2);
-	const commitsFile = valueOf(args, '--commits-file');
-	const prsFile = valueOf(args, '--prs-file');
-	const resultPath = valueOf(args, '--result');
-	const discordPayloadPath = valueOf(args, '--discord-payload');
+	const commitsFile = argValue(args, '--commits-file');
+	const prsFile = argValue(args, '--prs-file');
+	const resultPath = argValue(args, '--result');
+	const discordPayloadPath = argValue(args, '--discord-payload');
 
 	if (commitsFile === undefined) {
 		console.error(
@@ -567,7 +537,7 @@ function main() {
  * @param {string} name
  * @returns {string | undefined}
  */
-function valueOf(args, name) {
+function argValue(args, name) {
 	const i = args.indexOf(name);
 	return i === -1 ? undefined : args[i + 1];
 }
