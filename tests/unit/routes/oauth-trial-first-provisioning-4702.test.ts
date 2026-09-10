@@ -175,7 +175,8 @@ describe('#4702 GET /auth/oauth/trial-start — owner 以外は世帯 trial を�
 			planCookie: 'standard',
 		});
 		const location = await getRedirectLocation(() => trialStartGET(event));
-		expect(location).toBe('/admin');
+		// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+		expect(location).toBe('/admin?trialStarted=1');
 		expect(mockStartTrial).toHaveBeenCalledWith(
 			expect.objectContaining({ tenantId: 't-1', source: 'user_initiated' }),
 		);

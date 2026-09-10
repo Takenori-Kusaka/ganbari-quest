@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
+import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -59,6 +60,8 @@ $effect(() => {
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
 	{SETUP_REWARDS_LABELS.pageDesc}
 </p>
+
+<SetupNoScriptNotice />
 
 <form
 	method="POST"

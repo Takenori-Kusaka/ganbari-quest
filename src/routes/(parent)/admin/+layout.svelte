@@ -8,6 +8,7 @@ import ParentGateReauthDialog from '$lib/features/admin/components/ParentGateRea
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
+import TrialStartedNotice from '$lib/features/admin/components/TrialStartedNotice.svelte';
 import { startParentGateInactivityRedirect } from '$lib/features/admin/parent-gate-inactivity';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
@@ -19,6 +20,8 @@ interface Props {
 		authMode?: string;
 		debugPlanSummary?: string | null;
 		trialJustExpired?: boolean;
+		// PO 決裁 2026-09-10 決定 3(a): 自動開始の告知 (着地直後の 1 回だけ非 null)
+		trialStartedNoticeEndDate?: string | null;
 		trialStatus?: {
 			isTrialActive: boolean;
 			daysRemaining: number;
@@ -116,6 +119,9 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
+	<!-- PO 決裁 2026-09-10 決定 3(a): 申込経路から自動開始した無料体験を着地直後に 1 度告げる。
+	     `?trialStarted=1` が付いた最初の描画だけ非 null になる (次の遷移で query が落ちて消える)。 -->
+	<TrialStartedNotice endDate={data.trialStartedNoticeEndDate ?? null} />
 	<!-- #4699: 退会 (アカウント削除) 申請中は全 admin ページで状態と復元導線を出す。
 	     旧実装は設定 > アカウントの 1 画面だけで、申請を忘れた保護者が猶予経過で全データを失っていた -->
 	{#if data.gracePeriodStatus?.isSoftDeleted}

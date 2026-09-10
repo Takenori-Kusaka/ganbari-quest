@@ -314,6 +314,10 @@ export const actions: Actions = {
 		// (FR-2 により常に TRIAL_TIER = premium)。値域は UI と共有の validator に閉じてあり、
 		// 'premium' が silent 棄却される非対称 (GAMMA-SC-04) を解消している。
 		const planInterest = parseSignupPlanParam(planInput);
+		// PO 決裁 2026-09-10 決定 3(a): 自動開始したことを**顧客に見える形で伝える**。
+		// 伝えないと、始まった覚えの無い顧客が「無料体験を始める」を押しに行って
+		// 「すでに使用済みです」に当たる。着地先で 1 度だけ告知する。
+		let trialStarted = false;
 		if (planInterest) {
 			try {
 				const started = await startTrial({
@@ -321,6 +325,7 @@ export const actions: Actions = {
 					source: 'user_initiated',
 					tier: TRIAL_TIER,
 				});
+				trialStarted = started;
 				if (started) {
 					logger.info('[SIGNUP] Trial auto-started from pricing flow', {
 						context: { tenantId, tier: TRIAL_TIER, planInterest },
@@ -343,6 +348,7 @@ export const actions: Actions = {
 
 		// 正常完了
 		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
-		redirect(302, landingForRole(context.role));
+		const landing = landingForRole(context.role);
+		redirect(302, trialStarted ? `${landing}?trialStarted=1` : landing);
 	},
 };

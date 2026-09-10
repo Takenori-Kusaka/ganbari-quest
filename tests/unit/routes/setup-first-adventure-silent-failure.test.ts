@@ -181,6 +181,10 @@ function renderPage(form: unknown): any {
 		props: {
 			data: {
 				child: { id: 'child-1', nickname: 'たろう' },
+				// PO 決裁 2026-09-10 決定 8: 画面が「だれと一緒にやるか」の選択肢を持つ。
+				// 本 test が測るのは**記録失敗の見え方**なので、選択 UI が出ない
+				// 1 人だけの家庭で固定する (選択 UI は setup-first-adventure-child-pick.test.ts が測る)。
+				children: [{ id: 'child-1', nickname: 'たろう' }],
 				activities: ACTIVITIES,
 				imported: 0,
 				skipped: 0,

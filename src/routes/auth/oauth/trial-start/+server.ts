@@ -58,8 +58,12 @@ export const GET: RequestHandler = async ({ cookies, locals, url }) => {
 	cookies.delete(OAUTH_PLAN_COOKIE_NAME, { path: '/' });
 
 	// 失敗 (既に使用済み等) は best-effort でログのみ。メール登録経路 (signup ?/confirm) と同じ扱い
+	// PO 決裁 2026-09-10 決定 3(a): 開始できたときだけ着地先で 1 度告知する
+	// (伝えないと、始まった覚えの無い顧客が「無料体験を始める」で「使用済み」に当たる)。
+	let trialStarted = false;
 	try {
 		const started = await startTrial({ tenantId, source: 'user_initiated', tier: TRIAL_TIER });
+		trialStarted = started;
 		logger.info(
 			started
 				? '[SIGNUP] Trial auto-started from Google signup flow'
@@ -76,5 +80,8 @@ export const GET: RequestHandler = async ({ cookies, locals, url }) => {
 		});
 	}
 
-	redirect(302, target);
+	redirect(
+		302,
+		trialStarted ? `${target}${target.includes('?') ? '&' : '?'}trialStarted=1` : target,
+	);
 };
