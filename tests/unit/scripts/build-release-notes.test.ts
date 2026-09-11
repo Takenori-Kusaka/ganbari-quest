@@ -686,6 +686,77 @@ describe('#4883 adversarial review 第 3 回 — template のラベル行 / 頭�
 	});
 });
 
+describe('#4883 adversarial review 第 4 回 — ラベル行の変種 / 記号断片 / 開示領域 / 配信証跡', () => {
+	it('太字なし / 箇条書き / 見出し形のラベル行も本文にしない', () => {
+		for (const first of [
+			'対象ユーザー: 親（管理者）。',
+			'- 対象ユーザー: 親（管理者）。',
+			'### 対象ユーザー\n親（管理者）。',
+			'__対象ユーザー__: 親（管理者）。',
+		]) {
+			const r = resolveReleaseNote(
+				`## 顧客価値・目的\n\n${first}\n\n**期待される効果**: 招待を受け取れるようになります。\n`,
+			);
+			expect(r.status, first).toBe('included');
+			expect(r.text, first).toBe('招待を受け取れるようになります。');
+		}
+	});
+
+	it('記号で始まる断片（— 見えない・消せない行が…）を配信しない', () => {
+		expect(
+			resolveReleaseNote(customerValueBody('— 見えない・消せない行が保管枠を食う。')).status,
+		).toBe('rejected');
+	});
+
+	it('記号の内側に空白がある `**` は太字にならないので外す', () => {
+		expect(sanitizeNoteText('**A. 子供ガイドの進捗が兄弟で混ざる **')).toBe(
+			'A. 子供ガイドの進捗が兄弟で混ざる',
+		);
+	});
+
+	it('【】内の `。` でも第 1 文を切らない', () => {
+		expect(
+			extractCustomerValueSentence(
+				customerValueBody('【ポイントが足りません。】の表示を直しました。'),
+			),
+		).toBe('【ポイントが足りません。】の表示を直しました。');
+	});
+
+	it('fix(legal) / fix(privacy) / fix(consent) は自動配信しない（自認の文言は法務 / PO が決める）', () => {
+		for (const scope of ['legal', 'privacy', 'consent']) {
+			const result = buildReleaseNotes({
+				commits: [`fix(${scope}): #1 規約の記述を実装に合わせる (#4598)`],
+				pullRequests: [
+					{
+						number: 4598,
+						body: customerValueBody(
+							'プライバシーポリシーが『生成 AI には送りません』と言い切っているのに、実際は送っています。',
+						),
+						labels: ['type:fix'],
+					},
+				],
+			});
+			expect(result.status, scope).toBe('skip');
+			expect(result.warnings.join('\n'), scope).toContain(`fix(${scope})`);
+		}
+	});
+
+	it('出典 PR body の updated_at を項目に残す（どの版から作ったかを事後に追える）', () => {
+		const result = buildReleaseNotes({
+			commits: ['fix(ui): #1 直した (#901)'],
+			pullRequests: [
+				{
+					number: 901,
+					body: customerValueBody('表示のずれが直りました。'),
+					labels: [],
+					updated_at: '2026-09-11T09:00:00Z',
+				},
+			],
+		});
+		expect(result.items[0]?.bodyUpdatedAt).toBe('2026-09-11T09:00:00Z');
+	});
+});
+
 describe('#4883 labels.ts SSOT の読み取り', () => {
 	it('RELEASE_NOTES_LABELS の全キーを実 labels.ts から読める', () => {
 		// build-time パーサは namespace ブロックを最初の閉じ波括弧で切る。値かコメントに

@@ -1074,7 +1074,7 @@ jobs:
           : > /tmp/prs.jsonl
           for N in $(grep -oE '\(#[0-9]+\)$' /tmp/commits.txt | tr -d '(#)' | sort -u); do
             if gh api "repos/${GITHUB_REPOSITORY}/pulls/${N}" \
-              --jq '{number: .number, body: (.body // ""), labels: [.labels[].name]}' >> /tmp/prs.jsonl; then
+              --jq '{number: .number, body: (.body // ""), labels: [.labels[].name], updated_at: .updated_at}' >> /tmp/prs.jsonl; then
               :
             else
               echo "::warning::PR #${N} の本文を取得できませんでした（通知から除外します）"

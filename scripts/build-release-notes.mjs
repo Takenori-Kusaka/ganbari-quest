@@ -158,6 +158,13 @@ const NOT_FOR_CUSTOMER_PATTERNS = [
  */
 const EXCLUDED_PR_LABELS = new Set(['refactor:internal-no-doc-impact', 'security']);
 
+/**
+ * commit scope が「開示の順序と文言を人が決める」領域のもの。ラベルは付け忘れるので scope でも見る。
+ * security = 脆弱性（coordinated disclosure）/ legal・privacy・consent = 規約 / プライバシーポリシーの
+ * 是正（「これまで違っていた」の自認を含むため法務 / PO が文言を決める）。
+ */
+const HUMAN_DISCLOSURE_SCOPES = new Set(['security', 'legal', 'privacy', 'consent']);
+
 /** PR body 内の明示宣言。`none` で opt-out */
 const DECLARATION_PATTERN = /<!--\s*release-note:\s*([\s\S]*?)\s*-->/i;
 
@@ -287,6 +294,17 @@ export function sanitizeNoteText(text) {
 	for (const marker of [/\*\*/g, /__/g, /~~/g]) {
 		if (((out.match(marker) ?? []).length & 1) === 1) out = out.replace(marker, '');
 	}
+	// `**A. 見出し **` のように記号の**内側**に空白があると Discord は太字化せず `**` が露出する
+	// （開きの直後 / 閉じの直前だけを見る。`が **最初の価値**。` の開きの外側の空白は正常な markdown）
+	const marks = [...out.matchAll(/\*\*/g)].map((m) => m.index ?? -1);
+	for (let i = 0; i + 1 < marks.length; i += 2) {
+		const open = marks[i] ?? -1;
+		const close = marks[i + 1] ?? -1;
+		if (/\s/.test(out[open + 2] ?? '') || /\s/.test(out[close - 1] ?? '')) {
+			out = out.replace(/\*\*/g, '');
+			break;
+		}
+	}
 	return out.trim();
 }
 
@@ -307,6 +325,8 @@ export function findCustomerUnsafeReason(rawText) {
 	// `#4883 の対応です。` は参照除去で「の対応です。」になる。文頭が助詞なら頭欠け
 	if (/^(?:の|を|は|が|に|へ|と|で|も|や|から|まで)[^ぁ-ん]/.test(text))
 		return '参照除去で文頭が欠けている';
+	// `— 見えない・消せない行が…` / `・二つ目` のように記号で始まる行は箇条書きの断片
+	if (/^[—―–\-・、。:：]/.test(text)) return '記号で始まる断片';
 	if (text.length > MAX_ITEM_LENGTH) return `長すぎる (${text.length} 文字 > ${MAX_ITEM_LENGTH})`;
 	if (text.includes('`')) return 'コード片 (バッククォート) を含む';
 	// リンクは配信面をフィッシングの運び先にする。merge 後の PR body 編集で差し替えられる
@@ -355,18 +375,23 @@ export function extractCustomerValueSentence(body) {
 	// **期待される効果**: …` のラベル行で組む（実測: 第 22 回範囲 170 件中 76 件）。ラベル行の
 	// 第 1 文は「親（管理者）。」のような動詞の無い対象者ラベルで、顧客には何も伝わらない。
 	// この形のときは **期待される効果** の値を出典にし、無ければ null（コミット件名へは落ちない）。
-	const labelLine = /^\s*\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/;
+	// ラベルは太字の有無 / 箇条書き・見出しマーカーの有無 / コロンの有無に依らず「行頭のラベル語」で
+	// 見る（太字形だけを見ると `- 対象ユーザー: 親` や `### 対象ユーザー` がそのまま本文になる）。
+	const stripMarkers = (/** @type {string} */ l) =>
+		l.replace(/^\s*(?:[-*+>]\s+|\d+\.\s+|#{1,6}\s+)+/, '');
+	const labelLine =
+		/^\s*(?:\*\*|__)?(対象ユーザー|解決する課題|期待される効果)(?:\*\*|__)?\s*[:：]?\s*(.*)$/;
 	let candidate = rawFirstLine;
-	if (labelLine.test(rawFirstLine)) {
+	if (labelLine.test(stripMarkers(rawFirstLine))) {
 		const effect = lines
-			.map((l) => l.match(labelLine))
-			.find((m) => m !== null && m[1] !== undefined && m[1].trim() === '期待される効果');
+			.map((l) => stripMarkers(l).match(labelLine))
+			.find((m) => m !== null && m[1] === '期待される効果');
 		if (!effect || effect[2] === undefined || effect[2].trim() === '') return null;
 		candidate = effect[2];
 	}
 
 	// 行頭の箇条書き / 引用マーカーは本文ではない（残すと `• - 本文` の二重記号で配信される）
-	const firstLine = candidate.replace(/^\s*(?:[-*+>]\s+|\d+\.\s+)+/, '');
+	const firstLine = stripMarkers(candidate);
 
 	// 最初の `。` で切る。ただし「」『』（半角 ｢｣ も）の中の `。`（画面文言の引用）では切らない —
 	// 「ポイントが足りません。」の表示を直しました。 を 「ポイントが足りません。 で切ると
@@ -375,8 +400,8 @@ export function extractCustomerValueSentence(body) {
 	let end = -1;
 	for (let i = 0; i < firstLine.length; i++) {
 		const ch = firstLine[i];
-		if (ch === '「' || ch === '『' || ch === '｢') depth++;
-		else if ((ch === '」' || ch === '』' || ch === '｣') && depth > 0) depth--;
+		if (ch === '「' || ch === '『' || ch === '｢' || ch === '【') depth++;
+		else if ((ch === '」' || ch === '』' || ch === '｣' || ch === '】') && depth > 0) depth--;
 		else if (ch === '。' && depth === 0) {
 			end = i;
 			break;
@@ -445,6 +470,7 @@ export function resolveReleaseNote(body) {
  * @property {number} number
  * @property {string} body
  * @property {string[]} [labels]
+ * @property {string} [updated_at] PR body を取得した時点の updated_at（配信証跡: どの版から作ったか）
  */
 
 /**
@@ -453,6 +479,7 @@ export function resolveReleaseNote(body) {
  * @property {string} text
  * @property {number} prNumber
  * @property {'declaration' | 'customer-value'} source
+ * @property {string} [bodyUpdatedAt] 出典 PR body の updated_at（merge 後の書き換えを事後に追える）
  */
 
 /**
@@ -519,9 +546,12 @@ export function buildReleaseNotes(input) {
 		}
 		// `security` ラベルは人が付けるので付け忘れる（実測: fix(security) の #4891 に付いていなかった）。
 		// commit scope の `security` も同じ除外に倒す（開示順序は人が決める）。
-		if (parsed.scope === 'security') {
+		// `legal` / `privacy` / `consent` も同じ: 規約・プライバシーポリシーの是正は「これまで
+		// 違っていた」の自認を含み、その文言は法務 / PO が決める（実測: fix(legal) #4598 の第 1 文が
+		// 「…と言い切っているのに、実際は送っています。」で判定を通過していた）。
+		if (parsed.scope !== undefined && HUMAN_DISCLOSURE_SCOPES.has(parsed.scope)) {
 			warnings.push(
-				`PR #${parsed.prNumber} は fix(security) のため自動配信しません（伝えるなら人が判断して告知してください）`,
+				`PR #${parsed.prNumber} は fix(${parsed.scope}) のため自動配信しません（伝えるなら人が判断して告知してください）`,
 			);
 			continue;
 		}
@@ -537,7 +567,13 @@ export function buildReleaseNotes(input) {
 		}
 		if (note.text === undefined || note.source === undefined) continue;
 
-		items.push({ category, text: note.text, prNumber: parsed.prNumber, source: note.source });
+		items.push({
+			category,
+			text: note.text,
+			prNumber: parsed.prNumber,
+			source: note.source,
+			...(typeof pr.updated_at === 'string' ? { bodyUpdatedAt: pr.updated_at } : {}),
+		});
 	}
 
 	const selected = items.slice(0, MAX_ITEMS);
