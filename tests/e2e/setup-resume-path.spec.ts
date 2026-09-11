@@ -90,8 +90,9 @@ function restoreOnboardingSeed(dbPath: string, snapshot: OnboardingSeedSnapshot)
 		}
 
 		db.prepare('DELETE FROM special_rewards').run();
-		if (snapshot.specialRewards.length > 0) {
-			const columns = Object.keys(snapshot.specialRewards[0]);
+		const [firstReward] = snapshot.specialRewards;
+		if (firstReward) {
+			const columns = Object.keys(firstReward);
 			const insert = db.prepare(
 				`INSERT INTO special_rewards (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
 			);
