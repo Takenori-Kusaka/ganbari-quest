@@ -21,6 +21,7 @@ test.describe('#4919: 子供追加が reload なしで一覧に反映される',
 
 		const nickname = `テスト太郎-${Date.now()}`;
 		await page.getByRole('button', { name: ADMIN_CHILDREN_PAGE_LABELS.addButton }).first().click();
+		await expect(page.getByText(ADMIN_CHILDREN_PAGE_LABELS.addFormTitle)).toBeVisible();
 		await page.getByLabel(ADMIN_CHILDREN_PAGE_LABELS.nicknameLabel).fill(nickname);
 		await page.locator('#add-age').fill('5');
 		await page.getByRole('button', { name: ADMIN_CHILDREN_PAGE_LABELS.addButton }).last().click();
