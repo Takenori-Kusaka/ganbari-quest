@@ -468,7 +468,7 @@ describe('onboarding-service', () => {
 		});
 
 		it('#4910 再現: 6 セット・37 件を per-child reward に取り込んだら rewards は completed', async () => {
-			// 本番実測 (テナント kokorokagami+gqops) を模した規模: 複数子供、それぞれに
+			// 本番実測 (無料プランのテストテナント) を模した規模: 複数子供、それぞれに
 			// 大量の per-child reward が取り込まれている状態。旧実装はこの状態でも
 			// family scope の template (常に空) を見て incomplete のままだった。
 			const child1Rewards = Array.from({ length: 20 }, (_, i) => ({
