@@ -77,18 +77,21 @@ export default async (page, capture) => {
 	await page.waitForURL(/\/setup\/challenges/, { timeout: 15_000 });
 	await page.locator('form[action="?/addChallenges"] button[type="submit"]').first().click();
 
-	// ----- Step 8: /setup/first-adventure — 「しゅくだいをした」を選ぶ (記録前) -----
+	// ----- Step 8: /setup/first-adventure — 活動を選ぶ (記録前) -----
+	// #4908: 同日に同じ活動を 2 回記録すると ALREADY_RECORDED で失敗するため、
+	// 撮影を繰り返す (before/after 比較) ときは env で活動名を切り替えられるようにする。
+	const activityName = process.env.SETUP_FIRST_ADVENTURE_ACTIVITY || 'しゅくだいをした';
 	await page.waitForURL(/\/setup\/first-adventure/, { timeout: 15_000 });
-	await page.getByText('しゅくだいをした').first().waitFor({ state: 'visible', timeout: 15_000 });
+	await page.getByText(activityName).first().waitFor({ state: 'visible', timeout: 15_000 });
+	await page.mouse.move(0, 0); // 前ページの hover 残留を避ける
 	await capture('setup-first-adventure-1-selecting');
 
-	await page.getByText('しゅくだいをした').first().click();
+	await page.getByText(activityName).first().click();
 	await page.getByRole('button', { name: 'タップしてきろく！' }).click();
 
-	// ----- 記録後: 祝福画面 (points-display + Lv 表示 + 内訳) -----
-	await page
-		.getByTestId('first-adventure-points-display')
-		.waitFor({ state: 'visible', timeout: 15_000 });
+	// ----- 記録後: 祝福画面 (points-display + Lv 表示 + 内訳)。旧実装には
+	// data-testid が無いため、新旧どちらのコードでも検証できる文言で待つ。 -----
+	await page.getByText('ポイントゲット！').waitFor({ state: 'visible', timeout: 15_000 });
 	// fadeIn アニメーション (0.3s) の完了を待ってから撮影する
 	await waitForStablePage(page, { skipNetworkIdle: true });
 	await capture('setup-first-adventure-2-celebration');
