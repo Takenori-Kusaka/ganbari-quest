@@ -1,7 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
-import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_QUESTIONNAIRE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	PAGE_TITLES,
+	SETUP_LABELS,
+	SETUP_QUESTIONNAIRE_LABELS,
+} from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
