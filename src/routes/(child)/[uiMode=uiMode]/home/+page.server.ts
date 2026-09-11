@@ -229,7 +229,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				? birthdayBonusStatus
 				: null;
 
-	// きょうだいランキング（#782: family プラン + 設定有効時のみ）
+	// きょうだいランキング（#782: プレミアムプラン + 設定有効時のみ）
 	// #789: planLimits は parent layout が解決済み。重複 DB アクセスを避けるため parentData を参照する。
 	let siblingRanking: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
 	try {
