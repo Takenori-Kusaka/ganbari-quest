@@ -30,12 +30,12 @@ export function stripAnsi(str) {
 }
 
 // 旧 `extractLogicalId` は削除した (#4623)。export されていたが呼び出し元が 1 つも無く
-// (test すら import していなかった)、論理 ID の抽出は `detectReplacements` 内の
+// (test すら import していなかった)、論理 ID の抽出は `parseDiff` 内の
 // `resourceMatch[3]` が唯一の生きた経路である。同じ抽出を 2 通り持つと、行形式が変わった
 // ときに片方だけ直す事故を作る。
 
 /**
- * gate の検出対象から恒久的に外すリソース (#4905)。
+ * gate の検出対象から恒久的に外すリソース (#4904)。
  *
  * `s3deploy.BucketDeployment` は custom resource handler Lambda に `AwsCliLayer`
  * (`AWS::Lambda::LayerVersion`) を**無条件で**付ける。中身は `@aws-cdk/asset-awscli-v1`
@@ -92,7 +92,7 @@ export function findExemption(resourceType, id) {
  *
  * 実際の CLI 出力は括弧なしの ` replace` / ` destroy` / ` may be replaced`
  * (aws-cdk の `formatImpact` 実測)。旧実装は `(replace)` という**存在しない形**を
- * 探していたため、リソース行単独の検出が死んでいた (#4905)。
+ * 探していたため、リソース行単独の検出が死んでいた (#4904)。
  *
  * `orphan` (stack から外れるが実体は残る) は破壊ではないので対象にしない。
  */
@@ -107,7 +107,7 @@ const RESOURCE_IMPACT = [
  *
  * 旧実装は `requires replacement` でも reason を `'may-cause-replacement'` に
  * ハードコードしていたため、真正な置換が「may = 悲観判定だろう」と誤読される事故を
- * 起こした (第22回統合で実際に起きた)。深刻度を軽く見せない (#4905)。
+ * 起こした (第22回統合で実際に起きた)。深刻度を軽く見せない (#4904)。
  */
 const PROPERTY_IMPACT = [
 	{ pattern: /\(requires replacement\)/i, reason: 'requires-replacement' },
@@ -189,16 +189,6 @@ export function parseDiff(lines) {
 }
 
 /**
- * CDK diff の stdout 行リストを解析して Replacement/Destroy リソースを抽出する
- *
- * @param {string[]} lines
- * @returns {Map<string, string>} logicalId → reason
- */
-export function detectReplacements(lines) {
-	return parseDiff(lines).replacements;
-}
-
-/**
  * PR 本文またはコミットメッセージから承認済み論理 ID 一覧を抽出する
  *
  * 形式: replacement-approved: LogicalId1,LogicalId2
@@ -240,7 +230,7 @@ async function main() {
 
 	const { replacements, exempted } = parseDiff(lines);
 
-	// 除外は握り潰しではない。必ず見える形で出す (silent skip を作らない、#4905)。
+	// 除外は握り潰しではない。必ず見える形で出す (silent skip を作らない、#4904)。
 	if (exempted.size > 0) {
 		console.log(`
 gate から除外したリソース (${exempted.size} 件、ADR-0019 §制約・注意事項):`);

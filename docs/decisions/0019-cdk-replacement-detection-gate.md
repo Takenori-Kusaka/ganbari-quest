@@ -109,11 +109,11 @@ replacement-approved: UserPool,UserPool/PublicClient
 
 **失われるものは無い**: CFN は「新規作成 → 参照張替え → 旧削除」で、Lambda は[削除済み layer version を参照する関数はそのまま動く](https://docs.aws.amazon.com/lambda/latest/dg/creating-deleting-layers.html)と明記。layer は handler の `Layers` からしか参照されず `Custom::CDKBucketDeployment` のプロパティに含まれないため**配信済み S3 オブジェクトは触られない**。**回避策も無い**（`BucketDeploymentProps` に layer 差替 prop 無し / CLI の除外機能も未実装: [aws-cdk-cli#903](https://github.com/aws/aws-cdk-cli/issues/903)）。AWS 公式にこのケースの扱いを定めた記述は見つけられなかった。
 
-→ **恒久対処として gate 側で除外する（#4905）。** 除外条件は **`AWS::Lambda::LayerVersion` かつ construct path が `…/AwsCliLayer`** の両方一致に限る（型だけ / path だけでは除外しない。`scripts/check-cdk-replacement.mjs` の `EXEMPT_RULES`）。**握り潰しではなく `[exempt]` として必ず出力する**ので、除外されたことは毎回ログに残る。それ以外の replacement 検出は不変。
+→ **恒久対処として gate 側で除外する（#4904）。** 除外条件は **`AWS::Lambda::LayerVersion` かつ construct path が `…/AwsCliLayer`** の両方一致に限る（型だけ / path だけでは除外しない。`scripts/check-cdk-replacement.mjs` の `EXEMPT_RULES`）。**握り潰しではなく `[exempt]` として必ず出力する**ので、除外されたことは毎回ログに残る。それ以外の replacement 検出は不変。
 
 ### 承認は main HEAD の 1 commit に紐づく（承認後に commit を積むと失効する）
 
-gate は `git log -1 --pretty=%B` で **main HEAD の commit message だけ**を読む。**承認後に別 commit を main に積むと承認が失効する。** 第22回統合（2026-09-11）は hotfix `868122267` が `ErrorPagesDeploy/AwsCliLayer` のみ承認した状態で HEAD になり、次 run で `StaticAssetsDeploy/AwsCliLayer` が露出して 2 度目の BLOCK になった。→ **承認 commit を HEAD に置いたら deploy を発火させるまで main に積まない。** なお `AwsCliLayer` 起因の BLOCK は #4905 の除外で構造的に起きなくなったため、この運用が要るのは**本物の Replacement を承認するとき**だけになった。
+gate は `git log -1 --pretty=%B` で **main HEAD の commit message だけ**を読む。**承認後に別 commit を main に積むと承認が失効する。** 第22回統合（2026-09-11）は hotfix `868122267` が `ErrorPagesDeploy/AwsCliLayer` のみ承認した状態で HEAD になり、次 run で `StaticAssetsDeploy/AwsCliLayer` が露出して 2 度目の BLOCK になった。→ **承認 commit を HEAD に置いたら deploy を発火させるまで main に積まない。** なお `AwsCliLayer` 起因の BLOCK は #4904 の除外で構造的に起きなくなったため、この運用が要るのは**本物の Replacement を承認するとき**だけになった。
 
 ### 本番 deploy でしか出ない replacement がある（staging 全緑 ≠ 本番 deploy 可）
 

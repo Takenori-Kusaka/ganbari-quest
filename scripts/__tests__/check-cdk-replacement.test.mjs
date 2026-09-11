@@ -9,7 +9,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-	detectReplacements,
 	findExemption,
 	parseApprovedIds,
 	parseDiff,
@@ -65,11 +64,11 @@ const ANSI_DIFF = [
 	'\x1b[1m\x1b[32m[+]\x1b[0m AWS::Cognito::UserPool UserPool UserPoolV2XXXXXXXX',
 ];
 
-describe('detectReplacements', () => {
+describe('parseDiff', () => {
 	it('ADR-0018: [-] lines are detected as destroy (by CDK construct ID)', () => {
-		const result = detectReplacements(ADR_0018_DIFF);
+		const result = parseDiff(ADR_0018_DIFF).replacements;
 		// CDK diff format: [marker] ResourceType CDK_ID CF_HASH
-		// detectReplacements uses CDK_ID (token[2]) as the identifier
+		// parseDiff uses CDK_ID (token[2]) as the identifier
 		assert.equal(result.has('UserPool'), true);
 		assert.equal(result.get('UserPool'), 'destroy');
 		assert.equal(result.has('UserPool/PublicClient'), true);
@@ -78,31 +77,31 @@ describe('detectReplacements', () => {
 	});
 
 	it('ADR-0018: [+] lines are NOT flagged as replacement', () => {
-		const result = detectReplacements(ADR_0018_DIFF);
+		const result = parseDiff(ADR_0018_DIFF).replacements;
 		// [+] lines (new resources being created) should not be flagged
 		assert.equal(result.has('UserPoolV2'), false);
 	});
 
 	it('property-level (may cause replacement) is detected via parent resource CDK ID', () => {
-		const result = detectReplacements(PROPERTY_REPLACE_DIFF);
+		const result = parseDiff(PROPERTY_REPLACE_DIFF).replacements;
 		assert.equal(result.has('Database'), true);
 		assert.equal(result.get('Database'), 'may-cause-replacement');
 	});
 
 	it('ordinary modifications without replacement are not flagged', () => {
-		const result = detectReplacements(NO_CHANGE_DIFF);
+		const result = parseDiff(NO_CHANGE_DIFF).replacements;
 		assert.equal(result.size, 0);
 	});
 
 	it('ANSI escape codes are stripped before parsing', () => {
-		const result = detectReplacements(ANSI_DIFF);
+		const result = parseDiff(ANSI_DIFF).replacements;
 		assert.equal(result.has('UserPool'), true);
 		assert.equal(result.get('UserPool'), 'destroy');
 		assert.equal(result.has('UserPoolV2'), false);
 	});
 
 	it('empty input produces no results', () => {
-		const result = detectReplacements([]);
+		const result = parseDiff([]).replacements;
 		assert.equal(result.size, 0);
 	});
 });
@@ -146,7 +145,7 @@ describe('stripAnsi', () => {
 });
 
 // ---------------------------------------------------------------------------
-// #4905: CDK 生成 AwsCliLayer の除外 / 実際の CLI 出力に合わせた impact 検出
+// #4904: CDK 生成 AwsCliLayer の除外 / 実際の CLI 出力に合わせた impact 検出
 //
 // 行形式は aws-cdk の実装 (formatImpact / formatTreeDiff) を実測して合わせている:
 //   リソース行   : [~] <Type> <ConstructPath> <PhysicalId> <impact>   ← 括弧なし
@@ -163,7 +162,7 @@ Resources
 	.trim()
 	.split('\n');
 
-describe('#4905 CDK 生成 AwsCliLayer の除外', () => {
+describe('#4904 CDK 生成 AwsCliLayer の除外', () => {
 	it('AwsCliLayer は承認不要リストに入らず exempt として分離される', () => {
 		const { replacements, exempted } = parseDiff(AWS_CLI_LAYER_DIFF);
 		assert.equal(replacements.size, 0, '承認を要求してはいけない');
@@ -190,13 +189,13 @@ describe('#4905 CDK 生成 AwsCliLayer の除外', () => {
 	});
 });
 
-describe('#4905 impact の reason を実文言どおりに出す', () => {
+describe('#4904 impact の reason を実文言どおりに出す', () => {
 	it('(requires replacement) を may-cause-replacement に丸めない', () => {
 		const diff = [
 			'[~] AWS::RDS::DBInstance Database DatabaseABCDEF',
 			' └─ [~] DBInstanceClass: "a" -> "b" (requires replacement)',
 		];
-		assert.equal(detectReplacements(diff).get('Database'), 'requires-replacement');
+		assert.equal(parseDiff(diff).replacements.get('Database'), 'requires-replacement');
 	});
 
 	it('(may cause replacement) は may-cause-replacement のまま', () => {
@@ -204,28 +203,28 @@ describe('#4905 impact の reason を実文言どおりに出す', () => {
 			'[~] AWS::RDS::DBInstance Database DatabaseABCDEF',
 			' └─ [~] DBInstanceClass: "a" -> "b" (may cause replacement)',
 		];
-		assert.equal(detectReplacements(diff).get('Database'), 'may-cause-replacement');
+		assert.equal(parseDiff(diff).replacements.get('Database'), 'may-cause-replacement');
 	});
 });
 
-describe('#4905 リソース行の impact 語 (括弧なし) を検出する', () => {
+describe('#4904 リソース行の impact 語 (括弧なし) を検出する', () => {
 	it('replace', () => {
 		const diff = ['[~] AWS::Cognito::UserPool UserPool UserPoolABC replace'];
-		assert.equal(detectReplacements(diff).get('UserPool'), 'replace');
+		assert.equal(parseDiff(diff).replacements.get('UserPool'), 'replace');
 	});
 
 	it('destroy', () => {
 		const diff = ['[~] AWS::Cognito::UserPool UserPool UserPoolABC destroy'];
-		assert.equal(detectReplacements(diff).get('UserPool'), 'destroy');
+		assert.equal(parseDiff(diff).replacements.get('UserPool'), 'destroy');
 	});
 
 	it('may be replaced', () => {
 		const diff = ['[~] AWS::Cognito::UserPool UserPool UserPoolABC may be replaced'];
-		assert.equal(detectReplacements(diff).get('UserPool'), 'may-be-replaced');
+		assert.equal(parseDiff(diff).replacements.get('UserPool'), 'may-be-replaced');
 	});
 
 	it('orphan は破壊ではないので flag しない', () => {
 		const diff = ['[~] AWS::Cognito::UserPool UserPool UserPoolABC orphan'];
-		assert.equal(detectReplacements(diff).size, 0);
+		assert.equal(parseDiff(diff).replacements.size, 0);
 	});
 });
