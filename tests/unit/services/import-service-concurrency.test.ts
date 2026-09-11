@@ -106,7 +106,6 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 
 vi.mock('$lib/server/db/evaluation-repo', () => ({
 	insertEvaluation: vi.fn(),
-	insertRestDayForRestore: vi.fn(),
 }));
 
 vi.mock('$lib/server/db/reward-redemption-repo', () => ({

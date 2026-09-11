@@ -7,13 +7,17 @@
 // 詳しくは src/lib/server/auth/providers/cognito-dev.ts の DEV_USERS。
 
 import type { Page } from '@playwright/test';
+import { devPassword } from './helpers/dev-users';
 
 export const PLAN_USERS = {
-	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
-	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
-	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+	free: { email: 'free@example.com', password: devPassword('free@example.com') },
+	standard: { email: 'standard@example.com', password: devPassword('standard@example.com') },
+	family: { email: 'family@example.com', password: devPassword('family@example.com') },
 	// #752: トライアル E2E 用（free プランだがトライアル期限切れ済み）
-	'trial-expired': { email: 'trial-expired@example.com', password: 'Gq!Dev#TrialExp26' },
+	'trial-expired': {
+		email: 'trial-expired@example.com',
+		password: devPassword('trial-expired@example.com'),
+	},
 } as const;
 
 export type PlanUserKey = keyof typeof PLAN_USERS;

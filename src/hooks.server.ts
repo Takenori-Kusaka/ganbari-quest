@@ -9,13 +9,17 @@ import {
 import { building } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { carryTrialStartedQuery } from '$lib/domain/trial-started-notice';
 import { can } from '$lib/policy/capabilities';
 import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
+import { isCognitoDevMode } from '$lib/server/auth/auth-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { enforceParentGate } from '$lib/server/auth/parent-gate';
 import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
 import type { AuthContext } from '$lib/server/auth/types';
+import { cronJobNameFromPath, recordCronRun } from '$lib/server/cron/cron-heartbeat';
 import { getOrInitDb } from '$lib/server/db/client';
 // #3620 AC-C2: DATA_SOURCE=pglite の非同期 init guard 用 (import は side-effect free、
 // PGlite instance は initPgliteConnection() 呼び出し時のみ生成)。
@@ -37,14 +41,24 @@ import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
+import {
+	CHECKOUT_SESSION_QUERY_KEY,
+	isSetupRedirectExempt,
+	resolveSetupGateTenantId,
+} from '$lib/server/routing/setup-gate';
 import { evaluateFrontDoor, ORIGIN_VERIFY_HEADER } from '$lib/server/security/origin-verify';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
+import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
-import { isSetupRequired } from '$lib/server/services/setup-service';
+import {
+	isSetupRequired,
+	isSetupWizardInProgress,
+	shouldBlockSetupAccess,
+} from '$lib/server/services/setup-service';
 
 // Epic #2525 Phase 7 Step 0 PR-L0 (#2806): license key 完全全廃 (#2788) の expand 起点。
 // 旧来の `assertLicenseKeyConfigured()` 起動時呼び出し (AWS_LICENSE_SECRET 未設定時に
@@ -181,7 +195,10 @@ function respondEntitlementUnavailable(
 const provider = getAuthProvider();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
-const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
+// #4834: dev 判定の SSOT は isCognitoDevMode() (顧客 deploy では COGNITO_DEV_MODE=true でも false)。
+// process.env を生で読むと Lambda に誤設定が紛れたとき rate limit / 再同意 gate だけが外れる「半分 dev」になる。
+// module load 時ではなく request ごとに評価する (getEnv は cached で安価。module load で評価すると
+// auth-mode を部分 mock した test が hooks.server の import だけで suite 初期化に失敗する)
 
 /**
  * #4280 案 b: front door (CloudFront) 検査が secret 未設定で無効なことを、プロセスで 1 回だけ
@@ -388,7 +405,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 0-b) レートリミット（cognito 本番モードのみ、dev モードは除外）
 		if (
 			authMode === 'cognito' &&
-			!COGNITO_DEV_MODE &&
+			!isCognitoDevMode() &&
 			!path.startsWith('/_app/') &&
 			!path.startsWith('/favicon')
 		) {
@@ -599,37 +616,38 @@ export const handle: Handle = ({ event, resolve }) =>
 
 		// 2) ルート保護
 
-		// セットアップチェック（local モードのみ — 子供が未登録ならセットアップへ）
-		if (authMode === 'local') {
-			const tenantId = context?.tenantId ?? 'local';
-			if (
-				!path.startsWith('/setup') &&
-				!path.startsWith('/_app') &&
-				!path.startsWith('/favicon') &&
-				!path.startsWith('/api/health') &&
-				// #832: 公開 SEO エンドポイントはセットアップ前でもクロール可能にする。
-				// プリレンダも hooks.server を通るため、除外しないと /setup へ 302 され
-				// sitemap.xml がビルド時に生成できずビルド失敗する。
-				path !== '/sitemap.xml' &&
-				path !== '/robots.txt' &&
-				// #1601: 配信停止リンクは未認証 + セットアップ前でもアクセス可能にする
-				// （特定電子メール法準拠: クリックしたら確実に解除できる必要がある）。
-				!path.startsWith('/unsubscribe/') &&
-				// #1594 ADR-0023 I8: founder 直接相談動線は公開ページ（未認証 / セットアップ前でもアクセス可）
-				!path.startsWith('/inquiry/founder') &&
-				!path.startsWith('/api/v1/inquiry/founder') &&
-				// #1598 ADR-0023 I7: PMF 判定アンケート (Sean Ellis Test) は HMAC トークン認証で
-				// メールリンクから直接アクセスする。セットアップ前でもアクセス可能にする。
-				!path.startsWith('/survey/')
-			) {
-				if (await isSetupRequired(tenantId)) {
-					redirect(302, '/setup');
-				}
-			}
-
-			// セットアップ完了済みなら /setup へのアクセスをブロック
-			if (path.startsWith('/setup') && !(await isSetupRequired(tenantId))) {
-				redirect(302, '/');
+		// セットアップチェック — 子供が 1 人も登録されていない世帯をウィザードへ連れて行く
+		//
+		// PO 決裁 2026-09-10c: **cognito にも広げる**。旧実装は `authMode === 'local'` 限定で、
+		// **お金を払って登録した保護者だけがウィザードを一度も通らない**状態だった
+		// (cognito の登録完了後の着地は `/admin`)。ウィザードにしか無い 5 step
+		// (questionnaire / rules / activities-defaults / challenges / **first-adventure**) が
+		// 有料契約者に届かず、とくに first-adventure は「親が決め、子が記録する」中核ループを
+		// 保護者が自分の目で 1 回通す唯一の場所だった。
+		//
+		// **新しい setting は足さない** (PO 決裁)。`isSetupRequired` は archived の子供も数えるため
+		// (`setup-service.ts`)、全員 archive した既存契約者がウィザードに入ることは無い。
+		// 入るのは子供の行が 1 つも無いときだけで、それは新規テナントと同じ状態。
+		//
+		// 除外リストは `setup-gate.ts` に出した。local 向けに育ったリストをそのまま cognito に
+		// 広げると、cognito にしか無い導線 (課金 / 認証 / 同意 / 法務) を塞ぐ。
+		//
+		// **demo (anonymous) には広げない。** demo は書き込みが no-op (`shouldReturnDemoNoop`) で
+		// セットアップを完了できないため、一度入れたら永久に出られない (#4712 が同じ形を
+		// バナーで踏んでいる)。**cognito は未認証のときも広げない** — テナントが解決する前に
+		// 倒すと、ログインしに来た人を `/setup` へ飛ばしてログインできなくする。
+		//
+		// **prerender 中は `url.search` を読めない** (SvelteKit が「出力が query に依存しない」
+		// ことを保証するために throw する。実測: `/offline` `/sitemap.xml` が 500 で build 失敗)。
+		// プリレンダ対象は定義上 query に依存しないので、`building` 中は search 無しで判定する。
+		const setupTenantId = resolveSetupGateTenantId({ authMode, tenantId: context?.tenantId });
+		const setupGateSearch = building ? '' : event.url.search;
+		if (setupTenantId && !isSetupRedirectExempt(path, setupGateSearch)) {
+			if (await isSetupRequired(setupTenantId)) {
+				// #4885 の gate は着地先の query ごと落とす。1 度きりの告知 (?trialStarted=1、
+				// PO 決裁 2026-09-10 決定 3(a)) はここで消えると二度と出せない — 新規テナントは
+				// 必ず子供 0 人なので、申込経路の顧客は 100% この redirect を通る (#4887 B2)。
+				redirect(302, `/setup${carryTrialStartedQuery(setupGateSearch)}`);
 			}
 		}
 
@@ -639,7 +657,8 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// 認可チェック（Provider 固有のルート保護）
-		const authResult = provider.authorize(path, identity, context);
+		// #4701: `?next=` を見る判定 (ログイン済みで /auth/login に来た顧客の転送先) のため url も渡す
+		const authResult = provider.authorize(path, identity, context, event.url);
 		if (!authResult.allowed) {
 			if (path.startsWith('/api/')) {
 				const status = authResult.status ?? 401;
@@ -652,6 +671,52 @@ export const handle: Handle = ({ event, resolve }) =>
 			}
 			redirect(302, authResult.redirect);
 		}
+
+		// セットアップ完了済みなら /setup へのアクセスをブロック。
+		// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
+		// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
+		// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
+		// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
+		//
+		// **認可 (`provider.authorize`) の後に置く。** 前に置くと、child が /setup を踏んだときに
+		// こちらが先に当たって `/` へ倒れ、#4700 が足した理由 (`/switch?reason=admin_forbidden`、
+		// authorization.ts:58) が評価されない。塞がること自体は変わらないが、**なぜ入れないのかが
+		// 顧客に伝わらなくなる**。
+		// **`setupRequired` → `/setup` の側 (:640-644) は認可より前のまま**にする — 後ろに動かすと
+		// 子供 0 人テナントの `/admin` が先に認可判定に晒され、ウィザードへ連れて行く経路が変わる。
+		if (setupTenantId && path.startsWith('/setup')) {
+			const [setupRequired, wizardInProgress] = await Promise.all([
+				isSetupRequired(setupTenantId),
+				isSetupWizardInProgress(setupTenantId),
+			]);
+			if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
+				redirect(302, '/admin');
+			}
+		}
+
+		// 2-b) 親 PIN gate (#4866 系 QM 監査 / PO 決裁 2026-09-10 決定 4)
+		//
+		// **これまで PIN gate は `(parent)/admin/+layout.server.ts` の 1 箇所にしか無く、
+		// page の load しか通らなかった** — `/api/v1/admin/**` 25 本と form action 22 file が
+		// 素通りしていた (設計書は「アプリ層（全経路）」と書いており実装より広かった)。
+		//
+		// ここで倒すのは **`/api/` の書き込みと一括 PII の読み取り**だけ。form action は
+		// page への POST なので、ここで 303 に倒すと**保護者が書いた内容が黙って捨てられる**
+		// (PO 決定 4(a) が明示的に禁じている)。form action 側は `parentGateBlocked()` を見て
+		// `fail()` を返し、入力を保持したまま画面上で PIN を求める。
+		//
+		// 範囲と返し方の根拠は `parent-gate.ts` の header を読むこと。
+		//
+		// **認可 (`provider.authorize`) の後に置く。** 判定に `context.tenantId` が要り、
+		// それが確定するのは認証解決の後だから (前に置くと tenantId が undefined のまま
+		// 照合され、正しい PIN session を持つ保護者まで 403 にする)。
+		const parentGateBlock = enforceParentGate(
+			path,
+			event.request.method,
+			event.cookies.get(PARENT_SESSION_COOKIE_NAME),
+			context?.tenantId,
+		);
+		if (parentGateBlock) return parentGateBlock;
 
 		// 退会 (アカウント削除) 申請済みテナントの読み取り専用制御（#0193 / #3993）
 		//
@@ -677,13 +742,19 @@ export const handle: Handle = ({ event, resolve }) =>
 		if (isWriteRequest && context?.tenantId) {
 			// 退会申請中でも「データを持ち出す」「退会を取り消す」「ログアウトする」は通す。
 			// これらを塞ぐと、申請を撤回する手段まで失う。
-			const isAllowedWritePath = [
-				'/api/v1/admin/account/restore',
-				'/api/v1/admin/account/export',
-				'/api/v1/export',
-				'/api/v1/auth/logout',
-				'/auth/logout',
-			].some((p) => path.startsWith(p));
+			const isAllowedWritePath =
+				[
+					'/api/v1/admin/account/restore',
+					'/api/v1/admin/account/export',
+					'/api/v1/export',
+					'/api/v1/auth/logout',
+					'/auth/logout',
+				].some((p) => path.startsWith(p)) ||
+				// #4699: /switch の子供選択は cookie を書くだけで DB を書き換えない (読み取り用途の POST)。
+				// ここを塞ぐと退会申請中に子供画面へ入れず、設定画面へ無言で飛ばされる。
+				// **完全一致で判定する** — startsWith だと将来 /switchboard 等の別ルートを
+				// 無言でロック外にしてしまう (書き込みロックの例外は最小に保つ)。
+				path === '/switch';
 
 			if (!isAllowedWritePath && (await isTenantSoftDeleted(context.tenantId))) {
 				if (path.startsWith('/api/')) {
@@ -709,11 +780,29 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// 同意バージョンチェック（cognito 本番モードのみ、dev モードは除外）
+		//
+		// #4497: 子供セッションは対象外。同意主体は保護者であり (privacy.html 第9条「お子さま本人が
+		// アカウントを作成することはできません」)、子供に法務文書のチェックボックスを操作させると
+		// 同意を得る相手を間違える。UX 上も、3-5 歳のひらがな画面の子が「越境移転」「施行規則17条2項」の
+		// 文書に突き当たり、同意後は行き場のない /admin へ飛ばされる (ADR-0012 の最短経路にも反する)。
+		// 保護者は /admin 等でこの gate に掛かるので、再同意の取得自体は保護者側で成立する。
+		//
+		// この分岐が実際に発火するのは本 PR の version bump が初めてであり、それまでは
+		// 「誰も再同意対象にならない」ため潜在していた (#4497 で顕在化)。
 		if (
 			authMode === 'cognito' &&
-			!COGNITO_DEV_MODE &&
+			!isCognitoDevMode() &&
 			identity &&
 			context?.tenantId &&
+			context.role !== 'child' &&
+			// PO 決裁 2026-09-10c と同じ「金の確認が先」(#4887 B3)。Stripe checkout の着地
+			// (`?session_id=…`) をここで /consent に倒すと、決済完了の確認バナーと
+			// `reconcileCheckoutSession` (webhook 未達時の救済) がその訪問で失われ、
+			// /consent は元の URL に戻さない (consent/+page.server.ts の着地は /admin)。
+			// 着地先は returnPath 次第で任意の path になるため path でなく query で見る
+			// (SSOT: setup-gate.ts の CHECKOUT_SESSION_QUERY_KEY)。次の遷移で通常どおり
+			// /consent に倒れるので、再同意を免除するのではなく 1 画面だけ後ろにずらす。
+			!new URLSearchParams(setupGateSearch).has(CHECKOUT_SESSION_QUERY_KEY) &&
 			!path.startsWith('/consent') &&
 			!path.startsWith('/legal/') &&
 			!path.startsWith('/auth/') &&
@@ -728,6 +817,17 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		const response = await resolve(event);
+
+		// #4721: cron endpoint が実際に呼ばれたことを記録する (NUC の scheduler 生死観測)。
+		//
+		// **受けた側で記録する**ことに意味がある — scheduler コンテナが起動していない /
+		// 古いままで registry の新ジョブを知らない、という状態は「何も起きない」形で現れ、
+		// log にも画面にも出ないため鮮度でしか捕まえられない。記録は `/api/health` が読む。
+		// 記録側は失敗しても cron 本体を落とさない (観測装置が本処理を止めない)。
+		if (response.ok) {
+			const cronJobName = cronJobNameFromPath(path);
+			if (cronJobName) recordCronRun(cronJobName);
+		}
 
 		// 3) セキュリティヘッダ付与
 		// Content-Security-Policy は SvelteKit 標準 CSP (svelte.config.js kit.csp) が

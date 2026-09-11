@@ -7,7 +7,7 @@
 - 新規チケットは `gh issue create`。`docs/tickets/` への新規ファイル禁止（レガシー、参照のみ）
 - テンプレート: `.github/ISSUE_TEMPLATE/dev_ticket.yml` / `bug_report.yml` / `feature_request.yml`
 - ラベル: `type:feat|fix|refactor|infra|design|docs|marketing|test` / `priority:critical|high|medium|low` / `status:blocked|in-progress|on-hold` / `area:auth|billing|child-ui|admin|lp|db`
-- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、**個別 PR の develop merge では Issue は auto-close されない**。ただし **develop→main 統合 PR は含有 PR の `## 関連 Issue` の close 宣言（`closes/fixes/resolves #N`）を `integration-pr-body.mjs` が `Closes #N` に集約し、main 反映で一括 auto-close する**（#3423。over-close 防止のため section 内 行頭 closing keyword のみ集約、#3444。issue-close-gate は PR-keyword close を skip するため reopen storm は起きない）。この集約が空振りしないよう、**develop 向け `type:feat` / `type:fix` PR は `## 関連 Issue` への closing keyword 記入を `pr-template-gate.yml` job 6（`closing keyword の記入 (feat/fix)`）が必須化する**（#3458 / #3423 AC1。issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip）。集約の residual edge 3 件は #3462 で封鎖: ① conventional-commit prefix 行（`fix: #N subject…` のように issue 番号の後に subject テキストを伴うコロン形）は集約しない（`Closes: #N` の裸コロン宣言は集約維持）/ ② `## 関連 Issue` 見出しは軽微な揺れ（前後空白・`##`〜`####` レベル差・「関連Issue」空白有無・末尾コロン）を正規化して検出（under-close 防止）/ ③ **`epic` label 付き tracking issue は集約 `Closes` から除外**し統合 PR 本文に「(tracking, close 対象外)」と注記（AC 未検証 force-close 防止、close は AC 検証のうえ手動）。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（個別 close は手動 `- [x]` close + AC gate、統合 PR で集約 `Closes #N` 一括 close）
+- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、**個別 PR の develop merge では Issue は auto-close されない**。ただし **develop→main 統合 PR は含有 PR の `## 関連 Issue` の close 宣言（`closes/fixes/resolves #N`）を `integration-pr-body.mjs` が `Closes #N` に集約し、main 反映で一括 auto-close する**（#3423。over-close 防止のため section 内 行頭 closing keyword のみ集約、#3444。close 後に Issue を自動 reopen する機械 gate は無いため reopen storm は起きない）。この集約が空振りしないよう、**develop 向け `type:feat` / `type:fix` PR は `## 関連 Issue` への closing keyword 記入を `pr-template-gate.yml` job 6（`closing keyword の記入 (feat/fix)`）が必須化する**（#3458 / #3423 AC1。issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip）。集約の residual edge 3 件は #3462 で封鎖: ① conventional-commit prefix 行（`fix: #N subject…` のように issue 番号の後に subject テキストを伴うコロン形）は集約しない（`Closes: #N` の裸コロン宣言は集約維持）/ ② `## 関連 Issue` 見出しは軽微な揺れ（前後空白・`##`〜`####` レベル差・「関連Issue」空白有無・末尾コロン）を正規化して検出（under-close 防止）/ ③ **`epic` label 付き tracking issue は集約 `Closes` から除外**し統合 PR 本文に「(tracking, close 対象外)」と注記（AC 未検証 force-close 防止、close は AC 検証のうえ手動）。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（個別 close は手動 `- [x]` close + AC gate、統合 PR で集約 `Closes #N` 一括 close）
 
 ## Issue 起票ルール（CRITICAL — ADR-0003）
 
@@ -76,11 +76,7 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 
 **close 経路を判定して auto-reopen する workflow は現在存在しない。** 手動 close (`gh issue close` / GitHub UI) に CI gate は掛からないので、**AC 未達のまま close できてしまう**。AC 検証は PR 側 (`pr-ac-verification-check.yml`) と close する人のレビューで担保する。
 
-close 経路の判定純粋関数 `scripts/issue-close-gate-skip-judge.mjs` は残っているが、これを実行する workflow は無い（`integration-pr.yml` / `integration-pr-body.mjs` はコメントで挙動を参照するのみ）。
-
 > **develop 二層での Issue close の実態（#3119 / #3123 / #3423）**: GitHub の auto-close は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**個別 PR の develop merge では auto-close はほぼ発火せず、個別 close はほぼ全て手動 close になる**。一方 **develop→main 統合 PR（release/* → main）の merge commit には #3423 で含有 PR の `Closes #N` が集約される**ため、含有 issue が一括 auto-close される。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。
-
-判定純粋関数の unit test: `tests/unit/github/issue-close-gate-skip-judge.test.ts`。
 
 詳細: [ADR-0004 §4](../docs/decisions/0004-review-and-ac-verification.md)
 
@@ -92,7 +88,7 @@ AC に「**実機で確認する**」「**外部媒体へ退避したことを�
 |---|---|
 | 個別 close | **実施した記録が Issue に貼られていること**が条件。実装の merge ではない |
 | 統合 PR の `Closes` 集約 | **含めない。** `integration-pr-body.mjs` は AC を見ないため auto-close され、追跡者が消える |
-| `issue-close-gate` の reopen | 「AC checkbox の形式問題」と扱わない。**中身が未達である可能性を先に疑う** |
+| 未チェック AC が残っている | 「checkbox の付け忘れ」と扱わない。**中身が未達である可能性を先に疑う**（close を止める機械 gate は無く、疑うのは close する人の責任） |
 
 集約に追加する前に実測する:
 

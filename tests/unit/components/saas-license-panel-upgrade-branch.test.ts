@@ -27,7 +27,7 @@ const NOW = '2026-08-01T00:00:00.000Z';
 function buildData(options: { stripeEnabled: boolean; hasSubscription: boolean }) {
 	return {
 		license: {
-			plan: 'standard_monthly',
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
 			status: SUBSCRIPTION_STATUS.ACTIVE,
 			tenantName: 'テスト家族',
 			createdAt: NOW,

@@ -94,16 +94,21 @@ export async function insertLog(input: InsertNotificationLogInput): Promise<Noti
 	return { ...row, id: String(row.id) };
 }
 
-export async function countTodayLogs(tenantId: string, today: string): Promise<number> {
-	const nextDay = `${today}T99:99:99`; // anything > today's timestamps
+export async function countLogsBetween(
+	tenantId: string,
+	fromIso: string,
+	toIso: string,
+): Promise<number> {
+	// sent_at は UTC ISO 文字列で保存されるため、UTC instant の ISO 文字列同士の辞書順比較で範囲が取れる。
+	// 境界の TZ は呼び出し側 (service) が JST 暦日から instant 化して渡す (#4722)。
 	const result = db
 		.select({ value: count() })
 		.from(notificationLogs)
 		.where(
 			and(
 				eq(notificationLogs.tenantId, tenantId),
-				gte(notificationLogs.sentAt, `${today}T00:00:00`),
-				lt(notificationLogs.sentAt, nextDay),
+				gte(notificationLogs.sentAt, fromIso),
+				lt(notificationLogs.sentAt, toIso),
 			),
 		)
 		.get();

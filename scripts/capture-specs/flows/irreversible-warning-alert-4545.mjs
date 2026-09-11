@@ -36,6 +36,8 @@
  *     --actions scripts/capture-specs/flows/irreversible-warning-alert-4545.mjs --presets desktop
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const TARGET = process.env.CAPTURE_TARGET ?? 'account';
 const PLAN = process.env.CAPTURE_PLAN ?? 'free';
@@ -43,9 +45,9 @@ const CAPTURE_NAME = process.env.CAPTURE_NAME ?? `irreversible-warning-${TARGET}
 
 /** DEV_USERS (src/lib/server/auth/providers/cognito-dev.ts) の owner 3 プラン。 */
 const DEV_OWNERS = {
-	free: { email: 'free@example.com', password: 'Gq!Dev#Free2026xy' },
-	standard: { email: 'standard@example.com', password: 'Gq!Dev#Std2026xyz' },
-	family: { email: 'family@example.com', password: 'Gq!Dev#Fam2026xyz' },
+	free: { email: 'free@example.com', password: devPassword('free@example.com') },
+	standard: { email: 'standard@example.com', password: devPassword('standard@example.com') },
+	family: { email: 'family@example.com', password: devPassword('family@example.com') },
 };
 
 /** cognito-dev のログインフォームを通す (cancel-vs-deletion-4496.mjs と同型) */
@@ -110,7 +112,7 @@ export default async (page, capture) => {
 	await loginAs(page, owner);
 
 	if (TARGET === 'child-delete') {
-		// 子供カードの削除確認 (ChildProfileCard)。編集モード → 「この子供を削除」で確認文が出る。
+		// 子供カードの削除確認 (ChildProfileCard)。編集モード → 「このお子さまを削除」で確認文が出る。
 		await page.goto(`${BASE_URL}/admin/children`, { waitUntil: 'domcontentloaded' });
 		// ChildProfileCard は「選択中の子供」でのみ描画される (`?id=<childId>`)。
 		// 一覧カード (ChildListCard) の link が出るまで待ち、チュートリアル /
@@ -127,7 +129,9 @@ export default async (page, capture) => {
 		await dismissOverlays(page);
 		await editBtn.click();
 		await dismissOverlays(page);
-		const deleteBtn = page.getByRole('button', { name: '🗑 この子供を削除' }).first();
+		// #4716: 「この子供を削除」→「このお子さまを削除」(CHILD_TERMS.honorific)。
+		//   .mjs から labels.ts (TS) は import できないので、呼称部分だけ許容する正規表現で照合する。
+		const deleteBtn = page.getByRole('button', { name: /^🗑 この.+を削除$/ }).first();
 		await deleteBtn.waitFor({ state: 'visible', timeout: 30_000 });
 		await deleteBtn.click();
 		await page

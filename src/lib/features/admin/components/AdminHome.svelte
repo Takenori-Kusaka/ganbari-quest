@@ -1,24 +1,18 @@
 <script lang="ts">
-import { invalidateAll } from '$app/navigation';
 import type { ChildId } from '$lib/domain/ids';
-import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
+import { ADMIN_HOME_LABELS, DEMO_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
 import MonthlyValuePreview from '$lib/features/value-preview/MonthlyValuePreview.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import type { TenantValuePreview } from '$lib/server/services/value-preview-service';
-import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import {
-	dismissTutorialBanner,
-	markTutorialStarted,
-	startTutorial,
-} from '$lib/ui/tutorial/tutorial-store.svelte';
 import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
+import SetupResumeBanner from './SetupResumeBanner.svelte';
 
 interface ChildSummary {
 	id: ChildId;
@@ -45,7 +39,6 @@ interface MonthSummaryData {
 interface Props {
 	children: ChildSummary[];
 	pointSettings: PointSettings;
-	tutorialStarted?: boolean;
 	onboarding?: OnboardingProgress | null;
 	mode: 'live' | 'demo';
 	basePath: string;
@@ -69,7 +62,6 @@ interface Props {
 let {
 	children,
 	pointSettings,
-	tutorialStarted = true,
 	onboarding = null,
 	mode,
 	basePath,
@@ -97,31 +89,35 @@ async function handleDismissWelcome() {
 }
 
 const isDemo = $derived(mode === 'demo');
+// #4868 adversarial round 5: **ウィザードを歩いている間は admin の checklist を出さない**。
+// required 5 項目は step 1〜4 と `/switch` で埋まるので、印が立っている世帯にはこのカードが
+// 「6/6 完了 (100%)」と出る。しかも「非表示にする」は `allCompleted` の側にしか無いので
+// **消せない**。その間の案内は `admin/+layout.svelte` が出す `SetupResumeBanner`
+// (variant=context) が担う — 案内は 1 つにする。
 const showOnboarding = $derived(
-	!isDemo && onboarding && !onboarding.dismissed && !onboarding.allCompleted,
+	!isDemo &&
+		onboarding &&
+		!onboarding.dismissed &&
+		!onboarding.allCompleted &&
+		!onboarding.wizardInProgress,
 );
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
+// #4868 adversarial round 6: **`/admin` に直接着地したときに案内が全消灯していた**。
+//
+// round 5 で `showOnboarding` から `wizardInProgress` を外したが、その受け皿と書いた
+// `admin/+layout.svelte` の `SetupResumeBanner` は `?from=setup` かつ `pathname !== '/admin'`
+// のときにしか出ない (`+layout.server.ts` の `fromSetup`)。`/admin` は AdminLayout の
+// 「🏠 ホーム」タブと `/switch` の「🔒 ご家族の見守り画面」の遷移先そのものなので、
+// **この PR が新設した「あとでやる」の 1 手先が行き止まり**になっていた (実測: SSR payload で
+// `setupOnboarding: null` / `wizardInProgress: true`、onboarding 系 testid 0 件)。
+//
+// ここは `onboarding` を既に受け取っているので、追加の I/O なしに同じバナーを出せる。
+// layout 側は `/admin` を除外したままなので二重には出ない。
+const showWizardResume = $derived(
+	!isDemo && onboarding && !onboarding.dismissed && onboarding.wizardInProgress,
+);
 
 // #3033: ワンクリックアップグレード (#767) は /admin/subscription (SaasLicensePanel) に一本化
-
-async function handleStartTutorial() {
-	await markTutorialStarted();
-	await startTutorial();
-	await invalidateAll();
-}
-
-async function handleDismissBanner() {
-	await dismissTutorialBanner();
-	await invalidateAll();
-}
-
-// #961 QA: クイックモード完了後も全チャプターを明示的に表示する導線
-async function handleViewFullGuide() {
-	await markTutorialStarted();
-	// チャプター1を明示指定 → quickMode=false で全チャプター表示
-	await startTutorial(1);
-	await invalidateAll();
-}
 
 const ps = $derived(pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -148,7 +144,11 @@ function childLink(child: ChildSummary): string {
 	<h1 class="dashboard-heading">{ADMIN_HOME_LABELS.heading}{isDemo ? ADMIN_HOME_LABELS.headingDemoSuffix : ''}</h1>
 
 	<!-- Onboarding Checklist (replaces tutorial banner for new users) -->
-	{#if showOnboarding && onboarding}
+	{#if showWizardResume && onboarding}
+		<!-- #4868 round 6: ウィザード中断中の `/admin` 着地。checklist は「6/6 完了」と出て
+		     しかも消せないので出さない。代わりにウィザードへ戻す 1 本の導線を出す -->
+		<SetupResumeBanner {onboarding} variant="context" />
+	{:else if showOnboarding && onboarding}
 		<OnboardingChecklist {onboarding} />
 	{:else if onboardingComplete && onboarding}
 		<div class="onboarding-complete-card" data-testid="onboarding-complete">
@@ -157,38 +157,6 @@ function childLink(child: ChildSummary): string {
 			<form method="POST" action="?/dismissOnboarding">
 				<button type="submit" class="dismiss-complete-btn">{ADMIN_HOME_LABELS.onboardingDismissButton}</button>
 			</form>
-		</div>
-	{:else if !isDemo && !tutorialStarted && !onboarding}
-		<!-- Fallback: Legacy tutorial banner -->
-		<div class="bg-[var(--color-feedback-info-bg)] border-l-4 border-[var(--color-brand-500)] p-4 rounded-lg" data-tutorial="tutorial-banner">
-			<div class="flex items-center gap-3">
-				<span class="text-2xl">📖</span>
-				<div class="flex-1">
-					<p class="font-bold text-[var(--color-text)]">{ADMIN_HOME_LABELS.tutorialBannerTitle}</p>
-					<p class="text-sm text-[var(--color-text-muted)]">{ADMIN_HOME_LABELS.tutorialBannerHint}</p>
-				</div>
-				<div class="flex gap-2">
-					<Button variant="primary" size="sm" onclick={handleStartTutorial}>
-						{ADMIN_HOME_LABELS.tutorialStartButton}
-					</Button>
-					<Button variant="ghost" size="sm" onclick={handleDismissBanner}>
-						{ADMIN_HOME_LABELS.tutorialLaterButton}
-					</Button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- #961 QA: 全チュートリアル導線（クイックモード完了後でもアクセス可能） -->
-	{#if !isDemo}
-		<div class="tutorial-full-guide-card" data-testid="admin-view-full-guide">
-			<div class="tutorial-full-guide-info">
-				<span class="tutorial-full-guide-label">{TUTORIAL_LABELS.viewFullGuide}</span>
-				<span class="tutorial-full-guide-hint">{TUTORIAL_LABELS.viewFullGuideHint}</span>
-			</div>
-			<Button variant="ghost" size="sm" onclick={handleViewFullGuide}>
-				{TUTORIAL_LABELS.openGuide}
-			</Button>
 		</div>
 	{/if}
 
@@ -207,7 +175,7 @@ function childLink(child: ChildSummary): string {
 			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryChildrenLabel}</p>
 		</Card>
 		<Card variant="elevated" class="text-center" role="group" aria-label={ADMIN_HOME_LABELS.summaryPointsAria}>
-			<p class="text-2xl font-bold text-[var(--color-gold-500)]">
+			<p class="text-2xl font-bold text-[var(--color-text-gold)]">
 				{fmtBal(children.reduce((sum, c) => sum + c.balance, 0))}
 			</p>
 			<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{ADMIN_HOME_LABELS.summaryPointsTotalPrefix}{unit}</p>
@@ -289,7 +257,7 @@ function childLink(child: ChildSummary): string {
 	{/if}
 
 	<!-- Children Overview -->
-	<section data-tutorial="children-overview">
+	<section>
 		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{ADMIN_HOME_LABELS.childrenSectionTitle}</h2>
 		{#if children.length === 0}
 			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
@@ -297,7 +265,7 @@ function childLink(child: ChildSummary): string {
 			</Card>
 		{:else}
 			<div class="grid gap-3">
-				{#each children as child}
+				{#each children as child, i}
 					<ChildListCard
 						child={{
 							...child,
@@ -306,6 +274,7 @@ function childLink(child: ChildSummary): string {
 						}}
 						isSelected={false}
 						href={childLink(child)}
+						dataTutorial={i === 0 ? 'child-card-first' : undefined}
 						formatBalance={fmtBal}
 					/>
 				{/each}
@@ -319,7 +288,7 @@ function childLink(child: ChildSummary): string {
 				{ADMIN_HOME_LABELS.demoCtaHint}
 			</p>
 			<a
-				href="/demo/signup"
+				href={DEMO_LABELS.signupHref}
 				class="inline-block w-full py-2.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white font-bold rounded-xl text-center text-sm"			>				{ADMIN_HOME_LABELS.demoCtaButton}
 			</a>
 		</div>
@@ -390,37 +359,6 @@ function childLink(child: ChildSummary): string {
 		font-size: 0.75rem;
 		cursor: pointer;
 		text-decoration: underline;
-	}
-
-	/* #961 QA: All tutorial guide cards */
-	.tutorial-full-guide-card {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		background: var(--color-surface-accent);
-		border: 1px solid var(--color-feedback-info-border);
-		border-radius: var(--radius-lg, 12px);
-	}
-
-	.tutorial-full-guide-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		flex: 1;
-		min-width: 0;
-	}
-
-	.tutorial-full-guide-label {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: var(--color-text-primary);
-	}
-
-	.tutorial-full-guide-hint {
-		font-size: 0.7rem;
-		color: var(--color-text-tertiary);
 	}
 
 	/* #1292: Today's usage time */

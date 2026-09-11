@@ -16,16 +16,14 @@
 //   - **status_history append-only**: hasDecayRunToday は daily_decay 履歴の read のみ
 //     (append-only 契約に read で触れる)。recorded_at は timestamptz ゆえ JST 暦日一致を
 //     AT TIME ZONE 'Asia/Tokyo' で判定し、sqlite の 'YYYY-MM-DD' prefix LIKE と parity を取る。
-//   - **自然キー entity の id** (§4): rest_days は surrogate 列を持たない (自然複合 PK
-//     (family, child, date))。RestDay.id は複合キー合成 (`child:date`) を返す。RestDay.id の
-//     service/route 消費は 0 件 (export は date/reason/createdAt を読む、grep 確認済) で、
-//     entity shape 契約 (id: string) のみ維持する (status-repo の Status.id と同型判断)。
+//   - rest_days: #4691 でおやすみ日機能 (API / export / 評価連動) を撤去。本 repo は
+//     deleteByTenantId の行削除だけを保持する (表は空のまま残置、schema 変更なし)。
 
 import { sql } from 'drizzle-orm';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
 import type { IEvaluationRepo } from '../interfaces/evaluation-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
-import type { Child, Evaluation, RestDay } from '../types';
+import type { Child, Evaluation } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
 import type { SqlExecutor } from './sql-executor';
 
@@ -39,17 +37,9 @@ interface EvaluationRow {
 	created_at: string;
 }
 
-interface RestDayRow {
-	child_id: string;
-	date: string;
-	reason: string;
-	created_at: string;
-}
-
 const EVALUATION_COLUMNS = sql.raw(
 	'child_id, eval_id, week_start, week_end, scores_json, bonus_points, created_at',
 );
-const REST_DAY_COLUMNS = sql.raw('child_id, date, reason, created_at');
 
 /** row → Evaluation (scores_json は text 据置、verbatim string、§4.2)。 */
 function toEvaluation(row: EvaluationRow): Evaluation {
@@ -60,17 +50,6 @@ function toEvaluation(row: EvaluationRow): Evaluation {
 		weekEnd: row.week_end,
 		scoresJson: row.scores_json,
 		bonusPoints: row.bonus_points,
-		createdAt: row.created_at,
-	};
-}
-
-/** row → RestDay (id は複合自然キー合成 `child:date`、§4 自然キー戦略 / 消費 0 件)。 */
-function toRestDay(row: RestDayRow): RestDay {
-	return {
-		id: `${row.child_id}:${row.date}`,
-		childId: asChildId(row.child_id),
-		date: row.date,
-		reason: row.reason,
 		createdAt: row.created_at,
 	};
 }
@@ -192,73 +171,6 @@ export function createDsqlEvaluationRepo<TTx extends SqlExecutor>(
 				categoryId: asCategoryId(r.category_id),
 				lastDate: r.last_date,
 			}));
-		},
-
-		async insertRestDay(childId, date, reason, tenantId) {
-			// 自然複合 PK (family, child, date) への冪等 insert (sqlite onConflictDoNothing parity)。
-			const result = await db.execute(sql`
-				INSERT INTO rest_days (family_id, child_id, date, reason)
-				VALUES (${tenantId}, ${childId}, ${date}, ${reason})
-				ON CONFLICT (family_id, child_id, date) DO NOTHING
-				RETURNING ${REST_DAY_COLUMNS}
-			`);
-			const row = result.rows[0] as unknown as RestDayRow | undefined;
-			return row ? toRestDay(row) : undefined;
-		},
-
-		async deleteRestDay(childId, date, tenantId) {
-			await db.execute(sql`
-				DELETE FROM rest_days
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND date = ${date}
-			`);
-		},
-
-		async isRestDay(childId, date, tenantId) {
-			const result = await db.execute(sql`
-				SELECT 1 FROM rest_days
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND date = ${date}
-				LIMIT 1
-			`);
-			return result.rows.length > 0;
-		},
-
-		async countRestDaysInMonth(childId, yearMonth, tenantId) {
-			const result = await db.execute(sql`
-				SELECT count(*)::int AS c FROM rest_days
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND date LIKE ${`${yearMonth}%`}
-			`);
-			return Number((result.rows[0] as { c: number }).c);
-		},
-
-		async findRestDays(childId, yearMonth, tenantId) {
-			const result = await db.execute(sql`
-				SELECT ${REST_DAY_COLUMNS} FROM rest_days
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND date LIKE ${`${yearMonth}%`}
-				ORDER BY date
-			`);
-			return (result.rows as unknown as RestDayRow[]).map(toRestDay);
-		},
-
-		async findRestDaysByChild(childId, tenantId) {
-			// #3329 backup: 月不問の全おやすみ日 (export 用)。
-			const result = await db.execute(sql`
-				SELECT ${REST_DAY_COLUMNS} FROM rest_days
-				WHERE family_id = ${tenantId} AND child_id = ${childId}
-				ORDER BY date
-			`);
-			return (result.rows as unknown as RestDayRow[]).map(toRestDay);
-		},
-
-		async insertRestDayForRestore(input, tenantId) {
-			// #3329 restore: created_at を保全して書き戻す (id は自然キーゆえ発番なし)。
-			const result = await db.execute(sql`
-				INSERT INTO rest_days (family_id, child_id, date, reason, created_at)
-				VALUES (${tenantId}, ${input.childId}, ${input.date}, ${input.reason}, ${input.createdAt})
-				ON CONFLICT (family_id, child_id, date) DO NOTHING
-				RETURNING ${REST_DAY_COLUMNS}
-			`);
-			const row = result.rows[0] as unknown as RestDayRow | undefined;
-			return row ? toRestDay(row) : undefined;
 		},
 
 		async deleteByTenantId(tenantId) {

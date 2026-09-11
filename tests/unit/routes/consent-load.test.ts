@@ -12,6 +12,13 @@ vi.mock('$lib/server/services/consent-service', () => ({
 	recordConsent: vi.fn(),
 	CURRENT_TERMS_VERSION: '2026-04-01',
 	CURRENT_PRIVACY_VERSION: '2026-04-01',
+	CURRENT_CROSS_BORDER_VERSION: '2026-04-01',
+}));
+
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: mockGetAuthMode,
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -85,9 +92,11 @@ describe('consent load', () => {
 		mockCheckConsent.mockResolvedValue({
 			termsAccepted: false,
 			privacyAccepted: false,
+			crossBorderAccepted: false,
 			needsReconsent: true,
 			termsVersion: undefined,
 			privacyVersion: undefined,
+			crossBorderVersion: undefined,
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
 		expect(result).toBeDefined();
@@ -95,15 +104,18 @@ describe('consent load', () => {
 		expect(result.hasExistingConsent).toBe(false);
 		expect(result.previousTermsVersion).toBeNull();
 		expect(result.previousPrivacyVersion).toBeNull();
+		expect(result.previousCrossBorderVersion).toBeNull();
 	});
 
 	it('既存ユーザー（旧バージョン同意あり）は hasExistingConsent: true', async () => {
 		mockCheckConsent.mockResolvedValue({
 			termsAccepted: false,
 			privacyAccepted: false,
+			crossBorderAccepted: false,
 			needsReconsent: true,
 			termsVersion: '2026-03-01',
 			privacyVersion: '2026-03-01',
+			crossBorderVersion: '2026-03-01',
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
 		expect(result).toBeDefined();
@@ -111,15 +123,18 @@ describe('consent load', () => {
 		expect(result.hasExistingConsent).toBe(true);
 		expect(result.previousTermsVersion).toBe('2026-03-01');
 		expect(result.previousPrivacyVersion).toBe('2026-03-01');
+		expect(result.previousCrossBorderVersion).toBe('2026-03-01');
 	});
 
 	it('terms のみ同意済み・privacy 未同意の mixed state', async () => {
 		mockCheckConsent.mockResolvedValue({
 			termsAccepted: true,
 			privacyAccepted: false,
+			crossBorderAccepted: true,
 			needsReconsent: true,
 			termsVersion: '2026-04-01',
 			privacyVersion: undefined,
+			crossBorderVersion: '2026-04-01',
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
 		expect(result).toBeDefined();
@@ -131,13 +146,35 @@ describe('consent load', () => {
 		expect(result.previousPrivacyVersion).toBeNull();
 	});
 
+	// #4497: terms/privacy は現行版だが越境移転同意だけ無い状態 = Google OAuth で登録した
+	// 既存ユーザーの実際の姿。この画面が唯一の取得点なので、必ず未同意として出ること。
+	it('越境移転のみ未同意（OAuth 登録済みユーザー）は再同意対象として返る', async () => {
+		mockCheckConsent.mockResolvedValue({
+			termsAccepted: true,
+			privacyAccepted: true,
+			crossBorderAccepted: false,
+			needsReconsent: true,
+			termsVersion: '2026-04-01',
+			privacyVersion: '2026-04-01',
+			crossBorderVersion: undefined,
+		});
+		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(result).toBeDefined();
+		if (!result) return;
+		expect(result.crossBorderAccepted).toBe(false);
+		expect(result.previousCrossBorderVersion).toBeNull();
+		expect(result.currentCrossBorderVersion).toBe('2026-04-01');
+	});
+
 	it('返却値に必要なフィールドが全て含まれる', async () => {
 		mockCheckConsent.mockResolvedValue({
 			termsAccepted: false,
 			privacyAccepted: false,
+			crossBorderAccepted: false,
 			needsReconsent: true,
 			termsVersion: undefined,
 			privacyVersion: undefined,
+			crossBorderVersion: undefined,
 		});
 		const result = await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
 		expect(result).toBeDefined();
@@ -149,5 +186,8 @@ describe('consent load', () => {
 		expect(result).toHaveProperty('hasExistingConsent');
 		expect(result).toHaveProperty('previousTermsVersion');
 		expect(result).toHaveProperty('previousPrivacyVersion');
+		expect(result).toHaveProperty('crossBorderAccepted');
+		expect(result).toHaveProperty('currentCrossBorderVersion');
+		expect(result).toHaveProperty('previousCrossBorderVersion');
 	});
 });

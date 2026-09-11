@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { validationError } from '$lib/server/errors';
 import { executeDailyBattle, getTodayBattle } from '$lib/server/services/battle-service';
 import { getChildById } from '$lib/server/services/child-service';
@@ -25,6 +26,8 @@ async function resolveChildBattleContext(
 	const tenantId = context.tenantId;
 	const childId = asChildId(params.childId);
 	if (!childId) return validationError('IDが不正です');
+	// GET / POST 双方がこの共通処理を通るため、ここ 1 箇所で兄弟のバトル閲覧・実行を止める。
+	requireChildAccess(locals, childId);
 
 	const child = await getChildById(childId, tenantId);
 	if (!child) return validationError('子供が見つかりません');

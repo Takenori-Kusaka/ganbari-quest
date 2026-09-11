@@ -1,3 +1,4 @@
+import type { RecordActivityFailure } from '$lib/domain/activity-record-failure';
 import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
@@ -24,8 +25,10 @@ import {
 	markActivityLogCancelled,
 } from '$lib/server/db/activity-repo';
 // EPIC #3424 Phase Z (#3541): DATA_SOURCE=dsql は core 単一 txn + optional 隔離経路へ dispatch (§8)
-import { isDsqlBackend } from '$lib/server/db/backend';
+import { isPgBackend } from '$lib/server/db/backend';
 import { cancelActivityDsql } from '$lib/server/services/activity-cancel-dsql';
+// #4686: とりけし時の optional 付与 (combo / mission / challenge / must / focus) 対称巻き戻し (両経路共有)
+import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-cancel-optional';
 import {
 	type ActivityLogEntry,
 	type ActivityLogSummary,
@@ -37,6 +40,7 @@ import { prepareActivityRecord } from '$lib/server/services/activity-record-prep
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 // Re-export for backward compatibility with existing callers.
@@ -109,15 +113,14 @@ export async function recordActivity(
 	childId: ChildId,
 	activityId: ActivityId,
 	tenantId: string,
-): Promise<
-	| RecordActivityResult
-	| { error: 'ALREADY_RECORDED' }
-	| { error: 'DAILY_LIMIT_REACHED' }
-	| { error: 'NOT_FOUND'; target: string }
-> {
-	// EPIC #3424 Phase Z (#3541): DSQL backend は core 単一 txn + optional 隔離の専用経路。
-	// sqlite / dynamo / demo は従来経路 (以下) を無変更で通る (現行挙動の凍結)。
-	if (isDsqlBackend()) {
+	// 失敗契約は domain SSOT (`$lib/domain/activity-record-failure`)。inline union に戻さない —
+	// 画面側の文言解決 (`getSetupFirstAdventureRecordError`) が型で結ばれなくなり、
+	// コードを増減しても無警告で汎用文言に落ちる。
+): Promise<RecordActivityResult | RecordActivityFailure> {
+	// EPIC #3424 Phase Z (#3541): pg 系 backend (DSQL / NUC PGlite) は core 単一 txn + optional 隔離の
+	// 専用経路。sqlite / demo は従来経路 (以下) を無変更で通る (現行挙動の凍結)。
+	// #4720: 判定は isPgBackend (dsql だけ見ると NUC PGlite が逐次 await 経路に落ちる)。
+	if (isPgBackend()) {
 		return recordActivityDsql(childId, activityId, tenantId);
 	}
 
@@ -385,20 +388,28 @@ export async function recordActivity(
 }
 
 /** Cancel an activity record (within cancel window). */
+/**
+ * @param scopeChildId 「この child の記録に限る」制約。child ロールの要求では自分の childId が
+ *   渡り、owner / parent では null が渡る (`requireChildScope`)。path が logId しか持たない
+ *   id-only mutation のため、行の所有者はここで突合するしかない (#2845 と同じ扱い)。
+ *   不一致は存在秘匿のため NOT_FOUND (403 ではない)。
+ */
 export async function cancelActivityLog(
 	logId: string,
 	tenantId: string,
+	scopeChildId: ChildId | null = null,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
-	// #3596 ②: DSQL backend は cancel core 単一 txn (log-cancel / mastery / ledger+total_point /
-	// status / history を all-or-nothing)。sqlite / dynamo / demo は従来の逐次 await 経路 (以下、
-	// 現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐。
-	if (isDsqlBackend()) {
-		return cancelActivityDsql(logId, tenantId);
+	// #3596 ②: pg 系 backend (DSQL / NUC PGlite) は cancel core 単一 txn (log-cancel / mastery /
+	// ledger+total_point / status / history を all-or-nothing)。sqlite / demo は従来の逐次 await 経路
+	// (以下、現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐 (#4720: isPgBackend)。
+	if (isPgBackend()) {
+		return cancelActivityDsql(logId, tenantId, scopeChildId);
 	}
 
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
+	if (scopeChildId !== null && log.childId !== scopeChildId) return { error: 'NOT_FOUND' };
 
 	const recordedTime = new Date(log.recordedAt).getTime();
 	if (Date.now() - recordedTime > CANCEL_WINDOW_MS) {
@@ -441,14 +452,30 @@ export async function cancelActivityLog(
 		tenantId,
 	);
 
+	// #4686: 記録時に optional で付与したもの (コンボ / ミッション / チャレンジ進捗 / おやくそく /
+	// フォーカス) を、付与した経路と同じ経路で巻き戻す (#3787 mastery 対称返金と同 class)。
+	await revertOptionalAwardsOnCancel({
+		childId: log.childId,
+		activityId: log.activityId,
+		categoryId: activity ? activity.categoryId : null,
+		today: todayDate(),
+		tenantId,
+	});
+
 	return { refundedPoints: totalPoints };
 }
 
-/** Get activity logs for a child with filtering. */
+/**
+ * 期間で絞った活動ログ + 集計。
+ *
+ * `options` は **必須**。省略可能にすると渡し忘れが「全期間を返す」= 料金表が約束した
+ * 保持期間の空洞化として静かに成立する (同 class が達成タブ / 交換タブで実際に起きた、#4818)。
+ * 保持期間で絞らない用途では `NO_RETENTION_FILTER` を明示的に渡す。
+ */
 export async function getActivityLogs(
 	childId: ChildId,
 	tenantId: string,
-	options: { from?: string; to?: string } = {},
+	options: RetentionRange,
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
 	// #2097 Fix 2: 集計ロジックは activity-log-aggregation.ts (循環依存解消のため抽出済) に委譲。
 	return aggregateActivityLogsByCategory(childId, tenantId, options);

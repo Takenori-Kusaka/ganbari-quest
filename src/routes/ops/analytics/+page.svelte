@@ -2,7 +2,7 @@
 import {
 	type CancellationCategory,
 	getCancellationCategoryLabel,
-	getPlanLabel,
+	getSubscriptionPlanLabel,
 	OPS_ANALYTICS_LABELS,
 	OPS_CANCELLATION_LABELS,
 	OPS_GRADUATION_LABELS,
@@ -135,7 +135,13 @@ function barWidthPct(count: number): number {
 					<tbody>
 						{#each a.planBreakdown as pb}
 							<tr>
-								<td>{pb.plan === 'none' ? OPS_ANALYTICS_LABELS.planNone : getPlanLabel(pb.plan)}</td>
+								<!-- #4505 GAMMA2-PLANKEY-02: pb.plan は SubscriptionPlan 値 ('monthly' 等)。PlanTier 用の
+								     getPlanLabel に渡すと全値が解決に失敗して内部コードのまま出ていた -->
+								<td>
+									{pb.plan === 'none'
+										? OPS_ANALYTICS_LABELS.planNone
+										: getSubscriptionPlanLabel(pb.plan)}
+								</td>
 								<td class="ops-num">{pb.count}</td>
 								<td class="ops-num">¥{pb.mrr.toLocaleString()}</td>
 								<td class="ops-num">{pb.percentage}%</td>

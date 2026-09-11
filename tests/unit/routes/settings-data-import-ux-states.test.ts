@@ -17,7 +17,7 @@
 // cloud export/import の一部は #3732 で local 検証困難 (auth repo / uuid 制約) のため、
 // fetch を stub して条件付き UI の描画契約を component 層で検証する (二重防御の component 側)。
 
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/forms', () => ({
@@ -45,6 +45,15 @@ const { pageStore } = vi.hoisted(() => {
 	};
 });
 vi.mock('$app/stores', () => ({ page: pageStore }));
+
+// #4767 QM should: 削除完了の 2 層フィードバックのうち Toast 側を観測するための seam。
+// Toast primitive は module-level $state を持つ .svelte で、page 側の import (alias) と
+// test 側の import (相対) が別 instance になり DOM に出ない。showToast が **必ず** 通る
+// `$lib/ui/toast-stack` (純 ts) を mock すると、呼び出し元が .svelte でも確実に観測できる。
+const { reconcileToastStackSpy } = vi.hoisted(() => ({
+	reconcileToastStackSpy: vi.fn((_stack: unknown, item: unknown) => [item]),
+}));
+vi.mock('$lib/ui/toast-stack', () => ({ reconcileToastStack: reconcileToastStackSpy }));
 
 import type { Component } from 'svelte';
 import { IMPORT_LABELS, SETTINGS_LABELS } from '../../../src/lib/domain/labels';
@@ -184,6 +193,9 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 											createdAt: '2026-07-16T00:00:00Z',
 											status: 'building',
 											failureReason: null,
+											// #4767: server が付ける行の表示状態 / 自動削除までの残日数
+											rowState: 'building',
+											daysUntilAutoDelete: 5,
 										},
 									],
 								}),
@@ -203,6 +215,262 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			expect(status.textContent).toContain(SETTINGS_LABELS.cloudStatusBuilding);
 			// spinner (animate-spin) が併置される
 			expect(status.querySelector('.animate-spin')).not.toBeNull();
+		});
+	});
+
+	// ── #4767 PO 回答 #3: 枠を占有している行 (DL 使い切り / 失敗) が一覧に出て削除できる ──
+	describe('cloud export 保管枠の可視化と削除 (#4767)', () => {
+		/** GET /api/v1/export/cloud を任意の行で解決し、DELETE の呼び出しを記録する stub。 */
+		function stubCloudFetch(rows: unknown[]) {
+			const deleted: string[] = [];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string, init?: RequestInit) => {
+					if (typeof url === 'string' && url.includes('/api/v1/export/cloud')) {
+						if (init?.method === 'DELETE') {
+							deleted.push(url.split('/').pop() ?? '');
+							return Promise.resolve({
+								ok: true,
+								json: () => Promise.resolve({ ok: true }),
+							} as Response);
+						}
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ exports: rows }),
+						} as Response);
+					}
+					return Promise.reject(new Error(`unexpected fetch: ${url}`));
+				}),
+			);
+			return deleted;
+		}
+
+		const exhaustedRow = {
+			id: 'exp-exhausted',
+			exportType: 'template',
+			pinCode: 'ABC234',
+			expiresAt: '2026-09-10T00:00:00Z',
+			fileSizeBytes: 1024,
+			description: null,
+			downloadCount: 5,
+			maxDownloads: 5,
+			createdAt: '2026-09-01T00:00:00Z',
+			status: 'ready',
+			failureReason: null,
+			rowState: 'exhausted',
+			daysUntilAutoDelete: 7,
+		};
+
+		it('DL 回数を使い切った行も一覧に出て、状態と自動削除までの日数が読める', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			const status = await findByTestId('cloud-export-status-exp-exhausted');
+			expect(status.getAttribute('role')).toBe('status');
+			expect(status.textContent).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+			const row = await findByTestId('cloud-export-row-exp-exhausted');
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudAutoDeleteIn(7));
+			// #4767 QM should: 期限 (絶対日付) と DL 回数は状態によらず消えない
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudStoredExpiry('2026/09/10'));
+			expect(row.textContent).toContain(SETTINGS_LABELS.cloudStoredDownloads(5, 5));
+			// もう取り出せないので DL 導線は出さない (押しても失敗する導線を残さない)
+			expect(row.querySelector('[data-testid="cloud-export-download-link"]')).toBeNull();
+		});
+
+		// #4767 QM must: 削除は S3 の全バージョンを消す取り消せない操作。押しただけでは実行されず、
+		// 確認 dialog で「何が消えるか」「元に戻せない」ことを見せてから確定で初めて DELETE が飛ぶ。
+		it('削除を押しただけでは DELETE を送らず、何が消えるかと元に戻せないことを確認 dialog で示す', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+
+			// Dialog は Portal 経由で body に出るため screen (document 起点) で引く
+			const target = await screen.findByTestId('cloud-export-delete-confirm-target');
+			expect(target.textContent).toContain('ABC234');
+			expect(target.textContent).toContain(SETTINGS_LABELS.cloudRowStateExhausted);
+			expect(document.body.textContent).toContain(SETTINGS_LABELS.cloudDeleteConfirmIrreversible);
+			// この時点では何も消えていない
+			expect(deleted).toEqual([]);
+		});
+
+		it('確認 dialog をキャンセルすると削除されない (取り消せない操作を誤爆させない)', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-cancel'));
+
+			// dialog が閉じ、DELETE は 1 度も飛ばず、行も消えない
+			await waitFor(() =>
+				expect(screen.queryByTestId('cloud-export-delete-confirm-target')).toBeNull(),
+			);
+			expect(deleted).toEqual([]);
+			expect(await findByTestId('cloud-export-row-exp-exhausted')).toBeTruthy();
+		});
+
+		// #4767 QM should: 取り消せない操作の完了を無言で終わらせない。
+		// DESIGN.md §5 の 2 層 = Toast (primitive) + 画面内 banner (role="status") を、
+		// **どちらも実物を描画して** 確かめる (page は Toast を描画しないので test 側で並べる。
+		// showToast は module-level state を共有するため、実際に見えるものを assert できる)。
+		// #4767 QM should: 取り消せない操作の完了を無言で終わらせない。
+		// DESIGN.md §5 の 2 層 (Toast = role="alert" / 画面内 banner = role="status") が
+		// **どちらも** 出て、消した対象を名指しすることを固定する。
+		it('削除完了を Toast と画面内 banner の 2 層で、消した対象を名指しして知らせる', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			reconcileToastStackSpy.mockClear();
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve({ exports: [] }),
+					} as Response);
+				},
+			);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+
+			const expected = SETTINGS_LABELS.cloudDeleteSuccess('ABC234');
+			// 層 1: 画面内 banner (role="status") — 消した PIN を名指しする
+			await waitFor(() => {
+				const statuses = screen.getAllByRole('status');
+				expect(statuses.some((el) => el.textContent?.includes(expected))).toBe(true);
+			});
+			// 層 2: Toast — success 種別で title + 説明が積まれる
+			await waitFor(() => {
+				expect(reconcileToastStackSpy).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({
+						title: SETTINGS_LABELS.cloudDeleteSuccessTitle,
+						description: expected,
+						type: 'success',
+					}),
+				);
+			});
+		});
+
+		// #4767 QM should: 再取得が失敗したときに「削除しました」と言い切ると、画面に残った古い行を見た
+		// 顧客は「消えていない」と受け取る (実際は消えている)。起きたことだけを言う。
+		it('削除後の一覧再取得が失敗したら、成功と言い切らず表示が古い可能性を伝える', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			reconcileToastStackSpy.mockClear();
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+			// DELETE は成功、その後の一覧再取得 (GET) だけ失敗させる
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: false,
+						status: 500,
+						json: () => Promise.resolve({}),
+					} as Response);
+				},
+			);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+
+			const stale = SETTINGS_LABELS.cloudDeleteSuccessStale('ABC234');
+			// banner は「削除した」+「表示が最新でないかもしれない」を両方言う
+			await waitFor(() => {
+				const statuses = screen.getAllByRole('status');
+				expect(statuses.some((el) => el.textContent?.includes(stale))).toBe(true);
+			});
+			// 成功と言い切る文言は出さない
+			expect(document.body.textContent).not.toContain(SETTINGS_LABELS.cloudDeleteSuccess('ABC234'));
+			// Toast も同じ内容 (success ではなく info)
+			await waitFor(() => {
+				expect(reconcileToastStackSpy).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({
+						title: SETTINGS_LABELS.cloudDeleteSuccessStaleTitle,
+						description: stale,
+						type: 'info',
+					}),
+				);
+			});
+			// 古い行はまだ画面に残っている (= だからこそ「最新でないかもしれない」と言う必要がある)
+			expect(await findByTestId('cloud-export-row-exp-exhausted')).toBeTruthy();
+		});
+
+		it('確認 dialog で確定すると DELETE が飛び、一覧が再取得されて枠が空く', async () => {
+			pageStore.set({ data: { authMode: 'cognito' } });
+			const deleted = stubCloudFetch([exhaustedRow]);
+
+			const { findByTestId, queryByTestId } = render(DataPage, {
+				data: makeData({ maxCloudExports: 3 }),
+				form: null,
+			});
+
+			await fireEvent.click(await findByTestId('cloud-export-delete-exp-exhausted'));
+
+			// 削除後の再取得は空一覧を返す (= 枠が戻った状態)
+			vi.mocked(globalThis.fetch).mockImplementation(
+				(url: string | URL | Request, init?: RequestInit) => {
+					const u = String(url);
+					if (init?.method === 'DELETE') {
+						deleted.push(u.split('/').pop() ?? '');
+						return Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true }),
+						} as Response);
+					}
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve({ exports: [] }),
+					} as Response);
+				},
+			);
+			await fireEvent.click(await screen.findByTestId('cloud-export-delete-execute'));
+
+			await waitFor(() => expect(deleted).toContain('exp-exhausted'));
+			await waitFor(() => expect(queryByTestId('cloud-export-stored-list')).toBeNull());
 		});
 	});
 

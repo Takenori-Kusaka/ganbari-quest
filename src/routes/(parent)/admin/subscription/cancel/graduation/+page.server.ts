@@ -14,6 +14,7 @@ import {
 	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { logger } from '$lib/server/logger';
@@ -67,7 +68,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	default: async ({ request, locals, url }) => {
 		const tenantId = requireTenantId(locals);
 		const license = await getLicenseInfo(tenantId);
@@ -141,4 +142,4 @@ export const actions: Actions = {
 		// 無料プラン or Stripe 未有効時は thanks ページへ
 		throw redirect(303, '/admin/subscription/cancel/thanks');
 	},
-};
+} satisfies Actions);

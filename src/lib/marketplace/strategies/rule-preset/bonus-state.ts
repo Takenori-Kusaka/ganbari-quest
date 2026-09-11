@@ -16,6 +16,7 @@
  *   - ADR-0023 archive (tenant isolation 強制)
  */
 
+import { getMarketplaceItem } from '$lib/data/marketplace';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 
@@ -73,7 +74,7 @@ export async function loadBonusOverrides(tenantId: string): Promise<BonusOverrid
 		if (!parsed || !Array.isArray(parsed.presets)) {
 			return { presets: [] };
 		}
-		return parsed;
+		return { ...parsed, presets: parsed.presets.map(normalizePresetIdentity) };
 	} catch (e) {
 		logger.warn(
 			'[rule-preset-strategy] bonus overrides JSON parse 失敗、空 state にフォールバック',
@@ -81,6 +82,27 @@ export async function loadBonusOverrides(tenantId: string): Promise<BonusOverrid
 		);
 		return { presets: [] };
 	}
+}
+
+/**
+ * #4711: 保存済 entry の表示名 / icon を marketplace SSOT から引き直す (read-path fallback)。
+ *
+ * 旧 generic 取込経路は `presetName: presetId` / `presetIcon: ''` で保存していたため、
+ * 既存テナントの settings KVS には内部 ID が表示名として残っている。読み出し時に
+ * presetId から marketplace item を引いて表示名 / icon を補完し、次回 save で永続化される。
+ * marketplace から撤去済の preset (sibling-coop 等) は item が無いので保存値をそのまま返す。
+ */
+function normalizePresetIdentity(entry: BonusPresetEntry): BonusPresetEntry {
+	const needsName = !entry.presetName || entry.presetName === entry.presetId;
+	const needsIcon = !entry.presetIcon;
+	if (!needsName && !needsIcon) return entry;
+	const item = getMarketplaceItem('rule-preset', entry.presetId);
+	if (!item) return entry;
+	return {
+		...entry,
+		presetName: needsName ? item.name : entry.presetName,
+		presetIcon: needsIcon ? item.icon : entry.presetIcon,
+	};
 }
 
 /** state を JSON 直列化して `settings` テーブルに保存 */

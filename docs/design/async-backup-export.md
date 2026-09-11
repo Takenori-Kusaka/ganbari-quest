@@ -39,6 +39,12 @@
 ### 3.3 状態管理（polling）
 既存 `GET /api/v1/export/cloud`（`listCloudExports`）に status を含める。client は既存 endpoint を polling するだけ（専用 status endpoint 不要）。現 filter（`expiresAt > now && downloadCount < maxDownloads`）を status 対応に修正し、pending/building/failed も返す（生成中が UI から消えないように）。
 
+### 3.3b 受け取り側の取込（PIN、#4717）
+
+PIN での取込 (`POST /api/v1/import/cloud`) は **`status` を先に判定**し、`pending` / `building` は 409 `EXPORT_NOT_READY`（「まだ準備中です。数分後にもう一度お試しください。」/ `action: retry`）、`failed` は 409 `EXPORT_FAILED`（保管し直しの案内）を返す。S3 read はこの判定の**後**に行う（実体が無い object を読みに行かない）。
+
+発行〜cron 起動までの窓（AWS は 5 分毎）は必ず生成待ちに当たるため、この分類が無いと受け取る側には 500「システムに問題が発生しました」しか見えない。失敗理由は `CloudExportFetchError.reason`（型）で service → route に運び、route の写像表で HTTP 種別に変換する（message の文字列 match で分類しない）。
+
 ### 3.4 DL 経路（新設）
 `GET /api/v1/export/cloud/[id]/download`: `requireRole(locals,['owner','parent'])` + `record.tenantId === context.tenantId` 検証（既存 `[id]/+server.ts` DELETE と同パターン）→ `status==='ready'` を確認 → `storage.getDownloadUrl(s3Key, {expiresIn})`:
 - AWS: S3 presigned GET（`@aws-sdk/s3-request-presigner` `getSignedUrl`、TTL 60〜300 秒、対象 key 限定）→ 302 redirect。

@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { markRewardShown } from '$lib/server/services/special-reward-service';
 import type { RequestHandler } from './$types';
 
@@ -20,6 +21,9 @@ export const POST: RequestHandler = async ({ params, locals, cookies }) => {
 	if (!childId) {
 		error(400, 'Child not selected');
 	}
+	// cookie は client が書き換えられる。child ロールが兄弟の childId を cookie に入れて
+	// 兄弟のごほうび演出を消費するのを止める。
+	requireChildAccess(locals, childId);
 
 	const success = await markRewardShown(childId, rewardId, tenantId);
 	if (!success) {

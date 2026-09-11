@@ -107,6 +107,34 @@ describe('extractRelativeImports() — 相対 import の抽出 (#3969)', () => {
 		const src = ["import { readFileSync } from 'node:fs';", "import yaml from 'yaml';"].join('\n');
 		expect(extractRelativeImports(src)).toEqual([]);
 	});
+
+	it('biome 整形の複数行 import (改行を挟んで from に到達する形) を取りこぼさない', () => {
+		// #4348: 旧 regex は文の終端を改行でも切っていたため、この形の specifier に到達できず
+		// 依存を取りこぼし、sparse-checkout の列挙漏れ (pr-body-sections.mjs) を無言 PASS した
+		const src = [
+			'import {',
+			'	parseDeclaredLines,',
+			'	stripNonDeclarationContexts,',
+			"} from './lib/ci/pr-body-sections.mjs';",
+			"import { isMain } from './lib/is-main.mjs';",
+		].join('\n');
+
+		expect([...extractRelativeImports(src)].sort()).toEqual([
+			'./lib/ci/pr-body-sections.mjs',
+			'./lib/is-main.mjs',
+		]);
+	});
+
+	it('複数行 import でも `;` を跨いで次の文の文字列を拾わない', () => {
+		const src = [
+			'import {',
+			'	a,',
+			"} from 'node:path';",
+			"const notImport = './not-an-import.mjs';",
+		].join('\n');
+
+		expect(extractRelativeImports(src)).toEqual([]);
+	});
 });
 
 describe('isCoveredBy() — 列挙による被覆判定 (#3969)', () => {

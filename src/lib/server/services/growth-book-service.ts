@@ -2,6 +2,8 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/growth-book-service.ts
 // 成長記録ブックサービス — 年間データの集約と構造化
 
+import { isFutureMonth } from '$lib/domain/child-metrics';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { logger } from '$lib/server/logger';
 import { getCertificatesForChild } from '$lib/server/services/certificate-service';
 import { getChildById } from '$lib/server/services/child-service';
@@ -16,12 +18,18 @@ export interface MonthPage {
 	month: string; // "2025-04"
 	totalActivities: number;
 	categoryBreakdown: Record<string, number>;
+	/** #4697: その月に台帳で獲得したポイント。未来月は 0 (画面は `isFuture` を見て「—」を出す)。 */
 	totalPoints: number;
 	currentLevel: number;
 	maxStreakDays: number;
 	totalNewAchievements: number;
 	daysWithActivity: number;
 	totalDays: number;
+	/**
+	 * #4697: まだ来ていない月か。年度は 4 月〜翌 3 月を必ず 12 行並べるため未来月の枠ができる。
+	 * 旧実装は全 12 行に累計値 (395pt) を出し、活動 0 回の月にも未来月にも同じ数が並んでいた。
+	 */
+	isFuture: boolean;
 }
 
 export interface GrowthBookData {
@@ -92,6 +100,7 @@ export async function buildGrowthBook(
 				totalNewAchievements: report.totalNewAchievements,
 				daysWithActivity: report.daysWithActivity,
 				totalDays: report.totalDays,
+				isFuture: report.isFuture,
 			};
 			months.push(page);
 
@@ -119,6 +128,7 @@ export async function buildGrowthBook(
 				totalNewAchievements: 0,
 				daysWithActivity: 0,
 				totalDays: 0,
+				isFuture: isFutureMonth(yearMonth, todayDateJST()),
 			});
 		}
 	}

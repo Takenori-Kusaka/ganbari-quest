@@ -28,6 +28,12 @@ vi.mock('$lib/server/services/plan-limit-service', async () => {
 	};
 });
 
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: vi.fn(() => 'cognito'),
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: (locals: { context?: { tenantId?: string } }) => {
 		if (!locals.context?.tenantId) throw new Error('Unauthorized');

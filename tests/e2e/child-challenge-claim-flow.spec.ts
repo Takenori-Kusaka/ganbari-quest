@@ -19,6 +19,7 @@
 //   - AC1: claim 実行 → card 消滅 + 残高 (point_ledger child_challenge 行) 加算を assert
 //   - AC3 (ux-4): claim 失敗 (既請求) 経路が role=alert (Toast) で可視フィードバックを返す (dead-end 回避)
 
+import { FEATURES_LABELS, getChildActionErrorLabels } from '../../src/lib/domain/labels';
 import { expect, test } from './fixtures';
 import { selectElementaryChildAndDismiss } from './helpers';
 
@@ -182,7 +183,7 @@ test.describe('#3361 challenge claim-card act→outcome (受取 → card 消滅 
 		const card = page.locator('[data-testid="challenge-reward-claim-card"]');
 		await expect(card).toBeVisible();
 
-		// 並行 claim を DB 側で先行させ、この後の submit を fail(400) 「すでに受け取り済みです」に落とす
+		// 並行 claim を DB 側で先行させ、この後の submit を ALREADY_CLAIMED に落とす
 		await forceMarkClaimed(workerDbPath, challengeId);
 
 		const claimBtn = page.locator('[data-testid="challenge-reward-claim-btn"]');
@@ -194,9 +195,14 @@ test.describe('#3361 challenge claim-card act→outcome (受取 → card 消滅 
 		]);
 
 		// outcome: role=alert (Toast) で失敗が可視化される (押しても無反応 = dead-end ではない)
-		const alert = page.locator('[role="alert"]', { hasText: 'うけとれなかったよ' });
+		// #4716: 子供画面の失敗文言は年齢帯 variant。けんたくん = elementary なのでひらがな側に解決される
+		// (docs/DESIGN.md §8 / src/routes/CLAUDE.md §年齢帯 variant)。literal を置くと variant 追加で割れる。
+		const elementaryErrors = getChildActionErrorLabels('elementary');
+		const alert = page.locator('[role="alert"]', {
+			hasText: FEATURES_LABELS.challenge.claimErrorTitle,
+		});
 		await expect(alert).toBeVisible();
-		await expect(alert).toContainText('すでに受け取り済みです');
+		await expect(alert).toContainText(elementaryErrors.challengeAlreadyClaimed);
 
 		await page.screenshot({
 			path: `docs/screenshots/pr-3361/claim-error-toast-${testInfo.project.name}.png`,

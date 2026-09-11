@@ -126,7 +126,7 @@ export const EXCLUDED_ROOTS = [
 	{
 		root: 'graphify-out',
 		reason:
-			'Graphify が生成するナレッジグラフ成果物 (graph.json / graph.html / manifest.json)。' +
+			'Graphify が生成するナレッジグラフ成果物 (graph.json / manifest.json / GRAPH_REPORT.md。閲覧用 graph.html は未追跡)。' +
 			'AST 解析結果のデータであり、実行されるコードを含まない (#4291)',
 	},
 ];

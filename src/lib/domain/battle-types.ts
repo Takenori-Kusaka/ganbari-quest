@@ -136,3 +136,14 @@ export interface EnemyCollectionEntry {
 	firstDefeatedAt: string;
 	defeatCount: number;
 }
+
+// ============================================================
+// ポイント台帳
+// ============================================================
+
+/**
+ * #4681: バトル報酬の `point_ledger.type`。勝利 = `enemy.dropPoints` / 敗北 =
+ * `enemy.consolationPoints` を本 type で計上する (設計書 26 §4c)。
+ * repo (完了 flip + 付与の原子 primitive) と service の両方が参照するため domain に置く。
+ */
+export const BATTLE_LEDGER_TYPE = 'battle';

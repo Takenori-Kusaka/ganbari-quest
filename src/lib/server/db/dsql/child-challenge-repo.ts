@@ -258,6 +258,16 @@ export function createDsqlChildChallengeRepo<TTx extends SqlExecutor>(
 			`);
 		},
 
+		async revertCompletion(id, tenantId) {
+			// #4686: とりけし時の対称巻き戻し。未受取 (reward_claimed=false) の completed のみ戻す。
+			await db.execute(sql`
+				UPDATE child_challenges
+				SET completed = false, status = 'active', completed_at = NULL, updated_at = now()
+				WHERE family_id = ${tenantId} AND challenge_id = ${id}
+					AND completed = true AND reward_claimed = false
+			`);
+		},
+
 		/**
 		 * #4410: 達成祝福を「見せた」ことを記録する。
 		 * `celebration_shown_at IS NULL` 条件付き UPDATE で最初に見せた時刻を上書きしない (冪等)。

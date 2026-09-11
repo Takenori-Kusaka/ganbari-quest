@@ -20,6 +20,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { logger } from '$lib/server/logger';
 import {
@@ -60,6 +61,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const tenantId = context.tenantId;
+	// #4643: 削除サービスが受け取るのはアプリ DB の users.user_id。identity.userId (IdP の sub)
+	// を渡すと「本人の membership / users 行」が一致せず、削除が空振りする。
+	const actorUserId = requireAppUserId(locals);
 
 	let body: DeleteRequestBody;
 	try {
@@ -131,7 +135,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 				// free プラン: 即時物理削除（deleteOwnerOnlyAccount 内で cancelSubscription を呼ぶ）
 				// #4338: 猶予なしの即時削除。削除記録に経路とプランを残す。
-				const result = await deleteOwnerOnlyAccount(tenantId, identity.userId, {
+				const result = await deleteOwnerOnlyAccount(tenantId, actorUserId, {
 					route: 'immediate',
 					planTier,
 				});
@@ -145,7 +149,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				if (!newOwnerId) {
 					return json({ error: '移譲先 (newOwnerId) が必要です' }, { status: 400 });
 				}
-				const result = await transferOwnershipAndLeave(tenantId, identity.userId, newOwnerId);
+				const result = await transferOwnershipAndLeave(tenantId, actorUserId, newOwnerId);
 				logger.info('[account-delete] Pattern 2a 完了', {
 					context: { tenantId, newOwnerId },
 				});
@@ -194,7 +198,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 				// free プラン: 即時物理削除（deleteOwnerFullDelete 内で cancelSubscription を呼ぶ）
 				// #4338: 猶予なしの即時削除。削除記録に経路とプランを残す。
-				const result = await deleteOwnerFullDelete(tenantId, identity.userId, {
+				const result = await deleteOwnerFullDelete(tenantId, actorUserId, {
 					route: 'immediate',
 					planTier,
 				});
@@ -213,7 +217,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				if (context.role !== 'child') {
 					return json({ error: 'child 本人のみ実行できます' }, { status: 403 });
 				}
-				const result = await deleteChildAccount(tenantId, identity.userId);
+				const result = await deleteChildAccount(tenantId, actorUserId);
 				logger.info('[account-delete] Pattern 3 完了', { context: { tenantId } });
 				return json(result);
 			}
@@ -232,7 +236,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				if (context.role !== 'parent') {
 					return json({ error: 'Only parent/owner can use member deletion' }, { status: 403 });
 				}
-				const result = await deleteMemberAccount(tenantId, identity.userId);
+				const result = await deleteMemberAccount(tenantId, actorUserId);
 				logger.info('[account-delete] Pattern 4 完了', { context: { tenantId } });
 				return json(result);
 			}

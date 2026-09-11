@@ -9,8 +9,10 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
+import ArchivedChildrenSection from '$lib/features/admin/components/ArchivedChildrenSection.svelte';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -44,6 +46,16 @@ $effect(() => {
 		'info',
 	);
 });
+
+// #4729 PO 決定 (2026-09-04): 誕生日を消すと誕生日ボーナス / 🎂 表示の対象外になる
+// (保存では実誕生日が破棄され、その年齢の推定誕生日に置き換わる)。
+// 黙って消さず、直前の編集で消えたことを保護者に見せる。Toast (自動消滅) ではなく
+// Alert (`role="status"`、次の操作まで残る) で出す — 見落とすと「祝われなかった理由」を知る場が無い。
+//
+// 誕生日は任意入力なので消せる。`BirthdayInput` の未設定 option を選べるようにし、
+// `ChildProfileCard` が保存前に確認ダイアログを挟む。本 Alert はその保存後の告知で、
+// 「確認 → 保存 → Alert」の 3 点セットの最後にあたる。
+const birthdayCleared = $derived(!!(form as { birthdayCleared?: boolean } | null)?.birthdayCleared);
 
 const ps = $derived(data.pointSettings);
 const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.rate);
@@ -79,7 +91,9 @@ const addCalculatedAge = $derived(
 		</div>
 	{/if}
 
-	<div class="children-page__toolbar" data-tutorial="children-list">
+	<!-- #4660 F1: children-list anchor は「追加する」ボタン行ではなく下のカード一覧に付ける
+	     (旧: 本 toolbar に付いており、「カードが並ぶ」という文言と光る場所が食い違っていた) -->
+	<div class="children-page__toolbar">
 		{#if !childLimit || childLimit.allowed}
 			<Button
 				variant="primary"
@@ -126,7 +140,7 @@ const addCalculatedAge = $derived(
 						id="add-nickname"
 						name="nickname"
 						required
-						placeholder="例: たろうくん"
+						placeholder={ADMIN_CHILDREN_PAGE_LABELS.nicknamePlaceholder}
 					/>
 					<BirthdayInput
 						name="birthDate"
@@ -167,7 +181,7 @@ const addCalculatedAge = $derived(
 	{/if}
 
 	<!-- Children list -->
-	<div class="children-page__list">
+	<div class="children-page__list" data-tutorial="children-list">
 		{#each data.children as child, i}
 			<ChildListCard
 				{child}
@@ -179,9 +193,20 @@ const addCalculatedAge = $derived(
 		{/each}
 	</div>
 
+	<!-- #4708: 無料プランの上限で非表示 (archive) 中のお子さま — 読み取り専用一覧 -->
+	<ArchivedChildrenSection children={data.archivedChildren} basePath="/admin" />
+
 	<!-- Selected child detail -->
 	{#if data.selectedChild}
-		<div class="children-page__detail">
+		<!-- data-tutorial: ページガイド (#4660) の詳細カード step の spotlight anchor (未選択時は出ない) -->
+		<div class="children-page__detail" data-tutorial="child-detail">
+			{#if birthdayCleared}
+				<Alert
+					variant="warning"
+					message={ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice}
+					data-testid="child-birthday-cleared-notice"
+				/>
+			{/if}
 			{#key data.selectedChild.id}
 				<ChildProfileCard
 					child={data.selectedChild}

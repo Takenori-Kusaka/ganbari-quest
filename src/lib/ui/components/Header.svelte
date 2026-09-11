@@ -59,7 +59,7 @@ $effect(() => {
 
 <header
 	class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)]
-		bg-[var(--theme-primary)] text-white shadow-md"
+		bg-[var(--color-action-primary-strong)] text-white shadow-md"
 >
 	<div class="flex items-center gap-[var(--sp-sm)]">
 		<AvatarDisplay
@@ -96,7 +96,10 @@ $effect(() => {
 				data-testid="header-stamp-btn"
 				data-tutorial="stamp-progress"
 				onclick={() => onStampClick?.()}
-				aria-label={UI_COMPONENTS_LABELS.headerStampAriaLabel}
+				aria-label={UI_COMPONENTS_LABELS.headerStampAriaLabel(
+					stampProgress.filled,
+					stampProgress.total,
+				)}
 			>
 				<span class="text-sm" aria-hidden="true">💮</span>
 				<span class="text-xs font-bold">{stampProgress.filled}/{stampProgress.total}</span>
@@ -109,12 +112,14 @@ $effect(() => {
 	</div>
 </header>
 
+<!-- #4645 スタイルの意図:
+     #4645: 白を重ねると地の色が薄まり、上に載る白文字が AA (4.5:1) を割る (実測 3.23:1)。黒を重ねて地を濃くすることで白文字のコントラストを上げる。 -->
 <style>
 	.stamp-mini {
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		background: rgba(255, 255, 255, 0.2);
+		background: rgba(0, 0, 0, 0.18);
 		border: none;
 		border-radius: var(--radius-sm, 6px);
 		padding: 2px 6px;
@@ -123,7 +128,7 @@ $effect(() => {
 		transition: background 0.2s;
 	}
 	.stamp-mini:hover {
-		background: rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.28);
 	}
 	.help-btn {
 		display: flex;

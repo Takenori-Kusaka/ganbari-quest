@@ -145,10 +145,22 @@ async function _deactivateVoice(childId: ChildId, scene: string, tenantId: strin
 	}
 }
 
-/** ボイスを削除（ファイルも削除） */
-export async function deleteVoice(voiceId: string, tenantId: string): Promise<boolean> {
+/**
+ * ボイスを削除（ファイルも削除）。
+ *
+ * 対象 child を **必須引数** で受け、`(voiceId, childId)` の複合キーで所有者を突合する。
+ * 旧実装は voiceId + tenantId だけで消せたため、呼び出し側が child を渡し忘れても
+ * コンパイルが通り、`DELETE /api/v1/children/:id/voices/:voiceId` が URL の `:id` を
+ * 無視して任意の兄弟のボイスを消していた。optional 引数にすると同じ渡し忘れが再発するので
+ * 必須にしてある（`activateVoice` と同じ契約）。
+ */
+export async function deleteVoice(
+	voiceId: string,
+	childId: ChildId,
+	tenantId: string,
+): Promise<boolean> {
 	const voice = await getRepos().voice.findById(voiceId, tenantId);
-	if (!voice) return false;
+	if (!voice || voice.childId !== childId) return false;
 
 	try {
 		await deleteFile(voice.filePath);

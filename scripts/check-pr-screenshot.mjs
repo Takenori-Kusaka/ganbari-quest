@@ -144,6 +144,11 @@ export function detectBeforeAfterLabels(body) {
 }
 
 import { existsSync, readdirSync } from 'node:fs';
+import {
+	extractH2Section,
+	findDeclarationLines,
+	hasDeclarationLine,
+} from './lib/ci/pr-body-sections.mjs';
 import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 
 /**
@@ -278,19 +283,13 @@ const UI_NOT_APPLICABLE_PATTERNS = [
 	/UI\s*変更\s*なし/i,
 ];
 
-/**
- * 同じ行に現れたら **宣言ではない** と判断する文脈 (#4255 横展開)。
- *
- * 「UI 変更なし」の 6 文字は、否定・引用・手順説明の中にも普通に現れる。
- * 出現しただけで opt-out にすると、**書いていない宣言を書いたことにされる**。
+/*
+ * 「同じ行に現れたら宣言ではない」文脈の一覧は
+ * `scripts/lib/ci/pr-body-sections.mjs` の `DECLARATION_DISQUALIFYING_PATTERNS` が SSOT
+ * (#4255 で本 file に置いたものを #4348 で共有化)。
+ * DOM 参照 / 統合 VR evidence / schema skip marker も同じ規律で判定するため、
+ * 本 file 内に二重実装を残さない。
  */
-const MARKER_DISQUALIFYING_PATTERNS = [
-	/^\s*>/, // 引用 — 他所の文言を貼っただけ
-	/^\s*[-*]\s*\[\s\]/, // 未チェック checkbox — チェックしていない = 宣言していない
-	/ではありません|ではない|ではなく|とは限らない|とは言えない/, // 否定 (#4255 と同型)
-	/嘘|虚偽/, // gate 自身の説明文の引用
-	/なしの場合|と書く/, // 手順書の条件節 / 引用符付きの言及
-];
 
 /**
  * 「該当なし」明示記述の検出。refactor / docs / chore のみで UI 影響がない PR の opt-out 用。
@@ -318,19 +317,7 @@ const MARKER_DISQUALIFYING_PATTERNS = [
  * @returns {boolean}
  */
 export function hasUiNotApplicableMarker(body) {
-	let inFence = false;
-	for (const raw of (body ?? '').split(/\r?\n/)) {
-		if (/^\s*(?:```|~~~)/.test(raw)) {
-			inFence = !inFence;
-			continue;
-		}
-		if (inFence) continue;
-		// インラインコード (`...`) は言及であって宣言ではない
-		const line = raw.replace(/`[^`]*`/g, ' ');
-		if (MARKER_DISQUALIFYING_PATTERNS.some((p) => p.test(line))) continue;
-		if (UI_NOT_APPLICABLE_PATTERNS.some((p) => p.test(line))) return true;
-	}
-	return false;
+	return hasDeclarationLine(body, UI_NOT_APPLICABLE_PATTERNS);
 }
 
 /**
@@ -417,11 +404,16 @@ export function isUserAttachmentAssetUrl(url) {
  * - Markdown link: `[DOM HTML](https://.../foo.dom.html)`
  * - 素の URL: `https://.../foo.dom.html`
  *
+ * **行単位 + 文脈除外で判定する (#4348 対象 #4)**。旧実装は本文全体への `PATTERN.test(body)` で、
+ * HTML コメント / code block / 引用 / 否定文 / 未チェック checkbox の中の URL でも
+ * 「参照がある」と判定し、DOM 併記検証をまるごと消せた (#4255 の `hasStorybookStoryReference` /
+ * `hasUiNotApplicableMarker` と同 class)。判定規律は `pr-body-sections.mjs` に集約している。
+ *
  * @param {string} body
  * @returns {boolean}
  */
 export function hasDomSnapshotReference(body) {
-	return DOM_REF_PATTERN.test(body);
+	return hasDeclarationLine(body, [DOM_REF_PATTERN]);
 }
 
 // ---------------------------------------------------------------------------
@@ -449,10 +441,15 @@ const INTEGRATION_VR_EVIDENCE_PATTERNS = [
 	/\*?-visual-regression\.yml/i,
 	/(?:lp|child-home|app)[\s-]*(?:visual|vr|pixelmatch|baseline)/i,
 	// 含有 PR 群が develop 取込時に SS 検証済である宣言
-	/含有\s*PR/,
 	/(?:取込|取り込み)\s*(?:済|時).*(?:SS|スクリーンショット|スクショ|検証)/,
-	/統合\s*(?:対象|状態|smoke)/,
+	/統合\s*smoke/,
 ];
+
+/** 含有 PR 一覧 section の見出し (統合 PR template と同値、`.github/INTEGRATION_PR_TEMPLATE.md`)。 */
+const INTEGRATION_PR_LIST_SECTION = '含有 PR 一覧';
+
+/** 含有 PR の行と認める形 (PR / Issue 番号を持つ行)。 */
+const PR_REFERENCE_PATTERN = /#\d{2,}/;
 
 /**
  * integration lane (統合 PR) の SS 観点 evidence が PR body に含まれるかを判定 (#2946)。
@@ -465,11 +462,26 @@ const INTEGRATION_VR_EVIDENCE_PATTERNS = [
  * 「観点の移譲」であって「検証の放棄」ではない (no-go: 見た目検証を完全に消さない) ため、
  * いずれの evidence も無い場合は違反として扱う (warn / error は MODE 依存)。
  *
+ * # なぜ行単位 + 構造判定なのか (#4348 対象 #4)
+ *
+ * 旧実装は本文全体に 6 本の正規表現を当てるだけで、うち `/含有\s*PR/` と
+ * `/統合\s*(?:対象|状態|smoke)/` は**統合 PR template 自身が 3 箇所で満たしていた**
+ * (説明文 1 / HTML コメント 1 / 引用 2 — 実測)。つまり **VR 証跡の有無に関係なく
+ * 統合 PR は常に緑**で、#4333 (見出しの存在だけで NG-0 が常に緑) と同じ形だった。
+ *
+ * 是正は 2 点:
+ *   1. 宣言の判定を行単位 + 文脈除外に揃える (`pr-body-sections.mjs` SSOT)
+ *   2. 「含有 PR」は prose の言及ではなく **`## 含有 PR 一覧` section に実際の PR 参照が
+ *      1 行以上ある**という構造で見る (見出しだけ / 自動生成待ちの空 section は evidence にしない)
+ *
  * @param {string} body
  * @returns {boolean}
  */
 export function hasIntegrationVrEvidence(body) {
-	return INTEGRATION_VR_EVIDENCE_PATTERNS.some((p) => p.test(body));
+	if (hasDeclarationLine(body, INTEGRATION_VR_EVIDENCE_PATTERNS)) return true;
+	const section = extractH2Section(body, INTEGRATION_PR_LIST_SECTION);
+	if (!section.found) return false;
+	return findDeclarationLines(section.text, [PR_REFERENCE_PATTERN]).length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -721,7 +733,10 @@ function checkDomSnapshotViolation(body) {
 			`\n背景:\n` +
 			`  PR #1717 で発生した「SS と実機が乖離していた」事故の再発防止のため、\n` +
 			`  SS と DOM が同一プロセス・同一 page で取得されたことを構造的に保証します（#1747 AC4）。\n` +
-			`\nDOM スナップショットを意図的に省略する場合は、--no-dom-snapshot 指定の理由を PR body に明記してください。`,
+			`\n本 gate に「理由を書けば省略できる」経路はありません (#4348)。\n` +
+			`  DOM 併記を省く逃げ道として --no-dom-snapshot の理由記述を案内していましたが、\n` +
+			`  それを読む判定は実装のどこにも無く、案内どおり書いても落ち続ける状態でした。\n` +
+			`  撮影に使う環境で原理的に描画できない UI なら ss-render-impossible 宣言 (#4087) を使ってください。`,
 	};
 }
 

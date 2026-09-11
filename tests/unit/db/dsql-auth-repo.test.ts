@@ -618,6 +618,32 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		const all = await repo.findAllConsents(tenant.tenantId);
 		expect(all).toHaveLength(3);
 		expect(await repo.findAllConsents(other.tenantId)).toEqual([]);
+
+		// #4497: 越境移転同意 (§28) も同型に記録・取得できる
+		await repo.recordConsent({ ...base, type: 'cross-border', version: 'cb1' });
+		expect((await repo.findLatestConsent(tenant.tenantId, 'cross-border'))?.version).toBe('cb1');
+	});
+
+	// #4497: consents.type の DB CHECK は migration 0007 で外した (DSQL は値集合を後から広げられない)。
+	// 法務証跡テーブルなので、DB 制約を落とした分の防衛線を repo 入口に置いている。
+	// service 層を経由しない直接呼び出しでも未知の type が書けないこと。
+	it('[T7b] recordConsent: CONSENT_TYPES 外の type は repo 入口で拒否する (#4497)', async () => {
+		const owner = await repo.createUser({ email: 't7b-owner@example.com', provider: 'cognito' });
+		const tenant = await repo.createTenant({ name: 'T7b家', ownerId: owner.userId });
+
+		await expect(
+			repo.recordConsent({
+				tenantId: tenant.tenantId,
+				userId: owner.userId,
+				// biome-ignore lint/suspicious/noExplicitAny: 意図的に不正な type を渡す
+				type: 'marketing' as any,
+				version: 'v1',
+				ipAddress: '127.0.0.1',
+				userAgent: 'vitest',
+			}),
+		).rejects.toThrow(/Unknown consent type/);
+
+		expect(await repo.findAllConsents(tenant.tenantId)).toEqual([]);
 	});
 
 	it('[T8] updateTenantOwner: 非 member への移譲は throw + rollback (owner 空白防止)', async () => {

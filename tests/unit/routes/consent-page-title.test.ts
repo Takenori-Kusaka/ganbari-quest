@@ -18,10 +18,13 @@ function makeData(hasExistingConsent: boolean) {
 		hasExistingConsent,
 		termsAccepted: !hasExistingConsent,
 		privacyAccepted: !hasExistingConsent,
+		crossBorderAccepted: !hasExistingConsent,
 		currentTermsVersion: '2026-04-01',
 		currentPrivacyVersion: '2026-04-01',
+		currentCrossBorderVersion: '2026-04-01',
 		previousTermsVersion: hasExistingConsent ? '2025-01-01' : null,
 		previousPrivacyVersion: hasExistingConsent ? '2025-01-01' : null,
+		previousCrossBorderVersion: hasExistingConsent ? '2025-01-01' : null,
 	};
 }
 

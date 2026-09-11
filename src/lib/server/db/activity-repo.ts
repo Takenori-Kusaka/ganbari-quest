@@ -151,6 +151,19 @@ export async function countPointLedgerEntriesByTypeAndDate(
 ) {
 	return getRepos().activity.countPointLedgerEntriesByTypeAndDate(childId, type, date, tenantId);
 }
+export async function sumPointLedgerByTypeAndDescriptionPrefix(
+	childId: ChildId,
+	type: string,
+	descriptionPrefix: string,
+	tenantId: string,
+) {
+	return getRepos().activity.sumPointLedgerByTypeAndDescriptionPrefix(
+		childId,
+		type,
+		descriptionPrefix,
+		tenantId,
+	);
+}
 
 // #783: archive / restore
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。

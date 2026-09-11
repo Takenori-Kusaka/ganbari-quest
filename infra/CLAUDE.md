@@ -177,6 +177,10 @@ docker compose logs -f scheduler
 
 `docker compose up -d` のみでは scheduler 起動しない。`--profile scheduler` 必須。app コンテナ起動後に起動。
 
+**deploy-nuc.yml は `--profile backup --profile scheduler` を build / up の両方に付ける (#4721)**。付けないと scheduler は build / 再作成の対象外になり、一度も起動しないか、起動済でも古いコンテナが凍結されて `schedule-registry.ts` に足したジョブが NUC で永久に走らない (backup profile が #2985 で踏んだのと同じ罠)。回帰は `tests/unit/cron/job-wiring-symmetry.test.ts` [2a] が固定する。
+
+**稼働確認は `/api/health` の `scheduler` フィールド (#4721)**。`DATA_SOURCE=pglite` (= NUC) のときだけ出る。cron endpoint が実際に呼ばれた時刻を記録し、registry の cron 式から導いた想定間隔の 3 倍を過ぎたジョブを `staleJobs` に挙げる。**全ジョブ未実行なら `level: critical` + 「scheduler コンテナが起動していない可能性」** を返す — 起動していなければ失敗も log も 0 件になり、失敗件数では検出できないため鮮度で見る。
+
 ### NUC Backup コンテナ (#2519 / #2985)
 
 日次 DB バックアップ + restore 検証は `profiles: backup`。`scheduler` と同じく **`docker compose up -d` のみでは更新されない** — `--profile backup` を付けないと build / 再作成の対象外になり、古い crontab が凍結されて config drift する (#2985 で `deploy-nuc.yml` に `--profile backup` を追加して恒久対処)。MODULE_NOT_FOUND 等の障害切り分け・復旧手順は [docs/runbooks/nuc-container-recovery.md](../docs/runbooks/nuc-container-recovery.md)。

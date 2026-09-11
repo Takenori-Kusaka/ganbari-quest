@@ -110,6 +110,16 @@ export function createDsqlDailyMissionRepo(db: SqlExecutor): IDailyMissionRepo {
 			`);
 		},
 
+		async markMissionUncompleted(childId, date, activityId, tenantId) {
+			// #4686: とりけし時の対称巻き戻し。complete 側と同じ複合キー完全一致 (不在は silent no-op)。
+			await db.execute(sql`
+				UPDATE daily_missions SET completed = false, completed_at = NULL
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND mission_date = ${date} AND activity_id = ${activityId}
+					AND completed = true
+			`);
+		},
+
 		async findAllMissionStatuses(childId, date, tenantId) {
 			const result = await db.execute(sql`
 				SELECT completed FROM daily_missions

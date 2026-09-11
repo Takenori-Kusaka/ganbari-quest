@@ -324,6 +324,11 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/admin/events', '/admin/challenges');
 	});
 
+	// #4691 (EPIC #4680): /admin/packs 撤去 → marketplace (activity-pack 一覧) に 308 救済
+	test('/admin/packs → /marketplace?type=activity-pack (308, #4691)', async ({ request }) => {
+		await expectRedirect(request, '/admin/packs', '/marketplace?type=activity-pack');
+	});
+
 	// ============================================================
 	// #2525 Phase 7 PR-L3 (#2818): /admin/license 廃止 → /admin/subscription 308 redirect
 	// ライセンスキー販売モデル撤廃 → サブスクリプションモデル統一 rename (Epic #2525)。

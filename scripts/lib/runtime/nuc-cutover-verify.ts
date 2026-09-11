@@ -28,8 +28,6 @@ export const CUTOVER_COUNT_AXES = [
 	{ key: 'loginStreaks', table: 'login_streaks' },
 	{ key: 'checklistTemplates', table: 'checklist_templates' },
 	{ key: 'parentMessages', table: 'parent_messages' },
-	{ key: 'siblingCheers', table: 'sibling_cheers' },
-	{ key: 'restDays', table: 'rest_days' },
 ] as const;
 
 export type CutoverCounts = Record<(typeof CUTOVER_COUNT_AXES)[number]['key'], number>;
@@ -50,8 +48,6 @@ export function summarizeExportCounts(data: ExportData): CutoverCounts {
 		loginStreaks: tx.loginStreaks.length,
 		checklistTemplates: tx.checklistTemplates.length,
 		parentMessages: tx.parentMessages.length,
-		siblingCheers: tx.siblingCheers.length,
-		restDays: tx.restDays.length,
 	};
 }
 

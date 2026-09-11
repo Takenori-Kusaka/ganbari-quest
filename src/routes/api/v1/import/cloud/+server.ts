@@ -3,11 +3,20 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
+import type { InsertChildActivityInput } from '$lib/server/db/types';
+import type { ErrorCode } from '$lib/server/errors';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
 import {
+	archiveActivityQuotaOverflow,
+	recordActivityQuotaArchiveMarker,
+} from '$lib/server/services/activity-quota';
+import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
+import type { CloudExportFetchFailure } from '$lib/server/services/cloud-export-service';
+import {
+	CloudExportFetchError,
 	consumeCloudExportDownload,
 	fetchCloudExportByPin,
 } from '$lib/server/services/cloud-export-service';
@@ -16,10 +25,8 @@ import {
 	previewImport,
 	validateExportData,
 } from '$lib/server/services/import-service';
-import {
-	AtomicReplaceError,
-	replaceImportAtomic,
-} from '$lib/server/services/replace-import-service';
+import { replaceImportErrorResponse } from '$lib/server/services/replace-import-response';
+import { replaceImportAtomic } from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
 
 /**
@@ -29,6 +36,20 @@ import type { RequestHandler } from './$types';
  * テンプレートインポート: activities/checklists/specialRewards をマージ
  * フルインポート: 既存import-serviceのフローを利用
  */
+
+/**
+ * #4717: PIN 取得の失敗理由 → HTTP エラー種別 (ADR-0062 種別×手段マッピング)。
+ * 新しい理由を追加したら型エラーになるので、分類漏れ (= 500 に落ちる) を構造的に防ぐ。
+ */
+const FETCH_FAILURE_TO_ERROR_CODE: Record<CloudExportFetchFailure, ErrorCode> = {
+	'invalid-pin': 'VALIDATION_ERROR',
+	expired: 'VALIDATION_ERROR',
+	'download-limit': 'VALIDATION_ERROR',
+	'not-ready': 'EXPORT_NOT_READY',
+	'build-failed': 'EXPORT_FAILED',
+	'data-missing': 'NOT_FOUND',
+};
+
 export const POST: RequestHandler = async ({ request, url, locals }) => {
 	const context = locals.context;
 	if (!context) {
@@ -51,7 +72,14 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return validationError('JSONの解析に失敗しました');
 	}
 
-	const pinCode = body.pinCode?.trim();
+	// #4867 adversarial round 7: **境界で大文字に正規化する**。redaction は
+	// 「PIN は `PIN_CHARS` から生成するので必ず大文字」という前提に乗っているが、
+	// client は `cloudImportPin.trim()` をそのまま送るので、`fetchCloudExportByPin` が
+	// 内部で `toUpperCase()` する**手前**に小文字の複製が居座り、この関数の catch の
+	// scope に入っていた。照合結果は変わらない (内部で同じ正規化をしている) が、
+	// 「値が scope にあれば機械的に redact を通す」という本 PR の方針を成立させるには、
+	// scope に置く値そのものを正規形にしておく必要がある。
+	const pinCode = body.pinCode?.trim().toUpperCase();
 	if (!pinCode || pinCode.length < 4) {
 		return validationError('PINコードを入力してください');
 	}
@@ -70,10 +98,20 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		record = result.record;
 		bytes = result.bytes;
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		if (msg.includes('PIN') || msg.includes('有効期限') || msg.includes('ダウンロード')) {
-			return apiError('VALIDATION_ERROR', msg);
+		// #4717: 失敗理由は型 (CloudExportFetchError.reason) で受ける。
+		// 旧実装は message の文字列 match で分類しており、新しい理由 (生成待ち) が漏れて
+		// 500「システムに問題が発生しました」になっていた (受け取る側が障害と誤認)。
+		if (err instanceof CloudExportFetchError) {
+			// pin-sink-ok: 型付きドメインエラーの顧客向け文言 (#4717 で reason を型で受ける形にした)。
+			return apiError(FETCH_FAILURE_TO_ERROR_CODE[err.reason], err.message);
 		}
+		// #4867: **`record` / `pinCode` / `s3Key` が scope にある catch は機械的に全部通す**。
+		// 「PIN が載ると証明できた経路だけ塞ぐ」で 3 ラウンド続けて取りこぼしたので、
+		// 判断の線を「証明できたか」から「値が scope にあるか」へ動かした (adversarial 提案)。
+		//
+		// PIN を query 値として渡した先の例外 message は、PIN をそのまま含みうる
+		// (実測: `pin <PIN> not found` 型 / local FS の絶対パス)。伏せてから出す。
+		const msg = redactStorageKeysInText(err instanceof Error ? err.message : String(err));
 		logger.error('[cloud-import] PIN検索失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
@@ -131,7 +169,9 @@ async function handleFullZipImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フル ZIP インポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フル ZIP インポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -146,18 +186,62 @@ async function handleFullZipImport(
 		await consumeCloudExportDownload(record);
 		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
-		if (err instanceof AtomicReplaceError) {
-			logger.error('[cloud-import] 置換 ZIP インポート中止 (既存データ保全)', {
-				context: { errors: err.result.errors.slice(0, 3) },
-			});
-			return apiError(
-				'VALIDATION_ERROR',
-				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
-			);
-		}
-		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
+		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
+		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
+		if (mapped) return mapped;
+		logger.error('[cloud-import] 置換 ZIP インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
+}
+
+/**
+ * クラウドテンプレート取込の書き込み計画を作る (#4693 QM 再レビュー、複雑度分離)。
+ *
+ * 各取込先 child について「その child にまだ無い名前」だけを instance 化する。
+ * `source` は指定しない = repo 既定 `seed` (activity-source.ts #3669 SSOT)。PIN 共有で他家族から
+ * 来るテンプレートはプリセット取込と同じ扱いで、custom quota を消費しない。
+ */
+async function planTemplateWrites<
+	T extends {
+		name: string;
+		categoryId: CategoryId;
+		icon: string;
+		basePoints: number;
+		triggerHint?: string | null;
+		isMainQuest?: number;
+		priority?: 'must' | 'optional';
+	},
+>(
+	targetChildIds: readonly ChildId[],
+	activities: readonly T[],
+	findExisting: (childId: ChildId) => Promise<{ name: string }[]>,
+): Promise<{
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>;
+	plannedNewNames: Set<string>;
+}> {
+	const childInputsByChild = new Map<ChildId, InsertChildActivityInput[]>();
+	const plannedNewNames = new Set<string>();
+	for (const cid of targetChildIds) {
+		const existingNames = new Set((await findExisting(cid)).map((a) => a.name));
+		const inputs: InsertChildActivityInput[] = activities
+			.filter((a) => !existingNames.has(a.name))
+			.map((a) => ({
+				childId: cid,
+				name: a.name,
+				categoryId: a.categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints,
+				triggerHint: a.triggerHint ?? null,
+				isMainQuest: a.isMainQuest ?? 0,
+				priority: a.priority ?? 'optional',
+				sourcePresetId: null,
+			}));
+		for (const input of inputs) plannedNewNames.add(input.name);
+		childInputsByChild.set(cid, inputs);
+	}
+	return { childInputsByChild, plannedNewNames };
 }
 
 /**
@@ -283,27 +367,38 @@ async function handleTemplateImport(
 		let activitiesCreated = 0;
 		const checklistsCreated = 0;
 
+		// #4693 (QM #4784 → PO 回答 2026-09-03 #2): クラウドテンプレート取込も他の取込経路と同じ
+		// quota 判定を通す。先に全 child の書き込み計画を作り、上限超過分は **捨てずに archived で**
+		// insert する (復元は顧客のデータを落とさない)。source は activity-source.ts (#3669 SSOT) の
+		// とおり repo 既定 `seed` (PIN 共有で他家族からも来るテンプレートは、プリセット取込と同じ
+		// 扱い = quota を消費しないので、通常は archived にならない)。
+		const { childInputsByChild, plannedNewNames } = await planTemplateWrites(
+			targetChildIds,
+			Array.from(uniqByName.values()),
+			(cid) => repos.childActivity.findActivitiesByChild(cid, tenantId),
+		);
+		const quota = await archiveActivityQuotaOverflow(tenantId, childInputsByChild, plannedNewNames);
+		// `message` が空 = 上限に触れていない。空でなければ archived が 0 でも返す
+		// (プラン判定を省いて全件有効で入れた、を黙らせない)。
+		const activityQuota = quota.message === '' ? undefined : quota;
+
 		// per-child instance bulk insert
-		for (const cid of targetChildIds) {
-			const existingInChild = await repos.childActivity.findActivitiesByChild(cid, tenantId);
-			const existingNames = new Set(existingInChild.map((a) => a.name));
-			const inputs = Array.from(uniqByName.values())
-				.filter((a) => !existingNames.has(a.name))
-				.map((a) => ({
-					childId: cid,
-					name: a.name,
-					categoryId: a.categoryId,
-					icon: a.icon,
-					basePoints: a.basePoints,
-					triggerHint: a.triggerHint ?? null,
-					isMainQuest: a.isMainQuest ?? 0,
-					priority: a.priority ?? 'optional',
-					sourcePresetId: null,
-				}));
+		// #4693 (QM 再レビュー 3 巡目): 耐久記録には **実際に書けた** 保管行数を載せる。
+		// bulk が throw したら外側 catch で 500 になり記録まで到達しないので、
+		// ここで数えた値は「書けた分」と一致する。
+		let archivedWritten = 0;
+		for (const inputs of childInputsByChild.values()) {
 			if (inputs.length > 0) {
 				const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
 				activitiesCreated += created.length;
+				archivedWritten += inputs.filter((i) => i.isArchived === 1).length;
 			}
+		}
+
+		// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (実書き込みのあと)。行の
+		// `archived_reason` では「親が自分で選んだ保管」と区別が付かないため。
+		if (archivedWritten > 0) {
+			await recordActivityQuotaArchiveMarker(tenantId, quota, archivedWritten);
 		}
 
 		// #3405-2 consume-on-success: 全 child への取込が成功した後に DL を消費する。旧実装は取込前に
@@ -316,6 +411,7 @@ async function handleTemplateImport(
 				activitiesCreated,
 				checklistsCreated,
 				targetChildCount: targetChildIds.length,
+				archived: quota.archived,
 			},
 		});
 
@@ -326,10 +422,15 @@ async function handleTemplateImport(
 				activitiesCreated,
 				checklistsCreated,
 				targetChildIds,
+				// #4693 (PO 回答 2026-09-03 #2): プラン上限で archived として取り込んだ分
+				// (入った数 / 保管した数 / 理由 + アップグレード導線)。0 件なら省略
+				activityQuota,
 			},
 		});
 	} catch (err) {
-		logger.error('[cloud-import] テンプレートインポート失敗', { error: String(err) });
+		logger.error('[cloud-import] テンプレートインポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', 'テンプレートのインポートに失敗しました');
 	}
 }
@@ -364,7 +465,9 @@ async function handleFullImport(
 			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
-			logger.error('[cloud-import] フルインポート失敗', { error: String(err) });
+			logger.error('[cloud-import] フルインポート失敗', {
+				error: redactStorageKeysInText(String(err)),
+			});
 			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
 		}
 	}
@@ -379,16 +482,12 @@ async function handleFullImport(
 		await consumeCloudExportDownload(record);
 		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
-		if (err instanceof AtomicReplaceError) {
-			logger.error('[cloud-import] 置換インポート中止 (既存データ保全)', {
-				context: { errors: err.result.errors.slice(0, 3) },
-			});
-			return apiError(
-				'VALIDATION_ERROR',
-				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
-			);
-		}
-		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
+		// #4752: 失敗種別 → HTTP / 文言の対応は replace-import-response に集約 (3 経路で同一)。
+		const mapped = replaceImportErrorResponse(err, '[cloud-import]');
+		if (mapped) return mapped;
+		logger.error('[cloud-import] 置換インポート失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
 }

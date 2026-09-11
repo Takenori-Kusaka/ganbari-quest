@@ -66,19 +66,19 @@ async function handleShareDownload() {
 		// Branding
 		ctx.fillStyle = '#9ca3af';
 		ctx.font = '14px sans-serif';
-		ctx.fillText('がんばりクエスト', 320, 440);
+		ctx.fillText(CERTIFICATE_DETAIL_LABELS.shareCardBrandText, 320, 440);
 
 		// Download
 		const link = document.createElement('a');
 		link.download = `certificate-${data.certificate.id}.png`;
 		link.href = canvas.toDataURL('image/png');
 		link.click();
-		shareStatus = 'ダウンロードしました！';
+		shareStatus = CERTIFICATE_DETAIL_LABELS.downloadSuccess;
 		setTimeout(() => {
 			shareStatus = '';
 		}, 3000);
 	} catch {
-		shareStatus = 'ダウンロードに失敗しました';
+		shareStatus = CERTIFICATE_DETAIL_LABELS.downloadFailed;
 		setTimeout(() => {
 			shareStatus = '';
 		}, 3000);

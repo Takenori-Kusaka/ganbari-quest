@@ -1,23 +1,34 @@
 <script lang="ts">
 import { FEATURES_LABELS } from '$lib/domain/labels';
+import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 
 /** 初回記録完了後のワンタイム通知バナー: ❓ガイドの存在を知らせる */
 
 interface Props {
 	/** 初回記録完了済みかどうか */
 	visible: boolean;
+	/** #4690 F5: 年齢モード。文言の文体を決める (docs/DESIGN.md §8)。 */
+	uiMode?: string;
 	onDismiss: () => void;
 }
 
-let { visible, onDismiss }: Props = $props();
+let { visible, uiMode = 'preschool', onDismiss }: Props = $props();
+
+const kanji = $derived(
+	normalizeUiMode(uiMode) === 'junior' || normalizeUiMode(uiMode) === 'senior',
+);
+const title = $derived(
+	kanji ? FEATURES_LABELS.child.hintTitleKanji : FEATURES_LABELS.child.hintTitle,
+);
+const sub = $derived(kanji ? FEATURES_LABELS.child.hintSubKanji : FEATURES_LABELS.child.hintSub);
 </script>
 
 {#if visible}
 	<div class="tutorial-hint" data-testid="tutorial-hint-banner">
 		<span class="text-xl">💡</span>
 		<div class="flex-1">
-			<p class="font-bold text-sm">{FEATURES_LABELS.child.hintTitle}</p>
-			<p class="text-xs opacity-80">{FEATURES_LABELS.child.hintSub}</p>
+			<p class="font-bold text-sm">{title}</p>
+			<p class="text-xs opacity-80">{sub}</p>
 		</div>
 		<button
 			type="button"

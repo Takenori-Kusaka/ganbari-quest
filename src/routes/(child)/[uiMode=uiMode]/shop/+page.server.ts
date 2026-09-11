@@ -1,35 +1,53 @@
 // src/routes/(child)/[uiMode=uiMode]/shop/+page.server.ts
 // ごほうびショップ 子供側 (#1337)
 
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { getChildShopLabels } from '$lib/domain/labels';
 import { deriveShopCategory } from '$lib/domain/shop-category';
+// #4685 (ADR-0011): 年齢帯ごとの機能可否は age-tier.ts の 1 箇所で判定する (散在 if を作らない)
+import { hasAgeTierCapability } from '$lib/domain/validation/age-tier';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
+import { NO_RETENTION_FILTER } from '$lib/server/services/plan-limit-service';
 import {
 	getRedemptionRequestsForChild,
+	isRewardAutoApproveEnabled,
 	requestRedemption,
 } from '$lib/server/services/reward-redemption-service';
 import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ parent, locals }) => {
+export const load: PageServerLoad = async ({ parent, locals, params }) => {
 	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
 	const { child } = parentData;
 
-	if (!child) {
-		return { rewards: [], balance: 0, redemptionRequests: [] };
+	// #4685: 準備モード (baby) はごほうびショップを持たない。history / status と同じく home へ倒す
+	// (旧実装は shop だけ素通りし、1 歳児の名前で交換申請が親の承認待ちに並んでいた)。
+	if (!hasAgeTierCapability(params.uiMode, 'rewardShop')) {
+		redirect(302, `/${params.uiMode}/home`);
 	}
 
-	const [rewardsData, balance, redemptionRequests] = await Promise.all([
+	if (!child) {
+		// #4684: 早期 return の shape を通常経路と一致させる (旧実装は通常経路が返さない
+		// `redemptionRequests` を返し、通常経路にある `autoApprove` を欠いていた)。
+		return { rewards: [], balance: 0, autoApprove: false };
+	}
+
+	const [rewardsData, balance, redemptionRequests, autoApprove] = await Promise.all([
 		getChildSpecialRewards(child.id, tenantId),
 		getBalance(child.id, tenantId),
-		getRedemptionRequestsForChild(child.id, tenantId),
+		// ここは履歴一覧ではなく「各ごほうびの最新申請状態」(交換済みバッジ / 再申請ガード) の
+		// 導出に使う。保持期間で絞ると、古い申請しか無いごほうびのバッジだけが消えて
+		// 状態表示が不定になるため絞らない。履歴として見せる場所は「記録 > 交換」タブ側
+		// (そちらは保持期間を通す、#4818)。
+		getRedemptionRequestsForChild(child.id, tenantId, NO_RETENTION_FILTER),
+		// #4684 F1: 確認ダイアログの説明を「このあと実際に起きること」に合わせるために必要。
+		isRewardAutoApproveEnabled(tenantId),
 	]);
 
 	// 各ごほうびに最新の申請状態 + shopCategory (#2157) を付与
@@ -63,21 +81,29 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	return {
 		rewards: rewardsWithStatus,
 		balance,
+		autoApprove,
 	};
 };
 
 export const actions: Actions = {
-	requestExchange: async ({ request, locals, cookies }) => {
+	requestExchange: async ({ request, locals, cookies, params }) => {
+		// #4690 F4: 失敗文言も年齢帯で文体が変わる (docs/DESIGN.md §8)。
+		const L = getChildShopLabels(params.uiMode);
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childIdStr = requireValidChildCookieFormat(cookies, 'route.shop.requestExchange');
-		if (!childIdStr) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
+		if (!childIdStr) return fail(400, { error: L.errorChildNotSelected });
 		const child = await getChildById(asChildId(childIdStr), tenantId);
-		if (!child) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
+		if (!child) return fail(400, { error: L.errorChildNotSelected });
+		// #4685: 画面を塞ぐだけでなく **action 側でも** 拒否する (直接 POST を通さない)。
+		// 判定は cookie の uiMode ではなく DB 上の子供の uiMode で行う。
+		if (!hasAgeTierCapability(child.uiMode ?? '', 'rewardShop')) {
+			return fail(403, { error: L.errorGeneric });
+		}
 
 		const formData = await request.formData();
 		const rewardId = formIdString(formData.get('rewardId'));
-		if (!rewardId) return fail(400, { error: CHILD_SHOP_LABELS.errorRewardNotFound });
+		if (!rewardId) return fail(400, { error: L.errorRewardNotFound });
 
 		// #4407: 個数。未指定 (旧 client / JS 無効) は 1 個として扱い、値域外は service が弾く。
 		const rawQuantity = formData.get('quantity');
@@ -89,13 +115,13 @@ export const actions: Actions = {
 			// #4407 AC10: 状態に合わせた文言を返す。即時交換 ON の直後再申請 (RECENTLY_EXCHANGED) に
 			// 「既に申請中です」と出すと事実と違ううえ、子供が次に何をすればよいか分からない。
 			const msgs: Record<string, string> = {
-				INSUFFICIENT_POINTS: CHILD_SHOP_LABELS.errorInsufficientPoints,
-				ALREADY_PENDING: CHILD_SHOP_LABELS.errorAlreadyPending,
-				RECENTLY_EXCHANGED: CHILD_SHOP_LABELS.errorRecentlyExchanged,
-				INVALID_QUANTITY: CHILD_SHOP_LABELS.errorInvalidQuantity,
-				REWARD_NOT_FOUND: CHILD_SHOP_LABELS.errorRewardNotFound,
+				INSUFFICIENT_POINTS: L.errorInsufficientPoints,
+				ALREADY_PENDING: L.errorAlreadyPending,
+				RECENTLY_EXCHANGED: L.errorRecentlyExchanged,
+				INVALID_QUANTITY: L.errorInvalidQuantity,
+				REWARD_NOT_FOUND: L.errorRewardNotFound,
 			};
-			return fail(400, { error: msgs[result.error] ?? CHILD_SHOP_LABELS.errorGeneric });
+			return fail(400, { error: msgs[result.error] ?? L.errorGeneric });
 		}
 
 		// #3339: 即時交換（家庭設定 reward_auto_approve ON）なら requestRedemption が approved 確定済。

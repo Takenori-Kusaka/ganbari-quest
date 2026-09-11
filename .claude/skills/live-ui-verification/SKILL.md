@@ -89,7 +89,7 @@ browser_fill_form → pin code 1..4 of 4 に 1 文字ずつ
 browser_wait_for  { time: 4 }
 ```
 
-- PIN の既定値は `PIN_DEFAULT_TERMS.hintFull`（`src/lib/domain/terms.ts`）だが、**運用中の環境では変更されている**。分からなければオーナーに聞く。3 回失敗するとロックされる実装があれば、試行を繰り返さない
+- PIN は `PIN_LENGTH`（`src/lib/domain/constants/oyakagi.ts`、4 桁）で、既定値は無い（初回に親ゲートで作成する、#2992 / #4698）。**運用中の環境の値はオーナーに聞く**。3 回失敗するとロックされる実装があれば、試行を繰り返さない
 - ページ再読込すると snapshot の ref prefix が変わる（`e45` → `f1e7`）。**fill する直前に snapshot を取り直す**
 
 ### Step 2: snapshot を主、screenshot を従とする（最重要）

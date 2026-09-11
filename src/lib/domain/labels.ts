@@ -3,12 +3,38 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// 活動記録の失敗契約 (3 service の戻り型と共有)。文言の網羅を型で強制するために型だけを引く
+import type { RecordActivityErrorCode, RecordActivityFailure } from './activity-record-failure';
+import { ADMIN_SCREENS, adminScreenHeading } from './admin-screens';
 // #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
-import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
+import { CATEGORIES, CATEGORY_NAME_LIST, type CategoryCode, toCategoryCode } from './categories';
+import { CHEER_POINTS } from './constants/cheer-points';
+import {
+	CERTIFICATE_LEVEL_MILESTONES,
+	MONTHLY_HABIT_DAYS_THRESHOLD,
+	PRAISE_MILESTONE_IDS,
+	type PraiseMilestoneId,
+	STREAK_MILESTONE_DAYS,
+} from './constants/habit-milestones';
+// #4664: 通知の配信量 (1 日の上限 / サイレント時間帯の既定) は domain 定数が SSOT。
+import {
+	DEFAULT_QUIET_END,
+	DEFAULT_QUIET_START,
+	MAX_DAILY_NOTIFICATIONS,
+} from './constants/notification';
+import { FREE_PLAN_QUOTA } from './constants/plan-quota';
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from './constants/plan-retention';
-import { jstDayOfWeek } from './date-utils';
+import {
+	REWARD_REJECT_NOTE_MAX_LENGTH,
+	REWARD_REQUEST_HISTORY_LIMIT,
+} from './constants/redemption-status';
+// #4505: プラン行ラベル表 (OPS_LABELS.planRowLabels) の網羅を型で強制するために型だけを引く
+import type { SubscriptionPlan } from './constants/subscription-plan';
+import { jstDayOfWeek, toJSTDateString } from './date-utils';
+// #4652 / #4715: 子供チュートリアルの nav 名 / とりけし秒数は画面と同じ SSOT から引く。
+//   年齢モード別 nav ラベルの SSOT は本ファイルの `getChildNavModeLabels()` (旧 icons.ts の getModeLabels)。
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -26,31 +52,49 @@ import { jstDayOfWeek } from './date-utils';
 //   （admin route 共通 ⋮ menu / per-child 取込ダイアログ / family master visibility chip atom、UX 規約 SSOT）
 // Phase 7 PR-2b (#2697): PLAN_CHANGE_TERMS / TOKUSHOHO_TERMS を追加 import
 //   - PR-2a (#2689) で terms.ts に atom-only 6 / 7 / 9 key で配備済
-//   - 本 PR-2b で SUBSCRIPTION_PAGE_LABELS / UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS /
+//   - 本 PR-2b で SUBSCRIPTION_PAGE_LABELS /
 //     PHASE4_REACTIVATION_FLOW_LABELS / LP_PRICING_LABELS 拡張の 5 compound で参照
 //   - 補強 PR #2684 (代替案 D = 2 Product 各 1 Price + ダウン即時 + Stripe credit memo) を反映し、
-//     旧 SCHEDULED_DOWNGRADE_BANNER_LABELS → IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS に命名変更
+//     (UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS は #4502 で削除 — #4166 の Portal 委譲で自社確認 UI が不採用になり dead 化した)
 //   - CHECKOUT_SUCCESS_TERMS の compound (CHECKOUT_SUCCESS_LABELS) は Phase 5 §4.6 SSOT で
 //     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
 //     されているため、本 PR では import 不要
 import {
+	ACTIVITY_ADMIN_TERMS,
+	ACTIVITY_QUOTA_TERMS,
+	ADD_MENU_TERMS,
+	ADMIN_HOME_TERMS,
+	ADMIN_SCREEN_TERMS,
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
+	AI_TRANSFER_TERMS,
+	AUTO_SLEEP_TERMS,
 	AUTONOMY_TERMS,
 	BACKUP_TERMS,
 	CANCEL_TERMS,
+	CERTIFICATE_TERMS,
+	CHALLENGE_TERMS,
+	CHECKLIST_ADMIN_TERMS,
 	CHECKOUT_TERMS,
+	CHEER_ADMIN_TERMS,
 	CHEER_TERMS,
+	CHILD_ADMIN_TERMS,
 	CHILD_SELECTION_TERMS,
+	CHILD_SHOP_TERMS,
 	CHILD_TERMS,
 	CONCEPT_ICONS,
+	CROSS_BORDER_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
+	DELETION_EXPORT_TERMS,
 	DELETION_GRACE_TERMS,
+	DEMO_SITE_TERMS,
+	FAMILY_MEMBER_LIMIT_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	GRADUATION_TERMS,
+	GROWTH_BOOK_TERMS,
 	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
@@ -60,26 +104,39 @@ import {
 	OVERFLOW_MENU_TERMS,
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
-	PIN_DEFAULT_TERMS,
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
+	POINTS_ADMIN_TERMS,
+	PRESET_ACTIVITY_TERMS,
 	PRICE_TERMS,
+	PWA_TERMS,
+	REWARD_ADMIN_TERMS,
 	REWARD_TERMS,
+	RULES_TERMS,
 	SIGNUP_TERMS,
+	STATUS_AXIS_TERMS,
 	STRIPE_PORTAL_TERMS,
+	SUPPORT_RESPONSE_TERMS,
 	TEMPLATE_TERMS,
 	TOKUSHOHO_TERMS,
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
+	USAGE_SUMMARY_TERMS,
+	VIEWER_LINK_TERMS,
 	VISIBILITY_CHIP_TERMS,
+	WEEKDAY_NAMES_SUNDAY_FIRST,
+	WEEKDAY_TERMS,
 } from './terms';
+import { CANCEL_WINDOW_MS } from './validation/activity';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
+// #4704: 受諾拒否の理由。案内文の網羅を型で強制するために型だけを引く
+import type { InviteAcceptErrorReason } from './validation/auth';
 
 // ============================================================
 // アプリ情報 (#1452 Phase B)
@@ -87,7 +144,7 @@ import { normalizeUiMode } from './validation/age-tier-types';
 
 export const APP_LABELS = {
 	name: 'がんばりクエスト',
-	tagline: '子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ',
+	tagline: `${CHILD_TERMS.honorific}の活動をゲーミフィケーションで動機付けする家庭内Webアプリ`,
 	demoName: 'がんばりクエスト デモ',
 	pageTitleSuffix: ' - がんばりクエスト',
 	demoPageTitleSuffix: ' - がんばりクエスト デモ',
@@ -101,32 +158,39 @@ export const APP_LABELS = {
 
 export const PAGE_TITLES = {
 	// ご家族の見守り画面 (#2057, 旧称: 管理画面)
-	activities: '活動管理',
+	activities: ADMIN_SCREENS.activities.name,
 	activitiesIntroduce: '活動紹介スライド',
-	reports: 'レポート',
-	achievements: 'チャレンジ管理',
-	growth: '成長記録ブック',
-	points: 'ポイント管理',
+	reports: ADMIN_SCREENS.reports.name,
+	achievements: ADMIN_SCREENS.challenges.name,
+	growth: ADMIN_SCREENS.growthBook.name,
+	points: ADMIN_SCREENS.points.name,
 	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
-	cheer: '応援',
-	rewards: 'ごほうび',
-	checklists: 'チェックリスト管理',
+	cheer: ADMIN_SCREENS.cheer.name,
+	rewards: ADMIN_SCREENS.rewards.name,
+	checklists: ADMIN_SCREENS.checklists.name,
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'きょうだいチャレンジ',
-	children: 'こども管理',
-	members: 'メンバー管理',
-	settings: '設定',
+	// #4671 F3 の呼称統一 (旧「きょうだいチャレンジ」) は ADMIN_SCREEN_TERMS.challenges =
+	// CHALLENGE_TERMS.canonical として registry 側に吸収済み
+	challenges: ADMIN_SCREENS.challenges.name,
+	// #4714 / #4715: LP の carousel alt と nav / 見出しが同じ registry から引く
+	children: ADMIN_SCREENS.children.name,
+	members: ADMIN_SCREENS.members.name,
+	settings: ADMIN_SCREENS.settings.name,
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
-	billing: '請求書・支払い管理',
-	certificates: 'がんばり証明書',
-	license: 'プラン・お支払い',
-	statusBenchmark: 'ベンチマーク管理',
+	// #4139: /admin/billing は /admin/subscription に統合済。呼称も統一する (#4715)
+	billing: ADMIN_SCREENS.subscription.name,
+	certificates: ADMIN_SCREENS.certificates.name,
+	license: ADMIN_SCREENS.subscription.name,
+	// #4715: 旧「ベンチマーク管理」は画面の中身 (成長レポート) と別物だった
+	status: ADMIN_SCREENS.status.name,
 	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
 	packs: TEMPLATE_TERMS.userFacing,
 	// 認証
 	login: `${LOGIN_TERMS.canonical}`,
 	signup: `${SIGNUP_TERMS.canonical}`,
 	invite: '招待',
+	// #4636: 招待受諾に失敗した人が留まる画面 (membership 未確定状態の正規の着地先)
+	join: '家族グループへの参加',
 	forgotPassword: 'パスワードリセット',
 	// セットアップ
 	setup: 'セットアップ',
@@ -146,9 +210,9 @@ export const PAGE_TITLES = {
 	// デモ ご家族の見守り画面 (#2057)
 	demoAdminAchievements: 'チャレンジ履歴（デモ）',
 	demoAdminActivities: '活動管理',
-	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
+	demoAdminChallenges: `${CHALLENGE_TERMS.canonical}（デモ）`,
 	demoAdminChecklists: 'もちものチェックリスト',
-	demoAdminChildren: 'こども管理',
+	demoAdminChildren: `${CHILD_TERMS.honorific}管理`,
 	demoAdminEvents: 'イベント管理（デモ）',
 	demoAdminLicense: 'プラン・お支払い（デモ）',
 	demoAdminMembers: 'メンバー管理',
@@ -163,7 +227,7 @@ export const PAGE_TITLES = {
 	demoChildHistory: 'きろく',
 	// セットアップ完了・各ステップ
 	setupComplete: 'ぼうけんのはじまり！',
-	setupChildren: '子供登録',
+	setupChildren: `${CHILD_TERMS.honorific}登録`,
 	setupFirstAdventure: 'はじめてのぼうけん',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
 	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
@@ -189,6 +253,8 @@ export const PAGE_TITLES = {
 // ============================================================
 
 export const UI_LABELS = {
+	// #4716: 「この日から」を表す接尾辞。子供画面の週次チャレンジ履歴などで使う。
+	dateFromSuffix: '〜',
 	redirecting: 'リダイレクト中...',
 	back: '戻る',
 	backWithArrow: '← 戻る',
@@ -239,6 +305,14 @@ export function formatCount(n: number): string {
 export function formatAge(n: number): string {
 	return `${n}歳`;
 }
+/**
+ * 子供向け画面のひらがな年齢表記 (#4512 / #4716 item 15)。`formatAge` の漢字版と対。
+ * /switch / /view/[token] のように子供・来訪者が読む画面はこちらを使う
+ * (以前は `child.age + 'さい'` を画面側で直書きしていた)。
+ */
+export function formatAgeKana(n: number): string {
+	return `${n}さい`;
+}
 export function formatAgeRange(min: number, max: number): string {
 	return `${min}〜${max}歳`;
 }
@@ -252,7 +326,54 @@ export function formatPeople(n: number): string {
 	return `${n}人`;
 }
 export function formatDateRange(start: string, end: string): string {
-	return `${start} 〜 ${end}`;
+	return `${formatJstDate(start)} 〜 ${formatJstDate(end)}`;
+}
+
+/**
+ * 保護者向け画面の日付表示 SSOT (#4716)。`YYYY/MM/DD` (JST, ゼロ埋め) に統一する。
+ *
+ * 以前は画面ごとに `d.replace(/-/g, '/')`（→ 2026/08/17）と
+ * `toLocaleDateString('ja-JP')`（→ 2026/8/19）が混在し、同じ日付が 2 通りに見えていた。
+ * ISO 文字列 (`YYYY-MM-DD`) / epoch ミリ秒 / Date のいずれも受け取り、JST 暦日に正規化する
+ * (`toJSTDateString` 経由。ローカル TZ の getter は使わない — #4015 JST SSOT)。
+ */
+export function formatJstDate(input: string | number | Date): string {
+	const iso =
+		typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)
+			? input
+			: toJSTDateString(input instanceof Date ? input : new Date(input));
+	return iso.replaceAll('-', '/');
+}
+
+/**
+ * 子供向け画面の日付表示 SSOT (#4716)。年齢帯で文体を変える。
+ *
+ * ISO 日付 (`2026-08-17`) をそのまま出すと、幼児画面に開発者フォーマットが露出する
+ * (実測: 子供 /challenges が `2026-08-17〜` を表示していた)。
+ */
+export function formatChildDate(input: string | number | Date, ageTier: string): string {
+	const iso =
+		typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)
+			? input
+			: toJSTDateString(input instanceof Date ? input : new Date(input));
+	const [, month, day] = iso.split('-');
+	const m = Number.parseInt(month ?? '1', 10);
+	const d = Number.parseInt(day ?? '1', 10);
+	const tier = normalizeUiMode(ageTier);
+	return tier === 'baby' || tier === 'preschool' ? `${m}がつ${d}にち` : `${m}月${d}日`;
+}
+/**
+ * 「YYYY年M月」表記 (#4512)。
+ *
+ * 旧実装は admin/reports・admin/growth-book・ADMIN_HOME_LABELS・OPS_COSTS_LABELS が
+ * それぞれ同じ組版を持っていた。年月の見せ方を変えるときに 4 箇所直す状態を解消する。
+ */
+export function formatYearMonth(year: number | string, month: number | string): string {
+	return `${year}年${Number(month)}月`;
+}
+/** 「M月」表記 (年を伴わない月見出し、#4512) */
+export function formatMonthOnly(month: number | string): string {
+	return `${Number(month)}月`;
 }
 
 // ============================================================
@@ -261,6 +382,26 @@ export function formatDateRange(start: string, end: string): string {
 
 export const SETUP_LABELS = {
 	layoutTitle: '初期セットアップ',
+	// #4512: setup wizard の step 名。旧実装は setup/+layout.svelte に直書きだった。
+	stepChildren: '子供登録',
+	stepQuestionnaire: 'かんたん質問',
+	stepPacks: '活動',
+	stepRewards: 'ごほうび',
+	stepRules: 'ルール',
+	stepActivitiesDefaults: '活動初期設定',
+	stepChallenges: '家族チャレンジ',
+	stepFirstAdventure: 'はじめての冒険',
+	stepComplete: '冒険の始まり',
+	// #4512: プレビュー開閉トグル。packs / rewards / rules / challenges の 4 step で同一文言のため
+	//   step 個別 namespace ではなく setup 共通に置く (SETUP_CHALLENGES_LABELS からも参照する)。
+	previewToggleOpen: '▼ なかみ',
+	previewToggleClose: '▲ とじる',
+	// #4863 (PO 決裁 2026-09-09): 全 step 共通の「戻る」文言。step 個別 namespace に散らすと
+	//   step を足したときに片方だけ増えるので、**共通に 1 つだけ**置く。
+	backButton: 'もどる',
+	// #4863: 全 step 共通の出口。ウィザードを最後まで歩かずに降りたい人が、7 回スキップを
+	//   押さずに済むようにする。中断した印は立ったままなので「続きをする」で戻ってこられる。
+	leaveWizard: 'あとでやる',
 } as const;
 
 // ============================================================
@@ -283,34 +424,132 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
 // ナビゲーション項目ラベル
 // ============================================================
 
+/**
+ * 兄弟共通化（別のお子さまの設定をコピーする）操作の共通文言 (#4716)。
+ *
+ * 以前は活動「別のお子さまからコピー」/ ごほうび「📋 他の子供から copy」/ チェックリスト
+ * 「他のお子さまから取り込む」の 3 表記に割れていた。同じ操作なので 1 箇所に置く。
+ */
+export const COPY_FROM_CHILD_LABELS = {
+	/** + 追加 dropdown / ボタンのラベル (値の atom は ADD_MENU_TERMS.copyFromChild) */
+	action: ADD_MENU_TERMS.copyFromChild,
+	/** dropdown のアイコン (概念アイコンではないので registry 対象外) */
+	icon: '👨‍👩‍👧',
+	/** ダイアログ見出し。resource は「活動」「ごほうび」等 */
+	dialogTitle: (resource: string) => `別の${CHILD_TERMS.honorific}から${resource}をコピー`,
+} as const;
+
 export const NAV_ITEM_LABELS = {
 	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
-	reports: 'レポート',
-	growthBook: 'グロースブック',
-	achievements: 'チャレンジ履歴',
+	// #4715: nav / title / 見出しを同じ registry から引く (旧 nav「グロースブック」等の別名を廃止)
+	reports: ADMIN_SCREENS.reports.name,
+	growthBook: ADMIN_SCREENS.growthBook.name,
+	achievements: ADMIN_SCREENS.challenges.name,
 	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
-	points: 'ポイント',
+	points: ADMIN_SCREENS.points.name,
 	// #2270 / #2274 (EPIC #2266): 旧 messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
-	// #2276: CHEER_TERMS / REWARD_TERMS atom 参照化 (ADR-0045)
-	cheer: CHEER_TERMS.canonical,
-	rewards: REWARD_TERMS.canonical,
-	activities: '活動管理',
+	cheer: ADMIN_SCREENS.cheer.name,
+	rewards: ADMIN_SCREENS.rewards.name,
+	activities: ADMIN_SCREENS.activities.name,
 	// #1168: チェックリスト（ナビは単一、ページ内タブで「持ち物」「ルーティン」に分離）
-	checklists: 'チェックリスト',
+	checklists: ADMIN_SCREENS.checklists.name,
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
 	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
-	challenges: 'チャレンジ',
+	challenges: ADMIN_SCREENS.challenges.name,
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
 	marketplace: TEMPLATE_TERMS.short,
-	children: 'こども',
-	settings: '設定',
-	license: 'プラン',
-	billing: '請求管理',
-	members: 'メンバー',
+	children: ADMIN_SCREENS.children.name,
+	settings: ADMIN_SCREENS.settings.name,
+	license: ADMIN_SCREENS.subscription.name,
+	billing: ADMIN_SCREENS.subscription.name,
+	members: ADMIN_SCREENS.members.name,
+	status: ADMIN_SCREENS.status.name,
 } as const;
+
+// ============================================================
+// 子供画面のナビゲーションラベル（年齢帯 variant、#4715）
+// ============================================================
+//
+// #4715: 以前は `src/lib/domain/icons.ts` の `MODE_LABELS` に置かれており、UI 文言の SSOT が
+// labels.ts / icons.ts の 2 箇所に割れていた（icons.ts はアイコン定数の置き場であって文言の置き場ではない）。
+// 文言はここに寄せ、呼び出し側は `getChildNavModeLabels()` を本ファイルから直接 import する。
+//
+// 呼称の是正（#4715）:
+//   - `switch`: junior / senior が「メンバー」だった。親画面の「メンバー管理」（招待した大人）と
+//     同じ語で別概念を指していたため「家族」に統一する。
+//   - `checklist`: 「もちものチェック」「持ち物チェック」「もちもの」の 3 表記があり、
+//     同じ画面にルーティン系プリセット（あさのしたく / よるのじゅんび）も並ぶのに名前が持ち物限定だった。
+//     親画面の「チェックリスト管理」と同じ語幹の「チェックリスト」に寄せる。
+
+// 型は本ファイル内でのみ使う（`getChildNavModeLabels()` の戻り値として推論される）。
+// export すると参照ゼロの公開 export になり orphan-labels gate が新規 orphan として落とす。
+interface ChildNavModeLabels {
+	status: string;
+	switch: string;
+	history: string;
+	achievements: string;
+	titles: string;
+	recordSummary: string;
+	checklist: string;
+}
+
+export const CHILD_NAV_MODE_LABELS: Record<UiMode, ChildNavModeLabels> = {
+	// baby = 親の準備モード（ADR-0011）: 子供向けゲーミフィケーション語彙ではなく親向けラベル
+	baby: {
+		status: 'せいちょうきろく',
+		switch: 'かぞく',
+		history: 'きろく',
+		achievements: 'できたこと',
+		titles: 'せいちょう',
+		recordSummary: 'きょうの きろく',
+		checklist: 'チェックリスト',
+	},
+	preschool: {
+		status: 'つよさ',
+		switch: 'かぞく',
+		history: 'きろく',
+		achievements: 'チャレンジきろく',
+		titles: 'しょうごう',
+		recordSummary: 'きょうの きろく',
+		checklist: 'チェックリスト',
+	},
+	elementary: {
+		status: 'つよさ',
+		switch: 'かぞく',
+		history: '記録',
+		// #4690 F7: 同じ画面群で history が「記録」なのに achievements だけ「きろく」だった
+		achievements: 'チャレンジ記録',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+	junior: {
+		status: 'ステータス',
+		switch: '家族',
+		history: '記録',
+		achievements: 'チャレンジ記録',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+	senior: {
+		status: 'ステータス',
+		switch: '家族',
+		history: '記録',
+		achievements: 'チャレンジ記録',
+		titles: '称号',
+		recordSummary: '今日の記録',
+		checklist: 'チェックリスト',
+	},
+};
+
+/** 年齢モード別の子供ナビラベルを安全に取得する（未知モードは preschool にフォールバック）。 */
+export function getChildNavModeLabels(uiMode: string): ChildNavModeLabels {
+	return CHILD_NAV_MODE_LABELS[normalizeUiMode(uiMode)] ?? CHILD_NAV_MODE_LABELS.preschool;
+}
 
 // ============================================================
 // 年齢区分ラベル（ご家族の見守り画面用）
@@ -396,6 +635,60 @@ export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
 //   - viewerTokenFamilyOnly                  : "ファミリープラン限定の機能です"
 //
 // 参照: docs/DESIGN.md §6 / Issue #1925 / terms.ts (PLAN_FULL_TERMS atom)
+
+/** プラン制限 403 の末尾導線文 (#4767 PO 回答 #4)。PLAN_GATE_LABELS 内の各 compound が共有する。 */
+const PLAN_UPGRADE_CTA = 'プランをアップグレードしてください。';
+
+/** クラウド保管上限 403 の本文。`cloudExportLimitReached` / `cloudExportLimitReachedNaming` が共有する。 */
+const CLOUD_EXPORT_LIMIT_REACHED = (max: number) =>
+	`クラウド保管は最大${max}件までです。古いエクスポートを削除してから、もう一度お試しください。`;
+
+/**
+ * 活動 quota 上限 403 の本文 (#4693)。`activityLimitReached` / `activityLimitReachedWithUpgrade` が共有する。
+ * `CLOUD_EXPORT_LIMIT_REACHED` (#4710) と同型の抽出。
+ */
+const ACTIVITY_LIMIT_REACHED = (max: number) =>
+	`${ACTIVITY_QUOTA_TERMS.original}は ${max} 個までです（${ACTIVITY_QUOTA_TERMS.presetImport}は無制限です）`;
+
+/**
+ * 活動の上限にまつわる復元結果の文言 SSOT (#4693)。
+ *
+ * 復元は 4 経路 (settings > データ の ZIP / JSON 復元、クラウド取込、活動管理の ︙ →
+ * 「バックアップから復元」、`api/v1/activities/import` の merge) あり、**保管が起きたときは
+ * どこから入っても同じ文言**でなければならない (同じ状況で画面ごとに言うことが違うのを防ぐ)。
+ * ただし `api/v1/activities/import` は route 入口の `checkActivityLimit` (#3759) を残しており、
+ * custom が上限ちょうどのときは 403 (`PLAN_GATE_LABELS.activityLimitReached`) で終わり
+ * ここには到達しない (境界の正確な記述は `server/services/activity-quota.ts` 冒頭の但し書き)。
+ * marketplace 側の feedback (`resolveImportFeedback`) と settings 画面の両方がここを読む。
+ */
+export const ACTIVITY_QUOTA_LABELS = {
+	/**
+	 * "119 件のうち 3 件を有効化し、116 件はプランの上限のため保管しました（アップグレードで使えます）"
+	 *
+	 * PO 回答 (2026-09-03) #2: 上限を超える復元で顧客のデータを落とさない。超過分は archived (保管)
+	 * で取り込み、入った数 / 入らなかった数 / 理由 / 次の行動を必ず出す。
+	 * 「復元しました」だけで黙って落とすのは不可。導線 (link) は呼び出し側が併記する。
+	 *
+	 * @param total 復元対象だったオリジナル活動の行数 (= activated + archived)
+	 * @param activated 有効な状態で入った行数
+	 * @param archived プランの上限のため保管 (archived) した行数
+	 */
+	restoreArchivedResult: (total: number, activated: number, archived: number) =>
+		`${total} 件のうち ${activated} 件を有効化し、${archived} 件はプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+
+	/**
+	 * 過去の復元で保管した分を **あとから見ても分かる**ようにする常設の記録 (#4693 QM 再レビュー)。
+	 *
+	 * `archived_reason` は enum (`ARCHIVED_REASONS`) で、上限による自動保管専用の値を足すには
+	 * Aurora DSQL の CHECK 制約を張り替える必要があるが、DSQL は `ALTER TABLE … ADD CONSTRAINT`
+	 * を受け付けない (0A000)。そのため行単位では「親が自分で選んで保管した」分と区別が付かない。
+	 * 代わりに **テナント単位の耐久記録**を残し、この文言で親の画面に出す
+	 * (「自分で選んだ覚えはない」に答えられる状態を、行の外側で成立させる)。
+	 */
+	pastRestoreArchivedNotice: (dateLabel: string, archived: number) =>
+		`${dateLabel} の復元で、${archived} 件の活動をプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
+} as const;
+
 export const PLAN_GATE_LABELS = {
 	/**
 	 * "{feature}はスタンダードプラン以上でご利用いただけます"
@@ -409,6 +702,28 @@ export const PLAN_GATE_LABELS = {
 	 */
 	standardOrAboveFor: (feature: string) =>
 		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
+
+	/**
+	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"
+	 *
+	 * #4512: checklists の上限エラー 5 箇所が「フリープラン」を直書きしていた
+	 * (プラン名の SSOT は「無料プラン」で、「フリー」はカード等の短縮名。#4502 の
+	 *  使い分け決裁を server 面にも適用する)。文と数値の組み立てを 1 箇所に閉じる。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (#4622)。
+	 *   引数を `number` に狭めてあるため、`max: number | null` をそのまま埋めて
+	 *   「1人あたり null 個」を出す経路がコンパイルで落ちる。
+	 */
+	perChildLimitReached: (max: number) =>
+		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
+
+	/** 同上の短い版 (上限値だけを述べ、アップグレード導線は呼び出し側が別に出す場合)。 */
+	perChildLimitReachedShort: (max: number) =>
+		`${PLAN_FULL_TERMS.free}ではお子さま1人あたり ${max} 個までです。`,
+
+	/** 一括取込で一部だけ入った場合の結果通知。 */
+	bulkImportPartiallyLimited: (added: number | string, rejected: number | string, note: string) =>
+		`${added} 件取り込みました。${PLAN_FULL_TERMS.free}の上限に達したため ${rejected} 件は取り込めませんでした。${PLAN_FULL_TERMS.standard}以上で無制限。${note}`,
 
 	/**
 	 * "{feature}はファミリープランでご利用いただけます"
@@ -433,7 +748,55 @@ export const PLAN_GATE_LABELS = {
 	 * カバー対象:
 	 *   - server/errors.ts: 'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。'
 	 */
-	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。プランをアップグレードしてください。`,
+	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
+
+	/**
+	 * "プランをアップグレードしてください。" — プラン制限 403 の末尾に付ける導線文 (#4767 PO 回答 #4)。
+	 * 画面 / test が「導線が載っているか」を照合するための export。
+	 */
+	upgradeCta: PLAN_UPGRADE_CTA,
+
+	/**
+	 * "{feature}はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。"
+	 * "{feature}はプレミアムプラン限定です。プランをアップグレードしてください。"
+	 *
+	 * プラン制限 403 (`planLimitError`) の**唯一の顧客向け文言** (#4767 PO 回答 #4)。
+	 * 旧実装は `message` (機能名入り・導線なし) と `userMessage` (導線入り・機能名なし) の 2 本を
+	 * 別々の文字列で持ち、client が読む `message` には導線が載っていなかった。
+	 * 機能名 + 要求 tier + アップグレード導線を 1 文に組み立て、両チャネルに同じ文字列を載せる。
+	 *
+	 * @param feature 機能名 (`FEATURE_LABELS` 等の labels SSOT から渡す)
+	 * @param requiredTier その機能が要求する最低 tier
+	 */
+	requiredTierWithUpgradeFor: (feature: string, requiredTier: 'standard' | 'family') =>
+		requiredTier === 'family'
+			? `${feature}は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`
+			: `${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。${PLAN_UPGRADE_CTA}`,
+
+	// 活動 quota 上限 403 の「機能名」だった `activityAddFeature` は #4693 (QM 4 巡目) で撤去した。
+	// 唯一の読み手だった REST 2 面 (`api/v1/activities` POST / `api/v1/activities/import` merge) が
+	// `quotaLimitError` + `activityLimitReachedWithUpgrade` に移ったため、参照ゼロになった。
+	// 数量制限を機能ゲートの文型 (`requiredTierWithUpgradeFor`) に流し込む入口を残すと、
+	// 「3 個までは使えるのに『ご利用いただけます』と言われる」#4710 と同 class の症状が再発する。
+	// 読み手のいない label を置き続けない (#4584「フラグと実装が別々の真実になる」と同じ理由)。
+
+	/**
+	 * "スタンダード以上" — バッジ / タグ用の短縮形 (#4512)
+	 *
+	 * PremiumBadge の label / ヘッダーの premium バッジ / pricing の家族パターンタグが
+	 * それぞれ同じ文字列を持っていた (3 重定義)。短縮プラン名 atom から組み立てる。
+	 */
+	standardOrAboveBadge: `${PLAN_TERMS.standard}以上`,
+
+	/**
+	 * "この機能はプレミアムプラン限定です。プランをアップグレードしてください。"
+	 *
+	 * #4710: `PLAN_LIMIT_EXCEEDED` の userMessage が要求 tier を見ずに常に
+	 * `standardOrAboveGenericWithUpgrade` を返しており、**スタンダード契約者が
+	 * プレミアム限定機能 (AI 提案) を叩くと「スタンダード以上にしてください」**と言われた。
+	 * 既にスタンダードなので次の行動が取れない。要求 tier 別に文を出し分けるための片割れ。
+	 */
+	familyLimitedGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.premium}限定です。${PLAN_UPGRADE_CTA}`,
 
 	/**
 	 * "{feature}はファミリープラン限定です。アップグレードすると利用できます。"
@@ -453,13 +816,162 @@ export const PLAN_GATE_LABELS = {
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 
 	/**
-	 * "メンバー上限（{max}人）に達しています。プランをアップグレードしてください。"
+	 * "ご家族の人数が上限（オーナーを含めて {max} 人）に達しています。…"
 	 *
 	 * 家族メンバー招待の quota 上限 (maxFamilyMembers) 到達時の 403 文言 (#1111 / EPIC #3533 §10.7)。
 	 * 旧 `api/v1/admin/invites/+server.ts` 内ハードコードを SSOT 経由に是正 (ADR-0045 / P5)。
+	 *
+	 * **上限は owner を含む合計**である (#4500)。「メンバー上限（4人）」とだけ言うと、LP で
+	 * 「4 人まで招待できる」と読んだ顧客が 3 人目の招待でブロックされた時に不具合と誤認する。
+	 * オーナーを含む数え方であることを、ブロックされたその場で明示する。
 	 */
-	memberLimitReached: (max: number | string) =>
-		`メンバー上限（${max}人）に達しています。プランをアップグレードしてください。`,
+	memberLimitReached: (max: number) =>
+		`ご家族の人数が上限（オーナーを含めて${max}人）に達しています。これ以上の招待はプランのアップグレードが必要です。`,
+
+	/**
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）"
+	 *
+	 * 活動 quota 上限 (maxActivities) 到達時の 403 文言 (#4622)。
+	 * 旧実装は routes 7 箇所に直書きされ、`checkActivityLimit` の `max: number | null` を
+	 * そのまま埋めていたため「最大 null 個」を出しうる型の穴になっていた。
+	 * 引数を `number` に狭めることで、null を渡す呼び出しがコンパイルで落ちる。
+	 *
+	 * #4693 PO 回答 (2026-09-03): 上限の母集団は親が手で作った活動 (custom) だけで、
+	 * プリセット取込は消費しない。旧「カスタム活動は最大 N 個まで作成できます」は
+	 * 「テンプレも入らない」と読めたため、数える対象と数えない経路の両方を言う
+	 * (atom: ACTIVITY_QUOTA_TERMS)。アップグレード導線は呼び出し側 (PlanLimitError の
+	 * upgradeUrl / `upgradeLinkLabel`) が併記する。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと (無制限プランは上限に達しない)
+	 */
+	activityLimitReached: ACTIVITY_LIMIT_REACHED,
+
+	/**
+	 * "オリジナル活動は N 個までです（プリセットからの取込は無制限です）。プランをアップグレードしてください。"
+	 *
+	 * 上と同じ本文に **アップグレード導線まで載せた** 版 (#4693 QM 4 巡目)。REST の 403 用。
+	 *
+	 * # なぜ REST 用に別 compound が要るか
+	 *
+	 * admin の form action は `createPlanLimitError` が `upgradeUrl` を構造化フィールドで返し、
+	 * 画面が `upgradeLinkLabel` のリンクを併記するので、本文に導線を書く必要がない。
+	 * 一方 REST (`api/v1/activities` POST / `api/v1/activities/import` merge) は顧客に届くのが
+	 * `message` の 1 本だけ (#4767 PO 回答 #4) なので、導線を本文に含めないと案内が消える。
+	 *
+	 * # なぜ `requiredTierWithUpgradeFor` を使わないか (#4710 と同 class)
+	 *
+	 * `requiredTierWithUpgradeFor` は **機能ゲート**の文型 (「〜はスタンダードプラン以上でご利用
+	 * いただけます」) で、**数量制限**に使うと「3 個までは使えるのに『使えません』」という自己矛盾に
+	 * なる。クラウド保管枠で同じ症状を直したのが #4710 の `quotaLimitError` で、活動 quota の
+	 * REST 2 面がその移行から漏れていた。数量制限は「N 個までです」+ 導線で言い切る。
+	 *
+	 * @param max 上限値。`allowed: false` の分岐でのみ呼ぶこと
+	 */
+	activityLimitReachedWithUpgrade: (max: number) =>
+		`${ACTIVITY_LIMIT_REACHED(max)}。${PLAN_UPGRADE_CTA}`,
+
+	/**
+	 * "子供は最大{max}人まで登録できます。プランをアップグレードしてください。"
+	 *
+	 * 子供 quota 上限 (maxChildren) 到達時の 403 文言 (#4622)。activityLimitReached と同型。
+	 */
+	childLimitReached: (max: number) =>
+		`子供は最大${max}人まで登録できます。プランをアップグレードしてください。`,
+
+	/**
+	 * "クラウド保管は最大{max}件までです。古いエクスポートを削除してから、もう一度お試しください。"
+	 *
+	 * クラウド保管の同時保管数上限 (maxCloudExports) 到達時の 403 文言 (#4710)。
+	 *
+	 * `activityLimitReached` / `childLimitReached` と違い **アップグレードを案内しない**。
+	 * maxCloudExports は free=0 / standard=3 / family=10 で、free は 0 なのでプランゲート側で
+	 * 弾かれる。つまり**この上限に達するのは契約中の顧客だけ**であり、その顧客に
+	 * 「プランをアップグレードしてください」と言うのが #4710 の症状そのものになる
+	 * (最上位の family=10 に至っては上げ先が無い)。その場で取れる行動を案内する。
+	 *
+	 * @param max 上限値。上限に達した分岐でのみ呼ぶこと
+	 */
+	cloudExportLimitReached: CLOUD_EXPORT_LIMIT_REACHED,
+
+	/**
+	 * 上限到達 403 に「どれを消せばいいか」を名指しで添える (#4767 PO 回答 #3)。
+	 *
+	 * 候補は service が失敗 → DL 使い切り → 作成日が古い順に並べた先頭数件
+	 * (`SETTINGS_LABELS.cloudDeleteCandidate` で 1 件ずつ整形済み)。候補が無ければ上の文だけ。
+	 * 画面側 (`resolveApiErrorMessage`) は 200 字で切るため、候補は呼び出し側で 3 件までに絞る。
+	 */
+	cloudExportLimitReachedNaming: (max: number, candidates: readonly string[]) =>
+		candidates.length === 0
+			? CLOUD_EXPORT_LIMIT_REACHED(max)
+			: `${CLOUD_EXPORT_LIMIT_REACHED(max)}もう使えないものから削除できます: ${candidates.join('、')}`,
+
+	/**
+	 * 上限到達 403 のうち、**消しても損の無い行 (作成失敗 / 回数切れ) が 1 つも無い**場合 (#4767 QM must)。
+	 *
+	 * この状況で候補として挙げられるのは「まだダウンロードできる共有」しかない。
+	 * 「削除の候補」とだけ言うと、まだ必要な共有をワンクリックで消させることになるため、
+	 * **失われるものを明示**したうえで候補を出す (削除自体は取り消せない)。
+	 */
+	cloudExportLimitReachedLiveOnly: (max: number, candidates: readonly string[]) =>
+		`${CLOUD_EXPORT_LIMIT_REACHED(max)}いま保管されているものはすべてまだダウンロードできる共有です。削除すると取り出せなくなります（元に戻せません）: ${candidates.join('、')}`,
+
+	// チェックリストテンプレート quota 上限 (maxChecklistTemplates) 到達時の 403 文言は
+	// `perChildLimitReached` / `perChildLimitReachedShort` (上記) が SSOT。
+	// #4622 の「上限メッセージに null を渡せない」関門は、そちらの引数を `number` に
+	// 狭めることで満たしている (同じ文言の label を 2 つ置くと SSOT が割れるため統合した)。
+	//
+	// develop 側 (#4707/#4727 経由) に一時的に入っていた `checklistTemplateLimitReached` /
+	// `checklistTemplateLimitReachedWithUpgrade` は、全 callsite (checklists/+page.server.ts 5 箇所) が
+	// `perChildLimitReached*` を参照しており到達不能な重複だった。加えてプラン名を
+	// 「フリープラン」と直書きしており #4512 (プラン名 SSOT = `PLAN_FULL_TERMS.free`) に反するため、
+	// `perChildLimitReached*` に統合した。
+
+	/**
+	 * プランを確認できないため取込を中止したときの文言 (#4693 fail-closed)。
+	 * 障害中だけ上限が消える経路を作らないための拒否であり、顧客には再試行を促す。
+	 */
+	planUnverifiableImportAborted:
+		'ただいまプランを確認できないため取り込みを中止しました。しばらくしてからもう一度お試しください。',
+
+	/**
+	 * 復元で **プランは無料と分かっているが、現在の利用数を数えられなかった** ときの文言 (#4693 QM 再レビュー)。
+	 *
+	 * 現在数の集計は「子供一覧 → 子ごとに活動一覧」の 1+N 読み取りで、transient に最も当たりやすい。
+	 * 数えられない以上は残枠を 0 とみなして保管するが、**この世帯は無料と確定している**ので
+	 * アップグレードすれば復帰できる (自己回復の導線がある)。だから上限超過と同じ導線を出す。
+	 */
+	usageUnverifiableRestoreArchived: (archived: number) =>
+		`ただいまご利用状況を確認できなかったため、${archived} 件の活動は保管しました。${UPGRADE_TERMS.actionVerb}すると使えます。`,
+
+	/**
+	 * 復元で **プラン自体を判定できなかった** ときの文言 (#4693 QM 再レビュー 3 巡目)。
+	 *
+	 * 倒し方の候補は 3 つあった:
+	 *   (a) 全部保管する → 有料世帯が一時的な読み取り失敗だけで復元データを全部無効化され、
+	 *       自力で戻す導線が無い (アーカイブ解除は課金 webhook 経由しか無い)。却下
+	 *   (b) 上限を適用せず全部有効で入れる → 無料世帯が読み取り失敗を挟むだけで上限 3 のところ
+	 *       119 件を恒久保持できる (#4693 症状 1 の再生産)。しかも「あとで整理されます」と
+	 *       言っても、その整理を行うコードが存在しない (嘘になる)。却下
+	 *   (c) **中止する** → 何も書かないのでデータは失われず (顧客の手元のバックアップは無傷)、
+	 *       課金境界も守られ、文言も嘘にならない。再試行で回復できる。**これを採る**
+	 *
+	 * 取込 (`planUnverifiableImportAborted`) と同じ倒し方に揃うので、判定不能時の挙動が
+	 * 取込 / 復元で分岐しなくなる。
+	 */
+	planUnresolvedRestoreAborted:
+		'ただいまプランを確認できないため、活動の復元を中止しました。データは失われていません。しばらくしてからもう一度お試しください。',
+
+	/**
+	 * **誰が**上限に達しているのかを言う版 (#4693)。
+	 *
+	 * 旧実装は上限に達した子の名前を出さず、しかも 1 人でも超過していれば全員分の配信を
+	 * 丸ごと失敗させていた。「誰の上限か分からない / 余裕のある子にも入らない」の 2 重の
+	 * 詰まりになるため、名前を出したうえで**余裕のある子には配信する**。
+	 *
+	 * プラン名は #4512 の SSOT (`PLAN_FULL_TERMS`) 経由で組み立てる。
+	 */
+	perChildLimitReachedForChildren: (names: readonly string[], max: number) =>
+		`${names.join('・')}は${PLAN_FULL_TERMS.free}の上限（お子さま1人あたり ${max} 個）に達しているため配信をスキップしました。${PLAN_FULL_TERMS.standard}以上にアップグレードすると無制限に作成できます。`,
 
 	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
@@ -581,9 +1093,10 @@ export function getThemeOptions(): { value: ThemeKey; label: string; emoji: stri
 // ============================================================
 
 export const FEATURE_LABELS = {
-	report: 'レポート',
-	growthBook: 'グロースブック',
-	message: 'おうえんメッセージ',
+	report: ADMIN_SCREENS.reports.name,
+	// #4715: 画面名 registry (nav = title = 見出し) に合わせる
+	growthBook: ADMIN_SCREENS.growthBook.name,
+	message: ADMIN_SCREENS.cheer.name,
 	reward: 'ごほうび',
 	// #1168: チェックリストを「持ち物」「ルーティン」に分離
 	checklistItem: '持ち物チェックリスト',
@@ -593,7 +1106,7 @@ export const FEATURE_LABELS = {
 	loginBonus: 'ログインボーナス',
 	challenge: 'チャレンジ',
 	event: 'イベント',
-	certificate: 'がんばり証明書',
+	certificate: CERTIFICATE_TERMS.full,
 	stamp: 'スタンプ',
 	// #1311: 「シールガチャ」語彙を撤回、実装実体 (日 1 回 cap login omikuji + 週次 stamp card) に合わせた SSOT
 	// 旧: 'シールガチャ' → 新: 'おみくじ' + 'スタンプカード' の 2 mechanic 分離 (ADR-0012 / ADR-0013 準拠)
@@ -608,6 +1121,9 @@ export const FEATURE_LABELS = {
 	plan: 'プラン',
 	members: 'メンバー',
 	dataExport: 'データエクスポート',
+	// #4767 PO 回答 #4: プラン制限 403 の機能名 (planLimitError に渡す)。route に直書きしない。
+	cloudExport: 'クラウドエクスポート',
+	archiveRestore: 'アーカイブしたデータの復元',
 	// #1660 R53: 実装は activities / special-rewards / checklists の 3 endpoint で family-only gate 完備のため
 	// 内部 SSOT も外部訴求 (pricing.html / plan-features.ts) と並列に「活動・ごほうび・チェックリスト」を明示
 	aiActivitySuggest: 'AI による活動・ごほうび・チェックリスト提案',
@@ -641,8 +1157,7 @@ export function getActivityPriorityLabel(priority: string): string {
 export const ACTIVITY_PRIORITY_FORM_LABELS = {
 	toggleSectionTitle: '今日のおやくそく',
 	toggleLabel: '「今日のおやくそく」にする',
-	toggleHint:
-		'ON にすると、子供画面で「今日のおやくそく」セクションに表示され、毎日全達成でボーナスポイントが加算されます。',
+	toggleHint: `ON にすると、${CHILD_TERMS.honorific}の画面で「今日のおやくそく」セクションに表示され、毎日全達成でボーナスポイントが加算されます。`,
 	mustBadge: '今日のおやくそく',
 	optionalBadge: 'ふつう',
 	editPageTitle: '活動を編集',
@@ -711,6 +1226,12 @@ export const TRIAL_LABELS = {
 	durationDays: TRIAL_TERMS.durationDays,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
+	// PO 決裁 2026-09-10 決定 3(a): トライアルは申込経路から**自動で開始**する。
+	// 始まったことを顧客に告げないと、「無料体験を始める」を押しに行って
+	// 「すでに使用済みです」に当たる (自分が始めた覚えが無いのに使い切っている)。
+	// 終了日は**その日いっぱい使える最後の日**を出す (判定は isTrialEndDateActiveJST の `>=`)。
+	startedNotice: (endDate: string) =>
+		`${TRIAL_TERMS.duration}の${ACTION_LABELS.freeTrial}が始まりました。${endDate}まで全機能をお使いいただけます`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
 	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
 	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
@@ -760,7 +1281,7 @@ export const TRIAL_EMAIL_LABELS = {
 	 * 保持期間切れの物理削除 (retentionIrreversibleLine) と必ず対で使う。
 	 */
 	archiveRestorableLine: (planLabel: string) =>
-		`${planLabel}の上限を超えるお子さま・活動などはアーカイブされます（データは残っており、アップグレードすれば復元できます）。`,
+		`${planLabel}の上限を超えるお子さま・活動・チェックリストは一時的に非表示（アーカイブ）になります（データは残っており、有料プランにアップグレードすると自動で元に戻ります）。`,
 	/**
 	 * 保持期間を過ぎた履歴が**物理削除され復元できない**ことを述べる行 (#4507 AC1)。
 	 *
@@ -819,9 +1340,23 @@ export const DELETION_RESERVED_EMAIL_LABELS = {
 	intro: '退会（アカウント削除）のお申し込みを受け付けました。',
 	scheduleLine: (deletionDate: string, graceDays: number) =>
 		`お申し込みから${graceDays}日後の${deletionDate}に、すべてのデータを削除します。`,
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除を断定しない。**
+	 *
+	 * 削除が走らない状態で「この日にすべてのデータを削除します」と書くのは事実に反する。
+	 * 一方で**その日を過ぎるとご自身での取り消しができなくなるのは事実**
+	 * (`restoreSoftDeletedTenant` が `isExpired` で拒否する) なので、期限そのものは伝える。
+	 */
+	scheduleLineRetentionOnly: (deletionDate: string, graceDays: number) =>
+		`お申し込みから${graceDays}日後の${deletionDate}を過ぎると、ご自身でのお取り消しができなくなります。`,
 	restoreLine: (adminViewLabel: string) =>
 		`削除日までは${adminViewLabel}からお取り消しいただけます。削除後のデータは復元できません。`,
+	/** 削除を断定しない版 (#4721)。取り消し期限だけを述べる。 */
+	restoreLineRetentionOnly: (adminViewLabel: string) =>
+		`期限までは${adminViewLabel}からお取り消しいただけます。`,
 	exportLine: '記録を手元に残される場合は、削除日までに書き出しをお願いいたします。',
+	/** 削除を断定しない版 (#4721)。 */
+	exportLineRetentionOnly: '記録を手元に残される場合は、期限までに書き出しをお願いいたします。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'本メールはお手続きに関する重要なご連絡のため、メールの配信設定にかかわらずお送りしています。',
@@ -940,6 +1475,21 @@ export const DELETION_WARNING_EMAIL_LABELS = {
 	restoreNote: (adminView: string) =>
 		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
 	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	/**
+	 * 物理削除が停止中の配備で使う版 (#4721)。**削除の断定をやめ、取り消し期限だけを述べる。**
+	 *
+	 * 送信自体は止めない — 猶予中に「まだ戻せる」ことを思い出す接点がこのメールしかなく、
+	 * 止めると復元できるのに戻らない顧客を作る。嘘をやめるのに便を止める必要はない。
+	 */
+	subjectRetentionOnly: (daysRemaining: number) =>
+		`お取り消し期限のお知らせ（あと ${daysRemaining} 日）`,
+	headingRetentionOnly: 'お取り消し期限のお知らせ',
+	deadlineDateLine: (deadlineDate: string, daysRemaining: number) =>
+		`お取り消しができる期限: ${deadlineDate}（あと ${daysRemaining} 日）`,
+	irreversibleNoteRetentionOnly: '期限を過ぎると、ご自身でのお取り消しはできなくなります。',
+	restoreNoteRetentionOnly: (adminView: string) =>
+		`期限までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNoteRetentionOnly: 'このままお手続きを進める場合、操作は不要です。',
 	ctaLabel: 'アカウント設定を開く',
 	transactionalNote:
 		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
@@ -1029,7 +1579,7 @@ export const PMF_SURVEY_LABELS = {
 	},
 
 	q2Label: 'Q2. このサービスから得られている、主なメリットは何ですか？',
-	q2Placeholder: '例: こどもが自分から記録するようになった など',
+	q2Placeholder: `例: ${CHILD_TERMS.honorific}が自分から記録するようになった など`,
 
 	q3Label: 'Q3. このサービスをどこで知りましたか？',
 	q3Options: {
@@ -1119,7 +1669,7 @@ export const PREMIUM_MODAL_LABELS = {
 		'✅ オリジナル活動の追加・編集',
 		'✅ チェックリストのカスタマイズ',
 		'✅ ごほうびリストの自由設定',
-		'✅ 子供の登録無制限',
+		`✅ ${CHILD_TERMS.honorific}の登録無制限`,
 		'✅ データのエクスポート',
 	],
 	familyFeatures: [
@@ -1156,28 +1706,30 @@ export const MARKETPLACE_LABELS = {
 	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
+	// #4511: 陳列は #2896 で 3 type (rule-preset はブラウズ不可)。検索流入者に 4 type を訴求しない
+	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリストを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
+	// #4512: 詳細ルートの 404 文言 (旧: [type]/[itemId]/+page.server.ts 直書き)
+	errorInvalidType: 'コンテンツタイプが不正です',
+	errorItemNotFound: 'コンテンツが見つかりません',
 	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
+	// #4511: 旧 href="/demo" は legacy redirect → 「/」→ 未認証は /auth/login に落ちる
+	// 死に導線だった (デモは #2181 で demo.ganbari-quest.com へ移設済み)。URL は atom 参照。
+	// #4677 は「/demo 行きで死んでいる」ことを理由にリンク自体を撤去したが、本 atom で
+	// 実在するデモ環境を指すようになったためリンクを残す (#4677 の禁止対象は href="/demo")
+	backToDemoHref: DEMO_SITE_TERMS.url,
 	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
 	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
 	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
 	breadcrumbRoot: TEMPLATE_TERMS.short,
 	// Round 18 Cluster A (ADR-0045): おすすめパック → TEMPLATE_TERMS atom 経由
 	recommendedSection: `おすすめ${TEMPLATE_TERMS.short}`,
-	importCta: '使ってみる',
 	questsBadge: 'クエスト集',
-	tabs: {
-		activities: 'アクティビティ集',
-		rewards: 'ごほうび集',
-		checklists: '持ち物リスト',
-		rules: 'ルール集',
-	},
 	detailIncludedActivities: 'ふくまれる活動',
 	detailIncludedRewards: 'ふくまれるごほうび',
 	detailChecklistItems: 'チェック項目',
@@ -1191,12 +1743,15 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
+	// #4711: 取込 CTA 文言を取込 4 type (activity-pack / reward-set / checklist / rule-preset) で
+	// 統一する。旧実装は type ごとに 4 様 (「ご家族の見守り画面で取り込む (N件を選択中)」/
+	// 「🎁 このごほうびセットを一括追加 (N件)」/「一括追加」/「📜 このルールセットを一括追加 (N件)」)
+	// で、一覧の type 名 (とくべつルール) と不一致な「ルールセット」も混ざっていた。
+	/** 認証済 + 子供登録済: 件数付き統一 CTA */
+	detailCtaImportUnified: (count: number) => `この${TEMPLATE_TERMS.short}を取り込む (${count}件)`,
+	/** 未ログイン: login へ誘導する統一 CTA */
+	detailCtaImportUnifiedSignedOut: `${LOGIN_TERMS.canonical}して${TEMPLATE_TERMS.short}を取り込む`,
 	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わずご家族の見守り画面に delegate)
-	/** activity-pack ログイン済 + 子供登録済: ご家族の見守り画面に遷移して child 選択ダイアログを開く動線 */
-	detailCtaImportActivityPack: 'ご家族の見守り画面で取り込む',
-	/** activity-pack ログイン済 + 子供登録済: 件数付き CTA */
-	detailCtaImportActivityPackWithCount: (count: number) =>
-		`ご家族の見守り画面で取り込む (${count}件の活動)`,
 	/** activity-pack ログイン済 + 子供未登録 */
 	detailCtaImportActivityPackNoChildren: 'まずはお子さまを登録してください',
 	/** activity-pack 未ログイン CTA 説明 (誤新規登録防止) */
@@ -1209,10 +1764,12 @@ export const MARKETPLACE_LABELS = {
 	/** Cluster H: subset 選択セクション見出し */
 	detailActivityPackSelectHeading: '取り込む活動を選ぶ',
 	/** Cluster H: 選択ヒント (preschool 親「30 件は多すぎる」「歯磨きとお片付けだけ欲しい」への直接回答) */
+	// #4711: 「登録済み」判定は家族全体 (全員の活動名) なので、その旨を明記する。取込先の
+	// お子さまに同名の活動があれば admin 側 (child 単位 dedup) でスキップされるため既定は全選択。
 	detailActivityPackSelectHint:
-		'チェックを外すと取り込みません。既に登録済みの活動は最初からチェックを外しています。',
-	/** Cluster H: 既存活動と name 一致した場合のバッジラベル */
-	detailActivityPackAlreadyExistsBadge: '登録済み',
+		'チェックを外すと取り込みません。「ご家族のどなたかに登録済み」の活動も、取り込むお子さまにまだ無ければ追加されます（同じ名前の活動があるお子さまにはスキップされます）。',
+	/** Cluster H: 既存活動と name 一致した場合のバッジラベル (family 全体判定) */
+	detailActivityPackAlreadyExistsBadge: 'ご家族のどなたかに登録済み',
 	/** Cluster H: 全て選択ボタン */
 	detailActivityPackSelectAll: 'すべて選ぶ',
 	/** Cluster H: 全て解除ボタン */
@@ -1222,13 +1779,11 @@ export const MARKETPLACE_LABELS = {
 		`${selected}件 / ${total}件 を取り込みます`,
 	/** Cluster H: 0 件選択時の inert 状態説明 */
 	detailActivityPackSelectedZero: '取り込む活動を 1 件以上選んでください',
-	/** Cluster H: 件数連動 CTA (subset 選択結果を反映、選択件数 = N) */
-	detailCtaImportActivityPackSelected: (count: number) =>
-		`ご家族の見守り画面で取り込む (${count}件を選択中)`,
-	/** #2136 MP-1: reward-set 一括追加 CTA */
-	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
-	/** #2136 MP-1: 件数付き一括追加 CTA */
-	detailCtaImportRewardWithCount: (count: number) => `🎁 このごほうびセットを一括追加 (${count}件)`,
+	// #4705: 無料プランは商品登録ができない。押す**前**に条件と次の行き先を示す
+	// (子供を選ばせてから拒否しない)。実ゲートは isCustomRewardUnlocked (#4584)。
+	detailImportLockedTitle: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
+	detailImportLockedDesc: `${PLAN_FULL_TERMS.free}でも活動の記録・ポイント・レベルはそのままお使いいただけます。取り込んだごほうびをショップに並べるには、プランのアップグレードが必要です。`,
+	detailImportLockedCta: 'プランを見る',
 	/** #2136 MP-1: ログイン後の reward 取込誘導 */
 	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
 	/** #2136 MP-1: 取込先の子供選択ラベル */
@@ -1247,27 +1802,25 @@ export const MARKETPLACE_LABELS = {
 	/** #2362 PR-4 (ADR-0055 / CWE-598): marketplace 取込ボタン下のヒント (admin 側でダイアログ) */
 	detailRewardImportPerChildHint:
 		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
-	// #2137 (MP-2): event-checklist 一括追加 CTA
-	detailCtaImportChecklist: '一括追加',
-	detailCtaImportChecklistDesc:
-		'お子さまの「持ち物リスト」へまとめて追加します（重複時はスキップ）',
-	detailCtaSignupToImport: 'がんばりクエストに登録して 一括追加',
+	// #2137 (MP-2): event-checklist 取込 CTA 説明 (CTA 本体は detailCtaImportUnified、#4711)
+	// #4657 F10: 取込先の呼称は現称「チェックリスト」(旧「持ち物リスト」は #2909 で撤去済の旧称)
+	detailCtaImportChecklistDesc: `お子さまの「${NAV_ITEM_LABELS.checklists}」へまとめて追加します（重複時はスキップ）`,
 	detailChildSelectLabel: 'どのお子さまに追加しますか？',
 	detailImportSuccess: (n: number) => `${n}件のチェック項目を追加しました`,
 	detailImportDuplicate: (templateName: string) =>
 		`「${templateName}」は既に取込済みのためスキップしました`,
 	detailImportError: 'インポートに失敗しました',
-	// #2138 (MP-3): rule-preset 一括追加 CTA
-	detailCtaImportRule: '一括追加',
-	detailCtaImportRuleWithCount: (count: number) =>
-		`${CONCEPT_ICONS.rule} このルールセットを一括追加 (${count}件)`,
+	// #2138 (MP-3): rule-preset 取込 CTA 説明 (CTA 本体は detailCtaImportUnified、#4711)
 	detailCtaImportRuleDescBonus:
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
+	// #4511 / #4711: ADR 番号や no-op / penalty / special は社内語彙。顧客には
+	// 「今は使えない」という事実だけを伝える (内部語を出さない #4711 の契約も満たす)
 	detailCtaImportRuleDescPenalty:
-		'⚠️ penalty タイプは ADR-0012 anti-engagement 細則により慎重審査中です。取込試行は警告として記録されます。',
-	detailCtaImportRuleDescSpecial: '⚠️ special タイプは将来枠です。本取込は記録のみで no-op です。',
+		'⚠️ このタイプのルールは現在ご利用いただけません（お子さまへの罰を伴う仕組みは提供しない方針のため）。',
+	detailCtaImportRuleDescSpecial:
+		'⚠️ このタイプのルールは準備中です。追加しても、今はまだ画面には反映されません。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
 		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
@@ -1316,9 +1869,10 @@ export const MARKETPLACE_FILTER_LABELS = {
 		ageFit: '年齢順',
 	},
 	// Round 18 Cluster C: 年齢 filter 既定 ON 化 (selectedChildId 経由) 時の hint + 解除動線
+	// #4711: 名前 (nickname、「さくらちゃん」等の呼び名を含む) があるときは敬称を重ねない。
 	autoAgeFilterApplied: (childName: string, ageTierLabel: string) =>
 		childName
-			? `${childName}${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`
+			? `${childName} (${ageTierLabel}) に合わせて表示中`
 			: `${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`,
 	clearAgeFilter: 'すべての年齢を表示',
 	// Round 18 Cluster I (#11/#15/#19): 50+ 件 tag 並列が認知負荷過多のため、人気 N 件 default + expansion
@@ -1331,28 +1885,22 @@ export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
 export type MarketplaceSortKey = keyof typeof MARKETPLACE_FILTER_LABELS.sortOptions;
 
 // ============================================================
-// チュートリアル関連ラベル（#961 QA: quickMode 対応）
+// チュートリアル（子供画面ガイド）の共通ダイアログ文言
 // ============================================================
+//
+// #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1) 撤去に伴い、章立て専用 key
+// (viewFullGuide / openGuide / quick* = クイックモード) を削除した。本定数は
+// 再開 / 終了確認ダイアログの既定文言のみを持つ。子供画面は年齢帯 variant
+// (`getChildTutorialLabels(uiMode).dialog`、#4652) を使うため、本既定値は
+// `childUiMode` 未指定の呼び出し (将来の親向け再利用) 用のフォールバックである。
 
 export const TUTORIAL_LABELS = {
-	/** AdminHome 等から全チャプターを最初から見る導線 */
-	viewFullGuide: 'くわしいガイドを最初から見る',
-	viewFullGuideHint: 'すべてのチャプター（活動管理・報酬・レポートなど）を順番に確認できます',
-	openGuide: 'ガイドを開く',
-	/** クイック完了ダイアログのボタン */
-	quickFinish: '使い始める',
-	quickContinue: 'もっと詳しく見る',
 	/** #1192: 再開プロンプト */
 	resumeTitle: 'チュートリアルの続き',
 	resumePrompt: '前回の途中から続けますか？',
 	resumeCancel: 'キャンセル',
 	resumeFromStart: '最初から',
 	resumeContinue: '続きから',
-	/** #1192: クイック完了ダイアログ本文 */
-	quickCompleteTitle: '基本の使い方を確認しました！',
-	quickCompleteBody: 'ここからは実際にお子さまを登録して使い始めましょう。',
-	quickCompleteHint:
-		'残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。',
 	/** #1192: 終了確認ダイアログ */
 	exitConfirmAriaLabel: 'チュートリアル終了確認',
 	exitConfirmPrompt: 'チュートリアルを終了しますか？',
@@ -1361,128 +1909,243 @@ export const TUTORIAL_LABELS = {
 	exitConfirmConfirm: '終了する',
 } as const;
 
+// #4674: PAGE_GUIDE_LABELS.adminCertificates が印刷 / シェアのボタン名を参照するため同様に前置きする
+export const CERTIFICATE_DETAIL_LABELS = {
+	pageTitle: CERTIFICATE_TERMS.full,
+	backLink: '一覧に戻る',
+	previewTitle: `📜 ${CERTIFICATE_TERMS.canonical}プレビュー`,
+	printButton: '🖨️ 印刷 / PDF保存',
+	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
+	upgradeLink: 'アップグレード',
+	shareCardTitle: '🎉 がんばりカード',
+	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
+	downloadButton: '📥 画像をダウンロード',
+	closeButton: '閉じる',
+	showShareCardButton: '🎉 シェアカードを表示',
+	// #4512: シェアカード生成 (canvas) / ダウンロード結果の文言を SSOT へ集約
+	shareCardBrandText: APP_LABELS.name,
+	downloadSuccess: 'ダウンロードしました！',
+	downloadFailed: 'ダウンロードに失敗しました',
+	certificateNotFound: `${CERTIFICATE_TERMS.canonical}が見つかりません`,
+} as const;
+
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests がボタン名・見出しを参照するため前置きする
+export const ADMIN_REWARDS_REQUESTS_LABELS = {
+	// #4716: 他の admin title に絵文字が無いため揃える (title は絵文字なし / 画面内見出しに絵文字)
+	pageTitle: 'ごほうび申請承認',
+	pageDescTitle: `${CONCEPT_ICONS.reward} ごほうび申請承認`,
+	// #4676 F5: 保護者向け画面のため CHILD_TERMS.honorific に統一し、英語見出しを日本語にする
+	pageDescText: `${CHILD_TERMS.honorific}からの交換申請を承認 / 却下します。`,
+	backToRewardsLabel: `← ${ADMIN_SCREENS.rewards.name}に戻る`,
+	// #4716: 英語の節見出し (Pending / History) を日本語に
+	pendingSectionTitle: '承認待ち',
+	pendingCountSuffix: (count: number) => `${count} 件`,
+	// #4682 F1: 承認待ちが表示上限を超えたとき、「見えている件数 = 全件」と誤解させない。
+	// 表示は古い順なので、長く待っている申請から必ず画面に出る。
+	pendingTruncatedNote: (shown: number, total: number) =>
+		`古い順に ${shown} 件を表示しています（未処理の申請は全 ${total} 件）。処理すると次の申請が出ます`,
+	// #4682 F4: 「直近 30 申請の中の処理済み」ではなく「処理済みの直近 30 件」を出す。
+	// #4716: 節見出しは英語 (History) を廃し、何の一覧かが分かる日本語にする。
+	historySectionTitle: `これまでの申請（直近${REWARD_REQUEST_HISTORY_LIMIT}件）`,
+	emptyPendingMessage: '申請はありません',
+	emptyHistoryMessage: '履歴はありません',
+	approveButton: '承認して渡した',
+	rejectButton: '却下する',
+	rejectNoteLabel: `却下理由（任意・最大${REWARD_REJECT_NOTE_MAX_LENGTH}文字）`,
+	rejectConfirmButton: '確定',
+	rejectCancelButton: 'キャンセル',
+	// #4716: 表示は日付のみ (時刻を出していない) ため「日時」を名乗らない
+	requestedAtLabel: '申請日',
+	rewardPointsUnit: 'ポイント',
+	statusApproved: '承認済み',
+	statusRejected: '却下済み',
+	// #4682 F4: 履歴行に「いつ処理したか」「なぜ却下したか」を出す
+	// (旧実装は申請日時も却下理由も出さず、親が後から判断を思い出せなかった)。
+	resolvedAtLabel: '処理日時',
+	rejectNoteHistoryLabel: '却下理由',
+} as const;
+
+// #4676: PAGE_GUIDE_LABELS.adminRewardsRequests が設定 > ルールの見出しを参照するため前置きする
+export const ADMIN_RULES_PAGE_LABELS = {
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
+	pageDescription:
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
+	emptyTitle: 'ボーナスルールがありません',
+	// #4666 F6: 操作名は実ボタン (有効化 / 無効化) を正とする。「ON / OFF」は同じ操作の別名。
+	emptyDesc: 'ボーナスルールを取込むと、ここで 有効化 / 無効化 を切り替えられます',
+	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
+	sectionBonusDesc:
+		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
+	enabledBadge: '有効',
+	disabledBadge: '無効',
+	enableButton: '有効化',
+	disableButton: '無効化',
+	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
+	// #4666 F7: 内部語の英字 (rule) が顧客に見える確認ダイアログに出ていた。
+	removeConfirm: '本当に削除しますか？取り込んだルールは元に戻せません。',
+	importedAtLabel: '取込日時',
+	rulesLabel: '含まれるルール',
+	pointBonusSuffix: 'pt',
+	updateSuccess: 'ルールを更新しました',
+	removeSuccess: 'ルールを削除しました',
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
+	importToastSuccess: (presetName: string) =>
+		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
+	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
+	importToastError: (presetName: string) =>
+		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
+	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	// #4711: 種類違い (exchange / penalty / special) は「失敗 → 再試行」ではなく、
+	// 取り込める画面 (交換型 = ごほうび管理) を案内する。内部 ID は出さない。
+	importToastWrongType: (presetName: string) =>
+		`「${presetName}」はボーナスルールではないため、この画面では取り込めません。`,
+	importWrongTypeExchangeHint: `交換型のルールは${REWARD_TERMS.menu}で取り込みます。`,
+	importWrongTypeGoToRewards: `${REWARD_TERMS.menu}で取り込む`,
+	importWrongTypeNotImportable: 'このルールは取込対象外です。',
+	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	// #4512: form action の失敗メッセージ (旧: +page.server.ts 直書き)
+	rewardApprovalUpdateFailed: 'ごほうび交換設定の更新に失敗しました',
+	updateFailed: 'ルール更新に失敗しました',
+	removeFailed: 'ルール削除に失敗しました',
+	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
+	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
+	rewardApprovalSectionDesc:
+		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
+	rewardApprovalRequireState: '保護者の承認が必要',
+	rewardApprovalInstantState: '承認なしで即時交換',
+	rewardApprovalRequireDesc:
+		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
+	rewardApprovalInstantDesc:
+		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
+	rewardApprovalEnableInstantButton: '即時交換にする',
+	rewardApprovalDisableInstantButton: '承認を必須に戻す',
+	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
+} as const;
+
+// #4672: PAGE_GUIDE_LABELS.adminMembers がボタン名を参照するため PAGE_GUIDE_LABELS より前に置く
+//        (module 初期化順。const は宣言前に参照できない)
 // ============================================================
-// チュートリアル章・ステップのテキスト SSOT（#1465 Phase B Priority 2）
-// tutorial-chapters.ts から移行。動的テキスト（NAV_CATEGORIES 参照等）は
-// tutorial-chapters.ts 側で PLAN_LABELS 等と組み合わせて構築する。
+// admin/members ページ (#1452 Phase B)
 // ============================================================
 
-export const TUTORIAL_CHAPTER_LABELS = {
-	chapters: {
-		intro: { title: 'はじめに', icon: '🏠' },
-		children: { title: 'こどもの登録', icon: '👧' },
-		activities: { title: '活動の管理', icon: '📋' },
-		rewards: { title: '報酬とポイント', icon: '🎁' },
-		reports: { icon: '📊' },
-		messages: { icon: '💬' },
-		customize: { icon: '🎮' },
-		settings: { title: '設定と日常の使い方', icon: '⚙️' },
-		upgrade: { title: 'アップグレード', icon: '⭐' },
-	},
-	steps: {
-		'intro-1': {
-			title: 'ナビゲーション',
-		},
-		'intro-2': {
-			title: 'ダッシュボード',
-			description:
-				'こどもの人数やポイントの合計がひと目で分かるサマリーです。「今こどもたちは合計何ポイント持っているかな？」を確認したい時にまずここを見てください。',
-		},
-		'intro-3': {
-			title: '今月のがんばり',
-			description:
-				'こどもごとの今月の活動回数・レベル・実績がひと目で分かるサマリーです。「今月はどのくらい頑張ったかな？」を毎日チェックしてみましょう。詳しくはレポート画面で確認できます。',
-		},
-		'intro-4': {
-			title: 'こども一覧（ホーム）',
-			description:
-				'登録したこどもの名前・年齢・ポイント残高が表示されます。「きょうだいそれぞれ今どのくらい頑張ってるかな？」をホーム画面から確認できます。',
-		},
-		'children-1': {
-			title: 'こどもを追加',
-			description:
-				'まだこどもを登録していない場合はここから追加しましょう。ニックネーム・生年月日・テーマカラーを設定すると、こども専用の画面が作られます。きょうだいがいれば複数登録できます。',
-		},
-		'children-2': {
-			title: 'こども一覧',
-			description:
-				'登録済みのこどもが一覧で並びます。「こどもの年齢設定を変更したい」「テーマカラーを変えたい」時は、名前をタップして編集画面へ進みましょう。',
-		},
-		'children-3': {
-			title: 'こどもの詳細',
-			description: `各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ ${PLAN_FULL_TERMS.free}ではこどもを2人まで登録できます。3人以上のきょうだいがいる場合は${PLAN_FULL_TERMS.standard}以上で無制限に登録できます。`,
-		},
-		'activities-1': {
-			title: '活動一覧',
-			description:
-				'こどもが記録できる活動の一覧です。各活動の獲得ポイントや1日の上限回数を確認・編集できます。「このポイント多すぎるかな？」と思ったらここで調整しましょう。',
-		},
-		'activities-2': {
-			title: 'カテゴリで絞り込み',
-			description:
-				'活動は「うんどう」「べんきょう」「せいかつ」などのカテゴリに分かれています。「うんどう系の活動を見直したい」など、目的に合わせて絞り込めます。',
-		},
-		'activities-3': {
-			title: '活動の追加',
-		},
-		'rewards-1': {
-			title: '特別報酬',
-			description:
-				'「お手伝いを自分から進んでやった」「テストでいい点を取った」など、日常の活動記録とは別に特別なポイントを贈りたい時に使います。理由を添えてポイントを渡しましょう。\n\n⭐ ごほうびアイテムの設定はスタンダードプラン以上で利用できます。',
-		},
-		'rewards-2': {
-			title: 'おこづかい変換',
-			description:
-				'貯まったポイントをおこづかいに交換する画面です。「500ポイント貯まったからおこづかいにしよう」という時に使います。変換履歴で月の合計額も確認できます。',
-		},
-		'reports-1': {
-			title: 'レポート画面',
-			description:
-				'こどもの活動を月次・週次で振り返れるレポート画面です。上部のタブで「月次レポート」と「週次レポート」を切り替えられます。「今月はどんな活動が多かったかな？」を確認しましょう。',
-		},
-		'reports-2': {
-			title: 'グロースブック',
-			description:
-				'こどもの1年間の成長をまとめた「成長記録ブック」も用意しています。レポート画面右上の「📖 記録ブック」リンクからアクセスできます。印刷してお子さまの記念にもなります。',
-		},
-		'messages-1': {
-			title: 'メッセージ送信',
-			description:
-				'こどもにおうえんメッセージを送れる画面です。まず送りたいこどもを選んで、スタンプまたはテキストメッセージを選びましょう。こどもの画面にメッセージが届きます。',
-		},
-		'messages-2': {
-			title: 'スタンプの送り方',
-			description:
-				'スタンプを選択して「送信」ボタンを押すだけで、こどもにおうえんの気持ちを伝えられます。「がんばったね！」「すごい！」など、お子さまが喜ぶスタンプが揃っています。',
-		},
-		'customize-1': {
-			title: 'データ管理',
-			description: `家族のデータを${BACKUP_TERMS.file}として書き出して保存したり、別の環境で${BACKUP_TERMS.restoreVerb}できます。機種変更やデータの引っ越しに便利です。`,
-		},
-		'settings-1': {
-			title: 'こども画面へ切替',
-		},
-		'settings-2': {
-			description: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する`,
-			descriptionSuffix:
-				'を変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
-		},
-		'settings-3': {
-			title: 'フィードバック',
-			description:
-				'「こんな機能がほしい」「ここが使いにくい」など、何でもお聞かせください。いただいた声をもとにアプリを改善していきます。',
-		},
-		'settings-4': {
-			title: 'チュートリアルの再開',
-			description:
-				'このチュートリアルは、ヘッダーの「？」ボタンからいつでも見直せます。使い方に迷った時はお気軽にどうぞ。お疲れさまでした！',
-		},
-		'premium-1': {
-			title: 'プラン比較・アップグレード',
-			description:
-				'各機能のガイドで ⭐ マークが付いた機能はスタンダードプラン以上で利用できます。「⭐ アップグレード」ボタンからプラン比較ページへ進み、お子さまに最適なプランをお選びください。7日間の無料トライアル付きです。',
-		},
-	},
+export const MEMBERS_LABELS = {
+	// #4704: 招待できない状態を **押す前に** 伝える (旧: フォームが活性のまま、送信して初めて 403)。
+	/** 上限到達 (free = 自分 1 人まで / standard = 4 人まで) */
+	inviteLimitTitle: '今のプランではこれ以上ご招待いただけません',
+	inviteLimitDesc: (current: number, max: number) =>
+		`ご家族のメンバーと発行済みの招待をあわせて ${current} / ${max} 人です。${PLAN_FULL_TERMS.standard}以上にすると人数を増やせます。`,
+	/** free は「上限 1 人」= 実質「自分だけ」なので、人数ではなく意味で伝える */
+	inviteLimitDescFree: `${PLAN_FULL_TERMS.free}ではご家族の招待をご利用いただけません（${ADMIN_VIEW_TERMS.canonical}はご本人のみ）。${PLAN_FULL_TERMS.standard}以上にすると、ご家族を招待できます。`,
+	inviteLimitCta: 'プランを見る',
+	/** セルフホスト (NUC) では招待 API 自体が使えない */
+	inviteUnsupportedTitle: 'この環境では招待をご利用いただけません',
+	inviteUnsupportedDesc:
+		'ご自宅のサーバーでお使いの場合、同じ端末・同じネットワークからそのままご利用いただけるため、招待の仕組みはありません。',
+
+	// Role labels
+	roleOwner: 'オーナー',
+	roleParent: `${PARENT_TERMS.honorific}`,
+	// #4716: 招待ロールの選択肢は保護者画面にしか出ない。親画面は honorific に寄せる。
+	roleChild: `${CHILD_TERMS.honorific}`,
+
+	// Current members section
+	currentMembersTitle: '現在のメンバー',
+	noMembersText: 'メンバーがいません',
+	transferButton: '移譲',
+	removeButton: '削除',
+	leaveGroupButton: '家族グループを離れる',
+
+	// Invite section
+	inviteSectionTitle: 'メンバーを招待',
+	inviteRoleLabel: '招待ロール',
+	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
+	inviteEmailLabel: '宛先メールアドレス（任意）',
+	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
+	inviteChildLabel: `対象の${CHILD_TERMS.honorific}（任意）`,
+	inviteChildNone: '-- 後で紐づけ --',
+	inviteCreateLoading: '作成中...',
+	inviteCreateButton: '招待リンクを作成',
+	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
+	inviteQrAlt: '招待QRコード',
+	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
+	inviteUrlLabel: '招待URL',
+	inviteCopied: 'コピー済み',
+	inviteCopy: 'コピー',
+
+	// Pending invites section
+	pendingInvitesTitle: '保留中の招待',
+	inviteExpiresPrefix: '期限: ',
+	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
+	// 取消し → 再発行できる修正導線)
+	inviteEmailBoundPrefix: '宛先: ',
+	inviteRevokeButton: '取消し',
+	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
+	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
+	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
+	inviteOwnerOnlyNote:
+		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
+
+	// Error messages
+	inviteCreateError: '招待リンクの作成に失敗しました',
+	networkError: '通信エラーが発生しました',
+	removeError: '削除に失敗しました',
+	transferError: '移譲に失敗しました',
+	leaveError: '離脱に失敗しました',
+
+	// Confirm dialogs
+	revokeConfirm: 'この招待リンクを取り消しますか？',
+	removeMemberConfirm: (email: string) =>
+		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
+	transferConfirm: (email: string) =>
+		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
+	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
+
+	// Viewer link section
+	viewerSectionTitle: '閲覧リンク',
+	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
+	viewerLabelField: 'ラベル（任意）',
+	viewerLabelPlaceholder: '例: おばあちゃん用',
+	viewerDurationLabel: '有効期限',
+	// #4500: viewerDuration7d は `TRIAL_TERMS.duration` (無料体験の期間) を流用していた。
+	// 閲覧リンクの有効期限とトライアル期間は無関係で、トライアルを 14 日に変えた瞬間に
+	// 閲覧リンクの選択肢が「14日間」と表示される (誤流用)。閲覧リンク自身の値として持つ。
+	viewerDuration7d: '7日間',
+	viewerDuration30d: '30日間',
+	viewerDurationUnlimited: '無期限',
+	viewerCreateLoading: '作成中...',
+	viewerCreateButton: '閲覧リンクを作成',
+	viewerSuccessMsg: '閲覧リンクが作成されました',
+	viewerQrAlt: '閲覧QRコード',
+	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
+	viewerUrlLabel: '閲覧URL',
+	viewerCopied: 'コピー済み',
+	viewerCopy: 'コピー',
+	viewerNoLabel: '(ラベルなし)',
+	viewerStatusInvalid: '無効',
+	viewerStatusExpired: '期限切れ',
+	viewerStatusValid: '有効',
+	viewerExpiresPrefix: '期限: ',
+	viewerExpiresNone: '無期限',
+	viewerRevokeButton: '無効化',
+	viewerDeleteButton: '削除',
+	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
+	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
+	viewerCreateError: '閲覧リンクの作成に失敗しました',
+
+	// Button titles
+	transferTitle: 'オーナー権限を移譲',
+	removeTitle: 'メンバーを削除',
 } as const;
 
 // ============================================================
@@ -1491,238 +2154,478 @@ export const TUTORIAL_CHAPTER_LABELS = {
 // 表示文言 (title / what / how / goal / tips) を本 compound に集約。
 // `_guide.ts` は本定数を参照するだけにし、構造フィールド (pageId / icon / selector /
 // position / requiredTier / step id) は `_guide.ts` 側に残す（表示文言ではないため）。
-// 構造は page → step → field のネスト（TUTORIAL_CHAPTER_LABELS と同型、ADR-0045 compound 層）。
+// 構造は page → step → field のネスト（ADR-0045 compound 層）。
 // 本定数の文言を検査する linter は無い（機械強制は無い。レビューで担保する）。
 // ============================================================
 
 export const PAGE_GUIDE_LABELS = {
+	// #4653: /admin ホームのガイド。画面の上から下の順 (承認待ちバナー → 上部カード → 今月のがんばり →
+	// こども一覧 → 子供画面へ切替 → 各機能へ移動) に並べ、要素名は描画側と同じ atom
+	// (ADMIN_HOME_TERMS / NAV_CATEGORIES / NAV_ITEM_LABELS) を参照する。条件付き要素 (承認待ちバナー /
+	// 今月のがんばり) の step は `optional: true` で宣言し、対象が描画されているときだけ出る
+	// (filterGuideStepsByPresence #4668 / #4677 → filterGuideStepsByTargetPresence #4653 の直列適用)。
+	// 'home-nav' は desktop (header 下の nav) と mobile (画面下部の nav) の 2 step が同じ文言を共有する。
 	adminHome: {
-		title: 'ホーム（ダッシュボード）',
+		title: NAV_ITEM_LABELS.home,
 		steps: {
 			'home-intro': {
 				title: 'このページについて',
-				what: `${ADMIN_VIEW_TERMS.canonical}のホームです。お子さま全員の「今日のがんばり」と各機能への入り口がここに集まっています。`,
-				how: '毎日ここを開くだけで、お子さまの活動状況をまとめて確認できます。詳しい操作はこのあと順番にご案内します。',
-				goal: '朝・夜のすきま時間にここを開けば、家族みんなのがんばりを 10 秒で把握でき、声かけのきっかけが見つかります。',
+				what: `${ADMIN_VIEW_TERMS.canonical}の${NAV_ITEM_LABELS.home}です。今月のがんばり・${ADMIN_HOME_TERMS.childrenSection}・各機能への入り口がここに集まっています。`,
+				how: `上から順に、${ADMIN_HOME_TERMS.pendingApproval}のお知らせ（あるとき）→ 上部カード → 今月のがんばり → ${ADMIN_HOME_TERMS.childrenSection} と並びます。このあと順番にご案内します。`,
+				goal: '朝・夜のすきま時間にここを開けば、家族みんなの今月のがんばりと残高を 10 秒で把握でき、声かけのきっかけが見つかります。',
+				tips: [
+					`${REWARD_TERMS.canonical}の交換申請があると、いちばん上に「${ADMIN_HOME_TERMS.pendingApproval}」のお知らせが出ます。押すと承認画面に移動します`,
+				],
+				relatedLinks: [
+					{
+						label: `${REWARD_TERMS.canonical}の交換申請を確認する`,
+						href: '/admin/rewards/requests',
+					},
+				],
+			},
+			'home-pending': {
+				title: `${ADMIN_HOME_TERMS.pendingApproval}のお知らせ`,
+				what: `お子さまが${REWARD_TERMS.canonical}の交換を申請すると、ここに${ADMIN_HOME_TERMS.pendingApproval}の件数が出ます。`,
+				how: '1. このお知らせを押します\n2. 承認画面で申請を確認し、承認または却下します',
+				goal: `申請を見落とさずに受け渡しができ、お子さまは「${REWARD_TERMS.canonical}がちゃんと届く」と実感できます。`,
 			},
 			'home-summary': {
-				title: '画面の見方（今日のサマリー）',
-				what: '画面の上部には、お子さま全員の今日の活動回数・獲得ポイント・レベルの概要がカードで並びます。',
-				how: '特に操作は不要です。ページを開くと自動的に最新の情報が表示されます。',
-				goal: '「今日はたくさんやったね！」と声をかけるタイミングが、開いた瞬間に分かります。',
+				title: '画面の見方（上部カード）',
+				what: `上部のカードは「${ADMIN_HOME_TERMS.childrenCountCard}」と「${ADMIN_HOME_TERMS.totalCard}」の 2 枚です。${ADMIN_HOME_TERMS.totalCard}はお子さま全員のポイント残高を足した数で、今日の獲得分ではありません。`,
+				how: `1. 上部カードで人数と残高${ADMIN_HOME_TERMS.totalCard}を確認\n2. 下の「今月のがんばり」で、お子さまごとの活動回数・レベル・実績を見ます\n3. 「${ADMIN_HOME_TERMS.monthlyDetailsLink}」で月次レポートへ`,
+				goal: '「みんなで 1,200 ポイント貯まったね」のように、家族全体の残高と今月の動きを開いた瞬間に把握できます。',
+			},
+			'home-monthly': {
+				title: '画面の見方（今月のがんばり）',
+				what: `「📊 今月${ADMIN_HOME_TERMS.monthlySuffix}」には、お子さまごとの今月の活動回数・レベル・実績が並びます。`,
+				how: `1. お子さまごとのカードで活動回数・レベル・実績を確認\n2. 右上の「${ADMIN_HOME_TERMS.monthlyDetailsLink}」を押すと月次レポートが開きます`,
+				goal: '「今月はうんどうを 20 回がんばったね」と、具体的な数字でお子さまをほめられます。',
+				tips: [
+					'お子さまが画面を開くと、その下に「⏱️ 本日の使用時間」（1 日 15 分が目安）と「📈 今週の使用時間」も表示されます',
+				],
+				relatedLinks: [{ label: `${NAV_ITEM_LABELS.reports}を見る`, href: '/admin/reports' }],
+			},
+			'home-children': {
+				title: `画面の見方（${ADMIN_HOME_TERMS.childrenSection}）`,
+				what: `登録済みのお子さまがカードで並びます。カードにはニックネーム・年齢・テーマ・ポイント残高が出ます。`,
+				how: `1. お子さまのカードを押します\n2. ${NAV_ITEM_LABELS.children}管理の詳細が開き、プロフィールの編集やボイスの設定ができます`,
+				goal: `お子さまごとの残高と設定にここから直接たどり着けます。`,
+				relatedLinks: [{ label: `${NAV_ITEM_LABELS.children}を管理する`, href: '/admin/children' }],
+			},
+			'home-switch': {
+				title: `よく使う操作（${ADMIN_HOME_TERMS.switchToChild}）`,
+				what: `画面右上の「← ${ADMIN_HOME_TERMS.switchToChild}」で、お子さまが使う画面に切り替えます。`,
+				how: `1. 「← ${ADMIN_HOME_TERMS.switchToChild}」を押します\n2. お子さまを選ぶと、その子の画面が開きます`,
+				goal: `${ADMIN_VIEW_TERMS.short}とお子さまの画面を 1 台の端末で行き来でき、設定した活動をその場でお子さまに見せられます。`,
 			},
 			'home-nav': {
 				title: 'よく使う操作（各機能へ移動）',
-				what: '最もよく使うのが、各機能への移動です。画面下部のナビゲーションから「みまもり」「やること」「はげまし」「きろく」に移動できます。',
-				how: '1. 画面下部のアイコンをタップします\n2. 目的のカテゴリを選びます\n3. サブメニューから該当する画面をタップします',
+				what: `各機能へは「${NAV_CATEGORIES.family.label}」「${NAV_CATEGORIES.activity.label}」「${NAV_CATEGORIES.record.label}」「${NAV_CATEGORIES.settings.label}」の 4 つと「${NAV_ITEM_LABELS.home}」から移動します。スマホでは画面下部、パソコンでは画面上部のメニューです。`,
+				how: `1. 目的のカテゴリ（${NAV_CATEGORIES.family.label} / ${NAV_CATEGORIES.activity.label} / ${NAV_CATEGORIES.record.label} / ${NAV_CATEGORIES.settings.label}）を押します\n2. 開いたメニューから画面を選びます（${NAV_ITEM_LABELS.home}はそのまま移動します）`,
 				goal: 'どの画面からでも 2 タップ以内で目的の機能にたどり着けます。',
-				tips: ['デスクトップ版ではヘッダーのドロップダウンメニューから同じ機能に移動できます'],
 			},
 		},
 	},
+	// #4655: /admin/activities のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブ → フィルタと検索 →
+	// 一覧カード → 非表示の活動) の順に主要操作を網羅し、ボタン名 / カテゴリ名 / 上限は描画側と同じ atom
+	// (ADD_MENU_TERMS / OVERFLOW_MENU_TERMS / ACTIVITY_ADMIN_TERMS / CATEGORIES / FREE_PLAN_QUOTA) を参照する。
+	// お子さまタブ (0 人で非表示) と 非表示の活動 (0 件で非表示) は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminActivities: {
-		title: '活動管理',
+		title: NAV_ITEM_LABELS.activities,
 		steps: {
 			'activities-intro': {
 				title: 'このページについて',
 				what: 'お子さまが記録する「活動」を管理するページです。習い事・お手伝い・家庭ルールなど、ご家庭オリジナルのがんばりをポイント化できます。',
-				how: '初期登録の活動に加えて、独自の活動を追加・編集できます。設定した活動はお子さまの画面にカードとして並びます。',
+				how: `上から順に、右上の「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → カテゴリのフィルタと検索 → 活動の一覧（その下に${ACTIVITY_ADMIN_TERMS.hiddenSection}）と並びます。設定した活動はお子さまの画面にカードとして並びます。`,
 				goal: 'お子さまがタップして記録するたびにポイントが貯まり、「今月ピアノを何回練習したか」までレポートで見えるようになります。',
 			},
-			'activities-filter': {
-				title: '画面の見方（カテゴリで絞り込み）',
-				what: '活動は5つのカテゴリ（うんどう・べんきょう・せいかつ・おてつだい・そうぞう）に分かれています。上部のフィルターで表示を絞り込めます。',
-				how: '1. カテゴリボタンをタップして絞り込みます\n2. もう一度タップすると解除されます',
-				goal: '活動が増えても「うんどう系だけ表示」のように、目的の活動を素早く見つけられます。',
-			},
 			'activities-add': {
-				title: 'よく使う操作（活動の追加）',
-				what: '最もよく使うのが活動の追加です。「＋ 追加」メニューから手動作成・AI 提案・みんなのテンプレートからの取り込みを選べます。',
-				how: '1. 「＋ 追加」ボタンをタップ\n2. 追加方法を選びます\n3. 活動名・カテゴリ・アイコン・ポイント・1日の上限回数を設定\n4. 「保存」をタップ',
-				goal: 'お子さまの画面に新しい活動カードが表示され、記録するとポイントが貯まり、月次レポートにも反映されます。',
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} / ${ADD_MENU_TERMS.copyFromChild}（お子さまが 2 人以上のとき）/ ${ADD_MENU_TERMS.bulk} から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. 追加のしかたを選ぶ\n3. 「${ADD_MENU_TERMS.manual}」では活動名・カテゴリ・アイコン・ポイント・1日の上限回数を入力\n4. フォーム下の「〇〇${ACTIVITY_ADMIN_TERMS.submitSuffix}」を押す`,
+				goal: '選んでいるお子さまの画面に新しい活動カードが表示され、記録するとポイントが貯まり、月次レポートにも反映されます。',
 				tips: [
-					'ポイントは初期活動とのバランスを見て設定しましょう（高すぎるとインフレします）',
-					'1日上限回数を設定すると、連打によるスパムを防げます',
+					`${PLAN_FULL_TERMS.free}では自分で追加できる活動は ${FREE_PLAN_QUOTA.maxActivities} 件までです（上限に達すると「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					PLAN_GATE_LABELS.familyOnlyFor(`「${ADD_MENU_TERMS.ai}」`),
+					'ポイントは初期活動とのバランスを見て設定しましょう（高すぎるとインフレします）。1日上限回数を設定すると連打を防げます',
 				],
+			},
+			'activities-overflow': {
+				title: '画面の見方（︙ メニュー）',
+				what: `右端の「︙」には ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} / ${OVERFLOW_MENU_TERMS.itemClearAll} が入っています。`,
+				how: `1. 「︙」を押す\n2. 「${OVERFLOW_MENU_TERMS.itemExport}」で活動をファイルに保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: '機種変更や設定し直しのときも、活動の設定をまるごと持ち運べます。',
+				tips: [
+					`「${OVERFLOW_MENU_TERMS.itemClearAll}」は確認のうえ全活動を消します。やり直したいときだけ使います`,
+				],
+			},
+			'activities-child-tabs': {
+				title: '画面の見方（お子さまのタブ）',
+				what: '活動はお子さまごとに持ちます。タブで選んだお子さまの活動だけが下に表示され、追加もそのお子さまに入ります。カッコ内はその子の活動数です。',
+				how: `1. 表示したいお子さまのタブを押す\n2. 兄弟に同じ活動を入れたいときは「${ADD_MENU_TERMS.trigger}」の「${ADD_MENU_TERMS.copyFromChild}」または「${ADD_MENU_TERMS.bulk}」を使う`,
+				goal: '兄弟それぞれの年齢や興味に合わせて活動を分けつつ、共通の活動はまとめて入れられます。',
+			},
+			'activities-filter': {
+				title: '画面の見方（カテゴリのフィルタと検索）',
+				what: `活動は ${CATEGORIES.undou.name}・${CATEGORIES.benkyou.name}・${CATEGORIES.seikatsu.name}・${CATEGORIES.kouryuu.name}・${CATEGORIES.souzou.name} の 5 カテゴリに分かれています。一覧の上のボタンで表示を絞り込み、その下の「${ACTIVITY_ADMIN_TERMS.search}」で名前からも探せます。`,
+				how: `1. カテゴリのボタンを押して絞り込む\n2. 「${UI_LABELS.all}」を押すと絞り込みを解除する\n3. 「${ACTIVITY_ADMIN_TERMS.search}」に活動名の一部を入れると一覧が絞られる`,
+				goal: `活動が増えても「${CATEGORIES.undou.name}だけ表示」のように、目的の活動を素早く見つけられます。`,
+			},
+			'activities-list': {
+				title: '画面の見方（活動の一覧）',
+				what: `各カードに「${ACTIVITY_ADMIN_TERMS.edit}」「${ACTIVITY_ADMIN_TERMS.visible}／${ACTIVITY_ADMIN_TERMS.hidden}」「${ACTIVITY_ADMIN_TERMS.mainQuestEnable}」「${ACTIVITY_ADMIN_TERMS.delete}」のボタンがあります。${ADVENTURE_TERMS.mainQuest}にするとお子さまの画面で目立ち、ポイントが 2 倍になります（最大 3 件）。`,
+				how: `1. 「${ACTIVITY_ADMIN_TERMS.edit}」で名前やポイントを変える\n2. 「${ACTIVITY_ADMIN_TERMS.visible}」を押すと${ACTIVITY_ADMIN_TERMS.hidden}になり、お子さまの画面から消える（記録は残る）\n3. 「${ACTIVITY_ADMIN_TERMS.mainQuestEnable}」で${ADVENTURE_TERMS.mainQuest}にする（「${ACTIVITY_ADMIN_TERMS.mainQuestDisable}」で戻す）\n4. 「${ACTIVITY_ADMIN_TERMS.delete}」は確認のうえ活動を消す`,
+				goal: '季節やお子さまの成長に合わせて、活動を消さずに出し入れしながら、今がんばってほしいものを目立たせられます。',
+			},
+			'activities-hidden': {
+				title: `画面の見方（${ACTIVITY_ADMIN_TERMS.hiddenSection}）`,
+				what: `${ACTIVITY_ADMIN_TERMS.hidden}にした活動は一覧の下の「${ACTIVITY_ADMIN_TERMS.hiddenSection}」にまとまります。記録はそのまま残っています。`,
+				how: `1. 「${ACTIVITY_ADMIN_TERMS.hiddenSection}」を押して開く\n2. 「${ACTIVITY_ADMIN_TERMS.restore}」でお子さまの画面に戻す\n3. 「${ACTIVITY_ADMIN_TERMS.permanentDelete}」は記録ごと消す（元に戻せません）`,
+				goal: `「${ACTIVITY_ADMIN_TERMS.hidden}」と「${ACTIVITY_ADMIN_TERMS.delete}」の違いが分かり、夏だけの活動なども安心して休ませられます。`,
 			},
 		},
 	},
 	adminChallenges: {
-		title: 'チャレンジ管理',
+		title: CHALLENGE_TERMS.canonical,
+		// #4671 (EPIC #4650): 全 step が中央 modal で何も光らなかったため、画面の DOM 順
+		// (家族ストリーク → お子さまタブ → 今週のカード → 削除) に anchor を張り直す。
+		// 削除の説明は実装の事実 (同じ週のうちは再び用意され進捗は 0 に戻る) を正とする (PO 判断)。
 		steps: {
 			'challenges-intro': {
 				title: 'このページについて',
-				what: 'チャレンジは、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、そのチャレンジを保護者が一覧で見守れます。',
-				how: '設定や作成は不要です。お子さまがアプリを開くと今週のチャレンジが自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。',
+				what: `${CHALLENGE_TERMS.canonical}は、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、その${CHALLENGE_TERMS.canonical}を保護者が一覧で見守れます。`,
+				how: `設定や作成は不要です。お子さまがアプリを開くと今週の${CHALLENGE_TERMS.canonical}が自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。`,
 				goal: 'お子さまの画面に進捗バーが表示され、達成に近づく様子が見えます。期間内に達成すると特別な演出でお祝いされます。',
 			},
-			'challenges-view': {
-				title: '画面の見方',
-				what: '自動で用意された今週のチャレンジと、これまでの履歴が並びます。お子さまごとの進捗バーで達成までの道のりが見え、きょうだいで同じ目標に取り組むときはみんなの進捗が並んで表示されます。',
-				how: '上に今週のチャレンジ、その下に過去の履歴が並びます。各カードの進捗バーで達成度を確認できます。',
+			// ② 家族ストリーク (誰かが記録した日が続くと表示される。0 日の日は描画されない → optional)
+			'challenges-family-streak': {
+				title: '画面の見方（家族ストリーク）',
+				what: `一番上の「🔥 家族ストリーク」は、ご家族の誰かが記録した日が何日続いているかを表します。その下に今日すでに記録した人数が出ます。${CHALLENGE_TERMS.canonical}とは別の「家族全体の連続記録」です。`,
+				how: `1. 「家族ストリーク: N日」で連続日数を確認します\n2. 「今日は N人が記録済み」で今日の状況を確認します（誰も記録していない日はその旨が出ます）`,
+				goal: '「あと 1 人記録すれば今日も続くね」と、家族で声をかけ合うきっかけになります。',
+			},
+			// ③ お子さまタブ (子供 2 人以上のときだけ描画 → optional)
+			'challenges-child-tabs': {
+				title: '画面の見方（お子さまで絞り込む）',
+				what: `お子さまが 2 人以上のとき、上のタブで表示する子を切り替えられます。お子さまが 1 人のご家庭ではタブは出ず、その子の${CHALLENGE_TERMS.canonical}がそのまま並びます。`,
+				how: `1. 「すべて」を押すと全員分が並びます\n2. お子さまの名前のタブを押すと、その子の${CHALLENGE_TERMS.canonical}だけが表示されます`,
+				goal: '見たいお子さまの取り組みだけを表示して、進み具合を確認できます。',
+			},
+			// ④ 今週のカードの見方 (1 件以上あるときだけ描画 → optional)
+			'challenges-card': {
+				title: '画面の見方（今週のカード）',
+				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「報酬 N P」（P はポイント）が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
+				how: `1. 進捗バーで達成までの距離を確認します\n2. 「報酬 N P」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
 				goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
 			},
-			'challenges-manage': {
-				title: 'よく使う操作（絞り込みと削除）',
-				what: 'お子さまが複数いるときは、上のタブで子ごとに絞り込めます。合わないチャレンジはカードから取り除けます。',
-				how: '1. お子さまタブで見たい子に切り替えます\n2. 不要なチャレンジは各カードの「削除」で取り除きます',
-				goal: '見たいお子さまの取り組みだけを表示でき、合わない目標を整理できます。削除しても翌週また自動で用意されます。',
-				tips: ['チャレンジはアプリが自動で用意するので、保護者が目標を作る必要はありません'],
-			},
-		},
-	},
-	adminChecklists: {
-		title: 'チェックリスト管理',
-		steps: {
-			'checklists-intro': {
-				title: 'このページについて',
-				what: 'お子さまが「学校の準備」「習い事の持ち物」「寝る前のしたく」などを自分で確認できるチェックリストを、お子さまごとに用意するページです。',
-				how: 'テンプレートを取り込むか新しく追加して、配信するお子さまを選びます。有効にしたチェックリストはお子さまの画面に表示されます。',
-				goal: 'お子さまが自分でタップして「できた！」を確認できるようになり、「ハンカチ持った？」と毎朝聞く必要がなくなります。',
-			},
-			'checklists-header': {
-				title: '画面の見方（このページの役割）',
-				what: 'ここはチェックリストの管理画面です。お子さまごとにチェックリストを作成・編集し、子供の画面への配信を切り替えます。',
-				how: '1. 対象のお子さまを選びます\n2. 既存のテンプレートを編集するか、新しく追加します\n3. 有効化したテンプレートがお子さまの画面に表示されます',
-				goal: '朝の支度や寝る前のルーティンを、声かけなしでお子さま自身が進められるようになります。',
-			},
-			'checklists-marketplace': {
-				title: 'よく使う操作（テンプレートから取り込む）',
-				what: '最も手軽なのが、みんなのテンプレートからの取り込みです。小学校の時間割・遠足・プールの日など、よくあるチェックリストをそのまま使えます。',
-				how: '1. 「みんなのテンプレートを見る」をタップ\n2. マーケットプレイスでチェックリストを選びます\n3. 「使ってみる」から取り込み、配信するお子さまを選びます',
-				goal: '選んだチェックリストがお子さまのチェックリストに追加されます。家庭に合わせて項目を足したり消したりして調整できます。',
+			// ⑤ 削除 (カードが 1 件以上あるときだけ描画 → optional)
+			'challenges-delete': {
+				title: 'よく使う操作（削除）',
+				what: `お子さまに合わない${CHALLENGE_TERMS.canonical}は、カードから取り除けます。消えるのは押したお子さまの分だけです。`,
+				how: `1. カード右下の「削除」（きょうだいのカードでは「<お名前> を削除」）を押します\n2. 確認画面で「削除」を選びます`,
+				goal: `そのお子さまの今週の進捗は消えます。同じ週のうちは、次にお子さまがアプリを開くと今週分が改めて用意されます（進捗は 0 からになります）。翌週は新しい${CHALLENGE_TERMS.canonical}が届きます。`,
 				tips: [
-					'まずはテンプレートを取り込んで、ご家庭に合わせて調整するのが近道です',
-					'季節やイベントごとにテンプレートを切り替えると管理が楽になります',
+					`${CHALLENGE_TERMS.canonical}はアプリが自動で用意するので、保護者が目標を作る必要はありません`,
 				],
 			},
 		},
 	},
+	// #4657: /admin/checklists のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブと検索 → 一覧カードの調整 →
+	// 本日のワンオフ) の順に主要操作を網羅し、ボタン名は描画側と同じ atom (ADD_MENU_TERMS /
+	// CHECKLIST_ADMIN_TERMS / OVERFLOW_MENU_TERMS)、上限は FREE_PLAN_QUOTA を参照する。
+	// 条件付き要素 (お子さまタブ / 一覧カード / 本日のワンオフ) は filterGuideStepsByTargetPresence で描画時のみ出る。
+	adminChecklists: {
+		title: CHECKLIST_ADMIN_TERMS.pageTitle,
+		steps: {
+			'checklists-intro': {
+				title: 'このページについて',
+				what: 'お子さまが「学校の準備」「習い事の持ち物」「寝る前のしたく」などを自分で確認できるチェックリストを用意するページです。',
+				how: `上から順に、右上の「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブと${CHECKLIST_ADMIN_TERMS.search} → チェックリストの一覧 → ${CHECKLIST_ADMIN_TERMS.todayOverride} と並びます。`,
+				goal: 'お子さまが自分でタップして「できた！」を確認できるようになり、「ハンカチ持った？」と毎朝聞く必要がなくなります。',
+				tips: [
+					`${PLAN_FULL_TERMS.free}ではお子さま 1 人あたり ${FREE_PLAN_QUOTA.maxChecklistTemplates} 件までです（上限に達すると「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					PLAN_GATE_LABELS.familyOnlyFor(`「${ADD_MENU_TERMS.ai}」`),
+				],
+			},
+			'checklists-add': {
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} / ${CHECKLIST_ADMIN_TERMS.addOverride} / ${CHECKLIST_ADMIN_TERMS.copyFromChild}（お子さまが 2 人以上のとき）から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. はじめてなら「${ADD_MENU_TERMS.browse}」で ${TEMPLATE_TERMS.userFacing} を開き、使いたいチェックリストの「${CHECKLIST_ADMIN_TERMS.marketplaceImportCta}」で取り込む\n3. 自分で作るときは「${ADD_MENU_TERMS.manual}」で名前とアイコンを決める\n4. 今日だけ足したいものは「${CHECKLIST_ADMIN_TERMS.addOverride}」`,
+				goal: '取り込んだチェックリストがそのまま使え、ご家庭に合わせて項目を足したり消したりして調整できます。',
+			},
+			'checklists-overflow': {
+				title: '画面の見方（︙ メニュー）',
+				what: `右端の「︙」には ${OVERFLOW_MENU_TERMS.itemMarketplace} / ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} / ${OVERFLOW_MENU_TERMS.itemHelp} が入っています。`,
+				how: `1. 「︙」を押す\n2. 「${OVERFLOW_MENU_TERMS.itemExport}」で 1 つのチェックリストをファイルに保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: '作り込んだチェックリストを保存しておけるので、機種変更やお子さまの進級のときも作り直さずに済みます。',
+			},
+			'checklists-child-tabs': {
+				title: '画面の見方（お子さまのタブと検索）',
+				what: 'タブで選んだお子さまに配られているチェックリストが下に表示されます。その下の検索欄で名前から絞り込めます。',
+				how: `1. 表示したいお子さまのタブを押す\n2. 「${CHECKLIST_ADMIN_TERMS.search}」に名前の一部を入れて絞り込む\n3. 兄弟に同じリストを配るときは「${ADD_MENU_TERMS.trigger}」の「${CHECKLIST_ADMIN_TERMS.copyFromChild}」を使う`,
+				goal: 'お子さまごとに違うリストにも、兄弟で同じリストにもできます。',
+			},
+			'checklists-card': {
+				title: '画面の見方（カードの調整）',
+				what: `各カードで、${CHECKLIST_ADMIN_TERMS.timeSlot}の切り替え・項目の追加と削除・${CHECKLIST_ADMIN_TERMS.configureDistribution}・${CHECKLIST_ADMIN_TERMS.perChildProgress}の確認ができます。`,
+				how: `1. 「${CHECKLIST_ADMIN_TERMS.addItem}」で持ち物ややることを足す（各項目の ✕ で消す）\n2. ${CHECKLIST_ADMIN_TERMS.timeSlot}のボタンで朝・夜などを切り替える\n3. 「${CHECKLIST_ADMIN_TERMS.configureDistribution}」で、このリストを表示するお子さまを選ぶ\n4. 「${CHECKLIST_ADMIN_TERMS.delete}」で不要になったリストを消す`,
+				goal: `${CHECKLIST_ADMIN_TERMS.distributionSection}の下に「${CHECKLIST_ADMIN_TERMS.perChildProgress}」が出るので、今日どこまで終わったかが親の画面で分かります。`,
+				tips: [
+					`「${CHECKLIST_ADMIN_TERMS.inactiveBadge}」と付いたリストはお子さまの画面に出ません`,
+				],
+			},
+			'checklists-override': {
+				title: `画面の見方（${CHECKLIST_ADMIN_TERMS.todayOverride}）`,
+				what: '遠足やプールの日など、今日だけ足したもの・外したものが一覧の下にまとまります。',
+				how: `1. 「${ADD_MENU_TERMS.trigger}」の「${CHECKLIST_ADMIN_TERMS.addOverride}」で今日だけの持ち物を足す\n2. ここに出た項目は当日限りで、明日には元のリストに戻ります`,
+				goal: '特別な日のためにリスト本体を書き換えずに済み、翌日に戻し忘れる心配がありません。',
+			},
+		},
+	},
+	// #4659: /admin/cheer のガイド。画面の上から下 (送り先 → よくある応援 → 理由とポイント → 応援する →
+	// 履歴) の順に、実際に押す要素を spotlight する (旧ガイドは見出し 1 行だけを光らせていた)。
+	// P の範囲・既定値は CHEER_POINTS (domain/constants、cheer-service と同一定数)、例文は
+	// CHEER_LABELS.reasonPlaceholder を参照する。子供 0 人 / 履歴 0 件では該当 step が出ない。
 	adminCheer: {
-		title: '応援',
+		title: CHEER_TERMS.canonical,
 		steps: {
 			'cheer-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりに、その場で応援を届けるページです。理由と任意のボーナスポイントを添えて、すぐに気持ちを伝えられます。',
-				how: '送り先のお子さまを選び、応援する理由を入力して送るだけです。毎日の活動ポイントは活動タブから、その場でひと押ししたい応援はこちらから。',
+				what: `お子さまのがんばりに、その場で${CHEER_TERMS.canonical}を届けるページです。理由と任意のボーナスポイント（${CHEER_POINTS.min}〜${CHEER_POINTS.max}P、はじめは ${CHEER_POINTS.default}P）を添えて、すぐに気持ちを伝えられます。`,
+				how: `上から順に、送り先のお子さま → 「${CHEER_ADMIN_TERMS.presetTitle}」 → 理由・ポイント・カテゴリ・アイコン → 「${CHEER_TERMS.action}」 と並びます。毎日の活動ポイントは${NAV_ITEM_LABELS.activities}から、その場でひと押ししたい${CHEER_TERMS.canonical}はこちらから。`,
 				goal: '「親が見ていて、すぐに認めてくれる」体験になり、お子さまの継続のモチベーションを支えます。',
 			},
 			'cheer-select': {
 				title: '画面の見方（送り先を選ぶ）',
-				what: 'まず上部で、応援を送るお子さまを選びます。選んだお子さま宛てに応援が届きます。',
-				how: '1. お子さまのボタンをタップして選びます\n2. 選んだお子さまが強調表示されます',
-				goal: '兄弟姉妹がいても、応援したいお子さまを取り違えずに選べます。',
+				what: `まず「${CHEER_ADMIN_TERMS.selectChildTitle}」で、${CHEER_TERMS.canonical}を送るお子さまを選びます。選んだお子さま宛てに届きます。`,
+				how: '1. お子さまの名前のボタンを押す\n2. 選ばれたボタンの色が変わります',
+				goal: '兄弟姉妹がいても、送りたいお子さまを取り違えずに選べます。',
+			},
+			'cheer-templates': {
+				title: `よく使う操作（${CHEER_ADMIN_TERMS.presetTitle}）`,
+				what: `「${CHEER_ADMIN_TERMS.presetTitle}」のチップを 1 回押すだけで、理由・ポイント・カテゴリ・アイコンがまとめて入ります。`,
+				how: '1. あてはまるチップを押す\n2. 入った内容はそのまま直せます（ポイントだけ増やす等）',
+				goal: '毎回 7 段の入力をしなくても、数タップで応援を送れます。',
 			},
 			'cheer-reason': {
-				title: 'よく使う操作（応援を送る）',
-				what: '最もよく使うのが応援の送信です。応援する理由を入力し、ボーナスポイントやスタンプを添えて送ります。',
-				how: '1. 応援する理由を入力（例:「うんどうかいで 1いに なったよ！」）\n2. ボーナスポイント・カテゴリ・アイコンを選択\n3. 必要なら付随のスタンプ／メッセージを添える\n4. 「応援する」をタップ',
-				goal: 'お子さまの画面にメッセージとポイントが届きます。具体的に褒めると効果が高まります。',
-				tips: [
-					'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります',
-					'送った応援の履歴は、お子さまを選ぶと下部に表示されます（既読／未読も確認できます）',
-				],
+				title: '画面の見方（理由とポイントを整える）',
+				what: `理由（例:「${CHEER_ADMIN_TERMS.reasonPlaceholder}」）と、ボーナスポイント・カテゴリ・アイコン・付随スタンプを決めます。`,
+				how: `1. 理由を入力する（チップを使ったときは入力済み）\n2. ポイントを ${CHEER_POINTS.min}〜${CHEER_POINTS.max} の範囲で決める（はじめは ${CHEER_POINTS.default}P）\n3. カテゴリを選ぶ（お子さまのカテゴリ別のがんばりに積まれます）\n4. アイコンとスタンプを選ぶ（お子さまの画面と履歴に出ます）`,
+				goal: 'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります。',
+			},
+			'cheer-submit': {
+				title: `よく使う操作（${CHEER_TERMS.action}）`,
+				what: `いちばん下で内容を確認し、「${CHEER_TERMS.action}」を押すと送信されます。`,
+				how: `1. 理由・ポイント・カテゴリ・アイコンの確認欄を見る\n2. 「${CHEER_TERMS.action}」を押す（理由とポイントが未入力のうちは押せません）`,
+				goal: 'お子さまの画面にメッセージとポイントが届き、送信後は入力欄が空に戻ります。具体的に褒めると効果が高まります。',
+			},
+			'cheer-history': {
+				title: `画面の見方（最近の${CHEER_TERMS.canonical}）`,
+				what: `選んでいるお子さまに送った${CHEER_TERMS.canonical}が下に並びます。お子さまが読んだかどうかも分かります。`,
+				how: '1. 送った内容とポイントを確認する\n2. 他のお子さまの履歴は、上でそのお子さまを選ぶと表示されます',
+				goal: '「先週も同じことで応援した」と分かるので、ほめる場面が偏らずに済みます。',
 			},
 		},
 	},
+	// #4660: /admin/children のガイド。上から下 (追加する → お子さま一覧 → 詳細カード) の順に、
+	// 実際に押す要素を spotlight する (旧 step ② は一覧ではなく追加ボタン行を光らせ ③ と重複していた)。
+	// ボタン名 / タブ名は描画側と同じ atom (CHILD_ADMIN_TERMS)、上限人数は FREE_PLAN_QUOTA を参照。
+	// 詳細カードはお子さま選択時のみ描画されるため filterGuideStepsByTargetPresence で出し分ける。
 	adminChildren: {
-		title: 'こども管理',
+		title: NAV_ITEM_LABELS.children,
 		steps: {
 			'children-intro': {
 				title: 'このページについて',
 				what: 'お子さまを登録・管理するページです。お子さまごとに専用の画面が作られ、活動・ポイント・レベルが個別に記録されます。',
-				how: 'まずはお子さまを 1 人登録するところから始めます。登録すると、年齢に合わせて画面表示（ひらがな／漢字など）が自動で切り替わります。',
+				how: `まずはお子さまを 1 人登録するところから始めます。登録後は画面右上の「← ${ADMIN_HOME_TERMS.switchToChild}」からその子の画面を開けます。`,
 				goal: '兄弟姉妹それぞれの専用画面ができ、テーマカラーで取り違えることなく一人ひとりの成長を見守れます。',
+				relatedLinks: [{ label: ADMIN_HOME_TERMS.switchToChild, href: '/switch' }],
+			},
+			'children-add': {
+				title: `よく使う操作（お子さまの登録）`,
+				what: `いちばん最初に行うのがお子さまの登録です。「${CHILD_ADMIN_TERMS.addButton}」を押すとフォームが開きます。`,
+				how: `1. 「${CHILD_ADMIN_TERMS.addButton}」を押す（もう一度押すと閉じます）\n2. ${CHILD_ADMIN_TERMS.nickname}を入力（ひらがな推奨）\n3. 誕生日を選ぶ（分からないときは${CHILD_ADMIN_TERMS.age}だけでも登録できます）\n4. ${CHILD_ADMIN_TERMS.themeColor}を選ぶ\n5. フォーム下の「${CHILD_ADMIN_TERMS.addButton}」で確定`,
+				goal: 'お子さま専用の画面が作られ、活動の記録・ポイント・レベルアップが個別に追跡されます。',
+				tips: [
+					`${PLAN_FULL_TERMS.free}で登録できるお子さまは ${FREE_PLAN_QUOTA.maxChildren} 人までです。上限に達すると「${CHILD_ADMIN_TERMS.limitReachedButton}」と表示され、上の案内からプランを変更できます`,
+					'誕生日を入れておくと、年齢に合わせて画面の文字表現が自動で変わります（3 歳 → 全部ひらがな、小学生 → 漢字まじり）',
+				],
+				relatedLinks: [{ label: 'プランを見る', href: '/admin/subscription' }],
 			},
 			'children-list': {
 				title: '画面の見方（お子さま一覧）',
-				what: 'このページには登録済みのお子さまのカードが並びます。各カードでポイント残高・レベル・カテゴリ別の活動状況を確認できます。',
-				how: '1. お子さまのカードをタップします\n2. プロフィール詳細が表示されます\n3. 「編集」で名前やテーマカラーを変更できます',
-				goal: 'お子さまが複数いても、それぞれの進捗や得意分野をひと目で見比べられます。',
+				what: `登録済みのお子さまのカードが並びます。カードには${CHILD_ADMIN_TERMS.nickname}・${CHILD_ADMIN_TERMS.age}・区分・テーマ・誕生日・ポイント残高が出ます。`,
+				how: '1. お子さまのカードを押す\n2. 下にそのお子さまの詳細が開きます',
+				goal: '兄弟姉妹の残高や設定を、このページだけで見比べられます。',
 			},
-			'children-add': {
-				title: 'よく使う操作（お子さまの追加）',
-				what: '最初に行うのがお子さまの追加です。名前・生年月日・テーマカラーを登録します。',
-				how: '1. 「＋ こどもを追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ',
-				goal: 'お子さま専用の画面が作成され、活動の記録・ポイント管理・レベルアップが個別に追跡されます。',
+			'children-detail': {
+				title: '画面の見方（詳細カード）',
+				what: `カードを押すと開く詳細に、${CHILD_ADMIN_TERMS.tabInfo} / ${CHILD_ADMIN_TERMS.tabStatus} / ${CHILD_ADMIN_TERMS.tabLogs} / ${CHILD_ADMIN_TERMS.tabAchievements} / ${CHILD_ADMIN_TERMS.tabVoice} の 5 つのタブがあります。`,
+				how: `1. タブを押して見たい内容に切り替える\n2. 「${CHILD_ADMIN_TERMS.editButton}」で${CHILD_ADMIN_TERMS.nickname}・誕生日・${CHILD_ADMIN_TERMS.themeColor}・写真・おたんじょうびボーナスを変える\n3. 登録をやめるときは同じ詳細の下にある「${CHILD_ADMIN_TERMS.deleteButton}」から（2 段階の確認があります）`,
+				goal: '名前やテーマを後から変えられ、活動の記録や実績もお子さまごとに振り返れます。',
 				tips: [
-					'年齢によって画面の文字表現が自動で変わります（3歳→全部ひらがな、小学生→漢字まじり）',
-					'テーマカラーは後から変更できます',
+					`「${CHILD_ADMIN_TERMS.tabVoice}」では、活動を記録したときに再生される親の声（最大 10 秒）を録音・登録できます`,
 				],
 			},
 		},
 	},
 	adminPoints: {
-		title: 'ポイント交換',
+		title: NAV_ITEM_LABELS.points,
 		steps: {
 			'points-intro': {
 				title: 'このページについて',
-				what: 'お子さまが活動で貯めたポイントを、おこづかいやご褒美に交換するページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。',
-				how: 'お子さまを選んで交換ポイント数を指定し、交換を確定します。交換すると残高が引かれ、履歴に記録されます。',
-				goal: '「500ポイント貯めたら交換しようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				what: `お子さまが活動で貯めたポイントを、おこづかい（現金）に${POINTS_ADMIN_TERMS.convertVerb}ページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。`,
+				how: `1. お子さまの残高カードを押す\n2. 下に開く${POINTS_ADMIN_TERMS.convert}フォームで金額を決めて確定する`,
+				goal: '「500ポイント貯めたらおこづかいにしようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+				tips: [
+					`${REWARD_TERMS.canonical}との交換はこのページではなく、お子さまの画面の${REWARD_TERMS.shop}で行います（用意は${REWARD_TERMS.menu}から）`,
+					'円で表示したいときや 1P あたりの金額を変えたいときは、設定 > 活動・ポイント の「ポイント表示設定」から変更します（はじめは 1P = 1円）',
+				],
+				relatedLinks: [
+					{ label: 'ポイント表示設定を開く', href: '/admin/settings/activities#point-settings' },
+					{ label: `${REWARD_TERMS.menu}を開く`, href: '/admin/rewards' },
+				],
 			},
 			'points-balances': {
 				title: '画面の見方（残高の一覧）',
-				what: '上部にお子さまごとのポイント残高カードが並びます。カードをタップすると、そのお子さまの交換フォームが下に開きます。',
-				how: '1. 交換したいお子さまのカードをタップします\n2. 選んだお子さまの残高が強調表示されます',
-				goal: '誰がどれだけ貯めているかをひと目で把握でき、交換の対象をすぐ選べます。',
+				what: `お子さまごとのカードに「残高」と「${POINTS_ADMIN_TERMS.convertable}」が出ます。${POINTS_ADMIN_TERMS.convertable}は残高を ${POINTS_ADMIN_TERMS.presetUnit}P 単位に切り捨てた額で、「${POINTS_ADMIN_TERMS.tabPreset}」で選べる上限です。`,
+				how: `1. カードで残高と${POINTS_ADMIN_TERMS.convertable}を見比べる\n2. 端数まで${POINTS_ADMIN_TERMS.convertVerb}ときは「${POINTS_ADMIN_TERMS.tabManual}」を使う（1P 単位）`,
+				goal: '誰がどれだけ貯めているかをひと目で把握でき、いくらまで渡せるかがすぐ分かります。',
+				tips: [
+					`残高が ${POINTS_ADMIN_TERMS.presetUnit}P に満たないお子さまはカードを押しても${POINTS_ADMIN_TERMS.convert}できる分がありません`,
+				],
 			},
 			'points-convert': {
-				title: 'よく使う操作（ポイントの交換）',
-				what: '最もよく使うのがポイントの交換です。残高カードをタップすると、その下に交換フォームが開き、「かんたん」「じぶんで」「レシート」の3つの方法から選べます。',
-				how: '1. お子さまの残高カードをタップ\n2. 交換方法のタブを選択\n3. 交換ポイント数を指定（残高が足りない場合はグレーアウト）\n4. 「交換する」をタップで確定',
-				goal: 'お子さまの残高から交換分が引かれ、交換履歴に記録されます。定額おこづかいにも、ご褒美交換にも使えます。',
-				tips: [
-					'交換レートは設定画面で変更できます（例: 100ポイント = 100円）',
-					'画面下部の交換りれきで、月別の交換実績を確認できます',
-				],
+				title: `よく使う操作（おこづかいへの${POINTS_ADMIN_TERMS.convert}）`,
+				what: `残高カードを押すと、その下に${POINTS_ADMIN_TERMS.convert}フォームと「${POINTS_ADMIN_TERMS.historyTitle}」が開きます。`,
+				how: `1. ${POINTS_ADMIN_TERMS.convertVerb}お子さまのカードを押す\n2. 「${POINTS_ADMIN_TERMS.tabPreset}」「${POINTS_ADMIN_TERMS.tabManual}」「${POINTS_ADMIN_TERMS.tabReceipt}」から入力方法を選ぶ\n3. 金額を決めて、下の「〇〇 を${POINTS_ADMIN_TERMS.convertVerb}」（円で表示しているときは「〇〇 を渡す」）を押す`,
+				goal: 'お子さまの残高から その分が引かれ、りれきに記録されます。',
+				tips: ['円で表示しているときは、画面の案内どおり実際のお金をお子さまにお渡しください'],
+			},
+			'points-modes': {
+				title: `画面の見方（3 つの入力方法）`,
+				what: `「${POINTS_ADMIN_TERMS.tabPreset}」は ${POINTS_ADMIN_TERMS.presetUnit}P 単位のボタンから選ぶ方法、「${POINTS_ADMIN_TERMS.tabManual}」は 1P 単位で自分で入れる方法、「${POINTS_ADMIN_TERMS.tabReceipt}」は買ったものの領収書を撮って金額を読み取る方法です。`,
+				how: `1. 「${POINTS_ADMIN_TERMS.tabPreset}」— ${POINTS_ADMIN_TERMS.convertable}を超える金額のボタンは出ません\n2. 「${POINTS_ADMIN_TERMS.tabManual}」— 残高を超えると「残高を超えています」と出ます。「${POINTS_ADMIN_TERMS.maxButton}」で残高いっぱいまで入ります\n3. 「${POINTS_ADMIN_TERMS.tabReceipt}」— 撮影 → 読み取り → 金額を直して確定します`,
+				goal: '「1,000 円ぴったり渡す」「本を買った分だけ引く」など、ご家庭の渡し方に合わせて選べます。',
+			},
+			'points-history': {
+				title: `画面の見方（${POINTS_ADMIN_TERMS.historyTitle}）`,
+				what: `選んでいるお子さまの${POINTS_ADMIN_TERMS.convert}記録が下にまとまります。「今月の合計」「累計」と、${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} の切り替えがあります。`,
+				how: `1. ${POINTS_ADMIN_TERMS.historyFilterThisMonth} / ${POINTS_ADMIN_TERMS.historyFilterLastMonth} / ${POINTS_ADMIN_TERMS.historyFilterAll} を押して期間を切り替える\n2. 他のお子さまの記録は、上のカードでそのお子さまを選ぶと表示されます`,
+				goal: '「今月はいくら渡したか」を後から確認でき、渡し忘れ・二重渡しを防げます。',
 			},
 		},
 	},
 	adminReports: {
 		title: 'レポート',
+		// #4670 (EPIC #4650): step は画面の DOM 順 (右上リンク → upsell → タブ → 月の移動 → 週次設定 →
+		// きょうだいランキング)。呼称はリンク実表示 (CERTIFICATE_TERMS / GROWTH_BOOK_TERMS canonical) と
+		// タブ実表示 (REPORTS_LABELS.tabMonthly / tabWeekly と同文) に合わせ、週次に無い「曜日別」は書かない。
 		steps: {
 			'reports-intro': {
 				title: 'このページについて',
-				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・レベルアップ・前の期間との比較がひと目でわかります。',
-				how: '「月次」「週次」のタブを切り替えて、見たい期間のレポートを表示します。',
+				what: 'お子さまのがんばりを、月ごと・週ごとにまとめて振り返るページです。活動回数・ポイント・レベル・カテゴリ別の内訳がひと目でわかります。',
+				how: '上から順に、証明書・記録ブックへのリンク、「月次レポート」「週次レポート」のタブ、レポート本体が並びます。週次レポートのメール配信設定ときょうだいランキングは週次タブ / ページ下部にあります。',
 				goal: '「今月はうんどうを20回頑張ったね！先月より5回多いよ」と、具体的な数字でお子さまを褒められます。',
 			},
-			'reports-tabs': {
-				title: '画面の見方（月次／週次の切り替え）',
-				what: 'タブで「月次」と「週次」を切り替えます。月次は1ヶ月の総まとめ、週次は曜日別・カテゴリ別の傾向が見られます。',
-				how: '1. 「月次」「週次」タブをタップして切り替えます\n2. 月次は ◀ ▶ で月を移動できます\n3. 前の期間との差分が色付きで表示されます（赤=減少、緑=増加）',
-				goal: '「平日は頑張っているけど土日が少ない」のような傾向に気づけ、次の声かけのヒントになります。',
-			},
-			'reports-growth-book': {
-				title: 'よく使う操作（賞状・成長ブック）',
-				what: 'レポートから、お子さまの頑張りを「修了証（賞状）」として印刷したり、長期的な成長を「成長ブック」で振り返ったりできます。',
-				how: '1. このリンクから賞状・成長ブックのページを開きます\n2. 印刷・保存して、お子さまと一緒に振り返ります',
+			// ② 右上の証明書 / 記録ブック リンク (2 本を包む要素を spotlight)
+			'reports-links': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}・${GROWTH_BOOK_TERMS.canonical}）`,
+				what: `右上の 2 つのリンクから、がんばりの節目ごとに発行される「${CERTIFICATE_TERMS.canonical}」と、長期的な成長をまとめた「${GROWTH_BOOK_TERMS.canonical}」のページを開けます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}」を押すと${CERTIFICATE_TERMS.full}の一覧を開きます\n2. 「📖 ${GROWTH_BOOK_TERMS.canonical}」を押すと${GROWTH_BOOK_TERMS.full}を開きます\n3. どちらも画面で閲覧でき、印刷や PDF 保存はそれぞれのページから行います`,
 				goal: 'がんばりを形に残せるので、お子さまの達成感が大きくなり、次の目標への意欲につながります。',
+				tips: [`PDF 保存・印刷は${PAID_PLAN_LABEL}で利用できます（閲覧はどのプランでもできます）`],
+				relatedLinks: [
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
+					{ label: GROWTH_BOOK_TERMS.full, href: '/admin/growth-book' },
+				],
+			},
+			// ③ 無料プラン向け upsell バナー (free のときだけ描画、optional)
+			'reports-weekly-upsell': {
+				title: '画面の見方（週次メールレポートのご案内）',
+				what: `週次レポートを毎週メールで受け取る機能は${PAID_PLAN_LABEL}の特典です。${PLAN_FULL_TERMS.free}では、このお知らせと「週次レポート」タブのプレビューが表示されます。`,
+				how: `1. メールで受け取りたいときは「プランを見る →」からプランを確認します\n2. 今のプランのままでも、「週次レポート」タブで今週のまとめを画面で見られます`,
+				goal: 'メール配信を使うかどうかを、内容をプレビューで確かめてから決められます。',
+			},
+			'reports-tabs': {
+				title: '画面の見方（月次レポート／週次レポートの切り替え）',
+				what: 'タブで「月次レポート」と「週次レポート」を切り替えます。月次は 1 か月の総まとめ（先月との比較つき）、週次は今週のカテゴリ別の活動数・ハイライト・新しい実績・アドバイスです。',
+				how: '1. 「月次レポート」「週次レポート」のタブを押して切り替えます\n2. 週次レポートタブの上部には「⚙️ レポート設定」（メール配信の有効化・配信曜日）があります',
+				goal: '「今週はうんどうが多かった」「今月は先月より活動が増えた」のように、期間ごとの傾向に気づけ、次の声かけのヒントになります。',
+			},
+			// ⑤ 月の移動と先月比 (月次タブのときだけ描画、optional)
+			'reports-month-nav': {
+				title: 'よく使う操作（月の移動と先月比）',
+				what: '◀ ▶ で見たい月に移動します。月次レポートの数字には先月との差が色付きで表示されます（緑＝増加、赤＝減少）。',
+				how: '1. ◀ で前の月、▶ で次の月に移動します\n2. 各数字の下の「先月比」で増減を確認します',
+				goal: '「先月より 5 回多いよ」と根拠のある声かけができ、月ごとの伸びを追えます。',
+			},
+			// ⑥ 週次メール配信設定 (週次タブのときだけ描画、optional)
+			'reports-weekly-settings': {
+				title: 'よく使う操作（週次レポートのメール配信設定）',
+				what: `「⚙️ レポート設定」で、週次レポートをメールで受け取るかどうかと配信曜日を設定します。メール配信は${PAID_PLAN_LABEL}で利用できます。`,
+				how: '1. 「週次レポートを有効にする」にチェックを入れます\n2. 「配信曜日」を選びます\n3. 「保存」を押します',
+				goal: '毎週決まった曜日に、お子さまのがんばりのまとめが保護者のメールに届きます。',
+			},
+			// ⑦ きょうだいランキング (プレミアム + ランキング ON + 子 2 人以上のときだけ描画、optional)
+			'reports-sibling-ranking': {
+				title: '画面の見方（きょうだいランキング）',
+				what: `きょうだいの今週の活動数をくらべる「👫 きょうだいランキング」です。${PLAN_FULL_TERMS.premium}で、設定の「きょうだいランキング」が ON、かつお子さまが 2 人以上のときに表示されます。`,
+				how: '1. 「今週のまとめ」でもっとも活発だったお子さまを確認します\n2. 「週別 活動数のうつりかわり」「カテゴリ別くらべっこ」のグラフで推移と得意分野をくらべます',
+				goal: 'きょうだいそれぞれの得意・がんばりどころが分かり、比べて責めるのではなく、それぞれを認める声かけに使えます。',
+				tips: [
+					'表示されないときは、プラン・設定の「きょうだいランキング」・お子さまの人数を確認してください',
+				],
 			},
 		},
 	},
+	// #4656: /admin/rewards のガイド。画面の上から下 (+ 追加 → ︙ → お子さまタブ → 一覧カード) の順に主要操作を
+	// 網羅し、ボタン名は描画側と同じ atom (ADD_MENU_TERMS / REWARD_ADMIN_TERMS / OVERFLOW_MENU_TERMS / REWARD_TERMS)
+	// を参照する。お子さまタブ (0 人) / 一覧カード (0 件) は filterGuideStepsByTargetPresence で描画時のみ出る。
 	adminRewards: {
-		title: 'はげまし・ごほうび',
+		title: REWARD_TERMS.menu,
 		steps: {
 			'rewards-intro': {
 				title: 'このページについて',
-				what: 'お子さまを応援する「ごほうび」を管理するページです。子供のごほうびショップに並べるプレゼント（おこづかい・ゲーム時間・おやつなど）を用意できます。',
-				how: 'プリセットから選ぶか、オリジナルのごほうびを作成して、お子さまごとに配信します。その場でひと押ししたい応援は応援ページをご利用ください。',
-				goal: 'お子さまが貯めたポイントでごほうびと交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。',
+				what: `お子さまの${REWARD_TERMS.shop}に並べる${REWARD_TERMS.canonical}（おこづかい・ゲーム時間・おやつなど）を管理するページです。`,
+				how: `右上の「${ADD_MENU_TERMS.trigger}」から始めます。上から順に、「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → ${REWARD_ADMIN_TERMS.search} → ${REWARD_TERMS.canonical}の一覧 と並びます。その場でひと押ししたい${CHEER_TERMS.canonical}は${CHEER_TERMS.canonical}ページから送ります。`,
+				goal: `お子さまが貯めたポイントで${REWARD_TERMS.canonical}と交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。`,
+				tips: [
+					`${PLAN_GATE_LABELS.standardOrAboveFor(`オリジナルの${REWARD_TERMS.canonical}作成・${TEMPLATE_TERMS.userFacing}の取込・${REWARD_ADMIN_TERMS.edit}`)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+				],
+				relatedLinks: [{ label: `${CHEER_TERMS.canonical}を送る`, href: '/admin/cheer' }],
+			},
+			'rewards-add': {
+				title: `よく使う操作（${ADD_MENU_TERMS.trigger}）`,
+				what: `右上の「${ADD_MENU_TERMS.trigger}」を押すと、${ADD_MENU_TERMS.manual} / ${ADD_MENU_TERMS.ai} / ${ADD_MENU_TERMS.browse} から選べます。`,
+				how: `1. 「${ADD_MENU_TERMS.trigger}」を押す\n2. 「${ADD_MENU_TERMS.manual}」を選ぶ\n3. ${REWARD_ADMIN_TERMS.formTitle}・${REWARD_ADMIN_TERMS.formPoints}・${REWARD_ADMIN_TERMS.formIcon}・${REWARD_ADMIN_TERMS.shopCategory}を入力\n4. 下の「〇〇 (ポイント)${REWARD_ADMIN_TERMS.submitSuffix}」を押す`,
+				goal: `選んでいるお子さまの${REWARD_TERMS.shop}に${REWARD_TERMS.canonical}が並び、貯めたポイントで交換できるようになります。`,
+				tips: ['ポイントは通常の活動の 10〜50 回分くらいが目安です（多すぎるとインフレします）'],
+			},
+			'rewards-overflow': {
+				title: `画面の見方（︙ メニュー・${REWARD_ADMIN_TERMS.requestsMenu}）`,
+				what: `右端の「︙」には ${REWARD_ADMIN_TERMS.requestsMenu} / ${OVERFLOW_MENU_TERMS.itemRestore} / ${OVERFLOW_MENU_TERMS.itemExport} が入っています。お子さまが交換を申請すると「${ADD_MENU_TERMS.trigger}」の左に件数の赤いバッジが出ます。`,
+				how: `1. 「︙」を押す\n2. 「${REWARD_ADMIN_TERMS.requestsMenu}」で申請を確認し、承認して受け渡す\n3. 「${OVERFLOW_MENU_TERMS.itemExport}」で保存、「${OVERFLOW_MENU_TERMS.itemRestore}」でそのファイルから戻せます`,
+				goal: `お子さまの交換申請を見落とさず、${REWARD_TERMS.canonical}の設定は機種変更のときも持ち運べます。`,
+				relatedLinks: [
+					{
+						label: `${REWARD_ADMIN_TERMS.requestsMenu}の画面を開く`,
+						href: '/admin/rewards/requests',
+					},
+				],
 			},
 			'rewards-child-tabs': {
 				title: '画面の見方（お子さまの切り替え）',
-				what: '上部のタブで、ごほうびを管理するお子さまを切り替えます。タブの数字はそのお子さまに登録済みのごほうび数です。',
-				how: '1. お子さまのタブをタップして選びます\n2. その下に、選んだお子さまのごほうび一覧が表示されます',
-				goal: 'お子さまごとに別々のごほうびを用意できるので、年齢や興味に合わせた応援ができます。',
+				what: `${REWARD_TERMS.canonical}はお子さまごとに持ちます。タブで選んだお子さまの${REWARD_TERMS.canonical}だけが下に表示され、追加もそのお子さまに入ります。タブの数字は登録済みの件数です。`,
+				// #4716: コピー操作は子供タブ行の右端ボタンから header 「+ 追加」dropdown に移動した
+				how: `1. お子さまのタブを押す\n2. 兄弟に同じ${REWARD_TERMS.canonical}を用意するときは、右上の「${ADD_MENU_TERMS.trigger}」→「${REWARD_ADMIN_TERMS.copyFromChild}」でまとめてコピーする（お子さまが 2 人以上のとき）`,
+				goal: `お子さまごとに別々の${REWARD_TERMS.canonical}を用意できるので、年齢や興味に合わせた応援ができます。`,
 			},
-			'rewards-add': {
-				title: 'よく使う操作（ごほうびの追加）',
-				what: '最もよく使うのがごほうびの追加です。テンプレートから選ぶか、下の作成フォームでタイトル・ポイント・アイコンを決めてオリジナルを作成します。',
-				how: '1. テンプレートから選ぶか、オリジナルのごほうびを作成\n2. タイトル・ポイント・アイコンを設定\n3. 「追加する」をタップ',
-				goal: '子供のごほうびショップにごほうびが並び、お子さまが貯めたポイントで交換できるようになります。',
-				tips: ['ポイントは通常の活動の10〜50回分くらいが目安です（多すぎるとインフレします）'],
+			'rewards-list': {
+				title: `画面の見方（${REWARD_TERMS.canonical}の一覧）`,
+				what: `各カードに「${REWARD_ADMIN_TERMS.edit}」「${REWARD_ADMIN_TERMS.delete}」があります。お子さまが交換を申請中のカードには「${REWARD_ADMIN_TERMS.pendingBadge}」と出ます。上の「${REWARD_ADMIN_TERMS.search}」で名前から絞り込めます。`,
+				how: `1. 「${REWARD_ADMIN_TERMS.edit}」でタイトルやポイントを変える（申請済みの交換は申請時点の内容で処理されます）\n2. 「${REWARD_ADMIN_TERMS.delete}」は確認のうえ消す（「${REWARD_ADMIN_TERMS.pendingBadge}」があるときは先に申請を処理します）`,
+				goal: `${REWARD_TERMS.canonical}を直したり整理したりしても、お子さまが申請済みの交換は壊れません。`,
 			},
 		},
 	},
@@ -1732,7 +2635,9 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-intro': {
 				title: 'このページについて',
 				what: `${ADMIN_VIEW_TERMS.canonical}の各種設定をまとめたページです。アクセスを守る${OYAKAGI_TERMS.shortName}、ポイントの表示単位、データのバックアップなどをここから設定します。`,
-				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
+				// #4661: 「お子さまの年齢モード / お名前 / 追加」を探して設定に来る保護者が多いが、
+				// hub の 7 カードに子供設定は無く、ガイドにも橋渡しが無かった (relatedLinks 0 件)。
+				how: `設定したい項目のカードを選んで、その中の設定画面に進みます。お子さまごとの設定 (お名前・年齢モード・お子さまの追加) はこのページには無く、メニューの「${NAV_ITEM_LABELS.children}」から行います。`,
 				goal: `必要な設定にすぐたどり着けるので、${OYAKAGI_TERMS.shortName}の変更やバックアップなどの「念のための備え」を迷わず行えます。`,
 			},
 			// #3954: hub のカードが 6→7 枚になったため、件数と「上から順に」の並びを実装に合わせる。
@@ -1742,117 +2647,245 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-hub': {
 				title: '画面の見方（7つの設定グループ）',
 				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート・アプリ情報 — 感想・要望や規約\n7. ${ADMIN_SCREENS.subscription.name} — 契約と支払い（別ページに移動します）`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
+				tips: [
+					// #4661 F4: 支払いの確認が取れていない間だけ、カード群の上に赤いお知らせが出る。
+					'お支払いの確認が取れていないときは、カードの上に赤いお知らせが出ます。その中のボタンからプラン・お支払いの画面に進めます',
+				],
 			},
 			'settings-account': {
 				title: 'よく使う操作と詳しいガイド',
-				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（4桁の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
+				// #4661 M1: 桁数は実装が受け付ける範囲 (OYAKAGI_TERMS.digitRange) を正とする。
+				// 以前は「4桁の数字」と断定しており、入力ラベルの「4〜8桁」と食い違っていた。
+				what: `最初に確認したいのはアカウントカードです。${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を変えられ、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 				how: '1. 目的のカードをタップして開きます\n2. 各ページの「?」を押すと、そのページ専用の詳しい操作ガイドが見られます',
 				goal: 'よく使う操作にすぐ進め、各ページのガイドで迷わず設定できます。',
-				tips: [`${OYAKAGI_TERMS.shortName}の初期値やポイント表示は各カードの中で変更できます`],
+				// #4661 M2: 変えられるのは「今の おやカギコード」。初期値 (DEFAULT_PIN) は定数で変更対象ではない。
+				tips: [`${OYAKAGI_TERMS.name}の変更やポイント表示は各カードの中で行えます`],
+				relatedLinks: [{ label: NAV_ITEM_LABELS.children, href: '/admin/children' }],
 			},
 		},
 	},
 	// #3266 (EPIC #3260 C2): 設定サブ 6 ページの個別ガイド文言。親 adminSettings (ハブ) とは別に、
 	// 各サブページの実セクションを上→下順に説明する (F0 guide-copy-rules 準拠、≤5 step / 3 部構成)。
+	// #4662 (EPIC #4650): 旧 3 step は同じ `pin-settings` カードを 2 回続けて光らせ、内容もほぼ
+	//   同じで実質 1 枚分の情報しか無かった。手順には「新しいおやカギコード（確認）」欄の再入力が
+	//   抜けており、そのとおり操作すると必ず required エラーになる。ページ下部の ログアウト /
+	//   アカウント削除（最も不可逆な操作）は step が無かった。見方と操作を 1 step に統合し、
+	//   空いた枠を ログアウト / アカウント削除 に充てる。呼称は OYAKAGI_TERMS 経由に統一。
 	adminSettingsAccount: {
 		title: 'アカウント',
 		steps: {
 			'settings-account-intro': {
 				title: 'このページについて',
-				// #3307: ログアウト / アカウント削除は cognito 環境限定 (NUC / demo は おやカギ カードのみ)。
-				// 全環境共通の おやカギ変更 を主機能として先頭に置き、条件付き項目は明示的に hedge する
-				// (実態に無い操作を全ユーザーに断定的に案内しない、NN/G #1 visibility / ADR-0013)。
-				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}を変更できるページです。ご利用環境によっては、ログアウトやアカウントの削除もここから行えます。`,
-				how: `まず${OYAKAGI_TERMS.shortName}を変更するカードが表示されます。ログアウト・アカウント削除のカードは、ご利用環境によって表示される場合があります。`,
+				// #4662: ログアウト / アカウント削除の step は saas かつ実描画時のみ出る
+				//   (requiredRuntime + optional) ため、概要側にも「ご利用環境によっては」を残す。
+				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}を変更できるページです。ご利用環境によっては、ログアウトやアカウントの削除（${CANCEL_TERMS.account}）もここから行えます。`,
+				how: `上から順に、${OYAKAGI_TERMS.shortName}を変更するカードが表示されます。その下に、ご利用環境によってログアウトとアカウント削除のカードが並びます。`,
 				goal: `${OYAKAGI_TERMS.shortName}をこまめに変えて、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 			},
+			// ② 見方 + 操作を統合 (旧 settings-account-pin / -pin-change は同一 selector で重複)。
+			//   手順は実フォームの 3 入力欄 + ボタン名に一致させる (確認欄の再入力が抜けていた)。
 			'settings-account-pin': {
-				title: `画面の見方（${OYAKAGI_TERMS.shortName}）`,
-				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの4桁の数字です。このカードから変更できます。`,
-				how: '1. 現在のコードを入力します\n2. 新しいコードを入力します',
-				goal: '今のおやカギと、変更する場所がひと目で分かります。',
-			},
-			'settings-account-pin-change': {
 				title: `よく使う操作（${OYAKAGI_TERMS.shortName}を変える）`,
-				what: `${OYAKAGI_TERMS.shortName}を新しい数字に変えます。お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
-				how: `1. 現在の${OYAKAGI_TERMS.shortName}を入力\n2. 新しい数字を入力\n3. 変更ボタンをタップ`,
-				goal: '次回から新しいコードが必要になり、安心して使えます。',
-				tips: [PIN_DEFAULT_TERMS.hintCompact],
+				// #4661: 桁数は OYAKAGI_TERMS.digitRange (実装の受付範囲) を引く。「4桁」断定は誤り。
+				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの${OYAKAGI_TERMS.digitRange}の数字です。このカードには「現在の${OYAKAGI_TERMS.name}」「新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）」「新しい${OYAKAGI_TERMS.name}（確認）」の 3 つの入力欄と、変更ボタンが縦に並びます。入力した数字は伏せ字で表示されるため、いまのコードそのものは画面に出ません。`,
+				how: `1. 「現在の${OYAKAGI_TERMS.name}」に、いま使っている数字を入力します\n2. 「新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）」に新しい数字を入力します\n3. 「新しい${OYAKAGI_TERMS.name}（確認）」に、同じ数字をもう一度入力します（打ち間違い防止のため 3 つ目の欄も必須です）\n4. 「${OYAKAGI_TERMS.shortName}を変更」を押します`,
+				goal: `「${OYAKAGI_TERMS.name}を変更しました」と表示され、次に${ADMIN_VIEW_TERMS.short}を開くときから新しい数字が必要になります。`,
+				tips: [
+					// #4698 (PO 判断): 既定値 (旧「初期 5086」) は顧客可視 UI に出さない。#2992 以降は
+					//   初回に親ゲートで**自分で作成する**フローのため既定値は存在せず、案内すると
+					//   「5086 を入れたのに現在のコードが違うと言われる」誤案内になる。加えて子供が
+					//   同じ端末で読める場所に既定値を書くこと自体が #2353 で塞いだ脆弱性に戻る。
+					`忘れてしまったときは、${ADMIN_VIEW_TERMS.short}に入るときの入力画面から、ご本人確認のうえ作り直せます`,
+				],
+			},
+			// ③ ログアウト (cognito 環境のカード。requiredRuntime='saas' + optional)
+			'settings-account-logout': {
+				title: 'ログアウト',
+				what: `この端末からアカウントをログアウトします。共有のパソコンやタブレットを使い終わるときに使います。お子さまの記録や設定は消えません。`,
+				how: `1. 「アカウントからログアウト」を押します\n2. ログイン画面に戻ります`,
+				goal: '次に使うときは、メールアドレスとパスワードでのログインが必要になります。',
+			},
+			// ④ アカウント削除 (Danger Zone。requiredRuntime='saas' + optional)
+			'settings-account-delete': {
+				title: `アカウント削除（${CANCEL_TERMS.account}）`,
+				what: `ページの一番下は「危険な操作」の区画です。${CANCEL_TERMS.account}すると、お子さまのプロフィール・活動記録・ポイント履歴・アバター画像や音声・設定・チェックリスト・メンバーシップが削除されます。ご家族に他のメンバーがいる場合は、オーナー権限を引き継いでもらうか、家族グループごと削除するかを選びます。`,
+				how: `1. 先にデータを持ち出せます（「${CANCEL_TERMS.account}する前にデータを持ち出す」の「データをダウンロード」。どのプランでも使えます）\n2. 確認テキストの入力 → 同意チェック → 実行ボタン の 3 手順で進みます\n3. 実行するとお申し込みが完了します`,
+				goal: `猶予期間はプランで異なります（${PLAN_FULL_TERMS.free}は猶予${DELETION_GRACE_TERMS.free}＝お申し込みと同時に削除され取り消せません／${PLAN_FULL_TERMS.standard}は${DELETION_GRACE_TERMS.standard}／${PLAN_FULL_TERMS.family}は${DELETION_GRACE_TERMS.premium}）。猶予があるプランでは、その間このページの上部に案内と「復元」ボタンが出るので、押せば取り消せます。猶予を過ぎるとデータは復旧できません。`,
+				tips: [
+					`データの持ち出しはお申し込みの**前**に行ってください（猶予のないプランでは、申し込んだ時点で取り出せなくなります）`,
+				],
 			},
 		},
 	},
+	// #4663 (EPIC #4650): 旧 3 step は「段階を選ぶ → すぐに反映されます」「単位を選ぶ → 子供の
+	//   画面に反映されます」と案内していたが、実装はどちらも保存ボタンを押さないと反映されない。
+	//   ガイドどおりに操作した保護者は設定が変わらないまま離れる。手順を実ボタン名で書き直し、
+	//   step が届いていなかったページ後半 (既定の子供 / きょうだいランキング) も追加する。
+	//   ボタン名 / 選択肢名は SETTINGS_LABELS と同一文字列にし、一致は
+	//   tests/unit/routes/settings-activities-guide.test.ts が機械照合する。
 	adminSettingsActivities: {
 		title: '活動・ポイント',
 		steps: {
 			'settings-activities-intro': {
 				title: 'このページについて',
 				what: 'お子さまの活動にまつわる設定をまとめたページです。やる気が続く仕組みや、ポイントの見せ方をここで調整します。',
-				how: '上から順に、ステータス減少・ポイント表示・きょうだいの設定が並びます。',
+				how: `上から順に、ステータス減少・ポイント表示・既定の${CHILD_TERMS.honorific}（お子さまが 2 人以上のとき）・きょうだいチャレンジ設定 が並びます。`,
 				goal: 'ご家庭に合わせて、活動の続けやすさやポイントの見せ方を整えられます。',
+				tips: [
+					// #4663 F1 / F2: このページのカードはどれも「選ぶ」だけでは保存されない。
+					'どのカードも、選んだあとに一番下の保存ボタンを押すまで反映されません',
+				],
 			},
+			// ② ステータス減少 (常設カード)
 			'settings-activities-decay': {
 				title: '画面の見方（ステータス減少）',
-				what: '何日か活動しないとステータスが少しずつ下がる仕組みです。下がる強さを4段階で選べます。',
-				how: '1. 強さの段階を選びます\n2. すぐに反映されます',
+				what: '何日か活動しないと、お子さまのステータスが少しずつ下がる仕組みです。下がる強さを「なし」「ゆるやか」「ふつう」「きびしめ」の 4 段階から選べます。どの段階でも、活動をお休みした最初の 2 日間は下がりません。',
+				how: '1. 4 つの選択肢から 1 つを選びます（「なし」= 下がらない／「ゆるやか」= 通常の半分／「ふつう」= 猶予 2 日後にゆるやかに／「きびしめ」= 1.5 倍の速さ）\n2. カードの一番下の「設定を保存」を押します\n3. 「ステータス減少設定を保存しました」と出れば完了です',
 				goal: '毎日コツコツ続ける動機づけを、ご家庭の方針に合わせて調整できます。',
+				tips: [
+					'始めたばかりのときは「なし」から試すと、お休みした日に下がって落ち込むことがありません',
+					'旅行などで数日空くときも、最初の 2 日は下がりません',
+				],
 			},
+			// ③ ポイント表示 (常設カード)
 			'settings-activities-point': {
 				title: 'よく使う操作（ポイント表示）',
-				what: 'ポイントの呼び方や単位を選んで、お子さまに分かりやすい見せ方にできます。',
-				how: '1. 表示したい単位を選びます\n2. 子供の画面に反映されます',
-				goal: 'お子さまの年齢に合った言葉でポイントが表示されます。',
+				what: '貯まったポイントを、そのまま「ポイント（P）」で見せるか、円などの通貨に換算して見せるかを選べます。呼び方そのものを変える設定ではありません。',
+				how: '1. 「表示モード」で「ポイント（P）」か「通貨で表示」を選びます\n2. 「通貨で表示」を選んだときは、通貨と「レート（1P = ？）」を入力します（レートは必須です）\n3. すぐ下のプレビューで、お子さまの画面にどう出るかを確かめます\n4. 「ポイント設定を保存」を押します',
+				goal: 'お子さまの画面のポイント表示が、選んだ見せ方に変わります。金額で見せると「あと何円分」が伝わりやすくなります。',
+				tips: ['レートは「1P = 1円なら 1」「1P = 0.01ドルなら 0.01」のように入力します'],
+			},
+			// ④ 既定のお子さま (お子さま 2 人以上のときだけ描画 → optional)
+			//    #4716: カード見出し (SETTINGS_LABELS.defaultChildSectionTitle) と同じ honorific で呼ぶ
+			'settings-activities-default-child': {
+				title: `画面の見方（既定の${CHILD_TERMS.honorific}）`,
+				what: 'ホーム画面を開いたときに、どのお子さまの画面を自動で表示するかを決められます。お子さまが 2 人以上のご家庭だけに出るカードです。',
+				how: '1. 「未設定（毎回選択画面を表示）」かお子さまの名前を選びます\n2. 「既定を保存」を押します',
+				goal: '次からホーム画面を開くと、選んだお子さまの画面がすぐ出ます。「未設定」に戻せば毎回選ぶ画面に戻ります。',
+				tips: ['この設定は端末ごとではなくアカウント全体に効きます（ご家族のどの端末でも同じ）'],
+			},
+			// ⑤ きょうだいランキング (カード自体は常設。チェックボックスがプランで disabled)
+			'settings-activities-sibling': {
+				title: 'よく使う操作（きょうだいランキング）',
+				what: `きょうだいの記録を並べて見せる「きょうだいランキング」の表示を切り替えます。${PLAN_FULL_TERMS.premium}限定の機能で、それ以外のプランではチェックボックスが押せない状態で表示され、下にご案内が出ます。`,
+				how: '1. 「きょうだいランキングを表示する」にチェックを入れます\n2. 「設定を保存」を押します',
+				goal: 'お子さまの画面にきょうだいの並びが出て、お互いを意識するきっかけになります。競争が合わないご家庭では、チェックを外して保存すれば表示されません。',
+				tips: [
+					`チェックが押せない（グレーになっている）ときは、${PLAN_FULL_TERMS.premium}のご契約が必要です`,
+				],
 			},
 		},
 	},
+	// #4664 (EPIC #4650): 旧ガイドは「お子さま自身が活動を思い出すきっかけ」と書いていたが、
+	//   通知が届くのは購読した**保護者のこの端末**。種類も「連続記録のお祝い」と実項目
+	//   (ストリーク警告) がずれ、リマインダー時刻 / サイレント時間帯 / 1 日の上限 /
+	//   ブロック中の復旧手順に触れていなかった。届く先・種類・条件を画面の事実に合わせる。
+	//   リマインダー / ストリーク警告 は配信スケジューラが無く UI ごと外したため、
+	//   ガイドからも訴求を落とす (ADR-0013: 届かないものを約束しない)。
 	adminSettingsNotifications: {
 		title: '通知',
 		steps: {
 			'settings-notifications-intro': {
 				title: 'このページについて',
-				what: 'ブラウザのお知らせを使って、活動のリマインドや達成のお祝いを届ける設定ページです。',
-				how: '上で通知のオン・オフを切り替え、下で届けるお知らせの種類を選びます。',
-				goal: '声かけしなくても、お子さま自身が活動を思い出すきっかけを作れます。',
+				what: `お知らせが届くのは、この設定を行った${PARENT_TERMS.honorific}の端末（いま見ているブラウザ）です。お子さまの端末には届きません。`,
+				how: '上でこのブラウザの通知をオン・オフし、下で受け取るお知らせの種類・リマインダーの時刻・送らない時間帯を決めます。',
+				goal: 'お子さまが記録した瞬間の「できたよ」を、離れていても受け取れます。',
 			},
+			// ② ブラウザ通知の状態 (常設)
 			'settings-notifications-status': {
 				title: '画面の見方（通知のオン・オフ）',
-				what: '今このブラウザで通知が使えるかどうかと、オン・オフの切り替えボタンがここに出ます。',
-				how: '1. 状態を確認します\n2. ボタンでオン・オフを切り替えます',
-				goal: '通知が使える状態かどうかをひと目で確認できます。',
+				what: 'いまこのブラウザで通知が使える状態かどうかを表します。「オン」なら受け取れます。「ブロック中」はブラウザ側で拒否されている状態で、アプリからはオンに戻せません。',
+				how: '1. 「オン」のときは「通知をオフにする」で止められます\n2. 表示が無いときは「通知をオンにする」を押し、ブラウザの確認で「許可」を選びます\n3. 「ブロック中」のときはボタンが出ません。ブラウザのサイト設定で通知を「許可」に変えてから、このページを再読み込みしてください',
+				goal: '受け取れない状態のまま気づかずに待つことがなくなります。',
+				tips: [
+					'お使いのブラウザや端末が通知に対応していないときは、ボタンが押せない状態で表示されます',
+				],
 			},
+			// ③ 受け取るお知らせの種類 (常設。3 種とも配信経路がある — リマインダー / ストリーク警告は
+			//    #4706 の notification-delivery cron、達成通知は記録時の同期送信)
 			'settings-notifications-types': {
 				title: 'よく使う操作（お知らせの種類）',
-				what: 'リマインダーや連続記録のお祝い、サイレント時間帯など、届けるお知らせを選べます。',
-				how: '1. 届けたいお知らせにチェックします\n2. 保存ボタンをタップします',
-				goal: '必要なお知らせだけが届き、通知が多すぎる状態を避けられます。',
+				what: '受け取るお知らせを 3 つから選べます。「リマインダー通知（毎日の記録を促す）」は決めた時刻に、「ストリーク警告（連続記録が途切れそうな時）」は連続記録が途切れそうな日に、「達成通知（記録完了・レベルアップ時）」はお子さまが記録した直後とレベルが上がったときに届きます。',
+				how: '1. 受け取りたいお知らせにチェックを入れます\n2. 下の「通知設定を保存」を押します\n3. リマインダーにチェックを入れて保存すると、その下に「リマインダー時刻」の欄が出ます。時刻を合わせて、もう一度「通知設定を保存」を押してください',
+				goal: '選んだお知らせだけが、この端末に届くようになります。',
+				tips: [
+					// #4664 M: 時刻欄は「チェックした瞬間」ではなく、保存後の再読込で現れる。
+					'「リマインダー時刻」の欄は、リマインダーにチェックを入れて保存したあとに出ます',
+				],
+			},
+			// ④ サイレント時間帯 (常設)
+			'settings-notifications-quiet': {
+				title: '画面の見方（サイレント時間帯）',
+				what: `この時間帯は通知を送りません。はじめは ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} になっており、夜間や早朝に鳴らないようにしています。`,
+				how: `1. 左の時刻に「送らなくなる時刻」、右の時刻に「また送り始める時刻」を入れます\n2. ${DEFAULT_QUIET_START} 〜 ${DEFAULT_QUIET_END} のように日をまたぐ指定もできます\n3. 「通知設定を保存」を押します`,
+				goal: '寝ている間に通知で起こされることがなくなります。',
+				tips: [
+					`お知らせは 1 日 ${MAX_DAILY_NOTIFICATIONS} 件までにしています（鳴りすぎないための上限です）`,
+				],
+			},
+			// ⑤ 保存 (常設)
+			'settings-notifications-save': {
+				title: 'よく使う操作（保存）',
+				what: 'このページの設定は、保存ボタンを押すまで反映されません。',
+				how: '1. 「通知設定を保存」を押します\n2. 「通知設定を保存しました」と表示されれば完了です',
+				goal: '選んだ種類と時間帯で、次からお知らせが届くようになります。',
 			},
 		},
 	},
+	// #4665 (EPIC #4650): 旧 3 step は全てページ最上部の「データ管理」カード内で完結し、
+	//   中段のクラウド共有と末尾の Danger Zone に到達しなかった。さらに「バックアップする
+	//   ボタン」は実ボタン名 (バックアップをダウンロード) と違い、復元の既定が
+	//   「置換 = 既存データを削除して読み込み」であることを一度も警告していなかった。
+	//   カード / セクション単位で step を置き直し、ボタン名は SETTINGS_LABELS と同一にする
+	//   (一致は tests/unit/routes/settings-data-guide.test.ts が機械照合)。
 	adminSettingsData: {
 		title: 'データ',
 		steps: {
 			'settings-data-intro': {
 				title: 'このページについて',
 				what: `記録した活動やポイントなどのデータを${BACKUP_TERMS.exportNoun}・${BACKUP_TERMS.restoreVerb}できるページです。`,
-				how: '上から順に、データの保存と読み込み・すべて消す操作が並びます。',
 				// #3307: 読み込み (復元) は無料プランでも可、保存 (エクスポート) は canExport gate のため
 				// PAID_PLAN_LABEL で hedge する (free に export を無条件約束しない、ADR-0013 LP truth / NN/G #1)。
+				// #4665 F3: 中段の「クラウド共有」と末尾の「すべてのデータを削除」も並びに含める。
+				how: `上から順に、データ管理（${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}）・クラウド共有（ご利用環境によって表示）・すべてのデータを削除 が並びます。`,
 				goal: `読み込みでの${BACKUP_TERMS.restoreVerb}はどなたでも使え、${BACKUP_TERMS.exportNoun}の保存は${PAID_PLAN_LABEL}で利用できます。`,
 			},
-			'settings-data-management': {
-				title: `画面の見方（データの${BACKUP_TERMS.exportNoun}）`,
-				// #3307: 保存 (エクスポート) は canExport gate。読み込みは無料プランでも可のため、
-				// 「保存はファイル保存できます」を無条件に約束せず PAID_PLAN_LABEL で hedge する。
-				what: `保存した${BACKUP_TERMS.file}の読み込みはどなたでも、ファイルへの保存（${BACKUP_TERMS.exportNoun}）は${PAID_PLAN_LABEL}でできます。`,
-				how: '1. 保存か読み込みを選びます\n2. 画面の案内に従います',
-				goal: '大切な記録を手元に残す方法がここに集まっています。',
-			},
+			// ② バックアップをダウンロード (エクスポートは canExport gate → requiredTier='standard')
 			'settings-data-export': {
 				title: `よく使う操作（${BACKUP_TERMS.exportNoun}）`,
-				what: 'ボタンひとつで、今までの記録を1つのファイルに保存できます。',
-				how: `1. ${BACKUP_TERMS.exportVerb}ボタンをタップ\n2. ファイルが手元に保存されます`,
+				what: `いままでの記録を 1 つのファイルにまとめて手元に保存します。押す前に「画像・音声ファイルも含める」「ファイルサイズを小さくする（圧縮）」の 2 つを選べます。画像・音声を含めないと、${BACKUP_TERMS.restoreVerb}したときにアバター画像とお子さまの声は戻りません。`,
+				how: `1. 含めたいものにチェックを入れます（アバター画像や声も残すなら「画像・音声ファイルも含める」）\n2. 「${BACKUP_TERMS.canonical}をダウンロード」を押します\n3. ファイルが手元に保存されます（含まれる項目は枠内の一覧のとおりです）`,
 				goal: `機種変更や万一のときも、保存したファイルから${BACKUP_TERMS.restoreVerb}できます。`,
+				tips: [
+					'画像・音声を含めるとファイルが大きくなります。ブラウザが安全性の確認を求めることがありますが、壊れたファイルではありません',
+				],
+			},
+			// ③ 復元 (インポート)。既定が「置換」= 全削除してから読み込むので必ず警告する
+			'settings-data-import': {
+				title: `よく使う操作（${BACKUP_TERMS.restoreVerb}）`,
+				what: `保存した${BACKUP_TERMS.file}を読み込んで元に戻します。読み込み方は 2 つあり、既定は「${BACKUP_TERMS.importModeReplace}」です。これはいまのお子さま・活動ログ・ポイントをすべて削除してから読み込むため、元に戻せません。残したまま足すなら「${BACKUP_TERMS.importModeAdd}」を選びます。`,
+				how: `1. 読み込み方（置換 / 追加）を選びます\n2. 「${BACKUP_TERMS.file}を選択」でファイルを選びます\n3. 中身のプレビューが出るので、件数を確かめてから実行します`,
+				goal: `${BACKUP_TERMS.file}の内容が反映されます。置換を選んだ場合、読み込み前のデータは戻せません。`,
+				tips: [
+					`置き換える前に、いまのデータを「${BACKUP_TERMS.canonical}をダウンロード」で保存しておくと安全です`,
+				],
+			},
+			// ④ クラウド共有 (SaaS のみ描画 → requiredRuntime + optional)
+			'settings-data-cloud': {
+				title: '画面の見方（クラウド共有）',
+				what: `${BACKUP_TERMS.canonical}をクラウドに預け、PINコードで別の端末や他のアカウントに渡せます。画像・音声を含む大きなファイルは、直接ダウンロードよりこちらが確実です。保管できる枠数はプランで決まり、${PLAN_FULL_TERMS.free}では枠が無く、案内と「プランを見る」が表示されます。`,
+				how: `1. 預ける中身（テンプレート / フルバックアップ）を選んで「クラウドに保管」を押します\n2. 表示された PINコードを、受け取る側に伝えます\n3. 受け取る側は同じ画面の「PINコードでインポート」に入力して取り込みます`,
+				goal: '端末を買い替えたときや、ご家族の別アカウントに移すときに、ファイルの受け渡しをしなくて済みます。',
+			},
+			// ⑤ すべてのデータを削除 (Danger Zone、常設)
+			'settings-data-clear': {
+				title: '注意（すべてのデータを削除）',
+				what: 'ページの一番下は「危険な操作」の区画です。お子さま・活動ログ・ポイント・ステータスなどのご家族のデータを一括で削除します（活動マスタなどのシステムデータは残ります）。アカウント自体は消えません。',
+				how: '1. 確認テキストを入力します\n2. 同意のチェックを入れます\n3. 実行ボタンを押します',
+				goal: 'この操作は取り消せません。必要なデータは、実行する前に必ずダウンロードしておいてください。',
 			},
 		},
 	},
@@ -1863,47 +2896,88 @@ export const PAGE_GUIDE_LABELS = {
 		// title は ADMIN_RULES_PAGE_LABELS.pageTitle と同一文字列にする — 定数参照にしないのは
 		// ADMIN_RULES_PAGE_LABELS が本定義より後方で宣言されるため。一致は
 		// tests/unit/routes/settings-hub-coverage.test.ts [S7] で機械強制する。
+		//
+		// #4666 (EPIC #4650): ③ がページ先頭の header を光らせていたため、視線が ②承認セクション
+		//   から上へ戻り、説明対象の一覧自体は光らなかった。一覧 / 空状態を包む常在ラッパー
+		//   (rules-bonus-list) に張り直す。あわせて「みんなのテンプレートから取り込んだ」前提の
+		//   文言を撤去する — rule-preset は marketplace の陳列対象 (3 type) に含まれないため、
+		//   その入口は画面上に存在しない (ADR-0013: 無い導線を案内しない)。
 		title: 'ごほうび・ボーナスルール',
 		steps: {
 			'settings-rules-intro': {
 				title: 'このページについて',
-				what: `ごほうび交換に保護者の承認が必要かどうかと、${TEMPLATE_TERMS.userFacing}から取り込んだボーナスのルールを決めるページです。`,
-				how: '上でごほうび交換の承認を切り替え、下で取り込んだルールを管理します。',
+				what: 'ごほうび交換に保護者の承認が必要かどうかと、活動を記録したときに追加ポイントが入る「ボーナスルール」をまとめて決めるページです。',
+				how: '上でごほうび交換のしかたを切り替え、下で取り込み済みのボーナスルールを管理します。',
 				goal: '交換に承認を挟むかどうかと、効かせるボーナスをここでまとめて決められます。',
+				tips: [
+					// #4666 F3: 陳列されていないため「探して取り込む」導線は画面に無い。
+					//   取込は共有されたルールのページから行う (?import=) という事実だけを述べる。
+					'ボーナスルールをこの画面で新しく作ることはできません。共有されたとくべつルールのページから取り込むと、下の一覧に並びます',
+				],
 			},
 			'settings-rules-approval': {
-				title: '画面の見方（ごほうび交換の承認）',
-				what: 'お子さまがごほうびを交換するときに、保護者の承認を必要とするかどうかをここで切り替えます。',
-				how: '1. 切り替えを操作します\n2. 承認なしにすると、お子さまはその場で交換できます',
-				goal: 'ご家庭の方針に合わせて、交換の承認を必要にするか選べます。',
+				title: '画面の見方（ごほうび交換のしかた）',
+				what: 'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選びます。初期設定は「保護者の承認が必要」です。承認待ちの申請は「ごほうび申請の承認」ページで処理します。',
+				how: '1. いまの状態（保護者の承認が必要 / 承認なしで即時交換）がこのカードに出ます\n2. 承認をやめるときは「即時交換にする」を押し、確認ダイアログでもう一度「即時交換にする」を選びます\n3. 元に戻すときは「承認を必須に戻す」を押します',
+				goal: '承認必須のままなら、お子さまの交換は「承認待ち」になり、承認したときにポイントが引かれます。即時交換にすると、お子さまがその場で交換でき、ポイントもその場で引かれます。',
+				relatedLinks: [{ label: 'ごほうび申請の承認', href: '/admin/rewards/requests' }],
 			},
 			'settings-rules-list': {
-				title: 'よく使う操作（取り込んだルール）',
-				what: '取り込んだボーナスルールがここに並びます。まだ無いときは、その案内が表示されます。',
-				how: '1. ルールのオン・オフを切り替えます\n2. いらないルールは削除できます',
-				goal: 'ご家庭に合うルールだけを残して、ボーナスを整理できます。',
+				title: 'よく使う操作（ボーナスルール）',
+				what: '取り込み済みのボーナスルールがここに並びます。まだ 1 つも無いときは、その案内が出ます。カードには取込日時と「含まれるルール（件数）」があり、開くとルールごとの加点（+pt）を確認できます。',
+				how: '1. 「含まれるルール」を開いて、加点の中身を確かめます\n2. 効かせたいルールは「有効化」、止めたいルールは「無効化」を押します\n3. いらないルールは「削除」を押し、確認ダイアログで「削除」を選びます（削除すると元に戻せません。止めるだけなら「無効化」で十分です）',
+				goal: '有効なルールに合う活動をお子さまが記録すると、家族全員のお子さまに追加ポイントが入ります。無効にすると、そのルールの加点だけが止まります。',
 			},
 		},
 	},
+	// #4667 (EPIC #4650): 旧 2 step はフォーム全体を 1 枚で「内容を入力 → 送信」とだけ説明し、
+	//   先頭の「ご用件」ラジオ (感想・要望 / 相談・困りごと) と、相談を選んだときに返信先メールが
+	//   必須になる分岐に触れていなかった。そのため「解約や使い方の相談はどこから？」「返事は来る？」
+	//   という、このページで最も多い問いに答えられず、相談したい保護者が「感想・要望（返信は不要）」の
+	//   まま送ってしまう。フォームの実順序に沿って説明し、NUC のバックアップ状態カードと
+	//   アプリ情報にも step を置く。呼称は画面見出し「サポート・ご意見」に統一する。
 	adminSettingsSupport: {
 		title: 'サポート・アプリ情報',
 		steps: {
 			'settings-support-intro': {
 				title: 'このページについて',
-				what: '感想や要望を送ったり、利用規約やバージョンなどのアプリ情報を確認できるページです。',
-				how: '上にお問い合わせのフォーム、下に各種リンクとアプリ情報が並びます。',
+				what: '感想・要望も、導入や使い方・解約のご相談も、同じ「サポート・ご意見」フォームから送れます。個人開発のため、開発者本人がひとつずつ目を通します。',
+				how: '上に「サポート・ご意見」フォーム、下に利用規約やバージョンなどのアプリ情報が並びます。セルフホスト版では、その間に「バックアップの状態」が表示されます。',
 				goal: '困ったときの相談先と、サービスの情報にここからたどり着けます。',
 			},
+			// ② サポート・ご意見フォーム (常設)
 			'settings-support-form': {
-				title: 'よく使う操作（感想・要望を送る）',
-				what: '使ってみた感想や「こうしてほしい」という要望を、開発者に直接送れます。',
-				how: '1. 内容を入力します\n2. 送信ボタンをタップします',
-				goal: 'いただいた声をもとに、サービスを改善していきます。',
+				title: 'よく使う操作（感想・要望を送る / 相談する）',
+				what: 'ひとつのフォームで 2 通りの用件を送れます。「感想・要望を送る（返信は不要）」は開発の参考にさせていただくもの、「相談・困りごと（返信を希望）」は導入・使い方・解約などのご相談で、通常 1〜2 日以内にメールでご返信します。',
+				how: '1. 「ご用件」で「感想・要望を送る（返信は不要）」か「相談・困りごと（返信を希望）」を選びます\n2. 感想・要望を選ぶと「種類」（機能要望 / バグ報告 / その他）が出るので選びます。相談を選ぶと「お子さまの年齢（任意）」が出ます\n3. 「内容」に本文を入力します（1000 文字まで）\n4. 「返信先メールアドレス」を確認します（相談のときは返信先が必要です。アカウントのメールが分かっている場合はそこへ返信します）\n5. 「送信する」を押します',
+				goal: '送信すると受付番号が表示されます。相談を選んだ場合は、その受付番号の内容を確認のうえメールでご返信します。',
+				tips: [
+					'不具合のご相談では、下の「アプリ情報」にあるバージョンを本文に添えていただけると原因を特定しやすくなります',
+					'フォームの下にメールでの受付先もあります',
+				],
+			},
+			// ③ バックアップの状態 (NUC セルフホストのみ描画 → requiredRuntime='nuc' + optional)
+			'settings-support-backup': {
+				title: '画面の見方（バックアップの状態）',
+				what: 'セルフホスト版でだけ表示されるカードです。毎晩のバックアップがうまくいっているかを、正常 / 確認 / 取れていません / 急いで片づけてください の 4 通りで表します。最後に成功した日時と、続けて失敗した回数も出ます。',
+				how: '1. 表示が「正常」なら何もする必要はありません\n2. 「急いで片づけてください」は、バックアップ自体は取れているものの古い控えが増えすぎて自動削除が止まっている状態です。古い控えを別の場所へ移してから、いらないものを消してください\n3. 「取れていません」など、うまくいっていないときは上のフォームから相談してください',
+				goal: 'バックアップが静かに止まっていることに気づけて、必要なときに戻せる状態を保てます。',
+			},
+			// ④ アプリ情報 (常設)
+			'settings-support-app-info': {
+				title: '画面の見方（アプリ情報）',
+				what: '利用規約・プライバシーポリシー・お問い合わせ用のメール・GitHub と、いまお使いのバージョンがまとまっています。',
+				how: '1. 読みたいリンクを押すと、それぞれのページが新しいタブで開きます\n2. 「バージョン」はこの画面に表示されている番号です',
+				goal: '規約やプライバシーの扱いをいつでも確認でき、不具合のご相談ではバージョンをそのまま伝えられます。',
 			},
 		},
 	},
 	adminSubscription: {
-		title: 'プラン・課金',
+		title: ADMIN_SCREENS.subscription.name,
+		// #4668 (EPIC #4650): step は SaasLicensePanel / NucLicensePanel の DOM 順に「上から下」で並べ、
+		// ボタン名・見出しは画面と同じ atom (TRIAL_TERMS / STRIPE_PORTAL_TERMS / CANCEL_TERMS 等) を引く。
+		// 環境依存 UI (Checkout 照合バナー / Portal fallback / 期末解約バナー / 請求履歴カード) は出た
+		// ときに画面自身が説明するため step 化しない (ガイドは常設要素だけを扱う)。
 		steps: {
 			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
 			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
@@ -1911,23 +2985,48 @@ export const PAGE_GUIDE_LABELS = {
 			'subscription-intro': {
 				title: 'このページについて',
 				what: '今ご利用中のプランや契約の状況を確認するページです。プランに関する操作の入り口がここに集まっています。',
-				how: '上から順に、現在の状況・プランの管理・支払い履歴への入り口が並びます。表示される項目はご利用環境によって変わります。',
+				how: `上から順に、現在のプラン・利用状況と上限・${PLAN_CHANGE_TERMS.changeNoun}や${STRIPE_PORTAL_TERMS.history}への入り口が並びます。表示される項目はご利用環境やプランによって変わります。`,
 				goal: `プランの状況をひと目で把握でき、必要なときに${PLAN_CHANGE_TERMS.changeNoun}や支払いの管理へ迷わず進めます。`,
 			},
-			// ② 画面の見方（現在のプラン）— SaaS 版のみ（NUC では本セクション非表示のため除外）。
+			// ② 画面の見方（現在のプラン）— SaaS 版のみ。カード全体を spotlight。残り日数はここには出ない
+			// (利用状況カードの step で説明する、PO 判断)。
 			'subscription-current-plan': {
 				title: '画面の見方（現在のプラン）',
-				what: 'いま契約中のプランと、無料トライアル中ならその残り期間がここに表示されます。',
-				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
-				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
+				what: 'いま契約中のプランの名前と、ステータス（有効・猶予期間など）・有効期限・家族名・登録日がここに表示されます。',
+				how: '1. 「プラン」の行で今のプランを確認します\n2. 「ステータス」と「有効期限」で契約が続いているかを確認します',
+				goal: '今どのプランで、いつまで使えるかをすぐに確認できます。',
 			},
-			// ③ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			// ③ 画面の見方（利用状況と上限）— SaaS 版のみ。PlanStatusCard (上限 / トライアル残り日数 / アップグレード CTA)。
+			'subscription-plan-status': {
+				title: '画面の見方（利用状況と上限）',
+				what: '今のプランで登録できるお子さまの人数・カスタム活動の数・データ保持期間と、現在の使用数が並びます。無料トライアル中なら残り日数もここに表示されます。',
+				how: `1. 「${CHILD_TERMS.honorific}」「カスタム活動」の「使用数 / 上限」を見ます\n2. 上限に近づいたら、このカードのアップグレードボタンから上のプランに進めます`,
+				goal: 'あと何人・何件まで登録できるかが分かり、足りなくなる前にプランを見直せます。',
+			},
+			// ④ 最頻操作（無料トライアルを開始する）— 無料プランで未使用のときだけ出るカード (optional)。
+			'subscription-trial': {
+				title: `よく使う操作（${TRIAL_TERMS.startButton}）`,
+				what: `${PLAN_FULL_TERMS.premium}の全機能を${TRIAL_TERMS.duration}無料で試せます。${TRIAL_TERMS.noCreditCard}で、自動で課金されることはありません。`,
+				how: `1. 「${TRIAL_TERMS.startButton}」を押します\n2. すぐに${PLAN_FULL_TERMS.premium}の機能が使えるようになり、残り日数が上の利用状況カードに表示されます`,
+				goal: `${TRIAL_TERMS.duration}のあいだ上位プランを実際に使ってみてから、続けるかどうかを決められます。`,
+			},
+			// ⑤ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。契約状況で分岐するため両分岐を記述。
+			// 契約済み分岐は PIN / 確認フレーズ dialog (+ ダウングレード確認) を省略せず書く (PO 判断)。
 			'subscription-plan-management': {
 				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
 				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
-				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
-				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
-				tips: [`${CANCEL_TERMS.anytime}できます`],
+				how: `・未契約のとき: 1. プランを選びます 2. 「${PLAN_TERMS.standard}プランで始める」など選んだプランのボタンを押し、お支払い手続きに進みます\n・契約済みのとき: 1. 「${STRIPE_PORTAL_TERMS.short}を開く」を押します 2. 上位プランからの変更で使えなくなるデータがある場合は、先に確認画面が出ます 3. ${OYAKAGI_TERMS.shortName}（親 PIN）か確認フレーズを入力します 4. ${STRIPE_PORTAL_TERMS.canonical}でプラン変更や支払い方法を手続きします`,
+				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法や請求書も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
+				tips: [
+					`${STRIPE_PORTAL_TERMS.short}を開く前に${OYAKAGI_TERMS.shortName}の入力を求めるのは、お子さまの誤操作で${CANCEL_TERMS.canonical}やダウングレードが起きないようにするためです`,
+				],
+			},
+			// ⑥ 解約の入口 — SaaS 版のみ。ページ末尾の控えめなリンクを spotlight。
+			'subscription-cancel': {
+				title: `${CANCEL_TERMS.canonical}の入口`,
+				what: `${CANCEL_TERMS.anytime}できます。有料プランをやめるときは、ページの一番下にあるこのリンクから進みます。`,
+				how: `1. 「${CANCEL_TERMS.canonical}をご検討の方」を押します\n2. 次の画面で${CANCEL_TERMS.canonical}の内容を確認して手続きします`,
+				goal: `${CANCEL_TERMS.canonical}の場所を探し回らずに済み、続けるかやめるかをいつでも自分で決められます。`,
 			},
 			// ②' 画面の見方（ご利用中の版）— NUC セルフホスト版のみ（#3296）。NucLicensePanel の
 			// Edition badge を spotlight し、全機能が制限なく使える旨を案内する。
@@ -1937,231 +3036,443 @@ export const PAGE_GUIDE_LABELS = {
 				how: 'ここに版の名前と、使える範囲が表示されます。お申し込みや支払いの手続きは必要ありません。',
 				goal: '追加の費用や手続きなしで、すべての機能をそのまま使えることが分かります。',
 			},
-			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況セクションを spotlight。
+			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況カード全体を spotlight。
 			'subscription-nuc-usage': {
 				title: '画面の見方（利用状況）',
 				what: '今このアプリに登録されているお子さまの人数や、これまでに作った活動の数を確認できます。',
 				how: '1. 登録人数や活動数の一覧を見ます\n2. データの保存期間もあわせて確認できます',
 				goal: 'どれくらい使っているかをひと目で把握できます。',
 			},
-		},
-	},
-	adminBilling: {
-		title: 'お支払い',
-		steps: {
-			// ① ページ概要（selector 省略で画面中央 modal）。
-			'billing-intro': {
-				title: 'このページについて',
-				what: `ご契約の状況確認と、${STRIPE_PORTAL_TERMS.short}での支払い管理・${CANCEL_TERMS.canonical}をまとめたページです。`,
-				how: '上から「ご契約状況」「請求管理」の順に並びます。',
-				goal: `支払いの状況を把握でき、必要なら${STRIPE_PORTAL_TERMS.short}や${CANCEL_TERMS.canonicalVerb}手続きに進めます。`,
-			},
-			// ② 画面の見方（ご契約状況）。
-			'billing-overview': {
-				title: '画面の見方（ご契約状況）',
-				what: '契約中のプランの状態と、次回の請求予定がここに表示されます。',
-				how: '1. 契約状況を確認します\n2. 下の「請求管理」で支払い方法を変えられます',
-				goal: '今の契約と請求予定をひと目で確認できます。',
-			},
-			// ③ 最頻操作（請求管理ページ）。ご契約があるときに「請求管理ページを開く」ボタンが出る。
-			'billing-portal': {
-				title: `よく使う操作（${STRIPE_PORTAL_TERMS.short}）`,
-				what: `支払い方法の変更や領収書の確認は${STRIPE_PORTAL_TERMS.canonical}から行います。ご契約があるときに開くボタンが表示されます。`,
-				how: `1. ${STRIPE_PORTAL_TERMS.short}を開きます\n2. 支払い方法や${CANCEL_TERMS.canonical}を手続きします`,
-				goal: `支払い方法を最新に保て、${CANCEL_TERMS.anytime}できます。`,
+			// ④' サポート — NUC セルフホスト版のみ (#4668 F5)。お問い合わせ / ドキュメントへのリンク。
+			'subscription-nuc-support': {
+				title: '困ったときは（サポート）',
+				what: 'セルフホスト版で困ったときの相談先とドキュメントへのリンクがここにまとまっています。',
+				how: '1. 使い方や不具合の相談は「お問い合わせ」を押します\n2. 設定やバックアップの手順は「ドキュメント」で確認します',
+				goal: '問い合わせ先を探し回らずに、困りごとをすぐ相談できます。',
 			},
 		},
 	},
 	// #3268 (EPIC #3260 C4): 家族メンバー / パックページの個別ガイド。常在セクションのみを selector で
 	// 指す（保留中の招待 / 閲覧リンク / 展開コンテンツは条件表示のため step 対象外）。
 	adminMembers: {
-		title: '家族メンバー',
+		// #4672 F6: ガイド title はページ表示名 (PAGE_TITLES.members) に揃える
+		title: PAGE_TITLES.members,
+		// #4672 (EPIC #4650): step を画面の DOM 順 (メンバー一覧 → 招待作成 → 保留中の招待 →
+		// 閲覧リンク) に並べ、role / プラン / 件数で描画が変わるカードは `optional` で起動時 DOM 判定する。
+		// 招待作成カードは owner 専用のため、保護者ロールでは step ごと消える (旧実装は「作成ボタンを
+		// 押す」と案内しながら何も光らなかった)。ボタン名は MEMBERS_LABELS の実表記を引く。
 		steps: {
 			'members-intro': {
 				title: 'このページについて',
-				what: '家族で使う人を増やしたり、離れて暮らす家族に「見るだけ」のリンクを渡したりできるページです。',
-				how: '上から順に、今のメンバー・招待リンクの作成・見るだけのリンクが並びます。表示される項目はご利用環境によって変わります。',
-				goal: '家族みんなで使えるようになり、離れた家族にも成長を共有できます。',
+				what: `家族で使う人を増やしたり、離れて暮らすご家族に「見るだけ」のリンクを渡したりできるページです。招待リンクの発行と取り消しは${MEMBERS_LABELS.roleOwner}のみ行えます。`,
+				how: `上から順に、現在のメンバー・メンバーを招待・保留中の招待・${VIEWER_LINK_TERMS.name}（${PLAN_FULL_TERMS.premium}）が並びます。表示される項目はご自身の権限とプランによって変わります。`,
+				goal: '家族みんなで使えるようになり、離れたご家族にも成長を共有できます。',
 			},
 			'members-list': {
-				title: '画面の見方（今のメンバー）',
-				what: '今この家族で使っている人の一覧です。それぞれの権限もここで分かります。',
-				how: '1. 一覧で今のメンバーを確認します\n2. 必要なら権限の変更や削除ができます',
-				goal: '誰が使っているかをひと目で確認できます。',
+				title: '画面の見方（現在のメンバー）',
+				what: `今この家族で使っている人の一覧です。それぞれの権限（${MEMBERS_LABELS.roleOwner} / ${MEMBERS_LABELS.roleParent} / ${MEMBERS_LABELS.roleChild}）もここで分かります。`,
+				how: `1. 一覧で今のメンバーと権限を確認します\n2. ${MEMBERS_LABELS.roleOwner}は他のメンバーに「${MEMBERS_LABELS.transferButton}」（${MEMBERS_LABELS.roleOwner}を引き継ぐ）と「${MEMBERS_LABELS.removeButton}」ができます\n3. ${MEMBERS_LABELS.roleParent}は自分だけが「${MEMBERS_LABELS.leaveGroupButton}」で抜けられます`,
+				goal: `誰が使っているかをひと目で確認でき、必要なときに${MEMBERS_LABELS.roleOwner}の引き継ぎやメンバーの整理ができます。`,
 			},
+			// ③ 招待リンクを作る (owner のときだけ描画 → optional)
 			'members-invite': {
-				title: 'よく使う操作（招待リンクを作る）',
-				what: '新しく使う人を招くリンクを作れます。リンクやQRコードを渡すだけで参加してもらえます。',
-				how: '1. 役割（保護者か子供）を選びます\n2. 作成ボタンを押し、出てきたリンクを渡します',
+				title: `よく使う操作（${MEMBERS_LABELS.inviteCreateButton}）`,
+				what: '新しく使う人を招くリンクを作れます。リンクや QR コードを渡すだけで参加してもらえます。',
+				how: `1. 「${MEMBERS_LABELS.inviteRoleLabel}」で ${MEMBERS_LABELS.roleParent} か ${MEMBERS_LABELS.roleChild} を選びます\n2. 「${MEMBERS_LABELS.inviteEmailLabel}」を入れると、そのメールアドレスのアカウントだけが受諾できます（空欄なら誰でも受諾できます）\n3. 「${MEMBERS_LABELS.inviteChildLabel}」を選ぶと、参加した人をそのお子さまに紐づけます（後からでも設定できます）\n4. 「${MEMBERS_LABELS.inviteCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
 				goal: '相手がリンクを開くだけで家族に参加でき、すぐ一緒に使い始められます。',
-				tips: ['招待リンクには期限があり、参加が済むと自動で使えなくなります'],
+				tips: [
+					`招待リンクは ${TRIAL_TERMS.duration}有効です（期限は下の「${MEMBERS_LABELS.pendingInvitesTitle}」に表示されます）。参加が済むと自動で使えなくなります`,
+				],
 			},
-		},
-	},
-	adminPacks: {
-		title: 'パック',
-		steps: {
-			'packs-intro': {
-				title: 'このページについて',
-				what: 'おすすめの活動がセットになった「パック」を選んで、まとめて取り込めるページです。',
-				how: '一覧からパックを開いて中身を確認し、まとめて取り込みます。',
-				goal: '1つずつ作らなくても、おすすめの活動をまとめて用意できます。',
+			// ④ 保留中の招待 (未受諾の招待があるときだけ描画 → optional)
+			'members-pending': {
+				title: `画面の見方（${MEMBERS_LABELS.pendingInvitesTitle}）`,
+				what: `まだ受諾されていない招待がここに並びます。期限と、宛先を指定した場合はその宛先が表示されます。`,
+				how: `1. 「${MEMBERS_LABELS.inviteExpiresPrefix.trim()}」で使える期限を確認します\n2. 宛先を間違えたときや不要になったときは「${MEMBERS_LABELS.inviteRevokeButton}」で無効にします（${MEMBERS_LABELS.roleOwner}のみ）`,
+				goal: '渡した招待がまだ使われていないかを把握でき、間違えた招待をすぐ取り消せます。',
 			},
-			'packs-overview': {
-				title: '画面の見方（パック一覧）',
-				what: 'テーマ別のパックが一覧で並びます。開くと中の活動を確認でき、まとめて取り込めます。',
-				how: '1. 気になるパックを開いて中身を見ます\n2. 取り込むボタンでまとめて追加します',
-				goal: 'お子さまに合うパックを選んで、活動を一気にそろえられます。',
+			// ⑤ 閲覧リンク (プレミアムのときだけ描画 → optional)
+			'members-viewer': {
+				title: `よく使う操作（${MEMBERS_LABELS.viewerCreateButton}）`,
+				what: `${MEMBERS_LABELS.viewerSectionDesc}。${PLAN_FULL_TERMS.premium}でご利用いただけます。アプリへのログインや家族への参加は不要です。`,
+				how: `1. 「${MEMBERS_LABELS.viewerLabelField}」に渡す相手が分かる名前を入れます（例: ${MEMBERS_LABELS.viewerLabelPlaceholder.replace('例: ', '')}）\n2. 「${MEMBERS_LABELS.viewerDurationLabel}」を ${MEMBERS_LABELS.viewerDuration7d} / ${MEMBERS_LABELS.viewerDuration30d} / ${MEMBERS_LABELS.viewerDurationUnlimited} から選びます\n3. 「${MEMBERS_LABELS.viewerCreateButton}」を押し、出てきたリンクか QR コードを渡します`,
+				goal: '離れて暮らすご家族が、記録を見るだけの画面で成長を見守れます。',
+				tips: [
+					`渡した後で止めたいときは一覧の「${MEMBERS_LABELS.viewerRevokeButton}」（リンクを使えなくする）、履歴ごと消すときは「${MEMBERS_LABELS.viewerDeleteButton}」を使います`,
+				],
 			},
 		},
 	},
 	adminStatus: {
 		title: '成長レポート',
+		// #4669 (EPIC #4650): step は画面の DOM 順 (子供タブ → 編集リンク → チャート → 分析サマリー →
+		// 先月からの変化 → レベル称号 → (ops / NUC) ベンチマーク編集)。比較線の呼称は凡例と同じ
+		// 「同年齢の平均」(STATUS_LABELS.comparisonLabel) に統一し、「翌月以降のチャートで変化を確認」の
+		// 誤案内は「先月からの変化」テーブルへ差し替える (PO 判断)。
 		steps: {
 			'status-intro': {
 				title: 'このページについて',
-				what: 'お子さまの活動を「うんどう・べんきょう・せいかつ・こうりゅう・そうぞう」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。',
-				how: 'レーダーチャートで5軸のバランスを見ます。同年代の目安（ベンチマーク）と重ねて表示されるので、平均との比較もできます。',
+				// #4512: 5 カテゴリの列挙は CATEGORY_NAME_LIST (categories.ts) が SSOT。手書きしない
+				what: `お子さまの活動を「${CATEGORY_NAME_LIST}」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。見出しに表示中のお子さまの名前が出ます。`,
+				how: '上のタブでお子さまを選ぶと、その子のレーダーチャート・分析サマリー・先月からの変化が表示されます。チャートには同年齢の平均が重ねて表示されるので、平均との比較もできます。',
 				goal: '「今月はうんどうが伸びた」「べんきょうが少なめ」といった傾向が数値とグラフで分かり、声かけや活動設計の参考になります。',
+			},
+			// ② お子さまの切替タブ (子供 1 人以上で表示。0 人時は登録案内カードを指す step に置き換わる)
+			'status-child-tabs': {
+				title: '画面の見方（お子さまを選ぶ）',
+				what: 'きょうだいがいるご家庭では、ここでどのお子さまのレポートを見るかを切り替えます。選んだお子さまの名前が下の見出しに表示されます。',
+				how: '1. 見たいお子さまの名前のタブを押します\n2. 下のレポートがそのお子さまの内容に切り替わります',
+				goal: 'きょうだい全員の成長を、同じページで順番に確認できます。',
+			},
+			// ②' 子供 0 人時の登録案内 (optional: 0 人のときだけ描画される)
+			'status-empty': {
+				title: 'まずお子さまを登録する',
+				what: 'お子さまが 1 人も登録されていないため、成長レポートはまだ表示できません。',
+				how: `1. 「${ADMIN_SCREEN_TERMS.children}でお子さまを登録する →」を押します\n2. お子さまを登録して活動を記録すると、このページにレポートが表示されます`,
+				goal: '登録後は、5 つの軸のバランスと同年齢の平均との比較がここに出ます。',
+			},
+			// ③ 右上「お子さま管理でステータス編集 →」
+			'status-edit-link': {
+				title: '画面の見方（数値を手で調整する）',
+				what: `各分野の★（ステータス）を手で調整したいときは、このリンクから${ADMIN_SCREEN_TERMS.children}に移動します。`,
+				how: `1. 「${ADMIN_SCREEN_TERMS.children}でステータス編集 →」を押します\n2. ${ADMIN_SCREEN_TERMS.children}で対象のお子さまを開き、ステータスを編集します`,
+				goal: '記録だけでは反映しきれない頑張りを、保護者の判断で補正できます。',
 			},
 			'status-radar': {
 				title: '画面の見方（バランスチャート）',
-				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。',
-				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. ベンチマーク（目安）との差を見比べます',
+				what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。重ねて表示される線は「同年齢の平均」です。',
+				how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. 「同年齢の平均」の線との差を見比べます',
 				goal: 'バランスの偏りにひと目で気づけるので、お子さまの今の状態を客観的に把握できます。',
 			},
 			'status-act': {
-				title: 'よく使う操作（次の一手を決める）',
-				what: 'このページの使いどころは「どの分野を伸ばすか」を決めることです。分析サマリーでへこんでいる軸を見つけ、活動管理で新しい活動を足してバランスを整えます。',
-				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します\n3. 翌月以降のチャートで変化を確認します',
+				title: '画面の見方（分析サマリーで次の一手を決める）',
+				what: '分析サマリーは分野ごとに「特に活発」「平均的」「伸びる余地」の 3 段階でコメントします。コメントは同年齢の平均との比較（偏差値）に基づきます。ここでへこんでいる分野を見つけるのが、このページの使いどころです。',
+				how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します',
 				goal: '「得意をもっと伸ばす」「苦手を少しだけ足す」など、お子さまに合った関わり方を選べます。',
 				tips: ['無理に全軸を均等にする必要はありません。得意分野を伸ばす視点も大切です'],
 			},
+			// ⑤ 先月からの変化 (optional: 先月の記録が無いお子さまでは描画されない)
+			'status-monthly-change': {
+				title: '画面の見方（先月からの変化）',
+				what: '「先月からの変化」は、分野ごとのポイントが先月と比べてどれだけ増減したかを数字と矢印で表します。',
+				how: '1. 「+12 ↑」のように増えた分野はそのまま続けます\n2. 「-5 ↓」のように減った分野は、声かけや活動の見直しのきっかけにします',
+				goal: '今月の取り組みが先月より増えたか減ったかを、分野ごとに確認できます。',
+			},
+			// ⑥ レベル称号カスタマイズ (本ページで保護者が操作できる唯一の書き込み機能)
+			'status-level-titles': {
+				title: 'よく使う操作（レベル称号カスタマイズ）',
+				what: 'お子さまのレベル（Lv.1〜10）ごとの称号を、ご家庭オリジナルの言葉に変えられます。お子さまの画面に表示される称号がここで決まります。',
+				how: '1. 「▼ 開く」を押してセクションを開きます\n2. 変えたい Lv. の欄に称号を入力して「保存」を押します\n3. 元に戻したいときは「リセット」、全部戻すときは「全ての称号をデフォルトに戻す」を押します',
+				goal: '「見習い」「冒険者」などの既定の称号を、お子さまが喜ぶ言葉に変えてやる気につなげられます。',
+				tips: ['空欄で保存はできません。既定に戻すときは「リセット」を使います'],
+			},
+			// ⑦ ベンチマーク編集 (ops / NUC 単一運用者のみ描画。optional で DOM 有無を判定)
+			'status-benchmark-edit': {
+				title: '画面の見方（同年齢の平均を設定する）',
+				what: 'ここでは年齢ごとに「同年齢の平均」の値（平均と SD = ばらつきの大きさ）を設定できます。チャートの比較線と分析サマリーのコメントは、この値をもとに計算されます。',
+				how: '1. 年齢を選びます\n2. 分野ごとに平均と SD を入力して「保存」を押します\n3. 目安の範囲は年齢ボタンの下に表示されます',
+				goal: 'ご家庭の実態に合った基準で比較できるようになります。',
+			},
 		},
 	},
-	// #3263 (EPIC #3260 F2) / #3269 (C5): みんなのテンプレート一覧ガイド。
+	// #3263 (EPIC #3260 F2) / #3269 (C5) / #4677 (EPIC #4650): みんなのテンプレート一覧ガイド。
 	// AdminLayout 非使用ページのため marketplace/+layout.svelte が独自配線する。
-	// 取込 CUJ（一覧で探す → カードで詳細を開く → 取り込む）を案内する 3 部構成。
+	// 画面の「上から下」順に、公式テンプレートを探して取り込む CUJ を案内する
+	// (概要 → 種類 → 年齢自動フィルタ → しぼりこむ → ならべかえ → カード / 0 件)。
+	// 陳列物はがんばりクエスト公式 preset のみ (投稿機能は無い) — 「他のご家庭が作った」とは書かない。
+	// ボタン名 / 見出し / 並び替え名は画面表記 (MARKETPLACE_FILTER_LABELS 等) と同じ定数を参照する。
 	marketplace: {
-		title: 'みんなのテンプレート',
+		title: TEMPLATE_TERMS.userFacing,
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'marketplace-intro': {
 				title: 'このページについて',
-				what: '他のご家庭が作った活動・ごほうび・チェックリストのテンプレートを探して、ご自身のお子さま向けに取り込めるページです。ゼロから作らなくても、よくある活動セットをそのまま使えます。',
-				how: '気になるテンプレートを探し、カードをタップして詳細を開きます。詳細ページで取り込み、配信するお子さまを選びます。',
-				goal: '選んだテンプレートが活動管理・ごほうび管理・チェックリストに追加され、ご家庭に合わせて項目を足したり消したりして調整できます。',
+				what: `がんばりクエストが用意した公式${TEMPLATE_TERMS.short}（活動セット・ごほうびセット・チェックリスト）を探して、${CHILD_TERMS.honorific}向けに取り込めるページです。ゼロから作らなくても、よくある活動セットをそのまま使えます。`,
+				how: `気になる${TEMPLATE_TERMS.short}のカードをタップして詳細を開き、詳細ページの取り込み（一括追加）ボタンから取り込みます。取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です。`,
+				goal: `選んだ${TEMPLATE_TERMS.short}が活動管理・ごほうび管理・チェックリストに追加され、ご家庭に合わせて項目を足したり消したりして調整できます。`,
+				tips: [
+					`ログイン中は左上の「${ADMIN_VIEW_TERMS.short}へ」で${ADMIN_VIEW_TERMS.canonical}に戻れます`,
+					'ログインしていなくても一覧と詳細は見られます。取り込むときにログインを求められます',
+				],
 			},
-			// ② 画面の見方（種類で絞り込み + 検索・並び替え）
+			// ② 種類で絞り込む（type filter = 3 種類カード）
 			'marketplace-browse': {
-				title: '画面の見方（種類で絞り込む）',
-				what: '上部の種類（活動セット・ごほうびセット・チェックリスト）でテンプレートを絞り込めます。さらに年齢・タグでの絞り込みや、人気順・新着順での並び替えもできます。',
-				how: '1. 種類のカードをタップして絞り込みます\n2. 絞り込みパネルで年齢・タグを選びます\n3. 並び替えメニューで表示順を変えます',
-				goal: 'たくさんのテンプレートの中から、お子さまの年齢や興味にぴったりのものを素早く見つけられます。',
+				title: '種類で絞り込む',
+				what: `上部の 3 つのカードで、${TEMPLATE_TERMS.short}の種類（活動セット・ごほうびセット・チェックリスト）を切り替えられます。数字はその種類の${TEMPLATE_TERMS.short}数です。`,
+				how: '1. 見たい種類のカードをタップします\n2. もう一度タップすると絞り込みが外れます',
+				goal: '「まずは活動だけ」「ごほうびを足したい」のように、目的の種類だけを一覧にできます。',
 			},
-			// ③ 最頻操作（カードをタップして詳細を開く）
+			// ③ 年齢に合わせた表示（ログイン + お子さま選択中のみ出る hint バナー、optional）
+			'marketplace-age-auto': {
+				title: '年齢に合わせた表示',
+				what: `選択中の${CHILD_TERMS.honorific}の年齢に合わせて、一覧を自動で絞り込んで表示しています。表示件数が少ないのはこのためです。`,
+				how: `1. バナーの「${MARKETPLACE_FILTER_LABELS.clearAgeFilter}」をタップすると絞り込みが外れ、全件が並びます\n2. 別の年齢で見たいときは「${MARKETPLACE_FILTER_LABELS.sectionTitle}」の${MARKETPLACE_FILTER_LABELS.age}から選び直します`,
+				goal: `きょうだいの年齢差があっても、今選んでいる${CHILD_TERMS.honorific}にちょうどいい${TEMPLATE_TERMS.short}から探し始められます。`,
+			},
+			// ④ しぼりこむ（desktop = 左のパネル / mobile = ⚙️ フィルタ ボタン → ダイアログ。可視の方が光る）
+			'marketplace-filter': {
+				title: `${MARKETPLACE_FILTER_LABELS.sectionTitle}（${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}）`,
+				what: `${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}で${TEMPLATE_TERMS.short}を絞り込めます。パソコンでは左の「${MARKETPLACE_FILTER_LABELS.sectionTitle}」パネル、スマホでは「⚙️ ${MARKETPLACE_FILTER_LABELS.open}」ボタンを押すと同じ項目が開きます。`,
+				how: `1. スマホは「⚙️ ${MARKETPLACE_FILTER_LABELS.open}」をタップしてパネルを開きます（パソコンは左に常に表示）\n2. ${MARKETPLACE_FILTER_LABELS.age}・${MARKETPLACE_FILTER_LABELS.gender}・${MARKETPLACE_FILTER_LABELS.tag}を選びます（もう一度タップで解除）\n3. 「${MARKETPLACE_FILTER_LABELS.reset}」で全部外せます`,
+				goal: `たくさんの${TEMPLATE_TERMS.short}の中から、${CHILD_TERMS.honorific}の年齢や興味にぴったりのものを素早く見つけられます。`,
+				tips: [
+					`${MARKETPLACE_FILTER_LABELS.tag}は人気の 8 件だけ表示され、「もっと見る」で全部出せます`,
+				],
+			},
+			// ⑤ ならべかえ
+			'marketplace-sort': {
+				title: MARKETPLACE_FILTER_LABELS.sort,
+				what: `一覧の並び順を「${MARKETPLACE_FILTER_LABELS.sortOptions.popularity}」「${MARKETPLACE_FILTER_LABELS.sortOptions.newest}」「${MARKETPLACE_FILTER_LABELS.sortOptions.ageFit}」から選べます。`,
+				how: `1. 並び替えメニューを開きます\n2. ${MARKETPLACE_FILTER_LABELS.sortOptions.popularity}（まずはこれ）/ ${MARKETPLACE_FILTER_LABELS.sortOptions.newest} / ${MARKETPLACE_FILTER_LABELS.sortOptions.ageFit}（対象年齢が低い順）から選びます`,
+				goal: '迷ったら人気順、幼児向けから探したいときは年齢順、と目的に合わせて一覧を並べ替えられます。',
+			},
+			// ⑥ テンプレートを開く（先頭カード。一覧 0 件時は出ない = optional）
 			'marketplace-open': {
-				title: 'よく使う操作（テンプレートを開く）',
-				what: '最もよく使うのが、テンプレートのカードをタップして詳細を開く操作です。詳細ページで中身を確認してから取り込めます。',
-				how: '1. 一覧のテンプレートのカードをタップします\n2. 詳細ページで含まれる内容を確認します\n3. 取り込みボタンから、配信するお子さまを選びます',
+				title: `${TEMPLATE_TERMS.short}を開く`,
+				what: `最もよく使うのが、${TEMPLATE_TERMS.short}のカードをタップして詳細を開く操作です。詳細ページで中身を確認してから取り込めます。`,
+				how: `1. 一覧の${TEMPLATE_TERMS.short}のカードをタップします\n2. 詳細ページで含まれる内容を確認します\n3. 詳細ページの取り込み（一括追加）ボタンから、追加する${CHILD_TERMS.honorific}を選びます`,
 				goal: '中身を確かめたうえで取り込めるので、「思っていたものと違った」を防げます。',
-				tips: ['まずはテンプレートを取り込んで、ご家庭に合わせて調整するのが近道です'],
+				tips: [
+					`まずは${TEMPLATE_TERMS.short}を取り込んで、ご家庭に合わせて調整するのが近道です`,
+					`取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です`,
+				],
+			},
+			// ⑥' 0 件のとき（フィルタ不一致。カードが無いので empty state を案内）
+			'marketplace-empty': {
+				title: `${TEMPLATE_TERMS.short}が見つからないとき`,
+				what: `今の絞り込み条件に合う${TEMPLATE_TERMS.short}がありません。条件を外すと一覧が戻ります。`,
+				how: `1. 「${MARKETPLACE_FILTER_LABELS.reset}」をタップして条件を全部外します\n2. 年齢や種類を 1 つずつ選び直します`,
+				goal: `条件を緩めれば、公式${TEMPLATE_TERMS.short}の全件から改めて探せます。`,
 			},
 		},
 	},
-	// #3269 (EPIC #3260 C5): みんなのテンプレート詳細ガイド（取込 CTA ページ）。
-	// 一覧から開いた 1 件の詳細。中身プレビューの見方 → 取り込み（配信先のお子さま選択）を案内。
+	// #3269 (EPIC #3260 C5) / #4678 (EPIC #4650): みんなのテンプレート詳細ガイド（取込 CTA ページ）。
+	// 一覧から開いた 1 件の詳細。概要 → 中身の一覧 → (活動セットの取り込む項目選択) → 取り込む、の順。
+	// 取り込む step は CTA ブロックに出ている分岐 (data-cta-variant) ごとに optional step を用意し、
+	// 画面に出ている分岐だけが step になる: per-child (お子さまを選ぶ) / family-rule (とくべつルールは
+	// 家庭全体に 1 回) / rule-unavailable (penalty・special はボタン無し) / no-children (先にお子さま登録) /
+	// login (ログイン画面へ)。ボタン名は画面表記 (取り込み / 一括追加) に合わせ「取り込み（一括追加）ボタン」と併記。
 	marketplaceDetail: {
-		title: 'テンプレートの詳細',
+		title: `${TEMPLATE_TERMS.short}の詳細`,
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'marketplace-detail-intro': {
 				title: 'このページについて',
-				what: '選んだテンプレート 1 件の詳細ページです。含まれる活動・ごほうび・チェック項目を確認してから、ご自身のお子さまに取り込めます。',
-				how: '中身のプレビューを確認し、ページ下部の取り込みボタンから取り込みます。取り込むお子さまはこのあとの画面で選びます。',
-				goal: '中身を確かめたうえで取り込めるので、家庭に合うテンプレートだけを安心して追加できます。',
+				what: `選んだ${TEMPLATE_TERMS.short} 1 件の詳細ページです。含まれる活動・ごほうび・チェック項目・ルールを確認してから、ご自身の家庭に取り込めます。`,
+				how: `中身の一覧を確認し、ページ下部の取り込み（一括追加）ボタンから取り込みます。取り込みにはログインと${CHILD_TERMS.honorific}の登録が必要です（未ログインのときはボタンがログイン画面への案内に変わります）。`,
+				goal: `中身を確かめたうえで取り込めるので、家庭に合う${TEMPLATE_TERMS.short}だけを安心して追加できます。`,
+				tips: [
+					`上部のタグや対象年齢をタップすると、似た${TEMPLATE_TERMS.short}を一覧で探せます`,
+					`ログイン中は左上の「${ADMIN_VIEW_TERMS.short}へ」で${ADMIN_VIEW_TERMS.canonical}に戻れます`,
+				],
 			},
 			// ② 内容プレビューの見方
 			'marketplace-detail-preview': {
-				title: '画面の見方（中身を確認する）',
-				what: '中ほどに、このテンプレートに含まれる活動・ごほうび・チェック項目の一覧が並びます。取り込む前に中身をひと通り確認できます。',
-				how: '1. 一覧をスクロールして含まれる項目を確認します\n2. 活動セットでは、取り込む項目を選んだり外したりできます',
-				goal: '取り込む前に中身が分かるので、ご家庭に必要なものだけを選んで追加できます。',
+				title: '中身を確認する',
+				what: `この${TEMPLATE_TERMS.short}に含まれる活動・ごほうび・チェック項目・ルールの一覧です。取り込む前に中身をひと通り確認できます。`,
+				how: `1. 一覧をスクロールして含まれる項目とポイントを確認します\n2. 活動セットは取り込む項目をチェックで選べます（ログイン + ${CHILD_TERMS.honorific}登録済のとき）\n3. チェックリストは取り込み済みの項目を重複させずスキップします`,
+				goal: `取り込む前に中身が分かるので、ご家庭に必要なものだけを選んで追加できます。`,
 			},
-			// ③ 取り込む（配信先のお子さまを選ぶ）
+			// ③ 活動セットの取り込む項目を選ぶ（活動セット + ログイン + お子さま登録済のみ描画 → optional）
+			'marketplace-detail-select': {
+				title: '取り込む活動を選ぶ',
+				what: `活動セットでは、取り込む活動をチェックで選べます。すでに登録済みの活動（「登録済み」バッジ）は重複しないよう最初からチェックが外れています。`,
+				how: `1. 「すべて選ぶ」「すべて外す」でまとめて切り替えます\n2. 個別にチェックを付け外しします（「N件 / M件 を取り込みます」に反映）\n3. 0 件のときは取り込みボタンが押せません。1 件以上選んでください`,
+				goal: `「歯みがきとお片付けだけ」のように必要な活動だけを取り込め、既存の活動と二重になりません。`,
+			},
+			// ④-a 取り込む（活動セット / ごほうびセット / チェックリスト / 交換ルール = お子さまを選ぶ）
 			'marketplace-detail-import': {
-				title: 'よく使う操作（取り込む）',
-				what: '最もよく使うのが取り込みです。取り込みボタンを押すと、どのお子さまに追加するかを選ぶ画面に進みます。',
-				how: '1. ページ下部の取り込みボタンをタップします\n2. 進んだ画面で、追加するお子さまを選びます\n3. 確定すると、選んだお子さまに追加されます',
-				goal: '選んだお子さまの活動管理・ごほうび管理・チェックリストにテンプレートの内容が追加されます。',
+				title: '取り込む',
+				what: `ページ下部の取り込み（一括追加）ボタンを押すと、${ADMIN_VIEW_TERMS.canonical}に移り、どの${CHILD_TERMS.honorific}に追加するかを選ぶ画面が開きます。`,
+				how: `1. ページ下部の取り込み（一括追加）ボタンをタップします\n2. 開いた画面で、追加する${CHILD_TERMS.honorific}を選びます\n3. 確定すると、選んだ${CHILD_TERMS.honorific}に追加されます`,
+				goal: `選んだ${CHILD_TERMS.honorific}の${PAGE_TITLES.activities}・${REWARD_TERMS.menu}・${PAGE_TITLES.checklists}に${TEMPLATE_TERMS.short}の内容が追加されます。`,
 				tips: [
-					'お子さまごとに取り込めるので、上の子・下の子で別々のテンプレートを使い分けられます',
+					`${CHILD_TERMS.honorific}ごとに取り込めるので、上の子・下の子で別々の${TEMPLATE_TERMS.short}を使い分けられます`,
 				],
+				relatedLinks: [
+					{ label: PAGE_TITLES.activities, href: '/admin/activities' },
+					{ label: REWARD_TERMS.menu, href: '/admin/rewards' },
+					{ label: PAGE_TITLES.checklists, href: '/admin/checklists' },
+					{
+						label: `${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}`,
+						href: '/admin/settings/rules',
+					},
+				],
+			},
+			// ④-b 取り込む（とくべつルール = ボーナス: 家庭全体に 1 回、お子さま選択なし）
+			'marketplace-detail-import-rule': {
+				title: '取り込む（とくべつルール）',
+				what: `とくべつルール（ボーナス）は${CHILD_TERMS.honorific}ごとではなく、ご家庭全体に 1 回で追加されます。${CHILD_TERMS.honorific}を選ぶ画面は出ません。`,
+				how: `1. ページ下部の取り込み（一括追加）ボタンをタップします\n2. そのまま「${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}」に移り、自動で追加されます\n3. 追加後は同じ画面で ON / OFF を切り替えられます`,
+				goal: `ボーナスルールが家庭全体に効き、「${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}」でいつでも止められます。`,
+				relatedLinks: [
+					{
+						label: `${PAGE_TITLES.settings} > ${RULES_TERMS.settingsMenu}`,
+						href: '/admin/settings/rules',
+					},
+				],
+			},
+			// ④-c とくべつルール (penalty / special) は取り込みボタンが無い
+			'marketplace-detail-rule-unavailable': {
+				title: 'このルールは取り込めません',
+				what: `ペナルティ型のとくべつルールは慎重に審査中、特別型は将来枠のため、いまは取り込みボタンがありません。ここにはその説明だけが出ます。`,
+				how: `1. ボーナス型のとくべつルールや、活動セット・ごほうびセットから選び直します\n2. 一覧へ戻るには下の「…一覧に戻る」をタップします`,
+				goal: `取り込めない理由が分かり、代わりに使えるボーナス型ルールへ迷わず移れます。`,
+			},
+			// ④-d お子さま未登録（ログイン済）
+			'marketplace-detail-no-children': {
+				title: `先に${CHILD_TERMS.honorific}を登録する`,
+				what: `取り込み先になる${CHILD_TERMS.honorific}がまだ登録されていません。ボタンは${CHILD_TERMS.honorific}登録画面への案内に変わっています。`,
+				how: `1. 「まずは${CHILD_TERMS.honorific}を登録してください」をタップします\n2. ${CHILD_TERMS.honorific}を登録したら、この${TEMPLATE_TERMS.short}に戻って取り込みます`,
+				goal: `${CHILD_TERMS.honorific}を登録すると同じボタンが取り込み（一括追加）に変わり、どの${CHILD_TERMS.honorific}に追加するかを選べます。`,
+			},
+			// ④-e 未ログイン
+			'marketplace-detail-login': {
+				title: 'ログインして取り込む',
+				what: `取り込みにはログインが必要です。ボタンを押すとログイン画面に移ります（新規の方はログイン画面の「新規アカウント作成」から登録できます）。`,
+				how: `1. ページ下部のボタンをタップしてログインします\n2. ログイン後、この${TEMPLATE_TERMS.short}に戻って取り込み（一括追加）ボタンを押します\n3. ${CHILD_TERMS.honorific}が未登録なら先に登録します`,
+				goal: `ログインと${CHILD_TERMS.honorific}登録がそろえば、${TEMPLATE_TERMS.short}をワンタップで${ADMIN_VIEW_TERMS.canonical}に取り込めます。`,
 			},
 		},
 	},
-	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（賞状コレクション / 成長記録ブック / ごほうび申請の承認）
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ（証明書 / 記録ブック / ごほうび申請の承認）
 	adminCertificates: {
-		title: '賞状コレクション',
+		// #4674 F1 / M: 呼称は画面表記の「証明書」に統一 (旧「賞状コレクション」「賞状」)
+		title: CERTIFICATE_TERMS.full,
+		// #4674 (EPIC #4650): 2 step とも中央 modal で「上のお子さまタブで切り替える」と案内しても
+		// 何も光らなかったため、お子さま切替ボタン行と一覧カードに anchor を張り、印刷 / シェアの
+		// 最頻操作 step を追加する。発行条件の数値は habit-milestones.ts の定数から埋め込む (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'certificates-intro': {
 				title: 'このページについて',
-				what: 'お子さまががんばって獲得した賞状を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに賞状が自動で贈られます。',
-				how: '保護者が作る操作はありません。お子さまが活動を続けると条件を満たした賞状がここに増えていきます。',
-				goal: 'お子さまの「ここまでがんばった」を賞状という形で振り返れて、ご家族で成長をお祝いできます。',
-			},
-			// ② 画面の見方（お子さまタブ + カテゴリ別の一覧）
-			'certificates-view': {
-				title: '画面の見方',
-				what: '上のお子さまタブで子ごとに切り替えると、その子の賞状が「連続記録」「レベルアップ」「月間がんばり」などの種類ごとに並びます。',
-				how: '1. お子さまタブで見たい子を選びます\n2. 種類ごとに並んだ賞状を見ていきます',
-				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+				what: `お子さまががんばって獲得した${CERTIFICATE_TERMS.canonical}を集めて見られるページです。連続記録・レベルアップ・月間や年間のがんばりなど、節目ごとに${CERTIFICATE_TERMS.canonical}が自動で贈られます。`,
+				how: `保護者が作る操作はありません。お子さまが活動を続けて、たとえば ${STREAK_MILESTONE_DAYS[0]} 日連続の記録・レベル ${CERTIFICATE_LEVEL_MILESTONES[0]} 到達・1 か月に ${MONTHLY_HABIT_DAYS_THRESHOLD} 日以上の記録といった節目を満たすと、ここに増えていきます。`,
+				goal: `お子さまの「ここまでがんばった」を${CERTIFICATE_TERMS.canonical}という形で振り返れて、ご家族で成長をお祝いできます。`,
 				tips: [
-					`賞状は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📜 ${CERTIFICATE_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さまを切り替える（お子さまが 1 人以上のときだけ描画されるボタン行）
+			'certificates-child-select': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: `上のお子さまのボタンで表示する子を切り替えます。ボタンの数字はその子が持っている${CERTIFICATE_TERMS.canonical}の数です。お子さまが 1 人のご家庭ではボタンも 1 つだけ表示されます。`,
+				how: `1. 見たいお子さまのボタンを押します\n2. その子の${CERTIFICATE_TERMS.canonical}が種類ごと（連続記録・レベルアップ・月間がんばり・カテゴリマスター・年間がんばり大賞）に並びます`,
+				goal: 'どのお子さまがどんな節目を達成したかが、ひと目で分かります。',
+			},
+			// ③ 証明書を開いて印刷・シェアする（1 件以上あるときだけ描画される一覧）
+			'certificates-open': {
+				title: `よく使う操作（${CERTIFICATE_TERMS.canonical}を開いて印刷・シェアする）`,
+				what: `${CERTIFICATE_TERMS.canonical}のカードを押すと詳細が開き、印刷やご家族へのシェアができます。`,
+				how: `1. 見たい${CERTIFICATE_TERMS.canonical}のカードを押します\n2. 詳細画面の「${CERTIFICATE_DETAIL_LABELS.printButton}」で紙に印刷したり PDF として保存したりできます（${PAID_PLAN_LABEL}）\n3. 「${CERTIFICATE_DETAIL_LABELS.showShareCardButton}」→「${CERTIFICATE_DETAIL_LABELS.downloadButton}」で画像として保存し、離れて暮らすご家族に送れます`,
+				goal: `がんばりを紙や画像で残せるので、お子さまの達成感が形になって残ります。`,
+				tips: [
+					`${CERTIFICATE_TERMS.canonical}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
 				],
 			},
 		},
 	},
 	adminGrowthBook: {
-		title: '成長記録ブック',
+		title: GROWTH_BOOK_TERMS.full,
+		// #4675 (EPIC #4650): 旧 2 step は selector 省略の中央 modal で、しかも存在しない
+		// 年度切替 UI と分野別一覧を案内していた。画面の DOM 順 (お子さま切替 → 表紙 → 年間サマリー →
+		// 月別 → 証明書リンク) に anchor を張り直し、描画条件を持つ step は optional にする。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'growth-book-intro': {
 				title: 'このページについて',
-				what: 'お子さまの 1 年間のがんばりを、月ごと・分野ごとにまとめた記録ブックです。活動の積み重ねが一冊の成長の記録になります。',
+				what: `お子さまの今年度（4月〜翌年3月）のがんばりを 1 冊にまとめた${GROWTH_BOOK_TERMS.full}です。表紙・年間サマリー・月別の記録が並びます。`,
 				how: `保護者が入力する操作はありません。お子さまの記録から自動でまとめられ、${PAID_PLAN_LABEL}では印刷して手元に残すこともできます。`,
 				goal: '1 年の成長をまとめて振り返れて、ご家族の思い出として保存できます。',
-			},
-			// ② 画面の見方 + 最頻操作（年度・お子さまの切り替えと印刷）
-			'growth-book-view': {
-				title: '画面の見方と印刷',
-				what: `お子さまと年度を切り替えると、その子のその年の記録が月ごと・分野ごとに並びます。${PAID_PLAN_LABEL}では印刷ボタンで紙にも残せます。`,
-				how: `1. お子さまと年度を選びます\n2. 月ごと・分野ごとの記録を見ていきます\n3. ${PAID_PLAN_LABEL}なら印刷ボタンで手元に残せます`,
-				goal: '見たいお子さま・年度の成長を選んで振り返り、必要なら印刷して保存できます。',
 				tips: [
-					`成長記録ブックは${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+					`このページはレポート画面の「📖 ${GROWTH_BOOK_TERMS.canonical}」から開きます。左上の「← レポートへ」で戻れます`,
+				],
+			},
+			// ② お子さま切替 (子供 2 人以上のときだけ描画)
+			'growth-book-child-tabs': {
+				title: '画面の見方（お子さまを切り替える）',
+				what: 'お子さまが 2 人以上のとき、上のボタンで表示する子を切り替えます。お子さまが 1 人のご家庭ではボタンは出ず、その子の記録がそのまま表示されます。',
+				how: `1. 見たいお子さまのボタンを押します\n2. 下の表紙・年間サマリー・月別の記録がその子の内容に切り替わります`,
+				goal: 'きょうだいそれぞれの 1 年を、同じページで順番に振り返れます。',
+			},
+			// ③ 年間サマリー (記録が 1 件以上あるときだけ描画)
+			'growth-book-summary': {
+				title: '画面の見方（年間サマリー）',
+				what: '今年度の合計が並びます。「活動回数」は記録した回数、「獲得ポイント」はその合計、「最長連続日数」は毎日続いた最長の日数、「証明書」は受け取った証明書の枚数です。下には「いちばんがんばった月」と「とくいなカテゴリ」も出ます。',
+				how: `1. 4 つの数字で 1 年の量をつかみます\n2. 「いちばんがんばった月」「とくいなカテゴリ」でその子らしさを見ます\n3. その下の「📅 月別の記録」で、月ごとの回数・活動日数・連続日数を振り返ります`,
+				goal: '1 年でどれだけ積み上がったかと、得意な分野・伸びた時期がひと目で分かります。',
+			},
+			// ④ 印刷 (有料プラン かつ 記録があるときだけ描画)
+			'growth-book-print': {
+				title: 'よく使う操作（印刷して残す）',
+				what: `${PAID_PLAN_LABEL}では、この${GROWTH_BOOK_TERMS.full}を紙に印刷したり PDF として保存したりできます。ボタンは記録が 1 件以上あるときに右上に出ます。`,
+				how: `1. 右上の「🖨️ 印刷 / PDF」を押します\n2. ブラウザの印刷画面が開きます\n3. そのまま印刷するか、送信先（プリンター）で「PDF に保存」を選んで保存します`,
+				goal: '1 年の記録を手元に残せて、お子さまと一緒に見返したりご家族に渡したりできます。',
+				tips: [
+					`${GROWTH_BOOK_TERMS.full}は${PLAN_FULL_TERMS.free}でも閲覧でき、PDF保存・印刷は${PAID_PLAN_LABEL}で利用できます`,
+				],
+			},
+			// ⑤ 証明書一覧へ (記録があるときだけ描画)
+			'growth-book-certificates': {
+				title: `画面の見方（${CERTIFICATE_TERMS.canonical}を見る）`,
+				what: `年間サマリーで数えている${CERTIFICATE_TERMS.canonical}の中身は、ページ下部のリンクから一覧で確認できます。`,
+				how: `1. 「📜 ${CERTIFICATE_TERMS.canonical}一覧を見る →」を押します\n2. ${CERTIFICATE_TERMS.full}のページで、種類ごとに並んだ${CERTIFICATE_TERMS.canonical}を確認します`,
+				goal: `どんな節目で${CERTIFICATE_TERMS.canonical}が贈られたのかまで辿れます。`,
+				relatedLinks: [
+					{ label: 'レポート', href: '/admin/reports' },
+					{ label: CERTIFICATE_TERMS.full, href: '/admin/certificates' },
 				],
 			},
 		},
 	},
 	adminRewardsRequests: {
 		title: 'ごほうび申請の承認',
+		// #4676 (EPIC #4650): 旧 step 2 はページ最外 div (見出し・戻るリンク・履歴を含む) を
+		// spotlight していて概要 step と見分けが付かなかった。未処理セクション / 承認ボタン /
+		// 却下ボタン / 履歴セクションに anchor を分け、申請 0 件のときは操作 step が出ないようにする。
+		// ボタン名・件数・文字数は ADMIN_REWARDS_REQUESTS_LABELS と定数を引く (直書き禁止)。
 		steps: {
 			// ① ページ概要（画面中央 modal）
 			'rewards-requests-intro': {
 				title: 'このページについて',
-				what: 'お子さまが「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。お子さまの交換は保護者の承認を経て確定します。',
-				how: '申請があるとここに一覧で並びます。中身を見て、承認するか却下するかを選びます。',
-				goal: 'お子さまの交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。',
+				what: `${CHILD_TERMS.honorific}が「このごほうびと交換したい」と申請したものを、保護者が確認して承認・却下するページです。初期設定では保護者の承認を経て交換が確定します（設定 > ${ADMIN_RULES_PAGE_LABELS.pageTitle}の「${ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}」で、承認なしの即時交換にも切り替えられます）。`,
+				how: `申請があると「${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}」に並びます。中身を見て、承認するか却下するかを選びます。下の「${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}」には処理済みの申請が残ります。`,
+				goal: `${CHILD_TERMS.honorific}の交換申請を保護者が見守りながら、納得したうえでごほうびを渡せます。`,
+				tips: [`申請が届くと管理画面の上部にお知らせが出ます。ごほうび管理の ⋮ からも開けます`],
 			},
-			// ② 最頻操作（承認・却下する）
-			'rewards-requests-act': {
-				title: 'よく使う操作（承認・却下）',
-				what: '最もよく使うのが、申請ごとの承認・却下です。却下するときは、お子さま宛てに理由を添えられます。',
-				how: '1. 申請の内容を確認します\n2. よければ承認、見送るときは却下を押します\n3. 却下のときは理由を入力するとお子さまに伝わります',
-				goal: `承認するとポイントが引かれて交換が確定します。ポイントは承認したときだけ引かれるので、却下してもお子さまの残高は変わりません。`,
-				tips: ['却下の理由を添えると、お子さまが次にどうすればよいか分かります'],
+			// ② 未処理の申請（常設セクション。0 件のときは「申請はありません」が出る）
+			'rewards-requests-pending': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.pendingSectionTitle}）`,
+				what: `まだ処理していない申請がここに並びます。1 件ごとに ${CHILD_TERMS.honorific}の名前・ごほうびの内容・必要ポイント・申請日時が表示されます。申請が無いときは「${ADMIN_REWARDS_REQUESTS_LABELS.emptyPendingMessage}」と表示され、${CHILD_TERMS.honorific}が交換を申し込むとここに増えます。`,
+				how: `1. 見出し横の件数で未処理の数を確認します\n2. 各申請の内容と必要ポイントを確認します`,
+				goal: '処理が必要な申請だけを、まとめて確認できます。',
+			},
+			// ③ 承認する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-approve': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}）`,
+				what: `ごほうびを実際に渡したあとに押すボタンです。押すとその場で交換が確定し、必要ポイントが${CHILD_TERMS.honorific}の残高から引かれます。`,
+				how: `1. ごほうびを${CHILD_TERMS.honorific}に渡します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.approveButton}」を押します\n3. 残高が足りないときは確定できず、画面上部にお知らせが出ます`,
+				goal: '渡したものだけがポイント消費として記録され、渡し忘れ・二重消費を防げます。',
+			},
+			// ④ 却下する（未処理の申請が 1 件以上あるときだけ描画）
+			'rewards-requests-reject': {
+				title: `よく使う操作（${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}）`,
+				what: `今回は見送るときに使います。却下してもポイントは引かれず、${CHILD_TERMS.honorific}の残高は変わりません。`,
+				how: `1. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectButton}」を押します\n2. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectNoteLabel}」に理由を書きます（書かなくても進めます）\n3. 「${ADMIN_REWARDS_REQUESTS_LABELS.rejectConfirmButton}」を押すと却下が確定します（「${ADMIN_REWARDS_REQUESTS_LABELS.rejectCancelButton}」でやめられます）`,
+				goal: `理由を添えると${CHILD_TERMS.honorific}の画面に表示され、次にどうすればよいかが伝わります。`,
+				tips: [`却下の理由は最大 ${REWARD_REJECT_NOTE_MAX_LENGTH} 文字です`],
+			},
+			// ⑤ 履歴（常設セクション）
+			'rewards-requests-history': {
+				title: `画面の見方（${ADMIN_REWARDS_REQUESTS_LABELS.historySectionTitle}）`,
+				what: `処理済みの申請が新しい順に ${REWARD_REQUEST_HISTORY_LIMIT} 件まで残り、「${ADMIN_REWARDS_REQUESTS_LABELS.statusApproved}」「${ADMIN_REWARDS_REQUESTS_LABELS.statusRejected}」のしるしが付きます。`,
+				how: `1. しるしで結果を確認します\n2. ${CHILD_TERMS.honorific}の名前と使ったポイントで、いつ何を渡したかを振り返ります`,
+				goal: '「先週なにを渡したか」をあとから確認でき、ごほうびの出しすぎにも気づけます。',
+				tips: ['確定した承認・却下を取り消す操作はありません。渡してから承認を押すのが確実です'],
+				relatedLinks: [
+					{ label: 'ごほうび管理', href: '/admin/rewards' },
+					{ label: ADMIN_RULES_PAGE_LABELS.pageTitle, href: '/admin/settings/rules' },
+				],
 			},
 		},
 	},
@@ -2207,6 +3518,12 @@ export const DEMO_LABELS = {
 	 * #2261 (2026-05-19 PO 報告): exitHref と同じく www. canonical に統一。
 	 */
 	signupHref: 'https://www.ganbari-quest.com/auth/signup',
+	/**
+	 * ログイン CTA 先。
+	 * #4712: demo Lambda には Cognito が無いため relative `/auth/login` はフォームだけ出て
+	 * 送信しても何も起きない (write no-op)。signupHref と同じく本番 absolute に固定する。
+	 */
+	loginHref: 'https://www.ganbari-quest.com/auth/login',
 } as const;
 
 // ============================================================
@@ -2222,8 +3539,128 @@ export const DEMO_LABELS = {
  *     `${OYAKAGI_TERMS.name}` / `${ADMIN_VIEW_TERMS.canonical}` template literal 経由化
  *   - 設計欠陥 5 (初期 PIN 5086 ヒント): `gateDefaultHint` を空文字に変更
  *     (子が見て即入力する脆弱性。setup 完了画面 / onboarding dialog でのみ伝達)
+ *
+ * #4698: 桁数は `${OYAKAGI_TERMS.digitRange}` (PIN_LENGTH 由来) 経由に統一 (4 / 4〜6 / 4〜8 の三重食い違い是正)。
+ *   旧 `defaultValueHint` (初期値 5086) は誤案内のため撤去し `forgotHint` (忘れた場合の導線) に置換。
  *   - 設計欠陥 4 (PIN 忘れ救済導線): `gateForgotPinLink` 等 PIN reset 関連 compound 追加
  */
+/**
+ * #4716 item 15: 子供画面の form action が返すエラー文言 SSOT。
+ *
+ * 旧実装は 25 箇所で `'パラメータが不正です'` を直書きしており、3〜5 歳が使う
+ * preschool 画面に漢字の開発者語がそのまま出ていた (docs/DESIGN.md §6 内部コード
+ * 露出禁止 / §8 preschool = ひらがなのみ)。子供に届く失敗はすべてひらがなで、
+ * 「次に何をすればよいか」まで書く。
+ */
+/**
+ * #4716 item 4: セルフホスト (NUC / ローカル) 起動時の既定家族名。
+ *
+ * 旧値は `'ローカル家族'` を `sqlite/auth-repo.ts` に直書きしており、/admin/settings の
+ * 「家族名」に開発者語 (ローカル) がそのまま出ていた (docs/DESIGN.md §6 内部コード露出禁止)。
+ */
+export const LOCAL_DEPLOYMENT_LABELS = {
+	defaultFamilyName: 'わが家',
+} as const;
+
+/**
+ * ピン留め (おきにいり) 上限の **API 層 fallback 文言** (PO 回答 2026-09-03 §4 #2 follow-up)。
+ *
+ * `CHILD_ACTION_ERROR_LABELS.pinLimitExceeded` は子供画面の form action 用で年齢帯 variant を
+ * 持つ。API (`apiError`) の `userMessage` は年齢帯を知らない汎用 fallback なので別に置く
+ * (件数は `message` 側に service が入れる。ここに数値を直書きして SSOT を二重化しない)。
+ */
+export const ACTIVITY_PIN_ERROR_LABELS = {
+	limitExceeded: 'お気に入りの上限に達しました。ほかのお気に入りを外してからお試しください。',
+} as const;
+
+export const CHILD_ACTION_ERROR_LABELS = {
+	/** 送信値が想定の形式でない (uuid 不正 / 欠落など)。原因は子供に説明できないので操作の再試行を促す。 */
+	invalidInput: 'うまく おくれなかったよ。もういちど ためしてね',
+	/** 数値入力が数値として読めない。 */
+	pointsNotNumber: 'すうじで いれてね',
+	/** 数値入力が受理範囲外。 */
+	pointsOutOfRange: (min: number, max: number) => `${min}から${max}までの すうじで いれてね`,
+	/** 予期しない失敗 (例外) の既定文言。内部例外メッセージは出さない (ADR-0062)。 */
+	unexpected: 'うまく いかなかったよ。もういちど ためしてね',
+	/** 活動のピン留め (おきにいり) 拒否理由。service 層の code に 1:1 で対応する。 */
+	pinActivityNotFound: 'その かつどうが みつからなかったよ',
+	pinLimitExceeded: (max: number) => `おきにいりは ${max}こまでだよ`,
+	// #4716 (QM #4802): home の action が直書きしていた失敗文言。年齢帯 variant は KANJI 側と key を揃える
+	alreadyRecordedToday: 'きょうはもうきろくしたよ！',
+	dailyLimitReached: 'きょうはこれいじょうきろくできないよ',
+	notFound: 'みつかりません',
+	cancelWindowPassed: 'とりけしじかんがすぎたよ',
+	bonusAlreadyClaimed: 'きょうのボーナスはもうもらったよ！',
+	stampAlreadyToday: 'きょうはもうスタンプをおしたよ！',
+	stampAlreadyPressed: 'きょうはもうおしたよ',
+	cardFull: 'カードがいっぱいだよ',
+	stampUnavailable: 'いまスタンプをおせません。あとでもういちどためしてね',
+	stampFailed: 'スタンプをおせませんでした',
+	alreadyRedeemed: 'もうこうかんしたよ',
+	emptyCard: 'スタンプがないよ',
+	redeemFailed: 'こうかんできませんでした',
+	bonusAlreadyReceived: 'もうもらったよ',
+	noBirthdayBonus: 'おたんじょうびボーナスはありません',
+	bonusClaimFailed: 'ボーナスをもらえませんでした',
+	// チャレンジのごほうび受け取り (claimChildChallengeReward の code に 1:1)
+	challengeNotFound: 'その チャレンジが みつからなかったよ',
+	challengeWrongChild: 'この チャレンジは きみの ものじゃないよ',
+	challengeNotCompleted: 'まだ クリアしていないよ',
+	challengeAlreadyClaimed: 'もう うけとったよ',
+} as const;
+
+/**
+ * 中高生 (junior / senior) 向けの失敗文言 (#4716 QM)。
+ *
+ * docs/DESIGN.md §8 は preschool / elementary = ひらがな、junior / senior = 漢字と定めている。
+ * `CHILD_ACTION_ERROR_LABELS` は 5 年齢モード共通のひらがなだったため、16〜18 歳にも
+ * 「うまく おくれなかったよ」を返していた。**key と意味は同一**にして本文だけ差し替える。
+ */
+const CHILD_ACTION_ERROR_LABELS_KANJI = {
+	invalidInput: '送信できませんでした。もう一度お試しください',
+	pointsNotNumber: '数字で入力してください',
+	pointsOutOfRange: (min: number, max: number) => `${min}から${max}までの数字で入力してください`,
+	unexpected: 'うまくいきませんでした。もう一度お試しください',
+	pinActivityNotFound: 'その活動が見つかりませんでした',
+	pinLimitExceeded: (max: number) => `お気に入りは${max}個までです`,
+	alreadyRecordedToday: '今日はもう記録しました',
+	dailyLimitReached: '今日はこれ以上記録できません',
+	notFound: '見つかりません',
+	cancelWindowPassed: '取り消しできる時間を過ぎました',
+	bonusAlreadyClaimed: '今日のボーナスは受け取り済みです',
+	stampAlreadyToday: '今日はもうスタンプを押しました',
+	stampAlreadyPressed: '今日はもう押しました',
+	cardFull: 'カードがいっぱいです',
+	stampUnavailable: 'いまスタンプを押せません。あとでもう一度お試しください',
+	stampFailed: 'スタンプを押せませんでした',
+	alreadyRedeemed: 'もう交換しました',
+	emptyCard: 'スタンプがありません',
+	redeemFailed: '交換できませんでした',
+	bonusAlreadyReceived: '受け取り済みです',
+	noBirthdayBonus: '誕生日ボーナスはありません',
+	bonusClaimFailed: 'ボーナスを受け取れませんでした',
+	challengeNotFound: 'そのチャレンジが見つかりませんでした',
+	challengeWrongChild: 'このチャレンジはあなたのものではありません',
+	challengeNotCompleted: 'まだクリアしていません',
+	challengeAlreadyClaimed: 'すでに受け取り済みです',
+} as const;
+
+/**
+ * 年齢モードに応じた子供向け失敗文言を返す (#4716 QM)。
+ *
+ * `uiMode` を渡せない経路 (年齢帯を持たない route) では既定のひらがなに落ちる。
+ * `if (uiMode === 'junior')` を呼び出し側に散らさないため、分岐は本関数 1 箇所に閉じる
+ * (src/routes/CLAUDE.md §年齢帯 variant の A1「散在する uiMode 分岐」を作らない)。
+ */
+export function getChildActionErrorLabels(
+	uiMode?: string,
+): typeof CHILD_ACTION_ERROR_LABELS | typeof CHILD_ACTION_ERROR_LABELS_KANJI {
+	const mode = uiMode ? normalizeUiMode(uiMode) : 'preschool';
+	return mode === 'junior' || mode === 'senior'
+		? CHILD_ACTION_ERROR_LABELS_KANJI
+		: CHILD_ACTION_ERROR_LABELS;
+}
+
 export const OYAKAGI_LABELS = {
 	name: `${OYAKAGI_TERMS.name}`,
 	shortName: `${OYAKAGI_TERMS.shortName}`,
@@ -2231,13 +3668,45 @@ export const OYAKAGI_LABELS = {
 	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
 	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
 	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
-	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	// #4866 系 / PO 決裁 2026-09-10 決定 4: PIN gate 不成立時の文言。
+	// API の 403 と form action の `fail()` の**両方**がこれを使う (1 つにする)。
+	gateRequired: `${OYAKAGI_TERMS.name}の確認が必要です`,
+	// form action で使う形。**入力は保持されている**ことを伝える
+	// (PO 決定 4(a):「保護者が書いた内容を黙って捨てるのは、gate が守るものより大きい損害」)。
+	gateRequiredKeepInput: `${OYAKAGI_TERMS.name}の確認が必要です。入力内容はそのままにしてあります。`,
+	// 再入力ダイアログの説明文。**この画面から離れなくてよい**ことを明示する
+	// (離れると入力が消えるため、離れないで済むこと自体が案内の主眼)。
+	gateReauthDescription: `この画面のまま${OYAKAGI_TERMS.name}を入力できます。入力内容は消えません。`,
+	// 確認できた直後の案内。**保存の成否は一切述べない** (PO 決裁 2026-09-10b)。
+	// 述べてよいのは「確認できたので、続きの操作ができます」まで。
+	// 「確認しました」だけで止めると次にすることが分からず、「保存しました」と書くと
+	// 保護者は「押したはずなのに入っていない」を経験する。確認と保存が**別の操作**である
+	// ことが 1 回で分かる形にする。
+	gateReauthSuccess: `${OYAKAGI_TERMS.name}を確認しました。もう一度「保存」を押してください。`,
+	inputLabel: `${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	// #4661: 変更フォームの 3 入力欄。以前は account/+page.svelte に「（4〜8桁）」を
+	// 直書きしており、`formatError` の「4〜6桁」と同一画面で矛盾していた。
+	// 桁数の SSOT は constants/oyakagi.ts の PIN_LENGTH (= OYAKAGI_TERMS.digitRange)。
+	currentInputLabel: `現在の${OYAKAGI_TERMS.name}`,
+	newInputLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}）`,
+	confirmInputLabel: `新しい${OYAKAGI_TERMS.name}（確認）`,
+	// #4716 item 15: 変更フォーム (server action) のエラー文言も画面直書きから SSOT へ移す
+	mismatchError: `新しい${OYAKAGI_TERMS.name}が一致しません`,
+	allFieldsRequiredError: 'すべての項目を入力してください',
+	currentPinInvalidError: `現在の${OYAKAGI_TERMS.name}が正しくありません`,
 	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
-	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
+	// #4698: 忘れた場合の導線 (cognito = ゲートの「忘れた方」リンクからメール / パスワード確認で再設定、
+	// self-host = サーバー管理者向け手順)。ゲート側 (gateForgotPinLink / gateOperatorResetNotice) と同じ 2 経路を案内する
+	forgotHint: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です。忘れた場合は、${ADMIN_VIEW_TERMS.canonical}に入るときの「${OYAKAGI_TERMS.name}を忘れた方」から再設定できます（セルフホスト環境ではサーバー管理者向けのリセット手順をご利用ください）`,
 	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
 	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
-	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	formatError: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
+	// #4512: 変更フォームのエラー (旧: settings/account の server 直書き)。
+	// 入力欄ラベル 3 種は #4661 が currentInputLabel / newInputLabel / confirmInputLabel として
+	// 先に集約済みのため、merge 時に重複定義を削除しそちらに寄せた。
+	confirmMismatchError: `新しい${OYAKAGI_TERMS.name}が一致しません`,
+	currentInvalidError: `現在の${OYAKAGI_TERMS.name}が正しくありません`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
 	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
@@ -2257,10 +3726,10 @@ export const OYAKAGI_LABELS = {
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
 	gateLockedUntilNotice: (timeStr: string) =>
 		`${OYAKAGI_TERMS.name}の入力に連続して失敗しました。${timeStr} まで待ってから再度お試しください`,
-	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
-	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
+	// (#2992 以降は初回作成フローのため既定 PIN ヒント自体が不要。#4698 で設定画面の defaultValueHint も撤去)
 	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
 	// 親管理画面で一定時間操作がなく自動的に子供選択画面へ戻った旨の通知 (parent-gate inactivity redirect)
 	gateTimedOutNotice: `しばらく操作がなかったため${ADMIN_VIEW_TERMS.canonical}を閉じました。もう一度入るには${OYAKAGI_TERMS.name}を入力してください`,
@@ -2272,7 +3741,7 @@ export const OYAKAGI_LABELS = {
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
 	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
-	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
 	gateCreateConfirmTitle: `もう一度入力してください`,
 	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
 	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
@@ -2304,7 +3773,7 @@ export const PIN_RESET_LABELS = {
 	resetFederatedCodeLabel: '確認コード（6桁の数字）',
 	resetFederatedResendButton: 'コードを再送する',
 	// エラー文言
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
@@ -2314,7 +3783,7 @@ export const PIN_RESET_LABELS = {
 	// エラー文言
 	errorInvalidPassword: 'パスワードが正しくありません',
 	errorPasswordRequired: 'パスワードを入力してください',
-	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorPinFormat: `${OYAKAGI_TERMS.name}は${OYAKAGI_TERMS.digitRange}の数字で入力してください`,
 	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
 	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
@@ -2349,10 +3818,10 @@ export const PIN_RESET_EMAIL_LABELS = {
  */
 export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
-	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
+	dialogIntro: `${CHILD_TERMS.honorific}の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_SCREENS.home.name} のリンクをタップしてください。`,
 	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
 	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
-	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（${OYAKAGI_TERMS.digitRange}の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -2368,6 +3837,9 @@ export const PIN_GATE_ONBOARDING_LABELS = {
  * 家族データインポート機能のラベル SSOT (#1254)
  * エラーメッセージ、ダイアログ文言、スキップ理由など
  */
+// #4752: 自動復元まで失敗した半端な状態の顧客向け文言 (IMPORT_LABELS.errorReplaceRestoreFailed* の基底)。
+const REPLACE_RESTORE_FAILED_MESSAGE = `インポートに失敗し、元のデータへの自動復元も途中で止まりました。現在のデータは不完全な状態です。元のデータは復旧用${BACKUP_TERMS.canonical}として保存されているため、設定 > サポートから運営にご連絡ください。運営が復元します`;
+
 export const IMPORT_LABELS = {
 	// エラーメッセージ
 	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
@@ -2380,6 +3852,23 @@ export const IMPORT_LABELS = {
 	// API (import/+server.ts) と UI (settings/data の送信前 pre-check) の双方で共有する。
 	errorFileTooLargeCloudGuide: (maxMb: number | string) =>
 		`ファイルサイズが大きすぎます（最大${maxMb}MB）。大きな${BACKUP_TERMS.canonical}はクラウド共有（PINコード）経由で${BACKUP_TERMS.restoreVerb}してください`,
+
+	// #4752 (PO 回答 2026-09-03): 置換 (復元) 失敗時に顧客へ出す 3 文言。実際のデータ状態と一致させる
+	// (保全できていない状態に「保全されています」を出さない)。3 つとも error-notify の
+	// sanitizeServerMessage を素通りする (日本語のみ / 内部識別子・例外クラス名を含まない) ことを
+	// tests/integration/db/restore-compensation-failure-4752.test.ts が実測で固定する。
+	//   - 中止 + 旧データ復元済 (旧実装は末尾に生の例外文字列を連結しており、client 側 sanitize で
+	//     「入力内容をご確認ください」に落ちて保全の事実が顧客に届かなかった)
+	errorReplaceAbortedPreserved:
+		'インポートに失敗したため中止しました（既存データは保全されています）',
+	//   - 置換前 snapshot を取れず未開始 (旧データ無傷)
+	errorReplaceSnapshotFailed: '置換前のバックアップ取得に失敗したため、安全のため中止しました',
+	//   - 自動復元も途中で止まった (半端な状態)。その旨 + 復旧手段 (運営連絡 + 復旧コード) を必ず出す。
+	//     recoveryCode は storage の復旧用 ZIP を運営が特定するための短い参照 (tenant id や storage key
+	//     そのものは出さない = info-disclosure 回避 + client sanitize の長 ID 検出に掛からない)
+	errorReplaceRestoreFailed: REPLACE_RESTORE_FAILED_MESSAGE,
+	errorReplaceRestoreFailedWithCode: (recoveryCode: string) =>
+		`${REPLACE_RESTORE_FAILED_MESSAGE}（復旧コード: ${recoveryCode}）`,
 
 	// 事前確認ダイアログ
 	previewDialogTitle: 'インポート内容の確認',
@@ -2413,6 +3902,10 @@ export const SETTINGS_LABELS = {
 		'カードの有効期限切れなどでお支払いが完了していない可能性があります。プラン・お支払い画面からお支払い方法をご確認ください。お子さまの記録はそのままご利用いただけます。',
 	gracePeriodAction: 'プラン・お支払いを確認する',
 
+	// #4699: 退会申請中に書き込み操作をして設定画面へ戻されたときの説明 (旧実装は
+	// `?reason=account_deletion_pending` を誰も表示せず、無言で設定トップに飛ばしていた)
+	deletionPendingReadOnlyNotice:
+		'アカウント削除のお手続き中のため、設定の変更は行えません（読み取り専用）。下の「アカウント」から復元すると、これまでどおりご利用いただけます。',
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
 	// #4496: 呼び出し側 (admin/settings/account) が渡すのは `daysRemaining` (残日数) なのに、
@@ -2433,14 +3926,25 @@ export const SETTINGS_LABELS = {
 	decaySaving: '保存中...',
 	decaySaveAction: '設定を保存',
 	decaySaved: 'ステータス減少設定を保存しました',
+	// #4663 F7: 4 段階の選択肢。svelte 内の DECAY_OPTIONS に直書きされており、ガイドが
+	// 同じ語を引けなかった。ラベルと説明はここが SSOT (page は本定数を参照する)。
+	decayOptionNone: 'なし',
+	decayOptionNoneDesc: '減少しません（練習や導入期間向け）',
+	decayOptionGentle: 'ゆるやか',
+	decayOptionGentleDesc: '通常の半分の速度で減少します',
+	decayOptionNormal: 'ふつう',
+	decayOptionNormalDesc: '猶予2日後にゆるやかに減少します',
+	decayOptionStrict: 'きびしめ',
+	decayOptionStrictDesc: '上級者向け。1.5倍の速度で減少します',
 
 	// 既定の子供
-	defaultChildSectionTitle: '🏠 既定の子供',
-	defaultChildDesc: 'ホーム画面（/）を開いたときに自動で表示する子供を選べます。',
+	defaultChildSectionTitle: `🏠 既定の${CHILD_TERMS.honorific}`,
+	// #4716: 生パス「（/）」を外す (顧客に URL を読ませない)
+	defaultChildDesc: `アプリを開いたときに自動で表示する${CHILD_TERMS.honorific}を選べます。`,
 	defaultChildDescNote: 'これは',
 	defaultChildDescNoteStrong: 'この端末ではなく、アカウント全体の既定',
 	defaultChildDescNoteSuffix: 'です。未設定のときは選択画面が表示されます。',
-	defaultChildUpdated: '既定の子供を更新しました',
+	defaultChildUpdated: `既定の${CHILD_TERMS.honorific}を更新しました`,
 	defaultChildNone: '未設定（毎回選択画面を表示）',
 	defaultChildSaveAction: '既定を保存',
 
@@ -2473,10 +3977,20 @@ export const SETTINGS_LABELS = {
 	notificationDisableSuccess: '通知をオフにしました',
 	notificationDisableFailure: '通知をオフにできませんでした。時間をおいて再度お試しください',
 	notificationReminderLabel: 'リマインダー通知（毎日の記録を促す）',
+	// #4664 F8: リマインダー時刻の見出しが svelte 直書きで、ガイドから同じ語を引けなかった。
+	notificationReminderTimeLabel: 'リマインダー時刻',
 	notificationStreakLabel: 'ストリーク警告（連続記録が途切れそうな時）',
 	notificationAchievementLabel: '達成通知（記録完了・レベルアップ時）',
 	notificationQuietSeparator: '〜',
 	notificationSaveAction: '通知設定を保存',
+	// #4664 F8: サイレント時間帯の見出し / 補足が svelte 直書きで、ガイドから同じ語を
+	//   引けなかった (DESIGN.md §6 逸脱)。
+	notificationQuietLabel: 'サイレント時間帯',
+	notificationQuietHint: 'この時間帯は通知を送信しません',
+	// #4664 F3: 1 日の上限は notification-service.ts の MAX_DAILY_NOTIFICATIONS が値 SSOT。
+	notificationDailyLimitHint: (max: number) => `お知らせは 1 日 ${max} 件までです`,
+	// #4512: settings/notifications の時刻入力の検証エラー文言。
+	notificationTimeFormatInvalid: '時刻の形式が不正です',
 
 	// ポイント表示設定
 	pointSectionTitle: '💰 ポイント表示設定',
@@ -2485,15 +3999,31 @@ export const SETTINGS_LABELS = {
 	pointModePoint: 'ポイント（P）',
 	pointModeCurrency: '通貨で表示',
 	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
+	// #4663 F7: 通貨モードの追加入力欄。svelte に直書きされており、ガイドから同じ語を
+	// 引けなかった (DESIGN.md §6 逸脱)。
+	// #4512: 「通貨」は CURRENCY_TERMS atom に集約し、検証エラー文言もここへ寄せた。
+	pointCurrencyLabel: `${CURRENCY_TERMS.canonical}`,
+	pointRateLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
+	pointRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	// #4512: 活動・ポイント設定 (settings/activities) の form action 検証エラー (旧: server 直書き)。
+	pointModeInvalid: 'モードが不正です',
+	pointCurrencyInvalid: `${CURRENCY_TERMS.canonical}コードが不正です`,
+	pointRateRange: 'レートは0より大きく10000以下で入力してください',
+	defaultChildIdInvalid: `${CHILD_TERMS.honorific}の ID が不正です`,
+	defaultChildNotFound: `指定された${CHILD_TERMS.honorific}が見つかりません`,
+	// #4512: ステータス減少強度 (DECAY_OPTIONS) のラベル / 説明は #4663 F7 が
+	// decayOptionNone / .decayOptionNoneDesc … として先に集約済みのため、
+	// merge 時に重複定義 (decayOption*Label) を削除しそちらに寄せた。
 	pointSaveAction: 'ポイント設定を保存',
 
 	// データ管理 (#backup-terms: 内部フォーマット JSON/ZIP は UI 露出しない。BACKUP_TERMS 統一)
 	dataSectionTitle: '💾 データ管理',
 	dataExportDesc: `家族のデータを${BACKUP_TERMS.file}としてダウンロードできます。${BACKUP_TERMS.exportNoun}や別環境への移行に使用できます。`,
 	dataExportTarget: `${BACKUP_TERMS.canonical}に含まれるもの:`,
-	dataExportItem1: '子供プロフィール・活動記録・ポイント履歴',
+	dataExportItem1: `${CHILD_TERMS.honorific}プロフィール・活動記録・ポイント履歴`,
 	dataExportItem2: 'ステータス・実績・称号・ログインボーナス',
-	dataExportItem3: 'チェックリスト・誕生日振り返り',
+	// #4716: 「誕生日振り返り」は export にも UI にも無い機能名だった
+	dataExportItem3: 'チェックリスト・おやくそく設定',
 	dataExportItem4: '活動マスタ・きせかえアイテム',
 	dataExportUpsellTitle: `🔒 データの${BACKUP_TERMS.exportNoun}は `,
 	// #1960 Phase 7 H3: terms.ts atom 参照化
@@ -2527,7 +4057,7 @@ export const SETTINGS_LABELS = {
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
 	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線（SaaS 版専用）。
 	dataExportZipCloudHint:
-		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。画像も含めて安全に残すなら、下の「クラウドバックアップ」がおすすめです。',
+		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。画像も含めて安全に残すなら、下の「クラウド共有」がおすすめです。',
 	// #3867: セルフホスト版（authMode≠cognito）はクラウドバックアップ導線が無いため、
 	// 「クラウドバックアップ」に言及しない代替文言。ブラウザ安全性警告は正常である旨の安心情報のみ残す
 	// （下にクラウドセクションが無いのに「下のクラウドバックアップがおすすめ」と案内する dangling を防ぐ）。
@@ -2538,14 +4068,16 @@ export const SETTINGS_LABELS = {
 	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
 
 	// インポート
-	dataImportTitle: 'データのインポート',
+	// #4716: 「インポート」= 復元。BACKUP_TERMS の語 (バックアップ / 復元) に統一する。
+	dataImportTitle: `${BACKUP_TERMS.canonical}から${BACKUP_TERMS.restoreVerb}`,
 	dataImportDesc: `保存した${BACKUP_TERMS.file}からデータを${BACKUP_TERMS.restoreVerb}できます（画像・音声を含むファイルはアバター画像・音声も${BACKUP_TERMS.restoreVerb}します）。`,
-	dataImportMode: 'インポートモード',
-	dataImportModeReplace: '置換（既存データを削除してインポート）',
-	dataImportModeAdd: '追加（既存データを残して追加）',
-	dataImportModeReplaceWarning:
-		'既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。',
-	dataImportModeAddNote: '新しい子供データとして追加されます（既存データは上書きされません）。',
+	dataImportMode: `${BACKUP_TERMS.restoreVerb}のしかた`,
+	// #4690 (QM): ページガイドが引用する選択肢名なので atom を SSOT にする
+	// (片方だけ変えるとガイドが存在しない選択肢を指す)。
+	dataImportModeReplace: BACKUP_TERMS.importModeReplace,
+	dataImportModeAdd: BACKUP_TERMS.importModeAdd,
+	dataImportModeReplaceWarning: `既存の${CHILD_TERMS.honorific}・活動ログ・ポイント等のデータをすべて削除してから${BACKUP_TERMS.restoreVerb}します。`,
+	dataImportModeAddNote: `新しい${CHILD_TERMS.honorific}データとして追加されます（既存データは上書きされません）。`,
 	dataImportLoading: '読み込み中...',
 	dataImportSelectFile: `${BACKUP_TERMS.file}を選択`,
 	// #backup-terms: 不正ファイル選択時 (内部フォーマット名は出さず「バックアップファイル」で統一)
@@ -2562,27 +4094,33 @@ export const SETTINGS_LABELS = {
 		`この${BACKUP_TERMS.exportNoun}形式にはまだ含まれないデータがあります（${items}）。これらは${BACKUP_TERMS.restoreVerb}されません。`,
 	cloudExportPinIssued: (pinCode: string, expiry: string) =>
 		`PINコード: ${pinCode}（有効期限: ${expiry}）`,
-	cloudImportNoChildren:
-		'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。',
+	cloudImportNoChildren: `取込先の${CHILD_TERMS.honorific}が登録されていません。先に${ADMIN_SCREENS.children.name}で登録をしてください。`,
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
-	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
+	dataImportPreviewChildren: (n: number | string | undefined) => `${CHILD_TERMS.honorific}: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
 	dataImportPreviewPointLedger: (n: number | string | undefined) => `ポイント履歴: ${n}件`,
 	dataImportPreviewStatuses: (n: number | string | undefined) => `ステータス: ${n}件`,
 	dataImportPreviewAchievements: (n: number | string | undefined) => `実績: ${n}件`,
 	dataImportPreviewLoginBonuses: (n: number | string | undefined) => `ログインボーナス: ${n}件`,
 	dataImportPreviewChecklists: (n: number | string | undefined) => `チェックリスト: ${n}件`,
+	// #4696: データクリアの件数表示 (お子さまの音声)。実績 (#322 廃止) は表示対象から外した
+	dataImportPreviewVoices: (n: number | string | undefined) => `お子さまの音声: ${n}件`,
 	dataImportMoreItems: (n: number) => `...他 ${n}件`,
 	dataImportReplaceConfirm:
 		'既存データをすべて削除してからインポートします。この操作は取り消せません。',
-	dataImportAddConfirm:
-		'インポートすると新しい子供データとして追加されます。この操作は取り消せません。',
+	dataImportAddConfirm: `インポートすると新しい${CHILD_TERMS.honorific}データとして追加されます。この操作は取り消せません。`,
 	dataImportCancel: 'キャンセル',
 	dataImporting: 'インポート中...',
 	dataImportAction: 'インポートを実行',
 	dataImportComplete: 'インポート完了',
-	dataImportResultChildren: (n: number | string) => `子供: ${n}人 作成`,
+	dataImportResultChildren: (n: number | string) => `${CHILD_TERMS.honorific}: ${n}人 作成`,
 	dataImportResultActivities: (n: number | string) => `活動マスタ: ${n}件 新規作成`,
+	/**
+	 * 復元がプラン上限で一部を保管したときの結果行 (#4693)。
+	 * **文面の SSOT は `ACTIVITY_QUOTA_LABELS.restoreArchivedResult`** — marketplace 経由の復元
+	 * (活動管理の ︙ →「バックアップから復元」) と同じ文言を出すため、ここでは委譲だけする。
+	 */
+	dataImportResultQuotaArchived: ACTIVITY_QUOTA_LABELS.restoreArchivedResult,
 	dataImportResultActivityLogs: (imported: number | string, skipped: number | string) =>
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>
@@ -2635,18 +4173,94 @@ export const SETTINGS_LABELS = {
 	cloudExportTypeTemplate: 'テンプレート（活動・チェックリスト）',
 	cloudExportTypeFull: 'フルバックアップ',
 	cloudExportTypeTemplateDesc: '活動設定やチェックリストのみ共有します（個人データは含みません）。',
-	cloudExportTypeFullDesc: '子供データ・活動ログ等すべてのデータを含みます。環境移行用です。',
+	cloudExportTypeFullDesc: `${CHILD_TERMS.honorific}データ・活動ログ等すべてのデータを含みます。環境移行用です。`,
 	cloudSaving: '保管中...',
 	cloudSaveAction: 'クラウドに保管',
 	cloudStoredTitle: '保管済みデータ',
-	cloudStoredExpiry: (date: string) => `期限: ${date}`,
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
+	// #4767 QM should: 期限 (絶対日付) は状態によらず常に出す。「あと N 日」だけだと
+	// いつ消えるのかが読み手の暦計算に依存し、状態表示の分岐で欠けやすい。
+	cloudStoredExpiry: (date: string) => `期限: ${date}`,
+	// #4767 QM must: 削除は S3 の全バージョンを消す取り消し不能な操作。押した瞬間に実行せず、
+	// 何が消えるのか (PIN / 種別 / 状態) と「元に戻せない」ことを confirm dialog で名指しする。
+	cloudDeleteConfirmTitle: 'この共有データを削除しますか？',
+	cloudDeleteConfirmTarget: (pinCode: string, type: string, state: string) =>
+		`削除するもの: PIN ${pinCode}（${type}・${state}）`,
+	cloudDeleteConfirmIrreversible:
+		'削除すると保管データも共有リンクも完全に消え、元に戻せません。受け取る側がまだ取り込んでいない場合は取り込めなくなります。',
+	cloudDeleteConfirmQuotaNote: '削除すると保管枠はすぐに空きます。',
+	// #4867 (PO 決裁 2026-09-09): **PIN の再発行という操作は作らない**。削除がそのまま
+	//   失効の手段である (削除で DB 行が消え、`fetchCloudExportByPin` は DB を引くので
+	//   旧 PIN はその瞬間に無効になる)。足りていなかったのは機能ではなく、
+	//   「PIN を人に見られたとき何をすればいいか」が顧客に伝わっていないことだった。
+	//   **順序を「削除 → 作り直し」で案内する** — 先に新しいものを作ると、旧 PIN が
+	//   生きている時間が伸びる。
+	cloudPinLeakedGuidance:
+		'PIN を知られてしまったときは、削除するとすぐに使えなくなります。あらためて共有を作り直してください。',
+	cloudDeleteConfirmExecute: '削除する',
+	cloudDeleteConfirmCancel: 'やめる',
+	// #4767 QM should: S3 の削除に失敗したときは黙って DB だけ消さない (顧客に見せて再試行させる)。
+	// #4867 adversarial: 削除は #4767 で fail-closed (S3 削除に失敗したら DB 行を残す) なので、
+	//   失敗した時点では **PIN はまだ失効していない**。一覧の案内は「削除すればすぐ使えなくなる」
+	//   と無条件に言うため、失敗時にそれが成立していないことを伝えないと、
+	//   顧客は「消したから安全」と誤解したまま漏れた PIN を放置する。
+	cloudDeleteFailed:
+		'削除できませんでした。データは残っており、この PIN はまだ使える状態です。時間をおいてもう一度お試しください。',
+	cloudStoredDeleting: '削除中…',
+	// #4767 QM should: 取り消せない操作の完了を無言で終わらせない (行が消えるだけ = 何が起きたか不明)。
+	// Toast (role="alert") + 画面内 banner (role="status") の 2 層で、**何を消したか**を名指しする。
+	cloudDeleteSuccessTitle: '削除しました',
+	cloudDeleteSuccess: (pinCode: string) =>
+		`PIN ${pinCode} の共有データを削除しました。保管枠が 1 つ空きました。`,
+	// #4767 QM should: 削除は成功したが一覧の再取得に失敗した場合。成功と言い切ると、
+	// 画面に残った古い行を見た顧客が「消えていない」と受け取る (実際は消えている)。
+	// 起きたこと (削除は成功) と、いま見えているものの信頼度 (古いかもしれない) を分けて言う。
+	cloudDeleteSuccessStaleTitle: '削除しましたが一覧を更新できませんでした',
+	cloudDeleteSuccessStale: (pinCode: string) =>
+		`PIN ${pinCode} の共有データは削除しました。ただし一覧の再取得に失敗したため、下の表示が最新でない可能性があります。画面を再読み込みしてご確認ください。`,
+	// #4767: 削除しようとした行が既に無い (別端末で削除済 / 期限切れ cleanup 済) ときの案内。
+	// 「見つかりません」を route が文字列一致で 404 に写像していたのを型で運ぶようにした際の SSOT。
+	cloudDeleteAlreadyGone:
+		'このデータは既に削除されています。画面を更新すると最新の状態になります。',
+	// #4767 PO 回答 #3: 枠を占有している全行を状態付きで見せる。
+	// 状態名は PO 回答の 4 語 (ダウンロード可能 / ダウンロード回数を使い切りました / 作成に失敗しました /
+	// あと N 日で自動削除) をそのまま使う。生成待ち / 生成中は既存 cloudStatusPending / cloudStatusBuilding。
+	cloudRowStateDownloadable: 'ダウンロード可能',
+	cloudRowStateExhausted: 'ダウンロード回数を使い切りました',
+	cloudRowStateFailed: '作成に失敗しました',
+	cloudAutoDeleteIn: (days: number) => `あと${days}日で自動削除`,
+	cloudStoredCreated: (date: string) => `${date} 作成`,
+	// 上限到達 403 で名指しする 1 件分: "ABC123（ダウンロード回数を使い切りました・2026/08/28 作成）"
+	cloudDeleteCandidate: (pinCode: string, state: string, created: string) =>
+		`${pinCode}（${state}・${created}）`,
+	cloudStoredListDesc:
+		'ここに並ぶデータはすべて保管枠を使っています。不要なものは削除すると枠がすぐに空きます。',
 	// #3324 / #3509: 非同期 build 状態 (pending/building/ready/failed) の可視フィードバック
 	cloudStatusPending: '受付済み・生成待ち',
 	cloudStatusBuilding: '生成中…',
 	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
+	// #4867 adversarial round 7: build 失敗の既定文言。**サーバの例外 message を親の画面に
+	//   出さない** (ADR-0062 §2)。旧実装は `err.message` をそのまま `failure_reason` に保存し、
+	//   NUC の local FS backend では errno + サーバの絶対パス + tenant id が親に見えていた
+	//   (PIN は伏せていたが、伏せたのは PIN だけ)。#3376 のコメントは元から
+	//   「その他は generic なエラーメッセージを残す」と書いてあり、**コードがそれに反していた**。
+	//   原因の詳細は logger.error 側に (伏せたうえで) 残す。
+	//   **文言は `cloudStatusFailed` の括弧の中に入る**ので、文として完結させない
+	//   (round 8 実測: 「保管データの作成に失敗しました。もう一度お試しください。」を渡すと
+	//    `作成に失敗しました（保管データの作成に失敗しました。もう一度お試しください。）` と
+	//    **同じ句が 1 行に 2 回**出ていた)。
+	cloudBuildFailedDefault: 'もう一度お試しください',
+	//   NUC (自宅サーバ) では**親が運用者**なので、自分で直せる失敗は名指しする
+	//   (round 8 指摘。generic に潰すと、容量を空ければ直る人が何度も再試行するだけになる)。
+	cloudBuildFailedNoSpace: '保存先の空き容量が足りません。空きを作ってからお試しください',
+	cloudBuildFailedPermission: '保存先に書き込めませんでした。保存先の設定をご確認ください',
 	cloudDownloadAction: 'ダウンロード',
+	// #4717: 発行直後 (pending/building) / 失敗 (failed) の PIN で取り込もうとしたときの案内。
+	// 「システムに問題が発生しました」(500) ではなく、待てば解決することを伝える。
+	cloudImportNotReady: 'このデータはまだ準備中です。数分後にもう一度お試しください。',
+	cloudImportBuildFailed:
+		'このデータの作成に失敗しています。共有した方にもう一度クラウドへ保管しなおしてもらってください。',
 	cloudImportTitle: 'PINコードでインポート',
 	cloudImportDesc: '共有されたPINコードを入力してデータを取り込みます。',
 	cloudImportPinPlaceholder: 'PINコード（6桁）',
@@ -2663,17 +4277,17 @@ export const SETTINGS_LABELS = {
 	cloudImportComplete: 'インポート完了',
 	cloudImportResultActivities: (n: number | string | unknown) => `活動マスタ: ${n}件 追加`,
 	cloudImportResultChecklists: (n: number | string | unknown) => `チェックリスト: ${n}件 追加`,
-	cloudImportResultChildren: (n: number | string | unknown) => `子供データ: ${n}人 追加`,
+	cloudImportResultChildren: (n: number | string | unknown) =>
+		`${CHILD_TERMS.honorific}データ: ${n}人 追加`,
 	cloudImportClose: '閉じる',
 
 	// データクリア
-	clearSectionTitle: '🗑️ データクリア',
-	clearDesc:
-		'すべての家族データ（子供・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。',
+	// #4716: 「データクリア」は内部語。実行内容 (すべてのデータを削除) をそのまま名乗る。
+	clearSectionTitle: `🗑️ ${BACKUP_TERMS.clearAll}`,
+	clearDesc: `すべての家族データ（${CHILD_TERMS.honorific}・活動ログ・ポイント・ステータス等）を一括削除します。活動マスタ・カテゴリなどのシステムデータは保持されます。`,
 	clearCurrentDataTitle: '現在のデータ件数',
-	clearIrreversibleWarning:
-		'この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。',
-	clearCompleted: 'データクリアが完了しました。ページを再読み込みしてください。',
+	clearIrreversibleWarning: `この操作は取り消せません。事前に${BACKUP_TERMS.exportVerb}ことをお勧めします。`,
+	clearCompleted: `${BACKUP_TERMS.clearAll}が完了しました。ページを再読み込みしてください。`,
 
 	// フィードバック (#support-unify: 1 フォーム統合 — intent 2 軸 + 内容分類併用。研究: 単一フォーム + intent セレクタ)
 	feedbackSectionTitle: '💬 サポート・ご意見',
@@ -2698,6 +4312,18 @@ export const SETTINGS_LABELS = {
 		'返信のためメールアドレスを入力してください（通常 1〜2 日以内）。',
 	feedbackConsultReplyRequiredError: '相談・困りごとは返信先メールアドレスを入力してください',
 	feedbackInvalidIntentError: 'ご用件の選択が不正です',
+	// #4512: 旧実装は上 2 つの error label を定義しながら +page.server.ts 側で同じ文字列を
+	// 直書きしており (二重定義)、残りの validation メッセージも server にしか無かった。
+	feedbackContentRequiredError: '内容を入力してください',
+	feedbackContentTooLongError: '1000文字以内で入力してください',
+	feedbackInvalidCategoryError: 'カテゴリが不正です',
+	feedbackInvalidEmailError: 'メールアドレスの形式が正しくありません',
+	feedbackChildAgeTooLongError: 'お子さまの年齢は100文字以内で入力してください',
+	feedbackSendFailedError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
+	/** 問い合わせ本文に付記する年齢の見出し (Discord / 問い合わせレコード向け) */
+	feedbackChildAgeBodyPrefix: (childAge: string) => `【お子さまの年齢】${childAge}`,
+	/** 通知本文で使う分類名 (intent=consult は「（返信を希望）」を含まない短い形) */
+	feedbackCategoryConsult: '相談・困りごと',
 	feedbackSubmitButton: '送信する',
 	feedbackSubmittingText: '送信中...',
 	feedbackSuccessConsult: (inquiryId: string) =>
@@ -2726,7 +4352,8 @@ export const SETTINGS_LABELS = {
 	backupConsecutiveFailuresLabel: '連続で失敗した回数: ',
 	backupNotificationMissing:
 		'失敗しても通知が届かない設定です。いま止まっても気づけません (DISCORD_ALERT_WEBHOOK_URL 未設定)。',
-	backupActionHint: 'うまくいっていないときは、下のフォームから相談してください。',
+	// #4667 F6: 実 DOM ではフォームがこのカードより **上** にあるため、方向語が誤っていた。
+	backupActionHint: 'うまくいっていないときは、上のフォームから相談してください。',
 	// #4162: ローテーション保留だけが起きている状態の案内。
 	// **「取れていない」ではなく「片付いていない」**であることが伝わる文言にする。
 	// 汎用の backupActionHint (相談してください) だけだと、必要な行動が分からないまま
@@ -2752,9 +4379,10 @@ export const SETTINGS_LABELS = {
 	accountDeleteSectionTitle: 'アカウント削除',
 	accountDeleteOwnerDesc:
 		'オーナーとしてアカウントを削除すると、家族グループ全体のデータが影響を受けます。',
-	accountDeleteOwnerItem1: '子供のプロフィール・活動記録・ポイント履歴',
+	accountDeleteOwnerItem1: `${CHILD_TERMS.honorific}のプロフィール・活動記録・ポイント履歴`,
 	accountDeleteOwnerItem2: 'アバター画像・音声ファイル',
-	accountDeleteOwnerItem3: '設定・チェックリスト・キャリアプラン',
+	// #4716: 「キャリアプラン」は存在しない機能名だった
+	accountDeleteOwnerItem3: '設定・チェックリスト・おやくそく設定',
 	accountDeleteOwnerItem4: 'メンバーシップ・招待情報',
 	// #4496: 猶予の有無はプランで異なる (無料は 0 日 = 申請と同時に削除) ため、本文で猶予に
 	//   言及しない。プラン別の事実は accountDeleteGraceNotice が述べる (直下に並ぶので、
@@ -2784,6 +4412,30 @@ export const SETTINGS_LABELS = {
 	accountDeleteFullOption: '家族グループを全て削除する',
 	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
 	accountDeleteCancelAction: 'キャンセル',
+	// #4640: 他が子供だけの家族グループでは、オーナーを渡せる相手が居ない。
+	// 空の移譲欄を出して選ばせようとすると退会そのものができなくなるため、
+	// 移譲欄を出さず「なぜ渡せないか」と「残る選択肢」を述べる。
+	accountDeleteNoAdultTitle: '家族グループに他のメンバーがいます',
+	accountDeleteNoAdultDesc: `いま家族グループにいるのは${CHILD_TERMS.honorific}だけです。${CHILD_TERMS.honorific}にオーナーを引き継ぐことはできないため、この家族グループを全て削除して${CANCEL_TERMS.account}します。`,
+	accountDeleteNoAdultHint: `${CHILD_TERMS.honorific}のデータを残したい場合は、いったんこの画面を閉じて、メンバー管理から別の${PARENT_TERMS.honorific}を招待し、その方にオーナーを引き継いでから${CANCEL_TERMS.account}してください。`,
+	// #4512: 退会フローの確認テキスト / ボタン / エラー (旧: settings/account/+page.svelte 直書き)。
+	// 合言葉は入力欄・placeholder・判定の 3 箇所が同じ定数を見るようにする
+	// (data グループの clearConfirmKeyword と同型)。
+	// #4642 整合: 合言葉の値そのものは CANCEL_TERMS.confirmPhrase (atom) が SSOT。
+	// ここで文字列リテラルを複製すると atom を変えても追従せず、確認語と判定がずれる
+	// (DESIGN.md §6「terms.ts atom 値の文字列リテラル直書き複製」禁止)。
+	accountDeleteConfirmKeyword: CANCEL_TERMS.confirmPhrase,
+	accountDeleteConfirmFieldLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
+	accountDeleteTransferPlaceholder: '移譲先を選択...',
+	accountDeleteTransferSubmit: `移譲して${CANCEL_TERMS.account}`,
+	accountDeleteFullSubmit: '全て削除する',
+	accountDeleteSubmit: 'アカウントを削除する',
+	accountDeleteProcessing: '処理中...',
+	accountDeleteInfoFetchFailed: '情報取得に失敗しました',
+	accountDeleteFailed: 'アカウント削除に失敗しました',
+	// おやカギコード変更フォーム
+	oyakagiChangeSubmitting: '変更中...',
+	oyakagiAllFieldsRequired: 'すべてのフィールドを入力してください',
 
 	// ログアウト
 	logoutSectionTitle: 'ログアウト',
@@ -2795,31 +4447,89 @@ export const SETTINGS_LABELS = {
 	hubTitle: '設定',
 	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
-	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
+	// #4661 / #4716: 「おやかぎコード」ひらがな直書きは同一画面のガイド表記 (おやカギコード) と
+	// 揺れていたため atom 参照にする。3 つ目はカード内の見出し (accountDeleteSectionTitle)
+	// と同じ「アカウント削除」に揃える (CANCEL_TERMS.account「退会」はサブスク文脈の語)。
+	groupAccountDesc: `${OYAKAGI_TERMS.name}変更・ログアウト・アカウント削除`,
 	groupActivitiesTitle: '活動・ポイント',
-	groupActivitiesDesc: 'ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ',
+	groupActivitiesDesc: `ステータス減少・ポイント表示・既定の${CHILD_TERMS.honorific}・きょうだいチャレンジ`,
 	groupNotificationsTitle: '通知',
 	groupNotificationsDesc: 'リマインダー・ストリーク警告・サイレント時間帯',
 	groupDataTitle: 'データ',
-	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
+	groupDataDesc: `${BACKUP_TERMS.exportNoun}・クラウド共有・${BACKUP_TERMS.clearAll}`,
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
 	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
 	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
-	groupRulesTitle: 'ごほうび・ボーナスルール',
-	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
-	groupPlanTitle: 'プラン・課金',
+	groupRulesTitle: RULES_TERMS.settingsMenu,
+	// #4666 F6: 一覧の実ボタン (有効化 / 無効化) と同じ語にする。
+	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの 有効化 / 無効化',
+	groupPlanTitle: ADMIN_SCREENS.subscription.name,
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',
 
 	// Danger Zone (#2319 子#2 / #4 GitHub パターン)
-	dangerZoneTitle: '危険な操作 (Danger Zone)',
+	dangerZoneTitle: '危険な操作',
 	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
 	dangerStep1Label: '手順 1: 確認テキストを入力',
 	dangerStep2Label: '手順 2: 同意チェック',
+	// #4642: 確認語そのものは CANCEL_TERMS.confirmPhrase が atom (退会 / 引っ越し合流で共通)。
+	// ここは atom を文に組み立てた compound (ADR-0045 §3.3)。
+	dangerConfirmInputLabel: `確認のため「${CANCEL_TERMS.confirmPhrase}」と入力してください`,
 	dangerStep3Label: '手順 3: 実行ボタン',
-	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
-	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
+	clearDangerConsentLabel: `${BACKUP_TERMS.clearAll}することに同意します`,
+	// #4716 item 15: 画面に直書きされていた顧客可視文言を SSOT へ移す
+	// #4716 item 15: /admin/settings/account と /admin/settings/activities /
+	//   /admin/settings/notifications に直書きされていた顧客可視文言を SSOT へ。
+	//   確認語 / その入力ラベルは #4642 の CANCEL_TERMS.confirmPhrase / dangerConfirmInputLabel が
+	//   SSOT (退会と引っ越し合流で共通)。ここで複製しない。
+	accountInfoFetchError: '情報取得に失敗しました',
+	accountDeleteError: 'アカウント削除に失敗しました',
+	accountTransferSelectPlaceholder: '移譲先を選択...',
+	accountProcessing: '処理中...',
+	accountTransferAndLeave: '移譲して退会',
+	accountDeleteAllButton: '全て削除する',
+	accountDeleteButton: 'アカウントを削除する',
+	decayNoneLabel: 'なし',
+	decayNoneDesc: '減少しません（練習や導入期間向け）',
+	decayGentleLabel: 'ゆるやか',
+	decayGentleDesc: '通常の半分の速度で減少します',
+	decayNormalLabel: 'ふつう',
+	decayNormalDesc: '猶予2日後にゆるやかに減少します',
+	decayStrictLabel: 'きびしめ',
+	decayStrictDesc: '上級者向け。1.5倍の速度で減少します',
+	currencyFieldLabel: '通貨',
+	currencyRateFieldLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
+	currencyRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	// #4716 の「直書き文言を SSOT へ」は、#4664 F8 が同じ 3 語を
+	// notificationReminderTimeLabel / notificationQuietLabel / notificationQuietHint として
+	// 先に置いており (ページガイドと共有)、そちらを画面が参照する。同義キーを 2 組持つと
+	// 片方だけ直して割れるので重複を置かない。
+	// #4512: データクリアの確認テキスト / 実行ボタン。旧実装は画面 (+page.svelte) と
+	// 検証 (+page.server.ts) が '削除' を別々に直書きしており、合言葉を変えると
+	// 「入力しても通らない」状態になり得た。両者が同じ定数を見るようにする。
+	// #4716: 文言側は BACKUP_TERMS に寄せる (「データクリア」は内部語)。
+	clearConfirmKeyword: '削除',
+	clearConfirmFieldLabel: '確認のため「削除」と入力してください',
+	clearConfirmRequired: '確認テキスト「削除」を入力してください',
+	clearAgreeRequired: '同意チェックを入れてください',
+	clearSubmitting: `${BACKUP_TERMS.clearAll}しています…`,
+	clearSubmitButton: BACKUP_TERMS.clearAll,
+	clearFailed: `${BACKUP_TERMS.clearAll}に失敗しました`,
+	// #4524: 同意チェックの文言は猶予 notice (accountDeleteGraceNotice) と **同じ事実**を述べる。
+	//   旧実装はプランに依らない固定文で「元に戻せません」と断定しており、猶予のある有料プラン
+	//   では直上の notice (「N 日間は復元で取り消せます」) と正面から矛盾していた。最も不可逆性の
+	//   高い操作の直前で 2 文が食い違うと、警告全体が信用されなくなる。
+	//
+	//   graceDays が null (プラン未解決) のときに `?? 'free'` 相当へ倒さない: 猶予のある親に
+	//   「元に戻せません」を見せるのは事実と異なる誤誘導になるため、断定しない中立文にする
+	//   (accountDeleteGraceNotice / deletionGraceDays の扱いと同じ、#4517)。
+	accountDeleteDangerConsentLabel: (graceDays: number | null) =>
+		graceDays === null
+			? 'このアカウントを削除することに同意します'
+			: graceDays === 0
+				? 'このアカウントを削除することに同意します（元に戻せません）'
+				: `このアカウントを削除することに同意します（${graceDays} 日以内なら「復元」ボタンで取り消せます）`,
 	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
 	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
 	accountDeleteExportAction: 'データをダウンロード',
@@ -2847,9 +4557,9 @@ export const SETTINGS_NAV_LABELS = {
 	// #4024: 当初は「サブナビは幅が限られる」として短縮形にしたが、**短縮しても 1280px で
 	// サブナビは 2 行に折り返しており、短縮の目的を達成していなかった** (#3996 の SS が反証)。
 	// 折り返しが避けられない以上、同じ画面に名前を 2 つ持つ対価に見合わないため長い名前に統一する。
-	rules: 'ごほうび・ボーナスルール',
+	rules: RULES_TERMS.settingsMenu,
 	support: 'サポート',
-	plan: 'プラン・課金',
+	plan: ADMIN_SCREENS.subscription.name,
 	externalIndicator: '別ページ',
 	externalIndicatorHub: '別ページへ',
 } as const;
@@ -2863,17 +4573,31 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
+// #4540 Q4 (#4619): 解約導線で「記録は残ります」だけを述べると、**無料プランの保持期間を超えた
+// 記録が物理削除される**事実が解約を決める瞬間に見えない (PO 決裁: 顧客に有利に見える方向の
+// 不正確さ)。特商法「解約とデータの取扱い」(LP_LEGAL_TOKUSHOHO_LABELS.tableContent) と同じ 2 文
+// をここで 1 度だけ組み立て、解約導線の各文言が共有する。
+//
+// 数値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS ただ 1 箇所。
+// 本文言は PLAN_RETENTION_TERMS (terms.ts atom) 経由でしか参照せず、日数を直書きしない。
+const FREE_PLAN_RETENTION_NOTICE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
+
 // #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
 // 3 つの告知が同じ事実を語るため、文言をここで 1 度だけ組み立てて共有する
 // (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
 const WRITES_CONTINUE_ASSURANCE = `お子さまの記録はそのまま残り、${PLAN_FULL_TERMS.free}の範囲で記録・ポイント付与を続けられます。`;
 
+// #4585-4: アーカイブされたものが「消えた」のか「戻せる」のかを述べる保証文。
+// `restoreArchivedResources` は 3 reason (体験終了 / 顧客の選択 / 支払い失敗) すべてを復元する
+// (#4585-3) ため、**どの経路でアーカイブされても再契約で戻る**。これを書かないと、実際には
+// 戻せるのに諦める顧客が出る (PO 決裁 4 本目)。解約画面 (`CANCELLATION_LABELS`) と
+// 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) で**同一の文**を共有する。
+const ARCHIVE_RESTORE_ASSURANCE = `アーカイブしたデータは削除しません。再度${SIGNUP_TERMS.canonical}いただくと元に戻せます。`;
+
 export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
 	currentPlan: '現在のプラン',
-	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
-	trialActive: `${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
 	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
 	upgradeCta: `${PLAN_FULL_TERMS.premium}にする`,
 	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
@@ -2921,12 +4645,15 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 
 	// 無料トライアル
 	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
-	trialActiveTitle: `${PLAN_FULL_TERMS.standard} トライアル中`,
+	trialActiveTitle: `${PLAN_FULL_TERMS.premium} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
-	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
+	// #4628: トライアル中にしか出ない文なので期限は必ず具体値。旧 `date ?? ''` は
+	// null のとき日付の無い「 まで」を出す band-aid だった (#4622 の `?? 0` と同一 class)。
+	trialActiveUntil: (date: string) => `${date} まで`,
 	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
-	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
-	trialStartButton: '無料トライアルを開始する',
+	// #4578: トライアルは premium 固定。#4668: ボタン名は TRIAL_TERMS.startButton (atom) が SSOT
+	trialStartDesc: `${PLAN_FULL_TERMS.premium}の全機能を体験できます`,
+	trialStartButton: TRIAL_TERMS.startButton,
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
 
@@ -2934,8 +4661,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 「解約申請中か」「いつまで使えるか」は Stripe が SSOT のため、load で都度取得した値を表示する。
 	cancelPendingTitle: `${CANCEL_TERMS.canonical}手続き中です`,
 	cancelPendingDesc: (date: string) =>
-		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
-	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
+	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。${FREE_PLAN_RETENTION_NOTICE}`,
 	cancelPendingRevertAction: `${CANCEL_TERMS.canonical}を取り消して継続する`,
 	cancelPendingRevertSubmitting: '取り消しています…',
 	cancelPendingRevertError: `${CANCEL_TERMS.canonical}の取り消しに失敗しました。時間をおいて再度お試しください`,
@@ -2949,14 +4676,47 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// と書いてはならない。対応表と検証は `contract-state-view.ts` / 同名 test にある。
 	/** 書き込みが許可されている契約状態の告知に必ず添える保証文 */
 	writesContinueAssurance: WRITES_CONTINUE_ASSURANCE,
+	/**
+	 * 無料プランの保持期間 (特商法と同一の 2 文)。#4540 Q4 の PO 回答 (2026-09-03) により、
+	 * 解約導線の**全状態 (S3 猶予 / S4 停止 / S5 契約終了)** で述べる。「解約したら履歴がいつまで
+	 * 残るか」は解約を決める瞬間に効く情報で、契約が生きているかどうかで出し分ける理由がない。
+	 * 出さないと「消えると思わなかった / 消えると思った」の両方が起きる (#4507 系の齟齬)。
+	 */
+	freePlanRetentionNotice: FREE_PLAN_RETENTION_NOTICE,
 	gracePeriodTitle: '⚠️ 猶予期間中',
-	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}`,
+	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
 	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
-	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
+	// S4 の文言は 3 つの事実を落とさない:
+	//   (a) 保持期間の 2 文は**必ず末尾**。復旧の案内の直前に置くと
+	//       「再契約でも戻りません」→「元に戻ります」が隣り合い、顧客には矛盾に読める
+	//   (b) **S4 では削除は起きていない** (PO 決定 2026-09-04)。`retention-cleanup-service` は
+	//       `isRetainedSuspendedContract` (S4 = suspended かつ subscription あり) のテナントを
+	//       skip する。物理削除が走るのは S5 (契約終了) 以降だけ。よってここを現在形
+	//       (「すでに削除されています」) で書くと、実装が行っていないことを述べることになる
+	//   (c) ただし**表示は絞られる**。`resolvePlanTier` は変えていないので S4 の planTier は
+	//       `free` のままで (`contract-state-matrix.md` §4 の S4 行)、`applyRetentionFilter(free)`
+	//       により無料プランの期間を超えた記録は一覧に出ない。「消えた」と読ませないため、
+	//       見えなくなるだけで削除はされず、復帰すれば再び見えることをここで述べる
+	//   (d) 契約が終了したときに起きることを**猶予があるように書かない**。保持期間の起算は
+	//       レコードの日付であって契約終了日ではない (PO 決定 2026-09-04:「起算を S5 到達日に
+	//       付け替える必要はない」/ `getHistoryCutoffDate` は今日からの相対日数)。したがって
+	//       長く停止していた世帯は、契約終了後**最初の削除処理で、期間を過ぎた分をまとめて**失う。
+	//       「終了したあとは次の保持期間が適用されます」と書くと「終了日から数え直す猶予がある」と
+	//       読ませてしまうため、崖であることをそのまま書く。
+	// 順序: いま何が起きているか → 復旧の案内 → 契約が終わったときに起きること → 保持期間 (末尾)。
+	// S3 (grace_period) は licenseStatus=ACTIVE のまま有料 tier が維持され、表示も絞られないので
+	// (c) の注記は S4 だけに置く。
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}ご契約が残っているあいだ、これまでの記録を削除することはありません。ただし${PLAN_FULL_TERMS.free}と同じ範囲でしか表示されないため、その期間を超えた記録は一時的に見えなくなります。お支払い方法を更新すると有料プランの機能に戻り、見えなくなっていた記録もまた表示されます。ご契約が終了して${PLAN_FULL_TERMS.free}に移ると、そこから数え直すのではなく、すでに保持期間を過ぎている記録は最初の削除処理でまとめて削除されます。${FREE_PLAN_RETENTION_NOTICE}`,
 	/** S5 契約終了 (解約確定) */
 	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
-	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
+	// #4585-4: S5 は**支払い失敗で契約が終わった顧客が着く唯一の画面**でもある。この経路は
+	// 顧客本人が操作していないため解約画面 (#4585-1 の fallback 提示 + 選択 UI) を一度も通らず、
+	// 上限超過分がアーカイブされること (#4585-3 で dunning にも適用) をここでしか知れない。
+	// 「記録はそのまま残り」だけで止めると、超過分が見えなくなった顧客に対して事実と食い違う。
+	// #4540 Q4 (#4621): 移行先 (無料プラン) の保持期間も同じ告知で述べる。アーカイブ (戻せる) と
+	// 保持期間超過による物理削除 (戻せない) は別の事象なので、両方を落とさず並べる。
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}${PLAN_FULL_TERMS.free}の上限を超える分はアーカイブします。${ARCHIVE_RESTORE_ASSURANCE}${FREE_PLAN_RETENTION_NOTICE}`,
 	terminatedTitle: `❌ ${CANCEL_TERMS.account}のお手続きが完了しています`,
 	terminatedDesc: `このアカウントはアカウント${CANCEL_TERMS.account}（アカウント削除）のお手続きが済んでいます。データはご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）のあいだ保持され、その経過後にすべて削除されます。`,
 
@@ -2965,7 +4725,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
 	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
 	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
-	billingHistoryTitle: '請求履歴',
+	billingHistoryTitle: STRIPE_PORTAL_TERMS.history,
 	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
 	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
 	billingHistoryFeatureReceipts: 'お支払い履歴の確認',
@@ -3038,7 +4798,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	standardPlanName: `${PLAN_TERMS.standard}`,
-	standardPlanDesc: `子供無制限・活動無制限・${PLAN_RETENTION_TERMS.standard}保持`,
+	standardPlanDesc: `${CHILD_TERMS.honorific}無制限・活動無制限・${PLAN_RETENTION_TERMS.standard}保持`,
 	standardPriceMonthly: `${PRICE_TERMS.standard}`,
 	standardPerMonth: '/月',
 	// #3208: standardPriceYearly / standardPerYear / standardYearlyMonthlyEquiv は
@@ -3087,7 +4847,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// Churn prevention
 	churnLostItemMonthly: (months: number | string) => `月替わり限定アイテム ${months}個`,
 	churnLostItemTickets: (count: number | string) => `思い出チケット ${count}枚`,
-	churnLostItemBonus: (multiplier: number | string) => `ログインボーナス ×${multiplier}倍`,
+	// #4502 (GAMMA-K2-09): 語彙は #1912 で「毎日のごほうび」に統一済み。解約画面にだけ
+	// 旧語彙が残っていた
+	churnLostItemBonus: (multiplier: number | string) => `毎日のごほうび ×${multiplier}倍`,
 	churnLostItemTitle: (title: string) => `「${title}」称号`,
 	// #4482: 整形は formatRetentionPeriod が SSOT（365 の倍数なら「1年以前」と述べる）。
 	// #4496: 「アクセス」だけだと閲覧できなくなるだけに読めるが、実装 (retention-cleanup-service) は
@@ -3103,7 +4865,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	demoCurrentPlanTitle: '現在のプラン（デモ）',
 	demoPlanUsageTitle: 'プラン利用状況',
 	demoPlanUsageActivity: 'カスタム活動',
-	demoPlanUsageChildren: 'こども',
+	demoPlanUsageChildren: `${CHILD_TERMS.honorific}`,
 	demoPlanUsageRetention: 'データ保持',
 	demoPlanUsageRetentionValue: (days: number | null) => (days === null ? '無制限' : `${days}日間`),
 	demoPlanUsageMaxValue: (max: number | null) => (max === null ? '無制限' : String(max)),
@@ -3164,39 +4926,6 @@ export const CHECKOUT_RECONCILIATION_LABELS = {
 export const LICENSE_PAGE_LABELS = SUBSCRIPTION_PAGE_LABELS;
 
 // ============================================================
-// UPGRADE_FLOW_LABELS — アップグレード動線 4 段階 funnel (Phase 4 #2624 / Phase 7 PR-2b)
-// ============================================================
-//
-// Phase 4 #2624 §4.2 SSOT 配置確定 + Phase 5 子 5 #2656 §4.2 配置 (LICENSE_PAGE_LABELS 直後)。
-// `/admin/subscription/confirm` 上部 context-passing 文言 (`?from=...` クエリ別)。
-//
-// 設計意図:
-//   - gate → subscription → /confirm → Checkout の 4 段階 conversion funnel で
-//     `?from=feature-gate&feature=<id>` / `?from=trial-end` / `?from=header-badge` / `?from=banner` の
-//     context-passing を /confirm 上部 1 行 context line として表示 (Phase 4 #2624 §3.3)
-//   - 補強 PR #2684 (代替案 D): アップは即時実行 + `proration_behavior='always_invoice'` の
-//     業界収束パターン (Slack / Notion / Atlassian / Linear) を採用、本 compound は context 表示のみ
-//
-// 関連 ADR:
-//   - ADR-0045 (terms.ts 2 階層): atom (PLAN_FULL_TERMS / FEATURE_LABELS) を `${...}` 経由参照
-//   - ADR-0012 (Anti-engagement): 煽り回避「what happens when clicked」原則 (Kinde 整合)
-
-export const UPGRADE_FLOW_LABELS = {
-	// ?from=feature-gate&feature=<id> 経由 (Phase 3 #2570 gate → /confirm 動線)
-	contextFromFeatureGate: (featureLabel: string, tierLabel: string) =>
-		`${featureLabel} を解放するため ${tierLabel} にアップグレードします`,
-	// ?from=trial-end 経由 (Phase 4 #2622 trial→paywall 動線)
-	contextFromTrialEnd: (tierLabel: string) =>
-		`体験は終了しました。継続される場合は ${tierLabel} へアップグレードしてください`,
-	// ?from=header-badge 経由 (Phase 3 #2568 plan-badge → /confirm 動線、context なし標準表示)
-	contextFromHeaderBadge: '',
-	// ?from=banner 経由 (上限到達 banner → /confirm 動線、Phase 3 #2572 連動)
-	contextFromBanner: (tierLabel: string) => `上限到達のため ${tierLabel} へアップグレードします`,
-	// ?from パラメータ非該当時のフォールバック (任意の値が来た場合の安全表示)
-	contextFallback: '',
-} as const;
-
-// ============================================================
 // NUC_LICENSE_LABELS — NUC セルフホスト版 license panel (EPIC #2327 / #2329)
 // ============================================================
 //
@@ -3214,7 +4943,7 @@ export const NUC_LICENSE_LABELS = {
 
 	// 利用状況セクション
 	usageTitle: 'ご家族の利用状況',
-	usageChildrenLabel: 'こども',
+	usageChildrenLabel: `${CHILD_TERMS.honorific}`,
 	usageChildrenUnit: (count: number) => `${count} 人`,
 	usageActivitiesLabel: 'カスタム活動',
 	usageActivitiesValue: (count: number) => `${count} 件 (${NUC_EDITION_TERMS.unlimited})`,
@@ -3229,10 +4958,15 @@ export const NUC_LICENSE_LABELS = {
 } as const;
 
 export const REPORTS_LABELS = {
+	// #4512: カテゴリ名は categories.ts (SSOT) から引く。ここに持つのは
+	//   「SSOT に無い id が来たとき」の表示だけ (旧実装は 5 カテゴリを漢字で並行実装していた)
+	categoryUnknown: 'その他',
 	// ページヘッダー
-	pageTitle: '📊 レポート',
-	certificatesLink: '📜 証明書',
-	growthBookLink: '📖 記録ブック',
+	pageTitle: adminScreenHeading('reports'),
+	// #4715: 着地先の画面名 (registry SSOT) をそのまま出す。旧「証明書」「記録ブック」は
+	//   同じ画面の短縮別名で、着地先の title / 見出しと一致していなかった。
+	certificatesLink: adminScreenHeading('certificates'),
+	growthBookLink: adminScreenHeading('growthBook'),
 
 	// 設定更新完了
 	settingsUpdated: '設定を更新しました',
@@ -3253,8 +4987,15 @@ export const REPORTS_LABELS = {
 	monthlyChildReport: (childName: string) => `${childName}の がんばりレポート`,
 	monthlyActivityLabel: '活動',
 	monthlyActivityUnit: '回',
+	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (子供画面の所持ポイントと同じ単位)。
+	// 旧実装は XP 累計を出しており、どの月でも同じ数 = 先月比が常に ±0 だった。
 	monthlyPointsLabel: 'ポイント',
 	monthlyPointsUnit: 'pt',
+	monthlyPointsHint: '今月ためた分',
+	// #4697: XP は「ポイント」と別の量 (消費されない成長の累計)。名前を分けて併記する。
+	monthlyXpLabel: 'つよさ (XP)',
+	monthlyXpUnit: 'XP',
+	monthlyXpHint: 'これまでの合計',
 	monthlyLevelLabel: 'レベル',
 	monthlyStreakLabel: '連続',
 	monthlyStreakUnit: '日',
@@ -3273,6 +5014,10 @@ export const REPORTS_LABELS = {
 	weeklySettingsUpgradeNote: 'スタンダードプラン以上でメール配信設定を変更できます',
 	weeklySettingsEnableLabel: '週次レポートを有効にする',
 	weeklySettingsDayLabel: '配信曜日',
+	// #4512: 配信曜日セレクトの表示名。旧実装は +page.svelte で 7 曜日を別に列挙していた
+	// (WEEKDAY_TERMS atom の直書き複製、ADR-0045 §3.3)。
+	weeklySettingsDayNames: WEEKDAY_TERMS as Record<string, string>,
+	weeklySettingsDayInvalid: '無効な曜日です',
 	weeklySettingsSave: '保存',
 
 	// 週次レポート - 空状態
@@ -3349,15 +5094,34 @@ export const OPS_LABELS = {
 	planColPlan: 'プラン',
 	planColTenants: 'テナント数',
 	planColMrr: 'MRR 概算',
-	planMonthly: `月額 (${PRICE_TERMS.standard}/月)`,
-	planYearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
-	// #4505: プレミアム (legacy family monthly/yearly 含む) は集計済みでも描画行が無く
-	// テナントが不可視だった。他行と同じ表記形式 + terms.ts 単価 atom 参照で追加する。
-	planPremiumMonthly: `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
-	planPremiumYearly: `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
-	planLifetime: 'ライフタイム',
+	/** プラン未設定の行 (#4505)。サインアップ直後 / トライアル中の**正常な**状態。 */
 	planNone: '未設定（トライアル等）',
+	/**
+	 * プランは設定されているのにプラン集合に無い値だった行 (#4505)。
+	 *
+	 * 正常なら常に 0。1 以上ならプラン値の書き手がずれている合図なので、未設定と**同じ行に
+	 * まとめない**（まとめると「トライアルが少し増えただけ」に見えて異常が埋もれる）。
+	 */
+	planUnknown: '不明なプラン値（要確認）',
 	planTotalMrr: '合計 MRR',
+	/** 月次経常収益を生まない行 (買い切り / プラン未設定) の MRR 欄。 */
+	planMrrNone: '-',
+	/**
+	 * プラン値 → 行ラベル (#4505)。
+	 *
+	 * 画面はこの表を引いて行を組み立てるため、**プランが増えたら型で表の追加が要求される**
+	 * (`Record<SubscriptionPlan, string>`)。旧実装のように行を手で並べると、追加したプランが
+	 * 画面から抜けても誰も気づかない (プレミアムのテナントが不可視だった原因)。
+	 * 行ごとの個別 key (旧 `planMonthly` / `planPremiumMonthly` 等) は本表に統合済み — key を
+	 * 増やす形に戻すと、プラン追加時に型が何も要求しなくなる。
+	 */
+	planRowLabels: {
+		monthly: `月額 (${PRICE_TERMS.standard}/月)`,
+		yearly: `年額 (${PRICE_TERMS.standardYearly}/年)`,
+		'family-monthly': `${PLAN_TERMS.premium}月額 (${PRICE_TERMS.family}/月)`,
+		'family-yearly': `${PLAN_TERMS.premium}年額 (${PRICE_TERMS.familyYearly}/年)`,
+		lifetime: 'ライフタイム',
+	} satisfies Record<SubscriptionPlan, string>,
 
 	// 価格見直しトリガー
 	triggerTitle: '価格見直しトリガー',
@@ -3417,21 +5181,27 @@ export const OPS_LABELS = {
 
 export const POINTS_LABELS = {
 	// ページヘッダー
-	pageTitle: '⭐ ポイント',
+	pageTitle: adminScreenHeading('points'),
 	displaySetting: (isCurrencyMode: boolean, currency: string) =>
 		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
 
 	// 残高カード
-	convertableLabel: (amount: string) => `変換可能: ${amount}`,
+	// #4716: 旧「変換可能: 0P」は「かんたん」タブ (単位切り上げ) だけの値なのに、
+	//   同じ画面の「自由入力」タブでは 1P から変換できるため矛盾して読めた。
+	//   どちらのタブの話かを名前に入れる (語自体は POINTS_ADMIN_TERMS.convertable が SSOT。
+	//   #4658 のページガイドも同じ atom を読むので、カードとガイドの呼称が割れない)。
+	convertableLabel: (amount: string) => `${POINTS_ADMIN_TERMS.convertable}: ${amount}`,
 
 	// 変換フォーム
-	convertFormTitle: (childName: string) => `${childName}のおこづかいにかえる`,
+	// #4716: 同じ画面に「変換可能」「変換P数」(漢字) が並ぶのに見出しだけひらがなだった。
+	//   ここは保護者しか見ない画面なので漢字に揃える。
+	convertFormTitle: (childName: string) => `${childName}のおこづかいに変換する`,
 	currencyModeHint: '💡 変換した金額を実際にお子さまへお渡しください',
 
 	// モードタブ
-	tabPreset: 'かんたん',
-	tabManual: '自由入力',
-	tabReceipt: '領収書',
+	tabPreset: POINTS_ADMIN_TERMS.tabPreset,
+	tabManual: POINTS_ADMIN_TERMS.tabManual,
+	tabReceipt: POINTS_ADMIN_TERMS.tabReceipt,
 
 	// プリセットモード
 	presetLabel: (unit: string, minAmount: string) => `変換${unit}数（${minAmount}単位）`,
@@ -3445,7 +5215,7 @@ export const POINTS_LABELS = {
 	manualHintCurrency: (current: string) => `残高: ${current}`,
 	manualHintPoints: (current: string) => `1P = 1円 / 残高: ${current}`,
 	manualPlaceholder: '金額を入力',
-	manualMaxButton: '全額変換',
+	manualMaxButton: POINTS_ADMIN_TERMS.maxButton,
 
 	// 領収書モード
 	// #3694: OCR 画像は base64 JSON body で送るため、AWS 本番は Function URL 6MB request cap に
@@ -3468,6 +5238,21 @@ export const POINTS_LABELS = {
 	receiptConfirmButton: 'この金額で変換する',
 	receiptConfirmedLabel: '金額確定済み',
 	receiptRetakeOtherButton: '別の領収書を撮影する',
+	// #4512: OCR 呼び出しの失敗表示 (旧: +page.svelte 直書き)。
+	// receiptScanFailed は API が error.message を返さなかったときの fallback。
+	// PO 決裁 2026-09-10 決定 5: 1 世帯あたりの読み取り回数の上限に達したときの文言。
+	// **アップグレード導線を出さない** — 上限は売った機能の制限ではなく、連打・誤操作で
+	// ベンダーコストが青天井になるのを止める線なので、上位プランでも外れない。
+	receiptQuotaExceeded: '今日はここまでです。明日またお使いいただけます',
+	receiptScanFailed: '読み取りに失敗しました',
+	receiptNetworkError: '通信エラーが発生しました',
+	// #4512: convert action の validation / service エラー表示 (旧: +page.server.ts 直書き)
+	convertInputInvalid: '入力が不正です',
+	convertAmountNotInteger: `${POINT_TERMS.unitFull}は整数で入力してください`,
+	convertPresetUnit: `${POINT_TERMS.unitFull}は500単位で変換できます`,
+	convertChildNotFound: `${CHILD_TERMS.honorific}が見つかりません`,
+	convertInsufficientPoints: `${POINT_TERMS.unitFull}が足りません`,
+	convertInvalidAmount: '金額が不正です',
 	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
 	//
@@ -3514,12 +5299,12 @@ export const POINTS_LABELS = {
 	resultBalance: (balance: string) => `残高: ${balance}`,
 
 	// 変換履歴
-	historyTitle: 'おこづかい変換りれき',
+	historyTitle: POINTS_ADMIN_TERMS.historyTitle,
 	historySummaryThisMonth: '今月の合計',
 	historySummaryAllTime: '累計',
-	historyFilterThisMonth: '今月',
-	historyFilterLastMonth: '先月',
-	historyFilterAll: '全期間',
+	historyFilterThisMonth: POINTS_ADMIN_TERMS.historyFilterThisMonth,
+	historyFilterLastMonth: POINTS_ADMIN_TERMS.historyFilterLastMonth,
+	historyFilterAll: POINTS_ADMIN_TERMS.historyFilterAll,
 	historyEmpty: 'この期間の変換履歴はありません',
 } as const;
 
@@ -3561,22 +5346,20 @@ export const SIGNUP_LABELS = {
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
 	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
 	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
-	crossBorderNotice:
-		'本サービスは AWS（米国バージニア北部）/ Stripe / Google の各データセンターを利用し、お預かりするデータをサービス提供のためだけに保存・処理します。',
-	crossBorderNoNoUse: '広告利用・第三者への販売・機械学習への流用はありません。',
+	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
 	crossBorderAgreePrefix:
 		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
 	crossBorderAgreeLink: '詳細',
 	crossBorderAgreeSuffix: '）',
 	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
-	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
+	parentalConsentNote: `※ 本サービスは${CHILD_TERMS.honorific}のデータを扱います。保護者として上記に同意してください。`,
 	submitLoading: '登録中...',
 	submitWithTrial: `${TRIAL_TERMS.duration} 無料体験をはじめる`,
 	submitFree: '無料ではじめる',
-	trialPlanNote: (planName: string) =>
-		`セットアップ後に ${planName}プランのトライアルが開始されます`,
-	trialPlanStandard: PLAN_TERMS.standard,
-	trialPlanFamily: PLAN_TERMS.premium,
+	// #4501: トライアルは常に premium tier (FR-2)。プラン名を差し込む形だと
+	// 「standard のトライアル」と読めてしまい、実挙動 (全機能開放) と食い違う。
+	trialPlanNote: `セットアップ後に${PLAN_FULL_TERMS.premium}のトライアルが開始され、${TRIAL_TERMS.duration}すべての有料機能をお試しいただけます`,
 	loginLink: '既にアカウントをお持ちの方はこちら',
 	legalNote: '有料プランをご利用の前に',
 	legalTokushoho: '特定商取引法に基づく表記',
@@ -3592,6 +5375,17 @@ export const SIGNUP_LABELS = {
 	blockTermsRequired: '利用規約への同意が必要です',
 	blockPrivacyRequired: 'プライバシーポリシーへの同意が必要です',
 	blockCrossBorderRequired: '米国への個人データ移転への同意が必要です',
+
+	// #4497 rider: signup server action のエラー文言。
+	// 旧実装は +page.server.ts に直書きで、うち 1 件は上の passwordMismatchError と同一文言の
+	// 重複定義だった。重複分はここに再定義せず、server 側から passwordMismatchError を参照する。
+	errors: {
+		consentRequired: '利用規約・プライバシーポリシー・データの保存/処理への同意が必要です',
+		allFieldsRequired: '全ての項目を入力してください',
+		passwordTooShort: 'パスワードは8文字以上で入力してください',
+		emailMissing: 'メールアドレスが指定されていません',
+		codeRequired: '確認コードを入力してください',
+	},
 } as const;
 
 // ANALYTICS_LABELS: 削除 (#2284 EPIC #2283)
@@ -3654,53 +5448,38 @@ export const BILLING_LABELS = {
 } as const;
 
 // ============================================================
-// IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS — 即時ダウン + Stripe credit memo banner (Phase 3 #2574 + 補強 PR #2684 / Phase 7 PR-2b)
+// ARCHIVED_RESOURCE_LABELS — 無料プランの上限で archive 中のリソースの告知 / 一覧 (#4708)
 // ============================================================
 //
-// **命名変更履歴 (補強 PR #2684、代替案 D 採用)**:
-//   旧名: SCHEDULED_DOWNGRADE_BANNER_LABELS (Phase 3 #2574 当初設計、期末ダウン予約 3 variant banner)
-//   新名: IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (本 PR、代替案 D で命名整合)
-//
-// 命名変更理由 (補強 PR #2684 / 代替案 D):
-//   PO 手動検証 (2026-05-30) で Stripe Dashboard が「同一 Product 内 2 Price を Customer Portal
-//   `subscription_update.products` 配列に登録不可」と判明 → 1 Product 2 Price 案は破棄、
-//   **2 Product 各 1 Price + ダウン即時 + Stripe `proration_behavior='always_invoice'`** の
-//   業界収束パターン (Slack / Notion / Atlassian / Linear 等 50% SaaS 採用) に変更。
-//   Subscription Schedule API は別 Product 間で機能しないため不使用、ダウンは即時実行 + 未消費期間が
-//   credit memo として自動発行 → 次回 invoice で控除される。よって旧「期末ダウン予約残日数 banner」は
-//   scope 外となり、本 compound は「ダウン即時実行済 + credit memo 残高表示」に再設計。
-//
-// 想定リスク R8 (補強 PR #2684 / phase6-rollback-and-kill-switches.md §3.8) 対処:
-//   「顧客が credit 残高を `/admin/subscription` で確認できない → 信頼毀損」を回避するため、
-//   本 banner で「ダウン即時実行済 + 次回 invoice で ¥X 自動控除見込み」を可視化する。
-//
-// 設計意図:
-//   - ダウン即時完了直後の透明性 (credit memo 発行額 + 次回控除見込みを 1 文で伝達)
-//   - 顧客が「ダウンしたのに金が戻らない」と認識するインシデント (R8) の構造的予防
-//   - ADR-0012 煽り回避: 「失う / 消える / 使えなくなる」atom を含めず、事実説明 + 復活可能性のみ
-//
-// 関連 ADR:
-//   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
-//   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
-//   - kill switch (`USE_LOOKUP_KEY`) で Price 解決経路を切替可能、本 compound は両経路で使用
-//     (webhook shadow mode の kill switch は #4128 で撤去済)
-
-export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
-	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)
-	completedTitle: (targetPlan: string) => `${targetPlan} に切り替わりました`,
-	// credit memo 残高 + 次回控除見込みの透明性 (R8 対処の核、Phase 3 hybrid confirm UI 連動)
-	creditBalanceLine: (creditAmount: string, nextInvoiceDate: string) =>
-		`未消費期間分の ${creditAmount} は、次回ご請求 (${nextInvoiceDate}) で自動的に差し引かれます`,
-	// アーカイブ予告 (Phase 3 #2575 archived listing と機能領域として隣接)
-	archiveNotice: (childCount: number, activityCount: number) =>
-		`お子さま ${childCount} 人 ・ 活動 ${activityCount} 件は${PLAN_CHANGE_TERMS.archiveVerb}が、上位プランで再開すればすぐ${PLAN_CHANGE_TERMS.restore}できます`,
-	// 復活 CTA (アップグレード動線への bridge、Phase 4 #2624 UPGRADE_FLOW_LABELS と隣接)
-	ctaReactivate: (sourcePlan: string) => `${sourcePlan} に戻す`,
-	ctaReactivateAria: `${PLAN_CHANGE_TERMS.changeVerb}でアップグレードして元のプランに戻る`,
-	// 請求履歴詳細リンク (BILLING_LABELS と機能領域として隣接、credit memo 詳細表示)
-	viewBillingHistoryLink: 'ご請求履歴で credit memo を確認する',
-	// banner dismiss (session storage 経由、再表示は次セッション、ADR-0012 連続演出回避)
-	dismissAriaLabel: 'バナーを閉じる',
+// トライアル終了 / 解約 / 支払い失敗で無料プランに戻ったとき、上限を超えるお子さま / 活動 /
+// チェックリストは archive (一時非表示) される。FAQ / pricing は「削除されず、管理画面で確認でき、
+// 有料プランで元に戻る」と約束しているので、その 3 点を画面で成立させる文言。
+//   - banner: admin 全画面の本文上部 (TrialBanner と同階層、flow、CTA 以外はタップ不可)
+//   - listing: /admin/children の archive 一覧 (読み取り専用、復元操作は置かない)
+// ADR-0012: 「失う / 消える」を使わず、事実 (非表示) + 復元可能性のみ。煽り CTA は置かない。
+export const ARCHIVED_RESOURCE_LABELS = {
+	// banner
+	bannerTitle: (breakdown: string) => `${breakdown}が非表示になっています`,
+	bannerDesc: `${PLAN_FULL_TERMS.free}の上限を超えた分を一時的に${PLAN_CHANGE_TERMS.archive}しています。データは削除されません。有料プランにすると自動で元に戻ります。`,
+	/** 件数の内訳。0 件の資源は省略 (例: 活動のみなら「活動 5 件」) */
+	breakdown: (c: { children: number; activities: number; checklists: number }) =>
+		[
+			c.children > 0 ? `${CHILD_TERMS.honorific} ${c.children}人` : null,
+			c.activities > 0 ? `活動 ${c.activities}件` : null,
+			c.checklists > 0 ? `チェックリスト ${c.checklists}件` : null,
+		]
+			.filter((x): x is string => x !== null)
+			.join(' / '),
+	bannerCta: ACTION_LABELS.viewPlans,
+	bannerListLink: `非表示の${CHILD_TERMS.honorific}を見る`,
+	// /admin/children の archive 一覧 (読み取り専用)
+	childrenSectionTitle: `非表示になっている${CHILD_TERMS.honorific}`,
+	/** 一覧見出し + 件数 (「非表示になっているお子さま（2）」) */
+	childrenSectionTitleWithCount: (count: number) =>
+		`非表示になっている${CHILD_TERMS.honorific}（${count}）`,
+	childrenSectionDesc: `${PLAN_FULL_TERMS.free}の上限を超えたため一時的に非表示になっています。記録・編集はできませんが、データは残っています。有料プランにすると自動で表示に戻ります。`,
+	childrenSectionReadOnlyTag: '非表示中',
+	childrenSectionCta: ACTION_LABELS.viewPlans,
 } as const;
 
 // ============================================================
@@ -3761,6 +5540,9 @@ export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
 	CANCELLATION_CATEGORY.PAUSE,
 ];
 
+/** #4585-1: 「選ばずに進めた場合」の見出し。同一画面の複数箇所から参照するため 1 箇所に置く */
+const ARCHIVE_FALLBACK_HEADING = '選ばずに進めた場合';
+
 export const CANCELLATION_LABELS = {
 	pageHeading: '解約手続き',
 	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
@@ -3776,8 +5558,7 @@ export const CANCELLATION_LABELS = {
 
 	// 3 categories - radio button options
 	categoryGraduationLabel: '卒業',
-	categoryGraduationHint:
-		'子供が自分で計画できるようになった・がんばりクエストを使う必要がなくなった',
+	categoryGraduationHint: `${CHILD_TERMS.honorific}が自分で計画できるようになった・がんばりクエストを使う必要がなくなった`,
 	categoryChurnLabel: '離反',
 	categoryChurnHint: '機能が合わない・期待と違った',
 	categoryPauseLabel: '中断',
@@ -3790,7 +5571,20 @@ export const CANCELLATION_LABELS = {
 	//   旧 paidPlanNotice は「決済停止を行います」だけで、期末まで使えることと日割り返金が
 	//   ないことを手続き前に示していなかった (#3991 期末解約モデルの不告知)。
 	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中のため、お支払いは発生しておらず${CANCEL_TERMS.canonical}のお手続きは必要ありません。データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。差し支えなければ、その前に理由をお聞かせください。`,
-	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。次回以降の請求は発生しません。`,
+	// #4585-1 QM: 体験中の顧客は「請求は無い」が「無料プランの上限でもない」。freePlanNotice を
+	// そのまま出すと、同じ画面で「無料プランをご利用中」と「無料プランに戻ると」が並び、
+	// 前者が事実でないまま矛盾する (実測: 体験中アカウントの解約画面)。
+	//   #4540 Q4: 体験中の顧客も手続き後は無料プランに戻るため、保持期間の告知対象に含める。
+	trialPlanNotice: `お支払いは発生していないため、請求を止めるお手続きは必要ありません。ただし、いまは有料プランと同じ上限でご利用いただいているため、${PLAN_FULL_TERMS.free}に戻ると上限を超える分の扱いが決まります。${FREE_PLAN_RETENTION_NOTICE}データを消したい場合はアカウント${CANCEL_TERMS.account}（設定 > アカウント削除）が別途必要です。`,
+	// #4709: 「記録の書き出しは請求期間の終了日まで」を解約を決める画面でも述べる。
+	//   `/api/v1/export` は canExport gate で無料プランを 403 にするため、期間終了後は
+	//   退会画面の最小エクスポート (#4472) しか持ち出し手段が残らない。
+	//   #4540 Q4: 「お子さまの記録は残ります」だけで終えると、無料プランの保持期間を超えた記録が
+	//   物理削除される事実が解約を決める瞬間に見えない (顧客に有利に見える方向の不正確さ)。
+	//   保持期間は FREE_PLAN_RETENTION_NOTICE (= 特商法と同一文) を共有し、日数は直書きしない。
+	//   保持期間の告知 (残る記録がいつまで残るか) と持ち出し期限 (いつまで書き出せるか) は
+	//   別の論点なので併記する。
+	paidPlanNotice: `${CANCEL_TERMS.canonical}のお手続きを進めても、現在の請求期間の終了日までは有料プランをそのままご利用いただけます（日割り計算による返金はありません）。期間の終了後は${PLAN_FULL_TERMS.free}へ切り替わり、お子さまの記録は残ります。${FREE_PLAN_RETENTION_NOTICE}次回以降の請求は発生しません。記録の書き出し（エクスポート）は請求期間の終了日までのご利用となり、${PLAN_FULL_TERMS.free}へ切り替わったあとは、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。`,
 
 	// Submit
 	submitButton: '解約手続きへ進む',
@@ -3822,6 +5616,33 @@ export const CANCELLATION_LABELS = {
 	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
 	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
 	portalSupportLink: 'サポート窓口に連絡する',
+
+	// #4525: 有料プランだが Stripe 契約が紐づいていない異常状態。この画面から
+	//   ${STRIPE_PORTAL_TERMS.canonical} を開けないため、フォームを送っても解約は完了しない。
+	//   「お手続きは必要ありません」(freePlanNotice) を出すと課金が続いたまま放置される。
+	//   再試行しても直らない状態なので、最初からサポート窓口へ案内する (#4548 と同じ判断)。
+	paidWithoutStripeNotice: `ご契約の状態を確認できませんでした。この画面からは${CANCEL_TERMS.canonical}のお手続きを完了できません。お手数ですが、「設定 > サポート」からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+
+	// #4585-1: 解約フローも「どの記録を残すか」の選択 UI に合流させる (PO 決裁 = 案 A)。
+	// #4585-3: fallback 規則を子供だけ「直近の利用順」に変更 (PO 決裁 Q1 / Q3)。
+	// 顧客に伝えるのは「お子さまは最近記録がある方を残す」ところまで。活動・チェックリストの
+	// 並び順 (登録順) までは書かない — 復元でき、かつ選択 UI で顧客自身が選べるため。
+	archiveFallbackHeading: ARCHIVE_FALLBACK_HEADING,
+	archiveFallbackRule: (maxChildren: number, maxActivities: number, maxChecklists: number) =>
+		`${PLAN_FULL_TERMS.free}に戻ると、${CHILD_TERMS.neutral}は${maxChildren}人・活動は${maxActivities}個・チェックリストは${CHILD_TERMS.neutral}1人あたり${maxChecklists}個までになります。残すものを選ばないまま手続きが完了した場合は、この数だけ残して超えた分をアーカイブします。${CHILD_TERMS.honorific}は、最近記録がある${CHILD_TERMS.honorific}から順に残します。`,
+	// #4585-4: 契約終了の告知 (`SUBSCRIPTION_PAGE_LABELS.cancelledDesc`) と同一文を共有する。
+	// 解約画面を通る顧客と通らない顧客 (支払い失敗) で「戻せるかどうか」の説明を分けない。
+	archiveFallbackRestore: ARCHIVE_RESTORE_ASSURANCE,
+	selectionButton: '残すデータを選ぶ',
+	selectionLoading: '確認しています…',
+	selectionUnavailable: `残すデータの選択画面を開けませんでした。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。もう一度お試しになる場合は下のボタンから、このまま進める場合は送信ボタンを押してください。`,
+	// #4585-1 QM: 選択ダイアログを閉じた顧客の出口。確定ボタンは超過分を選ぶまで押せないため、
+	// 「どれも手放したくない」顧客の唯一の操作が「閉じる」になる。ここで手続きを再開できないと
+	// 解約そのものが行き止まりになる (#4329 / #4548 / #4560 と同じ class)。
+	selectionSkipped: `残すデータを選ばずに閉じました。このまま${CANCEL_TERMS.canonical}のお手続きを続けると、「${ARCHIVE_FALLBACK_HEADING}」の扱いになります。選び直すこともできます。`,
+	// #4585-1 QM: 閉じた / 取得に失敗した顧客が選択に戻る唯一の導線。これが無いと、
+	// 誤って閉じた 1 クリックで「自分で選ぶ」機会を恒久的に失う (子供の記録は取り返しが難しい)。
+	selectionReopen: '残すデータを選び直す',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
@@ -4176,6 +5997,16 @@ export const CHILD_HOME_LABELS = {
 	resultMasteryLevelUp: (name: string, level: number | string) =>
 		`🎖️ ${name}が Lv.${level} になった！`,
 	resultComboCategoryCombo: (name: string, catName: string) => `${name}コンボ！（${catName}）`,
+	/**
+	 * #4686: コンボは tier 名を「状態」として出し、金額は今回の純増 (台帳増分) だけを出す。
+	 * tier 満額を毎回出すと同日 2 回目以降に「ダイアログの合計 ≠ 残高の増分」になるため。
+	 */
+	resultComboCategoryState: (name: string, catName: string) =>
+		`${name}コンボ たっせい中（${catName}）`,
+	resultComboCrossState: (name: string) => `${name}！ たっせい中`,
+	resultComboNewBonus: 'コンボボーナス',
+	/** #4686: フォーカスモード おすすめ 3 件全完了ボーナス (台帳 type=focus_bonus) の結果ダイアログ表記 */
+	resultFocusBonus: '🎯 きょうのクエスト コンプリート！',
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
@@ -4206,56 +6037,65 @@ export const CHILD_HOME_LABELS = {
 		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
 } as const;
 
-export const DEMO_SIGNUP_LABELS = {
-	// Hero section
-	heroTitle: 'デモ体験ありがとうございます！',
-	heroDesc1: 'お子さまの「がんばり」を',
-	heroDesc2: '冒険に変えてみませんか？',
+/**
+ * 子供ホームの文言セット。値の型は `string` / 関数に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+type ChildHomeLabels = {
+	readonly [K in keyof typeof CHILD_HOME_LABELS]: (typeof CHILD_HOME_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_HOME_LABELS)[K];
+};
 
-	// Primary CTA card
-	trialHeading: '7日間の無料トライアル',
-	trialSubheading: 'クレジットカード登録不要で今すぐ始められます',
-	ctaStartFree: '無料で はじめる',
-	ctaCancelNote: `いつでも${CANCEL_TERMS.canonical}OK・違約金なし`,
+/**
+ * #4690 F6: 子供ホームの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯を持たず、高校生の画面にも記録ダイアログ「きろくする？ / きろく！ /
+ * やめる」、結果「やったね！ / けいけんち / きょう 1かいめ！」、「⭐ おやくそく」が
+ * 出ていた (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_HOME_KANJI_OVERRIDES = {
+	completedAriaLabel: (name: string) => `${name}（記録済み）`,
+	pinActionUnpin: '📌 ピン留めを外す',
+	pinActionPin: '📌 ピン留めする',
+	pinCloseButton: '閉じる',
+	confirmTitle: (name: string) => `${name}を
+記録する？`,
+	confirmTitleBr: (name: string) => `${name}を`,
+	confirmTitleBrLine2: '記録する？',
+	confirmCancelButton: 'キャンセル',
+	confirmSubmitLoading: '記録中…',
+	confirmSubmitButton: '記録する',
+	resultCancelledTitle: '取り消しました',
+	resultCancelledClose: '閉じる',
+	resultFirstRecord: '🌟 はじめの一歩！ 🌟',
+	resultActivityRecorded: (name: string) => `${name}を記録しました`,
+	resultStreakBonus: (days: number | string, bonus: number | string) =>
+		`${days}日連続！ +${bonus}ボーナス`,
+	resultMasteryBonus: (bonus: number | string, level: number | string) =>
+		`📗 熟練ボーナス +${bonus} (Lv.${level})`,
+	resultMasteryLevelUp: (name: string, level: number | string) =>
+		`🎖️ ${name}が Lv.${level} になりました`,
+	resultXpLabel: '経験値',
+	siblingUnknownName: 'きょうだい',
+	resultMissionComplete: '🎯 ミッション達成！',
+	resultMissionAllClear: '🎉 すべてクリア！',
+	resultTodayCount: (n: number | string) => `今日 ${n}回目`,
+	resultCancelButton: (sec: number | string) => `取り消し (${sec}s)`,
+	resultConfirmButton: 'OK',
+	mustRemaining: (n: number | string) => `あと ${n}件`,
+	mustAllComplete: 'すべて達成',
+	// #4841: 読み上げ文だけ「ぜんぶできた」が残り、表示 (すべて達成) と文体が割れていた
+	mustBonusGrantedAriaLabel: (pts: number | string) =>
+		`今日のおやくそく すべて達成 ボーナス ${pts}ポイント`,
+} as const satisfies Partial<ChildHomeLabels>;
 
-	// Value propositions
-	featuresHeading: 'がんばりクエストでできること',
-	feature1Title: 'お子さまの名前で記録',
-	feature1Desc: 'デモでは保存されませんが、本番ではすべて安全に保存されます',
-	feature2Title: '成長の可視化',
-	feature2Desc: '月次レポートでお子さまの成長傾向をレーダーチャートで確認',
-	feature3Title: 'デイリーミッション',
-	feature3Desc: '毎日の目標で「続ける力」を自然に育てます',
-	feature4Title: '家族みんなで管理',
-	feature4Desc: 'きょうだいをまとめて管理。家族メンバーの招待も可能',
-	feature5Title: '安心・安全',
-	feature5Desc: 'PIN認証で子供のデータを保護。広告なし・データ販売なし',
-
-	// Pricing summary
-	pricingHeading: '料金プラン',
-	pricingFreeLabel: 'フリー',
-	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
-	pricingStandardLabel: `${PLAN_TERMS.standard}`,
-	pricingStandardPrice: `（月額${PRICE_TERMS.standard}〜）と`,
-	pricingFamilyLabel: `${PLAN_TERMS.premium}`,
-	pricingFamilyPrice: `（月額${PRICE_TERMS.family}〜）。`,
-	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
-	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
-
-	// Testimonials
-	testimonialsHeading: 'ご利用者の声',
-	testimonial1: '「毎朝、自分からスタンプを押したがるようになりました」',
-	testimonial1Author: '— 5歳男の子のママ',
-	testimonial2: '「お手伝いが楽しいゲームに変わった。親も記録が楽」',
-	testimonial2Author: '— 8歳女の子のパパ',
-
-	// Secondary CTA
-	ctaStartTrial: '無料トライアルを はじめる',
-	ctaTrialNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
-
-	// Back to demo
-	backToDemo: 'デモに戻る',
-} as const;
+/** 子供ホームの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildHomeLabels(uiMode: string): ChildHomeLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_HOME_LABELS;
+	return { ...CHILD_HOME_LABELS, ...CHILD_HOME_KANJI_OVERRIDES };
+}
 
 // ============================================================
 // admin/challenges ページ (#1452 Phase B)
@@ -4267,13 +6107,19 @@ export const CHALLENGES_LABELS = {
 	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
 	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	sectionTitle: '👥 きょうだいチャレンジ',
+	sectionTitle: adminScreenHeading('challenges'),
 	deletedNotice: 'チャレンジを削除しました',
-	noChallengeTitleIcon: '👥',
-	noChallengeTitle: 'チャレンジはまだありません',
+	noChallengeTitleIcon: CONCEPT_ICONS.challenge,
+	noChallengeTitle: `${CHALLENGE_TERMS.canonical}はまだありません`,
+	// #4671 F8: 家族ストリークカードの日本語直書きを SSOT 化
+	familyStreakRecordedToday: (count: number) => `今日は${formatPeople(count)}が記録済み`,
+	familyStreakNoneToday: '今日はまだ誰も記録していません',
 	badgeAllCompleted: '全員クリア！',
+	/** #4689: その子だけのチャレンジ (週次自動生成は子供ごとに内容が違うためこちらが既定) */
+	badgeCompleted: 'クリア！',
 	badgeActive: '開催中',
-	rewardLabel: (points: number) => `報酬${points}P`,
+	// #4716: 同じものを「報酬」「ほうしゅう」「ごほうび」の 3 語で呼んでいた。ごほうびに寄せる。
+	rewardLabel: (points: number) => `${REWARD_TERMS.canonical}${points}P`,
 	deleteButton: '削除',
 	dateSeparator: ' 〜 ',
 	periodLabelWeekly: '週間',
@@ -4285,9 +6131,44 @@ export const CHALLENGES_LABELS = {
 // auth/login ページ (#1452 Phase B)
 // ============================================================
 
+/**
+ * 認証フォームの共通ラベル (#4716 item 15)。
+ *
+ * ログイン / パスワード再設定 / サインアップで同じ項目名を各画面が直書きしていたため、
+ * 同じ入力欄が画面ごとに別名になりうる状態だった。
+ */
+export const AUTH_FORM_LABELS = {
+	emailLabel: 'メールアドレス',
+	passwordLabel: 'パスワード',
+	verificationCodeLabel: '確認コード',
+	newPasswordLabel: '新しいパスワード',
+	newPasswordConfirmLabel: '新しいパスワード（確認）',
+	newPasswordPlaceholder: '8文字以上（大小英字・数字を含む）',
+	newPasswordHint: '8文字以上、大文字・小文字・数字を含む',
+	newPasswordConfirmPlaceholder: 'パスワードを再入力',
+	passwordMismatch: 'パスワードが一致しません',
+	passwordMatched: 'パスワードが一致しました',
+} as const;
+
 export const LOGIN_LABELS = {
 	mfaBadge: 'MFA認証',
 	passwordResetSuccess: 'パスワードがリセットされました。新しいパスワードでログインしてください。',
+	// #4701: ログイン画面に戻された理由 (query → 文言)。mapping は $lib/domain/validation/login-redirect.ts
+	noticeRegistered:
+		'アカウントの登録が完了しました。登録したメールアドレスとパスワードでログインしてください。',
+	noticeConfirmed: 'メールアドレスの確認が完了しました。ログインして始めましょう。',
+	noticeAccountDeleted: `このアカウントは${CANCEL_TERMS.account}（削除）済みのためログインできません。もう一度ご利用になる場合は、新しいアカウントを登録してください。`,
+	// #4699: 退会 (アカウント削除) を申請した直後の着地。受付と、猶予中は取り消せることを伝える
+	noticeDeletionPending: `アカウント削除のお申し込みを受け付けました。猶予期間中にもう一度ログインすると、${ADMIN_VIEW_TERMS.canonical}から取り消し（復元）できます。`,
+	noticeOauthFailed:
+		'Google でのログインを完了できませんでした。もう一度お試しいただくか、メールアドレスとパスワードでログインしてください。',
+	noticeOauthStateLost:
+		'ログインの途中で情報が失われました（時間切れ、または別のタブやブラウザで開いた可能性があります）。もう一度「Google でログイン」からやり直してください。',
+	noticeOauthTokenExchangeFailed:
+		'Google アカウントの確認に失敗しました。時間をおいてもう一度お試しください。続く場合はメールアドレスとパスワードでログインしてください。',
+	noticeLoginFailedGeneric: 'ログインを完了できませんでした。もう一度お試しください。',
+	// #4701: ?next= 付きでログイン画面に来たとき、ログイン後に元の画面へ戻ることを予告する
+	nextReturnNotice: 'ログインすると、見ていた画面に戻ります。',
 
 	// Confirm code step
 	confirmBadge: 'メール認証',
@@ -4320,105 +6201,12 @@ export const LOGIN_LABELS = {
 
 	// Dev mode test accounts
 	devAccountsSummary: 'テスト用アカウント',
-	devAccountOwnerRole: '(管理者)',
-	devAccountParentRole: '(親)',
-	devAccountChildRole: '(子供)',
-} as const;
-
-// ============================================================
-// admin/members ページ (#1452 Phase B)
-// ============================================================
-
-export const MEMBERS_LABELS = {
-	// Role labels
-	roleOwner: 'オーナー',
-	roleParent: `${PARENT_TERMS.honorific}`,
-	roleChild: `${CHILD_TERMS.hiragana}`,
-
-	// Current members section
-	currentMembersTitle: '現在のメンバー',
-	noMembersText: 'メンバーがいません',
-	transferButton: '移譲',
-	removeButton: '削除',
-	leaveGroupButton: '家族グループを離れる',
-
-	// Invite section
-	inviteSectionTitle: 'メンバーを招待',
-	inviteRoleLabel: '招待ロール',
-	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
-	inviteEmailLabel: '宛先メールアドレス（任意）',
-	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
-	inviteChildLabel: '対象の子供（任意）',
-	inviteChildNone: '-- 後で紐づけ --',
-	inviteCreateLoading: '作成中...',
-	inviteCreateButton: '招待リンクを作成',
-	inviteSuccessMsg: '招待リンクが作成されました（7日間有効）',
-	inviteQrAlt: '招待QRコード',
-	inviteQrNote: 'スマートフォンのカメラでスキャンして参加できます',
-	inviteUrlLabel: '招待URL',
-	inviteCopied: 'コピー済み',
-	inviteCopy: 'コピー',
-
-	// Pending invites section
-	pendingInvitesTitle: '保留中の招待',
-	inviteExpiresPrefix: '期限: ',
-	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
-	// 取消し → 再発行できる修正導線)
-	inviteEmailBoundPrefix: '宛先: ',
-	inviteRevokeButton: '取消し',
-	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
-	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
-	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
-	inviteOwnerOnlyNote:
-		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
-
-	// Error messages
-	inviteCreateError: '招待リンクの作成に失敗しました',
-	networkError: '通信エラーが発生しました',
-	removeError: '削除に失敗しました',
-	transferError: '移譲に失敗しました',
-	leaveError: '離脱に失敗しました',
-
-	// Confirm dialogs
-	revokeConfirm: 'この招待リンクを取り消しますか？',
-	removeMemberConfirm: (email: string) =>
-		`${email} をメンバーから削除しますか？この操作は取り消せません。`,
-	transferConfirm: (email: string) =>
-		`${email} にオーナー権限を移譲しますか？\n移譲後、あなたは「保護者」ロールになります。この操作は取り消せません。`,
-	leaveGroupConfirm: '家族グループを離れますか？この操作は取り消せません。',
-
-	// Viewer link section
-	viewerSectionTitle: '閲覧リンク',
-	viewerSectionDesc: '祖父母や家族に、お子さまの成長を読み取り専用で共有できます',
-	viewerLabelField: 'ラベル（任意）',
-	viewerLabelPlaceholder: '例: おばあちゃん用',
-	viewerDurationLabel: '有効期限',
-	viewerDuration7d: `${TRIAL_TERMS.duration}`,
-	viewerDuration30d: '30日間',
-	viewerDurationUnlimited: '無期限',
-	viewerCreateLoading: '作成中...',
-	viewerCreateButton: '閲覧リンクを作成',
-	viewerSuccessMsg: '閲覧リンクが作成されました',
-	viewerQrAlt: '閲覧QRコード',
-	viewerQrNote: 'スマートフォンのカメラでスキャンして閲覧できます',
-	viewerUrlLabel: '閲覧URL',
-	viewerCopied: 'コピー済み',
-	viewerCopy: 'コピー',
-	viewerNoLabel: '(ラベルなし)',
-	viewerStatusInvalid: '無効',
-	viewerStatusExpired: '期限切れ',
-	viewerStatusValid: '有効',
-	viewerExpiresPrefix: '期限: ',
-	viewerExpiresNone: '無期限',
-	viewerRevokeButton: '無効化',
-	viewerDeleteButton: '削除',
-	viewerRevokeConfirm: 'この閲覧リンクを無効にしますか？',
-	viewerDeleteConfirm: 'この閲覧リンクを削除しますか？',
-	viewerCreateError: '閲覧リンクの作成に失敗しました',
-
-	// Button titles
-	transferTitle: 'オーナー権限を移譲',
-	removeTitle: 'メンバーを削除',
+	/** dev 案内の role 表示 (login/+page.svelte が DEV_USERS 由来の role から引く) */
+	devAccountRoles: {
+		owner: '(管理者)',
+		parent: '(親)',
+		child: `(${CHILD_TERMS.honorific})`,
+	} as Record<'owner' | 'parent' | 'child', string>,
 } as const;
 
 /**
@@ -4445,60 +6233,15 @@ export function getMemberRoleLabel(role: string): string {
 // demo/+page.svelte (#1452 Phase B)
 // ============================================================
 
-export const DEMO_TOP_LABELS = {
-	// Hero
-	heroSubtitle: 'デモ体験',
-	heroDesc: 'がんばり家のみんなと一緒に、アプリの機能を体験してみましょう！',
-
-	// Guide section
-	guideDismissedTitle: 'ガイドをとじました',
-	guideDismissedDesc: 'もう一度はじめから体験できます',
-	guideRestartButton: 'ガイドを再開する',
-	guideFirstTimeTitle: 'はじめてですか？',
-	guideStepsDesc: (n: number) => `${n}ステップで主な機能をご案内します`,
-	guideStartButton: 'ガイド付きデモを はじめる',
-
-	// Family section
-	familyTitle: 'がんばり家のこどもたち',
-	childAgeLabel: (age: number) => `${age}さい`,
-	childAgeModeLabel: (age: number, modeLabel: string) => `${age}さい・${modeLabel}`,
-
-	// Mode labels
-	modeBaby: 'はじめの一歩',
-	modePreschool: 'じぶんでタップ',
-	modeElementary: '冒険スタート',
-	modeJunior: 'チャレンジ',
-	modeSenior: 'みらい設計',
-
-	// Admin link section
-	adminTitle: `おやの${ADMIN_VIEW_TERMS.canonical}`,
-	adminDesc: '活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。',
-	adminButton: `${ADMIN_VIEW_TERMS.canonical}をみる`,
-
-	// Feature highlights
-	featuresTitle: '体験できる機能',
-	feature1Title: '活動きろく',
-	feature1Desc: '— お子さまの日々のがんばりをワンタップで記録',
-	feature2Title: 'ステータス',
-	feature2Desc: '— 5軸のレーダーチャートで成長を可視化',
-	feature3Title: '週間チャレンジ',
-	feature3Desc: '— アプリが毎週、苦手・得意に合わせた目標を自動で提案',
-	feature4Title: 'デイリーミッション',
-	feature4Desc: '— 毎日の目標で継続をサポート',
-
-	// Conversion CTA
-	ctaTitle: 'お子さまの冒険、はじめませんか？',
-	ctaNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
-	ctaButton: '無料で はじめる',
-} as const;
-
 // ============================================================
 // admin/growth-book ページ (#1452 Phase B)
 // ============================================================
 
 export const GROWTH_BOOK_LABELS = {
-	pageHeading: '📖 成長記録ブック',
+	pageHeading: adminScreenHeading('growthBook'),
 	backToReports: '← レポートへ',
+	// #4716 item 12: 「395pt」が .svelte に直書きされ、単位が POINT_TERMS を経由していなかった。
+	monthlyTotalPoints: (points: number) => `${points.toLocaleString()}${POINT_TERMS.unit}`,
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
 	premiumNoteLink: 'スタンダードプラン以上',
@@ -4513,8 +6256,9 @@ export const GROWTH_BOOK_LABELS = {
 	annualSummaryTitle: '📊 年間サマリー',
 	statActivities: '活動回数',
 	statPoints: '獲得ポイント',
-	statMaxStreak: 'さいちょうストリーク',
-	statCertificates: 'しょうめいしょ',
+	// #4716: 同じ表の中で「活動回数 / 獲得ポイント」(漢字) と混在していた
+	statMaxStreak: '最長連続日数',
+	statCertificates: `${ADMIN_SCREENS.certificates.name}`,
 	bestMonthLabel: 'いちばんがんばった月: ',
 	bestCategoryLabel: 'とくいなカテゴリ: ',
 
@@ -4523,13 +6267,17 @@ export const GROWTH_BOOK_LABELS = {
 	monthlyActivities: (count: number) => `${count}回`,
 	monthlyDays: (days: number) => `${days}日活動`,
 	monthlyStreak: (days: number) => `🔥 ${days}日連続`,
+	// #4697: 年度は 4 月〜翌 3 月を必ず 12 行並べるため未来月の枠ができる。
+	// 旧実装はそこにも累計値を出しており、まだ来ていない月に記録があるように見えた。
+	monthlyFutureNote: 'これからの月',
+	valueNotYet: '—',
 
 	// Certificate link
-	certificateLink: '📜 証明書一覧を見る →',
+	certificateLink: `${adminScreenHeading('certificates')}を見る →`,
 
 	// Empty states
 	noChildrenEmoji: '👧',
-	noChildrenText: '子供が登録されていません',
+	noChildrenText: `${CHILD_TERMS.honorific}が登録されていません`,
 	noDataEmoji: '📖',
 	noDataText: 'データがありません',
 
@@ -4639,49 +6387,6 @@ export const OPS_PRESET_DISTRIBUTION_LABELS = {
 } as const;
 
 // ============================================================
-// デモ版設定ページ (#1452 Phase B)
-// ============================================================
-
-export const DEMO_SETTINGS_LABELS = {
-	pageTitle: '設定',
-
-	// おやカギ section
-	oyakagiDesc1: `${ADMIN_VIEW_TERMS.canonical}にアクセスするための`,
-	oyakagiDesc2: 'を変更できます。',
-	oyakagiDesc3: '。',
-	oyakagiConfirmLabel: '確認',
-
-	// ポイント表示設定 section
-	pointSectionTitle: '&#x2B50; ポイント表示設定',
-	pointSectionDesc: 'ポイントの表示方法を「ポイント (P)」または「通貨」に切り替えられます。',
-	pointModeTitle: '&#x1F4CA; ポイントモード',
-	pointModeExample: (val: string) => `例: ${val}`,
-	currencyModeTitle: '&#x1F4B0; 通貨モード',
-	currencyModeExample: (val: string) => `例: ${val}`,
-	currencyListTitle: '対応通貨',
-
-	// 減衰設定 section
-	decaySectionTitle: '&#x1F4C9; ステータス減衰設定',
-	decaySectionDesc:
-		'活動をサボるとステータスがゆっくり下がります。お子さまに合った強度を選べます。',
-
-	// データ管理 section
-	dataSectionTitle: '&#x1F4BE; データ管理',
-	dataSectionDesc: '登録すると、データのエクスポート・インポート・初期化が利用できます。',
-	dataExport: 'エクスポート',
-	dataImport: 'インポート',
-	dataReset: '初期化',
-
-	// フィードバック section
-	feedbackSectionTitle: '&#x1F4AC; フィードバック',
-	feedbackSectionDesc: 'ご意見・ご要望・バグ報告をお寄せください。登録後に利用可能です。',
-
-	// CTA
-	ctaTitle: 'すべての設定を利用しませんか？',
-	ctaDesc: '登録すると、PIN設定・ポイント表示・減衰設定などが自由にカスタマイズできます。',
-} as const;
-
-// ============================================================
 // エラーページ (#1452 Phase B)
 // ============================================================
 
@@ -4710,6 +6415,136 @@ export const ERROR_PAGE_LABELS = {
 	// Error ID
 	errorIdPrefix: 'エラーID: ',
 } as const;
+
+/**
+ * #4690 F3: 子供画面のエラー文言（年齢帯 2 変種）。
+ *
+ * 旧実装は「子供かどうか」だけで分岐し、子供文言は 1 種類（ひらがな）、
+ * 判定に失敗すると保護者向けの「お探しのページは存在しないか、移動した可能性が
+ * あります。」がそのまま 3〜5 歳の画面に出ていた（実測: `/preschool/battle`）。
+ *
+ * 文体の分かれ目は `child-home/variants` と同じ baby・preschool = ひらがな /
+ * elementary 以上 = 漢字（docs/DESIGN.md §8）。
+ */
+const ERROR_PAGE_CHILD_HIRAGANA = {
+	title404: 'ページが みつかりません',
+	title429: 'アクセスが こんでいます',
+	title403: 'ここは ひらけません',
+	titleDefault: 'エラーが おきました',
+	desc404: 'おうちの がめんに もどります…',
+	desc403: 'おうちの がめんに もどります…',
+	descGeneric: 'おうちの がめんに もどります…',
+	btnBackNow: 'いますぐ もどる',
+} as const;
+
+const ERROR_PAGE_CHILD_KANJI = {
+	title404: 'ページが見つかりません',
+	title429: 'アクセスが混み合っています',
+	title403: 'このページは開けません',
+	titleDefault: 'エラーが発生しました',
+	desc404: 'ホーム画面に戻ります…',
+	desc403: 'ホーム画面に戻ります…',
+	descGeneric: 'ホーム画面に戻ります…',
+	btnBackNow: '今すぐ戻る',
+} as const;
+
+/**
+ * #4690: カテゴリ表示名を年齢帯で選ぶ。
+ *
+ * `CATEGORIES[code].name` はひらがな固定（DB seed 値 / `CategoryName` union /
+ * marketplace payload が依存しているため変えられない）。13-18 歳の画面に
+ * 「うんどう」「べんきょう」が出るのは docs/DESIGN.md §8 と食い違うので、
+ * 同じ SSOT に並べた `kanjiName` を elementary 以上で使う。
+ *
+ * @param category カテゴリ code、または legacy 数値 id / branded CategoryId 文字列
+ */
+export function getCategoryDisplayName(category: string | number, uiMode: string): string {
+	// `in` は継承プロパティ ('toString' 等) にも true を返し、DB 汚染時に Function を meta として
+	// 返してしまうため own property 判定にする (QM #4809 レビュー)。
+	const code = (Object.hasOwn(CATEGORIES, category) ? category : toCategoryCode(category)) as
+		| CategoryCode
+		| undefined;
+	if (!code) return '';
+	const meta = CATEGORIES[code];
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool' ? meta.name : meta.kanjiName;
+}
+
+/**
+ * #4690 F2: 週次チャレンジの提案理由・タイトル（年齢帯 2 変種）。
+ *
+ * 旧実装は `child-challenge-service.ts` に日本語 4 文を直書きし、全年齢に同じ漢字文を
+ * 出していた（実測: `/preschool/challenges` に「最近「こうりゅう」が少なめだったから、
+ * 今週はチャレンジしてみよう！」）。表示文言はサービス層ではなくここが置き場所
+ * （ADR-0045）。文体の分かれ目は docs/DESIGN.md §8。
+ */
+type ChallengeReasonMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+
+/** 子供に見せるチャレンジ理由文。categoryName は呼び出し側が年齢帯に合わせて解決して渡す。 */
+export function getChallengeReason(
+	mode: ChallengeReasonMode,
+	categoryName: string,
+	uiMode: string,
+): string {
+	const kana = (() => {
+		const m = normalizeUiMode(uiMode);
+		return m === 'baby' || m === 'preschool';
+	})();
+	switch (mode) {
+		case 'explore':
+			return kana
+				? 'まだ きろくが すくないから、いろんなことを やってみよう！'
+				: 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
+		case 'strength':
+			return kana
+				? `とくいな「${categoryName}」を もっと のばしてみよう！`
+				: `得意な「${categoryName}」をもっと伸ばしてみよう！`;
+		case 'rescue-strength':
+			return kana
+				? `とくいな「${categoryName}」で ちょうしを とりもどそう！`
+				: `得意な「${categoryName}」でリズムを取り戻そう！`;
+		default:
+			return kana
+				? `さいきん「${categoryName}」が すくなめだったから、こんしゅう やってみよう！`
+				: `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
+	}
+}
+
+/**
+ * 週次チャレンジのタイトル。DB には既定 (漢字) で保存し、表示時は
+ * `resolveChallengeDisplayTitle` (child-challenge-service) が targetConfig の構造値から
+ * 年齢帯の文体で解決し直す (#4690 / src/routes/CLAUDE.md「保存値を出さず構造値から解決」)。
+ * baby / preschool はひらがな。
+ */
+export function formatChallengeTitle(
+	categoryName: string,
+	targetCount: number,
+	uiMode: string = 'senior',
+): string {
+	const m = normalizeUiMode(uiMode);
+	if (m === 'baby' || m === 'preschool')
+		return `こんしゅうは「${categoryName}」を${targetCount}かい`;
+	return `今週は「${categoryName}」を${targetCount}回`;
+}
+
+interface ChildErrorPageLabels {
+	readonly title404: string;
+	readonly title429: string;
+	readonly title403: string;
+	readonly titleDefault: string;
+	readonly desc404: string;
+	readonly desc403: string;
+	readonly descGeneric: string;
+	readonly btnBackNow: string;
+}
+
+/** 子供画面のエラー文言を年齢帯で選ぶ。 */
+export function getChildErrorPageLabels(uiMode: string): ChildErrorPageLabels {
+	const mode = normalizeUiMode(uiMode);
+	return mode === 'baby' || mode === 'preschool'
+		? ERROR_PAGE_CHILD_HIRAGANA
+		: ERROR_PAGE_CHILD_KANJI;
+}
 
 /**
  * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
@@ -4745,12 +6580,14 @@ export const OPS_MFA_SETUP_LABELS = {
 // ============================================================
 
 // ============================================================
-// ベンチマーク管理ページ (#1452 Phase B)
+// 成長レポートページ (#1452 Phase B / #4715 で「ベンチマーク管理」→ 画面名 registry へ)
 // ============================================================
 
 export const STATUS_LABELS = {
+	// #4715: nav / title と同じ画面名を画面内見出しにも出す (registry SSOT)
+	pageHeading: adminScreenHeading('status'),
 	// Navigation link
-	childrenEditLink: 'こども管理でステータス編集 →',
+	childrenEditLink: `${ADMIN_SCREENS.children.name}でステータス編集 →`,
 
 	// Growth report
 	growthReportTitle: (nickname: string) => `📊 ${nickname}の成長レポート`,
@@ -4773,19 +6610,23 @@ export const STATUS_LABELS = {
 
 	// Benchmark info box
 	benchmarkInfoTitle: 'ベンチマークとは？',
-	benchmarkInfoDesc1:
-		'子供のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。',
-	benchmarkInfoDesc2:
-		'設定すると、子供画面に「みんなよりすごい！」などの比較メッセージが表示されます。',
+	benchmarkInfoDesc1: `${CHILD_TERMS.honorific}のステータスを「同じ年齢の目安値」と比べて偏差値を計算するためのデータです。`,
+	benchmarkInfoDesc2: `設定すると、${CHILD_TERMS.honorific}の画面に「みんなよりすごい！」などの比較メッセージが表示されます。`,
 
-	// Preview label
-	previewLabel: 'プレビュー:',
+	// #4669 F2: 表示対象のお子さま切替タブ (全保護者) / F1: 子供 0 人時の案内
+	childTabsAriaLabel: '表示するお子さまを選ぶ',
+	emptyNoChildren: 'お子さまが登録されると、ここに成長レポートが表示されます。',
+	emptyNoChildrenLink: `${ADMIN_SCREENS.children.name}でお子さまを登録する →`,
+	// #4669 F11: 分析サマリー 3 段階コメント (しきい値は validation/status.ts ANALYSIS_DEVIATION_*)
+	analysisHigh: '同年齢の中でも特に活発です',
+	analysisMid: '平均的なペースで成長しています',
+	analysisLow: 'これから伸びる余地がたくさんあります',
 
 	// Benchmark guide
 	benchmarkGuide: (age: number, meanLow: number, meanHigh: number, sdLow: number, sdHigh: number) =>
 		`${age}歳の目安: 平均 ${meanLow}〜${meanHigh} XP、SD ${sdLow}〜${sdHigh}（XPベース）`,
 	benchmarkUnsetWarning: (age: number) =>
-		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると子供画面の比較メッセージが正しく機能します。`,
+		`${age}歳のベンチマークが未設定のカテゴリがあります。設定すると${CHILD_TERMS.honorific}の画面の比較メッセージが正しく機能します。`,
 	benchmarkSaveButton: '保存',
 	benchmarkSaveSuccess: 'ベンチマークを更新しました',
 
@@ -4796,6 +6637,15 @@ export const STATUS_LABELS = {
 	// Form labels
 	meanLabel: '平均（目安値）',
 	sdLabel: 'SD（ばらつき）',
+
+	// #4512: 偏差値帯 → 親向け自然言語 (旧: +page.svelte の getAnalysisText 内直書き) は
+	// #4669 F11 が同一文言を analysisHigh / analysisMid / analysisLow として先に集約済みのため、
+	// merge 時に重複定義を削除し #4669 側の命名に寄せた (二重定義を作り直さない)。
+
+	// #4512: benchmark form action の validation メッセージ (旧: +page.server.ts 直書き)
+	levelInvalid: 'レベルが不正です',
+	titleLengthInvalid: '称号は1〜20文字で入力してください',
+	benchmarkValueInvalid: '平均は0以上、標準偏差は0より大きい値を入力してください',
 } as const;
 
 // ============================================================
@@ -4837,14 +6687,15 @@ export const PRICING_PAGE_LABELS = {
 	//     - データそのものの削除は退会の手続きで、猶予は DELETION_GRACE_PERIOD_DAYS
 	//   アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html / 特商法で同一の
 	//   事実を述べる (数値は terms.ts atom 経由で値 SSOT から引く)。
-	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きで、プラン別の猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free} / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後にすべてのデータが完全に削除されます。`,
+	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は、有料プランのご利用期間中に書き出してください。記録の書き出し（エクスポート）は${PLAN_FULL_TERMS.standard}以上の機能です。${PLAN_FULL_TERMS.free}では、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きで、プラン別の猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free} / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後にすべてのデータが完全に削除されます。`,
 	faqBillingDateQ: '課金日はいつですか？',
-	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
+	// #4502: 年額は #2719 で廃止済み。LP 側は #3212 で是正済みで、ここだけ残っていた
+	faqBillingDateA: 'お申し込み日を起算日として毎月自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
 	faqPaymentA:
-		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
+		'クレジットカード（Stripe が対応する主要ブランド）に対応しています。Stripeによる安全な決済処理を使用しています。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
+	faqPlanChangeA: `はい。${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}の切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
 	faqSelfHostQ: 'セルフホスト版はありますか？',
 	faqSelfHostA:
 		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
@@ -4866,10 +6717,14 @@ export const CONSENT_LABELS = {
 	descNew: 'サービスの利用を開始するには、規約への同意が必要です。',
 
 	// Previous consent info
-	previousConsentPrefix: '前回同意: ',
+	// #4497: 旧実装は「前回同意 → 最新」を利用規約の version 固定で描画していたため、
+	// プライバシーポリシーだけを改定すると「2026-04-28 → 2026-04-28」と嘘を表示した。
+	// 文書ごとに 1 行ずつ、その文書自身の前回 / 最新を出す。
+	previousConsentHeading: '前回同意したバージョン',
 	previousConsentArrow: ' → ',
-	previousConsentLatest: '最新: ',
 	previousConsentNone: '未同意',
+	previousConsentLine: (docName: string, previous: string, latest: string) =>
+		`${docName}: ${previous} → ${latest}`,
 
 	// Terms
 	termsSectionTitle: '利用規約',
@@ -4883,31 +6738,41 @@ export const CONSENT_LABELS = {
 	privacyReadLink: 'プライバシーポリシーを確認する ↗',
 	privacyCheckLabel: 'プライバシーポリシーに同意します',
 
+	// Cross-border transfer (#4497 / 個人情報保護法 §28)
+	// Google OAuth 経由の登録では signup フォームを通らないため、越境移転同意は
+	// この画面が唯一の取得点になる（全サインアップ経路で証跡を残す）。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.transfer,
+	crossBorderVersionPrefix: 'バージョン: ',
+	crossBorderReadLink: '移転先・提供情報を確認する ↗',
+	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	crossBorderCheckLabel: CROSS_BORDER_TERMS.consentLabel,
+
 	// Submit button
 	submitLoading: '同意中...',
 	submitButton: '同意して続ける',
 
+	// Exit (#4497): 同意しない選択肢が画面から到達できないと「同意するしかない」状態になる。
+	// /auth/logout は実在するので、そこへの導線を明示する。
+	declineHeading: '同意しない場合',
+	declineDescription:
+		'同意されない場合、本サービスをご利用いただけません。ログアウトのうえ、ご利用の継続をご検討ください。データは削除されません。',
+	declineLogoutLink: '同意せずログアウト',
+
 	// Error messages (used in +page.svelte and +page.server.ts)
 	errors: {
 		loginRequired: 'ログインが必要です',
-		bothRequired: '利用規約とプライバシーポリシーの両方に同意してください',
+		bothRequired: '表示されている項目すべてに同意してください',
 		recordFailed: '同意の記録に失敗しました。もう一度お試しください。',
 		termsRequired: '利用規約への同意が必要です',
 		privacyRequired: 'プライバシーポリシーへの同意が必要です',
+		crossBorderRequired: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	},
 } as const;
 
 // ============================================================
-// デモ版ベンチマーク管理ページ (#1452 Phase B)
+// デモ版 成長レポートページ (#1452 Phase B)
 // ============================================================
-
-export const DEMO_STATUS_LABELS = {
-	ctaTitle: 'ベンチマークを自由に設定しませんか？',
-	ctaDesc: '登録すると、年齢別の目安値を自由に設定して成長レポートをカスタマイズできます。',
-	levelTitleLabel: '称号',
-	meanLabel: '平均',
-	sdLabel: 'SD',
-} as const;
 
 // ============================================================
 // Ops AWS費用ページ (#1452 Phase B)
@@ -4917,7 +6782,7 @@ export const OPS_COSTS_LABELS = {
 	pageTitle: 'OPS - AWS費用',
 	prevMonthLink: '← 前月',
 	nextMonthLink: '翌月 →',
-	yearMonthDisplay: (year: number, month: number) => `${year}年${month}月`,
+	yearMonthDisplay: (year: number, month: number) => formatYearMonth(year, month),
 	currentCostLabel: '当月 AWS 費用',
 	prevMonthDiffLabel: '前月比',
 	serviceCountLabel: 'サービス数',
@@ -4939,38 +6804,46 @@ export const OPS_COSTS_LABELS = {
 export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
-	sectionTitle: '🎁 ごほうび管理',
+	// #4656 F5: 呼称は ADMIN_SCREENS.rewards.name (ごほうび管理)、icon は CONCEPT_ICONS.reward。
+	// #4715: 画面名の SSOT は ADMIN_SCREENS。adminScreenHeading が「アイコン + 画面名」を組む
+	sectionTitle: adminScreenHeading('rewards'),
 	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
 	// (pageDescHint*) のみ page-description カードに残す。
-	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
+	// #4656 F8 / M1 + #4716: 生 URL 露出と旧 /admin/messages 参照をやめ、応援ページへの link に統一
+	// (#4654 B15 の「旧 /admin/messages 参照をやめる」意図も本文言で満たす)。画面名は #4715 の
+	// registry (ADMIN_SCREENS.cheer.name) から引き、下の pageDescHintLink と同じ語にする。
+	// #4654 (B15): 旧「おうえんメッセージ」(/admin/messages) は #2270 で応援画面に統合済。
+	pageDescText2: `その場でひと押ししたい${CHEER_TERMS.canonical}（突発のごほうび）は${ADMIN_SCREENS.cheer.name}ページから送れます。`,
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
-	pageDescHintLink: 'おうえんメッセージ',
+	// #4715: 着地先は /admin/cheer。旧「おうえんメッセージ」は同画面の別名で、
+	//   リンク先も旧 URL /admin/messages (308 redirect) を指していた。
+	pageDescHintLink: ADMIN_SCREENS.cheer.name,
 	pageDescHintSuffix: 'から送れます',
 	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
 	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
-	selectChildTitle: 'こどもを選択',
+	selectChildTitle: `${CHILD_TERMS.honorific}を選択`,
 	selectTemplateTitle: 'プリセットを選択',
 	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,
 	// #2268: 検索 UI
-	searchLabel: 'ごほうびを検索',
+	searchLabel: REWARD_ADMIN_TERMS.search,
 	searchPlaceholder: 'ごほうび名で検索...',
 	searchEmptyMessage: '該当するごほうびがありません',
 	confirmGrantTitle: '内容を確認して追加',
-	titleLabel: 'タイトル',
-	pointsLabel: 'ポイント',
-	iconLabel: 'アイコン',
+	titleLabel: REWARD_ADMIN_TERMS.formTitle,
+	pointsLabel: REWARD_ADMIN_TERMS.formPoints,
+	iconLabel: REWARD_ADMIN_TERMS.formIcon,
 	categoryLabel: 'カテゴリ',
 	// #2268: grant → add リネーム（実態は special_rewards INSERT、子供 shop に並べる商品の追加）
 	grantButton: (icon: string, title: string, points: number) =>
-		`${icon} ${title || 'ごほうび'} (${points}P) を追加する`,
+		`${icon} ${title || REWARD_TERMS.canonical} (${points}P)${REWARD_ADMIN_TERMS.submitSuffix}`,
 	grantSuccess: 'ごほうびを追加しました！',
 	// #2268: overflow menu / 申請承認導線（子#3 で /admin/rewards/requests へ分離）
 	overflowMenuAriaLabel: 'その他の操作',
-	requestsMenuLabel: (count: number) => `申請承認 (${count} 件)`,
-	requestsMenuLabelEmpty: '申請承認',
+	requestsMenuLabel: (count: number) => `${REWARD_ADMIN_TERMS.requestsMenu} (${count} 件)`,
+	requestsMenuLabelEmpty: REWARD_ADMIN_TERMS.requestsMenu,
 	/** #2136 MP-1: マーケットプレイス一括追加セクション */
 	marketplaceSectionTitle: 'みんなのごほうびから追加',
 	marketplaceSectionDesc: 'おすすめのごほうびセットを一括追加できます（重複はスキップ）',
@@ -4985,27 +6858,6 @@ export const REWARDS_LABELS = {
 // ============================================================
 // デモメンバー管理ページ (#1452 Phase B)
 // ============================================================
-
-export const DEMO_MEMBERS_LABELS = {
-	sectionTitle: '👥 メンバー管理',
-	sectionDesc:
-		'QRコードでご家族をかんたんに招待できます。パートナーやおじいちゃん・おばあちゃんもお子さまの成長を一緒に見守れます。',
-	qrPlaceholder: '登録するとQRコードが生成されます',
-	invitedMembersTitle: '招待済みメンバー',
-	demoMember1Name: 'がんばり太郎',
-	demoMember1Role: 'オーナー',
-	demoMember2Name: 'がんばり花子',
-	demoMember2Role: 'メンバー',
-	memberStatusActive: 'アクティブ',
-	permissionsTitle: '権限について',
-	permissionOwner: 'オーナー',
-	permissionOwnerDesc: 'すべての設定変更・メンバー管理が可能',
-	permissionMember: 'メンバー',
-	permissionMemberDesc: '活動記録・閲覧が可能（設定変更は不可）',
-	inviteLimit: '招待は最大5名まで（オーナー含む）',
-	ctaTitle: 'ご家族みんなで使いませんか？',
-	ctaDesc: '登録すると、QRコードで簡単にご家族を招待できます。',
-} as const;
 
 // ============================================================
 // OPS エクスポートページ (#1452 Phase B)
@@ -5052,17 +6904,27 @@ export const CHEER_LABELS = {
 	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
 	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
-	selectChildTitle: '1. こどもを選択',
+	// #4716: 呼称は honorific。値は CHEER_ADMIN_TERMS が SSOT (#4659 でページガイドと共有)
+	selectChildTitle: CHEER_ADMIN_TERMS.selectChildTitle,
 	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
-	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+	reasonPlaceholder: CHEER_ADMIN_TERMS.reasonPlaceholder,
 	reasonHint: '100文字以内',
 	pointsTitle: '3. ボーナスポイント',
-	pointsHint: '1〜10000の範囲で入力',
+	pointsHint: `${CHEER_POINTS.min}〜${CHEER_POINTS.max}の範囲で入力`,
 	categoryTitle: '4. カテゴリ',
 	iconTitle: '5. アイコン',
 	iconHint: '絵文字を入れてください',
 	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
 	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
+	// #4512: 旧実装は +page.svelte に直書きしていた入力補助文言
+	reasonCounterHint: (length: number, maxLength: number, remaining: number) =>
+		`${length}/${maxLength}（あと${remaining}文字）`,
+	// #4504: 自由テキストは premium 限定 (LP の訴求どおり)。定型スタンプは全プランで使える。
+	/** プランゲートのエラー文言 / ロック表示に使う機能名 */
+	freeTextFeatureName: 'ひとことメッセージ（自由テキスト）',
+	/** premium 以外に出す説明。スタンプは使えることを同時に伝える (全否定しない) */
+	freeTextLockedNote: `ひとことメッセージ（自由テキスト）は${PLAN_FULL_TERMS.premium}の機能です。スタンプは今のプランでも送れます。`,
+	freeTextPlaceholder: 'ひとことメッセージを足す（任意）',
 	confirmTitle: `7. 内容を確認して${CHEER_TERMS.action}`,
 	grantButton: CHEER_TERMS.action,
 	grantButtonDisabled: '理由とポイントを入力してください',
@@ -5072,10 +6934,10 @@ export const CHEER_LABELS = {
 	recentMessagesTitle: '最近のメッセージ（旧履歴含む）',
 	msgRead: '既読',
 	msgUnread: '未読',
-	noChildrenTitle: 'まずこどもを登録してください',
-	noChildrenDesc: '「こども」タブから登録できます',
+	noChildrenTitle: `まず${CHILD_TERMS.honorific}を登録してください`,
+	noChildrenDesc: `「${CHILD_TERMS.honorific}」タブから登録できます`,
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
-	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	presetTitle: CHEER_ADMIN_TERMS.presetTitle,
 	// 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥)
 	// 親が現実イベント後に承認する 1 タップ操作（ADR-0012 anti-engagement / 滞在ゼロ）。
 	// シーズン期間中の自動配信は不採用、家族コミュニケーション wedge 強化。
@@ -5113,11 +6975,20 @@ export const CHEER_LABELS = {
 	confirmCategoryLabel: 'カテゴリ',
 	confirmIconLabel: 'アイコン',
 	// エラーメッセージ
+	// #4512: 旧実装はここに固定値 (1〜10000 / 100文字) を持ちつつ、実際に表示していたのは
+	// +page.server.ts が cheer-service の定数から組み立てた別の文字列だった (二重定義)。
+	// 上限値は server 側 (cheer-service.ts) が SSOT なので、labels は引数で受ける形にする。
 	errorReasonRequired: `${CHEER_TERMS.canonical}の理由を入力してください`,
-	errorReasonTooLong: '理由は100文字以内で入力してください',
-	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
+	errorReasonTooLong: (maxLength: number) => `理由は${maxLength}文字以内で入力してください`,
+	errorPointsRange: (min: number, max: number) =>
+		`ポイントは${min}〜${max}の範囲で入力してください`,
 	errorCategoryRequired: 'カテゴリを選択してください',
-	errorChildRequired: 'こどもを選択してください',
+	errorChildRequired: `${CHILD_TERMS.honorific}を選択してください`,
+	errorChildNotFound: `${CHILD_TERMS.honorific}が見つかりません`,
+	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
+	reasonLengthHint: (used: number | string, max: number | string, remaining: number | string) =>
+		`${used}/${max}（あと${remaining}文字）`,
+	messagePlaceholder: 'ひとことメッセージを足す（任意）',
 } as const;
 
 // ============================================================
@@ -5145,6 +7016,24 @@ export const OPS_COHORT_LABELS = {
 // はじめてのぼうけんページ (#1452 Phase B)
 // ============================================================
 
+/** 「あとでやる」ボタンの文言。失敗時の次アクション案内から同じ語で参照する。 */
+const SETUP_FIRST_ADVENTURE_SKIP_BUTTON = 'あとでやる（スキップ）';
+
+/**
+ * セットアップの選択画面 (パック / ごほうび / ルール) を JavaScript 無しで開いたときの案内
+ * (PO 決裁 2026-09-10 決定 7)。
+ *
+ * これらの画面は取り込む対象を **`<button type="button">` + client state** で選ばせるため、
+ * JavaScript が無効だと選択そのものが成立しない。**no-JS での前進は支えないと決めた**ので、
+ * 「動かない画面を黙って見せる」のをやめ、何が必要かと次の一手だけを伝える。
+ */
+export const SETUP_NOSCRIPT_LABELS = {
+	title: 'この画面には JavaScript が必要です',
+	body: 'このページは、取り込む内容を選ぶために JavaScript を使います。ブラウザの設定で JavaScript を有効にしてから、このページを開き直してください。',
+	// 有効化できない事情がある人を行き止まりにしない。設定は後から管理画面でも変えられる。
+	fallback: `JavaScript を有効にできない場合は、この手順を飛ばして先に進んでいただいても、あとから${ADMIN_VIEW_TERMS.canonical}で同じ内容を追加できます。`,
+} as const;
+
 export const SETUP_FIRST_ADVENTURE_LABELS = {
 	successTitle: (nicknameVocative: string) => `${nicknameVocative}すごい！`,
 	recordedDesc: (activityName: string) => `「${activityName}」をきろくしたよ！`,
@@ -5159,30 +7048,85 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	recordingLabel: 'きろくちゅう...',
 	recordButton: 'タップしてきろく！',
 	selectActivityHint: 'がんばりをえらんでね！',
-	skipButton: 'あとでやる（スキップ）',
+	// PO 決裁 2026-09-10 決定 8: きょうだいが複数いる家庭で、最初の 1 件を
+	// **だれと一緒にやるか選ばせる**。旧実装は先頭の子で固定していたため、
+	// 2 人目以降の保護者は「この子は無視されるのか」と受け取れた。
+	childPickerLabel: 'だれといっしょにやる？',
+	// 選ばせると今度は「1 人しか選べないのか」が不安になるので、必ず添える。
+	childPickerReassurance: 'まずは 1 人と一緒に。ほかのお子さまはあとからでも大丈夫です',
+	skipButton: SETUP_FIRST_ADVENTURE_SKIP_BUTTON,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorActivityRequired: '活動を選択してください',
+	errorRecordFailed: '記録に失敗しました。もう一度お試しください。',
+	/** 同じ活動を同じ日にもう一度記録しようとした (recordActivity の ALREADY_RECORDED)。 */
+	errorAlreadyRecorded: `この活動は今日すでに記録ずみです。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
+	/** その活動の 1 日の記録上限に達した (DAILY_LIMIT_REACHED)。 */
+	errorDailyLimitReached: `この活動は今日の記録上限に達しました。ほかの活動を選ぶか、下の「${SETUP_FIRST_ADVENTURE_SKIP_BUTTON}」で次に進めます。`,
+	/** 選んだ活動が見つからない (NOT_FOUND target='activity' — 別タブで削除された等)。 */
+	errorActivityNotFound:
+		'選んだ活動が見つかりませんでした。画面を読み込み直してから、もう一度お試しください。',
+	/**
+	 * 記録先の子供が見つからない (NOT_FOUND target='child')。越境 childId の
+	 * cross-child guard (CWE-598 / ADR-0055 §3.1) もここに落ちる。活動の話にすり替えると
+	 * 「活動を選び直す」という誤った次アクションを案内してしまうため、別文言にする。
+	 */
+	errorChildNotFound:
+		'記録するお子さまを特定できませんでした。お子さまの登録をやり直すか、画面を読み込み直してください。',
+	// #4868 adversarial: 直前の step (チャレンジ) の結果を**誰も読んでいなかった**。
+	//   `?challengesAdded=N` は書き手 4 箇所 / 読み手 0 件で、親は「追加する」を押しても
+	//   追加された / すでにある のどちらの feedback も受け取らなかった (ADR-0062 §1 の
+	//   「状態起因 = banner + 次アクション」未達)。2 周目は必ず 0 件になるので、
+	//   歩き直した親には**押しても何も起きない画面**に見えていた。
+	challengesAddedNotice: (count: number) => `チャレンジを ${count} 件追加しました。`,
+	challengesAlreadyNotice: 'チャレンジはすでに追加ずみでした。',
+	// #4868 adversarial round 4: `added=0` の意味は「すでにある」だけでなく
+	//   「作れなかった」もある。`errors` は書き手 3 / 読み手 0 で、失敗が親に一度も
+	//   届いていなかった。全部失敗したときに「すでに追加ずみ」と言うと嘘になる。
+	challengesFailedNotice: 'チャレンジを追加できませんでした。あとから設定できます。',
+	// #4868 adversarial round 5: **部分失敗**。成功件数だけ出すと、入らなかった分が
+	//   親に一度も届かない (`challengesFailed` を URL に載せながら画面は成功文言だけだった)。
+	challengesPartialNotice: (added: number, failed: number) =>
+		`チャレンジを ${added} 件追加しました。${failed} 件は追加できませんでした（あとから設定できます）。`,
 } as const;
+
+/**
+ * `recordActivity` の失敗理由 → 初回記録画面 (`/setup/first-adventure`) に出す文言。
+ *
+ * `satisfies Record<RecordActivityErrorCode, string>` が網羅性を担保する。**service が
+ * 失敗コードを増やすと、ここに文言を足すまでビルドが通らない** (domain SSOT
+ * `$lib/domain/activity-record-failure` 経由で 3 service の戻り型と結ばれている)。
+ */
+const SETUP_FIRST_ADVENTURE_RECORD_ERRORS = {
+	ALREADY_RECORDED: SETUP_FIRST_ADVENTURE_LABELS.errorAlreadyRecorded,
+	DAILY_LIMIT_REACHED: SETUP_FIRST_ADVENTURE_LABELS.errorDailyLimitReached,
+	NOT_FOUND: SETUP_FIRST_ADVENTURE_LABELS.errorActivityNotFound,
+} as const satisfies Record<RecordActivityErrorCode, string>;
+
+/**
+ * `recordActivity` の失敗値を、初回記録画面に出す文言へ写す。
+ *
+ * #4512 時点では理由に関係なく `errorRecordFailed` を返していたうえ、画面側が `form.error` を
+ * 一度も描画していなかったため「押しても何も起きない」= 無音の失敗になっていた (ADR-0062:
+ * WCAG 3.3.1 / 4.1.3 の二重違反)。内部コード (`ALREADY_RECORDED` 等) はそのまま出さず
+ * (docs/DESIGN.md §6 内部コード露出禁止 / ADR-0062 §2)、次アクションを必ず添える。
+ *
+ * 引数は**コード文字列ではなく失敗値そのもの**。`string` で受けていたときは service が
+ * コードを増減・改名しても TypeScript が無警告で、顧客は黙って汎用文言に戻っていた。
+ */
+export function getSetupFirstAdventureRecordError(failure: RecordActivityFailure): string {
+	// NOT_FOUND だけは target で意味が割れる (越境 childId か、消えた活動か)。
+	if (failure.error === 'NOT_FOUND' && failure.target === 'child') {
+		return SETUP_FIRST_ADVENTURE_LABELS.errorChildNotFound;
+	}
+	return (
+		SETUP_FIRST_ADVENTURE_RECORD_ERRORS[failure.error] ??
+		SETUP_FIRST_ADVENTURE_LABELS.errorRecordFailed
+	);
+}
 
 // ============================================================
 // デモポイント変換ページ (#1452 Phase B)
 // ============================================================
-
-export const DEMO_POINTS_LABELS = {
-	currentBalanceLabel: (unit: string) => `現在の${unit}残高`,
-	convertSectionTitle: 'ポイント変換',
-	modeSimple: 'かんたん',
-	modeFreeInput: '自由入力',
-	modeOcr: '領収書OCR',
-	demoConvertDisabled: 'デモでは変換できません',
-	thisMonthConvertLabel: '今月の変換合計',
-	totalConvertLabel: '累計変換合計',
-	aboutTitle: 'ポイント変換について',
-	aboutNote1: 'お子さまが活動で貯めたポイントを、おこづかいに変換できます',
-	aboutNote2: '変換レートは設定画面で自由にカスタマイズ可能です',
-	aboutNote3: '3つの変換モード: かんたん / 自由入力 / 領収書OCR',
-	aboutNote4: '変換履歴も記録されるので、安心して管理できます',
-	ctaTitle: 'ポイントをおこづかいに変換しませんか？',
-	ctaDesc: '登録すると、ポイント変換やレート設定が自由にできます。',
-} as const;
 
 // ============================================================
 // 実績ページ (#1452 Phase B)
@@ -5228,7 +7172,17 @@ export const FORGOT_PASSWORD_LABELS = {
 	step2ConfirmSentPrefix: 'に確認コードを送信しました。',
 	step2ConfirmEnterInstruction: 'メールに記載されたコードと新しいパスワードを入力してください。',
 	step2CodeExpiryPrefix: '確認コードは',
-	step2CodeExpirySuffix: '分間有効です。届かない場合は再送してください',
+	// #4702: 旧文言は「届かない場合は再送してください」だが画面に再送ボタンが無く dead-end だった。
+	// 再送ボタン (step2ResendButton) を追加したうえで文言を操作と一致させる
+	step2CodeExpirySuffix: '分間有効です。届かない場合は下の「コードを再送する」からやり直せます',
+	step2ResendButton: 'コードを再送する',
+	step2ResendLoading: '再送中...',
+	step2ResendCooldown: (seconds: number) => `コードを再送する（${seconds}秒後に再試行可能）`,
+	step2ResendSuccess: '確認コードを再送しました',
+	// #4702: Google (federated) で登録した顧客は Cognito にパスワードが無く、リセットコードも届かない。
+	// Cognito はアカウントの存在を伏せる (UserNotFound も成功扱い) ため、全員に常時案内する
+	googleUserNotice: `Google で${LOGIN_TERMS.canonical}した方はパスワードがありません。${LOGIN_TERMS.canonical}画面の「Google」ボタンからお進みください。`,
+	googleUserNoticeLink: `${LOGIN_TERMS.canonical}画面へ`,
 	resettingLabel: 'リセット中...',
 	resetButton: 'パスワードをリセット',
 	step1Instruction1: '登録済みのメールアドレスを入力してください。',
@@ -5242,16 +7196,6 @@ export const FORGOT_PASSWORD_LABELS = {
 // デモごほうびページ (#1452 Phase B)
 // ============================================================
 
-export const DEMO_REWARDS_LABELS = {
-	upgradeBannerDesc: `${PLAN_FULL_TERMS.free}ではプリセット閲覧のみ可能です。${PLAN_FULL_TERMS.standard}以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。`,
-	// #2272 AC2: 「テンプレート」UI 露出を REWARD_TERMS.preset 経由「プリセット」に置換
-	selectTemplateTitleDemo: `2. ${REWARD_TERMS.preset}を選択（またはカスタム）`,
-	confirmGrantTitleDemo: '3. 内容を確認して付与',
-	demoGrantDisabled: 'デモでは報酬を付与できません',
-	ctaTitle: `特別報酬で${CHILD_TERMS.honorific}をもっと応援しませんか？`,
-	ctaDesc: `${SIGNUP_TERMS.canonical}すると、テンプレートやカスタム報酬を自由に付与できます。`,
-} as const;
-
 // ============================================================
 // セットアップ完了ページ (#1452 Phase B)
 // ============================================================
@@ -5261,12 +7205,12 @@ export const SETUP_COMPLETE_LABELS = {
 	descPart1: 'ぼうけんじゅんびが',
 	descPart2: 'かんりょうしたよ！',
 	childCountUnit: '人',
-	childCountLabel: 'こども',
+	childCountLabel: `${CHILD_TERMS.honorific}`,
 	activityCountUnit: 'こ',
 	activityCountLabel: 'かつどう',
 	nextMissionLabel: 'つぎのミッション',
 	nextMissionText: '「きょうの がんばりを 3つ きろくしよう！」',
-	ctaPrimary: 'こどもがめんをひらく',
+	ctaPrimary: `${CHILD_TERMS.honorific}がめんをひらく`,
 	ctaSecondary: 'おやのせっていをみる',
 	pinHintPrefix: `💡 ${ADMIN_VIEW_TERMS.canonical}の「せってい」から`,
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
@@ -5274,77 +7218,50 @@ export const SETUP_COMPLETE_LABELS = {
 	pinHintSuffix: '初めて入るときに作成します。',
 } as const;
 
-export const CERTIFICATE_DETAIL_LABELS = {
-	pageTitle: 'がんばり証明書',
-	backLink: '一覧に戻る',
-	previewTitle: '📜 証明書プレビュー',
-	printButton: '🖨️ 印刷 / PDF保存',
-	pdfUpgradeNote: 'PDF保存はスタンダードプラン以上',
-	upgradeLink: 'アップグレード',
-	shareCardTitle: '🎉 がんばりカード',
-	shareCardDesc: '達成を画像でダウンロードして、LINEやSNSでシェアできます',
-	downloadButton: '📥 画像をダウンロード',
-	closeButton: '閉じる',
-	showShareCardButton: '🎉 シェアカードを表示',
-} as const;
-
-export const DEMO_CHILD_HOME_LABELS = {
-	checklistTitle: 'もちものチェック',
-	checklistDone: '✅ かんりょう！',
-	dailyMissionTitle: 'きょうのミッション',
-	missionComplete: (pts: string) => `🎉 ミッションコンプリート！ ${pts}`,
-	activitiesEmpty: 'かつどうがまだありません',
-	recordingLabel: 'きろくちゅう...',
-	recordButton: 'きろくする！',
-	resultStreakSuffix: '！',
-	resultTodayPrefix: 'きょう',
-	resultTodaySuffix: 'かいめ！',
-	demoDataNote: '（デモモード：データは保存されません）',
-	signupCta: 'お子さまの名前で はじめる →',
-	closeButton: 'とじる',
-
-	// #1757 (#1709-C) 「今日のおやくそく」N/M バー（demo 同期）
-	mustTitle: '今日のおやくそく',
-	mustTitleKana: 'きょうのおやくそく',
-	mustProgressText: (logged: number | string, total: number | string) => `${logged}/${total}`,
-	mustRemaining: (n: number | string) => `あと ${n}こ`,
-	mustAllComplete: 'ぜんぶできた！',
-	mustAllCompleteEmoji: '✨',
-	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
-} as const;
-
-export const DEMO_ADMIN_HOME_LABELS = {
-	planSwitcherAriaLabel: 'デモ用プラン切替',
-	planSwitcherLabel: 'デモ: プランを切り替えて体験',
-	freePlanButton: `${PLAN_FULL_TERMS.free}`,
-	standardPlanButton: `⭐ ${PLAN_TERMS.standard}`,
-	familyPlanButton: `⭐⭐ ${PLAN_TERMS.premium}`,
-	statsActivityLabel: 'カスタム活動',
-	statsChildLabel: 'こども',
-	statsRetentionLabel: 'データ保持',
-	trialCtaTitle: '7日間の無料体験',
-	trialCtaDesc: 'スタンダードプランの全機能を7日間無料で体験できます。',
-	trialCtaButton: 'プランを見る',
-} as const;
-
 export const SETUP_CHILDREN_LABELS = {
-	pageTitle: '子供を登録しよう',
-	pageDesc: 'がんばりクエストを使う子供を登録してください（1人以上）。',
+	pageTitle: `${CHILD_TERMS.honorific}を登録しよう`,
+	pageDesc: `がんばりクエストを使う${CHILD_TERMS.honorific}を登録してください（1人以上）。`,
 	registeredTitle: (count: number) => `登録済み（${count}人）`,
 	ageModeSuffix: 'モード',
-	addFormTitle: '子供を追加',
-	themeColorLabel: 'テーマカラー',
+	// #4716: 親画面の子供呼称は honorific に統一
+	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
+	// #4512: 追加フォームの入力ラベル / hint (旧: +page.svelte 直書き)
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
+	nicknamePlaceholder: 'たろうくん',
+	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	// 呼び出し側は src/routes/(parent)/admin/children/+page.svelte と setup/children/+page.svelte。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
+	autoUiModeHint: (uiModeLabel: string) => `${uiModeLabel}モードが自動で設定されます`,
+	// #4718: 誕生日は任意。入れた子だけ誕生日ボーナス (🎂) の対象になる。
+	birthdayLabel: '誕生日（任意）',
+	birthdayHint: '誕生日を入れると誕生日ボーナスが使えます。年齢だけでも登録できます。',
+	birthdayInvalidFormat: '誕生日の形式が正しくありません（YYYY-MM-DD）',
+	birthdayInFuture: '未来の日付は設定できません',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNicknameRequired: 'ニックネームを入力してください',
+	errorAgeRange: '年齢は0〜18で入力してください',
+	// #4716: 親画面の呼称は honorific
+	errorNoChildren: `1人以上の${CHILD_TERMS.honorific}を登録してください`,
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
 	themePink: 'ピンク',
 	themeBlue: 'ブルー',
 	submittingLabel: '登録中...',
-	addButton: '追加する',
+	addButton: CHILD_ADMIN_TERMS.addButton,
 	nextButton: '次へ',
 	backToHome: 'ホームに戻る',
-	addSuccessMessage: '子供を登録しました！',
+	// #4696: 全削除後もこの画面に来るため、バックアップからの復元導線を出す
+	restoreFromBackup: 'バックアップから復元する',
+	addSuccessMessage: `${CHILD_TERMS.honorific}を登録しました！`,
+	// #4716 item 15: setup 画面に直書きされていた顧客可視文言を SSOT へ
+	nicknameFieldLabel: 'ニックネーム',
+	ageFieldLabel: '年齢',
+	expandCollapse: '▲ とじる',
+	expandOpen: '▼ なかみ',
 } as const;
 
 export const ADMIN_CHILDREN_LABELS = {
-	addButton: '+ こどもを追加',
+	addButton: `+ ${CHILD_TERMS.honorific}を追加`,
 	backToList: '← 一覧に戻る',
 	statAgeLabel: '年齢',
 	statAgeTierLabel: '年齢区分',
@@ -5379,15 +7296,15 @@ export const ACTIVITY_FORM_LABELS = {
 	dailyLimitHint: '「無制限」なら何回でも記録できます',
 	nameKanaLabel: 'ひらがな表記（省略可）',
 	nameKanaPlaceholder: '例: おかたづけした',
-	nameKanaHint: '6歳未満の子供に表示する名前',
+	nameKanaHint: `6歳未満の${CHILD_TERMS.honorific}に表示する名前`,
 	nameKanjiLabel: '漢字表記（省略可）',
 	nameKanjiPlaceholder: '例: お片付けをした',
-	nameKanjiHint: '6歳以上の子供に表示する名前',
+	nameKanjiHint: `6歳以上の${CHILD_TERMS.honorific}に表示する名前`,
 	triggerHintLabel: 'トリガーヒント（省略可）',
 	triggerHintPlaceholder: '例: はみがきが終わったら押してね',
 	triggerHintHint: 'カードに小さく表示される声かけ文（30文字以内）',
 	createSubmitDefault: '活動',
-	createSubmitSuffix: ' を追加する',
+	createSubmitSuffix: ACTIVITY_ADMIN_TERMS.submitSuffix,
 	// Edit-specific
 	editNameLabel: '名前',
 	editIconLabel: 'アイコン',
@@ -5400,14 +7317,13 @@ export const ACTIVITY_FORM_LABELS = {
 	editNameKanaLabel: 'ひらがな表記',
 	editNameKanjiLabel: '漢字表記',
 	editKanaPlaceholderOptional: '省略可',
-	editTriggerHintLabel: '子供へのヒント（いつ押すか）',
+	editTriggerHintLabel: `${CHILD_TERMS.honorific}へのヒント（いつ押すか）`,
 	editTriggerHintPlaceholder: 'はみがきが終わったら押してね',
 	editTriggerHintNote: 'カードの下に小さく表示されます（30文字まで）',
 	editSaveButton: '保存',
 	editDeleteButton: '削除',
 	deleteHasLogsTitle: (count: number) => `この活動には ${count} 件の記録があります`,
-	deleteHasLogsExplain:
-		'記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は子供の画面に表示されなくなりますが、過去の記録はそのまま残ります。',
+	deleteHasLogsExplain: `記録を保護するため、完全削除ではなく「非表示」にします。非表示の活動は${CHILD_TERMS.honorific}の画面に表示されなくなりますが、過去の記録はそのまま残ります。`,
 	deleteNoLogsConfirm: '本当に削除しますか？',
 	deleteNoLogsExplain: 'この活動は完全に削除されます。この操作は取り消せません。',
 	deleteHideButton: '非表示にする',
@@ -5431,27 +7347,89 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
 		imported > 0
 			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
 			: '保存に失敗しました。もう一度お試しください',
+	// #4693: プラン上限で一部だけ入ったときに「入った件数」と「外した理由」を並べる。
+	//   片方だけ出すと、顧客は「全部入った」か「何も入らなかった」のどちらかに誤解する。
+	blockedAfterImport: (successText: string, reason: string) => `${successText}。${reason}`,
 } as const;
 
 /**
  * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
  * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
  */
+/**
+ * admin 各ページの form action が返す共通エラーメッセージ (#4512)
+ *
+ * `fail(400, { error: '名前を入力してください' })` のような同一文言が admin 配下の
+ * `+page.server.ts` 11 ファイルに散在し、同じ語を最大 6 箇所で別々に持っていた
+ * (docs/DESIGN.md §6 / ADR-0045)。ページ固有の文言は各ページの `*_PAGE_LABELS` に置き、
+ * 「ID が不正」「保存に失敗」のようにリソース非依存で使い回されるものだけを本 namespace に集約する。
+ *
+ * 表示先は form の `form?.error` (顧客に見えるエラーバナー)。logger.* の内部ログ文言は
+ * 顧客に見えないため対象外 (SSOT 集約しない)。
+ */
+export const ADMIN_FORM_ERROR_LABELS = {
+	// ---- 識別子 ----
+	idRequired: 'IDが必要です',
+	idInvalid: 'IDが不正です',
+	presetIdRequired: 'プリセットIDが必要です',
+	presetNotFound: 'プリセットが見つかりません',
+	presetNotFoundNamed: (presetId: string) => `プリセット「${presetId}」が見つかりません`,
+	presetNotSpecified: 'プリセットが指定されていません',
+	packIdRequired: 'パックIDが必要です',
+	packNotFound: 'パックが見つかりません',
+	templateIdInvalid: 'テンプレートIDが不正です',
+	itemIdInvalid: 'アイテムIDが不正です',
+	// ---- 入力必須 ----
+	nameRequired: '名前を入力してください',
+	itemNameRequired: 'アイテム名を入力してください',
+	itemInvalid: 'アイテムが不正です',
+	categoryRequired: 'カテゴリを選択してください',
+	dateRequired: '日付を入力してください',
+	requiredFieldsMissing: '必須項目が不足しています',
+	// ---- 子供の指定 ----
+	childRequired: 'こどもを選択してください',
+	childRequiredHonorific: `${CHILD_TERMS.honorific}を選択してください`,
+	targetChildRequired: `対象の${CHILD_TERMS.honorific}を選択してください`,
+	sameChildNotAllowed: `違う${CHILD_TERMS.honorific}を選んでください`,
+	childNotFound: 'こどもが見つかりません',
+	childNotFoundNeutral: `${CHILD_TERMS.neutral}が見つかりません`,
+	someChildrenNotFound: `指定された${CHILD_TERMS.honorific}の一部が見つかりませんでした`,
+	childrenNotFound: `指定された${CHILD_TERMS.honorific}が見つかりませんでした`,
+	noValidTargets: '有効な対象が指定されていません',
+	// ---- 保存系の失敗 ----
+	addFailed: '追加に失敗しました',
+	updateFailed: '更新に失敗しました',
+	deleteFailed: '削除に失敗しました',
+	importFailed: 'インポートに失敗しました',
+	copyFailed: 'コピーに失敗しました',
+	bulkAddFailed: '一括追加に失敗しました',
+	bulkClearFailed: '一括クリアに失敗しました',
+	fileParseFailed: 'ファイルの解析に失敗しました',
+	genericError: 'エラーが発生しました',
+} as const;
+
 export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// #3097 (EPIC #3096): 検索ラベルを SSOT 化 (旧 inline hardcoded `活動名で検索` を labels へ移管)
-	searchLabel: '活動を検索',
+	searchLabel: ACTIVITY_ADMIN_TERMS.search,
 	searchPlaceholder: '🔍 活動名で検索...',
 	// 子供別タブ
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	// #4716: 同じ操作の呼称は COPY_FROM_CHILD_LABELS.action に統一 (旧「📋 他の子供から copy」)
+	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
+	// #4693: copy / 一括追加の結果文言 (旧: +page.svelte に直書き、SSOT 逸脱)。
+	// 失敗時はサーバーが返す理由 (上限 + アップグレード導線) を優先し、本文言は fallback。
+	copySuccess: 'コピーが完了しました',
+	copyFailed: 'コピーに失敗しました',
+	bulkCreateSuccess: '一括追加しました',
+	bulkCreateFailed: '一括追加に失敗しました',
 	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
 	// 選択中 child banner
 	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}の活動を表示します`,
 	// copy dialog
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}から活動をコピー`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('活動'),
 	copyDialogDescPrefix: 'コピー元の',
 	copyDialogDescSuffix: 'を選んでください (コピー先: ',
 	copyDialogDescCloseParen: ')',
@@ -5461,6 +7439,10 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: 'コピーする',
+	// #4694: コピー結果文の resource 名 (checklists の restoreResourceNoun と同型)。
+	// 結果文の組み立ては CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が行う。
+	copyResourceNoun: '活動',
+	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// bulk dialog
 	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
 	bulkFormName: '活動名',
@@ -5487,7 +7469,7 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// #2744 AC4 Delete UI (family scope): 一覧から活動を削除する確認 Dialog + 完了 Toast
 	// #2754 Fix Round 1 B2: undo 経路不在の business risk を文言で明示
 	// (ログ有 → 非表示で活動履歴は保全 / ログ無 → 物理削除でレコード復元不能)
-	deleteBtn: '削除',
+	deleteBtn: ACTIVITY_ADMIN_TERMS.delete,
 	deleteConfirmTitle: (name: string) => `${name} を削除しますか?`,
 	deleteConfirmBody:
 		'この操作は取り消せません。活動ログがある場合は「非表示」になり履歴は保全されますが、ログがない場合は完全に削除され復元できません。続行しますか?',
@@ -5505,6 +7487,76 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	ageFilterBypassedHint: (name: string, age: number) =>
 		`年齢フィルタ無効 (${name}${CHILD_TERMS.honorific} ${age}歳)。全 family scope activity を表示中`,
 	ageFilterReapply: '年齢フィルタを再適用',
+	// #4512: +page.svelte / +page.server.ts に直書きされていた活動固有の action 結果・
+	// validation メッセージ。リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	// copySuccess / 一括追加の成功文言は #4693 / #4694 (develop) が上で定義済みのため
+	// ここでは重複させない (後勝ちで先の定義が黙って死ぬのを避ける)。
+	activityIdInvalid: '不正な活動IDです',
+	activityNotFound: '活動が見つかりません',
+	sameChildCopyNotAllowed: `同じ${CHILD_TERMS.honorific}にはコピーできません`,
+	copySourceChildRequired: `コピー元の${CHILD_TERMS.honorific}が必要です`,
+	copyTargetChildRequired: `コピー先の${CHILD_TERMS.honorific}が必要です`,
+	noActivitiesSelectedToImport: '取り込む活動が選択されていません',
+} as const;
+
+/**
+ * admin リソース画面の「選択中の子と操作対象」共通ラベル (#4692)
+ *
+ * 復元 / エクスポート / すべて削除 / 取込 は per-child 主軸 (ADR-0055、DESIGN.md §10) に従い
+ * 「選択中の子」だけを対象にする。対象範囲を書かない確認文 (旧「本当に全削除しますか？」) や
+ * 子供 0 人での空 dialog は「操作対象がどこか分からない」状態を作るため、
+ * 3 画面 (活動 / ごほうび / チェックリスト) で同一文言を使う。
+ */
+export const ADMIN_CHILD_SCOPE_LABELS = {
+	childRequired: `${CHILD_TERMS.honorific}を選んでください`,
+	childNotFound: `指定された${CHILD_TERMS.honorific}が見つかりませんでした`,
+	/** 子供 0 人で取込 URL (`?import=`) を開いたときの案内 (空 dialog の代わり) */
+	noChildrenTitle: `まずは${CHILD_TERMS.honorific}を登録してください`,
+	noChildrenDesc: `取り込み先の${CHILD_TERMS.honorific}がまだ登録されていません。登録すると、みんなのテンプレートを取り込めます。`,
+	noChildrenCta: `${CHILD_TERMS.honorific}を登録する`,
+	/** ︙「すべて削除」の確認文 — 対象の子と件数を必ず出す */
+	clearAllScopedConfirm: (childName: string, count: number) =>
+		`${childName}の活動 ${count} 件をすべて削除します（他の${CHILD_TERMS.honorific}の活動は消えません）`,
+	/** 復元 / エクスポートの対象範囲を dialog / menu で明示する短い注記 */
+	scopedToChildHint: (childName: string) => `対象: ${childName}のみ`,
+} as const;
+
+/**
+ * 「別のお子さまからコピー」の結果メッセージ SSOT (#4694)
+ *
+ * 活動 / ごほうび / チェックリストの 3 画面で同じ判定 (すでにあるものは作らない) を行い、
+ * 同じ形で「作った件数 / 既にあって作らなかった件数」を返す (NN/G #1 visibility of system status)。
+ * 旧実装は「コピーが完了しました」だけを出していたため、2 回押して二重登録されたことにも、
+ * 何も起きなかったことにも気づけなかった。
+ */
+export const CHILD_COPY_RESULT_LABELS = {
+	/**
+	 * @param resourceNoun 「活動」「ごほうび」「チェックリスト」
+	 * @param copied 実際に作成した件数
+	 * @param skipped 既に同じものがあり作成しなかった件数
+	 */
+	format: (resourceNoun: string, copied: number, skipped: number): string => {
+		if (copied === 0) {
+			return skipped > 0
+				? `コピーできる${resourceNoun}はありませんでした（${skipped} 件はすでに追加済みです）`
+				: `コピーできる${resourceNoun}がありませんでした`;
+		}
+		return skipped > 0
+			? `📋 ${copied} 件の${resourceNoun}をコピーしました（${skipped} 件はすでにあるためスキップ）`
+			: `📋 ${copied} 件の${resourceNoun}をコピーしました`;
+	},
+	/** 結果に応じた Toast のトーン (0 件は成功と呼ばない) */
+	tone: (copied: number): 'success' | 'info' => (copied > 0 ? 'success' : 'info'),
+	/** コピー実行中のボタン文言 (DESIGN.md §5 Button loading) */
+	copying: 'コピーしています…',
+	/**
+	 * デモ環境 (write no-op) の結果表示。取込 / 復元の demo 分岐と同型 (#2558 bug-1)。
+	 * demo は書き込みを行わないので件数は常に 0 で返る。これを実結果として
+	 * 「コピーできる○○がありませんでした」と出すと、デモを触った人に
+	 * 「重複していないのにコピーできない」と誤解させるため、demo と明示する。
+	 */
+	demo: (resourceNoun: string): string =>
+		`デモではお試し用です（実際の${resourceNoun}のコピーは行われません）`,
 } as const;
 
 /**
@@ -5559,12 +7611,14 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
 	// 兄弟共通化 actions
-	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	// #4716: 活動 / チェックリストと同じ COPY_FROM_CHILD_LABELS を参照する
+	//   (tests/unit/domain/parent-wording-hygiene-4716.test.ts が一致を assert する)
+	copyFromChildButton: COPY_FROM_CHILD_LABELS.action,
 	// 選択中 child banner
 	childContextRewardsSuffix: (count: number) => `のごほうび (${count} 件)`,
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のごほうびを表示します`,
 	// copy dialog
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}からごほうびをコピー`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('ごほうび'),
 	copyDialogDescPrefix: 'コピー元の',
 	copyDialogDescSuffix: 'を選んでください (コピー先: ',
 	copyDialogDescCloseParen: ')',
@@ -5580,33 +7634,36 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4705: 無料プランで marketplace の取込 CTA から着地したとき (子供を選ばせる前に条件を出す)
+	importLockedMessage: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
 	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
 	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
-	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
-	addMenuButton: '+ 追加',
+	// #4656 M2: 英語 'shop' 表記をやめ REWARD_TERMS.shop (ごほうびショップ) に統一
+	// #4716: 保護者画面の子供呼称は CHILD_TERMS.honorific に統一
+	headerDescription: `${CHILD_TERMS.honorific}の${REWARD_TERMS.shop}に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します`,
+	addMenuButton: ADD_MENU_TERMS.trigger,
 	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
-	addManualLabel: '手動で1つ追加',
+	addManualLabel: ADD_MENU_TERMS.manual,
 	addManualIcon: '✏️',
-	addAiLabel: 'AI で提案してもらう',
+	addAiLabel: ADD_MENU_TERMS.ai,
 	addAiIcon: '✨',
-	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 	addBrowseTemplatesIcon: '🔍',
 	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
 	addDialogTitleManual: '+ 手動でごほうびを追加',
 	addDialogTitleAi: 'AI で提案してもらう',
 	// #2832: reward 一覧の編集 / 削除 (pending redemption ガード)
 	rewardListEmpty: `この${CHILD_TERMS.honorific}にはまだごほうびがありません`,
-	rewardEditButton: '編集',
-	rewardDeleteButton: '削除',
-	rewardPendingBadge: '交換申請 処理待ち',
+	rewardEditButton: REWARD_ADMIN_TERMS.edit,
+	rewardDeleteButton: REWARD_ADMIN_TERMS.delete,
+	rewardPendingBadge: REWARD_ADMIN_TERMS.pendingBadge,
 	editDialogTitle: 'ごほうびを編集',
 	// AC2 (案 b): 編集許容 + snapshot 仕様 (申請時点値) の明示 note
 	editPendingNote: '申請済みの交換は申請時点の内容（名前・ポイント）で処理されます',
@@ -5617,7 +7674,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	editFailed: '更新に失敗しました',
 	deleteDialogTitle: 'ごほうびを削除',
 	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
-	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	// #4683: 交換履歴は残す (ポイント台帳の控除が残る以上、履歴だけ消すと辻褄が合わない)。
+	deleteIrreversibleNote:
+		'この操作は取り消せません。交換ずみの履歴は残るので、使ったポイントはあとから確認できます。',
 	deleteConfirmButton: '削除する',
 	deleteDeletingButton: '削除しています…',
 	deleteCancelButton: 'キャンセル',
@@ -5629,9 +7688,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// #3147: ショップ陳列系統 (physical/money/privilege) の登録時セレクト。
 	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
 	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
-	shopCategoryLabel: 'ショップの並び（タブ）',
-	shopCategoryHint:
-		'子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
+	shopCategoryLabel: REWARD_ADMIN_TERMS.shopCategory,
+	// #4716: 保護者画面の子供呼称は CHILD_TERMS.honorific に統一
+	shopCategoryHint: `${CHILD_TERMS.honorific}の${REWARD_TERMS.shop}でどのタブに並べるかを選べます（未選択なら自動で振り分け）`,
 	shopCategoryAuto: '自動で振り分け',
 	shopCategoryPhysical: 'もの（おもちゃ・おやつなど）',
 	shopCategoryMoney: 'おこづかい',
@@ -5646,10 +7705,12 @@ export const ADMIN_HOME_LABELS = {
 	pageTitleDemoSuffix: ' デモ',
 	// #3144: ごほうび交換の承認待ち導線バナー (pending > 0 のときのみ表示)
 	pendingRedemptionBanner: (count: number) =>
-		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 承認待ちです。確認して受け渡しましょう`,
+		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 ${ADMIN_HOME_TERMS.pendingApproval}です。確認して受け渡しましょう`,
 	// #3148: 承認待ち件数の取得に失敗したときの導線 (silent 非表示で見落とすのを防ぐ)
 	pendingRedemptionLoadFailed: `${REWARD_TERMS.canonical}の承認待ち件数を取得できませんでした。交換申請の確認ページを開いてください`,
-	heading: '管理ダッシュボード',
+	// #4653 F6 / #4715: 旧「管理ダッシュボード」は画面上のどこにも無い語で title と別名だった。
+	// 画面名の SSOT は ADMIN_SCREENS (nav / title / 見出しを同じ registry から引く)。
+	heading: ADMIN_SCREENS.home.name,
 	headingDemoSuffix: '（デモ）',
 	onboardingCompleteText: 'すべてのセットアップが完了しました！',
 	onboardingDismissButton: '非表示にする',
@@ -5659,14 +7720,15 @@ export const ADMIN_HOME_LABELS = {
 	tutorialLaterButton: 'あとで',
 	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
-	summaryChildrenAria: '登録こども数',
-	summaryChildrenLabel: 'こどもの数',
+	summaryChildrenAria: `登録${CHILD_TERMS.honorific}数`,
+	// #4653: カード名はページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
+	summaryChildrenLabel: ADMIN_HOME_TERMS.childrenCountCard,
 	summaryPointsAria: '全ポイント合計',
-	summaryPointsTotalPrefix: '合計',
-	monthLabel: (year: string, month: string) => `${year}年${month}月`,
+	summaryPointsTotalPrefix: ADMIN_HOME_TERMS.totalCard,
+	monthLabel: (year: string, month: string) => formatYearMonth(year, month),
 	monthlyHeadingPrefix: '📊 ',
-	monthlyHeadingSuffix: 'のがんばり',
-	monthlyDetailsLink: '詳しく見る →',
+	monthlyHeadingSuffix: ADMIN_HOME_TERMS.monthlySuffix,
+	monthlyDetailsLink: ADMIN_HOME_TERMS.monthlyDetailsLink,
 	monthlyChildActivitiesAria: (name: string) => `${name}の活動回数`,
 	monthlyChildLevelAria: (name: string) => `${name}のレベル`,
 	monthlyChildAchievementsAria: (name: string) => `${name}の実績`,
@@ -5677,8 +7739,9 @@ export const ADMIN_HOME_LABELS = {
 	monthlyAchievementsUnit: '獲得',
 	todayUsageHeading: '⏱️ ',
 	weeklyUsageHeading: '📈 ',
-	childrenSectionTitle: 'こども一覧',
-	childrenEmpty: 'まだこどもが登録されていません',
+	// #4653: セクション名はページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
+	childrenSectionTitle: ADMIN_HOME_TERMS.childrenSection,
+	childrenEmpty: `まだ${CHILD_TERMS.honorific}が登録されていません`,
 	demoCtaTitle: 'いかがでしたか？',
 	demoCtaHint: 'お子さまの「がんばり」を冒険に変えませんか？',
 	demoCtaButton: '無料で はじめる →',
@@ -5768,23 +7831,42 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	themeColorLabel: 'テーマカラー',
 	birthdayBonusTitle: '🎂 おたんじょうびボーナス',
 	birthdayBonusNote: '※ ボーナス倍率の変更は別途保存されます',
+	// #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので消せる。ただし誤って消すと
+	// 誕生日ボーナスを失うため、**保存前に**確認を挟む (事後の Alert は
+	// ADMIN_CHILDREN_PAGE_LABELS.birthdayClearedNotice)。
+	// 「何が起きるか」「何が残るか」「何が失われるか」「どうすれば再開できるか」を 1 文ずつで書く。
+	//
+	// **失われるものを名指しする**: 保存すると入力された誕生日は破棄され、その年齢の推定誕生日 (1/1)
+	// に置き換わる (`resolveBirthDateForUpdate`)。取り消し操作は無く、export / バックアップにも
+	// 残らない (公開値は null)。ただし**日付を覚えていれば入れ直せる**ので、「元に戻せません」と
+	// だけ書くと保護者には誇張に読める (実際に失われるのは「アプリが覚えていた日付」)。
+	// 事後の Alert (birthdayClearedNotice) と**同じ 2 点** — 日付は消える / 入れ直せば再開する —
+	// を述べ、保存前と保存後で言うことが食い違わないようにする。
+	birthdayClearConfirmTitle: '誕生日を消しますか？',
+	birthdayClearConfirmBody:
+		'誕生日を消すと、誕生日のお祝いが行われなくなります。年齢はそのまま残ります。入力した誕生日はアプリから消え、取り消す操作はありません。お祝いを再開するには、もう一度誕生日を入れてください。',
+	birthdayClearConfirmAccept: '消して保存する',
+	// 誕生日を消したあとのカード表示。推定誕生日 (内部値) は出さず「未設定」と書く。
+	headerBirthdayUnset: '誕生日: 未設定',
 	saveButton: '💾 保存',
 	cancelButton: 'キャンセル',
 	multiplierLabel: '倍率',
 	multiplierApplyButton: '適用',
 	bonusFormulaPreview: (age: number, multiplier: number) =>
 		`→ ${age}歳 × 100pt × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)}pt`,
-	deleteConfirmText: 'この子供を本当に削除しますか？',
+	deleteConfirmText: `この${CHILD_TERMS.honorific}を本当に削除しますか？`,
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',
-	deleteOpenButton: '🗑 この子供を削除',
-	editButton: '✏️ 編集',
+	// #4716 の呼称是正 (honorific) は CHILD_ADMIN_TERMS 側に入れてある。
+	// ここで文字列を作り直すと #4660 のページガイドと実ボタン名が割れる。
+	deleteOpenButton: CHILD_ADMIN_TERMS.deleteButton,
+	editButton: CHILD_ADMIN_TERMS.editButton,
 	// Tabs
-	tabInfo: '📋 基本情報',
-	tabStatus: '📊 ステータス',
-	tabLogs: '📝 活動記録',
-	tabAchievements: '🏆 実績',
-	tabVoice: '📢 ボイス',
+	tabInfo: CHILD_ADMIN_TERMS.tabInfo,
+	tabStatus: CHILD_ADMIN_TERMS.tabStatus,
+	tabLogs: CHILD_ADMIN_TERMS.tabLogs,
+	tabAchievements: CHILD_ADMIN_TERMS.tabAchievements,
+	tabVoice: CHILD_ADMIN_TERMS.tabVoice,
 	// Info tab
 	infoAgeUnit: '歳',
 	infoAgeLabel: '年齢',
@@ -5828,41 +7910,60 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	headerBirthdayPrefix: '🎂 ',
 } as const;
 
-export const DEMO_REPORTS_LABELS = {
-	pageTitle: '📊 週間レポート',
-	reportTitleSuffix: '週間レポート',
-	statActivityLabel: '活動',
-	statActivityUnit: '回',
-	statPointLabel: 'ポイント',
-	statAchievementLabel: '実績',
-	statAchievementUnit: '獲得',
-	highlightTitle: '🏆 今週のハイライト',
-	categoryTitle: '📈 カテゴリ別の様子',
-	adviceTitle: '💡 アドバイス',
-} as const;
-
 export const ADMIN_CHILDREN_PAGE_LABELS = {
-	pageTitle: '👧 こども管理',
+	pageTitle: adminScreenHeading('children'),
 	// #4546 ③: 仮アバターの作り直しをレースで見送ったときの通知 (ADR-0062 §1「一時的・回復可能」= Toast)。
 	// 「失敗」ではなく「写真を優先した」正常な結果なので、責めず・次にどうすればよいかまで書く。
 	placeholderAvatarSkippedTitle: 'アバターはそのままです',
 	placeholderAvatarSkippedDesc:
 		'編集中に写真がアップロードされたため、写真をそのまま残しました。頭文字のアバターに戻すには、写真を削除してください。',
-	limitBannerTitle: 'こどもの登録上限に達しています',
+	// #4729 PO 決定 (2026-09-04): 保護者は誕生日を消せる (誕生日は任意入力であり、消せないほうが
+	// 説明と矛盾する)。消すと誕生日ボーナス / 🎂 表示の対象から外れるため、**黙って消してはならない**
+	// — 何が起きたかを保護者が画面で見られる文言 (Alert、自動消滅しない)。
+	// 再入力でお祝いを再開できることも添え、誤操作の出口を残す。
+	//
+	// 消す操作は `ChildProfileCard` の確認ダイアログ (birthdayClearConfirm*) → 保存 → 本 Alert の
+	// 3 点セット。**保存では実誕生日が破棄され、その年齢の推定誕生日 (1/1) に置き換わる**ので
+	// 元の月日は戻せない (`resolveBirthDateForUpdate`)。だから「消える」ことを事前に確認する。
+	// 消すのは保護者の明示操作だけ — import 復元は `import-service.ts` が
+	// `birthDate: exportChild.birthDate ?? undefined` を渡すため今も null にならない (黙って消えない)。
+	birthdayClearedNotice:
+		'誕生日を消したため、誕生日のお祝いは行われません。入力した誕生日はアプリに残っていません。もう一度誕生日を入れると、お祝いを再開します。',
+	limitBannerTitle: `${CHILD_TERMS.honorific}の登録上限に達しています`,
 	limitBannerDesc: (current: number, max: number) => `現在 ${current}人 / 最大 ${max}人。`,
 	limitUpgradeLink: '🚀 プランをアップグレードする →',
 	cancelButton: 'キャンセル',
-	limitReachedButton: '上限に達しています',
-	addFormTitle: 'こどもを追加',
-	nicknameLabel: 'ニックネーム',
+	limitReachedButton: CHILD_ADMIN_TERMS.limitReachedButton,
+	// #4716: 保護者画面の呼称は honorific (旧「こどもを追加」)
+	addFormTitle: `${CHILD_TERMS.honorific}を追加`,
+	// #4716 item 15: 画面直書きだった placeholder を SSOT へ
+	nicknamePlaceholder: '例: たろうくん',
+	nicknameLabel: CHILD_ADMIN_TERMS.nickname,
 	birthdayHint: '設定すると年齢が自動計算されます',
-	themeColorLabel: 'テーマカラー',
-	addButton: '追加する',
-	ageLabel: '年齢',
-	ageLabelAutoCalc: '年齢（誕生日から自動計算）',
+	// #4716: テーマカラーも atom 参照に (develop の #4718 が足した age 系 atom 参照と併存させる)
+	themeColorLabel: CHILD_ADMIN_TERMS.themeColor,
+	addButton: CHILD_ADMIN_TERMS.addButton,
+	ageLabel: CHILD_ADMIN_TERMS.age,
+	// #4718: 誕生日を入れると年齢は自動計算になるため、入力欄の label をそちらに差し替える。
+	ageLabelAutoCalc: `${CHILD_ADMIN_TERMS.age}（誕生日から自動計算）`,
 	agePlaceholder: '4',
 	birthdayOrAgeRequired: '誕生日または年齢を入力してください',
 	ageRange: '0〜18で入力してください',
+	// #4512: +page.svelte / +page.server.ts に直書きされていた子供管理固有の文言。
+	// リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	// (nicknamePlaceholder は #4716 item 15 が上で定義済のため重複を置かない)
+	nicknameRequired: 'ニックネームを入力してください',
+	birthdayFormatInvalid: '誕生日の形式が正しくありません（YYYY-MM-DD）',
+	birthdayFutureNotAllowed: '未来の日付は設定できません',
+	statusValueRange: '値は0〜100000の範囲で入力してください',
+	birthdayMultiplierRange: '倍率は0.5〜3.0の範囲で設定してください',
+	// おうえんボイス (uploadVoice action)
+	voiceLabelRequired: 'ラベルを入力してください',
+	voiceFileRequired: '音声ファイルを選択してください',
+	voiceErrorInvalidFile: 'ファイルが不正です',
+	voiceErrorFileTooLarge: '5MB以下にしてください',
+	voiceErrorUnsupportedType: 'MP3/M4A/WAV/WebM/OGG形式のみ',
+	voiceErrorTooMany: '10件まで登録可能です',
 } as const;
 
 // #2362 PR-7 (ADR-0055、User §6): per-child challenge instance + 兄弟連動 UI
@@ -5875,17 +7976,9 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// 子供別タブ
 	childTabAllLabel: 'すべて',
 	childTabAllAriaLabel: 'すべてのお子さま',
-	// 一括追加 / cross-child copy
-	bulkAddAction: '全員にこのチャレンジを追加',
-	copyFromOtherChildAction: '他のお子さまから取り込む',
-	copyConfirmTitle: (sourceName: string, targetCount: number) =>
-		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
-	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
-	// 一括追加 完了通知 (#2362 PR-7)
-	bulkCreatedMessage: (createdCount: number) => `${createdCount} 件のチャレンジを追加しました。`,
 	// per-child empty state
+	// #4671 F7: 一括追加 / cross-child copy の label は #3195 の機能撤去で参照 0 件になったため削除
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
-	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
 	// #3195: アプリ自動生成への一本化 (親手動作成撤去、読み取り専用ビュー)
 	autoGeneratedDesc:
 		'チャレンジはアプリが毎週自動で用意します。お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標が届きます。',
@@ -5903,35 +7996,38 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	deleteConfirmTitle: 'このチャレンジを削除しますか？',
 	deleteConfirmBody: (challengeTitle: string, childName: string) =>
 		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
+	// #4512: 家族ストリークの今日の記録状況 (旧: +page.svelte の三項演算子内直書き) は
+	// #4671 F8 が同一文言を CHALLENGES_LABELS.familyStreakRecordedToday / .familyStreakNoneToday
+	// として先に集約済みのため、merge 時に重複定義を削除しそちらに寄せた。
+	// #4512 / #4716 item 15: 兄弟 instance がある場合の削除ボタンラベル (旧: 直書きの ` を削除`)
+	deleteChildButton: (childName: string) => `${childName} を削除`,
+	// #4716 が「別のお子さまからコピー」の呼称共有として copyFromOtherChildAction を足していたが、
+	// チャレンジの cross-child copy 導線は #4671 F7 (#3195 の自動生成一本化) で撤去済で、
+	// 参照は repo 内 0 件だった。撤去済み機能のラベルを残すと「まだある」と読めるので置かない
+	// (parent-wording-hygiene-4716.test.ts が not.toHaveProperty で固定している、QM #4809 レビュー)。
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
-	pageTitle: '📜 がんばり証明書',
+	pageTitle: adminScreenHeading('certificates'),
 	backToReportsLink: 'レポートへ',
-	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
+	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では${CERTIFICATE_TERMS.canonical}の閲覧のみ可能です。PDF保存は`,
 	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
 	freePlanNoteSuffix: 'で利用できます。',
-	emptyTitle: 'まだ証明書がありません',
-	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
+	emptyTitle: `まだ${CERTIFICATE_TERMS.canonical}がありません`,
+	emptyDesc: `活動を記録すると、節目を達成したときに${CERTIFICATE_TERMS.canonical}が発行されます`,
 	noChildrenTitle: '子供が登録されていません',
-} as const;
-
-export const PACKS_PAGE_LABELS = {
-	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
-	pageTitle: TEMPLATE_TERMS.userFacing,
-	pageDesc:
-		'年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。',
-	recommendedBadge: 'おすすめ',
-	importedBadge: 'インポート済',
-	partiallyImportedSuffix: '件 登録済',
-	activityCountSuffix: '件の活動',
-	importingLabel: 'インポート中...',
-	importButton: (count: number) => `${count}件の新しい活動をインポート`,
-	// #1758 (#1709-D): must 推奨採用チェックボックス
-	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
-	mustDefaultCheckboxHint: `歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで${ADMIN_VIEW_TERMS.parent}から個別に変更できます。`,
-	mustDefaultBadge: 'おやくそく推奨',
-	mustDefaultCount: (count: number) => `おやくそく推奨 ${count}件`,
+	// #4674 F5: カテゴリ見出しは page 直書きをやめて本 SSOT に集約 (ガイド文言も同じ値を引く)。
+	// short はカード上のバッジ表記 (子供にも読めるひらがな)。
+	categoryStreak: '🔥 連続記録',
+	categoryLevel: '🌟 レベルアップ',
+	categoryMonthly: '📜 月間がんばり',
+	categoryMaster: '🎓 カテゴリマスター',
+	categoryAnnual: '🏆 年間がんばり大賞',
+	categoryShortStreak: 'れんぞく',
+	categoryShortLevel: 'レベル',
+	categoryShortMonthly: 'がつかん',
+	categoryShortMaster: 'マスター',
+	categoryShortAnnual: 'ねんかん',
 } as const;
 
 export const OPS_LAYOUT_LABELS = {
@@ -5977,7 +8073,7 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
 
-export const CHILD_STATUS_LABELS = {
+const CHILD_STATUS_LABELS = {
 	growthChartTitle: 'せいちょうチャート',
 	growthBestCatPrefix: '💬 ',
 	growthBestCatSuffix: 'が',
@@ -5987,7 +8083,45 @@ export const CHILD_STATUS_LABELS = {
 	growthWeakCatPrefix: '🌟 ',
 	growthWeakCatSuffix: 'にチャレンジすると のびしろがたくさん！',
 	emptyStatus: 'ステータスがまだないよ',
+	// #4690 F5: RadarChart の凡例。年齢帯で文体が変わるため page から渡す。
+	radarNow: 'いま',
+	radarComparison: 'せんげつ',
 } as const;
+
+/**
+ * ステータス画面の文言セット。値の型は `string` に広げてある
+ * （リテラル型のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+type ChildStatusLabels = {
+	readonly [K in keyof typeof CHILD_STATUS_LABELS]: string;
+};
+
+/**
+ * #4690 F5: ステータス画面の漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯に関係なく「せいちょうチャート / べんきょうが すごくのびたね！ /
+ * のびしろがたくさん！」を出しており、13-18 歳の画面が幼児向け文体のままだった
+ * (docs/DESIGN.md §8)。差分だけを持ち、ベースに spread で重ねる。
+ */
+const CHILD_STATUS_KANJI_OVERRIDES = {
+	growthChartTitle: '成長チャート',
+	growthHighMessage: '大きく伸びたね！',
+	growthLowMessage: '少しずつ成長しているよ',
+	growthStableMessage: '💬 安定しているね。この調子で続けよう',
+	growthWeakCatSuffix: 'にチャレンジすると伸びしろが大きいよ',
+	emptyStatus: 'ステータスはまだありません',
+	radarNow: '今月',
+	radarComparison: '先月',
+} as const satisfies Partial<ChildStatusLabels>;
+
+/** ステータス画面の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildStatusLabels(uiMode: string): ChildStatusLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_STATUS_LABELS;
+	}
+	return { ...CHILD_STATUS_LABELS, ...CHILD_STATUS_KANJI_OVERRIDES };
+}
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
@@ -5998,6 +8132,11 @@ export const AUTH_INVITE_LABELS = {
 	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
 	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
 	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	// #4704: 招待を発行した本人 (同じ家族グループ) がリンクを開いたときは「別のグループ」ではない。
+	// リンクの使い方 (渡す相手が違う) を伝える。
+	ownTenantInvite: 'このリンクはご自身のご家族グループへの招待です。',
+	ownTenantInviteDesc:
+		'招待したい方（別のアカウントをお使いの方）にこのリンクをお送りください。お送りした方がリンクを開くと参加できます。',
 	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
 	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
 	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)
@@ -6013,60 +8152,124 @@ export const AUTH_INVITE_LABELS = {
 	// 英語エラーコード (INVITE_EMAIL_MISMATCH) を露出せず、次アクションを必ず添える。
 	emailMismatch: 'この招待は別のメールアドレス宛です。',
 	emailMismatchDesc: '招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
-	// #3555 ①: 受諾失敗 → 新規家族グループ自動作成後に admin 画面で表示する案内バナー
-	acceptErrorMismatchBanner:
-		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
-	acceptErrorUnverifiedBanner:
-		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
-	// #4633 AC-A: email 束縛以外の受諾拒否も、同じく無音で「新しい家族グループの owner」に
-	// 化ける。理由ごとに「なぜ参加できなかったか + 次アクション」を必ず添える。
-	acceptErrorExpiredBanner:
-		'招待の有効期限が切れていたため参加できず、新しい家族グループが作成されました。招待した方に、新しい招待リンクを発行してもらってください。',
-	acceptErrorTenantNotFoundBanner:
-		'招待元の家族グループが現在ご利用できない状態のため参加できず、新しい家族グループが作成されました。招待した方に、お支払い状況をご確認のうえ改めて招待を発行してもらってください。',
-	acceptErrorAlreadyInTenantBanner:
-		'すでに別の家族グループに参加しているため招待を受けられず、新しい家族グループが作成されました。招待で参加するには、一度ログアウトして別のアカウントで招待リンクを開いてください。',
-	acceptErrorSelfInviteBanner:
-		'ご自身が発行した招待は受け取れないため参加できず、新しい家族グループが作成されました。参加する方ご本人のアカウントで招待リンクを開いてください。',
-	acceptErrorOwnerDowngradeBanner:
-		'すでにこの家族グループの管理者のため招待を受けられず、新しい家族グループが作成されました。管理者のまま参加を続ける場合、この招待は受け取る必要はありません。',
-	acceptErrorGenericBanner:
-		'招待を受け取れなかったため、新しい家族グループが作成されました。招待した方に、招待リンクを発行し直してもらってください。',
+	// #4636: 受諾できなかったときは新規家族グループを作らず `/auth/join` に留まる。
+	// 文言は「なぜ参加できなかったか + 次アクション」の 2 点セットで、第三者に
+	// 招待元世帯の支払い状態を推測させない粒度に丸める (ADR-0062 内部例外非露出)。
+	joinBlockedMismatch:
+		'この招待は別のメールアドレス宛のため、参加できませんでした。招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
+	joinBlockedUnverified:
+		'メールアドレスの確認が完了していないため、参加できませんでした。確認メールのリンク（または確認コード）で確認を終えてから、招待リンクをもう一度開いてください。',
+	joinBlockedExpired:
+		'招待の有効期限が切れているため、参加できませんでした。招待した方に、新しい招待リンクを発行してもらってください。',
+	// 支払い状態に触れない粒度に丸める (招待コードを持つだけの第三者に世帯の課金状態を漏らさない)
+	joinBlockedTenantUnavailable:
+		'いまこの家族グループには参加できません。招待した方にご確認のうえ、改めて招待を発行してもらってください。',
+	joinBlockedAlreadyInTenant:
+		'あなたのアカウントはすでに別の家族グループに参加しているため、この招待は受け取れません。参加する方ご本人のアカウントでログインし直してから、招待リンクを開いてください。',
+	joinBlockedSelfInvite:
+		'ご自身が発行した招待は受け取れません。参加する方ご本人のアカウントで招待リンクを開いてください。',
+	joinBlockedOwnerDowngrade:
+		'あなたはすでにこの家族グループの管理者のため、この招待を受け取る必要はありません。そのまま管理者としてご利用いただけます。',
+	// #4723 / #4704: プランのメンバー上限。第三者にどのプランかを推測させないため人数も上限値も出さない
+	joinBlockedMemberLimit:
+		'この家族グループはメンバーの上限に達しているため、参加できませんでした。招待した方にご確認ください。',
+	joinBlockedGeneric:
+		'招待を受け取れませんでした。招待した方に、招待リンクを発行し直してもらってください。',
 } as const;
 
 /**
- * #4633 AC-A: 受諾拒否理由 → 案内バナー文言の対応表 (SSOT)。
- * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
+ * `/auth/invite/[code]` の引っ越し合流 (別の家族グループへ移る) 確認画面 (#4642)。
+ *
+ * **不可逆操作**: 元の家族グループのデータは復元できない。文言は「何が消えるか」と
+ * 「取り消せないこと」を明示し、同意チェックを経ないと実行させない。
  */
-export const INVITE_ACCEPT_ERROR_BANNERS = {
-	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.acceptErrorMismatchBanner,
-	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.acceptErrorUnverifiedBanner,
-	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.acceptErrorExpiredBanner,
-	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.acceptErrorTenantNotFoundBanner,
-	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.acceptErrorAlreadyInTenantBanner,
-	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.acceptErrorSelfInviteBanner,
-	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.acceptErrorOwnerDowngradeBanner,
+export const INVITE_RELOCATION_LABELS = {
+	title: '今の家族グループを畳んで参加しますか？',
+	lead: 'あなたは今、ご自身が管理者の家族グループをお使いです。この招待に参加すると、いまの家族グループは削除され、招待された家族グループに移ります。',
+	discardHeading: '削除されるもの',
+	discardItems: [
+		`いまの家族グループに登録した${CHILD_TERMS.honorific}のプロフィール`,
+		'活動・ごほうび・チェックリスト・ルールなどの設定',
+		'これまでの記録（ポイント履歴・達成の記録）と、アップロードした画像',
+	],
+	irreversibleWarning: '削除したデータは元に戻せません。この操作は取り消せません。',
+	keepNote:
+		'ログインに使うメールアドレスとアカウントはそのままです。招待された家族グループでそのままお使いいただけます。',
+	backupHint:
+		'記録を残しておきたい場合は、参加する前にいまの家族グループの設定からデータをエクスポートしてください。',
+	acknowledgeLabel: '上記に同意します（いまの家族グループのデータは削除され、元に戻せません）',
+	// #4642 PO 差し戻し: 退会と結果が同じ (fullTenantDeletion) なので要求する重さも同じにする。
+	// 確認語の atom は CANCEL_TERMS.confirmPhrase (退会側と共通、複製を作らない)。
+	confirmInputLabel: SETTINGS_LABELS.dangerConfirmInputLabel,
+	confirmInputPlaceholder: CANCEL_TERMS.confirmPhrase,
+	confirmInputMismatch: `確認のため「${CANCEL_TERMS.confirmPhrase}」と正確に入力してください。`,
+	confirmButton: '同意して参加する',
+	confirmButtonLoading: '参加しています…',
+	cancelButton: 'やめておく',
+	acknowledgeRequired: '同意のチェックを入れてから進んでください。',
+	failed:
+		'参加できませんでした。時間をおいてもう一度お試しください。いまの家族グループはそのまま残っています。',
+	// 引っ越しできないときの案内 (理由ごとに次アクションを添える)
+	blockedHasOtherMembers:
+		'いまの家族グループに他のメンバーがいるため、参加できません。メンバー管理から他のメンバーを削除するか、先に別の方へ管理者を移してから、招待リンクをもう一度開いてください。',
+	// #4642 PO 決裁 Q1: 子供が 1 人でも居たら阻止する (その子の記録ごと消えるため)。
+	blockedHasChildren: `いまの家族グループに${CHILD_TERMS.honorific}の記録が残っているため、参加できません。記録を残しておきたい場合は先にデータをエクスポートし、${CHILD_TERMS.honorific}の登録を削除してから、招待リンクをもう一度開いてください。`,
+	blockedNotOwner:
+		'いまの家族グループの管理者ではないため、ここからは参加できません。メンバー管理から今の家族グループを抜けたあと、招待リンクをもう一度開いてください。',
 } as const;
 
-/** 未知の理由 (古い cookie / 想定外) は汎用文言にフォールバックする。 */
-export function getInviteAcceptErrorBanner(reason: string): string {
+/**
+ * 受諾拒否理由 → `/auth/join` に出す説明文の対応表 (SSOT、#3555 ① / #4633 AC-A / #4636)。
+ * 理由の一覧は `INVITE_ACCEPT_ERROR_REASONS` (`$lib/domain/validation/auth`) 側が持つ。
+ *
+ * #4704: `Record<InviteAcceptErrorReason, string>` を満たすことを型で強制する。
+ * 受諾の失敗理由を増やしたのに案内文を書かないと**コンパイルが通らない**。
+ * 案内が無い理由が混ざると、顧客は「なぜ参加できなかったか」を知らないまま
+ * `/auth/join` で行き止まる (#4704 で MEMBER_LIMIT_REACHED を足したとき、旧実装の
+ * 2 件 allowlist はこの経路を素通りさせていた)。
+ */
+export const INVITE_JOIN_BLOCKED_MESSAGES = {
+	INVITE_EMAIL_MISMATCH: AUTH_INVITE_LABELS.joinBlockedMismatch,
+	INVITE_EMAIL_UNVERIFIED: AUTH_INVITE_LABELS.joinBlockedUnverified,
+	INVALID_OR_EXPIRED: AUTH_INVITE_LABELS.joinBlockedExpired,
+	TENANT_NOT_FOUND: AUTH_INVITE_LABELS.joinBlockedTenantUnavailable,
+	ALREADY_IN_TENANT: AUTH_INVITE_LABELS.joinBlockedAlreadyInTenant,
+	SELF_INVITE_NOT_ALLOWED: AUTH_INVITE_LABELS.joinBlockedSelfInvite,
+	OWNER_CANNOT_BE_DOWNGRADED: AUTH_INVITE_LABELS.joinBlockedOwnerDowngrade,
+	// #4723 / #4704: 受諾 txn 内の席数検査で拒否されたとき (発行後のプラン変更 / 同時受諾)
+	MEMBER_LIMIT_REACHED: AUTH_INVITE_LABELS.joinBlockedMemberLimit,
+} as const satisfies Record<InviteAcceptErrorReason, string>;
+
+/**
+ * `/auth/join` — 招待受諾に失敗した (または参加先が確定していない) 人が留まる画面 (#4636)。
+ * 旧実装はここで無音のうちに新しい家族グループを作って owner にしていた。作るかどうかは
+ * 本人に選ばせ、選ぶまでは membership 未確定を正規の状態として扱う。
+ */
+export const AUTH_JOIN_LABELS = {
+	blockedTitle: '招待の家族グループに参加できませんでした',
+	noInviteTitle: '参加する家族グループが決まっていません',
+	noInviteDesc:
+		'招待を受けている場合は、招待した方から届いたリンクをもう一度開いてください。ご自身で新しく始める場合は、下のボタンから家族グループを作成できます。',
+	retryHint: '原因を解消してから招待リンクをもう一度開くと、そのまま参加できます。',
+	createSectionTitle: '新しく自分の家族グループを作る',
+	createSectionDesc:
+		'招待での参加はやめて、ご自身が管理者となる新しい家族グループを作成します。招待した方の家族グループのデータは引き継がれません。',
+	createButton: '自分の家族グループを作る',
+	createButtonLoading: '作成しています…',
+	createFailed:
+		'家族グループを作成できませんでした。時間をおいてもう一度お試しください。続く場合はサポートへご連絡ください。',
+	switchAccountLink: '別のアカウントでログインする',
+} as const;
+
+/** 未知の理由 (将来追加された理由 / 想定外) は汎用文言にフォールバックする。 */
+export function getInviteJoinBlockedMessage(reason: string): string {
 	return (
-		(INVITE_ACCEPT_ERROR_BANNERS as Record<string, string>)[reason] ??
-		AUTH_INVITE_LABELS.acceptErrorGenericBanner
+		(INVITE_JOIN_BLOCKED_MESSAGES as Record<string, string>)[reason] ??
+		AUTH_INVITE_LABELS.joinBlockedGeneric
 	);
 }
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
-
-export const DEMO_LAYOUT_LABELS = {
-	backToHpLink: 'HPに戻る',
-	demoNotice: 'これはデモです。データは保存されません。',
-	tryRealButton: '本番で使ってみる',
-	planSwitcherLabel: 'プラン体験:',
-	floatingCtaTitle: 'お子さまの ぼうけん、はじめよう！',
-	floatingCtaDesc: `7日間無料・いつでも${CANCEL_TERMS.canonical}OK`,
-	floatingCtaButton: '無料で はじめる →',
-} as const;
 
 export const SETUP_PACKS_LABELS = {
 	// Round 18 Cluster A (ADR-0045): かつどうパック → TEMPLATE_TERMS atom 経由
@@ -6084,6 +8287,8 @@ export const SETUP_PACKS_LABELS = {
 	mustDefaultCheckboxHint:
 		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。',
 	mustDefaultBadge: 'おやくそく推奨',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorPackLoadFailed: (packId: string) => `パック「${packId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 2「ごほうび一括追加」labels
@@ -6101,6 +8306,9 @@ export const SETUP_REWARDS_LABELS = {
 	childPickerLabel: 'どのお子さまに追加しますか？',
 	rewardsCountSuffix: '件のごほうび',
 	emptyChildrenNotice: 'お子さまが登録されていないため、このステップはスキップされます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorSetNotFound: (itemId: string) => `セット「${itemId}」が見つかりません`,
+	errorSetLoadFailed: (itemId: string) => `セット「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2140 MP-5: setup wizard β step 3「ルール一括追加」labels
@@ -6124,6 +8332,9 @@ export const SETUP_RULES_LABELS = {
 	ruleTypeSpecial: 'スペシャル（取込未対応）',
 	bonusOnlyNotice:
 		'ボーナスルールは家族全体に適用されます。交換ルールはお子さまごとのごほうびとして登録されます。',
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorRuleNotFound: (itemId: string) => `ルール「${itemId}」が見つかりません`,
+	errorRuleLoadFailed: (itemId: string) => `ルール「${itemId}」の読み込みに失敗しました`,
 } as const;
 
 // #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels
@@ -6152,8 +8363,7 @@ export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
 
 export const SETUP_CHALLENGES_LABELS = {
 	pageTitle: '家族で挑戦するチャレンジを選ぼう',
-	pageDesc:
-		'家族みんなで取り組むチャレンジを一括で追加できます。スキップしても、あとから管理画面で追加できます。',
+	pageDesc: `家族みんなで取り組むチャレンジを一括で追加できます。スキップしても、あとから${ADMIN_VIEW_TERMS.canonical}で追加できます。`,
 	recommendedBadge: 'おすすめ',
 	autoAddOption: 'おすすめ 3 件を自動で追加してすすむ',
 	backButton: 'もどる',
@@ -6166,8 +8376,13 @@ export const SETUP_CHALLENGES_LABELS = {
 	targetSuffix: '回',
 	rewardSuffix: 'P',
 	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
-	previewToggleOpen: '▼ なかみ',
-	previewToggleClose: '▲ とじる',
+	// #4512: 同一文言が packs / rewards / rules にも直書きされていたため SETUP_LABELS に集約
+	previewToggleOpen: SETUP_LABELS.previewToggleOpen,
+	previewToggleClose: SETUP_LABELS.previewToggleClose,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorNoChildren: `${CHILD_TERMS.honorific}が登録されていません`,
+	errorPresetNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません`,
+	errorAddFailed: (title: string, reason: string) => `「${title}」の追加に失敗: ${reason}`,
 } as const;
 
 export const PARENT_LOGIN_LABELS = {
@@ -6182,19 +8397,20 @@ export const PARENT_LOGIN_LABELS = {
 export const VIEW_PAGE_LABELS = {
 	appTitle: 'がんばりクエスト',
 	viewOnlyNotice: '閲覧専用リンク',
-	emptyChildren: 'まだ お子さまが とうろくされていません',
+	// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09:
+	// **同一画面で「お子さま」と「こども」を併記**していた (DESIGN.md §6 の 5 ドメイン用語)。
+	// `/view/[token]` は「リンクを共有された大人 (祖父母等)」が見る面なので、
+	// #4716 が保護者画面に適用したのと同じ `CHILD_TERMS.honorific` に寄せる
+	// (同ファイルの `errorNoChildren` が既に honorific 参照で、そちらに揃える形)。
+	emptyChildren: `まだ ${CHILD_TERMS.honorific}が とうろくされていません`,
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',
-	footerText: 'がんばりクエスト — こどもの がんばりを みんなで おうえん',
-} as const;
-
-export const DEMO_BATTLE_LABELS = {
-	pageTitle: '⚔️ きょうの バトル',
-	startButton: 'バトル かいし！',
-	demoNotice: '（デモモード：データは保存されません）',
-	signupLink: 'お子さまの名前で はじめる →',
-	replayButton: 'もういちど あそぶ',
-	loadErrorMessage: 'バトルじょうほうを よみこめませんでした',
+	footerText: `がんばりクエスト — ${CHILD_TERMS.honorific}の がんばりを みんなで おうえん`,
+	// #4703: 無効 / 期限切れ token 専用の説明。汎用 404「ページが みつかりません」だと
+	// リンクを共有された人 (祖父母等) が「自分の操作を間違えた」と受け取ってしまう。
+	// (#4512 の errorInvalidToken は同一文言の重複 atom だったため本 SSOT に統合)
+	invalidTokenTitle: 'このリンクは無効か、期限切れです',
+	invalidTokenDesc: `リンクの有効期限が切れたか、共有した${PARENT_TERMS.honorific}が無効にした可能性があります。共有元の${PARENT_TERMS.honorific}に新しいリンクの発行を依頼してください。`,
 } as const;
 
 /**
@@ -6266,7 +8482,7 @@ const CHILD_CHECKLIST_KANJI: ChildChecklistTextVariant = {
 	completeTitle: '全部できた！',
 	completeMsg: '忘れ物なし！すごい！',
 	completeButton: 'やったね！',
-	dayNames: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+	dayNames: [...WEEKDAY_NAMES_SUNDAY_FIRST],
 	timeSlotLabels: {
 		morning: '朝',
 		afternoon: '昼',
@@ -6284,6 +8500,20 @@ export const CHILD_CHECKLIST_TIME_SLOT_ICONS: Readonly<Record<string, string>> =
 };
 
 /**
+ * 13-18 歳 (junior / senior) の変種。漢字変種の上に差分だけを重ねる。
+ *
+ * elementary 向けの漢字変種には「やったね！」「おうちの人に追加してもらおう」という
+ * 年少者向けの言い回しが残っており、中高生の画面がそのまま着地していた (docs/DESIGN.md §8)。
+ */
+const CHILD_CHECKLIST_TEEN_OVERRIDES = {
+	emptyDesc: `${PARENT_TERMS.honorific}に追加してもらおう`,
+	completedAll: '🎉 全部達成！',
+	completeTitle: '全部達成！',
+	completeMsg: '忘れ物なし！',
+	completeButton: 'OK',
+} as const satisfies Partial<ChildChecklistTextVariant>;
+
+/**
  * 年齢帯に応じたチェックリスト文言を返す。
  *
  * `ageTier` は必ず呼び出し側から渡すこと (アンチパターン A1: `if (uiMode === 'baby')` 散在の回避)。
@@ -6293,12 +8523,12 @@ export function getChildChecklistLabels(ctx: {
 	ageTier: UiMode | string | null | undefined;
 }): ChildChecklistTextVariant {
 	const tier = normalizeUiMode(ctx.ageTier ?? '');
-	return tier === 'baby' || tier === 'preschool' ? CHILD_CHECKLIST_HIRAGANA : CHILD_CHECKLIST_KANJI;
+	if (tier === 'baby' || tier === 'preschool') return CHILD_CHECKLIST_HIRAGANA;
+	if (tier === 'junior' || tier === 'senior') {
+		return { ...CHILD_CHECKLIST_KANJI, ...CHILD_CHECKLIST_TEEN_OVERRIDES };
+	}
+	return CHILD_CHECKLIST_KANJI;
 }
-
-export const DEMO_CHILD_CHECKLIST_LABELS = {
-	demoNotice: 'これはデモです。チェックは保存されません。',
-} as const;
 
 export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// #3097 (EPIC #3096): 正準スロット契約に conform — 子供タブ / 子供コンテキストバナー / 検索を
@@ -6307,7 +8537,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	childContextSuffix: 'のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い hint を activities (childContextHint) と同型に揃える。
 	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のチェックリストを表示します`,
-	searchLabel: 'チェックリストを検索',
+	searchLabel: CHECKLIST_ADMIN_TERMS.search,
 	searchPlaceholder: 'チェックリスト名で検索...',
 	// #1755 (#1709-A): kind 削除に伴い tabAriaLabel は本 sub では未使用化
 	//   後続 sub-issue (#1709-B) で他用途に流用 / 削除を検討
@@ -6319,32 +8549,69 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// #1755 (#1709-A): kind 選択削除に伴うダイアログタイトル / プレースホルダ統合
 	addTemplateDialogTitle: 'チェックリスト作成',
 	namePlaceholderItem: '例: がっこうのもちもの',
-	inactiveBadge: '無効',
-	deleteButton: '削除',
-	timeSlotLabel: '時間帯:',
-	addItemButton: '+ アイテム追加',
+	inactiveBadge: CHECKLIST_ADMIN_TERMS.inactiveBadge,
+	deleteButton: CHECKLIST_ADMIN_TERMS.delete,
+	// #4023 横展開 (#4512): native confirm() を Dialog primitive に置換 (DESIGN.md §5)。
+	//   本文は admin/challenges の deleteConfirmBody と同型で「何が一緒に消えるか」を書く。
+	//   deleteTemplate は assignments / items / logs を cascade 削除する
+	//   (src/lib/server/db/sqlite/checklist-repo.ts deleteTemplate)。
+	// #4716: 対象名だけでなく配信先 (どの子の画面から消えるか) も本文に出す。
+	deleteConfirmTitle: 'このチェックリストを削除しますか？',
+	deleteConfirmBody: (templateName: string, childNames: string) =>
+		`「${templateName}」を削除します。${childNames}の画面から消え、ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
+	deleteConfirmBodyNoChild: (templateName: string) =>
+		`「${templateName}」を削除します。ふくまれるアイテムと、これまでのチェック記録も一緒に消えます。この操作は取り消せません。`,
+	deleteConfirmAccept: '削除する',
+	// #4716 item 15: 画面直書きだった顧客可視文言を SSOT へ
+	frequencyDaily: 'まいにち',
+	frequencyWeekday: (day: string) => `${day}よう`,
+	directionBring: '持参',
+	directionReturn: '持帰',
+	directionBoth: '往復',
+	timeSlotAnytime: 'いつでも',
+	timeSlotMorning: 'あさ',
+	timeSlotAfternoon: 'ひる',
+	timeSlotEvening: 'よる',
+	distributionSaveError: '配信先の保存に失敗しました',
+	templateDeactivateAction: '無効にする',
+	templateActivateAction: '有効にする',
+	templateDeactivateButton: '無効化',
+	templateActivateButton: '有効化',
+	overrideActionAdd: '追加',
+	overrideActionRemove: '除外',
+	fieldNameLabel: '名前',
+	fieldTimeSlotLabel: '時間帯',
+	fieldFrequencyLabel: '頻度',
+	fieldDirectionLabel: '方向',
+	fieldDateLabel: '日付',
+	fieldOverrideActionLabel: '操作',
+	fieldItemNameLabel: 'アイテム名',
+	itemNamePlaceholder: '例: ハンカチ',
+	overrideItemNamePlaceholder: '例: リュック（遠足）',
+	timeSlotLabel: CHECKLIST_ADMIN_TERMS.timeSlot,
+	addItemButton: CHECKLIST_ADMIN_TERMS.addItem,
 	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
 	//   §10.2 P1/P3 に基づき撤去 (画面内 quota カウンタ・個別アップセル CTA を廃止、制約詳細はプラン画面へ一元化)。
 	addTemplateButton: '+ テンプレート作成',
-	addOverrideButton: '📅 ワンオフ追加',
+	addOverrideButton: `📅 ${CHECKLIST_ADMIN_TERMS.addOverride}`,
 	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
-	addMenuButton: '+ 追加',
+	addMenuButton: ADD_MENU_TERMS.trigger,
 	// #2903 (EPIC #2897): add 経路を activities (ActivitiesHeader) と同型に統一。
 	//   AI 提案パネル直置きを撤去し「+ 追加」dropdown 内の選択肢 (手動 / AI / テンプレから探す / ワンオフ) に格納する。
 	//   icon / 文言は activities header の add menu (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
 	//   両ページの add 経路構成 (種類・順序) が一致することを E2E で assert 可能にする (AC3 同型性固定)。
 	addMenuAriaLabel: 'チェックリストを追加するメニューを開く',
-	addManualLabel: '手動で1つ追加',
+	addManualLabel: ADD_MENU_TERMS.manual,
 	addManualIcon: '✏️',
-	addAiLabel: 'AI で提案してもらう',
+	addAiLabel: ADD_MENU_TERMS.ai,
 	addAiIcon: '✨',
-	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 	addBrowseTemplatesIcon: '🔍',
-	addOverrideMenuLabel: 'ワンオフ追加',
+	addOverrideMenuLabel: CHECKLIST_ADMIN_TERMS.addOverride,
 	addOverrideMenuIcon: '📅',
 	// add dialog title (mode 別、activities の addDialogTitle* と同型)
 	addDialogTitleAi: 'AI で提案してもらう',
-	todayOverrideTitle: '📅 本日のワンオフ',
+	todayOverrideTitle: `📅 ${CHECKLIST_ADMIN_TERMS.todayOverride}`,
 	formKindLabel: '種別',
 	formIconLabel: 'アイコン',
 	createButton: '作成',
@@ -6358,16 +8625,18 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceSectionDesc:
 		'季節やイベント時のチェックリストをワンタップで取込めます（重複時はスキップ）',
 	marketplaceItemCount: (n: number) => `${n}項目`,
-	marketplaceImportButton: '一括追加',
+	marketplaceImportButton: CHECKLIST_ADMIN_TERMS.marketplaceImportCta,
 	marketplaceImportedBadge: '取込済',
 	marketplaceImportSuccess: (presetName: string, items: number) =>
 		`✅ 「${presetName}」: ${items}項目を追加しました`,
 	marketplaceImportDuplicate: (presetName: string) =>
 		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
-	marketplaceSeeMore: 'すべてのチェックリストを見る →',
+	// #4657 F2 (EPIC #4650 PO 判断): 同じ遷移先を指す 3 導線を「みんなのテンプレートから探す」に統一
+	marketplaceSeeMore: `${ADD_MENU_TERMS.browse} →`,
 	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
 	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
-	pageTitle: 'チェックリスト管理',
+	// #4715: 画面名は registry (nav / title / 見出しが同じ値になる)
+	pageTitle: ADMIN_SCREENS.checklists.name,
 	familyChecklistsSectionTitle: '家族のチェックリスト',
 	// #3098: child 主軸 UI 統一に伴い、header 説明を「子供タブで選択中の子のチェックリストを表示」軸に更新。
 	//   同じリストを複数のお子さまに配ることも可能 (= 追加時に配信先を選ぶ) という従来の柔軟性は維持。
@@ -6376,16 +8645,16 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	emptyFamilyMessage: '家族のチェックリストがまだありません',
 	emptyFamilyDesc: `みんなのテンプレートから取込むか、「${OVERFLOW_MENU_TERMS.itemMarketplace}」メニューから追加できます`,
 	browseMarketplaceLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
-	distributionSectionTitle: '配信先のお子さま',
+	distributionSectionTitle: CHECKLIST_ADMIN_TERMS.distributionSection,
 	distributionEmpty: '誰にも配信されていません',
-	distributionConfigureButton: '配信先を設定',
+	distributionConfigureButton: CHECKLIST_ADMIN_TERMS.configureDistribution,
 	distributionDialogTitle: '配信先のお子さまを選ぶ',
 	distributionDialogDesc: 'チェックを入れたお子さまの画面に、このチェックリストが表示されます。',
 	distributionSaveButton: '配信先を保存',
 	distributionUpdated: (added: number, removed: number) =>
 		`配信先を更新しました（追加 ${added} 件 / 解除 ${removed} 件）`,
 	distributionNoChange: '配信先に変更はありませんでした',
-	perChildProgressTitle: 'お子さまごとの今日の進捗',
+	perChildProgressTitle: CHECKLIST_ADMIN_TERMS.perChildProgress,
 	perChildProgressEmpty: '配信中のお子さまがいないため進捗は表示されません',
 	perChildProgressDone: (childName: string, total: number) =>
 		`${childName}: 今日のぶん ${total}/${total} 完了`,
@@ -6415,9 +8684,10 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
 	// #3098 (EPIC #3096 Sub-2): 子供主軸 UI 統一に伴う「別の子から copy」(= 配信先追加) 導線。
 	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
-	copyFromChildMenuLabel: `他の${CHILD_TERMS.honorific}から取り込む`,
+	// #4716: 3 画面で同じ呼称。CHECKLIST_ADMIN_TERMS.copyFromChild も同じ atom を指す
+	copyFromChildMenuLabel: COPY_FROM_CHILD_LABELS.action,
 	copyFromChildMenuIcon: '📋',
-	copyDialogTitle: `他の${CHILD_TERMS.honorific}のチェックリストを取り込む`,
+	copyDialogTitle: COPY_FROM_CHILD_LABELS.dialogTitle('チェックリスト'),
 	copyDialogDescPrefix: 'コピー元を選んでください（コピー先: ',
 	copyDialogDescSuffix: '）',
 	copyDialogSelectedPlaceholder: '—',
@@ -6427,9 +8697,18 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	copyDialogCancel: 'キャンセル',
 	copyDialogConfirm: '取り込む',
 	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
-	copyNoChange: '取り込めるチェックリストがありませんでした（すでに配信済み）',
-	copySuccess: (added: number) => `${added} 件のチェックリストを取り込みました`,
+	// #4694: コピー結果文は CHILD_COPY_RESULT_LABELS (3 画面共通 SSOT) が組み立てる。
+	// 本 namespace は resource 名だけを持つ (restoreResourceNoun と同型)。
+	copyResourceNoun: 'チェックリスト',
 	copyFailed: '取り込みに失敗しました',
+	// #4512: +page.server.ts に直書きされていたチェックリスト固有の validation / 結果文言。
+	// リソース非依存のものは ADMIN_FORM_ERROR_LABELS を参照する。
+	timeSlotInvalid: '時間帯が不正です',
+	overrideIdInvalid: 'オーバーライドIDが不正です',
+	templateNameRequired: 'テンプレート名が必要です',
+	distributionSyncFailed: '配信先の同期に失敗しました',
+	copyAlreadyDistributedNote: (count: number) => `（${count} 件はすでに配信済みでした）`,
+	restoreFallbackName: '復元したチェックリスト',
 } as const;
 
 // ============================================================
@@ -6438,73 +8717,6 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
-export const ADMIN_RULES_PAGE_LABELS = {
-	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
-	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
-	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
-	pageTitle: 'ごほうび・ボーナスルール',
-	pageDescription:
-		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
-	emptyTitle: 'ボーナスルールがありません',
-	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
-	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
-	sectionBonusDesc:
-		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
-	enabledBadge: '有効',
-	disabledBadge: '無効',
-	enableButton: '有効化',
-	disableButton: '無効化',
-	removeButton: '削除',
-	removeConfirmTitle: 'このルールを削除しますか？',
-	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
-	importedAtLabel: '取込日時',
-	rulesLabel: '含まれるルール',
-	pointBonusSuffix: 'pt',
-	updateSuccess: 'ルールを更新しました',
-	removeSuccess: 'ルールを削除しました',
-	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
-	importToastSuccess: (presetName: string) =>
-		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
-	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
-	importToastError: (presetName: string) =>
-		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
-	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
-	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
-	importDemo: 'デモではお試し用です（実際の追加は行われません）',
-	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 = 承認必須。
-	rewardApprovalSectionTitle: `${CONCEPT_ICONS.reward} ごほうび交換のしかた`,
-	rewardApprovalSectionDesc:
-		'お子さまがごほうびショップで交換するとき、保護者の承認を必須にするかを選べます。',
-	rewardApprovalRequireState: '保護者の承認が必要',
-	rewardApprovalInstantState: '承認なしで即時交換',
-	rewardApprovalRequireDesc:
-		'お子さまの交換は「承認待ち」になり、保護者が承認するとポイントが引かれます（初期設定）。',
-	rewardApprovalInstantDesc:
-		'お子さまがためたポイントで、承認を待たずにその場で交換できます（ポイントはその場で引かれます）。',
-	rewardApprovalEnableInstantButton: '即時交換にする',
-	rewardApprovalDisableInstantButton: '承認を必須に戻す',
-	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
-	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
-	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
-	// 解除後に何が起きるか (結果) を書く (AC3)。
-	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
-	rewardApprovalInstantConfirmBody:
-		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
-} as const;
-
-export const DEMO_ACTIVITIES_LABELS = {
-	aiAddButton: '✨ AI追加',
-	manualAddButton: '+ 手動追加',
-	allFilter: 'すべて',
-	emptyFilter: '該当する活動がありません',
-} as const;
-
-export const DEMO_CHECKLISTS_LABELS = {
-	addTemplateButton: '+ テンプレート追加',
-	addItemButton: '+ アイテム追加',
-	emptyTitle: 'チェックリストがありません',
-	emptyDesc: '登録するとお子さまの持ち物チェックリストを管理できます',
-} as const;
 
 // #2295 (EPIC #2294 ①): DEMO_EVENTS_LABELS 削除済 (2026-05-19) — シーズンイベント機構撤去
 
@@ -6514,29 +8726,16 @@ export const SWITCH_PAGE_LABELS = {
 	emptyTitle: 'こどもがまだいないよ',
 	emptyDesc: `${PARENT_TERMS.neutral}が${ADMIN_VIEW_TERMS.canonical}からついかしてね`,
 	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
-	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
-	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
+	// #4715: 遷移先の画面名 (registry SSOT) をそのまま出す。旧「保護者の見守り画面」は
+	//   同じ画面の 3 つ目の呼び名で、着地先の title / 見出しと一致していなかった。
+	adminLink: `🔒 ${ADMIN_SCREENS.home.name}`,
+	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
+	errorChildRequired: 'こどもをえらんでね',
+	errorChildNotSelectable: 'このプロフィールは選べません',
 } as const;
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
 //     license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除、割引配布は Stripe Coupon 代替)。
-
-export const DEMO_CHALLENGES_LABELS = {
-	sectionTitle: '👥 きょうだいチャレンジ',
-	allClearedBadge: '全員クリア！',
-	activeBadge: '開催中',
-	dateRangeSeparator: '〜',
-	targetPrefix: '目標',
-	rewardPrefix: '報酬',
-} as const;
-
-export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
-	sectionTitle: '🏅 チャレンジきろく',
-	emptyTitle: 'まだチャレンジきろくがないよ',
-	emptyDesc: 'チャレンジがはじまったら ここにきろくされるよ',
-	clearedBadge: 'クリア！',
-	inProgressBadge: 'ちょうせん中',
-} as const;
 
 // ============================================================
 // LP コンテンツ (#1344 C1-LP-RETENTION)
@@ -6561,7 +8760,6 @@ export const LP_NAV_LABELS = {
 	selfhost: '仕組みを公開（開発者向け）',
 	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
-	features: 'できること',
 	// #1906 TECH-D-4: skip-to-content link (a11y) — site/*.html 全 10 ファイルで参照
 	skipToContent: '本文へスキップ',
 } as const;
@@ -6612,20 +8810,23 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 // LP Hero 仕様起点の数字バッジ (#1628 R24 / #1788 honest 刷新)
 // PMF 後送り testimonial の代替として仕様値を訴求
 // #1788 (P-MAJ-3): presetSuffix を honest 表現「プリセット活動の候補」に刷新
-//   （実態は「親がセットアップで選択する 300+ 候補プール」であり、訴求から「自動で揃う」誤認を排除）
+//   （実態は「親がセットアップで選択する候補プール」であり、訴求から「自動で揃う」誤認を排除）
 //   CI `measure-lp-dimensions.mjs` の正規表現 `<strong>(\d+)\+</strong>\s*プリセット活動` は
 //   「プリセット活動」リテラルが残っていれば検出されるため、honest 表現でも CI 裏取りは継続して機能する
 // #1953 (Phase 3 D8): atom 化対象ゼロ → #1913 (UIUX-E-1) で AGE_RANGE_TERMS を新設、ageRange を atom 参照化。
-// プリセット数（300+）/ セットアップ時間（約 5 分）は引き続き本 LP 専用の仕様値であり terms.ts に対応 atom 不在。
-// 将来 SETUP_TERMS / SPEC_TERMS 等を新設する判断は別 Issue で検討。
+// #4713: プリセット数は PRESET_ACTIVITY_TERMS (terms.ts) の atom に移した。セットアップ時間（約 5 分）は
+//   引き続き本 LP 専用の仕様値であり terms.ts に対応 atom 不在。
 export const LP_HERO_SPEC_BADGES_LABELS = {
 	// #1913: AGE_RANGE_TERMS.short = '3〜18 歳' を参照（波ダッシュ短縮形 atom）
 	ageRange: `${AGE_RANGE_TERMS.short}`,
 	ageRangeSuffix: '対応',
-	presetCount: '300+',
+	presetCount: `${PRESET_ACTIVITY_TERMS.uniqueCountBadge}`,
 	presetSuffix: 'プリセット活動 の候補',
-	setupTime: '約 5 分',
-	setupSuffix: 'で初期設定',
+	// #4510: 「約 5 分」は repo に計測根拠が無い数値主張だった (300+ プリセットは CI の実数
+	// gate があるのと対照的)。人が要する時間は E2E でも測れない (CI 機の実行時間は人の所要
+	// 時間ではない) ため、PO 決裁どおり非数値化する
+	setupTime: 'かんたん',
+	setupSuffix: '初期設定',
 } as const;
 
 // LP CTA / 期間表記 SSOT (#1616 R12)
@@ -6846,13 +9047,17 @@ export const LP_PRICING_LABELS = {
 	//   「7 日間無料トライアル期間中は」リフレームで撤去（UI 表示変更を伴うため AC9 PO 確認対象）。
 	trialHeading: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	// #1642 R37: 経路汎用化（standard / family どちらの trial も同文言で説明）
-	trialSubheading: `${TRIAL_TERMS.durationSpaced}無料トライアル期間中は、選択したプランの全機能を制限なくお試しいただけます`,
+	// #4866 系 QM 監査 (LP truth) / PO 差し戻し 2026-09-09:
+	// 旧文の「選択したプランの全機能」は**実装と食い違う**。トライアルの tier は
+	// `trial-service.ts` の `TRIAL_TIER` で **premium (内部 'family') 固定** (#4501 PO 確定)で、
+	// どのプランを選んでも全機能が開く。index / faq は既に「すべての有料機能」と
+	// 書いており、pricing だけが古い表現のまま残っていた (ADR-0013 LP truth)。
+	trialSubheading: `${TRIAL_TERMS.durationSpaced}無料トライアル期間中は、すべての有料機能を制限なくお試しいただけます`,
 	trialStep1Title: 'いつでも好きなタイミングで開始',
 	trialStep1Desc: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。`,
 	trialStep2Title: '7日間、選択したプランの全機能が使い放題',
 	// #1642 R37: 経路依存（?plan=standard / ?plan=family / admin/license 手動）すべてに対応
-	trialStep2Desc:
-		'スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。',
+	trialStep2Desc: `${PLAN_TERMS.standard}/${PLAN_TERMS.premium}いずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。`,
 	trialStep3Title: '終了後は自動で無料プランに戻ります',
 	// #1912 (F-10): 「自動課金は一切ありません」→「勝手にお金がかかることはありません」へ日本語化
 	trialStep3Desc:
@@ -6863,11 +9068,11 @@ export const LP_PRICING_LABELS = {
 	// #1641 R36: 実装 retention-cleanup-service.ts に整合した「並列構造」
 	trialDataReassureLine1Strong:
 		'無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録',
-	trialDataReassureLine1Suffix: 'は、無料プランに移行した後もそのまま保持されます。',
+	trialDataReassureLine1Suffix: `は、${PLAN_FULL_TERMS.free}に移行した後も削除されません。上限を超える分は一時的に非表示（アーカイブ）になり、有料プランにアップグレードすると自動で元に戻ります。`,
 	// #1912 (F-6): 「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・毎日のごほうび履歴',
 	trialDataReassureLine2Suffix: `は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
-	trialDataReassureLine3: `有料プランにアップグレードすれば、より長期間（スタンダード: ${PLAN_RETENTION_TERMS.standardSpaced} / ファミリー: 無制限）の履歴をご利用いただけます。`,
+	trialDataReassureLine3: `有料プランにアップグレードすれば、より長期間（${PLAN_TERMS.standard}: ${PLAN_RETENTION_TERMS.standardSpaced} / ${PLAN_TERMS.premium}: 無制限）の履歴をご利用いただけます。`,
 
 	// Family pattern section
 	familyPatternsTitle: '家族での使い方',
@@ -6876,10 +9081,11 @@ export const LP_PRICING_LABELS = {
 	familyPatternSharedTitle: '親アカウント共用型',
 	familyPatternSharedDesc:
 		'親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。',
-	familyPatternInviteTag: 'スタンダード以上',
+	// #4512: PLAN_GATE_LABELS.standardOrAboveBadge と同値。LP 生成 (generate-lp-labels) は
+	// namespace 跨ぎの参照を解決できないため、ここは atom を直接 template literal で参照する。
+	familyPatternInviteTag: `${PLAN_TERMS.standard}以上`,
 	familyPatternInviteTitle: '個別アカウント＋招待リンク型',
-	familyPatternInviteDesc:
-		'家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。',
+	familyPatternInviteDesc: `家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。${PLAN_TERMS.standard}はご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}まで（オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで）、${PLAN_TERMS.premium}は無制限で招待できます。`,
 
 	// FAQ (#1647 R42 — labels.ts PRICING_PAGE_LABELS と整合 / #1643 R38 / #1653 R47)
 	// #1896 PO-4-10: 旧 'faqTitle: よくある質問' は LP_FAQ_TERMS.faqHtmlTitle 経由に統一
@@ -6888,8 +9094,7 @@ export const LP_PRICING_LABELS = {
 	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreeQ: '無料プランでも十分使えますか？',
 	// #1912 (F-6): LP FAQ の「ログインボーナス」→「ごほうび」へ日本語化
-	faqFreeA:
-		'はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。',
+	faqFreeA: `はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.productRegistration}（貯めたポイントと交換する商品の登録）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
@@ -6898,7 +9103,7 @@ export const LP_PRICING_LABELS = {
 	// #4496: 旧文言は退会の猶予期間を解約に転用していた (同ページ faqCancelVsDeleteA と自己矛盾)。
 	//   アプリ内 PRICING_PAGE_LABELS.faqCancelA と同じ事実を述べる。
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
-	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きです。`,
+	faqCancelA: `いいえ。${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります（お子さまの記録は残ります）。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は、有料プランのご利用期間中に書き出してください。記録の書き出し（エクスポート）は${PLAN_FULL_TERMS.standard}以上の機能です。${PLAN_FULL_TERMS.free}では、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。データそのものを消すのはアカウント${CANCEL_TERMS.account}のお手続きです。`,
 	// #4496: pricing.html hero 直下の打消し表示。旧 HTML 直書き文言は「解約申請後 30 日間は
 	//   読み取り専用…その後すべてのデータが完全に削除」と、猶予日数も削除の有無も誤っていた。
 	//   HTML 直書きのままだと SSOT を経由せず再発するため、本 namespace に key を起こす
@@ -6910,15 +9115,14 @@ export const LP_PRICING_LABELS = {
 		'お申し込み日を起算日として毎月自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日です。',
 	faqPaymentQ: '支払い方法は？',
 	faqPaymentA:
-		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
+		'クレジットカード（Stripe が対応する主要ブランド）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
+	faqPlanChangeA: `はい。${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}の切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
 	faqAdsQ: '子供の画面に広告は出ますか？',
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
 	faqMultiDeviceQ: '家族で複数端末から使えますか？',
-	faqMultiDeviceA:
-		'はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。',
+	faqMultiDeviceA: `はい。${PLAN_TERMS.standard}以上のプランで、家族メンバーを招待して複数端末からアクセスできます。${PLAN_FULL_TERMS.standard}はご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}まで（オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで）、${PLAN_FULL_TERMS.premium}は無制限に招待可能です。${PLAN_FULL_TERMS.free}でも1つの端末でお子さまを切り替えて使えます。`,
 	// #1653 R47: 「卒業」概念訴求（FAQ 文脈・機能訴求は禁止）
 	// #1915 (TECH-F 中頻度 D-4): GRADUATION_TERMS atom 経由参照（「卒業」「最終ゴール」を SSOT 化）
 	//   ※APP_LABELS は LP labels generator の cross-namespace 参照対象外のため product 名「がんばりクエスト」は直書き維持。
@@ -6935,10 +9139,9 @@ export const LP_PRICING_LABELS = {
 	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴い「購入後ライセンスキーをメールで…」を
 	// サブスクリプション整合の文言に置換 (決済後 tenant.status=ACTIVE で即時利用可、key 配布なし)。
 	// #3212: 月額/年額トグル (billingToggle*) は年額廃止 (#2719) で撤去。billing=monthly 固定。
-	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
-	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
-	directPurchaseNote: '※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます',
-	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
+	// #4501 PO 決裁 3: トライアルが 1 回限り (FR-8、tenant 単位) であることは LP のどこにも
+	// 書かれていなかった。プラン選択の前に知らせる。
+	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）。無料体験はご家族につき 1 回かぎりです`,
 
 	// #2103 F-2: 解約 CTA + FAQ 経路明示（γ ハイブリッド: アプリ内 1-click → Stripe Customer Portal）
 	// FAQ 既存 faqCancelA は維持し、解約「経路」を補足する追記文 + 新規 FAQ「解約 vs アカウント削除」を追加。
@@ -6968,11 +9171,6 @@ export const LP_PRICING_LABELS = {
 	ctaTrialVerb: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialVerb}`,
 
 	// FAQ 購入手順 3 ステップ (Phase 4 #2621 §4.1、Phase 2 #2548 谷④購入動線探索 解消)
-	faqPurchaseStepsQ: 'どうやって有料プランを始めますか？',
-	faqPurchaseStepsAIntro: '以下の 3 ステップで簡単に始められます。',
-	faqPurchaseStepsStep1: `1. LP の「${CTA_TERMS.freeTrialVerb}」または「${FREE_TERMS.tryFree}」ボタンから ${SIGNUP_TERMS.canonical}ページへ進みます。`,
-	faqPurchaseStepsStep2: `2. アカウント登録後、${ADMIN_VIEW_TERMS.canonical}のヘッダにある「プラン」ボタンを押し、希望のプランを選択します。`,
-	faqPurchaseStepsStep3: `3. お申し込み内容のご確認画面 (${TOKUSHOHO_TERMS.heading6Important}) でチェックを入れて同意し、Stripe の決済画面でカード情報を入力すると ${TRIAL_TERMS.duration}の無料体験が始まります (${TRIAL_TERMS.noCreditCardMid})。`,
 
 	// FAQ 解約手順 3 ステップ (Phase 4 #2621 §4.2、Phase 2 #2548 谷③解約柔軟性 解消、Kinde frictionless 整合)
 	faqCancelStepsQ: `有料プランを${CANCEL_TERMS.canonicalVerb}にはどうすればよいですか？`,
@@ -7097,6 +9295,19 @@ export const ONBOARDING_LABELS = {
 	completedSuffix: '完了',
 	nextRecLabel: '次のおすすめ:',
 	dismissBtn: '非表示にする',
+	// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+	// checklist の項目名 4 件が `onboarding-service.ts` に日本語直書きされていた
+	// (他の 2 件は既に `PAGE_TITLES` / `OYAKAGI_LABELS` 経由で、**半分だけ SSOT を通っていた**)。
+	// 呼称は #4716 の既決事項 (保護者画面は `CHILD_TERMS.honorific`) を適用する。
+	itemChildren: `${CHILD_TERMS.honorific}を登録する`,
+	itemRewards: 'ごほうびプリセットを選ぶ',
+	itemChecklist: 'チェックリストを作る',
+	itemChildScreen: `${CHILD_TERMS.honorific}の画面を確認する`,
+	// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+	// この項目は `/switch` を開いただけでは完了しない (完了するのは子供を選んで
+	// **子供画面に入った時点**)。リンクを踏んだ保護者には「押したのに終わらない」に見えるため、
+	// 着地先で**あと 1 タップ要ること**を明示する。
+	itemChildScreenHint: `${CHILD_TERMS.honorific}のカードを選ぶと、この手順が完了します`,
 } as const;
 
 // ============================================================
@@ -7117,6 +9328,16 @@ export const SETUP_RESUME_LABELS = {
 	backToSetupCta: 'セットアップに戻る',
 	// 「・次は『<step 名>』」の追記句 (区切り・鉤括弧を SSOT に集約、hardcoded JP 増加回避)。
 	nextStepSuffix: (label: string) => `・次は「${label}」`,
+	// #4863 (PO 決裁 2026-09-09): ウィザードを中断した人に出す説明。
+	//   admin の checklist (6 項目) を母数にした「あと N ステップ」は、9 step の
+	//   ウィザードへ戻す人には**無関係な数字**になる (step 7 まで歩いた人に「あと 2」と出る)。
+	//   行き先が変わるなら本文も変える — CTA だけ差し替えると「次は『活動を追加する』」と
+	//   読んでボタンを押した親がアンケート画面に着く。
+	// 見出しが「セットアップの続き」/「初期セットアップの途中です」なので、本文で
+	//   「初期設定の途中です」と繰り返さない (隣接 2 行で同じことを言い、しかも
+	//   「セットアップ」と「初期設定」で用語が割れる — DESIGN.md §6)。
+	//   本文の仕事は**行き先を予告すること**に絞る (頭から始まることを事前に伝える)。
+	wizardResumeDesc: '最初の質問から順に確認できます',
 } as const;
 
 // ============================================================
@@ -7163,8 +9384,12 @@ export const LP_VERSUS_LABELS = {
 	// #1844: ですます → 体言止め
 	row4DigitalDesc: 'スマホ・タブレットで連続記録が途切れない',
 	// #1784: 各 row の scrshot alt テキスト（PO 指摘: vc-digital カードに scrshot ゼロ → 4 scrshot 配置）
-	row1ShotAlt: 'ご家族の見守り画面の活動カスタマイズ画面',
-	row2ShotAlt: `${CHILD_TERMS.neutral}入力画面の過去の記録画面`,
+	// #4510: 実画像は /elementary/home (小学生のホーム画面)。alt が別画面を指していた
+	//   (撮影 SSOT: scripts/capture-hp-screenshots.mjs の feature-point-level)
+	row1ShotAlt: '小学生のホーム画面 — ポイントとレベルの表示',
+	// #4510: 実画像は /preschool/home (幼児のホーム画面)。alt が別画面を指しており、
+	//   さらに「子ども」表記が混在していた (CHILD_TERMS 経由でも neutral は「子供」)
+	row2ShotAlt: '幼児のホーム画面 — ひらがなで大きなタップ領域',
 	row3ShotAlt: '卒業マイルストーンと履歴エクスポート画面',
 	// #2199: feature-cheer-message 撮影元を /admin/messages (親→子おうえんメッセージ送信フォーム + 履歴)
 	//   に振り替え。alt も実画面と LP 訴求「旅行先・祖父母宅でも続けられる」(離れていても家族で
@@ -7202,7 +9427,7 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	// 「自律」が重複し冗長。AUTONOMY_TERMS.selfPlanningAble atom を引用句として残し、
 	// 文末「自律へ」を「子育てステージへ」に変更（卒業を最終地点とする growth-roadmap の
 	// 物語整合を保ちつつ、IT リテラシー語彙を撤去）。
-	sectionDesc: `お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
+	sectionDesc: `お子さまの成長に合わせて画面の見た目と情報量が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
 	// #1848: LP 本体は CTA 1 行に短縮。5 ステージ詳細は graduation.html で展開。
 	// #1895 (PO-4-9): 「5 ステージの詳細を見る →」は section-desc に「5」の予告がなく
 	//   認知ジャンプを誘発（田中ゆかりペルソナ「5 ステージ?なんのステージ?」）。
@@ -7211,9 +9436,9 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	pageTitle: '成長ロードマップ - がんばりクエスト',
 	pageHeroTitle: '3 歳から 18 歳まで、そして「卒業」へ',
 	// #2058 (UIUX-F-16): sectionDesc と同じリフレーム（同文 SSOT）。
-	pageHeroLead: `お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
+	pageHeroLead: `お子さまの成長に合わせて画面の見た目と情報量が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
 	pageMetaDescription:
-		'がんばりクエストの成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、お子さまの成長に合わせて UI と機能が変化していく様子を実画面付きで紹介。',
+		'がんばりクエストの成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、お子さまの成長に合わせて画面の見た目と情報量が変化していく様子を実画面付きで紹介。',
 	breadcrumbHome: 'ホーム',
 	breadcrumbCurrent: '成長ロードマップ',
 	ctaBottomTitle: '家族で全部使ってから、続けるか決める',
@@ -7257,15 +9482,16 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	seniorRange: '16-18',
 	seniorUnit: '歳',
 	seniorTitle: '進路相談で「これだけやってきた」を子供自身が語れる',
-	seniorDesc: '15 年分の活動ログが「自分はこれだけやってきた」という自信に。',
+	// #4502 (GAMMA-GRAD-01): 15 年分の保持は無期限保持を持つ premium の条件。
+	// 条件を書かずに年数だけ訴求しない
+	seniorDesc: `15 年分の活動ログが「自分はこれだけやってきた」という自信に（${PLAN_TERMS.premium}の無期限保持でのご利用時）。`,
 	// #1911 (B-6): 15 字以内に圧縮
 	seniorParentBenefit: '進路面談で活動履歴を語れる',
 	seniorChildExperience: '15年の履歴が自信になる',
 	graduateLabel: 'そして',
 	graduateAccent: '卒業',
 	graduateTitle: 'アプリを開かなくなった日 — それは家族の卒業式',
-	graduateDesc:
-		'「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。',
+	graduateDesc: `「使わなくなる」ことががんばりクエストの成功。記録はいつでも書き出してご家族の手元に残せます（書き出しは有料プラン、15 年分の保持は${PLAN_TERMS.premium}の機能です）。`,
 	// #1911 (B-6): 15 字以内に圧縮
 	// #2058 (UIUX-F-16): 「子供の自律」→「自分で動く姿」リフレーム。
 	// AUTONOMY_TERMS atom 直接参照ではなく、graduate stage 文脈で「動詞 → 名詞」転置した
@@ -7325,7 +9551,7 @@ export const LP_CORELOOP_LABELS = {
 	l1Title: '毎日の活動を記録',
 	// #1788 honest 表現: 「プリセット活動がそのまま使える」→「用意された候補から選ぶだけ」
 	l1Desc:
-		'「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。',
+		'「はみがきした」「宿題おわった」をタップだけで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。',
 	// 仕組み 2: 習慣カード — 1 階層短文化
 	l2Badge: '習慣',
 	l2Title: '習慣カードで続ける',
@@ -7366,7 +9592,8 @@ export const LP_CORELOOP_LABELS = {
 // ============================================================
 
 export const CHILD_SHOP_LABELS = {
-	pageTitle: 'ごほうびショップ',
+	// #4716: 親画面の説明文 (ADMIN_REWARDS_PAGE_LABELS.headerDescription) と同じ atom から引く
+	pageTitle: `${CHILD_SHOP_TERMS.pageName}`,
 	navLabel: 'ショップ',
 	navIcon: '🎁',
 	pointBalanceLabel: 'いまのポイント',
@@ -7383,10 +9610,12 @@ export const CHILD_SHOP_LABELS = {
 	 */
 	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
 	emptyMessage: 'ごほうびがまだありません',
-	// 申請中バッジ
+	// #4631: 陳列棚に出すバッジは「承認待ち」だけ。approved / rejected は完了した状態なので
+	// カードに残さない (残すと「もう交換できない」と誤解させる)。結果は「記録 > 交換」で読む。
 	statusPending: 'うけとりまち',
-	statusApproved: 'こうかん済み',
-	statusRejected: 'まってね',
+	// #4631: 交換の結果 (いつ / いくら / 却下理由) を読みに行く導線。
+	// 却下理由は親が書いた文章なので、ショップからは辿れないと子供が理由を知る手段が無かった。
+	historyLinkLabel: 'こうかんの きろくを みる',
 	// 通知 overlay
 	approvedTitle: (rewardTitle: string) => `${rewardTitle} もらったよ！`,
 	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は ちょっとまってね`,
@@ -7397,7 +9626,12 @@ export const CHILD_SHOP_LABELS = {
 	// #2155 Dialog UX 改善: 階層化表示用ラベル
 	exchangeConfirmHeading: 'こうかんしますか？',
 	exchangeConfirmPointsLabel: 'ひつようなポイント',
-	exchangeConfirmDescription: 'おうちのひとにれんらくがいくよ',
+	// #4684 F1/F2: 確認ダイアログの説明は「実際に起きること」を言う。
+	//   - 即時交換 ON (reward_auto_approve): その場で approved 確定 = ポイントがすぐ減る。
+	//   - 承認モード: 申請だけが作られる。push / メール通知の経路は無く、親が /admin を
+	//     開いたときに承認待ちバナーで気づく。よって「れんらくがいく」とは言わない。
+	exchangeConfirmDescriptionInstant: 'すぐに こうかんするよ（ポイントが へるよ）',
+	exchangeConfirmDescriptionApproval: 'おうちのひとが みたら へんじがくるよ',
 	exchangeDialogAriaLabel: 'ごほうび交換確認ダイアログ',
 	// #2157 ショップ 3 系統タブ (実物 / お小遣い / 特権、26-設計書 §12 + #1336 SSOT 反映)
 	// shopCategory key (physical / money / privilege) → 表示ラベル
@@ -7439,8 +9673,10 @@ export const CHILD_SHOP_LABELS = {
 	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
 		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ のこり ${balance} ポイント`,
 	exchangeRequestedToastTitle: 'おうちのひとに おねがいしたよ',
+	// #4684 F2: 「へんじを まってね」は待てば通知が来ると読める。実際は親が /admin を開いた
+	// ときの承認待ちバナーだけなので、子供が待ちっぱなしにならない言い方にする。
 	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
-		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ へんじを まってね`,
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ おうちのひとが みたら へんじがくるよ`,
 	// #4407 AC10: 交換申請が通らなかったときの文言 (状態に合わせて分ける)
 	errorInsufficientPoints: 'ポイントが たりないよ',
 	errorAlreadyPending: 'いま おうちのひとの へんじを まっているよ',
@@ -7450,6 +9686,89 @@ export const CHILD_SHOP_LABELS = {
 	errorChildNotSelected: 'こどもが えらばれていないよ',
 	errorGeneric: 'うまく いかなかったよ。もういちど ためしてね',
 } as const;
+
+/**
+ * ごほうびショップの文言セット。値の型は `string` に広げてある
+ * （`as const` のリテラル型のままだと、年齢帯変種が「別の文字列」を入れられない）。
+ */
+type ChildShopLabels = {
+	readonly [K in keyof typeof CHILD_SHOP_LABELS]: (typeof CHILD_SHOP_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_SHOP_LABELS)[K];
+};
+
+/**
+ * #4690 F4: ごほうびショップの漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は `CHILD_SHOP_LABELS` をどの年齢帯でも直参照しており、高校生の画面にも
+ * 「いまのポイント / こうかんする / おうちのひとにれんらくがいくよ / はい / やめる」が
+ * 出ていた (docs/DESIGN.md §8 は junior・senior = 漢字・情報密度高)。
+ *
+ * **差分だけ**を持ち、ベース (ひらがな) に spread で重ねる。全キーを二重に持つと
+ * 片方だけ足す事故が起きるため、変える語だけを列挙する。
+ */
+const CHILD_SHOP_KANJI_OVERRIDES = {
+	pointBalanceLabel: '現在のポイント',
+	exchangeButton: '交換する',
+	exchangeConfirmTitle: (rewardTitle: string, points: number) =>
+		`${rewardTitle} と交換する？（${points} ポイント）`,
+	exchangeConfirmYes: 'はい',
+	exchangeConfirmCancel: 'キャンセル',
+	insufficientPointsHint: (remainingText: string) => `あと ${remainingText}`,
+	emptyMessage: 'ごほうびがまだありません',
+	statusPending: '承認待ち',
+	// #4631 で approved / rejected バッジは陳列棚から消えた (ベース側にキーが無い) ため
+	// override も置かない。結果は「記録 > 交換」で読む。
+	historyLinkLabel: '交換の記録を見る',
+	approvedTitle: (rewardTitle: string) => `${rewardTitle} を受け取りました`,
+	rejectedTitle: (rewardTitle: string) => `${rewardTitle} は保留になりました`,
+	overlayCloseButton: '閉じる',
+	exchangeConfirmHeading: '交換しますか？',
+	exchangeConfirmPointsLabel: '必要なポイント',
+	// #4684 の即時交換 / 承認待ちの出し分け文も年齢帯で文体を切り替える (#4690)
+	// (旧 `exchangeConfirmDescription` は #4684 が Instant / Approval の 2 文に分けたため、
+	//  ベース側に対応キーが無い。override だけ残すと死にキーになるので置かない)
+	exchangeConfirmDescriptionInstant: 'すぐに交換します（ポイントが減ります）',
+	exchangeConfirmDescriptionApproval: '保護者が確認したら返事がきます',
+	tabAll: 'すべて',
+	tabPhysical: 'もの',
+	tabAllowance: 'おこづかい',
+	tabPrivilege: '特別',
+	tabEmpty: (categoryLabel: string) => `${categoryLabel} のごほうびはまだありません`,
+	filterPointsRangeLabel: 'ポイントで探す',
+	filterPointsRangeAll: 'すべて',
+	filterAvailable: '今すぐ交換できる',
+	filterAvailableAriaLabel: '今のポイントで交換できるものだけ表示',
+	filterEmptyMessage: '条件に合うごほうびがありません',
+	quantityLabel: 'いくつ交換する？',
+	quantityDecreaseAriaLabel: '個数を減らす',
+	quantityIncreaseAriaLabel: '個数を増やす',
+	quantityUnit: '個',
+	quantityValueAriaLabel: (quantity: number) => `個数 ${quantity}個`,
+	quantityMaxHint: '持っているポイントで交換できる最大の個数です',
+	totalPointsLabel: '合計',
+	remainingAfterLabel: '交換したあとの残り',
+	exchangeSuccessToastTitle: '交換できました',
+	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 残り ${balance} ポイント`,
+	exchangeRequestedToastTitle: '保護者に申請しました',
+	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}個` : ''} ／ 返事を待ってください`,
+	errorInsufficientPoints: 'ポイントが足りません',
+	errorAlreadyPending: '保護者の返事を待っています',
+	errorRecentlyExchanged: 'さきほど交換しました。少し待ってからもう一度押してください',
+	errorRewardNotFound: 'このごほうびが見つかりません',
+	errorInvalidQuantity: '個数をもう一度選んでください',
+	errorChildNotSelected: '子供が選ばれていません',
+	errorGeneric: 'うまくいきませんでした。もう一度試してください',
+} as const satisfies Partial<ChildShopLabels>;
+
+/** ごほうびショップの文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildShopLabels(uiMode: string): ChildShopLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_SHOP_LABELS;
+	return { ...CHILD_SHOP_LABELS, ...CHILD_SHOP_KANJI_OVERRIDES };
+}
 
 // #4407: 交換の「× 個数」表記 SSOT。個数 1 のときは付けない (従来表示を変えない)。
 // ポイント台帳の description / 親の承認一覧の両方が本 helper を使う。
@@ -7467,7 +9786,7 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 	emptyPendingMessage: '申請はありません',
 	approveButton: '承認して渡した',
 	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectNoteLabel: `却下理由（任意・最大${REWARD_REJECT_NOTE_MAX_LENGTH}文字）`,
 	rejectConfirmButton: '確定',
 	rejectCancelButton: 'キャンセル',
 	requestedAtLabel: '申請日時',
@@ -7482,27 +9801,6 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 // ごほうび申請承認専用画面 (#2269: /admin/rewards/requests)
 // CRUD と承認フローの責務分離（PO 指摘「ごほうび/申請タブ区分が意味不明」）
 // ============================================================
-
-export const ADMIN_REWARDS_REQUESTS_LABELS = {
-	pageTitle: '📋 ごほうび申請承認',
-	pageDescTitle: '📋 ごほうび申請承認',
-	pageDescText: '子供からの交換申請に承認/却下します。',
-	backToRewardsLabel: '← ごほうび管理に戻る',
-	pendingSectionTitle: 'Pending',
-	pendingCountSuffix: (count: number) => `${count} 件`,
-	historySectionTitle: 'History（直近30件）',
-	emptyPendingMessage: '申請はありません',
-	emptyHistoryMessage: '履歴はありません',
-	approveButton: '承認して渡した',
-	rejectButton: '却下する',
-	rejectNoteLabel: '却下理由（任意・最大100文字）',
-	rejectConfirmButton: '確定',
-	rejectCancelButton: 'キャンセル',
-	requestedAtLabel: '申請日時',
-	rewardPointsUnit: 'ポイント',
-	statusApproved: '承認済み',
-	statusRejected: '却下済み',
-} as const;
 
 // ============================================================
 // UI プリミティブ コンポーネントラベル (#1465 Phase B)
@@ -7568,6 +9866,10 @@ export const UI_PRIMITIVES_LABELS = {
 	birthDayPlaceholder: '--日',
 	// Dialog / Toast（子供向け UI のため「とじる」表記）
 	closeAriaLabel: 'とじる',
+	/* #4645: title / ariaLabel がどちらも空のまま開かれた Dialog の最終手段の名前。
+	   role="dialog" は accessible name が必須 (WCAG 4.1.2 / axe aria-dialog-name) で、
+	   名前が無いとスクリーンリーダーが「何のダイアログか」を読み上げられない。 */
+	dialogFallbackAriaLabel: 'ダイアログ',
 	// FormField（パスワードトグル）
 	passwordHide: 'パスワードを非表示',
 	passwordShow: 'パスワードを表示',
@@ -7691,12 +9993,13 @@ export const STAMP_PRESS_N_MESSAGES = {
 // ============================================================
 
 export const USAGE_TIME_LABELS = {
-	todayUsage: '本日の使用時間',
+	// #4713: LP 料金比較表の行名と同じ atom から引く (旧「日次サマリー」行が指す画面を一致させる)
+	todayUsage: `${USAGE_SUMMARY_TERMS.today}`,
 	todayUsageOf: (childName: string) => `${childName}の本日使用時間`,
 	minutesUsed: (min: number) => `${min}分使用`,
 	minutesOf15: (min: number) => `${min}分 / 15分`,
 	// Phase 2: 週次 bar chart (#1576)
-	weeklyUsage: '今週の使用時間',
+	weeklyUsage: `${USAGE_SUMMARY_TERMS.weekly}`,
 	weeklyUsageOf: (childName: string) => `${childName}の今週使用時間`,
 	noData: 'まだデータがありません',
 	minutesUnit: '分',
@@ -7718,6 +10021,229 @@ export const USAGE_TIME_LABELS = {
 // src/lib/ui/components/ 配下のハードコード文字列を集約
 // ============================================================
 
+// ============================================================
+// 応援メッセージ (ParentMessageOverlay) の文言 — 年齢帯 variant
+// ============================================================
+//
+// 保護者からの応援メッセージ dialog も年齢帯を持たず、16-18 歳の画面に
+// 「💌 おうえんメッセージ！」「パパ・ママからのメッセージだよ」「うれしい！」が出ていた。
+// 同じ画面でログインボーナス側だけ漢字にすると 1 画面に 2 文体が混ざる (docs/DESIGN.md §6)
+// ため、押印演出と同じ層で出し分ける。
+
+/** 応援メッセージ dialog の文言 (ベース = ひらがな: baby / preschool / elementary)。 */
+const CHILD_PARENT_MESSAGE_LABELS = {
+	parentMessageTitle: '💌 おうえんメッセージ！',
+	parentMessageFrom: 'パパ・ママからのメッセージだよ',
+	parentMessageBody: (body: string) => `「${body}」`,
+	parentMessageConfirmBtn: 'うれしい！',
+	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
+} as const;
+
+/**
+ * 応援メッセージ dialog の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildParentMessageLabels = {
+	readonly [K in keyof typeof CHILD_PARENT_MESSAGE_LABELS]: (typeof CHILD_PARENT_MESSAGE_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_PARENT_MESSAGE_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_PARENT_MESSAGE_KANJI_OVERRIDES = {
+	parentMessageTitle: '💌 応援メッセージ',
+	parentMessageFrom: `${PARENT_TERMS.honorific}からのメッセージ`,
+	parentMessageConfirmBtn: 'OK',
+	parentMessageBonusPoints: (points: number | string) => `+${points}pt 受け取りました`,
+} as const satisfies Partial<ChildParentMessageLabels>;
+
+/** 応援メッセージ dialog の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildParentMessageLabels(uiMode: string): ChildParentMessageLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_PARENT_MESSAGE_LABELS;
+	}
+	return { ...CHILD_PARENT_MESSAGE_LABELS, ...CHILD_PARENT_MESSAGE_KANJI_OVERRIDES };
+}
+
+// ============================================================
+// ログインボーナス受取 UI (押印演出 / スタンプカード) の文言 — 年齢帯 variant
+// ============================================================
+//
+// ログインの押印演出 (`StampPressOverlay`) とヘッダーのスタンプカード (`StampCard`) は
+// 年齢帯を持たず、13-18 歳にも「3にちれんぞく！」「きょうはもうおしたよ！」「やったね！」と
+// いう幼児文体が出ていた (docs/DESIGN.md §8)。ひらがなをベースに、junior / senior だけ差分を
+// override で重ねる (`src/routes/CLAUDE.md` §年齢帯 variant)。
+
+/**
+ * ログインボーナス受取 UI の文言 (ベース = ひらがな: baby / preschool / elementary)。
+ *
+ * export しない — 画面側は必ず `getChildStampLabels(uiMode)` を通す (ベースを直接読むと
+ * 年齢帯の出し分けを迂回できてしまう)。
+ */
+const CHILD_STAMP_LABELS = {
+	// ---- StampCard ----
+	stampCardTitle: 'スタンプカード',
+	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
+	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
+	stampCardComplete: '🎊 コンプリート！',
+	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
+	stampCardStampedToday: '✅ きょうはもうおしたよ！',
+	stampCardRemaining: (remaining: number) => `✨ あと${remaining}回でコンプリート！`,
+
+	// ---- StampPressOverlay ----
+	stampPressWeekLabel: (count: number) => `今週 ${count}回目！`,
+	stampPressStreakLabel: (days: number) => `${days}にちれんぞく！`,
+	stampPressComplete: 'コンプリート！',
+	stampPressCompleteSub: '週末にボーナスポイント！',
+	stampPressRemaining: (remaining: number) => `あと${remaining}回でコンプリート！`,
+	stampPressNextBtn: 'つぎへ',
+	stampPressConfirmBtn: 'やったね！',
+	stampPressWeeklyTitle: '先週のがんばり',
+	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
+	stampPressWeeklyComplete: 'コンプリート！',
+	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
+	stampPressWeeklyMessage: '今週もがんばろう！',
+	/** #4687 ②: 週 5 枠が埋まっている日のログイン (スタンプは押せない) */
+	stampPressAlreadyComplete: '今週はコンプリート！',
+	/** #4687 ③: おみくじログインボーナス (台帳に載る額をそのまま出す) */
+	stampPressLoginBonus: (rank: string, points: number | string) =>
+		`おみくじ ${rank}！ +${points}pt`,
+	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
+	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
+	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+} as const;
+
+/**
+ * ログインボーナス受取 UI の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildStampLabels = {
+	readonly [K in keyof typeof CHILD_STAMP_LABELS]: (typeof CHILD_STAMP_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_STAMP_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_STAMP_KANJI_OVERRIDES = {
+	stampCardRedeemed: (points: number) => `✅ ${points}pt 受け取り済み`,
+	stampCardCompleteSub: '週明けにボーナスポイントを受け取れます',
+	stampCardStampedToday: '✅ 今日は押印済み',
+	stampPressStreakLabel: (days: number) => `${days}日連続！`,
+	stampPressNextBtn: '次へ',
+	stampPressConfirmBtn: 'OK',
+	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
+} as const satisfies Partial<ChildStampLabels>;
+
+/** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildStampLabels(uiMode: string): ChildStampLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_STAMP_LABELS;
+	return { ...CHILD_STAMP_LABELS, ...CHILD_STAMP_KANJI_OVERRIDES };
+}
+
+// ============================================================
+// 初回の子供画面 (冒険スタート演出 / 活動 0 件の空状態) — 年齢帯 variant
+// ============================================================
+//
+// `AdventureStartOverlay` は初回訪問の子供に出る (`variants/index.ts` の
+// `FULL_FEATURES.showAdventureStart` = elementary / junior / senior)。文言が年齢帯を
+// 持たない平坦な定数だったため、16-18 歳が受け取る**最初の 1 画面**が
+// 「やあ！ / きょうから いっしょに ぼうけんだよ！ / したのカードをタップしてみてね」と
+// いう幼児文体になっていた (docs/DESIGN.md §8)。活動 0 件の空状態 (`ActivityEmptyState`)
+// も同じ理由で平坦だった。
+// ひらがなをベースに、junior / senior だけ差分を spread で重ねる
+// (src/routes/CLAUDE.md §年齢帯 variant)。
+
+const CHILD_ADVENTURE_START_LABELS = {
+	adventureGreeting: (name: string) => `やあ！ ${name}！`,
+	adventureBigText1: 'きょうから いっしょに',
+	adventureBigText2: 'ぼうけんだよ！',
+	adventureSubText1: 'いろんなことを がんばると',
+	adventureSubText2: 'つよくなれるよ！',
+	adventureCharacterAlt: 'ぼうけんキャラクター',
+	adventureReadyText: '🌟 さあ、はじめよう！ 🌟',
+	adventureReadySub: 'したのカードをタップしてみてね',
+	/**
+	 * 活動が 1 件も無いまま初回訪問したとき。overlay とカード一覧は独立に分岐するため、
+	 * 「したのカードをタップしてみてね」と言いながら下にカードが無い状態が起きていた。
+	 */
+	adventureReadySubEmpty: 'かつどうが とどいたら はじめよう',
+	adventureStartBtn: 'ぼうけんスタート！',
+} as const;
+
+/**
+ * 冒険スタート演出の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildAdventureStartLabels = {
+	readonly [K in keyof typeof CHILD_ADVENTURE_START_LABELS]: (typeof CHILD_ADVENTURE_START_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_ADVENTURE_START_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_ADVENTURE_START_KANJI_OVERRIDES = {
+	adventureGreeting: (name: string) => `ようこそ、${name}！`,
+	adventureBigText1: '今日からいっしょに',
+	adventureBigText2: `${ADVENTURE_TERMS.canonical}を始めよう！`,
+	adventureSubText1: 'いろいろなことに挑戦すると',
+	adventureSubText2: '強くなれます',
+	adventureCharacterAlt: `${ADVENTURE_TERMS.canonical}キャラクター`,
+	adventureReadyText: '🌟 さあ、始めよう！ 🌟',
+	adventureReadySub: '下のカードを選んで記録してみよう',
+	adventureReadySubEmpty: '活動が届いたら始めよう',
+	adventureStartBtn: `${ADVENTURE_TERMS.canonical}スタート！`,
+} as const satisfies Partial<ChildAdventureStartLabels>;
+
+/** 冒険スタート演出の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildAdventureStartLabels(uiMode: string): ChildAdventureStartLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_ADVENTURE_START_LABELS;
+	}
+	return { ...CHILD_ADVENTURE_START_LABELS, ...CHILD_ADVENTURE_START_KANJI_OVERRIDES };
+}
+
+const CHILD_ACTIVITY_EMPTY_LABELS = {
+	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
+	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
+	activityEmptyWait: 'もうすこし まってね ⏳',
+	activityEmptyCanDo: '── できること ──',
+	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}をみる`,
+} as const;
+
+/**
+ * 活動 0 件の空状態の文言セット。値の型は `string` / 関数に広げてある
+ * (リテラル型のままだと年齢帯変種が別の文字列を入れられない)。
+ */
+type ChildActivityEmptyLabels = {
+	readonly [K in keyof typeof CHILD_ACTIVITY_EMPTY_LABELS]: (typeof CHILD_ACTIVITY_EMPTY_LABELS)[K] extends string
+		? string
+		: (typeof CHILD_ACTIVITY_EMPTY_LABELS)[K];
+};
+
+/** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_ACTIVITY_EMPTY_KANJI_OVERRIDES = {
+	activityEmptyTitle: `${ADVENTURE_TERMS.canonical}の準備中...`,
+	activityEmptyDesc: `${PARENT_TERMS.honorific}が活動を用意しています`,
+	activityEmptyWait: 'もう少し待ってね ⏳',
+	// activityEmptyCanDo ('── できること ──') は年齢帯で変わらないので override に置かない。
+	// 同値の override は「差分だけ」の原則から外れ、次に base を直した人が割る
+	// (src/routes/CLAUDE.md §年齢帯 variant)。
+	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}を見る`,
+} as const satisfies Partial<ChildActivityEmptyLabels>;
+
+/** 活動 0 件の空状態の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildActivityEmptyLabels(uiMode: string): ChildActivityEmptyLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_ACTIVITY_EMPTY_LABELS;
+	}
+	return { ...CHILD_ACTIVITY_EMPTY_LABELS, ...CHILD_ACTIVITY_EMPTY_KANJI_OVERRIDES };
+}
+
 export const UI_COMPONENTS_LABELS = {
 	// ---- ActivityCard ----
 	activityCardFrozenToast: 'おうちのひとに おねがいしてね',
@@ -7732,25 +10258,14 @@ export const UI_COMPONENTS_LABELS = {
 	// #2146: priority='must' (今日のおやくそく) のカード演出統合用ラベル
 	// 旧 MustProgressBar 専用セクションを廃止し、ActivityCard 自身に ribbon badge を付ける
 	activityCardMustBadge: '⭐ おやくそく',
+	// #4690 F6: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+	activityCardMustBadgeKanji: '⭐ 今日の約束',
 	activityCardMust: '（今日のおやくそく）',
 
-	// ---- ActivityEmptyState ----
-	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',
-	activityEmptyDesc: 'おうちの人が かつどうを よういしているよ！',
-	activityEmptyWait: 'もうすこし まってね ⏳',
-	activityEmptyCanDo: '── できること ──',
-	activityEmptyStatusLink: (statusLabel: string) => `${statusLabel}をみる`,
-
-	// ---- AdventureStartOverlay ----
-	adventureGreeting: (name: string) => `やあ！ ${name}！`,
-	adventureBigText1: 'きょうから いっしょに',
-	adventureBigText2: 'ぼうけんだよ！',
-	adventureSubText1: 'いろんなことを がんばると',
-	adventureSubText2: 'つよくなれるよ！',
-	adventureCharacterAlt: 'ぼうけんキャラクター',
-	adventureReadyText: '🌟 さあ、はじめよう！ 🌟',
-	adventureReadySub: 'したのカードをタップしてみてね',
-	adventureStartBtn: 'ぼうけんスタート！',
+	// ---- ActivityEmptyState / AdventureStartOverlay ----
+	// 年齢帯 variant を持つため CHILD_ACTIVITY_EMPTY_LABELS /
+	// CHILD_ADVENTURE_START_LABELS (getChildActivityEmptyLabels /
+	// getChildAdventureStartLabels) へ移動した。ここに戻さない。
 
 	// ---- BottomNav ----
 	bottomNavHome: 'ホーム',
@@ -7799,9 +10314,13 @@ export const UI_COMPONENTS_LABELS = {
 	googleSignInLabel: 'Google でログイン',
 
 	// ---- Header ----
-	headerPremiumTitle: 'スタンダード以上',
+	headerPremiumTitle: PLAN_GATE_LABELS.standardOrAboveBadge,
 	headerHelpAriaLabel: 'つかいかたガイド',
-	headerStampAriaLabel: 'スタンプカードを見る',
+	/* #4645: ボタンの可視テキストは「<たまった数>/<全体>」。aria-label がそれを含まないと
+	   音声操作 (「『スタンプカードを見る』をクリック」) と画面上の文字が一致せず、
+	   axe label-content-name-mismatch (WCAG 2.5.3 Label in Name) に抵触する。 */
+	headerStampAriaLabel: (filled: number, total: number): string =>
+		`スタンプカード ${filled}/${total} を見る`,
 
 	// ---- LevelUpOverlay ----
 	levelUpMessages: {
@@ -7848,10 +10367,7 @@ export const UI_COMPONENTS_LABELS = {
 	pageGuideNextBtn: (isLast: boolean) => (isLast ? 'かんりょう！' : 'つぎへ'),
 
 	// ---- ParentMessageOverlay ----
-	parentMessageTitle: '💌 おうえんメッセージ！',
-	parentMessageFrom: 'パパ・ママからのメッセージだよ',
-	parentMessageBody: (body: string) => `「${body}」`,
-	parentMessageConfirmBtn: 'うれしい！',
+	// 文言は年齢帯 variant を持つため `getChildParentMessageLabels(uiMode)` が SSOT (本 namespace には置かない)
 
 	// ---- PremiumBadge ----
 	premiumBadgeTitle: 'スタンダードプラン以上で利用可能',
@@ -7860,11 +10376,6 @@ export const UI_COMPONENTS_LABELS = {
 	radarChartAriaLabel: 'ステータスレーダーチャート',
 	radarChartNow: 'いま',
 	radarChartDefaultComparisonLabel: 'せんげつ',
-
-	// ---- SiblingCheerOverlay ----
-	siblingCheerTitle: '💌 おうえんがとどいたよ！',
-	siblingCheerFrom: (name: string) => `${name}から`,
-	siblingCheerConfirmBtn: 'ありがとう！',
 
 	// ---- SiblingRanking ----
 	siblingRankingMe: 'じぶん',
@@ -7880,34 +10391,53 @@ export const UI_COMPONENTS_LABELS = {
 	specialRewardPoints: (points: number) => `+${points} ポイント！`,
 	specialRewardConfirmBtn: 'やったー！',
 
-	// ---- StampCard ----
-	stampCardTitle: 'スタンプカード',
-	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
-	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
-	stampCardComplete: '🎊 コンプリート！',
-	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
-	stampCardStampedToday: '✅ きょうはもうおしたよ！',
-	stampCardRemaining: (remaining: number) => `✨ あと${remaining}回でコンプリート！`,
-
-	// ---- StampPressOverlay ----
-	stampPressWeekLabel: (count: number) => `今週 ${count}回目！`,
-	stampPressStreakLabel: (days: number) => `${days}にちれんぞく！`,
-	stampPressComplete: 'コンプリート！',
-	stampPressCompleteSub: '週末にボーナスポイント！',
-	stampPressRemaining: (remaining: number) => `あと${remaining}回でコンプリート！`,
-	stampPressNextBtn: 'つぎへ',
-	stampPressConfirmBtn: 'やったね！',
-	stampPressWeeklyTitle: '先週のがんばり',
-	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
-	stampPressWeeklyComplete: 'コンプリート！',
-	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
-	stampPressWeeklyMessage: '今週もがんばろう！',
+	// ---- StampCard / StampPressOverlay ----
+	// 文言は年齢帯 variant を持つため `getChildStampLabels(uiMode)` が SSOT (本 namespace には置かない)
 
 	// ---- TutorialBubble ----
 	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
 	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
 	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
 		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+} as const;
+
+// ============================================================
+// AI 送信の注意書き (#4599)
+// ============================================================
+//
+// AI 提案 3 種 (活動 / チェックリスト / ごほうび) と領収書 OCR の 4 経路で共有する
+// 唯一の定義。4 経路にコピペせず、`AiInputNotice.svelte` 経由で参照する。
+//
+// プライバシーポリシー第9条④ (#4583 / PR #4598) と同じ事実を、入力する瞬間に短く述べる。
+// ADR-0012 (anti-engagement) 整合で警告は積み上げない。
+//
+// **送信先の別は画面でも述べる (#4598 QM レビュー指摘で方針変更)**。`getAiProvider()` は
+// `AI_PROVIDER` で送信先を切り替え、領収書 OCR も AI 提案も同じ factory を通るため、
+// **同じ画面文言のまま送信先だけが配布形態で変わる**。条文が書き分けている 2 ケース
+// (運営者が管理する環境内 / 設定により運営者の環境外) を画面が丸めてしまうと、
+// 氏名・住所が写った画像がどちらへ行くのかを顧客が画面から判断できない。
+// 旧方針 (「送信先の詳細は条文リンクに委ねる」) は本指摘で置き換える。条文への導線は維持する。
+// 生成 AI の製品名・モデル名はここにも UI にも書かない (#4370 / #4583 と同一規律)。
+
+/** 送信先の別 (第9条④ と同じ粒度)。text / image の両経路で同一文を共有する。 */
+const AI_DESTINATION_NOTICE = `送信先は${AI_TRANSFER_TERMS.destinationCloud}、${AI_TRANSFER_TERMS.destinationSelfHosted}です。`;
+
+export const AI_INPUT_NOTICE_LABELS = {
+	/** 送信先の別 (第9条④ と同じ 2 ケース)。text / image が共有する */
+	destination: AI_DESTINATION_NOTICE,
+	/** テキスト入力経路 (AI 提案 3 種) */
+	text: `入力した文章は${AI_TRANSFER_TERMS.genAi}に送信されます。${AI_DESTINATION_NOTICE}${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}は書かないでください。`,
+	/**
+	 * 画像アップロード経路 (領収書 OCR)。
+	 * #4598 PO 回答 (2026-09-03): 領収書には宛名 (氏名・住所) が印字されていることがあり、
+	 * 第9条④ の注意喚起を法務文書だけに置いて画面に出さないのは届いていないのと同じ。
+	 * 送信される画像に何が写りうるか (宛名の氏名・住所 / お子さまの特定情報) を入力の瞬間に述べる。
+	 * 送信先の別 (AI_DESTINATION_NOTICE) も同じ hint で述べる (QM レビュー指摘、上記コメント)。
+	 */
+	image: `アップロードした領収書画像は${AI_TRANSFER_TERMS.genAi}に送信されます。${AI_DESTINATION_NOTICE}${AI_TRANSFER_TERMS.receiptPrintedInfo}や${CHILD_TERMS.honorific}の${AI_TRANSFER_TERMS.identifyingInfo}が写らないようご注意ください。`,
+	/** 送信先の詳細 (条文) への導線 */
+	linkLabel: '送信先とあつかい',
+	linkHref: 'https://www.ganbari-quest.com/privacy.html#under-age',
 } as const;
 
 // ============================================================
@@ -7993,18 +10523,24 @@ export const FEATURES_LABELS = {
 		tabChallenge: 'チャレンジ',
 		tabHistoryYoung: 'きろく',
 		tabHistoryOlder: '記録',
+		// #4681: バトル入口 (elementary / junior / senior のみ。LP「ボスバトル」訴求の到達経路)
+		tabBattle: 'バトル',
 	},
 
 	// ---- features/challenge/ ----
 	challenge: {
 		// SiblingCelebration
 		celebrationTitle: 'みんなクリア！',
-		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
+		/**
+		 * #4689: 自分だけのチャレンジ (兄弟が同じ内容を持たない = group が自分 1 人) を達成したときの見出し。
+		 * 週次自動生成は子供ごとに内容が違うため、この形が既定になる。
+		 */
+		celebrationTitleSolo: 'チャレンジ クリア！',
+		celebrationClaimBtn: `${CONCEPT_ICONS.reward} ごほうびをうけとる！`,
 		celebrationCloseBtn: 'とじる',
 		// #4410 AC4: 閉じたあとどこで受け取るのかをダイアログ内で示す。claim ボタン自体は
 		// 戻さない (#3333 の二重導線排除を壊さない) — 場所の案内だけを置く。
-		celebrationClaimHint:
-			'ごほうびは とじたあと したの「🎁 ほうしゅうをうけとる！」ボタンから うけとれるよ',
+		celebrationClaimHint: `ごほうびは とじたあと したの「${CONCEPT_ICONS.reward} ごほうびをうけとる！」ボタンから うけとれるよ`,
 		// #3361 (ux-4): claim 失敗時の可視フィードバック (dead-end 回避、NN/G #1)
 		claimErrorTitle: 'うけとれなかったよ',
 		claimErrorFallback: 'もういちど ためしてね',
@@ -8016,17 +10552,9 @@ export const FEATURES_LABELS = {
 		hintTitle: 'つかいかた ガイド あるよ！',
 		hintSub: 'いつでも ❓ ボタンで みれるよ',
 		hintCloseAriaLabel: '閉じる',
-	},
-
-	// ---- features/demo/ ----
-	demo: {
-		// DemoGuideBar
-		guideBackAriaLabel: 'もどる',
-		guideSeePricing: 'プランを見る',
-		guideStartBtn: 'はじめる',
-		guideActionHint: 'やってみよう',
-		guideNextBtn: 'つぎへ',
-		guideDismissAriaLabel: 'ガイドを閉じる',
+		// #4690 F5: junior / senior (13-18 歳) 向けの漢字表記 (docs/DESIGN.md §8)。
+		hintTitleKanji: '使い方ガイドがあります',
+		hintSubKanji: 'いつでも ❓ ボタンから見られます',
 	},
 
 	// ---- features/loyalty/ ----
@@ -8085,7 +10613,7 @@ export const FEATURES_LABELS = {
 	aiSuggestChecklist: {
 		title: '✨ どんなもちものが必要？',
 		kind: 'AI チェックリスト提案',
-		description: 'シーンや学年を入力すると、持ち物リストを自動で提案します',
+		description: `シーンや学年を入力すると、${NAV_ITEM_LABELS.checklists}を自動で提案します`,
 		placeholder: '例: 小学3年生の月曜日の持ち物、えんそく、プール',
 		acceptBtn: 'この内容でテンプレートを作成',
 		itemCount: (count: number) => `(${count}個)`,
@@ -8102,19 +10630,6 @@ export const FEATURES_LABELS = {
 		description: 'ごほうびの内容を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します',
 		placeholder: '例: おもちゃ、外食、ゲーム時間+30分、おこづかい500円',
 		acceptBtn: 'この内容で入力する',
-	},
-
-	// ---- features/admin/components/AiSuggestCheerPanel (#2273) ----
-	// 出来事テキスト → P 値 + カテゴリ + アイコン + 理由要約推定
-	// AiSuggestRewardPanel と入力プロンプト・出力意味が異なるため別 component
-	aiSuggestCheer: {
-		title: '✨ どんな出来事だった？',
-		kind: 'AI 応援提案',
-		description:
-			'子供のがんばりや出来事を入力すると、応援ポイント・カテゴリ・アイコンを自動で提案します',
-		placeholder: '例: 運動会で1位、テストで100点、お皿を進んで洗った',
-		acceptBtn: 'この内容で応援を送る',
-		reasonLabel: '理由',
 	},
 
 	// ---- features/admin/components/PremiumWelcome ----
@@ -8135,7 +10650,8 @@ export const FEATURES_LABELS = {
 		pageGuideTitle: 'このページの使い方',
 		tutorialRestartTitle: 'チュートリアルを開始',
 		demoTopLink: 'デモトップ',
-		switchToChild: '子供画面へ',
+		// #4653: ページガイドと同じ atom を参照する / #4716: 呼称は honorific (atom 側で統一)
+		switchToChild: ADMIN_HOME_TERMS.switchToChild,
 		desktopNavAriaLabel: '管理メニュー',
 		mobileNavAriaLabel: 'メインナビゲーション',
 		mobileMenuCloseAriaLabel: 'メニューを閉じる',
@@ -8144,12 +10660,12 @@ export const FEATURES_LABELS = {
 	// ---- features/admin/components/AddActivityModeSelector ----
 	// ---- features/admin/components/HiddenActivitiesSection ----
 	hiddenActivities: {
-		toggleLabel: (count: number) => `非表示の活動 (${count}件)`,
+		toggleLabel: (count: number) => `${ACTIVITY_ADMIN_TERMS.hiddenSection} (${count}件)`,
 		closeIcon: '▲ 閉じる',
 		openIcon: '▼ 開く',
 		recordCount: (count: number) => `/ 記録 ${count}件`,
-		restoreBtn: '復活',
-		permanentDeleteBtn: '完全削除',
+		restoreBtn: ACTIVITY_ADMIN_TERMS.restore,
+		permanentDeleteBtn: ACTIVITY_ADMIN_TERMS.permanentDelete,
 	},
 
 	// ---- features/admin/components/TrialEndedDialog ----
@@ -8158,8 +10674,8 @@ export const FEATURES_LABELS = {
 		message: '無料体験期間が終了しました。\nフリープランの範囲内で引き続きご利用いただけます。',
 		messageLine1: '無料体験期間が終了しました。',
 		messageLine2: 'フリープランの範囲内で引き続きご利用いただけます。',
-		note1: 'オリジナル活動やチェックリストの超過分は一時的に非表示になります',
-		note2: 'データは削除されません — アップグレードで復活します',
+		note1: `${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストは一時的に非表示（アーカイブ）になります`,
+		note2: 'データは削除されません — 有料プランにすると自動で元に戻ります',
 		ctaBtn: '⭐ プランを見る',
 		dismissBtn: 'あとで',
 	},
@@ -8168,27 +10684,28 @@ export const FEATURES_LABELS = {
 	// EPIC #2253 / #2255 / #2257: + dropdown menu + ︙ overflow menu に再構成
 	// #2260 Fix-2: +page.svelte L167 hardcode の Dialog title 3 件を SSOT 化 (ADR-0045 / ADR-0009)
 	activitiesHeader: {
-		title: '📋 活動管理',
+		// #4655 F10: 概念アイコンは CONCEPT_ICONS.activity (📝) に統一 (旧 📋 は checklist と同一)
+		title: `${CONCEPT_ICONS.activity} ${NAV_ITEM_LABELS.activities}`,
 		exportAriaLabel: 'エクスポート',
 		introduceAriaLabel: '活動の紹介',
 		clearAllAriaLabel: '全クリア',
 		// + dropdown menu に統合 (EPIC #2253 / #2255 / #2558 段階2)
 		// #2558 段階2 (PO 方針: マーケットプレイス一本化): 「追加」と「一括追加」を 1 つの
 		// 「+ 追加」メニューに統合。`import` 項目は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する。
-		addButtonLabel: '+ 追加',
+		addButtonLabel: ADD_MENU_TERMS.trigger,
 		addMenuAriaLabel: '活動を追加するメニューを開く',
-		addManualLabel: '手動で1つ追加',
+		addManualLabel: ADD_MENU_TERMS.manual,
 		addManualIcon: '✏️',
-		addAiLabel: 'AI で提案してもらう',
+		addAiLabel: ADD_MENU_TERMS.ai,
 		addAiIcon: '✨',
 		// #2558 段階2 (bug-3 / bug-4 根治): 内部語彙「パック」を排し、admin 内ブラウズ UI でなく
 		// みんなのテンプレート (/marketplace) への画面遷移を表す文言に統一。
-		addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+		addBrowseTemplatesLabel: ADD_MENU_TERMS.browse,
 		addBrowseTemplatesIcon: '🔍',
 		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
-		addCopyFromChildLabel: `別の${CHILD_TERMS.honorific}からコピー`,
+		addCopyFromChildLabel: COPY_FROM_CHILD_LABELS.action,
 		addCopyFromChildIcon: '📋',
-		addBulkLabel: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+		addBulkLabel: ADD_MENU_TERMS.bulk,
 		addBulkIcon: '👨‍👩‍👧‍👦',
 		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
 		addDialogTitleManual: '+ 手動で追加',
@@ -8200,9 +10717,9 @@ export const FEATURES_LABELS = {
 		overflowTriggerLabel: '︙',
 		restoreLabel: OVERFLOW_MENU_TERMS.itemRestore,
 		restoreIcon: OVERFLOW_MENU_TERMS.itemRestoreIcon,
-		exportLabel: 'エクスポート',
+		exportLabel: OVERFLOW_MENU_TERMS.itemExport,
 		exportIcon: '📤',
-		clearAllLabel: 'すべて削除',
+		clearAllLabel: OVERFLOW_MENU_TERMS.itemClearAll,
 		clearAllIcon: '🗑',
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
@@ -8280,7 +10797,7 @@ export const FEATURES_LABELS = {
 		retentionDays: (days: number) => `${formatRetentionPeriod(days)}間`,
 		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
 		statCustomActivity: 'カスタム活動',
-		statChildren: 'こども',
+		statChildren: `${CHILD_TERMS.honorific}`,
 		statRetention: 'データ保持',
 		trialNote: (tierLabel: string) =>
 			`${tierLabel}の全機能を体験中です。トライアル終了後もこのまま使うには本契約が必要です。`,
@@ -8305,7 +10822,8 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/ActivityClearAllConfirm ----
 	activityClearAllConfirm: {
-		text: '本当に全削除しますか？',
+		// #4692 F3: 対象範囲を書かない「本当に全削除しますか？」は撤去。
+		// 確認文は ADMIN_CHILD_SCOPE_LABELS.clearAllScopedConfirm(子の名前, 件数) を使う。
 		processingText: '処理中...',
 		executeBtn: '実行',
 		cancelBtn: 'やめる',
@@ -8317,11 +10835,11 @@ export const FEATURES_LABELS = {
 	activityListItem: {
 		mainQuestBadge: '⚔️ メインクエスト ×2',
 		closeBtn: '閉じる',
-		editBtn: '編集',
-		visibleBtn: '表示',
-		hiddenBtn: '非表示',
-		mainQuestEnable: '⚔️設定',
-		mainQuestDisable: '⚔️解除',
+		editBtn: ACTIVITY_ADMIN_TERMS.edit,
+		visibleBtn: ACTIVITY_ADMIN_TERMS.visible,
+		hiddenBtn: ACTIVITY_ADMIN_TERMS.hidden,
+		mainQuestEnable: ACTIVITY_ADMIN_TERMS.mainQuestEnable,
+		mainQuestDisable: ACTIVITY_ADMIN_TERMS.mainQuestDisable,
 		dailyLimitDefault: '1回/日',
 		dailyLimitUnlimited: '無制限',
 		dailyLimitN: (n: number) => `${n}回/日`,
@@ -8363,11 +10881,11 @@ export const LEGAL_LABELS = {
 	externalTransmissionLaw: '電気通信事業法第27条の12',
 	familyUniqueId: '家族内一意 ID',
 	underAge: '未成年者',
-	crossBorderTransfer: '外国にある第三者への提供',
-	crossBorderLaw: '個人情報保護法第28条',
-	scc: '標準契約条項 (Standard Contractual Clauses, SCC)',
-	dpa: 'Data Processing Addendum (DPA)',
-	signupCrossBorderConsent: 'サービス提供に必要な範囲でのデータ保存・処理に同意します',
+	crossBorderTransfer: CROSS_BORDER_TERMS.transfer,
+	crossBorderLaw: CROSS_BORDER_TERMS.law,
+	scc: CROSS_BORDER_TERMS.scc,
+	dpa: CROSS_BORDER_TERMS.dpa,
+	signupCrossBorderConsent: CROSS_BORDER_TERMS.consentLabel,
 } as const;
 
 // ============================================================
@@ -8391,162 +10909,6 @@ export const PUSH_NOTIFICATION_LABELS = {
 // 注: LP_LICENSEKEY_LABELS (旧 site/help/license-key.html 用) は Epic #2525 Phase 7 PR-L4 (#2836)
 //     license key 全廃 + help ページ完全削除に伴い撤去済。`/help/license-key` → `/admin/subscription`
 //     301 redirect (LEGACY_URL_MAP) で bookmark / 外部リンクを救済する。
-
-// #1896 (PO-4-10): text1 / text2 を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
-export const LP_FAQ_LABELS = {
-	text1: `${LP_FAQ_TERMS.canonicalLong} - がんばりクエスト`,
-	text2: `${LP_FAQ_TERMS.canonicalLong}`,
-	text3: 'お気軽にメール',
-	text4: 'カテゴリ一覧',
-	text5: '1. トライアル・解約',
-	text6: '2. 料金・課金',
-	text7: '3. プライバシー・データ',
-	text8: '4. 対応年齢・使い方',
-	text9: '5. 技術的なご質問',
-	text10: 'トライアル・解約について',
-	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由 + #1914 (TECH-F): CANCEL_TERMS.canonical 経由
-	text11: `${TRIAL_PERIOD_TERMS.full}と、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
-	text12: '無料トライアルの申込にクレジットカードは必要ですか？',
-	text13: 'いいえ、不要です。',
-	// #1943 (Phase 3 D3): 「無料プラン」atom を PLAN_FULL_TERMS.free 参照化 (LP_FAQ_LABELS 4 件)。
-	text14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず${ADMIN_VIEW_TERMS.canonical}からお客さまご自身の操作で行っていただきます。`,
-	text15: 'トライアル後は自動で課金されますか？',
-	text16: '自動課金はされません。',
-	text17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
-	text18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
-	// #4496: 旧文言は退会の猶予期間と物理削除を解約の説明に転用していた (LP_FAQ_PHASEB_LABELS
-	//   k19-k22 と同一内容)。解約はデータを削除しない — 実装事実は PRICING_PAGE_LABELS.faqCancelA 参照。
-	text19: `${CANCEL_TERMS.canonical}してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
-	text20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
-	text21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
-	text22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
-	text23: 'トライアル中に作ったデータは残りますか？',
-	text24: 'はい、残ります。',
-	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
-	text26: '解約後に再開することはできますか？',
-	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
-	text28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
-	text29: '料金・課金について',
-	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
-	text31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
-	text32: `${PLAN_FULL_TERMS.free}でもすべてご利用いただけます`,
-	text33: '有料プランで解放される主な機能:',
-	text34: 'お子さま・活動の人数制限解除（無料: お子さま 2 人 / 活動 3 個まで）',
-	text35: `長期の履歴保持（無料: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで → 有料: 無期限）`,
-	text36: 'AI 自動提案（活動案・ごほうび案）',
-	text37: 'きょうだいランキング・家族メンバー招待',
-	text38: 'データのバックアップ',
-	text39: '料金プランページ',
-	text40: '子供が勝手に課金してしまう心配はありませんか？',
-	text41: 'ありません。',
-	text42: 'プラン変更・アップグレードは「保護者ロール」のログインが必要',
-	text43: 'お子さまアカウントはプラン変更ボタン自体が表示されない',
-	text44: 'Stripe の決済画面は必ず保護者のカード情報と明示的な確認ステップを経る',
-	text45: '「無断課金」が構造的に発生しない設計のため、お子さまに安心してデバイスを渡せます。',
-	text46: '兄弟姉妹で使うと、どちらかだけがゲーミフィケーションされて不公平になりませんか？',
-	text47: '片方だけが得をする構造にはなりません',
-	text48: `${PLAN_FULL_TERMS.standard}`,
-	text49: `${PLAN_FULL_TERMS.premium}`,
-	text50: '無制限',
-	text51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
-	text52: '支払い方法は何が使えますか？',
-	text53:
-		'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
-	text54: 'プランを途中で解約した場合の返金は？',
-	text55:
-		'途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
-	text56: '特定商取引法に基づく表記',
-	text57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
-	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
-	text59:
-		'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
-	text60: 'プライバシー・データについて',
-	text61: 'お子さまのデータの取り扱いと、サービス終了時の保証について。',
-	text62: 'お子さまのデータが広告に使われることはありませんか？',
-	text63: 'ありません。',
-	text64: 'プライバシーポリシー',
-	text65: 'データのエクスポート（書き出し）はできますか？',
-	text66: `${PLAN_FULL_TERMS.standard}以上`,
-	// #1815: 「シール、称号、」を削除（export-service.ts に実装がなく ADR-0013 LP truth 違反のため）
-	text67: 'エクスポート対象: お子さま情報、活動、ポイント履歴、チェックリスト。',
-	text68: 'お引越しや他のサービスへの移行、ご自身でのバックアップにご利用いただけます。',
-	text69: 'サービスが終了したらデータはどうなりますか？',
-	text70: '30 日以上前までに',
-	text71: '通知: 終了日の 30 日以上前にメールでお知らせ',
-	text72: 'エクスポート期間: 通知から終了日まで継続',
-	text73: '終了後: すべてのデータを完全削除',
-	text74: '利用規約',
-	text75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
-	// #4496: 猶予はプラン別 (無料は 0 日 = 申請と同時に物理削除)。k76 / k77 と同一内容。
-	text76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。猶予期間はご利用プランによって異なります（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）。`,
-	text77: `${PLAN_FULL_TERMS.free}は申請と同時に削除されるため、取り消しもエクスポートもできません。有料プランは猶予期間中に申請の取り消しとデータのエクスポートができます。猶予期間の経過後、全データは完全に削除されます（復旧はできません）。`,
-	text78: 'データはどこに保存されていますか？',
-	text79: 'プライバシーポリシー',
-	text80:
-		'決済情報は Stripe（国際的な PCI DSS 準拠の決済プロバイダ）で管理されており、当サービスのサーバーにはカード番号等の秘匿情報を保持していません。',
-	text81: '対応年齢・使い方について',
-	text82: '0〜18 歳までの年齢モードと、日々の運用のしかたについて。',
-	text83: '何歳から何歳まで使えますか？',
-	text84: '0 〜 18 歳まで、5 つの年齢モードをご用意しています:',
-	text85: '乳幼児（0-2 歳）',
-	text86: '幼児（3-5 歳）',
-	text87: '小学生（6-12 歳）',
-	text88: '中学生（13-15 歳）',
-	text89: '高校生（16-18 歳）',
-	text90: `お子さまが成長したら、${ADMIN_VIEW_TERMS.canonical}から年齢モードを切り替えるだけで UI が自動で変わります。`,
-	text91: 'お子さまが成長して年齢モードが変わる時、データはどうなりますか？',
-	text92: 'ポイント・シール・レベル称号・履歴はすべて引き継がれます',
-	text93:
-		'例: 幼児モードで貯めた「ドラゴン」シールは、小学生モードに切り替えても同じコレクションに残ります。連続ログイン日数・レベルも継続します。',
-	text94: '親が毎日設定する手間はどれくらいかかりますか？',
-	text95: '初回セットアップ（5 分）と、日々の運用（1 日 30 秒〜）で回せるよう設計されています。',
-	text96: '初日',
-	text97: '毎日',
-	text98: '週 1 回',
-	text99:
-		'親が毎日新しい活動を作る必要はありません。プリセットをそのまま使うか、年齢が変わった時にテンプレートを切り替えるだけで運用できます。',
-	text100: 'スクリーンタイムが長くなる心配はありませんか？',
-	text101:
-		'「長く遊ばせる」設計にしていません。本サービスは「活動記録アプリ」であり、お子さまがアプリ内で過ごす時間は 1 回 1 〜 3 分が想定です。',
-	text102: '活動記録 → ポイント獲得 → シール抽選 → 結果確認で完了（1 〜 3 分）',
-	text103: '動画視聴・無限スクロール・配信コンテンツは一切なし',
-	text104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
-	text105:
-		'「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
-	text106: '祖父母や親戚も使えますか？',
-	text107: `${PLAN_FULL_TERMS.premium}`,
-	text108: '無制限',
-	text109:
-		'招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
-	text110: '技術的なご質問',
-	text111: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
-	text112: 'スマホ・タブレット・PC、何台まで使えますか？',
-	text113:
-		'デバイス数の制限はありません。Web ブラウザ（Chrome / Safari / Edge など）があれば、どのデバイスからでもログインしてお使いいただけます。',
-	text114:
-		'PWA（Progressive Web App）としてホーム画面にも追加できます。iOS / Android どちらもサポートしています。',
-	text115: 'オフラインでも使えますか？',
-	text116: `基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規${SIGNUP_TERMS.canonical}・決済などはオンライン接続が必要です。`,
-	text117:
-		'旅行中や電波の弱い場所でも、お子さまが活動を記録 → ネット復帰時に自動同期、という使い方ができます。',
-	text118: 'ソースコードは公開されていますか？',
-	text119: 'ソースコードを公開',
-	text120: '自前運用ガイド',
-	text121:
-		'これは「運営が終了してもアプリ自体は残り続ける」安心のための仕組みです。通常のご家庭はクラウド版をそのままお使いいただければ十分です。',
-	text122: 'ほかにご質問はありますか？',
-	text123: '上記にないご質問や、ご要望・フィードバックは、メールでお気軽にお寄せください。',
-	text124: '通常 1 〜 2 営業日以内にご返信いたします。',
-	text125: `${FREE_TERMS.tryFree}`,
-	text126: 'デモを見る',
-	text127: 'img src="logo-compact.png" alt="がんばりクエスト" height="44"',
-	text128:
-		'button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle(\'open\');var o=n.classList.contains(\'open\');this.textContent=o?\'✕\':\'☰\';this.setAttribute(\'aria-expanded\',o)"',
-	text129: 'nav class="faq-toc" aria-label="FAQ目次"',
-	text130:
-		'a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ bottom"',
-} as const;
-
 // #1944 Phase 3 D4: '基本無料' (FREE_TERMS.base) と 'ファミリープラン' (PLAN_FULL_TERMS.premium) を atom 参照化。
 //   text32 '基本無料 / 有料プランあり' / text44 'ファミリープランで利用可' の 2 件。
 //   その他のラベルは「セルフホスト版独自の運用語彙」（Docker / GitHub / SaaS版 / RAM 等）が中心で
@@ -8573,7 +10935,12 @@ export const LP_SELFHOST_LABELS = {
 	text16: '外部公開は任意',
 	text17: 'おすすめ環境',
 	text18: '&#x2705; セルフホスト版のメリット',
-	text19: ' データは完全にご自身の管理下。外部サーバーにデータを送信しません。',
+	// #4583: 「外部サーバーにデータを送信しません」は絶対形の否定で、AI 提案 / 領収書 OCR を
+	//   有効にすると成立しない (設定により運営者の環境外の生成 AI へ送信される)。改訂後の
+	//   プライバシーポリシー第9条④ と正面から食い違うため、事実に合わせる。
+	//   **記録そのものが自分の管理下にある**という本来の訴求は残す (過剰否定で価値を消さない)。
+	text19:
+		' 記録は完全にご自身の管理下。AI 機能を使わない限り、データが外部へ送信されることはありません。',
 	text20: ' 完全無料。月額料金なし、機能制限なし。',
 	text21: ' カスタマイズ自由。ソースコードを自由に改変できます。',
 	text22: ' オフライン利用可能。インターネット接続なしでも LAN 内で動作します。',
@@ -8608,7 +10975,9 @@ export const LP_SELFHOST_LABELS = {
 	text43: 'AI 機能',
 	// #1944 Phase 3 D4: 'ファミリープラン' を PLAN_FULL_TERMS.premium 参照化。
 	text44: `&#x2705; ${PLAN_FULL_TERMS.premium}で利用可`,
-	text45: 'API キーの自前設定が必要',
+	// #4583: 「API キーの自前設定が必要」だけでは、**設定すると外部の生成 AI へ送信される**
+	//   という肝心の帰結が伝わらない。セルフホストの購入判断に直結するため明示する。
+	text45: 'API キーの自前設定が必要（入力内容が外部の生成 AI へ送信されます）',
 	text46: '迷ったら SaaS版がおすすめ',
 	text47: '&#x1F91D; コントリビュート',
 	text48:
@@ -8700,10 +11069,14 @@ export const LP_INDEX_EXTRA_LABELS = {
 	// #1904 (PERS-CRT-5): hero L483 hero-note の「クレジットカード登録不要」削除。
 	//                     3 連発による不信感増幅を解消するため hero 領域では訴求しない
 	//                     (カード要否の説明は FAQ 側 indexB.k72 に集約)。
-	k9: '家族何人でも無料ではじめられます',
+	// #4502 (GAMMA-LP-04): 無料プランは子供 2 人・招待不可なので「家族何人でも」は誤り。
+	// 人数を含意しない表現にする (index.html:832 の正表記と同型)
+	k9: 'ご家族で無料ではじめられます',
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',
-	k12: '3 歳から 18 歳まで、2 つの UI モードが対応。',
+	// #4502 (GAMMA-LP-05): 実装は 5 mode。LP が 2 パネルに集約しているのは意図的なので、
+	// パネル数をそのままモード数として言い切らない
+	k12: '3 歳から 18 歳まで、年齢に合わせた UI が対応。',
 	k13: 'タップで「今のお子さまに合う UI」をご覧ください。',
 	k14: '      0-2 歳のお子様は「準備モード」でご登録いただけます。',
 	k15: '詳しくはこちら',
@@ -8783,7 +11156,9 @@ export const LP_INDEX_EXTRA_LABELS = {
 	// #1905 (PERS-MAJ-11): k84/k85 を positive framing にリライト（indexB.k68/k69 と整合）。
 	//   `LP_INDEX_EXTRA_LABELS` は HTML 参照ゼロの legacy だが SSOT 一貫性のため同期更新。
 	k83: '広告ゼロ・データは家族の手元に',
-	k84: '家族のデータが広告にも第三者にも使われない設計です。サービス停止時は事前にお知らせ + データの書き出しができます。お子さまの記録は確実に手元に残せます。',
+	// #4510 (data/medium): 書き出しは有料プランの機能 (無料は canExport=false)。
+	// 無条件に「確実に手元に残せます」と書くとプラン差を隠した約束になる
+	k84: '家族のデータが広告にも第三者にも使われない設計です。サービス停止時は事前にお知らせします。記録の書き出し（有料プランの機能）で、お子さまの記録を手元に残せます。',
 	k85: '（技術に詳しい方は）ご自宅で同じアプリを動かす方法もあります。<a href="selfhost.html">詳しくはこちら &#8594;</a>',
 	// #1896 (PO-4-10): k86 を LP_FAQ_TERMS.canonicalLong 参照化。
 	//   旧 k89 = 'FAQ 専用ページ（24 項目）' は項目数の経時変動 (24/26/28 …) で
@@ -8830,210 +11205,6 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k114: '&#10005;',
 } as const;
 
-// ============================================================
-// LP_PAMPHLET_LABELS (#1465 SSOT Fixes)
-//
-// #1956 (Phase 3 D11): terms.ts atom (PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS / CTA_TERMS /
-//   TRIAL_TERMS) 参照化対象。char-by-char 一致厳守。
-//   '7 日間' (半角スペース有り) は TRIAL_TERMS.duration ('7日間' スペース無し) と一致しないため
-//   直書き継続（#2007 / #2008 / #2009 と同方針）。
-// ============================================================
-
-export const LP_PAMPHLET_LABELS = {
-	k1: 'がんばりクエスト パンフレット',
-	k2: '&#x1F5A8; 印刷 / PDF保存',
-	k3: 'ブラウザの「印刷」からPDFとして保存できます。用紙サイズはA4を選択してください。',
-	k4: 'がんばりクエスト',
-	k5: 'こどもの がんばりを ぼうけんに',
-	k6: '      「やりなさい」を',
-	k7: '「やりたい！」',
-	k8: 'に変える',
-	k9: '      お子さまの毎日のがんばりをRPG風の冒険に変えて、',
-	k10: '      ポイント、レベルアップ、チャレンジで',
-	k11: '      「自分から動く力」を育てる家庭向けWebアプリです。',
-	k12: '&#x2728; 3 つの仕組みで、毎日のがんばりが本物の報酬になる',
-	k13: '活動',
-	k14: ' 毎日の活動 &#x2192; ポイント',
-	// #1912 (F-12 + F-11): zombie pamphletExtra namespace。「プリセット活動がそのまま使える」→
-	//   「あらかじめ用意された 300 種類の活動がそのまま使える」へ顧客語彙化（長文での冗長な機能名連呼を解消）。
-	//   F-11 「セットアップ」も LP 訴求文では「最初の準備」へ顧客語彙化（IT リテラシーなし親 P1 向け）。
-	k15: '「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された 300 種類の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。',
-	k16: '習慣',
-	k17: ' おみくじスタンプ &#x2192; 習慣',
-	k18: '1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。',
-	k19: 'ごほうび',
-	k20: ' ごほうびショップ &#x2192; 交換',
-	k21: '&#x1F308; 3歳から18歳まで &#8212; 2つの UI モード',
-	k22: '&#x1F476; 0〜2歳のお子様は「準備モード」でご登録いただけます',
-	k23: '小学生以上',
-	k24: '6&#x301C;18歳',
-	// #1956 (Phase 3 D11): 'まずは無料' = FREE_TERMS.start 部分参照化（PR-2008 ctaBottomDesc と同パターン）
-	k25: `&#x1F3AE; ${FREE_TERMS.start}で始めよう！`,
-	k26: '登録は1分。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。',
-	k27: '&#x1F310; アクセスはこちら',
-	k28: 'がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;',
-	k29: '&#x1F4B0; 料金プラン',
-	k30: 'すべてのプランで冒険の仕組み（レベル・おみくじ・スタンプカード等）が使えます',
-	// #1913 (UIUX-E-7): k31 = FREE_PLAN_TERMS.planSelfNoun, k32 「ずっと無料」→「永久無料」(FREE_PLAN_TERMS.forever) で
-	//                   AC8 統一（pricing card price sub bullet）。
-	k31: `${FREE_PLAN_TERMS.planSelfNoun}`,
-	k32: `${FREE_PLAN_TERMS.forever}`,
-	k33: 'お子さまの登録：2人まで',
-	k34: 'プリセット活動の利用',
-	k35: 'オリジナル活動の作成：3個まで',
-	k36: 'レベル・ポイント・おみくじ・スタンプカード',
-	// #1912 (F-6): zombie pricingExtra namespace。LP_PRICING_PHASEB_LABELS.k5 と同方針で日本語化。
-	k37: '毎日のごほうび・続けるごほうび',
-	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化（責務分離: 持ち物 = event-* / 毎日 must = 活動 priority 属性）
-	k38: '持ち物チェックリスト 3個/子まで',
-	k39: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
-	k40: '&#x2B50; おすすめ',
-	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、
-	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun
-	k41: `${PLAN_TERMS.standard}`,
-	k42: '/月（税込）',
-	k43: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
-	k44: '子供の登録：無制限',
-	k45: 'オリジナル活動：無制限',
-	k46: '家族メンバー招待：4人まで',
-	k47: '特別なごほうび設定',
-	k48: 'データのダウンロード',
-	k49: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
-	k50: 'メールサポート',
-	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.premium、
-	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun、
-	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能'（#1947 LP_PRICING_EXTRA_LABELS k19 と同パターン）
-	k51: `${PLAN_TERMS.premium}`,
-	k52: '/月（税込）',
-	k53: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
-	k54: `${PLAN_TERMS.standard}の全機能`,
-	k55: '家族メンバー招待：無制限',
-	k56: 'AI 自動提案（活動・ごほうび・チェックリスト）',
-	k57: 'きょうだいランキング',
-	k58: 'ひとことメッセージ（自由テキスト）',
-	k59: '家族のデータ預かり枠（同時保管 10 件・自分でダウンロード可）',
-	k60: '無制限の履歴保持',
-	k61: 'メールサポート',
-	k62: '&#x1F680; かんたん3ステップで始められます',
-	k63: 'アカウント登録（無料）',
-	k64: 'メールまたはGoogleアカウントで。',
-	k65: '1分で完了します。',
-	k66: 'お子さまの年齢と性別を設定',
-	k67: '年齢に合わせた活動が',
-	k68: '自動でセットアップ。',
-	k69: '冒険スタート！',
-	k70: '活動を記録するたびに',
-	k71: 'ポイント獲得 &amp; レベルアップ！',
-	// #1896 (PO-4-10): 旧 k72: '&#x2753; よくある質問' を LP_FAQ_TERMS.canonicalLong 参照化
-	//   ('&#x2753; よくあるご質問' に統一)。本 namespace は pamphlet.html FAQ 見出し。
-	k72: `&#x2753; ${LP_FAQ_TERMS.canonicalLong}`,
-	k73: '料金はかかりますか？',
-	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.premium。
-	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
-	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
-	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.premium}は ${TRIAL_PERIOD_TERMS.full}付きです。`,
-	k75: '何歳から使えますか？',
-	k76: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
-	k77: '子供のデータは安全ですか？',
-	k78: 'はい。通信は常に暗号化し、データはお預かり時にも保護した状態で保管しています。お子さまの本名は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。',
-	k79: '有料プランへの切り替えはどうしますか？',
-	k80: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは `,
-	k81: '料金プラン',
-	k82: ' をご覧ください。',
-	k83: '&#x2694;&#xFE0F; がんばりクエスト',
-	k84: 'お子さまの「がんばり」を冒険に変える',
-	k85: '家庭向けWebアプリ',
-	k86: 'お問い合わせ・コミュニティ',
-	k87: '&#x2709;&#xFE0F; メール: ganbari.quest.support@gmail.com',
-	k88: '&copy; 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.',
-	k89: '利用規約',
-	k90: 'プライバシーポリシー',
-} as const;
-
-// ============================================================
-// LP_PRICING_EXTRA_LABELS (#1465 SSOT Fixes)
-// ============================================================
-
-export const LP_PRICING_EXTRA_LABELS = {
-	k1: '☰',
-	k2: 'お子さまの登録：2人まで',
-	k3: 'プリセット活動の利用',
-	k4: 'オリジナル活動の作成：3個まで',
-	k5: 'レベル・ポイント・おみくじ・スタンプカード',
-	// #1912 (F-6): zombie pricingExtra namespace。LP_PRICING_PHASEB_LABELS.k5 と同方針で日本語化。
-	k6: '毎日のごほうび・続けるごほうび',
-	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
-	k7: '持ち物チェックリスト 3個/子まで',
-	k8: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
-	k9: 'メールサポート（標準）',
-	k10: 'お子さまの登録人数：無制限',
-	k11: 'オリジナル活動の作成：無制限',
-	k12: 'チェックリスト自由作成（無制限）',
-	k13: '家族メンバー招待：4人まで',
-	k14: '特別なごほうび設定（即時付与）',
-	k15: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
-	k16: 'データのダウンロード',
-	k17: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
-	k18: 'メールサポート',
-	// #1947: k19 「スタンダードの全機能」のプラン名 atom を terms.ts 参照化
-	k19: `${PLAN_TERMS.standard}の全機能`,
-	k20: '家族メンバー招待：無制限',
-	k21: '✨ AI 自動提案（活動・ごほうび・チェックリスト）',
-	k22: 'きょうだいランキング',
-	k23: 'ひとことメッセージ（自由テキスト）',
-	k24: '家族のデータ預かり枠（同時保管 10 件・自分でダウンロード可）',
-	k25: '無制限の履歴保持',
-	k26: 'メールサポート',
-	k27: '機能',
-	// #1947: k28-k30 のプラン名 atom (フリー / スタンダード / ファミリー) を terms.ts 参照化。
-	//        PLAN_TERMS.free='無料' のため、UI 表示「フリー」と一致しないことに留意。
-	//        本 namespace では旧来から「フリー」表記を使用しており、char-by-char 一致を保つため直書き維持。
-	//        スタンダード / ファミリーのみ atom 参照化する。
-	k28: 'フリー',
-	k29: `${PLAN_TERMS.standard}`,
-	k30: `${PLAN_TERMS.premium}`,
-	k31: '基本',
-	k32: 'お子さまの登録人数',
-	k33: '2人まで',
-	k34: '無制限',
-	k35: '無制限',
-	k36: 'プリセット活動の利用',
-	k37: 'オリジナル活動の作成',
-	k38: '3個まで',
-	k39: '無制限',
-	k40: '無制限',
-	k41: '活動履歴の保持',
-	k42: `${PLAN_RETENTION_TERMS.free}`,
-	k43: `${PLAN_RETENTION_TERMS.standard}`,
-	k44: '無制限',
-	k45: 'カスタマイズ',
-	// #1708 R3-A / #1710 R3-C: k47 (旧 朝夜習慣リスト / 旧ルーチン-CL) は廃止語彙、k48 を「持ち物チェックリスト自由作成」に純化
-	// indexExtra namespace は新 LP では未参照だが、generate-lp-labels.mjs が parseBlock するため残し、語彙のみ純化
-	k46: '持ち物チェックリスト（登校・おでかけ）',
-	k47: '持ち物チェックリスト自由作成',
-	k48: '持ち物チェックリスト自由作成（無制限プラン）',
-	k49: '3個/子まで',
-	k50: '無制限',
-	k51: '無制限',
-	k52: '特別なごほうび設定（即時付与）',
-	k53: 'AI 自動提案（活動・ごほうび・チェックリスト）',
-	k54: 'レポート・家族機能',
-	k55: '日次サマリー',
-	k56: '家族メンバー招待（別端末からアクセス）',
-	k57: '4人まで',
-	k58: '無制限',
-	k59: 'きょうだいランキング',
-	k60: 'ひとことメッセージ（自由テキスト）',
-	k61: 'データ管理',
-	k62: 'データのダウンロード（手動エクスポート）',
-	// #1912 (F-8): zombie pricingExtra namespace。
-	k63: '家族のデータ預かり枠（自分でダウンロード同時保管数）',
-	k64: '3 個',
-	k65: '10 個',
-	k66: 'サポート',
-	k67: 'メールサポート',
-} as const;
-
 /**
  * Storybook stories.svelte で表示するラベル群（#1738、#1465 follow-up）
  *
@@ -9054,6 +11225,12 @@ export const LP_PRICING_EXTRA_LABELS = {
 export const STORYBOOK_LABELS = {
 	buttonDefault: 'ボタン',
 	loading: '読み込み中...',
+	// #4767: CloudExportStoredList の見た目確認用 (demo 環境は cloud 行を持たないため SS が撮れない)。
+	cloudExportStoredList: {
+		descriptionTemplate: '活動12件（2人分）、チェックリスト3件',
+		descriptionFull: 'フルバックアップ（子供2人、ログ340件、画像同梱）',
+		failureReason: 'ビルドがタイムアウトしました。再度エクスポートしてください',
+	},
 	badgeDefault: 'バッジ',
 	cardDefault: 'カード',
 	toastDefault: 'トースト',
@@ -9063,14 +11240,40 @@ export const STORYBOOK_LABELS = {
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
 	},
+	// #2573: Stripe Checkout の申込確定ボタン直前に出る文言 (`custom_text.submit.message`) は
+	// Stripe 側が描画するため、demo 環境でも本番でも手元で SS を撮れない。
+	// 本 story が「顧客が確定前に何を読むか」の視覚証跡になる (SS 規約の ss-render-impossible)。
+	// 本文そのものは CHECKOUT_LABELS.submitMessage が SSOT なので story 側で複製しない。
+	checkoutSubmitMessage: {
+		caption: 'Stripe の申込確定ボタンの直前に表示される文言',
+	},
 	// #4172: SpecialRewardOverlay の見た目確認用。棚に並んだごほうび名 (親が登録した現実世界の報酬)。
 	specialRewardOverlay: {
 		title: 'ゲーム 30 分',
 		titleLong: 'にちようびに こうえんで あそぶ',
 	},
+	// #4841: StampPressOverlay (ログインボーナス受取) の年齢帯文体を目視するための固定値。
+	// 実環境 (`DATA_SOURCE=demo`) では当日の押印状態を作れず SS 撮影で描画できないため、
+	// 本 story が junior / senior 文体の視覚証跡になる。
+	stampPressOverlay: {
+		stampName: 'だいきち',
+	},
+	// #4841: ParentMessageOverlay (応援メッセージ) の年齢帯文体を目視するための固定値。
+	// demo repo (`db/demo/message-repo.ts`) は未読メッセージを常に undefined で返すため
+	// 実環境の SS 撮影で描画できない。本 story が視覚証跡になる。
+	parentMessageOverlay: {
+		body: 'テストがんばったね。応援してるよ',
+		icon: '💌',
+	},
 	// #4429: AvatarDisplay の見た目確認用。取得失敗時に 👤 へ落ちることを目視できるようにする。
 	avatarDisplay: {
 		nickname: 'たろう',
+	},
+	// 初回訪問の子供にだけ出る冒険スタート演出。`isFirstTime = !hasRecords` が条件で、
+	// SS 撮影に使う demo 環境 (`DATA_SOURCE=demo`) の子供は記録済のため描画できない。
+	// 本 story が年齢帯文体 (幼児ひらがな / 13-18 歳漢字) と活動 0 件時の視覚証跡になる。
+	adventureStartOverlay: {
+		childName: 'はると',
 	},
 	// #4538: SiblingChallengeComparison の見た目確認用。children 一覧から引けない childId が
 	// あるときに内部 ID ではなく汎用語へ落ちることを目視できるようにする。
@@ -9131,6 +11334,12 @@ export const STORYBOOK_LABELS = {
 		infoBtn: '情報トーストを表示',
 		titleOnlyTitle: 'タイトルのみのお知らせ',
 		titleOnlyBtn: 'タイトルのみトーストを表示',
+		// PR #4839: 子供画面の form action 失敗通知 (拒否理由あり / なし) の見た目確認用。
+		// 上限に達した理由が年齢帯別の文言で出ることを Storybook で目視確認する
+		// (demo 環境では上限分岐に到達できないため SS が撮れない。PR body の ss-render-impossible 参照)。
+		childReasonHiraganaBtn: 'ひらがな帯: 上限の理由つきで通知',
+		childReasonKanjiBtn: '漢字帯: 上限の理由つきで通知',
+		childReasonGenericBtn: '理由なし: 汎用文言にフォールバック',
 	},
 	alert: {
 		successMessage: '保存しました！',
@@ -9293,9 +11502,9 @@ export const STORYBOOK_LABELS = {
 		description: 'お子さまの活動を登録・編集します',
 		addButtonLabel: '+ 追加',
 		addMenuAriaLabel: '追加メニューを開く',
-		addManual: '手動で1つ追加',
-		addAi: 'AI で提案してもらう',
-		addBrowse: 'みんなのテンプレートから探す',
+		addManual: ADD_MENU_TERMS.manual,
+		addAi: ADD_MENU_TERMS.ai,
+		addBrowse: ADD_MENU_TERMS.browse,
 		overflowTrigger: '︙',
 		overflowAriaLabel: 'その他の操作',
 		overflowRestore: 'バックアップから復元',
@@ -9459,8 +11668,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k3: '3〜18 歳の毎日の習慣を、ゲームのように楽しめる仕組みに変える。声をかけなくても、自分から動きだす家族時間へ。',
 	k4: '3〜18 歳の子供のホーム画面 — 活動を記録してポイントゲット',
 	k5: 'お子さまの年齢で、画面とむずかしさが変わります',
-	k6: '3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。',
-	k7: '0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a>',
+	k6: '3 歳から 18 歳まで、年齢に合わせた UI が対応。タップで「今のお子さまに合う UI」をご覧ください。',
+	// #4714: 旧アンカー #baby-mode は faq.html に存在せず着地しなかった (実在する #usage へ)。
+	k7: '0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#usage" style="color:var(--brand-700)">詳しくはこちら</a>',
 	k8: '幼児 (3-5)',
 	k9: '小学生以上 (6-18)',
 	k10: 'ひらがな中心・丸みのある大きなボタン',
@@ -9469,8 +11679,11 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k12: '幼児期に身につけたい習慣を、読める・押せる・選べる形で始められます。',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k13: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
-	k14: '漢字 + 情報密度で 15 年継続できる UI',
-	k15: '小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット',
+	// #4714: 旧「漢字 + 情報密度で 15 年継続できる UI」は、同パネルの SS (小学生ホーム = 漢字最小限)
+	//   と食い違っていた。DESIGN.md §8 の年齢帯定義 (小学生 = 漢字最小限 / 中学生以降 = 漢字・情報密度)
+	//   に沿って、パネルが束ねる 6〜18 歳の中での変化として述べる。
+	k14: '学年に合わせて漢字と情報密度が上がる',
+	k15: '小学生以降 UI: 学年に合わせた漢字量 / 情報密度 / 学年別プリセット',
 	k16: '小学校以降は自分で計画してより多くの活動をより楽しく',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k17: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
@@ -9478,8 +11691,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// 各年齢 UI モードの代表機能 3 件を ✓ で列挙、age-panel-feature span との重複を避け具体例で訴求
 	kinderCheck1: '大きなタップ領域 (80px) で押しやすい',
 	kinderCheck2: 'ひらがな表示で読みやすい',
-	kinderCheck3: '300+ プリセット活動からタップで選ぶだけ',
-	primaryCheck1: '漢字 + 情報密度で 15 年継続できる UI',
+	// #4713: 延べ 325 件のうち名前のユニークは 129 種。訴求はユニーク基準に改める (ADR-0013)。
+	kinderCheck3: `${PRESET_ACTIVITY_TERMS.uniqueCountBadge} プリセット活動からタップで選ぶだけ`,
+	primaryCheck1: '小学生は読みやすさ優先、中学生から漢字と情報密度が上がる',
 	primaryCheck2: '学年別プリセット (宿題 / 部活 / 受験) 対応',
 	primaryCheck3: 'ポイント履歴で子供自身が次の計画を立てる',
 	k18: '&#x1F476; 0〜2 歳のお子さまは「<strong>準備モード</strong>」でご登録いただけます — <a href="https://demo.ganbari-quest.com/">デモを見る</a>',
@@ -9522,10 +11736,22 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//     4. 価値: 「個別ご家庭向けの自由なカスタマイズ」を文末で明示
 	//   PO 確定: 論点 2-B = Persona 案 1
 	k38: '冒険の裏で、親がちゃんと伴走できる仕組み。「遊ばせっぱなし」「うちの子に合わなさそう」の不安をなくし、ご家庭に合わせて自由にカスタマイズできます。',
-	k39: '成長の記録（月次レポート）',
-	k40: '月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。',
-	k41: '時間管理（使いすぎ防止）',
-	k42: '設定時間が経過すると画面が自動で閉じる使いすぎ防止タイマー。スクリーンタイムの心配なく使わせられます。',
+	// #4714: カードの SS は /admin/status の成長レポート (5 軸レーダー + 同年齢の平均) であり、
+	//   推移グラフ・前月比は写っていない。SS が写している画面の名前と内容に合わせる (ADR-0013)。
+	k39: '成長の記録（成長レポート）',
+	// #1164: 本段落は lp-copy-layout.spec.ts の 40 字 ratchet 対象。<br> を持たないため
+	//   innerText 上は「1 行 = 段落全体」として数えられる。軸名の例示は隣の
+	//   feature-auto-sleep カード (softFamilySupportDesc) が担うので、ここは 40 字に収める (#4887)。
+	k40: `${STATUS_AXIS_TERMS.axisCount}のバランスをレーダーで表示。同年齢の平均と重ねて見られます。`,
+	// #4714: soft-features カードの SS の alt。旧「月次レポート画面 — 活動・ポイント推移グラフ」は
+	//   写っている画面 (/admin/status の成長レポート) と別物だった。値の mirror は
+	//   tests/unit/domain/lp-alt-caption-mirror-4714.test.ts が index.html と突き合わせる。
+	softMonthlyReportImgAlt: `成長レポート画面 — ${STATUS_AXIS_TERMS.axisCount}のレーダーと同年齢の平均`,
+	k41: '使いすぎ防止タイマー',
+	// #4714 (#4713 と同 class): 実装は「連続利用が 15 分に達すると戻る」であり、
+	//   「設定時間が経過すると閉じる」ではない (時間を設定する UI も無い)。現在 site/*.html からは
+	//   未参照だが、復活時に誤説明が再流入しないよう同時に是正する。
+	k42: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻ります。時間の設定は不要です。`,
 	k43: 'おうえんメッセージ',
 	k44: '「よくがんばったね」の一言が子供のホーム画面に届きます。Family プランで家族全員から送れます。',
 	k45: '設定の自由度',
@@ -9580,7 +11806,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   クラスで本文 (k68) と視覚的に分離。親ペルソナが selfhost.html に直接誘導されないよう「（技術に詳しい方は）」
 	//   prefix で対象読者を限定する。
 	k67: 'データを家族の手元に',
-	k68: '家族のデータが第三者にも使われない設計です。サービス停止時は事前にお知らせ + データの書き出しができます。お子さまの記録は確実に手元に残せます。',
+	k68: '家族のデータが第三者にも使われない設計です。サービス停止時は事前にお知らせします。記録の書き出し（有料プランの機能）で、お子さまの記録を手元に残せます。',
 	k69: '（技術に詳しい方は）ご自宅で同じアプリを動かす方法もあります。<a href="selfhost.html">詳しくはこちら &#8594;</a>',
 	// #1896 (PO-4-10): k70 = LP_FAQ_TERMS.canonicalLong に統一。
 	// #1897 PO-4-11: 旧 k71 (zombie key、参照 0 件) を削除。本セクション section-desc は k87 を SSOT とする。
@@ -9600,7 +11826,10 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k84: '無料で始める',
 	// #1736 m-MIN-7: 体験軸 FAQ Q4 (Top 3 → Top 4)
 	k85: '子供が自分から使ってくれるようになりますか？',
-	k86: '多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。',
+	// #4502 (GAMMA-LP-02): 「多くの保護者からお声をいただいています」は顧客実績の裏付けが
+	// 無い体験談形式で優良誤認になりうる (同 LP 自身が testimonial は PMF 後と注記している)。
+	// 実績の主張をやめ、設計意図の説明に書き換える
+	k86: '「ガミガミ言わなくても、子供のほうから見せに来る」状態を目指して設計しています。最初の 1 週間は、親子で一緒に楽しむ時間を取ることをおすすめします。',
 	// #1736 m-MIN-7: section-desc を「Top 3」→「Top 4」に
 	// #1897 PO-4-11: FAQ 案内文重複削除 + 静的「24 項目」管理コスト解消で 1 行短縮。
 	//   旧: 「保護者の皆さまから特によくいただく 4 つ。他のご質問は…FAQ 専用ページ（24 項目）…」(footnote k78 と訴求重複)
@@ -9617,10 +11846,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #1793: 月次レポート / 設定の自由度は「親が日々のオペレーションで楽になる効果」を訴求するため
 	//   「家庭で楽になること」を採用。
 	softBenefitMonthlyReport:
-		'<strong>家庭で楽になること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる',
+		'<strong>家庭で楽になること</strong>: よく取り組んでいる分野と手つかずの分野が一目でわかる',
 	// #1720 R4 で softBenefitFamilySupport に統合済の旧キー。SSOT 整合のため語彙だけ更新
-	softBenefitAutoSleep:
-		'<strong>家庭で楽になること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない',
+	softBenefitAutoSleep: `<strong>家庭で楽になること</strong>: ${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で戻り、長時間利用が起きない`,
 	softBenefitCheerMessage:
 		'<strong>家族で実感できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く',
 	softBenefitSettings:
@@ -9632,8 +11860,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   実画面の事実 = ステータス減少設定 (4 段階で習慣化サポートの強さを調整) に合わせて rename。
 	//   おうえんメッセージは feature-cheer-message カード (versus-row4) に集約。
 	softFamilySupportTitle: 'ステータス減少設定（習慣化サポート）',
-	softFamilySupportDesc:
-		'ご家庭のリズムに合わせて、ステータス（やる気・体力など）が時間とともに少しずつ減る強さを調整できます。「毎日少しずつでも続けるとお得」な仕組みで、習慣化を後押しします。',
+	softFamilySupportDesc: `ご家庭のリズムに合わせて、ステータス（${STATUS_AXIS_TERMS.examplePair}など ${STATUS_AXIS_TERMS.axisCount}）が時間とともに少しずつ減る強さを調整できます。「毎日少しずつでも続けるとお得」な仕組みで、習慣化を後押しします。`,
 	// #2201: rename に伴い「ステータス減少設定」の家庭ベネフィットに刷新
 	softBenefitFamilySupport:
 		'<strong>家庭ごとにカスタマイズできること</strong>: ステータス減少の強さを 4 段階から選んで、習慣化のペースを家庭に合わせられる',
@@ -9651,10 +11878,25 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//                   carouselSlide3Alt は AGE_RANGE_TERMS.juniorShort (= '13〜18 歳') を経由し全文一致を維持。
 	carouselSlide1Alt: '幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン',
 	carouselSlide2Alt: '小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得',
-	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 自己管理ダッシュボード`,
+	// #4714: 旧 alt「自己管理ダッシュボード」に相当する UI は junior ホームに無い。実画面の内容に合わせる。
+	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 今日の活動とポイントの一覧`,
 	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
 	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
-	carouselSlide4Alt: 'お子さま管理タブ — 家族メンバーの登録と切替',
+	// #4714: 実画面 (/admin/children) のタイトルは ADMIN_SCREEN_TERMS.children。
+	//   alt を画面名と一致させる (顧客が SS と画面を結び付けられるようにする)。
+	// #4716 で画面名が「お子さま管理」になったため、説明側の「お子さまの」は重複になる
+	carouselSlide4Alt: `${ADMIN_SCREEN_TERMS.children} — 登録と切り替え`,
+	// #4644: ホーム画面への追加 (インストール) 訴求。アプリ内の案内 (PWA_INSTALL_LABELS) と
+	// 同じ操作名を使うため PWA_TERMS.installAction を経由する (LP で読んだ操作名が
+	// アプリ内で見つからない状態を作らない)。
+	pwaTitle: `タブレットやスマホの${PWA_TERMS.installAction}しよう`,
+	pwaDesc: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動します。${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。`,
+	pwaAndroidTitle: 'Android / Chrome',
+	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosTitle: 'iPhone / iPad（Safari）',
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaNote:
+		'アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -9665,14 +11907,18 @@ export const LP_PRICING_PHASEB_LABELS = {
 	// #1912 (F-6): 「ログインボーナス・連続達成ボーナス」→「毎日のごほうび・続けるごほうび」へ日本語化
 	k5: '毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
-	k6: '持ち物チェックリスト 3個/子まで',
+	// #4713: 取込ぶんも同じ枠を消費することを明示 (plan-limit-service.maxChecklistTemplates)。
+	k6: '持ち物チェックリスト 3個/子まで（取込を含む）',
 	k7: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k8: 'メールサポート（標準）',
+	// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限を
+	// 検討時点で見えるようにする (実ゲート = isCustomRewardUnlocked、#4584)。
+	k8b: `${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
-	k12: '家族メンバー招待：4人まで',
-	k13: '特別なごほうび設定（即時付与）',
+	k12: `家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
+	k13: `${REWARD_TERMS.productRegistration}`,
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
 	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -9702,13 +11948,18 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k35: '<td colspan="4">カスタマイズ</td>',
 	// #1708 R3-A: k37 (朝夜の習慣リスト / 旧ルーチン-CL) は削除（kind=routine 廃止に伴い）
 	// #1710 R3-C: k38 を「持ち物チェックリスト自由作成」に純化（持ち物 = event-* プリセット 3 件 / 毎日 must = 活動マスタ priority 属性 への責務分離）
-	k36: '<td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
-	k38: '<td>持ち物チェックリスト自由作成</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
-	k39: '<td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
+	// #4713: 旧 k36 (「登校・おでかけ」プリセットは全プラン ✓) と旧 k38 (「自由作成 3個/子まで」) を 1 行に統合。
+	//   実装はプリセット取込ぶんも同じ枠を消費する「1 子あたりテンプレ合計 3 件」であり、
+	//   2 行に分けると「プリセットは別枠で使い放題」と読めてしまう (plan-limit-service.maxChecklistTemplates)。
+	k36: '<td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
+	// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲートと別機能に読めたため atom に統一
+	k39: `<td>${REWARD_TERMS.productRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
-	k42: '<td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
-	k43: '<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>4人まで</td><td class="check">無制限</td>',
+	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
+	k42: `<td>${USAGE_SUMMARY_TERMS.today}・${USAGE_SUMMARY_TERMS.weekly}</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+	// #4500: 招待できる人数 (owner の 1 枠を除く) と合計上限を区別する。
+	k43: `<td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナー含め${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）</td><td class="check">無制限</td>`,
 	k44: '<td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k45: '<td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k46: '<td colspan="4">データ管理</td>',
@@ -9745,28 +11996,39 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #4496: 旧文言は退会 (アカウント削除) の猶予期間と物理削除を解約の説明に転用しており、
 	//   同ページ k27 (期末まで利用可 = 正) と自己矛盾していた。解約はデータを削除しない。
 	//   解約経路も実導線 (見守り画面「プラン・お支払い」→ Stripe の請求管理ページ) に統一する。
-	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から${CANCEL_TERMS.anytime}できます。${CANCEL_TERMS.canonical}しても<strong>データは削除されません</strong>。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
-	k20: `${PLAN_FULL_TERMS.free}へ移行した後も、お子さま・活動・ポイントなどのデータは残ります`,
-	k21: `${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）`,
-	k22: `必要な記録がある場合は、${ADMIN_VIEW_TERMS.canonical}からデータをエクスポートしてください。`,
+	// #4619: 「期末まで使える」だけでなく**日割り返金が無い**ことも手続き前に述べる
+	//   (特商法「返品・キャンセル」/ CANCELLATION_LABELS.paidPlanNotice と同一の事実)。
+	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から${CANCEL_TERMS.anytime}できます。${CANCEL_TERMS.canonical}しても<strong>データは削除されません</strong>。現在の請求期間の終了日までは有料プランをそのままご利用いただけ（日割り計算による返金はありません）、その後は${PLAN_FULL_TERMS.free}へ自動的に切り替わります。`,
+	// #4619: 旧文言は「データは残ります」で止まっており、**移行後も記録・ポイント付与を続けられる**
+	//   ことを述べていなかった。「読み取り専用になる」という誤読 (#4496 の旧文言が広めたもの) を
+	//   打ち消すため、契約状態の告知と同じ WRITES_CONTINUE_ASSURANCE を共有する。
+	k20: WRITES_CONTINUE_ASSURANCE,
+	// #4619: 保持期間の日数と、超過分が復元不能であることを特商法と同じ 2 文で述べる。
+	k21: FREE_PLAN_RETENTION_NOTICE,
+	// #4709: 無料プランは /api/v1/export が canExport gate で 403。条件と代替手段を明記する。
+	k22: `必要な記録がある場合は、有料プランのご利用期間中に${ADMIN_VIEW_TERMS.canonical}から書き出してください。記録の書き出し（エクスポート）は${PLAN_FULL_TERMS.standard}以上の機能です。${PLAN_FULL_TERMS.free}では、${CANCEL_TERMS.account}のお手続きの画面から${DELETION_EXPORT_TERMS.freeScopeSummary}のみ保存できます。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
-	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
+	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超える分は一時的に非表示（アーカイブ）になります。削除はされず、保護者の管理画面で非表示中のお子さまを確認できますが、記録・編集はできません。有料プランにアップグレードすると自動で元に戻ります。`,
 	k26: '解約後に再開することはできますか？',
 	k27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	// #4496: 旧文言は解約に猶予期間と全データ削除があるかのように述べていた。解約で消えるのは
 	//   無料プランの保持期間を超えた履歴だけで、それは再契約でも戻らない。
 	k28: `ただし${PLAN_FULL_TERMS.free}の保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えて削除された記録は、再契約しても復元できません。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
-	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
+	k30: `3 つのプラン（${PLAN_TERMS.freeCardName} / ${PLAN_TERMS.standard} / ${PLAN_TERMS.premium}）と、課金の仕組みについて。`,
 	k31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
 	// #1912 (F-6): 「連続達成ボーナス」→「続けるごほうび」へ日本語化
 	k32: `お子さまの冒険体験（活動記録・ポイント・レベル・スタンプ・チャレンジ・続けるごほうび）は、<strong>${PLAN_FULL_TERMS.free}でもすべてご利用いただけます</strong>。`,
 	k33: '有料プランで解放される主な機能:',
-	k34: `お子さま・活動の人数制限解除（${PLAN_TERMS.free}: お子さま 2 人 / 活動 3 個まで）`,
-	k35: `長期の履歴保持（${PLAN_TERMS.free}: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで → 有料: 無期限）`,
-	k36: 'AI 自動提案（活動案・ごほうび案）',
-	k37: 'きょうだいランキング・家族メンバー招待',
+	k34: `お子さま・活動の人数制限解除（${PLAN_TERMS.freeCardName}: お子さま 2 人 / 活動 3 個まで）`,
+	// #4502 (GAMMA-FAQ-03): 「有料: 無期限」は誤り。スタンダードは 1 年で、無期限は
+	// プレミアムのみ。値は #4477 の PLAN_RETENTION_TERMS atom から引く
+	k35: `長期の履歴保持（${PLAN_TERMS.freeCardName}: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで / ${PLAN_TERMS.standard}: ${PLAN_RETENTION_TERMS.standardSpaced} / ${PLAN_TERMS.premium}: 無期限）`,
+	// #4502 (GAMMA-FAQ-04): AI 提案 / きょうだいランキングは premium 限定。「有料プランで
+	// 解放される」の列に無印で並べるとスタンダードでも使えると読める
+	k36: `AI 自動提案（活動案・ごほうび案）※${PLAN_TERMS.premium}のみ`,
+	k37: `きょうだいランキング ※${PLAN_TERMS.premium}のみ / 家族メンバー招待`,
 	k38: 'データのバックアップ',
 	k39: '詳細は <a href="pricing.html">料金プランページ</a> の比較表をご覧ください。',
 	k40: '子供が勝手に課金してしまう心配はありませんか？',
@@ -9778,15 +12040,15 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k46: '兄弟姉妹で使うと、どちらかだけがゲーミフィケーションされて不公平になりませんか？',
 	k47: '同じ家族アカウント内で複数のお子さまをまとめて管理できます。ポイント・シール・レベル称号はお子さまごとに独立して蓄積され、<strong>片方だけが得をする構造にはなりません</strong>。',
 	k48: `<strong>${PLAN_FULL_TERMS.free}</strong>: お子さま 2 人まで登録可能（招待機能なし、ご本人の端末のみ）`,
-	k49: `<strong>${PLAN_FULL_TERMS.standard}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>4 人まで</strong>（核家族でのご利用想定）`,
+	k49: `<strong>${PLAN_FULL_TERMS.standard}</strong>: お子さま無制限で登録可能・ご家族は<strong>合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで</strong>（オーナーを含むため、招待できるのは${FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced}まで。核家族でのご利用想定）`,
 	k50: `<strong>${PLAN_FULL_TERMS.premium}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>無制限</strong>（祖父母・おじおばなど拡張家族でのご利用想定）`,
-	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
+	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）は「今週どれだけがんばったか」を並べるものです。ポイント・レベルはお子さまごとに独立しているため、順位が下でも積み上げた記録が減ることはありません。`,
 	k52: '支払い方法は何が使えますか？',
 	k53: 'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	k54: 'プランを途中で解約した場合の返金は？',
 	k55: '途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	k56: '日割りでの返金は行っておりません。詳細は <a href="tokushoho.html">特定商取引法に基づく表記</a> をご確認ください。',
-	k57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
+	k57: `プランの変更（${PLAN_TERMS.standard}↔${PLAN_TERMS.premium}）はできますか？`,
 	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
 	k59: 'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	k60: '<span class="faq-category-num">3</span>プライバシー・データについて',
@@ -9804,7 +12066,8 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k71: '通知: 終了日の 30 日以上前にメールでお知らせ',
 	k72: 'エクスポート期間: 通知から終了日まで継続',
 	k73: '終了後: すべてのデータを完全削除',
-	k74: '詳しくは <a href="terms.html">利用規約</a> 第 14 条をご覧ください。',
+	// #4510: 第 14 条は「卒業」。サービス終了は第 15 条
+	k74: '詳しくは <a href="terms.html">利用規約</a> 第 15 条をご覧ください。',
 	k75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
 	// #4496: 旧文言は猶予を一律「申請後 30 日間」と述べていたが、猶予はプラン別 (無料は 0 日 =
 	//   申請と同時に物理削除)。無料プランの顧客が「30 日間は取り消せる」と誤認したまま退会すると
@@ -9832,7 +12095,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #1912 (F-12): FAQ 本文「年齢に応じたプリセット活動を選ぶ」→
 	//   「年齢に応じた、あらかじめ用意された活動を選ぶ」へ顧客語彙化（IT 用語「テンプレート」も含めて精査）。
 	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
-	k96: `<strong>初日</strong>: ${SIGNUP_TERMS.canonical} → ${CHILD_TERMS.honorific}登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（300+ の中から）`,
+	k96: `<strong>初日</strong>: ${SIGNUP_TERMS.canonical} → ${CHILD_TERMS.honorific}登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（${PRESET_ACTIVITY_TERMS.packCount}・${PRESET_ACTIVITY_TERMS.uniqueCount}の中から）`,
 	k97: `<strong>毎日</strong>: お子さまが自分で活動を記録 → 保護者は${ADMIN_VIEW_TERMS.canonical}で結果を確認（所要時間 30 秒〜）`,
 	k98: '<strong>週 1 回</strong>: レベルアップ・チャレンジ達成を家族で共有（お楽しみタイム）',
 	k99: '親が毎日新しい活動を作る必要はありません。プリセットをそのまま使うか、年齢が変わった時にテンプレートを切り替えるだけで運用できます。',
@@ -9840,26 +12103,40 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k101: '「長く遊ばせる」設計にしていません。本サービスは「活動記録アプリ」であり、お子さまがアプリ内で過ごす時間は 1 回 1 〜 3 分が想定です。',
 	k102: '活動記録 → ポイント獲得 → スタンプ獲得 → 結果確認で完了（1 〜 3 分）',
 	k103: '動画視聴・無限スクロール・配信コンテンツは一切なし',
-	k104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
+	// #4713: 実装は「15 分連続で使うと /switch へ戻る (無操作 1 分でカウントがリセット)」。
+	k104: `${AUTO_SLEEP_TERMS.activeDuration}つづけて使うと自動で${AUTO_SLEEP_TERMS.returnScreen}に戻る使いすぎ防止タイマーで、長時間の滞在を防止 (${AUTO_SLEEP_TERMS.inactiveReset}操作がなければ計測はリセット)`,
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
-	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
-	k108: '招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
+	// #4500: 招待できる人数 (owner の 1 枠を除く) と合計上限を区別する。
+	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}はご家族合計${FAMILY_MEMBER_LIMIT_TERMS.standardTotalSpaced}まで＝オーナーを含むため招待は${FAMILY_MEMBER_LIMIT_TERMS.standardInvitesSpaced}までです）。`,
+	// #4713: 招待ロールは 保護者 / こども の 2 択で「閲覧権限」ロールは存在しない。
+	//   読み取り専用の共有は premium の閲覧リンク (別機能)。文面は #4500 の直近決定を採り、
+	//   「閲覧リンク」だけ VIEWER_LINK_TERMS atom 経由に寄せる (値は同一)。
+	k108: `招待されたメンバーは${PARENT_TERMS.honorific}として、${CHILD_TERMS.honorific}の記録の確認と活動の記録ができます（アカウントを持たずに記録を見せたい場合は、${PLAN_FULL_TERMS.premium}の${VIEWER_LINK_TERMS.name}をお使いください。閲覧専用です）。`,
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
 	k111: 'スマホ・タブレット・PC、何台まで使えますか？',
 	k112: 'デバイス数の制限はありません。Web ブラウザ（Chrome / Safari / Edge など）があれば、どのデバイスからでもログインしてお使いいただけます。',
 	k113: 'PWA（Progressive Web App）としてホーム画面にも追加できます。iOS / Android どちらもサポートしています。',
 	k114: 'オフラインでも使えますか？',
-	k115: `基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規${SIGNUP_TERMS.canonical}・決済などはオンライン接続が必要です。`,
-	k116: '旅行中や電波の弱い場所でも、お子さまが活動を記録 → ネット復帰時に自動同期、という使い方ができます。',
+	k115: `記録には通信が必要です。オフラインでも、直前に開いた画面の表示はキャッシュから復元されますが、<strong>記録の保存はできません</strong>（電波が戻ってからお試しください）。新規${SIGNUP_TERMS.canonical}・決済も通信が必要です。`,
+	k116: '旅行中や電波の弱い場所では記録の保存ができません。電波の届く場所に戻ってから記録してください。',
 	k117: 'ソースコードは公開されていますか？',
 	k118: 'はい。本サービスのアプリ部分は GitHub で <a href="https://github.com/Takenori-Kusaka/ganbari-quest">ソースコードを公開</a> しています。技術に詳しい方はご自宅のパソコンで同じアプリを動かすこともできます（<a href="selfhost.html">自前運用ガイド</a>）。',
 	k119: 'これは「運営が終了してもアプリ自体は残り続ける」安心のための仕組みです。通常のご家庭はクラウド版をそのままお使いいただければ十分です。',
 	k120: 'ほかにご質問はありますか？',
-	k121: '上記にないご質問や、ご要望・フィードバックは、メールでお気軽にお寄せください。通常 1 〜 2 営業日以内にご返信いたします。',
+	// #4709: 同上。
+	k121: `上記にないご質問や、ご要望・フィードバックは、メールでお気軽にお寄せください。初回のご返信は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています。`,
 	k122: `${FREE_TERMS.tryFree}`,
 	k123: 'デモを見る',
+	// #4619: 解約 FAQ (k18-k22) の 3 番目の箇条書き。無料プランの上限を超えるリソースは
+	//   削除ではなく archive され (resource-archive-service.archiveExcessResources)、
+	//   有料プランへ戻すと復元される (restoreArchivedResources)。
+	//   **どれを残すか「選べる」とは書かない** — 選択導線は #4585 で実装中であり、
+	//   実装前の機能を顧客提示物に書かない (ADR-0013 LP truth)。
+	//   本 key だけ末尾採番なのは、既存 k20-k123 の番号を動かすと全 LP HTML の
+	//   data-lp-key を張り替えることになるため (番号は識別子であり順序ではない)。
+	k124: `${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストは保管された状態になり、有料プランに戻すと元どおりご利用いただけます`,
 } as const;
 
 // #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
@@ -9886,8 +12163,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k11: '&#x2728; 3 つの仕組みで、毎日のがんばりが本物の報酬になる',
 	k12: '<span class="fi-layer-badge">活動</span> 毎日の活動 &#x2192; ポイント',
 	// #1912 (F-12): pamphletB 本文「プリセット活動がそのまま使える」→
-	//   「あらかじめ用意された 300 種類の活動がそのまま使える」へ顧客語彙化。
-	k13: '「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された 300 種類の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。',
+	//   「あらかじめ用意された活動がそのまま使える」へ顧客語彙化。
+	k13: `「はみがきした」「宿題おわった」をタップするだけ。あらかじめ用意された ${PRESET_ACTIVITY_TERMS.uniqueCount}の活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。`,
 	k14: '<span class="fi-layer-badge">習慣</span> おみくじスタンプ &#x2192; 習慣',
 	k15: '1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。',
 	k16: '<span class="fi-layer-badge">ごほうび</span> ごほうびショップ &#x2192; 交換',
@@ -9913,7 +12190,11 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	// #1912 (F-6): 「ログインボーナス・連続達成ボーナス」→「毎日のごほうび・続けるごほうび」へ日本語化
 	k33: '<span class="check">&#x2713;</span>毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
-	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで',
+	// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09: LP pricing だけが
+	// 「（取込を含む）」に直り、パンフとアプリ内 /pricing が旧文言のまま残っていた。
+	// 取込んだチェックリストも同じ 3 個/子の枠を消費する (#4713) ので、
+	// **枠の数え方を面によって違う言い方にしない**。
+	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで（取込を含む）',
 	k35: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k36: '&#x2B50; おすすめ',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard 参照化。
@@ -9925,8 +12206,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k39: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
-	k42: '<span class="check">&#x2713;</span>家族メンバー招待：4人まで',
-	k43: '<span class="check">&#x2713;</span>特別なごほうび設定',
+	k42: `<span class="check">&#x2713;</span>家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
+	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.productRegistration}`,
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k46: '<span class="check">&#x2713;</span>メールサポート',
@@ -9950,7 +12231,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k58: '&#x1F680; かんたん3ステップで始められます',
 	k59: 'アカウント登録（無料）',
 	k60: 'メールまたはGoogleアカウントで。1分で完了します。',
-	k61: 'お子さまの年齢と性別を設定',
+	k61: 'お子さまの年齢を設定',
 	k62: '年齢に合わせた活動が自動でセットアップ。',
 	k63: '冒険スタート！',
 	k64: '活動を記録するたびにポイント獲得 &amp; レベルアップ！',
@@ -9995,15 +12276,20 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //   - effective: 末尾の制定日 / 最終改定日
 // ============================================================
 export const LP_LEGAL_PRIVACY_LABELS = {
-	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年8月7日</p>',
+	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年9月10日</p>',
 	intro:
 		'個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。',
-	section1:
-		'<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、アクセス先のURL、デバイス情報（ブラウザ種別等）を収集します。アクセスログは3日間保存した後、運営者が管理するAWS環境内のストレージへアーカイブして長期保存します。配信基盤（CDN）のアクセスログは同じ環境内に3日間のみ保存し、自動削除します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>',
+	// #4844 follow-up (PO 決定 2026-09-04): 旧文は 3 箇所とも「これらの情報はご契約期間中保存されます」
+	// と述べていたが、履歴 (活動記録 / ポイント台帳 / ステータス履歴) は `retention-cleanup-service` が
+	// **契約中でも**プラン別の保持期間で物理削除する (スタンダードプランなら 1 年より古い記録は消える)。
+	// アカウント情報 / お子さまの情報は逆に保持期間の対象外で、アカウント削除まで残る。
+	// 3 箇所を同じ文で書いていたため、両方向に事実と食い違っていた。
+	// 日数は利用規約 第7条7項 と同じ atom (PLAN_RETENTION_TERMS) 経由で述べ、直書きしない。
+	section1: `<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報は、アカウントが存在するあいだ保存され、アカウント削除のお手続き後、利用規約第13条に定める猶予期間の経過をもって削除されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報は、アカウントが存在するあいだ保存され、アカウント削除のお手続き後、利用規約第13条に定める猶予期間の経過をもって削除されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報は、ご利用中のプランに応じた履歴保持期間（${PLAN_FULL_TERMS.free}: ${PLAN_RETENTION_TERMS.free}間 / ${PLAN_FULL_TERMS.standard}: ${PLAN_RETENTION_TERMS.standard}間 / ${PLAN_FULL_TERMS.premium}: 無期限）のあいだ保存し、保持期間を超えた記録は順次削除します。削除された記録は復元できません（再度有料プランにご加入いただいた場合も戻りません）。詳細は利用規約第7条に定めます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、アクセス先のURL、デバイス情報（ブラウザ種別等）を収集します。アクセスログは3日間保存した後、運営者が管理するAWS環境内のストレージへアーカイブして長期保存します。配信基盤（CDN）のアクセスログは同じ環境内に3日間のみ保存し、自動削除します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>`,
 	section2:
 		'<h2>第2条（情報の利用目的）</h2><p>運営者は、収集した情報を以下の目的で利用します。</p><ol><li>本サービスの提供・運営・維持</li><li>利用者の認証・本人確認</li><li>サービスの改善・新機能の開発</li><li>利用状況の分析・統計処理（個人を特定しない形式）</li><li>重要なお知らせ・サービス変更の通知</li><li>不正利用の防止・セキュリティの確保</li><li>利用者からの問い合わせへの対応</li></ol>',
 	section3:
-		'<h2>第3条（情報の第三者提供）</h2><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（アプリケーションの実行・データの保存）、認証基盤、メール送信。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。運営者が管理する AWS 環境内で処理され、AWS 以外の第三者には送信されません。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li></ul></li></ol>',
+		'<h2>第3条（情報の第三者提供）</h2><p>本条に記載する外部サービスのうち、外国にある第三者に該当するもの（AWS / Stripe / Google、いずれも米国）への提供については、移転先の国名・当該国の個人情報の保護に関する制度・移転先が講ずる措置を<a href="#cross-border-transfer">第10条</a>に記載しています。お申し込み時（またはログイン後の同意画面）に、第10条の内容をご確認のうえ同意をいただきます。</p><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（アプリケーションの実行・データの保存）、認証基盤、メール送信。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS)</strong> — 生成 AI（AI 提案（活動・ごほうび・チェックリスト）のテキスト補助、および領収書画像の読み取り）。運営者が管理する AWS 環境内で処理され、AWS 以外の第三者には送信されません。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。推論は米国内の複数リージョン（us-east-1 / us-east-2 / us-west-2）で処理される場合がありますが、いずれも運営者が管理する AWS 環境内であり、データの保存先は us-east-1 のままです。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li></ul></li></ol>',
 	section4:
 		'<h2>第4条（データの安全管理）</h2><p>運営者は、個人情報への不正アクセス、紛失、破壊、改ざん、漏洩の防止のため、以下の安全管理措置を講じています。</p><ul><li>通信は全て TLS 1.2 以上で暗号化されます。</li><li>保存データは AES-256 で暗号化されます。</li><li>パスワードは不可逆のハッシュ化処理を施して保存されます。</li><li>データベースは定期的に自動バックアップされます。</li></ul>',
 	section5:
@@ -10014,19 +12300,19 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 	section6_2:
 		'<h2>第6条の2（卒業フローと事例公開承諾）</h2><p>本サービスは「お子さまが自律して使う必要がなくなった」ことを「卒業」と定義し、ポジティブな解約として扱います。卒業選択時に表示される専用ページで、ご家庭が任意で「事例として公開してもよい」旨を承諾された場合、以下の情報を保管します。</p><ol><li><strong>保管する情報</strong>: ご家庭が任意指定したニックネーム（実名禁止）、卒業時点の残ポイント数、ご利用期間（日数）、任意の卒業メッセージ。</li><li><strong>利用目的</strong>: サービス紹介ページ等での事例として公開し、他のご家庭の参考となる卒業ストーリーの提示に活用します。</li><li><strong>公開時の取り扱い</strong>: 実名は使用せず、お預かりしたニックネームのみを表示します。お子さまが特定されない形でのみ公開します。</li><li><strong>承諾の撤回</strong>: 公開承諾の撤回は、サービス問い合わせ窓口からご連絡いただくことで対応します。撤回後は当該事例を 30 日以内に非公開化します。</li><li><strong>承諾なしの場合</strong>: 公開を承諾されない場合も「卒業者数」「平均利用期間」等の集計値（個人を特定しない形式）には含まれます。</li></ol>',
 	section7:
-		'<h2>第7条（Cookieの使用）</h2><p>本サービスは、認証状態の維持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p><ul><li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li><li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li><li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）<ul><li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li><li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li></ul></li><li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li></ul><p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>',
+		'<h2>第7条（Cookieの使用）</h2><p>本サービスは、認証状態の維持および利用者の設定の保持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p><ul><li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li><li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li><li><strong>利用設定Cookie</strong> — 前回選択されたお子さまのプロフィール（<code>selectedChildId</code>）。次回アクセス時に同じプロフィールを表示するため、最長1年間ブラウザに保持されます。プロフィールを選び直すと上書きされます。</li><li><strong>保護者確認Cookie</strong> — 保護者確認（おやカギ）の通過状態を保持するCookie（<code>gq_parent_session</code>、最長24時間。お子さまのプロフィールへ切り替えた時点でも削除されます）</li><li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）<ul><li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li><li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li><li><code>oauth_next</code> — OAuth認証後の戻り先ページの一時保持（認証完了後に削除）</li><li><code>oauth_plan</code> — ご登録時に選ばれたプランの一時保持（10分間）</li><li><code>pin_reset_otp</code> — PIN再設定の確認コードの一時保持（10分間）</li></ul></li><li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li><li><strong>サービス提供・表示制御のためのCookie</strong> — 認証にも招待にも属さず、表示や案内の出し分けのために置くCookieです。<ul><li><code>trial_was_active</code> — 無料体験が終了したことを一度だけお知らせするための記録（最長30日間）</li><li><code>demo_plan</code> — デモ体験版で選ばれたプランの保持（デモ体験版のみ、最長30日間）</li></ul></li></ul><p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>',
 	section8:
-		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（運営者が管理する AWS 環境。アプリケーションの実行・データの保存・認証・生成 AI）</li><li>Stripe, Inc.（課金処理）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
+		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>お預かりしたデータを第三者へ提供したり、広告に利用したりすることはありません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報。加えて、AI 提案をご利用いただいた場合はその入力内容（活動・ごほうび・チェックリストのテキスト）、領収書の読み取りをご利用いただいた場合は選択された領収書画像を送信します（いずれも利用者識別子を含みません）。</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（運営者が管理する AWS 環境。アプリケーションの実行・データの保存・認証・生成 AI）</li><li>Stripe, Inc.（課金処理）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / AI 提案（活動・ごほうび・チェックリスト）のテキスト補助 / 領収書画像の読み取り</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
 	section9:
-		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する AWS 環境内でのみ処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li><li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
-	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li><li>${CHILD_TERMS.neutral}の識別情報（ニックネーム等）は <strong>運営者の環境の外にある生成 AI サービスには送信しません</strong>（送信する機能自体がありません）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。</li></ul></li></ol>`,
+		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で保護者同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>お子さまのデータを一括して生成 AI に渡さない</strong>: お子さまの活動記録・プロフィール等のデータベース上のデータを、生成 AI に送信することはありません。ただし、保護者ご自身が AI 提案機能（活動・チェックリスト・ごほうび）に入力した文章と、ポイント変換でアップロードされた領収書画像は、生成 AI に送信されます。送信先は、当社が提供するクラウド版では<strong>運営者が管理する AWS 環境内の生成 AI</strong>です（外部の生成 AI 事業者には渡りません）。ご自身のサーバーで運用されるセルフホスト版では、設定により<strong>運営者の環境外の生成 AI（Google LLC）</strong>が使われる場合があります。<strong>入力欄にお子さまのお名前など特定につながる情報を書かれた場合、その文章は上記の送信先に送られます</strong>のでご注意ください。</li><li><strong>保護者による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
+	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>運営者は、お預かりしたデータを機械学習・AI モデルの学習データに流用しません</strong>（セルフホスト版でご自身が設定された外部の生成 AI 事業者における取扱いは、その事業者の規約によります。運営者は関与せず、保証もできません）</li><li>${CHILD_TERMS.neutral}のニックネーム・活動記録などをデータベースから取り出して生成 AI に渡す機能はありません（生成 AI に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです。詳細は第9条④）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（データの保存先は AWS バージニア北部リージョン us-east-1。生成 AI の推論のみ、米国内の複数リージョン us-east-1 / us-east-2 / us-west-2 で処理される場合があります）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>当該国の個人情報の保護に関する制度</strong>: 米国には個人情報の保護に関する包括的な連邦法はなく、分野別の法律（金融・医療分野等）と州法（カリフォルニア州消費者プライバシー法等）により規律されています。日本の個人情報保護法と同等の水準にあると認められる外国（EU・英国）としては指定されていません。詳細は、個人情報保護委員会が公表する<a href="https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/#gaikoku" target="_blank" rel="noopener">外国における個人情報の保護に関する制度等の調査結果</a>（米国）をご参照ください。</li><li><strong>移転先が講ずる個人情報の保護のための措置</strong>: AWS との間で Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) を締結し、AWS は OECD プライバシーガイドラインに対応する措置（保存データの暗号化、アクセス制御、監査、再委託先の管理等）を講じています。これにより、日本の個人情報保護法に基づき運営者が講ずべき措置に相当する体制を継続的に確保しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「${CROSS_BORDER_TERMS.consentLabel}」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。Google アカウントでの登録など${SIGNUP_TERMS.canonical}フォームを経由しない場合は、ログイン後の同意画面で同じ同意を取得します。取得した同意は、同意日時・対象バージョンとともに記録されます。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。加えて、<strong>セルフホスト版で外部の生成 AI を使う設定にした場合</strong>は、AI 提案機能に入力された文章と領収書画像の送信先になります（第9条④）。当社が提供するクラウド版では生成 AI の送信先になりません。</li></ul></li></ol>`,
 	section11:
 		'<h2>第11条（本ポリシーの変更）</h2><ol><li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li><li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li><li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li></ol>',
 	section12:
 		'<h2>第12条（個人情報保護管理者）</h2><div class="contact"><p><strong>個人情報保護管理者</strong></p><p>氏名: 日下武紀</p><p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p></div>',
 	section13:
 		'<h2>第13条（お問い合わせ）</h2><p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p><div class="contact"><p>がんばりクエスト運営者 日下武紀</p><p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p></div>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年8月7日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年9月10日</p>',
 } as const;
 
 // ============================================================
@@ -10040,32 +12326,32 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 //   意味が異なる（data deletion grace period）ため、コンセプト混在を避けて文字列直書き維持。
 // ============================================================
 export const LP_LEGAL_TERMS_LABELS = {
-	articleHeader: '<h1>利用規約</h1><p class="meta">最終更新日: 2026年4月28日</p>',
+	articleHeader: '<h1>利用規約</h1><p class="meta">最終更新日: 2026年9月10日</p>',
 	intro:
 		'本利用規約（以下「本規約」）は、個人開発者である日下武紀（以下「運営者」）が提供するWebアプリケーション「がんばりクエスト」（以下「本サービス」）の利用条件を定めるものです。本サービスは個人が開発・運営するものであり、企業が提供するサービスとは運営体制が異なります。本サービスをご利用いただくにあたり、本規約に同意いただく必要があります。',
 	section1:
-		'<h2>第1条（定義）</h2><ol><li>「利用者」とは、本規約に同意の上、本サービスを利用する全ての方をいいます。</li><li>「保護者」とは、本サービスにおいて管理者権限でアカウントを作成・管理する利用者をいいます。</li><li>「こども」とは、保護者が本サービスに登録した未成年の家族をいいます。</li><li>「家族グループ」とは、保護者が作成し、こどもや他の保護者が所属するグループをいいます。</li><li>「コンテンツ」とは、利用者が本サービスに登録した活動、ポイント、実績等のデータをいいます。</li></ol>',
+		'<h2>第1条（定義）</h2><ol><li>「利用者」とは、本規約に同意の上、本サービスを利用する全ての方をいいます。</li><li>「保護者」とは、本サービスにおいて管理者権限でアカウントを作成・管理する利用者をいいます。</li><li>「お子さま」とは、保護者が本サービスに登録した未成年の家族をいいます。</li><li>「家族グループ」とは、保護者が作成し、お子さまや他の保護者が所属するグループをいいます。</li><li>「コンテンツ」とは、利用者が本サービスに登録した活動、ポイント、実績等のデータをいいます。</li></ol>',
 	section2:
-		'<h2>第2条（サービスの内容）</h2><ol><li>本サービスは、家庭内でのこどもの日常活動をゲーミフィケーション（ポイント、レベル、実績等）により動機づけすることを目的としたWebアプリケーションです。</li><li>運営者は、本サービスの内容を予告なく変更・追加・削減することがあります。</li><li>本サービスは教育効果や行動変容を保証するものではありません。</li></ol>',
+		'<h2>第2条（サービスの内容）</h2><ol><li>本サービスは、家庭内でのお子さまの日常活動をゲーミフィケーション（ポイント、レベル、実績等）により動機づけすることを目的としたWebアプリケーションです。</li><li>運営者は、本サービスの内容を予告なく変更・追加・削減することがあります。</li><li>本サービスは教育効果や行動変容を保証するものではありません。</li></ol>',
 	section3:
-		'<h2>第3条（アカウントの管理）</h2><ol><li>利用者は、自己の責任においてアカウント情報を管理するものとします。</li><li>アカウント情報の不正利用により生じた損害について、運営者は一切の責任を負いません。</li><li>こどものアカウントは保護者が作成・管理するものとし、こども自身がアカウントを作成することはできません。</li><li>保護者は、こどものデータの入力内容および本サービスの利用について責任を負うものとします。</li><li>1つのメールアドレスにつき1つのアカウントのみ作成できます。</li></ol>',
+		'<h2>第3条（アカウントの管理）</h2><ol><li>利用者は、自己の責任においてアカウント情報を管理するものとします。</li><li>アカウント情報の不正利用により生じた損害について、運営者は一切の責任を負いません。</li><li>お子さまのアカウントは保護者が作成・管理するものとし、お子さま自身がアカウントを作成することはできません。</li><li>保護者は、お子さまのデータの入力内容および本サービスの利用について責任を負うものとします。</li><li>1つのメールアドレスにつき1つのアカウントのみ作成できます。</li></ol>',
 	section4:
 		'<h2>第4条（禁止事項）</h2><p>利用者は、本サービスの利用にあたり、以下の行為を行ってはなりません。</p><ol><li>法令または公序良俗に違反する行為</li><li>犯罪行為に関連する行為</li><li>運営者のサーバーまたはネットワークの機能を破壊・妨害する行為</li><li>本サービスの運営を妨害するおそれのある行為</li><li>他の利用者の個人情報を収集または蓄積する行為</li><li>不正アクセスまたはこれを試みる行為</li><li>他の利用者に成りすます行為</li><li>反社会的勢力に対して直接または間接に利益を供与する行為</li><li>本サービスの他の利用者または第三者の知的財産権、肖像権、プライバシー、名誉その他の権利または利益を侵害する行為</li><li>本サービスを商業目的で利用する行為（運営者が別途許諾した場合を除く）</li><li>その他、運営者が不適切と判断する行為</li></ol>',
 	section5:
 		'<h2>第5条（アカウントの停止・削除）</h2><ol><li>運営者は、利用者が前条の禁止事項に違反した場合、または本規約のいずれかの条項に違反した場合、事前の通知なくアカウントの停止または削除を行うことができます。</li><li>前項の措置により利用者に生じた損害について、運営者は一切の責任を負いません。</li><li>運営者は、アカウント停止または削除の理由について、開示する義務を負いません。</li></ol>',
 	section6:
-		'<h2>第6条（未成年者の利用）</h2><ol><li>本サービスは、保護者の管理のもとでこどもが利用することを前提として設計されています。</li><li>未成年者が本サービスを利用する場合、法定代理人（保護者）の同意が必要です。</li><li>保護者は、こどもの本サービスの利用に関して一切の責任を負うものとします。</li><li>保護者が本規約に同意してアカウントを作成した時点で、こどもの本サービスの利用についても同意したものとみなします。</li><li>未成年者の個人情報の取扱いについて、運営者は<a href="privacy.html#under-age">プライバシーポリシー第9条（未成年者の取扱い）</a>に定める特別な保護措置を講じています。</li></ol>',
-	section7: `<h2>第7条（料金および支払い）</h2><ol><li>本サービスの基本機能は無料でご利用いただけます。一部の機能は有料プランへの加入が必要です。料金の詳細は本サービス内の料金ページに記載します。</li><li>有料プランの支払いは、運営者が指定する決済サービスを通じて行われます。</li><li>有料プランは契約期間ごとに自動更新されます。自動更新の停止（解約）は、次回更新日の前日までに${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から行うことができます。</li><li>解約後も、支払い済み期間の終了日まで有料プランの機能をご利用いただけます。</li><li>日割り計算による返金は行いません。</li><li><strong>解約とアカウント削除の違い</strong>: 解約はサブスクリプションの自動更新停止のみを行うものであり、利用者のデータは無料プランへ移行して保持されます（保持期間は本規約第13条に定めます）。データを完全に削除したい場合は、本サービスにログインのうえ、設定画面の「アカウント削除」から本人が実施してください。詳細は第13条に定めます。</li></ol>`,
-	section8: `<h2>第8条（無料トライアル）</h2><ol><li>有料プランには無料トライアル期間が含まれる場合があります。期間の詳細は本サービス内に記載します。</li><li>無料トライアル期間中に解約した場合、料金は発生しません。</li><li>無料トライアル期間終了後、自動的に${PLAN_FULL_TERMS.free}に移行します。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。</li><li>無料トライアルは、1アカウントにつき1回のみご利用いただけます。</li></ol>`,
+		'<h2>第6条（未成年者の利用）</h2><ol><li>本サービスは、保護者の管理のもとでお子さまが利用することを前提として設計されています。</li><li>未成年者が本サービスを利用する場合、法定代理人（保護者）の同意が必要です。</li><li>保護者は、お子さまの本サービスの利用に関して一切の責任を負うものとします。</li><li>保護者が本規約に同意してアカウントを作成した時点で、お子さまの本サービスの利用についても同意したものとみなします。</li><li>未成年者の個人情報の取扱いについて、運営者は<a href="privacy.html#under-age">プライバシーポリシー第9条（未成年者の取扱い）</a>に定める特別な保護措置を講じています。</li></ol>',
+	section7: `<h2>第7条（料金および支払い）</h2><ol><li>本サービスの基本機能は無料でご利用いただけます。一部の機能は有料プランへの加入が必要です。料金の詳細は本サービス内の料金ページに記載します。</li><li>有料プランの支払いは、運営者が指定する決済サービスを通じて行われます。</li><li>有料プランは契約期間ごとに自動更新されます。自動更新の停止（解約）は、次回更新日の前日までに${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）から行うことができます。</li><li>解約後も、支払い済み期間の終了日まで有料プランの機能をご利用いただけます。</li><li>日割り計算による返金は行いません。</li><li><strong>解約とアカウント削除の違い</strong>: 解約はサブスクリプションの自動更新停止のみを行うものであり、利用者のデータは${PLAN_FULL_TERMS.free}へ移行して保持されます（保持期間は次項に定めます）。データを完全に削除したい場合は、本サービスにログインのうえ、設定画面の「アカウント削除」から本人が実施してください。詳細は第13条に定めます。</li><li><strong>プラン別の履歴保持期間</strong>: 活動記録等の履歴は、ご利用中のプランに応じて次の期間保持されます。${PLAN_FULL_TERMS.free}: ${PLAN_RETENTION_TERMS.free}間 / ${PLAN_FULL_TERMS.standard}: ${PLAN_RETENTION_TERMS.standard}間 / ${PLAN_FULL_TERMS.premium}: 無期限。保持期間を超えた履歴は削除され、復元できません（再度有料プランにご加入いただいた場合も戻りません）。</li><li><strong>プラン変更</strong>: 利用者はいつでもプランを変更できます。上位プランへの変更（アップグレード）は直ちに反映されます。下位プランへの変更（ダウングレード）および解約による${PLAN_FULL_TERMS.free}への移行では、<strong>変更後のプランの保持期間を超える履歴は削除されます</strong>。また、変更後のプランの上限を超えるお子さま・活動等は閲覧できない状態になります。プラン変更のお手続きをご自身で行う場合、削除される履歴があるときは手続きの前に画面上でお知らせします。解約により${PLAN_FULL_TERMS.free}へ移行する場合は、解約時点でこの案内は行われません。</li></ol>`,
+	section8: `<h2>第8条（無料トライアル）</h2><ol><li>有料プランには無料トライアル期間が含まれる場合があります。期間の詳細は本サービス内に記載します。</li><li>無料トライアルのご利用にお支払い情報の登録は不要です。期間中・終了後を問わず、自動的に料金が発生することはありません。</li><li>無料トライアル期間終了後、自動的に${PLAN_FULL_TERMS.free}に移行します。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。</li><li>無料トライアルは、<strong>ご家族（家族グループ）につき1回</strong>のみご利用いただけます。同一のご家族に属する複数のアカウントで重ねてご利用いただくことはできません。ただし、運営者が実施するキャンペーン等により、運営者の判断で再度ご提供する場合があります。</li></ol>`,
 	section9:
 		'<h2>第9条（知的財産権）</h2><ol><li>本サービスに関する知的財産権は全て運営者または正当な権利者に帰属します。</li><li>利用者が本サービスに登録したコンテンツの著作権は利用者に帰属しますが、運営者はサービスの提供および改善に必要な範囲で当該コンテンツを利用できるものとします。</li></ol>',
 	section10:
 		'<h2>第10条（個人情報の取扱い）</h2><p>利用者の個人情報の取扱いについては、別途定める<a href="privacy.html">プライバシーポリシー</a>に従うものとします。</p>',
 	section11:
 		'<h2>第11条（サービスの中断・停止）</h2><ol><li>運営者は、以下の場合、事前の通知なく本サービスの全部または一部を中断・停止することがあります。<ul><li>システムの保守・点検・更新を行う場合</li><li>地震、落雷、火災、停電、天災等の不可抗力により本サービスの提供が困難な場合</li><li>その他、運営者がサービスの中断・停止が必要と判断した場合</li></ul></li><li>サービスの中断・停止により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、運営者は責任を負いません。</li></ol>',
-	section12: `<h2>第12条（免責事項）</h2><ol><li>本サービスは個人開発者が運営するものであり、「現状有姿（AS IS）」で提供されます。運営者は、本サービスの正確性、完全性、信頼性、適時性、安全性、特定目的への適合性について、明示的または黙示的を問わず一切の保証をしません。</li><li>本サービスはこどもの教育効果や行動変容を保証するものではなく、結果について運営者は責任を負いません。</li><li>運営者は、本サービスの利用により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、一切の責任を負いません。</li><li>運営者は、以下に起因する損害について、一切の責任を負いません。<ul><li>データの消失、破損、改ざん、または復旧の不能</li><li>サービスの中断、遅延、停止、または終了</li><li>第三者サービス（AWS、Stripe、Google等）の障害、仕様変更、またはサービス停止</li><li>不正アクセス、コンピュータウイルス、その他のセキュリティ侵害</li><li>利用者間のトラブルまたは紛争</li><li>利用者の操作ミスまたはアカウント管理の不備</li></ul></li><li>運営者は、間接損害、特別損害、偶発的損害、結果的損害、逸失利益、およびデータの喪失について、たとえその可能性を事前に告知されていた場合であっても、責任を負いません。</li><li>前各項の規定にかかわらず、消費者契約法その他の強行法規の適用により運営者の責任が認められる場合、運営者が利用者に対して賠償する金額は、当該利用者が損害発生月を含む直近3ヶ月間に本サービスに対して実際に支払った利用料の総額を上限とします。${PLAN_FULL_TERMS.free}の利用者については、運営者の賠償額の上限は0円とします。</li></ol>`,
+	section12: `<h2>第12条（免責事項）</h2><ol><li>本サービスは個人開発者が運営するものであり、「現状有姿（AS IS）」で提供されます。運営者は、本サービスの正確性、完全性、信頼性、適時性、安全性、特定目的への適合性について、明示的または黙示的を問わず一切の保証をしません。</li><li>本サービスはお子さまの教育効果や行動変容を保証するものではなく、結果について運営者は責任を負いません。</li><li>運営者は、本サービスの利用により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、一切の責任を負いません。</li><li>運営者は、以下に起因する損害について、一切の責任を負いません。<ul><li>データの消失、破損、改ざん、または復旧の不能</li><li>サービスの中断、遅延、停止、または終了</li><li>第三者サービス（AWS、Stripe、Google等）の障害、仕様変更、またはサービス停止</li><li>不正アクセス、コンピュータウイルス、その他のセキュリティ侵害</li><li>利用者間のトラブルまたは紛争</li><li>利用者の操作ミスまたはアカウント管理の不備</li></ul></li><li>運営者は、間接損害、特別損害、偶発的損害、結果的損害、逸失利益、およびデータの喪失について、たとえその可能性を事前に告知されていた場合であっても、責任を負いません。</li><li>前各項の規定にかかわらず、消費者契約法その他の強行法規の適用により運営者の責任が認められる場合、運営者が利用者に対して賠償する金額は、当該利用者が損害発生月を含む直近3ヶ月間に本サービスに対して実際に支払った利用料の総額を上限とします。${PLAN_FULL_TERMS.free}の利用者については、運営者の賠償額の上限は0円とします。</li></ol>`,
 	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li><strong>アカウント削除はログインして行った時のみ全データの完全削除が実行されるもの</strong>であり、サブスクリプションの解約（第7条）とは別の手続きです。アカウント削除はご家族の見守り画面の設定から本人が実施してください。なりすまし防止のため、運営者がご本人に代わってアカウント削除を実施することはありません。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standard}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premium}間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です（${PLAN_FULL_TERMS.free}は猶予期間がないため取消しできません）。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
-	section14: `<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの${ADMIN_VIEW_TERMS.canonical}から「卒業手続き」を行うことで、本契約を終了し、データのエクスポートまたは削除を選択することができます。具体的な手続き UI は別途提供します（実装は今後のリリースで提供予定）。</li><li><strong>残ポイントの還元</strong>: 卒業時に保有しているポイントについて、現金または物品での還元を希望される場合は、別途運営者までご連絡ください。還元の対象範囲・方法については、運営者が個別に案内します。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>`,
+	section14: `<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの${ADMIN_VIEW_TERMS.canonical}から「卒業手続き」を行うことで、本契約を終了することができます。記録の書き出し（エクスポート）は、退会（アカウント削除）の手続き画面からいつでも行えます。</li><li><strong>残ポイントの取扱い</strong>: 本サービスのポイントは、保護者がお子さまに付与するご家庭内の仕組みであり、法定通貨・前払式支払手段その他の金銭的価値ではありません。<strong>運営者はポイントの換金・買取・払い戻しを行いません。</strong>卒業時に残っているポイントの扱いは、ご家庭内でお決めください（卒業ページでは参考例をご紹介しています）。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>`,
 	section15:
 		'<h2>第15条（サービスの終了）</h2><ol><li>運営者は、運営者の判断により、本サービスの全部または一部を終了することがあります。</li><li>本サービスを終了する場合、運営者は終了日の30日前までに本サービス上または登録メールアドレスへの通知により利用者にお知らせします。</li><li>サービス終了時、利用者は終了日までに自己のデータをエクスポートすることができます。</li><li>サービスの終了により利用者に生じた損害について、運営者は一切の責任を負いません。</li></ol>',
 	section16:
@@ -10078,7 +12364,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 		'<h2>第19条（分離可能性）</h2><p>本規約のいずれかの条項が法令により無効または執行不能と判断された場合であっても、当該条項以外の規定の有効性には影響しないものとします。</p>',
 	section20:
 		'<h2>第20条（お問い合わせ）</h2><p>本規約に関するお問い合わせは、<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHubのIssuesページ</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="利用規約">メール</a>よりご連絡ください。</p>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月28日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年9月10日</p>',
 } as const;
 
 // ============================================================
@@ -10112,10 +12398,44 @@ export const LP_LEGAL_TERMS_LABELS = {
 //
 // 参照: docs/decisions/0002-critical-fix-quality-gate.md (本 atom 適用の critical 5 要件履歴)
 
+// 申込確定直前に述べる「引渡時期・自動更新」(特商法 12 条の 6 第 1 項 4 号相当)。
+// 提供開始時期は tokushoho.html の「サービス提供時期」行 (お申し込み後、即時ご利用いただけます)、
+// 自動更新は同「支払時期」行 (以後は毎月同じ日に自動課金します) と同じ事実を述べる。
+// 「お選びのプランの機能」は景品表示法 5 条 1 号対応の限定文言 (#2346) をそのまま維持する。
+//
+// **金額が初回と更新で一致するとは述べない**: 同じ session に `allow_promotion_codes: true`
+// (`stripe-service.ts`) があり、`duration: once` のプロモーションコードが使われると初回と
+// 次回以降で請求額が変わる。「同額」等の断定は特商法 12 条の 6 の金額表示にあたる部分を
+// 事実と食い違わせるため書かない (tokushoho.html「支払時期」行にも同種の断定は無い)。
+// 代わりに「そのつど課金される」ことと「次回以降の金額をどこで確認できるか」を述べる。
+const CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE = `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。以後は毎月同じ日に自動で更新し、そのつど課金します。次回以降のご請求金額は${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`;
+
+// 申込確定直前に述べる「申込撤回・解約方法」(同項 5 号相当)。
+// 経路は tokushoho.html の「返品・キャンセル」行と同一の 1 本に揃える
+// (見守り画面 →「プラン・お支払い」→「請求管理ページを開く」)。別経路を新たに名乗らない。
+const CHECKOUT_CANCEL_METHOD_NOTICE = `${ADMIN_VIEW_TERMS.canonical}の「${ADMIN_SCREEN_TERMS.subscription}」→「${STRIPE_PORTAL_TERMS.short}を開く」からいつでも${CANCEL_TERMS.canonical}できます。${CANCEL_TERMS.canonical}後は現在の請求期間の終了日までご利用いただけ、日割り計算による返金は行いません。デジタルサービスのため返品はお受けしておりません。`;
+
 export const CHECKOUT_LABELS = {
-	submitMessage: `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。`,
+	// #2573 (2026-09-04 QM 監査 legal.md [S1]): 申込確定の直前で事業者が文言を出せる枠は
+	// `custom_text.submit.message` ただ 1 つ。ここを販促文 (旧:「お支払い後、すぐに…
+	// ご利用いただけます。」だけ) に使うと、顧客は **毎月自動更新であること / 解約の方法 /
+	// いつから使えるか** を知らないまま確定ボタンを押す。Stripe Checkout の既定表示は金額と
+	// 請求周期しか出さないため、この 3 点はここで述べる以外に出す場所が無い。
+	//
+	// 利用規約への同意は `consent_collection.terms_of_service: 'required'` が Stripe 既定の
+	// チェックボックス (規約リンク付き) で収集するため、本文では繰り返さない
+	// (`custom_text.terms_of_service_acceptance` も設定しない = 同じことを 2 回言わない)。
+	//
+	// Stripe の `custom_text.*.message` は 1200 文字上限
+	// (node_modules/stripe/cjs/resources/Checkout/Sessions.d.ts `namespace CustomText`)。
+	// 超えると session 作成が 400 になり申込導線ごと死ぬため、
+	// tests/unit/services/stripe-service.test.ts が上限内であることを pin する。
+	submitMessage: `【${TOKUSHOHO_TERMS.heading4Delivery}】${CHECKOUT_DELIVERY_AND_RENEWAL_NOTICE}\n【${TOKUSHOHO_TERMS.heading5Cancel}】${CHECKOUT_CANCEL_METHOD_NOTICE}`,
 	afterSubmitMessage: `アプリに戻って${CHECKOUT_TERMS.chosenPlanFeature}をお楽しみください。`,
-	// future-proof: プラン名動的差し込み版 (#2346 No-gos = 本 PR では未使用、定義のみ)
+	// future-proof: プラン名動的差し込み版 (#2346 No-gos = 本 PR では未使用、定義のみ)。
+	// #2573: これは「提供開始時期」しか述べないため、**`custom_text.submit.message` には
+	// そのまま使えない** (自動更新・解約方法が欠ける)。使うときは上の 2 つの notice を
+	// 併せて組み立てること。
 	submitMessageWithPlan: (planLabel: string) =>
 		`お支払い後、すぐに${planLabel}の機能をご利用いただけます。`,
 	afterSubmitMessageWithPlan: (planLabel: string) =>
@@ -10145,7 +12465,7 @@ export const CHECKOUT_LABELS = {
 //   - #1951 LP_LEGAL_TOKUSHOHO_LABELS (Phase 4 E4, 同上)
 // ============================================================
 export const LP_LEGAL_SLA_LABELS = {
-	articleHeader: '<h1>サービスレベル合意（SLA）</h1><p class="meta">最終更新日: 2026年4月17日</p>',
+	articleHeader: '<h1>サービスレベル合意（SLA）</h1><p class="meta">最終更新日: 2026年8月13日</p>',
 	intro:
 		'本文書は、個人開発者である日下武紀が運営するがんばりクエスト（以下「本サービス」）のサービスレベル目標を定めるものです。本サービスは個人が開発・運営しているため、企業が提供するサービスとは運営体制が異なります。本SLAは、運営者が誠実に達成を目指す目標値を示すものであり、法的な保証ではありません。',
 	section1:
@@ -10153,19 +12473,19 @@ export const LP_LEGAL_SLA_LABELS = {
 	section2:
 		'<h2>第2条（サービス可用性）</h2><ol><li>運営者は、本サービスの月間可用性 <strong>99.5%</strong> を目標とします（月間約3.6時間の計画外ダウンタイムに相当）。</li><li>以下は計画外ダウンタイムに含みません。<ul><li>事前に通知された計画メンテナンス</li><li>天災・戦争等の不可抗力による停止</li><li>クラウド基盤の障害</li><li>利用者側の環境に起因する接続障害</li></ul></li></ol>',
 	section3:
-		'<h2>第3条（デプロイおよび計画メンテナンス）</h2><ol><li>本サービスは継続的デプロイ（CI/CD）を採用しており、通常のコードデプロイはゼロダウンタイムで実施されます。通常のデプロイにおいてサービスの中断は発生しません。</li><li>インフラストラクチャの変更（CDKスタック更新、データベースマイグレーション等）により、サービスの一時的な中断が見込まれる場合は「計画メンテナンス」として扱い、以下の対応を行います。<ul><li>事前通知: 24時間前までにDiscordステータスチャンネルにて告知</li><li>影響範囲および想定される中断時間の事前説明</li></ul></li><li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li></ol>',
+		'<h2>第3条（デプロイおよび計画メンテナンス）</h2><ol><li>本サービスは継続的デプロイ（CI/CD）を採用しており、通常のコードデプロイはゼロダウンタイムで実施されます。通常のデプロイにおいてサービスの中断は発生しません。</li><li>インフラストラクチャの変更（CDKスタック更新、データベースマイグレーション等）により、サービスの一時的な中断が見込まれる場合は「計画メンテナンス」として扱い、以下の対応を行います。<ul><li>事前通知: 24時間前までに本サービス内のお知らせにて告知します。あわせて、影響が大きいと運営者が判断した場合は登録メールアドレスへ順次ご連絡します</li><li>影響範囲および想定される中断時間の事前説明</li></ul></li><li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li></ol>',
 	section4:
 		'<h2>第4条（データ保護）</h2><p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p><ul><li>日次の自動バックアップを実施しています。</li><li>全ての通信はTLS 1.2以上で暗号化されます。</li><li>保存データはAES-256で暗号化されます。</li><li>障害発生時の復旧目標時間は4時間以内です。</li><li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li></ul>',
 	section5:
-		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者はDiscordの公開ステータスチャンネルにて状況を通知します。継続的なダウンタイムが1時間を超える場合は、登録メールアドレスへの通知も行います。</li><li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
-	section6:
-		'<h2>第6条（サポート対応）</h2><p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は48時間以内（営業日ベース）を目標としています。対応言語は日本語です。</p><p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>',
+		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
+	// #4709: 応答目標は SUPPORT_RESPONSE_TERMS.initialResponseTarget が SSOT。
+	section6: `<h2>第6条（サポート対応）</h2><p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています。対応言語は日本語です。</p><p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>`,
 	section7:
-		'<h2>第7条（SLA未達時の対応）</h2><ol><li>本SLAに定める目標値を達成できなかった場合、運営者は原因の調査と再発防止に努めます。</li><li>本SLAは法的な保証ではなく、目標未達に対するサービスクレジット（返金・減額）の提供は行いません。</li><li>重大な障害（連続24時間以上のサービス停止等）が発生した場合、有料プランの利用者は障害期間に相当する日数分のサービス期間延長を申請できます。延長の可否は運営者が判断します。</li></ol>',
+		'<h2>第7条（SLA未達時の対応）</h2><ol><li>本SLAに定める目標値を達成できなかった場合、運営者は原因の調査と再発防止に努めます。</li><li>本SLAは法的な保証ではなく、目標未達に対するサービスクレジット（返金・減額）の提供は行いません。</li><li>重大な障害（連続24時間以上のサービス停止等）が発生した場合、有料プランの利用者は障害期間に相当する日数分のサービス期間延長を申請できます。申請は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA-期間延長">サポートメール</a>宛にご連絡ください（対象期間と発生事象をお知らせください）。延長の可否は運営者が判断し、個別にご対応します。</li></ol>',
 	section8:
 		'<h2>第8条（免責事項）</h2><ol><li>本サービスは個人開発によるものであり、エンタープライズ向けサービスと同等の可用性・冗長性を保証するものではありません。運営者1名での対応となるため、障害対応に時間を要する場合があります。</li><li>本SLAに定める目標値を達成できなかった場合でも、運営者は損害賠償義務を負いません。損害賠償については、<a href="terms.html">利用規約</a>第12条（免責事項）の定めに従います。</li><li>本SLAの内容は、サービスの改善に伴い変更される場合があります。重要な変更がある場合は14日前までに通知します。</li></ol>',
 	effective:
-		'<p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月17日</p><p>がんばりクエスト運営者 日下武紀</p>',
+		'<p>制定日: 2026年3月27日</p><p>最終改定日: 2026年8月13日</p><p>がんばりクエスト運営者 日下武紀</p>',
 } as const;
 
 // ============================================================
@@ -10183,9 +12503,9 @@ export const LP_LEGAL_SLA_LABELS = {
 //     他 LABELS への波及リスクがあるため別 Issue で検討する。
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
-	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録はそのまま保持されます。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
-	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
+	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年9月10日</p>',
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（初回のご返信は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額${PRICE_TERMS.standardYenFull}（税込）<br>${PLAN_FULL_TERMS.premium}: 月額${PRICE_TERMS.familyYenFull}（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Stripe が対応する主要ブランド）<br>※Stripe決済サービス経由。ご利用いただけるブランドは決済画面でご確認いただけます</td></tr><tr><th>支払時期</th><td>お申し込み（決済手続き）の完了時に初回分を課金し、以後は毎月同じ日に自動課金します。<br>${TRIAL_TERMS.durationSpaced}の${CTA_TERMS.freeTrialNoun}はアプリ内で開始する機能で、課金を伴いません（お申し込みとは別の手続きで、${TRIAL_TERMS.noCreditCard}です）。</td></tr><tr><th>サービス提供時期</th><td>お申し込み後、即時ご利用いただけます。</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${STRIPE_PORTAL_TERMS.short}を開く」（${STRIPE_PORTAL_TERMS.canonical}）からいつでも可能です。<br>解約後は現在の請求期間の終了日まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約とデータの取扱い</strong>：解約によってお客様のデータが削除されることはありません。請求期間の終了後は${PLAN_FULL_TERMS.free}へ自動的に移行し、記録は保持されます。${PLAN_FULL_TERMS.free}の上限を超えるお子さま・活動・チェックリストはアーカイブされ、画面には表示されなくなります。アーカイブされたデータも削除はされず、有料プランに戻すと元どおりご利用いただけます。お支払いの失敗により契約が終了した場合も同じ取扱いです。${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${PLAN_RETENTION_TERMS.freeSpaced}を超えた記録は削除され、復元できません（再契約でも戻りません）。<br><br><strong>アカウント${CANCEL_TERMS.account}（データの完全削除）について</strong>：データそのものの削除をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}の設定からアカウント${CANCEL_TERMS.account}をお申し込みください。ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）の経過後、すべてのお客様データが完全に削除されます（復旧不可）。有料プランは猶予期間中に${CANCEL_TERMS.account}の取消しとデータのエクスポートが可能ですが、${PLAN_FULL_TERMS.free}は猶予期間がなくお申し込みと同時に削除されます。</td></tr><tr><th>${CTA_TERMS.freeTrialNoun}</th><td>${ADMIN_VIEW_TERMS.canonical}から、ご家族（家族グループ）につき 1 回、${TRIAL_TERMS.durationSpaced}の${CTA_TERMS.freeTrialNoun}を開始できます。<br>${CTA_TERMS.freeTrialNoun}は課金を伴わず、${TRIAL_TERMS.noCreditCard}です。期間が終わると自動的に${PLAN_FULL_TERMS.free}へ戻り、自動課金は一切ありません。<br>有料プランのご利用は、${CTA_TERMS.freeTrialNoun}とは別に上記「支払時期」のお申し込み手続きが必要です（お申し込みの完了時に初回分を課金します）。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年9月10日</p>',
 } as const;
 
 // ============================================================
@@ -10215,6 +12535,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	// #3201: slash 表記「バックアップ / CSV」を廃止し 2 つの入力源を平易に並記
 	fileDesc: `保存しておいた${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
+	// #4716 item 15: 取込結果メッセージで pack 名が返らなかったときの代替表記。
+	fallbackImportedName: '取り込んだファイル',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',
 	// 5 type 共通の type 切替タブ
@@ -10233,14 +12555,14 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	itemCountSuffix: (count: number) => `（${count} 件）`,
 	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,
 	// childId 未選択時の警告 (reward-set / checklist 等 requiresChildId === true で表示)
-	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
+	childRequiredHint: `※ 対象の${CHILD_TERMS.honorific}を選んでから取り込みできます。`,
 	// preset 内アイテム数と対象年齢の連結 separator
 	itemAgeSeparator: '・',
 	// 既に取込済みの preset に表示するバッジ (#2391 Phase 2/3)
 	importedBadge: '取込済み',
 	// type 選択時のヒント
 	typeHintActivityPack: 'プリセット活動を一括で追加します。',
-	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',
+	typeHintRewardSet: `ごほうびテンプレートを${CHILD_TERMS.honorific}ごとに一括登録します。`,
 	typeHintChecklist: '持ち物チェックリストのテンプレートを取り込みます。',
 	typeHintRulePreset: 'ポイント交換や連続ボーナス等のルールを取り込みます。',
 	typeHintChallengeSet: '家族で取り組むチャレンジ集を一括で追加します。',
@@ -10255,7 +12577,7 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	addBtn: '＋ 新しく作る',
 	importBtn: '📥 取り込みで追加する',
 	// Reward / Checklist 等で childId 必須な場合の補助文言
-	pickChildHint: '対象の子供を選んでから取り込みできます。',
+	pickChildHint: `対象の${CHILD_TERMS.honorific}を選んでから取り込みできます。`,
 	disabledReason: '権限が不足しています',
 } as const;
 
@@ -10278,6 +12600,8 @@ export const UNRESOLVED_ENTITY_LABELS = {
 	child: `不明な${CHILD_TERMS.honorific}`,
 	/** カテゴリ定義から引けなかったカテゴリの表示名 */
 	category: '不明なカテゴリ',
+	/** 認証基盤から email を解決できなかったメンバーの表示 (#4512) */
+	email: '(不明)',
 } as const;
 
 // #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。
@@ -10294,4 +12618,220 @@ export const POINT_LEDGER_LABELS = {
 		if (mode === 'receipt') return `${base}（領収書読み取り）`;
 		return base;
 	},
+} as const;
+
+// ============================================================
+// 子供チュートリアル（子供ホーム ❓）の文言 SSOT（#4652、EPIC #4650 判断 3 / 4 / 5）
+// ============================================================
+//
+// 「記録して閉じる」最短経路だけを説明する（ADR-0012）: 活動カード → とりけし → 💮 スタンプ → 下ナビ
+// （つよさ / ステータス、ショップ）。ホームに無い仕組み（コンボ / おみくじ / 別ページのレーダー
+// チャート）は説明しない。
+//
+// 年齢帯 variant: preschool / elementary = ひらがな分かち書き、junior / senior = 漢字（nav ラベルと同表記）。
+// nav 名は `getChildNavModeLabels(uiMode).status` / `CHILD_SHOP_LABELS.navLabel`、とりけし秒数は
+// `CANCEL_WINDOW_MS` を参照し、画面の実表記・実値と一致させる（直書きしない）。
+// 関数にしているのは CHILD_SHOP_LABELS 等の宣言順（TDZ）に依らず参照するため。
+
+/**
+ * 子供チュートリアルの文言 variant。preschool / elementary = kana、junior / senior = kanji。
+ * 外部公開せず本ファイル内で `getChildTutorialLabels` からのみ使う (公開 API は同関数 1 本)。
+ */
+type ChildTutorialVariant = 'kana' | 'kanji';
+
+function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
+	return uiMode === 'junior' || uiMode === 'senior' ? 'kanji' : 'kana';
+}
+
+export function getChildTutorialLabels(uiMode: string) {
+	const variant = getChildTutorialVariant(uiMode);
+	// #4652 の意図 (チュートリアルの nav 名を画面と同じ SSOT から引く) はそのまま。
+	// #4715 で年齢モード別 nav ラベルの SSOT が icons.ts から本ファイルへ移ったので参照先を合わせる。
+	const mode = getChildNavModeLabels(uiMode);
+	const statusNav = mode.status;
+	const shopNav = CHILD_SHOP_LABELS.navLabel;
+	const cancelSec = Math.round(CANCEL_WINDOW_MS / 1000);
+	if (variant === 'kanji') {
+		return {
+			variant,
+			chapters: {
+				record: { title: '記録しよう', icon: '⭐' },
+				daily: { title: '毎日つづけよう', icon: '🎴' },
+				more: { title: 'ほかの画面', icon: '📊' },
+			},
+			steps: {
+				'child-record-card': {
+					title: '活動カード',
+					description:
+						'やったことのカードをタップすると「きろく！」ボタンが出ます。きろく！ を押すとポイントがもらえます。',
+				},
+				// ホーム以外の画面 (チェックリスト等) で開いたとき用 (#4860)。
+				// その画面に活動カードは無く、件数も分からない。**あるとも無いとも言わない** —
+				// 「タップして」も「まだ届いていません」もそこでは嘘になりうる。
+				//
+				// 「ホームに戻ると そこから記録できます」とは言わない (adversarial 指摘)。
+				// 活動 0 件の子には、戻った先で「活動がまだ届いていません」が出る。
+				// カードの存在も記録できることも約束せず、**その機能がどの画面にあるか**だけを言う。
+				'child-record-card-elsewhere': {
+					title: '活動カード',
+					description: '活動の記録はホーム画面で行います。ホームに戻って確かめてみてください。',
+				},
+				// 活動 0 件のとき用。カードが 1 枚も無い画面で「カードをタップすると」と案内し、
+				// 光らせる先も無いのは、初回演出と同じ「無いものを指す」欠陥になる。
+				'child-record-card-empty': {
+					title: '活動カード',
+					description: `活動がまだ届いていません。${PARENT_TERMS.honorific}が活動を用意すると、ここにカードが並びます。`,
+				},
+				'child-record-cancel': {
+					title: 'とりけし',
+					description: `まちがえて記録しても、記録のあと ${cancelSec} 秒のあいだは「とりけし」ボタンで取り消せます。`,
+				},
+				'child-daily-stamp': {
+					title: 'スタンプ',
+					description:
+						'毎日ひらくと 💮 スタンプがたまります。タップするとスタンプカードが見られます。',
+				},
+				'child-nav-status': {
+					title: statusNav,
+					description: `下の「${statusNav}」で、自分の成長（5 つの力）が見られます。`,
+				},
+				'child-nav-shop': {
+					title: shopNav,
+					description: `ためたポイントは下の「${shopNav}」でごほうびに交換できます。`,
+				},
+			},
+			dialog: {
+				resumeTitle: 'ガイドの続き',
+				resumePrompt: '前回の途中から続けますか？',
+				resumeCancel: 'やめる',
+				resumeFromStart: '最初から',
+				resumeContinue: '続きから',
+				exitConfirmAriaLabel: 'ガイド終了の確認',
+				exitConfirmPrompt: 'ガイドを終了しますか？',
+				exitConfirmHint: '途中からあとで再開できます。',
+				exitConfirmCancel: '続ける',
+				exitConfirmConfirm: '終了する',
+			},
+		} as const;
+	}
+	return {
+		variant,
+		chapters: {
+			record: { title: 'きろくしよう', icon: '⭐' },
+			daily: { title: 'まいにち つづけよう', icon: '🎴' },
+			more: { title: 'ほかの がめん', icon: '📊' },
+		},
+		steps: {
+			'child-record-card': {
+				title: 'かつどうカード',
+				description:
+					'やったことの カードを タップすると「きろく！」ボタンが でるよ。きろく！ を おすと ポイントが もらえるよ。',
+			},
+			// ホーム以外の画面で開いたとき用 (漢字側と同じ理由。あるとも無いとも言わない)。
+			// 「もどると きろくできるよ」と約束しない — 0 件の子には戻った先で
+			// 「かつどうが まだ とどいてないよ」が出る。場所だけを言う。
+			'child-record-card-elsewhere': {
+				title: 'かつどうカード',
+				description: 'かつどうの きろくは ホームの がめんで するよ。ホームに もどって みてね。',
+			},
+			// 活動 0 件のとき用 (漢字側と同じ理由。無いものを指さない)。
+			'child-record-card-empty': {
+				title: 'かつどうカード',
+				description: 'かつどうが まだ とどいてないよ。おうちの人が よういすると ここに ならぶよ。',
+			},
+			'child-record-cancel': {
+				title: 'とりけし',
+				description: `まちがえて きろくしても、きろくの あと ${cancelSec}びょうの あいだは「とりけし」ボタンで とりけせるよ。`,
+			},
+			'child-daily-stamp': {
+				title: 'スタンプ',
+				description:
+					'まいにち ひらくと 💮 スタンプが たまるよ。タップすると スタンプカードが みられるよ。',
+			},
+			'child-nav-status': {
+				title: statusNav,
+				description: `したの「${statusNav}」で、じぶんの つよさ（5つの ちから）が みられるよ。`,
+			},
+			'child-nav-shop': {
+				title: shopNav,
+				description: `ためた ポイントは したの「${shopNav}」で ごほうびに かえられるよ。`,
+			},
+		},
+		dialog: {
+			resumeTitle: 'ガイドの つづき',
+			resumePrompt: 'まえの つづきから みる？',
+			resumeCancel: 'やめる',
+			resumeFromStart: 'さいしょから',
+			resumeContinue: 'つづきから',
+			exitConfirmAriaLabel: 'ガイドを やめる かくにん',
+			exitConfirmPrompt: 'ガイドを やめる？',
+			exitConfirmHint: 'あとで つづきから みられるよ。',
+			exitConfirmCancel: 'つづける',
+			exitConfirmConfirm: 'やめる',
+		},
+	} as const;
+}
+
+// #4644: オフライン着地ページ (`/offline`) の文言。
+//
+// 読み手は**年齢帯を問わず子供**である (Service Worker はどの画面からの遷移でも
+// ここへ落とすため、preschool の子が最初に読む可能性がある)。年齢帯 variant は
+// 持たず、全年齢が読めるひらがな主体の 1 種類に固定する。漢字を混ぜると preschool が
+// 読めず、逆に「エラー」等のカタカナ専門語を出すと「壊した」と受け取られる。
+export const OFFLINE_LABELS = {
+	/** ページタイトル (svelte:head) */
+	pageTitle: 'いんたーねっとに つながっていません',
+	/** 画面見出し */
+	heading: 'いんたーねっとに つながっていないよ',
+	/** 本文 (原因と対処。子供が自分で試せることだけを書く) */
+	body: 'でんぱが とどいていないみたい。おうちの Wi-Fi を たしかめてから、もういちど ためしてね。',
+	/** 「壊れていない」ことの明示 (パニック防止。ADR-0012 整合で煽らない) */
+	reassurance: 'きろくは きえていないから だいじょうぶ。',
+	/** 再読み込みボタン */
+	retry: 'もういちど ひらく',
+	/** 装飾アイコン (aria-hidden) */
+	icon: '📡',
+} as const;
+
+// #4644: ホーム画面への追加 (インストール) ガイドの文言。
+//
+// 親向けの案内。ADR-0012 整合で「押し付けない」— バナーは閉じたら二度と出さず、
+// 恒久導線は 設定 > サポート に置く (フィードバック導線と同じ SSOT、DESIGN.md §10)。
+export const PWA_INSTALL_LABELS = {
+	/** 案内バナーの見出し */
+	bannerTitle: `${PARENT_TERMS.honorific}の方へ: ${PWA_TERMS.installAction}できます`,
+	/** 案内バナーの本文 (メリットを 1 文で) */
+	bannerBody: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動し、${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することなく使えます。`,
+	/** Android / Chrome: ブラウザ標準のインストールダイアログを起動する */
+	bannerInstallAction: PWA_TERMS.installAction,
+	/** iOS Safari 等、beforeinstallprompt が無い環境で手順を開く */
+	bannerHowToAction: '追加方法をみる',
+	/** バナーを閉じる (以後表示しない) */
+	bannerDismiss: '閉じる',
+	/** 閉じるボタンの aria-label (「以後出ない」ことを読み上げでも伝える) */
+	bannerDismissAria: '追加の案内を閉じる（次回から表示しません）',
+	/** 手順ダイアログ / 設定内カードの見出し */
+	guideTitle: `${PWA_TERMS.installAction}する方法`,
+	/** 手順ダイアログの導入文 */
+	guideIntro: `お使いの端末に合わせて操作してください。追加しても${PWA_TERMS.standalone}で開くだけで、アプリを別途インストールするわけではありません。`,
+	/** Android / Chrome 手順の見出し */
+	androidTitle: 'Android / Chrome の場合',
+	androidStep1: '画面右上の「⋮」（メニュー）をひらく',
+	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ`,
+	androidStep3: '確認画面で「追加」をおす',
+	/** iOS / Safari 手順の見出し */
+	iosTitle: 'iPhone / iPad（Safari）の場合',
+	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす`,
+	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
+	iosStep3: '右上の「追加」をおす',
+	/** 追加後に何が起きるか */
+	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
+	/** 設定 > サポート のカード見出し */
+	settingsCardTitle: PWA_TERMS.installAction,
+	/** 設定 > サポート のカード説明 */
+	settingsCardDesc: `${CHILD_TERMS.honorific}が安全に使えるよう、ホーム画面にアイコンを置く手順をいつでも確認できます。`,
+	/** 設定 > サポート の展開ボタン */
+	settingsCardAction: '手順をみる',
+	/** ダイアログを閉じる */
+	close: '閉じる',
 } as const;

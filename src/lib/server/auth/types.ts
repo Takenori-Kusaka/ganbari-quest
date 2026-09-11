@@ -48,18 +48,37 @@ export type Identity =
 
 /** Layer 2: Context（何として操作しているか）
  *
- * plan は Stripe price ID 相当（例: 'standard_monthly', 'family_monthly'）
- * または DB Tenant.plan（'monthly' | 'family-monthly' 等）のいずれか。
- * 呼び出し側は `startsWith('family')` 等でゆるく判定しているため、ここでは
- * string のまま保持する（#972 も含め今後整理予定）。
+ * plan は DB `families.plan` の生値。**正準値の SSOT は `subscription-plan.ts`**。
+ * ここが `string` なのは、DB 列が自由文字列で歴史的な値を持ちうるため
+ * (`dsql/auth-repo.ts` が無検査 cast する)。**「ゆるく判定してよい」という意味ではない**:
+ * #4804 以降、tier 写像 (`resolvePaidPlanTier`) は完全一致表で、表に無い値は
+ * `FALLBACK_PAID_TIER='standard'` に落ちる。値を作る側 (dev fixture 含む) は
+ * `SubscriptionPlan` 型で書くこと。
  */
 export interface AuthContext {
 	tenantId: string;
 	role: Role;
+	/**
+	 * #4643: **アプリ DB の `users.user_id`**。`Identity.userId` (IdP の sub) とは別物で、
+	 * 両者が一致することはない (users.user_id は DB 生成 UUID)。
+	 *
+	 * Cognito は同じメールでも「通常ログイン」と「Google 連携」を別 sub の別ユーザーとして
+	 * 扱う一方、アプリの `users` は `email_lower` UNIQUE で 1 メール = 1 行に統合する。
+	 * memberships / invites / children が指すのはこの id であり、sub を渡すと必ず空振りする。
+	 * cognito 系 provider のみ設定する (local / anonymous は users 行を持たない)。
+	 */
+	userId?: string;
 	childId?: ChildId;
 	licenseStatus: AuthLicenseStatus;
 	tenantStatus?: SubscriptionStatus;
 	plan?: string;
+	/**
+	 * #4585-2: `families.stripe_subscription_id`。**`tenantStatus` と対で読む**。
+	 * `suspended` は「契約が残る停止 (S4)」と「解約確定 (S5)」を兼ねており、契約の有無 (本値)
+	 * が無いと区別できない (docs/design/billing-redesign/contract-state-matrix.md §4)。
+	 * サーバー側 `locals.context` にのみ載り、クライアントには配布しない。
+	 */
+	stripeSubscriptionId?: string | null;
 	/**
 	 * #4266: **このセッションが MFA を経て開始されたか**。ログイン時に ID token の `amr` から
 	 * 確定し、context token (署名付き) で保持する。
@@ -80,7 +99,16 @@ export type AuthResult =
 export interface AuthProvider {
 	resolveIdentity(event: RequestEvent): Promise<Identity | null>;
 	resolveContext(event: RequestEvent, identity: Identity | null): Promise<AuthContext | null>;
-	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult;
+	/**
+	 * ルート保護。`url` は query を見たい判定 (#4701: `/auth/login?next=` のログイン済み転送先) 用の
+	 * 任意引数で、path だけで判断する実装は受け取らなくてよい。
+	 */
+	authorize(
+		path: string,
+		identity: Identity | null,
+		context: AuthContext | null,
+		url?: URL,
+	): AuthResult;
 }
 
 /**
@@ -94,4 +122,5 @@ export interface TenantEntitlement {
 	licenseStatus: AuthContext['licenseStatus'];
 	tenantStatus: NonNullable<AuthContext['tenantStatus']>;
 	plan?: string;
+	stripeSubscriptionId?: AuthContext['stripeSubscriptionId'];
 }

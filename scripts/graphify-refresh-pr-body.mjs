@@ -106,7 +106,7 @@ export function renderGraphifyRefreshPrBody({ branch, sha }) {
 		'',
 		'## 変更内容',
 		'',
-		`develop HEAD (\`${sha7}\`) を対象に \`graphify update .\` を実行し、差分があった \`graphify-out/graph.json\` / \`graphify-out/manifest.json\` / \`graphify-out/GRAPH_REPORT.md\` / \`graphify-out/graph.html\` を反映します。`,
+		`develop HEAD (\`${sha7}\`) を対象に \`graphify update .\` を実行し、差分があった \`graphify-out/graph.json\` / \`graphify-out/manifest.json\` / \`graphify-out/GRAPH_REPORT.md\` を反映します（閲覧用の \`graph.html\` は git 追跡しない）。`,
 		'製品コード / テスト / 設計書の変更は含みません。',
 		'',
 		'## 検証',

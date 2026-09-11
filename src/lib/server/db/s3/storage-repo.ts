@@ -3,6 +3,8 @@
 // 旧配置は dynamodb/ だが DynamoDB 依存はゼロ (@aws-sdk/client-s3 のみ)。dsql/pglite/dynamodb
 // いずれの backend でも本 S3 実装を共有する (factory.ts が注入)。
 
+import { redactStorageKey } from '$lib/domain/storage-key-redaction';
+import { logger } from '$lib/server/logger';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
 const ASSETS_BUCKET = process.env.ASSETS_BUCKET ?? '';
@@ -137,6 +139,85 @@ export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => 
 
 		continuationToken = listResult.IsTruncated ? listResult.NextContinuationToken : undefined;
 	} while (continuationToken);
+
+	return totalDeleted;
+};
+
+/**
+ * prefix 配下を **全バージョン + delete marker まで**物理削除する (#4724)。
+ *
+ * バージョニングを有効にしたことで `deleteByPrefix` (ListObjectsV2 + DeleteObjects) は
+ * 「現行バージョンに delete marker を立てるだけ」になり、実体は lifecycle の 30 日まで残る。
+ * 退会は法務文書 (privacy 第 6 条 / 利用規約) が「猶予期間後に完全削除」と約束しているため、
+ * **バージョンを名指しして消す経路**が要る。ここが無いとバージョニング有効化が
+ * 「約束より 30 日長く保持する」という静かな違反になる。
+ *
+ * ListObjectVersions は 1 ページ最大 1000 件を Versions / DeleteMarkers の 2 配列で返す。
+ * 両方消さないと delete marker だけが残り続ける (中身は無いがオブジェクトとして列挙される)。
+ */
+export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = async (prefix, opts) => {
+	const { DeleteObjectsCommand, ListObjectVersionsCommand } = await import('@aws-sdk/client-s3');
+	const client = await getS3Client();
+	let totalDeleted = 0;
+	let keyMarker: string | undefined;
+	let versionIdMarker: string | undefined;
+
+	do {
+		const listResult = await client.send(
+			new ListObjectVersionsCommand({
+				Bucket: ASSETS_BUCKET,
+				Prefix: prefix,
+				KeyMarker: keyMarker,
+				VersionIdMarker: versionIdMarker,
+			}),
+		);
+
+		const targets = [...(listResult.Versions ?? []), ...(listResult.DeleteMarkers ?? [])]
+			.filter((v) => !!v.Key && !!v.VersionId)
+			.map((v) => ({ Key: v.Key as string, VersionId: v.VersionId as string }));
+
+		if (targets.length > 0) {
+			const deleteResult = await client.send(
+				new DeleteObjectsCommand({
+					Bucket: ASSETS_BUCKET,
+					Delete: { Objects: targets },
+				}),
+			);
+			// #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。AccessDenied /
+			// object lock / MFA delete で消せなかったものは HTTP 200 の応答本文の `Errors[]` に
+			// 並ぶだけなので、ここを見ないと「消せていないのに全件削除できた」と報告してしまう。
+			//
+			// 既定は **tolerant** (#4767 QM must): error ログに出したうえで続行し、成功分だけ数える。
+			// 退会 (account-deletion-service) はこの呼び出しを try/catch で包んでおらず、直前に
+			// 削除記録の書き込みとサブスク解約を終えているため、ここで throw すると**不可逆な
+			// 退会フローが途中で壊れる** (直そうとした障害より悪い)。
+			// `failOnPartialError` を渡した呼び出しだけ fail-closed にする (クラウド共有の削除)。
+			const errors = deleteResult?.Errors ?? [];
+			if (errors.length > 0) {
+				// key は**必ず伏せてから**文字列にする (#4867 adversarial 実測)。
+				// クラウド共有 export の key は `exports/<tenantId>/<pinCode>/…` で PIN を含み、
+				// この summary は (a) tolerant 経路の logger.error (b) fail-closed 経路の
+				// `throw new Error(summary)` → 呼び出し側の `error: err.message` の**両方**に載る。
+				// 生 key のままだと、PIN を出さないために足したはずの上位の redact を素通りする。
+				const detail = errors
+					.slice(0, 3)
+					.map((e) => `${e.Key ? redactStorageKey(e.Key) : '?'}:${e.Code ?? '?'}`)
+					.join(', ');
+				const summary = `S3 purge partially failed: ${errors.length}/${targets.length} objects remain (${detail})`;
+				if (opts?.failOnPartialError) throw new Error(summary);
+				// silent にしない (ADR-0006): 消えていない実体が残ったことを必ず記録する。
+				// **どの家庭のどの成果物が残ったか**を残す (#4767 がこのログを足した目的)。
+				// key の PIN 部分だけを伏せるので、テナントと file 名は読める。
+				logger.error(`[s3-storage] ${summary}`, {
+					context: { prefix: redactStorageKey(prefix) },
+				});
+			}
+			totalDeleted += targets.length - errors.length;
+		}
+
+		keyMarker = listResult.IsTruncated ? listResult.NextKeyMarker : undefined;
+		versionIdMarker = listResult.IsTruncated ? listResult.NextVersionIdMarker : undefined;
+	} while (keyMarker || versionIdMarker);
 
 	return totalDeleted;
 };

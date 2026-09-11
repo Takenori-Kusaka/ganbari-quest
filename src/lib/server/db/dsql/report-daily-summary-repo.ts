@@ -31,7 +31,8 @@
 //                        再計算 (report-service calculateStreak と同一意味論、365 上限も一致)。
 //   - level           … 既定値 1。当日時点の level snapshot は retroactive に再現不能
 //                        (compute-on-read では当日 snapshot を再現しない。§7: 実クエリ化を試し、
-//                        恒常的に必要ならマテビュー化)。
+//                        恒常的に必要ならマテビュー化)。**consumer (report-service) は表示レベルを
+//                        この値から取らず、statuses から realtime 導出する (#4719)。**
 //   - newAchievements … 0 固定 (実績システム廃止 #322。sqlite writer も常に 0 を書く正確な parity)。
 //   - createdAt       … 当日最終 log の recorded_at (::text)。保存行が無いため生成時刻は持たない。
 //
@@ -66,7 +67,8 @@ function toSummary(row: SummaryRow, tenantId: string): ReportDailySummary {
 		categoryBreakdown: row.category_breakdown,
 		// sqlite writer parity: 常に '{}' (checklist 集計は sqlite 側でも簡易実装で未導出)
 		checklistCompletion: '{}',
-		// 当日 snapshot は再現不能 (ヘッダーコメント参照)。writer / consumer の既定値 1 に揃える
+		// 当日 snapshot は再現不能 (ヘッダーコメント参照)。表示レベルは report-service が statuses から
+		// realtime 導出する (#4719) ため、この値を UI に出さない。
 		level: 1,
 		totalPoints: Number(row.total_points),
 		streakDays: Number(row.streak_days),

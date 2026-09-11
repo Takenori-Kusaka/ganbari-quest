@@ -2,9 +2,18 @@
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import { PIN_LENGTH } from '$lib/domain/constants/oyakagi';
+import {
+	APP_LABELS,
+	formatAgeKana,
+	ONBOARDING_LABELS,
+	OYAKAGI_LABELS,
+	PAGE_TITLES,
+	SWITCH_PAGE_LABELS,
+} from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
+import { resolvePinVerifyError } from '$lib/features/parent-gate/pin-verify-error';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -237,27 +246,11 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		}
 		// 失敗: input 欄をリセット
 		pinInputKey += 1;
-		if (body.error === 'LOCKED_OUT' && body.lockedUntil) {
-			lockoutUntil = new Date(body.lockedUntil).getTime();
-			// #2991: 解除の絶対時刻 (HH:MM、ローカルタイム) を提示し「いつ再試行できるか」を明示する。
-			// lockedUntil が parse 不能な場合のみ時刻なし fallback (lockedError)。
-			const unlockTime = new Date(body.lockedUntil);
-			pinError = Number.isNaN(unlockTime.getTime())
-				? OYAKAGI_LABELS.lockedError
-				: OYAKAGI_LABELS.gateLockedUntilNotice(
-						unlockTime.toLocaleTimeString('ja-JP', {
-							timeZone: 'Asia/Tokyo',
-							hour: '2-digit',
-							minute: '2-digit',
-						}),
-					);
-		} else if (body.error === 'PIN_FORMAT') {
-			pinError = OYAKAGI_LABELS.gateFormatNotice;
-		} else if (body.error === 'INVALID_PIN' || body.error === 'PIN_NOT_SET') {
-			pinError = OYAKAGI_LABELS.invalidError;
-		} else {
-			pinError = OYAKAGI_LABELS.gateGenericError;
-		}
+		// #4866 系: 失敗 body → 文言 の対応表は admin の再入力ダイアログと共有する
+		// (面ごとに文言がずれると「いつ再試行できるか」の案内が割れる)。
+		const failure = resolvePinVerifyError(body);
+		pinError = failure.message;
+		if (failure.lockedUntilMs !== null) lockoutUntil = failure.lockedUntilMs;
 	} catch {
 		pinInputKey += 1;
 		pinError = OYAKAGI_LABELS.gateGenericError;
@@ -294,6 +287,19 @@ async function handlePinComplete(details: { valueAsString: string }) {
 			<div class="mb-4">
 				<SetupResumeBanner onboarding={data.onboarding} variant="resume" />
 			</div>
+		{/if}
+
+		<!-- #4866 系 / PO 差し戻し 2026-09-09: checklist の「お子さまの画面を確認する」は
+		     この画面に来ただけでは完了しない (完了は子供を選んで子供画面に入った時点)。
+		     あと 1 タップ要ることを出さないと「押したのに終わらない」に見える。 -->
+		{#if data.childScreenPending && data.children.length > 0}
+			<p
+				class="mb-4 text-center text-sm text-[var(--color-text-muted)]"
+				role="status"
+				data-testid="switch-child-screen-hint"
+			>
+				{ONBOARDING_LABELS.itemChildScreenHint}
+			</p>
 		{/if}
 
 		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">{SWITCH_PAGE_LABELS.heading}</h1>
@@ -334,7 +340,7 @@ async function handlePinComplete(details: { valueAsString: string }) {
 							{/if}
 							<div class="flex-1 min-w-0">
 								<p class="text-lg font-bold text-[var(--color-neutral-900)] m-0">{child.nickname}</p>
-								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{child.age + 'さい'}</p>
+								<p class="text-sm text-[var(--color-neutral-400)] mt-0.5">{formatAgeKana(child.age)}</p>
 							</div>
 							<span class="text-2xl text-[var(--color-neutral-300)] shrink-0" aria-hidden="true">▶</span>
 						</Button>
@@ -377,13 +383,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 					: OYAKAGI_LABELS.gateCreateConfirmDescription}
 			</p>
 			{#key pinInputKey}
-				<PinInput length={4} mask autoFocus onComplete={handleCreateComplete} />
+				<!-- #4661: 桁数は PIN_LENGTH (設定 > アカウントの変更フォーム / API と同一 SSOT) -->
+				<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handleCreateComplete} />
 			{/key}
 		</div>
 	{:else}
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
 		{#key pinInputKey}
-			<PinInput length={4} mask autoFocus onComplete={handlePinComplete} />
+			<PinInput length={PIN_LENGTH} mask autoFocus onComplete={handlePinComplete} />
 		{/key}
 	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->

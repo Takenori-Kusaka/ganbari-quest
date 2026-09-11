@@ -315,6 +315,35 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 					`0 件表示で canonical スロット間に非正準 slot が割り込んだ: ${JSON.stringify(intruders)}`,
 				).toEqual([]);
 			});
+
+			test('(f) 子供タブ選択が URL (?childId=) に同期し、その URL で選択が復元される (#4692 F4)', async ({
+				page,
+			}) => {
+				// #4692 F4: checklists だけ `?childId` の読み書きが無く、リロード / 共有リンクで常に
+				//   最初の子タブに戻っていた (気付かず次のリストを別の子に作る事故)。3 画面とも
+				//   「タブ選択 → URL 反映」「その URL で復元」が成立することを契約として固定する。
+				const tabs = page.getByTestId(model.childTabsTestid).getByRole('tab');
+				// demo fixture は 5 children を seed する。skip ではなく precondition assert で
+				// seed 破綻を検知する (ADR-0006 §3 — assertion 弱体化禁止)。
+				expect(
+					await tabs.count(),
+					'2 child 以上の fixture が必要 (demo seed / global-setup.ts)',
+				).toBeGreaterThanOrEqual(2);
+
+				await tabs.nth(1).click();
+				await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+
+				// タブ選択が URL に反映される (history.replaceState、共有リンク / リロード対応)
+				await expect.poll(() => new URL(page.url()).searchParams.get('childId')).not.toBeNull();
+				const childId = new URL(page.url()).searchParams.get('childId') as string;
+
+				// その URL を直接開くと同じ子が選択されたまま復元される (最初の子に戻らない)
+				await page.goto(`${model.route}?childId=${encodeURIComponent(childId)}`);
+				await expect(page.getByTestId('admin-resource-header')).toBeVisible({ timeout: 15_000 });
+				const reloadedTabs = page.getByTestId(model.childTabsTestid).getByRole('tab');
+				await expect(reloadedTabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+				await expect(reloadedTabs.nth(0)).toHaveAttribute('aria-selected', 'false');
+			});
 		});
 	}
 });

@@ -167,7 +167,7 @@ const navCategories: NavCategory[] = $derived([
 |---------|---------|---------|
 | `tests/e2e/admin-nav-marketplace.spec.ts` | `getByRole('button', { name: /^活動$/ })` で「こども」へ到達不可能になる | 影響なし: marketplace は activity 配下のまま。本テストは影響なし |
 | `tests/e2e/admin-nav-responsive.spec.ts` (新設) | 5 tab × 3 breakpoint 検証 | 新規追加 |
-| `src/lib/ui/tutorial/tutorial-chapters.ts` | カテゴリ数言及 (もしあれば) | 5 tab に追従更新 |
+| `src/routes/(parent)/admin/_guide.ts` + `PAGE_GUIDE_LABELS.adminHome` | カテゴリ数言及 (もしあれば) | 5 tab に追従更新 |
 
 ### 3.6 デモ画面 (`/demo/admin`) への影響
 

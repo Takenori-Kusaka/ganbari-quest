@@ -78,11 +78,17 @@ export function isBrowseableMarketplaceType(typeCode: string): boolean {
  * @property dedupMode       重複検知モード (#3168)。現状 reward-set restore のみが解釈する。
  *                           `'content'` = sourcePresetId 非依存で (title+points) 照合 = 冪等復元。
  *                           省略時は各 Strategy の既定 (reward-set は `'preset-scope'`、#1254 G1)。
+ * @property presetName      #4711: preset の表示名 (marketplace item.name)。保存先に表示名を
+ *                           持つ Strategy (rule-preset bonus の settings KVS 等) が使う。
+ *                           generic 経路 (`dispatchImport`) は displayName から補完する。
+ * @property presetIcon      #4711: preset の icon (marketplace item.icon)。同上。
  */
 export interface ImportContext {
 	tenantId: string;
 	dryRun?: boolean;
 	presetId?: string;
+	presetName?: string;
+	presetIcon?: string;
 	childId?: ChildId;
 	childIds?: readonly ChildId[];
 	applyMustDefault?: boolean;
@@ -128,6 +134,50 @@ export interface ImportResult {
 	skipped: number;
 	errors: string[];
 	failed: number;
+	blocked?: ImportBlocked;
+	/**
+	 * #4693 (QM 再レビュー): **復元** が上限超過分を保管 (archived) した結果。
+	 *
+	 * `blocked` (捨てた) とは意味が違う — 行は書かれており、顧客には
+	 * 「入った数 / 保管した数 / 理由 / 次の行動」を出す。形は
+	 * `server/services/activity-quota.ts` の `ActivityQuotaArchiveOutcome` と同じだが、
+	 * marketplace 層は server module を import できないため構造だけをここに写す。
+	 */
+	activityQuota?: ImportQuotaArchived;
+}
+
+/** #4693: 上限超過分を保管 (archived) した復元結果 (捨てていない)。 */
+export interface ImportQuotaArchived {
+	/** 復元対象だった quota 対象行数 (= activated + archived) */
+	total: number;
+	/** 有効な状態で入った行数 */
+	activated: number;
+	/** プランの上限のため保管した行数 (0 = 保管なし。判定を省いた場合も 0) */
+	archived: number;
+	/** 顧客に見せる理由 (空文字なら表示しない) */
+	message: string;
+	/** アップグレードで解消できるときの導線 (それ以外は null) */
+	upgradeUrl: string | null;
+}
+
+/**
+ * #4693: **プラン上限のため意図的に取込対象から外した分**と、その顧客向け理由。
+ *
+ * `failed` (persist しようとして失敗した数) とは別物。旧実装はこの理由を `errors` 配列
+ * (= 表示ログ) にだけ push しており、画面がそれを読んでいなかったため、
+ * 上限で全件弾かれても「0 件を復元しました」と成功トーンで出ていた (#4693 adversarial D2)。
+ * 顧客に見せる channel を型で分けることで、UI が読み落とせば型と test が気づく。
+ *
+ * @property count     外した対象数。単位は type が「上限をどこで数えるか」に従う
+ *   (activity-pack = 書き込み行数 / checklist = 配信を外した child 数)。表示は `message` が担い、
+ *   `count` は「0 なら blocked 無し」の判定と診断に使う — 単位の違う数を並べて出さないこと。
+ * @property message   顧客に見せる理由 (PLAN_GATE_LABELS 経由。内部例外文字列は入れない、ADR-0062)
+ * @property upgradeUrl プラン上限が理由のときのアップグレード導線 (それ以外は null)
+ */
+export interface ImportBlocked {
+	count: number;
+	message: string;
+	upgradeUrl: string | null;
 }
 
 // ── ImportStrategy interface ─────────────────────────────────────

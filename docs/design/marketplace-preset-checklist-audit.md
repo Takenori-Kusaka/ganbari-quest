@@ -39,7 +39,7 @@
 
 `morning-* / evening-* / weekend-* × 4 年齢 = 12 件` は #1755/#1758 で削除。
 旧 routine の意味は `activity-pack` の `mustDefault: true` 候補（歯みがき/着替え/お片付け/宿題/明日の準備/部屋の片付け/22 時就寝 等）として吸収済み。
-親 setup フロー / admin/packs UI で「今日のおやくそく推奨を採用」チェックボックスを ON にすると、対応する活動が `priority='must'` で登録される。
+親 setup フロー (`/setup/packs`) で「今日のおやくそく推奨を採用」チェックボックスを ON にすると、対応する活動が `priority='must'` で登録される。
 
 ### §1.2 イベント系 3 セット
 

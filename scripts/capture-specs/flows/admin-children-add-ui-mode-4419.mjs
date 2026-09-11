@@ -20,8 +20,9 @@
  */
 
 import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
+import { devPassword } from '../lib/dev-users.mjs';
 
-const DEV_OWNER = { email: 'owner@example.com', password: 'Gq!Dev#Owner2026x' };
+const DEV_OWNER = { email: 'owner@example.com', password: devPassword('owner@example.com') };
 const NICKNAME = 'ちゅうがく3ねん';
 
 async function settle(page) {

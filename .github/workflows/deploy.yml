@@ -123,7 +123,7 @@ jobs:
           esac
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -166,15 +166,10 @@ jobs:
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR
         id: ecr-login
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Install app dependencies
         run: npm ci
-
-      - name: Generate version
-        run: npm run version:generate
-        env:
-          APP_MAJOR_VERSION: ${{ env.APP_MAJOR_VERSION }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -190,11 +185,12 @@ jobs:
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.version.outputs.image-tag }}
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          # BUILD_TIMESTAMP busts the version:generate layer cache (#711 / PR #826 review).
+          # BUILD_TIMESTAMP busts the build layer cache so APP_VERSION is re-stamped (#711 / PR #826 review).
           # Combined with cache-from: type=gha this ensures the image always stamps
           # a fresh build date even for workflow_dispatch redeploys of the same SHA.
           build-args: |
             BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
+            APP_MAJOR_VERSION=${{ env.APP_MAJOR_VERSION }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -943,7 +939,7 @@ jobs:
 
       # CloudFront Geo Restriction (JP only) のため、Lambda Function URL 直接でテスト
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -994,7 +990,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true

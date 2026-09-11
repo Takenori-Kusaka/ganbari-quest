@@ -137,3 +137,53 @@ const { Story } = defineMeta({
 		await expect(support).toHaveAttribute('href', '/admin/settings/support');
 	}}
 />
+
+<!-- #4596 / PO 回答 (2026-09-03): 支払い猶予中 (S3) の告知。契約はまだ生きているが、
+     解約を決める瞬間に「解約後に移る先で履歴がいつまで残るか」が効くため、
+     S5 (解約済み) と同じ保持期間の 2 文をここでも述べる。
+     猶予 / 停止は Stripe webhook が書く状態で demo 環境では作れないため
+     (ss-render-impossible)、見た目の確認手段は本 story が担う。 -->
+<Story
+	name="GracePeriodNotice"
+	args={{
+		data: mockData({
+			license: { ...BASE_LICENSE, status: SUBSCRIPTION_STATUS.GRACE_PERIOD },
+		}),
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const notice = canvas.getByTestId('contract-state-notice');
+		await expect(notice).toBeVisible();
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.gracePeriodTitle);
+		// 保持期間の 2 文 (特商法と同一) が出ていること
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+	}}
+/>
+
+<!-- #4596 / PO 回答 (2026-09-03): 支払い停止中 (S4) の告知。S3 と同じ理由で保持期間を述べる。
+     契約が残っておりアーカイブはまだ起きていないため、archive の話は持ち込まない。
+     PO 決定 (2026-09-04): S4 では物理削除も走らない (`retention-cleanup-service` が skip する)
+     ため、「契約が残っている間は削除しない」「表示だけが絞られ復帰で戻る」ことを述べる。 -->
+<Story
+	name="PaymentSuspendedNotice"
+	args={{
+		data: mockData({
+			license: { ...BASE_LICENSE, status: SUBSCRIPTION_STATUS.SUSPENDED },
+		}),
+	}}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const notice = canvas.getByTestId('contract-state-notice');
+		await expect(notice).toBeVisible();
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.paymentSuspendedTitle);
+		await expect(notice).toHaveTextContent(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+		// 削除は起きていない (skip される) ので、現在形で「削除されています」と出さない
+		await expect(notice).toHaveTextContent(
+			'ご契約が残っているあいだ、これまでの記録を削除することはありません',
+		);
+		await expect(notice).not.toHaveTextContent('期間を超えた記録から順に削除されています');
+		// 契約終了は崖である (終了日から数え直す猶予があるように読ませない)
+		await expect(notice).toHaveTextContent('最初の削除処理でまとめて削除されます');
+		await expect(notice).not.toHaveTextContent('次の保持期間が適用されます');
+	}}
+/>

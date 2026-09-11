@@ -26,8 +26,9 @@
 //       (`sqlite/activity-repo.ts:294-303` / dsql 同義)
 //     - `insertPointLedger` の `recorded_date` = `todayDateJST()`
 //       (`dsql/point-write.ts:71` — 本番 backend の実装そのもの)
-//     - `countPointLedgerEntriesByTypeAndDate` = `recorded_date = date`
-//       (`dsql/activity-repo.ts:513-519`)
+//     - `sumPointLedgerByTypeAndDescriptionPrefix` = `type = ? AND description LIKE '<prefix>%'`
+//       の amount 合計 (`dsql/activity-repo.ts` / `sqlite/activity-repo.ts`、#4686 で
+//       件数 → 合計に変更。とりけしの負行を含めて「今いくら付与されているか」を読む)
 // - service (`tryGrantMustCompletionBonus`) と SUT (`load`) は**実物**を使う。
 // - fixture は **JST 当日 (07-27) にだけ記録がある**状態。UTC 側の日付 (07-26) では
 //   `logged=0` になる。この非対称が無いと test は空振りするので、[B2] で fixture 自身が
@@ -88,11 +89,16 @@ const findMustActivitiesWithToday = vi.fn(async (_childId: unknown, today: strin
 	};
 });
 
-const countPointLedgerEntriesByTypeAndDate = vi.fn(
-	async (childId: unknown, type: string, date: string) =>
-		ledger.filter(
-			(e) => e.childId === String(childId) && e.type === type && e.recordedDate === date,
-		).length,
+const sumPointLedgerByTypeAndDescriptionPrefix = vi.fn(
+	async (childId: unknown, type: string, prefix: string) =>
+		ledger
+			.filter(
+				(e) =>
+					e.childId === String(childId) &&
+					e.type === type &&
+					(e.description ?? '').startsWith(prefix),
+			)
+			.reduce((sum, e) => sum + e.amount, 0),
 );
 
 const insertPointLedger = vi.fn(
@@ -116,8 +122,8 @@ const insertPointLedger = vi.fn(
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findMustActivitiesWithToday: (...args: [unknown, string, string]) =>
 		findMustActivitiesWithToday(args[0], args[1]),
-	countPointLedgerEntriesByTypeAndDate: (...args: [unknown, string, string, string]) =>
-		countPointLedgerEntriesByTypeAndDate(args[0], args[1], args[2]),
+	sumPointLedgerByTypeAndDescriptionPrefix: (...args: [unknown, string, string, string]) =>
+		sumPointLedgerByTypeAndDescriptionPrefix(args[0], args[1], args[2]),
 	insertPointLedger: (...args: [Parameters<typeof insertPointLedger>[0], string]) =>
 		insertPointLedger(args[0]),
 	getActivityLogCounts: vi.fn(),

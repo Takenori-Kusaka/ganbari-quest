@@ -145,7 +145,7 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 1. **マージ判定エビデンス表を組む**（audit-team.md §3.5）: 新機能・修正一覧 × 対応テストケース × テスト結果表 × カバレッジ × NG 0 件条件。全行 pass + 残 NG 合計 0 + カバレッジ閾値割れなし、を満たすことを verify。
 2. **adversarial-reviewer dispatch**: 反対理由 3 件（`must_object_count: 3`）の structured JSON を `tmp/adversarial-evidence/<pr>.json`（main repo 直下、TTL 30 分、schema 必須）に保存させる。
 3. **evidence の物理 verify**: `ls tmp/adversarial-evidence/<pr>.json` で存在確認 → `node scripts/verify-adversarial-output.mjs --pr <pr>` で schema 検証 PASS を確認。不在なら ADR-0056 §C/§E の fallback（自筆ではなく該当の解消）に従う。
-4. **approve/merge 実行は audit-manager 専権**（§C / ADR-0056 §E 追補）: PreToolUse hook `.claude/hooks/gate-approve.mjs` が approve 系コマンド実行前に adversarial evidence の存在 + schema を物理検証する。誰が・どの gate で・どのエビデンスに基づき merge したかが evidence file として残る（ADR-0022 Amendment 4 audit trail）。
+4. **approve/merge 実行は audit-manager 専権**（§C / ADR-0056 §E 追補）: 以前は PreToolUse hook `.claude/hooks/gate-approve.mjs` が approve 前に adversarial evidence を物理検証していたが、**ADR-0068 / #4571 で呼び出しを外した**。誰が・どの gate で・どのエビデンスに基づき merge したかの audit trail（ADR-0022 Amendment 4）は、**hook ではなく approve コメント本文と統合 PR の記録で残す**。
 5. **adversarial の反対理由が未解消なら merge しない**（audit-team.md §3.5）。解消されるまで該当を §E の起票/棄却 flow に送る。
 
 ## §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4 / 5）

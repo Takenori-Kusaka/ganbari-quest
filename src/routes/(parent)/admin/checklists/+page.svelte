@@ -8,6 +8,7 @@ import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -18,6 +19,7 @@ import { CONCEPT_ICONS } from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
@@ -45,16 +47,78 @@ import VisibilityChipGroup, {
 
 let { data, form } = $props();
 
+// #4023 横展開 (#4512): テンプレート削除の確認を native confirm() から Dialog primitive に
+// 置換する (DESIGN.md §5「プリミティブ再実装禁止」/ admin/challenges・admin/settings/rules と同一方式)。
+//
+// 停止は use:enhance の cancel() で行う。旧実装は submit ボタンの onclick で
+// e.preventDefault() しており「click の default が止まれば submit event も発火しない」ため
+// 動いてはいたが (#4023 の掃き出しでも実害なしと判定)、確認 UI が OS ネイティブのままで
+// challenges / rules と見た目・文言・機構が揃っていなかった。
+type PendingConfirm = { formEl: HTMLFormElement; title: string; body: string };
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(formEl: HTMLFormElement, title: string, body: string): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
+
 // #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
 //   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
 //   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
 let childIdOverride = $state<ChildId | undefined>(undefined);
+// #4692 F4: `?childId=` を fallback chain に追加し activities / rewards と同型にする。
+// load 再実行で `?childId` が変わったら tab click 由来の override を破棄して URL を優先する
+// (activities の #3499 と同じ stale seed 対策)。
+let lastInitialChildId: ChildId | null | undefined;
+$effect(() => {
+	if (lastInitialChildId !== undefined && data.initialChildId !== lastInitialChildId) {
+		childIdOverride = undefined;
+	}
+	lastInitialChildId = data.initialChildId;
+});
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? asChildId('')),
+		: data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
+			? data.initialChildId
+			: (data.children[0]?.id ?? asChildId('')),
 );
+
+// #4692 F4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)。
+function selectChild(childId: ChildId) {
+	childIdOverride = childId;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.set('childId', String(childId));
+		// import param は dialog auto-open でしか使わないので消す (戻ったとき再 open しない)
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -119,26 +183,27 @@ let overrideIcon = $state('📦');
 let aiDialogOpen = $state(false);
 
 const FREQUENCY_OPTIONS = [
-	{ value: 'daily', label: 'まいにち' },
-	{ value: 'weekday:月', label: '月よう' },
-	{ value: 'weekday:火', label: '火よう' },
-	{ value: 'weekday:水', label: '水よう' },
-	{ value: 'weekday:木', label: '木よう' },
-	{ value: 'weekday:金', label: '金よう' },
-	{ value: 'weekday:土', label: '土よう' },
+	// #4716 item 15: 顧客可視文言は labels.ts (ADMIN_CHECKLISTS_PAGE_LABELS) が SSOT
+	{ value: 'daily', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyDaily },
+	{ value: 'weekday:月', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('月') },
+	{ value: 'weekday:火', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('火') },
+	{ value: 'weekday:水', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('水') },
+	{ value: 'weekday:木', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('木') },
+	{ value: 'weekday:金', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('金') },
+	{ value: 'weekday:土', label: ADMIN_CHECKLISTS_PAGE_LABELS.frequencyWeekday('土') },
 ];
 
 const DIRECTION_OPTIONS = [
-	{ value: 'bring', label: '持参' },
-	{ value: 'return', label: '持帰' },
-	{ value: 'both', label: '往復' },
+	{ value: 'bring', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionBring },
+	{ value: 'return', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionReturn },
+	{ value: 'both', label: ADMIN_CHECKLISTS_PAGE_LABELS.directionBoth },
 ];
 
 const TIME_SLOT_OPTIONS = [
-	{ value: 'anytime', label: 'いつでも', icon: '🕐' },
-	{ value: 'morning', label: 'あさ', icon: '☀️' },
-	{ value: 'afternoon', label: 'ひる', icon: '🌤️' },
-	{ value: 'evening', label: 'よる', icon: '🌙' },
+	{ value: 'anytime', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotAnytime, icon: '🕐' },
+	{ value: 'morning', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotMorning, icon: '☀️' },
+	{ value: 'afternoon', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotAfternoon, icon: '🌤️' },
+	{ value: 'evening', label: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotEvening, icon: '🌙' },
 ];
 
 const TIME_SLOT_SELECT_OPTIONS = TIME_SLOT_OPTIONS.map((o) => ({
@@ -286,11 +351,30 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| {
+					type: 'success';
+					data?: {
+						added?: number;
+						alreadyDistributed?: number;
+						limitReached?: boolean;
+						message?: string;
+					};
+			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+				);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
 			const added = Number(actionResult.data?.added ?? 0);
 			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
 			// (limitReached) は server の partial-success message を出し、silent な over-grant /
@@ -299,11 +383,16 @@ async function handleCopyFromChild() {
 				actionMessage = actionResult.data.message;
 				showToast(actionMessage, undefined, 'info');
 			} else {
-				actionMessage =
-					added === 0
-						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
-						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
-				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+				// #4694: 3 画面共通 SSOT で「N 件取り込み / M 件はすでに配信済み」を出す。
+				//   server は既配信 skip を alreadyDistributed で返しているのに、UI は件数を
+				//   捨てて「取り込めるチェックリストがありませんでした」しか出していなかった。
+				const alreadyDistributed = Number(actionResult.data?.alreadyDistributed ?? 0);
+				actionMessage = CHILD_COPY_RESULT_LABELS.format(
+					ADMIN_CHECKLISTS_PAGE_LABELS.copyResourceNoun,
+					added,
+					alreadyDistributed,
+				);
+				showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(added));
 			}
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
@@ -419,12 +508,17 @@ const visibilityChildren = $derived<VisibilityChild[]>(
 // (取込済なのに dialog が出続ける dead-end ループ)。`consumedImportPresetId` で
 // 「処理済みの presetId」をラッチし、同一 presetId に対しては 1 回だけ auto-open する。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人では空 dialog を開かない。旧実装は確定すると配信先 0 件の
+// テンプレートが作られ「0名のお子さまに配信しました」と表示されていた。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	if (
 		data.importPresetId &&
 		data.importPresetId !== consumedImportPresetId &&
 		!showChildSelectionDialog &&
-		pendingImportPresetId === null
+		pendingImportPresetId === null &&
+		!hasNoChildren
 	) {
 		pendingImportPresetId = data.importPresetId;
 		showChildSelectionDialog = true;
@@ -439,18 +533,27 @@ $effect(() => {
 	}
 });
 
+// #4716 (#4023 と同 class): 削除確認の本文は「何が・誰の画面から消えるか」を明示する。
+//   確認ダイアログ自体は上の passConfirm / Dialog (#4512) を共用する。
+
+/** 配信先の子供名を読める形にする (未配信なら null)。 */
+function assignedChildNames(assignedChildIds: readonly ChildId[]): string | null {
+	const names = data.children.filter((c) => assignedChildIds.includes(c.id)).map((c) => c.nickname);
+	return names.length > 0 ? names.join('・') : null;
+}
+
+/** 削除確認の本文 (配信先が居れば その子の画面から消えることも述べる)。 */
+function deleteConfirmBodyFor(templateName: string, assignedChildIds: readonly ChildId[]): string {
+	const names = assignedChildNames(assignedChildIds);
+	return names
+		? ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBody(templateName, names)
+		: ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmBodyNoChild(templateName);
+}
+
 // OverflowMenu items
 const overflowItems = $derived<OverflowMenuItem[]>([
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
-		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
-		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
-		onSelect: () => {
-			window.location.href = '/marketplace?type=checklist';
-		},
-	},
-	{ type: 'divider', id: 'divider-1' },
+	// #4716: 「みんなのテンプレから取込」は + 追加 dropdown の「みんなのテンプレートから探す」と
+	//   同じ遷移先の重複導線だったため撤去 (活動 / ごほうびの ︙ にも無い)。
 	{
 		type: 'action',
 		id: OVERFLOW_MENU_LABELS.items.restore.id,
@@ -655,6 +758,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 					},
 				);
 				actionMessage = feedback.message;
+				// #4693: 上限でスキップした子がいる場合は理由 + アップグレード導線を出す。
+				actionUpgradeUrl = feedback.upgradeUrl;
 				showToast(actionMessage, undefined, feedback.tone);
 			}
 		} else if (actionResult.type === 'failure') {
@@ -758,11 +863,12 @@ async function saveDistribution() {
 					: ADMIN_CHECKLISTS_PAGE_LABELS.distributionUpdated(added, removed);
 			showToast(actionMessage, undefined, added === 0 && removed === 0 ? 'info' : 'success');
 		} else if (actionResult.type === 'failure') {
-			actionMessage = actionResult.data?.error ?? '配信先の保存に失敗しました';
+			actionMessage =
+				actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
 			showToast(actionMessage, undefined, 'error');
 		}
 	} catch {
-		actionMessage = '配信先の保存に失敗しました';
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveError;
 		showToast(actionMessage, undefined, 'error');
 	}
 
@@ -779,12 +885,13 @@ function getChildName(childId: ChildId): string {
 	<title>{PAGE_TITLES.checklists}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4" data-testid="admin-checklists-page" data-tutorial="checklists-page">
+<div class="space-y-4" data-testid="admin-checklists-page">
 	<!-- #2998 (EPIC #2897): 3 画面共通 AdminResourceHeader に統一 (title + 説明 + + 追加 dropdown + ︙)。
 	     旧 inline header + 本文下部の独立 + 追加 Menu を本 header 1 箇所に集約した (NN/G #4 consistency)。
 	     ︙ overflow は既存 testid (checklists-overflow-menu / overflow-menu-item-*) を保つため
 	     OverflowMenu primitive を overflowSnippet で渡す。 -->
-	<!-- #2905: ❓ ページガイド (CHECKLISTS_GUIDE) の起点アンカーは本 wrapper (data-tutorial="checklists-page")。 -->
+	<!-- #2905 / #4654: ❓ ページガイド (CHECKLISTS_GUIDE) の step 1 は selector 省略 (画面中央 modal)。
+	     巨大 wrapper を spotlight target にしないため data-tutorial は持たせない。 -->
 	<div data-tutorial="checklists-header">
 		<AdminResourceHeader
 			title={ADMIN_CHECKLISTS_PAGE_LABELS.pageTitle}
@@ -793,16 +900,23 @@ function getChildName(childId: ChildId): string {
 			addButtonLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuButton}
 			addMenuAriaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuAriaLabel}
 			addMenuTestid="checklists-add-menu"
+			addMenuDataTutorial="checklists-add-menu"
 		>
 			{#snippet overflowSnippet()}
 				<OverflowMenu
 					items={overflowItems}
 					ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
 					testid="checklists-overflow-menu"
+					dataTutorial="checklists-overflow-menu"
 				/>
 			{/snippet}
 		</AdminResourceHeader>
 	</div>
+
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="checklists-import-needs-child" />
+	{/if}
 
 	<!-- #3097 (EPIC #3096): 子供タブ (slot 2) — 正準スロット契約に conform。
 	     旧: 「2 人以上」表示条件 + Tailwind 直書き styling だったが、activities / rewards と同型に
@@ -812,6 +926,7 @@ function getChildName(childId: ChildId): string {
 		<div
 			class="child-tab-row"
 			data-testid="admin-checklists-child-tabs"
+			data-tutorial="checklists-child-tabs"
 			role="tablist"
 			aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.childTabsAriaLabel}
 		>
@@ -823,7 +938,7 @@ function getChildName(childId: ChildId): string {
 					data-testid="checklists-child-tab-{child.id}"
 					role="tab"
 					aria-selected={selectedChildId === child.id}
-					onclick={() => (childIdOverride = child.id)}
+					onclick={() => selectChild(child.id)}
 				>
 					{child.nickname}
 				</Button>
@@ -964,7 +1079,9 @@ function getChildName(childId: ChildId): string {
 			</Card>
 		{/if}
 
-		{#each filteredTemplates as template (template.id)}
+		{#each filteredTemplates as template, ti (template.id)}
+			<!-- data-tutorial: 先頭カードだけをページガイド (#4657) の spotlight 対象にする -->
+			<div data-tutorial={ti === 0 ? 'checklist-card-first' : undefined}>
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<!-- Template header -->
@@ -986,19 +1103,35 @@ function getChildName(childId: ChildId): string {
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
-								title={template.isActive ? '無効にする' : '有効にする'}
+								title={template.isActive
+									? ADMIN_CHECKLISTS_PAGE_LABELS.templateDeactivateAction
+									: ADMIN_CHECKLISTS_PAGE_LABELS.templateActivateAction}
 							>
-								{template.isActive ? '無効化' : '有効化'}
+								{template.isActive
+									? ADMIN_CHECKLISTS_PAGE_LABELS.templateDeactivateButton
+									: ADMIN_CHECKLISTS_PAGE_LABELS.templateActivateButton}
 							</Button>
 						</form>
-						<form method="POST" action="?/deleteTemplate" use:enhance={() => async () => invalidateAll()}>
+						<form
+							method="POST"
+							action="?/deleteTemplate"
+							use:enhance={({ formElement, cancel }) => {
+								// #4023 横展開 (#4512) / #4716: 削除は取り消せないので確認を 1 枚挟む
+								// (対象名 + 配信先を明示する)。
+								if (!passConfirm(formElement, ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmTitle, deleteConfirmBodyFor(template.name, template.assignedChildIds))) {
+									cancel();
+									return;
+								}
+								return async () => invalidateAll();
+							}}
+						>
 							<input type="hidden" name="templateId" value={template.id} />
 							<Button
 								type="submit"
 								variant="ghost"
 								size="sm"
 								class="bg-[var(--color-feedback-error-bg)] hover:bg-[var(--color-feedback-error-bg-strong)] text-[var(--color-feedback-error-text)]"
-								onclick={(e) => { if (!confirm('削除しますか？')) e.preventDefault(); }}
+								data-testid="admin-checklist-delete-{template.id}"
 							>
 								{ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}
 							</Button>
@@ -1113,6 +1246,7 @@ function getChildName(childId: ChildId): string {
 				</div>
 				{/snippet}
 			</Card>
+			</div>
 		{/each}
 		</div>
 
@@ -1122,6 +1256,8 @@ function getChildName(childId: ChildId): string {
 
 		<!-- Today's overrides (slot 8、補助セクション — 一覧の下、(B) checklist 固有の日次 override) -->
 		{#if selectedChild.overrides.length > 0}
+			<!-- data-tutorial: ページガイド (#4657) の spotlight anchor (0 件時は step ごと出ない) -->
+			<div data-tutorial="checklists-today-override">
 			<Card variant="default" padding="none">
 				{#snippet children()}
 				<div class="px-4 py-3 bg-[var(--color-feedback-warning-bg)] border-b border-[var(--color-feedback-warning-bg-strong)]">
@@ -1134,7 +1270,9 @@ function getChildName(childId: ChildId): string {
 								<span>{ov.icon}</span>
 								<span class="text-sm">{ov.itemName}</span>
 								<span class="text-xs px-1.5 py-0.5 {ov.action === 'add' ? 'bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]' : 'bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)]'} rounded">
-									{ov.action === 'add' ? '追加' : '除外'}
+									{ov.action === 'add'
+								? ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionAdd
+								: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionRemove}
 								</span>
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
@@ -1148,6 +1286,7 @@ function getChildName(childId: ChildId): string {
 				</div>
 				{/snippet}
 			</Card>
+			</div>
 		{/if}
 	{/if}
 </div>
@@ -1167,7 +1306,7 @@ function getChildName(childId: ChildId): string {
 
 		<!-- #1755 (#1709-A): kind 選択削除 — 持ち物純化 -->
 
-		<FormField label="名前" type="text" name="name" bind:value={templateName} placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.namePlaceholderItem} required />
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldNameLabel} type="text" name="name" bind:value={templateName} placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.namePlaceholderItem} required />
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
@@ -1185,7 +1324,7 @@ function getChildName(childId: ChildId): string {
 			<input type="hidden" name="icon" value={templateIcon} />
 		</div>
 
-		<FormField label="時間帯">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldTimeSlotLabel}>
 			{#snippet children()}
 				<NativeSelect
 					name="timeSlot"
@@ -1219,7 +1358,14 @@ function getChildName(childId: ChildId): string {
 	>
 		<input type="hidden" name="templateId" value={addItemTemplateId} />
 
-		<FormField label="名前" type="text" name="name" bind:value={itemName} placeholder="例: ハンカチ" required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldNameLabel}
+					type="text"
+					name="name"
+					bind:value={itemName}
+					placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.itemNamePlaceholder}
+					required
+				/>
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
@@ -1237,13 +1383,13 @@ function getChildName(childId: ChildId): string {
 			<input type="hidden" name="icon" value={itemIcon} />
 		</div>
 
-		<FormField label="頻度">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldFrequencyLabel}>
 			{#snippet children()}
 				<NativeSelect name="frequency" bind:value={itemFrequency} options={FREQUENCY_OPTIONS} />
 			{/snippet}
 		</FormField>
 
-		<FormField label="方向">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldDirectionLabel}>
 			{#snippet children()}
 				<NativeSelect name="direction" bind:value={itemDirection} options={DIRECTION_OPTIONS} />
 			{/snippet}
@@ -1273,22 +1419,35 @@ function getChildName(childId: ChildId): string {
 	>
 		<input type="hidden" name="childId" value={selectedChildId} />
 
-		<FormField label="日付" type="date" name="targetDate" bind:value={overrideDate} required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldDateLabel}
+					type="date"
+					name="targetDate"
+					bind:value={overrideDate}
+					required
+				/>
 
-		<FormField label="操作">
+		<FormField label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldOverrideActionLabel}>
 			{#snippet children()}
 				<NativeSelect
 					name="action"
 					bind:value={overrideAction}
 					options={[
-						{ value: 'add', label: '追加' },
-						{ value: 'remove', label: '除外' },
+						{ value: 'add', label: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionAdd },
+						{ value: 'remove', label: ADMIN_CHECKLISTS_PAGE_LABELS.overrideActionRemove },
 					]}
 				/>
 			{/snippet}
 		</FormField>
 
-		<FormField label="アイテム名" type="text" name="itemName" bind:value={overrideName} placeholder="例: リュック（遠足）" required />
+		<FormField
+					label={ADMIN_CHECKLISTS_PAGE_LABELS.fieldItemNameLabel}
+					type="text"
+					name="itemName"
+					bind:value={overrideName}
+					placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.overrideItemNamePlaceholder}
+					required
+				/>
 
 		<div>
 			<span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">{ADMIN_CHECKLISTS_PAGE_LABELS.formIconLabel}</span>
@@ -1511,6 +1670,41 @@ function getChildName(childId: ChildId): string {
 			{/each}
 		</div>
 	{/if}
+</Dialog>
+
+<!-- #4023 横展開 (#4512): テンプレート削除の確認ダイアログ (DESIGN.md §5 Dialog primitive) -->
+<Dialog
+	bind:open={confirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissConfirm();
+	}}
+	title={pendingConfirm?.title ?? ''}
+	size="md"
+	testid="admin-checklists-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingConfirm?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissConfirm}
+			data-testid="admin-checklists-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="danger"
+			size="sm"
+			onclick={acceptConfirm}
+			data-testid="admin-checklists-confirm-accept"
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.deleteConfirmAccept}
+		</Button>
+	</div>
 </Dialog>
 
 <style>

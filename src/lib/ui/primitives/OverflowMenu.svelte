@@ -79,11 +79,20 @@ interface Props {
 	placement?: Placement;
 	/** 任意の testid (trigger button に付与) */
 	testid?: string;
+	/** 任意の data-tutorial (trigger button に付与、ページガイドの spotlight anchor #4657) */
+	dataTutorial?: string;
 	/** trigger button の disabled */
 	disabled?: boolean;
 }
 
-let { items, ariaLabel, placement = 'bottom-end', testid, disabled = false }: Props = $props();
+let {
+	items,
+	ariaLabel,
+	placement = 'bottom-end',
+	testid,
+	dataTutorial,
+	disabled = false,
+}: Props = $props();
 
 /** type narrowing helper: divider かどうか (Svelte 5 markup から呼ぶ) */
 function isDivider(item: OverflowMenuItem): item is OverflowMenuDividerItem {
@@ -96,6 +105,7 @@ function isDivider(item: OverflowMenuItem): item is OverflowMenuDividerItem {
 		class="overflow-menu-trigger"
 		aria-label={ariaLabel}
 		data-testid={testid}
+		data-tutorial={dataTutorial}
 		{disabled}
 	>
 		<span aria-hidden="true">⋮</span>

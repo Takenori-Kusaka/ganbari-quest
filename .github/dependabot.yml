@@ -70,25 +70,42 @@ updates:
       - "dependencies"
       - "npm"
       - "infra"
-    ignore:
-      # #4017 / PR #4422: aws-cdk-lib 2.263.0 以降は bundled brace-expansion を 5.0.8 に上げる。
-      # 5.0.8 は GHSA-rgw5-rvv9-x895 (affected ">= 4.0.0, < 5.0.9" / patched 5.0.9) の affected で、
-      # bundled dependency (inBundle: true) のため npm overrides では差し替えられない (実測確認済)。
-      # 留めないと dependency-review が毎回赤になり、そのたびに同じ調査と手動 pin を繰り返す。
-      # 【解除条件】aws-cdk-lib が brace-expansion 5.0.9 以上を同梱した版を出したら、本 ignore と
-      #   下の exclude-patterns、.github/workflows/dependency-review.yml の waiver / 受容記録、
-      #   tests/unit/infra/dependency-review-waiver.test.ts を同じ PR で削除する。
-      #   到達検知は同 test の [W5] が機械的に行う (bundled が 5.0.9 以上になったら撤去を要求する)。
-      # 【コスト】2.263.0 の cloudformation-validate 更新 (aws/aws-cdk#38444) 等、この間の
-      #   aws-cdk-lib 改善は取り込めない。CDK CLI (aws-cdk) / constructs の更新は止めていない。
-      - dependency-name: "aws-cdk-lib"
-        versions: [">= 2.263.0"]
     groups:
       infra-npm-minor-patch:
-        # #3311 と同じ理由: grouped update は per-dependency ignore をすり抜けて再取込する。
-        # 上の ignore を実効化するため group からも除外する (解除時は ignore と同時に消す)。
-        exclude-patterns:
-          - "aws-cdk-lib"
         update-types:
           - "minor"
           - "patch"
+
+
+  # #4866: graphify-refresh.yml が hash pin で入れる python 依存 30 件について。
+  #
+  # **意図的に `updates:` entry を置いていない。** pin list は
+  # `.github/graphify/requirements.txt` に実ファイルとして出してあり、GitHub の
+  # dependency graph は file 名 `requirements.txt` で拾うので、**CVE の alert は届く**
+  # (workflow の heredoc に埋めていた間はそれすら届かなかった、というのが元の欠陥)。
+  #
+  # 一方で version update を有効にすると害がある (#4866 adversarial 実測):
+  #   - `.in` の兄弟を持たない `.txt` は閉包解決をしない resolver で扱われるため、
+  #     Dependabot は `tree-sitter` 0.26.0 を提案する。graphifyy 0.9.32 は
+  #     `tree-sitter<0.26` を要求するので `ResolutionImpossible` になる
+  #     (最新の graphifyy 0.9.56 も `<0.26` のままなので逃げ道が無い)
+  #   - CI にこの file を install する job は無く、`graphify-refresh` 自身も
+  #     `ref: develop` を固定 checkout するので **Dependabot の PR branch を検証できない**
+  #     = 全 check 緑のまま merge され、develop 上で初めて落ちて graph が stale 化する
+  #
+  # **security update は別経路で来る** (adversarial round 5 実測)。
+  # `automated-security-fixes` は repo 設定側で enabled で、`updates:` entry を必要としない。
+  # しかも security 経路は `target-branch` を無視して default branch (main) に直行する
+  # (`ci.yml` の `main-pr-base-guard` が仕様として明記)。
+  #
+  # 実績は **`target-branch: develop` を入れた 2026-06-17 以降**だけを数える。全期間 163 件
+  # (develop 60 / main 103) で数えると、設定が無かった時期の main 直行まで security 経路の
+  # 証拠に見えてしまう。以降に作られた Dependabot PR は 70 件で **develop 60 / main 10**。
+  # main 側 10 件の内訳 (PR body の「automated security fix PRs」footer で判別):
+  #   - security 経路 6 件 = #3159 / #3160 / #3161 / #4478 / #4479 / #4532
+  #   - version update 4 件 = #3155-#3158 (どれも 2026-06-19。設定が default branch に届く前)
+  # **2026-06-19 以降に main へ来たのは security 経路の 3 件だけ** (#4478 / #4479 / #4532)。
+  # つまり **CVE が出れば bump PR は来る** — ここで閉じているのは定期の version update だけ。
+  # その PR の見方は `.github/workflows/graphify-refresh.yml` の Install step のコメント。
+  #
+  # 版を上げるときは workflow のコメントにある手順で、report が出した集合ごと置き換える。

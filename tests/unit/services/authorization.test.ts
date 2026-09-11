@@ -169,9 +169,10 @@ describe('authorizeCognito', () => {
 	});
 
 	describe('Context なし（テナント未所属）', () => {
-		it('認証済みだが Context なし → /auth/login へ', () => {
+		// #4636: 所属が確定していない人を /auth/login に送ると往復になるため /auth/join へ
+		it('認証済みだが Context なし → /auth/join へ', () => {
 			const result = authorizeCognito('/admin', cognitoIdentity, null);
-			expect(result).toEqual({ allowed: false, redirect: '/auth/login' });
+			expect(result).toEqual({ allowed: false, redirect: '/auth/join' });
 		});
 
 		it('/onboarding は Context なしでもアクセス可能', () => {

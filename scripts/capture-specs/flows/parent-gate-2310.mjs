@@ -19,6 +19,8 @@
  *     --out tmp/screenshots/pr-2325/
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function loginAs(page, email, password) {
@@ -58,7 +60,7 @@ async function loginAs(page, email, password) {
  */
 export default async (page, capture) => {
 	// owner@example.com で login
-	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 
 	// /switch?pinRequired=1 を直接訪問 → PIN modal が auto-open する
 	await page.goto(`${BASE_URL}/switch?pinRequired=1`);

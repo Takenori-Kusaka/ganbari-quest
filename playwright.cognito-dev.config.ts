@@ -34,8 +34,10 @@ export default defineConfig({
 	//   (景表法対応 + 月額/年額切替 + 年額表示強化、test.use({ storageState: 'playwright/.auth/free.json' }) 使用)
 	// #4309: ops-export-authz を追加（/ops 配下 API の認可を実 HTTP 経路で回帰検証。
 	//   未認証 / 非 ops → 403、ops → 認可通過。cognito-dev でないと ops group を再現できない）
+	// #4703: viewer-link-page を追加（family 限定の閲覧リンク発行 → 未ログイン別 context で
+	//   /view/<token> を開く。family plan と認証済み API 呼び出しが要るので cognito-dev 側）
 	testMatch:
-		/(cognito-auth|ops-export-authz|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
+		/(cognito-auth|ops-export-authz|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|viewer-link-page|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
@@ -45,6 +47,13 @@ export default defineConfig({
 	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
 		baseURL: `http://localhost:${PORT}`,
+		// #4887: CI はこの lane を `npm run preview` (本番ビルド) で起動するため SvelteKit の
+		// CSRF origin 検査が有効になる (dev は `!__SVELTEKIT_DEV__` guard で無効。
+		// @sveltejs/kit respond.js)。Origin を持たない form / multipart POST は **hooks に
+		// 到達する前に 403** になり、認可の検証がすり抜ける (実測: cognito-auth.spec.ts:413 が
+		// #4740 以来ずっと 403 を見ていた)。ブラウザが送るのと同じ Origin を付けて認可層まで届かせる。
+		// local lane の #2846 (playwright.config.ts / tests/e2e/fixtures.ts) と同型。
+		extraHTTPHeaders: { Origin: `http://localhost:${PORT}` },
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,

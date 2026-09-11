@@ -3,6 +3,7 @@
 // All methods throw to catch accidental usage in local mode.
 
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { LOCAL_DEPLOYMENT_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import { getSetting, setSetting } from './settings-repo';
@@ -46,7 +47,7 @@ async function buildLocalTenant(): Promise<Tenant> {
 	const now = new Date().toISOString();
 	return {
 		tenantId: LOCAL_TENANT_ID,
-		name: 'ローカル家族',
+		name: LOCAL_DEPLOYMENT_LABELS.defaultFamilyName,
 		ownerId: LOCAL_TENANT_ID,
 		createdAt: now,
 		updatedAt: now,

@@ -30,36 +30,3 @@ export async function findWeekEvaluation(childId: ChildId, weekStart: string, te
 export async function findLastActivityDateByCategory(childId: ChildId, tenantId: string) {
 	return getRepos().evaluation.findLastActivityDateByCategory(childId, tenantId);
 }
-export async function insertRestDay(
-	childId: ChildId,
-	date: string,
-	reason: string,
-	tenantId: string,
-) {
-	return getRepos().evaluation.insertRestDay(childId, date, reason, tenantId);
-}
-export async function deleteRestDay(childId: ChildId, date: string, tenantId: string) {
-	return getRepos().evaluation.deleteRestDay(childId, date, tenantId);
-}
-export async function isRestDay(childId: ChildId, date: string, tenantId: string) {
-	return getRepos().evaluation.isRestDay(childId, date, tenantId);
-}
-export async function countRestDaysInMonth(childId: ChildId, yearMonth: string, tenantId: string) {
-	return getRepos().evaluation.countRestDaysInMonth(childId, yearMonth, tenantId);
-}
-export async function findRestDays(childId: ChildId, yearMonth: string, tenantId: string) {
-	return getRepos().evaluation.findRestDays(childId, yearMonth, tenantId);
-}
-
-/** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
-export async function findRestDaysByChild(childId: ChildId, tenantId: string) {
-	return getRepos().evaluation.findRestDaysByChild(childId, tenantId);
-}
-
-/** #3329 backup restore 用: createdAt を保全しておやすみ日を復元する。 */
-export async function insertRestDayForRestore(
-	input: { childId: ChildId; date: string; reason: string; createdAt: string },
-	tenantId: string,
-) {
-	return getRepos().evaluation.insertRestDayForRestore(input, tenantId);
-}

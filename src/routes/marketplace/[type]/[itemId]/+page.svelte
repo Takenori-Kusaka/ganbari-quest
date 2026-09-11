@@ -16,6 +16,8 @@ import {
 	MARKETPLACE_TYPE_LABELS,
 	PERSONA_LABELS,
 } from '$lib/domain/marketplace-item';
+import { buildLoginHrefWithNext } from '$lib/domain/validation/login-redirect';
+import { isBrowseableMarketplaceType } from '$lib/marketplace/types';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -27,13 +29,22 @@ let { data } = $props();
 const item: MarketplaceItem = data.item;
 
 const isActivityPack = $derived(item.type === 'activity-pack');
+
+// #4701: 未ログイン CTA は `?next=` (login-redirect.ts SSOT、旧 `?redirect=` は login が読まず常に /admin 着地)
+// に統一し、ログイン後 (password / Google 両経路) に見ていた画面へ戻す。値は encode して入れ子 query を壊さない
+const loginHref = buildLoginHrefWithNext;
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
+// #4711: 陳列外 type (rule-preset / challenge-set) は `/marketplace?type=<type>` が filter で
+// 無視され 25 件全件一覧になる (#2896 の非陳列判断は維持)。type 一覧への link は陳列 type のみ出す。
+const hasTypeList = $derived(isBrowseableMarketplaceType(item.type));
 
 // #2362 PR-4 (ADR-0055 / CWE-598): reward-set 一括追加 UI は admin/rewards 側 ChildSelectionDialog
 // に集約。marketplace 詳細では item count のみ表示。selectedChildId / rewardImport state は撤去。
 const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
+// #4711: 統一 CTA「このテンプレートを取り込む (N件)」用の checklist 件数
+const checklistCount = $derived(isChecklist ? (item.payload as ChecklistPayload).items.length : 0);
 
 // #2138 (MP-3): rule-preset 件数 + ruleType 別 CTA 分岐
 const rulePayload = $derived(isRulePreset ? (item.payload as RulePresetPayload) : null);
@@ -43,6 +54,25 @@ const isRuleExchange = $derived(isRulePreset && ruleType === 'exchange');
 const isRuleBonus = $derived(isRulePreset && ruleType === 'bonus');
 const isRulePenalty = $derived(isRulePreset && ruleType === 'penalty');
 const isRuleSpecial = $derived(isRulePreset && ruleType === 'special');
+
+// #4678 (EPIC #4650): 取込 CTA ブロックの「いま出ている分岐」を 1 語で表す。
+// ページガイド (MARKETPLACE_DETAIL_GUIDE) は分岐ごとの optional step を
+// `[data-testid="marketplace-detail-cta"][data-cta-variant="<variant>"]` で指し、
+// 画面に出ている分岐の説明だけが step になる (未ログイン / お子さま未登録 / とくべつルール家庭全体 /
+// penalty・special の警告のみ / お子さまを選ぶ per-child 取込)。
+type CtaVariant = 'per-child' | 'family-rule' | 'rule-unavailable' | 'no-children' | 'login';
+const hasChildren = $derived((data.children?.length ?? 0) > 0);
+const ctaVariant = $derived<CtaVariant>(
+	!data.isAuthenticated
+		? 'login'
+		: isRulePreset && isRuleBonus
+			? 'family-rule'
+			: isRulePreset && (isRulePenalty || isRuleSpecial)
+				? 'rule-unavailable'
+				: hasChildren
+					? 'per-child'
+					: 'no-children',
+);
 
 // #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行したため、
 // 旧 in-page form 経由の `ruleImport` form state / `selectedChildIdForRule` / `importingRule` は撤去。
@@ -54,19 +84,17 @@ const childOptions = $derived(
 );
 
 // Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択 UI state
-// 既存活動 name と一致するものは default unchecked (重複取込で hidden delete 発生回避)
-// それ以外は default checked (現状の 30 件一括取込 UX を後方互換維持)
+// #4711: existingActivityNames は家族全体 (全 child) の集約なので「登録済み」は
+// 「ご家族のどなたかに登録済み」の意味しか持たない。旧実装はこれを既定 unchecked にしており、
+// 活動 0 件の妹に取り込むときも兄にある活動が外れていた。既定は全選択にし、取込先 child に
+// 同名活動があれば admin 側 (child 単位 dedup、#2558) がスキップする。
 const activityPackActivities = $derived(
 	isActivityPack ? (item.payload as ActivityPackPayload).activities : [],
 );
 const existingNameSet = $derived(new Set(data.existingActivityNames ?? []));
 // svelte-ignore state_referenced_locally
 let activitySelections = $state<boolean[]>(
-	isActivityPack
-		? (item.payload as ActivityPackPayload).activities.map(
-				(a) => !(data.existingActivityNames ?? []).includes(a.name),
-			)
-		: [],
+	isActivityPack ? (item.payload as ActivityPackPayload).activities.map(() => true) : [],
 );
 const selectedCount = $derived(activitySelections.filter((b) => b).length);
 const totalCount = $derived(activityPackActivities.length);
@@ -120,12 +148,16 @@ function deselectAllActivities() {
 		<nav class="text-xs text-[var(--color-text-tertiary)] mb-6">
 			<a href="/marketplace" class="hover:text-[var(--color-action-primary)]">{MARKETPLACE_LABELS.breadcrumbRoot}</a>
 			<span class="mx-1">/</span>
-			<a
-				href="/marketplace?type={item.type}"
-				class="hover:text-[var(--color-action-primary)]"
-			>
-				{MARKETPLACE_TYPE_LABELS[item.type]}
-			</a>
+			{#if hasTypeList}
+				<a
+					href="/marketplace?type={item.type}"
+					class="hover:text-[var(--color-action-primary)]"
+				>
+					{MARKETPLACE_TYPE_LABELS[item.type]}
+				</a>
+			{:else}
+				<span>{MARKETPLACE_TYPE_LABELS[item.type]}</span>
+			{/if}
 			<span class="mx-1">/</span>
 			<span class="text-[var(--color-text-secondary)]">{item.name}</span>
 		</nav>
@@ -200,8 +232,10 @@ function deselectAllActivities() {
 					「30 件は多すぎる、歯磨きとお片付けだけ欲しい」「既存と重複する activity の事前説明なし」
 					不満に直接回答する。「すべて選ぶ / すべて外す」で 0 摩擦の subset 編集を提供。 -->
 				{#if data.isAuthenticated && data.children.length > 0}
+					<!-- #4678: ページガイド marketplace-detail-select step (活動セット + ログイン + お子さま登録済のみ) -->
 					<div
 						class="flex items-center justify-between mb-3 pb-2 border-b border-[var(--color-border-default)]"
+						data-tutorial="marketplace-detail-select"
 					>
 						<p
 							class="text-xs font-bold text-[var(--color-text-secondary)]"
@@ -323,11 +357,35 @@ function deselectAllActivities() {
 		</div>
 
 		<!-- CTA -->
+		<!-- #3269 / #4678: ページガイド取込 step のスポットライト対象。data-cta-variant は出ている分岐 (#4678) -->
 		<div
 			class="mt-6 space-y-3 marketplace-cta-sticky"
 			data-testid="marketplace-detail-cta"
+			data-cta-variant={ctaVariant}
 		>
-			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
+			{#if data.importLocked && data.isAuthenticated && (isRewardSet || isRuleExchange)}
+				<!-- #4705: 無料プランは商品登録ができない。押す前に条件と行き先を出す
+				     (旧: CTA 活性 → 子供選択 → 取込 POST 後に有料プラン必須で拒否)。
+				     文言は MARKETPLACE_LABELS (atom 経由) を読む。 -->
+				<div
+					class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-xl p-3 text-sm"
+					data-testid="marketplace-import-locked"
+				>
+					<p class="font-bold">{MARKETPLACE_LABELS.detailImportLockedTitle}</p>
+					<p class="mt-1 text-[var(--color-text-secondary)]">
+						{MARKETPLACE_LABELS.detailImportLockedDesc}
+					</p>
+				</div>
+				<Button
+					variant="primary"
+					size="lg"
+					class="w-full"
+					href="/admin/subscription"
+					data-testid="marketplace-import-locked-cta"
+				>
+					{MARKETPLACE_LABELS.detailImportLockedCta}
+				</Button>
+			{:else if isRewardSet && data.isAuthenticated && data.children.length > 0}
 				<!-- #2774 (Issue #2774 / User 指摘 #2 #4): 5 type 取込 CTA 統一 — `<a>` 形式 +
 				     `?import=` query 一本化。reward-set は admin/rewards 側で
 				     ChildSelectionDialog auto-open する mechanism が既存 (#2362 PR-4)、
@@ -339,7 +397,7 @@ function deselectAllActivities() {
 					data-testid="reward-set-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(rewardCount)}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -361,14 +419,14 @@ function deselectAllActivities() {
 			{:else if isRewardSet}
 				<!-- #2136 MP-1: 未ログイン -> login へ誘導 (#2303: data integrity 保護のため signup ではなく login)。
 					login 画面内「新規アカウント作成」リンクで signup へ到達可能。
-					redirect query は将来 login が post-login redirect に対応した時のため保持 -->
+					#4701: ログイン後に本詳細へ戻す (`?next=`) -->
 				<a
-					href="/auth/login?redirect=/marketplace/{item.type}/{item.itemId}"
+					href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}
 					class="block"
 					data-testid="reward-import-signup-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportReward}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -389,7 +447,7 @@ function deselectAllActivities() {
 					data-testid="checklist-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportChecklist}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(checklistCount)}
 					</Button>
 				</a>
 			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length === 0}
@@ -412,12 +470,12 @@ function deselectAllActivities() {
 					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
 				</p>
 				<a
-					href="/auth/login?next=/marketplace/{item.type}/{item.itemId}"
+					href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}
 					class="block"
 					data-testid="marketplace-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaSignupToImport}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 			{:else if isRulePreset && data.isAuthenticated && isRuleBonus}
@@ -436,7 +494,7 @@ function deselectAllActivities() {
 						data-testid="rule-preset-import-bonus-cta"
 					>
 						<Button variant="primary" size="lg" class="w-full">
-							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+							{MARKETPLACE_LABELS.detailCtaImportUnified(ruleCount)}
 						</Button>
 					</a>
 					{/snippet}
@@ -458,7 +516,7 @@ function deselectAllActivities() {
 					data-testid="rule-preset-import-cta"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+						{MARKETPLACE_LABELS.detailCtaImportUnified(ruleCount)}
 					</Button>
 				</a>
 			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length === 0}
@@ -490,12 +548,12 @@ function deselectAllActivities() {
 				<!-- #2138 (MP-3) / #2303: 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
 					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 				<a
-					href="/auth/login?next=/marketplace/rule-preset/{item.itemId}"
+					href={loginHref(`/marketplace/rule-preset/${item.itemId}`)}
 					class="block"
 					data-testid="rule-import-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportRule}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -527,7 +585,7 @@ function deselectAllActivities() {
 				>
 					<Button variant="primary" size="lg" class="w-full" disabled={selectedCount === 0}>
 						{selectedCount > 0
-							? MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(selectedCount)
+							? MARKETPLACE_LABELS.detailCtaImportUnified(selectedCount)
 							: MARKETPLACE_LABELS.detailActivityPackSelectedZero}
 					</Button>
 				</a>
@@ -548,12 +606,12 @@ function deselectAllActivities() {
 				<!-- #2362 PR-3 Phase 5 / #2303: activity-pack 未ログイン → /auth/login (誤新規登録防止 / data integrity 保護)。
 					next query で取込再開動線を維持 (login 後 admin/activities?import=<itemId> へ遷移して auto-open) -->
 				<a
-					href="/auth/login?next=/admin/activities?import={item.itemId}"
+					href={loginHref(`/admin/activities?import=${item.itemId}`)}
 					class="block"
 					data-testid="activity-pack-signup-redirect"
 				>
 					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportActivityPack}
+						{MARKETPLACE_LABELS.detailCtaImportUnifiedSignedOut}
 					</Button>
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
@@ -569,15 +627,17 @@ function deselectAllActivities() {
 			{/if}
 		</div>
 
-		<!-- Back -->
-		<div class="text-center mt-6">
-			<a
-				href="/marketplace?type={item.type}"
-				class="text-sm text-[var(--color-action-primary)] hover:underline"
-			>
-				{MARKETPLACE_TYPE_LABELS[item.type]}{MARKETPLACE_LABELS.backToTypeListSuffix}
-			</a>
-		</div>
+		<!-- Back (#4711: 陳列 type のみ。非陳列 type は type 一覧が存在しないため出さない) -->
+		{#if hasTypeList}
+			<div class="text-center mt-6">
+				<a
+					href="/marketplace?type={item.type}"
+					class="text-sm text-[var(--color-action-primary)] hover:underline"
+				>
+					{MARKETPLACE_TYPE_LABELS[item.type]}{MARKETPLACE_LABELS.backToTypeListSuffix}
+				</a>
+			</div>
+		{/if}
 	</div>
 </div>
 

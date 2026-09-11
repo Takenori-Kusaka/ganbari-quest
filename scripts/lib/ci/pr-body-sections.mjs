@@ -88,10 +88,36 @@ export function parseHeadingSpec(heading, defaultLevel = 2) {
 }
 
 /**
+ * 各行が fenced code block の内側かどうかを返す (CommonMark: fence 内の `#` は見出しではない)。
+ *
+ * `scrub: true` では fence ごと除去されるので影響しないが、**fence の中身を残したまま
+ * section を切り出す用途** (`scrub: false`) では必須。`$ npm run x  # コメント` のような
+ * console 貼り付け行を H1 見出しと誤認すると、そこで section が打ち切られる。
+ * 実測 (#4612): merged PR #4519 の `## 検証` 節は 3 行目の `# ...` で切れており、
+ * その先にある根拠コマンド 4 行が検査対象から丸ごと外れていた。
+ *
+ * @param {string[]} lines
+ * @returns {boolean[]}
+ */
+function markFencedLines(lines) {
+	/** @type {boolean[]} */
+	const inFence = [];
+	let open = false;
+	for (const line of lines) {
+		const isFenceMarker = /^\s*(?:```|~~~)/.test(line);
+		// fence の開始 / 終了行そのものも「見出しではない」側に倒す
+		inFence.push(open || isFenceMarker);
+		if (isFenceMarker) open = !open;
+	}
+	return inFence;
+}
+
+/**
  * 指定見出しの section 本体を切り出す (**見出し行そのものは含まない**)。
  *
  * 終端は **同レベル以上の見出し** (H2 指定なら `## ` か `# `) の直前。下位見出し (`### `) では
- * 止めない (同一 section 内の小見出しは所属を変えないため)。
+ * 止めない (同一 section 内の小見出しは所属を変えないため)。fenced code block 内の
+ * `#` 始まり行は見出しとして扱わない (#4612)。
  *
  * @param {string} body PR 本文
  * @param {string} heading 見出し (`## X` / `### X` / `X` のいずれか。`#` 省略時は H2)
@@ -103,11 +129,14 @@ export function extractSection(body, heading, options = {}) {
 	const { level, title } = parseHeadingSpec(heading);
 	const source = scrub ? scrubPrBody(body) : (body ?? '').replace(/\r\n?/g, '\n');
 	const lines = source.split('\n');
+	const fenced = markFencedLines(lines);
 	const marker = '#'.repeat(level);
-	const start = lines.findIndex((l) => l.trim() === `${marker} ${title}`);
+	const start = lines.findIndex((l, i) => !fenced[i] && l.trim() === `${marker} ${title}`);
 	if (start === -1) return { found: false, text: '' };
 	const rest = lines.slice(start + 1);
-	const end = rest.findIndex((l) => {
+	const restFenced = fenced.slice(start + 1);
+	const end = rest.findIndex((l, i) => {
+		if (restFenced[i]) return false;
 		const m = l.match(/^(#{1,6})\s/);
 		return m !== null && (m[1] ?? '').length <= level;
 	});
@@ -136,4 +165,78 @@ export function extractH2Section(body, heading, options = {}) {
  */
 export function hasH2Section(body, heading) {
 	return extractH2Section(body, heading).found;
+}
+
+// ---------------------------------------------------------------------------
+// 宣言 (declaration) の判定 — 「その行が宣言か」を見る (#4255 → #4348 で共有化)
+//
+// gate を skip / pass に倒す marker (「UI 変更なし」「[skip-schema-test-check]」等) や
+// evidence 参照 (`.dom.html` リンク / VR 層への紐づけ) を **本文全体への 1 本の正規表現**で
+// 判定すると、以下が全部「書いてある」ことになる:
+//
+//   - HTML コメント (template の説明文。顧客にも監査にも見えない)
+//   - fenced code block / インラインコード (書式の例示)
+//   - 引用行 (他所の文言を貼っただけ)
+//   - 否定文 (「〜ではありません」— 文意と逆に判定される)
+//   - 未チェック checkbox (チェックしていない = 宣言していない)
+//   - 手順・案内文 (「〜と書いてください」— gate 自身のエラー出力を貼り戻すと成立する)
+//
+// 判定できないときは **宣言なし**に倒す (「確認できなかった」を「確認した」と同じ扱いにしない)。
+// ---------------------------------------------------------------------------
+
+/**
+ * 同じ行に現れたら **宣言ではない** と判断する文脈 (#4255 で `check-pr-screenshot.mjs` に
+ * 置いたものを #4348 で共有化)。
+ */
+export const DECLARATION_DISQUALIFYING_PATTERNS = [
+	/^\s*>/, // 引用 — 他所の文言を貼っただけ
+	/^\s*[-*]\s*\[\s\]/, // 未チェック checkbox — チェックしていない = 宣言していない
+	// 否定 (#4255 の実績セットを変えない)。
+	// 「していない」等の一般的な否定動詞は足さない — 「UI 変更なし (コードを 1 行も変更して
+	// いないため)」のような**正しい宣言**を落とす (merged PR #4464 で実測)。
+	/ではありません|ではない|ではなく|とは限らない|とは言えない/,
+	/嘘|虚偽/, // gate 自身の説明文の引用
+	/なしの場合|の場合は|場合:|と書く|と明記|を含めて|してください/, // 手順書の条件節 / 案内文
+];
+
+/**
+ * PR body から「宣言として成立している行」を拾う。
+ *
+ * @param {string} body PR 本文
+ * @param {RegExp[]} patterns 宣言とみなすパターン (行に対して `test` する)
+ * @param {{ extraDisqualifying?: RegExp[] }} [options]
+ * @returns {string[]} 宣言として成立した行 (前後の空白を落としたもの)
+ */
+export function findDeclarationLines(body, patterns, options = {}) {
+	const disqualifying = [
+		...DECLARATION_DISQUALIFYING_PATTERNS,
+		...(options.extraDisqualifying ?? []),
+	];
+	/** @type {string[]} */
+	const found = [];
+	let inFence = false;
+	for (const raw of stripHtmlComments((body ?? '').replace(/\r\n?/g, '\n')).split('\n')) {
+		if (/^\s*(?:```|~~~)/.test(raw)) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) continue;
+		// インラインコード (`...`) は言及であって宣言ではない
+		const line = raw.replace(/`[^`]*`/g, ' ');
+		if (disqualifying.some((p) => p.test(line))) continue;
+		if (patterns.some((p) => p.test(line))) found.push(line.trim());
+	}
+	return found;
+}
+
+/**
+ * PR body に「宣言として成立している行」が 1 行でもあるか。
+ *
+ * @param {string} body
+ * @param {RegExp[]} patterns
+ * @param {{ extraDisqualifying?: RegExp[] }} [options]
+ * @returns {boolean}
+ */
+export function hasDeclarationLine(body, patterns, options = {}) {
+	return findDeclarationLines(body, patterns, options).length > 0;
 }

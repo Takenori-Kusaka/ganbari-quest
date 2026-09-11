@@ -1,7 +1,9 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_RULES_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_RULES_LABELS } from '$lib/domain/labels';
+import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -69,6 +71,8 @@ $effect(() => {
 <p class="text-xs text-[var(--color-text-muted)] bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded p-2 mb-4">
 	{SETUP_RULES_LABELS.bonusOnlyNotice}
 </p>
+
+<SetupNoScriptNotice />
 
 <form
 	method="POST"
@@ -152,7 +156,9 @@ $effect(() => {
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, item.itemId)}
 							>
-								{expandedItem === item.itemId ? '▲ とじる' : '▼ なかみ'}
+								{expandedItem === item.itemId
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>
@@ -216,7 +222,7 @@ $effect(() => {
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
 		<a
-			href="/setup/rewards"
+			href={resolve('/setup/rewards')}
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; {SETUP_RULES_LABELS.backButton}

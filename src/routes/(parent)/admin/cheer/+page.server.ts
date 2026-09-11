@@ -6,10 +6,16 @@
 // 旧 /admin/messages はスタンプ/テキストのみ (P 付与なし) で存在意義なし → 本機能に統合。
 
 import { fail } from '@sveltejs/kit';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
+import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import { asChildId } from '$lib/domain/ids';
+// #4512: エラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)。
+// 上限値そのものは cheer-service.ts が SSOT で、labels 側は引数で受ける。
+import { ADMIN_FORM_ERROR_LABELS, CHEER_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import {
 	CHEER_CATEGORIES,
 	CHEER_POINTS_MAX,
@@ -20,11 +26,16 @@ import {
 } from '$lib/server/services/cheer-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getMessageHistory, STAMP_PRESETS } from '$lib/server/services/message-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
+	// #4504: 自由テキストのロック表示に使う。UI と server が同じ述語 (isFreeTextMessageUnlocked)
+	// を読むようにして、表示と認可がずれた状態を作れなくする (ai-suggest-gate と同型)。
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 
 	const childrenWithMessages = await Promise.all(
 		children.map(async (child) => {
@@ -35,6 +46,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		children: childrenWithMessages,
+		planTier,
 		stamps: STAMP_PRESETS,
 		categories: CHEER_CATEGORIES,
 		reasonMaxLength: CHEER_REASON_MAX_LENGTH,
@@ -44,8 +56,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 // 入力バリデーションエラーメッセージ表 (route + service 層で共通利用)
-const POINTS_ERROR_MSG = `ポイントは${CHEER_POINTS_MIN}〜${CHEER_POINTS_MAX}の範囲で入力してください`;
-const REASON_TOO_LONG_MSG = `理由は${CHEER_REASON_MAX_LENGTH}文字以内で入力してください`;
+const POINTS_ERROR_MSG = CHEER_LABELS.errorPointsRange(CHEER_POINTS_MIN, CHEER_POINTS_MAX);
+const REASON_TOO_LONG_MSG = CHEER_LABELS.errorReasonTooLong(CHEER_REASON_MAX_LENGTH);
 
 /** form input をパースして validation 結果を返す (フォーム / service 層エラーいずれにも対応する分岐回避) */
 function parseAndValidateForm(
@@ -62,8 +74,8 @@ function parseAndValidateForm(
 	const bodyRaw = String(formData.get('body') ?? '').trim();
 
 	if (!childId || childId === asChildId(0))
-		return { ok: false, status: 400, error: 'こどもを選択してください' };
-	if (!reason) return { ok: false, status: 400, error: '応援の理由を入力してください' };
+		return { ok: false, status: 400, error: CHEER_LABELS.errorChildRequired };
+	if (!reason) return { ok: false, status: 400, error: CHEER_LABELS.errorReasonRequired };
 	if (reason.length > CHEER_REASON_MAX_LENGTH) {
 		return { ok: false, status: 400, error: REASON_TOO_LONG_MSG };
 	}
@@ -71,7 +83,7 @@ function parseAndValidateForm(
 		return { ok: false, status: 400, error: POINTS_ERROR_MSG };
 	}
 	if (!CHEER_CATEGORIES.includes(category as CheerCategory)) {
-		return { ok: false, status: 400, error: 'カテゴリを選択してください' };
+		return { ok: false, status: 400, error: CHEER_LABELS.errorCategoryRequired };
 	}
 	return {
 		ok: true,
@@ -88,13 +100,13 @@ function parseAndValidateForm(
 }
 
 const SERVICE_ERROR_MESSAGES: Record<string, { status: 400 | 404; message: string }> = {
-	NOT_FOUND: { status: 404, message: 'こどもが見つかりません' },
-	INVALID_REASON: { status: 400, message: '応援の理由を入力してください' },
+	NOT_FOUND: { status: 404, message: CHEER_LABELS.errorChildNotFound },
+	INVALID_REASON: { status: 400, message: CHEER_LABELS.errorReasonRequired },
 	INVALID_POINTS: { status: 400, message: POINTS_ERROR_MSG },
-	INVALID_CATEGORY: { status: 400, message: 'カテゴリを選択してください' },
+	INVALID_CATEGORY: { status: 400, message: CHEER_LABELS.errorCategoryRequired },
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	grant: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -102,6 +114,16 @@ export const actions: Actions = {
 		const validation = parseAndValidateForm(formData);
 		if (!validation.ok) {
 			return fail(validation.status, { error: validation.error });
+		}
+
+		// #4504: 入力欄を隠すだけでは form を直接 POST されると素通しするため server で強制する。
+		// スタンプ (stampCode) とポイント付与は全プランのままで、落とすのは body だけ。
+		if (validation.data.body) {
+			const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			if (!isFreeTextMessageUnlocked(tier)) {
+				return fail(403, { error: CHEER_LABELS.freeTextLockedNote });
+			}
 		}
 
 		const result = await grantCheer(validation.data, tenantId);
@@ -113,7 +135,7 @@ export const actions: Actions = {
 					error: mapped.status === 404 ? getErrorMessage(mapped.message) : mapped.message,
 				});
 			}
-			return fail(400, { error: 'エラーが発生しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.genericError });
 		}
 
 		return {
@@ -124,4 +146,4 @@ export const actions: Actions = {
 			icon: validation.data.icon,
 		};
 	},
-};
+} satisfies Actions);

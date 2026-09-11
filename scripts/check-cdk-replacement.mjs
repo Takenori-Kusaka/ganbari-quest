@@ -29,18 +29,10 @@ export function stripAnsi(str) {
 	return str.replace(ANSI_ESCAPE, '');
 }
 
-/**
- * CDK diff 出力行からリソースの論理 ID を抽出する
- * 形式: [~|+|-] AWS::Type LogicalId [CFHash] [(action)]
- * @param {string} line stripped line
- * @returns {string}
- */
-export function extractLogicalId(line) {
-	// トークン: [0]=[~], [1]=AWS::Type, [2]=LogicalId, [3]=CFHash (optional), [4+]=(action) (optional)
-	const tokens = line.trim().split(/\s+/);
-	// tokens[2] が存在しない場合は line 全体を返す
-	return tokens[2] ?? line.trim();
-}
+// 旧 `extractLogicalId` は削除した (#4623)。export されていたが呼び出し元が 1 つも無く
+// (test すら import していなかった)、論理 ID の抽出は `detectReplacements` 内の
+// `resourceMatch[3]` が唯一の生きた経路である。同じ抽出を 2 通り持つと、行形式が変わった
+// ときに片方だけ直す事故を作る。
 
 /**
  * CDK diff の stdout 行リストを解析して Replacement/Destroy リソースを抽出する

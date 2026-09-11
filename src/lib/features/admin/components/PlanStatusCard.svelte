@@ -4,11 +4,15 @@ import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
+/**
+ * 本カードが読む部分だけ (SSOT は `TrialStatus` / `TrialStatusView`、trial-service.ts)。
+ * #4628: 描画しない `trialEndDate` を宣言していたため、`isTrialActive:true` + `trialEndDate:null`
+ * という不正な組み合わせをここでも構成できた (実際 test fixture が構成していた)。読まない値は持たない。
+ */
 interface TrialStatusProp {
 	isTrialActive: boolean;
 	trialUsed: boolean;
 	daysRemaining: number;
-	trialEndDate: string | null;
 	trialTier?: 'standard' | 'family' | null;
 }
 
@@ -62,14 +66,14 @@ const retentionLabel = $derived(
 		: FEATURES_LABELS.planStatusCard.retentionDays(retentionDays),
 );
 
-// #730: free + トライアル中 のケース
+// #730: free + トライアル中 のケース。
+// #4707: トライアル中は planTier がトライアルの tier に解決済み (resolvePlanTier) なので、
+// trialNote の「○○ プランの全機能を体験中」は実 planTier のラベル (label.name) を出す。
+// 別経路 (trialStatus.trialTier) から組み立てると、本契約後に DEBUG_PLAN=family 等で
+// planTier と食い違う文言 (「スタンダード プランの全機能を体験中」) が残る。
+// トライアル中でない (有料契約中を含む) なら trialStatus.isTrialActive=false で本 note 自体が出ない。
 const isOnTrial = $derived(trialStatus?.isTrialActive === true);
 const trialDaysRemaining = $derived(trialStatus?.daysRemaining ?? 0);
-const trialTierLabel = $derived(
-	trialStatus?.trialTier
-		? (planLabels[trialStatus.trialTier]?.name ?? FEATURES_LABELS.planStatusCard.standardPlan)
-		: FEATURES_LABELS.planStatusCard.standardPlan,
-);
 </script>
 
 <Card class="plan-status-card plan-status-card--{planTier}">
@@ -105,7 +109,7 @@ const trialTierLabel = $derived(
 
 		{#if isOnTrial}
 			<p class="plan-status__trial-note" data-testid="plan-status-trial-note">
-				{FEATURES_LABELS.planStatusCard.trialNote(trialTierLabel)}
+				{FEATURES_LABELS.planStatusCard.trialNote(label.name)}
 			</p>
 			{#if onUpgrade}
 				<Button

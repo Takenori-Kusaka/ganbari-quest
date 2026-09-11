@@ -10,7 +10,10 @@
 // 既存 auth.setup.ts / E2E spec を破壊しない構造的妥協 (本 EPIC + ADR-0050 §運用)。
 
 import { expect, test } from '@playwright/test';
+import { ADMIN_SCREENS } from '../../src/lib/domain/admin-screens';
+import { SWITCH_PAGE_LABELS } from '../../src/lib/domain/labels';
 import { NAV_TIMEOUT_MS } from '../../src/routes/switch/nav-timeout';
+import { devPassword } from './helpers/dev-users';
 
 const PARENT_GATE_ACTIVE = process.env.PARENT_GATE_FORCE_ACTIVE === 'true';
 
@@ -179,14 +182,22 @@ function registerParentGateTests(): void {
 			await expect(banner).toHaveText(/ご家族の見守り画面.*おやカギコード.*必要/);
 		});
 
-		test('AC4 (Fix 3 漢字化): /switch の「保護者の見守り画面へ」link が漢字表記である', async ({
+		test('AC4 (Fix 3 漢字化 + #4715 画面名 SSOT): /switch の見守り画面 link が漢字表記かつ着地先の画面名と一致する', async ({
 			page,
 		}) => {
 			await page.goto('/switch', { waitUntil: 'domcontentloaded' });
 			const adminLink = page.getByTestId('switch-admin-link');
 			await expect(adminLink).toBeVisible();
-			// 旧: 「🔒 おやのかんりがめん」 → 新: 「🔒 保護者の見守り画面」
-			await expect(adminLink).toContainText('保護者の見守り画面');
+			// 旧: 「🔒 おやのかんりがめん」(#2353 で漢字化) → 「🔒 保護者の見守り画面」
+			//   → #4715 で着地先 (/admin) の title / 見出しと同じ画面名 registry に一本化。
+			//   同じ画面が 3 つの名前で呼ばれる状態を作らないため、literal ではなく SSOT を参照する。
+			await expect(adminLink).toContainText(ADMIN_SCREENS.home.name);
+			await expect(adminLink).toHaveText(SWITCH_PAGE_LABELS.adminLink);
+			// #2353 の意図 (「親しか押さないボタンなのにひらがな表記する理由がない」) を
+			// **文字種**で pin する (QM #4789 レビュー)。上 2 行は同じ SSOT 由来なので
+			// 「描画されているか」は見るが「呼称がひらがなに戻っていないか」は見ない。
+			// 旧 literal 1 つを禁止するだけでは、別のひらがな表記に変わった場合に素通りする。
+			await expect(adminLink).toHaveText(/[一-鿿]/);
 			await expect(adminLink).not.toContainText('おやのかんりがめん');
 		});
 
@@ -510,7 +521,7 @@ function registerParentGateTests(): void {
 
 		const DB_PATH = 'data/ganbari-quest.db';
 		// DEV_USERS owner (cognito-dev.ts SSOT) — auth.setup.ts が owner.json を生成するアカウント
-		const OWNER_PASSWORD = 'Gq!Dev#Owner2026x';
+		const OWNER_PASSWORD = devPassword('owner@example.com');
 		let pinHashSnapshot: string | null = null;
 
 		test.beforeAll(async () => {
@@ -660,7 +671,7 @@ function registerParentGateTests(): void {
 			// federated 相当ユーザでログイン (識別は JWT の identities claim、ログイン手段は dev form)
 			await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
 			await page.locator('input[name="email"]').fill('google-owner@example.com');
-			await page.locator('input[name="password"]').fill('Gq!Dev#Goog2026xy');
+			await page.locator('input[name="password"]').fill(devPassword('google-owner@example.com'));
 			await page.locator('form button[type="submit"]').first().click();
 			await page.waitForURL(/\/(admin|switch)/, { timeout: 15_000 });
 		}
@@ -729,6 +740,130 @@ function registerParentGateTests(): void {
 			// 完遂しない: success は出ず、エラーが visible (dead-end でなく明示拒否)
 			await expect(page.getByTestId('pin-reset-verified-error')).toBeVisible({ timeout: 10_000 });
 			await expect(page.getByTestId('pin-reset-verified-success')).toHaveCount(0);
+		});
+	});
+	// #4698: おやカギコードの桁数 SSOT (PIN_LENGTH = 4 固定)。
+	// 旧実装は 設定画面 4〜8 桁 / API 4〜6 桁 / ゲート UI 4 桁 (自動送信) で三重に食い違い、
+	// 設定画面の案内どおり 5〜8 桁へ変更した親がゲートから締め出された。本 describe は
+	// 「設定画面で変更した PIN がそのまま /switch ゲートで通る」(AC2) と「4 桁以外はサーバ側で拒否」(AC1) を固定する。
+	// pin_hash を書き換えるため #2851 snapshot/restore パターンで seed 状態へ完全復元する。
+	test.describe('#4698 おやカギコード桁数 SSOT (設定画面 → ゲート貫通)', () => {
+		test.use({ storageState: 'playwright/.auth/owner.json' });
+
+		const DB_PATH = 'data/ganbari-quest.db';
+		const SEED_PIN = '1234'; // tests/e2e/global-setup.ts が seed する pin_hash の平文
+		const NEW_PIN = '2468';
+		let pinHashSnapshot: string | null = null;
+
+		test.beforeAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				const row = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
+					| { value: string }
+					| undefined;
+				pinHashSnapshot = row?.value ?? null;
+			} finally {
+				db.close();
+			}
+		});
+
+		test.afterAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				if (pinHashSnapshot !== null) {
+					db.prepare(
+						"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
+					).run(pinHashSnapshot);
+				} else {
+					db.prepare("DELETE FROM settings WHERE key = 'pin_hash'").run();
+				}
+			} finally {
+				db.close();
+			}
+		});
+
+		/** PinInput remount ({#key}) 後はフォーカスが外れるため、明示 click してから入力する */
+		async function typeGatePin(page: import('@playwright/test').Page, pin: string) {
+			const firstInput = page.locator('[data-testid="parent-gate-modal"] input').first();
+			await firstInput.click();
+			for (const ch of pin) {
+				await page.keyboard.press(ch);
+			}
+		}
+
+		test('AC2: 設定画面で変更した 4 桁 PIN が、直後の /switch ゲートでそのまま通る', async ({
+			page,
+			context,
+		}) => {
+			// 1. seed PIN でゲートを通過し親画面へ
+			await context.clearCookies({ name: 'gq_parent_session' });
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			// dev server の初回アクセスは /switch の cold compile が入るため待ち時間を明示する
+			// (既定 5s だと compile 待ちで落ちる。modal 出現の要求自体は緩めない)
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible({ timeout: 20_000 });
+			await typeGatePin(page, SEED_PIN);
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+
+			// 2. 設定画面で PIN を変更 (ラベル / ヒントが「4桁」を言い、5086 案内が無い)
+			await page.goto('/admin/settings/account', { waitUntil: 'domcontentloaded' });
+			const hint = page.getByTestId('oyakagi-forgot-hint');
+			await expect(hint).toBeVisible();
+			await expect(hint).toContainText('4桁');
+			await expect(hint).not.toContainText('5086');
+			await expect(page.locator('label[for="newPin"]')).toContainText('4桁');
+			await page.locator('#currentPin').fill(SEED_PIN);
+			await page.locator('#newPin').fill(NEW_PIN);
+			await page.locator('#confirmPin').fill(NEW_PIN);
+			const changeResponse = page.waitForResponse(
+				(res) => res.url().includes('/admin/settings/account') && res.request().method() === 'POST',
+			);
+			await page.getByTestId('oyakagi-change-submit').click();
+			expect((await changeResponse).ok()).toBe(true);
+			await expect(page.getByTestId('oyakagi-change-success')).toBeVisible({ timeout: 10_000 });
+
+			// 3. 親セッションを破棄し、ゲートで新 PIN を入力 → 締め出されず /admin に到達する
+			await context.clearCookies({ name: 'gq_parent_session' });
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+			const verifyResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/verify') && res.status() === 200,
+			);
+			await typeGatePin(page, NEW_PIN);
+			await verifyResponse;
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
+		test('AC1: 4 桁以外 (6 桁 / 8 桁) はサーバ側 (changePin action) が拒否し、PIN は変わらない', async ({
+			page,
+			context,
+		}) => {
+			await context.clearCookies({ name: 'gq_parent_session' });
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			// cold compile 対策 (上記 AC2 と同じ理由)
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible({ timeout: 20_000 });
+			await typeGatePin(page, NEW_PIN);
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+
+			// UI の maxlength を迂回して直接 form POST (旧 4〜8 桁 API 経路の回帰)
+			for (const bad of ['123456', '12345678']) {
+				const res = await page.request.post('/admin/settings/account?/changePin', {
+					form: { currentPin: NEW_PIN, newPin: bad, confirmPin: bad },
+					headers: { 'x-sveltekit-action': 'true' },
+				});
+				// SvelteKit の action 応答 (x-sveltekit-action) は HTTP 200 + JSON envelope で fail(400) を返す
+				const body = (await res.json()) as { type: string; status?: number; data?: string };
+				expect(body.type, `newPin=${bad} は failure`).toBe('failure');
+				expect(body.status, `newPin=${bad} は 400`).toBe(400);
+				expect(body.data ?? '').toContain('4桁');
+			}
+
+			// PIN は NEW_PIN のまま (ゲートで通る)
+			await context.clearCookies({ name: 'gq_parent_session' });
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await typeGatePin(page, NEW_PIN);
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 	});
 }

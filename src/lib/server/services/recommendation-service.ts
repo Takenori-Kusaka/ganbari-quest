@@ -150,14 +150,15 @@ export async function checkAndGrantFocusBonus(
 	const today = todayDateJST();
 
 	// 今日すでにフォーカスボーナスを付与済みかチェック
-	const { countPointLedgerEntriesByTypeAndDate } = await import('$lib/server/db/activity-repo');
-	const alreadyGranted = await countPointLedgerEntriesByTypeAndDate(
+	// #4686: 件数ではなく当日付与合計 (とりけしの負行込み) で判定し、巻き戻し後の再達成で再付与できるようにする
+	const { sumPointLedgerByTypeAndDescriptionPrefix } = await import('$lib/server/db/activity-repo');
+	const alreadyGranted = await sumPointLedgerByTypeAndDescriptionPrefix(
 		childId,
-		'focus_bonus',
-		today,
+		FOCUS_BONUS_LEDGER_TYPE,
+		focusBonusLedgerPrefix(today),
 		tenantId,
 	);
-	if (alreadyGranted > 0) return null;
+	if (alreadyGranted >= FOCUS_BONUS_POINTS) return null;
 
 	// おすすめ活動の今日の完了状態をチェック
 	const { countTodayActiveRecords } = await import('$lib/server/db/activity-repo');
@@ -166,20 +167,72 @@ export async function checkAndGrantFocusBonus(
 		if (count === 0) return null; // 1つでも未完了なら付与しない
 	}
 
-	// 全完了 → ボーナスポイント付与 (#0288: +5 → +10)
-	const bonusPoints = 10;
+	// 全完了 → ボーナスポイント付与 (#0288: +5 → +10)。差分付与 (巻き戻し後の再達成は不足分のみ)
+	const bonusPoints = FOCUS_BONUS_POINTS - alreadyGranted;
 	const { insertPointLedger } = await import('$lib/server/db/activity-repo');
 	await insertPointLedger(
 		{
 			childId,
 			amount: bonusPoints,
-			type: 'focus_bonus',
-			description: 'きょうのクエスト コンプリート！',
+			type: FOCUS_BONUS_LEDGER_TYPE,
+			description: `${focusBonusLedgerPrefix(today)} きょうのクエスト コンプリート！`,
 		},
 		tenantId,
 	);
 
 	return { bonusPoints };
+}
+
+/** point_ledger.type (付与 / 巻き戻し共通、#4686) */
+export const FOCUS_BONUS_LEDGER_TYPE = 'focus_bonus';
+/** おすすめ 3 件全完了ボーナス (#0288: +5 → +10) */
+const FOCUS_BONUS_POINTS = 10;
+/** 当日 focus bonus ledger の description prefix (JST 日付) */
+function focusBonusLedgerPrefix(today: string): string {
+	return `[${today}]`;
+}
+
+/**
+ * #4686: 活動とりけし時のフォーカスボーナス巻き戻し。当日付与済み (>0) なのに
+ * おすすめのどれかが未完了に戻っていれば、付与済み合計と同額を負方向に計上する。
+ * @returns 計上した差分 (負 or 0)
+ */
+export async function revertFocusBonusIfBroken(
+	childId: ChildId,
+	recommendedActivityIds: ActivityId[],
+	tenantId: string,
+): Promise<number> {
+	if (recommendedActivityIds.length === 0) return 0;
+	const { todayDateJST } = await import('$lib/domain/date-utils');
+	const today = todayDateJST();
+	const { sumPointLedgerByTypeAndDescriptionPrefix, countTodayActiveRecords, insertPointLedger } =
+		await import('$lib/server/db/activity-repo');
+	const granted = await sumPointLedgerByTypeAndDescriptionPrefix(
+		childId,
+		FOCUS_BONUS_LEDGER_TYPE,
+		focusBonusLedgerPrefix(today),
+		tenantId,
+	);
+	if (granted <= 0) return 0;
+	let allDone = true;
+	for (const activityId of recommendedActivityIds) {
+		const count = await countTodayActiveRecords(childId, activityId, today, tenantId);
+		if (count === 0) {
+			allDone = false;
+			break;
+		}
+	}
+	if (allDone) return 0;
+	await insertPointLedger(
+		{
+			childId,
+			amount: -granted,
+			type: FOCUS_BONUS_LEDGER_TYPE,
+			description: `${focusBonusLedgerPrefix(today)} きょうのクエスト コンプリート！ とりけし`,
+		},
+		tenantId,
+	);
+	return -granted;
 }
 
 /** 日付文字列から簡易ハッシュ値を生成（日替わり用） */

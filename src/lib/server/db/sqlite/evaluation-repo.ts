@@ -1,7 +1,7 @@
 // src/lib/server/db/evaluation-repo.ts
 // 週次評価関連のリポジトリ層
 
-import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import {
@@ -18,19 +18,11 @@ import type {
 	Child,
 	Evaluation,
 	InsertEvaluationInput,
-	RestDay,
 } from '../types';
 
 type EvaluationRow = typeof evaluations.$inferSelect;
-type RestDayRow = typeof restDays.$inferSelect;
 
 const toEvaluation = (r: EvaluationRow): Evaluation => ({
-	...r,
-	id: String(r.id),
-	childId: asChildId(r.childId),
-});
-
-const toRestDay = (r: RestDayRow): RestDay => ({
 	...r,
 	id: String(r.id),
 	childId: asChildId(r.childId),
@@ -135,7 +127,10 @@ export async function hasDecayRunToday(
 			and(
 				eq(statusHistory.childId, Number(childId)),
 				eq(statusHistory.changeType, 'daily_decay'),
-				like(statusHistory.recordedAt, `${today}%`),
+				// #4722: recorded_at は UTC ISO で保存されるため、JST 暦日 (today) と比べるには
+				// +9h してから日付にする。旧実装の prefix LIKE は UTC 暦日との比較で、
+				// JST 0〜9 時に「今日まだ減衰していない」と誤判定していた (dsql 側は JST 判定済)。
+				sql`date(${statusHistory.recordedAt}, '+9 hours') = ${today}`,
 			),
 		)
 		.get();
@@ -173,110 +168,6 @@ export async function findLastActivityDateByCategory(
 		.groupBy(childActivities.categoryId)
 		.all()
 		.map((r) => ({ ...r, categoryId: asCategoryId(r.categoryId) }));
-}
-
-// ============================================================
-// おやすみ日 (rest_days)
-// ============================================================
-
-/** おやすみ日を登録 */
-export async function insertRestDay(
-	childId: ChildId,
-	date: string,
-	reason: string,
-	_tenantId: string,
-): Promise<RestDay | undefined> {
-	const row = db
-		.insert(restDays)
-		.values({ childId: Number(childId), date, reason })
-		.onConflictDoNothing()
-		.returning()
-		.get();
-	return row ? toRestDay(row) : undefined;
-}
-
-/** おやすみ日を削除 */
-export async function deleteRestDay(
-	childId: ChildId,
-	date: string,
-	_tenantId: string,
-): Promise<void> {
-	db.delete(restDays)
-		.where(and(eq(restDays.childId, Number(childId)), eq(restDays.date, date)))
-		.run();
-}
-
-/** 指定日がおやすみかどうか */
-export async function isRestDay(
-	childId: ChildId,
-	date: string,
-	_tenantId: string,
-): Promise<boolean> {
-	const row = db
-		.select({ id: restDays.id })
-		.from(restDays)
-		.where(and(eq(restDays.childId, Number(childId)), eq(restDays.date, date)))
-		.get();
-	return !!row;
-}
-
-/** 子供の今月のおやすみ日数を取得 */
-export async function countRestDaysInMonth(
-	childId: ChildId,
-	yearMonth: string,
-	_tenantId: string,
-): Promise<number> {
-	const rows = db
-		.select({ id: restDays.id })
-		.from(restDays)
-		.where(and(eq(restDays.childId, Number(childId)), like(restDays.date, `${yearMonth}%`)))
-		.all();
-	return rows.length;
-}
-
-/** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
-export async function findRestDaysByChild(childId: ChildId, _tenantId: string): Promise<RestDay[]> {
-	return db
-		.select()
-		.from(restDays)
-		.where(eq(restDays.childId, Number(childId)))
-		.orderBy(restDays.date)
-		.all()
-		.map(toRestDay);
-}
-
-/** #3329 backup restore 用: createdAt を保全しておやすみ日を復元する。 */
-export async function insertRestDayForRestore(
-	input: Omit<RestDay, 'id'>,
-	_tenantId: string,
-): Promise<RestDay | undefined> {
-	const row = db
-		.insert(restDays)
-		.values({
-			childId: Number(input.childId),
-			date: input.date,
-			reason: input.reason,
-			createdAt: input.createdAt,
-		})
-		.onConflictDoNothing()
-		.returning()
-		.get();
-	return row ? toRestDay(row) : undefined;
-}
-
-/** 子供のおやすみ日一覧を取得 */
-export async function findRestDays(
-	childId: ChildId,
-	yearMonth: string,
-	_tenantId: string,
-): Promise<RestDay[]> {
-	return db
-		.select()
-		.from(restDays)
-		.where(and(eq(restDays.childId, Number(childId)), like(restDays.date, `${yearMonth}%`)))
-		.orderBy(restDays.date)
-		.all()
-		.map(toRestDay);
 }
 
 /** テナントの全評価データを削除（SQLite: シングルテナントのため全行削除） */

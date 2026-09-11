@@ -10,6 +10,7 @@ import {
 	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { logger } from '$lib/server/logger';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { createPortalSession } from '$lib/server/services/stripe-service';
@@ -41,7 +42,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// #4329: 「Stripe へ行く」と名乗る CTA が実際に Stripe へ行く唯一の手段。
 	// 旧実装のボタンは自アプリのプラン画面へ戻すだけで、顧客は解約できたと誤解していた。
 	openPortal: async ({ locals, url }) => {
@@ -71,4 +72,4 @@ export const actions: Actions = {
 		// 内部の失敗コードは載せない。顧客には「次に取れる手」だけを返す (ADR-0062)。
 		return fail(503, { portalRetryFailed: true });
 	},
-};
+} satisfies Actions);

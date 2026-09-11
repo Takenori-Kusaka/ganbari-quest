@@ -1,4 +1,5 @@
 import { asCategoryId, asChildId } from '../../src/lib/domain/ids';
+import { getChildNavModeLabels, MEMBERS_LABELS } from '../../src/lib/domain/labels';
 // tests/e2e/features.spec.ts
 // Done チケット機能検証テスト
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
@@ -44,6 +45,26 @@ test.describe('#0029: Baby モード', () => {
 		const nav = page.locator('[data-testid="bottom-nav"]');
 		await expect(nav).not.toBeVisible();
 	});
+
+	// #4685 (ADR-0011): 準備モードにゲーミフィケーション UI を出さない。
+	// 旧実装は shop だけ素通りし、1 歳児の名前で交換申請が親の承認待ちに並んでいた。
+	test('ごほうびショップは home へ redirect される (交換申請できない)', async ({ page }) => {
+		await selectBabyChild(page);
+		await dismissOverlays(page);
+
+		await page.goto('/baby/shop');
+
+		await expect(page).toHaveURL(/\/baby\/home/);
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+	});
+
+	test('ヘッダーにスタンプカード UI が出ない', async ({ page }) => {
+		await selectBabyChild(page);
+		await dismissOverlays(page);
+
+		await expect(page.locator('[data-testid="baby-home-page"]')).toBeVisible();
+		await expect(page.locator('[data-testid="header-stamp-btn"]')).toHaveCount(0);
+	});
 });
 
 // ============================================================
@@ -74,7 +95,12 @@ test.describe('#0037: もちものチェックリスト', () => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 
-		const checklistLink = page.locator('a').filter({ hasText: 'もちものチェック' }).first();
+		// #4715: 子供ナビの checklist ラベルは年齢帯別 SSOT (旧「もちものチェック」→「チェックリスト」)。
+		//   literal を直書きすると呼称変更のたびに黙って落ちるため SSOT から引く。
+		const checklistLink = page
+			.locator('a')
+			.filter({ hasText: getChildNavModeLabels('preschool').checklist })
+			.first();
 		await expect(checklistLink).toBeVisible();
 	});
 });
@@ -265,9 +291,13 @@ test.describe('#0054: 複合アイコン', () => {
 		// #2471 (本 PR): 子供 home `getChildActivities` 切替えで たろうくん per-child のみ
 		// render されるため、同名 activity の duplicate がゼロになった。strict-mode assertion
 		// (`.first()` なし) で 1 件 visible を ADR-0006 適合の正面検証に戻す。
+		// #4690: たろうくん は age 4 (tests/e2e/global-setup.ts:427) なので表示は kana に解決される。
+		// 値は seed.ts の nameKana。SEED_KANJI_NAME_KANA 辞書との一致は
+		// tests/unit/domain/seed-kanji-name-kana-4690.test.ts が固定する。
+		const wateringDisplayName = 'みずやりをする';
 		const button = page
 			.locator('[data-testid^="activity-card-"]')
-			.filter({ hasText: '水やりをする' });
+			.filter({ hasText: wateringDisplayName });
 		await expect(button).toHaveCount(1);
 		await expect(button).toBeVisible();
 	});
@@ -710,7 +740,11 @@ test.describe('#0129: メンバーご家族の見守り画面', () => {
 	test('メンバーご家族の見守り画面が表示される', async ({ page }) => {
 		await page.goto('/admin/members');
 		await expect(page.getByText('現在のメンバー')).toBeVisible();
-		await expect(page.getByText('メンバーを招待')).toBeVisible();
+		// #4704: セルフホスト (E2E は AUTH_MODE=local) は招待 API が 401 のためフォームを出さず、
+		// 「この環境では招待をご利用いただけません」の理由カードを出すのが正。
+		await expect(page.getByTestId('members-invite-unsupported')).toHaveText(
+			MEMBERS_LABELS.inviteUnsupportedTitle,
+		);
 	});
 
 	test('ナビゲーションにメンバーリンクがある', async ({ page }) => {
@@ -722,13 +756,12 @@ test.describe('#0129: メンバーご家族の見守り画面', () => {
 		await expect(settingsNav).toBeVisible();
 	});
 
-	test('招待ロール選択がある', async ({ page }) => {
+	// #4704: セルフホストに招待の仕組みは無い (API は cognito 前提で 401)。使えないフォームを
+	// 出さず理由を示すのが正。招待フォーム自体の描画は cognito 環境でのみ成立する。
+	test('セルフホストでは招待フォームを出さず、使えない理由を示す', async ({ page }) => {
 		await page.goto('/admin/members');
-		const roleSelect = page.locator('#invite-role');
-		await expect(roleSelect).toBeVisible();
-		// 保護者とこどもの選択肢
-		await expect(roleSelect.locator('option[value="parent"]')).toHaveCount(1);
-		await expect(roleSelect.locator('option[value="child"]')).toHaveCount(1);
+		await expect(page.locator('#invite-role')).toHaveCount(0);
+		await expect(page.getByTestId('members-invite-unsupported')).toBeVisible();
 	});
 });
 

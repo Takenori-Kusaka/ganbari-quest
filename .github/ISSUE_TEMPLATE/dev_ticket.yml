@@ -217,7 +217,7 @@ body:
         - [ ] 本番アプリ + デモ
         - [ ] LP（`site/**` / `shared-labels.js` 含む、ADR-0013 Committed/Aspirational 確認）
         - [ ] 全年齢モード 5 種（baby/preschool/elementary/junior/senior）
-        - [ ] ナビ 3 種（デスクトップ + モバイル + ボトムナビ）
+        - [ ] ナビゲーション面（管理画面は AdminLayout に Desktop / Mobile 同居、他に子供 BottomNav / 設定サブナビ / 運営者ナビ）
         - [ ] E2E/ユニットシード + チュートリアル + デモガイド
 
         **横展開**:

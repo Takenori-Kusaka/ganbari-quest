@@ -10,6 +10,7 @@ import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS, SETTINGS_NAV_LABELS } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -91,6 +92,16 @@ const groupCards: GroupCard[] = [
 </svelte:head>
 
 <div class="space-y-6">
+	<!-- #4699: 退会申請中に書き込み操作をすると hooks が本画面へ redirect する
+	     (`?reason=account_deletion_pending`)。旧実装は誰も表示せず「無言で設定に戻された」
+	     状態だったため、なぜ実行できなかったかをここで説明する (復元導線は上の共通バナー) -->
+	{#if $page.url.searchParams.get('reason') === 'account_deletion_pending'}
+		<Alert
+			variant="warning"
+			data-testid="settings-deletion-pending-notice"
+			message={SETTINGS_LABELS.deletionPendingReadOnlyNotice}
+		/>
+	{/if}
 	<!-- grace_period バナー (hub にのみ表示、child routes では非表示) -->
 	{#if $page.data.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD}
 		<div

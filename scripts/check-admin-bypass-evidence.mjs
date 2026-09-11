@@ -26,6 +26,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { hasDeclarationLine } from './lib/ci/pr-body-sections.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
+import { isAtOrAfterInstant } from './lib/iso-instant.mjs';
 
 /**
  * @typedef {Object} PrFile
@@ -37,6 +40,7 @@ import { execFileSync } from 'node:child_process';
 /**
  * @typedef {Object} PrAuthor
  * @property {string} login
+ * @property {boolean} [is_bot] `gh` が GraphQL `author.__typename == 'Bot'` を写した値 (#4612)
  */
 
 /**
@@ -75,16 +79,28 @@ const DRY_RUN = process.env.DRY_RUN === 'true';
 const OUTPUT_MODE = process.env.OUTPUT_MODE || 'text';
 const SUMMARY_ONLY = process.env.SUMMARY_ONLY === 'true';
 
-const EVIDENCE_MARKER_PATTERNS = [
+export const EVIDENCE_MARKER_PATTERNS = [
 	/^##\s*Self-Review 証跡/m,
 	/^##\s*Self-Review\s*\(admin bypass\)/m,
 ];
 
 const BOT_COMMENT_MARKER = '<!-- admin-bypass-evidence-check -->';
 
-if (!REPO) {
-	console.error('[admin-bypass-evidence] REPO env var is required (owner/repo)');
-	process.exit(2);
+/**
+ * REPO env var を必須として解決する。
+ *
+ * 旧実装は module top-level で `process.exit(2)` していたため、**import しただけで
+ * process が落ちる**。判定関数 (`hasEvidenceSection`) を unit test から呼べず、
+ * 判定の回帰が test で固定できない状態だった (#4348)。検証は実際に gh を叩く直前に行う。
+ *
+ * @returns {string}
+ */
+function requireRepo() {
+	if (!REPO) {
+		console.error('[admin-bypass-evidence] REPO env var is required (owner/repo)');
+		process.exit(2);
+	}
+	return REPO;
 }
 
 /**
@@ -124,7 +140,7 @@ function listRecentMergedPrs(sinceIso) {
 		'pr',
 		'list',
 		'--repo',
-		REPO,
+		requireRepo(),
 		'--state',
 		'merged',
 		'--limit',
@@ -133,7 +149,37 @@ function listRecentMergedPrs(sinceIso) {
 		'number,title,author,body,mergedAt,reviewDecision,isCrossRepository,labels,files,baseRefName',
 	]);
 	const all = /** @type {GhPr[]} */ (JSON.parse(out));
-	return all.filter((/** @type {GhPr} */ pr) => pr.mergedAt && pr.mergedAt >= sinceIso);
+	// 時刻比較は必ず epoch 正規化を通す (#4053 / #4624)。`mergedAt` は GitHub の `Z` 形、
+	// sinceIso は本 script の `hoursAgo()` 由来だが、どちらかの表記が変わった瞬間に
+	// 文字列比較は静かに誤った件数を返す (#4053 は 21 本中 3 本しか出なかった)。
+	return all.filter(
+		(/** @type {GhPr} */ pr) =>
+			typeof pr.mergedAt === 'string' && isAtOrAfterInstant(pr.mergedAt, sinceIso),
+	);
+}
+
+/**
+ * PR の作成者が **bot アクターか** を判定する (#4612)。
+ *
+ * # なぜ login 文字列で判定しないのか
+ *
+ * 旧実装は `login.endsWith('[bot]')` と `login === 'dependabot' | 'renovate'` の 3 パターンで、
+ * **GitHub App が作成した PR を拾えなかった**。App の actor は `gh` では
+ * `app/<slug>` (例: `app/ganbari-quest-integrator` / `app/dependabot`) と表示され、
+ * `[bot]` サフィックスを持たない。結果として統合 PR (App 作成) が毎回 exempt から漏れ、
+ * 証跡の追記依頼コメントが投稿され続けていた (実測: 2026-08-13 16:05Z に PR #4534 へ投稿)。
+ *
+ * `is_bot` は `gh` が GraphQL の `author.__typename == 'Bot'` を写したもので、
+ * **アカウント種別そのもの**。login 文字列と違い利用者側で騙れない (ユーザー名に `[` は
+ * 使えないため旧判定も詐称はできなかったが、App を拾えないという別の穴があった)。
+ * 未定義 / 非 boolean のときは **exempt しない**方向 (= 催促は出る) に倒す。
+ * 緩める判定を「値が無いから true」に倒さない。
+ *
+ * @param {GhPr} pr
+ * @returns {boolean}
+ */
+export function isBotAuthored(pr) {
+	return pr?.author?.is_bot === true;
 }
 
 /**
@@ -141,10 +187,8 @@ function listRecentMergedPrs(sinceIso) {
  * @returns {{ exempted: boolean, reason?: string }}
  */
 function isExempted(pr) {
-	const author = pr.author?.login || '';
-	if (author.endsWith('[bot]')) return { exempted: true, reason: 'bot-authored PR' };
-	if (author === 'dependabot' || author === 'renovate') {
-		return { exempted: true, reason: 'dependabot/renovate' };
+	if (isBotAuthored(pr)) {
+		return { exempted: true, reason: `bot-authored PR (${pr.author?.login ?? 'unknown'})` };
 	}
 	const files = pr.files || [];
 	const nonDocs = files.filter((/** @type {PrFile} */ f) => !f.path.startsWith('docs/'));
@@ -160,12 +204,26 @@ function isExempted(pr) {
 }
 
 /**
+ * PR 本文に Self-Review 証跡セクションが **宣言として** 書かれているか (ADR-0044)。
+ *
+ * # なぜ行単位 + 文脈除外なのか (#4348 対象 #3)
+ *
+ * 旧実装は本文全体への `re.test(body)` で、`^##` の行頭アンカーはあっても
+ * **HTML コメント / fenced code block の中の見出し**を区別できなかった。
+ * 本 script 自身が投稿する追記依頼コメントは証跡セクションのテンプレートを
+ * ```` ```markdown ```` fence で囲んで提示するため、**その bot コメントを PR 本文に
+ * 貼り戻すだけで「証跡あり」になる**。証跡を 1 文字も書かずに追跡から外れる形で、
+ * #4333 (テンプレートを消さずに出すだけで gate が成立する) と同型である。
+ *
+ * 判定規律は PR body を読む他の gate と同じ SSOT
+ * (`scripts/lib/ci/pr-body-sections.mjs` の `hasDeclarationLine`) に揃える。
+ *
  * @param {string | null} body
  * @returns {boolean}
  */
-function hasEvidenceSection(body) {
+export function hasEvidenceSection(body) {
 	if (!body) return false;
-	return EVIDENCE_MARKER_PATTERNS.some((re) => re.test(body));
+	return hasDeclarationLine(body, EVIDENCE_MARKER_PATTERNS);
 }
 
 /**
@@ -216,7 +274,7 @@ async function postMissingEvidenceComment(prNumber) {
 		return;
 	}
 
-	gh(['pr', 'comment', String(prNumber), '--repo', REPO, '--body', body]);
+	gh(['pr', 'comment', String(prNumber), '--repo', requireRepo(), '--body', body]);
 }
 
 /**
@@ -306,8 +364,12 @@ async function main() {
 	process.exit(0);
 }
 
-main().catch((/** @type {unknown} */ err) => {
-	const msg = err instanceof Error ? err.message : String(err);
-	console.error('[admin-bypass-evidence] unexpected error', msg);
-	process.exit(2);
-});
+// CLI として直接実行された場合のみ main() を起動 (test からの import 時は実行しない)。
+// 判定は scripts/lib/is-main.mjs (SSOT、#3969) に委譲する。
+if (isMainModule(import.meta.url)) {
+	main().catch((/** @type {unknown} */ err) => {
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error('[admin-bypass-evidence] unexpected error', msg);
+		process.exit(2);
+	});
+}

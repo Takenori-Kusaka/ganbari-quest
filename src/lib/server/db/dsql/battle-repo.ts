@@ -21,13 +21,15 @@
 //     置換、§3.5.5 の N+1 を repo が作らない)。
 
 import { sql } from 'drizzle-orm';
-import type { BattleOutcome } from '$lib/domain/battle-types';
+import { BATTLE_LEDGER_TYPE, type BattleOutcome } from '$lib/domain/battle-types';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { asChildId } from '$lib/domain/ids';
 import type {
 	DailyBattleRow,
 	EnemyCollectionRow,
 	IBattleRepo,
 } from '../interfaces/battle-repo.interface';
+import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { SqlExecutor } from './sql-executor';
 
 interface BattleRow {
@@ -100,7 +102,10 @@ function toCollectionRow(row: CollectionRow): EnemyCollectionRow {
 }
 
 /** DSQL 用 IBattleRepo を生成する (db は注入、fitness#8)。 */
-export function createDsqlBattleRepo(db: SqlExecutor): IBattleRepo {
+export function createDsqlBattleRepo<TTx extends SqlExecutor>(
+	db: SqlExecutor,
+	runner: TransactionRunner<TTx>,
+): IBattleRepo {
 	return {
 		async findTodayBattle(childId, date, tenantId) {
 			const result = await db.execute(sql`
@@ -160,6 +165,46 @@ export function createDsqlBattleRepo(db: SqlExecutor): IBattleRepo {
 					reward_points = ${rewardPoints}, turns_used = ${turnsUsed}, updated_at = now()
 				WHERE family_id = ${tenantId} AND child_id = ${childId} AND date = ${date}
 			`);
+		},
+
+		async completeBattleAndGrantPoints(battleId, result, ledger, tenantId) {
+			// #4681: 完了 flip (status='pending' の行のみ) → flip 行数 gate → point_ledger INSERT +
+			// children.total_point 共更新 (§6.2 compute-on-write) を **単一 txn** で実行する。
+			// child_challenge の claimRewardAndGrantPoints (#3284/#3342) と同型で、ledger 失敗時は
+			// flip ごと rollback され「完了済み + 付与 0」の lost-award を構造的に排除する。
+			// fitness#7 準拠: txn work 内の await は全て tx.execute 直呼び。
+			const { childId, date } = decodeBattleToken(battleId);
+			const recordedDate = todayDateJST();
+			return runner.runInTransaction(async (tx) => {
+				const flipped = await tx.execute(sql`
+					UPDATE daily_battles
+					SET status = 'completed', outcome = ${result.outcome as BattleOutcome},
+						reward_points = ${result.rewardPoints}, turns_used = ${result.turnsUsed}, updated_at = now()
+					WHERE family_id = ${tenantId} AND child_id = ${childId} AND date = ${date}
+						AND status = 'pending'
+					RETURNING child_id
+				`);
+				if (flipped.rows.length !== 1) return 0;
+				if (ledger.amount === 0) return 1;
+
+				await tx.execute(sql`
+					INSERT INTO point_ledger (family_id, child_id, amount, type, description, reference_id, recorded_date)
+					VALUES (${tenantId}, ${ledger.childId}, ${ledger.amount}, ${BATTLE_LEDGER_TYPE},
+						${ledger.description}, ${battleId}, ${recordedDate})
+				`);
+				const updated = await tx.execute(sql`
+					UPDATE children SET total_point = total_point + ${ledger.amount}, updated_at = now()
+					WHERE family_id = ${tenantId} AND child_id = ${ledger.childId}
+					RETURNING child_id
+				`);
+				if (updated.rows.length === 0) {
+					// child 不在 = total_point 共更新不能。throw で txn ごと rollback (§5 P7 片肺書込禁止)。
+					throw new Error(
+						`completeBattleAndGrantPoints: child not found (${tenantId}/${ledger.childId})`,
+					);
+				}
+				return 1;
+			});
 		},
 
 		async findCollection(childId, tenantId) {

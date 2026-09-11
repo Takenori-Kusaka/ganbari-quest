@@ -1,5 +1,5 @@
 <script lang="ts">
-import { STAMP_PRESS_N_MESSAGES, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getChildStampLabels, STAMP_PRESS_N_MESSAGES } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -20,6 +20,11 @@ interface Props {
 	instantPoints: number;
 	consecutiveDays: number;
 	multiplier: number;
+	/** #4687 ②: 週 5 枠が埋まっていてスタンプを押せない日 (押印演出を出さない) */
+	cardFull?: boolean;
+	/** #4687 ③: おみくじログインボーナスの実付与額 (台帳の増分と一致させる) */
+	loginBonusPoints?: number;
+	loginBonusRank?: string | null;
 	/** Current card data after stamping */
 	cardFilledSlots: number;
 	cardTotalSlots: number;
@@ -30,6 +35,8 @@ interface Props {
 		filledSlots: number;
 		totalSlots: number;
 		completeBonus: number;
+		/** #4687 ①: 交換したカード枚数 (2 以上 = 複数週の救済) */
+		weeks?: number;
 	} | null;
 	/** Age mode for tone-appropriate positive messages (#1536) */
 	uiMode?: UiMode;
@@ -44,6 +51,9 @@ let {
 	instantPoints,
 	consecutiveDays,
 	multiplier,
+	cardFull = false,
+	loginBonusPoints = 0,
+	loginBonusRank = null,
 	cardFilledSlots,
 	cardTotalSlots,
 	cardEntries,
@@ -54,6 +64,10 @@ let {
 
 type Phase = 'card' | 'press' | 'points' | 'weekly';
 let phase = $state<Phase>('card');
+
+// 文言は年齢帯 variant を labels SSOT から引く (画面側に `if (uiMode === ...)` を書かない、
+// `src/routes/CLAUDE.md` §年齢帯 variant)。`uiMode` は呼び出し側 (child home) が prop で渡す。
+const t = $derived(getChildStampLabels(uiMode));
 
 /** Positive message shown for N rarity stamps (#1536). Rotated each time overlay opens. */
 let positiveMessage = $state('');
@@ -116,7 +130,7 @@ function handleClose() {
 	<div class="sp" data-testid="stamp-press-overlay">
 		{#if phase === 'card' || phase === 'press' || phase === 'points'}
 			<!-- Stamp card mini display -->
-			<p class="sp__week-label">{UI_COMPONENTS_LABELS.stampPressWeekLabel(cardFilledSlots)}</p>
+			<p class="sp__week-label">{t.stampPressWeekLabel(cardFilledSlots)}</p>
 
 			<div class="sp__card-slots">
 				{#each Array(cardTotalSlots) as _, i}
@@ -160,29 +174,46 @@ function handleClose() {
 			<!-- Points display -->
 			{#if phase === 'points'}
 				<div class="sp__points-section">
-					<p class="sp__points-value">+{instantPoints}pt</p>
+					<!-- #4687 ②③: 押せた日は押印ぶん、押せない日 (コンプリート済) は出さない。
+					     ログインボーナス (おみくじ) は台帳に載る額をそのまま併記する -->
+					{#if instantPoints > 0}
+						<p class="sp__points-value" data-testid="stamp-instant-points">+{instantPoints}pt</p>
+					{/if}
+					{#if loginBonusPoints > 0}
+						<p class="sp__login-bonus" data-testid="stamp-login-bonus">
+							{loginBonusRank
+								? t.stampPressLoginBonus(loginBonusRank, loginBonusPoints)
+								: t.stampPressLoginBonusNoRank(loginBonusPoints)}
+						</p>
+					{/if}
 					{#if stampRarity === 'N' && positiveMessage}
 						<p class="sp__positive-message">{positiveMessage}</p>
 					{/if}
 					{#if consecutiveDays >= 2}
-						<p class="sp__streak">{UI_COMPONENTS_LABELS.stampPressStreakLabel(consecutiveDays)}
+						<p class="sp__streak">{t.stampPressStreakLabel(consecutiveDays)}
 							{#if multiplier > 1}
 								<span class="sp__streak-bonus">×{multiplier}</span>
 							{/if}
 						</p>
 					{/if}
 
-					{#if isComplete}
+					{#if cardFull}
+						<!-- #4687 ②: 押印は無い日。空カード (「0回目 / あと5回」) を出さない -->
 						<div class="sp__complete">
-							<p class="sp__complete-text">{UI_COMPONENTS_LABELS.stampPressComplete}</p>
-							<p class="sp__complete-sub">{UI_COMPONENTS_LABELS.stampPressCompleteSub}</p>
+							<p class="sp__complete-text" data-testid="stamp-already-complete">{t.stampPressAlreadyComplete}</p>
+							<p class="sp__complete-sub">{t.stampPressCompleteSub}</p>
+						</div>
+					{:else if isComplete}
+						<div class="sp__complete">
+							<p class="sp__complete-text">{t.stampPressComplete}</p>
+							<p class="sp__complete-sub">{t.stampPressCompleteSub}</p>
 						</div>
 					{:else}
-						<p class="sp__remaining">{UI_COMPONENTS_LABELS.stampPressRemaining(remaining)}</p>
+						<p class="sp__remaining">{t.stampPressRemaining(remaining)}</p>
 					{/if}
 
 					<button class="sp__close tap-target" data-testid="login-bonus-confirm" onclick={handleClose}>
-						{weeklyRedeem ? UI_COMPONENTS_LABELS.stampPressNextBtn : UI_COMPONENTS_LABELS.stampPressConfirmBtn}
+						{weeklyRedeem ? t.stampPressNextBtn : t.stampPressConfirmBtn}
 					</button>
 				</div>
 			{/if}
@@ -190,25 +221,29 @@ function handleClose() {
 		{:else if phase === 'weekly'}
 			<!-- Weekly redeem ceremony -->
 			<div class="sp__weekly">
-				<p class="sp__weekly-title">{UI_COMPONENTS_LABELS.stampPressWeeklyTitle}</p>
+				<p class="sp__weekly-title" data-testid="stamp-weekly-title">
+					{(weeklyRedeem?.weeks ?? 1) > 1
+						? t.stampPressWeeklyTitleMulti(weeklyRedeem?.weeks ?? 1)
+						: t.stampPressWeeklyTitle}
+				</p>
 				<div class="sp__weekly-card">
-					<p class="sp__weekly-count">{UI_COMPONENTS_LABELS.stampPressWeeklyCount(weeklyRedeem?.filledSlots ?? 0, weeklyRedeem?.totalSlots ?? 0)}</p>
+					<p class="sp__weekly-count">{t.stampPressWeeklyCount(weeklyRedeem?.filledSlots ?? 0, weeklyRedeem?.totalSlots ?? 0)}</p>
 					{#if weeklyRedeem && weeklyRedeem.filledSlots >= (weeklyRedeem.totalSlots)}
-						<p class="sp__weekly-complete">{UI_COMPONENTS_LABELS.stampPressWeeklyComplete}</p>
+						<p class="sp__weekly-complete">{t.stampPressWeeklyComplete}</p>
 					{/if}
 				</div>
 
 				<div class="sp__weekly-points">
-					<p class="sp__points-value sp__points-value--big">+{weeklyRedeem?.points ?? 0}pt</p>
+					<p class="sp__points-value sp__points-value--big" data-testid="stamp-weekly-points">+{weeklyRedeem?.points ?? 0}pt</p>
 					{#if weeklyRedeem?.completeBonus}
-						<p class="sp__weekly-bonus">{UI_COMPONENTS_LABELS.stampPressWeeklyBonus(weeklyRedeem.completeBonus)}</p>
+						<p class="sp__weekly-bonus">{t.stampPressWeeklyBonus(weeklyRedeem.completeBonus)}</p>
 					{/if}
 				</div>
 
-				<p class="sp__weekly-message">{UI_COMPONENTS_LABELS.stampPressWeeklyMessage}</p>
+				<p class="sp__weekly-message">{t.stampPressWeeklyMessage}</p>
 
 				<button class="sp__close tap-target" data-testid="weekly-redeem-confirm" onclick={handleClose}>
-					{UI_COMPONENTS_LABELS.stampPressConfirmBtn}
+					{t.stampPressConfirmBtn}
 				</button>
 			</div>
 		{/if}
@@ -333,6 +368,15 @@ function handleClose() {
 
 	.sp__points-value--big {
 		font-size: 2rem;
+	}
+
+	/* #4687: omikuji login bonus line, shown next to the instant stamp points */
+	.sp__login-bonus {
+		font-size: 1rem;
+		font-weight: 800;
+		color: var(--color-point, #d97706);
+		margin: 0;
+		animation: fade-in 0.3s ease-out;
 	}
 
 	/* N rarity positive message (#1536) */

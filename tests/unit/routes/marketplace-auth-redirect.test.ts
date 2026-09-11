@@ -63,38 +63,42 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 		const content = readMarketplaceFile('src/routes/marketplace/[type]/[itemId]/+page.svelte');
 
 		it('詳細画面 reward-set 未ログイン CTA は /auth/login へ遷移する', () => {
-			// reward-set CTA: `href="/auth/login?redirect=/marketplace/{item.type}/{item.itemId}"`
+			// #4701: reward-set CTA も `?next=` (login-redirect.ts SSOT) に統一。
+			// `href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}` (= buildLoginHrefWithNext)
 			expect(content).toMatch(
-				/href=["']\/auth\/login\?redirect=\/marketplace\/\{item\.type\}\/\{item\.itemId\}["']/,
+				/href=\{loginHref\(`\/marketplace\/\$\{item\.type\}\/\$\{item\.itemId\}`\)\}/,
 			);
+			// 旧 `?redirect=` (login が読まず常に /admin 着地) が復活していないこと
+			expect(content).not.toMatch(/\/auth\/login\?redirect=/);
 		});
 
 		it('詳細画面 checklist 未ログイン CTA は /auth/login へ遷移する', () => {
-			// checklist CTA: `href="/auth/login?next=/marketplace/{item.type}/{item.itemId}"`
+			// checklist CTA: `href={loginHref(`/marketplace/${item.type}/${item.itemId}`)}` (#4701 `?next=` SSOT)
 			expect(content).toMatch(
-				/href=["']\/auth\/login\?next=\/marketplace\/\{item\.type\}\/\{item\.itemId\}["']/,
+				/href=\{loginHref\(`\/marketplace\/\$\{item\.type\}\/\$\{item\.itemId\}`\)\}/,
 			);
 		});
 
 		it('詳細画面 rule-preset 未ログイン CTA は /auth/login へ遷移する', () => {
-			// rule-preset CTA: `href="/auth/login?next=/marketplace/rule-preset/{item.itemId}"`
+			// rule-preset CTA: `href={loginHref(`/marketplace/rule-preset/${item.itemId}`)}` (#4701 `?next=` SSOT)
 			expect(content).toMatch(
-				/href=["']\/auth\/login\?next=\/marketplace\/rule-preset\/\{item\.itemId\}["']/,
+				/href=\{loginHref\(`\/marketplace\/rule-preset\/\$\{item\.itemId\}`\)\}/,
 			);
 		});
 
 		it('#3227: challenge-set 未ログイン CTA (login redirect) も除去済 (到達不能分岐)', () => {
 			// challenge-set は preset 0 件で marketplace 詳細が必ず 404 するため、未ログイン
 			// signup-redirect 分岐も到達不能 dead code。本 PR で除去し再生を回帰防止する。
+			expect(content).not.toMatch(/loginHref\(`\/marketplace\/challenge-set\//);
 			expect(content).not.toMatch(/href=["']\/auth\/login\?next=\/marketplace\/challenge-set\//);
 		});
 
 		it('詳細画面 activity-pack 未ログイン CTA は /auth/login へ遷移する (#2362 PR-3 Phase 5)', () => {
 			// #2362 PR-3 Phase 5: activity-pack 未ログイン CTA は admin auto-open を next に持つ
-			// `href="/auth/login?next=/admin/activities?import={item.itemId}"`
+			// `href={loginHref(`/admin/activities?import=${item.itemId}`)}` (#4701 `?next=` SSOT、値は encode)
 			// (CWE-598 / docs/design/marketplace-import-flow.md §3.1 整合: childId を URL に含めない)
 			expect(content).toMatch(
-				/href=["']\/auth\/login\?next=\/admin\/activities\?import=\{item\.itemId\}["']/,
+				/href=\{loginHref\(`\/admin\/activities\?import=\$\{item\.itemId\}`\)\}/,
 			);
 		});
 

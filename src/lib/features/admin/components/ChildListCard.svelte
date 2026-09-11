@@ -72,6 +72,8 @@ function formatBirthday(dateStr: string): string {
 	</Card>
 </a>
 
+<!-- #4645 スタイルの意図:
+     #4645: 数値テキストは AA を満たす gold 系トークンを使う (gold-500 は白背景で 1.51:1)。 -->
 <style>
 	:global(.child-list-card) {
 		transition: box-shadow 0.2s, border-color 0.2s;
@@ -125,7 +127,7 @@ function formatBirthday(dateStr: string): string {
 	.child-list-card__balance-value {
 		font-size: 1.05rem;
 		font-weight: 700;
-		color: var(--color-gold-500, #f59e0b);
+		color: var(--color-text-gold);
 	}
 	.child-list-card__chevron {
 		flex-shrink: 0;

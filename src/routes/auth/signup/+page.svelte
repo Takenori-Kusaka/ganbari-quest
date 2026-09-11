@@ -4,6 +4,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { APP_LABELS, PAGE_TITLES, SIGNUP_LABELS } from '$lib/domain/labels';
 import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
+import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -80,9 +81,24 @@ function startCooldown() {
 }
 
 // URL の plan パラメータ（pricing ページからの遷移用）
-const planParam = $derived($page.url.searchParams.get('plan'));
+// #4501: 値域は server と共有の validator に閉じる。旧実装は「truthy なら
+// トライアル訴求を出す」だったため、server が受理しない値 (?plan=premium 以外の未知値) でも
+// 「トライアルが開始されます」と表示していた (表示と挙動の不一致 / GAMMA-SC-04)。
+const planParam = $derived(parseSignupPlanParam($page.url.searchParams.get('plan')));
+// #4702: plan が有効値のときだけ Google 登録 URL に引き継ぐ (無効値は既定の登録フローのまま)
+const googleSignupHref = $derived(
+	planParam ? `/auth/oauth/google?plan=${planParam}` : '/auth/oauth/google',
+);
 
 let confirmStep = $derived(form?.confirmStep ?? false);
+
+// #4497: 確認ステップへ持ち回る同意の根拠。
+// signup アクションが 3 種の同意を server 検証して通した場合のみ consentGiven が返る。
+// 同一ページ内で checkbox 状態が保持されている場合はそれも根拠になる（enhance 経由の遷移）。
+const consentCarried = $derived(
+	(form && 'consentGiven' in form && form.consentGiven === true) ||
+		(agreedTerms && agreedPrivacy && agreedCrossBorder),
+);
 
 // サーバーレスポンス（form）からフォーム値を復元
 $effect(() => {
@@ -137,6 +153,16 @@ $effect(() => {
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
 				<input type="hidden" name="plan" value={planParam ?? ''} />
+				<!--
+					#4497: 同意 3 種を確認ステップへ持ち回る。同意の記録は tenant が確定する
+					confirm アクションで行われるため、その時点でも同意の主張が server に届いている
+					必要がある（confirm 側でも必須検証する）。
+					値は「signup アクションが同意を検証して通した」ことを示す consentGiven を
+					第一の根拠にし、同一ページ内のチェック状態はその補助とする。
+				-->
+				<input type="hidden" name="agreedTerms" value={consentCarried ? 'on' : ''} />
+				<input type="hidden" name="agreedPrivacy" value={consentCarried ? 'on' : ''} />
+				<input type="hidden" name="agreedCrossBorder" value={consentCarried ? 'on' : ''} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					{SIGNUP_LABELS.confirmEmailSent(email)}<br />
@@ -211,7 +237,9 @@ $effect(() => {
 			</form>
 		{:else}
 			<!-- Google OAuth サインアップ -->
-			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href="/auth/oauth/google" />
+			<!-- #4702: 料金ページからの `?plan=` を Google 登録経路にも引き継ぎ、メール登録と同じく
+			     トライアルを自動開始する (引き継がないと登録手段によって体験の有無が変わる) -->
+			<GoogleSignInButton label={SIGNUP_LABELS.googleSignupLabel} href={googleSignupHref} />
 			<Divider label={SIGNUP_LABELS.dividerOr} spacing="sm" />
 
 			<!-- 登録フォーム -->
@@ -362,7 +390,7 @@ $effect(() => {
 
 				{#if planParam}
 					<p class="text-xs text-center text-[var(--color-neutral-400)] -mt-2">
-						{SIGNUP_LABELS.trialPlanNote(planParam === 'family' ? SIGNUP_LABELS.trialPlanFamily : SIGNUP_LABELS.trialPlanStandard)}
+						{SIGNUP_LABELS.trialPlanNote}
 					</p>
 				{/if}
 			</form>

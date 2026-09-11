@@ -17,6 +17,7 @@ import {
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS, CANCEL_TERMS, PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
+import { EMPTY_HTML, type HtmlSafe, html, joinHtml } from './email-html';
 import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
 // ============================================================
@@ -229,7 +230,7 @@ async function writeLocalEmailPreview(params: {
 // テンプレート: 共通レイアウト
 // ============================================================
 
-function wrapTemplate(content: string): string {
+function wrapTemplate(content: HtmlSafe): string {
 	return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -273,7 +274,7 @@ export async function sendWelcomeEmail(email: string, familyName?: string): Prom
 	return sendEmail({
 		to: email,
 		subject: 'がんばりクエストへようこそ！',
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${greeting}ようこそ！</h2>
       <p>がんばりクエストへのご登録ありがとうございます。</p>
       <p>お子さまの毎日のがんばりを記録して、成長を見守りましょう！</p>
@@ -294,7 +295,7 @@ export async function sendInquiryConfirmationEmail(
 	return sendEmail({
 		to: email,
 		subject: `【がんばりクエスト】お問い合わせを受け付けました（${inquiryId}）`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>お問い合わせを受け付けました</h2>
       <p>お問い合わせ番号: <strong>${inquiryId}</strong></p>
       <p>いただいた内容を確認し、必要に応じてご返信いたします。</p>
@@ -323,7 +324,7 @@ export async function sendCancellationEmail(
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】解約手続きを受け付けました',
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>解約手続きを受け付けました</h2>
       <p><strong>${untilPhrase}</strong>、現在の有料プランをそのままご利用いただけます。</p>
       <p>その後は${PLAN_FULL_TERMS.free}に切り替わります。お子さまの記録は残りますので、引き続き${PLAN_FULL_TERMS.free}の範囲でご利用いただけます。</p>
@@ -344,6 +345,11 @@ export interface DeletionWarningParams {
 	deletionDate: string;
 	/** 削除予定日までの残り日数 (JST 暦日換算、1 以上) */
 	daysRemaining: number;
+	/**
+	 * 物理削除が停止中の配備か (#4721)。true なら**削除を断定せず取り消し期限だけを述べる**。
+	 * 呼び出し側が `isPhysicalDeletionDisabled()` を渡す。
+	 */
+	retentionOnly?: boolean;
 }
 
 /**
@@ -362,20 +368,42 @@ export interface DeletionWarningParams {
  */
 export async function sendDeletionWarningEmail(params: DeletionWarningParams): Promise<boolean> {
 	const labels = DELETION_WARNING_EMAIL_LABELS;
-	const { email, ownerName, deletionDate, daysRemaining } = params;
+	const { email, ownerName, deletionDate, daysRemaining, retentionOnly = false } = params;
 	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
+	// #4721: 物理削除が停止中の配備では**削除を断定しない**。
+	// 「この日にデータを削除します」は事実に反するが、**その日を過ぎると自分では取り消せなくなる
+	// のは事実**なので (restoreSoftDeletedTenant が isExpired で拒否)、期限そのものは伝える。
+	// 送信自体は止めない — 猶予中に「まだ戻せる」ことを思い出す接点がこの便しかなく、
+	// 止めると復元できるのに戻らない顧客を作る。
+	const subject = retentionOnly
+		? labels.subjectRetentionOnly(daysRemaining)
+		: labels.subject(daysRemaining);
+	const heading = retentionOnly ? labels.headingRetentionOnly : labels.heading;
+	const dateLine = retentionOnly
+		? labels.deadlineDateLine(deletionDate, daysRemaining)
+		: labels.deletionDateLine(deletionDate, daysRemaining);
+	const irreversible = retentionOnly
+		? labels.irreversibleNoteRetentionOnly
+		: labels.irreversibleNote;
+	const restore = retentionOnly
+		? labels.restoreNoteRetentionOnly(ADMIN_VIEW_TERMS.canonical)
+		: labels.restoreNote(ADMIN_VIEW_TERMS.canonical);
+	const noAction = retentionOnly ? labels.noActionNoteRetentionOnly : labels.noActionNote;
 
 	return sendEmail({
 		to: email,
-		subject: `【がんばりクエスト】${labels.subject(daysRemaining)}`,
-		htmlBody: wrapTemplate(`
-      <h2>${labels.heading}</h2>
+		// #4721 の retentionOnly 出し分け (subject / heading) を保ちつつ、
+		// #4566 の `html` タグ付きテンプレート (HtmlSafe) で埋め込み値をエスケープする
+		subject: `【がんばりクエスト】${subject}`,
+		htmlBody: wrapTemplate(html`
+      <h2>${heading}</h2>
       <p>${labels.greeting(ownerName)}</p>
       <p>${labels.intro}</p>
-      <p><strong>${labels.deletionDateLine(deletionDate, daysRemaining)}</strong></p>
-      <p>${labels.irreversibleNote}</p>
-      <p>${labels.restoreNote(ADMIN_VIEW_TERMS.canonical)}</p>
-      <p>${labels.noActionNote}</p>
+      <p><strong>${dateLine}</strong></p>
+      <p>${irreversible}</p>
+      <p>${restore}</p>
+      <p>${noAction}</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
       </p>
@@ -385,11 +413,11 @@ export async function sendDeletionWarningEmail(params: DeletionWarningParams): P
 			labels.greeting(ownerName),
 			'',
 			labels.intro,
-			labels.deletionDateLine(deletionDate, daysRemaining),
-			labels.irreversibleNote,
+			dateLine,
+			irreversible,
 			'',
-			labels.restoreNote(ADMIN_VIEW_TERMS.canonical),
-			labels.noActionNote,
+			restore,
+			noAction,
 			'',
 			`${labels.ctaLabel}: ${ctaUrl}`,
 			'',
@@ -406,6 +434,11 @@ export interface DeletionReservedParams {
 	deletionDate: string;
 	/** 猶予期間の日数 (プラン別、1 以上) */
 	graceDays: number;
+	/**
+	 * 物理削除が停止中の配備か (#4721)。true なら**削除を断定せず取り消し期限だけを述べる**。
+	 * 呼び出し側が `isPhysicalDeletionDisabled()` を渡す。
+	 */
+	retentionOnly?: boolean;
 }
 
 /**
@@ -420,19 +453,29 @@ export interface DeletionReservedParams {
  */
 export async function sendDeletionReservedEmail(params: DeletionReservedParams): Promise<boolean> {
 	const labels = DELETION_RESERVED_EMAIL_LABELS;
-	const { email, ownerName, deletionDate, graceDays } = params;
+	const { email, ownerName, deletionDate, graceDays, retentionOnly = false } = params;
 	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
+	// #4721: 予告メールと同じ判断。**この 1 通が最も権威ある通知**なので、
+	// ここを直さずに予告だけ手当てしても「削除します」という断定は残ったままになる。
+	const scheduleLine = retentionOnly
+		? labels.scheduleLineRetentionOnly(deletionDate, graceDays)
+		: labels.scheduleLine(deletionDate, graceDays);
+	const restoreLine = retentionOnly
+		? labels.restoreLineRetentionOnly(ADMIN_VIEW_TERMS.canonical)
+		: labels.restoreLine(ADMIN_VIEW_TERMS.canonical);
+	const exportLine = retentionOnly ? labels.exportLineRetentionOnly : labels.exportLine;
 
 	return sendEmail({
 		to: email,
 		subject: `【がんばりクエスト】${labels.subject}`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${labels.heading}</h2>
       <p>${labels.greeting(ownerName)}</p>
       <p>${labels.intro}</p>
-      <p><strong>${labels.scheduleLine(deletionDate, graceDays)}</strong></p>
-      <p>${labels.restoreLine(ADMIN_VIEW_TERMS.canonical)}</p>
-      <p>${labels.exportLine}</p>
+      <p><strong>${scheduleLine}</strong></p>
+      <p>${restoreLine}</p>
+      <p>${exportLine}</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
       </p>
@@ -442,9 +485,9 @@ export async function sendDeletionReservedEmail(params: DeletionReservedParams):
 			labels.greeting(ownerName),
 			'',
 			labels.intro,
-			labels.scheduleLine(deletionDate, graceDays),
-			labels.restoreLine(ADMIN_VIEW_TERMS.canonical),
-			labels.exportLine,
+			scheduleLine,
+			restoreLine,
+			exportLine,
 			'',
 			`${labels.ctaLabel}: ${ctaUrl}`,
 			'',
@@ -466,7 +509,7 @@ export async function sendDeletionCompleteEmail(email: string): Promise<boolean>
 	return sendEmail({
 		to: email,
 		subject: `【がんばりクエスト】${labels.subject}`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${labels.heading}</h2>
       <p>${labels.intro}</p>
       <p>${labels.irreversibleNote}</p>
@@ -489,7 +532,7 @@ export async function sendMemberRemovedEmail(email: string, tenantName: string):
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】家族グループからの除外通知',
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>家族グループからの除外通知</h2>
       <p>家族グループ「${tenantName}」のオーナーにより、メンバーから除外されました。</p>
       <p>新しい招待リンクがあれば、別のグループに参加できます。</p>
@@ -507,7 +550,7 @@ export async function sendMemberJoinedEmail(
 	return sendEmail({
 		to: ownerEmail,
 		subject: '【がんばりクエスト】新しいメンバーが参加しました',
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>新しいメンバーが参加しました</h2>
       <p><strong>${memberName}</strong> さんが「${role}」として家族グループに参加しました。</p>
       <p style="text-align: center; margin: 24px 0;">
@@ -538,7 +581,7 @@ export async function sendOwnershipTransferredEmail(
 	return sendEmail({
 		to: newOwnerEmail,
 		subject: `【がんばりクエスト】${labels.subject}`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${labels.heading}</h2>
       <p>${labels.greeting(memberName)}</p>
       <p>${labels.body(roleLabel)}</p>
@@ -585,7 +628,7 @@ export async function sendPaymentFailedNoticeEmail(
 	return sendEmail({
 		to: email,
 		subject: `【がんばりクエスト】${labels.subject(daysRemaining)}`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${labels.heading}</h2>
       <p>${labels.greeting(ownerName)}</p>
       <p>${labels.intro}</p>
@@ -629,7 +672,7 @@ export async function sendPinResetCodeEmail(email: string, code: string): Promis
 	return sendEmail({
 		to: email,
 		subject: labels.subject,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${labels.heading}</h2>
       <p>${labels.intro}</p>
       <p style="text-align:center;margin:24px 0">
@@ -661,22 +704,23 @@ export async function sendWeeklyReportEmail(
 	email: string,
 	report: WeeklyReportData,
 ): Promise<boolean> {
-	const catRows = report.categories
-		.map((c) => {
+	const catRows = joinHtml(
+		report.categories.map((c) => {
 			const diff = c.diff > 0 ? `+${c.diff}` : c.diff === 0 ? '±0' : String(c.diff);
-			return `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${c.name}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">${c.count}回</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:${c.diff >= 0 ? '#22c55e' : '#ef4444'}">${diff}</td></tr>`;
-		})
-		.join('');
+			const diffColor = c.diff >= 0 ? '#22c55e' : '#ef4444';
+			return html`<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${c.name}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">${c.count}回</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:${diffColor}">${diff}</td></tr>`;
+		}),
+	);
 
 	const achievementHtml =
 		report.newAchievements.length > 0
-			? `<p style="margin-top:16px">🏆 <strong>新しい実績:</strong> ${report.newAchievements.join('、')}</p>`
-			: '';
+			? html`<p style="margin-top:16px">🏆 <strong>新しい実績:</strong> ${report.newAchievements.join('、')}</p>`
+			: EMPTY_HTML;
 
 	return sendEmail({
 		to: email,
 		subject: `🌟 ${report.childName}の今週のがんばり（${report.dateRange}）`,
-		htmlBody: wrapTemplate(`
+		htmlBody: wrapTemplate(html`
       <h2>${report.childName}の今週のがんばり</h2>
       <p style="color:#666">${report.dateRange}</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0">
@@ -727,7 +771,7 @@ function buildUnsubscribeUrl(tenantId: string, kind: UnsubscribeKind): string {
  * `wrapTemplate` (purple ヘッダ) や `wrapTrialEmailTemplate` (orange ヘッダ) と
  * 区別するため、Anti-engagement 整合の落ち着いたグレー基調にする。
  */
-function wrapLifecycleTemplate(content: string, unsubscribeUrl: string): string {
+function wrapLifecycleTemplate(content: HtmlSafe, unsubscribeUrl: string): string {
 	const labels = LIFECYCLE_EMAIL_LABELS;
 	return `<!DOCTYPE html>
 <html lang="ja">
@@ -791,7 +835,7 @@ export async function sendLicenseRenewalReminderEmail(
 	const subject = labels.renewalSubject(daysRemaining);
 	const ctaUrl = `${getAppBaseUrl()}/admin/subscription`;
 
-	const htmlContent = `
+	const htmlContent = html`
       <h2>${labels.renewalHeading}</h2>
       <p>${labels.renewalGreeting(ownerName)}</p>
       <p>${labels.renewalIntro}</p>
@@ -851,7 +895,7 @@ export async function sendDormantReactivationEmail(
 	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
 	const ctaUrl = `${getAppBaseUrl()}/auth/login`;
 
-	const htmlContent = `
+	const htmlContent = html`
       <h2>${labels.dormantHeading}</h2>
       <p>${labels.dormantGreeting(ownerName)}</p>
       <p>${labels.dormantIntro}</p>
@@ -911,7 +955,7 @@ export async function sendPmfSurveyEmail(params: PmfSurveyEmailParams): Promise<
 	const { email, tenantId, ownerName, round, surveyUrl } = params;
 	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
 
-	const htmlContent = `
+	const htmlContent = html`
       <h2>${labels.emailHeading}</h2>
       <p>${labels.emailGreeting(ownerName)}</p>
       <p>${labels.emailIntro}</p>

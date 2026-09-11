@@ -89,7 +89,7 @@ export function makeStandardContext(overrides: ContextOverrides = {}): AuthConte
 /**
  * Family プラン相当の `AuthContext` を返す。
  *
- * plan は `'family-monthly'` — `resolvePlanTier` は `family` 接頭辞で family tier と判定する。
+ * plan は `'family-monthly'` — `resolvePaidPlanTier` の完全一致表 (`PAID_PLAN_TIER`) が family tier に写す。
  */
 export function makeFamilyContext(overrides: ContextOverrides = {}): AuthContext {
 	return {

@@ -31,7 +31,6 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  * デモ状態でも実際に処理する必要のある write エンドポイント。
  *
  * - `/api/feedback`: デモユーザーからのフィードバック受付（Discord 通知）
- * - `/api/demo-analytics`: デモファネル分析（funnel tracking）
  * - `/api/health`: ヘルスチェック
  * - `/switch`: 子供切替の form action (`?/select`)。実 DB に書き込まず cookie
  *   `selectedChildId` を set + redirect するだけのため demo 安全。no-op で
@@ -43,13 +42,10 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  *
  * #2189 PR-B4 で `/api/demo/exit` (旧 cookie 削除 endpoint) / `/demo/` (legacy /demo/** 配下
  * form actions) を撤去 — PR-B3 で `/demo/**` route 物理削除済のため到達経路がない。
+ * #4679 で `/api/demo-analytics` を撤去 — 送信元はデモガイドバーのみで、ガイド撤去により
+ * 呼び出し側が消えた (受け口だけが残る片側実装を作らない)。
  */
-export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
-	'/api/feedback',
-	'/api/demo-analytics',
-	'/api/health',
-	'/switch',
-];
+export const DEMO_WRITE_ALLOWLIST: readonly string[] = ['/api/feedback', '/api/health', '/switch'];
 
 /**
  * Demo Lambda 判定 — env-only (ADR-0048 / PR-B4 / #2189).

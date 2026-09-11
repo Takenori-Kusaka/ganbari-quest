@@ -7,7 +7,10 @@
 // 3. 「ルーティン」表示が画面に出ない
 // 4. チェックリスト作成手段（#2903 で「+ 追加」dropdown menu に集約）が必ず提示される
 
-import { expect, test } from '@playwright/test';
+// #4703: worker 分離 fixture へ移行 (#4489 ratchet)。本 spec は相対 URL の goto と
+// DOM assertion しか行わないため、`./fixtures` 経由にしても挙動は変わらず、
+// worker[1] で走ったときに worker 0 の DB / server を覗く窓だけが閉じる。
+import { expect, test } from './fixtures';
 
 test.describe('#1756 (#1709-B) admin/checklists kind タブ削除', () => {
 	test('/admin/checklists を開ける', async ({ page }) => {

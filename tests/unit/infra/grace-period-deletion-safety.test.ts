@@ -211,12 +211,26 @@ describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => 
 });
 
 describe('#4327 [D] kill-switch env がアプリ Lambda に配られている', () => {
-	it('[D1] 既定は "false" (従来動作)', () => {
+	// #4721: **既定値は「Rule があるか」から導出する**（context 未指定 = 'false' ではない）。
+	//
+	// 旧契約は context 未指定なら 'false'（= 削除有効）だった。しかし CRON_JOBS に
+	// grace-period-deletion が無い現状では物理削除は起きず、env だけ「有効」と言っていた。
+	// その結果「削除は止まっているのに削除予定日を告げる予告メールだけが届く」非対称が生まれた。
+	// env を「物理削除が走るか」の唯一の真実にすることで、予告メールの文面が追従できる。
+	it('[D1] 既定は Rule の有無から導出する — Rule が無い現状は "true" (#4721)', () => {
 		computeTemplate.hasResourceProperties('AWS::Lambda::Function', {
 			Environment: Match.objectLike({
-				Variables: Match.objectLike({ GRACE_PERIOD_DELETION_DISABLED: 'false' }),
+				Variables: Match.objectLike({ GRACE_PERIOD_DELETION_DISABLED: 'true' }),
 			}),
 		});
+	});
+
+	// 対照: 導出の入力 (Rule の有無) が実際にそうなっていることを同じ template で確認する。
+	// これが無いと [D1] は「常に true を返すだけの検査」と区別がつかない。
+	it('[D1b] 実際に grace-period-deletion の EventBridge Rule が作られていない', () => {
+		const rules = computeTemplate.findResources('AWS::Events::Rule');
+		const names = Object.values(rules).map((r) => (r.Properties as { Name?: string }).Name ?? '');
+		expect(names).not.toContain('ganbari-quest-cron-grace-period-deletion');
 	});
 
 	it('[D2] context で "true" を渡すと停止状態で deploy できる', () => {

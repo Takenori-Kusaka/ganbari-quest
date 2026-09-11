@@ -48,13 +48,18 @@ vi.mock('$lib/server/services/child-service', () => ({
 	getAllChildren: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('$lib/server/services/trial-service', () => ({
+vi.mock('$lib/server/services/trial-service', async (importOriginal) => ({
+	// #4628: client への射影 (toTrialStatusView) は本物を使う。mock で置き換えると
+	// 「route が正しい射影を通しているか」を検証できなくなる。
+	...(await importOriginal<typeof import('$lib/server/services/trial-service')>()),
 	getTrialStatus: vi.fn().mockResolvedValue({
 		isTrialActive: false,
 		trialUsed: false,
-		daysRemaining: 0,
+		trialStartDate: null,
 		trialEndDate: null,
 		trialTier: null,
+		daysRemaining: 0,
+		source: null,
 	}),
 	startTrial: vi.fn(),
 }));

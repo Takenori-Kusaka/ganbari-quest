@@ -62,7 +62,6 @@ import type {
 	LoginStreak,
 	// #2458 (Path B sibling drop): SiblingChallenge / SiblingChallengeProgress 型削除済 (2026-05-26)、
 	// per-child ChildChallenge 型へ完全移行 (ADR-0055 / User §6)
-	SiblingCheer,
 	SpecialReward,
 	StampCard,
 	StampEntry,
@@ -77,6 +76,15 @@ import type {
 const DEMO_TENANT_ID = 'demo';
 const NOW = '2026-03-27T09:00:00.000Z';
 const TODAY = '2026-03-27';
+
+/**
+ * #4712: fixture 基準日の月キー (`YYYY-MM`)。デモの月次表示の既定値。
+ *
+ * デモの活動ログは fixture の「今日」(ADR-0048 §決定 §2 fixture immutability で固定値) を
+ * 基準に「N 日前」で作られているため、実時刻の当月を既定にすると月次レポート /
+ * ダッシュボードが常に「活動 0 回」に見える (デモが「使われていない家族」に見える)。
+ */
+export const DEMO_FIXTURE_MONTH_KEY = TODAY.slice(0, 7);
 
 function daysAgo(n: number): string {
 	return addDaysJST(TODAY, -n);
@@ -2444,110 +2452,6 @@ export const DEMO_LOGIN_STREAKS: LoginStreak[] = [
 	{ childId: asChildId(903), lastLoginDate: TODAY, currentStreak: 14, updatedAt: NOW },
 	// 904 さくら (junior): 14 日連続
 	{ childId: asChildId(904), lastLoginDate: TODAY, currentStreak: 14, updatedAt: NOW },
-];
-
-// ============================================================
-// Sibling Cheers (#2097 Phase B-5b)
-// ============================================================
-// きょうだい間で送受信した「おうえんスタンプ」履歴。
-// 子供画面の SiblingCheerOverlay 等で表示される。
-// fixture immutability 原則 (ADR-0048 §決定 §2) に従い shownAt は固定値。
-
-// stampCode は services/sibling-cheer-service.ts の CHEER_STAMPS と整合:
-// ganbare / sugoi / issho / omedeto / nice / fight
-export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
-	// ── 過去履歴 (shownAt 設定済み) ──
-	// 903 けんた → 902 ひな (兄から妹へ)
-	{
-		id: '1',
-		fromChildId: asChildId(903),
-		toChildId: asChildId(902),
-		stampCode: 'ganbare',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(2),
-		shownAt: daysAgoISO(2),
-	},
-	// 904 さくら → 902 ひな (姉から妹へ)
-	{
-		id: '2',
-		fromChildId: asChildId(904),
-		toChildId: asChildId(902),
-		stampCode: 'omedeto',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(2),
-		shownAt: daysAgoISO(2),
-	},
-	// 902 ひな → 903 けんた (妹から兄へ)
-	{
-		id: '3',
-		fromChildId: asChildId(902),
-		toChildId: asChildId(903),
-		stampCode: 'sugoi',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(3),
-		shownAt: daysAgoISO(3),
-	},
-	// 904 さくら → 903 けんた (姉から弟へ)
-	{
-		id: '4',
-		fromChildId: asChildId(904),
-		toChildId: asChildId(903),
-		stampCode: 'nice',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(3),
-		shownAt: daysAgoISO(3),
-	},
-	// 906 けいすけ → 904 さくら (兄から妹へ)
-	{
-		id: '5',
-		fromChildId: asChildId(906),
-		toChildId: asChildId(904),
-		stampCode: 'fight',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(4),
-		shownAt: daysAgoISO(4),
-	},
-	// ── 未表示 (shownAt: null) — demo 子供画面でおうえん受信演出が確認可能 ──
-	// 903 → 902 (直近)
-	{
-		id: '6',
-		fromChildId: asChildId(903),
-		toChildId: asChildId(902),
-		stampCode: 'issho',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(0),
-		shownAt: null,
-	},
-	// 906 → 903 (直近)
-	{
-		id: '7',
-		fromChildId: asChildId(906),
-		toChildId: asChildId(903),
-		stampCode: 'sugoi',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(0),
-		shownAt: null,
-	},
-	// 902 → 904 (直近)
-	{
-		id: '8',
-		fromChildId: asChildId(902),
-		toChildId: asChildId(904),
-		stampCode: 'ganbare',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(0),
-		shownAt: null,
-	},
-	// 903 → 906 (直近)
-	{
-		id: '9',
-		fromChildId: asChildId(903),
-		toChildId: asChildId(906),
-		stampCode: 'nice',
-		tenantId: DEMO_TENANT_ID,
-		sentAt: daysAgoISO(0),
-		shownAt: null,
-	},
 ];
 
 // ============================================================

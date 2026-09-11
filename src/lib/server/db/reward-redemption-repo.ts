@@ -14,11 +14,14 @@ export async function findRedemptionRequestsByChild(childId: ChildId, tenantId: 
 	return getRepos().rewardRedemption.findRedemptionRequestsByChild(childId, tenantId);
 }
 
-/** #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。 */
+/**
+ * #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。
+ * #4683: rewardId=null は「取込先に該当ごほうびが無い」を表し、履歴は snapshot で復元される。
+ */
 export async function insertRedemptionForRestore(
 	input: {
 		childId: ChildId;
-		rewardId: string;
+		rewardId: string | null;
 		requestedAt: number;
 		quantity: number;
 		status: string;
@@ -35,19 +38,43 @@ export async function insertRedemptionForRestore(
 	return getRepos().rewardRedemption.insertRedemptionForRestore(input, tenantId);
 }
 
+/** #4682 F1: id 直引き (一覧 limit 非依存)。承認 / 却下の存在確認はこちらを使う。 */
+export async function findRedemptionRequestById(id: string, tenantId: string) {
+	return getRepos().rewardRedemption.findRedemptionRequestById(id, tenantId);
+}
+
 export async function findRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId; limit?: number },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ) {
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
 
-/** #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。 */
+/**
+ * #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。
+ * #4682: `requestedBeforeEpoch` で期間を絞れる (失効 cron の dry-run が実処理と同じ母集団を数える)。
+ */
 export async function countRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		requestedBeforeEpoch?: number;
+	},
 ) {
 	return getRepos().rewardRedemption.countRedemptionRequestsByTenant(tenantId, opts);
+}
+
+/** #4682: 承認待ち申請が存在する reward id の集合 (DISTINCT、limit なし)。 */
+export async function findPendingRewardIdsByTenant(tenantId: string) {
+	return getRepos().rewardRedemption.findPendingRewardIdsByTenant(tenantId);
 }
 
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
@@ -61,8 +88,16 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	tenantId: string,
+	// #4722: 条件付き UPDATE (期待状態と一致するときだけ更新。同時承認の勝者を DB で 1 つに確定させる)
+	options?: { expectedStatus?: string },
 ) {
-	return getRepos().rewardRedemption.updateRedemptionRequestStatus(childId, id, updates, tenantId);
+	return getRepos().rewardRedemption.updateRedemptionRequestStatus(
+		childId,
+		id,
+		updates,
+		tenantId,
+		options,
+	);
 }
 
 // findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は

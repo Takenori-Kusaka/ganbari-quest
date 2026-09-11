@@ -31,11 +31,17 @@ interface StampPressData {
 	cardFilledSlots: number;
 	cardTotalSlots: number;
 	cardEntries: StampCardEntry[];
+	// #4687: 週コンプリート済の日 (押印なし) / おみくじログインボーナスの実付与額
+	cardFull: boolean;
+	loginBonusPoints: number;
+	loginBonusRank: string | null;
 	weeklyRedeem: {
 		points: number;
 		filledSlots: number;
 		totalSlots: number;
 		completeBonus: number;
+		/** #4687: 交換したカード枚数 (2 以上 = 複数週の救済) */
+		weeks?: number;
 	} | null;
 }
 
@@ -147,6 +153,9 @@ let uiModeChangeMsg = $derived(
 		cardFilledSlots={stampPressData.cardFilledSlots}
 		cardTotalSlots={stampPressData.cardTotalSlots}
 		cardEntries={stampPressData.cardEntries}
+		cardFull={stampPressData.cardFull}
+		loginBonusPoints={stampPressData.loginBonusPoints}
+		loginBonusRank={stampPressData.loginBonusRank}
 		weeklyRedeem={stampPressData.weeklyRedeem}
 		uiMode={normalizeUiMode(uiMode)}
 		onClose={onStampPressClose}

@@ -18,6 +18,8 @@
  *     --presets desktop,mobile
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PHASE = process.env.SS_PHASE === 'before' ? 'before' : 'after';
 // flow モードは presets の先頭 1 つしか使わないため、viewport ごとに 1 回ずつ実行する。
@@ -52,7 +54,7 @@ async function login(page, email, password) {
  * @param {(label: string) => Promise<string>} capture
  */
 export default async (page, capture) => {
-	await login(page, 'ops@example.com', 'Gq!Dev#Ops2026xyz');
+	await login(page, 'ops@example.com', devPassword('ops@example.com'));
 	await page.goto(`${BASE_URL}/ops`);
 	await page.waitForLoadState('domcontentloaded');
 

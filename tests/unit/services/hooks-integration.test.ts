@@ -9,9 +9,20 @@ import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 // hooks.server.ts の全依存をモック化し、並列実行時の深いモジュール解決を回避する
 
 const mockIsSetupRequired = vi.fn();
-vi.mock('$lib/server/services/setup-service', () => ({
-	isSetupRequired: () => mockIsSetupRequired(),
-}));
+// #4860 must-B: 「完了」判定を子供の人数から切り離したため、hooks は 2 つ目の問い
+// (ウィザードを歩いている最中か) も投げる。既定は「歩いていない」= 従来の挙動。
+const mockIsSetupWizardInProgress = vi.fn(() => false);
+vi.mock('$lib/server/services/setup-service', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/services/setup-service')>(
+		'$lib/server/services/setup-service',
+	);
+	return {
+		isSetupRequired: () => mockIsSetupRequired(),
+		isSetupWizardInProgress: () => mockIsSetupWizardInProgress(),
+		// 判定そのものは実物を使う (mock で真理値表を上書きすると gate の意味が消える)
+		shouldBlockSetupAccess: actual.shouldBlockSetupAccess,
+	};
+});
 
 vi.mock('$lib/server/logger', () => ({
 	logger: {
@@ -38,6 +49,15 @@ vi.mock('$lib/server/services/consent-service', () => ({
 const mockResolveIdentity = vi.fn();
 const mockResolveContext = vi.fn();
 const mockAuthorize = vi.fn();
+
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => currentAuthMode,
+	// #4834: hooks の rate limit / 再同意 gate の dev 除外は isCognitoDevMode() (SSOT) を読む。本結合テストは
+	// 「cognito 本番」として gate が効く側を検証するため false 固定
+	isCognitoDevMode: () => false,
+}));
 
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthProvider: () => ({
@@ -191,7 +211,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			}
 		});
 
-		it('セットアップ完了済みで /setup アクセス → / にリダイレクト', async () => {
+		it('セットアップ完了済みで /setup アクセス → /admin にリダイレクト (保護者の戻り先。/ は子供の着地 router)', async () => {
 			currentAuthMode = 'local';
 			mockIsSetupRequired.mockResolvedValue(false);
 			mockAuthorize.mockReturnValue({ allowed: true });
@@ -205,7 +225,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 				expect.fail('redirect should have been thrown');
 			} catch (e) {
 				expect(e).toBeInstanceOf(RedirectError);
-				expect((e as RedirectError).location).toBe('/');
+				expect((e as RedirectError).location).toBe('/admin');
 			}
 		});
 
@@ -224,6 +244,98 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(event.locals.authenticated).toBe(false);
 			expect(event.locals.identity).toBeNull();
 			expect(event.locals.context).toBeNull();
+		});
+	});
+
+	describe('#4860 セットアップウィザードの途中は /setup を塞がない', () => {
+		// step 1 で子供を 1 人登録すると isSetupRequired が false になる。旧実装はそれだけで
+		// /setup を全部塞いでいたため、残り 8 step が原理的に開けなかった (実測)。
+		// 真理値表は tests/unit/services/setup-wizard-reachability-4860.test.ts が持つ。
+		// ここでは hooks が実際にその判定を通しているかを見る。
+		// 実装から読んだ実際の遷移順 (各 +page.server.ts の redirect 先を辿ったもの)。
+		// **1 つでも塞がれていれば、その先の step には二度と到達できない**ので、
+		// questionnaire だけでなく 9 path すべてを gate に投げる。
+		//
+		// **ここで分かるのは「gate がその path を塞いでいないこと」だけ**で、その画面が
+		// 実際に描画できるか (各 step の load / action の連鎖) は見ていない。通し歩行の
+		// 保証ではない — 誇張しないために書く (tests/unit/routes/setup-wizard-walkthrough-4863.test.ts
+		// の header に、どの層が何を見ているかの全体を書いてある)。
+		const WIZARD_STEPS = [
+			'/setup/children',
+			'/setup/questionnaire',
+			'/setup/packs',
+			'/setup/rewards',
+			'/setup/rules',
+			'/setup/activities-defaults',
+			'/setup/challenges',
+			'/setup/first-adventure',
+			'/setup/complete',
+		];
+
+		it.each(WIZARD_STEPS)('子供 1 人 + 歩いている最中は %s を通す', async (path) => {
+			currentAuthMode = 'local';
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(true);
+			mockAuthorize.mockReturnValue({ allowed: true });
+
+			const event = createMockEvent(path);
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const result = await handle({ event, resolve } as any);
+			expect(result, `ウィザードの途中なのに ${path} が塞がれている`).toBeDefined();
+		});
+
+		it.each(WIZARD_STEPS)('歩き終えていれば %s は /admin へ 302 する', async (path) => {
+			currentAuthMode = 'local';
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(false);
+			mockAuthorize.mockReturnValue({ allowed: true });
+
+			const event = createMockEvent(path);
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/admin');
+			}
+		});
+
+		// #4887 監査 §2-4 の回帰 pin: 「完了済みブロック」が認可より前にあると child の /setup が
+		// `/` に落ち、#4700 の理由コードが消える。判定の中身は
+		// tests/unit/architecture/setup-route-role-guard-fitness.test.ts が持つ (あれは authorizeCognito
+		// 単体なので、hooks の順序が壊れても緑のままだった)。ここは **順序だけ**を見る。
+		it('認可で拒否される role の /setup は認可の redirect 先へ倒れる (完了済みブロックより先)', async () => {
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' } as Identity);
+			mockResolveContext.mockResolvedValue({
+				tenantId: 't-1',
+				role: 'child',
+				licenseStatus: 'none',
+			} as AuthContext);
+			mockIsSetupRequired.mockResolvedValue(false);
+			mockIsSetupWizardInProgress.mockReturnValue(false);
+			mockAuthorize.mockReturnValue({
+				allowed: false,
+				redirect: '/switch?reason=admin_forbidden',
+				status: 403,
+			});
+
+			const event = createMockEvent('/setup/children');
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/switch?reason=admin_forbidden');
+			}
 		});
 	});
 
@@ -476,6 +588,69 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(resolve).toHaveBeenCalled();
 			// context なしで通す (課金権限は与えない)
 			expect(event.locals.context).toBeNull();
+		});
+	});
+	// ── #4497: 同意 gate の適用範囲 ──────────────────────────────────
+	//
+	// CURRENT_PRIVACY_VERSION の bump によって、この gate は本 PR で初めて実際に発火する
+	// (それまでは誰も needsReconsent にならず潜在していた)。誰が再同意画面に流されるのかを
+	// 固定しておかないと、子供まで法務文書に突き当たる事故が silent に混入する。
+	describe('#4497 同意 gate の適用範囲', () => {
+		function setupCognito(role: AuthContext['role']) {
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' } as Identity);
+			mockResolveContext.mockResolvedValue({
+				tenantId: 't-1',
+				role,
+				licenseStatus: 'none',
+			} as AuthContext);
+			mockAuthorize.mockReturnValue({ allowed: true });
+			mockCheckConsent.mockResolvedValue({
+				needsReconsent: true,
+				termsAccepted: true,
+				privacyAccepted: false,
+				crossBorderAccepted: false,
+			});
+		}
+
+		it('保護者 (owner) が再同意対象なら /consent へリダイレクトされる', async () => {
+			setupCognito('owner');
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			try {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock
+				await handle({ event, resolve } as any);
+				expect.fail('redirect should have been thrown');
+			} catch (e) {
+				expect(e).toBeInstanceOf(RedirectError);
+				expect((e as RedirectError).location).toBe('/consent');
+			}
+		});
+
+		// 同意主体は保護者 (privacy.html 第9条)。子供に法務文書のチェックボックスを操作させると
+		// 同意を得る相手を間違えるうえ、同意後は行き場のない /admin へ飛ばされる。
+		it('子供セッションは再同意対象でも子供画面のまま通す (法務文書へ飛ばさない)', async () => {
+			setupCognito('child');
+			const event = createMockEvent('/preschool/home');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
+
+			expect(response.status).toBe(200);
+			expect(resolve).toHaveBeenCalled();
+		});
+
+		it('子供セッションでは checkConsent 自体を呼ばない (無駄な read も出さない)', async () => {
+			setupCognito('child');
+			const event = createMockEvent('/elementary/home');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await handle({ event, resolve } as any);
+
+			expect(mockCheckConsent).not.toHaveBeenCalled();
 		});
 	});
 });

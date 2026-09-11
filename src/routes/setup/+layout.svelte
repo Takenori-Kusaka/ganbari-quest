@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { page } from '$app/stores';
 import { SETUP_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -9,16 +10,16 @@ let { children } = $props();
 // #2140 MP-5: setup wizard β 採用 — packs/rewards/rules の 3 step に分割
 // #2298: 家族チャレンジ step を rules の後に追加 (任意 step、auto-add 3 件)
 const steps = [
-	{ path: '/setup/children', label: '子供登録' },
-	{ path: '/setup/questionnaire', label: 'かんたん質問' },
-	{ path: '/setup/packs', label: '活動' },
-	{ path: '/setup/rewards', label: 'ごほうび' },
-	{ path: '/setup/rules', label: 'ルール' },
+	{ path: '/setup/children', label: SETUP_LABELS.stepChildren },
+	{ path: '/setup/questionnaire', label: SETUP_LABELS.stepQuestionnaire },
+	{ path: '/setup/packs', label: SETUP_LABELS.stepPacks },
+	{ path: '/setup/rewards', label: SETUP_LABELS.stepRewards },
+	{ path: '/setup/rules', label: SETUP_LABELS.stepRules },
 	// #2322 (EPIC #2319 ③): 活動・ポイント初期設定 (任意 step、skip 可)
-	{ path: '/setup/activities-defaults', label: '活動初期設定' },
-	{ path: '/setup/challenges', label: '家族チャレンジ' },
-	{ path: '/setup/first-adventure', label: 'はじめての冒険' },
-	{ path: '/setup/complete', label: '冒険の始まり' },
+	{ path: '/setup/activities-defaults', label: SETUP_LABELS.stepActivitiesDefaults },
+	{ path: '/setup/challenges', label: SETUP_LABELS.stepChallenges },
+	{ path: '/setup/first-adventure', label: SETUP_LABELS.stepFirstAdventure },
+	{ path: '/setup/complete', label: SETUP_LABELS.stepComplete },
 ];
 
 const currentStepIndex = $derived(
@@ -29,6 +30,24 @@ const currentStepIndex = $derived(
 );
 // steps は空にならないが、index アクセスの型を確定させるため fallback を明示する
 const currentStep = $derived(steps[currentStepIndex] ?? steps[0]);
+
+// #4863 (PO 決裁 2026-09-09): 全 step 共通の出口。
+//
+// ウィザードは中断・再開できるようになった (印が立っている人の「続きをする」は /setup/* に
+// 戻る)。戻された人が「もういい」と思ったときに、**7 回スキップを押させない**ための降り口。
+// 印は立ったままなので、あとで「続きをする」から戻ってこられる。
+//
+// 出す step を絞る理由:
+//   - `/setup/children` … step 1 は子供 0 人だと hooks が全 path を /setup へ 302 するため
+//     出口が**実在しない**。ここは #4860 が page 側で「出口が実在するときだけ出す」を持つので
+//     layout は重ねない
+//   - `/setup/complete` … 印を降ろし終えた画面で、すでに子供ホーム / admin への導線がある
+//
+// step 2〜8 に到達するには子供が 1 人以上要る (各 step の load が 0 人なら /setup/children へ
+// 送る) ので、この範囲では /switch が必ず開く = 無反応リンクにならない。
+const showLeaveWizard = $derived(
+	$page.url.pathname !== '/setup/children' && $page.url.pathname !== '/setup/complete',
+);
 </script>
 
 <div class="setup-page">
@@ -72,6 +91,16 @@ const currentStep = $derived(steps[currentStepIndex] ?? steps[0]);
 		<Card padding="lg">
 			{@render children()}
 		</Card>
+
+		{#if showLeaveWizard}
+			<p class="text-center mt-4">
+				<a
+					href={resolve('/switch')}
+					class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
+					data-testid="setup-leave-wizard"
+				>{SETUP_LABELS.leaveWizard}</a>
+			</p>
+		{/if}
 	</div>
 </div>
 

@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/report-service.ts
 // 月次レポート・成長分析のサービス層
 
+import { isFutureMonth, resolveChildLevel, resolveChildTotalXp } from '$lib/domain/child-metrics';
 import { addDaysJST, monthEndOfKey, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import type { ReportDailySummary } from '$lib/server/db/types';
@@ -268,13 +269,18 @@ export async function getSimpleMonthSummary(
 		tenantId,
 	);
 
+	// #4719: レベルは常に statuses から realtime 導出する (全 backend 共通)。
+	// 集計 summary の `level` は当日 snapshot の意味しか持たず、pg-core (DSQL / PGlite) の
+	// compute-on-read summary は snapshot を持てない (既定 1) ため、summary 経路に乗ると
+	// ホーム / 月次レポートのレベルが常に 1 になっていた (#4680 class)。
+	const currentLevel = await computeCurrentLevel(repos, childId, tenantId);
+
 	if (summaries.length > 0) {
 		const totalActivities = summaries.reduce((sum, s) => sum + s.activityCount, 0);
-		const last = summaries[summaries.length - 1];
 		const totalNewAchievements = summaries.reduce((sum, s) => sum + s.newAchievements, 0);
 		return {
 			totalActivities,
-			currentLevel: last?.level ?? 1,
+			currentLevel,
 			newAchievements: totalNewAchievements,
 		};
 	}
@@ -289,15 +295,27 @@ export async function getSimpleMonthSummary(
 		totalActivities += logs.length;
 	}
 
-	const statuses = await repos.status.findStatuses(childId, tenantId);
-	const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 
 	return {
 		totalActivities,
-		currentLevel: maxLevel,
+		currentLevel,
 		newAchievements,
 	};
+}
+
+/**
+ * #4719: 現在レベル (statuses の最大 level) の realtime 導出。summary 集計表の level snapshot は
+ * backend によって持てない (pg-core は compute-on-read で既定 1) ため、表示用レベルは常にここから取る。
+ */
+async function computeCurrentLevel(
+	repos: ReturnType<typeof getRepos>,
+	childId: ChildId,
+	tenantId: string,
+): Promise<number> {
+	const statuses = await repos.status.findStatuses(childId, tenantId);
+	// #4697: レベル定義は domain SSOT (`resolveChildLevel`) 1 箇所。
+	return resolveChildLevel(statuses);
 }
 
 /**
@@ -344,11 +362,28 @@ export interface DetailedMonthlySummary {
 	categoryBreakdown: Record<string, number>;
 	avgDailyActivities: number;
 	currentLevel: number;
+	/**
+	 * #4697: **その月に台帳 (`point_ledger`) で獲得したポイント**の合計。
+	 *
+	 * 子供画面の所持ポイントと同じ単位で、月ごとに独立した量。旧実装はここに
+	 * `statuses.total_xp` の累計を入れていたため、どの月を見ても同じ数が出て先月比が
+	 * 常に ±0 になり、成長記録ブックは「累計 × 12 ヶ月」を年間合計として出していた。
+	 */
 	totalPoints: number;
+	/**
+	 * #4697: 「つよさ (XP)」= カテゴリ別 totalXp の累計 (登録以降の総量、月に依存しない)。
+	 * ポイントとは別の量なので別フィールドで持ち、画面でも別の名前で出す。
+	 */
+	totalXp: number;
 	maxStreakDays: number;
 	totalNewAchievements: number;
 	daysWithActivity: number;
 	totalDays: number;
+	/**
+	 * #4697: `yearMonth` が今日 (JST) より後の月か。成長記録ブックは 4 月〜翌 3 月を必ず
+	 * 12 行並べるため未来月の枠が生まれる。画面はここを見て数値でなく「—」を出す。
+	 */
+	isFuture: boolean;
 }
 
 /**
@@ -372,6 +407,21 @@ export async function computeDetailedMonthlyReport(
 		tenantId,
 	);
 
+	// #4719: レベル / XP は summary snapshot でなく statuses から realtime 導出 (全 backend 共通)。
+	// pg-core の compute-on-read summary は level snapshot を持てない (既定 1)。
+	// #4697: 定義は domain の 1 関数群に寄せる (閲覧リンク / 証明書 / 成長記録ブックと同じ数になる)。
+	const statuses = await repos.status.findStatuses(childId, tenantId);
+	const realtimeLevel = resolveChildLevel(statuses);
+	const realtimeTotalXp = resolveChildTotalXp(statuses);
+
+	// #4697: 「ポイント」は台帳のその月の獲得合計。旧実装の XP 累計は月ごとに変わらないため
+	// 先月比が常に ±0 になり、成長記録ブックでは 12 ヶ月ぶん足されて年間合計が累計 × 12 になっていた。
+	const today = todayDateJST();
+	const isFuture = isFutureMonth(yearMonth, today);
+	const earnedPoints = isFuture
+		? 0
+		: await repos.point.sumEarnedPointsBetween(childId, startDate, endDate, tenantId);
+
 	if (summaries.length > 0) {
 		const built = buildMonthlySummary(childName, childId, yearMonth, summaries);
 		return {
@@ -381,12 +431,14 @@ export async function computeDetailedMonthlyReport(
 			totalActivities: built.totalActivities,
 			categoryBreakdown: built.categoryBreakdown,
 			avgDailyActivities: built.avgDailyActivities,
-			currentLevel: built.currentLevel,
-			totalPoints: built.totalPoints,
+			currentLevel: realtimeLevel,
+			totalPoints: earnedPoints,
+			totalXp: realtimeTotalXp,
 			maxStreakDays: built.maxStreakDays,
 			totalNewAchievements: built.totalNewAchievements,
 			daysWithActivity: built.daysWithActivity,
 			totalDays: built.totalDays,
+			isFuture,
 		};
 	}
 
@@ -396,7 +448,6 @@ export async function computeDetailedMonthlyReport(
 	let totalDays = 0;
 	const categoryMap: Record<string, number> = {};
 
-	const today = todayDateJST();
 	const limit = endDate < today ? endDate : today;
 
 	for (let dateStr = startDate; dateStr <= limit; dateStr = addDaysJST(dateStr, 1)) {
@@ -412,9 +463,6 @@ export async function computeDetailedMonthlyReport(
 		}
 	}
 
-	const statuses = await repos.status.findStatuses(childId, tenantId);
-	const totalPoints = statuses.reduce((sum, s) => sum + (s.totalXp ?? 0), 0);
-	const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
 	const streakDays = await calculateStreak(childId, limit, tenantId);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 
@@ -425,12 +473,14 @@ export async function computeDetailedMonthlyReport(
 		totalActivities,
 		categoryBreakdown: categoryMap,
 		avgDailyActivities: totalDays > 0 ? Math.round((totalActivities / totalDays) * 10) / 10 : 0,
-		currentLevel: maxLevel,
-		totalPoints,
+		currentLevel: realtimeLevel,
+		totalPoints: earnedPoints,
+		totalXp: realtimeTotalXp,
 		maxStreakDays: streakDays,
 		totalNewAchievements: newAchievements,
 		daysWithActivity,
 		totalDays,
+		isFuture,
 	};
 }
 

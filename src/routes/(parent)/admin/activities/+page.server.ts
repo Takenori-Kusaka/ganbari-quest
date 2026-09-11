@@ -5,6 +5,13 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import {
+	ADMIN_ACTIVITIES_PAGE_LABELS,
+	ADMIN_CHILD_SCOPE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
+	PLAN_GATE_LABELS,
+} from '$lib/domain/labels';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,
@@ -19,6 +26,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadActivityPackFromFile } from '$lib/marketplace/sources/file-source';
 import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -26,6 +34,7 @@ import {
 	deleteActivityWithCleanup,
 	getActivities,
 	getActivityLogCounts,
+	getChildActivities,
 	getMainQuestCount,
 	hasActivityLogs,
 	MAIN_QUEST_MAX,
@@ -45,6 +54,43 @@ import {
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * #4692: 「childIds」form 値 (`all` or CSV) を実 ChildId 配列へ解決する共通 helper。
+ *
+ * 旧実装は action ごとに同じ parse を書き、`importFile` / `clearAll` に至っては childId を
+ * 一切受け取らず tenant 全体 (= 最初の子 / 全員) を対象にしていた。取込・削除の対象範囲は
+ * 「選択中の子」であるべき (ADR-0055 per-child 主軸) なので、解決を 1 箇所に集約する。
+ */
+async function resolveTargetChildIds(raw: string, tenantId: string): Promise<ChildId[]> {
+	if (raw === 'all') {
+		const children = await getAllChildren(tenantId);
+		return children.map((c) => c.id);
+	}
+	return raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((v) => v !== '')
+		.map(asChildId);
+}
+
+/**
+ * #4692: 指定 childId が当該 tenant の子供かを検証する (cross-tenant / 不正 id を弾く)。
+ * rewards の `restoreFile` (#3079) と同型。
+ */
+async function assertOwnChild(
+	childId: ChildId | undefined,
+	tenantId: string,
+): Promise<{ ok: true } | { ok: false; status: 400 | 403; error: string }> {
+	if (!childId) {
+		return { ok: false, status: 400, error: ADMIN_CHILD_SCOPE_LABELS.childRequired };
+	}
+	const allowed = new Set((await getAllChildren(tenantId)).map((c) => c.id));
+	if (!allowed.has(childId)) {
+		return { ok: false, status: 403, error: ADMIN_CHILD_SCOPE_LABELS.childNotFound };
+	}
+	return { ok: true };
+}
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const tenantId = requireTenantId(locals);
@@ -122,14 +168,14 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	toggleVisibility: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const id = asActivityId(formIdString(formData.get('id')));
 		const visible = formData.get('visible') === 'true';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		try {
 			await setActivityVisibility(id, visible, tenantId);
@@ -140,7 +186,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id, visible },
 			});
-			return fail(500, { error: '更新に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.updateFailed });
 		}
 	},
 
@@ -165,9 +211,9 @@ export const actions: Actions = {
 		const childId =
 			childIdRaw != null && String(childIdRaw) !== '' ? asChildId(String(childIdRaw)) : undefined;
 
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
 
 		// プラン制限チェック（カスタム活動数）
@@ -180,7 +226,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(activityLimitCheck.max),
 				),
 			});
 		}
@@ -210,7 +256,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { name, categoryId },
 			});
-			return fail(500, { error: '追加に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.addFailed });
 		}
 	},
 
@@ -236,10 +282,10 @@ export const actions: Actions = {
 		const priorityRaw = formData.get('priority');
 		const priority: 'must' | 'optional' = priorityRaw === 'must' ? 'must' : 'optional';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
 
 		try {
@@ -267,7 +313,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id, name, priority },
 			});
-			return fail(500, { error: '更新に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.updateFailed });
 		}
 	},
 
@@ -276,25 +322,23 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const packId = String(formData.get('packId') ?? '').trim();
 
-		if (!packId) return fail(400, { error: 'パックIDが必要です' });
+		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
 
-		// #2894 AC2: marketplace 取込経路でも free tier のカスタム活動上限を enforce
-		// (importPackToChildren と同型、`create` 単発の gate を取込経路に横展開)。
-		const importPackLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const importPackLimitCheck = await checkActivityLimit(tenantId, importPackLicenseStatus);
-		if (!importPackLimitCheck.allowed) {
-			const tier = await resolveFullPlanTier(
-				tenantId,
-				importPackLicenseStatus,
-				locals.context?.plan,
-			);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					`カスタム活動は最大${importPackLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
-				),
-			});
+		// #4693 PO 回答 (2026-09-03) #1: プリセット取込は quota の母集団 (custom) を消費しない
+		// (`seed` 行、LP「プリセット活動の利用 = 無料」)。旧実装 (#2894) はここで
+		// `checkActivityLimit` を通していたため、custom 3/3 のテナントがテンプレを取り込めなかった。
+		// 上限は strategy 層 (`enforceActivityQuota`、custom 行だけを数える) が担う。
+
+		// #4692: 取込先 child を明示する (service 側の first-child silent fallback 廃止)。
+		// 本 action は `childIds` を受け取らない旧 form 互換経路のため、未指定は
+		// 「家族全員」に解決する (「最初の子だけに入る」挙動を復活させない)。
+		const importPackChildIdsRaw = String(formData.get('childIds') ?? '').trim();
+		const importPackChildIds = await resolveTargetChildIds(
+			importPackChildIdsRaw === '' ? 'all' : importPackChildIdsRaw,
+			tenantId,
+		);
+		if (importPackChildIds.length === 0) {
+			return fail(400, { error: ADMIN_CHILD_SCOPE_LABELS.childRequired });
 		}
 
 		// #2365 (ADR-0052): Strategy + dispatchImport 経由
@@ -304,18 +348,18 @@ export const actions: Actions = {
 				typeCode: 'activity-pack',
 				rawPayload: source.payload,
 				displayName: source.displayName,
-				ctx: { tenantId, presetId: packId },
+				ctx: { tenantId, presetId: packId, childIds: importPackChildIds },
 			});
 			return result;
 		} catch (e) {
 			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
-				return fail(404, { error: 'パックが見つかりません' });
+				return fail(404, { error: ADMIN_FORM_ERROR_LABELS.packNotFound });
 			}
 			logger.error('[admin/activities] パックインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { packId },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -324,7 +368,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const id = asActivityId(formIdString(formData.get('id')));
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		try {
 			if (await hasActivityLogs(id, tenantId)) {
@@ -348,7 +392,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { id },
 			});
-			return fail(500, { error: '削除に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.deleteFailed });
 		}
 	},
 
@@ -356,6 +400,15 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const file = formData.get('file') as File | null;
+
+		// #4692 F1: 復元先は「画面で選択中の子」。旧実装は childId を受け取らず service の
+		// first-child fallback に落ちていたため、けんたのタブで復元してもたろうに 94 件入った。
+		// rewards の restoreFile (#3079) と同型に childId 必須 + 所属検証する。
+		const restoreChildId = asChildId(formIdString(formData.get('childId')));
+		const restoreChildCheck = await assertOwnChild(restoreChildId, tenantId);
+		if (!restoreChildCheck.ok) {
+			return fail(restoreChildCheck.status, { error: restoreChildCheck.error });
+		}
 
 		// #2365 (ADR-0052): Strategy + dispatchImport 経由 + file-source adapter
 		let loaded: { activities: unknown[]; displayName: string };
@@ -371,7 +424,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] ファイル解析失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(400, { error: 'ファイルの解析に失敗しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.fileParseFailed });
 		}
 
 		try {
@@ -379,14 +432,14 @@ export const actions: Actions = {
 				typeCode: 'activity-pack',
 				rawPayload: { activities: loaded.activities },
 				displayName: loaded.displayName,
-				ctx: { tenantId },
+				ctx: { tenantId, childIds: [restoreChildId] },
 			});
 			return result;
 		} catch (e) {
 			logger.error('[admin/activities] ファイルインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -396,7 +449,7 @@ export const actions: Actions = {
 		const id = asActivityId(formIdString(formData.get('id')));
 		const enabled = formData.get('enabled') === 'true';
 
-		if (!id) return fail(400, { error: 'IDが必要です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idRequired });
 
 		const result = await setMainQuest(id, enabled, tenantId);
 		if ('error' in result) {
@@ -410,7 +463,6 @@ export const actions: Actions = {
 	// childIds=all で全 child、childIds=1,2,3 で個別 child 配列
 	// Round 18 Cluster H (#13/#16/#20/#25/#28): selectedIndexes (CSV) で subset 取込対応。
 	// 未指定なら全件 (後方互換)。指定された index で payload.activities を slice してから strategy へ。
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: subset 取込分岐 + childIds parse + 既存エラーハンドリング統合のため。subset slice ロジックを別 helper に切り出す refactor は別 Issue で対応 (Round 18 Cluster H scope 外)
 	importPackToChildren: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -418,41 +470,21 @@ export const actions: Actions = {
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 		const selectedIndexesRaw = String(formData.get('selectedIndexes') ?? '').trim();
 
-		if (!packId) return fail(400, { error: 'パックIDが必要です' });
-		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+		if (!packId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.packIdRequired });
+		if (!childIdsRaw) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.targetChildRequired });
 
-		// #2894 AC2: free tier のカスタム活動上限 (maxActivities=3, tenant-wide) を取込経路でも
-		// enforce する。`create` action には上限 check があったが import 経路は漏れており
-		// (root cause: SSOT 上の上限が取込で bypass されていた)、free tier が上限超過で取込できた。
-		// `create` と同じ PlanLimitError 形式で 403 を返し、UI 側で構造化メッセージ + upgrade 導線を出す。
-		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
-		if (!activityLimitCheck.allowed) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
-				),
-			});
-		}
+		// #4693 PO 回答 (2026-09-03) #1: marketplace 取込 (プリセット) は `seed` 行しか作らず
+		// quota (custom のみ) を消費しないため、route 側の `checkActivityLimit` gate は通さない。
+		// 旧実装 (#2894 AC2) は「取込経路の gate 漏れ」として custom と同じ gate を掛けていたが、
+		// LP (pricing「プリセット活動の利用 = 無料」) / activity-source.ts / strategy 層の 3 つと
+		// この route だけがずれ、custom 3/3 でテンプレ取込が 403 になっていた。上限は strategy 層
+		// (`enforceActivityQuota`) が custom 行だけを見て切る (プリセット取込では 0 行)。
 
-		// childIds: 'all' or comma-separated number list
-		let childIds: ChildId[] | undefined;
-		if (childIdsRaw === 'all') {
-			const children = await getAllChildren(tenantId);
-			childIds = children.map((c) => c.id);
-		} else {
-			childIds = childIdsRaw
-				.split(',')
-				.map((s) => s.trim())
-				.filter((v) => v !== '')
-				.map(asChildId);
-		}
+		// childIds: 'all' or comma-separated id list (#4692 で共通 helper に集約)
+		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 
-		if (!childIds || childIds.length === 0) {
-			return fail(400, { error: '有効な対象が指定されていません' });
+		if (childIds.length === 0) {
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.noValidTargets });
 		}
 
 		// Round 18 Cluster H: subset 取込 — selectedIndexes が指定されたら payload を slice。
@@ -463,7 +495,7 @@ export const actions: Actions = {
 		// 明示的な空指定 ('' でない空 csv 例: ',,,') は次の `=== ''` 分岐で fail させる。
 		const selectedIndexes = parseImportIndexes(selectedIndexesRaw);
 		if (selectedIndexesRaw !== '' && selectedIndexes === null) {
-			return fail(400, { error: '取り込む活動が選択されていません' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.noActivitiesSelectedToImport });
 		}
 
 		try {
@@ -476,7 +508,7 @@ export const actions: Actions = {
 					.filter((i) => i < allActivities.length)
 					.map((i) => allActivities[i]);
 				if (subset.length === 0) {
-					return fail(400, { error: '取り込む活動が選択されていません' });
+					return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.noActivitiesSelectedToImport });
 				}
 				rawPayload = {
 					...(source.payload as Record<string, unknown>),
@@ -492,13 +524,13 @@ export const actions: Actions = {
 			return { perChildImport: true, ...result };
 		} catch (e) {
 			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
-				return fail(404, { error: 'パックが見つかりません' });
+				return fail(404, { error: ADMIN_FORM_ERROR_LABELS.packNotFound });
 			}
 			logger.error('[admin/activities] per-child 取込失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { packId, childIds, selectedIndexCount: selectedIndexes?.length ?? null },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -513,7 +545,7 @@ export const actions: Actions = {
 		const singleTargetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId) {
-			return fail(400, { error: 'コピー元のお子さまが必要です' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.copySourceChildRequired });
 		}
 
 		// targetChildIds (CSV) 優先、なければ targetChildId (単一) を使う
@@ -529,7 +561,7 @@ export const actions: Actions = {
 		}
 
 		if (!targetChildIds || targetChildIds.length === 0) {
-			return fail(400, { error: 'コピー先のお子さまが必要です' });
+			return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.copyTargetChildRequired });
 		}
 
 		// #3740: copy は元活動の source ('custom' 含む) を保全して複製するため quota を消費する。
@@ -543,7 +575,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${copyLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(copyLimitCheck.max),
 				),
 			});
 		}
@@ -552,10 +584,12 @@ export const actions: Actions = {
 			const target = targetChildIds[0];
 			if (targetChildIds.length === 1 && target !== undefined) {
 				if (sourceChildId === target) {
-					return fail(400, { error: '同じお子さまにはコピーできません' });
+					return fail(400, { error: ADMIN_ACTIVITIES_PAGE_LABELS.sameChildCopyNotAllowed });
 				}
+				// #4694: 重複 (同名 + 同カテゴリ) は service 側で skip される。
+				// 件数を UI に返し「N 件コピー / M 件は既にあるためスキップ」を出す。
 				const copied = await copyChildActivitiesToSibling(tenantId, sourceChildId, target);
-				return { copyResult: true, copiedCount: copied.length };
+				return { copyResult: true, copiedCount: copied.copied, skippedCount: copied.skipped };
 			}
 			const result = await copyChildActivitiesToSiblings({
 				tenantId,
@@ -570,6 +604,7 @@ export const actions: Actions = {
 			return {
 				copyResult: true,
 				copiedCount: result.totalCopied,
+				skippedCount: result.totalSkipped,
 				errorCount: result.errors.length,
 			};
 		} catch (e) {
@@ -577,7 +612,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { sourceChildId, targetChildIds },
 			});
-			return fail(500, { error: 'コピーに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.copyFailed });
 		}
 	},
 
@@ -594,11 +629,11 @@ export const actions: Actions = {
 		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item4: NaN/負/巨大/非整数を [0,99] int or null に clamp
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
-		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 		if (!categoryId || !getCategoryById(categoryId)) {
-			return fail(400, { error: 'カテゴリを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.categoryRequired });
 		}
-		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+		if (!childIdsRaw) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.targetChildRequired });
 
 		// #2894 AC2: bulk create も free tier のカスタム活動上限を enforce (`create` 単発と同型)。
 		const bulkLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
@@ -609,24 +644,14 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`カスタム活動は最大${bulkActivityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+					PLAN_GATE_LABELS.activityLimitReached(bulkActivityLimitCheck.max),
 				),
 			});
 		}
 
-		let childIds: ChildId[];
-		if (childIdsRaw === 'all') {
-			const children = await getAllChildren(tenantId);
-			childIds = children.map((c) => c.id);
-		} else {
-			childIds = childIdsRaw
-				.split(',')
-				.map((s) => s.trim())
-				.filter((v) => v !== '')
-				.map(asChildId);
-		}
+		const childIds = await resolveTargetChildIds(childIdsRaw, tenantId);
 		if (childIds.length === 0) {
-			return fail(400, { error: '有効な対象が指定されていません' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.noValidTargets });
 		}
 
 		const repos = getRepos();
@@ -648,15 +673,24 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { name, categoryId, childIds },
 			});
-			return fail(500, { error: '一括追加に失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.bulkAddFailed });
 		}
 	},
 
-	clearAll: async ({ locals }) => {
+	// #4692 F3: 「すべて削除」は選択中の子だけを対象にする。
+	// 旧実装は tenantId だけを見て tenant 全 child の活動を消していたため、まさとのタブで
+	// 押しただけで 5 人 352 件が消えていた (確認文にも対象範囲が無かった)。
+	clearAll: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = asChildId(formIdString(formData.get('childId')));
+		const childCheck = await assertOwnChild(childId, tenantId);
+		if (!childCheck.ok) {
+			return fail(childCheck.status, { error: childCheck.error });
+		}
 
 		try {
-			const activities = await getActivities(tenantId, { includeHidden: true });
+			const activities = await getChildActivities(childId, tenantId, { includeHidden: true });
 			let deleted = 0;
 			let hidden = 0;
 
@@ -675,9 +709,9 @@ export const actions: Actions = {
 			logger.error('[admin/activities] 一括クリア失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(500, { error: '一括クリアに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.bulkClearFailed });
 		}
 	},
-};
+} satisfies Actions);
 
 // #2365 (ADR-0052): 旧 parseCsvActivities は `$lib/marketplace/sources/file-source.ts` に移管

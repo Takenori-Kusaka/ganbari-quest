@@ -4,6 +4,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { getMemberRoleLabel, OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -38,7 +39,11 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'userId が必要です' }, { status: 400 });
 	}
 
-	if (identity.userId === targetUserId) {
+	// #4643: 比較・更新対象はいずれも users.user_id。identity.userId (IdP の sub) では
+	// 自己移譲 guard が成立せず、旧 owner の降格 DELETE も 0 件で owner が 2 人残っていた。
+	const currentUserId = requireAppUserId(locals);
+
+	if (currentUserId === targetUserId) {
 		return json({ error: '自分自身には移譲できません' }, { status: 400 });
 	}
 
@@ -65,9 +70,9 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	});
 
 	// 旧 owner を parent に降格（delete + create）。この間は新 owner が owner。
-	await repos.auth.deleteMembership(identity.userId, tenantId);
+	await repos.auth.deleteMembership(currentUserId, tenantId);
 	await repos.auth.createMembership({
-		userId: identity.userId,
+		userId: currentUserId,
 		tenantId,
 		role: 'parent',
 	});
@@ -89,7 +94,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	}
 
 	logger.info('[members] owner 権限移譲', {
-		context: { tenantId, oldOwner: identity.userId, newOwner: targetUserId },
+		context: { tenantId, oldOwner: currentUserId, newOwner: targetUserId },
 	});
 
 	return json({ success: true });

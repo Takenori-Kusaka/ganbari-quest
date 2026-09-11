@@ -2,6 +2,7 @@
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import AiInputNotice from './AiInputNotice.svelte';
 
 export interface RewardPreviewData {
 	title: string;
@@ -119,6 +120,7 @@ function acceptPreview() {
 			{/if}
 		</Button>
 	</div>
+	<AiInputNotice testid="ai-input-notice-reward" />
 	{#if aiLoading}
 		<ProgressMessage
 			messages={[COMMON.progressBaseAi, COMMON.progressBaseWait, COMMON.progressBaseFinal]}

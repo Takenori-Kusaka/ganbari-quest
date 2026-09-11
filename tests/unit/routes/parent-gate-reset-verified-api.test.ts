@@ -201,6 +201,15 @@ describe('POST /api/v1/parent-gate/reset-verified (#2993)', () => {
 		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
 	});
 
+	it('PIN format 不正 (6 桁、旧 4〜6 桁ポリシー) は 400 PIN_FORMAT (#4698 桁数 SSOT)', async () => {
+		const { event } = makeEvent({ newPin: '123456' });
+		const res = await POST(event);
+
+		expect(res.status).toBe(400);
+		expect(await res.json()).toEqual({ ok: false, error: 'PIN_FORMAT' });
+		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
+	});
+
 	it('password 空は 400 PASSWORD_REQUIRED', async () => {
 		const { event } = makeEvent({ password: '' });
 		const res = await POST(event);

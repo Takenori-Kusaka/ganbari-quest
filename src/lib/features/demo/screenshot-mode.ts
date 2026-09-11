@@ -10,7 +10,7 @@
 //
 // #1893 (PO-4-7、8 回目指摘): screenshot mode の `mode` 区分を追加。
 //   - 'noise-only' (default, 後方互換): demo 固有の販促 UI のみ非表示。本番 UI は
-//     現状維持（バナー / プラン切替トグル / DemoGuideBar / floating CTA を hide）。
+//     現状維持（バナー / プラン切替トグル / floating CTA を hide）。
 //   - 'all': 'noise-only' に加え、本番 UI でも「screenshot 用に強制表示すべき要素」
 //     (MilestoneBanner / TutorialOverlay 等) を強制 ON にする。LP 配信 SS が本番 NUC
 //     と一致するよう要素を強制レンダリングする。`?screenshot=all` で有効化。

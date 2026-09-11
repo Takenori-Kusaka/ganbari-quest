@@ -12,6 +12,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { openMenu } from './helpers/goal-flows';
 
 test.describe('admin/rewards per-child UX (#2362 PR-4)', () => {
 	test('子供タブ row + actions が表示される', async ({ page }) => {
@@ -56,7 +57,9 @@ test.describe('admin/rewards per-child UX (#2362 PR-4)', () => {
 		await expect(page.getByTestId('child-selection-confirm')).toBeVisible();
 	});
 
-	test('「他の子供から copy」 dialog open + radio 選択 → confirm 有効化', async ({ page }) => {
+	// #4716: 「別のお子さまからコピー」は本文の独立ボタンから header の + 追加 dropdown に移した
+	//   (活動 / チェックリストと同じ場所に揃える)。起動経路が変わったので開き方も dropdown 経由にする。
+	test('「別のお子さまからコピー」 dialog open + radio 選択 → confirm 有効化', async ({ page }) => {
 		await page.goto('/admin/rewards');
 		const tabs = page.locator('[data-testid^="rewards-child-tab-"]');
 		const count = await tabs.count();
@@ -67,9 +70,8 @@ test.describe('admin/rewards per-child UX (#2362 PR-4)', () => {
 			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
 		).toBeGreaterThanOrEqual(2);
 
-		const copyBtn = page.getByTestId('rewards-copy-from-child-btn');
-		await expect(copyBtn).toBeVisible();
-		await copyBtn.click();
+		await openMenu(page, 'rewards-add-menu', 'menu-item-copy');
+		await page.getByTestId('menu-item-copy').click();
 
 		await expect(page.getByTestId('rewards-copy-from-child-dialog')).toBeVisible();
 		// 他の child が選択肢として並ぶ (selectedChild は除外される)

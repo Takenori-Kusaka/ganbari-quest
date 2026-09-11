@@ -8,21 +8,34 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetSignedUrl } = vi.hoisted(() => ({
+const { mockGetSignedUrl, mockSend } = vi.hoisted(() => ({
 	mockGetSignedUrl: vi.fn(),
+	mockSend: vi.fn(),
 }));
 
+class FakeCommand {
+	input: unknown;
+	constructor(input: unknown) {
+		this.input = input;
+	}
+}
+
 vi.mock('@aws-sdk/client-s3', () => ({
-	S3Client: class {},
-	GetObjectCommand: class {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
+	S3Client: class {
+		send = mockSend;
 	},
+	GetObjectCommand: FakeCommand,
+	ListObjectsV2Command: class extends FakeCommand {},
+	ListObjectVersionsCommand: class extends FakeCommand {},
+	DeleteObjectsCommand: class extends FakeCommand {},
 }));
 vi.mock('@aws-sdk/s3-request-presigner', () => ({
 	getSignedUrl: mockGetSignedUrl,
+}));
+
+const { loggerError } = vi.hoisted(() => ({ loggerError: vi.fn() }));
+vi.mock('$lib/server/logger', () => ({
+	logger: { error: loggerError, warn: vi.fn(), info: vi.fn() },
 }));
 
 afterEach(() => {
@@ -45,5 +58,230 @@ describe('s3 storage-repo getDownloadUrl (#3504)', () => {
 		];
 		expect(cmd.input.Key).toBe('exports/t1/ABC234/backup.zip');
 		expect(opts.expiresIn).toBe(300);
+	});
+});
+
+/**
+ * #4724: バージョニングを有効にしたため `deleteByPrefix` は delete marker を立てるだけになった。
+ * 退会 (完全削除) は法務文書が「猶予期間後に完全削除」と約束しているので、
+ * **バージョンを名指しして消す経路** (`purgeByPrefix`) が要る。
+ *
+ * ここが `ListObjectsV2` に戻ると「消したつもりで 30 日残る」に静かに戻るため、
+ * 発行するコマンドの種類ごと固定する。
+ */
+describe('s3 storage-repo purgeByPrefix (#4724)', () => {
+	it('全バージョンと delete marker を VersionId 指定で削除する', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'tenants/t1/avatars/c1/a.webp', VersionId: 'v1' },
+					{ Key: 'tenants/t1/avatars/c1/a.webp', VersionId: 'v2' },
+				],
+				DeleteMarkers: [{ Key: 'tenants/t1/voices/c1/b.webm', VersionId: 'dm1' }],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		const deleted = await purgeByPrefix('tenants/t1/');
+
+		expect(deleted).toBe(3);
+
+		const [listCmd] = mockSend.mock.calls[0] as [{ input: { Prefix: string } }];
+		expect(listCmd.constructor.name).toBe('ListObjectVersionsCommand');
+		expect(listCmd.input.Prefix).toBe('tenants/t1/');
+
+		const [deleteCmd] = mockSend.mock.calls[1] as [
+			{ input: { Delete: { Objects: Array<{ Key: string; VersionId: string }> } } },
+		];
+		expect(deleteCmd.constructor.name).toBe('DeleteObjectsCommand');
+		// **VersionId が付いていること**が要点。付いていないと delete marker を立てるだけになる
+		expect(deleteCmd.input.Delete.Objects).toEqual([
+			{ Key: 'tenants/t1/avatars/c1/a.webp', VersionId: 'v1' },
+			{ Key: 'tenants/t1/avatars/c1/a.webp', VersionId: 'v2' },
+			{ Key: 'tenants/t1/voices/c1/b.webm', VersionId: 'dm1' },
+		]);
+	});
+
+	it('ページングを最後まで辿る (1000 件で打ち切らない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [{ Key: 'tenants/t1/a', VersionId: 'v1' }],
+				IsTruncated: true,
+				NextKeyMarker: 'tenants/t1/a',
+				NextVersionIdMarker: 'v1',
+			})
+			.mockResolvedValueOnce({})
+			.mockResolvedValueOnce({
+				Versions: [{ Key: 'tenants/t1/b', VersionId: 'v2' }],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		expect(await purgeByPrefix('tenants/t1/')).toBe(2);
+
+		const [secondList] = mockSend.mock.calls[2] as [
+			{ input: { KeyMarker?: string; VersionIdMarker?: string } },
+		];
+		expect(secondList.input.KeyMarker).toBe('tenants/t1/a');
+		expect(secondList.input.VersionIdMarker).toBe('v1');
+	});
+
+	/**
+	 * #4767 QM: **DeleteObjects は個々のキーの失敗を例外にしない**。
+	 *
+	 * AccessDenied / object lock / MFA delete で消せなかったオブジェクトは HTTP 200 の応答本文の
+	 * `Errors[]` に並ぶだけで、SDK は throw しない。ここを見ないと「一部残っているのに全件削除できた」
+	 * と報告し、呼び出し元 (クラウド共有の削除 / 退会の完全削除) は **完全 PII の実体が S3 に残ったまま**
+	 * DB 行を消す。以後どの画面からも辿れない孤児になり、退会の「完全削除」の約束も静かに破れる。
+	 */
+	it('failOnPartialError 指定時は 200 応答でも Errors[] があれば投げる (部分削除を成功と報告しない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' },
+					{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v2' },
+				],
+				IsTruncated: false,
+			})
+			// HTTP 200 だが 1 件は消せていない (これが S3 の通常の返し方)
+			.mockResolvedValueOnce({
+				Deleted: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				Errors: [
+					{
+						Key: 'exports/t1/ABC234/backup.zip',
+						VersionId: 'v2',
+						Code: 'AccessDenied',
+						Message: 'Access Denied',
+					},
+				],
+			});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		await expect(purgeByPrefix('exports/t1/ABC234/', { failOnPartialError: true })).rejects.toThrow(
+			/purge partially failed/i,
+		);
+	});
+
+	/**
+	 * #4767 QM must: **既定は tolerant のまま**。
+	 *
+	 * 退会 (`account-deletion-service` の 2 経路) はこの呼び出しを try/catch で包んでおらず、
+	 * 直前に削除記録の書き込みとサブスク解約を終えている。ここで throw すると不可逆な退会フローが
+	 * 途中で壊れる — 直そうとした障害 (孤児 PII) より悪い。
+	 * 既定では error ログに残したうえで続行し、**成功した分だけ**を件数に数える。
+	 */
+	it('既定 (opts なし) は投げずに続行し、成功した分だけ数える + error ログを残す', async () => {
+		loggerError.mockClear();
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v1' },
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v2' },
+					{ Key: 'tenants/t1/b.webm', VersionId: 'v3' },
+				],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({
+				Deleted: [
+					{ Key: 'tenants/t1/a.webp', VersionId: 'v1' },
+					{ Key: 'tenants/t1/b.webm', VersionId: 'v3' },
+				],
+				Errors: [{ Key: 'tenants/t1/a.webp', VersionId: 'v2', Code: 'AccessDenied' }],
+			});
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		// 投げない = 呼び出し元 (退会) のフローは続く
+		expect(await purgeByPrefix('tenants/t1/')).toBe(2);
+		// silent にしない (ADR-0006): 消えていない実体があったことは必ず記録する。
+		// #4867: どの家庭のどの成果物が残ったかを追えるよう prefix も記録する (第 2 引数)。
+		expect(loggerError).toHaveBeenCalledWith(
+			expect.stringContaining('purge partially failed'),
+			expect.objectContaining({ context: expect.objectContaining({ prefix: 'tenants/t1/' }) }),
+		);
+	});
+
+	it('Errors[] が空なら strict でも成功として件数を返す (上の test が無条件 throw でないことの対照)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Versions: [{ Key: 'exports/t1/ABC234/backup.zip', VersionId: 'v1' }],
+				IsTruncated: false,
+			})
+			.mockResolvedValueOnce({ Deleted: [{ Key: 'exports/t1/ABC234/backup.zip' }], Errors: [] });
+
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+
+		expect(await purgeByPrefix('exports/t1/ABC234/', { failOnPartialError: true })).toBe(1);
+	});
+
+	// 通常削除は「戻せる削除」のまま。ここが purge に変わると子供の削除が復元不能になる。
+	it('deleteByPrefix は VersionId を指定しない (戻せる削除のまま)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Contents: [{ Key: 'tenants/t1/avatars/c1/a.webp' }] })
+			.mockResolvedValueOnce({});
+
+		const { deleteByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		await deleteByPrefix('tenants/t1/avatars/c1/');
+
+		const [deleteCmd] = mockSend.mock.calls[1] as [
+			{ input: { Delete: { Objects: Array<Record<string, unknown>> } } },
+		];
+		expect(deleteCmd.input.Delete.Objects).toEqual([{ Key: 'tenants/t1/avatars/c1/a.webp' }]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4867: PIN がログ・例外に出ないこと — **repo 層を実際に走らせて**確かめる
+//
+// クラウド共有 export の key は `exports/<tenantId>/<pinCode>/<file>` で PIN を含む。
+// `purgeByPrefix` は失敗キーから `${e.Key}:${e.Code}` を組み、(a) tolerant 経路で
+// logger.error に (b) fail-closed 経路で `throw new Error(summary)` に流す。(b) は
+// 呼び出し元の `error: err.message` に載るので、**ここで伏せないと上位の redact を素通りする**。
+//
+// 別 file の振る舞い test (`pin-not-logged-callsites`) は `$lib/server/db/factory` を
+// mock するため repo 層に 1 行も到達しない (adversarial 実測で N2/N3 が生存)。
+// この file は `@aws-sdk/client-s3` を mock しているので **repo の実コードが動く**。
+// ---------------------------------------------------------------------------
+describe('#4867 purgeByPrefix は PIN をログにも例外にも出さない', () => {
+	const PIN = 'K7M2QX';
+	const KEY = `exports/t-alice/${PIN}/backup.zip`;
+
+	it('tolerant 経路: logger に PIN が出ない (テナントと file 名は残る)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Versions: [{ Key: KEY, VersionId: 'v1' }], IsTruncated: false })
+			.mockResolvedValueOnce({
+				Deleted: [],
+				Errors: [{ Key: KEY, VersionId: 'v1', Code: 'AccessDenied' }],
+			});
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		await purgeByPrefix(`exports/t-alice/${PIN}/`);
+
+		const logged = JSON.stringify(loggerError.mock.calls);
+		expect(
+			logged.includes(PIN),
+			`ログに PIN が出ている:
+${logged}`,
+		).toBe(false);
+		expect(logged, 'テナントまで消すと、どの家庭の実体が残ったか分からない').toContain('t-alice');
+		expect(logged, 'エラーコードが読めない').toContain('AccessDenied');
+	});
+
+	it('fail-closed 経路: throw する Error の message にも PIN が出ない', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Versions: [{ Key: KEY, VersionId: 'v1' }], IsTruncated: false })
+			.mockResolvedValueOnce({
+				Deleted: [],
+				Errors: [{ Key: KEY, VersionId: 'v1', Code: 'AccessDenied' }],
+			});
+		const { purgeByPrefix } = await import('../../../src/lib/server/db/s3/storage-repo');
+		await expect(
+			purgeByPrefix(`exports/t-alice/${PIN}/`, { failOnPartialError: true }),
+		).rejects.toThrow(
+			// message に PIN が含まれていたらここで落ちる (呼び出し元の error フィールドに載るため)
+			expect.objectContaining({ message: expect.not.stringContaining(PIN) }),
+		);
 	});
 });

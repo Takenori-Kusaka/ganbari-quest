@@ -59,7 +59,9 @@
 | `desktopHeightWarn` (#1840) | 7800 px | 累積 gate warning 帯 |
 | `forbiddenTerms` | 0 | 開発者語彙 / 射幸性語彙の追加禁止 |
 | `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
-| `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
+| `presetActivityCountClaimedMin` (#1803 / #4713) | 120 以上（**活動名のユニーク数**が基準） | LP 訴求 ≤ 実数 (ADR-0013 LP truth)。延べ件数ではなくユニーク名で裏取りする — activity-packs は男の子 / 女の子 variant が同名活動を重複して持ち、延べ 325 件に対しユニークは 129 種のため、延べ基準だと選べる種類を 2 倍以上に見せる訴求が CI 緑で通る |
+| `presetActivityPackCountClaimedMin` (#4713) | 12 以上 | LP の「NN セット」訴求 ≤ 実 activity-pack 数 |
+| dead anchor (#4714) | 0 | `site/` 直下の全 HTML の内部リンク `…#id` について「リンク先ファイルの実在」と「その id の実在」を検査する。静的 HTML は id を消してもリンクが 200 を返すため、HTTP 到達性の検査では捕まらない（実測 #4714: 4 本が黙ってページ先頭に着地していた） |
 | `lp-visual-regression` (#2401) | per-image diff ≤ 10% | `scripts/lp-screenshot-baseline/*.webp` (git tracked) と CI 撮影 `site/screenshots/*.webp` を pixelmatch 比較。diff > 10% で fail。意図的変更時は `node scripts/check-lp-visual-regression.mjs --update-baseline` で更新 (PR #1893 Phase 2)。更新 flow / triage 手順は [runbooks/lp-visual-regression-baseline.md](runbooks/lp-visual-regression-baseline.md) (#2452) |
 
 閾値緩和は ADR 合意後に `THRESHOLDS` を更新。
@@ -132,7 +134,7 @@ npm run dev:cognito         # AUTH_MODE=cognito + COGNITO_DEV_MODE=true、port 5
 npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必要
 ```
 
-`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops / ops-no-mfa（MFA 未設定の運営者。現在は `/ops` に入れる = #4363 で MFA 要求を撤去。`OPS_MFA_REQUIRED` を戻したときの拒否 → 設定導線の検証用）の 9 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
+`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / google-owner（#3025 federated = Cognito パスワードを持たない Google ログイン相当。PIN reset 分岐の検証用） / ops / ops-no-mfa（MFA 未設定の運営者。現在は `/ops` に入れる = #4363 で MFA 要求を撤去。`OPS_MFA_REQUIRED` を戻したときの拒否 → 設定導線の検証用）の 10 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
 
 使用必須: 認証画面変更 PR の Ready 前 / SS 撮影 / login / signup / ops group / プラン別 UI / 管理画面の変更時。
 
@@ -206,10 +208,10 @@ Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.gith
 
 ## graphify
 
-- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`、`graphify-out/graph.html`。
+- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`（`graphify-out/graph.html` は閲覧用の派生物で git 追跡しない。必要なら `graphify update .` で手元に再生成される）。
 - **Git運用ベストプラクティス（#4536、develop/main 限定に変更）**:
   - **再生成は develop / main 上でのみ行う**。`.husky/post-commit` は現在の branch が `develop` / `main` の場合だけ `graphify update .`（インクリメンタルビルド、AST解析はトークン消費0）を実行する。feature branch では何もしない（早期 `exit 0`）
   - 理由: 以前は全 branch でコミットのたびに再生成していたため、並行する feature branch がそれぞれ独自の graphify-out (`graph.json` 27MB+) を持ち、develop への merge のたびに残り全 PR が graphify-out だけで conflict していた（実測: PR #4514 merge 時、conflict は graphify-out 3 file のみ）。feature branch 側で再生成しないことで、PR の diff から graphify-out が消え conflict が原理的にゼロになる
   - **develop 上の再生成は push 契機の `.github/workflows/graphify-refresh.yml` が担う**。develop / main は branch ruleset が直接 push を拒否するため、差分があれば bot (GitHub App) が `chore/graphify-refresh` branch + PR を発行し、QM/lab が承認・merge する（`hotfix-back-merge.yml` と同型、ADR-0022 準拠・admin bypass なし）。差分が無ければ PR は発行されない
-  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `graph.html`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます（コールドスタート解消の意図は維持）
+  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `manifest.json`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます（コールドスタート解消の意図は維持）。可視化 HTML `graph.html` は graph.json から再生成できる閲覧用の派生物のため追跡しない（`.gitignore`）
 - **探索クエリ**: AIセッション（Claude Code / Gemini 等）は、ドキュメントの矛盾・依存スキャンのため、自律的に `graphify query "<質問>"` を使用して探索・解説を行います。

@@ -1,10 +1,17 @@
 import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
+import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
+import { asChildId } from '$lib/domain/ids';
+import { REWARD_TERMS } from '$lib/domain/terms';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
 } from '$lib/domain/validation/special-reward';
-import { notFound, validationError } from '$lib/server/errors';
+import { requireChildAccess } from '$lib/server/auth/factory';
+import { parentGateResponse } from '$lib/server/auth/owner-gate';
+import { notFound, planLimitError, validationError } from '$lib/server/errors';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	getChildSpecialRewards,
 	grantSpecialReward,
@@ -21,6 +28,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!parsed.success) {
 		return validationError(parsed.issues[0]?.message ?? 'パラメータが不正です');
 	}
+	// child ロールは自分のごほうびのみ。
+	requireChildAccess(locals, parsed.output.childId);
 
 	const result = await getChildSpecialRewards(parsed.output.childId, tenantId);
 	return json(result);
@@ -32,6 +41,29 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+	// #4866 系 QM 監査 (security) / PO 差し戻し 2026-09-09:
+	// `requireChildAccess` は「child が**兄弟**に付与する」ことしか止めておらず、
+	// **child が自分自身に特別なごほうびを付与できた**。特別なごほうびは
+	// 「親が子に贈る」ものなので (`/admin` の 1 画面からしか作られない)、親限定にする。
+	// role 判定はルート横断の唯一の seam 経由 (#3528 / 14-セキュリティ設計書 §5.2.3 §5.2.5)。
+	const roleGate = parentGateResponse(locals);
+	if (roleGate) return roleGate;
+	// 親が他テナントの子 id を渡す経路も塞ぐ (tenant 跨ぎの IDOR)。プラン解決 (DB アクセス)
+	// より**前**に置く — 権限の無い要求のために課金状態を引きに行かない。
+	requireChildAccess(locals, asChildId(params.childId));
+
+	// #4705: ごほうび (ショップ商品) の登録は有料プランの機能。form action 側 (#4584) にしか
+	// gate が無く、本 endpoint は無料プランのまま 201 を返していた。**同じ述語**を読む。
+	const tier = await resolveFullPlanTier(
+		tenantId,
+		context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+		context.plan,
+	);
+	if (!isCustomRewardUnlocked(tier)) {
+		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
+		return planLimitError('standard', REWARD_TERMS.productRegistration, { tenantId, tier });
+	}
+
 	const body = await request.json();
 
 	const parsed = v.safeParse(grantSpecialRewardSchema, {

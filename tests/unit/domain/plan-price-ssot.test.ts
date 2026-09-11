@@ -138,10 +138,19 @@ describe('plan price SSOT (#4533)', () => {
 		});
 
 		it('/ops プラン内訳の行ラベル', () => {
-			expect(OPS_LABELS.planMonthly).toContain(
+			// #4505: 行ラベルは plan 値ごとの表 (planRowLabels) に統合済。
+			expect(OPS_LABELS.planRowLabels[SUBSCRIPTION_PLAN.MONTHLY]).toContain(
 				formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.MONTHLY]),
 			);
-			expect(OPS_LABELS.planYearly).toContain(formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.YEARLY]));
+			expect(OPS_LABELS.planRowLabels[SUBSCRIPTION_PLAN.YEARLY]).toContain(
+				formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.YEARLY]),
+			);
+			expect(OPS_LABELS.planRowLabels[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]).toContain(
+				formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]),
+			);
+			expect(OPS_LABELS.planRowLabels[SUBSCRIPTION_PLAN.FAMILY_YEARLY]).toContain(
+				formatYen(PLAN_PRICE_YEN[SUBSCRIPTION_PLAN.FAMILY_YEARLY]),
+			);
 		});
 	});
 
@@ -150,7 +159,8 @@ describe('plan price SSOT (#4533)', () => {
 	describe('単価を使う実装が SSOT を import している (変異試験の対象)', () => {
 		const CONSUMERS = [
 			'src/lib/server/services/ops-analytics-service.ts',
-			'src/lib/server/services/ops-service.ts',
+			// #4505: /ops プラン内訳の単価掛けは domain の行組み立てに移した (画面が掛け直さない形)。
+			'src/lib/domain/ops-plan-rows.ts',
 			'src/lib/server/services/cohort-analysis-service.ts',
 			'src/lib/server/services/stripe-metrics-service.ts',
 			'src/lib/server/stripe/config.ts',

@@ -106,6 +106,7 @@ async function disableNotifications() {
 		<div
 			class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]"
 			data-testid="notification-browser-status"
+			data-tutorial="notification-browser-status"
 		>
 			<div class="flex items-center justify-between">
 				<span class="text-sm font-medium text-[var(--color-text)]">
@@ -194,10 +195,13 @@ async function disableNotifications() {
 					{SETTINGS_LABELS.notificationReminderLabel}
 				</span>
 			</label>
+			<!-- #4664 F3 / M: リマインダー時刻の欄は「チェックした瞬間」ではなく、保存後に
+			     再読込した data が remindersEnabled=true のときだけ描かれる。ページガイドの
+			     「お知らせの種類」step もその出現条件をそのまま述べる。 -->
 			{#if data.notificationSettings.remindersEnabled}
-				<div class="ml-6">
+				<div class="ml-6" data-tutorial="notification-reminder-time">
 					<FormField
-						label="リマインダー時刻"
+						label={SETTINGS_LABELS.notificationReminderTimeLabel}
 						type="time"
 						name="reminderTime"
 						value={data.notificationSettings.reminderTime}
@@ -226,8 +230,14 @@ async function disableNotifications() {
 					{SETTINGS_LABELS.notificationAchievementLabel}
 				</span>
 			</label>
-			<div class="border-t border-[var(--color-border-default)] pt-4 mt-4">
-				<FormField label="サイレント時間帯" hint="この時間帯は通知を送信しません">
+			<div
+				class="border-t border-[var(--color-border-default)] pt-4 mt-4"
+				data-tutorial="notification-quiet-hours"
+			>
+				<FormField
+					label={SETTINGS_LABELS.notificationQuietLabel}
+					hint={SETTINGS_LABELS.notificationQuietHint}
+				>
 					{#snippet children()}
 						<div class="flex items-center gap-2">
 							<input
@@ -249,7 +259,13 @@ async function disableNotifications() {
 					{/snippet}
 				</FormField>
 			</div>
-			<Button type="submit" variant="primary" size="md" class="w-full">
+			<Button
+				type="submit"
+				variant="primary"
+				size="md"
+				class="w-full"
+				data-tutorial="notification-save"
+			>
 				{SETTINGS_LABELS.notificationSaveAction}
 			</Button>
 		</form>

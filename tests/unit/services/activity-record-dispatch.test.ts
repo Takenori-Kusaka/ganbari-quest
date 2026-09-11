@@ -57,7 +57,19 @@ vi.mock('$lib/server/db/client', () => ({
 // backend 判定のみ差し替え (resolveDbBackend 等は原本のまま)
 vi.mock('$lib/server/db/backend', async (importOriginal) => {
 	const orig = await importOriginal<typeof import('../../../src/lib/server/db/backend')>();
-	return { ...orig, isDsqlBackend: () => h.isDsql };
+	return { ...orig, isPgBackend: () => h.isDsql };
+});
+
+// #4720: pg 専用経路は factory の getPgTransactionRunner から runner 注入を受ける (dsql/connection 直 import 廃止)。
+// sqlite test-db 上で dispatch を検証するため runner だけダミー化する (core 自体を mock するため未使用)。
+vi.mock('$lib/server/db/factory', async (importOriginal) => {
+	const orig = await importOriginal<typeof import('../../../src/lib/server/db/factory')>();
+	return {
+		...orig,
+		getPgTransactionRunner: () => ({
+			runInTransaction: async <T>(work: (tx: unknown) => Promise<T>) => work({}),
+		}),
+	};
 });
 
 // DSQL 接続層: 実 pool を張らないダミー runner (core 自体を mock するため未使用)

@@ -4,6 +4,7 @@ import { isInJstMonth, monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import AiInputNotice from '$lib/features/admin/components/AiInputNotice.svelte';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -64,13 +65,13 @@ const filteredHistory = $derived.by(() => {
 	const prefix = historyPeriod === 'last-month' ? shiftMonthKey(monthKeyJST(), -1) : monthKeyJST();
 	return convertHistory.filter((h) => isInJstMonth(h.createdAt, prefix));
 });
-const thisMonthTotal = $derived.by(() => {
-	const monthKey = monthKeyJST();
-	return convertHistory
-		.filter((h) => isInJstMonth(h.createdAt, monthKey))
-		.reduce((sum, h) => sum + Math.abs(h.amount), 0);
-});
-const allTimeTotal = $derived(convertHistory.reduce((sum, h) => sum + Math.abs(h.amount), 0));
+// #4682 F2: 累計は **server の DB SUM** を使う (一覧の表示件数に依存させない)。
+// 旧実装は「直近 50 行の台帳」から算出していたため、活動が多い子では累計が 0 に見えていた。
+const convertTotals = $derived(
+	selectedChild?.convertTotals ?? { allTime: 0, thisMonth: 0, lastMonth: 0 },
+);
+const thisMonthTotal = $derived(convertTotals.thisMonth);
+const allTimeTotal = $derived(convertTotals.allTime);
 
 // Operation exclusion: prevent concurrent form/scan operations
 const anyOperationBusy = $derived(submitting || receiptScanning);
@@ -117,8 +118,12 @@ async function handleReceiptFile(event: Event) {
 		receiptError = 'JPEG, PNG, WebP形式の画像を選択してください';
 		return;
 	}
-	if (file.size > 5 * 1024 * 1024) {
-		receiptError = '画像サイズは5MB以下にしてください';
+	// #4512: client の事前判定が 5MB 固定で、server の実効上限 (aws-prod は約 4.1MB) と
+	//   食い違っていた。4.1〜5MB の画像は client を通過してから edge で切られ、顧客には
+	//   「通信エラー」しか出ない。**表示 (note) と同じ実効値**で判定する。
+	const maxReceiptBytes = Number(data.maxReceiptImageMb) * 1024 * 1024;
+	if (Number.isFinite(maxReceiptBytes) && file.size > maxReceiptBytes) {
+		receiptError = POINTS_LABELS.receiptImageTooLarge(data.maxReceiptImageMb);
 		return;
 	}
 
@@ -144,7 +149,7 @@ async function handleReceiptFile(event: Event) {
 
 			if (!res.ok) {
 				const errorBody = await res.json();
-				receiptError = errorBody.error?.message ?? '読み取りに失敗しました';
+				receiptError = errorBody.error?.message ?? POINTS_LABELS.receiptScanFailed;
 				receiptScanning = false;
 				return;
 			}
@@ -154,7 +159,7 @@ async function handleReceiptFile(event: Event) {
 			receiptRawText = data.rawText;
 			receiptScanning = false;
 		} catch {
-			receiptError = '通信エラーが発生しました';
+			receiptError = POINTS_LABELS.receiptNetworkError;
 			receiptScanning = false;
 		}
 	};
@@ -169,13 +174,13 @@ async function handleReceiptFile(event: Event) {
 	<title>{PAGE_TITLES.points}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6" data-tutorial="points-section">
+<div class="space-y-6">
 	<div class="flex items-center justify-between mb-1">
 		<div class="flex items-center gap-2">
 			<h2 class="text-lg font-bold">{POINTS_LABELS.pageTitle}</h2>
 		</div>
 		<a
-			href="/admin/settings#point-settings"
+			href="/admin/settings/activities#point-settings"
 			class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-info-text)] flex items-center gap-1 transition-colors"
 		>
 			<span>{POINTS_LABELS.displaySetting(isCurrencyMode, ps.currency)}</span>
@@ -342,6 +347,7 @@ async function handleReceiptFile(event: Event) {
 			{:else}
 				<div class="space-y-3">
 					<span class="block text-sm font-bold text-[var(--color-text-muted)]">{POINTS_LABELS.receiptLabel}</span>
+					<AiInputNotice variant="image" testid="ai-input-notice-receipt" />
 
 					<!-- File input (hidden, triggered by button) -->
 					<input
@@ -523,6 +529,8 @@ async function handleReceiptFile(event: Event) {
 
 	<!-- Convert History -->
 	{#if selectedChild && convertHistory.length > 0}
+		<!-- data-tutorial: ページガイド (#4658) の spotlight anchor (履歴 0 件時は step ごと出ない) -->
+		<div data-tutorial="points-history">
 		<Card padding="lg">
 			<h3 class="font-bold text-[var(--color-text-primary)] mb-4">{POINTS_LABELS.historyTitle}</h3>
 
@@ -590,5 +598,6 @@ async function handleReceiptFile(event: Event) {
 				<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">{POINTS_LABELS.historyEmpty}</p>
 			{/if}
 		</Card>
+		</div>
 	{/if}
 </div>

@@ -21,6 +21,7 @@
  */
 
 import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
+import { devPassword } from '../lib/dev-users.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
@@ -72,7 +73,7 @@ export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/setup/challenges`);
 	if (page.url().includes('/auth/login')) {
 		console.log('[flow] storage-state 失効 — login し直し');
-		await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 		await page.goto(`${BASE_URL}/setup/challenges`);
 	}
 	// guard で /setup/children に飛んだ場合は abort（owner は children seed 済のはず）

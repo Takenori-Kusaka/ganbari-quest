@@ -151,7 +151,8 @@ jobs:
           echo "未取込 back-merge PR 件数: $(jq 'length' /tmp/back-merge-open.json)"
 
           # #3462: EPIC/tracking issue (label:epic, open) を取得し、集約 Closes から除外する
-          # (AC 未検証の force-close 防止。issue-close-gate は PR-keyword close を skip するため gate も掛からない)。
+          # (AC 未検証の force-close 防止。close 後に AC を検証して reopen する機械 gate は無いので、
+          #  一度 auto-close すると誰も気づかないまま tracking issue が閉じたままになる)。
           gh issue list --state open --label epic --limit 200 \
             --json number > /tmp/epic-issues.json || echo '[]' > /tmp/epic-issues.json
           echo "tracking (epic) issue 件数: $(jq 'length' /tmp/epic-issues.json)"

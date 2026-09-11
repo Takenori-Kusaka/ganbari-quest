@@ -1,11 +1,27 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { TUTORIAL_CHAPTERS } from './tutorial-chapters';
 import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
 // ── localStorage persistence keys ──
-const STORAGE_KEY_CHAPTER = 'tutorial-progress-chapter';
-const STORAGE_KEY_STEP = 'tutorial-progress-step';
+//
+// #4651 (a): 進捗 key は **章セットごとに分離**する。旧実装は全ガイドが同じ 2 key を共有し、
+// 同一端末で別のガイドを中断すると「前回の途中から続けますか？」が無関係なガイドで出た。
+// `setChapters(chapters, scope)` の scope が key の namespace になる (既定 'default')。
+const STORAGE_KEY_PREFIX = 'tutorial-progress';
+let progressScope = 'default';
+
+function chapterKey(): string {
+	return `${STORAGE_KEY_PREFIX}:${progressScope}:chapter`;
+}
+
+function stepKey(): string {
+	return `${STORAGE_KEY_PREFIX}:${progressScope}:step`;
+}
+
+/** 現在の進捗 namespace (test 用。key の形は `tutorial-progress:<scope>:chapter|step`)。 */
+export function getProgressScope(): string {
+	return progressScope;
+}
 
 interface TutorialState {
 	isActive: boolean;
@@ -17,15 +33,6 @@ interface TutorialState {
 	savedChapter: number;
 	/** Saved step index from previous session */
 	savedStepIndex: number;
-	/** #955: クイックモード — 初回はチャプター1のみ表示し、終了後に継続を提案 */
-	quickMode: boolean;
-	/** #955: クイックモード完了（チャプター1終了後の選択画面） */
-	showQuickComplete: boolean;
-	/**
-	 * #961 QA: クイックモード対象（親チャプター）かどうか。
-	 * 子チャプターに切替中は false になり、quickMode は有効化されない。
-	 */
-	isParentChapters: boolean;
 }
 
 const state = $state<TutorialState>({
@@ -35,33 +42,104 @@ const state = $state<TutorialState>({
 	showResumePrompt: false,
 	savedChapter: 1,
 	savedStepIndex: 0,
-	quickMode: false,
-	showQuickComplete: false,
-	isParentChapters: true,
 });
 
-// Configurable chapter source (default: parent admin chapters)
-let activeChapters = $state<TutorialChapter[]>(TUTORIAL_CHAPTERS);
+/**
+ * 表示中の章定義。
+ *
+ * #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1、22 step) を撤去したため、
+ * 本 store の利用者は子供画面チュートリアル (`getChildTutorialChapters(uiMode)`) のみ。
+ * 親管理画面の説明は ❓ ページガイド (`PageGuideOverlay`) が唯一の経路。
+ * 既定は空配列で、`setChapters()` を呼ぶ画面 (子供 layout) でのみガイドが起動する。
+ */
+let explicitChapters = $state<TutorialChapter[]>([]);
 
-/** Switch the chapter set (e.g. for child tutorial) */
-export function setChapters(chapters: TutorialChapter[]) {
-	activeChapters = chapters;
-	// #961 QA: 親チャプター（TUTORIAL_CHAPTERS）のみクイックモード対象
-	state.isParentChapters = chapters === TUTORIAL_CHAPTERS;
+/**
+ * 章を「活動の有無」から組み立てる builder (子供 layout が渡す)。
+ *
+ * #4860 (adversarial must-A): 旧実装は layout の `onMount` が
+ * `getChildTutorialChapters(uiMode, { hasActivities: true })` を **推測で** 置き、
+ * ホーム画面が実件数で章を差し替え直す 2 段構えだった。しかし Svelte 5 の実行順は
+ * **子の `$effect` → 親の `onMount`** なので、ホームの訂正が先に走り layout の推測が後から
+ * 上書きする。結果、**活動 0 件の子が初めてアプリを開く場面** — つまり修正したかった当の状況 —
+ * で「したのカードをタップ」が出続けた (実測: `{"cards":0,"tapCard":true}`)。
+ * `(child)/checklist` はホームの `$effect` を一度も通らないため常に上書きされないままだった。
+ *
+ * 順序に依存しない形にするため、**layout は builder だけを渡し、件数はホームが state に書く**。
+ * 章は両者の $derived なので、どちらが先に走っても最終値は同じになる。
+ */
+let chapterBuilder = $state<((hasActivities: boolean | undefined) => TutorialChapter[]) | null>(
+	null,
+);
+
+/**
+ * 活動があるか。`undefined` = **まだ分からない**。
+ *
+ * 件数を知っているのはホーム画面だけ (layout が件数のためだけに DB を引くのは ADR-0065 に反する)。
+ * 分からない間は「カードをタップ」と言わせない (builder 側で `false` と同じ安全側に倒す) —
+ * 存在しないカードを指すより、指さない方が害が小さい。
+ */
+let hasActivitiesKnown = $state<boolean | undefined>(undefined);
+
+const activeChapters = $derived(
+	chapterBuilder ? chapterBuilder(hasActivitiesKnown) : explicitChapters,
+);
+
+/**
+ * 章定義を差し替える (子供 layout が uiMode に応じた章を渡す)。
+ *
+ * `scope` は進捗 (localStorage) の namespace。別のガイドの中断進捗を引き継がないよう、
+ * ガイドの種類ごとに固有の値を渡す (例: `child:preschool`)。省略時は 'default'。
+ */
+export function setChapters(chapters: TutorialChapter[], scope = 'default') {
+	explicitChapters = chapters;
+	chapterBuilder = null;
+	// 子供画面を離れるとき (`setChapters([])`) に件数の記憶も捨てる。
+	// 持ち越すと、活動のある子から無い子へ切り替えた直後に前の子の件数で
+	// 「カードをタップ」と言ってしまう。次に入った画面のホームが書き直すまでは「未知」が正しい。
+	hasActivitiesKnown = undefined;
+	progressScope = scope;
 }
 
-/** Reset to default parent admin chapters */
-export function resetChapters() {
-	activeChapters = TUTORIAL_CHAPTERS;
-	state.isParentChapters = true;
+/**
+ * 子供画面の章を builder 経由で差し替える (進捗 scope も同時に設定)。
+ *
+ * 件数は渡さない — 渡せる立場にないため。件数は `setChildActivityPresence` で別途書かれる。
+ */
+export function setChildChapterBuilder(
+	builder: (hasActivities: boolean | undefined) => TutorialChapter[],
+	scope: string,
+) {
+	chapterBuilder = builder;
+	explicitChapters = [];
+	progressScope = scope;
+}
+
+/**
+ * 活動の有無を記録する。**件数を知っている画面 (ホーム) だけが呼ぶ。**
+ *
+ * builder が入っていれば章は自動的に derive し直される。builder より先に呼ばれても
+ * (Svelte 5 は子の `$effect` が親の `onMount` より先に走る) 値は state に残るため失われない。
+ *
+ * `undefined` を渡すと「分からない」に戻す。ホームを離れるときに必ず戻すこと —
+ * 持ち越すと、他の画面 (activity カードが存在しない `/checklist` 等) で
+ * 「カードをタップすると」と案内してしまう (#4860 adversarial 実測)。
+ */
+export function setChildActivityPresence(hasActivities: boolean | undefined) {
+	hasActivitiesKnown = hasActivities;
+}
+
+/** test / 検証用。`undefined` は「まだ分からない」。 */
+export function getChildActivityPresence(): boolean | undefined {
+	return hasActivitiesKnown;
 }
 
 // ── localStorage helpers (SSR-safe) ──
 function saveProgress(chapterId: number, stepIndex: number) {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.setItem(STORAGE_KEY_CHAPTER, String(chapterId));
-			localStorage.setItem(STORAGE_KEY_STEP, String(stepIndex));
+			localStorage.setItem(chapterKey(), String(chapterId));
+			localStorage.setItem(stepKey(), String(stepIndex));
 		}
 	} catch {
 		// localStorage unavailable — silently ignore
@@ -71,8 +149,8 @@ function saveProgress(chapterId: number, stepIndex: number) {
 function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 	try {
 		if (typeof window === 'undefined') return null;
-		const ch = localStorage.getItem(STORAGE_KEY_CHAPTER);
-		const st = localStorage.getItem(STORAGE_KEY_STEP);
+		const ch = localStorage.getItem(chapterKey());
+		const st = localStorage.getItem(stepKey());
 		if (ch == null || st == null) return null;
 		const chapter = Number.parseInt(ch, 10);
 		const stepIndex = Number.parseInt(st, 10);
@@ -88,13 +166,98 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 }
 
 function clearSavedProgress() {
+	discardSavedProgress(progressScope);
+}
+
+/**
+ * 指定 scope の保存済み進捗を捨てる (現在の scope 以外にも使える)。
+ *
+ * #4765 PO 回答 (2026-09-03): 子供ガイドの進捗 key を子供ごとに分けたため、それ以前の
+ * 家族共有 key (`child:<uiMode>`) は誰の進捗か判別できず、読まずに捨てる。
+ */
+export function discardSavedProgress(scope: string) {
 	try {
 		if (typeof window !== 'undefined') {
-			localStorage.removeItem(STORAGE_KEY_CHAPTER);
-			localStorage.removeItem(STORAGE_KEY_STEP);
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:chapter`);
+			localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${scope}:step`);
 		}
 	} catch {
 		// silently ignore
+	}
+}
+
+/** #4765: 旧 key の後始末を一度だけ行ったことを示す端末ローカルの印。 */
+const LEGACY_MIGRATION_FLAG_KEY = `${STORAGE_KEY_PREFIX}:legacy-migrated`;
+
+/** `migrateLegacyProgress` の結果 (呼び出し側の分岐用ではなく、test / 診断用)。 */
+export type LegacyProgressMigrationResult =
+	| 'migrated' // 子供 1 人 = 持ち主が一意 → 引き継いだ
+	| 'discarded' // 子供 2 人以上 = 持ち主不明 → 捨てた
+	| 'no-legacy' // 旧 key が無い (新規ユーザー / 既に処理済)
+	| 'already-done' // 一度処理済み (2 回目以降の mount では何もしない)
+	| 'unavailable'; // localStorage が使えない
+
+/** 旧 scope とその引き継ぎ先の組。年齢モードの数だけ渡す (下記「モード横断」を参照)。 */
+export interface LegacyProgressEntry {
+	/** #4765 以前の家族共有 scope (`child:<uiMode>`) */
+	legacyScope: string;
+	/** 引き継ぎ先 scope (`child:<childId>:<uiMode>`) */
+	targetScope: string;
+}
+
+/**
+ * #4765 以前の家族共有 key (`child:<uiMode>`) を後始末する。**端末ごとに 1 回だけ**走る。
+ *
+ * PO 回答 (2026-09-03) は「進捗 key を子供ごとに分ける」だが、旧 key を無条件に捨てると
+ * **一度もこの不具合に当たっていない 1 人っ子の家庭まで進捗を失う**。旧 key の持ち主が
+ * 一意に決まるとき (子供が 1 人) は引き継ぎ、決まらないとき (2 人以上) だけ捨てる。
+ *
+ * **モード横断**: 旧 key は年齢モードごとに分かれている (`child:preschool` / `child:elementary` …)。
+ * 子供の年齢モードは変わるため、「今のモードの旧 key」だけを見ると、モードが変わった子の進捗が
+ * 引き継がれないまま端末に残り続ける。呼び出し側は**全モード分の entry** を渡し、本関数は
+ * 1 回の処理で全部を畳む (子供 1 人 = すべてその子のもの / 2 人以上 = すべて持ち主不明)。
+ *
+ * - 引き継ぎ先に既に進捗があれば**上書きしない** (新しい方が正しい)
+ * - 処理後は印 (`tutorial-progress:legacy-migrated`) を立て、以降の mount では何もしない
+ *
+ * @param entries 旧 scope → 引き継ぎ先 scope の組 (年齢モードの数だけ)
+ * @param childCount テナントの子供の人数 (1 = 持ち主が一意)
+ */
+export function migrateLegacyProgress(
+	entries: readonly LegacyProgressEntry[],
+	childCount: number,
+): LegacyProgressMigrationResult {
+	try {
+		if (typeof window === 'undefined') return 'unavailable';
+		if (localStorage.getItem(LEGACY_MIGRATION_FLAG_KEY) === '1') return 'already-done';
+
+		const found = entries
+			.map((entry) => ({
+				...entry,
+				chapter: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:chapter`),
+				step: localStorage.getItem(`${STORAGE_KEY_PREFIX}:${entry.legacyScope}:step`),
+			}))
+			.filter((entry) => entry.chapter != null || entry.step != null);
+
+		localStorage.setItem(LEGACY_MIGRATION_FLAG_KEY, '1');
+		if (found.length === 0) return 'no-legacy';
+
+		for (const entry of found) {
+			if (childCount === 1) {
+				const targetChapterKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:chapter`;
+				const targetStepKey = `${STORAGE_KEY_PREFIX}:${entry.targetScope}:step`;
+				// 引き継ぎ先が空のときだけ書く (その子自身の新しい進捗を巻き戻さない)
+				if (localStorage.getItem(targetChapterKey) == null) {
+					if (entry.chapter != null) localStorage.setItem(targetChapterKey, entry.chapter);
+					if (entry.step != null) localStorage.setItem(targetStepKey, entry.step);
+				}
+			}
+			discardSavedProgress(entry.legacyScope);
+		}
+
+		return childCount === 1 ? 'migrated' : 'discarded';
+	} catch {
+		return 'unavailable';
 	}
 }
 
@@ -141,12 +304,10 @@ export function getChapters() {
 
 /**
  * 共通のチュートリアル開始処理: state をリセットして最初のステップのページへ遷移する。
- * startTutorial / startFromBeginning / startTutorialForPage で共通利用。
+ * startTutorial / startFromBeginning で共通利用。
  */
-async function activateChapter(chapterId: number, quickMode: boolean) {
+async function activateChapter(chapterId: number) {
 	state.showResumePrompt = false;
-	state.showQuickComplete = false;
-	state.quickMode = quickMode;
 	state.isActive = true;
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
@@ -171,46 +332,7 @@ export async function startTutorial(chapter?: number) {
 		}
 	}
 
-	const chapterId = chapter ?? 1;
-	// #955: 明示的なチャプター指定なし（初回開始）の場合はクイックモード
-	// #961 QA: ただし親チャプター中のみ有効。子チャプター等では全ステップ通常表示
-	const isQuickStart = chapter == null && state.isParentChapters;
-	await activateChapter(chapterId, isQuickStart);
-}
-
-/** #955: クイック完了画面が表示中か */
-export function isQuickCompleteShown(): boolean {
-	return state.showQuickComplete;
-}
-
-/** #955: クイックモード中か（チャプター1のみ表示） */
-export function isQuickModeActive(): boolean {
-	return state.quickMode;
-}
-
-/** #955: クイック完了から全チュートリアルを継続（チャプター2から） */
-export async function continueFullTutorial() {
-	state.showQuickComplete = false;
-	state.quickMode = false;
-	const nextChapter = activeChapters.find((ch) => ch.id === 2);
-	if (nextChapter) {
-		state.currentChapter = nextChapter.id;
-		state.currentStepIndex = 0;
-		saveProgress(nextChapter.id, 0);
-		const step = getCurrentStep();
-		if (step?.page) {
-			await goto(resolve(step.page));
-		}
-	} else {
-		await completeTutorial();
-	}
-}
-
-/** #955: クイック完了でチュートリアルを終了 */
-export async function finishQuickTutorial() {
-	state.showQuickComplete = false;
-	state.quickMode = false;
-	await completeTutorial();
+	await activateChapter(chapter ?? 1);
 }
 
 /** Resume from saved progress */
@@ -229,49 +351,12 @@ export async function resumeTutorial() {
 /** Start from the beginning, discarding saved progress */
 export async function startFromBeginning(chapter?: number) {
 	clearSavedProgress();
-	// #955: 明示的なチャプター指定なし（最初から）の場合はクイックモード
-	// #961 QA: ただし親チャプター中のみ有効
-	await activateChapter(chapter ?? 1, chapter == null && state.isParentChapters);
+	await activateChapter(chapter ?? 1);
 }
 
 /** Dismiss the resume prompt without starting */
 export function dismissResumePrompt() {
 	state.showResumePrompt = false;
-}
-
-/**
- * Start tutorial from the chapter most relevant to the current URL path.
- * Falls back to chapter 1 if no matching chapter is found.
- */
-export async function startTutorialForPage(pathname: string) {
-	const chapterId = resolveChapterForPath(pathname);
-
-	// If a matching chapter is found (not chapter 1), skip directly there
-	if (chapterId > 1) {
-		await activateChapter(chapterId, false);
-		return;
-	}
-
-	// Otherwise, fall back to normal start (which may show resume prompt)
-	await startTutorial();
-}
-
-/**
- * Map a URL pathname to the best-matching tutorial chapter ID.
- * Returns the chapter id, or 1 (intro) as fallback.
- */
-function resolveChapterForPath(pathname: string): number {
-	// Build a mapping from page paths to chapter IDs
-	// Check the most specific paths first
-	for (const chapter of activeChapters) {
-		for (const step of chapter.steps) {
-			if (step.page && pathname.startsWith(step.page) && step.page !== '/admin') {
-				return chapter.id;
-			}
-		}
-	}
-	// Default to intro
-	return 1;
 }
 
 export async function nextStep() {
@@ -284,11 +369,6 @@ export async function nextStep() {
 		// Move to next chapter
 		const nextChapter = activeChapters.find((ch) => ch.id === state.currentChapter + 1);
 		if (nextChapter) {
-			// #955: クイックモードではチャプター1終了後に選択画面を表示
-			if (state.quickMode && state.currentChapter === 1) {
-				state.showQuickComplete = true;
-				return;
-			}
 			state.currentChapter = nextChapter.id;
 			state.currentStepIndex = 0;
 		} else {
@@ -354,8 +434,6 @@ export function endTutorial() {
 	state.isActive = false;
 	state.currentChapter = 1;
 	state.currentStepIndex = 0;
-	state.quickMode = false;
-	state.showQuickComplete = false;
 }
 
 async function completeTutorial() {
@@ -368,30 +446,6 @@ async function completeTutorial() {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'complete' }),
-		});
-	} catch {
-		// silently ignore
-	}
-}
-
-export async function markTutorialStarted() {
-	try {
-		await fetch('/api/v1/settings/tutorial', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action: 'start' }),
-		});
-	} catch {
-		// silently ignore
-	}
-}
-
-export async function dismissTutorialBanner() {
-	try {
-		await fetch('/api/v1/settings/tutorial', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action: 'dismiss' }),
 		});
 	} catch {
 		// silently ignore

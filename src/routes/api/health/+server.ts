@@ -4,6 +4,13 @@ import {
 	evaluateBackupHealth,
 	isBackupNotificationConfigured,
 } from '$lib/domain/backup-health';
+import {
+	evaluateSchedulerHealth,
+	expectedIntervalMinutes,
+	type SchedulerHealthVerdict,
+} from '$lib/domain/scheduler-health';
+import { isHeartbeatTrustworthy, readCronHeartbeat } from '$lib/server/cron/cron-heartbeat';
+import { scheduleRegistry } from '$lib/server/cron/schedule-registry';
 import { probePg, probeSqlite, type SqliteProbeResult } from '$lib/server/db/probe';
 import {
 	getPgliteBackupStatus,
@@ -75,6 +82,18 @@ export const GET: RequestHandler = async () => {
 			)
 		: undefined;
 
+	// #4721: NUC の scheduler が動いているかを同じ口から読めるようにする。
+	//
+	// **pglite (= NUC セルフホスト) のときだけ載せる。** backup 状態 (#3977) と同じ理由で、
+	// クラウド (dsql) の /api/health は未認証で公開されており、そこに運用情報を足すのは
+	// 露出範囲の判断を要する。AWS 側は EventBridge / cron-dispatcher の CloudWatch metric と
+	// `ganbari-quest-cron-dispatcher-errors` alarm が同じ役割を果たすため、この分岐で足りる。
+	//
+	// **「失敗 0 回」では判定できない**のが要点。scheduler コンテナが起動していなければ
+	// ジョブは 1 度も走らず失敗も log も 0 件になる — 異常が「何も起きない」形で現れるので
+	// 鮮度で捕まえる。
+	const scheduler = DATA_SOURCE === 'pglite' ? evaluateScheduler() : undefined;
+
 	return json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
@@ -85,8 +104,59 @@ export const GET: RequestHandler = async () => {
 		schema: schemaInfo,
 		...(backup ? { backup } : {}),
 		...(backupHealth ? { backupHealth } : {}),
+		...(scheduler ? { scheduler } : {}),
 	});
 };
+
+/**
+ * scheduler の生死判定。**liveness probe を落とさない** (backup 側と同じ方針)。
+ *
+ * 想定間隔は registry の cron 式から導出する — ジョブを足したら判定対象も自動で増える
+ * (一覧を二重管理すると、増えたジョブが黙って観測対象から漏れる)。
+ */
+function evaluateScheduler():
+	| (SchedulerHealthVerdict & { lastRunAt: Record<string, string>; trustworthy: boolean })
+	| undefined {
+	try {
+		const heartbeat = readCronHeartbeat();
+		const verdict = evaluateSchedulerHealth(
+			scheduleRegistry.map((job) => ({
+				name: job.name,
+				expectedIntervalMinutes: expectedIntervalMinutes(job.cronExpression),
+				lastRunAt: heartbeat.lastRunAt[job.name] ?? null,
+			})),
+			new Date(),
+			new Date(Date.now() - process.uptime() * 1000),
+		);
+
+		// #4721: `CRON_SECRET` 未設定だと `/api/cron/*` が無認証になり、到達できる第三者が
+		// endpoint を叩くだけで heartbeat を書き換えられる = 「死んでいても ok に見える」。
+		// **判定を ok のまま返さない** — 観測装置が偽装可能なことを黙っていると、
+		// この endpoint を信じた運用が成立してしまう。
+		const trustworthy = isHeartbeatTrustworthy();
+		if (!trustworthy) {
+			return {
+				...verdict,
+				level: 'critical',
+				summary: `${SCHEDULER_UNTRUSTED_SUMMARY}（元の判定: ${verdict.summary}）`,
+				lastRunAt: heartbeat.lastRunAt,
+				trustworthy,
+			};
+		}
+		return { ...verdict, lastRunAt: heartbeat.lastRunAt, trustworthy };
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * heartbeat を信用できないときの文言 (#4721)。
+ *
+ * 対処 (CRON_SECRET を配る) までを 1 行で言う。読んだ人がその場で行動できないと、
+ * 「critical だが何をすればいいか分からない」= 無視される警告になる。
+ */
+const SCHEDULER_UNTRUSTED_SUMMARY =
+	'CRON_SECRET が未設定のため /api/cron/* が無認証で、定期ジョブの実行記録を第三者が書き換えられます。この判定は信用できません（.env に CRON_SECRET を設定してください）';
 
 /**
  * バックアップ状態の読み取り。**liveness probe を落とさない**ことを優先する。

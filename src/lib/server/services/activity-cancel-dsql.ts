@@ -16,6 +16,7 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn は core 内)。
 
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
 	calcMasteryBonusRefundOnCancel,
@@ -25,7 +26,9 @@ import { calcLevelFromXp, clampDecayFloor } from '$lib/domain/validation/status'
 import { findByChildAndActivity as findMastery } from '$lib/server/db/activity-mastery-repo';
 import { findActivityById, findActivityLogById } from '$lib/server/db/activity-repo';
 import { cancelActivityCore } from '$lib/server/db/dsql/cancel-activity-core';
-import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
+import { getPgTransactionRunner } from '$lib/server/db/factory';
+// #4686: optional 付与 (combo / mission / challenge / must / focus) の対称巻き戻し (sqlite 経路と共有)
+import { revertOptionalAwardsOnCancel } from '$lib/server/services/activity-cancel-optional';
 
 /**
  * DATA_SOURCE=dsql の活動キャンセル。error 契約 (NOT_FOUND / CANCEL_EXPIRED) と
@@ -34,11 +37,14 @@ import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
 export async function cancelActivityDsql(
 	logId: string,
 	tenantId: string,
+	scopeChildId: ChildId | null = null,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
 	// 1. 事前 guard (read-only、legacy と同一)
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
+	// child scope 制約 (legacy 経路と同一契約)。存在秘匿のため NOT_FOUND。
+	if (scopeChildId !== null && log.childId !== scopeChildId) return { error: 'NOT_FOUND' };
 
 	const recordedTime = new Date(log.recordedAt).getTime();
 	if (Date.now() - recordedTime > CANCEL_WINDOW_MS) {
@@ -59,7 +65,7 @@ export async function cancelActivityDsql(
 
 	// 2. core 単一 txn (冪等性の正 = cancel UPDATE の affected 判定、§8)
 	const now = new Date().toISOString();
-	const result = await cancelActivityCore(getDsqlTransactionRunner(), {
+	const result = await cancelActivityCore(getPgTransactionRunner(), {
 		familyId: tenantId,
 		childId: String(log.childId),
 		activityId: String(log.activityId),
@@ -79,5 +85,16 @@ export async function cancelActivityDsql(
 
 	// 二重 cancel (並行 2 連打) は ALREADY_CANCELLED → NOT_FOUND に写像 (legacy: 既 cancel = NOT_FOUND)。
 	if (!result.ok) return { error: 'NOT_FOUND' };
+
+	// 3. optional 巻き戻し (#4686): core 確定後に、記録時 optional 付与の逆操作を隔離実行
+	//    (record 経路の runOptionalWrite と同じ観測の形。失敗は core を巻き込まない)。
+	await revertOptionalAwardsOnCancel({
+		childId: log.childId,
+		activityId: log.activityId,
+		categoryId: activity ? activity.categoryId : null,
+		today: todayDateJST(),
+		tenantId,
+	});
+
 	return { refundedPoints: result.refundedPoints };
 }

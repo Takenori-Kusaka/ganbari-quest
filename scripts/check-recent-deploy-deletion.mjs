@@ -320,27 +320,16 @@ export function resolveSinceWindow(opts) {
 	};
 }
 
-/**
- * 直近 N 日に main に merge された commit から、touch した file 一覧を収集する。
- *
- * `git log --merges --since=<N days ago> --name-only --pretty='format:%H|%ai' <base>`
- * を実行。各 merge commit ごとに { commit, date, files: [] } を返す。
- *
- * @param {string} base 対象 ref (例: 'origin/main')
- * @param {number} days 遡及日数
- * @returns {Array<{commit: string, date: string, files: string[]}>|null}
- */
-export function getRecentMergedFiles(base, days) {
-	return getMergedFilesSince(base, `${days} days ago`);
-}
+// 旧 `getRecentMergedFiles(base, days)` は削除した (#4623)。`getMergedFilesSince` への
+// 1 行 wrapper だったが呼び出し元が 0 で (test すら import していない)、日数指定は
+// `resolveSinceWindow` が fallback で `${N} days ago` を組み立て、`getMergedFilesSince` に渡す。
 
 /**
  * 任意の `--since=<spec>` (git log の `--since=` accepts ISO 8601 / `N days ago`
  * / human-readable strings) に基づき main の merged file 一覧を収集する (#2615)。
  *
- * `getRecentMergedFiles(base, days)` の内部実装としても利用される (`days` を
- * `${N} days ago` に組み立てて pass)。time-aware mode (`--since` / `--since-ref`
- * / `--since-recent`) では ISO timestamp が直接渡される。
+ * time-aware mode (`--since` / `--since-ref` / `--since-recent`) では ISO timestamp が
+ * 直接渡される。日数指定 (`--days N`) は `${N} days ago` に組み立てて pass される。
  *
  * @param {string} base 対象 ref (例: 'origin/main')
  * @param {string} sinceSpec git log `--since=` の値 (ISO 8601 / `N days ago` 等)

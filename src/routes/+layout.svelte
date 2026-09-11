@@ -1,10 +1,9 @@
 <script lang="ts">
 import '$lib/ui/styles/app.css';
+import { building } from '$app/environment';
 import { page } from '$app/stores';
 import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
-import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
-import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte';
 import {
 	resolveScreenshotMode,
 	setScreenshotModeContext,
@@ -30,8 +29,13 @@ const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? fa
 // 「これはデモアプリです」表示が映り込み LP 訴求を毀損する事故への対策 (PO 2026-05-17 指摘)。
 // page 側の `?screenshot` 再呼出禁止ルール (src/routes/CLAUDE.md) は **page** が対象であり、
 // root layout は SSOT helper `resolveScreenshotMode` を経由する限り抵触しない。
+//
+// #4644: prerender 中 (`/offline`) は SvelteKit が `url.searchParams` へのアクセスを例外に
+// する (出力が query 依存 = 非決定になるため)。`hooks.server.ts` の `locals.isDemo = building
+// ? false : …` と同じく building 時は 'off' 固定にする。prerender された HTML が hydrate された
+// 後はクライアント側で通常どおり評価されるので、`?screenshot=*` の挙動は変わらない。
 const screenshotKind = $derived(
-	resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null),
+	building ? 'off' : resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null),
 );
 const isScreenshotMode = $derived(screenshotKind !== 'off');
 
@@ -49,15 +53,6 @@ setScreenshotModeContext(
 const isDemo = $derived(
 	!isLegacyDemoPath && !isScreenshotMode && (data?.isDemo ?? $page.data?.isDemo ?? false),
 );
-
-// #2097 PR-B2 (#2187): demo guide bar を root layout で mount する。
-// `/demo/(child)/*` 撤去に伴い demo guide が本番 (child) routes (`/preschool/home` 等) に
-// redirect されるため、`/demo/+layout.svelte` 配下にしか mount されない構成では guide bar
-// が消失してしまう。root layout で active 時のみ表示することで、step 1-3 (`/preschool/*`) と
-// step 4-6 (`/demo/admin/*` / `/demo/signup`) を跨いで guide bar が persist する。
-// screenshot mode (`?screenshot=*`) では従来通り抑止 (LP 撮影 SS への被り対策)。
-const guide = $derived(getGuideState());
-const showDemoGuideBar = $derived(!isScreenshotMode && guide.active);
 
 // #702: E2E hydration marker. $effect は SSR では走らずクライアント mount 後にのみ
 // 走るため、ここで window.__APP_HYDRATED__ を立てると Playwright から
@@ -80,7 +75,3 @@ $effect(() => {
 <Toast />
 {@render children()}
 
-<!-- #2097 PR-B2 (#2187): demo guide bar を root layout に hoist (詳細は script の comment) -->
-{#if showDemoGuideBar}
-	<DemoGuideBar />
-{/if}

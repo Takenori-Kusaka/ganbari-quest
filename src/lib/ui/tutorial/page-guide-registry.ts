@@ -54,9 +54,8 @@ const GUIDE_LOADERS: Record<
 	// #3314: bracket path は dynamic import が build で解決できないため static import 済の
 	// 定数を Promise でラップして返す（loader interface は維持、確実に bundle される）。
 	'/marketplace/[type]/[itemId]': () => Promise.resolve({ MARKETPLACE_DETAIL_GUIDE }),
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'/admin/members': () => import('../../../routes/(parent)/admin/members/_guide'),
-	'/admin/packs': () => import('../../../routes/(parent)/admin/packs/_guide'),
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ。getPageGuide は最具体一致が先に効くため
 	// /admin/rewards/requests は親 /admin/rewards より本ガイドが優先される。
 	'/admin/certificates': () => import('../../../routes/(parent)/admin/certificates/_guide'),
@@ -108,9 +107,8 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/marketplace': 'MARKETPLACE_GUIDE',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'/marketplace/[type]/[itemId]': 'MARKETPLACE_DETAIL_GUIDE',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'/admin/members': 'MEMBERS_GUIDE',
-	'/admin/packs': 'PACKS_GUIDE',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'/admin/certificates': 'CERTIFICATES_GUIDE',
 	'/admin/growth-book': 'GROWTH_BOOK_GUIDE',
@@ -324,6 +322,93 @@ export function filterGuideStepsByStripe(
 	return { ...guide, steps };
 }
 
+/**
+ * selector の**最初の一致要素**が document 上で描画されている (box を持つ) か (#4653)。
+ *
+ * driver.js は `document.querySelector` (= 最初の一致) を target にするため、判定も最初の一致に
+ * 揃える (後続に可視要素があっても driver は最初の非表示要素を 0×0 で光らせる)。
+ * `display:none` の要素は `getClientRects()` が空になる (mobile 専用 bottom nav を desktop で
+ * 指した /admin step 3 が左上 0×0 で光らなかった #4653 F2 の機序)。
+ * SSR / document 不在時は false (fail-closed、描画されない UI を spotlight しない)。
+ */
+export function isGuideTargetRendered(selector: string): boolean {
+	if (typeof document === 'undefined') return false;
+	let el: Element | null = null;
+	try {
+		el = document.querySelector(selector);
+	} catch {
+		return false;
+	}
+	return el !== null && el.getClientRects().length > 0;
+}
+
+/**
+ * ページガイドの手順を「対象要素が現在の画面に描画されているか」でフィルタする (#4653)。
+ *
+ * 条件付き UI (承認待ちバナー / お子さま 0 人で出ない子供タブ / 上限到達で消える追加ボタン /
+ * viewport 別の nav 等) を指す step を、**対象が無いときは出さない** ための定義層フィルタ。
+ * 残った selector 付き step は必ず実要素に spotlight する (「押す」と書く step は必ず光る、
+ * EPIC #4650 PO 判断 4)。selector 省略 step (中央 modal の概要) は常に残す。
+ *
+ * 判定関数は DI (unit test で DOM 不要)。本番は {@link isGuideTargetRendered} を渡す。
+ * {@link filterGuideStepsByTier} / {@link filterGuideStepsByRuntime} / {@link filterGuideStepsByStripe}
+ * と同型 (filter → 残 0 なら null)。起動直前 (❓ click 時) に、状態依存 step を落とす
+ * {@link filterGuideStepsByPresence} (#4668) と直列で適用する。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param isRendered selector を受け取り「対象が描画済か」を返す判定関数
+ * @returns 対象が描画済の手順 + selector 省略手順だけのガイド。残手順が 0 なら null
+ */
+export function filterGuideStepsByTargetPresence(
+	guide: PageGuide,
+	isRendered: (selector: string) => boolean = isGuideTargetRendered,
+): PageGuide | null {
+	const steps = guide.steps.filter((step) => !step.selector || isRendered(step.selector));
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
+}
+
+/**
+ * `selector` が document 内の可視要素に解決するか (#4668)。
+ * {@link filterGuideStepsByPresence} の既定 predicate。SSR / test 環境 (document 無し) では
+ * fail-closed で false を返し、状態依存 step を出さない。
+ */
+export function isGuideSelectorVisible(selector: string): boolean {
+	if (typeof document === 'undefined') return false;
+	for (const el of document.querySelectorAll(selector)) {
+		const rect = el.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) return true;
+	}
+	return false;
+}
+
+/**
+ * ページガイドの手順を「対象要素がいま画面に出ているか」でフィルタする (#4668 / EPIC #4650)。
+ *
+ * `optional: true` かつ `selector` 付きの step は、起動時点で `isPresent(selector)` が false なら
+ * 除外する。ページの状態 (プラン / 件数 / ロール / 招待の有無) で出たり消えたりする UI を指す step
+ * を、tier / runtime / stripe の静的軸では表現できないため、起動時 DOM で判定する第 4 の軸。
+ * これにより「押す」と書いた step が中央 fallback (0×0 spotlight) で成立することを防ぐ
+ * (PO 判断 4: 押すと書く step は必ず光る)。`optional` 無しの step は本フィルタでは常に残す
+ * (常設 UI の anchor 退行は静的 gate `page-guide-coverage.test.ts` #3307 と E2E
+ * `page-guide-layout-invariant` が検出する)。
+ *
+ * {@link filterGuideStepsByTier} 等と同型 (filter → 残 0 なら null)。最後段で直列適用する。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param isPresent selector → 可視要素が存在するか (既定 {@link isGuideSelectorVisible})
+ */
+export function filterGuideStepsByPresence(
+	guide: PageGuide,
+	isPresent: (selector: string) => boolean = isGuideSelectorVisible,
+): PageGuide | null {
+	const steps = guide.steps.filter(
+		(step) => !(step.optional && step.selector) || isPresent(step.selector),
+	);
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
+}
+
 /** 全ガイドのページID一覧（完了状態表示用） */
 export const ALL_PAGE_IDS = [
 	'admin-home',
@@ -352,9 +437,8 @@ export const ALL_PAGE_IDS = [
 	'marketplace',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'marketplace-detail',
-	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	// #3268 (EPIC #3260 C4): 家族メンバー
 	'admin-members',
-	'admin-packs',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'admin-certificates',
 	'admin-growth-book',

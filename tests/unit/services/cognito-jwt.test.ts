@@ -28,6 +28,50 @@ beforeEach(() => {
 	process.env.AWS_REGION = 'us-east-1';
 });
 
+describe('#4643 email_verified を boolean に正規化する', () => {
+	it('文字列 "false" を false として扱う (fail-closed 判定をすり抜けさせない)', async () => {
+		const { normalizeEmailVerified } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(normalizeEmailVerified('false')).toBe(false);
+	});
+
+	it('文字列 "true" を true として扱う (federated IdP は文字列で載せることがある)', async () => {
+		const { normalizeEmailVerified } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(normalizeEmailVerified('true')).toBe(true);
+	});
+
+	it('boolean はそのまま通す', async () => {
+		const { normalizeEmailVerified } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(normalizeEmailVerified(true)).toBe(true);
+		expect(normalizeEmailVerified(false)).toBe(false);
+	});
+
+	it('判定できない形は undefined (claim を持たない provider との後方互換)', async () => {
+		const { normalizeEmailVerified } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(normalizeEmailVerified(undefined)).toBeUndefined();
+		expect(normalizeEmailVerified(null)).toBeUndefined();
+		expect(normalizeEmailVerified(1)).toBeUndefined();
+		expect(normalizeEmailVerified('yes')).toBeUndefined();
+	});
+
+	it('verifyIdentityToken が文字列 claim を正規化して載せる', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-google',
+				email: 'google@example.com',
+				email_verified: 'false',
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+				token_use: 'id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose の戻り値型を最小 stub で満たす
+		} as any);
+		const { verifyIdentityToken } = await import('$lib/server/auth/providers/cognito-jwt');
+		const claims = await verifyIdentityToken('dummy');
+		expect(claims?.email_verified).toBe(false);
+	});
+});
+
 afterEach(() => {
 	process.env.COGNITO_USER_POOL_ID = undefined;
 	process.env.COGNITO_CLIENT_ID = undefined;

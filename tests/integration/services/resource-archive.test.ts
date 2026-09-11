@@ -29,6 +29,7 @@ const SQL_TABLES = `
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
+		birth_date_estimated INTEGER NOT NULL DEFAULT 0,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		ui_mode_manually_set INTEGER NOT NULL DEFAULT 0,
@@ -124,6 +125,42 @@ const SQL_TABLES = `
 		ON checklist_template_assignments(template_id, child_id);
 	CREATE INDEX idx_checklist_template_assignments_child
 		ON checklist_template_assignments(child_id);
+
+	-- ============================================================
+	-- activity_logs (#4585-3)
+	-- 子供の archive 順が「coalesce(最終記録日, 登録日) の新しい順」になったため、
+	-- resource-archive-service は findActivityLogs を経由して本 table を読む。
+	-- 列定義は tests/unit/helpers/test-db.ts / schema.ts activityLogs に整合。
+	-- ============================================================
+	CREATE TABLE activity_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+		points INTEGER NOT NULL,
+		streak_days INTEGER NOT NULL DEFAULT 1,
+		streak_bonus INTEGER NOT NULL DEFAULT 0,
+		recorded_date TEXT NOT NULL,
+		recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		cancelled INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
+
+	-- #4708: webhook 経路 (checkout.session.completed → 復元) を実 DB で駆動するために必要。
+	-- local (sqlite) の auth repo は契約 4 列を settings に永続する (#4156)。
+	CREATE TABLE settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE stripe_webhook_events (
+		event_id TEXT PRIMARY KEY,
+		event_type TEXT NOT NULL,
+		processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		handler_result TEXT NOT NULL,
+		error_message TEXT,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		tenant_id TEXT
+	);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -156,7 +193,11 @@ afterAll(() => {
 });
 
 function resetDb() {
+	// #4708: webhook 経路 test 用 (契約状態 / dedup 台帳)
+	sqlite.exec('DELETE FROM settings');
+	sqlite.exec('DELETE FROM stripe_webhook_events');
 	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
+	sqlite.exec('DELETE FROM activity_logs');
 	sqlite.exec('DELETE FROM checklist_template_assignments');
 	sqlite.exec('DELETE FROM checklist_templates');
 	// #2458-A1: child_activities を children より先に (FK ON DELETE CASCADE だが明示削除)
@@ -164,7 +205,7 @@ function resetDb() {
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','child_activities','checklist_templates','checklist_template_assignments')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','child_activities','checklist_templates','checklist_template_assignments','activity_logs')",
 	);
 }
 
@@ -222,6 +263,36 @@ function seedSeedActivities(count: number) {
 			})
 			.run();
 	}
+}
+
+/**
+ * 指定した子供に活動ログを 1 件入れる (#4585-3)。
+ * `recordedAt` を渡して「最後に使った日」を作る。ログの所属活動はどれでもよい。
+ */
+function seedActivityLog(childId: number, recordedAt: string) {
+	const activity = testDb
+		.insert(schema.childActivities)
+		.values({
+			childId,
+			name: '記録用活動',
+			categoryId: 1,
+			icon: '🏃',
+			basePoints: 5,
+			source: 'custom',
+			sortOrder: 0,
+		})
+		.returning()
+		.get();
+	testDb
+		.insert(schema.activityLogs)
+		.values({
+			childId: activity.childId,
+			activityId: activity.id,
+			points: 5,
+			recordedDate: recordedAt.slice(0, 10),
+			recordedAt,
+		})
+		.run();
 }
 
 function seedChecklistTemplates(childId: number, count: number) {
@@ -307,7 +378,9 @@ beforeEach(() => {
 });
 
 describe('#783 archiveExcessResources（実 DB）', () => {
-	it('free 上限（2）を超える子供を archive: 古い順に2件残し、3件目以降を archive', async () => {
+	// 記録が 1 件も無い場合は登録日で代替され、登録日も同じなので id 昇順の tie-break に落ちる
+	// (#4585-3)。= 「記録がまだ無い家庭では従来どおり先に登録した子が残る」
+	it('free 上限（2）を超える子供を archive: 記録が無ければ先に登録した2件を残す', async () => {
 		seedChildren(4); // id=1,2,3,4
 
 		const result = await archiveExcessResources(TENANT);
@@ -321,6 +394,21 @@ describe('#783 archiveExcessResources（実 DB）', () => {
 		for (const c of archived) {
 			expect(c.archivedReason).toBe(ARCHIVE_REASON);
 		}
+	});
+
+	// #4585-3: 実 DB でも「最近記録がある子が残る」ことを固定する。unit test は repo を mock
+	// するため、activity_logs の join を通る実クエリで壊れていないことはここでしか分からない。
+	it('#4585-3 最近記録がある子が残り、放置された子が archive される（実 DB）', async () => {
+		seedChildren(4); // id=1,2,3,4（登録順では 1,2 が残る）
+		seedActivityLog(1, '2026-01-05T01:00:00Z'); // 昔に使ったきり
+		seedActivityLog(2, '2026-01-06T01:00:00Z'); // 昔に使ったきり
+		seedActivityLog(3, '2026-08-10T01:00:00Z'); // 最近使っている
+		seedActivityLog(4, '2026-08-12T01:00:00Z'); // 最近使っている
+
+		const result = await archiveExcessResources(TENANT);
+
+		expect(result.archivedChildIds).toEqual(['2', '1']);
+		expect(getVisibleChildren().map((c) => c.id)).toEqual([3, 4]);
 	});
 
 	it('free 上限（3）を超える custom 活動を archive', async () => {
@@ -438,5 +526,32 @@ describe('#783 getArchivedResourceSummary', () => {
 
 		expect(summary.archivedChildCount).toBe(2);
 		expect(summary.hasArchivedResources).toBe(true);
+	});
+
+	// #4708: 3 資源の件数 (banner「お子さま N 人 / 活動 N 件 / チェックリスト N 件」の根拠、実 DB)
+	it('活動 / チェックリストの archive 件数も返し、restore で 0 に戻る (実 DB)', async () => {
+		seedChildren(1); // free 上限内 (子供は archive されない)
+		seedCustomActivities(5); // free 上限 3 → 2 件 archive
+		seedChecklistTemplates(1, 4); // free 上限 (maxChecklistTemplates) 超過分 archive
+
+		const archived = await archiveExcessResources(TENANT);
+		expect(archived.archivedChildIds).toHaveLength(0);
+		expect(archived.archivedActivityIds).toHaveLength(2);
+		expect(archived.archivedChecklistTemplateIds.length).toBeGreaterThan(0);
+
+		const summary = await getArchivedResourceSummary(TENANT);
+		expect(summary.archivedChildCount).toBe(0);
+		expect(summary.archivedActivityCount).toBe(2);
+		expect(summary.archivedChecklistTemplateCount).toBe(
+			archived.archivedChecklistTemplateIds.length,
+		);
+		expect(summary.totalCount).toBe(2 + archived.archivedChecklistTemplateIds.length);
+		expect(summary.hasArchivedResources).toBe(true);
+
+		// 有料化 (webhook W1/W2/W4) と同じ復元関数で全件戻る
+		await restoreArchivedResources(TENANT);
+		const after = await getArchivedResourceSummary(TENANT);
+		expect(after.totalCount).toBe(0);
+		expect(after.hasArchivedResources).toBe(false);
 	});
 });

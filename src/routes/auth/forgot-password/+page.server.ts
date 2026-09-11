@@ -35,14 +35,18 @@ export const actions: Actions = {
 			return fail(400, { error: 'メールアドレスを入力してください' });
 		}
 
+		// #4702: step 2 の「コードを再送する」も本 action を再利用する (Cognito ForgotPassword が
+		// 新しいコードを発行する)。resend フラグは画面側の cooldown / 「再送しました」表示にだけ使う。
+		const isResend = formData.get('resend') === '1';
+
 		const result = await forgotPassword(email);
 
 		if (!result.success) {
-			return fail(400, { error: result.message, email });
+			return fail(400, { error: result.message, email, confirmStep: isResend });
 		}
 
 		// 成功 → 確認コード入力ステップへ
-		return { confirmStep: true, email };
+		return { confirmStep: true, email, resent: isResend };
 	},
 
 	confirmReset: async ({ request }) => {

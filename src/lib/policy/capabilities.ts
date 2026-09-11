@@ -36,12 +36,24 @@ import type { EvaluationContext } from '$lib/runtime/evaluation-context';
  * #2813 (Epic #2525 Phase 7 PR-L2): `redeem.license_key` を撤廃。license key 全廃に伴い
  * NUC の正規性判定機構を削除し、信頼ベースに移行した (phase1-nuc FR-3 / ADR-0051)。
  */
+/**
+ * #4710: **プラン条件を本 module に置かない。** プラン別の可否は
+ * `plan-limit-service.ts` (`PLAN_LIMITS` / `checkFamilyMemberLimit` ほか) が唯一の SSOT。
+ *
+ * 旧実装は `invite.family_member` / `export.activity_history` / `purchase.upgrade` の 3 つが
+ * 独自にプラン条件を持っていたが、いずれも **production から一度も呼ばれておらず**
+ * (`ensureCan` / `can` の呼び出しは `write.db` のみ)、しかも
+ * `invite.family_member` は `tier !== 'family'` で deny = **スタンダードは招待不可**という、
+ * plan-limit-service (`maxFamilyMembers: 4`) と正反対の定義だった。
+ * 配線した瞬間にスタンダード契約者の招待が 403 になる地雷なので、
+ * 「未配線 + 二重定義」の 3 件を削除してプラン判定の SSOT を 1 本に戻した (#4623 同 class)。
+ *
+ * プラン条件をここに書き足したくなったら、それは plan-limit-service に足すべき判定である。
+ * 再発は `tests/unit/architecture/capabilities-no-plan-tier-predicate.test.ts` が止める。
+ */
 export type Capability =
 	| 'record.activity'
-	| 'invite.family_member'
-	| 'export.activity_history'
 	| 'access.ops_dashboard'
-	| 'purchase.upgrade'
 	| 'write.db'
 	| 'debug.plan_override'
 	| 'view.ops_license_dashboard'
@@ -55,7 +67,6 @@ export type DenyReason =
 	| 'build-time-readonly' // SSR prerender 中は DB 書き込み禁止
 	| 'unauthenticated' // user=null
 	| 'role-insufficient' // role が要件を満たさない (owner/parent/child)
-	| 'plan-tier-insufficient' // プランティアが要件を満たさない
 	| 'mode-mismatch' // capability が別モード専用
 	| 'dev-only' // local-debug 専用
 	| 'ops-only' // Cognito groups に 'ops' が必要
@@ -123,30 +134,8 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 		return canWriteDb(ctx);
 	},
 
-	'invite.family_member': (ctx) => {
-		if (!ctx.user) return deny('unauthenticated');
-		if (ctx.user.role !== 'owner') return deny('role-insufficient');
-		if (ctx.plan?.tier !== 'family') return deny('plan-tier-insufficient');
-		return canWriteDb(ctx);
-	},
-
-	'export.activity_history': (ctx) => {
-		if (!ctx.user) return deny('unauthenticated');
-		if (ctx.user.role === 'child') return deny('role-insufficient');
-		if (!ctx.plan || ctx.plan.tier === 'free') return deny('plan-tier-insufficient');
-		return ALLOW;
-	},
-
 	'access.ops_dashboard': (ctx) => requireOpsGroup(ctx),
 	'view.ops_license_dashboard': (ctx) => requireOpsGroup(ctx),
-
-	'purchase.upgrade': (ctx) => {
-		if (ctx.mode !== 'aws-prod') return deny('mode-mismatch');
-		if (!ctx.user) return deny('unauthenticated');
-		if (ctx.user.role !== 'owner') return deny('role-insufficient');
-		if (ctx.plan?.tier === 'family') return deny('plan-tier-insufficient');
-		return ALLOW;
-	},
 
 	'debug.plan_override': (ctx) => {
 		if (ctx.mode !== 'local-debug') return deny('dev-only');

@@ -18,7 +18,12 @@
  */
 
 import { marketplaceRegistry } from './registry.js';
-import type { ImportContext, MarketplaceTypeCode } from './types.js';
+import type {
+	ImportBlocked,
+	ImportContext,
+	ImportQuotaArchived,
+	MarketplaceTypeCode,
+} from './types.js';
 
 /**
  * dispatchImport の戻り値 (旧 actions が返していた shape と互換)
@@ -38,6 +43,13 @@ export interface DispatchImportResult {
 	 * UI の partial-failure 件数表示はこのフィールドが SSOT (errors.length は表示ログ専用)。
 	 */
 	failed: number;
+	/**
+	 * #4693: プラン上限で意図的に取込対象から外した分と、その顧客向け理由
+	 * (`ImportResult.blocked` の素通し)。UI は `resolveImportFeedback` 経由でこれを表示する。
+	 */
+	blocked?: ImportBlocked;
+	/** #4693: 復元が上限超過分を保管した結果 (`blocked` と違い行は書かれている)。 */
+	activityQuota?: ImportQuotaArchived;
 }
 
 /**
@@ -61,7 +73,11 @@ export interface DispatchImportInput {
  * @throws Error parse / preview / apply のいずれかで失敗した場合
  */
 export async function dispatchImport(input: DispatchImportInput): Promise<DispatchImportResult> {
-	const { typeCode, rawPayload, displayName, ctx } = input;
+	const { typeCode, rawPayload, displayName, ctx: rawCtx } = input;
+	// #4711: 表示名を ImportContext に伝搬する (callsite が presetName を渡していなければ
+	// displayName を補完)。旧実装は displayName を戻り値の packName にしか使わず、rule-preset
+	// bonus の保存レコードに内部 ID (presetId) が表示名として残っていた。
+	const ctx: ImportContext = { ...rawCtx, presetName: rawCtx.presetName ?? displayName };
 	const descriptor = marketplaceRegistry.get(typeCode);
 	const strategy = descriptor.strategy;
 
@@ -87,5 +103,11 @@ export async function dispatchImport(input: DispatchImportInput): Promise<Dispat
 		// #2955: Strategy 算出の failed (実失敗数) を素通しする。旧実装はここで drop しており、
 		// UI が errors.length に fallback して失敗規模を誤表示する経路の根因だった。
 		failed: result.failed,
+		// #4693: プラン上限で外した分と理由 (`blocked`) も素通しする。ここで drop すると
+		// 「上限で 1 件も入らなかった」が画面に届かず成功表示になる。
+		blocked: result.blocked,
+		// #4693 (QM 再レビュー): 復元の「保管しました」も同様に素通しする。ここで drop すると
+		// 活動管理の ︙ →「バックアップから復元」だけ理由が画面に出ない。
+		activityQuota: result.activityQuota,
 	};
 }

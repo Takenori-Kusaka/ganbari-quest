@@ -2,12 +2,14 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted |
+| ステータス | superseded by [ADR-0068](0068-approve-gate-removal-staged-control.md) (2026-08-13) |
 | 日付 | 2026-05-28 |
 | 起票者 | Claude Opus 4.7 (1M context) — Dev Session Agent (worktree mode) |
 | 関連 Issue | #2597 (drift baseline scan) / #2590 / #2591 / #2592 |
 | 関連 ADR | ADR-0010 (Pre-PMF) / ADR-0022 (admin bypass + QM Approve 体制) |
 | Research SSOT | [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md) |
+
+> **本 ADR は [ADR-0068](0068-approve-gate-removal-staged-control.md) に置き換えられた (2026-08-13、#4571)。** PreToolUse hook `gate-approve.mjs` の**呼び出しは外れている**（hook 本体・test は再導入のため残置）。置き換えの根拠は費用と段階であり、**本 ADR が観測した 42 回の drift は否定されていない**。本文は当時の観測と設計の記録としてそのまま残す。統制を戻す段階と条件は ADR-0068 を参照。
 
 ## コンテキスト
 

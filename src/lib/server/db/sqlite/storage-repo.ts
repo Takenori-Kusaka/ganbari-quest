@@ -154,3 +154,11 @@ export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => 
 	}
 	return deleted;
 };
+
+/**
+ * ローカル FS はバージョニングを持たないため `deleteByPrefix` と同義 (#4724)。
+ *
+ * **同義であることを明示的に書く**のが要点。未実装で throw / no-op にすると、NUC の退会だけ
+ * ファイルが消えないという backend 差が silent に生まれる。
+ */
+export const purgeByPrefix: IStorageRepo['purgeByPrefix'] = deleteByPrefix;

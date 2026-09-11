@@ -28,6 +28,8 @@ vi.mock('$lib/server/services/import-service', () => ({
 
 vi.mock('$lib/server/services/replace-import-service', () => ({
 	AtomicReplaceError: class extends Error {},
+	ReplaceSnapshotError: class extends Error {},
+	ReplaceRestoreFailedError: class extends Error {},
 	replaceImportAtomic: vi.fn(),
 }));
 

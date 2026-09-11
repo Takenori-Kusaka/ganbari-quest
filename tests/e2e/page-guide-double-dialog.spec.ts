@@ -6,7 +6,7 @@
 // AC-V2-2: 異 pageId に切替時は前 guide を end → 新 guide を start (state 完全 reset)
 // AC-V2-3: setTimeout 群を AbortController で cleanup (race 防止)
 // AC-V2-4: step 切替で bubble DOM 不破棄 (flicker / tab 消失なし)
-// AC-V2-5: v1 active 時に v2 ❓ click で v1 overlay 消失
+// AC-V2-5: (#4654 で削除 — 親の章立てチュートリアル撤去により admin で v1 を起動できない)
 // AC-V2-6: Escape キーで PageGuideOverlay が閉じる
 // AC-V2-7: role / aria 属性確認 (admin-page-guide.spec.ts と並行検証)
 //
@@ -123,49 +123,12 @@ test.describe('#2375 PageGuide v2 不具合修正 (AC-V2-1〜V2-7)', () => {
 		await expect(page.locator('.guide-overlay')).toHaveCount(1);
 	});
 
-	test('AC-V2-5: v1 active 中に v2 ❓ click で v1 overlay が消える', async ({ page }) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		// 1. AdminHome で v1 tutorial を起動 (handleViewFullGuide 経由)
-		await page.goto('/admin');
-		await dismissWelcome(page);
-		await page.evaluate(() => {
-			localStorage.removeItem('tutorial-progress-chapter');
-			localStorage.removeItem('tutorial-progress-step');
-		});
-		const fullGuideCard = page.locator('[data-testid="admin-view-full-guide"]');
-		await fullGuideCard.waitFor({ state: 'visible', timeout: 15_000 });
-		const v1Trigger = fullGuideCard.getByRole('button', { name: 'ガイドを開く' });
-		await expect(v1Trigger).toBeEnabled();
-		await expect
-			.poll(
-				async () => {
-					const v1Visible = await page
-						.locator('.tutorial-overlay')
-						.isVisible()
-						.catch(() => false);
-					if (v1Visible) return 'shown';
-					await v1Trigger.click({ trial: false }).catch(() => {});
-					return 'not-yet';
-				},
-				{ timeout: 30_000, intervals: [500, 1000, 1500, 2000, 3000] },
-			)
-			.toBe('shown');
-		await expect(page.locator('.tutorial-overlay')).toBeVisible();
-
-		// 2. v2 ❓ click → v1 overlay が消える (handleStartPageGuide が endTutorial 呼出)
-		// v1 overlay の `.tutorial-overlay-bg` (SVG mask) が pointer events をブロックするため
-		// 通常の click / `force: true` だと SVG 経由で `handleOverlayClick` (= exitConfirm) が発火する。
-		// JS dispatchEvent で button onclick を直接呼出 (overlay 経由しない) — `handleStartPageGuide`
-		// の `endTutorial()` 同期実行 → v1 dismiss → v2 起動 を検証する。
-		const pageGuideBtn = page.locator('[data-tutorial="page-guide-btn"]');
-		await expect(pageGuideBtn).toBeVisible();
-		await pageGuideBtn.evaluate((btn: HTMLButtonElement) => btn.click());
-
-		// v1 TutorialOverlay は dismiss、v2 PageGuideOverlay が表示
-		await expect(page.locator('.tutorial-overlay')).toBeHidden();
-		await expect(page.locator('.guide-overlay')).toBeVisible({ timeout: 10_000 });
-		await expect(page.locator('.guide-bubble')).toHaveCount(1);
-	});
+	// AC-V2-5 (v1 active 中に v2 ❓ click で v1 overlay が消える) は #4654 で削除した。
+	// 親の章立てチュートリアル (v1) を撤去し、admin から v1 を起動する導線
+	// (AdminHome「くわしいガイドを最初から見る」) 自体が無くなったため、admin 画面で v1 と v2 が
+	// 同時に active になる状態を作れない (v1 が残るのは子供画面で、そこに v2 ❓ は無い)。
+	// v2 起動時の `endTutorial()` 呼び出しは防御として残している (marketplace/+layout.svelte /
+	// AdminLayout.svelte)。
 
 	test('AC-V2-6: Escape キーで PageGuideOverlay が閉じる', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });

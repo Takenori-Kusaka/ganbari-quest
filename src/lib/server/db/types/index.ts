@@ -176,14 +176,6 @@ export interface Setting {
 	updatedAt: string;
 }
 
-export interface RestDay {
-	id: string;
-	childId: ChildId;
-	date: string;
-	reason: string;
-	createdAt: string;
-}
-
 export interface CharacterImage {
 	id: string;
 	childId: ChildId;
@@ -333,21 +325,6 @@ export interface ChecklistOverride {
 	createdAt: string;
 }
 
-export interface BirthdayReview {
-	id: string;
-	childId: ChildId;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
-	createdAt: string;
-}
-
 export interface DailyMission {
 	id: string;
 	childId: ChildId;
@@ -458,6 +435,15 @@ export interface InsertChildInput {
 	theme?: string;
 	uiMode?: string;
 	birthDate?: string;
+	/**
+	 * #4718 (QM): 年齢帯を保護者が手動で選んだか。**復元 (backup restore) 専用**。
+	 *
+	 * 省略時は従来どおり `isExplicitUiModeOverride(age, uiMode)` で導出する。
+	 * 復元だけは導出してはいけない — 復元側は `uiMode` を常に明示で渡すため、
+	 * 保存時の uiMode と復元時の年齢から導く既定がずれた瞬間に「手動指定」と誤認され、
+	 * 年齢帯の自動遷移 (docs/DESIGN.md §8) が二度と働かなくなる。
+	 */
+	uiModeManuallySet?: number;
 }
 
 export interface UpdateChildInput {
@@ -574,19 +560,6 @@ export interface InsertChecklistOverrideInput {
 	action: string;
 	itemName: string;
 	icon?: string;
-}
-
-export interface InsertBirthdayReviewInput {
-	childId: ChildId;
-	reviewYear: number;
-	ageAtReview: number;
-	healthChecks: string;
-	aspirationText: string | null;
-	aspirationCategories: string;
-	basePoints: number;
-	healthPoints: number;
-	aspirationPoints: number;
-	totalPoints: number;
 }
 
 export interface InsertParentMessageInput {
@@ -906,22 +879,6 @@ export interface ChildChallengeWithSiblings extends ChildChallenge {
 // ============================================================
 // Sibling Cheers (きょうだい間おうえんスタンプ)
 // ============================================================
-
-export interface SiblingCheer {
-	id: string;
-	fromChildId: ChildId;
-	toChildId: ChildId;
-	stampCode: string;
-	tenantId: string;
-	sentAt: string;
-	shownAt: string | null;
-}
-
-export interface InsertSiblingCheerInput {
-	fromChildId: ChildId;
-	toChildId: ChildId;
-	stampCode: string;
-}
 
 // ============================================================
 // Push Subscriptions (プッシュ通知購読)

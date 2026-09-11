@@ -92,21 +92,4 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 		).toEqual([]);
 		expect(await evaluationRepo.findLastActivityDateByCategory(asChildId(904), 'demo')).toEqual([]);
 	});
-
-	it('isRestDay は false / countRestDaysInMonth は 0', async () => {
-		expect(await evaluationRepo.isRestDay(asChildId(904), '2026-04-01', 'demo')).toBe(false);
-		expect(await evaluationRepo.countRestDaysInMonth(asChildId(904), '2026-04', 'demo')).toBe(0);
-	});
-
-	it('insertRestDay は input を RestDay として返す (no-op)', async () => {
-		const restDay = await evaluationRepo.insertRestDay(
-			asChildId(904),
-			'2026-04-01',
-			'お休み',
-			'demo',
-		);
-		expect(restDay).toBeDefined();
-		expect(restDay?.childId).toBe('904');
-		expect(restDay?.date).toBe('2026-04-01');
-	});
 });

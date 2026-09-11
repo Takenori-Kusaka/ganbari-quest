@@ -49,7 +49,11 @@ export async function insertLog(input: InsertNotificationLogInput): Promise<Noti
 	};
 }
 
-export async function countTodayLogs(_tenantId: string, _today: string): Promise<number> {
+export async function countLogsBetween(
+	_tenantId: string,
+	_fromIso: string,
+	_toIso: string,
+): Promise<number> {
 	return 0;
 }
 

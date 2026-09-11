@@ -4,7 +4,7 @@
 // 「初回は作る・既存は入る」の作成側 enforcement を検証する:
 //   - 未設定 tenant のみ作成可 (設定済みへの上書きは 403 = 子供が親の PIN を勝手に再作成する穴の防止)
 //   - 成功で setupPin + parent session cookie 発行 (verify 成功と同じ)
-//   - PIN format (4-6 桁数字) / rate limit ガード
+//   - PIN format (PIN_LENGTH 桁ちょうどの数字、#4661) / rate limit ガード
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -102,11 +102,21 @@ describe('POST /api/v1/parent-gate/setup (#2992)', () => {
 		expect(mockSetupPin).not.toHaveBeenCalled();
 	});
 
-	it('6 桁は許容される (PIN 仕様 4-6 桁)', async () => {
+	// #4661: 入口 (/switch の PinInput) はちょうど 4 桁しか打てないので、それ以外の桁数で
+	// 作らせると保護者がその PIN を二度と送れなくなる。setup も 4 桁ちょうどだけを受ける。
+	it('PIN format 不正 (6 桁) は 400 PIN_FORMAT', async () => {
 		const { event } = makeEvent({ pin: '123456' });
 		const res = await POST(event);
+		expect(res.status).toBe(400);
+		expect(await res.json()).toEqual({ ok: false, error: 'PIN_FORMAT' });
+		expect(mockSetupPin).not.toHaveBeenCalled();
+	});
+
+	it('4 桁ちょうどは許容される', async () => {
+		const { event } = makeEvent({ pin: '1234' });
+		const res = await POST(event);
 		expect(res.status).toBe(200);
-		expect(mockSetupPin).toHaveBeenCalledWith('123456', 'tenant-1');
+		expect(mockSetupPin).toHaveBeenCalledWith('1234', 'tenant-1');
 	});
 
 	it('rate limit 超過は 429 RATE_LIMITED', async () => {

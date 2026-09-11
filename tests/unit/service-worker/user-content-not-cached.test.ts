@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('$service-worker', () => ({
 	build: ['/_app/immutable/entry/app.js'],
 	files: ['/favicon.png'],
+	prerendered: ['/offline'],
 	version: 'test-version',
 }));
 

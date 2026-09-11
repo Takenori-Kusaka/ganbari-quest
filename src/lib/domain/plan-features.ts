@@ -21,7 +21,13 @@
 
 import type { PlanKey } from './labels';
 import { ACTION_LABELS, TRIAL_LABELS } from './labels';
-import { PLAN_RETENTION_TERMS, PLAN_TERMS, PRICE_TERMS } from './terms';
+import {
+	FAMILY_MEMBER_LIMIT_TERMS,
+	PLAN_RETENTION_TERMS,
+	PLAN_TERMS,
+	PRICE_TERMS,
+	REWARD_TERMS,
+} from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -39,18 +45,26 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		//   日本語化（IT リテラシーなし親 P1 の認知ジャンプ防止、LP_PRICING_PHASEB_LABELS.k5 と同方針）
 		'毎日のごほうび・続けるごほうび',
 		// #1710 R3-C: 持ち物純化（毎日 must は活動 priority 属性へ移管）
-		'持ち物チェックリスト 3個/子まで',
+		// #4866 系 QM 監査 (consistency) / PO 差し戻し 2026-09-09: LP pricing だけが
+		// 「（取込を含む）」に直り、この画面 (アプリ内 /pricing) が旧文言のまま残っていた。
+		// 取込んだチェックリストも同じ 3 個/子の枠を消費する (#4713)。
+		'持ち物チェックリスト 3個/子まで（取込を含む）',
 		`${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完
 		'メールサポート（標準）',
+		// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限は
+		// 検討時点で見えている必要がある (実ゲートは isCustomRewardUnlocked、#4584)。
+		`${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
 	],
 	standard: [
 		'お子さまの登録人数：無制限',
 		'オリジナル活動の作成：無制限',
 		'チェックリスト自由作成（無制限）',
-		// #1655 R49: pricing.html L188 / 比較表との整合（plan-limit-service.ts maxFamilyMembers=4）
-		'家族メンバー招待：4人まで',
-		'特別なごほうび設定（即時付与）',
+		// #1655 R49: pricing.html L188 / 比較表との整合
+		// #4500: 上限は owner 込みの合計なので、招待できる人数と区別して書く (値は terms.ts atom 経由)
+		`家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
+		// #4705: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
+		REWARD_TERMS.productRegistration,
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 		'データのダウンロード',
@@ -87,18 +101,21 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
  * 短い機能ハイライトリスト。料金ページよりも簡潔な 4〜5 項目に絞る。
  */
 export const LICENSE_PAGE_HIGHLIGHTS: Record<'standard' | 'family', readonly string[]> = {
+	// #4716: 料金ページ (PRICING_PAGE_FEATURES) / LP と表記を揃える。
+	//   旧: 「子供の登録数 無制限」(neutral 呼称) / 「データ保持 1年間」/ 「データ保持 無制限」/
+	//       「祖父母・家族向け閲覧リンク」(LP 未掲載機能) がここだけの言い回しだった。
 	standard: [
-		'子供の登録数 無制限',
-		'カスタム活動 無制限',
-		'データ保持 1年間',
+		'お子さまの登録人数：無制限',
+		'オリジナル活動の作成：無制限',
+		`${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 		'データのダウンロード',
 	],
 	family: [
 		'スタンダードの全機能',
-		'祖父母・家族向け閲覧リンク',
+		'家族メンバー招待：無制限',
 		'ひとことメッセージ（自由テキスト）',
 		'きょうだいランキング',
-		'データ保持 無制限',
+		'無制限の履歴保持',
 	],
 } as const;
 
@@ -118,21 +135,24 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	'standard' | 'family',
 	readonly UnlockedFeatureItem[]
 > = {
+	// #4716: 料金ページ / LP と同じ言い回しにする。
+	//   旧: 「1年間のデータ保持」/「データの永久保持」/「ごほうびのカスタマイズ」/「こどもの登録（無制限）」が
+	//       ここだけの表記で、同じ機能が顧客には別物に見えていた。
 	standard: [
-		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
+		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: '特別なごほうび設定', icon: '✅' },
-		{ text: '1年間のデータ保持', icon: '✅' },
+		{ text: REWARD_TERMS.productRegistration, icon: '✅' },
+		{ text: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`, icon: '✅' },
 	],
 	family: [
-		{ text: 'オリジナル活動の追加（無制限）', icon: '✅' },
+		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
 		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
-		{ text: 'ごほうびのカスタマイズ', icon: '✅' },
+		{ text: '特別なごほうび設定（即時付与）', icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
-		{ text: 'データの永久保持', icon: '✅' },
-		{ text: 'こどもの登録（無制限）', icon: '✅' },
+		{ text: '無制限の履歴保持', icon: '✅' },
+		{ text: 'お子さまの登録人数：無制限', icon: '✅' },
 	],
 } as const;
 

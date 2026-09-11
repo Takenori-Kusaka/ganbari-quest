@@ -9,6 +9,7 @@ import {
 	weekStartJST,
 } from '$lib/domain/date-utils';
 import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
+import { requireChildAccess } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
 import type { RequestHandler } from './$types';
@@ -24,6 +25,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!parsed.success) {
 		return validationError(parsed.issues[0]?.message ?? '入力が不正です');
 	}
+	// childId は path ではなく **body** で来る。child ロールが兄弟の childId を書いて
+	// 兄弟名義の記録 (= 兄弟のポイント / ステータス加算) を作るのを止める。
+	requireChildAccess(locals, parsed.output.childId);
 
 	const result = await recordActivity(parsed.output.childId, parsed.output.activityId, tenantId);
 
@@ -54,6 +58,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	}
 
 	const { childId, period, from, to } = parsed.output;
+	// childId は **query** で来る。child ロールが兄弟の記録一覧を列挙するのを止める。
+	requireChildAccess(locals, childId);
 
 	// Calculate date range from period if from/to not specified
 	let dateFrom = from;

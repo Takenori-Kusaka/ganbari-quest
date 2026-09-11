@@ -1,6 +1,14 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, PAGE_TITLES, SETUP_PACKS_LABELS } from '$lib/domain/labels';
+import { resolve } from '$app/paths';
+import {
+	APP_LABELS,
+	formatCount,
+	PAGE_TITLES,
+	SETUP_LABELS,
+	SETUP_PACKS_LABELS,
+} from '$lib/domain/labels';
+import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -37,14 +45,9 @@ function selectSkip() {
 	selectedPacks = new Set();
 }
 
-// Category labels for preview
-const categoryLabels: Record<string, string> = {
-	undou: 'うんどう',
-	benkyou: 'べんきょう',
-	seikatsu: 'せいかつ',
-	kouryuu: 'こうりゅう',
-	souzou: 'そうぞう',
-};
+// #4512: 5 カテゴリ名の Record をここで持っていたが、この画面からは 1 度も参照されていない
+// 死んだ複製だった (view/[token] の同じ複製とあわせて並行実装 2 本)。SSOT は
+// src/lib/domain/categories.ts の CATEGORIES。参照が要るときは同 SSOT から引く。
 
 // Auto-select recommended packs on mount
 $effect(() => {
@@ -66,6 +69,8 @@ $effect(() => {
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
 	{SETUP_PACKS_LABELS.pageDesc}
 </p>
+
+<SetupNoScriptNotice />
 
 <form
 	method="POST"
@@ -102,7 +107,7 @@ $effect(() => {
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-bold text-[var(--color-text)]">{pack.packName}</span>
-							<span class="text-xs text-[var(--color-text-muted)]">{pack.activityCount + '件'}</span>
+							<span class="text-xs text-[var(--color-text-muted)]">{formatCount(pack.activityCount)}</span>
 						</div>
 						<p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
 						<div class="flex items-center gap-1 mt-2">
@@ -114,7 +119,9 @@ $effect(() => {
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, pack.packId)}
 							>
-								{expandedPack === pack.packId ? '▲ とじる' : '▼ なかみ'}
+								{expandedPack === pack.packId
+									? SETUP_LABELS.previewToggleClose
+									: SETUP_LABELS.previewToggleOpen}
 							</button>
 						</div>
 					</div>
@@ -191,8 +198,12 @@ $effect(() => {
 
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
+		<!-- #4863: 戻り先は step 連鎖の 1 つ前 = questionnaire。**children ではない**。
+		     questionnaire (step 2) を後から足したときに、この 1 行だけ追従漏れしていた
+		     (戻ると step 2 を飛ばして step 1 に着く)。全 step の戻り先は
+		     tests/unit/architecture/setup-wizard-back-links.test.ts が layout の steps と突合する。 -->
 		<a
-			href="/setup/children"
+			href={resolve('/setup/questionnaire')}
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; {SETUP_PACKS_LABELS.backButton}

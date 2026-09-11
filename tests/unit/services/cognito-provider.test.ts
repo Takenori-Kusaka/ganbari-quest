@@ -168,6 +168,8 @@ describe('CognitoAuthProvider', () => {
 			mockVerifyContext.mockReturnValue({
 				tenantId: 't-cached',
 				role: 'owner',
+				// #4643: userId (users.user_id) を持つ token だけを採用する
+				userId: 'u-app-1',
 			});
 			// DB 側は subscription 無し (= 無料) の状態
 			mockFindTenantById.mockResolvedValue({ tenantId: 't-cached', status: 'active' });
@@ -184,9 +186,12 @@ describe('CognitoAuthProvider', () => {
 			expect(context).toEqual({
 				tenantId: 't-cached',
 				role: 'owner',
+				userId: 'u-app-1',
 				licenseStatus: 'none',
 				tenantStatus: 'active',
 				plan: undefined,
+				// #4585-2: 契約の有無 (S4 停止 / S5 契約終了 の判別軸) も DB から解決する
+				stripeSubscriptionId: null,
 			});
 			// Cookie が有効なのでメンバーシップ再解決は走らないが、課金状態のため DB は引く
 			expect(mockFindUserTenants).not.toHaveBeenCalled();
@@ -198,6 +203,7 @@ describe('CognitoAuthProvider', () => {
 			mockVerifyContext.mockReturnValue({
 				tenantId: 't-cached',
 				role: 'owner',
+				userId: 'u-app-1',
 				licenseStatus: 'none',
 				plan: undefined,
 			} as AuthContext);
@@ -244,9 +250,13 @@ describe('CognitoAuthProvider', () => {
 			expect(context).toEqual({
 				tenantId: 't-family-A',
 				role: 'owner',
+				// #4643: sub (identity.userId) ではなく membership の users.user_id が載る
+				userId: 'u-member',
 				licenseStatus: 'none',
 				tenantStatus: 'active',
 				plan: undefined,
+				// #4585-2: 契約の有無 (S4 停止 / S5 契約終了 の判別軸) も DB から解決する
+				stripeSubscriptionId: null,
 			});
 			expect(mockFindUserByEmail).toHaveBeenCalledWith('owner@family.com');
 			expect(mockFindUserTenants).toHaveBeenCalledWith('u-member');

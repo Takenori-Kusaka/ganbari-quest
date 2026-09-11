@@ -56,6 +56,11 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 		vi.doMock('$lib/server/auth/factory', () => ({
 			getAuthMode: () => 'cognito',
 		}));
+		// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+		// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+		vi.doMock('$lib/server/auth/auth-mode', () => ({
+			getAuthMode: () => 'cognito',
+		}));
 		vi.doMock('$lib/server/request-context', () => ({
 			getRequestContext: () => undefined,
 			buildPlanTierCacheKey: (tenantId: string, licenseStatus: string, planId?: string) =>

@@ -30,6 +30,15 @@ interface Props {
 
 let { challengeId, challengeTitle, siblings, showClaimHint = false, onDismiss }: Props = $props();
 
+// #4689: 同じ内容を持つ兄弟がいない (自分だけの) チャレンジは「みんなクリア！」ではなく
+// 本人向けの見出しを出す。週次自動生成は子供ごとに別内容なのでこちらが既定になる。
+const isSolo = $derived(siblings.length <= 1);
+const headingText = $derived(
+	isSolo
+		? FEATURES_LABELS.challenge.celebrationTitleSolo
+		: FEATURES_LABELS.challenge.celebrationTitle,
+);
+
 // Confetti particles
 // Confetti hex colors: kept as hex because JS array init runs before DOM is available for getComputedStyle
 const confettiColors = ['#8b5cf6', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6', '#ec4899'];
@@ -59,7 +68,7 @@ function handleDialogChange(details: { open: boolean }) {
 	closable={false}
 	closeOnEscape={false}
 	testid="sibling-celebration"
-	ariaLabel={FEATURES_LABELS.challenge.celebrationTitle}
+	ariaLabel={headingText}
 	contentClass="celebration__content"
 >
 	<!-- Confetti (Dialog の backdrop は Ark UI 提供のため、ここでは card 内の演出のみ) -->
@@ -77,17 +86,20 @@ function handleDialogChange(details: { open: boolean }) {
 
 	<div class="celebration__inner">
 		<div class="celebration__emoji">🎉</div>
-		<h2 class="celebration__title">{FEATURES_LABELS.challenge.celebrationTitle}</h2>
+		<h2 class="celebration__title" data-testid="sibling-celebration-title">{headingText}</h2>
 		<p class="celebration__challenge">{challengeTitle}</p>
 
-		<div class="celebration__siblings">
-			{#each siblings as sib (sib.name)}
-				<div class="celebration__sibling">
-					<span class="celebration__check">{sib.completed ? '✅' : '⬜'}</span>
-					<span>{sib.name}</span>
-				</div>
-			{/each}
-		</div>
+		<!-- #4689: 兄弟一覧は「同じ内容を一緒にやっている」ときだけ意味を持つ。solo では出さない -->
+		{#if !isSolo}
+			<div class="celebration__siblings">
+				{#each siblings as sib (sib.name)}
+					<div class="celebration__sibling">
+						<span class="celebration__check">{sib.completed ? '✅' : '⬜'}</span>
+						<span>{sib.name}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 
 		<!-- #4410 AC4: 閉じたあとの受取場所を案内する (claim ボタンは戻さない = #3333 維持)。 -->
 		{#if showClaimHint}

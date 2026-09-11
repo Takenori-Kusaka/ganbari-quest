@@ -392,7 +392,16 @@ function detectFailFastGuardedEnvs(lines) {
 		aliases.set(varName, bucket);
 	}
 
-	const negationGuardRe = /if\s*\(\s*!\s*(?:process\.env\.)?([A-Za-z_$][\w$]*)/;
+	// 末尾の `(?![\w$]*\s*[.([])` で「識別子の直後にメソッド呼び出し / プロパティ参照 / 添字が
+	// 続く形」を guard から除外する (#4497)。
+	//   検出する: `if (!STRIPE_WEBHOOK_SECRET)` / `if (!process.env.FOO_BAR)` / `if (!secret)`
+	//   除外する: `if (!CONSENT_TYPES.includes(type))` — ALL_CAPS の**ドメイン定数**への
+	//             メソッド呼び出しであって env 参照ではない。ALL_CAPS_SNAKE という命名だけを
+	//             根拠に env と見なしていたため、定数配列の検証 guard が env 必須化と誤検出された。
+	// `(?![\w$])` を先に置いて識別子を最長一致に固定する (これが無いと正規表現エンジンが
+	// 短く戻って `CONSENT_TYPES` を `CONSENT_TYPE` と拾い、除外が効かない)。
+	const negationGuardRe =
+		/if\s*\(\s*!\s*(?:process\.env\.)?([A-Za-z_$][\w$]*)(?![\w$])(?!\s*[.([])/;
 	const failFastRe = /process\.exit\s*\(\s*[1-9]|throw\s+|exitCode\s*=\s*[1-9]/;
 
 	for (let i = 0; i < lines.length; i++) {
@@ -626,9 +635,37 @@ function main() {
 	process.exit(0);
 }
 
+/**
+ * `--help` の出力。**main() を走らせずに返す**のが要点。
+ *
+ * 本 script は他の check-*.mjs と違い `--help` を実装しておらず、`--help` 付きでも
+ * `git diff` を含む本体を最後まで走らせていた。そのため `--help` の応答が 1.6s (ローカル実測) /
+ * 5.2〜6.7s (CI 実測、PR #4842 の shard 1 blob 4 run) かかり、同じ probe で並ぶ他 10 本の
+ * 53〜83ms から 2 桁外れていた。「起動して判定に到達するか」を見る probe
+ * (tests/unit/scripts/cli-entry-guard.test.ts) にとって、本体実行は不要なコストでしかない。
+ */
+function printHelp() {
+	console.log(`
+check-new-required-env.mjs — 必須化された env / secret の配布証跡チェック (#914 / ADR-0024)
+
+Usage:
+  node scripts/check-new-required-env.mjs                 # origin/main との diff を検査
+  node scripts/check-new-required-env.mjs --base=<ref>    # 比較対象の ref を指定
+  node scripts/check-new-required-env.mjs --help
+
+PR diff から「production で必須になった env / secret」を検出し、PR 本文に
+「配布済み:」証跡が無ければ exit 1 で CI を red にする。
+検査対象外にする場合は PR 本文に <!-- env-not-newly-required: <ENV_NAME> <12 文字以上の理由> --> を書く。
+`);
+}
+
 // CLI 起動時のみ main を呼ぶ。`import { detectNewRequiredEnvs }` 経由のテスト時は呼ばない。
 // (#2337 / Issue #2337 AC: regex unit test 追加のため export 化、CLI 互換性維持)
 const isDirectInvocation = isMainModule(import.meta.url);
 if (isDirectInvocation) {
-	main();
+	if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+		printHelp();
+	} else {
+		main();
+	}
 }

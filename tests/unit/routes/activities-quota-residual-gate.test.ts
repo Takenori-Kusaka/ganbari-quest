@@ -19,7 +19,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
 import { asCategoryId } from '$lib/domain/ids';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_TERMS } from '$lib/domain/terms';
 
 // --- モック ---
 const mockRequireTenantId = vi.fn();
@@ -29,6 +32,17 @@ const mockCreateActivity = vi.fn();
 const mockCopyToSibling = vi.fn();
 const mockCopyToSiblings = vi.fn();
 const mockGetAllChildren = vi.fn();
+
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: vi.fn(() => 'cognito'),
+	// #4866 系: admin の form action は `withParentGate` を通るため、auth-mode が
+	// 親 PIN gate の有効化条件にも使われる。本 test が測るのは**プラン上限**であって
+	// PIN gate ではないので、`dev:cognito` 相当 (gate 無効) の fixture に揃える。
+	// PIN gate 自体の範囲は tests/unit/auth/parent-gate-scope.test.ts が測る。
+	isCognitoDevMode: vi.fn(() => true),
+}));
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
@@ -114,6 +128,8 @@ type ActionResult = {
 	data?: { error: PlanLimitErrorShape | string };
 	copyResult?: boolean;
 	copiedCount?: number;
+	/** #4694: 重複 (同名 + 同カテゴリ) で作らなかった件数 */
+	skippedCount?: number;
 	errorCount?: number;
 };
 
@@ -126,12 +142,17 @@ const copyFromChildAction = adminMod.actions.copyFromChild as unknown as (event:
 	locals: App.Locals;
 }) => Promise<ActionResult>;
 
-function makeLocals(opts: { licenseStatus?: string; plan?: string } = {}) {
+function makeLocals(opts: { licenseStatus?: string; plan?: string; role?: string } = {}) {
 	return {
 		context: {
 			tenantId: 'tenant-1',
 			licenseStatus: opts.licenseStatus ?? 'none',
 			plan: opts.plan,
+			// #4867 系 QM 監査 (S2): `POST /api/v1/activities` は親限定になった。
+			// role を持たない locals は実運用では作られない (認証が必ず入れる) ので、
+			// fixture 側を実物に合わせる。role 検査そのものは
+			// `tests/unit/routes/api-parent-only-role-guard.test.ts` が固定する。
+			role: opts.role ?? 'owner',
 		},
 	} as unknown as App.Locals;
 }
@@ -190,6 +211,41 @@ describe('#3740 quota 残余経路 gate (api/v1 POST + copyFromChild)', () => {
 			expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
 			expect(body.error.message).toContain('3');
 			expect(mockCreateActivity).not.toHaveBeenCalled();
+		});
+
+		// #4693 (QM 4 巡目 / #4710 と同 class): 数量制限を **機能ゲートの文型で返さない**。
+		// 旧実装は `planLimitError` → 「〜はスタンダードプラン以上でご利用いただけます」を返し、
+		// 3 個までは実際に使えるのに「使えません」と言う自己矛盾があった。
+		// merge 側 (activities-import-merge-quota-gate.test.ts) と同型の pin をここにも置く。
+		it('403 の文言が labels SSOT と一致し、機能ゲートの文型になっていない', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockCheckActivityLimit.mockResolvedValue({
+				allowed: false,
+				current: FREE_PLAN_QUOTA.maxActivities,
+				max: FREE_PLAN_QUOTA.maxActivities,
+			});
+
+			const res = await apiPost({
+				request: makeJsonRequest(validActivityBody()),
+				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+			const body = (await res.json()) as { error: { code: string; message: string } };
+
+			// route が文を組み立てない (ADR-0045 / #4767 の単一チャネル構造)
+			expect(body.error.message).toBe(
+				PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(FREE_PLAN_QUOTA.maxActivities),
+			);
+			// #4693 PO 回答 #1 の中身: 数える対象と、数えない経路の両方を言う
+			expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.original);
+			expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.presetImport);
+			expect(body.error.message).not.toContain('カスタム活動');
+			// 導線は本文に載る (REST は message 1 本しか顧客に届かない)
+			expect(body.error.message).toContain('アップグレード');
+			// 自己矛盾する機能ゲート文型を使わない
+			expect(body.error.message).not.toContain('ご利用いただけます');
+			// client の分岐条件は変えない
+			expect(res.status).toBe(403);
+			expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
 		});
 
 		it("wire source='seed' 注入で quota gate を回避できない (上限到達時は seed 指定でも 403)", async () => {
@@ -282,7 +338,8 @@ describe('#3740 quota 残余経路 gate (api/v1 POST + copyFromChild)', () => {
 		it('上限未満なら単一 target への copy を実行する', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 1, max: 3 });
-			mockCopyToSibling.mockResolvedValue([{ id: 'a1' }, { id: 'a2' }]);
+			// #4694: service は { copied, skipped } を返す (重複 skip 件数を UI に出すため)
+			mockCopyToSibling.mockResolvedValue({ copied: 2, skipped: 1 });
 
 			const result = await copyFromChildAction({
 				request: makeFormRequest({ sourceChildId: '902', targetChildId: '903' }),
@@ -292,13 +349,14 @@ describe('#3740 quota 残余経路 gate (api/v1 POST + copyFromChild)', () => {
 			expect(result.status).toBeUndefined();
 			expect(result.copyResult).toBe(true);
 			expect(result.copiedCount).toBe(2);
+			expect(result.skippedCount).toBe(1);
 			expect(mockCopyToSibling).toHaveBeenCalledTimes(1);
 		});
 
 		it('paid tier (standard、max=null) は複数 target への copy を実行する', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
-			mockCopyToSiblings.mockResolvedValue({ totalCopied: 4, errors: [] });
+			mockCopyToSiblings.mockResolvedValue({ totalCopied: 4, totalSkipped: 0, errors: [] });
 
 			const result = await copyFromChildAction({
 				request: makeFormRequest({ sourceChildId: '902', targetChildIds: '903,904' }),

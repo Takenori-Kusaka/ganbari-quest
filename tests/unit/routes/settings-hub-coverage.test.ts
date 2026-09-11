@@ -17,7 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ADMIN_RULES_PAGE_LABELS, PAGE_GUIDE_LABELS } from '$lib/domain/labels';
+import { ADMIN_RULES_PAGE_LABELS, PAGE_GUIDE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SETTINGS_DIR = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings');
@@ -243,6 +243,29 @@ describe('#3954 settings hub のページガイドがカード枚数と一致す
 				`${enumerated} 件、hub のカードが ${countHubCards()} 枚で食い違っている。\n` +
 				'→ カードを増減したらガイドの列挙も同じ順序で更新すること (ガイドが古いと導線があっても辿れない)',
 		).toBe(countHubCards());
+	});
+
+	// #4661: 件数だけでは「カード名がガイドと違う」drift を止められない。実際に 6 行目は
+	// ガイドが「サポート」、カードが「サポート・アプリ情報」で、探しても見つからなかった。
+	// カード名を機械で照合する (説明部分 ` — …` は文言の自由度を残すため対象外)。
+	it('[S13] ガイドの列挙 1 行目 = カード名が hub のカードタイトルと一致する', () => {
+		const cardTitles = [
+			SETTINGS_LABELS.groupAccountTitle,
+			SETTINGS_LABELS.groupActivitiesTitle,
+			SETTINGS_LABELS.groupNotificationsTitle,
+			SETTINGS_LABELS.groupDataTitle,
+			SETTINGS_LABELS.groupRulesTitle,
+			SETTINGS_LABELS.groupSupportTitle,
+			SETTINGS_LABELS.groupPlanTitle,
+		];
+		const guideNames = [...HUB_GUIDE.how.matchAll(/^\d+\.\s*([^—\n]+?)\s*(?:—|$)/gm)].map(
+			(m) => m[1],
+		);
+		expect(
+			guideNames,
+			'ページガイドが列挙するカード名が hub のカードタイトルと食い違っている\n' +
+				`  ガイド: ${guideNames.join(' / ')}\n  カード: ${cardTitles.join(' / ')}`,
+		).toEqual(cardTitles);
 	});
 
 	it('[S6] ガイドの title / what が書いている件数が hub のカード枚数と一致する', () => {

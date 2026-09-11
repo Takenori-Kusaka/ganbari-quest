@@ -6,7 +6,7 @@ import {
 	APP_LABELS,
 	CHILD_CHECKLIST_TIME_SLOT_ICONS,
 	getChildChecklistLabels,
-	PAGE_TITLES,
+	getChildNavModeLabels,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
@@ -32,6 +32,8 @@ let completeData = $state<{ templateName: string; pointsAwarded: number } | null
 // 解決済みの `data.uiMode` から受け取れる (route を動かさなくても context は届く)。
 // 画面側に `if (uiMode === ...)` を書かない (`src/routes/CLAUDE.md` §年齢帯 variant)。
 const t = $derived(getChildChecklistLabels({ ageTier: data.uiMode }));
+// #4715: <title> を年齢帯に追従させる (nav ラベルと同じ SSOT から引く)。
+const navLabels = $derived(getChildNavModeLabels(data.uiMode));
 
 // 曜日は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) が JST 00:00〜09:00 に
 // 前日の曜日を描画し、hydration で切り替わる (子供画面に誤情報 + ちらつき)。
@@ -54,7 +56,7 @@ const flatChecklists = $derived(data.checklists);
 </script>
 
 <svelte:head>
-	<title>{PAGE_TITLES.childChecklist}{APP_LABELS.pageTitleSuffix}</title>
+	<title>{navLabels.checklist}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-sm)]">

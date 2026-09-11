@@ -16,10 +16,13 @@ import {
 	PRESET_CHALLENGES,
 	resolvePresetChallengeDates,
 } from '$lib/data/preset-challenges';
+import { SETUP_CHALLENGES_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	buildPerChildTargets,
 	createChildChallengesBulk,
+	findAppliedSetupPresetChildIds,
+	SETUP_PRESET_SOURCE_PREFIX,
 } from '$lib/server/services/child-challenge-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
@@ -76,15 +79,27 @@ async function addPresetsAsChallenges(
 	const childIds = children.map((c) => c.id);
 	if (childIds.length === 0) {
 		// guard: 上流 load() で /setup/children へ redirect 済のため通常は到達しない
-		return { added: 0, errors: ['お子さまが登録されていません'] };
+		return { added: 0, errors: [SETUP_CHALLENGES_LABELS.errorNoChildren] };
 	}
+
+	// #4863 (PO 決裁 2026-09-09): ウィザードは中断・再開できるようになったので、この step を
+	// 2 周しうる。`createChildChallengesBulk` は `insertBulk` するだけで重複を見ないため、
+	// **配信済みの preset は飛ばす**。9 step のうち二重に積むのはここだけ (packs / rewards は
+	// sourcePresetId の重複検知、rules は alreadyImported 判定、activities-defaults は
+	// setSetting の upsert で、いずれも 2 周しても増えない)。
+	const alreadyApplied = await findAppliedSetupPresetChildIds(tenantId);
 
 	for (const id of presetIds) {
 		const preset = getPresetChallengeById(id);
 		if (!preset) {
-			errors.push(`プリセット「${id}」が見つかりません`);
+			errors.push(SETUP_CHALLENGES_LABELS.errorPresetNotFound(id));
 			continue;
 		}
+		// **子供ごとに判定する**。preset 単位で飛ばすと、「戻る」で子供を追加してから
+		// 前進し直した親の子だけが 1 件も受け取らない (#4868 adversarial 実測)。
+		const alreadyFor = alreadyApplied.get(preset.id) ?? new Set<string>();
+		const pendingChildIds = childIds.filter((childId) => !alreadyFor.has(String(childId)));
+		if (pendingChildIds.length === 0) continue;
 		try {
 			const { startDate, endDate } = resolvePresetChallengeDates(preset, now);
 			const targetConfig = JSON.stringify({
@@ -101,12 +116,12 @@ async function addPresetsAsChallenges(
 			const perChildTargets = await buildPerChildTargets(
 				preset.baseTarget,
 				undefined,
-				childIds,
+				pendingChildIds,
 				tenantId,
 				children,
 			);
 			// sourceTemplateId は admin/challenges 兄弟連動表示のため preset id を埋め込む
-			const sourceTemplateId = `setup-preset:${preset.id}`;
+			const sourceTemplateId = `${SETUP_PRESET_SOURCE_PREFIX}${preset.id}`;
 			const created = await createChildChallengesBulk(
 				{
 					title: preset.title,
@@ -120,18 +135,45 @@ async function addPresetsAsChallenges(
 					sourceTemplateId,
 					perChildTargets,
 				},
-				childIds,
+				pendingChildIds,
 				tenantId,
 			);
 			// 1 preset = 1 challenge (count for funnel analytics). 内部 instance 数は children 数と一致。
 			if (created.length > 0) added++;
 		} catch (e) {
 			errors.push(
-				`「${preset.title}」の追加に失敗: ${e instanceof Error ? e.message : 'unknown error'}`,
+				SETUP_CHALLENGES_LABELS.errorAddFailed(
+					preset.title,
+					e instanceof Error ? e.message : 'unknown error',
+				),
 			);
 		}
 	}
 	return { added, errors };
+}
+
+/**
+ * 次の step (`/setup/first-adventure`) への遷移先。
+ *
+ * #4868 adversarial: 旧実装は常に `?challengesAdded=N` を付けていたが、
+ * **この param を読むコードは `src/` に 1 つも無かった** (書き手 4 / 読み手 0)。
+ * 親は「追加する」を押しても、追加された / すでにある のどちらの feedback も
+ * 受け取らない (ADR-0062 §1 未達)。しかも 2 周目は必ず 0 件になるので、
+ * 歩き直した親には**押しても何も起きない画面**に見える。
+ *
+ * `requested` を併せて渡す — `added=0` の意味が「飛ばした」と「すでにある」の
+ * 2 つあると、次画面は正しい文言を選べない。飛ばした場合は param 自体を付けない。
+ */
+function nextHref(added: number, requested: number, failed: number): string {
+	const params = new URLSearchParams({
+		challengesAdded: String(added),
+		challengesRequested: String(requested),
+	});
+	// #4868 adversarial round 4: **全部失敗したときに「すでに追加ずみ」と言わない**。
+	// `added=0` の意味は「すでにある」だけでなく「作れなかった」もありうる。
+	// `errors` は書き手 3 / 読み手 0 で、失敗が親に一度も届いていなかった。
+	if (failed > 0) params.set('challengesFailed', String(failed));
+	return `/setup/first-adventure?${params.toString()}`;
 }
 
 export const actions: Actions = {
@@ -141,32 +183,34 @@ export const actions: Actions = {
 		const presetIds = formData.getAll('presetIds').map((v) => v.toString());
 
 		if (presetIds.length === 0) {
-			redirect(302, '/setup/first-adventure?challengesAdded=0');
+			// 何も選ばなかった = 要求していないので param を付けない (下の skip と同じ)。
+			redirect(302, '/setup/first-adventure');
 		}
 
-		const { added } = await addPresetsAsChallenges(presetIds, tenantId);
+		const { added, errors } = await addPresetsAsChallenges(presetIds, tenantId);
 		trackSetupFunnel('setup_challenges_selected', tenantId, {
 			presetCount: presetIds.length,
 			added,
 		});
-		redirect(302, `/setup/first-adventure?challengesAdded=${added}`);
+		redirect(302, nextHref(added, presetIds.length, errors.length));
 	},
 
 	autoAdd: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		const recommended = getAutoAddRecommendedPresets().map((p) => p.id);
-		const { added } = await addPresetsAsChallenges(recommended, tenantId);
+		const { added, errors } = await addPresetsAsChallenges(recommended, tenantId);
 		trackSetupFunnel('setup_challenges_selected', tenantId, {
 			presetCount: recommended.length,
 			added,
 			autoAdd: true,
 		});
-		redirect(302, `/setup/first-adventure?challengesAdded=${added}`);
+		redirect(302, nextHref(added, recommended.length, errors.length));
 	},
 
 	skip: async ({ locals }) => {
 		const tenantId = requireTenantId(locals);
 		trackSetupFunnel('setup_challenges_skipped', tenantId, {});
-		redirect(302, '/setup/first-adventure?challengesAdded=0');
+		// 飛ばした人には結果を出さない (要求していないので「0 件」も嘘になる)。
+		redirect(302, '/setup/first-adventure');
 	},
 };

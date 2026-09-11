@@ -9,8 +9,8 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import { type ActivityId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
-	CHILD_HOME_LABELS,
 	FEATURES_LABELS,
+	getChildHomeLabels,
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
@@ -18,6 +18,10 @@ import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-di
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
+import {
+	ADMIN_ACTION_FETCH_HEADERS,
+	readAdminActionResult,
+} from '$lib/features/admin/action-result';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import HabitCertificateNoticeBanner from '$lib/features/child/HabitCertificateNoticeBanner.svelte';
@@ -48,17 +52,17 @@ import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
-import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
-import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
+import { notifyActionFailure, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
+import { setChildActivityPresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
 
 // #2097 EPIC PR-B1 hotfix (2026-05-17): LP SS 撮影時 (`?screenshot=*`) は本番 UI 内の
-// auto-open dialog (SiblingCheerOverlay / MonthlyRewardDialog 等) を抑止する。
+// auto-open dialog (MonthlyRewardDialog 等) を抑止する。
 // 子供画面の demo data には常に pending cheer が 1 件含まれるため、撮影タイミングで
 // dialog が画面中央に被って主要 UI が隠れる事故が発生 (PO 2026-05-17 指摘)。
 const isScreenshotMode = $derived(getScreenshotMode());
@@ -78,7 +82,23 @@ setDashboardService(
 );
 
 const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
+// #4690 F6: 記録ダイアログ / 結果 / ピン操作の文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
+const HL = $derived(getChildHomeLabels(data.uiMode ?? 'preschool'));
 const f = $derived(variant.features);
+
+// ❓ ガイドの「活動カードをタップすると」step は、カードが 1 枚も無い画面では
+// 光らせる先も押すものも無い (初回演出 AdventureStartOverlay と同じクラスの欠陥)。
+// **件数を知っているのはこの画面だけ**なので、有無だけを store に書く。章の組み立ては
+// layout が渡した builder が担い、store 側で derive される (#4860)。
+// 旧実装は完成した章配列を store に押し込んでいたが、layout の `onMount` が後から
+// 仮置きで上書きするため、活動 0 件の初回訪問で訂正が消えていた。
+// ホームを離れたら `undefined` に戻す。持ち越すと、活動 40 件の子が `/checklist` へ
+// 遷移したときに「カードをタップすると」と案内し、その画面にカードは 1 枚も無い
+// (adversarial 実測: `cards:0, spotlightRing:0`)。件数の記憶はこの画面の生存期間に閉じる。
+$effect(() => {
+	setChildActivityPresence(data.activities.length > 0);
+	return () => setChildActivityPresence(undefined);
+});
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
 const fsm = new DialogFSM();
@@ -123,7 +143,11 @@ const displayConfig = $derived(parseDisplayConfig(data.child?.displayConfig, dat
 const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
 let showTutorialHint = $state(false);
 $effect(() => {
-	if (typeof window !== 'undefined') {
+	// #4714: `?screenshot=*` 中は出さない。LP 配信 SS にワンタイム通知が写り込むと、
+	//   「どの画面にも常時この帯が出る」ように見えるうえ、アニメーション途中で撮影されて
+	//   フェード中の半透明バナーが配信 SS に残る (実測: site/screenshots/age-lower.webp)。
+	//   通常表示 (screenshot mode off) の挙動は不変。
+	if (typeof window !== 'undefined' && !isScreenshotMode) {
 		showTutorialHint = !localStorage.getItem(tutorialHintKey);
 	}
 });
@@ -156,7 +180,6 @@ $effect(() => {
 });
 
 // Sibling cheer overlay
-let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
 // #2458-B: per-child instance に flip。
@@ -261,11 +284,16 @@ let stampPressData = $state<{
 	cardFilledSlots: number;
 	cardTotalSlots: number;
 	cardEntries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[];
+	// #4687: 週コンプリート済の日 / おみくじログインボーナスを演出に出すための実データ
+	cardFull: boolean;
+	loginBonusPoints: number;
+	loginBonusRank: string | null;
 	weeklyRedeem: {
 		points: number;
 		filledSlots: number;
 		totalSlots: number;
 		completeBonus: number;
+		weeks?: number;
 	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
@@ -283,6 +311,8 @@ let missionResult = $state<{
 	allComplete: boolean;
 	bonusAwarded: number;
 } | null>(null);
+// #4686: フォーカスボーナス (台帳に載る付与) を結果ダイアログに出す (合計 = 台帳増分)
+let focusBonusResult = $state<{ bonusPoints: number } | null>(null);
 
 // Level up overlay state (kept separate — part of user-initiated record flow)
 let levelUpData = $state<{
@@ -407,9 +437,21 @@ async function handlePinToggle() {
 	//   error 文言を使う (DESIGN.md §8)。form action の raw fetch でも !res.ok で汎用文言にフォールバック。
 	const errorLabels = getErrorNotifyLabels(data.uiMode ?? 'preschool');
 	try {
-		const res = await fetch('?/togglePin', { method: 'POST', body: formData });
-		if (!res.ok) {
-			await notifyApiError(res, { labels: errorLabels });
+		// #4693: form action の失敗 (fail()) は HTTP status に現れないため、ActionResult の
+		// type で判定する。旧実装は `!res.ok` で分岐しており、サーバーが拒否しても
+		// 子供には何も出ない (無音の失敗) 経路だった。
+		const res = await fetch('?/togglePin', {
+			method: 'POST',
+			headers: ADMIN_ACTION_FETCH_HEADERS,
+			body: formData,
+		});
+		const actionResult = await readAdminActionResult(res);
+		if (!actionResult.ok) {
+			// #4839: server は拒否理由 (上限 / 活動が無い) を年齢帯別の文言で返している
+			// (`childErrors(params)` = getChildActionErrorLabels(uiMode))。それを捨てて汎用文言を
+			// 出すと、上限に達したことが子供に伝わらない。理由をそのまま渡す
+			// (内部文字列の混入は notifyActionFailure 側の sanitize が落とす、ADR-0062 §2)。
+			notifyActionFailure({ labels: errorLabels, reason: actionResult.error });
 		}
 	} catch {
 		notifyNetworkError({ labels: errorLabels });
@@ -448,6 +490,7 @@ function handleResultClose() {
 	cancelTimerId = null;
 	resultOpen = false;
 	missionResult = null;
+	focusBonusResult = null;
 
 	// XPバーアニメーションを開始
 	if (xpGainData) {
@@ -498,8 +541,10 @@ function handleStampPressClose() {
 async function postShown(url: string): Promise<void> {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			const res = await fetch(url, { method: 'POST' });
-			if (res.ok) return;
+			// #4693: REST endpoint なので HTTP status が結果そのもの (form action ではない)。
+			// 変数名を分けて「form action の戻り値を .ok で判定していない」ことを読み手にも示す。
+			const apiRes = await fetch(url, { method: 'POST' });
+			if (apiRes.ok) return;
 		} catch {
 			// 次の attempt で再送する
 		}
@@ -580,8 +625,8 @@ $effect(() => {
 	if (must?.granted && must.points > 0) {
 		mustToastShown = true;
 		showToast(
-			`${CHILD_HOME_LABELS.mustAllCompleteEmoji} ${CHILD_HOME_LABELS.mustAllComplete}`,
-			CHILD_HOME_LABELS.mustBonusGranted(must.points),
+			`${HL.mustAllCompleteEmoji} ${HL.mustAllComplete}`,
+			HL.mustBonusGranted(must.points),
 			'success',
 		);
 	}
@@ -612,21 +657,11 @@ $effect(() => {
 	// ログインボーナスに祝福の click が吸われ、子供が祝福を閉じられなくなっていた
 	// (z-index では解決しない。docs/DESIGN.md §10「侵襲的演出を重ねない」)。
 	const shouldShowCelebration = f.showSiblingFeatures && celebrationChallenge;
-	// 兄弟の応援 overlay も同じ class の defect (FSM 外で開くため祝福と重なりうる) なので
-	// 同時に arbitration へ載せる (ADR-0061: 同 class は 1 件目で guard 化する)。
-	const shouldShowCheer =
-		!isScreenshotMode &&
-		f.showSiblingFeatures &&
-		showCheerOverlay &&
-		data.unshownCheers &&
-		data.unshownCheers.length > 0;
-
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
 		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
-		siblingCheer: shouldShowCheer ? data.unshownCheers : undefined,
 		celebration: shouldShowCelebration ? celebrationChallenge : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
@@ -681,6 +716,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				allComplete: boolean;
 				bonusAwarded: number;
 			} | null;
+			focusBonus?: { bonusPoints: number } | null;
 			levelUp: {
 				oldLevel: number;
 				oldTitle: string;
@@ -713,6 +749,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			comboBonus: d.comboBonus ?? null,
 		};
 		missionResult = d.missionComplete ?? null;
+		focusBonusResult = d.focusBonus && d.focusBonus.bonusPoints > 0 ? d.focusBonus : null;
 		levelUpData = d.levelUp ?? null;
 		xpGainData = d.xpGain ?? null;
 		startCancelCountdown(d.cancelableUntil);
@@ -786,7 +823,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardFilledSlots: cardData?.filledSlots ?? 0,
 							cardTotalSlots: cardData?.totalSlots ?? 5,
 							cardEntries: cardData?.entries ?? [],
-							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
+							cardFull: d.cardFull === true,
+							loginBonusPoints: (d.loginBonusPoints as number) || 0,
+							loginBonusRank: (d.loginBonusRank as string) ?? null,
+							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number; weeks?: number } | null,
 						};
 						openDialog('stampPress', stampPressData);
 					}
@@ -807,7 +847,11 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 
 	<!-- Tutorial hint banner (one-time) -->
-	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
+	<TutorialHintBanner
+		visible={showTutorialHint}
+		uiMode={data.uiMode ?? 'preschool'}
+		onDismiss={dismissTutorialHint}
+	/>
 
 	<!--
 		Issue #2084 (ADR-0046 follow-up): 共通 dashboard sections は派生コンポーネント
@@ -922,9 +966,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{#if pinSubmitting}
 					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
 				{:else if pinMenuActivity.isPinned}
-					{CHILD_HOME_LABELS.pinActionUnpin}
+					{HL.pinActionUnpin}
 				{:else}
-					{CHILD_HOME_LABELS.pinActionPin}
+					{HL.pinActionPin}
 				{/if}
 			</Button>
 			<Button
@@ -933,7 +977,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				class="w-full text-[var(--color-text-muted)]"
 				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
 			>
-				{CHILD_HOME_LABELS.pinCloseButton}
+				{HL.pinCloseButton}
 			</Button>
 		</div>
 	{/if}
@@ -946,7 +990,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if selectedActivity}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
 			<CompoundIcon icon={selectedActivity.icon} size="xl" />
-			<p class="text-lg font-bold">{CHILD_HOME_LABELS.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{CHILD_HOME_LABELS.confirmTitleBrLine2}</p>
+			<p class="text-lg font-bold">{HL.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{HL.confirmTitleBrLine2}</p>
 			<div class="flex gap-[var(--sp-sm)] w-full">
 				<Button
 					variant="ghost"
@@ -956,7 +1000,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					disabled={submitting}
 					onclick={handleConfirmClose}
 				>
-					{CHILD_HOME_LABELS.confirmCancelButton}
+					{HL.confirmCancelButton}
 				</Button>
 				<form
 					method="POST"
@@ -983,9 +1027,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 					>
 						{#if submitting}
 							<span class="pending-dot" aria-hidden="true"></span>
-							{CHILD_HOME_LABELS.confirmSubmitLoading}
+							{HL.confirmSubmitLoading}
 						{:else}
-							{CHILD_HOME_LABELS.confirmSubmitButton}
+							{HL.confirmSubmitButton}
 						{/if}
 					</Button>
 				</form>
@@ -1000,8 +1044,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{#if resultData}
 		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
 			{#if cancelledMessage}
-				<span class="text-5xl">{CHILD_HOME_LABELS.resultCancelledIcon}</span>
-				<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultCancelledTitle}</p>
+				<span class="text-5xl">{HL.resultCancelledIcon}</span>
+				<p class="text-lg font-bold">{HL.resultCancelledTitle}</p>
 				<Button
 					variant="ghost"
 					size="md"
@@ -1014,17 +1058,17 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						void syncBalanceWithFlight(null);
 					}}
 				>
-					{CHILD_HOME_LABELS.resultCancelledClose}
+					{HL.resultCancelledClose}
 				</Button>
 			{:else}
 				<div class="relative w-24 h-24 flex items-center justify-center">
 					<CelebrationEffect type={celebEffect} />
 				</div>
 				{#if isFirstRecord}
-					<p class="text-lg font-bold text-[var(--theme-accent)]">{CHILD_HOME_LABELS.resultFirstRecord}</p>
-					<p class="text-sm font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+					<p class="text-lg font-bold text-[var(--theme-accent)]">{HL.resultFirstRecord}</p>
+					<p class="text-sm font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{:else}
-					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+					<p class="text-lg font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
 				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
 				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
@@ -1032,55 +1076,68 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				</div>
 				{#if resultData.streakDays >= 2}
 					<p class="text-sm text-[var(--theme-accent)]">
-						{CHILD_HOME_LABELS.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
+						{HL.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
 					</p>
 				{/if}
 				{#if resultData.masteryBonus > 0}
 					<p class="text-sm text-[var(--color-stat-purple)]">
-						{CHILD_HOME_LABELS.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
+						{HL.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
 					</p>
 				{/if}
 				{#if resultData.masteryLeveledUp}
 					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
 						<p class="text-sm font-bold text-[var(--color-stat-purple)]">
-							{CHILD_HOME_LABELS.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
+							{HL.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
 						</p>
 					</div>
 				{/if}
 				{#if resultData.comboBonus}
-					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<!-- #4686: tier 名は状態、金額は今回の純増 (台帳増分) のみ。tier 満額は出さない -->
+					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-combo">
 						{#each resultData.comboBonus.categoryCombo as cc}
 							<p class="text-sm font-bold text-[var(--theme-accent)]">
-								{CHILD_HOME_LABELS.resultComboCategoryCombo(cc.name, getCategoryById(cc.categoryId)?.name ?? '')} {fmtPts(cc.bonus)}
+								{HL.resultComboCategoryState(cc.name, getCategoryById(cc.categoryId)?.name ?? '')}
 							</p>
 						{/each}
 						{#if resultData.comboBonus.crossCategoryCombo}
 							<p class="text-sm font-bold text-[var(--color-point)]">
-								{resultData.comboBonus.crossCategoryCombo.name + CHILD_HOME_LABELS.crossComboBang} {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
+								{HL.resultComboCrossState(resultData.comboBonus.crossCategoryCombo.name)}
 							</p>
 						{/if}
+						<p class="text-sm font-bold text-[var(--color-point)]" data-testid="result-combo-new-bonus">
+							{HL.resultComboNewBonus} {fmtPts(resultData.comboBonus.totalNewBonus)}
+						</p>
 					</div>
 				{/if}
 				{#if missionResult}
-					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-mission">
 						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
-							{CHILD_HOME_LABELS.resultMissionComplete}
+							{HL.resultMissionComplete}
 							{#if missionResult.bonusAwarded > 0}
-								{fmtPts(missionResult.bonusAwarded)}
+								<span data-testid="result-mission-bonus">{fmtPts(missionResult.bonusAwarded)}</span>
 							{/if}
 						</p>
 						{#if missionResult.allComplete}
-							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
+							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{HL.resultMissionAllClear}</p>
 						{/if}
+					</div>
+				{/if}
+
+				{#if focusBonusResult}
+					<!-- #4686: フォーカスボーナスも台帳に載る付与なのでダイアログに出す (合計 = 台帳増分) -->
+					<div class="bg-[var(--color-feedback-success-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full" data-testid="result-focus-bonus">
+						<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
+							{HL.resultFocusBonus} {fmtPts(focusBonusResult.bonusPoints)}
+						</p>
 					</div>
 				{/if}
 
 				{#if xpGainData}
 					<!-- #4509 ①: 増分は XpGainRow が xpAfter - xpBefore から導出する (旧: +0.3 固定リテラル) -->
-					<XpGainRow xp={xpGainData} />
+					<XpGainRow xp={xpGainData} uiMode={data.uiMode ?? 'preschool'} />
 				{/if}
 
-				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
+				<p class="text-xs text-[var(--color-text-muted)]">{HL.resultTodayCount(todayTotalCount + 1)}</p>
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->
@@ -1107,7 +1164,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 								data-testid="activity-cancel-btn"
 								class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
 							>
-								{CHILD_HOME_LABELS.resultCancelButton(cancelCountdown)}
+								{HL.resultCancelButton(cancelCountdown)}
 							</Button>
 						</form>
 					{/if}
@@ -1118,7 +1175,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						data-testid="activity-confirm-btn"
 						onclick={handleResultClose}
 					>
-						{CHILD_HOME_LABELS.resultConfirmButton}
+						{HL.resultConfirmButton}
 					</Button>
 				</div>
 			{/if}
@@ -1148,6 +1205,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
+		uiMode={data.uiMode ?? 'preschool'}
+		hasActivities={data.activities.length > 0}
 		onClose={handleAdventureClose}
 	/>
 {/if}
@@ -1161,6 +1220,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		stampLabel={data.latestMessage.stampLabel}
 		body={data.latestMessage.body}
 		icon={data.latestMessage.icon}
+		bonusPoints={data.latestMessage.bonusPoints ?? null}
+		uiMode={data.uiMode ?? 'preschool'}
 		onClose={handleMessageClose}
 	/>
 {/if}
@@ -1182,15 +1243,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}
-	/>
-{/if}
-
-<!-- Sibling cheer overlay (non-baby) -->
-<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
-{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0 && currentDialog === 'siblingCheer'}
-	<SiblingCheerOverlay
-		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; closeDialog(); }}
 	/>
 {/if}
 

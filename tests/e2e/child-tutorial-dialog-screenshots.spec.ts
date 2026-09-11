@@ -20,6 +20,9 @@
 
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+// #4652: ダイアログ文言は年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字)。
+// 期待値を labels SSOT から引き、文言変更時に spec 側が自動追従する (直書きの二重管理を作らない)。
+import { getChildParentMessageLabels, getChildTutorialLabels } from '../../src/lib/domain/labels';
 
 const OUT = path.resolve('docs/screenshots/2393-child-tutorial-dialog');
 
@@ -67,9 +70,14 @@ async function gotoChildHome(page: Page, uiMode: string) {
 	throw new Error(`[gotoChildHome] uiMode=${uiMode} の子供が seed に存在しない`);
 }
 
+/** #4841: 応援メッセージ dialog の確定ボタン (年齢帯 variant)。dismiss 候補を SSOT から引く。 */
+const PARENT_MESSAGE_CONFIRM_HIRAGANA =
+	getChildParentMessageLabels('preschool').parentMessageConfirmBtn;
+const PARENT_MESSAGE_CONFIRM_KANJI = getChildParentMessageLabels('senior').parentMessageConfirmBtn;
+
 /**
  * 子供 home 到達時に auto-open する複数 overlay (login bonus / PIN gate onboarding /
- * ParentMessage / SiblingCheer / SpecialReward 等) を抑制する。
+ * ParentMessage / SpecialReward 等) を抑制する。
  *
  * 子供 home は server-side auto-claim / auto-open 機構が複数同時稼働するため、
  * dismiss attempt は競合状態に陥り易い。本ヘルパーは:
@@ -88,13 +96,22 @@ async function dismissChildHomeOverlays(page: Page) {
 		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
 		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
 		() => page.getByTestId('confirm-cancel-btn'),
-		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// #2558 真因 fix: parent-message dialog の confirm button は Ark UI Dialog 内に
 		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
 		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
 		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
 		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
 		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
-		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		// #4841: 確定ボタンは年齢帯で変わる (ひらがな「うれしい！」/ 漢字「OK」)。
+		// labels SSOT から両方を引く (文字列を spec 側に固定すると出し分け追加で黙って空振りする)。
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_HIRAGANA}")`,
+			),
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_KANJI}")`,
+			),
 		() =>
 			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
 		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
@@ -126,7 +143,6 @@ async function dismissChildHomeOverlays(page: Page) {
 			[data-scope="dialog"][data-part="backdrop"],
 			[data-scope="dialog"][data-part="content"],
 			[data-testid="stamp-press-overlay"],
-			.sibling-cheer-overlay,
 			.parent-message-overlay {
 				pointer-events: none !important;
 			}
@@ -145,8 +161,11 @@ async function dismissChildHomeOverlays(page: Page) {
 
 async function clearTutorialProgress(page: Page) {
 	await page.evaluate(() => {
-		localStorage.removeItem('tutorial-progress-chapter');
-		localStorage.removeItem('tutorial-progress-step');
+		// #4651: 進捗 key は章セットごとの namespace (`tutorial-progress:<scope>:chapter|step`)。
+		// spec 側は prefix 一致で全 scope を掃除する (mode ごとに書き分けない)。
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('tutorial-progress')) localStorage.removeItem(key);
+		}
 	});
 }
 
@@ -158,7 +177,7 @@ async function startChildTutorial(page: Page) {
 	// スキップするが、browser hit-testing で別 element が上に被さっていると click event が
 	// `?` button の onclick handler に到達しない。dispatchEvent('click') は hit-testing を
 	// 完全にバイパスし要素自身の event listener を直接発火させるため、auto-open dialog
-	// (activity confirm / cheer / message 等) との干渉を確実に回避する。
+	// (activity confirm / message 等) との干渉を確実に回避する。
 	// data-tutorial-active or resume dialog visible で成功判定 (act → outcome 検証維持)。
 	for (let attempt = 0; attempt < 3; attempt++) {
 		await helpBtn.dispatchEvent('click');
@@ -198,11 +217,28 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await gotoChildHome(page, uiMode);
 
-			// 保存進捗をセットし reload → resume prompt を発火させる
-			await page.evaluate(() => {
-				localStorage.setItem('tutorial-progress-chapter', '2');
-				localStorage.setItem('tutorial-progress-step', '0');
-			});
+			// 保存進捗をセットし reload → resume prompt を発火させる。
+			// #4765: 進捗 key は**子供ごと** (`tutorial-progress:child:<childId>:<uiMode>:*`)。
+			// spec は childId を持たないので、一度ガイドを起動して**アプリ自身に key を書かせ**、
+			// その key を掴んで「章 2 の途中で中断した」状態を作る (key の形を spec 側で再実装しない)。
+			await startChildTutorial(page);
+			const seededKey = await page.evaluate((mode) => {
+				// 子供ごとの key だけに一致させる: `child:` と `:<uiMode>:chapter` の**間に 1 セグメント**
+				// (= childId) が要る。#4765 以前の家族共有 key (`child:<uiMode>:chapter`) はこの間が
+				// 空なので一致しない = 退行すれば下の assert が落ちる。
+				const perChild = new RegExp(`^tutorial-progress:child:[^:]+:${mode}:chapter$`);
+				const chapterKey = Object.keys(localStorage).find((k) => perChild.test(k));
+				if (!chapterKey) return null;
+				localStorage.setItem(chapterKey, '2');
+				localStorage.setItem(chapterKey.replace(/:chapter$/, ':step'), '0');
+				return chapterKey;
+			}, uiMode);
+			// #4765 の回帰検証: 家族共有 key (`tutorial-progress:child:<uiMode>:chapter`) に戻ると
+			// 上の正規表現に一致せず null になり、ここで落ちる
+			expect(seededKey, '子供ごとの進捗 key (childId を含む) が書かれていること').not.toBeNull();
+			expect(seededKey).toMatch(new RegExp(`^tutorial-progress:child:[^:]+:${uiMode}:chapter$`));
+			// childId セグメントが uiMode の重複ではないこと (`child:<uiMode>:<uiMode>` 形の退行検出)
+			expect(seededKey?.split(':')[2]).not.toBe(uiMode);
 			await page.reload();
 			// reload 後 Header help button の再描画を待つ
 			await page.locator('[data-testid="header-help-btn"]').waitFor({
@@ -220,12 +256,19 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 				fullPage: false,
 			});
 
-			// AC: resume prompt 内に「前回の途中から続けますか？」テキストが含まれる
-			await expect(resumeDlg).toContainText('前回の途中から続けますか');
-			// AC: 「続きから」「最初から」「キャンセル」3 ボタンが存在
-			await expect(resumeDlg.locator('button:has-text("続きから")')).toBeVisible();
-			await expect(resumeDlg.locator('button:has-text("最初から")')).toBeVisible();
-			await expect(resumeDlg.locator('button:has-text("キャンセル")')).toBeVisible();
+			// AC (#4652): resume prompt が年齢帯 variant の文言で出る (preschool はひらがな)
+			const dialogLabels = getChildTutorialLabels(uiMode).dialog;
+			await expect(resumeDlg).toContainText(dialogLabels.resumePrompt);
+			// AC: 「続きから」「最初から」「やめる」相当の 3 ボタンが存在
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeContinue}")`),
+			).toBeVisible();
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeFromStart}")`),
+			).toBeVisible();
+			await expect(
+				resumeDlg.locator(`button:has-text("${dialogLabels.resumeCancel}")`).first(),
+			).toBeVisible();
 		});
 
 		test(`${uiMode}: exit confirm dialog`, async ({ page }) => {
@@ -234,7 +277,7 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 			await clearTutorialProgress(page);
 			await startChildTutorial(page);
 
-			// tutorial active flag を待つ (.tutorial-overlay-bg は cheer overlay の backdrop と被る可能性)
+			// tutorial active flag を待つ (.tutorial-overlay-bg は他 overlay の backdrop と被る可能性)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 			// bubble 出現待ち (selector 不在ステップは 3s 中央表示 fallback)
 			await page.locator('.tutorial-bubble').waitFor({
@@ -253,11 +296,16 @@ test.describe('#2393 子供画面 TutorialQuickCompleteDialog 撮影 (4 モー�
 				fullPage: false,
 			});
 
-			// AC: exit confirm 内に「チュートリアルを終了しますか？」が含まれる
-			await expect(exitDlg).toContainText('チュートリアルを終了しますか');
-			// AC: 「続ける」「終了する」ボタン存在
-			await expect(exitDlg.locator('button:has-text("続ける")')).toBeVisible();
-			await expect(exitDlg.locator('button:has-text("終了する")')).toBeVisible();
+			// AC (#4652): exit confirm が年齢帯 variant の文言で出る (preschool はひらがな)
+			const exitLabels = getChildTutorialLabels(uiMode).dialog;
+			await expect(exitDlg).toContainText(exitLabels.exitConfirmPrompt);
+			// AC: 「続ける」「終了する」相当のボタン存在
+			await expect(
+				exitDlg.locator(`button:has-text("${exitLabels.exitConfirmCancel}")`).first(),
+			).toBeVisible();
+			await expect(
+				exitDlg.locator(`button:has-text("${exitLabels.exitConfirmConfirm}")`).first(),
+			).toBeVisible();
 		});
 	}
 });

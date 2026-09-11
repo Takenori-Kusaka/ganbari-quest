@@ -27,39 +27,6 @@ export const NG_DECLARATION_SECTION = 'NG 0 件 / カバレッジ宣言';
 export const NG_NONZERO_ACCEPTED_KEY = 'ng-nonzero-accepted';
 
 /**
- * #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。
- *
- * **`follow[\s-]up`（区切り 1 文字必須）の意図（#3488 BLOCK fix）**:
- * `?` で区切りを optional にすると、区切り無しの slug `followup` が部分一致してしまい
- * `docs/research/2026-06-29-followup-treadmill-root-cause.md` のような**完了済エビデンス参照の
- * ファイル名**を未完了表記として誤検出していた（false-positive → gate fail）。
- * 未完了マーカーとしての「follow-up」「follow up」は語間に区切り（空白 or ハイフン）を必ず持つため、
- * 区切り 1 文字必須にすれば slug `followup` を除外しつつ「別途 follow-up で対応」等は検出し続ける。
- * 拡張子 whitelist による strip 前処理は脆く（bypass + 非収録拡張子の FP）、撤去して生 cell に
- * 本パターンを直接適用する方針に戻した（#3488）。
- *
- * **inline-code strip（#3846 / #3844 BLOCK fix）**: 拡張子 whitelist strip（#3488 で撤去）とは別に、
- * evidence cell の **inline-code (`...`) 内トークンのみ** は判定前に strip する。inline-code は
- * 定数名 / コマンド / ファイル参照などの機械トークンであり（例: 定数名 `RANGE_SSOT_TODO` が
- * #3844 で `todo` に部分一致し false-positive gate fail）、未完了宣言の prose ではない。
- * 未完了マーカーを backtick で囲んで逃避する pattern は QM レビュー + PR body 禁止語 gate
- * (`check-pr-body.mjs`) の別層で扱う。prose（コード外）の未完了表記検出は従来どおり生 cell。
- */
-const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]up|後で/i;
-
-/**
- * evidence cell 内の inline-code span（`...`）を除去する（#3846）。
- * table cell は `|` split 済のため改行を含まず、backtick 対を単純除去すれば十分。
- * 対にならない孤立 backtick は残す（除去しすぎによる検出漏れ防止）。
- *
- * @param {string} cell
- * @returns {string}
- */
-function stripInlineCode(cell) {
-	return cell.replace(/`[^`]*`/g, '');
-}
-
-/**
  * 残 NG **件数** の宣言を読み取るパターン（#4333）。件数を capture group 1 で取り出す。
  *
  * 旧実装は `/残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/` を **本文全体**に `test()` するだけで、
@@ -109,49 +76,6 @@ export function parseNgCountDeclarations(sectionText) {
 		}
 	}
 	return found;
-}
-
-/**
- * 次の `## ` 見出し（H2）の直前までを切り出す。見出しが無ければ全体を返す。
- *
- * `###` 以降の下位見出しでは止めない（同一セクション内の小見出しは表の所属を変えないため）。
- *
- * @param {string} text 見出し行を除いたセクション以降のテキスト
- * @returns {string} 当該セクション本体
- */
-function sliceUntilNextH2(text) {
-	const lines = text.split('\n');
-	const end = lines.findIndex((l) => l.startsWith('## '));
-	return end === -1 ? text : lines.slice(0, end).join('\n');
-}
-
-/**
- * AC 検証マップの 4 列行を本文から抽出する（共通 util）。
- * ヘッダー行（`| AC 番号 | AC 内容 ...` 等）とセパレーター（`|---|---|`）を除外する。
- *
- * **走査は当該セクション内で閉じる**（次の `## ` 見出しで停止、#4243）。
- * 本文末尾まで見ていた旧実装は、統合 PR template が「マージ判定エビデンス」の**後ろ**に
- * 4 列の表（Accepted residual 等）を持つため、**別表の行を evidence の行として数えていた**。
- * 壊れ方は 2 方向あった:
- *
- *   - false positive: 後続表のプレースホルダ行を空欄と誤判定し、evidence 表が正しくても fail
- *     （bot 生成の統合 PR が生まれた瞬間に落ちる。#4241 で実測）
- *   - false negative: evidence 表が**空でも**後続表の 4 列行で `rows.length === 0` を通過し、
- *     「main 反映前に evidence を必ず埋めさせる」という gate の目的が満たされない（より危険）
- *
- * @param {string} body PR 本文
- * @param {number} fromIdx 抽出開始 index（section 見出し以降に限定する用途）
- * @returns {string[]} 4 列のデータ行（生のマークダウン行）
- */
-function extractFourColumnRows(body, fromIdx) {
-	const rest = body.slice(fromIdx);
-	// 見出し行自身を飛ばしてから、次の `## ` 見出しまでを section 本体とする。
-	const afterHeading = rest.indexOf('\n');
-	const section =
-		afterHeading === -1
-			? rest
-			: rest.slice(0, afterHeading + 1) + sliceUntilNextH2(rest.slice(afterHeading + 1));
-	return pickFourColumnRows(section);
 }
 
 /**
@@ -223,91 +147,6 @@ export function shouldSkip({ body, labels, lane }) {
  * @property {string} [error] FAIL 時のメッセージ（複数行）
  * @property {string[]} [info] 補助ログ行
  */
-
-/**
- * feature / hotfix lane の AC 検証マップ検証（現行ロジックを維持、AC4 回帰ゼロ）。
- *
- * @param {string} body PR 本文
- * @param {'feature'|'hotfix'} lane
- * @returns {AcCheckResult}
- */
-export function checkPerPrAcMap(body, lane) {
-	const mapHeaderIdx = body.indexOf('AC 検証マップ');
-	if (mapHeaderIdx === -1) {
-		return {
-			ok: false,
-			lane,
-			error:
-				'❌ PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)\n' +
-				'PR テンプレートのセクションが削除されています。',
-		};
-	}
-
-	const rows = extractFourColumnRows(body, mapHeaderIdx);
-	const emptyRows = findEmptyRows(rows);
-	const info = [`AC map rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`];
-
-	if (rows.length === 0) {
-		return {
-			ok: false,
-			lane,
-			info,
-			error:
-				'❌ AC 検証マップに行が 1 件もありません (ADR-0038)\n\n' +
-				'Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。\n' +
-				'例:\n| AC1 | ログイン後にダッシュボードが表示される | `npx playwright test auth.spec.ts` | PASS |',
-		};
-	}
-
-	if (emptyRows.length > 0) {
-		const details = emptyRows.map((r) => `  ${r.slice(0, 120)}`).join('\n');
-		return {
-			ok: false,
-			lane,
-			info,
-			error:
-				`❌ AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります (ADR-0038)\n\n` +
-				'「AC 内容」「検証手段」「結果 / エビデンス」の全列を埋めてください。\n' +
-				'目視確認のみは不可。機械検証可能なコマンド / ファイルパス / スクリーンショット番号で記入してください。\n\n' +
-				`空欄行:\n${details}`,
-		};
-	}
-
-	// #1539: 4 列目（結果/エビデンス列）に未完了表記が含まれる場合 FAIL
-	const todoRows = rows
-		.map((row, idx) => {
-			const cells = row
-				.split('|')
-				.slice(1, -1)
-				.map((c) => c.trim());
-			const evidenceCell = cells[3] ?? '';
-			// #3846: inline-code 内の機械トークン（定数名 / コマンド / ファイル参照）は判定対象外
-			if (TODO_PATTERN.test(stripInlineCode(evidenceCell))) {
-				const acId = cells[0] || `行 ${idx + 1}`;
-				return { acId, evidenceCell };
-			}
-			return null;
-		})
-		.filter(/** @returns {x is {acId: string; evidenceCell: string}} */ (x) => x !== null);
-
-	if (todoRows.length > 0) {
-		const details = todoRows
-			.map((item) => `  ${item.acId}: 「${item.evidenceCell.slice(0, 80)}」`)
-			.join('\n');
-		return {
-			ok: false,
-			lane,
-			info,
-			error:
-				`❌ AC 検証マップの「結果/エビデンス」列に未完了表記が ${todoRows.length} 件あります (#1539)\n\n` +
-				'「TODO」「予定」「追加予定」「別途」「follow-up」「後で」は未完了を示します。\n' +
-				'全 AC を実際に検証した上で、具体的なエビデンス（PASS / スクリーンショット番号 / コマンド結果）を記入してください。\n\n' +
-				`未完了行:\n${details}`,
-		};
-	}
-
-	return { ok: true, lane, info, reason: 'AC 検証マップ: 全行 埋まっています ✓' };
-}
 
 /**
  * integration lane の「マージ判定エビデンス表」検証（AC3）。
@@ -468,6 +307,18 @@ export function checkNgZeroDeclaration(body) {
 
 /**
  * lane に応じて AC 検証観点を切替えるエントリ（job は全 lane で実行され、内部で観点を切替える）。
+ *
+ * # feature / hotfix lane に per-PR AC マップ判定は無い（#4305 → #4348 で残骸を削除）
+ *
+ * #4305 が **PR テンプレートから `## AC 検証マップ` 節ごと撤去**し（現テンプレートは 7 節）、
+ * 本 entry も feature / hotfix lane を無条件 PASS に変えた。判定関数 `checkPerPrAcMap` は
+ * その時に呼び出し元を失い、**唯一の呼び出しが自身の unit test だけ**という状態で
+ * 8 ヶ月ぶんの改修（#3488 / #3846 等）を受け続けていた。#4348 で削除した。
+ *
+ * 再導入するなら、判定関数だけを戻しても機能しない。**PR テンプレートの節・
+ * `.github/PR_TEMPLATE_SECTIONS.json`・本 entry の分岐・workflow 配線をセットで**戻すこと。
+ * 「判定関数だけが存在して誰も呼ばない」状態は `tests/unit/scripts/check-ac-verification-map.test.ts`
+ * の class-lock が落とす。
  *
  * @param {{
  *   body: string;

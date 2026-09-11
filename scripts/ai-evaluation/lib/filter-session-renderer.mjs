@@ -41,7 +41,7 @@ export function renderFilterSession(aggregated) {
 	let md = `# 並走 path Review Filter — ${type} × ${ageMode} (${date})
 
 > AI 評価日時: ${date} / User filter 推定所要時間: 15-30 分
-> Stack: Stagehand v3 + Claude Opus (${aggregated.model}) + axe-core + Self-Consistency ${aggregated.self_consistency_runs} runs
+> Stack: Stagehand v4 + Claude Opus (${aggregated.model}) + axe-core + Self-Consistency ${aggregated.self_consistency_runs} runs
 > Issue #2692 / EPIC #2691 POC 出力${mockNote}
 
 ## 集約サマリ

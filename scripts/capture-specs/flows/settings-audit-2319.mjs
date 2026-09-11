@@ -20,6 +20,8 @@
  *     --out tmp/screenshots/pr-2326/
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function loginAs(page, email, password) {
@@ -56,7 +58,7 @@ async function loginAs(page, email, password) {
  */
 export default async (page, capture) => {
 	// owner@example.com で login
-	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 
 	const routes = [
 		{ path: '/admin/settings', label: 'settings-hub' },

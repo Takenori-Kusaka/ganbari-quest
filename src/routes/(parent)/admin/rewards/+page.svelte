@@ -11,13 +11,16 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
-import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
+import { getActionErrorDisplay, getErrorMessage, PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
 	BACKUP_RESTORE_LABELS,
+	CHILD_COPY_RESULT_LABELS,
+	COPY_FROM_CHILD_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
@@ -26,6 +29,7 @@ import { CHILD_TERMS, CONCEPT_ICONS, REWARD_TERMS, TEMPLATE_TERMS } from '$lib/d
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
+import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsChildNotice.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
@@ -241,9 +245,12 @@ async function handleDeleteConfirm() {
 // `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
 // effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
 let consumedImportPresetId = $state<string | null>(null);
+// #4692 F6: お子さま 0 人では空 dialog を開かず「まずは登録」を案内する (3 admin 画面共通)。
+const hasNoChildren = $derived(data.children.length === 0);
+const showImportNeedsChildNotice = $derived(Boolean(data.importPresetId) && hasNoChildren);
 $effect(() => {
 	const pid = data.importPresetId;
-	if (pid && pid !== consumedImportPresetId) {
+	if (pid && pid !== consumedImportPresetId && !hasNoChildren) {
 		consumedImportPresetId = pid;
 		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
@@ -269,6 +276,24 @@ $effect(() => {
 		}
 	} else {
 		handledInvalidPreset = false;
+	}
+});
+
+// #4705: 無料プランで marketplace の取込 CTA から着地したとき。dialog は開かず
+// (子供を選ばせてから拒否しない)、条件と行き先だけを伝える。invalid preset と同じ one-shot guard。
+let handledLockedPreset = $state(false);
+$effect(() => {
+	if (data.importPresetLocked) {
+		if (!handledLockedPreset) {
+			handledLockedPreset = true;
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
+			// NN/G #9: 条件を伝えるだけで終わらせず、行き先 (プラン画面) のリンクを併記する。
+			// #4705 は message だけを立てており、rewards-upgrade-link が描画されなかった (#4887)。
+			actionUpgradeUrl = PLAN_UPGRADE_URL;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
+		}
+	} else {
+		handledLockedPreset = false;
 	}
 });
 
@@ -338,6 +363,26 @@ const addMenuItems = $derived<MenuItem[]>([
 		icon: ADMIN_REWARDS_PAGE_LABELS.addBrowseTemplatesIcon,
 		onSelect: () => handleAddSelect('browse'),
 	},
+	// #4716: 活動 / チェックリストと同じく「別のお子さまからコピー」を + 追加 dropdown に置く
+	//   (ごほうびだけ本文の独立ボタンで、同じ操作が画面ごとに違う場所にあった)。
+	//   お子さまが 1 人ならコピー元が無いので出さない。
+	...(data.children.length >= 2
+		? [
+				{
+					id: 'copy',
+					label: COPY_FROM_CHILD_LABELS.action,
+					icon: data.isPremium ? COPY_FROM_CHILD_LABELS.icon : PLAN_GATE_LABELS.lockedItemIcon,
+					onSelect: data.isPremium
+						? () => {
+								showCopyFromChildDialog = true;
+							}
+						: // #4716: 新規追加の遷移は resolve() 経由にする (svelte/no-navigation-without-resolve)。
+							// 既存 6 件は eslint-suppressions.json の baseline で凍結されており、
+							// ここで 7 件目を素で足すと baseline を超えて既存分ごと surface する。
+							() => void goto(resolve('/admin/subscription')),
+				},
+			]
+		: []),
 ]);
 
 // #2998: AI 提案を採用したら Dialog を manual フォーム表示に切り替える (activities acceptAiPreview と同型)。
@@ -415,9 +460,21 @@ const filteredTemplates = $derived(
 		: data.templates,
 );
 const hasSearchActive = $derived(searchQuery.trim().length > 0);
+// #4656 F8: 「ごほうびを検索」は選択中 child の一覧にも効かせる (旧: Dialog 内テンプレート grid のみ
+// filter され、検索欄の直下に並ぶ一覧が絞られず「検索が効かない」ように見えた)。
+const visiblePerChildRewards = $derived(
+	hasSearchActive
+		? perChildRewards.filter((r) =>
+				r.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+			)
+		: perChildRewards,
+);
 // #2558 段階2 横展開: 旧 in-page preset browse UI 撤去に伴い、
 // allEmpty 判定は user-created templates のみで行う。
-const allEmpty = $derived(hasSearchActive && filteredTemplates.length === 0);
+// #4656 F8: 一覧 (選択中 child) と Dialog 内テンプレートの両方が検索で 0 件のときだけ「該当なし」を出す。
+const allEmpty = $derived(
+	hasSearchActive && filteredTemplates.length === 0 && visiblePerChildRewards.length === 0,
+);
 
 // #2268: overflow menu (申請承認等) + #3079: 個別 backup/restore (活動と同順序: 復元 → エクスポート)
 const overflowMenuItems = $derived<MenuItem[]>([
@@ -623,6 +680,8 @@ async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 					},
 				);
 				actionMessage = feedback.message;
+				// #4693: 上限で外した分がある場合はアップグレード導線も併記する (3 admin page 共通)。
+				actionUpgradeUrl = feedback.upgradeUrl;
 				showToast(actionMessage, undefined, feedback.tone);
 				await invalidateAll();
 			}
@@ -695,15 +754,28 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { copiedCount?: number } }
+			| { type: 'success'; data?: { copiedCount?: number; skippedCount?: number } }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
+			// デモ環境 no-op (data.demo===true) は件数 0 を実結果として出さない
+			// (取込 / 復元の demo 分岐と同型、#2558 bug-1)。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = CHILD_COPY_RESULT_LABELS.demo(REWARD_TERMS.canonical);
+				showToast(actionMessage, undefined, 'info');
+				showCopyFromChildDialog = false;
+				copySourceChildId = null;
+				return;
+			}
+			// #4694: 3 画面共通の SSOT で「N 件コピー / M 件は既にあるためスキップ」を出す。
+			//   旧実装は copied 件数だけを出しており、2 回目に 0 件でも「0 件のごほうびを
+			//   コピーしました」と表示され、何が起きたか分からなかった。
 			const cnt = Number(actionResult.data?.copiedCount ?? 0);
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
-			showToast(ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt), undefined, 'success');
+			const skipped = Number(actionResult.data?.skippedCount ?? 0);
+			actionMessage = CHILD_COPY_RESULT_LABELS.format(REWARD_TERMS.canonical, cnt, skipped);
+			showToast(actionMessage, undefined, CHILD_COPY_RESULT_LABELS.tone(cnt));
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();
@@ -731,7 +803,7 @@ async function handleCopyFromChild() {
 	<title>{PAGE_TITLES.rewards}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4" data-tutorial="rewards-section">
+<div class="space-y-4">
 	<!-- #2998 (EPIC #2897): 3 画面共通 AdminResourceHeader に統一 (title + 説明 + + 追加 dropdown + ︙)。
 	     旧: inline h2 + overflow Menu。AI 提案パネルの本文直置きを撤去し、+ 追加 dropdown → Dialog 起動に
 	     統一した (activities / checklists と同型、NN/G #4 consistency)。
@@ -760,9 +832,15 @@ async function handleCopyFromChild() {
 				testid="rewards-overflow-menu"
 				triggerLabel="︙"
 				triggerClass="admin-resource-header__overflow-btn"
+				dataTutorial="rewards-overflow-menu"
 			/>
 		{/snippet}
 	</AdminResourceHeader>
+
+	<!-- #4692 F6: お子さま 0 人での空 ChildSelectionDialog を出さず登録導線を案内する -->
+	{#if showImportNeedsChildNotice}
+		<ImportNeedsChildNotice testid="rewards-import-needs-child" />
+	{/if}
 
 	<!-- #2998 (EPIC #2897) fix: title + 重複説明文は AdminResourceHeader が担うため撤去し、
 	     ごほうび固有の有用なポインタ (応援機能との区別案内 + おうえんメッセージへのクロスリンク) のみ残す。
@@ -773,7 +851,8 @@ async function handleCopyFromChild() {
 		</p>
 		<p class="page-description__hint">
 			{REWARDS_LABELS.pageDescHintPrefix}
-			<a href="/admin/messages" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
+			<!-- #4654 (B15): 旧 /admin/messages (308 redirect) 直リンクを廃止し、統合先の応援画面へ直接繋ぐ -->
+			<a href="/admin/cheer" class="page-description__link">{REWARDS_LABELS.pageDescHintLink}</a>
 			{REWARDS_LABELS.pageDescHintSuffix}
 		</p>
 	</div>
@@ -803,20 +882,7 @@ async function handleCopyFromChild() {
 				</Button>
 			{/each}
 
-			<!-- 兄弟共通化 actions (右寄せ) -->
-			<div class="child-tab-actions">
-				{#if data.children.length >= 2}
-					<Button
-						variant="ghost"
-						size="sm"
-						data-testid="rewards-copy-from-child-btn"
-						disabled={!data.isPremium}
-						onclick={() => { showCopyFromChildDialog = true; }}
-					>
-						{ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton}
-					</Button>
-				{/if}
-			</div>
+			<!-- #4716: 「別のお子さまからコピー」は header の + 追加 dropdown に移動 (活動 / チェックリストと同型) -->
 		</div>
 
 		{#if selectedChild}
@@ -871,13 +937,29 @@ async function handleCopyFromChild() {
 	{#if selectedChild}
 		<section class="reward-list" data-testid="admin-rewards-list">
 			<div data-testid="rewards-per-child-list">
-				{#if perChildRewards.length === 0}
-					<p class="reward-list__empty" data-testid="rewards-per-child-empty">
-						{ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
-					</p>
+				{#if visiblePerChildRewards.length === 0}
+					{#if allEmpty}
+						<!-- #3097 slot 7: 一覧 0 件の空表示は list スロットの「中」に置く
+						     (activities / checklists と同型)。外に出すと一覧セクションが高さ 0 になり、
+						     正準スロット契約 (admin-resource-layout-contract.spec.ts (e)) から list が消える (#4887)。
+						     #2268 / CX-DoR #11: 文言は既存の searchEmptyMessage を override して視覚回帰ゼロ。
+						     testid は E2E 互換のため rewards-search-empty を維持。 -->
+						<UnifiedEmptyState
+							testid="rewards-search-empty"
+							hasFilter
+							filteredText={REWARDS_LABELS.searchEmptyMessage}
+							showPrimary={false}
+							canImport={false}
+						/>
+					{:else}
+						<p class="reward-list__empty" data-testid="rewards-per-child-empty">
+							{hasSearchActive ? REWARDS_LABELS.searchEmptyMessage : ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
+						</p>
+					{/if}
 				{:else}
-					{#each perChildRewards as reward (reward.id)}
-						<div class="reward-item" data-testid="reward-item-{reward.id}">
+					{#each visiblePerChildRewards as reward, i (reward.id)}
+						<!-- data-tutorial: 先頭カードだけをページガイド (#4656) の spotlight 対象にする -->
+						<div class="reward-item" data-testid="reward-item-{reward.id}" data-tutorial={i === 0 ? 'reward-card-first' : undefined}>
 							<span class="reward-item__icon">{reward.icon ?? '🎁'}</span>
 							<span class="reward-item__title">{reward.title}</span>
 							{#if hasPendingRedemption(reward.id)}
@@ -923,19 +1005,7 @@ async function handleCopyFromChild() {
 	<!-- #2998 (EPIC #2897): AI 提案パネルの本文直置きを撤去。activities / checklists と同型に
 	     「+ 追加」dropdown → AI ダイアログ (下部 showAddDialog + addMode='ai') で開く方式に統一。 -->
 
-	<!-- #2268: 検索結果 0 件メッセージ。CX-DoR #9・#11 横展開 (Round 18): 独自 banner markup を
-	     UnifiedEmptyState SSOT に統一 (NN/G #4 consistency)。filter 結果空のため hasFilter mode +
-	     filteredText に既存文言を渡し、primary CTA / import link は出さない (検索条件下のため)。
-	     testid は E2E 互換のため rewards-search-empty を維持。 -->
-	{#if allEmpty}
-		<UnifiedEmptyState
-			testid="rewards-search-empty"
-			hasFilter
-			filteredText={REWARDS_LABELS.searchEmptyMessage}
-			showPrimary={false}
-			canImport={false}
-		/>
-	{/if}
+	<!-- #2268 の検索結果 0 件メッセージ (UnifiedEmptyState) は一覧 (slot 7) の中へ移設した (#4887)。 -->
 
 	<!--
 		#2558 段階2 横展開: 旧 Preset Catalog (admin 内 marketplace 風 in-page browse UI、

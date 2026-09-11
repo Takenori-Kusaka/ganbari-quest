@@ -241,10 +241,42 @@ function stopClampLoop(): void {
 	}
 }
 
+/**
+ * step の selector を**可視要素優先**で解決する (#4677)。
+ * driver.js の `element: string` は `document.querySelector` (DOM 順の先頭) で解決するため、
+ * responsive で desktop / mobile の片方しか描画されない UI (例: `md:hidden` の ⚙️ フィルタ ボタンと
+ * `hidden md:block` のしぼりこむパネル) をカンマ区切り selector で指すと、非表示の方に 0×0 で
+ * spotlight してしまう。width/height > 0 の先頭候補で解決して回避する (可視候補が無ければ null)。
+ */
+function resolveStepTarget(selector: string): Element | null {
+	for (const el of document.querySelectorAll(selector)) {
+		const rect = el.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) return el;
+	}
+	return null;
+}
+
+/**
+ * `optional: true` の step を、起動時点の DOM に対象が無ければ省く (#4677)。
+ * 条件付き UI (ログイン時のみ / 0 件時のみ 等) を指す step は、その条件下で「押す」文言が
+ * 光らずに出ることを避けるため、ガイド定義側が optional を宣言し engine が起動時に剪定する。
+ * 省いた結果は進捗 (n / total) にも反映される (driver.js の skipMissingElement は total を
+ * 変えないため採用しない)。
+ */
+function pruneOptionalSteps(pageGuide: PageGuide): PageGuide {
+	const steps = pageGuide.steps.filter(
+		(step) => !(step.optional && step.selector && resolveStepTarget(step.selector) === null),
+	);
+	return steps.length === pageGuide.steps.length ? pageGuide : { ...pageGuide, steps };
+}
+
 function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 	return pageGuide.steps.map((step) => ({
 		// selector 省略 step (ページ概要等) は element 無し → driver.js が画面中央 modal で表示 (Sub-2 ①概要 前提)
-		element: step.selector,
+		// selector 付き step は可視要素優先で解決する (#4677)。driver.js の element は関数を受け付ける。
+		element: step.selector
+			? () => resolveStepTarget(step.selector as string) as Element
+			: undefined,
 		popover: {
 			side: toSide(step.position),
 			align: 'center',
@@ -290,9 +322,11 @@ function destroyDriver(): void {
 	}
 }
 
-function startDriver(pageGuide: PageGuide): void {
+function startDriver(rawGuide: PageGuide): void {
 	destroyDriver();
 	completedLastStep = false;
+	// #4677: 条件付き UI を指す optional step を起動時点の DOM で剪定する
+	const pageGuide = pruneOptionalSteps(rawGuide);
 
 	const config: Config = {
 		// 演出を煽らない (ADR-0012): smoothScroll で対象を確実に画面内へ運んでから配置する。
@@ -313,6 +347,20 @@ function startDriver(pageGuide: PageGuide): void {
 		allowKeyboardControl: true,
 		popoverClass: 'page-guide-popover',
 		steps: buildDriveSteps(pageGuide),
+		// step 遷移が完了した時点で 1 回だけ再配置を要求する (#2926 (a) の再発防止、#4887)。
+		// driver.js は scroll / resize による再配置を内部 state `__activeElement` 基準で行うが、
+		// これは highlight transition (animate: true / 400ms) の **完了時にはじめて** 新 step の
+		// 要素へ差し替わる。smoothScroll が transition より先に終わると、最後の再配置が
+		// 「前 step の要素」基準のまま確定し、バブルが現 step の対象を覆う。
+		// 実測 (/admin/settings/support 最終 step、desktop 1280x800):
+		//   前 step (feedback-section) の bottom=317.6 基準で bottom:189.36px が確定し、
+		//   バブル y=335.6..610.6 が対象カード (y=542.4..784.4) に 68px 重なる。
+		//   現 step の要素で再計算すると side=top / y=249.4 となり重ならない。
+		// refresh() は scroll / resize と同一経路 (driver.js: `refresh: () => X(t)`) で rAF 1 回分
+		// 遅延するため、実行時には `__activeElement` は既に新 step の要素へ差し替わっている。
+		onHighlighted: () => {
+			if (driverInstance?.isActive()) driverInstance.refresh();
+		},
 		// 最終 step まで到達して閉じたら完了 (localStorage 永続)、途中終了 (とじる / Escape /
 		// overlay click) なら未完了のまま end。判定は completedLastStep フラグで行う。
 		onDestroyed: () => {

@@ -16,6 +16,8 @@
 // 実行: npx playwright test tests/e2e/child-tutorial-double-dialog-regression.spec.ts
 
 import { expect, type Page, test } from '@playwright/test';
+// #4652: 終了確認のボタン文言は年齢帯 variant (preschool / elementary = ひらがな)。labels SSOT から引く。
+import { getChildParentMessageLabels, getChildTutorialLabels } from '../../src/lib/domain/labels';
 
 const MODES = ['preschool', 'elementary', 'junior', 'senior'] as const;
 
@@ -52,10 +54,18 @@ async function gotoChildHome(page: Page, uiMode: string) {
 	}
 	await dismissChildHomeOverlays(page);
 	await page.evaluate(() => {
-		localStorage.removeItem('tutorial-progress-chapter');
-		localStorage.removeItem('tutorial-progress-step');
+		// #4651: 進捗 key は章セットごとの namespace (`tutorial-progress:<scope>:chapter|step`)。
+		// spec 側は prefix 一致で全 scope を掃除する (mode ごとに書き分けない)。
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('tutorial-progress')) localStorage.removeItem(key);
+		}
 	});
 }
+
+/** #4841: 応援メッセージ dialog の確定ボタン (年齢帯 variant)。dismiss 候補を SSOT から引く。 */
+const PARENT_MESSAGE_CONFIRM_HIRAGANA =
+	getChildParentMessageLabels('preschool').parentMessageConfirmBtn;
+const PARENT_MESSAGE_CONFIRM_KANJI = getChildParentMessageLabels('senior').parentMessageConfirmBtn;
 
 /**
  * 子供 home 到達時に auto-open する複数 overlay を best-effort dismiss + pointer-events 抑制で
@@ -69,13 +79,22 @@ async function dismissChildHomeOverlays(page: Page) {
 		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
 		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
 		() => page.getByTestId('confirm-cancel-btn'),
-		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// #2558 真因 fix: parent-message dialog の confirm button は Ark UI Dialog 内に
 		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
 		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
 		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
 		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
 		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
-		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		// #4841: 確定ボタンは年齢帯で変わる (ひらがな「うれしい！」/ 漢字「OK」)。
+		// labels SSOT から両方を引く (文字列を spec 側に固定すると出し分け追加で黙って空振りする)。
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_HIRAGANA}")`,
+			),
+		() =>
+			page.locator(
+				`[data-scope="dialog"][data-part="content"] button:has-text("${PARENT_MESSAGE_CONFIRM_KANJI}")`,
+			),
 		() =>
 			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
 		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
@@ -105,7 +124,6 @@ async function dismissChildHomeOverlays(page: Page) {
 			[data-scope="dialog"][data-part="backdrop"],
 			[data-scope="dialog"][data-part="content"],
 			[data-testid="stamp-press-overlay"],
-			.sibling-cheer-overlay,
 			.parent-message-overlay {
 				pointer-events: none !important;
 			}
@@ -140,7 +158,7 @@ async function startTutorialAndOpenExitConfirm(page: Page) {
 		}
 	}
 	// tutorial active flag (data-tutorial-active attr) を待つ。`.tutorial-overlay-bg` は
-	// cheer overlay の Dialog backdrop と被る可能性があるため使わない
+	// overlay の Dialog backdrop と被る可能性があるため使わない
 	await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 	// bubble 出現待ち (selector 不在ステップは 3s 中央表示 fallback)
 	const bubble = page.locator('.tutorial-bubble');
@@ -189,8 +207,10 @@ test.describe('#2393 / #2105 子供画面ガイドモード二重ダイアログ
 
 			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
 
-			// 「続ける」(キャンセル) クリック
-			const cancelBtn = exitDlg.locator('button:has-text("続ける")');
+			// 「続ける」(キャンセル) クリック (#4652: 年齢帯 variant の文言)
+			const cancelBtn = exitDlg
+				.locator(`button:has-text("${getChildTutorialLabels(uiMode).dialog.exitConfirmCancel}")`)
+				.first();
 			await expect(cancelBtn).toBeVisible();
 			await cancelBtn.click();
 
@@ -214,8 +234,10 @@ test.describe('#2393 / #2105 子供画面ガイドモード二重ダイアログ
 
 			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
 
-			// 「終了する」(確定) クリック
-			const confirmBtn = exitDlg.locator('button:has-text("終了する")');
+			// 「終了する」(確定) クリック (#4652: 年齢帯 variant の文言)
+			const confirmBtn = exitDlg
+				.locator(`button:has-text("${getChildTutorialLabels(uiMode).dialog.exitConfirmConfirm}")`)
+				.first();
 			await expect(confirmBtn).toBeVisible();
 			await confirmBtn.click();
 

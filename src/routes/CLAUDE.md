@@ -19,6 +19,28 @@ UI ラベル・用語は `src/lib/domain/labels.ts` が SSOT。デモと本番�
 
 基本原則: `if (uiMode === 'baby')` 散在 / runtime 動的変換 / Feature Flag 代替 等を避け、`getLabel(key, ctx)` 経由で labels.ts に集約。`+layout.server.ts` で `{ ageTier: params.uiMode }` を context 注入。7 アンチパターン (A1-A7) の網羅と検出方法の詳細は git 履歴 (旧 `docs/decisions/0015-age-tier-variant-architecture.md`、#2898 で削除) 参照。
 
+**文言セットに年齢帯変種を足すときは「差分だけの override をベースに spread で重ねる」** (#4690)。
+全キーを 2 セット持つと、次に語を足した人が片方だけ更新して割れる。
+
+```ts
+// labels.ts
+const CHILD_SHOP_KANJI_OVERRIDES = { exchangeButton: '交換する' } as const satisfies Partial<ChildShopLabels>;
+
+export function getChildShopLabels(uiMode: string): ChildShopLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return CHILD_SHOP_LABELS;
+	return { ...CHILD_SHOP_LABELS, ...CHILD_SHOP_KANJI_OVERRIDES };
+}
+```
+
+- **ひらがな側を base にする** — baby / preschool / elementary が既定、junior / senior だけ漢字 override (docs/DESIGN.md §8)
+- **文言セット型は値をリテラルでなく `string` に広げる**（`as const` のままだと override が別の文字列を入れられない）
+- **component は `page` を読まず `uiMode` を prop で受ける**（テストしやすさと、どこから来た値かの明示のため）
+- **サーバに保存済みの表示文言は「保存値を出す」のではなく、保存済みの構造値から表示時に解決し直す**
+  — 保存値は 1 表記しか持てず、既存行が古い文体のまま残る（例: 週次チャレンジの理由文は
+  `targetConfig.genMode` から `getChallengeReason(mode, categoryName, uiMode)` で再生成する）
+- 逸脱の検出は `tests/unit/domain/age-tier-tone-4690.test.ts`（禁止語の不在を assert）
+
 ### 日本語テキスト折り返し（docs/DESIGN.md §3）
 
 見出し / Dialog / `.tutorial-title` / `.btn-label` は `app.css` の `text-wrap: balance; word-break: auto-phrase;` で対応 (0KB)。長文段落 / 旧ブラウザ対応は `use:budoux` 個別適用 (~15KB)。LP 側は `<budoux-ja>` Web Component。
@@ -45,7 +67,7 @@ LP SS 撮影用に **全 route** で本番一致演出を強制 ON + demo 固有
 | `?screenshot=1` | `'noise-only'` | demo 固有 UI のみ非表示 (旧挙動、後方互換) |
 | `?screenshot=all` | `'all'` | demo 固有 UI 非表示 + 本番一致演出強制 ON (#1893) |
 
-`?screenshot=all` モード (#1893): demo (child) layout で `MilestoneBanner` を強制表示する等、本番 NUC ユーザの実画面と一致する演出を screenshot 撮影時に再現する。LP 配信 SS が本番乖離する事故 (PO 直接指摘 8 回連続再発) への構造的対策。
+`?screenshot=all` モード (#1893): demo (child) layout でマイルストーン告知 (`MilestoneBellButton`) を強制表示する等、本番 NUC ユーザの実画面と一致する演出を screenshot 撮影時に再現する。LP 配信 SS が本番乖離する事故 (PO 直接指摘 8 回連続再発) への構造的対策。
 
 ```svelte
 <script>
@@ -56,7 +78,7 @@ const kind = getScreenshotModeKind();            // 'off' | 'noise-only' | 'all'
 const isScreenshotAll = $derived(kind === 'all');
 </script>
 {#if !isScreenshot}<div class="demo-only-notice">…</div>{/if}
-{#if isScreenshotAll}<MilestoneBanner ... bypassSeenCheck />{/if}
+{#if isScreenshotAll}<MilestoneBellButton ... bypassSeenCheck />{/if}
 ```
 
 **禁止**: page 側で `$page.url.searchParams.get('screenshot')` 再呼出 / props drilling / global `$state` 化。リグレッション検出: `tests/e2e/demo-lambda/visual-equality.spec.ts`
@@ -115,7 +137,16 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 
 - 否定文（「UI 変更なし**ではありません**」）/ 引用行（`> …`）/ コードブロック・インラインコード内
 - **未チェックの checkbox**（`- [ ] UI 変更なし`）— チェックしていない = 宣言していない
-- 手順・条件節（「UI 変更なし**の場合**: …」）
+- 手順・条件節（「UI 変更なし**の場合**: …」）/ 案内文（「〜と書いてください」）
+- **HTML コメント内**（`<!-- UI 変更なし -->`）— レンダリングされた PR body に出ないため、レビュアーにも監査にも見えない（#4348）。宣言は**本文に見える形で**書く
+
+この判定規律（行単位 + HTML コメント / コードブロック / 引用 / 否定 / 未チェック checkbox / 案内文の除外）は `scripts/lib/ci/pr-body-sections.mjs` が SSOT で、**PR body を読む他の gate も同じ規律を使う**（#4348）:
+
+| 判定 | 対象 |
+|---|---|
+| `.dom.html` 参照の有無 | DOM スナップショット併記検証（`check-pr-screenshot.mjs`） |
+| 統合 PR の VR 証跡 | 統合 lane の SS 観点。加えて「含有 PR」は prose の言及ではなく **`## 含有 PR 一覧` に実際の PR 参照がある**ことで判定する |
+| `[skip-schema-test-check]` / `[skip-schema-migration-check]` | schema 系 gate の skip marker |
 
 **テンプレートや案内文に opt-out 宣言そのものを書かない。** テンプレートを消さずに出しただけで gate が skip されるため、案内は「何を書くか」の説明にとどめる（`tests/unit/scripts/check-pr-screenshot.test.ts` が実テンプレートを読んで検証している）。
 

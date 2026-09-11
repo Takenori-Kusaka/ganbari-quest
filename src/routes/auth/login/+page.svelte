@@ -2,7 +2,12 @@
 import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
-import { APP_LABELS, LOGIN_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, AUTH_FORM_LABELS, LOGIN_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	encodeNextParam,
+	LOGIN_NEXT_PARAM,
+	resolveLoginNotice,
+} from '$lib/domain/validation/login-redirect';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -65,7 +70,16 @@ let mfaChallengeName = $derived((f()?.challengeName as string) ?? '');
 // 確認コードステップ: UNCONFIRMED ユーザーのリカバリ
 let confirmStep = $derived((f()?.confirmStep as boolean) ?? false);
 
-const passwordReset = $derived($page.url.searchParams.get('passwordReset') === 'true');
+// #4701: ログイン画面に戻された理由 (registered / confirmed / passwordReset / error=* / reason=*) を
+// 顧客向け文言にマップして表示する。mapping SSOT は login-redirect.ts (送り側 4 種 + 汎用)
+const notice = $derived(resolveLoginNotice($page.url.searchParams));
+// #4701: ログイン後の戻り先 (server 側で検証済み。Google ボタン / 各 form の hidden input で往復する)
+const nextPath = $derived((data.next as string | null | undefined) ?? null);
+const googleHref = $derived(
+	nextPath
+		? `/auth/oauth/google?${LOGIN_NEXT_PARAM}=${encodeNextParam(nextPath)}`
+		: '/auth/oauth/google',
+);
 
 // 再送成功時にクールダウン開始
 $effect(() => {
@@ -101,10 +115,22 @@ $effect(() => {
 			{/if}
 		</div>
 
-		{#if passwordReset}
-			<div class="mb-4 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm" role="status">
-				{LOGIN_LABELS.passwordResetSuccess}
-			</div>
+		{#if notice}
+			{#if notice.kind === 'alert'}
+				<div class="mb-4 p-3 bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] border border-[var(--color-feedback-error-border)] rounded-[var(--radius-sm)] text-sm" role="alert" data-testid="login-notice" data-notice-code={notice.code}>
+					{notice.message}
+				</div>
+			{:else}
+				<div class="mb-4 p-3 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] border border-[var(--color-feedback-success-border)] rounded-[var(--radius-sm)] text-sm" role="status" data-testid="login-notice" data-notice-code={notice.code}>
+					{notice.message}
+				</div>
+			{/if}
+		{/if}
+
+		{#if nextPath && !mfaStep && !confirmStep}
+			<p class="mb-4 text-xs text-[var(--color-text-muted)] text-center" data-testid="login-next-notice">
+				{LOGIN_LABELS.nextReturnNotice}
+			</p>
 		{/if}
 
 		{#if form?.error}
@@ -131,6 +157,7 @@ $effect(() => {
 			>
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
+				{#if nextPath}<input type="hidden" name={LOGIN_NEXT_PARAM} value={nextPath} />{/if}
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
 					<strong>{email}</strong>{LOGIN_LABELS.confirmDesc1Suffix}<br />
@@ -216,6 +243,7 @@ $effect(() => {
 				<input type="hidden" name="session" value={mfaSession} />
 				<input type="hidden" name="challengeName" value={mfaChallengeName} />
 				<input type="hidden" name="email" value={email} />
+				{#if nextPath}<input type="hidden" name={LOGIN_NEXT_PARAM} value={nextPath} />{/if}
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center">
 					{LOGIN_LABELS.mfaDesc}
@@ -251,7 +279,7 @@ $effect(() => {
 		{:else}
 			<!-- Google OAuth ログイン -->
 			{#if !data.devMode}
-				<GoogleSignInButton />
+				<GoogleSignInButton href={googleHref} />
 				<Divider label={LOGIN_LABELS.dividerLabel} spacing="sm" />
 			{/if}
 
@@ -269,8 +297,9 @@ $effect(() => {
 				}}
 				class="flex flex-col gap-5"
 			>
+				{#if nextPath}<input type="hidden" name={LOGIN_NEXT_PARAM} value={nextPath} />{/if}
 				<FormField
-					label="メールアドレス"
+					label={AUTH_FORM_LABELS.emailLabel}
 					type="email"
 					id="email"
 					name="email"
@@ -281,7 +310,7 @@ $effect(() => {
 				/>
 
 				<FormField
-					label="パスワード"
+					label={AUTH_FORM_LABELS.passwordLabel}
 					type="password"
 					id="password"
 					name="password"
@@ -323,9 +352,14 @@ $effect(() => {
 				<details>
 					<summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">{LOGIN_LABELS.devAccountsSummary}</summary>
 					<ul class="mt-2 pl-4 text-xs text-[var(--color-text-muted)] leading-7">
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> {LOGIN_LABELS.devAccountOwnerRole}</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> {LOGIN_LABELS.devAccountParentRole}</li>
-						<li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> {LOGIN_LABELS.devAccountChildRole}</li>
+						{#each data.devAccounts as acct (acct.email)}
+							<li>
+								<code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">{acct.email}</code>
+								/
+								<code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">{acct.password}</code>
+								{LOGIN_LABELS.devAccountRoles[acct.role]}
+							</li>
+						{/each}
 					</ul>
 				</details>
 			</div>

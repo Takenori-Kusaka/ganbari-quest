@@ -29,6 +29,17 @@ export interface IDailyMissionRepo {
 		activityId: ActivityId,
 		tenantId: string,
 	): Promise<void>;
+	/**
+	 * #4686: とりけし時の対称巻き戻し。(childId, date, activityId) 複合キーで completed=1 → 0 に戻す
+	 * (不在 / 未達成は silent no-op)。呼び出し側 (service) が「同 activity の当日 active log が 0 件」を
+	 * 確認してから呼ぶ (dailyLimit>1 の活動で 1 件だけ取消した場合は達成のまま)。
+	 */
+	markMissionUncompleted(
+		childId: ChildId,
+		date: string,
+		activityId: ActivityId,
+		tenantId: string,
+	): Promise<void>;
 	findAllMissionStatuses(
 		childId: ChildId,
 		date: string,

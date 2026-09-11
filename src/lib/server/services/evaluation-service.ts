@@ -2,13 +2,7 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/evaluation-service.ts
 // 週次評価・日次ステータス減少サービス
 
-import {
-	addDaysJST,
-	jstDayOfWeek,
-	todayDateJST,
-	toJSTDateString,
-	weekStartJST,
-} from '$lib/domain/date-utils';
+import { addDaysJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDecay, type DecayIntensity } from '$lib/domain/validation/status';
 import {
@@ -17,7 +11,6 @@ import {
 	findEvaluationsByChild,
 	findLastActivityDateByCategory,
 	insertEvaluation,
-	isRestDay,
 } from '$lib/server/db/evaluation-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
@@ -52,17 +45,22 @@ export function calcEvaluationBonus(
 	return 0;
 }
 
-/** 週の開始日（月曜）と終了日（日曜）を計算 */
+/**
+ * 評価対象の週 (直前に**完了した**週の月曜〜日曜) を返す。
+ *
+ * JST SSOT 経由で決める (#4015)。旧実装は `d.getDay()` / `setDate()` のローカル TZ 算術に
+ * `toISOString()` の UTC 日付化を重ねており、Lambda (UTC) では JST 00:00〜09:00 に 1 日ずれていた。
+ *
+ * #4722: **当日が日曜でも「当日を含む週」を対象にしない**。旧実装は日曜だけ `lastSunday = 今日` と
+ * していたため、子供が日曜に `/status` を開くとその瞬間までの未完了の週で評価が確定し
+ * (child × weekStart で 1 回しか評価しない)、**日曜の残りの活動が永久に評価に入らなかった**。
+ * 曜日に依存せず「今週の月曜の前日 = 先週の日曜」を週末とすることで、評価対象は常に完了済みの週になる。
+ */
 export function getWeekRange(date: Date = new Date()): {
 	weekStart: string;
 	weekEnd: string;
 } {
-	// 前の週の月曜〜日曜を対象。JST SSOT 経由で決める (#4015)。
-	// 旧実装は `d.getDay()` / `setDate(d.getDate() - n)` のローカル TZ 算術に `toISOString()` の
-	// UTC 日付化を重ねており、Lambda (UTC) では JST 00:00〜09:00 に週範囲が 1 日ずれていた。
-	const todayJST = toJSTDateString(date);
-	// 「直近の日曜」= 当日が日曜ならその日、そうでなければ今週月曜の前日
-	const lastSunday = jstDayOfWeek(date) === 0 ? todayJST : addDaysJST(weekStartJST(date), -1);
+	const lastSunday = addDaysJST(weekStartJST(date), -1);
 
 	return {
 		weekStart: addDaysJST(lastSunday, -6),
@@ -184,13 +182,7 @@ export async function runDailyDecay(
 	}[] = [];
 
 	for (const child of allChildren) {
-		// おやすみ日チェック
-		const resting = await isRestDay(child.id, todayStr, tenantId);
-		if (resting) {
-			results.push({ childId: child.id, decays: [] });
-			continue;
-		}
-
+		// #4691: おやすみ日 (rest_days) による減衰スキップは撤去 (登録導線が無く常に空だった)。
 		const lastActivityDates = await findLastActivityDateByCategory(child.id, tenantId);
 		const decays: { categoryId: CategoryId; amount: number }[] = [];
 

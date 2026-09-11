@@ -2,7 +2,7 @@
 import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import type { CategoryId } from '$lib/domain/ids';
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getCategoryDisplayName, UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 
@@ -38,6 +38,8 @@ interface Props {
 	challengeTarget?: ChallengeTarget | null;
 	/** #3333: 進捗の表示様式。preschool は 'dots'（ドット可視化）、それ以外は 'text'（「のこり○かい」）。 */
 	challengeProgressStyle?: 'dots' | 'text';
+	/** #4690 F6: 年齢モード。カテゴリ名の表記（ひらがな / 漢字）を決める。既定は従来どおりひらがな。 */
+	uiMode?: string;
 	children: Snippet;
 }
 
@@ -54,6 +56,7 @@ let {
 	completedMissionCount = 0,
 	challengeTarget = null,
 	challengeProgressStyle = 'text',
+	uiMode = 'preschool',
 	children,
 }: Props = $props();
 
@@ -65,7 +68,8 @@ const useDots = $derived(
 const catDef = $derived(getCategoryById(categoryId));
 const color = $derived(catDef?.color ?? 'var(--theme-primary)');
 const accent = $derived(catDef?.accent ?? color);
-const name = $derived(catDef?.name ?? '');
+// #4690 F6: junior / senior は漢字表記（docs/DESIGN.md §8）。
+const name = $derived(getCategoryDisplayName(categoryId, uiMode) || (catDef?.name ?? ''));
 const icon = $derived(catDef?.icon ?? '');
 
 const css = $derived(CARD_SIZE_CSS[cardSize]);
@@ -159,13 +163,17 @@ function toggleExpand() {
 				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
 			</h2>
 			{#if missionCount > 0}
-				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+				<span
+					class="text-[10px] font-bold bg-orange-100 text-[var(--color-text-warning-strong)] px-1.5 py-0.5 rounded-full"
+				>
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
 			{@render challengeBadge()}
 			{#if xpInfo}
-				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<!-- #4645: カテゴリ色は利用者データ由来でコントラストを保証できない。色は左のバー /
+					XP バー (装飾) が担い、文字は AA を満たすテキスト色で描く。 -->
+				<span class="text-[10px] font-bold text-[var(--color-text-primary)]">Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 					<div
 						class="h-full rounded-full xp-bar__fill"
@@ -197,13 +205,17 @@ function toggleExpand() {
 				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
 			</h2>
 			{#if missionCount > 0}
-				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+				<span
+					class="text-[10px] font-bold bg-orange-100 text-[var(--color-text-warning-strong)] px-1.5 py-0.5 rounded-full"
+				>
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
 			{@render challengeBadge()}
 			{#if xpInfo}
-				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<!-- #4645: カテゴリ色は利用者データ由来でコントラストを保証できない。色は左のバー /
+					XP バー (装飾) が担い、文字は AA を満たすテキスト色で描く。 -->
+				<span class="text-[10px] font-bold text-[var(--color-text-primary)]">Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
 					<div
 						class="h-full rounded-full xp-bar__fill"

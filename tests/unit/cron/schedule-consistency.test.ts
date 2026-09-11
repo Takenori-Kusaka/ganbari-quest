@@ -80,13 +80,6 @@ const DOCUMENTED_EXCLUSIONS: DocumentedExclusion[] = [
 		issue: '#4327',
 	},
 	{
-		name: 'expire-redemptions',
-		scope: 'registry',
-		reason:
-			'30 日以上 pending の交換申請を expired に移行する手動 / 外部呼び出し前提の endpoint (#1337)。自動スケジュール駆動しない設計のため registry に載せない',
-		issue: '#1337',
-	},
-	{
 		name: 'pglite-backup',
 		scope: 'registry',
 		reason:

@@ -172,6 +172,28 @@ W4（`past_due` の updated）を送る。retry ごとに `now + 7d` を書き�
 規則の固定は `tests/unit/services/stripe-contract-state-classification.test.ts`（#4416、W3 / W4 を
 同じ入力で駆動して突き合わせる）と `tests/unit/services/lifecycle-email-service.test.ts`（残り日数）。
 
+### 5.3 有料契約の確定でトライアルを閉じる（#4707）
+
+`trial_history` は本表の 4 列の外にあるが、**S1（trial 中）→ S2 の遷移と同時に閉じる**。閉じないと
+`planTier` は `standard` / `family` に解決される一方で `computeTrialStatus` が「トライアル中（残り N 日）」
+を返し続け、払った直後の顧客に「本契約が必要です」と「⭐ 残り N 日」が出続け、終了予告メールも届く。
+
+| 契機 | 実装 | 書く内容 |
+|---|---|---|
+| W1 `checkout.session.completed`（reconcile 経由を含む） | `stripe-service.ts` `closeTrialOnPaidContract` → `trial-service.ts` `endTrialOnConversion` | 最新 trial 行に `stripe_subscription_id` / `upgrade_reason` を記録。trial が有効（JST 暦日で `end_date ≥ 今日`）なら `end_date = 今日`。終了済みなら `end_date` は触らない |
+| W2 `invoice.paid`（現行契約に適用されたときだけ） | 同上 | 同上（W1 未達時の救済。同一 subscription で移行済みなら no-op） |
+
+**同じ契機で archive を復元する（#4708）**: W1 / W2 と、W4 `customer.subscription.updated` で `status=active` に書いたとき、`stripe-service.ts` `restoreArchivedResourcesForPaidContract` → `resource-archive-service.ts` `restoreArchivedResources` で、無料プランの上限により archive されたお子さま / 活動 / チェックリストを全 reason について復元する（S1 / S5 → S2、S3 / S4 → S2 のいずれも）。`past_due` / `unpaid` / `paused` / 終端では復元しない。復元対象が無ければ no-op（冪等）。trial 行の閉鎖と同様、失敗しても webhook を 500 にしない。
+
+規則:
+
+- **移行済み（`stripe_subscription_id` あり）の trial 行は `end_date` に関わらず終了扱い**（`isTrialActive=false`、`trialUsed=true`）。`findActiveTrials`（終了予告 cron の対象抽出）も除外する
+- **第 2 防御**: 表示（admin layout / `/admin/subscription`）と通知（`getNotificationSchedule` / `getTrialExpirationInfo`）は `getTrialStatus(tenantId, licenseStatus)` を通し、`licenseStatus = active`（S2 / S3）なら trial 行の状態に関わらず「トライアル中」にしない。webhook 未達 / 旧データでも払った顧客にトライアル表示を出さない
+- trial 行の書き込み失敗で webhook 全体を失敗させない（契約状態の確定が主。失敗は error log、次の event で再試行）
+- トライアルの有効期間は **JST 暦日で `end_date` 当日いっぱい**。tier 判定（`resolvePlanTier`）と表示判定（`computeTrialStatus`）は同じ述語 `isTrialEndDateActiveJST`（`src/lib/domain/trial-period.ts`）を共有する
+
+検証: `tests/unit/services/stripe-service.test.ts`（W1 / W2 で閉じる・冪等・失敗非伝播）/ `tests/unit/services/trial-service.test.ts`（移行済み行・licenseStatus 射影）/ `tests/unit/services/plan-limit-service.test.ts`（最終日 JST 全時間帯の tier）/ `tests/unit/db/dsql-family-satellite-repos.test.ts`（repo 層）。
+
 ### 書き手を増やさない起動点: checkout reconciliation（#3958）
 
 `/admin/subscription?session_id=cs_…`（Stripe checkout の success_url）は `reconcileCheckoutSession`
@@ -196,6 +218,45 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 `allowed: true` を返す — 解約完了 = 無料プラン相当という扱いであり（#3993 PO 判断）、
 書き込みを止める分岐は存在しない。
 
+### 契約が残っている間（S4）は履歴を物理削除しない
+
+`planTier` が `free` に落ちる（§4 S4 行）のは**表示と機能の範囲**にだけ効かせる。履歴の
+**物理削除**（`retention-cleanup-service` の `activity_logs` / `point_ledger` / `status_history`）は
+S4 のテナントに対して実行しない。物理削除が走るのは **S5（契約終了）以降**だけである。
+
+S4 は `invoice.paid`（W2）で S2 に戻りうる状態であり、戻ってくる前提の状態で戻らない処理を
+先に実行してはならない。未収に対して取る手当ては「有料機能を止める」までとする。
+
+**免除の境界は本表の S4 行そのもの**（`plan` あり + `sub` あり）。判定は
+`isRetainedSuspendedContract(4 列)` = `classifyContractState(4 列) === 'S4'`
+（`src/lib/domain/contract-state.ts`）で、**分類関数を経由させる**。`status === 'suspended' && sub != null`
+の 2 列で書くと不正状態まで免除に入る（実測）:
+
+| 4 列 | 分類 | 2 列判定 | 本表の免除 |
+|---|---|---|---|
+| `suspended` / plan あり / sub あり | S4 | true | **免除する** |
+| `suspended` / plan **なし** / sub あり | **X2** | true | **免除しない** |
+| `suspended` / plan あり / sub が空文字 | **X1**（`present()` が空文字を「なし」に倒す） | true | **免除しない** |
+
+X2 は「起きうる」不正状態（§4 不正状態の表）であり、状態監査（`contract-state-audit-service`）が
+是正対象として上げる行である。無期限の削除免除で覆い隠すと、監査が指している行と retention の
+扱いが食い違う。§2 原則 3（導出値に分岐を足す前に本表に行を足せるか確認する）に従い、
+**免除は正常状態 S4 に限る**。
+
+`resolvePlanTier` 自体は変えない（課金ゲート全体に波及し、未収のテナントに有料機能を返して
+しまう）。したがって S4 では `applyRetentionFilter('free')` により無料プランの期間を超えた履歴が
+**一覧に出ない**が、行は残っており復帰すれば再び表示される。顧客への告知
+（`SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc`）はこの区別を述べる。
+
+**S5 到達時の起算は付け替えない。** `getHistoryCutoffDate` は「今日から保持期間を引いた日」を返す
+（レコードの日付基準）ため、長く S4 に留まったテナントは **S5 到達後の最初の cron で、期間を過ぎた
+分をまとめて削除される**。告知はこれを猶予があるように書かない（「終了したあとは次の保持期間が
+適用されます」型の表現を禁ずる）。
+
+検証: `tests/unit/domain/contract-state.test.ts`（免除の境界 = 32 通りで分類と双方向一致）/
+`tests/unit/services/retention-cleanup-service.test.ts`（S4 skip / S1・S3・S5・S6・X2 は従来どおり削除）
+/ `tests/unit/domain/cancel-vs-deletion-terminology.test.ts`（告知が実装と一致する）。
+
 ---
 
 ## 6. 退会（アカウント削除）は別軸である
@@ -206,7 +267,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 |---|---|---|
 | 置き場 | `families.status` ほか 4 列 | `settings` の `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` |
 | 書き手 | W1〜W9 | `softDeleteTenant()`（`grace-period-service.ts:67-110`） |
-| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`） |
+| 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`。**コード上の key は `family`** — 顧客向け表示名 premium の内部コード） |
 
 **`softDeleteTenant()` は `families` を一切触らない。** したがって「退会申請済み」は本表のどの行にも現れない。読み取り専用ロックと物理削除は契約軸ではなくこちらを条件とする（#3993）。
 

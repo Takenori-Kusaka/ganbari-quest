@@ -1,6 +1,10 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	// アプリ版数 (vite.config.ts の `define` が埋め込む。読み手は src/lib/version.ts のみ)
+	const __APP_VERSION__: string;
+	const __APP_VERSION_DATE__: string;
+
 	// #702: E2E hydration marker — +layout.svelte で $effect 内からセットし、
 	// Playwright の waitForFunction で Svelte 5 onclick バインド完了を待つ
 	interface Window {

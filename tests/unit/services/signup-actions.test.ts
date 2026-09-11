@@ -34,6 +34,13 @@ vi.mock('$lib/server/auth/providers/cognito-jwt', () => ({
 // #589: confirm action で tenant provisioning のため getAuthProvider を追加
 const mockResolveContext = vi.fn();
 const mockAuthProvider = { resolveContext: mockResolveContext };
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: () => 'cognito',
+	isCognitoDevMode: () => false,
+}));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 	isCognitoDevMode: () => false,
@@ -69,6 +76,8 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 const mockStartTrial = vi.fn();
 vi.mock('$lib/server/services/trial-service', () => ({
 	startTrial: (...args: unknown[]) => mockStartTrial(...args),
+	// #4501: tier は呼び出し側が選ばず、この定数で固定される (FR-2 premium 固定)
+	TRIAL_TIER: 'family',
 }));
 
 beforeEach(() => {
@@ -124,7 +133,15 @@ const mockLocals = { authenticated: false, identity: null, context: null };
  */
 function createConfirmEvent(formData: Record<string, string>) {
 	return {
-		request: createRequest(formData),
+		request: createRequest({
+			// #4497: 確認ステップは signup フォームで得た同意 3 種を hidden で持ち回る
+			// (consent を実際に記録するのは confirm 側なので、そこでも server 検証している)。
+			// 既定は「持ち回れている」状態とし、欠落ケースは個別テストで明示的に上書きする。
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
+			...formData,
+		}),
 		cookies: createMockCookies(),
 		locals: mockLocals,
 		getClientAddress: () => '127.0.0.1',
@@ -149,6 +166,26 @@ describe('signup action', () => {
 		expect(result.data.error).toContain('同意が必要');
 	});
 
+	// #4497 GAMMA-SC-01: 越境移転同意 (§28) は client 側の submit 制御だけで、server は
+	// 検証していなかった。JS 無効 / 直接 POST では同意なしで登録が成立してしまう。
+	it('越境移転同意なしで 400 エラーを返す（直接 POST / JS 無効を想定）', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const request = createRequest({
+			email: 'test@example.com',
+			password: 'Password1',
+			passwordConfirm: 'Password1',
+			agreedTerms: 'on',
+			agreedPrivacy: 'on',
+			// agreedCrossBorder を送らない
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.signup as any)({ request, locals: mockLocals });
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('同意が必要');
+		expect(mockSignUp).not.toHaveBeenCalled();
+	});
+
 	it('空のフィールドで 400 エラーを返す', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
 		const request = createRequest({
@@ -157,6 +194,7 @@ describe('signup action', () => {
 			passwordConfirm: '',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -173,6 +211,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Different1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -189,6 +228,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Short1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -207,6 +247,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -230,6 +271,7 @@ describe('signup action', () => {
 			passwordConfirm: 'Password1',
 			agreedTerms: 'on',
 			agreedPrivacy: 'on',
+			agreedCrossBorder: 'on',
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const result = await (actions.signup as any)({ request, locals: mockLocals });
@@ -261,6 +303,25 @@ describe('confirm action', () => {
 			userId: 'cognito-user-id-123',
 		});
 	}
+
+	// #4497: consent を実際に記録するのは confirm アクション。同意の主張が届いていないまま
+	// 記録だけ走る経路を作らないため、確認コード検証より前に落とす。
+	it('越境移転同意が届いていない場合は確認コード検証より前に 400 を返す', async () => {
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			agreedCrossBorder: '',
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		const result = await (actions.confirm as any)(event);
+
+		expect(result.status).toBe(400);
+		expect(result.data.error).toContain('同意が必要');
+		expect(mockConfirmSignUp).not.toHaveBeenCalled();
+		expect(mockRecordConsent).not.toHaveBeenCalled();
+	});
 
 	it('email/code が空の場合 400 エラーを返し confirmStep を維持', async () => {
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -327,7 +388,7 @@ describe('confirm action', () => {
 		expect(mockRecordConsent).toHaveBeenCalledWith(
 			'tenant-abc',
 			'cognito-user-id-123',
-			['terms', 'privacy'],
+			['terms', 'privacy', 'cross-border'],
 			'127.0.0.1',
 			'test-ua',
 		);
@@ -440,7 +501,10 @@ describe('confirm action', () => {
 		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
-	it('#589: tenant provisioning 失敗時 → /auth/login にフォールバック（consent 未記録）', async () => {
+	// #4636: 世帯が確定しなかったとき (招待受諾に失敗した / provisioning に失敗した) の着地は
+	// /auth/login ではなく /auth/join。ログイン画面に戻すと「ログイン → /admin → ログイン」の
+	// 往復になり出口が無いため、理由と次アクションを出す画面へ送る。
+	it('#4636: 世帯が確定しなかったとき → /auth/join に留まる（consent 未記録）', async () => {
 		mockConfirmSignUp.mockResolvedValue({ success: true });
 		mockAuthenticate.mockResolvedValue({
 			success: true,
@@ -466,7 +530,7 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/auth/login?registered=true');
+			expect((e as { location: string }).location).toBe('/auth/join');
 		}
 
 		expect(mockRecordConsent).not.toHaveBeenCalled();
@@ -500,7 +564,7 @@ describe('confirm action', () => {
 	// ========================================================
 	// #766: /auth/signup?plan=X トライアル自動開始
 	// ========================================================
-	it('#766: plan=standard 指定時は startTrial が tier=standard で呼ばれる', async () => {
+	it('#4501: plan=standard 指定でも startTrial は tier=family (premium 固定) で呼ばれる', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -517,17 +581,22 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
+			// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、
+			// 着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+			expect((e as { location: string }).location).toBe('/admin?trialStarted=1');
 		}
 
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 
-	it('#766: plan=family 指定時は startTrial が tier=family で呼ばれる', async () => {
+	it('#4501: plan=family 指定時も startTrial は tier=family で呼ばれる', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -544,7 +613,37 @@ describe('confirm action', () => {
 			expect.unreachable('should have thrown redirect');
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
+			// PO 決裁 2026-09-10 決定 3(a): 自動開始したときは着地先に `?trialStarted=1` が付き、
+			// 着地画面が「始まりました / いつまで使えるか」を 1 度だけ告げる
+			expect((e as { location: string }).location).toBe('/admin?trialStarted=1');
+		}
+
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'family',
+		});
+	});
+
+	// #4501 (GAMMA-SC-04): 現行 SSOT の tier 名 'premium' は server 側で silent 棄却されており、
+	// UI だけが「トライアルが開始されます」と表示していた。共有 validator で受理する。
+	it('#4501: plan=premium (現行 SSOT 名) でもトライアルが開始される', async () => {
+		setupSuccessfulAutoLogin();
+
+		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		const event = createConfirmEvent({
+			email: 'test@example.com',
+			code: '123456',
+			password: 'Password1',
+			plan: 'premium',
+		});
+
+		try {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await (actions.confirm as any)(event);
+			expect.unreachable('should have thrown redirect');
+		} catch (e) {
+			expect((e as { status: number }).status).toBe(302);
 		}
 
 		expect(mockStartTrial).toHaveBeenCalledWith({
@@ -616,7 +715,7 @@ describe('confirm action', () => {
 		expect(mockStartTrial).not.toHaveBeenCalled();
 	});
 
-	it('#766: plan=STANDARD（大文字）でも小文字に正規化してトライアル開始する', async () => {
+	it('#766: plan=STANDARD（大文字）でも正規化してトライアル開始する', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
@@ -635,10 +734,13 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 		}
 
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 
@@ -664,10 +766,13 @@ describe('confirm action', () => {
 		}
 
 		// license key は読まれず、plan に従いトライアル開始
+		// #4501: ?plan=standard で来ても **トライアルは premium 固定** (FR-2)。
+		// 旧期待値 (tier: 'standard') は「LP が全機能お試しと言うのに premium 機能が
+		// 試せない」実装をそのまま固定していた (弱体化ではなく期待値の是正、ADR-0006)。
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
-			tier: 'standard',
+			tier: 'family',
 		});
 	});
 

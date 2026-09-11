@@ -105,6 +105,27 @@ export async function markMissionCompleted(
 		.run();
 }
 
+/**
+ * #4686: とりけし時の対称巻き戻し (completed 1 → 0)。複合キー完全一致、不在は no-op。
+ */
+export async function markMissionUncompleted(
+	childId: ChildId,
+	date: string,
+	activityId: ActivityId,
+	_tenantId: string,
+) {
+	db.update(dailyMissions)
+		.set({ completed: 0, completedAt: null })
+		.where(
+			and(
+				eq(dailyMissions.childId, Number(childId)),
+				eq(dailyMissions.missionDate, date),
+				eq(dailyMissions.activityId, Number(activityId)),
+			),
+		)
+		.run();
+}
+
 /** 今日の全ミッションの完了状態を取得 */
 export async function findAllMissionStatuses(childId: ChildId, date: string, _tenantId: string) {
 	return db

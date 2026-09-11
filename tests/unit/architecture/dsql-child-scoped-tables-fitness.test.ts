@@ -13,7 +13,7 @@
 
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
-import { CHILD_SCOPED_TABLES } from '../../../src/lib/server/db/dsql/child-repo';
+import { CHILD_SCOPED_TABLES } from '../../../src/lib/server/db/child-scoped-tables';
 import * as schema from '../../../src/lib/server/db/dsql/schema';
 
 /** child_id 列そのものを持つが CHILD_SCOPED_TABLES の一括 DELETE 対象にしない表 (理由必須)。 */

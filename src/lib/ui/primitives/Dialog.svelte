@@ -74,6 +74,19 @@ const layerClasses: LayerClasses = {
 };
 const layer = $derived(layerClasses[zLayer]);
 
+// #4645: role="dialog" は accessible name が必須 (WCAG 4.1.2 / axe aria-dialog-name)。
+// title / ariaLabel は callsite で動的に組み立てられることがあり、データ次第で空文字に
+// なると「名前の無いダイアログ」が本番に出てしまう (Lighthouse 実測で子供ホームに 1 件)。
+// primitive 側で必ず名前が付くことを保証し、callsite の書き漏れを構造的に無効化する。
+const resolvedTitle = $derived(title?.trim() ? title : undefined);
+const resolvedAriaLabel = $derived(
+	resolvedTitle
+		? undefined
+		: ariaLabel?.trim()
+			? ariaLabel
+			: UI_PRIMITIVES_LABELS.dialogFallbackAriaLabel,
+);
+
 function handleOpenChange(details: { open: boolean }) {
 	open = details.open;
 	onOpenChange?.(details);
@@ -89,15 +102,14 @@ function handleOpenChange(details: { open: boolean }) {
 			<ArkDialog.Content
 				class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] {sizeClasses[size]} max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] {contentClass}"
 				data-testid={testid}
-				aria-label={!title && ariaLabel ? ariaLabel : undefined}
 			>
-				{#if title}
+				{#if resolvedTitle}
 					<ArkDialog.Title class="text-xl font-bold mb-[var(--sp-md)]">
-						{title}
+						{resolvedTitle}
 					</ArkDialog.Title>
-				{:else if ariaLabel}
+				{:else}
 					<ArkDialog.Title class="sr-only">
-						{ariaLabel}
+						{resolvedAriaLabel}
 					</ArkDialog.Title>
 				{/if}
 				{@render children()}

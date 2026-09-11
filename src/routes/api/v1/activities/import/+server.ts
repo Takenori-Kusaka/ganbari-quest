@@ -1,16 +1,37 @@
 import { error, json } from '@sveltejs/kit';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import type { ChildId } from '$lib/domain/ids';
+import { ADMIN_CHILD_SCOPE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
-import { apiError } from '$lib/server/errors';
+import { apiError, quotaLimitError } from '$lib/server/errors';
+import { getAllChildren } from '$lib/server/services/child-service';
 import { checkActivityLimit } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
 
 const validCategoryCodes = new Set<string>(CATEGORY_CODES);
+
+/**
+ * #4692: 取込先 child を body から解決する。
+ * `childIds: (string|number)[]` があればその子だけ、無ければ家族全員。
+ * service 側の「tenant 最初の child に silent bind」fallback は撤去済のため、
+ * ここで必ず明示的な配信先を作る。
+ */
+async function resolveImportChildIds(body: unknown, tenantId: string): Promise<ChildId[]> {
+	const raw = (body as { childIds?: unknown } | null)?.childIds;
+	if (Array.isArray(raw) && raw.length > 0) {
+		const requested = new Set(raw.map((v) => String(v)));
+		// 所属外 id を弾く (cross-tenant / 不正 id)
+		return (await getAllChildren(tenantId))
+			.filter((c) => requested.has(String(c.id)))
+			.map((c) => c.id);
+	}
+	return (await getAllChildren(tenantId)).map((c) => c.id);
+}
 
 function validateActivities(data: unknown): ActivityPackItem[] {
 	if (!data || typeof data !== 'object') throw new Error('リクエストボディが不正です');
@@ -102,23 +123,44 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		const licenseStatus = context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const limitCheck = await checkActivityLimit(tenantId, licenseStatus);
 		if (!limitCheck.allowed) {
-			return apiError(
-				'PLAN_LIMIT_EXCEEDED',
-				`カスタム活動は最大${limitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
-				{ current: limitCheck.current, max: limitCheck.max },
-			);
+			// #4693 (QM 4 巡目): 数量制限は **機能ゲートの文型で返さない** (#4710 と同 class)。
+			// planLimitError は `requiredTierWithUpgradeFor` で「〜はスタンダードプラン以上でご利用
+			// いただけます」を組み立てるが、3 個までは実際に使えるので自己矛盾する。数量制限は
+			// quotaLimitError + 「N 個までです」+ 導線 で言い切る。code/status は 403 /
+			// PLAN_LIMIT_EXCEEDED のまま (client の分岐条件は変えない)。内訳は context でログにだけ残す。
+			return quotaLimitError(PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(limitCheck.max), {
+				current: limitCheck.current,
+				max: limitCheck.max,
+				tenantId,
+			});
+		}
+
+		// #4692: 取込先 child を明示する (service の first-child silent fallback は撤去済)。
+		// body に `childIds` があればそれを、無ければ家族全員を対象にする
+		// (旧挙動は「最初の子だけに入る」で、API 利用者からは観測できない silent scope だった)。
+		const childIds = await resolveImportChildIds(body, tenantId);
+		if (childIds.length === 0) {
+			return apiError('VALIDATION_ERROR', ADMIN_CHILD_SCOPE_LABELS.childRequired);
 		}
 
 		const result = await dispatchImport({
 			typeCode: 'activity-pack',
 			rawPayload,
 			displayName: 'api-v1-import',
-			ctx: { tenantId },
+			ctx: { tenantId, childIds },
 		});
 		return json({
 			imported: result.imported,
 			skipped: result.skipped,
 			errors: result.errors,
+			// #2830 / #4693: 実 persist 失敗数と、プラン上限で外した分 + その理由。
+			// ここで drop すると API 利用者には「imported=0 だが理由不明」しか届かない
+			// (上限で外した理由はもう errors には積まれない)。
+			failed: result.failed,
+			blocked: result.blocked,
+			// #4693 (QM 再レビュー): 復元 (merge) が上限超過分を保管した結果。捨てていないので
+			// blocked とは別 channel。API 利用者にも「何件が保管されたか」を返す。
+			activityQuota: result.activityQuota,
 		});
 	}
 

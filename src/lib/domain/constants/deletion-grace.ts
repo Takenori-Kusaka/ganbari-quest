@@ -21,6 +21,12 @@
 import type { PlanTier } from './plan-tier';
 
 /**
+ * 退会 (アカウント削除) の取消し (復元) endpoint。#4699 で復元導線を全 admin ページの共通バナーに
+ * 広げたため、path を 1 箇所に置いて呼び出し側 (banner component / hooks の許可 path) の複製を防ぐ。
+ */
+export const DELETION_GRACE_RESTORE_ENDPOINT = '/api/v1/admin/account/restore';
+
+/**
  * 退会 (アカウント削除) 申請から物理削除までの猶予日数。`0` = 申請と同時に物理削除。
  *
  * **この 3 つの数値がプロダクト全体の SSOT**。表示文字列側に数値を複製しないこと。

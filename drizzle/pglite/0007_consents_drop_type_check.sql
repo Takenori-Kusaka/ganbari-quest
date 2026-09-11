@@ -1,0 +1,26 @@
+-- #4497: 越境移転同意（個人情報保護法 §28）を独立した consent type ('cross-border') として
+-- 記録できるようにする。
+--
+-- なぜ CHECK を「広げる」のではなく「外す」のか:
+--   consents は 0000 の CREATE TABLE で `CHECK (type IN ('terms','privacy'))` を inline 付与済みで、
+--   本番 Aurora DSQL には既に適用されている。DSQL は `ALTER TABLE … ADD CONSTRAINT` を非対応
+--   (PoC 検証 2: 0A000) であり、migration transform も該当文を fail-close で throw する
+--   (src/lib/server/db/dsql/migration/transform.ts の planAlterTableAdd)。
+--   したがって「DROP して 3 値で張り直す」経路は存在しない。
+--   docs/design/dsql-data-model.md §10-5 も「不変集合=作成時 CHECK / 増減集合=lookup 表」とし、
+--   後付け ALTER を前提にしない設計を求めている。
+--
+--   consents.type は本 PR で 2 値 → 3 値に増えたことで「作成時に確定した不変集合」ではなくなった。
+--   一方で lookup 表化 (families.plan の先例) は、3 値で止まる小さな集合に対して新表 + PK 凍結 +
+--   backup registry 登録まで要し割に合わない。そこで **DB CHECK を外し、許可値の強制を app 層へ移す**。
+--   これは FK を剥がして app 層 relations() + fitness で担保する既存方針 (transform.ts 責務 1) や、
+--   NOT NULL / DEFAULT を DSQL 側で表現せず drizzle schema + app 層で担保する 0006 (#4488) と同型。
+--
+-- 移った先の強制点 (DB CHECK の代替):
+--   - src/lib/server/auth/entities.ts の CONSENT_TYPES (型と runtime 配列の SSOT)
+--   - src/lib/server/services/consent-service.ts の recordConsent (未知 type を実行時に拒否)
+--   - tests/unit/db/dsql-check-from-ssot.test.ts (CHECK が無いこと + app 層強制があることを固定)
+--
+-- IF EXISTS ガード: 0003/0004/0005/0006 と同様、再適用され得る環境 (fresh provision 済み staging 等)
+-- で冪等にする。制約が既に無い環境でも成功する。
+ALTER TABLE "consents" DROP CONSTRAINT IF EXISTS "consents_type_ck";

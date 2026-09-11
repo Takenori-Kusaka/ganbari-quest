@@ -1,8 +1,9 @@
 /**
  * tests/unit/hooks/command-execution-tools.test.ts (#4001)
  *
- * ADR-0056 approve gate / ADR-0022 L1 の PreToolUse hook が
- * **コマンド実行系ツール全経路**を覆っていることを機械検証する。
+ * 登録済み PreToolUse hook が **コマンド実行系ツール全経路** を覆っていることを機械検証する。
+ * (#4571 / ADR-0068 で ADR-0056 approve gate の登録を外したため、対象は「gate-approve と
+ *  ADR-0022 L1」から「登録されている hook 全部」に広げた)
  *
  * 背景: `.claude/settings.json` の matcher が `"Bash"` だけだったため、
  * PowerShell ツールで同じコマンドを叩くと hook がそもそも起動せず、
@@ -62,16 +63,35 @@ describe('matcherCoversTool', () => {
 });
 
 describe('.claude/settings.json の hook matcher (#4001 AC1 / AC4)', () => {
-	it('gate-approve.mjs を登録した PreToolUse entry が SSOT の全ツールを覆う', () => {
+	// #4571 / ADR-0068: gate-approve.mjs の登録を外したため「gate-approve が全経路を覆う」は
+	// もう assert できない。弱めるのではなく **登録されている全 hook** に対象を広げる
+	// (対象が 1 本増える = 不変条件としては強くなる)。#4001 の bypass 防止はこちらで維持される。
+	it('登録済みの全 PreToolUse hook が SSOT の全ツールを覆う', () => {
 		const entries = readSettings().hooks?.PreToolUse ?? [];
-		const gateEntries = entries.filter((e) =>
-			(e.hooks ?? []).some((h) => (h.command ?? '').includes('gate-approve.mjs')),
+		const registered = entries.flatMap((e) =>
+			(e.hooks ?? []).map((h) => ({ command: h.command ?? '', matcher: e.matcher ?? '' })),
 		);
-		expect(gateEntries.length).toBeGreaterThan(0);
-		for (const tool of COMMAND_EXECUTION_TOOLS) {
-			const covered = gateEntries.some((e) => matcherCoversTool(e.matcher ?? '', tool));
-			expect(covered, `gate-approve が ${tool} 経路を覆っていない (#4001 gate bypass)`).toBe(true);
+		expect(registered.length).toBeGreaterThan(0);
+		for (const { command, matcher } of registered) {
+			for (const tool of COMMAND_EXECUTION_TOOLS) {
+				expect(
+					matcherCoversTool(matcher, tool),
+					`${command} が ${tool} 経路を覆っていない (#4001 gate bypass)`,
+				).toBe(true);
+			}
 		}
+	});
+
+	// ADR-0068 は「hook 本体は残し、呼び出しだけ外す」決定。silent な復活を防ぐため、
+	// 未登録であること自体を pin する。再登録するときは本 test と ADR-0068 を同時に直すこと
+	// (統制水準の変更は決定の改訂であって、設定ファイルの 1 行追加ではない)。
+	it('gate-approve.mjs は登録されていない (ADR-0068 / #4571 オーナー判断 A)', () => {
+		const entries = readSettings().hooks?.PreToolUse ?? [];
+		const commands = entries.flatMap((e) => (e.hooks ?? []).map((h) => h.command ?? ''));
+		expect(
+			commands.filter((c) => c.includes('gate-approve.mjs')),
+			'gate-approve.mjs を再登録するなら ADR-0068 の改訂とセットで行うこと',
+		).toEqual([]);
 	});
 
 	it('ADR-0022 L1 (claude-hook-prevent-qa-account-pr.mjs) も同じ全経路を覆う', () => {

@@ -172,7 +172,6 @@ aws cloudwatch describe-alarms \
 |---------|------|
 | `src/lib/server/cron/schedule-registry.ts` | スケジュール SSOT (name / endpoint / cron 式) |
 | `src/lib/server/auth/cron-auth.ts` | `verifyCronAuth` (#1377 で両ヘッダ受け入れ拡張) |
-<!-- doc-code-refs: ignore-line -->
 | 旧 `src/routes/api/cron/license-expire/+server.ts` | endpoint (#1377 で verifyCronAuth に統一)。PR-L3 #2818 で license key 全廃に伴い物理削除済 |
 | `src/routes/api/cron/retention-cleanup/+server.ts` | endpoint |
 | `src/routes/api/cron/trial-notifications/+server.ts` | endpoint |

@@ -1,3 +1,4 @@
+import { todayDateJST } from '$lib/domain/date-utils';
 import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/activity-service.test.ts
 // activity-service ユニットテスト (UT-ACT-01 〜 UT-ACT-10)
@@ -570,7 +571,9 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 	// される flake (#1757 UT-05 が 2026-05-01 で破綻)。
 	// vi.setSystemTime は JS Date のみ mock し SQLite の CURRENT_TIMESTAMP には
 	// 効かないため、TODAY を実時計の日付から動的に生成する。
-	const TODAY = new Date().toISOString().slice(0, 10);
+	// #4722: 本番は `todayDateJST()` を渡す (child home の load)。test 側が UTC 暦日を渡すと
+	// JST 0〜9 時の窓で「当日ボーナス済み」の判定日と保存日がずれ、実装の冪等性を検証できない。
+	const TODAY = todayDateJST();
 
 	beforeEach(() => {
 		seedBase();

@@ -33,6 +33,11 @@ export interface UpdateTrialConversionInput {
 	tenantId: string;
 	stripeSubscriptionId: string;
 	upgradeReason: 'auto' | 'manual' | 'email_cta';
+	/**
+	 * #4707: 本契約移行でトライアルを今日で閉じるときに end_date を詰める (JST 'YYYY-MM-DD')。
+	 * 省略時は end_date を更新しない (終了済みトライアルの過去日付を延ばさない)。
+	 */
+	endDate?: string;
 }
 
 export interface ITrialHistoryRepo {

@@ -19,6 +19,11 @@ import {
 import { addDaysJST, jstDateToInstant, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
+import {
+	formatChallengeTitle,
+	getCategoryDisplayName,
+	getChallengeReason,
+} from '$lib/domain/labels';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -28,6 +33,7 @@ import type {
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
 import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 
 // ============================================================
 // 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service より移設)
@@ -44,6 +50,26 @@ const ALL_CATEGORY_IDS: readonly CategoryId[] = CATEGORY_NUMERIC_IDS.map(asCateg
 export const CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
 	CATEGORY_CODES.map((code) => [String(CATEGORIES[code].legacyNumericId), CATEGORIES[code].name]),
 );
+
+/**
+ * 保存済み title (漢字固定の `formatChallengeTitle` 出力) を画面に出さず、targetConfig の
+ * categoryId + targetValue から年齢帯の文体で解決し直す (#4690 / QM #4809)。
+ * preschool は「こんしゅうは「うんどう」を3かい」、保護者画面 ('senior') は「今週は「運動」を3回」。
+ * categoryId が無い旧行は保存値をそのまま返す。
+ */
+export function resolveChallengeDisplayTitle(
+	c: { title: string; targetConfig: string; targetValue: number },
+	uiMode: string,
+): string {
+	try {
+		const cfg = JSON.parse(c.targetConfig) as { categoryId?: unknown };
+		if (typeof cfg.categoryId !== 'number' && typeof cfg.categoryId !== 'string') return c.title;
+		const name = getCategoryDisplayName(cfg.categoryId, uiMode);
+		return name ? formatChallengeTitle(name, c.targetValue, uiMode) : c.title;
+	} catch {
+		return c.title;
+	}
+}
 
 /** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 (#3194) */
 export type ChallengeProposalMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
@@ -217,19 +243,6 @@ function weightedWeakPick(
 	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? asCategoryId(CATEGORY_CODE_TO_ID.undou);
 }
 
-function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
-	switch (mode) {
-		case 'explore':
-			return 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
-		case 'strength':
-			return `得意な「${categoryName}」をもっと伸ばしてみよう！`;
-		case 'rescue-strength':
-			return `得意な「${categoryName}」でリズムを取り戻そう！`;
-		default:
-			return `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
-	}
-}
-
 /** カテゴリ選択 (weighted interleaving §3.4)。explore / rescue-strength / strength / weakness を返す。 */
 function selectCategory(
 	counts: Record<string, number>,
@@ -321,7 +334,9 @@ export function computeProposal(
 		targetCount,
 		mode,
 		consecutiveMissCount,
-		reason: reasonFor(mode, categoryName),
+		// #4690 F2: 保存する文言は保護者の管理画面にも出るため漢字表記 (elementary 変種)。
+		// 子供画面はこの行を使わず、view 整形時に uiMode で解決し直す。
+		reason: getChallengeReason(mode, categoryName, 'elementary'),
 	};
 }
 
@@ -337,7 +352,13 @@ export function computeProposal(
 function resolveGroupKey(
 	c: Pick<ChildChallenge, 'sourceTemplateId' | 'title' | 'startDate' | 'endDate'>,
 ): string {
-	return c.sourceTemplateId ?? `${c.title}::${c.startDate}::${c.endDate}`;
+	// #4689: **内容 (title) を必ず key に含める**。
+	// 週次自動生成は子供ごとに別内容 (「うんどうを4回」「そうぞうを2回」) なのに
+	// `sourceTemplateId` が全員 `auto:weekly` で共通のため、旧 key では別内容の instance が
+	// 同一 group に混ざっていた。その結果 `allCompleted` が兄弟全員の達成に依存し、
+	// 達成した子に祝福が出なかった (多子家庭で毎週劣化)。
+	// 同一テンプレート配信 (同 sourceTemplateId + 同 title) は従来どおり 1 group = 「みんなクリア」。
+	return `${c.sourceTemplateId ?? 'manual'}::${c.title}::${c.startDate}::${c.endDate}`;
 }
 
 interface TargetConfig {
@@ -421,11 +442,11 @@ export async function createChildChallengesBulk(
  * admin/challenges 画面: tenant 全体の challenge instance を sourceTemplateId / (title + 期間) で
  * group 化して返す。SiblingChallengeComparison.svelte で兄弟連動比較表示するため。
  *
- * #3513 QM BLOCK fix: groupKey には常に startDate + endDate を含める (sourceTemplateId が
- * 'auto:weekly' のような tenant 内共有の固定文字列であっても、期間が異なれば別 group とする)。
- * #2488 must-2 で `getActiveChildChallengesWithSiblings` に導入された「同一期間のみ同 group」
- * ガードと同じ規約を admin 集計側にも適用し、全週・全子供の auto:weekly challenge が単一 group に
- * 混線する事故を防ぐ (sourceTemplateId 単体キーだと固定値の場合に期間非依存になってしまう)。
+ * groupKey は `resolveGroupKey` (子供画面と共通) を使う。sourceTemplateId + **内容 (title)** +
+ * 期間の 3 点一致で「同じチャレンジ」とみなす。
+ *   - 期間を含める (#3513): `auto:weekly` のような tenant 共有の固定 id でも、週が違えば別 group
+ *   - 内容を含める (#4689): 週次自動生成は子供ごとに別内容なので、title が違えば別 group。
+ *     旧実装は先頭の子のタイトルで全員の進捗を束ねて表示していた
  */
 export async function getChallengeGroupsForAdmin(tenantId: string): Promise<ChildChallengeGroup[]> {
 	const repos = getRepos();
@@ -433,9 +454,10 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 
 	const groupMap = new Map<string, ChildChallenge[]>();
 	for (const c of all) {
-		const key = c.sourceTemplateId
-			? `${c.sourceTemplateId}::${c.startDate}::${c.endDate}`
-			: `${c.title}::${c.startDate}::${c.endDate}`;
+		// #4689: 子供画面と同一規約 (`resolveGroupKey`) を使う。内容 (title) を含めないと
+		// 週次自動生成 (`auto:weekly` 共有) の別内容 instance が 1 group に束ねられ、
+		// 見出しが先頭の子のタイトルのまま全員の進捗を並べてしまう。
+		const key = resolveGroupKey(c);
 		const arr = groupMap.get(key) ?? [];
 		arr.push(c);
 		groupMap.set(key, arr);
@@ -447,7 +469,8 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 		if (!first) continue;
 		groups.push({
 			groupKey,
-			title: first.title,
+			// 保護者画面は漢字 + 漢字カテゴリ名で解決し直す (保存値は「うんどう」混在、QM #4809)
+			title: resolveChallengeDisplayTitle(first, 'senior'),
 			description: first.description,
 			startDate: first.startDate,
 			endDate: first.endDate,
@@ -564,7 +587,7 @@ export async function getOrCreateWeeklyChildChallenge(
 	return repos.childChallenge.getOrCreateWeeklyAuto(
 		{
 			childId,
-			title: `今週は「${proposal.categoryName}」を${proposal.targetCount}回`,
+			title: formatChallengeTitle(proposal.categoryName, proposal.targetCount),
 			description: proposal.reason,
 			challengeType: 'cooperative',
 			periodType: 'weekly',
@@ -606,16 +629,24 @@ export interface ChildChallengeView {
 }
 
 /** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
-function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
+function toChildChallengeView(row: ChildChallenge, uiMode: string): ChildChallengeView {
 	let categoryId: CategoryId | undefined;
+	let genMode: ChallengeProposalMode | undefined;
 	try {
 		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化する。
-		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number | string };
+		const cfg = JSON.parse(row.targetConfig) as {
+			categoryId?: number | string;
+			genMode?: ChallengeProposalMode;
+		};
 		categoryId = cfg.categoryId != null ? asCategoryId(cfg.categoryId) : undefined;
+		genMode = cfg.genMode;
 	} catch {
 		// 破損 JSON は categoryName 空で続行
 	}
-	const categoryName = categoryId ? (CATEGORY_NAMES[categoryId] ?? '') : '';
+	// #4690 F2: 表示名も理由文も **保存値ではなく targetConfig から uiMode で解決し直す**。
+	// row.description は生成時の 1 表記しか持てず、既存行も 3〜5 歳に漢字文を出し続けるため。
+	// genMode が無い破損 / 旧行だけ、保存済み description に fallback する。
+	const categoryName = categoryId ? getCategoryDisplayName(categoryId, uiMode) : '';
 	const target = row.targetValue > 0 ? row.targetValue : 1;
 	const current = row.currentValue;
 	const status: ChildChallengeView['status'] =
@@ -632,7 +663,9 @@ function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
 		weekStart: row.startDate,
 		status,
 		progressPercent: Math.min(100, Math.round((current / target) * 100)),
-		description: row.description ?? '',
+		description: genMode
+			? getChallengeReason(genMode, categoryName, uiMode)
+			: (row.description ?? ''),
 	};
 }
 
@@ -644,15 +677,17 @@ function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
 export async function getOrCreateWeeklyChildChallengeView(
 	childId: ChildId,
 	tenantId: string,
+	uiMode: string,
 ): Promise<ChildChallengeView> {
 	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
-	return toChildChallengeView(row);
+	return toChildChallengeView(row, uiMode);
 }
 
 /** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
 export async function getChildChallengeHistory(
 	childId: ChildId,
 	tenantId: string,
+	uiMode: string,
 	limit = 10,
 ): Promise<ChildChallengeView[]> {
 	const repos = getRepos();
@@ -661,7 +696,72 @@ export async function getChildChallengeHistory(
 		.slice()
 		.sort((a, b) => b.startDate.localeCompare(a.startDate))
 		.slice(0, limit)
-		.map(toChildChallengeView);
+		.map((row) => toChildChallengeView(row, uiMode));
+}
+
+/**
+ * #4688: 「記録 > 達成」タブ用の**達成履歴**。受取済み (rewardClaimed=1) も含めて新しい順に返す。
+ *
+ * 旧実装は `getActiveChildChallengesWithSiblings` (active + 未請求のみ) を達成タブに流用していたため、
+ * ほうしゅうを受け取った瞬間にタブから消え「まだ達成がないよ」になっていた (challenges 画面の
+ * 「これまでのチャレンジ」には出るので画面間で矛盾していた)。**履歴は履歴のクエリで引く**。
+ *
+ * 返す集合は 2 つの条件で絞る:
+ *
+ * 1. **保持期間 (`range`、ADR-0049 表示フィルタ層)**。チャレンジは点ではなく期間を持つので、
+ *    `range.from` より前に**期間が終わった**もの / `range.to` より後に**期間が始まった**ものを
+ *    落とす。cutoff をまたぐ期間は保持内に一部が入るため残す (`startDate` で比較すると
+ *    またぎ分を切り過ぎる)。`range` を必須にしているのは、省略可能にすると渡し忘れが
+ *    「全期間を返す」として静かに成立するため (#4763 で実際に起きた)。
+ * 2. **達成タブの意味論**。返すのは「達成済み」または「まだ期間中」のもの。期間が終わった
+ *    未達成は達成でも挑戦中でもないが、画面は `completed` の 2 値でしか描き分けないため
+ *    (`history/+page.svelte`)、そのまま返すと終わったチャレンジが「がんばってるよ」と
+ *    表示され続ける。全チャレンジの通し一覧は challenges 画面の
+ *    `getChildChallengeHistory` が担う (そちらは限定件数の「これまでの」一覧が本務)。
+ *
+ * 件数の上限は設けない。保持期間で母数が閉じるため、活動 / 交換タブと同じく
+ * 「期間で絞る、件数では切らない」に揃える (旧 `limit = 30` は 1 年保持の週次チャレンジ
+ * 約 52 件を無告知に切り捨てていた)。
+ */
+export async function getChildChallengeRecords(
+	childId: ChildId,
+	tenantId: string,
+	range: RetentionRange,
+	uiMode = 'senior',
+): Promise<
+	Array<{
+		id: string;
+		title: string;
+		challengeType: string;
+		startDate: string;
+		endDate: string;
+		completed: boolean;
+		currentValue: number;
+		targetValue: number;
+		rewardClaimed: boolean;
+	}>
+> {
+	const repos = getRepos();
+	const today = todayDateJST();
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	return all
+		.filter((c) => {
+			if (range.from && c.endDate < range.from) return false;
+			if (range.to && c.startDate > range.to) return false;
+			return c.completed === 1 || c.endDate >= today;
+		})
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))
+		.map((c) => ({
+			id: c.id,
+			title: resolveChallengeDisplayTitle(c, uiMode),
+			challengeType: c.challengeType,
+			startDate: c.startDate,
+			endDate: c.endDate,
+			completed: c.completed === 1,
+			currentValue: c.currentValue,
+			targetValue: c.targetValue,
+			rewardClaimed: c.rewardClaimed === 1,
+		}));
 }
 
 /**
@@ -813,18 +913,77 @@ export async function updateChildChallengeProgress(
 	return results;
 }
 
+/**
+ * #4686: 活動とりけし時のチャレンジ進捗巻き戻し (updateChildChallengeProgress の逆操作)。
+ * 同 category の metric='count' チャレンジについて currentValue を 1 戻し、completed=1 かつ
+ * 未受取なら completed を外す (受取済みは repo 側の条件で触らない = 受取済ポイントとの整合)。
+ * @returns 巻き戻した instance (UI 用途は無し、テスト / 観測用)
+ */
+export async function revertChildChallengeProgress(
+	childId: ChildId,
+	categoryId: CategoryId,
+	tenantId: string,
+): Promise<{ challengeId: string; reverted: boolean; uncompleted: boolean }[]> {
+	const repos = getRepos();
+	const today = todayDateJST();
+	// active + 「完了済だが未受取」を包括 (completed 直後の取消で完了を外せるように)。
+	// 受取済み (status=completed & rewardClaimed=1) は本一覧に含まれない = 触らない。
+	const challenges = await repos.childChallenge.findActiveOrUnclaimedByChildId(
+		childId,
+		today,
+		tenantId,
+	);
+	const results: { challengeId: string; reverted: boolean; uncompleted: boolean }[] = [];
+
+	for (const challenge of challenges) {
+		const targetConfig = JSON.parse(challenge.targetConfig) as Omit<TargetConfig, 'categoryId'> & {
+			categoryId?: number | string;
+		};
+		const cfgCategoryId =
+			targetConfig.categoryId != null ? asCategoryId(targetConfig.categoryId) : undefined;
+		if (cfgCategoryId && cfgCategoryId !== categoryId) continue;
+		if (targetConfig.metric !== 'count') continue;
+		// 受取済みは進捗も完了も触らない (受取済ポイントとの整合。5 秒窓内に受取まで済む経路のみ)
+		if (challenge.completed === 1 && challenge.rewardClaimed === 1) continue;
+		if (challenge.currentValue <= 0) continue;
+
+		const newValue = challenge.currentValue - 1;
+		await repos.childChallenge.updateProgress(challenge.id, newValue, tenantId);
+		let uncompleted = false;
+		if (challenge.completed === 1 && newValue < challenge.targetValue) {
+			await repos.childChallenge.revertCompletion(challenge.id, tenantId);
+			uncompleted = true;
+		}
+		results.push({ challengeId: challenge.id, reverted: true, uncompleted });
+	}
+	return results;
+}
+
+/**
+ * claim 失敗の理由 code (#4716 QM #4802)。route は `error` (保護者向けの漢字文) を子供画面に素通し
+ * せず、code から年齢帯の文言 (`getChildActionErrorLabels`) に解決する (ADR-0062 境界)。
+ */
+export type ChallengeClaimErrorCode =
+	| 'NOT_FOUND'
+	| 'WRONG_CHILD'
+	| 'NOT_COMPLETED'
+	| 'ALREADY_CLAIMED';
+
 /** ごほうび受取 (per-child instance ごと) */
 export async function claimChildChallengeReward(
 	challengeId: string,
 	childId: ChildId,
 	tenantId: string,
-): Promise<{ points: number; message?: string } | { error: string }> {
+): Promise<
+	{ points: number; message?: string } | { error: string; code: ChallengeClaimErrorCode }
+> {
 	const repos = getRepos();
 	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
-	if (!challenge) return { error: 'チャレンジが見つかりません' };
+	if (!challenge) return { error: 'チャレンジが見つかりません', code: 'NOT_FOUND' };
 	// IDOR 防御 + 事前 gate (childId 所有権 / completed)。rewardClaimed の最終判定は下の原子 primitive で行う。
-	if (challenge.childId !== childId) return { error: 'このチャレンジは別のお子さま用です' };
-	if (challenge.completed !== 1) return { error: 'まだクリアしていません' };
+	if (challenge.childId !== childId)
+		return { error: 'このチャレンジは別のお子さま用です', code: 'WRONG_CHILD' };
+	if (challenge.completed !== 1) return { error: 'まだクリアしていません', code: 'NOT_COMPLETED' };
 
 	// #3284 / #3342 (#3333 claim-first の後継): 条件付き flip + point ledger insert を repo 層の
 	// **単一原子 primitive** で実行する。旧 2 段構成 (claimReward flip → 別呼び出しで
@@ -841,7 +1000,7 @@ export async function claimChildChallengeReward(
 		},
 		tenantId,
 	);
-	if (flipped !== 1) return { error: 'すでに受け取り済みです' };
+	if (flipped !== 1) return { error: 'すでに受け取り済みです', code: 'ALREADY_CLAIMED' };
 	return { points: rewardConfig.points, message: rewardConfig.message };
 }
 
@@ -874,4 +1033,44 @@ export async function buildPerChildTargets(
 		result[childId] = calcAgeAdjustedTarget(baseTarget, ageAdjustments, age);
 	}
 	return result;
+}
+
+/**
+ * セットアップウィザードの preset 由来 challenge を識別する `sourceTemplateId` の接頭辞。
+ *
+ * `/setup/challenges` の action と、その「配信済みか」の判定 (下記) が**同じ文字列**を
+ * 見るようにするために export する (片方だけ書き換わると重複配信に戻るため)。
+ */
+export const SETUP_PRESET_SOURCE_PREFIX = 'setup-preset:';
+
+/**
+ * すでに配信済みの「preset → 受け取り済みの childId 集合」を返す (#4863 / PO 決裁 2026-09-09)。
+ *
+ * **子供ごとに持つ理由** (#4868 adversarial 実測): preset id だけを鍵にすると、
+ * ウィザードの「戻る」で `/setup/children` へ戻って**子供を追加してから前進し直した**ときに、
+ * 後から加わった子だけが setup チャレンジを 1 件も受け取らない。しかも skip は静かに
+ * `continue` するので、親には `challengesAdded=0` としか見えない。
+ *
+ * なぜ要るか: `createChildChallengesBulk` は `insertBulk` するだけで重複を見ない。
+ * ウィザードは中断・再開できる (印が立っている人の「続きをする」は `/setup/*` に戻る) ので、
+ * `/setup/challenges` を 2 周すると**同じ preset の challenge が二重に積まれる**。
+ * 他の step は二重取込にならない — packs / rewards は `sourcePresetId` の重複検知 (#1254 G1)、
+ * rules は `alreadyImported` 判定、activities-defaults は `setSetting` の upsert。
+ * **challenges だけが例外**なので、ここだけ「済んでいれば飛ばす」を持つ。
+ */
+export async function findAppliedSetupPresetChildIds(
+	tenantId: string,
+): Promise<Map<string, Set<string>>> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findAllByTenant(tenantId);
+	const applied = new Map<string, Set<string>>();
+	for (const c of all) {
+		const src = c.sourceTemplateId;
+		if (!src?.startsWith(SETUP_PRESET_SOURCE_PREFIX)) continue;
+		const presetId = src.slice(SETUP_PRESET_SOURCE_PREFIX.length);
+		const set = applied.get(presetId) ?? new Set<string>();
+		set.add(String(c.childId));
+		applied.set(presetId, set);
+	}
+	return applied;
 }

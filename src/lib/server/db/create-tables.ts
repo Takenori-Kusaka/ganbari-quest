@@ -29,6 +29,7 @@ export const SQL_CREATE_TABLES = `
 		nickname TEXT NOT NULL,
 		age INTEGER NOT NULL,
 		birth_date TEXT,
+		birth_date_estimated INTEGER NOT NULL DEFAULT 0,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		avatar_url TEXT,
@@ -272,7 +273,9 @@ export const SQL_CREATE_TABLES = `
 	CREATE TABLE IF NOT EXISTS reward_redemption_requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+		-- #4683: FK を張らない (ごほうび削除後も交換履歴を残す。表示の権威は下の reward_* snapshot)。
+		-- 詳細は schema.ts の rewardId 定義コメント / docs/design/08-データベース設計書.md。
+		reward_id INTEGER NOT NULL,
 		requested_at INTEGER NOT NULL,
 		-- #4407: 1 申請 = N 個 (単位量のごほうびを「単価 × 個数」で消費する)
 		quantity INTEGER NOT NULL DEFAULT 1,
@@ -362,23 +365,6 @@ export const SQL_CREATE_TABLES = `
 	);
 	CREATE INDEX IF NOT EXISTS idx_checklist_overrides_child_date
 		ON checklist_overrides(child_id, target_date);
-
-	CREATE TABLE IF NOT EXISTS birthday_reviews (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		review_year INTEGER NOT NULL,
-		age_at_review INTEGER NOT NULL,
-		health_checks TEXT NOT NULL DEFAULT '{}',
-		aspiration_text TEXT,
-		aspiration_categories TEXT NOT NULL DEFAULT '{}',
-		base_points INTEGER NOT NULL DEFAULT 0,
-		health_points INTEGER NOT NULL DEFAULT 0,
-		aspiration_points INTEGER NOT NULL DEFAULT 0,
-		total_points INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_birthday_reviews_unique
-		ON birthday_reviews(child_id, review_year);
 
 	CREATE TABLE IF NOT EXISTS daily_missions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

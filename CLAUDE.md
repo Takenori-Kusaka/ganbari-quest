@@ -50,7 +50,52 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 1. biome check / 2. svelte-check / 7. check-no-plan-literals (#972) / 7g. check-local-tz-date-getters (#4015 / #4127, TZ 依存の日付導出禁止 / JST SSOT 強制) / 9. Readiness gate = check-pr-body (PR 番号必須) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail)
 
-**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**pre-ready から外しても CI で hard-fail し続ける検査**は以下がその全部である — vitest は CI `unit-test`、cspell / license-key-leak / CLI entry guard (`check-cli-entry-guard.mjs`) / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml` (対応表は `--help`)。**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。**ここに挙がっていない検査は CI にも無い** — 「pre-ready に無い検査は CI が拾ってくれる」と一般化しないこと。
+**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**pre-ready の 6 step は CI が hard-fail させる検査のごく一部でしかない**。`gh pr checks <num>` で CI 側が pass (skipped でない) ことを確認してから Ready 化する。
+
+#### CI `ci.yml` で hard-fail する検査（実測 SSOT、#4605）
+
+以下 2 ブロックは `.github/workflows/ci.yml` の実測（`continue-on-error: true` も `|| true` も付かない step）であり、`tests/unit/docs/ci-hard-fail-check-list-ssot.test.ts` が ci.yml と突合する（列挙漏れ / 陳腐化 / 理由なし除外 / job 新設漏れで CI fail）。**手で足さない — ci.yml を変えたら test の指示どおり本ブロックを直す。**
+
+`lint-and-test` job の hard-fail step（ローカルで個別に回すときのコマンドがそのまま key）:
+
+<!-- ci-hard-fail-steps:start -->
+- `npx biome check --error-on-warnings .` — Biome (pre-ready Step 1 と同一)
+- `npm run lint:parallel` — 並行実装 SSOT (generate-lp-labels --check / sync-lp-fallback --check / LP innerHTML / @html)
+- `node scripts/check-no-plan-literals.mjs` — プラン文字列直書き (pre-ready Step 7)
+- `node scripts/check-cli-entry-guard.mjs` — CLI entry 判定の方言禁止
+- `node scripts/check-workflow-sparse-checkout-closure.mjs` — sparse-checkout 列挙の閉包
+- `node scripts/check-readdir-rotation-guard.mjs` — 緩い一致で世代を数える class の禁止
+- `node scripts/check-repo-scan-test-declaration.mjs` — repo 走査 test の区分宣言
+- `node scripts/check-local-tz-date-getters.mjs` — TZ 依存の日付導出禁止 (pre-ready Step 7g)
+- `node scripts/check-license-key-leak.mjs --budget-ms 120000` — license key 再導入禁止
+- `node scripts/check-no-direct-env-access.mjs` — `process.env` 直参照禁止
+- `node scripts/check-no-waitfortimeout.mjs` — `scripts/` の `waitForTimeout` 禁止
+- `node --test "scripts/__tests__/**/*.test.mjs"` — scripts の node:test 全件
+- `npm run check:no-demo-route-dup` — demo route 二重実装禁止
+- `npm run cspell` — スペルチェック (warning=error)
+- `npx stylelint "src/**/*.css"` — CSS hex 直書き
+- `npx eslint "tests/**/*.ts"` — ESLint Playwright (no-networkidle / no-wait-for-timeout)
+- `npm run lint:typed` — ESLint type-aware (no-floating-promises / no-misused-promises、CI 限定)
+- `npm run lint:svelte` — **ESLint Svelte** (recommended + XSS AST。`eslint-suppressions.json` で baseline 凍結 + ratchet = 新規違反のみ fail)
+- `npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold warning` — **pre-ready Step 2 より厳しい**（CI は warning も fail）
+- `cd infra && npx tsc --noEmit` — CDK 型検査
+- `npm run type-coverage` — 型カバレッジ ratchet
+- `npm run build` — 本体ビルド
+- `npm run build-storybook -- --quiet` — Storybook ビルド (`ci.yml` の `stories` filter が true のときのみ。filter の実体は `ci.yml` が SSOT で、ここには列挙しない。story ファイルと `.storybook/` 本体、story を持つ UI ディレクトリ、およびコンパイル結果を変えうる設定・依存が対象 = #4859)
+<!-- ci-hard-fail-steps:end -->
+
+`ci.yml` のその他 hard-fail job（`lint-and-test` 以外。中身の step までは列挙しない）:
+
+<!-- ci-hard-fail-jobs:start -->
+- `marketplace-registry-integrity-check` / `deps-supply-chain-check` / `dependency-cruiser` / `cdk-cfn-lint`
+- `unit-test` (vitest 2 shard) / `unit-test-merge` (coverage 閾値 ratchet + test anti-pattern)
+- `storybook-test` / `e2e-test` / `e2e-matrix` / `e2e-cognito-dev` / `e2e-demo-lambda` / `a11y`
+- `docker-build`
+- `new-env-distribution-check` / `schema-change-tests-check` / `schema-migration-completeness-check`
+- `main-pr-base-guard`
+<!-- ci-hard-fail-jobs:end -->
+
+**本ブロックが保証するのは `ci.yml` の範囲だけ**。他の workflow（`lp-metrics.yml` の LP 寸法・禁止語、visual regression 3 層、`pr-template-gate.yml` 等の PR body 系 gate）は突合対象外なので、`gh pr checks <num>` で個別に見る（`ci-gate` は skipped を failure に数えないため ci-gate green を根拠にしない）。
 
 **Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 7 / 7g) → 型検査 (2) → SS 系 (11b) の順。
 
@@ -62,18 +107,18 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 
 修正前に `docs/design/parallel-implementations.md` を確認:
 
-- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
+- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - 年齢モード → `src/routes/(child)/[uiMode=uiMode]/` + `src/lib/domain/validation/age-tier.ts`
 - 本番画面 → デモ Lambda (#2097 PR-B3 で `src/routes/demo/**` 全削除、本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動)
-- ナビ → `AdminLayout` + `AdminMobileNav` + `BottomNav`
+- ナビ → 面を固定数で数えない。`AdminLayout` に管理画面の Desktop ドロップダウンと Mobile ボトムナビが同居（`AdminMobileNav` は存在しない）。他に `BottomNav`（子供）/ 設定サブナビ / 運営者ナビ / ページ内タブ。`grep -rn "<nav\b" src/` で変更が及ぶ面を確認する
 - DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
-- チュートリアル → `tutorial-chapters.ts` + `demo-guide-state.svelte.ts`
+- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` (子供) + `demo-guide-state.svelte.ts` (デモ)
 
 ## Things Not To Do
 
 CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313)
 
-**機械強制が無くレビューで担保するもの**: UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045)。プラン文字列だけは `check-no-plan-literals.mjs` が拾うが、それ以外の日本語直書きを検出する CI は無い。**ルールは生きているので、CI が緑でもレビューで見る。**
+**UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045) の検出範囲**: プラン文字列は `check-no-plan-literals.mjs` が拾う。加えて `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する。**対象外の範囲では CI が緑でもレビューで見る。**
 
 その他禁忌:
 - `src/routes` ページにビジネスロジック直書き / DB 直接アクセス（必ず `$lib/server/db` 経由）

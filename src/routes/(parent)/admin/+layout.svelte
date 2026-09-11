@@ -1,14 +1,17 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
-import { getInviteAcceptErrorBanner } from '$lib/domain/labels';
+import { page } from '$app/state';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
+import ArchivedResourceBanner from '$lib/features/admin/components/ArchivedResourceBanner.svelte';
+import DeletionGraceBanner from '$lib/features/admin/components/DeletionGraceBanner.svelte';
+import ParentGateReauthDialog from '$lib/features/admin/components/ParentGateReauthDialog.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
+import TrialStartedNotice from '$lib/features/admin/components/TrialStartedNotice.svelte';
 import { startParentGateInactivityRedirect } from '$lib/features/admin/parent-gate-inactivity';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
-import Alert from '$lib/ui/primitives/Alert.svelte';
 
 interface Props {
 	data: {
@@ -17,14 +20,19 @@ interface Props {
 		authMode?: string;
 		debugPlanSummary?: string | null;
 		trialJustExpired?: boolean;
+		// PO 決裁 2026-09-10 決定 3(a): 自動開始の告知 (着地直後の 1 回だけ非 null)
+		trialStartedNoticeEndDate?: string | null;
 		trialStatus?: {
 			isTrialActive: boolean;
 			daysRemaining: number;
 			trialUsed: boolean;
-			trialEndDate: string | null;
 		};
+		// #4708: 無料プランの上限で archive 中の 3 資源の件数 (+layout.server.ts が配布)
 		archivedSummary?: {
 			archivedChildCount: number;
+			archivedActivityCount: number;
+			archivedChecklistTemplateCount: number;
+			totalCount: number;
 			hasArchivedResources: boolean;
 		};
 		// #2821: setup 由来遷移 (`?from=setup`) 時のみ非 null
@@ -37,10 +45,17 @@ interface Props {
 		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
 		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
 		stripeEnabled?: boolean;
-		// #3555 ①: 招待受諾が email 束縛で拒否された直後の 1 回限り案内 (通知 cookie 由来)
-		// #4633 AC-A: 拒否理由は email 束縛の 2 種に限らない (文言解決は
-		// getInviteAcceptErrorBanner が担い、未知の理由は汎用文言に落ちる)。
-		inviteAcceptError?: string | null;
+		// #1781 / #4699: 退会 (アカウント削除) 申請中の猶予状態。全 admin ページで
+		// 「あと N 日 / 復元する」を出すために layout が受け取る
+		gracePeriodStatus?: {
+			isSoftDeleted: boolean;
+			softDeletedAt: string | null;
+			gracePeriodDays: number;
+			physicalDeletionDate: string | null;
+			daysRemaining: number;
+			isExpired: boolean;
+			planTier: string | null;
+		} | null;
 	};
 	children: Snippet;
 }
@@ -62,6 +77,22 @@ $effect(() => {
 			window.location.href = '/switch?timedOut=1';
 		},
 	});
+});
+
+// #4866 系 / PO 決裁 2026-09-10 決定 4(a): form action が親 PIN gate で止められたとき、
+// **この画面のまま**おやカギを入れ直せるようにする。
+//
+// 旗を立てるのは `withParentGate` (単一の seam) なので、どの admin 画面のどの action で
+// 起きても同じ体験になる。各 page が `form?.error` を描いているとは限らない
+// (実測: 22 file 中、汎用の `error` を画面に出しているのは一部だけ) ため、
+// **layout 側で旗を拾う**のが要点。
+const parentGateRequired = $derived(
+	(page.form as { parentGateRequired?: boolean } | null | undefined)?.parentGateRequired === true,
+);
+let parentGateReauthOpen = $state(false);
+$effect(() => {
+	// 保護者が閉じた後に再度開かないよう、旗が false → true に変わったときだけ開く。
+	if (parentGateRequired) parentGateReauthOpen = true;
 });
 
 const trial = $derived(data.trialStatus);
@@ -88,14 +119,14 @@ $effect(() => {
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
-	<!-- #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (無説明 dead-end 防止、1 回限り) -->
-	{#if data.inviteAcceptError}
+	<!-- PO 決裁 2026-09-10 決定 3(a): 申込経路から自動開始した無料体験を着地直後に 1 度告げる。
+	     `?trialStarted=1` が付いた最初の描画だけ非 null になる (次の遷移で query が落ちて消える)。 -->
+	<TrialStartedNotice endDate={data.trialStartedNoticeEndDate ?? null} />
+	<!-- #4699: 退会 (アカウント削除) 申請中は全 admin ページで状態と復元導線を出す。
+	     旧実装は設定 > アカウントの 1 画面だけで、申請を忘れた保護者が猶予経過で全データを失っていた -->
+	{#if data.gracePeriodStatus?.isSoftDeleted}
 		<div style:margin-bottom="16px">
-			<Alert
-				variant="warning"
-				data-testid="invite-accept-error-banner"
-				message={getInviteAcceptErrorBanner(data.inviteAcceptError)}
-			/>
+			<DeletionGraceBanner status={data.gracePeriodStatus} testid="admin-deletion-grace-banner" />
 		</div>
 	{/if}
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
@@ -109,10 +140,21 @@ $effect(() => {
 			<TrialBanner isTrialActive={trial.isTrialActive} daysRemaining={trial.daysRemaining} />
 		</div>
 	{/if}
+	<!-- #4708: 無料プランの上限で archive 中のお子さま / 活動 / チェックリストの告知 (件数 + プラン導線)。
+	     FAQ / pricing「削除されず、管理画面で確認でき、有料プランで元に戻る」を画面で成立させる -->
+	{#if data.archivedSummary?.hasArchivedResources}
+		<div style:margin-bottom="16px">
+			<ArchivedResourceBanner summary={data.archivedSummary} basePath="/admin" />
+		</div>
+	{/if}
 	{@render children()}
 </AdminLayout>
 <TrialEndedDialog
 	bind:open={showTrialEndedDialog}
 	onDismiss={() => { showTrialEndedDialog = false; }}
+/>
+<ParentGateReauthDialog
+	bind:open={parentGateReauthOpen}
+	onClose={() => { parentGateReauthOpen = false; }}
 />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />

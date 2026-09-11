@@ -37,7 +37,6 @@ vi.mock('$lib/server/logger', () => ({
 import { isAiAvailable } from '$lib/server/ai/factory';
 import { suggestActivity } from '$lib/server/services/activity-suggest-service';
 import { suggestChecklist } from '$lib/server/services/checklist-suggest-service';
-import { suggestCheer } from '$lib/server/services/cheer-suggest-service';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 import { suggestReward } from '$lib/server/services/reward-suggest-service';
 
@@ -61,11 +60,6 @@ describe('AI 未設定環境 (env が何も配られていない)', () => {
 
 	it('チェックリスト提案はプリセットに縮退する', async () => {
 		const result = await suggestChecklist('プールに行く');
-		expect(result.source).toBe('fallback');
-	});
-
-	it('応援提案はキーワード提案に縮退する', async () => {
-		const result = await suggestCheer('テストで100点をとった');
 		expect(result.source).toBe('fallback');
 	});
 

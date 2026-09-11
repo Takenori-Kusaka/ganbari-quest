@@ -146,7 +146,6 @@ URL 命名変更は **Phase 4 (動線設計)** の本来責務。Phase 3 (UI) �
 
 | カテゴリ | 件数 | 内訳 |
 |---|---|---|
-<!-- doc-code-refs: ignore-line -->
 | `/admin/license` URL 参照 | **308 件** | `src/` / `tests/` / `docs/` / `site/` 全体 |
 | `*License*` ファイル | 5 個 | constants 3 + routes 2 |
 | `LICENSE_*_LABELS` atom 参照 | **218 件** | labels.ts + 利用側 |

@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/stamp-card-repo.ts
 // SQLite implementation of IStampCardRepo
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import * as schema from '../schema';
@@ -116,6 +116,27 @@ export async function findCardsByChild(childId: ChildId, _tenantId: string): Pro
 		.select()
 		.from(schema.stampCards)
 		.where(eq(schema.stampCards.childId, Number(childId)))
+		.orderBy(schema.stampCards.weekStart)
+		.all()
+		.map(toCard);
+}
+
+/** #4687: 今週より前の未交換 (collecting) カードを古い順で返す。 */
+export async function findUnredeemedCardsBefore(
+	childId: ChildId,
+	weekStart: string,
+	_tenantId: string,
+): Promise<StampCard[]> {
+	return db
+		.select()
+		.from(schema.stampCards)
+		.where(
+			and(
+				eq(schema.stampCards.childId, Number(childId)),
+				lt(schema.stampCards.weekStart, weekStart),
+				eq(schema.stampCards.status, 'collecting'),
+			),
+		)
 		.orderBy(schema.stampCards.weekStart)
 		.all()
 		.map(toCard);

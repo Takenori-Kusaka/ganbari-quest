@@ -5,10 +5,11 @@ import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { PLAN_GATE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -53,7 +54,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-export const actions = {
+export const actions = withParentGate({
 	updateDefaultChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -66,12 +67,12 @@ export const actions = {
 
 		const childId = asChildId(raw);
 		if (!childId) {
-			return fail(400, { defaultChildError: '子供IDが不正です' });
+			return fail(400, { defaultChildError: SETTINGS_LABELS.defaultChildIdInvalid });
 		}
 
 		const children = await getAllChildren(tenantId);
 		if (!children.some((c) => c.id === childId)) {
-			return fail(400, { defaultChildError: '指定された子供が見つかりません' });
+			return fail(400, { defaultChildError: SETTINGS_LABELS.defaultChildNotFound });
 		}
 
 		await setDefaultChildId(tenantId, childId);
@@ -86,14 +87,14 @@ export const actions = {
 		const rateStr = form.get('point_rate')?.toString() ?? '1';
 
 		if (mode !== 'point' && mode !== 'currency') {
-			return fail(400, { pointError: 'モードが不正です' });
+			return fail(400, { pointError: SETTINGS_LABELS.pointModeInvalid });
 		}
 		if (!CURRENCY_CODES.includes(currency as CurrencyCode)) {
-			return fail(400, { pointError: '通貨コードが不正です' });
+			return fail(400, { pointError: SETTINGS_LABELS.pointCurrencyInvalid });
 		}
 		const rate = Number.parseFloat(rateStr);
 		if (Number.isNaN(rate) || rate <= 0 || rate > 10000) {
-			return fail(400, { pointError: 'レートは0より大きく10000以下で入力してください' });
+			return fail(400, { pointError: SETTINGS_LABELS.pointRateRange });
 		}
 
 		await setSetting('point_unit_mode', mode as PointUnitMode, tenantId);
@@ -133,4 +134,4 @@ export const actions = {
 
 		return { siblingSuccess: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

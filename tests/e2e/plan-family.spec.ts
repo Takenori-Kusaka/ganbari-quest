@@ -2,7 +2,7 @@
 // #779: ファミリープランの機能疎通 E2E
 //
 // AUTH_MODE=cognito + COGNITO_DEV_MODE=true で DevCognitoAuthProvider の
-// dev-tenant-family（plan=family_monthly）でログインし、
+// dev-tenant-family（plan=family-monthly）でログインし、
 // 「family だからこそ全機能が解放されている」状態を一通り確認する。
 //
 // 設計意図:

@@ -11,7 +11,13 @@
  */
 import { defineMeta } from '@storybook/addon-svelte-csf';
 import { expect, screen, waitFor, within } from 'storybook/test';
-import { STORYBOOK_LABELS, UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
+import {
+	getChildActionErrorLabels,
+	getErrorNotifyLabels,
+	STORYBOOK_LABELS,
+	UI_PRIMITIVES_LABELS,
+} from '$lib/domain/labels';
+import { notifyActionFailure } from '$lib/ui/error-notify';
 import Button from './Button.svelte';
 import Toast, { showToast } from './Toast.svelte';
 
@@ -81,6 +87,72 @@ const { Story } = defineMeta({
   <div class="flex flex-col gap-2">
     <Button variant="ghost" onclick={() => showToast(STORYBOOK_LABELS.toast.titleOnlyTitle)}>
       {STORYBOOK_LABELS.toast.titleOnlyBtn}
+    </Button>
+    <Toast />
+  </div>
+</Story>
+
+<!--
+  PR #4839: 子供画面の form action 失敗通知。server が返す拒否理由 (上限 / 活動が無い) を
+  年齢帯別の文言で出す経路の目視確認。demo 環境では上限分岐に到達できず SS が撮れないため、
+  ここが視覚的な証跡になる (PR body の ss-render-impossible 参照)。
+-->
+<Story
+  name="ChildActionFailureReason"
+  asChild
+  play={async () => {
+    // ひらがな帯: server の理由がそのまま出る (汎用文言に潰れない)
+    const hiragana = screen.getByRole('button', { name: STORYBOOK_LABELS.toast.childReasonHiraganaBtn });
+    await hiragana.click();
+    const alert = await waitFor(() => screen.getByRole('alert'));
+    await expect(alert).toHaveTextContent(getChildActionErrorLabels('preschool').pinLimitExceeded(5));
+    const closeBtn = within(alert).getByRole('button', { name: UI_PRIMITIVES_LABELS.closeAriaLabel });
+    await closeBtn.click();
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+
+    // 漢字帯: 同じ拒否理由が junior / senior の文体で出る
+    const kanji = screen.getByRole('button', { name: STORYBOOK_LABELS.toast.childReasonKanjiBtn });
+    await kanji.click();
+    const kanjiAlert = await waitFor(() => screen.getByRole('alert'));
+    await expect(kanjiAlert).toHaveTextContent(getChildActionErrorLabels('senior').pinLimitExceeded(5));
+    await within(kanjiAlert)
+      .getByRole('button', { name: UI_PRIMITIVES_LABELS.closeAriaLabel })
+      .click();
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+
+    // 理由が無いとき (server が理由を返さない / 想定外例外) は汎用文言に倒れる
+    const generic = screen.getByRole('button', { name: STORYBOOK_LABELS.toast.childReasonGenericBtn });
+    await generic.click();
+    const genericAlert = await waitFor(() => screen.getByRole('alert'));
+    await expect(genericAlert).toHaveTextContent(getErrorNotifyLabels('preschool').generic);
+  }}
+>
+  <div class="flex flex-col gap-2">
+    <Button
+      variant="danger"
+      onclick={() =>
+        notifyActionFailure({
+          labels: getErrorNotifyLabels('preschool'),
+          reason: getChildActionErrorLabels('preschool').pinLimitExceeded(5),
+        })}
+    >
+      {STORYBOOK_LABELS.toast.childReasonHiraganaBtn}
+    </Button>
+    <Button
+      variant="danger"
+      onclick={() =>
+        notifyActionFailure({
+          labels: getErrorNotifyLabels('senior'),
+          reason: getChildActionErrorLabels('senior').pinLimitExceeded(5),
+        })}
+    >
+      {STORYBOOK_LABELS.toast.childReasonKanjiBtn}
+    </Button>
+    <Button
+      variant="ghost"
+      onclick={() => notifyActionFailure({ labels: getErrorNotifyLabels('preschool') })}
+    >
+      {STORYBOOK_LABELS.toast.childReasonGenericBtn}
     </Button>
     <Toast />
   </div>

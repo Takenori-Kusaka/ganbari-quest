@@ -28,8 +28,9 @@ type Role = 'owner' | 'parent' | 'child';
 
 function createLocals(role: Role | null, opts: { userId?: string } = {}): App.Locals {
 	return {
-		context: role ? { tenantId: 't-test', role } : null,
-		identity: opts.userId ? { type: 'cognito', userId: opts.userId } : undefined,
+		// #4643: 監査ログの actor は context.userId (users.user_id)。targetId と同じ空間に揃える
+		context: role ? { tenantId: 't-test', role, userId: opts.userId } : null,
+		identity: opts.userId ? { type: 'cognito', userId: `cognito-sub-${opts.userId}` } : undefined,
 	} as unknown as App.Locals;
 }
 

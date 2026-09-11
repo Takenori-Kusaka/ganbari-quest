@@ -29,6 +29,7 @@ const SQL_TABLES = `
 	CREATE TABLE children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		nickname TEXT NOT NULL, age INTEGER NOT NULL, birth_date TEXT,
+		birth_date_estimated INTEGER NOT NULL DEFAULT 0,
 		theme TEXT NOT NULL DEFAULT 'pink',
 		ui_mode TEXT NOT NULL DEFAULT 'preschool',
 		ui_mode_manually_set INTEGER NOT NULL DEFAULT 0,
@@ -133,6 +134,9 @@ beforeEach(() => {
 async function jsonBody(res: Response) {
 	return res.json();
 }
+
+/** PO 決裁 2026-09-10 決定 6: `/api/v1/points/convert` は親限定 (家庭のお金が動く)。 */
+const PARENT_CONTEXT = { tenantId: 'test-tenant', role: 'owner' } as const;
 
 // ===================================================================
 // API-PNT-01: GET /api/v1/points/:childId → ポイント残高取得
@@ -247,6 +251,10 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -264,6 +272,10 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 1000 },
 		});
 		const res = await POST_CONVERT(event);
@@ -280,6 +292,10 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const convertEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		await POST_CONVERT(convertEvent);
@@ -300,6 +316,10 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const convertEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		await POST_CONVERT(convertEvent);
@@ -329,6 +349,10 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -342,6 +366,10 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -352,6 +380,10 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '999', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -369,6 +401,10 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 123, mode: 'manual' },
 		});
 		const res = await POST_CONVERT(event);
@@ -386,6 +422,10 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 648, mode: 'receipt' },
 		});
 		const res = await POST_CONVERT(event);
@@ -402,6 +442,10 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -422,6 +466,10 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 300 },
 		});
 		const res = await POST_CONVERT(event);
@@ -435,6 +483,10 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: 0 },
 		});
 		const res = await POST_CONVERT(event);
@@ -445,6 +497,10 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: { childId: '1', amount: -500 },
 		});
 		const res = await POST_CONVERT(event);
@@ -455,6 +511,10 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
+			// PO 決裁 2026-09-10 決定 6: ポイント変換 (家庭のお金が動く) は親限定になった。
+			// 本 test が測るのは**変換の計算と履歴**なので、呼び手を保護者で固定する
+			// (role の方は api-parent-only-role-guard.test.ts が測る)。
+			context: PARENT_CONTEXT,
 			body: {},
 		});
 		const res = await POST_CONVERT(event);

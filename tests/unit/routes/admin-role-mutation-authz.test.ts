@@ -96,8 +96,9 @@ function createEvent(role: Role, opts: { userId?: string; callerUserId?: string 
 	return {
 		params: { userId },
 		locals: {
-			context: { tenantId: 't-test', role },
-			identity: { type: 'cognito', userId: callerUserId },
+			// #4643: DB を触る判定はアプリ側 user id (context.userId)。identity.userId は IdP の sub
+			context: { tenantId: 't-test', role, userId: callerUserId },
+			identity: { type: 'cognito', userId: `cognito-sub-${callerUserId}` },
 		},
 	} as unknown as Parameters<NonNullable<typeof transferOwnership>>[0];
 }
@@ -110,8 +111,8 @@ function createInviteCreateEvent(role: Role) {
 			body: JSON.stringify({ role: 'parent' }),
 		}),
 		locals: {
-			context: { tenantId: 't-test', role, licenseStatus: 'active' },
-			identity: { type: 'cognito', userId: 'u-caller' },
+			context: { tenantId: 't-test', role, userId: 'u-caller', licenseStatus: 'active' },
+			identity: { type: 'cognito', userId: 'cognito-sub-u-caller' },
 		},
 	} as unknown as Parameters<NonNullable<typeof createInvitePost>>[0];
 }
@@ -120,8 +121,8 @@ function createInviteRevokeEvent(role: Role) {
 	return {
 		params: { id: 'invite-code-1' },
 		locals: {
-			context: { tenantId: 't-test', role },
-			identity: { type: 'cognito', userId: 'u-caller' },
+			context: { tenantId: 't-test', role, userId: 'u-caller' },
+			identity: { type: 'cognito', userId: 'cognito-sub-u-caller' },
 		},
 	} as unknown as Parameters<NonNullable<typeof revokeInviteDelete>>[0];
 }

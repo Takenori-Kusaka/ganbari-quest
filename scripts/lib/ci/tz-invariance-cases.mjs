@@ -69,9 +69,6 @@ export const TZ_INVARIANCE_CASES = {
 	'loyalty/increment-month-key': {
 		note: 'incrementSubscriptionMonth の二重防止キーが JST 月キーになる (#4127 残存 5)',
 	},
-	'rest-days/month-symmetry': {
-		note: 'おやすみ日の GET 既定月 (導出) と POST の上限判定月 (日付由来) が一致する (#4127 残存 6)',
-	},
 };
 
 /** proof id の一覧 */

@@ -18,6 +18,7 @@ import {
 	type ContractStateClassification,
 	classifyContractState,
 	isInvalidContractState,
+	isRetainedSuspendedContract,
 } from '$lib/domain/contract-state';
 
 /** matrix §4 の 4 列。`sub` / `exp` は「あり/なし」だけが分類に効く。 */
@@ -131,5 +132,73 @@ describe('#4181 AC1 classifyContractState — 4 列の全組み合わせで全�
 			// 契約が無いのに期限だけ残る (suspended 版。active 版は X3 が拾う)
 			row('suspended', null, null, EXP),
 		]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// isRetainedSuspendedContract — 履歴の物理削除を免除する境界 (PO 決定 2026-09-04)
+//
+// 免除は **正常状態 S4 に限る**。`status === 'suspended' && sub != null` の 2 列だけで書くと
+// 不正状態 X2 (sub あり + plan なし) / X1 (sub が空文字 → present() が「なし」に倒す) まで
+// 免除に含まれ、状態監査が是正対象として上げている行を無期限に温存してしまう
+// (adversarial review PR #4852 が 32 通り列挙で検出)。
+//
+// 本 describe は 32 通りの真偽を `classifyContractState` と**双方向**で突き合わせる:
+//   - S4 と分類される行は必ず true (免除が狭くなったら落ちる)
+//   - S4 以外と分類される行は必ず false (免除が広がったら落ちる)
+// ---------------------------------------------------------------------------
+
+describe('#4852 isRetainedSuspendedContract — 免除の境界はちょうど S4', () => {
+	const STATUSES = ['active', 'grace_period', 'suspended', 'terminated'];
+	const ALL_ROWS: ReturnType<typeof row>[] = [];
+
+	for (const status of STATUSES) {
+		for (const plan of [null, PLAN]) {
+			for (const sub of [null, SUB]) {
+				for (const exp of [null, EXP]) {
+					ALL_ROWS.push(row(status, plan, sub, exp));
+				}
+			}
+		}
+	}
+
+	it('32 通りすべてで classifyContractState と一致する (S4 ⇔ true)', () => {
+		expect(ALL_ROWS).toHaveLength(32);
+		const diverged = ALL_ROWS.filter(
+			(input) => isRetainedSuspendedContract(input) !== (classifyContractState(input) === 'S4'),
+		).map((input) => ({ input, classify: classifyContractState(input) }));
+		expect(diverged, `分類と免除が食い違う行: ${JSON.stringify(diverged)}`).toEqual([]);
+	});
+
+	it('免除される行は S4 の 2 通りだけ (exp 任意)', () => {
+		const exempt = ALL_ROWS.filter(isRetainedSuspendedContract);
+		expect(exempt).toEqual([row('suspended', PLAN, SUB, null), row('suspended', PLAN, SUB, EXP)]);
+	});
+
+	// 2 列判定に戻したときに落ちる行を、名指しで固定する (退行の当て先を明確にする)。
+	it.each([
+		['X2 (sub あり + plan なし)', row('suspended', null, SUB, null), 'X2'],
+		['X2 (sub あり + plan なし + exp あり)', row('suspended', null, SUB, EXP), 'X2'],
+	] as const)('%s は不正状態なので免除しない', (_name, input, expected) => {
+		expect(classifyContractState(input)).toBe(expected);
+		expect(isRetainedSuspendedContract(input)).toBe(false);
+	});
+
+	// 空文字は `present()` が「なし」に倒す (contract-state.ts の宣言)。`!= null` で書くと
+	// ここだけ「あり」に見えて免除される。
+	it('sub が空文字の行は免除しない (present() 準拠)', () => {
+		const emptySub = {
+			status: 'suspended',
+			plan: PLAN,
+			stripeSubscriptionId: '',
+			planExpiresAt: null,
+		};
+		expect(classifyContractState(emptySub)).toBe('X1');
+		expect(isRetainedSuspendedContract(emptySub)).toBe(false);
+	});
+
+	it('S5 (契約終了) / S6 (退会済) は免除しない', () => {
+		expect(isRetainedSuspendedContract(row('suspended', null, null, null))).toBe(false);
+		expect(isRetainedSuspendedContract(row('terminated', PLAN, SUB, null))).toBe(false);
 	});
 });

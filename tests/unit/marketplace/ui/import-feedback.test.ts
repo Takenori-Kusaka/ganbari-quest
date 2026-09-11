@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_LABELS, MARKETPLACE_IMPORT_FEEDBACK_LABELS } from '$lib/domain/labels';
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 
 const labels = {
@@ -32,12 +32,12 @@ describe('resolveImportFeedback (#2955)', () => {
 
 	it('failed = 0 かつ imported > 0 で success', () => {
 		const fb = resolveImportFeedback({ imported: 4, failed: 0, errors: [] }, labels);
-		expect(fb).toEqual({ message: 'success:4', tone: 'success' });
+		expect(fb).toEqual({ message: 'success:4', tone: 'success', upgradeUrl: null });
 	});
 
 	it('failed = 0 かつ imported = 0 (純粋な全件重複) で allDuplicates (info)', () => {
 		const fb = resolveImportFeedback({ imported: 0, skipped: 8, failed: 0 }, labels);
-		expect(fb).toEqual({ message: 'all-duplicates', tone: 'info' });
+		expect(fb).toEqual({ message: 'all-duplicates', tone: 'info', upgradeUrl: null });
 	});
 
 	it('errors.length への fallback は行わない — failed 欠落時は errors があっても失敗扱いしない (#2955 項目 2 判断記録)', () => {
@@ -48,7 +48,7 @@ describe('resolveImportFeedback (#2955)', () => {
 			{ imported: 2, errors: ['warning: already imported'] },
 			labels,
 		);
-		expect(fb).toEqual({ message: 'success:2', tone: 'success' });
+		expect(fb).toEqual({ message: 'success:2', tone: 'success', upgradeUrl: null });
 	});
 
 	it('data undefined / 不正値 (負数・非数) は 0 縮退で allDuplicates に落ちる', () => {
@@ -61,6 +61,119 @@ describe('resolveImportFeedback (#2955)', () => {
 			{ imported: 1, failed: 1 },
 			{ ...labels, partialFailure: (i: number, f: number) => `custom:${i}/${f}` },
 		);
-		expect(fb).toEqual({ message: 'custom:1/1', tone: 'error' });
+		expect(fb).toEqual({ message: 'custom:1/1', tone: 'error', upgradeUrl: null });
+	});
+});
+
+/**
+ * #4693 (adversarial D2 / D3): 「プラン上限で入れなかった」を成功トーンで消さない。
+ *
+ * 取込サービスは上限超過分を書き込み計画から外すが、その理由は長らく `errors` 配列
+ * (= UI ログ用) にしか載っておらず、画面はそれを読んでいなかった。結果:
+ *   - ファイル復元で 119 件全部が上限で弾かれても「0 件を復元しました」と成功トーン
+ *     (AC1 の upsell 導線がユーザーに一度も見えない)
+ *   - チェックリスト取込で上限の子を外しても、その子の名前が親の画面に出ない (AC4)
+ */
+const LIMIT_REASON = 'カスタム活動は最大3個まで作成できます。プランをアップグレードしてください。';
+
+function blocked(count: number) {
+	return { count, message: LIMIT_REASON, upgradeUrl: '/admin/subscription' };
+}
+
+describe('resolveImportFeedback の blocked 反映 (#4693)', () => {
+	it('全件が上限で弾かれたとき「すでに追加済み」ではなく上限の理由を出す', () => {
+		const fb = resolveImportFeedback(
+			{ imported: 0, skipped: 0, failed: 0, blocked: blocked(119) },
+			labels,
+		);
+
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.message).not.toContain('all-duplicates');
+		expect(fb.tone).toBe('error');
+	});
+
+	it('上限が理由のときはアップグレード導線 URL を渡す (AC1 upsell)', () => {
+		const fb = resolveImportFeedback({ imported: 0, failed: 0, blocked: blocked(119) }, labels);
+
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
+	it('一部だけ入ったときは「入った件数」と「外した理由」を両方出す', () => {
+		const fb = resolveImportFeedback({ imported: 1, failed: 0, blocked: blocked(4) }, labels);
+
+		expect(fb.message).toContain('success:1');
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.tone).toBe('error');
+	});
+
+	it('保存失敗と上限超過が同時に起きたら両方言う (導線だけが理由なしで残らない)', () => {
+		const fb = resolveImportFeedback({ imported: 1, failed: 2, blocked: blocked(3) }, labels);
+
+		expect(fb.message).toContain('2 件は保存できませんでした');
+		expect(fb.message).toContain(LIMIT_REASON);
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
+	it('壊れた blocked (件数 0 / message 空) は成功表示を汚さない', () => {
+		const fb = resolveImportFeedback(
+			{ imported: 3, failed: 0, blocked: { count: 0, message: '', upgradeUrl: null } },
+			labels,
+		);
+
+		expect(fb).toEqual({ message: 'success:3', tone: 'success', upgradeUrl: null });
+	});
+});
+
+// #4693 (QM 再レビュー): 活動管理の ︙ →「バックアップから復元」も settings > データ の復元と
+// **同じ文言**を出す。旧実装はダイアログ経由だけ超過分を捨てて理由も出さなかった。
+describe('#4693 復元が上限超過分を保管したときの feedback', () => {
+	const quota = {
+		total: 119,
+		activated: 3,
+		archived: 116,
+		message: 'オリジナル活動は 3 個までです（プリセットからの取込は無制限です）',
+		upgradeUrl: '/admin/subscription',
+	};
+
+	it('入った数 / 保管した数 / 理由 / 導線を出す (settings 側と同一 SSOT の文面)', () => {
+		const fb = resolveImportFeedback({ imported: 119, failed: 0, activityQuota: quota }, labels);
+
+		expect(fb.message).toContain(ACTIVITY_QUOTA_LABELS.restoreArchivedResult(119, 3, 116));
+		expect(fb.message).toContain(quota.message);
+		expect(fb.tone).toBe('error');
+		expect(fb.upgradeUrl).toBe('/admin/subscription');
+	});
+
+	it('保管 0 でも理由があれば伝える (上限判定を省いたことを黙らせない)', () => {
+		const fb = resolveImportFeedback(
+			{
+				imported: 5,
+				failed: 0,
+				activityQuota: {
+					...quota,
+					archived: 0,
+					activated: 5,
+					message: '上限判定を省きました',
+					upgradeUrl: null,
+				},
+			},
+			labels,
+		);
+
+		expect(fb.message).toBe('上限判定を省きました');
+		expect(fb.upgradeUrl).toBeNull();
+	});
+
+	it('上限に触れていない (message 空) なら成功表示を汚さない', () => {
+		const fb = resolveImportFeedback(
+			{
+				imported: 3,
+				failed: 0,
+				activityQuota: { total: 3, activated: 3, archived: 0, message: '', upgradeUrl: null },
+			},
+			labels,
+		);
+
+		expect(fb).toEqual({ message: 'success:3', tone: 'success', upgradeUrl: null });
 	});
 });

@@ -14,9 +14,8 @@
 //   - insertActivitiesBulk は単一 txn (取込の per-child 配信を all-or-nothing に)。work 内
 //     await は tx.execute(...) 直呼びのみ (fitness#7、SQL 構築 helper は await しない)。
 //   - sqlite parity: findActivitiesByChild は sort_order 順 (同値は created_at, activity_id で
-//     安定化)。copyActivitiesAcrossChildren の copy 対象は sqlite 実装と同じ subset
-//     (name/category/icon/basePoints/triggerHint/isMainQuest/sourcePresetId/priority のみ。
-//     isVisible/sortOrder/dailyLimit 等は default に落とす)。
+//     安定化)。#4694: 兄弟 copy (重複 skip 含む) は service 層 (child-activity-copy-service)
+//     に一本化したため、本 repo は copy 専用 method を持たない。
 
 import { sql } from 'drizzle-orm';
 import { ACTIVITY_SOURCES } from '$lib/domain/activity-source';
@@ -226,29 +225,6 @@ export function createDsqlChildActivityRepo<TTx extends SqlExecutor>(
 			`);
 			const row = result.rows[0] as unknown as ChildActivityRow | undefined;
 			return row ? toChildActivity(row) : undefined;
-		},
-
-		async copyActivitiesAcrossChildren(sourceChildId, targetChildId, tenantId) {
-			// source の active 全件 (visible 不問) を読み、sqlite parity の subset で target に複製。
-			const sourceActivities = await findActivitiesByChild(sourceChildId, tenantId, {
-				includeArchived: false,
-				visibleOnly: false,
-			});
-			if (sourceActivities.length === 0) return [];
-			const inputs: InsertChildActivityInput[] = sourceActivities.map((a) => ({
-				childId: targetChildId,
-				name: a.name,
-				categoryId: a.categoryId,
-				icon: a.icon,
-				basePoints: a.basePoints,
-				triggerHint: a.triggerHint,
-				isMainQuest: a.isMainQuest,
-				sourcePresetId: a.sourcePresetId,
-				priority: a.priority,
-				// #3669: 元活動の source を保全 (copy 経由の quota 迂回と provenance 喪失を防ぐ)
-				source: a.source,
-			}));
-			return insertActivitiesBulk(inputs, tenantId);
 		},
 
 		async archiveActivities(ids, reason, tenantId) {

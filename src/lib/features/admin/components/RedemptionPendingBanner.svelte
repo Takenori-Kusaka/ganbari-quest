@@ -20,7 +20,7 @@ let { variant, count = 0 }: Props = $props();
      使わず、aria-live で出現時にテキストを読み上げさせつつ link 役割を保持する。
      error (件数取得失敗) は assertive、pending (新規発見性) は polite。 -->
 {#if variant === 'pending'}
-	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner" aria-live="polite">
+	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner" data-tutorial="redemption-pending-banner" aria-live="polite">
 		<span class="redemption-pending-banner__icon" aria-hidden="true">🎁</span>
 		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(count)}</span>
 		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>

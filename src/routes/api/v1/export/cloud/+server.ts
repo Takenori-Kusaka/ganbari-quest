@@ -2,12 +2,19 @@
 // クラウドエクスポートAPI（一覧取得 + 新規作成）
 
 import { json } from '@sveltejs/kit';
+import type { CloudExportStoredRow } from '$lib/domain/cloud-export-quota';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
-import { apiError, validationError } from '$lib/server/errors';
+import { apiError, planLimitError, quotaLimitError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { createCloudExport, listCloudExports } from '$lib/server/services/cloud-export-service';
+import {
+	CloudExportPlanGateError,
+	CloudExportQuotaError,
+	createCloudExport,
+	listCloudExports,
+} from '$lib/server/services/cloud-export-service';
 import type { RequestHandler } from './$types';
 
 /** GET /api/v1/export/cloud — 自テナントのクラウドエクスポート一覧 */
@@ -20,10 +27,34 @@ export const GET: RequestHandler = async ({ locals }) => {
 	requireRole(locals, ['owner', 'parent']);
 
 	try {
-		const exports = await listCloudExports(tenantId);
+		const rows = await listCloudExports(tenantId);
+		// 応答に載せるのは**画面が使う列だけ** (`CloudExportStoredRow`)。record をそのまま返すと
+		// `s3Key` (= `exports/<tenantId>/<pinCode>/<file>`) と `tenantId` まで client に出る。
+		// `storage-key-redaction.ts` がログ・例外・DB failureReason・画面文言の全部から PIN を
+		// 伏せている一方で、同じ PIN を s3Key ごと API が配っていた (#4867 の 7 層と同じ class)。
+		// `pinCode` は残す — 受け取る側に伝える手段であり、削除確認の名指しにも使う
+		// (`CloudExportStoredList.svelte:61,168`、#4867 PO 決裁で PIN 再発行は作らない)。
+		const exports: CloudExportStoredRow[] = rows.map((e) => ({
+			id: e.id,
+			exportType: e.exportType,
+			pinCode: e.pinCode,
+			expiresAt: e.expiresAt,
+			createdAt: e.createdAt,
+			description: e.description,
+			downloadCount: e.downloadCount,
+			maxDownloads: e.maxDownloads,
+			status: e.status,
+			failureReason: e.failureReason,
+			rowState: e.rowState,
+			daysUntilAutoDelete: e.daysUntilAutoDelete,
+		}));
 		return json({ ok: true, exports });
 	} catch (err) {
-		logger.error('[cloud-export] 一覧取得失敗', { error: String(err) });
+		// #4867: 例外 message は PIN / s3Key を含みうる (PostgreSQL の UNIQUE 制約違反 detail
+		// `Key (pin_code)=(...)` / local FS の絶対パス)。必ず伏せてから出す。
+		logger.error('[cloud-export] 一覧取得失敗', {
+			error: redactStorageKeysInText(String(err)),
+		});
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポート一覧の取得に失敗しました');
 	}
 };
@@ -64,12 +95,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 		return json({ ok: true, ...result }, { status: 201 });
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		// プラン未達 / 保管上限は起票時点で同期的に弾く。
-		if (msg.includes('スタンダード') || msg.includes('上限')) {
-			return apiError('PLAN_LIMIT_EXCEEDED', msg);
+		// プラン未達 / 保管上限は起票時点で同期的に弾く。**2 つは別事象**なので型で見分ける (#4710):
+		//   未達 = その tier に機能が無い → 次の行動はアップグレード
+		//   上限 = 契約中でも枠が埋まれば起きる → 次の行動は古いものを削除
+		// 旧実装は両方を message の部分一致で拾って planLimitError('standard') に潰していたため、
+		// 既にスタンダード契約の顧客にも「スタンダードプラン以上でご利用いただけます」と返していた。
+		// 顧客に届く文字列は `message` の 1 本 (#4767 PO 回答 #4): 機能名 + 要求 tier + 導線を
+		// errors.ts の helper が labels SSOT で組み立てる。ここで別の文字列を渡さない。
+		if (err instanceof CloudExportPlanGateError) {
+			return planLimitError(err.requiredTier, err.feature, { tenantId });
 		}
-		logger.error('[cloud-export] 作成失敗', { error: msg });
+		if (err instanceof CloudExportQuotaError) {
+			// #4767 PO 回答 #3: どれを消せばいいかを名指しした文言 (service が組み立て済み)
+			return quotaLimitError(err.message, { tenantId, current: err.current, max: err.max });
+		}
+		const msg = err instanceof Error ? err.message : String(err);
+		logger.error('[cloud-export] 作成失敗', { error: redactStorageKeysInText(msg) });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの作成に失敗しました');
 	}
 };

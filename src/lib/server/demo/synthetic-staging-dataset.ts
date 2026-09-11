@@ -63,7 +63,6 @@ import {
 	DEMO_LOGIN_STREAKS,
 	DEMO_MARKETPLACE_SPECIAL_REWARDS,
 	DEMO_POINT_BALANCES,
-	DEMO_SIBLING_CHEERS,
 	DEMO_STAMP_CARDS,
 	DEMO_STAMP_ENTRIES,
 	DEMO_STATUSES,
@@ -199,12 +198,10 @@ function emptyTransactionData(): ExportTransactionData {
 		stampCards: [],
 		certificates: [],
 		parentMessages: [],
-		siblingCheers: [],
 		activityPrefs: [],
 		checklistTemplates: [],
 		checklistLogs: [],
 		checklistOverrides: [],
-		restDays: [],
 		childVoices: [],
 		childAvatarItems: [],
 		dailyMissions: [],
@@ -586,20 +583,6 @@ function buildTenantABody(anchorDate: string): ExportBody {
 				rewardCategory: null,
 			},
 		],
-		siblingCheers: DEMO_SIBLING_CHEERS.flatMap((c) => {
-			const fromRef = refOf(c.fromChildId);
-			const toRef = refOf(c.toChildId);
-			if (!fromRef || !toRef) return [];
-			return [
-				{
-					fromChildRef: fromRef,
-					toChildRef: toRef,
-					stampCode: c.stampCode,
-					sentAt: ts(c.sentAt),
-					shownAt: tsOrNull(c.shownAt),
-				},
-			];
-		}),
 		checklistTemplates,
 		dailyMissions,
 	});

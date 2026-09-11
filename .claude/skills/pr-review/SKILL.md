@@ -66,7 +66,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 - [ ] **Svelte Runes semantic（ADR-0007 §6 / #3878、lint 対象外の領域）**: `.svelte` 変更は `eslint-plugin-svelte` recommended（`lint:svelte`）が syntactic footgun を潰すが、**「この `$effect` は `$derived` にすべき」の意図判断は lint では原理的に不可能**（`prefer-writable-derived` は単一代入 trivial shape のみ検出）。effect で state を derive/同期していないか、新規 `eslint-suppressions.json` エントリ増（baseline 悪化）がないかを目視で確認する
 
 ### D. 横展開（parallel-implementations.md）
-- [ ] labels.ts の変更 → site/ + tutorial-chapters.ts も同期
+- [ ] labels.ts の変更 → site/ + `**/_guide.ts` (❓ ページガイド) / `tutorial-chapters-child.ts` (子供チュートリアル) も同期
 - [ ] 本番画面の変更 → デモ画面も同等変更
 - [ ] ナビゲーション変更 → Desktop + Mobile + BottomNav
 - [ ] DB スキーマ変更 → global-setup.ts + test-db.ts + demo-data.ts

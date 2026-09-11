@@ -40,6 +40,11 @@ export interface TextVariant {
 	historyPurchaseStatusRejected: string;
 	historyPurchaseStatusPending: string;
 	historyPurchaseStatusExpired: string;
+	/**
+	 * #4632: 交換履歴の行に出すごほうび名。snapshot も live reward も無い旧行 (#2832 以前に
+	 * 作られ、かつごほうびが削除済) のときだけ使う fallback。
+	 */
+	historyPurchaseUnknownReward: string;
 	historyAchievementCompleted: string;
 	historyAchievementOngoing: string;
 
@@ -111,6 +116,7 @@ const HIRAGANA_TEXT: TextVariant = {
 	historyPurchaseStatusRejected: 'またこんど',
 	historyPurchaseStatusPending: 'まちのちゅう',
 	historyPurchaseStatusExpired: 'きげんぎれ',
+	historyPurchaseUnknownReward: 'なくなった ごほうび',
 	historyAchievementCompleted: 'クリア！',
 	historyAchievementOngoing: 'がんばってるよ',
 
@@ -152,6 +158,7 @@ const KANJI_TEXT: TextVariant = {
 	historyPurchaseStatusRejected: '見送り',
 	historyPurchaseStatusPending: '申請中',
 	historyPurchaseStatusExpired: '期限切れ',
+	historyPurchaseUnknownReward: '削除されたごほうび',
 	historyAchievementCompleted: '達成',
 	historyAchievementOngoing: '挑戦中',
 

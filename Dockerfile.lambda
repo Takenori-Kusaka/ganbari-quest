@@ -8,6 +8,10 @@ COPY package*.json ./
 # 先に COPY する (staging PDCA cycle 2 で検出、EPIC #3424。prepare.mjs は常に exit 0 設計で
 # devDep 不在の stage でも warning のみで無害)。
 COPY scripts/prepare.mjs ./scripts/prepare.mjs
+# prepare.mjs が static import する module も同じ stage に要る (#4811 で追加された
+# stripGraphifyHookAppendix が COPY 追随せず ERR_MODULE_NOT_FOUND で npm ci が落ちた)。
+# COPY ↔ import の整合は tests/unit/architecture/dockerfile-copy-import-fitness.test.ts が機械検証する。
+COPY scripts/lib/graphify-hook-appendix.mjs ./scripts/lib/graphify-hook-appendix.mjs
 RUN npm ci
 
 # Stage 2: Build SvelteKit
@@ -18,9 +22,9 @@ ARG APP_MAJOR_VERSION=1
 ARG BUILD_TIMESTAMP=unknown
 ENV APP_MAJOR_VERSION=${APP_MAJOR_VERSION}
 COPY . .
-# Regenerate APP_VERSION at build time so every deployed image carries the
-# build date, regardless of whether the caller committed a fresh version.ts (#711).
-RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run version:generate && npm run build
+# APP_VERSION is computed by vite.config.ts (`define`) at build time, so every
+# deployed image carries its own build date (#711). Nothing is generated into the tree.
+RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run build
 
 # Stage 3: Production dependencies only (smaller image)
 FROM node:22-alpine AS prod-deps
@@ -29,6 +33,10 @@ WORKDIR /app
 COPY package*.json ./
 # prepare lifecycle 用 (deps stage と同理由、#3611 / staging PDCA cycle 2)
 COPY scripts/prepare.mjs ./scripts/prepare.mjs
+# prepare.mjs が static import する module も同じ stage に要る (#4811 で追加された
+# stripGraphifyHookAppendix が COPY 追随せず ERR_MODULE_NOT_FOUND で npm ci が落ちた)。
+# COPY ↔ import の整合は tests/unit/architecture/dockerfile-copy-import-fitness.test.ts が機械検証する。
+COPY scripts/lib/graphify-hook-appendix.mjs ./scripts/lib/graphify-hook-appendix.mjs
 RUN npm ci --omit=dev
 
 # Stage 4: Lambda runtime

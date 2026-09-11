@@ -329,7 +329,7 @@ it('is_archived が NULL の既存行もアクティブとして返される', (
 
 「NULL = 既定値扱い」セマンティクスなら `or(eq(col, default), isNull(col))` または **マイグレーションで backfill**。片側だけは不十分。
 
-CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db/` または `tests/unit/services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]`。
+CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db/` または `tests/unit/services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]` を**宣言として**書く (HTML コメント / コードブロック / 引用 / 未チェック checkbox / 案内文の中の同じ文字列では skip しない、#4348)。
 
 ### backend 並行実装の整合性
 

@@ -1,7 +1,10 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
-import { APP_LABELS, CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, getChildShopLabels } from '$lib/domain/labels';
 import { formatPointDisplayText, splitPointDisplay } from '$lib/domain/point-display';
+// #4684 F3: 「押せるか」の判定は 1 箇所 (domain SSOT)。カードとフィルタで条件が割れないようにする。
+import { canExchangeReward, shopStatusBadge } from '$lib/domain/shop-availability';
 import type { ShopCategory } from '$lib/domain/shop-category';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -31,19 +34,21 @@ type PointsRange = 'all' | 'low' | 'mid' | 'high';
 let pointsRangeFilter = $state<PointsRange>('all');
 let availableOnlyFilter = $state(false);
 
-const tabItems = [
-	{ value: 'all', label: CHILD_SHOP_LABELS.tabAll },
-	{ value: 'physical', label: CHILD_SHOP_LABELS.tabPhysical },
-	{ value: 'money', label: CHILD_SHOP_LABELS.tabAllowance },
-	{ value: 'privilege', label: CHILD_SHOP_LABELS.tabPrivilege },
-] satisfies Array<{ value: TabValue; label: string }>;
-
 // #4417 (CSS 側の意図。lint がスタイルブロック内の日本語コメントを許さないためここに置く):
 // `.reward-list` の grid track 下限は `minmax(min(var(--reward-grid-min), 100%), 1fr)` で指定する。
 // 年齢別の最小カラム幅 (下記 gridMin、baby / preschool = 320px) が viewport 幅を上回る端末では
 // トラックが必ずあふれるため、min() で「器の幅」を上限にして頭打ちにする。
 // #2156: 年齢別 Grid カラム数 (uiMode に基づき min カラム幅を切替)
 const uiMode = $derived((page.params.uiMode ?? 'elementary') as UiMode);
+// #4690 F4: 表示文言は年齢帯で文体が変わる (docs/DESIGN.md §8)。
+// junior / senior は漢字変種を使うため、CHILD_SHOP_LABELS を直参照しない。
+const L = $derived(getChildShopLabels(uiMode));
+const tabItems = $derived([
+	{ value: 'all', label: L.tabAll },
+	{ value: 'physical', label: L.tabPhysical },
+	{ value: 'money', label: L.tabAllowance },
+	{ value: 'privilege', label: L.tabPrivilege },
+] satisfies Array<{ value: TabValue; label: string }>);
 const gridMin = $derived.by(() => {
 	switch (uiMode) {
 		case 'baby':
@@ -80,7 +85,10 @@ function applyFilters(rewards: typeof data.rewards) {
 		list = list.filter((r) => r.points >= 500);
 	}
 	if (availableOnlyFilter) {
-		list = list.filter((r) => data.balance >= r.points);
+		// #4684 F3: 「いまこうかんできる」は カードの交換ボタンが押せる条件と同一。
+		// 旧実装は残高だけを見ていたため、承認待ち (押せない) のごほうびが件数と一覧に混ざり、
+		// 「3件中 2件」と出ているのに実際に押せるのは 1 件、という状態になっていた。
+		list = list.filter((r) => canExchangeReward(r, data.balance));
 	}
 	return list;
 }
@@ -112,16 +120,16 @@ function resetFilters() {
 	availableOnlyFilter = false;
 }
 
-const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitleSuffix}`);
+const pageTitle = $derived(`${L.pageTitle}${APP_LABELS.pageTitleSuffix}`);
 
 // #4509 ②: 残高 / 価格 / 不足分は必ずポイント表示設定 (point / currency + rate) を通す。
 // 通さないと、同じ画面のヘッダー (円換算) と桁の違う数字が並び、子供には
 // 「買えるのかどうか」が読めなくなる。
 const ps = $derived(data.pointSettings);
-const ptsParts = (points: number) => splitPointDisplay(points, ps, CHILD_SHOP_LABELS.pointUnit);
+const ptsParts = (points: number) => splitPointDisplay(points, ps, L.pointUnit);
 // #4556: 文中に埋め込む連結は必ず formatPointDisplayText を通す (連結を画面ごとに書くと
 // 「あと 250 ポイント」→「のこり: 250ポイント」のように同一 CUJ 内で表記が割れる)。
-const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHOP_LABELS.pointUnit);
+const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUnit);
 </script>
 
 <svelte:head>
@@ -130,7 +138,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 
 <div class="shop-page" data-testid="shop-page">
 	<div class="balance-banner">
-		<span class="balance-label">{CHILD_SHOP_LABELS.pointBalanceLabel}</span>
+		<span class="balance-label">{L.pointBalanceLabel}</span>
 		<span class="balance-value" data-testid="point-balance">
 			{ptsParts(data.balance).amount}
 			{#if ptsParts(data.balance).unit}
@@ -139,17 +147,29 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 		</span>
 	</div>
 
+	<!-- #4631: 交換の結果 (いつ / いくら / 親が書いた却下理由) を読みに行く導線。
+	     旧実装は却下理由がショップから辿れず、子供は理由を知る手段が無かった -->
+	<!-- eslint svelte/no-navigation-without-resolve は href の式そのものが resolve() 呼び出しで
+	     あることを要求する (変数経由 / 文字列連結は不可) ため、query 込みで 1 式にする -->
+	<a
+		class="history-link"
+		href={resolve(`/${uiMode}/history?kind=purchases`)}
+		data-testid="shop-history-link"
+	>
+		{L.historyLinkLabel}
+	</a>
+
 	{#if form?.error}
 		<Alert variant="danger" message={form.error} />
 	{/if}
 
 	{#if data.rewards.length === 0}
 		<div class="empty-state">
-			<Alert variant="info" message={CHILD_SHOP_LABELS.emptyMessage} />
+			<Alert variant="info" message={L.emptyMessage} />
 		</div>
 	{:else}
 		<!-- #2157 3 系統タブ (Ark UI Tabs primitive) -->
-		<div class="shop-tabs" aria-label={CHILD_SHOP_LABELS.tabsAriaLabel}>
+		<div class="shop-tabs" aria-label={L.tabsAriaLabel}>
 			<!-- lazyMount + unmountOnExit: 非アクティブ panel を DOM から外し、
 			     同一 reward が全タブで多重 match する Playwright strict mode 違反を防ぐ。 -->
 			<Tabs items={tabItems} bind:value={activeTabRaw} lazyMount unmountOnExit>
@@ -164,10 +184,10 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 					>
 						<fieldset
 							class="filter-points-range"
-							aria-label={CHILD_SHOP_LABELS.filterPointsRangeAriaLabel}
+							aria-label={L.filterPointsRangeAriaLabel}
 						>
 							<legend class="filter-legend">
-								{CHILD_SHOP_LABELS.filterPointsRangeLabel}
+								{L.filterPointsRangeLabel}
 							</legend>
 							<div class="filter-buttons">
 								<Button
@@ -178,7 +198,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 									}}
 									data-testid="filter-points-range-all"
 								>
-									{CHILD_SHOP_LABELS.filterPointsRangeAll}
+									{L.filterPointsRangeAll}
 								</Button>
 								<Button
 									variant={pointsRangeFilter === 'low' ? 'primary' : 'ghost'}
@@ -188,7 +208,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 									}}
 									data-testid="filter-points-range-low"
 								>
-									{CHILD_SHOP_LABELS.filterPointsRangeLow}
+									{L.filterPointsRangeLow}
 								</Button>
 								<Button
 									variant={pointsRangeFilter === 'mid' ? 'primary' : 'ghost'}
@@ -198,7 +218,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 									}}
 									data-testid="filter-points-range-mid"
 								>
-									{CHILD_SHOP_LABELS.filterPointsRangeMid}
+									{L.filterPointsRangeMid}
 								</Button>
 								<Button
 									variant={pointsRangeFilter === 'high' ? 'primary' : 'ghost'}
@@ -208,7 +228,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 									}}
 									data-testid="filter-points-range-high"
 								>
-									{CHILD_SHOP_LABELS.filterPointsRangeHigh}
+									{L.filterPointsRangeHigh}
 								</Button>
 							</div>
 						</fieldset>
@@ -217,16 +237,16 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 							<input
 								type="checkbox"
 								bind:checked={availableOnlyFilter}
-								aria-label={CHILD_SHOP_LABELS.filterAvailableAriaLabel}
+								aria-label={L.filterAvailableAriaLabel}
 								data-testid="filter-available"
 							/>
-							<span>{CHILD_SHOP_LABELS.filterAvailable}</span>
+							<span>{L.filterAvailable}</span>
 						</label>
 
 						{#if isFilterActive}
 							<div class="filter-badge-row">
 								<Badge variant="info" data-testid="filter-badge">
-									{CHILD_SHOP_LABELS.filterBadge(panelRewards.length, panelFiltered.length)}
+									{L.filterBadge(panelRewards.length, panelFiltered.length)}
 								</Badge>
 								<Button
 									variant="ghost"
@@ -234,7 +254,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 									onclick={resetFilters}
 									data-testid="filter-reset"
 								>
-									{CHILD_SHOP_LABELS.filterReset}
+									{L.filterReset}
 								</Button>
 							</div>
 						{/if}
@@ -242,23 +262,21 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 
 					{#if panelRewards.length === 0}
 						<div class="empty-state" data-testid="tab-empty-{tabValue}">
-							<Alert variant="info" message={CHILD_SHOP_LABELS.tabEmpty(panelTabLabel)} />
+							<Alert variant="info" message={L.tabEmpty(panelTabLabel)} />
 						</div>
 					{:else if panelFiltered.length === 0}
 						<div class="empty-state" data-testid="filter-empty">
-							<Alert variant="info" message={CHILD_SHOP_LABELS.filterEmptyMessage} />
+							<Alert variant="info" message={L.filterEmptyMessage} />
 						</div>
 					{:else}
 						<ul
 							class="reward-list"
-							aria-label={CHILD_SHOP_LABELS.rewardListAriaLabel}
+							aria-label={L.rewardListAriaLabel}
 							data-testid="reward-grid"
 							style:--reward-grid-min={gridMin}
 						>
 							{#each panelFiltered as reward (reward.id)}
-								{@const canExchange =
-									data.balance >= reward.points &&
-									reward.latestRequestStatus !== 'pending_parent_approval'}
+								{@const canExchange = canExchangeReward(reward, data.balance)}
 								{@const remaining = reward.points - data.balance}
 
 								<li>
@@ -280,18 +298,17 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 													{/if}
 												</p>
 
-												{#if reward.latestRequestStatus === 'pending_parent_approval'}
-													<Badge variant="warning">{CHILD_SHOP_LABELS.statusPending}</Badge>
-												{:else if reward.latestRequestStatus === 'approved'}
-													<Badge variant="success">{CHILD_SHOP_LABELS.statusApproved}</Badge>
-												{:else if reward.latestRequestStatus === 'rejected'}
-													<Badge variant="neutral">{CHILD_SHOP_LABELS.statusRejected}</Badge>
+												<!-- #4631: バッジは承認待ちのときだけ。完了した状態 (approved / rejected /
+												     expired) を陳列棚に残すと「もう交換できない」と誤解させる。
+												     結果は「記録 > 交換」で読む (下の導線) -->
+												{#if shopStatusBadge(reward.latestRequestStatus) === 'pending'}
+													<Badge variant="warning">{L.statusPending}</Badge>
 												{/if}
 
 												{#if data.balance < reward.points && reward.latestRequestStatus !== 'pending_parent_approval'}
 													<div
 														class="progress-wrap"
-														aria-label={CHILD_SHOP_LABELS.pointProgressAriaLabel}
+														aria-label={L.pointProgressAriaLabel}
 													>
 														<progress
 															max={reward.points}
@@ -299,7 +316,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 															class="progress-bar"
 														></progress>
 														<span class="progress-hint">
-															{CHILD_SHOP_LABELS.insufficientPointsHint(ptsText(remaining))}
+															{L.insufficientPointsHint(ptsText(remaining))}
 														</span>
 													</div>
 												{/if}
@@ -319,7 +336,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 															)}
 														data-testid="exchange-btn-{reward.id}"
 													>
-														{CHILD_SHOP_LABELS.exchangeButton}
+														{L.exchangeButton}
 													</Button>
 												</div>
 											{/if}
@@ -343,6 +360,8 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 	rewardIcon={selectedRewardIcon}
 	balance={data.balance}
 	pointSettings={data.pointSettings}
+	{uiMode}
+	autoApprove={data.autoApprove}
 	onClose={closeConfirmDialog}
 />
 
@@ -383,6 +402,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 		display: flex; align-items: center; gap: var(--sp-sm);
 		flex-wrap: wrap;
 	}
+	.history-link {
+		display: inline-block;
+		margin-bottom: var(--sp-md);
+		font-size: 0.9rem;
+		color: var(--color-text-link);
+		text-decoration: underline;
+	}
 	.empty-state { margin-top: var(--sp-md); }
 	.reward-list {
 		list-style: none; padding: 0; margin: 0;
@@ -399,7 +425,13 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, CHILD_SHO
 	}
 	.reward-title {
 		font-weight: bold; font-size: 1rem; margin: 0;
-		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		overflow-wrap: anywhere;
+		word-break: auto-phrase;
 	}
 	.reward-points { font-size: 0.9rem; color: var(--color-text-secondary); margin: 0; }
 	.reward-points-num { font-weight: bold; color: var(--color-action-accent); }

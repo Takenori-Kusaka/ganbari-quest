@@ -3,7 +3,11 @@
 // 1 section だけのため軽量サブページ。
 
 import { fail } from '@sveltejs/kit';
+import { isHhMmTimeSetting } from '$lib/domain/export-format';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
@@ -47,7 +51,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { notificationSettings };
 };
 
-export const actions = {
+export const actions = withParentGate({
 	updateNotificationSettings: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
@@ -59,9 +63,16 @@ export const actions = {
 		const quietStart = form.get('quietStart')?.toString() ?? '21:00';
 		const quietEnd = form.get('quietEnd')?.toString() ?? '07:00';
 
-		const timeRegex = /^\d{2}:\d{2}$/;
-		if (!timeRegex.test(reminderTime) || !timeRegex.test(quietStart) || !timeRegex.test(quietEnd)) {
-			return fail(400, { notificationError: '時刻の形式が不正です' });
+		// #4706: 値域まで検査する。旧実装は `/^\d{2}:\d{2}$/` だったため `25:99` が保存でき、
+		// 配信 cron 側が解釈できない値が DB に入りうる状態だった。
+		// 述語は `$lib/domain/export-format` の `isHhMmTimeSetting` (取込 allowlist と同一)
+		// を共有し、保存 / 取込 / 配信の 3 経路が同じ値域を見る (ADR-0066 と同じ向き)。
+		if (
+			!isHhMmTimeSetting(reminderTime) ||
+			!isHhMmTimeSetting(quietStart) ||
+			!isHhMmTimeSetting(quietEnd)
+		) {
+			return fail(400, { notificationError: SETTINGS_LABELS.notificationTimeFormatInvalid });
 		}
 
 		await setSetting('notification_reminders_enabled', remindersEnabled, tenantId);
@@ -73,4 +84,4 @@ export const actions = {
 
 		return { notificationSuccess: true };
 	},
-} satisfies Actions;
+} satisfies Actions);

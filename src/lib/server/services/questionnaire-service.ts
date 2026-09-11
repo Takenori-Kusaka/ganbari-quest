@@ -1,5 +1,12 @@
 import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
+import {
+	assignTemplateToChildren,
+	findAssignmentsByTemplate,
+	findTemplateItems,
+	findTemplatesByChild,
+	findTemplatesByTenant,
+} from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -18,6 +25,24 @@ interface PresetItem {
 	name: string;
 	icon: string;
 	sortOrder: number;
+}
+
+/**
+ * `addTemplateItem` に `frequency` / `direction` を渡さないので、新規作成した item は
+ * 必ず DB の既定値になる (`schema.ts` の `default('daily')` / `default('bring')`、
+ * dsql / demo backend も同値)。「まっさらか」の判定はこの値と突き合わせる。
+ */
+const FRESH_ITEM_FREQUENCY = 'daily';
+const FRESH_ITEM_DIRECTION = 'bring';
+
+/** 孤児判定に使う family template の形 (repo の戻り値の部分集合)。 */
+interface ChecklistTemplateLike {
+	id: string;
+	name?: string;
+	icon?: string;
+	pointsPerItem?: number;
+	completionBonus?: number;
+	sourcePresetId?: string | null;
 }
 
 /** チェックリストプリセット定義 */
@@ -123,7 +148,16 @@ export function getActivityDisplayCount(level: 'few' | 'normal' | 'many'): numbe
 }
 
 /**
- * チェックリストプリセットを子供に自動適用
+ * チェックリストプリセットを子供に自動適用する。
+ *
+ * **同じ preset を 2 回適用しない** (#4863 / PO 決裁 2026-09-09)。中断した親の
+ * 「続きをする」がウィザードへ戻るようになったので、この step (`/setup/questionnaire`) は
+ * **現実に 2 周する**。`createTemplate` → `insertTemplate` は `sourcePresetId` の重複を
+ * 一切見ないため、2 周すると子供のチェックリスト画面に「あさのしたく」「よるのじゅんび」が
+ * **2 つずつ並ぶ** (実測: template 3 → 6 / item 5 → 10)。
+ *
+ * 判定は marketplace 側の取込と同じ `sourcePresetId` を鍵にする
+ * (`checklist-template-import-service` が同じ鍵で重複検出しているのと揃える)。
  */
 export async function applyChecklistPresets(
 	childId: ChildId,
@@ -131,10 +165,53 @@ export async function applyChecklistPresets(
 	tenantId: string,
 ): Promise<number> {
 	let created = 0;
+	// この子に既に入っている preset (2 周目はここで弾く)。
+	// **inactive / archive 済も見る** (#4868 adversarial 指摘)。
+	//
+	// archive を書くのは `downgrade-service` / `resource-archive-service` で、
+	// **親が archive するボタンは無い** (親の削除は `removeTemplate` = 物理削除)。
+	// つまり archive 済 = 「無料プランの上限で退避中」で、#4708 の告知バナーが
+	// 「有料プランで元に戻る」と案内している状態。ここで見ずに判定すると、
+	// **退避中のものと同名の template を歩き直しのたびに作り足す**ことになり、
+	// プランを戻した親の画面に同じチェックリストが 2 つ並ぶ。
+	const existing = await findTemplatesByChild(childId, tenantId, true, true);
+	const appliedPresetIds = new Set(
+		existing.map((t) => t.sourcePresetId).filter((v): v is string => Boolean(v)),
+	);
+	// 配信先を外された結果、**どの子にも配信されていない**同 preset の family template。
+	// `/admin/checklists` の `syncDistribution` は assignment を削る実在の顧客導線なので、
+	// 「あさのしたく は下の子だけにする」と外した親が歩き直すと、per-child 判定だけでは
+	// **別 id の同名 template を新規作成し、旧 template は assignment 0 本の孤児として
+	// family に残る** (#4868 adversarial 実測: template 1 → 2 / item 5 → 10。
+	// `checkChecklistTemplateLimit` は child 経由で数えるので quota には出ず、
+	// admin の一覧にだけ「あさのしたく」が 2 本並ぶ)。孤児があれば**作り直さず配信し直す**。
+	//
+	// 兄弟の扱いは変えない: 別の子に配信中の template は孤児ではないので、この子には
+	// この子の template を作る (family master を共有させると、片方の子だけ item を
+	// 足す・減らすができなくなる = 親のカスタマイズを奪う)。
+	//
+	// **配信し直すのは「プリセットのままの孤児」だけ** (#4868 adversarial round 4 実測)。
+	// 孤児は配信解除だけでなく **子供の削除**でもできる (`deleteChild` は assignment を
+	// 消すが family scope の template 本体は残す)。そのとき template は削除した子のために
+	// 親が書き換えた内容 (「さくらの あさのしたく」/ item「さくらのピアノ」) を持っている
+	// ことがあり、それを新しい子へ配信すると**別の子のために書いた個人的な内容が、
+	// 新しく登録した子の画面に出る**。名前と item がプリセットと完全一致するものだけを
+	// 拾えば、拾った側は「作り直したのと中身が同じ」なので実害が無い。
+	const familyTemplates = await findTemplatesByTenant(tenantId, true);
 	for (const presetId of presetIds) {
 		try {
+			if (appliedPresetIds.has(presetId)) continue;
+
 			const preset = await loadPreset(presetId);
 			if (!preset) continue;
+
+			const orphan = await findPristineOrphanForPreset(familyTemplates, preset, presetId, tenantId);
+			if (orphan) {
+				await assignTemplateToChildren(orphan.id, [childId], tenantId);
+				appliedPresetIds.add(presetId);
+				created++;
+				continue;
+			}
 
 			const template = await createTemplate(
 				{
@@ -159,12 +236,74 @@ export async function applyChecklistPresets(
 					tenantId,
 				);
 			}
+			appliedPresetIds.add(presetId);
 			created++;
 		} catch (e) {
 			logger.error('Failed to apply checklist preset', { context: { presetId, error: String(e) } });
 		}
 	}
 	return created;
+}
+
+/**
+ * 同じ preset から作られ、**どの子にも配信されておらず、中身がプリセットのまま**の
+ * family template を探す (#4868)。
+ *
+ * 見つかったら、それを作り直さずこの子へ配信し直す。「作り直したのと中身が同じ」なので、
+ * 同名 template が 2 本並ぶことも、assignment 0 本の孤児が残ることも避けられる。
+ *
+ * **中身の一致を要求する理由** (adversarial round 4 実測): 孤児は配信解除だけでなく
+ * **子供の削除**でもできる (`deleteChild` は assignment を消すが template 本体は残す)。
+ * そのとき template は削除した子のために親が書き換えた内容を持っていることがあり、
+ * 名前だけで拾うと**別の子のために書いた個人的な内容が新しい子の画面に出る**。
+ *
+ * archive 済は `findTemplatesByTenant` が返さないのでここには来ない。
+ *
+ * **残余**: 別の子に配信中のまま archive された template は family scope の read API が
+ * 返さないため見えない (`findTemplatesByTenant` に includeArchived が無い)。その場合は
+ * この子に新しい template が作られる。repo interface を 3 backend ぶん広げる変更になるので、
+ * ここでは踏み込まない。
+ */
+async function findPristineOrphanForPreset(
+	familyTemplates: readonly ChecklistTemplateLike[],
+	preset: ChecklistPreset,
+	presetId: string,
+	tenantId: string,
+): Promise<{ id: string } | null> {
+	for (const t of familyTemplates) {
+		if ((t.sourcePresetId ?? null) !== presetId) continue;
+		// template 側の編集可能な値が preset のままか (#4868 adversarial round 6)。
+		// round 5 は name だけを見ていたので、**同じ名前のまま icon / ポイントだけ
+		// 前の子に合わせて書き換えた template** が「まっさら」と判定されていた。
+		if ((t.name ?? '') !== preset.name) continue;
+		if ((t.icon ?? '') !== preset.icon) continue;
+		if (t.pointsPerItem !== preset.pointsPerItem) continue;
+		if (t.completionBonus !== preset.completionBonus) continue;
+		const assignments = await findAssignmentsByTemplate(t.id, tenantId);
+		if (assignments.length > 0) continue;
+		// item まで一致していることを見る (名前はそのままで中身だけ足す親が居る)
+		// **並び順に依存させない** (#4868 adversarial round 5)。`findTemplateItems` は
+		// `sortOrder` 順、preset は JSON の配列順なので、preset を並べ替えるだけで
+		// 「中身が違う」と判定されて静かに無効化される。値の集合で比べる。
+		//
+		// **name だけでは足りない** (round 6 実測): 同名のまま icon を 🪥 → 🦷 に変え
+		// frequency を変えた item が「一致」と判定され、前の子のために書いた設定が
+		// そのまま新しい子の画面に出た。`addTemplateItem` に渡すのは name / icon /
+		// sortOrder だけで、`frequency` / `direction` は DB 既定値 (`daily` / `bring`)
+		// になるので、**新規作成したら必ずそうなる値**と突き合わせる。
+		// sortOrder だけは比較しない — 並び替えは個人化というより表示の好みで、
+		// preset の JSON 順と sortOrder 順のずれで round 5 の無効化を招いた側の値。
+		const items = await findTemplateItems(t.id, tenantId);
+		const actual = JSON.stringify(
+			items.map((i) => [i.name, i.icon, i.frequency, i.direction]).sort(),
+		);
+		const expected = JSON.stringify(
+			preset.items.map((i) => [i.name, i.icon, FRESH_ITEM_FREQUENCY, FRESH_ITEM_DIRECTION]).sort(),
+		);
+		if (actual !== expected) continue;
+		return t;
+	}
+	return null;
 }
 
 /**

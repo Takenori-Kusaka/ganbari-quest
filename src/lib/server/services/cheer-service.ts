@@ -1,3 +1,4 @@
+import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
 import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/cheer-service.ts
 // 応援機能 (cheer) サービス層
@@ -20,9 +21,12 @@ import { findChildById, insertPointEntry } from '$lib/server/db/point-repo';
 /** 応援理由の最大文字数 (UI 制約と一致) */
 export const CHEER_REASON_MAX_LENGTH = 100;
 
-/** 付与可能なポイント値の範囲 (PO 確定: システム上限なし、UI 入力範囲のみ) */
-export const CHEER_POINTS_MIN = 1;
-export const CHEER_POINTS_MAX = 10000;
+/**
+ * 付与可能なポイント値の範囲 (PO 確定: システム上限なし、UI 入力範囲のみ)。
+ * 値の SSOT は domain/constants/cheer-points.ts (ページガイド / フォーム既定値も同じ定数から引く、#4659)。
+ */
+export const CHEER_POINTS_MIN = CHEER_POINTS.min;
+export const CHEER_POINTS_MAX = CHEER_POINTS.max;
 
 /** 応援カテゴリ (rewards 画面と同じ 6 種) */
 export const CHEER_CATEGORIES = [

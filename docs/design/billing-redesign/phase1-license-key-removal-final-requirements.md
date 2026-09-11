@@ -24,7 +24,6 @@ Phase 7 で atom rename (PR-2c〜2e) を「完了」と報告したが、実態�
 ### 1.2 FR-5 自己矛盾の発見 (deep-research v4)
 
 `phase1-naming-url-integrity-requirements.md` FR-5 (L82) verbatim:
-<!-- doc-code-refs: ignore-line -->
 > | `license-key-service.ts` | NUC edition で license key は**唯一の billing proof**、サービスロジック残存 |
 
 これは **SSOT 内部の自己矛盾フラグメント**。以下 2 つの上位 SSOT が既に全廃を明記:
@@ -77,7 +76,6 @@ if (ctx.mode === 'nuc-prod' && !ctx.licenseKey?.valid) return deny('license-key-
 
 | 対象 | 手法 |
 |---|---|
-<!-- doc-code-refs: ignore-line -->
 | `src/lib/server/services/license-key-service.ts` (700 行) | import 削除 + 物理削除 (PR-L3 #2818 で完了) |
 | `src/routes/(parent)/admin/license/**` | Phase 7 Step 2-3 の `/admin/subscription` rename と統合削除 |
 | `src/routes/ops/license/**` (+page / issue / legacy-count / [key]、7 file) | 物理削除 (運営キー発行、Stripe Dashboard 代替) |
@@ -150,7 +148,6 @@ OQ-4 で「列も enum も migration で物理削除」確定。破壊的変更�
 | **PR-L0 (expand)** | `assertLicenseKeyConfigured` no-op化。throw 源を最初に消す | これで起動不能リスク消滅 |
 | **PR-L1** | 入力経路削除 (signup key / admin/license action / handleCheckoutCompleted 冗長層) | なし (冗長層) |
 | **PR-L2 (contract、最慎重)** | `capabilities.ts:77` deny 撤廃 + 型/evaluator + `EvaluationLicenseKey` + `getDebugLicenseKeyOverride`。**NUC write E2E 必須** | 低 (NUC 回帰のみ) |
-<!-- doc-code-refs: ignore-line -->
 | **PR-L3** | routes 物理削除 (admin/license は Phase 7 Step 2-3 rename 統合) + ops + cron + api + `license-key-service.ts` | なし |
 | **PR-L4** | LP / メール / LEGACY_URL_MAP + CI gate (`check-license-key-leak.mjs`) | なし |
 | **PR-L5 (contract)** | env 撤去 (CDK、最後) + **DB 列・enum 物理削除** (§3.8、`licenseKey` 列 DROP + `LICENSE_KEY_STATUS` enum + `LicenseRecord` table、rollback 不可点) + **`LICENSE_PLAN` → `SUBSCRIPTION_PLAN` rename** (#2879、Tenant 課金プラン enum、削除でなく rename) | 中 (CDK deploy + 破壊的 migration) |

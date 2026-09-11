@@ -29,7 +29,6 @@ vi.mock('$lib/server/db/client', () => ({
 
 import {
 	archiveActivities,
-	copyActivitiesAcrossChildren,
 	countMainQuestActivities,
 	deleteActivity,
 	findActivitiesByChild,
@@ -298,57 +297,6 @@ describe('sqlite/child-activity-repo', () => {
 		it('空配列を渡しても安全 (no-op)', async () => {
 			const rows = await insertActivitiesBulk([], TENANT);
 			expect(rows).toEqual([]);
-		});
-	});
-
-	// ---------------------------------------------------------------
-	// copyActivitiesAcrossChildren (兄弟共通化 UX)
-	// ---------------------------------------------------------------
-
-	describe('copyActivitiesAcrossChildren', () => {
-		it('source child の全活動を target child に複製し、id は別採番される', async () => {
-			await insertActivity(
-				{
-					childId: asChildId(1),
-					name: 'コピー元A',
-					categoryId: asCategoryId(1),
-					icon: '📚',
-					basePoints: 5,
-				},
-				TENANT,
-			);
-			await insertActivity(
-				{
-					childId: asChildId(1),
-					name: 'コピー元B',
-					categoryId: asCategoryId(2),
-					icon: '🎨',
-					basePoints: 10,
-				},
-				TENANT,
-			);
-
-			const copied = await copyActivitiesAcrossChildren(asChildId(1), asChildId(2), TENANT);
-			expect(copied.length).toBe(2);
-			expect(copied.every((a) => a.childId === '2')).toBe(true);
-
-			// id は新規採番されており source 側と一致しない
-			const sourceList = await findActivitiesByChild(asChildId(1), TENANT);
-			const targetList = await findActivitiesByChild(asChildId(2), TENANT);
-			expect(targetList.length).toBe(2);
-			const sourceIds = new Set(sourceList.map((a) => a.id));
-			expect(targetList.every((a) => !sourceIds.has(a.id))).toBe(true);
-
-			// name / categoryId / basePoints は維持
-			const targetByName = new Map(targetList.map((a) => [a.name, a]));
-			expect(targetByName.get('コピー元A')?.basePoints).toBe(5);
-			expect(targetByName.get('コピー元B')?.basePoints).toBe(10);
-			expect(targetByName.get('コピー元B')?.categoryId).toBe('2');
-		});
-
-		it('source child に活動が無い場合は empty array', async () => {
-			const copied = await copyActivitiesAcrossChildren(asChildId(1), asChildId(2), TENANT);
-			expect(copied).toEqual([]);
 		});
 	});
 

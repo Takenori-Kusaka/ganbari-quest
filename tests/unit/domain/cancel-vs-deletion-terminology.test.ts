@@ -22,9 +22,13 @@ import {
 	formatDeletionGracePeriod,
 } from '../../../src/lib/domain/constants/deletion-grace';
 import { PLAN_HISTORY_RETENTION_DAYS } from '../../../src/lib/domain/constants/plan-retention';
+import { isRetainedSuspendedContract } from '../../../src/lib/domain/contract-state';
+import {
+	ALL_CONTRACT_STATES,
+	CONTRACT_STATE_VIEW,
+} from '../../../src/lib/domain/contract-state-view';
 import {
 	CANCELLATION_LABELS,
-	LP_FAQ_LABELS,
 	LP_FAQ_PHASEB_LABELS,
 	LP_LEGAL_DISCLAIMER_LABELS,
 	LP_LEGAL_TERMS_LABELS,
@@ -34,7 +38,12 @@ import {
 	SETTINGS_LABELS,
 	SUBSCRIPTION_PAGE_LABELS,
 } from '../../../src/lib/domain/labels';
-import { DELETION_GRACE_TERMS, PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
+import {
+	CANCEL_TERMS,
+	DELETION_GRACE_TERMS,
+	PLAN_FULL_TERMS,
+	PLAN_RETENTION_TERMS,
+} from '../../../src/lib/domain/terms';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
@@ -97,7 +106,6 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			['LP pricing hero 打消し表示', LP_PRICING_LABELS.heroCancelDisclaimer],
 			['LP pricing 解約 vs 退会 FAQ', LP_PRICING_LABELS.faqCancelVsDeleteA],
 			['LP index / pamphlet 打消し表示', LP_LEGAL_DISCLAIMER_LABELS.cancelDisclaimer],
-			['LP faq (text)', LP_FAQ_LABELS.text19],
 			['LP faq (k)', LP_FAQ_PHASEB_LABELS.k19],
 			['解約確認画面 (有料)', CANCELLATION_LABELS.paidPlanNotice],
 			['解約確認画面 (無料)', CANCELLATION_LABELS.freePlanNotice],
@@ -116,7 +124,6 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(PRICING_PAGE_LABELS.faqCancelA).toContain('データは削除されません');
 			expect(LP_PRICING_LABELS.faqCancelA).toContain('データは削除されません');
 			expect(LP_FAQ_PHASEB_LABELS.k19).toContain('データは削除されません');
-			expect(LP_FAQ_LABELS.text19).toContain('データは削除されません');
 		});
 
 		it('解約 FAQ / 特商法 は保持期間超過分の物理削除と復元不能まで述べる (PO 採択条件)', () => {
@@ -161,7 +168,7 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 
 	describe('退会 (アカウント削除) の猶予はプラン別に述べる', () => {
 		it('LP FAQ の退会説明が一律 30 日と述べない', () => {
-			for (const text of [LP_FAQ_PHASEB_LABELS.k76, LP_FAQ_LABELS.text76]) {
+			for (const text of [LP_FAQ_PHASEB_LABELS.k76]) {
 				expect(text).not.toContain('申請後 30 日間の猶予期間があり');
 				expect(text).toContain(`${DELETION_GRACE_TERMS.free}削除`);
 				expect(text).toContain(`${DELETION_GRACE_TERMS.standardSpaced}間`);
@@ -170,7 +177,7 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 		});
 
 		it('無料プランは取消し不可であることを述べる', () => {
-			for (const text of [LP_FAQ_PHASEB_LABELS.k77, LP_FAQ_LABELS.text77]) {
+			for (const text of [LP_FAQ_PHASEB_LABELS.k77]) {
 				expect(text).toContain('申請と同時に削除される');
 			}
 		});
@@ -188,6 +195,48 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(
 				SETTINGS_LABELS.accountDeleteGraceNotice(DELETION_GRACE_PERIOD_DAYS.standard),
 			).toContain(`${DELETION_GRACE_PERIOD_DAYS.standard} 日間は「復元」ボタンで取り消せます`);
+		});
+
+		// #4524: 同意チェックの文言は猶予 notice と同じ事実を述べる。旧実装はプラン非依存の
+		//   固定文で「元に戻せません」と断定しており、猶予のある有料プランでは直上の notice と
+		//   同一画面で正面から矛盾していた (最も不可逆性の高い操作の直前で警告が信用を失う)。
+		it('同意チェックは有料プランで「元に戻せません」と断定しない', () => {
+			const paid = SETTINGS_LABELS.accountDeleteDangerConsentLabel(
+				DELETION_GRACE_PERIOD_DAYS.standard,
+			);
+			expect(paid).not.toContain('元に戻せません');
+			expect(paid).toContain(`${DELETION_GRACE_PERIOD_DAYS.standard} 日以内`);
+			expect(paid).toContain('「復元」ボタンで取り消せます');
+		});
+
+		it('同意チェックは猶予 0 日 (無料 / 非 owner) で不可逆を明言する', () => {
+			// 単純な文言撤去で無料プランの警告を弱めない (#4496 の元の実害を再発させない)
+			expect(SETTINGS_LABELS.accountDeleteDangerConsentLabel(0)).toContain('元に戻せません');
+		});
+
+		it('同意チェックはプラン未解決時に猶予を断定しない', () => {
+			// `?? 'free'` へ倒すと、猶予のある親に「元に戻せません」を見せる誤誘導になる (#4517 整合)
+			const unknown = SETTINGS_LABELS.accountDeleteDangerConsentLabel(null);
+			expect(unknown).not.toContain('元に戻せません');
+			expect(unknown).not.toContain('取り消せます');
+			expect(unknown).toContain('削除することに同意します');
+		});
+
+		it('同意チェックと猶予 notice が同じ事実を述べる (同一画面で矛盾しない)', () => {
+			for (const days of [
+				0,
+				DELETION_GRACE_PERIOD_DAYS.standard,
+				DELETION_GRACE_PERIOD_DAYS.family,
+			]) {
+				const consent = SETTINGS_LABELS.accountDeleteDangerConsentLabel(days);
+				const notice = SETTINGS_LABELS.accountDeleteGraceNotice(days);
+				const consentSaysReversible = consent.includes('取り消せます');
+				const noticeSaysReversible = notice.includes('取り消せます');
+				expect(
+					consentSaysReversible,
+					`猶予 ${days} 日で consent と notice の可逆性の主張が食い違う: consent="${consent}" / notice="${notice}"`,
+				).toBe(noticeSaysReversible);
+			}
 		});
 
 		it('削除猶予バナーは残日数として述べる (引数は daysRemaining)', () => {
@@ -257,6 +306,342 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			expect(repoFile('site/pricing.html')).toContain(
 				`${PLAN_HISTORY_RETENTION_DAYS.free} 日を超えた記録は削除され`,
 			);
+		});
+	});
+
+	// #4540 Q4 (PO 決裁): 解約を決める / 解約が進行している画面で「お子さまの記録は残ります」だけを
+	// 述べると、移行先 (無料プラン) の保持期間を超えた記録が物理削除される事実が見えない。
+	// 特商法にだけ書いてあり画面に無い状態は、顧客に有利に見える方向へ誤っているぶん
+	// 後から「聞いていない」になる (#4496 の「解約 = 削除」の逆向き)。
+	describe('解約導線が移行先プランの保持期間まで述べる (#4540 Q4)', () => {
+		/** 特商法「解約とデータの取扱い」と同一の 2 文。値は PLAN_HISTORY_RETENTION_DAYS が SSOT */
+		const FREE_RETENTION_SENTENCE = `${PLAN_FULL_TERMS.free}の履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}です。${IRREVERSIBLE_SENTENCE}。`;
+
+		const cancelFlowTexts: Array<[string, string]> = [
+			['解約確認画面 (有料)', CANCELLATION_LABELS.paidPlanNotice],
+			// 体験中の顧客も手続き後は無料プランに戻るため、同じ画面で同じ事実を述べる (#4585-1 合流)
+			['解約確認画面 (体験中)', CANCELLATION_LABELS.trialPlanNotice],
+			['解約手続き中バナー (終了日あり)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDesc('2026-09-30')],
+			['解約手続き中バナー (終了日不明)', SUBSCRIPTION_PAGE_LABELS.cancelPendingDescUnknownDate],
+			// PO 回答 (2026-09-03、PR #4596 コメント) #9: 有料契約が生きている S3 / S4 でも出す。
+			// 「解約したら履歴がいつまで残るか」は解約を決める瞬間に効く情報で、契約が生きているか
+			// どうかで出し分ける理由がない (出さないと「消えると思わなかった / 思った」の両方が起きる)。
+			['支払い猶予中の告知 (S3)', SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc],
+			['支払い停止中の告知 (S4)', SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc],
+			['解約完了の告知 (S5)', SUBSCRIPTION_PAGE_LABELS.cancelledDesc],
+		];
+
+		// 画面が実際に描画する経路 (`SaasLicensePanel` は `CONTRACT_STATE_VIEW[state].statusNotice.desc`
+		// を出す) で、告知を持つ全状態 = S3 / S4 / S5 が保持期間を述べることを固定する。
+		// labels の key を直接見る上の表と違い、状態 → 文言の対応表側が差し替わっても落ちる。
+		it('告知を出す全契約状態 (S3 / S4 / S5) の statusNotice が保持期間を述べる', () => {
+			const rowsWithNotice = ALL_CONTRACT_STATES.filter(
+				(state) => CONTRACT_STATE_VIEW[state].statusNotice !== null,
+			).map((state) => CONTRACT_STATE_VIEW[state].matrixRow);
+			expect(rowsWithNotice.sort()).toEqual(['S3', 'S4', 'S5']);
+
+			for (const state of ALL_CONTRACT_STATES) {
+				const view = CONTRACT_STATE_VIEW[state];
+				if (!view.statusNotice) continue;
+				expect(view.statusNotice.desc, `${view.matrixRow} の告知`).toContain(
+					FREE_RETENTION_SENTENCE,
+				);
+				expect(view.statusNotice.desc).toContain(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice);
+			}
+		});
+
+		it('freePlanRetentionNotice (export) は特商法と同一の 2 文そのもの', () => {
+			expect(SUBSCRIPTION_PAGE_LABELS.freePlanRetentionNotice).toBe(FREE_RETENTION_SENTENCE);
+		});
+
+		// QM レビュー指摘 (2 巡): S4 は (1) 「再契約でも戻りません」の直後に「元に戻ります」が
+		// 並んで矛盾に読め、(2) 直した文が保持期間の短縮を「契約が終了したら」と未来形で書いていた。
+		// (2) は事実と逆で、S4 では削除が**すでに走っている** (下の「S4 の事実」describe 参照)。
+		// 断片が両方あることだけを見る assert では順序も時制も守れないため、順序を固定する。
+		it.each(
+			ALL_CONTRACT_STATES.filter((s) => CONTRACT_STATE_VIEW[s].statusNotice !== null).map(
+				(s) =>
+					[CONTRACT_STATE_VIEW[s].matrixRow, CONTRACT_STATE_VIEW[s].statusNotice?.desc ?? ''] as [
+						string,
+						string,
+					],
+			),
+		)('%s の告知は保持期間の 2 文で終わる (後ろに別の話を続けない)', (_row, desc) => {
+			expect(desc.endsWith(FREE_RETENTION_SENTENCE)).toBe(true);
+		});
+
+		// PO 決定 (2026-09-04) で **S4 では物理削除を行わない**ことになった
+		// (`retention-cleanup-service` が `isRetainedSuspendedContract` で skip する)。
+		// よって旧 pin (「すでに適用されており」「削除されています」= 現在形で削除を述べる) は
+		// 実装が行っていないことを述べる文言を固定していたので置き換える。
+		// 順序: いま起きていること → 復旧の案内 → 契約終了時に起きること → 保持期間 (末尾)。
+		it('S4 は 削除しない事実 → 復旧の案内 → 契約終了時の崖 → 保持期間 の順で述べる', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			const noDeletion = desc.indexOf(
+				'ご契約が残っているあいだ、これまでの記録を削除することはありません',
+			);
+			const recovery = desc.indexOf('お支払い方法を更新すると有料プランの機能に戻り');
+			const cliff = desc.indexOf('最初の削除処理でまとめて削除されます');
+			const retention = desc.indexOf(FREE_RETENTION_SENTENCE);
+
+			expect(noDeletion, '契約が残っている間は削除しない事実を述べていない').toBeGreaterThan(-1);
+			expect(recovery, '復旧の案内が無い').toBeGreaterThan(-1);
+			expect(cliff, '契約終了時にまとめて削除されることを述べていない').toBeGreaterThan(-1);
+			expect(retention, '保持期間の 2 文が無い').toBeGreaterThan(-1);
+
+			expect(noDeletion).toBeLessThan(recovery);
+			expect(recovery).toBeLessThan(cliff);
+			expect(cliff).toBeLessThan(retention);
+		});
+
+		// 保持期間の起算は**レコードの日付**であって契約終了日ではない
+		// (PO 決定 2026-09-04「起算を S5 到達日に付け替える必要はない」/ `getHistoryCutoffDate` は
+		//  `addDaysJST(todayDateJST(), -days)`)。したがって長く停止していた世帯は、契約終了後
+		// 最初の cron で期間を過ぎた分をまとめて失う。「終了してから期間がある」と読ませない。
+		it('S4 は契約終了日からの数え直しを示唆しない (崖であることを書く)', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc, '数え直さないことを明示する').toContain('そこから数え直すのではなく');
+			expect(desc, '「終了したあとは次の保持期間が適用されます」型の猶予表現').not.toContain(
+				'次の保持期間が適用されます',
+			);
+			// 「契約終了を起点に N 日ある」と読める言い回しを禁じる (#4844 の pin の趣旨を維持)
+			expect(desc).not.toMatch(/契約が終了(した場合|すると)/);
+			expect(desc).not.toMatch(/終了(日|時点|後)から[^。]*(日|年)/);
+		});
+
+		// 起算がレコード日付であることを実装で裏取りする。`getHistoryCutoffDate` が
+		// 契約終了日を引数に取るようになったら (= 起算の付け替え) 本 test が落ち、文言を見直す契機になる。
+		it('cutoff の起算は今日基準で、契約終了日を受け取らない (実装の裏取り)', () => {
+			const src = repoFile('src/lib/server/services/plan-limit-service.ts');
+			expect(src).toMatch(/export function getHistoryCutoffDate\(tier: PlanTier\)/);
+			expect(src).toMatch(/addDaysJST\(todayDateJST\(\), -limits\.historyRetentionDays\)/);
+		});
+
+		// 削除は起きていないので現在形で「消えている」と書かない (旧文の再発防止)。
+		// 一方で表示は `applyRetentionFilter(free)` で絞られるため、
+		// 「見えなくなる / 復帰すればまた見える」は述べる (消えたと誤解させない)。
+		it('S4 は「すでに削除されている」と書かず、表示が絞られることと復帰で戻ることを述べる', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.paymentSuspendedDesc;
+			expect(desc, '削除は skip されるので現在形で削除を述べない').not.toContain(
+				'すでに適用されており',
+			);
+			expect(desc).not.toContain('削除されています');
+			expect(desc, '表示が絞られることを述べる').toContain('一時的に見えなくなります');
+			expect(desc, '復帰でまた見えることを述べる').toContain(
+				'見えなくなっていた記録もまた表示されます',
+			);
+		});
+
+		// S3 は licenseStatus=ACTIVE のまま有料 tier が維持され、表示も絞られない。
+		// S4 の注記を S3 に敷衍すると、起きていないことを述べることになる。
+		it('S3 には「見えなくなる」を持ち込まない (S3 は有料 tier が維持される)', () => {
+			const desc = SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc;
+			expect(desc).not.toContain('すでに適用されており');
+			expect(desc).not.toContain('削除されています');
+			expect(desc).not.toContain('一時的に見えなくなります');
+		});
+
+		// 文言が実装の事実に紐づいていることを、契約状態表 (S3 / S4) と実装の述語で突き合わせる。
+		describe('S4 の事実 (contract-state-matrix.md §4 + retention-cleanup-service)', () => {
+			const matrixRow = (row: string): string => {
+				const line = repoFile('docs/design/billing-redesign/contract-state-matrix.md')
+					.split('\n')
+					.find((l) => l.startsWith(`| **${row}**`));
+				expect(line, `${row} の行が見つからない`).toBeDefined();
+				return line ?? '';
+			};
+
+			it('S4 の planTier は free のまま (= 表示は無料プランの範囲に絞られる)', () => {
+				expect(matrixRow('S4')).toContain('`suspended`');
+				expect(matrixRow('S4')).toContain('`free`');
+			});
+
+			it('S3 の planTier は有料のまま (= 表示も絞られない)', () => {
+				expect(matrixRow('S3')).toContain('`active`');
+				expect(matrixRow('S3')).toMatch(/`standard`/);
+			});
+
+			it('無料プランの保持期間は有限 (= 契約終了後は物理削除の cutoff が立つ)', () => {
+				expect(PLAN_HISTORY_RETENTION_DAYS.free).not.toBeNull();
+			});
+
+			// 文言の根拠は実装。S4 を skip する分岐が消えたら本 test が落ち、文言を見直す契機になる。
+			// 免除の境界そのもの (32 通り) は `tests/unit/domain/contract-state.test.ts` が pin する。
+			it('S4 (suspended + plan あり + subscription あり) は物理削除の対象外である', () => {
+				const s4 = {
+					status: 'suspended',
+					plan: 'monthly',
+					stripeSubscriptionId: 'sub_x',
+					planExpiresAt: null,
+				};
+				expect(isRetainedSuspendedContract(s4)).toBe(true);
+				// S5 / S6 / S1-S3 と不正状態 X2 は対象外ではない (skip が広がっていない)
+				expect(
+					isRetainedSuspendedContract({
+						status: 'suspended',
+						plan: null,
+						stripeSubscriptionId: null,
+						planExpiresAt: null,
+					}),
+				).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ ...s4, status: 'terminated' }),
+					'S6 は契約が残っていない',
+				).toBe(false);
+				expect(
+					isRetainedSuspendedContract({
+						...s4,
+						status: 'grace_period',
+						planExpiresAt: '2026-09-30',
+					}),
+					'S3 は有料 tier が維持されるので免除の対象ではない',
+				).toBe(false);
+				expect(isRetainedSuspendedContract({ ...s4, status: 'active' })).toBe(false);
+				expect(
+					isRetainedSuspendedContract({ ...s4, plan: null }),
+					'X2 (不正状態) を免除に含めない',
+				).toBe(false);
+
+				// retention-cleanup が実際にこの述語で skip していること (文言と実装の結合)
+				const svc = repoFile('src/lib/server/services/retention-cleanup-service.ts');
+				expect(svc).toMatch(/isRetainedSuspendedContract\(\{/);
+			});
+		});
+
+		it.each(cancelFlowTexts)('%s は無料プランの保持期間と超過分の削除を述べる', (_name, text) => {
+			// 「記録は残ります」で止めない (保持期間の言及が消えたら落ちる)
+			expect(text).toContain(`履歴保持期間は ${PLAN_RETENTION_TERMS.freeSpaced}`);
+			expect(text).toContain(IRREVERSIBLE_SENTENCE);
+		});
+
+		it.each(
+			cancelFlowTexts,
+		)('%s は特商法と同一の文で述べる (文書間で食い違わせない)', (_n, text) => {
+			expect(text).toContain(FREE_RETENTION_SENTENCE);
+		});
+
+		it('特商法の「解約とデータの取扱い」も同一の文を持つ (画面と法定表示の同期)', () => {
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain(FREE_RETENTION_SENTENCE);
+		});
+
+		// 値の SSOT 強制: 画面側に日数を直書きすると
+		//   (a) 下の source 検査で即落ちる
+		//   (b) PLAN_HISTORY_RETENTION_DAYS.free を変えた瞬間に上の runtime 検査が落ちる
+		it('保持期間の文は atom 経由で組み立て、日数を直書きしない', () => {
+			const src = repoFile('src/lib/domain/labels.ts');
+			const shared = src.match(/const FREE_PLAN_RETENTION_NOTICE = `([^`]*)`;/);
+			expect(shared, 'FREE_PLAN_RETENTION_NOTICE の定義が見つからない').not.toBeNull();
+			const literal = shared?.[1] ?? '';
+			// atom (terms.ts) を template literal で参照していること
+			expect(literal).toMatch(/\$\{PLAN_RETENTION_TERMS\.freeSpaced\}/);
+			expect(literal).not.toMatch(/\d/);
+
+			// 各文言の定義本体にも日数の直書きが無いこと (共有文を経由させる)
+			const definitionSource = (key: string) => {
+				const start = src.indexOf(`\n\t${key}:`);
+				expect(start, `${key} の定義が見つからない`).toBeGreaterThan(-1);
+				return src.slice(start, src.indexOf('`,', start));
+			};
+			for (const key of [
+				'paidPlanNotice',
+				'trialPlanNotice',
+				'cancelPendingDesc',
+				'cancelPendingDescUnknownDate',
+				'gracePeriodDesc',
+				'paymentSuspendedDesc',
+				'cancelledDesc',
+			]) {
+				expect(definitionSource(key), `${key} に日数が直書きされている`).not.toMatch(
+					/\d+\s?[日年]/,
+				);
+			}
+		});
+	});
+
+	// #4619: LP FAQ の解約項目が「退会の仕様」に戻らないよう pin する。
+	//   #4496 は同じ class を LP・特商法・アプリ内 FAQ で是正したが、解約の説明が
+	//   「移行後も使える」ことまでは述べていなかったため、「読み取り専用になる」という
+	//   旧文言由来の誤解が残りうる状態だった。
+	describe('LP FAQ: 解約の項目は解約の仕様だけを述べる (#4619)', () => {
+		/** faq.html が実際に描画する 解約 FAQ の全文言 (k18-k22 + k124) */
+		const cancelFaq = [
+			LP_FAQ_PHASEB_LABELS.k18,
+			LP_FAQ_PHASEB_LABELS.k19,
+			LP_FAQ_PHASEB_LABELS.k20,
+			LP_FAQ_PHASEB_LABELS.k21,
+			LP_FAQ_PHASEB_LABELS.k22,
+			LP_FAQ_PHASEB_LABELS.k124,
+		];
+		// 未描画の姉妹 namespace は削除済み。配信されている faqB 側の assertion が
+		// そのまま残っているので、ここで見る事実の担保は変わらない。
+		const cancelFaqText = cancelFaq.join(String.fromCharCode(10));
+
+		it('退会の仕様 (完全削除 / 書き込み不可 / 猶予期間) を解約の答えに書かない', () => {
+			// いずれも「退会」の事実。解約の質問に対する答えとしては誤り (#4619 の現象)。
+			expect(cancelFaqText).not.toContain('完全に削除');
+			expect(cancelFaqText).not.toContain('新規作成・編集は不可');
+			expect(cancelFaqText).not.toContain('猶予期間');
+			expect(cancelFaqText).not.toContain('読み取り専用');
+		});
+
+		it('無料プランへの移行と、移行後も記録を続けられることを述べる', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k19).toContain(`${PLAN_FULL_TERMS.free}へ自動的に切り替わります`);
+			// 契約状態の告知 (S3/S4/S5) と同じ保証文を共有する — 別の言い回しに分岐させない
+			expect(LP_FAQ_PHASEB_LABELS.k20).toBe(SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance);
+			expect(LP_FAQ_PHASEB_LABELS.k20).toContain('記録・ポイント付与を続けられます');
+		});
+
+		it('日割り返金が無いことを手続き前に述べる (特商法と同一の事実)', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k19).toContain('日割り計算による返金はありません');
+			expect(LP_LEGAL_TOKUSHOHO_LABELS.tableContent).toContain('日割り計算による返金は行いません');
+		});
+
+		it('保持期間の超過分が復元できないことを特商法と同じ文で述べる', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k21).toContain(IRREVERSIBLE_SENTENCE);
+		});
+
+		it('上限超過分は「保管 → 有料プランで復元」と述べ、選択できるとは書かない', () => {
+			// resource-archive-service の archiveExcessResources / restoreArchivedResources が実装事実。
+			// 「どれを残すか選べる」は #4585 で実装中のため、実装前に約束しない (ADR-0013)。
+			expect(LP_FAQ_PHASEB_LABELS.k124).toContain('保管された状態になり');
+			expect(LP_FAQ_PHASEB_LABELS.k124).toContain('有料プランに戻すと');
+			expect(LP_FAQ_PHASEB_LABELS.k124).not.toContain('選べ');
+			expect(LP_FAQ_PHASEB_LABELS.k124).not.toContain('選択');
+		});
+
+		it('猶予期間は退会 FAQ 側に載っている (移設先が空にならない)', () => {
+			expect(LP_FAQ_PHASEB_LABELS.k75).toContain(CANCEL_TERMS.account);
+			expect(LP_FAQ_PHASEB_LABELS.k76).toContain('猶予期間');
+			expect(LP_FAQ_PHASEB_LABELS.k77).toContain('猶予期間');
+			// 猶予日数は値 SSOT (deletion-grace.ts) 由来
+			expect(LP_FAQ_PHASEB_LABELS.k76).toContain(`${DELETION_GRACE_TERMS.standardSpaced}間`);
+		});
+
+		it('解約 / 退会 FAQ の定義に日数を直書きしない (SSOT 経由の強制)', () => {
+			const src = repoFile('src/lib/domain/labels.ts');
+			const nsStart = src.indexOf('export const LP_FAQ_PHASEB_LABELS');
+			expect(nsStart).toBeGreaterThan(-1);
+			const ns = src.slice(nsStart);
+			const pinnedKeys = ['k19', 'k20', 'k21', 'k22', 'k124', 'k75', 'k76', 'k77'];
+			const offenders = pinnedKeys.filter((key) => {
+				const line = ns.match(new RegExp(`^\\t${key}: (.*)$`, 'm'))?.[1] ?? '';
+				return /\d+\s*(日|年)/.test(line);
+			});
+			expect(offenders).toEqual([]);
+		});
+
+		it('生成物 (shared-labels.js / faq.html) に 5 key が届いている', () => {
+			// 値が module-local const だと LP 生成 script が key ごと落としうる (#4619 で判明)。
+			// 落ちると LP は HTML の古い fallback を出し続けるため、生成物側でも pin する。
+			const sharedLabels = repoFile('site/shared-labels.js');
+			const html = repoFile('site/faq.html');
+			for (const value of cancelFaq) {
+				expect(sharedLabels).toContain(value);
+			}
+			for (const key of ['k19', 'k20', 'k21', 'k22', 'k124']) {
+				expect(html).toContain(`data-lp-key="faqB.${key}"`);
+			}
+			expect(html).toContain(LP_FAQ_PHASEB_LABELS.k124);
 		});
 	});
 });

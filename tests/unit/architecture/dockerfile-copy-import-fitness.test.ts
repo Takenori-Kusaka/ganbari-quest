@@ -7,9 +7,14 @@
 //   再発防止が「移設時に Dockerfile も見る」という人の注意依存だったため、image 同梱 CLI の
 //   relative import graph を静的解決し、全解決先が COPY 宣言でカバーされることを CI で検証する。
 //
-// 対象 (entry は Dockerfile の COPY / CMD が SSOT):
+// 対象 (entry は Dockerfile の COPY / CMD / lifecycle が SSOT):
 //   - Dockerfile (NUC app):     scripts/nuc-pglite-cutover.ts (cutover rehearsal で docker compose run)
 //   - Dockerfile.scheduler:     scripts/scheduler.ts (CMD tsx 実行)
+//   - 全 Dockerfile:            scripts/prepare.mjs (npm の prepare lifecycle が `npm ci` 中に実行する。
+//     deps stage は package*.json + prepare.mjs しか COPY しないため、prepare.mjs に import を
+//     足すと image build 自体が ERR_MODULE_NOT_FOUND で落ちる。第 22 回統合監査で実際に発生し
+//     docker-build / deploy-aws-staging / deploy-nuc-staging / e2e-demo-lambda の 4 job が落ちた
+//     = 本番 deploy を壊す class。entry に加えて class を lock する)
 // 対象外:
 //   - backup コンテナ: scripts/ を volume mount (docker-compose.yml `./scripts:/app/scripts:ro`)
 //     で実行時に全体が見えるため COPY 不整合 class が構造的に起きない
@@ -166,9 +171,12 @@ function collectImportGraph(entryAbs: string): { files: string[]; unresolved: st
 const TARGETS: { dockerfile: string; entries: string[] }[] = [
 	{
 		dockerfile: 'Dockerfile',
-		entries: ['scripts/nuc-pglite-cutover.ts', 'scripts/seed-staging.ts'],
+		entries: ['scripts/nuc-pglite-cutover.ts', 'scripts/seed-staging.ts', 'scripts/prepare.mjs'],
 	},
-	{ dockerfile: 'Dockerfile.scheduler', entries: ['scripts/scheduler.ts'] },
+	{ dockerfile: 'Dockerfile.scheduler', entries: ['scripts/scheduler.ts', 'scripts/prepare.mjs'] },
+	// Dockerfile.lambda は AWS 本番 (Lambda) の image。deps / prod-deps の 2 stage が
+	// `npm ci` の prepare lifecycle で scripts/prepare.mjs を実行する。
+	{ dockerfile: 'Dockerfile.lambda', entries: ['scripts/prepare.mjs'] },
 ];
 
 describe('Dockerfile COPY ↔ CLI import 一致 fitness (#3652、ADR-0061)', () => {

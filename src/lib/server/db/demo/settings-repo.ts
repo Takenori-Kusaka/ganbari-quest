@@ -2,6 +2,7 @@
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import { getDemoMarketplaceRewardTemplatesForTenant } from '$lib/server/demo/demo-data';
+import { assertCrossTenantReadableKey } from '../interfaces/settings-repo.interface';
 
 /**
  * #2097 Phase B-7: marketplace reward-set 由来の reward_templates を build 時に serialize。
@@ -9,6 +10,9 @@ import { getDemoMarketplaceRewardTemplatesForTenant } from '$lib/server/demo/dem
  * 全子供分 (902/903/904/906) の reward-set を集合化、title 重複は除外済。
  */
 const DEMO_REWARD_TEMPLATES_JSON = JSON.stringify(getDemoMarketplaceRewardTemplatesForTenant());
+
+/** demo backend の単一テナント id (`demo-data.ts` の `DEMO_TENANT_ID` と同値、#4706)。 */
+const DEMO_TENANT_ID = 'demo';
 
 const DEMO_SETTINGS: Record<string, string> = {
 	reward_templates: DEMO_REWARD_TEMPLATES_JSON,
@@ -47,6 +51,16 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
  * key 一致行の前方一致集計 (#4269 ①)。demo は固定 fixture のみを持つ stateless Fake なので、
  * DEMO_SETTINGS に無い key は「保存 0 件」として 0 / 0 を返す (在庫監査の行は 0 件として出る)。
  */
+/**
+ * 全テナント横断で 1 キー分を読む (#4706)。demo は固定 fixture の単一テナント。
+ * 未定義キーは空 Map (= 既定値の適用は呼び出し側)。
+ */
+export async function getSettingForAllTenants(key: string): Promise<Map<string, string>> {
+	assertCrossTenantReadableKey(key);
+	const value = DEMO_SETTINGS[key];
+	return value === undefined ? new Map() : new Map([[DEMO_TENANT_ID, value]]);
+}
+
 export async function countValuesByPrefix(
 	key: string,
 	valuePrefix: string,

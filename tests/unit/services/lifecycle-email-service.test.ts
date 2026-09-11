@@ -209,7 +209,66 @@ describe('#1601 lifecycle-email-service — 期限切れ前リマインド', () 
 		expect(result.renewalSent).toBe(1);
 	});
 
-	it('残り 14 日 (対象外) は送らない', async () => {
+	// #4721: cron が milestone 当日に落ちるとリマインドが永久に失われるため、
+	// milestone から 3 日以内なら遅れて送る (窓を出た顧客には送らない = 導入時の一斉送信を作らない)。
+	it('#4721 catch-up: 残り 6 日 (7 日 milestone の 1 日遅れ) でも送る', async () => {
+		setupSingleTenantWithOwner(
+			makeTenant({
+				plan: 'standard_monthly',
+				planExpiresAt: '2026-05-03T01:00:00Z', // 6 日後
+			}),
+		);
+
+		const result = await runLifecycleEmails({ now: NOW });
+
+		expect(result.renewalSent).toBe(1);
+		// **本文には実際の残日数を渡す** (milestone の 7 ではない。catch-up で嘘を書かない)
+		expect(mockSendRenewal).toHaveBeenCalledWith(expect.objectContaining({ daysRemaining: 6 }));
+	});
+
+	// マーカーが「契約 × milestone」で立つので、catch-up しても 2 通目は出ない。
+	it('#4721 送信済マーカーがあれば同じ milestone を再送しない', async () => {
+		setupSingleTenantWithOwner(
+			makeTenant({
+				plan: 'standard_monthly',
+				planExpiresAt: '2026-05-04T01:00:00Z', // 7 日後
+			}),
+		);
+
+		const first = await runLifecycleEmails({ now: NOW });
+		expect(first.renewalSent).toBe(1);
+		expect(settingsStore.get('t-1:renewal_reminder_sent_marker')).toBe('2026-05-04T01:00:00Z:7');
+
+		// 同日 2 回目 (dispatcher の retry / 手動再実行)。settingsStore は clear しない =
+		// マーカーが残った状態で同じテナントをもう一度走らせる
+		mockSendRenewal.mockClear();
+		setupSingleTenantWithOwner(
+			makeTenant({
+				plan: 'standard_monthly',
+				planExpiresAt: '2026-05-04T01:00:00Z',
+			}),
+		);
+		const second = await runLifecycleEmails({ now: NOW });
+		expect(second.renewalSent).toBe(0);
+		expect(mockSendRenewal).not.toHaveBeenCalled();
+	});
+
+	// 送信に失敗した回はマーカーを立てず、次回実行で再試行される。
+	it('#4721 送信に失敗した回はマーカーを立てない', async () => {
+		setupSingleTenantWithOwner(
+			makeTenant({
+				plan: 'standard_monthly',
+				planExpiresAt: '2026-05-04T01:00:00Z',
+			}),
+		);
+		mockSendRenewal.mockResolvedValueOnce(false);
+
+		await runLifecycleEmails({ now: NOW });
+
+		expect(settingsStore.get('t-1:renewal_reminder_sent_marker')).toBeUndefined();
+	});
+
+	it('残り 14 日 (catch-up 窓の外) は送らない', async () => {
 		setupSingleTenantWithOwner(
 			makeTenant({
 				plan: 'standard_monthly',

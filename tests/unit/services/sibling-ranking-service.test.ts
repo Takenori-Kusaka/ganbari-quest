@@ -134,3 +134,50 @@ describe('getWeeklyRanking', () => {
 		expect(result.encouragement).toBe('みんなすごい！かぞくのチカラだね！');
 	});
 });
+
+// #4685 (ADR-0011): 準備モード (baby) はゲーミフィケーション非適用。競争 (ランキング) にも並べない。
+describe('#4685 準備モード (baby) はランキングの集計対象外', () => {
+	it('baby の子はランキングに出ない (兄の画面に 1 歳が並ばない)', async () => {
+		mockFindAllChildren.mockResolvedValue([
+			{ id: '1', nickname: 'けん', age: 8, uiMode: 'elementary' },
+			{ id: '2', nickname: 'ゆい', age: 5, uiMode: 'preschool' },
+			{ id: '3', nickname: 'はなこ', age: 1, uiMode: 'baby' },
+		]);
+		mockFindActivityLogs.mockResolvedValue([{ categoryId: asCategoryId(1), points: 10 }]);
+
+		const result = await getWeeklyRanking(TENANT);
+
+		expect(result.rankings.map((r) => r.childName)).toEqual(['けん', 'ゆい']);
+		expect(result.rankings.some((r) => r.childName === 'はなこ')).toBe(false);
+		// baby の分の活動ログ取得も行わない (無駄なクエリを増やさない)
+		expect(mockFindActivityLogs).toHaveBeenCalledTimes(2);
+	});
+
+	it('兄弟が baby だけなら「1 人家庭」と同じ扱いになる', async () => {
+		mockFindAllChildren.mockResolvedValue([
+			{ id: '1', nickname: 'けん', age: 8, uiMode: 'elementary' },
+			{ id: '2', nickname: 'はなこ', age: 1, uiMode: 'baby' },
+		]);
+		mockFindActivityLogs.mockResolvedValue([
+			{ categoryId: asCategoryId(1), points: 10 },
+			{ categoryId: asCategoryId(2), points: 10 },
+		]);
+
+		const result = await getWeeklyRanking(TENANT);
+
+		expect(result.rankings).toHaveLength(1);
+		expect(result.rankings[0]?.childName).toBe('けん');
+	});
+
+	it('uiMode 未設定 (旧データ) の子は既定モード扱いで**除外しない**', async () => {
+		mockFindAllChildren.mockResolvedValue([
+			{ id: '1', nickname: 'けん', age: 8, uiMode: 'elementary' },
+			{ id: '2', nickname: 'なぞ', age: 6 },
+		]);
+		mockFindActivityLogs.mockResolvedValue([{ categoryId: asCategoryId(1), points: 10 }]);
+
+		const result = await getWeeklyRanking(TENANT);
+
+		expect(result.rankings.map((r) => r.childName).sort()).toEqual(['けん', 'なぞ']);
+	});
+});

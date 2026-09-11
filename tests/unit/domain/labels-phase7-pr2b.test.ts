@@ -5,8 +5,6 @@
 //
 // 検証対象 compound (Phase 5 子 5 #2656 §4 + Phase 4 #2621 §3.1 + 補強 PR #2684):
 //   1. SUBSCRIPTION_PAGE_LABELS         — /admin/subscription プランページ (Phase 3 #2567)
-//   2. UPGRADE_FLOW_LABELS              — アップグレード動線 4 段階 funnel (Phase 4 #2624)
-//   3. IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS — 即時ダウン + Stripe credit memo banner
 //      (旧 SCHEDULED_DOWNGRADE_BANNER_LABELS、補強 PR #2684 / 代替案 D で命名変更)
 //   4. PHASE4_REACTIVATION_FLOW_LABELS  — reactivation banner 動線 (Phase 4 #2623)
 //   5. LP_PRICING_LABELS 拡張           — LP pricing CTA / FAQ (Phase 4 #2621 §3.1 + §4.1 + §4.2)
@@ -24,18 +22,15 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS,
 	LP_PRICING_LABELS,
 	PHASE4_REACTIVATION_FLOW_LABELS,
 	SUBSCRIPTION_PAGE_LABELS,
-	UPGRADE_FLOW_LABELS,
 } from '../../../src/lib/domain/labels';
 import {
 	CANCEL_TERMS,
 	CTA_TERMS,
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
-	TOKUSHOHO_TERMS,
 	TRIAL_TERMS,
 } from '../../../src/lib/domain/terms';
 
@@ -48,11 +43,14 @@ describe('SUBSCRIPTION_PAGE_LABELS (Phase 3 #2567、Phase 7 PR-2b #2697)', () =>
 		expect(SUBSCRIPTION_PAGE_LABELS.currentPlan).toBe('現在のプラン');
 	});
 
-	it('trial active 中の表示は PLAN_FULL_TERMS.premium + TRIAL_TERMS.durationSpaced 経由 (atom 直書きなし)', () => {
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toContain(PLAN_FULL_TERMS.premium);
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toContain(TRIAL_TERMS.durationSpaced);
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toBe(
-			`${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
+	// #4501: `trialActive` は参照ゼロの dead label だった (実際に画面へ出るのは
+	// `trialActiveTitle`)。同じ概念の label が 2 つあると、片方だけ直して食い違う
+	// (実際 trialActive=premium / trialActiveTitle=standard と割れていた)。dead な方を
+	// 撤去し、**生きている方**に同じ不変条件を移す (検査対象を失わせない)。
+	it('trial active 中の表示は PLAN_FULL_TERMS.premium 経由 (atom 直書きなし)', () => {
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toContain(PLAN_FULL_TERMS.premium);
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe(
+			`${PLAN_FULL_TERMS.premium} トライアル中`,
 		);
 	});
 
@@ -78,100 +76,8 @@ describe('SUBSCRIPTION_PAGE_LABELS (Phase 3 #2567、Phase 7 PR-2b #2697)', () =>
 });
 
 // ============================================================
-// 2. UPGRADE_FLOW_LABELS (Phase 4 #2624 §4.2 確定 5 method)
-// ============================================================
-describe('UPGRADE_FLOW_LABELS (Phase 4 #2624、Phase 7 PR-2b #2697)', () => {
-	it('contextFromFeatureGate は 2 引数 (featureLabel, tierLabel) で context line を生成する', () => {
-		const result = UPGRADE_FLOW_LABELS.contextFromFeatureGate('AI 提案', 'スタンダードプラン');
-		expect(result).toContain('AI 提案');
-		expect(result).toContain('スタンダードプラン');
-		expect(result).toContain('アップグレード');
-	});
-
-	it('contextFromTrialEnd は tierLabel で trial 終了 context を生成する', () => {
-		const result = UPGRADE_FLOW_LABELS.contextFromTrialEnd('ファミリープラン');
-		expect(result).toContain('体験は終了');
-		expect(result).toContain('ファミリープラン');
-		expect(result).toContain('アップグレード');
-	});
-
-	it('contextFromHeaderBadge は空文字列 (Phase 3 #2573 6 ブロック構造をそのまま表示)', () => {
-		expect(UPGRADE_FLOW_LABELS.contextFromHeaderBadge).toBe('');
-	});
-
-	it('contextFromBanner は tierLabel で上限到達 context を生成する', () => {
-		const result = UPGRADE_FLOW_LABELS.contextFromBanner('ファミリープラン');
-		expect(result).toContain('上限到達');
-		expect(result).toContain('ファミリープラン');
-	});
-
-	it('contextFallback は空文字列 (?from パラメータ非該当時の安全フォールバック)', () => {
-		expect(UPGRADE_FLOW_LABELS.contextFallback).toBe('');
-	});
-});
 
 // ============================================================
-// 3. IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (補強 PR #2684 / 代替案 D)
-// ============================================================
-describe('IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (補強 PR #2684、Phase 7 PR-2b #2697)', () => {
-	it('completedTitle は targetPlan を含む即時ダウン完了 banner title を生成する', () => {
-		const result = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.completedTitle('スタンダードプラン');
-		expect(result).toContain('スタンダードプラン');
-		expect(result).toContain('切り替わりました');
-	});
-
-	it('creditBalanceLine は credit memo 残高 + 次回控除見込み透明性を伝達する (R8 対処の核)', () => {
-		const result = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.creditBalanceLine(
-			'¥280',
-			'2026年6月15日',
-		);
-		expect(result).toContain('¥280');
-		expect(result).toContain('2026年6月15日');
-		expect(result).toContain('次回ご請求');
-		expect(result).toContain('自動的に差し引かれます');
-	});
-
-	it('archiveNotice は PLAN_CHANGE_TERMS.archiveVerb + restore atom 経由 (atom 直書きなし)', () => {
-		const result = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.archiveNotice(3, 25);
-		expect(result).toContain('3');
-		expect(result).toContain('25');
-		expect(result).toContain(PLAN_CHANGE_TERMS.archiveVerb);
-		expect(result).toContain(PLAN_CHANGE_TERMS.restore);
-	});
-
-	it('ctaReactivate は sourcePlan を含むアップグレード CTA を生成する', () => {
-		const result = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.ctaReactivate('ファミリープラン');
-		expect(result).toContain('ファミリープラン');
-		expect(result).toContain('戻す');
-	});
-
-	it('ctaReactivateAria は PLAN_CHANGE_TERMS.changeVerb 経由', () => {
-		expect(IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.ctaReactivateAria).toContain(
-			PLAN_CHANGE_TERMS.changeVerb,
-		);
-	});
-
-	it('viewBillingHistoryLink + dismissAriaLabel を持つ', () => {
-		expect(IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.viewBillingHistoryLink).toBe(
-			'ご請求履歴で credit memo を確認する',
-		);
-		expect(IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.dismissAriaLabel).toBe('バナーを閉じる');
-	});
-
-	it('ADR-0012 Anti-engagement 整合: 「失う / 消える / 使えなくなる」文言を含まない', () => {
-		const completedTitle = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.completedTitle('standard');
-		const creditBalance = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.creditBalanceLine(
-			'¥280',
-			'2026/6/15',
-		);
-		const archiveNotice = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.archiveNotice(1, 1);
-		const ctaReactivate = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.ctaReactivate('family');
-
-		for (const value of [completedTitle, creditBalance, archiveNotice, ctaReactivate]) {
-			expect(value).not.toMatch(/失う|消える|使えなくなる|ロックされる/);
-		}
-	});
-});
 
 // ============================================================
 // 4. PHASE4_REACTIVATION_FLOW_LABELS (Phase 4 #2623 §文言 atom 確定 6 method)
@@ -235,14 +141,21 @@ describe('LP_PRICING_LABELS 拡張 (Phase 4 #2621、Phase 7 PR-2b #2697)', () =>
 		);
 	});
 
-	it('faqPurchaseSteps: 質問 + 導入 + 3 ステップを持つ', () => {
-		expect(LP_PRICING_LABELS.faqPurchaseStepsQ).toContain('どうやって');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsAIntro).toContain('3 ステップ');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep1).toContain(CTA_TERMS.freeTrialVerb);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep2).toContain('プラン');
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TOKUSHOHO_TERMS.heading6Important);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TRIAL_TERMS.duration);
-		expect(LP_PRICING_LABELS.faqPurchaseStepsStep3).toContain(TRIAL_TERMS.noCreditCardMid);
+	// #4510: faqPurchaseSteps は **配線ゼロのまま配信されていた dead payload** で、Step3 は
+	// 「カード情報を入力すると無料体験が始まります（カード登録不要）」という自己矛盾かつ
+	// 実装と逆 (Checkout は即時課金) の文言だった。配線された瞬間に虚偽表示になるため
+	// group ごと削除した。**復活したら落ちる**形に置き換える (assertion の弱体化ではなく、
+	// 誤った文言を守っていた検査の反転 — ADR-0006)。
+	it('faqPurchaseSteps は削除されている (未配線 + 実装と逆の文言だった)', () => {
+		for (const key of [
+			'faqPurchaseStepsQ',
+			'faqPurchaseStepsAIntro',
+			'faqPurchaseStepsStep1',
+			'faqPurchaseStepsStep2',
+			'faqPurchaseStepsStep3',
+		]) {
+			expect(LP_PRICING_LABELS, `${key} が復活しています`).not.toHaveProperty(key);
+		}
 	});
 
 	it('faqCancelSteps: 質問 + 導入 + 3 ステップ + closing を持つ', () => {
@@ -263,8 +176,8 @@ describe('ADR-0045 §3.3 atom 直書き複製禁止 (Phase 7 PR-2b 5 compound �
 	it('SUBSCRIPTION_PAGE_LABELS 内に atom 値の文字列リテラル直書きが存在しない', () => {
 		// atom 値はすべて `${...}` template literal 経由参照されること
 		// (静的検証は check-no-plan-literals.mjs が担当、ここでは値整合のみ assert)
-		expect(SUBSCRIPTION_PAGE_LABELS.trialActive).toBe(
-			`${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
+		expect(SUBSCRIPTION_PAGE_LABELS.trialActiveTitle).toBe(
+			`${PLAN_FULL_TERMS.premium} トライアル中`,
 		);
 		expect(SUBSCRIPTION_PAGE_LABELS.cancelAnytime).toBe(CANCEL_TERMS.anytimeOk);
 		expect(SUBSCRIPTION_PAGE_LABELS.noCreditCard).toBe(TRIAL_TERMS.noCreditCardMid);
@@ -278,32 +191,16 @@ describe('ADR-0045 §3.3 atom 直書き複製禁止 (Phase 7 PR-2b 5 compound �
 });
 
 // ============================================================
-// 補強 PR #2684 命名変更整合: SCHEDULED_DOWNGRADE_BANNER_LABELS → IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS
-// ============================================================
-describe('補強 PR #2684 命名変更整合性 (代替案 D 採用に伴う rename)', () => {
-	it('IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS の文言は「期末ダウン予約」ではなく「即時ダウン完了 + credit memo」文脈', () => {
-		// 旧 SCHEDULED_DOWNGRADE_BANNER_LABELS は「次回 YYYY/M/D から ${targetPlan} に切り替わります」
-		// 等の「期末ダウン予約」文脈だったが、代替案 D で「ダウン即時完了 + credit memo 残高表示」に変更。
-		// 本テストは命名変更後の文脈整合性を assert する。
-		const completedTitle = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.completedTitle('スタンダード');
-		// 完了形「切り替わりました」を含む (旧版「切り替わります」予約形ではない)
-		expect(completedTitle).toContain('切り替わりました');
-		expect(completedTitle).not.toContain('切り替わります');
-
-		// credit memo 残高表示が主訴求
-		const creditBalance = IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS.creditBalanceLine(
-			'¥500',
-			'2026/7/1',
-		);
-		expect(creditBalance).toContain('次回ご請求');
-		expect(creditBalance).toContain('自動的に差し引かれます');
-	});
-
-	it('SCHEDULED_DOWNGRADE_BANNER_LABELS export は存在しない (旧名 export 残存しないことを assert)', async () => {
-		// dynamic import で labels module の全 export を取得し、旧 namespace 名がないことを確認
+// #4502: UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS は削除済み。
+// #4166 で proration 表示と確認 UI を Stripe Customer Portal に委譲したため、自社確認 UI
+// 向けに書かれたこれらの文言は「作らないと決めた画面のテキスト」になった。
+// **旧 export が復活したら落ちる**形で pin する (作らない決定が静かに戻らないようにする)。
+describe('#4502 Portal 委譲で不採用になった文言 namespace が復活していない', () => {
+	it('UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS / 旧名 が export されていない', async () => {
 		const labels = await import('../../../src/lib/domain/labels');
+		expect(labels).not.toHaveProperty('UPGRADE_FLOW_LABELS');
+		expect(labels).not.toHaveProperty('IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS');
 		expect(labels).not.toHaveProperty('SCHEDULED_DOWNGRADE_BANNER_LABELS');
-		expect(labels).toHaveProperty('IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS');
 	});
 });
 

@@ -4,12 +4,18 @@
 
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+// #4716: 追加フォームの見出しは 'こどもを追加' → CHILD_TERMS.honorific 由来の 'お子さまを追加' に
+//   揃った。リテラル直書きだと呼称を直すたびに spec が黙って腐るので SSOT を直接読む。
+import { ADMIN_CHILDREN_PAGE_LABELS } from '../../src/lib/domain/labels';
+
+/** 追加フォームの見出し (SSOT: ADMIN_CHILDREN_PAGE_LABELS.addFormTitle)。 */
+const ADD_FORM_HEADING = { name: ADMIN_CHILDREN_PAGE_LABELS.addFormTitle };
 
 async function openAddForm(page: Page) {
 	await page.goto('/admin/children');
 	const addBtn = page.getByRole('button', { name: '追加する' }).first();
 	await addBtn.click();
-	await expect(page.getByRole('heading', { name: 'こどもを追加' })).toBeVisible();
+	await expect(page.getByRole('heading', ADD_FORM_HEADING)).toBeVisible();
 }
 
 async function fillNickname(page: Page, name: string) {
@@ -40,7 +46,7 @@ test.describe('#1380: 子供フォーム — 誕生日 or 年齢 必須化 (A案
 		await page.getByRole('button', { name: '追加する' }).last().click();
 
 		// 成功時: フォームが閉じる
-		await expect(page.getByRole('heading', { name: 'こどもを追加' })).not.toBeVisible();
+		await expect(page.getByRole('heading', ADD_FORM_HEADING)).not.toBeVisible();
 	});
 
 	test('年齢のみ入力 → 追加成功', async ({ page }) => {
@@ -54,7 +60,7 @@ test.describe('#1380: 子供フォーム — 誕生日 or 年齢 必須化 (A案
 		await page.getByRole('button', { name: '追加する' }).last().click();
 
 		// 成功時: フォームが閉じる
-		await expect(page.getByRole('heading', { name: 'こどもを追加' })).not.toBeVisible();
+		await expect(page.getByRole('heading', ADD_FORM_HEADING)).not.toBeVisible();
 	});
 
 	test('誕生日 + 年齢 両方提供 → 追加成功（誕生日 SSOT、年齢は disabled）', async ({ page }) => {
@@ -67,7 +73,7 @@ test.describe('#1380: 子供フォーム — 誕生日 or 年齢 必須化 (A案
 		await expect(ageInput).toBeDisabled();
 
 		await page.getByRole('button', { name: '追加する' }).last().click();
-		await expect(page.getByRole('heading', { name: 'こどもを追加' })).not.toBeVisible();
+		await expect(page.getByRole('heading', ADD_FORM_HEADING)).not.toBeVisible();
 	});
 
 	test('誕生日・年齢 両方空 → バリデーションエラー', async ({ page }) => {

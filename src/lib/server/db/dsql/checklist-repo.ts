@@ -222,7 +222,8 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 			if (!includeInactive) conditions.push(sql`t.is_active = true`);
 			const result = await db.execute(sql`
 				SELECT t.family_id, t.template_id, t.name, t.icon, t.points_per_item, t.completion_bonus,
-					t.time_slot, t.is_active, t.is_archived, t.archived_reason, t.created_at, t.updated_at
+					t.time_slot, t.is_active, t.is_archived, t.archived_reason, t.source_preset_id,
+					t.created_at, t.updated_at
 				FROM checklist_templates t
 				JOIN checklist_template_assignments a
 					ON a.family_id = t.family_id AND a.template_id = t.template_id

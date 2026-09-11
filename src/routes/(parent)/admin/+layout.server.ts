@@ -1,14 +1,16 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
+import { resolveTrialStartedNoticeEndDate } from '$lib/domain/trial-started-notice';
+import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import {
-	INVITE_ACCEPT_ERROR_COOKIE_NAME,
-	isInviteAcceptErrorReason,
-} from '$lib/domain/validation/auth';
-import { getEnv } from '$lib/runtime/env';
-import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
+	isParentGateActive,
+	parentGateBlocked,
+	parentGateRedirectUrl,
+} from '$lib/server/auth/parent-gate';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
@@ -21,11 +23,11 @@ import {
 import {
 	PARENT_SESSION_COOKIE_NAME,
 	refreshParentSession,
-	verifyParentSession,
 } from '$lib/server/services/parent-gate-session';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	archiveExcessResources,
+	EMPTY_ARCHIVED_RESOURCE_SUMMARY,
 	getArchivedResourceSummary,
 } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
@@ -50,13 +52,15 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	//   - cognito production mode: PIN gate 有効 (同端末共有家庭の構造的 privacy 保護)
 	//
 	// cognito-dev で手動動作確認したい場合は `PARENT_GATE_FORCE_ACTIVE=true` env で強制 ON。
-	const forceActive = getEnv().PARENT_GATE_FORCE_ACTIVE === true;
-	const pinGateActive = forceActive || (authMode === 'cognito' && !isCognitoDevMode());
+	// #4866 系 / PO 決裁 2026-09-10 決定 4: 判定の SSOT を
+	// `$lib/server/auth/parent-gate.ts` に寄せた。ここにインラインで書いていたため
+	// **page の load しか通らず**、`/api/v1/admin/**` 25 本と form action 22 file が
+	// 素通りしていた (設計書は「アプリ層（全経路）」と書いていた = 守っているつもり)。
+	// API 側は `hooks.server.ts` が同じ SSOT で倒す。
+	const pinGateActive = isParentGateActive();
 	const sessionCookie = cookies.get(PARENT_SESSION_COOKIE_NAME);
-	if (pinGateActive && !verifyParentSession(sessionCookie, tenantId)) {
-		const nextPath = url.pathname + (url.search ?? '');
-		const redirectUrl = `/switch?pinRequired=1&next=${encodeURIComponent(nextPath)}`;
-		redirect(303, redirectUrl);
+	if (parentGateBlocked(sessionCookie, tenantId)) {
+		redirect(303, parentGateRedirectUrl(url.pathname, url.search));
 	}
 
 	// sliding refresh: lastActiveAt 更新 → 再 sign して cookie 再発行 (15 分 inactivity timeout 延長)
@@ -73,18 +77,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
-		getSettings(
-			[
-				'point_unit_mode',
-				'point_currency',
-				'point_rate',
-				'tutorial_started_at',
-				'tutorial_banner_dismissed',
-			],
-			tenantId,
-		),
-		getTrialStatus(tenantId),
+		getSettings(['point_unit_mode', 'point_currency', 'point_rate'], tenantId),
+		// #4707: 有料契約中 (ACTIVE) ならトライアル中扱いしない (header pill / TrialBanner / 終了検知の射影)
+		getTrialStatus(tenantId, licenseStatus),
 	]);
 	const pointSettings: PointSettings = {
 		mode: (pointSettingsRaw.point_unit_mode as PointUnitMode) ?? DEFAULT_POINT_SETTINGS.mode,
@@ -95,16 +92,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantStatus = locals.context?.tenantStatus ?? SUBSCRIPTION_STATUS.ACTIVE;
 	// #732: server load 全体で resolveFullPlanTier に統一。
 	// trial 期限・tier は resolveFullPlanTier が内部で取得する（#725 の両引数漏れも自動解消）。
-	const planTier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 	const isPremium = isPaidTier(planTier);
-	const tutorialStarted = !!(
-		pointSettingsRaw.tutorial_started_at || pointSettingsRaw.tutorial_banner_dismissed
-	);
-
 	const userRole = locals.context?.role ?? 'owner';
 
 	// #770: トライアル終了検知 — cookie で前回の trial 状態を記憶し、
@@ -126,10 +115,22 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		cookies.delete(TRIAL_WAS_ACTIVE_COOKIE, { path: '/', secure: COOKIE_SECURE });
 	}
 
-	// #783: トライアル終了後に free プランの上限を超えるリソースを archive する。
+	// #783 / #4585-2: 有料相当から無料プランに戻ったテナントで、無料プランの上限を超える
+	// リソースを archive する (顧客が選ばずに手続きを終えた場合の fallback)。
 	// 冪等: 既に archive 済みなら超過はなく何もしない。
-	const isTrialExpired = trialStatus.trialUsed && !trialStatus.isTrialActive;
-	if (planTier === 'free' && isTrialExpired) {
+	//
+	// #4585-2: 起動条件を `trialUsed` (体験の履歴) から**プラン遷移**へ移した。判定は
+	// `hasRevertedToFreePlan` が SSOT で、解約フロー / 請求パネル / dunning の 3 経路とも
+	// 同じ終端 (contract-state-matrix S5) を見る。体験を経ず直接課金した顧客が解約しても
+	// 発火しなかった穴 (#4585 ①) が塞がり、#4603 が解約画面で示した fallback が実際に起きる。
+	const revertedToFreePlan = hasRevertedToFreePlan({
+		planTier,
+		tenantStatus,
+		stripeSubscriptionId: locals.context?.stripeSubscriptionId,
+		trialUsed: trialStatus.trialUsed,
+		isTrialActive: trialStatus.isTrialActive,
+	});
+	if (revertedToFreePlan) {
 		try {
 			const result = await archiveExcessResources(tenantId);
 			if (
@@ -137,7 +138,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 				result.archivedActivityIds.length > 0 ||
 				result.archivedChecklistTemplateIds.length > 0
 			) {
-				logger.info('[ARCHIVE] Trial expired — excess resources archived', {
+				logger.info('[ARCHIVE] Reverted to free plan — excess resources archived', {
 					context: {
 						tenantId,
 						children: result.archivedChildIds.length,
@@ -153,11 +154,14 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #783: archive 済みリソースの概要（UI 表示用）
-	const archivedSummary =
-		planTier === 'free' && isTrialExpired
-			? await getArchivedResourceSummary(tenantId)
-			: { archivedChildCount: 0, hasArchivedResources: false };
+	// #783: archive 済みリソースの概要（UI 表示用）。
+	// #4585-2: 起動条件と同じ述語で判定する。ここだけ体験基準のままだと、解約した顧客に
+	// 「アーカイブしました」の告知が出ないまま archive だけが進む。
+	// #4708: 3 資源の件数を配り、ArchivedResourceBanner (全 admin 画面) と /admin/children の
+	// archive 一覧の表示条件にする。
+	const archivedSummary = revertedToFreePlan
+		? await getArchivedResourceSummary(tenantId)
+		: EMPTY_ARCHIVED_RESOURCE_SUMMARY;
 
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
@@ -177,44 +181,31 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
-	// #3555 ① / #4633 AC-A: 招待受諾が拒否された直後の案内 (1 回限りの通知 cookie を
-	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
-	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
-	// #4633: 拒否理由は email 束縛の 2 種に限らない。未知の値も握り潰さず汎用文言で出す
-	// (握り潰すと「失敗が成功に見える」性質がそのまま残るため)。
-	// #4638: cookie 値は SSOT (INVITE_ACCEPT_ERROR_REASONS) で検証してから client へ渡す。
-	// 既知理由はそのまま、未知の値は 'UNKNOWN' に正規化する — 生の cookie 文字列を SSR
-	// ペイロードへ素通しせず、かつ「バナーを出さない」握り潰しにも倒さない。
-	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
-	const inviteAcceptError = rawInviteAcceptError
-		? isInviteAcceptErrorReason(rawInviteAcceptError)
-			? rawInviteAcceptError
-			: 'UNKNOWN'
-		: null;
-	if (rawInviteAcceptError) {
-		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
-	}
-
 	return {
 		pointSettings,
 		authMode,
-		// #3555 ①: 招待受諾失敗の 1 回限り案内 (admin +layout.svelte がバナー表示に使う)
-		inviteAcceptError,
 		// parent-gate inactivity redirect (client): PIN gate 有効時のみ admin で
 		// 15 分アイドル → /switch 自動リダイレクトを起動する (dev/demo では起動しない)
 		pinGateActive,
 		tenantStatus,
 		isPremium,
 		planTier,
-		tutorialStarted,
 		userRole,
+		// #4628: 本 layout の UI (header pill / TrialBanner / TrialEndedDialog) は
+		// 残日数と 2 つの flag しか読まない。`trialEndDate` は誰も描画しないまま
+		// client まで運ばれ、「flag と値が別々に届く = 相関の消えた形」を増やしていたので落とす。
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			daysRemaining: trialStatus.daysRemaining,
 			trialUsed: trialStatus.trialUsed,
-			trialEndDate: trialStatus.trialEndDate,
 		},
 		trialJustExpired,
+		// PO 決裁 2026-09-10 決定 3(a): 申込経路からの自動開始を着地直後に 1 度だけ告げる。
+		// **`?trialStarted=1` が付いていて、かつ実際に体験中のときだけ**値を持たせる
+		// (#4628 と同じ規律: 誰も描かない値を client まで運ばない)。
+		// 出す日付は「その日いっぱい使える最後の日」= trialEndDate そのもの
+		// (有効判定 isTrialEndDateActiveJST が `trialEndDate >= 今日` で当日を含む)。
+		trialStartedNoticeEndDate: resolveTrialStartedNoticeEndDate(url.searchParams, trialStatus),
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 		gracePeriodStatus,

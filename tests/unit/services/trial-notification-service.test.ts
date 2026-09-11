@@ -11,6 +11,8 @@ const mockFindTenantMembers = vi.fn();
 const mockFindUserById = vi.fn();
 const mockFindArchivedChildren = vi.fn();
 const mockGetSettings = vi.fn();
+// #4721: 送信済マーカーの読み取り。既定 undefined = 未送信
+const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -25,6 +27,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 		settings: {
 			getSettings: mockGetSettings,
+			getSetting: mockGetSetting,
 			setSetting: mockSetSetting,
 		},
 	}),
@@ -142,6 +145,53 @@ describe('trial-notification-service', () => {
 			});
 
 			const result = await getNotificationSchedule('tenant-1');
+			expect(result?.notifications).toEqual(['trial_ended_today']);
+		});
+
+		// #4707: トライアル中に本契約した顧客 (licenseStatus=ACTIVE) に終了予告 / 当日メールを送らない。
+		// 契約状態は tenant 行 (stripe_subscription_id + status) から導出し、getTrialStatus に渡す。
+		it('有料契約中 (sub あり + active) の tenant は licenseStatus=active で getTrialStatus を射影し、通知なし', async () => {
+			mockFindTenantById.mockResolvedValue({
+				tenantId: 'tenant-1',
+				status: 'active',
+				stripeSubscriptionId: 'sub_paid',
+				plan: 'monthly',
+			});
+			mockGetTrialStatus.mockImplementation(async (_tenantId: string, licenseStatus?: string) => ({
+				isTrialActive: licenseStatus !== 'active',
+				trialUsed: true,
+				trialStartDate: '2026-04-13',
+				trialEndDate: '2026-04-20',
+				trialTier: 'standard',
+				daysRemaining: 0,
+				source: 'user_initiated',
+				convertedToPaid: false,
+			}));
+
+			const result = await getNotificationSchedule('tenant-1');
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'active');
+			expect(result).toBeNull();
+		});
+
+		it('未課金 (sub なし) の tenant は licenseStatus=none で getTrialStatus を呼ぶ (通知対象のまま)', async () => {
+			mockFindTenantById.mockResolvedValue({
+				tenantId: 'tenant-1',
+				status: 'active',
+				stripeSubscriptionId: null,
+				plan: null,
+			});
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-04-13',
+				trialEndDate: '2026-04-20',
+				trialTier: 'standard',
+				daysRemaining: 0,
+				source: 'user_initiated',
+			});
+
+			const result = await getNotificationSchedule('tenant-1');
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'none');
 			expect(result?.notifications).toEqual(['trial_ended_today']);
 		});
 
@@ -291,6 +341,8 @@ describe('trial-notification-service', () => {
 			const result = await getTrialExpirationInfo('tenant-1', 'active');
 			expect(result.isExpired).toBe(false);
 			expect(result.showExpirationModal).toBe(false);
+			// #4707: licenseStatus を getTrialStatus にも渡し、契約中はトライアル中扱いしない射影を共有する
+			expect(mockGetTrialStatus).toHaveBeenCalledWith('tenant-1', 'active');
 		});
 
 		it('トライアル終了後の初回ログインでモーダル表示', async () => {
@@ -374,6 +426,63 @@ describe('trial-notification-service', () => {
 			expect(result.sent).toBe(1);
 			expect(result.skipped).toBe(0);
 			expect(result.errors).toBe(0);
+		});
+
+		// #4721: dispatcher の Lambda 非同期 retry / 手動再実行で同じ通知が 2 通届いていた。
+		// マーカーの値をトライアル終了日にすることで「同じ契約の同じ通知は 1 通」を保証する。
+		it('#4721 送信済マーカーがあれば同じ通知を再送しない', async () => {
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-04-10',
+				trialEndDate: '2026-04-20',
+				trialTier: 'standard',
+				daysRemaining: 3,
+				source: 'user_initiated',
+			});
+			mockFindTenantById.mockResolvedValue({ tenantId: 'tenant-1', name: 'Test' });
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'user-1', tenantId: 'tenant-1', role: 'owner' },
+			]);
+			mockFindUserById.mockResolvedValue({ userId: 'user-1', email: 'owner@example.com' });
+			// 同じトライアル終了日で既に送信済
+			mockGetSetting.mockResolvedValue('2026-04-20');
+
+			const result = await processTrialNotifications(['tenant-1']);
+
+			expect(result.sent).toBe(0);
+			expect(result.skipped).toBe(1);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+		});
+
+		// マーカーの値がトライアル終了日なので、新しいトライアルなら再び届く
+		// (値を「送った日付」にすると、翌日にもう 1 通出てしまう)。
+		it('#4721 別のトライアル (終了日が違う) なら送る', async () => {
+			mockGetTrialStatus.mockResolvedValue({
+				isTrialActive: true,
+				trialUsed: true,
+				trialStartDate: '2026-06-10',
+				trialEndDate: '2026-06-20',
+				trialTier: 'standard',
+				daysRemaining: 3,
+				source: 'user_initiated',
+			});
+			mockFindTenantById.mockResolvedValue({ tenantId: 'tenant-1', name: 'Test' });
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'user-1', tenantId: 'tenant-1', role: 'owner' },
+			]);
+			mockFindUserById.mockResolvedValue({ userId: 'user-1', email: 'owner@example.com' });
+			// 前回のトライアルの終了日が残っている
+			mockGetSetting.mockResolvedValue('2026-04-20');
+
+			const result = await processTrialNotifications(['tenant-1']);
+
+			expect(result.sent).toBe(1);
+			expect(mockSetSetting).toHaveBeenCalledWith(
+				'trial_notif_sent_trial_ending_3days',
+				'2026-06-20',
+				'tenant-1',
+			);
 		});
 
 		it('通知対象外のテナントはスキップする', async () => {

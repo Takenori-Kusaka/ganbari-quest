@@ -24,6 +24,14 @@ import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5280';
 
 /**
+ * `SS_PHASE=before` / `SS_PHASE=after` を付けると撮影ラベルに前置される (#4619)。
+ * before / after を同じ出力先 (`--pr N` の `tmp/screenshots/pr-N/`) に撮る場合、
+ * ラベルが同じだと後の run が前の run の画像を上書きしてしまうため。
+ * 未指定なら従来どおりラベルそのまま (既存の `--out` 分けでの使い方は不変)。
+ */
+const PHASE_PREFIX = process.env.SS_PHASE ? `${process.env.SS_PHASE}-` : '';
+
+/**
  * summary のテキストで `<details>` を特定して開き、その位置までスクロールする。
  * data-lp-key は SSOT 注入前後で変わらないためキーで引く (文言変更に強い)。
  *
@@ -59,9 +67,9 @@ export default async (page, capture) => {
 	await openDetailsBySummaryKey(page, 'faqB.k18');
 	await openDetailsBySummaryKey(page, 'faqB.k26');
 	await openDetailsBySummaryKey(page, 'faqB.k18');
-	await capture('faq-cancel');
+	await capture(`${PHASE_PREFIX}faq-cancel`);
 
 	// 退会: 「退会・アカウント削除はすぐにできますか？」
 	await openDetailsBySummaryKey(page, 'faqB.k75');
-	await capture('faq-deletion');
+	await capture(`${PHASE_PREFIX}faq-deletion`);
 };

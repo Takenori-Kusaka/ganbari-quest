@@ -14,6 +14,8 @@
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { recalcUiMode } from '$lib/domain/validation/age-tier';
+// #4682: 「今回の担当分」の決め方は cron 共有ロジック (tenants.slice(0, limit) 禁止)。
+import { selectTenantSlice } from '$lib/server/cron/tenant-slice';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import type { IChildRepo } from '$lib/server/db/interfaces/child-repo.interface';
@@ -160,39 +162,6 @@ async function processChild(params: ProcessChildParams): Promise<ProcessChildRes
 		});
 		return { skipped: false, updated: false, failed: true };
 	}
-}
-
-/**
- * #4337: 実行日 (JST 暦日) から決まる「今回処理するスライス」を選ぶ。
- *
- * 全テナントを tenantId 昇順に並べ、`limit` 件ずつの固定スライスに分割し、
- * 実行日の通し日数 (UNIX epoch からの日数) で剰余を取ってスライスを 1 つ選ぶ。
- *
- * この方式を採る理由:
- * - **再開位置に永続ストアが要らない**。settings はテナント単位 (`ISettingsRepo` の全 API が
- *   tenantId 必須) で、cron 全体のカーソルを置ける横断 kv が存在しない。テナント毎に
- *   「最終処理日」を持たせると全テナント分の設定読み取り = N+1 が増え ADR-0065 に反する
- * - **同じ先頭 N 件を毎回処理する形にならない**。スライスは日付で 1 つずつ前進し
- *   `ceil(total / limit)` 日で全テナントを重複なく網羅して周回する
- * - **決定的**。同じ実行日なら同じスライスを選ぶので、失敗した日の再実行が
- *   その日の担当分をやり直す (ランダム / 実行時刻依存だと再実行で別集合を触る)
- *
- * テナント総数が `limit` 以下なら常にスライスは 1 つ = 全件処理となり従来動作と同じ。
- */
-function selectTenantSlice<T extends { tenantId: string }>(
-	tenants: T[],
-	limit: number,
-	today: string,
-): { slice: T[]; sliceIndex: number; sliceCount: number } {
-	if (tenants.length === 0) return { slice: [], sliceIndex: 0, sliceCount: 1 };
-
-	const ordered = [...tenants].sort((a, b) => (a.tenantId < b.tenantId ? -1 : 1));
-	const sliceCount = Math.max(1, Math.ceil(ordered.length / limit));
-	// 暦日文字列を UTC 深夜として解釈するため、プロセス TZ に依存しない (#4015 / #4127)
-	const dayIndex = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000);
-	const sliceIndex = ((dayIndex % sliceCount) + sliceCount) % sliceCount;
-	const start = sliceIndex * limit;
-	return { slice: ordered.slice(start, start + limit), sliceIndex, sliceCount };
 }
 
 /**

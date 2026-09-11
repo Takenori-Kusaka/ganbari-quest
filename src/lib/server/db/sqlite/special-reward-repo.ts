@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
@@ -121,10 +121,14 @@ export async function updateSpecialReward(
 }
 
 /**
- * #2832: 特別報酬を削除。
+ * #2832 / #4683: 特別報酬を削除。
  * pending redemption ガードは service 層 (hasPendingByReward) が担う前提。
- * FK (reward_redemption_requests.reward_id → special_rewards.id) 整合のため、
- * 解決済 (approved/rejected/expired) の交換申請履歴行も同一トランザクションで削除する。
+ *
+ * #4683: **交換申請履歴は削除しない**。point_ledger の控除は残るため、履歴だけ消すと
+ * 子供からは「ポイントが勝手に減った」、親からは「何に使ったか辿れない」状態になる。
+ * 代わりに、snapshot 列が未設定の旧行 (#2832 より前に作られた行) を削除前に live reward の
+ * 値で backfill し、reward が消えても表示が空にならないようにする。
+ * FK は #4683 で外してあるため、reward 削除後も履歴行は残り続ける (schema.ts 参照)。
  */
 export async function deleteSpecialReward(
 	childId: ChildId,
@@ -132,9 +136,15 @@ export async function deleteSpecialReward(
 	_tenantId: string,
 ): Promise<boolean> {
 	// #2845 課題①: childId 所有権検証付き (composite key)。reward は per-child のため
-	// 交換申請履歴の cascade 削除も同 child scope に閉じる。
+	// snapshot backfill も同 child scope に閉じる。
 	return db.transaction((tx) => {
-		tx.delete(rewardRedemptionRequests)
+		const rid = Number(rewardId);
+		tx.update(rewardRedemptionRequests)
+			.set({
+				rewardTitle: sql`COALESCE(${rewardRedemptionRequests.rewardTitle}, (SELECT ${specialRewards.title} FROM ${specialRewards} WHERE ${specialRewards.id} = ${rid}))`,
+				rewardPoints: sql`COALESCE(${rewardRedemptionRequests.rewardPoints}, (SELECT ${specialRewards.points} FROM ${specialRewards} WHERE ${specialRewards.id} = ${rid}))`,
+				rewardIcon: sql`COALESCE(${rewardRedemptionRequests.rewardIcon}, (SELECT ${specialRewards.icon} FROM ${specialRewards} WHERE ${specialRewards.id} = ${rid}))`,
+			})
 			.where(
 				and(
 					eq(rewardRedemptionRequests.rewardId, Number(rewardId)),

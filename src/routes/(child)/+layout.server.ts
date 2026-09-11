@@ -3,8 +3,9 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { UI_MODES } from '$lib/domain/validation/age-tier';
+import { hasAgeTierCapability, UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { setSelectedChildCookie } from '$lib/server/auth/selected-child-cookie';
 import { getSetting, getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
@@ -62,9 +63,11 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	let childIdStr = cookies.get('selectedChildId');
 
 	// context.childId がある場合（招待紐づけ済みの child ロール）は自動選択 (#0156)
+	// #4641: cookie の属性は selected-child-cookie.ts に集約した。旧実装はここだけ httpOnly:false /
+	// 有効期限なしで書いており、ブラウザを閉じると選択が消える (毎回選び直し) 挙動になっていた。
 	if (!childIdStr && locals.context?.childId) {
 		childIdStr = String(locals.context.childId);
-		cookies.set('selectedChildId', childIdStr, { path: '/', httpOnly: false, sameSite: 'lax' });
+		setSelectedChildCookie(cookies, childIdStr);
 	}
 
 	// 子供未選択の場合は /switch にリダイレクト
@@ -119,8 +122,12 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		rate: Number.parseFloat(pointSettingsRaw.point_rate ?? '') || DEFAULT_POINT_SETTINGS.rate,
 	};
 
+	// #4685 (ADR-0011): 準備モード (baby) はスタンプカード (収集) を持たない。
+	// ヘッダーの「💮 0/5」+ カード dialog が出ないよう、layout の時点で null にする。
 	const stampProgress =
-		!stampCardResult || 'error' in stampCardResult
+		!hasAgeTierCapability(effectiveMode, 'stampCard') ||
+		!stampCardResult ||
+		'error' in stampCardResult
 			? null
 			: { filled: stampCardResult.filledSlots, total: stampCardResult.totalSlots };
 

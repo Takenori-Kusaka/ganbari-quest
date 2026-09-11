@@ -6,7 +6,9 @@ import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
 
-interface Props extends HTMLButtonAttributes {
+// href 描画 (<a>) のときだけ意味を持つ anchor 属性 (target / rel) も型で受ける。
+// runtime は rest を <a> に spread しているが、型に無いと呼び出し側で「別タブで開く」が書けない (#4887 T10)。
+interface Props extends HTMLButtonAttributes, Pick<HTMLAnchorAttributes, 'target' | 'rel'> {
 	/** リンクとして描画したい場合は href を指定する（<a> タグで描画される） */
 	href?: string;
 	variant?: Variant;
@@ -33,14 +35,18 @@ let {
 }: Props = $props();
 
 const variantClasses: Record<Variant, string> = {
-	primary: 'bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80',
+	// #4645: 白文字を載せる塗りは AA 版 (--color-action-primary-strong) を使う。
+	// --theme-primary そのままだと pink テーマで 2.64:1 / brand で 3.34:1 と WCAG 1.4.3 未達。
+	primary:
+		'bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80',
 	secondary:
 		'bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90',
 	danger: 'bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80',
 	ghost: 'bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10',
 	success: 'bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80',
 	outline:
-		'bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]',
+		// #4645: 文字色も白背景に載るため AA 版を使う (枠線は 3:1 で足りるので従来色のまま)。
+		'bg-transparent text-[var(--color-action-primary-strong)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]',
 	warning: 'bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80',
 };
 

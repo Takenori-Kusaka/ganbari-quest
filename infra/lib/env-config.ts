@@ -39,6 +39,24 @@ export interface GqEnvConfig {
 	readonly removalPolicy: cdk.RemovalPolicy;
 }
 
+/**
+ * assets バケットの物理名 (SSOT、#4724)。
+ *
+ * StorageStack が bucket を作るときと、DsqlStack が AWS Backup の selection に載せるときの
+ * 2 箇所で使う。**片方だけ変えると「バックアップしているつもりで別のバケットを見ている」**
+ * になり、しかも成功扱いで気付けないため 1 関数に閉じる。cross-stack export を作らない
+ * ために ARN を GetAtt で渡さず、両 stack がそれぞれ自分の account でこの関数を呼ぶ
+ * (`tests/unit/infra/assets-backup.test.ts` が両者の一致を機械検証する)。
+ */
+export function assetsBucketName(resourcePrefix: string, account: string): string {
+	return `${resourcePrefix}-assets-${account}`;
+}
+
+/** 上記バケットの ARN。AWS Backup の BackupResource.fromArn() に渡す。 */
+export function assetsBucketArn(resourcePrefix: string, account: string): string {
+	return `arn:aws:s3:::${assetsBucketName(resourcePrefix, account)}`;
+}
+
 /** 現行 prod 値 (default)。値を変えると prod template が変わるため変更禁止 (ADR-0019) */
 export const PROD_ENV_CONFIG: GqEnvConfig = {
 	envName: 'prod',

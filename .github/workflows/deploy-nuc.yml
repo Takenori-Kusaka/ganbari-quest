@@ -161,14 +161,22 @@ jobs:
       # BUILD_TIMESTAMP busts the build-stage cache (#711 / PR #826 review) — without this,
       # a workflow_dispatch redeploy of the same commit would reuse the cached layer and
       # keep the stale date. Passing a fresh timestamp every run guarantees regeneration.
-      # --profile backup を付与しないと profile ゲートの backup service が
-      # build / up の対象外になり、compose を更新しても旧コンテナ (古い crontab)
-      # が凍結されたまま残り config drift する (#2985 / #2779 再発の根因)。
+      # --profile を付与しないと profile ゲートの service が build / up の対象外になり、
+      # compose を更新しても旧コンテナ (古い crontab / 古い registry) が凍結されたまま残り
+      # config drift する (#2985 / #2779 再発の根因)。
+      #
+      # #4721: **scheduler も同じ理由で必須**。docker-compose.yml の scheduler は
+      # `profiles: [scheduler]` gate なので、profile を付けない deploy では
+      #   - 一度も起動していなければ起動しない
+      #   - 手動で一度上げていても rebuild されず、registry (schedule-registry.ts) に
+      #     ジョブを足しても NUC では永久に走らない
+      # という状態になる。設計書 13 §3.3「NUC は scheduler が registry 全ジョブを駆動」の
+      # 前提が deploy で満たされていなかった。
       - name: Build and start
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          docker compose --profile backup build
-          docker compose --profile backup up -d
+          docker compose --profile backup --profile scheduler build
+          docker compose --profile backup --profile scheduler up -d
 
       # Step 4: Verify the service is healthy after deployment
       # Uses curl.exe instead of Invoke-WebRequest to avoid NETWORK SERVICE proxy/timeout issues

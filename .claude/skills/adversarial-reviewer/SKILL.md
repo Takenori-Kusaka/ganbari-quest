@@ -77,7 +77,7 @@ dispatch 元 (QM Orchestrator) は以下を context として与える:
 | `objections[].axis` | `'business' | 'UX' | 'security'` のいずれか、3 軸全てを 1 つずつ網羅 |
 | `objections[].reason` | `length >= 100` (短すぎる反対理由は echoing の symptom) |
 | `if_no_objections` | 必ず `null` (反対理由ゼロ経路は schema レベルで閉じられている) |
-| `generated_at` | ISO 8601、TTL 30 分以内に approve action へ流れる必要あり |
+| `generated_at` | ISO 8601。**TTL 30 分の縛りは無くなった** (ADR-0068 / #4571 で approve を止める hook の呼び出しを外したため)。`verify-adversarial-output.mjs` / `audit-approve-evidence.mjs` で手動 verify する場合のみ TTL が効く |
 
 ## 出力手順 (write tool fallback 含む)
 
@@ -112,6 +112,6 @@ dispatch 元 (QM Orchestrator) は以下を context として与える:
 
 ## 関連
 
-- `.claude/hooks/gate-approve.mjs` — 本 skill の output を必須化する PreToolUse hook
+- `.claude/hooks/gate-approve.mjs` — 本 skill の output を必須化していた PreToolUse hook。**ADR-0068 / #4571 で呼び出しを外した**（本体は段階的な再導入のため残置）。いま本 skill の output が必須なのは PO 決裁ブリーフ ③（`.claude/skills/dev-open-pr/templates/po-decision-brief.md`）であり、merge の前提条件ではない
 - `scripts/verify-adversarial-output.mjs` — schema validation 本体
 - `tests/unit/hooks/gate-approve.test.ts` — hook の単体テスト (schema 受入境界値)

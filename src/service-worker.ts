@@ -3,7 +3,7 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { build, files, prerendered, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -13,10 +13,21 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 type PushNotificationOptions = NotificationOptions & { renotify?: boolean };
 const CACHE_NAME = `ganbari-quest-${version}`;
 
-// ビルド生成物 + 静的ファイル（大きなファイルは除外）
+// #4644: オフライン時の navigate 着地先。prerender されているので precache に載る。
+// 値を直書きせず定数化して、下の PRECACHE_ASSETS / フォールバック / test が同じ 1 箇所を
+// 参照するようにする (パスがずれると「precache していないページに fallback する」= 無効になる)。
+export const OFFLINE_FALLBACK_PATH = '/offline';
+
+// ビルド生成物 + 静的ファイル（大きなファイルは除外） + prerender 済みページ
+//
+// #4644: `prerendered` を precache に含める。ここに `/offline` が入らないと、オフライン時の
+// フォールバック先そのものがキャッシュに無く、AC の「オフラインで /offline が出る」が
+// 成立しない。prerender 済みページは静的 HTML で個人情報を含まないため、
+// `/tenants/` `/uploads/` (認証済 user-content、#3133) のような除外は不要。
 const PRECACHE_ASSETS = [
 	...build,
 	...files.filter((f) => !f.startsWith('/uploads/') && !f.startsWith('/sounds/')),
+	...prerendered,
 ];
 
 // インストール: 静的アセットをキャッシュ
@@ -83,15 +94,22 @@ sw.addEventListener('fetch', (event) => {
 	// ブラウザの HTTP cache (Cache-Control 準拠) は従来どおり効くので、再表示は速いまま。
 	if (url.pathname.startsWith('/tenants/') || url.pathname.startsWith('/uploads/')) return;
 
-	// ページナビゲーション: Network-first + オフラインフォールバック
+	// ページナビゲーション: Network-first + `/offline` へのフォールバック (#4644)
+	//
+	// 旧実装は失敗時に `caches.match(request)` → `caches.match('/')` の順で **stale な
+	// ページを返していた**。これは子供の画面では実害になる:
+	//   - 前回のポイント / スタンプがそのまま出るため、記録できていないのに「できた」ように見える
+	//   - `/` のキャッシュはリダイレクト応答やログイン画面を掴んでいることがあり、白画面になる
+	// オフラインは「今つながっていない」という状態であって「前の画面をもう一度見せる」場面では
+	// ないため、常に説明のある `/offline` に着地させる (ひらがな文面、OFFLINE_LABELS が SSOT)。
 	if (request.mode === 'navigate') {
 		event.respondWith(
 			fetch(request).catch(
 				async () =>
-					(await caches.match(request)) ??
-					(await caches.match('/')) ??
-					// cache も空 (= 初回訪問がオフライン) の場合。`undefined` を respondWith すると
-					// TypeError で握り潰されブラウザ既定のエラー画面になるため、明示的に応答を返す。
+					(await caches.match(OFFLINE_FALLBACK_PATH)) ??
+					// precache 前 (= SW install 完了前) にオフラインになった場合の最終手段。
+					// `undefined` を respondWith すると TypeError で握り潰されブラウザ既定の
+					// エラー画面になるため、明示的に応答を返す。
 					new Response('オフラインのため表示できません', {
 						status: 503,
 						headers: { 'Content-Type': 'text/plain; charset=utf-8' },

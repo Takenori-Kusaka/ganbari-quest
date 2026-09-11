@@ -17,6 +17,7 @@
 import { expect, test } from '@playwright/test';
 // Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) で CTA 文言は PLAN_TERMS.premium 参照。
 import { PLAN_TERMS } from '../../src/lib/domain/terms';
+import { openMenu } from './helpers/goal-flows';
 
 // ============================================================
 // 1. PlanStatusCard からのアップグレード CTA（free）
@@ -206,7 +207,8 @@ test.describe('#753 /admin/rewards → アップグレード導線', () => {
 		// 旧常設バナーは撤去済
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		const manualItem = page.getByTestId('menu-item-manual');
 		await expect(manualItem).toBeVisible();
 		await expect(manualItem).toContainText('🔒');
@@ -403,7 +405,8 @@ test.describe('#753 アップグレード後の機能有効化 — standard', ()
 
 		// EPIC #3533 §10.2.3: 常設バナーは撤去済。standard では manual が gate なし (lock マーカーなし)。
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-		await page.getByTestId('rewards-add-menu').click();
+		// #4609: Ark UI Menu の trigger は hydration 前 click が握り潰される。共有 helper で開く
+		await openMenu(page, 'rewards-add-menu', 'menu-item-manual');
 		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 });

@@ -17,16 +17,14 @@ import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { checkIntegrationEvidenceTable } from '../../../scripts/check-ac-verification-map.mjs';
+import * as prBodyModule from '../../../scripts/check-pr-body.mjs';
 import {
-	checkAcMap,
-	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
 	checkPlaceholders,
 	checkPoDecisionBrief,
 	checkSelfReviewEvidence,
 	collectViolations,
 	detectMojibake,
-	extractAcMapSection,
 	extractEnvDistributionSection,
 	extractLabelNames,
 	extractLaneRefs,
@@ -189,66 +187,6 @@ inline \`予定\` も除外。
 		for (const term of FORBIDDEN_TERMS) {
 			expect(detectedTerms.has(term)).toBe(true);
 		}
-	});
-});
-
-describe('extractAcMapSection', () => {
-	it('AC 検証マップセクションを次の ## まで抽出', () => {
-		const body = `## 関連 Issue\n本文1\n\n## AC 検証マップ (ADR-0004)\n\n| AC | 内容 |\n| AC1 | OK |\n\n## 変更タイプ\n`;
-		const section = extractAcMapSection(body);
-		expect(section).toContain('AC1');
-		expect(section).not.toContain('変更タイプ');
-	});
-
-	it('セクションが無ければ null', () => {
-		expect(extractAcMapSection('## A\n本文\n')).toBe(null);
-	});
-});
-
-describe('checkAcMap', () => {
-	it('skip マーカーで検証スキップ', () => {
-		const body = `## AC 検証マップ (ADR-0004)\n<!-- ac-verification-skip: docs only -->\n`;
-		expect(checkAcMap(body)).toBe(null);
-	});
-
-	it('セクション欠落で fail', () => {
-		const body = `## A\n本文\n`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-missing');
-	});
-
-	it('データ行 0 件で fail (ヘッダのみ)', () => {
-		const body = `## AC 検証マップ (ADR-0004)\n\n| AC 番号 | AC 内容 | 検証手段 | 結果 |\n|---------|---------|---------|------|\n\n## 次\n`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-empty');
-	});
-
-	it('空セルで fail', () => {
-		const body = `
-## AC 検証マップ (ADR-0004)
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 |
-|---------|---------|---------|------|
-| AC1 | <!-- 未記入 --> | command | result |
-
-## 次
-`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-incomplete');
-	});
-
-	it('全セル埋まっていれば pass', () => {
-		const body = `
-## AC 検証マップ (ADR-0004)
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 |
-|---------|---------|---------|------|
-| AC1 | 機能A | npx vitest | PASS |
-| AC2 | 機能B | scripts/foo | PASS |
-
-## 次
-`;
-		expect(checkAcMap(body)).toBe(null);
 	});
 });
 
@@ -429,64 +367,18 @@ describe('detectMojibake (#2562 / #2576)', () => {
 	});
 });
 
-describe('checkAcMap error message (#2586)', () => {
-	it('AC マップ列数不足時の error message は 4 列形式期待 + 参考 PR を含む', () => {
-		// 2 列 (簡略形式) の AC マップ — re-review 浪費の根本原因 pattern
-		const body = `
-## AC 検証マップ (ADR-0004)
-
-| AC | 結果 |
-|-----|------|
-| AC1 | PASS |
-
-## 次
-`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-incomplete');
-		const msg = result?.message ?? '';
-		// 4 列形式の期待を明示
-		expect(msg).toMatch(/4 列/);
-		// 参考 PR を明示
-		expect(msg).toMatch(/#2588/);
-		expect(msg).toMatch(/#2599/);
-		// 修正手順を明示
-		expect(msg).toMatch(/修正手順/);
-	});
-
-	it('AC マップが 4 列で全セル埋まっていれば PASS (dogfood)', () => {
-		const body = `
-## AC 検証マップ (ADR-0004)
-
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---------|--------|---------|------------------|
-| AC1 | BOM heuristic threshold 強化 | npx vitest | HEAD abc1234 / 12 passed |
-| AC2 | AC 4 列 SSOT enforcement | check-pr-body | dogfood PASS |
-
-## 次
-`;
-		expect(checkAcMap(body)).toBeNull();
-	});
-
-	it('AC マップデータ 0 件時の error message も 4 列形式期待 + 参考 PR を含む', () => {
-		const body = `## AC 検証マップ (ADR-0004)\n\n| AC 番号 | AC 内容 | 検証手段 | 結果 |\n|---------|---------|---------|------|\n\n## 次\n`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-empty');
-		const msg = result?.message ?? '';
-		expect(msg).toMatch(/4 列/);
-		expect(msg).toMatch(/#2588/);
-		expect(msg).toMatch(/#2599/);
-	});
-});
-
 // ---------------------------------------------------------------------------
-// #2632: Readiness gate 統合検証 (Ready checklist + AC 4 列 + forbidden-terms)
+// #2632: Readiness gate 統合検証 (Ready checklist + forbidden-terms)
 // QA self-implement 第 5 弾。本日 (2026-05-29) 7 連続再発の構造的予防。
-// 既存 unit (findUncheckedReadyChecklist / checkAcMap / scanForbiddenTerms) は単独テスト済。
-// 本 describe では「Readiness gate として 3 検査が同一 body に対して整合的に動く」ことを統合的に verify。
-// pre-ready.mjs Step 9 ラベル変更 (label: 'Readiness gate ...') 整合の dogfood test 群。
+// 本 describe では「Readiness gate として複数検査が同一 body に対して整合的に動く」ことを verify。
+//
+// **AC 4 列 (`checkAcMap`) の観点は #4612 で削除した。** #4305 が PR テンプレートから
+// `## AC 検証マップ` 節を撤去した時点で入力が来なくなり、判定関数も runner から呼ばれて
+// いなかったため (= 通っていたのは fixture だけ)。Ready checklist も #4305 以降は
+// integration lane でのみ検査される。
 // ---------------------------------------------------------------------------
 
-describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-terms)', () => {
+describe('#2632 Readiness gate 統合 (Ready checklist + forbidden-terms)', () => {
 	const READY_PASS_BODY = `
 ## Ready for Review チェックリスト
 
@@ -494,18 +386,14 @@ describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-te
 - [x] QM 承認・動作確認が完了している
 - [x] pre-ready 全 step PASS
 
-## AC 検証マップ (ADR-0004)
+## 検証
 
-| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
-|---------|--------|---------|------------------|
-| AC1 | pre-ready Step 9 強化 | npx vitest run tests/unit/scripts/check-pr-body.test.ts | HEAD abc1234 / dogfood PASS |
-| AC2 | SKILL.md prelude 追加 | node scripts/check-pr-body.mjs --body-file | dogfood PASS |
+\`npx vitest run tests/unit/scripts/check-pr-body.test.ts\` → PASS (HEAD abc1234)
 `;
 
-	it('AC1: Ready checklist 全 [x] + AC 4 列 + 禁止語 0 の body は 3 検査すべて pass (#2632 dogfood)', () => {
+	it('AC1: Ready checklist 全 [x] + 禁止語 0 の body は 2 検査すべて pass (#2632 dogfood)', () => {
 		const body = READY_PASS_BODY;
 		expect(findUncheckedReadyChecklist(body)).toEqual([]);
-		expect(checkAcMap(body)).toBeNull();
 		expect(scanForbiddenTerms(body)).toEqual([]);
 	});
 
@@ -519,20 +407,6 @@ describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-te
 		const result = findUncheckedReadyChecklist(body);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.uncheckedCount).toBe(1);
-	});
-
-	it('AC3: AC 検証マップ 2 列簡略形式は BLOCK (本日 #2626 再発 pattern)', () => {
-		const body = `
-## AC 検証マップ (ADR-0004)
-
-| AC | 結果 |
-|-----|------|
-| AC1 | PASS |
-
-## 次
-`;
-		const result = checkAcMap(body);
-		expect(result?.id).toBe('ac-map-incomplete');
 	});
 
 	it('AC4: forbidden-terms (「予定」「follow-up」「TODO」等) 混入で BLOCK', () => {
@@ -551,18 +425,12 @@ TODO: 後日テスト追加。
 		expect(detectedTerms.has('TODO')).toBe(true);
 	});
 
-	it('AC5: 同一 body に 3 違反共存時、全検査が独立して BLOCK 返す (gate 整合性)', () => {
+	it('AC5: 同一 body に 2 違反共存時、各検査が独立して BLOCK 返す (gate 整合性)', () => {
 		const body = `
 ## Ready for Review チェックリスト
 
 - [ ] 未完了
 - [ ] QM 承認・動作確認が完了している
-
-## AC 検証マップ (ADR-0004)
-
-| AC | 結果 |
-|-----|------|
-| AC1 | PASS |
 
 ## 補足
 
@@ -570,26 +438,13 @@ TODO: 後日テスト追加。
 
 ## 次
 `;
-		// 全 3 検査が独立して BLOCK 検出
 		const unchecked = findUncheckedReadyChecklist(body);
 		expect(unchecked.length).toBeGreaterThanOrEqual(1);
 		expect(unchecked[0]?.uncheckedCount).toBe(2);
 
-		const acResult = checkAcMap(body);
-		expect(acResult?.id).toBe('ac-map-incomplete');
-
 		const forbidden = scanForbiddenTerms(body);
 		expect(forbidden.length).toBeGreaterThanOrEqual(1);
 		expect(forbidden.some((v) => v.term === '予定')).toBe(true);
-	});
-
-	it('AC6: dogfood — 本 PR (#2632) の AC 4 列形式雛形が gate PASS する', () => {
-		// 本 PR 自身が新 gate を満たすことの dogfood 検証 (self-implement 第 5 弾、AC3)
-		const body = READY_PASS_BODY;
-		// 3 検査すべて null / 空配列 = PASS
-		expect(findUncheckedReadyChecklist(body)).toEqual([]);
-		expect(checkAcMap(body)).toBeNull();
-		expect(scanForbiddenTerms(body)).toEqual([]);
 	});
 });
 
@@ -667,80 +522,6 @@ describe('checkSelfReviewEvidence (#2475 Phase 2 / #2815 D-1)', () => {
 			'- [ ] **SOLID**: 未確認',
 		].join('\n');
 		expect(checkSelfReviewEvidence(body)).toBeNull();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// #3846: 変更タイプ checkbox 未選択の shift-left 検出
-// CI 必須 gate「変更タイプの選択」hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844) した
-// same-class defect (ADR-0061) を、PR 作成前 (--body-file) / pre-ready Step 9 (--pr) で機械検出する。
-// 判定 SSOT は scripts/pr-template-gate-checks.mjs の checkChangeType (二重実装なし)。
-// ---------------------------------------------------------------------------
-
-describe('checkChangeTypeSelection (#3846)', () => {
-	// detectChangeTypeHeading は「`- [ ]` を 3 行以上持つ ## セクション」を変更タイプと判定する。
-	// 実 template (.github/PULL_REQUEST_TEMPLATE.md) と同構造の最小 fixture。
-	const TEMPLATE = [
-		'## 顧客価値・目的',
-		'',
-		'本文',
-		'',
-		'## 変更タイプ',
-		'',
-		'- [ ] feat: 新機能',
-		'- [ ] fix: バグ修正',
-		'- [ ] refactor: リファクタリング',
-		'- [ ] infra: インフラ・CI/CD',
-		'',
-		'## 関連 Issue',
-	].join('\n');
-
-	it('FAIL: checkbox 未選択 (- [ ] のみ) → change-type-unselected (#3835/#3837/#3844 再発 pattern)', () => {
-		const body = [
-			'## 変更タイプ',
-			'',
-			'- [ ] feat: 新機能',
-			'- [ ] fix: バグ修正',
-			'- [ ] refactor: リファクタリング',
-			'- [ ] infra: インフラ・CI/CD',
-			'',
-			'## 関連 Issue',
-		].join('\n');
-		const result = checkChangeTypeSelection(body, TEMPLATE);
-		expect(result).not.toBeNull();
-		expect(result?.id).toBe('change-type-unselected');
-		// self-serve 修正を高速化する guidance を含む (issue #3846 提案 2)
-		expect(result?.message).toMatch(/- \[x\]/);
-		expect(result?.message).toMatch(/--body-file/);
-		expect(result?.message).toMatch(/#3835/);
-	});
-
-	it('PASS: 1 つ以上 [x] 選択済み → null', () => {
-		const body = [
-			'## 変更タイプ',
-			'',
-			'- [ ] feat: 新機能',
-			'- [ ] fix: バグ修正',
-			'- [x] infra: インフラ・CI/CD',
-			'',
-			'## 関連 Issue',
-		].join('\n');
-		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
-	});
-
-	it('PASS: 大文字 [X] も選択として認める (CI gate checkChangeType と同一判定)', () => {
-		const body = ['## 変更タイプ', '', '- [X] fix: バグ修正', '', '## 関連 Issue'].join('\n');
-		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
-	});
-
-	it('セクション欠落は missing-required-sections gate に委譲 (null)', () => {
-		const body = '## 顧客価値・目的\n本文\n';
-		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
-	});
-
-	it('dependencies label PR は skip (Dependabot exempt、#1808 整合)', () => {
-		const body = ['## 変更タイプ', '', '- [ ] feat: 新機能', '', '## 関連 Issue'].join('\n');
-		expect(checkChangeTypeSelection(body, TEMPLATE, ['dependencies'])).toBeNull();
 	});
 });
 
@@ -1345,5 +1126,58 @@ describe('lane-aware 化 (#4130)', () => {
 			source: 'default',
 		});
 		expect(laneUnused).not.toHaveBeenCalled();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4612: 呼ばれない判定関数を置き去りにしない (class-lock)
+//
+// #4305 が PR テンプレートから `## AC 検証マップ` / `## 変更タイプ` の 2 節を撤去し、
+// 対の CI job も同時に外した。しかし判定関数 `checkAcMap` / `checkChangeTypeSelection` は
+// 残り、**唯一の呼び出しが本 test file だけ**の状態で「別 job が hard-fail し続ける」表に
+// 3 行載り続けた (#4611 が表を是正、#4612 が関数を削除)。
+//
+// 再導入するなら判定関数だけでは足りない — テンプレート節 / PR_TEMPLATE_SECTIONS.json /
+// collectViolations の呼び出し / workflow 配線をセットで戻し、本 test も同時に更新すること。
+// ---------------------------------------------------------------------------
+
+describe('#4612 撤去済み節の判定関数は存在しない（呼ばれない判定を残さない）', () => {
+	for (const name of ['checkAcMap', 'extractAcMapSection', 'checkChangeTypeSelection']) {
+		it(`${name} は export されていない`, () => {
+			expect(Object.keys(prBodyModule)).not.toContain(name);
+		});
+	}
+
+	it('撤去済み節の違反 id は collectViolations からどのような body でも出力されない', () => {
+		const { template, requiredSections } = loadTemplateForLane('feature');
+		// 旧 gate が落としていた形 (AC マップ 2 列 / 変更タイプ全て未選択) をわざと含む body。
+		const body = [
+			'## AC 検証マップ (ADR-0004)',
+			'',
+			'| AC | 結果 |',
+			'|-----|------|',
+			'| AC1 | PASS |',
+			'',
+			'## 変更タイプ',
+			'',
+			'- [ ] feat: 新機能',
+			'- [ ] fix: バグ修正',
+			'- [ ] refactor: リファクタリング',
+		].join('\n');
+		const ids = collectViolations(
+			body,
+			requiredSections,
+			template,
+			{ pr: null, skipMergeable: true, labels: [], lane: 'feature' },
+			[],
+		).map((v: { id: string }) => v.id);
+		for (const dead of [
+			'ac-map-missing',
+			'ac-map-empty',
+			'ac-map-incomplete',
+			'change-type-unselected',
+		]) {
+			expect(ids).not.toContain(dead);
+		}
 	});
 });

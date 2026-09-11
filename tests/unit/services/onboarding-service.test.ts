@@ -1,4 +1,5 @@
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { ONBOARDING_LABELS } from '$lib/domain/labels';
 // tests/unit/services/onboarding-service.test.ts
 // onboarding-service ユニットテスト
 
@@ -322,19 +323,21 @@ describe('onboarding-service', () => {
 
 			expect(result.items).toHaveLength(6);
 			expect(result.items[0]?.key).toBe('children');
-			expect(result.items[0]?.label).toBe('子供を登録する');
+			// #4866 系: 項目名は labels SSOT 経由になった。リテラルを書き写すと
+			// 同じ drift を繰り返すので SSOT を参照する (値を変えるとここも自動で追従する)。
+			expect(result.items[0]?.label).toBe(ONBOARDING_LABELS.itemChildren);
 			expect(result.items[1]?.key).toBe('activities');
 			// Round 18 Cluster A (ADR-0045): 「活動パックを選ぶ」→「みんなのテンプレートを選ぶ」
 			// onboarding-service.ts が PAGE_TITLES.setupPacks (TEMPLATE_TERMS atom 由来) を参照する
 			expect(result.items[1]?.label).toBe('みんなのテンプレートを選ぶ');
 			expect(result.items[2]?.key).toBe('rewards');
-			expect(result.items[2]?.label).toBe('ごほうびプリセットを選ぶ');
+			expect(result.items[2]?.label).toBe(ONBOARDING_LABELS.itemRewards);
 			expect(result.items[3]?.key).toBe('pin');
 			expect(result.items[3]?.label).toBe('おやカギコードを変更する');
 			expect(result.items[4]?.key).toBe('checklist');
-			expect(result.items[4]?.label).toBe('チェックリストを作る');
+			expect(result.items[4]?.label).toBe(ONBOARDING_LABELS.itemChecklist);
 			expect(result.items[5]?.key).toBe('child_screen');
-			expect(result.items[5]?.label).toBe('子供の画面を確認する');
+			expect(result.items[5]?.label).toBe(ONBOARDING_LABELS.itemChildScreen);
 		});
 
 		it('rewardTemplates が空の場合 rewards は incomplete', async () => {

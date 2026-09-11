@@ -15,6 +15,7 @@
 //   - 文言は labels.ts (ERROR_NOTIFY_LABELS) に SSOT 化。
 
 import type { ActionResult } from '@sveltejs/kit';
+import { MAX_SERVER_MESSAGE_LENGTH as MAX_SERVER_MESSAGE_LENGTH_SSOT } from '$lib/domain/errors';
 import { ERROR_NOTIFY_LABELS, type ErrorNotifyLabelSet } from '$lib/domain/labels';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
@@ -38,8 +39,12 @@ export interface ApiErrorResult {
 	status?: number;
 }
 
-/** 4xx serverMessage の最大表示長 (#3225: layout-break / info-disclosure 余地を抑える)。 */
-export const MAX_SERVER_MESSAGE_LENGTH = 200;
+/**
+ * 4xx serverMessage の最大表示長 (#3225: layout-break / info-disclosure 余地を抑える)。
+ * 実体は `$lib/domain/errors` (#4767 QM): 文を組み立てる server 側も同じ予算を見る必要があるため、
+ * client 専用だった定数を domain へ移し、ここは後方互換の re-export にした。
+ */
+export const MAX_SERVER_MESSAGE_LENGTH = MAX_SERVER_MESSAGE_LENGTH_SSOT;
 
 // ユーザ向け文言は labels.ts SSOT のとおり日本語。ひらがな / カタカナ / 漢字 / 半角カナの
 // いずれも含まない 4xx body は内部識別子 (例: 'INVALID_PLAN' / 'ValidationException') や
@@ -132,6 +137,62 @@ export function resolveApiErrorMessage(
 	return labels.generic;
 }
 
+/**
+ * ADR-0062 の「種別 × 通知手段」を client 側で決めるための 2 値。server の error body
+ * (`apiError` が載せる `severity` / `action`) と同じ語彙で、`ErrorAlert` の props に直結する。
+ */
+export type ApiErrorSeverity = 'info' | 'warning' | 'error';
+export type ApiErrorAction = 'retry' | 'fix_input' | 'contact_admin' | 'none';
+
+export interface ApiErrorDisplay {
+	/** 画面に出す文言 (`resolveApiErrorMessage` と同じ規律で無害化済) */
+	message: string;
+	severity: ApiErrorSeverity;
+	/** 顧客が次に取るべき行動。`ErrorAlert` がこの値で案内文 / 再試行ボタンを出し分ける */
+	action: ApiErrorAction;
+}
+
+/** 呼び出し側が server の指定を得られなかったときに使う既定値 (従来の hardcode 値を渡す)。 */
+export interface ApiErrorDisplayFallback {
+	severity: ApiErrorSeverity;
+	action: ApiErrorAction;
+}
+
+const DEFAULT_DISPLAY_FALLBACK: ApiErrorDisplayFallback = { severity: 'error', action: 'retry' };
+
+function isSeverity(v: unknown): v is ApiErrorSeverity {
+	return v === 'info' || v === 'warning' || v === 'error';
+}
+function isAction(v: unknown): v is ApiErrorAction {
+	return v === 'retry' || v === 'fix_input' || v === 'contact_admin' || v === 'none';
+}
+
+/**
+ * server の error body を `ErrorAlert` に渡す 3 props (message / severity / action) に解決する (#4752)。
+ *
+ * **なぜ severity / action を画面側で固定してはいけないか**: server は ADR-0062 の種別マッピングに従って
+ * 「どれくらい重大か」「顧客が次に何をすべきか」を決めている。画面がそれを無視して固定値を描くと、
+ * 例えば復元の自動復旧が半端に終わった 409 (`action: contact_admin` = 運営に連絡) を
+ * 「入力内容をご確認ください」(`fix_input`) と表示し、**顧客に誤った次の行動を促す** (#4752 実測)。
+ *
+ * 値は allowlist で検証する (server 由来の文字列をそのまま props に流さない)。body に指定が無い /
+ * 未知の値なら `fallback` (呼び出し側の従来値) に落ちるため、既存画面の挙動は変わらない。
+ */
+export function resolveApiErrorDisplay(
+	status: number,
+	errorBody: unknown,
+	opts?: { fallback?: ApiErrorDisplayFallback; labels?: ErrorNotifyLabelSet },
+): ApiErrorDisplay {
+	const fallback = opts?.fallback ?? DEFAULT_DISPLAY_FALLBACK;
+	const body = errorBody as { message?: unknown; severity?: unknown; action?: unknown } | null;
+	const serverMessage = typeof body?.message === 'string' ? body.message : '';
+	return {
+		message: resolveApiErrorMessage(status, serverMessage, opts?.labels ?? ERROR_NOTIFY_LABELS),
+		severity: isSeverity(body?.severity) ? body.severity : fallback.severity,
+		action: isAction(body?.action) ? body.action : fallback.action,
+	};
+}
+
 /** Response body から message / error フィールドを安全に取り出す (非 JSON は空文字)。 */
 async function extractServerMessage(res: Response): Promise<string> {
 	try {
@@ -154,6 +215,35 @@ export async function notifyApiError(res: Response, opts?: NotifyOpts): Promise<
 	const message = resolveApiErrorMessage(res.status, serverMessage, labels);
 	showToast(opts?.toastTitle ?? labels.title, message, 'error');
 	return { shown: true, message, status: res.status };
+}
+
+/**
+ * form action が失敗 (`fail()`) を返したことをユーザに通知する (#4693)。
+ *
+ * `fail()` の失敗は HTTP status に現れないため `notifyApiError(res)` では拾えない。
+ * 内部メッセージを露出せず、年齢帯に合った汎用文言だけを出す (ADR-0062)。
+ */
+export function notifyActionFailure(
+	opts?: NotifyOpts & {
+		/**
+		 * server が `fail(4xx, { error })` で返した**顧客向けの拒否理由** (PR #4839)。
+		 *
+		 * 旧実装はこれを受け取らず常に `labels.generic` を出していた。そのため
+		 * 「おきにいりは 5こまでだよ」のように server が理由を知っている場合でも、
+		 * 子供には「うまく いかなかったよ」しか出ず、上限に達したことが伝わらなかった。
+		 *
+		 * 内部識別子 / 例外クラス名 / 過大 body は `sanitizeServerMessage` (ADR-0062 §2
+		 * echo hardening) が落として generic に倒すため、server 側が誤って内部文字列を
+		 * 載せても顧客には出ない。
+		 */
+		reason?: unknown;
+	},
+): ApiErrorResult {
+	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
+	const safeReason = sanitizeServerMessage(typeof opts?.reason === 'string' ? opts.reason : '');
+	const message = safeReason || labels.generic;
+	showToast(opts?.toastTitle ?? labels.title, message, 'error');
+	return { shown: true, message, status: 0 };
 }
 
 /**

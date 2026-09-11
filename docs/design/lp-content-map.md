@@ -210,6 +210,7 @@ LP 9 セクションを 4 トーンに分類し、各トーンに「規範のど
 | 03 | core-loop | 規範 B (機構説明) | mid | **#1787 で 4 階層 → 1 階層 3 cards に圧縮** — summary 画像 + 3 cards で規範 B 整合 |
 | 04 | machine-tour | 規範 B | mid | 整合 (2 cards、責務は補足機構) | [03] と重複しない補足機構のみ。**#1802**: H2「コアループに加えて — 朝の準備とクライマックスを支える機構」で sub-section 階層を明示し、[03]「3 つの仕組み〜」との連続「Nつの〜」H2 誤読を解消 |
 | 05 | soft-features | 規範 B | mid | **規範本体** | PO お気に入り |
+| 05a | home-screen | 規範 B | low | 整合 (2 cards、操作手順) | #4644 ホーム画面への追加。新規 CTA ボタンを置かず (ctaVariants ≤ 3 維持) 既存 `.soft-grid` / `.soft-card` を再利用して新規 CSS を持たない。同じ手順はアプリ内 設定 > サポート にもある (`PwaInstallGuide.svelte`、`06-UI設計書.md` §22) |
 | 05b | growth-roadmap | 規範 A | low-mid | **改訂対象** (#1792 / M2) — 子ベネフィット行を hero / [02b] に統合 |
 | 07 | safety | 規範 B | mid | 整合 (4 cards、信頼訴求) | |
 | 08 | FAQ | 規範 B | mid | 整合 (Top 3 並列 Q&A) | |

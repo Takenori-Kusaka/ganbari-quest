@@ -13,10 +13,14 @@ const pageState: {
 	status: number;
 	error: { message: string; reason?: string } | null;
 	data: unknown;
+	// #4690: `+error.svelte` は子供画面かどうかを URL からも判定するため、
+	// mock も実物と同じく `url` を持つ (実物の `page` には常に存在する)。
+	url: URL;
 } = {
 	status: 403,
 	error: null,
 	data: {},
+	url: new URL('https://example.test/ops/analytics'),
 };
 
 vi.mock('$app/state', () => ({
@@ -36,6 +40,7 @@ describe('#4282 +error.svelte — MFA 理由の 403 だけ復旧導線に切り�
 		pageState.status = 403;
 		pageState.error = null;
 		pageState.data = {};
+		pageState.url = new URL('https://example.test/ops/analytics');
 	});
 
 	afterEach(() => {

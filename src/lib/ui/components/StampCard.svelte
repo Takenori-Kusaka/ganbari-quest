@@ -1,5 +1,5 @@
 <script lang="ts">
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getChildStampLabels } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
 
 interface StampEntry {
@@ -19,6 +19,8 @@ interface Props {
 	filledSlots: number;
 	status: string;
 	redeemedPoints: number | null;
+	/** 年齢帯 (docs/DESIGN.md §8)。文言の出し分けに使う — 画面側で判定しない */
+	uiMode?: string;
 }
 
 let {
@@ -30,7 +32,10 @@ let {
 	filledSlots,
 	status,
 	redeemedPoints,
+	uiMode = 'elementary',
 }: Props = $props();
+
+const t = $derived(getChildStampLabels(uiMode));
 
 function formatDateShort(dateStr: string): string {
 	const parts = dateStr.split('-');
@@ -47,8 +52,8 @@ function isTodaySlot(slotIndex: number): boolean {
 <div class="stamp-card" data-testid="stamp-card">
 	<!-- Card header with decorative border -->
 	<div class="stamp-card__header">
-		<span class="stamp-card__title">{UI_COMPONENTS_LABELS.stampCardTitle}</span>
-		<span class="stamp-card__period">{UI_COMPONENTS_LABELS.stampCardPeriod(formatDateShort(weekStart), formatDateShort(weekEnd))}</span>
+		<span class="stamp-card__title">{t.stampCardTitle}</span>
+		<span class="stamp-card__period">{t.stampCardPeriod(formatDateShort(weekStart), formatDateShort(weekEnd))}</span>
 	</div>
 
 	<!-- Stamp area: 3 top + 2 bottom staggered -->
@@ -104,16 +109,16 @@ function isTodaySlot(slotIndex: number): boolean {
 
 	<!-- Status message -->
 	{#if status === 'redeemed' && redeemedPoints != null}
-		<p class="stamp-card__done">{UI_COMPONENTS_LABELS.stampCardRedeemed(redeemedPoints)}</p>
+		<p class="stamp-card__done">{t.stampCardRedeemed(redeemedPoints)}</p>
 	{:else if filledSlots >= totalSlots && status === 'collecting'}
 		<div class="stamp-card__complete" data-testid="stamp-complete">
-			<p class="stamp-card__complete-text">{UI_COMPONENTS_LABELS.stampCardComplete}</p>
-			<p class="stamp-card__complete-sub">{UI_COMPONENTS_LABELS.stampCardCompleteSub}</p>
+			<p class="stamp-card__complete-text">{t.stampCardComplete}</p>
+			<p class="stamp-card__complete-sub">{t.stampCardCompleteSub}</p>
 		</div>
 	{:else if !canStampToday && status === 'collecting'}
-		<p class="stamp-card__done">{UI_COMPONENTS_LABELS.stampCardStampedToday}</p>
+		<p class="stamp-card__done">{t.stampCardStampedToday}</p>
 	{:else if canStampToday}
-		<p class="stamp-card__hint">{UI_COMPONENTS_LABELS.stampCardRemaining(totalSlots - filledSlots)}</p>
+		<p class="stamp-card__hint">{t.stampCardRemaining(totalSlots - filledSlots)}</p>
 	{/if}
 </div>
 

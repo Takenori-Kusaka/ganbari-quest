@@ -11,7 +11,10 @@
 // と同型。SvelteKit CSRF を回避するため action handler を直接呼び出して検証する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
 import { asCategoryId } from '$lib/domain/ids';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_TERMS } from '$lib/domain/terms';
 
 // --- モック ---
 const mockRequireTenantId = vi.fn();
@@ -20,6 +23,17 @@ const mockCheckActivityLimit = vi.fn();
 const mockDispatchImport = vi.fn();
 const mockLoadFromMarketplace = vi.fn();
 const mockGetAllChildren = vi.fn();
+
+// #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
+// 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
+vi.mock('$lib/server/auth/auth-mode', () => ({
+	getAuthMode: vi.fn(() => 'cognito'),
+	// #4866 系: admin の form action は `withParentGate` を通るため、auth-mode が
+	// 親 PIN gate の有効化条件にも使われる。本 test が測るのは**プラン上限**であって
+	// PIN gate ではないので、`dev:cognito` 相当 (gate 無効) の fixture に揃える。
+	// PIN gate 自体の範囲は tests/unit/auth/parent-gate-scope.test.ts が測る。
+	isCognitoDevMode: vi.fn(() => true),
+}));
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
@@ -60,6 +74,7 @@ vi.mock('$lib/server/services/activity-service', () => ({
 	deleteActivityWithCleanup: vi.fn(),
 	getActivities: vi.fn(async () => []),
 	getActivityLogCounts: vi.fn(async () => ({})),
+	getChildActivities: vi.fn(async () => []),
 	getMainQuestCount: vi.fn(async () => 0),
 	hasActivityLogs: vi.fn(async () => false),
 	MAIN_QUEST_MAX: 3,
@@ -153,7 +168,10 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 	});
 
 	describe('importPackToChildren (marketplace 取込 → ChildSelectionDialog)', () => {
-		it('free tier が上限到達済みなら 403 PlanLimitError を返し dispatchImport を呼ばない', async () => {
+		// #4693 PO 回答 (2026-09-03) #1: プリセット取込は quota の母集団 (custom) を消費しないので、
+		// custom 3/3 でも通す。旧実装 (#2894) はここで 403 を返しており、LP
+		// 「プリセット活動の利用 = 無料」/ activity-source.ts / strategy 層 と食い違っていた。
+		it('free tier が custom 3/3 でもプリセット取込は通る (403 にしない、#4693)', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: false, current: 3, max: 3 });
 
@@ -162,16 +180,21 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 				locals: makeLocals({ licenseStatus: 'none' }),
 			});
 
-			expect(result.status).toBe(403);
-			const err = result.data?.error as PlanLimitErrorShape;
-			expect(err).toMatchObject({
-				code: 'PLAN_LIMIT_EXCEEDED',
-				currentTier: 'free',
-				requiredTier: 'standard',
-				upgradeUrl: '/admin/subscription',
+			expect(result.status).toBeUndefined();
+			expect(result.perChildImport).toBe(true);
+			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+		});
+
+		it('プリセット取込の route は checkActivityLimit をそもそも呼ばない (母集団が違う、#4693)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockCheckActivityLimit.mockResolvedValue({ allowed: false, current: 3, max: 3 });
+
+			await importPackToChildrenAction({
+				request: makeFormRequest({ packId: 'kinder-starter', childIds: 'all' }),
+				locals: makeLocals({ licenseStatus: 'none' }),
 			});
-			expect(err.message).toContain('3');
-			expect(mockDispatchImport).not.toHaveBeenCalled();
+
+			expect(mockCheckActivityLimit).not.toHaveBeenCalled();
 		});
 
 		it('free tier が上限未満なら取込を実行する', async () => {
@@ -202,7 +225,7 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 		});
 	});
 
-	describe('bulkCreateForChildren (一括追加)', () => {
+	describe('bulkCreateForChildren (一括追加 = 自分で作る経路なので上限を消費する)', () => {
 		it('free tier が上限到達済みなら 403 PlanLimitError を返す', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			mockCheckActivityLimit.mockResolvedValue({ allowed: false, current: 3, max: 3 });
@@ -223,6 +246,34 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 				currentTier: 'free',
 				requiredTier: 'standard',
 			});
+		});
+
+		// #4693: 上限メッセージは labels.ts (atom 経由) の 1 箇所から来る。route が文言を組み立てない。
+		it('上限メッセージは PLAN_GATE_LABELS の SSOT と一致する (数値は plan-limits SSOT 由来)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockCheckActivityLimit.mockResolvedValue({
+				allowed: false,
+				current: FREE_PLAN_QUOTA.maxActivities,
+				max: FREE_PLAN_QUOTA.maxActivities,
+			});
+
+			const result = await bulkCreateForChildrenAction({
+				request: makeFormRequest({
+					name: 'あたらしい活動',
+					categoryId: asCategoryId(1),
+					childIds: 'all',
+				}),
+				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			const err = result.data?.error as PlanLimitErrorShape;
+			expect(err.message).toBe(
+				PLAN_GATE_LABELS.activityLimitReached(FREE_PLAN_QUOTA.maxActivities),
+			);
+			// プリセット取込が無制限であることを顧客に伝える (旧「カスタム活動は最大3個まで」は
+			// テンプレも入らないと読めた、PO 回答 2026-09-03 #1)
+			expect(err.message).toContain(ACTIVITY_QUOTA_TERMS.original);
+			expect(err.message).toContain(ACTIVITY_QUOTA_TERMS.presetImport);
 		});
 	});
 });

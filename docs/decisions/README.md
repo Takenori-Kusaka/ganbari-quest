@@ -200,7 +200,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0052 | [MarketplaceTypeRegistry + ImportStrategy パターンによる 5 type 統一抽象化](0052-marketplace-type-registry.md) | accepted | 2026-05-21 |
 | 0053 | [LP visual regression: pixelmatch (OSS 6 件比較)](0053-lp-visual-regression-pixelmatch.md) | accepted | 2026-05-23 |
 | 0055 | [Per-child 主軸 + 限定 family master データモデル原則 (6 type SSOT)](0055-per-child-primary-data-model-pattern.md) | accepted | 2026-05-23 |
-| 0056 | [QM Orchestrator role drift の構造的対処 (Adversarial Reviewer + PreToolUse Hook + JSON Schema 強制)](0056-qm-drift-prevention-by-structural-agent-constraint.md) | accepted | 2026-05-28 |
+| 0056 | [QM Orchestrator role drift の構造的対処 (Adversarial Reviewer + PreToolUse Hook + JSON Schema 強制)](0056-qm-drift-prevention-by-structural-agent-constraint.md) | **superseded by 0068 (2026-08-13、#4571)** — 観測 42 件は有効なまま。hook 呼び出しのみ撤去 | 2026-05-28 |
 | 0060 | [「全対応完了」宣言の 10 項目検証義務 (チケット close ≠ 完了、DoD checklist + CI gate 併用)](0060-completion-definition-10-item-verification.md) | accepted | 2026-06-04 |
 | 0061 | [band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function / accepted-residual gate)](0061-band-aid-breaking-shift-left-mechanization.md) | accepted | 2026-06-20 |
 | 0062 | [統一エラー通知設計 (種別×手段マッピング + 内部例外非露出 + role/aria SSOT)](0062-unified-error-notification.md) | accepted | 2026-06-22 |
@@ -209,6 +209,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0065 | [DSQL DPU コスト規約 — service 層クエリの 5 原則 (実測裏付け)](0065-dsql-dpu-query-rules.md) | accepted | 2026-07-11 |
 | 0066 | [export/import 値域 SSOT — wire schema とドメイン validator は同一値域定数を import する](0066-export-import-schema-range-ssot.md) | accepted | 2026-07-12 |
 | 0067 | [アプリ側 CSP の `'unsafe-inline'` hardening (script-src = hash 撤廃 / style-src = 維持 + 構造的根拠)](0067-app-csp-script-src-hash.md) | accepted | 2026-07-17 |
+| 0068 | [QM approve の物理遮断 (gate-approve hook) を立ち上げ期は外す — 統制は段階的に戻す](0068-approve-gate-removal-staged-control.md) | accepted (ADR-0056 を置き換え) | 2026-08-13 |
 
 ## archive 一覧（6 件）
 

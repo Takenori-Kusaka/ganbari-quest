@@ -6,6 +6,7 @@ import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	APP_LABELS,
 	CHALLENGES_LABELS,
+	formatJstDate,
 	PAGE_TITLES,
 	UI_LABELS,
 	UNRESOLVED_ENTITY_LABELS,
@@ -74,9 +75,9 @@ function parseJSON<T>(json: string, fallback: T): T {
 	}
 }
 
-function formatDate(d: string): string {
-	return d.replace(/-/g, '/');
-}
+// #4716: 日付書式は labels.ts の SSOT (formatJstDate) に寄せる。
+//   旧ローカル helper は 2026/08/17 (ゼロ埋め) を出し、他画面の toLocaleDateString は
+//   2026/8/19 (非ゼロ埋め) を出していて、同じ日付が 2 通りに見えていた。
 
 function isCurrentlyActive(instance: ChildChallenge): boolean {
 	const today = todayDateJST();
@@ -122,17 +123,17 @@ function tabHref(childId: ChildId | 'all'): string {
 </svelte:head>
 
 <!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー (最外 wrapper)。 -->
-<div class="space-y-4" data-tutorial="challenges-page">
+<div class="space-y-4">
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
-		<div class="rounded-xl border bg-white p-4">
+		<div class="rounded-xl border bg-white p-4" data-tutorial="challenges-family-streak">
 			<div class="flex items-center gap-2 mb-2">
 				<span class="text-xl">🔥</span>
 				<h3 class="font-bold text-sm">{CHALLENGES_LABELS.familyStreakTitle(data.familyStreak.currentStreak)}</h3>
 			</div>
 			<p class="text-xs text-[var(--color-text-muted)]">
 				{data.familyStreak.hasRecordedToday
-					? `今日は${data.familyStreak.todayRecorders.length + '人'}が記録済み`
-					: '今日はまだ誰も記録していません'}
+					? CHALLENGES_LABELS.familyStreakRecordedToday(data.familyStreak.todayRecorders.length)
+					: CHALLENGES_LABELS.familyStreakNoneToday}
 			</p>
 		</div>
 	{/if}
@@ -147,6 +148,7 @@ function tabHref(childId: ChildId | 'all'): string {
 			class="flex gap-1 overflow-x-auto"
 			aria-label={ADMIN_CHALLENGES_PAGE_LABELS.childTabAllAriaLabel}
 			data-testid="admin-challenges-child-tabs"
+			data-tutorial="challenges-child-tabs"
 		>
 			<a
 				href={tabHref('all')}
@@ -200,6 +202,7 @@ function tabHref(childId: ChildId | 'all'): string {
 					class="rounded-xl border bg-white p-4 space-y-3"
 					class:border-[var(--color-feedback-info-border)]={active}
 					data-testid="admin-challenges-group"
+					data-tutorial="challenges-card"
 					data-group-key={group.groupKey}
 				>
 					<div class="flex items-start justify-between gap-2">
@@ -207,7 +210,8 @@ function tabHref(childId: ChildId | 'all'): string {
 							<h3 class="font-bold text-sm">
 								{group.title}
 								{#if group.allCompleted}
-									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.badgeAllCompleted}</span>
+									<!-- #4689: 1 人分の group で「全員クリア！」と出さない (週次自動生成は子供ごとに別内容) -->
+									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{group.instances.length >= 2 ? CHALLENGES_LABELS.badgeAllCompleted : CHALLENGES_LABELS.badgeCompleted}</span>
 								{/if}
 								{#if active}
 									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{CHALLENGES_LABELS.badgeActive}</span>
@@ -215,7 +219,7 @@ function tabHref(childId: ChildId | 'all'): string {
 							</h3>
 							<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
 								{periodLabel(group.periodType)}
-								· {formatDate(group.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatDate(group.endDate)}
+								· {formatJstDate(group.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatJstDate(group.endDate)}
 								· {CHALLENGES_LABELS.rewardLabel(reward.points)}
 							</p>
 							{#if group.description}
@@ -247,8 +251,8 @@ function tabHref(childId: ChildId | 'all'): string {
 						</div>
 					{/if}
 
-					<!-- 削除アクション (group 内 全 instance に対して 1 件ずつ) -->
-					<div class="flex justify-end gap-1 flex-wrap">
+					<!-- 削除アクション (group 内 全 instance に対して 1 件ずつ)。#4671: ページガイド anchor -->
+					<div class="flex justify-end gap-1 flex-wrap" data-tutorial="challenges-delete">
 						{#each group.instances as instance (instance.id)}
 							{@const child = data.children.find((c) => c.id === instance.childId)}
 							<form
@@ -277,7 +281,11 @@ function tabHref(childId: ChildId | 'all'): string {
 									size="sm"
 									data-testid="admin-challenge-delete-{instance.id}"
 								>
-									{group.instances.length >= 2 ? `${child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child} を削除` : CHALLENGES_LABELS.deleteButton}
+									{group.instances.length >= 2
+										? ADMIN_CHALLENGES_PAGE_LABELS.deleteChildButton(
+												child?.nickname ?? UNRESOLVED_ENTITY_LABELS.child,
+											)
+										: CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
 						{/each}

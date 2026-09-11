@@ -5,6 +5,8 @@
 //   - password ユーザ: アカウントパスワード + 新 PIN を 1 画面で送信 (#2993)
 //   - federated (Google) ユーザ: ①「確認コードを送る」→ ②メールの 6 桁コード + 新 PIN を送信 (#3070)
 // /api/v1/parent-gate/reset-verified が re-auth → setupPin → parent session 発行まで行う。
+import { isValidPinFormat, PIN_LENGTH } from '$lib/domain/constants/oyakagi';
+import { PIN_RESET_OTP_LENGTH, PIN_RESET_OTP_PATTERN } from '$lib/domain/constants/pin-reset-otp';
 import { APP_LABELS, PIN_RESET_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -75,7 +77,8 @@ async function submitReset() {
 			errorMessage = PIN_RESET_LABELS.errorCodeRequired;
 			return;
 		}
-		if (!/^\d{6}$/.test(code)) {
+		// #4661: 確認コードの形式は domain/constants/pin-reset-otp.ts が SSOT (おやカギ本体とは別概念)
+		if (!PIN_RESET_OTP_PATTERN.test(code)) {
 			errorMessage = PIN_RESET_LABELS.errorInvalidCode;
 			return;
 		}
@@ -83,7 +86,8 @@ async function submitReset() {
 		errorMessage = PIN_RESET_LABELS.errorPasswordRequired;
 		return;
 	}
-	if (!/^\d{4,6}$/.test(newPin)) {
+	// #4661 / #4698: 桁数は constants/oyakagi.ts の isValidPinFormat が SSOT (server /reset-verified と同一)。
+	if (!isValidPinFormat(newPin)) {
 		errorMessage = PIN_RESET_LABELS.errorPinFormat;
 		return;
 	}
@@ -205,7 +209,7 @@ async function submitReset() {
 							<div>
 								{#key codeInputKey}
 									<PinInput
-										length={6}
+										length={PIN_RESET_OTP_LENGTH}
 										mask={false}
 										label={PIN_RESET_LABELS.resetFederatedCodeLabel}
 										labelClass="text-sm font-semibold text-[var(--color-text-primary)] block mb-2"
@@ -227,8 +231,10 @@ async function submitReset() {
 						{/if}
 						<div>
 							{#key pinInputKey}
+								<!-- #4661: 桁数は PIN_LENGTH。ここだけ数値を直書きすると、変更時に
+								     「打てる桁数」と「受理される桁数」が再びずれる -->
 								<PinInput
-									length={4}
+									length={PIN_LENGTH}
 									mask
 									label={PIN_RESET_LABELS.resetPinLabel}
 									labelClass="text-sm font-semibold text-[var(--color-text-primary)] block mb-2"

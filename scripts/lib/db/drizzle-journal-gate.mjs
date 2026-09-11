@@ -178,15 +178,10 @@ export function findJournalWhenViolations(entries, options = {}) {
 	return violations;
 }
 
-/**
- * 違反配列を人間可読な 1 本のメッセージへ整形する。
- *
- * @param {{ rule: string, tag: string, when: number, message: string }[]} violations
- * @returns {string}
- */
-export function formatJournalWhenViolations(violations) {
-	return violations.map((v) => `  [${v.rule}] ${v.tag}: ${v.message}`).join('\n');
-}
+// 旧 `formatJournalWhenViolations` は削除した (#4623)。#3953 の glob 化で整形が
+// `formatAllJournalViolations` (file 名を含む) に一般化されたあとも単一 journal 版の整形だけが
+// 残り、呼び出し元が 1 つも無かった (test すら import していない)。整形が 2 本あると、
+// メッセージ書式を直すときに死んでいる方を直す事故を作る。
 
 // ---------------------------------------------------------------------------
 // 全 dialect 走査 (#3953 — #3951 監査 accepted-residual 対象 1)

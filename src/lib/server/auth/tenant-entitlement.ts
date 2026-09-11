@@ -10,8 +10,8 @@
 // 対応 (#3963 案 1): token には tenantId / role / childId だけを持たせ、課金状態は
 // 毎リクエスト DB から引く。リクエスト単位のキャッシュで DB アクセスは 1 回/req に抑える。
 
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { deriveLicenseStatus } from '$lib/domain/contract-state';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -26,17 +26,21 @@ export type { TenantEntitlement };
  * subscription を持つ場合、ACTIVE / GRACE_PERIOD のみ ACTIVE 扱いとする。
  */
 export function deriveTenantEntitlement(tenant: Tenant | undefined): TenantEntitlement {
-	const licenseStatus: AuthContext['licenseStatus'] = tenant?.stripeSubscriptionId
-		? tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
-			tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
-			? AUTH_LICENSE_STATUS.ACTIVE
-			: AUTH_LICENSE_STATUS.SUSPENDED
-		: AUTH_LICENSE_STATUS.NONE;
+	// #4704: 判定規則は domain leaf (`deriveLicenseStatus`) が SSOT。受諾 txn (repo 層) も
+	// 同じ関数を読むため、規則の写しが 2 つに分かれない。
+	const licenseStatus: AuthContext['licenseStatus'] = deriveLicenseStatus({
+		status: tenant?.status,
+		stripeSubscriptionId: tenant?.stripeSubscriptionId,
+	});
 
 	return {
 		licenseStatus,
 		tenantStatus: tenant?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
 		plan: tenant?.plan,
+		// #4585-2: `status` 単独では S4 停止 (契約が残る) と S5 契約終了 (解約確定) を区別できない
+		// (contract-state-matrix §4)。区別できないと「解約したのか、支払いが止まっているだけか」で
+		// 挙動を変えられないため、既に読んでいる同じ行から契約の有無も持ち回る (追加クエリなし)。
+		stripeSubscriptionId: tenant?.stripeSubscriptionId ?? null,
 	};
 }
 

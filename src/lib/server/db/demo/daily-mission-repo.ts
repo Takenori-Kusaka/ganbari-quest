@@ -62,6 +62,15 @@ export async function markMissionCompleted(
 	// Stub: no-op
 }
 
+export async function markMissionUncompleted(
+	_childId: ChildId,
+	_date: string,
+	_activityId: ActivityId,
+	_tenantId: string,
+): Promise<void> {
+	// Stub: no-op
+}
+
 export async function findAllMissionStatuses(
 	childId: ChildId,
 	date: string,

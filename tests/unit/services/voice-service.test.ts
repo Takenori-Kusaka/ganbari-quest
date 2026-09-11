@@ -282,11 +282,12 @@ describe('voice-service', () => {
 		it('ボイスが存在する場合ファイルとDBレコードを削除して true を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce({
 				id: '1',
+				childId: CHILD_ID,
 				filePath: 'voices/old.mp3',
 			});
 			mockVoiceRepo.deleteById.mockResolvedValueOnce(undefined);
 
-			const result = await deleteVoice('1', TENANT);
+			const result = await deleteVoice('1', CHILD_ID, TENANT);
 
 			expect(result).toBe(true);
 			expect(deleteFile).toHaveBeenCalledWith('voices/old.mp3');
@@ -295,7 +296,21 @@ describe('voice-service', () => {
 
 		it('ボイスが見つからない場合 false を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce(null);
-			const result = await deleteVoice('999', TENANT);
+			const result = await deleteVoice('999', CHILD_ID, TENANT);
+			expect(result).toBe(false);
+			expect(deleteFile).not.toHaveBeenCalled();
+			expect(mockVoiceRepo.deleteById).not.toHaveBeenCalled();
+		});
+
+		it('ボイスが別の子供に属する場合は削除せず false を返す (id-only 削除の禁止)', async () => {
+			mockVoiceRepo.findById.mockResolvedValueOnce({
+				id: '1',
+				childId: asChildId(999),
+				filePath: 'voices/sibling.mp3',
+			});
+
+			const result = await deleteVoice('1', CHILD_ID, TENANT);
+
 			expect(result).toBe(false);
 			expect(deleteFile).not.toHaveBeenCalled();
 			expect(mockVoiceRepo.deleteById).not.toHaveBeenCalled();
@@ -304,12 +319,13 @@ describe('voice-service', () => {
 		it('ファイル削除に失敗してもDBレコードは削除して true を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce({
 				id: '1',
+				childId: CHILD_ID,
 				filePath: 'voices/broken.mp3',
 			});
 			vi.mocked(deleteFile).mockRejectedValueOnce(new Error('S3 delete failed'));
 			mockVoiceRepo.deleteById.mockResolvedValueOnce(undefined);
 
-			const result = await deleteVoice('1', TENANT);
+			const result = await deleteVoice('1', CHILD_ID, TENANT);
 
 			expect(result).toBe(true);
 			expect(mockVoiceRepo.deleteById).toHaveBeenCalledWith('1', TENANT);

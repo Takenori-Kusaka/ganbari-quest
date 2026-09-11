@@ -45,6 +45,10 @@ export const MIN_REPO_SCAN_TIMEOUT_MS = 20_000;
  */
 export const REPO_SCAN_TEST_REGISTRY = {
 	// --- scope: repo (repo ツリーを走査。明示 timeout 必須) ---
+	'tests/unit/scripts/capture-dev-users-ssot.test.ts': {
+		scope: 'repo',
+		note: 'scripts / tests/e2e / src / docs を走査し DEV_USERS password literal の不在を見る (#4831 / #4834)',
+	},
 	'tests/unit/scripts/check-local-tz-date-getters.test.ts': {
 		scope: 'repo',
 		note: 'repo 直下 / infra 直下を depth 1 で readdir し、TZ guard の走査範囲 (SEARCH_ROOTS) と除外宣言 (EXCLUDED_ROOTS) の網羅を突き合わせる (#4120)。全 file walk はしないが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
@@ -53,13 +57,81 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
 	},
+	'tests/unit/architecture/parent-gate-action-seam.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/(parent)/admin 配下の +page.server.ts を再帰走査し、form action が親 PIN gate の seam (withParentGate) を通ることを見る (#4866 系 / PO 決裁 2026-09-10 決定 4)。走査は admin 部分木に限るが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
+	'tests/unit/architecture/activity-quota-all-producers-gated.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes を走査し child_activities を作る producer を列挙 (#4693 quota fitness)',
+	},
+	'tests/unit/architecture/retention-filter-opt-out-allowlist.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を再帰 walk し、保持期間フィルタの opt-out (`NO_RETENTION_FILTER` の import) が allowlist と完全一致するかを検査する (#4818)。「履歴取得が保持期間 (ADR-0049) を通っていない」が達成タブ / 交換タブで 2 度起きたため、opt-out の増殖を PR での明示判断に縛る。走査範囲は src 全体でなければ新規 opt-out を捕まえられない',
+	},
+	'tests/unit/services/plan-limit-check-null-type-hole.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下を再帰 walk し、プラン上限メッセージ本文が labels.ts SSOT を経由せず直書きに戻っていないかを検査する (#4622)。直書きに戻ると `max: number` の関門が消え、上限メッセージに null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/services/trial-status-null-type-hole.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下を再帰 walk し、trial 状態 (flag + 期限 / ティア) を route で手で組み直していないかを検査する (#4628)。手組みすると discriminated union の相関が推論から消え、画面側の narrowing が効かなくなって期限表示に null を埋められるようになるため、走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/architecture/parent-only-service-second-door.test.ts': {
+		scope: 'bounded',
+		note: 'src/routes/api/v1/**/+server.ts を glob し、親限定 service を呼ぶ書き込みハンドラが role seam を通っているかを見る (#4869)。対象は api/v1 配下の route file だけで repo 全体は走査しない',
+	},
 	'tests/unit/arch/no-direct-db-access.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/pin-redaction-sink-coverage.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下を glob して s3Key / pinCode を扱う file を列挙し、registry (test 内) の網羅性と、外へ出す口が redact を通っているかを検査する (#4867)。実測 0.2s',
+	},
+	'tests/unit/architecture/workflow-inline-script-syntax.test.ts': {
+		scope: 'repo',
+		note: ".github/workflows/*.yml を glob し、`node -e '…'` のインライン script が JS として parse できるかを見る (#4866)。CI に actionlint / shellcheck が無く、この class を 3 回踏んだため",
+	},
+	'tests/unit/architecture/pin-length-ssot-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を走査しておやカギコード桁数 (PIN_LENGTH) の直書き (regex / PinInput length / ラベル / 5086 案内) を検出する (#4698)',
+	},
+	'tests/unit/architecture/iso-instant-comparison-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs / .claude/hooks/**/*.mjs を AST 化し、.github/workflows/*.yml を行走査して、ISO8601 を文字列のまま順序比較している箇所を検出する (#4624 / #4053 AC1)',
+	},
+	'tests/unit/architecture/list-limit-not-reused-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/lib/server/services と src/routes 配下を走査し、limit 付き一覧 API の戻り値を単件取得 / 抽出 / 集計に流用していないかを検査する (#4682 AC5)',
+	},
+	'tests/unit/architecture/idp-sub-not-used-as-app-user-id.test.ts': {
+		scope: 'repo',
+		note: 'src/routes と src/lib/server を走査し、IdP の sub (identity.userId) を アプリ DB の users.user_id として使っている file を検出する (#4643)',
+	},
+	'tests/unit/architecture/unreachable-script-export-fitness.test.ts': {
+		scope: 'repo',
+		note: 'scripts/**/*.mjs と .claude/hooks/*.mjs を TypeScript parser で AST 化し、entry / registry から到達しない export された判定関数を検出する (#4623)',
+	},
+	'tests/unit/architecture/setup-route-role-guard-fitness.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/setup 直下の route dir を depth 1 で列挙し、全 step が child 拒否 / 未認証 → /auth/login で守られていることを突き合わせる (#4700)。単一 dir だが静的判定は保守的に repo と見なすため明示 timeout を置く',
+	},
 	'tests/unit/architecture/node-version-fitness.test.ts': {
 		scope: 'bounded',
 		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
+	},
+	'tests/unit/architecture/plan-limits-field-enforcement.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の .ts / .svelte を glob し、PlanLimits の全フィールドが production code から実際に参照されているかを検査する (#4584)。参照ゼロ = 有料の根拠として売っている機能にゲートが掛かっていない状態',
+	},
+	'tests/unit/architecture/admin-action-result-no-http-ok.test.ts': {
+		scope: 'repo',
+		note: 'src/routes 配下の .svelte を再帰 walk し、form action を fetch した戻り値を `.ok` で判定していないかを検査する (#4693)。fail() は HTTP status に現れないため、ok 判定だと「サーバーは拒否したのに画面は成功」になる。走査範囲は routes 全体でなければ意味を持たない',
+	},
+	'tests/unit/architecture/plan-limit-error-required-tier.test.ts': {
+		scope: 'repo',
+		note: "src 配下の .ts / .svelte を再帰 walk し、apiError('PLAN_LIMIT_EXCEEDED') の直接呼び出しが無いことを検査する (#4710)。要求 tier を伴わない 403 は「スタンダード以上に」しか言えず、スタンダード契約者が premium 限定機能を叩いたときに次の行動を示せないため、走査範囲は src 全体でなければ意味を持たない",
 	},
 	'tests/unit/architecture/ai-suggest-gate-derivation.test.ts': {
 		scope: 'repo',
@@ -68,6 +140,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/grace-period-dunning-only-writer.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の .ts を再帰的に walk し、status に grace_period を書く関数が dunning 経路 2 件に収まっているかを TypeScript compiler API で検査する (#4507)。lifecycle-email-service の opt-out 迂回はこの一意性を根拠にしているため、走査範囲は src 全体でなければ意味を持たない',
+	},
+	'tests/unit/architecture/e2e-menu-trigger-click-guard.test.ts': {
+		scope: 'repo',
+		note: 'tests/e2e 配下の spec 全件を走査し、Ark UI Menu の trigger を裸の click() で押している箇所を検出する (#4609)。hydration 前 click が握り潰されて menu item が hidden のまま落ちる flake を、spec を書いた時点で止める',
 	},
 	'tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts': {
 		scope: 'repo',
@@ -117,6 +193,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
 	},
+	'tests/unit/architecture/db-facade-backend-parity.test.ts': {
+		scope: 'bounded',
+		note: '#4719 src/lib/server/db 直下 (単一 dir) の *-repo.ts facade と factory.ts だけを読み、backend 実装の直 import / 3 backend 実装 file の欠落を検出する',
+	},
 	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
 		scope: 'repo',
 		note: '#4348 scripts 配下の .mjs を走査し、PR body の見出し / 宣言を部分一致で判定する新規コードを検出する',
@@ -157,6 +237,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
 	},
+	'tests/unit/architecture/per-child-route-authz-fitness.test.ts': {
+		scope: 'bounded',
+		note: '走査は src/routes/api/v1 配下のみ (再帰だが単一 dir で有界)。要求由来の childId を読む route が requireChildAccess / requireChildScope を通すことを検査する (家庭内 IDOR / CWE-639)',
+	},
 	'tests/unit/architecture/ops-route-auth-fitness.test.ts': {
 		scope: 'repo',
 		note: '実走査は src/routes/ops 配下のみだが、静的判定が repo と見なすため宣言を合わせ明示 timeout を置く。全 ops endpoint が requireOpsAccess を呼ぶことを検査する (#4309)',
@@ -173,9 +257,17 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src + .github/workflows を走査して cron schedule の整合を検査する',
 	},
+	'tests/unit/docs/design-doc-reference-existence.test.ts': {
+		scope: 'repo',
+		note: '設計書 3 本が名指しする repo 内 path の実在 (glob 解決を含む) と、src/routes/api 配下の +server.ts 全列挙 vs 07-API設計書.md の endpoint 集合を突合する',
+	},
 	'tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts': {
 		scope: 'repo',
 		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',
+	},
+	'tests/unit/domain/lp-claims-implementation-truth-4713.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/data/marketplace/activity-packs/ の 1 ディレクトリだけを読み、LP 訴求値と突合する (#4713)',
 	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',

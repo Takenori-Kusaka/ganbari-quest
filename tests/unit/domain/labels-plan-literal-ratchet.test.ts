@@ -38,7 +38,9 @@ const PLAN_NAME_PATTERNS = [
 
 // 現状の plan 名直書き件数。**この値を引き上げてはならない** (新規違反の混入を意味する)。
 // 既存削減で実数が下回ったら本値を実数へ下げる (ratchet down のみ許可)。
-const BASELINE = 33;
+// #4502: 旧 33 → 実数 27 へ ratchet down (dead な DEMO_SIGNUP_LABELS 削除 + 旧称
+// 「ファミリー」の atom 参照化による削減)。**引き上げは禁止**。
+const BASELINE = 27;
 
 describe('labels.ts plan-name literal ratchet (#3359, ADR-0045/ADR-0061)', () => {
 	it('compound 内の plan 名 atom 直書きが baseline 以下である (新規追加を禁止する class-lock)', () => {

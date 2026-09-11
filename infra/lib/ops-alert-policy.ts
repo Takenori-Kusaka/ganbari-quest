@@ -124,6 +124,11 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'オーナー決裁 2026-08-07「AI 不達のアラートは Discord の障害通知へ webhook で飛ばすべき」。(a) AI 不達は有料機能が事実上死んでいる状態で、顧客向け文言が「運営が検知済み」と伝えている以上、人に届かなければその一文が嘘になる。(b) 発生源の log は latch により理由ごとにプロセス内 1 回しか出ないため、構造的に鳴りっぱなしにならない。(c) 万一恒常発火したら通知を止めるのではなく、早期回復 / 例外処理の是正で応じる (同決裁: 恒常的に発生する障害は早期回復対象であって、通知を握りつぶしてよいという意味ではない)',
 	},
+	'ganbari-quest-ai-fallback-rate': {
+		notify: true,
+		reason:
+			'AI 呼び出しの半分以上が落ちている = 有料プランの筆頭訴求 (AI 提案) が事実上死んでいる状態で、応答は HTTP 200 のため顧客も運営も画面からは気付けない。#4726 の本番障害 (base model ID を on-demand で呼べず全リクエスト ValidationException) は latch 型の ai-provider-unavailable では拾えず、丸一日以上 100% fallback のまま発見はオーナーの手動実行だった。ノイズ懸念には「件数」と「率」の両方を掛けて対処済み (15 分 window で **失敗 2 件以上かつ 50% 以上**) — 単発の throttle / timeout は 1 件なので鳴らず、100% 壊れていれば 2 件目で鳴る',
+	},
 	'ganbari-quest-ops-alert-forward-failed': {
 		notify: true,
 		reason:

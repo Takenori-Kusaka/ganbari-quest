@@ -20,7 +20,7 @@ vi.mock('$lib/server/db/push-subscription-repo', () => ({
 	insert: vi.fn(),
 	deleteByEndpoint: vi.fn(),
 	insertLog: vi.fn(),
-	countTodayLogs: vi.fn(),
+	countLogsBetween: vi.fn(),
 	findRecentLogs: vi.fn(),
 }));
 
@@ -49,7 +49,7 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import webpush from 'web-push';
-import { countTodayLogs, findByTenant, insertLog } from '$lib/server/db/push-subscription-repo';
+import { countLogsBetween, findByTenant, insertLog } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
 import {
 	sendAchievementNotification,
@@ -58,7 +58,7 @@ import {
 
 const mockFindByTenant = vi.mocked(findByTenant);
 const mockInsertLog = vi.mocked(insertLog);
-const mockCountTodayLogs = vi.mocked(countTodayLogs);
+const mockCountTodayLogs = vi.mocked(countLogsBetween);
 const mockGetSettings = vi.mocked(getSettings);
 const mockSendNotification = vi.mocked(webpush.sendNotification);
 const mockSetVapidDetails = vi.mocked(webpush.setVapidDetails);

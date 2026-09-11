@@ -3,6 +3,12 @@ name: Deploy to NUC (Staging)
 # NOTE (#3014): Windows PowerShell 5.1 は UTF-8 (BOM 無し) script を CP932 誤読するため、
 # run block 内の**文字列リテラルは ASCII のみ**とする (多バイト文字が `"` 直前にあると
 # 0x82 等の先行 byte が閉じ引用符を食い ParseException)。YAML コメントの日本語は可。
+#
+# NOTE (#4887): 同じ誤読は**読み込むファイル**にも起きる。`Get-Content` は 5.1 では
+# `-Encoding` 省略時に ANSI (CP932) で decode するため、UTF-8 の JSON/テキストを読むときは
+# **必ず `-Encoding UTF8` を付ける**。`curl.exe` の stdout を変数で受ける形も同罪
+# (PowerShell は native command の stdout を `[Console]::OutputEncoding` で decode する) —
+# 非 ASCII を含みうる応答は「ファイルに落として -Encoding UTF8 で読む」に統一する。
 
 # NUC staging 環境 (#2872 / EPIC #2861 D 系) — 統合 PR (develop→main) の本番近似検証レーン。
 #
@@ -273,6 +279,10 @@ jobs:
       # 「snapshot からの lazy migration が貫通し schema が valid」を実機担保する (#2508 再発防止)。
       - name: Health check (staging, schema valid assert)
         run: |
+          # #4887: this step reads a UTF-8 JSON body. Windows PowerShell 5.1 writes host output
+          # through the OEM code page (CP932 on the ja-JP NUC runner), so the diagnostic dump below
+          # is unreadable unless the console encoding is pinned to UTF-8 first.
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           Start-Sleep -Seconds 10
           $maxRetries = 5
           $retryInterval = 5
@@ -280,14 +290,18 @@ jobs:
           for ($i = 1; $i -le $maxRetries; $i++) {
             $code = & curl.exe -s -o staging-health.json -w "%{http_code}" --connect-timeout 10 http://localhost:3100/api/health 2>$null
             if ($code -eq "200") {
-              $lastBody = Get-Content -Path staging-health.json -Raw
+              # #4887: -Encoding is mandatory. Without it WinPS 5.1 decodes this UTF-8 file with the
+              # system ANSI code page (CP932); a multi-byte char whose last byte lands in 0x81-0x9F
+              # swallows the following closing quote and the JSON stops parsing (#4721 put Japanese
+              # into scheduler.summary). On read, -Encoding UTF8 means the same thing in 5.1 and 7.
+              $lastBody = Get-Content -Path staging-health.json -Raw -Encoding UTF8
               Write-Host "Health check HTTP 200 on attempt $i"
               Write-Host "=== /api/health body ==="
               Write-Host $lastBody
               try {
                 $json = $lastBody | ConvertFrom-Json
               } catch {
-                throw "Health endpoint returned 200 but body was not valid JSON"
+                throw "Health endpoint returned 200 but body was not valid JSON: $($_.Exception.Message)"
               }
               if ($json.schema.schemaValid -eq $true) {
                 Write-Host "::notice::staging health passed (HTTP 200 + schema.schemaValid=true). Migration-from-snapshot verified (#2872 AC6)."

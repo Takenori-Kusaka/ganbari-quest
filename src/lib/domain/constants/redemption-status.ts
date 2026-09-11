@@ -10,3 +10,16 @@ export const REDEMPTION_STATUSES = [
 	'expired',
 ] as const;
 export type RedemptionStatus = (typeof REDEMPTION_STATUSES)[number];
+
+/**
+ * ごほうび申請の承認画面で表示する履歴件数 (#4676)。
+ * `/admin/rewards/requests` の load とセクション見出し・ページガイド文言が同じ値を引く
+ * (数値の直書きを作らない)。
+ */
+export const REWARD_REQUEST_HISTORY_LIMIT = 30;
+
+/**
+ * 却下理由の最大文字数 (#4676)。server 側の切り詰め (reward-redemption-service) と
+ * 入力欄ラベル・ページガイド文言が同じ値を引く。
+ */
+export const REWARD_REJECT_NOTE_MAX_LENGTH = 100;

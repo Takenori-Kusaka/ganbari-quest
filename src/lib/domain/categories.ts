@@ -26,6 +26,14 @@ interface CategoryMeta {
 	readonly legacyNumericId: number;
 	/** 日本語表示名 (DB categories.name に seed。子供画面表示はひらがな) */
 	readonly name: string;
+	/**
+	 * 漢字表記 (#4690)。13-18 歳 (junior / senior) の画面で使う。
+	 *
+	 * `name` はひらがな固定で、DB seed 値・`CategoryName` union 型・marketplace payload が
+	 * 依存しているため変えられない。年齢帯で文体を出し分ける (docs/DESIGN.md §8) には
+	 * 2 表記が要るので、同じ場所に並べて持つ (別ファイルに置くと片方だけ足す事故になる)。
+	 */
+	readonly kanjiName: string;
 	/** カテゴリアイコン (DB categories.icon に seed) */
 	readonly icon: string;
 	/** master 表示色 (DB categories.color に seed) */
@@ -35,10 +43,18 @@ interface CategoryMeta {
 }
 
 export const CATEGORIES = {
-	undou: { legacyNumericId: 1, name: 'うんどう', icon: '🏃', color: '#FF6B6B', accent: '#D32F2F' },
+	undou: {
+		legacyNumericId: 1,
+		name: 'うんどう',
+		kanjiName: '運動',
+		icon: '🏃',
+		color: '#FF6B6B',
+		accent: '#D32F2F',
+	},
 	benkyou: {
 		legacyNumericId: 2,
 		name: 'べんきょう',
+		kanjiName: '勉強',
 		icon: '📚',
 		color: '#4ECDC4',
 		accent: '#00897B',
@@ -46,6 +62,7 @@ export const CATEGORIES = {
 	seikatsu: {
 		legacyNumericId: 3,
 		name: 'せいかつ',
+		kanjiName: '生活',
 		icon: '🏠',
 		color: '#FFE66D',
 		accent: '#F9A825',
@@ -53,11 +70,19 @@ export const CATEGORIES = {
 	kouryuu: {
 		legacyNumericId: 4,
 		name: 'こうりゅう',
+		kanjiName: '交流',
 		icon: '🤝',
 		color: '#A8E6CF',
 		accent: '#2E7D32',
 	},
-	souzou: { legacyNumericId: 5, name: 'そうぞう', icon: '🎨', color: '#DDA0DD', accent: '#7B1FA2' },
+	souzou: {
+		legacyNumericId: 5,
+		name: 'そうぞう',
+		kanjiName: '創造',
+		icon: '🎨',
+		color: '#DDA0DD',
+		accent: '#7B1FA2',
+	},
 } as const satisfies Record<string, CategoryMeta>;
 
 /** カテゴリコード union: 'undou' | 'benkyou' | 'seikatsu' | 'kouryuu' | 'souzou' */
@@ -69,6 +94,20 @@ export type CategoryNumericId = (typeof CATEGORIES)[CategoryCode]['legacyNumeric
 
 /** 全カテゴリコード (定義順 = legacyNumericId 昇順) */
 export const CATEGORY_CODES = Object.keys(CATEGORIES) as readonly CategoryCode[];
+
+/**
+ * 全カテゴリの日本語表示名 (定義順)。**文言で 5 カテゴリを列挙するときは必ずここから作る** (#4512)。
+ *
+ * ページガイドが実在しない「おてつだい」を挙げ「こうりゅう」を落としていた
+ * (labels.ts 内でも別の箇所は正しく列挙しており、文言どうしが矛盾していた)。
+ * 列挙を手で書くと、カテゴリを増減したときに文言だけが取り残される。
+ */
+export const CATEGORY_NAMES: readonly CategoryName[] = CATEGORY_CODES.map(
+	(code) => CATEGORIES[code].name,
+);
+
+/** 5 カテゴリを「・」区切りで並べた表示用文字列 (例: 「うんどう・べんきょう・…」)。 */
+export const CATEGORY_NAME_LIST = CATEGORY_NAMES.join('・');
 
 /** 全 legacy 数値 id (定義順)。valibot `v.picklist(CATEGORY_NUMERIC_IDS)` 等の値域 SSOT */
 export const CATEGORY_NUMERIC_IDS = CATEGORY_CODES.map(

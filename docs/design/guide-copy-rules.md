@@ -25,13 +25,13 @@
 | 5 | **キーワードを強調** — 操作対象・結果の要語を視覚強調（specific > generic microcopy） | UXPin microcopy | △ review |
 | 6 | **そのページの上から順に説明** — step の `selector` 対象が DOM 上で上→下の順になるよう step を並べる | reading order / contextual gradual | △ review + layout-invariant |
 | 7 | **吹き出しが説明対象に被らない** — bubble は target を隠さない | NN/g（tooltip must not obscure）/ Material smart positioning | ○ `page-guide-layout-invariant.spec.ts`（#2926/#2971）|
-| 8 | **3 部構成・≤5 step** — ①概要 →②画面の見方 →③最頻操作 | #2927 / ADR-0012 anti-engagement | ○ step 数 ≤5 |
+| 8 | **3 部構成を骨格に、そのページの主要操作を上から下に網羅する** — ①概要 →②画面の見方 →③最頻操作 を骨格とし、必要な数だけ step を置く（固定上限は設けない。ADR-0012 の趣旨で冗長にしない、EPIC #4650 PO 判断 5）。「押す」と書く step は必ず実要素に spotlight する（条件付き UI は `optional: true` + `filterGuideStepsByPresence` / `filterGuideStepsByTargetPresence` で描画時のみ案内、PO 判断 4） | #2927 / #4650 / ADR-0012 anti-engagement | △ review + layout-invariant (d) |
 
 ## 3. 仕様
 
 ### 3.1 step の三部構成（narrative）
 
-各ガイドは「①ページ概要 → ②画面の見方 → ③最頻操作」を基本に、**最大 5 step**。① は `selector` 省略の中央 modal、②③ は当該ページの実 DOM 要素を `selector: '[data-tutorial="…"]'` で指す（＝個別最適の実体）。
+各ガイドは「①ページ概要 → ②画面の見方 → ③最頻操作」を骨格に、**そのページの主要操作を上から下の順に必要な数だけ**置く（EPIC #4650 PO 判断 5。固定上限は無いが冗長にしない）。① は `selector` 省略の中央 modal、②③ は当該ページの実 DOM 要素を `selector: '[data-tutorial="…"]'` で指す（＝個別最適の実体）。
 
 各 step の text フィールド:
 
@@ -54,7 +54,7 @@
 1. 謎用語 / 非 SSOT 用語
 2. 内部事情の露出（route パス / `.svelte` / `data-tutorial=` / 内部プラン識別子）
 3. 文字数上限超過
-4. step 数 > 5
+4. step 数 > 5（#4650 で上限撤廃済）
 
 機械化が難しいポリシー（#5 キーワード強調 / #6 上→下順 / #7 非重複）は本 spec + review + `page-guide-layout-invariant.spec.ts` で担保する。
 
@@ -65,7 +65,8 @@
 | 非 SSOT の独自語・内部コード名を文言に出す | 読み手に新用語を増やす（混乱） | レビュー（旧 `check-guide-copy.ts` は削除済み） |
 | route パス / コンポーネント名 / `data-tutorial` を文言に書く | 内部事情露出 | レビュー |
 | 上限超過の冗長な文言 | 認知負荷 | レビュー |
-| 6 step 以上 | anti-engagement 違反 | レビュー |
+| 主要操作の網羅に不要な冗長 step | anti-engagement 違反 | レビュー |
+| 「押す」と書く step の対象が画面に無い / 非表示 | 中央 dummy / 0×0 spotlight（#4650） | `page-guide-layout-invariant.spec.ts` (d) |
 | 同一概念を別表現で書く | 表記揺れ | レビュー |
 
 ## 5. 関連

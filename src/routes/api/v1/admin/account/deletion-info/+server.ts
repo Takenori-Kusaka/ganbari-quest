@@ -4,6 +4,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { ERROR_NOTIFY_LABELS, OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { requireAppUserId } from '$lib/server/auth/guards';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { logger } from '$lib/server/logger';
 import { getOwnerDeletionInfo } from '$lib/server/services/account-deletion-service';
@@ -26,7 +27,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 	}
 
 	try {
-		const info = await getOwnerDeletionInfo(tenantId, identity.userId);
+		// #4643: users.user_id を渡す (identity.userId は IdP の sub で users を引けない)
+		const info = await getOwnerDeletionInfo(tenantId, requireAppUserId(locals));
 		return json(info);
 	} catch (err) {
 		// ADR-0062 §2 / #3571: 内部例外メッセージ (String(err)) をユーザに露出しない。

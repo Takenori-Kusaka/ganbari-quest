@@ -18,12 +18,20 @@ const mockFindTenantByStripeCustomerId = vi.fn();
 const mockWebhookEventClaim = vi.fn();
 const mockWebhookEventRelease = vi.fn();
 
+// #4707: 有料契約確定 (W1 / W2) でトライアルを閉じる経路 (trial_history)
+const mockTrialFindLatestByTenant = vi.fn();
+const mockTrialUpdateConversion = vi.fn();
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findTenantById: mockFindTenantById,
 			updateTenantStripe: mockUpdateTenantStripe,
 			findTenantByStripeCustomerId: mockFindTenantByStripeCustomerId,
+		},
+		trialHistory: {
+			findLatestByTenant: mockTrialFindLatestByTenant,
+			updateConversion: mockTrialUpdateConversion,
 		},
 		webhookEvent: {
 			findByEventId: async () => null,
@@ -120,6 +128,15 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 
 // ---------- Import after mocks ----------
 
+import { CHECKOUT_LABELS } from '../../../src/lib/domain/labels';
+import {
+	ADMIN_SCREEN_TERMS,
+	ADMIN_VIEW_TERMS,
+	CANCEL_TERMS,
+	CHECKOUT_TERMS,
+	STRIPE_PORTAL_TERMS,
+	TOKUSHOHO_TERMS,
+} from '../../../src/lib/domain/terms';
 import {
 	createCheckoutSession,
 	createPortalSession,
@@ -214,7 +231,28 @@ beforeEach(() => {
 	mockIsStripeEnabled.mockReturnValue(true);
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
+	// 既定: トライアル履歴なし (= 閉じるものがない)
+	mockTrialFindLatestByTenant.mockResolvedValue(undefined);
+	mockTrialUpdateConversion.mockResolvedValue(undefined);
 });
+
+/** #4707: 進行中 (JST 暦日で未来) のトライアル行 */
+function makeActiveTrialRow(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'trial-1',
+		tenantId: 't-test',
+		startDate: '2026-08-19',
+		endDate: '2099-12-31',
+		tier: 'standard',
+		source: 'user_initiated',
+		campaignId: null,
+		stripeSubscriptionId: null,
+		upgradeReason: null,
+		trialStartSource: null,
+		createdAt: '2026-08-19T00:00:00Z',
+		...overrides,
+	};
+}
 
 // ==========================================================
 // createCheckoutSession
@@ -312,6 +350,128 @@ describe('createCheckoutSession', () => {
 		});
 		const params = mockSessionCreate.mock.calls[0]?.[0];
 		expect(params.customer).toBe('cus_existing');
+	});
+
+	// ------------------------------------------------------------
+	// #2573 (2026-09-04 QM 監査 legal.md [S1]):
+	// 申込確定の直前で事業者が文言を出せる枠は `custom_text.submit.message` ただ 1 つ。
+	// ここが販促文だと、顧客は「毎月自動更新であること / 解約の方法 / いつから使えるか」を
+	// 知らないまま確定ボタンを押す (特商法 12 条の 6)。3 点が **Stripe に渡る params の中に**
+	// あることを固定する (labels 単体ではなく配線ごと見る)。
+	// ------------------------------------------------------------
+
+	/**
+	 * Stripe `custom_text.*.message` の文字数上限。
+	 * 出典: node_modules/stripe/cjs/resources/Checkout/Sessions.d.ts
+	 *       `namespace CustomText` の各 `message` に "Text can be up to 1200 characters in length."
+	 *       (stripe SDK v22.5.0)。超えると sessions.create が 400 を返し申込導線が死ぬ。
+	 */
+	const STRIPE_CUSTOM_TEXT_MAX_LENGTH = 1200;
+
+	async function captureSessionParams() {
+		await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+		return mockSessionCreate.mock.calls[0]?.[0];
+	}
+
+	it('#2573: custom_text.submit.message が「自動更新」を述べる (毎月 / そのつど課金)', async () => {
+		const params = await captureSessionParams();
+		const message: string = params.custom_text.submit.message;
+
+		expect(message).toBe(CHECKOUT_LABELS.submitMessage);
+		expect(message).toContain(TOKUSHOHO_TERMS.heading4Delivery);
+		expect(message).toContain('毎月');
+		expect(message).toContain('自動で更新');
+		expect(message).toContain('課金します');
+		// 次回以降の金額の確認先を必ず示す (金額に触れずに済ませない)
+		expect(message).toContain(`次回以降のご請求金額は${STRIPE_PORTAL_TERMS.short}`);
+	});
+
+	// #2573 (adversarial must): 同じ session が `allow_promotion_codes: true` を渡しており、
+	// `duration: once` のプロモーションコードが使われると初回と次回以降で請求額が変わる。
+	// 「同額」等の断定は特商法 12 条の 6 の金額表示にあたる部分を事実と食い違わせるため、
+	// **文言側で禁止する**。promotion code を無効化する (顧客に見える機能を消す) 選択は取らない。
+	it('#2573: 初回と更新が同額であるとは述べない (allow_promotion_codes と両立させる)', async () => {
+		const params = await captureSessionParams();
+		const message: string = params.custom_text.submit.message;
+
+		// promotion code は有効なまま (この前提が崩れたら本 assertion の根拠も変わる)
+		expect(params.allow_promotion_codes).toBe(true);
+		expect(params.after_expiration.recovery.allow_promotion_codes).toBe(true);
+
+		expect(message).not.toContain('同額');
+		expect(message).not.toContain('同じ金額');
+	});
+
+	it('#2573: custom_text.submit.message が「解約方法」を述べる (画面 → セクション → ボタンの実経路)', async () => {
+		const params = await captureSessionParams();
+		const message: string = params.custom_text.submit.message;
+
+		expect(message).toContain(TOKUSHOHO_TERMS.heading5Cancel);
+		// tokushoho.html「返品・キャンセル」行と同一の 1 本の経路を名乗る
+		expect(message).toContain(ADMIN_VIEW_TERMS.canonical);
+		expect(message).toContain(ADMIN_SCREEN_TERMS.subscription);
+		expect(message).toContain(`${STRIPE_PORTAL_TERMS.short}を開く`);
+		expect(message).toContain(`いつでも${CANCEL_TERMS.canonical}できます`);
+	});
+
+	it('#2573: custom_text.submit.message が「提供開始時期」を述べ、景表法対応の限定文言を保つ', async () => {
+		const params = await captureSessionParams();
+		const message: string = params.custom_text.submit.message;
+
+		expect(message).toContain('お支払い後、すぐに');
+		expect(message).toContain(CHECKOUT_TERMS.chosenPlanFeature);
+		// #2346 景品表示法 5 条 1 号 (優良誤認) の regression guard を維持する
+		expect(message).not.toContain('すべての機能');
+	});
+
+	it('#2573: custom_text の message が Stripe の 1200 文字上限内 (超えると session 作成が 400)', async () => {
+		const params = await captureSessionParams();
+
+		expect(params.custom_text.submit.message.length).toBeLessThanOrEqual(
+			STRIPE_CUSTOM_TEXT_MAX_LENGTH,
+		);
+		expect(params.custom_text.after_submit.message.length).toBeLessThanOrEqual(
+			STRIPE_CUSTOM_TEXT_MAX_LENGTH,
+		);
+	});
+
+	// #2573 (adversarial must の確認事項 1): 上限検査を「最長インスタンス」で行えているか。
+	// 本文言はプラン名 / 課金周期を差し込まない固定文字列なので、インスタンスは 1 つしか無い。
+	// それを **実際に別プランで session を作って比較する**ことで固定する
+	// (将来 plan 差し込み版に切り替えたら本 test が落ち、上限検査の見直しを強制する)。
+	it('#2573: submit.message はプランに依らず同一 (= 上限検査の対象インスタンスは 1 つ)', async () => {
+		await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+		await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'family-monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+
+		expect(mockSessionCreate).toHaveBeenCalledTimes(2);
+		const first = mockSessionCreate.mock.calls[0]?.[0].custom_text.submit.message;
+		const second = mockSessionCreate.mock.calls[1]?.[0].custom_text.submit.message;
+		expect(second).toBe(first);
+	});
+
+	it('#2573: 利用規約への同意は consent_collection が担い、custom_text で重複させない', async () => {
+		const params = await captureSessionParams();
+
+		// Stripe 既定の ToS 同意チェックボックス (規約リンク付き) を収集している
+		expect(params.consent_collection.terms_of_service).toBe('required');
+		// 同じことを 2 回言わないため terms_of_service_acceptance は設定しない
+		expect(params.custom_text.terms_of_service_acceptance).toBeUndefined();
+		expect(params.custom_text.submit.message).not.toContain('利用規約');
 	});
 
 	it('session.url が null → INVALID_PLAN', async () => {
@@ -1291,5 +1451,101 @@ describe('handleWebhookEvent', () => {
 			data: { object: {} },
 		};
 		await expect(handleWebhookEvent(event as never)).resolves.toBeUndefined();
+	});
+});
+
+// ==========================================================
+// #4707: 有料契約の確定でトライアルを閉じる (W1 checkout / W2 invoice.paid)
+// ==========================================================
+
+describe('paid contract closes the trial (#4707)', () => {
+	const checkoutEvent = {
+		type: 'checkout.session.completed',
+		data: {
+			object: {
+				id: 'cs_test',
+				metadata: { tenantId: 't-test', planId: 'monthly' },
+				customer: 'cus_new',
+				subscription: 'sub_new',
+				customer_details: { email: 'test@example.com' },
+				customer_email: null,
+			},
+		},
+	};
+
+	it('W1 checkout.session.completed: 進行中のトライアルを end_date=今日 (JST) + subscription 記録で閉じる', async () => {
+		mockTrialFindLatestByTenant.mockResolvedValue(makeActiveTrialRow());
+		const { toJSTDateString } = await import('$lib/domain/date-utils');
+
+		await handleWebhookEvent(checkoutEvent as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ stripeSubscriptionId: 'sub_new', status: 'active' }),
+		);
+		expect(mockTrialFindLatestByTenant).toHaveBeenCalledWith('t-test');
+		expect(mockTrialUpdateConversion).toHaveBeenCalledWith({
+			id: 'trial-1',
+			tenantId: 't-test',
+			stripeSubscriptionId: 'sub_new',
+			upgradeReason: 'manual',
+			endDate: toJSTDateString(new Date()),
+		});
+	});
+
+	it('W1: トライアル履歴なし → 契約状態だけ確定し trial_history は触らない', async () => {
+		await handleWebhookEvent(checkoutEvent as never);
+		expect(mockUpdateTenantStripe).toHaveBeenCalled();
+		expect(mockTrialUpdateConversion).not.toHaveBeenCalled();
+	});
+
+	it('W1: trial_history の失敗は契約確定を巻き戻さない (error log のみ、webhook は成功)', async () => {
+		mockTrialFindLatestByTenant.mockRejectedValue(new Error('trial db down'));
+		await expect(handleWebhookEvent(checkoutEvent as never)).resolves.toBeUndefined();
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			expect.stringContaining('failed to close trial on paid conversion'),
+			expect.objectContaining({ context: expect.objectContaining({ tenantId: 't-test' }) }),
+		);
+	});
+
+	it('W2 invoice.paid (現行契約): W1 未達の救済として同じくトライアルを閉じる', async () => {
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')) },
+		});
+		mockTrialFindLatestByTenant.mockResolvedValue(makeActiveTrialRow());
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		expect(mockTrialUpdateConversion).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 't-test',
+				stripeSubscriptionId: 'sub_123',
+				upgradeReason: 'manual',
+			}),
+		);
+	});
+
+	it('W2 invoice.paid: 同じ subscription で既に移行済みなら何もしない (冪等、Stripe 再送耐性)', async () => {
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')) },
+		});
+		mockTrialFindLatestByTenant.mockResolvedValue(
+			makeActiveTrialRow({ stripeSubscriptionId: 'sub_123', endDate: '2026-08-19' }),
+		);
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+		expect(mockTrialUpdateConversion).not.toHaveBeenCalled();
 	});
 });

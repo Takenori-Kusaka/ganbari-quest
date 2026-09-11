@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { SETUP_PACKS_LABELS } from '$lib/domain/labels';
 import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
@@ -74,13 +75,27 @@ export const actions: Actions = {
 			applyMustDefaultRaw === 'on' || applyMustDefaultRaw === 'true' || applyMustDefaultRaw === '1';
 
 		if (packIds.length === 0) {
-			// Skip selected — no packs to import
-			redirect(302, '/setup/complete');
+			// #4866 系 QM 監査 (onboarding) / PO 差し戻し 2026-09-09:
+			// **ここだけ次の step ではなく `/setup/complete` へ飛んでいた**。0 件で入ると
+			// rewards / rules / activities-defaults / challenges / first-adventure の **5 step を
+			// まるごと飛ばして完了扱い**になり、`/setup/complete` の load が
+			// `clearSetupWizardInProgress` で印まで降ろす — 中断者を戻す導線ごと閉じる。
+			//
+			// 兄弟 step (`rewards:83` / `rules:91`) と同じく「0 件でも次へ進む」に揃える。
+			// 取り込んだ件数 0 を query で渡すのも兄弟と同形。
+			redirect(302, '/setup/rewards?packsImported=0&packsSkipped=0');
 		}
 
 		let totalImported = 0;
 		let totalSkipped = 0;
 		const allErrors: string[] = [];
+
+		// #4692: 取込先 child を明示する (service の first-child silent fallback は撤去済)。
+		// 初期セットアップは「登録済みの全員に最初の活動を配る」意味なので家族全員が対象。
+		const setupChildIds = (await getAllChildren(tenantId)).map((c) => c.id);
+		if (setupChildIds.length === 0) {
+			redirect(302, '/setup/children');
+		}
 
 		const descriptor = marketplaceRegistry.get('activity-pack');
 		for (const packId of packIds) {
@@ -94,7 +109,7 @@ export const actions: Actions = {
 						typeCode: 'activity-pack',
 						rawPayload: source.payload,
 						displayName: source.displayName,
-						ctx: { tenantId, presetId: packId, applyMustDefault },
+						ctx: { tenantId, presetId: packId, applyMustDefault, childIds: setupChildIds },
 					});
 					totalImported += result.imported;
 					totalSkipped += result.skipped;
@@ -103,7 +118,7 @@ export const actions: Actions = {
 					totalSkipped += preview.total;
 				}
 			} catch {
-				allErrors.push(`パック「${packId}」の読み込みに失敗しました`);
+				allErrors.push(SETUP_PACKS_LABELS.errorPackLoadFailed(packId));
 			}
 		}
 
@@ -138,7 +153,13 @@ export const actions: Actions = {
 							typeCode: 'activity-pack',
 							rawPayload: source.payload,
 							displayName: source.displayName,
-							ctx: { tenantId, presetId: p.itemId, applyMustDefault: true },
+							// #4692: 自動適用も配信先を明示 (登録済みの全員)
+							ctx: {
+								tenantId,
+								presetId: p.itemId,
+								applyMustDefault: true,
+								childIds: children.map((c) => c.id),
+							},
 						});
 						autoImported += result.imported;
 					}

@@ -46,6 +46,14 @@ export default async function globalSetup() {
 				// カラムが既に存在する場合は無視
 			}
 
+			// #4718: children.birth_date_estimated カラム追加マイグレーション (推定誕生日の印)
+			try {
+				db.exec('ALTER TABLE children ADD COLUMN birth_date_estimated INTEGER NOT NULL DEFAULT 0');
+				console.log('[E2E Setup]   Added birth_date_estimated column to children.');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
+
 			// #783: is_archived + archived_reason カラム追加マイグレーション
 			for (const table of ['children', 'activities', 'checklist_templates']) {
 				try {
@@ -246,7 +254,8 @@ export default async function globalSetup() {
 				db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
 					child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-					reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
+					-- #4683: FK は張らない (ごほうび削除後も交換履歴を残す。create-tables.ts と同期)
+					reward_id INTEGER NOT NULL,
 					requested_at INTEGER NOT NULL,
 					quantity INTEGER NOT NULL DEFAULT 1,
 					status TEXT NOT NULL DEFAULT 'pending_parent_approval',

@@ -23,11 +23,13 @@ import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-rewa
 import {
 	type IRewardRedemptionRepo,
 	REDEMPTION_DEDUP_WINDOW_SEC,
+	REDEMPTION_EXPIRE_AFTER_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface RequestRow {
@@ -41,12 +43,24 @@ interface RequestRow {
 	resolved_at: string | null;
 	resolved_by_parent_id: string | null;
 	shown_to_child_at: string | null;
+	// #4632: 申請時点 snapshot (row 型に昇格)。SELECT で取らない経路では undefined になるため
+	// optional にし、toRequestRow が null に正規化する。
+	reward_title?: string | null;
+	reward_points?: number | null;
+	reward_icon?: string | null;
 }
 
 const REQUEST_COLUMNS = sql.raw(
 	`redemption_id, child_id, reward_id, requested_at, quantity, status, parent_note,
-	 resolved_at, resolved_by_parent_id, shown_to_child_at`,
+	 resolved_at, resolved_by_parent_id, shown_to_child_at,
+	 reward_title, reward_points, reward_icon`,
 );
+
+/**
+ * #4683: 「参照先ごほうびが存在しない」ことを表す reward_id (nil UUID)。
+ * `gen_random_uuid()` は nil UUID を返さないため、別のごほうびを指すことはない。
+ */
+const ORPHAN_REWARD_ID = '00000000-0000-0000-0000-000000000000';
 
 /** epoch 秒 (entity) → timestamptz ISO 文字列 (DSQL 格納)。 */
 function epochToIso(sec: number): string {
@@ -74,6 +88,10 @@ function toRequestRow(row: RequestRow): RedemptionRequestRow {
 		resolvedAt: isoToEpoch(row.resolved_at),
 		resolvedByParentId: row.resolved_by_parent_id,
 		shownToChildAt: isoToEpoch(row.shown_to_child_at),
+		// #4632: 申請時点 snapshot を row 型でも返す (子供の交換履歴が「何を交換したか」を出せるように)。
+		rewardTitle: row.reward_title ?? null,
+		rewardPoints: row.reward_points ?? null,
+		rewardIcon: row.reward_icon ?? null,
 	};
 }
 
@@ -93,18 +111,88 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IRewardRedemptionRepo {
-	/** status / childId filter を組み立てる (findByTenant / countByTenant 共有)。 */
+	/** status / statuses / childId filter を組み立てる (findByTenant / countByTenant 共有)。 */
 	const tenantConditions = (
 		tenantId: string,
-		opts?: { status?: string; childId?: ChildId },
+		opts?: {
+			status?: string;
+			statuses?: readonly string[];
+			childId?: ChildId;
+			requestedBeforeEpoch?: number;
+		},
 	): ReturnType<typeof sql> => {
 		let where = sql`rr.family_id = ${tenantId}`;
 		if (opts?.status) where = sql`${where} AND rr.status = ${opts.status}`;
+		// #4682 F4: 複数状態の OR (承認履歴 = approved / rejected)。空配列は「該当なし」。
+		if (opts?.statuses) {
+			const list = opts.statuses.length === 0 ? [sql`NULL`] : opts.statuses.map((v) => sql`${v}`);
+			where = sql`${where} AND rr.status IN (${sql.join(list, sql`, `)})`;
+		}
 		if (opts?.childId) where = sql`${where} AND rr.child_id = ${opts.childId}`;
+		// #4682: 失効 cron の dry-run が expireOldRedemptions と同じ母集団を数えるための期間条件。
+		if (opts?.requestedBeforeEpoch !== undefined) {
+			where = sql`${where} AND rr.requested_at < ${epochToIso(opts.requestedBeforeEpoch)}::timestamptz`;
+		}
 		return where;
 	};
 
+	/** WithDetails 行 → entity。単件取得 / 一覧で共有する。 */
+	const toWithDetails = (
+		r: RequestRow & {
+			child_name: string;
+			reward_title: string;
+			reward_icon: string | null;
+			reward_points: number;
+		},
+	): RedemptionRequestWithDetails => ({
+		...toRequestRow(r),
+		childName: r.child_name,
+		rewardTitle: r.reward_title,
+		rewardIcon: r.reward_icon,
+		rewardPoints: r.reward_points,
+	});
+
+	/** WithDetails の SELECT 句 (単件 / 一覧で同一投影を保つ)。 */
+	const WITH_DETAILS_SELECT = sql`
+		rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
+		rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+		c.nickname AS child_name,
+		${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon,
+		${SNAPSHOT_POINTS} AS reward_points
+	`;
+
+	/** WithDetails の FROM / JOIN 句 (§P9: JOIN も family_id を結合キーに含める)。 */
+	const WITH_DETAILS_FROM = sql`
+		FROM reward_redemption_requests rr
+		JOIN children c ON c.family_id = rr.family_id AND c.child_id = rr.child_id
+		LEFT JOIN special_rewards sr
+			ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
+	`;
+
 	return {
+		async findRedemptionRequestById(id, tenantId) {
+			// #4682 F1: id 直引き (一覧 limit 非依存)。§P9 family 述語込み。
+			// 非 uuid の id は 22P02 になるため呼び出し側 (form field) に到達させず undefined に倒す。
+			if (!isUuidFormat(String(id))) {
+				warnInvalidUuidId('reward-redemption-repo.findRedemptionRequestById');
+				return undefined;
+			}
+			const result = await db.execute(sql`
+				SELECT ${WITH_DETAILS_SELECT}
+				${WITH_DETAILS_FROM}
+				WHERE rr.family_id = ${tenantId} AND rr.redemption_id = ${id}
+			`);
+			const row = result.rows[0] as
+				| (RequestRow & {
+						child_name: string;
+						reward_title: string;
+						reward_icon: string | null;
+						reward_points: number;
+				  })
+				| undefined;
+			return row ? toWithDetails(row) : undefined;
+		},
+
 		async insertRedemptionRequest(input, tenantId) {
 			// #3356 (1): server-side idempotency。children 行を FOR UPDATE で write-intent 化して
 			// 同一 child の並行申請を直列化 (spendPointsAtomic §6.6 と同パターン。並行 txn は
@@ -153,12 +241,15 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 
 		async insertRedemptionForRestore(input, tenantId) {
 			// #3329: status / 解決情報 / snapshot を verbatim 書き戻す (live reward 参照しない)。
+			// #4683: rewardId=null (取込先に該当ごほうびが無い) は nil UUID で書く。
+			// gen_random_uuid() は nil UUID を返さないため、別のごほうびを指すことはない。
+			const rewardId = input.rewardId ?? ORPHAN_REWARD_ID;
 			const result = await db.execute(sql`
 				INSERT INTO reward_redemption_requests
 					(family_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 					 resolved_at, resolved_by_parent_id, shown_to_child_at,
 					 reward_title, reward_points, reward_icon)
-				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
+				VALUES (${tenantId}, ${input.childId}, ${rewardId}, ${epochToIso(input.requestedAt)},
 					${normalizeRedemptionQuantity(input.quantity)}, ${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
 					${normalizeResolvedByParentId(input.resolvedByParentId)},
@@ -170,27 +261,34 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		},
 
 		async findRedemptionRequestsByChild(childId, tenantId) {
+			// #4632: snapshot 3 列は「申請時点 snapshot 優先 / 旧行 (NULL) は live reward に fallback」。
+			// LEFT JOIN なので reward 削除後も行は脱落しない (#3566 / #4683)。
 			const result = await db.execute(sql`
-				SELECT ${REQUEST_COLUMNS} FROM reward_redemption_requests
-				WHERE family_id = ${tenantId} AND child_id = ${childId}
-				ORDER BY requested_at DESC, redemption_id DESC
+				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.quantity,
+					rr.status, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+					COALESCE(rr.reward_title, sr.title) AS reward_title,
+					COALESCE(rr.reward_points, sr.points) AS reward_points,
+					COALESCE(rr.reward_icon, sr.icon) AS reward_icon
+				FROM reward_redemption_requests rr
+				LEFT JOIN special_rewards sr
+					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
+				WHERE rr.family_id = ${tenantId} AND rr.child_id = ${childId}
+				ORDER BY rr.requested_at DESC, rr.redemption_id DESC
 			`);
 			return (result.rows as unknown as RequestRow[]).map(toRequestRow);
 		},
 
 		async findRedemptionRequestsByTenant(tenantId, opts) {
+			// #4682 F1: 承認待ちキューは古い順 (asc)。desc + limit だと最古が window の外に落ちる。
+			const order =
+				opts?.order === 'asc'
+					? sql`ORDER BY rr.requested_at ASC, rr.redemption_id ASC`
+					: sql`ORDER BY rr.requested_at DESC, rr.redemption_id DESC`;
 			const result = await db.execute(sql`
-				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
-					c.nickname AS child_name,
-					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon,
-					${SNAPSHOT_POINTS} AS reward_points
-				FROM reward_redemption_requests rr
-				JOIN children c ON c.family_id = rr.family_id AND c.child_id = rr.child_id
-				LEFT JOIN special_rewards sr
-					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
+				SELECT ${WITH_DETAILS_SELECT}
+				${WITH_DETAILS_FROM}
 				WHERE ${tenantConditions(tenantId, opts)}
-				ORDER BY rr.requested_at DESC, rr.redemption_id DESC
+				${order}
 				LIMIT ${opts?.limit ?? 50}
 			`);
 			return (
@@ -200,15 +298,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					reward_icon: string | null;
 					reward_points: number;
 				})[]
-			).map(
-				(r): RedemptionRequestWithDetails => ({
-					...toRequestRow(r),
-					childName: r.child_name,
-					rewardTitle: r.reward_title,
-					rewardIcon: r.reward_icon,
-					rewardPoints: r.reward_points,
-				}),
-			);
+			).map(toWithDetails);
 		},
 
 		async countRedemptionRequestsByTenant(tenantId, opts) {
@@ -221,7 +311,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			return Number(row?.count ?? 0);
 		},
 
-		async updateRedemptionRequestStatus(childId, id, updates, tenantId) {
+		async updateRedemptionRequestStatus(childId, id, updates, tenantId, options) {
 			// #2845 課題①: (childId, redemptionId) 複合キーで child 所有権を検証。
 			const sets: ReturnType<typeof sql>[] = [sql`status = ${updates.status}`];
 			if (updates.parentNote !== undefined) sets.push(sql`parent_note = ${updates.parentNote}`);
@@ -231,9 +321,18 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 				);
 			if (updates.resolvedByParentId !== undefined)
 				sets.push(sql`resolved_by_parent_id = ${updates.resolvedByParentId}`);
+			// #4722: expectedStatus 指定時は条件付き UPDATE (0 行 = 既に別の承認が確定済)。
+			// ⚠️ tenant 述語 (`family_id = ${tenantId}`) は **template 内にインラインで書く**。
+			// 配列に積んで `sql.join` で組み立てると、tenant 述語 fitness
+			// (tests/unit/architecture/dsql-tenant-predicate-fitness.test.ts、ADR-0063 §3.4) の
+			// 静的走査から述語が見えなくなり「family_id 欠如」を誤検出する = 防御線を実質無効化する。
+			const statusCondition =
+				options?.expectedStatus !== undefined
+					? sql` AND status = ${options.expectedStatus}`
+					: sql``;
 			const result = await db.execute(sql`
 				UPDATE reward_redemption_requests SET ${sql.join(sets, sql`, `)}
-				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}
+				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}${statusCondition}
 				RETURNING ${REQUEST_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as RequestRow | undefined;
@@ -248,15 +347,26 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
 		// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
+		async findPendingRewardIdsByTenant(tenantId) {
+			// #4682: 一覧 (表示用 LIMIT つき) の map から種別抽出すると、申請が LIMIT を超えた時点で
+			// 「処理待ちのごほうび」が抜け落ちる。DISTINCT を DB 側で取り、LIMIT を掛けない。
+			const result = await db.execute(sql`
+				SELECT DISTINCT reward_id FROM reward_redemption_requests
+				WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
+			`);
+			return (result.rows as unknown as { reward_id: string }[]).map((r) => String(r.reward_id));
+		},
+
 		async expireOldRedemptions(tenantId) {
 			// 30 日超 pending → expired。timestamptz 比較で now() - interval を使う (§11.3)。
+			// 経過秒は REDEMPTION_EXPIRE_AFTER_SEC が SSOT (dry-run の集計条件と同じ値を見る)。
 			// #3625: affected 件数は CTE で DB 側 count 集約し、更新全行を client に materialize しない
 			// (tenant 全体走査で大量 pending を expire しうる)。
 			const result = await db.execute(sql`
 				WITH updated AS (
 					UPDATE reward_redemption_requests SET status = 'expired'
 					WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
-						AND requested_at < now() - interval '30 days'
+						AND requested_at < now() - (${REDEMPTION_EXPIRE_AFTER_SEC} * interval '1 second')
 					RETURNING 1
 				)
 				SELECT count(*)::int AS c FROM updated

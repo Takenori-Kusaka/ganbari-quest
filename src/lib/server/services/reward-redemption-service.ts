@@ -1,16 +1,25 @@
+import { REWARD_REJECT_NOTE_MAX_LENGTH } from '$lib/domain/constants/redemption-status';
 import type { ChildId } from '$lib/domain/ids';
+
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
+import { jstDateOfEpochSeconds, todayDateJST } from '$lib/domain/date-utils';
 import { formatRewardWithQuantity } from '$lib/domain/labels';
 import {
 	isValidRedemptionQuantity,
 	REDEMPTION_QUANTITY_MIN,
 } from '$lib/domain/validation/special-reward';
+import { selectTenantSlice } from '$lib/server/cron/tenant-slice';
+import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
+import { getRepos } from '$lib/server/db/factory';
+import { REDEMPTION_EXPIRE_AFTER_SEC } from '$lib/server/db/interfaces/reward-redemption-repo.interface';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
+	findPendingRewardIdsByTenant,
+	findRedemptionRequestById,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
 	insertRedemptionRequest,
@@ -18,6 +27,8 @@ import {
 } from '$lib/server/db/reward-redemption-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
+import { logger } from '$lib/server/logger';
+import type { RetentionRange } from '$lib/server/services/plan-limit-service';
 
 /**
  * #3339: ごほうび交換の「即時交換（親承認スキップ）」が家庭設定で有効か。
@@ -201,8 +212,32 @@ async function classifyDuplicate(
 // 申請一覧取得（子供向け）
 // ============================================================
 
-export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: string) {
-	return findRedemptionRequestsByChild(childId, tenantId);
+/**
+ * 子供の交換申請一覧。
+ *
+ * `range` は **必須**。`reward_redemption_requests` は ADR-0049 拡張表で P0 (深刻度「高」)
+ * の保持期間対象であり、履歴一覧で渡し忘れると無料プランでも全期間の申請履歴が見える
+ * (実際に「記録 > 交換」タブがこの状態だった、#4818)。履歴ではない用途で意図的に絞らない
+ * ときは `NO_RETENTION_FILTER` を明示的に渡す。
+ *
+ * `requestedAt` は **epoch 秒** (`insertRedemptionRequest` に渡す値が `Math.floor(Date.now() / 1000)`) なので、
+ * `jstDateOfEpochSeconds` で JST 暦日へ直す。`new Date(秒)` は ms 解釈で 1970-01-xx になり、
+ * cutoff 比較で全件が古い判定 = 履歴が丸ごと消える。UTC 日付のまま
+ * 比較すると JST 00:00〜09:00 の申請が 1 日前扱いになり、cutoff 当日分が落ちる (#4015 同 class)。
+ */
+export async function getRedemptionRequestsForChild(
+	childId: ChildId,
+	tenantId: string,
+	range: RetentionRange,
+) {
+	const requests = await findRedemptionRequestsByChild(childId, tenantId);
+	if (!range.from && !range.to) return requests;
+	return requests.filter((r) => {
+		const requestedDate = jstDateOfEpochSeconds(r.requestedAt);
+		if (range.from && requestedDate < range.from) return false;
+		if (range.to && requestedDate > range.to) return false;
+		return true;
+	});
 }
 
 // ============================================================
@@ -211,7 +246,13 @@ export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: 
 
 export async function getRedemptionRequestsForParent(
 	tenantId: string,
-	opts?: { status?: string; childId?: ChildId; limit?: number },
+	opts?: {
+		status?: string;
+		statuses?: readonly string[];
+		childId?: ChildId;
+		limit?: number;
+		order?: 'asc' | 'desc';
+	},
 ) {
 	const rows = await findRedemptionRequestsByTenant(tenantId, opts);
 	return rows.map((r) => ({
@@ -242,6 +283,18 @@ export async function countPendingRedemptionsForParent(tenantId: string): Promis
 	return countRedemptionRequestsByTenant(tenantId, {
 		status: 'pending_parent_approval',
 	});
+}
+
+/**
+ * #4682: 承認待ち申請が存在するごほうびの id 集合 (DISTINCT、limit なし)。
+ *
+ * ごほうび管理画面の「申請時点の内容で処理」note と削除前の処理待ちバッジで使う。
+ * 表示用一覧 (`getRedemptionRequestsForParent`、既定 limit 50) を map して導くと、
+ * 申請が 51 件以上になった時点で種別が静かに抜け落ち、親が「処理待ちがある」ことに
+ * 気づかないままごほうびを編集 / 削除してしまう。
+ */
+export async function getPendingRewardIdsForParent(tenantId: string): Promise<string[]> {
+	return findPendingRewardIdsByTenant(tenantId);
 }
 
 // ============================================================
@@ -276,6 +329,11 @@ async function finalizeApproval(args: {
 	rewardTitle: string;
 	parentUserId: string | null;
 	tenantId: string;
+	/**
+	 * #4722: 呼び出し側が既に条件付き UPDATE で申請を approved に確定させている (親承認経路)。
+	 * この場合ここでは status を更新せず、減算に失敗したときだけ pending へ戻す (補償)。
+	 */
+	claimed?: { row: RedemptionRequestResult };
 }): Promise<RedemptionRequestResult | { error: 'INSUFFICIENT_POINTS' | 'REQUEST_NOT_FOUND' }> {
 	const { childId, requestId, rewardPoints, quantity, rewardTitle, parentUserId, tenantId } = args;
 
@@ -283,20 +341,60 @@ async function finalizeApproval(args: {
 	// どちらも顧客の信頼を直接壊すため、控除額の算出はこの 1 箇所に閉じる。
 	const totalPoints = rewardPoints * quantity;
 
+	// #4722: 親承認経路では先に approved を確定させている。減算に到達できなかった場合は
+	// 「承認済なのに引かれていない」状態を残さないよう pending に戻す (approved のときだけ戻す)。
+	const revertClaimedApproval = async () => {
+		if (!args.claimed) return;
+		const reverted = await updateRedemptionRequestStatus(
+			childId,
+			requestId,
+			{ status: 'pending_parent_approval', resolvedAt: null, resolvedByParentId: null },
+			tenantId,
+			{ expectedStatus: 'approved' },
+		);
+		if (!reverted) {
+			// 戻せなかった = 「承認済だが引かれていない」申請が残る。黙って進むと親も運営も気づけない
+			// (本 Issue #4722 が正そうとしている「失敗を成功に見せる」構造そのもの) ため必ず残す。
+			logger.error('[reward-redemption] 承認の巻き戻しに失敗 (承認済だが未控除の申請が残る)', {
+				context: { tenantId, childId, requestId },
+			});
+		}
+	};
+
 	// #3347: 残高再読込 → 非負確認 → 減算を原子境界で実行（TOCTOU 二重減算・残高マイナス防止）。
-	const spend = await spendPointsAtomic(
-		childId,
-		totalPoints,
-		{
-			type: 'reward_redemption',
-			// #4407: 個数が残るようにする (履歴を見た親が「残高が理由なく動いた」と読めないように)。
-			// 個数 1 なら従来どおりごほうび名のみ。
-			description: formatRewardWithQuantity(rewardTitle, quantity),
-			referenceId: requestId,
-		},
-		tenantId,
-	);
-	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
+	//
+	// #4722: 承認を減算より先に確定させたことで、**減算が throw した場合の失敗方向が
+	// 「対価なしにごほうびが渡る」に反転した**。throw は残高不足では起きないが、
+	// DSQL の OCC 衝突 (40001 = 本 Issue が対象にしている同時承認そのもの) /
+	// point_ledger の referenceId 冪等 UNIQUE 違反 / 実行時間切れ で起きうる。
+	// 型付きエラーと同じ補償を通してから投げ直す (INSUFFICIENT_POINTS に丸めると
+	// 「ポイントが足りません」と嘘の理由を顧客に見せることになり、本 Issue が正そうとしている
+	// 「失敗を成功に見せる」構造と同型になる)。
+	let spend: Awaited<ReturnType<typeof spendPointsAtomic>>;
+	try {
+		spend = await spendPointsAtomic(
+			childId,
+			totalPoints,
+			{
+				type: 'reward_redemption',
+				// #4407: 個数が残るようにする (履歴を見た親が「残高が理由なく動いた」と読めないように)。
+				// 個数 1 なら従来どおりごほうび名のみ。
+				description: formatRewardWithQuantity(rewardTitle, quantity),
+				referenceId: requestId,
+			},
+			tenantId,
+		);
+	} catch (e) {
+		await revertClaimedApproval();
+		throw e;
+	}
+	if ('error' in spend) {
+		await revertClaimedApproval();
+		return { error: 'INSUFFICIENT_POINTS' };
+	}
+
+	// #4722: 親承認経路は既に approved 確定済 (条件付き UPDATE の勝者) なので再更新しない。
+	if (args.claimed) return args.claimed.row;
 
 	// ステータス更新 (#2845 課題①: childId で所有権検証付き composite key 更新)
 	const now = Math.floor(Date.now() / 1000);
@@ -333,13 +431,26 @@ export async function approveRedemption(
 	parentUserId: string | null,
 	tenantId: string,
 ): Promise<RedemptionRequestResult | ApproveError> {
-	// 申請取得（テナント内か確認のため全件から検索）
-	// children + specialRewards 結合で取得
-	const allPending = await findRedemptionRequestsByTenant(tenantId);
-	const req = allPending.find((r) => r.id === requestId);
+	// #4682 F1: id 直引き (tenant 検査込み)。旧実装は一覧 (limit 50) から find していたため、
+	// 申請総数が 50 件を超えると古い承認待ちが window から落ち「申請が見つかりません」になった。
+	const req = await findRedemptionRequestById(requestId, tenantId);
 	if (!req) return { error: 'REQUEST_NOT_FOUND' };
 
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
+
+	// #4722: **先に条件付き UPDATE で承認を確定させる** (pending のときだけ approved にする)。
+	// 旧実装は「読んで status を見る → 減算 → 無条件 UPDATE」だったため、2 人の保護者が同時に承認すると
+	// 両方が減算へ進み、2 件目が台帳の冪等 UNIQUE 違反 (未 catch) で 500 になっていた。
+	// DB 側で勝者を 1 つに確定させることで、敗者は 0 行 = INVALID_STATUS として綺麗に落ちる。
+	const now = Math.floor(Date.now() / 1000);
+	const claimed = await updateRedemptionRequestStatus(
+		req.childId,
+		requestId,
+		{ status: 'approved', resolvedAt: now, resolvedByParentId: parentUserId },
+		tenantId,
+		{ expectedStatus: 'pending_parent_approval' },
+	);
+	if (!claimed) return { error: 'INVALID_STATUS' };
 
 	return finalizeApproval({
 		childId: req.childId,
@@ -350,6 +461,19 @@ export async function approveRedemption(
 		rewardTitle: req.rewardTitle,
 		parentUserId,
 		tenantId,
+		claimed: {
+			row: {
+				id: claimed.id,
+				childId: claimed.childId,
+				rewardId: claimed.rewardId,
+				quantity: claimed.quantity,
+				status: claimed.status as RedemptionStatus,
+				requestedAt: claimed.requestedAt,
+				parentNote: claimed.parentNote,
+				resolvedAt: claimed.resolvedAt,
+				shownToChildAt: claimed.shownToChildAt,
+			},
+		},
 	});
 }
 
@@ -366,8 +490,8 @@ export async function rejectRedemption(
 	// #3320: 却下した保護者の認証 userId。承認と対称に監査証跡として記録する (null = 解決者不明)。
 	parentUserId: string | null = null,
 ): Promise<RedemptionRequestResult | RejectError> {
-	const allRequests = await findRedemptionRequestsByTenant(tenantId);
-	const req = allRequests.find((r) => r.id === requestId);
+	// #4682 F1: 承認と同じく id 直引き (一覧 limit に依存しない)。
+	const req = await findRedemptionRequestById(requestId, tenantId);
 	if (!req) return { error: 'REQUEST_NOT_FOUND' };
 
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
@@ -379,7 +503,7 @@ export async function rejectRedemption(
 		requestId,
 		{
 			status: 'rejected',
-			parentNote: parentNote ? parentNote.slice(0, 100) : null,
+			parentNote: parentNote ? parentNote.slice(0, REWARD_REJECT_NOTE_MAX_LENGTH) : null,
 			resolvedAt: now,
 			resolvedByParentId: parentUserId,
 		},
@@ -407,6 +531,141 @@ export async function rejectRedemption(
 
 export async function expireOldRedemptions(tenantId: string): Promise<number> {
 	return expireOldRedemptionsRepo(tenantId);
+}
+
+/**
+ * #4682 F3: 1 回の実行で走査するテナント数の上限 (13-AWS設計書 §3.3 self-limiting)。
+ *
+ * 上限を超えた分は **翌日以降のスライスで必ず順番が回る** (`selectTenantSlice` の日次ローテーション)。
+ * `tenants.slice(0, limit)` にすると 201 番目以降が永久に処理されないまま
+ * 「次回に持ち越し」と log に書く嘘になるため、先頭固定の切り出しはしない。
+ */
+export const EXPIRE_REDEMPTIONS_TENANT_LIMIT = 200;
+
+export interface ExpireRedemptionsResult {
+	/** 期限切れに移した申請の件数 (dryRun のときは 0)。 */
+	expiredCount: number;
+	/** 存在するテナント総数。 */
+	tenantsTotal: number;
+	/** 今回処理したテナント数。 */
+	tenantsProcessed: number;
+	/**
+	 * 今回処理しなかったテナント数 = 今日の担当外 (ローテーション、正常) + 予算超過での打ち切り。
+	 * 内訳は下の 2 つで区別する (age-recalc と同じ規約、#4345)。
+	 */
+	tenantsRemaining: number;
+	/** 今日の担当スライス外 (翌日以降に必ず順番が回る、正常)。 */
+	tenantsSkippedByRotation: number;
+	/** 担当スライス内で時間予算により打ち切った数 (異常。warn の対象)。 */
+	tenantsSkippedByBudget: number;
+	/** 何番目のスライスを処理したか (0 始まり)。 */
+	sliceIndex: number;
+	/** スライスの総数 (= 全テナントを一巡するのにかかる日数)。 */
+	sliceCount: number;
+	/** 時間予算超過で打ち切ったか。 */
+	budgetExceeded: boolean;
+	/** テナント単位で失敗した件数 (1 件の失敗で全体を止めない)。 */
+	failures: number;
+	/** 実際には更新せず対象件数だけ数えたか (#4682: 本番投入前の観測手段)。 */
+	dryRun: boolean;
+}
+
+/**
+ * #4682 F3: **全テナント**の 30 日超 pending を expired に移す (cron 用)。
+ *
+ * 旧実装は endpoint が `expireOldRedemptions('default')` を直に呼んでおり、
+ * (a) `default` 以外のテナントが 1 件も処理されない (b) そもそも registry に載っておらず
+ * どの runtime でもスケジュールされていない、の二重の理由で**一度も動いていなかった**。
+ * 結果、子供のごほうびが「うけとりまち」のまま無期限に残り、履歴の「きげんぎれ」は
+ * 到達不能なラベルになっていた。
+ *
+ * self-limiting (13-AWS設計書 §3.3): テナント数に比例するため件数上限 + 時間予算で打ち切り、
+ * 残りは次回実行へ持ち越して件数を必ず報告する (silent 持ち越し禁止)。expire は冪等
+ * (同じ行を 2 回 expired にしても結果は同じ) なので、持ち越しでデータは壊れない。
+ */
+export async function expireOldRedemptionsForAllTenants(options?: {
+	tenantLimit?: number;
+	budget?: TimeBudget;
+	/** JST 暦日 (テスト注入用)。スライス選択の決定性を保つため実行日から導く。 */
+	today?: string;
+	/** true なら status を書き換えず「対象になる件数」だけ数える (#4682)。 */
+	dryRun?: boolean;
+}): Promise<ExpireRedemptionsResult> {
+	const tenantLimit = options?.tenantLimit ?? EXPIRE_REDEMPTIONS_TENANT_LIMIT;
+	const budget = options?.budget ?? createTimeBudget();
+	const today = options?.today ?? todayDateJST();
+	const dryRun = options?.dryRun ?? false;
+
+	// #4682: dry-run は「実際に失効する件数」を報告しなければ観測の意味がない。
+	// 実処理 (expireOldRedemptions) と同一の経過秒 (REDEMPTION_EXPIRE_AFTER_SEC) から cutoff を
+	// 導き、count にも同じ期間条件を渡す (cutoff の無い COUNT は承認待ち全件を「失効予定」と
+	// 過大報告し、運用判断を誤らせる)。
+	const expireCutoffEpoch = Math.floor(Date.now() / 1000) - REDEMPTION_EXPIRE_AFTER_SEC;
+
+	const tenants = await getRepos().auth.listAllTenants();
+	// #4682: 先頭固定 (`slice(0, limit)`) にすると上限超過分が永久に処理されない。
+	// 実行日から決まるスライスを選び、ceil(total / limit) 日で全テナントを重複なく周回する。
+	const { slice, sliceIndex, sliceCount } = selectTenantSlice(tenants, tenantLimit, today);
+
+	let expiredCount = 0;
+	let tenantsProcessed = 0;
+	let failures = 0;
+	let budgetExceeded = false;
+
+	for (const tenant of slice) {
+		if (budget.exceeded()) {
+			budgetExceeded = true;
+			break;
+		}
+		tenantsProcessed++;
+		try {
+			expiredCount += dryRun
+				? await countRedemptionRequestsByTenant(tenant.tenantId, {
+						status: 'pending_parent_approval',
+						requestedBeforeEpoch: expireCutoffEpoch,
+					})
+				: await expireOldRedemptionsRepo(tenant.tenantId);
+		} catch (err) {
+			failures++;
+			logger.error('[expire-redemptions] tenant failed', {
+				context: { tenantId: tenant.tenantId },
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+
+	// #4345 と同じ規約: 「今日の担当外 (正常)」と「担当内での打ち切り (異常)」を分けて数える。
+	const tenantsSkippedByRotation = tenants.length - slice.length;
+	const tenantsSkippedByBudget = slice.length - tenantsProcessed;
+	const tenantsRemaining = tenantsSkippedByRotation + tenantsSkippedByBudget;
+
+	if (tenantsSkippedByBudget > 0) {
+		// silent 打ち切り禁止 (ADR-0006 整合)。ローテーションによる担当外は異常ではないので warn しない。
+		logger.warn('[expire-redemptions] budget cutoff — carried over to next run', {
+			context: {
+				skippedByBudget: tenantsSkippedByBudget,
+				skippedByRotation: tenantsSkippedByRotation,
+				processed: tenantsProcessed,
+				total: tenants.length,
+				sliceIndex,
+				sliceCount,
+			},
+		});
+	}
+
+	return {
+		expiredCount,
+		tenantsTotal: tenants.length,
+		tenantsProcessed,
+		tenantsRemaining,
+		tenantsSkippedByRotation,
+		tenantsSkippedByBudget,
+		sliceIndex,
+		sliceCount,
+		budgetExceeded,
+		failures,
+		dryRun,
+	};
 }
 
 // #4435: getUnshownRedemptionResult / markRedemptionShown は撤去した。

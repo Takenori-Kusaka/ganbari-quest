@@ -20,7 +20,12 @@ import type { PlanTier } from './tutorial-types';
 export interface GuideStep {
 	/** ステップ一意ID（例: "activities-add"） */
 	id: string;
-	/** 対象要素の CSS セレクタ（省略時は画面中央に表示） */
+	/**
+	 * 対象要素の CSS セレクタ（省略時は画面中央に表示）。
+	 * #4677: カンマ区切りで複数候補を書ける。engine は**可視の候補を優先**して解決する
+	 * （responsive で desktop / mobile の片方しか描画されない UI を 1 step で指すとき、
+	 * DOM 順で先に来る非表示要素ではなく見えている方に spotlight する）。
+	 */
 	selector?: string;
 	/** 機能名（例: 「活動の追加」） */
 	title: string;
@@ -60,6 +65,19 @@ export interface GuideStep {
 	 * 判定は {@link filterGuideStepsByStripe}（stripeEnabled 未確定時は fail-closed で除外）。
 	 */
 	requiredStripe?: 'enabled';
+	/**
+	 * 対象要素が「画面の状態」で出たり消えたりする step (#4668 / #4677 / EPIC #4650 PO 判断 4)。
+	 * `true` の step は、ガイド起動時に `selector` が可視要素に解決しなければ **step ごと除外**する
+	 * ({@link filterGuideStepsByPresence})。例: 無料プランのときだけ出る「無料トライアルを開始する」
+	 * カード、保留中の招待があるときだけ出る一覧、0 件時に消える操作ボタン（ログイン + お子さま選択中
+	 * のみ出る年齢自動フィルタ hint 等も同様）。
+	 * tier / runtime / stripe の静的 filter では表現できない「ページ状態依存 UI」を、中央 fallback
+	 * (押せと言われたボタンが光らない) にせず宣言的に扱うための軸。`selector` 無しの step には無意味。
+	 * false（既定）の selector 付き step は「常に存在する UI」を指す契約であり、解決できなければ
+	 * 定義側の不具合として扱う（中央 fallback で成立させない）。常設 UI を指す step には付けない
+	 * (付けると anchor 退行を silent に隠すため)。
+	 */
+	optional?: boolean;
 	/** バブルの表示位置 */
 	position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
 }

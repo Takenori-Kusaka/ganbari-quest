@@ -103,18 +103,22 @@ export class GeminiProvider implements AiProvider {
 		const jsonInstruction = buildJsonInstruction(opts.tool);
 		const prompt = `${opts.system}\n\n${jsonInstruction}\n\n${opts.userMessage}`;
 
-		const result = await withAvailabilityTracking(this.name, () => model.generateContent(prompt));
-		const responseText = result.response.text();
-		const parsed = extractJson(responseText);
+		// 包む範囲は「使える結果を得るまで」(#4726)。JSON パース失敗もサービス層は fallback に
+		// 落ちるため、外に出すと fallback 率が実態より小さく出る。
+		return await withAvailabilityTracking(this.name, async () => {
+			const result = await model.generateContent(prompt);
+			const responseText = result.response.text();
+			const parsed = extractJson(responseText);
 
-		if (!parsed || typeof parsed !== 'object') {
-			throw new Error('No valid JSON in Gemini response');
-		}
+			if (!parsed || typeof parsed !== 'object') {
+				throw new Error('No valid JSON in Gemini response');
+			}
 
-		return {
-			toolName: opts.tool.name,
-			input: parsed as Record<string, unknown>,
-		};
+			return {
+				toolName: opts.tool.name,
+				input: parsed as Record<string, unknown>,
+			};
+		});
 	}
 
 	async converseWithImageAndTool(opts: {
@@ -134,8 +138,10 @@ export class GeminiProvider implements AiProvider {
 		const jsonInstruction = buildJsonInstruction(opts.tool);
 		const prompt = `${opts.system}\n\n${jsonInstruction}\n\n${opts.userText}`;
 
-		const result = await withAvailabilityTracking(this.name, () =>
-			model.generateContent([
+		// 包む範囲は「使える結果を得るまで」(#4726)。JSON パース失敗もサービス層は fallback に
+		// 落ちるため、外に出すと fallback 率が実態より小さく出る。
+		return await withAvailabilityTracking(this.name, async () => {
+			const result = await model.generateContent([
 				prompt,
 				{
 					inlineData: {
@@ -143,18 +149,18 @@ export class GeminiProvider implements AiProvider {
 						data: opts.imageBase64,
 					},
 				},
-			]),
-		);
-		const responseText = result.response.text();
-		const parsed = extractJson(responseText);
+			]);
+			const responseText = result.response.text();
+			const parsed = extractJson(responseText);
 
-		if (!parsed || typeof parsed !== 'object') {
-			throw new Error('No valid JSON in Gemini image response');
-		}
+			if (!parsed || typeof parsed !== 'object') {
+				throw new Error('No valid JSON in Gemini image response');
+			}
 
-		return {
-			toolName: opts.tool.name,
-			input: parsed as Record<string, unknown>,
-		};
+			return {
+				toolName: opts.tool.name,
+				input: parsed as Record<string, unknown>,
+			};
+		});
 	}
 }

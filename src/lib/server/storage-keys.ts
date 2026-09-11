@@ -9,6 +9,15 @@ export function tenantPrefix(tenantId: string): string {
 	return `tenants/${tenantId}/`;
 }
 
+/**
+ * #4720: 置換インポートの復旧用 snapshot (full backup ZIP) の prefix。tenant scope 内に置くが、
+ * backup ZIP の静的ファイル収集 (backup-archive) からは除外する (backup の入れ子を防ぐ)。
+ */
+export const RECOVERY_PREFIX_SEGMENT = 'recovery/';
+export function recoveryPrefix(tenantId: string): string {
+	return `${tenantPrefix(tenantId)}${RECOVERY_PREFIX_SEGMENT}`;
+}
+
 /** 子供単位のプレフィックス（子供削除時の一括削除用） */
 export function childPrefix(
 	tenantId: string,

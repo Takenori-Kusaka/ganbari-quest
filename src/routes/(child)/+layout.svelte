@@ -4,18 +4,18 @@ import { goto, invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 import { navigating } from '$app/stores';
 import {
-	getModeLabels,
-	ICON_CHECKLIST,
-	ICON_HOME,
-	ICON_STATUS,
-	ICON_SWITCH,
-} from '$lib/domain/icons';
+	AUTO_SLEEP_ACTIVE_MS,
+	AUTO_SLEEP_BATTLE_GRACE_MS,
+	AUTO_SLEEP_INACTIVE_RESET_MS,
+} from '$lib/domain/constants/auto-sleep';
+import { ICON_CHECKLIST, ICON_HOME, ICON_STATUS, ICON_SWITCH } from '$lib/domain/icons';
 import {
 	CHILD_SHOP_LABELS,
+	getChildNavModeLabels,
 	PIN_GATE_ONBOARDING_LABELS,
 	UI_COMPONENTS_LABELS,
 } from '$lib/domain/labels';
-import type { UiMode } from '$lib/domain/validation/age-tier';
+import { UI_MODES, type UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // #4448: 動いたポイントをヘッダー残高までつなぐ演出。ghost layer は child 配下で 1 つだけ置く。
@@ -34,8 +34,17 @@ import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
-import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
-import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
+import {
+	getChildTutorialProgressScope,
+	getLegacyChildTutorialProgressScope,
+	makeChildChapterBuilder,
+} from '$lib/ui/tutorial/tutorial-chapters-child';
+import {
+	migrateLegacyProgress,
+	setChapters,
+	setChildChapterBuilder,
+	startTutorial,
+} from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
 
@@ -63,7 +72,7 @@ const isBaby = $derived(uiMode === 'baby');
 const isScreenshotMode = getScreenshotMode();
 const pointFlightEnabled = $derived(!isBaby && !isScreenshotMode);
 // #0289: モード別ラベルを一元定数から取得
-const modeLabels = $derived(getModeLabels(uiMode));
+const modeLabels = $derived(getChildNavModeLabels(uiMode));
 const navItems = $derived([
 	// #4509 ⑥: 直書きを labels SSOT へ (BottomNav の既定項目と同じ出所を使う)
 	{ href: `/${uiMode}/home`, icon: ICON_HOME, label: UI_COMPONENTS_LABELS.bottomNavHome },
@@ -73,13 +82,10 @@ const navItems = $derived([
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
 
-// #1292 自動スリープ設定
+// #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
 // 非アクティブ 1 分でタイマーリセット
 // バトル中は +2 分の grace period
-const AUTO_SLEEP_ACTIVE_MS = 15 * 60 * 1000;
-const AUTO_SLEEP_INACTIVE_RESET_MS = 60 * 1000;
-const AUTO_SLEEP_BATTLE_GRACE_MS = 2 * 60 * 1000;
 
 // サウンドシステム初期化 + オートリロード + チュートリアル設定
 // baby モードは親向け準備ツールのため効果音・チュートリアルを抑制 (#1300)
@@ -91,7 +97,31 @@ onMount(() => {
 		if (config) {
 			soundService.preload(config.enabledSounds);
 		}
-		setChapters(CHILD_TUTORIAL_CHAPTERS);
+		// #4652: 年齢帯 variant (preschool / elementary = ひらがな、junior / senior = 漢字) の章を渡す
+		// #4651 (a): 進捗 key を子供ガイドの namespace に分ける
+		// #4765 PO 回答 (2026-09-03): さらに**子供ごと**に分ける (兄の進捗で弟のガイドが飛ばない)。
+		//   それ以前の家族共有 key は、持ち主が一意に決まるとき (子供 1 人) だけ引き継ぎ、
+		//   決まらないとき (2 人以上) は捨てる。端末ごとに 1 回だけ走る (per-mount で走らせない)
+		if (data.child) {
+			const childId = data.child.id;
+			// layout は活動件数を持たない (件数のためだけに DB を引くのは ADR-0065 に反する)。
+			// **件数を推測で置かない** (#4860): 旧実装は `hasActivities: true` を仮置きして
+			// ホームの訂正を待ったが、Svelte 5 は子の `$effect` が親の `onMount` より先に走るため
+			// 訂正が先・仮置きが後になり、活動 0 件の初回訪問で「カードをタップ」が出続けた。
+			// builder だけ渡し、件数はホームが `setChildActivityPresence` で書く (順序非依存)。
+			setChildChapterBuilder(
+				makeChildChapterBuilder(uiMode),
+				getChildTutorialProgressScope(childId, uiMode),
+			);
+			// 旧 key は年齢モードごとに分かれているため、今のモードだけでなく**全モード分**を畳む
+			migrateLegacyProgress(
+				UI_MODES.map((mode) => ({
+					legacyScope: getLegacyChildTutorialProgressScope(mode),
+					targetScope: getChildTutorialProgressScope(childId, mode),
+				})),
+				data.allChildren?.length ?? 0,
+			);
+		}
 	}
 
 	// 1分間隔で自動リロード（親の変更を反映）
@@ -116,13 +146,12 @@ onMount(() => {
 		})
 			.then((res) => res.json())
 			.then((json: unknown) => {
-				if (
-					json &&
-					typeof json === 'object' &&
-					'id' in json &&
-					typeof (json as { id: unknown }).id === 'number'
-				) {
-					usageSessionId = (json as { id: string }).id;
+				// #4719: id は **文字列** (sqlite=数値 id の文字列 / pg=uuid)。旧実装は
+				// `typeof id === 'number'` を条件にしていたため usageSessionId が常に null のままで
+				// PATCH (セッション終了) が一度も飛ばず、全 backend で「本日の使用時間 0分」になっていた。
+				if (json && typeof json === 'object' && 'id' in json) {
+					const id: unknown = (json as { id: unknown }).id;
+					if (typeof id === 'string' || typeof id === 'number') usageSessionId = String(id);
 				}
 			})
 			.catch(() => {
@@ -165,18 +194,28 @@ onMount(() => {
 
 	return () => {
 		clearInterval(autoReloadTimer);
-		if (!isBaby) resetChapters();
+		// #4654: 親の章立て撤去で store の既定は空配列。子供画面を離れるときは章を空に戻す
+		if (!isBaby) setChapters([]);
 		cleanupSleep?.();
 	};
 });
 
 let stampDialogOpen = $state(false);
 
+// PO 決裁 2026-09-10 決定 6: 既読 API (`/api/v1/settings/pin-gate-onboarding`) は親限定。
+// role は上位 layout が既に配っているので、ここでは読むだけにする。
+const viewerIsParent = $derived(data.role === 'owner' || data.role === 'parent');
+
 // #2353 設計欠陥 6: PIN gate 初心者導線 dialog
 // data.pinGateOnboardingSeen が false (settings 未保存) のとき初回 mount 時に開く。
 // 「今後表示しない」checkbox で確認のうえ閉じる → POST /api/v1/settings/pin-gate-onboarding。
+//
+// PO 決裁 2026-09-10 決定 6: 既読 API は**親限定**になった。文言も宛先も保護者向け
+// (「初めて見守り画面に入るときに、親がおやカギを作成します」) だから。
+// **閉じられないセッションには出さない** — 子供に出すと 403 で既読にできず、
+// 画面遷移のたびに開き続ける閉じられない dialog になる。
 // svelte-ignore state_referenced_locally
-let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby);
+let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby && viewerIsParent);
 let dontShowAgainChecked = $state(true);
 
 async function closePinGateOnboarding() {
@@ -207,7 +246,7 @@ function handleStartChildTutorial() {
 			onStampClick={() => {
 				stampDialogOpen = true;
 			}}
-			onHelpClick={handleStartChildTutorial}
+			onHelpClick={isBaby ? undefined : handleStartChildTutorial}
 			isPremium={data.isPremium}
 			animateBalance={pointFlightEnabled}
 		>
@@ -239,7 +278,7 @@ function handleStartChildTutorial() {
 
 	{#if !isBaby}
 		<BottomNav items={navItems} />
-		<TutorialOverlay />
+		<TutorialOverlay childUiMode={uiMode} />
 	{/if}
 </div>
 
@@ -260,12 +299,13 @@ function handleStartChildTutorial() {
 			filledSlots={data.stampCard.filledSlots}
 			status={data.stampCard.status}
 			redeemedPoints={data.stampCard.redeemedPoints}
+			{uiMode}
 		/>
 	</Dialog>
 {/if}
 
 <!-- #2353 設計欠陥 6: PIN gate 初心者導線 onboarding dialog -->
-{#if !isBaby}
+{#if !isBaby && viewerIsParent}
 	<Dialog bind:open={pinGateOnboardingOpen} title={PIN_GATE_ONBOARDING_LABELS.dialogTitle} size="sm" testid="pin-gate-onboarding-dialog">
 		<div class="flex flex-col gap-3">
 			<p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">{PIN_GATE_ONBOARDING_LABELS.dialogIntro}</p>

@@ -33,7 +33,7 @@
 |----|---------|
 | **Issue テンプレ** | `ac-verification-plan` (required)。AC は測定可能な数値・文字列・ファイルパスで書く |
 | **PR テンプレ** | 「AC 検証マップ」セクション: `\| AC 番号 \| AC 内容 \| 検証手段 \| 結果 / エビデンス \|` の全行を埋める |
-| **CI** | `pr-ac-verification-check.yml`（マップ欠落検出）/ `issue-close-gate.yml`（未チェック AC 残存時に auto-reopen）/ `ac-audit-monthly.yml`（月次監査） |
+| **CI** | `pr-ac-verification-check.yml`（マップ欠落検出）/ `ac-audit-monthly.yml`（月次監査）。**Issue close 時に検証する層は持たない**（§4） |
 
 初期は warn-only で導入、2 週間の実測後に block 化する。
 
@@ -57,24 +57,17 @@
 - [ ] 型安全: `as any` / non-null assertion の不適切な使用がない
 - [ ] CLAUDE.md: プロジェクトルールへの違反がない
 
-### 4. issue-close-gate は手動 close のみを検証対象とする（#2351）
+### 4. Issue close 時に AC を検証する機械 gate は置かない（#2351 → #4322 で撤去、#4624）
 
-`issue-close-gate.yml` の AC 検証 gate は **手動 close** (`gh issue close` / GitHub UI) のみを検証対象とし、**PR/Commit 経由 auto-close** は skip する。理由:
+**close 経路によらず、Issue を close したあとに AC を検証して auto-reopen する CI は存在しない。** AC 検証は §2 の 2 層（Issue テンプレ / PR テンプレ + `pr-ac-verification-check.yml`）と、**close する人のレビュー**で担保する。手動 close (`gh issue close` / GitHub UI) は機械的に止まらないので、**AC 未達のまま close できてしまう**ことを前提に運用する。
 
-- PR `closes #N` で auto-close される際、Issue body の generic Done check (`- [ ]`) は GitHub 側が自動更新しない
-- 一方 PR 側の Ready for Review チェックリスト (`.claude/skills/dev-open-pr/templates/pr-body-default.md`) で **PR merge 前に既に AC 検証済み** (pre-ready PASS / CI 緑 / SS 確認 / 設計書同期)
-- gate が PR auto-close でも未チェック AC を検出して reopen する旧挙動は **二重検証** であり、毎セッション数十件の reopen ループを生んでいた (本セッションだけで 20 件 × 3 周以上)
+close 時 gate を持たない理由:
 
-判定は `scripts/issue-close-gate-skip-judge.mjs` 純粋関数で行い、GitHub GraphQL `timelineItems(itemTypes: [CLOSED_EVENT])` で直近 ClosedEvent の closer 種別を取得:
+- PR `closes #N` の auto-close では、Issue body の generic Done check (`- [ ]`) を GitHub 側が更新しない。**未チェック AC の残存は「未達」ではなく「GitHub が触らないだけ」**であり、それを根拠に reopen すると常に誤判定する
+- PR 側の Ready チェックリスト (`.claude/skills/dev-open-pr/templates/pr-body-default.md`) で merge 前に AC 検証済み（pre-ready PASS / CI 緑 / SS 確認 / 設計書同期）。close 時の再検証は**二重検証**
+- 実測として、未チェック AC を検出して reopen する旧 gate は毎セッション数十件の reopen ループを生んでいた（#2351 観測時点で 20 件 × 3 周以上）
 
-| closer 種別 | 例 | 対応 |
-|---|---|---|
-| `PullRequest` | PR `closes #N` 経由 | skip (PR Ready gate で検証済み) |
-| `Commit` | squash merge commit message の `closes #N` | skip (PR 経由と同等) |
-| `null` | 手動 close (`gh issue close` / GitHub UI) | AC 検証 gate 通す |
-| (wontfix / duplicate label) | 任意 | 従来通り skip |
-
-unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`。
+#2351 は close 経路（`ClosedEvent.closer` 種別）を判定して auto-close を skip する形で reopen ループを止めたが、**残った検証対象は手動 close だけ**であり、その手動 close も上記のとおり PR 層で検証済みか、そもそも AC の中身を機械が読めないかのどちらかだった。gate 自体の価値が無くなったため #4322 で workflow ごと撤去し、判定純粋関数も #4624 で削除した（`.github/CLAUDE.md` §Issue close 時の AC 検証 が現行の運用 SSOT）。
 
 ### 例外手続き
 
@@ -84,7 +77,7 @@ PR 本文に `<!-- ac-verification-skip: <理由> -->` を記述すれば `pr-ac
 
 - プロセス作業（CI 待ち、コンフリクト解消）の圧力下でもレビュー品質を犠牲にしない
 - 「CI green = 品質保証」という誤解を排除
-- `closes` 時の AC 未達が mergeable でなくなる（#1088 再現防止）
+- AC の主張と実体の不一致（`verify-pr-head` / `check-ss-blob-sha-uniqueness`）は PR 層で機械的に止まる（#1088 再現防止）。**AC の中身が未達のまま close されることは機械では止まらない**（§4）
 
 ## 関連
 

@@ -14,13 +14,14 @@
 
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import cookieSignature from 'cookie-signature';
+import { PIN_RESET_OTP_LENGTH } from '$lib/domain/constants/pin-reset-otp';
 import { getParentGateCookieSecret } from './parent-gate-session';
 
 /** OTP cookie 名 (#3070 SSOT) */
 export const PIN_RESET_OTP_COOKIE_NAME = 'pin_reset_otp';
 
-/** OTP 桁数 */
-export const PIN_RESET_OTP_LENGTH = 6;
+/** OTP 桁数 (#4661: 値は domain/constants/pin-reset-otp.ts が SSOT。client 側も同じ値を引く) */
+export { PIN_RESET_OTP_LENGTH };
 
 /** OTP 失効 (10 分) */
 export const PIN_RESET_OTP_TTL_MS = 10 * 60 * 1000;

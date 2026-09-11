@@ -9,7 +9,10 @@
 import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { ADMIN_FORM_ERROR_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { warnOrphanChildReferences } from '$lib/server/orphan-child-reference';
 import {
 	deleteChildChallenge,
@@ -55,14 +58,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// 1 instance 削除 (親が自動生成チャレンジを除去できる)
 	delete: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const fd = await request.formData();
 		const id = formIdString(fd.get('id'));
-		if (!id) return fail(400, { error: 'IDが不正です' });
+		if (!id) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.idInvalid });
 		await deleteChildChallenge(id, tenantId);
 		return { deleted: true };
 	},
-};
+} satisfies Actions);

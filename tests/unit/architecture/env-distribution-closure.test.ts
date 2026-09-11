@@ -358,11 +358,13 @@ const NOT_DISTRIBUTED: Array<{
 	},
 	{
 		readers: ['app-env-schema'],
+		// COGNITO_DEV_MODE はここに無い: NUC 出荷物 (docker-compose.yml / setup-server.sh の start.bat) が
+		// false を固定値として配る (#4836、operator の .env で有効化できないようにする構造的防御)。
+		// 「配らない」ではなく「常に false で配る」が正しい状態なので、免除ではなく配布経路に載せる
 		keys: [
 			'DEBUG_PLAN',
 			'DEBUG_TRIAL',
 			'DEBUG_TRIAL_TIER',
-			'COGNITO_DEV_MODE',
 			'STRIPE_MOCK',
 			'PARENT_GATE_FORCE_ACTIVE',
 		],

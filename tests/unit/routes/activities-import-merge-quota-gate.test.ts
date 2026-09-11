@@ -14,6 +14,9 @@
 // 上書きしない。本 endpoint は client 供給 source 欄を持たないため #3753 POST の source 強制は N/A)。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FREE_PLAN_QUOTA } from '$lib/domain/constants/plan-quota';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_QUOTA_TERMS } from '$lib/domain/terms';
 
 const mockCheckActivityLimit = vi.fn();
 const mockDispatchImport = vi.fn();
@@ -29,6 +32,13 @@ vi.mock('$lib/server/services/plan-limit-service', async () => {
 vi.mock('$lib/marketplace', () => ({
 	dispatchImport: (...args: unknown[]) => mockDispatchImport(...args),
 	marketplaceRegistry: { get: (...args: unknown[]) => mockRegistryGet(...args) },
+}));
+
+// #4692: 取込先 child を明示注入するため handler が getAllChildren を呼ぶ
+// (旧: service 内で「tenant 最初の child」に silent bind していた)。
+const mockGetAllChildren = vi.fn();
+vi.mock('$lib/server/services/child-service', () => ({
+	getAllChildren: (...args: unknown[]) => mockGetAllChildren(...args),
 }));
 
 const { POST } = await import('../../../src/routes/api/v1/activities/import/+server');
@@ -59,6 +69,7 @@ beforeEach(() => {
 		},
 	});
 	mockDispatchImport.mockResolvedValue({ imported: 1, skipped: 0, errors: [] });
+	mockGetAllChildren.mockResolvedValue([{ id: '1' }, { id: '2' }]);
 });
 
 describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate', () => {
@@ -69,6 +80,58 @@ describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate'
 		const body = await res.json();
 		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
 		expect(mockDispatchImport).not.toHaveBeenCalled();
+	});
+
+	// #4693 (rebase 時に追加): **この call site の文言を pin する**。
+	//
+	// #4767 (PO 回答 #4) が「機能名だけ渡して errors.ts が 1 文に組み立てる」構造にし、
+	// #4693 (PO 回答 #1) が「上限が数えるのは custom だけ / プリセット取込は無制限」という中身を
+	// 決めた。両方が同じ 1 行に乗るため、rebase でどちらかの側を採ると**もう一方が黙って消える**。
+	// 実際この endpoint には文言の test が無く、develop 側を採るだけで PO 回答 #1 の半分が
+	// 失われる状態だった。以後は消えたら落ちる。
+	it('403 の文言が「オリジナル活動」と「プリセット取込は無制限」と導線を同時に持つ', async () => {
+		mockCheckActivityLimit.mockResolvedValue({
+			allowed: false,
+			current: FREE_PLAN_QUOTA.maxActivities,
+			max: FREE_PLAN_QUOTA.maxActivities,
+		});
+		const res = await POST(makeEvent('merge', [validActivity]));
+		const body = await res.json();
+
+		// 文面の SSOT は labels 側。route が文を組み立てない (#4767 の単一チャネル構造)
+		expect(body.error.message).toBe(
+			PLAN_GATE_LABELS.activityLimitReachedWithUpgrade(FREE_PLAN_QUOTA.maxActivities),
+		);
+		// #4693 PO 回答 #1 の中身: 数える対象と、数えない経路の両方を言う
+		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.original);
+		expect(body.error.message).toContain(ACTIVITY_QUOTA_TERMS.presetImport);
+		// 「カスタム活動」は PO が LP 料金表と揃えて「オリジナル活動」に置き換えた語
+		expect(body.error.message).not.toContain('カスタム活動');
+		// 導線まで 1 文に入る (REST は message 1 本しか顧客に届かない)
+		expect(body.error.message).toContain('アップグレード');
+		// #4693 (QM 4 巡目 / #4710 と同 class): 数量制限を **機能ゲートの文型で返さない**。
+		// 「3 個までは使えるのに『ご利用いただけます』」の自己矛盾を pin で塞ぐ。
+		expect(body.error.message).not.toContain('ご利用いただけます');
+		// client の分岐条件は変えない (quotaLimitError も 403 / PLAN_LIMIT_EXCEEDED)
+		expect(res.status).toBe(403);
+		expect(body.error.code).toBe('PLAN_LIMIT_EXCEEDED');
+	});
+
+	// #4693 (QM 4 巡目): admin の form action は同じ上限に対して
+	// `activityLimitReached` (「N 個までです」) を出す。面ごとに逆のことを言わせない。
+	it('admin route と同じ本文を使う (面ごとに違うことを言わない)', async () => {
+		mockCheckActivityLimit.mockResolvedValue({
+			allowed: false,
+			current: FREE_PLAN_QUOTA.maxActivities,
+			max: FREE_PLAN_QUOTA.maxActivities,
+		});
+		const res = await POST(makeEvent('merge', [validActivity]));
+		const body = await res.json();
+
+		// REST は導線込み / admin は導線を構造化フィールドで返すぶん本文は素、という差だけ
+		expect(body.error.message).toContain(
+			PLAN_GATE_LABELS.activityLimitReached(FREE_PLAN_QUOTA.maxActivities),
+		);
 	});
 
 	it('上限未達 (allowed=true) では従来通り dispatchImport を実行し 200 を返す', async () => {
@@ -85,6 +148,23 @@ describe('#3759 api/v1/activities/import mode=merge — checkActivityLimit gate'
 		const res = await POST(makeEvent('merge', [validActivity]));
 		expect(res.status).toBe(200);
 		expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+	});
+
+	// #4692: 取込先 child を明示注入する (service 側 first-child silent fallback 撤去の対)。
+	it('mode=merge は家族全員を childIds として dispatchImport に渡す', async () => {
+		mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
+		await POST(makeEvent('merge', [validActivity]));
+		expect(mockDispatchImport).toHaveBeenCalledWith(
+			expect.objectContaining({ ctx: expect.objectContaining({ childIds: ['1', '2'] }) }),
+		);
+	});
+
+	it('子供が 1 人もいない tenant では 400 を返し dispatchImport を呼ばない', async () => {
+		mockCheckActivityLimit.mockResolvedValue({ allowed: true, current: 0, max: null });
+		mockGetAllChildren.mockResolvedValue([]);
+		const res = await POST(makeEvent('merge', [validActivity]));
+		expect(res.status).toBe(400);
+		expect(mockDispatchImport).not.toHaveBeenCalled();
 	});
 
 	it('mode=preview は quota gate 対象外 (件数見積のみ、活動を作らない)', async () => {

@@ -182,12 +182,18 @@ export class ProductionDashboardService implements ChildDashboardService {
 				},
 			);
 			if (!res.ok) {
-				const body = await res.json().catch(() => ({}) as { error?: string });
-				// activity-pin-service は LIMIT 超過時に Error throw → 'VALIDATION_ERROR' で返る
-				// メッセージ中に「上限」が含まれていれば LIMIT_EXCEEDED にマッピング
-				const msg = (body as { message?: string })?.message ?? '';
-				if (msg.includes('上限')) return { ok: false, error: 'LIMIT_EXCEEDED' };
-				if (body?.error === 'NOT_FOUND') return { ok: false, error: 'NOT_FOUND' };
+				// ADR-0062 統一形: `{ error: { code, message, userMessage, severity, action } }`
+				// (`$lib/server/errors` の apiError)。旧実装は `body.message` / `body.error === 'NOT_FOUND'`
+				// (文字列) を読んでいて、統一形では両方とも常に外れていた (PO 回答 2026-09-03 §4 #2)。
+				const body = (await res.json().catch(() => ({}))) as {
+					error?: { code?: string; message?: string };
+				};
+				// 種別は **code だけ**で見分ける。旧実装は顧客向け文言に特定の語が含まれるかの
+				// 部分一致に依存していたが、文言は labels SSOT から組み立てられる = 変わる値なので、
+				// いずれ外れて上限超過が NETWORK に化ける (ADR-0061)。
+				const code = body.error?.code;
+				if (code === 'NOT_FOUND') return { ok: false, error: 'NOT_FOUND' };
+				if (code === 'PIN_LIMIT_EXCEEDED') return { ok: false, error: 'LIMIT_EXCEEDED' };
 				return { ok: false, error: 'NETWORK' };
 			}
 			const data = (await res.json()) as { isPinned: boolean };

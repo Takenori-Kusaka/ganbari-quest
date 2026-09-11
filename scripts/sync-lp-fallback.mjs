@@ -34,6 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'parse5';
+import { isValidExclusionReason } from './generate-lp-labels.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +65,21 @@ const TARGET_HTML_FILES = [
 const args = process.argv.slice(2);
 const CHECK_MODE = args.includes('--check');
 const VERBOSE = args.includes('--verbose');
+
+/**
+ * 生成物 (shared-labels.js) に対応 key が無い `data-lp-key` を、意図的に許容するリスト (#4626)。
+ *
+ * key = `ns.key` 形式の dotted key / value = 許容理由。**理由が無い entry は fail する**
+ * (no-silent-gap)。もう該当しない entry も fail する (stale 除外の放置禁止)。
+ *
+ * なぜ既定で fail させるか:
+ *   本 script の照合は「生成物にある key」に対してしか行われない。HTML が参照する key が
+ *   生成物に無いと照合対象から外れ、`--check` は「同期済み」と答えてしまう。その状態では
+ *   labels.ts を直しても LP は HTML 直書きの古い文言を出し続け、CI では誰も気づけない。
+ *
+ * @type {Record<string, string>}
+ */
+const HTML_LP_KEY_EXCLUSIONS = {};
 
 /**
  * テスト専用: `SYNC_LP_FALLBACK_TARGETS` 環境変数で TARGET_HTML_FILES を override する。
@@ -405,6 +421,37 @@ function printCheckModeReport(fileSummaries, totalChanges) {
 	);
 }
 
+/**
+ * 生成物に対応 key が無い `data-lp-key` を検査する (#4626)。
+ *
+ * @param {Array<{ relPath: string, dottedKey: string }>} occurrences - 全ファイル分の未解決 key
+ * @param {Record<string, string>} [exclusions]
+ * @returns {{ unresolved: string[]; invalidExclusions: string[]; staleExclusions: string[] }}
+ */
+function findUnresolvedHtmlKeys(occurrences, exclusions = HTML_LP_KEY_EXCLUSIONS) {
+	/** @type {string[]} */
+	const unresolved = [];
+	/** @type {string[]} */
+	const invalidExclusions = [];
+	const seenExcluded = new Set();
+	for (const { relPath, dottedKey } of occurrences) {
+		if (Object.hasOwn(exclusions, dottedKey)) {
+			seenExcluded.add(dottedKey);
+			if (
+				!isValidExclusionReason(exclusions[dottedKey]) &&
+				!invalidExclusions.includes(dottedKey)
+			) {
+				invalidExclusions.push(dottedKey);
+			}
+			continue;
+		}
+		const entry = `${relPath}: ${dottedKey}`;
+		if (!unresolved.includes(entry)) unresolved.push(entry);
+	}
+	const staleExclusions = Object.keys(exclusions).filter((k) => !seenExcluded.has(k));
+	return { unresolved, invalidExclusions, staleExclusions };
+}
+
 function main() {
 	const lpLabels = loadLpLabels();
 
@@ -423,8 +470,12 @@ function main() {
 	}
 	const targetFiles = overrides.length > 0 ? overrides : TARGET_HTML_FILES;
 
+	/** @type {Array<{ relPath: string, dottedKey: string }>} */
+	const unresolvedOccurrences = [];
+
 	for (const relPath of targetFiles) {
 		const r = processFile(relPath, lpLabels);
+		for (const dottedKey of r.missingKeys) unresolvedOccurrences.push({ relPath, dottedKey });
 		// #1974: processFile は常に object を返す (null skip 廃止)。
 		// missing target / read error / parse error 全てが errorsCount に伝播する。
 		totalErrors += r.errorsCount;
@@ -439,6 +490,36 @@ function main() {
 				`[sync-lp-fallback] ${relPath}: skip (LP_LABELS 未定義) ${r.missingKeys.length} 件: ${sampled}${tail}`,
 			);
 		}
+	}
+
+	// #4626: 「生成物に key が無い data-lp-key」は照合対象から外れ、--check が
+	// 「同期済み」と答えてしまう最大の穴。既定で失敗させる。
+	const htmlKeyCheck = findUnresolvedHtmlKeys(unresolvedOccurrences);
+	if (htmlKeyCheck.unresolved.length > 0) {
+		console.error(
+			`\n[sync-lp-fallback] ✗ 生成物 (site/shared-labels.js) に対応する値が無い data-lp-key が ${htmlKeyCheck.unresolved.length} 件あります (#4626):`,
+		);
+		for (const entry of htmlKeyCheck.unresolved) console.error(`  - ${entry}`);
+		console.error(
+			'  これらは照合対象から外れるため、labels.ts を直しても LP は HTML 直書きの文言を出し続けます。',
+		);
+		console.error(
+			'  対処: labels.ts に値を定義し LP_NAMESPACE_TABLE 経由で配信する / HTML の key を実在する key に直す /',
+		);
+		console.error('        意図的に許容するなら HTML_LP_KEY_EXCLUSIONS に理由付きで登録する。');
+		totalErrors += htmlKeyCheck.unresolved.length;
+	}
+	if (htmlKeyCheck.invalidExclusions.length > 0) {
+		console.error(
+			`\n[sync-lp-fallback] ✗ HTML_LP_KEY_EXCLUSIONS の理由が未記入または短すぎます: ${htmlKeyCheck.invalidExclusions.join(', ')}`,
+		);
+		totalErrors += htmlKeyCheck.invalidExclusions.length;
+	}
+	if (htmlKeyCheck.staleExclusions.length > 0) {
+		console.error(
+			`\n[sync-lp-fallback] ✗ もう該当しない HTML_LP_KEY_EXCLUSIONS が残っています (削除してください): ${htmlKeyCheck.staleExclusions.join(', ')}`,
+		);
+		totalErrors += htmlKeyCheck.staleExclusions.length;
 	}
 
 	if (totalErrors > 0) {
@@ -478,6 +559,8 @@ if (invokedAsCli) {
 export {
 	collectHasDescendantLpKey,
 	collectLpKeyElements,
+	findUnresolvedHtmlKeys,
+	HTML_LP_KEY_EXCLUSIONS,
 	loadLpLabels,
 	lookupLpLabel,
 	processFile,

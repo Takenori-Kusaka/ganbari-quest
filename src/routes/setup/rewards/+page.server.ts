@@ -10,6 +10,7 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { asChildId } from '$lib/domain/ids';
+import { SETUP_REWARDS_LABELS } from '$lib/domain/labels';
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
@@ -90,7 +91,7 @@ export const actions: Actions = {
 			try {
 				const item = getMarketplaceItem('reward-set', itemId);
 				if (!item) {
-					allErrors.push(`セット「${itemId}」が見つかりません`);
+					allErrors.push(SETUP_REWARDS_LABELS.errorSetNotFound(itemId));
 					continue;
 				}
 				// #2366 (ADR-0052): Strategy + dispatchImport 経由でインポート。
@@ -106,7 +107,7 @@ export const actions: Actions = {
 				totalSkipped += result.skipped;
 				allErrors.push(...result.errors);
 			} catch {
-				allErrors.push(`セット「${itemId}」の読み込みに失敗しました`);
+				allErrors.push(SETUP_REWARDS_LABELS.errorSetLoadFailed(itemId));
 			}
 		}
 

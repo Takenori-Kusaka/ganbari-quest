@@ -23,11 +23,15 @@ export interface DebugPlanOverride {
 	plan?: string;
 }
 
-export interface DebugTrialOverride {
-	endDate: string | null;
-	tier: TrialTier | null;
-	trialUsed: boolean;
-}
+/**
+ * #4628: 「期限があるならティアもある」(active) / 「どちらも無い」(expired / not-started) の
+ * 2 状態しか存在しないので、直積ではなく union で表す。直積のままだと
+ * `if (override.endDate)` で narrowing しても tier が `TrialTier | null` に残り、
+ * 呼び出し側 (`computeTrialStatus`) が `?? 'standard'` で埋める band-aid を要求してしまう。
+ */
+export type DebugTrialOverride =
+	| { endDate: string; tier: TrialTier; trialUsed: boolean }
+	| { endDate: null; tier: null; trialUsed: boolean };
 
 const VALID_PLANS: ReadonlySet<string> = new Set(['free', 'standard', 'family']);
 const VALID_TRIALS: ReadonlySet<string> = new Set(['active', 'expired', 'not-started']);

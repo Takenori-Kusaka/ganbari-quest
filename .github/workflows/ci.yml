@@ -94,6 +94,8 @@ jobs:
               - 'playwright*.config.*'
               - 'vitest.config.*'
               - 'Dockerfile*'
+              #   docker-compose.yml nuc-compose-cognito-dev-mode-pinned (#4836、NUC 出荷物の固定値を読む)
+              - 'docker-compose.yml'
               # #3871: dependency-cruiser config 変更で依存境界 gate を再検査
               - '.dependency-cruiser.cjs'
               - 'infra/.dependency-cruiser.cjs'
@@ -118,6 +120,20 @@ jobs:
               - 'src/lib/ui/**'
               - 'src/lib/features/**'
               - 'src/stories/**'
+              # #4857 adversarial: svelte / ark-ui の bump は上の path を 1 つも触らないため
+              # Storybook build check が skip され、コンパイラ変更が誰にも試されないまま develop に入る
+              # (重量レーン storybook-test は base=develop で構造的に skip されるので、
+              #  develop 宛 PR で Storybook を焼く唯一の機会がこの build check)
+              - 'package.json'
+              - 'package-lock.json'
+              # #4859 adversarial: .storybook/main.ts は framework: '@storybook/sveltekit' なので
+              # builder の入力は svelte.config.js / vite.config.ts。filter が .storybook/** を
+              # 含みながら「その .storybook が読むもの」を含まないと、コンパイル結果を変える
+              # 変更が build check を素通りする (package.json と同じ穴)
+              - 'svelte.config.js'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+              - 'src/app.html'
             # #1543: 認証・課金・プラン関連ファイルのみ e2e-cognito-dev を起動する
             cognito:
               # 認証コア
@@ -222,8 +238,12 @@ jobs:
         # #1739 で導入した scripts/check-ssot-parallel-impl.mjs (labels.ts ⇄ shared-labels.js
         # の key-set 比較による silent drift 検出) は #4322 で削除済み (#4420 で判明)。
         # 現状 `npm run lint:parallel` が実行するのは generate-lp-labels.mjs --check
-        # (full text 比較) + check-lp-innerhtml-tags.mjs + check-no-at-html.mjs のみ。
-        # parser 未対応の新規 namespace 追加による silent drift の検出は無い
+        # (labels.ts ⇄ shared-labels.js の full text 比較) + sync-lp-fallback.mjs --check
+        # (labels.ts ⇄ site/*.html の data-lp-key fallback 比較) + check-lp-innerhtml-tags.mjs
+        # + check-no-at-html.mjs。
+        # sync-lp-fallback --check は develop 上で 3 件 drift していたのを検知できず
+        # 顧客に旧文言 (撤去済みの「約 5 分」) が見えていたため CI に載せた (QM 実測)。
+        # parser 未対応の新規 namespace 追加による silent drift の検出は依然として無い
         # (機械強制は無い。レビューで担保する)。
         run: npm run lint:parallel
 
@@ -362,7 +382,11 @@ jobs:
         run: npm run build
 
       - name: Storybook build check
-        # #923 Phase 1: stories / .storybook 配下が変更された PR でのみ実行 (-13s)
+        # #923 Phase 1: changes job の stories filter が true の PR でのみ実行 (14s)。
+        # 対象は story ファイルと .storybook/ 本体だけでなく、story を持つ UI ディレクトリ
+        # (src/lib/ui / src/lib/features / src/stories) と、コンパイル結果を変えうる
+        # 設定・依存 (package.json / package-lock.json / svelte.config.js / vite.config.ts /
+        # tsconfig.json / src/app.html) も含む。列挙の実体は上の filter (#4857 / #4859)
         if: needs.changes.outputs.stories == 'true'
         run: npm run build-storybook -- --quiet
 

@@ -33,7 +33,9 @@ const lastSuccessDisplay = $derived(
 );
 </script>
 
-<Card padding="lg">
+<!-- #4667: ページガイド「バックアップの状態」step の anchor。本カードは NUC (pglite) の
+     ときだけ描画されるため、ガイド側は requiredRuntime='nuc' + optional で絞る -->
+<Card padding="lg" data-tutorial="backup-health-card">
 	<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
 		{SETTINGS_LABELS.backupSectionTitle}
 	</h3>

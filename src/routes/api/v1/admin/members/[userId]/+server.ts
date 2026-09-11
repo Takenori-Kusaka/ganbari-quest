@@ -34,8 +34,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	// owner 自身は削除不可
-	const identity = locals.identity;
-	if (identity?.type === 'cognito' && identity.userId === targetUserId) {
+	// #4643: 比較対象は params の users.user_id。identity.userId (IdP の sub) と比べていたため
+	// この guard は一度も成立せず、owner が自分自身を削除できてしまう状態だった。
+	if (locals.context?.userId === targetUserId) {
 		return json(
 			{ error: 'owner 自身は削除できません。アカウント削除をご利用ください。' },
 			{ status: 400 },

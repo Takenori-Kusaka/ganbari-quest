@@ -10,9 +10,10 @@ import { asCategoryId } from '$lib/domain/ids';
 //
 // #2362 PR-3 (ADR-0055): per-child instance への配信を `options.childIds` で受領可能化。
 // #2458-A1 (2026-05-26): facade insertActivity が child_activities 経由に変更されたため、
-//   parallel write (family master + per-child instance) を停止。childIds 未指定時は
-//   facade 経由 (= tenant 最初の child に bind) のみ、指定時は per-child bulk 配信のみ。
+//   parallel write (family master + per-child instance) を停止。per-child bulk 配信のみ。
 //   旧 activities table への write はゼロ。
+// #4692 (2026-08-20): childIds 未指定時の「tenant 最初の child に bind」silent fallback を撤去。
+//   取込先未指定なら ActivityImportTargetRequiredError を投げ、呼び出し側に明示を強制する。
 // #2558 (2026-05-28): dedup scope を tenant 全体から child 単位に修正。
 //   activity は ADR-0055 で per-child instance scope (data-model-resource-scope.md §3)。
 //   旧実装は `findActivities(tenantId)` (tenant aggregate) で名前重複を見ていたため、
@@ -23,12 +24,19 @@ import { asCategoryId } from '$lib/domain/ids';
 //   生んだ activity 数」、skipped は「全 target child で既存だった activity 数」。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { ACTIVITY_SOURCES, PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { toLegacyCategoryId } from '$lib/domain/categories';
+import type { ImportBlocked } from '$lib/marketplace/types';
 import { findActivities } from '$lib/server/db/activity-repo';
-import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
+import {
+	type ActivityQuotaArchiveOutcome,
+	archiveActivityQuotaOverflow,
+	enforceActivityQuota,
+	recordActivityQuotaArchiveMarker,
+} from './activity-quota';
 
 /** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
 function categoryIdFromCode(code: string): CategoryId | undefined {
@@ -55,6 +63,19 @@ export interface ActivityImportResult {
 	 *   partial-failure 件数表示は本フィールドを使う。
 	 */
 	failed: number;
+	/**
+	 * #4693: プラン上限で **意図的に取込対象から外した**分と、その顧客向け理由。
+	 *   旧実装は理由を `errors` (表示ログ) にだけ push しており、UI がそれを読まないため
+	 *   上限で全件弾かれても「0 件を復元しました」と成功トーンで出ていた。顧客に見せる
+	 *   channel を別フィールドにして、`resolveImportFeedback` が 1 箇所で表示を決める。
+	 */
+	blocked?: ImportBlocked;
+	/**
+	 * #4693 (QM 再レビュー): **復元** (presetId 無し = `?/importFile` / `api/v1/activities/import`)
+	 * がプラン上限で保管 (archived) した分。捨てていないので `blocked` とは別物で、
+	 * 「入った数 / 保管した数 / 理由 / 次の行動」を顧客に出すための channel。
+	 */
+	activityQuota?: ActivityQuotaArchiveOutcome;
 }
 
 /**
@@ -104,16 +125,15 @@ export async function previewActivityImport(
  *                            true の場合、`ActivityPackItem.mustDefault === true` の活動は
  *                            `priority='must'` でインポートされる（#1758 / #1709-D）。
  *                            false / 未指定の場合は全活動が `priority='optional'`。
- * @property childIds #2362 PR-3 (ADR-0055): per-child instance への配信先。
- *                    1 件以上指定された場合、family master insert に加え、
- *                    各 child の `child_activities` table にも 1 instance ずつ複製する。
- *                    未指定の場合は legacy 動作 (family master のみ insert) を維持。
- *                    Phase 6/7 で family master insert は drop し本フィールド必須化予定。
+ * @property childIds #2362 PR-3 (ADR-0055): per-child instance への配信先 (#4692 で必須化)。
+ *                    指定された各 child の `child_activities` に 1 instance ずつ複製する。
+ *                    空配列は `ActivityImportTargetRequiredError` (silent fallback 廃止)。
  */
 export interface ImportActivitiesOptions {
 	presetId?: string;
 	applyMustDefault?: boolean;
-	childIds?: readonly ChildId[];
+	/** #4692: 取込先は呼び出し側の必須責務 (型で省略できない形にする) */
+	childIds: readonly ChildId[];
 }
 
 /**
@@ -125,15 +145,10 @@ export interface ImportActivitiesOptions {
  *
  * @param activities インポート対象の活動配列（marketplace activity-pack の payload.activities など）
  * @param tenantId   テナントID
- * @param options    presetId（preset_duplicate 検知）と applyMustDefault（must 推奨採用）
- *                   後方互換のため `string` を渡した場合は presetId として扱う。
+ * @param options    childIds（配信先 child、#4692 で必須）/ presetId（preset_duplicate 検知）/
+ *                   applyMustDefault（must 推奨採用）。
+ *                   旧 `string` (presetId 単独) 形式は childIds を表現できないため #4692 で撤去。
  */
-/**
- * options 正規化 (後方互換: string も presetId として受領)
- */
-function normalizeOptions(options?: ImportActivitiesOptions | string): ImportActivitiesOptions {
-	return typeof options === 'string' ? { presetId: options } : (options ?? {});
-}
 
 /**
  * 1 件分の activity の category 解決 + priority 判定を行う。
@@ -238,8 +253,8 @@ async function persistAndCountImported(
 	plannedNewNames: Set<string>,
 	tenantId: string,
 	errors: string[],
-): Promise<{ imported: number; failed: number }> {
-	if (childIds.length === 0) return { imported: 0, failed: 0 };
+): Promise<{ imported: number; failed: number; archivedWritten: number }> {
+	if (childIds.length === 0) return { imported: 0, failed: 0, archivedWritten: 0 };
 	const persistedNames = await dispatchPerChildBulk(childInputsByChild, tenantId, errors);
 	let imported = 0;
 	for (const name of plannedNewNames) {
@@ -249,23 +264,31 @@ async function persistAndCountImported(
 	if (failed > 0) {
 		errors.push(`${failed} 件の活動を保存できませんでした`);
 	}
-	return { imported, failed };
+	// #4693 (QM 再レビュー 3 巡目): 耐久記録に載せるのは **実際に書けた** 保管行数。
+	// 計画値 (`outcome.archived`) を保存すると、insert が全滅しても「N 件保管した」と
+	// 主張する証跡ができてしまう。
+	let archivedWritten = 0;
+	for (const inputs of childInputsByChild.values()) {
+		for (const input of inputs) {
+			if (input.isArchived === 1 && persistedNames.has(input.name)) archivedWritten++;
+		}
+	}
+	return { imported, failed, archivedWritten };
 }
 
 /**
- * #2458-A1: childIds 未指定時の fallback bind helper。
- * 旧 path では family master `activities` table へ insert していたが、facade rewrite で
- * 旧 table への write が消えたため、per-child instance を必ず作成する必要がある。
- * tenant 最初の child に bind する。
+ * #4692: 取込先 child が 1 件も指定されていないときに投げるエラー。
+ *
+ * 旧実装は「tenant 最初の child に bind する」silent fallback を持っていたため、
+ * けんたのタブで「バックアップから復元」を押すと 94 件がたろう (最初の子) に入り、
+ * 操作した親から見ると「どこにも増えていない / 別の子が汚れた」状態になっていた。
+ * 取込先は呼び出し側が必ず明示する (ADR-0055 per-child 主軸 / cross-child 誤配信の構造的排除)。
  */
-async function _fallbackChildIds(
-	tenantId: string,
-	current: readonly ChildId[],
-): Promise<readonly ChildId[]> {
-	if (current.length > 0) return current;
-	const all = await findAllChildren(tenantId);
-	if (all.length > 0 && all[0]) return [all[0].id];
-	return [];
+export class ActivityImportTargetRequiredError extends Error {
+	constructor() {
+		super('取込先のお子さまが指定されていません');
+		this.name = 'ActivityImportTargetRequiredError';
+	}
 }
 
 /** planActivityForChildren の per-import 共通コンテキスト (param 数削減のため集約)。 */
@@ -300,6 +323,19 @@ function planActivityForChildren(
 			basePoints: a.basePoints,
 			triggerHint: a.triggerHint ?? null,
 			sourcePresetId: ctx.presetId ?? null,
+			// #4693 (QM): 取込の作成経路を quota の母集団と一致させる。
+			//
+			// `presetId` の有無が「配布物か、その家庭が自分で足したものか」の唯一の判別子:
+			//   - あり = marketplace プリセット取込 → `seed` (activity-source.ts の方針どおり quota 非対象)
+			//   - なし = ファイル復元 (`?/importFile`) / `api/v1/activities/import`
+			//            → 親が自分で用意した内容なので `custom` (手動作成と同じ扱い = quota 対象)
+			//
+			// 旧実装は source を渡さず repo 既定 `seed` に落ちていた。その状態で
+			// `enforceActivityQuota` が全取込を custom quota で判定していたため、
+			//   (a) 取込行が current を増やさず、3 件ずつ繰り返せば上限を超えて入る
+			//   (b) 手動 3 件で上限に達した無料世帯は、自分のバックアップ復元まで恒久的に拒否される
+			// の両方が起きていた (#4693 QM レビュー)。
+			source: ctx.presetId ? ACTIVITY_SOURCES.seed.value : PARENT_CREATED_SOURCE,
 			priority,
 		});
 		plannedForAnyChild = true;
@@ -307,14 +343,59 @@ function planActivityForChildren(
 	return plannedForAnyChild;
 }
 
+/**
+ * 取込 / 復元に quota を適用する (#4693 QM 再レビュー)。
+ *
+ * 適用方式は「配布物の取込」か「その家庭のデータの復元」かで分ける:
+ *   - プリセット取込 (`presetId` あり) → `seed` 行なので quota 対象 0 行。drop 方式のまま
+ *     (判定不能時は中止 = 再試行すれば済む、無害な倒し方)
+ *   - 復元 (`presetId` なし = 活動管理の ︙ →「バックアップから復元」/ `api/v1/activities/import`
+ *     の merge) → `custom` 行。**超過分は捨てずに保管**する。ここを drop のままにすると、
+ *     settings > データ の ZIP/JSON 復元 (保管) と同じ状況で入口によって顧客のデータが片方だけ
+ *     消える (PO 回答 2026-09-03 #2 を復元経路に適用する。ただし `api/v1/activities/import` は
+ *     route 入口の `checkActivityLimit` (#3759) を残しており、custom が上限ちょうどのときは
+ *     403 で終わりここに到達しない — 境界の正確な記述は activity-quota.ts の冒頭を参照)
+ *
+ * 返す 2 つは意味が違う channel: `blocked` = 捨てた / `activityQuota` = 保管した。
+ * どちらも `errors` (per-child catch 行 / 集計行が混ざる内部ログ) とは別に持つ — errors を
+ * 顧客に見せると内部例外文字列が出る (ADR-0062)。
+ */
+async function applyImportQuota(
+	isRestore: boolean,
+	tenantId: string,
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>,
+	plannedNewNames: Set<string>,
+): Promise<{ blocked?: ImportBlocked; activityQuota?: ActivityQuotaArchiveOutcome }> {
+	if (isRestore) {
+		const outcome = await archiveActivityQuotaOverflow(
+			tenantId,
+			childInputsByChild,
+			plannedNewNames,
+		);
+		// `message` が空 = 上限に触れていない。成功表示を汚さないため何も返さない。
+		return { activityQuota: outcome.message === '' ? undefined : outcome };
+	}
+	const quota = await enforceActivityQuota(tenantId, childInputsByChild, plannedNewNames);
+	return {
+		blocked:
+			quota.rejectedRows > 0
+				? { count: quota.rejectedRows, message: quota.message, upgradeUrl: quota.upgradeUrl }
+				: undefined,
+	};
+}
+
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
-	options?: ImportActivitiesOptions | string,
+	options: ImportActivitiesOptions,
 ): Promise<ActivityImportResult> {
-	const opts = normalizeOptions(options);
+	const opts = options;
 	const { presetId } = opts;
-	const childIds: readonly ChildId[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
+	// #4692: 取込先 child は呼び出し側の必須責務。first-child silent fallback は廃止した。
+	const childIds: readonly ChildId[] = opts.childIds ?? [];
+	if (childIds.length === 0) {
+		throw new ActivityImportTargetRequiredError();
+	}
 	const applyMustDefault = opts.applyMustDefault === true;
 
 	const errors: string[] = [];
@@ -355,12 +436,37 @@ export async function importActivities(
 		}
 	}
 
+	// #4693: **quota はここで一元強制する。** 経路ごとに `checkActivityLimit` を書く形では、
+	// 経路が増えるたびに書き忘れが起きる (手動 / 一括 / コピー / テンプレ取込には gate があり、
+	// ファイル復元だけ無かった = 無料プランが CSV を作れば無制限に増やせた、#4693 実測。
+	// #2894 / #3740 に続く 3 件目)。`dispatchImport` 経由の取込 (marketplace 取込 / ファイル復元 /
+	// api/v1 の merge 取込) は全て本関数を通るため、ここで切れば取込側は経路を足しても素通りしない。
+	// 覆う経路と覆わない経路の境界は activity-quota.ts の冒頭コメントが SSOT。
+	// 回帰 lock: tests/unit/services/activity-quota-import-enforcement.test.ts (取込経路の上限)
+	// / tests/unit/routes/activities-quota-residual-gate.test.ts (本関数を通らない producer 経路)。
+	// #4693 (QM 再レビュー): **同じ「バックアップから復元」なのに入口で結果が変わる**のを止める。
+	//
+	// `presetId` の有無がそのまま「配布物の取込」と「その家庭のデータの復元」の境界:
+	//   - あり = marketplace プリセット取込 → `seed` 行 → quota 対象 0 行。従来どおり drop 方式
+	//     (`enforceActivityQuota`)。判定不能時は中止 = 再試行すれば済む、無害な倒し方
+	//   - なし = **復元** (活動管理の ︙ →「バックアップから復元」= `?/importFile` /
+	//     `api/v1/activities/import` の merge) → `custom` 行。ここを drop のままにすると、
+	//     settings > データ の ZIP/JSON 復元 (archive 方式) と同じ状況で顧客のデータが片方だけ
+	//     消える。PO 回答 (2026-09-03) #2「超過分は捨てずに archived」を復元経路に適用する
+	//     (`api/v1/activities/import` は route gate 由来の例外あり。activity-quota.ts 冒頭の但し書き参照)
+	const { blocked, activityQuota } = await applyImportQuota(
+		!presetId,
+		tenantId,
+		childInputsByChild,
+		plannedNewNames,
+	);
+
 	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
 	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
 	//   stub / 容量超過 等) でも UI が「N 件登録しました」と偽る。dispatchPerChildBulk が
 	//   返す persist 成功名のみを imported に算入し、計画したのに persist できなかった分は
 	//   errors として可視化する。これにより「偽の成功件数」を構造的に出さない。
-	const { imported, failed } = await persistAndCountImported(
+	const { imported, failed, archivedWritten } = await persistAndCountImported(
 		childIds,
 		childInputsByChild,
 		plannedNewNames,
@@ -376,11 +482,18 @@ export async function importActivities(
 			skipped,
 			failed,
 			errors: errors.length,
+			blocked: blocked?.count ?? 0,
 			presetId: presetId ?? null,
 			applyMustDefault,
 			childIdsCount: childIds.length,
 		},
 	});
 
-	return { imported, skipped, errors, failed };
+	// #4693 (QM 再レビュー): 保管した分の耐久記録を残す (行の `archived_reason` では
+	// 「親が自分で選んだ保管」と区別できないため)。実書き込みのあとに呼ぶ。
+	if (activityQuota) {
+		await recordActivityQuotaArchiveMarker(tenantId, activityQuota, archivedWritten);
+	}
+
+	return { imported, skipped, errors, failed, blocked, activityQuota };
 }

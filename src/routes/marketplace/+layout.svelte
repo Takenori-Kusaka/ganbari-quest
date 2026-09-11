@@ -5,6 +5,7 @@ import { FEATURES_LABELS } from '$lib/domain/labels';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';
 import {
+	filterGuideStepsByPresence,
 	filterGuideStepsByTier,
 	filterGuideStepsToOverview,
 	getPageGuide,
@@ -43,7 +44,9 @@ async function handleStartPageGuide() {
 	const guide = resolved.viaFallback
 		? (filterGuideStepsToOverview(resolved.guide) ?? resolved.guide)
 		: resolved.guide;
-	const filtered = filterGuideStepsByTier(guide, GUIDE_TIER);
+	const tierFiltered = filterGuideStepsByTier(guide, GUIDE_TIER);
+	// #4668: ページ状態依存の `optional` step は起動時 DOM で対象が可視のときだけ残す (AdminLayout と同方針)
+	const filtered = tierFiltered === null ? null : filterGuideStepsByPresence(tierFiltered);
 	if (filtered) {
 		startPageGuide(filtered);
 	}

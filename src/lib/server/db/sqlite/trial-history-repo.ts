@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/trial-history-repo.ts
 // SQLite implementation of ITrialHistoryRepo (#314, #769)
 
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull } from 'drizzle-orm';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { db } from '../client';
 import type {
@@ -26,10 +26,16 @@ export async function findLatestByTenant(tenantId: string): Promise<TrialHistory
 	return rows[0] ? toRow(rows[0]) : undefined;
 }
 
-/** endDate が今日以降のトライアル履歴を返す（cron 通知対象の取得用） */
+/**
+ * endDate が今日以降のトライアル履歴を返す（cron 通知対象の取得用）。
+ * #4707: 本契約へ移行済み (stripe_subscription_id あり) の行は終了扱いで除外する。
+ */
 export async function findActiveTrials(): Promise<TrialHistoryRow[]> {
 	const today = todayDateJST();
-	const rows = await db.select().from(trialHistory).where(gte(trialHistory.endDate, today));
+	const rows = await db
+		.select()
+		.from(trialHistory)
+		.where(and(gte(trialHistory.endDate, today), isNull(trialHistory.stripeSubscriptionId)));
 	return rows.map(toRow);
 }
 
@@ -56,6 +62,8 @@ export async function updateConversion(input: UpdateTrialConversionInput): Promi
 		.set({
 			stripeSubscriptionId: input.stripeSubscriptionId,
 			upgradeReason: input.upgradeReason,
+			// #4707: endDate 指定時のみ end_date を詰める (undefined = 更新しない)
+			...(input.endDate ? { endDate: input.endDate } : {}),
 		})
 		.where(and(eq(trialHistory.id, Number(input.id)), eq(trialHistory.tenantId, input.tenantId)));
 }

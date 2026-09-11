@@ -3,10 +3,16 @@ import * as v from 'valibot';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { createPlanLimitError } from '$lib/domain/errors';
+import { createPlanLimitError, PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { PLAN_GATE_LABELS, UNRESOLVED_ENTITY_LABELS } from '$lib/domain/labels';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import {
+	ADMIN_CHECKLISTS_PAGE_LABELS,
+	ADMIN_FORM_ERROR_LABELS,
+	PLAN_GATE_LABELS,
+	UNRESOLVED_ENTITY_LABELS,
+} from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #3151 slice3 (ADR-0066): item label / icon の値域 SSOT。admin authoring 経路と wire schema が
 // 同一境界を共有し、authoring 可能な item ⊆ export/import 往復可能な item を成立させる。
@@ -19,6 +25,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
 import { resolveAuditActor } from '$lib/server/auth/audit-actor';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import {
 	findAssignmentsByChild,
 	findAssignmentsByTemplate,
@@ -135,8 +142,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			: null;
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 
+	// #4692 F4: `?childId=<n>` で初期選択 child を復元する (activities / rewards と同実装)。
+	// 本画面だけ URL 同期が無く、リロード / 共有リンクで常に最初の子タブに戻っていたため、
+	// 気付かず次のチェックリストを別の子に作ってしまう事故が起きていた。
+	const initialChildIdRaw = url.searchParams.get('childId');
+	const initialChildId =
+		initialChildIdRaw && initialChildIdRaw !== '' ? asChildId(initialChildIdRaw) : null;
+
 	return {
 		children: childrenWithOverrides,
+		initialChildId,
 		familyTemplates,
 		today,
 		isPremium,
@@ -162,8 +177,9 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 	const childId = asChildId(formIdString(formData.get('childId')));
 	const presetId = String(formData.get('presetId') ?? '').trim();
 
-	if (!childId || childId === asChildId(0)) return fail(400, { error: 'こどもを選択してください' });
-	if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+	if (!childId || childId === asChildId(0))
+		return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequired });
+	if (!presetId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.presetIdRequired });
 
 	// プラン制限 (Free プランのテンプレート数)
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
@@ -174,7 +190,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 			error: createPlanLimitError(
 				tier,
 				'standard',
-				`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 			),
 			upgradeRequired: true,
 		});
@@ -187,7 +203,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 	// parse/preview/apply の重複実行 (二重 DB read) も解消。
 	const item = getMarketplaceItem('checklist', presetId);
 	if (!item) {
-		return fail(404, { error: 'プリセットが見つかりません' });
+		return fail(404, { error: ADMIN_FORM_ERROR_LABELS.presetNotFound });
 	}
 	const payload = item.payload as ChecklistPayload;
 	try {
@@ -217,7 +233,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 			error: e instanceof Error ? e.message : String(e),
 			context: { presetId, childId },
 		});
-		return fail(500, { error: 'インポートに失敗しました' });
+		return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 	}
 };
 
@@ -296,7 +312,31 @@ async function copyDistributionWithQuota(params: {
 	return { added, alreadyDistributed, limitRejected, limitReached };
 }
 
-export const actions: Actions = {
+/**
+ * #4693: 配信先のうち **上限に達している子だけ**を切り分ける。
+ *
+ * 旧実装は「1 人でも超過なら全員分 fail」で、誰の上限かも言わなかった。呼び出し側が
+ * 「超過した子を配信先から外す」「全員超過なら 403」を判断できるよう、名前と上限値も返す。
+ */
+async function partitionOverLimitChildren(
+	childIds: readonly ChildId[],
+	tenantChildren: readonly { id: ChildId; nickname: string }[],
+	ctx: { tenantId: string; licenseStatus: string },
+): Promise<{ overLimitChildIds: Set<ChildId>; names: string[]; max: number }> {
+	const overLimitChildIds = new Set<ChildId>();
+	const names: string[] = [];
+	let max = 0;
+	for (const cId of childIds) {
+		const limit = await checkChecklistTemplateLimit(ctx.tenantId, ctx.licenseStatus, cId);
+		if (limit.allowed) continue;
+		overLimitChildIds.add(cId);
+		names.push(tenantChildren.find((c) => c.id === cId)?.nickname ?? String(cId));
+		max = limit.max;
+	}
+	return { overLimitChildIds, names, max };
+}
+
+export const actions: Actions = withParentGate({
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -305,12 +345,12 @@ export const actions: Actions = {
 		const icon = String(formData.get('icon') ?? '📋').trim();
 
 		if (!childId || childId === asChildId(0))
-			return fail(400, { error: 'こどもを選択してください' });
-		if (!name) return fail(400, { error: '名前を入力してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequired });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.nameRequired });
 
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
 		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
-			return fail(400, { error: '時間帯が不正です' });
+			return fail(400, { error: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotInvalid });
 
 		// #1755 (#1709-A): kind 削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 
@@ -324,7 +364,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -340,9 +380,9 @@ export const actions: Actions = {
 		const templateId = formIdString(formData.get('templateId'));
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
 		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
-			return fail(400, { error: '時間帯が不正です' });
+			return fail(400, { error: ADMIN_CHECKLISTS_PAGE_LABELS.timeSlotInvalid });
 
 		await editTemplate(templateId, { timeSlot }, tenantId);
 		return { success: true };
@@ -354,7 +394,7 @@ export const actions: Actions = {
 		const templateId = formIdString(formData.get('templateId'));
 		const isActive = Number(formData.get('isActive'));
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
 
 		await editTemplate(templateId, { isActive: isActive ? 0 : 1 }, tenantId);
 		return { success: true };
@@ -365,7 +405,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const templateId = formIdString(formData.get('templateId'));
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
 
 		await removeTemplate(templateId, tenantId);
 		return { success: true };
@@ -380,8 +420,8 @@ export const actions: Actions = {
 		const frequency = String(formData.get('frequency') ?? 'daily');
 		const direction = String(formData.get('direction') ?? 'bring');
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
-		if (!name) return fail(400, { error: 'アイテム名を入力してください' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
+		if (!name) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.itemNameRequired });
 
 		// #3151 slice3 (ADR-0066): label / icon を domain SSOT で検証し、export/import 往復不能な
 		// item (100 文字超 label / 3 個以上の絵文字 icon) の authoring を default-deny する。
@@ -392,7 +432,9 @@ export const actions: Actions = {
 			icon,
 		});
 		if (!itemCheck.success) {
-			return fail(400, { error: itemCheck.issues[0]?.message ?? 'アイテムが不正です' });
+			return fail(400, {
+				error: itemCheck.issues[0]?.message ?? ADMIN_FORM_ERROR_LABELS.itemInvalid,
+			});
 		}
 
 		await addTemplateItem({ templateId, name, icon, frequency, direction }, tenantId);
@@ -405,8 +447,8 @@ export const actions: Actions = {
 		const templateId = formIdString(formData.get('templateId'));
 		const itemId = formIdString(formData.get('itemId'));
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
-		if (!itemId) return fail(400, { error: 'アイテムIDが不正です' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
+		if (!itemId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.itemIdInvalid });
 
 		// #2845 B1: templateId 所有権検証付き (composite key)。不一致なら no-op
 		await removeTemplateItem(templateId, itemId, tenantId);
@@ -423,9 +465,9 @@ export const actions: Actions = {
 		const icon = String(formData.get('icon') ?? '📦').trim();
 
 		if (!childId || childId === asChildId(0))
-			return fail(400, { error: 'こどもを選択してください' });
-		if (!targetDate) return fail(400, { error: '日付を入力してください' });
-		if (!itemName) return fail(400, { error: 'アイテム名を入力してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequired });
+		if (!targetDate) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.dateRequired });
+		if (!itemName) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.itemNameRequired });
 
 		await addOverride({ childId, targetDate, action, itemName, icon }, tenantId);
 		return { success: true };
@@ -438,8 +480,8 @@ export const actions: Actions = {
 		const overrideId = formIdString(formData.get('overrideId'));
 
 		if (!childId || childId === asChildId(0))
-			return fail(400, { error: 'こどもを選択してください' });
-		if (!overrideId) return fail(400, { error: 'オーバーライドIDが不正です' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequired });
+		if (!overrideId) return fail(400, { error: ADMIN_CHECKLISTS_PAGE_LABELS.overrideIdInvalid });
 
 		// #2845 B1: childId 所有権検証付き (composite key)。不一致なら no-op
 		await removeOverride(childId, overrideId, tenantId);
@@ -469,8 +511,9 @@ export const actions: Actions = {
 		const itemsJson = String(formData.get('items') ?? '[]');
 
 		if (!childId || childId === asChildId(0))
-			return fail(400, { error: 'こどもを選択してください' });
-		if (!templateName) return fail(400, { error: 'テンプレート名が必要です' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequired });
+		if (!templateName)
+			return fail(400, { error: ADMIN_CHECKLISTS_PAGE_LABELS.templateNameRequired });
 
 		// JSON パース + バリデーションを DB 作成前に実行（パース失敗時に空テンプレートが残る問題を防ぐ）
 		let items: { name: string; icon: string; frequency: string; direction: string }[];
@@ -490,7 +533,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。`,
+					PLAN_GATE_LABELS.perChildLimitReachedShort(limit.max),
 				),
 			});
 		}
@@ -538,37 +581,12 @@ export const actions: Actions = {
 		const presetId = String(formData.get('presetId') ?? '').trim();
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
-		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+		if (!presetId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.presetNotSpecified });
 
 		// プラン制限 (Free プランのテンプレート数、per-child quota: LP「3個/子まで」と整合)
 		// 配信先 child 0 件でも family template 自体は作成可能 (後で distribution 編集)
 		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const tenantChildren = await getAllChildren(tenantId);
-		// 配信先 child が指定済みなら各 child の per-child quota を事前確認
-		const childIdsForLimitCheck =
-			childIdsRaw === 'all'
-				? tenantChildren.map((c) => c.id)
-				: childIdsRaw === ''
-					? []
-					: childIdsRaw
-							.split(',')
-							.map((s) => s.trim())
-							.filter((v) => v !== '')
-							.map(asChildId);
-		for (const cId of childIdsForLimitCheck) {
-			const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, cId);
-			if (!limit.allowed) {
-				const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-				return fail(403, {
-					error: createPlanLimitError(
-						tier,
-						'standard',
-						`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
-					),
-					upgradeRequired: true,
-				});
-			}
-		}
 
 		// childIds: 'all' or comma-separated id list ('' で配信先未指定 = template のみ作成)
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
@@ -585,20 +603,51 @@ export const actions: Actions = {
 				.map(asChildId);
 		}
 
-		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
+		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject。
+		// #4693: **上限判定より先に**置く。上限判定は child 1 人につき DB を 1 往復するため、
+		// 後ろに置くと未検証の child ID 列で往復を増幅させられる (ADR-0065 DPU 規約にも逆行)。
 		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
 		if (foreignChildIds.length > 0) {
 			logger.warn('[admin/checklists] tenant 外 child ID が importPresetToChildren に指定された', {
 				context: { presetId, foreignChildIds, tenantId },
 			});
 			return fail(403, {
-				error: '指定されたお子さまの一部が見つかりませんでした',
+				error: ADMIN_FORM_ERROR_LABELS.someChildrenNotFound,
 			});
 		}
 
+		// #4693: 1 人でも上限なら全員分を失敗させる旧実装は、(a) 誰の上限か分からず
+		// (b) 余裕のある子にも入らない、の 2 重の詰まりだった。超過した子だけを外し、
+		// **全員が超過しているときだけ** 403 にする (その場合は誰も配信先に残らないため)。
+		const {
+			overLimitChildIds,
+			names: overLimitNames,
+			max: checklistMaxForMessage,
+		} = await partitionOverLimitChildren(childIds, tenantChildren, {
+			tenantId,
+			licenseStatus,
+		});
+		if (childIds.length > 0 && overLimitChildIds.size === childIds.length) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.perChildLimitReachedForChildren(overLimitNames, checklistMaxForMessage),
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		// #4693: 上限に達している子だけ配信先から外す (余裕のある子には入れる)。
+		const skippedOverLimitNames = childIds
+			.filter((id) => overLimitChildIds.has(id))
+			.map((id) => tenantChildren.find((c) => c.id === id)?.nickname ?? String(id));
+		childIds = childIds.filter((id) => !overLimitChildIds.has(id));
+
 		const item = getMarketplaceItem('checklist', presetId);
 		if (!item) {
-			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+			return fail(404, { error: ADMIN_FORM_ERROR_LABELS.presetNotFoundNamed(presetId) });
 		}
 		const payload = item.payload as ChecklistPayload;
 
@@ -620,6 +669,21 @@ export const actions: Actions = {
 				skipped: result.skipped,
 				total: result.total,
 				errors: result.errors,
+				// #4693 (adversarial D3): 上限で配信を外した子を明示する (無音でスキップしない)。
+				//   旧実装はこの文言を `errors` に append していたが、UI (resolveImportFeedback) は
+				//   errors を読まないため親の画面に一度も出なかった = AC4 が server 側でしか
+				//   成立していなかった。顧客向け channel (`blocked`) に載せて表示まで届かせる。
+				blocked:
+					skippedOverLimitNames.length > 0
+						? {
+								count: skippedOverLimitNames.length,
+								message: PLAN_GATE_LABELS.perChildLimitReachedForChildren(
+									skippedOverLimitNames,
+									checklistMaxForMessage,
+								),
+								upgradeUrl: PLAN_UPGRADE_URL,
+							}
+						: undefined,
 				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
 				failed: result.failed,
 				presetId,
@@ -630,7 +694,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { presetId, childIds },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
 
@@ -643,7 +707,7 @@ export const actions: Actions = {
 		const templateId = formIdString(formData.get('templateId'));
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
-		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+		if (!templateId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.templateIdInvalid });
 
 		const tenantChildren = await getAllChildren(tenantId);
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
@@ -668,7 +732,7 @@ export const actions: Actions = {
 				context: { templateId, foreignChildIds, tenantId },
 			});
 			return fail(403, {
-				error: '指定されたお子さまの一部が見つかりませんでした',
+				error: ADMIN_FORM_ERROR_LABELS.someChildrenNotFound,
 			});
 		}
 
@@ -685,7 +749,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { templateId, desiredChildIds },
 			});
-			return fail(500, { error: '配信先の同期に失敗しました' });
+			return fail(500, { error: ADMIN_CHECKLISTS_PAGE_LABELS.distributionSyncFailed });
 		}
 	},
 
@@ -702,10 +766,10 @@ export const actions: Actions = {
 		const targetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId || !targetChildId) {
-			return fail(400, { error: 'お子さまを選択してください' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.childRequiredHonorific });
 		}
 		if (sourceChildId === targetChildId) {
-			return fail(400, { error: '違うお子さまを選んでください' });
+			return fail(400, { error: ADMIN_CHECKLISTS_PAGE_LABELS.copyDifferentChildError });
 		}
 
 		// #3474 item 3: 監査 actor を全 AUTH_MODE で解決 (NUC=local は nuc-local、旧実装は undefined)。
@@ -729,7 +793,7 @@ export const actions: Actions = {
 					},
 				},
 			);
-			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+			return fail(403, { error: ADMIN_FORM_ERROR_LABELS.childrenNotFound });
 		}
 
 		// per-child quota: free プランは target child のテンプレ上限を超えないか確認。
@@ -753,7 +817,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					PLAN_GATE_LABELS.perChildLimitReached(limit.max),
 				),
 				upgradeRequired: true,
 			});
@@ -797,7 +861,9 @@ export const actions: Actions = {
 			const dropped = alreadyDistributed + limitRejected;
 			if (limitReached) {
 				const skipNote =
-					alreadyDistributed > 0 ? `（${alreadyDistributed} 件はすでに配信済みでした）` : '';
+					alreadyDistributed > 0
+						? ADMIN_CHECKLISTS_PAGE_LABELS.copyAlreadyDistributedNote(alreadyDistributed)
+						: '';
 				return {
 					copiedFromChild: true,
 					added,
@@ -806,7 +872,7 @@ export const actions: Actions = {
 					limitRejected,
 					limitReached: true,
 					// #3474 item2: 上限で取り込めなかった件数は limitRejected のみを提示 (既配信分を過大帰属しない)。
-					message: `${added} 件取り込みました。フリープランの上限に達したため ${limitRejected} 件は取り込めませんでした。スタンダード以上で無制限。${skipNote}`,
+					message: PLAN_GATE_LABELS.bulkImportPartiallyLimited(added, limitRejected, skipNote),
 				};
 			}
 			return { copiedFromChild: true, added, dropped, alreadyDistributed, limitRejected };
@@ -815,7 +881,7 @@ export const actions: Actions = {
 				error: e instanceof Error ? e.message : String(e),
 				context: { sourceChildId, targetChildId },
 			});
-			return fail(500, { error: '取り込みに失敗しました' });
+			return fail(500, { error: ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed });
 		}
 	},
 
@@ -847,7 +913,7 @@ export const actions: Actions = {
 			loaded = await loadChecklistFromFile(file as File);
 		} catch (e) {
 			if (e instanceof FileSourceError) return fail(400, { error: e.message });
-			return fail(400, { error: 'ファイルの解析に失敗しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.fileParseFailed });
 		}
 
 		const templateName = deriveRestoreTemplateName(loaded.displayName);
@@ -894,7 +960,7 @@ export const actions: Actions = {
 			loaded = await loadChecklistFromFile(file as File);
 		} catch (e) {
 			if (e instanceof FileSourceError) return fail(400, { error: e.message });
-			return fail(400, { error: 'ファイルの解析に失敗しました' });
+			return fail(400, { error: ADMIN_FORM_ERROR_LABELS.fileParseFailed });
 		}
 
 		const templateName = deriveRestoreTemplateName(loaded.displayName);
@@ -918,10 +984,10 @@ export const actions: Actions = {
 			logger.error('[admin/checklists] 復元失敗', {
 				error: e instanceof Error ? e.message : String(e),
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
-};
+} satisfies Actions);
 
 /**
  * #3079: 復元ファイル名からテンプレート名を導出する。
@@ -935,5 +1001,5 @@ function deriveRestoreTemplateName(fileName: string): string {
 	const base = fileName.replace(/\.json$/i, '');
 	const stripped = base.startsWith('checklist-') ? base.slice('checklist-'.length) : base;
 	const cleaned = stripped.replace(/_/g, ' ').trim();
-	return cleaned.length > 0 ? cleaned : '復元したチェックリスト';
+	return cleaned.length > 0 ? cleaned : ADMIN_CHECKLISTS_PAGE_LABELS.restoreFallbackName;
 }

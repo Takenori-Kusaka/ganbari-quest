@@ -12,7 +12,7 @@
 //     二重防御があるため、不正値も string 経由で PushSubscriberRole に渡す (sqlite と同判断)。
 //   - **0/1 契約**: NotificationLog.success は number (0/1)。DSQL 列は boolean のため
 //     読み出しで boolean→0/1 変換する (voice-repo と同 convention)。
-//   - **countTodayLogs の当日境界**: sqlite は ISO 文字列比較 (= UTC 日境界)。DSQL は
+//   - **countLogsBetween の境界 (#4722)**: 呼び出し側が JST 暦日を instant 化して渡す。DSQL は
 //     UTC anchor 明示の `<today>T00:00:00Z`::timestamptz 範囲で同義 (裸の date cast は
 //     session TZ 依存のため禁止 — PGlite はローカル TZ を継承する)。
 
@@ -143,17 +143,15 @@ export function createDsqlPushSubscriptionRepo(db: SqlExecutor): IPushSubscripti
 			return toLog(row);
 		},
 
-		async countTodayLogs(tenantId, today) {
-			// UTC 日境界 (sqlite の ISO 文字列比較と同義)。'YYYY-MM-DD'::timestamptz の裸 cast は
-			// **session TZ 依存** (実 DSQL は TZ=UTC 固定 P10 だが PGlite はローカル TZ を継承し、
-			// JST 環境の 00:00-09:00 に日境界がずれる実 fail を観測) のため、UTC anchor を
-			// 明示した ISO 文字列を渡して TZ 非依存にする。
-			const utcStart = `${today}T00:00:00Z`;
+		async countLogsBetween(tenantId, fromIso, toIso) {
+			// #4722: 境界は呼び出し側が instant (UTC ISO) にして渡す。'YYYY-MM-DD'::timestamptz の裸 cast は
+			// **session TZ 依存** (実 DSQL は TZ=UTC 固定 P10 だが PGlite はローカル TZ を継承する) で、
+			// かつ JST 暦日をそのまま UTC 日境界として使うとカウント窓が 9 時間ずれる。
 			const result = await db.execute(sql`
 				SELECT count(*) AS c FROM notification_logs
 				WHERE family_id = ${tenantId}
-					AND sent_at >= ${utcStart}::timestamptz
-					AND sent_at < ${utcStart}::timestamptz + interval '1 day'
+					AND sent_at >= ${fromIso}::timestamptz
+					AND sent_at < ${toIso}::timestamptz
 			`);
 			return Number((result.rows[0] as { c: unknown }).c);
 		},

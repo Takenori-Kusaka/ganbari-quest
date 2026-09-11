@@ -15,6 +15,8 @@
 
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
+// #4512: form action のエラー文言は labels SSOT 経由 (docs/DESIGN.md §6 / ADR-0045)
+import { ADMIN_FORM_ERROR_LABELS, ADMIN_RULES_PAGE_LABELS } from '$lib/domain/labels';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 import { dispatchImport } from '$lib/marketplace';
 import {
@@ -23,6 +25,7 @@ import {
 	setBonusPresetEnabled,
 } from '$lib/marketplace/strategies/rule-preset/bonus-state';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { withParentGate } from '$lib/server/auth/parent-gate';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
@@ -42,6 +45,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
 	let importPresetId: string | null = null;
 	let importPresetError: 'not-found' | 'wrong-type' | null = null;
+	// #4711: wrong-type の案内に使う表示名 + 正規経路 (exchange は admin/rewards?import=<id>)。
+	// 内部 ID (presetId) は表示文言には出さず、link の query にだけ載せる
+	// (href 自体は client 側で resolve('/admin/rewards') から組む、svelte/no-navigation-without-resolve)。
+	let importPresetName: string | null = null;
+	let importWrongTypeRewardPresetId: string | null = null;
 	if (importPresetIdRaw) {
 		const item = getMarketplaceItem('rule-preset', importPresetIdRaw);
 		if (!item) {
@@ -52,6 +60,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		) {
 			// exchange は admin/rewards 経由、penalty / special は ADR-0012 細則で取込不可。
 			importPresetError = 'wrong-type';
+			importPresetName = item.name;
+			if ((item.payload as { ruleType: string }).ruleType === 'exchange') {
+				importWrongTypeRewardPresetId = item.itemId;
+			}
 		} else {
 			importPresetId = importPresetIdRaw;
 		}
@@ -70,11 +82,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		importPresetId,
 		importPresetIdRaw,
 		importPresetError,
+		importPresetName,
+		importWrongTypeRewardPresetId,
 		rewardAutoApprove,
 	};
 };
 
-export const actions: Actions = {
+export const actions: Actions = withParentGate({
 	// #3339: ごほうび交換の即時交換 ON/OFF を settings KVS に保存する。
 	setRewardAutoApprove: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -94,7 +108,7 @@ export const actions: Actions = {
 				error: String(e),
 				context: { enabled },
 			});
-			return fail(500, { error: 'ごほうび交換設定の更新に失敗しました' });
+			return fail(500, { error: ADMIN_RULES_PAGE_LABELS.rewardApprovalUpdateFailed });
 		}
 	},
 
@@ -104,7 +118,7 @@ export const actions: Actions = {
 		const presetId = String(formData.get('presetId') ?? '').trim();
 		const enabledRaw = String(formData.get('enabled') ?? '').trim();
 
-		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+		if (!presetId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.presetIdRequired });
 		const enabled = enabledRaw === 'true';
 
 		try {
@@ -115,7 +129,7 @@ export const actions: Actions = {
 				error: String(e),
 				context: { presetId, enabled },
 			});
-			return fail(500, { error: 'ルール更新に失敗しました' });
+			return fail(500, { error: ADMIN_RULES_PAGE_LABELS.updateFailed });
 		}
 	},
 
@@ -124,7 +138,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const presetId = String(formData.get('presetId') ?? '').trim();
 
-		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+		if (!presetId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.presetIdRequired });
 
 		try {
 			await removeBonusPreset(presetId, tenantId);
@@ -134,7 +148,7 @@ export const actions: Actions = {
 				error: String(e),
 				context: { presetId },
 			});
-			return fail(500, { error: 'ルール削除に失敗しました' });
+			return fail(500, { error: ADMIN_RULES_PAGE_LABELS.removeFailed });
 		}
 	},
 
@@ -143,11 +157,11 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const presetId = String(formData.get('presetId') ?? '').trim();
-		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+		if (!presetId) return fail(400, { error: ADMIN_FORM_ERROR_LABELS.presetIdRequired });
 
 		const item = getMarketplaceItem('rule-preset', presetId);
 		if (!item) {
-			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+			return fail(404, { error: ADMIN_FORM_ERROR_LABELS.presetNotFoundNamed(presetId) });
 		}
 
 		try {
@@ -155,7 +169,8 @@ export const actions: Actions = {
 				typeCode: 'rule-preset',
 				rawPayload: item.payload,
 				displayName: item.name,
-				ctx: { tenantId, presetId },
+				// #4711: 表示名 / icon を Strategy に渡す (保存レコードに内部 ID が残らないように)。
+				ctx: { tenantId, presetId, presetName: item.name, presetIcon: item.icon },
 			});
 			return {
 				packName: result.packName,
@@ -174,7 +189,7 @@ export const actions: Actions = {
 				stack: e instanceof Error ? e.stack : undefined,
 				context: { presetId },
 			});
-			return fail(500, { error: 'インポートに失敗しました' });
+			return fail(500, { error: ADMIN_FORM_ERROR_LABELS.importFailed });
 		}
 	},
-};
+} satisfies Actions);

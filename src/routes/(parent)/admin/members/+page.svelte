@@ -2,13 +2,17 @@
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { APP_LABELS, formatJstDate, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
+// #4704: 招待の可否 (メンバー + 未受諾の招待が上限内か) を server から受け取る
+const memberLimit = $derived(
+	$page.data.memberLimit as { allowed: boolean; current: number; max: number } | undefined,
+);
 let { data } = $props();
 
 let inviteRole = $state<'parent' | 'child'>('parent');
@@ -306,7 +310,7 @@ const roleLabel = (role: string) => {
 									{roleLabel(member.role)}
 								</span>
 								<span class="text-xs text-[var(--color-text-tertiary)]">
-									{new Date(member.joinedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+									{formatJstDate(member.joinedAt)}
 								</span>
 							</div>
 						</div>
@@ -359,8 +363,31 @@ const roleLabel = (role: string) => {
 		{/snippet}
 	</Card>
 
+	<!-- #4704: セルフホストでは招待そのものが無い (API は cognito 前提)。使えない機能のフォームを出さない -->
+	{#if $page.data.currentRole === 'owner' && $page.data.inviteSupported === false}
+	<Card variant="default" padding="md">
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-2" data-testid="members-invite-unsupported">
+			{MEMBERS_LABELS.inviteUnsupportedTitle}
+		</h3>
+		<p class="text-sm text-[var(--color-text-secondary)]">{MEMBERS_LABELS.inviteUnsupportedDesc}</p>
+	</Card>
+	<!-- #4704: 上限到達は押す前に伝える (旧: フォーム活性 → 送信して初めて 403) -->
+	{:else if $page.data.currentRole === 'owner' && memberLimit && !memberLimit.allowed}
+	<Card variant="default" padding="md">
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-2" data-testid="members-invite-limit">
+			{MEMBERS_LABELS.inviteLimitTitle}
+		</h3>
+		<p class="text-sm text-[var(--color-text-secondary)] mb-3">
+			{memberLimit.max === 1
+				? MEMBERS_LABELS.inviteLimitDescFree
+				: MEMBERS_LABELS.inviteLimitDesc(memberLimit.current, memberLimit.max)}
+		</p>
+		<Button variant="primary" size="sm" href="/admin/subscription" data-testid="members-invite-limit-cta">
+			{MEMBERS_LABELS.inviteLimitCta}
+		</Button>
+	</Card>
 	<!-- 招待リンク作成 (owner 専用、#3549 PO 決裁 (a): 招待の発行は owner のみ。API 側 guard と対) -->
-	{#if $page.data.currentRole === 'owner'}
+	{:else if $page.data.currentRole === 'owner'}
 	<Card variant="default" padding="md" data-tutorial="members-invite">
 		{#snippet children()}
 		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.inviteSectionTitle}</h3>
@@ -460,7 +487,7 @@ const roleLabel = (role: string) => {
 
 	<!-- 保留中の招待 -->
 	{#if data.invites.length > 0}
-		<Card variant="default" padding="md">
+		<Card variant="default" padding="md" data-tutorial="members-pending">
 			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.pendingInvitesTitle}</h3>
 			<div class="divide-y divide-gray-100">
@@ -472,7 +499,7 @@ const roleLabel = (role: string) => {
 								{roleLabel(invite.role)}
 							</span>
 							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
-								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+								{MEMBERS_LABELS.inviteExpiresPrefix}{formatJstDate(invite.expiresAt)}
 							</span>
 							<!-- #3555 ①: 宛先 email 束縛付き招待の宛先を表示 (タイプミスに owner が気づき
 							     取消し → 再発行できる修正導線) -->
@@ -511,7 +538,7 @@ const roleLabel = (role: string) => {
 
 	<!-- 閲覧リンク（PLAN_LABELS.family 限定） -->
 	{#if data.isFamily}
-		<Card variant="default" padding="md">
+		<Card variant="default" padding="md" data-tutorial="members-viewer">
 			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.viewerSectionTitle}</h3>
 			<p class="text-xs text-[var(--color-text-tertiary)] mb-3">
@@ -535,9 +562,9 @@ const roleLabel = (role: string) => {
 						<NativeSelect
 							bind:value={viewerDuration}
 							options={[
-								{ value: '7d', label: '7日間' },
-								{ value: '30d', label: '30日間' },
-								{ value: 'unlimited', label: '無期限' },
+								{ value: '7d', label: MEMBERS_LABELS.viewerDuration7d },
+								{ value: '30d', label: MEMBERS_LABELS.viewerDuration30d },
+								{ value: 'unlimited', label: MEMBERS_LABELS.viewerDurationUnlimited },
 							]}
 						/>
 					{/snippet}
@@ -612,7 +639,7 @@ const roleLabel = (role: string) => {
 									{/if}
 									{#if vt.expiresAt}
 										<span class="text-xs text-[var(--color-text-tertiary)]">
-											{MEMBERS_LABELS.viewerExpiresPrefix}{new Date(vt.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+											{MEMBERS_LABELS.viewerExpiresPrefix}{formatJstDate(vt.expiresAt)}
 										</span>
 									{:else}
 										<span class="text-xs text-[var(--color-text-tertiary)]">{MEMBERS_LABELS.viewerExpiresNone}</span>

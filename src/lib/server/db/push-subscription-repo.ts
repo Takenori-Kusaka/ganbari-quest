@@ -31,8 +31,12 @@ export async function insertLog(input: InsertNotificationLogInput): Promise<Noti
 	return getRepos().pushSubscription.insertLog(input);
 }
 
-export async function countTodayLogs(tenantId: string, today: string): Promise<number> {
-	return getRepos().pushSubscription.countTodayLogs(tenantId, today);
+export async function countLogsBetween(
+	tenantId: string,
+	fromIso: string,
+	toIso: string,
+): Promise<number> {
+	return getRepos().pushSubscription.countLogsBetween(tenantId, fromIso, toIso);
 }
 
 async function _findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]> {

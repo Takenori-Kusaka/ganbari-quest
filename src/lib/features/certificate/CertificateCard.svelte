@@ -1,4 +1,5 @@
 <script lang="ts">
+import { CERTIFICATES_PAGE_LABELS } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface CertificateItem {
@@ -27,13 +28,14 @@ const formattedDate = $derived(
 	}),
 );
 
+// #4674 F5: バッジ短縮形も CERTIFICATES_PAGE_LABELS (labels SSOT) を引く
 const categoryLabel = $derived(
 	{
-		streak: 'れんぞく',
-		monthly: 'がつかん',
-		level: 'レベル',
-		category_master: 'マスター',
-		annual: 'ねんかん',
+		streak: CERTIFICATES_PAGE_LABELS.categoryShortStreak,
+		monthly: CERTIFICATES_PAGE_LABELS.categoryShortMonthly,
+		level: CERTIFICATES_PAGE_LABELS.categoryShortLevel,
+		category_master: CERTIFICATES_PAGE_LABELS.categoryShortMaster,
+		annual: CERTIFICATES_PAGE_LABELS.categoryShortAnnual,
 	}[certificate.category] ?? '',
 );
 </script>

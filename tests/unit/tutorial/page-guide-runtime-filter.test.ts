@@ -13,6 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	filterGuideStepsByPresence,
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
 } from '../../../src/lib/ui/tutorial/page-guide-registry';
@@ -67,21 +68,26 @@ describe('#3291/#3296 filterGuideStepsByRuntime', () => {
 		expect(filterGuideStepsByRuntime(saasOnly, 'nuc-prod')).toBeNull();
 	});
 
-	it('SUBSCRIPTION_GUIDE: nuc-prod では intro + NUC 専用 2 手順、SaaS では intro + SaaS 2 手順', () => {
-		// NUC: NucLicensePanel の Edition badge / 利用状況を spotlight する NUC 専用 step を表示し、
-		// SaaS 専用 (現在のプラン / プラン管理) は除外 → 空 spotlight を作らない。
+	it('SUBSCRIPTION_GUIDE: nuc-prod では intro + NUC 専用 3 手順、SaaS では intro + SaaS 5 手順 (#4668 DOM 順)', () => {
+		// NUC: NucLicensePanel の Edition badge / 利用状況 / サポートを spotlight する NUC 専用 step を表示し、
+		// SaaS 専用 (現在のプラン / 利用状況 / トライアル / プラン管理 / 解約) は除外 → 空 spotlight を作らない。
 		const nuc = filterGuideStepsByRuntime(SUBSCRIPTION_GUIDE, 'nuc-prod');
 		expect(nuc?.steps.map((s) => s.id)).toEqual([
 			'subscription-intro',
 			'subscription-nuc-edition',
 			'subscription-nuc-usage',
+			'subscription-nuc-support',
 		]);
 
+		// SaaS: SaasLicensePanel の DOM 順 (現在のプラン → 利用状況 → トライアル → プラン管理 → 解約)
 		const saas = filterGuideStepsByRuntime(SUBSCRIPTION_GUIDE, 'aws-prod');
 		expect(saas?.steps.map((s) => s.id)).toEqual([
 			'subscription-intro',
 			'subscription-current-plan',
+			'subscription-plan-status',
+			'subscription-trial',
 			'subscription-plan-management',
+			'subscription-cancel',
 		]);
 
 		// undefined は fail-closed で intro のみ (#3296 Part 3)
@@ -187,14 +193,84 @@ describe('#3296 filterGuideStepsByStripe', () => {
 		expect(stripeOff?.steps.map((s) => s.id)).toEqual([
 			'subscription-intro',
 			'subscription-current-plan',
+			'subscription-plan-status',
+			'subscription-trial',
+			'subscription-cancel',
 		]);
+		// #4668 F4: Stripe 無効環境では、存在しない「プラン管理」を指す文言を持つ step が 1 つも残らない
+		for (const step of stripeOff?.steps ?? []) {
+			expect(
+				`${step.what}${step.how}${step.goal}`,
+				`${step.id} が「プラン管理」を案内している`,
+			).not.toContain('プラン管理');
+		}
 
-		// Stripe 有効なら 3 手順すべて残る
+		// Stripe 有効なら全手順が残る
 		const stripeOn = filterGuideStepsByStripe(runtime as PageGuide, true);
 		expect(stripeOn?.steps.map((s) => s.id)).toEqual([
 			'subscription-intro',
 			'subscription-current-plan',
+			'subscription-plan-status',
+			'subscription-trial',
 			'subscription-plan-management',
+			'subscription-cancel',
 		]);
+	});
+});
+
+describe('#4668 filterGuideStepsByPresence (ページ状態依存 step の起動時 DOM 判定)', () => {
+	const presenceFixture: PageGuide = {
+		pageId: 'test-page',
+		title: 'テスト',
+		icon: '🧪',
+		steps: [
+			{ id: 'intro', title: '概要', what: 'a', how: 'b', goal: 'c' },
+			{
+				id: 'always',
+				title: '常設',
+				what: 'a',
+				how: 'b',
+				goal: 'c',
+				selector: '[data-x="always"]',
+			},
+			{
+				id: 'cond',
+				title: '条件表示',
+				what: 'a',
+				how: 'b',
+				goal: 'c',
+				selector: '[data-x="cond"]',
+				optional: true,
+			},
+		],
+	};
+
+	it('optional step は対象が無ければ除外し、常設 step と selector 無し step は残す', () => {
+		const out = filterGuideStepsByPresence(presenceFixture, () => false);
+		expect(out?.steps.map((s) => s.id)).toEqual(['intro', 'always']);
+	});
+
+	it('optional step は対象が有れば残す (順序不変)', () => {
+		const out = filterGuideStepsByPresence(presenceFixture, (sel) => sel === '[data-x="cond"]');
+		expect(out?.steps.map((s) => s.id)).toEqual(['intro', 'always', 'cond']);
+	});
+
+	it('optional かつ対象無しの step のみのガイドは null (❓ 抑止)', () => {
+		const only: PageGuide = {
+			...presenceFixture,
+			steps: [presenceFixture.steps[2] as PageGuide['steps'][number]],
+		};
+		expect(filterGuideStepsByPresence(only, () => false)).toBeNull();
+	});
+
+	it('SUBSCRIPTION_GUIDE: 無料トライアル開始 step だけが optional (free + 未使用時のみ描画される UI)', () => {
+		const optional = SUBSCRIPTION_GUIDE.steps.filter((s) => s.optional).map((s) => s.id);
+		expect(optional).toEqual(['subscription-trial']);
+		// 有料プラン (トライアルカード非描画) では step ごと消え、「押す」step が中央 fallback にならない
+		const paid = filterGuideStepsByPresence(
+			SUBSCRIPTION_GUIDE,
+			(sel) => sel !== '[data-tutorial="subscription-trial"]',
+		);
+		expect(paid?.steps.map((s) => s.id)).not.toContain('subscription-trial');
 	});
 });

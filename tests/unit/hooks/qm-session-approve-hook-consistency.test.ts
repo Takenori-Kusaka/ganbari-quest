@@ -15,6 +15,8 @@
  * そこで fixture の出所を **`docs/sessions/qm-session.md` に実際に書かれている approve / merge
  * コマンド** に固定し、同じ集合を両 hook に通して次を同時に assert する:
  *   1. account guard で BLOCK されない (approve が止まらない)
+ *      — 判定は `detectPrCreation(cmd).blocked`。hook の `main()` が exit 2 の分岐に使っている式そのもの
+ *        (#4624 で 1 行 wrapper `containsGhPrCreate` を廃止し、production と同じ式を直接呼ぶようにした)
  *   2. gate-approve で捕捉される (evidence gate が素通しされない)
  *   3. PR 番号が抽出できる (gate が「番号不明」で BLOCK しない)
  *
@@ -26,7 +28,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { extractPrNumber, isApproveAction } from '../../../.claude/hooks/gate-approve.mjs';
-import { containsGhPrCreate } from '../../../scripts/claude-hook-prevent-qa-account-pr.mjs';
+import { detectPrCreation } from '../../../scripts/claude-hook-prevent-qa-account-pr.mjs';
 
 const QA_SESSION_PATH = resolve(process.cwd(), 'docs/sessions/qm-session.md');
 const APPROVE_SECTION_HEADING = '#### 全手順 Pass → approve & merge';
@@ -107,7 +109,7 @@ describe('qm-session.md の approve / merge コマンドを両 hook に通す (#
 	it.each(
 		statements.map((s) => [firstLine(s), s] as const),
 	)('account guard で BLOCK されない: %s', (_label, statement) => {
-		expect(containsGhPrCreate(statement)).toBe(false);
+		expect(detectPrCreation(statement).blocked).toBe(false);
 	});
 
 	it.each(
@@ -121,9 +123,9 @@ describe('qm-session.md の approve / merge コマンドを両 hook に通す (#
 describe('矛盾解消が guard を弱めていないこと (ADR-0006 / ADR-0022)', () => {
 	it('lab アカウントによる PR 作成 (pulls コレクション POST) は引き続き account guard が捕捉する', () => {
 		expect(
-			containsGhPrCreate(
+			detectPrCreation(
 				'gh api repos/Takenori-Kusaka/ganbari-quest/pulls -X POST -f head=feat/x -f base=develop',
-			),
+			).blocked,
 		).toBe(true);
 	});
 

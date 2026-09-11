@@ -1,11 +1,11 @@
 /**
- * Stagehand v3 自動探索 runner (Issue #2692 / EPIC #2691 POC)
+ * Stagehand v4 自動探索 runner (Issue #2692 / EPIC #2691 POC、#4618 dependabot v3→v4 migration)
  *
  * 役割:
  *   - port 5180 demo Lambda env で 5 step critical flow を自動探索
  *   - 5 fixture child (901-906) を selectedChildId cookie 経由で切替
  *   - 各 step で SS + axe-core report 撮影
- *   - Stagehand init / act / observe を wrap (v3 API は変動するため最小依存)
+ *   - Stagehand の browser 起動 / act / observe を wrap (SDK API は変動するため最小依存)
  *
  * Mock mode (--mock flag、Day 3 mock smoke test 用、Issue #2692):
  *   - 実 browser 起動なし、Stagehand 依存 load なし
@@ -14,8 +14,7 @@
  *   - 「pipeline structural 健全性のみ検証 (cost $0)」目的、実 Claude API 評価は別 thread
  *
  * SSOT:
- *   - tmp/round18-parallel-path-first-review-plan-2026-05-30.md §3
- *   - tmp/stagehand-v3-migration-notes.md (v2 → v3 breaking change SSOT、Day 3 fatal 真因解消)
+ *   - node_modules/@browserbasehq/stagehand/dist/index.d.mts (v4 型定義、推測禁止で直読)
  *   - src/lib/server/demo/demo-data.ts (5 fixture child 901-906)
  *   - tests/e2e/admin-activities-import-marketplace.spec.ts (critical flow reference)
  *
@@ -23,16 +22,31 @@
  *   - AI_EVAL_BASE_URL (default: http://localhost:5180、AUTH_MODE=anonymous + DATA_SOURCE=demo)
  *   - ANTHROPIC_API_KEY (Stagehand LLM client 用、本 POC は CLI からは別 manage)
  *
- * Stagehand v3 採用根拠: ADR-0014 OSS 先調査ルール + tmp/round18-parallel-path-stack-2026-05-30.md §A.4
+ * Stagehand 採用根拠: ADR-0014 OSS 先調査ルール
  *   - TypeScript native = 本 product SvelteKit + Vite stack 整合
  *   - 既存 playwright.config.ts の port 5180 直接拡張可能
  *   - act/extract/observe atomic primitives で AI 自律性 + reproducibility 両立
  *
- * v3 API surface (`.d.ts` 直読、推測禁止、PR #2695 Day 3 fatal 真因解消):
- *   - `stagehand.context.addCookies(cookies)` — context.d.ts §154
- *   - `stagehand.context.activePage()` → understudy/Page (CDP 直接、Playwright 不使用) — context.d.ts §64
- *   - `stagehand.act(instruction, opts) / observe(instruction, opts) / extract(...)` — v3 instance 直呼出 (v3.d.ts §150/169)
- *   - **`stagehand.page` プロパティは v3 で存在しない** (Day 3 fatal の真因)
+ * v3 → v4 breaking change (`.d.ts` 直読、推測禁止、#4618 dependabot bump 対処):
+ *   - `new Stagehand(options)` は撤去。constructor は private 化され、`Stagehand.create(options)` の
+ *     static factory のみが公式経路 (src/stagehand.d.ts)
+ *   - browser 起動が Stagehand と分離。`localBrowser.launch(options)` (LOCAL env 相当) /
+ *     `browserbase.launch(options)` (Browserbase env 相当) で `StagehandBrowser` を先に作り、
+ *     `Stagehand.create({ browser, ... })` に渡す (src/browser/index.d.ts)
+ *   - Stagehand instance 自体には `.context` getter が存在しない。`BrowserContext` は
+ *     `browser.context`（launch 済 `StagehandBrowser` 側）から取得する
+ *   - `BrowserContext.activePage()` / `.pages()` は v3 では同期だったが v4 で **非同期化**
+ *     (`Promise<Page | undefined>` / `Promise<Page[]>`、src/browserContext.d.ts)
+ *   - `stagehand.act / observe / extract` は instance 直呼出のまま維持（`.page` プロパティは
+ *     v3 同様 v4 でも存在しない）
+ *   - `StagehandCreateOptionsSchema` は `z.core.$strict` (未知 key で reject)。旧 `env` /
+ *     `verbose` / `localBrowserLaunchOptions` は v4 の create options に存在しない
+ *     (browser launch 側の option に移動、または `logging` 等に置換)
+ *   - `Page.goto` の options は `{ waitUntil?, timeout? }`。v3 の `timeoutMs` から `timeout` に
+ *     再度 rename されている (src/page.d.ts PageNavigationOptionsSchema)
+ *   - 本 module は上記差分を吸収し、downstream (`run-poc.mjs` / `axe-runner.mjs`) には
+ *     v3 時代と同じ `{ context: { addCookies, activePage }, act, observe, extract, close }`
+ *     形態の薄い wrapper object を返す (呼出側の書き換えを最小化)
  */
 
 import { promises as fs } from 'node:fs';
@@ -68,7 +82,6 @@ export const AGE_MODES = Object.keys(FIXTURE_CHILDREN);
 
 /**
  * activity-pack critical flow 5 step 定義
- * (tmp/round18-parallel-path-first-review-plan-2026-05-30.md §1 整合)
  */
 export const ACTIVITY_PACK_FLOW = [
 	{
@@ -109,27 +122,32 @@ export const ACTIVITY_PACK_FLOW = [
 ];
 
 /**
- * Stagehand を lazy import (依存未配置時の fallback for dev環境)
+ * @browserbasehq/stagehand SDK 全体を lazy import (依存未配置時の fallback for dev環境)
+ *
+ * v4 では `Stagehand` (class) と `localBrowser` (LOCAL env の browser factory) を
+ * 同一 module から destructure する必要があるため、module 全体を返す。
+ *
+ * @returns {Promise<{ Stagehand: unknown, localBrowser: unknown }>}
  */
-async function loadStagehand() {
+async function loadStagehandSdk() {
 	try {
-		const { Stagehand } = await import('@browserbasehq/stagehand');
-		return Stagehand;
+		const mod = await import('@browserbasehq/stagehand');
+		return mod;
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(
 			`@browserbasehq/stagehand load 失敗: ${msg}\n` +
-				`本 POC は npm install -D @browserbasehq/stagehand@^3.4 が前提です。`,
+				`本 POC は npm install -D @browserbasehq/stagehand@^4.0 が前提です。`,
 		);
 	}
 }
 
 /**
- * Mock Stagehand instance (--mock flag 用、Issue #2692 mock smoke test、v3 API 整合)
+ * Mock Stagehand instance (--mock flag 用、Issue #2692 mock smoke test)
  *
- * v3 API surface を模倣 (`tmp/stagehand-v3-migration-notes.md` §大局的書き直し方針 §5):
- *   - `stagehand.context.addCookies / activePage()` (v2 の page.context() 経由を撤去)
- *   - `stagehand.act / observe / extract` (v3 instance 直呼出)
+ * 実 Stagehand v4 wrapper (`createStagehand` real path) と同じ API surface を模倣する:
+ *   - `stagehand.context.addCookies / activePage()` (BrowserContext 互換)
+ *   - `stagehand.act / observe / extract` (Stagehand instance 直呼出 API)
  *   - activePage() 戻りの Page も `_mockMode` を持つ (axe-runner 分岐用)
  *   - 実 browser / Stagehand SDK 起動なし、cost $0、Anthropic key 不要
  *
@@ -176,7 +194,7 @@ function createMockStagehand({ baseUrl }) {
 		 * @param {unknown} [_arg]
 		 */
 		async evaluate(_fnOrExpr, _arg) {
-			// v3 Page.evaluate (page.d.ts §276). runChildFriendlyAudit が呼ぶ
+			// v4 Page.evaluate (page.d.ts §4764). runChildFriendlyAudit が呼ぶ
 			// (実 mode は axe-runner 側で別途実装、本 mock は structural test only)
 			return null;
 		},
@@ -185,8 +203,8 @@ function createMockStagehand({ baseUrl }) {
 		 * @param {unknown} _fn
 		 */
 		async $$eval(_selector, _fn) {
-			// 後方互換 (v3 Page には $$eval 存在しないが、axe-runner.mjs runChildFriendlyAudit が
-			// 現状この API を使うため mock では維持。実 mode 移行時は evaluate ベースに書き直す TODO)
+			// 後方互換 (v4 Page には $$eval 存在しないが、axe-runner.mjs runChildFriendlyAudit が
+			// mock mode ではこの API を使うため mock では維持。実 mode は evaluate ベース)
 			return [
 				{ tag: 'button', w: 64, h: 64, text: 'OKボタン' },
 				{ tag: 'button', w: 48, h: 48, text: 'キャンセル' }, // baby=120/preschool=80 で違反
@@ -204,7 +222,8 @@ function createMockStagehand({ baseUrl }) {
 			cookies.push(...c);
 		},
 		activePage() {
-			// v3 では activePage() は **同期メソッド** (context.d.ts §64、Promise なし)
+			// mock は同期的に返す (real path は `getActivePage` 側で常に await するため
+			// sync/async どちらでも動作する後方互換設計)
 			return mockPage;
 		},
 		_getCookiesForTest() {
@@ -215,7 +234,7 @@ function createMockStagehand({ baseUrl }) {
 	return {
 		_mockMode: /** @type {const} */ (true),
 		context: mockContext,
-		// v3 では stagehand.act / observe は instance 直呼出 (v3.d.ts §150 / §169)
+		// Stagehand instance 直呼出 API (v3/v4 共通、page 経由しない)
 		/**
 		 * @param {unknown} instructionOrAction
 		 * @param {unknown} [_options]
@@ -254,18 +273,22 @@ function createMockStagehand({ baseUrl }) {
 }
 
 /**
- * Stagehand v3 instance を本 product POC 標準設定で初期化
+ * Stagehand instance を本 product POC 標準設定で初期化 (v4 API)
  *
- * 戻り値は実 SDK の `import('@browserbasehq/stagehand').Stagehand` または Mock instance
- * (`createMockStagehand` 戻り) のいずれか。型は `Promise<unknown>` で広げ、test 側 / run-poc.mjs 側で
- * `as unknown as` narrow する運用。Mock instance は `_mockMode: true` で識別可能。
+ * 戻り値は実 SDK をラップした wrapper object または Mock instance (`createMockStagehand` 戻り)
+ * のいずれか。型は `Promise<unknown>` で広げ、test 側 / run-poc.mjs 側で `as unknown as` narrow
+ * する運用。Mock instance は `_mockMode: true` で識別可能。
+ *
+ * v4 では browser 起動 (`localBrowser.launch`) と Stagehand 初期化 (`Stagehand.create`) が
+ * 分離されたため、本関数内でその両方を順に実行し、downstream 互換のため
+ * `{ context, act, observe, extract, close }` 形態に正規化して返す。
  *
  * @param {Object} opts
  * @param {string} opts.baseUrl - http://localhost:5180 等 (demo Lambda env)
  * @param {string} [opts.apiKey] - ANTHROPIC_API_KEY (Stagehand LLM client 用、mock=true 時は不要)
  * @param {string} [opts.modelName='claude-opus-4-7'] - Stagehand 内部 LLM model
  * @param {boolean} [opts.mock=false] - true で Mock Stagehand instance を返す (cost $0、Issue #2692)
- * @returns {Promise<unknown>} initialized Stagehand instance (or Mock instance with `_mockMode: true`)
+ * @returns {Promise<unknown>} initialized Stagehand wrapper (or Mock instance with `_mockMode: true`)
  */
 export async function createStagehand({
 	baseUrl,
@@ -282,34 +305,54 @@ export async function createStagehand({
 
 	if (!apiKey) throw new Error('apiKey 必須 (ANTHROPIC_API_KEY、mock=true 時は不要)');
 
-	const Stagehand = await loadStagehand();
-	// Stagehand v3 init parameters (V3Options, options.d.ts §38 直読 SSOT)
-	// v2 breaking change:
-	//   - modelName / modelClientOptions → model (ModelConfiguration、model.d.ts §1)
-	//   - headless → localBrowserLaunchOptions.headless にネスト
-	//   - domSettleTimeoutMs → domSettleTimeout (リネーム)
-	//
-	// v3 model name 形式: `provider/model` (anthropic/claude-opus-4-7 等)
-	// docs: https://docs.stagehand.dev/v3/configuration/models#configuration-setup
+	const { Stagehand, localBrowser } = await loadStagehandSdk();
+
+	// model name 形式: `provider/model` (anthropic/claude-opus-4-7 等、v3/v4 共通)
 	// `claude-` prefix で始まる場合は anthropic を自動付与し後方互換維持
 	const stagehandModelName =
 		typeof modelName === 'string' && !modelName.includes('/') && modelName.startsWith('claude-')
 			? `anthropic/${modelName}`
 			: modelName;
-	const stagehand = new Stagehand({
-		env: 'LOCAL',
-		model: {
-			modelName: stagehandModelName,
-			apiKey,
+
+	// v4: browser 起動は Stagehand.create() より前に行う (LocalBrowserLaunchOptionsSchema 直読)
+	// CI 想定 + POC は headless で十分
+	const browser = await /** @type {{ launch: (opts?: unknown) => Promise<unknown> }} */ (
+		localBrowser
+	).launch({ headless: true });
+
+	let stagehand;
+	try {
+		// v4 StagehandCreateOptionsSchema (z.core.$strict): browser 必須、旧 env/verbose/
+		// localBrowserLaunchOptions は存在しないため渡さない (未知 key は runtime reject される)
+		stagehand = await /** @type {{ create: (opts: unknown) => Promise<any> }} */ (Stagehand).create(
+			{
+				browser,
+				model: {
+					modelName: stagehandModelName,
+					apiKey,
+				},
+				domSettleTimeoutMs: 3000,
+			},
+		);
+	} catch (err) {
+		await /** @type {{ close: () => Promise<void> }} */ (browser).close().catch(() => {});
+		throw err;
+	}
+
+	// downstream (setChildContext / getActivePage / executeStep / run-poc.mjs) は
+	// v3 時代の `stagehand.context.*` 形態に依存しているため、v4 の `browser.context`
+	// (BrowserContext) を `context` として再露出する薄い wrapper で互換維持する。
+	// v4 の Stagehand instance 自体には `.context` getter が存在しない (src/stagehand.d.ts)。
+	return {
+		context: /** @type {{ context: unknown }} */ (browser).context,
+		act: stagehand.act.bind(stagehand),
+		observe: stagehand.observe.bind(stagehand),
+		extract: stagehand.extract.bind(stagehand),
+		async close() {
+			await stagehand.close();
+			await /** @type {{ close: () => Promise<void> }} */ (browser).close();
 		},
-		localBrowserLaunchOptions: {
-			headless: true, // CI 想定 + POC は headless で十分
-		},
-		verbose: 1,
-		domSettleTimeout: 3000,
-	});
-	await stagehand.init();
-	return stagehand;
+	};
 }
 
 /**
@@ -319,7 +362,8 @@ export async function createStagehand({
  * demo Lambda env (AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048) では認証不要、
  * selectedChildId 1 件で child filter 条件切替可。
  *
- * v3 API: `stagehand.context.addCookies(cookies)` (context.d.ts §154、v2 の page.context() 経由を撤去)
+ * API: `stagehand.context.addCookies(cookies)` (v4 BrowserContext.addCookies、
+ * src/browserContext.d.ts。`createStagehand` の wrapper が `context` を re-export)
  *
  * @param {{ context: { addCookies: (cookies: Array<Record<string, unknown>>) => Promise<void> } }} stagehand
  * @param {string} baseUrl
@@ -338,35 +382,31 @@ export async function setChildContext(stagehand, baseUrl, childId) {
 }
 
 /**
- * v3 で active Page を取得する helper (`stagehand.context.activePage()`).
+ * active Page を取得する helper (`stagehand.context.activePage()`).
  *
- * Note: context.d.ts §64 で activePage() は **同期** `Page | undefined` を返す。
- * Promise は付かないが、互換性のため await 可能な形で wrap (mock も同形態)。
- * 戻り値は `understudy/Page` 型 (CDP 直接、Playwright 不使用)。
+ * Note: v4 `BrowserContext.activePage()` は `Promise<Page | undefined>` を返す
+ * (v3 は同期だったが v4 で非同期化、src/browserContext.d.ts)。mock 実装は同期値を返すが、
+ * `await` は non-Promise 値にも安全に適用できるため両対応の呼出形態で統一する。
  *
- * @param {{ context: { activePage: () => any | undefined } }} stagehand
+ * @param {{ context: { activePage: () => any | Promise<any> } }} stagehand
  * @returns {Promise<any>}
  */
 export async function getActivePage(stagehand) {
-	const page = stagehand.context.activePage();
+	const page = await stagehand.context.activePage();
 	if (!page) {
 		throw new Error(
 			'[stagehand] activePage() が undefined (init 未完了 or popup race condition)。' +
-				' stagehand.init() の await 完了後に呼出すこと。',
+				' createStagehand() の await 完了後に呼出すこと。',
 		);
 	}
 	return page;
 }
 
 /**
- * 単一 step を実行 + SS 撮影 + observe で UI state extract (v3 API 整合)
- *
- * v3 breaking change 対処:
- *   - `stagehand.page` プロパティ撤去 → `await getActivePage(stagehand)` で Page 取得
- *   - act / observe は V3 instance 直呼出 (page 経由しない)
+ * 単一 step を実行 + SS 撮影 + observe で UI state extract (v4 API 整合)
  *
  * @param {{
- *   context: { activePage: () => any | undefined },
+ *   context: { activePage: () => any | Promise<any> },
  *   act: (instruction: string, options?: unknown) => Promise<unknown>,
  *   observe: (instruction: string, options?: unknown) => Promise<unknown>,
  * }} stagehand
@@ -380,30 +420,31 @@ export async function executeStep(stagehand, step, baseUrl, ssPath) {
 	const page = await getActivePage(stagehand);
 
 	// 遷移 (step 1 のみ完全遷移、それ以降は同じページで action 連鎖)
-	// v3 Page.goto options は { waitUntil, timeoutMs } (page.d.ts §138、v2 の `timeout` から rename)
+	// v4 Page.goto options は { waitUntil, timeout } (page.d.ts PageNavigationOptionsSchema、
+	// v3 の `timeoutMs` から `timeout` に再度 rename)
 	if (step.step === 1) {
-		await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeoutMs: 15000 });
+		await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
 	}
 
 	// action 実行 (step 2-5、Stagehand act API、LLM 自律解釈で UI 操作)
-	// v3 では stagehand.act(instruction, options) (V3 instance 直呼出、page 経由しない)
+	// stagehand.act(instruction, options) (Stagehand instance 直呼出、page 経由しない、v3/v4 共通)
 	if (step.action) {
 		try {
 			await stagehand.act(step.action);
 		} catch (err) {
-			// action 失敗時は SS だけ撮って続行 (POC は best-effort、Stagehand v3 API 変動対応)
+			// action 失敗時は SS だけ撮って続行 (POC は best-effort、Stagehand API 変動対応)
 			const msg = err instanceof Error ? err.message : String(err);
 			console.warn(`[stagehand] step ${step.step} act 失敗: ${msg}`);
 		}
 	}
 
 	// SS 撮影 (fullPage、本 POC は mobile-like 780x1688 想定だが Stagehand default size でも可)
-	// v3 Page.screenshot は { path, fullPage } 受付 (page.d.ts §206、Playwright-style 互換)
+	// v4 Page.screenshot は { path, fullPage } 受付 (page.d.ts ScreenshotOptions、Playwright-style 互換)
 	await fs.mkdir(dirname(ssPath), { recursive: true });
 	await page.screenshot({ path: ssPath, fullPage: true });
 
 	// observe で現在 UI state extract (LLM 経由、optional)
-	// v3 observe(instruction, options) signature (v3.d.ts §169)
+	// stagehand.observe(instruction, options) signature (v3/v4 共通)
 	/** @type {unknown} */
 	let observed = null;
 	try {

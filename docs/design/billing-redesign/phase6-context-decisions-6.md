@@ -84,7 +84,6 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
-<!-- doc-code-refs: ignore-line -->
 | **現状** | `src/lib/domain/constants/license-plan.ts` で定義、plan billing tier (FREE / MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY / LIFETIME) を表現する**内部識別子** |
 | **影響範囲** | 論点 1 と合算 43 件 (Explore 照合) |
 | **業界根拠** | (a) Stripe SDK は `Plan` という概念を持つが、本プロダクトの `LICENSE_PLAN` は実質 SubscriptionPlan / BillingPlan 相当 (b) Phase 1 補強 2 で `family` → `premium` rename 後、`LICENSE_PLAN.FAMILY_MONTHLY` も `LICENSE_PLAN.PREMIUM_MONTHLY` に rename する必要が出るが、enum 名自体は `LICENSE_PLAN` のままでも内部識別子として支障なし — **だったが、#2788 で license key 完全全廃が確定し「NUC で license key は billing proof」前提が崩れたため、enum 自体が dead concept 化** |
@@ -97,7 +96,6 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
-<!-- doc-code-refs: ignore-line -->
 | **現状 (削除前)** | 旧 `src/routes/ops/license/+page.server.ts` + `[key]/` + `issue/` + `legacy-count/` (4 subroute)、ops group (Cognito ops group ADR-0033) 専用 internal tool でライセンスキー検索 + 詳細閲覧 + 発行 + legacy count を提供 (PR-L3 #2818 で物理削除済) |
 | **影響範囲** | route file 4 件 + label `OPS_LICENSE_PAGE_LABELS` + nav `OPS_LAYOUT_LABELS.navLicense` (`/ops/+layout.svelte` L16) |
 | **業界根拠** | (a) ops internal tool は user-facing URL と異なり業界 SaaS でも一貫した命名なし (Stripe Dashboard / Notion admin / Linear admin 各社独自) (b) ライセンスキー検索は NUC edition で残存する billing proof の運用画面 — **だったが、#2788 で license key 完全全廃が確定し、検索対象 (license key) そのものが消滅するため、画面の存在意義が消える** (c) campaign キー発行 (`issue/`) の用途は Stripe Coupon / Promotion Code で代替する |
@@ -133,7 +131,6 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
-<!-- doc-code-refs: ignore-line -->
 | **現状** | `LICENSE_KEY_STATUS` enum (`src/lib/domain/constants/license-key-status.ts` 想定 + 旧 DynamoDB auth-repo 参照) — NUC license key 内部状態 (consumed / revoked / migrated) を表現 |
 | **影響範囲** | enum 定義 + DynamoDB `auth-repo.ts` の `licenseKey` 列 + `LicenseRecord` table + `license-key-service.ts` (#2788 で全て物理削除対象、旧「NUC で唯一の billing proof」は FR-5 自己矛盾訂正で撤回) |
 | **業界根拠** | (a) Phase 1 補強 1 FR-5「`LICENSE_KEY_STATUS` enum NUC license key 内部状態 (consumed/revoked/migrated)、DB schema 後方互換」で「残す」と明記済 — **だったが、補強 3 §1.2 で FR-5 は SSOT 内部の自己矛盾フラグメントと判明し訂正済** (b) NUC は信頼ベース (family 固定) で license key を読まないため、`LICENSE_KEY_STATUS` enum も `LicenseRecord` table も参照されない dead schema 化 (c) DB persist 値は internal identifier だが、参照経路が全廃されるため列ごと撤去可能 |

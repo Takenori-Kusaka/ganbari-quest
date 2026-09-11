@@ -23,6 +23,12 @@ export interface IPushSubscriptionRepo {
 
 	// Notification logs
 	insertLog(input: InsertNotificationLogInput): Promise<NotificationLog>;
-	countTodayLogs(tenantId: string, today: string): Promise<number>;
+	/**
+	 * 送信ログの件数を **UTC instant 範囲** [fromIso, toIso) で数える (#4722)。
+	 * 旧 `countTodayLogs(tenantId, today)` は JST の暦日文字列を UTC 日境界として比較しており、
+	 * 日次上限のカウント窓が 9 時間ずれていた (JST 09:00 〜 翌 09:00 を「今日」と数えていた)。
+	 * 呼び出し側が `jstDayStartUtcIso()` で JST 暦日の境界を instant 化して渡す。
+	 */
+	countLogsBetween(tenantId: string, fromIso: string, toIso: string): Promise<number>;
 	findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]>;
 }

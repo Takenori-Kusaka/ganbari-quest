@@ -39,10 +39,16 @@ const REPO_ROOT = resolve(__dirname, '../../..');
  * **この数値は下げる方向にしか動かさない。** spec を `./fixtures` へ移行したら実測値まで下げる。
  * 引き上げが必要に見えるときは、新規 spec が `@playwright/test` を直接 import している。
  */
-const BASELINE = 146;
+const BASELINE = 136;
 
 describe('E2E spec の worker DB 分離 ratchet (#4489)', () => {
-	const specs = globSync('tests/e2e/**/*.spec.ts', { cwd: REPO_ROOT });
+	// #4712: `tests/e2e/demo-lambda/**` は別 config (`playwright.demo.config.ts`) で
+	// **単一の demo server** (fixture data / DB 書き込みなし) を叩く。worker ごとの DB を
+	// 持たないため `tests/e2e/fixtures.ts` の worker 分離は適用対象外 (fixtures を使うと
+	// 逆に worker 0 の本番系 baseURL を指してしまう)。本 ratchet の走査から除外する。
+	const specs = globSync('tests/e2e/**/*.spec.ts', { cwd: REPO_ROOT }).filter(
+		(file) => !file.split('\\').join('/').startsWith('tests/e2e/demo-lambda/'),
+	);
 	const directImportSpecs = specs
 		.filter((file) =>
 			/from '@playwright\/test'/.test(readFileSync(resolve(REPO_ROOT, file), 'utf-8')),

@@ -73,6 +73,96 @@ describe('BirthdayInput', () => {
 		expect(daySelect.value).toBe('30');
 	});
 
+	// --- #4729 PO 決定 (2026-09-04): 誕生日は任意入力なので「未設定に戻せる」 ---
+	//
+	// 旧実装は placeholder option が `disabled` だったため、**画面からは**一度入れた誕生日を
+	// 空に戻せなかった (下の "resets to undefined when all fields are cleared" は
+	// `fireEvent.change` で programmatic に値を入れるため disabled でも通ってしまい、
+	// 顧客の到達性を保証していなかった)。以下 3 件が「保護者が実際に消せる」ことを固定する。
+
+	/** placeholder (未設定) option だけを取り出す */
+	function placeholderOption(select: HTMLElement): HTMLOptionElement {
+		const opt = select.querySelector('option[value=""]');
+		if (!opt) throw new Error('未設定 option が無い (placeholder が描画されていない)');
+		return opt as HTMLOptionElement;
+	}
+
+	it('未設定 option を選択できる（誕生日は任意入力なので消せる、#4729）', () => {
+		const { getByLabelText } = render(BirthdayInput, { value: '2020-05-15', name: 'birthDate' });
+
+		for (const labelText of ['生まれた年', '生まれた月', '生まれた日']) {
+			expect(placeholderOption(getByLabelText(labelText)).disabled).toBe(false);
+		}
+	});
+
+	it('required のときは未設定 option を選べない（必須入力が成立しなくなるため）', () => {
+		const { getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+			required: true,
+		});
+
+		expect(placeholderOption(getByLabelText('生まれた年')).disabled).toBe(true);
+	});
+
+	it('年を未設定に戻すと月日も未設定になり、value が空になる（#4729）', async () => {
+		const { container, getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+		});
+
+		// 年だけを未設定に戻す。月 / 日の select は `disabled` になるため自力では空に戻せず、
+		// 連動して空にならないと value が '2020-05-15' のまま固まる。
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '' } });
+
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('');
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+		const hiddenInput = container.querySelector('input[type="hidden"]') as HTMLInputElement;
+		expect(hiddenInput.value).toBe('');
+	});
+
+	// 部分クリアの沈黙を潰す (#4729 adversarial review must 2)。
+	// 未設定 option を選べるようにした結果、年 / 月 / 日 のうち一部だけを空に戻せるようになった。
+	// 「3 つ揃わなければ未設定」に統一していないと、**画面は空なのに hidden input には古い日付**が
+	// 残り、`isBirthdayClearingSubmit()` (`!formData.get('birthDate')`) が false になって
+	// 確認ダイアログも Alert も出ないまま古い誕生日が保存される = 保護者は「消したつもりで祝われ続ける」。
+	it.each([
+		['月', '生まれた月'],
+		['日', '生まれた日'],
+	])('%sだけを未設定に戻しても value は空になる（画面は空なのに前の誕生日が残る、を防ぐ #4729）', async (_name, labelText) => {
+		const { container, getByLabelText } = render(BirthdayInput, {
+			value: '2020-05-15',
+			name: 'birthDate',
+		});
+
+		await fireEvent.change(getByLabelText(labelText), { target: { value: '' } });
+
+		const hiddenInput = container.querySelector('input[type="hidden"]') as HTMLInputElement;
+		expect(hiddenInput.value).toBe('');
+		// 空にした欄自体も空のまま (下位の欄が残って「一部だけ埋まった日付」に見えない)
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+	});
+
+	// 年→月日 の連動 effect が守っているのはこのケース (#4729 adversarial review must-A)。
+	// **完成した日付が一度も作られていない**入力途中の状態では、value はずっと undefined のままなので
+	// 「value → 年月日」の逆同期が走らず、連動 effect だけが月日を空に戻す。
+	// 連動が無いと、年が空なのに月 select が `3月` を表示したまま残り、その select は
+	// `disabled={!yearStr}` なので**顧客は自力で直せない** (本 PR が潰した「UI から戻せない」class)。
+	it('入力途中 (年→月まで選んだだけ) で年を未設定に戻すと、月も未設定に戻る', async () => {
+		const { getByLabelText } = render(BirthdayInput, { name: 'birthDate' });
+
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '2018' } });
+		await fireEvent.change(getByLabelText('生まれた月'), { target: { value: '3' } });
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('3');
+
+		await fireEvent.change(getByLabelText('生まれた年'), { target: { value: '' } });
+
+		expect((getByLabelText('生まれた年') as HTMLSelectElement).value).toBe('');
+		// 連動が無いと '3' が残る (年が空なので月 select は disabled = 顧客は直せない)
+		expect((getByLabelText('生まれた月') as HTMLSelectElement).value).toBe('');
+		expect((getByLabelText('生まれた日') as HTMLSelectElement).value).toBe('');
+	});
+
 	it('resets to undefined when all fields are cleared', async () => {
 		const { container, getByLabelText } = render(BirthdayInput, {
 			value: '2023-01-31',

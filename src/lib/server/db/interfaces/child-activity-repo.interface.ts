@@ -80,15 +80,10 @@ export interface IChildActivityRepo {
 	): Promise<ChildActivity | undefined>;
 
 	// ── 兄弟共通化 UX (ADR-0055 §3.1 兄弟共通化、User §1) ────────
-	/**
-	 * 「他の子供から copy」: 指定 child の activity 全件を target child に複製。
-	 * 戻り値は target child に作成された ChildActivity 一覧。
-	 */
-	copyActivitiesAcrossChildren(
-		sourceChildId: ChildId,
-		targetChildId: ChildId,
-		tenantId: string,
-	): Promise<ChildActivity[]>;
+	// #4694: 「他の子供から copy」の複製ロジックは
+	//   `$lib/server/services/child-activity-copy-service.ts` に一本化した
+	//   (重複 skip を backend 3 実装に散らさないため。ごほうびの copy service と同型)。
+	//   service は本 interface の findActivitiesByChild + insertActivitiesBulk だけで組む。
 
 	// ── archive / restore (#783) ──────────────────────────────────
 	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。

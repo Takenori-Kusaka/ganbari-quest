@@ -43,8 +43,9 @@ const ARN_RE = /^arn:aws:iam::\d{12}:(role|user)\/[\w+=,.@/-]+$/;
 /**
  * UPDATE を GRANT しない表 (= SELECT/INSERT/DELETE のみ)。
  * M3 §3.4 の append-only 群のうち、**実装 (dsql repos) が UPDATE を発行しない表**に限定する。
- * activity_logs (cancelled soft-cancel) / trial_history (状態更新) は実装が UPDATE を必要と
- * するため除外リストに入れない。この集合の表に将来 UPDATE を書くと staging/本番で権限エラーに
+ * activity_logs (cancelled soft-cancel) / trial_history (状態更新) / usage_logs (#4719 で pg 実装を
+ * 追加、セッション終了時に同一行の ended_at / duration_sec を確定する = 記録済み業務事実の書換ではなく
+ * 自身が作った進行中レコードの完了) は実装が UPDATE を必要とするため除外リストに入れない。この集合の表に将来 UPDATE を書くと staging/本番で権限エラーに
  * なる = 追記性違反の物理検出として機能する (対応する静的検査:
  * tests/unit/architecture/dsql-append-only-update-fitness.test.ts)。
  */
@@ -54,7 +55,6 @@ export const UPDATE_EXCLUDED_TABLES: ReadonlySet<string> = new Set([
 	'status_history',
 	'checklist_logs',
 	'notification_logs',
-	'usage_logs',
 	'cancellation_reasons',
 	'graduation_consent',
 ]);
@@ -106,6 +106,10 @@ export const UPDATE_ALLOWED_TABLES: ReadonlySet<string> = new Set([
 	'settings',
 	'push_subscriptions',
 	'trial_history',
+	// #4719: セッション終了時に ended_at / duration_sec を確定する (activity_logs / trial_history と同型:
+	// 「実装が状態遷移の UPDATE を必要とする表」)。改竄防止対象の台帳 / 同意 / 履歴ではなく利用計測ログ。
+	// repo 層の UPDATE は dsql-append-only-mutation-allowlist.test.ts の閉じた allowlist が引き続き縛る。
+	'usage_logs',
 	'viewer_tokens',
 	'cloud_exports',
 	'inquiries',

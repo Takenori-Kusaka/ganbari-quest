@@ -37,6 +37,7 @@ function renderDialog(pointSettings: PointSettings) {
 			rewardIcon: '🍦',
 			balance: 600,
 			pointSettings,
+			autoApprove: false,
 			onClose: () => {},
 		} as never,
 	});

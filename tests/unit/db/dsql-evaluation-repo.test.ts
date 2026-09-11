@@ -10,10 +10,9 @@
 //   [E4] hasDecayRunToday: daily_decay 履歴の JST 暦日一致 (timestamptz、TZ 越え非該当も検証)
 //   [E5] findWeekEvaluation: week_start 一致で存在確認
 //   [E6] findAllChildren: archive 不問で全 child + compute-on-read (age 導出)
-//   [E7] rest_days CRUD: insert 冪等 / isRestDay / count / findRestDays(月) / findRestDaysByChild /
-//        delete / insertRestDayForRestore (created_at 保全)
-//   [E8] §P9 tenant 分離: 他 family から evaluation / rest_day 不可視
-//   [E9] deleteByTenantId: rest_days + evaluations を tenant scope 削除 (他 tenant 無傷)
+//   [E7] (#4691 で撤去) rest_days CRUD — おやすみ日機能廃止に伴い repo method ごと削除
+//   [E8] §P9 tenant 分離: 他 family から evaluation 不可視
+//   [E9] deleteByTenantId: evaluations (+ 空の rest_days 表) を tenant scope 削除 (他 tenant 無傷)
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -242,43 +241,7 @@ describe('DSQL evaluation-repo (M4-D PR6、実 schema PGlite)', () => {
 		expect(activeRow?.age).toBeGreaterThan(0); // birth_date から compute-on-read
 	});
 
-	it('[E7] rest_days CRUD: insert 冪等 / isRestDay / count / find / restore(created_at 保全)', async () => {
-		const child = await seedChild(FAMILY, 'E7');
-		const rd = await repo.insertRestDay(child, '2026-07-10', 'sick', FAMILY);
-		expect(rd?.date).toBe('2026-07-10');
-		expect(rd?.reason).toBe('sick');
-		// 冪等: 同一 (child,date) は ON CONFLICT DO NOTHING → undefined
-		expect(await repo.insertRestDay(child, '2026-07-10', 'other', FAMILY)).toBeUndefined();
-
-		expect(await repo.isRestDay(child, '2026-07-10', FAMILY)).toBe(true);
-		expect(await repo.isRestDay(child, '2026-07-11', FAMILY)).toBe(false);
-
-		await repo.insertRestDay(child, '2026-07-15', 'trip', FAMILY);
-		await repo.insertRestDay(child, '2026-08-01', 'trip', FAMILY);
-		expect(await repo.countRestDaysInMonth(child, '2026-07', FAMILY)).toBe(2);
-		expect((await repo.findRestDays(child, '2026-07', FAMILY)).map((r) => r.date)).toEqual([
-			'2026-07-10',
-			'2026-07-15',
-		]);
-		expect(await repo.findRestDaysByChild(child, FAMILY)).toHaveLength(3);
-
-		await repo.deleteRestDay(child, '2026-07-10', FAMILY);
-		expect(await repo.isRestDay(child, '2026-07-10', FAMILY)).toBe(false);
-
-		// restore: created_at を verbatim 保全
-		const restored = await repo.insertRestDayForRestore(
-			{
-				childId: child,
-				date: '2026-09-09',
-				reason: 'holiday',
-				createdAt: '2020-01-01T00:00:00.000Z',
-			},
-			FAMILY,
-		);
-		expect(restored?.createdAt).toContain('2020-01-01');
-	});
-
-	it('[E8] §P9 tenant 分離: 他 family から evaluation / rest_day 不可視', async () => {
+	it('[E8] §P9 tenant 分離: 他 family から evaluation 不可視', async () => {
 		const child = await seedChild(FAMILY, 'E8');
 		await repo.insertEvaluation(
 			{
@@ -290,14 +253,12 @@ describe('DSQL evaluation-repo (M4-D PR6、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
-		await repo.insertRestDay(child, '2026-03-05', 'x', FAMILY);
 		// 他 family tenant からは 0 件
 		expect(await repo.findEvaluationsByChild(child, 10, OTHER_FAMILY)).toEqual([]);
 		expect(await repo.findWeekEvaluation(child, '2026-03-02', OTHER_FAMILY)).toBeUndefined();
-		expect(await repo.isRestDay(child, '2026-03-05', OTHER_FAMILY)).toBe(false);
 	});
 
-	it('[E9] deleteByTenantId: rest_days + evaluations を tenant scope 削除 (他 tenant 無傷)', async () => {
+	it('[E9] deleteByTenantId: evaluations (+ 空の rest_days 表) を tenant scope 削除 (他 tenant 無傷)', async () => {
 		const famA = '00000000-0000-4000-8000-0000000000c9';
 		const childA = await seedChild(famA, 'E9a');
 		const childB = await seedChild(OTHER_FAMILY, 'E9b');
@@ -311,7 +272,6 @@ describe('DSQL evaluation-repo (M4-D PR6、実 schema PGlite)', () => {
 			},
 			famA,
 		);
-		await repo.insertRestDay(childA, '2026-01-06', 'x', famA);
 		await repo.insertEvaluation(
 			{
 				childId: childB,
@@ -322,13 +282,10 @@ describe('DSQL evaluation-repo (M4-D PR6、実 schema PGlite)', () => {
 			},
 			OTHER_FAMILY,
 		);
-		await repo.insertRestDay(childB, '2026-01-06', 'x', OTHER_FAMILY);
 
 		await repo.deleteByTenantId(famA);
 		expect(await repo.findEvaluationsByChild(childA, 10, famA)).toEqual([]);
-		expect(await repo.isRestDay(childA, '2026-01-06', famA)).toBe(false);
 		// 他 tenant は無傷
 		expect(await repo.findEvaluationsByChild(childB, 10, OTHER_FAMILY)).toHaveLength(1);
-		expect(await repo.isRestDay(childB, '2026-01-06', OTHER_FAMILY)).toBe(true);
 	});
 });

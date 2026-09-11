@@ -91,6 +91,8 @@ const progressPct = $derived(
 	{/if}
 </div>
 
+<!-- #4645 スタイルの意図:
+     #4645: 白文字を載せる塗りは AA 版 -->
 <style>
 	.onboarding-card {
 		background: var(--color-surface-info);
@@ -121,7 +123,7 @@ const progressPct = $derived(
 	.item-label { flex: 1; }
 	.item-link {
 		display: flex; align-items: center; justify-content: center;
-		width: 28px; height: 28px; background: var(--color-action-primary);
+		width: 28px; height: 28px; background: var(--color-action-primary-strong); 
 		color: white; border-radius: 8px; text-decoration: none;
 		font-size: 0.75rem; font-weight: 700; flex-shrink: 0; transition: background 0.15s;
 	}

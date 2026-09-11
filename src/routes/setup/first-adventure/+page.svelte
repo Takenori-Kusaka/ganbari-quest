@@ -1,9 +1,16 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { formatChildName } from '$lib/domain/child-display';
 import type { ActivityId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	PAGE_TITLES,
+	SETUP_FIRST_ADVENTURE_LABELS,
+	SETUP_LABELS,
+} from '$lib/domain/labels';
+import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
@@ -11,6 +18,26 @@ let submitting = $state(false);
 let selectedActivityId = $state<ActivityId | null>(null);
 
 const child = $derived(data.child);
+
+// 失敗 banner を「押したボタンの視界」に必ず入れる。
+// `use:enhance` の失敗は navigation を起こさないためスクロール位置が据え置きになり、
+// banner を描いただけでは画面外に置ける (= 修正前と同じ「無反応」に見える)。
+// 出た瞬間に focus を移して scroll する = WCAG 3.3.1 のエラーサマリ定石 (GOV.UK パターン)。
+let errorBanner = $state<HTMLElement | null>(null);
+let lastFocusedError = $state<string | null>(null);
+$effect(() => {
+	const message = (form as { error?: string } | null)?.error ?? null;
+	if (!message) {
+		lastFocusedError = null;
+		return;
+	}
+	if (message === lastFocusedError || !errorBanner) return;
+	lastFocusedError = message;
+	errorBanner.focus();
+	// jsdom / 一部の古いブラウザは scrollIntoView を持たない。focus だけでも
+	// ブラウザ既定のスクロールが働くので、無い環境で落とさない。
+	errorBanner.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+});
 
 // 記録成功後の演出状態
 const recorded = $derived(form?.success === true);
@@ -82,6 +109,81 @@ function goToComplete() {
 		</Button>
 	</div>
 {:else}
+	<!-- #4512 の失敗が画面に出ていなかった (form.error を一度も描画していなかった) ため、
+	     同日 2 回目 / 上限到達で「押しても何も起きない」になっていた。setup/children と同じ形で出す
+	     (ADR-0062 §1: 状態起因 = Banner + 次アクション、role="alert" は ErrorAlert が持つ)。 -->
+	{#if form?.error}
+		<!-- tabindex="-1" はエラーサマリへ focus を移すため (tab 順には入らない) -->
+		<div bind:this={errorBanner} tabindex="-1" data-testid="first-adventure-error">
+			<ErrorAlert message={form.error} severity="warning" />
+		</div>
+	{/if}
+
+	<!-- #4868 adversarial: 直前の step (チャレンジ) の結果を出す。旧実装は
+	     `?challengesAdded=N` を付けて redirect しながら**どこでも読んでいなかった**ので、
+	     親は「追加する」を押しても効いたのか分からなかった (ADR-0062 §1 未達)。
+	     2 周目は必ず 0 件になるため、歩き直した親には無反応に見えていた。
+	     飛ばした人には出さない (`challengesRequested === 0`)。 -->
+	{#if data.challengesRequested > 0}
+		{#if data.challengesFailed > 0}
+			<!-- 失敗を含むときは成功文言と同じ見た目にしない (ADR-0062 §1: サーバ内部起因は
+			     Alert 側)。部分失敗も「入らなかった分がある」ことを必ず出す。 -->
+			<div data-testid="first-adventure-challenges-notice">
+				<ErrorAlert
+					message={data.challengesAdded > 0
+						? SETUP_FIRST_ADVENTURE_LABELS.challengesPartialNotice(
+								data.challengesAdded,
+								data.challengesFailed,
+							)
+						: SETUP_FIRST_ADVENTURE_LABELS.challengesFailedNotice}
+					severity="warning"
+				/>
+			</div>
+		{:else}
+			<p
+				class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+				role="status"
+				data-testid="first-adventure-challenges-notice"
+			>
+				{data.challengesAdded > 0
+					? SETUP_FIRST_ADVENTURE_LABELS.challengesAddedNotice(data.challengesAdded)
+					: SETUP_FIRST_ADVENTURE_LABELS.challengesAlreadyNotice}
+			</p>
+		{/if}
+	{/if}
+
+	<!-- PO 決裁 2026-09-10 決定 8: だれと一緒にやるかを選ばせる。
+	     きょうだいが 2 人以上いるときだけ出す (1 人の家庭に選択肢を見せない)。
+	     GET form にしているのは、活動が per-child で選び直すたびに一覧を取り直すため
+	     (client state で持つと、選んだ子と表示中の活動がずれる)。 -->
+	{#if data.children.length > 1}
+		<div class="mb-4" data-testid="first-adventure-child-picker">
+			<div class="text-xs text-[var(--color-text-muted)] mb-1">
+				{SETUP_FIRST_ADVENTURE_LABELS.childPickerLabel}
+			</div>
+			<form method="GET" class="flex flex-wrap gap-2">
+				{#each data.children as pickChild (pickChild.id)}
+					<Button
+						type="submit"
+						name="childId"
+						value={String(pickChild.id)}
+						variant="ghost"
+						size="sm"
+						class="px-3 py-2 rounded-lg border-2 text-sm {pickChild.id === child?.id
+							? 'border-[var(--color-brand-600)] bg-[var(--color-brand-200)] text-[var(--color-text)] font-bold'
+							: 'border-[var(--color-border-default)] bg-[var(--color-surface-card)] text-[var(--color-text-muted)]'}"
+					>
+						{pickChild.nickname}
+					</Button>
+				{/each}
+			</form>
+			<!-- 選ばせると今度は「1 人しか選べないのか」が不安になるので必ず添える (決定 8) -->
+			<p class="mt-2 mb-0 text-xs text-[var(--color-text-muted)]" data-testid="first-adventure-child-picker-reassurance">
+				{SETUP_FIRST_ADVENTURE_LABELS.childPickerReassurance}
+			</p>
+		</div>
+	{/if}
+
 	<!-- 活動選択画面 -->
 	<div class="text-center mb-4">
 		<div class="text-3xl mb-2">⚔️</div>
@@ -155,6 +257,14 @@ function goToComplete() {
 		</form>
 
 		<div class="text-center mt-3">
+			<!-- #4863: 戻る導線が無かった step。戻り先は step 連鎖の 1 つ前 = challenges。 -->
+			<a
+				href={resolve('/setup/challenges')}
+				class="block py-2 text-center text-xs font-bold text-[var(--color-text-muted)] underline hover:text-[var(--color-text-secondary)]"
+				data-testid="setup-back-link"
+			>
+				&larr; {SETUP_LABELS.backButton}
+			</a>
 			<form method="POST" action="?/skip">
 				<Button type="submit" variant="ghost" size="sm" class="text-xs underline">
 					{SETUP_FIRST_ADVENTURE_LABELS.skipButton}

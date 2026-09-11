@@ -11,10 +11,23 @@
  * (ユーザーメンタルモデル assert: 2 重表示なし / 全行から編集に到達 / 取込件数の整合) を検証する。
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { openMenu } from './helpers/goal-flows';
 
 test.describe('admin/activities per-child UX (Phase 4)', () => {
+	test.afterEach(async ({ workerDbPath }) => {
+		// #3163: 共有 worker DB を seed 状態へ戻す。?/importFile で入れた custom 活動を残すと
+		// 後続 spec (無料プラン上限を数える downgrade 系) の母集団を汚す。
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			db.prepare("DELETE FROM child_activities WHERE name LIKE 'restore-scope-4692-%'").run();
+			db.prepare("DELETE FROM activities WHERE name LIKE 'restore-scope-4692-%'").run();
+		} finally {
+			db.close();
+		}
+	});
+
 	test('子供タブ row + actions が表示される', async ({ page }) => {
 		await page.goto('/admin/activities');
 		// 子供タブ row は children >= 1 で表示
@@ -327,5 +340,175 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 			new Set(names).size,
 			`取込後の baby 一覧に同名活動の重複なし (${names.join(' / ')})`,
 		).toBe(names.length);
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #4692: 選択中の子と操作対象がずれる class
+	// ──────────────────────────────────────────────────────────
+
+	test('#4692 F1: バックアップから復元は選んだ子にだけ入る (最初の子に入らない)', async ({
+		page,
+	}) => {
+		// PO 実機観察: けんたのタブで ︙「バックアップから復元」→ 94 件が**たろう (最初の子)** に
+		// 入り、けんたは変わらなかった。復元先が service の first-child fallback に落ちていたため。
+		// 本 test は「2 人目を指定した復元が 2 人目にだけ反映される」を goal 完遂で検証する。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		expect(
+			await tabs.count(),
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
+
+		const firstTab = tabs.first();
+		const secondTab = tabs.nth(1);
+		const firstId = (await firstTab.getAttribute('data-testid'))?.replace('child-tab-', '');
+		const secondId = (await secondTab.getAttribute('data-testid'))?.replace('child-tab-', '');
+		expect(firstId, '1 人目 child id 取得').toBeTruthy();
+		expect(secondId, '2 人目 child id 取得').toBeTruthy();
+
+		const parseTabCount = async (locator: typeof firstTab): Promise<number> => {
+			const t = (await locator.textContent()) ?? '';
+			return Number(t.match(/\((\d+)\)/)?.[1] ?? '0');
+		};
+		const firstBefore = await parseTabCount(firstTab);
+		const secondBefore = await parseTabCount(secondTab);
+
+		// 2 人目を復元先に指定して JSON を投入する (UI の restore dialog と同じ form action)。
+		const uniqueName = `restore-scope-4692-${Date.now()}`;
+		const payload = JSON.stringify({
+			activities: [
+				{
+					name: uniqueName,
+					categoryCode: 'undou',
+					icon: '🏃',
+					basePoints: 5,
+					ageMin: null,
+					ageMax: null,
+					gradeLevel: null,
+				},
+			],
+		});
+		const res = await page.request.post('/admin/activities?/importFile', {
+			multipart: {
+				childId: String(secondId),
+				file: {
+					name: 'restore-scope-4692.json',
+					mimeType: 'application/json',
+					buffer: Buffer.from(payload, 'utf-8'),
+				},
+			},
+		});
+		expect(res.status()).toBe(200);
+
+		// 永続反映: 2 人目のタブ件数が増え、1 人目 (最初の子) は増えていない。
+		await page.goto('/admin/activities');
+		const tabsAfter = page.locator('[data-testid^="child-tab-"]');
+		await expect
+			.poll(() => parseTabCount(tabsAfter.nth(1)), { timeout: 30_000 })
+			.toBe(secondBefore + 1);
+		expect(await parseTabCount(tabsAfter.first()), '1 人目 (最初の子) の活動数は変わらない').toBe(
+			firstBefore,
+		);
+
+		// 復元した活動は 2 人目のタブでのみ見える。
+		// 一覧行に限定して数える: ActivityListItem は行ごとに削除確認 Dialog を持ち、Ark Dialog の
+		// Content は閉じていても Portal 配下に残る (Dialog.svelte:93-120、同じ事実が
+		// admin-unified-import-hub.spec.ts:65-66)。素の getByText は「一覧行」と「隠れた Dialog の
+		// title」の 2 件に解決して strict mode violation になる。
+		const restoredRow = page
+			.locator('[data-testid^="per-child-activity-"]')
+			.filter({ hasText: uniqueName });
+		await tabsAfter.nth(1).click();
+		await expect(restoredRow).toHaveCount(1);
+		await expect(restoredRow).toBeVisible();
+		await tabsAfter.first().click();
+		await expect(restoredRow).toHaveCount(0);
+	});
+
+	test('#4692 F3: 「すべて削除」の確認文に対象の子と件数が出る', async ({ page }) => {
+		// PO 実機観察: 確認文は「本当に全削除しますか？」の 1 行だけで、まさとのタブで押したら
+		// 5 人 352 件が消えた。対象範囲 (誰の・何件) を確認文で必ず示す。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		const secondTab = tabs.nth(1);
+		await secondTab.click();
+		const nickname = ((await secondTab.textContent()) ?? '').replace(/\s*\(\d+\)\s*$/, '').trim();
+		expect(nickname, '2 人目の表示名を取得').not.toBe('');
+
+		await openMenu(page, 'header-overflow-menu-btn', 'menu-item-clear-all');
+		await page.getByTestId('menu-item-clear-all').click();
+
+		const confirmText = page.getByTestId('clear-all-confirm-text');
+		await expect(confirmText).toBeVisible();
+		await expect(confirmText).toContainText(nickname);
+		await expect(confirmText, '他の子は対象外である旨を明示する').toContainText('他の');
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #4694: 「別のお子さまからコピー」を 2 回押しても二重登録されない
+	// ──────────────────────────────────────────────────────────
+
+	test('#4694: 同じコピーを 2 回実行しても件数が増えず、2 回目は「すでにあるためスキップ」と出る', async ({
+		page,
+	}) => {
+		// PO 実機観察: はなこ (0 件) にたろうからコピー → 43 件、もう 1 回押すと 86 件
+		// (同名・同 P の完全重複)。banner も「コピーが完了しました」だけで気づけなかった。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		expect(
+			await tabs.count(),
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
+
+		// コピー先 = 2 人目のタブ (選択中の子がコピー先)
+		const targetTab = tabs.nth(1);
+		await targetTab.click();
+		await expect(targetTab).toHaveAttribute('aria-selected', 'true');
+
+		const parseTabCount = async (locator: typeof targetTab): Promise<number> => {
+			const t = (await locator.textContent()) ?? '';
+			return Number(t.match(/\((\d+)\)/)?.[1] ?? '0');
+		};
+
+		const runCopy = async (): Promise<string> => {
+			await openMenu(page, 'header-add-activity-btn', 'menu-item-copy');
+			await page.getByTestId('menu-item-copy').click();
+			await expect(page.getByTestId('copy-from-child-dialog')).toBeVisible();
+			// コピー元は先頭の候補 (選択中の子は候補から除外されている)
+			const sourceOptions = page.locator('[data-testid^="copy-source-"]');
+			expect(await sourceOptions.count(), 'コピー元候補が 1 件以上').toBeGreaterThan(0);
+			await sourceOptions.first().click();
+			const confirm = page.getByTestId('copy-from-child-confirm');
+			await expect(confirm).toBeEnabled();
+			const [resp] = await Promise.all([
+				page.waitForResponse((r) => /\?\/copyFromChild/.test(r.url())),
+				confirm.click(),
+			]);
+			expect(resp.ok(), `copy response not OK (status ${resp.status()})`).toBeTruthy();
+			const message = page.getByTestId('admin-activities-action-message');
+			await expect(message).toBeVisible();
+			return (await message.textContent()) ?? '';
+		};
+
+		// 1 回目: コピーが走り件数が増える (または既に全件ある)
+		const firstMessage = await runCopy();
+		await page.goto('/admin/activities');
+		const tabsAfterFirst = page.locator('[data-testid^="child-tab-"]');
+		await tabsAfterFirst.nth(1).click();
+		const countAfterFirst = await parseTabCount(tabsAfterFirst.nth(1));
+		expect(firstMessage, '1 回目の結果に件数が出る').toMatch(/\d+\s*件/);
+
+		// 2 回目: 同じコピーを実行しても件数は増えない (重複 skip)
+		const secondMessage = await runCopy();
+		await page.goto('/admin/activities');
+		const tabsAfterSecond = page.locator('[data-testid^="child-tab-"]');
+		await tabsAfterSecond.nth(1).click();
+		const countAfterSecond = await parseTabCount(tabsAfterSecond.nth(1));
+
+		expect(
+			countAfterSecond,
+			`2 回目のコピーで件数が増えた (${countAfterFirst} → ${countAfterSecond})`,
+		).toBe(countAfterFirst);
+		expect(secondMessage, '2 回目は「すでに追加済み」と分かる文言を出す').toContain('すでに');
 	});
 });

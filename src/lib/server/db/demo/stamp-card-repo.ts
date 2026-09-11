@@ -74,6 +74,16 @@ export async function findCardsByChild(childId: ChildId, _tenantId: string): Pro
 	return DEMO_STAMP_CARDS.filter((c) => c.childId === childId);
 }
 
+export async function findUnredeemedCardsBefore(
+	childId: ChildId,
+	weekStart: string,
+	_tenantId: string,
+): Promise<StampCard[]> {
+	return DEMO_STAMP_CARDS.filter(
+		(c) => c.childId === childId && c.weekStart < weekStart && c.status === 'collecting',
+	);
+}
+
 export async function findEntriesByCardId(
 	cardId: string,
 	_tenantId: string,

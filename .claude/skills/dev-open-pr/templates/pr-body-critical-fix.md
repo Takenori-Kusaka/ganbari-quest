@@ -86,7 +86,7 @@ gh pr list --state merged --limit 50 --search "merged:>=$(date -d '30 days ago' 
 **影響を受ける画面・機能**: <!-- -->
 
 - [ ] **同一バグの横展開調査済み**（ADR-0002）: 同型の欠陥が他ファイルにないか `grep` で確認した
-- [ ] **並行実装ペア**を同期した（labels SSOT / 5 年齢モード / ナビ 3 種 / E2E・unit seed / チュートリアル）
+- [ ] **並行実装ペア**を同期した（labels SSOT / 5 年齢モード / ナビゲーション面 / E2E・unit seed / チュートリアル）
 - [ ] **設計書同期** (ADR-0001): 影響する `docs/design/` を同 PR で更新
 - [ ] **並行 PR overlap** 確認 (#1200)
 

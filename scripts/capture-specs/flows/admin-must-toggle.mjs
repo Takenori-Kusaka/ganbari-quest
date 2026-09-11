@@ -14,6 +14,8 @@
  *     --out docs/screenshots/pr-1756/
  */
 
+import { devPassword } from '../lib/dev-users.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5180';
 
 async function loginAs(page, email, password) {
@@ -53,7 +55,7 @@ async function loginAs(page, email, password) {
  */
 export default async (page, capture) => {
 	// owner@example.com (default state — already has children/activities seeded by setup flow if needed)
-	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
+	await loginAs(page, 'owner@example.com', devPassword('owner@example.com'));
 
 	// セットアップ未完了なら setup 経由で /admin に飛ぶケースもあるので明示的に navigate
 	await page.goto(`${BASE_URL}/admin/activities`);

@@ -6,7 +6,7 @@
 <!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title data-lp-key="pricing.pageTitle">料金プラン - がんばりクエスト</title>
-<meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに 7 日間無料トライアル付き。">
+<meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、プレミアム月額780円（税込）。すべての有料プランに 7 日間無料トライアル付き。">
 <meta property="og:title" content="料金プラン - がんばりクエスト">
 <meta property="og:description" content="基本無料で始められます。お子さまのポイント・レベルアップ・毎日のごほうび（おみくじ + スタンプカード）などの冒険体験は無料プランでも一切制限ありません。">
 <meta property="og:type" content="website">
@@ -65,12 +65,7 @@
 .cta-disclaimer{font-size:.72rem;color:var(--gray-700);background:var(--green-50,#f0fdf4);border:1px solid var(--green-200,#bbf7d0);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.6;text-align:center}
 .cta-disclaimer .badges{font-weight:600;color:var(--green-700,#15803d);display:block;margin-bottom:2px}
 .cta-disclaimer small{display:block;font-size:.7rem;color:var(--gray-500)}
-/* #2102 F-1: Tower 型二段 CTA — 既存「7 日間無料体験」CTA と新規「今すぐ購入」CTA の並列配置
-   padding / margin はすべて --space-* Base トークン経由 (ADR-0042 / docs/DESIGN.md §4) */
-.plan-cta-direct{background:#fff;color:var(--brand-700);border:2px solid var(--brand-600);display:block;text-align:center;padding:var(--space-3) var(--space-6);border-radius:2rem;font-size:.9rem;font-weight:600;text-decoration:none;margin-bottom:var(--space-2);transition:all .2s}
-.plan-cta-direct:hover{background:var(--brand-50);text-decoration:none}
 .cta-trial-note{font-size:.7rem;color:var(--gray-500);text-align:center;margin:0 0 var(--space-2);line-height:1.5}
-.cta-direct-note{font-size:.7rem;color:var(--gray-700);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:var(--space-2) var(--space-2);margin:0 0 var(--space-3);line-height:1.5;text-align:center}
 /* #2103 F-2: CTA-bottom 直下の解約 small リンク (既存有料ユーザー誘導) */
 .existing-cancel-link{font-size:.82rem;color:var(--gray-700);margin-top:var(--space-4);line-height:1.6}
 .existing-cancel-link a{color:var(--brand-700);text-decoration:underline}
@@ -191,7 +186,7 @@
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
-      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+      <img src="logo-compact.png" alt="がんばりクエスト" width="108" height="44">
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
@@ -250,9 +245,10 @@
           <li data-lp-key="pricingB.k3">オリジナル活動の作成：3個まで</li>
           <li data-lp-key="pricingB.k4">レベル・ポイント・おみくじ・スタンプカード</li>
           <li data-lp-key="pricingB.k5">毎日のごほうび・続けるごほうび</li>
-          <li data-lp-key="pricingB.k6">持ち物チェックリスト 3個/子まで</li>
+          <li data-lp-key="pricingB.k6">持ち物チェックリスト 3個/子まで（取込を含む）</li>
           <li data-lp-key="pricingB.k7">90日間の履歴保持</li>
           <li data-lp-key="pricingB.k8">メールサポート（標準）</li>
+          <li data-lp-key="pricingB.k8b">ごほうびショップへの商品登録はスタンダード以上</li>
         </ul>
       </div>
 
@@ -264,16 +260,13 @@
         <div class="plan-persona" data-lp-key="pricing.planStandardPersona">お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ</div>
         <div class="plan-desc" data-lp-key="pricing.planStandardDesc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
         <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
-        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
-        <!-- #2102 F-1 / #3212: 直接購入 CTA (Tower 型二段 CTA 下段)。billing=monthly 固定 (年額廃止 #2719) -->
-        <a href="https://ganbari-quest.com/auth/signup?plan=standard&direct=true&billing=monthly" class="plan-cta-direct" data-direct-purchase="standard" data-lp-key="pricing.planStandardDirectCta">今すぐ購入（スタンダード）</a>
-        <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます</p>
+        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）。無料体験はご家族につき 1 回かぎりです</p>
         <ul class="plan-features">
           <li data-lp-key="pricingB.k9">お子さまの登録人数：無制限</li>
           <li data-lp-key="pricingB.k10">オリジナル活動の作成：無制限</li>
           <li data-lp-key="pricingB.k11">チェックリスト自由作成（無制限）</li>
-          <li data-lp-key="pricingB.k12">家族メンバー招待：4人まで</li>
-          <li data-lp-key="pricingB.k13">特別なごほうび設定（即時付与）</li>
+          <li data-lp-key="pricingB.k12">家族メンバー招待：3人まで（オーナーを含めご家族4人）</li>
+          <li data-lp-key="pricingB.k13">ごほうびショップへの商品登録</li>
           <li data-lp-key="pricingB.k14">家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）</li>
           <li data-lp-key="pricingB.k15">データのダウンロード</li>
           <li data-lp-key="pricingB.k16">1年間の履歴保持</li>
@@ -288,10 +281,7 @@
         <div class="plan-persona" data-lp-key="pricing.planFamilyPersona">祖父母・離れた家族と一緒に応援したいご家族へ</div>
         <div class="plan-desc" data-lp-key="pricing.planFamilyDesc">家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。</div>
         <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
-        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
-        <!-- #2102 F-1 / #3212: 直接購入 CTA (Tower 型二段 CTA 下段)。billing=monthly 固定 (年額廃止 #2719) -->
-        <a href="https://ganbari-quest.com/auth/signup?plan=family&direct=true&billing=monthly" class="plan-cta-direct" data-direct-purchase="family" data-lp-key="pricing.planFamilyDirectCta">今すぐ購入（プレミアム）</a>
-        <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます</p>
+        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）。無料体験はご家族につき 1 回かぎりです</p>
         <ul class="plan-features">
           <li data-lp-key="pricingB.k18">スタンダードの全機能</li>
           <li data-lp-key="pricingB.k19">家族メンバー招待：無制限</li>
@@ -338,15 +328,15 @@
         <tr data-lp-key="pricingB.k34"><td>活動履歴の保持</td><td>90日</td><td>1年</td><td class="check">無制限</td></tr>
 
         <tr class="cat-row" data-lp-key="pricingB.k35"><td colspan="4">カスタマイズ</td></tr>
-        <tr data-lp-key="pricingB.k36"><td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <!-- #1708 R3-A: pricingB.k37 (旧 朝夜の習慣リスト / 旧 ルーチン-CL) は削除（kind=routine 廃止、毎日 must は活動マスタ priority 属性へ移管） -->
-        <tr data-lp-key="pricingB.k38"><td>持ち物チェックリスト自由作成</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
-        <tr data-lp-key="pricingB.k39"><td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <!-- #4713: 旧 pricingB.k38 (自由作成の別行) は k36 に統合（取込ぶんも同じ 3 個/子の枠を消費するため） -->
+        <tr data-lp-key="pricingB.k36"><td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k39"><td>ごほうびショップへの商品登録</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
         <tr data-lp-key="pricingB.k40"><td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
         <tr class="cat-row" data-lp-key="pricingB.k41"><td colspan="4">レポート・家族機能</td></tr>
-        <tr data-lp-key="pricingB.k42"><td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr data-lp-key="pricingB.k43"><td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>4人まで</td><td class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k42"><td>本日の使用時間・今週の使用時間</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr data-lp-key="pricingB.k43"><td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>3人まで（オーナー含め4人）</td><td class="check">無制限</td></tr>
         <tr data-lp-key="pricingB.k44"><td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
         <tr data-lp-key="pricingB.k45"><td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
@@ -367,7 +357,7 @@
   <div class="trial-inner">
     <div class="trial-box">
       <h2 class="trial-heading" data-lp-key="pricing.trialHeading">7 日間無料トライアル</h2>
-      <p class="trial-subheading" data-lp-key="pricing.trialSubheading">7 日間無料トライアル期間中は、選択したプランの全機能を制限なくお試しいただけます</p>
+      <p class="trial-subheading" data-lp-key="pricing.trialSubheading">7 日間無料トライアル期間中は、すべての有料機能を制限なくお試しいただけます</p>
       <ol class="trial-steps">
         <li class="trial-step">
           <span class="trial-step-icon blue">1</span>
@@ -375,7 +365,7 @@
         </li>
         <li class="trial-step">
           <span class="trial-step-icon brand">2</span>
-          <div><strong data-lp-key="pricing.trialStep2Title">7日間、選択したプランの全機能が使い放題</strong><br><span data-lp-key="pricing.trialStep2Desc">スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。</span></div>
+          <div><strong data-lp-key="pricing.trialStep2Title">7日間、選択したプランの全機能が使い放題</strong><br><span data-lp-key="pricing.trialStep2Desc">スタンダード/プレミアムいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。</span></div>
         </li>
         <li class="trial-step">
           <span class="trial-step-icon green">3</span>
@@ -389,9 +379,9 @@
       <div class="trial-reassure">
         <span class="trial-reassure-icon">&#128274;</span>
         <div class="trial-reassure-text">
-          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後もそのまま保持されます。</span></p>
+          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後も削除されません。上限を超える分は一時的に非表示（アーカイブ）になり、有料プランにアップグレードすると自動で元に戻ります。</span></p>
           <p>ただし<strong data-lp-key="pricing.trialDataReassureLine2Strong">活動履歴・ポイント獲得履歴・毎日のごほうび履歴</strong><span data-lp-key="pricing.trialDataReassureLine2Suffix">は無料プランの保持期間（90 日）を超えたものから順次削除されます。</span></p>
-          <p data-lp-key="pricing.trialDataReassureLine3">有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。</p>
+          <p data-lp-key="pricing.trialDataReassureLine3">有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / プレミアム: 無制限）の履歴をご利用いただけます。</p>
         </div>
       </div>
     </div>
@@ -399,7 +389,7 @@
 </section>
 
 <!-- Family Usage Patterns -->
-<section class="family-patterns">
+<section class="family-patterns" id="family-patterns">
   <div class="family-patterns-inner">
     <h2 class="family-patterns-title" data-lp-key="pricing.familyPatternsTitle">家族での使い方</h2>
     <p class="family-patterns-subtitle" data-lp-key="pricing.familyPatternsSubtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
@@ -414,7 +404,7 @@
         <span class="pattern-tag" data-lp-key="pricing.familyPatternInviteTag">スタンダード以上</span>
         <img src="assets/family-pattern-invite.jpg" alt="個別アカウント＋招待リンク型の図解：家族それぞれが自分のアカウントで参加し、家族メンバーが離れた場所から見守れる" width="800" height="450" loading="lazy">
         <h3 data-lp-key="pricing.familyPatternInviteTitle">個別アカウント＋招待リンク型</h3>
-        <p data-lp-key="pricing.familyPatternInviteDesc">家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。</p>
+        <p data-lp-key="pricing.familyPatternInviteDesc">家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードはご家族4人まで（オーナーを含むため招待は3人まで）、プレミアムは無制限で招待できます。</p>
       </div>
     </div>
   </div>
@@ -427,7 +417,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqFreeQ">無料プランでも十分使えますか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqFreeA">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqFreeA">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。ただしごほうびショップへの商品登録（貯めたポイントと交換する商品の登録）はスタンダードプラン以上の機能です。</div>
     </details>
 
     <details class="faq-item">
@@ -438,7 +428,7 @@
     <details class="faq-item">
       <summary data-lp-key="pricing.faqCancelQ">解約したらデータはすぐに削除されますか？</summary>
       <div class="faq-answer">
-        <p data-lp-key="pricing.faqCancelA">いいえ。解約してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は無料プランへ自動的に切り替わります（お子さまの記録は残ります）。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は保持期間内にエクスポートしてください。データそのものを消すのはアカウント退会のお手続きです。</p>
+        <p data-lp-key="pricing.faqCancelA">いいえ。解約してもデータは削除されません。現在の請求期間の終了日までは有料プランをそのままご利用いただけ、その後は無料プランへ自動的に切り替わります（お子さまの記録は残ります）。無料プランの履歴保持期間は 90 日です。90 日を超えた記録は削除され、復元できません（再契約でも戻りません）。必要な記録は、有料プランのご利用期間中に書き出してください。記録の書き出し（エクスポート）はスタンダードプラン以上の機能です。無料プランでは、退会のお手続きの画面からお子さまの名前と活動のまとめのみ保存できます。データそのものを消すのはアカウント退会のお手続きです。</p>
         <!-- #2103 F-2: 解約経路明示 -->
         <p data-lp-key="pricing.faqCancelPathNote">解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (Stripe の請求管理ページ) でいつでもお手続きいただけます。</p>
       </div>
@@ -457,12 +447,12 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqPaymentQ">支払い方法は？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqPaymentA">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqPaymentA">クレジットカード（Stripe が対応する主要ブランド）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
     </details>
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqPlanChangeQ">プランの変更はできますか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA">はい。スタンダード↔ファミリーの切り替えが可能です。ご家族の見守り画面の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA">はい。スタンダード↔プレミアムの切り替えが可能です。ご家族の見守り画面の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
     </details>
 
     <details class="faq-item">
@@ -472,7 +462,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqMultiDeviceQ">家族で複数端末から使えますか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqMultiDeviceA">はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqMultiDeviceA">はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランはご家族4人まで（オーナーを含むため招待は3人まで）、プレミアムプランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。</div>
     </details>
 
     <!-- #1653 R47: 「卒業」概念 FAQ（機能訴求 NG・FAQ で価値観を言及） -->
@@ -532,6 +522,5 @@
 <script src="js/contact.js"></script>
 <!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) -->
 <script src="js/auto-budoux.js" defer></script>
-<!-- #3212: 月額/年額トグル撤去に伴い、トグル連動の直接購入 URL 切替 JS を撤去 (billing=monthly 固定) -->
 </body>
 </html>

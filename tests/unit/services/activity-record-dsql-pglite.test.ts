@@ -159,18 +159,22 @@ describe('#3541 Phase Z: dsql 経路 end-to-end (PGlite 実 schema + 実 core)',
 			VALUES (${FAMILY}, ${childId}, ${activityId2}, 30, 5)
 		`);
 
+		const beforeRecord = await totalPoint(childId);
 		const recorded = assertSuccess(await recordActivity(childId, activityId2 as never, FAMILY));
 		// この record で mastery_bonus が実際に付与されている (前提)。totalPoints は base+streak+mastery。
 		expect(recorded.masteryBonus).toBeGreaterThan(0);
-		// achievement 解禁分の別 ledger が混ざるため total_point の絶対値ではなく cancel の相殺量で検証する。
 		const afterRecord = await totalPoint(childId);
+		// #4686 前提: 2 種目の記録なので combo (optional) も付与され、total_point は totalPoints より多く増える
+		const optionalGain = afterRecord - beforeRecord - recorded.totalPoints;
+		expect(optionalGain).toBeGreaterThan(0);
 
 		const cancelResult = await cancelActivityLog(recorded.id, FAMILY);
 		if ('error' in cancelResult) throw new Error(`Unexpected error: ${cancelResult.error}`);
 		// 対称返金: cancel は base+streak だけでなく mastery_bonus 込みの totalPoints 全額を返金する
 		// (pre-fix は base+streak のみで mastery_bonus 分が balance に残った)。
 		expect(cancelResult.refundedPoints).toBe(recorded.totalPoints);
-		// cancel は activity ledger 相殺のみ (achievement 分は据置)。total_point は正確に totalPoints 減る。
-		expect(await totalPoint(childId)).toBe(afterRecord - recorded.totalPoints);
+		// #4686: optional 付与 (combo 等) も同じ経路で巻き戻るため、total_point は記録前と一致する
+		// (旧 assert「totalPoints ぶんだけ減る」は combo 分が残る = farming 残存を固定化していた)。
+		expect(await totalPoint(childId)).toBe(beforeRecord);
 	});
 });

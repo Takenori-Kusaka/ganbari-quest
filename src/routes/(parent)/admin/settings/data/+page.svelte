@@ -4,24 +4,35 @@
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import type { CloudExportStoredRow } from '$lib/domain/cloud-export-quota';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
 	ERROR_NOTIFY_LABELS,
+	formatJstDate,
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
+	PAID_PLAN_LABEL,
 	SETTINGS_LABELS,
 } from '$lib/domain/labels';
+import CloudExportStoredList from '$lib/features/admin/components/CloudExportStoredList.svelte';
+import ImportQuotaArchivedNotice from '$lib/features/admin/components/ImportQuotaArchivedNotice.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 // #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
-import { resolveApiErrorMessage } from '$lib/ui/error-notify';
+import {
+	type ApiErrorDisplayFallback,
+	resolveApiErrorDisplay,
+	resolveApiErrorMessage,
+} from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+// #4767 QM should: 削除完了の 2 層フィードバック (Toast + 画面内 banner) の Toast 側。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 type DuplicateEntry = { label: string; reason: ImportSkipReason };
 
@@ -70,6 +81,16 @@ let importResult = $state<{
 	settingsSkipped: number;
 	errors: string[];
 	warnings: string[];
+	// #4693 (PO 回答 2026-09-03 #2): プラン上限で archived (保管) として復元した分。
+	// 入った数 / 保管した数 / 理由 / 次の行動 (アップグレード導線) を必ず出す。
+	activityQuota?: {
+		total: number;
+		activated: number;
+		archived: number;
+		reason: 'plan_limit' | 'usage_unverifiable' | 'plan_unresolved' | null;
+		message: string;
+		upgradeUrl: string | null;
+	};
 } | null>(null);
 // #3095: errors があれば partial-restore (置換時は家族データ半損)。「完了」でなく警告として surface する。
 const importHadErrors = $derived((importResult?.errors.length ?? 0) > 0);
@@ -77,22 +98,11 @@ let importStep = $state<'select' | 'preview' | 'done'>('select');
 let importMode = $state<'add' | 'replace'>('replace');
 
 // クラウドエクスポート
-let cloudExports = $state<
-	Array<{
-		id: string;
-		exportType: string;
-		pinCode: string;
-		expiresAt: string;
-		fileSizeBytes: number;
-		description: string | null;
-		downloadCount: number;
-		maxDownloads: number;
-		createdAt: string;
-		// #3324 / #3509: 非同期 build 状態。旧レコードは server 側で 'ready' に backfill 済。
-		status: 'pending' | 'building' | 'ready' | 'failed';
-		failureReason: string | null;
-	}>
->([]);
+// #4767 PO 回答 #3: 一覧は「枠を占有している全行」。行の表示状態 (rowState) と自動削除までの
+// 残日数 (daysUntilAutoDelete) は server (cloud-export-service) が付けて返す (画面と 403 文言で同じ判定)。
+let cloudExports = $state<CloudExportStoredRow[]>([]);
+/** 削除リクエスト中の行 id (その行だけ loading にし、他行の削除は止める)。 */
+let cloudDeletingId = $state<string | null>(null);
 let cloudLoading = $state(false);
 let cloudError = $state('');
 let cloudSuccess = $state('');
@@ -100,8 +110,39 @@ let cloudExportType = $state<'template' | 'full'>('template');
 let cloudImportPin = $state('');
 let cloudImportLoading = $state(false);
 let cloudImportError = $state('');
+// #4717 / #4752: server の error 種別 (ADR-0062 severity × action) をそのまま案内に反映する。
+// 「準備中 (待てば解決)」を warning + 「入力を直して」と表示すると、待つべき場面で顧客が PIN を
+// 疑って入力し直す (誤った回復行動)。同じ理由で、復元の自動復旧が半端に終わった 409
+// (action=contact_admin = 運営に連絡) を「入力内容をご確認ください」と表示してはならない (#4752 実測)。
+// 判定は `resolveApiErrorDisplay` (error-notify SSOT) に集約する。
+const IMPORT_ERROR_FALLBACK: ApiErrorDisplayFallback = { severity: 'warning', action: 'fix_input' };
+const RETRY_ERROR_FALLBACK: ApiErrorDisplayFallback = { severity: 'error', action: 'retry' };
+let cloudImportErrorKind = $state<ApiErrorDisplayFallback>(IMPORT_ERROR_FALLBACK);
+// #4752: 直接インポート / エクスポート / クラウド共有も server 指定の severity・action を反映する
+// (旧実装は ErrorAlert の props を画面側で固定しており、server の指定が画面に届かなかった)。
+let importErrorKind = $state<ApiErrorDisplayFallback>(IMPORT_ERROR_FALLBACK);
+let exportErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
+let cloudErrorKind = $state<ApiErrorDisplayFallback>(RETRY_ERROR_FALLBACK);
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
+/**
+ * #4693 (PO 回答 2026-09-03 #2): クラウド取込がプラン上限で archived にした分。
+ * `cloudImportResult` は Record<string, unknown> なので、表示に必要な形へここで narrow する
+ * (unknown のまま label 関数に渡すと数値でない値を出しうる)。
+ */
+const cloudImportQuota = $derived.by(() => {
+	const raw = cloudImportResult?.activityQuota;
+	if (!raw || typeof raw !== 'object') return null;
+	const q = raw as Record<string, unknown>;
+	const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+	return {
+		total: num(q.total),
+		activated: num(q.activated),
+		archived: num(q.archived),
+		message: typeof q.message === 'string' ? q.message : '',
+		upgradeUrl: typeof q.upgradeUrl === 'string' ? q.upgradeUrl : null,
+	};
+});
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
 
 // #2362 PR-3 Phase 7b-2: ChildSelectionDialog 統合
@@ -236,7 +277,13 @@ async function handleImportFileChange(e: Event) {
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			// #3285 uiux-1: 生サーバ message を露出せず error-notify SSOT で無害化
-			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				importError = display.message;
+				importErrorKind = { severity: display.severity, action: display.action };
+			}
 			importFile = null;
 			return;
 		}
@@ -262,7 +309,13 @@ async function handleImportExecute() {
 		const res = await postImport(mode);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				importError = display.message;
+				importErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		importResult = d.result;
@@ -278,6 +331,7 @@ async function handleImportExecute() {
 }
 
 function resetImport() {
+	importErrorKind = IMPORT_ERROR_FALLBACK;
 	importFile = null;
 	importPreview = null;
 	importResult = null;
@@ -297,7 +351,13 @@ async function handleExport() {
 		const res = await fetch(`/api/v1/export${qs}`);
 		if (!res.ok) {
 			const d = await res.json().catch(() => null);
-			exportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				exportError = display.message;
+				exportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		const blob = await res.blob();
@@ -319,15 +379,22 @@ async function handleExport() {
 	}
 }
 
-async function loadCloudExports() {
+/**
+ * 一覧を取り直す。**成功したかを返す** (#4767 QM should)。
+ *
+ * 旧実装は失敗を握り潰していたため、削除に成功したあと再取得だけ失敗すると
+ * 「削除しました」と言いながら古い行が残り続け、顧客には「消えていない」ように見えた。
+ * 呼び出し側が結果を見て通知を出し分けられるようにする。
+ */
+async function loadCloudExports(): Promise<boolean> {
 	try {
 		const res = await fetch('/api/v1/export/cloud');
-		if (res.ok) {
-			const d = await res.json();
-			cloudExports = d.exports ?? [];
-		}
+		if (!res.ok) return false;
+		const d = await res.json();
+		cloudExports = d.exports ?? [];
+		return true;
 	} catch {
-		/* ignore */
+		return false;
 	}
 }
 
@@ -344,13 +411,16 @@ async function handleCloudExport() {
 		});
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				cloudError = display.message;
+				cloudErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
-		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(
-			d.pinCode,
-			new Date(d.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-		);
+		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(d.pinCode, formatJstDate(d.expiresAt));
 		await loadCloudExports();
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
@@ -360,16 +430,48 @@ async function handleCloudExport() {
 }
 
 async function handleDeleteCloudExport(id: string) {
+	// #4767 PO 回答 #3: 削除は枠が即戻る操作。押した行を loading にして二重送信を防ぐ。
+	if (cloudDeletingId !== null) return;
+	cloudDeletingId = id;
+	cloudError = '';
+	cloudSuccess = '';
+	// 何を消したかを完了通知で名指しするため、消える前に PIN を控える (再取得後は行が無い)。
+	const deletedPin = cloudExports.find((e) => e.id === id)?.pinCode ?? '';
 	try {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
 			const d = await res.json().catch(() => null);
-			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: RETRY_ERROR_FALLBACK,
+				});
+				cloudError = display.message;
+				cloudErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
-		await loadCloudExports();
+		const reloaded = await loadCloudExports();
+		// #4767 QM should: 取り消せない操作を無言で終わらせない。行が消えるだけでは
+		// 「消えたのか / 失敗して表示が変わっただけなのか」が読めない。DESIGN.md §5 の 2 層
+		// (Toast = role="alert" / 画面内 banner = role="status") で、何を消したかを名指しする。
+		//
+		// ただし **起きたことだけを言う**: 再取得に失敗したなら一覧は古いままなので、
+		// 「削除しました」と言い切らず「表示が最新でないかもしれない」まで含めて伝える
+		// (成功と言いながら消えたはずの行が残っていると、顧客は削除が効いていないと受け取る)。
+		cloudSuccess = reloaded
+			? SETTINGS_LABELS.cloudDeleteSuccess(deletedPin)
+			: SETTINGS_LABELS.cloudDeleteSuccessStale(deletedPin);
+		showToast(
+			reloaded
+				? SETTINGS_LABELS.cloudDeleteSuccessTitle
+				: SETTINGS_LABELS.cloudDeleteSuccessStaleTitle,
+			cloudSuccess,
+			reloaded ? 'success' : 'info',
+		);
 	} catch {
 		cloudError = ERROR_NOTIFY_LABELS.generic;
+	} finally {
+		cloudDeletingId = null;
 	}
 }
 
@@ -381,7 +483,13 @@ async function handleCloudImportPreview() {
 		const res = await postCloudImport('preview', { pinCode: cloudImportPin.trim() });
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				cloudImportError = display.message;
+				cloudImportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		cloudImportPreview = d.preview;
@@ -425,7 +533,13 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		const res = await postCloudImport('execute', body);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			{
+				const display = resolveApiErrorDisplay(res.status, d?.error, {
+					fallback: IMPORT_ERROR_FALLBACK,
+				});
+				cloudImportError = display.message;
+				cloudImportErrorKind = { severity: display.severity, action: display.action };
+			}
 			return;
 		}
 		cloudImportResult = d.result;
@@ -455,6 +569,7 @@ function resetCloudImport() {
 	cloudImportPreview = null;
 	cloudImportResult = null;
 	cloudImportError = '';
+	cloudImportErrorKind = IMPORT_ERROR_FALLBACK;
 	cloudImportStep = 'input';
 	childSelectionOpen = false;
 }
@@ -485,7 +600,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 
-const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
+const canConfirmClear = $derived(
+	clearConfirmText === SETTINGS_LABELS.clearConfirmKeyword && clearAgreeChecked,
+);
 </script>
 
 <svelte:head>
@@ -500,16 +617,22 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				{SETTINGS_LABELS.dataSectionTitle}
 			</h3>
 			{#if !data.canExport}
-				<PremiumBadge size="sm" label="スタンダード以上" showLock />
+				<!-- #4665 F6: プラン表記は PAID_PLAN_LABEL が SSOT (「スタンダード以上」直書きは表記ゆれ) -->
+				<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 			{/if}
 		</div>
 
 		{#if exportError}
-			<ErrorAlert message={exportError} severity="error" action="retry" />
+			<ErrorAlert
+				message={exportError}
+				severity={exportErrorKind.severity}
+				action={exportErrorKind.action}
+			/>
 		{/if}
 
 		<div class="space-y-4">
-			<div data-testid="data-export-section">
+			<!-- #4665: ページガイド「バックアップをダウンロード」step の anchor -->
+			<div data-testid="data-export-section" data-tutorial="data-export-section">
 				<p class="text-sm text-[var(--color-text)] mb-3">
 					{SETTINGS_LABELS.dataExportDesc}
 				</p>
@@ -630,7 +753,11 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 			<!-- インポート -->
 			<div>
-				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
+				<!-- #4665: ページガイド「復元 (インポート)」step の anchor -->
+				<h4
+					class="text-sm font-bold text-[var(--color-text)] mb-2"
+					data-tutorial="data-import-section"
+				>
 					{SETTINGS_LABELS.dataImportTitle}
 				</h4>
 
@@ -650,8 +777,27 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 					</div>
 				{/if}
 
+				<!-- #4693 (QM 再レビュー): 過去の復元が上限で保管した記録を常設表示する。
+				     行の archived_reason は「親が自分で選んだ保管」と同じ値なので、行だけでは
+				     「自分で選んだ覚えはない」に答えられない。テナント単位の耐久記録をここで見せる。 -->
+				{#if data.activityQuotaArchiveNotice}
+					<div
+						class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3"
+						role="status"
+						data-testid="activity-quota-archive-notice"
+					>
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">
+							{data.activityQuotaArchiveNotice}
+						</p>
+					</div>
+				{/if}
+
 				{#if importError}
-					<ErrorAlert message={importError} severity="warning" action="fix_input" />
+					<ErrorAlert
+						message={importError}
+						severity={importErrorKind.severity}
+						action={importErrorKind.action}
+					/>
 				{/if}
 
 				{#if importStep === 'select'}
@@ -842,6 +988,16 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 									{SETTINGS_LABELS.dataImportResultActivities(importResult.activitiesCreated)}
 								</li>
 							{/if}
+							{#if importResult.activityQuota}
+								<ImportQuotaArchivedNotice
+									total={importResult.activityQuota.total}
+									activated={importResult.activityQuota.activated}
+									archived={importResult.activityQuota.archived}
+									message={importResult.activityQuota.message}
+									upgradeUrl={importResult.activityQuota.upgradeUrl}
+									testid="data-import-quota-archived"
+								/>
+							{/if}
 							<li>
 								{SETTINGS_LABELS.dataImportResultActivityLogs(
 									importResult.activityLogsImported,
@@ -945,13 +1101,14 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 
 	<!-- クラウドエクスポート (SaaS モード専用) — #3867: ZIP hint と同一条件 (cloudExportAvailable) でガード -->
 	{#if cloudExportAvailable}
-		<Card padding="lg" data-testid="cloud-export-card">
+		<!-- #4665: ページガイド「クラウド共有」step の anchor (SaaS のみ描画) -->
+		<Card padding="lg" data-testid="cloud-export-card" data-tutorial="cloud-export-card">
 			<div class="flex items-center gap-2 mb-4">
 				<h3 class="text-lg font-bold text-[var(--color-text)]">
 					{SETTINGS_LABELS.cloudSectionTitle}
 				</h3>
 				{#if data.maxCloudExports === 0}
-					<PremiumBadge size="sm" label="スタンダード以上" showLock />
+					<PremiumBadge size="sm" label={PAID_PLAN_LABEL} showLock />
 				{:else}
 					<span
 						class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] rounded-full"
@@ -963,7 +1120,11 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 			</div>
 
 			{#if cloudError}
-				<ErrorAlert message={cloudError} severity="error" action="retry" />
+				<ErrorAlert
+					message={cloudError}
+					severity={cloudErrorKind.severity}
+					action={cloudErrorKind.action}
+				/>
 			{/if}
 			{#if cloudSuccess}
 				<SuccessAlert message={cloudSuccess} />
@@ -1051,89 +1212,14 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</Button>
 					</div>
 
-					<!-- 保管済み一覧 -->
+					<!-- 保管済み一覧 (#4767 PO 回答 #3): 枠を占有している全行を状態付きで出し、各行を削除できる -->
 					{#if cloudExports.length > 0}
 						<hr class="my-4 border-[var(--color-border-default)]" />
-						<div>
-							<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
-								{SETTINGS_LABELS.cloudStoredTitle}
-							</h4>
-							<div class="space-y-2">
-								{#each cloudExports as exp}
-									<div
-										class="bg-[var(--color-surface-muted)] rounded-lg p-3 flex items-center justify-between"
-									>
-										<div>
-											<p class="text-sm font-mono font-bold text-[var(--color-brand-600)]">
-												{exp.pinCode}
-											</p>
-											<p class="text-xs text-[var(--color-text-muted)]">
-												{exp.exportType === 'template'
-													? SETTINGS_LABELS.cloudExportTypeTemplate
-													: SETTINGS_LABELS.cloudExportTypeFull}
-												{#if exp.description}· {exp.description}{/if}
-											</p>
-											<p class="text-xs text-[var(--color-text-muted)]">
-												{SETTINGS_LABELS.cloudStoredExpiry(
-													new Date(exp.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-												)}
-												· {SETTINGS_LABELS.cloudStoredDownloads(
-													exp.downloadCount,
-													exp.maxDownloads,
-												)}
-											</p>
-											<!-- #3324: 非同期 build の進捗フィードバック (受付/生成中/失敗)。 -->
-											{#if exp.status === 'pending' || exp.status === 'building'}
-												<p
-													class="text-xs text-[var(--color-feedback-info-text)] flex items-center gap-1"
-													role="status"
-													data-testid="cloud-export-status-{exp.id}"
-												>
-													<span
-														class="inline-block w-3 h-3 border-2 border-[var(--color-feedback-info-text)] border-t-transparent rounded-full animate-spin"
-														aria-hidden="true"
-													></span>
-													{exp.status === 'pending'
-														? SETTINGS_LABELS.cloudStatusPending
-														: SETTINGS_LABELS.cloudStatusBuilding}
-												</p>
-											{:else if exp.status === 'failed'}
-												<p
-													class="text-xs text-[var(--color-feedback-error-text)]"
-													role="status"
-													data-testid="cloud-export-status-{exp.id}"
-												>
-													{SETTINGS_LABELS.cloudStatusFailed(exp.failureReason ?? '')}
-												</p>
-											{/if}
-										</div>
-										<div class="flex items-center gap-2">
-											<!-- #3324: ready 時のみ DL 導線を出す (#3509 の一時 DL 経路へ)。 -->
-											{#if exp.status === 'ready'}
-												<Button
-													href="/api/v1/export/cloud/{exp.id}/download"
-													variant="ghost"
-													size="sm"
-													class="text-[var(--color-text-link)] hover:brightness-75"
-													data-testid="cloud-export-download-link"
-												>
-													{SETTINGS_LABELS.cloudDownloadAction}
-												</Button>
-											{/if}
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												class="text-[var(--color-feedback-error-text)] hover:brightness-75"
-												onclick={() => handleDeleteCloudExport(exp.id)}
-											>
-												{SETTINGS_LABELS.cloudStoredDelete}
-											</Button>
-										</div>
-									</div>
-								{/each}
-							</div>
-						</div>
+						<CloudExportStoredList
+							exports={cloudExports}
+							deletingId={cloudDeletingId}
+							onDelete={handleDeleteCloudExport}
+						/>
 					{/if}
 
 					<!-- PIN インポート -->
@@ -1146,8 +1232,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						{#if cloudImportError}
 							<ErrorAlert
 								message={cloudImportError}
-								severity="warning"
-								action="fix_input"
+								severity={cloudImportErrorKind.severity}
+								action={cloudImportErrorKind.action}
 							/>
 						{/if}
 
@@ -1262,6 +1348,18 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 											)}
 										</li>
 									{/if}
+									<!-- #4693 (PO 回答 2026-09-03 #2): 上限超過分は捨てずに保管 (archived) する。
+									     入った数 / 保管した数 / 理由 / 次の行動を必ず出す。 -->
+									{#if cloudImportQuota}
+										<ImportQuotaArchivedNotice
+											total={cloudImportQuota.total}
+											activated={cloudImportQuota.activated}
+											archived={cloudImportQuota.archived}
+											message={cloudImportQuota.message}
+											upgradeUrl={cloudImportQuota.upgradeUrl}
+											testid="cloud-import-quota-archived"
+										/>
+									{/if}
 								</ul>
 							</div>
 							<Button
@@ -1291,7 +1389,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 	/>
 
 	<!-- Danger Zone: データクリア (#2323 GitHub Danger Zone パターン) -->
-	<section class="danger-zone" data-testid="data-danger-zone">
+	<!-- #4665: ページガイド「すべてのデータを削除」step の anchor -->
+	<section class="danger-zone" data-testid="data-danger-zone" data-tutorial="data-danger-zone">
 		<header class="danger-zone__header">
 			<h3 class="danger-zone__title">⚠️ {SETTINGS_LABELS.dangerZoneTitle}</h3>
 			<p class="danger-zone__desc">{SETTINGS_LABELS.dangerZoneDesc}</p>
@@ -1307,6 +1406,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 			{/if}
 
 			{#if clearError}
+				<!-- #4752: 全削除は API error body を持たない (form action / ローカル state) ため、
+				     server 由来の severity・action は無い。ここだけ固定値で描く。 -->
 				<ErrorAlert message={clearError} severity="error" action="retry" />
 			{/if}
 
@@ -1331,11 +1432,9 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</li>
 						<li>{SETTINGS_LABELS.dataImportPreviewStatuses(data.dataSummary.statuses)}</li>
 						<li>
-							{SETTINGS_LABELS.dataImportPreviewAchievements(data.dataSummary.achievements)}
+							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginStreaks)}
 						</li>
-						<li>
-							{SETTINGS_LABELS.dataImportPreviewLoginBonuses(data.dataSummary.loginBonuses)}
-						</li>
+						<li>{SETTINGS_LABELS.dataImportPreviewVoices(data.dataSummary.voices)}</li>
 						<li>
 							{SETTINGS_LABELS.dataImportPreviewChecklists(
 								data.dataSummary.checklistTemplates,
@@ -1380,12 +1479,12 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				<div class="danger-zone__step">
 					<p class="danger-zone__step-label">{SETTINGS_LABELS.dangerStep1Label}</p>
 					<FormField
-						label="確認のため「削除」と入力してください"
+						label={SETTINGS_LABELS.clearConfirmFieldLabel}
 						type="text"
 						id="clearConfirm"
 						name="confirm"
 						bind:value={clearConfirmText}
-						placeholder="削除"
+						placeholder={SETTINGS_LABELS.clearConfirmKeyword}
 					/>
 				</div>
 
@@ -1418,7 +1517,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						disabled={clearSubmitting || !canConfirmClear}
 						data-testid="data-danger-execute-button"
 					>
-						{clearSubmitting ? 'データクリア中...' : 'すべてのデータを削除'}
+						{clearSubmitting ? SETTINGS_LABELS.clearSubmitting : SETTINGS_LABELS.clearSubmitButton}
 					</Button>
 				</div>
 			</form>

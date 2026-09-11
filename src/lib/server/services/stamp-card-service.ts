@@ -2,18 +2,14 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/stamp-card-service.ts
 // スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
-import {
-	addDaysJST,
-	todayDateJST,
-	weekEndOfDateJST,
-	weekStartOfDateJST,
-} from '$lib/domain/date-utils';
+import { todayDateJST, weekEndOfDateJST, weekStartOfDateJST } from '$lib/domain/date-utils';
 import { pickOmikujiRank } from '$lib/domain/stamp-image';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import {
 	findCardByChildAndWeek,
 	findEnabledStampMasters,
 	findEntriesWithMasterByCardId,
+	findUnredeemedCardsBefore,
 	insertCard,
 	insertEntry,
 	updateCardStatusIfCollecting,
@@ -327,7 +323,16 @@ export async function redeemStampCard(
 	return { points: total, stampPoints, completeBonus, multiplier };
 }
 
-/** 前週のカードを自動 redeem する（月曜初ログイン時に呼ばれる） */
+/**
+ * #4687: 今週より前の**未交換カードを全部** redeem する (ログイン時に呼ばれる)。
+ *
+ * 旧実装は「前週の 1 枚」だけを見ていたため、旅行 / 病気で 1 週間まるごとログインしないと
+ * その前の週のカード (5/5 = 最大 100P 相当) が `collecting` のまま永久に残り、子供にも
+ * 何も知らされなかった。LP は「週 5 日タップで 1 枚分のポイントに自動交換」と説明しているため、
+ * **見つかった未交換カードは全て交換**し、合算して 1 回の演出で知らせる (ADR-0012: 演出は 1 回)。
+ *
+ * @returns 交換が 1 枚も無ければ null。複数週ぶんは合算し `weeks` に枚数を入れる
+ */
 export async function autoRedeemPreviousWeek(
 	childId: ChildId,
 	tenantId: string,
@@ -339,69 +344,75 @@ export async function autoRedeemPreviousWeek(
 	multiplier: number;
 	filledSlots: number;
 	totalSlots: number;
+	/** 交換したカードの枚数 (1 = 先週ぶんのみ / 2 以上 = 複数週の救済) */
+	weeks: number;
 }> {
 	const today = todayDateJST();
 	const { weekStart } = getWeekRange(today);
 
-	// 前週の月曜日 (暦日の加減算は date-utils の SSOT に委譲する)
-	const prevWeekStart = addDaysJST(weekStart, -7);
+	// 今週より前の未交換カード (古い順)。前週固定ではなく範囲で引く (#4687)
+	const cards = await findUnredeemedCardsBefore(childId, weekStart, tenantId);
+	if (cards.length === 0) return null;
 
-	const prevCard = await findCardByChildAndWeek(childId, prevWeekStart, tenantId);
-	if (!prevCard || prevCard.status === 'redeemed') {
-		return null;
-	}
+	let points = 0;
+	let stampPointsTotal = 0;
+	let completeBonusTotal = 0;
+	let filledSlots = 0;
+	let weeks = 0;
 
-	// 前週カードのエントリを取得
-	const rawEntries = await findEntriesWithMasterByCardId(prevCard.id, tenantId);
-	if (rawEntries.length === 0) {
-		return null;
-	}
+	for (const card of cards) {
+		const rawEntries = await findEntriesWithMasterByCardId(card.id, tenantId);
+		if (rawEntries.length === 0) continue;
 
-	const entries: StampEntryData[] = rawEntries.map((e) => ({
-		slot: e.slot,
-		stampMasterId: e.stampMasterId,
-		omikujiRank: e.omikujiRank,
-		name: e.name ?? '?',
-		emoji: e.emoji ?? '',
-		rarity: e.rarity ?? 'N',
-		loginDate: e.loginDate,
-	}));
+		const entries: StampEntryData[] = rawEntries.map((e) => ({
+			slot: e.slot,
+			stampMasterId: e.stampMasterId,
+			omikujiRank: e.omikujiRank,
+			name: e.name ?? '?',
+			emoji: e.emoji ?? '',
+			rarity: e.rarity ?? 'N',
+			loginDate: e.loginDate,
+		}));
 
-	const { stampPoints, completeBonus, multiplier, total } = calcCardPoints(
-		entries,
-		loginMultiplier,
-	);
+		const { stampPoints, completeBonus, total } = calcCardPoints(entries, loginMultiplier);
 
-	// 冪等ガード: 同時リクエストで二重付与を防ぐ (#2845: childId 所有権検証付き)
-	const now = new Date().toISOString();
-	const affected = await updateCardStatusIfCollecting(
-		childId,
-		prevCard.id,
-		{ status: 'redeemed', redeemedPoints: total, redeemedAt: now, updatedAt: now },
-		tenantId,
-	);
-
-	if (affected === 0) {
-		return null;
-	}
-
-	await insertPointEntry(
-		{
+		// 冪等ガード: 同時リクエストで二重付与を防ぐ (#2845: childId 所有権検証付き)
+		const now = new Date().toISOString();
+		const affected = await updateCardStatusIfCollecting(
 			childId,
-			amount: total,
-			type: 'stamp_card',
-			description: `先週のスタンプカード交換 (${entries.length}/${MAX_SLOTS}枠)`,
-		},
-		tenantId,
-	);
+			card.id,
+			{ status: 'redeemed', redeemedPoints: total, redeemedAt: now, updatedAt: now },
+			tenantId,
+		);
+		if (affected === 0) continue;
+
+		await insertPointEntry(
+			{
+				childId,
+				amount: total,
+				type: 'stamp_card',
+				description: `${card.weekStart} の週のスタンプカード交換 (${entries.length}/${MAX_SLOTS}枠)`,
+			},
+			tenantId,
+		);
+
+		points += total;
+		stampPointsTotal += stampPoints;
+		completeBonusTotal += completeBonus;
+		filledSlots += entries.length;
+		weeks += 1;
+	}
+
+	if (weeks === 0) return null;
 
 	return {
-		points: total,
-		stampPoints,
-		completeBonus,
-		multiplier,
-		filledSlots: entries.length,
-		totalSlots: MAX_SLOTS,
+		points,
+		stampPoints: stampPointsTotal,
+		completeBonus: completeBonusTotal,
+		multiplier: loginMultiplier,
+		filledSlots,
+		totalSlots: MAX_SLOTS * weeks,
+		weeks,
 	};
 }
 

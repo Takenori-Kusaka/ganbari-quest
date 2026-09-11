@@ -54,7 +54,7 @@ Changes that affect shared functionality must be applied everywhere. Missing lat
 - **Age modes**: The app has 4 core modes (preschool/elementary/junior/senior) + 1 preparation mode (baby, for parents of 0-2 year-olds). After #664, these are consolidated under `src/routes/(child)/[uiMode=uiMode]/`. If a PR modifies child-facing behavior, verify it works for all 4 core modes. Baby preparation mode has no gamification (BABY_FEATURES: all false). See ADR-0011.
 - **Demo version**: Changes to production app features (`src/routes/(child)/`, `src/routes/(parent)/`) often need corresponding changes in `src/routes/demo/`.
 - **Landing page**: UI label or feature name changes must be synced to `site/index.html`, `site/pamphlet.html`, and `site/shared-labels.js`.
-- **Navigation**: Navigation changes must cover all 3 nav types: `AdminLayout` (desktop), `AdminMobileNav` (mobile), `BottomNav` (child).
+- **Navigation**: There is no separate `AdminMobileNav` component — `AdminLayout` renders both the admin desktop dropdown and the mobile bottom nav. Other navigation surfaces exist (`BottomNav` for the child area, the settings sub-nav, the ops nav), so grep for what a change actually touches instead of assuming a fixed set.
 - **Terminology**: UI labels must come from `src/lib/domain/labels.ts` (the terminology dictionary). Hardcoded strings that duplicate dictionary entries are a `[must]` finding.
 - **Tutorial**: UI structure changes may break tutorial overlays (`tutorial-chapters.ts`). Check that selectors and step descriptions still match.
 
@@ -158,7 +158,7 @@ The project maintains ADRs in `docs/decisions/`. #1262 で旧 0001-0044 を 10 �
 - **ADR-0001**: [設計書は Single Source of Truth](../docs/decisions/0001-design-doc-as-source-of-truth.md) — 会話で決まった仕様は設計書に反映、Issue だけでは不十分
 - **ADR-0002**: [Critical 修正の品質ゲート](../docs/decisions/0002-critical-fix-quality-gate.md) — 5 年齢モード実機検証 + 回帰 E2E + AC 全項目完了
 - **ADR-0003**: [Issue 起票・クローズ品質](../docs/decisions/0003-issue-quality-standard.md) — 根本原因特定 + 構造的解決 + スクラップ&ビルド + 単一解決策。**§4 (2026-05-07 追記)**: 内部 refactor (機能仕様変化なし、atom/compound 階層化、リテラル置換のみ、import + literal removal diff) は `refactor:internal-no-doc-impact` ラベル付与で `design-doc-check` exempt (#1985 / #1986)
-- **ADR-0004**: [レビュー & AC 検証品質](../docs/decisions/0004-review-and-ac-verification.md) — Issue `ac-verification-plan` 必須、PR「AC 検証マップ」、CI 3 本 (`pr-ac-verification-check` / `issue-close-gate` / `ac-audit-monthly`) で機械強制
+- **ADR-0004**: [レビュー & AC 検証品質](../docs/decisions/0004-review-and-ac-verification.md) — Issue `ac-verification-plan` 必須、PR「AC 検証マップ」、CI 2 本 (`pr-ac-verification-check` / `ac-audit-monthly`) で機械強制。**Issue close 時に AC を検証する機械 gate は無い**（旧 `issue-close-gate` は #4322 で削除）
 - **ADR-0005**: [テスト品質 ratchet](../docs/decisions/0005-test-quality-ratchet.md) — カバレッジ閾値は上げるのみ、アンチパターン検出は `[must]` 所見化
 - **ADR-0006**: [Safety Assertion Erosion Ban](../docs/decisions/0006-safety-assertion-erosion-ban.md) — production guard 劣化禁止 5 項目 (warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加)。新規必須 env は PR 本文に「配布済み:」証跡必須 (`scripts/check-new-required-env.mjs`)
 - **ADR-0007**: [静的解析 tier ポリシー](../docs/decisions/0007-static-analysis-tier-policy.md) — T1 PR ゲート (< 30s、merge block) / T2 並行レーン / T3 nightly / T4 四半期。T1 合計予算 3min 以下、新規追加は +30s 以下目安。**2026-05-27 (#2544): EPIC-merge / customer-review tier 追加** — per-PR は targeted E2E (act→outcome 必須、render-only 禁止) + Storybook play、EPIC 完了 / 顧客レビュー前は CUJ 全網羅貫通 + Cognitive Walkthrough + a11y + visual + 実機 1 クリック貫通。横断 cadence ポリシーの SSOT

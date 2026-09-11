@@ -149,3 +149,47 @@ describe('#4509 ④ 年齢帯文言 — 5 モードすべてが自分の文体�
 		expect(document.body.textContent).toContain('いまは');
 	});
 });
+
+// #4841: elementary 向けの漢字変種には「やったね！」「おうちの人に追加してもらおう」という
+// 年少者向けの言い回しが残っており、13-18 歳の画面がそのまま着地していた (docs/DESIGN.md §8)。
+describe('#4841 13-18 歳 (junior / senior) の完了ダイアログが年少者文体に着地しない', () => {
+	for (const mode of ['junior', 'senior'] as const) {
+		it(`${mode}: 完了ダイアログが漢字変種で描画される`, async () => {
+			renderChecklist({ uiMode: mode });
+			await completeChecklist(50);
+
+			const dialog = await screen.findByTestId('checklist-complete-points');
+			const body = dialog.ownerDocument.body.textContent ?? '';
+			expect(body, `${mode} の完了見出し`).toContain('全部達成！');
+			expect(body, `${mode} に年少者文体が残っている`).not.toContain('やったね！');
+			expect(body, `${mode} に年少者文体が残っている`).not.toContain('ぜんぶできた');
+		});
+	}
+
+	it('elementary は従来どおり (漢字変種を巻き添えで変えない)', async () => {
+		renderChecklist({ uiMode: 'elementary' });
+		await completeChecklist(50);
+
+		await screen.findByTestId('checklist-complete-points');
+		expect(document.body.textContent).toContain('やったね！');
+	});
+
+	it('junior / senior の空状態が「おうちの人」ではなく保護者呼称になる', () => {
+		for (const mode of ['junior', 'senior'] as const) {
+			render(ChecklistPage as never, {
+				props: {
+					data: {
+						checklists: [],
+						currentTimeSlot: 'morning',
+						uiMode: mode,
+						pointSettings: POINT_MODE,
+					},
+				} as never,
+			});
+			const body = document.body.textContent ?? '';
+			expect(body, mode).toContain('保護者に追加してもらおう');
+			expect(body, mode).not.toContain('おうちの人');
+			cleanup();
+		}
+	});
+});

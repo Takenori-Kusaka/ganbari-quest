@@ -135,7 +135,7 @@ gh pr list --repo Takenori-Kusaka/ganbari-quest --state open \
 
 ## ④ 承認・merge（lead）
 
-1. evidence (`tmp/adversarial-evidence/<pr>.json`) を `node scripts/verify-adversarial-output.mjs --pr <N>` で物理 verify（**TTL 30 分**なので approve 直前に生成する）
+1. **evidence（`tmp/adversarial-evidence/<pr>.json`）の生成・verify は merge の前提条件ではない**（ADR-0068 / #4571 で PreToolUse hook `gate-approve.mjs` の呼び出しを外した。TTL 30 分に縛られない）。独立した判断の材料として作る価値は変わらないので、作る場合は `node scripts/verify-adversarial-output.mjs --pr <N>` で verify する
 2. §「全手順 Pass → approve & merge」の sequence を **lead 本体が実行**する（agent に委譲しない）
 3. サマリー記録（処理 PR 一覧 / merge 済み / block 中 / 指摘概要）
 
@@ -312,7 +312,9 @@ archive 移動 (ADR 1-in-1-out 等) の legitimate な delete は `--ignore-patt
 
 #### 全手順 Pass → approve & merge
 
-> **実行主体（#2756 / #2815 Q-1 / ADR-0056 §E 追補）**: 本 sequence は **lead 本体が直接実行**する。Review / Re-Review subagent には委譲しない（subagent は検証と evidence file path の報告までが責務）。lead 本体経路は gate-approve hook の evidence 検証が確実に発火する正規経路。account switch → approve → merge → **Takenori-Kusaka 復帰**は不可分ブロックとして連続実行し、復帰を毎回 verify する。
+> **実行主体（#2756 / #2815 Q-1 / ADR-0056 §E 追補）**: 本 sequence は **lead 本体が直接実行**する。Review / Re-Review subagent には委譲しない（subagent は検証と報告までが責務）。account switch → approve → merge → **Takenori-Kusaka 復帰**は不可分ブロックとして連続実行し、復帰を毎回 verify する。
+>
+> **物理遮断は無い（ADR-0068 / #4571）**: 以前は gate-approve hook が evidence 検証で approve を block していたが、立ち上げ期の維持費を理由に呼び出しを外した。**手順を守るかは hook ではなくロール定義の遵守で保つ**。統制を戻す段階と条件は ADR-0068 を参照。
 
 ```bash
 gh auth switch --user ganbariquestsupport-lab
@@ -333,7 +335,7 @@ gh auth switch --user Takenori-Kusaka
 
 PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可。`Takenori-Kusaka` で approve → `ganbariquestsupport-lab` で merge。
 
-**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qm-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
+**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）。gate-approve hook（ADR-0056）は **ADR-0068 で呼び出しを外しており、いま approve を止めるものは無い**。hook 本体は再導入のため残置しているので、本節のコマンドを hook が正しく捕捉できる状態かは `tests/unit/hooks/qm-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証し続ける（戻す日に壊れているのを防ぐため）。
 
 **hotfix merge 後の back-merge（branch-strategy.md §5）**: hotfix を main に merge したら、同一 run 内で develop への back-merge PR（または fast-forward 可能なら直接 merge）を Fix Agent で実施し、main / develop の drift を残さない。back-merge 完了までを hotfix 処理の Done 条件とする。
 

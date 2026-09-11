@@ -6,7 +6,7 @@
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
-import { requireTenantId } from '$lib/server/auth/factory';
+import { requireChildAccess, requireTenantId } from '$lib/server/auth/factory';
 import {
 	getRedemptionRequestsForParent,
 	requestRedemption,
@@ -44,6 +44,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const rewardId = String(rawRewardId);
 	const childId = asChildId(rawChildId);
+	// childId は **body** で来る。child ロールが兄弟名義で申請を出し、兄弟のポイントを
+	// 消費するのを止める (GET 側は元から owner/parent 限定)。
+	requireChildAccess(locals, childId);
 	// #4407: 個数。未指定は 1 個 (旧クライアント互換)。値域検証は service (domain 値域 SSOT) が行う。
 	const rawQuantity = (body as Record<string, unknown>).quantity;
 	const quantity = rawQuantity === undefined ? 1 : Number(rawQuantity);

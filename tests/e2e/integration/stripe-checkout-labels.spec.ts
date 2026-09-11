@@ -25,9 +25,14 @@ test.describe('#2346 CHECKOUT_LABELS SSOT — 景品表示法対応文言の回�
 		expect(CHECKOUT_TERMS.chosenPlanFeature).toBe('お選びのプランの機能');
 
 		// labels.ts compound レイヤー
+		// #2573 (2026-09-04 QM 監査 legal.md [S1]): 申込確定直前の唯一の枠を販促文から
+		// 特商法 12 条の 6 の事実 (引渡時期・自動更新 / 申込撤回・解約方法) に置き換えた。
+		// 3 点の内訳と 1200 文字上限は tests/unit/services/stripe-service.test.ts が
+		// **Stripe に渡る params の中で** pin する。ここは文字列そのものを固定する。
 		expect(CHECKOUT_LABELS.submitMessage).toContain(CHECKOUT_TERMS.chosenPlanFeature);
 		expect(CHECKOUT_LABELS.submitMessage).toBe(
-			'お支払い後、すぐにお選びのプランの機能をご利用いただけます。',
+			'【引渡時期・自動更新】お支払い後、すぐにお選びのプランの機能をご利用いただけます。以後は毎月同じ日に自動で更新し、そのつど課金します。次回以降のご請求金額は請求管理ページでご確認いただけます。\n' +
+				'【申込撤回・解約方法】ご家族の見守り画面の「プラン・お支払い」→「請求管理ページを開く」からいつでも解約できます。解約後は現在の請求期間の終了日までご利用いただけ、日割り計算による返金は行いません。デジタルサービスのため返品はお受けしておりません。',
 		);
 
 		// 旧文言「すべての機能」が完全に置換されていること (regression guard)
