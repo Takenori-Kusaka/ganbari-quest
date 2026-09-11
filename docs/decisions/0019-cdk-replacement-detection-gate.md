@@ -99,9 +99,25 @@ replacement-approved: UserPool,UserPool/PublicClient
 
 ### `Fn::GetAtt` ベース Route53 RecordSet の悲観的 `may-cause-replacement`（SES DKIM 系）
 
-`cdk diff` の template-only 比較は、replacement 強制プロパティ（Route53 RecordSet の `Name`/`Type`/`HostedZoneId`）に**未解決 `Fn::GetAtt` トークンが含まれる場合、値を確定できず「変わったかもしれない=may-cause-replacement」と悲観判定する**（既知挙動: aws-cdk issue #21164）。SES `EmailIdentity`（Easy DKIM）が自動生成する `DkimDnsToken1/2/3` は `Name`・`Value` とも同一 EmailIdentity への `Fn::GetAtt` で、**identity が replace されない限り SES 発行値（DKIM 検証ホスト）は不変**（AWS SES 公式: Easy DKIM トークンは domain identity 単位で安定）。
+`cdk diff` の template-only 比較は、replacement 強制プロパティ（Route53 RecordSet の `Name`/`Type`/`HostedZoneId`）に**未解決 `Fn::GetAtt` トークンが含まれる場合、値を確定できず「変わったかもしれない=may-cause-replacement」と悲観判定する**（既知挙動。`aws/aws-cdk#21164` は現在 404 で、同題の <https://github.com/aws/aws-cdk-cli/issues/1572> が移管先と見られる）。SES `EmailIdentity`（Easy DKIM）が自動生成する `DkimDnsToken1/2/3` は `Name`・`Value` とも同一 EmailIdentity への `Fn::GetAtt` で、**identity が replace されない限り SES 発行値（DKIM 検証ホスト）は不変**（AWS SES 公式: Easy DKIM トークンは domain identity 単位で安定）。
 
 → **aws-cdk-lib の bump 等で `EmailIdentity/DkimDnsToken*` に `may-cause-replacement` が出ても、infra コードが EmailIdentity を無変更なら実値変化ではなく differ のアーティファクト**。承認前に `cdk diff --method=change-set`（CloudFormation の正確判定で悲観判定を排除）+ deploy 後 `aws sesv2 get-email-identity` で `DkimStatus=SUCCESS` を smoke 確認すれば安全に承認できる。初回事例: aws-cdk-lib 2.260→2.261 bump で `EmailIdentity/DkimDnsToken3` が false-BLOCK（#3570 統合、一次情報で実値不変を確定）。
+
+### `BucketDeployment` の `AwsCliLayer` 置換は真正・無害（悲観判定ではない）
+
+`s3deploy.BucketDeployment` が付ける `AwsCliLayer` は `AWS::Lambda::LayerVersion` で、**全プロパティが Update requires: Replacement**（[CFN](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-layerversion.html) / [layer version は immutable](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html)）。**上の DKIM 系と違い悲観判定ではないので `--method=change-set` にしても消えない**（本 gate は既定 `auto` で既に change set 判定）。発生条件は aws-cdk-lib の bump 全部ではなく **`@aws-cdk/asset-awscli-v1` の pin が動いたとき**（実測: 2.261.0 / 2.262.2 = 2.2.282、2.268.0 = 2.2.292）。
+
+**失われるものは無い**: CFN は「新規作成 → 参照張替え → 旧削除」で、Lambda は[削除済み layer version を参照する関数はそのまま動く](https://docs.aws.amazon.com/lambda/latest/dg/creating-deleting-layers.html)と明記。layer は handler の `Layers` からしか参照されず `Custom::CDKBucketDeployment` のプロパティに含まれないため**配信済み S3 オブジェクトは触られない**。**回避策も無い**（`BucketDeploymentProps` に layer 差替 prop 無し / CLI の除外機能も未実装: [aws-cdk-cli#903](https://github.com/aws/aws-cdk-cli/issues/903)）。AWS 公式にこのケースの扱いを定めた記述は見つけられなかった。
+
+承認前に `aws cloudformation list-stack-resources` で **`AWS::Lambda::LayerVersion` であること**を実測する（別の型が混ざれば別判断）。恒久対処（gate から `…/AwsCliLayer` を除外）は本 ADR の意図に穴を開けるため QM / Platform 判断とする。
+
+### 承認は main HEAD の 1 commit に紐づく（承認後に commit を積むと失効する）
+
+gate は `git log -1 --pretty=%B` で **main HEAD の commit message だけ**を読む。**承認後に別 commit を main に積むと承認が失効する。** 第22回統合（2026-09-11）は hotfix `868122267` が `ErrorPagesDeploy/AwsCliLayer` のみ承認した状態で HEAD になり、次 run で `StaticAssetsDeploy/AwsCliLayer` が露出して 2 度目の BLOCK になった。→ **承認 commit を HEAD に置いたら deploy を発火させるまで main に積まない。**
+
+### 本番 deploy でしか出ない replacement がある（staging 全緑 ≠ 本番 deploy 可）
+
+`deploy-aws-staging` の gate は staging の stack しか見ず、**staging に無いリソースは原理的に exercise されない**。本番が BLOCK した時点では**まだ何も適用されていない**ので、止まってから実 diff の LogicalId を見て承認する（事前のブランケット承認をしない）。同 class は #4724（`DsqlBackupRole` の managed policy ARN が本番 deploy で初めて 404 → #4900）でも起きた。
 
 ### 承認の取り消し
 
