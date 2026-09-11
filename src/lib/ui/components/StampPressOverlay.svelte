@@ -388,7 +388,8 @@ function handleClose() {
 		animation: fade-in 0.3s ease-out;
 	}
 
-	/* #4913: 押印ぶん + おみくじぶんが両方ある日の合計行。2 つの「+Npt」の関係を明示する */
+	/* #4913: total line shown on days with both instant stamp points and omikuji login bonus,
+	   to make the relationship between the two "+Npt" lines explicit. */
 	.sp__points-total {
 		font-size: 1.125rem;
 		font-weight: 900;
