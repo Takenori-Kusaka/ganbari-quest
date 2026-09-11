@@ -241,12 +241,31 @@ async function syncBalanceWithFlight(originRect: FlightRect | null) {
 	});
 }
 
+/**
+ * #4916: 記録結果の内訳 1 行分。サーバ側 SSOT (`$lib/server/services/activity-record-preparation.ts`
+ * の `PointBreakdownItem`) と構造互換 (routes は $lib/server を import しないため型は独立宣言、
+ * 他 field と同じ既存パターン)。
+ */
+type PointBreakdownItem = {
+	kind: 'base' | 'streakDefault' | 'bonusHook' | 'mastery';
+	title?: string;
+	points: number;
+	multipliers?: (
+		| { kind: 'mainQuest' }
+		| { kind: 'bonusHook'; title: string; multiplier: number }
+	)[];
+};
+
 // Record result overlay
 let resultOpen = $state(false);
 let resultData = $state<{
 	logId: string;
 	activityName: string;
 	totalPoints: number;
+	/** #4916: 結果ダイアログの主要数字。totalPoints + combo/mission/focus の純増分の合計 (= 履歴 = 残高の増分)。 */
+	grandTotal: number;
+	/** #4916: 基本/streak/bonus-hook/熟練の内訳 (combo/mission/focus は既存の専用 field で描画)。 */
+	pointBreakdown: PointBreakdownItem[];
 	streakDays: number;
 	streakBonus: number;
 	masteryBonus: number;
@@ -698,6 +717,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			logId: string;
 			activityName: string;
 			totalPoints: number;
+			grandTotal?: number;
+			pointBreakdown?: PointBreakdownItem[];
 			streakDays: number;
 			streakBonus: number;
 			masteryBonus?: number;
@@ -740,6 +761,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			logId: d.logId,
 			activityName: d.activityName,
 			totalPoints: d.totalPoints,
+			// #4916: grandTotal 未着 (旧 server 応答互換) は totalPoints にフォールバック
+			grandTotal: d.grandTotal ?? d.totalPoints,
+			pointBreakdown: d.pointBreakdown ?? [],
 			streakDays: d.streakDays,
 			streakBonus: d.streakBonus,
 			masteryBonus: d.masteryBonus ?? 0,
@@ -1070,19 +1094,42 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{:else}
 					<p class="text-lg font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
-				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
+				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点)。#4916: grandTotal = 履歴 = 残高の増分 -->
 				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
-					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
+					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.grandTotal)}</p>
 				</div>
-				{#if resultData.streakDays >= 2}
-					<p class="text-sm text-[var(--theme-accent)]">
-						{HL.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
-					</p>
-				{/if}
-				{#if resultData.masteryBonus > 0}
-					<p class="text-sm text-[var(--color-stat-purple)]">
-						{HL.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
-					</p>
+				<!-- #4916: 基本/streak/bonus-hook/熟練の内訳を全行出す (自明な単独 base のみのときは省略) -->
+				{#if resultData.pointBreakdown.length > 1 || resultData.pointBreakdown.some((i) => i.multipliers)}
+					<div class="flex flex-col gap-1 w-full" data-testid="result-point-breakdown">
+						{#each resultData.pointBreakdown as item, i (item.kind + '-' + i)}
+							{#if item.kind === 'base'}
+								<p class="text-xs text-[var(--color-text-muted)]" data-testid="result-breakdown-base">
+									{HL.resultBreakdownBase(item.points)}
+									{#if item.multipliers}
+										{#each item.multipliers as m, mi (mi)}
+											<span class="ms-1">
+												{m.kind === 'mainQuest'
+													? HL.resultBreakdownMainQuestTag
+													: HL.resultBreakdownMultiplierTag(m.title, m.multiplier)}
+											</span>
+										{/each}
+									{/if}
+								</p>
+							{:else if item.kind === 'streakDefault'}
+								<p class="text-sm text-[var(--theme-accent)]" data-testid="result-breakdown-streak">
+									{HL.resultStreakBonus(resultData.streakDays, item.points)}
+								</p>
+							{:else if item.kind === 'bonusHook'}
+								<p class="text-sm text-[var(--theme-accent)]" data-testid="result-breakdown-bonus-hook">
+									{HL.resultBreakdownBonusHook(item.title ?? '', item.points)}
+								</p>
+							{:else if item.kind === 'mastery'}
+								<p class="text-sm text-[var(--color-stat-purple)]" data-testid="result-breakdown-mastery">
+									{HL.resultMasteryBonus(item.points, resultData.masteryLevel)}
+								</p>
+							{/if}
+						{/each}
+					</div>
 				{/if}
 				{#if resultData.masteryLeveledUp}
 					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">

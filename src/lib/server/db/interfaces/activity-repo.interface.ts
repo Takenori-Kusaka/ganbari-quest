@@ -136,6 +136,18 @@ export interface IActivityRepo {
 		tenantId: string,
 	): Promise<number>;
 
+	/**
+	 * #4916: reference_id (activity_logs.id) ごとの point_ledger.amount 合計。
+	 * 「この活動記録アクションで実際に残高へ加算された全額」(基本+streak+熟練 の 'activity' 行 +
+	 * combo/mission/focus の紐付け済み行) を履歴画面で再構成するために使う。
+	 * referenceIds が空なら空 map を返す (無駄クエリを発行しない)。
+	 */
+	sumPointLedgerAmountsByReferenceIds(
+		childId: ChildId,
+		referenceIds: string[],
+		tenantId: string,
+	): Promise<Record<string, number>>;
+
 	// #1755 (#1709-A): 「今日のおやくそく」(priority='must') 集計
 	/**
 	 * priority='must' の活動全件と、`today` 当日に記録されたものを集計する。

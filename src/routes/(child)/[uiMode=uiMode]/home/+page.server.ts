@@ -377,6 +377,9 @@ export const actions: Actions = {
 			logId: result.id,
 			activityName: result.activityName,
 			totalPoints: result.totalPoints,
+			// #4916: 結果ダイアログの主要数字 (= 履歴 = 残高の増分)。内訳は pointBreakdown が担う。
+			grandTotal: result.grandTotal,
+			pointBreakdown: result.pointBreakdown,
 			streakDays: result.streakDays,
 			streakBonus: result.streakBonus,
 			cancelableUntil: result.cancelableUntil,

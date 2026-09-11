@@ -2,7 +2,7 @@ import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/activity-log-service.test.ts
 // 活動記録サービスのユニットテスト — recordActivity() / cancelActivityLog() を直接呼ぶ
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertSuccess } from '../helpers/assert-result';
 import {
@@ -47,6 +47,14 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+// #4916: bonus-hook preset (marketplace 取込済ボーナスルール) をモックし、
+// れんぞく/カテゴリ/週末等が「複数同時発火」する本番相当シナリオを再現可能にする。
+// 既定は presets: [] (未取込) — 既存テストは real loadBonusOverrides と同じ挙動 (regression なし)。
+const mockLoadBonusOverrides = vi.fn();
+vi.mock('$lib/marketplace/strategies/rule-preset/bonus-state', () => ({
+	loadBonusOverrides: (...args: unknown[]) => mockLoadBonusOverrides(...args),
+}));
+
 import { calcStreakBonus } from '../../../src/lib/domain/validation/activity';
 // サービス層をインポート（モック設定後に行う）
 import {
@@ -64,6 +72,24 @@ beforeAll(() => {
 afterAll(() => {
 	closeDb(sqlite);
 });
+
+beforeEach(() => {
+	// #4916: 前 test の bonus-hook preset override を毎回リセットし、他 describe への漏出を防ぐ
+	mockLoadBonusOverrides.mockReset();
+	mockLoadBonusOverrides.mockResolvedValue({ presets: [] });
+});
+
+/** #4916: bonus-hook-service.test.ts と同じ preset 構造ヘルパー (marketplace 取込済ルール)。 */
+function makeBonusPreset(presetId: string, rules: { title: string; pointBonus: number }[]) {
+	return {
+		presetId,
+		presetName: presetId,
+		presetIcon: '🔥',
+		enabled: true,
+		rules: rules.map((r) => ({ ...r, description: '', icon: '🔥' })),
+		importedAt: '2026-05-01T00:00:00Z',
+	};
+}
 
 function seedBase() {
 	resetDb(sqlite);
@@ -480,5 +506,112 @@ describe('recordActivity: 戻り値の構造', () => {
 		const recordedTime = new Date(result.recordedAt).getTime();
 		const cancelTime = new Date(result.cancelableUntil).getTime();
 		expect(cancelTime).toBeGreaterThan(recordedTime);
+	});
+});
+
+// #4916: 記録結果の「+N P」と内訳が食い違う不具合の回帰テスト。
+// 本番相当 (れんぞく + カテゴリチャレンジ + しゅうまつ2ばい + コンボ) を同一記録で複数同時発火させ、
+// 結果ダイアログの主要数字 (grandTotal) = 内訳の合計 = 実際に point_ledger へ積まれた額、が
+// 常に一致することを固定する。
+describe('recordActivity: grandTotal / pointBreakdown (#4916、複数ボーナス同時発火)', () => {
+	beforeEach(() => {
+		resetDb(sqlite);
+		testDb.insert(schema.children).values({ nickname: 'テスト子', age: 8, theme: 'blue' }).run();
+		// 3 カテゴリ (うんどう/べんきょう/せいかつ) の活動を seed し、同日 3 カテゴリ達成 (コンボ + カテゴリ
+		// チャレンジ hook) を起こせるようにする。
+		seedChildActivities(testDb, 1, [
+			{ name: 'たいそう', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5 }, // id=1
+			{ name: 'べんきょう', categoryId: asCategoryId(2), icon: '📖', basePoints: 5 }, // id=2
+			{ name: 'おてつだい', categoryId: asCategoryId(3), icon: '🧹', basePoints: 5 }, // id=3
+		]);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('streak(れんぞく) + category-challenge(カテゴリ) + weekend(しゅうまつ2ばい) + combo が同時発火しても grandTotal = 内訳合計 = 台帳増分 が一致する', async () => {
+		// Day1 (金曜): たいそう を記録し streak の土台 (streakDays=1) を作る
+		mockToday = '2026-05-15';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-14T21:00:00Z')); // JST 2026-05-15 06:00 (金曜)
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		vi.useRealTimers();
+
+		// Day2 (土曜、しゅうまつ): weekend-special / category-challenge / streak-bonus preset を取込済とする
+		mockLoadBonusOverrides.mockResolvedValue({
+			presets: [
+				makeBonusPreset('weekend-special', [{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 }]),
+				makeBonusPreset('category-challenge', [
+					{ title: '3カテゴリチャレンジ', pointBonus: 15 },
+					{ title: 'オールカテゴリチャレンジ', pointBonus: 50 },
+				]),
+			],
+		});
+		mockToday = '2026-05-16';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-16T01:00:00Z')); // JST 2026-05-16 10:00 (土曜)
+
+		// 1・2 件目: べんきょう / おてつだい を記録し distinct カテゴリを積む (今回はボーナス対象外)
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT));
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(3), TENANT));
+
+		// 3 件目 (本命): たいそう の当日初回記録。この 1 回で
+		//   - streakDays=2 (金曜+土曜) → defaultStreakBonus = calcStreakBonus(2) = 1
+		//   - weekend-special hook (×2) → effectiveBasePoints = 5*2 = 10
+		//   - category-challenge hook (3カテゴリ達成) → +15
+		//   - コンボ (3 カテゴリ目 = さんみいったい tier、combo-service 本体) → +8 (別建て ledger)
+		// が同時発火する。
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		vi.useRealTimers();
+
+		// --- 内訳 (pointBreakdown) が全ボーナス種別を itemize していること ---
+		const base = result.pointBreakdown.find((i) => i.kind === 'base');
+		expect(base?.points).toBe(10); // 5 (base) × 2 (weekend)
+		expect(base?.multipliers).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					kind: 'bonusHook',
+					title: 'しゅうまつ2ばいボーナス',
+					multiplier: 2,
+				}),
+			]),
+		);
+
+		const streakItem = result.pointBreakdown.find((i) => i.kind === 'streakDefault');
+		expect(streakItem?.points).toBe(1); // calcStreakBonus(2)
+
+		const categoryHit = result.pointBreakdown.find(
+			(i) => i.kind === 'bonusHook' && i.title === '3カテゴリチャレンジ',
+		);
+		expect(categoryHit?.points).toBe(15);
+
+		// --- 内訳の合計 = totalPoints (基本+streak+熟練) と厳密一致 ---
+		const breakdownSum = result.pointBreakdown.reduce((sum, i) => sum + i.points, 0);
+		expect(breakdownSum).toBe(result.totalPoints);
+		expect(result.totalPoints).toBe(26); // 10(base×2) + 1(streak) + 15(category) + 0(mastery)
+
+		// --- コンボ (real combo-service、hook とは別経路) も同時発火していること ---
+		// #4686: totalNewBonus は tier 満額ではなく「今回の純増」。2 件目で「にとうりゅう」+3 が
+		// 既に付与済みのため、3 件目「さんみいったい」tier (満額 8) の純増は 8-3=5。
+		expect(result.comboBonus).not.toBeNull();
+		expect(result.comboBonus?.crossCategoryCombo?.name).toBe('さんみいったい');
+		expect(result.comboBonus?.totalNewBonus).toBe(5);
+
+		// --- grandTotal = totalPoints + combo + mission + focus (#4916 AC1 の核心) ---
+		const missionBonus = result.missionComplete?.bonusAwarded ?? 0;
+		const focusBonus = result.focusBonus?.bonusPoints ?? 0;
+		expect(result.grandTotal).toBe(
+			result.totalPoints + (result.comboBonus?.totalNewBonus ?? 0) + missionBonus + focusBonus,
+		);
+
+		// --- grandTotal = 実際に point_ledger へ積まれた額 (reference_id 紐付け、履歴の 3 者一致) ---
+		const ledgerSum = testDb
+			.select()
+			.from(schema.pointLedger)
+			.all()
+			.filter((e) => Number(e.referenceId) === Number(result.id))
+			.reduce((sum, e) => sum + e.amount, 0);
+		expect(ledgerSum).toBe(result.grandTotal);
 	});
 });

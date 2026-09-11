@@ -187,7 +187,9 @@ function purchaseStatusTone(status: string): string {
 														</p>
 													</div>
 													<div class="text-right shrink-0">
-														<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.points + log.streakBonus)}</p>
+														<!-- #4916: grandTotal (熟練/combo/mission/focus 込みの真の残高増分) を優先。
+														     台帳に紐付けが無い旧データは points + streakBonus にフォールバック -->
+														<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.grandTotal ?? log.points + log.streakBonus)}</p>
 														{#if log.streakDays >= 2}
 															<p class="text-xs text-[var(--theme-accent)]">{log.streakDays}{t.historyStreakSuffix}</p>
 														{/if}
