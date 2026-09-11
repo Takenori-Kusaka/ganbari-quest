@@ -10,6 +10,7 @@ import {
 	SETUP_CHILDREN_LABELS,
 } from '$lib/domain/labels';
 import { AGE_TIER_CONFIG, getDefaultUiMode } from '$lib/domain/validation/age-tier';
+import TrialStartedNotice from '$lib/features/admin/components/TrialStartedNotice.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -35,6 +36,10 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 <svelte:head>
 	<title>{PAGE_TITLES.setupChildren}{APP_LABELS.setupPageTitleSuffix}</title>
 </svelte:head>
+
+<!-- PO 決裁 2026-09-10 決定 3(a): 申込経路で自動開始した体験の告知。#4885 以降、新規テナントの -->
+<!-- 実際の着地画面はここ (admin layout の同 component には setup gate に倒されて到達しない)。 -->
+<TrialStartedNotice endDate={data.trialStartedNoticeEndDate ?? null} />
 
 <h2 class="text-lg font-bold text-[var(--color-text)] mb-2">{SETUP_CHILDREN_LABELS.pageTitle}</h2>
 <p class="text-sm text-[var(--color-text-muted)] mb-4">

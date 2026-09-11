@@ -21,6 +21,9 @@ import { TERMINAL_CONTRACT_STATE } from '$lib/server/services/stripe-service';
 /** 体験を一度も使っていない顧客 (直接課金した顧客はここに属する) */
 const NEVER_TRIALED = { trialUsed: false, isTrialActive: false } as const;
 
+/** 体験を使い切った顧客 (体験 → 課金 → 停止 という現実の多数派) */
+const TRIAL_ENDED = { trialUsed: true, isTrialActive: false } as const;
+
 /**
  * S5 契約終了。**3 経路 (解約フロー / 請求パネル / dunning) の終端はすべてここ**で、
  * `customer.subscription.deleted` (W5) が `TERMINAL_CONTRACT_STATE` を書く。
@@ -131,6 +134,26 @@ describe('hasRevertedToFreePlan (#4585-2 自動アーカイブの起動条件)',
 					tenantStatus: SUBSCRIPTION_STATUS.SUSPENDED,
 					stripeSubscriptionId: 'sub_unpaid',
 					...NEVER_TRIALED,
+				},
+			},
+			{
+				// 体験 → 課金 → 停止。旧実装は契約状態を見ずに trialUsed だけで先に true を返しており、
+				// **この現実の多数派**でアーカイブが発火していた。
+				name: 'S4 停止 (体験を使ったあとに課金し、支払いが止まった顧客)',
+				input: {
+					planTier: 'free',
+					tenantStatus: SUBSCRIPTION_STATUS.SUSPENDED,
+					stripeSubscriptionId: 'sub_unpaid',
+					...TRIAL_ENDED,
+				},
+			},
+			{
+				name: 'S6 退会済 (体験を使っていても対象外)',
+				input: {
+					planTier: 'free',
+					tenantStatus: SUBSCRIPTION_STATUS.TERMINATED,
+					stripeSubscriptionId: null,
+					...TRIAL_ENDED,
 				},
 			},
 			{

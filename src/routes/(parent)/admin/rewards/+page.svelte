@@ -13,7 +13,7 @@ import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
-import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
+import { getActionErrorDisplay, getErrorMessage, PLAN_UPGRADE_URL } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
@@ -287,6 +287,9 @@ $effect(() => {
 		if (!handledLockedPreset) {
 			handledLockedPreset = true;
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
+			// NN/G #9: 条件を伝えるだけで終わらせず、行き先 (プラン画面) のリンクを併記する。
+			// #4705 は message だけを立てており、rewards-upgrade-link が描画されなかった (#4887)。
+			actionUpgradeUrl = PLAN_UPGRADE_URL;
 			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
 		}
 	} else {
@@ -935,7 +938,20 @@ async function handleCopyFromChild() {
 		<section class="reward-list" data-testid="admin-rewards-list">
 			<div data-testid="rewards-per-child-list">
 				{#if visiblePerChildRewards.length === 0}
-					{#if !allEmpty}
+					{#if allEmpty}
+						<!-- #3097 slot 7: 一覧 0 件の空表示は list スロットの「中」に置く
+						     (activities / checklists と同型)。外に出すと一覧セクションが高さ 0 になり、
+						     正準スロット契約 (admin-resource-layout-contract.spec.ts (e)) から list が消える (#4887)。
+						     #2268 / CX-DoR #11: 文言は既存の searchEmptyMessage を override して視覚回帰ゼロ。
+						     testid は E2E 互換のため rewards-search-empty を維持。 -->
+						<UnifiedEmptyState
+							testid="rewards-search-empty"
+							hasFilter
+							filteredText={REWARDS_LABELS.searchEmptyMessage}
+							showPrimary={false}
+							canImport={false}
+						/>
+					{:else}
 						<p class="reward-list__empty" data-testid="rewards-per-child-empty">
 							{hasSearchActive ? REWARDS_LABELS.searchEmptyMessage : ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
 						</p>
@@ -989,19 +1005,7 @@ async function handleCopyFromChild() {
 	<!-- #2998 (EPIC #2897): AI 提案パネルの本文直置きを撤去。activities / checklists と同型に
 	     「+ 追加」dropdown → AI ダイアログ (下部 showAddDialog + addMode='ai') で開く方式に統一。 -->
 
-	<!-- #2268: 検索結果 0 件メッセージ。CX-DoR #9・#11 横展開 (Round 18): 独自 banner markup を
-	     UnifiedEmptyState SSOT に統一 (NN/G #4 consistency)。filter 結果空のため hasFilter mode +
-	     filteredText に既存文言を渡し、primary CTA / import link は出さない (検索条件下のため)。
-	     testid は E2E 互換のため rewards-search-empty を維持。 -->
-	{#if allEmpty}
-		<UnifiedEmptyState
-			testid="rewards-search-empty"
-			hasFilter
-			filteredText={REWARDS_LABELS.searchEmptyMessage}
-			showPrimary={false}
-			canImport={false}
-		/>
-	{/if}
+	<!-- #2268 の検索結果 0 件メッセージ (UnifiedEmptyState) は一覧 (slot 7) の中へ移設した (#4887)。 -->
 
 	<!--
 		#2558 段階2 横展開: 旧 Preset Catalog (admin 内 marketplace 風 in-page browse UI、

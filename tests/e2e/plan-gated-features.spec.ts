@@ -62,8 +62,11 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 		await expect(banner).not.toContainText('[object Object]');
 		await expect(banner).toContainText('スタンダードプラン');
 
-		// 子供選択 dialog は開かない (子供を選ばせてから拒否しない)
-		await expect(page.getByTestId('reward-import-child-selection-dialog')).toHaveCount(0);
+		// 子供選択 dialog は開かない (子供を選ばせてから拒否しない)。
+		// ChildSelectionDialog は常時 mount (bind:open) で、Ark Dialog は閉じていても Content が
+		// DOM に残る (admin-unified-import-hub.spec.ts:65 と同じ事実) ため toHaveCount(0) は原理的に
+		// 通らない。「開いていない」= hidden を検証する (開いていれば必ず fail する)。
+		await expect(page.getByTestId('reward-import-child-selection-dialog')).toBeHidden();
 
 		// NN/G #9: 次の行き先が示される
 		const upgradeLink = page.getByTestId('rewards-upgrade-link');

@@ -105,7 +105,7 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
 /**
  * 課金中 (licenseStatus=ACTIVE) のテナントの plan 値を tier に畳む。
  *
- * `plan` は Stripe 上の課金プラン値 (`standard_monthly` / `family_yearly` 等) なので、
+ * `plan` は課金プラン値 (`monthly` / `family-yearly` 等、`subscription-plan.ts` が SSOT) なので、
  * monthly / yearly を同じ tier に畳む判断がここに要る。読み手は `resolvePlanTier` (service)
  * の 1 本 — 受諾 txn (`db/dsql/invite-accept.ts`) はプランを導かず、service が解決した
  * 上限を必須引数で受ける (PO 回答 2026-09-03 §4 #3。導出が 2 箇所にあると片方だけ直して

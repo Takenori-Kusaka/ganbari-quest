@@ -49,6 +49,46 @@
 			"securitySeverity": "medium",
 			"note": "alert #6 / #7 / #8 (2026-03-27〜28)。job 単位 permissions 未指定 3 箇所。count 超過 (4 件目) は fail する。",
 			"resolutionTrigger": ".github/workflows/ci.yml の該当 job を次に触るとき"
+		},
+		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/domain/admin-labels-ssot-4512.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #48 (2026-09-10、第22回統合監査で検出)。repo 内の source file を読み HTML コメント / JS コメントを落としてから includes()・toMatch() で判定する fitness function 側の regex。入力は自リポジトリの source file のみで、結果を HTML として描画しないため injection 経路が無い (本番 bundle にも載らない)。**本 entry は #47 と同一 root class の instance 2-6 であり、ledger 登録は解決ではない** — 6 箇所に散った同型 regex を 1 つの共有 helper へ寄せる class-lock を別 Issue で追う (ADR-0061 原則 2)。",
+			"resolutionTrigger": "tests/unit/domain/admin-labels-ssot-4512.test.ts のコメント除去 regex を次に触るとき (または class-lock Issue で共有 helper へ寄せるとき)"
+		},
+		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/domain/marketplace-claims-4511.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #49 (2026-09-10、第22回統合監査で検出)。repo 内の source file を読み HTML コメント / JS コメントを落としてから includes()・toMatch() で判定する fitness function 側の regex。入力は自リポジトリの source file のみで、結果を HTML として描画しないため injection 経路が無い (本番 bundle にも載らない)。**本 entry は #47 と同一 root class の instance 2-6 であり、ledger 登録は解決ではない** — 6 箇所に散った同型 regex を 1 つの共有 helper へ寄せる class-lock を別 Issue で追う (ADR-0061 原則 2)。",
+			"resolutionTrigger": "tests/unit/domain/marketplace-claims-4511.test.ts のコメント除去 regex を次に触るとき (または class-lock Issue で共有 helper へ寄せるとき)"
+		},
+		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/domain/oyakagi-pin-length-ssot.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #50 (2026-09-10、第22回統合監査で検出)。repo 内の source file を読み HTML コメント / JS コメントを落としてから includes()・toMatch() で判定する fitness function 側の regex。入力は自リポジトリの source file のみで、結果を HTML として描画しないため injection 経路が無い (本番 bundle にも載らない)。**本 entry は #47 と同一 root class の instance 2-6 であり、ledger 登録は解決ではない** — 6 箇所に散った同型 regex を 1 つの共有 helper へ寄せる class-lock を別 Issue で追う (ADR-0061 原則 2)。",
+			"resolutionTrigger": "tests/unit/domain/oyakagi-pin-length-ssot.test.ts のコメント除去 regex を次に触るとき (または class-lock Issue で共有 helper へ寄せるとき)"
+		},
+		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/domain/plan-retention-ssot.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #51 (2026-09-10、第22回統合監査で検出)。repo 内の source file を読み HTML コメント / JS コメントを落としてから includes()・toMatch() で判定する fitness function 側の regex。入力は自リポジトリの source file のみで、結果を HTML として描画しないため injection 経路が無い (本番 bundle にも載らない)。**本 entry は #47 と同一 root class の instance 2-6 であり、ledger 登録は解決ではない** — 6 箇所に散った同型 regex を 1 つの共有 helper へ寄せる class-lock を別 Issue で追う (ADR-0061 原則 2)。",
+			"resolutionTrigger": "tests/unit/domain/plan-retention-ssot.test.ts のコメント除去 regex を次に触るとき (または class-lock Issue で共有 helper へ寄せるとき)"
+		},
+		{
+			"rule": "js/incomplete-multi-character-sanitization",
+			"path": "tests/unit/routes/settings-data-guide.test.ts",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #52 (2026-09-10、第22回統合監査で検出)。repo 内の source file を読み HTML コメント / JS コメントを落としてから includes()・toMatch() で判定する fitness function 側の regex。入力は自リポジトリの source file のみで、結果を HTML として描画しないため injection 経路が無い (本番 bundle にも載らない)。**本 entry は #47 と同一 root class の instance 2-6 であり、ledger 登録は解決ではない** — 6 箇所に散った同型 regex を 1 つの共有 helper へ寄せる class-lock を別 Issue で追う (ADR-0061 原則 2)。",
+			"resolutionTrigger": "tests/unit/routes/settings-data-guide.test.ts のコメント除去 regex を次に触るとき (または class-lock Issue で共有 helper へ寄せるとき)"
 		}
 	]
 }

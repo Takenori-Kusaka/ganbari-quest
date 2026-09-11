@@ -82,7 +82,7 @@ describe('#4653 filterGuideStepsByTargetPresence', () => {
 		const desktopRendered = new Set([
 			'[data-tutorial="summary-cards"]',
 			'[data-tutorial="monthly-summary"]',
-			'[data-tutorial="children-overview"]',
+			'[data-tutorial="child-card-first"]',
 			'[data-tutorial="switch-to-child"]',
 			'[data-tutorial="nav-desktop"]',
 		]);
@@ -135,7 +135,7 @@ describe('#4653 filterGuideStepsByPresence 適用後の /admin ガイド', () =>
 		const desktopRendered = new Set([
 			'[data-tutorial="summary-cards"]',
 			'[data-tutorial="monthly-summary"]',
-			'[data-tutorial="children-overview"]',
+			'[data-tutorial="child-card-first"]',
 			'[data-tutorial="switch-to-child"]',
 			'[data-tutorial="nav-desktop"]',
 		]);
@@ -155,7 +155,7 @@ describe('#4653 filterGuideStepsByPresence 適用後の /admin ガイド', () =>
 	it('mobile nav だけ描画 → desktop nav step が落ちる', () => {
 		const mobileRendered = new Set([
 			'[data-tutorial="summary-cards"]',
-			'[data-tutorial="children-overview"]',
+			'[data-tutorial="child-card-first"]',
 			'[data-tutorial="switch-to-child"]',
 			'[data-tutorial="nav-primary"]',
 		]);

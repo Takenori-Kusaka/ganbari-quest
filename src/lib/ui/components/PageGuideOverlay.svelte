@@ -347,6 +347,20 @@ function startDriver(rawGuide: PageGuide): void {
 		allowKeyboardControl: true,
 		popoverClass: 'page-guide-popover',
 		steps: buildDriveSteps(pageGuide),
+		// step 遷移が完了した時点で 1 回だけ再配置を要求する (#2926 (a) の再発防止、#4887)。
+		// driver.js は scroll / resize による再配置を内部 state `__activeElement` 基準で行うが、
+		// これは highlight transition (animate: true / 400ms) の **完了時にはじめて** 新 step の
+		// 要素へ差し替わる。smoothScroll が transition より先に終わると、最後の再配置が
+		// 「前 step の要素」基準のまま確定し、バブルが現 step の対象を覆う。
+		// 実測 (/admin/settings/support 最終 step、desktop 1280x800):
+		//   前 step (feedback-section) の bottom=317.6 基準で bottom:189.36px が確定し、
+		//   バブル y=335.6..610.6 が対象カード (y=542.4..784.4) に 68px 重なる。
+		//   現 step の要素で再計算すると side=top / y=249.4 となり重ならない。
+		// refresh() は scroll / resize と同一経路 (driver.js: `refresh: () => X(t)`) で rAF 1 回分
+		// 遅延するため、実行時には `__activeElement` は既に新 step の要素へ差し替わっている。
+		onHighlighted: () => {
+			if (driverInstance?.isActive()) driverInstance.refresh();
+		},
 		// 最終 step まで到達して閉じたら完了 (localStorage 永続)、途中終了 (とじる / Escape /
 		// overlay click) なら未完了のまま end。判定は completedLastStep フラグで行う。
 		onDestroyed: () => {

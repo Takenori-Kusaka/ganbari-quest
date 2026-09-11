@@ -152,9 +152,12 @@ const REQUIRED_SPOTLIGHT_STEPS: Partial<
 	// #4671: seed は子供 5 人 → お子さまタブは常に描画される。今週のカード / 削除 / 家族ストリークは
 	// データ依存 (E2E seed には今週のチャレンジが無く empty state になる) のため optional のまま列挙しない
 	'/admin/challenges': ['challenges-child-tabs'],
-	// #4672: AUTH_MODE=local は owner ロール + family プラン → 招待作成 / 閲覧リンクも描画される。
+	// #4672: AUTH_MODE=local は owner ロール + family プラン → 一覧 / 閲覧リンクは描画される。
+	// #4704: 招待作成カードは cognito 限定描画 (local は招待 API が 401 のためフォームを出さず、
+	// members-invite-unsupported の理由カードに差し替える) のため optional のまま列挙しない
+	// — settings-account-logout / settings-data-cloud と同 class。
 	// 保留中の招待は招待発行状況に依存するため optional のまま列挙しない
-	'/admin/members': ['members-list', 'members-invite', 'members-viewer'],
+	'/admin/members': ['members-list', 'members-viewer'],
 	// #4674: seed は子供 5 人 → お子さま切替ボタン行は常に描画。証明書一覧は発行状況に依存するため
 	// optional のまま列挙しない
 	'/admin/certificates': ['certificates-child-select'],

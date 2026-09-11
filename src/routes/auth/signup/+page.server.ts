@@ -3,6 +3,7 @@
 
 import { fail, redirect } from '@sveltejs/kit';
 import { DEMO_LABELS, SIGNUP_LABELS } from '$lib/domain/labels';
+import { TRIAL_STARTED_QUERY_KEY } from '$lib/domain/trial-started-notice';
 import { parseSignupPlanParam } from '$lib/domain/validation/signup-plan';
 import { getAuthMode, getAuthProvider, isCognitoDevMode } from '$lib/server/auth/factory';
 import { landingForRole } from '$lib/server/auth/post-login-landing';
@@ -349,6 +350,6 @@ export const actions: Actions = {
 		// 正常完了
 		// #4641: 招待で参加した子供ロールは /admin に入れない。着地先はロールで決める
 		const landing = landingForRole(context.role);
-		redirect(302, trialStarted ? `${landing}?trialStarted=1` : landing);
+		redirect(302, trialStarted ? `${landing}?${TRIAL_STARTED_QUERY_KEY}=1` : landing);
 	},
 };

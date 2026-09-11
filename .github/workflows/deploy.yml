@@ -149,7 +149,7 @@ jobs:
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
             -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
-            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+            2>&1 | tee /dev/stderr | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
         working-directory: infra/
@@ -352,7 +352,7 @@ jobs:
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
-            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+            2>&1 | tee /dev/stderr | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy all stacks
         working-directory: infra/

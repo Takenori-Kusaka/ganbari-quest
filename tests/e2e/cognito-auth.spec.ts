@@ -417,8 +417,10 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 		const before = await page.locator('[data-testid^="child-select-"]').count();
 
 		// 認可層 (hooks) が handler 到達前に拒否するため、action は走らず redirect が返る。
-		// SvelteKit は `?/action` への非ブラウザ POST (Accept に text/html 無し) には
-		// JSON envelope `{type:'redirect', location}` + HTTP 200 で redirect を表現する。
+		// hooks で throw した redirect は plain 302 + Location になるが、SvelteKit が
+		// JSON envelope `{type:'redirect', location}` + HTTP 200 で返す経路もあるため両方を受ける。
+		// **Origin は playwright.cognito-dev.config.ts の extraHTTPHeaders が付ける** — CI は
+		// preview (本番ビルド) 起動で CSRF origin 検査が有効なため、無いと hooks に届かず 403 になる。
 		const res = await page.request.post('/setup/children?/addChild', {
 			form: { nickname: 'E2E-CHILD-BY-CHILD-4700', age: '7', theme: 'pink' },
 			maxRedirects: 0,
@@ -437,12 +439,18 @@ test.describe('#4700 child ロールの /setup 拒否', () => {
 		await expect(page.getByText('E2E-CHILD-BY-CHILD-4700')).toHaveCount(0);
 	});
 
-	test('owner ロールは /setup/children に入れる (setup 完了済テナントの再入は従来どおり)', async ({
+	// #4885 で setup 完了済ブロックが cognito にも適用された (local は #4860 以来この挙動)。
+	// owner は「認可で弾かれる」child とは別で、**完了済だから戻される**。理由が違うので
+	// 行き先も違う: child は /switch?reason=admin_forbidden、保護者は保護者のホーム /admin。
+	// `/` に返さないのは、`/` が子供の着地先を選ぶ router (#576) で保護者を子供画面に落とすため。
+	test('owner ロールの /setup/children は setup 完了済なら /admin へ戻される (子供画面には落とさない)', async ({
 		page,
 	}) => {
 		await loginAs(page, 'owner@example.com', devPassword('owner@example.com'), /\/admin/);
 		await page.goto('/setup/children');
-		await expect(page).toHaveURL(/\/setup\/children/);
+		await expect(page).toHaveURL(/\/admin\/?(\?|$)/);
+		await expect(page).not.toHaveURL(/\/switch/);
+		await expect(page).not.toHaveURL(/reason=admin_forbidden/);
 	});
 
 	test('未認証で /setup/children は /auth/login へ', async ({ page }) => {

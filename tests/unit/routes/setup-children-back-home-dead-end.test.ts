@@ -1,10 +1,12 @@
 // tests/unit/routes/setup-children-back-home-dead-end.test.ts
 //
-// `/setup/children` (local モードで最初に着地する画面) の「ホームに戻る」は `/switch` を指す。
-// ところが `src/hooks.server.ts` の local セットアップ誘導は「子供 0 人なら全 path を /setup へ
-// 302」を掛けており、除外リストに `/switch` (も `/admin`) が無い。つまり子供 0 人のあいだ
-// このリンクは `/switch` → `/setup` → `/setup/children` と自分自身に戻る無反応リンクだった。
+// `/setup/children` (子供 0 人のテナントが最初に着地する画面) の「ホームに戻る」は `/switch` を指す。
+// ところが `src/hooks.server.ts` のセットアップ誘導 (local に加え #4885 で認証済み cognito にも
+// 掛かる) は「子供 0 人なら全 path を /setup へ 302」を掛けており、除外リストに `/switch`
+// (も `/admin`) が無い。つまり子供 0 人のあいだこのリンクは `/switch` → `/setup` →
+// `/setup/children` と自分自身に戻る無反応リンクだった。
 // (隣の復元リンク `/admin/settings/data` は #4696 で同じ理由から除外リストに穴を開けてある。)
+// 「誘導が掛かる実行モードか」は gate 自身の SSOT (`resolveSetupGateTenantId`) に問う。
 //
 // 固定する不変条件:
 //   [A] セットアップが強制されている状態では「ホームに戻る」を出さない
@@ -38,7 +40,10 @@ vi.mock('$lib/server/services/setup-funnel-service', () => ({
 
 async function runLoad(): Promise<{ canReturnHome: boolean }> {
 	const { load } = await import('../../../src/routes/setup/children/+page.server');
-	return (await load({ locals: { context: { tenantId: 'tenant-1' } } } as never)) as unknown as {
+	return (await load({
+		locals: { context: { tenantId: 'tenant-1' } },
+		url: new URL('https://x/setup/children'),
+	} as never)) as unknown as {
 		canReturnHome: boolean;
 	};
 }
@@ -75,8 +80,19 @@ describe('[A][B] 「ホームに戻る」を出すかどうか (load)', () => {
 		expect((await runLoad()).canReturnHome).toBe(true);
 	});
 
-	it('cognito は子供 0 人でも出す (セットアップ誘導が local 限定のため /switch に着地できる)', async () => {
+	it('cognito + 子供 0 人 (#4885 で誘導が cognito にも掛かる) では出さない', async () => {
 		getAuthMode.mockReturnValue('cognito');
+		getAllChildren.mockResolvedValueOnce([]);
+		isSetupRequired.mockResolvedValueOnce(true);
+
+		expect(
+			(await runLoad()).canReturnHome,
+			'#4885 以降は cognito でも /switch が /setup へ 302 される = 押しても動かないリンクになる',
+		).toBe(false);
+	});
+
+	it('demo (anonymous) は子供 0 人でも出す (誘導を掛けない実行モード)', async () => {
+		getAuthMode.mockReturnValue('anonymous');
 		getAllChildren.mockResolvedValueOnce([]);
 
 		expect((await runLoad()).canReturnHome).toBe(true);

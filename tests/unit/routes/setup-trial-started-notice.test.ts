@@ -15,8 +15,13 @@
 //   [T2] 開始できなかった (既に使用済み / plan 無し / 非 owner) ときは付かない
 //        — 始まっていないのに「始まりました」と出さない
 //   [T3] 既に query を持つ着地先でも壊さない (`&` で継ぐ)
+//   [T4] 旗が「次の 1 hop」まで生き残る (#4885 の setup 必須 redirect は query ごと落とす)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	carryTrialStartedQuery,
+	resolveTrialStartedNoticeEndDate,
+} from '$lib/domain/trial-started-notice';
 
 const mockStartTrial = vi.fn();
 vi.mock('$lib/server/services/trial-service', () => ({
@@ -101,5 +106,28 @@ describe('[T3] 既に query を持つ着地先を壊さない', () => {
 			GET(makeEvent({ plan: 'standard', next: '/admin?from=setup' })),
 		);
 		expect(location).toBe('/admin?from=setup&trialStarted=1');
+	});
+});
+
+// [T4] 旗が「次の 1 hop」まで生き残る — #4885 の setup 必須 redirect は query ごと落とす
+describe('[T4] 告知がウィザードの 1 枚目まで届く', () => {
+	it('setup 必須 redirect は告知の旗だけを持ち込む (他の query は運ばない)', () => {
+		expect(carryTrialStartedQuery('?trialStarted=1')).toBe('?trialStarted=1');
+		expect(carryTrialStartedQuery('?from=setup')).toBe('');
+		expect(carryTrialStartedQuery('')).toBe('');
+	});
+
+	it('旗があり体験中のときだけ終了日を出す', () => {
+		const active = { isTrialActive: true, trialEndDate: '2026-09-17' };
+		expect(resolveTrialStartedNoticeEndDate(new URLSearchParams('?trialStarted=1'), active)).toBe(
+			'2026年9月17日',
+		);
+		expect(resolveTrialStartedNoticeEndDate(new URLSearchParams(''), active)).toBeNull();
+		expect(
+			resolveTrialStartedNoticeEndDate(new URLSearchParams('?trialStarted=1'), {
+				isTrialActive: false,
+				trialEndDate: '2026-09-17',
+			}),
+		).toBeNull();
 	});
 });

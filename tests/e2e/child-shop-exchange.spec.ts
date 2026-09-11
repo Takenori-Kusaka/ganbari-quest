@@ -16,6 +16,7 @@
 //   AC4: ポイント不足時は交換ボタンが disabled
 
 import { CHILD_SHOP_LABELS } from '../../src/lib/domain/labels';
+import { getModeVariant } from '../../src/lib/features/child-home/variants';
 import { expect, test } from './fixtures';
 import { dismissOverlays, selectKinderChild } from './helpers';
 
@@ -39,6 +40,12 @@ async function resetKinderChildBalance(workerDbPath: string): Promise<void> {
 			.get('たろうくん') as { id: number } | undefined;
 		if (!child) return;
 		const cId = child.id;
+
+		// #3339 の即時交換トグルを既定 (承認必須) に戻す。afterEach はブラウザが落ちた試行では
+		// 走らないため、出口ではなく**入口**で戻す (spec:578-583 #4564 と同じ教訓)。
+		// ON が残ると承認必須前提の test が即時 approved 経路に落ち、pending しか消さない
+		// 下の掃除をすり抜けた approved 行が retry のたびに積み上がる。
+		db.prepare("DELETE FROM settings WHERE key = 'reward_auto_approve'").run();
 
 		// 既存の shop_test_seed エントリを削除
 		db.prepare("DELETE FROM point_ledger WHERE child_id = ? AND type = 'shop_test_seed'").run(cId);
@@ -301,6 +308,34 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		page,
 		workerDbPath,
 	}) => {
+		// この試行が作った行だけを見る (serial retry で先行 attempt の行が残ることがある)
+		const { default: DatabaseCtor } = await import('better-sqlite3');
+		const baselineDb = new DatabaseCtor(workerDbPath);
+		let childId = 0;
+		let rewardId = 0;
+		let rewardPoints = 0;
+		let baselineMaxId = 0;
+		try {
+			const c = baselineDb
+				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+				.get('たろうくん') as { id: number };
+			childId = c.id;
+			const r = baselineDb
+				.prepare('SELECT id, points FROM special_rewards WHERE child_id = ? AND title = ? LIMIT 1')
+				.get(childId, 'E2Eテスト用ごほうび（交換可）') as { id: number; points: number };
+			rewardId = r.id;
+			rewardPoints = r.points;
+			baselineMaxId = (
+				baselineDb
+					.prepare(
+						'SELECT COALESCE(MAX(id), 0) AS m FROM reward_redemption_requests WHERE child_id = ? AND reward_id = ?',
+					)
+					.get(childId, rewardId) as { m: number }
+			).m;
+		} finally {
+			baselineDb.close();
+		}
+
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 		await page.goto('/preschool/shop');
@@ -334,17 +369,16 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		const { default: Database } = await import('better-sqlite3');
 		const db = new Database(workerDbPath);
 		try {
-			const child = db
-				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
-				.get('たろうくん') as { id: number };
-			const reward = db
-				.prepare('SELECT id, points FROM special_rewards WHERE child_id = ? AND title = ? LIMIT 1')
-				.get(child.id, 'E2Eテスト用ごほうび（交換可）') as { id: number; points: number };
+			const reward = { id: rewardId, points: rewardPoints };
 			const rows = db
 				.prepare(
-					'SELECT id, quantity, status FROM reward_redemption_requests WHERE child_id = ? AND reward_id = ? ORDER BY id DESC',
+					'SELECT id, quantity, status FROM reward_redemption_requests WHERE child_id = ? AND reward_id = ? AND id > ? ORDER BY id DESC',
 				)
-				.all(child.id, reward.id) as { id: number; quantity: number; status: string }[];
+				.all(childId, rewardId, baselineMaxId) as {
+				id: number;
+				quantity: number;
+				status: string;
+			}[];
 			expect(rows.length).toBe(1);
 			expect(rows[0]?.quantity).toBe(2);
 
@@ -784,17 +818,20 @@ test.describe('#4631: 完了した交換は陳列棚に残さない', () => {
 
 		// 申請日が 1970 年でない = epoch 秒を ms と取り違えていない。
 		// seed は「1 時間前」なので JST の今日 (00:00〜01:00 JST に走ると前日) の日付が出る。
+		// 日付の接尾辞は年齢帯 variant SSOT から取る (preschool はひらがな = 「9がつ10にち」、
+		// docs/DESIGN.md §8 / history/+page.svelte:82)。
+		const { dateMonthSuffix: MS, dateDaySuffix: DS } = getModeVariant('preschool').text;
 		const jstToday = new Date(Date.now() + 9 * 60 * 60 * 1000);
 		const m = jstToday.getUTCMonth() + 1;
 		const d = jstToday.getUTCDate();
 		const prev = new Date(jstToday.getTime() - 24 * 60 * 60 * 1000);
 		const rowText = (await list.textContent()) ?? '';
 		expect(
-			rowText.includes(`${m}月${d}日`) ||
-				rowText.includes(`${prev.getUTCMonth() + 1}月${prev.getUTCDate()}日`),
+			rowText.includes(`${m}${MS}${d}${DS}`) ||
+				rowText.includes(`${prev.getUTCMonth() + 1}${MS}${prev.getUTCDate()}${DS}`),
 			`申請日が JST の今日/前日でない (1970 年退行の疑い): ${rowText.slice(0, 200)}`,
 		).toBe(true);
-		expect(rowText, '1970 年に戻っている').not.toContain('1月22日');
+		expect(rowText, '1970 年に戻っている').not.toContain(`1${MS}22${DS}`);
 	});
 
 	// #4632: 控除が起きたのは承認されたときだけ。却下の行に「-50P」が出ると、

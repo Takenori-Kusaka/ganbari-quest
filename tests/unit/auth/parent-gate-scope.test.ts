@@ -66,6 +66,12 @@ describe('[G1] /api/v1/admin/** の書き込みは gate 対象', () => {
 		['POST', '/api/v1/admin/account/delete'],
 		['PATCH', '/api/v1/admin/migration'],
 		['PUT', '/api/v1/admin/viewer-tokens'],
+		// PO 決定 4(b)「書き込み全部」— 一括の持ち出し / 取込 / 全消去は `/api/v1/admin` の外。
+		// とくに create は 201 応答に `pinCode` を載せるので、読み取りだけ塞ぐと迂回される。
+		['POST', '/api/v1/export/cloud'],
+		['DELETE', '/api/v1/export/cloud/ce-1'],
+		['POST', '/api/v1/import/cloud'],
+		['POST', '/api/v1/data/clear'],
 	] as const;
 
 	for (const [method, path] of WRITES) {
@@ -82,6 +88,8 @@ describe('[G2] 描画のための読み取りは gate 対象外', () => {
 		'/api/v1/admin/downgrade-preview',
 		'/api/v1/admin/grace-status',
 		'/api/v1/admin/invites',
+		// prefix (`/api/v1/data`) は**書き込みだけ**に効く。描画のための GET は通る。
+		'/api/v1/data/summary',
 	];
 
 	for (const path of READS) {
@@ -96,6 +104,21 @@ describe('[G3] 一括 PII を返す読み取りは例外として gate 対象', 
 	// バックアップが落ちる」。脅威モデルで効くのは書き換えと**持ち出し**。
 	it('GET /api/v1/admin/account/export (削除前エクスポート JSON)', () => {
 		expect(requiresParentGate('/api/v1/admin/account/export', 'GET')).toBe(true);
+	});
+
+	it('GET /api/v1/export (家族データ JSON / ZIP)', () => {
+		expect(requiresParentGate('/api/v1/export', 'GET')).toBe(true);
+	});
+
+	// 一覧の応答は id ではなく record 全体 (`CloudExportListItem extends CloudExportRecord`)。
+	// `pinCode` と `s3Key` が平文で載り、PIN は tenant にも plan にも縛られない bearer なので、
+	// DL だけ塞いでも一覧から読めば別端末で取り出せる。
+	it('GET /api/v1/export/cloud (共有 PIN が載る一覧)', () => {
+		expect(requiresParentGate('/api/v1/export/cloud', 'GET')).toBe(true);
+	});
+
+	it('GET /api/v1/export/cloud/<id>/download (実ファイル DL)', () => {
+		expect(requiresParentGate('/api/v1/export/cloud/ce-1/download', 'GET')).toBe(true);
 	});
 });
 

@@ -9,6 +9,7 @@ import {
 import { building } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { carryTrialStartedQuery } from '$lib/domain/trial-started-notice';
 import { can } from '$lib/policy/capabilities';
 import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
@@ -40,6 +41,11 @@ import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
+import {
+	CHECKOUT_SESSION_QUERY_KEY,
+	isSetupRedirectExempt,
+	resolveSetupGateTenantId,
+} from '$lib/server/routing/setup-gate';
 import { evaluateFrontDoor, ORIGIN_VERIFY_HEADER } from '$lib/server/security/origin-verify';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
@@ -610,57 +616,38 @@ export const handle: Handle = ({ event, resolve }) =>
 
 		// 2) ルート保護
 
-		// セットアップチェック（local モードのみ — 子供が未登録ならセットアップへ）
-		if (authMode === 'local') {
-			const tenantId = context?.tenantId ?? 'local';
-			if (
-				!path.startsWith('/setup') &&
-				!path.startsWith('/_app') &&
-				!path.startsWith('/favicon') &&
-				!path.startsWith('/api/health') &&
-				// #832: 公開 SEO エンドポイントはセットアップ前でもクロール可能にする。
-				// プリレンダも hooks.server を通るため、除外しないと /setup へ 302 され
-				// sitemap.xml がビルド時に生成できずビルド失敗する。
-				path !== '/sitemap.xml' &&
-				path !== '/robots.txt' &&
-				// #4644: オフライン着地ページ。sitemap.xml と同じくプリレンダ対象であり、
-				// 除外しないと /setup へ 302 されてビルド時に静的化できない。加えて実行時も
-				// 「オフラインなのに /setup へ飛ばそうとして更に失敗する」ことを避ける。
-				path !== '/offline' &&
-				// #1601: 配信停止リンクは未認証 + セットアップ前でもアクセス可能にする
-				// （特定電子メール法準拠: クリックしたら確実に解除できる必要がある）。
-				!path.startsWith('/unsubscribe/') &&
-				// #1594 ADR-0023 I8: founder 直接相談動線は公開ページ（未認証 / セットアップ前でもアクセス可）
-				!path.startsWith('/inquiry/founder') &&
-				!path.startsWith('/api/v1/inquiry/founder') &&
-				// #1598 ADR-0023 I7: PMF 判定アンケート (Sean Ellis Test) は HMAC トークン認証で
-				// メールリンクから直接アクセスする。セットアップ前でもアクセス可能にする。
-				!path.startsWith('/survey/') &&
-				// #4696: 全削除の直後は子供 0 人 = セットアップ必須になるが、そこで復元画面まで
-				// 遮断すると「エクスポートしておいてください」と案内しておきながら**バックアップから
-				// 戻せない**(ダミーの子供を登録するしか手が無い)。データ設定画面と import API だけは
-				// セットアップ前でも通す (復元すれば子供が戻り、セットアップ必須も自然に解ける)。
-				path !== '/admin/settings/data' &&
-				!path.startsWith('/api/v1/import')
-			) {
-				if (await isSetupRequired(tenantId)) {
-					redirect(302, '/setup');
-				}
-			}
-
-			// セットアップ完了済みなら /setup へのアクセスをブロック。
-			// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
-			// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
-			// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
-			// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
-			if (path.startsWith('/setup')) {
-				const [setupRequired, wizardInProgress] = await Promise.all([
-					isSetupRequired(tenantId),
-					isSetupWizardInProgress(tenantId),
-				]);
-				if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
-					redirect(302, '/');
-				}
+		// セットアップチェック — 子供が 1 人も登録されていない世帯をウィザードへ連れて行く
+		//
+		// PO 決裁 2026-09-10c: **cognito にも広げる**。旧実装は `authMode === 'local'` 限定で、
+		// **お金を払って登録した保護者だけがウィザードを一度も通らない**状態だった
+		// (cognito の登録完了後の着地は `/admin`)。ウィザードにしか無い 5 step
+		// (questionnaire / rules / activities-defaults / challenges / **first-adventure**) が
+		// 有料契約者に届かず、とくに first-adventure は「親が決め、子が記録する」中核ループを
+		// 保護者が自分の目で 1 回通す唯一の場所だった。
+		//
+		// **新しい setting は足さない** (PO 決裁)。`isSetupRequired` は archived の子供も数えるため
+		// (`setup-service.ts`)、全員 archive した既存契約者がウィザードに入ることは無い。
+		// 入るのは子供の行が 1 つも無いときだけで、それは新規テナントと同じ状態。
+		//
+		// 除外リストは `setup-gate.ts` に出した。local 向けに育ったリストをそのまま cognito に
+		// 広げると、cognito にしか無い導線 (課金 / 認証 / 同意 / 法務) を塞ぐ。
+		//
+		// **demo (anonymous) には広げない。** demo は書き込みが no-op (`shouldReturnDemoNoop`) で
+		// セットアップを完了できないため、一度入れたら永久に出られない (#4712 が同じ形を
+		// バナーで踏んでいる)。**cognito は未認証のときも広げない** — テナントが解決する前に
+		// 倒すと、ログインしに来た人を `/setup` へ飛ばしてログインできなくする。
+		//
+		// **prerender 中は `url.search` を読めない** (SvelteKit が「出力が query に依存しない」
+		// ことを保証するために throw する。実測: `/offline` `/sitemap.xml` が 500 で build 失敗)。
+		// プリレンダ対象は定義上 query に依存しないので、`building` 中は search 無しで判定する。
+		const setupTenantId = resolveSetupGateTenantId({ authMode, tenantId: context?.tenantId });
+		const setupGateSearch = building ? '' : event.url.search;
+		if (setupTenantId && !isSetupRedirectExempt(path, setupGateSearch)) {
+			if (await isSetupRequired(setupTenantId)) {
+				// #4885 の gate は着地先の query ごと落とす。1 度きりの告知 (?trialStarted=1、
+				// PO 決裁 2026-09-10 決定 3(a)) はここで消えると二度と出せない — 新規テナントは
+				// 必ず子供 0 人なので、申込経路の顧客は 100% この redirect を通る (#4887 B2)。
+				redirect(302, `/setup${carryTrialStartedQuery(setupGateSearch)}`);
 			}
 		}
 
@@ -683,6 +670,28 @@ export const handle: Handle = ({ event, resolve }) =>
 				);
 			}
 			redirect(302, authResult.redirect);
+		}
+
+		// セットアップ完了済みなら /setup へのアクセスをブロック。
+		// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
+		// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
+		// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
+		// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
+		//
+		// **認可 (`provider.authorize`) の後に置く。** 前に置くと、child が /setup を踏んだときに
+		// こちらが先に当たって `/` へ倒れ、#4700 が足した理由 (`/switch?reason=admin_forbidden`、
+		// authorization.ts:58) が評価されない。塞がること自体は変わらないが、**なぜ入れないのかが
+		// 顧客に伝わらなくなる**。
+		// **`setupRequired` → `/setup` の側 (:640-644) は認可より前のまま**にする — 後ろに動かすと
+		// 子供 0 人テナントの `/admin` が先に認可判定に晒され、ウィザードへ連れて行く経路が変わる。
+		if (setupTenantId && path.startsWith('/setup')) {
+			const [setupRequired, wizardInProgress] = await Promise.all([
+				isSetupRequired(setupTenantId),
+				isSetupWizardInProgress(setupTenantId),
+			]);
+			if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
+				redirect(302, '/admin');
+			}
 		}
 
 		// 2-b) 親 PIN gate (#4866 系 QM 監査 / PO 決裁 2026-09-10 決定 4)
@@ -786,6 +795,14 @@ export const handle: Handle = ({ event, resolve }) =>
 			identity &&
 			context?.tenantId &&
 			context.role !== 'child' &&
+			// PO 決裁 2026-09-10c と同じ「金の確認が先」(#4887 B3)。Stripe checkout の着地
+			// (`?session_id=…`) をここで /consent に倒すと、決済完了の確認バナーと
+			// `reconcileCheckoutSession` (webhook 未達時の救済) がその訪問で失われ、
+			// /consent は元の URL に戻さない (consent/+page.server.ts の着地は /admin)。
+			// 着地先は returnPath 次第で任意の path になるため path でなく query で見る
+			// (SSOT: setup-gate.ts の CHECKOUT_SESSION_QUERY_KEY)。次の遷移で通常どおり
+			// /consent に倒れるので、再同意を免除するのではなく 1 画面だけ後ろにずらす。
+			!new URLSearchParams(setupGateSearch).has(CHECKOUT_SESSION_QUERY_KEY) &&
 			!path.startsWith('/consent') &&
 			!path.startsWith('/legal/') &&
 			!path.startsWith('/auth/') &&

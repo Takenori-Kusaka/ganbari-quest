@@ -10,12 +10,25 @@
 // 「確認ダイアログが出ること」だけを見る test では本バグを検出できない (旧実装でも
 // native confirm は出ていた) ため、**child_challenges の実データが残ることを assert する**。
 
+import { formatChallengeTitle, getCategoryDisplayName } from '../../src/lib/domain/labels';
 import { expect, test } from './fixtures';
 
 const ELEMENTARY_NICKNAME = 'けんたくん';
 // sentinel: auto:weekly の unique index を避けつつ cleanup を精密化する。
 const SEED_SOURCE = 'e2e-4023-delete-confirm';
+// child_challenges.title は NOT NULL なので入れるが **画面には出ない**。#4809 以降、admin/challenges は
+// targetConfig.categoryId + targetValue から保護者向け (漢字) の表示タイトルを解決し直す
+// (child-challenge-service.ts:60-72 / :473)。画面の sentinel は下の EXPECTED_DIALOG_TITLE。
 const SEED_TITLE = 'E2E削除確認チャレンジ';
+const SEED_CATEGORY_ID = 1; // CATEGORIES.undou.legacyNumericId (= 運動)
+// 自動生成の target 上限 MAX_TARGET=7 (child-challenge-service.ts:85) を超える値にして、
+// seed / 週次自動生成のどのチャレンジとも表示タイトルが衝突しないことを構造的に保証する。
+const SEED_TARGET = 97;
+const EXPECTED_DIALOG_TITLE = formatChallengeTitle(
+	getCategoryDisplayName(SEED_CATEGORY_ID, 'senior'),
+	SEED_TARGET,
+	'senior',
+); // = 「今週は「運動」を97回」
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 function jstDate(offsetDays: number): string {
@@ -40,7 +53,7 @@ async function seedChallenge(workerDbPath: string): Promise<number> {
 					status, is_active, source_template_id,
 					current_value, target_value, completed, completed_at,
 					reward_claimed, reward_claimed_at
-				) VALUES (?, ?, ?, 'cooperative', 'weekly', ?, ?, ?, ?, 'active', 1, ?, 0, 5, 0, NULL, 0, NULL)`,
+				) VALUES (?, ?, ?, 'cooperative', 'weekly', ?, ?, ?, ?, 'active', 1, ?, 0, ?, 0, NULL, 0, NULL)`,
 			)
 			.run(
 				child.id,
@@ -48,9 +61,10 @@ async function seedChallenge(workerDbPath: string): Promise<number> {
 				'#4023 delete confirm test',
 				jstDate(-3),
 				jstDate(10),
-				JSON.stringify({ metric: 'count', categoryId: 1, baseTarget: 5 }),
+				JSON.stringify({ metric: 'count', categoryId: SEED_CATEGORY_ID, baseTarget: SEED_TARGET }),
 				JSON.stringify({ points: 10, message: 'よくがんばったね' }),
 				SEED_SOURCE,
+				SEED_TARGET,
 			);
 		return Number(info.lastInsertRowid);
 	} finally {
@@ -115,7 +129,9 @@ test.describe('#4023 横展開 admin/challenges 削除確認', () => {
 		// 確認ダイアログが出る (結果を書いた文言)
 		const dialog = page.getByTestId('admin-challenges-confirm-dialog');
 		await expect(dialog).toBeVisible();
-		await expect(dialog).toContainText(SEED_TITLE);
+		// #4809: 画面に出るのは保存 title ではなく targetConfig から解決した表示タイトル。
+		await expect(dialog).toContainText(EXPECTED_DIALOG_TITLE);
+		await expect(dialog).toContainText(ELEMENTARY_NICKNAME);
 
 		// キャンセル
 		await page.getByTestId('admin-challenges-confirm-cancel').click();

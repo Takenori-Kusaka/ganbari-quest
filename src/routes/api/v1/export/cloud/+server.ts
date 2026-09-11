@@ -2,6 +2,7 @@
 // クラウドエクスポートAPI（一覧取得 + 新規作成）
 
 import { json } from '@sveltejs/kit';
+import type { CloudExportStoredRow } from '$lib/domain/cloud-export-quota';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { redactStorageKeysInText } from '$lib/domain/storage-key-redaction';
 import { requireRole } from '$lib/server/auth/factory';
@@ -26,7 +27,27 @@ export const GET: RequestHandler = async ({ locals }) => {
 	requireRole(locals, ['owner', 'parent']);
 
 	try {
-		const exports = await listCloudExports(tenantId);
+		const rows = await listCloudExports(tenantId);
+		// 応答に載せるのは**画面が使う列だけ** (`CloudExportStoredRow`)。record をそのまま返すと
+		// `s3Key` (= `exports/<tenantId>/<pinCode>/<file>`) と `tenantId` まで client に出る。
+		// `storage-key-redaction.ts` がログ・例外・DB failureReason・画面文言の全部から PIN を
+		// 伏せている一方で、同じ PIN を s3Key ごと API が配っていた (#4867 の 7 層と同じ class)。
+		// `pinCode` は残す — 受け取る側に伝える手段であり、削除確認の名指しにも使う
+		// (`CloudExportStoredList.svelte:61,168`、#4867 PO 決裁で PIN 再発行は作らない)。
+		const exports: CloudExportStoredRow[] = rows.map((e) => ({
+			id: e.id,
+			exportType: e.exportType,
+			pinCode: e.pinCode,
+			expiresAt: e.expiresAt,
+			createdAt: e.createdAt,
+			description: e.description,
+			downloadCount: e.downloadCount,
+			maxDownloads: e.maxDownloads,
+			status: e.status,
+			failureReason: e.failureReason,
+			rowState: e.rowState,
+			daysUntilAutoDelete: e.daysUntilAutoDelete,
+		}));
 		return json({ ok: true, exports });
 	} catch (err) {
 		// #4867: 例外 message は PIN / s3Key を含みうる (PostgreSQL の UNIQUE 制約違反 detail
