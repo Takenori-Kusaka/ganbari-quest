@@ -10155,6 +10155,11 @@ const CHILD_STAMP_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	// #4913: 押印ぶん (instantPoints) が何に対する +Npt か分からず、おみくじぶんの +Npt と
+	// 並ぶと「+5pt」が 2 回連続で読める状態になっていた。おみくじ側と同じく「何の pt か」を
+	// 明示し、両方ある日は合計行を出す。
+	stampPressInstantPointsLabel: (points: number | string) => `スタンプ +${points}pt`,
+	stampPressTotalPointsLabel: (points: number | string) => `あわせて +${points}pt`,
 } as const;
 
 /**
@@ -10176,6 +10181,7 @@ const CHILD_STAMP_KANJI_OVERRIDES = {
 	stampPressNextBtn: '次へ',
 	stampPressConfirmBtn: 'OK',
 	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
+	stampPressTotalPointsLabel: (points: number | string) => `合計 +${points}pt`,
 } as const satisfies Partial<ChildStampLabels>;
 
 /** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */

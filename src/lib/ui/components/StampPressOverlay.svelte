@@ -175,15 +175,24 @@ function handleClose() {
 			{#if phase === 'points'}
 				<div class="sp__points-section">
 					<!-- #4687 ②③: 押せた日は押印ぶん、押せない日 (コンプリート済) は出さない。
-					     ログインボーナス (おみくじ) は台帳に載る額をそのまま併記する -->
+					     ログインボーナス (おみくじ) は台帳に載る額をそのまま併記する。
+					     #4913: 押印ぶんも「何の pt か」を明示し (旧: 無地の「+5pt」)、両方ある日は
+					     合計行を出して 2 つの「+Npt」の関係が読めるようにする。 -->
 					{#if instantPoints > 0}
-						<p class="sp__points-value" data-testid="stamp-instant-points">+{instantPoints}pt</p>
+						<p class="sp__points-value" data-testid="stamp-instant-points">
+							{t.stampPressInstantPointsLabel(instantPoints)}
+						</p>
 					{/if}
 					{#if loginBonusPoints > 0}
 						<p class="sp__login-bonus" data-testid="stamp-login-bonus">
 							{loginBonusRank
 								? t.stampPressLoginBonus(loginBonusRank, loginBonusPoints)
 								: t.stampPressLoginBonusNoRank(loginBonusPoints)}
+						</p>
+					{/if}
+					{#if instantPoints > 0 && loginBonusPoints > 0}
+						<p class="sp__points-total" data-testid="stamp-points-total">
+							{t.stampPressTotalPointsLabel(instantPoints + loginBonusPoints)}
 						</p>
 					{/if}
 					{#if stampRarity === 'N' && positiveMessage}
@@ -376,6 +385,17 @@ function handleClose() {
 		font-weight: 800;
 		color: var(--color-point, #d97706);
 		margin: 0;
+		animation: fade-in 0.3s ease-out;
+	}
+
+	/* #4913: 押印ぶん + おみくじぶんが両方ある日の合計行。2 つの「+Npt」の関係を明示する */
+	.sp__points-total {
+		font-size: 1.125rem;
+		font-weight: 900;
+		color: var(--color-point, #d97706);
+		margin: 2px 0 0;
+		padding-top: 2px;
+		border-top: 1px dashed var(--color-border-default);
 		animation: fade-in 0.3s ease-out;
 	}
 
