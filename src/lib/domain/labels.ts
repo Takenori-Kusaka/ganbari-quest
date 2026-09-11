@@ -7988,6 +7988,9 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	voiceErrorFileTooLarge: '5MB以下にしてください',
 	voiceErrorUnsupportedType: 'MP3/M4A/WAV/WebM/OGG形式のみ',
 	voiceErrorTooMany: '10件まで登録可能です',
+	// #4919: 追加成功時の 2 層 feedback (Toast + role="status" banner、admin/activities と同型)。
+	// 一覧反映を待たず (`use:enhance` 成功直後) 表示するため、追加したニックネームを埋め込む。
+	addedSuccess: (nickname: string) => `${nickname}を登録しました`,
 } as const;
 
 // #2362 PR-7 (ADR-0055、User §6): per-child challenge instance + 兄弟連動 UI
