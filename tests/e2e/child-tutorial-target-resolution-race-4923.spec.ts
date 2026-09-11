@@ -1,4 +1,5 @@
 // tests/e2e/child-tutorial-target-resolution-race-4923.spec.ts
+// cspell:ignore monkeypatch
 // #4923: 本番の子供 ❓ ガイドが 5 step すべて中央 fallback (data-tutorial-target=fallback) になる。
 //
 // ## 実機再現で特定した root cause
