@@ -155,12 +155,18 @@ test.describe('#4923 子供 ❓ ガイド対象解決レース (自動リロー�
 		// #4923 実機再現の核心: resolved に到達した「後」も、自動リロード連打の下で
 		// fallback へ揺り戻らず安定していることを継続的にポーリングして確認する。
 		// (修正前は 400ms 間隔の連打で resolved⇄fallback を繰り返し続けた)
-		const samples: string[] = [];
-		for (let i = 0; i < 40; i++) {
-			const target = await page.locator('.tutorial-overlay').getAttribute('data-tutorial-target');
-			samples.push(target ?? 'null');
-			await page.waitForTimeout(100);
-		}
+		// ポーリング自体は browser 側 (page.evaluate) で完結させ、Playwright 側の
+		// `page.waitForTimeout()` (ESLint playwright/no-wait-for-timeout で禁止) を使わない。
+		const samples: string[] = await page.evaluate(async () => {
+			const results: string[] = [];
+			const start = Date.now();
+			while (Date.now() - start < 4_000) {
+				const el = document.querySelector('.tutorial-overlay');
+				results.push(el?.getAttribute('data-tutorial-target') ?? 'null');
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+			return results;
+		});
 		expect(
 			samples.every((s) => s === 'resolved'),
 			`4 秒間の自動リロード連打下での data-tutorial-target 推移: ${samples.join(',')}`,
