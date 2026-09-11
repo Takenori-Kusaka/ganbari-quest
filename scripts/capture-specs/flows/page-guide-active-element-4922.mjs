@@ -69,5 +69,8 @@ export default async (page, capture) => {
 	const activeCount = await page.locator('.driver-active-element').count();
 	console.log(`[page-guide-active-element-4922] .driver-active-element count = ${activeCount}`);
 
-	await capture('subscription-step3-active-element');
+	// before/after を撮り分けるとき、個別 PNG のファイル名衝突で上書きされないよう
+	// CAPTURE_LABEL_SUFFIX で label を分ける (例: CAPTURE_LABEL_SUFFIX=before)。
+	const suffix = process.env.CAPTURE_LABEL_SUFFIX ? `-${process.env.CAPTURE_LABEL_SUFFIX}` : '';
+	await capture(`subscription-step3-active-element${suffix}`);
 };
