@@ -142,7 +142,9 @@ const DEVELOPER_JARGON = [
  */
 const NOT_FOR_CUSTOMER_PATTERNS = [
 	// 顧客に(直接)見える変更ではない / 顧客への影響はない / 顧客に見える変化: なし
-	/顧客(?:に|へ|への|には)(?:直接)?(?:見える|影響)[^。]{0,12}?(?:ない|なし|無い|ありません)/,
+	// 「変更 / 変化 / 影響」の直後の否定だけを見る。「顧客に見える通知が途切れない」のような
+	// 否定形の改善文（〜が消えない / 〜にならない）を巻き込まない
+	/顧客(?:に|へ|への|には)(?:直接)?(?:見える)?(?:変更|変化|影響)(?:は|が|では|で|:|：)?\s*(?:ない|なし|無い|ありません)/,
 	// 顧客には見えない / 顧客からは見えない
 	/顧客(?:に|から)は見えない/,
 ];
@@ -281,7 +283,10 @@ export function sanitizeNoteText(text) {
 	// 第 1 文の切り出しで `**` の閉じが文末の `。` の後ろに取り残されると、開きっぱなしの
 	// `**` が Discord ではリテラルのアスタリスクとして表示される（実測: 8 件中 5 件）。
 	// 閉じ位置を推測して継ぎ足すより、奇数なら強調を全部外す方が安全側。
-	if (((out.match(/\*\*/g) ?? []).length & 1) === 1) out = out.replace(/\*\*/g, '');
+	// `__`（下線）/ `~~`（取り消し線）も Discord の装飾記号で同じ壊れ方をする。
+	for (const marker of [/\*\*/g, /__/g, /~~/g]) {
+		if (((out.match(marker) ?? []).length & 1) === 1) out = out.replace(marker, '');
+	}
 	return out.trim();
 }
 
@@ -294,7 +299,10 @@ export function sanitizeNoteText(text) {
  * @param {string} text
  * @returns {string | null}
  */
-export function findCustomerUnsafeReason(text) {
+export function findCustomerUnsafeReason(rawText) {
+	// 全角英字（`ｇａｎｂａｒｉ－ｑｕｅｓｔ．ｓｕｐｐｏｒｔ`）はそのままだと英字語 / リンク /
+	// パスのどの判定にも当たらず素通りする。判定は互換分解（NFKC）した文に対して行う。
+	const text = typeof rawText === 'string' ? rawText.normalize('NFKC') : '';
 	if (text === '') return '本文が空';
 	if (text.length > MAX_ITEM_LENGTH) return `長すぎる (${text.length} 文字 > ${MAX_ITEM_LENGTH})`;
 	if (text.includes('`')) return 'コード片 (バッククォート) を含む';
@@ -336,11 +344,26 @@ export function extractCustomerValueSentence(body) {
 	const cleaned = section.text.trim();
 	if (cleaned === '') return null;
 
-	const firstLine = cleaned.split('\n').find((l) => l.trim() !== '');
-	if (firstLine === undefined) return null;
+	const rawFirstLine = cleaned.split('\n').find((l) => l.trim() !== '');
+	if (rawFirstLine === undefined) return null;
+	// 行頭の箇条書き / 引用マーカーは本文ではない（残すと `• - 本文` の二重記号で配信される）
+	const firstLine = rawFirstLine.replace(/^\s*(?:[-*+>]\s+|\d+\.\s+)+/, '');
 
-	const period = firstLine.indexOf('。');
-	const sentence = period === -1 ? firstLine.trim() : firstLine.slice(0, period + 1).trim();
+	// 最初の `。` で切る。ただし「」『』の中の `。`（画面文言の引用）では切らない —
+	// 「ポイントが足りません。」の表示を直しました。 を 「ポイントが足りません。 で切ると
+	// 開き括弧だけの断片が配信される。
+	let depth = 0;
+	let end = -1;
+	for (let i = 0; i < firstLine.length; i++) {
+		const ch = firstLine[i];
+		if (ch === '「' || ch === '『') depth++;
+		else if ((ch === '」' || ch === '』') && depth > 0) depth--;
+		else if (ch === '。' && depth === 0) {
+			end = i;
+			break;
+		}
+	}
+	const sentence = end === -1 ? firstLine.trim() : firstLine.slice(0, end + 1).trim();
 	return sentence === '' ? null : sentence;
 }
 
@@ -469,6 +492,14 @@ export function buildReleaseNotes(input) {
 		if (excludedLabel !== undefined) {
 			warnings.push(
 				`PR #${parsed.prNumber} は ${excludedLabel} ラベルのため自動配信しません（伝えるなら人が判断して告知してください）`,
+			);
+			continue;
+		}
+		// `security` ラベルは人が付けるので付け忘れる（実測: fix(security) の #4891 に付いていなかった）。
+		// commit scope の `security` も同じ除外に倒す（開示順序は人が決める）。
+		if (parsed.scope === 'security') {
+			warnings.push(
+				`PR #${parsed.prNumber} は fix(security) のため自動配信しません（伝えるなら人が判断して告知してください）`,
 			);
 			continue;
 		}

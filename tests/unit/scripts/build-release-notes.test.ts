@@ -582,6 +582,67 @@ describe('#4883 第 22 回リリースの実配信を再現させない', () => 
 	});
 });
 
+// ---------------------------------------------------------------------------
+// adversarial review 第 2 回 (hotfix 化時、tmp/adversarial-evidence/4884.json) の実測指摘
+// ---------------------------------------------------------------------------
+
+describe('#4883 adversarial review 第 2 回 — 配信面の整合と開示順序', () => {
+	const body = (s: string) => `## 顧客価値・目的\n\n${s}\n\n## 関連 Issue\n\nCloses #1\n`;
+
+	it('fix(security) は security ラベルが無くても自動配信しない（ラベルは付け忘れる: 実測 #4891）', () => {
+		const result = buildReleaseNotes({
+			commits: ['fix(security): #4887 共有 PIN / 閲覧 token を API が平文で配る穴を塞ぐ (#4891)'],
+			pullRequests: [
+				{
+					number: 4891,
+					body: body('家族全員のバックアップを引き当てる共有 PIN が外から取れなくなりました。'),
+					labels: ['type:fix'],
+				},
+			],
+		});
+		expect(result.status).toBe('skip');
+		expect(result.warnings.join('\n')).toContain('4891');
+	});
+
+	it('全角英字のドメイン / 誘導文は NFKC 正規化で英字語として落とす', () => {
+		const r = resolveReleaseNote(
+			body('サポート窓口（ｇａｎｂａｒｉ－ｑｕｅｓｔ．ｓｕｐｐｏｒｔ）に PIN をお知らせください。'),
+		);
+		expect(r.status).toBe('rejected');
+	});
+
+	it('否定形の改善文（〜が途切れない / 〜が消えない）を「明言」と誤判定しない', () => {
+		for (const s of [
+			'顧客に見える通知が途切れないようになりました。',
+			'顧客に見える残高が、記録を取り消しても減らないままになる問題を直しました。',
+		]) {
+			expect(resolveReleaseNote(body(s)).status, s).toBe('included');
+		}
+	});
+
+	it('行頭の箇条書き / 引用マーカーを本文に残さない', () => {
+		expect(extractCustomerValueSentence(body('- 保護者が設定を保存できるようになりました。'))).toBe(
+			'保護者が設定を保存できるようになりました。',
+		);
+		expect(extractCustomerValueSentence(body('> 保護者が設定を保存できるようになりました。'))).toBe(
+			'保護者が設定を保存できるようになりました。',
+		);
+	});
+
+	it('「」内の `。` で第 1 文を切らない（画面文言の引用）', () => {
+		expect(
+			extractCustomerValueSentence(
+				body('「ポイントが足りません。」の表示を直しました。以前は別の文でした。'),
+			),
+		).toBe('「ポイントが足りません。」の表示を直しました。');
+	});
+
+	it('`__` / `~~` も奇数個なら外す（Discord の下線 / 取り消し線）', () => {
+		expect(sanitizeNoteText('__重要__ ~~旧料金 は廃止。')).toBe('__重要__ 旧料金 は廃止。');
+		expect(sanitizeNoteText('__重要 は廃止。')).toBe('重要 は廃止。');
+	});
+});
+
 describe('#4883 labels.ts SSOT の読み取り', () => {
 	it('RELEASE_NOTES_LABELS の全キーを実 labels.ts から読める', () => {
 		// build-time パーサは namespace ブロックを最初の閉じ波括弧で切る。値かコメントに
