@@ -252,6 +252,8 @@ export const PAGE_TITLES = {
 	// セットアップ完了・各ステップ
 	setupComplete: 'ぼうけんのはじまり！',
 	setupChildren: `${CHILD_TERMS.honorific}登録`,
+	// #4912: 保護者が操作する画面なのに他 setup step と違い title が無かった
+	setupQuestionnaire: 'かんたん質問',
 	setupFirstAdventure: 'はじめてのぼうけん',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
 	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
@@ -351,6 +353,20 @@ export function formatPeople(n: number): string {
 }
 export function formatDateRange(start: string, end: string): string {
 	return `${formatJstDate(start)} 〜 ${formatJstDate(end)}`;
+}
+
+/**
+ * setup wizard の一括取込ステップ（活動パック → rewards / ごほうびセット → rules /
+ * ルール → activities-defaults）が次画面へ引き継ぐ「N 件追加（M 件は登録済みのため
+ * スキップ）」の共通文言 (#4912)。3 画面が同じ形の notice を出すため、個別 namespace に
+ * 複製せずここに一元化する。0 件 (= スキップ操作 / 何も取込まれなかった) のときは
+ * 呼び出し側で表示自体を抑制する (本関数は呼ばない)。
+ */
+export function formatSetupImportNotice(imported: number, skipped: number): string {
+	if (skipped > 0) {
+		return `${imported}件追加しました（${skipped}件は登録済みのためスキップしました）。`;
+	}
+	return `${imported}件追加しました。`;
 }
 
 /**
@@ -8076,23 +8092,25 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	challengeHomeworkDaily: '毎日宿題をやらせたい',
 	challengeChores: '家事をやらせたい',
 	challengeBeyondGames: 'ゲーム以外のことに興味を惹かせたい',
-	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
-	activityLevelFewLabel: 'すこしずつ（3〜5こ）',
-	activityLevelFewDesc: 'はじめてでも むりなく',
-	activityLevelNormalLabel: 'ふつう（5〜10こ）',
+	// #4912: この画面は保護者が操作する（#4802「保護者画面の呼称・見出しを 1 つに揃える」の対象漏れ）。
+	// Q1 は漢字表記なのに Q2/Q3 だけ子供向けひらがな表記になっていたため、Q1 と同じ調子に揃える。
+	q2Legend: 'Q2. 1日にどれくらい記録する？',
+	activityLevelFewLabel: '少しずつ（3〜5個）',
+	activityLevelFewDesc: 'はじめてでも無理なく',
+	activityLevelNormalLabel: 'ふつう（5〜10個）',
 	activityLevelNormalDesc: 'おすすめ',
-	activityLevelManyLabel: 'たくさん（10こ いじょう）',
-	activityLevelManyDesc: 'いろいろ きろくしたい',
+	activityLevelManyLabel: 'たくさん（10個以上）',
+	activityLevelManyDesc: 'いろいろ記録したい',
 	recommendedBadge: 'おすすめ',
 	q3Legend: 'Q3. チェックリストを自動作成する？',
-	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	q3Hint: '選んだリストが自動で作成されます（あとから変更できます）',
 	// プリセットラベル（チェックリスト一覧用）
-	presetMorningRoutine: 'あさのしたく',
-	presetEveningRoutine: 'よるのじゅんび',
-	presetAfterSchool: 'がっこうからかえったら',
-	presetWeekendChores: 'しゅうまつのおてつだい',
-	presetBeyondGames: 'ゲームいがいのチャレンジ',
-	submittingLabel: 'せっていちゅう...',
+	presetMorningRoutine: '朝の支度',
+	presetEveningRoutine: '夜の準備',
+	presetAfterSchool: '学校から帰ったら',
+	presetWeekendChores: '週末のお手伝い',
+	presetBeyondGames: 'ゲーム以外のチャレンジ',
+	submittingLabel: '設定中...',
 	startButton: 'この設定ではじめる！',
 	skipButton: 'あとで設定する（スキップ）',
 } as const;

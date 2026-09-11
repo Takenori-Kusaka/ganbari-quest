@@ -22,7 +22,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.context) {
 		redirect(302, '/auth/login');
 	}
@@ -32,6 +32,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (children.length === 0) {
 		redirect(302, '/setup/children');
 	}
+
+	// #4912: 直前の step (ごほうびセット取込) の結果を透過する (rewards → rules 遷移)。
+	const rewardsImported = Number(url.searchParams.get('rewardsImported') ?? 0);
+	const rewardsSkipped = Number(url.searchParams.get('rewardsSkipped') ?? 0);
 
 	const ages = children.map((c) => c.age);
 	const minAge = Math.min(...ages);
@@ -76,6 +80,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname, age: c.age })),
 		childAgeMin: minAge,
 		childAgeMax: maxAge,
+		rewardsImported,
+		rewardsSkipped,
 	};
 };
 

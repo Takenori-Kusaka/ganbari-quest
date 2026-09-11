@@ -2,7 +2,13 @@
 import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
 import type { ChildId } from '$lib/domain/ids';
-import { APP_LABELS, PAGE_TITLES, SETUP_LABELS, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatSetupImportNotice,
+	PAGE_TITLES,
+	SETUP_LABELS,
+	SETUP_REWARDS_LABELS,
+} from '$lib/domain/labels';
 import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -60,6 +66,17 @@ $effect(() => {
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
 	{SETUP_REWARDS_LABELS.pageDesc}
 </p>
+
+<!-- #4912: 直前の step (活動パック取込) の結果を出す。飛ばした/何も入らなかった人には出さない。 -->
+{#if data.packsImported > 0 || data.packsSkipped > 0}
+	<p
+		class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+		role="status"
+		data-testid="setup-rewards-import-notice"
+	>
+		{formatSetupImportNotice(data.packsImported, data.packsSkipped)}
+	</p>
+{/if}
 
 <SetupNoScriptNotice />
 

@@ -20,7 +20,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.context) {
 		redirect(302, '/auth/login');
 	}
@@ -31,6 +31,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (children.length === 0) {
 		redirect(302, '/setup/children');
 	}
+
+	// #4912: 直前の step (活動パック取込) の結果を透過する。旧実装は
+	// `?packsImported=N&packsSkipped=M` を付けて redirect しながらどこでも読んでいなかった
+	// ため、親は「42件追加 / 49件はスキップ」を一度も確認できなかった。
+	const packsImported = Number(url.searchParams.get('packsImported') ?? 0);
+	const packsSkipped = Number(url.searchParams.get('packsSkipped') ?? 0);
 
 	// Compute child age range for recommendations
 	const ages = children.map((c) => c.age);
@@ -67,6 +73,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname, age: c.age })),
 		childAgeMin: minAge,
 		childAgeMax: maxAge,
+		packsImported,
+		packsSkipped,
 	};
 };
 
