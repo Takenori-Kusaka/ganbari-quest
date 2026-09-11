@@ -1025,7 +1025,13 @@ jobs:
           # 1 つも見えない。旧実装はこれで差分範囲が常に「直近 10 コミット」へ落ち、
           # 同じ文面を 3 リリース連続で配信していた（#4883 RC2）。
           fetch-tags: true
-          fetch-depth: 200
+          # 浅い clone にしない。shallow 境界より奥の commit は `git log PREV..HEAD` から
+          # **黙って消える**（第 22 回リリースは merge 込みで 210 commit。depth 200 だと
+          # 一番古い側が warning 1 つ出ずに落ちる = `head -30` と同じ class の欠陥）。
+          # 履歴は全部取り、blob は checkout に要る分だけ遅延取得する（1 GiB の pack を
+          # release-notes のために毎回引かない）。
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Resolve commit range since last deploy
         id: range
@@ -1039,6 +1045,14 @@ jobs:
             # タグを打たないと、次回も同じ理由で解決できず配信が恒久的に止まる。
             # 1 リリース分の告知を落としてでも自己回復させる。
             echo "::warning::直近の deploy タグを解決できませんでした。今回のリリース通知はスキップし、次回のためにタグだけ進めます"
+            # 「範囲を確定できず配信しなかった」は後から一番疑われるケース。job ログの
+            # warning だけでなく summary にも残す（配信証跡の step は resolved=true 限定）。
+            {
+              echo "## リリース通知"
+              echo ""
+              echo "- 判定: \`skip\`（直近の deploy タグを解決できず、対象範囲を確定できなかった）"
+              echo "- 配信: なし。次回のために deploy タグだけ進めた"
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "resolved=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

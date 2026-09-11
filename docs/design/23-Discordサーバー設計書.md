@@ -154,7 +154,7 @@
 顧客向けリリースノートの本文は、**merge 済み PR の `## 顧客価値・目的` 第 1 文**、または PR body の `<!-- release-note: 顧客向けの 1 文 -->` 宣言だけを出典とする。`<!-- release-note: none -->` で個別に配信対象から外す。
 
 - **コミット件名を顧客向け本文に使わない**。コミット件名は開発者が開発者向けに書いた文であり、顧客には意味を成さない
-- **fail-closed**: 顧客向けと確定できる項目が 0 件なら投稿しない。判定に落ちた PR は deploy の `::warning::` に理由付きで列挙され、Dev は明示宣言で載せ直せる
+- **fail-closed**: 顧客向けと確定できる項目が 0 件なら投稿しない。判定に落ちた PR は deploy の `::warning::` に理由付きで列挙され、Dev は明示宣言で載せ直せる（載せ直せるのは、その PR を含むリリースが deploy される前まで。deploy 後は範囲外になる）。著者が「顧客に見える変更ではない」と明言した文も落とす
 - 判定・整形は `scripts/build-release-notes.mjs`（`tests/unit/scripts/build-release-notes.test.ts` で単体検証）。差分範囲は直近の `deploy-*` タグ（HEAD の祖先）から HEAD まで
 - 固定文言（タイトル / 見出し / フィードバック導線）は `RELEASE_NOTES_LABELS`（`src/lib/domain/labels.ts`）が SSOT
 

@@ -116,6 +116,9 @@ const DEVELOPER_JARGON = [
 	'カバレッジ',
 	'開発チーム',
 	'開発者向け',
+	'内部変更',
+	'内部的な変更',
+	'内部作業',
 	// 画面の作りを指す UI 用語
 	'ダイアログ',
 	'モーダル',
@@ -124,6 +127,24 @@ const DEVELOPER_JARGON = [
 	'トグル',
 	'バナー',
 	'ナビゲーション',
+];
+
+/**
+ * 著者が「顧客に見える変更ではない」と**明言している**文。
+ *
+ * 語彙判定（英字語 / コード片 / 開発者語彙）は「顧客向けの文か」を語で推定するが、
+ * 「顧客に直接見える変更ではない。」（実測: PR #4866 の第 1 文）は英字語もコード片も含まず
+ * 素通りし、そのまま箇条書きとして配信される。網を「語彙」から「意図」まで 1 段広げ、
+ * 否定の表明は fail-closed で落とす。
+ *
+ * 移行期の構造問題でもある: 「この文が顧客へ配信される」と知らずに書かれた既存 PR body が
+ * 最初のリリースの原材料になるため、テンプレートの案内だけでは防げない。
+ */
+const NOT_FOR_CUSTOMER_PATTERNS = [
+	// 顧客に(直接)見える変更ではない / 顧客への影響はない / 顧客に見える変化: なし
+	/顧客(?:に|へ|への|には)(?:直接)?(?:見える|影響)[^。]{0,12}?(?:ない|なし|無い|ありません)/,
+	// 顧客には見えない / 顧客からは見えない
+	/顧客(?:に|から)は見えない/,
 ];
 
 /**
@@ -257,6 +278,10 @@ export function sanitizeNoteText(text) {
 	out = out.replace(/[([（【]\s*[)\]）】]/g, ''); // 参照を消して空になったカッコ
 	out = out.replace(/\s+/g, ' '); // 連続空白（除去後の二重空白を含む）
 	out = out.replace(/\s+([、。」）】])/g, '$1'); // 句読点直前の空白
+	// 第 1 文の切り出しで `**` の閉じが文末の `。` の後ろに取り残されると、開きっぱなしの
+	// `**` が Discord ではリテラルのアスタリスクとして表示される（実測: 8 件中 5 件）。
+	// 閉じ位置を推測して継ぎ足すより、奇数なら強調を全部外す方が安全側。
+	if (((out.match(/\*\*/g) ?? []).length & 1) === 1) out = out.replace(/\*\*/g, '');
 	return out.trim();
 }
 
@@ -285,6 +310,9 @@ export function findCustomerUnsafeReason(text) {
 	}
 	for (const jargon of DEVELOPER_JARGON) {
 		if (text.includes(jargon)) return `開発者語彙を含む: ${jargon}`;
+	}
+	for (const pattern of NOT_FOR_CUSTOMER_PATTERNS) {
+		if (pattern.test(text)) return '著者が「顧客に見える変更ではない」と明言している';
 	}
 	return null;
 }
@@ -460,20 +488,22 @@ export function buildReleaseNotes(input) {
 	}
 
 	const selected = items.slice(0, MAX_ITEMS);
-	const title = release.title ?? '';
-	const footer = app.name ?? '';
+	// 「枠」の文言は全て requireLabel で引く（`?? ''` で空文字に代替すると、空の見出し /
+	// 文字列 `undefined` が顧客へ配信され、しかも CI は緑のまま）。
+	const title = requireLabel(release, 'title');
+	const footer = requireLabel(app, 'name');
 
 	if (selected.length === 0) {
 		// fail-closed: 顧客向けと確定できる項目が 1 件も無いなら投稿しない。
 		return { status: 'skip', title, description: '', footer, items: [], warnings };
 	}
 
-	const bullet = release.bullet ?? '• ';
+	const bullet = requireLabel(release, 'bullet');
 	/** @type {string[]} */
 	const blocks = [];
 	for (const [category, heading] of /** @type {const} */ ([
-		['feature', release.sectionFeature],
-		['fix', release.sectionFix],
+		['feature', requireLabel(release, 'sectionFeature')],
+		['fix', requireLabel(release, 'sectionFix')],
 	])) {
 		const lines = selected.filter((i) => i.category === category).map((i) => `${bullet}${i.text}`);
 		if (lines.length > 0) blocks.push(`${heading}\n${lines.join('\n')}`);
@@ -483,7 +513,7 @@ export function buildReleaseNotes(input) {
 	if (omitted > 0)
 		blocks.push(`${bullet}${requireLabel(release, 'moreItems').replace('N', String(omitted))}`);
 
-	blocks.push(release.feedbackGuide ?? '');
+	blocks.push(requireLabel(release, 'feedbackGuide'));
 
 	return {
 		status: 'post',

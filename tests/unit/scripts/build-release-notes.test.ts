@@ -438,6 +438,150 @@ describe('#4883 顧客向け判定の境界（adversarial review 反映）', () 
 	});
 });
 
+// ---------------------------------------------------------------------------
+// QM レビュー (PR #4884 M1 / M2) — 次に流れる実リリース (origin/main..origin/develop 50 commit)
+// に本実装を当てて出た、顧客に見える欠陥 2 件の回帰固定
+// ---------------------------------------------------------------------------
+
+describe('#4883 QM M1 — 閉じていない強調記号を配信しない', () => {
+	// PR #4885 の実文面。`**` の閉じが `。` の後ろにあるため、第 1 文で切ると開きっぱなしになる
+	const real4885 =
+		'## 顧客価値・目的\n\n**お金を払って登録した保護者だけが、セットアップウィザードを一度も通っていませんでした。**\n\n`hooks.server.ts` の判定は…\n';
+
+	it('第 1 文の切り出しで `**` が奇数個になったら強調を全部外す', () => {
+		const r = resolveReleaseNote(real4885);
+		expect(r.status).toBe('included');
+		expect(r.text).toBe(
+			'お金を払って登録した保護者だけが、セットアップウィザードを一度も通っていませんでした。',
+		);
+		expect(r.text).not.toContain('**');
+	});
+
+	it('閉じている強調はそのまま通す（Discord が太字として描画する）', () => {
+		expect(sanitizeNoteText('警告が保護者に**実際に届く**ようになります。')).toBe(
+			'警告が保護者に**実際に届く**ようになります。',
+		);
+	});
+
+	it('配信本文のどの行にも奇数個の `**` を残さない', () => {
+		const result = buildReleaseNotes({
+			commits: ['fix(setup): #4883 セットアップ必須 redirect を cognito にも広げる (#4885)'],
+			pullRequests: [{ number: 4885, body: real4885, labels: [] }],
+		});
+		expect(result.status).toBe('post');
+		for (const line of result.description.split('\n')) {
+			expect((line.match(/\*\*/g) ?? []).length % 2, line).toBe(0);
+		}
+	});
+});
+
+describe('#4883 QM M2 — 「顧客に見える変更ではない」と明言した文を配信しない', () => {
+	const body = (s: string) => `## 顧客価値・目的\n\n${s}\n\n## 関連 Issue\n\nCloses #1\n`;
+
+	it('PR #4866 の実文面（英字語もコード片も含まない否定表明）を落とす', () => {
+		const r = resolveReleaseNote(
+			body('顧客に直接見える変更ではない。**CI が pin 無しで任意コードを引く経路を塞ぐ。**'),
+		);
+		expect(r.status).toBe('rejected');
+		expect(r.reason).toContain('明言');
+	});
+
+	it('否定表明の言い回しの揺れも落とす', () => {
+		for (const s of [
+			'顧客に見える変化なし。',
+			'顧客に見える変化はありません。',
+			'顧客への影響はない。',
+			'顧客には見えない内部の整理です。',
+			'顧客に見える変化: なし。',
+			'内部変更のみで、画面は変わりません。',
+		]) {
+			expect(resolveReleaseNote(body(s)).status, s).toBe('rejected');
+		}
+	});
+
+	it('肯定文の「顧客に見える」は落とさない（否定だけを見る）', () => {
+		expect(resolveReleaseNote(body('顧客に見える画面の読み込みが速くなりました。')).status).toBe(
+			'included',
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 第 22 回リリース (2026-09-11、main e2a82f53a) の実配信の回帰固定
+//
+// 実際に顧客へ届いた全文:
+//   🐛 修正
+//   • 監査差し戻し 33 件 — release blocker (製品欠陥 8 / テスト 25 / severity 3) を develop で閉じる ()
+// 199 commit / 184 PR のリリースで、顧客に出たのはこの 1 行だった（AI が SKIP を返したのに
+// fallback が「唯一 scope 無しの fix: だった」1 件だけを拾って投稿した）。
+// ---------------------------------------------------------------------------
+
+describe('#4883 第 22 回リリースの実配信を再現させない', () => {
+	// #4888 の実コミット件名と `## 顧客価値・目的` 第 1 文
+	const commit4888 =
+		'fix: #4887 監査差し戻し 33 件 — release blocker (製品欠陥 8 / テスト 25 / severity 3) を develop で閉じる (#4888)';
+	const body4888 =
+		'## 顧客価値・目的\n\n第22回統合 PR #4887 が **NO-GO**（監査、残 NG 13 件）となった原因のうち develop レーンに属する 33 件を閉じ、release を再 cut できる状態に戻します。顧客に届く変化は次の 8 点です。\n\n1. **運営ダッシュボード `/ops` に入れる**\n';
+	const dependabot = (n: number) =>
+		`build(deps-dev): bump vitest from 3.2.4 to 4.0.0 in the vitest group (#${n})`;
+
+	it('実際に配信された 1 行を二度と出さない', () => {
+		const result = buildReleaseNotes({
+			commits: [commit4888, dependabot(4856), dependabot(4857)],
+			pullRequests: [
+				{ number: 4888, body: body4888, labels: [] },
+				// dependabot PR は `## 顧客価値・目的` 節を持たない（実測: 節が無い 9 件は全部 build(deps)）
+				{ number: 4856, body: 'Bumps vitest from 3.2.4 to 4.0.0.', labels: ['dependencies'] },
+				{ number: 4857, body: 'Bumps vitest from 3.2.4 to 4.0.0.', labels: ['dependencies'] },
+			],
+		});
+		expect(result.status).toBe('skip');
+		const serialized = `${result.title}\n${result.description}\n${JSON.stringify(result.items)}`;
+		expect(serialized).not.toContain('監査差し戻し');
+		expect(serialized).not.toContain('release blocker');
+		expect(serialized).not.toContain('()');
+		// 落とした理由は warning に残る（#4888 は英字語 NO-GO / NG / develop / release を含む）
+		expect(result.warnings.join('\n')).toContain('4888');
+	});
+
+	it('顧客価値・目的 節を持つ PR が 1 件も無ければ投稿しない（fallback で生件名を出さない）', () => {
+		const result = buildReleaseNotes({
+			commits: [
+				dependabot(4812),
+				dependabot(4813),
+				'chore(graphify): regenerate knowledge graph (#4870)',
+			],
+			pullRequests: [
+				{ number: 4812, body: 'Bumps foo.', labels: ['dependencies'] },
+				{ number: 4813, body: 'Bumps bar.', labels: ['dependencies'] },
+			],
+		});
+		expect(result.status).toBe('skip');
+		expect(result.description).toBe('');
+	});
+
+	it('199 件の範囲でも先頭 30 件で切らない（旧 `head -30` と同 class の欠陥を作らない）', () => {
+		const commits: string[] = [];
+		const pullRequests: { number: number; body: string; labels: string[] }[] = [];
+		for (let i = 0; i < 199; i++) {
+			// 150 番目にだけ顧客向けの PR を置く。それ以外は通知対象外の型
+			if (i === 150) {
+				commits.push('fix(child-ui): #1 年齢だけで登録した子供が 0 歳と表示される (#4700)');
+				pullRequests.push({
+					number: 4700,
+					body: '## 顧客価値・目的\n\n年齢だけを入力して登録したお子さまが 0 歳と表示されることがあった問題を直しました。\n',
+					labels: [],
+				});
+			} else {
+				commits.push(`chore(graphify): regenerate knowledge graph (#${5000 + i})`);
+			}
+		}
+		const result = buildReleaseNotes({ commits, pullRequests });
+		expect(result.status).toBe('post');
+		expect(result.items.map((i) => i.prNumber)).toEqual([4700]);
+	});
+});
+
 describe('#4883 labels.ts SSOT の読み取り', () => {
 	it('RELEASE_NOTES_LABELS の全キーを実 labels.ts から読める', () => {
 		// build-time パーサは namespace ブロックを最初の閉じ波括弧で切る。値かコメントに
