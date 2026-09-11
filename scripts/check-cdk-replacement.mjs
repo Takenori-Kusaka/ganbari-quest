@@ -35,19 +35,101 @@ export function stripAnsi(str) {
 // ときに片方だけ直す事故を作る。
 
 /**
- * CDK diff の stdout 行リストを解析して Replacement/Destroy リソースを抽出する
+ * gate の検出対象から恒久的に外すリソース (#4905)。
  *
- * 検出パターン:
- *   - [-] AWS::Type LogicalId ... — リソース削除 (destroy)
- *   - [~] AWS::Type LogicalId ... (replace) / (replacement) — リソース置き換え
- *   - プロパティ行の (may cause replacement) / (requires replacement) / (REPLACEMENT)
+ * `s3deploy.BucketDeployment` は custom resource handler Lambda に `AwsCliLayer`
+ * (`AWS::Lambda::LayerVersion`) を**無条件で**付ける。中身は `@aws-cdk/asset-awscli-v1`
+ * が配る AWS CLI v1 の zip だけで、プロパティは `Content` と固定 `Description` の 2 つのみ。
+ *
+ * この置換は **真正**である (LayerVersion は全プロパティが CFN 上 Update requires:
+ * Replacement) が、**失うものが無い**:
+ *   - CFN は「新規作成 → 参照張替え → 旧削除」の順で行い、Lambda は削除済み layer version を
+ *     参照する関数はそのまま動き続けると明記している
+ *   - layer は handler の `Layers` からしか参照されず `Custom::CDKBucketDeployment` の
+ *     Properties に含まれないため、配信済み S3 オブジェクトは触られない
+ *
+ * そして **回避できない**: `BucketDeploymentProps` に layer を差し替える prop は無く、
+ * `AwsCliLayer` は `(scope, id)` しか取らない。CDK CLI にリソース除外機能も無い
+ * (aws-cdk-cli#903 は open)。`cdk diff --method=change-set` でも消えない (既定 `auto` が
+ * 既に change set を使っており、change set でも `Always` 判定になる)。
+ *
+ * 結果、`@aws-cdk/asset-awscli-v1` の pin が動くたびに `BucketDeployment` の数だけ
+ * BLOCK が起き、そのたびに承認 commit を main に積む運用になっていた。承認は main HEAD の
+ * 1 commit にしか紐づかないため、承認後に別 commit を積むと失効して再び止まる
+ * (第22回統合 2026-09-11 で実際に 2 度止まった)。
+ *
+ * → **型と construct path の両方が一致するものだけ**を除外する。除外は握り潰しではなく
+ *    main() が exempt として必ず出力する (silent skip を作らない)。
+ *
+ * 詳細と一次情報: docs/decisions/0019-cdk-replacement-detection-gate.md
+ */
+const EXEMPT_RULES = [
+	{
+		resourceType: 'AWS::Lambda::LayerVersion',
+		idSuffix: '/AwsCliLayer',
+		reason: 'CDK 生成の AWS CLI layer (資源を持たず回避不能、ADR-0019)',
+	},
+];
+
+/**
+ * 除外対象かどうか。**型と construct path の両方**が一致したときだけ true。
+ *
+ * @param {string} resourceType 例: 'AWS::Lambda::LayerVersion'
+ * @param {string} id           CDK construct path 例: 'ErrorPagesDeploy/AwsCliLayer'
+ * @returns {{ reason: string } | null}
+ */
+export function findExemption(resourceType, id) {
+	for (const rule of EXEMPT_RULES) {
+		if (resourceType === rule.resourceType && id.endsWith(rule.idSuffix)) {
+			return { reason: rule.reason };
+		}
+	}
+	return null;
+}
+
+/**
+ * リソース行の末尾に付く impact 語 → reason。
+ *
+ * 実際の CLI 出力は括弧なしの ` replace` / ` destroy` / ` may be replaced`
+ * (aws-cdk の `formatImpact` 実測)。旧実装は `(replace)` という**存在しない形**を
+ * 探していたため、リソース行単独の検出が死んでいた (#4905)。
+ *
+ * `orphan` (stack から外れるが実体は残る) は破壊ではないので対象にしない。
+ */
+const RESOURCE_IMPACT = [
+	{ pattern: /\sdestroy$/, reason: 'destroy' },
+	{ pattern: /\smay be replaced$/, reason: 'may-be-replaced' },
+	{ pattern: /\sreplace$/, reason: 'replace' },
+];
+
+/**
+ * プロパティ行の注記 → reason。**実際の文言をそのまま reason にする**。
+ *
+ * 旧実装は `requires replacement` でも reason を `'may-cause-replacement'` に
+ * ハードコードしていたため、真正な置換が「may = 悲観判定だろう」と誤読される事故を
+ * 起こした (第22回統合で実際に起きた)。深刻度を軽く見せない (#4905)。
+ */
+const PROPERTY_IMPACT = [
+	{ pattern: /\(requires replacement\)/i, reason: 'requires-replacement' },
+	{ pattern: /\(may cause replacement\)/i, reason: 'may-cause-replacement' },
+	{ pattern: /REPLACEMENT/, reason: 'requires-replacement' },
+];
+
+/**
+ * CDK diff の stdout 行リストを解析する。
  *
  * @param {string[]} lines
- * @returns {Map<string, string>} logicalId → reason
+ * @returns {{ replacements: Map<string, string>, exempted: Map<string, string> }}
+ *   replacements: 承認が要る logicalId → reason / exempted: 除外した logicalId → 除外理由
  */
-export function detectReplacements(lines) {
+export function parseDiff(lines) {
+	/** @type {Map<string, string>} */
 	const replacements = new Map();
+	/** @type {Map<string, string>} */
+	const exempted = new Map();
+	/** @type {string | null} */
 	let currentResourceId = null;
+	let currentExempt = false;
 
 	for (const rawLine of lines) {
 		const line = stripAnsi(rawLine).trimEnd();
@@ -55,44 +137,65 @@ export function detectReplacements(lines) {
 
 		if (!trimmed) {
 			currentResourceId = null;
+			currentExempt = false;
 			continue;
 		}
 
-		// リソース行: [+|-|~] AWS::... (インデントなし)
+		// リソース行: [+|-|~] AWS::Type ConstructPath PhysicalId [impact]
 		const resourceMatch = /^\[([+\-~])\]\s+(AWS::\S+)\s+(\S+)/.exec(trimmed);
 		if (resourceMatch) {
 			const marker = resourceMatch[1];
+			const resourceType = resourceMatch[2];
 			const logicalId = resourceMatch[3];
+
+			currentResourceId = logicalId;
+			const exemption = findExemption(resourceType, logicalId);
+			currentExempt = exemption !== null;
+			if (currentExempt && exemption) {
+				exempted.set(logicalId, exemption.reason);
+				continue;
+			}
 
 			if (marker === '-') {
 				// [-] = リソース削除
 				replacements.set(logicalId, 'destroy');
-				currentResourceId = logicalId;
-			} else if (marker === '~') {
-				// [~] with (replace) / (replacement) suffix = 明示的な置き換え
-				const hasReplaceSuffix = /\(replace(?:ment)?\)\s*$/i.test(trimmed);
-				if (hasReplaceSuffix) {
-					replacements.set(logicalId, 'replace');
-				}
-				currentResourceId = logicalId;
-			} else {
-				// [+] = 追加 (新規リソース。単独では Replacement 扱いしない)
-				currentResourceId = logicalId;
+				continue;
 			}
+			if (marker === '~') {
+				for (const { pattern, reason } of RESOURCE_IMPACT) {
+					if (pattern.test(trimmed)) {
+						replacements.set(logicalId, reason);
+						break;
+					}
+				}
+			}
+			// [+] = 追加 (新規リソース。単独では Replacement 扱いしない)
 			continue;
 		}
 
-		// プロパティ行: (may cause replacement) / (requires replacement) / (REPLACEMENT)
-		if (
-			/(may cause replacement|requires? replacement|REPLACEMENT)/i.test(trimmed) &&
-			currentResourceId !== null &&
-			!replacements.has(currentResourceId)
-		) {
-			replacements.set(currentResourceId, 'may-cause-replacement');
+		// プロパティ行の注記
+		if (currentResourceId === null || currentExempt || replacements.has(currentResourceId)) {
+			continue;
+		}
+		for (const { pattern, reason } of PROPERTY_IMPACT) {
+			if (pattern.test(trimmed)) {
+				replacements.set(currentResourceId, reason);
+				break;
+			}
 		}
 	}
 
-	return replacements;
+	return { replacements, exempted };
+}
+
+/**
+ * CDK diff の stdout 行リストを解析して Replacement/Destroy リソースを抽出する
+ *
+ * @param {string[]} lines
+ * @returns {Map<string, string>} logicalId → reason
+ */
+export function detectReplacements(lines) {
+	return parseDiff(lines).replacements;
 }
 
 /**
@@ -135,7 +238,16 @@ async function main() {
 		lines.push(line);
 	}
 
-	const replacements = detectReplacements(lines);
+	const { replacements, exempted } = parseDiff(lines);
+
+	// 除外は握り潰しではない。必ず見える形で出す (silent skip を作らない、#4905)。
+	if (exempted.size > 0) {
+		console.log(`
+gate から除外したリソース (${exempted.size} 件、ADR-0019 §制約・注意事項):`);
+		for (const [logicalId, reason] of exempted) {
+			console.log(`  [exempt] ${logicalId} — ${reason}`);
+		}
+	}
 
 	if (replacements.size === 0) {
 		console.log('check-cdk-replacement: no replacements or destroys detected. OK.');
