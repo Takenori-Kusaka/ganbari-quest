@@ -1,4 +1,4 @@
-<html lang="ja"><head>
+<html lang="ja" style="--scrollbar-width: 0px;"><head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta name="theme-color" content="#4A90D9">
@@ -11,12 +11,13 @@
 		<meta property="og:type" content="website">
 		<meta property="og:image" content="/icons/icon-512.png">
 		<meta property="og:locale" content="ja_JP">
-		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
-		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
-		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+		<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:5173/favicon-32x32.png?v=2">
+		<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:5173/favicon-16x16.png?v=2">
+		<link rel="apple-touch-icon" sizes="180x180" href="http://localhost:5173/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="お子さまの活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--2w5cmq--><!----><title>がんばりクエスト</title>
-		<style data-sveltekit="">/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+		<meta name="description" content="お子さまの活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!----><title>バトル - がんばりクエスト</title>
+		
+	<style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/styles/app.css">/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
 @layer theme {
@@ -4026,8 +4027,7 @@ h1, h2, h3, h4 {
     }
   }
 }
-
-
+</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/NavigationProgress.svelte?svelte&amp;type=style&amp;lang.css">
 	.navigation-progress.svelte-1p67wbu {
 		position: fixed;
 		top: 0;
@@ -4059,8 +4059,191 @@ h1, h2, h3, h4 {
 			opacity: 0;
 		}
 	}
- .svelte-1p67wbu{}
+ .svelte-1p67wbu{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/ops/OpsMfaSetupNotice.svelte?svelte&amp;type=style&amp;lang.css">
+	.ops-mfa-notice.svelte-8sltx3 {
+		max-width: 40rem;
+		margin: 2rem auto;
+		padding: 0 1rem;
+	}
+	.notice-title.svelte-8sltx3 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--color-text);
+		margin: 0 0 0.75rem;
+	}
+	.notice-desc.svelte-8sltx3 {
+		color: var(--color-text-muted);
+		line-height: 1.7;
+		margin: 0 0 1.5rem;
+	}
+	.steps-title.svelte-8sltx3 {
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--color-text);
+		margin: 0 0 0.5rem;
+	}
+	.steps.svelte-8sltx3 {
+		margin: 0 0 1.5rem;
+		padding-left: 1.25rem;
+		color: var(--color-text);
+		line-height: 1.8;
+		list-style: decimal;
+	}
+	.actions.svelte-8sltx3 {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+	.runbook-hint.svelte-8sltx3 {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		margin: 0;
+	}
+ .svelte-8sltx3{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/routes/+error.svelte?svelte&amp;type=style&amp;lang.css">
+	.error-page.svelte-1j96wlh {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		background: var(--color-surface-base);
+		padding: 1rem;
+	}
+	.error-container.svelte-1j96wlh {
+		text-align: center;
+		max-width: 480px;
+	}
+	.error-status.svelte-1j96wlh {
+		font-size: 4rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 0 0 0.5rem;
+		line-height: 1;
+	}
+	.error-title.svelte-1j96wlh {
+		font-size: 1.25rem;
+		margin: 0 0 1rem;
+		color: var(--color-text);
+	}
+	.error-description.svelte-1j96wlh {
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		margin: 0 0 1.5rem;
+	}
+	.countdown.svelte-1j96wlh {
+		font-size: 3rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 1rem 0;
+		line-height: 1;
+	}
+	.actions.svelte-1j96wlh {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 1.5rem 0;
+	}
+	.btn.svelte-1j96wlh {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		font-size: 1rem;
+	}
+	.btn-primary.svelte-1j96wlh {
+		background: var(--color-action-primary-strong);
+		color: var(--color-text-inverse);
+	}
+	.btn-primary.svelte-1j96wlh:hover {
+		opacity: 0.9;
+	}
+	.btn-secondary.svelte-1j96wlh {
+		background: var(--color-surface-card);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+	/* child role: larger tap target + simple single action */
+	.error-page[data-role='child'].svelte-1j96wlh .error-title:where(.svelte-1j96wlh) {
+		font-size: 1.75rem;
+	}
+	.error-page[data-role='child'].svelte-1j96wlh .error-description:where(.svelte-1j96wlh) {
+		font-size: 1.125rem;
+	}
+	.btn-child.svelte-1j96wlh {
+		padding: 1.25rem 2rem;
+		font-size: 1.25rem;
+		min-height: 60px;
+	}
+	.error-id.svelte-1j96wlh {
+		margin-top: 2rem;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.error-id.svelte-1j96wlh code:where(.svelte-1j96wlh) {
+		font-family: monospace;
+		background: var(--color-surface-card);
+		padding: 0.125rem 0.375rem;
+		border-radius: 4px;
+	}
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/character/CharacterTabs.svelte?svelte&amp;type=style&amp;lang.css">
+	.character-tabs.svelte-1c5gr6g {
+		display: flex;
+		gap: 4px;
+		background: var(--theme-nav);
+		border-radius: var(--radius-md);
+		padding: 4px;
+		margin: 0 var(--sp-md) var(--sp-md);
+	}
 
+	.character-tab.svelte-1c5gr6g {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		padding: 8px 4px;
+		border-radius: var(--radius-sm);
+		text-decoration: none;
+		color: var(--color-text-muted);
+		transition: all 0.15s ease;
+		min-height: 56px;
+		justify-content: center;
+	}
+
+	.character-tab.active.svelte-1c5gr6g {
+		background: white;
+		color: var(--theme-primary);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	}
+
+	.character-tab__icon.svelte-1c5gr6g {
+		font-size: 1.25rem;
+		line-height: 1;
+	}
+
+	.character-tab__label.svelte-1c5gr6g {
+		font-size: 0.6875rem;
+		font-weight: 700;
+		line-height: 1.2;
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	/* baby/preschool: enlarge icons */
+	[data-age-tier='baby'] .character-tab__icon.svelte-1c5gr6g,
+	[data-age-tier='preschool'] .character-tab__icon.svelte-1c5gr6g {
+		font-size: 1.5rem;
+	}
+
+	[data-age-tier='baby'] .character-tab.svelte-1c5gr6g,
+	[data-age-tier='preschool'] .character-tab.svelte-1c5gr6g {
+		min-height: 60px;
+		padding: 10px 4px;
+	}
+ .svelte-1c5gr6g{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/point-flight/PointFlightGhost.svelte?svelte&amp;type=style&amp;lang.css">
 	.pf-layer.svelte-xahj9k {
 		position: fixed;
 		inset: 0;
@@ -4091,8 +4274,7 @@ h1, h2, h3, h4 {
 		color: var(--color-action-danger);
 		border-color: var(--color-border-danger);
 	}
- .svelte-xahj9k{}
-
+ .svelte-xahj9k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/value-preview/MilestoneBellButton.svelte?svelte&amp;type=style&amp;lang.css">
 	.milestone-bell.svelte-1h1heob {
 		position: relative;
 		display: flex;
@@ -4135,13 +4317,70 @@ h1, h2, h3, h4 {
 		text-align: center;
 		box-sizing: border-box;
 	}
- .svelte-1h1heob{}
-
+ .svelte-1h1heob{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/BottomNav.svelte?svelte&amp;type=style&amp;lang.css">
 	.safe-area-bottom.svelte-1sje7wr {
 		padding-bottom: env(safe-area-inset-bottom, 0px);
 	}
- .svelte-1sje7wr{}
+ .svelte-1sje7wr{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/AvatarDisplay.svelte?svelte&amp;type=style&amp;lang.css">
+	.avatar-wrap.svelte-1uv6grs {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		flex-shrink: 0;
+	}
 
+	.avatar-ring.svelte-1uv6grs {
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	.avatar-img.svelte-1uv6grs {
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.avatar-fallback.svelte-1uv6grs {
+		line-height: 1;
+	}
+
+	/* --- Effects --- */
+	.avatar-effect-sparkle {
+		animation: avatar-sparkle 2s ease-in-out infinite;
+	}
+	.avatar-effect-pulse {
+		animation: avatar-pulse 1.5s ease-in-out infinite;
+	}
+	.avatar-effect-glow {
+		filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
+		animation: avatar-glow 2s ease-in-out infinite;
+	}
+	.avatar-effect-rainbow {
+		animation: avatar-rainbow 3s linear infinite;
+	}
+
+	@keyframes avatar-sparkle {
+		0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
+		50% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
+	}
+	@keyframes avatar-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.06); }
+	}
+	@keyframes avatar-glow {
+		0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
+		50% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); }
+	}
+	@keyframes avatar-rainbow {
+		0% { filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
+		33% { filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(0,255,0,0.4)); }
+		66% { filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(0,0,255,0.4)); }
+		100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
+	}
+ .svelte-1uv6grs{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/Header.svelte?svelte&amp;type=style&amp;lang.css">
 	.stamp-mini.svelte-1i1e82e {
 		display: flex;
 		align-items: center;
@@ -4179,8 +4418,7 @@ h1, h2, h3, h4 {
 		vertical-align: super;
 		opacity: 0.8;
 	}
- .svelte-1i1e82e{}
-
+ .svelte-1i1e82e{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/StampCard.svelte?svelte&amp;type=style&amp;lang.css">
 	.stamp-card.svelte-1h04p5k {
 		background: linear-gradient(135deg, var(--color-surface-card, #fffbeb) 0%, var(--color-surface-card, #fef3c7) 100%);
 		border: 2px solid var(--theme-accent, #f59e0b);
@@ -4369,115 +4607,7 @@ h1, h2, h3, h4 {
 			animation: none;
 		}
 	}
- .svelte-1h04p5k{}
-
-	.tutorial-overlay.svelte-c315ht {
-		position: fixed;
-		inset: 0;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
-		z-index: var(--z-tutorial);
-	}
-
-	.tutorial-overlay-svg.svelte-c315ht {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.tutorial-overlay-bg.svelte-c315ht {
-		pointer-events: auto;
-		cursor: default;
-	}
-
-	.tutorial-spotlight-ring.svelte-c315ht {
-		position: absolute;
-		border: 2px solid rgba(59, 130, 246, 0.6);
-		border-radius: 12px;
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-		pointer-events: none;
-		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes svelte-c315ht-ring-pulse {
-		0%, 100% {
-			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-		}
-		50% {
-			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
-		}
-	}
-
-	/* A. During tutorial, suppress nav/header z-index below the overlay */
-	[data-tutorial-active] .z-30 {
-		z-index: 10 !important;
-	}
-	[data-tutorial-active] .desktop-dropdown {
-		z-index: 10 !important;
-	}
- .svelte-c315ht{}
-
-	.avatar-wrap.svelte-1uv6grs {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		position: relative;
-		flex-shrink: 0;
-	}
-
-	.avatar-ring.svelte-1uv6grs {
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
-	}
-
-	.avatar-img.svelte-1uv6grs {
-		border-radius: 50%;
-		object-fit: cover;
-	}
-
-	.avatar-fallback.svelte-1uv6grs {
-		line-height: 1;
-	}
-
-	/* --- Effects --- */
-	.avatar-effect-sparkle {
-		animation: avatar-sparkle 2s ease-in-out infinite;
-	}
-	.avatar-effect-pulse {
-		animation: avatar-pulse 1.5s ease-in-out infinite;
-	}
-	.avatar-effect-glow {
-		filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
-		animation: avatar-glow 2s ease-in-out infinite;
-	}
-	.avatar-effect-rainbow {
-		animation: avatar-rainbow 3s linear infinite;
-	}
-
-	@keyframes avatar-sparkle {
-		0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
-		50% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
-	}
-	@keyframes avatar-pulse {
-		0%, 100% { transform: scale(1); }
-		50% { transform: scale(1.06); }
-	}
-	@keyframes avatar-glow {
-		0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
-		50% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); }
-	}
-	@keyframes avatar-rainbow {
-		0% { filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
-		33% { filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(0,255,0,0.4)); }
-		66% { filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(0,0,255,0.4)); }
-		100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
-	}
- .svelte-1uv6grs{}
-
+ .svelte-1h04p5k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/TutorialBubble.svelte?svelte&amp;type=style&amp;lang.css">
 	.tutorial-bubble.svelte-9wfq4r {
 		position: fixed;
 		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
@@ -4683,8 +4813,7 @@ h1, h2, h3, h4 {
 	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
 		font-size: 0.95rem;
 	}
- .svelte-9wfq4r{}
-
+ .svelte-9wfq4r{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/TutorialDialogs.svelte?svelte&amp;type=style&amp;lang.css">
 	.dialog-body.svelte-nheco6 p:where(.svelte-nheco6) {
 		margin: 0;
 		color: var(--color-text-primary);
@@ -4717,104 +4846,131 @@ h1, h2, h3, h4 {
 			width: 100%;
 		}
 	}
- .svelte-nheco6{}
-
-	.character-tabs.svelte-1c5gr6g {
-		display: flex;
-		gap: 4px;
-		background: var(--theme-nav);
-		border-radius: var(--radius-md);
-		padding: 4px;
-		margin: 0 var(--sp-md) var(--sp-md);
-	}
-
-	.character-tab.svelte-1c5gr6g {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-		padding: 8px 4px;
-		border-radius: var(--radius-sm);
-		text-decoration: none;
-		color: var(--color-text-muted);
-		transition: all 0.15s ease;
-		min-height: 56px;
-		justify-content: center;
-	}
-
-	.character-tab.active.svelte-1c5gr6g {
-		background: white;
-		color: var(--theme-primary);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-	}
-
-	.character-tab__icon.svelte-1c5gr6g {
-		font-size: 1.25rem;
-		line-height: 1;
-	}
-
-	.character-tab__label.svelte-1c5gr6g {
-		font-size: 0.6875rem;
-		font-weight: 700;
-		line-height: 1.2;
-		text-align: center;
-		white-space: nowrap;
-	}
-
-	/* baby/preschool: enlarge icons */
-	[data-age-tier='baby'] .character-tab__icon.svelte-1c5gr6g,
-	[data-age-tier='preschool'] .character-tab__icon.svelte-1c5gr6g {
-		font-size: 1.5rem;
-	}
-
-	[data-age-tier='baby'] .character-tab.svelte-1c5gr6g,
-	[data-age-tier='preschool'] .character-tab.svelte-1c5gr6g {
-		min-height: 60px;
-		padding: 10px 4px;
-	}
- .svelte-1c5gr6g{}
-
-	.battle-page.svelte-1vzng6d {
-		padding: 1rem;
-		min-height: 100dvh;
-		background: var(--color-surface-base);
-	}
-	.page-title.svelte-1vzng6d {
-		text-align: center;
-		font-size: 1.3rem;
-		font-weight: 800;
-		margin: 0 0 1rem;
-		color: var(--color-text-primary);
-	}
-	.no-battle.svelte-1vzng6d {
-		text-align: center;
-		padding: 2rem;
-		color: var(--color-text-secondary);
-	}
-	.loading-overlay.svelte-1vzng6d {
+ .svelte-nheco6{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/ui/components/TutorialOverlay.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-overlay.svelte-c315ht {
 		position: fixed;
 		inset: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		background: rgba(0, 0, 0, 0.4);
-		z-index: 100;
-		color: white;
-		font-size: 1.2rem;
-		font-weight: 700;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
 	}
-	.loading-spinner.svelte-1vzng6d {
-		font-size: 3rem;
-		animation: svelte-1vzng6d-pulse 1s ease-in-out infinite;
-	}
-	@keyframes svelte-1vzng6d-pulse {
-		0%, 100% { transform: scale(1); }
-		50% { transform: scale(1.2); }
-	}
- .svelte-1vzng6d{}
 
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/battle/BattleHPBar.svelte?svelte&amp;type=style&amp;lang.css">
+	.hp-bar.svelte-1wvyiv9 {
+		width: 100%;
+	}
+	.hp-label.svelte-1wvyiv9 {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.75rem;
+		font-weight: 600;
+		margin-bottom: 2px;
+	}
+	.hp-name.svelte-1wvyiv9 {
+		color: var(--color-text-primary);
+	}
+	.hp-value.svelte-1wvyiv9 {
+		color: var(--color-text-secondary);
+		font-variant-numeric: tabular-nums;
+	}
+	.hp-track.svelte-1wvyiv9 {
+		height: 10px;
+		background: var(--color-surface-muted);
+		border-radius: 5px;
+		overflow: hidden;
+	}
+	.hp-fill.svelte-1wvyiv9 {
+		height: 100%;
+		border-radius: 5px;
+		transition: width 0.6s ease-out;
+	}
+	.bar-high.svelte-1wvyiv9 {
+		background-color: var(--color-action-success);
+	}
+	.bar-mid.svelte-1wvyiv9 {
+		background-color: var(--color-action-trial-upgrade);
+	}
+	.bar-low.svelte-1wvyiv9 {
+		background-color: var(--color-action-danger);
+	}
+ .svelte-1wvyiv9{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/battle/BattleLog.svelte?svelte&amp;type=style&amp;lang.css">
+	.battle-log.svelte-qkalg4 {
+		max-height: 160px;
+		overflow-y: auto;
+		padding: 0.5rem;
+		background: var(--color-surface-muted);
+		border-radius: 8px;
+		font-size: 0.8rem;
+	}
+	.turn-entry.svelte-qkalg4 {
+		margin-bottom: 0.5rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid var(--color-border-light);
+	}
+	.turn-entry.svelte-qkalg4:last-child {
+		border-bottom: none;
+		margin-bottom: 0;
+	}
+	.turn-entry.latest.svelte-qkalg4 {
+		animation: svelte-qkalg4-fadeIn 0.3s ease-in;
+	}
+	.turn-number.svelte-qkalg4 {
+		font-weight: 700;
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+	.log-line.svelte-qkalg4 {
+		margin: 2px 0;
+		padding-left: 0.5rem;
+	}
+	.log-line.player.svelte-qkalg4 {
+		color: var(--color-action-primary);
+	}
+	.log-line.enemy.svelte-qkalg4 {
+		color: var(--color-action-danger);
+	}
+	@keyframes svelte-qkalg4-fadeIn {
+		from { opacity: 0; transform: translateY(-4px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+ .svelte-qkalg4{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/battle/BattleScene.svelte?svelte&amp;type=style&amp;lang.css">
 	.battle-scene.svelte-1y13w0u {
 		max-width: 480px;
 		margin: 0 auto;
@@ -5034,90 +5190,58 @@ h1, h2, h3, h4 {
 		50%  { opacity: 0.15; }
 		100% { opacity: 0; }
 	}
- .svelte-1y13w0u{}
-
-	.hp-bar.svelte-1wvyiv9 {
-		width: 100%;
+ .svelte-1y13w0u{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-ae16011e0ac0f3565/src/lib/features/battle/BattlePage.svelte?svelte&amp;type=style&amp;lang.css">
+	.battle-page.svelte-1vzng6d {
+		padding: 1rem;
+		min-height: 100dvh;
+		background: var(--color-surface-base);
 	}
-	.hp-label.svelte-1wvyiv9 {
-		display: flex;
-		justify-content: space-between;
-		font-size: 0.75rem;
-		font-weight: 600;
-		margin-bottom: 2px;
-	}
-	.hp-name.svelte-1wvyiv9 {
+	.page-title.svelte-1vzng6d {
+		text-align: center;
+		font-size: 1.3rem;
+		font-weight: 800;
+		margin: 0 0 1rem;
 		color: var(--color-text-primary);
 	}
-	.hp-value.svelte-1wvyiv9 {
+	.no-battle.svelte-1vzng6d {
+		text-align: center;
+		padding: 2rem;
 		color: var(--color-text-secondary);
-		font-variant-numeric: tabular-nums;
 	}
-	.hp-track.svelte-1wvyiv9 {
-		height: 10px;
-		background: var(--color-surface-muted);
-		border-radius: 5px;
-		overflow: hidden;
-	}
-	.hp-fill.svelte-1wvyiv9 {
-		height: 100%;
-		border-radius: 5px;
-		transition: width 0.6s ease-out;
-	}
-	.bar-high.svelte-1wvyiv9 {
-		background-color: var(--color-action-success);
-	}
-	.bar-mid.svelte-1wvyiv9 {
-		background-color: var(--color-action-trial-upgrade);
-	}
-	.bar-low.svelte-1wvyiv9 {
-		background-color: var(--color-action-danger);
-	}
- .svelte-1wvyiv9{}
-
-	.battle-log.svelte-qkalg4 {
-		max-height: 160px;
-		overflow-y: auto;
-		padding: 0.5rem;
-		background: var(--color-surface-muted);
-		border-radius: 8px;
-		font-size: 0.8rem;
-	}
-	.turn-entry.svelte-qkalg4 {
-		margin-bottom: 0.5rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 1px solid var(--color-border-light);
-	}
-	.turn-entry.svelte-qkalg4:last-child {
-		border-bottom: none;
-		margin-bottom: 0;
-	}
-	.turn-entry.latest.svelte-qkalg4 {
-		animation: svelte-qkalg4-fadeIn 0.3s ease-in;
-	}
-	.turn-number.svelte-qkalg4 {
+	.loading-overlay.svelte-1vzng6d {
+		position: fixed;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background: rgba(0, 0, 0, 0.4);
+		z-index: 100;
+		color: white;
+		font-size: 1.2rem;
 		font-weight: 700;
-		font-size: 0.7rem;
-		color: var(--color-text-tertiary);
 	}
-	.log-line.svelte-qkalg4 {
-		margin: 2px 0;
-		padding-left: 0.5rem;
+	.loading-spinner.svelte-1vzng6d {
+		font-size: 3rem;
+		animation: svelte-1vzng6d-pulse 1s ease-in-out infinite;
 	}
-	.log-line.player.svelte-qkalg4 {
-		color: var(--color-action-primary);
+	@keyframes svelte-1vzng6d-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.2); }
 	}
-	.log-line.enemy.svelte-qkalg4 {
-		color: var(--color-action-danger);
-	}
-	@keyframes svelte-qkalg4-fadeIn {
-		from { opacity: 0; transform: translateY(-4px); }
-		to { opacity: 1; transform: translateY(0); }
-	}
- .svelte-qkalg4{}</style>
-	</head>
-	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="pink" data-age-tier="junior" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--color-action-primary-strong)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[0--><img src="/tenants/local/avatars/5/placeholder.svg?v=wll6gr" alt="ちゅうがくせい" class="avatar-img svelte-1uv6grs" style="width: 30px; height: 30px;" onerror="this.__e=event"><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">ちゅうがくせい<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[-1--><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカード 0/5 を見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">0/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e" data-testid="header-balance">0P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[0--><!--[--><nav class="character-tabs svelte-1c5gr6g" data-testid="character-tabs"><!--[--><a href="/junior/status" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-status"><span class="character-tab__icon svelte-1c5gr6g">📊</span> <span class="character-tab__label svelte-1c5gr6g">ステータス</span></a><a href="/junior/challenges" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-challenges"><span class="character-tab__icon svelte-1c5gr6g">🏆</span> <span class="character-tab__label svelte-1c5gr6g">チャレンジ</span></a><a href="/junior/battle" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g active" aria-current="page" data-testid="character-tab-battle"><span class="character-tab__icon svelte-1c5gr6g">⚔️</span> <span class="character-tab__label svelte-1c5gr6g">バトル</span></a><a href="/junior/history" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-history"><span class="character-tab__icon svelte-1c5gr6g">📋</span> <span class="character-tab__label svelte-1c5gr6g">記録</span></a><!--]--></nav><!----> <!--[--><form method="POST" action="?/executeBattle"><div class="battle-page svelte-1vzng6d" data-testid="battle-page"><h2 class="page-title svelte-1vzng6d">⚔️ 今日のバトル</h2> <!--[0--><div class="battle-scene svelte-1y13w0u" data-testid="battle-scene"><div class="battle-field svelte-1y13w0u" data-testid="battle-field"><div class="combatant player-side svelte-1y13w0u" data-testid="player-side"><div class="hp-bar svelte-1wvyiv9"><div class="hp-label svelte-1wvyiv9"><span class="hp-name svelte-1wvyiv9">きみ</span> <span class="hp-value svelte-1wvyiv9">50/50</span></div> <div class="hp-track svelte-1wvyiv9"><div class="hp-fill svelte-1wvyiv9 bar-high" style="width: 100%;"></div></div></div><!----> <div class="sprite-wrap svelte-1y13w0u"><div class="sprite svelte-1y13w0u"><img class="sprite-img svelte-1y13w0u" src="/assets/battle/characters/hero-default.png" alt="きみ"></div> <!--[-1--><!--]--></div> <div class="combatant-name svelte-1y13w0u">きみ</div></div> <div class="vs-label svelte-1y13w0u">VS</div> <div class="combatant enemy-side svelte-1y13w0u" data-testid="enemy-side"><div class="hp-bar svelte-1wvyiv9 enemy"><div class="hp-label svelte-1wvyiv9"><span class="hp-name svelte-1wvyiv9">ネズミぞく</span> <span class="hp-value svelte-1wvyiv9">25/25</span></div> <div class="hp-track svelte-1wvyiv9"><div class="hp-fill svelte-1wvyiv9 bar-high" style="width: 100%;"></div></div></div><!----> <div class="sprite-wrap svelte-1y13w0u"><div class="sprite svelte-1y13w0u"><img class="sprite-img svelte-1y13w0u" src="/assets/battle/enemies/common-mouse.png" alt="ネズミぞく"></div> <!--[-1--><!--]--></div> <div class="combatant-name svelte-1y13w0u" data-testid="enemy-name">ネズミぞく</div></div></div> <!--[0--><div class="stats-panel svelte-1y13w0u" data-testid="stats-panel"><h3 class="stats-title svelte-1y13w0u">ステータス</h3> <div class="stats-grid svelte-1y13w0u" data-testid="stats-grid"><!--[--><div class="stat-item svelte-1y13w0u" data-testid="stat-item-hp"><span class="stat-label svelte-1y13w0u">体力</span> <span class="stat-value svelte-1y13w0u">50</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🏃</span> <span class="stat-category-name svelte-1y13w0u">運動</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-atk"><span class="stat-label svelte-1y13w0u">攻撃</span> <span class="stat-value svelte-1y13w0u">10</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">📚</span> <span class="stat-category-name svelte-1y13w0u">勉強</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-def"><span class="stat-label svelte-1y13w0u">防御</span> <span class="stat-value svelte-1y13w0u">8</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🤝</span> <span class="stat-category-name svelte-1y13w0u">交流</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-spd"><span class="stat-label svelte-1y13w0u">素早さ</span> <span class="stat-value svelte-1y13w0u">10</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🏠</span> <span class="stat-category-name svelte-1y13w0u">生活</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-rec"><span class="stat-label svelte-1y13w0u">回復</span> <span class="stat-value svelte-1y13w0u">5</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🎨</span> <span class="stat-category-name svelte-1y13w0u">創造</span></span></div><!--]--></div> <p class="stats-note svelte-1y13w0u">※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます</p></div><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80 px-8 py-5 text-xl rounded-[var(--radius-lg)] min-h-20 font-bold w-full" aria-busy="false" type="submit" data-testid="battle-start-button"><!--[-1--><!--]--><!---->⚔️ バトル開始！<!----></button><!--]--><!----><!--]--></div><!----><!--]--> <!--[-1--><!--]--></div><!----></form><!--]--><!----><!--]--><!--]--><!----><!--]--></main> <!--[0--><nav class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom svelte-1sje7wr" data-testid="bottom-nav" aria-label="メインナビゲーション"><!--[--><a href="/junior/home" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-home"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🏠</span> <!--[0--><span class="text-xs svelte-1sje7wr">ホーム</span><!--]--></a><a href="/checklist" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-checklist"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">📋</span> <!--[0--><span class="text-xs svelte-1sje7wr">チェックリスト</span><!--]--></a><a href="/junior/shop" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-shop" data-tutorial="nav-shop"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🎁</span> <!--[0--><span class="text-xs svelte-1sje7wr">ショップ</span><!--]--></a><a href="/junior/status" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-status" data-tutorial="nav-status"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">⭐</span> <!--[0--><span class="text-xs svelte-1sje7wr">ステータス</span><!--]--></a><a href="/switch" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-switch"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">👨‍👩‍👧‍👦</span> <!--[0--><span class="text-xs svelte-1sje7wr">家族</span><!--]--></a><!--]--></nav><!----> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----><!---->  <!--[-1--><!--]--><!----><!--]--></div> <!--[0--><!--[-1--><!--]--><!----><!--]--> <!--[0--><!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--> <!--[0--><!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!--]--><!----><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+ .svelte-1vzng6d{}</style></head>
+	<body data-sveltekit-preload-data="hover" data-scroll-lock="" data-inert="" style="overflow: hidden; pointer-events: none;">
+		<div style="display: contents" data-aria-hidden="" aria-hidden="true"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="pink" data-age-tier="junior" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--color-action-primary-strong)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[0--><img src="/tenants/local/avatars/5/placeholder.svg?v=wll6gr" alt="ちゅうがくせい" class="avatar-img svelte-1uv6grs" style="width: 30px; height: 30px;"><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">ちゅうがくせい<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[-1--><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカード 0/5 を見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">0/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e" data-testid="header-balance">0P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[0--><!--[--><nav class="character-tabs svelte-1c5gr6g" data-testid="character-tabs"><!--[--><a href="/junior/status" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-status"><span class="character-tab__icon svelte-1c5gr6g">📊</span> <span class="character-tab__label svelte-1c5gr6g">ステータス</span></a><a href="/junior/challenges" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-challenges"><span class="character-tab__icon svelte-1c5gr6g">🏆</span> <span class="character-tab__label svelte-1c5gr6g">チャレンジ</span></a><a href="/junior/battle" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g active" aria-current="page" data-testid="character-tab-battle"><span class="character-tab__icon svelte-1c5gr6g">⚔️</span> <span class="character-tab__label svelte-1c5gr6g">バトル</span></a><a href="/junior/history" data-sveltekit-noscroll="" class="character-tab svelte-1c5gr6g" data-testid="character-tab-history"><span class="character-tab__icon svelte-1c5gr6g">📋</span> <span class="character-tab__label svelte-1c5gr6g">記録</span></a><!--]--></nav><!----> <!--[--><form method="POST" action="?/executeBattle"><div class="battle-page svelte-1vzng6d" data-testid="battle-page"><h2 class="page-title svelte-1vzng6d">⚔️ 今日のバトル</h2> <!--[0--><div class="battle-scene svelte-1y13w0u" data-testid="battle-scene"><div class="battle-field svelte-1y13w0u" data-testid="battle-field"><div class="combatant player-side svelte-1y13w0u" data-testid="player-side"><div class="hp-bar svelte-1wvyiv9"><div class="hp-label svelte-1wvyiv9"><span class="hp-name svelte-1wvyiv9">きみ</span> <span class="hp-value svelte-1wvyiv9">50/50</span></div> <div class="hp-track svelte-1wvyiv9"><div class="hp-fill svelte-1wvyiv9 bar-high" style="width: 100%;"></div></div></div><!----> <div class="sprite-wrap svelte-1y13w0u"><div class="sprite svelte-1y13w0u"><img class="sprite-img svelte-1y13w0u" src="/assets/battle/characters/hero-default.png" alt="きみ"></div> <!--[-1--><!--]--></div> <div class="combatant-name svelte-1y13w0u">きみ</div></div> <div class="vs-label svelte-1y13w0u">VS</div> <div class="combatant enemy-side svelte-1y13w0u" data-testid="enemy-side"><div class="hp-bar svelte-1wvyiv9 enemy"><div class="hp-label svelte-1wvyiv9"><span class="hp-name svelte-1wvyiv9">ネズミぞく</span> <span class="hp-value svelte-1wvyiv9">25/25</span></div> <div class="hp-track svelte-1wvyiv9"><div class="hp-fill svelte-1wvyiv9 bar-high" style="width: 100%;"></div></div></div><!----> <div class="sprite-wrap svelte-1y13w0u"><div class="sprite svelte-1y13w0u"><img class="sprite-img svelte-1y13w0u" src="/assets/battle/enemies/common-mouse.png" alt="ネズミぞく"></div> <!--[-1--><!--]--></div> <div class="combatant-name svelte-1y13w0u" data-testid="enemy-name">ネズミぞく</div></div></div> <!--[0--><div class="stats-panel svelte-1y13w0u" data-testid="stats-panel"><h3 class="stats-title svelte-1y13w0u">ステータス</h3> <div class="stats-grid svelte-1y13w0u" data-testid="stats-grid"><!--[--><div class="stat-item svelte-1y13w0u" data-testid="stat-item-hp"><span class="stat-label svelte-1y13w0u">体力</span> <span class="stat-value svelte-1y13w0u">50</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🏃</span> <span class="stat-category-name svelte-1y13w0u">運動</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-atk"><span class="stat-label svelte-1y13w0u">攻撃</span> <span class="stat-value svelte-1y13w0u">10</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">📚</span> <span class="stat-category-name svelte-1y13w0u">勉強</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-def"><span class="stat-label svelte-1y13w0u">防御</span> <span class="stat-value svelte-1y13w0u">8</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🤝</span> <span class="stat-category-name svelte-1y13w0u">交流</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-spd"><span class="stat-label svelte-1y13w0u">素早さ</span> <span class="stat-value svelte-1y13w0u">10</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🏠</span> <span class="stat-category-name svelte-1y13w0u">生活</span></span></div><div class="stat-item svelte-1y13w0u" data-testid="stat-item-rec"><span class="stat-label svelte-1y13w0u">回復</span> <span class="stat-value svelte-1y13w0u">5</span> <span class="stat-category svelte-1y13w0u" aria-label="対応するカテゴリ"><span class="stat-category-icon svelte-1y13w0u" aria-hidden="true">🎨</span> <span class="stat-category-name svelte-1y13w0u">創造</span></span></div><!--]--></div> <p class="stats-note svelte-1y13w0u">※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます</p></div><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80 px-8 py-5 text-xl rounded-[var(--radius-lg)] min-h-20 font-bold w-full" aria-busy="false" type="submit" data-testid="battle-start-button"><!--[-1--><!--]--><!---->⚔️ バトル開始！<!----></button><!--]--><!----><!--]--></div><!----><!--]--> <!--[-1--><!--]--></div><!----></form><!--]--><!----><!--]--><!--]--><!----><!--]--></main> <!--[0--><nav class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom svelte-1sje7wr" data-testid="bottom-nav" aria-label="メインナビゲーション"><!--[--><a href="/junior/home" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
+				transition-colors min-h-16
+				text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-home"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🏠</span> <!--[0--><span class="text-xs svelte-1sje7wr">ホーム</span><!--]--></a><a href="/checklist" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
+				transition-colors min-h-16
+				text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-checklist"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">📋</span> <!--[0--><span class="text-xs svelte-1sje7wr">チェックリスト</span><!--]--></a><a href="/junior/shop" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
+				transition-colors min-h-16
+				text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-shop" data-tutorial="nav-shop"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🎁</span> <!--[0--><span class="text-xs svelte-1sje7wr">ショップ</span><!--]--></a><a href="/junior/status" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
+				transition-colors min-h-16
+				text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-status" data-tutorial="nav-status"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">⭐</span> <!--[0--><span class="text-xs svelte-1sje7wr">ステータス</span><!--]--></a><a href="/switch" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)]
+				transition-colors min-h-16
+				text-[var(--color-text-on-theme-nav)] svelte-1sje7wr" data-testid="nav-switch"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">👨‍👩‍👧‍👦</span> <!--[0--><span class="text-xs svelte-1sje7wr">家族</span><!--]--></a><!--]--></nav><!----> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----><!---->  <!--[-1--><!--]--><!----><!--]--></div> <!--[0--><!--[-1--><!--]--><!----><!--]--> <!--[0--><!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--> <!--[0--><!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!--]--><!----><!--]--><!--]--> <!--[-1--><div id="svelte-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; left: 0; top: 0; clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap; width: 1px; height: 1px"><!----></div><!--]--><!--]-->
 			
 			<script>
 				{
@@ -5134,7 +5258,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 2, 3, 12],
-							data: [{type:"data",data:{role:"owner",requestId:"89b7f504-4141-432d-93aa-96906f0cbf34",isDemo:false},uses:{}},{type:"data",data:{child:{id:"5",nickname:"ちゅうがくせい",age:14,birthDate:null,theme:"pink",uiMode:"junior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/5/placeholder.svg?v=wll6gr",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:46",updatedAt:"2026-09-11T12:29:46.072Z",_sv:3,isArchived:0,archivedReason:null},balance:0,level:1,levelTitle:"はじめのぼうけんしゃ",allChildren:[{id:"4",nickname:"しょうがくせい",age:8,birthDate:null,theme:"pink",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/4/placeholder.svg?v=kcqb37",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:44",updatedAt:"2026-09-11T12:29:44.249Z",_sv:3,isArchived:0,archivedReason:null},{id:"5",nickname:"ちゅうがくせい",age:14,birthDate:null,theme:"pink",uiMode:"junior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/5/placeholder.svg?v=wll6gr",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:46",updatedAt:"2026-09-11T12:29:46.072Z",_sv:3,isArchived:0,archivedReason:null},{id:"6",nickname:"こうこうせい",age:17,birthDate:null,theme:"pink",uiMode:"senior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/6/placeholder.svg?v=avhw8y",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:47",updatedAt:"2026-09-11T12:29:47.692Z",_sv:3,isArchived:0,archivedReason:null}],uiMode:"junior",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:0,total:5},stampCard:{id:"2",childId:"5",weekStart:"2026-09-07",weekEnd:"2026-09-13",status:"collecting",entries:[],canStampToday:true,totalSlots:5,filledSlots:0,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:false},uses:{url:1}},{type:"data",data:null,uses:{parent:1}},{type:"data",data:{battle:{battleId:"2",enemy:{id:4,name:"ネズミぞく",icon:"🐭",image:"/assets/battle/enemies/common-mouse.png",rarity:"common",stats:{hp:25,atk:7,def:3,spd:14,rec:1},dropPoints:10,consolationPoints:3,availableDays:[]},playerStats:{hp:50,atk:10,def:8,spd:10,rec:5},scaledEnemyMaxHp:25,completed:false,result:null}},uses:{params:["uiMode"],parent:1}}],
+							data: [{type:"data",data:{role:"owner",requestId:"a7fb5034-4a2d-4586-bd7e-2dc980b8a33a",isDemo:false},uses:{}},{type:"data",data:{child:{id:"5",nickname:"ちゅうがくせい",age:14,birthDate:null,theme:"pink",uiMode:"junior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/5/placeholder.svg?v=wll6gr",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:46",updatedAt:"2026-09-11T12:29:46.072Z",_sv:3,isArchived:0,archivedReason:null},balance:0,level:1,levelTitle:"はじめのぼうけんしゃ",allChildren:[{id:"4",nickname:"しょうがくせい",age:8,birthDate:null,theme:"pink",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/4/placeholder.svg?v=kcqb37",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:44",updatedAt:"2026-09-11T12:29:44.249Z",_sv:3,isArchived:0,archivedReason:null},{id:"5",nickname:"ちゅうがくせい",age:14,birthDate:null,theme:"pink",uiMode:"junior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/5/placeholder.svg?v=wll6gr",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:46",updatedAt:"2026-09-11T12:29:46.072Z",_sv:3,isArchived:0,archivedReason:null},{id:"6",nickname:"こうこうせい",age:17,birthDate:null,theme:"pink",uiMode:"senior",uiModeManuallySet:0,avatarUrl:"/tenants/local/avatars/6/placeholder.svg?v=avhw8y",displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-09-11 12:29:47",updatedAt:"2026-09-11T12:29:47.692Z",_sv:3,isArchived:0,archivedReason:null}],uiMode:"junior",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:0,total:5},stampCard:{id:"2",childId:"5",weekStart:"2026-09-07",weekEnd:"2026-09-13",status:"collecting",entries:[],canStampToday:true,totalSlots:5,filledSlots:0,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:false},uses:{url:1}},{type:"data",data:null,uses:{parent:1}},{type:"data",data:{battle:{battleId:"2",enemy:{id:4,name:"ネズミぞく",icon:"🐭",image:"/assets/battle/enemies/common-mouse.png",rarity:"common",stats:{hp:25,atk:7,def:3,spd:14,rec:1},dropPoints:10,consolationPoints:3,availableDays:[]},playerStats:{hp:50,atk:10,def:8,spd:10,rec:5},scaledEnemyMaxHp:25,completed:false,result:null}},uses:{params:["uiMode"],parent:1}}],
 							form: null,
 							error: null
 						});
@@ -5156,4 +5280,4 @@ h1, h2, h3, h4 {
 		</div>
 	
 
-</body></html>
+<!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s1:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " data-aria-hidden="" aria-hidden="true"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s1:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;" data-aria-hidden="" aria-hidden="true"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s1:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s1:title" aria-describedby="dialog:s1:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-resume-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s1:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ガイドの続き</h2><!----> <div class="dialog-body svelte-nheco6"><p class="svelte-nheco6">前回の途中から続けますか？</p></div> <div class="dialog-actions svelte-nheco6"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->やめる<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->最初から<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続きから<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s2:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " data-aria-hidden="" aria-hidden="true"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s2:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;" data-aria-hidden="" aria-hidden="true"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s2:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s2:title" aria-describedby="dialog:s2:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-exit-confirm-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s2:title" class="sr-only"><!---->ガイド終了の確認</h2><!----> <div class="dialog-body svelte-nheco6"><p class="svelte-nheco6">ガイドを終了しますか？</p> <p class="dialog-hint svelte-nheco6">途中からあとで再開できます。</p></div> <div class="dialog-actions svelte-nheco6"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続ける<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->終了する<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s2:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s3:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " data-aria-hidden="" aria-hidden="true"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s3:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;" data-aria-hidden="" aria-hidden="true"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s3:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s3:title" aria-describedby="dialog:s3:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(36rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s3:title" class="sr-only"><!---->スタンプカード</h2><!----> <!----><div class="stamp-card svelte-1h04p5k" data-testid="stamp-card"><div class="stamp-card__header svelte-1h04p5k"><span class="stamp-card__title svelte-1h04p5k">スタンプカード</span> <span class="stamp-card__period svelte-1h04p5k">9/7〜9/13</span></div> <div class="stamp-card__body svelte-1h04p5k"><div class="stamp-card__row stamp-card__row--top svelte-1h04p5k"><div class="stamp-slot svelte-1h04p5k stamp-slot--today"><div class="stamp-slot__circle svelte-1h04p5k"><span class="stamp-slot__number svelte-1h04p5k">1</span><!----></div></div><div class="stamp-slot svelte-1h04p5k"><div class="stamp-slot__circle svelte-1h04p5k"><span class="stamp-slot__number svelte-1h04p5k">2</span><!----></div></div><div class="stamp-slot svelte-1h04p5k"><div class="stamp-slot__circle svelte-1h04p5k"><span class="stamp-slot__number svelte-1h04p5k">3</span><!----></div></div></div> <div class="stamp-card__row stamp-card__row--bottom svelte-1h04p5k"><div class="stamp-slot svelte-1h04p5k"><div class="stamp-slot__circle svelte-1h04p5k"><span class="stamp-slot__number svelte-1h04p5k">4</span><!----></div></div><div class="stamp-slot svelte-1h04p5k"><div class="stamp-slot__circle svelte-1h04p5k"><span class="stamp-slot__number svelte-1h04p5k">5</span><!----></div></div></div></div> <div class="stamp-card__progress svelte-1h04p5k"><div class="stamp-card__progress-bar svelte-1h04p5k"><div class="stamp-card__progress-fill svelte-1h04p5k" style="width: 0%;"></div></div> <span class="stamp-card__progress-text svelte-1h04p5k">0/5</span></div> <p class="stamp-card__hint svelte-1h04p5k">✨ あと5回でコンプリート！</p><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s3:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" id="dialog:s4:backdrop" data-state="open" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " data-aria-hidden="" aria-hidden="true" style="--layer-index: 0; --nested-layer-count: 0; --z-index: auto;"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s4:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="--layer-index: 0; --nested-layer-count: 0; --z-index: auto;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" id="dialog:s4:content" tabindex="-1" data-state="open" aria-modal="true" aria-labelledby="dialog:s4:title" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="pin-gate-onboarding-dialog" style="--layer-index: 0; --nested-layer-count: 0; pointer-events: auto;"><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s4:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ご家族の見守り画面に入る方法</h2><!----> <div class="flex flex-col gap-3"><p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">お子さまの画面からご家族の見守り画面に戻るには、トップの「だれがつかう？」画面で 🔒 ご家族の見守り画面 のリンクをタップしてください。</p> <p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">初めてご家族の見守り画面に入るときに、親がおやカギコード（4桁の数字）を作成します。</p> <p class="text-xs text-[var(--color-text-muted)] leading-relaxed m-0">おやカギコードはご家族の見守り画面の「せってい」 → 「おやカギコード」からいつでも変更できます。</p> <label class="flex items-center gap-2 mt-2 text-sm cursor-pointer"><input type="checkbox" data-testid="pin-gate-onboarding-dont-show-again"> <span>今後表示しない</span></label> <div class="mt-3"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-action-primary-strong)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" data-testid="pin-gate-onboarding-close"><!---->わかった<!----></button><!----></div></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s4:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----></body></html>
