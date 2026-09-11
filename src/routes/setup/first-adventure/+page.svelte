@@ -293,10 +293,10 @@ function goToComplete() {
 {/if}
 
 <style>
-	/* #4908: --gradient-gold (gold-600→gold-400) は文字と組んで AA (4.5:1) に届かない
-	   (実測: gold-700 で 1.3〜2.2:1)。--color-text-gold (gold-800) は白 / gold-100 の上で
-	   AA を満たすことが tests/unit/architecture/color-contrast-tokens.test.ts で固定されている
-	   ため、背景を gold-100 (装飾の gold-600 枠線はそのまま残す) に変える。 */
+	/* #4908: gradient-gold background fails WCAG AA with any gold text token (measured
+	   1.3-2.2:1). Switched to solid gold-100, which --color-text-gold satisfies AA against
+	   (locked by tests/unit/architecture/color-contrast-tokens.test.ts). Rationale (JP) is in
+	   the <script> block near resultPointsBreakdown. */
 	.points-display { background: var(--color-gold-100); }
 	.celebration-emoji { animation: bounce 0.6s ease-in-out infinite alternate; }
 	@keyframes bounce {
