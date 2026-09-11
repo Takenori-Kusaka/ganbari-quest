@@ -255,12 +255,19 @@ export class DsqlStack extends cdk.Stack {
 					// #4724: S3 backup / restore は上の 2 本では認可されない (AWS Backup の S3 対応は
 					// 専用の managed policy を要求する)。付けないと backup job が AccessDenied で
 					// 失敗し続ける — 下の DsqlBackupJobFailed rule で気付けるが、そもそも取れていない。
-					iam.ManagedPolicy.fromAwsManagedPolicyName(
-						'service-role/AWSBackupServiceRolePolicyForS3Backup',
-					),
-					iam.ManagedPolicy.fromAwsManagedPolicyName(
-						'service-role/AWSBackupServiceRolePolicyForS3Restore',
-					),
+					//
+					// #4893: S3 用の 2 本だけは **`service-role/` 配下に無い**。AWS 側の命名が
+					// 非対称で、上の ForBackup / ForRestores は `service-role/` 配下だが
+					// ForS3Backup / ForS3Restore は policy 名だけ (prefix 無し) が正しい。
+					// 実測 (`aws iam get-policy`):
+					//   OK  arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+					//   OK  arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
+					//   OK  arn:aws:iam::aws:policy/AWSBackupServiceRolePolicyForS3Backup
+					//   OK  arn:aws:iam::aws:policy/AWSBackupServiceRolePolicyForS3Restore
+					// prefix を付けると IAM が 404 (NoSuchEntity) を返し、role の UPDATE が
+					// 失敗して stack ごと rollback する。
+					iam.ManagedPolicy.fromAwsManagedPolicyName('AWSBackupServiceRolePolicyForS3Backup'),
+					iam.ManagedPolicy.fromAwsManagedPolicyName('AWSBackupServiceRolePolicyForS3Restore'),
 				],
 			});
 			backupPlan.addSelection('DsqlCluster', {
