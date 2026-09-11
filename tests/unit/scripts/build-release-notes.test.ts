@@ -643,6 +643,49 @@ describe('#4883 adversarial review 第 2 回 — 配信面の整合と開示順�
 	});
 });
 
+describe('#4883 adversarial review 第 3 回 — template のラベル行 / 頭欠け / 半角括弧', () => {
+	// dev-open-pr の template そのままの形（実測: 第 22 回範囲の included 66 件中 30 件がこの形で
+	// 「• **対象ユーザー**: 親（管理者）。」として配信されるところだった）
+	const templateBody = (effect: string) =>
+		`## 顧客価値・目的\n\n**対象ユーザー**: 親（管理者）— 無料プランで上限に達している世帯\n\n**解決する課題**: 3 つの詰まりが同時に起きていた。\n\n**期待される効果**: ${effect}\n\n## 関連 Issue\n\nCloses #1\n`;
+
+	it('ラベル行で始まる body は 期待される効果 を出典にする', () => {
+		const r = resolveReleaseNote(
+			templateBody(
+				'押した操作が失敗したときは失敗と分かり、上限の案内にたどり着けます。以前は成功に見えていました。',
+			),
+		);
+		expect(r.status).toBe('included');
+		expect(r.text).toBe('押した操作が失敗したときは失敗と分かり、上限の案内にたどり着けます。');
+	});
+
+	it('対象ユーザー のラベルだけを本文として配信しない', () => {
+		const r = resolveReleaseNote(
+			'## 顧客価値・目的\n\n**対象ユーザー**: 親（管理者）。\n\n**解決する課題**: 上限が素通りしていた。\n',
+		);
+		expect(r.status).toBe('rejected');
+		expect(r.text).toBeUndefined();
+	});
+
+	it('期待される効果 が空 (template の placeholder のまま) なら落とす', () => {
+		expect(resolveReleaseNote(templateBody('')).status).toBe('rejected');
+	});
+
+	it('参照除去で文頭が欠けた文（`#4883 の対応です。`）を配信しない', () => {
+		const r = resolveReleaseNote(customerValueBody('#4883 の対応です。'));
+		expect(r.status).toBe('rejected');
+		expect(r.reason).toContain('文頭');
+	});
+
+	it('半角 ｢｣ の中の `。` でも第 1 文を切らない', () => {
+		expect(
+			extractCustomerValueSentence(
+				customerValueBody('｢ポイントが足りません。｣の表示を直しました。'),
+			),
+		).toBe('｢ポイントが足りません。｣の表示を直しました。');
+	});
+});
+
 describe('#4883 labels.ts SSOT の読み取り', () => {
 	it('RELEASE_NOTES_LABELS の全キーを実 labels.ts から読める', () => {
 		// build-time パーサは namespace ブロックを最初の閉じ波括弧で切る。値かコメントに

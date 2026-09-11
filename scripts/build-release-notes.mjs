@@ -304,6 +304,9 @@ export function findCustomerUnsafeReason(rawText) {
 	// パスのどの判定にも当たらず素通りする。判定は互換分解（NFKC）した文に対して行う。
 	const text = typeof rawText === 'string' ? rawText.normalize('NFKC') : '';
 	if (text === '') return '本文が空';
+	// `#4883 の対応です。` は参照除去で「の対応です。」になる。文頭が助詞なら頭欠け
+	if (/^(?:の|を|は|が|に|へ|と|で|も|や|から|まで)[^ぁ-ん]/.test(text))
+		return '参照除去で文頭が欠けている';
 	if (text.length > MAX_ITEM_LENGTH) return `長すぎる (${text.length} 文字 > ${MAX_ITEM_LENGTH})`;
 	if (text.includes('`')) return 'コード片 (バッククォート) を含む';
 	// リンクは配信面をフィッシングの運び先にする。merge 後の PR body 編集で差し替えられる
@@ -344,20 +347,36 @@ export function extractCustomerValueSentence(body) {
 	const cleaned = section.text.trim();
 	if (cleaned === '') return null;
 
-	const rawFirstLine = cleaned.split('\n').find((l) => l.trim() !== '');
+	const lines = cleaned.split('\n').filter((l) => l.trim() !== '');
+	const rawFirstLine = lines[0];
 	if (rawFirstLine === undefined) return null;
-	// 行頭の箇条書き / 引用マーカーは本文ではない（残すと `• - 本文` の二重記号で配信される）
-	const firstLine = rawFirstLine.replace(/^\s*(?:[-*+>]\s+|\d+\.\s+)+/, '');
 
-	// 最初の `。` で切る。ただし「」『』の中の `。`（画面文言の引用）では切らない —
+	// dev-open-pr の PR body template は本セクションを `**対象ユーザー**: … / **解決する課題**: … /
+	// **期待される効果**: …` のラベル行で組む（実測: 第 22 回範囲 170 件中 76 件）。ラベル行の
+	// 第 1 文は「親（管理者）。」のような動詞の無い対象者ラベルで、顧客には何も伝わらない。
+	// この形のときは **期待される効果** の値を出典にし、無ければ null（コミット件名へは落ちない）。
+	const labelLine = /^\s*\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/;
+	let candidate = rawFirstLine;
+	if (labelLine.test(rawFirstLine)) {
+		const effect = lines
+			.map((l) => l.match(labelLine))
+			.find((m) => m !== null && m[1] !== undefined && m[1].trim() === '期待される効果');
+		if (!effect || effect[2] === undefined || effect[2].trim() === '') return null;
+		candidate = effect[2];
+	}
+
+	// 行頭の箇条書き / 引用マーカーは本文ではない（残すと `• - 本文` の二重記号で配信される）
+	const firstLine = candidate.replace(/^\s*(?:[-*+>]\s+|\d+\.\s+)+/, '');
+
+	// 最初の `。` で切る。ただし「」『』（半角 ｢｣ も）の中の `。`（画面文言の引用）では切らない —
 	// 「ポイントが足りません。」の表示を直しました。 を 「ポイントが足りません。 で切ると
 	// 開き括弧だけの断片が配信される。
 	let depth = 0;
 	let end = -1;
 	for (let i = 0; i < firstLine.length; i++) {
 		const ch = firstLine[i];
-		if (ch === '「' || ch === '『') depth++;
-		else if ((ch === '」' || ch === '』') && depth > 0) depth--;
+		if (ch === '「' || ch === '『' || ch === '｢') depth++;
+		else if ((ch === '」' || ch === '』' || ch === '｣') && depth > 0) depth--;
 		else if (ch === '。' && depth === 0) {
 			end = i;
 			break;
@@ -404,7 +423,10 @@ export function resolveReleaseNote(body) {
 
 	const sentence = extractCustomerValueSentence(body);
 	if (sentence === null) {
-		return { status: 'rejected', reason: `${CUSTOMER_VALUE_HEADING} が無い / 空` };
+		return {
+			status: 'rejected',
+			reason: `${CUSTOMER_VALUE_HEADING} が無い / 空 / ラベル行だけで 期待される効果 が無い`,
+		};
 	}
 
 	const text = sanitizeNoteText(sentence);
