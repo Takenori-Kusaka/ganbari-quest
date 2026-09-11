@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { parseSimpleBlock } from './lib/parse-labels-ts.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,25 +44,8 @@ const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 const args = process.argv.slice(2);
 const CHECK_MODE = args.includes('--check');
 
-/**
- * labels.ts の単純な `key: 'value'` ブロックを行単位でパース
- *
- * @param {string} src
- * @param {string} constName
- * @returns {Record<string, string>}
- */
-function parseSimpleBlock(src, constName) {
-	const pattern = new RegExp(`export const ${constName}[^{]*{([^}]+)}`, 's');
-	const match = src.match(pattern);
-	if (!match || match[1] === undefined) throw new Error(`${constName} not found in labels.ts`);
-	/** @type {Record<string, string>} */
-	const result = {};
-	for (const line of match[1].split('\n')) {
-		const m = line.match(/(\w+):\s*'([^']+)'/);
-		if (m && m[1] !== undefined && m[2] !== undefined) result[m[1]] = m[2];
-	}
-	return result;
-}
+// #4883: parseSimpleBlock は build-release-notes.mjs と共有するため scripts/lib/ へ切り出した。
+// 既存の import 元 (単体テスト等) を壊さないよう、本 module からの re-export は維持する。
 
 /**
  * 文字列内の指定位置から始まるブロック `{ ... }` の本文（中括弧を除く）を返す。
