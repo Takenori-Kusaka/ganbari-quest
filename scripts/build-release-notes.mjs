@@ -296,7 +296,7 @@ export function sanitizeNoteText(text) {
  * fail-closed。判定に迷うものは「載せない」側へ倒す。載らなかった PR は warning に
  * 列挙され、Dev は `<!-- release-note: ... -->` で明示宣言すればそのまま載せられる。
  *
- * @param {string} text
+ * @param {string} rawText
  * @returns {string | null}
  */
 export function findCustomerUnsafeReason(rawText) {
