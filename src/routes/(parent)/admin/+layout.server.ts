@@ -1,10 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
-import { formatJSTDate } from '$lib/domain/date-utils';
 import { hasRevertedToFreePlan } from '$lib/domain/free-plan-reversion';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
+import { resolveTrialStartedNoticeEndDate } from '$lib/domain/trial-started-notice';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import {
 	isParentGateActive,
@@ -205,12 +205,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		// (#4628 と同じ規律: 誰も描かない値を client まで運ばない)。
 		// 出す日付は「その日いっぱい使える最後の日」= trialEndDate そのもの
 		// (有効判定 isTrialEndDateActiveJST が `trialEndDate >= 今日` で当日を含む)。
-		trialStartedNoticeEndDate:
-			url.searchParams.get('trialStarted') === '1' &&
-			trialStatus.isTrialActive &&
-			trialStatus.trialEndDate
-				? formatJSTDate(trialStatus.trialEndDate)
-				: null,
+		trialStartedNoticeEndDate: resolveTrialStartedNoticeEndDate(url.searchParams, trialStatus),
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 		gracePeriodStatus,

@@ -9,6 +9,7 @@ import {
 import { building } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { carryTrialStartedQuery } from '$lib/domain/trial-started-notice';
 import { can } from '$lib/policy/capabilities';
 import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
@@ -40,7 +41,11 @@ import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
-import { isSetupRedirectExempt, resolveSetupGateTenantId } from '$lib/server/routing/setup-gate';
+import {
+	CHECKOUT_SESSION_QUERY_KEY,
+	isSetupRedirectExempt,
+	resolveSetupGateTenantId,
+} from '$lib/server/routing/setup-gate';
 import { evaluateFrontDoor, ORIGIN_VERIFY_HEADER } from '$lib/server/security/origin-verify';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
@@ -639,22 +644,10 @@ export const handle: Handle = ({ event, resolve }) =>
 		const setupGateSearch = building ? '' : event.url.search;
 		if (setupTenantId && !isSetupRedirectExempt(path, setupGateSearch)) {
 			if (await isSetupRequired(setupTenantId)) {
-				redirect(302, '/setup');
-			}
-		}
-
-		// セットアップ完了済みなら /setup へのアクセスをブロック。
-		// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
-		// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
-		// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
-		// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
-		if (setupTenantId && path.startsWith('/setup')) {
-			const [setupRequired, wizardInProgress] = await Promise.all([
-				isSetupRequired(setupTenantId),
-				isSetupWizardInProgress(setupTenantId),
-			]);
-			if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
-				redirect(302, '/');
+				// #4885 の gate は着地先の query ごと落とす。1 度きりの告知 (?trialStarted=1、
+				// PO 決裁 2026-09-10 決定 3(a)) はここで消えると二度と出せない — 新規テナントは
+				// 必ず子供 0 人なので、申込経路の顧客は 100% この redirect を通る (#4887 B2)。
+				redirect(302, `/setup${carryTrialStartedQuery(setupGateSearch)}`);
 			}
 		}
 
@@ -677,6 +670,28 @@ export const handle: Handle = ({ event, resolve }) =>
 				);
 			}
 			redirect(302, authResult.redirect);
+		}
+
+		// セットアップ完了済みなら /setup へのアクセスをブロック。
+		// **ただし「完了」= 子供が 1 人居ること、ではない** (#4860 must-B)。ウィザードは 9 step
+		// あり、step 1 で子供を登録した瞬間に isSetupRequired が false になるため、その判定だと
+		// 残り 8 step が原理的に開けなくなる (step 1 の action が /setup/questionnaire へ
+		// redirect しても、その先で / へ弾かれる)。歩いている最中だけ通す。
+		//
+		// **認可 (`provider.authorize`) の後に置く。** 前に置くと、child が /setup を踏んだときに
+		// こちらが先に当たって `/` へ倒れ、#4700 が足した理由 (`/switch?reason=admin_forbidden`、
+		// authorization.ts:58) が評価されない。塞がること自体は変わらないが、**なぜ入れないのかが
+		// 顧客に伝わらなくなる**。
+		// **`setupRequired` → `/setup` の側 (:640-644) は認可より前のまま**にする — 後ろに動かすと
+		// 子供 0 人テナントの `/admin` が先に認可判定に晒され、ウィザードへ連れて行く経路が変わる。
+		if (setupTenantId && path.startsWith('/setup')) {
+			const [setupRequired, wizardInProgress] = await Promise.all([
+				isSetupRequired(setupTenantId),
+				isSetupWizardInProgress(setupTenantId),
+			]);
+			if (shouldBlockSetupAccess({ setupRequired, wizardInProgress })) {
+				redirect(302, '/admin');
+			}
 		}
 
 		// 2-b) 親 PIN gate (#4866 系 QM 監査 / PO 決裁 2026-09-10 決定 4)
@@ -780,6 +795,14 @@ export const handle: Handle = ({ event, resolve }) =>
 			identity &&
 			context?.tenantId &&
 			context.role !== 'child' &&
+			// PO 決裁 2026-09-10c と同じ「金の確認が先」(#4887 B3)。Stripe checkout の着地
+			// (`?session_id=…`) をここで /consent に倒すと、決済完了の確認バナーと
+			// `reconcileCheckoutSession` (webhook 未達時の救済) がその訪問で失われ、
+			// /consent は元の URL に戻さない (consent/+page.server.ts の着地は /admin)。
+			// 着地先は returnPath 次第で任意の path になるため path でなく query で見る
+			// (SSOT: setup-gate.ts の CHECKOUT_SESSION_QUERY_KEY)。次の遷移で通常どおり
+			// /consent に倒れるので、再同意を免除するのではなく 1 画面だけ後ろにずらす。
+			!new URLSearchParams(setupGateSearch).has(CHECKOUT_SESSION_QUERY_KEY) &&
 			!path.startsWith('/consent') &&
 			!path.startsWith('/legal/') &&
 			!path.startsWith('/auth/') &&

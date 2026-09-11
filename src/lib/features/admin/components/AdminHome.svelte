@@ -257,7 +257,7 @@ function childLink(child: ChildSummary): string {
 	{/if}
 
 	<!-- Children Overview -->
-	<section data-tutorial="children-overview">
+	<section>
 		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3">{ADMIN_HOME_LABELS.childrenSectionTitle}</h2>
 		{#if children.length === 0}
 			<Card class="p-8 text-center text-[var(--color-text-tertiary)]">
@@ -265,7 +265,7 @@ function childLink(child: ChildSummary): string {
 			</Card>
 		{:else}
 			<div class="grid gap-3">
-				{#each children as child}
+				{#each children as child, i}
 					<ChildListCard
 						child={{
 							...child,
@@ -274,6 +274,7 @@ function childLink(child: ChildSummary): string {
 						}}
 						isSelected={false}
 						href={childLink(child)}
+						dataTutorial={i === 0 ? 'child-card-first' : undefined}
 						formatBalance={fmtBal}
 					/>
 				{/each}

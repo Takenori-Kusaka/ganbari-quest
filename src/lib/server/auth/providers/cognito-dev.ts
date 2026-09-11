@@ -4,6 +4,7 @@
 
 import type { RequestEvent } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { CONTEXT_COOKIE_NAME, IDENTITY_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -31,8 +32,13 @@ export interface DevUser {
 	role: Role;
 	/** ライセンス状態（未指定は 'active'） */
 	licenseStatus?: AuthContext['licenseStatus'];
-	/** Stripe price id 相当（例: 'standard_monthly', 'family_monthly'） */
-	plan?: string;
+	/**
+	 * 課金プラン値。**正準値の SSOT は `subscription-plan.ts` の `SUBSCRIPTION_PLAN`**。
+	 * `string` に広げない: #4804 が tier 写像を完全一致表にしたため、表に無い値は
+	 * `FALLBACK_PAID_TIER='standard'` に落ちて family が黙って standard になる
+	 * (実際に 'family_monthly' と書かれていて e2e 4 件が赤になった、#4887)。
+	 */
+	plan?: SubscriptionPlan;
 	/** #820: Cognito group 疑似所属。未指定は空扱い */
 	groups?: string[];
 	/** #3025: federated (Google) 相当。Cognito パスワードを持たないユーザの再現 (PIN reset 分岐検証用) */
@@ -81,7 +87,7 @@ export const DEV_USERS: DevUser[] = [
 		tenantId: 'dev-tenant-standard',
 		role: 'owner',
 		licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
-		plan: 'standard_monthly',
+		plan: SUBSCRIPTION_PLAN.MONTHLY,
 	},
 	{
 		userId: 'dev-family-owner-001',
@@ -90,7 +96,7 @@ export const DEV_USERS: DevUser[] = [
 		tenantId: 'dev-tenant-family',
 		role: 'owner',
 		licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
-		plan: 'family_monthly',
+		plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY,
 	},
 	// ---------- #752: トライアル E2E 用ユーザー ----------
 	// free プランだがトライアル期限切れ済み（global-setup.ts で trial_history をシード）

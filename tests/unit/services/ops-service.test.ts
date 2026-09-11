@@ -244,8 +244,8 @@ describe('getKpiSummary', () => {
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', status: 'active', plan: 'monthly' }),
 			// rename 途中の旧値 / 手動投入など、プラン集合に無い値。DB の plan 列は自由文字列
-			// なので、型が塞いでいても**この境界を越えて入りうる** (cognito-dev の DEV_USERS も
-			// 実際に underscore 形の値を返している)。cast はその境界の再現。
+			// なので、型が塞いでいても**この境界を越えて入りうる** (`dsql/auth-repo.ts` が
+			// DB の生値を無検査 cast する)。cast はその境界の再現。
 			makeTenant({
 				tenantId: 't2',
 				status: 'active',

@@ -11,6 +11,7 @@
 // (`src/lib/server/db/sqlite/auth-repo.ts`、#4156 で固定値 → 永続に変更)。本 spec は worker DB に
 // 直接 S5 (解約済み) を書いてから画面を検証し、書いた状態は必ず戻す。
 
+import { SUBSCRIPTION_PLAN } from '../../src/lib/domain/constants/subscription-plan';
 import { expect, test } from './fixtures';
 
 const CONTRACT_KEY = 'local_tenant_contract';
@@ -22,7 +23,7 @@ const CONTRACTS = {
 	/** S2 課金中 */
 	active: JSON.stringify({
 		status: 'active',
-		plan: 'standard_monthly',
+		plan: SUBSCRIPTION_PLAN.MONTHLY,
 		stripeCustomerId: 'cus_e2e_4156',
 		stripeSubscriptionId: 'sub_e2e_4156',
 	}),

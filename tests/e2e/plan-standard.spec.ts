@@ -2,7 +2,7 @@
 // #779: スタンダードプランの機能疎通 E2E
 //
 // AUTH_MODE=cognito + COGNITO_DEV_MODE=true で DevCognitoAuthProvider の
-// dev-tenant-standard（plan=standard_monthly）でログインし、
+// dev-tenant-standard（plan=monthly）でログインし、
 // 「standard だからこそ表示される / されない」UI を一通り確認する。
 //
 // 設計意図:

@@ -3,6 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { SETTINGS_LABELS } from '../../src/lib/domain/labels';
 
 const EXPORT_VERSION = '1.2.0';
 
@@ -82,10 +83,12 @@ test.describe('#1254 G3 インポート verify Dialog', () => {
 
 		const summary = page.getByTestId('import-preview-summary');
 		await expect(summary).toBeVisible({ timeout: 10_000 });
+		// #4716: 呼称は SETTINGS_LABELS が SSOT (親画面は「お子さま」。旧「子供」は
+		// tests/unit/domain/parent-wording-hygiene-4716.test.ts が再混入を CI で止めている)。
 		await expect(page.getByTestId('import-preview-checksum-ok')).toContainText(
-			'ファイルの整合性を確認しました',
+			SETTINGS_LABELS.dataImportChecksumOk,
 		);
-		await expect(summary).toContainText('子供: 1人');
+		await expect(summary).toContainText(SETTINGS_LABELS.dataImportPreviewChildren(1));
 	});
 
 	test('改ざんされた checksum のファイルではエラー表示される', async ({ page }) => {

@@ -99,7 +99,7 @@
 ├── 今月のがんばり（子供別: 活動回数・レベル・実績）  ← data-tutorial="monthly-summary"
 │   └── data source: getAllChildrenSimpleSummary()
 │       テーブル: activities, achievements, child_status
-├── こども一覧（ChildListCard）                       ← data-tutorial="children-overview"
+├── こども一覧（ChildListCard）                       ← 先頭カードに data-tutorial="child-card-first"
 └── PlanStatusCard / プランバナー                     ← トライアル・プラン状態
 ```
 

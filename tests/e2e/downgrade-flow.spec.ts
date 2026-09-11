@@ -19,6 +19,47 @@
 
 import { expect, test } from '@playwright/test';
 
+/** downgrade-preview の戻り (assert に使う部分だけ) */
+type DowngradePreviewBody = {
+	children: { current: { id: number }[]; max: number | null; excess: number };
+	activities: { current: { id: number }[]; max: number | null; excess: number };
+	checklistTemplates: {
+		current: { id: string; childId: number }[];
+		maxPerChild: number | null;
+	};
+};
+
+/**
+ * free 上限を満たす archive 選択を preview から**全資源ぶん**組み立てる。
+ * 子供だけを選ぶと、#4693 で `custom` になった復元活動 (?/importFile 由来) や
+ * 先行 spec が入れたチェックリストが上限を超えたときに archiveForDowngrade が
+ * 正しく 400 を返し、この spec が製品ではなく worker DB の状態で落ちる
+ * (downgrade-service.ts:159-188 の 3 資源検証)。
+ */
+function selectExcessForFree(preview: DowngradePreviewBody) {
+	const sortedChildren = [...preview.children.current].sort((a, b) => a.id - b.id);
+	const childIds = sortedChildren
+		.slice(preview.children.max ?? sortedChildren.length)
+		.map((c) => c.id);
+
+	const activityIds = preview.activities.current
+		.slice(preview.activities.max ?? preview.activities.current.length)
+		.map((a) => a.id);
+
+	const keptChildIds = sortedChildren.map((c) => c.id).filter((id) => !childIds.includes(id));
+	const maxPerChild = preview.checklistTemplates.maxPerChild;
+	const checklistTemplateIds: string[] = [];
+	if (maxPerChild !== null) {
+		for (const childId of keptChildIds) {
+			const own = preview.checklistTemplates.current.filter((t) => t.childId === childId);
+			for (const t of own.slice(maxPerChild)) {
+				if (!checklistTemplateIds.includes(t.id)) checklistTemplateIds.push(t.id);
+			}
+		}
+	}
+	return { childIds, activityIds, checklistTemplateIds };
+}
+
 // ============================================================
 // API: ダウングレードプレビュー
 // ============================================================
@@ -86,38 +127,33 @@ test.describe('#754 ダウングレードフロー — アーカイブ API', () 
 		const preview = await previewRes.json();
 
 		// 超過子供のうち必要な数だけ選択（古い順に余剰分を選択）
-		const sortedChildren = [...preview.children.current].sort(
-			(a: { id: number }, b: { id: number }) => a.id - b.id,
-		);
-		const childIdsToArchive = sortedChildren
-			.slice(preview.children.max ?? sortedChildren.length)
-			.map((c: { id: number }) => c.id);
+		const selection = selectExcessForFree(preview);
+		const childIdsToArchive = selection.childIds;
 
 		expect(childIdsToArchive.length).toBeGreaterThanOrEqual(preview.children.excess);
 
-		// 2) アーカイブ実行
+		// 2) アーカイブ実行 (子供・活動・チェックリストの超過をすべて選ぶ)
 		const archiveRes = await request.post('/api/v1/admin/downgrade-archive', {
-			data: {
-				targetTier: 'free',
-				childIds: childIdsToArchive,
-				activityIds: [],
-				checklistTemplateIds: [],
-			},
+			data: { targetTier: 'free', ...selection },
 		});
-		expect(archiveRes.status()).toBe(200);
+		expect(archiveRes.status(), await archiveRes.text()).toBe(200);
 
-		const archiveResult = await archiveRes.json();
-		expect(archiveResult.archivedChildIds).toEqual(expect.arrayContaining(childIdsToArchive));
+		try {
+			const archiveResult = await archiveRes.json();
+			expect(archiveResult.archivedChildIds).toEqual(expect.arrayContaining(childIdsToArchive));
 
-		// 3) 再度プレビューを取得 → 超過が解消されている
-		const afterRes = await request.get('/api/v1/admin/downgrade-preview?targetTier=free');
-		expect(afterRes.status()).toBe(200);
-		const afterPreview = await afterRes.json();
-		expect(afterPreview.children.excess).toBe(0);
-
-		// 4) クリーンアップ: アーカイブしたリソースを復元（他テストへの影響を防止）
-		const restoreRes = await request.post('/api/v1/admin/downgrade-restore');
-		expect(restoreRes.status()).toBe(200);
+			// 3) 再度プレビューを取得 → 超過が解消されている
+			const afterRes = await request.get('/api/v1/admin/downgrade-preview?targetTier=free');
+			expect(afterRes.status()).toBe(200);
+			const afterPreview = await afterRes.json();
+			expect(afterPreview.children.excess).toBe(0);
+			// 追加 (強化): free の上限を全資源で満たしたことまで見る
+			expect(afterPreview.hasExcess).toBe(false);
+		} finally {
+			// 4) クリーンアップ: アーカイブしたリソースを復元（他テストへの影響を防止）
+			const restoreRes = await request.post('/api/v1/admin/downgrade-restore');
+			expect(restoreRes.status()).toBe(200);
+		}
 	});
 
 	test('選択数が不足するとアーカイブ失敗（400）', async ({ request }) => {
@@ -129,24 +165,16 @@ test.describe('#754 ダウングレードフロー — アーカイブ API', () 
 			0,
 		);
 
-		// 必要数より 1 少なく選択
-		const sortedChildren = [...preview.children.current].sort(
-			(a: { id: number }, b: { id: number }) => a.id - b.id,
-		);
-		const insufficientIds = sortedChildren
-			.slice(preview.children.max ?? sortedChildren.length)
-			.slice(0, preview.children.excess - 1)
-			.map((c: { id: number }) => c.id);
+		// 活動・チェックリストの超過は満たしたうえで、**子供だけ 1 件足りない**選択にする。
+		// (全資源を [] にすると子供以外の理由で 400 になり、この test が守るはずの規則を検証しない)
+		const selection = selectExcessForFree(preview);
+		expect(selection.childIds.length).toBeGreaterThan(0);
 
 		const res = await request.post('/api/v1/admin/downgrade-archive', {
-			data: {
-				targetTier: 'free',
-				childIds: insufficientIds,
-				activityIds: [],
-				checklistTemplateIds: [],
-			},
+			data: { ...selection, targetTier: 'free', childIds: selection.childIds.slice(0, -1) },
 		});
 		expect(res.status()).toBe(400);
+		expect(await res.text(), '子供の不足が 400 の理由であること').toContain('子供の数');
 	});
 
 	test('targetTier 未指定でアーカイブ失敗（400）', async ({ request }) => {
@@ -263,23 +291,13 @@ test.describe('#754 アーカイブ → 復元サイクル', () => {
 			'テストデータに free プランの子供超過が必要（5子供 > max 2）',
 		).toBeGreaterThan(0);
 
-		// 2) 超過分をアーカイブ
-		const sortedChildren = [...beforePreview.children.current].sort(
-			(a: { id: number }, b: { id: number }) => a.id - b.id,
-		);
-		const childIdsToArchive = sortedChildren
-			.slice(beforePreview.children.max ?? sortedChildren.length)
-			.map((c: { id: number }) => c.id);
+		// 2) 超過分をアーカイブ (子供・活動・チェックリストの超過をすべて選ぶ)
+		const selection = selectExcessForFree(beforePreview);
 
 		const archiveRes = await request.post('/api/v1/admin/downgrade-archive', {
-			data: {
-				targetTier: 'free',
-				childIds: childIdsToArchive,
-				activityIds: [],
-				checklistTemplateIds: [],
-			},
+			data: { targetTier: 'free', ...selection },
 		});
-		expect(archiveRes.status()).toBe(200);
+		expect(archiveRes.status(), await archiveRes.text()).toBe(200);
 
 		// 3) アーカイブ後の状態: 超過が解消されている
 		const afterArchiveRes = await request.get('/api/v1/admin/downgrade-preview?targetTier=free');
