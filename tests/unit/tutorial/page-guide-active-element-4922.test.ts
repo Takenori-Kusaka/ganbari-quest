@@ -59,7 +59,9 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 			...(opts.withFix
 				? {
 						onHighlightStarted: (element) => {
-							clearStaleActiveElementClasses(element ?? null);
+							clearStaleActiveElementClasses(
+								element ?? document.getElementById('driver-dummy-element'),
+							);
 						},
 					}
 				: {}),
@@ -165,7 +167,7 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 				{ popover: { title: 'center' } },
 			],
 			onHighlightStarted: (element) => {
-				clearStaleActiveElementClasses(element ?? null);
+				clearStaleActiveElementClasses(element ?? document.getElementById('driver-dummy-element'));
 			},
 		});
 		driverInstance.drive(0);
@@ -174,5 +176,45 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 		driverInstance.moveNext();
 		// dummy element (id=driver-dummy-element) だけが active。'a' は残らない。
 		expect(activeElementIds()).toEqual(['driver-dummy-element']);
+	});
+
+	/**
+	 * #4922 実機検証で判明した gap: 「概要」step (selector 省略 = dummy) から始まるガイドで
+	 * dummy → 実要素 → 実要素と進むと、dummy 自身の残留クラスが除去されないまま残っていた
+	 * (`onHighlightStarted` が dummy 対象時に `undefined` を渡すため、呼び出し側が `null` に
+	 * フォールバックすると dummy を「現在の対象」として比較できず、`el.id==='driver-dummy-element'`
+	 * を無条件スキップする実装だと dummy から離れた後も除去できない)。
+	 * 呼び出し側で `element ?? document.getElementById('driver-dummy-element')` に解決する
+	 * ことで、この gap が閉じることを固定する (実機 SS: /admin/subscription で
+	 * `.driver-active-element` count が dummy 込みで 2 のまま残っていた実測を再現)。
+	 */
+	it('dummy (概要 step) → 実要素 → 実要素と進むと dummy の残留クラスも除去される', () => {
+		document.body.innerHTML = '<div id="a"></div><div id="b"></div>';
+		for (const id of ['a', 'b']) stubVisibleRect(document.getElementById(id) as HTMLElement);
+
+		driverInstance = driver({
+			animate: true,
+			steps: [
+				// step0: 概要 (selector 省略 = dummy が対象になる)
+				{ popover: { title: 'overview' } },
+				{ element: () => document.getElementById('a') as Element, popover: { title: 'a' } },
+				{ element: () => document.getElementById('b') as Element, popover: { title: 'b' } },
+			],
+			onHighlightStarted: (element) => {
+				clearStaleActiveElementClasses(element ?? document.getElementById('driver-dummy-element'));
+			},
+		});
+		driverInstance.drive(0);
+		expect(activeElementIds(), 'step0 (概要) 直後は dummy のみ').toEqual(['driver-dummy-element']);
+
+		driverInstance.moveNext(); // dummy → a
+		expect(activeElementIds(), 'dummy → a: dummy の残留クラスが除去され a のみ').toEqual(['a']);
+
+		driverInstance.moveNext(); // a → b
+		expect(activeElementIds(), 'a → b: a も dummy も残らず b のみ').toEqual(['b']);
+
+		// document 全体で見ても dummy を含め非表示要素に残留クラスが無いことを再確認する
+		// (実機では 0×0 で不可視のため見た目には出ないが、count には残る実害があった)。
+		expect(document.querySelectorAll('.driver-active-element')).toHaveLength(1);
 	});
 });

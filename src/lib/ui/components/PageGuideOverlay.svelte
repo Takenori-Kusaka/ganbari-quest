@@ -369,8 +369,11 @@ function startDriver(rawGuide: PageGuide): void {
 		// 永久にスキップされる。`onHighlightStarted` は duration に関係なく毎回同期的に呼ばれるため、
 		// ここで「これから対象になる要素以外」を一括除去し、driver.js 内部のタイミングに依存せず
 		// 「唯一の active element」を構成的に保証する (詳細: page-guide-active-element.ts)。
+		// 対象が中央 modal (selector 省略 step) のときは driver.js が element を `undefined` で
+		// 渡すため、実 DOM 参照 (`#driver-dummy-element`) に解決してから渡す (実機検証で判明:
+		// null のまま渡すとダミーから実要素へ遷移した後にダミーの残留クラスを除去できない)。
 		onHighlightStarted: (element) => {
-			clearStaleActiveElementClasses(element ?? null);
+			clearStaleActiveElementClasses(element ?? document.getElementById('driver-dummy-element'));
 		},
 		// 最終 step まで到達して閉じたら完了 (localStorage 永続)、途中終了 (とじる / Escape /
 		// overlay click) なら未完了のまま end。判定は completedLastStep フラグで行う。

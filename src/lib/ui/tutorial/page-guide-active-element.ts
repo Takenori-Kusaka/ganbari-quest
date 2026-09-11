@@ -20,24 +20,24 @@
 // 【対処方針】
 // driver.js の `onHighlightStarted` フックは、新しい対象が解決された直後・実 DOM 操作 (クラス
 // 追加/除去) の前に、`duration` に関係なく毎回同期的に呼ばれる (driver.js.mjs `J` 関数冒頭)。
-// ここで「これから対象になる要素 (と driver.js 自身のダミー要素) 以外」から
-// `.driver-active-element` 系クラスを一括除去することで、driver.js 内部のアニメーション
-// タイミングに依存せず「唯一の active element」を構成的に保証する (transferHighlight の
-// 成否を driver.js 自身の内部状態に委ねない)。
-
-/** driver.js が中央 modal (selector 省略 step) 用に挿入する 0×0 placeholder の id。 */
-const DRIVER_DUMMY_ELEMENT_ID = 'driver-dummy-element';
-
-/**
- * `current` (これから active になる要素、無ければ null) 以外から
- * `.driver-active-element` / `.driver-no-interaction` / `.driver-active-element-parent` 系の
- * クラスと、driver.js が付与する aria 属性を除去する。
- *
- * driver.js の `onHighlightStarted` フックから呼ぶことを想定 (`PageGuideOverlay.svelte` 参照)。
- */
+// ここで「これから対象になる要素以外」から `.driver-active-element` 系クラスを一括除去する
+// ことで、driver.js 内部のアニメーションタイミングに依存せず「唯一の active element」を
+// 構成的に保証する (transferHighlight の成否を driver.js 自身の内部状態に委ねない)。
+//
+// 【ダミー要素の扱い (実機検証で判明、#4922)】
+// driver.js は selector 省略 step (中央 modal) で `#driver-dummy-element` (0×0 placeholder) を
+// 挿入するが、`onHighlightStarted` はダミーが対象のとき element 引数を `undefined` で渡す
+// (driver.js.mjs: `d(c?void 0:t,n,h)`)。呼び出し側 (`PageGuideOverlay.svelte`) は
+// `element ?? resolveActiveElementFallback()` でこの undefined を実 DOM 参照
+// (`#driver-dummy-element`) に解決してから渡すこと。ここを `null` のまま渡すと、
+// 「ダミーが対象の間はダミー自身を誤って除去しない」ための例外的スキップが必要になり、
+// その結果「ダミーから実要素へ遷移した後もダミーの残留クラスを永久に除去できない」という
+// 別の穴が生まれる (実機 SS 撮影で確認: dummy を除いても実要素 1 個は正しいが
+// `.driver-active-element` 総数が 2 のまま = ダミーの残留)。呼び出し側で参照を解決すれば
+// 本関数はダミーを特別扱いする必要がなく、`current` 判定 1 本で正しく動く。
 export function clearStaleActiveElementClasses(current: Element | null): void {
 	for (const el of document.querySelectorAll('.driver-active-element')) {
-		if (el === current || el.id === DRIVER_DUMMY_ELEMENT_ID) continue;
+		if (el === current) continue;
 		el.classList.remove('driver-active-element', 'driver-no-interaction');
 		el.removeAttribute('aria-haspopup');
 		el.removeAttribute('aria-expanded');

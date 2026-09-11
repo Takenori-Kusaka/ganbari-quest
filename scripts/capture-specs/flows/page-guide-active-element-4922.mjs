@@ -57,9 +57,11 @@ export default async (page, capture) => {
 
 	// #4922 repro: highlight アニメーション (既定 400ms) の完了を待たず「つぎへ」を
 	// 連打する (現実的な素早いクリック速度)。step3 (画面の見方) まで進めて撮影する。
+	// force:true で Playwright の actionability wait (安定待ち / pointer-events 確認)
+	// を skip し、ボタンが DOM に現れた瞬間に click することでレースを最大化する。
 	const nextBtn = bubble.locator(GUIDE_NEXT);
-	await nextBtn.click(); // step1 → step2
-	await nextBtn.click(); // step2 → step3 (100ms 未満での連打、待たない)
+	await nextBtn.click({ force: true }); // step1 → step2
+	await nextBtn.click({ force: true }); // step2 → step3 (待たずに連打)
 
 	// bubble の表示だけは最低限待つ (step id が更新されたことの確認)。
 	await bubble.waitFor({ state: 'visible', timeout: 5_000 });
