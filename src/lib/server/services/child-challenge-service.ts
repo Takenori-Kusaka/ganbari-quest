@@ -56,13 +56,20 @@ export const CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
  * categoryId + targetValue から年齢帯の文体で解決し直す (#4690 / QM #4809)。
  * preschool は「こんしゅうは「うんどう」を3かい」、保護者画面 ('senior') は「今週は「運動」を3回」。
  * categoryId が無い旧行は保存値をそのまま返す。
+ *
+ * #4911: **`genMode` (週次自動生成のみが持つメタ) が無ければ再生成しない**。旧実装は categoryId の
+ * 有無だけで判定していたため、setup wizard の preset / custom チャレンジ (`targetConfig` に進捗
+ * 集計用の categoryId は持つが genMode は持たない) まで「今週は「勉強」を10回」のような週次自動
+ * 生成タイトルに上書きされていた (実測: 顧客が選んだ「夏休み読書記録」が別タイトルに改題)。
+ * genMode は `getChallengeReason` の判定 (`toChildChallengeView`) と同一の SSOT。
  */
 export function resolveChallengeDisplayTitle(
 	c: { title: string; targetConfig: string; targetValue: number },
 	uiMode: string,
 ): string {
 	try {
-		const cfg = JSON.parse(c.targetConfig) as { categoryId?: unknown };
+		const cfg = JSON.parse(c.targetConfig) as { categoryId?: unknown; genMode?: unknown };
+		if (typeof cfg.genMode !== 'string') return c.title;
 		if (typeof cfg.categoryId !== 'number' && typeof cfg.categoryId !== 'string') return c.title;
 		const name = getCategoryDisplayName(cfg.categoryId, uiMode);
 		return name ? formatChallengeTitle(name, c.targetValue, uiMode) : c.title;
@@ -497,7 +504,9 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 // ============================================================
 
 /** 自動生成 instance を識別する sourceTemplateId 値 */
-const AUTO_WEEKLY_SOURCE = 'auto:weekly';
+// #4911: admin/challenges のヘッダ文 (自動生成 vs setup 由来の手動選択の出し分け) が同一 SSOT を
+// 参照できるよう export する。
+export const AUTO_WEEKLY_SOURCE = 'auto:weekly';
 /** 自動生成チャレンジ達成時の既定ごほうびポイント (PO 確認対象、控えめな既定値) */
 const AUTO_WEEKLY_REWARD_POINTS = 30;
 
