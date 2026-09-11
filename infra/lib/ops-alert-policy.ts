@@ -104,6 +104,11 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'entitlement 解決の fail-closed 発火 = DB 障害で有効な Cookie を持つ顧客が軒並み 503 になっている。#3998 で PO がこの trade-off を承認した前提が「起きたら気付けること」であり、届かなければ承認の前提が崩れる',
 	},
+	'ganbari-quest-auth-entitlement-db-unavailable-burst': {
+		notify: true,
+		reason:
+			'#4918: 上の継続判定 alarm (15 分 2-of-3 window) は単一 window に閉じた burst を捕捉できない。本番で実際に「同一 5 分 window に 4 件・その後 1 時間平常」という burst-then-recover パターンが未通知のまま発生した。人が気付く価値があるため届ける',
+	},
 	'ganbari-quest-grace-period-partial-failure': {
 		notify: true,
 		reason:

@@ -136,13 +136,20 @@ function isEntitlementFailureExemptPath(path: string): boolean {
  * 併せて alert kind `auth-entitlement-db-unavailable` で観測可能にする。
  * 「DB 障害で剥奪」と「正当に無権限」が同じ見え方だと incident の切り分けができない
  * (#3968 の `stripe-plan-unresolved` と同じ発想)。
+ *
+ * #4918: この alert 行は ASCII のみにする。本番incident で日本語部分だけが
+ * CloudWatch 上で文字化けし (`�ۋ���Ԃ�...`)、Logs Insights から読めなくなる事象を
+ * 観測した (原因の断定には至らず — Lambda/コンテナのログパイプラインが多byteの
+ * 同時書き込みをどこかで壊している可能性が高いが未確定)。`ALERT_KIND` 等の識別子は
+ * 元々 ASCII 専用にしている慣習と同じく、この 1 行も ASCII に倒すことで文字化けの
+ * リスク面そのものを構造的に無くす（ユーザー向け 503 応答本文は従来どおり日本語）。
  */
 function respondEntitlementUnavailable(
 	event: RequestEvent,
 	error: TenantEntitlementUnavailableError,
 ): Response {
 	const kind = TenantEntitlementUnavailableError.ALERT_KIND;
-	logger.error(`[auth-alert] ${kind}: 課金状態を DB から解決できず context を発行しませんでした`, {
+	logger.error(`[auth-alert] ${kind}: failed to resolve tenant entitlement, context not issued`, {
 		requestId: event.locals.requestId,
 		tenantId: error.tenantId,
 		context: {

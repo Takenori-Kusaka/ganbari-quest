@@ -219,8 +219,13 @@ describe('resolveTenantEntitlement (#3963)', () => {
 		expect(TenantEntitlementUnavailableError.ALERT_KIND).toBe('auth-entitlement-db-unavailable');
 	});
 
-	it('DB 障害の結果はキャッシュせず、次の呼び出しで再試行する', async () => {
-		findTenantById.mockRejectedValueOnce(new Error('transient'));
+	// #4918: resolveTenantEntitlement は内部で 1 回リトライするため、1 回だけ失敗する
+	// 呼び出しはこの中で自己修復して throw しない。「呼び出しをまたいでも失敗をキャッシュ
+	// しない」ことを確認するには、1 回の resolveTenantEntitlement 呼び出し内で 2 回とも
+	// 失敗させる必要がある。
+	it('リトライしても 2 回とも失敗した結果はキャッシュせず、次の呼び出しで再試行する', async () => {
+		findTenantById.mockRejectedValueOnce(new Error('transient-1'));
+		findTenantById.mockRejectedValueOnce(new Error('transient-2'));
 		findTenantById.mockResolvedValueOnce(makeTenant({ stripeSubscriptionId: 'sub_1' }));
 
 		await runWithRequestContext(async () => {
@@ -232,6 +237,34 @@ describe('resolveTenantEntitlement (#3963)', () => {
 			);
 		});
 
+		expect(findTenantById).toHaveBeenCalledTimes(3);
+	});
+
+	// #4918 AC2: warm container の一過性失敗 (古い / 失効した接続) を 1 回だけリトライし、
+	// 2 回目が成功すれば 503 化させずに復旧する。
+	it('1 回目失敗・2 回目成功なら 1 回リトライで復旧し、例外を投げない', async () => {
+		findTenantById.mockRejectedValueOnce(new Error('connection reset'));
+		findTenantById.mockResolvedValueOnce(makeTenant({ stripeSubscriptionId: 'sub_1' }));
+
+		const result = await runWithRequestContext(() => resolveTenantEntitlement('t-1'));
+
+		expect(result?.licenseStatus).toBe(AUTH_LICENSE_STATUS.ACTIVE);
+		expect(findTenantById).toHaveBeenCalledTimes(2);
+	});
+
+	// #4918 AC2: 「それでも失敗したら 503」— リトライの 2 回目も失敗したら fail-closed に落ちる
+	it('1 回目・2 回目とも失敗したら TenantEntitlementUnavailableError を投げる (2 回までしかリトライしない)', async () => {
+		findTenantById.mockRejectedValueOnce(new Error('e1'));
+		findTenantById.mockRejectedValueOnce(new Error('e2 (final cause)'));
+
+		const caught = await runWithRequestContext(() =>
+			resolveTenantEntitlement('t-1').catch((e: unknown) => e),
+		);
+
+		expect(caught).toBeInstanceOf(TenantEntitlementUnavailableError);
+		const err = caught as InstanceType<typeof TenantEntitlementUnavailableError>;
+		// throw される例外の cause は「最後の (= リトライ後の) 失敗」であること
+		expect((err.dbError as Error).message).toBe('e2 (final cause)');
 		expect(findTenantById).toHaveBeenCalledTimes(2);
 	});
 

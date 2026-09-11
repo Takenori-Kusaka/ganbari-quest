@@ -6,6 +6,7 @@
 | alert | 何が起きている | 通知経路 |
 |---|---|---|
 | `ganbari-quest-auth-entitlement-db-unavailable` (CloudWatch Alarm) | 課金状態を DB から解決できず、認証済みユーザーが 503 を受けている (#3998) | SNS `ganbari-quest-ops-alerts` (既存 alarm と同一) |
+| `ganbari-quest-auth-entitlement-db-unavailable-burst` (CloudWatch Alarm) | 上と同じ事象の burst 版。同一 5 分 window に 3 件以上発生した場合に即時発火 (#4918) | SNS `ganbari-quest-ops-alerts` (既存 alarm と同一) |
 | `stripe-webhook-undelivered` (Discord alert) | Stripe webhook がアプリに届かず、支払い済みのプランが反映されていない (#3959) | Discord (`sendDiscordAlert` 経由) |
 | `stripe-webhook-ledger-gap` (Discord alert) | Stripe は配信成功として扱っているのに、その event が台帳 (`stripe_webhook_events`) に無い = **受け取って捨てている** (#4128) | Discord (`sendDiscordAlert` 経由) |
 | `stripe-webhook-monitor-failed` (Discord alert) | 上の未達検知 cron 自体が失敗しており、未達を検知できていない (#3959) | Discord (`sendDiscordAlert` 経由) |
@@ -37,6 +38,12 @@ Discord だけを見て「収まった」と判断しない。
 1 件 = 503 になったリクエスト 1 本。**件数ではなく継続時間で判定する**ため、契約世帯が少なく
 夜間に 1 件しか出ない規模でも 5 分以上続けば鳴り、DSQL の瞬断・OCC 競合による単発失敗
 （1 window で収まる）では鳴らない。
+
+**`ganbari-quest-auth-entitlement-db-unavailable-burst` (#4918)**: 同じ metric を見る対の alarm。
+**同一 5 分 window 内に 3 件以上**（`threshold: 3` / `evaluationPeriods: 1` / `datapointsToAlarm: 1`）
+で即時発火する。上の継続判定 alarm は 15 分に満たない短時間 burst（本番で実際に発生した「2 秒間に
+4 件・その後 1 時間平常」のパターン）を捕捉できないため、この burst alarm が代わりに気付く。
+1 リクエスト単発の DSQL 瞬断ではノイズにならない (`treatMissingData: NOT_BREACHING`)。
 
 ### 1.3 一次対応
 

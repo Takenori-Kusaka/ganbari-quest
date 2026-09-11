@@ -58,14 +58,39 @@ function formatEntry(entry: LogEntry): string {
 	return JSON.stringify(entry);
 }
 
+/**
+ * #4918: `error` / `context` meta は Lambda 上ではこの関数の console 出力だけが CloudWatch への
+ * 唯一の到達経路 (`isProduction && !isLambda` のときだけファイルにも書くが、Lambda では常に false)。
+ * 以前は `entry.message` (固定文言) しか console に出しておらず、呼び出し側が
+ * `logger.error(msg, { error: e.message, context: {...} })` で渡した DB 例外の cause が
+ * 実質どこにも書かれていなかった (本番 auth-entitlement-db-unavailable 障害で原因不明のまま化)。
+ */
+function formatMetaSuffix(entry: LogEntry): string {
+	const parts: string[] = [];
+	if (entry.error) parts.push(`error=${entry.error}`);
+	if (entry.requestId) parts.push(`requestId=${entry.requestId}`);
+	if (entry.tenantId) parts.push(`tenantId=${entry.tenantId}`);
+	if (entry.userId) parts.push(`userId=${entry.userId}`);
+	if (entry.context) {
+		try {
+			parts.push(`context=${JSON.stringify(entry.context)}`);
+		} catch {
+			// circular / non-serializable context でも他フィールドの出力は止めない
+			parts.push('context=<unserializable>');
+		}
+	}
+	return parts.length > 0 ? ` ${parts.join(' ')}` : '';
+}
+
 function writeLog(entry: LogEntry) {
 	if (!shouldLog(entry.level)) return;
 
 	// Console output
 	const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
+	const metaSuffix = formatMetaSuffix(entry);
 	const msg = entry.method
-		? `${prefix} ${entry.method} ${entry.path} ${entry.status ?? ''} ${entry.durationMs ? `${entry.durationMs}ms` : ''} ${entry.message}`
-		: `${prefix} ${entry.message}`;
+		? `${prefix} ${entry.method} ${entry.path} ${entry.status ?? ''} ${entry.durationMs ? `${entry.durationMs}ms` : ''} ${entry.message}${metaSuffix}`
+		: `${prefix} ${entry.message}${metaSuffix}`;
 
 	if (entry.level === 'critical' || entry.level === 'error') {
 		console.error(msg);
