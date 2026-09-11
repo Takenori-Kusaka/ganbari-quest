@@ -116,9 +116,17 @@ function confirmDelete() {
 					</div>
 					<div class="flex items-center gap-2 shrink-0">
 						<!-- DL 導線は取り出せる行だけ。 -->
+						<!--
+							T10 (#4887): この DL は成功すれば attachment だが、失敗すると JSON を返す (親カギ gate 切れ
+							= parent-gate.ts の 403 / 期限切れ / DL 上限 / 別タブでの削除)。同一タブで遷移すると
+							設定画面が生 JSON に置き換わり、アプリ内に戻る導線が無くなる。新しいタブへ出して
+							設定画面を必ず残す (attachment 応答なら受け皿タブはブラウザが自動で閉じる)。
+						-->
 						{#if exp.rowState === 'downloadable'}
 							<Button
 								href="/api/v1/export/cloud/{exp.id}/download"
+								target="_blank"
+								rel="noopener"
 								variant="ghost"
 								size="sm"
 								class="text-[var(--color-text-link)] hover:brightness-75"

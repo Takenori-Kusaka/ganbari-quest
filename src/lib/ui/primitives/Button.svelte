@@ -6,7 +6,9 @@ import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
 
-interface Props extends HTMLButtonAttributes {
+// href 描画 (<a>) のときだけ意味を持つ anchor 属性 (target / rel) も型で受ける。
+// runtime は rest を <a> に spread しているが、型に無いと呼び出し側で「別タブで開く」が書けない (#4887 T10)。
+interface Props extends HTMLButtonAttributes, Pick<HTMLAnchorAttributes, 'target' | 'rel'> {
 	/** リンクとして描画したい場合は href を指定する（<a> タグで描画される） */
 	href?: string;
 	variant?: Variant;

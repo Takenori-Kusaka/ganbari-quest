@@ -43,12 +43,26 @@ import {
 import { getAuthMode, isCognitoDevMode } from './auth-mode';
 
 /**
- * PIN gate を要求する path prefix。
+ * PIN gate を要求する path prefix。**ここに載るのは書き込み (WRITE_METHODS) だけ** —
+ * 読み取りを止めるのは下の `PII_EXPORT_READ_PATHS` の完全一致表だけである。
  *
- * `FRONT_DOOR_PROTECTED_PREFIXES` (`origin-verify.ts`) の `/admin` + `/api/v1/admin` と
+ * `/admin` + `/api/v1/admin` は `FRONT_DOOR_PROTECTED_PREFIXES` (`origin-verify.ts`) と
  * 同じ集合。`/ops` は運営者専用で ops group 所属が別に効くため対象外。
+ *
+ * `/api/v1/export` / `/api/v1/import` / `/api/v1/data` を足すのは PO 決定 4(b)
+ * 「書き込み全部」を満たすため。家族データの一括持ち出し・取込・全消去は
+ * `/api/v1/admin` の**外**にある。ここを開けたままだと、一覧の GET を塞いでも
+ * **`POST /api/v1/export/cloud` の 201 応答が共有 PIN をそのまま返す**ため、
+ * 「その場で作り直して PIN を読む」で迂回できる。呼び出し元はすべて
+ * `/admin/settings/data` (page 表示が既に gate 対象) なので通常操作は影響を受けない。
  */
-const PIN_GATE_PREFIXES = ['/admin', '/api/v1/admin'] as const;
+const PIN_GATE_PREFIXES = [
+	'/admin',
+	'/api/v1/admin',
+	'/api/v1/export',
+	'/api/v1/import',
+	'/api/v1/data',
+] as const;
 
 /**
  * PIN gate を**掛けてはいけない** path。
@@ -61,9 +75,8 @@ const PIN_GATE_EXEMPT_PREFIXES = ['/api/v1/parent-gate'] as const;
 /**
  * 一括 PII を返すため、**読み取りでも** PIN を要求する path (PO 決定 4(b))。
  *
- * **完全一致で持つ** — prefix にすると `/api/v1/export/cloud` (保存済みバックアップの
- * *一覧*。描画のための読み取り) まで巻き込み、`/admin/settings/data` が 15 分後に
- * 描けなくなる ([G2] と衝突する)。
+ * **完全一致で持つ** — prefix にすると `/api/v1/data/summary` のような描画のための
+ * 読み取りまで巻き込み、[G2] と衝突する。
  */
 const PII_EXPORT_READ_PATHS: readonly string[] = [
 	'/api/v1/admin/account/export',
@@ -71,13 +84,23 @@ const PII_EXPORT_READ_PATHS: readonly string[] = [
 	// `exportFamilyData` を返すため、query 1 文字を変えれば同じ PII が落ちてしまい、
 	// 名指しされた zip 側の gate が無意味になる。
 	'/api/v1/export',
+	// **一覧は id を返すだけではない** (#4877 の旧コメントは事実と逆だった)。
+	// `listCloudExports` は `CloudExportListItem extends CloudExportRecord`
+	// (`cloud-export-service.ts:612`) を返し、共有 PIN と
+	// 保存キー (S3 key = `exports/<tenantId>/<PIN>/<file>`) が平文で載る。
+	// (識別子名をここに書かないのは `pin-redaction-sink-coverage.test.ts` [F1] が
+	//  字面で「PIN を扱う file」を数えるため。本 module は値を扱わず path を判定するだけ。)
+	// この PIN は **tenant にも plan にも縛られない bearer** で、他家庭の owner/parent が
+	// `POST /api/v1/import/cloud` に入れるだけで完全 PII を引ける
+	// (`findByPin` の tenant 述語なしは ADR-0063 §3.4 第 3 分類 capability lookup として
+	//  `tests/unit/architecture/dsql-tenant-predicate-fitness.test.ts` に allowlist 済 = 仕様)。
+	// つまり **DL を塞いでも一覧から PIN を読めば別端末で取り出せる**ので、一覧も塞ぐ。
+	'/api/v1/export/cloud',
 ];
 
 /**
  * 保存済みバックアップの実ファイル DL (`/api/v1/export/cloud/<id>/download`)。
- *
- * 一覧 (`GET /api/v1/export/cloud`) は id を返すだけなので、DL だけを塞いでも
- * 「一覧で id を見て URL を打つ」経路は残らない (DL 自体が止まる)。
+ * 一覧 (`/api/v1/export/cloud`) は上の完全一致表で塞ぐ。
  */
 const CLOUD_EXPORT_DOWNLOAD_RE = /^\/api\/v1\/export\/cloud\/[^/]+\/download$/;
 

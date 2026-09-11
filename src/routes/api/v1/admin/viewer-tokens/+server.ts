@@ -29,7 +29,26 @@ async function requireFamily(locals: App.Locals): Promise<string> {
 export const GET: RequestHandler = async ({ locals }) => {
 	const tenantId = await requireFamily(locals);
 	const tokens = await listViewerTokens(tenantId);
-	return json({ tokens });
+	// **`token` 列を一覧に載せない。** `/view/<token>` は `isPublicRoute`
+	// (`authorization.ts:199`) の**無認証**ページで、家族全員のニックネーム・年齢・
+	// ポイント・レベルを描く (`src/routes/view/[token]/+page.server.ts:31`)。
+	// `duration:'unlimited'` は `expiresAt=null` で失効しないため、token は
+	// 親 PIN gate も logout も越えて生き残る恒久的な資格になる。
+	//
+	// この GET は書き込みでも一括 PII 読み取りでもないので親 PIN gate の外
+	// ([G2] 描画のための読み取り) にある。**描画に token は要らない** —
+	// `/admin/members` の load は既にこの形で返しており
+	// (`src/routes/(parent)/admin/members/+page.server.ts:69-76`)、
+	// token は発行直後の POST 応答から 1 度だけリンクと QR に使う。
+	return json({
+		tokens: tokens.map((t) => ({
+			id: t.id,
+			label: t.label,
+			expiresAt: t.expiresAt,
+			createdAt: t.createdAt,
+			revokedAt: t.revokedAt,
+		})),
+	});
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
