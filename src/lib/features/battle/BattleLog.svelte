@@ -1,26 +1,30 @@
 <script lang="ts">
 import type { BattleTurnLog } from '$lib/domain/battle-types';
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import { getBattleLabels } from '$lib/domain/labels';
 
 let {
+	uiMode,
 	turns,
 	currentTurn = 0,
 }: {
+	uiMode: string;
 	turns: BattleTurnLog[];
 	currentTurn?: number;
 } = $props();
 
+const t = $derived(getBattleLabels(uiMode));
+
 function actionText(action: BattleTurnLog['playerAction'], isPlayer: boolean): string {
-	const who = isPlayer ? FEATURES_LABELS.battle.logPlayer : FEATURES_LABELS.battle.logEnemy;
-	if (action.damage === 0) return FEATURES_LABELS.battle.logDefeated(who);
-	return FEATURES_LABELS.battle.logAttack(who, action.damage, action.critical);
+	const who = isPlayer ? t.logPlayer : t.logEnemy;
+	if (action.damage === 0) return t.logDefeated(who);
+	return t.logAttack(who, action.damage, action.critical);
 }
 </script>
 
 <div class="battle-log">
 	{#each turns.slice(0, currentTurn) as turn (turn.turn)}
 		<div class="turn-entry" class:latest={turn.turn === currentTurn}>
-			<span class="turn-number">{FEATURES_LABELS.battle.logTurnLabel(turn.turn)}</span>
+			<span class="turn-number">{t.logTurnLabel(turn.turn)}</span>
 			{#if turn.firstAttacker === 'player'}
 				<p class="log-line player">{actionText(turn.playerAction, true)}</p>
 				{#if turn.enemyAction.damage > 0 || turn.enemyHpAfter > 0}
