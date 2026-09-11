@@ -49,6 +49,32 @@ updates:
       #   ※ 解除前に @sveltejs/kit@2.x の peer が実際に typescript@^7 を含むか確認 (ERESOLVE 再発防止)。
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # #4897 / #4898 / #4899 (2026-09-11): vitest 5.x は @storybook/addon-vitest の peer
+      # (vitest ^3||^4 / @vitest/browser ^3||^4 / @vitest/browser-playwright ^4) が除外し、
+      # npm ci が ERESOLVE で失敗する (最新 10.6.0 も同 peer。#3636 typescript 7 と同 class)。
+      # major (4→5) のみ保留し 4.x の minor/patch 更新は許可する。
+      # 【解除条件】@storybook/addon-vitest が peer に vitest@^5 と @vitest/browser-playwright@^5 を
+      #   含む版を release したこと (`npm view @storybook/addon-vitest peerDependencies` で確認)。
+      # 【解除手順 (#3765 と同じ 2 手順必須)】
+      #   1. 本 ignore 3 エントリ + 本コメントを削除する PR を出す (yml 側の抑止解除)
+      #   2. 加えて dependabot に `@dependabot unignore vitest` / `@dependabot unignore @vitest/coverage-v8` /
+      #      `@dependabot unignore @vitest/browser-playwright` を実行し、PR #4897-#4899 の
+      #      `@dependabot ignore this major version` 由来の internal ignore も解除する。
+      #      yml と comment 由来 ignore は独立した別々の抑止機構であり、yml 削除だけでは再開されない。
+      #   3. vitest / @vitest/coverage-v8 / @vitest/browser-playwright は同 major で揃える必要がある
+      #      (coverage-v8@5 の peer は vitest 5.0.0) ため、単独 PR では原理的に通らない。下記
+      #      `vitest-major` group により 1 PR にまとまって再提案されることを確認する。
+      #   ※ ignore は security update にも効く (dependabot 仕様)。vitest 4.x に backport されない
+      #     CVE (修正が 5.x のみ) が出た場合は解除条件を待たず、本 ignore と comment 由来 ignore を
+      #     例外的に外して取り込み、@storybook/addon-vitest 側は --legacy-peer-deps 等で別途対処する。
+      #   ※ 対象は @storybook/addon-vitest の peer に縛られる 3 package に限定する (@vitest/* 全体を
+      #     ignore しない。peer に縛られない @vitest/* package の major は通常どおり提案させる)。
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/coverage-v8"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/browser-playwright"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         # #3311: grouped update が per-dependency ignore (上記 better-sqlite3 12.11.x) を
@@ -59,6 +85,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # #4897-#4899: vitest 系は peer で同 major に縛られるため、major 更新は 1 PR にまとめる
+      # (上記 ignore 解除後に有効化される。ignore 中は本 group から PR は出ない)。
+      vitest-major:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+        update-types:
+          - "major"
 
   - package-ecosystem: "npm"
     directory: "/infra"
