@@ -16,7 +16,7 @@
         ]
       },
       {
-        "matcher": "Bash|Grep",
+        "matcher": "Bash|Grep|PowerShell|mcp__ide__executeCode",
         "hooks": [
           {
             "type": "command",
@@ -25,7 +25,7 @@
         ]
       },
       {
-        "matcher": "Read|Glob",
+        "matcher": "Read|Glob|Bash|PowerShell|mcp__ide__executeCode",
         "hooks": [
           {
             "type": "command",
