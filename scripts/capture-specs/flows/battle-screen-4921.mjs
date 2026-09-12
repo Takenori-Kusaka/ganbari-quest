@@ -23,25 +23,34 @@ export default async (page, capture) => {
 	const origin = new URL(page.url()).origin;
 	const go = (path) => page.goto(new URL(path, origin).toString());
 
+	// (child) layout マウントの初回訪問オーバーレイ群。TutorialOverlay / PinGateOnboarding は
+	// 遷移後も残存しうるため、home 到達後・battle 到達後の両方で dismiss する
+	// (#4936 QM BLOCK 1回目: TutorialOverlay が写り込み / BLOCK 2回目: PinGateOnboarding
+	// `pin-gate-onboarding-dialog` (testid `pin-gate-onboarding-close`) が写り込み)。
+	// mount 直後は Dialog のアニメーション/hydration で isVisible() が間に合わないことがあるため、
+	// 短い timeout 付き waitFor で出現を確認してから閉じる (waitForTimeout は scripts/ 禁止 #1208)。
+	const dismissOverlays = async () => {
+		for (const testId of [
+			'tutorial-skip',
+			'tutorial-close',
+			'page-guide-close',
+			'pin-gate-onboarding-close',
+		]) {
+			const btn = page.getByTestId(testId);
+			await btn.waitFor({ state: 'visible', timeout: 1500 }).catch(() => {});
+			if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
+		}
+	};
+
 	await go('/switch');
 	await page.locator('[data-testid^="child-select-"]').filter({ hasText: childName }).click();
 	await page.waitForURL(new RegExp(`/${mode}/home`));
-
-	// オーバーレイ (チュートリアル等) を閉じる。TutorialOverlay は (child) layout マウントのため
-	// 遷移後も残存しうる (#4936 QM BLOCK: バトル画面 SS にチュートリアル modal が写り込んでいた)
-	for (const testId of ['tutorial-skip', 'tutorial-close', 'page-guide-close']) {
-		const btn = page.getByTestId(testId);
-		if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
-	}
+	await dismissOverlays();
 
 	await go(`/${mode}/battle`);
-
-	// 遷移後に再度オーバーレイが出ていないか確認 (チュートリアルの次ステップが battle 画面に
-	// フォーカスを合わせるケースへの保険)
-	for (const testId of ['tutorial-skip', 'tutorial-close', 'page-guide-close']) {
-		const btn = page.getByTestId(testId);
-		if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
-	}
+	// 遷移後に再度オーバーレイが出ていないか確認 (チュートリアルの次ステップや
+	// PinGateOnboarding が battle 画面遷移後に開くケースへの保険)
+	await dismissOverlays();
 	await page.locator('[data-testid="battle-page"]').waitFor({ state: 'visible' });
 	// 画像の遅延読込・アニメーション初期化を待つ
 	await page.locator('[data-testid="battle-field"]').waitFor({ state: 'visible' });
