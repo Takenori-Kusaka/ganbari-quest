@@ -79,7 +79,7 @@ function formatEntry(entry: LogEntry): string {
  * 全部直しても次に足された 1 箇所で破れるため、出口 1 箇所で止める。
  */
 const REDACT_KEY_PATTERN =
-	/pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|apikey|api_?key|session|signature/i;
+	/pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|api_?key|session|signature/i;
 const MASK_EMAIL_KEY_PATTERN = /email|mail_?to|^to$|recipient/i;
 
 function maskEmail(value: string): string {
