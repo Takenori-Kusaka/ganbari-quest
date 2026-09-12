@@ -35,15 +35,36 @@
 // 別の穴が生まれる (実機 SS 撮影で確認: dummy を除いても実要素 1 個は正しいが
 // `.driver-active-element` 総数が 2 のまま = ダミーの残留)。呼び出し側で参照を解決すれば
 // 本関数はダミーを特別扱いする必要がなく、`current` 判定 1 本で正しく動く。
+// 【driver.js が自分で付けた ARIA だけを外す (#4949)】
+// driver.js は対象に `aria-haspopup="dialog"` / `aria-expanded="true"` /
+// `aria-controls="driver-popover-content"` を付ける (driver.js.mjs の setAttribute 3 本)。
+// 値を見ずに removeAttribute すると、spotlight 対象が Ark UI の `Menu.Trigger` だったときに
+// zag-js が付けた `aria-haspopup="menu"` / 実 menu の `aria-controls` まで剥がしてしまい、
+// ガイド通過後もメニューが role / state を失ったまま残る (WCAG 4.1.2 Name, Role, Value)。
+// Svelte 側は値が不変なら再適用しないため、自然には戻らない。
+const DRIVER_OWN_ARIA: ReadonlyArray<readonly [string, string]> = [
+	['aria-haspopup', 'dialog'],
+	['aria-expanded', 'true'],
+	['aria-controls', 'driver-popover-content'],
+];
+
 export function clearStaleActiveElementClasses(current: Element | null): void {
 	for (const el of document.querySelectorAll('.driver-active-element')) {
 		if (el === current) continue;
 		el.classList.remove('driver-active-element', 'driver-no-interaction');
-		el.removeAttribute('aria-haspopup');
-		el.removeAttribute('aria-expanded');
-		el.removeAttribute('aria-controls');
+		for (const [name, ownValue] of DRIVER_OWN_ARIA) {
+			if (el.getAttribute(name) === ownValue) el.removeAttribute(name);
+		}
 	}
-	for (const el of document.querySelectorAll('.driver-active-element-parent')) {
-		el.classList.remove('driver-active-element-parent', 'driver-active-element-parent-no-scroll');
-	}
+	// 【parent 系クラスはここで外さない (#4949)】
+	// `.driver-active-element-parent-no-scroll` は driver.css で `overflow: hidden !important`。
+	// driver.js は「前 step の parent の overflow:hidden を保ったまま scrollIntoView し、その後で
+	// parent 系クラスを外す」順序で動く (driver.js.mjs: onHighlightStarted → scrollIntoView →
+	// parent クラス除去)。onHighlightStarted で先回りして外すと、内側のスクロールコンテナが
+	// scroll 可能な状態で scrollIntoView が走り、window 側の scroll が不足して対象が viewport から
+	// はみ出す (実測: /admin/settings/activities step#4 で spotlight 下端が desktop 849.875 > 801 /
+	// mobile 890.46875 > 845)。
+	//
+	// #4922 の残留は `.driver-active-element` 側の問題であり、parent 系の除去は driver.js 自身が
+	// 毎回 querySelectorAll で無条件に行うため蓄積しない。ここでは触らない。
 }
