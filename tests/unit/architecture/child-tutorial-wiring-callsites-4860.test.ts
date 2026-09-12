@@ -160,6 +160,64 @@ function args(call: Node): Node[] {
 	return (call.arguments as Node[] | undefined) ?? [];
 }
 
+/**
+ * Identifier の引数を、同じ script 内の `const X = $derived(<expr>)` /
+ * `const X = $derived.by(() => <expr>)` 宣言の `<expr>` まで解決する (#4923)。
+ *
+ * `home/+page.svelte` の `$effect` 本体で `data.activities.length` を直接読むと、
+ * `data` プロパティを丸ごと再代入する自動リロードのたびに真偽値が変わっていなくても
+ * effect が再実行され、ガイドの対象解決を横から止める (#4923 実機再現・修正済)。
+ * 修正は真偽値を `$derived` に切り出して参照するため、引数は素の `Identifier` になる。
+ * これを「決め打ちの真偽値」と誤検出しないよう、宣言まで遡って中身を見る。
+ *
+ * `$derived` 以外の初期化 (例: `const x = true`) はそのまま `init` を返す — これにより
+ * 「リテラルを変数に隠す」形も従来どおり `literalWrite` 側で検出される (検査の弱体化にしない)。
+ * 解決できなければ元の Identifier ノードをそのまま返す。
+ */
+/** `$derived(<expr>)` の呼び出しなら `<expr>` を返す (該当しなければ undefined)。 */
+function unwrapDerivedCall(init: Node): Node | undefined {
+	const callee = init.callee as Node | undefined;
+	if (callee?.type !== 'Identifier' || callee.name !== '$derived') return undefined;
+	return (args(init)[0] as Node | undefined) ?? init;
+}
+
+/** `$derived.by(() => <expr>)` の呼び出しなら `<expr>` (または関数自体) を返す。 */
+function unwrapDerivedByCall(init: Node): Node | undefined {
+	const callee = init.callee as Node | undefined;
+	const isDerivedBy =
+		callee?.type === 'MemberExpression' &&
+		(callee.object as Node | undefined)?.type === 'Identifier' &&
+		(callee.object as Node).name === '$derived' &&
+		(callee.property as Node | undefined)?.name === 'by';
+	if (!isDerivedBy) return undefined;
+	const fn = args(init)[0] as Node | undefined;
+	const body = fn?.body as Node | undefined;
+	if (fn?.type === 'ArrowFunctionExpression' && body?.type !== 'BlockStatement') {
+		return body as Node;
+	}
+	return fn ?? init;
+}
+
+/** 宣言の初期化式を、`$derived` / `$derived.by` でラップされていれば中身まで剥がして返す。 */
+function unwrapDerivedInit(init: Node): Node {
+	if (init.type !== 'CallExpression') return init;
+	return unwrapDerivedCall(init) ?? unwrapDerivedByCall(init) ?? init;
+}
+
+function resolveDerivedInit(ast: Node, node: Node): Node {
+	if (node.type !== 'Identifier') return node;
+	let resolved: Node | undefined;
+	walk(ast, (n) => {
+		if (resolved) return;
+		if (n.type !== 'VariableDeclarator') return;
+		if ((n.id as Node | undefined)?.name !== node.name) return;
+		const init = n.init as Node | undefined;
+		if (!init) return;
+		resolved = unwrapDerivedInit(init);
+	});
+	return resolved ?? node;
+}
+
 /** その関数本体に `setChildActivityPresence(undefined)` があるか。 */
 function clearsPresence(fn: Node, aliasSource: Node): boolean {
 	return callsTo(fn, 'setChildActivityPresence', aliasSource).some((call) => {
@@ -268,17 +326,22 @@ describe('[W3][W4] ホームの配線', () => {
 		).toBeGreaterThan(0);
 
 		const writes = calls.map((c) => args(c)[0]).filter((a): a is Node => a !== undefined);
-		const literalWrite = writes.find(
+		// #4923: Identifier は `$derived(<expr>)` 宣言まで解決してから判定する。
+		// (`data.activities.length` を effect 本体で直接読まず、真偽値の $derived に
+		// 切り出す形へ修正したため、引数そのものは素の Identifier になる)。
+		const resolvedWrites = writes.map((w) => resolveDerivedInit(ast, w));
+		const literalWrite = resolvedWrites.find(
 			(a) => a.type === 'Literal' && typeof (a as { value?: unknown }).value === 'boolean',
 		);
 		expect(
 			literalWrite,
-			`${HOME} が setChildActivityPresence に真偽値リテラルを渡している。` +
+			`${HOME} が setChildActivityPresence に真偽値リテラルを渡している ` +
+				'(直接、または $derived 化せずに変数へ隠す形も含む)。' +
 				'実データではなく決め打ちの件数を書くことになり、ガイドが嘘をつく',
 		).toBeUndefined();
 		// 実データ由来の書き込みが 1 つ以上ある (undefined へ戻すだけで終わっていない)
 		expect(
-			writes.some((a) => a.type !== 'Literal' && a.type !== 'Identifier'),
+			resolvedWrites.some((a) => a.type !== 'Literal' && a.type !== 'Identifier'),
 			`${HOME} に実データ由来の件数の書き込みが無い`,
 		).toBe(true);
 	});

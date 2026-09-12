@@ -95,8 +95,23 @@ const f = $derived(variant.features);
 // ホームを離れたら `undefined` に戻す。持ち越すと、活動 40 件の子が `/checklist` へ
 // 遷移したときに「カードをタップすると」と案内し、その画面にカードは 1 枚も無い
 // (adversarial 実測: `cards:0, spotlightRing:0`)。件数の記憶はこの画面の生存期間に閉じる。
+//
+// #4923: `hasActivities` は真偽値の $derived に切り出す (effect 本体で `data.activities.length`
+// を直接読まない)。`data` は 1 分ごとの自動リロード (`(child)/+layout.svelte` の
+// `autoReloadTimer` → `invalidateAll()`) のたびに**新しい参照**へ丸ごと差し替わるため、
+// effect 本体で直接読むと真偽値が変わっていなくても毎回 cleanup→再実行が走り
+// `setChildActivityPresence(undefined)` → `setChildActivityPresence(true)` を繰り返す。
+// この書き直しのたびに `activeChapters` ($derived) が再計算され、`getCurrentStep()` は
+// 同じ id の step でも**新しい object 参照**を返す。ガイド対象解決の `$effect`
+// (`tutorial-step-controller.svelte.ts` の `setupStepTracking`) は step の参照が変われば
+// 再実行されるため、対象が実在し可視であっても解決の途中で abort → やり直しを繰り返し、
+// タイミングによっては `data-tutorial-target` が `resolved` に到達しないまま
+// (実機再現: 本番相当の自動リロード間隔をエミュレートし `resolved`⇄`fallback` のフリッカーを確認)。
+// `$derived` は前回値との `Object.is` 比較で変化なしなら依存側を再実行させないため、
+// 真偽値が実際に変わったときだけ effect を再実行させる (= 無駄な書き直しを起こさない)。
+const hasActivities = $derived(data.activities.length > 0);
 $effect(() => {
-	setChildActivityPresence(data.activities.length > 0);
+	setChildActivityPresence(hasActivities);
 	return () => setChildActivityPresence(undefined);
 });
 
