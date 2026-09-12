@@ -333,25 +333,31 @@ $effect(() => {
 					<!-- #1638 / #4944: 個人情報保護法 §28 — 外国にある第三者への提供に対する本人同意 -->
 					<!--
 						#4944: 第一層は「何が起きる / 起きない」だけ。事業者名・国名・条番号は第二層
-						(privacy.html 第10条) に降ろし、リンクから到達させる。順序は「起きること →
-						決済で渡る範囲 → 起きないこと → 消せること」で、否定形を先頭に置かない。
+						(privacy.html 第10条) に降ろし、リンクから到達させる。否定形を先頭に置かない。
+						常時表示は 2 行だけにして残りは折りたたむ (PO 判断 2026-09-12)。
 						/consent 側と同じ構成・同じ atom (CROSS_BORDER_TERMS) を使う。
 					-->
 					<p class="text-[0.8rem] font-semibold text-[var(--color-text)] leading-relaxed mt-2">
 						{SIGNUP_LABELS.crossBorderSectionTitle}
 					</p>
 					<p class="text-[0.8rem] text-[var(--color-text)] leading-relaxed">
-						{SIGNUP_LABELS.crossBorderWhatHappens}
-					</p>
-					<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-						{SIGNUP_LABELS.crossBorderPaymentScope}
+						{SIGNUP_LABELS.crossBorderSummaryPositive}
 					</p>
 					<p class="text-[0.8rem] text-[var(--color-text)] leading-relaxed">
 						{SIGNUP_LABELS.crossBorderNoNoUse}
 					</p>
-					<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-						{SIGNUP_LABELS.crossBorderDeletion}
-					</p>
+					<details>
+						<summary class="text-[0.8rem] text-[var(--color-text-link)] cursor-pointer leading-relaxed">{SIGNUP_LABELS.crossBorderDetailsSummary}</summary>
+						<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed mt-1">
+							{SIGNUP_LABELS.crossBorderWhatHappens}
+						</p>
+						<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed mt-1">
+							{SIGNUP_LABELS.crossBorderPaymentScope}
+						</p>
+						<p class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed mt-1">
+							{SIGNUP_LABELS.crossBorderDeletion}
+						</p>
+					</details>
 					<p class="text-[0.8rem] leading-relaxed">
 						<a href="https://www.ganbari-quest.com/privacy.html#cross-border-transfer" target="_blank" rel="noopener noreferrer" class="text-[var(--color-text-link)] underline">{SIGNUP_LABELS.crossBorderDetailLink} ↗</a>
 					</p>

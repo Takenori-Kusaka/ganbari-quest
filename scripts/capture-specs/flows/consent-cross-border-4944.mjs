@@ -90,4 +90,15 @@ export default async (page, capture) => {
 	await waitFrames(page, 3);
 
 	await capture(`${PREFIX}consent-cross-border`);
+
+	// 折りたたみを開いた状態も撮る。常時表示を 2 行に抑えた判断 (#4944) の裏返しとして、
+	// 「畳んだ結果、全文に到達できなくなっていないか」をレビュアが目視できるようにする。
+	// details が無い版 (Before) では対象が無いので撮らない。
+	const details = page.locator('details').last();
+	if (await details.isVisible().catch(() => false)) {
+		await details.locator('summary').click();
+		await page.getByTestId('consent-decline-logout').scrollIntoViewIfNeeded();
+		await waitFrames(page, 3);
+		await capture(`${PREFIX}consent-cross-border-expanded`);
+	}
 };

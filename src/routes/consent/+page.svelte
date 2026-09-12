@@ -191,14 +191,23 @@ const previousConsentLines = $derived(
 						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">{CONSENT_LABELS.crossBorderVersionPrefix}{data.currentCrossBorderVersion}</p>
 						<!--
 							#4944: 第一層は「何が起きる / 起きない」だけを出す。事業者名・国名・条番号は
-							リンク先 (privacy.html 第10条) に降ろした。順序は「起きること → 決済で渡る
-							範囲 → 起きないこと → 消せること」で、否定形を先頭に置かない
+							リンク先 (privacy.html 第10条) に降ろした。否定形を先頭に置かない
 							(否定形が先頭だと、打ち消す対象のリスクが先に想起される)。
+
+							常時表示は 2 行だけにして、残りは折りたたむ (PO 判断 2026-09-12)。
+							この画面は 3 ブロックが縦に並ぶため、本項だけ本文が長いと
+							ブロックの大きさの差が重要度の差に見えてしまう。
+							noNoUse は privacy.html 第10条が「この説明とともに表示する」と
+							書いている実体なので、折りたたみの中に入れない。
 						-->
-						<p class="text-sm text-[var(--color-text)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderWhatHappens}</p>
-						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderPaymentScope}</p>
+						<p class="text-sm text-[var(--color-text)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderSummaryPositive}</p>
 						<p class="text-sm text-[var(--color-text)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderNoNoUse}</p>
-						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderDeletion}</p>
+						<details class="mb-2">
+							<summary class="text-sm text-[var(--color-text-link)] cursor-pointer">{CONSENT_LABELS.crossBorderDetailsSummary}</summary>
+							<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mt-2">{CONSENT_LABELS.crossBorderWhatHappens}</p>
+							<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mt-2">{CONSENT_LABELS.crossBorderPaymentScope}</p>
+							<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mt-2">{CONSENT_LABELS.crossBorderDeletion}</p>
+						</details>
 						<a
 							href="https://www.ganbari-quest.com/privacy.html#cross-border-transfer"
 							target="_blank"

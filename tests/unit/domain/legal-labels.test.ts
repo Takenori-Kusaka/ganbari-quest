@@ -62,12 +62,22 @@ describe('#1638 #4944: cross-border 同意の 2 層構造', () => {
 	// のであって、消したのではない。下の 2 本を対にして、片方だけが緩むのを防ぐ:
 	//   (1) 第二層に法定記載が在ること        ← 情報の消失を検出
 	//   (2) 第一層に固有名詞が出ていないこと  ← 層構造の逆戻りを検出
-	const FIRST_LAYER = [
-		SIGNUP_LABELS.crossBorderSectionTitle,
+	/** 常時表示。同意画面 3 ブロックの見た目の重さを揃えるため 2 行に抑える (#4944 PO 判断) */
+	const ALWAYS_VISIBLE = [
+		SIGNUP_LABELS.crossBorderSummaryPositive,
+		SIGNUP_LABELS.crossBorderNoNoUse,
+	];
+	/** 折りたたみ内 */
+	const COLLAPSED = [
 		SIGNUP_LABELS.crossBorderWhatHappens,
 		SIGNUP_LABELS.crossBorderPaymentScope,
-		SIGNUP_LABELS.crossBorderNoNoUse,
 		SIGNUP_LABELS.crossBorderDeletion,
+	];
+	const FIRST_LAYER = [
+		SIGNUP_LABELS.crossBorderSectionTitle,
+		...ALWAYS_VISIBLE,
+		SIGNUP_LABELS.crossBorderDetailsSummary,
+		...COLLAPSED,
 		SIGNUP_LABELS.crossBorderAgreeLabel,
 	];
 
@@ -97,14 +107,36 @@ describe('#1638 #4944: cross-border 同意の 2 層構造', () => {
 	});
 
 	it('第一層が「何が起きる / 起きない」を具体的に述べている', () => {
-		// 起きること: 暗号化 + テナント分離 (ADR-0063 / DPIA §7.1)
-		expect(SIGNUP_LABELS.crossBorderWhatHappens).toContain('暗号化');
+		// 起きること: 保存時・通信時の暗号化 (DPIA §4.1)
+		expect(SIGNUP_LABELS.crossBorderSummaryPositive).toContain('暗号化');
+		// ほかの家庭から見えない: テナント分離 (ADR-0063)
+		expect(SIGNUP_LABELS.crossBorderWhatHappens).toContain('ほかのご家庭');
 		// 決済で渡る範囲: stripe-service.ts は customer_email を設定せず metadata のみ送る
 		expect(SIGNUP_LABELS.crossBorderPaymentScope).toContain('カード番号');
 		expect(SIGNUP_LABELS.crossBorderPaymentScope).toContain('通りません');
-		// 消せること: 退会時の物理削除 (DPIA §7.1)
+		// 消せること: 退会時の物理削除 (DPIA §2.6)
 		expect(SIGNUP_LABELS.crossBorderDeletion).toContain('退会');
 		expect(SIGNUP_LABELS.crossBorderDeletion).toContain('削除');
+	});
+
+	it('常時表示は 2 行に抑え、残りは折りたたみに入れる', () => {
+		// 同意画面は 利用規約 / プライバシーポリシー / 本項 の 3 ブロックが縦に並ぶ。
+		// 本項だけ本文が長いと、ブロックの大きさの差が重要度の差に見えてしまう (#4944 PO 判断)。
+		// 「畳めばよい」ではなく「常時表示が短いこと」を固定する — 行数が増えれば落ちる。
+		expect(ALWAYS_VISIBLE).toHaveLength(2);
+		for (const line of ALWAYS_VISIBLE) {
+			expect(line.length).toBeLessThanOrEqual(40);
+		}
+		// 折りたたみの見出しは「詳細」のような中立語にしない (中に何があるかを述べる)
+		expect(SIGNUP_LABELS.crossBorderDetailsSummary.length).toBeGreaterThan(6);
+		expect(COLLAPSED.length).toBeGreaterThan(0);
+	});
+
+	it('privacy.html 第10条が「表示する」と述べた説明は折りたたみに入れない', () => {
+		// 畳まれた状態を「この説明とともに表示しています」とは言いにくい。
+		// noNoUse は常時表示側に置く。
+		expect(ALWAYS_VISIBLE).toContain(SIGNUP_LABELS.crossBorderNoNoUse);
+		expect(COLLAPSED).not.toContain(SIGNUP_LABELS.crossBorderNoNoUse);
 	});
 
 	it('crossBorderNoNoUse に「広告なし / 第三者販売なし / AI 学習流用なし」が明記されている', () => {

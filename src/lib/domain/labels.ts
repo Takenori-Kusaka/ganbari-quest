@@ -5391,9 +5391,13 @@ export const SIGNUP_LABELS = {
 	// 第二層 (privacy.html 第 10 条) に置いて crossBorderDetailLink から到達させる。
 	// 施行規則 17 条 2 項の 3 情報は第二層で提供する (PPC A12-10: URL 提供可)。
 	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
+	// 常時表示は summaryPositive / noNoUse の 2 行だけ。残りは crossBorderDetailsSummary の
+	// 折りたたみに入れる（同意画面 3 ブロックの見た目の重さを揃える、#4944 PO 判断）
+	crossBorderSummaryPositive: CROSS_BORDER_TERMS.summaryPositive,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	crossBorderDetailsSummary: CROSS_BORDER_TERMS.detailsSummary,
 	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
 	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
-	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
 	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
 	crossBorderDetailLink: CROSS_BORDER_TERMS.detailLink,
 	crossBorderAgreeLabel: CROSS_BORDER_TERMS.consentLabel,
@@ -6808,9 +6812,13 @@ export const CONSENT_LABELS = {
 	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
 	crossBorderVersionPrefix: 'バージョン: ',
 	crossBorderReadLink: `${CROSS_BORDER_TERMS.detailLink} ↗`,
+	// 常時表示は summaryPositive / noNoUse の 2 行だけ（#4944 PO 判断）
+	crossBorderSummaryPositive: CROSS_BORDER_TERMS.summaryPositive,
+	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	// 以下 3 行は crossBorderDetailsSummary の折りたたみ内
+	crossBorderDetailsSummary: CROSS_BORDER_TERMS.detailsSummary,
 	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
 	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
-	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
 	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
 	crossBorderCheckLabel: CROSS_BORDER_TERMS.consentLabel,
 
