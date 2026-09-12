@@ -1098,8 +1098,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.grandTotal)}</p>
 				</div>
-				<!-- #4916: 基本/streak/bonus-hook/熟練の内訳を全行出す (自明な単独 base のみのときは省略) -->
-				{#if resultData.pointBreakdown.length > 1 || resultData.pointBreakdown.some((i) => i.multipliers)}
+				<!-- #4916 QM: 単独 base でも combo/mission/focus が同時発火するときは省略しない。
+				     省略すると主要数字 (grandTotal) の一部 (base 分) が内訳のどこにも現れず、
+				     Issue #4916 が指摘した「合計と内訳が食い違って見える」状態が再現するため -->
+				{#if resultData.pointBreakdown.length > 1 || resultData.pointBreakdown.some((i) => i.multipliers) || resultData.comboBonus || missionResult || focusBonusResult}
 					<div class="flex flex-col gap-1 w-full" data-testid="result-point-breakdown">
 						{#each resultData.pointBreakdown as item, i (item.kind + '-' + i)}
 							{#if item.kind === 'base'}
