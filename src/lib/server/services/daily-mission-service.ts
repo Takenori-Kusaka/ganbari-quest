@@ -50,6 +50,7 @@ async function reconcileMissionBonus(
 	date: string,
 	completedCount: number,
 	tenantId: string,
+	referenceLogId: string | null = null,
 ): Promise<number> {
 	const desired = MISSION_BONUS[completedCount] ?? 0;
 	const granted = await sumPointLedgerByTypeAndDescriptionPrefix(
@@ -69,6 +70,7 @@ async function reconcileMissionBonus(
 				delta > 0
 					? `${missionLedgerPrefix(date)} ミッションボーナス (${completedCount}/${MISSION_COUNT}) +${delta}`
 					: `${missionLedgerPrefix(date)} ミッションボーナスとりけし (${completedCount}/${MISSION_COUNT}) ${delta}`,
+			...(referenceLogId ? { referenceId: referenceLogId } : {}),
 		},
 		tenantId,
 	);
@@ -136,11 +138,14 @@ export async function getTodayMissions(
 
 /**
  * 活動記録時にミッション達成を判定し、ボーナスを付与
+ * @param referenceLogId #4916: このボーナスが起因する活動記録の log id (結果ダイアログ / 履歴の
+ *   grandTotal 集計に使う point_ledger.reference_id 紐付け)。
  */
 export async function checkMissionCompletion(
 	childId: ChildId,
 	activityId: ActivityId,
 	tenantId: string,
+	referenceLogId: string | null = null,
 ): Promise<{ missionCompleted: boolean; allComplete: boolean; bonusAwarded: number }> {
 	const today = todayDateJST();
 
@@ -161,7 +166,13 @@ export async function checkMissionCompletion(
 	const allComplete = completedCount >= MISSION_COUNT;
 
 	// ボーナス計算（差分付与、#4686: 巻き戻しと同じ reconcile 経路）
-	const bonusAwarded = await reconcileMissionBonus(childId, today, completedCount, tenantId);
+	const bonusAwarded = await reconcileMissionBonus(
+		childId,
+		today,
+		completedCount,
+		tenantId,
+		referenceLogId,
+	);
 
 	return { missionCompleted: true, allComplete, bonusAwarded };
 }

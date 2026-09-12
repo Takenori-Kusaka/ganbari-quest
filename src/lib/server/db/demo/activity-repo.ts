@@ -427,6 +427,18 @@ export async function sumPointLedgerByTypeAndDescriptionPrefix(
 	return 0;
 }
 
+/**
+ * #4916: demo は point_ledger fixture を持たない (`insertPointLedger` も no-op stub) ため空 map。
+ * 実データが無いことによる空であり、集計不能を偽装しているわけではない (#4696 と同じ判断)。
+ */
+export async function sumPointLedgerAmountsByReferenceIds(
+	_childId: ChildId,
+	_referenceIds: string[],
+	_tenantId: string,
+): Promise<Record<string, number>> {
+	return {};
+}
+
 // ---------- Must activities (#1755) ----------
 
 export async function findMustActivitiesWithToday(

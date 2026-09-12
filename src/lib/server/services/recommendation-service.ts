@@ -134,11 +134,14 @@ export function selectRecommendations<T extends RecommendableActivity>(
 /**
  * フォーカスモードのおすすめ3件全完了をチェックし、ボーナスを付与
  * 1日1回のみ。focus_bonus タイプで point_ledger に記録
+ * @param referenceLogId #4916: このボーナスが起因する活動記録の log id (結果ダイアログ / 履歴の
+ *   grandTotal 集計に使う point_ledger.reference_id 紐付け)。
  */
 export async function checkAndGrantFocusBonus(
 	childId: ChildId,
 	recommendedActivityIds: ActivityId[],
 	tenantId: string,
+	referenceLogId: string | null = null,
 ): Promise<{ bonusPoints: number } | null> {
 	if (recommendedActivityIds.length === 0) return null;
 
@@ -176,6 +179,7 @@ export async function checkAndGrantFocusBonus(
 			amount: bonusPoints,
 			type: FOCUS_BONUS_LEDGER_TYPE,
 			description: `${focusBonusLedgerPrefix(today)} きょうのクエスト コンプリート！`,
+			...(referenceLogId ? { referenceId: referenceLogId } : {}),
 		},
 		tenantId,
 	);

@@ -6047,6 +6047,18 @@ export const CHILD_HOME_LABELS = {
 	resultComboNewBonus: 'コンボボーナス',
 	/** #4686: フォーカスモード おすすめ 3 件全完了ボーナス (台帳 type=focus_bonus) の結果ダイアログ表記 */
 	resultFocusBonus: '🎯 きょうのクエスト コンプリート！',
+	/**
+	 * #4916: 結果ダイアログの内訳 (基本ポイント行)。主要数字 (grandTotal) と内訳の整合を
+	 * 顧客が追えるように、基本ポイントも 1 行として明示する。
+	 */
+	resultBreakdownBase: (points: number | string) => `きほん +${points}P`,
+	/** #4916: メインクエスト倍率タグ (base 行に併記)。 */
+	resultBreakdownMainQuestTag: '⚔️ メインクエスト ×2',
+	/** #4916: bonus-hook 由来の倍率タグ (weekend 2倍 等、preset の title を動的に差し込む)。 */
+	resultBreakdownMultiplierTag: (title: string, multiplier: number | string) =>
+		`${title} ×${multiplier}`,
+	/** #4916: bonus-hook 由来の加点行 (はやおきボーナス等、preset の title を動的に差し込む)。 */
+	resultBreakdownBonusHook: (title: string, points: number | string) => `${title} +${points}P`,
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
@@ -6117,6 +6129,8 @@ const CHILD_HOME_KANJI_OVERRIDES = {
 	resultMasteryLevelUp: (name: string, level: number | string) =>
 		`🎖️ ${name}が Lv.${level} になりました`,
 	resultXpLabel: '経験値',
+	/** #4916: hiragana 側「きほん」の漢字 override */
+	resultBreakdownBase: (points: number | string) => `基本 +${points}P`,
 	siblingUnknownName: 'きょうだい',
 	resultMissionComplete: '🎯 ミッション達成！',
 	resultMissionAllClear: '🎉 すべてクリア！',

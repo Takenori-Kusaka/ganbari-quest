@@ -539,6 +539,29 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 			return scalarCount(result);
 		},
 
+		/**
+		 * #4916: reference_id ごとの point_ledger.amount 合計 (履歴画面の grandTotal 再構成用)。
+		 * 「この活動記録アクションで実際に残高へ加算された全額」を、combo/mission/focus が
+		 * referenceId=logId で紐付いた行込みで再構成する。
+		 */
+		async sumPointLedgerAmountsByReferenceIds(childId, referenceIds, tenantId) {
+			if (referenceIds.length === 0) return {};
+			const result = await db.execute(sql`
+				SELECT reference_id, coalesce(sum(amount), 0)::int AS total FROM point_ledger
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND reference_id IN (${sql.join(
+						referenceIds.map((id) => sql`${id}`),
+						sql`, `,
+					)})
+				GROUP BY reference_id
+			`);
+			const out: Record<string, number> = {};
+			for (const row of result.rows as { reference_id: string; total: number }[]) {
+				out[row.reference_id] = Number(row.total);
+			}
+			return out;
+		},
+
 		async findMustActivitiesWithToday(childId, today, tenantId) {
 			// LEFT JOIN 1 クエリ集計 (§3.5.5 — sqlite の 2 クエリ + app 側 Set 合成にしない)。
 			// GROUP BY は PK (family,child,activity) で functional dependency 充足だが、

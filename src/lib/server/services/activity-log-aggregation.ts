@@ -12,7 +12,10 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 //   - activity-log-service → activity-log-aggregation (純粋集計)
 //   - child-challenge-service → activity-log-aggregation (週次生成の苦手判定、純粋集計)
 
-import { findActivityLogs } from '$lib/server/db/activity-repo';
+import {
+	findActivityLogs,
+	sumPointLedgerAmountsByReferenceIds,
+} from '$lib/server/db/activity-repo';
 
 export interface ActivityLogEntry {
 	id: string;
@@ -23,6 +26,14 @@ export interface ActivityLogEntry {
 	streakDays: number;
 	streakBonus: number;
 	recordedAt: string;
+	/**
+	 * #4916: この記録が実際に残高へ加算した全額 (基本+streak+熟練の 'activity' 台帳行 +
+	 * combo/mission/focus の紐付け済み行の合計)。旧 `points + streakBonus` は熟練 / combo /
+	 * mission / focus を含まず、結果ダイアログの grandTotal と食い違っていた (Issue #4916)。
+	 * 台帳側に紐付けが無い旧データ (このフィールド導入前に記録した行) は undefined になりうるため、
+	 * 表示側は `points + streakBonus` へフォールバックする。
+	 */
+	grandTotal?: number;
 }
 
 export interface ActivityLogSummary {
@@ -45,6 +56,20 @@ export async function aggregateActivityLogsByCategory(
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
 	const rows = await findActivityLogs(childId, tenantId, options);
 
+	// #4916: 各行の grandTotal (熟練/combo/mission/focus 込みの真の残高増分) を
+	// point_ledger.reference_id 集計で一括取得する。summary (byCategory 集計) は
+	// 既存コンシューマ (admin reports / weak-category 判定 / API v1) への影響を避けるため
+	// 従来どおり `points + streakBonus` のまま据え置く — grandTotal は logs 側の追加 field のみ。
+	const grandTotals = await sumPointLedgerAmountsByReferenceIds(
+		childId,
+		rows.map((r) => r.id),
+		tenantId,
+	);
+	const logs: ActivityLogEntry[] = rows.map((row) => ({
+		...row,
+		grandTotal: grandTotals[row.id],
+	}));
+
 	const byCategory: Record<string, { count: number; points: number }> = {};
 	let totalCount = 0;
 	let totalPoints = 0;
@@ -65,7 +90,7 @@ export async function aggregateActivityLogsByCategory(
 	}
 
 	return {
-		logs: rows,
+		logs,
 		summary: { totalCount, totalPoints, byCategory },
 	};
 }
