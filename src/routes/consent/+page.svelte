@@ -189,8 +189,16 @@ const previousConsentLines = $derived(
 					<div class="p-4 border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
 						<h2 class="text-base font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.crossBorderSectionTitle}</h2>
 						<p class="text-xs text-[var(--color-text-tertiary)] mb-2">{CONSENT_LABELS.crossBorderVersionPrefix}{data.currentCrossBorderVersion}</p>
-						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-1">{CONSENT_LABELS.crossBorderNotice}</p>
-						<p class="text-sm text-[var(--color-text)] font-bold leading-relaxed mb-2">{CONSENT_LABELS.crossBorderNoNoUse}</p>
+						<!--
+							#4944: 第一層は「何が起きる / 起きない」だけを出す。事業者名・国名・条番号は
+							リンク先 (privacy.html 第10条) に降ろした。順序は「起きること → 決済で渡る
+							範囲 → 起きないこと → 消せること」で、否定形を先頭に置かない
+							(否定形が先頭だと、打ち消す対象のリスクが先に想起される)。
+						-->
+						<p class="text-sm text-[var(--color-text)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderWhatHappens}</p>
+						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderPaymentScope}</p>
+						<p class="text-sm text-[var(--color-text)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderNoNoUse}</p>
+						<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.crossBorderDeletion}</p>
 						<a
 							href="https://www.ganbari-quest.com/privacy.html#cross-border-transfer"
 							target="_blank"

@@ -5386,14 +5386,17 @@ export const SIGNUP_LABELS = {
 	privacyAgreeLink: 'プライバシーポリシー',
 	privacyAgreeSuffix: 'に同意します',
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
-	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
-	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
-	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	// #1638 / #4944: 個人情報保護法 §28 — 外国にある第三者への提供同意。
+	// 第一層は「何が起きる / 起きない」だけを平易語で出し、事業者名・国名・制度・条番号は
+	// 第二層 (privacy.html 第 10 条) に置いて crossBorderDetailLink から到達させる。
+	// 施行規則 17 条 2 項の 3 情報は第二層で提供する (PPC A12-10: URL 提供可)。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
+	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
+	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
 	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
-	crossBorderAgreePrefix:
-		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
-	crossBorderAgreeLink: '詳細',
-	crossBorderAgreeSuffix: '）',
+	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
+	crossBorderDetailLink: CROSS_BORDER_TERMS.detailLink,
+	crossBorderAgreeLabel: CROSS_BORDER_TERMS.consentLabel,
 	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	parentalConsentNote: `※ 本サービスは${CHILD_TERMS.honorific}のデータを扱います。保護者として上記に同意してください。`,
 	submitLoading: '登録中...',
@@ -6797,11 +6800,18 @@ export const CONSENT_LABELS = {
 	// Cross-border transfer (#4497 / 個人情報保護法 §28)
 	// Google OAuth 経由の登録では signup フォームを通らないため、越境移転同意は
 	// この画面が唯一の取得点になる（全サインアップ経路で証跡を残す）。
-	crossBorderSectionTitle: CROSS_BORDER_TERMS.transfer,
+	//
+	// #4944: 見出しと本文を第一層 (何が起きる / 起きない) に置き換えた。
+	// 事業者名・国名・制度・条番号は第二層 = privacy.html 第 10 条にあり
+	// crossBorderReadLink から到達する。旧見出しは条項名 (CROSS_BORDER_TERMS.transfer) を
+	// そのまま出していたため、読み手が「自分に何が起きるのか」を判断できなかった。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
 	crossBorderVersionPrefix: 'バージョン: ',
-	crossBorderReadLink: '移転先・提供情報を確認する ↗',
-	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderReadLink: `${CROSS_BORDER_TERMS.detailLink} ↗`,
+	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
+	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
 	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
 	crossBorderCheckLabel: CROSS_BORDER_TERMS.consentLabel,
 
 	// Submit button
@@ -12217,7 +12227,9 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。猶予期間はご利用プランによって異なります（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）。`,
 	k77: `${PLAN_FULL_TERMS.free}は申請と同時に削除されるため、取り消しもエクスポートもできません。有料プランは猶予期間中に申請の取り消しとデータのエクスポートができます。猶予期間の経過後、全データは完全に削除されます（復旧はできません）。`,
 	k78: 'データはどこに保存されていますか？',
-	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html">プライバシーポリシー</a>第8条（データの国外移転）をご覧ください。',
+	// #4944: リンク先の条番号が誤っていた。privacy.html の第 8 条は「外部送信規律 公表」で、
+	// 国外移転は第 10 条（外国にある第三者への提供）。不安になった読み手が踏むと別条に着地していた。
+	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html#cross-border-transfer">プライバシーポリシー</a>第10条（外国にある第三者への提供）をご覧ください。',
 	k80: '決済情報は Stripe（国際的な PCI DSS 準拠の決済プロバイダ）で管理されており、当サービスのサーバーにはカード番号等の秘匿情報を保持していません。',
 	k81: '<span class="faq-category-num">4</span>対応年齢・使い方について',
 	k82: '0〜18 歳までの年齢モードと、日々の運用のしかたについて。',
