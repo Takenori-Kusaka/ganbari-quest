@@ -218,3 +218,52 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 		expect(document.querySelectorAll('.driver-active-element')).toHaveLength(1);
 	});
 });
+
+// #4949: #4922 の後始末が「やりすぎ」だった 2 点の回帰固定。
+//   (1) parent 系クラスまで先回りで外し、driver.js の scrollIntoView 順序を壊していた
+//       (統合 PR #4946 の e2e で spotlight が viewport からはみ出して決定的に fail)
+//   (2) ARIA を値を見ずに removeAttribute し、Ark UI Menu トリガー自身の ARIA まで剥がしていた
+describe('clearStaleActiveElementClasses の非破壊性 (#4949)', () => {
+	afterEach(() => {
+		document.body.innerHTML = '';
+	});
+
+	it('parent 系クラスは外さない (driver.js が scrollIntoView の後に自分で外す順序を壊さない)', () => {
+		document.body.innerHTML = `
+			<div id="scroller" class="driver-active-element-parent driver-active-element-parent-no-scroll">
+				<div id="prev" class="driver-active-element"></div>
+			</div>
+			<div id="next"></div>`;
+		const next = document.getElementById('next') as HTMLElement;
+
+		clearStaleActiveElementClasses(next);
+
+		const scroller = document.getElementById('scroller') as HTMLElement;
+		expect(scroller.classList.contains('driver-active-element-parent')).toBe(true);
+		expect(scroller.classList.contains('driver-active-element-parent-no-scroll')).toBe(true);
+		// 本来の責務 (.driver-active-element の除去) は効いている
+		expect(document.querySelectorAll('.driver-active-element')).toHaveLength(0);
+	});
+
+	it('driver.js が付けた ARIA だけを外し、対象自身の ARIA (Ark UI Menu トリガー) は残す', () => {
+		document.body.innerHTML = `
+			<button id="driver-owned" class="driver-active-element"
+				aria-haspopup="dialog" aria-expanded="true" aria-controls="driver-popover-content"></button>
+			<button id="menu-trigger" class="driver-active-element"
+				aria-haspopup="menu" aria-expanded="false" aria-controls="menu-1"></button>
+			<div id="next"></div>`;
+
+		clearStaleActiveElementClasses(document.getElementById('next'));
+
+		const driverOwned = document.getElementById('driver-owned') as HTMLElement;
+		expect(driverOwned.hasAttribute('aria-haspopup')).toBe(false);
+		expect(driverOwned.hasAttribute('aria-expanded')).toBe(false);
+		expect(driverOwned.hasAttribute('aria-controls')).toBe(false);
+
+		// Ark UI (zag-js) が付けた値は残る — 剥がすと WCAG 4.1.2 違反になる
+		const trigger = document.getElementById('menu-trigger') as HTMLElement;
+		expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+		expect(trigger.getAttribute('aria-controls')).toBe('menu-1');
+	});
+});
