@@ -27,7 +27,21 @@ export default async (page, capture) => {
 	await page.locator('[data-testid^="child-select-"]').filter({ hasText: childName }).click();
 	await page.waitForURL(new RegExp(`/${mode}/home`));
 
+	// オーバーレイ (チュートリアル等) を閉じる。TutorialOverlay は (child) layout マウントのため
+	// 遷移後も残存しうる (#4936 QM BLOCK: バトル画面 SS にチュートリアル modal が写り込んでいた)
+	for (const testId of ['tutorial-skip', 'tutorial-close', 'page-guide-close']) {
+		const btn = page.getByTestId(testId);
+		if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
+	}
+
 	await go(`/${mode}/battle`);
+
+	// 遷移後に再度オーバーレイが出ていないか確認 (チュートリアルの次ステップが battle 画面に
+	// フォーカスを合わせるケースへの保険)
+	for (const testId of ['tutorial-skip', 'tutorial-close', 'page-guide-close']) {
+		const btn = page.getByTestId(testId);
+		if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
+	}
 	await page.locator('[data-testid="battle-page"]').waitFor({ state: 'visible' });
 	// 画像の遅延読込・アニメーション初期化を待つ
 	await page.locator('[data-testid="battle-field"]').waitFor({ state: 'visible' });
