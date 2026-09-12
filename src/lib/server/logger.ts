@@ -55,7 +55,8 @@ function getLogFileName(): string {
 }
 
 function formatEntry(entry: LogEntry): string {
-	return JSON.stringify(entry);
+	// #4947: ファイル出力も同じ redaction を通す (self-host / NUC の data/logs/*.log)
+	return JSON.stringify(entry.context ? { ...entry, context: sanitizeContext(entry.context) } : entry);
 }
 
 /**
@@ -65,6 +66,42 @@ function formatEntry(entry: LogEntry): string {
  * `logger.error(msg, { error: e.message, context: {...} })` で渡した DB 例外の cause が
  * 実質どこにも書かれていなかった (本番 auth-entitlement-db-unavailable 障害で原因不明のまま化)。
  */
+/**
+ * context の key 名で機微値を落とす (#4947)。
+ *
+ * #4918 で context が console (= Lambda では CloudWatch への唯一の到達経路) に出るように
+ * なった結果、それまで本番のどこにも到達していなかった値が一斉に露出した。実測で平文相当の
+ * おやカギコード (char code 列) と保護者メールが含まれていた。
+ *
+ * deny-list ではなく **key 名の部分一致**で落とす: 呼び出し側は 600 箇所以上あり、そこを
+ * 全部直しても次に足された 1 箇所で破れるため、出口 1 箇所で止める。
+ */
+const REDACT_KEY_PATTERN = /pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|apikey|api_?key|session|signature/i;
+const MASK_EMAIL_KEY_PATTERN = /email|mail_?to|^to$|recipient/i;
+
+function maskEmail(value: string): string {
+	const at = value.indexOf('@');
+	if (at <= 0) return '***';
+	return `${value[0]}***${value.slice(at)}`;
+}
+
+function sanitizeContextValue(key: string, value: unknown, depth: number): unknown {
+	if (REDACT_KEY_PATTERN.test(key)) return '[redacted]';
+	if (MASK_EMAIL_KEY_PATTERN.test(key) && typeof value === 'string') return maskEmail(value);
+	if (depth >= 4) return value;
+	if (Array.isArray(value)) return value.map((v) => sanitizeContextValue(key, v, depth + 1));
+	if (value && typeof value === 'object') return sanitizeContext(value as Record<string, unknown>, depth + 1);
+	return value;
+}
+
+function sanitizeContext(context: Record<string, unknown>, depth = 0): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(context)) {
+		out[k] = sanitizeContextValue(k, v, depth);
+	}
+	return out;
+}
+
 function formatMetaSuffix(entry: LogEntry): string {
 	const parts: string[] = [];
 	if (entry.error) parts.push(`error=${entry.error}`);
@@ -73,7 +110,7 @@ function formatMetaSuffix(entry: LogEntry): string {
 	if (entry.userId) parts.push(`userId=${entry.userId}`);
 	if (entry.context) {
 		try {
-			parts.push(`context=${JSON.stringify(entry.context)}`);
+			parts.push(`context=${JSON.stringify(sanitizeContext(entry.context))}`);
 		} catch {
 			// circular / non-serializable context でも他フィールドの出力は止めない
 			parts.push('context=<unserializable>');

@@ -75,6 +75,20 @@ function acceptsHtml(request: Request): boolean {
 }
 
 /**
+ * #4947: 404 ログの Referer から query / fragment を落とし、origin + pathname だけを残す。
+ * 相対 / 不正な値は null にする (推測で原文を残さない)。
+ */
+function refererPathOnly(raw: string | null): string | null {
+	if (!raw) return null;
+	try {
+		const u = new URL(raw);
+		return `${u.origin}${u.pathname}`;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * ミニマルなスタイル付き HTML エラーページを生成する
  * (hooks 内で SvelteKit のレンダリングパイプラインを通らない場面用)
  */
@@ -877,7 +891,9 @@ export const handle: Handle = ({ event, resolve }) =>
 					path,
 					status: 404,
 					context: {
-						referer: event.request.headers.get('Referer') ?? null,
+						// #4947: query を落として path だけ記録する (トークンを載せた内部 URL からの
+						// 遷移で、その値が CloudWatch に残るのを防ぐ)。原因分類には path で足りる。
+						referer: refererPathOnly(event.request.headers.get('Referer')),
 						userAgent: event.request.headers.get('User-Agent') ?? null,
 						role: context?.role ?? 'anonymous',
 					},
