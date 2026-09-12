@@ -1,4 +1,8 @@
 // src/lib/domain/terms.ts
+// cspell:ignore Nouwens Balash AADC
+//   CROSS_BORDER_TERMS の設計根拠コメントで引用する固有名詞 (#4944)。
+//   Nouwens / Balash は論文の著者名、AADC は ICO Age Appropriate Design Code の略。
+//   file scope に閉じる (global words に足すと本来の typo を見逃す、tests/CLAUDE.md)。
 // SSOT 2 階層化 Phase 1 基盤 (#1916)
 //
 // 用語集（atom 専用）。
