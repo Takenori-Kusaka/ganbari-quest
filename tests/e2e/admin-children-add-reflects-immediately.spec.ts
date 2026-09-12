@@ -30,8 +30,13 @@ test.describe('#4919: 子供追加が reload なしで一覧に反映される',
 		await expect(page.getByText(ADMIN_CHILDREN_PAGE_LABELS.addFormTitle)).not.toBeVisible();
 
 		// #4919 AC1: reload せずに一覧件数が +1 になり、追加した子供が見える
+		//
+		// #4950: locator は一覧に限定する。実装は成功 feedback を Toast + banner の 2 層で出す
+		// (DESIGN.md §5「2 層防御パターン」) ため、page 全体の getByText(nickname) は
+		// 「Toast / banner / 一覧カード」の 3 要素に一致して strict mode violation になる。
+		// ここで確かめたいのは「一覧に出ていること」なので一覧の中だけを見る。
 		await expect(listItems).toHaveCount(beforeCount + 1);
-		await expect(page.getByText(nickname)).toBeVisible();
+		await expect(listItems.filter({ hasText: nickname })).toHaveCount(1);
 
 		// #4919 AC2: role="status" の成功文言が出る (admin/activities の action-message と同型)
 		const banner = page.getByTestId('admin-children-action-message');
@@ -41,6 +46,6 @@ test.describe('#4919: 子供追加が reload なしで一覧に反映される',
 		// reload しても同じ件数のまま (楽観追加分がサーバー確定分に正しく差し替わり二重表示しない)
 		await page.reload();
 		await expect(listItems).toHaveCount(beforeCount + 1);
-		await expect(page.getByText(nickname)).toBeVisible();
+		await expect(listItems.filter({ hasText: nickname })).toHaveCount(1);
 	});
 });
