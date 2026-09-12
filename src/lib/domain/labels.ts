@@ -8409,15 +8409,17 @@ export const SETUP_RULES_LABELS = {
  */
 export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
 	pageTitle: '活動・ポイント設定の初期値',
-	pageDesc:
-		'おすすめの初期設定をワンタップで適用できます。あとから /admin/settings/activities でいつでも変更できます。',
+	// #4909: 内部パス /admin/settings/activities の直書きを禁止（DESIGN.md §6「内部コード露出禁止」）。
+	// 画面名は ADMIN_SCREEN_TERMS.settings (設定) + SETTINGS_NAV_LABELS.activities (活動・ポイント) で案内する。
+	pageDesc: `おすすめの初期設定をワンタップで適用できます。あとから ${ADMIN_SCREEN_TERMS.settings} > ${SETTINGS_NAV_LABELS.activities} でいつでも変更できます。`,
 	infoNotice:
 		'これらの初期値はあくまでスタート地点です。家族の使い方に合わせて、あとから自由に変更できます。',
 	defaultsSummaryTitle: '適用される初期設定',
 	defaultDecayLabel: 'ステータス減少: ふつう（最初の2日は減少しません）',
 	defaultPointModeLabel: 'ポイント表示: 「P」（あとで通貨換算も選べます）',
 	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力（家族みんなで取り組みます）',
-	defaultSiblingRankingLabel: 'きょうだいランキング: OFF（family プランで ON 可能）',
+	// #4909: 撤去済み旧称「family」直書きを禁止（ADR-0045）。PLAN_FULL_TERMS.premium 経由にする。
+	defaultSiblingRankingLabel: `きょうだいランキング: OFF（${PLAN_FULL_TERMS.premium}で ON 可能）`,
 	applyButton: 'おすすめ初期値を適用してすすむ',
 	applyingLabel: '適用中...',
 	skipButton: 'スキップして次へ',

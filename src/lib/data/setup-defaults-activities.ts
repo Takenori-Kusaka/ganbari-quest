@@ -7,7 +7,7 @@
 // 各 default 値の根拠:
 // - decayIntensity='normal': 既定 (実画面の DECAY_OPTIONS デフォルト値と同期)
 // - pointMode='point': 通貨換算は上級者向けなので「ポイント」表示を初期推奨
-// - siblingRankingEnabled=false: family プラン限定機能、free / standard では gate される
+// - siblingRankingEnabled=false: プレミアムプラン限定機能 (#4909、旧称「family」表記を是正)、free / standard では gate される
 //   (#3195: 競争モード sibling_mode は撤去。チャレンジはアプリ自動生成・協力固定)
 //
 // ADR-0014 整合: 既存パターン継承、新規 OSS 不要
@@ -23,7 +23,7 @@ export interface ActivitiesSettingsDefaults {
 	pointCurrency: CurrencyCode;
 	/** ポイント → 通貨換算レート */
 	pointRate: number;
-	/** きょうだいランキング表示 (family 限定、setup 時は OFF) */
+	/** きょうだいランキング表示 (プレミアムプラン限定、setup 時は OFF) */
 	siblingRankingEnabled: boolean;
 }
 
