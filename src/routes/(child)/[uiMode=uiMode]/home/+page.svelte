@@ -861,9 +861,12 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		amount={formatPointValue(data.habitCertificateNotice?.points ?? 0, ps.mode, ps.currency, ps.rate)}
 	/>
 
-	<!-- Tutorial hint banner (one-time) -->
+	<!-- Tutorial hint banner (one-time)。#4913: reward modal (スタンプカード等) と同時に見えると
+	     DESIGN.md §10「reward / tutorial は常時 1 件のみ表示」に反するため、modal を閉じるまで
+	     出現を遅らせる (localStorage 既読フラグは modal 有無に関係なく既に立っている想定どおり、
+	     dismiss するまで消えない — 「モーダルを閉じた後に見える」だけで、見せる機会は失わない)。 -->
 	<TutorialHintBanner
-		visible={showTutorialHint}
+		visible={showTutorialHint && currentDialog === 'idle'}
 		uiMode={data.uiMode ?? 'preschool'}
 		onDismiss={dismissTutorialHint}
 	/>

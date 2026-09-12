@@ -10,6 +10,7 @@ import {
 	BENCHMARK_DEFAULT_MAX_AGE,
 	BENCHMARK_DEFAULT_MIN_AGE,
 	BENCHMARK_DEFAULTS,
+	clampBenchmarkAge,
 	getBenchmarkGuideRange,
 } from '$lib/domain/benchmark-defaults';
 import { CATEGORY_NUMERIC_IDS } from '$lib/domain/categories';
@@ -72,5 +73,34 @@ describe('getBenchmarkGuideRange — ガイド文は既定値の実値から出�
 	it('既定値を持たない年齢は null (画面はガイド文を出さない)', () => {
 		expect(getBenchmarkGuideRange(BENCHMARK_DEFAULT_MIN_AGE - 1)).toBeNull();
 		expect(getBenchmarkGuideRange(BENCHMARK_DEFAULT_MAX_AGE + 1)).toBeNull();
+	});
+});
+
+// #4914: `/admin/status` のベンチマーク年齢選択の初期値が常に 4 固定で、選択中の子供の実年齢
+// (例: 8歳) と食い違っていた。
+describe('clampBenchmarkAge — ベンチマーク年齢選択の初期値 SSOT', () => {
+	it('範囲内 (3〜12) の年齢はそのまま返す', () => {
+		expect(clampBenchmarkAge(8)).toBe(8);
+		expect(clampBenchmarkAge(BENCHMARK_DEFAULT_MIN_AGE)).toBe(BENCHMARK_DEFAULT_MIN_AGE);
+		expect(clampBenchmarkAge(BENCHMARK_DEFAULT_MAX_AGE)).toBe(BENCHMARK_DEFAULT_MAX_AGE);
+	});
+
+	it('下限未満は最寄りの下限に丸める (baby モード 0-2歳 等)', () => {
+		expect(clampBenchmarkAge(0)).toBe(BENCHMARK_DEFAULT_MIN_AGE);
+		expect(clampBenchmarkAge(2)).toBe(BENCHMARK_DEFAULT_MIN_AGE);
+	});
+
+	it('上限超過は最寄りの上限に丸める (13歳以上)', () => {
+		expect(clampBenchmarkAge(13)).toBe(BENCHMARK_DEFAULT_MAX_AGE);
+		expect(clampBenchmarkAge(18)).toBe(BENCHMARK_DEFAULT_MAX_AGE);
+	});
+
+	it('undefined (子供 0 名時) は下限にフォールバックする', () => {
+		expect(clampBenchmarkAge(undefined)).toBe(BENCHMARK_DEFAULT_MIN_AGE);
+	});
+
+	it('小数は最も近い整数に丸めてからクランプする', () => {
+		expect(clampBenchmarkAge(8.6)).toBe(9);
+		expect(clampBenchmarkAge(8.4)).toBe(8);
 	});
 });

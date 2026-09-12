@@ -252,6 +252,8 @@ export const PAGE_TITLES = {
 	// セットアップ完了・各ステップ
 	setupComplete: 'ぼうけんのはじまり！',
 	setupChildren: `${CHILD_TERMS.honorific}登録`,
+	// #4912: 保護者が操作する画面なのに他 setup step と違い title が無かった
+	setupQuestionnaire: 'かんたん質問',
 	setupFirstAdventure: 'はじめてのぼうけん',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
 	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
@@ -351,6 +353,20 @@ export function formatPeople(n: number): string {
 }
 export function formatDateRange(start: string, end: string): string {
 	return `${formatJstDate(start)} 〜 ${formatJstDate(end)}`;
+}
+
+/**
+ * setup wizard の一括取込ステップ（活動パック → rewards / ごほうびセット → rules /
+ * ルール → activities-defaults）が次画面へ引き継ぐ「N 件追加（M 件は登録済みのため
+ * スキップ）」の共通文言 (#4912)。3 画面が同じ形の notice を出すため、個別 namespace に
+ * 複製せずここに一元化する。0 件 (= スキップ操作 / 何も取込まれなかった) のときは
+ * 呼び出し側で表示自体を抑制する (本関数は呼ばない)。
+ */
+export function formatSetupImportNotice(imported: number, skipped: number): string {
+	if (skipped > 0) {
+		return `${imported}件追加しました（${skipped}件は登録済みのためスキップしました）。`;
+	}
+	return `${imported}件追加しました。`;
 }
 
 /**
@@ -8084,23 +8100,25 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	challengeHomeworkDaily: '毎日宿題をやらせたい',
 	challengeChores: '家事をやらせたい',
 	challengeBeyondGames: 'ゲーム以外のことに興味を惹かせたい',
-	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
-	activityLevelFewLabel: 'すこしずつ（3〜5こ）',
-	activityLevelFewDesc: 'はじめてでも むりなく',
-	activityLevelNormalLabel: 'ふつう（5〜10こ）',
+	// #4912: この画面は保護者が操作する（#4802「保護者画面の呼称・見出しを 1 つに揃える」の対象漏れ）。
+	// Q1 は漢字表記なのに Q2/Q3 だけ子供向けひらがな表記になっていたため、Q1 と同じ調子に揃える。
+	q2Legend: 'Q2. 1日にどれくらい記録する？',
+	activityLevelFewLabel: '少しずつ（3〜5個）',
+	activityLevelFewDesc: 'はじめてでも無理なく',
+	activityLevelNormalLabel: 'ふつう（5〜10個）',
 	activityLevelNormalDesc: 'おすすめ',
-	activityLevelManyLabel: 'たくさん（10こ いじょう）',
-	activityLevelManyDesc: 'いろいろ きろくしたい',
+	activityLevelManyLabel: 'たくさん（10個以上）',
+	activityLevelManyDesc: 'いろいろ記録したい',
 	recommendedBadge: 'おすすめ',
 	q3Legend: 'Q3. チェックリストを自動作成する？',
-	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	q3Hint: '選んだリストが自動で作成されます（あとから変更できます）',
 	// プリセットラベル（チェックリスト一覧用）
-	presetMorningRoutine: 'あさのしたく',
-	presetEveningRoutine: 'よるのじゅんび',
-	presetAfterSchool: 'がっこうからかえったら',
-	presetWeekendChores: 'しゅうまつのおてつだい',
-	presetBeyondGames: 'ゲームいがいのチャレンジ',
-	submittingLabel: 'せっていちゅう...',
+	presetMorningRoutine: '朝の支度',
+	presetEveningRoutine: '夜の準備',
+	presetAfterSchool: '学校から帰ったら',
+	presetWeekendChores: '週末のお手伝い',
+	presetBeyondGames: 'ゲーム以外のチャレンジ',
+	submittingLabel: '設定中...',
 	startButton: 'この設定ではじめる！',
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
@@ -10149,6 +10167,11 @@ const CHILD_STAMP_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	// #4913: 押印ぶん (instantPoints) が何に対する +Npt か分からず、おみくじぶんの +Npt と
+	// 並ぶと「+5pt」が 2 回連続で読める状態になっていた。おみくじ側と同じく「何の pt か」を
+	// 明示し、両方ある日は合計行を出す。
+	stampPressInstantPointsLabel: (points: number | string) => `スタンプ +${points}pt`,
+	stampPressTotalPointsLabel: (points: number | string) => `あわせて +${points}pt`,
 } as const;
 
 /**
@@ -10170,6 +10193,7 @@ const CHILD_STAMP_KANJI_OVERRIDES = {
 	stampPressNextBtn: '次へ',
 	stampPressConfirmBtn: 'OK',
 	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
+	stampPressTotalPointsLabel: (points: number | string) => `合計 +${points}pt`,
 } as const satisfies Partial<ChildStampLabels>;
 
 /** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
@@ -12520,8 +12544,11 @@ export const LP_LEGAL_SLA_LABELS = {
 		'<h2>第3条（デプロイおよび計画メンテナンス）</h2><ol><li>本サービスは継続的デプロイ（CI/CD）を採用しており、通常のコードデプロイはゼロダウンタイムで実施されます。通常のデプロイにおいてサービスの中断は発生しません。</li><li>インフラストラクチャの変更（CDKスタック更新、データベースマイグレーション等）により、サービスの一時的な中断が見込まれる場合は「計画メンテナンス」として扱い、以下の対応を行います。<ul><li>事前通知: 24時間前までに本サービス内のお知らせにて告知します。あわせて、影響が大きいと運営者が判断した場合は登録メールアドレスへ順次ご連絡します</li><li>影響範囲および想定される中断時間の事前説明</li></ul></li><li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li></ol>',
 	section4:
 		'<h2>第4条（データ保護）</h2><p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p><ul><li>日次の自動バックアップを実施しています。</li><li>全ての通信はTLS 1.2以上で暗号化されます。</li><li>保存データはAES-256で暗号化されます。</li><li>障害発生時の復旧目標時間は4時間以内です。</li><li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li></ul>',
+	// #4924: 「（準備中）」は本番稼働中の 1 時間ごとヘルスチェック (infra/lib/ops-stack.ts の
+	// `HealthCheckSchedule`、`ganbari-quest-health-check` Lambda) と食い違う (ADR-0013 LP truth)。
+	// 実装済みの機構を「準備中」と書いたまま放置しない。
 	section5:
-		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
+		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および1時間ごとの定期ヘルスチェックにより行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
 	// #4709: 応答目標は SUPPORT_RESPONSE_TERMS.initialResponseTarget が SSOT。
 	section6: `<h2>第6条（サポート対応）</h2><p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています。対応言語は日本語です。</p><p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>`,
 	section7:
