@@ -74,7 +74,7 @@ export interface ActivitySummaryExport {
 	lastRecordDate: string | null;
 }
 
-/** family プラン向けのきょうだい比較データ */
+/** プレミアムプラン向けのきょうだい比較データ */
 export interface SiblingComparisonExport {
 	children: Array<{
 		nickname: string;
@@ -85,7 +85,7 @@ export interface SiblingComparisonExport {
 	}>;
 }
 
-/** family プラン向けエクスポート（フルエクスポート + きょうだい比較） */
+/** プレミアムプラン向けエクスポート（フルエクスポート + きょうだい比較） */
 export interface FamilyExportData extends ExportData {
 	siblingComparison: SiblingComparisonExport;
 }
@@ -207,7 +207,7 @@ export async function generateFullExport(tenantId: string): Promise<ExportData> 
 // ============================================================
 
 /**
- * family プラン向けのきょうだい比較データを生成する。
+ * プレミアムプラン向けのきょうだい比較データを生成する。
  */
 export async function generateSiblingComparison(
 	tenantId: string,

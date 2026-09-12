@@ -229,27 +229,12 @@ describe('questionnaire-service', () => {
 	// applyChecklistPresets
 	// ========================================
 	describe('applyChecklistPresets', () => {
+		// #4907: loadPreset は build-time bundled JSON ($lib/data/setup-checklist-presets) から
+		// 同期的に読むため、fetch モックでは差し替えられない。実データ (morning-routine.json:
+		// あさのしたく / はみがき・かおをあらう・きがえ・あさごはん・もちものチェックの 5 item) を
+		// そのまま期待値に使う。
+
 		it('プリセットを正常に適用しテンプレート数を返す', async () => {
-			// loadPreset は内部で fetch → fs フォールバックするのでfsモックで対応
-			const mockPreset = {
-				presetId: 'morning-routine',
-				name: 'あさのしたく',
-				icon: '☀️',
-				pointsPerItem: 2,
-				completionBonus: 5,
-				items: [
-					{ name: 'はみがき', icon: '🪥', sortOrder: 1 },
-					{ name: 'かおをあらう', icon: '🧼', sortOrder: 2 },
-				],
-			};
-
-			// fetch をモックして loadPreset が成功するようにする
-			const mockFetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: () => Promise.resolve(mockPreset),
-			});
-			vi.stubGlobal('fetch', mockFetch);
-
 			mockCreateTemplate.mockResolvedValue({ id: '100' });
 			mockAddTemplateItem.mockResolvedValue({});
 
@@ -267,63 +252,35 @@ describe('questionnaire-service', () => {
 				},
 				TENANT,
 			);
-			expect(mockAddTemplateItem).toHaveBeenCalledTimes(2);
+			expect(mockAddTemplateItem).toHaveBeenCalledTimes(5);
 			expect(mockAddTemplateItem).toHaveBeenCalledWith(
 				{ templateId: '100', name: 'はみがき', icon: '🪥', sortOrder: 1 },
 				TENANT,
 			);
-
-			vi.unstubAllGlobals();
 		});
 
 		it('存在しないプリセットはスキップして 0 を返す', async () => {
-			const mockFetch = vi.fn().mockResolvedValue({ ok: false });
-			vi.stubGlobal('fetch', mockFetch);
-
 			const created = await applyChecklistPresets(CHILD_ID, ['nonexistent-preset'], TENANT);
 
 			expect(created).toBe(0);
 			expect(mockCreateTemplate).not.toHaveBeenCalled();
-
-			vi.unstubAllGlobals();
 		});
 
 		it('createTemplate がエラーを投げても他のプリセットを続行する', async () => {
-			const presetA = {
-				presetId: 'preset-a',
-				name: 'A',
-				icon: '🅰️',
-				pointsPerItem: 1,
-				completionBonus: 3,
-				items: [{ name: 'item1', icon: '📌', sortOrder: 1 }],
-			};
-			const presetB = {
-				presetId: 'preset-b',
-				name: 'B',
-				icon: '🅱️',
-				pointsPerItem: 1,
-				completionBonus: 3,
-				items: [{ name: 'item1', icon: '📌', sortOrder: 1 }],
-			};
-
-			const mockFetch = vi
-				.fn()
-				.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(presetA) })
-				.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(presetB) });
-			vi.stubGlobal('fetch', mockFetch);
-
-			// 1つ目はエラー、2つ目は成功
+			// 1つ目 (morning-routine) はエラー、2つ目 (evening-routine) は成功
 			mockCreateTemplate
 				.mockRejectedValueOnce(new Error('DB error'))
 				.mockResolvedValueOnce({ id: '200' });
 			mockAddTemplateItem.mockResolvedValue({});
 
-			const created = await applyChecklistPresets(CHILD_ID, ['preset-a', 'preset-b'], TENANT);
+			const created = await applyChecklistPresets(
+				CHILD_ID,
+				['morning-routine', 'evening-routine'],
+				TENANT,
+			);
 
-			// preset-a は失敗、preset-b は成功 → 1
+			// morning-routine は失敗、evening-routine は成功 → 1
 			expect(created).toBe(1);
-
-			vi.unstubAllGlobals();
 		});
 
 		it('空のプリセットID配列 → 0 を返し何も呼ばない', async () => {

@@ -248,7 +248,7 @@ cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍
 - トピック名: `ganbari-quest-ops-alerts`
 - サブスクリプション: メール（`-c opsEmail=xxx` で指定）
 
-**CloudWatch Alarms（10/10 無料枠使用）:**
+**CloudWatch Alarms（抜粋。全量は `ops-stack.ts` が SSOT、13+ alarm 存在）:**
 
 | # | アラーム名 | メトリクス | 閾値 | 優先度 |
 |---|----------|-----------|------|--------|
@@ -260,9 +260,18 @@ cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍
 | 6 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
 | 7 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
 | 8 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
+| 9 | **EntitlementFailClosed** (#3998) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | ≥ 1件、15分内2つの5分window (2-of-3) | P0 |
+| 10 | **EntitlementFailClosedBurst** (#4918) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | 同一5分window内に≥3件、即時発火 | P0 |
 
 > DynamoDB alarms（Throttles / SystemErrors / ConsumedCapacity）は #3438 で撤去（DB backend は
 > Aurora DSQL に一本化、DynamoDB table 無し）。DSQL の監視は `DsqlStack` が担う。
+>
+> #9 / #10 は同一 metric (`EntitlementDbUnavailable`) を異なる評価窓で見る対の alarm。#9 は
+> 「15 分継続する低頻度障害」を、#10 は「同一 5 分 window に集中する burst」を捕捉する
+> (#4918: 本番 incident は同一 window に 4 件発生し #9 だけでは 15 分継続しないため検知できなかった)。
+> `AI-Provider-Unavailable` / `AI-Fallback-Rate` / `Ops-Access-Denied` / `Grace-Period-Partial-Failure` /
+> `Ops-Alert-Forward-Failed` / S3 Origin 4xx/5xx 等の残り alarm は本表に掲載しない
+> (通知方針の SSOT は `infra/lib/ops-alert-policy.ts`、CDK 定義の SSOT は `infra/lib/ops-stack.ts`)。
 
 **CloudWatch Dashboard:** `ganbari-quest-ops`
 - Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
@@ -594,7 +603,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
-| CloudWatch Alarms | 8アラーム（Lambda/CloudFront/Cron。DynamoDB alarms は #3438 で撤去） | 無料枠10個中8個使用 |
+| CloudWatch Alarms | 13+アラーム（詳細は §3.4 表、全量は `ops-stack.ts` が SSOT） | 無料枠10個超過分は課金対象（$0.10/alarm/月、実費は僅少） |
 | CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
 | AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
 | Cost Anomaly Detection | ML異常検知 | 完全無料 |

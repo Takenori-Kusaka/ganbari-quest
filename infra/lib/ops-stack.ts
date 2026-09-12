@@ -419,6 +419,38 @@ export class OpsStack extends cdk.Stack {
 			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
 			entitlementFailClosedAlarm.addOkAction(alarmAction);
 
+			// #4918: burst (同一 5 分 window 内の複数件発生) を追加で観測する。
+			//
+			// 背景: 上の `entitlementFailClosedAlarm` は「継続時間」で一過性を判定するため
+			// 2 つの 5 分 window (合計 15 分) に跨って発生しないと鳴らない。本番で実際に
+			// 起きた incident は 1 つの 5 分 window 内に 4 件 (約 2 秒間に集中) 発生し、
+			// その後 1 時間エラー無しという「短時間 burst → 自然回復」パターンだった。
+			// このパターンは 15 分継続しないため上の alarm は正しく鳴らないが、
+			// 「同時に複数リクエストが 503 になった」こと自体は運営者が気付く価値がある
+			// (#4918 PO 判定: 少なくとも 5 分枠で 3 件以上なら notify)。
+			// 継続判定用の alarm とは別に、**単一 window でも即時発火**する低閾値 alarm を追加する
+			// (evaluationPeriods=1 / datapointsToAlarm=1、ops-access-denied と同型)。
+			const entitlementFailClosedBurstAlarm = new cloudwatch.Alarm(
+				this,
+				'EntitlementFailClosedBurst',
+				{
+					alarmName: 'ganbari-quest-auth-entitlement-db-unavailable-burst',
+					alarmDescription:
+						'課金状態を DB から解決できず 503 になったリクエスト: 同一5分windowで3件以上のburst (#4918)',
+					metric: entitlementFailClosed.metric({
+						period: cdk.Duration.minutes(5),
+						statistic: 'Sum',
+					}),
+					threshold: 3,
+					evaluationPeriods: 1,
+					datapointsToAlarm: 1,
+					comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+					treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+				},
+			);
+			entitlementFailClosedBurstAlarm.addAlarmAction(alarmAction);
+			entitlementFailClosedBurstAlarm.addOkAction(alarmAction);
+
 			// #4363 T4: `/ops` アクセス拒否の観測。
 			//
 			// 設計書 §5.2.9 の T4 は「認証失敗・不審ログインを 1 件でも観測したら MFA を戻す」

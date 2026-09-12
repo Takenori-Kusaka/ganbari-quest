@@ -32,7 +32,7 @@ import {
 	getTodayActivityCountsByChild,
 } from '$lib/server/db/activity-repo';
 // #2138 MP-3: bonus-hook-service - マーケットプレイス取込済 bonus preset 6 件評価
-import { evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
+import { type BonusHit, evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
 
 /** findChildById の非 null 戻り値 (repo entity 型を再宣言しない)。 */
 export type ActivityRecordChild = NonNullable<Awaited<ReturnType<typeof findChildById>>>;
@@ -52,6 +52,10 @@ export interface PreparedActivityRecord {
 	streakDays: number;
 	/** default streak bonus + bonus-hook 合算。 */
 	streakBonus: number;
+	/** #4916: streakBonus のうち calcStreakBonus 由来分のみ (内訳表示で bonus-hook hits と分離するため)。 */
+	defaultStreakBonus: number;
+	/** #4916: bonus-hook-service が評価した個別 hit 一覧 (内訳表示 SSOT。結果ダイアログはこれを itemize する)。 */
+	bonusHookHits: BonusHit[];
 	masteryBonus: number;
 	/** 記録前の習熟レベル (masteryLeveledUp 判定の基準)。 */
 	currentMasteryLevel: number;
@@ -185,6 +189,8 @@ export async function prepareActivityRecord(
 		isFirstToday,
 		streakDays,
 		streakBonus,
+		defaultStreakBonus,
+		bonusHookHits: hookResult.hits,
 		masteryBonus,
 		currentMasteryLevel,
 		newMasteryCount,
@@ -226,4 +232,79 @@ async function calculateStreak(
 /** Get previous date string (YYYY-MM-DD). */
 function prevDate(dateStr: string): string {
 	return prevDateJST(dateStr);
+}
+
+// ============================================================
+// #4916: 結果ダイアログ / 履歴の内訳 SSOT
+// ============================================================
+//
+// 記録結果の「+N P」と内訳が食い違う不具合 (Issue #4916) の根治:
+//   - streakBonus は default streak (calcStreakBonus) + bonus-hook hits[] の合算値だったが、
+//     hits[] 自体は evaluateBonusHooks 内で捨てられ、結果ダイアログには単一の合算値しか
+//     出せなかった (どのボーナスがいくら付いたか顧客が追えない)。
+//   - combo / mission / focus bonus は totalPoints と別建てで point_ledger に書かれるため、
+//     結果ダイアログの主要数字 (totalPoints) が実際の残高増分と一致しないケースがあった。
+//
+// 本節は「主要数字 = 全ボーナス込みの最終合計、内訳は全ボーナス種別を列挙」という統一ルール
+// (Issue #4916 AC) を実現するための共有 builder。sqlite 経路 (activity-log-service.ts) と
+// dsql 経路 (activity-record-dsql.ts) の両方から同じ PreparedActivityRecord を渡して呼ぶため、
+// 内訳ロジックの二重実装を避けられる。
+
+/** メインクエスト / weekend 等、base points に掛かる倍率の出所。 */
+export type PointBreakdownMultiplier =
+	| { kind: 'mainQuest' }
+	| { kind: 'bonusHook'; title: string; multiplier: number };
+
+export interface PointBreakdownItem {
+	kind: 'base' | 'streakDefault' | 'bonusHook' | 'mastery';
+	/** kind='bonusHook' のみ: マーケットプレイス preset の rule title (動的テキスト)。 */
+	title?: string;
+	/** 加算ポイント (kind='base' は倍率適用後の effectiveBasePoints)。 */
+	points: number;
+	/** kind='base' のみ: 適用された倍率の出所一覧 (メインクエスト×2 / weekend×2 等)。 */
+	multipliers?: PointBreakdownMultiplier[];
+}
+
+/**
+ * PreparedActivityRecord から結果ダイアログ / 履歴向けの内訳リストを組み立てる (pure function)。
+ * `items.reduce((sum, i) => sum + i.points, 0) === prep.totalPoints` が常に成り立つ
+ * (multiplier は base item の points に既に織り込み済で、別建てで加算しない)。
+ */
+export function buildPointBreakdown(
+	prep: Pick<
+		PreparedActivityRecord,
+		'activity' | 'effectiveBasePoints' | 'defaultStreakBonus' | 'bonusHookHits' | 'masteryBonus'
+	>,
+): PointBreakdownItem[] {
+	const items: PointBreakdownItem[] = [];
+
+	const multipliers: PointBreakdownMultiplier[] = [];
+	if (prep.activity.isMainQuest) multipliers.push({ kind: 'mainQuest' });
+	for (const hit of prep.bonusHookHits) {
+		if (hit.bonusPoints === 0 && hit.multiplier > 1) {
+			multipliers.push({ kind: 'bonusHook', title: hit.ruleTitle, multiplier: hit.multiplier });
+		}
+	}
+
+	items.push({
+		kind: 'base',
+		points: prep.effectiveBasePoints,
+		...(multipliers.length > 0 ? { multipliers } : {}),
+	});
+
+	if (prep.defaultStreakBonus > 0) {
+		items.push({ kind: 'streakDefault', points: prep.defaultStreakBonus });
+	}
+
+	for (const hit of prep.bonusHookHits) {
+		if (hit.bonusPoints > 0) {
+			items.push({ kind: 'bonusHook', title: hit.ruleTitle, points: hit.bonusPoints });
+		}
+	}
+
+	if (prep.masteryBonus > 0) {
+		items.push({ kind: 'mastery', points: prep.masteryBonus });
+	}
+
+	return items;
 }

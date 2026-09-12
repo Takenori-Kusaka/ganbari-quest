@@ -69,11 +69,44 @@ export class TenantEntitlementUnavailableError extends Error {
 }
 
 /**
+ * `findTenantById` を最大 1 回だけリトライする (#4918)。
+ *
+ * 背景: 本番で warm Lambda container が「接続待ちの 5 秒 timeout ではなく 20〜80ms で
+ * 即失敗する」DB 解決失敗を 4 リクエスト連続で起こした。直後のリクエストは正常だった
+ * ことから、warm container が保持していた個々の物理接続 (失効 IAM token / 切断済み
+ * ソケット等) が原因の一過性障害だったと推定される。
+ *
+ * `node-postgres` の `Pool` はクエリ失敗時にそのクライアントをプールへ返さず破棄する
+ * (デフォルト挙動)。加えて DSQL connector は**新規物理接続ごとに新しい IAM token を
+ * 発行する** (`dsql/connection.ts` 冒頭コメント)。したがって 1 回リトライするだけで、
+ * 失敗した接続がプールから自然に入れ替わり、健全な接続 (新しい token) で再試行できる。
+ * DSQL 固有の pool reset をここに書く必要はない — backend 抽象 (`IAuthRepo`) を壊さず、
+ * `Pool` の標準挙動に乗るだけで自己修復する。
+ */
+async function findTenantByIdWithRetry(tenantId: string): Promise<Tenant | undefined> {
+	try {
+		return await getRepos().auth.findTenantById(tenantId);
+	} catch (firstError) {
+		logger.warn(
+			`[AUTH] ${TenantEntitlementUnavailableError.ALERT_KIND}-retry: first attempt failed, retrying once`,
+			{
+				error: firstError instanceof Error ? firstError.message : String(firstError),
+				context: { tenantId },
+			},
+		);
+		// 2 回目も失敗したら呼び出し元 (resolveTenantEntitlement) の catch へ委ねる。
+		return getRepos().auth.findTenantById(tenantId);
+	}
+}
+
+/**
  * テナントの課金状態を DB から解決する。同一リクエスト内では 1 回だけ DB を引く。
  *
  * **解決に失敗した場合は `TenantEntitlementUnavailableError` を throw する (fail-closed)。**
  * 呼び出し側は context を発行してはならない。DB 障害時に古い Cookie の値で有料機能を
  * 通し続けるのは本 Issue が塞ごうとしている挙動そのものであるため、握り潰さない。
+ *
+ * 解決自体は `findTenantByIdWithRetry` が一過性失敗を 1 回だけ自己修復する (#4918)。
  */
 export async function resolveTenantEntitlement(tenantId: string): Promise<TenantEntitlement> {
 	const cache = getRequestContext()?.tenantEntitlementCache;
@@ -81,15 +114,16 @@ export async function resolveTenantEntitlement(tenantId: string): Promise<Tenant
 	if (cached) return cached;
 
 	try {
-		const tenant = await getRepos().auth.findTenantById(tenantId);
+		const tenant = await findTenantByIdWithRetry(tenantId);
 		const entitlement = deriveTenantEntitlement(tenant);
 		cache?.set(tenantId, entitlement);
 		return entitlement;
 	} catch (e) {
-		// #3998: Lambda 上で logger が CloudWatch に書くのは console 出力 = `message` 本文だけで、
-		// `context` は載らない。kind を message に含めないと Logs Insights から
-		// `auth-entitlement-db-unavailable` で辿れる行が「503 を返した側」だけになるため、
-		// DB 解決失敗そのものの行にも kind を持たせる。
+		// #3998 / #4918: Lambda 上で logger が CloudWatch に書くのは console 出力だけで、
+		// 以前は `context` に入れた cause がそこに乗っていなかった (logger.ts 側で修正済)。
+		// kind を message に含めないと Logs Insights から `auth-entitlement-db-unavailable`
+		// で辿れる行が「503 を返した側」だけになるため、DB 解決失敗そのものの行にも
+		// kind を持たせる。`error` には 2 回目 (リトライ後) の失敗原因が入る。
 		logger.error(
 			`[AUTH] ${TenantEntitlementUnavailableError.ALERT_KIND}: Failed to resolve tenant entitlement from DB`,
 			{

@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
 import type { ChildId } from '$lib/domain/ids';
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import { getBattleLabels } from '$lib/domain/labels';
 import BattleScene from './BattleScene.svelte';
 
 let {
@@ -23,13 +23,17 @@ let {
 	battleResult: BattleResult | null;
 	loading: boolean;
 } = $props();
+
+const uiMode = $derived(data.child?.uiMode ?? 'preschool');
+const t = $derived(getBattleLabels(uiMode));
 </script>
 
 <div class="battle-page" data-testid="battle-page">
-	<h2 class="page-title">{FEATURES_LABELS.battle.pageTitle}</h2>
+	<h2 class="page-title">{t.pageTitle}</h2>
 
 	{#if data.battle}
 		<BattleScene
+			{uiMode}
 			enemy={data.battle.enemy}
 			playerStats={data.battle.playerStats}
 			scaledEnemyMaxHp={data.battle.scaledEnemyMaxHp}
@@ -38,14 +42,14 @@ let {
 		/>
 	{:else}
 		<div class="no-battle">
-			<p>{FEATURES_LABELS.battle.loadError}</p>
+			<p>{t.loadError}</p>
 		</div>
 	{/if}
 
 	{#if loading}
 		<div class="loading-overlay">
 			<span class="loading-spinner">⚔️</span>
-			<p>{FEATURES_LABELS.battle.loadingText}</p>
+			<p>{t.loadingText}</p>
 		</div>
 	{/if}
 </div>

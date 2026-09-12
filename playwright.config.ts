@@ -8,6 +8,9 @@ const BASE_TEST_IGNORE = [
 	// 本 config (local モード) では認証フローが異なり、`/switch` POST が demo no-op 化されないため
 	// 全 spec FAIL する。必ず `playwright.demo.config.ts` 経由で起動する。
 	'**/demo-lambda/**',
+	// #4944: /consent は AUTH_MODE=cognito でしか描画されない (local は `/` へ redirect)。
+	// playwright.cognito-dev.config.ts の testMatch 側で実行する。
+	'**/consent-cross-border-layers.spec.ts',
 	'**/cognito-auth.spec.ts',
 	// #776, #779, #751, #778: プラン別ゲート E2E は cognito-dev モード専用
 	// （playwright.cognito-dev.config.ts でのみ実行する）

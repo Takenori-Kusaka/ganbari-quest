@@ -10,6 +10,9 @@ import {
 	SETUP_FIRST_ADVENTURE_LABELS,
 	SETUP_LABELS,
 } from '$lib/domain/labels';
+// #4908: server が返す levelUp の実体は LevelUpInfo (oldLevel/newLevel)。型で結び、
+// フィールド名の無音の食い違い (levelBefore/levelAfter) を二度と作らない。
+import type { LevelUpInfo } from '$lib/server/services/status-service';
 import { ErrorAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -48,10 +51,19 @@ const resultPoints = $derived(
 	((form as Record<string, unknown> | null)?.totalPoints as number) ?? 0,
 );
 const resultLevelUp = $derived(
-	((form as Record<string, unknown> | null)?.levelUp as {
-		levelBefore: number;
-		levelAfter: number;
-	} | null) ?? null,
+	((form as Record<string, unknown> | null)?.levelUp as LevelUpInfo | null) ?? null,
+);
+// #4908: カードは記録前に活動の基礎点 (倍率適用前) を表示しているため、記録後の合計点が
+// ストリーク / 習熟 / ボーナスルール等で膨らむと「10 と言ったのに 20」に見える。server が返す
+// `basePoints` (倍率適用後の基礎点、streak/mastery/ボーナスルール抜き) と `totalPoints` が
+// 食い違うときだけ内訳を出す (ADR-0062 §1 類似: 表示された約束と実結果の不一致は必ず説明を添える)。
+const resultBasePoints = $derived(
+	((form as Record<string, unknown> | null)?.basePoints as number) ?? resultPoints,
+);
+const resultPointsBreakdown = $derived(
+	resultBasePoints !== resultPoints
+		? SETUP_FIRST_ADVENTURE_LABELS.pointsBreakdown(resultBasePoints, resultPoints)
+		: null,
 );
 
 function selectActivity(id: ActivityId) {
@@ -88,17 +100,23 @@ function goToComplete() {
 			{SETUP_FIRST_ADVENTURE_LABELS.recordedDesc(resultName)}
 		</p>
 
-		<div class="points-display border-2 border-[var(--color-gold-600)] rounded-2xl p-4 my-4">
-			<div class="text-[2rem] font-extrabold text-[var(--color-gold-700)]">+{resultPoints}pt</div>
-			<div class="text-sm text-[var(--color-gold-700)] font-semibold">{SETUP_FIRST_ADVENTURE_LABELS.pointsGetLabel}</div>
+		<div
+			class="points-display border-2 border-[var(--color-gold-600)] rounded-2xl p-4 my-4"
+			data-testid="first-adventure-points-display"
+		>
+			<div class="text-[2rem] font-extrabold text-[var(--color-text-gold)]">+{resultPoints}pt</div>
+			{#if resultPointsBreakdown}
+				<div class="text-xs text-[var(--color-text-gold)]">{resultPointsBreakdown}</div>
+			{/if}
+			<div class="text-sm text-[var(--color-text-gold)] font-semibold">{SETUP_FIRST_ADVENTURE_LABELS.pointsGetLabel}</div>
 		</div>
 
 		{#if resultLevelUp}
 			<div class="my-3">
 				<div class="flex items-center justify-center gap-2 text-xl font-bold">
-					<span class="text-[var(--color-neutral-400)]">Lv.{resultLevelUp.levelBefore}</span>
-					<span class="text-[var(--color-gold-600)]">→</span>
-					<span class="text-[var(--color-gold-600)] text-2xl">Lv.{resultLevelUp.levelAfter}</span>
+					<span class="text-[var(--color-neutral-400)]">Lv.{resultLevelUp.oldLevel}</span>
+					<span class="text-[var(--color-text-gold)]">→</span>
+					<span class="text-[var(--color-text-gold)] text-2xl">Lv.{resultLevelUp.newLevel}</span>
 				</div>
 				<p class="text-sm text-[var(--color-feedback-warning-text)] font-bold">{SETUP_FIRST_ADVENTURE_LABELS.levelUpLabel}</p>
 			</div>
@@ -275,7 +293,11 @@ function goToComplete() {
 {/if}
 
 <style>
-	.points-display { background: var(--gradient-gold); }
+	/* #4908: gradient-gold background fails WCAG AA with any gold text token (measured
+	   1.3-2.2:1). Switched to solid gold-100, which --color-text-gold satisfies AA against
+	   (locked by tests/unit/architecture/color-contrast-tokens.test.ts). Rationale (JP) is in
+	   the <script> block near resultPointsBreakdown. */
+	.points-display { background: var(--color-gold-100); }
 	.celebration-emoji { animation: bounce 0.6s ease-in-out infinite alternate; }
 	@keyframes bounce {
 		from { transform: translateY(0); }

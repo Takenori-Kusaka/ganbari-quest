@@ -9,6 +9,7 @@ import {
 	type PresetChallenge,
 	resolvePresetChallengeDates,
 } from '$lib/data/preset-challenges';
+import { SETUP_CHALLENGES_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 
 describe('PRESET_CHALLENGES — Issue #2298 AC1', () => {
@@ -146,11 +147,60 @@ describe('resolvePresetChallengeDates — 日付解決', () => {
 		expect(result.endDate).toBe('2026-05-25');
 	});
 
+	// #4911: 開催中の preset (start は過ぎたが end はまだ) を「過去」と誤判定して
+	// 来年に shift しないことを確認する回帰テスト。実測: 敬老の日 preset (09-10〜09-18) が
+	// today=2026-09-11 (期間の 2 日目) で 2027 年扱いになった。
+	it('MM-DD 形式: 期間の途中 (start は過ぎたが end はまだ) は当年のまま', () => {
+		const now = new Date(2026, 8, 11); // 2026-09-11 (JST 固定、#4127 TZ SSOT)
+		const result = resolvePresetChallengeDates(
+			buildPreset({ startMonthDay: '09-10', endMonthDay: '09-18' }),
+			now,
+		);
+		expect(result.startDate).toBe('2026-09-10');
+		expect(result.endDate).toBe('2026-09-18');
+	});
+
+	it('MM-DD 形式: 今日が end 当日でも当年のまま (境界値)', () => {
+		const now = new Date(2026, 8, 18); // 2026-09-18 (end 当日)
+		const result = resolvePresetChallengeDates(
+			buildPreset({ startMonthDay: '09-10', endMonthDay: '09-18' }),
+			now,
+		);
+		expect(result.startDate).toBe('2026-09-10');
+		expect(result.endDate).toBe('2026-09-18');
+	});
+
+	it('MM-DD 形式: end 翌日は来年へ shift (境界値)', () => {
+		const now = new Date(2026, 8, 19); // 2026-09-19 (end の翌日 = 完全に終了)
+		const result = resolvePresetChallengeDates(
+			buildPreset({ startMonthDay: '09-10', endMonthDay: '09-18' }),
+			now,
+		);
+		expect(result.startDate).toBe('2027-09-10');
+		expect(result.endDate).toBe('2027-09-18');
+	});
+
 	it('startDate <= endDate を常に満たす', () => {
 		const now = new Date();
 		for (const p of PRESET_CHALLENGES) {
 			const { startDate, endDate } = resolvePresetChallengeDates(p, now);
 			expect(startDate <= endDate).toBe(true);
 		}
+	});
+});
+
+// #4911: setup/challenges の期間表示は formatDateRange (保護者向け日本語書式 SSOT) 経由にする。
+// 旧実装は ISO 文字列 (`2027-03-01`) をそのまま出していた (#4802 日付書式統一から漏れ)。
+describe('SETUP_CHALLENGES_LABELS.periodFormat — #4911', () => {
+	it('ISO 日付を YYYY/MM/DD (JST, ゼロ埋め) の日本語書式で出す', () => {
+		expect(SETUP_CHALLENGES_LABELS.periodFormat('2026-09-10', '2026-09-18')).toBe(
+			'期間: 2026/09/10 〜 2026/09/18',
+		);
+	});
+
+	it('ハイフン区切りの ISO 文字列がそのまま出ない (回帰確認)', () => {
+		const result = SETUP_CHALLENGES_LABELS.periodFormat('2027-03-01', '2027-03-03');
+		expect(result).not.toContain('2027-03-01');
+		expect(result).toBe('期間: 2027/03/01 〜 2027/03/03');
 	});
 });

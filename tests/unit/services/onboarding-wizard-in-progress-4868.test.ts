@@ -48,8 +48,12 @@ vi.mock('$lib/server/services/child-service', () => ({
 vi.mock('$lib/server/services/activity-service', () => ({
 	getActivities: vi.fn(async () => [{ id: 'a-1', name: 'はみがき' }]),
 }));
+// #4910: rewards の完了判定は per-child reward (`getChildSpecialRewards`) を見る。
 vi.mock('$lib/server/services/special-reward-service', () => ({
-	getRewardTemplates: vi.fn(async () => [{ id: 'r-1', name: 'ごほうび' }]),
+	getChildSpecialRewards: vi.fn(async () => ({
+		rewards: [{ id: 'r-1', title: 'ごほうび', points: 10 }],
+		totalPoints: 10,
+	})),
 }));
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: vi.fn(async () => [{ id: 't-1', name: 'あさのしたく' }]),

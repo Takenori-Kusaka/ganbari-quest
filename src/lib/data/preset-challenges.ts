@@ -151,13 +151,32 @@ export function resolvePresetChallengeDates(
 	// チャレンジ期間が 1 日 (月初 / 年始は 1 ヶ月 / 1 年) ずれる。
 	const todayStr = toJSTDateString(now);
 	const { year, month } = jstYearMonth(now);
-	const day = Number(todayStr.slice(8, 10));
 
 	function pad(n: number): string {
 		return String(n).padStart(2, '0');
 	}
 
-	function resolveToken(token: string, isEnd: boolean): string {
+	const monthDayPattern = /^(\d{2})-(\d{2})$/;
+	const startMatch = monthDayPattern.exec(preset.startMonthDay);
+	const endMatch = monthDayPattern.exec(preset.endMonthDay);
+
+	// MM-DD 形式のペア (季節 preset) は「開催中かどうか」で年跨ぎを判定する (#4911)。
+	// 旧実装は start の月日だけを today と比較していたため、期間の途中 (start は過ぎたが
+	// end はまだ) でも「過去」と誤判定し、開催中の preset が来年扱いになっていた
+	// (実測: 敬老の日 09-10〜09-18、today=09-11 で 2027 年に shift)。
+	// 当年の end が今日以降 (今日を含む) なら当年のまま扱い、end も過ぎていれば来年へ揃える。
+	if (startMatch && endMatch) {
+		const [, smm, sdd] = startMatch;
+		const [, emm, edd] = endMatch;
+		const candidateEndThisYear = `${year}-${emm}-${edd}`;
+		const y = candidateEndThisYear < todayStr ? year + 1 : year;
+		const startDate = `${y}-${smm}-${sdd}`;
+		const endDate = `${y}-${emm}-${edd}`;
+		// safety: start > end の不整合 (preset 定義ミス) は end を start に揃える
+		return startDate > endDate ? { startDate, endDate: startDate } : { startDate, endDate };
+	}
+
+	function resolveToken(token: string): string {
 		if (token === 'this-month-start') {
 			return `${year}-${pad(month)}-01`;
 		}
@@ -171,40 +190,12 @@ export function resolvePresetChallengeDates(
 			const offset = Number(token.slice('today-plus-'.length));
 			return addDaysJST(todayStr, offset);
 		}
-		// MM-DD 形式
-		const match = /^(\d{2})-(\d{2})$/.exec(token);
-		if (!match) {
-			// fallback: 不正値は今日
-			return todayStr;
-		}
-		const mm = Number(match[1]);
-		const dd = Number(match[2]);
-		// end token は start が次年なら end も次年（year shift は呼び元で判断）
-		const candidateYear = year;
-		const candidate = `${candidateYear}-${pad(mm)}-${pad(dd)}`;
-		if (isEnd) return candidate;
-		// start: 当年の該当日が既に過去なら来年
-		if (mm < month || (mm === month && dd < day)) {
-			return `${year + 1}-${pad(mm)}-${pad(dd)}`;
-		}
-		return candidate;
+		// fallback: 不正値は今日
+		return todayStr;
 	}
 
-	const startDate = resolveToken(preset.startMonthDay, false);
-	const endDate = resolveToken(preset.endMonthDay, true);
-
-	// start が来年に shift された場合は end も来年に shift（MM-DD 形式の場合のみ）
-	if (
-		/^\d{2}-\d{2}$/.test(preset.startMonthDay) &&
-		/^\d{2}-\d{2}$/.test(preset.endMonthDay) &&
-		startDate.slice(0, 4) !== endDate.slice(0, 4)
-	) {
-		// startDate が来年 → endDate も来年に揃える
-		return {
-			startDate,
-			endDate: `${startDate.slice(0, 4)}-${endDate.slice(5)}`,
-		};
-	}
+	const startDate = resolveToken(preset.startMonthDay);
+	const endDate = resolveToken(preset.endMonthDay);
 
 	// safety: start > end の不整合は end を start に揃える (fallback)
 	if (startDate > endDate) {

@@ -3,6 +3,7 @@ import { type Config, type Driver, type DriveStep, driver, type Side } from 'dri
 import { mount, unmount } from 'svelte';
 import 'driver.js/dist/driver.css';
 import PageGuideBubble from '$lib/ui/tutorial/PageGuideBubble.svelte';
+import { clearStaleActiveElementClasses } from '$lib/ui/tutorial/page-guide-active-element';
 import {
 	completePageGuide,
 	endPageGuide,
@@ -360,6 +361,19 @@ function startDriver(rawGuide: PageGuide): void {
 		// 遅延するため、実行時には `__activeElement` は既に新 step の要素へ差し替わっている。
 		onHighlighted: () => {
 			if (driverInstance?.isActive()) driverInstance.refresh();
+		},
+		// #4922: 前 step の `.driver-active-element` クラスが外れず複数要素が同時に光ったままに
+		// なる回帰の根治。driver.js は highlight 遷移のたびに「直前の対象」のクラスを外すが、
+		// 判定に使う内部状態は highlight アニメーション (既定 400ms) の完了時にのみ更新されるため、
+		// 400ms 以内に次の step へ進む (通常のクリック速度で普通に起こる) と直前対象のクラス除去が
+		// 永久にスキップされる。`onHighlightStarted` は duration に関係なく毎回同期的に呼ばれるため、
+		// ここで「これから対象になる要素以外」を一括除去し、driver.js 内部のタイミングに依存せず
+		// 「唯一の active element」を構成的に保証する (詳細: page-guide-active-element.ts)。
+		// 対象が中央 modal (selector 省略 step) のときは driver.js が element を `undefined` で
+		// 渡すため、実 DOM 参照 (`#driver-dummy-element`) に解決してから渡す (実機検証で判明:
+		// null のまま渡すとダミーから実要素へ遷移した後にダミーの残留クラスを除去できない)。
+		onHighlightStarted: (element) => {
+			clearStaleActiveElementClasses(element ?? document.getElementById('driver-dummy-element'));
 		},
 		// 最終 step まで到達して閉じたら完了 (localStorage 永続)、途中終了 (とじる / Escape /
 		// overlay click) なら未完了のまま end。判定は completedLastStep フラグで行う。
