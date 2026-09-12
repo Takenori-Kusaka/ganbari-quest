@@ -173,7 +173,9 @@ export const actions = withParentGate({
 			sendInquiryConfirmationEmail(confirmTo, inquiryId).catch(() => {});
 		}
 
-		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
+		// #4947: message にメールアドレスを埋め込まない (出口の key 名 redaction は context しか見ない)。
+		// 問い合わせの追跡は inquiryId + tenantId で足りる。
+		logger.info('Feedback received', { tenantId, context: { category: categoryLabel, inquiryId } });
 		return { feedbackSuccess: true, inquiryId, intent };
 	},
 } satisfies Actions);

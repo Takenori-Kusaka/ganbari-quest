@@ -55,7 +55,10 @@ function getLogFileName(): string {
 }
 
 function formatEntry(entry: LogEntry): string {
-	return JSON.stringify(entry);
+	// #4947: ファイル出力も同じ redaction を通す (self-host / NUC の data/logs/*.log)
+	return redactValues(
+		JSON.stringify(entry.context ? { ...entry, context: sanitizeContext(entry.context) } : entry),
+	);
 }
 
 /**
@@ -65,6 +68,76 @@ function formatEntry(entry: LogEntry): string {
  * `logger.error(msg, { error: e.message, context: {...} })` で渡した DB 例外の cause が
  * 実質どこにも書かれていなかった (本番 auth-entitlement-db-unavailable 障害で原因不明のまま化)。
  */
+/**
+ * context の key 名で機微値を落とす (#4947)。
+ *
+ * #4918 で context が console (= Lambda では CloudWatch への唯一の到達経路) に出るように
+ * なった結果、それまで本番のどこにも到達していなかった値が一斉に露出した。実測で平文相当の
+ * おやカギコード (char code 列) と保護者メールが含まれていた。
+ *
+ * deny-list ではなく **key 名の部分一致**で落とす: 呼び出し側は 600 箇所以上あり、そこを
+ * 全部直しても次に足された 1 箇所で破れるため、出口 1 箇所で止める。
+ */
+const REDACT_KEY_PATTERN =
+	/pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|api_?key|session|signature/i;
+const MASK_EMAIL_KEY_PATTERN = /email|mail_?to|^to$|recipient/i;
+
+function maskEmail(value: string): string {
+	const at = value.indexOf('@');
+	if (at <= 0) return '***';
+	return `${value[0]}***${value.slice(at)}`;
+}
+
+function sanitizeContextValue(key: string, value: unknown, depth: number): unknown {
+	if (REDACT_KEY_PATTERN.test(key)) return '[redacted]';
+	if (MASK_EMAIL_KEY_PATTERN.test(key) && typeof value === 'string') return maskEmail(value);
+	if (depth >= 4) return value;
+	if (Array.isArray(value)) return value.map((v) => sanitizeContextValue(key, v, depth + 1));
+	if (value && typeof value === 'object')
+		return sanitizeContext(value as Record<string, unknown>, depth + 1);
+	return value;
+}
+
+function sanitizeContext(context: Record<string, unknown>, depth = 0): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(context)) {
+		out[k] = sanitizeContextValue(k, v, depth);
+	}
+	return out;
+}
+
+/**
+ * 出口で **値** を見て伏せる (#4947 恒久策 / PO 判断 2026-09-12)。
+ *
+ * `sanitizeContext()` は context の **key 名** で落とす方式なので、`entry.message` に直接
+ * 埋め込まれた PII (例: message に `... from <保護者メール> ...` を直接書く) と、key 名が想定外の変数
+ * (`to` / `contact` / `addr`) に入った PII は素通りする。出口を「1 箇所」にする設計思想を
+ * 成立させるには、最終的に console / file へ渡す **1 本の文字列** に対して値のパターンで
+ * 伏せる必要がある。message / context / error / stack を区別しない。
+ *
+ * 伏せる値は、実測で漏れた 2 種 + その同型に限る (過剰に伏せて観測性を殺さない):
+ *   - メールアドレス → `p***@example.com` (ドメインは運用のため残す、sanitizeContext と同じ形)
+ *   - おやカギコード / OTP / パスコード の語の近傍にある 4〜6 桁 → `[pin]`
+ *     (裸の 4 桁は年や status code と区別できないため、語の近傍に限る)
+ *   - char code 列 (`53,48,56,54` のような可逆表現。#2335 の debug log が出していた形) → `[redacted]`
+ *
+ * 入口側は `tests/unit/architecture/logger-message-pii-boundary.test.ts` が
+ * 「PII 名の変数を message に埋め込む呼び出し」を CI で禁止する。出口 (本関数) と入口 (fitness
+ * function) の 2 層で、新しい経路が足されても漏れないようにする (ADR-0061 class lock)。
+ */
+const EMAIL_VALUE_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+\b/g;
+// 語の直後 16 文字以内 (改行は跨がない) に現れる 4〜6 桁だけを対象にする
+const PIN_NEAR_KEYWORD_PATTERN =
+	/((?:pin|otp|passcode|おやカギ|パスコード)[^0-9\n]{0,16})(\d{4,6})\b/gi;
+const CHAR_CODE_LIST_PATTERN = /\b(?:\d{2,3},){3,}\d{2,3}\b/g;
+
+function redactValues(text: string): string {
+	return text
+		.replace(EMAIL_VALUE_PATTERN, (m) => maskEmail(m))
+		.replace(PIN_NEAR_KEYWORD_PATTERN, (_m, pre: string) => `${pre}[pin]`)
+		.replace(CHAR_CODE_LIST_PATTERN, '[redacted]');
+}
+
 function formatMetaSuffix(entry: LogEntry): string {
 	const parts: string[] = [];
 	if (entry.error) parts.push(`error=${entry.error}`);
@@ -73,7 +146,7 @@ function formatMetaSuffix(entry: LogEntry): string {
 	if (entry.userId) parts.push(`userId=${entry.userId}`);
 	if (entry.context) {
 		try {
-			parts.push(`context=${JSON.stringify(entry.context)}`);
+			parts.push(`context=${JSON.stringify(sanitizeContext(entry.context))}`);
 		} catch {
 			// circular / non-serializable context でも他フィールドの出力は止めない
 			parts.push('context=<unserializable>');
@@ -88,13 +161,17 @@ function writeLog(entry: LogEntry) {
 	// Console output
 	const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
 	const metaSuffix = formatMetaSuffix(entry);
-	const msg = entry.method
-		? `${prefix} ${entry.method} ${entry.path} ${entry.status ?? ''} ${entry.durationMs ? `${entry.durationMs}ms` : ''} ${entry.message}${metaSuffix}`
-		: `${prefix} ${entry.message}${metaSuffix}`;
+	// #4947: console / CloudWatch へ渡す直前の 1 本の文字列に対して値ベースの redaction を掛ける。
+	// message に直接埋め込まれた PII も、ここを通る限り出口で止まる。
+	const msg = redactValues(
+		entry.method
+			? `${prefix} ${entry.method} ${entry.path} ${entry.status ?? ''} ${entry.durationMs ? `${entry.durationMs}ms` : ''} ${entry.message}${metaSuffix}`
+			: `${prefix} ${entry.message}${metaSuffix}`,
+	);
 
 	if (entry.level === 'critical' || entry.level === 'error') {
 		console.error(msg);
-		if (entry.stack) console.error(entry.stack);
+		if (entry.stack) console.error(redactValues(entry.stack));
 	} else if (entry.level === 'warn') {
 		console.warn(msg);
 	} else {
