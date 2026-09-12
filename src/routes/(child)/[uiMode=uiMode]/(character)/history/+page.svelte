@@ -144,7 +144,9 @@ function purchaseStatusTone(status: string): string {
 									</div>
 									<div class="flex justify-between items-center">
 										<span class="text-sm text-[var(--color-text-muted)]">{UI_LABELS.points}</span>
-										<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
+										<!-- #4948: 行は grandTotal を出しているので合計も grandTotal 総和にする
+														     (points + streakBonus のままだと同一画面で行の合計と一致しない) -->
+														<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalGrandTotal)}</span>
 									</div>
 									{#if Object.keys(data.summary.byCategory).length > 0}
 										<div class="flex flex-wrap gap-[var(--sp-xs)] mt-[var(--sp-sm)]">
