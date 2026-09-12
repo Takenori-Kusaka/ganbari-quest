@@ -26,19 +26,43 @@ export default async (page, capture) => {
 	// (child) layout マウントの初回訪問オーバーレイ群。TutorialOverlay / PinGateOnboarding は
 	// 遷移後も残存しうるため、home 到達後・battle 到達後の両方で dismiss する
 	// (#4936 QM BLOCK 1回目: TutorialOverlay が写り込み / BLOCK 2回目: PinGateOnboarding
-	// `pin-gate-onboarding-dialog` (testid `pin-gate-onboarding-close`) が写り込み)。
-	// mount 直後は Dialog のアニメーション/hydration で isVisible() が間に合わないことがあるため、
-	// 短い timeout 付き waitFor で出現を確認してから閉じる (waitForTimeout は scripts/ 禁止 #1208)。
-	const dismissOverlays = async () => {
-		for (const testId of [
-			'tutorial-skip',
-			'tutorial-close',
-			'page-guide-close',
-			'pin-gate-onboarding-close',
-		]) {
-			const btn = page.getByTestId(testId);
-			await btn.waitFor({ state: 'visible', timeout: 1500 }).catch(() => {});
-			if (await btn.isVisible().catch(() => false)) await btn.click().catch(() => {});
+	// `pin-gate-onboarding-dialog` (testid `pin-gate-onboarding-close`) が写り込み / BLOCK 3回目:
+	// elementary/senior-desktop のみ再現する間欠 fail — 原因は「4 testid を 1500ms ずつ順番に
+	// 待つ」逐次方式そのもの。対象の Dialog が 1500ms を過ぎてから hydrate/mount された場合、
+	// そのループはすでに次の testid に進んでおり、二度と戻って確認しない。同一 flow・同一ロジック
+	// でも実行環境の負荷 (同時起動 dev server 数等) 次第で hydration 時間が振れるため、
+	// モード/プリセットの組み合わせによって成否が分かれる非決定的な fail になっていた
+	// (QM が `AUTH_MODE=local npm run dev` の実機で再現・特定)。
+	//
+	// 対応: 4 testid の `waitFor` を Promise.race で並列化し、**どれか 1 つでも先に visible に
+	// なった時点で即座に click** → 残り時間内でループを繰り返す。1 巡ごとに 1500ms 使い切るのを
+	// 待たず、最初に現れた overlay を最短で処理できるため、hydration が多少遅れても取りこぼさない
+	// (waitForTimeout は scripts/ 禁止 #1208 のため使わない。`waitFor` の共有 timeout のみで実装)。
+	const OVERLAY_CLOSE_TESTIDS = [
+		'tutorial-skip',
+		'tutorial-close',
+		'page-guide-close',
+		'pin-gate-onboarding-close',
+	];
+	const dismissOverlays = async (budgetMs = 8000) => {
+		const deadline = Date.now() + budgetMs;
+		for (;;) {
+			const remaining = deadline - Date.now();
+			if (remaining <= 0) return;
+			const appeared = await Promise.race(
+				OVERLAY_CLOSE_TESTIDS.map((testId) =>
+					page
+						.getByTestId(testId)
+						.waitFor({ state: 'visible', timeout: remaining })
+						.then(() => testId)
+						.catch(() => null),
+				),
+			);
+			if (!appeared) return; // 残り時間内にどれも現れなかった
+			await page
+				.getByTestId(appeared)
+				.click()
+				.catch(() => {});
 		}
 	};
 
