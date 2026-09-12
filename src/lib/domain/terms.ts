@@ -900,9 +900,23 @@ export const REWARD_TERMS = {
 	 *
 	 * 実ゲート (`isCustomRewardUnlocked`、#4584) が止めているのは「子供のショップに並べる商品を
 	 * 登録すること」であり、旧称「特別なごほうび設定（即時付与）」は別機能 (応援の即時付与) を
-	 * 指すと読めた。LP 比較表 / pricing / FAQ / アプリ内 plan カードはすべて本 atom を参照する。
+	 * 指すと読めた。admin/rewards の各 action (`addPreset` / `importMarketplaceRewardSet` /
+	 * `importPresetToChildren` 等) と marketplace 詳細ページ (`/marketplace/reward-set/*`) は、
+	 * オリジナル登録・プリセット取込を問わず `isCustomRewardUnlocked` で一律ブロックするため
+	 * (#728)、それらの拒否メッセージは「商品登録」という広い言い方のほうが実態に合う。
+	 * 本 atom はそちらの文脈で使う。
 	 */
 	productRegistration: 'ごほうびショップへの商品登録',
+	/**
+	 * #4915: LP (pricing.html) の無料プラン説明限定で使う、オリジナル登録に絞った名前。
+	 *
+	 * 初期セットアップウィザード (`setup/rewards/+page.server.ts`) のプリセット取込にはプラン
+	 * ゲートが無く、無料プランでもプリセットのごほうびをショップに並べられる (#4915 裏取り)。
+	 * 上記 `productRegistration` (admin/rewards・marketplace 詳細ページの拒否文言) とは指す対象
+	 * が異なるため atom を分ける — こちらは「無料プランでもプリセットは追加できるが、オリジナルを
+	 * 自作して登録することはスタンダード以上」という LP の訴求にのみ使う。
+	 */
+	originalRegistration: 'オリジナルごほうびの登録',
 } as const;
 
 // ============================================================

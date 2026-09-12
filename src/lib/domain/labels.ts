@@ -9128,7 +9128,9 @@ export const LP_PRICING_LABELS = {
 	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreeQ: '無料プランでも十分使えますか？',
 	// #1912 (F-6): LP FAQ の「ログインボーナス」→「ごほうび」へ日本語化
-	faqFreeA: `はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.productRegistration}（貯めたポイントと交換する商品の登録）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
+	// #4915: プリセットのごほうびも無料プランで追加できる (実装の事実、ADR-0013)。
+	// 「商品登録」を「オリジナルごほうびの登録」に絞り、無料でできること/できないことを両方示す。
+	faqFreeA: `はい。プリセットの活動・チェックリスト・${REWARD_TERMS.canonical}で基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.originalRegistration}（プリセットにない商品をご自身で作って登録すること）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
@@ -11947,12 +11949,16 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k8: 'メールサポート（標準）',
 	// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限を
 	// 検討時点で見えるようにする (実ゲート = isCustomRewardUnlocked、#4584)。
-	k8b: `${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
+	// #4915: 初期セットアップのプリセット取込には上限が無く、無料プランでもプリセットの
+	// ごほうびをショップに並べられる (実装の事実)。ADR-0013 に基づき、無料でできること
+	// (プリセットから追加) と、できないこと (オリジナルの自作登録) を両方明示する。
+	k8b: `${REWARD_TERMS.canonical}: ${REWARD_TERMS.preset}から追加（${REWARD_TERMS.originalRegistration}は${PLAN_TERMS.standard}以上）`,
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
 	k12: `家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
-	k13: `${REWARD_TERMS.productRegistration}`,
+	// #4915: 無料でも使えるプリセット取込と対比するため「オリジナル」限定の名称に是正。
+	k13: `${REWARD_TERMS.originalRegistration}`,
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
 	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -11986,8 +11992,12 @@ export const LP_PRICING_PHASEB_LABELS = {
 	//   実装はプリセット取込ぶんも同じ枠を消費する「1 子あたりテンプレ合計 3 件」であり、
 	//   2 行に分けると「プリセットは別枠で使い放題」と読めてしまう (plan-limit-service.maxChecklistTemplates)。
 	k36: '<td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
+	// #4915: 無料プランでも初期セットアップのプリセット取込には上限が無い (実装の事実、ADR-0013)。
+	// 「プリセット活動の利用」(k32) と同じ対の構造で、オリジナル登録行 (k39) の直前に置く。
+	k39a: `<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲートと別機能に読めたため atom に統一
-	k39: `<td>${REWARD_TERMS.productRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+	// #4915: 無料でも使えるプリセット取込 (k39a) と対比するため「オリジナル」限定の名称に是正。
+	k39: `<td>${REWARD_TERMS.originalRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
