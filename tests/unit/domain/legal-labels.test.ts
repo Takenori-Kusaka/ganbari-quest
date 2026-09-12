@@ -124,9 +124,26 @@ describe('#1638 #4944: cross-border 同意の 2 層構造', () => {
 		expect(SIGNUP_LABELS.crossBorderAgreeLabel).toContain('同意します');
 	});
 
-	it('第二層への導線ラベルが「何が読めるか」を述べている', () => {
-		// 旧ラベルは「詳細」。何の詳細かが分からないリンクは踏まれない。
-		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('保管場所');
+	it('第二層への導線ラベルが「同意前の確認」を明示的に求めている', () => {
+		// 施行規則 17 条 2 項の 3 情報を URL で提供する場合、PPC Q12-10 は
+		// 「同意の可否の判断の前提として、本人に対して当該情報の確認を明示的に求める」ことを要求する。
+		// 旧ラベル「詳細」は何が読めるかも、確認が同意の前提であることも伝えていなかった。
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('ご同意の前に');
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('ご確認ください');
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('国');
+	});
+
+	it('privacy.html 第10条が「画面にこう表示する」と述べた内容が、実際の第一層に在る', () => {
+		// 第10条は本文中で「広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに
+		// 表示します」と自己申告している。画面側からこの説明を消すと、法務文書が事実と食い違う。
+		// 文言を変えるのは可だが、3 要素が画面から欠けることは許さない。
+		expect(LP_LEGAL_PRIVACY_LABELS.section10).toContain(
+			'広告利用・第三者への販売・機械学習への流用',
+		);
+		const firstLayerNoUse = SIGNUP_LABELS.crossBorderNoNoUse;
+		expect(firstLayerNoUse).toContain('広告');
+		expect(firstLayerNoUse).toContain('第三者');
+		expect(firstLayerNoUse).toMatch(/AI|機械学習/);
 	});
 
 	it('crossBorderAgreeError が定義されている', () => {
