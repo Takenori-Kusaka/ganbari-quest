@@ -614,4 +614,34 @@ describe('recordActivity: grandTotal / pointBreakdown (#4916、複数ボーナ�
 			.reduce((sum, e) => sum + e.amount, 0);
 		expect(ledgerSum).toBe(result.grandTotal);
 	});
+
+	// #4948: #4916 は「結果ダイアログの主要数字」を直したが、記録履歴画面は
+	// 行 = grandTotal / 合計欄 = points + streakBonus のままで、同一画面で
+	// 「行の合計 ≠ 合計欄」になっていた (同じ不一致の集計レベルでの再発)。
+	it('記録履歴の summary.totalGrandTotal は各行 grandTotal の総和と一致する (合計欄と行の不一致を防ぐ)', async () => {
+		mockToday = '2026-05-16';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-15T21:00:00Z')); // JST 2026-05-16 06:00 (土曜)
+		mockLoadBonusOverrides.mockResolvedValue({
+			presets: [makeBonusPreset('weekend-special', [{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 }])],
+		});
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT));
+		vi.useRealTimers();
+
+		const { getActivityLogs } = await import('$lib/server/services/activity-log-service');
+		const { logs, summary } = await getActivityLogs(asChildId(1), TENANT, {});
+
+		const rowSum = logs.reduce((sum, l) => sum + (l.grandTotal ?? l.points + l.streakBonus), 0);
+		expect(summary.totalGrandTotal).toBe(rowSum);
+
+		// 台帳とも一致する (表示だけ辻褄を合わせていないことの裏取り)
+		const ledgerSum = testDb
+			.select()
+			.from(schema.pointLedger)
+			.all()
+			.filter((e) => logs.some((l) => Number(e.referenceId) === Number(l.id)))
+			.reduce((sum, e) => sum + e.amount, 0);
+		expect(summary.totalGrandTotal).toBe(ledgerSum);
+	});
 });

@@ -39,6 +39,16 @@ export interface ActivityLogEntry {
 export interface ActivityLogSummary {
 	totalCount: number;
 	totalPoints: number;
+	/**
+	 * #4948: 各行の `grandTotal` (熟練/combo/mission/focus 込み) の総和。
+	 *
+	 * `totalPoints` は `points + streakBonus` の総和のままで、API v1 / admin の
+	 * 既存コンシューマの wire 契約を変えない。表示側で行と合計を並べる画面
+	 * (子供の記録履歴) は本フィールドを使う — 行が `grandTotal` を出しているのに
+	 * 合計だけ `points + streakBonus` だと、同一画面で「行の合計 ≠ 合計欄」になり、
+	 * #4916 が直した「主要数字が内訳と合わない」がそのまま再発する。
+	 */
+	totalGrandTotal: number;
 	byCategory: Record<string, { count: number; points: number }>;
 }
 
@@ -73,11 +83,15 @@ export async function aggregateActivityLogsByCategory(
 	const byCategory: Record<string, { count: number; points: number }> = {};
 	let totalCount = 0;
 	let totalPoints = 0;
+	let totalGrandTotal = 0;
 
 	for (const row of rows) {
 		totalCount++;
 		const rowTotal = row.points + row.streakBonus;
 		totalPoints += rowTotal;
+		// #4948: 表示用の合計。行と同じフォールバック規則 (台帳紐付けが無い旧データは
+		// points + streakBonus) を使い、行の総和と一致させる。
+		totalGrandTotal += grandTotals[row.id] ?? rowTotal;
 
 		if (!byCategory[row.categoryId]) {
 			byCategory[row.categoryId] = { count: 0, points: 0 };
@@ -91,6 +105,6 @@ export async function aggregateActivityLogsByCategory(
 
 	return {
 		logs,
-		summary: { totalCount, totalPoints, byCategory },
+		summary: { totalCount, totalPoints, totalGrandTotal, byCategory },
 	};
 }
