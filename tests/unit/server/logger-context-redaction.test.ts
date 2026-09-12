@@ -56,7 +56,15 @@ describe('#4947 logger の context redaction', () => {
 		});
 
 		const output = String(errorSpy.mock.calls[0][0]);
-		for (const leaked of ['eyJhbGciOi', 'p@ssw0rd', 'sk_live_1', 'session=abc', 'Bearer xyz', '123456', 'ak_1']) {
+		for (const leaked of [
+			'eyJhbGciOi',
+			'p@ssw0rd',
+			'sk_live_1',
+			'session=abc',
+			'Bearer xyz',
+			'123456',
+			'ak_1',
+		]) {
 			expect(output).not.toContain(leaked);
 		}
 	});
@@ -84,7 +92,10 @@ describe('#4947 logger の context redaction', () => {
 
 	it('ネストした object / 配列の中の機微 key も落ちる', () => {
 		logger.error('nested', {
-			context: { user: { email: 'a@b.com', profile: { pinCharCodes: '49,50' } }, list: [{ token: 't1' }] },
+			context: {
+				user: { email: 'a@b.com', profile: { pinCharCodes: '49,50' } },
+				list: [{ token: 't1' }],
+			},
 		});
 
 		const output = String(errorSpy.mock.calls[0][0]);

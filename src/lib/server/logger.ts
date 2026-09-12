@@ -56,7 +56,9 @@ function getLogFileName(): string {
 
 function formatEntry(entry: LogEntry): string {
 	// #4947: ファイル出力も同じ redaction を通す (self-host / NUC の data/logs/*.log)
-	return JSON.stringify(entry.context ? { ...entry, context: sanitizeContext(entry.context) } : entry);
+	return JSON.stringify(
+		entry.context ? { ...entry, context: sanitizeContext(entry.context) } : entry,
+	);
 }
 
 /**
@@ -76,7 +78,8 @@ function formatEntry(entry: LogEntry): string {
  * deny-list ではなく **key 名の部分一致**で落とす: 呼び出し側は 600 箇所以上あり、そこを
  * 全部直しても次に足された 1 箇所で破れるため、出口 1 箇所で止める。
  */
-const REDACT_KEY_PATTERN = /pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|apikey|api_?key|session|signature/i;
+const REDACT_KEY_PATTERN =
+	/pin|password|passwd|secret|token|credential|cookie|authorization|auth_?header|otp|apikey|api_?key|session|signature/i;
 const MASK_EMAIL_KEY_PATTERN = /email|mail_?to|^to$|recipient/i;
 
 function maskEmail(value: string): string {
@@ -90,7 +93,8 @@ function sanitizeContextValue(key: string, value: unknown, depth: number): unkno
 	if (MASK_EMAIL_KEY_PATTERN.test(key) && typeof value === 'string') return maskEmail(value);
 	if (depth >= 4) return value;
 	if (Array.isArray(value)) return value.map((v) => sanitizeContextValue(key, v, depth + 1));
-	if (value && typeof value === 'object') return sanitizeContext(value as Record<string, unknown>, depth + 1);
+	if (value && typeof value === 'object')
+		return sanitizeContext(value as Record<string, unknown>, depth + 1);
 	return value;
 }
 
