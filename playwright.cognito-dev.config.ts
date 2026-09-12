@@ -37,7 +37,7 @@ export default defineConfig({
 	// #4703: viewer-link-page を追加（family 限定の閲覧リンク発行 → 未ログイン別 context で
 	//   /view/<token> を開く。family plan と認証済み API 呼び出しが要るので cognito-dev 側）
 	testMatch:
-		/(cognito-auth|ops-export-authz|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|viewer-link-page|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
+		/(cognito-auth|ops-export-authz|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|viewer-link-page|consent-cross-border-layers|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
