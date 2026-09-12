@@ -18,7 +18,7 @@
  *     --url /admin/subscription \
  *     --actions scripts/capture-specs/flows/page-guide-active-element-4922.mjs \
  *     --presets desktop \
- *     --pr 4930
+ *     --pr 4939
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
