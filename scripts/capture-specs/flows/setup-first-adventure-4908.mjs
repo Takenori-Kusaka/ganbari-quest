@@ -24,7 +24,7 @@
  *     --out tmp/screenshots/pr-4908/
  */
 
-import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
+import { waitForElementAnimations, waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
@@ -92,7 +92,11 @@ export default async (page, capture) => {
 	// ----- 記録後: 祝福画面 (points-display + Lv 表示 + 内訳)。旧実装には
 	// data-testid が無いため、新旧どちらのコードでも検証できる文言で待つ。 -----
 	await page.getByText('ポイントゲット！').waitFor({ state: 'visible', timeout: 15_000 });
-	// fadeIn アニメーション (0.3s) の完了を待ってから撮影する
+	// #4935: `.success-screen` の fadeIn (0.3s) 完了を明示的に待つ。`waitForStablePage()`
+	// はフォント読み込み + RAF 2 回のみで CSS animation の完了を見ないため、`state: 'visible'`
+	// 判定直後 (fadeIn 進行中、実測進捗 62% 地点) のフレームを撮ってしまっていた
+	// (QM 実測: 撮影結果のコントラスト比が中間値になる事故)。
+	await waitForElementAnimations(page, '.success-screen');
 	await waitForStablePage(page, { skipNetworkIdle: true });
 	await capture('setup-first-adventure-2-celebration');
 };
