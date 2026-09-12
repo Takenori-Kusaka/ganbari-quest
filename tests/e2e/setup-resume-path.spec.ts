@@ -8,15 +8,24 @@
 //
 // 決定性 (E2E isolation): onboarding 完了状態は子供 / 活動 / ごほうび / チェックリスト /
 // 子供画面確認の実データから導出される。同一 worker DB を共有する sibling spec が
-// reward_templates / onboarding_child_screen_visited を書き換えると ambient な onboarding
+// special_rewards / onboarding_child_screen_visited を書き換えると ambient な onboarding
 // 状態が非決定になるため、各 test 前に worker DB を直接操作して **必ず「進行中 (未完了)」
-// 状態に固定** する (rewards 設定 + child_screen フラグを削除)。完了状態の検証時のみ
-// additive に設定を書く。
+// 状態に固定** する (per-child reward 全行 + child_screen フラグを削除)。完了状態の検証時のみ
+// additive にデータを書く。
 //
-// #2851: 本 spec は global-setup が seed した reward_templates を削除する。afterAll で
-// 「削除した値」を消すだけでは seed 値が復元されず、同 worker 後続 spec
-// (features.spec.ts #0025 が templates.length > 0 を要求) が決定的に fail していた。
-// beforeAll で削除前の seed 値を snapshot し、afterAll で元の seed 状態へ完全復元する。
+// #4910: onboarding の rewards 完了判定は family scope の `reward_templates` 設定ではなく
+// **per-child reward (`special_rewards` テーブル)** を見るよう是正された (setup 4/9 の
+// 実取込先と判定元を一致させるため)。global-setup はショップ E2E 用に「たろうくん」へ常時
+// `special_rewards` (category='shop_e2e') を 3 件 seed するため、そのままでは rewards item は
+// 常に completed 判定になり「進行中」状態を再現できない。beforeAll で worker DB の
+// `special_rewards` 全行を snapshot → 各 test 前に空にして「進行中」を作り、afterAll で
+// 元の行 (id を含む全列) をそのまま書き戻して sibling spec (child-shop-exchange 等) への
+// 影響を残さない。
+//
+// #2851: 本 spec は global-setup が seed した設定/データを削除する。afterAll で
+// 「削除した値」を消すだけでは seed 値が復元されず、同 worker 後続 spec が決定的に
+// fail していた。beforeAll で削除前の seed 値を snapshot し、afterAll で元の seed 状態へ
+// 完全復元する。
 //
 // act → outcome (#2544 / tests/CLAUDE.md): バナー表示だけでなく「CTA click → 別画面に着地
 // (URL 変化) → そこに文脈バナーが出る」= dead-end ゼロを assert する。
@@ -25,7 +34,6 @@ import Database from 'better-sqlite3';
 import { expect, test } from './fixtures';
 import { isAwsEnv } from './helpers';
 
-const REWARD_KEY = 'reward_templates';
 const CHILD_SCREEN_KEY = 'onboarding_child_screen_visited';
 
 function openDb(path: string): InstanceType<typeof Database> {
@@ -33,65 +41,82 @@ function openDb(path: string): InstanceType<typeof Database> {
 }
 
 // onboarding を「進行中 (rewards 未設定 + 子供画面未確認)」に固定する。
+// #4910: rewards は per-child `special_rewards` が判定元。全行削除で「誰も reward を
+// 持っていない」状態を作る (beforeAll で snapshot 済のため afterAll で元通り復元される)。
 function forceOnboardingIncomplete(dbPath: string): void {
 	const db = openDb(dbPath);
 	try {
-		db.prepare(`DELETE FROM settings WHERE key IN ('${REWARD_KEY}', '${CHILD_SCREEN_KEY}')`).run();
+		db.prepare('DELETE FROM special_rewards').run();
+		db.prepare(`DELETE FROM settings WHERE key = '${CHILD_SCREEN_KEY}'`).run();
 	} finally {
 		db.close();
 	}
 }
 
-// #2851: 削除前の seed 値スナップショット。`null` = その key が settings に存在しなかった。
-type SettingsSnapshot = { reward: string | null; childScreen: string | null };
+type SpecialRewardRow = Record<string, unknown>;
 
-// 削除/書換の前に、worker DB の現在値 (global-setup が seed した reward_templates 等) を退避する。
-function snapshotOnboardingSettings(dbPath: string): SettingsSnapshot {
+// #2851 / #4910: 削除前の seed 状態スナップショット。
+// `childScreen` は `null` = その key が settings に存在しなかった。
+// `specialRewards` は global-setup がショップ E2E 用に seed した行 (たろうくん向け 3 件等) を
+// 列そのまま保持し、afterAll で id を含めて完全復元する。
+type OnboardingSeedSnapshot = { childScreen: string | null; specialRewards: SpecialRewardRow[] };
+
+// 削除/書換の前に、worker DB の現在値 (global-setup が seed した special_rewards 等) を退避する。
+function snapshotOnboardingSeed(dbPath: string): OnboardingSeedSnapshot {
 	const db = openDb(dbPath);
 	try {
-		const read = (key: string): string | null => {
-			const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
-				| { value: string }
-				| undefined;
-			return row ? row.value : null;
-		};
-		return { reward: read(REWARD_KEY), childScreen: read(CHILD_SCREEN_KEY) };
+		const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(CHILD_SCREEN_KEY) as
+			| { value: string }
+			| undefined;
+		const specialRewards = db.prepare('SELECT * FROM special_rewards').all() as SpecialRewardRow[];
+		return { childScreen: row ? row.value : null, specialRewards };
 	} finally {
 		db.close();
 	}
 }
 
-// スナップショットした seed 値を worker DB に書き戻す (非 null は INSERT OR REPLACE、null は DELETE)。
-// sibling spec (features.spec.ts #0025 が reward_templates 由来の templates.length > 0 を要求) への
-// 影響を残さないため、afterAll で元の seed 状態へ完全復元する。
-function restoreOnboardingSettings(dbPath: string, snapshot: SettingsSnapshot): void {
+// スナップショットした seed 値を worker DB に書き戻す。sibling spec
+// (child-shop-exchange 等がショップ E2E 用 special_rewards 行を要求) への影響を残さないため、
+// afterAll で元の seed 状態へ完全復元する (special_rewards は id を含む全列を復元)。
+function restoreOnboardingSeed(dbPath: string, snapshot: OnboardingSeedSnapshot): void {
 	const db = openDb(dbPath);
 	try {
-		const apply = (key: string, value: string | null): void => {
-			if (value === null) {
-				db.prepare('DELETE FROM settings WHERE key = ?').run(key);
-			} else {
-				db.prepare(
-					'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-				).run(key, value);
+		if (snapshot.childScreen === null) {
+			db.prepare('DELETE FROM settings WHERE key = ?').run(CHILD_SCREEN_KEY);
+		} else {
+			db.prepare(
+				'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+			).run(CHILD_SCREEN_KEY, snapshot.childScreen);
+		}
+
+		db.prepare('DELETE FROM special_rewards').run();
+		const [firstReward] = snapshot.specialRewards;
+		if (firstReward) {
+			const columns = Object.keys(firstReward);
+			const insert = db.prepare(
+				`INSERT INTO special_rewards (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
+			);
+			for (const rewardRow of snapshot.specialRewards) {
+				insert.run(...columns.map((c) => rewardRow[c]));
 			}
-		};
-		apply(REWARD_KEY, snapshot.reward);
-		apply(CHILD_SCREEN_KEY, snapshot.childScreen);
+		}
 	} finally {
 		db.close();
 	}
 }
 
 // onboarding を完了させる (不足していた required item を満たす)。
+// #4910: rewards は per-child `special_rewards` に 1 件挿入する (setup 4/9 の実取込先と
+// 同じ表)。既存の子供 (global-setup 常時 seed) の 1 人に付与すれば足りる。
 function forceOnboardingComplete(dbPath: string): void {
 	const db = openDb(dbPath);
 	try {
-		// rewardTemplatesArraySchema (title / points / icon? / category) に一致させる
-		// (category 必須。欠落すると getRewardTemplates が [] を返し rewards 未完了のまま)。
-		db.prepare(
-			`INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('${REWARD_KEY}', ?, CURRENT_TIMESTAMP)`,
-		).run(JSON.stringify([{ title: 'ごほうび', points: 100, icon: '🎁', category: 'other' }]));
+		const child = db.prepare('SELECT id FROM children LIMIT 1').get() as { id: number } | undefined;
+		if (child) {
+			db.prepare(
+				"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび (#4910 setup-resume)', 100, '🎁', 'other', CURRENT_TIMESTAMP)",
+			).run(child.id);
+		}
 		db.prepare(
 			`INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('${CHILD_SCREEN_KEY}', 'true', CURRENT_TIMESTAMP)`,
 		).run();
@@ -103,26 +128,26 @@ function forceOnboardingComplete(dbPath: string): void {
 // AWS / cognito 環境では local テナント seed / settings 直接操作が成立しないため未登録。
 if (!isAwsEnv()) {
 	test.describe('#2821 セットアップ再開導線 (SetupResumeBanner)', () => {
-		// #2851: 最初の削除前に worker DB の seed 値 (reward_templates 等) を退避し、
-		// afterAll で元の seed 状態へ完全復元する。これがないと本 spec が seed 済設定を
-		// 削除したまま終了し、同 worker 後続 spec (features.spec.ts #0025 が
-		// templates.length > 0 を要求) が決定的に fail する。
-		let seedSnapshot: SettingsSnapshot | null = null;
+		// #2851 / #4910: 最初の削除前に worker DB の seed 値 (special_rewards 等) を退避し、
+		// afterAll で元の seed 状態へ完全復元する。これがないと本 spec が seed 済データを
+		// 削除したまま終了し、同 worker 後続 spec (child-shop-exchange 等がショップ E2E 用
+		// special_rewards 行を要求) が決定的に fail する。
+		let seedSnapshot: OnboardingSeedSnapshot | null = null;
 
 		test.beforeAll(({ workerDbPath }) => {
 			try {
-				seedSnapshot = snapshotOnboardingSettings(workerDbPath);
+				seedSnapshot = snapshotOnboardingSeed(workerDbPath);
 			} catch {
 				// DB 未生成 (全 skip 等) は無視。
 				seedSnapshot = null;
 			}
 		});
 
-		// sibling spec への影響を残さないため、本 spec が削除/書換した seed 設定を元へ復元する。
+		// sibling spec への影響を残さないため、本 spec が削除/書換した seed データを元へ復元する。
 		test.afterAll(({ workerDbPath }) => {
 			try {
 				if (seedSnapshot) {
-					restoreOnboardingSettings(workerDbPath, seedSnapshot);
+					restoreOnboardingSeed(workerDbPath, seedSnapshot);
 				}
 			} catch {
 				// DB 未生成 (全 skip 等) は無視。

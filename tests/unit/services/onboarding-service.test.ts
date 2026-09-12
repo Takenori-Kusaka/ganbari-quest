@@ -12,7 +12,7 @@ const mockGetActivities = vi.fn();
 const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
-const mockGetRewardTemplates = vi.fn();
+const mockGetChildSpecialRewards = vi.fn();
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
@@ -31,8 +31,11 @@ vi.mock('$lib/server/services/child-service', () => ({
 	getAllChildren: (...args: unknown[]) => mockGetAllChildren(...args),
 }));
 
+// #4910: onboarding の rewards 完了判定は per-child reward (`getChildSpecialRewards`)
+// を見る。旧実装が読んでいた family scope の `getRewardTemplates`（「特別なごほうび」
+// template、setup 4/9 の実取込先ではない別表）はここではもう参照しない。
 vi.mock('$lib/server/services/special-reward-service', () => ({
-	getRewardTemplates: (...args: unknown[]) => mockGetRewardTemplates(...args),
+	getChildSpecialRewards: (...args: unknown[]) => mockGetChildSpecialRewards(...args),
 }));
 
 import {
@@ -50,26 +53,26 @@ function setupDefaults(
 	overrides: {
 		children?: { id: ChildId }[];
 		activities?: { id: number }[];
-		rewardTemplates?: unknown[];
 		pinHash?: string | null;
 		dismissed?: string | null;
 		childScreenVisited?: string | null;
 		templatesByChild?: Record<string, unknown[]>;
+		/** #4910: per-child reward (`special_rewards` 相当)。setup 4/9 の実取込先。 */
+		rewardsByChild?: Record<string, unknown[]>;
 	} = {},
 ) {
 	const {
 		children = [],
 		activities = [],
-		rewardTemplates = [],
 		pinHash = null,
 		dismissed = null,
 		childScreenVisited = null,
 		templatesByChild = {},
+		rewardsByChild = {},
 	} = overrides;
 
 	mockGetAllChildren.mockResolvedValue(children);
 	mockGetActivities.mockResolvedValue(activities);
-	mockGetRewardTemplates.mockResolvedValue(rewardTemplates);
 
 	mockGetSetting.mockImplementation((key: string, _tenantId: string) => {
 		if (key === 'pin_hash') return Promise.resolve(pinHash);
@@ -80,6 +83,17 @@ function setupDefaults(
 
 	mockFindTemplatesByChild.mockImplementation((childId: ChildId) => {
 		return Promise.resolve(templatesByChild[childId] ?? []);
+	});
+
+	mockGetChildSpecialRewards.mockImplementation((childId: ChildId) => {
+		const rewards = rewardsByChild[childId] ?? [];
+		return Promise.resolve({
+			rewards,
+			totalPoints: rewards.reduce(
+				(sum: number, r) => sum + ((r as { points?: number }).points ?? 0),
+				0,
+			),
+		});
 	});
 
 	mockSetSetting.mockResolvedValue(undefined);
@@ -112,7 +126,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: 'hashed-pin-value',
 				dismissed: 'true',
 				childScreenVisited: 'true',
@@ -173,7 +187,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: 'some-hash',
 				childScreenVisited: 'true',
 				templatesByChild: { 1: [{ id: '100' }] },
@@ -340,47 +354,6 @@ describe('onboarding-service', () => {
 			expect(result.items[5]?.label).toBe(ONBOARDING_LABELS.itemChildScreen);
 		});
 
-		it('rewardTemplates が空の場合 rewards は incomplete', async () => {
-			setupDefaults({ rewardTemplates: [] });
-
-			const result = await getOnboardingProgress(TENANT, BASE_PATH);
-
-			const rewardsItem = result.items.find((i) => i.key === 'rewards');
-			expect(rewardsItem?.completed).toBe(false);
-		});
-
-		it('rewardTemplates に 1 件以上あれば rewards は completed', async () => {
-			setupDefaults({
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
-			});
-
-			const result = await getOnboardingProgress(TENANT, BASE_PATH);
-
-			const rewardsItem = result.items.find((i) => i.key === 'rewards');
-			expect(rewardsItem?.completed).toBe(true);
-		});
-
-		it('rewards の nextRecommendation: activities 完了後 rewards が未完なら rewards を指す', async () => {
-			setupDefaults({
-				children: [{ id: asChildId(1) }],
-				activities: [{ id: 10 }],
-				rewardTemplates: [],
-			});
-
-			const result = await getOnboardingProgress(TENANT, BASE_PATH);
-
-			expect(result.nextRecommendation?.key).toBe('rewards');
-			expect(result.nextRecommendation?.href).toBe(`${BASE_PATH}/rewards`);
-		});
-
-		it('子供がいない場合 findTemplatesByChild は呼ばれない', async () => {
-			setupDefaults({ children: [] });
-
-			await getOnboardingProgress(TENANT, BASE_PATH);
-
-			expect(mockFindTemplatesByChild).not.toHaveBeenCalled();
-		});
-
 		it('pinHash が空文字の場合 pin は incomplete', async () => {
 			setupDefaults({ pinHash: '' });
 
@@ -403,7 +376,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: null,
 				childScreenVisited: 'true',
 				templatesByChild: { 1: [{ id: '100' }] },
@@ -419,7 +392,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: 'hash',
 				childScreenVisited: 'true',
 				templatesByChild: { 1: [{ id: '100' }] },
@@ -435,7 +408,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: null,
 				childScreenVisited: 'true',
 				templatesByChild: { 1: [{ id: '100' }] },
@@ -465,7 +438,7 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
-				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
+				rewardsByChild: { 1: [{ id: 'r1', title: 'アイス', points: 30 }] },
 				pinHash: null,
 				childScreenVisited: null,
 				templatesByChild: {},
@@ -474,6 +447,120 @@ describe('onboarding-service', () => {
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
 
 			expect(result.nextRecommendation?.required).toBe(true);
+		});
+	});
+
+	// #4910: setup 4/9 (`/setup/rewards`) は per-child reward (`special_rewards` テーブル、
+	// `getChildSpecialRewards` で読む) に取り込む。onboarding の completed 判定も同じ表を
+	// 見なければならない (読む表 == 書く表)。本番実測 (37 件 per-child 取込後も ☐ のまま) を
+	// 再現する回帰テストと、checklist と同型の per-child 横展開を固定する。
+	describe('rewards (per-child、#4910 回帰)', () => {
+		it('per-child reward が 0 件なら rewards は incomplete', async () => {
+			setupDefaults({
+				children: [{ id: asChildId(1) }],
+				rewardsByChild: {},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(false);
+		});
+
+		it('#4910 再現: 6 セット・37 件を per-child reward に取り込んだら rewards は completed', async () => {
+			// 本番実測 (無料プランのテストテナント) を模した規模: 複数子供、それぞれに
+			// 大量の per-child reward が取り込まれている状態。旧実装はこの状態でも
+			// family scope の template (常に空) を見て incomplete のままだった。
+			const child1Rewards = Array.from({ length: 20 }, (_, i) => ({
+				id: `c1-r${i}`,
+				title: `ごほうび${i}`,
+				points: 10,
+			}));
+			const child2Rewards = Array.from({ length: 17 }, (_, i) => ({
+				id: `c2-r${i}`,
+				title: `ごほうび${i}`,
+				points: 10,
+			}));
+			setupDefaults({
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }],
+				rewardsByChild: { 1: child1Rewards, 2: child2Rewards },
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(true);
+		});
+
+		it('複数の子供: 最初は reward なし・2人目に reward あり → rewards completed', async () => {
+			setupDefaults({
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }],
+				rewardsByChild: {
+					// child 1: no rewards (empty array is default)
+					2: [{ id: 'r200', title: 'ぬいぐるみ', points: 500 }],
+				},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(true);
+
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledTimes(2);
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledWith('1', TENANT);
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledWith('2', TENANT);
+		});
+
+		it('複数の子供: 全員 reward なし → rewards incomplete', async () => {
+			setupDefaults({
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }, { id: asChildId(3) }],
+				rewardsByChild: {},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(false);
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledTimes(3);
+		});
+
+		it('最初の子供に reward がある場合、2人目はチェックしない（早期break）', async () => {
+			setupDefaults({
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }],
+				rewardsByChild: {
+					1: [{ id: 'r100', title: 'あめ', points: 5 }],
+					2: [{ id: 'r200', title: 'ゲーム', points: 100 }],
+				},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			const rewardsItem = result.items.find((i) => i.key === 'rewards');
+			expect(rewardsItem?.completed).toBe(true);
+			// Early break: only child 1 checked since it already had rewards
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledTimes(1);
+			expect(mockGetChildSpecialRewards).toHaveBeenCalledWith('1', TENANT);
+		});
+
+		it('子供がいない場合 getChildSpecialRewards は呼ばれない', async () => {
+			setupDefaults({ children: [] });
+
+			await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(mockGetChildSpecialRewards).not.toHaveBeenCalled();
+		});
+
+		it('rewards の nextRecommendation: activities 完了後 rewards が未完なら rewards を指す', async () => {
+			setupDefaults({
+				children: [{ id: asChildId(1) }],
+				activities: [{ id: 10 }],
+				rewardsByChild: {},
+			});
+
+			const result = await getOnboardingProgress(TENANT, BASE_PATH);
+
+			expect(result.nextRecommendation?.key).toBe('rewards');
+			expect(result.nextRecommendation?.href).toBe(`${BASE_PATH}/rewards`);
 		});
 	});
 
