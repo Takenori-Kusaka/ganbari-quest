@@ -59,6 +59,28 @@ fi
 #
 # 判定ロジックは scripts/lib/db/drizzle-journal-gate.mjs (SSOT) の再利用のみ (複製しない)。
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# .claude/settings.json の環境固有絶対パス混入検査 (chore/add-claude-skills、graphify 連携導入時)
+#
+# `graphify claude install` 等の公式インストーラは hook command に自身の exe 絶対パスを
+# 書き込む (実行環境ごとに Windows ユーザー名等が異なる)。これを git add してしまうと
+# 他の clone 環境で即座に壊れるため、staged 内容に絶対パスが残っていないか commit 前に検査する。
+#
+# 判定ロジックは scripts/check-claude-settings-portable.mjs (SSOT) の再利用のみ (複製しない)。
+# ---------------------------------------------------------------------------
+if echo "$STAGED" | grep -qE "^\.claude/settings\.json$"; then
+  echo "[pre-commit] .claude/settings.json 変更検出 — 絶対パス混入検査を実行"
+
+  node scripts/check-claude-settings-portable.mjs || {
+    echo "[pre-commit] check-claude-settings-portable FAILED"
+    echo "  → 公式インストーラ (graphify claude install 等) の再実行直後は絶対パスが書き込まれます。"
+    echo "    PATH 解決できるコマンド名 / リポジトリ相対パスに書き換えてから commit してください。"
+    exit 1
+  }
+
+  echo "[pre-commit] .claude/settings.json 絶対パス混入検査 OK"
+fi
+
 if echo "$STAGED" | grep -qE "^drizzle/[^/]+/meta/_journal\.json$"; then
   echo "[pre-commit] drizzle journal 変更検出 — \`when\` 値域検査を実行"
 
