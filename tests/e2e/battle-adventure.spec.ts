@@ -104,14 +104,29 @@ test.describe('#4681: 子供画面からバトルへの導線 (junior / senior)'
 		await page.getByTestId('character-tab-battle').click();
 		await expect(page).toHaveURL(/\/junior\/battle$/);
 		await expect(page.getByTestId('battle-page')).toBeVisible();
+		// #4921: title が他の子供画面 (「ホーム - がんばりクエスト」等) と同形式であること
+		await expect(page).toHaveTitle(/バトル/);
 	});
 
-	test('senior: つよさ → バトル タブで到達できる', async ({ page }) => {
+	test('senior: つよさ → バトル タブで到達できる。文言が漢字体である (#4921)', async ({ page }) => {
 		await selectSeniorChildAndDismiss(page);
 		await page.getByTestId('nav-status').click();
 		await page.getByTestId('character-tab-battle').click();
 		await expect(page).toHaveURL(/\/senior\/battle$/);
 		await expect(page.getByTestId('battle-page')).toBeVisible();
+		await expect(page).toHaveTitle(/バトル/);
+
+		// #4921: 16-18 歳向けはひらがな固定ではなく漢字体 (docs/DESIGN.md §8) に切り替わる
+		await expect(page.locator('.page-title')).toContainText('今日のバトル');
+		const statsPanel = page.getByTestId('stats-panel');
+		await expect(statsPanel).toContainText('ステータス');
+		await expect(statsPanel).toContainText('体力');
+		await expect(statsPanel).toContainText('攻撃');
+		await expect(statsPanel).toContainText('防御');
+		await expect(statsPanel).toContainText('素早さ');
+		await expect(statsPanel).toContainText('回復');
+		const startButton = page.getByTestId('battle-start-button');
+		await expect(startButton).toContainText('バトル開始');
 	});
 });
 
@@ -136,6 +151,8 @@ test.describe
 
 			const battlePage = page.getByTestId('battle-page');
 			await expect(battlePage).toBeVisible();
+			// #4921: 他の子供画面 (「ホーム - がんばりクエスト」等) と同形式の title
+			await expect(page).toHaveTitle(/バトル/);
 			await expect(page.locator('.page-title')).toContainText('きょうの バトル');
 			await expect(page.getByTestId('battle-field')).toBeVisible();
 
