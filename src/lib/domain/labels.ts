@@ -7141,6 +7141,11 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	//   親に一度も届かない (`challengesFailed` を URL に載せながら画面は成功文言だけだった)。
 	challengesPartialNotice: (added: number, failed: number) =>
 		`チャレンジを ${added} 件追加しました。${failed} 件は追加できませんでした（あとから設定できます）。`,
+	// #4908: 選んだカードの基礎ポイント (例: +10pt) と演出の合計ポイント (例: +20pt) が
+	//   ストリーク / 習熟 / メインクエスト倍率等のボーナスで食い違うことがある。内訳を出さないと
+	//   「10 と言ったのに 20」に見える。基礎と合計が一致するときはこの文言を出さない。
+	pointsBreakdown: (base: number, total: number) =>
+		`（きほん +${base}pt ＋ ボーナス +${total - base}pt）`,
 } as const;
 
 /**
