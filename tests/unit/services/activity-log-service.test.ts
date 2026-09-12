@@ -623,7 +623,9 @@ describe('recordActivity: grandTotal / pointBreakdown (#4916、複数ボーナ�
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-05-15T21:00:00Z')); // JST 2026-05-16 06:00 (土曜)
 		mockLoadBonusOverrides.mockResolvedValue({
-			presets: [makeBonusPreset('weekend-special', [{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 }])],
+			presets: [
+				makeBonusPreset('weekend-special', [{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 }]),
+			],
 		});
 		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT));
