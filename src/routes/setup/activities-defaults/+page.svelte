@@ -1,8 +1,15 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
-import { APP_LABELS, PAGE_TITLES, SETUP_ACTIVITIES_DEFAULTS_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	formatSetupImportNotice,
+	PAGE_TITLES,
+	SETUP_ACTIVITIES_DEFAULTS_LABELS,
+} from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
+
+let { data } = $props();
 
 let submitting = $state(false);
 let skipMode = $state(false);
@@ -18,6 +25,17 @@ let skipMode = $state(false);
 <p class="text-sm text-[var(--color-text-muted)] mb-4">
 	{SETUP_ACTIVITIES_DEFAULTS_LABELS.pageDesc}
 </p>
+
+<!-- #4912: 直前の step (ルール取込) の結果を出す。飛ばした/何も入らなかった人には出さない。 -->
+{#if data.rulesImported > 0 || data.rulesSkipped > 0}
+	<p
+		class="text-sm text-[var(--color-text-muted)] text-center mb-3"
+		role="status"
+		data-testid="setup-activities-defaults-import-notice"
+	>
+		{formatSetupImportNotice(data.rulesImported, data.rulesSkipped)}
+	</p>
+{/if}
 
 <p
 	class="text-xs text-[var(--color-text-muted)] bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded p-2 mb-4"

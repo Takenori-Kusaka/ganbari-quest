@@ -49,43 +49,133 @@ describe('#1638 #1590: LEGAL_LABELS', () => {
 		expect(LEGAL_LABELS.dpa).toContain('DPA');
 	});
 
-	it('signup チェックボックスの域外移転同意文言が定義されている（個人開発配慮版: サービス提供のためという目的を明示）', () => {
-		// 個人開発配慮版（DPIA §5）: チェックボックス文言は「サービス提供に必要な範囲」を主語とする。
-		// 移転先国（米国 / AWS / バージニア北部）の情報は SIGNUP_LABELS.crossBorderNotice に移動済み。
+	it('signup チェックボックスの域外移転同意文言が定義されている（サービス提供のためという目的を明示）', () => {
+		// チェックボックス文言は「サービス提供に必要な範囲」を主語とする。
+		// 移転先国（米国 / AWS / バージニア北部）の情報は privacy.html 第10条（第二層）にある（#4944）。
 		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('サービス提供');
 		expect(LEGAL_LABELS.signupCrossBorderConsent).toContain('同意します');
 	});
 });
 
-describe('#1638: SIGNUP_LABELS cross-border consent 拡張', () => {
-	it('crossBorderNotice に移転先国（米国 AWS バージニア北部 / Stripe / Google）が明記されている', () => {
-		// 個人開発配慮版（DPIA §5）: 移転先国は notice 段落に明示し、checkbox 文言からは外した。
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('米国');
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('AWS');
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('バージニア北部');
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('Stripe');
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('Google');
-		expect(SIGNUP_LABELS.crossBorderNotice).toContain('サービス提供');
+describe('#1638 #4944: cross-border 同意の 2 層構造', () => {
+	// #4944: 移転先国・事業者名は「第一層 (同意画面) から第二層 (privacy.html 第10条) へ移した」
+	// のであって、消したのではない。下の 2 本を対にして、片方だけが緩むのを防ぐ:
+	//   (1) 第二層に法定記載が在ること        ← 情報の消失を検出
+	//   (2) 第一層に固有名詞が出ていないこと  ← 層構造の逆戻りを検出
+	/** 常時表示。同意画面 3 ブロックの見た目の重さを揃えるため 2 行に抑える (#4944 PO 判断) */
+	const ALWAYS_VISIBLE = [
+		SIGNUP_LABELS.crossBorderSummaryPositive,
+		SIGNUP_LABELS.crossBorderNoNoUse,
+	];
+	/** 折りたたみ内 */
+	const COLLAPSED = [
+		SIGNUP_LABELS.crossBorderWhatHappens,
+		SIGNUP_LABELS.crossBorderPaymentScope,
+		SIGNUP_LABELS.crossBorderDeletion,
+	];
+	const FIRST_LAYER = [
+		SIGNUP_LABELS.crossBorderSectionTitle,
+		...ALWAYS_VISIBLE,
+		SIGNUP_LABELS.crossBorderDetailsSummary,
+		...COLLAPSED,
+		SIGNUP_LABELS.crossBorderAgreeLabel,
+	];
+
+	it('(1) 第二層 = privacy.html 第10条に移転先国・事業者名・制度・措置が残っている', () => {
+		const section10 = LP_LEGAL_PRIVACY_LABELS.section10;
+		expect(section10).toContain('米国');
+		expect(section10).toContain('AWS');
+		expect(section10).toContain('バージニア北部');
+		expect(section10).toContain('Stripe');
+		expect(section10).toContain('Google');
+		// 施行規則 17 条 2 項の 3 情報（移転先国 / 当該国の制度 / 移転先が講ずる措置）
+		expect(section10).toContain('移転先国');
+		expect(section10).toContain('当該国の個人情報の保護に関する制度');
+		expect(section10).toContain('移転先が講ずる個人情報の保護のための措置');
 	});
 
-	it('crossBorderNoNoUse に「広告利用なし / 第三者販売なし / 機械学習流用なし」が明記されている', () => {
-		// 個人開発配慮版（DPIA §5）: 安心要素を独立段落で太字強調する。
-		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('広告利用');
+	it('(2) 第一層に事業者名・国名・法律の条番号が出ていない', () => {
+		// 読み手はこれらを「自分に何が起きるのか」に変換できない。第二層 (detailLink 先) に置く。
+		for (const text of FIRST_LAYER) {
+			expect(text).not.toContain('AWS');
+			expect(text).not.toContain('Stripe');
+			expect(text).not.toContain('Google');
+			expect(text).not.toContain('米国');
+			expect(text).not.toContain('バージニア北部');
+			expect(text).not.toContain('第28条');
+		}
+	});
+
+	it('第一層が「何が起きる / 起きない」を具体的に述べている', () => {
+		// 起きること: 保存時・通信時の暗号化 (DPIA §4.1)
+		expect(SIGNUP_LABELS.crossBorderSummaryPositive).toContain('暗号化');
+		// ほかの家庭から見えない: テナント分離 (ADR-0063)
+		expect(SIGNUP_LABELS.crossBorderWhatHappens).toContain('ほかのご家庭');
+		// 決済で渡る範囲: stripe-service.ts は customer_email を設定せず metadata のみ送る
+		expect(SIGNUP_LABELS.crossBorderPaymentScope).toContain('カード番号');
+		expect(SIGNUP_LABELS.crossBorderPaymentScope).toContain('通りません');
+		// 消せること: 退会時の物理削除 (DPIA §2.6)
+		expect(SIGNUP_LABELS.crossBorderDeletion).toContain('退会');
+		expect(SIGNUP_LABELS.crossBorderDeletion).toContain('削除');
+	});
+
+	it('常時表示は 2 行に抑え、残りは折りたたみに入れる', () => {
+		// 同意画面は 利用規約 / プライバシーポリシー / 本項 の 3 ブロックが縦に並ぶ。
+		// 本項だけ本文が長いと、ブロックの大きさの差が重要度の差に見えてしまう (#4944 PO 判断)。
+		// 「畳めばよい」ではなく「常時表示が短いこと」を固定する — 行数が増えれば落ちる。
+		expect(ALWAYS_VISIBLE).toHaveLength(2);
+		for (const line of ALWAYS_VISIBLE) {
+			expect(line.length).toBeLessThanOrEqual(40);
+		}
+		// 折りたたみの見出しは「詳細」のような中立語にしない (中に何があるかを述べる)
+		expect(SIGNUP_LABELS.crossBorderDetailsSummary.length).toBeGreaterThan(6);
+		expect(COLLAPSED.length).toBeGreaterThan(0);
+	});
+
+	it('privacy.html 第10条が「表示する」と述べた説明は折りたたみに入れない', () => {
+		// 畳まれた状態を「この説明とともに表示しています」とは言いにくい。
+		// noNoUse は常時表示側に置く。
+		expect(ALWAYS_VISIBLE).toContain(SIGNUP_LABELS.crossBorderNoNoUse);
+		expect(COLLAPSED).not.toContain(SIGNUP_LABELS.crossBorderNoNoUse);
+	});
+
+	it('crossBorderNoNoUse に「広告なし / 第三者販売なし / AI 学習流用なし」が明記されている', () => {
+		// privacy.html 第10条が「この説明とともにチェックボックスを表示する」と書いている実体。
+		// 画面から消すと第10条が事実と食い違うため、文言を変えても 3 要素は維持する。
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('広告');
 		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('第三者');
-		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('機械学習');
-		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('ありません');
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('AI');
+		expect(SIGNUP_LABELS.crossBorderNoNoUse).toContain('行いません');
 	});
 
-	it('crossBorderAgreePrefix がサービス提供目的を主語とした同意文言になっている', () => {
-		// 個人開発配慮版: prefix は「上記を理解し...同意します」。
-		// 移転先国の固有名詞は crossBorderNotice 側に集約済み。
-		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('サービス提供');
-		expect(SIGNUP_LABELS.crossBorderAgreePrefix).toContain('同意します');
+	it('同意チェックボックス文言が privacy.html 第10条の引用と一字一句一致している', () => {
+		// 第10条は本文中にこの文字列を埋め込んでいる。ずれると「同意した内容」と
+		// 「同意したと法務文書が言っている内容」が食い違う。
+		expect(LP_LEGAL_PRIVACY_LABELS.section10).toContain(SIGNUP_LABELS.crossBorderAgreeLabel);
+		expect(SIGNUP_LABELS.crossBorderAgreeLabel).toContain('サービス提供');
+		expect(SIGNUP_LABELS.crossBorderAgreeLabel).toContain('同意します');
 	});
 
-	it('crossBorderAgreeLink / crossBorderAgreeSuffix が定義されている', () => {
-		expect(SIGNUP_LABELS.crossBorderAgreeLink).toBe('詳細');
-		expect(SIGNUP_LABELS.crossBorderAgreeSuffix).toBe('）');
+	it('第二層への導線ラベルが「同意前の確認」を明示的に求めている', () => {
+		// 施行規則 17 条 2 項の 3 情報を URL で提供する場合、PPC Q12-10 は
+		// 「同意の可否の判断の前提として、本人に対して当該情報の確認を明示的に求める」ことを要求する。
+		// 旧ラベル「詳細」は何が読めるかも、確認が同意の前提であることも伝えていなかった。
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('ご同意の前に');
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('ご確認ください');
+		expect(SIGNUP_LABELS.crossBorderDetailLink).toContain('国');
+	});
+
+	it('privacy.html 第10条が「画面にこう表示する」と述べた内容が、実際の第一層に在る', () => {
+		// 第10条は本文中で「広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに
+		// 表示します」と自己申告している。画面側からこの説明を消すと、法務文書が事実と食い違う。
+		// 文言を変えるのは可だが、3 要素が画面から欠けることは許さない。
+		expect(LP_LEGAL_PRIVACY_LABELS.section10).toContain(
+			'広告利用・第三者への販売・機械学習への流用',
+		);
+		const firstLayerNoUse = SIGNUP_LABELS.crossBorderNoNoUse;
+		expect(firstLayerNoUse).toContain('広告');
+		expect(firstLayerNoUse).toContain('第三者');
+		expect(firstLayerNoUse).toMatch(/AI|機械学習/);
 	});
 
 	it('crossBorderAgreeError が定義されている', () => {

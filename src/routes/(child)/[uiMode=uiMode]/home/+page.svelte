@@ -95,8 +95,23 @@ const f = $derived(variant.features);
 // ホームを離れたら `undefined` に戻す。持ち越すと、活動 40 件の子が `/checklist` へ
 // 遷移したときに「カードをタップすると」と案内し、その画面にカードは 1 枚も無い
 // (adversarial 実測: `cards:0, spotlightRing:0`)。件数の記憶はこの画面の生存期間に閉じる。
+//
+// #4923: `hasActivities` は真偽値の $derived に切り出す (effect 本体で `data.activities.length`
+// を直接読まない)。`data` は 1 分ごとの自動リロード (`(child)/+layout.svelte` の
+// `autoReloadTimer` → `invalidateAll()`) のたびに**新しい参照**へ丸ごと差し替わるため、
+// effect 本体で直接読むと真偽値が変わっていなくても毎回 cleanup→再実行が走り
+// `setChildActivityPresence(undefined)` → `setChildActivityPresence(true)` を繰り返す。
+// この書き直しのたびに `activeChapters` ($derived) が再計算され、`getCurrentStep()` は
+// 同じ id の step でも**新しい object 参照**を返す。ガイド対象解決の `$effect`
+// (`tutorial-step-controller.svelte.ts` の `setupStepTracking`) は step の参照が変われば
+// 再実行されるため、対象が実在し可視であっても解決の途中で abort → やり直しを繰り返し、
+// タイミングによっては `data-tutorial-target` が `resolved` に到達しないまま
+// (実機再現: 本番相当の自動リロード間隔をエミュレートし `resolved`⇄`fallback` のフリッカーを確認)。
+// `$derived` は前回値との `Object.is` 比較で変化なしなら依存側を再実行させないため、
+// 真偽値が実際に変わったときだけ effect を再実行させる (= 無駄な書き直しを起こさない)。
+const hasActivities = $derived(data.activities.length > 0);
 $effect(() => {
-	setChildActivityPresence(data.activities.length > 0);
+	setChildActivityPresence(hasActivities);
 	return () => setChildActivityPresence(undefined);
 });
 
@@ -241,12 +256,31 @@ async function syncBalanceWithFlight(originRect: FlightRect | null) {
 	});
 }
 
+/**
+ * #4916: 記録結果の内訳 1 行分。サーバ側 SSOT (`$lib/server/services/activity-record-preparation.ts`
+ * の `PointBreakdownItem`) と構造互換 (routes は $lib/server を import しないため型は独立宣言、
+ * 他 field と同じ既存パターン)。
+ */
+type PointBreakdownItem = {
+	kind: 'base' | 'streakDefault' | 'bonusHook' | 'mastery';
+	title?: string;
+	points: number;
+	multipliers?: (
+		| { kind: 'mainQuest' }
+		| { kind: 'bonusHook'; title: string; multiplier: number }
+	)[];
+};
+
 // Record result overlay
 let resultOpen = $state(false);
 let resultData = $state<{
 	logId: string;
 	activityName: string;
 	totalPoints: number;
+	/** #4916: 結果ダイアログの主要数字。totalPoints + combo/mission/focus の純増分の合計 (= 履歴 = 残高の増分)。 */
+	grandTotal: number;
+	/** #4916: 基本/streak/bonus-hook/熟練の内訳 (combo/mission/focus は既存の専用 field で描画)。 */
+	pointBreakdown: PointBreakdownItem[];
 	streakDays: number;
 	streakBonus: number;
 	masteryBonus: number;
@@ -698,6 +732,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			logId: string;
 			activityName: string;
 			totalPoints: number;
+			grandTotal?: number;
+			pointBreakdown?: PointBreakdownItem[];
 			streakDays: number;
 			streakBonus: number;
 			masteryBonus?: number;
@@ -740,6 +776,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			logId: d.logId,
 			activityName: d.activityName,
 			totalPoints: d.totalPoints,
+			// #4916: grandTotal 未着 (旧 server 応答互換) は totalPoints にフォールバック
+			grandTotal: d.grandTotal ?? d.totalPoints,
+			pointBreakdown: d.pointBreakdown ?? [],
 			streakDays: d.streakDays,
 			streakBonus: d.streakBonus,
 			masteryBonus: d.masteryBonus ?? 0,
@@ -846,9 +885,12 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		amount={formatPointValue(data.habitCertificateNotice?.points ?? 0, ps.mode, ps.currency, ps.rate)}
 	/>
 
-	<!-- Tutorial hint banner (one-time) -->
+	<!-- Tutorial hint banner (one-time)。#4913: reward modal (スタンプカード等) と同時に見えると
+	     DESIGN.md §10「reward / tutorial は常時 1 件のみ表示」に反するため、modal を閉じるまで
+	     出現を遅らせる (localStorage 既読フラグは modal 有無に関係なく既に立っている想定どおり、
+	     dismiss するまで消えない — 「モーダルを閉じた後に見える」だけで、見せる機会は失わない)。 -->
 	<TutorialHintBanner
-		visible={showTutorialHint}
+		visible={showTutorialHint && currentDialog === 'idle'}
 		uiMode={data.uiMode ?? 'preschool'}
 		onDismiss={dismissTutorialHint}
 	/>
@@ -1070,19 +1112,44 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{:else}
 					<p class="text-lg font-bold">{HL.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
-				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
+				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点)。#4916: grandTotal = 履歴 = 残高の増分 -->
 				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
-					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
+					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.grandTotal)}</p>
 				</div>
-				{#if resultData.streakDays >= 2}
-					<p class="text-sm text-[var(--theme-accent)]">
-						{HL.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
-					</p>
-				{/if}
-				{#if resultData.masteryBonus > 0}
-					<p class="text-sm text-[var(--color-stat-purple)]">
-						{HL.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
-					</p>
+				<!-- #4916 QM: 単独 base でも combo/mission/focus が同時発火するときは省略しない。
+				     省略すると主要数字 (grandTotal) の一部 (base 分) が内訳のどこにも現れず、
+				     Issue #4916 が指摘した「合計と内訳が食い違って見える」状態が再現するため -->
+				{#if resultData.pointBreakdown.length > 1 || resultData.pointBreakdown.some((i) => i.multipliers) || resultData.comboBonus || missionResult || focusBonusResult}
+					<div class="flex flex-col gap-1 w-full" data-testid="result-point-breakdown">
+						{#each resultData.pointBreakdown as item, i (item.kind + '-' + i)}
+							{#if item.kind === 'base'}
+								<p class="text-xs text-[var(--color-text-muted)]" data-testid="result-breakdown-base">
+									{HL.resultBreakdownBase(item.points)}
+									{#if item.multipliers}
+										{#each item.multipliers as m, mi (mi)}
+											<span class="ms-1">
+												{m.kind === 'mainQuest'
+													? HL.resultBreakdownMainQuestTag
+													: HL.resultBreakdownMultiplierTag(m.title, m.multiplier)}
+											</span>
+										{/each}
+									{/if}
+								</p>
+							{:else if item.kind === 'streakDefault'}
+								<p class="text-sm text-[var(--theme-accent)]" data-testid="result-breakdown-streak">
+									{HL.resultStreakBonus(resultData.streakDays, item.points)}
+								</p>
+							{:else if item.kind === 'bonusHook'}
+								<p class="text-sm text-[var(--theme-accent)]" data-testid="result-breakdown-bonus-hook">
+									{HL.resultBreakdownBonusHook(item.title ?? '', item.points)}
+								</p>
+							{:else if item.kind === 'mastery'}
+								<p class="text-sm text-[var(--color-stat-purple)]" data-testid="result-breakdown-mastery">
+									{HL.resultMasteryBonus(item.points, resultData.masteryLevel)}
+								</p>
+							{/if}
+						{/each}
+					</div>
 				{/if}
 				{#if resultData.masteryLeveledUp}
 					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">

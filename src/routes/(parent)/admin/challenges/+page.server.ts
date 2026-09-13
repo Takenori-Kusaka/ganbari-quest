@@ -15,6 +15,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { withParentGate } from '$lib/server/auth/parent-gate';
 import { warnOrphanChildReferences } from '$lib/server/orphan-child-reference';
 import {
+	AUTO_WEEKLY_SOURCE,
 	deleteChildChallenge,
 	getChallengeGroupsForAdmin,
 } from '$lib/server/services/child-challenge-service';
@@ -55,6 +56,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		children,
 		familyStreak,
 		selectedChildId,
+		// #4911: ヘッダ文の出し分け (自動生成 vs setup 由来の手動選択) に使う SSOT。
+		// client 側 (.svelte) は `$lib/server/*` を import できないため値渡し。
+		autoWeeklySourceTemplateId: AUTO_WEEKLY_SOURCE,
 	};
 };
 

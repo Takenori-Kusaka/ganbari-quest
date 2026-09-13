@@ -108,11 +108,16 @@ function buildComboLedgerDescription(input: {
  * とりけしで差分が負なら同じ経路で負方向に計上する (付与した経路と同じ経路で取り消す、#3787 と同 class)。
  * 戻り値の `totalNewBonus` は今回の純増 (負値 = 巻き戻し)。結果ダイアログは tier 満額ではなく
  * この純増を表示する (表示額 = 台帳増分)。
+ *
+ * @param referenceLogId #4916: この付与が「どの活動記録に起因するか」を point_ledger.reference_id に
+ *   紐付ける (record 経路のみ渡す。cancel 経路の再評価は day-level のため null のまま)。結果ダイアログの
+ *   合計 (grandTotal) と履歴の表示額を「その記録が実際に増やした残高」に一致させるための紐付け。
  */
 export async function reconcileComboBonus(
 	childId: ChildId,
 	date: string,
 	tenantId: string,
+	referenceLogId: string | null = null,
 ): Promise<ComboResult> {
 	// Get today's active logs with category info
 	const todayLogs = await findTodayLogsWithCategory(childId, date, tenantId);
@@ -175,6 +180,7 @@ export async function reconcileComboBonus(
 					categoryCombo,
 					crossCategoryCombo,
 				}),
+				...(referenceLogId ? { referenceId: referenceLogId } : {}),
 			},
 			tenantId,
 		);

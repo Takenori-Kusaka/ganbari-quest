@@ -40,6 +40,18 @@ describe('TERM_LITERAL_RULES (Issue #1918 AC1)', () => {
 		assert.ok(patterns.includes('無料プラン'));
 	});
 
+	it('英字プラン code (family/standard/premium) + プラン の直書きを検出対象に含む (#4909 AC2)', () => {
+		// 実害: labels.ts の defaultSiblingRankingLabel が撤去済み旧称 'family' を
+		// 'family プランで ON 可能' の形でカタカナ化されず直書きしていた (#4909)。
+		const patterns = TERM_LITERAL_RULES.map((r) => r.pattern);
+		assert.ok(patterns.includes('family プラン'));
+		assert.ok(patterns.includes('familyプラン'));
+		assert.ok(patterns.includes('standard プラン'));
+		assert.ok(patterns.includes('standardプラン'));
+		assert.ok(patterns.includes('premium プラン'));
+		assert.ok(patterns.includes('premiumプラン'));
+	});
+
 	it('価格 atom (月 ¥500 / 月 ¥780 / ¥/月 / 税込) を含む', () => {
 		const patterns = TERM_LITERAL_RULES.map((r) => r.pattern);
 		assert.ok(patterns.includes('月 ¥500'));
@@ -231,6 +243,35 @@ describe('checkFile (Issue #1918 AC5 — エラーメッセージに atom 名)',
 		const patterns = new Set(findings.map((f) => f.pattern));
 		assert.ok(patterns.has('基本無料'));
 		assert.ok(patterns.has('まずは無料'));
+	});
+
+	it('「family プランで ON 可能」の実害パターンを検出する (#4909)', () => {
+		// #4909 実害の再現: labels.ts SETUP_ACTIVITIES_DEFAULTS_LABELS.defaultSiblingRankingLabel が
+		// 'きょうだいランキング: OFF（family プランで ON 可能）' を直書きしていた。
+		const tmpFile = path.join(tmpDir, 'violation-plan-code.ts');
+		fs.writeFileSync(
+			tmpFile,
+			"export const msg = 'きょうだいランキング: OFF（family プランで ON 可能）';\n",
+			'utf8',
+		);
+		const findings = checkFile(tmpFile);
+		assert.ok(findings.some((f) => f.pattern === 'family プラン'));
+		assert.ok(findings.some((f) => /PLAN_FULL_TERMS\.premium/.test(f.constant)));
+	});
+
+	it('英字プラン code (standard/premium) + プラン の直書きを検出する (#4909)', () => {
+		const tmpFile = path.join(tmpDir, 'violation-plan-code-2.ts');
+		fs.writeFileSync(
+			tmpFile,
+			["const a = 'standardプラン以上で利用可能';", "const b = 'premium プラン限定機能';"].join(
+				'\n',
+			),
+			'utf8',
+		);
+		const findings = checkFile(tmpFile);
+		const patterns = new Set(findings.map((f) => f.pattern));
+		assert.ok(patterns.has('standardプラン'));
+		assert.ok(patterns.has('premium プラン'));
 	});
 
 	it('違反のないファイルは findings = []', () => {

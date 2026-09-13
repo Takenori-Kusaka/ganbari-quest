@@ -548,6 +548,34 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			);
 		});
 
+		// #4918: 本番 incident で `[auth-alert] auth-entitlement-db-unavailable: ...` 行の
+		// 日本語部分だけが CloudWatch 上で文字化けし Logs Insights から読めなくなった。
+		// この 1 行は ASCII のみにすることでリスク面自体を構造的に無くす
+		// (ユーザー向け 503 応答本文は引き続き日本語)。
+		it('[auth-alert] のログ message は ASCII のみ (文字化けリスクの構造的排除)', async () => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await handle({ event, resolve } as any);
+
+			const { logger } = await import('$lib/server/logger');
+			const alertCall = (logger.error as ReturnType<typeof vi.fn>).mock.calls.find(([msg]) =>
+				String(msg).startsWith('[auth-alert]'),
+			);
+			expect(alertCall).toBeDefined();
+			const message = String(alertCall?.[0]);
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ASCII 範囲チェックの意図的な正規表現
+			expect(/^[\x00-\x7F]*$/.test(message)).toBe(true);
+		});
+
 		it('課金状態の解決失敗以外の例外はそのまま伝播する (握り潰さない)', async () => {
 			currentAuthMode = 'cognito';
 			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });

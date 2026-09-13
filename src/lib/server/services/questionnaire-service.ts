@@ -1,3 +1,7 @@
+import {
+	getSetupChecklistPreset,
+	type SetupChecklistPreset,
+} from '$lib/data/setup-checklist-presets';
 import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
 import {
@@ -20,12 +24,8 @@ export interface QuestionnaireAnswers {
 	checklistPresets: string[];
 }
 
-/** チェックリストプリセットアイテム */
-interface PresetItem {
-	name: string;
-	icon: string;
-	sortOrder: number;
-}
+/** チェックリストプリセット定義 (build-time bundled、#4907) */
+type ChecklistPreset = SetupChecklistPreset;
 
 /**
  * `addTemplateItem` に `frequency` / `direction` を渡さないので、新規作成した item は
@@ -43,16 +43,6 @@ interface ChecklistTemplateLike {
 	pointsPerItem?: number;
 	completionBonus?: number;
 	sourcePresetId?: string | null;
-}
-
-/** チェックリストプリセット定義 */
-interface ChecklistPreset {
-	presetId: string;
-	name: string;
-	icon: string;
-	pointsPerItem: number;
-	completionBonus: number;
-	items: PresetItem[];
 }
 
 /**
@@ -202,7 +192,7 @@ export async function applyChecklistPresets(
 		try {
 			if (appliedPresetIds.has(presetId)) continue;
 
-			const preset = await loadPreset(presetId);
+			const preset = loadPreset(presetId);
 			if (!preset) continue;
 
 			const orphan = await findPristineOrphanForPreset(familyTemplates, preset, presetId, tenantId);
@@ -307,24 +297,19 @@ async function findPristineOrphanForPreset(
 }
 
 /**
- * プリセットJSONファイルを読み込む（ビルド済み静的ファイルから）
+ * プリセット定義を読み込む。
+ *
+ * #4907: 以前は `fetch('/checklist-presets/...')` → 失敗時 `fs.readFileSync` の
+ * cwd 依存フォールバックで、packaged deploy (Lambda / NUC Docker) では両方失敗して
+ * 無言で `null` を返していた (本番だけ 0 件作成・エラーなし)。build-time bundled JSON
+ * (`$lib/data/setup-checklist-presets`) からの同期読み込みに統一し、実行時 I/O と
+ * cwd 依存を排除する (`$lib/data/marketplace` と同じパターン)。
  */
-async function loadPreset(presetId: string): Promise<ChecklistPreset | null> {
-	try {
-		const res = await fetch(`/checklist-presets/${presetId}.json`);
-		if (!res.ok) return null;
-		return (await res.json()) as ChecklistPreset;
-	} catch {
-		// サーバーサイドではfetchが使えない場合、fs で読む
-		try {
-			const { readFileSync } = await import('node:fs');
-			const { resolve } = await import('node:path');
-			const filePath = resolve('static', 'checklist-presets', `${presetId}.json`);
-			const raw = readFileSync(filePath, 'utf-8');
-			return JSON.parse(raw) as ChecklistPreset;
-		} catch {
-			logger.warn('Checklist preset not found', { context: { presetId } });
-			return null;
-		}
+function loadPreset(presetId: string): ChecklistPreset | null {
+	const preset = getSetupChecklistPreset(presetId);
+	if (!preset) {
+		logger.warn('Checklist preset not found', { context: { presetId } });
+		return null;
 	}
+	return preset;
 }

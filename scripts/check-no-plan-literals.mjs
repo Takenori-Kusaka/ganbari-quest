@@ -73,6 +73,25 @@ const TERM_LITERAL_RULES = [
 		kind: 'term',
 	},
 	{ pattern: '無料プラン', constant: 'PLAN_FULL_TERMS.free', kind: 'term' },
+	// #4909: 英字プラン code (family / standard / premium) がカタカナ化されず「プラン」に
+	// 直接連結される直書きパターン (例: 'きょうだいランキング: OFF（family プランで ON 可能）')。
+	// 実害: labels.ts の SETUP_ACTIVITIES_DEFAULTS_LABELS.defaultSiblingRankingLabel が
+	// 撤去済み旧称 'family' を顧客文言にそのまま埋め込んでいた (#4586 / #4502 で LP / アプリから
+	// 撤去したはずの呼称が復活)。スペースあり/なし両方の変種を検出する。
+	{
+		pattern: 'family プラン',
+		constant: 'PLAN_FULL_TERMS.premium (旧 .family alias)',
+		kind: 'term',
+	},
+	{
+		pattern: 'familyプラン',
+		constant: 'PLAN_FULL_TERMS.premium (旧 .family alias)',
+		kind: 'term',
+	},
+	{ pattern: 'standard プラン', constant: 'PLAN_FULL_TERMS.standard', kind: 'term' },
+	{ pattern: 'standardプラン', constant: 'PLAN_FULL_TERMS.standard', kind: 'term' },
+	{ pattern: 'premium プラン', constant: 'PLAN_FULL_TERMS.premium', kind: 'term' },
+	{ pattern: 'premiumプラン', constant: 'PLAN_FULL_TERMS.premium', kind: 'term' },
 	// 価格
 	{
 		pattern: '月 ¥500',

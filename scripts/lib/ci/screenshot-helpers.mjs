@@ -250,6 +250,40 @@ export async function waitForStablePage(page, options = {}) {
 	);
 }
 
+/**
+ * 要素自身に適用された CSS animation の完了 (`Animation.finished`) を待つ (#4935)。
+ *
+ * `waitForStablePage()` はフォント読み込み + RAF 2 回のみを待ち、CSS animation (fadeIn 等)
+ * の完了は見ない。Playwright の `state: 'visible'` も opacity を見ないため、
+ * fadeIn 開始直後の中間フレーム (実測: 進捗 62% 地点、コントラスト比が最終値と乖離) を
+ * 掴んでしまう事故が起きた (#4935 QM 指摘)。`subtree: false` (既定) を使うことで、
+ * `.celebration-emoji` の `infinite` bounce のような子孫の無限アニメーションに引きずられて
+ * hang しない — 対象要素自身に直接かかった animation だけを待つ。
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} selector
+ * @param {object} [options]
+ * @param {boolean} [options.subtree=false] 子孫要素の animation も待つか (無限アニメーションを
+ *   含む可能性がある場合は false のまま = 対象要素自身の animation のみを待つ)
+ * @param {number} [options.timeoutMs=2000] fallback timeout (通常の CSS animation は数百 ms で
+ *   終わるため、この値に達したら animation 未完了のまま進める= 通常到達しない安全弁)
+ */
+export async function waitForElementAnimations(page, selector, options = {}) {
+	const { subtree = false, timeoutMs = 2000 } = options;
+	await page
+		.locator(selector)
+		.first()
+		.evaluate(
+			(el, { subtree, timeoutMs }) =>
+				Promise.race([
+					Promise.all(el.getAnimations({ subtree }).map((a) => a.finished.catch(() => {}))),
+					new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+				]),
+			{ subtree, timeoutMs },
+		)
+		.catch(() => {});
+}
+
 // ============================================================
 // #3012: SS render 健全性検証 (500 / error ページ混入検出)
 // ============================================================

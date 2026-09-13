@@ -39,8 +39,9 @@ vi.mock('$lib/server/services/child-service', () => ({
 	getArchivedChildren: vi.fn(async () => []),
 }));
 vi.mock('$lib/server/services/activity-service', () => ({ getActivities: vi.fn(async () => []) }));
+// #4910: rewards の完了判定は per-child reward (`getChildSpecialRewards`) を見る。
 vi.mock('$lib/server/services/special-reward-service', () => ({
-	getRewardTemplates: vi.fn(async () => []),
+	getChildSpecialRewards: vi.fn(async () => ({ rewards: [], totalPoints: 0 })),
 }));
 vi.mock('$lib/server/db/checklist-repo', () => ({ findTemplatesByChild: vi.fn(async () => []) }));
 vi.mock('$lib/server/logger', () => ({

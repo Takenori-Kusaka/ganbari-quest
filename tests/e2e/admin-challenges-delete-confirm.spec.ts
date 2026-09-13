@@ -17,8 +17,9 @@ const ELEMENTARY_NICKNAME = 'けんたくん';
 // sentinel: auto:weekly の unique index を避けつつ cleanup を精密化する。
 const SEED_SOURCE = 'e2e-4023-delete-confirm';
 // child_challenges.title は NOT NULL なので入れるが **画面には出ない**。#4809 以降、admin/challenges は
-// targetConfig.categoryId + targetValue から保護者向け (漢字) の表示タイトルを解決し直す
-// (child-challenge-service.ts:60-72 / :473)。画面の sentinel は下の EXPECTED_DIALOG_TITLE。
+// targetConfig.categoryId + targetValue + genMode (週次自動生成のみが持つメタ、#4911) から保護者向け
+// (漢字) の表示タイトルを解決し直す (child-challenge-service.ts:60-72 / :473)。
+// 画面の sentinel は下の EXPECTED_DIALOG_TITLE。
 const SEED_TITLE = 'E2E削除確認チャレンジ';
 const SEED_CATEGORY_ID = 1; // CATEGORIES.undou.legacyNumericId (= 運動)
 // 自動生成の target 上限 MAX_TARGET=7 (child-challenge-service.ts:85) を超える値にして、
@@ -61,7 +62,15 @@ async function seedChallenge(workerDbPath: string): Promise<number> {
 				'#4023 delete confirm test',
 				jstDate(-3),
 				jstDate(10),
-				JSON.stringify({ metric: 'count', categoryId: SEED_CATEGORY_ID, baseTarget: SEED_TARGET }),
+				// #4911: genMode を持たせて週次自動生成行を模す (これが無いと setup 由来の custom
+				// チャレンジと判定され、保存済み SEED_TITLE がそのまま画面に出て EXPECTED_DIALOG_TITLE
+				// と一致しなくなる)。
+				JSON.stringify({
+					metric: 'count',
+					categoryId: SEED_CATEGORY_ID,
+					baseTarget: SEED_TARGET,
+					genMode: 'weakness',
+				}),
 				JSON.stringify({ points: 10, message: 'よくがんばったね' }),
 				SEED_SOURCE,
 				SEED_TARGET,

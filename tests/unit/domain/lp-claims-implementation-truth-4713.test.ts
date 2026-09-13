@@ -20,16 +20,20 @@ import {
 	AUTO_SLEEP_ACTIVE_MINUTES,
 	AUTO_SLEEP_INACTIVE_RESET_MINUTES,
 } from '../../../src/lib/domain/constants/auto-sleep';
+import { isCustomRewardUnlocked } from '../../../src/lib/domain/custom-reward-gate';
 import {
 	LP_FAQ_PHASEB_LABELS,
 	LP_HERO_SPEC_BADGES_LABELS,
 	LP_INDEX_PHASEB_LABELS,
+	LP_PRICING_LABELS,
 	LP_PRICING_PHASEB_LABELS,
 	USAGE_TIME_LABELS,
 } from '../../../src/lib/domain/labels';
+import { getPlanLimits } from '../../../src/lib/domain/plan-limits';
 import {
 	AUTO_SLEEP_TERMS,
 	PRESET_ACTIVITY_TERMS,
+	REWARD_TERMS,
 	STATUS_AXIS_TERMS,
 	USAGE_SUMMARY_TERMS,
 } from '../../../src/lib/domain/terms';
@@ -145,5 +149,49 @@ describe('#4713 FAQ の招待説明', () => {
 			expect(text).not.toMatch(/閲覧権限/);
 			expect(text).toContain('閲覧リンク');
 		}
+	});
+});
+
+describe('#4915 無料プランのごほうびプリセット訴求', () => {
+	// 観測 (2026-09-11 本番実測): 無料プランのまま初期セットアップ 4/9 で 6 セット 37 件の
+	// ごほうびが登録され、子供はショップで交換できた。LP は「商品登録はスタンダード以上」と
+	// 述べており、実装より弱く見せていた (ADR-0013 違反)。PO 判断で LP 側を実装に合わせる。
+
+	it('canCustomReward (オリジナル登録ゲート) は無料 = false / スタンダード以上 = true', () => {
+		expect(getPlanLimits('free').canCustomReward).toBe(false);
+		expect(getPlanLimits('standard').canCustomReward).toBe(true);
+		expect(getPlanLimits('family').canCustomReward).toBe(true);
+		// isCustomRewardUnlocked と PLAN_LIMITS.canCustomReward は同じ述語から導出される (#4584)
+		expect(isCustomRewardUnlocked('free')).toBe(getPlanLimits('free').canCustomReward);
+	});
+
+	it('pricing.html 無料プランの説明が「プリセットから追加できる」ことを述べ、逆の全面ロックを述べない', () => {
+		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(`${REWARD_TERMS.preset}から追加`);
+		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(REWARD_TERMS.originalRegistration);
+		// 旧文言「ごほうびショップへの商品登録はスタンダード以上」(無料で一切登録できないと読める) の再発防止
+		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe(
+			`${REWARD_TERMS.productRegistration}はスタンダード以上`,
+		);
+	});
+
+	it('比較表がプリセット利用 (全プラン ✓) とオリジナル登録 (無料 ✗ / スタンダード以上 ✓) を別行で表す', () => {
+		// プリセット利用: 全プラン ✓ (canCustomReward に連動しない)
+		expect(LP_PRICING_PHASEB_LABELS.k39a).toContain(REWARD_TERMS.preset);
+		expect(LP_PRICING_PHASEB_LABELS.k39a).toBe(
+			`<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+		);
+		// オリジナル登録: canCustomReward の値と行の ✗/✓ 配置が一致する
+		expect(LP_PRICING_PHASEB_LABELS.k39).toContain(REWARD_TERMS.originalRegistration);
+		expect(getPlanLimits('free').canCustomReward).toBe(false);
+		expect(LP_PRICING_PHASEB_LABELS.k39).toMatch(
+			/<td>.*<\/td><td class="dash">&#8212;<\/td><td class="check">&#10003;<\/td><td class="check">&#10003;<\/td>/,
+		);
+	});
+
+	it('FAQ 回答がプリセットのごほうびも無料で使えることを述べ、旧「貯めたポイントと交換する商品の登録」の未限定表現を残さない', () => {
+		expect(LP_PRICING_LABELS.faqFreeA).toContain(`プリセット`);
+		expect(LP_PRICING_LABELS.faqFreeA).toContain(REWARD_TERMS.originalRegistration);
+		// 「オリジナル」を伴わない単なる「商品の登録」表現 (無料で一切不可と誤読される) を残さない
+		expect(LP_PRICING_LABELS.faqFreeA).not.toContain('貯めたポイントと交換する商品の登録');
 	});
 });

@@ -1,7 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { resolve } from '$app/paths';
-import { SETUP_LABELS, SETUP_QUESTIONNAIRE_LABELS } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	PAGE_TITLES,
+	SETUP_LABELS,
+	SETUP_QUESTIONNAIRE_LABELS,
+} from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -105,6 +110,10 @@ function togglePreset(value: string) {
 	}
 }
 </script>
+
+<svelte:head>
+	<title>{PAGE_TITLES.setupQuestionnaire}{APP_LABELS.setupPageTitleSuffix}</title>
+</svelte:head>
 
 <h2 class="text-lg font-bold text-center mb-1">
 	{SETUP_QUESTIONNAIRE_LABELS.pageTitle}

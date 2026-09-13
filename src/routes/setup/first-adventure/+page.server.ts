@@ -114,6 +114,10 @@ export const actions: Actions = {
 			success: true,
 			activityName: result.activityName,
 			totalPoints: result.totalPoints,
+			// #4908: カードは記録前に `activity.basePoints` (倍率適用前) を表示しているため、
+			// `result.basePoints` (倍率適用後の基礎点、streak/mastery ボーナス抜き) と演出の
+			// `totalPoints` が食い違うときに、画面側が内訳を出せるようにする。
+			basePoints: result.basePoints,
 			levelUp: result.levelUp,
 			unlockedAchievements: result.unlockedAchievements,
 		};

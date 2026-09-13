@@ -794,6 +794,35 @@ export async function sumPointLedgerByTypeAndDescriptionPrefix(
 	return Number(result?.total ?? 0);
 }
 
+/**
+ * #4916: reference_id ごとの point_ledger.amount 合計 (履歴画面の grandTotal 再構成用)。
+ * `sumPointLedgerByTypeAndDescriptionPrefix` の reference_id 版。
+ */
+export async function sumPointLedgerAmountsByReferenceIds(
+	childId: ChildId,
+	referenceIds: string[],
+	_tenantId: string,
+): Promise<Record<string, number>> {
+	if (referenceIds.length === 0) return {};
+	const numericIds = referenceIds.map((id) => Number(id));
+	const rows = await db
+		.select({
+			referenceId: pointLedger.referenceId,
+			total: sql<number>`coalesce(sum(amount), 0)`.as('total'),
+		})
+		.from(pointLedger)
+		.where(
+			and(eq(pointLedger.childId, Number(childId)), inArray(pointLedger.referenceId, numericIds)),
+		)
+		.groupBy(pointLedger.referenceId)
+		.all();
+	const result: Record<string, number> = {};
+	for (const row of rows) {
+		if (row.referenceId !== null) result[String(row.referenceId)] = Number(row.total);
+	}
+	return result;
+}
+
 // ============================================================
 // Point Ledger
 // ============================================================

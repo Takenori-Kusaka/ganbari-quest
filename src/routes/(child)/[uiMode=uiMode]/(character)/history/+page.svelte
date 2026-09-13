@@ -144,7 +144,9 @@ function purchaseStatusTone(status: string): string {
 									</div>
 									<div class="flex justify-between items-center">
 										<span class="text-sm text-[var(--color-text-muted)]">{UI_LABELS.points}</span>
-										<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalPoints)}</span>
+										<!-- #4948: 行は grandTotal を出しているので合計も grandTotal 総和にする
+														     (points + streakBonus のままだと同一画面で行の合計と一致しない) -->
+														<span class="font-bold text-lg text-[var(--color-point)]">{fmtBal(data.summary.totalGrandTotal)}</span>
 									</div>
 									{#if Object.keys(data.summary.byCategory).length > 0}
 										<div class="flex flex-wrap gap-[var(--sp-xs)] mt-[var(--sp-sm)]">
@@ -187,7 +189,9 @@ function purchaseStatusTone(status: string): string {
 														</p>
 													</div>
 													<div class="text-right shrink-0">
-														<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.points + log.streakBonus)}</p>
+														<!-- #4916: grandTotal (熟練/combo/mission/focus 込みの真の残高増分) を優先。
+														     台帳に紐付けが無い旧データは points + streakBonus にフォールバック -->
+														<p class="text-sm font-bold text-[var(--color-point)]">{fmtPts(log.grandTotal ?? log.points + log.streakBonus)}</p>
 														{#if log.streakDays >= 2}
 															<p class="text-xs text-[var(--theme-accent)]">{log.streakDays}{t.historyStreakSuffix}</p>
 														{/if}

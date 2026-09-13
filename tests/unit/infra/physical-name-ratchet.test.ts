@@ -334,6 +334,9 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			// 通知方針表 (ops-alert-policy.ts) がこの名前で参照する。
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ai-fallback-rate',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
+			// #4918: 同一 5 分 window 内の burst (3 件以上) を即時観測する alarm。
+			// runbook / ops-alert-policy.ts が名前で参照する既存 entitlement alarm と対で管理する。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable-burst',
 			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',

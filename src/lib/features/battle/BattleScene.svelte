@@ -1,20 +1,11 @@
 <script lang="ts">
 import type { BattleResult, BattleStats, Enemy, StatName } from '$lib/domain/battle-types';
-import { STAT_LABELS } from '$lib/domain/battle-types';
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import { getStatLabels } from '$lib/domain/battle-types';
+import { getBattleLabels } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import BattleHPBar from './BattleHPBar.svelte';
 import BattleLog from './BattleLog.svelte';
 
-// #1791: ステータス 5 軸 → 活動カテゴリ対応表（PO 指摘: ステータスと活動カテゴリの関連性が画面内で訴求できていない）
-// 表示順は HP, ATK, DEF, SPD, REC（BattleStats key 順）に揃え、stats-grid と alignment を一致させる
-const STAT_CATEGORY_LABELS: Record<StatName, string> = {
-	hp: FEATURES_LABELS.battle.statCategoryHpLabel,
-	atk: FEATURES_LABELS.battle.statCategoryAtkLabel,
-	def: FEATURES_LABELS.battle.statCategoryDefLabel,
-	spd: FEATURES_LABELS.battle.statCategorySpdLabel,
-	rec: FEATURES_LABELS.battle.statCategoryRecLabel,
-};
 const STAT_CATEGORY_ICONS: Record<StatName, string> = {
 	hp: '🏃',
 	atk: '📚',
@@ -24,18 +15,32 @@ const STAT_CATEGORY_ICONS: Record<StatName, string> = {
 };
 
 let {
+	uiMode,
 	enemy,
 	playerStats,
 	scaledEnemyMaxHp,
 	battleResult = null,
 	completed = false,
 }: {
+	uiMode: string;
 	enemy: Enemy;
 	playerStats: BattleStats;
 	scaledEnemyMaxHp: number;
 	battleResult: BattleResult | null;
 	completed: boolean;
 } = $props();
+
+const t = $derived(getBattleLabels(uiMode));
+const STAT_LABELS = $derived(getStatLabels(uiMode));
+// #1791: ステータス 5 軸 → 活動カテゴリ対応表（PO 指摘: ステータスと活動カテゴリの関連性が画面内で訴求できていない）
+// 表示順は HP, ATK, DEF, SPD, REC（BattleStats key 順）に揃え、stats-grid と alignment を一致させる
+const STAT_CATEGORY_LABELS = $derived({
+	hp: t.statCategoryHpLabel,
+	atk: t.statCategoryAtkLabel,
+	def: t.statCategoryDefLabel,
+	spd: t.statCategorySpdLabel,
+	rec: t.statCategoryRecLabel,
+} satisfies Record<StatName, string>);
 
 // バトルアニメーション状態
 let animating = $state(false);
@@ -163,12 +168,12 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 			<BattleHPBar
 				current={playerHp}
 				max={playerStats.hp}
-				label={FEATURES_LABELS.battle.playerName}
+				label={t.playerName}
 				variant="player"
 			/>
 			<div class="sprite-wrap">
 				<div class="sprite" class:shake={playerShake} class:defeated={playerHp <= 0}>
-					<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt={FEATURES_LABELS.battle.playerSpriteAlt} />
+					<img class="sprite-img" src="/assets/battle/characters/hero-default.png" alt={t.playerSpriteAlt} />
 				</div>
 				{#if playerDamageFloat}
 					<span
@@ -180,7 +185,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 					</span>
 				{/if}
 			</div>
-			<div class="combatant-name">{FEATURES_LABELS.battle.playerName}</div>
+			<div class="combatant-name">{t.playerName}</div>
 		</div>
 
 		<!-- VS 表示 -->
@@ -215,7 +220,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	<!-- ステータス表示 -->
 	{#if !battleResult && !completed}
 		<div class="stats-panel" data-testid="stats-panel">
-			<h3 class="stats-title">{FEATURES_LABELS.battle.statsTitle}</h3>
+			<h3 class="stats-title">{t.statsTitle}</h3>
 			<div class="stats-grid" data-testid="stats-grid">
 				{#each statEntries as [stat, value] (stat)}
 					<!-- #1791: ステータス値の直下に対応カテゴリ（活動 5 軸）を表示し、
@@ -223,32 +228,32 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 					<div class="stat-item" data-testid="stat-item-{stat}">
 						<span class="stat-label">{STAT_LABELS[stat]}</span>
 						<span class="stat-value">{value}</span>
-						<span class="stat-category" aria-label={FEATURES_LABELS.battle.statCategoryAriaLabel}>
+						<span class="stat-category" aria-label={t.statCategoryAriaLabel}>
 							<span class="stat-category-icon" aria-hidden="true">{STAT_CATEGORY_ICONS[stat]}</span>
 							<span class="stat-category-name">{STAT_CATEGORY_LABELS[stat]}</span>
 						</span>
 					</div>
 				{/each}
 			</div>
-			<p class="stats-note">{FEATURES_LABELS.battle.statCategoryNote}</p>
+			<p class="stats-note">{t.statCategoryNote}</p>
 		</div>
 	{/if}
 
 	<!-- バトルログ -->
 	{#if battleResult}
-		<BattleLog turns={battleResult.turns} {currentTurn} />
+		<BattleLog {uiMode} turns={battleResult.turns} {currentTurn} />
 	{/if}
 
 	<!-- 結果表示 -->
 	{#if showResult && battleResult}
 		<div class="result-banner" class:win={battleResult.outcome === 'win'} class:lose={battleResult.outcome === 'lose'} data-testid="battle-result">
 			{#if battleResult.outcome === 'win'}
-				<div class="result-text" data-testid="result-text">{FEATURES_LABELS.battle.resultWin}</div>
-				<div class="reward-text" data-testid="reward-text">{FEATURES_LABELS.battle.rewardWin(battleResult.rewardPoints)}</div>
+				<div class="result-text" data-testid="result-text">{t.resultWin}</div>
+				<div class="reward-text" data-testid="reward-text">{t.rewardWin(battleResult.rewardPoints)}</div>
 			{:else}
-				<div class="result-text" data-testid="result-text">{FEATURES_LABELS.battle.resultLose}</div>
-				<div class="reward-text" data-testid="reward-text">{FEATURES_LABELS.battle.rewardLose(battleResult.rewardPoints)}</div>
-				<div class="encourage-text">{FEATURES_LABELS.battle.encourageLose}</div>
+				<div class="result-text" data-testid="result-text">{t.resultLose}</div>
+				<div class="reward-text" data-testid="reward-text">{t.rewardLose(battleResult.rewardPoints)}</div>
+				<div class="encourage-text">{t.encourageLose}</div>
 			{/if}
 		</div>
 	{/if}
@@ -256,10 +261,10 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 	<!-- アクションボタン -->
 	{#if !battleResult && !completed}
 		<Button type="submit" size="lg" disabled={animating} class="w-full" data-testid="battle-start-button">
-			{FEATURES_LABELS.battle.startBtn}
+			{t.startBtn}
 		</Button>
 	{:else if completed && !battleResult}
-		<div class="already-done" data-testid="battle-already-done">{FEATURES_LABELS.battle.alreadyDone}</div>
+		<div class="already-done" data-testid="battle-already-done">{t.alreadyDone}</div>
 	{/if}
 </div>
 

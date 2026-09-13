@@ -34,6 +34,7 @@ import { recordActivityCore } from '$lib/server/db/dsql/record-activity-core';
 import { getPgTransactionRunner } from '$lib/server/db/factory';
 import type { RecordActivityResult, XpGainInfo } from '$lib/server/services/activity-log-service';
 import {
+	buildPointBreakdown,
 	type PreparedActivityRecord,
 	prepareActivityRecord,
 } from '$lib/server/services/activity-record-preparation';
@@ -124,6 +125,7 @@ export async function recordActivityDsql(
 		activityId,
 		tenantId,
 		prep,
+		logId: core.logId,
 		totalPoints: core.totalPoints,
 		levelUp,
 		xpGain,
@@ -141,6 +143,13 @@ export async function recordActivityDsql(
 		masteryLevel: core.masteryLevel,
 		masteryLeveledUp,
 		totalPoints: core.totalPoints,
+		// #4916: 結果ダイアログの主要数字 = 履歴 = 残高の増分 (このアクションで実際に付与された全ボーナス込み)
+		grandTotal:
+			core.totalPoints +
+			Math.max(optional.comboBonus?.totalNewBonus ?? 0, 0) +
+			(optional.missionComplete?.bonusAwarded ?? 0) +
+			(optional.focusBonus?.bonusPoints ?? 0),
+		pointBreakdown: buildPointBreakdown(prep),
 		recordedAt: now,
 		cancelableUntil: new Date(Date.now() + CANCEL_WINDOW_MS).toISOString(),
 		// 実績システム廃止（#322）— 常に空配列
@@ -164,6 +173,8 @@ interface OptionalPhaseInput {
 	activityId: ActivityId;
 	tenantId: string;
 	prep: PreparedActivityRecord;
+	/** #4916: core txn が確定した log id。combo/mission/focus の point_ledger.reference_id に紐付ける。 */
+	logId: string;
 	totalPoints: number;
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
@@ -181,21 +192,22 @@ interface OptionalPhaseResult {
  * 失敗しても他項目・core 結果に波及しない (§8。欠落は fitness#11 counter に emit)。
  */
 async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhaseResult> {
-	const { childId, activityId, tenantId, prep, totalPoints, levelUp, xpGain } = input;
+	const { childId, activityId, tenantId, prep, logId, totalPoints, levelUp, xpGain } = input;
 	const onFailure = createOptionalWriteFailureHandler({ childId: String(childId), tenantId });
 	const catDef = getCategoryById(prep.activity.categoryId);
 
 	// コンボボーナスチェック
+	// #4916: logId を referenceId に紐付け、結果ダイアログ/履歴の grandTotal 集計を可能にする
 	const comboRaw = await runOptionalWrite(
 		'combo_bonus',
-		() => checkAndGrantCombo(childId, prep.today, tenantId),
+		() => checkAndGrantCombo(childId, prep.today, tenantId, logId),
 		onFailure,
 	);
 
 	// デイリーミッション判定
 	const missionRaw = await runOptionalWrite(
 		'mission_bonus',
-		() => checkMissionCompletion(childId, activityId, tenantId),
+		() => checkMissionCompletion(childId, activityId, tenantId, logId),
 		onFailure,
 	);
 
@@ -240,6 +252,7 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 					childId,
 					recs.map((r) => r.activityId),
 					tenantId,
+					logId,
 				);
 			},
 			onFailure,

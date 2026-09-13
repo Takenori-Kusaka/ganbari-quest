@@ -18,7 +18,7 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.context) {
 		redirect(302, '/auth/login');
 	}
@@ -30,8 +30,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/setup/children');
 	}
 
+	// #4912: 直前の step (ルール取込) の結果を透過する (rules → activities-defaults 遷移)。
+	const rulesImported = Number(url.searchParams.get('rulesImported') ?? 0);
+	const rulesSkipped = Number(url.searchParams.get('rulesSkipped') ?? 0);
+
 	return {
 		defaults: ACTIVITIES_SETTINGS_DEFAULTS,
+		rulesImported,
+		rulesSkipped,
 	};
 };
 

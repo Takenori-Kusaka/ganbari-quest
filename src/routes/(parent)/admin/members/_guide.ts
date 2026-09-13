@@ -7,7 +7,7 @@ import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 //     - 招待作成カードは `currentRole === 'owner'` かつ `inviteSupported`（= AUTH_MODE=cognito、#4704）
 //       かつ上限未到達のときだけ描画される。保護者ロール / セルフホスト / 上限到達では step ごと消える
 //       （旧実装は「作成ボタンを押す」と案内しながら何も光らない中央バブルになっていた、PO 判断 4）
-//     - 保留中の招待は未受諾の招待が 1 件以上あるときだけ、閲覧リンクは family プランのときだけ描画
+//     - 保留中の招待は未受諾の招待が 1 件以上あるときだけ、閲覧リンクはプレミアムプランのときだけ描画
 const L = PAGE_GUIDE_LABELS.adminMembers;
 
 export const MEMBERS_GUIDE: PageGuide = {
@@ -43,7 +43,7 @@ export const MEMBERS_GUIDE: PageGuide = {
 			optional: true,
 			position: 'bottom',
 		},
-		// ⑤ 閲覧リンク（family プランのときだけ描画）
+		// ⑤ 閲覧リンク（プレミアムプランのときだけ描画）
 		{
 			id: 'members-viewer',
 			selector: '[data-tutorial="members-viewer"]',

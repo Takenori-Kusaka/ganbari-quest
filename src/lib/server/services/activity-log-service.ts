@@ -36,7 +36,11 @@ import {
 } from '$lib/server/services/activity-log-aggregation';
 import { recordActivityDsql } from '$lib/server/services/activity-record-dsql';
 // 書込前計算 (検証 / streak / mastery / bonus-hook) は sqlite / dsql 両経路の共有 SSOT (#3541)
-import { prepareActivityRecord } from '$lib/server/services/activity-record-preparation';
+import {
+	buildPointBreakdown,
+	type PointBreakdownItem,
+	prepareActivityRecord,
+} from '$lib/server/services/activity-record-preparation';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
@@ -80,6 +84,15 @@ export interface RecordActivityResult {
 	masteryLevel: number;
 	masteryLeveledUp: MasteryLevelUpInfo | null;
 	totalPoints: number;
+	/**
+	 * #4916: この記録アクションで実際に残高へ加算された「最終合計」。
+	 * totalPoints (基本+streak+熟練) に comboBonus / missionComplete / focusBonus の
+	 * 純増分を足した値で、結果ダイアログの主要数字はこれを表示する
+	 * (= 履歴に載る額 = 残高の増分、Issue #4916 AC1)。
+	 */
+	grandTotal: number;
+	/** #4916: 基本/streak/bonus-hook/熟練の内訳 (comboBonus 等は既存の専用 field を併用)。 */
+	pointBreakdown: PointBreakdownItem[];
 	recordedAt: string;
 	cancelableUntil: string;
 	unlockedAchievements: {
@@ -228,10 +241,11 @@ export async function recordActivity(
 	}[] = [];
 
 	// コンボボーナスチェック
-	const comboBonus = await checkAndGrantCombo(childId, today, tenantId);
+	// #4916: log.id を referenceId に紐付け、結果ダイアログ/履歴の grandTotal 集計を可能にする
+	const comboBonus = await checkAndGrantCombo(childId, today, tenantId, log.id);
 
 	// デイリーミッション判定
-	const missionResult = await checkMissionCompletion(childId, activityId, tenantId);
+	const missionResult = await checkMissionCompletion(childId, activityId, tenantId, log.id);
 
 	// #2295 (EPIC #2294 ①): シーズンイベント / シーズンパス / カレンダーイベント進捗チェック削除済 (2026-05-19)
 	// season-event-service / seasonal-content-service / calendar-event-service とも撤去。
@@ -284,7 +298,7 @@ export async function recordActivity(
 		const childActs = await getChildActivities(childId, tenantId, { childAge: child.age });
 		const recs = selectRecommendations(childActs, today, 3);
 		const recIds = recs.map((r) => r.activityId);
-		focusBonus = await checkAndGrantFocusBonus(childId, recIds, tenantId);
+		focusBonus = await checkAndGrantFocusBonus(childId, recIds, tenantId, log.id);
 	} catch {
 		// フォーカスボーナスチェック失敗は記録フローを止めない
 	}
@@ -372,6 +386,13 @@ export async function recordActivity(
 		masteryLevel: newLevel,
 		masteryLeveledUp,
 		totalPoints,
+		// #4916: 結果ダイアログの主要数字 = 履歴 = 残高の増分 (このアクションで実際に付与された全ボーナス込み)
+		grandTotal:
+			totalPoints +
+			Math.max(comboBonus.totalNewBonus, 0) +
+			missionResult.bonusAwarded +
+			(focusBonus?.bonusPoints ?? 0),
+		pointBreakdown: buildPointBreakdown(prep),
 		recordedAt: now,
 		cancelableUntil,
 		unlockedAchievements,

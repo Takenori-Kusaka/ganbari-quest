@@ -129,3 +129,19 @@ export function getBenchmarkGuideRange(
 		sdHigh: Math.round(Math.max(...sds)),
 	};
 }
+
+/**
+ * `/admin/status` のベンチマーク年齢選択の初期値 SSOT (#4914)。
+ *
+ * ベンチマーク表は 3〜12 歳のみ対応 (`BENCHMARK_DEFAULT_MIN_AGE` / `_MAX_AGE`)。選択中の
+ * 子供の実年齢をそのまま初期値にすると、0-2 歳 (baby モード) や 13 歳以上の子供では
+ * 表に無い年齢が選ばれてしまうため、範囲外は最寄りの端 (3 歳 or 12 歳) に丸める。
+ * `age` が非数値 (`undefined` 等、子供 0 名時) のときは下限にフォールバックする。
+ */
+export function clampBenchmarkAge(age: number | undefined): number {
+	if (age === undefined || Number.isNaN(age)) return BENCHMARK_DEFAULT_MIN_AGE;
+	const rounded = Math.round(age);
+	if (rounded < BENCHMARK_DEFAULT_MIN_AGE) return BENCHMARK_DEFAULT_MIN_AGE;
+	if (rounded > BENCHMARK_DEFAULT_MAX_AGE) return BENCHMARK_DEFAULT_MAX_AGE;
+	return rounded;
+}

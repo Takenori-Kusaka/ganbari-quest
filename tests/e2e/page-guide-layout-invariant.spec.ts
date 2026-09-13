@@ -401,6 +401,21 @@ async function assertSpotlightVisible(page: Page, ctx: string): Promise<void> {
 }
 
 /**
+ * (e) #4922: 前 step の `.driver-active-element` クラスが外れず複数要素が同時に光ったままに
+ * ならないことを固定する。driver.js の `#driver-dummy-element` (中央 modal 用 0×0 placeholder)
+ * は実要素ではないため対象外とし、それ以外に `.driver-active-element` を持つ要素は
+ * どの step でも高々 1 個であることを assert する (本番実測: /admin/subscription 3/6 で
+ * 3 要素、/admin/status で最大 7 要素が同時に光っていた回帰)。
+ */
+async function assertSingleActiveElement(page: Page, ctx: string): Promise<void> {
+	const count = await page.locator(`${DRIVER_ACTIVE_ELEMENT}:not(#driver-dummy-element)`).count();
+	expect(
+		count,
+		`${ctx}: (#4922) 前 step の .driver-active-element が残留せず、実要素の active element は高々 1 個 (実測 ${count} 個)`,
+	).toBeLessThanOrEqual(1);
+}
+
+/**
  * driver.js の smoothScroll + fade animation + 再配置が完了し、バブルの位置が安定するまで待つ。
  * 計測を animation 途中で行うと transient な overlap / 見切れを誤検出するため、box が 2 連続で
  * 不変になる (= 静止) まで rAF ベースで poll する。waitForTimeout は使わない (ESLint 禁止)。
@@ -511,6 +526,8 @@ async function walkAllSteps(
 		seenStepIds.push(stepId);
 
 		await assertSpotlightVisible(page, ctx);
+		// (e) #4922: step が進んでも前 step の active element が残留していないこと (dummy 除く)
+		await assertSingleActiveElement(page, ctx);
 		// (d) #4653: selector を持つ step は残っている以上、実要素に spotlight していること
 		// (起動時 filter を通過した = 対象が描画済のはず。dummy fallback / 0×0 を検出する)。
 		if (blanketSelectorAssert) {

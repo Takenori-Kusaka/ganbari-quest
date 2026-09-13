@@ -152,6 +152,9 @@ docs/graphify-out/cost.json
 graphify-out/20*/
 docs/graphify-out/20*/
 
+# Graphify installer's rolling backup of files it rewrites (e.g. .claude/settings.json.graphify-bak)
+*.graphify-bak
+
 
 
 

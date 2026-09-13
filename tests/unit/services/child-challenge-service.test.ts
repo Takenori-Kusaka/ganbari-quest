@@ -1379,7 +1379,10 @@ describe('getChildChallengeRecords (達成履歴、#4688)', () => {
 		periodType: 'weekly',
 		startDate: '2026-08-10',
 		endDate: '2026-08-16',
-		targetConfig: '{"metric":"count","categoryId":1,"baseTarget":3}',
+		// genMode: #4911 週次自動生成のみが持つメタ。resolveChallengeDisplayTitle はこれが無いと
+		// 再生成しない (setup preset / custom チャレンジとの取り違え防止)。本 fixture は
+		// periodType='weekly' の自動生成行を模しているため genMode を持たせる。
+		targetConfig: '{"metric":"count","categoryId":1,"baseTarget":3,"genMode":"weakness"}',
 		rewardConfig: '{"points":30}',
 		status: 'completed',
 		isActive: 1,

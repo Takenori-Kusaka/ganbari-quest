@@ -2,7 +2,7 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
+import { clampBenchmarkAge, getBenchmarkGuideRange } from '$lib/domain/benchmark-defaults';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, formatAge, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
@@ -33,12 +33,32 @@ function getAnalysisText(deviationScore: number): { text: string; color: string 
 	return { text: STATUS_LABELS.analysisLow, color: 'text-[var(--color-warning)]' };
 }
 
-let benchmarkAge = $state(4);
 let benchmarkSuccess = $state(false);
 
 // ベンチマーク入力値のリアルタイム追跡
 let bmInputMean: Record<string, string> = $state({});
 let bmInputSd: Record<string, string> = $state({});
+
+// プレビュー用の子供選択（override + $derived パターン）
+let previewChildIdOverride = $state<ChildId | undefined>(undefined);
+const previewChildId = $derived(
+	previewChildIdOverride !== undefined && data.children.some((c) => c.id === previewChildIdOverride)
+		? previewChildIdOverride
+		: (data.children[0]?.id ?? asChildId('')),
+);
+const previewChild = $derived(data.children.find((c) => c.id === previewChildId));
+
+// #4914: ベンチマーク年齢の初期選択が常に「4歳」固定で、選択中の子供 (例: 8歳) と食い違っていた。
+// override + $derived パターン (previewChildId と同型) で、子供タブ切替に追従させつつ手動選択も
+// 維持する。タブを切り替えると override は自動でリセットされる (下の $effect)。
+let benchmarkAgeOverride = $state<number | undefined>(undefined);
+const benchmarkAge = $derived(benchmarkAgeOverride ?? clampBenchmarkAge(previewChild?.age));
+$effect(() => {
+	// previewChildId を effect の依存として読むためだけの参照 (子供タブ切替を検知する)。
+	// benchmarkAgeOverride 自体はここで読まないため、この effect は override の変化では発火しない。
+	previewChildId;
+	benchmarkAgeOverride = undefined;
+});
 
 const benchmarksForAge = $derived(data.benchmarks.filter((b) => b.age === benchmarkAge));
 
@@ -55,15 +75,6 @@ const hasUnsetBenchmarks = $derived(
 		return !bm || (bm.mean === 0 && bm.stdDev === 10);
 	}),
 );
-
-// プレビュー用の子供選択（override + $derived パターン）
-let previewChildIdOverride = $state<ChildId | undefined>(undefined);
-const previewChildId = $derived(
-	previewChildIdOverride !== undefined && data.children.some((c) => c.id === previewChildIdOverride)
-		? previewChildIdOverride
-		: (data.children[0]?.id ?? asChildId('')),
-);
-const previewChild = $derived(data.children.find((c) => c.id === previewChildId));
 
 // 成長レポート用のレーダーチャートデータ
 const previewRadarCategories = $derived(
@@ -373,7 +384,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 					variant={benchmarkAge === age ? 'success' : 'outline'}
 					size="sm"
 					class="text-xs whitespace-nowrap {benchmarkAge === age ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text)] border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
-					onclick={() => { benchmarkAge = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
+					onclick={() => { benchmarkAgeOverride = age; benchmarkSuccess = false; bmInputMean = {}; bmInputSd = {}; }}
 				>
 					{formatAge(age)}
 				</Button>

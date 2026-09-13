@@ -272,11 +272,60 @@ function flatIndex(): number {
 	return allSteps.findIndex((s) => s.id === current.id);
 }
 
+/**
+ * `getCurrentStep()` が直前に返した step (#4923 参照安定化キャッシュ)。
+ * `$state` ではない素の module 変数でよい — 副作用ではなく「同じ論理値なら同じ参照を
+ * 返す」memoization であり、`getCurrentStep()` 自体は `activeChapters` /
+ * `state.currentChapter` / `state.currentStepIndex` という追跡対象だけから決定的に導出する。
+ */
+let lastResolvedStep: TutorialStep | null = null;
+
+/** id / selector / title 等、表示・対象解決に関わる項目が一致すれば「同じ step」とみなす。 */
+function stepsAreEquivalent(a: TutorialStep | null, b: TutorialStep | null): boolean {
+	if (a === b) return true;
+	if (!a || !b) return false;
+	return (
+		a.id === b.id &&
+		a.chapterId === b.chapterId &&
+		a.selector === b.selector &&
+		a.title === b.title &&
+		a.description === b.description &&
+		a.position === b.position &&
+		a.page === b.page &&
+		a.requiredTier === b.requiredTier
+	);
+}
+
+/**
+ * 現在の step を返す。
+ *
+ * #4923 (本番の子供 ❓ ガイドが 5 step とも中央 fallback になる): `activeChapters` は
+ * `chapterBuilder(hasActivitiesKnown)` の**新しい配列**を毎回返すため、内容が論理的に
+ * 同一でも (例: `hasActivitiesKnown` が `true` → `undefined` → `true` と書き直されるだけ)
+ * `getCurrentStep()` は毎回**新しい object 参照**を返していた。呼び出し側
+ * (`tutorial-step-controller.svelte.ts` の `$derived(getCurrentStep())`) を購読する
+ * `$effect` は参照が変われば再実行されるため、対象要素の解決 (scrollIntoView → 実測 →
+ * resolved 反映という複数ステップの非同期処理) が完走する前に abort → やり直しを
+ * 繰り返し、対象が実在し可視であっても `data-tutorial-target` が `resolved` に到達しない
+ * フリッカーになっていた (実機: 自動リロード間隔を短縮したエミュレーションで再現・修正確認済)。
+ *
+ * 直前に返した step と論理的に同一 (id / selector / title 等が一致) であれば、**同じ参照**
+ * を返して `$derived` の dirty 判定を素通りさせる (Object.is 比較で「変化なし」とみなされ、
+ * 依存する effect は再実行されない)。id が変わる本物の step 遷移では通常どおり新しい
+ * 参照を返し、対象解決を正しくやり直す。
+ */
 export function getCurrentStep(): TutorialStep | null {
-	if (!state.isActive) return null;
+	if (!state.isActive) {
+		lastResolvedStep = null;
+		return null;
+	}
 	const chapter = activeChapters.find((ch) => ch.id === state.currentChapter);
-	if (!chapter) return null;
-	return chapter.steps[state.currentStepIndex] ?? null;
+	const raw = chapter ? (chapter.steps[state.currentStepIndex] ?? null) : null;
+	if (stepsAreEquivalent(raw, lastResolvedStep)) {
+		return lastResolvedStep;
+	}
+	lastResolvedStep = raw;
+	return raw;
 }
 
 export function getProgress(): { current: number; total: number } {

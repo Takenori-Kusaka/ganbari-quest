@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import type { BattleResult } from '$lib/domain/battle-types';
+import { APP_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import BattlePage from '$lib/features/battle/BattlePage.svelte';
 
 let { data } = $props();
@@ -8,6 +9,10 @@ let { data } = $props();
 let battleResult = $state<BattleResult | null>(null);
 let loading = $state(false);
 </script>
+
+<svelte:head>
+	<title>{PAGE_TITLES.childBattle}{APP_LABELS.pageTitleSuffix}</title>
+</svelte:head>
 
 <form
 	method="POST"

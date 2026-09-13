@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	if (!child) {
 		return {
 			logs: [],
-			summary: { totalCount: 0, totalPoints: 0, byCategory: {} },
+			summary: { totalCount: 0, totalPoints: 0, totalGrandTotal: 0, byCategory: {} },
 			achievements: [],
 			purchases: [],
 			milestones: [],
@@ -91,7 +91,10 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const activityData =
 		activityResult.status === 'fulfilled'
 			? activityResult.value
-			: { logs: [], summary: { totalCount: 0, totalPoints: 0, byCategory: {} } };
+			: {
+					logs: [],
+					summary: { totalCount: 0, totalPoints: 0, totalGrandTotal: 0, byCategory: {} },
+				};
 
 	// #4688: 受取済み (rewardClaimed) も含む達成履歴。claim した瞬間に消えないこと (F1)
 	const achievements = achievementsResult.status === 'fulfilled' ? achievementsResult.value : [];

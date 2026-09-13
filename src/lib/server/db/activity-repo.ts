@@ -164,6 +164,14 @@ export async function sumPointLedgerByTypeAndDescriptionPrefix(
 		tenantId,
 	);
 }
+/** #4916: reference_id ごとの point_ledger.amount 合計 (履歴画面の grandTotal 再構成用)。 */
+export async function sumPointLedgerAmountsByReferenceIds(
+	childId: ChildId,
+	referenceIds: string[],
+	tenantId: string,
+) {
+	return getRepos().activity.sumPointLedgerAmountsByReferenceIds(childId, referenceIds, tenantId);
+}
 
 // #783: archive / restore
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。

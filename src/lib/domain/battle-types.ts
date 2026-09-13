@@ -6,6 +6,7 @@
  */
 import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
+import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 
 // ============================================================
 // RPG ステータス
@@ -23,7 +24,7 @@ export const CATEGORY_TO_STAT: Record<CategoryCode, StatName> = {
 	souzou: 'rec', // そうぞう → REC（回復力）
 };
 
-/** RPGステータスの日本語名 */
+/** RPGステータスの日本語名（baby/preschool/elementary 向けひらがな base） */
 export const STAT_LABELS: Record<StatName, string> = {
 	hp: 'たいりょく',
 	atk: 'こうげき',
@@ -31,6 +32,26 @@ export const STAT_LABELS: Record<StatName, string> = {
 	spd: 'すばやさ',
 	rec: 'かいふく',
 };
+
+/**
+ * #4921: RPGステータス名の漢字変種 (junior / senior、13-18 歳、docs/DESIGN.md §8)。
+ * 旧実装は年齢帯を持たず、高校生の画面にも「たいりょく / こうげき / ぼうぎょ」が
+ * そのまま出ていた。
+ */
+export const STAT_LABELS_KANJI: Record<StatName, string> = {
+	hp: '体力',
+	atk: '攻撃',
+	def: '防御',
+	spd: '素早さ',
+	rec: '回復',
+};
+
+/** ステータス名を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getStatLabels(uiMode: string): Record<StatName, string> {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') return STAT_LABELS;
+	return STAT_LABELS_KANJI;
+}
 
 /** RPGバトルステータス */
 export interface BattleStats {

@@ -40,6 +40,15 @@ jobs:
       # ここでの判定は「auto-merge の適用対象か」だけで、真正性の検証ではない (検証は引き続き
       # fetch-metadata が担う)。author 名を偽装した commit を積んでも本 step を素通りするだけで、
       # その先の fetch-metadata が従来どおり拒否するため、検査は緩んでいない。
+      #
+      # #4946: `commit.committer.name` を `"dependabot[bot]"` と比較する判定は常に真 (=「人の
+      # commit」) と誤判定していた。GitHub は API 経由でボットが作った commit の committer を
+      # 常に web-flow の `"GitHub"` にする (author は `"dependabot[bot]"` のまま) ため、正規の
+      # dependabot commit も committer 名だけでは弾かれてしまう (実測: 直近 5 件の merge 済み
+      # dependabot PR 全件が author=dependabot[bot] / committer=GitHub で一致し、auto-merge が
+      # 一度も発火していなかった)。#4422 が本当に検知したいのは「rebase で署名が壊れたか」なので、
+      # committer 名の一致ではなく `commit.verification.verified` を見る (rewrite で壊れると
+      # verified=false になる、上記コメント参照)。
       - name: Detect human commits on the dependabot branch
         id: authorship
         env:
@@ -49,10 +58,10 @@ jobs:
         run: |
           set -euo pipefail
           human=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
-            --jq '[.[] | select(.commit.author.name != "dependabot[bot]" or .commit.committer.name != "dependabot[bot]")] | length')
+            --jq '[.[] | select(.commit.author.name != "dependabot[bot]" or .commit.verification.verified != true)] | length')
           echo "human-commits=${human}" >> "$GITHUB_OUTPUT"
           if [ "${human}" -gt 0 ]; then
-            echo "::notice::人の commit が ${human} 件含まれるため auto-merge の対象外。通常の QM レビューで merge 判断する。"
+            echo "::notice::人の commit / 署名検証失敗が ${human} 件含まれるため auto-merge の対象外。通常の QM レビューで merge 判断する。"
           fi
 
       - name: Dependabot metadata

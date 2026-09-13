@@ -9,6 +9,7 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
+import { computeOptimisticChildLimit } from '$lib/features/admin/child-limit-optimistic';
 import ArchivedChildrenSection from '$lib/features/admin/components/ArchivedChildrenSection.svelte';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
@@ -66,6 +67,40 @@ let addBirthDate = $state<string | undefined>(undefined);
 const addCalculatedAge = $derived(
 	addBirthDate ? calculateAgeFromBirthDate(addBirthDate) : undefined,
 );
+
+// #4919: 追加成功直後に一覧へ反映されない不具合の恒久対策。
+//
+// `use:enhance` の既定 `update()` は `invalidateAll()` を呼び、load() の再実行結果が
+// 届いてはじめて一覧が更新される。本番 (DSQL) では `addChild` action の直後にこの
+// 再読込が実行されても新しい子供が含まれない事例が確認された
+// (`getAllChildren` 呼び出しがプールから別の接続を引き、直前の書き込みをまだ
+// 観測していない可能性がある — ローカル SQLite / PGlite では再現しない)。
+// invalidateAll の鮮度に依存せず、action が返す `addedChild` を直接一覧へ楽観追加する。
+//
+// 一覧描画は `data.children` 単独ではなく `displayChildren` (= サーバー確定分 + 楽観追加分)
+// を使う。サーバー側データが追いついた (同 id が data.children に現れた) 楽観エントリは
+// $effect で間引き、二重表示を防ぐ。
+type DisplayChild = (typeof data.children)[number];
+let optimisticChildren = $state<DisplayChild[]>([]);
+$effect(() => {
+	if (optimisticChildren.length === 0) return;
+	const confirmedIds = new Set(data.children.map((c) => c.id));
+	const stillPending = optimisticChildren.filter((c) => !confirmedIds.has(c.id));
+	if (stillPending.length !== optimisticChildren.length) {
+		optimisticChildren = stillPending;
+	}
+});
+const displayChildren = $derived([...data.children, ...optimisticChildren]);
+// 上限バナー/ボタンも楽観追加分だけその場で加算する (サーバー確定後は data.childLimit
+// 自体が追いつき、同時に optimisticChildren も間引かれるため二重加算しない)。
+// 算出ロジックは `computeOptimisticChildLimit` (境界値を unit test で固定、#4919 AC1)。
+const displayChildLimit = $derived(
+	computeOptimisticChildLimit(childLimit, optimisticChildren.length),
+);
+
+// #4919 AC2: 成功時に role="status" の確認文言を出す (admin/activities の 2 層 feedback
+// パターン。Toast は `role="alert"` の一時通知、banner は `role="status"` で次操作まで残る)。
+let actionMessage = $state<string | null>(null);
 </script>
 
 <svelte:head>
@@ -76,13 +111,13 @@ const addCalculatedAge = $derived(
 	<div class="flex items-center gap-2 mb-3">
 		<h2 class="text-lg font-bold">{ADMIN_CHILDREN_PAGE_LABELS.pageTitle}</h2>
 	</div>
-	{#if childLimit && !childLimit.allowed}
+	{#if displayChildLimit && !displayChildLimit.allowed}
 		<div class="children-page__limit-banner">
 			<span class="children-page__limit-icon">⚠️</span>
 			<div>
 				<p class="children-page__limit-title">{ADMIN_CHILDREN_PAGE_LABELS.limitBannerTitle}</p>
 				<p class="children-page__limit-desc">
-					{ADMIN_CHILDREN_PAGE_LABELS.limitBannerDesc(childLimit.current, childLimit.max ?? 0)}
+					{ADMIN_CHILDREN_PAGE_LABELS.limitBannerDesc(displayChildLimit.current, displayChildLimit.max ?? 0)}
 				</p>
 				<a href="/admin/subscription" class="children-page__limit-link">
 					{ADMIN_CHILDREN_PAGE_LABELS.limitUpgradeLink}
@@ -94,7 +129,7 @@ const addCalculatedAge = $derived(
 	<!-- #4660 F1: children-list anchor は「追加する」ボタン行ではなく下のカード一覧に付ける
 	     (旧: 本 toolbar に付いており、「カードが並ぶ」という文言と光る場所が食い違っていた) -->
 	<div class="children-page__toolbar">
-		{#if !childLimit || childLimit.allowed}
+		{#if !displayChildLimit || displayChildLimit.allowed}
 			<Button
 				variant="primary"
 				size="sm"
@@ -124,6 +159,19 @@ const addCalculatedAge = $derived(
 				use:enhance={() => {
 					return async ({ result, update }) => {
 						if (result.type === 'success') {
+							// #4919: invalidateAll の再読込を待たず、action が返した addedChild を
+							// 楽観的に一覧へ足す (根本原因は script 冒頭のコメント参照)。
+							const addedChild = (
+								result.data as { addedChild?: Omit<DisplayChild, 'balance' | 'level' | 'levelTitle'> } | undefined
+							)?.addedChild;
+							if (addedChild) {
+								optimisticChildren = [
+									...optimisticChildren,
+									{ ...addedChild, balance: 0, level: 1, levelTitle: '' },
+								];
+								actionMessage = ADMIN_CHILDREN_PAGE_LABELS.addedSuccess(addedChild.nickname);
+								showToast(actionMessage, undefined, 'success');
+							}
 							showAddForm = false;
 							addBirthDate = undefined;
 						}
@@ -180,9 +228,16 @@ const addCalculatedAge = $derived(
 		<div class="children-page__error">{errorMessage}</div>
 	{/if}
 
+	<!-- #4919 AC2: 成功メッセージ (role="status"、admin/activities の action-message と同型) -->
+	{#if actionMessage}
+		<div class="action-message" role="status" data-testid="admin-children-action-message">
+			<span>{actionMessage}</span>
+		</div>
+	{/if}
+
 	<!-- Children list -->
 	<div class="children-page__list" data-tutorial="children-list">
-		{#each data.children as child, i}
+		{#each displayChildren as child, i}
 			<ChildListCard
 				{child}
 				isSelected={data.selectedChild?.id === child.id}
@@ -287,6 +342,15 @@ const addCalculatedAge = $derived(
 		padding: 0.75rem;
 		border-radius: 0.5rem;
 		font-size: 0.875rem;
+	}
+	/* #4919: same shape as admin/activities .action-message (success role="status" banner) */
+	.action-message {
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md, 0.5rem);
+		background: var(--color-feedback-success-bg);
+		border: 1px solid var(--color-feedback-success-border);
+		color: var(--color-feedback-success-text);
+		font-size: 0.85rem;
 	}
 	.children-page__list {
 		display: grid;

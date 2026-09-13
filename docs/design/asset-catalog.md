@@ -407,6 +407,30 @@ npm run generate:image -- --prompt "<生成プロンプト差分>" --category ti
 
 ---
 
+## バトル キャラクター・敵一覧（画像化済み、#4921）
+
+`/[uiMode]/battle` 画面（elementary 以上）で使用する自キャラ・敵キャラ画像。1024×1024 の**真の alpha チャンネル付き PNG**（`sharp().metadata().hasAlpha === true`）で保存する。Gemini 画像生成は透過を意図しても JPEG bytes（市松模様を画素として焼き込んだ疑似透過）を返すことがあるため、生成直後に必ず `hasAlpha` を確認し、崩れていた場合は `node scripts/remove-checkerboard-bg.mjs <path...>` で市松模様を検出してアルファ化する（実装は `docs/reference/gemini_image_generation_guide.md` 同様、Gemini 鍵不要の決定的な後処理）。
+
+| 名前 | レアリティ | ファイル名 | 出現曜日 |
+|------|-----------|-----------|---------|
+| きみ（自キャラ） | — | `static/assets/battle/characters/hero-default.png` | 常時 |
+| スライム | common | `static/assets/battle/enemies/common-slime.png` | 毎日 |
+| コウモリ | common | `static/assets/battle/enemies/common-bat.png` | 毎日 |
+| キノコおばけ | common | `static/assets/battle/enemies/common-mushroom.png` | 毎日 |
+| ネズミぞく | common | `static/assets/battle/enemies/common-mouse.png` | 毎日 |
+| ゴブリン | uncommon | `static/assets/battle/enemies/uncommon-goblin.png` | 月・水・金 |
+| オオカミ | uncommon | `static/assets/battle/enemies/uncommon-wolf.png` | 火・木・土 |
+| いしのゴーレム | uncommon | `static/assets/battle/enemies/uncommon-golem.png` | 日・土 |
+| まほうつかい | uncommon | `static/assets/battle/enemies/uncommon-wizard.png` | 平日 |
+| ドラゴンのこども | rare | `static/assets/battle/enemies/rare-dragon.png` | 日・土 |
+| やみのきし | rare | `static/assets/battle/enemies/rare-dark-knight.png` | 金・土 |
+| まおうのかげ | boss | `static/assets/battle/enemies/boss-demon-lord.png` | 日のみ |
+| こおりのまじょ | boss | `static/assets/battle/enemies/boss-ice-witch.png` | 水のみ |
+
+敵マスタ定義（名前・ステータス・出現曜日）は `src/lib/domain/battle-enemies.ts` が SSOT。背景 `static/assets/battle/backgrounds/meadow.png` は CSS `background-image` として常時全面表示する意図的なフル画像のため透過対象外。
+
+---
+
 ## 画像生成仕様
 
 ### スタイルガイド

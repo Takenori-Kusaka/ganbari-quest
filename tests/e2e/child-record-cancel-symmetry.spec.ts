@@ -111,10 +111,21 @@ test.describe('#4686 とりけしの対称巻き戻し (コンボ) + 結果ダ�
 		const shownFocus = await readIfVisible('result-focus-bonus');
 		expect(shownPoints).toBeGreaterThan(0);
 
-		// outcome ①: ダイアログの合計 (記録ポイント + コンボ純増 + ミッション / フォーカス差分) = 台帳の増分
+		// outcome ①: ダイアログの主要数字 = 台帳の増分
+		//
+		// #4950: `result-point-value` の意味が #4916 (PR #4938) で「base ポイント」から
+		// 「grandTotal = 熟練 / combo / mission / focus を含む真の残高増分」に変わった。
+		// 旧式の `shownPoints + shownCombo + shownMission + shownFocus` は grandTotal に
+		// 内訳を足すのでボーナスを二重計上する (実測 13 に対し台帳増分 8)。
+		// #4686 の不変条件「ダイアログの合計 = 台帳増分」は変わっておらず、
+		// #4916 はむしろそれを強化しているので、比較対象を grandTotal 単体に正す。
 		await expect
 			.poll(async () => (await ledgerSum(workerDbPath, childId)) - beforeB)
-			.toBe(shownPoints + shownCombo + shownMission + shownFocus);
+			.toBe(shownPoints);
+
+		// 内訳が主要数字に "含まれている" ことも確かめる (足し算ではなく内包の関係)。
+		// 旧 assert が守ろうとしていた「内訳と主要数字の整合」を、正しい向きで残す。
+		expect(shownPoints).toBeGreaterThanOrEqual(shownCombo + shownMission + shownFocus);
 
 		// act: とりけし (5 秒窓内)
 		const cancelBtn = page.getByTestId('activity-cancel-btn');

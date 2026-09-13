@@ -81,6 +81,35 @@ const { Story } = defineMeta({
 	}}
 />
 
+<!-- #4913: 押印ぶん (instantPoints) + おみくじぶん (loginBonusPoints) が両方ある日。
+     旧実装は「+5pt」が 2 回連続で読め、何に対する pt か分からなかった。両方に labeled prefix
+     ("スタンプ" / "おみくじ○○！") を付け、合計行 (stamp-points-total) が出ることを固定する。 -->
+<Story
+	name="InstantAndLoginBonusCombined"
+	args={{
+		...baseArgs,
+		uiMode: 'elementary',
+		instantPoints: 5,
+		loginBonusPoints: 5,
+		loginBonusRank: '小吉',
+	}}
+	play={async () => {
+		const t = getChildStampLabels('elementary');
+		const instant = await waitFor(() => screen.getByTestId('stamp-instant-points'), {
+			timeout: 5000,
+		});
+		await waitFor(() => expect(instant).toBeVisible(), { timeout: 5000 });
+		await expect(instant).toHaveTextContent(t.stampPressInstantPointsLabel(5));
+
+		const loginBonus = screen.getByTestId('stamp-login-bonus');
+		await expect(loginBonus).toHaveTextContent(t.stampPressLoginBonus('小吉', 5));
+
+		const total = screen.getByTestId('stamp-points-total');
+		await expect(total).toBeVisible();
+		await expect(total).toHaveTextContent(t.stampPressTotalPointsLabel(10));
+	}}
+/>
+
 <!-- 週次交換フェーズ (「つぎへ」/「次へ」で遷移する 2 画面目)。play で実際に遷移させて描画する -->
 <Story
 	name="SeniorWeeklyRedeem"

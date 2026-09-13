@@ -38,6 +38,30 @@ AI エージェントも 4 フィールド全て埋める。`Blocked by` 未解�
 - **CI 失敗時に自動で Draft へ戻す workflow は無い**。CI が赤いまま Ready にしないのは出す側の責任（`npm run pre-ready -- --pr <num>` と `gh pr checks <num>` で確認してから Ready 化する）
 - Dependabot PR は non-draft 自動作成、auto-merge 運用
 
+### Dependabot auto-merge の適用外条件（#4946）
+
+`dependabot-auto-merge.yml` は「minor/patch かつ dependabot 単独 commit かつ base=develop」以外は
+**意図的に auto-merge を武装しない**。以下のいずれかに該当する PR は自動化の対象外であり、
+QM が通常の 5 手順レビュー（`docs/sessions/qm-session.md`）で個別に merge 可否を判断する。
+「なぜ auto-merge されないのか分からない」を無くすための一覧であり、機構は変えない。
+
+| 条件 | 検出箇所 | QM が確認すること |
+|---|---|---|
+| **semver-major 更新** | `fetch-metadata` の `update-type` が minor/patch 以外 | changelog の破壊的変更を読み、影響コードを grep。問題なければ通常 approve |
+| **PR に human commit / 署名検証失敗がある** | 「Detect human commits」step（`commit.author.name` または `commit.verification.verified`） | 誰が何を追記したかを diff で確認（rebase 由来の署名喪失か、レビュー指摘対応の追い commit か） |
+| **base が develop 以外**（security PR は仕様上 main 直行、#4544） | 「Skip auto-merge for non-develop base」step | `main-pr-base-guard` が fail-close する前提で、`gh pr edit <N> --base develop` で retarget してから通常レーンに乗せる（#3922 / #4273 の既知パターン） |
+| **`dependabot.yml` の `ignore` 対象（例: better-sqlite3 12.11.x/13.x、typescript major）** | dependabot 自体が PR を作らない、または `@dependabot unignore` 後の個別判断 | `dependabot.yml` のコメントにある再評価条件・解除手順を先に満たしているか確認してから unignore する |
+| **ネイティブ/コンパイル依存（better-sqlite3 等）のバージョン変更** | 該当パッケージ名で目視 | `scripts/check-native-dep-pin.mjs` の pin 更新が同 PR に伴っているか確認。伴わない bump は保留 |
+| **grouped update の一部だけ major を含む** | dependabot はそもそも major を group から除外するため通常発生しないが、group 設定変更時は要再確認 | `.github/dependabot.yml` の group 定義（`update-types` 制約）が壊れていないか確認 |
+
+過去の false positive（#4946）: 「Detect human commits」step は元々 `commit.committer.name` を
+`"dependabot[bot]"` と比較していたが、GitHub は API 経由の bot commit の committer を常に
+web-flow の `"GitHub"` にするため、**正規の dependabot 単独 commit も毎回「人の commit あり」判定
+になり auto-merge が一度も発火していなかった**（実測: 直近 merge 済み 5 件全て該当）。
+`commit.verification.verified` 判定に切替えて解消したが、同種の「実装が意図と食い違う」再発を
+防ぐため、実際に auto-merge が発火したか（`gh pr view <N> --json autoMergeRequest`）を weekly の
+mailbox polling で時々サンプル確認する。
+
 ### Dependabot CI exempt（#1808）
 
 Dependabot / Renovate の依存更新 PR は以下を自動 skip（`dependencies` ラベル + `actor != bot`）:

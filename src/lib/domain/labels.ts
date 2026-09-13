@@ -224,6 +224,8 @@ export const PAGE_TITLES = {
 	childStatus: 'つよさ',
 	childHome: 'ホーム',
 	childChecklist: 'もちものチェック',
+	// #4921: バトル画面 (`(character)/battle`)。demo 側の demoChildBattle と同値
+	childBattle: 'バトル',
 	// デモ子供用
 	// #2175: demoChildAchievements → demoChildChallenges (本番と同期 rename)
 	demoChildChallenges: 'チャレンジきろく',
@@ -252,6 +254,8 @@ export const PAGE_TITLES = {
 	// セットアップ完了・各ステップ
 	setupComplete: 'ぼうけんのはじまり！',
 	setupChildren: `${CHILD_TERMS.honorific}登録`,
+	// #4912: 保護者が操作する画面なのに他 setup step と違い title が無かった
+	setupQuestionnaire: 'かんたん質問',
 	setupFirstAdventure: 'はじめてのぼうけん',
 	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
 	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
@@ -351,6 +355,20 @@ export function formatPeople(n: number): string {
 }
 export function formatDateRange(start: string, end: string): string {
 	return `${formatJstDate(start)} 〜 ${formatJstDate(end)}`;
+}
+
+/**
+ * setup wizard の一括取込ステップ（活動パック → rewards / ごほうびセット → rules /
+ * ルール → activities-defaults）が次画面へ引き継ぐ「N 件追加（M 件は登録済みのため
+ * スキップ）」の共通文言 (#4912)。3 画面が同じ形の notice を出すため、個別 namespace に
+ * 複製せずここに一元化する。0 件 (= スキップ操作 / 何も取込まれなかった) のときは
+ * 呼び出し側で表示自体を抑制する (本関数は呼ばない)。
+ */
+export function formatSetupImportNotice(imported: number, skipped: number): string {
+	if (skipped > 0) {
+		return `${imported}件追加しました（${skipped}件は登録済みのためスキップしました）。`;
+	}
+	return `${imported}件追加しました。`;
 }
 
 /**
@@ -5368,14 +5386,21 @@ export const SIGNUP_LABELS = {
 	privacyAgreeLink: 'プライバシーポリシー',
 	privacyAgreeSuffix: 'に同意します',
 	privacyAgreeError: 'プライバシーポリシーへの同意が必要です',
-	// #1638: 個人情報保護法 §28 — 外国にある第三者（米国 AWS バージニア北部リージョン）への提供同意
-	// 個人開発配慮版（DPIA §5 の実態を transparent に明示）
-	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	// #1638 / #4944: 個人情報保護法 §28 — 外国にある第三者への提供同意。
+	// 第一層は「何が起きる / 起きない」だけを平易語で出し、事業者名・国名・制度・条番号は
+	// 第二層 (privacy.html 第 10 条) に置いて crossBorderDetailLink から到達させる。
+	// 施行規則 17 条 2 項の 3 情報は第二層で提供する (PPC A12-10: URL 提供可)。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
+	// 常時表示は summaryPositive / noNoUse の 2 行だけ。残りは crossBorderDetailsSummary の
+	// 折りたたみに入れる（同意画面 3 ブロックの見た目の重さを揃える、#4944 PO 判断）
+	crossBorderSummaryPositive: CROSS_BORDER_TERMS.summaryPositive,
 	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
-	crossBorderAgreePrefix:
-		'上記を理解し、サービス提供に必要な範囲でのデータ保存・処理に同意します（',
-	crossBorderAgreeLink: '詳細',
-	crossBorderAgreeSuffix: '）',
+	crossBorderDetailsSummary: CROSS_BORDER_TERMS.detailsSummary,
+	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
+	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
+	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
+	crossBorderDetailLink: CROSS_BORDER_TERMS.detailLink,
+	crossBorderAgreeLabel: CROSS_BORDER_TERMS.consentLabel,
 	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	parentalConsentNote: `※ 本サービスは${CHILD_TERMS.honorific}のデータを扱います。保護者として上記に同意してください。`,
 	submitLoading: '登録中...',
@@ -6031,6 +6056,18 @@ export const CHILD_HOME_LABELS = {
 	resultComboNewBonus: 'コンボボーナス',
 	/** #4686: フォーカスモード おすすめ 3 件全完了ボーナス (台帳 type=focus_bonus) の結果ダイアログ表記 */
 	resultFocusBonus: '🎯 きょうのクエスト コンプリート！',
+	/**
+	 * #4916: 結果ダイアログの内訳 (基本ポイント行)。主要数字 (grandTotal) と内訳の整合を
+	 * 顧客が追えるように、基本ポイントも 1 行として明示する。
+	 */
+	resultBreakdownBase: (points: number | string) => `きほん +${points}P`,
+	/** #4916: メインクエスト倍率タグ (base 行に併記)。 */
+	resultBreakdownMainQuestTag: '⚔️ メインクエスト ×2',
+	/** #4916: bonus-hook 由来の倍率タグ (weekend 2倍 等、preset の title を動的に差し込む)。 */
+	resultBreakdownMultiplierTag: (title: string, multiplier: number | string) =>
+		`${title} ×${multiplier}`,
+	/** #4916: bonus-hook 由来の加点行 (はやおきボーナス等、preset の title を動的に差し込む)。 */
+	resultBreakdownBonusHook: (title: string, points: number | string) => `${title} +${points}P`,
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
@@ -6101,6 +6138,8 @@ const CHILD_HOME_KANJI_OVERRIDES = {
 	resultMasteryLevelUp: (name: string, level: number | string) =>
 		`🎖️ ${name}が Lv.${level} になりました`,
 	resultXpLabel: '経験値',
+	/** #4916: hiragana 側「きほん」の漢字 override */
+	resultBreakdownBase: (points: number | string) => `基本 +${points}P`,
 	siblingUnknownName: 'きょうだい',
 	resultMissionComplete: '🎯 ミッション達成！',
 	resultMissionAllClear: '🎉 すべてクリア！',
@@ -6765,11 +6804,22 @@ export const CONSENT_LABELS = {
 	// Cross-border transfer (#4497 / 個人情報保護法 §28)
 	// Google OAuth 経由の登録では signup フォームを通らないため、越境移転同意は
 	// この画面が唯一の取得点になる（全サインアップ経路で証跡を残す）。
-	crossBorderSectionTitle: CROSS_BORDER_TERMS.transfer,
+	//
+	// #4944: 見出しと本文を第一層 (何が起きる / 起きない) に置き換えた。
+	// 事業者名・国名・制度・条番号は第二層 = privacy.html 第 10 条にあり
+	// crossBorderReadLink から到達する。旧見出しは条項名 (CROSS_BORDER_TERMS.transfer) を
+	// そのまま出していたため、読み手が「自分に何が起きるのか」を判断できなかった。
+	crossBorderSectionTitle: CROSS_BORDER_TERMS.sectionTitle,
 	crossBorderVersionPrefix: 'バージョン: ',
-	crossBorderReadLink: '移転先・提供情報を確認する ↗',
-	crossBorderNotice: CROSS_BORDER_TERMS.notice,
+	crossBorderReadLink: `${CROSS_BORDER_TERMS.detailLink} ↗`,
+	// 常時表示は summaryPositive / noNoUse の 2 行だけ（#4944 PO 判断）
+	crossBorderSummaryPositive: CROSS_BORDER_TERMS.summaryPositive,
 	crossBorderNoNoUse: CROSS_BORDER_TERMS.noNoUse,
+	// 以下 3 行は crossBorderDetailsSummary の折りたたみ内
+	crossBorderDetailsSummary: CROSS_BORDER_TERMS.detailsSummary,
+	crossBorderWhatHappens: CROSS_BORDER_TERMS.whatHappens,
+	crossBorderPaymentScope: CROSS_BORDER_TERMS.paymentScope,
+	crossBorderDeletion: CROSS_BORDER_TERMS.deletion,
 	crossBorderCheckLabel: CROSS_BORDER_TERMS.consentLabel,
 
 	// Submit button
@@ -7111,6 +7161,11 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	//   親に一度も届かない (`challengesFailed` を URL に載せながら画面は成功文言だけだった)。
 	challengesPartialNotice: (added: number, failed: number) =>
 		`チャレンジを ${added} 件追加しました。${failed} 件は追加できませんでした（あとから設定できます）。`,
+	// #4908: 選んだカードの基礎ポイント (例: +10pt) と演出の合計ポイント (例: +20pt) が
+	//   ストリーク / 習熟 / メインクエスト倍率等のボーナスで食い違うことがある。内訳を出さないと
+	//   「10 と言ったのに 20」に見える。基礎と合計が一致するときはこの文言を出さない。
+	pointsBreakdown: (base: number, total: number) =>
+		`（きほん +${base}pt ＋ ボーナス +${total - base}pt）`,
 } as const;
 
 /**
@@ -7988,6 +8043,9 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	voiceErrorFileTooLarge: '5MB以下にしてください',
 	voiceErrorUnsupportedType: 'MP3/M4A/WAV/WebM/OGG形式のみ',
 	voiceErrorTooMany: '10件まで登録可能です',
+	// #4919: 追加成功時の 2 層 feedback (Toast + role="status" banner、admin/activities と同型)。
+	// 一覧反映を待たず (`use:enhance` 成功直後) 表示するため、追加したニックネームを埋め込む。
+	addedSuccess: (nickname: string) => `${nickname}を登録しました`,
 } as const;
 
 // #2362 PR-7 (ADR-0055、User §6): per-child challenge instance + 兄弟連動 UI
@@ -8006,6 +8064,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// #3195: アプリ自動生成への一本化 (親手動作成撤去、読み取り専用ビュー)
 	autoGeneratedDesc:
 		'チャレンジはアプリが毎週自動で用意します。お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標が届きます。',
+	// #4911: setup wizard (初期設定) で家族が選んだ preset / custom チャレンジのみが表示されている
+	// (週次自動生成が 1 件も無い) ときは「毎週自動で用意します」と書かない (ADR-0013 実装の事実に一致)。
+	// 旧実装は常に autoGeneratedDesc を出しており、setup 由来のカスタムしか無い画面で矛盾していた。
+	customOnlyDesc:
+		'表示されているチャレンジは、初期設定や保護者が選んで追加したものです。これとは別に、お子さまがアプリを開くと、記録の傾向にあわせた週替わりのチャレンジも自動で届きます。',
 	autoGeneratedEmptyDesc: 'お子さまがアプリを開くと、今週のチャレンジが自動で用意されます。',
 	// #2554 follow-up CUJ-CH2 完全化: marketplace 取込 → ChildSelectionDialog auto-open → 確定 result toast
 	// (admin-rewards / admin-activities と同型 pattern、ADR-0055 per-child + family-only gate 整合)
@@ -8076,23 +8139,25 @@ export const SETUP_QUESTIONNAIRE_LABELS = {
 	challengeHomeworkDaily: '毎日宿題をやらせたい',
 	challengeChores: '家事をやらせたい',
 	challengeBeyondGames: 'ゲーム以外のことに興味を惹かせたい',
-	q2Legend: 'Q2. 1にちに どれくらい きろくする？',
-	activityLevelFewLabel: 'すこしずつ（3〜5こ）',
-	activityLevelFewDesc: 'はじめてでも むりなく',
-	activityLevelNormalLabel: 'ふつう（5〜10こ）',
+	// #4912: この画面は保護者が操作する（#4802「保護者画面の呼称・見出しを 1 つに揃える」の対象漏れ）。
+	// Q1 は漢字表記なのに Q2/Q3 だけ子供向けひらがな表記になっていたため、Q1 と同じ調子に揃える。
+	q2Legend: 'Q2. 1日にどれくらい記録する？',
+	activityLevelFewLabel: '少しずつ（3〜5個）',
+	activityLevelFewDesc: 'はじめてでも無理なく',
+	activityLevelNormalLabel: 'ふつう（5〜10個）',
 	activityLevelNormalDesc: 'おすすめ',
-	activityLevelManyLabel: 'たくさん（10こ いじょう）',
-	activityLevelManyDesc: 'いろいろ きろくしたい',
+	activityLevelManyLabel: 'たくさん（10個以上）',
+	activityLevelManyDesc: 'いろいろ記録したい',
 	recommendedBadge: 'おすすめ',
 	q3Legend: 'Q3. チェックリストを自動作成する？',
-	q3Hint: 'えらんだリストが自動で作成されます（あとから変更できます）',
+	q3Hint: '選んだリストが自動で作成されます（あとから変更できます）',
 	// プリセットラベル（チェックリスト一覧用）
-	presetMorningRoutine: 'あさのしたく',
-	presetEveningRoutine: 'よるのじゅんび',
-	presetAfterSchool: 'がっこうからかえったら',
-	presetWeekendChores: 'しゅうまつのおてつだい',
-	presetBeyondGames: 'ゲームいがいのチャレンジ',
-	submittingLabel: 'せっていちゅう...',
+	presetMorningRoutine: '朝の支度',
+	presetEveningRoutine: '夜の準備',
+	presetAfterSchool: '学校から帰ったら',
+	presetWeekendChores: '週末のお手伝い',
+	presetBeyondGames: 'ゲーム以外のチャレンジ',
+	submittingLabel: '設定中...',
 	startButton: 'この設定ではじめる！',
 	skipButton: 'あとで設定する（スキップ）',
 } as const;
@@ -8369,15 +8434,17 @@ export const SETUP_RULES_LABELS = {
  */
 export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
 	pageTitle: '活動・ポイント設定の初期値',
-	pageDesc:
-		'おすすめの初期設定をワンタップで適用できます。あとから /admin/settings/activities でいつでも変更できます。',
+	// #4909: 内部パス /admin/settings/activities の直書きを禁止（DESIGN.md §6「内部コード露出禁止」）。
+	// 画面名は ADMIN_SCREEN_TERMS.settings (設定) + SETTINGS_NAV_LABELS.activities (活動・ポイント) で案内する。
+	pageDesc: `おすすめの初期設定をワンタップで適用できます。あとから ${ADMIN_SCREEN_TERMS.settings} > ${SETTINGS_NAV_LABELS.activities} でいつでも変更できます。`,
 	infoNotice:
 		'これらの初期値はあくまでスタート地点です。家族の使い方に合わせて、あとから自由に変更できます。',
 	defaultsSummaryTitle: '適用される初期設定',
 	defaultDecayLabel: 'ステータス減少: ふつう（最初の2日は減少しません）',
 	defaultPointModeLabel: 'ポイント表示: 「P」（あとで通貨換算も選べます）',
 	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力（家族みんなで取り組みます）',
-	defaultSiblingRankingLabel: 'きょうだいランキング: OFF（family プランで ON 可能）',
+	// #4909: 撤去済み旧称「family」直書きを禁止（ADR-0045）。PLAN_FULL_TERMS.premium 経由にする。
+	defaultSiblingRankingLabel: `きょうだいランキング: OFF（${PLAN_FULL_TERMS.premium}で ON 可能）`,
 	applyButton: 'おすすめ初期値を適用してすすむ',
 	applyingLabel: '適用中...',
 	skipButton: 'スキップして次へ',
@@ -8399,7 +8466,9 @@ export const SETUP_CHALLENGES_LABELS = {
 	noticeNoChildren: 'お子さまが登録されていないため、このステップはスキップされます。',
 	targetSuffix: '回',
 	rewardSuffix: 'P',
-	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
+	// #4911: 保護者向け日付書式 SSOT (formatDateRange) 経由に統一。旧実装は ISO 文字列
+	// (`2027-03-01`) をそのまま出しており #4802 の日付書式統一から漏れていた。
+	periodFormat: (start: string, end: string): string => `期間: ${formatDateRange(start, end)}`,
 	// #4512: 同一文言が packs / rewards / rules にも直書きされていたため SETUP_LABELS に集約
 	previewToggleOpen: SETUP_LABELS.previewToggleOpen,
 	previewToggleClose: SETUP_LABELS.previewToggleClose,
@@ -9118,7 +9187,9 @@ export const LP_PRICING_LABELS = {
 	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreeQ: '無料プランでも十分使えますか？',
 	// #1912 (F-6): LP FAQ の「ログインボーナス」→「ごほうび」へ日本語化
-	faqFreeA: `はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.productRegistration}（貯めたポイントと交換する商品の登録）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
+	// #4915: プリセットのごほうびも無料プランで追加できる (実装の事実、ADR-0013)。
+	// 「商品登録」を「オリジナルごほうびの登録」に絞り、無料でできること/できないことを両方示す。
+	faqFreeA: `はい。プリセットの活動・チェックリスト・${REWARD_TERMS.canonical}で基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.originalRegistration}（プリセットにない商品をご自身で作って登録すること）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
@@ -10137,6 +10208,11 @@ const CHILD_STAMP_LABELS = {
 	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
+	// #4913: 押印ぶん (instantPoints) が何に対する +Npt か分からず、おみくじぶんの +Npt と
+	// 並ぶと「+5pt」が 2 回連続で読める状態になっていた。おみくじ側と同じく「何の pt か」を
+	// 明示し、両方ある日は合計行を出す。
+	stampPressInstantPointsLabel: (points: number | string) => `スタンプ +${points}pt`,
+	stampPressTotalPointsLabel: (points: number | string) => `あわせて +${points}pt`,
 } as const;
 
 /**
@@ -10158,6 +10234,7 @@ const CHILD_STAMP_KANJI_OVERRIDES = {
 	stampPressNextBtn: '次へ',
 	stampPressConfirmBtn: 'OK',
 	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
+	stampPressTotalPointsLabel: (points: number | string) => `合計 +${points}pt`,
 } as const satisfies Partial<ChildStampLabels>;
 
 /** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
@@ -10470,41 +10547,92 @@ export const AI_INPUT_NOTICE_LABELS = {
 // 機能カテゴリ別にネスト構造で管理する。
 // ============================================================
 
+/**
+ * バトル画面（features/battle/）の文言セット。ひらがな側が base
+ * （baby は route 側で 404、preschool/elementary はこのまま使用）。
+ * 値の型は `string` に広げてある（`as const` のままだと年齢帯変種が別の文字列を入れられない）。
+ */
+const FEATURES_BATTLE_LABELS = {
+	// BattlePage
+	pageTitle: '⚔️ きょうの バトル',
+	loadError: 'バトルじょうほうを よみこめませんでした',
+	loadingText: 'バトルちゅう...',
+	// BattleScene
+	playerName: 'きみ',
+	playerSpriteAlt: 'きみ',
+	statsTitle: 'きみのステータス',
+	// #1791: ステータス 5 軸とカテゴリ 5 軸の対応表（自キャラ左 + 対応表で「直近の活動が攻撃力になる」を可視化）
+	statCategoryHpLabel: 'うんどう',
+	statCategoryAtkLabel: 'べんきょう',
+	statCategoryDefLabel: 'こうりゅう',
+	statCategorySpdLabel: 'せいかつ',
+	statCategoryRecLabel: 'そうぞう',
+	statCategoryAriaLabel: '対応するカテゴリ',
+	statCategoryNote: '※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます',
+	startBtn: '⚔️ バトル かいし！',
+	alreadyDone: 'きょうの バトルは おわったよ！',
+	resultWin: '🎉 かった！',
+	resultLose: '😢 まけちゃった…',
+	rewardWin: (points: number) => `+${points}ポイント`,
+	rewardLose: (points: number) => `+${points}ポイント（なぐさめ）`,
+	encourageLose: 'つぎは かてるよ！ がんばろう！',
+	// BattleLog
+	logEnemy: 'てき',
+	logPlayer: 'きみ',
+	logDefeated: (who: string) => `${who}は たおれた…`,
+	logCriticalPrefix: 'かいしんの いちげき！ ',
+	logAttack: (who: string, damage: number, critical: boolean) =>
+		`${critical ? 'かいしんの いちげき！ ' : ''}${who}の こうげき！ ${damage} ダメージ`,
+	logTurnLabel: (turn: number) => `ターン${turn}`,
+} as const;
+
+type FeaturesBattleLabels = {
+	readonly [K in keyof typeof FEATURES_BATTLE_LABELS]: (typeof FEATURES_BATTLE_LABELS)[K] extends string
+		? string
+		: (typeof FEATURES_BATTLE_LABELS)[K];
+};
+
+/**
+ * #4921: バトル画面の漢字変種 (junior / senior、13-18 歳)。
+ *
+ * 旧実装は年齢帯を持たず、高校生の画面にも「⚔️ きょうの バトル / きみのステータス /
+ * バトル かいし！」等の幼児向けひらがな文体が出ていた (docs/DESIGN.md §8)。
+ * 差分だけを持ち、ベースに spread で重ねる (#4690 パターン)。
+ */
+const FEATURES_BATTLE_KANJI_OVERRIDES = {
+	pageTitle: '⚔️ 今日のバトル',
+	loadError: 'バトル情報を読み込めませんでした',
+	loadingText: 'バトル中...',
+	statsTitle: 'ステータス',
+	statCategoryHpLabel: '運動',
+	statCategoryAtkLabel: '勉強',
+	statCategoryDefLabel: '交流',
+	statCategorySpdLabel: '生活',
+	statCategoryRecLabel: '創造',
+	startBtn: '⚔️ バトル開始！',
+	alreadyDone: '今日のバトルは終わったよ',
+	resultWin: '🎉 勝った！',
+	resultLose: '😢 負けてしまった…',
+	rewardLose: (points: number) => `+${points}ポイント（参加賞）`,
+	encourageLose: '次は勝てるよ！頑張ろう',
+	logEnemy: '敵',
+	logDefeated: (who: string) => `${who}は倒れた…`,
+	logCriticalPrefix: '会心の一撃！ ',
+	logAttack: (who: string, damage: number, critical: boolean) =>
+		`${critical ? '会心の一撃！ ' : ''}${who}の攻撃！ ${damage} ダメージ`,
+} as const satisfies Partial<FeaturesBattleLabels>;
+
+/** バトル画面の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getBattleLabels(uiMode: string): FeaturesBattleLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary')
+		return FEATURES_BATTLE_LABELS;
+	return { ...FEATURES_BATTLE_LABELS, ...FEATURES_BATTLE_KANJI_OVERRIDES };
+}
+
 export const FEATURES_LABELS = {
 	// ---- features/battle/ ----
-	battle: {
-		// BattlePage
-		pageTitle: '⚔️ きょうの バトル',
-		loadError: 'バトルじょうほうを よみこめませんでした',
-		loadingText: 'バトルちゅう...',
-		// BattleScene
-		playerName: 'きみ',
-		playerSpriteAlt: 'きみ',
-		statsTitle: 'きみのステータス',
-		// #1791: ステータス 5 軸とカテゴリ 5 軸の対応表（自キャラ左 + 対応表で「直近の活動が攻撃力になる」を可視化）
-		statCategoryHpLabel: 'うんどう',
-		statCategoryAtkLabel: 'べんきょう',
-		statCategoryDefLabel: 'こうりゅう',
-		statCategorySpdLabel: 'せいかつ',
-		statCategoryRecLabel: 'そうぞう',
-		statCategoryAriaLabel: '対応するカテゴリ',
-		statCategoryNote: '※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます',
-		startBtn: '⚔️ バトル かいし！',
-		alreadyDone: 'きょうの バトルは おわったよ！',
-		resultWin: '🎉 かった！',
-		resultLose: '😢 まけちゃった…',
-		rewardWin: (points: number) => `+${points}ポイント`,
-		rewardLose: (points: number) => `+${points}ポイント（なぐさめ）`,
-		encourageLose: 'つぎは かてるよ！ がんばろう！',
-		// BattleLog
-		logEnemy: 'てき',
-		logPlayer: 'きみ',
-		logDefeated: (who: string) => `${who}は たおれた…`,
-		logCriticalPrefix: 'かいしんの いちげき！ ',
-		logAttack: (who: string, damage: number, critical: boolean) =>
-			`${critical ? 'かいしんの いちげき！ ' : ''}${who}の こうげき！ ${damage} ダメージ`,
-		logTurnLabel: (turn: number) => `ターン${turn}`,
-	},
+	battle: FEATURES_BATTLE_LABELS,
 
 	// ---- features/birthday/ ----
 	birthday: {
@@ -11937,12 +12065,16 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k8: 'メールサポート（標準）',
 	// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限を
 	// 検討時点で見えるようにする (実ゲート = isCustomRewardUnlocked、#4584)。
-	k8b: `${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
+	// #4915: 初期セットアップのプリセット取込には上限が無く、無料プランでもプリセットの
+	// ごほうびをショップに並べられる (実装の事実)。ADR-0013 に基づき、無料でできること
+	// (プリセットから追加) と、できないこと (オリジナルの自作登録) を両方明示する。
+	k8b: `${REWARD_TERMS.canonical}: ${REWARD_TERMS.preset}から追加（${REWARD_TERMS.originalRegistration}は${PLAN_TERMS.standard}以上）`,
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
 	k12: `家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
-	k13: `${REWARD_TERMS.productRegistration}`,
+	// #4915: 無料でも使えるプリセット取込と対比するため「オリジナル」限定の名称に是正。
+	k13: `${REWARD_TERMS.originalRegistration}`,
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
 	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -11976,8 +12108,12 @@ export const LP_PRICING_PHASEB_LABELS = {
 	//   実装はプリセット取込ぶんも同じ枠を消費する「1 子あたりテンプレ合計 3 件」であり、
 	//   2 行に分けると「プリセットは別枠で使い放題」と読めてしまう (plan-limit-service.maxChecklistTemplates)。
 	k36: '<td>持ち物チェックリスト（登校・おでかけ等の取込を含む）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td>',
+	// #4915: 無料プランでも初期セットアップのプリセット取込には上限が無い (実装の事実、ADR-0013)。
+	// 「プリセット活動の利用」(k32) と同じ対の構造で、オリジナル登録行 (k39) の直前に置く。
+	k39a: `<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲートと別機能に読めたため atom に統一
-	k39: `<td>${REWARD_TERMS.productRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+	// #4915: 無料でも使えるプリセット取込 (k39a) と対比するため「オリジナル」限定の名称に是正。
+	k39: `<td>${REWARD_TERMS.originalRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
@@ -12099,7 +12235,9 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。猶予期間はご利用プランによって異なります（${PLAN_FULL_TERMS.free}: ${DELETION_GRACE_TERMS.free}削除 / ${PLAN_FULL_TERMS.standard}: ${DELETION_GRACE_TERMS.standardSpaced}間 / ${PLAN_FULL_TERMS.premium}: ${DELETION_GRACE_TERMS.premiumSpaced}間）。`,
 	k77: `${PLAN_FULL_TERMS.free}は申請と同時に削除されるため、取り消しもエクスポートもできません。有料プランは猶予期間中に申請の取り消しとデータのエクスポートができます。猶予期間の経過後、全データは完全に削除されます（復旧はできません）。`,
 	k78: 'データはどこに保存されていますか？',
-	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html">プライバシーポリシー</a>第8条（データの国外移転）をご覧ください。',
+	// #4944: リンク先の条番号が誤っていた。privacy.html の第 8 条は「外部送信規律 公表」で、
+	// 国外移転は第 10 条（外国にある第三者への提供）。不安になった読み手が踏むと別条に着地していた。
+	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html#cross-border-transfer">プライバシーポリシー</a>第10条（外国にある第三者への提供）をご覧ください。',
 	k80: '決済情報は Stripe（国際的な PCI DSS 準拠の決済プロバイダ）で管理されており、当サービスのサーバーにはカード番号等の秘匿情報を保持していません。',
 	k81: '<span class="faq-category-num">4</span>対応年齢・使い方について',
 	k82: '0〜18 歳までの年齢モードと、日々の運用のしかたについて。',
@@ -12300,7 +12438,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //   - effective: 末尾の制定日 / 最終改定日
 // ============================================================
 export const LP_LEGAL_PRIVACY_LABELS = {
-	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年9月10日</p>',
+	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年9月12日</p>',
 	intro:
 		'個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。',
 	// #4844 follow-up (PO 決定 2026-09-04): 旧文は 3 箇所とも「これらの情報はご契約期間中保存されます」
@@ -12329,14 +12467,14 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>お預かりしたデータを第三者へ提供したり、広告に利用したりすることはありません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報。加えて、AI 提案をご利用いただいた場合はその入力内容（活動・ごほうび・チェックリストのテキスト）、領収書の読み取りをご利用いただいた場合は選択された領収書画像を送信します（いずれも利用者識別子を含みません）。</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（運営者が管理する AWS 環境。アプリケーションの実行・データの保存・認証・生成 AI）</li><li>Stripe, Inc.（課金処理）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / AI 提案（活動・ごほうび・チェックリスト）のテキスト補助 / 領収書画像の読み取り</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
 	section9:
 		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で保護者同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>お子さまのデータを一括して生成 AI に渡さない</strong>: お子さまの活動記録・プロフィール等のデータベース上のデータを、生成 AI に送信することはありません。ただし、保護者ご自身が AI 提案機能（活動・チェックリスト・ごほうび）に入力した文章と、ポイント変換でアップロードされた領収書画像は、生成 AI に送信されます。送信先は、当社が提供するクラウド版では<strong>運営者が管理する AWS 環境内の生成 AI</strong>です（外部の生成 AI 事業者には渡りません）。ご自身のサーバーで運用されるセルフホスト版では、設定により<strong>運営者の環境外の生成 AI（Google LLC）</strong>が使われる場合があります。<strong>入力欄にお子さまのお名前など特定につながる情報を書かれた場合、その文章は上記の送信先に送られます</strong>のでご注意ください。</li><li><strong>保護者による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
-	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>運営者は、お預かりしたデータを機械学習・AI モデルの学習データに流用しません</strong>（セルフホスト版でご自身が設定された外部の生成 AI 事業者における取扱いは、その事業者の規約によります。運営者は関与せず、保証もできません）</li><li>${CHILD_TERMS.neutral}のニックネーム・活動記録などをデータベースから取り出して生成 AI に渡す機能はありません（生成 AI に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです。詳細は第9条④）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（データの保存先は AWS バージニア北部リージョン us-east-1。生成 AI の推論のみ、米国内の複数リージョン us-east-1 / us-east-2 / us-west-2 で処理される場合があります）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>当該国の個人情報の保護に関する制度</strong>: 米国には個人情報の保護に関する包括的な連邦法はなく、分野別の法律（金融・医療分野等）と州法（カリフォルニア州消費者プライバシー法等）により規律されています。日本の個人情報保護法と同等の水準にあると認められる外国（EU・英国）としては指定されていません。詳細は、個人情報保護委員会が公表する<a href="https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/#gaikoku" target="_blank" rel="noopener">外国における個人情報の保護に関する制度等の調査結果</a>（米国）をご参照ください。</li><li><strong>移転先が講ずる個人情報の保護のための措置</strong>: AWS との間で Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) を締結し、AWS は OECD プライバシーガイドラインに対応する措置（保存データの暗号化、アクセス制御、監査、再委託先の管理等）を講じています。これにより、日本の個人情報保護法に基づき運営者が講ずべき措置に相当する体制を継続的に確保しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「${CROSS_BORDER_TERMS.consentLabel}」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。Google アカウントでの登録など${SIGNUP_TERMS.canonical}フォームを経由しない場合は、ログイン後の同意画面で同じ同意を取得します。取得した同意は、同意日時・対象バージョンとともに記録されます。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。加えて、<strong>セルフホスト版で外部の生成 AI を使う設定にした場合</strong>は、AI 提案機能に入力された文章と領収書画像の送信先になります（第9条④）。当社が提供するクラウド版では生成 AI の送信先になりません。</li></ul></li></ol>`,
+	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>運営者は、お預かりしたデータを機械学習・AI モデルの学習データに流用しません</strong>（セルフホスト版でご自身が設定された外部の生成 AI 事業者における取扱いは、その事業者の規約によります。運営者は関与せず、保証もできません）</li><li>${CHILD_TERMS.neutral}のニックネーム・活動記録などをデータベースから取り出して生成 AI に渡す機能はありません（生成 AI に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです。詳細は第9条④）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（データの保存先は AWS バージニア北部リージョン us-east-1。生成 AI の推論のみ、米国内の複数リージョン us-east-1 / us-east-2 / us-west-2 で処理される場合があります）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>当該国の個人情報の保護に関する制度</strong>: 米国には個人情報の保護に関する包括的な連邦法はなく、分野別の法律（金融・医療分野等）と州法（カリフォルニア州消費者プライバシー法等）により規律されています。日本の個人情報保護法と同等の水準にあると認められる外国（EU・英国）としては指定されていません。詳細は、個人情報保護委員会が公表する<a href="https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/#gaikoku" target="_blank" rel="noopener">外国における個人情報の保護に関する制度等の調査結果</a>（米国）をご参照ください。</li><li><strong>移転先が講ずる個人情報の保護のための措置</strong>: AWS との間で Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) を締結し、AWS は OECD プライバシーガイドラインに対応する措置（保存データの暗号化、アクセス制御、監査、再委託先の管理等）を講じています。これにより、日本の個人情報保護法に基づき運営者が講ずべき措置に相当する体制を継続的に確保しています。</li><li><strong>移転される情報の範囲</strong>: 保護者のメールアドレス（認証用）、利用者識別子（家族内一意 ID）、${CHILD_TERMS.neutral}のプロフィール（ニックネーム・年齢・表示モード）、活動記録、ステータス（レベル・ポイント・連続日数）、${CHILD_TERMS.neutral}のアバター画像（アップロードされた場合。過去に保存された画像を含みます）、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）。生成 AI の推論に送られるのは、保護者が AI 提案機能に入力した文章と、アップロードされた領収書画像だけです（第9条④）。</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「${CROSS_BORDER_TERMS.consentLabel}」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。Google アカウントでの登録など${SIGNUP_TERMS.canonical}フォームを経由しない場合は、ログイン後の同意画面で同じ同意を取得します。取得した同意は、同意日時・対象バージョンとともに記録されます。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済の処理。運営者から Stripe に送るのは、お申し込みのプラン名と家族内一意 ID だけです。お名前・メールアドレス・カード番号は、利用者が Stripe の決済ページに直接入力し、運営者のサーバーを通りません。Stripe は PCI DSS Level 1 認証に加え、個人情報の越境移転に関する国際的な枠組みである<a href="https://www.globalcbpr.org/privacy-certifications/directory/" target="_blank" rel="noopener">グローバル CBPR システムの認証</a>（Stripe, LLC、TrustArc 認証、有効期限 2027 年 7 月）を取得しています。運営者は本条の同意を根拠として提供します。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。加えて、<strong>セルフホスト版で外部の生成 AI を使う設定にした場合</strong>は、AI 提案機能に入力された文章と領収書画像の送信先になります（第9条④）。当社が提供するクラウド版では生成 AI の送信先になりません。</li></ul></li></ol>`,
 	section11:
 		'<h2>第11条（本ポリシーの変更）</h2><ol><li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li><li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li><li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li></ol>',
 	section12:
 		'<h2>第12条（個人情報保護管理者）</h2><div class="contact"><p><strong>個人情報保護管理者</strong></p><p>氏名: 日下武紀</p><p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p></div>',
 	section13:
 		'<h2>第13条（お問い合わせ）</h2><p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p><div class="contact"><p>がんばりクエスト運営者 日下武紀</p><p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p></div>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年9月10日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年9月12日</p>',
 } as const;
 
 // ============================================================
@@ -12500,8 +12638,11 @@ export const LP_LEGAL_SLA_LABELS = {
 		'<h2>第3条（デプロイおよび計画メンテナンス）</h2><ol><li>本サービスは継続的デプロイ（CI/CD）を採用しており、通常のコードデプロイはゼロダウンタイムで実施されます。通常のデプロイにおいてサービスの中断は発生しません。</li><li>インフラストラクチャの変更（CDKスタック更新、データベースマイグレーション等）により、サービスの一時的な中断が見込まれる場合は「計画メンテナンス」として扱い、以下の対応を行います。<ul><li>事前通知: 24時間前までに本サービス内のお知らせにて告知します。あわせて、影響が大きいと運営者が判断した場合は登録メールアドレスへ順次ご連絡します</li><li>影響範囲および想定される中断時間の事前説明</li></ul></li><li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li></ol>',
 	section4:
 		'<h2>第4条（データ保護）</h2><p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p><ul><li>日次の自動バックアップを実施しています。</li><li>全ての通信はTLS 1.2以上で暗号化されます。</li><li>保存データはAES-256で暗号化されます。</li><li>障害発生時の復旧目標時間は4時間以内です。</li><li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li></ul>',
+	// #4924: 「（準備中）」は本番稼働中の 1 時間ごとヘルスチェック (infra/lib/ops-stack.ts の
+	// `HealthCheckSchedule`、`ganbari-quest-health-check` Lambda) と食い違う (ADR-0013 LP truth)。
+	// 実装済みの機構を「準備中」と書いたまま放置しない。
 	section5:
-		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
+		'<h2>第5条（障害通知）</h2><ol><li>サービス障害が発生した場合、運営者は本サービス内のお知らせにて状況を通知します。重大な障害の際は、登録メールアドレスへご連絡する場合があります。</li><li>障害の検知はデプロイ時の自動検証および1時間ごとの定期ヘルスチェックにより行われ、異常を検知した場合は速やかに対応を開始し通知します。</li></ol>',
 	// #4709: 応答目標は SUPPORT_RESPONSE_TERMS.initialResponseTarget が SSOT。
 	section6: `<h2>第6条（サポート対応）</h2><p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は${SUPPORT_RESPONSE_TERMS.initialResponseTarget}を目標としています。対応言語は日本語です。</p><p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>`,
 	section7:

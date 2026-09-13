@@ -7,7 +7,7 @@ import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { isSetupWizardInProgress } from '$lib/server/services/setup-service';
-import { getRewardTemplates } from '$lib/server/services/special-reward-service';
+import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
 
 export interface OnboardingItem {
 	key: string;
@@ -45,15 +45,13 @@ export async function getOnboardingProgress(
 	tenantId: string,
 	basePath: string,
 ): Promise<OnboardingProgress> {
-	const [children, activities, rewardTemplates, pinHash, dismissed, childScreenVisited] =
-		await Promise.all([
-			getAllChildren(tenantId),
-			getActivities(tenantId),
-			getRewardTemplates(tenantId),
-			getSetting('pin_hash', tenantId),
-			getSetting(DISMISSED_KEY, tenantId),
-			getSetting(CHILD_SCREEN_VISITED_KEY, tenantId),
-		]);
+	const [children, activities, pinHash, dismissed, childScreenVisited] = await Promise.all([
+		getAllChildren(tenantId),
+		getActivities(tenantId),
+		getSetting('pin_hash', tenantId),
+		getSetting(DISMISSED_KEY, tenantId),
+		getSetting(CHILD_SCREEN_VISITED_KEY, tenantId),
+	]);
 
 	// Item 4: Check if any child has a checklist template
 	let hasChecklist = false;
@@ -61,6 +59,24 @@ export async function getOnboardingProgress(
 		const templates = await findTemplatesByChild(child.id, tenantId, false);
 		if (templates.length > 0) {
 			hasChecklist = true;
+			break;
+		}
+	}
+
+	// Item 3 (rewards): per-child reward が主軸 (ADR-0055)。
+	//
+	// #4910: 旧実装は family scope の `getRewardTemplates` (settings に JSON で持つ
+	// 「特別なごほうび」template、`special-reward-service.ts` の `TEMPLATES_KEY`) の件数を
+	// 見ていたが、setup 4/9 (`/setup/rewards`) の reward-set 取込は **per-child**
+	// (`dispatchImport` → `special_rewards` テーブル、`getChildSpecialRewards` で読む表) に書く。
+	// 判定元 (family template) と書込先 (per-child reward) が別表だったため、37 件取り込んでも
+	// 「ごほうびプリセットを選ぶ ☐」が永久に未完了のままだった。checklist (直上) と同じ
+	// per-child ループ形にして、実際に setup が書く表を見る。
+	let hasReward = false;
+	for (const child of children) {
+		const { rewards } = await getChildSpecialRewards(child.id, tenantId);
+		if (rewards.length > 0) {
+			hasReward = true;
 			break;
 		}
 	}
@@ -84,7 +100,7 @@ export async function getOnboardingProgress(
 		{
 			key: 'rewards',
 			label: ONBOARDING_LABELS.itemRewards,
-			completed: rewardTemplates.length > 0,
+			completed: hasReward,
 			href: `${basePath}/rewards`,
 			required: true,
 		},
