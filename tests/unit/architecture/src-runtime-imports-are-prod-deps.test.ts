@@ -91,6 +91,28 @@ function toPackageName(spec: string): string | null {
 	return spec.startsWith('@') ? `${parts[0]}/${parts[1]}` : (parts[0] ?? null);
 }
 
+/** `source` 内の import/require 呼び出しから、dev 専用 native package への参照だけを拾う。 */
+function findDevOnlyNativeImports(
+	source: string,
+	native: Set<string>,
+	dev: Set<string>,
+	prod: Set<string>,
+): string[] {
+	const found = new Set<string>();
+	for (const pattern of IMPORT_PATTERNS) {
+		pattern.lastIndex = 0;
+		let m = pattern.exec(source);
+		while (m !== null) {
+			const name = m[1] ? toPackageName(m[1]) : null;
+			if (name && native.has(name) && dev.has(name) && !prod.has(name)) {
+				found.add(name);
+			}
+			m = pattern.exec(source);
+		}
+	}
+	return [...found];
+}
+
 describe('#4954 src/** が import するネイティブ package は dependencies にある', () => {
 	it('devDependencies にしか無いネイティブ package を src/** が import していない', () => {
 		const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8')) as {
@@ -115,21 +137,13 @@ describe('#4954 src/** が import するネイティブ package は dependencies
 			(f) => !f.includes('.stories.') && !f.includes('.test.') && !f.includes('.spec.'),
 		);
 
-		const violations: string[] = [];
-		for (const file of files) {
+		const violations = files.flatMap((file) => {
 			const source = readFileSync(file, 'utf-8');
-			for (const pattern of IMPORT_PATTERNS) {
-				pattern.lastIndex = 0;
-				let m = pattern.exec(source);
-				while (m !== null) {
-					const name = m[1] ? toPackageName(m[1]) : null;
-					if (name && native.has(name) && dev.has(name) && !prod.has(name)) {
-						violations.push(`${file.slice(ROOT.length + 1).replace(/\\/g, '/')} → ${name}`);
-					}
-					m = pattern.exec(source);
-				}
-			}
-		}
+			const relPath = file.slice(ROOT.length + 1).replace(/\\/g, '/');
+			return findDevOnlyNativeImports(source, native, dev, prod).map(
+				(name) => `${relPath} → ${name}`,
+			);
+		});
 
 		expect(
 			[...new Set(violations)].sort(),
