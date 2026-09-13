@@ -49,6 +49,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src を走査し、logger.* の message 引数に PII 名の変数 (email / pin / token 等) を埋め込む呼び出しの不在を見る (#4947 恒久策、出口 redaction と対の入口 gate)',
 	},
+	'tests/unit/architecture/src-runtime-imports-are-prod-deps.test.ts': {
+		scope: 'repo',
+		note: 'src を走査し、実行時 import するネイティブ package が devDependencies に留まっていないかを見る (#4954、npm ci --omit=dev の Lambda image でのみ欠落し本番だけ落ちる class)',
+	},
 	'tests/unit/scripts/capture-dev-users-ssot.test.ts': {
 		scope: 'repo',
 		note: 'scripts / tests/e2e / src / docs を走査し DEV_USERS password literal の不在を見る (#4831 / #4834)',
