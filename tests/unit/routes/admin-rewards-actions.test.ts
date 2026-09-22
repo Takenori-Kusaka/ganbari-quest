@@ -1,5 +1,6 @@
 // tests/unit/routes/admin-rewards-actions.test.ts
 // #728: /admin/rewards のプランゲート — grant / addPreset 403 + load の isPremium
+// #4928: プリセット取込 (importPresetToChildren / ?import= 着地) は全プラン可
 // PR #2474 (#2362 PR-4, ADR-0055 + CWE-598): importPresetToChildren / copyFromChild の
 // tenant 配下 child guard (CWE-598 IDOR 防御) を追加検証 (must-1)。
 
@@ -89,7 +90,6 @@ const load = mod.load as unknown as (event: { locals: App.Locals; url: URL }) =>
 	children: unknown[];
 	templates: unknown[];
 	importPresetId: string | null;
-	importPresetLocked: boolean;
 }>;
 type PlanLimitErrorShape = {
 	code: 'PLAN_LIMIT_EXCEEDED';
@@ -189,32 +189,22 @@ describe('/admin/rewards page.server', () => {
 			expect(result.planTier).toBe('family');
 		});
 
-		// #4705: marketplace の取込 CTA から無料プランで着地したとき、子供選択 dialog を
-		// 開いてから拒否しない (旧: CTA 活性 → 子供選択 → POST 後に「スタンダード以上」)。
-		it('無料プランで ?import= 付き着地 → dialog を開かず locked を返す', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('free');
+		// #4928: プリセットの取込は全プラン可 (初期セットアップと同じ)。無料プランでも
+		// ?import= 付きで着地したら子供選択 dialog 用の presetId を返す。
+		it.each([
+			['free', { licenseStatus: 'none' as const }],
+			['standard', { licenseStatus: 'active' as const, plan: 'standard_monthly' }],
+		])('%s プランで ?import= 付き着地 → dialog 用の presetId を返す', async (tier, ctx) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
 			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
 				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
 			);
 			const result = await load({
-				locals: makeLocals({ licenseStatus: 'none' }),
+				locals: makeLocals(ctx),
 				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
 			});
-			expect(result.importPresetLocked).toBe(true);
-			expect(result.importPresetId).toBeNull();
-		});
-
-		it('有料プランで ?import= 付き着地 → 従来どおり dialog 用の presetId を返す', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
-				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
-			);
-			const result = await load({
-				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
-				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
-			});
-			expect(result.importPresetLocked).toBe(false);
 			expect(result.importPresetId).toBe('kinder-rewards');
+			expect(result).not.toHaveProperty('importPresetLocked');
 		});
 	});
 
@@ -470,13 +460,31 @@ describe('/admin/rewards page.server', () => {
 			expect(mockDispatchImport).not.toHaveBeenCalled();
 		});
 
-		it('無料プランは 403 (CWE-598 guard より前にプランゲートで reject)', async () => {
+		// #4928: プリセット取込は全プラン可。無料プランでも取り込め、CWE-598 guard は同じく効く。
+		it('無料プランでもプリセットを取り込める (プランゲートで拒否しない)', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
 
 			const result = await importPresetToChildrenAction({
 				request: makeFormRequest({
 					presetId: 'kinder-rewards',
 					childIds: '100',
+				}),
+				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			expect(result.status).toBeUndefined();
+			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+		});
+
+		it('無料プランでも tenant 外の childIds は 403 (IDOR 防御はプランと無関係に効く)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
+
+			const result = await importPresetToChildrenAction({
+				request: makeFormRequest({
+					presetId: 'kinder-rewards',
+					childIds: '99999',
 				}),
 				locals: makeLocals({ licenseStatus: 'none' }),
 			});
