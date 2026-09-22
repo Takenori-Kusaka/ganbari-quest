@@ -32,7 +32,7 @@ description: 【実機・探索型】何が壊れているか分からない状�
 | a11y (WCAG 2.2 AA) | `tests/e2e/a11y-critical-cuj.spec.ts` + `a11y-baseline.json`（@axe-core/playwright） | **baseline に載っている違反の中身** / キーボード操作・focus 順序（axe が見ない領域） |
 | 視覚回帰 | visual regression 3 層（LP / child-home / app、`scripts/check-lp-visual-regression.mjs`） | **baseline が無い画面** / 動的状態（dialog open / error 表示中） |
 | LP 寸法・禁止語 | `scripts/measure-lp-dimensions.mjs`（`lp-metrics.yml`） | LP の**動線**（寸法は機械が見る） |
-| 機能 E2E | `tests/e2e/**`, `test:e2e:matrix`（mode × plan 4 project） | **E2E が goal 完遂を見るだけで通る「分かりにくさ」**（#2544 / #2558 で実証済） |
+| 機能 E2E | `tests/e2e/**`, `test:e2e:matrix`（mode × plan。project 一覧は `playwright.matrix.config.ts`） | **E2E が goal 完遂を見るだけで通る「分かりにくさ」**（#2544 / #2558 で実証済） |
 | 画面キャプチャ | `scripts/capture.mjs` / `capture-app-baseline.mjs` | — |
 
 ```bash
@@ -51,7 +51,7 @@ npx playwright test tests/e2e/a11y-critical-cuj.spec.ts   # 先に流して、�
 |---|---|---|
 | 本番アプリ（親） | `https://ganbari-quest.com/admin/**` | read-only 厳守 |
 | 本番アプリ（子供） | `/(child)/[uiMode]/**` — baby / preschool / elementary / junior / senior | **5 モード全部**。1 つで代表させない |
-| LP | `https://<pages>/index.html` ほか 10 ページ | `site/` 配下 |
+| LP | `https://<pages>/index.html` ほか `site/*.html` の各ページ | `site/` 配下 |
 | デモ | `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動した本番ルート | 専用ルートは存在しない（#2097 で撤去済） |
 | staging | `deploy-aws-staging.yml` / NUC staging | 破壊的操作はここで |
 
@@ -91,7 +91,7 @@ grep -rn "href=\"/admin" src/lib src/routes --include=*.svelte -o | sort -u
 
 ### ② 状態網羅（empty / loading / error / 上限 / 権限）
 
-`tests/CLAUDE.md` の「3 状態統一」条件と対。**正常系しか描かれていない画面**を探す。
+`tests/CLAUDE.md` §顧客レビュー前 CX 版 DoR の条件 11（3 状態 Empty / Error / Loading）と対。**正常系しか描かれていない画面**を探す。
 
 - [ ] **empty**: データ 0 件。`UnifiedEmptyState`（SSOT）を使っているか。独自の空表示を直書きしていないか
 - [ ] **filter empty**: 絞り込み結果 0 件が genuine-empty と区別されているか
@@ -118,7 +118,7 @@ grep -rn "href=\"/admin" src/lib src/routes --include=*.svelte -o | sort -u
 この製品では **breakpoint × 5 年齢モード** の二重マトリクスになる。
 
 - [ ] mobile (390) / tablet (768) / desktop (1280 / 1440) で崩れないか
-- [ ] **5 年齢モード全部**（baby 1.5 / preschool 1.2 / elementary 1.0 / junior 1.0 / senior 1.0 の fontScale、tapSize 120/80/56/48/44px）
+- [ ] **5 年齢モード全部**（各モードの fontScale / tapSize の値は `src/lib/domain/validation/age-tier.ts` の `AGE_TIER_CONFIG` が SSOT）
 - [ ] `fontScale` が大きいモードで**文字がはみ出す / ボタンからあふれる**箇所
 - [ ] `tapSize` が守られているか（baby で小さいボタンが残っていないか）
 - [ ] 日本語の折り返し（DESIGN.md §3。見出し・ボタンで不自然な位置で切れないか）
@@ -222,7 +222,7 @@ gh issue list --search "<keyword>" --state all   # 既知でないか
 **起票基準**（`docs/sessions/po-session.md` §「Issue を起票する基準」）:
 
 - **起票する**: 顧客価値の作業単位（EPIC と傘下の実装単位）、またはオーナーの手番が要るもの（不可逆 4 操作）
-- **起票しない（accepted-residual として記録）**: severity 1-2 の marginal。**Issue 化せず記録に残す**
+- **Issue にしない**: 直せる不備はその場で PR（同基準の「Issue にしない = その場で PR」）。直さない severity 1-2 の marginal は **accepted-residual として記録**（ADR-0061 原則 5）
 - **class-lock**: 同じ root class が 2 件目なら instance を N 件起票せず、**class 全体を 1 件の機械 guard で lock**（ADR-0061 原則 2）
 
 > **全部起票しない。** 探索は必ず大量の finding を生む。全部 Issue にすると backlog が膨らみ、優先順位が消える。**発露は全件、起票は選別。**
@@ -235,10 +235,10 @@ gh issue list --search "<keyword>" --state all   # 既知でないか
 |---|---|
 | 自己リンク / dead-end | fitness function（routes の href を静的検査）or E2E |
 | 状態網羅の漏れ | Storybook の play 関数 / E2E |
-| 年齢モード差 | `test:e2e:matrix`（mode × plan 4 project） |
+| 年齢モード差 | `test:e2e:matrix`（mode × plan） |
 | 視覚崩れ | visual regression baseline に画面を追加 |
 | a11y | `a11y-critical-cuj.spec.ts` に CUJ を追加 |
-| CWV 劣化 | LP は `lp-metrics.yml` に、アプリは app perf budget に |
+| CWV 劣化 | **受け皿となる既存資産は無い**（`lp-metrics.yml` は寸法・禁止語等で CWV は見ない。アプリの perf budget も未整備）。移すなら新設の要否から判断する |
 
 これをやらないと、探索が**毎回ゼロから**になる。
 
@@ -272,4 +272,4 @@ gh issue list --search "<keyword>" --state all   # 既知でないか
 | [`issue-triage`](../issue-triage/SKILL.md) | Step 5 の起票 |
 | `docs/sessions/webui-review-process.md` | WebUI レビュー 4 層自動化モデル + A〜D 課題一般化フロー（#2936）。**本 skill の finding もこの仕分けに還元する** |
 | `docs/sessions/audit-team.md` §3.6 | 全件発露 → filter → 起票/棄却。Step 4-5 はこれの縮小版 |
-| `tests/CLAUDE.md` | CX-DoR 8 条件 / 3 状態統一 / Storybook play |
+| `tests/CLAUDE.md` | 顧客レビュー前 CX 版 DoR（条件の一覧・数は同ファイルが SSOT）/ 条件 11 の 3 状態 / Storybook play |

@@ -59,8 +59,9 @@ CI の結果を必要としない。CI 結果が要るのは fail triage だけ�
 
 ## 4. adversarial evidence（approve 直前に 1 回）
 
-evidence には **TTL 30 分**がある。`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れるため、
-**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
+evidence は **merge の前提条件ではない**（ADR-0068 / #4571 で gate-approve hook の呼び出しを外した）。
+作る場合、`scripts/verify-adversarial-output.mjs` は **TTL 30 分**で判定するため、`生成 → 指摘を処置 → 本文更新 → 再生成`
+のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
 
 **ただし release branch に append したら必ず再生成する。** 寄せてよいのは「処置前の先取り生成」であって、
 append 後の再生成ではない。省くと stale approval で未監査差分が merge される。

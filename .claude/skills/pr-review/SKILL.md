@@ -11,7 +11,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 
 ### 0-1. パス判定マップ（機械層）
 
-**SSOT = `.github/labeler.yml` の `po-decision:required` エントリ**。`actions/labeler@v6`（`.github/workflows/labeler.yml`）が PR opened / synchronize で自動付与する。領域一覧（glob 実体は labeler.yml 参照）:
+**SSOT = `.github/labeler.yml` の `po-decision:required` エントリ**。`actions/labeler`（`.github/workflows/labeler.yml`）が PR opened / synchronize で自動付与する。領域一覧（glob 実体は labeler.yml 参照）:
 
 | 領域 | 代表パス |
 |---|---|
@@ -41,7 +41,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 
 ### 0-3. label 付与時の義務
 
-`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、**mermaid 一枚絵** = リスク・可逆性 / trade-off / 反対理由 3 軸 / 顧客面の変化 / 判断依頼を 1 図に圧縮、#3918 PO 恒久要件）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
+`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、**mermaid 一枚絵** = リスク・可逆性 / trade-off / 反対理由 3 軸 / 顧客面の変化 / 判断依頼を 1 図に圧縮、#3918 PO 恒久要件）を必須添付する。**`po-decision:required` を理由に merge を止めない**（[チーム憲章 §0](../../../docs/sessions/README.md) ルール 3）。判断材料として Issue 側の採択条件と PR body のブリーフを両方読む（[qm skill](../qm/SKILL.md) §5）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
 
 ## 必須 9 項目（A〜I 全項目）
 
@@ -67,8 +67,8 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 
 ### D. 横展開（parallel-implementations.md）
 - [ ] labels.ts の変更 → site/ + `**/_guide.ts` (❓ ページガイド) / `tutorial-chapters-child.ts` (子供チュートリアル) も同期
-- [ ] 本番画面の変更 → デモ画面も同等変更
-- [ ] ナビゲーション変更 → Desktop + Mobile + BottomNav
+- [ ] 本番画面の変更 → デモ Lambda（本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動。`src/routes/demo/**` は #2097 で削除済）でも同等に動く
+- [ ] ナビゲーション変更 → 面を固定数で数えず `grep -rn "<nav\b" src/` で変更が及ぶ面を確認（ルート `CLAUDE.md` 並行実装チェックリスト）
 - [ ] DB スキーマ変更 → global-setup.ts + test-db.ts + demo-data.ts
 
 ### E. CSS/デザイン（docs/DESIGN.md §9）
@@ -88,14 +88,14 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 - [ ] 機密情報のログ出力禁止
 
 ### H. 文書化
-- [ ] レビュー指摘を全て文書化（ADR-0006: 指摘ゼロでマージは禁止）
-- [ ] 発見事項は PR コメントまたは Issue で記録
+- [ ] レビュー指摘を全て文書化（指摘ゼロでマージしない — `docs/sessions/dev-process/anti-patterns.md` §4）
+- [ ] 発見事項は PR コメントで記録（Issue 化の基準は下記「判定」）
 
 ### I. 直近 deploy file 削除なし（#2603、rebase drift 5 連続再発教訓）
 - [ ] `node scripts/check-recent-deploy-deletion.mjs --pr <N>` が exit 0
 - [ ] 直近 7 日に main merge された file を本 PR が削除していない（rebase drift の典型 symptom）
 - [ ] archive 移動 (ADR 1-in-1-out 等) の legitimate な delete なら `--ignore-pattern` で除外
-- [ ] exit 2 検出時は **Fix Agent dispatch → `git rebase origin/main` 強制** + screenshots branch 再 push (#2063)
+- [ ] exit 2 検出時は **Fix Agent dispatch → `git rebase origin/<base>`（軽量レーン = develop / hotfix = main）強制** + screenshots branch 再 push (#2063)。軽量レーンでの誤検出の扱いは `docs/sessions/qm-session.md` §「develop 二層での base 注意」
 
 ## 判定
 
@@ -114,4 +114,4 @@ A〜I で NG が出ても、**自動的に Request Changes にはしない**。B
 
 - **gate の削除・warn 降格は BLOCK 事由にしない**。gate を減らす PR は **PO 承認があるかだけ**を確認し、承認があれば内容の是非で BLOCK しない（gate の増減は PO 承認事項であり QA の判断領域ではない）
 - **記録の不整合（body の書式 / チェックボックス / 表の体裁）は BLOCK しない**。降格の条件は **「独立に実 diff を確認し、実害がないと確認できた場合のみ」** — 確認せずに降格しない
-- follow-up は **PR コメント止まり**。Issue 化は「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ（装置起因は Issue にしない、`docs/sessions/po-session.md` §「Issue を起票する基準」）
+- follow-up は **PR コメント止まり**。Issue にするのは「顧客価値の作業単位」と「オーナーの手番が要るもの（不可逆 4 操作）」の 2 種類だけ（[チーム憲章 §0](../../../docs/sessions/README.md) ルール 7、`docs/sessions/po-session.md` §「Issue を起票する基準」）

@@ -125,6 +125,10 @@ ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めた
 
 **使い分け**: 横断ポリシー → ADR / 機能仕様の結論 → 設計書 / 機能設計の経緯・理由 → rationale / ユーザーローカル作業メモ → memory（チーム共有不可）
 
+## skill も削除主義 (#4974)
+
+`.claude/skills/` の skill は必要なときだけ読まれるため、古くなっても誰も気づかない。ADR と同じく**役目を終えた skill は削除する**（履歴は git で追う）。本文には件数・step 番号・閾値・他文書の中身を写さず、SSOT（`npm run pre-ready -- --help` / 設計書 / ADR / script / workflow）を指す。**読むと間違う skill は、直すか消す。**
+
 ## ローカル Cognito 認証検証環境 (#1026)
 
 認証画面 (login / signup / 管理 / ops / プラン別 UI) は `npm run dev:cognito` を使う（`npm run dev` は `/auth/login` を 302 redirect）。

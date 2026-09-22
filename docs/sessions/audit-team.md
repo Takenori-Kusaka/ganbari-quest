@@ -118,7 +118,7 @@ EPIC #2861「既存資産再利用マップ」を本ファイルに正本化す�
 | プロダクト実装調査 | 再利用 | pr-review skill / regression-check skill |
 | ユーザビリティ・a11y | 再利用 | cognitive-walkthrough skill / customer-voice skill / age-mode-check skill / a11y job（axe-core） |
 | セキュリティ | 再利用 | security-scan workflow / codeql workflow / dependency-review workflow |
-| パフォーマンス | 一部新設（アプリ perf budget） | lp-metrics workflow / visual regression 3 層 / cost-review skill |
+| パフォーマンス | 一部新設（アプリ perf budget） | lp-metrics workflow / visual regression 3 層 / cost-audit workflow（コストの方針は docs/design/35-コスト管理計画書.md） |
 | テスト品質 | 再利用 | flake-hunt skill / ADR-0005 テスト品質 ratchet |
 | 問題起票 | 再利用 | issue-triage skill |
 | ポリシー準拠判定 | 新設 | pre-pmf-check skill + brand-check skill + adversarial-reviewer skill を統合した判定 |
