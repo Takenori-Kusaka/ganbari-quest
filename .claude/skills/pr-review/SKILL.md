@@ -100,7 +100,6 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 ## 判定
 
 - 全項目 OK → Approve
-- Copilot の COMMENTED は承認扱いにしない
 
 ### BLOCK は 3 類型のみ (2026-07-30、SSOT: `docs/sessions/qm-session.md` §BLOCK 基準)
 
