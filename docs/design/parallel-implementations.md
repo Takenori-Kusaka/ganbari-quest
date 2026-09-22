@@ -44,7 +44,6 @@
 **同期メカニズム**:
 - **現状（半自動）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から `site/shared-labels.js` を生成。`--check` モード (CI) で diff があれば fail
 - **key-set 比較による silent drift 検出は無い (#4420)**: 生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出していた専用 script は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
-- **Tier 3（#566 で予定）**: LP ビルド時の Svelte から静的 HTML 生成（SSG 統合）
 
 **修正時チェック**:
 ```bash
@@ -64,39 +63,21 @@ node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
 
 ---
 
-#### 2. 年齢モード 5 ディレクトリ
+#### 2. 年齢モード（パラメータルート 1 本）
 
-| 場所 | 内容 |
-|------|------|
-| `src/routes/(child)/baby/` | 乳幼児モード（0〜2歳）— **ADR-0011 で「親の準備モード」として別軸扱い** (#1299) |
-| `src/routes/(child)/preschool/` | 幼児モード（3〜5歳） |
-| `src/routes/(child)/elementary/` | 小学生モード（6〜12歳） |
-| `src/routes/(child)/junior/` | 中学生モード（13〜15歳） |
-| `src/routes/(child)/senior/` | 高校生モード（16〜18歳） |
+5 つの年齢モード（baby / preschool / elementary / junior / senior）は、**`src/routes/(child)/[uiMode=uiMode]/` の 1 本の実装**を共有する（モード別のディレクトリは無い）。モードの一覧・旧名称の対応（`LEGACY_UI_MODE_MAP`）は `src/lib/domain/validation/age-tier-types.ts`、タップサイズ・文字倍率は `age-tier.ts` が SSOT。baby は ADR-0011 の「親の準備モード」。
 
-**差別化軸の実態** (#1320 §2.1、`lp-content-map.md` §2.1):
+**並行して直す場所**（ルートの複製ではなく、モードで値が変わる箇所）:
 
-- **preschool vs 小学生以降 (elementary/junior/senior)**: UI 軸差 (ひらがな vs 漢字 / タップ 80px vs 44-56px / fontScale 1.2 vs 1.0)
-- **elementary / junior / senior の相互差**: コード上は **ゼロ** (活動プリセットの差のみ)
-- **baby**: 準備モード (ADR-0011)、コアゲーム体験なし
-- **機能差別化**: LP で「中学生から解放」「upper 専用機能」等の訴求を書かないこと (LP truth、ADR-0013)
-
-**同期メカニズム**:
-- **現状（手動）**: 1 モード修正 → 残り 4 モードを手動で横展開
-- **Tier 3（#566 で予定）**: `src/routes/(child)/[uiMode]/` のパラメータルートに集約
+- 文言: `labels.ts` の年齢帯変種（`getXxxLabels(uiMode)` 系。漢字 / ひらがなの override は `src/routes/CLAUDE.md` §年齢帯 variant）
+- 見た目・密度: `age-tier.ts` と `child-home/variants/`
+- **機能差別化**: LP で「中学生から解放」等の訴求を書かない（LP truth、ADR-0013）。elementary / junior / senior の差はプリセット活動と文言だけ
 
 **修正時チェック**:
 ```bash
-# 特定機能のファイル横串検索
-grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
+# モード別の分岐が散っていないか (if (uiMode === 'baby') の散在はアンチパターン)
+grep -rn "uiMode ===" src/routes/\(child\)/ src/lib/features/
 ```
-
-**旧名称との対応** (2026-04-06 #537 で改名):
-- `baby` ← 旧 `baby`（変更なし）
-- `preschool` ← 旧 `kinder`
-- `elementary` ← 旧 `lower` + 一部 `upper`
-- `junior` ← 旧 `upper` の 13 歳以上 + 旧 `teen` の 15 歳
-- `senior` ← 旧 `teen` の 16 歳以上
 
 ---
 
@@ -270,7 +251,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **修正時チェック**:
 - `runtime-mode.ts` (ADR-0040) の値変更 → 全 panel の `{#if data.runtimeMode === ...}` を grep で全件確認
-- panel 内で mode 分岐を散在させない (ADR-0015 年齢帯 variant と同型のアンチパターン回避)
+- panel 内で mode 分岐を散在させない (年齢帯 variant と同型のアンチパターン回避、`src/routes/CLAUDE.md` §年齢帯 variant)
 - 共通ロジック (LICENSE_PAGE_LABELS 等) は labels.ts SSOT、NUC 専用 atom (NUC_EDITION_TERMS) は terms.ts に分離 (ADR-0045)
 - 詳細: [docs/design/nuc-saas-runtime-bifurcation.md](nuc-saas-runtime-bifurcation.md)
 
@@ -680,28 +661,16 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
 
 - [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
-- [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
+- [ ] **年齢モード** → `src/routes/(child)/[uiMode=uiMode]/`（全モード共通の 1 本）+ モードで値が変わる `labels.ts` の年齢帯変種 / `age-tier.ts`（§2）
 - [ ] **本番画面** → **#2097 PR-B3 #2188 完了で `src/routes/demo/` 並行実装は 0 file**。本番 routes のみが SSOT (demo Lambda は env 駆動で本番 routes を直接 host、ADR-0048)。新規 `src/routes/demo/` の追加は禁止
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
-- [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
+- [ ] **ナビゲーション** → 面を固定数で数えず、`grep -rn "<nav\b" src/` で変更が及ぶ面を確かめる。管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（検証 script は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
-- [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
+- [ ] **年齢帯 variant ラベル** (`src/routes/CLAUDE.md` §年齢帯 variant) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
 - [ ] **route 分割 / rename / `data-testid` 移動** (#2410) → `scripts/capture-hp-screenshots.mjs` の `HERO_CAROUSEL_SCREENSHOTS` / `FEATURE_SCREENSHOTS` / `GROWTH_STAGE_SCREENSHOTS` / `AGE_SCREENSHOTS` 全 4 配列の `url:` と `scrollTo:` selector を grep し、移動先 URL に同期する。`docs/design/asset-catalog.md` §「LP スクショ」表 + `tests/e2e/lp-screenshot-baseline/README.md` の撮影元 URL 列も同期。同期漏れ実例: #2319 で `/admin/settings` 分割した際 capture script の URL 未更新で 19 連続 deploy fail (`feature-auto-sleep` の `[data-testid="settings-decay-section"]` が空 wrapper 経由で 10s timeout)
-
----
-
-## 解消計画
-
-| Tier | Issue | 内容 | ステータス |
-|------|-------|------|-----------|
-| Tier 1 | [#564](https://github.com/Takenori-Kusaka/ganbari-quest/issues/564) | 本マップ作成 + CLAUDE.md/PR/Issue テンプレ更新 | ✅ 完了 (2026-04-07) |
-| Tier 2 | [#565](https://github.com/Takenori-Kusaka/ganbari-quest/issues/565) | CI 自動チェック + LP ラベル自動生成 + デモシード同期 | ✅ 完了 (2026-04-07) |
-| Tier 3-K | [#566](https://github.com/Takenori-Kusaka/ganbari-quest/issues/566) | LP ビルドタイム同期 | ✅ #565 で吸収済み |
-| Tier 3-I | [#567](https://github.com/Takenori-Kusaka/ganbari-quest/issues/567) | 年齢モード 5 種類を `[uiMode]` パラメータルートに集約 | 🔴 未着手（4434 行の重複解消） |
-| Tier 3-J | [#568](https://github.com/Takenori-Kusaka/ganbari-quest/issues/568) | デモルートをアダプタパターンで本番ルートに統合 | 🔴 未着手（#567 完了後に実施推奨） |
