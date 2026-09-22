@@ -91,7 +91,7 @@ pixelmatch baseline (ADR-0053) は LP のみでなく、アプリ本体 critical
 - 作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレート: `docs/decisions/README.md`）
 - 記録対象: 技術選定根拠 / インシデント教訓 / 機能仕様の正仕様 / 品質プロセス決定
 - Claude Code memory はユーザーローカル。**チーム共有知識は必ず ADR に置く**
-- ADR 追加/変更時は CLAUDE.md / `.github/copilot-instructions.md` も同時更新
+- ADR 追加/変更時は、その ADR 番号を参照している CLAUDE.md も同じ PR で更新する
 
 **ADR 一覧の SSOT**: [`docs/decisions/README.md`](decisions/README.md)（インベントリ + supersede 関係）。本ファイルでは個別の ADR 番号は列挙しない。
 

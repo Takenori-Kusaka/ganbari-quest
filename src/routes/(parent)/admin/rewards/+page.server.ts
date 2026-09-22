@@ -48,8 +48,10 @@ import {
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-// #2268: 「特別なごほうび設定」→「ごほうび管理」に文言更新
-const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理');
+// #4928: プリセット取込は全プラン可のため「ごほうび管理」全体ではなく、有料の操作だけを名指す
+const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor(
+	PLAN_GATE_LABELS.rewardCustomizeFeature,
+);
 
 // #3079: バックアップ復元時の reward-set Strategy sourcePresetId 固定 sentinel。
 // reward-set Strategy は sourcePresetId で同一 preset の二重取込を検知するため presetId 必須。
@@ -116,13 +118,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
-	// #4705: 無料プランは商品登録ができない。取込 preset を伴って着地しても
-	// ChildSelectionDialog を開かず (子供を選ばせてから拒否しない)、条件を先に伝える。
-	const importPresetLocked = Boolean(importPresetId) && !isPremium;
-	if (importPresetLocked) {
-		importPresetId = null;
-		importPresetTypeCode = null;
-	}
 	// `?childId=<n>` query で初期 child 選択復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
 	const initialChildId =
@@ -149,9 +144,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
 	return {
-		// #4705: 無料プランで取込 CTA から着地したことを画面に伝える (dialog は開かない)
-		importPresetLocked,
-
 		children: childrenWithRewards,
 		childRewardsByChild,
 		templates,
@@ -293,7 +285,9 @@ export const actions: Actions = withParentGate({
 	addPreset: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
-		// #728: プランゲート — 無料プランはプリセットの取り込みも不可
+		// #728 / #4928: title / points / icon をクライアントが送る = 内容を利用者が決められるため、
+		// 名前は preset でも実質オリジナル登録と同じ。オリジナル登録のゲートを掛けたままにする
+		// (サーバが presetId から中身を読む取込 action とは扱いが違う)。
 		// #787: PlanLimitError 形式に統一
 		const tier = await resolveTier(locals, tenantId);
 		if (!isCustomRewardUnlocked(tier)) {
@@ -330,19 +324,24 @@ export const actions: Actions = withParentGate({
 	importMarketplaceRewardSet: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
-		// プランゲート: 無料プランは特別ごほうび設定不可（grant と同等）
-		const tier = await resolveTier(locals, tenantId);
-		if (!isCustomRewardUnlocked(tier)) {
-			return fail(403, {
-				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
-			});
-		}
+		// #4928: プリセットのごほうび取込は全プラン可 (初期セットアップと同じ)。中身はサーバが
+		// presetId から読むため、利用者が内容を指定できない = オリジナル登録のゲートは掛けない。
 
 		const formData = await request.formData();
 		const childId = asChildId(formIdString(formData.get('childId')));
 		const presetId = String(formData.get('presetId') ?? '').trim();
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+
+		// #4928: importPresetToChildren と同じ CWE-598 guard。プランゲートが無くなり全テナントが
+		// 直接 POST できるため、tenant 外の childId で自テナント内に孤児行を作らせない。
+		const tenantChildren = await getAllChildren(tenantId);
+		if (!tenantChildren.some((c) => c.id === childId)) {
+			logger.warn('[admin/rewards] tenant 外 child ID が importMarketplaceRewardSet に指定された', {
+				context: { presetId, childId, tenantId },
+			});
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
 
 		const item = getMarketplaceItem('reward-set', presetId);
 		if (!item) {
@@ -391,13 +390,7 @@ export const actions: Actions = withParentGate({
 	importPresetToChildren: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
-		// プラン制限ガード (既存 form と同じ)
-		const tier = await resolveTier(locals, tenantId);
-		if (!isCustomRewardUnlocked(tier)) {
-			return fail(403, {
-				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
-			});
-		}
+		// #4928: プリセット取込は全プラン可 (importMarketplaceRewardSet と同じ理由)。
 
 		const formData = await request.formData();
 		const presetId = String(formData.get('presetId') ?? '').trim();

@@ -3,7 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 /**
  * 環境別 CDK 設定 SSOT (#2873 / EPIC #2861 D 系)
  *
- * 本番 6 stack と AWS staging 3 stack (Storage / Auth / Compute) を同一 stack class で
+ * 本番 6 stack と AWS staging 4 stack (Storage / Auth / Compute / Network) を同一 stack class で
  * 構築するための環境設定。staging 専用 class の複製 (二重管理) は不採用。
  *
  * 不変条件 (#2873 AC4 / ADR-0019):

@@ -950,25 +950,11 @@ export const REWARD_TERMS = {
 	preset: 'プリセット',
 	canonical: 'ごほうび',
 	/**
-	 * #4705: 有料プランで解放される機能そのものの名前。
+	 * 有料プラン (スタンダード以上) で解放される機能の名前 (#4705 / #4915 / #4928)。
 	 *
-	 * 実ゲート (`isCustomRewardUnlocked`、#4584) が止めているのは「子供のショップに並べる商品を
-	 * 登録すること」であり、旧称「特別なごほうび設定（即時付与）」は別機能 (応援の即時付与) を
-	 * 指すと読めた。admin/rewards の各 action (`addPreset` / `importMarketplaceRewardSet` /
-	 * `importPresetToChildren` 等) と marketplace 詳細ページ (`/marketplace/reward-set/*`) は、
-	 * オリジナル登録・プリセット取込を問わず `isCustomRewardUnlocked` で一律ブロックするため
-	 * (#728)、それらの拒否メッセージは「商品登録」という広い言い方のほうが実態に合う。
-	 * 本 atom はそちらの文脈で使う。
-	 */
-	productRegistration: 'ごほうびショップへの商品登録',
-	/**
-	 * #4915: LP (pricing.html) の無料プラン説明限定で使う、オリジナル登録に絞った名前。
-	 *
-	 * 初期セットアップウィザード (`setup/rewards/+page.server.ts`) のプリセット取込にはプラン
-	 * ゲートが無く、無料プランでもプリセットのごほうびをショップに並べられる (#4915 裏取り)。
-	 * 上記 `productRegistration` (admin/rewards・marketplace 詳細ページの拒否文言) とは指す対象
-	 * が異なるため atom を分ける — こちらは「無料プランでもプリセットは追加できるが、オリジナルを
-	 * 自作して登録することはスタンダード以上」という LP の訴求にのみ使う。
+	 * 実ゲート `isCustomRewardUnlocked` (#4584) が止めているのは**オリジナル (自作) の登録**だけで、
+	 * プリセットのごほうび取込 (初期セットアップ / admin/rewards の取込 / marketplace) は全プラン可。
+	 * LP・アプリ内料金表・拒否メッセージはすべてこの名前で「何が有料か」を言う。
 	 */
 	originalRegistration: 'オリジナルごほうびの登録',
 } as const;
@@ -1991,4 +1977,10 @@ export const PWA_TERMS = {
 	standalone: 'アプリのように全画面',
 	/** iOS Safari の共有ボタン (実機の表記) */
 	iosShareButton: '共有',
+	/** iOS 26 以降の Safari で共有ボタンが入っている「…」メニュー (#4979) */
+	iosMoreButton: '…',
+	/** iOS 26 以降の追加ダイアログにある全画面起動の切替 (実機の表記) */
+	iosWebAppToggle: 'Webアプリとして開く',
+	/** Android タブレットの Chrome で追加の項目が入っている子メニュー (実機の表記、#4979) */
+	chromeSaveShareMenu: '保存して共有',
 } as const;

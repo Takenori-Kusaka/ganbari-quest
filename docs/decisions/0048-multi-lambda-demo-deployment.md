@@ -60,7 +60,7 @@
 | `AUTH_MODE` env | `cognito` | **`anonymous`** (新規 env value) |
 | IAM execution role | `production-lambda-role` (既存) | **`demo-lambda-role`** (新規、production resource ARN を一切含めない) |
 | Provisioned Concurrency | なし | **1 unit ($2.74/月)** で cold start 排除 (§P-1.2) |
-| CloudWatch Log group | `/aws/lambda/ganbari-quest` retention 30 日 | `/aws/lambda/ganbari-quest-demo` **retention 7 日** (§P-2.1) |
+| CloudWatch Log group | `/aws/lambda/ganbari-quest-app` | **独立した** `/aws/lambda/ganbari-quest-app-demo` (§P-2.1)。保持期間は両方とも CDK の LogGroup 定義 (`infra/lib/compute-stack.ts`) が SSOT |
 | DynamoDB Table access | grant: full R/W | **アクセス権なし** (IAM role に Table ARN 含めない) |
 | Secrets Manager access | grant: production secrets | **アクセス権なし** |
 | Cognito UserPool | grant: production pool | **アクセス権なし** |
@@ -97,7 +97,7 @@
 | P-1.6 `AnonymousAuthProvider` | dummy user `anon-{requestId}` + role='owner' + tenantId='demo' |
 | P-1.7 demo write API | **200 `{ ok: true, demo: true }` no-op response** (既存 hooks の `shouldReturnDemoNoop` 流用) |
 | P-1.8 demo Lambda plan tier (#2198) | **`resolvePlanTier` で `getAuthMode() === 'anonymous'` を `family` 固定**。`AnonymousAuthProvider` の licenseStatus=ACTIVE / 全画面 allow 設計と整合。`checkChildLimit` / `checkActivityLimit` / `checkChecklistTemplateLimit` 全てで `max=null` 早期 return。`AdminLayout` の upgrade-btn / plan-badge は `authMode === 'anonymous'` で抑止 (LP SS carousel-4 で「demo なのに上限警告 + アップグレード CTA」が出ない、ADR-0013 LP truth 整合) |
-| P-2.1 observability | X-Ray 無効、CloudWatch Logs 7 日 retention |
+| P-2.1 observability | X-Ray 無効、CloudWatch Logs は本番と別の LogGroup（保持期間は CDK の `DemoAppLogGroup` が SSOT） |
 | P-2.2 DR 戦略 | 不要 (demo は state 持たない) |
 | P-2.3 CI/CD pipeline 分離度 | 同 CDK stack 内並列定義 |
 | P-2.4 feature parity 自動検証 | 手動確認のみ (Pre-PMF、`check-no-demo-route-duplication.mjs` で構造保証) |

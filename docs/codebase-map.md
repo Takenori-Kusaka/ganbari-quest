@@ -17,9 +17,9 @@
 | `docs/` | 設計書 / ADR / rationale / runbooks / sessions ロール定義 | [docs/CLAUDE.md](CLAUDE.md) |
 | `infra/` | AWS CDK 構成 (Lambda / Aurora DSQL / CloudFront / Cognito) + NUC ローカル構成 | [infra/CLAUDE.md](../infra/CLAUDE.md) |
 | `site/` | LP (GitHub Pages 配信、`site/index.html` 等 10 ページ) + 共通 CSS / labels | (SSOT 統合: ADR-0013 LP truth / ADR-0042 LP Spacing) |
-| `scripts/` | CI / dev / 検証用スクリプト (`capture.mjs` / `measure-lp-dimensions.mjs` / `pre-ready` 等 ~75 本) | (汎用化原則: 使い捨て禁止 #1442) |
+| `scripts/` | CI / dev / 検証用スクリプト (`capture.mjs` / `measure-lp-dimensions.mjs` / `pre-ready` 等) | (汎用化原則: 使い捨て禁止 #1442) |
 | `.github/` | Issue Templates / workflows / PR Template / CODEOWNERS / Dependabot | [.github/CLAUDE.md](../.github/CLAUDE.md) |
-| `.claude/` | Skills (13) / agents (3 = po/dev/qa session) / settings.json / worktrees | (各 skill が `SKILL.md` を持つ) |
+| `.claude/` | skill / agent（ロール）定義 / settings.json / worktrees。一覧は `ls .claude/skills/` / `ls .claude/agents/` が SSOT | (各 skill が `SKILL.md` を持つ) |
 | `static/` | 静的アセット (画像 / favicon / brand / manifest / sounds / tenants) | [docs/design/asset-catalog.md](design/asset-catalog.md) |
 | `.storybook/` | Storybook 設定 (UI primitives 視覚回帰) | (運用: `npm run test:storybook` 必須化、#1168) |
 | `eslint-plugin-local/` | プロジェクト固有 ESLint ルール | (Tier T2、ADR-0007) |
@@ -30,9 +30,9 @@
 
 | ディレクトリ | 役割 |
 |---|---|
-| `src/routes/` | ファイルベースルーティング: `(parent)` / `(child)` / `api/` / `demo/` / `auth/` / `ops/` / `marketplace/` / `legal/` / `setup/` / `consent/` / `survey/` / `view/` 等 → [src/routes/CLAUDE.md](../src/routes/CLAUDE.md) |
-| `src/lib/server/` | サーバー専用: `db/` (Drizzle ORM) / `services/` (Service 層) / `auth/` (Cognito + local) / `security/` (rate-limiter) / `cron/` / `demo/` / `stripe/` / `routing/` (legacy-url-map) / `discord-alert.ts` / `logger.ts` |
-| `src/lib/features/` | 機能別コンポーネント: `admin/` / `child-home/` / `value-preview/` / `auto-sleep/` / `battle/` / `birthday/` / `certificate/` / `challenge/` / `character/` / `child/` / `demo/` / `loyalty/` / `usage/` |
+| `src/routes/` | ファイルベースルーティング: `(parent)` / `(child)` / `api/` / `auth/` / `ops/` / `marketplace/` / `legal/` / `setup/` / `consent/` / `survey/` / `view/` 等 → [src/routes/CLAUDE.md](../src/routes/CLAUDE.md) |
+| `src/lib/server/` | サーバー専用: `db/` (Drizzle ORM) / `services/` (Service 層) / `auth/` (Cognito + local) / `security/` (rate-limiter) / `cron/` / `demo/` (デモ用データ) / `stripe/` / `routing/` (legacy-url-map) / `discord-alert.ts` / `logger.ts` |
+| `src/lib/features/` | 機能別コンポーネント（`admin/` / `child-home/` / `parent-gate/` 等。一覧は `ls src/lib/features/`） |
 | `src/lib/ui/` | UI primitives + 共有 components: `primitives/` (Button / Card / Dialog / FormField 等、ADR-0009 / DESIGN.md §5) / `components/` (共通) / `sound/` / `styles/` (app.css = カラートークン SSOT) / `tutorial/` |
 | `src/lib/domain/` | ドメイン: `labels.ts` (compound SSOT、ADR-0045) / `terms.ts` (atom SSOT) / `validation/` (age-tier 等) / 型定義 |
 | `src/lib/policy/` | 認可ポリシー (`authorization.ts` の補助、ルート × ロール × ライセンス三軸判定) |
@@ -158,8 +158,8 @@
 
 | ディレクトリ | 役割 |
 |---|---|
-| `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qm-session.md、起動時自動活性化)。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
-| `.claude/skills/` | タスク固有 Skills (`pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / `adversarial-reviewer` / `cognitive-walkthrough` / `competitive-research` / `policy-compliance` 等。全件は `ls .claude/skills/` を SSOT とする、件数の数え上げはここに固定しない) / **`graft`** (TS / JS のシンボル位置・呼び出し関係を grep より先に引くコード knowledge graph。グラフは clone ごとのローカルキャッシュ `/graft/` で git 追跡しない。`.svelte` は索引外。初回セットアップ手順を含む SSOT) / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 22 カテゴリ checklist (§H 撤去系 残置参照 sweep #3930 含む)) / **`live-ui-verification`** (deploy 済み環境をブラウザで実機確認。**確認型** = 条件が事前に決まっているとき。snapshot の `href` で死んだ CTA を検出 / 本番 read-only 原則 / 未達の明示 / コード裏取り後に起票判断。3 skill 共通の作法 SSOT) / **`ui-defect-hunt`** (**探索型** = 未知の不具合を探す。本番 / LP / デモ横断、8 観点マトリクス = 構造導線・状態網羅・入力検証・レスポンシブ×5年齢モード・CWV・ネットワーク耐性・a11y・表示品質。既存 CI 資産と重複しない範囲のみ手で歩く) |
+| `.claude/agents/` | セッションのロール定義（一覧は `ls .claude/agents/`。各ロールの SSOT は `docs/sessions/<role>-session.md`）。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
+| `.claude/skills/` | タスク固有 skill。**一覧は `ls .claude/skills/` が SSOT**（各 skill の用途は `SKILL.md` の description。件数・名前をここに写さない）。用途が近く取り違えやすいものだけ使い分けを示す: **`live-ui-verification`**（**確認型** = 条件が事前に決まっているときに deploy 済み環境をブラウザで実機確認）/ **`ui-defect-hunt`**（**探索型** = 未知の不具合を本番・LP・デモ横断で探す）/ **`impact-analysis`**（rename / モデル変更 / 大規模リファクタリングの影響範囲分析） |
 | `.claude/settings.json` | 全体設定 (permissions / hooks / env) |
 | `.claude/worktrees/` | 並行 Agent 用 worktree 分離 dir (Agent tool `isolation: "worktree"` 必須) |
 
@@ -182,7 +182,6 @@
 
 - **3 ヶ月ごとに**: トップレベル / 主要サブディレクトリの整合性を確認、不要な記述・古い link を削除
 - **コード変更時の同期忘れ対策**: PR レビューで「ディレクトリ追加・大規模再編があれば本ファイル更新確認」を 8 点チェックに追加 (4 半期 retrospective で適用検討)
-- **次回 retrospective 予定**: 2026-08 (本ファイル作成: 2026-05)
 
 ---
 

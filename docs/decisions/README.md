@@ -158,7 +158,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 
 - **1:1 renumber**: `git mv OLD-*.md NEW-*.md` で履歴継承、フロントマター内の番号更新
 - **N:1 統合**: 新番号で新規作成、旧ファイルは `git rm`（内容は新 ADR の「コンテキスト」セクションに統合元として記載）
-- **renumber PR** は 1 つに集約（分割厳禁）、参照更新（CLAUDE.md / copilot-instructions / docs/design 等）を同時または直後の別 PR で行う
+- **renumber PR** は 1 つに集約（分割厳禁）、参照更新（CLAUDE.md / docs/design 等）を同時または直後の別 PR で行う
 - **過去 PR / コミット本文** の ADR 番号参照は更新しない（git 履歴として保全）
 
 ## 命名規則
