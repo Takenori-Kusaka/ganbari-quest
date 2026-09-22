@@ -328,9 +328,13 @@ jobs:
           DESC="前回の develop → main 統合から ${DRIFT_DAYS} 日が経過しました（目安は ${DRIFT_NOTIFY_DAYS} 日）。develop は main より ${AHEAD} commit 先行しています。release cut を検討してください（docs/runbooks/integration-pr-operations.md §2）。"
           jq -n --arg title "$TITLE" --arg desc "$DESC" \
             '{embeds: [{title: $title, description: $desc, color: 15105570}]}' > /tmp/drift-notify.json
-          curl -sS -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" \
-            --data-binary @/tmp/drift-notify.json || echo "::warning::drift 通知の送信に失敗した"
-          echo "::notice::前回統合から ${DRIFT_DAYS} 日 (> ${DRIFT_NOTIFY_DAYS} 日) のため Discord に通知した。"
+          # --fail-with-body: HTTP 4xx/5xx を失敗として扱う (無いと curl は 0 で終わり「送った」ことになる)
+          if curl -sS --fail-with-body -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" \
+            --data-binary @/tmp/drift-notify.json; then
+            echo "::notice::前回統合から ${DRIFT_DAYS} 日 (> ${DRIFT_NOTIFY_DAYS} 日) のため Discord に通知した。"
+          else
+            echo "::warning::drift 通知の送信に失敗した (前回統合から ${DRIFT_DAYS} 日)。"
+          fi
 
       # ----------------------------------------------------------------------
       # 8. job summary — 発行結果 / drift を常に GitHub log に残す (vars 未設定環境のフォールバック)
