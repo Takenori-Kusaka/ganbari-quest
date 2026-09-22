@@ -167,12 +167,6 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 以下は必ず確認を求める: `git push --force` / 本番デプロイ / DB スキーマ変更 / `.env` / `rm -rf` 等の破壊的操作。
 
-## graphify
+## graft（コード knowledge graph）
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+TS / JS のシンボル位置・呼び出し関係・変更の影響範囲を調べるときは、grep より先に graft を使う。**`.svelte` は索引の対象外**なので、UI 層は `docs/codebase-map.md` + grep で探す。使い方と clone ごとの初回セットアップは `.claude/skills/graft/SKILL.md` が SSOT。グラフは clone ごとのローカルキャッシュ（`/graft/`、git 追跡しない）で、CI・git hook・Claude hook からは再生成しない。

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // .claude/settings.json は git 管理され全 clone 環境で共有される (chore/add-claude-skills、
-// graphify 連携導入時に発覚)。hook の "command" に実行環境固有の絶対パスが書かれると、
-// 別ユーザー名 / 別 OS の clone で即座に壊れる (実害: `graphify claude install` の公式
-// インストーラは自身の exe 絶対パス — 例 C:/Users/<user>/.local/bin/graphify.EXE — を
-// 毎回書き込む。アップグレード等で再実行すると portable な記述に戻し忘れやすい)。
+// 旧 graphify 連携導入時に発覚)。hook の "command" に実行環境固有の絶対パスが書かれると、
+// 別ユーザー名 / 別 OS の clone で即座に壊れる (実害: 当時の公式インストーラは自身の exe
+// 絶対パス — 例 C:/Users/<user>/.local/bin/<tool>.EXE — を毎回書き込んだ。アップグレード等で
+// 再実行すると portable な記述に戻し忘れやすい)。
 //
 // 「PATH 解決できるコマンド名のみ」「リポジトリ相対パス (node scripts/... 等)」以外の
 // 絶対パスを検出し、commit 前に機械的に弾く。
@@ -60,9 +60,9 @@ function main() {
 			console.error(`    検出理由: ${v.label}`);
 		}
 		console.error(
-			'\n修正方法: PATH 解決できるコマンド名のみ (例: `graphify hook-guard search`) か、' +
+			'\n修正方法: PATH 解決できるコマンド名のみか、' +
 				'リポジトリ相対パス (例: `node scripts/foo.mjs`) に書き換えてください。\n' +
-				'`graphify claude install` 等の公式インストーラを再実行した直後は、この絶対パス書き込みが' +
+				'hook を書き込むツールの公式インストーラを実行した直後は、この絶対パス書き込みが' +
 				'再発しやすいので必ず本チェックを通してから commit してください。',
 		);
 		process.exit(1);
