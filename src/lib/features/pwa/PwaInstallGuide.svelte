@@ -29,6 +29,9 @@ const showIos = $derived(platform !== 'android');
 				<li>{PWA_INSTALL_LABELS.androidStep2}</li>
 				<li>{PWA_INSTALL_LABELS.androidStep3}</li>
 			</ol>
+			<p class="pwa-guide__hint" data-testid="pwa-install-guide-android-hint">
+				{PWA_INSTALL_LABELS.androidHint}
+			</p>
 		</section>
 	{/if}
 
@@ -85,5 +88,12 @@ const showIos = $derived(platform !== 'android');
 		line-height: 1.7;
 		color: var(--color-text-secondary);
 		list-style: decimal;
+	}
+
+	.pwa-guide__hint {
+		margin: 0.5rem 0 0;
+		font-size: 0.8125rem;
+		line-height: 1.7;
+		color: var(--color-text-secondary);
 	}
 </style>

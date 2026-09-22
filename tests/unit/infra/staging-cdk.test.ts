@@ -1,5 +1,5 @@
 // tests/unit/infra/staging-cdk.test.ts
-// #2873 (EPIC #2861 D 系) — AWS staging 3 stack の CDK 構造検証。
+// #2873 (EPIC #2861 D 系) — AWS staging 4 stack の CDK 構造検証。
 //
 // このテストは 2 つの責務を持つ:
 //   (1) prod 不変 guard (load-bearing): `stagingEnabled` 無し (= envConfig 未指定) で synth した
@@ -63,7 +63,7 @@ function buildProdStacks(): {
 }
 
 /**
- * staging 3 stack (STAGING_ENV_CONFIG) を synth する。
+ * staging の Storage / Auth / Compute 3 stack (STAGING_ENV_CONFIG) を synth する。
  * 意図的に cronSecret / opsSecretKey を context に渡さない —
  * #1586 guard が enableCronDispatcher 分岐内に移動したことの実証 (#2873 handoff spec)。
  */

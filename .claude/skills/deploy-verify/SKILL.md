@@ -14,7 +14,7 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 | 系統 | workflow | working-dir / 実行基盤 | health endpoint | migration |
 |---|---|---|---|---|
 | AWS Lambda 本番 | `.github/workflows/deploy.yml` (main push) | GitHub-hosted runner + OIDC、Lambda Function URL | `<FunctionUrl>api/health` | DynamoDB backend のため lazy startup migration は呼ばれない |
-| AWS staging (#2873) | `.github/workflows/deploy-aws-staging.yml` (PR base=main / dispatch) | GitHub-hosted runner + OIDC、staging 3 stack (`ganbari-quest-staging` prefix)、Lambda Function URL | `<StagingFunctionUrl>api/health` (Fn 名 `ganbari-quest-staging-app`) | DynamoDB backend のため schema assert 無し (G-MIG の主担保は NUC staging) |
+| AWS staging (#2873) | `.github/workflows/deploy-aws-staging.yml` (PR base=main / dispatch) | GitHub-hosted runner + OIDC、staging 4 stack (`ganbari-quest-staging` prefix)、Lambda Function URL | `<StagingFunctionUrl>api/health` (Fn 名 `ganbari-quest-staging-app`) | DynamoDB backend のため schema assert 無し (G-MIG の主担保は NUC staging) |
 | NUC 本番 | `.github/workflows/deploy-nuc.yml` (main push / dispatch) | self-hosted `[Windows, X64]`、`C:\Docker\ganbari-quest`、docker compose、port 3000 | `http://localhost:3000/api/health` | startup lazy migration (`applyLazyStartupMigrations`、SQLite) |
 | NUC staging | `.github/workflows/deploy-nuc-staging.yml` (PR base=main / dispatch) | self-hosted `[Windows, X64]`、`C:\Docker\ganbari-quest-staging`、docker compose project `ganbari-quest-staging`、port 3100 | `http://localhost:3100/api/health` | snapshot-forward → startup lazy migration (本番 DB snapshot から起動) |
 
@@ -43,7 +43,7 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 
 - 統合 PR (base=main、paths filter) で自動実行 / 手動: `gh workflow run deploy-aws-staging.yml`（develop HEAD を deploy）
 - ADR-0019 gate (`check-cdk-replacement.mjs`) ×2 → StorageStaging deploy → ECR push (`ganbari-quest-staging:{sha,latest}`)
-  → staging 3 stack 明示列挙 deploy（`--all` 不使用）→ `update-function-code ganbari-quest-staging-app` → health/smoke
+  → staging 4 stack 明示列挙 deploy（`--all` 不使用）→ `update-function-code ganbari-quest-staging-app` → health/smoke
 
 ### NUC staging（`deploy-nuc-staging.yml`）
 
