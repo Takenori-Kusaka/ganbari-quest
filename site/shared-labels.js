@@ -857,7 +857,7 @@
 			"k40": "<span class=\"check\">&#x2713;</span>子供の登録：無制限",
 			"k41": "<span class=\"check\">&#x2713;</span>オリジナル活動：無制限",
 			"k42": "<span class=\"check\">&#x2713;</span>家族メンバー招待：3人まで（オーナーを含めご家族4人）",
-			"k43": "<span class=\"check\">&#x2713;</span>ごほうびショップへの商品登録",
+			"k43": "<span class=\"check\">&#x2713;</span>オリジナルごほうびの登録",
 			"k44": "<span class=\"check\">&#x2713;</span>データのダウンロード",
 			"k45": "<span class=\"check\">&#x2713;</span>1年間の履歴保持",
 			"k46": "<span class=\"check\">&#x2713;</span>メールサポート",

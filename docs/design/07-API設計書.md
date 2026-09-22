@@ -2176,7 +2176,7 @@ export interface PlanLimitError {
 | `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/checklists ?/importMarketplace` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#2137) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/add` | standard | ごほうび管理 (`canCustomReward`, #728 / #2268 grant→add リネーム) | `createPlanLimitError()` 済 (#787) |
-| `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 プリセット取り込み (#728) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 (`canCustomReward`)。title / points をクライアントが送るため、名前に反してオリジナル登録と同じ扱い (#728 / #4928) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
 | `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
@@ -2185,6 +2185,7 @@ export interface PlanLimitError {
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
 **注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
+プリセットのごほうび取込 (`POST /admin/rewards ?/importMarketplaceRewardSet` / `?/importPresetToChildren`、および marketplace 詳細の reward-set 取込 CTA) も全プラン可 (#4928)。サーバが presetId から中身を読み、利用者は内容を指定できないため、初期セットアップ (`/setup/rewards`) と同じ扱いにそろえている。
 新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
 
 クライアント側では `getErrorMessage(form?.error)` ヘルパー（`src/lib/domain/errors.ts`）を使うと
