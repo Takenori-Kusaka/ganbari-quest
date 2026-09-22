@@ -14,7 +14,8 @@ import {
 import PageGuideTabs from '../../../src/lib/ui/tutorial/PageGuideTabs.svelte';
 import type { GuideStep } from '../../../src/lib/ui/tutorial/page-guide-types';
 
-const ZWSP = '​';
+/** ゼロ幅スペース (U+200B)。見えない文字をソースに直接書かない */
+const ZWSP = String.fromCharCode(0x200b);
 const parser = new Parser(jaModel);
 const realSegmenter: Segmenter = (text) => parser.parse(text);
 

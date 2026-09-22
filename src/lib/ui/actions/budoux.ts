@@ -16,9 +16,10 @@ import type { Action } from 'svelte/action';
 export const BUDOUX_ATTR = 'data-budoux';
 export const BUDOUX_APPLIED_ATTR = 'data-budoux-applied';
 
-const ZWSP = '​';
+/** ゼロ幅スペース (U+200B)。見えない文字をソースに直接書かない */
+const ZWSP = String.fromCharCode(0x200b);
 /** かな・漢字を含むときだけ分節する (英数字だけの文字列を触らない)。 */
-const JAPANESE_RE = /[぀-ヿ㐀-鿿]/;
+const JAPANESE_RE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u;
 
 export type Segmenter = (text: string) => string[];
 
