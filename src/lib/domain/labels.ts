@@ -12044,11 +12044,12 @@ export const LP_INDEX_PHASEB_LABELS = {
 	pwaTitle: `タブレットやスマホの${PWA_TERMS.installAction}しよう`,
 	pwaDesc: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動します。${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。`,
 	pwaAndroidTitle: 'Android / Chrome',
-	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」または「アプリをインストール」→「追加」（見当たらないときは「${PWA_TERMS.chromeSaveShareMenu}」の中）`,
 	pwaIosTitle: 'iPhone / iPad（Safari）',
-	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑。無いときは「${PWA_TERMS.iosMoreButton}」の中）→「${PWA_TERMS.installAction}」→「追加」`,
+	// #4979: この紹介ページ (別ドメイン) にはマニフェストが無く、ここで追加してもアプリとしては開かない
 	pwaNote:
-		'アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
+		'アプリストアからのダウンロードは不要です。追加はログインしたあとのアプリの画面で行ってください（この紹介ページからは追加できません）。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -12982,13 +12983,18 @@ export const PWA_INSTALL_LABELS = {
 	/** Android / Chrome 手順の見出し */
 	androidTitle: 'Android / Chrome の場合',
 	androidStep1: '画面右上の「⋮」（メニュー）をひらく',
-	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ`,
+	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ（Chrome の版によっては「インストール」を含む別の名前です）`,
 	androidStep3: '確認画面で「追加」をおす',
+	/**
+	 * Android で項目が見つからないとき (#4979)。タブレットの Chrome は子メニューの中に入っており、
+	 * 管理された端末のランチャー等では項目自体が出ない (アプリ側では直せない) ことを正直に伝える。
+	 */
+	androidHint: `見当たらないときは、メニューの「${PWA_TERMS.chromeSaveShareMenu}」の中も確認してください。会社や学校で管理されている端末などでは項目自体が出ないことがあり、その場合もブラウザのままお使いいただけます。`,
 	/** iOS / Safari 手順の見出し */
 	iosTitle: 'iPhone / iPad（Safari）の場合',
-	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす`,
+	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす。見当たらないときは「${PWA_TERMS.iosMoreButton}」ボタンをおすと出てきます`,
 	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
-	iosStep3: '右上の「追加」をおす',
+	iosStep3: `「${PWA_TERMS.iosWebAppToggle}」が出たらオンのまま、右上の「追加」をおす`,
 	/** 追加後に何が起きるか */
 	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
 	/** 設定 > サポート のカード見出し */

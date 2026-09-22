@@ -1991,4 +1991,10 @@ export const PWA_TERMS = {
 	standalone: 'アプリのように全画面',
 	/** iOS Safari の共有ボタン (実機の表記) */
 	iosShareButton: '共有',
+	/** iOS 26 以降の Safari で共有ボタンが入っている「…」メニュー (#4979) */
+	iosMoreButton: '…',
+	/** iOS 26 以降の追加ダイアログにある全画面起動の切替 (実機の表記) */
+	iosWebAppToggle: 'Webアプリとして開く',
+	/** Android タブレットの Chrome で追加の項目が入っている子メニュー (実機の表記、#4979) */
+	chromeSaveShareMenu: '保存して共有',
 } as const;
