@@ -746,6 +746,14 @@ export const PLAN_GATE_LABELS = {
 		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 
 	/**
+	 * ごほうび管理で有料になる操作の名前 (#4928)。`standardOrAboveFor` の引数に使う。
+	 *
+	 * プリセット / テンプレートの取込は全プラン可なので「ごほうび管理」全体を有料と言わない。
+	 * admin/rewards の拒否文言とページガイドの tips が同じ語を使うよう 1 箇所に置く。
+	 */
+	rewardCustomizeFeature: `オリジナルの${REWARD_TERMS.canonical}作成・${REWARD_ADMIN_TERMS.edit}`,
+
+	/**
 	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"
 	 *
 	 * #4512: checklists の上限エラー 5 箇所が「フリープラン」を直書きしていた
@@ -2628,7 +2636,8 @@ export const PAGE_GUIDE_LABELS = {
 				how: `右上の「${ADD_MENU_TERMS.trigger}」から始めます。上から順に、「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → ${REWARD_ADMIN_TERMS.search} → ${REWARD_TERMS.canonical}の一覧 と並びます。その場でひと押ししたい${CHEER_TERMS.canonical}は${CHEER_TERMS.canonical}ページから送ります。`,
 				goal: `お子さまが貯めたポイントで${REWARD_TERMS.canonical}と交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。`,
 				tips: [
-					`${PLAN_GATE_LABELS.standardOrAboveFor(`オリジナルの${REWARD_TERMS.canonical}作成・${TEMPLATE_TERMS.userFacing}の取込・${REWARD_ADMIN_TERMS.edit}`)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					// #4928: テンプレートの取込は全プラン可。有料なのはオリジナル作成と編集だけ
+					`${PLAN_GATE_LABELS.standardOrAboveFor(PLAN_GATE_LABELS.rewardCustomizeFeature)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）。「${ADD_MENU_TERMS.browse}」からの取込は${PLAN_FULL_TERMS.free}でも使えます`,
 				],
 				relatedLinks: [{ label: `${CHEER_TERMS.canonical}を送る`, href: '/admin/cheer' }],
 			},

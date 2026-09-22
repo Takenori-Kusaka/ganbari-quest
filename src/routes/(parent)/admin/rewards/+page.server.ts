@@ -48,8 +48,10 @@ import {
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-// #2268: 「特別なごほうび設定」→「ごほうび管理」に文言更新
-const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理');
+// #4928: プリセット取込は全プラン可のため「ごほうび管理」全体ではなく、有料の操作だけを名指す
+const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor(
+	PLAN_GATE_LABELS.rewardCustomizeFeature,
+);
 
 // #3079: バックアップ復元時の reward-set Strategy sourcePresetId 固定 sentinel。
 // reward-set Strategy は sourcePresetId で同一 preset の二重取込を検知するため presetId 必須。
@@ -142,8 +144,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
 	return {
-		// #4705: 無料プランで取込 CTA から着地したことを画面に伝える (dialog は開かない)
-
 		children: childrenWithRewards,
 		childRewardsByChild,
 		templates,
@@ -332,6 +332,16 @@ export const actions: Actions = withParentGate({
 		const presetId = String(formData.get('presetId') ?? '').trim();
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+
+		// #4928: importPresetToChildren と同じ CWE-598 guard。プランゲートが無くなり全テナントが
+		// 直接 POST できるため、tenant 外の childId で自テナント内に孤児行を作らせない。
+		const tenantChildren = await getAllChildren(tenantId);
+		if (!tenantChildren.some((c) => c.id === childId)) {
+			logger.warn('[admin/rewards] tenant 外 child ID が importMarketplaceRewardSet に指定された', {
+				context: { presetId, childId, tenantId },
+			});
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
 
 		const item = getMarketplaceItem('reward-set', presetId);
 		if (!item) {

@@ -130,6 +130,11 @@ const copyFromChildAction = mod.actions.copyFromChild as unknown as (event: {
 	request: Request;
 	locals: App.Locals;
 }) => Promise<ActionResult>;
+const importMarketplaceRewardSetAction = mod.actions
+	.importMarketplaceRewardSet as unknown as (event: {
+	request: Request;
+	locals: App.Locals;
+}) => Promise<ActionResult>;
 
 function makeLocals(opts: { licenseStatus?: string; plan?: string; tenantId?: string } = {}) {
 	return {
@@ -229,6 +234,9 @@ describe('/admin/rewards page.server', () => {
 				requiredTier: 'standard',
 				upgradeUrl: '/admin/subscription',
 			});
+			// #4928: 取込は無料でも使えるので「ごほうび管理」全体を有料と言わない。有料の操作だけを名指す
+			expect(err.message).toContain('オリジナル');
+			expect(err.message).not.toContain('ごほうび管理は');
 			expect(mockGrantSpecialReward).not.toHaveBeenCalled();
 		});
 
@@ -487,6 +495,58 @@ describe('/admin/rewards page.server', () => {
 					childIds: '99999',
 				}),
 				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			expect(result.status).toBe(403);
+			expect(mockDispatchImport).not.toHaveBeenCalled();
+		});
+	});
+
+	// #4928: プランゲートを外したことで無料テナントも直接 POST できるようになるため、
+	// importPresetToChildren と同じ tenant child guard を掛ける (旧実装は childId を検証せずに
+	// dispatchImport へ渡しており、自テナント内に他テナントの childId を持つ孤児行を作れた)。
+	describe('importMarketplaceRewardSet action — tenant child guard (#4928)', () => {
+		beforeEach(() => {
+			mockGetMarketplaceItem.mockReturnValue({
+				name: 'テスト報酬セット',
+				payload: { rewards: [{ title: 'r1', points: 10, icon: '🎁' }] },
+			});
+			mockDispatchImport.mockResolvedValue({
+				packName: 'テスト報酬セット',
+				imported: 1,
+				skipped: 0,
+				total: 1,
+				errors: [],
+				failed: 0,
+			});
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
+		});
+
+		it.each([
+			['free', { licenseStatus: 'none' }],
+			['standard', { licenseStatus: 'active', plan: 'standard_monthly' }],
+		] as const)('%s プラン: tenant 配下の childId なら取り込む', async (tier, localsOpts) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
+
+			const result = await importMarketplaceRewardSetAction({
+				request: makeFormRequest({ presetId: 'kinder-rewards', childId: '100' }),
+				locals: makeLocals(localsOpts),
+			});
+
+			expect(result.status).toBeUndefined();
+			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+			expect(mockDispatchImport.mock.calls[0]?.[0].ctx.childId).toBe('100');
+		});
+
+		it.each([
+			['free', { licenseStatus: 'none' }],
+			['standard', { licenseStatus: 'active', plan: 'standard_monthly' }],
+		] as const)('%s プラン: tenant 外の childId は 403 + dispatchImport を呼ばない (IDOR 防御)', async (tier, localsOpts) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
+
+			const result = await importMarketplaceRewardSetAction({
+				request: makeFormRequest({ presetId: 'kinder-rewards', childId: '99999' }),
+				locals: makeLocals(localsOpts),
 			});
 
 			expect(result.status).toBe(403);

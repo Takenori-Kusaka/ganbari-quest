@@ -6,6 +6,7 @@
 // 更新すれば通るが、プラン間の差異が崩れると明確に失敗する設計。
 
 import { describe, expect, it } from 'vitest';
+import { PAGE_GUIDE_LABELS, PLAN_GATE_LABELS } from '../../../src/lib/domain/labels';
 import {
 	getLicenseHighlights,
 	getPricingFeatures,
@@ -17,7 +18,12 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
-import { PLAN_TERMS, REWARD_TERMS } from '../../../src/lib/domain/terms';
+import {
+	ADD_MENU_TERMS,
+	PLAN_TERMS,
+	REWARD_TERMS,
+	TEMPLATE_TERMS,
+} from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
@@ -35,6 +41,19 @@ describe('plan-features.ts SSOT', () => {
 					(f) => f.includes(REWARD_TERMS.originalRegistration) && f.includes(PLAN_TERMS.standard),
 				),
 			).toBe(true);
+		});
+
+		it('ごほうび管理のページガイドはテンプレート取込を有料と書かない (#4928)', () => {
+			// 有料の操作は PLAN_GATE_LABELS.rewardCustomizeFeature (オリジナル作成・編集) だけ。
+			// 旧 tips は「オリジナル作成・テンプレートの取込・編集はスタンダード以上」と書いていた。
+			const [tip] = PAGE_GUIDE_LABELS.adminRewards.steps['rewards-intro'].tips;
+			const paidClause = PLAN_GATE_LABELS.standardOrAboveFor(
+				PLAN_GATE_LABELS.rewardCustomizeFeature,
+			);
+			expect(tip).toContain(paidClause);
+			expect(paidClause).not.toContain(TEMPLATE_TERMS.userFacing);
+			// 無料で使える取込の入口を名指しで案内する
+			expect(tip).toContain(ADD_MENU_TERMS.browse);
 		});
 
 		it('standard プランは 9 項目（#1655 R49 家族メンバー招待補完後）', () => {
