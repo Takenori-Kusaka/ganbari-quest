@@ -139,9 +139,11 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 ## Session Agents & Skills
 
 セッション起動時 `.claude/agents/` がロール自動活性化:
-- `po-session.md` — PO（Issue 起票・優先度・事業判断、ロール定義は @docs/sessions/po-session.md）
-- `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
-- `qm-session.md` — QM（PR レビュー・品質ゲート、@docs/sessions/qm-session.md）
+- `po-session.md` — PO（Issue 起票・優先度・事業判断）。ロール定義: `docs/sessions/po-session.md`
+- `dev-session.md` — Dev（実装・CI/CD・設計書同期）。ロール定義: `docs/sessions/dev-session.md`
+- `qm-session.md` — QM（PR レビュー・品質ゲート）。ロール定義: `docs/sessions/qm-session.md`
+
+ロール定義は**自分のロールの 1 本だけを起動時に Read する**（常時ロードしない。3 本で約 1,100 行あり、どのセッションにも他 2 ロール分は不要なため。`/dev` / `/po` / `/qm` skill が各自の定義を SSOT として指す）。
 
 タスク固有: `.claude/skills/` (オンデマンド発火)
 
@@ -153,7 +155,7 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 ## Further Context
 
-- @docs/DESIGN.md（デザイン SSOT、必読）
+- @docs/DESIGN.md （デザイン SSOT、必読）
 - 画像アセットを**作る / 追加するときだけ** Read する（常時ロードしない、#4210）: `docs/reference/gemini_image_generation_guide.md` / `docs/design/asset-catalog.md`
 - @personal/data/family.yml (サブモジュール)
 
