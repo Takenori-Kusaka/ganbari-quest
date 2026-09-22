@@ -169,9 +169,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(`${REWARD_TERMS.preset}から追加`);
 		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(REWARD_TERMS.originalRegistration);
 		// 旧文言「ごほうびショップへの商品登録はスタンダード以上」(無料で一切登録できないと読める) の再発防止
-		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe(
-			`${REWARD_TERMS.productRegistration}はスタンダード以上`,
-		);
+		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe('ごほうびショップへの商品登録はスタンダード以上');
 	});
 
 	it('比較表がプリセット利用 (全プラン ✓) とオリジナル登録 (無料 ✗ / スタンダード以上 ✓) を別行で表す', () => {

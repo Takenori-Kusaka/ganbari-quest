@@ -43,15 +43,12 @@ export interface PlanLimits {
 	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
 	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
 	 *
-	 * #4915: 本フラグが表す「特別なごほうび設定」はオリジナル（自作）登録の可否であり、
-	 * プリセットのごほうび取込は別軸。初期セットアップウィザード (`setup/rewards/+page.server.ts`)
-	 * のプリセット取込には本フラグに連動するゲートが無く、無料プランでもプリセットのごほうびを
-	 * ショップに並べられる（本 Issue 発端の実測）。一方 admin/rewards の各 action
-	 * (`addPreset` / `importMarketplaceRewardSet` / `importPresetToChildren` 等) と
-	 * marketplace 詳細ページのプリセット reward-set 取込 CTA は、オリジナル登録と区別せず
-	 * 本フラグ (`isCustomRewardUnlocked`) で一律ブロックする (#728)。「プリセット取込は
-	 * 全プラン可」は現状 setup wizard 限定の事実であり、admin/rewards・marketplace 経由の
-	 * プリセット取込には及ばない（この経路差は別途 follow-up で扱う）。
+	 * #4915 / #4928: 本フラグが表すのはオリジナル（自作）ごほうびの登録の可否だけで、
+	 * プリセットのごほうび取込は別軸 = **全プラン可**（初期セットアップ / admin/rewards の
+	 * `importMarketplaceRewardSet` / `importPresetToChildren` / marketplace 詳細の取込 CTA）。
+	 * 取込はサーバが presetId から中身を読むため、利用者は内容を指定できない。
+	 * 逆に `addPreset` は title / points をクライアントが送るので、名前に反してオリジナル登録と
+	 * 同じ扱い（本フラグでゲートする）。
 	 */
 	canCustomReward: boolean;
 	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782

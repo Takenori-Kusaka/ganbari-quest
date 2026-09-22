@@ -13,7 +13,7 @@ import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
-import { getActionErrorDisplay, getErrorMessage, PLAN_UPGRADE_URL } from '$lib/domain/errors';
+import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
@@ -276,24 +276,6 @@ $effect(() => {
 		}
 	} else {
 		handledInvalidPreset = false;
-	}
-});
-
-// #4705: 無料プランで marketplace の取込 CTA から着地したとき。dialog は開かず
-// (子供を選ばせてから拒否しない)、条件と行き先だけを伝える。invalid preset と同じ one-shot guard。
-let handledLockedPreset = $state(false);
-$effect(() => {
-	if (data.importPresetLocked) {
-		if (!handledLockedPreset) {
-			handledLockedPreset = true;
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importLockedMessage;
-			// NN/G #9: 条件を伝えるだけで終わらせず、行き先 (プラン画面) のリンクを併記する。
-			// #4705 は message だけを立てており、rewards-upgrade-link が描画されなかった (#4887)。
-			actionUpgradeUrl = PLAN_UPGRADE_URL;
-			showToast(ADMIN_REWARDS_PAGE_LABELS.importLockedMessage, undefined, 'info');
-		}
-	} else {
-		handledLockedPreset = false;
 	}
 });
 

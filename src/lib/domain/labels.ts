@@ -746,6 +746,14 @@ export const PLAN_GATE_LABELS = {
 		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 
 	/**
+	 * ごほうび管理で有料になる操作の名前 (#4928)。`standardOrAboveFor` の引数に使う。
+	 *
+	 * プリセット / テンプレートの取込は全プラン可なので「ごほうび管理」全体を有料と言わない。
+	 * admin/rewards の拒否文言とページガイドの tips が同じ語を使うよう 1 箇所に置く。
+	 */
+	rewardCustomizeFeature: `オリジナルの${REWARD_TERMS.canonical}作成・${REWARD_ADMIN_TERMS.edit}`,
+
+	/**
 	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"
 	 *
 	 * #4512: checklists の上限エラー 5 箇所が「フリープラン」を直書きしていた
@@ -1821,11 +1829,6 @@ export const MARKETPLACE_LABELS = {
 		`${selected}件 / ${total}件 を取り込みます`,
 	/** Cluster H: 0 件選択時の inert 状態説明 */
 	detailActivityPackSelectedZero: '取り込む活動を 1 件以上選んでください',
-	// #4705: 無料プランは商品登録ができない。押す**前**に条件と次の行き先を示す
-	// (子供を選ばせてから拒否しない)。実ゲートは isCustomRewardUnlocked (#4584)。
-	detailImportLockedTitle: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
-	detailImportLockedDesc: `${PLAN_FULL_TERMS.free}でも活動の記録・ポイント・レベルはそのままお使いいただけます。取り込んだごほうびをショップに並べるには、プランのアップグレードが必要です。`,
-	detailImportLockedCta: 'プランを見る',
 	/** #2136 MP-1: ログイン後の reward 取込誘導 */
 	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
 	/** #2136 MP-1: 取込先の子供選択ラベル */
@@ -2633,7 +2636,8 @@ export const PAGE_GUIDE_LABELS = {
 				how: `右上の「${ADD_MENU_TERMS.trigger}」から始めます。上から順に、「${ADD_MENU_TERMS.trigger}」と「︙」→ お子さまのタブ → ${REWARD_ADMIN_TERMS.search} → ${REWARD_TERMS.canonical}の一覧 と並びます。その場でひと押ししたい${CHEER_TERMS.canonical}は${CHEER_TERMS.canonical}ページから送ります。`,
 				goal: `お子さまが貯めたポイントで${REWARD_TERMS.canonical}と交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。`,
 				tips: [
-					`${PLAN_GATE_LABELS.standardOrAboveFor(`オリジナルの${REWARD_TERMS.canonical}作成・${TEMPLATE_TERMS.userFacing}の取込・${REWARD_ADMIN_TERMS.edit}`)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）`,
+					// #4928: テンプレートの取込は全プラン可。有料なのはオリジナル作成と編集だけ
+					`${PLAN_GATE_LABELS.standardOrAboveFor(PLAN_GATE_LABELS.rewardCustomizeFeature)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）。「${ADD_MENU_TERMS.browse}」からの取込は${PLAN_FULL_TERMS.free}でも使えます`,
 				],
 				relatedLinks: [{ label: `${CHEER_TERMS.canonical}を送る`, href: '/admin/cheer' }],
 			},
@@ -7717,8 +7721,6 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
-	// #4705: 無料プランで marketplace の取込 CTA から着地したとき (子供を選ばせる前に条件を出す)
-	importLockedMessage: `${REWARD_TERMS.productRegistration}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
 	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
 	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
@@ -12044,11 +12046,12 @@ export const LP_INDEX_PHASEB_LABELS = {
 	pwaTitle: `タブレットやスマホの${PWA_TERMS.installAction}しよう`,
 	pwaDesc: `${PWA_TERMS.installAction}すると${PWA_TERMS.standalone}で起動します。${CHILD_TERMS.honorific}がブラウザのタブや URL 欄を誤って操作することがなくなり、記録に集中できます。`,
 	pwaAndroidTitle: 'Android / Chrome',
-	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」または「アプリをインストール」→「追加」（見当たらないときは「${PWA_TERMS.chromeSaveShareMenu}」の中）`,
 	pwaIosTitle: 'iPhone / iPad（Safari）',
-	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑。無いときは「${PWA_TERMS.iosMoreButton}」の中）→「${PWA_TERMS.installAction}」→「追加」`,
+	// #4979: この紹介ページ (別ドメイン) にはマニフェストが無く、ここで追加してもアプリとしては開かない
 	pwaNote:
-		'アプリストアからのダウンロードは不要です。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
+		'アプリストアからのダウンロードは不要です。追加はログインしたあとのアプリの画面で行ってください（この紹介ページからは追加できません）。あとからアプリの「設定」→「サポート」でも手順を確認できます。',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -12369,7 +12372,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
 	k42: `<span class="check">&#x2713;</span>家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
-	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.productRegistration}`,
+	// #4928: 有料で増えるのはオリジナルの登録 (プリセットは全プラン可)
+	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.originalRegistration}`,
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k46: '<span class="check">&#x2713;</span>メールサポート',
@@ -12982,13 +12986,18 @@ export const PWA_INSTALL_LABELS = {
 	/** Android / Chrome 手順の見出し */
 	androidTitle: 'Android / Chrome の場合',
 	androidStep1: '画面右上の「⋮」（メニュー）をひらく',
-	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ`,
+	androidStep2: `「${PWA_TERMS.installAction}」または「アプリをインストール」をえらぶ（Chrome の版によっては「インストール」を含む別の名前です）`,
 	androidStep3: '確認画面で「追加」をおす',
+	/**
+	 * Android で項目が見つからないとき (#4979)。タブレットの Chrome は子メニューの中に入っており、
+	 * 管理された端末のランチャー等では項目自体が出ない (アプリ側では直せない) ことを正直に伝える。
+	 */
+	androidHint: `見当たらないときは、メニューの「${PWA_TERMS.chromeSaveShareMenu}」の中も確認してください。会社や学校で管理されている端末などでは項目自体が出ないことがあり、その場合もブラウザのままお使いいただけます。`,
 	/** iOS / Safari 手順の見出し */
 	iosTitle: 'iPhone / iPad（Safari）の場合',
-	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす`,
+	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす。見当たらないときは「${PWA_TERMS.iosMoreButton}」ボタンをおすと出てきます`,
 	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
-	iosStep3: '右上の「追加」をおす',
+	iosStep3: `「${PWA_TERMS.iosWebAppToggle}」が出たらオンのまま、右上の「追加」をおす`,
 	/** 追加後に何が起きるか */
 	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
 	/** 設定 > サポート のカード見出し */

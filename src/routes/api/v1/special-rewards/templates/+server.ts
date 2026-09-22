@@ -51,7 +51,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	);
 	if (!isCustomRewardUnlocked(tier)) {
 		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
-		return planLimitError('standard', REWARD_TERMS.productRegistration, { tenantId, tier });
+		return planLimitError('standard', REWARD_TERMS.originalRegistration, { tenantId, tier });
 	}
 
 	const body = await request.json();
