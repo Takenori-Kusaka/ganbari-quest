@@ -53,7 +53,7 @@
 | レート制限 | API Gateway 標準スロットリング | AWS WAF / カスタム MW | throttling 既定値を恒常超過 |
 | コスト監視 | AWS Budgets アラート（無料） | Cost Explorer API 定期ポーリング | Budgets で検知しきれない sudden burst |
 | 顧客向け監査 | 既存 `licenses.status` + Stripe webhook 履歴 | 汎用監査ログ DynamoDB / S3+Athena | 法的・規約的な監査要請 |
-| ランタイムログ | CloudWatch Logs 3 日 retention | 長期保管 / Athena | インシデント頻度 / コンプラ要件 |
+| ランタイムログ | CloudWatch Logs（保持期間は CDK の各 LogGroup の `retention` が SSOT（`infra/lib/compute-stack.ts` / `infra/lib/ops-stack.ts`）。課金経路を含む本番 app だけ長めに保持し S3 に archive、#2735） | 検索基盤（Athena 等）/ 汎用の長期検索 | インシデント頻度 / コンプラ要件 |
 | ブルート検知 | HMAC 鍵強度のみ（アルゴリズム防御） | IP カウンタ / Discord アラート | 量子計算等の現実化 |
 | コスト上限停止 | なし | Budgets Action 自動停止 | 月額コストが想定 5 倍 × 3 回 |
 
@@ -202,7 +202,7 @@ Phase Admin-Nav-Restructure 完了時の retroactive 検証で「過去 closed I
 ### トレードオフ
 
 - 起票に追加検討コスト（5〜10 分）
-- 監査ログが存在しない期間のインシデント調査は限定的（state + Stripe webhook + CloudWatch 3 日のみ）
+- 監査ログが存在しない期間のインシデント調査は限定的（state + Stripe webhook + CloudWatch Logs の保持期間内のみ。期間は CDK が SSOT）
 
 ## 機能別判定チェックリスト（EPIC #2310 で適用初例、AN-5 #2180 補強 1）
 
