@@ -62,7 +62,7 @@ gh run watch <run-id>
 
 - **actor guard**: job は `Takenori-Kusaka` / `ganbariquestsupport-lab` の 2 アカウントでのみ実行される。他アカウントで dispatch すると job 自体が skip される。
 - **concurrency**: group `deploy-aws-staging` / `cancel-in-progress: true`。同時に走らせると前の run が cancel されるため、検証中は他の統合 PR と重ならない時間帯を選ぶ。
-- DSQL lane では cluster deploy → `npm run dsql:migrate`（schema provisioning）→ staging 3 stack deploy → `npm run dsql:grant`（Lambda 実行 role への app_user 付与）→ health / smoke → 実 DSQL 並行検証 test の順に実行される。
+- DSQL lane では cluster deploy → `npm run dsql:migrate`（schema provisioning）→ staging 4 stack deploy → `npm run dsql:grant`（Lambda 実行 role への app_user 付与）→ health / smoke → 実 DSQL 並行検証 test の順に実行される。
 
 ## 4. Step 2 — deploy 完了確認
 

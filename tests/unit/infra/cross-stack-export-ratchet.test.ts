@@ -312,7 +312,7 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		staticAssetsBucket: network.staticAssetsBucket,
 	});
 
-	// --- staging 3 stack (bin/app.ts stagingEnabled=true と同一 wire) ---
+	// --- staging 4 stack (bin/app.ts stagingEnabled=true と同一 wire) ---
 	const sStorage = new StorageStack(app, `${APP_NAME}StorageStaging`, {
 		env,
 		envConfig: STAGING_ENV_CONFIG,

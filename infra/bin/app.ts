@@ -156,7 +156,7 @@ if (dsqlStagingEnabled) {
 	});
 }
 
-// --- AWS staging 3 stack (#2873 / EPIC #2861 D 系) ---
+// --- AWS staging 4 stack: Storage / Auth / Compute / Network (#2873 / EPIC #2861 D 系) ---
 // `-c stagingEnabled=true` 時のみ instantiate する context gate。
 // 本番の `cdk deploy --all` / `cdk diff --all` (deploy.yml) は context 無しで実行されるため
 // 挙動不変 (staging との混線防止)。staging deploy は .github/workflows/deploy-aws-staging.yml が
