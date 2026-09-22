@@ -1,7 +1,7 @@
 // scripts/ops-kpi-summary.ts — `/ops` ダッシュボードと同じ導出で KPI サマリーを書き出す CLI (#4962)
 //
 // 集計の SSOT は src/lib/server/services/ops-service.ts の getKpiSummary()、レポート用の文面は
-// ops-kpi-report.ts。本 CLI はそれらを呼んでファイルに書き出すだけの thin wrapper で、
+// 同ファイルの formatOpsKpiReportText()。本 CLI はそれらを呼んでファイルに書き出すだけの thin wrapper で、
 // 週次運営レポート (weekly-report.yml) が使う。手元でも同じ値を確認できる恒久運用ツール (#1442)。
 //
 // 実行 (tsx。`$lib` alias は tsconfig の paths で解決するため、先に `npx svelte-kit sync` が要る):
@@ -12,8 +12,7 @@
 // DSQL には DbConnectAdmin 相当の AWS credential で `admin` として接続する (dsql-migrate と同じ経路)。
 
 import { writeFileSync } from 'node:fs';
-import { formatOpsKpiReportText } from '../src/lib/server/services/ops-kpi-report';
-import { getKpiSummary } from '../src/lib/server/services/ops-service';
+import { formatOpsKpiReportText, getKpiSummary } from '../src/lib/server/services/ops-service';
 
 function readPathArg(argv: readonly string[], flag: string): string | null {
 	const i = argv.indexOf(flag);

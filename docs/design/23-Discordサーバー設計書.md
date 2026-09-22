@@ -398,7 +398,7 @@ FEEDBACK_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 
 | 節 | 出典 | 導出 |
 |---|---|---|
-| 利用状況 | 本番 DSQL | `/ops` ダッシュボードと同じ `getKpiSummary()`（`src/lib/server/services/ops-service.ts`）を `scripts/ops-kpi-summary.ts` で呼ぶ。文面は `ops-kpi-report.ts`、ラベルは `OPS_LABELS`。取得に失敗したら古い値を出さず「取得に失敗しました」と明記し、job を失敗させる |
+| 利用状況 | 本番 DSQL | `/ops` ダッシュボードと同じ `getKpiSummary()`（`src/lib/server/services/ops-service.ts`）を `scripts/ops-kpi-summary.ts` で呼ぶ。文面は同ファイルの `formatOpsKpiReportText()`、ラベルは `OPS_LABELS`。取得に失敗したら古い値を出さず「取得に失敗しました」と明記し、job を失敗させる |
 | 先週の AWS コスト | Cost Explorer（サービス別） | 費用の大きい順に上位 5 サービス + その他。合計は全サービスの和（サービス名を固定で列挙しない） |
 | Stripe 売上 | Stripe API（先週の paid invoice） | 件数と `amount_paid` の和 |
 | サマリー | 上記 | MRR 概算（月、利用状況と同じ値）と今週の AWS 費用 |

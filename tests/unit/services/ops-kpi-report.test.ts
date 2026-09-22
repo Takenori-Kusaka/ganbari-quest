@@ -1,7 +1,7 @@
 // tests/unit/services/ops-kpi-report.test.ts (#4962)
 // 週次運営レポートの「利用状況」節が `/ops` と同じ導出 (getKpiSummary) の値を、同じラベルで出すこと。
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { formatYen } from '../../../src/lib/domain/constants/plan-price';
 import {
 	ALL_SUBSCRIPTION_PLANS,
@@ -10,8 +10,17 @@ import {
 } from '../../../src/lib/domain/constants/subscription-plan';
 import { OPS_LABELS } from '../../../src/lib/domain/labels';
 import { buildOpsPlanRows, sumOpsPlanMrr } from '../../../src/lib/domain/ops-plan-rows';
-import { formatOpsKpiReportText } from '../../../src/lib/server/services/ops-kpi-report';
-import type { OpsKpiSummary } from '../../../src/lib/server/services/ops-service';
+import {
+	formatOpsKpiReportText,
+	type OpsKpiSummary,
+} from '../../../src/lib/server/services/ops-service';
+
+// ops-service は repo / Stripe を import するため、文面の組み立てだけを見る本 test では外す
+vi.mock('$lib/server/db/factory', () => ({ getRepos: vi.fn() }));
+vi.mock('$lib/server/stripe/client', () => ({
+	isStripeEnabled: () => false,
+	getStripeClient: vi.fn(),
+}));
 
 const COUNTS: Record<SubscriptionPlan, number> = {
 	[SUBSCRIPTION_PLAN.MONTHLY]: 2,
