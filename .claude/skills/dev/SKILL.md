@@ -60,9 +60,6 @@ npm run pre-ready -- --pr <N>   # 全 step PASS が必須（ADR-0030）
 gh pr checks <N>                # pre-ready に無い検査（vitest / cspell / LP 寸法 等）は CI 側で見る
 ```
 
-**pre-ready の PASS は「CI 緑」ではない。** pre-ready は worktree HEAD だけを入力にするため、CI 側 job や
-Draft 中しか走らない検査（`pr-template-gate`）は原理的に見ていない。
-
 Ready 化したら **古い state を外して `state:dev-done` を付ける**（実装完了・CI 全緑・Ready 化済を含意する）。
 
 **完成していなくても QM に送れる。** 実装途中で観点を相談したい / BLOCK 事由の意図を確認したいときは
