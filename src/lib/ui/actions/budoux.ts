@@ -3,13 +3,13 @@
 //
 // - `word-break: auto-phrase` を解釈するブラウザ (Chromium 系) では CSS に任せ、BudouX は読み込まない
 //   (`[data-budoux]` に auto-phrase を掛けるのは app.css)
-// - 解釈しないブラウザ (Safari / Firefox) では BudouX を遅延読込し、文節の境界に ZWSP を差し込む。
-//   `[data-budoux-applied]` に keep-all を掛け、ZWSP の位置でだけ折り返させる
+// - 解釈しないブラウザ (Safari / Firefox) では BudouX を遅延読込し、文節の境界に ゼロ幅スペース を差し込む。
+//   `[data-budoux-applied]` に keep-all を掛け、ゼロ幅スペース の位置でだけ折り返させる
 //
 // text node を分割しない (値だけを書き換える) のは、Svelte が text node への参照を保持して
 // 値を直接更新するため。分割すると更新時に先頭の断片だけが書き換わり、残りの断片が重複して残る。
-// 値が Svelte に書き換えられたら (ZWSP が消えたら) MutationObserver で差し込み直す。
-// action はクライアントでだけ動く (SSR では何もしない) ため、SSR 出力に ZWSP が混ざることはない。
+// 値が Svelte に書き換えられたら (ゼロ幅スペース が消えたら) MutationObserver で差し込み直す。
+// action はクライアントでだけ動く (SSR では何もしない) ため、SSR 出力に ゼロ幅スペース が混ざることはない。
 
 import type { Action } from 'svelte/action';
 
@@ -17,7 +17,7 @@ export const BUDOUX_ATTR = 'data-budoux';
 export const BUDOUX_APPLIED_ATTR = 'data-budoux-applied';
 
 /** ゼロ幅スペース (U+200B)。見えない文字をソースに直接書かない */
-const ZWSP = String.fromCharCode(0x200b);
+const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 /** かな・漢字を含むときだけ分節する (英数字だけの文字列を触らない)。 */
 const JAPANESE_RE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u;
 
@@ -52,12 +52,12 @@ function loadBudouxSegmenter(): Promise<Segmenter> {
 	return segmenterPromise;
 }
 
-/** text node 1 つの値に、文節の境界ごとに ZWSP を差し込む。値が変わらなければ書き込まない。 */
+/** text node 1 つの値に、文節の境界ごとに ゼロ幅スペース を差し込む。値が変わらなければ書き込まない。 */
 export function segmentTextNode(node: Text, segment: Segmenter): void {
 	const current = node.nodeValue ?? '';
-	const plain = current.replaceAll(ZWSP, '');
+	const plain = current.replaceAll(ZERO_WIDTH_SPACE, '');
 	if (!JAPANESE_RE.test(plain)) return;
-	const next = segment(plain).join(ZWSP);
+	const next = segment(plain).join(ZERO_WIDTH_SPACE);
 	if (next !== current) node.nodeValue = next;
 }
 

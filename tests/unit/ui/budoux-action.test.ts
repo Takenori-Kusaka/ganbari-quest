@@ -1,5 +1,5 @@
 // tests/unit/ui/budoux-action.test.ts (#4964)
-// `use:budoux` (docs/DESIGN.md §3) — auto-phrase 非対応ブラウザで BudouX の文節境界に ZWSP を差し込み、
+// `use:budoux` (docs/DESIGN.md §3) — auto-phrase 非対応ブラウザで BudouX の文節境界に ゼロ幅スペース を差し込み、
 // Svelte が text node を書き換えても壊れない (重複しない) こと。
 
 import { render } from '@testing-library/svelte';
@@ -15,7 +15,7 @@ import PageGuideTabs from '../../../src/lib/ui/tutorial/PageGuideTabs.svelte';
 import type { GuideStep } from '../../../src/lib/ui/tutorial/page-guide-types';
 
 /** ゼロ幅スペース (U+200B)。見えない文字をソースに直接書かない */
-const ZWSP = String.fromCharCode(0x200b);
+const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 const parser = new Parser(jaModel);
 const realSegmenter: Segmenter = (text) => parser.parse(text);
 
@@ -39,10 +39,10 @@ describe('use:budoux (#4964)', () => {
 		expect(loadSegmenter).not.toHaveBeenCalled();
 		expect(el.hasAttribute(BUDOUX_ATTR)).toBe(true);
 		expect(el.hasAttribute(BUDOUX_APPLIED_ATTR)).toBe(false);
-		expect(el.textContent).not.toContain(ZWSP);
+		expect(el.textContent).not.toContain(ZERO_WIDTH_SPACE);
 	});
 
-	it('解釈しないブラウザでは文節の境界に ZWSP を差し込み、text node を分割しない', async () => {
+	it('解釈しないブラウザでは文節の境界に ZERO_WIDTH_SPACE を差し込み、text node を分割しない', async () => {
 		const text = 'ごほうびをこうかんするときは、おやカギコードをいれてください';
 		const { el } = mount(text, {
 			supportsAutoPhrase: () => false,
@@ -54,9 +54,9 @@ describe('use:budoux (#4964)', () => {
 		expect(el.hasAttribute(BUDOUX_APPLIED_ATTR)).toBe(true);
 		expect(el.childNodes).toHaveLength(1);
 		expect(el.firstChild).toBe(original);
-		expect(el.textContent).toBe(realSegmenter(text).join(ZWSP));
-		expect(el.textContent?.split(ZWSP).length).toBeGreaterThan(1);
-		expect(el.textContent?.replaceAll(ZWSP, '')).toBe(text);
+		expect(el.textContent).toBe(realSegmenter(text).join(ZERO_WIDTH_SPACE));
+		expect(el.textContent?.split(ZERO_WIDTH_SPACE).length).toBeGreaterThan(1);
+		expect(el.textContent?.replaceAll(ZERO_WIDTH_SPACE, '')).toBe(text);
 	});
 
 	it('text node の値が書き換えられたら差し込み直し、古い文を残さない', async () => {
@@ -71,8 +71,10 @@ describe('use:budoux (#4964)', () => {
 		await flush();
 
 		expect(el.childNodes).toHaveLength(1);
-		expect(el.textContent?.replaceAll(ZWSP, '')).toBe('活動を記録するとポイントがたまります');
-		expect(el.textContent).toContain(ZWSP);
+		expect(el.textContent?.replaceAll(ZERO_WIDTH_SPACE, '')).toBe(
+			'活動を記録するとポイントがたまります',
+		);
+		expect(el.textContent).toContain(ZERO_WIDTH_SPACE);
 	});
 
 	it('日本語を含まない文字列は書き換えない', async () => {
@@ -112,7 +114,7 @@ describe('use:budoux を付けた component の step 切替 (#4964)', () => {
 	const step = (id: string, what: string): GuideStep =>
 		({ id, title: id, what, how: '操作のしかた', goal: 'できること' }) as GuideStep;
 
-	it('Svelte が本文を差し替えても、前の step の文が残らず ZWSP が入り直す', async () => {
+	it('Svelte が本文を差し替えても、前の step の文が残らず ZERO_WIDTH_SPACE が入り直す', async () => {
 		// jsdom の CSS.supports は何を渡しても true を返すため、非対応ブラウザ (Safari) の経路に倒す
 		const supports = vi.spyOn(CSS, 'supports').mockReturnValue(false);
 		const first = 'このページでは、お子さまの活動を記録します';
@@ -120,13 +122,15 @@ describe('use:budoux を付けた component の step 切替 (#4964)', () => {
 		const { container, rerender } = render(PageGuideTabs, { props: { step: step('a', first) } });
 		const content = () => container.querySelector('.guide-tab-content p');
 
-		await vi.waitFor(() => expect(content()?.textContent).toContain(ZWSP), { timeout: 5_000 });
-		expect(content()?.textContent?.replaceAll(ZWSP, '')).toBe(first);
+		await vi.waitFor(() => expect(content()?.textContent).toContain(ZERO_WIDTH_SPACE), {
+			timeout: 5_000,
+		});
+		expect(content()?.textContent?.replaceAll(ZERO_WIDTH_SPACE, '')).toBe(first);
 
 		await rerender({ step: step('b', second) });
 		await vi.waitFor(() => {
-			expect(content()?.textContent?.replaceAll(ZWSP, '')).toBe(second);
-			expect(content()?.textContent).toContain(ZWSP);
+			expect(content()?.textContent?.replaceAll(ZERO_WIDTH_SPACE, '')).toBe(second);
+			expect(content()?.textContent).toContain(ZERO_WIDTH_SPACE);
 		});
 		supports.mockRestore();
 	});
