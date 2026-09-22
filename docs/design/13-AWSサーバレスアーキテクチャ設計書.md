@@ -36,7 +36,7 @@
 | `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
-| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Network |
+| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, AWS Health 通知, 外部ヘルスチェック | Compute, Network |
 | `GanbariQuestDsql` | Aurora DSQL cluster (context gate `-c dsqlEnabled=true`) | なし |
 | `GanbariQuestSes` | SES Email Identity, Configuration Set, 受信パイプライン (S3 + Lambda) | なし |
 
@@ -148,12 +148,10 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 ### 3.3 ComputeStack
 
-**Lambda (SvelteKitFn):**
+**Lambda (SvelteKitFn):** メモリ・タイムアウト・アーキテクチャ・Function URL の設定値は `infra/lib/compute-stack.ts` が SSOT（本書に値を複製しない）。要点のみ:
 - ランタイム: Docker (Node.js 22 + Lambda Web Adapter)
-- メモリ: 512MB
-- タイムアウト: 30秒
-- アーキテクチャ: ARM64 (Graviton2、コスト20%削減)
-- Function URL: RESPONSE_STREAM モード（SSR対応）
+- アーキテクチャ: ARM64 (Graviton)
+- Function URL: `InvokeMode.BUFFERED`（応答を組み立て終えてから返す。ストリーミングはしない。demo 関数も同じ）
 
 **Lambda Web Adapter:**
 - AWS公式のWeb Adapterを使用
@@ -170,7 +168,7 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 - **readiness を deep DB probe に結合しない**。結合すると DB 障害時に LWA が never-ready となり、アプリの fail-close 503 が外に出ず Function URL 全体が 502 化する（外形の劣化 + 障害原因の不可視化）。さらに cold start の readiness 成立が DB 接続に律速されて Lambda init 10s 上限の `INIT_REPORT timeout` → 再 init ループを誘発する（DSQL 構成 staging 実測: probe 込み Init 3315ms）
 - LWA 0.9.1 の readiness は HTTP status ≥ 500（`AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS` 既定値）を unhealthy と判定するため、/api/health の 503 fail-close はそのまま never-ready になる。LWA 既定の readiness path が `/`（軽量応答想定）である点とも整合し、shallow readiness + deep health の分離は Kubernetes の readiness/liveness 分離・AWS Builders' Library「Implementing health checks」（依存 deep check を起動 gate に使うと単一依存障害が全遮断へ増幅される）と同型の確立パターン
-- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、Lambda-URL-5xx alarm（§3.4 #7、≥5回/5分 P0）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
+- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、alarm `ganbari-quest-lambda-url-5xx`（§3.4）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
 - `/api/ready` はメンテナンスモード（§3.5）でも 503 化しない（`hooks.server.ts` で `/api/health` と同様に除外）。メンテ中の cold start が never-ready → 502 になり、メンテページ（503 → S3 差し替え）が出せなくなるのを防ぐ
 
 **ECRリポジトリ:**
@@ -248,42 +246,23 @@ cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍
 - トピック名: `ganbari-quest-ops-alerts`
 - サブスクリプション: メール（`-c opsEmail=xxx` で指定）
 
-**CloudWatch Alarms（抜粋。全量は `ops-stack.ts` が SSOT、13+ alarm 存在）:**
+**CloudWatch Alarms / Dashboard / Budgets:** alarm 名・メトリクス・閾値・評価窓、dashboard の widget 構成、Budget の金額と通知段階は **`infra/lib/ops-stack.ts` が SSOT**（本書に値を複製しない。複製すると CDK の変更に追随しない）。通知方針（どの alarm が Discord / メールに届くか）の SSOT は `infra/lib/ops-alert-policy.ts`。DSQL の alarm と Budget は `infra/lib/dsql-stack.ts`。
 
-| # | アラーム名 | メトリクス | 閾値 | 優先度 |
-|---|----------|-----------|------|--------|
-| 1 | Lambda-Errors | Lambda Errors | ≥ 3回/5分 | P0 |
-| 2 | Lambda-Throttles | Lambda Throttles | ≥ 1回/5分 | P0 |
-| 3 | Lambda-Duration-p99 | Lambda Duration | ≥ 10秒 | P1 |
-| 4 | Lambda-Concurrent | ConcurrentExecutions | ≥ 50 | P1 |
-| 5 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
-| 6 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
-| 7 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
-| 8 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
-| 9 | **EntitlementFailClosed** (#3998) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | ≥ 1件、15分内2つの5分window (2-of-3) | P0 |
-| 10 | **EntitlementFailClosedBurst** (#4918) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | 同一5分window内に≥3件、即時発火 | P0 |
+監視の分担（何をどの層で捕まえるか）だけを示す:
 
-> DynamoDB alarms（Throttles / SystemErrors / ConsumedCapacity）は #3438 で撤去（DB backend は
-> Aurora DSQL に一本化、DynamoDB table 無し）。DSQL の監視は `DsqlStack` が担う。
->
-> #9 / #10 は同一 metric (`EntitlementDbUnavailable`) を異なる評価窓で見る対の alarm。#9 は
-> 「15 分継続する低頻度障害」を、#10 は「同一 5 分 window に集中する burst」を捕捉する
-> (#4918: 本番 incident は同一 window に 4 件発生し #9 だけでは 15 分継続しないため検知できなかった)。
-> `AI-Provider-Unavailable` / `AI-Fallback-Rate` / `Ops-Access-Denied` / `Grace-Period-Partial-Failure` /
-> `Ops-Alert-Forward-Failed` / S3 Origin 4xx/5xx 等の残り alarm は本表に掲載しない
-> (通知方針の SSOT は `infra/lib/ops-alert-policy.ts`、CDK 定義の SSOT は `infra/lib/ops-stack.ts`)。
+| 監視対象 | 見るもの |
+|---|---|
+| アプリ（Lambda） | エラー / スロットリング / 実行時間 p99 / 同時実行数 / Function URL の 5xx と 4xx 急増 |
+| エッジ（CloudFront） | 5xx エラー率 |
+| 定期ジョブ | cron-dispatcher のエラー |
+| 認証・課金状態の解決 | DB に届かず fail-closed した件数（低頻度の継続と、同一 5 分の集中を別 alarm で見る） |
+| AI 提案 | 提供元の利用不可 / フォールバック率 |
+| 運営画面・削除バッチ・通知転送・静的アセット S3 | 拒否 / 部分失敗 / 転送失敗 / S3 origin の 4xx・5xx |
+| コスト | 月額 Budget（実績と予測の段階通知） |
 
-**CloudWatch Dashboard:** `ganbari-quest-ops`
-- Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
-- Alarm Status: SingleValueWidget
+dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレイテンシ）がある。定義と目標は [32-SLI-SLO定義書](32-SLI-SLO定義書.md)。
 
-**AWS Budgets:**
-- 月額予算: $5
-- 3段階アラート: 実績50%, 実績80%, 予測100%超過
-
-**Cost Anomaly Detection:**
-- モニタータイプ: DIMENSIONAL (SERVICE)
-- 通知閾値: $1以上の異常
+**Cost Anomaly Detection:** CDK では作成しない。AWS アカウント既定のモニター（Default-Services-Monitor）を使う（CDK でカスタムモニターを作ると、アカウント上限との競合で AlreadyExists になるため）。IaC の管理外。
 
 **AWS Health EventBridge:**
 - 対象サービス: LAMBDA, CLOUDFRONT, COGNITO, S3（DYNAMODB は #3438 で除外、DB backend は DSQL）
@@ -591,7 +570,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
 - **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。本番相当データが必要になった場合は DSQL の論理エクスポート / import 経由で別 cluster に流し込む（本番 cluster へは一切 write しない）。旧 DynamoDB AWS Backup restore 経路は #3438 で DynamoDB 撤去により廃止。
-- **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
+- **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存の月額 budget（OpsStack の `MonthlyBudget`）が包含するため staging 専用 budget alarm は追加しない。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
 - **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
 
@@ -603,9 +582,9 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
-| CloudWatch Alarms | 13+アラーム（詳細は §3.4 表、全量は `ops-stack.ts` が SSOT） | 無料枠10個超過分は課金対象（$0.10/alarm/月、実費は僅少） |
-| CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
-| AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
+| CloudWatch Alarms | 本数と定義は `ops-stack.ts` / `dsql-stack.ts` が SSOT（§3.4） | 無料枠 10 個を超えた分は課金対象（単価は AWS 料金表） |
+| CloudWatch Dashboard | 運用ダッシュボード（SLO 行を含む、§3.4） | 無料枠 3 個の範囲 |
+| AWS Budgets | 月額予算と段階通知（金額は `ops-stack.ts` / `dsql-stack.ts` が SSOT） | 無料枠の範囲 |
 | Cost Anomaly Detection | ML異常検知 | 完全無料 |
 
 ## 6. コスト試算（月額）
@@ -637,7 +616,7 @@ infra/
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離
 │   ├── network-stack.ts  # CloudFront (本番 + demo #2097) + Route53 + ACM + S3エラーページ + S3静的アセットoffload (#3087 解決策B)
-│   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
+│   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard (SLO 行を含む) + Budgets + Health通知 + 外部ヘルスチェック
 │   └── ses-stack.ts      # SES Email Identity + Configuration Set + メール受信パイプライン
 ├── error-pages/            # CloudFrontカスタムエラーページHTML（S3にデプロイ）
 ├── package.json

@@ -1,6 +1,6 @@
 name: Deploy to AWS (Staging)
 
-# AWS staging 3 stack (#2873 / EPIC #2861 D 系) — 本番 deploy 経路の貫通検証レーン。
+# AWS staging 4 stack (#2873 / EPIC #2861 D 系) — 本番 deploy 経路の貫通検証レーン。
 #
 # 設計の核 (prod template 不変条件 / handoff spec 厳守):
 #   - staging = Storage / Auth / Compute / Network の 4 stack (Ses / Ops は省略)。
@@ -10,7 +10,7 @@ name: Deploy to AWS (Staging)
 #   - 同一アカウント・同一リージョン (us-east-1) + 物理名 prefix `ganbari-quest-staging` 分離。
 #   - CDK は `-c stagingEnabled=true` の context gate でのみ staging stack を instantiate する。
 #     本番 deploy.yml の `cdk deploy --all` / `cdk diff --all` (context 無し) は挙動不変。
-#   - staging 3 stack は**明示列挙**で deploy する (`--all` 不使用、本番 6 stack との混線防止)。
+#   - staging 4 stack は**明示列挙**で deploy する (`--all` 不使用、本番 6 stack との混線防止)。
 #   - 外部サービス副作用ゼロ (Stripe は test mode のみ例外、#4104):
 #     Discord / Gemini / SES 系 secret は一切渡さない。**Stripe は test mode の資格情報だけ**を渡す。
 #     なぜ安全か: Stripe の test mode は本番顧客・本番決済・本番 Dashboard に一切影響しない独立空間で、
@@ -75,7 +75,7 @@ env:
   ECR_REPOSITORY: ganbari-quest-staging
   LAMBDA_FUNCTION: ganbari-quest-staging-app
   APP_MAJOR_VERSION: "1"
-  # staging 3 stack の明示列挙 (--all 禁止)。deploy 順は Storage → Auth → Compute 固定
+  # staging 4 stack の明示列挙 (--all 禁止)。deploy 順は Storage → Auth → Compute → Network 固定
   # (Auth が SSM cognito param を書き、Compute が deploy-time に解決するため順序依存)。
   # #4204: NetworkStaging (CloudFront) を追加。SvelteKit の名前付き form action (?/action) は
   # Lambda Function URL がクエリのスラッシュを拒否するため、CloudFront Function
@@ -265,7 +265,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 10: ADR-0019 gate (staging 3 stack)
+      # Step 10: ADR-0019 gate (staging 4 stack)
       # Step 10.5 (EPIC #3424 M5 DoD4): DSQL staging cluster を deploy し、
       # outputs (endpoint/ARN) を解決 → schema provisioning (dsql:migrate) を実行する。
       # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
@@ -307,7 +307,7 @@ jobs:
           DSQL_ENDPOINT: ${{ env.DSQL_ENDPOINT }}
         run: npm run dsql:migrate
 
-      - name: CDK diff — replacement check (staging 3 stacks)
+      - name: CDK diff — replacement check (staging 4 stacks)
         working-directory: infra/
         run: |
           # 統合 PR merge commit は 100KB 超になり得る (env 上限 128KB 超過対策、deploy.yml と同型)。
@@ -325,7 +325,7 @@ jobs:
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | tee /dev/stderr | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
-      # Step 11: staging 3 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
+      # Step 11: staging 4 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
       # Auth → Compute の順序は SSM param (cognito/*) の deploy-time 解決に必要なため、
       # 1 stack ずつ直列に deploy する (Auth/Compute 間に CFN 依存辺は意図的に無い)。
       # compute-stack の flag-gated 配線 (#3637) に endpoint/ARN を渡し、

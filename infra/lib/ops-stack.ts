@@ -28,6 +28,20 @@ import {
  */
 const OPS_ALERT_FORWARD_METRIC_NAMESPACE = 'GanbariQuest/Ops';
 
+/**
+ * SLO の目標値 (#4978)。dashboard の SLO 行の見出しに出す。
+ *
+ * 目標の意味と根拠は docs/design/32-SLI-SLO定義書.md。可用性は公開 SLA
+ * (docs/operations/sla.md §3.2 = site/sla.html) が顧客に約束している値と同じ。
+ */
+export const SLO_TARGETS = {
+	availabilityPercent: 99.5,
+	latencyMs: { p50: 200, p95: 1_000, p99: 3_000 },
+} as const;
+
+/** SLO を集計する窓。閲覧者が dashboard の時間範囲を変えても月次の値が読めるよう固定する */
+const SLO_WINDOW = '-P30D';
+
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
 	distribution: cloudfront.Distribution;
@@ -776,6 +790,58 @@ export class OpsStack extends cdk.Stack {
 								statistic: 'Maximum',
 							}),
 						],
+						width: 12,
+					}),
+				],
+				// #4978: SLO (docs/design/32) を直近 30 日で計算する。計測元は Function URL の
+				// 標準メトリクスで、3 日で消える CloudFront アクセスログには依存しない。
+				// Function URL を通るのは CloudFront が Lambda に回したリクエストだけなので、
+				// S3 から配る静的アセットと CloudFront 自体の障害は含まない (後者は CloudFront5xx alarm)。
+				[
+					new cloudwatch.SingleValueWidget({
+						title: `SLO (30d) — Availability % (target ${SLO_TARGETS.availabilityPercent})`,
+						metrics: [
+							new cloudwatch.MathExpression({
+								// 5xx が 0 件の期間は Url5xxCount が欠損するため FILL で 0 に埋める
+								expression: '100 * (1 - FILL(e5xx, 0) / requests)',
+								usingMetrics: {
+									requests: new cloudwatch.Metric({
+										namespace: 'AWS/Lambda',
+										metricName: 'UrlRequestCount',
+										dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+										statistic: 'Sum',
+									}),
+									e5xx: new cloudwatch.Metric({
+										namespace: 'AWS/Lambda',
+										metricName: 'Url5xxCount',
+										dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+										statistic: 'Sum',
+									}),
+								},
+								label: 'availability %',
+							}),
+						],
+						start: SLO_WINDOW,
+						setPeriodToTimeRange: true,
+						fullPrecision: true,
+						width: 12,
+					}),
+					new cloudwatch.SingleValueWidget({
+						title: `SLO (30d) — Latency ms (p50 < ${SLO_TARGETS.latencyMs.p50} / p95 < ${SLO_TARGETS.latencyMs.p95} / p99 < ${SLO_TARGETS.latencyMs.p99})`,
+						// UrlRequestLatency は Function URL の受信から応答までで、コールドスタートを含む
+						// (Lambda の Duration は初期化時間を含まない)
+						metrics: (['p50', 'p95', 'p99'] as const).map(
+							(stat) =>
+								new cloudwatch.Metric({
+									namespace: 'AWS/Lambda',
+									metricName: 'UrlRequestLatency',
+									dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+									statistic: stat,
+									label: stat,
+								}),
+						),
+						start: SLO_WINDOW,
+						setPeriodToTimeRange: true,
 						width: 12,
 					}),
 				],
