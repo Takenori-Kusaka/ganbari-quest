@@ -1,6 +1,6 @@
 # Graphify (コードベース knowledge graph 化) 評価 設計経緯
 
-> **現状: 採用済み。** 本ファイルが記す 2026-07-29 の「不採用」結論は #4343 (#4291) で覆り、Graphify は導入されている (`graphify-out/` を git 追跡 / `.husky/post-commit` で増分再生成 / `docs/CLAUDE.md` §graphify が AI セッションに `graphify query` を指示)。**現状の正解は [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 と `docs/CLAUDE.md` §graphify** を見ること。以下は不採用と判断した当時の評価であり、再評価時に「何を測って何を理由に落としたか」を引き継ぐために残す。
+> **現状: 撤去済み（#4975）。** 2026-07-29 の「不採用」結論は #4343 (#4291) で一度覆って導入されたが、#4975 で git 追跡・再生成の装置・hook をすべて撤去した。撤去の理由は [docs/decisions/README.md](../decisions/README.md) §OSS 調査済み・不採用記録 の行と #4975 を見ること（30MB の生成物の追跡と再生成の装置が道具本体より大きくなり、query は本ファイルの実測どおりハブノイズが多く grep より当たらなかった）。以下は最初に不採用と判断した当時の評価であり、再評価時に「何を測って何を理由に落としたか」を引き継ぐために残す。
 
 ## 議論の発端
 

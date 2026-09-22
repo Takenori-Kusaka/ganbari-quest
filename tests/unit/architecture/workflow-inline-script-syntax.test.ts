@@ -9,8 +9,8 @@
 // なぜ必要か: `.github/workflows/*.yml` の `run:` に埋めた JS は、**CI では検出できない**。
 //   - actionlint / shellcheck は入っていない
 //   - workflow step を parse する検査は他に無い
-//   - `graphify-refresh.yml` は `ref: develop` を固定 checkout するので、PR branch の
-//     内容で `workflow_dispatch` して確かめることもできない
+//   - `ref:` を固定して checkout する workflow は、PR branch の内容で `workflow_dispatch` して
+//     確かめることもできない (#4866 の発端だった graphify-refresh.yml は #4975 で撤去)
 //
 // 実際に #4866 では**同じ class を 3 回**踏んだ:
 //   1. heredoc の行継続が潰れて 30 件が 1 論理行になり、install が 1 件で成功した
@@ -284,7 +284,6 @@ const ALL_SCRIPTS = SCANNED.flatMap((s) => s.scripts);
  */
 const EXPECTED_BY_FILE: Readonly<Record<string, number>> = {
 	'.github/workflows/ci.yml': 2,
-	'.github/workflows/graphify-refresh.yml': 2,
 	'.github/workflows/pr-info.yml': 1,
 };
 
