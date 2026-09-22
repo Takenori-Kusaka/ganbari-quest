@@ -34,8 +34,8 @@
 
 ### 2.1 AWS インフラ
 
-- **AWS Free Tier の活用**: Lambda 100万リクエスト/月、DynamoDB 25GB、S3 5GB が無料枠
-- **Lambda + DynamoDB**: サーバーレスで固定費ゼロスタート。月額費用はアクセス量に比例
+- **AWS Free Tier の活用**: Lambda 100万リクエスト/月、S3 5GB が無料枠
+- **Lambda + Aurora DSQL**: サーバーレスで固定費ゼロスタート。月額費用はアクセス量に比例（構成は [13-AWSサーバレスアーキテクチャ設計書.md](13-AWSサーバレスアーキテクチャ設計書.md)）
 - **CloudFront**: 静的アセットの配信にCDNを活用。無料枠1TB/月
 - **SES**: メール送信は月62,000通まで無料（EC2からの送信時）
 - **Cost Explorer API**: $0.01/リクエスト。キャッシュして呼び出し回数を抑える (#0176)
@@ -50,7 +50,7 @@
 ### 2.3 コスト監視
 
 - AWS リソース固定費用の監査チケットを定期的に実施 (#0202)
-- 不要リソース（未使用の DynamoDB テーブル、S3 バケット等）の棚卸し
+- 不要リソース（未使用のテーブル、S3 バケット等）の棚卸し
 
 ---
 
@@ -71,14 +71,13 @@
 
 ### 3.3 データ保護
 
-- DynamoDB の暗号化（AWS managed key）
+- Aurora DSQL と S3 の保存時暗号化（構成は [13-AWSサーバレスアーキテクチャ設計書.md](13-AWSサーバレスアーキテクチャ設計書.md)）
 - S3 バケットのパブリックアクセスブロック
 - CloudFront 経由のみでのアセット配信（S3 直接アクセス禁止）
 
 ### 3.4 Stripe セキュリティ
 
 - Webhook 署名検証による改ざん防止
-- ライセンスキー方式で決済とアプリ認証を分離 (#0247)
 - Restricted API Key の使用（必要最小限の権限）
 
 ---
@@ -105,34 +104,27 @@
 - SvelteKit 2 + Svelte 5 (Runes) でフルスタック開発
 - `adapter-node` でビルド → Docker (ARM64) → ECR → Lambda Web Adapter
 - GitHub Actions で main push 時に自動デプロイ
-- ローカル開発は SQLite、本番は DynamoDB のデュアルDB構成
+- ローカル開発は SQLite、本番は Aurora DSQL（構成は [13-AWSサーバレスアーキテクチャ設計書.md](13-AWSサーバレスアーキテクチャ設計書.md)）
 
-### 5.2 DynamoDB シングルテーブル設計
+### 5.2 課金
 
-- PK/SK パターンで複数エンティティを1テーブルに集約
-- GSI を活用した逆引きクエリ（例: メールアドレスからテナント検索）
-- テナント分離: PK に `T#<tenantId>#` プレフィックスを付与 (#0127)
+- Stripe を契約状態の SSOT とし、Checkout → Webhook → プラン反映で契約を反映する
+- 契約状態の組み合わせと書き手は [billing-redesign/contract-state-matrix.md](billing-redesign/contract-state-matrix.md)、方針は [billing-redesign/billing-redesign-policy.md](billing-redesign/billing-redesign-policy.md)
 
-### 5.3 ライセンスキー設計
+### 5.3 メール配信
 
-- `GQ-XXXX-XXXX-XXXX` 形式（曖昧文字 0/O/1/I を除外）
-- Stripe Checkout → Webhook → キー自動発行 → メール送信のパイプライン (#0247)
-- サインアップ時にオプションで入力可能（無料トライアルと購入済みの両フロー対応）
-
-### 5.4 メール配信
-
-- SES でトランザクションメール（ウェルカム、ライセンスキー、解約通知等）
+- SES でトランザクションメール（ウェルカム、解約通知等）
 - HTML + テキスト両方のボディを送信（メールクライアント互換性）
 - ローカルモードではログ出力のみ（SES 不使用）
 
-### 5.5 テスト戦略
+### 5.4 テスト戦略
 
 - Vitest でユニットテスト（2300+ テスト）
 - Playwright で E2E テスト（160+ テスト、デスクトップ + モバイル）
 - `data-testid` 属性で要素特定（CSS セレクタに依存しない）
 - CI で biome lint + svelte-check + vitest + playwright を毎回実行
 
-### 5.6 URL リネーム・廃止の中央管理（#578）
+### 5.5 URL リネーム・廃止の中央管理（#578）
 
 **教訓**: #571 で `/kinder` → `/preschool` へのリネーム時、SQLite マイグレーションが漏れた結果、
 404 インシデントが発生した。根本原因は「URL リダイレクトを個別ページで `redirect()` する散在した設計」。
@@ -150,7 +142,7 @@
 - 308 は method 保持 + permanent を両立（301 だと POST が GET に落ちる）
 - 認可チェックやセッションリダイレクトは例外的に個別ルートで OK
 
-### 5.7 エラーページの役割別ハンドリング（#577）
+### 5.6 エラーページの役割別ハンドリング（#577）
 
 子供ロールは 404/403/500 ページでテキストを読ませず、3 秒カウントダウン後に自動でホームへ戻す。
 親ロールは従来通り手動操作（開発者情報として requestId を表示）。
@@ -160,7 +152,7 @@
 - `+error.svelte` は `data-role` 属性で CSS をブランチ
 - 404 を構造化ログ（referer/userAgent/role）で記録し、次の #571 的インシデントを早期検知
 
-### 5.8 既定子供の優先順位チェーン（#576）
+### 5.7 既定子供の優先順位チェーン（#576）
 
 ルート `/` の遷移判定を固定化:
 
