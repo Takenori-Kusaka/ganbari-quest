@@ -51,6 +51,7 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 - release branch は **force-push（history 書換）を禁止する ruleset（`release-lane-freeze`）で保護**し、標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
 - **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: push による approval の自動 dismiss に依存しない。approve 後に release branch へ append すると stale approval が残り未監査差分が merge され得るため、**adversarial evidence 取得・lab approve の後に release へ commit を積んだ場合は、adversarial evidence を再生成（TTL 30 分）し再 approve する**こと。approve した HEAD = merge する HEAD を必ず一致させる。
 - 命名は `release/<YYYY-MM-DD>` を基本とし、同日複数回は `-2` 等の suffix を付ける。
+- 統合 PR の題名は `[統合] release/<YYYY-MM-DD> → main` とし、**回数（「第 N 回」）は入れない**。回数は人の記憶で採番するため揺れる（#4976）。識別は cut の日付で足りる。
 - machine 層: `pr-lane.mjs`（lane 判定）/ `resolve-base-branch.mjs`（release/* → main 基点解決）/ `ci.yml`（base-guard + 重量発火）が release/* を統合レーンとして扱う。
 - **`integration-pr.yml`（develop → main 自動発行、#2871）との関係**: `develop → main` も rule 2 で integration レーンに残す（後方互換）。audit-manager が形式 audit で main へ反映する際は **release/* を cut して frozen 標的で監査・merge する**のを正準とする。`integration-pr.yml` の自動発行を release/* cut 方式へ移行するかは別 Issue（#3063 派生）で判断する。
 
@@ -328,7 +329,7 @@ S0→S1 の移行 gate =「standing 統合 PR（#3397 系）の自動 body / 含
 
   | 項目 | 内容 |
   |---|---|
-  | cycle | 通し番号（第 N 回リリース run） |
+  | cycle | release の日付（`release/<YYYY-MM-DD>`。回数では採番しない、§3.1） |
   | standing PR | supersede close した standing 統合 PR 番号（#3397 系） |
   | 含有 PR 列挙 | 過不足判定（`過不足なし` / `欠落 N 件` / `余分 N 件`）— 自動 body の含有 PR 一覧 vs 実 merge 済 PR |
   | Closes 集約 | closing keyword 集約の過不足判定（over-close / under-close 有無、#3423 / #3462 整合） |
