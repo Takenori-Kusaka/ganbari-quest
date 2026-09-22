@@ -392,6 +392,17 @@ FEEDBACK_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 > **今後の拡張**: 未実装の通知は、チャンネルの追加（例: `#課金通知`, `#退会通知`）または deploy-log への統合で対応する。
 > 運用設計書 §8 の推奨チケット #0195「Discord運用者通知の体系的整備」で対応予定。
 
+### 7.2 週次運営レポート（`weekly-report.yml`）の中身
+
+毎週月曜 09:00 JST に `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` へ 1 通届く。各節の出典:
+
+| 節 | 出典 | 導出 |
+|---|---|---|
+| 利用状況 | 本番 DSQL | `/ops` ダッシュボードと同じ `getKpiSummary()`（`src/lib/server/services/ops-service.ts`）を `scripts/ops-kpi-summary.ts` で呼ぶ。文面は `ops-kpi-report.ts`、ラベルは `OPS_LABELS`。取得に失敗したら古い値を出さず「取得に失敗しました」と明記し、job を失敗させる |
+| 先週の AWS コスト | Cost Explorer（サービス別） | 費用の大きい順に上位 5 サービス + その他。合計は全サービスの和（サービス名を固定で列挙しない） |
+| Stripe 売上 | Stripe API（先週の paid invoice） | 件数と `amount_paid` の和 |
+| サマリー | 上記 | MRR 概算（月、利用状況と同じ値）と今週の AWS 費用 |
+
 ---
 
 ## 8. セキュリティ考慮事項
