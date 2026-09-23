@@ -253,8 +253,9 @@ export function main(argv = process.argv.slice(2)) {
 				'       deploy workflow の `-c` で値を渡す (infra/CLAUDE.md §新規 env 追加時 PR チェックリスト)。\n' +
 				'       **インシデント中に手で足した env はこちら**。消すと本番が壊れる。\n' +
 				'   (b) 検証用に一時注入したもので、消しても壊れないと確認できた場合のみ手で除去する:\n' +
-				`       aws lambda get-function-configuration --function-name ${functionName} --region ${region} --query 'Environment.Variables'\n` +
-				'       → 該当キーを除いた JSON で aws lambda update-function-configuration --environment file://…',
+				`       aws lambda get-function-configuration --function-name ${functionName} --region ${region} --query 'Environment.Variables' > /tmp/env.json\n` +
+				'       → 該当キーを除いた JSON で aws lambda update-function-configuration --environment file://… --query LastUpdateStatus\n' +
+				'       (全 env には秘密値が含まれる。値を端末・ログ・Issue に出さない)',
 		);
 		return 1;
 	}
