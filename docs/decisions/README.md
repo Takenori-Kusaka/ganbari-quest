@@ -76,7 +76,7 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 | **ページガイド positioning (collision-aware + spotlight)** | **driver.js (MIT)** | **#2926 (EPIC #2925 Sub-1)** | **side/align 宣言 + viewport 自動調整 + scroll-into-view + backdrop cutout (spotlight) を標準装備。手動 positioning (PageGuideOverlay 独自の targetRect 計測 / 固定クランプ / 自前 SVG spotlight) を撤去し本来機能に委譲。intro.js / shepherd.js は AGPL or 商用で商用 SaaS 不適、floating-ui は positioning のみ (spotlight + scroll は別実装) のため driver.js を採用 (research SSOT: `tmp/research-page-guide-redesign-2026-06-05.md` §3)。PR #2387 で callsite 0 を理由に一旦撤去 → #2930 で PageGuideOverlay の手動 positioning を実委譲し再採用 (Issue #2406 の「Driver.js 不使用」前提を supersede)** |
 | **DSQL pg integration test 基盤 (fitness#8 部分コミット再現)** | **@electric-sql/pglite (Apache-2.0)** | **#3531 (#N1-1、EPIC #3424)** | **WASM Postgres で Docker 不要 (Windows dev + CI 直動)、drizzle 公式 driver あり。dev dependency のみ (本番 bundle 0、ADR-0010)。testcontainers (実 pg) と比較: Docker 常設要 + DSQL 固有 OCC 40001 は実 pg でも再現不能で優位性薄。単一接続制約 (tx 内 await deadlock) は test 側 fire→settle パターンで回避 (issue #3531 記録)** |
 | **CW Logs → S3 log archiving (IaC)** | **aws-cdk-lib GA L2 `aws-kinesisfirehose` (DeliveryStream) + `aws-logs-destinations` (FirehoseDestination)** | **#3939 (#3909 調査 (a))** | **追加依存ゼロ (aws-cdk-lib 同梱)。L1 CfnDeliveryStream + 手動 IAM role 2 本 + CfnSubscriptionFilter (~60 行) → L2 ~20 行、delivery/subscription role は L2 が最小権限で自動生成。community construct は該当なし (#3909 AC2 評価)** |
-| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | #4343 (#4291) | ローカル AST 解析のみで増分更新でき LLM トークンを消費しない。`graphify-out/` を git 追跡することで、新しい clone / セッションがチェックアウト直後から構造を引ける (コールドスタート解消)。**制約**: `.svelte` は symbol 抽出が浅く、250 file が 492 node (2.0 node/file) — `.ts` の 6.6 node/file に対し粗い。UI 層の探索は `docs/codebase-map.md` + grep を主経路のままとする |
+| コードベース探索性 (knowledge graph 化) | [graft](https://github.com/trailhq/Graft) (`@nanonets/graft`, MIT) | #4990 (#4959 を受けた置換) | tree-sitter のローカル解析のみ (LLM / API キー不要)。グラフは clone ごとのローカルキャッシュ (`/graft/`、git 追跡しない) で、問い合わせ時に差分だけ取り込むため CI・git hook・Claude hook・refresh PR のいずれも要らない (前任ツールを撤去させた運用コストを構造的に持たない。経緯は §OSS 調査済み・不採用記録)。**制約**: 版は 0.12.1 固定 (0.13.0 以降は Windows で起動不能、trailhq/Graft#323) / `.svelte` は索引外のため UI 層は `docs/codebase-map.md` + grep を主経路とする。使い方 SSOT: `.claude/skills/graft/SKILL.md` |
 
 各採用 OSS の詳細根拠は対応する ADR / 設計書 (`docs/design/*-architecture.md`) を参照。本表は採用済み OSS の「インデックス」として機能し、新規実装者が `npm install` 前にまず参照する SSOT。
 
@@ -84,10 +84,11 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 調査したが採用しなかった OSS の**薄いインデックス**。同じ候補の再調査ループを断つことが目的。再評価トリガを満たした場合のみ再検討する。
 
-**現在 0 件**（Graphify は #4343 で採用され §OSS 採用記録 へ移動）。列の契約:
+**現在 1 件**。列の契約:
 
 | 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 不在の証明 | 詳細 |
 |------|---------|-------|------------|------------|-----------|------|
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-09-22 | #4343 で採用後に撤去し graft へ置換。生成物 (`graph.json` 32MB) の git 追跡が refresh PR・merge driver・Python 依存 pin・hook を連鎖的に要求し、最後は refresh PR の検証がメモリ不足で完走しなかった (#4959) | グラフを git 追跡せず、CI / hook なしで使える形態になった時点 (かつ graft が使えなくなった場合) | `graphify-out/graph.json` / `.github/workflows/graphify-refresh.yml` | [rationale/16](../rationale/16-graphify-evaluation-rationale.md) |
 
 **記録する基準**: 10 行超の独自実装 / 既存機構の置換候補として**実測評価した**もののみ。カタログを見て軽く外したものは記録しない (記録の価値 = 再調査コストの回避であり、再調査が安いものは対象外)。
 
