@@ -232,8 +232,14 @@ describe('[A] push 不達の MetricFilter / Alarm が CDK に定義されてい�
 
 describe('[B] CDK literal ↔ アプリ側 SSOT の drift', () => {
 	it('[B1] 検索語がアプリ側定数と完全一致する', () => {
+		// 片側が消えて両方 undefined になっても toBe は通るので、中身があることを先に確かめる。
+		// [C3] / [C4] の「マッチしない」も、検索語が空だと何も確かめていないことになる。
+		for (const term of [APP_VAPID_MISSING_LOG_TERM, APP_SEND_FAILED_LOG_TERM]) {
+			expect(term).toMatch(/^\[push-alert\] \S+$/);
+		}
 		expect(PUSH_VAPID_MISSING_LOG_TERM).toBe(APP_VAPID_MISSING_LOG_TERM);
 		expect(PUSH_SEND_FAILED_LOG_TERM).toBe(APP_SEND_FAILED_LOG_TERM);
+		expect(PUSH_VAPID_MISSING_LOG_TERM).not.toBe(PUSH_SEND_FAILED_LOG_TERM);
 	});
 });
 
