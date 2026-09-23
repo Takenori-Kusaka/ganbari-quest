@@ -173,7 +173,7 @@
 │    │   └─ DISCORD_RELEASE_NOTES_WEBHOOK_URL ──→ 📢 アップデート情報  │
 │    ├─ weekly-report.yml                                            │
 │    │   └─ DISCORD_WEEKLY_REPORT_WEBHOOK_URL ──→ (週次レポート)      │
-│    ├─ cost-audit.yml / hotfix-back-merge.yml / integration-pr.yml  │
+│    └─ cost-audit.yml / hotfix-back-merge.yml / integration-pr.yml  │
 │        └─ DISCORD_WEBHOOK_URL ──→ 🔧 deploy-log                   │
 │                                                                    │
 │  [AWS Lambda]                                                      │
@@ -396,7 +396,7 @@ FEEDBACK_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 
 ### 7.2 週次運営レポート（`weekly-report.yml`）の中身
 
-毎週月曜 09:00 JST に `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` へ 1 通届く。各節の出典:
+Secret `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` が登録されていれば、毎週月曜 09:00 JST に 1 通届く（未登録の間は送信を skip する）。各節の出典:
 
 | 節 | 出典 | 導出 |
 |---|---|---|

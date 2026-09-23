@@ -3,7 +3,7 @@
 ## 概要
 
 このガイドに従って Discord サーバーを開設し、ユーザーコミュニティ・問い合わせ・スポンサー活動の基盤を整えます。  
-設定が完了したら、各 Webhook URL を GitHub Actions 変数および AWS SSM パラメータに登録します。
+設定が完了したら、各 Webhook URL を GitHub Actions の **Secret** および AWS SSM パラメータに登録します（Variable には置かない。Variable の値は Actions のログで伏せ字にならない）。
 
 ---
 
@@ -67,11 +67,11 @@
 | チャンネルトピック | 「新機能・改善・バグ修正のリリースノートを自動投稿します。」 |
 | 権限 | @everyone: メッセージ送信 ❌ / メッセージ閲覧 ✅ |
 
-使用目的: GitHub Actions の **deploy.yml** から本番デプロイ成功時に自動投稿。  
+使用目的: GitHub Actions の **deploy.yml**（release-notes job）が、本番デプロイ後に顧客向けリリースノートを自動投稿する。  
 → このチャンネルの Webhook URL を `DISCORD_RELEASE_NOTES_WEBHOOK_URL`（GitHub Actions **Secret**）に設定する。
 
 > **⚠️ 注意**: セキュリティのため「内部デプロイログ」は **#deploy-log**（非公開）に分けています。  
-> このチャンネルの Webhook はユーザー向けの成功/失敗メッセージのみ投稿します。
+> このチャンネルに投稿するのは顧客向けのリリースノートだけです。deploy の成否は #deploy-log（Secret `DISCORD_WEBHOOK_URL`）に届きます。2 本の Secret を取り違えると、deploy 失敗の英語メッセージが保護者向けのこのチャンネルに出るので、登録時に宛先を確認してください。
 
 ---
 
