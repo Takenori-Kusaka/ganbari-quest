@@ -17,8 +17,9 @@
  *      (鍵を差し替えた deploy で、diff の `[-]` に出る旧い秘密鍵は secret ではないので伏せ字にならない)
  */
 
-// cspell:ignore IAMROLE
-// ↑ deploy.yml の secret 名 AWS_OIDC_IAMROLE_ARN をそのまま env に渡す (Validate step がこの名前で検査するため綴りを変えられない)
+// cspell:ignore IAMROLE xtrace
+// ↑ IAMROLE: deploy.yml の secret 名 AWS_OIDC_IAMROLE_ARN をそのまま env に渡す (Validate step がこの名前で検査するため綴りを変えられない)
+//   xtrace: bash の `set -o xtrace` のオプション名そのもの (Mask step がそれを使わないことを検査する)
 
 import { spawnSync } from 'node:child_process';
 import { createECDH } from 'node:crypto';
@@ -282,9 +283,21 @@ describe('#4706 deploy.yml の Validate step が鍵の組を先に検査する',
 		expect(isVapidKeyPair(publicKey, privateKey), 'synth が拒否する入力であること').toBe(false);
 		const r = runStep(script(), secretsFor(publicKey, privateKey));
 		expect(r.status).toBe(1);
-		expect(r.output).toMatch(/::error::.*VAPID/);
+		expect(r.output).toMatch(/::error::.*鍵の組になっていません/);
 		expect(r.output).not.toContain(privateKey);
 		expect(r.output).not.toContain(publicKey);
+	});
+
+	// 判定を実行できなかった (import 失敗・構文エラー・型除去に対応しない Node 等) ときも node は
+	// exit 1 で終わる。それを「鍵の組になっていない」と表示すると、運用者が鍵を作り直して
+	// 全保護者の購読を無効にしかねない。判定不能は別の文言で止める。
+	it('判定を実行できなかったときは「鍵の組になっていない」と誤診断せずに止める', () => {
+		const r = runStep(script(), secretsFor(PUBLIC_KEY, PRIVATE_KEY), {
+			node: `echo 'SyntaxError: Unexpected token' >&2; exit 1`,
+		});
+		expect(r.status).toBe(1);
+		expect(r.output).toMatch(/::error::.*判定を実行できませんでした/);
+		expect(r.output).not.toContain('鍵の組になっていません');
 	});
 });
 
@@ -302,6 +315,11 @@ describe('#4706 鍵を差し替えた deploy で旧い秘密鍵を公開ログ�
 		expect(credentials).toBeGreaterThan(-1);
 		expect(mask).toBeGreaterThan(credentials);
 		expect(mask).toBeLessThan(firstDiff);
+	});
+
+	// 値はシェル変数にだけ持つ前提。xtrace を足すと add-mask の登録前に展開後のコマンドが平文で出る。
+	it('xtrace を有効にしない (値が add-mask より前に平文で出るため)', () => {
+		expect(script()).not.toMatch(/set\s+-[a-z]*x|xtrace/);
 	});
 
 	it('deploy 済みの秘密鍵を add-mask で登録し、それ以外の行には値を出さない', () => {

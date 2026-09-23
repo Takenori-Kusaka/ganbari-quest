@@ -118,12 +118,21 @@ jobs:
           fi
           # #4706: VAPID 鍵は「登録されている」だけでなく「組になっている」ことまで見る。
           # 判定は CDK synth と同じ isVapidKeyPair (infra/lib/vapid-context.ts) を呼ぶ (判定を 2 つ持たない)。
-          # 結果は exit code だけで受け取り、鍵の値は出力しない。
-          if ! node --input-type=module -e "import { isVapidKeyPair } from './infra/lib/vapid-context.ts'; process.exit(isVapidKeyPair(process.env.VAPID_PUBLIC_KEY ?? '', process.env.VAPID_PRIVATE_KEY ?? '') ? 0 : 1)"; then
-            echo "::error::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY が鍵の組になっていません (形式不正・公開鍵と秘密鍵の取り違え・片方だけの作り直し)。同じ generateVAPIDKeys() の出力を組で登録し直してください (docs/operations/notification-runbook.md §2.1、#4706)"
-            exit 1
-          fi
-          echo "::notice::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は鍵の組になっています"
+          # 結果は exit code だけで受け取り、鍵の値は出力しない。組になっていないときは 3 を返させ、
+          # node 自体が落ちたとき (import 失敗等も exit 1) と区別する。判定できなかっただけなのに
+          # 「組になっていない」と出すと、鍵を作り直して全保護者の購読を無効にしかねない。
+          vapid_rc=0
+          node --input-type=module -e "import { isVapidKeyPair } from './infra/lib/vapid-context.ts'; process.exit(isVapidKeyPair(process.env.VAPID_PUBLIC_KEY ?? '', process.env.VAPID_PRIVATE_KEY ?? '') ? 0 : 3)" || vapid_rc=$?
+          case "$vapid_rc" in
+            0)
+              echo "::notice::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は鍵の組になっています" ;;
+            3)
+              echo "::error::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY が鍵の組になっていません (形式不正・公開鍵と秘密鍵の取り違え・片方だけの作り直し)。同じ generateVAPIDKeys() の出力を組で登録し直してください (docs/operations/notification-runbook.md §2.1、#4706)"
+              exit 1 ;;
+            *)
+              echo "::error::VAPID 鍵の組の判定を実行できませんでした (node exit $vapid_rc)。鍵の不備とは限らないので、鍵は作り直さずにこの step のログを確認してください (#4706)"
+              exit 1 ;;
+          esac
           # #4104: 本番に test key が入る事故は単体で成立し、しかも無通知で成立する
           # (顧客の決済がすべて test mode に流れ、決済成功に見えたまま入金されない)。
           # staging の逆方向と対称に allowlist で止める。denylist (sk_test_ を弾く) だと

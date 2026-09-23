@@ -67,7 +67,7 @@ Phase A / B 補佐確認結果:
 
 ### 2.1 VAPID 鍵配布証跡確認（ADR-0006 整合）
 
-配布経路は **GitHub Actions Secrets → `deploy.yml` の `-c vapidPublicKey` / `-c vapidPrivateKey` → CDK (`infra/lib/compute-stack.ts`) → 本番 app Lambda env** の 1 本だけ（SSM Parameter Store は使わない）。本番で鍵が未指定 / 形式不正 / 組になっていないなら、`deploy.yml` の `Validate required secrets` が deploy の最初に止める（CDK synth と同じ判定 `isVapidKeyPair` を呼ぶ）。CDK synth も `addError` で止める。
+配布経路は **GitHub Actions Secrets → `deploy.yml` の `-c vapidPublicKey` / `-c vapidPrivateKey` → CDK (`infra/lib/compute-stack.ts`) → 本番 app Lambda env** の 1 本だけ（SSM Parameter Store は使わない）。本番で鍵が未指定 / 形式不正 / 組になっていないなら、`deploy.yml` の `Validate required secrets` が deploy の最初に止める（CDK synth と同じ判定 `isVapidKeyPair` を呼ぶ）。CDK synth も `addError` で止める。`判定を実行できませんでした` で止まったときは鍵の不備とは限らない（node の起動・読み込みの失敗）ので、鍵を作り直さずにログを確認する（作り直すと全保護者の購読が無効になる）。
 
 ```bash
 # GitHub Actions Secrets (登録の有無)
