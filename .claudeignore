@@ -36,3 +36,7 @@ coverage/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# graft のローカルグラフ (/graft/、.gitignore 済み)。問い合わせのたびに差分で書き換わる生成物で、
+# 使い方は graft の CLI で引く (.claude/skills/graft/SKILL.md)
+/graft/

@@ -88,7 +88,7 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 | 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 不在の証明 | 詳細 |
 |------|---------|-------|------------|------------|-----------|------|
-| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-09-22 | #4343 で採用後に撤去し graft へ置換。生成物 (`graph.json` 32MB) の git 追跡が refresh PR・merge driver・Python 依存 pin・hook を連鎖的に要求し、最後は refresh PR の検証がメモリ不足で完走しなかった (#4959) | グラフを git 追跡せず、CI / hook なしで使える形態になった時点 (かつ graft が使えなくなった場合) | `graphify-out/graph.json` / `.github/workflows/graphify-refresh.yml` | [rationale/16](../rationale/16-graphify-evaluation-rationale.md) |
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-09-22 | #4343 で採用後に撤去し graft へ置換。生成物 (`graph.json` 32MB) の git 追跡が refresh PR・merge driver・Python 依存 pin・hook を連鎖的に要求し、最後は refresh PR の検証がメモリ不足で完走しなかった (#4959) | グラフを git 追跡せず、CI / hook なしで使える形態になった時点 (かつ graft が使えなくなった場合) | `.github/workflows/graphify-refresh.yml` / `.claude/skills/graphify/` | [rationale/16](../rationale/16-graphify-evaluation-rationale.md) |
 
 **記録する基準**: 10 行超の独自実装 / 既存機構の置換候補として**実測評価した**もののみ。カタログを見て軽く外したものは記録しない (記録の価値 = 再調査コストの回避であり、再調査が安いものは対象外)。
 
