@@ -1497,7 +1497,7 @@ async function handleCopyFromChild() {
 		padding: 0.75rem;
 		text-align: center;
 	}
-	/* #4992: 無料プランで「編集」を押せない理由 (押す前に読める位置 = 一覧の直上) */
+	/* #4992: why "edit" is locked on the free plan, shown above the list so it is readable before pressing */
 	.reward-list__gate-note {
 		font-size: 0.8rem;
 		padding: 0.5rem 0.75rem;

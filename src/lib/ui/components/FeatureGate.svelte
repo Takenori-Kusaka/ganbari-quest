@@ -168,8 +168,8 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
-		/* #4992: 一覧の行 (ごほうび管理の「編集」) に置くと 🔒 と枠のぶん本物のボタンより幅を取り、
-		   モバイルで行タイトルの折り返しが増える。左右を詰めて Button size="sm" の幅に近づける */
+		/* #4992: when used in a list row (admin/rewards edit), the lock icon and border make it wider than
+		   the real Button and wrap more row titles on mobile. Tighter inline padding keeps it close to size="sm" */
 		padding: 0.5rem 0.75rem;
 		white-space: nowrap;
 		border: 1px solid var(--color-border-default);
