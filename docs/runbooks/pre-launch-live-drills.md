@@ -65,7 +65,8 @@ aws lambda get-function-configuration --function-name ganbari-quest-app --region
   --query 'Environment.Variables' > /tmp/env.json
 # /tmp/env.json の USE_LOOKUP_KEY を "false" に書き換えてから
 aws lambda update-function-configuration --function-name ganbari-quest-app --region us-east-1 \
-  --environment "Variables=$(jq -c . /tmp/env.json)"
+  --environment "Variables=$(jq -c . /tmp/env.json)" --query 'LastUpdateStatus' --output text
+# 応答をそのまま出すと全 env (秘密値を含む) が端末に出る。証跡として Issue に貼らないよう状態だけを出す
 ```
 
 ### 1.3 何秒で反映されるか / 何を見て反映を確認するか
@@ -88,7 +89,8 @@ aws lambda update-function-configuration --function-name ganbari-quest-app --reg
 ```bash
 # /tmp/env.json の USE_LOOKUP_KEY を "true" に戻して再適用
 aws lambda update-function-configuration --function-name ganbari-quest-app --region us-east-1 \
-  --environment "Variables=$(jq -c . /tmp/env.json)"
+  --environment "Variables=$(jq -c . /tmp/env.json)" --query 'LastUpdateStatus' --output text
+# 応答をそのまま出すと全 env (秘密値を含む) が端末に出る。証跡として Issue に貼らないよう状態だけを出す
 ```
 
 確認は §1.3 と同じ（`LastUpdateStatus=Successful` かつ `USE_LOOKUP_KEY=true`）。
