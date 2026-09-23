@@ -45,6 +45,10 @@ export const MIN_REPO_SCAN_TIMEOUT_MS = 20_000;
  */
 export const REPO_SCAN_TEST_REGISTRY = {
 	// --- scope: repo (repo ツリーを走査。明示 timeout 必須) ---
+	'tests/unit/tutorial/child-page-guide-4864.test.ts': {
+		scope: 'repo',
+		note: 'src/routes/(child) を再帰走査し、子供画面の route が「❓ の説明あり」「❓ を出さない (理由つき)」のどちらかに必ず載ることを見る (#4864)。走査は (child) 部分木に限るが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/architecture/logger-message-pii-boundary.test.ts': {
 		scope: 'repo',
 		note: 'src を走査し、logger.* の message 引数に PII 名の変数 (email / pin / token 等) を埋め込む呼び出しの不在を見る (#4947 恒久策、出口 redaction と対の入口 gate)',

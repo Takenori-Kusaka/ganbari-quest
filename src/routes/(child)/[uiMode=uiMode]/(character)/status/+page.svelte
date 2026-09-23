@@ -11,8 +11,17 @@ import { getModeVariant } from '$lib/features/child-home/variants';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
 import StatusBar from '$lib/ui/components/StatusBar.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import { setChildGuidePresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
+
+// #4864: ❓ ガイドに「ステータスを表示できているか」を伝える (取得に失敗した fallback では
+// チャートも一覧も出ないので、ガイドは何も指さない)。真偽値を $derived に切り出すのは #4923 と同じ理由。
+const hasStatus = $derived(data.status != null);
+$effect(() => {
+	setChildGuidePresence('status', hasStatus);
+	return () => setChildGuidePresence('status', undefined);
+});
 
 const uiMode = $derived((data.uiMode ?? 'preschool') as UiMode);
 // #4690 F5: 見出し・メッセージ・凡例・カテゴリ名は年齢帯で文体が変わる (docs/DESIGN.md §8)。
@@ -62,7 +71,7 @@ const radarCategories = $derived(
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	{#if data.status}
-		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]">
+		<Card variant="elevated" padding="md" class="mb-[var(--sp-md)]" data-tutorial="status-growth">
 			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-sm)]" data-testid="growth-chart-heading">{L.growthChartTitle}</h2>
 			<div class="flex justify-center">
@@ -108,7 +117,8 @@ const radarCategories = $derived(
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
 					{@const status = data.status.statuses[catDef.id]}
 					{#if status}
-						<div>
+						<!-- #4864: ❓ ガイドの「レベル」step は先頭の行 (Lv. 表示を含む) を指す -->
+						<div data-tutorial="status-levels">
 							<StatusBar
 								categoryId={catDef.id}
 								value={status.value}

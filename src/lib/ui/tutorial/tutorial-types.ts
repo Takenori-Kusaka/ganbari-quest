@@ -60,3 +60,25 @@ export interface TutorialChapter {
 	icon: string;
 	steps: TutorialStep[];
 }
+
+/**
+ * 子供ページガイドの「ホーム」を指す page key (#4864)。
+ *
+ * 子供の ❓ は押した画面の章を開く (`tutorial-chapters-child.ts` の `ChildGuidePage`)。
+ * 進捗 (localStorage) は画面ごとに分けるが、**ホームだけは #4864 以前と同じ key を使う**
+ * (ホームのツアーしか無かった頃に途中まで見た子の進捗を捨てない)。store はこの page の
+ * ときだけ scope に page を足さない。
+ */
+export const CHILD_HOME_GUIDE_PAGE = 'home';
+
+/**
+ * 子供ガイドの章を組み立てる関数 (子供 layout が store に渡す、#4860 / #4864)。
+ *
+ * - `page`: いま開いている画面の page key (`null` = ❓ の説明を持たない画面 → 章は空)
+ * - `presence`: その画面の主役 (活動カード / チェック項目 / ごほうび / ステータス) が
+ *   1 つでもあるか。`undefined` = まだ分からない。**書けるのはその画面だけ** (layout は推測しない)
+ */
+export type ChildChapterBuilder = (
+	page: string | null,
+	presence: boolean | undefined,
+) => TutorialChapter[];

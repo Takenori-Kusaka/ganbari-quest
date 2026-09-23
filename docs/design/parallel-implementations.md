@@ -170,7 +170,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 場所 | 内容 |
 |------|------|
-| `src/lib/ui/tutorial/tutorial-chapters-child.ts` + `getChildTutorialLabels` | 子供画面チュートリアル (親の章立て v1 は #4654 で撤去) |
+| `src/lib/ui/tutorial/tutorial-chapters-child.ts` + `getChildTutorialLabels` (ホーム) / `getChildPageGuideLabels` (ホーム以外) | 子供画面の ❓。押した画面の章を開く (#4864)。説明の無い画面では ❓ を出さない (06-UI設計書 §4.13.0) |
 | `src/routes/**/_guide.ts` + `PAGE_GUIDE_LABELS` | 親管理画面 / marketplace の ❓ ページガイド (デモガイドツアーは #4679 で撤去済) |
 
 **同期メカニズム**:
@@ -667,7 +667,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **ナビゲーション** → 面を固定数で数えず、`grep -rn "<nav\b" src/` で変更が及ぶ面を確かめる。管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
-- [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels`、#4652) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
+- [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels` / `getChildPageGuideLabels`、#4652 / #4864。子供画面を足したら `CHILD_GUIDE_PAGE_BY_ROUTE` か `CHILD_ROUTES_WITHOUT_GUIDE` のどちらかに載せる) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（検証 script は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
