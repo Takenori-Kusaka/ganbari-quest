@@ -3,6 +3,7 @@
 		"ACTIVITIES_INTRODUCE_LABELS",
 		"ACTIVITY_PRIORITY_LABELS",
 		"ADMIN_CHILDREN_LABELS",
+		"CHILD_SHOP_KANJI_OVERRIDES",
 		"FEATURES_BATTLE_LABELS",
 		"NavCategoryId",
 		"PAID_PLAN_LABEL",
@@ -34,7 +35,8 @@
 		"DEMO_CHILD_ACHIEVEMENTS_LABELS": "PR_initial baseline — PR-B3 #2188 demo 撤去に伴う dead。後続 cleanup PR。",
 		"PAID_PLAN_LABEL": "pre-existing orphan (PR #2801 起因ではない)。origin/main の labels.ts でも外部参照ゼロを確認済。'スタンダードプラン以上' compound だが現状未使用 — 後続 cleanup PR で削除候補。本 PR (backup-db.cjs graceful fallback) は labels.ts を変更しないため baseline pin のみで対応。",
 		"THEME_EMOJIS": "pre-existing orphan (PR #2801 起因ではない)。labels.ts 内部の getThemeOptions()/getThemeLabel フォールバックで load-bearing (line 488/498) のため削除不可だが、export 自体は外部直接参照ゼロ。getThemeOptions は ChildProfileCard / admin/children 等で利用される。origin/main でも同状態を確認済。本 PR は labels.ts 非変更のため baseline pin で対応。",
-		"FEATURES_BATTLE_LABELS": "#4965 で labels.ts をファイルに分けたとき、features.ts の FEATURES_LABELS.battle が child-battle.ts の本体を参照するために export を付けた名前。分割前は非 export のローカル定数で本検査の対象外だった (外から直接使う名前ではない)。年齢帯変種の組 (base / KANJI_OVERRIDES / getBattleLabels) を同じファイルに置く規則 (docs/DESIGN.md §6) があるため features.ts へは移さない。getBattleLabels / FEATURES_LABELS.battle が使われている限り dead ではない。"
+		"FEATURES_BATTLE_LABELS": "#4965 で labels.ts をファイルに分けたとき、features.ts の FEATURES_LABELS.battle が child-battle.ts の本体を参照するために export を付けた名前。分割前は非 export のローカル定数で本検査の対象外だった (外から直接使う名前ではない)。年齢帯変種の組 (base / KANJI_OVERRIDES / getBattleLabels) を同じファイルに置く規則 (docs/DESIGN.md §6) があるため features.ts へは移さない。getBattleLabels / FEATURES_LABELS.battle が使われている限り dead ではない。",
+		"CHILD_SHOP_KANJI_OVERRIDES": "#4965 で labels.ts をファイルに分けたとき、tutorial.ts の子供ページガイドの漢字変種 (CHILD_PAGE_GUIDE_KANJI_OVERRIDES、#4864) が child-shop.ts の漢字変種の exchangeButton / historyLinkLabel を参照するために export を付けた名前。分割前は非 export のローカル定数で本検査の対象外だった (外から直接使う名前ではない)。年齢帯変種の組 (base / 型 / KANJI_OVERRIDES / getChildShopLabels) を同じファイルに置く規則 (docs/DESIGN.md §6) があるため tutorial.ts へは移さない。getChildShopLabels / getChildPageGuideLabels が使われている限り dead ではない。"
 	},
 	"version": "1.0.0",
 	"generated": "2026-06-03T23:06:53.341Z"
