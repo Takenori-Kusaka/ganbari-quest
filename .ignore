@@ -4,3 +4,6 @@
 # (後の行が勝つ)。グラフは graft の CLI で引く: .claude/skills/graft/SKILL.md
 !graft/
 graft/
+# 上の `graft/` は前置スラッシュが無いため、どの階層の graft ディレクトリにも一致し、
+# graft の使い方の SSOT `.claude/skills/graft/SKILL.md` まで Grep / Glob から消える。skill だけ検索対象に戻す。
+!/.claude/skills/graft/
