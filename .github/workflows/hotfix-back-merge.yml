@@ -347,7 +347,7 @@ jobs:
           fi
           curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || echo "::warning::Discord 通知の送信に失敗した (curl exit $?。22 = HTTP エラーなら webhook の Secret が有効か、6/7/28 = 名前解決・接続・タイムアウト)"
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"
 
       # App 認証未設定時は Discord に加えて GitHub log にも残す (webhook の Secret 未設定環境のフォールバック)。
       - name: Drift summary (job summary)

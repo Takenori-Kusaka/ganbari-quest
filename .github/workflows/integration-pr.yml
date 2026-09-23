@@ -299,7 +299,7 @@ jobs:
           DESC="develop が main より ${AHEAD} commit 先行していますが、GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
           curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || echo "::warning::Discord 通知の送信に失敗した (curl exit $?。22 = HTTP エラーなら webhook の Secret が有効か、6/7/28 = 名前解決・接続・タイムアウト)"
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"
 
       # ----------------------------------------------------------------------
       # 7b. drift 通知 (Discord) — 前回統合から DRIFT_NOTIFY_DAYS 日を超えたら出す (#4976)
@@ -342,7 +342,7 @@ jobs:
             --data-binary @/tmp/drift-notify.json; then
             echo "::notice::前回統合から ${DRIFT_DAYS} 日 (> ${DRIFT_NOTIFY_DAYS} 日) のため Discord に通知した。"
           else
-            echo "::warning::drift 通知の送信に失敗した (curl exit $?、前回統合から ${DRIFT_DAYS} 日)。"
+            echo "::warning::drift 通知の送信に失敗した (前回統合から ${DRIFT_DAYS} 日。詳細は直前の curl のエラー出力)。"
           fi
 
       # ----------------------------------------------------------------------

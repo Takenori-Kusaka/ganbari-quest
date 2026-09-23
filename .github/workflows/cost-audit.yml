@@ -182,4 +182,4 @@ jobs:
                 \"color\": 3447003,
                 \"footer\": {\"text\": \"がんばりクエスト Cost Audit\"}
               }]
-            }" || echo "::warning::Discord 通知の送信に失敗した (curl exit $?。22 = HTTP エラーなら webhook の Secret が有効か、6/7/28 = 名前解決・接続・タイムアウト)"
+            }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"
