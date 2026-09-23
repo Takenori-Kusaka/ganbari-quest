@@ -36,7 +36,7 @@
 | 場所 | 内容 | 技術 |
 |------|------|------|
 | `src/lib/domain/labels/` (入口 `src/lib/domain/labels.ts`) | アプリの用語辞書 = labels 層（Single Source of Truth）。画面・機能ごとのファイル。LP 用 namespace は `src/lib/domain/labels/lp.ts`。置き場所は `docs/DESIGN.md` §6 の配置規則 | TypeScript |
-| `src/lib/domain/validation/age-tier-types.ts` | UiMode 型・LEGACY_UI_MODE_MAP・normalizeUiMode（#980: labels.ts / age-tier.ts 共通基盤） | TypeScript |
+| `src/lib/domain/validation/age-tier-types.ts` | UiMode 型・LEGACY_UI_MODE_MAP・normalizeUiMode（#980: labels 層 / age-tier.ts 共通基盤） | TypeScript |
 | `site/index.html` | LP トップページの用語直書き | 静的 HTML |
 | `site/pamphlet.html` | パンフレットページの用語直書き | 静的 HTML |
 | `site/shared-labels.js` | LP 共通用語ラッパ（2026-04-07 新設、#561） | JavaScript |
@@ -63,9 +63,9 @@ node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
 
 **分割前の `labels.ts` を触っていた branch の追従手順** (#4965 で labels.ts を `src/lib/domain/labels/*.ts` に分けた。分割前に切った branch が develop を取り込むとき):
 1. develop を merge (または rebase) する。`src/lib/domain/labels.ts` の衝突は **develop 側 (入口) を採る**
-2. 自分の hunk ごとに、変更していた namespace の移動先を `grep -rn "export const <NAME>" src/lib/domain/labels/` で引き、同じ行に当て直す (分割は文を一字一句移しただけなので、周辺の行はそのまま残っている)
+2. 自分の hunk ごとに、変更していた namespace の移動先を `grep -rn "export const <NAME>" src/lib/domain/labels/` で引き、同じ行に当て直す (分割は文を一字一句移しただけなので、周辺の行はそのまま残っている)。当て直した hunk がそのファイルでまだ import していない名前を参照するなら、そのファイルに import を足す (labels ファイル同士は `'./<file>'`、`terms.ts` 等は `'../terms'`。入口は import しない)
 3. 自分が新しく足した namespace は `docs/DESIGN.md` §6 の配置規則で決まるファイルに置く。別の labels ファイルの非 export 宣言を使うなら、定義側に `export` を付けて `./<file>` から import する
-4. `git grep -nE "^export (const|function|type|interface)" src/lib/domain/labels.ts` が 0 件であることを確かめる (入口に宣言が残ると、同名の `export *` を黙って上書きする)。最後に `node scripts/generate-lp-labels.mjs --check` と svelte-check を通す
+4. `git grep -nE "^(export )?(const|let|function|type|interface|enum|class) " src/lib/domain/labels.ts` が 0 件であることを確かめる (export の有無を問わず、入口に宣言を残さない。export 付きは同名の `export *` を黙って上書きし、非 export は別ファイルの namespace から参照できない)。最後に `node scripts/generate-lp-labels.mjs --check` と svelte-check を通す
 
 ---
 
@@ -220,7 +220,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/auth/reset-pin/+page.svelte` + `+page.server.ts` (#2993) | PIN reset 1 画面 UI (パスワード + 新 PIN、cognito identity guard) |
 | `src/lib/server/services/pin-operator-reset.ts` (#2994) | operator-level reset (`PARENT_PIN_RESET` env、冪等、local 専用)。hooks.server.ts が初回リクエストで評価 |
 | `docs/runbooks/operator-pin-reset.md` (#2994) | 形態別 reset 手順 SSOT (docker / PaaS / sqlite3 / DynamoDB + unset 手順) |
-| `src/lib/domain/labels.ts` `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
+| labels 層 (`$lib/domain/labels`) `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
 | `src/lib/domain/terms.ts` `OYAKAGI_TERMS` (#2353 / #4698) | atom (おやカギコード / 桁数 `digits` = `PIN_LENGTH` 由来) |
 | `src/lib/domain/constants/oyakagi.ts` `PIN_LENGTH` / `PIN_PATTERN` / `isValidPinFormat` (#4661 / #4698) | 桁数と形式の SSOT。ゲート UI / 全 PIN API / 設定画面 action / reset-pin / ラベル (`OYAKAGI_TERMS.digitRange`) が import (直書きは `oyakagi-pin-length-ssot.test.ts` + `pin-length-ssot-fitness.test.ts` が検出) |
 | `src/lib/domain/constants/pin-reset-otp.ts` `PIN_RESET_OTP_LENGTH` / `PIN_RESET_OTP_PATTERN` (#4661) | 再設定メールの確認コード (6 桁) SSOT。**おやカギ本体の桁数とは別概念**なので混ぜない |
@@ -258,7 +258,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 **修正時チェック**:
 - `runtime-mode.ts` (ADR-0040) の値変更 → 全 panel の `{#if data.runtimeMode === ...}` を grep で全件確認
 - panel 内で mode 分岐を散在させない (年齢帯 variant と同型のアンチパターン回避、`src/routes/CLAUDE.md` §年齢帯 variant)
-- 共通ロジック (LICENSE_PAGE_LABELS 等) は labels.ts SSOT、NUC 専用 atom (NUC_EDITION_TERMS) は terms.ts に分離 (ADR-0045)
+- 共通ロジック (LICENSE_PAGE_LABELS 等) は labels 層 SSOT、NUC 専用 atom (NUC_EDITION_TERMS) は terms.ts に分離 (ADR-0045)
 - 詳細: [docs/design/nuc-saas-runtime-bifurcation.md](nuc-saas-runtime-bifurcation.md)
 
 ---
@@ -361,13 +361,13 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/domain/marketplace-item.ts` | `ActivityPackPayload.activities[].mustDefault?` 型 | TypeScript |
 | `src/lib/server/services/activity-import-service.ts` | `ImportActivitiesOptions.applyMustDefault` で `priority='must'` 制御 | TypeScript |
 | `src/routes/setup/packs/+page.{svelte,server.ts}` | setup フローのチェックボックス + must Badge | Svelte / TS |
-| `src/lib/domain/labels.ts` | `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
+| labels 層 (`$lib/domain/labels`) | `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
 
 **同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/admin-activities-import-marketplace.spec.ts` (marketplace → `?import=` → ChildSelectionDialog の正規経路) で検証。
 
 **修正時チェック**:
 - 新しい mustDefault 候補を JSON に追加 → import-service テストで該当パターンが網羅されているか確認
-- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（setup / ChildSelectionDialog）
+- mustDefault のラベル/Badge 文言を変更 → labels 層 (`SETUP_PACKS_LABELS`) の SSOT 経由で一元修正（setup / ChildSelectionDialog）
 - `priority` enum を拡張するなら `activities.priority` schema (#1755) と整合チェック
 
 #### 7c. checklist 系 marketplace の純化 (#1758)
@@ -404,7 +404,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | reward-set 詳細ページ CTA、`dispatchImport` 経由 | TypeScript |
 | `src/routes/(parent)/admin/rewards/+page.server.ts` | 「マーケットプレイスから一括追加」、`dispatchImport` 経由 | TypeScript |
 | `src/routes/setup/rewards/+page.server.ts` | setup wizard step 2、`dispatchImport` 経由 | TypeScript |
-| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportUnified` (取込 4 type 共通 CTA) / `detailCtaImportRewardSignedOut` / `REWARDS_LABELS.marketplace*` | TypeScript |
+| labels 層 (`$lib/domain/labels`) | `MARKETPLACE_LABELS.detailCtaImportUnified` (取込 4 type 共通 CTA) / `detailCtaImportRewardSignedOut` / `REWARDS_LABELS.marketplace*` | TypeScript |
 | `src/lib/server/db/schema.ts` | `special_rewards.sourcePresetId` (#1254 G1) | Drizzle |
 
 **同期メカニズム**: `tests/unit/marketplace/strategies/reward-set-strategy.test.ts` (#2366、23 シナリオ + dispatcher integration) + `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ、Strangler Fig 並行) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) + `tests/e2e/admin-rewards-import-marketplace.spec.ts` (#2366 admin 動線) で検証。
@@ -433,7 +433,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | `VALID_TYPES` 配列 | TypeScript |
 | `src/routes/marketplace/[type]/[itemId]/+page.svelte` | （#3277 で除去済）旧: challenge-set 詳細「使ってみる」CTA → `/admin/challenges?marketplace-import=<id>` 遷移。現在 CTA は到達不能化（型/schema 互換残置のみ） | Svelte |
 | `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | （#3195 で読み取り専用化）旧: `marketplace-import` query 受取 + `?/importMarketplaceChallengeSet` form action。現在 query 非処理・取込 action 撤去済（自動生成一本化、`/admin/challenges` は閲覧のみ） | Svelte / TS |
-| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailIncludedChallenges` / `detailCtaImportChallengeSet*` | TypeScript |
+| labels 層 (`$lib/domain/labels`) | `MARKETPLACE_LABELS.detailIncludedChallenges` / `detailCtaImportChallengeSet*` | TypeScript |
 
 **同期メカニズム**: `tests/unit/domain/marketplace-items.test.ts` で type enum 完全性確認 + `tests/e2e/marketplace-challenge-set-import.spec.ts` で **challenge-set が marketplace に陳列されない（非取込）回帰**を検証（#2896 で取込フローは撤去、旧「詳細 → admin 遷移 → 一括追加」検証から転換）。
 
@@ -468,7 +468,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/(parent)/admin/settings/data/+page.{svelte,server.ts}` | data / cloud / clear (Danger Zone) | Svelte / TS |
 | `src/routes/(parent)/admin/settings/rules/+page.{svelte,server.ts}` | ごほうび交換の承認要否 (#3339 `reward_auto_approve`) / bonus rule-preset ON・OFF (#2138 MP-3)。**#2320 の分割対象外だった既存 route で、#3954 まで導線 3 箇所すべてから欠落していた** | Svelte / TS |
 | `src/routes/(parent)/admin/settings/support/+page.{svelte,server.ts}` | founderInquiry / feedback / appInfo | Svelte / TS |
-| `src/lib/domain/labels.ts` | `SETTINGS_LABELS` (hub / Danger Zone) + `SETTINGS_NAV_LABELS` (新規、サブナビ専用) | TypeScript |
+| labels 層 (`$lib/domain/labels`) | `SETTINGS_LABELS` (hub / Danger Zone) + `SETTINGS_NAV_LABELS` (新規、サブナビ専用) | TypeScript |
 | `src/lib/data/setup-defaults-activities.ts` | activities グループ sensible defaults (setup hard-code 代替案 A、rule-preset 集約代替案) | TypeScript |
 | `src/routes/setup/activities-defaults/+page.{svelte,server.ts}` | setup 任意 step (rules → activities-defaults → challenges 順、skip 可) | Svelte / TS |
 | `src/lib/server/services/setup-funnel-service.ts` | `setup_activities_defaults_applied/skipped` イベント追加 | TypeScript |
@@ -508,7 +508,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |------|------|
 | `src/lib/domain/plan-features.ts` | **SSOT**（#762 で新設）— 料金カード・管理画面ハイライト・Welcome解放機能 |
 | `src/lib/server/services/plan-limit-service.ts` | 機能制限のブール値フラグ定義（`PLAN_LIMITS`） |
-| `src/lib/domain/labels.ts` | `FEATURE_LABELS`（機能名の SSOT） |
+| labels 層 (`$lib/domain/labels`) | `FEATURE_LABELS`（機能名の SSOT） |
 | `src/routes/pricing/+page.svelte` | 料金プラン画面 |
 | `src/routes/(parent)/admin/subscription/+page.svelte` | 管理画面プラン購入カード (デモ Lambda 環境では `DATA_SOURCE=demo` env でモック動作、ADR-0048) |
 | `src/lib/features/admin/components/PremiumWelcome.svelte` | アップグレード完了ダイアログ |
@@ -522,7 +522,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
 - [ ] 機能フラグ追加 → `plan-limit-service.ts` の `PLAN_LIMITS` にブール値を追加
-- [ ] ラベル追加 → `labels.ts` の `FEATURE_LABELS` に追加
+- [ ] ラベル追加 → labels 層の `FEATURE_LABELS` (定義ファイルは IDE の定義ジャンプで引く) に追加
 - [ ] ユニットテスト（`tests/unit/domain/plan-features.test.ts`）の期待値を更新
 - [ ] LP 側（`site/*.html`）を更新 → `npm run lint:lp-plan-sync` で確認
 
@@ -556,7 +556,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |------|------|
 | `site/privacy.html` | プライバシーポリシー（外部送信規律 / 未成年者取扱い / 域外移転等を含む） |
 | `site/terms.html` | 利用規約（卒業概念 / 未成年者の利用等を含む） |
-| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（privacy / terms との一致を CI 検証していた専用 script は #4322 で削除済み。CI 検証は無い、レビューで担保する、#4420） |
+| labels 層 (`$lib/domain/labels`) `LEGAL_LABELS` | 法律用語のキー語彙（privacy / terms との一致を CI 検証していた専用 script は #4322 で削除済み。CI 検証は無い、レビューで担保する、#4420） |
 | `src/lib/server/services/consent-service.ts` `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` | 規約改訂日。本ファイルで上書きすると次回ログイン時に再同意フローへ自動誘導 |
 | `src/routes/auth/signup/+page.svelte` | 同意チェックボックス（agreedTerms / agreedPrivacy / agreedCrossBorder の 3 つすべて必須） |
 | `src/routes/legal/privacy/+page.server.ts` | 既存の `301` redirect 維持（LP-truth ADR-0013 整合 — アプリ側プラポリは LP の真実を SSOT として参照する） |
@@ -589,7 +589,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - Anti-engagement (ADR-0012) 整合: 「今すぐアップグレード」「失効します」等の煽り NG。中立トーンを貫く
 
 **修正時チェック**:
-- [ ] 新メール種別の追加時は `LIFECYCLE_EMAIL_LABELS` (labels.ts) に文言を追加し、SSOT を保つ
+- [ ] 新メール種別の追加時は `LIFECYCLE_EMAIL_LABELS` (labels 層) に文言を追加し、SSOT を保つ
 - [ ] cron job 追加時は `schedule-registry.ts` + `infra/lambda/cron-dispatcher/index.ts` (KNOWN_ENDPOINTS) + `infra/lib/compute-stack.ts` (CRON_JOBS) の 3 箇所同期
 - [ ] `Tenant.lastActiveAt` 関連の変更時は `entities.ts` + `auth-repo.interface.ts` + DynamoDB / SQLite 両 repo + `last-active-touch.ts` を同期
 
@@ -675,8 +675,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 子供 (`tutorial-chapters-child.ts` / `getChildTutorialLabels` / `getChildPageGuideLabels`、#4652 / #4864。子供画面を足したら `CHILD_GUIDE_PAGE_BY_ROUTE` か `CHILD_ROUTES_WITHOUT_GUIDE` のどちらかに載せる) + ページガイド (`**/_guide.ts` + `PAGE_GUIDE_LABELS`)（親の章立て v1 は #4654 で撤去、デモガイドバーは #4679 で撤去済）。同じ画面の説明が複数系統に散らないよう、UI を変えたら**その画面を説明している全系統**を同 PR で直す
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
-- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（検証 script は #4322 で削除済み、機械強制は無い）
+- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (labels 層) のキー用語が両文書に存在することを目視確認（検証 script は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
-- [ ] **年齢帯 variant ラベル** (`src/routes/CLAUDE.md` §年齢帯 variant) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
+- [ ] **年齢帯 variant ラベル** (`src/routes/CLAUDE.md` §年齢帯 variant) → labels 層の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters-child.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
 - [ ] **route 分割 / rename / `data-testid` 移動** (#2410) → `scripts/capture-hp-screenshots.mjs` の `HERO_CAROUSEL_SCREENSHOTS` / `FEATURE_SCREENSHOTS` / `GROWTH_STAGE_SCREENSHOTS` / `AGE_SCREENSHOTS` 全 4 配列の `url:` と `scrollTo:` selector を grep し、移動先 URL に同期する。`docs/design/asset-catalog.md` §「LP スクショ」表 + `tests/e2e/lp-screenshot-baseline/README.md` の撮影元 URL 列も同期。同期漏れ実例: #2319 で `/admin/settings` 分割した際 capture script の URL 未更新で 19 連続 deploy fail (`feature-auto-sleep` の `[data-testid="settings-decay-section"]` が空 wrapper 経由で 10s timeout)
