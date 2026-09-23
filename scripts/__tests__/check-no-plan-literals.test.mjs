@@ -27,6 +27,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const { TERM_LITERAL_RULES, VALUE_LITERAL_RULES, checkFile, shouldExclude } = await import(
 	'../check-no-plan-literals.mjs'
 );
+const { isLabelsLayerPath } = await import('../lib/parse-labels-ts.mjs');
 
 // ---------------------------------------------------------------------------
 // AC1: TERM_LITERAL_RULES の網羅
@@ -144,6 +145,33 @@ describe('shouldExclude (Issue #1918 AC2 — allowlist)', () => {
 	it('名前が labels で始まるだけの別ファイルは exclude しない (#4965)', () => {
 		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels-extra.ts')), false);
 		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labelsx.ts')), false);
+	});
+
+	it('labels/ 配下でも labels 層ではないファイルは exclude しない (#4965)', () => {
+		// 除外の範囲は ratchet (labels-plan-literal-ratchet) が数える範囲 = labels/ 直下の .ts と同じ。
+		// それより広く外すと、どちらの検査にも入らないファイルができる
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels/foo.svelte')), false);
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels/sub/x.ts')), false);
+	});
+
+	it('labels 層の除外範囲は parse-labels-ts.mjs の isLabelsLayerPath と一致する (#4965)', () => {
+		// 本 script は pre-ready が spawn するため module を import せず regex で持つ。定義が割れないよう突き合わせる
+		for (const rel of [
+			'src/lib/domain/labels.ts',
+			'src/lib/domain/labels/lp.ts',
+			'src/lib/domain/labels/child-shop.ts',
+			'src/lib/domain/labels/foo.svelte',
+			'src/lib/domain/labels/foo.js',
+			'src/lib/domain/labels/sub/x.ts',
+			'src/lib/domain/labels-extra.ts',
+			'src/lib/domain/terms.ts',
+		]) {
+			assert.equal(
+				shouldExclude(path.join(REPO_ROOT, rel)) && !rel.endsWith('terms.ts'),
+				isLabelsLayerPath(rel),
+				rel,
+			);
+		}
 	});
 
 	it('*.test.ts は exclude (テスト fixture)', () => {
