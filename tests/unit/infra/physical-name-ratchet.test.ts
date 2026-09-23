@@ -17,8 +17,9 @@
 // Layer 1 (cfn-lint) は property 制約しか見ないため本 class を捕捉できない。
 //
 // ## 何をするか
-// 1. bin/app.ts が instantiate し得る全 11 stack (prod 6 + Dsql prod/staging + AWS staging 3) を
-//    synth し、CFN type ごとの物理名 property (RoleName / BucketName / FunctionName 等) を全抽出する。
+// 1. bin/app.ts が instantiate し得る全 stack (prod / Dsql prod・staging / AWS staging。集合は
+//    [G1] が bin/app.ts と突き合わせる) を synth し、CFN type ごとの物理名 property
+//    (RoleName / BucketName / FunctionName 等) を全抽出する。
 // 2. allowlist (既存 baseline、justification 付き) と**集合として過不足なく一致**することを assert:
 //    - allowlist 外の新規明示物理名 = fail (新規リソースは名前省略 = CFN auto-naming が既定)
 //    - allowlist の stale entry = fail (撤去したら entry も削除 = ratchet は一方通行で減らす)
@@ -48,6 +49,7 @@ import { NetworkStack } from '../../../infra/lib/network-stack';
 import { OpsStack } from '../../../infra/lib/ops-stack';
 import { SesStack } from '../../../infra/lib/ses-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
+import { readBinStackNames } from '../helpers/bin-app-stack-ids';
 
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
 
@@ -76,8 +78,8 @@ function makeApp(): cdk.App {
 }
 
 /**
- * bin/app.ts が instantiate し得る全 stack (prod 6 + Dsql prod + Dsql staging + AWS staging 3)
- * の Template を返す (iam-role-description-ascii.test.ts と同一 wire = 網羅性 SSOT)。
+ * bin/app.ts が instantiate し得る全 stack の Template を返す (iam-role-description-ascii.test.ts と
+ * 同一 wire。集合は [G1] が bin/app.ts と突き合わせる)。
  */
 function buildAllTemplates(): Array<[string, Template]> {
 	const templates: Array<[string, Template]> = [];
@@ -142,7 +144,8 @@ function buildAllTemplates(): Array<[string, Template]> {
 		),
 	]);
 
-	// --- AWS staging 3 stack (#2873) ---
+	// --- AWS staging (bin/app.ts の stagingEnabled ブロックと同一 wire。stack の SSOT は
+	//     deploy-aws-staging.yml の STAGING_STACKS、網羅は [G1] が bin/app.ts と突き合わせる) ---
 	const stagingApp = makeApp();
 	const stStorage = new StorageStack(stagingApp, 'GanbariQuestStorageStaging', {
 		env,
@@ -158,10 +161,19 @@ function buildAllTemplates(): Array<[string, Template]> {
 		repository: stStorage.repository,
 		envConfig: STAGING_ENV_CONFIG,
 	});
+	const stNetwork = new NetworkStack(stagingApp, 'GanbariQuestNetworkStaging', {
+		env,
+		functionUrl: stCompute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
+		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
+		geoRestrictionCountries: [],
+	});
 	for (const [name, stack] of [
 		['GanbariQuestStorageStaging', stStorage],
 		['GanbariQuestAuthStaging', stAuth],
 		['GanbariQuestComputeStaging', stCompute],
+		['GanbariQuestNetworkStaging', stNetwork],
 	] as const) {
 		templates.push([name, Template.fromStack(stack)]);
 	}
@@ -243,7 +255,7 @@ function group(reason: string, keys: readonly string[]): NamedResourceEntry[] {
 	return keys.map((key) => ({ key, reason }));
 }
 
-// #3881 実測 baseline (2026-07-19、全 11 stack synth = 58 件 + #3907 保全 vault 1 件 = 59 件)。既存の明示物理名はここに pin し、
+// #3881 実測 baseline (全 stack を synth した実測値。件数は [G4] が実測と突き合わせる)。既存の明示物理名はここに pin し、
 // **一方通行で減らす** (rename は replacement = データ喪失リスクのため既存は rename しない。
 // リソース撤去時に entry を削除する)。新規追加は「auto-naming で代替できない」justification が
 // ある場合のみ許容し、reason に根拠を書く。
@@ -264,6 +276,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestStorageStaging/AWS::S3::Bucket/ganbari-quest-staging-assets-000000000000',
 			'GanbariQuestSes/AWS::S3::Bucket/ganbari-quest-support-mail-000000000000',
 			'GanbariQuestNetwork/AWS::S3::Bucket/ganbari-quest-error-pages-000000000000',
+			// staging の Network (#4204)。prod と同じ class の同じ命名 (`${prefix}-error-pages-${account}`)
+			'GanbariQuestNetworkStaging/AWS::S3::Bucket/ganbari-quest-staging-error-pages-000000000000',
 		],
 	),
 	...group(
@@ -366,6 +380,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 		[
 			'GanbariQuestNetwork/AWS::CloudFront::Function/ganbari-quest-demo-query-slash-encode',
 			'GanbariQuestNetwork/AWS::CloudFront::Function/ganbari-quest-query-slash-encode',
+			'GanbariQuestNetworkStaging/AWS::CloudFront::Function/ganbari-quest-staging-query-slash-encode',
 		],
 	),
 	...group(
@@ -401,9 +416,14 @@ describe('#3881 明示物理名 allowlist ratchet (rollback-orphan already-exist
 		}
 	}
 
-	it('[G1] instantiate 対象 11 stack を漏れなく synth できる (網羅性の担保)', () => {
-		// stack を追加したら本数を増やす。silent に synth 対象が減っていないことの guard。
-		expect(templates.length).toBe(11);
+	it('[G1] bin/app.ts が instantiate し得る全 stack を synth している (網羅性の担保)', () => {
+		// 本数を数字で固定すると、bin/app.ts に stack が増えても数字ごと古いまま緑になる
+		// (NetworkStaging が本 test から漏れていた)。bin/app.ts の stack 集合と突き合わせる。
+		const synthesized = templates.map(([name]) => name).sort();
+		expect(
+			synthesized,
+			'bin/app.ts の stack と synth 対象が一致しません。buildAllTemplates() に bin/app.ts と同じ wire で足してください',
+		).toEqual(readBinStackNames());
 	});
 
 	it('[G2] 明示物理名を持つ全リソースが allowlist 内である (新規明示名 = fail)', () => {

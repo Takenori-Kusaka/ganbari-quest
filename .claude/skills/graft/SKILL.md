@@ -46,8 +46,11 @@ npx -y @nanonets/graft@0.12.1 build "$(git rev-parse --show-toplevel)"   # 約 7
 - **repo root で build する。** `build` は引数の dir（省略時は cwd）を root にするため、`infra/` などで打つと
   そのディレクトリの `.gitignore` に追記し、そこに `.ignore` と `graft/` を作り、以後そのディレクトリからの問い合わせは
   そこだけの索引から答える。起きたら `git checkout -- <dir>/.gitignore` と `rm -rf <dir>/graft <dir>/.ignore` で戻す
-- **agent の worktree（`.claude/worktrees/*`）では build しない。** キャッシュは working tree ごとなので、
-  並走する worktree で build すると 1.4GB ずつ積み上がる（重い検証の lock の対象外）
+- **agent の worktree（`.claude/worktrees/*`）では build しない。** キャッシュは working tree ごとに作られ、
+  worktree の数だけ build の時間とディスクがかかる
+- `build` は重い検証の lock（`docs/sessions/agent-concurrency.md`）の対象で、マシン全体で 1 本しか走らない。
+  他のセッションが vitest などを回している間は block されるので、待たずに別の作業に移る。問い合わせ系
+  （`ask` / `grep` / `callers` など）は lock の対象外
 - **worktree の中では graft を使わず grep を使う。** worktree は main clone の内側にあるため、`[dir]` を省略すると
   main clone（別の branch）の `graft/` から答える（stderr に `[graft] no graft/ here — answering from …/graft`）。
   `graft blast` も main clone の `git diff` を取るので、worktree の変更の影響範囲にならない

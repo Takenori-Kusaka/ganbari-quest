@@ -9,6 +9,8 @@
  *
  * 数分以上マシンを占有し、並走すると**結果そのものが信用できなくなる**もの:
  * `pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test|check|e2e`。
+ * 加えて、1 本でメモリを大きく占有する `graft build` (ピーク約 1.4GB、`.claude/skills/graft/SKILL.md`)。
+ * worktree ごとに並走させると、同時に走る検証をメモリ不足で落とす。
  *
  * 並走の害は「遅くなる」ではない。2026-07-27 の実測では vitest の単独 17 分が並走で
  * 29 分に伸び、`Test timed out in 5000ms` が 5 件出た (assertion failure は 0 件)。
@@ -68,6 +70,9 @@ const HEAVY_PATTERNS = [
 	/(^|[\s;&|(])(npx\s+)?playwright\s+test(\s|$)/,
 	/(^|[\s;&|(])(npx\s+)?svelte-check(\s|$)/,
 	/(^|[\s;&|(])npm\s+run\s+(test|check|e2e)(:[\w-]+)?(\s|$)/,
+	// graft の索引構築 (`npx -y @nanonets/graft@<ver> build` / `graft build`)。問い合わせ系
+	// (`ask` / `grep` / `callers` 等) は差分取り込みだけの軽い処理なので対象外。
+	/(^|[\s;&|(])(@nanonets\/)?graft(@[^\s/]+)?\s+build(\s|$)/,
 ];
 
 /**
