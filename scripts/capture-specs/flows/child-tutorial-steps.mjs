@@ -24,6 +24,7 @@
  *                        省略時はホームで押す
  *   CHILD_TUT_SS_NO_HELP `1` のとき、その画面に ❓ が **出ていない** ことを撮る (説明を持たない画面、#4864)。
  *                        ❓ が出ていたら撮らずに throw する (撮影で不具合を見逃さない)
+ *   CHILD_TUT_SS_MAX_STEPS 撮る step 数の上限 (既定 12)。before で「最初に何が出るか」だけ撮るときに 1 を渡す
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
@@ -139,7 +140,7 @@ export default async (page, capture) => {
 	const bubble = page.locator(BUBBLE);
 	await bubble.waitFor({ state: 'visible', timeout: 15_000 });
 
-	const MAX_STEPS = 12;
+	const MAX_STEPS = Number.parseInt(process.env.CHILD_TUT_SS_MAX_STEPS ?? '', 10) || 12;
 	for (let i = 0; i < MAX_STEPS; i++) {
 		await settleFrame(page);
 		await bubble.waitFor({ state: 'visible', timeout: 10_000 });
