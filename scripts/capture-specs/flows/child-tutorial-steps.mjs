@@ -48,6 +48,50 @@ async function settleFrame(page) {
 	);
 }
 
+/**
+ * step が「見える状態」に落ち着くまで待つ (#4864)。
+ * rAF 2 回だけだと、吹き出しのフェードイン途中 / spotlight の解決前 / scrollIntoView の途中を撮ってしまい、
+ * 顧客が実際に見る画面と違う SS になる。
+ *   1. selector を持つ step は spotlight が実要素に解決する (最大 5 秒。解決しなければそのまま撮る = 中央表示)
+ *   2. スクロールが止まる (scrollY が 3 frame 連続で変わらない、最大 1.5 秒)
+ *   3. 吹き出しのアニメーションが終わる — spotlight が解決すると吹き出しのフェードインが再生し直されるため、
+ *      解決とスクロールを待ったあとで待つ (先に待つと、解決後の 2 回目のフェードイン途中を撮る)
+ */
+async function settleStep(page, bubble) {
+	if ((await bubble.getAttribute('data-has-target')) === 'true') {
+		await page
+			.waitForFunction(
+				() =>
+					document.querySelector('.tutorial-overlay')?.getAttribute('data-tutorial-target') ===
+					'resolved',
+				null,
+				{ timeout: 5000 },
+			)
+			.catch(() => {});
+	}
+	await page.evaluate(
+		() =>
+			new Promise((resolve) => {
+				const started = performance.now();
+				let last = window.scrollY;
+				let stable = 0;
+				const tick = () => {
+					stable = window.scrollY === last ? stable + 1 : 0;
+					last = window.scrollY;
+					if (stable >= 3 || performance.now() - started > 1500) resolve(undefined);
+					else requestAnimationFrame(tick);
+				};
+				requestAnimationFrame(tick);
+			}),
+	);
+	await bubble
+		.evaluate((el) =>
+			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
+		)
+		.catch(() => {});
+	await settleFrame(page);
+}
+
 /** 子供ホーム到達時に auto-open する overlay 群を閉じ、チュートリアル起動を妨げないようにする。 */
 async function dismissOverlays(page) {
 	const testids = [
@@ -142,8 +186,8 @@ export default async (page, capture) => {
 
 	const MAX_STEPS = Number.parseInt(process.env.CHILD_TUT_SS_MAX_STEPS ?? '', 10) || 12;
 	for (let i = 0; i < MAX_STEPS; i++) {
-		await settleFrame(page);
 		await bubble.waitFor({ state: 'visible', timeout: 10_000 });
+		await settleStep(page, bubble);
 		const stepId = (await bubble.getAttribute('data-step-id')) ?? `step${i + 1}`;
 		await capture(`${PREFIX}-${PRESET}-${String(i + 1).padStart(2, '0')}-${stepId}`);
 
