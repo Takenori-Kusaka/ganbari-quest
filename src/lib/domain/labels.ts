@@ -11406,6 +11406,9 @@ export const STORYBOOK_LABELS = {
 		buttonLabel: 'クラウドエクスポート',
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
+		// #4992: 一覧の行に置くロックした操作 (ごほうび管理の「編集」) と、押す前に読める理由の注記
+		rowButtonLabel: REWARD_ADMIN_TERMS.edit,
+		reasonNote: ADMIN_REWARDS_PAGE_LABELS.editLockedNote,
 	},
 	// #2573: Stripe Checkout の申込確定ボタン直前に出る文言 (`custom_text.submit.message`) は
 	// Stripe 側が描画するため、demo 環境でも本番でも手元で SS を撮れない。
