@@ -399,9 +399,13 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
  * 弾かれた記録を成功と数え、トーストが残っている 3 秒の間に次の記録が成功すると 2 要素に一致して
  * strict mode violation で落ちる (combo-bonus.spec.ts の mobile flake、CI run 35802847074 の trace)。
  *
- * **409 (その活動はきょう記録済み) は次のカードで取り直す。** `./fixtures` を使わない spec は
- * worker を問わず同じ server / DB (`use.baseURL` = port 5190) を叩くため、別 worker の spec が
- * 同じ子供の先頭カードを同時刻に記録すると、読み込み時点では押せたカードがサーバーでは記録済みになる。
+ * **409 (その活動はきょうの記録回数の上限に達している) は次のカードで取り直す。** サーバーは
+ * 1 日 1 回の活動の「きょうは記録済み」(ALREADY_RECORDED) も、1 日に複数回記録できる活動の
+ * 「きょうはこれ以上記録できない」(DAILY_LIMIT_REACHED) も 409 で返す。どちらも同じ条件
+ * (きょうの記録回数 >= 1 日の上限) で、画面は再読み込みでそのカードを押せなくする。
+ * `./fixtures` を使わない spec は worker を問わず同じ server / DB (`use.baseURL` = port 5190) を
+ * 叩くため、別 worker の spec が同じ子供の先頭カードを同時刻に記録すると、読み込み時点では
+ * 押せたカードがサーバーでは上限に達している。
  * 409 以外の失敗は取り直さずに fail させる (本物の不具合を取り直しで隠さない)。
  *
  * @returns 記録できたら true。押せるカードが無くなったら false。
@@ -428,11 +432,14 @@ export async function recordFirstAvailableActivity(page: Page, maxAttempts = 5):
 			return true;
 		}
 
-		expect(outcome, '取り直してよいのは「きょうは記録済み」(409) だけ').toMatchObject({
+		expect(
+			outcome,
+			'取り直してよいのは「きょうの記録回数の上限に達している」(409) だけ',
+		).toMatchObject({
 			type: 'failure',
 			status: 409,
 		});
-		// 画面は失敗後に再読み込みし、弾かれたカードを記録済み (disabled) に切り替える。
+		// 画面は失敗後に再読み込みし、弾かれたカードを押せない表示 (disabled) に切り替える。
 		// 切り替わる前に次を選ぶと同じカードをもう一度押してしまう。
 		await expect(page.getByTestId(String(cardTestId))).toBeDisabled();
 	}
