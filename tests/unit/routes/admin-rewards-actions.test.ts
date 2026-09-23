@@ -645,7 +645,9 @@ describe('/admin/rewards page.server', () => {
 	describe('有料の編集系 action — 無料プランは 403 (#4992)', () => {
 		const PAID_EDIT_ACTIONS = ['update', 'copyFromChild', 'restorePreview', 'restoreFile'] as const;
 
-		it.each(PAID_EDIT_ACTIONS)('%s: 無料プランでは 403 (PlanLimitError) を返し、書き込みを呼ばない', async (name) => {
+		it.each(
+			PAID_EDIT_ACTIONS,
+		)('%s: 無料プランでは 403 (PlanLimitError) を返し、書き込みを呼ばない', async (name) => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			const action = mod.actions[name] as unknown as (event: {
 				request: Request;
