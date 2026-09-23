@@ -27,6 +27,12 @@ export const LABELS_ENTRY = 'src/lib/domain/labels.ts';
 export const LABELS_DIR = 'src/lib/domain/labels';
 
 /**
+ * `labels/` 直下にあっても labels 層のソースとみなさないファイル名 (test / spec)。
+ * `labelSourceFiles()` と `isLabelsLayerPath()` の両方がこれで除く (範囲の定義を 1 箇所に置く)。
+ */
+const NON_SOURCE_NAME = /\.(test|spec)\.ts$/;
+
+/**
  * labels 層のソースファイル一覧を返す (repo 相対 POSIX パス)。
  *
  * 入口 → `labels/*.ts` (名前順) の順。一覧は入口の `export *` 行ではなくディレクトリの実体から作る。
@@ -50,7 +56,7 @@ export function labelSourceFiles(repoRoot = REPO_ROOT) {
 		);
 	}
 	const names = entries
-		.filter((e) => e.isFile() && e.name.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(e.name))
+		.filter((e) => e.isFile() && e.name.endsWith('.ts') && !NON_SOURCE_NAME.test(e.name))
 		.map((e) => e.name)
 		.sort();
 	for (const name of names) files.push(`${LABELS_DIR}/${name}`);
@@ -72,6 +78,10 @@ export function readLabelsSource(repoRoot = REPO_ROOT) {
 /**
  * パスが labels 層 (入口 or `labels/*.ts`) を指すか。
  *
+ * 範囲は `labelSourceFiles()` が返す一覧と同じで、`labels/` 直下の `*.test.ts` / `*.spec.ts` は含めない。
+ * 含めると、本文 (`readLabelsSource()`) には入らないのに、orphan 検出では定義元の側に数えられて
+ * そこからの参照が外部参照にならない、と判定が割れる。
+ *
  * @param {string} filePath repo 相対パス (区切りは `/` / `\` どちらも可) か絶対パス
  * @param {string} [repoRoot]
  * @returns {boolean}
@@ -82,7 +92,8 @@ export function isLabelsLayerPath(filePath, repoRoot = REPO_ROOT) {
 		.replace(/^\.\//, '');
 	if (rel === LABELS_ENTRY) return true;
 	if (!rel.startsWith(`${LABELS_DIR}/`) || !rel.endsWith('.ts')) return false;
-	return !rel.slice(LABELS_DIR.length + 1).includes('/');
+	const name = rel.slice(LABELS_DIR.length + 1);
+	return !name.includes('/') && !NON_SOURCE_NAME.test(name);
 }
 
 /**

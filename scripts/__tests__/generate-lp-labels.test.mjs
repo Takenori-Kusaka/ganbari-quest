@@ -508,6 +508,9 @@ describe('parse-labels-ts: labels 層のファイル一覧と本文 (#4965)', ()
 		assert.equal(isLabelsLayerPath('src/lib/domain/labels/lp.ts'), true);
 		assert.equal(isLabelsLayerPath('src\\lib\\domain\\labels\\lp.ts'), true);
 		assert.equal(isLabelsLayerPath('src/lib/domain/labels/sub/x.ts'), false);
+		// labelSourceFiles() と同じく、labels/ 直下の test / spec は labels 層のソースではない
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/foo.test.ts'), false);
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/foo.spec.ts'), false);
 		assert.equal(isLabelsLayerPath('src/lib/domain/labels-extra.ts'), false);
 		assert.equal(isLabelsLayerPath('src/lib/domain/terms.ts'), false);
 	});
