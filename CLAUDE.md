@@ -169,4 +169,4 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 ## graft（コード knowledge graph）
 
-TS / JS のシンボル位置・呼び出し関係・変更の影響範囲を調べるときは、grep より先に graft を使う。**結果は網羅ではない**（`.svelte`・`$lib` alias 経由の import・dot ディレクトリは索引外）ので、rename / 削除 / シグネチャ変更の影響範囲は grep で確かめ、UI 層は `docs/codebase-map.md` + grep で探す。使い方と clone ごとの初回セットアップは `.claude/skills/graft/SKILL.md` が SSOT。グラフは clone ごとのローカルキャッシュ（`/graft/`、git 追跡しない）で、CI・git hook・Claude hook からは再生成しない。
+TS / JS のシンボルの場所と呼び出し関係を**理解する**ときは graft を使い、呼び出し元を**列挙する**とき（rename / 削除 / シグネチャ変更の影響範囲）は grep で確かめる。graft の `callers` は、同名の定義が 2 つ以上ある名前（repo 層の関数の大半）と `.svelte` からの呼び出しを 0 件で返す（計測: `docs/rationale/16-graphify-evaluation-rationale.md`）。UI 層は `docs/codebase-map.md` + grep で探す。使い方と clone ごとの初回セットアップは `.claude/skills/graft/SKILL.md` が SSOT。グラフは clone ごとのローカルキャッシュ（`/graft/`、git 追跡しない）で、CI・git hook・Claude hook からは再生成しない。
