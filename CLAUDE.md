@@ -112,7 +112,7 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 - 本番画面 → デモ Lambda (#2097 PR-B3 で `src/routes/demo/**` 全削除、本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動)
 - ナビ → 面を固定数で数えない。`AdminLayout` に管理画面の Desktop ドロップダウンと Mobile ボトムナビが同居（`AdminMobileNav` は存在しない）。他に `BottomNav`（子供）/ 設定サブナビ / 運営者ナビ / ページ内タブ。`grep -rn "<nav\b" src/` で変更が及ぶ面を確認する
 - DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
-- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` (子供) + `demo-guide-state.svelte.ts` (デモ)
+- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` + `getChildTutorialLabels` / `getChildPageGuideLabels` (子供 ❓、画面ごとの章 #4864)。デモは本番ルートを共有する (デモガイドは #4679 で撤去)
 
 ## Things Not To Do
 
