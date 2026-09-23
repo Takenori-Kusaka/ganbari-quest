@@ -33,6 +33,7 @@ import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsCh
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
+import FeatureGate from '$lib/ui/components/FeatureGate.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
 	type ChildOption,
@@ -48,6 +49,9 @@ import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 // #2362 PR-4: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
 const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
+
+// #4992: 無料プランで「編集」を押せない理由の注記。各行のロックした「編集」が aria-describedby で指す
+const REWARD_EDIT_GATE_NOTE_ID = 'reward-edit-gate-note';
 
 let { data, form } = $props();
 // #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
@@ -939,6 +943,19 @@ async function handleCopyFromChild() {
 						</p>
 					{/if}
 				{:else}
+					<!-- #4992 (PO 決裁 Q2 の条件 2): 無料プランの「編集」は押せない。その理由を**押す前に**読めるよう
+					     一覧の直上に常時出し、各行のロックした「編集」から aria-describedby で指す。
+					     表示条件は server の拒否 (?/update) と同じ述語 (data.isPremium = isCustomRewardUnlocked)。 -->
+					{#if !data.isPremium}
+						<p
+							id={REWARD_EDIT_GATE_NOTE_ID}
+							class="reward-list__gate-note"
+							data-testid="reward-edit-gate-note"
+						>
+							<span aria-hidden="true">{PLAN_GATE_LABELS.lockedItemIcon}</span>
+							{ADMIN_REWARDS_PAGE_LABELS.editLockedNote}
+						</p>
+					{/if}
 					{#each visiblePerChildRewards as reward, i (reward.id)}
 						<!-- data-tutorial: 先頭カードだけをページガイド (#4656) の spotlight 対象にする -->
 						<div class="reward-item" data-testid="reward-item-{reward.id}" data-tutorial={i === 0 ? 'reward-card-first' : undefined}>
@@ -951,15 +968,27 @@ async function handleCopyFromChild() {
 							{/if}
 							<span class="reward-item__points">{reward.points}P</span>
 							<div class="reward-item__actions">
-								<Button
-									variant="ghost"
-									size="sm"
-									disabled={!data.isPremium}
-									data-testid="reward-edit-btn-{reward.id}"
-									onclick={() => openEditDialog(reward)}
+								<!-- #4992: 無料プランでは説明なしの disabled にせず、🔒 付きのロック表示にする
+								     (docs/design/06-UI設計書.md §10.2 パターン A)。押すと理由とプラン画面への
+								     リンクの popover が開き、押す前の理由は上の注記 (aria-describedby) が担う。 -->
+								<FeatureGate
+									unlocked={data.isPremium}
+									currentTier={data.planTier}
+									requiredTier="standard"
+									display="inline"
+									buttonLabel={ADMIN_REWARDS_PAGE_LABELS.rewardEditButton}
+									describedBy={REWARD_EDIT_GATE_NOTE_ID}
+									testid="reward-edit-locked-btn-{reward.id}"
 								>
-									{ADMIN_REWARDS_PAGE_LABELS.rewardEditButton}
-								</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										data-testid="reward-edit-btn-{reward.id}"
+										onclick={() => openEditDialog(reward)}
+									>
+										{ADMIN_REWARDS_PAGE_LABELS.rewardEditButton}
+									</Button>
+								</FeatureGate>
 								<Button
 									variant="ghost"
 									size="sm"
@@ -1467,6 +1496,16 @@ async function handleCopyFromChild() {
 		color: var(--color-text-muted);
 		padding: 0.75rem;
 		text-align: center;
+	}
+	/* #4992: 無料プランで「編集」を押せない理由 (押す前に読める位置 = 一覧の直上) */
+	.reward-list__gate-note {
+		font-size: 0.8rem;
+		padding: 0.5rem 0.75rem;
+		margin-bottom: 0.375rem;
+		border-radius: var(--radius-sm);
+		background: var(--color-feedback-info-bg);
+		border: 1px solid var(--color-feedback-info-border);
+		color: var(--color-feedback-info-text);
 	}
 	.reward-item {
 		display: flex;

@@ -167,7 +167,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 
 	it('pricing.html 無料プランの説明が「プリセットから追加できる」ことを述べ、逆の全面ロックを述べない', () => {
 		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(`${REWARD_TERMS.preset}から追加`);
-		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(REWARD_TERMS.originalCreateEdit);
 		// 旧文言「ごほうびショップへの商品登録はスタンダード以上」(無料で一切登録できないと読める) の再発防止
 		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe('ごほうびショップへの商品登録はスタンダード以上');
 	});
@@ -179,7 +179,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 			`<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 		);
 		// オリジナル登録: canCustomReward の値と行の ✗/✓ 配置が一致する
-		expect(LP_PRICING_PHASEB_LABELS.k39).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_PHASEB_LABELS.k39).toContain(REWARD_TERMS.originalCreateEdit);
 		expect(getPlanLimits('free').canCustomReward).toBe(false);
 		expect(LP_PRICING_PHASEB_LABELS.k39).toMatch(
 			/<td>.*<\/td><td class="dash">&#8212;<\/td><td class="check">&#10003;<\/td><td class="check">&#10003;<\/td>/,
@@ -188,7 +188,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 
 	it('FAQ 回答がプリセットのごほうびも無料で使えることを述べ、旧「貯めたポイントと交換する商品の登録」の未限定表現を残さない', () => {
 		expect(LP_PRICING_LABELS.faqFreeA).toContain(`プリセット`);
-		expect(LP_PRICING_LABELS.faqFreeA).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_LABELS.faqFreeA).toContain(REWARD_TERMS.originalCreateEdit);
 		// 「オリジナル」を伴わない単なる「商品の登録」表現 (無料で一切不可と誤読される) を残さない
 		expect(LP_PRICING_LABELS.faqFreeA).not.toContain('貯めたポイントと交換する商品の登録');
 	});

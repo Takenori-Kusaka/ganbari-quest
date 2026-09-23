@@ -43,6 +43,22 @@ interface Props {
 	 * requiredTier は「上限を引き上げる対象プラン名」として popover 文言に使う。
 	 */
 	quota?: { allowed: boolean; current: number; max: number | null };
+	/**
+	 * 呼び出し側で判定済みの解放状態 (#4992)。指定時は tier / quota より優先する。
+	 *
+	 * server の拒否と**同じ述語**で表示も出したいとき (例: ごほうび管理の `isCustomRewardUnlocked`、
+	 * #4584) に渡す。本 component の tier 判定 (`meetsRequiredTier`) に任せると、述語が 2 つになり
+	 * 「押せるのに 403」「押せないのに通る」が定義上起こり得る。requiredTier は popover の
+	 * 対象プラン名にだけ使われる。
+	 */
+	unlocked?: boolean;
+	/**
+	 * ロック中の trigger の aria-describedby (#4992)。押せない理由を画面に常時出している要素の id。
+	 * popover は押してから開くため、押す前に理由を伝える文は呼び出し側が近くに置き、ここで結びつける。
+	 */
+	describedBy?: string;
+	/** ロック中の trigger の data-testid (一覧の各行など、同じ画面に複数置くときの区別用) */
+	testid?: string;
 }
 
 let {
@@ -54,6 +70,9 @@ let {
 	display = 'section',
 	planPageHref = '/admin/subscription',
 	quota,
+	unlocked,
+	describedBy,
+	testid = 'feature-gate-locked-trigger',
 }: Props = $props();
 
 const TIER_LABELS: Record<PlanTier, string> = {
@@ -69,10 +88,16 @@ const TIER_FULL_LABELS: Record<PlanTier, string> = {
 	family: PLAN_FULL_TERMS.premium,
 };
 
-// quota 指定時は quota で判定 (§10.2.2)。max===null は無制限 = 非ロック (ゲート痕跡なし)。
-// quota 未指定時は tier で判定 (tutorial-chapters / page-guide と同じ TIER_ORDER SSOT)。
+// 判定の優先順:
+//   1. unlocked 指定時は呼び出し側の判定をそのまま使う (#4992、server と同じ述語で出すため)
+//   2. quota 指定時は quota で判定 (§10.2.2)。max===null は無制限 = 非ロック (ゲート痕跡なし)
+//   3. それ以外は tier で判定 (tutorial-chapters / page-guide と同じ TIER_ORDER SSOT)
 const isLocked = $derived(
-	quota ? quota.max !== null && !quota.allowed : !meetsRequiredTier(currentTier, requiredTier),
+	unlocked !== undefined
+		? !unlocked
+		: quota
+			? quota.max !== null && !quota.allowed
+			: !meetsRequiredTier(currentTier, requiredTier),
 );
 const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
@@ -105,7 +130,8 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 		<Popover.Trigger
 			class="feature-gate-btn"
 			aria-disabled="true"
-			data-testid="feature-gate-locked-trigger"
+			aria-describedby={describedBy}
+			data-testid={testid}
 			title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
 		>
 			<span class="feature-gate-btn__icon" aria-hidden="true">🔒</span>
@@ -119,7 +145,8 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 			<Popover.Trigger
 				class="feature-gate-overlay"
 				aria-disabled="true"
-				data-testid="feature-gate-locked-trigger"
+				aria-describedby={describedBy}
+				data-testid={testid}
 				title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
 			>
 				<span class="feature-gate-lock" aria-hidden="true">🔒</span>

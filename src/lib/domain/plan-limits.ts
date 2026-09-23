@@ -37,13 +37,15 @@ export interface PlanLimits {
 	canExport: boolean;
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
 	/**
-	 * 特別なごほうび設定（スタンダード以上、#728）。
+	 * オリジナルのごほうびの作成・編集（スタンダード以上、#728 / #4992）。
+	 * 顧客向けの名前は `REWARD_TERMS.originalCreateEdit`（料金表・拒否文言と同じ）。
 	 *
 	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
 	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは
 	 * 誰にも読まれていなかった** (参照ゼロ)。フラグと実装が別々の真実になっていた。
 	 *
-	 * #4915 / #4928: 本フラグが表すのはオリジナル（自作）ごほうびの登録の可否だけで、
+	 * #4915 / #4928 / #4992: 本フラグが表すのはオリジナル（自作）ごほうびの作成と、
+	 * 登録済みごほうびの編集（`?/update`。取り込んだごほうびの名前・ポイントの調整を含む）の可否で、
 	 * プリセットのごほうび取込は別軸 = **全プラン可**（初期セットアップ / admin/rewards の
 	 * `importMarketplaceRewardSet` / `importPresetToChildren` / marketplace 詳細の取込 CTA）。
 	 * 取込はサーバが presetId から中身を読むため、利用者は内容を指定できない。

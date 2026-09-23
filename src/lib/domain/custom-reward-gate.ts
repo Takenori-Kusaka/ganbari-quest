@@ -1,6 +1,9 @@
 // src/lib/domain/custom-reward-gate.ts (#4584)
 //
-// 「特別なごほうび設定（即時付与）」の解放判定。**表示と実行が同じ述語を読む**ための SSOT。
+// 「オリジナルのごほうびの作成・編集（ポイントの調整を含む）」(REWARD_TERMS.originalCreateEdit、#4992)
+// の解放判定。**表示と実行が同じ述語を読む**ための SSOT。
+// 拒否: admin/rewards の ?/add ?/addPreset ?/update + special-rewards API (POST / templates PUT)。
+// 表示: admin/rewards の「+ 追加」手動項目の鍵マーク、一覧の「編集」のロック表示と注記 (#4992)。
 //
 // # なぜ独立した module にするか
 //
@@ -19,7 +22,7 @@
 import type { PlanTier } from './constants/plan-tier';
 
 /**
- * 特別なごほうび設定を使えるか (スタンダード以上)。
+ * オリジナルのごほうびの作成・編集を使えるか (スタンダード以上)。
  *
  * **server の拒否と UI の出し分けの両方がこれを読む。** 表示だけ絞って実行を素通しにすると
  * 「見えないのに叩けば通る」、逆だと「押せるのに 403」になる (#4506 の実害)。

@@ -35,10 +35,10 @@ describe('plan-features.ts SSOT', () => {
 		});
 
 		it('free プランに オリジナルごほうび登録の制限が明記される (#4705 / #4928)', () => {
-			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.originalRegistration)
+			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.originalCreateEdit)
 			expect(
 				PRICING_PAGE_FEATURES.free.some(
-					(f) => f.includes(REWARD_TERMS.originalRegistration) && f.includes(PLAN_TERMS.standard),
+					(f) => f.includes(REWARD_TERMS.originalCreateEdit) && f.includes(PLAN_TERMS.standard),
 				),
 			).toBe(true);
 		});
@@ -113,7 +113,7 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('AI による活動提案');
 			// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲート (isCustomRewardUnlocked、#4584 が
 			// 止めるのはショップ商品の登録) と別機能を指して読めたため atom に是正。
-			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.originalRegistration);
+			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.originalCreateEdit);
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('特別なごほうび設定（即時付与）');
 		});
 
