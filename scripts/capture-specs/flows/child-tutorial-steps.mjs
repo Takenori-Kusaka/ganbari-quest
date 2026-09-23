@@ -1,7 +1,8 @@
 /**
  * scripts/capture-specs/flows/child-tutorial-steps.mjs
  *
- * 汎用: 子供ホームの ❓ から子供チュートリアルを起動し、全 step を順に撮影する (#4652、EPIC #4650)。
+ * 汎用: 子供画面の ❓ から子供チュートリアルを起動し、全 step を順に撮影する (#4652、EPIC #4650)。
+ * 既定はホーム。`CHILD_TUT_SS_PATH` でほかの子供画面の ❓ (画面ごとの章、#4864) を撮る。
  * 子供チュートリアルを直す PR の before / after SS を同じ手順で撮るための共通フロー
  * (ページガイド用は page-guide-steps.mjs、#4677)。
  *
@@ -18,12 +19,19 @@
  *   CHILD_TUT_SS_PREFIX  before | after (既定 after)
  *   CHILD_TUT_SS_PRESET  label 用の識別子 (例 preschool-mobile)。viewport 自体は --presets で指定
  *   CHILD_TUT_SS_CHILD   /switch で選ぶお子さまの表示名 (必須)
+ *   CHILD_TUT_SS_PATH    ホーム以外の画面で ❓ を押すとき、その画面のパス (#4864)。
+ *                        `{mode}` はお子さまの年齢モードに置き換える (例 `/{mode}/shop` / `/checklist`)。
+ *                        省略時はホームで押す
+ *   CHILD_TUT_SS_NO_HELP `1` のとき、その画面に ❓ が **出ていない** ことを撮る (説明を持たない画面、#4864)。
+ *                        ❓ が出ていたら撮らずに throw する (撮影で不具合を見逃さない)
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const PREFIX = process.env.CHILD_TUT_SS_PREFIX || 'after';
 const PRESET = process.env.CHILD_TUT_SS_PRESET || 'child';
 const CHILD = process.env.CHILD_TUT_SS_CHILD || '';
+const TARGET_PATH = process.env.CHILD_TUT_SS_PATH || '';
+const EXPECT_NO_HELP = process.env.CHILD_TUT_SS_NO_HELP === '1';
 
 const HELP_BTN = '[data-testid="header-help-btn"]';
 const BUBBLE = '.tutorial-bubble';
@@ -86,7 +94,26 @@ export default async (page, capture) => {
 			.catch(() => false);
 		if (arrived) break;
 	}
+	// #4864: ホーム以外の画面で ❓ を押す (子供の ❓ は押した画面の章を開く)
+	if (TARGET_PATH) {
+		const mode = new URL(page.url()).pathname.split('/')[1] ?? '';
+		await page.goto(`${BASE_URL}${TARGET_PATH.replace('{mode}', mode)}`, {
+			waitUntil: 'domcontentloaded',
+		});
+		await page
+			.locator('[data-testid="header-balance"]')
+			.waitFor({ state: 'visible', timeout: 30_000 });
+	}
 	await dismissOverlays(page);
+	if (EXPECT_NO_HELP) {
+		// 説明を持たない画面: ❓ が出ていない状態を撮る。出ていたら不具合なので撮らずに止める
+		const count = await page.locator(HELP_BTN).count();
+		if (count !== 0)
+			throw new Error(`${TARGET_PATH}: ❓ が出ている (説明を持たない画面では出さない)`);
+		await settleFrame(page);
+		await capture(`${PREFIX}-${PRESET}-no-help`);
+		return;
+	}
 	// localStorage の進捗を消して常に最初から。
 	// key は #4651 で `tutorial-progress:<scope>:chapter|step`、#4765 で scope が子供ごとになったため、
 	// 個別 key 名ではなく prefix 一致で全 scope を掃除する (旧実装は消えた key 名を消していて無効だった)。
