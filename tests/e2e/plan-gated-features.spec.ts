@@ -30,7 +30,7 @@ import { openMenu } from './helpers/goal-flows';
 // cognito-dev の DB (global-setup が作る data/ganbari-quest.db、全 dev tenant で共有) は
 // お子さまにごほうびが入っている保証が無い (実測: はなこちゃん / けんたくん とも 0 件)。
 // fullyParallel で他 test (standard の取込等) と同じ DB を触るため、各 test が**自分専用の 1 件**を
-// 直接 seed し、自分の行だけを検証して afterEach で消す (account-deletion.spec の DB 直接操作と同型)。
+// 直接 seed し、自分の行だけを検証して finally で消す (account-deletion.spec の DB 直接操作と同型)。
 const E2E_DB_PATH = 'data/ganbari-quest.db';
 const REWARD_4992_TITLE_PREFIX = 'E2E編集ゲート4992';
 
@@ -49,6 +49,12 @@ async function seedReward4992(suffix: string): Promise<SeededReward4992> {
 			.prepare('SELECT MIN(id) AS id FROM children WHERE COALESCE(is_archived, 0) = 0')
 			.get() as { id: number | null } | undefined;
 		if (!child?.id) throw new Error('No active children seeded (global-setup.ts)');
+		// 前回の実行が finally に届かず落ちたときの残りだけを消す。fullyParallel で別 worker が
+		// いま使っている行 (数秒前に seed したもの) は消さないよう、10 分より古いものに限る
+		// (describe の afterAll で一括削除すると、同じ describe の別 worker の行まで消してしまう)。
+		db.prepare(
+			"DELETE FROM special_rewards WHERE title LIKE ? AND granted_at < datetime('now', '-10 minutes')",
+		).run(`${REWARD_4992_TITLE_PREFIX}%`);
 		const result = db
 			.prepare(
 				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
