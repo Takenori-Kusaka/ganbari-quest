@@ -6,8 +6,8 @@
 // 構造的に検証する。
 //
 // 設計意図:
-//   - VAPID env が `.env.production` / SSM / GitHub Actions Secrets の 3 箇所に配布されていることは
-//     CI で機械検証できないが、`docs/operations/notification-runbook.md` で配布手順 SSOT 化済。
+//   - VAPID env の配布経路は GitHub Actions Secrets → deploy.yml → 本番 Lambda env の 1 本だけ
+//     (staging / NUC は対象外、#4706)。配線は tests/unit/infra/vapid-push-wiring.test.ts が検証する。
 //   - 本 spec は「未配布時に notification-service が crash せず warn + skip 動作になる」
 //     こと自体を assertion し、将来 silent fail が暴発するリグレッションを検出する。
 
