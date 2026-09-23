@@ -25,7 +25,7 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { REWARD_TERMS } from '../../src/lib/domain/terms';
+import { CUSTOM_REWARD_FEATURE_NAME } from '../../src/lib/domain/labels';
 
 const DB_PATH = path.resolve('data/ganbari-quest.db');
 
@@ -69,8 +69,8 @@ test.describe('#778 PremiumWelcome モーダル — standard', () => {
 		await expect(dialog.getByText('解放された機能')).toBeVisible();
 		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より。
 		// #722 で AI 提案は family 専用に移行したため、standard 専用項目でアサート）
-		// #4705: 行名は REWARD_TERMS.originalCreateEdit が SSOT（plan-features.ts:144）。
-		await expect(dialog.getByText(REWARD_TERMS.originalCreateEdit)).toBeVisible();
+		// #4705: 行名は CUSTOM_REWARD_FEATURE_NAME が SSOT（PREMIUM_UNLOCKED_FEATURES.standard）。
+		await expect(dialog.getByText(CUSTOM_REWARD_FEATURE_NAME)).toBeVisible();
 	});
 
 	test('「さっそく始める」で閉じた後はリロードしても表示されない', async ({ page }) => {

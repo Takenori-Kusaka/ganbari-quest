@@ -33,6 +33,7 @@ import ImportNeedsChildNotice from '$lib/features/admin/components/ImportNeedsCh
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
+import { budoux } from '$lib/ui/actions/budoux';
 import FeatureGate from '$lib/ui/components/FeatureGate.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
@@ -474,10 +475,15 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		onSelect: () => goto('/admin/rewards/requests'),
 	},
 	{
+		// 復元はファイルの内容 (書き換えられる) でごほうびの行を作るため、作成と同じ有料機能
+		// (server の ?/restorePreview / ?/restoreFile も isCustomRewardUnlocked で拒否する)。
+		// 無料プランで開けると、ファイルを選んで「内容を確認」を押した後に初めて拒否される
+		// (拒否された後にだけ理由が出る形) ので、「+ 追加」の手動・コピーと同じ locked-but-active にする
+		// (06-UI設計書 §10.2.3: 鍵マーク + 選ぶとプラン画面へ)。
 		id: 'restore',
 		label: BACKUP_RESTORE_LABELS.restoreLabel,
-		icon: BACKUP_RESTORE_LABELS.restoreIcon,
-		onSelect: openRestoreDialog,
+		icon: data.isPremium ? BACKUP_RESTORE_LABELS.restoreIcon : PLAN_GATE_LABELS.lockedItemIcon,
+		onSelect: data.isPremium ? openRestoreDialog : () => void goto(resolve('/admin/subscription')),
 	},
 	{
 		id: 'export',
@@ -945,6 +951,8 @@ async function handleCopyFromChild() {
 				{:else}
 					<!-- #4992 (PO 決裁 Q2 の条件 2): 無料プランの「編集」は押せない。その理由を**押す前に**読めるよう
 					     一覧の直上に常時出し、各行のロックした「編集」から aria-describedby で指す。
+					     一覧をスクロールしても注記が画面から消えないよう、一覧の中で sticky にする
+					     (下の行でも、押す前に同じ画面で理由が読める)。
 					     表示条件は server の拒否 (?/update) と同じ述語 (data.isPremium = isCustomRewardUnlocked)。 -->
 					{#if !data.isPremium}
 						<p
@@ -960,17 +968,26 @@ async function handleCopyFromChild() {
 						<!-- data-tutorial: 先頭カードだけをページガイド (#4656) の spotlight 対象にする -->
 						<div class="reward-item" data-testid="reward-item-{reward.id}" data-tutorial={i === 0 ? 'reward-card-first' : undefined}>
 							<span class="reward-item__icon">{reward.icon ?? '🎁'}</span>
-							<span class="reward-item__title">{reward.title}</span>
-							{#if hasPendingRedemption(reward.id)}
-								<span class="reward-item__pending" data-testid="reward-pending-badge-{reward.id}">
-									{ADMIN_REWARDS_PAGE_LABELS.rewardPendingBadge}
+							<!-- 幅の狭い画面ではポイント (と処理待ちバッジ) をタイトルの下に回し、タイトルに行の幅を渡す。
+							     横に並べたままだと、タイトルは「編集」「削除」とポイントに挟まれて 8 文字ほどの幅しか無く、
+							     語の途中で折り返す。タイトルは文節で折り返す (use:budoux、DESIGN.md §3)。 -->
+							<div class="reward-item__body">
+								<span class="reward-item__title" use:budoux>{reward.title}</span>
+								<span class="reward-item__meta">
+									{#if hasPendingRedemption(reward.id)}
+										<span class="reward-item__pending" data-testid="reward-pending-badge-{reward.id}">
+											{ADMIN_REWARDS_PAGE_LABELS.rewardPendingBadge}
+										</span>
+									{/if}
+									<span class="reward-item__points">{reward.points}P</span>
 								</span>
-							{/if}
-							<span class="reward-item__points">{reward.points}P</span>
+							</div>
 							<div class="reward-item__actions">
 								<!-- #4992: 無料プランでは説明なしの disabled にせず、🔒 付きのロック表示にする
 								     (docs/design/06-UI設計書.md §10.2 パターン A)。押すと理由とプラン画面への
-								     リンクの popover が開き、押す前の理由は上の注記 (aria-describedby) が担う。 -->
+								     リンクの popover が開き、押す前の理由は上の注記 (aria-describedby) が担う。
+								     popover は trigger の上端より上に出さない (上に開くと、行の真上にある注記を覆う)。
+								     横 (左) に開き、幅の狭い画面では下 → 上の順に逃がす。 -->
 								<FeatureGate
 									unlocked={data.isPremium}
 									currentTier={data.planTier}
@@ -979,6 +996,8 @@ async function handleCopyFromChild() {
 									buttonLabel={ADMIN_REWARDS_PAGE_LABELS.rewardEditButton}
 									describedBy={REWARD_EDIT_GATE_NOTE_ID}
 									testid="reward-edit-locked-btn-{reward.id}"
+									placement="left-start"
+									fallbackPlacements={['bottom-end', 'top-end']}
 								>
 									<Button
 										variant="ghost"
@@ -1497,8 +1516,13 @@ async function handleCopyFromChild() {
 		padding: 0.75rem;
 		text-align: center;
 	}
-	/* #4992: why "edit" is locked on the free plan, shown above the list so it is readable before pressing */
+	/* #4992: why "edit" is locked on the free plan. Sticky inside the list, just below the sticky admin header
+	   (AdminLayout publishes its bottom edge as --admin-header-bottom), so it stays readable before pressing
+	   "edit" on every row, including rows far down a long list on mobile */
 	.reward-list__gate-note {
+		position: sticky;
+		top: var(--admin-header-bottom, 0px);
+		z-index: var(--z-sticky);
 		font-size: 0.8rem;
 		padding: 0.5rem 0.75rem;
 		margin-bottom: 0.375rem;
@@ -1518,6 +1542,18 @@ async function handleCopyFromChild() {
 	}
 	.reward-item__icon {
 		font-size: 1.25rem;
+	}
+	.reward-item__body {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.reward-item__meta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 	.reward-item__title {
 		flex: 1;
@@ -1545,6 +1581,18 @@ async function handleCopyFromChild() {
 	.reward-item__actions {
 		display: flex;
 		gap: 0.25rem;
+	}
+	/* narrow screens: points (and the pending badge) go under the title so the title gets the row width
+	   instead of ~8 characters squeezed between the points and the "edit" / "delete" actions */
+	@media (max-width: 640px) {
+		.reward-item__body {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.125rem;
+		}
+		.reward-item__title {
+			flex: none;
+		}
 	}
 	:global(.reward-item__delete-btn) {
 		color: var(--color-action-danger) !important;

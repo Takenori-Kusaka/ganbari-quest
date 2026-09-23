@@ -9,10 +9,11 @@ import {
 	SETUP_LABELS,
 	SETUP_REWARDS_LABELS,
 } from '$lib/domain/labels';
+import { ErrorAlert } from '$lib/ui/components';
 import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 
 let selectedItems = $state<Set<string>>(new Set());
 // svelte-ignore state_referenced_locally
@@ -76,6 +77,14 @@ $effect(() => {
 	>
 		{formatSetupImportNotice(data.packsImported, data.packsSkipped)}
 	</p>
+{/if}
+
+<!-- 取込を止めたときの理由 (家族の子供ではない childId が送られた等)。出さないと、押しても
+     何も起きないように見える (ADR-0062 §1: 状態起因 = Banner + 次アクション)。 -->
+{#if form?.error}
+	<div data-testid="setup-rewards-error">
+		<ErrorAlert message={form.error} severity="warning" />
+	</div>
 {/if}
 
 <SetupNoScriptNotice />

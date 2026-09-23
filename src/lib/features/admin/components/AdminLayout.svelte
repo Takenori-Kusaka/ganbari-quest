@@ -76,6 +76,26 @@ let {
 const isDemo = $derived(mode === 'demo');
 const isAnonymousLambda = $derived(authMode === 'anonymous');
 
+// 本文で `position: sticky` にする要素 (例: ごほうび管理の無料プランの理由の注記、#4992) が
+// sticky のヘッダーの裏に隠れないよう、ヘッダーの下端 (sticky の top + 高さ) を CSS 変数
+// `--admin-header-bottom` で配る。高さはロゴ・トライアル表示・デモ帯の有無・画面幅で変わるため、
+// 固定値を書かずに実測する (ResizeObserver で追従)。
+let headerEl = $state<HTMLElement | null>(null);
+let headerBottom = $state(0);
+
+$effect(() => {
+	const el = headerEl;
+	if (!el) return;
+	const measure = () => {
+		const stickyTop = Number.parseFloat(getComputedStyle(el).top) || 0;
+		headerBottom = stickyTop + el.offsetHeight;
+	};
+	measure();
+	const observer = new ResizeObserver(measure);
+	observer.observe(el);
+	return () => observer.disconnect();
+});
+
 // #2375: ページガイド（v2）— v1 PageHelpButton + handleStartTutorial fallback を撤去 (P4)。
 // 旧 fallback は header の `?` ボタン (Button + handleStartTutorial) で、PageGuideRegistry 未登録ページのみ
 // 別経路 (startTutorialForPage) を呼んでいた。本撤去後は ❓ (v2) のみが唯一の経路。
@@ -325,9 +345,14 @@ function isItemActive(itemHref: string): boolean {
 }
 </script>
 
-<div data-theme="admin" data-plan={planTier} class="admin-shell">
+<div
+	data-theme="admin"
+	data-plan={planTier}
+	class="admin-shell"
+	style:--admin-header-bottom="{headerBottom}px"
+>
 	<!-- Admin Header -->
-	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3">
+	<header bind:this={headerEl} class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<!-- #3033: スマホは symbol (アイコンのみ) で header 領域を確保し trial pill 等の優先要素を残す -->
