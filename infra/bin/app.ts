@@ -160,7 +160,7 @@ if (dsqlStagingEnabled) {
 // `-c stagingEnabled=true` 時のみ instantiate する context gate。
 // 本番の `cdk deploy --all` / `cdk diff --all` (deploy.yml) は context 無しで実行されるため
 // 挙動不変 (staging との混線防止)。staging deploy は .github/workflows/deploy-aws-staging.yml が
-// 3 stack を明示列挙して行う (`--all` 不使用)。
+// `STAGING_STACKS` に明示列挙した stack だけを対象に行う (`--all` 不使用)。
 // Ses / Ops は省略。**Network (CloudFront) は #4204 で staging にも必要**になった:
 // SvelteKit の名前付き form action (`?/action`) は Lambda Function URL がクエリの
 // スラッシュを拒否するため 400 になり、CloudFront Function `<prefix>-query-slash-encode`

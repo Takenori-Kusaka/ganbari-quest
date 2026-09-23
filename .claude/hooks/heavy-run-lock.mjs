@@ -4,7 +4,8 @@
  * .claude/hooks/heavy-run-lock.mjs
  *
  * Claude Code `PreToolUse` hook。重い検証コマンド (pre-ready / vitest / playwright /
- * svelte-check) の実行前に**マシン全体で 1 本**の lock を取り、取れなければ exit 2 で block する。
+ * svelte-check / graft build。対象の SSOT は scripts/lib/agent-lock-policy.mjs) の実行前に
+ * **マシン全体で 1 本**の lock を取り、取れなければ exit 2 で block する。
  *
  * ## なぜ hook か (CLAUDE.md の記述では足りない理由)
  *

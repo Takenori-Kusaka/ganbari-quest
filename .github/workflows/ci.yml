@@ -92,6 +92,8 @@ jobs:
               - 'playwright*.config.*'
               - 'vitest.config.*'
               - 'Dockerfile*'
+              #   .dockerignore dockerfile-copy-import-fitness (COPY 元が除外されていない / cdk.out を除外している)
+              - '.dockerignore'
               #   docker-compose.yml nuc-compose-cognito-dev-mode-pinned (#4836、NUC 出荷物の固定値を読む)
               - 'docker-compose.yml'
               # #3871: dependency-cruiser config 変更で依存境界 gate を再検査
@@ -168,7 +170,10 @@ jobs:
               # CI 設定自体の変更
               - '.github/workflows/ci.yml'
             # #1551: docker-build は src/ / Dockerfile / config の変更時のみ実行。
-            # tests/ / docs/ / scripts/ 等のビルド結果に影響しない変更ではスキップ。
+            # tests/ / docs/ 等のビルド結果に影響しない変更ではスキップ。
+            # Dockerfile が build context から直接 COPY する scripts/ の file も image の入力なので列挙する
+            # (scripts/prepare.mjs は npm ci の prepare lifecycle で build 中に実行される)。
+            # 列挙漏れは tests/unit/architecture/dockerfile-copy-import-fitness.test.ts が検出する。
             docker:
               - 'src/**'
               - 'static/**'
@@ -177,6 +182,9 @@ jobs:
               - 'tsconfig.json'
               - 'Dockerfile*'
               - '.dockerignore'
+              - 'scripts/prepare.mjs'
+              - 'scripts/scheduler.ts'
+              - 'scripts/docker-entrypoint.sh'
             # #2259 C4 fix: 元は docs / scripts 変更で lint-and-test (check-doc-code-references)
             # と scripts/ node:test を走らせるための filter だった。check-doc-code-references.mjs
             # は #4322 で削除済み（#4420 で判明）。`docs/**` / `CLAUDE.md` 単体変更では
@@ -1040,6 +1048,11 @@ jobs:
 
       - name: Build Lambda Docker image (AWS)
         run: docker build -f Dockerfile.lambda -t ganbari-quest-lambda:test .
+
+      # NUC の scheduler (docker compose --profile scheduler)。deploy-nuc-staging は profile 無しで
+      # build するため、ここで build しないと main より前に 1 度も build されない。
+      - name: Build scheduler Docker image (NUC)
+        run: docker build -f Dockerfile.scheduler -t ganbari-quest-scheduler:test .
 
   # #2205: demo Lambda 専用 E2E (AUTH_MODE=anonymous + DATA_SOURCE=demo)
   # ADR-0048 Multi-Lambda Demo Deployment 整合性検証。
