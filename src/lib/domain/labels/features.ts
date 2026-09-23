@@ -393,7 +393,7 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/ActivityImportPanel (#2391 で物理削除済) ----
 	// 旧 ActivityImportPanel.svelte は UnifiedImportHub.svelte に統合された。
-	// UNIFIED_IMPORT_HUB_LABELS が後継 SSOT (このファイル後段)。
+	// UNIFIED_IMPORT_HUB_LABELS が後継 SSOT。
 
 	// ---- features/admin/components/ActivityLimitBanner ----
 	activityLimitBanner: {

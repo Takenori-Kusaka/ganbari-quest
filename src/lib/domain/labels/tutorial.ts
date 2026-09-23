@@ -58,7 +58,7 @@ function getChildTutorialVariant(uiMode: string): ChildTutorialVariant {
 export function getChildTutorialLabels(uiMode: string) {
 	const variant = getChildTutorialVariant(uiMode);
 	// #4652 の意図 (チュートリアルの nav 名を画面と同じ SSOT から引く) はそのまま。
-	// #4715 で年齢モード別 nav ラベルの SSOT が icons.ts から本ファイルへ移ったので参照先を合わせる。
+	// #4715 で年齢モード別 nav ラベルの SSOT が icons.ts から labels 層 (`getChildNavModeLabels()`) へ移ったので参照先を合わせる。
 	const mode = getChildNavModeLabels(uiMode);
 	const statusNav = mode.status;
 	const shopNav = CHILD_SHOP_LABELS.navLabel;

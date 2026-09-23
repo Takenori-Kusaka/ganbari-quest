@@ -298,7 +298,7 @@ export const VIEW_PAGE_LABELS = {
 	// **同一画面で「お子さま」と「こども」を併記**していた (DESIGN.md §6 の 5 ドメイン用語)。
 	// `/view/[token]` は「リンクを共有された大人 (祖父母等)」が見る面なので、
 	// #4716 が保護者画面に適用したのと同じ `CHILD_TERMS.honorific` に寄せる
-	// (同ファイルの `errorNoChildren` が既に honorific 参照で、そちらに揃える形)。
+	// (`SETUP_CHILDREN_LABELS` / `SETUP_CHALLENGES_LABELS` の `errorNoChildren` が既に honorific 参照で、そちらに揃える形)。
 	emptyChildren: `まだ ${CHILD_TERMS.honorific}が とうろくされていません`,
 	statPointLabel: 'ポイント',
 	statLevelLabel: 'そうごうレベル',

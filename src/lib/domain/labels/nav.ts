@@ -55,7 +55,8 @@ export const NAV_ITEM_LABELS = {
 //
 // #4715: 以前は `src/lib/domain/icons.ts` の `MODE_LABELS` に置かれており、UI 文言の SSOT が
 // labels.ts / icons.ts の 2 箇所に割れていた（icons.ts はアイコン定数の置き場であって文言の置き場ではない）。
-// 文言はここに寄せ、呼び出し側は `getChildNavModeLabels()` を本ファイルから直接 import する。
+// 文言はここに寄せ、呼び出し側は `getChildNavModeLabels()` を `$lib/domain/labels` から import する
+// (labels 層の中からは定義ファイルを直接 import する。docs/DESIGN.md §6)。
 //
 // 呼称の是正（#4715）:
 //   - `switch`: junior / senior が「メンバー」だった。親画面の「メンバー管理」（招待した大人）と
