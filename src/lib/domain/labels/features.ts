@@ -1,4 +1,4 @@
-// labels 層 (ADR-0045 / #4965): src/lib/features/ の部品 (既存の FEATURES_LABELS。新しい部品は FEATURES_<X>_LABELS を作り FEATURES_LABELS には足さない) と AI 入力・PWA 案内。置き場所の規則は docs/DESIGN.md §6
+// labels 層 (ADR-0045 / #4965): 2 つ以上の画面に出る src/lib/features/ の部品 (既存の FEATURES_LABELS。新しい部品は FEATURES_<X>_LABELS を作り FEATURES_LABELS には足さない) と AI 入力・PWA 案内。1 つの画面にだけ出る部品の文言はその画面のファイルに置く。置き場所の規則は docs/DESIGN.md §6
 // #4482: 保持日数の「整形」も SSOT を経由する。表示側で `${days}日` と独自整形すると、
 // 保持日数を 365 の倍数に変えたときにここだけ「365日」と述べ、料金表の「1年」と食い違う。
 import { formatRetentionPeriod } from '../constants/plan-retention';

@@ -9,7 +9,7 @@
 //   - HP と実装の乖離で課金ユーザーが不公平感を持つ
 // という三重の問題があった。本エンドポイントでプラン解決→free は早期 return する。
 //
-// プラン名 SSOT: src/lib/domain/labels.ts PLAN_LABELS / src/lib/domain/terms.ts PLAN_FULL_TERMS
+// プラン名 SSOT: labels 層の PLAN_LABELS ($lib/domain/labels) / src/lib/domain/terms.ts PLAN_FULL_TERMS
 // 関連: #1937 Phase 2 C12 / ADR-0045 (terms.ts 2 階層 SSOT)
 
 import { json } from '@sveltejs/kit';
