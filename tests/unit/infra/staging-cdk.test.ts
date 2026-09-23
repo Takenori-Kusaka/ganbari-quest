@@ -118,6 +118,9 @@ function buildProdCompute(extraContext: Record<string, string> = {}): ComputeSta
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			// #4706: 本番 synth の必須 context (未指定は addError)。形式だけ本物に合わせたダミー。
+			vapidPublicKey: `B${'A'.repeat(86)}`,
+			vapidPrivateKey: 'a'.repeat(43),
 			...extraContext,
 		},
 	});

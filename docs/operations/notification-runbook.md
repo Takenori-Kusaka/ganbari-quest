@@ -33,7 +33,7 @@ Phase A / B 補佐確認結果:
 | 通知種別 | トリガー | 配信先 | 実装 service | E2E spec |
 |---|---|---|---|---|
 | `reminder` | cron 日次 / ユーザー設定時刻 | 親端末（subscriber_role='parent'） | `push-subscription-service.ts` + `web-push` | `tests/e2e/push-reminder.spec.ts`（NO-1 で整備）|
-| `streak-warning` | streak 中断検出（前日活動なし） | 親端末 | 同上 | `tests/e2e/push-streak-warning.spec.ts`（NO-1 で整備）|
+| `streak-warning` | 今日未記録かつストリーク継続中（19:00 JST 以降） | 親端末 | 同上 | `tests/e2e/push-streak-warning.spec.ts`（NO-1 で整備）|
 | `achievement` | バッジ / 称号 / レベル up 達成 | 親端末（quiet hours 適用） | 同上 | `tests/e2e/push-achievement.spec.ts`（NO-1 で整備）|
 | `webhook-linked` | 子供がアプリで活動 record したとき（任意 opt-in） | 親端末 | 同上 | `tests/e2e/push-webhook-linked.spec.ts`（NO-1 で整備）|
 
@@ -46,7 +46,7 @@ Phase A / B 補佐確認結果:
 
 | 通知種別 | トリガー | 配信先 | 実装 service | E2E spec |
 |---|---|---|---|---|
-| `weekly-report` | cron 週次（毎週月曜 09:00 JST） | 親 email（owner） | `weekly-report-service.ts` + `@aws-sdk/client-ses` | `tests/e2e/email-weekly-report.spec.ts`（NO-2 で整備）|
+| `weekly-report` | cron 週次（`weekly_report_day` の 09:00 JST 以降に週 1 回、standard 以上） | 親 email（owner） | `weekly-report-service.ts` + `@aws-sdk/client-ses` | `tests/e2e/email-weekly-report.spec.ts`（NO-2 で整備）|
 | `lifecycle` | signup / trial / 課金変更等のイベント | 親 email（owner） | `lifecycle-email-service.ts` | `tests/e2e/email-lifecycle.spec.ts`（NO-2 で整備）|
 | `trial` | トライアル 7d/3d/1d/満了 | 親 email（owner） | `trial-notification-service.ts` | `tests/e2e/email-trial.spec.ts`（NO-2 で整備）|
 | `marketing` | キャンペーン / 機能告知（opt-in 必須） | 親 email（owner、`marketing_email_counter` で頻度制限） | `marketing-email-counter.ts` | `tests/e2e/email-marketing.spec.ts`（NO-2 で整備）|
@@ -62,23 +62,43 @@ Phase A / B 補佐確認結果:
 
 ### 2.1 VAPID 鍵配布証跡確認（ADR-0006 整合）
 
+配布経路は **GitHub Actions Secrets → `deploy.yml` の `-c vapidPublicKey` / `-c vapidPrivateKey` → CDK (`infra/lib/compute-stack.ts`) → 本番 app Lambda env** の 1 本だけ（SSM Parameter Store は使わない）。本番で鍵が未指定 / 形式不正なら CDK synth が `addError` で止まり、`deploy.yml` の `Validate required secrets` も secret 未登録で止まる。
+
 ```bash
-# SSM Parameter Store
-aws ssm get-parameter \
-  --name "/ganbari-quest/prod/VAPID_PUBLIC_KEY" \
-  --query 'Parameter.Value' --output text | head -c 20
-aws ssm get-parameter \
-  --name "/ganbari-quest/prod/VAPID_PRIVATE_KEY" \
-  --with-decryption --query 'Parameter.Value' --output text | head -c 20
-
-# NUC .env
-ssh nuc cat /opt/ganbari-quest/.env | grep VAPID
-
-# GitHub Actions Secrets
+# GitHub Actions Secrets (登録の有無)
 gh secret list --repo Takenori-Kusaka/ganbari-quest | grep VAPID
+
+# 本番 Lambda env (キー名だけを見る。値は出さない)
+aws lambda get-function-configuration --function-name ganbari-quest-app --region us-east-1 \
+  --query 'keys(Environment.Variables)' --output text | tr '\t' '\n' | grep VAPID
 ```
 
-3 箇所すべてに同じ key pair が配備されていること（key pair 不一致は配信即失敗 = サイレント障害）。
+- **staging には配らない**。staging は cron-dispatcher を持たず push を配信しない（`infra/lib/env-config.ts` の `enableCronDispatcher: false`）
+- **NUC にも配らない**。NUC は `AUTH_MODE=local` で、`notification-service.ts` は push を送らずログ出力だけを行う
+- 鍵を作り直すと、既存の購読（`push_subscriptions`）は古い公開鍵で作られているため届かなくなる。作り直した場合は保護者に通知設定での再購読を案内する
+
+鍵の生成と登録（値を画面に出さない）:
+
+```bash
+KEYS=$(node -e "const k=require('web-push').generateVAPIDKeys();process.stdout.write(k.publicKey+' '+k.privateKey)")
+printf '%s' "${KEYS% *}" | gh secret set VAPID_PUBLIC_KEY --repo Takenori-Kusaka/ganbari-quest
+printf '%s' "${KEYS#* }" | gh secret set VAPID_PRIVATE_KEY --repo Takenori-Kusaka/ganbari-quest
+unset KEYS
+```
+
+#### 送信実績の確認（本番ログ）
+
+`/api/cron/notification-delivery` は 15 分ごとに 1 回、集計を `[notification-delivery] 配信バッチ完了` として出す。`reminderSent` / `streakWarningSent` / `weeklyReportSent` が送信できた家庭の数。鍵が配られていない場合は `[notification] VAPID キーが設定されていません` が出る。
+
+```bash
+# CloudWatch Logs Insights (/aws/lambda/ganbari-quest-app)
+fields @timestamp, @message
+| filter @message like /notification-delivery\] / and @message like /scanned/
+| parse @message /"weeklyReportSent":(?<w>\d+),"reminderSent":(?<r>\d+),"streakWarningSent":(?<s>\d+)/
+| stats count(*) as batches, sum(w) as weekly, sum(r) as reminder, sum(s) as streak
+```
+
+週次メールの配達は SES の CloudWatch メトリクス（`AWS/SES` の `Send` / `Delivery` / `Bounce`、us-east-1）で確認する。
 
 ### 2.2 Push 受信確認手順
 
@@ -88,12 +108,13 @@ gh secret list --repo Takenori-Kusaka/ganbari-quest | grep VAPID
 4. 各通知種別ごとに以下を実行:
 
 #### `reminder`
-- `/admin/settings` で reminder 時刻を「現時刻 +5 分」に設定
-- 5 分待つ → 親端末で OS 通知が表示されることを確認
+- `/admin/settings/notifications` で「リマインダー通知」を ON にし、時刻を現時刻の直前に設定する
+- 今日まだ記録していない子供がいる状態にする（全員が記録済みの日は送らない、ADR-0012）
+- cron は 15 分ごとなので最大 15 分待つ → 親端末で OS 通知が表示されることを確認
 
 #### `streak-warning`
 - 子供アカウントで前日に活動 record を残し、今日活動なしの状態にする
-- 翌日 09:00 JST 前後で OS 通知が表示されることを確認
+- 19:00 JST 以降の cron（15 分ごと）で OS 通知が表示されることを確認
 
 #### `achievement`
 - 子供アカウントでバッジ獲得条件を満たす活動 record
@@ -108,7 +129,7 @@ gh secret list --repo Takenori-Kusaka/ganbari-quest | grep VAPID
 
 | 現象 | 原因 | 対応 |
 |---|---|---|
-| permission grant したのに通知来ない | VAPID 鍵不一致 | §2.1 で 3 箇所配備を再確認、不一致なら再配備 |
+| permission grant したのに通知来ない | VAPID 鍵が Lambda env に無い / 鍵を作り直した後の古い購読 | §2.1 で Lambda env のキー名と送信実績ログを確認。鍵を作り直した場合は再購読する |
 | 通知来るが Title / Body が空 | service-worker.js の payload parse 失敗 | DevTools Console でエラー確認、`push-service-payload.test.ts` 再実行 |
 | 子供端末にも配信される | subscriber_role guard 失効 | `push-subscription-service.ts` の filter 確認、`push-subscribe-anti-engagement.spec.ts` 再実行 |
 | 1 日に 5 通超来る | 1 日 3 通 cap 失効 | `marketing_email_counter` の Push 版実装確認、回帰テスト追加 |
@@ -144,8 +165,9 @@ aws ses get-identity-verification-attributes \
 各通知種別ごとに以下を実行（受信先: 動作確認用 Gmail）:
 
 #### `weekly-report`
-- `tests/manual/trigger-weekly-report.mjs --tenantId=<test-tenant>` で即時送信
-- Gmail で「がんばりクエスト週次レポート」件名のメール受信を確認
+- `/admin/reports` の週次タブで「週次レポートを有効にする」を ON にし、配信曜日を今日にして保存する（standard 以上）
+- 今日の 09:00 JST 以降の cron（15 分ごと）で送信される。件名は「🌟 <子供の名前>の今週のがんばり（<期間>）」（子供ごとに 1 通、`email-service.ts` の `sendWeeklyReportEmail`）
+- 受信を確認
 - HTML レンダリング崩れがないこと（Gmail Web / iOS Gmail App / Outlook で各 1 回）
 - unsubscribe link クリックで unsubscribe page に遷移すること
 

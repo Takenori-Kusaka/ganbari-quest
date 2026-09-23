@@ -290,6 +290,26 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
+		// --- Web Push VAPID 鍵 (#4706) ---
+		// notification-service.ts は鍵が無いと warn + `sent: 0` を返すだけで、cron は 200 のまま
+		// 「送信 0 件」を返し続ける (本番で 2026-09-11〜23 の送信判定がすべてこれで止まっていた)。
+		// 本番は未指定 / 形式不正を synth error にする。形式検査は公開鍵 (65 byte) と秘密鍵 (32 byte)
+		// の取り違えを拾うため。staging は cron-dispatcher を持たず push を配信しないので配らない。
+		const vapidPublicKey = this.node.tryGetContext('vapidPublicKey') ?? '';
+		const vapidPrivateKey = this.node.tryGetContext('vapidPrivateKey') ?? '';
+		if (
+			isProd &&
+			!(/^[A-Za-z0-9_-]{87}$/.test(vapidPublicKey) && /^[A-Za-z0-9_-]{43}$/.test(vapidPrivateKey))
+		) {
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] VAPID 鍵 (vapidPublicKey / vapidPrivateKey context) が未指定か形式不正です。' +
+					'公開鍵は base64url 87 文字、秘密鍵は 43 文字です (取り違えに注意)。' +
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
+					'deploy workflow で -c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }} -c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }} を渡してください。' +
+					'See infra/CLAUDE.md。',
+			);
+		}
+
 		// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify`)。CloudFront 側
 		// (network-stack.ts) が付与し、アプリ側 (hooks.server.ts) が /admin ・ /api/v1/admin ・
 		// /ops で一致を要求する。**同じ CDK context から両者に配るため、header と検査が食い違わない**。
@@ -539,6 +559,9 @@ export class ComputeStack extends cdk.Stack {
 						BEDROCK_REGION: BEDROCK_REGION,
 						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
+						// #4706: 未指定の本番 synth は上の addError で止まるため、ここでは無条件に載せる。
+						VAPID_PUBLIC_KEY: vapidPublicKey,
+						VAPID_PRIVATE_KEY: vapidPrivateKey,
 						// #3438 Phase 2A: DATA_SOURCE=dsql は base env に無条件で含む (旧 dsqlEnabled 上書き撤去)。
 					}
 				: {
