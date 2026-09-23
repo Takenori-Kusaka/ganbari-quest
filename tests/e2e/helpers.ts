@@ -388,3 +388,53 @@ export async function recordAnyActivity(page: Page): Promise<boolean> {
 	}
 	return false;
 }
+
+/**
+ * 押せる活動カードを先頭から 1 枚記録し、結果ダイアログが開いた状態で返す (確認ダイアログのある
+ * baby 以外の年齢モード用)。
+ *
+ * **成否は `?/record` form action の応答で判定する。画面の文言では判定しない。**
+ * 成功ダイアログの「〜をきろくしたよ！」と、記録済みで弾かれたときのトースト
+ * 「きょうはもうきろくしたよ！」は同じ部分文字列を持つ。`getByText(/きろくしたよ！/)` で待つと、
+ * 弾かれた記録を成功と数え、トーストが残っている 3 秒の間に次の記録が成功すると 2 要素に一致して
+ * strict mode violation で落ちる (combo-bonus.spec.ts の mobile flake、CI run 35802847074 の trace)。
+ *
+ * **409 (その活動はきょう記録済み) は次のカードで取り直す。** `./fixtures` を使わない spec は
+ * worker を問わず同じ server / DB (`use.baseURL` = port 5190) を叩くため、別 worker の spec が
+ * 同じ子供の先頭カードを同時刻に記録すると、読み込み時点では押せたカードがサーバーでは記録済みになる。
+ * 409 以外の失敗は取り直さずに fail させる (本物の不具合を取り直しで隠さない)。
+ *
+ * @returns 記録できたら true。押せるカードが無くなったら false。
+ */
+export async function recordFirstAvailableActivity(page: Page, maxAttempts = 5): Promise<boolean> {
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		const activities = getAvailableActivities(page);
+		if ((await activities.count()) === 0) return false;
+
+		const card = activities.first();
+		const cardTestId = await card.getAttribute('data-testid');
+		expect(cardTestId, '活動カードは data-testid を持つ').toBeTruthy();
+		await card.click();
+		await expect(page.getByTestId('confirm-dialog')).toBeVisible();
+
+		const recordResponse = page.waitForResponse(
+			(res) => res.request().method() === 'POST' && res.url().endsWith('?/record'),
+		);
+		await page.getByTestId('confirm-record-btn').click();
+		const outcome = (await (await recordResponse).json()) as { type?: string; status?: number };
+
+		if (outcome.type === 'success') {
+			await expect(page.getByTestId('activity-confirm-btn')).toBeVisible();
+			return true;
+		}
+
+		expect(outcome, '取り直してよいのは「きょうは記録済み」(409) だけ').toMatchObject({
+			type: 'failure',
+			status: 409,
+		});
+		// 画面は失敗後に再読み込みし、弾かれたカードを記録済み (disabled) に切り替える。
+		// 切り替わる前に次を選ぶと同じカードをもう一度押してしまう。
+		await expect(page.getByTestId(String(cardTestId))).toBeDisabled();
+	}
+	return false;
+}
