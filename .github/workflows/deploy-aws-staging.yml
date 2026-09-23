@@ -372,7 +372,8 @@ jobs:
           aws lambda update-function-code \
             --function-name $LAMBDA_FUNCTION \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --region $AWS_REGION
+            --region $AWS_REGION \
+            --query 'LastUpdateStatus' --output text
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
@@ -447,7 +448,8 @@ jobs:
             '{FunctionName: $fn, Environment: {Variables: $v[0]}}' > "$RUNNER_TEMP/staging-update-env.json"
           aws lambda update-function-configuration \
             --region $AWS_REGION \
-            --cli-input-json "file://$RUNNER_TEMP/staging-update-env.json"
+            --cli-input-json "file://$RUNNER_TEMP/staging-update-env.json" \
+            --query 'LastUpdateStatus' --output text
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
@@ -711,7 +713,8 @@ jobs:
           aws lambda update-function-code \
             --function-name $LAMBDA_FUNCTION \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY@$PREVIOUS_DIGEST \
-            --region $AWS_REGION
+            --region $AWS_REGION \
+            --query 'LastUpdateStatus' --output text
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
