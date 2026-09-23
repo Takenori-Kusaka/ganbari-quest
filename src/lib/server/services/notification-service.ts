@@ -67,17 +67,16 @@ export { MAX_DAILY_NOTIFICATIONS };
  */
 const PUSH_SEND_TIMEOUT_MS = 5_000;
 
-/**
- * push が送れていないことを運営に届けるための log 用語 (SSOT、#4706)。
- *
- * push の失敗は保護者の画面にも cron の応答にも出ない (鍵が無ければ `sent: 0` を返し、
- * push サービスに拒否されても 1 行 log を出すだけで cron は 200 のまま)。保護者は
- * 「届くはずの通知が届いていない」ことに自分では気付けない。
- *
- * metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数 (CDK の tsconfig rootDir 制約で
- * src を import できないため literal で持ち、`tests/unit/infra/push-notification-alarm.test.ts` が
- * drift と「実際に書き出す行が filter にマッチすること」を機械検証する)。
- */
+// push が送れていないことを運営に届けるための log 用語 (SSOT、#4706)。
+//
+// push の失敗は保護者の画面にも cron の応答にも出ない (鍵が無ければ `sent: 0` を返し、
+// push サービスに拒否されても 1 行 log を出すだけで cron は 200 のまま)。保護者は
+// 「届くはずの通知が届いていない」ことに自分では気付けない。
+//
+// metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数 (CDK の tsconfig rootDir 制約で
+// src を import できないため literal で持ち、`tests/unit/infra/push-notification-alarm.test.ts` が
+// drift と「実際に書き出す行が filter にマッチすること」を機械検証する)。
+
 /** 本番 Lambda env に VAPID 鍵が無く、送信を始められなかった。 */
 export const PUSH_VAPID_MISSING_LOG_TERM = '[push-alert] vapid-missing';
 
