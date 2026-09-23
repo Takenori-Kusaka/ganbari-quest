@@ -97,7 +97,8 @@ jobs:
           ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
           # #4706: Web Push の VAPID 鍵。未登録だと push (リマインダー / ストリーク警告) が
           # 1 通も送れないまま cron は 200 を返し続ける。CDK synth も addError で止めるが、
-          # ここで先に落として原因を明示する。
+          # synth に着くのは Storage deploy / ECR push / DSQL deploy / migrate の後なので、
+          # 登録の有無と鍵の組 (下の isVapidKeyPair) をここで先に検査する。
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
@@ -115,6 +116,14 @@ jobs:
             echo "::error::$missing required secret(s) missing — aborting deploy (#1586)"
             exit 1
           fi
+          # #4706: VAPID 鍵は「登録されている」だけでなく「組になっている」ことまで見る。
+          # 判定は CDK synth と同じ isVapidKeyPair (infra/lib/vapid-context.ts) を呼ぶ (判定を 2 つ持たない)。
+          # 結果は exit code だけで受け取り、鍵の値は出力しない。
+          if ! node --input-type=module -e "import { isVapidKeyPair } from './infra/lib/vapid-context.ts'; process.exit(isVapidKeyPair(process.env.VAPID_PUBLIC_KEY ?? '', process.env.VAPID_PRIVATE_KEY ?? '') ? 0 : 1)"; then
+            echo "::error::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY が鍵の組になっていません (形式不正・公開鍵と秘密鍵の取り違え・片方だけの作り直し)。同じ generateVAPIDKeys() の出力を組で登録し直してください (docs/operations/notification-runbook.md §2.1、#4706)"
+            exit 1
+          fi
+          echo "::notice::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は鍵の組になっています"
           # #4104: 本番に test key が入る事故は単体で成立し、しかも無通知で成立する
           # (顧客の決済がすべて test mode に流れ、決済成功に見えたまま入金されない)。
           # staging の逆方向と対称に allowlist で止める。denylist (sk_test_ を弾く) だと
@@ -132,6 +141,29 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # #4706: VAPID 鍵を差し替えた deploy で、旧い秘密鍵を公開ログに出さない。
+      # 下の `cdk diff --all | tee` は Lambda env の変更を `[-] 旧値` / `[+] 新値` で出す。新値は
+      # secrets.* なので伏せ字になるが、旧値はもう secret ではないので伏せ字にならない
+      # (このリポジトリの Actions ログは公開)。そこで diff より前に、deploy 済みの値を
+      # add-mask で登録しておく。値はシェル変数にだけ持ち、add-mask 以外の行には出さない。
+      # 読めないまま diff に進むと伏せ字にできないので止める (Lambda が無い初回だけは旧値が無いので通す)。
+      - name: Mask deployed VAPID private key
+        run: |
+          if ! current=$(aws lambda get-function-configuration \
+              --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+              --query 'Environment.Variables.VAPID_PRIVATE_KEY' --output text 2>"$RUNNER_TEMP/vapid-mask.err"); then
+            if grep -q 'ResourceNotFoundException' "$RUNNER_TEMP/vapid-mask.err"; then
+              echo "::notice::$LAMBDA_FUNCTION がまだ無いため、伏せ字にする旧い秘密鍵はありません"
+              exit 0
+            fi
+            echo "::error::deploy 済みの VAPID 秘密鍵を読めませんでした。伏せ字にしないまま cdk diff を出すと、鍵を差し替えた deploy で旧い秘密鍵が公開ログに出るため止めます。再実行してください (#4706)"
+            exit 1
+          fi
+          if [ -n "$current" ] && [ "$current" != "None" ]; then
+            echo "::add-mask::$current"
+            echo "::notice::deploy 済みの VAPID 秘密鍵を、以降のログで伏せ字にしました"
+          fi
 
       - name: Install CDK dependencies
         working-directory: infra/
