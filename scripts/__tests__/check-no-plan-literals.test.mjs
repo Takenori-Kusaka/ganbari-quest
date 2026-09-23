@@ -134,6 +134,18 @@ describe('shouldExclude (Issue #1918 AC2 — allowlist)', () => {
 		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels.ts')), true);
 	});
 
+	it('labels 層の分割先 src/lib/domain/labels/*.ts も exclude (#4965)', () => {
+		// labels 層は入口 labels.ts + labels/*.ts に分かれている。分割先だけが検査対象に入ると、
+		// 層全体を件数で見張る ratchet (labels-plan-literal-ratchet) と二重に数え、既存の直書きで CI が落ちる
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels/lp.ts')), true);
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels/plan.ts')), true);
+	});
+
+	it('名前が labels で始まるだけの別ファイルは exclude しない (#4965)', () => {
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labels-extra.ts')), false);
+		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/labelsx.ts')), false);
+	});
+
 	it('*.test.ts は exclude (テスト fixture)', () => {
 		assert.equal(shouldExclude(path.join(REPO_ROOT, 'src/lib/foo.test.ts')), true);
 	});

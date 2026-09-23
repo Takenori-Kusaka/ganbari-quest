@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 // LP 生成側の実処理 (.mjs script) をそのまま検査する
 import { buildDeletionGraceTerms } from '../../../scripts/generate-lp-labels.mjs';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
 	formatDeletionGracePeriod,
@@ -47,6 +48,21 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
+
+/**
+ * labels 層の連結本文から、object literal の namespace 1 つ分 (宣言行から列 0 の `}` の行まで) を切り出す。
+ *
+ * key 名は namespace をまたいで重複する (`gracePeriodDesc` は SETTINGS_LABELS と SUBSCRIPTION_PAGE_LABELS
+ * の両方にある) ため、「本文全体で最初に現れる key」を見ると、ファイルの連結順で検査対象が変わる (#4965)。
+ * 検査する namespace を名指しして切り出す。見つからなければ throw する (空を返すと検査が空振りする)。
+ */
+function sliceNamespace(src: string, name: string): string {
+	const start = new RegExp(`^export const ${name}\\b`, 'm').exec(src)?.index;
+	if (start === undefined) throw new Error(`${name} が labels 層に見つからない`);
+	const close = /^\}.*$/m.exec(src.slice(start));
+	if (!close) throw new Error(`${name} の閉じ括弧が見つからない`);
+	return src.slice(start, start + close.index + close[0].length);
+}
 
 /**
  * PO レビュー会議 (#4495) の採択条件。婉曲表現「閲覧不可」で止めず、物理削除であることまで
@@ -528,32 +544,39 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 		//   (a) 下の source 検査で即落ちる
 		//   (b) PLAN_HISTORY_RETENTION_DAYS.free を変えた瞬間に上の runtime 検査が落ちる
 		it('保持期間の文は atom 経由で組み立て、日数を直書きしない', () => {
-			const src = repoFile('src/lib/domain/labels.ts');
-			const shared = src.match(/const FREE_PLAN_RETENTION_NOTICE = `([^`]*)`;/);
+			// #4965: labels 層は入口 labels.ts + labels/*.ts に分かれているため、層全体の本文を読む
+			const src = readLabelsSource();
+			const shared = src.match(/^(?:export )?const FREE_PLAN_RETENTION_NOTICE = `([^`]*)`;/m);
 			expect(shared, 'FREE_PLAN_RETENTION_NOTICE の定義が見つからない').not.toBeNull();
 			const literal = shared?.[1] ?? '';
 			// atom (terms.ts) を template literal で参照していること
 			expect(literal).toMatch(/\$\{PLAN_RETENTION_TERMS\.freeSpaced\}/);
 			expect(literal).not.toMatch(/\d/);
 
-			// 各文言の定義本体にも日数の直書きが無いこと (共有文を経由させる)
-			const definitionSource = (key: string) => {
-				const start = src.indexOf(`\n\t${key}:`);
-				expect(start, `${key} の定義が見つからない`).toBeGreaterThan(-1);
-				return src.slice(start, src.indexOf('`,', start));
+			// 各文言の定義本体にも日数の直書きが無いこと (共有文を経由させる)。
+			// key 名は namespace をまたいで重複する (gracePeriodDesc は SETTINGS_LABELS と
+			// SUBSCRIPTION_PAGE_LABELS の両方にある) ため、見る namespace を名指しする。
+			// 対応は #4965 の分割前に「本文全体で最初に現れる key」が属していた namespace
+			// (ファイルの連結順で検査対象が変わらないよう固定した)。
+			const definitionSource = (namespace: string, key: string) => {
+				const ns = sliceNamespace(src, namespace);
+				const start = ns.indexOf(`\n\t${key}:`);
+				expect(start, `${namespace}.${key} の定義が見つからない`).toBeGreaterThan(-1);
+				return ns.slice(start, ns.indexOf('`,', start));
 			};
-			for (const key of [
-				'paidPlanNotice',
-				'trialPlanNotice',
-				'cancelPendingDesc',
-				'cancelPendingDescUnknownDate',
-				'gracePeriodDesc',
-				'paymentSuspendedDesc',
-				'cancelledDesc',
-			]) {
-				expect(definitionSource(key), `${key} に日数が直書きされている`).not.toMatch(
-					/\d+\s?[日年]/,
-				);
+			for (const [namespace, key] of [
+				['CANCELLATION_LABELS', 'paidPlanNotice'],
+				['CANCELLATION_LABELS', 'trialPlanNotice'],
+				['SUBSCRIPTION_PAGE_LABELS', 'cancelPendingDesc'],
+				['SUBSCRIPTION_PAGE_LABELS', 'cancelPendingDescUnknownDate'],
+				['SETTINGS_LABELS', 'gracePeriodDesc'],
+				['SUBSCRIPTION_PAGE_LABELS', 'paymentSuspendedDesc'],
+				['SUBSCRIPTION_PAGE_LABELS', 'cancelledDesc'],
+			] as const) {
+				expect(
+					definitionSource(namespace, key),
+					`${namespace}.${key} に日数が直書きされている`,
+				).not.toMatch(/\d+\s?[日年]/);
 			}
 		});
 	});
@@ -618,10 +641,7 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 		});
 
 		it('解約 / 退会 FAQ の定義に日数を直書きしない (SSOT 経由の強制)', () => {
-			const src = repoFile('src/lib/domain/labels.ts');
-			const nsStart = src.indexOf('export const LP_FAQ_PHASEB_LABELS');
-			expect(nsStart).toBeGreaterThan(-1);
-			const ns = src.slice(nsStart);
+			const ns = sliceNamespace(readLabelsSource(), 'LP_FAQ_PHASEB_LABELS');
 			const pinnedKeys = ['k19', 'k20', 'k21', 'k22', 'k124', 'k75', 'k76', 'k77'];
 			const offenders = pinnedKeys.filter((key) => {
 				const line = ns.match(new RegExp(`^\\t${key}: (.*)$`, 'm'))?.[1] ?? '';

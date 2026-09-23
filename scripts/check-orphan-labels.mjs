@@ -2,12 +2,12 @@
 /**
  * scripts/check-orphan-labels.mjs (EPIC #2362 follow-up)
  *
- * src/lib/domain/labels.ts の `LABELS` namespace export (compound) と
+ * labels 層 (src/lib/domain/labels.ts + labels/*.ts、#4965) の `LABELS` namespace export (compound) と
  * src/lib/domain/terms.ts の `TERMS` namespace export (atom) について、
  * src/ / site/ / scripts/ / tests/ から参照されていないものを検出する。
  *
  * 構造的予防の目的:
- *   - 機能撤去で labels.ts の namespace が取り残されるのを可視化
+ *   - 機能撤去で labels 層の namespace が取り残されるのを可視化
  *   - ADR-0045 SSOT (atom → compound → 表示) の最末端 dead constant を block
  *
  * 使用法:
@@ -18,10 +18,13 @@
  * baseline: scripts/orphan-baselines/labels.json
  *
  * 検出ロジック:
- *   1. labels.ts / terms.ts から `export const <UPPER_CASE>` を抽出
+ *   1. labels 層 / terms.ts から `export const <UPPER_CASE>` を抽出
  *   2. 各 export について src/ / site/ / tests/ / scripts/ 全体から参照を集計
  *   3. site/shared-labels.js (自動生成) は SEARCH_DIRS から除外
- *   4. 自分自身ファイルからの参照は除外、boundary match
+ *   4. 定義元からの参照は除外、boundary match。labels 層の export は **labels 層全体を定義元** とみなす
+ *      (labels 層は 1 つの SSOT をファイルに分けたもの。分割前の「labels.ts 内の相互参照は数えない」と同じ判定)。
+ *      ただし別の labels ファイルが `import { X } from './<file>'` で取り込んでいる X は使われている
+ *      (ファイル間で共有するために export している) ので orphan としない
  *   5. 参照 0 件 = orphan
  */
 
@@ -36,8 +39,8 @@ import {
 	walkDir,
 } from './lib/ci/orphan-utils.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { isLabelsLayerPath, labelSourceFiles } from './lib/parse-labels-ts.mjs';
 
-const LABELS_FILE = path.join(REPO_ROOT, 'src', 'lib', 'domain', 'labels.ts');
 const TERMS_FILE = path.join(REPO_ROOT, 'src', 'lib', 'domain', 'terms.ts');
 const SEARCH_DIRS = ['src', 'tests/unit', 'tests/integration', 'tests/e2e', 'scripts'];
 
@@ -58,6 +61,27 @@ function extractExports(text) {
 	return out;
 }
 
+/**
+ * labels ファイル間の相対 import (`import { A, type B } from './<file>'`) で取り込まれている名前を返す。
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+function extractSiblingImports(text) {
+	const out = [];
+	for (const m of text.matchAll(/^import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'\.\/[^']+';/gm)) {
+		for (const spec of (m[1] ?? '').split(',')) {
+			const name = spec
+				.trim()
+				.replace(/^type\s+/, '')
+				.split(/\s+as\s+/)[0]
+				?.trim();
+			if (name) out.push(name);
+		}
+	}
+	return out;
+}
+
 function main() {
 	const args = parseArgs(process.argv);
 	const mode = args.updateBaseline ? 'update-baseline' : args.report ? 'report' : 'check';
@@ -65,8 +89,11 @@ function main() {
 
 	const exports = [];
 	const sources = new Map(); // name -> file
+	/** labels ファイル間の `import { X } from './<file>'` で取り込まれている名前 */
+	const siblingImported = new Set();
 
-	for (const f of [LABELS_FILE, TERMS_FILE]) {
+	const labelFiles = labelSourceFiles().map((rel) => path.join(REPO_ROOT, rel));
+	for (const f of [...labelFiles, TERMS_FILE]) {
 		if (!fs.existsSync(f)) {
 			process.stderr.write(`[check-orphan-labels] file not found: ${f}\n`);
 			process.exit(1);
@@ -76,6 +103,9 @@ function main() {
 		for (const name of extractExports(text)) {
 			exports.push(name);
 			sources.set(name, rel);
+		}
+		if (isLabelsLayerPath(rel)) {
+			for (const name of extractSiblingImports(text)) siblingImported.add(name);
 		}
 	}
 
@@ -112,8 +142,11 @@ function main() {
 		.map((name) => {
 			const r = refs.get(name) || [];
 			const sourceFile = sources.get(name);
-			const external = r.filter((ref) => ref.file !== sourceFile);
-			if (external.length === 0) {
+			const inLabelsLayer = isLabelsLayerPath(sourceFile);
+			const external = r.filter((ref) =>
+				inLabelsLayer ? !isLabelsLayerPath(ref.file) : ref.file !== sourceFile,
+			);
+			if (external.length === 0 && !siblingImported.has(name)) {
 				return {
 					name,
 					reason: `label/term export "${name}" は外部から参照されていません (定義元: ${sourceFile})。機能撤去で取り残された可能性、または ADR-0045 SSOT 経由参照 (terms ↔ labels) のみ。`,

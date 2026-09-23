@@ -2,11 +2,11 @@
 /**
  * scripts/generate-lp-labels.mjs (#565)
  *
- * src/lib/domain/labels.ts + age-tier.ts から LP 用ラベル辞書を生成する。
+ * labels 層 (src/lib/domain/labels.ts + labels/*.ts、#4965) + age-tier.ts から LP 用ラベル辞書を生成する。
  * site/shared-labels.js を上書き更新する。
  *
  * 用途:
- *   - アプリ側 labels.ts を変更したら、本スクリプトで LP 側ラベルを同期させる
+ *   - アプリ側 labels 層を変更したら、本スクリプトで LP 側ラベルを同期させる
  *   - GitHub Actions の LP デプロイパイプラインに組み込み、CIで不整合を検出
  *
  * 使用法:
@@ -21,14 +21,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { escapeRegExp } from './lib/ci/escape-regexp.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
-import { parseSimpleBlock } from './lib/parse-labels-ts.mjs';
+import { parseSimpleBlock, readLabelsSource } from './lib/parse-labels-ts.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
-const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
@@ -90,7 +90,7 @@ function extractBraceBlock(src, startIdx) {
  * @returns {Record<string, string | TemplateLiteralValue>}
  */
 function parseBlock(src, constName) {
-	const startIdx = src.indexOf(`export const ${constName}`);
+	const startIdx = findExportConstIndex(src, constName);
 	if (startIdx === -1) {
 		// 定数が見つからない場合は空オブジェクトを返す（#1772 完全削除対応）
 		return {};
@@ -112,6 +112,21 @@ function parseBlock(src, constName) {
 }
 
 /**
+ * 行頭の `export const <constName>` の位置を返す (無ければ -1)。
+ *
+ * `indexOf('export const X')` は `export const X_FOO` にも前方一致する。labels 層は複数ファイルの
+ * 連結本文で渡るため (#4965)、行頭 + 単語境界で探し、別の宣言に当たる余地を残さない。
+ *
+ * @param {string} src
+ * @param {string} constName
+ * @returns {number}
+ */
+function findExportConstIndex(src, constName) {
+	const m = new RegExp(`^export const ${escapeRegExp(constName)}\\b`, 'm').exec(src);
+	return m ? m.index : -1;
+}
+
+/**
  * labels.ts の module-local 共有 const を収める疑似 namespace 名 (#4619)。
  * 実 namespace と衝突しないよう `_` 始まりにしてある (labels.ts / terms.ts の export は
  * すべて英大文字始まり)。
@@ -129,20 +144,38 @@ const LOCAL_CONSTS_NS = '_LOCAL_CONSTS';
  *   **その key を無言で捨てていた**。捨てられた key は shared-labels.js に載らず、LP は
  *   HTML の古い fallback を出し続ける (顧客に見える文言が labels.ts と乖離する)。
  *
- * @param {string} src - labels.ts のソース
+ * labels 層はファイルに分かれており (#4965)、別ファイルの namespace から使う共有 const は定義側で
+ * `export const` になる。`const` / `export const` のどちらも同じ 1 行形式として拾う。
+ *
+ * @param {string} src - labels 層のソース (`readLabelsSource()` の連結本文)
  * @returns {Record<string, string | TemplateLiteralValue>}
+ * @throws {Error} 同じ名前の共有 const が複数ある (どちらの値で解決するかが連結順で変わるため)
  */
 function parseLabelsLocalConsts(src) {
 	/** @type {Record<string, string | TemplateLiteralValue>} */
 	const result = {};
+	/** @param {string} name */
+	const assertUnique = (name) => {
+		if (Object.hasOwn(result, name)) {
+			throw new Error(
+				`共有 const ${name} が labels 層に複数あります。LP の値をどちらで解決するかが決まらないため、1 つにしてください。`,
+			);
+		}
+	};
 	// 行頭 (インデントなし) の module-level const のみ対象。関数内のローカル変数は拾わない。
-	const singleQuote = /^const ([A-Z][A-Z0-9_]*) = '((?:[^'\\]|\\.)*)';$/gm;
+	const singleQuote = /^(?:export )?const ([A-Z][A-Z0-9_]*) = '((?:[^'\\]|\\.)*)';$/gm;
 	for (const m of src.matchAll(singleQuote)) {
-		if (m[1] && m[2] !== undefined) result[m[1]] = m[2];
+		if (m[1] && m[2] !== undefined) {
+			assertUnique(m[1]);
+			result[m[1]] = m[2];
+		}
 	}
-	const template = /^const ([A-Z][A-Z0-9_]*) = `((?:[^`\\]|\\.)*)`;$/gm;
+	const template = /^(?:export )?const ([A-Z][A-Z0-9_]*) = `((?:[^`\\]|\\.)*)`;$/gm;
 	for (const m of src.matchAll(template)) {
-		if (m[1] && m[2] !== undefined) result[m[1]] = { __template: true, raw: m[2] };
+		if (m[1] && m[2] !== undefined) {
+			assertUnique(m[1]);
+			result[m[1]] = { __template: true, raw: m[2] };
+		}
 	}
 	return result;
 }
@@ -813,7 +846,7 @@ function findSilentDrops(src, resolved, options = {}) {
 
 	// 2. key レベル: 宣言されているのに生成結果に載らなかった
 	for (const ns of tableNames) {
-		const startIdx = src.indexOf(`export const ${ns}`);
+		const startIdx = findExportConstIndex(src, ns);
 		if (startIdx === -1) continue;
 		const block = extractBraceBlock(src, startIdx);
 		if (block === null) continue;
@@ -862,12 +895,12 @@ function assertNoSilentDrops(src, resolved, options = {}) {
 	const lines = [];
 	if (missingNamespaces.length > 0) {
 		lines.push(
-			`labels.ts の LP_* namespace が LP_NAMESPACE_TABLE に無く、生成物に載りません (${missingNamespaces.length} 件): ${missingNamespaces.join(', ')}`,
+			`labels 層の LP_* namespace が LP_NAMESPACE_TABLE に無く、生成物に載りません (${missingNamespaces.length} 件): ${missingNamespaces.join(', ')}`,
 		);
 	}
 	if (droppedKeys.length > 0) {
 		lines.push(
-			`labels.ts に宣言されているのに値を解決できず捨てられた key (${droppedKeys.length} 件): ${droppedKeys.join(', ')}`,
+			`labels 層に宣言されているのに値を解決できず捨てられた key (${droppedKeys.length} 件): ${droppedKeys.join(', ')}`,
 		);
 	}
 	if (invalidExclusions.length > 0) {
@@ -900,7 +933,9 @@ function assertNoSilentDrops(src, resolved, options = {}) {
  * @returns {Record<string, Record<string, string>>} namespace 名 → key/value マップ (全て解決済み)
  */
 function parseAllNamespacesResolved() {
-	const src = fs.readFileSync(LABELS_TS, 'utf-8');
+	// #4965: labels 層 (入口 labels.ts + labels/*.ts) の連結本文を 1 つの src として読む。
+	// 出力順は LP_NAMESPACE_TABLE の順とブロック内の key 順で決まり、ファイルの連結順には依存しない。
+	const src = readLabelsSource();
 
 	// AGE は year-based name で固定 + 既存 simple block 保持 (#1772)
 	const ageTierLabels = parseSimpleBlock(src, 'AGE_TIER_LABELS');
