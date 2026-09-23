@@ -1107,10 +1107,11 @@ jobs:
         id: post
         if: steps.notes.outputs.status == 'post'
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL is not set. Skipping Discord notification."
+            echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL secret is not set. Skipping Discord notification."
             echo "posted=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -1176,13 +1177,17 @@ jobs:
     if: always()
     steps:
       - name: Notify deployment result (Discord)
-        if: vars.DISCORD_WEBHOOK_URL != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           STATUS: ${{ needs.deploy.result }}
           E2E_STATUS: ${{ needs.e2e-production.result }}
           VERSION: ${{ needs.deploy.outputs.version }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           if [ "$STATUS" = "success" ] && [ "$E2E_STATUS" != "failure" ]; then
             COLOR=3066993
             TITLE="Deploy Success"

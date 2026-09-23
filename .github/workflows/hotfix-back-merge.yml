@@ -323,15 +323,19 @@ jobs:
           always() &&
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
-          vars.DISCORD_WEBHOOK_URL != '' &&
           (steps.appcreds.outputs.present == 'false' || steps.merge.outputs.conflict == 'true')
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
           CREDS_PRESENT: ${{ steps.appcreds.outputs.present }}
           CONFLICT: ${{ steps.merge.outputs.conflict }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           if [ "${CREDS_PRESENT}" = "false" ]; then
             TITLE="hotfix back-merge 未発行 (GitHub App 認証未設定)"
             DESC="hotfix #${HOTFIX_PR} の develop back-merge を発行できません (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY 未設定)。main/develop が drift します。手動 back-merge が必要です。"

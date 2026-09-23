@@ -164,10 +164,14 @@ jobs:
             --output table 2>/dev/null || echo "None found"
 
       - name: Post audit summary to Discord
-        if: vars.DISCORD_WEBHOOK_URL != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           MONTH=$(date -u +"%Y年%-m月")
           curl -s -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \

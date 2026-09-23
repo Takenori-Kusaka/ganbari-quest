@@ -285,12 +285,16 @@ jobs:
           always() &&
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
-          steps.appcreds.outputs.present == 'false' &&
-          vars.DISCORD_WEBHOOK_URL != ''
+          steps.appcreds.outputs.present == 'false'
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           AHEAD: ${{ steps.diff.outputs.ahead }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           TITLE="統合 PR 未発行 (GitHub App 認証未設定)"
           DESC="develop が main より ${AHEAD} commit 先行していますが、GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
           curl -s -X POST "$WEBHOOK_URL" \
@@ -307,15 +311,19 @@ jobs:
         if: >-
           always() &&
           steps.diff.outputs.has_diff == 'true' &&
-          steps.collect.outputs.drift_days != '' &&
-          vars.DISCORD_WEBHOOK_URL != ''
+          steps.collect.outputs.drift_days != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DRIFT_DAYS: ${{ steps.collect.outputs.drift_days }}
           AHEAD: ${{ steps.diff.outputs.ahead }}
           DRIFT_NOTIFY_DAYS: '7'
         run: |
           set -euo pipefail
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           if ! [[ "$DRIFT_DAYS" =~ ^[0-9]+$ ]]; then
             echo "::warning::drift_days が整数ではない (${DRIFT_DAYS})。drift 通知を判定できない。"
             exit 0

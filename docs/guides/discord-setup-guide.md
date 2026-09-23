@@ -68,7 +68,7 @@
 | 権限 | @everyone: メッセージ送信 ❌ / メッセージ閲覧 ✅ |
 
 使用目的: GitHub Actions の **deploy.yml** から本番デプロイ成功時に自動投稿。  
-→ このチャンネルの Webhook URL を `DISCORD_WEBHOOK_URL`（GitHub Actions vars）に設定する。
+→ このチャンネルの Webhook URL を `DISCORD_RELEASE_NOTES_WEBHOOK_URL`（GitHub Actions **Secret**）に設定する。
 
 > **⚠️ 注意**: セキュリティのため「内部デプロイログ」は **#deploy-log**（非公開）に分けています。  
 > このチャンネルの Webhook はユーザー向けの成功/失敗メッセージのみ投稿します。
@@ -182,8 +182,8 @@ GitHub: https://github.com/[your-org]/ganbari-quest
 | 権限 | @everyone: すべて ❌ / 管理者ロール: 閲覧・投稿 ✅ |
 
 > このチャンネルの Webhook URL は**内部デプロイ監視専用**。  
-> 現行の `deploy.yml` が参照する `DISCORD_WEBHOOK_URL` はここに向ける。  
-> `#アップデート情報` への投稿は、成功時のみ別 step で行う（または同じ URL でも可）。
+> Secret `DISCORD_WEBHOOK_URL`（deploy.yml / cost-audit.yml / hotfix-back-merge.yml / integration-pr.yml が参照）はここに向ける。  
+> `#アップデート情報` への顧客向けリリースノートは別の webhook（Secret `DISCORD_RELEASE_NOTES_WEBHOOK_URL`）で投稿する。
 
 ---
 
@@ -226,8 +226,8 @@ Webhook は **チャンネルごとに個別に作成**します。
 
 | 用途 | チャンネル | URL の保存先 |
 |-----|---------|------------|
-| ユーザー向けデプロイ通知 | `#アップデート情報` | GitHub Actions `vars.DISCORD_WEBHOOK_URL` |
-| 内部デプロイログ | `#deploy-log` | GitHub Actions `vars.DISCORD_WEBHOOK_URL`（上と兼用可） |
+| 顧客向けリリースノート | `#アップデート情報` | GitHub Actions Secret `DISCORD_RELEASE_NOTES_WEBHOOK_URL` |
+| 内部デプロイログ | `#deploy-log` | GitHub Actions Secret `DISCORD_WEBHOOK_URL`（上とは別の webhook にする） |
 | アプリ内問い合わせ | `#お問い合わせ受信` | AWS SSM `FEEDBACK_DISCORD_WEBHOOK_URL` |
 
 > **セキュリティ**: Webhook URL は**シークレットに近い扱い**をしてください。  
@@ -236,17 +236,22 @@ Webhook は **チャンネルごとに個別に作成**します。
 
 ---
 
-## Step 6: GitHub Actions 変数の登録
+## Step 6: GitHub Actions Secret の登録
 
-[リポジトリ Settings → Secrets and variables → Actions → Variables タブ](https://github.com/[your-org]/ganbari-quest/settings/variables/actions)
+[リポジトリ Settings → Secrets and variables → Actions → Secrets タブ](https://github.com/[your-org]/ganbari-quest/settings/secrets/actions)
 
-| 種別 | 変数名 | 値 | 備考 |
+| 種別 | 名前 | 値 | 参照 |
 |-----|-------|---|------|
-| **Variable** | `DISCORD_WEBHOOK_URL` | `#アップデート情報` or `#deploy-log` の Webhook URL | `vars.DISCORD_WEBHOOK_URL` として参照 |
+| **Secret** | `DISCORD_WEBHOOK_URL` | `#deploy-log` の Webhook URL | `secrets.DISCORD_WEBHOOK_URL` |
+| **Secret** | `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | `#アップデート情報` の Webhook URL | `secrets.DISCORD_RELEASE_NOTES_WEBHOOK_URL` |
 
-> **Variables（vars）vs Secrets の使い分け**:  
-> Webhook URL は Git ログ等には残りませんが、Actions の実行ログに表示される可能性があります。  
-> `vars` でも機能しますが、漏洩リスクをより下げたい場合は `secrets.DISCORD_WEBHOOK_URL` に変更し、`deploy.yml` の参照箇所も更新してください。
+```bash
+# 値は対話入力で渡す (コマンド引数に書くとシェルの履歴に残る)
+gh secret set DISCORD_WEBHOOK_URL --repo [your-org]/ganbari-quest
+gh secret set DISCORD_RELEASE_NOTES_WEBHOOK_URL --repo [your-org]/ganbari-quest
+```
+
+> **Webhook URL を Variable（vars）に置かない（#4994）**: Variable は Actions の実行ログでマスクされず、step の `env:` がログ冒頭に平文で展開されます。public リポジトリでは誰でも読めるため、URL を知った第三者が bot を名乗って投稿できます。Secret なら `***` にマスクされます。
 
 ---
 
@@ -321,7 +326,7 @@ Discord の `#スポンサー限定` チャンネルを GitHub Sponsors の特�
 - [ ] ロール作成（管理者・スポンサー・ユーザー）
 - [ ] `#アップデート情報` Webhook 作成 → URL を記録
 - [ ] `#お問い合わせ受信` Webhook 作成 → URL を記録
-- [ ] GitHub Actions `vars.DISCORD_WEBHOOK_URL` に登録
+- [ ] GitHub Actions Secret `DISCORD_WEBHOOK_URL` / `DISCORD_RELEASE_NOTES_WEBHOOK_URL` に登録
 - [ ] AWS SSM `FEEDBACK_DISCORD_WEBHOOK_URL` に登録（本番）
 - [ ] NUC `.env` `FEEDBACK_DISCORD_WEBHOOK_URL` に登録（ローカル）
 - [ ] 動作確認（問い合わせ送信テスト・デプロイ通知テスト）
