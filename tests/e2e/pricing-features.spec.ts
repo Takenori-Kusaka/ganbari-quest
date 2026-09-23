@@ -75,7 +75,7 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(freeCard).toContainText('90日間の履歴保持');
 		// 有料機能が誤って free に混入していないこと
 		await expect(freeCard).not.toContainText('AI 自動提案');
-		// #4705 / #4928: オリジナルごほうびの登録は free では「制限」として明示される (プリセットは全プラン可)。
+		// #4705 / #4928 / #4992: オリジナルのごほうびの作成・編集は free では「制限」として明示される (プリセットの取込は全プラン可)。
 		// 旧 literal 「特別なごほうび」は製品から消えており、negative assertion が空振りしていた。
 		await expect(freeCard).toContainText(
 			`${REWARD_TERMS.originalCreateEdit}は${PLAN_TERMS.standard}以上`,
