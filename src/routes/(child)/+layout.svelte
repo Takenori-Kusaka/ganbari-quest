@@ -38,11 +38,13 @@ import {
 	getChildTutorialProgressScope,
 	getLegacyChildTutorialProgressScope,
 	makeChildChapterBuilder,
+	resolveChildGuidePage,
 } from '$lib/ui/tutorial/tutorial-chapters-child';
 import {
 	migrateLegacyProgress,
 	setChapters,
 	setChildChapterBuilder,
+	setChildGuidePage,
 	startTutorial,
 } from '$lib/ui/tutorial/tutorial-store.svelte';
 
@@ -81,6 +83,17 @@ const navItems = $derived([
 	{ href: `/${uiMode}/status`, icon: ICON_STATUS, label: modeLabels.status },
 	{ href: '/switch', icon: ICON_SWITCH, label: modeLabels.switch },
 ]);
+
+// #4864 (PO 決裁 2026-09-23 案 1): ❓ は **押した画面** の章を開く (親の ❓ ページガイドと同じ意味)。
+// 旧実装はどの画面でも固定 5 step のホームのツアーを開き、/checklist で押した子に別の画面の説明を
+// 5 枚めくらせていた。説明を持たない画面 (history / challenges / battle 等) では null になり ❓ を出さない。
+// 画面は route id で引く (URL ではなく route の形なので年齢モードに依らない)。
+const guidePage = $derived(resolveChildGuidePage(page.route.id));
+$effect(() => {
+	if (isBaby) return;
+	// 画面が変わったら store が開いているガイドを閉じ、次の ❓ はその画面の章を開く
+	setChildGuidePage(guidePage);
+});
 
 // #1292 自動スリープ設定 / #4713 値の SSOT は domain/constants/auto-sleep.ts
 // 15 分連続アクティブで /switch にリダイレクト
@@ -246,7 +259,7 @@ function handleStartChildTutorial() {
 			onStampClick={() => {
 				stampDialogOpen = true;
 			}}
-			onHelpClick={isBaby ? undefined : handleStartChildTutorial}
+			onHelpClick={isBaby || guidePage === null ? undefined : handleStartChildTutorial}
 			isPremium={data.isPremium}
 			animateBalance={pointFlightEnabled}
 		>

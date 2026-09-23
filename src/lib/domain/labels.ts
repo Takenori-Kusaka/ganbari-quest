@@ -12941,6 +12941,91 @@ export function getChildTutorialLabels(uiMode: string) {
 	} as const;
 }
 
+// ============================================================
+// 子供画面の ❓ ページガイド（ホーム以外の画面、#4864 / EPIC #4650）
+// ============================================================
+//
+// PO 決裁 (2026-09-23) 案 1: 子供の ❓ は **押した画面** について説明する (親の ❓ ページガイドと
+// 同じ意味)。説明を用意しない画面では ❓ を出さない。1 画面あたり 1〜3 step。
+// ホームの ❓ は `getChildTutorialLabels` (3 章 5 step) をそのまま使う。本定数はホーム以外の画面用。
+//
+// 年齢帯 variant は src/routes/CLAUDE.md §年齢帯 variant の override 方式: ひらがな
+// (baby / preschool / elementary) を base にし、junior / senior は漢字の差分だけを spread で重ねる。
+// ボタン名・リンク名・nav 名は画面と同じ定数から引く (画面の表記とガイドの表記をずらさない)。
+//
+// 「その画面で実際に起きること」だけを書く:
+//   - チェックリストのポイントは **全部そろえたときだけ** 付く (checklist-service は全完了時にだけ台帳へ書く)
+//   - ショップの交換は即時交換 / 保護者の承認待ちの 2 通りがある → どちらでも正しい「押せる条件」だけを言う
+//   - ステータスの減衰は家庭の設定で無効にできる → 「へる」とは書かない
+
+const CHILD_PAGE_GUIDE_LABELS = {
+	// ---- チェックリスト (/checklist) ----
+	checklistChapterTitle: CHILD_NAV_MODE_LABELS.preschool.checklist,
+	checklistChapterIcon: '📋',
+	checklistCheckTitle: 'チェックの しかた',
+	checklistCheckDesc:
+		'そろえた ものを タップすると ✅ が つくよ。まちがえたら もう いちど タップすると もどせるよ。',
+	checklistPointsTitle: 'ぜんぶ そろったら',
+	checklistPointsDesc: 'リストの ものを ぜんぶ ✅ に すると ポイントが もらえるよ。',
+	// チェックする項目が 1 つも無いとき用 (無いものを指さない、#4860 と同じ理由)
+	checklistEmptyTitle: CHILD_NAV_MODE_LABELS.preschool.checklist,
+	checklistEmptyDesc:
+		'チェックする ものが まだ ないよ。おうちの ひとが よういすると ここに ならぶよ。',
+	// ---- ショップ (/<uiMode>/shop) ----
+	shopChapterTitle: CHILD_SHOP_LABELS.navLabel,
+	shopChapterIcon: CHILD_SHOP_LABELS.navIcon,
+	shopExchangeTitle: 'ごほうびと こうかん',
+	shopExchangeDesc: `ためた ポイントで ごほうびと こうかんできるよ。ポイントが たりると「${CHILD_SHOP_LABELS.exchangeButton}」が おせるよ。`,
+	// ごほうびが 1 つも無いとき用
+	shopEmptyTitle: 'ごほうび',
+	shopEmptyDesc: 'ごほうびが まだ ないよ。おうちの ひとが よういすると ここに ならぶよ。',
+	shopHistoryTitle: 'こうかんの きろく',
+	shopHistoryDesc: `こうかんした きろくは「${CHILD_SHOP_LABELS.historyLinkLabel}」で みられるよ。`,
+	// ---- つよさ / ステータス (/<uiMode>/status) ----
+	statusChapterTitle: CHILD_NAV_MODE_LABELS.preschool.status,
+	statusChapterIcon: '📊',
+	statusGrowthTitle: 'ちからの のばしかた',
+	statusGrowthDesc: 'かつどうを きろくすると、その しゅるいの ちからが のびるよ。',
+	statusLevelTitle: 'レベル',
+	statusLevelDesc: 'ちからが たまると レベルが あがるよ。',
+} as const;
+
+/**
+ * 子供ページガイドの文言セット。値の型は `string` に広げてある
+ * （`as const` のリテラル型のままだと、漢字変種が別の文字列を入れられない）。
+ */
+type ChildPageGuideLabels = {
+	readonly [K in keyof typeof CHILD_PAGE_GUIDE_LABELS]: string;
+};
+
+/** junior / senior (13-18 歳) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
+const CHILD_PAGE_GUIDE_KANJI_OVERRIDES = {
+	checklistCheckTitle: 'チェックの仕方',
+	checklistCheckDesc:
+		'そろえた物をタップすると ✅ が付きます。間違えたときは、もう一度タップすると外せます。',
+	checklistPointsTitle: '全部そろったら',
+	checklistPointsDesc: 'リストの項目をすべて ✅ にすると、ポイントがもらえます。',
+	checklistEmptyDesc: `チェックする項目はまだありません。${PARENT_TERMS.honorific}が用意すると、ここに並びます。`,
+	shopExchangeTitle: 'ごほうびと交換',
+	shopExchangeDesc: `ためたポイントで、ごほうびと交換できます。ポイントが足りると「${CHILD_SHOP_KANJI_OVERRIDES.exchangeButton}」を押せます。`,
+	shopEmptyDesc: `ごほうびはまだありません。${PARENT_TERMS.honorific}が用意すると、ここに並びます。`,
+	shopHistoryTitle: '交換の記録',
+	shopHistoryDesc: `交換した記録は「${CHILD_SHOP_KANJI_OVERRIDES.historyLinkLabel}」で見られます。`,
+	statusChapterTitle: CHILD_NAV_MODE_LABELS.senior.status,
+	statusGrowthTitle: '力の伸ばし方',
+	statusGrowthDesc: '活動を記録すると、その種類の力が伸びます。',
+	statusLevelDesc: '力がたまると、レベルが上がります。',
+} as const satisfies Partial<ChildPageGuideLabels>;
+
+/** 子供ページガイド (ホーム以外) の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
+export function getChildPageGuideLabels(uiMode: string): ChildPageGuideLabels {
+	const mode = normalizeUiMode(uiMode);
+	if (mode === 'baby' || mode === 'preschool' || mode === 'elementary') {
+		return CHILD_PAGE_GUIDE_LABELS;
+	}
+	return { ...CHILD_PAGE_GUIDE_LABELS, ...CHILD_PAGE_GUIDE_KANJI_OVERRIDES };
+}
+
 // #4644: オフライン着地ページ (`/offline`) の文言。
 //
 // 読み手は**年齢帯を問わず子供**である (Service Worker はどの画面からの遷移でも
