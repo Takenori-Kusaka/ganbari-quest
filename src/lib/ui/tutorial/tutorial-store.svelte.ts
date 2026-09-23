@@ -236,8 +236,9 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 	}
 }
 
+/** 今開いている画面の進捗だけを捨てる (#4864: ホーム以外の完了 / 「最初から」でホームの進捗を消さない)。 */
 function clearSavedProgress() {
-	discardSavedProgress(progressScope);
+	discardSavedProgress(effectiveScope());
 }
 
 /**

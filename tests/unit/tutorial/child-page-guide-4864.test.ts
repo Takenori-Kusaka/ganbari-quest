@@ -66,6 +66,7 @@ import {
 	setChildChapterBuilder,
 	setChildGuidePage,
 	setChildGuidePresence,
+	startFromBeginning,
 	startTutorial,
 } from '../../../src/lib/ui/tutorial/tutorial-store.svelte';
 import type { TutorialChapter } from '../../../src/lib/ui/tutorial/tutorial-types';
@@ -447,5 +448,37 @@ describe('[S] store: 画面の切り替え', () => {
 		await startTutorial();
 		expect(isResumePromptShown()).toBe(false);
 		expect(getCurrentStep()?.id).toBe('child-status-growth');
+	});
+
+	it('ホーム以外のガイドを最後まで見たら、その画面の進捗だけを消す (ホームの途中進捗は残す)', async () => {
+		localStorage.setItem(`tutorial-progress:${BASE_SCOPE}:chapter`, '2');
+		localStorage.setItem(`tutorial-progress:${BASE_SCOPE}:step`, '0');
+		setChildGuidePage('checklist');
+		setChildGuidePresence('checklist', true);
+		await startTutorial();
+		await nextStep();
+		await nextStep(); // 最後の step の「おわり」= 完了
+		expect(isTutorialActive()).toBe(false);
+
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:checklist:chapter`)).toBeNull();
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:checklist:step`)).toBeNull();
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:chapter`)).toBe('2');
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:step`)).toBe('0');
+
+		// 見終えた画面でもう一度 ❓ → 「つづきから？」を挟まず最初から
+		await startTutorial();
+		expect(isResumePromptShown()).toBe(false);
+		expect(getCurrentStep()?.id).toBe('child-checklist-check');
+	});
+
+	it('「最初から」はその画面の進捗だけを捨てる (ホームの途中進捗は残す)', async () => {
+		localStorage.setItem(`tutorial-progress:${BASE_SCOPE}:chapter`, '2');
+		localStorage.setItem(`tutorial-progress:${BASE_SCOPE}:step`, '0');
+		setChildGuidePage('shop');
+		setChildGuidePresence('shop', true);
+		await startFromBeginning();
+		expect(getCurrentStep()?.id).toBe('child-shop-exchange');
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:chapter`)).toBe('2');
+		expect(localStorage.getItem(`tutorial-progress:${BASE_SCOPE}:step`)).toBe('0');
 	});
 });
