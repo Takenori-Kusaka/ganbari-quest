@@ -24,7 +24,7 @@
 
 - 個人事業主として開業届を出す。Stripe を本番に切り替えるときの本人確認でも使う（[stripe-dashboard-runbook.md](../operations/stripe-dashboard-runbook.md) ステップ 1）
 - 青色申告を選ぶ。帳簿に使う売上台帳と経費の CSV は `/ops` から出力できる（`src/lib/server/services/ops-service.ts`）
-- 消費税と Stripe Tax の設定手順は [stripe-dashboard-runbook.md](../operations/stripe-dashboard-runbook.md) ステップ 6。本番の実設定との突き合わせは EPIC #4580 G14 で行う
+- 消費税と Stripe Tax の設定手順は [stripe-dashboard-runbook.md](../operations/stripe-dashboard-runbook.md) ステップ 6。本番の実設定との突き合わせは EPIC #4580 G14 で行う。**ただし同 runbook のステップ 3・6 は税抜価格 + Stripe Tax で登録する手順で、顧客への表示（税込）と本番の実請求と逆になっている**（G14 に記録済み）。G14 で runbook を実設定に合わせるまで、この 2 ステップには従わない
 - インボイス（適格請求書発行事業者）は、免税事業者でも任意で登録できる。ただし登録すると課税事業者になる。顧客が個人（BtoC）で、適格請求書を求められることが無い間は、登録して得るものは小さい。登録するかどうかはオーナーが決める
 
 ### 3.2 特商法・個人情報
@@ -39,7 +39,7 @@
 - サインアップ時に、利用規約・プライバシーポリシー・海外への移転（個人情報保護法 28 条）の 3 つの同意をチェックボックスで取り、サーバ側でも必須にしている（海外への移転の同意は [14-セキュリティ設計書.md](14-セキュリティ設計書.md) §8.6）
 - サインアップフォームを通らない登録（Google）と、規約の版が上がった場合は、`src/hooks.server.ts` が次のアクセスで `/consent` へ送り、同意を取る（版は `src/lib/server/services/consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION`）
 - 同意の記録には日時・IP アドレス・User-Agent・規約の版を残し、追記だけで書き換えない（`src/lib/server/services/consent-service.ts`）
-- 消費者契約法 8 条により、事業者の損害賠償責任を全部免除する条項と、故意・重過失による責任を一部でも免除する条項は無効になる。責任の上限を決めるなど一部を免除する条項は、軽過失の場合にだけ適用すると明記しないと無効になる（同条 3 項）。利用規約の免責条項（`site/terms.html` 第 12 条）はこれを前提に書く
+- 消費者契約法 8 条により、事業者の損害賠償責任を全部免除する条項と、故意・重過失による責任を一部でも免除する条項は無効になる。責任の上限を決めるなど一部を免除する条項は、軽過失の場合にだけ適用すると明記しないと無効になる（同条 3 項）。利用規約の免責条項（`site/terms.html` 第 12 条）はこれを前提に書く。現行の第 12 条がこれを満たしているかは、EPIC #4580 G15 の社外レビューで確認する
 
 ## 4. コスト管理
 
