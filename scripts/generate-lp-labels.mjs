@@ -127,22 +127,22 @@ function findExportConstIndex(src, constName) {
 }
 
 /**
- * labels.ts の module-local 共有 const を収める疑似 namespace 名 (#4619)。
- * 実 namespace と衝突しないよう `_` 始まりにしてある (labels.ts / terms.ts の export は
+ * labels 層の共有 const (1 行の `(export )?const X = '…'` / `` `…` ``) を収める疑似 namespace 名 (#4619)。
+ * 実 namespace と衝突しないよう `_` 始まりにしてある (labels 層 / terms.ts の export は
  * すべて英大文字始まり)。
  */
 const LOCAL_CONSTS_NS = '_LOCAL_CONSTS';
 
 /**
- * labels.ts の module-level 共有 const (`const FOO = '...';` / `` const FOO = `...`; ``) を
+ * labels 層の module-level 共有 const (`const FOO = '...';` / `` const FOO = `...`; ``) を
  * 抽出する (#4619)。
  *
  * なぜ必要か:
- *   「同じ事実を語る文は 1 度だけ組み立てて共有する」ために labels.ts は module-local const
+ *   「同じ事実を語る文は 1 度だけ組み立てて共有する」ために labels 層は共有 const
  *   (WRITES_CONTINUE_ASSURANCE / FREE_PLAN_RETENTION_NOTICE) を持つ。LP 側の namespace が
  *   その const を値に使うと、本 script は文字列でも template literal でもないため
  *   **その key を無言で捨てていた**。捨てられた key は shared-labels.js に載らず、LP は
- *   HTML の古い fallback を出し続ける (顧客に見える文言が labels.ts と乖離する)。
+ *   HTML の古い fallback を出し続ける (顧客に見える文言が labels 層と乖離する)。
  *
  * labels 層はファイルに分かれており (#4965)、別ファイルの namespace から使う共有 const は定義側で
  * `export const` になる。`const` / `export const` のどちらも同じ 1 行形式として拾う。
@@ -312,7 +312,7 @@ function resolveTemplateLiteralValue(raw, namespaces, ownerLabel, depth = 0) {
 			const localValue = namespaces[LOCAL_CONSTS_NS]?.[trimmed];
 			if (localValue === undefined) {
 				throw new Error(
-					`Unresolved local const ${trimmed} in ${ownerLabel}: not a module-level string const in labels.ts.`,
+					`Unresolved local const ${trimmed} in ${ownerLabel}: not a one-line string const (const / export const) in the labels layer (src/lib/domain/labels.ts + labels/*.ts).`,
 				);
 			}
 			return isTemplateLiteral(localValue)
@@ -1087,7 +1087,9 @@ function generateSharedLabelsJs() {
 		const formal = ageTierLabels[mode];
 		const config = ageTierConfig[mode];
 		if (formal === undefined || config === undefined) {
-			throw new Error(`age tier mode '${mode}' missing in labels.ts or age-tier.ts`);
+			throw new Error(
+				`age tier mode '${mode}' missing in the labels layer (src/lib/domain/labels/*.ts) or age-tier.ts`,
+			);
 		}
 		// name は formal の括弧より前の部分 + 'モード'（既に 'モード' で終わる場合は付けない）
 		const baseName = formal.split('（')[0] ?? '';
@@ -1383,7 +1385,9 @@ function main() {
 		}
 		const current = fs.readFileSync(OUTPUT_JS, 'utf-8');
 		if (current !== generated) {
-			console.error('✗ site/shared-labels.js が labels.ts と同期されていません。');
+			console.error(
+				'✗ site/shared-labels.js が labels 層 (src/lib/domain/labels/*.ts) と同期されていません。',
+			);
 			console.error('  `node scripts/generate-lp-labels.mjs` を実行して再生成してください。');
 			process.exit(1);
 		}
