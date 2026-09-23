@@ -39,6 +39,7 @@ import {
 	insertLog,
 } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
+import { logger } from '$lib/server/logger';
 import {
 	canSendNotification,
 	getNotificationSettings,
@@ -229,6 +230,48 @@ describe('notification-service', () => {
 			expect(result.sent).toBe(2);
 			expect(result.failed).toBe(0);
 			expect(mockSendNotification).toHaveBeenCalledTimes(2);
+		});
+
+		// #4706: 鍵が配られて初めて本番で HTTP を出す経路。push サービスが応答しないと、子供の記録
+		// リクエスト (達成通知) と 30 秒 Lambda 内の cron が止まるため、1 送信ごとに timeout を渡す。
+		it('push サービスへの送信に timeout を渡す', async () => {
+			setDaytimeJST();
+			mockCountLogsBetween.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: '1',
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/push1',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			await sendPushNotification('T1', 'test', 'Title', 'Body');
+			const options = mockSendNotification.mock.calls[0]?.[2] as { timeout?: number } | undefined;
+			expect(options?.timeout).toBeGreaterThan(0);
+			expect(options?.timeout).toBeLessThanOrEqual(10_000);
+		});
+
+		// #4706: 購読 0 件で送れなかったことをログで追えるようにする (鍵の配布直後は全テナントがこの状態)
+		it('購読が 0 件ならその旨をログに残して送信しない', async () => {
+			setDaytimeJST();
+			mockCountLogsBetween.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([]);
+
+			const result = await sendPushNotification('T1', 'reminder', 'Title', 'Body');
+			expect(result).toEqual({ sent: 0, failed: 0 });
+			expect(mockSendNotification).not.toHaveBeenCalled();
+			expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+				expect.stringContaining('購読'),
+				expect.objectContaining({
+					context: expect.objectContaining({ tenantId: 'T1', notificationType: 'reminder' }),
+				}),
+			);
 		});
 
 		it('410応答で stale subscription を削除', async () => {
