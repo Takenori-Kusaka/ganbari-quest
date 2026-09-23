@@ -251,7 +251,7 @@ gh secret set DISCORD_WEBHOOK_URL --repo [your-org]/ganbari-quest
 gh secret set DISCORD_RELEASE_NOTES_WEBHOOK_URL --repo [your-org]/ganbari-quest
 ```
 
-> **Webhook URL を Variable（vars）に置かない（#4994）**: Variable は Actions の実行ログでマスクされず、step の `env:` がログ冒頭に平文で展開されます。public リポジトリでは誰でも読めるため、URL を知った第三者が bot を名乗って投稿できます。Secret なら `***` にマスクされます。
+> **Webhook URL を Variable（vars）に置かない（#4994）**: Variable は Actions の実行ログでマスクされず、step の `env:` がログ冒頭に平文で展開されます。public リポジトリでは誰でも読めるため、URL を知った第三者が bot を名乗って投稿できます。Secret はログ上で `***` に伏せられます。ただし伏せられるのは**値と完全に一致する文字列だけ**なので、workflow の中で Secret を `echo` したり加工（base64 化・一部の切り出し）したりしないでください。加工した値は伏せられずにそのまま出ます。
 
 ---
 

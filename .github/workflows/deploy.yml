@@ -1197,7 +1197,7 @@ jobs:
             TITLE="Deploy Failed"
             DESC="Version \`$VERSION\` deployment failed (deploy: $STATUS, e2e: $E2E_STATUS)"
           fi
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
@@ -1210,4 +1210,4 @@ jobs:
                   {\"name\": \"Branch/Tag\", \"value\": \"${{ github.ref_name }}\", \"inline\": true}
                 ]
               }]
-            }"
+            }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラー。webhook の Secret が有効か確認する)"

@@ -345,11 +345,11 @@ jobs:
             DESC="hotfix #${HOTFIX_PR} の back-merge PR #${PR_NUMBER} で conflict 発生。status:blocked 付与済。手動解決が必要です。"
             COLOR=15105570
           fi
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || true
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラー。webhook の Secret が有効か確認する)"
 
-      # App 認証未設定時は Discord に加えて GitHub log にも残す (vars 未設定環境のフォールバック)。
+      # App 認証未設定時は Discord に加えて GitHub log にも残す (webhook の Secret 未設定環境のフォールバック)。
       - name: Drift summary (job summary)
         if: >-
           always() &&

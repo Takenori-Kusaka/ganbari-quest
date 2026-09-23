@@ -173,7 +173,7 @@ jobs:
             exit 0
           fi
           MONTH=$(date -u +"%Y年%-m月")
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
@@ -182,4 +182,4 @@ jobs:
                 \"color\": 3447003,
                 \"footer\": {\"text\": \"がんばりクエスト Cost Audit\"}
               }]
-            }"
+            }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラー。webhook の Secret が有効か確認する)"

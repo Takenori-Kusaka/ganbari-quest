@@ -297,9 +297,9 @@ jobs:
           fi
           TITLE="統合 PR 未発行 (GitHub App 認証未設定)"
           DESC="develop が main より ${AHEAD} commit 先行していますが、GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || true
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラー。webhook の Secret が有効か確認する)"
 
       # ----------------------------------------------------------------------
       # 7b. drift 通知 (Discord) — 前回統合から DRIFT_NOTIFY_DAYS 日を超えたら出す (#4976)
@@ -345,7 +345,7 @@ jobs:
           fi
 
       # ----------------------------------------------------------------------
-      # 8. job summary — 発行結果 / drift を常に GitHub log に残す (vars 未設定環境のフォールバック)
+      # 8. job summary — 発行結果 / drift を常に GitHub log に残す (webhook の Secret 未設定環境のフォールバック)
       # ----------------------------------------------------------------------
       - name: Run summary (job summary)
         if: always() && steps.diff.outputs.has_diff == 'true'
