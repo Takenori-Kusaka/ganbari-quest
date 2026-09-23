@@ -243,7 +243,11 @@ function writtenValue(call: Node, writer: PresenceWriter): Node | undefined {
 }
 
 /** その関数本体に「件数を undefined へ戻す」呼び出しがあるか。 */
-function clearsPresence(fn: Node, aliasSource: Node, writer: PresenceWriter = HOME_WRITER): boolean {
+function clearsPresence(
+	fn: Node,
+	aliasSource: Node,
+	writer: PresenceWriter = HOME_WRITER,
+): boolean {
 	return callsTo(fn, writer.fnName, aliasSource).some((call) => {
 		const value = writtenValue(call, writer);
 		return value?.type === 'Identifier' && value.name === 'undefined';

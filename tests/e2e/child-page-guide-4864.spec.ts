@@ -93,7 +93,9 @@ async function neutralizeAutoDialogs(page: Page) {
 /** 子供画面を開いて、❓ を押せる状態にする (前回の途中進捗は消す)。 */
 async function openChildPage(page: Page, path: string) {
 	await page.goto(path, { waitUntil: 'domcontentloaded' });
-	await page.locator('[data-testid="header-balance"]').waitFor({ state: 'visible', timeout: 20_000 });
+	await page
+		.locator('[data-testid="header-balance"]')
+		.waitFor({ state: 'visible', timeout: 20_000 });
 	await neutralizeAutoDialogs(page);
 	await page.evaluate(() => {
 		for (const key of Object.keys(localStorage)) {
@@ -235,7 +237,10 @@ test.describe('#4864 子供の ❓ は押した画面の説明を開く', () => 
 			const checklist = await walkGuide(page, `${mode} /checklist`);
 			expectPageChapter(checklist, mode, `${mode} /checklist`);
 			if (itemCount > 0) {
-				expect(checklist.map((s) => s.id)).toEqual(['child-checklist-check', 'child-checklist-points']);
+				expect(checklist.map((s) => s.id)).toEqual([
+					'child-checklist-check',
+					'child-checklist-points',
+				]);
 				expect(checklist.every((s) => s.hasTarget)).toBe(true);
 				expect(checklist[0]?.title).toBe(L.checklistCheckTitle);
 			} else {

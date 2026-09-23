@@ -191,7 +191,9 @@ describe('[C] 画面ごとの章', () => {
 	});
 
 	it('ホーム以外の画面の章には、ホームの step (活動カード / スタンプ / 下ナビ) が 1 つも無い', () => {
-		const homeIds = new Set(stepIds(getChildTutorialChapters('elementary', { hasActivities: true })));
+		const homeIds = new Set(
+			stepIds(getChildTutorialChapters('elementary', { hasActivities: true })),
+		);
 		for (const uiMode of MODES) {
 			for (const page of NON_HOME_PAGES) {
 				for (const presence of PRESENCES) {
@@ -223,7 +225,10 @@ describe('[C] 画面ごとの章', () => {
 		it('項目が無い → 1 step の「まだ ないよ」だけ。何も指さない', () => {
 			for (const uiMode of MODES) {
 				const s = steps(getChildGuideChapters('checklist', uiMode, false));
-				expect(s.map((x) => x.id), uiMode).toEqual(['child-checklist-empty']);
+				expect(
+					s.map((x) => x.id),
+					uiMode,
+				).toEqual(['child-checklist-empty']);
 				expect(s[0]?.selector, uiMode).toBeUndefined();
 				expect(s[0]?.description, uiMode).toMatch(/まだ/);
 				expect(s[0]?.description, uiMode).not.toMatch(/タップすると/);
@@ -251,7 +256,10 @@ describe('[C] 画面ごとの章', () => {
 		it('ごほうびが無い → カードを指さず「まだ ないよ」。記録リンクは常に在るので光らせる', () => {
 			for (const uiMode of MODES) {
 				const s = steps(getChildGuideChapters('shop', uiMode, false));
-				expect(s.map((x) => x.id), uiMode).toEqual(['child-shop-empty', 'child-shop-history']);
+				expect(
+					s.map((x) => x.id),
+					uiMode,
+				).toEqual(['child-shop-empty', 'child-shop-history']);
 				expect(s[0]?.selector, uiMode).toBeUndefined();
 				expect(s[0]?.description, uiMode).toMatch(/まだ/);
 				expect(s[1]?.selector, uiMode).toBe(CHILD_PAGE_GUIDE_SELECTORS.shopHistory);
@@ -278,7 +286,10 @@ describe('[C] 画面ごとの章', () => {
 		it('表示できていない / 分からない → 何も指さない', () => {
 			for (const presence of [false, undefined] as const) {
 				const s = steps(getChildGuideChapters('status', 'elementary', presence));
-				expect(s.every((x) => x.selector === undefined), String(presence)).toBe(true);
+				expect(
+					s.every((x) => x.selector === undefined),
+					String(presence),
+				).toBe(true);
 			}
 		});
 	});
@@ -357,7 +368,9 @@ describe('[A] ガイドが指す要素は画面に実在する', () => {
 		statusLevels: '/(child)/[uiMode=uiMode]/(character)/status',
 	};
 
-	it.each(Object.entries(CHILD_PAGE_GUIDE_SELECTORS))('%s の anchor が画面の source に在る', (key, selector) => {
+	it.each(
+		Object.entries(CHILD_PAGE_GUIDE_SELECTORS),
+	)('%s の anchor が画面の source に在る', (key, selector) => {
 		const match = /^\[data-tutorial="([^"]+)"\]$/.exec(selector);
 		expect(match, `${key}: selector の形が [data-tutorial="…"] ではない`).not.toBeNull();
 		const owner = OWNER[key as keyof typeof CHILD_PAGE_GUIDE_SELECTORS];
