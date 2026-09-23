@@ -95,9 +95,14 @@ jobs:
           # deploy が止まる (header 無しの distribution = Function URL 直叩きで /admin ・ /ops に
           # 到達可能なまま黙って動く、を作らせない)。ここで先に落として原因を明示する。
           ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
+          # #4706: Web Push の VAPID 鍵。未登録だと push (リマインダー / ストリーク警告) が
+          # 1 通も送れないまま cron は 200 を返し続ける。CDK synth も addError で止めるが、
+          # ここで先に落として原因を明示する。
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           missing=0
-          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET ORIGIN_VERIFY_SECRET; do
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET ORIGIN_VERIFY_SECRET VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -123,7 +128,7 @@ jobs:
           esac
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -175,7 +180,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile.lambda
@@ -274,6 +279,8 @@ jobs:
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
           -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          -c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }}
+          -c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
@@ -348,6 +355,8 @@ jobs:
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
             -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
+            -c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }} \
+            -c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
@@ -377,6 +386,8 @@ jobs:
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
           -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          -c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }}
+          -c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
@@ -939,7 +950,7 @@ jobs:
 
       # CloudFront Geo Restriction (JP only) のため、Lambda Function URL 直接でテスト
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -1096,10 +1107,11 @@ jobs:
         id: post
         if: steps.notes.outputs.status == 'post'
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_NOTES_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL is not set. Skipping Discord notification."
+            echo "::warning::DISCORD_RELEASE_NOTES_WEBHOOK_URL secret is not set. Skipping Discord notification."
             echo "posted=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -1165,13 +1177,17 @@ jobs:
     if: always()
     steps:
       - name: Notify deployment result (Discord)
-        if: vars.DISCORD_WEBHOOK_URL != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           STATUS: ${{ needs.deploy.result }}
           E2E_STATUS: ${{ needs.e2e-production.result }}
           VERSION: ${{ needs.deploy.outputs.version }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           if [ "$STATUS" = "success" ] && [ "$E2E_STATUS" != "failure" ]; then
             COLOR=3066993
             TITLE="Deploy Success"
@@ -1181,7 +1197,7 @@ jobs:
             TITLE="Deploy Failed"
             DESC="Version \`$VERSION\` deployment failed (deploy: $STATUS, e2e: $E2E_STATUS)"
           fi
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
@@ -1194,4 +1210,4 @@ jobs:
                   {\"name\": \"Branch/Tag\", \"value\": \"${{ github.ref_name }}\", \"inline\": true}
                 ]
               }]
-            }"
+            }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"

@@ -91,7 +91,7 @@ pixelmatch baseline (ADR-0053) は LP のみでなく、アプリ本体 critical
 - 作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレート: `docs/decisions/README.md`）
 - 記録対象: 技術選定根拠 / インシデント教訓 / 機能仕様の正仕様 / 品質プロセス決定
 - Claude Code memory はユーザーローカル。**チーム共有知識は必ず ADR に置く**
-- ADR 追加/変更時は CLAUDE.md / `.github/copilot-instructions.md` も同時更新
+- ADR 追加/変更時は、その ADR 番号を参照している CLAUDE.md も同じ PR で更新する
 
 **ADR 一覧の SSOT**: [`docs/decisions/README.md`](decisions/README.md)（インベントリ + supersede 関係）。本ファイルでは個別の ADR 番号は列挙しない。
 
@@ -124,6 +124,10 @@ ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めた
 書くタイミング: ① 複雑な新機能実装 / ② 既存機能の大方向転換 / ③ 過去議論再発の兆し。軽微変更には不要。
 
 **使い分け**: 横断ポリシー → ADR / 機能仕様の結論 → 設計書 / 機能設計の経緯・理由 → rationale / ユーザーローカル作業メモ → memory（チーム共有不可）
+
+## skill も削除主義 (#4974)
+
+`.claude/skills/` の skill は必要なときだけ読まれるため、古くなっても誰も気づかない。ADR と同じく**役目を終えた skill は削除する**（履歴は git で追う）。本文には件数・step 番号・閾値・他文書の中身を写さず、SSOT（`npm run pre-ready -- --help` / 設計書 / ADR / script / workflow）を指す。**読むと間違う skill は、直すか消す。**
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
@@ -205,13 +209,3 @@ Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.gith
 - 依存 3 分割 (`blocked_by` / `blocks` / `related`) — #1261
 - 工程 phase (P0-P7 / N/A) — 下流は上流 close まで着手しない
 - ADR-0010 Pre-PMF / ADR-0004 AC 検証 / ADR-0003 Issue 品質
-
-## graphify
-
-- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`（`graphify-out/graph.html` は閲覧用の派生物で git 追跡しない。必要なら `graphify update .` で手元に再生成される）。
-- **Git運用ベストプラクティス（#4536、develop/main 限定に変更）**:
-  - **再生成は develop / main 上でのみ行う**。`.husky/post-commit` は現在の branch が `develop` / `main` の場合だけ `graphify update .`（インクリメンタルビルド、AST解析はトークン消費0）を実行する。feature branch では何もしない（早期 `exit 0`）
-  - 理由: 以前は全 branch でコミットのたびに再生成していたため、並行する feature branch がそれぞれ独自の graphify-out (`graph.json` 27MB+) を持ち、develop への merge のたびに残り全 PR が graphify-out だけで conflict していた（実測: PR #4514 merge 時、conflict は graphify-out 3 file のみ）。feature branch 側で再生成しないことで、PR の diff から graphify-out が消え conflict が原理的にゼロになる
-  - **develop 上の再生成は push 契機の `.github/workflows/graphify-refresh.yml` が担う**。develop / main は branch ruleset が直接 push を拒否するため、差分があれば bot (GitHub App) が `chore/graphify-refresh` branch + PR を発行し、QM/lab が承認・merge する（`hotfix-back-merge.yml` と同型、ADR-0022 準拠・admin bypass なし）。差分が無ければ PR は発行されない
-  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `manifest.json`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます（コールドスタート解消の意図は維持）。可視化 HTML `graph.html` は graph.json から再生成できる閲覧用の派生物のため追跡しない（`.gitignore`）
-- **利用ルール SSOT**: grep より先に graphify を使う運用ルール（`graphify query` / `path` / `explain` の使い分け）は [ルート CLAUDE.md `## graphify`](../CLAUDE.md) が SSOT（`graphify claude install --project` の公式インストーラが生成 + PreToolUse hook で機械強制、`.claude/settings.json`）。本節はミラーしない。

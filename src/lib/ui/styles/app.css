@@ -786,6 +786,18 @@ h1, h2, h3, h4 {
 	text-wrap: balance;
 }
 
+/* 日本語の文節折り返し (docs/DESIGN.md §3、`use:budoux` が属性を付ける)。
+   auto-phrase を解釈するブラウザはこれだけで文節で折り返す。解釈しないブラウザでは宣言ごと無視され、
+   action が差し込んだ ZWSP の位置でだけ折り返す (keep-all)。長すぎる文節は anywhere で逃がす。 */
+[data-budoux] {
+	word-break: auto-phrase;
+}
+
+[data-budoux-applied] {
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
 /* ============================================================
    Tap Feedback (4歳児向けUI - 即座のフィードバック)
    ============================================================ */

@@ -24,9 +24,9 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		// 棚卸しで確定した項目（#722: AI 提案は family 専用に移動）
 		await expect(standardCard).toContainText('お子さまの登録人数：無制限');
 		await expect(standardCard).toContainText('オリジナル活動の作成：無制限');
-		// #4705: 行名は REWARD_TERMS.productRegistration が SSOT (旧称『特別なごほうび設定（即時付与）』は
+		// #4705: 行名は REWARD_TERMS.originalCreateEdit が SSOT (旧称『特別なごほうび設定（即時付与）』は
 		// 応援の即時付与を指す別機能)。literal を置くと atom 改名のたびにここだけ取り残される。
-		await expect(standardCard).toContainText(REWARD_TERMS.productRegistration);
+		await expect(standardCard).toContainText(REWARD_TERMS.originalCreateEdit);
 		await expect(standardCard).toContainText('1年間の履歴保持');
 	});
 
@@ -75,10 +75,10 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(freeCard).toContainText('90日間の履歴保持');
 		// 有料機能が誤って free に混入していないこと
 		await expect(freeCard).not.toContainText('AI 自動提案');
-		// #4705: ごほうびショップへの商品登録は free では「制限」として明示される (plan-features.ts:57)。
+		// #4705 / #4928 / #4992: オリジナルのごほうびの作成・編集は free では「制限」として明示される (プリセットの取込は全プラン可)。
 		// 旧 literal 「特別なごほうび」は製品から消えており、negative assertion が空振りしていた。
 		await expect(freeCard).toContainText(
-			`${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
+			`${REWARD_TERMS.originalCreateEdit}は${PLAN_TERMS.standard}以上`,
 		);
 	});
 });

@@ -12,7 +12,13 @@
 
 Closes #{{ISSUE_NUMBER}}
 
-## AC 検証マップ (ADR-0004)
+## 変更内容
+
+<!-- 何をどう変えたか。レビュアが diff を読む前に持っておくべき前提だけ -->
+
+## 検証
+
+<!-- 何をどう確かめたか。AC ごとに検証手段と結果を書く (ADR-0004)。実行していないものは「未実行」と書く -->
 
 {{AC_TABLE}}
 
@@ -20,12 +26,12 @@ Closes #{{ISSUE_NUMBER}}
 
 {{TYPE_CHECKBOXES}}
 
-## 影響範囲・横展開チェック
+## 影響範囲
 
 **影響を受ける画面・機能**: <!-- 例: site/index.html hero / faq.html / pricing.html -->
 
 - [ ] **LP ↔ アプリ整合** (ADR-0013): Aspirational 記載を新規追加していない
-- [ ] **labels SSOT** (ADR-0009): `shared-labels.js` の `data-label` 経由
+- [ ] **labels SSOT** (ADR-0045): `shared-labels.js` の `data-label` 経由
 - [ ] **設計書同期**: `lp-content-map.md` / `19-プライシング戦略書.md` 等
 - [ ] **並行 PR overlap** 確認 (#1200)
 
@@ -37,17 +43,17 @@ Closes #{{ISSUE_NUMBER}}
 
 ## LP メトリクス結果（必須）
 
-<!-- `node scripts/measure-lp-dimensions.mjs` を実行し本 PR の値を記載。CI `lp-metrics.yml` が自動 fail させる項目 -->
+<!-- `node scripts/measure-lp-dimensions.mjs` を実行し本 PR の値を記載。CI `lp-metrics.yml` が自動 fail させる項目。
+     閾値は同 script の `THRESHOLDS` が SSOT (ここに数値を写さない) -->
 
-| 指標 | 閾値 | 本 PR の値 | 結果 |
-|---|---:|---:|---|
-| `mobileHeight` | ≤ 15000 px | <!-- 値 --> | <!-- PASS / FAIL --> |
-| `desktopHeight` | ≤ 8000 px | <!-- 値 --> | <!-- PASS / FAIL --> |
-| `desktopHeight` (warn) | ≤ 7800 px | <!-- 値 --> | <!-- 警告帯確認 --> |
-| `forbiddenTerms` | 0 | <!-- 値 --> | <!-- PASS / FAIL --> |
-| `ctaVariants` | ≤ 3 | <!-- 値 --> | <!-- PASS / FAIL --> |
-| `presetActivityCountClaimed` | ≥ 300 | <!-- 値 --> | <!-- PASS / FAIL --> |
-| `lp-removal-residue` | 新規 0 | <!-- 値 --> | <!-- PASS / FAIL --> |
+| 指標 | 本 PR の値 | 結果 |
+|---|---:|---|
+| `mobileHeight` | <!-- 値 --> | <!-- PASS / FAIL --> |
+| `desktopHeight` | <!-- 値 --> | <!-- PASS / FAIL --> |
+| `desktopHeight` (warn) | <!-- 値 --> | <!-- 警告帯確認 --> |
+| `forbiddenTerms` | <!-- 値 --> | <!-- PASS / FAIL --> |
+| `ctaVariants` | <!-- 値 --> | <!-- PASS / FAIL --> |
+| プリセット活動数 (ユニーク活動名) / セット数 | <!-- 値 --> | <!-- PASS / FAIL --> |
 
 ## テスト・品質セルフチェック
 

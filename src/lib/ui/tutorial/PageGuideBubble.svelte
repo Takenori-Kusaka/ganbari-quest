@@ -1,5 +1,6 @@
 <script lang="ts">
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { budoux } from '$lib/ui/actions/budoux';
 import PageGuideTabs from '$lib/ui/tutorial/PageGuideTabs.svelte';
 import type { GuideStep, PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
@@ -41,7 +42,7 @@ let { step, guide, progress, isFirst, isLast, onEnd, onPrev, onNext }: Props = $
 
 	<!-- Step title -->
 	<div class="guide-step-title">
-		<h3>{step.title}</h3>
+		<h3 use:budoux>{step.title}</h3>
 	</div>
 
 	<!-- Tabs (what / how / goal) + Tab content (tips / links 含む) -->

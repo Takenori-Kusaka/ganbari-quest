@@ -12,9 +12,19 @@ import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
+import { setChildGuidePresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 import ConfirmExchangeDialog from './ConfirmExchangeDialog.svelte';
 
 let { data, form } = $props();
+
+// #4864: ❓ ガイドに「ごほうびが 1 つでもあるか」を伝える (知っているのはこの画面だけ)。
+// 無ければガイドはカードを指さず「まだ ないよ」を出す。真偽値を $derived に切り出すのは
+// #4923 と同じ理由 (自動リロードで `data` が差し替わっても、値が変わらなければ書き直さない)。
+const hasRewards = $derived(data.rewards.length > 0);
+$effect(() => {
+	setChildGuidePresence('shop', hasRewards);
+	return () => setChildGuidePresence('shop', undefined);
+});
 
 let confirmDialogOpen = $state(false);
 let selectedRewardId = $state<string | null>(null);
@@ -155,6 +165,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 		class="history-link"
 		href={resolve(`/${uiMode}/history?kind=purchases`)}
 		data-testid="shop-history-link"
+		data-tutorial="shop-history"
 	>
 		{L.historyLinkLabel}
 	</a>
@@ -284,6 +295,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 										<div
 											class="reward-card"
 											data-testid="reward-card-{reward.id}"
+											data-tutorial="shop-reward-card"
 											data-shop-category={reward.shopCategory}
 										>
 											<div class="reward-icon-wrap">

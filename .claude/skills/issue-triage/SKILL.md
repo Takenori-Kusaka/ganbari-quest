@@ -3,7 +3,7 @@ name: Issue Triage
 description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, marketing/legal/finance/customer perspectives, and root cause analysis before submission.
 ---
 
-> **親 SSOT**: [PO Session — Goal 1](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
+> **親 SSOT**: [PO Session §Issue を起票する基準](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
 >
 > **本 SKILL の位置付け (Issue #2089)**: Issue 起票運用の **SSOT**。Pre-PMF check / HEREDOC 禁止 / OSS 先調査 / research 添付 の 4 領域は本 SKILL に集約し、他文書 (`docs/sessions/po-session.md` / `.github/CLAUDE.md` / `.claude/skills/lp-review/SKILL.md`) からは link 参照のみとする。ADR-0003 / ADR-0010 は背景・根拠の reference として残置 (本 SKILL の各セクションから refer)。旧 ADR-0014（labels / i18n 機構選定）は #2440 PR-A5 で削除済み（詳細は手順 B 参照）。
 
@@ -28,14 +28,15 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 > 本手順は起票時の事前検査であり、7 ステップとは独立した補助手順。Issue body draft が SSOT namespace を扱う場合のみ実行。
 
 Issue body draft 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、
-`src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を確認する。
+`src/lib/domain/terms.ts` / labels 層 (`src/lib/domain/labels/`) および open Issue との scope 重複を確認する。
+labels の新しい namespace は、置くファイルが docs/DESIGN.md §6 の配置規則 (表示先 → ファイル) で決まるので、そのファイルと下層の共有ファイルに同じ意味のものが無いかも見る。同じ名前を 2 ファイルが export すると入口の `export *` が TS2308 になり svelte-check が落ちる。
 
 **起票事故の前例**: PR #2041 (#1898) / PR #2044 (#1896) で同名 `LP_FAQ_TERMS` を別 scope で
 2 回 export しようとして TypeScript duplicate identifier conflict が発生 (Issue #2061)。
 
 ```bash
 # 既存 namespace との衝突確認
-grep -n "XXX_TERMS\|XXX_LABELS" src/lib/domain/terms.ts src/lib/domain/labels.ts
+grep -rn "XXX_TERMS\|XXX_LABELS" src/lib/domain/terms.ts src/lib/domain/labels/
 
 # open Issue 側の先行起票確認
 gh issue list --state open --search "XXX_TERMS"
@@ -54,7 +55,7 @@ gh issue list --state open --search "XXX_TERMS"
 Issue 起票時の Pre-PMF バイアスチェック (ADR-0010 §3 を SSOT として 5 質問版に統一、#2089 / #2095 BLOCK 1 Fix)。
 旧 3 質問版 (本 SKILL に過去存在) / 旧 4 質問版 (#2089 初版) は本 §で退役。
 
-### 5 質問チェックリスト (ADR-0010 §3 L44-L52 完全準拠)
+### 5 質問チェックリスト (ADR-0010 §3 完全準拠)
 
 1. **ペルソナ紐付け**: どのペルソナ（P1 / P2）のどの課題を解決するか明記したか
 2. **V2MOM 紐付け**: V2MOM の Method（M1〜M4）に紐づけたか
@@ -155,7 +156,7 @@ ADR 起票テンプレ (`docs/decisions/README.md` §テンプレート) も同�
 ## 手順 C: research 添付
 
 Issue 起票時の Deep Research 添付責務 (#2088 で po-session.md タスク 4 に追加済 / PR #2094 で merge 完了 / 本 SKILL に集約)。
-PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep research を実行し、調査レポートを Issue 本文 + `docs/reference/` に添付する。
+PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep research を実行し、調査レポートを Issue 本文に添付する（ファイルとして残す場合の置き場所は下記「出力先ルール」）。
 
 ### Deep Research 価値判定の決定木 (3 段階)
 
@@ -172,11 +173,11 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 1. **規模判定** → 上記決定木で 3 段階のどれかに分類
 2. **実行ツール選択**:
    - 軽量: 補佐の通常リサーチで完結（WebSearch 数回）
-   - 中規模: `deep-research-agent` skill / Plan Agent 経由
-   - 大規模: `deep-research-agent` + Spike escalation (PO 承認)
+   - 中規模: Plan Agent 経由
+   - 大規模: Spike escalation (PO 承認)
 3. **出力先ルール**:
    - **Issue 本文 inline 要約 300-500 字** (「OSS / 確立パターン調査結果」セクションに統合可)
-   - **詳細レポート**: `docs/reference/NN-research-<topic>.md` (NN は通し番号、命名規則 PR #2094 で確定済)
+   - **詳細レポート**: 置き場所は `docs/CLAUDE.md` §「docs SSOT 原則」の research 配置規律 (#3516) に従う（one-off の結論は Issue 本文に内包し、継続参照される根拠だけを `docs/research/` に置く）
    - **方法論 reference (連番外)**: [`docs/reference/deep-research-request-methodology.md`](../../../docs/reference/deep-research-request-methodology.md)
 
 ### PO 確認 4 段階
@@ -227,14 +228,14 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 3. **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出
 4. **対象ペルソナと表示画面の整合性**: 「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」を起票時点で明示し、実装後に再確認
 5. **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離を判断
-6. **語彙統一の年齢整合**: ひらがな / 漢字混在は `getLabel(key, ctx)` 経由で labels.ts に集約し、年齢別 variant 化する
+6. **語彙統一の年齢整合**: ひらがな / 漢字混在は `getLabel(key, ctx)` 経由で labels 層に集約し、年齢別 variant 化する
 
 ### ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5)
 
 `NAV_CATEGORIES` / `admin-ia.md` / 親管理画面ナビ / 子供画面ナビ 等のナビ階層を変更する場合:
 
 1. **過去設計整合性確認**: 関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等を grep で全件確認し、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記
-2. **ナビゲーション面の SSOT 確認**: ナビを描画する面を grep で全件洗い出し、一部だけ変更する漏れがないか確認する（主な面: `AdminLayout.svelte` は Desktop ドロップダウンと Mobile ボトムナビが同居 / `BottomNav.svelte`（子供）/ 設定サブナビ / 運営者ナビ。ページ内タブ・パンくずも `<nav>` を持つので、固定の種類数で数えず grep 結果で判断する）。labels.ts SSOT 経由で全面に同期反映されることを担保
+2. **ナビゲーション面の SSOT 確認**: ナビを描画する面を grep で全件洗い出し、一部だけ変更する漏れがないか確認する（主な面: `AdminLayout.svelte` は Desktop ドロップダウンと Mobile ボトムナビが同居 / `BottomNav.svelte`（子供）/ 設定サブナビ / 運営者ナビ。ページ内タブ・パンくずも `<nav>` を持つので、固定の種類数で数えず grep 結果で判断する）。labels 層のナビ文言 (`NAV_*`) の SSOT 経由で全面に同期反映されることを担保
 
 ### 起票時の判定フロー
 
@@ -327,7 +328,7 @@ gh issue list --search "notification push" --state all --limit 20
 
 ## Deep Research 添付 (補佐起票時必須、#2088 / 本 SKILL §research 添付)
 - 規模: [軽量 / 中規模 / 大規模]
-- 詳細レポート: [docs/reference/NN-research-<topic>.md or 「なし」]
+- 詳細レポート: [docs/research/<file>.md（research 配置規律に該当する場合のみ） or 「なし」]
 ```
 
 ## 手順 D: HEREDOC 禁止 / `--body-file` 運用
@@ -340,7 +341,7 @@ gh issue list --search "notification push" --state all --limit 20
 # 1. 本文を Write tool または cat で tmp/issue-bodies/ に保存
 #    例: tmp/issue-bodies/cron-secret-rotation.md
 # 2. (#2061) SSOT namespace 重複確認 — body 内に XXX_LABELS / XXX_TERMS があれば
-#    src/lib/domain/{terms,labels}.ts と open Issue を grep / gh issue list で確認
+#    src/lib/domain/terms.ts / src/lib/domain/labels/ と open Issue を grep / gh issue list で確認
 # 3. 起票
 gh issue create --title "..." --label "..." --body-file tmp/issue-bodies/<slug>.md
 # 4. 起票成功を確認してから削除（古い draft が混ざらないように）

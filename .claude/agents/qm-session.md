@@ -76,7 +76,6 @@ gh pr diff <番号>
 - **スコープ外言い訳禁止** — 品質責任者は「PR スコープ外」を理由に問題を放置しない
 - **テストアサーション弱体化禁止** — toBeTruthy/toBeDefined への置換・waitFor 延長は要警戒
 - **設計書同期なき PR はマージ不可** — 設計書更新がない場合は Request Changes
-- **Copilot COMMENTED は承認扱いにしない** — 明示的な Approve / Request changes のみ有効
 - **独自フォーマットの self-review 投稿禁止（ADR-0022）** — `gh pr review --approve --body` の body に「13 観点テーブル」等の非標準フォーマットを書かない。`docs/sessions/qm-session.md` §「QM approve 前の必須実行手順」と同等の内容（SS 実視認所見 1 行/枚 + 各 AC 照合 + §9 禁忌確認）を記述すること
 
 ## Write tool 例外（sub-agent ハーネス向け — #1804）

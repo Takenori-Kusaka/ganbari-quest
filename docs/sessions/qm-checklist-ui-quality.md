@@ -28,7 +28,7 @@
   - `mobile SS: テキスト折り返し自然、overflow なし、CTA 視認可`
   - `mobile SS: ナビゲーション下部との重なりなし`
   - `marketplace-mobile-dialog.png: bottom sheet 高さ 60% で親指操作圏 (#1171 AC3) 満たす / elementary tapSize=56px 相当`
-  - `free-plan-status.png: プラン表記「フリープラン」が labels.ts 定数経由（ADR-0045）/ 内部コード `free_trial` の露出無し`
+  - `free-plan-status.png: プラン表記「フリープラン」が labels 層の定数経由（ADR-0045）/ 内部コード `free_trial` の露出無し`
 
 ## 5 年齢モード差異確認（該当画面のみ）
 
@@ -52,7 +52,7 @@ mobile 390px / desktop 1280px の両ビューポートを確認:
 
 PR 本文「描画変化なし」「pixel-perfect 同一」を主張する場合、`gh pr diff` で以下を確認:
 
-- `.svelte` / `.css` / `site/**` / `labels.ts` の文字列定数 / アイコン / 絵文字 / 句読点の置換
+- `.svelte` / `.css` / `site/**` / labels 層 (`src/lib/domain/labels/**`) の文字列定数 / アイコン / 絵文字 / 句読点の置換
 - ラベルの短縮・表記揺れ統一（「アップグレード」→「プラン変更」等）
 - 改行位置の変更（`<br>` 削除 / `text-wrap` 変更）
 - 不可視属性の付与（`aria-*` / `data-*`）

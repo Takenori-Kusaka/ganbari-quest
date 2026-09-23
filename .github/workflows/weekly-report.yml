@@ -7,7 +7,6 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  DYNAMO_TABLE: ganbari-quest
 
 permissions:
   id-token: write
@@ -19,7 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -41,34 +47,36 @@ jobs:
             --query 'ResultsByTime[0].Groups' \
             --output json 2>/dev/null || echo '[]')
 
-          echo "costs=$RESULT" >> "$GITHUB_OUTPUT"
+          echo "costs=$(echo "$RESULT" | jq -c '.')" >> "$GITHUB_OUTPUT"
           echo "start_jp=$START_JP" >> "$GITHUB_OUTPUT"
           echo "end_jp=$END_JP" >> "$GITHUB_OUTPUT"
           echo "next_jp=$NEXT_JP" >> "$GITHUB_OUTPUT"
 
-      - name: Collect tenant stats (DynamoDB)
-        id: tenant-stats
+      - name: Resolve DSQL endpoint (production)
         run: |
-          ITEMS=$(aws dynamodb scan \
-            --table-name "$DYNAMO_TABLE" \
-            --filter-expression "begins_with(PK, :prefix) AND SK = :meta" \
-            --expression-attribute-values '{":prefix":{"S":"TENANT#"},":meta":{"S":"META"}}' \
-            --projection-expression "#s, #p, createdAt" \
-            --expression-attribute-names '{"#s":"status","#p":"plan"}' \
-            --query 'Items' \
-            --output json 2>/dev/null || echo '[]')
+          ENDPOINT=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsql \
+            --region "$AWS_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='ClusterEndpoint'].OutputValue" --output text)
+          if [ -z "$ENDPOINT" ] || [ "$ENDPOINT" = "None" ]; then
+            echo "::error::DSQL の ClusterEndpoint を取得できませんでした"
+            exit 1
+          fi
+          echo "DSQL_ENDPOINT=$ENDPOINT" >> "$GITHUB_ENV"
 
-          TOTAL=$(echo "$ITEMS" | jq 'length')
-          ACTIVE=$(echo "$ITEMS" | jq '[.[] | select(.status.S == "active")] | length')
-          MONTHLY=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "monthly")] | length')
-          YEARLY=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "yearly")] | length')
-          LIFETIME=$(echo "$ITEMS" | jq '[.[] | select(.plan.S == "lifetime")] | length')
-
-          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
-          echo "active=$ACTIVE" >> "$GITHUB_OUTPUT"
-          echo "monthly=$MONTHLY" >> "$GITHUB_OUTPUT"
-          echo "yearly=$YEARLY" >> "$GITHUB_OUTPUT"
-          echo "lifetime=$LIFETIME" >> "$GITHUB_OUTPUT"
+      # テナント統計は /ops ダッシュボードと同じ導出 (ops-service の getKpiSummary) で DSQL から読む (#4962)。
+      # 取得に失敗しても費用・売上の節は届け、利用状況の節には失敗を明記する (古い値や 0 を出さない)。
+      # 失敗は最後の step で job を赤にして知らせる。
+      - name: Collect tenant stats (DSQL, /ops と同じ導出)
+        id: tenant-stats
+        continue-on-error: true
+        env:
+          DATA_SOURCE: dsql
+        run: |
+          npx svelte-kit sync
+          npx tsx scripts/ops-kpi-summary.ts \
+            --out "$RUNNER_TEMP/ops-kpi.json" \
+            --text-out "$RUNNER_TEMP/ops-kpi.txt"
+          echo "mrr=$(jq '.tenantStats.totalMrr' "$RUNNER_TEMP/ops-kpi.json")" >> "$GITHUB_OUTPUT"
 
       - name: Collect Stripe revenue
         id: stripe-revenue
@@ -95,66 +103,50 @@ jobs:
 
       - name: Format and send Discord report
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEEKLY_REPORT_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEEKLY_REPORT_WEBHOOK_URL }}
           COSTS_JSON: ${{ steps.aws-costs.outputs.costs }}
           START_JP: ${{ steps.aws-costs.outputs.start_jp }}
           END_JP: ${{ steps.aws-costs.outputs.end_jp }}
           NEXT_JP: ${{ steps.aws-costs.outputs.next_jp }}
-          TENANT_TOTAL: ${{ steps.tenant-stats.outputs.total }}
-          TENANT_ACTIVE: ${{ steps.tenant-stats.outputs.active }}
-          TENANT_MONTHLY: ${{ steps.tenant-stats.outputs.monthly }}
-          TENANT_YEARLY: ${{ steps.tenant-stats.outputs.yearly }}
-          TENANT_LIFETIME: ${{ steps.tenant-stats.outputs.lifetime }}
+          TENANT_STATS_OUTCOME: ${{ steps.tenant-stats.outcome }}
+          MRR: ${{ steps.tenant-stats.outputs.mrr }}
           STRIPE_COUNT: ${{ steps.stripe-revenue.outputs.count }}
           STRIPE_TOTAL: ${{ steps.stripe-revenue.outputs.total }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::DISCORD_WEEKLY_REPORT_WEBHOOK_URL is not set. Skipping."
+            echo "::warning::DISCORD_WEEKLY_REPORT_WEBHOOK_URL secret is not set. Skipping."
             exit 0
           fi
 
-          # コスト集計（円換算: 1USD=150円）
-          get_cost() {
-            echo "$COSTS_JSON" | jq -r --arg svc "$1" \
-              '[.[] | select(.Keys[0] == $svc) | .Metrics.UnblendedCost.Amount | tonumber] | add // 0'
-          }
+          # AWS 費用（円換算: 1USD=150円）。サービスを固定で列挙せず、費用の大きい順に上位 5 件 +
+          # その他を出し、合計は全サービスの和にする（列挙から漏れたサービスが合計から消えないように）。
+          TOTAL_JPY=$(echo "$COSTS_JSON" | jq '[.[].Metrics.UnblendedCost.Amount | tonumber] | add // 0 | . * 150 | round')
+          COST_SEC=$(echo "$COSTS_JSON" | jq -r --arg total "$TOTAL_JPY" '
+            [.[] | {svc: .Keys[0], usd: (.Metrics.UnblendedCost.Amount | tonumber)}]
+            | sort_by(-.usd) as $all
+            | [($all[:5][] | "\(.svc) : ¥ \(.usd * 150 | round)")]
+              + (if ($all | length) > 5 then ["その他 : ¥ \([$all[5:][].usd] | add * 150 | round)"] else [] end)
+              + ["合計 : ¥ \($total)"]
+            | join("\n")')
 
-          LAMBDA_USD=$(get_cost "AWS Lambda")
-          DYNAMO_USD=$(get_cost "Amazon DynamoDB")
-          S3_USD=$(get_cost "Amazon Simple Storage Service")
-          CF_USD=$(get_cost "Amazon CloudFront")
-          R53_USD=$(get_cost "Amazon Route 53")
-          COGNITO_USD=$(get_cost "Amazon Cognito")
-          SES_USD=$(get_cost "Amazon Simple Email Service")
-
-          TOTAL_USD=$(echo "$LAMBDA_USD + $DYNAMO_USD + $S3_USD + $CF_USD + $R53_USD + $COGNITO_USD + $SES_USD" | bc)
-
-          to_yen() { printf "%.0f" "$(echo "$1 * 150" | bc)"; }
-          LAMBDA_JPY=$(to_yen "$LAMBDA_USD")
-          DYNAMO_JPY=$(to_yen "$DYNAMO_USD")
-          S3_JPY=$(to_yen "$S3_USD")
-          CF_JPY=$(to_yen "$CF_USD")
-          R53_JPY=$(to_yen "$R53_USD")
-          TOTAL_JPY=$(to_yen "$TOTAL_USD")
-
-          # アクティブ率
-          if [ "$TENANT_TOTAL" -gt 0 ]; then
-            ACTIVE_RATE=$((TENANT_ACTIVE * 100 / TENANT_TOTAL))
+          if [ "$TENANT_STATS_OUTCOME" = "success" ] && [ -s "$RUNNER_TEMP/ops-kpi.txt" ]; then
+            TENANT_SEC=$(cat "$RUNNER_TEMP/ops-kpi.txt")
+            SUMMARY_SEC=$(printf 'MRR概算 (月)  : ¥ %s\n今週のAWS費用 : ¥ %s' "$MRR" "$TOTAL_JPY")
           else
-            ACTIVE_RATE=0
+            TENANT_SEC="取得に失敗しました (DSQL)。GitHub Actions の Weekly Operations Report のログを確認してください"
+            SUMMARY_SEC=$(printf 'MRR概算 (月)  : 取得失敗\n今週のAWS費用 : ¥ %s' "$TOTAL_JPY")
           fi
 
-          # MRR 概算（月額480円、年額4,800円÷12=400円）
-          MRR=$((TENANT_MONTHLY * 480 + TENANT_YEARLY * 400))
-          PROFIT=$((MRR - TOTAL_JPY))
+          STRIPE_SEC=$(printf '決済件数 : %s 件\n売上合計 : ¥ %s' "$STRIPE_COUNT" "$STRIPE_TOTAL")
 
-          # Discord embed（jq でJSON構築）
+          # Discord embed（jq でJSON構築。--arg は "\n" を解釈しないため、各節は実改行で組み立てる）
           EMBED=$(jq -n \
             --arg title "📊 週次レポート（${START_JP} 〜 ${END_JP}）" \
-            --arg tenant_sec "テナント総数 : ${TENANT_TOTAL}\nアクティブ   : ${TENANT_ACTIVE} (${ACTIVE_RATE}%)\n月額プラン   : ${TENANT_MONTHLY}\n年額プラン   : ${TENANT_YEARLY}\nLifetime     : ${TENANT_LIFETIME}" \
-            --arg cost_sec "Lambda       : ¥ ${LAMBDA_JPY}\nDynamoDB     : ¥ ${DYNAMO_JPY}\nS3           : ¥ ${S3_JPY}\nCloudFront   : ¥ ${CF_JPY}\nRoute 53     : ¥ ${R53_JPY}\n合計         : ¥ ${TOTAL_JPY}" \
-            --arg stripe_sec "決済件数     : ${STRIPE_COUNT} 件\n売上合計     : ¥ ${STRIPE_TOTAL}" \
-            --arg summary_sec "MRR概算      : ¥ ${MRR}\n今週費用     : ¥ ${TOTAL_JPY}\n利益概算     : ¥ ${PROFIT}" \
+            --arg tenant_sec "$TENANT_SEC" \
+            --arg cost_sec "$COST_SEC" \
+            --arg stripe_sec "$STRIPE_SEC" \
+            --arg summary_sec "$SUMMARY_SEC" \
             --arg next "🗓 次回レポート: ${NEXT_JP}（月）" \
             '{
               title: $title,
@@ -174,3 +166,9 @@ jobs:
             -d "$(jq -n --argjson embed "$EMBED" '{embeds: [$embed]}')"
 
           echo "✅ Weekly report sent to Discord"
+
+      - name: Fail if tenant stats could not be collected
+        if: steps.tenant-stats.outcome == 'failure'
+        run: |
+          echo "::error::テナント統計 (DSQL) の取得に失敗しました。レポートは失敗の旨を明記して送信済みです"
+          exit 1

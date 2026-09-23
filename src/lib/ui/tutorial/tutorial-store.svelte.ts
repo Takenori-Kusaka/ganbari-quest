@@ -1,6 +1,12 @@
+import { untrack } from 'svelte';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import type { TutorialChapter, TutorialStep } from './tutorial-types';
+import {
+	CHILD_HOME_GUIDE_PAGE,
+	type ChildChapterBuilder,
+	type TutorialChapter,
+	type TutorialStep,
+} from './tutorial-types';
 
 // ── localStorage persistence keys ──
 //
@@ -10,17 +16,30 @@ import type { TutorialChapter, TutorialStep } from './tutorial-types';
 const STORAGE_KEY_PREFIX = 'tutorial-progress';
 let progressScope = 'default';
 
+/**
+ * 実際に localStorage の key に使う namespace (#4864)。
+ *
+ * 子供の ❓ は画面ごとに別の章を開くため、進捗も画面ごとに分ける (チェックリストのガイドを
+ * 途中でやめた進捗で、ショップのガイドに「つづきから？」を出さない)。ホームだけは
+ * #4864 以前と同じ key のまま (ホームのツアーを途中まで見た子の進捗を捨てない)。
+ */
+function effectiveScope(): string {
+	return childGuidePage === null || childGuidePage === CHILD_HOME_GUIDE_PAGE
+		? progressScope
+		: `${progressScope}:${childGuidePage}`;
+}
+
 function chapterKey(): string {
-	return `${STORAGE_KEY_PREFIX}:${progressScope}:chapter`;
+	return `${STORAGE_KEY_PREFIX}:${effectiveScope()}:chapter`;
 }
 
 function stepKey(): string {
-	return `${STORAGE_KEY_PREFIX}:${progressScope}:step`;
+	return `${STORAGE_KEY_PREFIX}:${effectiveScope()}:step`;
 }
 
 /** 現在の進捗 namespace (test 用。key の形は `tutorial-progress:<scope>:chapter|step`)。 */
 export function getProgressScope(): string {
-	return progressScope;
+	return effectiveScope();
 }
 
 interface TutorialState {
@@ -48,7 +67,7 @@ const state = $state<TutorialState>({
  * 表示中の章定義。
  *
  * #4654 (EPIC #4650 判断 2): 親の章立てチュートリアル (v1、22 step) を撤去したため、
- * 本 store の利用者は子供画面チュートリアル (`getChildTutorialChapters(uiMode)`) のみ。
+ * 本 store の利用者は子供画面の ❓ ガイド (`tutorial-chapters-child.ts`、#4864 で画面ごとの章) のみ。
  * 親管理画面の説明は ❓ ページガイド (`PageGuideOverlay`) が唯一の経路。
  * 既定は空配列で、`setChapters()` を呼ぶ画面 (子供 layout) でのみガイドが起動する。
  */
@@ -68,21 +87,36 @@ let explicitChapters = $state<TutorialChapter[]>([]);
  * 順序に依存しない形にするため、**layout は builder だけを渡し、件数はホームが state に書く**。
  * 章は両者の $derived なので、どちらが先に走っても最終値は同じになる。
  */
-let chapterBuilder = $state<((hasActivities: boolean | undefined) => TutorialChapter[]) | null>(
-	null,
-);
+let chapterBuilder = $state<ChildChapterBuilder | null>(null);
 
 /**
- * 活動があるか。`undefined` = **まだ分からない**。
+ * いま開いている子供画面の page key (#4864)。`null` = ❓ の説明を持たない画面。
  *
- * 件数を知っているのはホーム画面だけ (layout が件数のためだけに DB を引くのは ADR-0065 に反する)。
- * 分からない間は「カードをタップ」と言わせない (builder 側で `false` と同じ安全側に倒す) —
+ * 子供 layout が `page.route.id` から解決して書く (`setChildGuidePage`)。書かれるまでは
+ * ホーム扱い (store 単体で使う test / #4864 以前の呼び出しと同じ振る舞い)。
+ */
+let childGuidePage = $state<string | null>(CHILD_HOME_GUIDE_PAGE);
+
+/**
+ * 画面ごとの「主役があるか」(#4860 / #4864)。値が `undefined` = **まだ分からない**。
+ *
+ * - home: 活動カード / checklist: チェック項目 / shop: ごほうび / status: ステータス表示
+ * - 件数を知っているのは **その画面だけ** (layout が件数のためだけに DB を引くのは ADR-0065 に反する)
+ * - page ごとに別の枠に書く。1 つの枠を共有すると、画面遷移で「前の画面の cleanup (undefined)」と
+ *   「次の画面の書き込み」の順序次第で値が消える
+ *
+ * 分からない間は「カードをタップ」と言わせない (builder 側で spotlight を外す) —
  * 存在しないカードを指すより、指さない方が害が小さい。
  */
-let hasActivitiesKnown = $state<boolean | undefined>(undefined);
+let guidePresence = $state<Record<string, boolean | undefined>>({});
 
 const activeChapters = $derived(
-	chapterBuilder ? chapterBuilder(hasActivitiesKnown) : explicitChapters,
+	chapterBuilder
+		? chapterBuilder(
+				childGuidePage,
+				childGuidePage === null ? undefined : guidePresence[childGuidePage],
+			)
+		: explicitChapters,
 );
 
 /**
@@ -96,8 +130,9 @@ export function setChapters(chapters: TutorialChapter[], scope = 'default') {
 	chapterBuilder = null;
 	// 子供画面を離れるとき (`setChapters([])`) に件数の記憶も捨てる。
 	// 持ち越すと、活動のある子から無い子へ切り替えた直後に前の子の件数で
-	// 「カードをタップ」と言ってしまう。次に入った画面のホームが書き直すまでは「未知」が正しい。
-	hasActivitiesKnown = undefined;
+	// 「カードをタップ」と言ってしまう。次に入った画面が書き直すまでは「未知」が正しい。
+	guidePresence = {};
+	childGuidePage = CHILD_HOME_GUIDE_PAGE;
 	progressScope = scope;
 }
 
@@ -106,32 +141,68 @@ export function setChapters(chapters: TutorialChapter[], scope = 'default') {
  *
  * 件数は渡さない — 渡せる立場にないため。件数は `setChildActivityPresence` で別途書かれる。
  */
-export function setChildChapterBuilder(
-	builder: (hasActivities: boolean | undefined) => TutorialChapter[],
-	scope: string,
-) {
+export function setChildChapterBuilder(builder: ChildChapterBuilder, scope: string) {
 	chapterBuilder = builder;
 	explicitChapters = [];
 	progressScope = scope;
 }
 
 /**
- * 活動の有無を記録する。**件数を知っている画面 (ホーム) だけが呼ぶ。**
+ * いま開いている子供画面を記録する (#4864)。**子供 layout だけが呼ぶ** (`page.route.id` から解決)。
+ *
+ * 画面が変わったら、開いているガイド (と再開の確認) を閉じる。前の画面の章を別の画面の上に
+ * 出し続けない (ブラウザの戻る等、ガイドの外で画面が変わる経路がある)。
+ * 閉じる前に **前の画面の key へ** 進捗を保存する (`endTutorial` は現在の scope に書くため、
+ * page を書き換える前に呼ぶ)。
+ */
+export function setChildGuidePage(page: string | null) {
+	// layout の `$effect` から呼ばれる。store の中身 (childGuidePage / isActive) を読んでも
+	// 呼び出し側の effect が購読しないよう untrack する (購読すると、ガイドの開閉のたびに
+	// layout の effect が再実行される)。
+	untrack(() => {
+		if (page === childGuidePage) return;
+		if (state.isActive) endTutorial();
+		state.showResumePrompt = false;
+		childGuidePage = page;
+	});
+}
+
+/** test / 検証用。いま章を組み立てている子供画面の page key。 */
+export function getChildGuidePage(): string | null {
+	return childGuidePage;
+}
+
+/**
+ * その画面の主役 (活動カード / チェック項目 / ごほうび / ステータス) が 1 つでもあるかを記録する。
+ * **件数を知っているその画面だけが、自分の page key で呼ぶ** (#4860 / #4864)。
  *
  * builder が入っていれば章は自動的に derive し直される。builder より先に呼ばれても
  * (Svelte 5 は子の `$effect` が親の `onMount` より先に走る) 値は state に残るため失われない。
  *
- * `undefined` を渡すと「分からない」に戻す。ホームを離れるときに必ず戻すこと —
- * 持ち越すと、他の画面 (activity カードが存在しない `/checklist` 等) で
- * 「カードをタップすると」と案内してしまう (#4860 adversarial 実測)。
+ * `undefined` を渡すと「分からない」に戻す。画面を離れるときに必ず戻すこと —
+ * 持ち越すと、次にその画面を開いた直後に前回の件数で案内してしまう (#4860 adversarial 実測)。
+ */
+export function setChildGuidePresence(page: string, present: boolean | undefined) {
+	guidePresence[page] = present;
+}
+
+/** test / 検証用。`undefined` は「まだ分からない」。 */
+export function getChildGuidePresence(page: string): boolean | undefined {
+	return guidePresence[page];
+}
+
+/**
+ * ホームの活動の有無を記録する (`setChildGuidePresence` のホーム版)。**ホームだけが呼ぶ。**
+ *
+ * `undefined` を渡すと「分からない」に戻す。ホームを離れるときに必ず戻すこと (#4860)。
  */
 export function setChildActivityPresence(hasActivities: boolean | undefined) {
-	hasActivitiesKnown = hasActivities;
+	setChildGuidePresence(CHILD_HOME_GUIDE_PAGE, hasActivities);
 }
 
 /** test / 検証用。`undefined` は「まだ分からない」。 */
 export function getChildActivityPresence(): boolean | undefined {
-	return hasActivitiesKnown;
+	return getChildGuidePresence(CHILD_HOME_GUIDE_PAGE);
 }
 
 // ── localStorage helpers (SSR-safe) ──
@@ -165,8 +236,9 @@ function loadSavedProgress(): { chapter: number; stepIndex: number } | null {
 	}
 }
 
+/** 今開いている画面の進捗だけを捨てる (#4864: ホーム以外の完了 / 「最初から」でホームの進捗を消さない)。 */
 function clearSavedProgress() {
-	discardSavedProgress(progressScope);
+	discardSavedProgress(effectiveScope());
 }
 
 /**

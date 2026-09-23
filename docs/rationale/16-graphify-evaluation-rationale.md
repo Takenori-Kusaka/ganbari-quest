@@ -1,6 +1,6 @@
 # Graphify (コードベース knowledge graph 化) 評価 設計経緯
 
-> **現状: 採用済み。** 本ファイルが記す 2026-07-29 の「不採用」結論は #4343 (#4291) で覆り、Graphify は導入されている (`graphify-out/` を git 追跡 / `.husky/post-commit` で増分再生成 / `docs/CLAUDE.md` §graphify が AI セッションに `graphify query` を指示)。**現状の正解は [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 と `docs/CLAUDE.md` §graphify** を見ること。以下は不採用と判断した当時の評価であり、再評価時に「何を測って何を理由に落としたか」を引き継ぐために残す。
+> **現状: 撤去済み → graft に置換。** 2026-07-29 に不採用 → #4343 (#4291) で採用 → 2026-09-22 に撤去し [graft](https://github.com/trailhq/Graft) へ置き換えた。**現状の正解は [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 (graft) / §OSS 調査済み・不採用記録 (Graphify) と `.claude/skills/graft/SKILL.md`** を見ること。末尾の「撤去と graft への置換」節が撤去の判断材料、それより前は 2026-07-29 の不採用評価（再評価時に「何を測って何を理由に落としたか」を引き継ぐために残す）。
 
 ## 議論の発端
 
@@ -70,5 +70,47 @@
 
 - **議論源**: PO 依頼（2026-07-29）/ PR #4092
 - **参照する既存ルール**: #1350（OSS 先調査ルール）/ [ADR-0007 §7](../decisions/0007-static-analysis-tier-policy.md)（dependency-cruiser required 昇格、#3895）/ [ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md)（Pre-PMF スコープ判断）
-- **記録先**: [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 (#4343 で採用に転じたため、旧「§OSS 調査済み・不採用記録」から移動 — #4395)
+- **記録先**: [docs/decisions/README.md](../decisions/README.md) §OSS 調査済み・不採用記録 (撤去後。後任の graft は §OSS 採用記録)
 - **重複判定した既存資産**: `.claude/skills/impact-analysis/SKILL.md` / [docs/codebase-map.md](../codebase-map.md)
+
+## 撤去と graft への置換（2026-09-22）
+
+### 撤去の判断材料
+
+採用 (#4343) 時の設計は「生成物 `graphify-out/` を git 追跡し、新しい clone がチェックアウト直後から構造を引ける (コールドスタート解消)」だった。この 1 点を成立させるために、次の装置が順に積み上がった。どれも前の装置の副作用への対処である。
+
+| 装置 | 対処した副作用 |
+|---|---|
+| `.husky/post-commit` を develop / main 限定に (#4536) | 全 branch で再生成すると並行 PR がすべて `graphify-out` だけで conflict した |
+| `.github/workflows/graphify-refresh.yml` + bot PR (#4536) | develop / main は直接 push できないため、再生成を bot PR で流す必要が出た |
+| `.gitattributes` の semantic merge driver + `scripts/prepare.mjs` の登録 (#4442) | 行単位 merge が `graph.json` を JSON.parse 不能に壊したまま追跡されていた |
+| `scripts/lib/graphify-hook-appendix.mjs` (#4638) | `graphify hook install` が追跡ファイルに開発者の絶対パスを焼き込み、main を汚した |
+| Dockerfile 3 本の COPY 追随 (#4811) | 上の module を prepare が import したため、Docker の `npm ci` が落ちた |
+| `.github/graphify/requirements.txt` の hash pin 30 件 (#4866) | workflow が入れる Python 依存が無 pin だった。Dependabot の version update とは両立しない |
+| `graphify-artifacts-parseable` test + CI path filter | 壊れた `graph.json` を知らせる経路が無かった |
+
+最後に、refresh PR #4959 (変更 29,455 行 / 3 file) は develop の最新 48771c2 から再生成され unit-test (1) / (2) 以外の 37 context が緑のまま、完了待ちのバックグラウンド処理がマシンのメモリ不足で停止した。**生成物を git に載せる前提そのものが、装置の連鎖と PR 検証の重さを生んでいる**と判断し、ツールごと撤去する。
+
+### graft を選んだ理由
+
+graft (`@nanonets/graft`, MIT) はグラフを **clone ごとのローカルキャッシュ** (`/graft/`、git 追跡しない) として持ち、問い合わせのたびに変更ファイルだけを差分で取り込む。上表の装置は、生成物を追跡しない時点で**すべて不要になる** (conflict も merge driver も refresh PR も起きない)。
+
+| 項目 | 実測値 (2026-09-22、develop 48771c2 相当 + 本変更) |
+|---|---|
+| 初回構築 | 68.6 秒 / ピーク約 1.4GB (プロセスツリーの working set) |
+| グラフ規模 | 2,290 file / 10,664 node / 27,743 edge (TS / JS のみ) |
+| 問い合わせ 1 回 | 約 1.6 秒 (鮮度確認込み) |
+| ローカルキャッシュ | 79MB (git 追跡しない) |
+| MCP サーバー常駐 | 1 セッションあたり約 300MB (npx ラッパー 106MB + 本体 194MB) |
+
+### 採用形態で退けたもの
+
+- **`graft init` の既定構成 (hook 5 本 + statusLine + MCP)**: UserPromptSubmit / PostToolUse / Stop などでバックグラウンド同期を起動し、statusLine は各開発者の個人設定を project 設定で上書きする。並走セッションの多いこの repo では、常駐・バックグラウンド処理がメモリ不足の再発経路になるため入れない
+- **repo の `.mcp.json` への登録**: 上表のとおりセッションごとに約 300MB 常駐する。CLI をその都度起動する形 (常駐ゼロ) を既定にし、MCP は各自の local scope で opt-in とする
+- **devDependency として `package.json` に追加**: tree-sitter のネイティブ module を CI / Docker の `npm ci` に持ち込む。ローカル専用の道具に本番ビルドの依存を背負わせない
+- **最新版 (0.19.0)**: 0.13.0 以降は依存の `tree-sitter-kotlin` が prebuild を持たず、Windows では install 時のネイティブビルドが失敗して起動できない (trailhq/Graft#323。この repo の開発機で再現)。0.12.1 に固定する
+
+### 残る制約
+
+- `.svelte` は索引外 (0.12.1 の対応言語は TS / JS 系)。`graft callers` / `graft grep` は `.svelte` 内の呼び出しを返さないため、rename・削除の影響範囲は `.svelte` への grep を併用する (skill に明記)。UI 層の探索は `docs/codebase-map.md` + grep を主経路のままとする
+- 版固定を外す条件: upstream が #323 を解消し、Windows で `npx -y @nanonets/graft@<新版> --version` が通ること

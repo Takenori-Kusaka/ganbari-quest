@@ -6,6 +6,7 @@
 // 更新すれば通るが、プラン間の差異が崩れると明確に失敗する設計。
 
 import { describe, expect, it } from 'vitest';
+import { PAGE_GUIDE_LABELS, PLAN_GATE_LABELS } from '../../../src/lib/domain/labels';
 import {
 	getLicenseHighlights,
 	getPricingFeatures,
@@ -17,24 +18,42 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
-import { PLAN_TERMS, REWARD_TERMS } from '../../../src/lib/domain/terms';
+import {
+	ADD_MENU_TERMS,
+	PLAN_TERMS,
+	REWARD_TERMS,
+	TEMPLATE_TERMS,
+} from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
 		it('free プランは 9 項目（#4705 ごほうび登録の制限明記後）', () => {
 			// #1654 R48: footer / tokushoho.html / sla.html がメールサポート全プラン提示済 → SSOT 補完で 7→8
 			// #4705: 無料プランで**できない**ことのうち、貯めたポイントの使い道に直結する
-			//   「ごほうびショップへの商品登録はスタンダード以上」を明記 → 8→9
+			//   制限を明記 → 8→9。#4928: 止まるのはオリジナルの登録だけ (プリセットは全プラン可)
 			expect(PRICING_PAGE_FEATURES.free).toHaveLength(9);
 		});
 
-		it('free プランに ごほうび登録の制限が明記される (#4705)', () => {
-			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.productRegistration)
+		it('free プランに オリジナルのごほうびの作成・編集の制限が明記される (#4705 / #4928 / #4992)', () => {
+			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.originalCreateEdit)
 			expect(
 				PRICING_PAGE_FEATURES.free.some(
-					(f) => f.includes(REWARD_TERMS.productRegistration) && f.includes(PLAN_TERMS.standard),
+					(f) => f.includes(REWARD_TERMS.originalCreateEdit) && f.includes(PLAN_TERMS.standard),
 				),
 			).toBe(true);
+		});
+
+		it('ごほうび管理のページガイドはテンプレート取込を有料と書かない (#4928)', () => {
+			// 有料の操作は PLAN_GATE_LABELS.rewardCustomizeFeature (オリジナル作成・編集) だけ。
+			// 旧 tips は「オリジナル作成・テンプレートの取込・編集はスタンダード以上」と書いていた。
+			const [tip] = PAGE_GUIDE_LABELS.adminRewards.steps['rewards-intro'].tips;
+			const paidClause = PLAN_GATE_LABELS.standardOrAboveFor(
+				PLAN_GATE_LABELS.rewardCustomizeFeature,
+			);
+			expect(tip).toContain(paidClause);
+			expect(paidClause).not.toContain(TEMPLATE_TERMS.userFacing);
+			// 無料で使える取込の入口を名指しで案内する
+			expect(tip).toContain(ADD_MENU_TERMS.browse);
 		});
 
 		it('standard プランは 9 項目（#1655 R49 家族メンバー招待補完後）', () => {
@@ -90,11 +109,11 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.free).not.toContain('特別なごほうび設定（即時付与）');
 		});
 
-		it('standard に ごほうび登録が含まれるが、AI提案は含まない (#722 / #4705 行名是正)', () => {
+		it('standard に オリジナルのごほうびの作成・編集が含まれるが、AI提案は含まない (#722 / #4705 / #4992 行名是正)', () => {
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('AI による活動提案');
 			// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲート (isCustomRewardUnlocked、#4584 が
 			// 止めるのはショップ商品の登録) と別機能を指して読めたため atom に是正。
-			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.productRegistration);
+			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.originalCreateEdit);
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('特別なごほうび設定（即時付与）');
 		});
 

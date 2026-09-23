@@ -52,9 +52,11 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		`${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完
 		'メールサポート（標準）',
-		// #4705: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限は
-		// 検討時点で見えている必要がある (実ゲートは isCustomRewardUnlocked、#4584)。
-		`${REWARD_TERMS.productRegistration}は${PLAN_TERMS.standard}以上`,
+		// #4705 / #4928: 無料プランで**できないこと**のうち、貯めたポイントの使い道に直結する制限は
+		// 検討時点で見えている必要がある。止まるのはオリジナルの作成と、登録済みごほうびの編集
+		// (取り込んだごほうびのポイント調整を含む、#4992) で、プリセットの取込は全プラン可
+		// (実ゲートは isCustomRewardUnlocked、#4584)。
+		`${REWARD_TERMS.originalCreateEdit}は${PLAN_TERMS.standard}以上`,
 	],
 	standard: [
 		'お子さまの登録人数：無制限',
@@ -63,8 +65,8 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #1655 R49: pricing.html L188 / 比較表との整合
 		// #4500: 上限は owner 込みの合計なので、招待できる人数と区別して書く (値は terms.ts atom 経由)
 		`家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
-		// #4705: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
-		REWARD_TERMS.productRegistration,
+		// #4705 / #4928 / #4992: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
+		REWARD_TERMS.originalCreateEdit,
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 		'データのダウンロード',
@@ -141,14 +143,16 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	standard: [
 		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: REWARD_TERMS.productRegistration, icon: '✅' },
+		{ text: REWARD_TERMS.originalCreateEdit, icon: '✅' },
 		{ text: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`, icon: '✅' },
 	],
 	family: [
 		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
 		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
-		{ text: '特別なごほうび設定（即時付与）', icon: '✅' },
+		// #4992: 旧「特別なごほうび設定（即時付与）」は料金表と別の名前で、応援の即時付与とも読めた。
+		// 解放される機能は standard と同じ (isCustomRewardUnlocked) なので同じ行名にする。
+		{ text: REWARD_TERMS.originalCreateEdit, icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
 		{ text: '無制限の履歴保持', icon: '✅' },

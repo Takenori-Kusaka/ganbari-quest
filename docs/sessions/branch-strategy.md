@@ -51,6 +51,7 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 - release branch は **force-push（history 書換）を禁止する ruleset（`release-lane-freeze`）で保護**し、標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
 - **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: push による approval の自動 dismiss に依存しない。approve 後に release branch へ append すると stale approval が残り未監査差分が merge され得るため、**adversarial evidence 取得・lab approve の後に release へ commit を積んだ場合は、adversarial evidence を再生成（TTL 30 分）し再 approve する**こと。approve した HEAD = merge する HEAD を必ず一致させる。
 - 命名は `release/<YYYY-MM-DD>` を基本とし、同日複数回は `-2` 等の suffix を付ける。
+- 統合 PR の題名は `[統合] release/<YYYY-MM-DD> → main` とし、**回数（「第 N 回」）は入れない**。回数は人の記憶で採番するため揺れる（#4976）。識別は cut の日付で足りる。
 - machine 層: `pr-lane.mjs`（lane 判定）/ `resolve-base-branch.mjs`（release/* → main 基点解決）/ `ci.yml`（base-guard + 重量発火）が release/* を統合レーンとして扱う。
 - **`integration-pr.yml`（develop → main 自動発行、#2871）との関係**: `develop → main` も rule 2 で integration レーンに残す（後方互換）。audit-manager が形式 audit で main へ反映する際は **release/* を cut して frozen 標的で監査・merge する**のを正準とする。`integration-pr.yml` の自動発行を release/* cut 方式へ移行するかは別 Issue（#3063 派生）で判断する。
 
@@ -125,7 +126,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | visual regression（`lp-visual-regression.yml` / `child-home-visual-regression.yml` / `app-visual-regression.yml`） | pixelmatch baseline 比較 | — |
 | `e2e-matrix`（#2874） | ADR-0040 mode×plan matrix（4 project、port 5201-5204、`playwright.matrix.config.ts`） | 約 4-7min（並列、critical path 不変） |
 | `deploy-nuc-staging`（#2872） | NUC staging deploy + migration 込み起動貫通 + health（self-hosted runner） | — |
-| `deploy-aws-staging`（#2873） | AWS staging 3 stack deploy + post-deploy health / smoke（Phase 1 advisory → Phase 2 required 化、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | 約 15min |
+| `deploy-aws-staging`（#2873） | AWS staging 4 stack deploy + post-deploy health / smoke（Phase 1 advisory → Phase 2 required 化、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | 約 15min |
 | `integration-evidence`（#2874） | audit-team.md §3.5 #3/#4 エビデンス自動生成（`integration-pr-evidence-*` artifact、gate ではない） | 約 1-2min |
 
 > `storybook-test` は `deps` / `stories` filter でも発火する。発火条件は `base_ref != 'develop'` かつ `deps || stories` なので、main 向け PR (hotfix) / push に加え `release/*` や feature branch を base にする PR でも走る。#4859 で `svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` が `stories` に入ったため、これらの変更でも発火するようになった (約 106s)。ただし発火するのは `develop` 以外を base にする PR と push に限られ、直近 200 PR の base は develop 193 / main 7 (うち統合 3 は元から無条件発火) だったため、**実際に新規発火するのは hotfix がこれらの path を触った場合と push のみ**で、現状ほぼ 0 件。統合 PR は filter に依らず無条件発火する (#2874)。
@@ -254,7 +255,7 @@ Ruleset の確認・変更はユーザー手動作業。本 SSOT merge 後に実
      - secret `INTEGRATION_BOT_APP_ID` ← App ID
      - secret `INTEGRATION_BOT_APP_PRIVATE_KEY` ← PEM 全文
      - variable `INTEGRATION_BOT_LOGIN` ← App のボット login（`<app-slug>[bot]`、例 `ganbari-quest-integrator[bot]`）。`pr-author-guard.yml` の許可リストに合流し、自動生成 PR が auto-close されないようにする。
-  - 未設定でも workflow は fail せず、hotfix merge / 統合 cron 時に「App 認証未設定で PR 未発行 = drift」を Discord（`vars.DISCORD_WEBHOOK_URL`）+ job summary で通知し silent fail を避ける（人手 back-merge / 手動統合 PR で代替できる、急ぎではない）。本 App 認証は B-3 / B-5 で共有する（両者で 1 セット）。
+  - 未設定でも workflow は fail せず、hotfix merge / 統合 cron 時に「App 認証未設定で PR 未発行 = drift」を Discord（`secrets.DISCORD_WEBHOOK_URL`）+ job summary で通知し silent fail を避ける（人手 back-merge / 手動統合 PR で代替できる、急ぎではない）。本 App 認証は B-3 / B-5 で共有する（両者で 1 セット）。
 
 ## §8 無停止 cutover 手順（順序厳守）
 
@@ -328,7 +329,7 @@ S0→S1 の移行 gate =「standing 統合 PR（#3397 系）の自動 body / 含
 
   | 項目 | 内容 |
   |---|---|
-  | cycle | 通し番号（第 N 回リリース run） |
+  | cycle | release の日付（`release/<YYYY-MM-DD>`。回数では採番しない、§3.1） |
   | standing PR | supersede close した standing 統合 PR 番号（#3397 系） |
   | 含有 PR 列挙 | 過不足判定（`過不足なし` / `欠落 N 件` / `余分 N 件`）— 自動 body の含有 PR 一覧 vs 実 merge 済 PR |
   | Closes 集約 | closing keyword 集約の過不足判定（over-close / under-close 有無、#3423 / #3462 整合） |

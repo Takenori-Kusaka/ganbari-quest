@@ -4,25 +4,26 @@ LP review 時に参照する全ファイルの一覧。新規ファイル追加�
 
 ## site/ (LP 本体)
 
-- `site/index.html` — メイン LP（hero / core-loop / machine-tour / soft-features / growth-roadmap / pricing / faq / cta / footer）
+- `site/index.html` — メイン LP（section 構成は `grep -nE "<section|<footer" site/index.html` で確認する）
 - `site/pamphlet.html` — パンフレット版
 - `site/pricing.html` — 価格詳細ページ
 - `site/faq.html` — FAQ 詳細
-- `site/legal/{privacy,terms,sla,tokushoho}.html` — 法務ページ
+- `site/{privacy,terms,sla,tokushoho}.html` — 法務ページ
+- `site/selfhost.html` — セルフホスト訴求
 - `site/graduation.html` — graduation シリーズ
+- 上記で漏れがないかは `ls site/*.html` を正とする
 - `site/shared.css` — `:root` トークン (ADR-0042) + 全ページ共通 base
-- `site/shared-labels.js` — labels SSOT 注入機構 (ADR-0009 / ADR-0025)
+- `site/shared-labels.js` — labels SSOT 注入機構 (ADR-0045 / ADR-0025)。`scripts/generate-lp-labels.mjs` の生成物なので直接編集しない
 
-## src/lib/domain/labels.ts
+## src/lib/domain/labels/lp.ts
 
-LP labels SSOT。`LP_HERO_LABELS` / `LP_CORELOOP_LABELS` / `LP_PRICING_LABELS` / `LP_NAV_LABELS` / `LP_FOOTER_LABELS` / `LP_FAQ_LABELS` 等。
+LP labels SSOT（compound）。LP 用 namespace (`LP_*`) はすべてこのファイルに置く（docs/DESIGN.md §6 配置規則の 1 行目）。atom は `src/lib/domain/terms.ts`（ADR-0045）。LP の値に使う共有文 (`WRITES_CONTINUE_ASSURANCE` 等) は他の labels ファイルにあり、`lp.ts` の import から辿れる。
 
 ## scripts/
 
-- `scripts/measure-lp-dimensions.mjs` — ratchet 検証（mobile/desktopHeight / forbidden / cta / preset / residue）
-- `scripts/check-lp-removal-residue.mjs` — orphan `data-lp-key` / 画像参照検出
+- `scripts/measure-lp-dimensions.mjs` — ratchet 検証（検査項目・閾値は同 script の `THRESHOLDS` と `docs/CLAUDE.md` §LP メトリクス ratchet が SSOT）
 - `scripts/check-lp-innerhtml-tags.mjs` — innerHTML 構造保持検証 (ADR-0025)
-- `scripts/generate-lp-labels.mjs` — labels.ts → shared-labels.js 再生成
+- `scripts/generate-lp-labels.mjs` — labels 層 → shared-labels.js 再生成
 - `scripts/capture.mjs --server-mode lp` — LP SS 撮影
 
 ## .github/workflows/lp-metrics.yml

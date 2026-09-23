@@ -7,7 +7,7 @@ hotfix PR runbook checklist (#2343)
 - [ ] Step 2: `src/routes/` 変更があり機能仕様変化なし (URL 振替 / fallback / no-op 化) なら `refactor:internal-no-doc-impact` ラベルを起票時に付与した (#2318 / #2340 教訓)
 - [ ] Step 3: 新規 env / secret 追加時は 4 経路 (GitHub Secrets / Lambda / NUC .env / .env.example) すべてに配布証跡を記載した (#2341 教訓)
 - [ ] Step 4: service 層 / route handler で `process.env.X` 直接参照していない、`$lib/runtime/env` 経由化している (ADR-0040 P1、#2342 教訓)
-- [ ] Step 5: `npm run pre-ready -- --pr <num>` 全 Step PASS をローカル確認した、または個別に 4 種 check (`check-pr-body.mjs` / `check-design-doc-sync.mjs` / `check-no-direct-env-access.mjs` / `check-new-required-env.mjs`) 全 PASS を確認した
+- [ ] Step 5: `npm run pre-ready -- --pr <num>` 全 Step PASS をローカル確認した、または個別に 3 種 check (`check-pr-body.mjs` / `check-no-direct-env-access.mjs` / `check-new-required-env.mjs`) 全 PASS を確認した (設計書同期は目視。`check-design-doc-sync.mjs` は #4322 で削除済)
 ============================================================ -->
 
 ## 顧客価値・目的
@@ -26,7 +26,13 @@ Closes #{{ISSUE_NUMBER}}
 
 <!-- 関連: 直近 30 日の同一ファイル変更 PR を本セクションに列挙（ADR-0002 要件 5） -->
 
-## AC 検証マップ (ADR-0004)
+## 変更内容
+
+<!-- 何をどう変えたか。レビュアが diff を読む前に持っておくべき前提だけ -->
+
+## 検証
+
+<!-- 何をどう確かめたか。AC ごとに検証手段と結果を書く (ADR-0004)。実行していないものは「未実行」と書く -->
 
 {{AC_TABLE}}
 
@@ -81,7 +87,7 @@ gh pr list --state merged --limit 50 --search "merged:>=$(date -d '30 days ago' 
 
 該当なしの場合は「**該当なし（直近 30 日に同一ファイル変更 PR なし）**」と明記。
 
-## 影響範囲・横展開チェック
+## 影響範囲
 
 **影響を受ける画面・機能**: <!-- -->
 

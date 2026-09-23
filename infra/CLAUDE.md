@@ -42,7 +42,7 @@ CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は
 |---|---|---|---|
 | **Layer 1: synth 静的 lint** | `cdk synth --all` 出力 template を **cfn-lint** で検査し AWS schema 由来の property 制約違反（charset / allowed-value / type）を synth 時点で hard-fail | `scripts/check-cdk-cfn-lint.mjs` + `infra/.cfnlintrc` + ci.yml `cdk-cfn-lint` job（`infra/**` 変更時、develop 向け PR でも発火） | **Class ①（静的プロパティ制約違反）**。例: IAM Role/ManagedPolicy `Description` の非-ASCII（cfn-lint **E3031**、#3870）を含む全リソースの pattern / allowed-value / type 違反を**カスタムコードなしで**網羅捕捉 |
 | **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858）/ `tests/unit/infra/physical-name-ratchet.test.ts`（明示物理名 allowlist ratchet、#3881） | **Class ②（stateful なデプロイ順序制約）の一部 + Class ③（rollback-orphan → named resource `already exists`）**。cross-stack export / 明示物理名の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
-| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 3 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
+| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 4 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
 
 **役割分担の要点**: cfn-lint（Layer 1）は「AWS が受け付けない template」を汎用・自動で、assertion（Layer 2）は「本 project の不変条件」を、rehearsal（Layer 3）は「deployed-state 依存の失敗」を守る。3 層は補完関係で、上位ほど安価・高速・shift-left。
 
@@ -80,6 +80,7 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 | `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
 | `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は CDK synth error) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
 
@@ -221,7 +222,7 @@ docker compose logs -f scheduler
 | 入口 (ORIGIN / smoke) | CloudFront | **CloudFront** (#4204)。Function URL 直では SvelteKit の名前付き form action (`?/action`) が通らずログインもサインアップもできないため |
 
 - **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
-- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。
+- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 4 stack の 2 段)。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required へ `deploy-aws-staging` を追加。
 - 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md) / 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md)。
 
@@ -252,7 +253,7 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 
 ### CloudWatch Alarm
 
-`ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts` L237-249) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
+`ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts`) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
 
 ### 自動リトライを切るのは非冪等な cron だけ (#4327)
 

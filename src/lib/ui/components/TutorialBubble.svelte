@@ -1,5 +1,6 @@
 <script lang="ts">
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { budoux } from '$lib/ui/actions/budoux';
 import {
 	endTutorial,
 	getChapters,
@@ -230,8 +231,8 @@ function handleEnd() {
 
 	<!-- Content -->
 	<div class="tutorial-content">
-		<h3 class="tutorial-title">{step.title}</h3>
-		<p class="tutorial-description">{step.description}</p>
+		<h3 class="tutorial-title" use:budoux>{step.title}</h3>
+		<p class="tutorial-description" use:budoux>{step.description}</p>
 	</div>
 
 	<!-- Progress -->

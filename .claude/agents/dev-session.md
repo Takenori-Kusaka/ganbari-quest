@@ -130,7 +130,7 @@ Fix Agent / Dev Agent が「全件解消」「全件追加」等の完遂を報�
 ### 並行実装チェック（修正前必須）
 
 `docs/design/parallel-implementations.md` を参照し、以下を確認:
-- UI ラベル → labels.ts + site/ + tutorial-chapters.ts。**ADR-0009: 文言差し替え前に必ず labels.ts を確認。LP 側は shared-labels.js の `data-label` 注入、HTML 直書きは SEO meta 等の ADR-0009 例外のみ**
+- UI ラベル → labels 層 (`src/lib/domain/labels/`) + site/ + `PAGE_GUIDE_LABELS` / `tutorial-chapters-child.ts`。**ADR-0045: 文言を差し替える前に、docs/DESIGN.md §6 の配置規則で定義ファイルを特定して確認する (import は `$lib/domain/labels` から)。LP 側は shared-labels.js の `data-label` 注入、HTML 直書きは SEO meta 等の例外のみ**
 - 本番画面 → デモ画面も同等変更
 - ナビゲーション → Desktop + Mobile + BottomNav
 - DB スキーマ → global-setup.ts + test-db.ts + demo-data.ts

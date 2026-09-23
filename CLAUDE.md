@@ -99,7 +99,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 **Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 7 / 7g) → 型検査 (2) → SS 系 (11b) の順。
 
-**pre-ready の PASS は「CI 緑」ではない (#4390)**。6 step は worktree HEAD だけを入力にするため、負荷 / タイミング依存の失敗・CI 側 job・**Draft 中しか走らない検査** (`pr-template-gate` は `draft == false` で初めて走る) は原理的に見ていない。加えて step の前に **base 鮮度 preflight** が走り、base が進み、かつ進んだ差分に **pre-ready の検査基準** (`PULL_REQUEST_TEMPLATE.md` / `PR_TEMPLATE_SECTIONS.json` / 検査 script と**その import 閉包**) が含まれる場合は **BLOCK する** (手元は旧基準・CI は新基準で判定するため、その PASS は成立しない)。検査基準が動いていなければ注記のみで止めない。
+**pre-ready の PASS は「CI 緑」ではない (#4390)**。6 step は worktree HEAD だけを入力にするため、負荷 / タイミング依存の失敗・CI 側 job・**Draft を外すまで走らない検査** (`pr-template-gate` は `draft == false` で初めて走る) は原理的に見ていない。加えて step の前に **base 鮮度 preflight** が走り、base が進み、かつ進んだ差分に **pre-ready の検査基準** (`PULL_REQUEST_TEMPLATE.md` / `PR_TEMPLATE_SECTIONS.json` / 検査 script と**その import 閉包**) が含まれる場合は **BLOCK する** (手元は旧基準・CI は新基準で判定するため、その PASS は成立しない)。検査基準が動いていなければ注記のみで止めない。
 
 E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 
@@ -107,18 +107,18 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 
 修正前に `docs/design/parallel-implementations.md` を確認:
 
-- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
+- UI ラベル・用語 → labels 層 (`src/lib/domain/labels/`、置き場所は @docs/DESIGN.md §6 の配置規則) + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
 - 年齢モード → `src/routes/(child)/[uiMode=uiMode]/` + `src/lib/domain/validation/age-tier.ts`
 - 本番画面 → デモ Lambda (#2097 PR-B3 で `src/routes/demo/**` 全削除、本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動)
 - ナビ → 面を固定数で数えない。`AdminLayout` に管理画面の Desktop ドロップダウンと Mobile ボトムナビが同居（`AdminMobileNav` は存在しない）。他に `BottomNav`（子供）/ 設定サブナビ / 運営者ナビ / ページ内タブ。`grep -rn "<nav\b" src/` で変更が及ぶ面を確認する
 - DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
-- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` (子供) + `demo-guide-state.svelte.ts` (デモ)
+- チュートリアル → `**/_guide.ts` + `PAGE_GUIDE_LABELS` (❓ ページガイド) + `tutorial-chapters-child.ts` + `getChildTutorialLabels` / `getChildPageGuideLabels` (子供 ❓、画面ごとの章 #4864)。デモは本番ルートを共有する (デモガイドは #4679 で撤去)
 
 ## Things Not To Do
 
 CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313)
 
-**UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045) の検出範囲**: プラン文字列は `check-no-plan-literals.mjs` が拾う。加えて `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する。**対象外の範囲では CI が緑でもレビューで見る。**
+**UI 文言の SSOT 逸脱 (`terms.ts` / labels 層を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045) の検出範囲**: プラン文字列は `check-no-plan-literals.mjs` が拾う。加えて `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する。**対象外の範囲では CI が緑でもレビューで見る。**
 
 その他禁忌:
 - `src/routes` ページにビジネスロジック直書き / DB 直接アクセス（必ず `$lib/server/db` 経由）
@@ -139,9 +139,11 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 ## Session Agents & Skills
 
 セッション起動時 `.claude/agents/` がロール自動活性化:
-- `po-session.md` — PO（Issue 起票・優先度・事業判断、ロール定義は @docs/sessions/po-session.md）
-- `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
-- `qm-session.md` — QM（PR レビュー・品質ゲート、@docs/sessions/qm-session.md）
+- `po-session.md` — PO（Issue 起票・優先度・事業判断）。ロール定義: `docs/sessions/po-session.md`
+- `dev-session.md` — Dev（実装・CI/CD・設計書同期）。ロール定義: `docs/sessions/dev-session.md`
+- `qm-session.md` — QM（PR レビュー・品質ゲート）。ロール定義: `docs/sessions/qm-session.md`
+
+ロール定義は**自分のロールの 1 本だけを起動時に Read する**（常時ロードしない。3 本で約 1,100 行あり、どのセッションにも他 2 ロール分は不要なため。`/dev` / `/po` / `/qm` skill が各自の定義を SSOT として指す）。
 
 タスク固有: `.claude/skills/` (オンデマンド発火)
 
@@ -153,7 +155,7 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 ## Further Context
 
-- @docs/DESIGN.md（デザイン SSOT、必読）
+- @docs/DESIGN.md （デザイン SSOT、必読）
 - 画像アセットを**作る / 追加するときだけ** Read する（常時ロードしない、#4210）: `docs/reference/gemini_image_generation_guide.md` / `docs/design/asset-catalog.md`
 - @personal/data/family.yml (サブモジュール)
 
@@ -165,12 +167,6 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 以下は必ず確認を求める: `git push --force` / 本番デプロイ / DB スキーマ変更 / `.env` / `rm -rf` 等の破壊的操作。
 
-## graphify
+## graft（コード knowledge graph）
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+TS / JS のシンボル位置・呼び出し関係・変更の影響範囲を調べるときは、grep より先に graft を使う。**結果は網羅ではない**（`.svelte`・`$lib` alias 経由の import・dot ディレクトリは索引外）ので、rename / 削除 / シグネチャ変更の影響範囲は grep で確かめ、UI 層は `docs/codebase-map.md` + grep で探す。使い方と clone ごとの初回セットアップは `.claude/skills/graft/SKILL.md` が SSOT。グラフは clone ごとのローカルキャッシュ（`/graft/`、git 追跡しない）で、CI・git hook・Claude hook からは再生成しない。

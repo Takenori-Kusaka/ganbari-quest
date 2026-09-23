@@ -6,25 +6,25 @@
 
 以下は変更禁止（ADR-0013 LP truth + ADR-0025 LP SSOT 注入の前提）:
 
-- `site/index.html` の `<head>` 構造（CSP meta tag / DOMPurify pin / GTM / favicon）
-- `site/shared.css` の `:root` Base spacing / Semantic LP tokens（ADR-0042、変更には ADR supersede 必須）
+- `site/index.html` の `<head>` 構造（CSP meta tag / DOMPurify pin / favicon）
+- `site/shared.css` の `:root` 3 層トークン構造（Base → Semantic → Component、ADR-0042。構造の変更には ADR supersede 必須。値の調整は Semantic / Base を更新するのが ADR-0042 の正規手順で、no-touch ではない）
 - `site/shared-labels.js` のラベル injection 機構（ADR-0025）
-- `site/index.html` の section 順序（hero → core-loop → machine-tour → soft-features → growth-roadmap → pricing → faq → cta → footer）
+- `site/index.html` の section 順序（現行の順序は `grep -nE "<section|<footer" site/index.html` で確認する。ここに写さない）
 
 ## B 節: ratchet 制約
 
-LP メトリクスの数値は引き上げ禁止（`scripts/measure-lp-dimensions.mjs`）:
+LP メトリクスの閾値は引き上げ禁止。閾値・禁止語・CTA 文言の値は `scripts/measure-lp-dimensions.mjs`（`THRESHOLDS` / `*_FORBIDDEN_TERMS`）と `docs/CLAUDE.md` §LP メトリクス ratchet が SSOT で、ここには写さない:
 
-- `mobileHeight` ≤ 15000 px
-- `desktopHeight` ≤ 8000 px（warning 帯 7800 px、ADR-0042 #1840）
-- `forbiddenTerms`: 0（`ガチャ` / `抽選` / `コンプリート` / `git clone` / `docker compose` / `SaaS版` / `TLS` / `AES-256` / `AWS`）
-- `ctaVariants` ≤ 3（`無料で始める` / `デモを見る` / `ログイン` のみ）
-- `presetActivityCountClaimedMin` ≥ 300（LP 訴求 ≤ 実数、ADR-0013）
+- `mobileHeight` / `desktopHeight`（+ warning 帯、#1840）
+- `forbiddenTerms`: 0
+- `ctaVariants` の上限
+- `presetActivityCountClaimedMin` / `presetActivityPackCountClaimedMin`（LP 訴求 ≤ 実数、ADR-0013）
+- dead anchor: 0
 
 ## C 節: Committed/Aspirational 区分（ADR-0013）
 
 - LP に未実装機能を「実装済み」として書かない
-- 新規 LP 訴求は実装パスが存在することを PR body の「LP / 販促文言変更時の実装パス明示」で証明
+- 新規 LP 訴求は実装パスが存在することを PR body で証明する（PR テンプレートに専用節は無い）
 - Aspirational（将来計画）は LP に新規追加禁止、`docs/design/19-プライシング戦略書.md` 附則で管理
 
 ## D 節: Anti-engagement 原則（ADR-0012）

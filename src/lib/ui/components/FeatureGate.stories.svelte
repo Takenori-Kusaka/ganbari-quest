@@ -53,6 +53,50 @@ const { Story } = defineMeta({
 </Story>
 
 <!--
+  LockedInlineWithReason (#4992): 一覧の行に置くロックした操作 (ごほうび管理の「編集」)。
+  popover は押してから開くため、押す前に読める理由の注記を近くに常時出し、trigger から
+  aria-describedby で指す。解放判定は呼び出し側の述語 (unlocked) を優先する —
+  currentTier が family でも unlocked=false ならロックする (server の拒否と同じ述語で出すため)。
+-->
+<Story
+	name="LockedInlineWithReason"
+	play={async () => {
+		const note = await waitFor(() => screen.getByTestId('story-gate-reason'));
+		await expect(note).toBeVisible();
+		const trigger = screen.getByTestId('story-row-locked-trigger');
+		// 押す前: 理由の注記を指している / 実行できないことを支援技術に伝える / フォーカスできる
+		await expect(trigger).toHaveAttribute('aria-describedby', 'story-gate-reason');
+		await expect(trigger).toHaveAttribute('aria-disabled', 'true');
+		await expect(trigger).not.toBeDisabled();
+		// 本物の操作 (children) は描画しない
+		await expect(screen.queryByText(L.unlockedContent)).toBeNull();
+		// 押すと拒否ではなくプラン画面への案内が開く
+		await userEvent.click(trigger);
+		const popover = await waitFor(() => screen.getByTestId('feature-gate-popover'));
+		await expect(popover).toBeVisible();
+		await expect(screen.getByTestId('feature-gate-popover-link')).toHaveAttribute(
+			'href',
+			'/admin/subscription',
+		);
+	}}
+>
+	{#snippet template()}
+		<p id="story-gate-reason" data-testid="story-gate-reason">{L.reasonNote}</p>
+		<FeatureGate
+			currentTier="family"
+			requiredTier="standard"
+			unlocked={false}
+			display="inline"
+			buttonLabel={L.rowButtonLabel}
+			describedBy="story-gate-reason"
+			testid="story-row-locked-trigger"
+		>
+			<span>{L.unlockedContent}</span>
+		</FeatureGate>
+	{/snippet}
+</Story>
+
+<!--
   LockedSection: パネル全体を disabled + overlay。overlay tap で同じ popover が開く。
 -->
 <Story

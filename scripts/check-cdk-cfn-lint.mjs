@@ -60,7 +60,7 @@ const SYNTH_ACCOUNT = '000000000000';
  * 一時 `cdk.context.json` に書き込んで synth 後に元へ戻す (gitignored な build artifact、
  * CLI の JSON quoting を跨がず cross-platform で決定的)。
  *
- * - addError / throw guard (parentGateCookieSecret / opsSecretKey / dsqlEndpoint /
+ * - addError / throw guard (parentGateCookieSecret / opsSecretKey / vapidPublicKey / vapidPrivateKey / dsqlEndpoint /
  *   dsqlClusterArn / originVerifySecret の非空要求) を満たす**非秘密のダミー値**
  * - 全 stack を synth 対象にする context gate (dsqlEnabled / dsqlStagingEnabled / stagingEnabled)。
  *   #3870 の DsqlBackupRole を含む全 11 stack (prod 6 + Dsql + DsqlStaging + staging 3) を検査対象化
@@ -76,6 +76,11 @@ const SYNTH_CONTEXT = {
 	// 32 文字以上の非秘密ダミー。
 	originVerifySecret: 'cfnlint-dummy-origin-verify-secret-000000',
 	opsSecretKey: 'cfnlint-dummy-ops-secret-key',
+	// #4706: 本番 ComputeStack は VAPID 鍵の未指定 / 形式不正 / 組にならない鍵を addError にする。
+	// 秘密鍵 'c'×43 と組になる非秘密ダミー (形式に加えて組の一致も検査される)。
+	vapidPublicKey:
+		'BOCUInad2D500P1tNUsjVC5kpsv05KTNRb_oPrixTemHqBBggeLQjM7itlwVhi6BGUYiKomWarGULULJEqYhSLg',
+	vapidPrivateKey: 'c'.repeat(43),
 	dsqlEndpoint: 'cfnlintdummy1234.dsql.us-east-1.on.aws',
 	dsqlClusterArn: `arn:aws:dsql:us-east-1:${SYNTH_ACCOUNT}:cluster/cfnlintdummy1234`,
 	dsqlEnabled: true,

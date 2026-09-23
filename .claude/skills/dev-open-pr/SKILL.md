@@ -3,21 +3,21 @@ name: Dev Open PR
 description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md + .github/PR_TEMPLATE_SECTIONS.json (#2060), and provides a CI gate for Ready 化. Before Ready 化, verify all 7 required sections are present via check-pr-body.mjs (PR #2039 / #2043 連続再発防止). Replaces ad-hoc per-PR boilerplate re-invention.
 ---
 
-> **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review (PO Goal 2)](../lp-review/SKILL.md) / [Issue Triage (PO Goal 1)](../issue-triage/SKILL.md)
+> **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review](../lp-review/SKILL.md) / [Issue Triage](../issue-triage/SKILL.md)
 
 ## ⚠️ Ready 化前必須 (本 SKILL 違反で複数 PR が CI fail 観察、#2632、QA self-implement 第 5 弾)
 
 **`gh pr ready <N>` 実行前に必ず以下 5 項目を完遂すること**。本日 (2026-05-29) 7 連続再発 (#2625 / #2626 / #2629 / #2630 等で Ready checklist 未チェック / AC 2 列 / forbidden-terms 混入 / rebase drift) + Persona Drift 4 連続観察 (#2613 RR #4 / #2625 / #2629 / #2630) の構造的予防策:
 
-1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — Step 9 Readiness gate (`check-pr-body.mjs`) で下記 2-4 を一括検出
-2. **PR body Ready checklist 全 `[x]` 化** — 「QM 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
-3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 2 列簡略形式は `ac-map-incomplete` で exit 1
-4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」) — PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
+1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — step 一覧は `npm run pre-ready -- --help` が SSOT。PR body は Step 9 (`check-pr-body.mjs`) が検査し、どの違反が blocking でどれが advisory (exit 0 で出力のみ) かは同 script の `BLOCKING_GATES` が SSOT
+2. **PR body Ready checklist は実態どおりに `[x]` 化** (虚偽禁止)。未チェック検出の機械検査は integration lane のみで、feature / hotfix lane は #4305 で撤去済
+3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 本 skill 雛形の書式。機械検査 (`ac-map-*`) は #4305 / #4612 で撤去済
+4. **forbidden-terms 0 件** (語彙は `check-pr-body.mjs` の `FORBIDDEN_TERMS` が SSOT) — advisory (merge は止めないが AI レビュアと QM が読む)。PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
 5. **rebase 完了** — base branch に rebase 済みで mergeable: CONFLICTING でないこと。**base は develop 二層で決まる** (branch-strategy.md §3/§5、#2870 cutover / #2959): feature/fix/docs PR = `git fetch origin develop && git rebase origin/develop` / hotfix (`fix/*` → main) = `git fetch origin main && git rebase origin/main`。判定 SSOT: `node scripts/lib/ci/resolve-base-branch.mjs` / 基点鮮度の機械検証: `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` (#2975)。`--force-with-lease` が stale info で reject されたら `git fetch origin <branch>:refs/remotes/origin/<branch> --force` 後に再 push (worktree / 限定 refspec 下の tracking ref は自動更新されない)。**PR open 中に base が進んだら QM BLOCK を待たず速やかに rebase + SS 再撮影** (#3009、SOP SSOT: [branch-strategy.md §3](../../../docs/sessions/branch-strategy.md))
 
-これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QM Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QM チーム時間効率 (user 明示 priority) 毀損。
+2 / 3 は現在機械検査されず、4 は advisory で出力されるだけなので自分で確認する。**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QM Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QM チーム時間効率 (user 明示 priority) 毀損。
 
-詳細は ADR-0056 §E (#2632) + `docs/sessions/dev-session.md` §「Ready 化前 5 項目 SSOT」を参照。
+詳細は ADR-0056 §E (#2632。ADR-0056 は ADR-0068 で置き換え済 — 撤去されたのは hook 呼び出しのみ) + `docs/sessions/dev-session.md` §「PR 作業時の手順」を参照。
 
 ## push 時自己検証 hook (#2598、QA self-implement 第 8 弾、defense in depth 第 4 層)
 
@@ -30,12 +30,14 @@ Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行
 | 3 | PR body 7 セクション + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
 | 4 | biome check (軽量 lint) | 全 push | 同上 |
 
+step の実体は `.husky/pre-push` 本体が SSOT（上表の他に gh アカウント検証 / eslint fast check #3880 も走る）。
+
 重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ** (push 速度保持 + Pre-PMF / ADR-0010 整合)。
 
 ### 4 層 defense in depth (#2598 で完成)
 
 1. **機構層**: `pre-ready` Step 9 + `check-pr-body` (#2633)
-2. **Agent SKILL ルール**: 本 SKILL.md + `dev-session.md` Ready 化前 5 項目 (#2632)
+2. **Agent SKILL ルール**: 本 SKILL.md 冒頭「Ready 化前必須」+ `dev-session.md` §「PR 作業時の手順」(#2632)
 3. **ADR SSOT**: ADR-0056 §A-§F (本 PR §F 追加)
 4. **push 時自己検証**: `.husky/pre-push` 軽量 verify chain (本 §、#2598)
 
@@ -43,19 +45,19 @@ Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行
 
 # Dev PR 起票ワークフロー
 
-Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順** + Ready 化前の **4 必須 CI gate チェックリスト**。
+Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順** + Ready 化前の **必須 CI gate チェックリスト**。
 
 ## 構造
 
 | ファイル | 役割 |
 |---|---|
 | **SKILL.md** (本ファイル) | PR 起票 4 ステップ (雛形展開 / 穴埋め / 検証 / Draft → Ready) |
-| [ready-gate-checklist.md](./ready-gate-checklist.md) | Ready 化前の 4 必須 CI gate 通過チェックリスト (Wave 1 知見) |
+| [ready-gate-checklist.md](./ready-gate-checklist.md) | Ready 化前の必須 CI gate 通過チェックリスト (Wave 1 知見) |
 | `templates/pr-body-{default,lp,critical-fix,refactor-ssot}.md` | kind 別 PR body 雛形 |
 | `templates/po-decision-brief.md` | **PO 決裁ブリーフ条件付きセクション雛形 (#3862、po-decision:required PR のみ append)** |
 | `scripts/init-pr-body.mjs` | Issue から `{{ISSUE_TITLE}}` `{{AC_TABLE}}` 等を自動穴埋め |
 
-各 PR 起票前に `node .claude/skills/dev-open-pr/scripts/init-pr-body.mjs --issue <num> --kind <type>` で `tmp/pr-bodies/<slug>.md` に雛形を展開してから穴埋めする。Ready 化直前に [ready-gate-checklist.md](./ready-gate-checklist.md) で 4 gate を順に確認する。
+各 PR 起票前に `node .claude/skills/dev-open-pr/scripts/init-pr-body.mjs --issue <num> --kind <type>` で `tmp/pr-bodies/<slug>.md` に雛形を展開してから穴埋めする。Ready 化直前に [ready-gate-checklist.md](./ready-gate-checklist.md) で gate を順に確認する。
 
 **SSOT**: ADR-0004（AC 検証）/ ADR-0030（pre-ready CLI）/ ADR-0026（force push 禁止）/ `.github/PULL_REQUEST_TEMPLATE.md`（PR template SSOT）
 
@@ -90,7 +92,7 @@ npm run dev:open-pr -- --issue 1863 --kind default
 3. プレースホルダー置換:
    - `{{ISSUE_NUMBER}}` ← `--issue` 値
    - `{{ISSUE_TITLE}}` ← Issue タイトル
-   - `{{ISSUE_LABELS}}` ← labels（`type:*` から変更タイプ checkbox を `[x]` 化）
+   - `{{TYPE_CHECKBOXES}}` ← labels（`type:*` から変更タイプ checkbox を `[x]` 化）
    - `{{AC_TABLE}}` ← Issue body の `Acceptance Criteria` セクション内 `- [ ]` 行を 4 列 markdown 表に変換（検証手段 / 結果列は空欄、Agent が埋める）
 4. `tmp/pr-bodies/<num>-<slug>.md` に出力（既存ファイルは上書きしない、`--force` で上書き可）
 
@@ -100,15 +102,16 @@ Agent が実装完了後、Skill 出力の雛形に対して以下を埋める:
 
 | セクション | 埋める内容 |
 |---|---|
-| **顧客価値・目的** | **3 field (`対象ユーザー` / `解決する課題` / `期待される効果`) すべてを実値で埋める**。プレースホルダーコメントを残すと CI 必須 gate「顧客価値・目的の記入」が hard-fail する (#4097 で本 gate の no-op を解消) |
-| AC 検証マップ | 検証手段（コマンド / ファイルパス）+ 結果（PASS / 値） |
-| 影響範囲・横展開チェック | 影響画面 + 並行実装ペア / 設計書同期 / LP 整合の確認、N/A 可 |
-| **テスト・品質セルフチェック** | **結果表の「結果」列を全行記入**する。`<!-- PASS / FAIL -->` を残すと CI 必須 gate「テスト実行結果の記入」が hard-fail する (#4097 で本 gate の常時 skip を解消) |
+| **顧客価値・目的** | **3 field (`対象ユーザー` / `解決する課題` / `期待される効果`) すべてを実値で埋める**（`期待される効果` は顧客向けお知らせの出典になる。下記） |
+| 変更内容 | 何をどう変えたか。レビュアが diff を読む前に持っておくべき前提 |
+| 検証（AC 検証マップ） | 検証手段（コマンド / ファイルパス）+ 結果（PASS / 値） |
+| 影響範囲 | 影響画面 + 並行実装ペア / 設計書同期 / LP 整合の確認、N/A 可 |
+| テスト・品質セルフチェック | 結果表の「結果」列を記入する（CI「テスト実行結果の記入」gate は #4305 で撤去、判定関数も #4623 で削除済） |
 | スクリーンショット | UI 変更時 4 スロット必須、それ以外は「該当なし（理由）」 |
 | 配布済み env / secret | ADR-0006 該当時のみ、それ以外 N/A |
-| **変更タイプ** | **`- [x]` 1 つ以上必須 (#3846)**。Issue に `type:*` label があれば雛形展開時に自動 `[x]` 化されるが、label 無し Issue では全て `- [ ]` のまま出力されるため**必ず手動で主変更タイプを選択**する（未選択は CI 必須 gate hard-fail、ステップ 3 の `--body-file` 検証で PR 作成前に検出される） |
+| 変更タイプ | 主変更タイプを `[x]` にする。Issue に `type:*` label があれば雛形展開時に自動 `[x]` 化される（未選択検出の CI gate は #4305 で撤去、#4612 で残骸も削除済。title 接頭辞が SSOT） |
 
-雛形の `<!-- ... -->` コメントは基本的に説明用ヒントで、残したままでよい。**ただし上記太字 2 セクション（顧客価値・目的の 3 field / テスト結果表の「結果」列）だけは例外**で、コメントのまま残すと CI が hard-fail する。
+雛形の `<!-- ... -->` コメントは説明用ヒントで、残したままでよい。ただし**顧客価値・目的の `**期待される効果**` はリリース時に顧客向けお知らせの出典になる**（#4883、`scripts/build-release-notes.mjs`）ため、お客さまが読む文として実値で書く。CI「顧客価値・目的の記入」は `.github/PULL_REQUEST_TEMPLATE.md` 第 1 節の `**field**:` 行を検査対象にするが、現行テンプレートにその行は無い。
 
 ## ステップ 3: PR body 検証
 
@@ -159,7 +162,7 @@ npm run pre-ready -- --pr <PR番号後で発番>
 
 **AC 検証マップの 4 列検証 / 変更タイプ checkbox 未選択検出は無い。** #4305 が両節を PR テンプレートから撤去した際に対の CI job も外れており、判定関数だけが残っていたものを #4612 で削除した（`ac-map-*` / `change-type-unselected` の違反 id はどこからも出力されない）。
 
-検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT (`.github/PR_TEMPLATE_SECTIONS.json` 経由) に完全準拠** した状態で提供されるが、雛形時点では「AC 検証マップの検証手段 / 結果列」「Ready for Review チェックリスト」が空のため `check-pr-body.mjs` は fail する。**Agent がステップ 2 の穴埋めを完了してから検証 PASS する**設計。穴埋め完了の signal として、本検証 CLI の PASS を使用する。
+検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT (`.github/PR_TEMPLATE_SECTIONS.json` 経由) の必須見出しを全て含む**。ただし AC 検証マップ / Ready for Review チェックリストは feature / hotfix lane で機械検査されないため、**雛形のままでも blocking 違反は出ない**。本 CLI の PASS を穴埋め完了の signal にせず、ステップ 2 の穴埋めは自分で確認する。
 
 ### Ready 化前必須 step: 必須セクション全件存在確認 (#2060)
 
@@ -179,11 +182,7 @@ node scripts/check-pr-body.mjs --pr <num> --body-file /tmp/pr-body-check.md --sk
 3. `gh pr edit <num> --body-file <修正後 body>` で更新
 4. 再度 `check-pr-body.mjs` を実行して 0 違反を確認
 
-**SSOT JSON drift 検出 (#2060)**: `.github/PULL_REQUEST_TEMPLATE.md` を更新したら `.github/PR_TEMPLATE_SECTIONS.json` も同期更新が必要。`check-pr-template-sections-sync.yml` workflow が drift を CI で hard-fail させる。手動修正コマンド:
-
-```bash
-node scripts/check-pr-template-sections-sync.mjs --fix
-```
+**SSOT JSON の同期 (#2060)**: `.github/PULL_REQUEST_TEMPLATE.md` を更新したら `.github/PR_TEMPLATE_SECTIONS.json` も手で同期更新する。drift を検出していた `check-pr-template-sections-sync.yml` / `scripts/check-pr-template-sections-sync.mjs` は #4322 で削除済で、**機械検出は無い**（CI `pr-template-gate.yml` は JSON 側を SSOT として判定する）。
 
 ## ステップ 4: Draft PR 起票 → CI 通過後 Ready 化
 
@@ -203,7 +202,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 3. `node scripts/check-pr-body.mjs --pr <N>` で BOM / `??` mojibake 不在を verify (#2576 で `detectMojibake` ガード追加)
 4. 完了後 `rm tmp/pr-bodies/<num>-<slug>.md` (一時ファイル、#1804)
 
-`scripts/check-pr-body.mjs` は BOM 検出 (`mojibake-bom`) と `??` 5 件以上検出 (`mojibake-heuristic`、#2576 で 10 → 5 に閾値強化) で exit 1。CI gate (`pre-ready` Step 6/7) が同 script を呼ぶため heredoc 起因 mojibake は Ready 化前に必ず止まる。
+`scripts/check-pr-body.mjs` は BOM (`mojibake-bom`) と `??` の多発 (`mojibake-heuristic`) を検出するが、**advisory（exit 0 で出力のみ、merge は止めない）**。`pre-ready` Step 9 / CI でも止まらないため、出力の `ADVISORY-IDS` 行を自分で確認して直す。
 
 ### AC 検証マップは必ず 4 列形式 — #1775 AC2 / #2586
 
@@ -213,7 +212,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 |---|---|
 | `\| AC \| 結果 \|` (2 列簡略) | 検証手段・エビデンスが省略され、QM Re-Review で 4 列要求で BLOCK 再発 (2026-05-28 に 5 連続再発: #2583 / #2585 / #2588 / #2596 / #2593) |
 | `\| AC1 \| PASS \|` (結果のみ) | HEAD SHA / file:line / grep 実体根拠が記録されず、ADR-0004 AC 検証義務を満たさない |
-| 列数 3 以下 | `scripts/check-pr-body.mjs` の `ac-map-incomplete` チェックが exit 1 |
+| 列数 3 以下 | 検証手段・エビデンス列が欠ける（機械検査 `ac-map-*` は #4305 / #4612 で撤去済のため、書式はレビューで担保） |
 
 **正しい運用 (4 列 SSOT)**:
 
@@ -232,7 +231,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 **参考 PR (4 列 SSOT 実装例)**: #2588 / #2599
 
-`scripts/check-pr-body.mjs` の `ac-map-incomplete` / `ac-map-empty` は 4 列未満 or 空セルを exit 1 で検出する。Ready 化前に必ず `node scripts/check-pr-body.mjs --pr <N>` PASS を verify する。
+AC 検証マップの 4 列 / 空セルを検出する機械検査は無い（`ac-map-incomplete` / `ac-map-empty` は #4612 で判定関数ごと削除済。`.github/PULL_REQUEST_TEMPLATE.md` にも節が無い）。4 列を埋めたかは自分で確認する。
 
 #### 根拠コマンドの `--pr <番号>` は自 PR に一致させる — #4074
 
@@ -240,7 +239,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 - 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。#4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は「OK — 違反なし」を返し CI も全 pass した
 - **`gh pr view <N> --json <単一フィールド>` は存在しない PR でも値を返す**。AI が生成した PR 番号は検証なしに信用できない。番号を書いたら `gh api repos/<owner>/<repo>/pulls/<N>` で実在を確認する
-- 現在は `check-pr-body.mjs` が `evidence-pr-mismatch` として exit 1 にする（AC 検証マップセクション内の `--pr <数字>` が対象。body の他所での他 PR 言及は対象外）
+- 現在は `check-pr-body.mjs` が `evidence-pr-mismatch` として exit 1 にする（`## 検証` セクション内の `--pr <数字>` が対象、#4612 で走査節を付け替え。body の他所での他 PR 言及は対象外）
 - 番号を書かない `--pr <num>` 等のプレースホルダ形式は従来どおり通る。**実際に実行した番号を書くなら自 PR 番号にする**
 
 ```bash
@@ -255,7 +254,7 @@ gh pr create --draft \
   --title "<type>: #<num> <subject>" \
   --body-file tmp/pr-bodies/<num>-<slug>.md
 
-# CI 全通過後 Ready (← 直前に ready-gate-checklist.md の 4 gate 通過を確認)
+# CI 全通過後 Ready (← 直前に ready-gate-checklist.md の gate 通過を確認)
 gh pr checks <PR番号> --watch
 gh pr ready <PR番号>
 
@@ -263,29 +262,29 @@ gh pr ready <PR番号>
 rm tmp/pr-bodies/<num>-<slug>.md
 ```
 
-### Ready 化前の 4 必須 CI gate (Wave 1 知見)
+### Ready 化前の CI gate (Wave 1 知見)
 
 `gh pr ready <num>` する直前に [ready-gate-checklist.md](./ready-gate-checklist.md) を確認:
 
 | # | Gate | ローカル検証 |
 |---|---|---|
-| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
-| 2 | 必須セクション 12 個 全存在 | 同上 |
-| 3 | Ready チェックリスト `[x]` 完了 (虚偽禁止) | 同上 |
+| 1 | AC 検証マップ全行埋め | 機械検査なし（feature / hotfix lane は #4305 で撤去。自分で確認） |
+| 2 | 必須セクション（`.github/PR_TEMPLATE_SECTIONS.json` の全見出し）全存在 | `node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable`（advisory。hard-fail は CI `pr-template-gate.yml`） |
+| 3 | Ready チェックリスト `[x]` 完了 (虚偽禁止) | 機械検査は integration lane のみ（feature / hotfix lane は #4305 で撤去） |
 | 4 | UI 変更時 SS 4 スロット添付 | 修正前 × Mobile/PC + 修正後 × Mobile/PC を `docs/screenshots/pr-<num>/` または screenshots branch に配置 |
 
-一括検証: `npm run pre-ready -- --pr <num>` (Step 6 = `check-pr-body.mjs` で gate 1+2+3 検出、Step 7 = capture が gate 4 補助)。Wave 1 で 4 Agent が同じ初回 fail を踏んだため、本チェックリストを必ず通してから Ready 化する。
+一括検証: `npm run pre-ready -- --pr <num>`（Step 9 = `check-pr-body.mjs` が gate 2 を検出、Step 11b = SS embed gate が gate 4 を検出。step 一覧は `--help` が SSOT）。Wave 1 で 4 Agent が同じ初回 fail を踏んだため、本チェックリストを必ず通してから Ready 化する。
 
-### customer-facing PR の CX-DoR 8 条件確認 (#2553)
+### customer-facing PR の CX-DoR 確認 (#2553)
 
-**critical user journey (活動追加 / 報酬交換 / 子供記録 等) に触れる PR** (`type:feat` / `type:fix` で UI 変更 or marketplace import 系) は、4 必須 CI gate に加えて **CX 版 DoR 8 条件** (`tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」) を確認する。#2558 で実証された通り、機能 E2E 緑のまま謎用語 / 経路重複 / dead-end が顧客 1 分露出する事故への構造的対策。
+**critical user journey (活動追加 / 報酬交換 / 子供記録 等) に触れる PR** (`type:feat` / `type:fix` で UI 変更 or marketplace import 系) は、上記 CI gate に加えて **CX 版 DoR** (`tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」が条件一覧の SSOT。下表は条件 1〜8 の抜粋で、9〜12 は SSOT を参照) を確認する。#2558 で実証された通り、機能 E2E 緑のまま謎用語 / 経路重複 / dead-end が顧客 1 分露出する事故への構造的対策。
 
 | # | 条件 | 軽量 (per-PR) | 重量 (EPIC-merge / 顧客レビュー gate) |
 |---|---|---|---|
 | 1 | goal 完遂 dead-end ゼロ | 該当 CUJ targeted E2E | 全 CUJ 貫通 |
 | 2 | Cognitive Walkthrough 4 質問 全 Yes | — | session sheet 添付 (`.claude/skills/cognitive-walkthrough/SKILL.md` 経由、#2554) |
-| 3 | 用語 SSOT 準拠 | [`check-terminology-coherence.ts`](../../../scripts/check-terminology-coherence.ts) warning 0 (`pre-ready` Step 4 に統合済) | 同 |
-| 4 | add 経路 ≤ 4 + 用語重複なし | 同 #3 (両者同 script) | 同 |
+| 3 | 用語 SSOT 準拠 | プラン文字列のみ `check-no-plan-literals.mjs`（`pre-ready` Step 7）。他はレビュー担保（`check-terminology-coherence.ts` は #4322 で削除済） | 同 |
+| 4 | add 経路 ≤ 4 + 用語重複なし | add dropdown 同型性のみ `tests/e2e/admin-add-path-isomorphism.spec.ts`。用語重複はレビュー担保 | 同 |
 | 5 | vision LLM review + 人間 filter | — | C-5 POC 採用後に opt-in |
 | 6 | exploratory 1 セッション dead-end ゼロ | — | C-6 POC 採用後に opt-in |
 | 7 | 実機 1 クリック貫通 (NUC or demo Lambda preview) | UI 変更時は人間 1 回 | trace/video 証跡 (#2544 AC6) |
@@ -294,7 +293,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 **判定 flow**:
 
 1. 「該当 PR が customer-facing か」を Issue / 変更 file から判定 (`src/routes/**` UI 変更 or `src/lib/marketplace/**` or `src/lib/features/**` に該当)
-2. customer-facing なら 8 条件のうち per-PR 列を満たすことを `pre-ready` + 該当 E2E + SS で確認
+2. customer-facing なら per-PR 列を満たすことを `pre-ready` + 該当 E2E + SS で確認
 3. EPIC 完了時 / 顧客レビュー前は重量列も満たし、PR body or EPIC umbrella の「テスト・品質セルフチェック」section に証跡を集約
 
 **禁忌**:
@@ -302,7 +301,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 - 条件 5 (AI vision review) を主担保にする (research §3-1 false-positive 80%、必ず人間 filter)
 - 全画面網羅 / 多人数 user testing 招集を Pre-PMF で要求する (5-user rule で 85% 捕捉、ADR-0010)
 
-詳細 SSOT: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR (8 条件 SSOT、#2553)」 / 研究: `tmp/research-cx-quality-verification.md` §4 / §G。
+詳細 SSOT: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」。
 
 ## kind 別 template 選択ガイド
 
@@ -310,20 +309,22 @@ rm tmp/pr-bodies/<num>-<slug>.md
 |---|---|---|
 | `default` | 通常の feat / refactor / docs / infra | （PR template の標準セクションのみ） |
 | `lp` | `site/**` を変更する PR | `lp-metrics 結果` 欄（mobileHeight / desktopHeight / forbiddenTerms） |
-| `critical-fix` | `priority:critical` / hotfix の bug fix | `ADR-0002 5 要件チェック` 欄 + **hotfix runbook 5 項目チェックリスト (#2343)** (Skill 雛形使用 / `refactor:internal-no-doc-impact` ラベル判断 / env 配布 4 経路 / `$lib/runtime/env` 経由化 / pre-ready 4 種 check) |
+| `critical-fix` | `priority:critical` / hotfix の bug fix | `ADR-0002 5 要件チェック` 欄 + **hotfix runbook 5 項目チェックリスト (#2343)** (Skill 雛形使用 / `refactor:internal-no-doc-impact` ラベル判断 / env 配布 4 経路 / `$lib/runtime/env` 経由化 / pre-ready 3 種 check) |
 | `refactor-ssot` | SSOT 化 / ファイル移動を伴う refactor | `移動先対応マップ` 欄（旧 path → 新 path、import 更新件数） |
 
-### hotfix PR (priority:critical / hotfix label) で必ず `--kind critical-fix` を使う (#2343)
+### hotfix PR (priority:critical) で必ず `--kind critical-fix` を使う (#2343)
 
-`hotfix` PR が `--kind default` で起票されると以下 4 種の CI fail が連続発生する (#2318 / #2340 / #2341 / #2342 の root cause、詳細 narrative は `docs/rationale/08-hotfix-pr-ci-fail-prevention.md`):
+（`hotfix` という label は repo に存在しない。`gh label list` で確認できる hotfix 系 label は `priority:critical` のみ）
+
+`hotfix` PR が `--kind default` で起票されると以下の CI fail が連続発生した (#2318 / #2340 / #2341 / #2342 の root cause、詳細 narrative は `docs/rationale/08-hotfix-pr-ci-fail-prevention.md`):
 
 | fail パターン | 対策 (本 template 内蔵) |
 |---|---|
-| 必須セクション 7 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
-| `refactor:internal-no-doc-impact` ラベル未付与で design-doc-check fail (#2318 / #2340) | Step 2 (ラベル判断 + 起票時付与) |
+| 必須セクション（`PR_TEMPLATE_SECTIONS.json`）のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
+| `refactor:internal-no-doc-impact` ラベル未付与で design-doc-check fail (#2318 / #2340)。**design-doc-check は #4322 で削除済** | Step 2 (ラベル判断 + 起票時付与) |
 | 新規 env / secret 配布証跡が 4 経路揃わず new-env-distribution-check fail | Step 3 (4 経路明示) |
 | `process.env.X` 直接参照で lint-and-test fail (#2342) | Step 4 (`$lib/runtime/env` 経由) |
-| 設計書同期忘れで design-doc-check fail | Step 5 (pre-ready 4 種 check) |
+| 設計書同期忘れで design-doc-check fail。**#4322 で削除済のため現在は機械検出されない（目視で確認）** | Step 5 (pre-ready 3 種 check) |
 
 `--kind` を省略すると `default`。Issue label から推定する自動選択は導入しない（曖昧さによる事故回避、Agent が明示指定する）。
 
@@ -346,28 +347,27 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 - 本セクションは **必須 7 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
 - **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QM merge gate 指摘、が 2 回連続したことによる gate 化
-- `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
+- **`po-decision:required` を理由に merge は止まらない**（[チーム憲章 §0](../../../docs/sessions/README.md) ルール 3: QM は PO に決裁を求めない）。QM は Issue 側の採択条件とブリーフを両方読んで判断する（[qm skill](../qm/SKILL.md) §5）
 - label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する
 
 ## SSOT alignment 原則
 
 - **PR template (`.github/PULL_REQUEST_TEMPLATE.md`) が SSOT**。Skill 雛形は template の章立て・チェック項目を完全に踏襲する
-- **派生 SSOT (`.github/PR_TEMPLATE_SECTIONS.json`) — #2060**: `## ` 見出し配列を JSON 化し、CI workflow / `check-pr-body.mjs` / skill が共通参照する。template と JSON は `check-pr-template-sections-sync.yml` で drift 検出 (hard-fail)
-- **template 改訂時は Skill 雛形 + SSOT JSON も同 PR で更新**（`scripts/check-pr-body.mjs` が template から見出しを runtime 抽出 + SSOT JSON 経由のチェックも行うため、見出し追加・削除は Skill 雛形にも追従が必要。JSON は `node scripts/check-pr-template-sections-sync.mjs --fix` で再生成可）
+- **派生 SSOT (`.github/PR_TEMPLATE_SECTIONS.json`) — #2060**: `## ` 見出し配列を JSON 化し、CI workflow / `check-pr-body.mjs` / skill が共通参照する。template と JSON の drift 検出は #4322 で削除済（機械検出なし）
+- **template 改訂時は Skill 雛形 + SSOT JSON も同 PR で手で更新**（`scripts/check-pr-body.mjs` が template から見出しを runtime 抽出 + SSOT JSON 経由のチェックも行うため、見出し追加・削除は Skill 雛形にも追従が必要）
 - **kind 別追加セクションは template 共通セクションの後ろに append**（template 順序を破壊しない）
 
 ## 関連ドキュメント
 
 | ドキュメント | 用途 |
 |---|---|
-| [ready-gate-checklist.md](./ready-gate-checklist.md) | **Ready 化前 4 必須 CI gate チェックリスト (Wave 1 知見)** |
+| [ready-gate-checklist.md](./ready-gate-checklist.md) | **Ready 化前 必須 CI gate チェックリスト (Wave 1 知見)** |
 | @docs/sessions/dev-session.md | Dev Session 親 SSOT（PR 作業手順） |
 | @.github/PULL_REQUEST_TEMPLATE.md | PR template SSOT（雛形の見出しを完全一致させる対象） |
 | @.github/PR_TEMPLATE_SECTIONS.json | **#2060: PR template `## ` 見出し SSOT JSON**。CI / skill / check-pr-body.mjs 共通参照 |
 | @scripts/check-pr-body.mjs | PR body セルフチェック CLI（#1775 / ADR-0030） |
-| @scripts/check-pr-template-sections-sync.mjs | **#2060: template ↔ SSOT JSON drift 検出 CLI** (`--fix` で JSON 再生成) |
 | @scripts/check-pr-screenshot.mjs | SS 4 スロット / ローカルパス検証 CLI（#1740 / #1741） |
-| @scripts/pre-ready.mjs | pre-ready 全 6 step CLI（#4121 で ADR-0007 §1-2 判断原則 v2 に基づき縮小。外した検査は CI で hard-fail 継続。一覧・対応表 SSOT は `--help`） |
+| @scripts/pre-ready.mjs | pre-ready CLI（#4121 で ADR-0007 §1-2 判断原則 v2 に基づき縮小。外した検査は CI で hard-fail 継続。step 一覧・対応表 SSOT は `--help`） |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB（SC-007 screenshots branch 運用 / SC-008 tmp gitignore） |
 | @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務（gate 1） |
-| @docs/decisions/0030-pre-ready-cli.md | pre-ready 全 Step PASS 必須 |
+| @docs/decisions/0030-pre-ready-cli-and-no-pre-push-hook.md | pre-ready 全 Step PASS 必須 |

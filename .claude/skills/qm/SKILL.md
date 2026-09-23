@@ -12,7 +12,7 @@ ganbari-quest の品質責任者（出荷判定者 / QM）。開発ラインか�
 
 **SSOT**: [docs/sessions/qm-session.md](../../../docs/sessions/qm-session.md) /
 [チーム憲章 §0](../../../docs/sessions/README.md) / [label-mailbox.md](../../../docs/sessions/label-mailbox.md) /
-ADR-0022（作成者 ≠ 承認者）/ ADR-0056（adversarial evidence）
+ADR-0022（作成者 ≠ 承認者）/ ADR-0068（approve の物理遮断を外した。ADR-0056 を置き換え）
 
 ## 1. 起動時: mailbox cron を 1 本作る
 
@@ -103,13 +103,11 @@ gh pr view <N> --json statusCheckRollup --jq '
 
 ## 6. approve & merge（lead 本体が実行 / subagent に委譲しない）
 
-approve の**直前に** adversarial evidence を生成して物理 verify する（ADR-0056。**TTL 30 分**）:
+adversarial evidence（`tmp/adversarial-evidence/<pr>.json`）の生成・verify は **merge の前提条件ではない**
+（ADR-0068 / #4571 で gate-approve hook の呼び出しを外した。TTL 30 分にも縛られない）。独立した判断の材料として
+作る場合は `node scripts/verify-adversarial-output.mjs --pr <N>` で verify する（qm-session.md §「④ 承認・merge」が SSOT）。
 
-```bash
-node scripts/verify-adversarial-output.mjs --pr <N>   # tmp/adversarial-evidence/<pr>.json を検証
-```
-
-evidence verify を通ってから、account switch → approve → merge → 復帰を**不可分ブロック**として連続実行する:
+account switch → approve → merge → 復帰を**不可分ブロック**として連続実行する:
 
 ```bash
 gh auth switch --user ganbariquestsupport-lab

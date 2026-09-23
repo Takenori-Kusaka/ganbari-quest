@@ -1,5 +1,5 @@
 // tests/unit/infra/staging-cdk.test.ts
-// #2873 (EPIC #2861 D 系) — AWS staging 3 stack の CDK 構造検証。
+// #2873 (EPIC #2861 D 系) — AWS staging 4 stack の CDK 構造検証。
 //
 // このテストは 2 つの責務を持つ:
 //   (1) prod 不変 guard (load-bearing): `stagingEnabled` 無し (= envConfig 未指定) で synth した
@@ -63,7 +63,7 @@ function buildProdStacks(): {
 }
 
 /**
- * staging 3 stack (STAGING_ENV_CONFIG) を synth する。
+ * staging の Storage / Auth / Compute 3 stack (STAGING_ENV_CONFIG) を synth する。
  * 意図的に cronSecret / opsSecretKey を context に渡さない —
  * #1586 guard が enableCronDispatcher 分岐内に移動したことの実証 (#2873 handoff spec)。
  */
@@ -118,6 +118,10 @@ function buildProdCompute(extraContext: Record<string, string> = {}): ComputeSta
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			// #4706: 本番 synth の必須 context (未指定・組にならない鍵は addError)。秘密鍵 'a'×43 と組になる非秘密ダミー。
+			vapidPublicKey:
+				'BAicvjX0tNtk9b2G2iUUZAXdKw4WqVrzzfHCX9KLrJCA5cTYr522SGO382Bhpd9gfNaBcP8Nw-Tz3JKBMzNHcfY',
+			vapidPrivateKey: 'a'.repeat(43),
 			...extraContext,
 		},
 	});
