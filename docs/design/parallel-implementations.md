@@ -27,6 +27,13 @@
 
 ---
 
+## 設計原則
+
+- **片側を SSOT にし、もう片側は生成か検査で追従させる**。機械で追従させられる組は、生成 script の `--check` や test で差分を止める。機械で追従させられない組だけを、本マップの「修正時チェック」で人が同期する
+- **各ペアは「機械が止めるもの」と「人が見るもの」を分けて書く**。「同期メカニズム」には実際に fail する検査と、それが止める事象だけを書き、「修正時チェック」には検査が見ない範囲を書く。検査が止めるものを「機械強制が無い」と書かない。検査を足したり外したりした PR は、同じ PR で該当ペアの記述を直す
+
+---
+
 ## 並行実装ペア一覧
 
 ### 🔴 優先度: 最高 — 同期漏れが頻発
@@ -42,30 +49,36 @@
 | `site/shared-labels.js` | LP 共通用語ラッパ（2026-04-07 新設、#561） | JavaScript |
 
 **同期メカニズム**:
-- **現状（半自動）**: `scripts/generate-lp-labels.mjs` で labels 層 (入口 + `src/lib/domain/labels/*.ts` の連結本文) から `site/shared-labels.js` を生成。`--check` モード (CI `npm run lint:parallel` / pre-commit hook) で diff があれば fail
-- **key-set 比較による silent drift 検出は無い (#4420)**: 生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出していた専用 script は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
+- `scripts/generate-lp-labels.mjs` が labels 層 (入口 + `src/lib/domain/labels/*.ts` の連結本文) から `site/shared-labels.js` を生成し、`scripts/sync-lp-fallback.mjs` が `site/*.html` の `data-lp-key` 要素の fallback テキストを生成物の値にそろえる。どちらも `--check` モードを CI `npm run lint:parallel` と pre-commit hook が実行し、差分があれば fail する
+- 配信の取りこぼしは次の 3 つで止まる (#4626)。意図的に配信しないものは、それぞれの除外表 (`LP_NAMESPACE_EXCLUSIONS` / `LP_KEY_EXCLUSIONS` / `HTML_LP_KEY_EXCLUSIONS`) に理由付きで登録する
+  1. labels 層の `export const LP_*` が `LP_NAMESPACE_TABLE` に無い → 生成器の drop-gate が生成を止める
+  2. `LP_NAMESPACE_TABLE` にある namespace の key のうち、生成器が値を解決できないもの (関数呼び出し・spread・quoted key 等) → 同じ drop-gate が生成を止める
+  3. `site/*.html` の `data-lp-key` に対応する値が生成物に無い (`LP_` で始まらない名前で書いて配信されていない namespace を含む) → `sync-lp-fallback --check` が fail する
+- 上の 3 つが見るのは「値が届くか」まで。届いた値の**中身** (文言の意味が LP の文脈に合っているか) は機械では見ないので、レビューで見る
 
 **修正時チェック**:
 ```bash
 # アプリ側の用語変更が LP に影響していないか grep (labels 層はディレクトリごと見る)
 grep -rn "変更前の用語" site/ src/lib/domain/labels/
 
-# 新規 LP_*_LABELS を追加した場合、shared-labels.js への反映を確認
-node scripts/generate-lp-labels.mjs        # shared-labels.js 再生成
-node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
+# 新規 LP_*_LABELS を追加した場合、shared-labels.js と HTML fallback への反映を確認
+node scripts/generate-lp-labels.mjs          # shared-labels.js 再生成
+node scripts/sync-lp-fallback.mjs            # site/*.html の fallback テキストをそろえる
+npm run lint:parallel                        # CI と同じ検査 (両 script の --check を含む)
 ```
 
 **新規 LP_\*_LABELS namespace 追加時の手順**:
 1. `src/lib/domain/labels/lp.ts` に `export const LP_FOO_LABELS = { ... }` を追加 (配置規則の 1 行目。値に使う共有文は 1 行の `(export )?const X = '…';` で書く)
 2. `scripts/generate-lp-labels.mjs` の `LP_NAMESPACE_TABLE` に行を追加する (無いと drop-gate が「LP_* namespace が LP_NAMESPACE_TABLE に無い」で生成を止める)
 3. `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
-4. `node scripts/generate-lp-labels.mjs --check` で整合確認 (CI が同じ検証を実行)。parser が新規 namespace を認識していない場合はここで diff が出ない（機械強制が無い箇所、目視で確認する）
+4. `site/*.html` に `data-lp-key` を置き、`node scripts/sync-lp-fallback.mjs` で fallback テキストをそろえる
+5. `npm run lint:parallel` が通ることを確かめる (CI が同じ検査を実行する)
 
 **分割前の `labels.ts` を触っていた branch の追従手順** (#4965 で labels.ts を `src/lib/domain/labels/*.ts` に分けた。分割前に切った branch が develop を取り込むとき):
 1. develop を merge (または rebase) する。`src/lib/domain/labels.ts` の衝突は **develop 側 (入口) を採る**
 2. 自分の hunk ごとに、変更していた namespace の移動先を `grep -rn "export const <NAME>" src/lib/domain/labels/` で引き、同じ行に当て直す (分割は文を一字一句移しただけなので、周辺の行はそのまま残っている)。当て直した hunk がそのファイルでまだ import していない名前を参照するなら、そのファイルに import を足す (labels ファイル同士は `'./<file>'`、`terms.ts` 等は `'../terms'`。入口は import しない)
 3. 自分が新しく足した namespace は `docs/DESIGN.md` §6 の配置規則で決まるファイルに置く。別の labels ファイルの非 export 宣言を使うなら、定義側に `export` を付けて `./<file>` から import する
-4. `git grep -nE "^(export )?(const|let|function|type|interface|enum|class) " src/lib/domain/labels.ts` が 0 件であることを確かめる (export の有無を問わず、入口に宣言を残さない。export 付きは同名の `export *` を黙って上書きし、非 export は別ファイルの namespace から参照できない)。最後に `node scripts/generate-lp-labels.mjs --check` と svelte-check を通す
+4. 入口に宣言を残さない (export 付きは同名の `export *` を黙って上書きし、非 export は別ファイルの namespace から参照できない)。`npx vitest run tests/unit/domain/labels-entry-shape.test.ts` が入口の形を検査する。最後に `node scripts/generate-lp-labels.mjs --check` と svelte-check を通す
 
 ---
 

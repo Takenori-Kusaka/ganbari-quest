@@ -155,8 +155,9 @@ describe('site/pricing.html — hardcoded 用語撤廃 (#1942 Phase 3 D2)', () =
 				.join('\n');
 			throw new Error(
 				`[#1942 D2] data-lp-key を持たない位置に hardcoded 用語 ${violations.length} 件:\n${detail}\n\n` +
-					'対応方針: 該当要素に data-lp-key 属性を追加し、labels.ts の対応 namespace に値を登録する。\n' +
-					'fallback テキストは sync-lp-fallback.mjs 経由で labels.ts と同期される。',
+					'対応方針: 該当要素に data-lp-key 属性を追加し、src/lib/domain/labels/lp.ts の対応する LP_* namespace に値を登録する' +
+					' (新しい namespace なら scripts/generate-lp-labels.mjs の LP_NAMESPACE_TABLE にも足す)。\n' +
+					'fallback テキストは sync-lp-fallback.mjs 経由で labels 層と同期される。',
 			);
 		}
 

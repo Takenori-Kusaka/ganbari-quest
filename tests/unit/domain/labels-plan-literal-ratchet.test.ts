@@ -1,7 +1,7 @@
 // tests/unit/domain/labels-plan-literal-ratchet.test.ts
-// #3359 (ADR-0045 §3.3 / ADR-0061 §2 class-lock): labels.ts の compound 内 plan 名 atom 直書き ratchet。
+// #3359 (ADR-0045 §3.3 / ADR-0061 §2 class-lock): labels 層の compound 内 plan 名 atom 直書き ratchet。
 //
-// 背景: `src/lib/domain/labels.ts` は check-no-plan-literals の allowlist (#1918) で **全体 exempt** されている
+// 背景: labels 層 (入口 labels.ts + labels/*.ts) は check-no-plan-literals の allowlist (#1918) で **全体 exempt** されている
 // (compound 組立て layer = terms.ts atom を参照する想定のため)。しかし実際には compound 値の中に
 // 'スタンダードプラン' / '無料プラン' 等の atom 値を直書きした compound が散在し、ADR-0045 §3.3
 // (atom 値は `${PLAN_FULL_TERMS.*}` で参照、文字列直書き禁止) に違反していても CI で検出されない gap がある。
@@ -11,12 +11,10 @@
 // 本 ratchet は plan 名 literal の「**新規追加**」を機械的に封じる (generator stop)。検出は専用の脆い
 // regex を新設せず、実績ある check-no-plan-literals.mjs の `checkFile` (block-comment 追跡 + 行末コメント
 // 除外を内包) を再利用する (#1442 使い捨て script 禁止)。allowlist は `main()` 内 `shouldExclude` で効くため、
-// `checkFile` を直接呼べば labels.ts も走査できる。
+// `checkFile` を直接呼べば labels 層も走査できる。
 //
-// baseline = 既存 33 件を pin。これは FAQ / 利用規約 / トライアル説明など自然文に grammatically 埋め込まれた
-// pre-existing literal + 'ファミリープラン' naming-drift (atom `PLAN_FULL_TERMS.family` は 'プレミアムプラン'
-// を返すため `${...}` 置換で文言が変わってしまい単純変換不可) を含む。これらの削減は別 cleanup で baseline を
-// 下げる (base-token-routes-ratchet #3152 / lp-removal-residue #1790 と同型の ratchet 運用)。
+// baseline は既存の直書きの件数に一致させる。残っているのは FAQ / 利用規約 / トライアル説明など自然文に
+// 埋め込まれた pre-existing literal で、削減したら同じ PR で baseline を下げる (2 本目の test が一致を求める)。
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,18 +38,20 @@ const PLAN_NAME_PATTERNS = [
 ];
 
 // 現状の plan 名直書き件数。**この値を引き上げてはならない** (新規違反の混入を意味する)。
-// 既存削減で実数が下回ったら本値を実数へ下げる (ratchet down のみ許可)。
-// #4502: 旧 33 → 実数 27 へ ratchet down (dead な DEMO_SIGNUP_LABELS 削除 + 旧称
-// 「ファミリー」の atom 参照化による削減)。**引き上げは禁止**。
-const BASELINE = 27;
+// 既存削減で実数が下回ったら同じ PR で本値を実数へ下げる (ratchet down のみ許可)。
+const BASELINE = 17;
+
+function findPlanNameLiterals() {
+	return LABEL_SOURCES.flatMap((rel) =>
+		checkFile(path.join(REPO_ROOT, rel))
+			.filter((f) => PLAN_NAME_PATTERNS.includes(f.pattern))
+			.map((f) => ({ ...f, rel })),
+	);
+}
 
 describe('labels 層 plan-name literal ratchet (#3359, ADR-0045/ADR-0061)', () => {
 	it('compound 内の plan 名 atom 直書きが baseline 以下である (新規追加を禁止する class-lock)', () => {
-		const findings = LABEL_SOURCES.flatMap((rel) =>
-			checkFile(path.join(REPO_ROOT, rel))
-				.filter((f) => PLAN_NAME_PATTERNS.includes(f.pattern))
-				.map((f) => ({ ...f, rel })),
-		);
+		const findings = findPlanNameLiterals();
 		const detail = findings
 			.map((f) => `  ${f.rel}:${f.line} ${f.pattern}: ${f.snippet}`)
 			.join('\n');
@@ -62,5 +62,16 @@ describe('labels 層 plan-name literal ratchet (#3359, ADR-0045/ADR-0061)', () =
 				'(ADR-0045 §3.3)。既存削減で baseline を下回った場合は本 BASELINE を実数へ下げてください。\n' +
 				detail,
 		).toBeLessThanOrEqual(BASELINE);
+	});
+
+	it('baseline は実数と一致する (削減したら同じ PR で BASELINE を下げる)', () => {
+		// 上の test は「超えない」しか見ないため、削減しても BASELINE を据え置くと差分が余白になり、
+		// その件数までは新しい直書きが CI を通る。件数が小さいので許容幅は置かず、実数との一致を求める。
+		const actual = findPlanNameLiterals().length;
+		expect(
+			actual,
+			`labels 層の plan 名直書きが baseline より少なくなっています (実数 ${actual} / baseline ${BASELINE})。` +
+				'BASELINE を実数へ下げてください (引き上げは不可)。',
+		).toBe(BASELINE);
 	});
 });

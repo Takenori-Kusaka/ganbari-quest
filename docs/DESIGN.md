@@ -261,11 +261,16 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 > **全 export の一覧はこのファイルに掲載しない**（`src/lib/domain/labels/` の実ファイルが SSOT）。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
 
-**1 つの namespace は 1 つのファイルにだけ置く。置くファイルは、その文言が表示される場所で決める。** 表示される場所が**すべて** 1〜12 行目の同じ 1 つのファイルに当たるなら、そのファイルに置く。2 つ以上の行・ファイルにまたがるなら 13 行目、13 行目の種類にも当たらなければ 14 行目で決める。置き場所が決まるので、既存の namespace を探す範囲も「表で決まったファイル・下層の共有ファイル (13 行目)・そのファイルが `./<file>` で import している兄弟ファイル」に絞られる。
+**1 つの namespace は 1 つのファイルにだけ置く。置くファイルは、その文言が表示される場所で決める。** 文言を描く部品のソースがどこにあるか (`src/lib/features/`・`src/lib/ui/`・`src/routes/`) では決めない。次の 2 段で当てはめる。
+
+1. 文言が表示される場所 (画面・route・LP 等) をすべて挙げ、それぞれを 1〜10 行目で引く。**すべて同じ 1 つのファイルに当たるなら、そのファイルに置く**。`src/lib/features/`・`src/lib/ui/` の部品が描く文言でも、出る画面が 1 つならその画面のファイルに置く
+2. 2 つ以上のファイルに当たるなら、11〜14 行目を上から順に当て、最初に当たった行のファイルに置く。ほかの表示先のファイルは、そこから `./<file>` で import する
+
+置き場所が決まるので、既存の namespace を探す範囲も「表で決まったファイル・下層の共有ファイル (11 行目)・そのファイルが `./<file>` で import している兄弟ファイル」に絞られる。
 
 | 順 | 文言が表示される場所 | 置くファイル (`src/lib/domain/labels/` 直下) |
 |---|---|---|
-| 1 | LP だけ (`site/*.html`。`generate-lp-labels` が `site/shared-labels.js` に書き出す) | `lp.ts` (`LP_NAMESPACE_TABLE` に行を足す) |
+| 1 | LP だけ (`site/*.html`。`generate-lp-labels` が `site/shared-labels.js` に書き出す) | `lp.ts`。あわせて `scripts/generate-lp-labels.mjs` の `LP_NAMESPACE_TABLE` に行を足す (無いと生成が止まる) |
 | 2 | Storybook の表示テキスト | `storybook.ts` (`STORYBOOK_LABELS.<component>`) |
 | 3 | アプリの画面の外に届く文面 (メール / Push 通知 / リリース通知) | `outbound.ts` |
 | 4 | 親の ❓ ページガイド | `page-guide.ts` (`PAGE_GUIDE_LABELS.<画面>`) |
@@ -275,24 +280,24 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | 8 | 親の管理画面のうち 1 つ (`src/routes/(parent)/admin/<x>/`) | `admin-<x>.ts` (`/admin` 直下は `admin-home.ts`) |
 | 9 | 子供の画面、または子供向けの機能のうち 1 つ (年齢帯 variant を持つ子供向け部品を含む) | `child-<画面>.ts` (`child-home` / `child-record` (記録・スタンプ・冒険開始・おうえん・記録のエラー) / `child-shop` / `child-status` / `child-checklist` / `child-challenges` / `child-battle` / `child-milestone`) |
 | 10 | 上に当たらない route のうち 1 つ (`src/routes/<x>/`) | `<x>.ts` (`survey.ts` / `switch.ts` / `inquiry.ts`) |
-| 11 | `src/lib/features/` の部品 | `features.ts` (新しい部品は namespace `FEATURES_<部品>_LABELS` を作る。寄せ集めの `FEATURES_LABELS` には足さない) |
-| 12 | `src/lib/ui/` の共有部品 | `ui.ts` (新しい部品は namespace `UI_<部品>_LABELS` を作る。寄せ集めの `UI_COMPONENTS_LABELS` には足さない) |
-| 13 | 2 つ以上の行・ファイルにまたがり、次の種類に当たる | 下層の共有ファイル: アプリ名・画面タイトル・汎用語・汎用ボタン → `common.ts` / 整形関数 (`format*`・`getCategoryDisplayName`) → `format.ts` / ナビ → `nav.ts` / 年齢区分 → `age-tier.ts` / プラン名・プラン上限・権限ゲート・トライアルの告知 → `plan.ts` / テーマ → `theme.ts` / admin リソース画面 (活動・ごほうび・チェックリスト 等) の共通部品 (空状態・バックアップ復元・子供間コピー 等) → `admin-shared.ts` |
-| 14 | 2 つ以上の行・ファイルにまたがり、13 行目の種類でもない | 年齢帯 variant を持つ (uiMode で文体が変わる) なら、表示先のうち子供側のファイル (9 行目)。持たないなら、表示先が当たる **3〜12 行目のうち最も上の行**のファイル (LP・Storybook はアプリの文を import して使う側なので決め手にしない。LP とアプリの両方に出る文はアプリ側のファイルに置き、`lp.ts` から import する)。同じ行の中で複数のファイルに当たるときは名前順で先のファイル。ほかの表示先のファイルは、そこから `./<file>` で import する |
+| 11 | 2 つ以上のファイルにまたがり、次の種類に当たる | 下層の共有ファイル: アプリ名・画面タイトル・汎用語・汎用ボタン → `common.ts` / 整形関数 (`format*`・`getCategoryDisplayName`) → `format.ts` / ナビ → `nav.ts` / 年齢区分 → `age-tier.ts` / プラン名・プラン上限・権限ゲート・トライアルの告知 → `plan.ts` / テーマ → `theme.ts` / admin リソース画面 (活動・ごほうび・チェックリスト 等) の共通部品 (空状態・バックアップ復元・子供間コピー 等) → `admin-shared.ts` |
+| 12 | 2 つ以上のファイルにまたがり、年齢帯 variant を持つ (uiMode で文体が変わる) | 表示先のうち子供側のファイル (9 行目)。子供側のファイルが 2 つ以上なら名前順で先のファイル |
+| 13 | 2 つ以上のファイルにまたがり、共有部品が描く | 部品のソースが `src/lib/features/` なら `features.ts` (新しい部品は namespace `FEATURES_<部品>_LABELS` を作る。寄せ集めの `FEATURES_LABELS` には足さない)。`src/lib/ui/` なら `ui.ts` (新しい部品は namespace `UI_<部品>_LABELS` を作る。寄せ集めの `UI_COMPONENTS_LABELS` には足さない) |
+| 14 | 2 つ以上のファイルにまたがり、11〜13 行目に当たらない | 表示先が当たる **3〜10 行目のうち最も上の行**のファイル (LP・Storybook はアプリの文を import して使う側なので決め手にしない。LP とアプリの両方に出る文はアプリ側のファイルに置き、`lp.ts` から import する)。同じ行の中で複数のファイルに当たるときは名前順で先のファイル |
 
 - **route は正規化してから当てはめる**: サブページと `[id]` は親画面のファイルに入れる (`/admin/settings/**` は `admin-settings.ts`、`/admin/subscription/**` は 7 行目の `billing.ts`)。`[uiMode=uiMode]` と `(group)` は取り除く
 - **判定は namespace を作るときに 1 回だけ行う**。あとで別の画面が使い始めても移さない (移してもよいが必須にしない。利用側は入口から import するので、どのファイルにあっても変わらない。移動を必須にすると利用が広がるたびに移動 PR が出て、衝突の源になる)
 - **既存の namespace に key を足すときは、その定義ファイルに書く**。定義ファイルは IDE の定義ジャンプか `grep -rn "export const <NAME>" src/lib/domain/labels/` で引く
-- **新しい namespace の名前は、置くファイルに対応した接頭辞で始める**: 画面のファイル (8〜10 行目) はファイル名に対応した接頭辞 (`admin-rewards.ts` → `ADMIN_REWARDS_…` / `child-shop.ts` → `CHILD_SHOP_…`・`getChildShop…`)。ほかは `lp.ts` → `LP_…` / `ops.ts` → `OPS_…` / `storybook.ts` → `STORYBOOK_LABELS` の key / `page-guide.ts` → `PAGE_GUIDE_LABELS` の key / `tutorial.ts` → 子供向けは `CHILD_TUTORIAL_…`・`CHILD_PAGE_GUIDE_…`・`getChildTutorial…`・`getChildPageGuide…`、親子共通は `TUTORIAL_…` / `outbound.ts` → `<用途>_EMAIL_LABELS`・`PUSH_…` / `features.ts` → `FEATURES_<部品>_…` / `ui.ts` → `UI_<部品>_…`。7 行目の機能ファイルと 13 行目の共有ファイルは接頭辞を決めず、中身を表す名前にする。既存の名前は変えない (import 元が 500 ファイルを超える)
+- **新しい namespace の名前は、置くファイルに対応した接頭辞で始める**: 画面のファイル (8〜10 行目) はファイル名に対応した接頭辞 (`admin-rewards.ts` → `ADMIN_REWARDS_…` / `child-shop.ts` → `CHILD_SHOP_…`・`getChildShop…`)。ほかは `lp.ts` → `LP_…` / `ops.ts` → `OPS_…` / `storybook.ts` → `STORYBOOK_LABELS` の key / `page-guide.ts` → `PAGE_GUIDE_LABELS` の key / `tutorial.ts` → 子供向けは `CHILD_TUTORIAL_…`・`CHILD_PAGE_GUIDE_…`・`getChildTutorial…`・`getChildPageGuide…`、親子共通は `TUTORIAL_…` / `outbound.ts` → `<用途>_EMAIL_LABELS`・`PUSH_…` / `features.ts` → `FEATURES_<部品>_…` / `ui.ts` → `UI_<部品>_…`。7 行目の機能ファイルと 11 行目の共有ファイルは接頭辞を決めず、中身を表す名前にする。既存の名前は変えない (import 元が 500 ファイルを超える)
 - **寄せ集めの namespace (`SETTINGS_LABELS` / `FEATURES_LABELS` / `UI_COMPONENTS_LABELS`) に新しい画面・機能の文言を足さない**。表で決まるファイルに新しい namespace を作る
 - **年齢帯 variant の組 (base / 型 / `*_KANJI_OVERRIDES` / getter) と、その namespace だけが使う const / 型は同じファイルに置く** (片方だけ更新されて割れるのを防ぐ、src/routes/CLAUDE.md #4690)。別のファイルから使うものだけ定義側で `export` する
 - **labels ファイル同士は `./<file>` で直接 import し、入口 (`$lib/domain/labels` / `../labels`) は import しない** (循環になり biome `noImportCycles` と dependency-cruiser `no-circular` が落とす)
-- **import の向き**: 13 行目の共有ファイル (`common` / `format` / `nav` / `age-tier` / `plan` / `theme` / `admin-shared`) は、画面・機能のファイル (1〜12 行目・14 行目で決まるファイル) を import しない (共有ファイル同士はよい)。画面・機能のファイル同士は `./<file>` で import してよい (他の画面の namespace が要るときに文言を複製しない。循環は biome と dependency-cruiser が落とす)。labels 層の外から import するのは `src/lib/domain/` 配下 (`terms.ts` / `constants/` / `validation/` / `admin-screens.ts` / `date-utils.ts` / `categories.ts` 等) に限る
+- **import の向き**: 11 行目の共有ファイル (`common` / `format` / `nav` / `age-tier` / `plan` / `theme` / `admin-shared`) は、画面・機能のファイル (1〜10 行目・12〜14 行目で決まるファイル) を import しない (共有ファイル同士はよい)。画面・機能のファイル同士は `./<file>` で import してよい (他の画面の namespace が要るときに文言を複製しない。循環は biome と dependency-cruiser が落とす)。labels 層の外から import するのは `src/lib/domain/` 配下 (`terms.ts` / `constants/` / `validation/` / `admin-screens.ts` / `date-utils.ts` / `categories.ts` 等) に限る
 - **LP の namespace が値に使う共有文は、1 行の `(export )?const X = '…';` か `` `…`; `` で書く** (`generate-lp-labels` がテキストとして読むため)
-- **新しいファイルを作ったら、同じ PR で入口 `src/lib/domain/labels.ts` に `export * from './labels/<file>';` を 1 行足し (名前順)、本表を更新する**。入口には宣言を書かない (入口に置いた宣言は同名の `export *` を黙って上書きする)
+- **新しいファイルを作ったら、同じ PR で入口 `src/lib/domain/labels.ts` に `export * from './labels/<file>';` を 1 行足し (名前順)、本表を更新する**。入口には宣言を書かない (入口に置いた宣言は同名の `export *` を黙って上書きする)。入口が `export *` 行とコメントだけで、`labels/` 直下の全ファイルを名前順で 1 行ずつ `export *` していることは `tests/unit/domain/labels-entry-shape.test.ts` が検査する (TS から import されず script だけが読むファイルは、`export *` が抜けても型検査では気づけないため)
 - **同じ名前を 2 つのファイルが export すると、入口の `export *` が TS2308 になり svelte-check が落ちる**。namespace の重複は、置き場所の規則とコンパイラで防ぐ (重複を数える検査は置かない)
 - **`terms.ts` は分割しない** (atom はもともと画面をまたいで使うもの)
-- **設計書やコメントでは namespace 名で参照し、定義ファイルのパスは書かない** (import 入口 `$lib/domain/labels` を書くのはよい)。既存の設計書・コメントにある `src/lib/domain/labels.ts` は import 入口を指す (定義はそこに無い。namespace 名で定義ファイルを引く)
+- **設計書やコメントでは namespace 名で参照し、定義ファイルのパスは書かない** (import 入口 `$lib/domain/labels` を書くのはよい。LP 用の `LP_*` namespace は 1 行目で `lp.ts` に固定されるので、`src/lib/domain/labels/lp.ts` を書いてよい)。既存の設計書・コメントにある `src/lib/domain/labels.ts` は import 入口を指す (定義はそこに無い。namespace 名で定義ファイルを引く)
 - **labels の本文をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の `labelSourceFiles()` / `readLabelsSource()` を使う** (1 ファイルだけを読むと、他のファイルに置かれた namespace を黙って見落とす)
 
 **確認手順**: 表で決まったファイル・下層の共有ファイル・そのファイルが import している兄弟ファイルを開き、同じ意味の namespace や key がすでに無いかを確かめてから足す。分割前の labels.ts を触っていた branch の追従手順は [parallel-implementations.md §1](design/parallel-implementations.md) を参照。
