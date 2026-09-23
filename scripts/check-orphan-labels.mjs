@@ -23,8 +23,9 @@
  *   3. site/shared-labels.js (自動生成) は SEARCH_DIRS から除外
  *   4. 定義元からの参照は除外、boundary match。labels 層の export は **labels 層全体を定義元** とみなす
  *      (labels 層は 1 つの SSOT をファイルに分けたもの。分割前の「labels.ts 内の相互参照は数えない」と同じ判定)。
- *      ただし別の labels ファイルが `import { X } from './<file>'` で取り込んでいる X は使われている
- *      (ファイル間で共有するために export している) ので orphan としない
+ *      labels ファイル同士の `import { X } from './<file>'` も labels 層の中の参照なので数えない。
+ *      ファイルをまたいで使うためだけに export を付けた名前 (分割前は非 export で本検査の対象外) は、
+ *      baseline に理由付きで載せる
  *   5. 参照 0 件 = orphan
  */
 
@@ -61,27 +62,6 @@ function extractExports(text) {
 	return out;
 }
 
-/**
- * labels ファイル間の相対 import (`import { A, type B } from './<file>'`) で取り込まれている名前を返す。
- *
- * @param {string} text
- * @returns {string[]}
- */
-function extractSiblingImports(text) {
-	const out = [];
-	for (const m of text.matchAll(/^import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'\.\/[^']+';/gm)) {
-		for (const spec of (m[1] ?? '').split(',')) {
-			const name = spec
-				.trim()
-				.replace(/^type\s+/, '')
-				.split(/\s+as\s+/)[0]
-				?.trim();
-			if (name) out.push(name);
-		}
-	}
-	return out;
-}
-
 function main() {
 	const args = parseArgs(process.argv);
 	const mode = args.updateBaseline ? 'update-baseline' : args.report ? 'report' : 'check';
@@ -89,8 +69,6 @@ function main() {
 
 	const exports = [];
 	const sources = new Map(); // name -> file
-	/** labels ファイル間の `import { X } from './<file>'` で取り込まれている名前 */
-	const siblingImported = new Set();
 
 	const labelFiles = labelSourceFiles().map((rel) => path.join(REPO_ROOT, rel));
 	for (const f of [...labelFiles, TERMS_FILE]) {
@@ -103,9 +81,6 @@ function main() {
 		for (const name of extractExports(text)) {
 			exports.push(name);
 			sources.set(name, rel);
-		}
-		if (isLabelsLayerPath(rel)) {
-			for (const name of extractSiblingImports(text)) siblingImported.add(name);
 		}
 	}
 
@@ -146,7 +121,7 @@ function main() {
 			const external = r.filter((ref) =>
 				inLabelsLayer ? !isLabelsLayerPath(ref.file) : ref.file !== sourceFile,
 			);
-			if (external.length === 0 && !siblingImported.has(name)) {
+			if (external.length === 0) {
 				return {
 					name,
 					reason: `label/term export "${name}" は外部から参照されていません (定義元: ${sourceFile})。機能撤去で取り残された可能性、または ADR-0045 SSOT 経由参照 (terms ↔ labels) のみ。`,
