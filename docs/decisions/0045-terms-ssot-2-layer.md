@@ -113,7 +113,7 @@ labels 層 (compound): src/lib/domain/labels/<画面・機能>.ts
 
 ### 3.5 compound 層のファイル分割 (#4965)
 
-単一の `labels.ts` は区切りコメントだけで画面を分けた状態 (選択肢 B が退けた形) に戻り、namespace の置き場所が決まらないため重複と並行 PR の衝突を生んでいた。compound 層を画面・機能ごとのファイル (`src/lib/domain/labels/`、フラット) に分け、**置き場所は表示先から決まる配置規則** (`docs/DESIGN.md` §6) で一意にする。入口 `labels.ts` は `export *` だけを並べ、利用側の import は変えない。namespace の重複は入口の `export *` の TS2308 (svelte-check) と配置規則で防ぎ、重複を数える検査装置は足さない。labels をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の一覧経由で層全体を読む。
+単一の `labels.ts` は区切りコメントだけで画面を分けた状態 (選択肢 B が退けた形) に戻り、namespace の置き場所が決まらないため重複と並行 PR の衝突を生んでいた。compound 層を画面・機能ごとのファイル (`src/lib/domain/labels/`、フラット) に分け、**置き場所は表示先から決まる配置規則** (`docs/DESIGN.md` §6) で一意にする。入口 `labels.ts` は `export *` だけを並べ、利用側の import は変えない。namespace の重複は入口の `export *` の TS2308 (svelte-check) と配置規則で防ぐ。重複を検出する ratchet (#4965 の打ち手 1) は、検査装置を増やすことになるため採らない (チーム憲章 `docs/sessions/README.md` §0 ルール 1)。labels をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の一覧経由で層全体を読む。
 
 ## 4. 結果
 
@@ -130,7 +130,7 @@ labels 層 (compound): src/lib/domain/labels/<画面・機能>.ts
 **決定**: DESIGN.md は「ルール + SSOT 参照 + 確認手順」のみを保持し、**SSOT の中身をミラーしない**。
 
 - 対象は **labels 列挙 / terms atom 値 / colors トークン / primitives 一覧 の 4 つすべて**（labels のみ 2026-06-03 に廃止、残る 3 つは #4374 で廃止し AUTOGEN 機構ごと撤去した）。
-- 理由: (1) 値や名前の羅列は SSOT を読めば足り参照価値が低い、(2) 実体が増えるたび DESIGN.md が肥大する（常時ロードされるため全セッションのコンテキストを直接圧迫する）、(3) **SSOT 整合性は本 ADR §3.4 の CI（`check-no-plan-literals` / `check-hardcoded-strings`）と `stylelint color-no-hex` / `base-token-routes-ratchet` が担保しており、DESIGN.md の列挙は load-bearing ではない**。
+- 理由: (1) 値や名前の羅列は SSOT を読めば足り参照価値が低い、(2) 実体が増えるたび DESIGN.md が肥大する（常時ロードされるため全セッションのコンテキストを直接圧迫する）、(3) **SSOT 整合性は CI（`check-no-plan-literals` = labels 層以外 / `labels-plan-literal-ratchet.test.ts` = labels 層 / `stylelint color-no-hex` / `base-token-routes-ratchet`）が担保しており、DESIGN.md の列挙は load-bearing ではない**。
 - 発見性は、labels は §6 の配置規則 (表示先 → ファイル) と IDE の定義ジャンプ、terms / colors / primitives は `grep`（`_TERMS = ` / `--color-`）と `ls src/lib/ui/primitives/*.svelte`・IDE 補完で代替する。DESIGN.md 側には各節にこの確認手順を明記する。
 - atom 値そのものを可視化する目的（§1.2 の「直書きしてはならない対象」の提示）は、DESIGN.md §6 §「禁忌（terms.ts atom 関連）」の表と `check-no-plan-literals` が引き継ぐ。
 
