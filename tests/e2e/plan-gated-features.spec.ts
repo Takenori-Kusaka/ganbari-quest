@@ -40,6 +40,15 @@ interface SeededReward4992 {
 }
 
 async function seedReward4992(suffix: string): Promise<SeededReward4992> {
+	const { childId, rewardIds } = await seedRewards4992(suffix, 1);
+	return { childId, rewardId: rewardIds[0] as number };
+}
+
+/** 同じお子さまに `count` 件を seed する (一覧が長いときの表示を検証する用) */
+async function seedRewards4992(
+	suffix: string,
+	count: number,
+): Promise<{ childId: number; rewardIds: number[] }> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(E2E_DB_PATH);
 	try {
@@ -55,23 +64,30 @@ async function seedReward4992(suffix: string): Promise<SeededReward4992> {
 		db.prepare(
 			"DELETE FROM special_rewards WHERE title LIKE ? AND granted_at < datetime('now', '-10 minutes')",
 		).run(`${REWARD_4992_TITLE_PREFIX}%`);
-		const result = db
-			.prepare(
-				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
-				 VALUES (?, ?, 50, '🎁', 'とくべつ', CURRENT_TIMESTAMP)`,
-			)
-			.run(child.id, `${REWARD_4992_TITLE_PREFIX}-${suffix}-${Date.now()}`);
-		return { childId: child.id, rewardId: Number(result.lastInsertRowid) };
+		const insert = db.prepare(
+			`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+			 VALUES (?, ?, 50, '🎁', 'とくべつ', CURRENT_TIMESTAMP)`,
+		);
+		const rewardIds: number[] = [];
+		for (let i = 0; i < count; i++) {
+			const result = insert.run(
+				child.id,
+				`${REWARD_4992_TITLE_PREFIX}-${suffix}-${i}-${Date.now()}`,
+			);
+			rewardIds.push(Number(result.lastInsertRowid));
+		}
+		return { childId: child.id, rewardIds };
 	} finally {
 		db.close();
 	}
 }
 
-async function deleteReward4992(rewardId: number): Promise<void> {
+async function deleteReward4992(...rewardIds: number[]): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(E2E_DB_PATH);
 	try {
-		db.prepare('DELETE FROM special_rewards WHERE id = ?').run(rewardId);
+		const del = db.prepare('DELETE FROM special_rewards WHERE id = ?');
+		for (const id of rewardIds) del.run(id);
 	} finally {
 		db.close();
 	}
@@ -122,6 +138,14 @@ async function expectFreeEditExplainedBeforePress(page: Page, rewardId: number):
 		await expect(popover).toHaveCount(1, { timeout: 2_000 });
 	}).toPass({ timeout: 20_000 });
 	await expect(popover).toContainText(`${PLAN_FULL_TERMS.standard}以上`);
+	// popover は押す前の理由 (行の真上の注記) を覆わない向きに開く (trigger の上端より上に出ない)
+	const popoverBox = await popover.boundingBox();
+	const noteBoxAfter = await note.boundingBox();
+	expect(popoverBox).not.toBeNull();
+	expect(noteBoxAfter).not.toBeNull();
+	expect(popoverBox?.y ?? 0).toBeGreaterThanOrEqual(
+		(noteBoxAfter?.y ?? 0) + (noteBoxAfter?.height ?? 0),
+	);
 	await expect(popover.getByTestId('feature-gate-popover-link')).toHaveAttribute(
 		'href',
 		'/admin/subscription',
@@ -164,6 +188,60 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 		} finally {
 			await deleteReward4992(seeded.rewardId);
 		}
+	});
+
+	// #4992 follow-up: 注記は一覧の上に 1 つだけなので、一覧が長いと (特にモバイルで) 下の行を押す前には
+	// 画面の外へ流れていた。一覧の中で sticky にし、下の行の「編集」と同じ画面に理由が残ることを固定する。
+	test('free プランの長い一覧でも、下の行の「編集」と同じ画面に理由の注記が残る (モバイル)', async ({
+		page,
+	}) => {
+		test.slow();
+		await page.setViewportSize({ width: 390, height: 844 });
+
+		const seeded = await seedRewards4992('sticky', 12);
+		try {
+			await gotoSeededReward4992(page, {
+				childId: seeded.childId,
+				rewardId: seeded.rewardIds[0] as number,
+			});
+			// 一覧のいちばん下の行まで送る (seed 以外の行があっても、最後の行で見る)
+			const lastLocked = page.locator('[data-testid^="reward-edit-locked-btn-"]').last();
+			await lastLocked.scrollIntoViewIfNeeded();
+			await expect(lastLocked).toBeInViewport();
+
+			const note = page.getByTestId('reward-edit-gate-note');
+			await expect(note).toBeInViewport({ ratio: 1 });
+			// ヘッダー (sticky) の裏に隠れず、その直下に出ている
+			const headerBox = await page.locator('header.admin-header').boundingBox();
+			const noteBox = await note.boundingBox();
+			const lastBox = await lastLocked.boundingBox();
+			expect(headerBox).not.toBeNull();
+			expect(noteBox).not.toBeNull();
+			expect(lastBox).not.toBeNull();
+			expect(noteBox?.y ?? 0).toBeGreaterThanOrEqual(
+				(headerBox?.y ?? 0) + (headerBox?.height ?? 0) - 1,
+			);
+			// 注記は押す行より上にある (行を覆っていない)
+			expect((noteBox?.y ?? 0) + (noteBox?.height ?? 0)).toBeLessThanOrEqual(lastBox?.y ?? 0);
+		} finally {
+			await deleteReward4992(...seeded.rewardIds);
+		}
+	});
+
+	// 「バックアップから復元」も server では有料 (?/restorePreview / ?/restoreFile が 403)。
+	// 無料で開けると、ファイルを選んで「内容を確認」を押した後に初めて拒否される。
+	// 「+ 追加」の手動・コピーと同じ locked-but-active (鍵マーク + 選ぶとプラン画面へ) にする。
+	test('free プランの ︙「バックアップから復元」は鍵マークで、選ぶと復元 dialog ではなくプラン画面へ', async ({
+		page,
+	}) => {
+		test.slow();
+		await page.goto('/admin/rewards', { waitUntil: 'domcontentloaded' });
+		await openMenu(page, 'rewards-overflow-menu', 'menu-item-restore');
+		const item = page.getByTestId('menu-item-restore');
+		await expect(item).toContainText('🔒');
+		await item.click();
+		await expect(page).toHaveURL(/\/admin\/subscription/);
+		await expect(page.getByTestId('restore-rewards-dialog')).toHaveCount(0);
 	});
 
 	// #4928: プリセットの取込は全プラン可 (初期セットアップと同じ、#4915 の PO 判断)。
