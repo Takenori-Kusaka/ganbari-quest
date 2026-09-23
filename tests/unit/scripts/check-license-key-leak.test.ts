@@ -49,6 +49,8 @@ describe('check-license-key-leak (#2836)', () => {
 			'src/lib/runtime/env.ts',
 			// LP / ラベル / UI file は元から allowlist 対象外
 			'src/lib/domain/labels.ts',
+			// 文言の実体は labels 層のファイル (#4965)。旧 LICENSE_PAGE_LABELS を持つファイルを代表にする
+			'src/lib/domain/labels/billing.ts',
 			'src/lib/features/admin/components/SaasLicensePanel.svelte',
 			'src/routes/(parent)/admin/subscription/+page.server.ts',
 			'site/pricing.html',

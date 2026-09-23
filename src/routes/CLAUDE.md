@@ -1,6 +1,6 @@
 # src/routes/ — UI 実装ルール
 
-**SSOT**: デザイン → @docs/DESIGN.md / 用語 → `src/lib/domain/labels.ts` / 並行実装 → @docs/design/parallel-implementations.md
+**SSOT**: デザイン → @docs/DESIGN.md / 用語 → labels 層 (`$lib/domain/labels` から import、置き場所は docs/DESIGN.md §6) / 並行実装 → @docs/design/parallel-implementations.md
 
 ## デザインシステム
 
@@ -13,17 +13,17 @@
 
 ## 用語管理
 
-UI ラベル・用語は `src/lib/domain/labels.ts` が SSOT。デモと本番で同じラベル使用必須。変更時は `grep` で全件確認。
+UI ラベル・用語は labels 層 (`src/lib/domain/labels/` の画面・機能ごとのファイル) が SSOT。import は入口の `$lib/domain/labels` から。新しい namespace を置くファイルは docs/DESIGN.md §6 の配置規則で決まる (表示先 → ファイル)。デモと本番で同じラベル使用必須。変更時は `grep -rn` で `src/` 全体の出現箇所を確認。
 
 ### 年齢帯 variant
 
-基本原則: `if (uiMode === 'baby')` 散在 / runtime 動的変換 / Feature Flag 代替 等を避け、`getLabel(key, ctx)` 経由で labels.ts に集約。`+layout.server.ts` で `{ ageTier: params.uiMode }` を context 注入。7 アンチパターン (A1-A7) の網羅と検出方法の詳細は git 履歴 (旧 `docs/decisions/0015-age-tier-variant-architecture.md`、#2898 で削除) 参照。
+基本原則: `if (uiMode === 'baby')` 散在 / runtime 動的変換 / Feature Flag 代替 等を避け、`getLabel(key, ctx)` 経由で labels 層に集約。`+layout.server.ts` で `{ ageTier: params.uiMode }` を context 注入。7 アンチパターン (A1-A7) の網羅と検出方法の詳細は git 履歴 (旧 `docs/decisions/0015-age-tier-variant-architecture.md`、#2898 で削除) 参照。
 
 **文言セットに年齢帯変種を足すときは「差分だけの override をベースに spread で重ねる」** (#4690)。
 全キーを 2 セット持つと、次に語を足した人が片方だけ更新して割れる。
 
 ```ts
-// labels.ts
+// labels 層の子供ショップ画面のファイル (配置規則: docs/DESIGN.md §6)
 const CHILD_SHOP_KANJI_OVERRIDES = { exchangeButton: '交換する' } as const satisfies Partial<ChildShopLabels>;
 
 export function getChildShopLabels(uiMode: string): ChildShopLabels {
@@ -33,6 +33,7 @@ export function getChildShopLabels(uiMode: string): ChildShopLabels {
 }
 ```
 
+- **base / 型 / override / getter は同じファイルに置く** (別ファイルに分けると片方だけ更新されて割れる)。別のファイルから使うものだけ定義側で `export` する (例: 上の `CHILD_SHOP_KANJI_OVERRIDES` は、子供のページガイドの漢字変種 `CHILD_PAGE_GUIDE_KANJI_OVERRIDES` がボタン名・リンク名を引くため、実物では `export` している)
 - **ひらがな側を base にする** — baby / preschool / elementary が既定、junior / senior だけ漢字 override (docs/DESIGN.md §8)
 - **文言セット型は値をリテラルでなく `string` に広げる**（`as const` のままだと override が別の文字列を入れられない）
 - **component は `page` を読まず `uiMode` を prop で受ける**（テストしやすさと、どこから来た値かの明示のため）

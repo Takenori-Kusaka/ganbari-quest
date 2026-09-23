@@ -34,7 +34,7 @@
 | `src/lib/server/` | サーバー専用: `db/` (Drizzle ORM) / `services/` (Service 層) / `auth/` (Cognito + local) / `security/` (rate-limiter) / `cron/` / `demo/` (デモ用データ) / `stripe/` / `routing/` (legacy-url-map) / `discord-alert.ts` / `logger.ts` |
 | `src/lib/features/` | 機能別コンポーネント（`admin/` / `child-home/` / `parent-gate/` 等。一覧は `ls src/lib/features/`） |
 | `src/lib/ui/` | UI primitives + 共有 components: `primitives/` (Button / Card / Dialog / FormField 等、ADR-0009 / DESIGN.md §5) / `components/` (共通) / `sound/` / `styles/` (app.css = カラートークン SSOT) / `tutorial/` |
-| `src/lib/domain/` | ドメイン: `labels.ts` (compound SSOT、ADR-0045) / `terms.ts` (atom SSOT) / `validation/` (age-tier 等) / 型定義 |
+| `src/lib/domain/` | ドメイン: `labels/` (compound SSOT = labels 層。画面・機能ごとのファイル、置き場所は DESIGN.md §6、ADR-0045) + `labels.ts` (その import 入口。`export *` だけ) / `terms.ts` (atom SSOT) / `validation/` (age-tier 等) / 型定義 |
 | `src/lib/policy/` | 認可ポリシー (`authorization.ts` の補助、ルート × ロール × ライセンス三軸判定) |
 | `src/lib/runtime/` | 実行モード判定 (cognito / local / demo 環境) |
 | `src/lib/services/` | client-side service (BFF 呼び出しラッパ) |
@@ -125,7 +125,7 @@
 | `site/graduation.html` | 卒業ジャーニー訴求 |
 | `site/privacy.html` / `terms.html` / `sla.html` / `tokushoho.html` | 法務文書 |
 | `site/shared.css` | LP 共通 CSS (`:root` Base / Semantic spacing トークン、ADR-0042) |
-| `site/shared-labels.js` | LP labels (terms.ts / labels.ts から `scripts/generate-lp-labels.mjs` で生成、ADR-0045) |
+| `site/shared-labels.js` | LP labels (terms.ts / labels 層の `LP_*` から `scripts/generate-lp-labels.mjs` で生成、ADR-0045) |
 | `site/assets/` | LP 専用画像 (`trust-*.svg` / `cta-trust-*.svg` / hero 等) |
 | `site/screenshots/` | LP 機能 SS (`scripts/capture-hp-screenshots.mjs` 自動撮影) |
 | `site/sitemap.xml` | sitemap (`scripts/generate-sitemap.mjs` main push 毎再生成、#1908) |
@@ -190,11 +190,11 @@
 | やりたいこと | 最初に見るファイル |
 |---|---|
 | 新規 UI 画面を作る | [docs/DESIGN.md](DESIGN.md) → [src/routes/CLAUDE.md](../src/routes/CLAUDE.md) |
-| 用語 / ラベルを変える | [docs/DESIGN.md §6](DESIGN.md) → `src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels.ts` (compound) |
+| 用語 / ラベルを変える | [docs/DESIGN.md §6](DESIGN.md) → `src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels/` (compound。§6 の配置規則で決まるファイル) |
 | 認可ルールを変える | [docs/design/14-セキュリティ設計書.md §5](design/14-セキュリティ設計書.md) → `src/lib/policy/` |
 | API エンドポイント追加 | [docs/design/07-API設計書.md](design/07-API設計書.md) → `src/routes/api/` → `src/lib/server/services/` |
 | DB スキーマ変更 | [docs/design/08-データベース設計書.md](design/08-データベース設計書.md) → `src/lib/server/db/` + [parallel-implementations.md](design/parallel-implementations.md) |
-| LP 文言を変える | [docs/DESIGN.md §6](DESIGN.md) → `src/lib/domain/labels.ts` → `scripts/generate-lp-labels.mjs` 再生成 |
+| LP 文言を変える | [docs/DESIGN.md §6](DESIGN.md) → `src/lib/domain/labels/lp.ts` → `scripts/generate-lp-labels.mjs` 再生成 |
 | AWS インフラ変更 | [docs/design/13-AWSサーバレスアーキテクチャ設計書.md](design/13-AWSサーバレスアーキテクチャ設計書.md) → [infra/CLAUDE.md](../infra/CLAUDE.md) |
 | Issue 起票 | [docs/sessions/po-session.md](sessions/po-session.md) + `.claude/skills/issue-triage/SKILL.md` |
 | PR を出す | `.claude/skills/dev-open-pr/SKILL.md` + `npm run pre-ready -- --pr <num>` |

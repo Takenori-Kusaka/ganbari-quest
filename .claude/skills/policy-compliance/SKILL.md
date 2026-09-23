@@ -64,8 +64,8 @@ finding が指す挙動が「意図的にそう設計されている」と明文
 
 UI / 用語 / トーン系の finding は、`brand-check` skill（DESIGN.md §9 禁忌 + 用語辞書）で「ブランド規約による意図的選択」かを判定する。**重複再実装せず参照する**:
 
-- 判定ロジック SSOT: `.claude/skills/brand-check/SKILL.md` + `docs/DESIGN.md` §9 禁忌事項 + §6 用語辞書（`src/lib/domain/labels.ts` / `terms.ts`）+ `docs/design/parallel-implementations.md`。
-- finding が「DESIGN.md 準拠の意図的選択」（例: 明るいトーン固定 / 絵文字許容範囲 / labels.ts SSOT 由来の用語統一）→ `policy_compliant: true`。
+- 判定ロジック SSOT: `.claude/skills/brand-check/SKILL.md` + `docs/DESIGN.md` §9 禁忌事項 + §6 用語辞書（labels 層 `src/lib/domain/labels/` / `terms.ts`）+ `docs/design/parallel-implementations.md`。
+- finding が「DESIGN.md 準拠の意図的選択」（例: 明るいトーン固定 / 絵文字許容範囲 / labels 層 SSOT 由来の用語統一）→ `policy_compliant: true`。
 - 逆に finding が DESIGN.md §9 禁忌の**違反**を正しく指摘している場合は → `policy_compliant: false`（真の問題、起票候補）。
 - 判定できなければ④へ。
 

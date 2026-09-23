@@ -194,7 +194,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0029 | [LP CSP and CDN SRI Strategy](0029-lp-csp-and-cdn-sri-strategy.md) | **accepted (2026-05-01、2026-05-14 connect-src amendment #2068)** | 2026-05-01 |
 | 0030 | [`npm run pre-ready` CLI 採用と pre-push hook 非採用](0030-pre-ready-cli-and-no-pre-push-hook.md) | accepted (2026-05-27 stale-context 補追) | 2026-05-01 |
 | 0042 | [LP CSS Spacing/Layout 3 層トークン化 (Base → Semantic → Component SSOT)](0042-lp-spacing-layout-tokens.md) | accepted | 2026-05-02 |
-| 0045 | [terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)](0045-terms-ssot-2-layer.md) | accepted | 2026-05-07 |
+| 0045 | [terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)](0045-terms-ssot-2-layer.md) | accepted (§3.5 compound 層のファイル分割を追記、#4965) | 2026-05-07 |
 | 0048 | [Multi-Lambda Demo Deployment (env 駆動 + IAM role 分離 + client-side state)](0048-multi-lambda-demo-deployment.md) | accepted (2026-07-19 棚卸で旧 ADR-0046 / 0047 の決定核を §統合 に吸収) | 2026-05-15 |
 | 0049 | [プラン別履歴保持期間ポリシー — 物理削除対象テーブル拡張 (旧 ADR-0028 un-archived + 拡張)](0049-retention-physical-delete-extended.md) | accepted (un-archived 2026-05-19) | 2026-04-11 (initial) / 2026-05-19 (拡張) |
 | 0050 | [Parent-Gate Session Cookie 署名方式: cookie-signature (OSS 4 件比較)](0050-parent-gate-session-cookie-signature.md) | accepted (2026-06-17 §7 改訂: federated PIN reset を email-OTP 化、#3070) | 2026-05-20 |

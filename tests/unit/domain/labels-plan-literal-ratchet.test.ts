@@ -22,9 +22,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkFile } from '../../../scripts/check-no-plan-literals.mjs';
+import { labelSourceFiles } from '../../../scripts/lib/parse-labels-ts.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
+// #4965: labels 層は入口 labels.ts + labels/*.ts に分かれている。層全体を合算して数える
+// (1 ファイルだけを数えると、他のファイルに置かれた直書きが件数から黙って消える)。
+const LABEL_SOURCES = labelSourceFiles();
 
 // PLAN_FULL_TERMS の atom 値 (= ADR-0045 で `${PLAN_FULL_TERMS.*}` 参照すべき plan 名)。
 // 価格 (¥500) / トライアル (7日間無料) / 無料訴求 (基本無料) 等の他 atom は #3359 の scope 外
@@ -42,13 +45,19 @@ const PLAN_NAME_PATTERNS = [
 // 「ファミリー」の atom 参照化による削減)。**引き上げは禁止**。
 const BASELINE = 27;
 
-describe('labels.ts plan-name literal ratchet (#3359, ADR-0045/ADR-0061)', () => {
+describe('labels 層 plan-name literal ratchet (#3359, ADR-0045/ADR-0061)', () => {
 	it('compound 内の plan 名 atom 直書きが baseline 以下である (新規追加を禁止する class-lock)', () => {
-		const findings = checkFile(LABELS_TS).filter((f) => PLAN_NAME_PATTERNS.includes(f.pattern));
-		const detail = findings.map((f) => `  L${f.line} ${f.pattern}: ${f.snippet}`).join('\n');
+		const findings = LABEL_SOURCES.flatMap((rel) =>
+			checkFile(path.join(REPO_ROOT, rel))
+				.filter((f) => PLAN_NAME_PATTERNS.includes(f.pattern))
+				.map((f) => ({ ...f, rel })),
+		);
+		const detail = findings
+			.map((f) => `  ${f.rel}:${f.line} ${f.pattern}: ${f.snippet}`)
+			.join('\n');
 		expect(
 			findings.length,
-			`labels.ts の plan 名直書きが baseline (${BASELINE}) を超えました (実数 ${findings.length})。\n` +
+			`labels 層の plan 名直書きが baseline (${BASELINE}) を超えました (実数 ${findings.length})。\n` +
 				"新規 compound は 'スタンダードプラン' 等を直書きせず PLAN_FULL_TERMS.standard を template literal で参照してください " +
 				'(ADR-0045 §3.3)。既存削減で baseline を下回った場合は本 BASELINE を実数へ下げてください。\n' +
 				detail,

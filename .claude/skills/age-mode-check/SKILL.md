@@ -25,7 +25,7 @@ description: Use when modifying child-facing UI to verify all 5 age modes (baby/
 ### テキスト
 - [ ] baby/preschool でひらがなのみか（漢字なし）
 - [ ] elementary で漢字が最小限か
-- [ ] labels.ts 経由の表示テキストを使用しているか（内部コード露出禁止）
+- [ ] labels 層 (`$lib/domain/labels`) 経由の表示テキストを使用しているか（内部コード露出禁止）
 
 ### インタラクション
 - [ ] 各モードの tapSize 以上のタップ領域が確保されているか

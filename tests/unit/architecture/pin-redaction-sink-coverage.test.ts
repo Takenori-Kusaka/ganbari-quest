@@ -30,6 +30,11 @@
 import { globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+	isLabelsLayerPath,
+	LABELS_ENTRY,
+	readLabelsSource,
+} from '../../../scripts/lib/parse-labels-ts.mjs';
 
 const ROOT = join(__dirname, '../../..');
 
@@ -75,6 +80,8 @@ const REGISTRY: Record<string, Guard> = {
 		guard: 'no-sink',
 		why: '枠計算の純関数。log も response も持たない',
 	},
+	// labels 層 (入口 labels.ts + labels/*.ts、#4965) は 1 エントリで扱う。どの labels ファイルが
+	// pinCode を持っていても本エントリに正規化し、[F3] は層全体の本文を見る (readSource)
 	'src/lib/domain/labels.ts': {
 		guard: 'no-sink',
 		why: '表示文言の SSOT。値を受け取って組み立てるだけで、外へ出す口ではない',
@@ -119,6 +126,8 @@ const REGISTRY: Record<string, Guard> = {
 };
 
 function readSource(rel: string): string {
+	// labels 層の registry エントリ (= 入口のパス) は層全体の本文を指す (#4965)
+	if (rel === LABELS_ENTRY) return readLabelsSource(ROOT);
 	return readFileSync(join(ROOT, rel), 'utf8');
 }
 
@@ -582,7 +591,10 @@ describe('[F1] s3Key / pinCode を扱う file は registry に現れる', () => 
 			.filter((f) => {
 				const src = readSource(f);
 				return /\bs3Key\b/.test(src) || /\bpinCode\b/.test(src);
-			});
+			})
+			// labels 層のファイルは 1 エントリ (入口のパス) に正規化する (#4965)
+			.map((f) => (isLabelsLayerPath(f) ? LABELS_ENTRY : f))
+			.filter((f, i, all) => all.indexOf(f) === i);
 
 		const missing = files.filter((f) => !(f in REGISTRY));
 		expect(

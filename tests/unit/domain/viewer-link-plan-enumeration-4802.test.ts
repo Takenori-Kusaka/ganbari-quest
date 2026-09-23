@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import type { PlanTier } from '../../../src/lib/domain/constants/plan-tier';
 import {
 	getPlanLabel,
@@ -108,8 +109,9 @@ describe('#4802 閲覧リンクのプラン列挙は提供中のプランだけ�
 describe('#4802 閲覧リンクの文言はプラン名を deprecated alias や直書きで持たない (source)', () => {
 	// `PLAN_FULL_TERMS.family` / `PLAN_TERMS.family` は `.premium` への移行用 alias (@deprecated)。
 	// 値が同じなので runtime では区別できず、alias を消した瞬間に閲覧リンクの文言だけが割れる。
-	it('labels.ts の閲覧リンク関連行は deprecated alias `_TERMS.family` を参照しない', () => {
-		const lines = repoFile('src/lib/domain/labels.ts').split('\n');
+	it('labels 層の閲覧リンク関連行は deprecated alias `_TERMS.family` を参照しない', () => {
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) の全ファイルを見る
+		const lines = readLabelsSource().split('\n');
 		const viewerLines = lines.filter(
 			(line) =>
 				/viewer|VIEWER_LINK_TERMS|閲覧リンク/i.test(line) && !line.trimStart().startsWith('//'),

@@ -191,7 +191,7 @@ gh issue view <X>  # PR body の closes #X から取得
 - PR body の `![...]()` / `<img>` / 外部 URL を **Read tool で実際に開く**（見ていない画像に所見書かない）
 - **1 画像ごと最低 1 行の具体所見**（「見ました」だけ不可）
 - **DOM HTML スナップショット (`<file>.dom.html`) 併記確認** (#1747 / #1766)。SS 1 枚に対し同名 `.dom.html` リンクが PR body に存在するか / `.dom.html` を Read で開き SS の主要ラベルが grep できるか確認
-- 「描画変化なし」主張時 (#1744): `gh pr diff` で `.svelte` / `.css` / `site/**` / `labels.ts` の文字列 / アイコン / 改行位置の置換を検出。明記欠落なら BLOCK
+- 「描画変化なし」主張時 (#1744): `gh pr diff` で `.svelte` / `.css` / `site/**` / labels 層 (`src/lib/domain/labels.ts` + `src/lib/domain/labels/**`) の文字列 / アイコン / 改行位置の置換を検出。明記欠落なら BLOCK
 
 UI/UX 品質チェックは @docs/sessions/qm-checklist-ui-quality.md（10 項目）。気になった点だけ具体記述、無言 approve 不可。
 

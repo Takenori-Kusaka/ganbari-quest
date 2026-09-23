@@ -15,15 +15,15 @@ LP review 時に参照する全ファイルの一覧。新規ファイル追加�
 - `site/shared.css` — `:root` トークン (ADR-0042) + 全ページ共通 base
 - `site/shared-labels.js` — labels SSOT 注入機構 (ADR-0045 / ADR-0025)。`scripts/generate-lp-labels.mjs` の生成物なので直接編集しない
 
-## src/lib/domain/labels.ts
+## src/lib/domain/labels/lp.ts
 
-LP labels SSOT（compound）。atom は `src/lib/domain/terms.ts`（ADR-0045）。LP 用 namespace の一覧は `grep -n "export const LP_" src/lib/domain/labels.ts` で確認する。
+LP labels SSOT（compound）。LP 用 namespace (`LP_*`) はすべてこのファイルに置く（docs/DESIGN.md §6 配置規則の 1 行目）。atom は `src/lib/domain/terms.ts`（ADR-0045）。LP の値に使う共有文 (`WRITES_CONTINUE_ASSURANCE` 等) は他の labels ファイルにあり、`lp.ts` の import から辿れる。
 
 ## scripts/
 
 - `scripts/measure-lp-dimensions.mjs` — ratchet 検証（検査項目・閾値は同 script の `THRESHOLDS` と `docs/CLAUDE.md` §LP メトリクス ratchet が SSOT）
 - `scripts/check-lp-innerhtml-tags.mjs` — innerHTML 構造保持検証 (ADR-0025)
-- `scripts/generate-lp-labels.mjs` — labels.ts → shared-labels.js 再生成
+- `scripts/generate-lp-labels.mjs` — labels 層 → shared-labels.js 再生成
 - `scripts/capture.mjs --server-mode lp` — LP SS 撮影
 
 ## .github/workflows/lp-metrics.yml

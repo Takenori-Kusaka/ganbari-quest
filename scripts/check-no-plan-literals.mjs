@@ -191,8 +191,8 @@ const EXTENSIONS = ['.ts', '.svelte'];
 // ---------------------------------------------------------------------------
 // 検査除外パス (allowlist)
 //
-// AC2 (#1918): allowlist は src/lib/domain/terms.ts / src/lib/domain/labels.ts /
-//              docs/ / tests/ のみ。
+// AC2 (#1918): allowlist は src/lib/domain/terms.ts / labels 層 (src/lib/domain/labels.ts +
+//              labels/*.ts、#4965) / docs/ / tests/ のみ。
 // AC3 (#1918): site/shared-labels.js (auto-generated) は exempt (= SEARCH_ROOTS に含めない
 //              ので自動的に対象外)。
 // ---------------------------------------------------------------------------
@@ -205,11 +205,17 @@ const EXCLUDE_PATTERNS = [
 	/src[\\/]lib[\\/]server[\\/]db[\\/]migrations[\\/]/,
 	// TERM_LITERAL_RULES (#1918) の allowlist
 	//   - src/lib/domain/terms.ts: atom 定義 SSOT
-	//   - src/lib/domain/labels.ts: compound 組立て layer (terms.ts atom を参照)
+	//   - labels 層 (src/lib/domain/labels.ts + labels/*.ts): compound 組立て layer (terms.ts atom を参照)。
+	//     plan 名の直書きは tests/unit/domain/labels-plan-literal-ratchet.test.ts が層全体の件数で見張る。
+	//     除外は ratchet が数える範囲 (入口 labels.ts と labels/ 直下の .ts) と同じにする。広く外すと
+	//     labels/ 配下の .svelte やサブディレクトリがどちらの検査にも入らない穴になる。範囲の定義は
+	//     scripts/lib/parse-labels-ts.mjs の isLabelsLayerPath と同じで、一致は node:test が突き合わせる
+	//     (本 script は pre-ready が spawn するため、import を増やすと検査基準の import 閉包が広がる。
+	//     そのため module は import せず regex で持つ)
 	//   - tests/, *.test.ts, *.spec.ts: テスト fixture (期待値文字列の照合に必要)
 	//   - docs/: 仕様書 (CI 対象外、Markdown は別ガード)
 	/src[\\/]lib[\\/]domain[\\/]terms\.ts$/,
-	/src[\\/]lib[\\/]domain[\\/]labels\.ts$/,
+	/src[\\/]lib[\\/]domain[\\/]labels(?:\.ts|[\\/][^\\/]+\.ts)$/,
 	/\.test\.ts$/,
 	/\.spec\.ts$/,
 	/\.test\.mjs$/,
@@ -387,7 +393,7 @@ function main() {
 		'  - kind=concept-icon (#2899): src/lib/domain/terms.ts の CONCEPT_ICONS atom を import し、marketplace 取込導線では `{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}` の形にする (概念アイコン直書き禁止)。ユーザーカスタマイズ item.icon / COMMON_ICONS は対象外',
 	);
 	console.error(
-		'  - allowlist (Phase 5 F1 #1918): src/lib/domain/terms.ts / src/lib/domain/labels.ts / docs/ / tests/ / *.test.ts / *.spec.ts',
+		'  - allowlist (Phase 5 F1 #1918): src/lib/domain/terms.ts / src/lib/domain/labels.ts + labels/*.ts / docs/ / tests/ / *.test.ts / *.spec.ts',
 	);
 	process.exit(1);
 }

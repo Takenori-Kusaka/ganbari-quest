@@ -744,7 +744,7 @@ floating-cta の CTA ボタン文言は、ratchet とは独立に **既存 CTA 3
 #### 7.3.5 並行実装ペア
 
 - `src/lib/domain/labels.ts` `LP_FLOATING_CTA_LABELS` ←→ `site/shared-labels.js` `GANBARI_LABELS.lp.floatingCta`
-- 文言を変更するときは labels.ts を編集し `node scripts/generate-lp-labels.mjs` で再生成
+- 文言を変更するときは labels 層の `src/lib/domain/labels/lp.ts` (LP の namespace の置き場所、docs/DESIGN.md §6) を編集し `node scripts/generate-lp-labels.mjs` で再生成
 
 ### 7.4 CTA 以外のリンク
 

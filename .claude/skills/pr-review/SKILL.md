@@ -66,7 +66,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 - [ ] **Svelte Runes semantic（ADR-0007 §6 / #3878、lint 対象外の領域）**: `.svelte` 変更は `eslint-plugin-svelte` recommended（`lint:svelte`）が syntactic footgun を潰すが、**「この `$effect` は `$derived` にすべき」の意図判断は lint では原理的に不可能**（`prefer-writable-derived` は単一代入 trivial shape のみ検出）。effect で state を derive/同期していないか、新規 `eslint-suppressions.json` エントリ増（baseline 悪化）がないかを目視で確認する
 
 ### D. 横展開（parallel-implementations.md）
-- [ ] labels.ts の変更 → site/ + `**/_guide.ts` (❓ ページガイド) / `tutorial-chapters-child.ts` (子供チュートリアル) も同期
+- [ ] labels 層 (`src/lib/domain/labels.ts` + `src/lib/domain/labels/*.ts`) の変更 → 変わったファイルで波及先を見る: `lp.ts` → site/ (shared-labels.js 再生成) / `page-guide.ts` → `**/_guide.ts` (❓ ページガイド) / `tutorial.ts` → `tutorial-chapters-child.ts` (子供チュートリアル)。新しい namespace は docs/DESIGN.md §6 の配置規則どおりのファイルにあるか
 - [ ] 本番画面の変更 → デモ Lambda（本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動。`src/routes/demo/**` は #2097 で削除済）でも同等に動く
 - [ ] ナビゲーション変更 → 面を固定数で数えず `grep -rn "<nav\b" src/` で変更が及ぶ面を確認（ルート `CLAUDE.md` 並行実装チェックリスト）
 - [ ] DB スキーマ変更 → global-setup.ts + test-db.ts + demo-data.ts
@@ -75,7 +75,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 - [ ] hex 直書き禁止（routes/features 内）
 - [ ] プリミティブ再実装禁止
 - [ ] 内部コード UI 露出禁止
-- [ ] 用語ハードコード禁止（labels.ts 経由）
+- [ ] 用語ハードコード禁止（labels 層 = `$lib/domain/labels` 経由）
 - [ ] インラインスタイル禁止（動的値以外）
 
 ### F. 設計書同期
