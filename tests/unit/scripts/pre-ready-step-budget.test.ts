@@ -82,6 +82,7 @@ describe('#4121 pre-ready の hard-fail step は 6 本', () => {
 		const names = buildStepShapes({ pr: '4121' }, [
 			'site/index.html',
 			'src/lib/domain/labels.ts',
+			'src/lib/domain/labels/lp.ts',
 			'src/lib/domain/validation/age-tier.ts',
 			'src/routes/foo/+page.svelte',
 		]).map((s) => s.name);
