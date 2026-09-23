@@ -85,7 +85,9 @@ describe('#4706 deploy.yml が VAPID 鍵を配る', () => {
 		const count = (needle: string) => yml.split(needle).length - 1;
 		const computeRuns = count('-c parentGateCookieSecret=');
 		expect(computeRuns).toBeGreaterThan(0);
-		expect(count('-c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }}')).toBe(computeRuns);
-		expect(count('-c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }}')).toBe(computeRuns);
+		// `${{ … }}` は GitHub Actions の式。JS の template literal として展開させないため連結で組む。
+		const secretRef = (name: string) => `\${{ secrets.${name} }}`;
+		expect(count(`-c vapidPublicKey=${secretRef('VAPID_PUBLIC_KEY')}`)).toBe(computeRuns);
+		expect(count(`-c vapidPrivateKey=${secretRef('VAPID_PRIVATE_KEY')}`)).toBe(computeRuns);
 	});
 });
