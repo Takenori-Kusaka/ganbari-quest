@@ -5,7 +5,7 @@
 | ステータス | accepted |
 | 日付 | 2026-05-07 |
 | 起票者 | Takenori-Kusaka |
-| 関連 Issue | #1916 (Phase 1 atom 抽出) / #1917 (template literal parser) / #1922 (本 ADR 起票) |
+| 関連 Issue | #1916 (Phase 1 atom 抽出) / #1917 (template literal parser) / #1922 (本 ADR 起票) / #4965 (compound 層のファイル分割、§3.5) |
 | 関連 ADR | ADR-0009 (本 ADR で supersede) / 旧 ADR-0014 (labels / i18n 機構選定、#2440 PR-A5 で削除、#1346) / ADR-0010 (Pre-PMF scope) / ADR-0013 (LP truth from implementation) |
 
 ## 1. コンテキスト
@@ -80,11 +80,11 @@ ADR-0009 の SSOT 原則は維持しつつ、**SSOT 内部に 2 階層構造を�
 ### 3.1 階層構造
 
 ```
-terms.ts (atom 専用、≈86 行)
+terms.ts (atom 専用)
    ↓ import
-labels.ts (compound、≈6700 行)
-   ↓ import
-*.svelte / *.ts (アプリ本体) / shared-labels.js (LP) / *.html (法務)
+labels 層 (compound): src/lib/domain/labels/<画面・機能>.ts
+   ↓ export * (入口 src/lib/domain/labels.ts。宣言を持たない)
+*.svelte / *.ts (アプリ本体、$lib/domain/labels から import) / shared-labels.js (LP) / *.html (法務)
 ```
 
 ### 3.2 Phase 進捗
@@ -100,9 +100,9 @@ labels.ts (compound、≈6700 行)
 
 ### 3.3 適用原則
 
-1. **新規 atom 追加**: `terms.ts` に追加 → `labels.ts` の compound から import 参照
-2. **compound 表示文字列**: `labels.ts` のみ。atom 値の文字列リテラル直書き禁止（template literal で `${PLAN_FULL_TERMS.standard}以上で…` と組み立てる）
-3. **アプリ本体 (`src/**` 以外)**: `labels.ts` の compound 定数 / 関数を参照する原則は ADR-0009 から継続
+1. **新規 atom 追加**: `terms.ts` に追加 → labels 層の compound から import 参照
+2. **compound 表示文字列**: labels 層の、`docs/DESIGN.md` §6 の配置規則が決めるファイルにのみ置く。atom 値の文字列リテラル直書き禁止（template literal で `${PLAN_FULL_TERMS.standard}以上で…` と組み立てる）
+3. **アプリ本体 (`src/**` 以外)**: labels 層の compound 定数 / 関数を入口 `$lib/domain/labels` から参照する原則は ADR-0009 から継続
 4. **LP / 法務 fallback**: Phase 3-4 完了まで暫定的に手動同期、それ以降は terms.ts 経由 SSOT
 
 ### 3.4 検出・強制
@@ -111,12 +111,16 @@ labels.ts (compound、≈6700 行)
 - **PR レビュー**: 「直書きを見たら terms.ts に atom があるか確認」を `qm-session.md` に追加
 - **既存違反 baseline**: Phase 1 完了時点の 15+ 件は Phase 2 で順次撲滅、新規違反は CI で 0 件強制
 
+### 3.5 compound 層のファイル分割 (#4965)
+
+単一の `labels.ts` は区切りコメントだけで画面を分けた状態 (選択肢 B が退けた形) に戻り、namespace の置き場所が決まらないため重複と並行 PR の衝突を生んでいた。compound 層を画面・機能ごとのファイル (`src/lib/domain/labels/`、フラット) に分け、**置き場所は表示先から決まる配置規則** (`docs/DESIGN.md` §6) で一意にする。入口 `labels.ts` は `export *` だけを並べ、利用側の import は変えない。namespace の重複は入口の `export *` の TS2308 (svelte-check) と配置規則で防ぎ、重複を数える検査装置は足さない。labels をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の一覧経由で層全体を読む。
+
 ## 4. 結果
 
 - **用語変更 1 行修正で全コンテンツ伝播**: 例えば `terms.ts` の `PLAN_FULL_TERMS.standard = 'スタンダードプラン'` を変更すると、Phase 2-4 完了後はアプリ本体 / LP / 法務文書すべてに自動伝播
-- **責務分離による可読性向上**: 「用語そのものを変えたい」場合は terms.ts (86 行) のみ精読すれば足り、6700 行 labels.ts の全走査が不要
+- **責務分離による可読性向上**: 「用語そのものを変えたい」場合は terms.ts のみ精読すれば足り、labels 層全体の走査が不要
 - **CI による再発防止 (Phase 5)**: 直書きが追加された瞬間に PR で fail し、レビュー前に検出
-- **トレードオフ**: import 経路が 1 段増える（`terms.ts → labels.ts → component`）が、ファイル境界による責務分離の利点が上回る
+- **トレードオフ**: import 経路が 1 段増える（`terms.ts → labels 層 → component`）が、ファイル境界による責務分離の利点が上回る
 - **#1346 機構導入時の互換性**: i18n ライブラリ導入時も terms.ts は ICU の atom 入力として再利用可能
 
 ## 補遺: DESIGN.md は全 export をミラーしない（2026-06-03）
@@ -127,10 +131,10 @@ labels.ts (compound、≈6700 行)
 
 - 対象は **labels 列挙 / terms atom 値 / colors トークン / primitives 一覧 の 4 つすべて**（labels のみ 2026-06-03 に廃止、残る 3 つは #4374 で廃止し AUTOGEN 機構ごと撤去した）。
 - 理由: (1) 値や名前の羅列は SSOT を読めば足り参照価値が低い、(2) 実体が増えるたび DESIGN.md が肥大する（常時ロードされるため全セッションのコンテキストを直接圧迫する）、(3) **SSOT 整合性は本 ADR §3.4 の CI（`check-no-plan-literals` / `check-hardcoded-strings`）と `stylelint color-no-hex` / `base-token-routes-ratchet` が担保しており、DESIGN.md の列挙は load-bearing ではない**。
-- 発見性は `grep`（`_LABELS` / `_TERMS = ` / `--color-`）と `ls src/lib/ui/primitives/*.svelte`、IDE 補完で代替する。DESIGN.md 側には各節にこの確認手順を明記する。
+- 発見性は、labels は §6 の配置規則 (表示先 → ファイル) と IDE の定義ジャンプ、terms / colors / primitives は `grep`（`_TERMS = ` / `--color-`）と `ls src/lib/ui/primitives/*.svelte`・IDE 補完で代替する。DESIGN.md 側には各節にこの確認手順を明記する。
 - atom 値そのものを可視化する目的（§1.2 の「直書きしてはならない対象」の提示）は、DESIGN.md §6 §「禁忌（terms.ts atom 関連）」の表と `check-no-plan-literals` が引き継ぐ。
 
-この方針は本 ADR の「SSOT はコード（terms.ts / labels.ts）」という原則と矛盾しない。DESIGN.md はルールの SSOT であり、インベントリの SSOT ではない。
+この方針は本 ADR の「SSOT はコード（terms.ts / labels 層）」という原則と矛盾しない。DESIGN.md はルールの SSOT であり、インベントリの SSOT ではない。
 
 ## 関連
 

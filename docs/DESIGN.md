@@ -230,7 +230,7 @@ admin リソース一覧 (活動 / ごほうび / チェックリスト / ルー
 message を直書きしない (NN/G #4 consistency / `tests/CLAUDE.md` 条件 11 = 3 状態統一)。
 
 - **使う**: admin 一覧の genuine-empty / filter-empty 表示。icon + 本文 (+ 補足 desc) + bridge link を統一レイアウトで描画
-- **文言は override props で渡す**: `noItemsText` / `descText` / `filteredText` / `addBtnLabel` / `importLinkLabel` / `icon`。既定は `UNIFIED_EMPTY_STATE_LABELS` (labels.ts SSOT)。page 固有文言を渡せば視覚回帰最小で統一できる
+- **文言は override props で渡す**: `noItemsText` / `descText` / `filteredText` / `addBtnLabel` / `importLinkLabel` / `icon`。既定は `UNIFIED_EMPTY_STATE_LABELS` (labels 層、§6)。page 固有文言を渡せば視覚回帰最小で統一できる
 - **secondary link の 2 mode**: `secondaryMode='callback'` (既定、`onAdd('import')` を呼ぶ `<button>`) / `secondaryMode='link'` (form 不要 page 用、`browseHref` への `<a>` 遷移)。bulk import bridge は §10「bulk import bridge ルール」整合で `/marketplace?type=<typeCode>` へ誘導する
 - **CTA の出し分け**: `showPrimary` / `canImport` / `canAdd` / `hasFilter` で primary CTA・import link の表示を制御 (上限到達 / filter 下 / browse-only page)
 - **testid 互換**: `testid` / `importTestid` で page 既存 testid (`rules-empty-state` 等) を維持し E2E 互換を保つ
@@ -240,39 +240,67 @@ message を直書きしない (NN/G #4 consistency / `tests/CLAUDE.md` 条件 11
 
 ## 6. 用語辞書（SSOT）
 
-UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels.ts` (compound)** の 2 階層 SSOT で管理する (#1916 / [ADR-0045](decisions/0045-terms-ssot-2-layer.md))。
+UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) → labels 層 (compound、`src/lib/domain/labels/`)** の 2 階層 SSOT で管理する (#1916 / [ADR-0045](decisions/0045-terms-ssot-2-layer.md) / #4965)。利用側は **`$lib/domain/labels` だけを import する**。その実体 `src/lib/domain/labels.ts` は `export * from './labels/<file>';` を並べただけの入口で、宣言を持たない。
 
 **設計原則** (ADR-0045 §3.3):
 
 - **atom (terms.ts)**: 単一の用語。1 行修正で全 LP・アプリ本体・法務文書に伝播。新規 atom は **必ず `terms.ts` に追加**
-- **compound (labels.ts)**: 複数 atom を文に組み立てた表示文字列。**`${PLAN_FULL_TERMS.standard}` 等 template literal で参照**し、atom 値の文字列リテラル直書き禁止
+- **compound (labels 層)**: 複数 atom を文に組み立てた表示文字列。**`${PLAN_FULL_TERMS.standard}` 等 template literal で参照**し、atom 値の文字列リテラル直書き禁止。namespace は画面・機能ごとのファイルに置き、どのファイルに置くかは下の §labels 層の配置規則 で決まる
 - **LP 側** (`site/shared-labels.js`): `scripts/generate-lp-labels.mjs` で template literal を解決した後、文字列値として配信（Phase 1 B1 / #1917）
-- **CSS 3 層トークン (ADR-0042) と同型**: Base (terms.ts atom) → Semantic (labels.ts compound) → Component (`*.svelte` / `*.html`) の責務分離パターン
+- **CSS 3 層トークン (ADR-0042) と同型**: Base (terms.ts atom) → Semantic (labels 層 compound) → Component (`*.svelte` / `*.html`) の責務分離パターン
 
 ### terms.ts エクスポート一覧（atom）
 
 `src/lib/domain/terms.ts` の atom 定数。値の変更は本ファイル 1 行修正で全コンテンツに伝播する (ADR-0045)。
 
-> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `generate-lp-labels --check`）が担保する（`check-hardcoded-strings` は #4322 で script ごと削除済み。ただし `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する）。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
+> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `generate-lp-labels --check`）が担保する（`check-hardcoded-strings` は #4322 で script ごと削除済み。ただし `.svelte` の **template ブロック**の日本語直書きは `local/no-hardcoded-jp-text` が `error` で検出する (`npm run lint:svelte` = CI `lint-and-test` の hard-fail step)。**`<script>` ブロックと `.ts` は対象外**なのでレビューで担保する）。labels 層の export も同じく一覧を掲載しない（ADR-0045 §「補遺」/ #4374）。
 
 **確認手順**: 新規 atom を追加する前に `grep -n "_TERMS = " src/lib/domain/terms.ts` で既存 atom namespace を確認し、値の直書き複製を作らない。
 
-### labels.ts エクスポート一覧（compound）
+### labels 層の配置規則（compound、#4965）
 
-> **全 export の一覧はこのファイルに掲載しない**（135+ namespace を持つ `src/lib/domain/labels.ts` が SSOT）。DESIGN.md は「使う前に SSOT を確認する」ルールのみを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI (`check-no-plan-literals`) が担保する（`check-hardcoded-strings` は #4322 で削除済み）。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
+> **全 export の一覧はこのファイルに掲載しない**（`src/lib/domain/labels/` の実ファイルが SSOT）。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」参照。
 
-**確認手順**: 新規ラベルを追加する前に `grep -n "_LABELS" src/lib/domain/labels.ts` で既存 compound を確認する。代表的な namespace / 関数:
+**1 つの namespace は 1 つのファイルにだけ置く。置くファイルは、その文言が表示される場所を下の表の上の行から順に当てはめ、最初に当たった行で決める。** 置き場所が決まるので、既存の namespace を探す範囲もそのファイル (と下層の共有ファイル) に絞られる。
 
-- 取得関数: `getAgeTierLabel` / `getAgeTierShortLabel` / `getPlanLabel` / `getThemeLabel` / `getThemeOptions` / `getActivityPriorityLabel` / `getCancellationCategoryLabel` / `getMilestoneLabel`
-- 整形関数: `formatCount` / `formatAge` / `formatAgeRange` / `formatStreak` / `formatTimes` / `formatPeople` / `formatDateRange`
-- 主要 namespace: `PLAN_LABELS`（プラン名フル）/ `AGE_TIER_LABELS`（年齢区分）/ `THEME_LABELS`（テーマ名）/ `FEATURE_LABELS`（機能名）/ `NAV_*_LABELS`（ナビ）/ `LP_*_LABELS`（LP 各セクション）/ `*_PAGE_LABELS`（各画面）/ `DEMO_*_LABELS`（デモ）/ `OPS_*_LABELS`（運用）
+| 順 | 文言が表示される場所 | 置くファイル (`src/lib/domain/labels/` 直下) |
+|---|---|---|
+| 1 | LP (`site/*.html`。`generate-lp-labels` が `site/shared-labels.js` に書き出す) | `lp.ts` (名前は `LP_…`。`LP_NAMESPACE_TABLE` に行を足す) |
+| 2 | Storybook の表示テキスト | `storybook.ts` (`STORYBOOK_LABELS.<component>`) |
+| 3 | アプリの画面の外に届く文面 (メール / Push 通知 / リリース通知) | `outbound.ts` |
+| 4 | 親の ❓ ページガイド | `page-guide.ts` (`PAGE_GUIDE_LABELS.<画面>`) |
+| 5 | 子供のチュートリアル / 子供の ❓ | `tutorial.ts` |
+| 6 | 運営者画面 (`src/routes/ops/`) | `ops.ts` |
+| 7 | 画面をまたぐ機能: 契約・料金・解約 / メンバー・招待・閲覧リンク / 初期設定 / おやカギ・PIN / みんなのテンプレート / ログイン・登録・同意・法務表示 / エラー・オフライン / デモ | 順に `billing.ts` / `members.ts` / `setup.ts` / `oyakagi.ts` / `marketplace.ts` / `auth.ts` / `errors.ts` / `demo.ts` |
+| 8 | 親の管理画面のうち 1 つ (`src/routes/(parent)/admin/<x>/`) | `admin-<x>.ts` (`/admin` 直下は `admin-home.ts`) |
+| 9 | 子供の画面のうち 1 つ (年齢帯 variant を持つ子供向け部品を含む) | `child-<画面>.ts` (`child-home` / `child-record` (記録・スタンプ・冒険開始・おうえん) / `child-shop` / `child-status` / `child-checklist` / `child-battle` / `child-milestone`) |
+| 10 | 上に当たらない route のうち 1 つ (`src/routes/<x>/`) | `<x>.ts` (`survey.ts` / `switch.ts` / `inquiry.ts`) |
+| 11 | `src/lib/features/` の部品 | `features.ts` (`FEATURES_LABELS.<feature>`) |
+| 12 | `src/lib/ui/` の共有部品 | `ui.ts` |
+| 13 | 上の場所の 2 つ以上で使う | 下層の共有ファイル: アプリ名・画面タイトル・汎用語・汎用ボタン → `common.ts` / 整形関数 (`format*`・`getCategoryDisplayName`) → `format.ts` / ナビ → `nav.ts` / 年齢区分 → `age-tier.ts` / プラン名・プラン制限・権限ゲート・トライアル → `plan.ts` / テーマ → `theme.ts` / admin リソース画面の共通部品 → `admin-shared.ts` |
+
+- **route は正規化してから当てはめる**: サブページと `[id]` は親画面のファイルに入れる (`/admin/settings/**` は `admin-settings.ts`)。`[uiMode=uiMode]` と `(group)` は取り除く
+- **判定は namespace を作るときに 1 回だけ行う**。あとで別の画面が使い始めても移さない (移してもよいが必須にしない。利用側は入口から import するので、どのファイルにあっても変わらない。移動を必須にすると利用が広がるたびに移動 PR が出て、衝突の源になる)
+- **既存の namespace に key を足すときは、その定義ファイルに書く**。定義ファイルは IDE の定義ジャンプか `grep -rn "export const <NAME>" src/lib/domain/labels/` で引く
+- **新しい namespace の名前は、置くファイルに対応した接頭辞で始める** (`admin-rewards.ts` → `ADMIN_REWARDS_…` / `child-shop.ts` → `CHILD_SHOP_…`・`getChildShop…` / `lp.ts` → `LP_…`)。既存の名前は変えない (import 元が 500 ファイルを超える)
+- **寄せ集めの namespace (`SETTINGS_LABELS` / `FEATURES_LABELS` / `UI_COMPONENTS_LABELS`) に新しい画面・機能の文言を足さない**。表で決まるファイルに新しい namespace を作る
+- **年齢帯 variant の組 (base / 型 / `*_KANJI_OVERRIDES` / getter) と、その namespace だけが使う const / 型は同じファイルに置く** (片方だけ更新されて割れるのを防ぐ、src/routes/CLAUDE.md #4690)。別のファイルから使うものだけ定義側で `export` する
+- **labels ファイル同士は `./<file>` で直接 import し、入口 (`$lib/domain/labels` / `../labels`) は import しない** (循環になり biome `noImportCycles` と dependency-cruiser `no-circular` が落とす)。依存の向きは「画面・機能のファイル → 13 行目の共有ファイル → `terms.ts` / `constants/`」の一方向に限る
+- **LP の namespace が値に使う共有文は、1 行の `(export )?const X = '…';` か `` `…`; `` で書く** (`generate-lp-labels` がテキストとして読むため)
+- **新しいファイルを作ったら、同じ PR で入口 `src/lib/domain/labels.ts` に `export * from './labels/<file>';` を 1 行足し (名前順)、本表を更新する**。入口には宣言を書かない (入口に置いた宣言は同名の `export *` を黙って上書きする)
+- **同じ名前を 2 つのファイルが export すると、入口の `export *` が TS2308 になり svelte-check が落ちる**。namespace の重複は、置き場所の規則とコンパイラで防ぐ (重複を数える検査は置かない)
+- **`terms.ts` は分割しない** (atom はもともと画面をまたいで使うもの)
+- **設計書やコメントでは namespace 名で参照し、定義ファイルのパスは書かない** (import 入口 `$lib/domain/labels` を書くのはよい)
+- **labels の本文をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の `labelSourceFiles()` / `readLabelsSource()` を使う** (1 ファイルだけを読むと、他のファイルに置かれた namespace を黙って見落とす)
+
+**確認手順**: 表で決まったファイルと下層の共有ファイルを開き、同じ意味の namespace や key がすでに無いかを確かめてから足す。分割前の labels.ts を触っていた branch の追従手順は [parallel-implementations.md §1](design/parallel-implementations.md) を参照。
 
 ### ルール
 
-- **新規 atom 追加は `terms.ts` に**（プラン名 / 価格 / 期間 / 解約 / 無料訴求 / CTA 動詞句などの単一用語）— `labels.ts` に直接書かない（ADR-0045 §3.3）
-- **新規 compound 追加は `labels.ts` に**（複数 atom を組み立てた表示文字列）— `terms.ts` から `import` し template literal で参照する
+- **新規 atom 追加は `terms.ts` に**（プラン名 / 価格 / 期間 / 解約 / 無料訴求 / CTA 動詞句などの単一用語）— labels 層に直接書かない（ADR-0045 §3.3）
+- **新規 compound 追加は labels 層の、上の配置規則で決まるファイルに**（複数 atom を組み立てた表示文字列）— `terms.ts` から `import` し template literal で参照する
 - **同じ概念を複数箇所にハードコード禁止** — 用語辞書の定数を使う
-- 用語を変更する場合は `grep` で全出現箇所を確認し、atom 1 行修正だけで全画面に反映されることを確認
+- 用語を変更する場合は `grep -rn` で `src/` 全体 (labels 層を含む) の出現箇所を確認し、atom 1 行修正だけで全画面に反映されることを確認
 - デモ版 (`/demo`) と本番で異なるラベルを使ってはならない
 
 ### marketplace type 命名規則（#2899）
@@ -328,9 +356,9 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | 禁止事項 | 理由 | 検出方法 |
 |---------|------|---------|
 | **terms.ts atom 値の文字列リテラル直書き複製**（例: `*.svelte` 内に `'スタンダードプラン'` / `'¥500'` / `'7日間'` を直書き） | 用語変更時の伝播が壊れる。ADR-0045 §1.2 の実害 15+ 件再発 | `scripts/check-no-plan-literals.mjs` (#972 / #1918 で強化) |
-| **labels.ts compound 内で atom 値を直書き**（例: `TRIAL_LABELS.foo: '7日間無料体験…'` を `${TRIAL_TERMS.duration}${FREE_TERMS.suffix}体験…` に置換しない） | atom 1 行伝播原則を壊す | コードレビュー + `check-no-plan-literals.mjs` |
-| **terms.ts に compound（複数 atom 組立文）を追加** | atom / compound の責務分離違反（ADR-0045 §3.3） | コードレビュー（PR で `terms.ts` 差分が ≥ 2 atom 結合を含む場合は labels.ts へ移動） |
-| **LP HTML / 法務文書で atom 値を直書き**（fallback `<span data-label-key="…">スタンダードプラン</span>` の手動更新を含む） | `scripts/generate-lp-labels.mjs` 経由の伝播が崩れる | `npm run pre-ready` Step 8 (`generate-lp-labels --check`) |
+| **labels 層の compound 内で atom 値を直書き**（例: `TRIAL_LABELS.foo: '7日間無料体験…'` を `${TRIAL_TERMS.duration}${FREE_TERMS.suffix}体験…` に置換しない） | atom 1 行伝播原則を壊す | コードレビュー + `tests/unit/domain/labels-plan-literal-ratchet.test.ts`（プラン名の直書き件数の ratchet。labels 層は `check-no-plan-literals.mjs` の対象外） |
+| **terms.ts に compound（複数 atom 組立文）を追加** | atom / compound の責務分離違反（ADR-0045 §3.3） | コードレビュー（PR で `terms.ts` 差分が ≥ 2 atom 結合を含む場合は labels 層へ移動） |
+| **LP HTML / 法務文書で atom 値を直書き**（fallback `<span data-label-key="…">スタンダードプラン</span>` の手動更新を含む） | `scripts/generate-lp-labels.mjs` 経由の伝播が崩れる | CI `npm run lint:parallel`（`generate-lp-labels --check` / `sync-lp-fallback --check`）+ pre-commit hook |
 
 ### 内部コード露出禁止
 
@@ -346,7 +374,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 ### 5 ドメイン用語の文脈別使い分けルール（#1914 TECH-F、ADR-0045）
 
-`labels.ts` 全体で多重表記が検出された 5 ドメイン（子供 / 親 / 解約 / 登録 / ログイン）の文脈別使い分け原則。`terms.ts` の atom で SSOT 集約し、`labels.ts` compound から `${...}` で参照する。
+labels 層全体で多重表記が検出された 5 ドメイン（子供 / 親 / 解約 / 登録 / ログイン）の文脈別使い分け原則。`terms.ts` の atom で SSOT 集約し、labels 層の compound から `${...}` で参照する。
 
 | ドメイン | atom | 文脈別使い分け |
 |---|---|---|
@@ -373,8 +401,8 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 #### 強制ルール
 
-- 表示テキストは `STORYBOOK_LABELS` 定数（`src/lib/domain/labels.ts`）経由で参照すること
-- stories.svelte 内で表示テキストを文字列リテラル直書きしない（既存 Story の表示テキストを変更する場合は labels.ts に値を追加してから差し替え）
+- 表示テキストは `STORYBOOK_LABELS` 定数（`$lib/domain/labels` から import）経由で参照すること
+- stories.svelte 内で表示テキストを文字列リテラル直書きしない（既存 Story の表示テキストを変更する場合は `STORYBOOK_LABELS` に値を追加してから差し替え。置き場所は §6 配置規則の 2 行目）
 - 内部 namespace (`STORYBOOK_LABELS.button.primary` 等) は他の `LABELS` namespace と完全独立。LP / アプリ側 SSOT (ADR-0009) と用語が偶然一致してもリレーションは持たない（Storybook 自体は本番ビルド非搭載）
 
 #### 例外
@@ -437,7 +465,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | hex 直書き（routes/features 内） | 3 層トークン違反 | `stylelint color-no-hex` |
 | プリミティブ再実装 | primitives と二重管理 | コードレビュー |
 | 内部コード UI 露出 | ユーザーに意味不明 | `eslint` + レビュー |
-| 用語ハードコード | labels.ts の SSOT 違反 | `grep` チェック |
+| 用語ハードコード | labels 層の SSOT 違反 | `local/no-hardcoded-jp-text`（`.svelte` の template のみ）+ `check-no-plan-literals`（プラン文字列）+ コードレビュー |
 | インラインスタイル（動的値以外） | メンテナンス困難 | `eslint svelte/no-inline-styles` |
 | Tailwind arbitrary hex | 3 層トークン違反 | `stylelint` |
 | `<style>` ブロック 50 行超え | コンポーネント分割が必要 | コードレビュー |
@@ -602,7 +630,8 @@ bulk import / 一括取込機能がある場合、以下の両方を提供する
 | `app.css` の `@theme` に CSS 変数追加 | （DESIGN.md 更新不要） | `app.css` 自体が SSOT。3 層の使い分けルールを変える場合のみ §2 を手動更新 |
 | `primitives/` にコンポーネント追加 | （DESIGN.md 更新不要） | `src/lib/ui/primitives/` 自体が SSOT。使い分けルールが要る primitive のみ §5 にサブセクションを手動追加 |
 | `terms.ts` に atom 定数追加 (#1923 / ADR-0045) | （DESIGN.md 更新不要） | `terms.ts` 自体が SSOT。atom / compound の責務分離ルールを変える場合のみ §6 を手動更新 |
-| `labels.ts` に export 追加 | （DESIGN.md 更新不要） | `labels.ts` 自体が SSOT（ADR-0045 補遺） |
+| labels 層の既存ファイルに export 追加 | （DESIGN.md 更新不要） | `src/lib/domain/labels/` 自体が SSOT（ADR-0045 補遺）。置くファイルは §6 配置規則に従う |
+| labels 層にファイルを新設（新しい区分） | §6 配置規則の表 | 手動（入口 `src/lib/domain/labels.ts` の `export *` 行と同じ PR で） |
 | z-index トークン追加・新オーバーレイ階層追加 | §10 z-index 階層 | 手動（ADR で階層変更を議論したうえで） |
 | ブランド方針変更 | §1 | 手動 |
 | 禁忌事項追加 | §9 | 手動 |

@@ -35,31 +35,37 @@
 
 | 場所 | 内容 | 技術 |
 |------|------|------|
-| `src/lib/domain/labels.ts` | アプリの用語辞書（Single Source of Truth） | TypeScript |
+| `src/lib/domain/labels/` (入口 `src/lib/domain/labels.ts`) | アプリの用語辞書 = labels 層（Single Source of Truth）。画面・機能ごとのファイル。LP 用 namespace は `src/lib/domain/labels/lp.ts`。置き場所は `docs/DESIGN.md` §6 の配置規則 | TypeScript |
 | `src/lib/domain/validation/age-tier-types.ts` | UiMode 型・LEGACY_UI_MODE_MAP・normalizeUiMode（#980: labels.ts / age-tier.ts 共通基盤） | TypeScript |
 | `site/index.html` | LP トップページの用語直書き | 静的 HTML |
 | `site/pamphlet.html` | パンフレットページの用語直書き | 静的 HTML |
 | `site/shared-labels.js` | LP 共通用語ラッパ（2026-04-07 新設、#561） | JavaScript |
 
 **同期メカニズム**:
-- **現状（半自動）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から `site/shared-labels.js` を生成。`--check` モード (CI) で diff があれば fail
+- **現状（半自動）**: `scripts/generate-lp-labels.mjs` で labels 層 (入口 + `src/lib/domain/labels/*.ts` の連結本文) から `site/shared-labels.js` を生成。`--check` モード (CI `npm run lint:parallel` / pre-commit hook) で diff があれば fail
 - **key-set 比較による silent drift 検出は無い (#4420)**: 生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出していた専用 script は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
 
 **修正時チェック**:
 ```bash
-# アプリ側の用語変更が LP に影響していないか grep
-grep -rn "変更前の用語" site/ src/lib/domain/labels.ts
+# アプリ側の用語変更が LP に影響していないか grep (labels 層はディレクトリごと見る)
+grep -rn "変更前の用語" site/ src/lib/domain/labels/
 
-# labels.ts に新規 LP_*_LABELS を追加した場合、shared-labels.js への反映を確認
+# 新規 LP_*_LABELS を追加した場合、shared-labels.js への反映を確認
 node scripts/generate-lp-labels.mjs        # shared-labels.js 再生成
 node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
 ```
 
 **新規 LP_\*_LABELS namespace 追加時の手順**:
-1. `src/lib/domain/labels.ts` に `export const LP_FOO_LABELS = { ... }` を追加
-2. `scripts/generate-lp-labels.mjs` の `parseLabelsTs()` で `parseBlock(src, 'LP_FOO_LABELS')` を追加し、`lpLabels` ネストに組み込む
+1. `src/lib/domain/labels/lp.ts` に `export const LP_FOO_LABELS = { ... }` を追加 (配置規則の 1 行目。値に使う共有文は 1 行の `(export )?const X = '…';` で書く)
+2. `scripts/generate-lp-labels.mjs` の `LP_NAMESPACE_TABLE` に行を追加する (無いと drop-gate が「LP_* namespace が LP_NAMESPACE_TABLE に無い」で生成を止める)
 3. `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
 4. `node scripts/generate-lp-labels.mjs --check` で整合確認 (CI が同じ検証を実行)。parser が新規 namespace を認識していない場合はここで diff が出ない（機械強制が無い箇所、目視で確認する）
+
+**分割前の `labels.ts` を触っていた branch の追従手順** (#4965 で labels.ts を `src/lib/domain/labels/*.ts` に分けた。分割前に切った branch が develop を取り込むとき):
+1. develop を merge (または rebase) する。`src/lib/domain/labels.ts` の衝突は **develop 側 (入口) を採る**
+2. 自分の hunk ごとに、変更していた namespace の移動先を `grep -rn "export const <NAME>" src/lib/domain/labels/` で引き、同じ行に当て直す (分割は文を一字一句移しただけなので、周辺の行はそのまま残っている)
+3. 自分が新しく足した namespace は `docs/DESIGN.md` §6 の配置規則で決まるファイルに置く。別の labels ファイルの非 export 宣言を使うなら、定義側に `export` を付けて `./<file>` から import する
+4. `git grep -nE "^export (const|function|type|interface)" src/lib/domain/labels.ts` が 0 件であることを確かめる (入口に宣言が残ると、同名の `export *` を黙って上書きする)。最後に `node scripts/generate-lp-labels.mjs --check` と svelte-check を通す
 
 ---
 
@@ -69,7 +75,7 @@ node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
 
 **並行して直す場所**（ルートの複製ではなく、モードで値が変わる箇所）:
 
-- 文言: `labels.ts` の年齢帯変種（`getXxxLabels(uiMode)` 系。漢字 / ひらがなの override は `src/routes/CLAUDE.md` §年齢帯 variant）
+- 文言: labels 層の年齢帯変種（`getXxxLabels(uiMode)` 系。base / override / getter は同じファイルに置く。漢字 / ひらがなの override は `src/routes/CLAUDE.md` §年齢帯 variant）
 - 見た目・密度: `age-tier.ts` と `child-home/variants/`
 - **機能差別化**: LP で「中学生から解放」等の訴求を書かない（LP truth、ADR-0013）。elementary / junior / senior の差はプリセット活動と文言だけ
 
@@ -660,8 +666,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
 
-- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
-- [ ] **年齢モード** → `src/routes/(child)/[uiMode=uiMode]/`（全モード共通の 1 本）+ モードで値が変わる `labels.ts` の年齢帯変種 / `age-tier.ts`（§2）
+- [ ] **UI ラベル・用語** → labels 層 (`src/lib/domain/labels/`、置き場所は `docs/DESIGN.md` §6) + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `PAGE_GUIDE_LABELS` / `getChildTutorialLabels`
+- [ ] **年齢モード** → `src/routes/(child)/[uiMode=uiMode]/`（全モード共通の 1 本）+ モードで値が変わる labels 層の年齢帯変種 / `age-tier.ts`（§2）
 - [ ] **本番画面** → **#2097 PR-B3 #2188 完了で `src/routes/demo/` 並行実装は 0 file**。本番 routes のみが SSOT (demo Lambda は env 駆動で本番 routes を直接 host、ADR-0048)。新規 `src/routes/demo/` の追加は禁止
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
 - [ ] **ナビゲーション** → 面を固定数で数えず、`grep -rn "<nav\b" src/` で変更が及ぶ面を確かめる。管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外

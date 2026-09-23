@@ -10,7 +10,7 @@ description: Use when creating or modifying UI elements to ensure brand consiste
 - [ ] **hex 直書き禁止** — routes/features 内で `#fff`, `#667eea` 等を使わない。Semantic トークン（`var(--color-action-primary)` 等）を使用
 - [ ] **プリミティブ再実装禁止** — `$lib/ui/primitives/` のコンポーネント（Button, Card, Alert 等）を必ず使用
 - [ ] **内部コード UI 露出禁止** — `child.uiMode` ではなく `getAgeTierLabel(child.uiMode)` を表示
-- [ ] **用語ハードコード禁止** — `src/lib/domain/terms.ts`（atom）/ `labels.ts`（compound）の定数を使用（ADR-0045）
+- [ ] **用語ハードコード禁止** — `src/lib/domain/terms.ts`（atom）/ labels 層（compound、`$lib/domain/labels` から import）の定数を使用（ADR-0045。置き場所は docs/DESIGN.md §6）
 - [ ] **インラインスタイル禁止** — 動的値以外の `style=` は不可
 
 ## ブランドトーン確認

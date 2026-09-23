@@ -71,7 +71,7 @@ Issue 群が軽微（typo / 単一文言修正 / dep bump / コメント整理 /
 | 並列許容条件（全て満たす必要） |
 |---|
 | 修正ファイルが PR 間で重複しない |
-| 同じ並行実装ペア（labels.ts / DB スキーマ 3 箇所 / 本番 ↔ デモ等）に触らない |
+| 同じ並行実装ペア（同じ labels ファイル (`src/lib/domain/labels/<file>.ts`、#4965 で画面・機能ごとに分割) / DB スキーマ 3 箇所 / 本番 ↔ デモ等）に触らない。labels は触る**ファイル**が重ならなければ並列してよい。入口 `src/lib/domain/labels.ts` に行を足す PR (ファイル新設) 同士は直列にする |
 | DB マイグレーション / スキーマ変更を伴わない |
 | 設計書同期不要、または更新先が独立 |
 | `priority:critical` でない |
@@ -404,9 +404,9 @@ follow-up に逃がせるのは「本番に存在しなくても顧客に気付�
 
 - hex 直書き禁止 → `var(--color-*)` Semantic トークン
 - ボタンは `Button.svelte`、`<button class="...">` 禁止
-- 用語は `$lib/domain/labels.ts` 経由（ADR-0045。atom は `$lib/domain/terms.ts`、compound は labels.ts の 2 階層 SSOT）
-  - **labels.ts 内部でも確立用語ハードコード禁止**（#1166 / #1174）。`ACTION_LABELS.upgrade` / `PLAN_LABELS.standard` 等を template literal で参照
-  - 新規 label: `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
+- 用語は `$lib/domain/labels` 経由（ADR-0045。atom は `$lib/domain/terms.ts`、compound は labels 層 = `src/lib/domain/labels/` の 2 階層 SSOT）
+  - **labels 層の内部でも確立用語ハードコード禁止**（#1166 / #1174）。`ACTION_LABELS.upgrade` / `PLAN_LABELS.standard` 等を template literal で参照
+  - 新規 label: 置くファイルは @docs/DESIGN.md §6 の配置規則で決める (表示先 → ファイル)。LP 用なら `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
 - インラインスタイルは動的値のみ / `<style>` 50 行超禁止
 
 ### 並行実装 (`docs/design/parallel-implementations.md`)

@@ -28,14 +28,15 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 > 本手順は起票時の事前検査であり、7 ステップとは独立した補助手順。Issue body draft が SSOT namespace を扱う場合のみ実行。
 
 Issue body draft 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、
-`src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を確認する。
+`src/lib/domain/terms.ts` / labels 層 (`src/lib/domain/labels/`) および open Issue との scope 重複を確認する。
+labels の新しい namespace は、置くファイルが docs/DESIGN.md §6 の配置規則 (表示先 → ファイル) で決まるので、そのファイルと下層の共有ファイルに同じ意味のものが無いかも見る。同じ名前を 2 ファイルが export すると入口の `export *` が TS2308 になり svelte-check が落ちる。
 
 **起票事故の前例**: PR #2041 (#1898) / PR #2044 (#1896) で同名 `LP_FAQ_TERMS` を別 scope で
 2 回 export しようとして TypeScript duplicate identifier conflict が発生 (Issue #2061)。
 
 ```bash
 # 既存 namespace との衝突確認
-grep -n "XXX_TERMS\|XXX_LABELS" src/lib/domain/terms.ts src/lib/domain/labels.ts
+grep -rn "XXX_TERMS\|XXX_LABELS" src/lib/domain/terms.ts src/lib/domain/labels/
 
 # open Issue 側の先行起票確認
 gh issue list --state open --search "XXX_TERMS"
@@ -227,7 +228,7 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 3. **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出
 4. **対象ペルソナと表示画面の整合性**: 「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」を起票時点で明示し、実装後に再確認
 5. **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離を判断
-6. **語彙統一の年齢整合**: ひらがな / 漢字混在は `getLabel(key, ctx)` 経由で labels.ts に集約し、年齢別 variant 化する
+6. **語彙統一の年齢整合**: ひらがな / 漢字混在は `getLabel(key, ctx)` 経由で labels 層に集約し、年齢別 variant 化する
 
 ### ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5)
 
@@ -340,7 +341,7 @@ gh issue list --search "notification push" --state all --limit 20
 # 1. 本文を Write tool または cat で tmp/issue-bodies/ に保存
 #    例: tmp/issue-bodies/cron-secret-rotation.md
 # 2. (#2061) SSOT namespace 重複確認 — body 内に XXX_LABELS / XXX_TERMS があれば
-#    src/lib/domain/{terms,labels}.ts と open Issue を grep / gh issue list で確認
+#    src/lib/domain/terms.ts / src/lib/domain/labels/ と open Issue を grep / gh issue list で確認
 # 3. 起票
 gh issue create --title "..." --label "..." --body-file tmp/issue-bodies/<slug>.md
 # 4. 起票成功を確認してから削除（古い draft が混ざらないように）

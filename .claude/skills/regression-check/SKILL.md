@@ -17,7 +17,7 @@ git diff --name-only develop...HEAD   # feature / fix の base は develop（hot
 
 | 変更カテゴリ | チェック対象 |
 |------------|-----------|
-| `src/lib/domain/` | 全画面に影響。labels.ts / validation/ / constants/ |
+| `src/lib/domain/` | validation/ / constants/ は全画面に影響。labels 層は変わったファイルで決まる: 下層の共有ファイル (`common` / `format` / `nav` / `age-tier` / `plan` / `theme` / `admin-shared`) は全画面、画面・機能のファイル (`admin-<x>` / `child-<x>` 等) はその画面、`lp.ts` は site/ |
 | `src/lib/server/services/` | API エンドポイント + テスト |
 | `src/lib/server/db/` | リポジトリ層 + サービス層 + テスト |
 | `src/lib/ui/primitives/` | 使用している全コンポーネント |
@@ -28,7 +28,7 @@ git diff --name-only develop...HEAD   # feature / fix の base は develop（hot
 
 ### 3. 並行実装チェック（docs/design/parallel-implementations.md）
 
-- [ ] UI ラベル変更 → labels.ts + site/ + tutorial
+- [ ] UI ラベル変更 → labels 層の該当ファイル + site/ (`lp.ts` のとき) + tutorial (`tutorial.ts` / `page-guide.ts` のとき)
 - [ ] 本番画面変更 → デモでも同じ本番ルートが動く（`DATA_SOURCE=demo` のデモデータで表示が破綻しないか）
 - [ ] ナビ変更 → 面を固定数で数えず `grep -rn "<nav\b" src/` で洗い出す（`AdminLayout` に Desktop / Mobile 同居、ほか `BottomNav` / 設定サブナビ / 運営者ナビ / ページ内タブ）
 - [ ] DB 変更 → テストデータ + デモデータ

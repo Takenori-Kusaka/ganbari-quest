@@ -20,7 +20,7 @@
 
 **期待状態**: ヒーロー文言が「3 秒で価値が伝わる」基準を満たす（ADR-0012 / StoryBrand SB7-1 適合）
 
-**該当ファイル**: `site/index.html` L42-58 / `src/lib/domain/labels.ts` の該当 `LP_*_LABELS`（`site/shared-labels.js` は生成物）
+**該当ファイル**: `site/index.html` L42-58 / `src/lib/domain/labels/lp.ts` の該当 `LP_*_LABELS`（`site/shared-labels.js` は生成物）
 
 **起票 Issue**: #XXXX (作成後に追記)
 
