@@ -54,8 +54,9 @@ async function settleFrame(page) {
  * 顧客が実際に見る画面と違う SS になる。
  *   1. selector を持つ step は spotlight が実要素に解決する (最大 5 秒。解決しなければそのまま撮る = 中央表示)
  *   2. スクロールが止まる (scrollY が 3 frame 連続で変わらない、最大 1.5 秒)
- *   3. 吹き出しのアニメーションが終わる — spotlight が解決すると吹き出しのフェードインが再生し直されるため、
- *      解決とスクロールを待ったあとで待つ (先に待つと、解決後の 2 回目のフェードイン途中を撮る)
+ *   3. 吹き出しが「止まって不透明」な状態が 400ms 続く — `data-tutorial-target="resolved"` はスクロール中の
+ *      位置追従で先に立ち、その約 300ms 後に対象の確定 (focusElement) で吹き出しのフェードインが
+ *      再生し直される。1 回アニメーションの終わりを待つだけでは 2 回目のフェードイン途中を撮る
  */
 async function settleStep(page, bubble) {
 	if ((await bubble.getAttribute('data-has-target')) === 'true') {
@@ -84,9 +85,24 @@ async function settleStep(page, bubble) {
 				requestAnimationFrame(tick);
 			}),
 	);
-	await bubble
-		.evaluate((el) =>
-			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
+	await page.evaluate(() => {
+		window.__childTutStableSince = undefined;
+	});
+	await page
+		.waitForFunction(
+			() => {
+				const b = document.querySelector('.tutorial-bubble');
+				if (!b) return false;
+				const moving = b.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+				if (moving || getComputedStyle(b).opacity !== '1') {
+					window.__childTutStableSince = undefined;
+					return false;
+				}
+				window.__childTutStableSince ??= performance.now();
+				return performance.now() - window.__childTutStableSince >= 400;
+			},
+			null,
+			{ timeout: 5000, polling: 'raf' },
 		)
 		.catch(() => {});
 	await settleFrame(page);
