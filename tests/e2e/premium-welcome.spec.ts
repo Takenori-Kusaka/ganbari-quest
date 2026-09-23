@@ -69,8 +69,8 @@ test.describe('#778 PremiumWelcome モーダル — standard', () => {
 		await expect(dialog.getByText('解放された機能')).toBeVisible();
 		// standard 固有の項目（PREMIUM_UNLOCKED_FEATURES.standard より。
 		// #722 で AI 提案は family 専用に移行したため、standard 専用項目でアサート）
-		// #4705: 行名は REWARD_TERMS.originalRegistration が SSOT（plan-features.ts:144）。
-		await expect(dialog.getByText(REWARD_TERMS.originalRegistration)).toBeVisible();
+		// #4705: 行名は REWARD_TERMS.originalCreateEdit が SSOT（plan-features.ts:144）。
+		await expect(dialog.getByText(REWARD_TERMS.originalCreateEdit)).toBeVisible();
 	});
 
 	test('「さっそく始める」で閉じた後はリロードしても表示されない', async ({ page }) => {

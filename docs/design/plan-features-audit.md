@@ -26,7 +26,7 @@
 | チェックリストテンプレート数 | `checkChecklistTemplateLimit` | `maxChecklistTemplates` | free: 3/子 / paid: 無制限 |
 | 活動履歴の保持期間 | `applyRetentionFilter` / `hasArchivedData` | `historyRetentionDays` | free: 90日 / standard: 365日 / family: 無制限 (#2278 で対象テーブル拡張: ADR-0049 参照) |
 | データエクスポート（JSON） | `/admin/export` の plan チェック | `canExport` | free: ❌ / paid: ✅ |
-| 特別なごほうび設定（即時付与） | `admin/rewards/+page.server.ts:59 ensurePremium` | `canCustomReward` | free: ❌ / paid: ✅ |
+| オリジナルのごほうびの作成・編集（ポイントの調整を含む） | `isCustomRewardUnlocked`（`admin/rewards` の `?/add` `?/addPreset` `?/update` + `api/v1/special-rewards` POST / templates PUT）。プリセットの取込と削除は全プラン可 | `canCustomReward` | free: ❌ / paid: ✅ |
 | ひとことメッセージ（自由テキスト） | ParentMessage の gate | `canFreeTextMessage` | free/standard: ❌ / family: ✅ |
 | きょうだいランキング | SiblingTrendChart の gate | `canSiblingRanking` | free/standard: ❌ / family: ✅ |
 | クラウドエクスポート同時保管数 | Cloud exports | `maxCloudExports` | free: 0 / standard: 3 / family: 10 |

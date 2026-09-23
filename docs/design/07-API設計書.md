@@ -2177,6 +2177,7 @@ export interface PlanLimitError {
 | `POST /admin/checklists ?/importMarketplace` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#2137) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/add` | standard | ごほうび管理 (`canCustomReward`, #728 / #2268 grant→add リネーム) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 (`canCustomReward`)。title / points をクライアントが送るため、名前に反してオリジナル登録と同じ扱い (#728 / #4928) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/update` | standard | 登録済みごほうびの編集 (`canCustomReward`)。プリセットから取り込んだごほうびの名前・ポイントの調整を含む (#2832 / #4992 PO 決裁 Q2: 無料で開けると取込 → 書き換えでオリジナル作成と同じことが件数の上限なしにできるため)。拒否文言の機能名は料金表の行名と同じ `REWARD_TERMS.originalCreateEdit` | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
 | `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |

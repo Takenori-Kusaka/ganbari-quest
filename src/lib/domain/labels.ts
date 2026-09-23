@@ -739,19 +739,21 @@ export const PLAN_GATE_LABELS = {
 	 *   - errors.ts: 'AI 活動提案はスタンダードプラン以上でご利用いただけます'
 	 *   - cloud-export-service.ts: 'クラウドエクスポートはスタンダードプラン以上でご利用いただけます'
 	 *   - admin/reports/+page.server.ts: '週次メールレポートはスタンダードプラン以上でご利用いただけます'
-	 *   - admin/rewards/+page.server.ts: '特別なごほうび設定はスタンダードプラン以上でご利用いただけます'
+	 *   - admin/rewards/+page.server.ts: `${rewardCustomizeFeature}はスタンダードプラン以上でご利用いただけます` (#4992)
 	 *   - api/v1/export/+server.ts: 'エクスポート機能はスタンダードプラン以上でご利用いただけます'
 	 */
 	standardOrAboveFor: (feature: string) =>
 		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
 
 	/**
-	 * ごほうび管理で有料になる操作の名前 (#4928)。`standardOrAboveFor` の引数に使う。
+	 * ごほうび管理で有料になる操作の名前 (#4928 / #4992)。`standardOrAboveFor` の引数に使う。
 	 *
 	 * プリセット / テンプレートの取込は全プラン可なので「ごほうび管理」全体を有料と言わない。
 	 * admin/rewards の拒否文言とページガイドの tips が同じ語を使うよう 1 箇所に置く。
+	 * 値は料金表の行名 (REWARD_TERMS.originalCreateEdit) と同じにする — 拒否された操作が
+	 * 料金表のどの行かを顧客が突き合わせられるように (#4992)。
 	 */
-	rewardCustomizeFeature: `オリジナルの${REWARD_TERMS.canonical}作成・${REWARD_ADMIN_TERMS.edit}`,
+	rewardCustomizeFeature: REWARD_TERMS.originalCreateEdit,
 
 	/**
 	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"
@@ -2637,7 +2639,8 @@ export const PAGE_GUIDE_LABELS = {
 				goal: `お子さまが貯めたポイントで${REWARD_TERMS.canonical}と交換できるようになり、「がんばれば叶う」体験がモチベーションを支えます。`,
 				tips: [
 					// #4928: テンプレートの取込は全プラン可。有料なのはオリジナル作成と編集だけ
-					`${PLAN_GATE_LABELS.standardOrAboveFor(PLAN_GATE_LABELS.rewardCustomizeFeature)}（${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」に鍵マークが付き、プラン画面に案内します）。「${ADD_MENU_TERMS.browse}」からの取込は${PLAN_FULL_TERMS.free}でも使えます`,
+					// #4992: 無料プランでは一覧カードの「編集」にも鍵マークが付く (押す前に一覧の上の注記で理由が読める)
+					`${PLAN_GATE_LABELS.standardOrAboveFor(PLAN_GATE_LABELS.rewardCustomizeFeature)}。${PLAN_FULL_TERMS.free}では「${ADD_MENU_TERMS.manual}」と各カードの「${REWARD_ADMIN_TERMS.edit}」に鍵マークが付き、押すとプランの案内が出ます。「${ADD_MENU_TERMS.browse}」からの取込と「${REWARD_ADMIN_TERMS.delete}」は${PLAN_FULL_TERMS.free}でも使えます`,
 				],
 				relatedLinks: [{ label: `${CHEER_TERMS.canonical}を送る`, href: '/admin/cheer' }],
 			},
@@ -2672,6 +2675,10 @@ export const PAGE_GUIDE_LABELS = {
 				what: `各カードに「${REWARD_ADMIN_TERMS.edit}」「${REWARD_ADMIN_TERMS.delete}」があります。お子さまが交換を申請中のカードには「${REWARD_ADMIN_TERMS.pendingBadge}」と出ます。上の「${REWARD_ADMIN_TERMS.search}」で名前から絞り込めます。`,
 				how: `1. 「${REWARD_ADMIN_TERMS.edit}」でタイトルやポイントを変える（申請済みの交換は申請時点の内容で処理されます）\n2. 「${REWARD_ADMIN_TERMS.delete}」は確認のうえ消す（「${REWARD_ADMIN_TERMS.pendingBadge}」があるときは先に申請を処理します）`,
 				goal: `${REWARD_TERMS.canonical}を直したり整理したりしても、お子さまが申請済みの交換は壊れません。`,
+				// #4992: 手順 1 の「編集」は無料プランでは押せない。手順どおりに進めて行き止まらないよう明示する
+				tips: [
+					`「${REWARD_ADMIN_TERMS.edit}」は${PLAN_FULL_TERMS.standard}以上の機能です（取り込んだ${REWARD_TERMS.canonical}も含みます）。「${REWARD_ADMIN_TERMS.delete}」はどのプランでも使えます`,
+				],
 			},
 		},
 	},
@@ -7745,6 +7752,10 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	rewardEditButton: REWARD_ADMIN_TERMS.edit,
 	rewardDeleteButton: REWARD_ADMIN_TERMS.delete,
 	rewardPendingBadge: REWARD_ADMIN_TERMS.pendingBadge,
+	// #4992 (PO 決裁 Q2 の条件 2): 無料プランでは「編集」を押せない。その理由を**押す前に**読めるよう、
+	// 一覧の上に常時出し、各行のロックした「編集」から aria-describedby で指す。
+	// 拒否されてから初めて理由が出る形 (旧: 説明なしの disabled) にはしない。
+	editLockedNote: `「${REWARD_ADMIN_TERMS.edit}」（${REWARD_ADMIN_TERMS.formTitle}や${REWARD_ADMIN_TERMS.formPoints}の変更）は${PLAN_FULL_TERMS.standard}以上の機能です。「${REWARD_ADMIN_TERMS.delete}」はどのプランでもできます`,
 	editDialogTitle: 'ごほうびを編集',
 	// AC2 (案 b): 編集許容 + snapshot 仕様 (申請時点値) の明示 note
 	editPendingNote: '申請済みの交換は申請時点の内容（名前・ポイント）で処理されます',
@@ -9191,7 +9202,9 @@ export const LP_PRICING_LABELS = {
 	// #1912 (F-6): LP FAQ の「ログインボーナス」→「ごほうび」へ日本語化
 	// #4915: プリセットのごほうびも無料プランで追加できる (実装の事実、ADR-0013)。
 	// 「商品登録」を「オリジナルごほうびの登録」に絞り、無料でできること/できないことを両方示す。
-	faqFreeA: `はい。プリセットの活動・チェックリスト・${REWARD_TERMS.canonical}で基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.originalRegistration}（プリセットにない商品をご自身で作って登録すること）は${PLAN_FULL_TERMS.standard}以上の機能です。`,
+	// #4992: 有料の範囲は「作成」だけでなく「編集」(取り込んだごほうびの名前・ポイントの変更) も含む。
+	//   行名だけでは「オリジナルのごほうびを編集すること」と読めるため、取り込んだものも対象だと本文で言う。
+	faqFreeA: `はい。プリセットの活動・チェックリスト・${REWARD_TERMS.canonical}で基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は${PLAN_FULL_TERMS.free}でも一切制限ありません。ただし${REWARD_TERMS.originalCreateEdit}は${PLAN_FULL_TERMS.standard}以上の機能です。プリセットにない${REWARD_TERMS.canonical}をご自身で作ることと、取り込んだ${REWARD_TERMS.canonical}の名前やポイントを変えることがこれにあたります。`,
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
@@ -11393,6 +11406,9 @@ export const STORYBOOK_LABELS = {
 		buttonLabel: 'クラウドエクスポート',
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
+		// #4992: 一覧の行に置くロックした操作 (ごほうび管理の「編集」) と、押す前に読める理由の注記
+		rowButtonLabel: REWARD_ADMIN_TERMS.edit,
+		reasonNote: ADMIN_REWARDS_PAGE_LABELS.editLockedNote,
 	},
 	// #2573: Stripe Checkout の申込確定ボタン直前に出る文言 (`custom_text.submit.message`) は
 	// Stripe 側が描画するため、demo 環境でも本番でも手元で SS を撮れない。
@@ -12071,13 +12087,16 @@ export const LP_PRICING_PHASEB_LABELS = {
 	// #4915: 初期セットアップのプリセット取込には上限が無く、無料プランでもプリセットの
 	// ごほうびをショップに並べられる (実装の事実)。ADR-0013 に基づき、無料でできること
 	// (プリセットから追加) と、できないこと (オリジナルの自作登録) を両方明示する。
-	k8b: `${REWARD_TERMS.canonical}: ${REWARD_TERMS.preset}から追加（${REWARD_TERMS.originalRegistration}は${PLAN_TERMS.standard}以上）`,
+	// #4992: 取り込んだごほうびのポイント調整 (編集) も有料であることを atom の名前で言う。
+	//   atom 自体が「（ポイントの調整を含む）」を持つため、外側を括弧にせず句点で区切る (括弧の入れ子を作らない)。
+	k8b: `${REWARD_TERMS.canonical}: ${REWARD_TERMS.preset}から追加。${REWARD_TERMS.originalCreateEdit}は${PLAN_TERMS.standard}以上`,
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
 	k11: 'チェックリスト自由作成（無制限）',
 	k12: `家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
 	// #4915: 無料でも使えるプリセット取込と対比するため「オリジナル」限定の名称に是正。
-	k13: `${REWARD_TERMS.originalRegistration}`,
+	// #4992: 編集 (ポイントの調整を含む) も有料であることを行名で言う。
+	k13: `${REWARD_TERMS.originalCreateEdit}`,
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
 	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
@@ -12116,7 +12135,8 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k39a: `<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲートと別機能に読めたため atom に統一
 	// #4915: 無料でも使えるプリセット取込 (k39a) と対比するため「オリジナル」限定の名称に是正。
-	k39: `<td>${REWARD_TERMS.originalRegistration}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
+	// #4992: 取り込んだごほうびの編集 (ポイントの調整) も無料では — であることを行名で言う。
+	k39: `<td>${REWARD_TERMS.originalCreateEdit}</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 	k40: '<td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td>',
 	k41: '<td colspan="4">レポート・家族機能</td>',
 	// #4713: 旧「日次サマリー」に対応する画面名がアプリに無かった。管理ホームの実見出しに揃える。
@@ -12373,7 +12393,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
 	k42: `<span class="check">&#x2713;</span>家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
 	// #4928: 有料で増えるのはオリジナルの登録 (プリセットは全プラン可)
-	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.originalRegistration}`,
+	// #4992: 編集 (ポイントの調整を含む) も有料側の機能
+	k43: `<span class="check">&#x2713;</span>${REWARD_TERMS.originalCreateEdit}`,
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k46: '<span class="check">&#x2713;</span>メールサポート',
