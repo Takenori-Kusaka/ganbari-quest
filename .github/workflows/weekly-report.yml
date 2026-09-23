@@ -103,7 +103,8 @@ jobs:
 
       - name: Format and send Discord report
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEEKLY_REPORT_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEEKLY_REPORT_WEBHOOK_URL }}
           COSTS_JSON: ${{ steps.aws-costs.outputs.costs }}
           START_JP: ${{ steps.aws-costs.outputs.start_jp }}
           END_JP: ${{ steps.aws-costs.outputs.end_jp }}
@@ -114,7 +115,7 @@ jobs:
           STRIPE_TOTAL: ${{ steps.stripe-revenue.outputs.total }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::DISCORD_WEEKLY_REPORT_WEBHOOK_URL is not set. Skipping."
+            echo "::warning::DISCORD_WEEKLY_REPORT_WEBHOOK_URL secret is not set. Skipping."
             exit 0
           fi
 
