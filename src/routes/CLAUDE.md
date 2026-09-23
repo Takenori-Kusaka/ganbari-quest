@@ -33,7 +33,7 @@ export function getChildShopLabels(uiMode: string): ChildShopLabels {
 }
 ```
 
-- **base / 型 / override / getter は同じファイルに置く** (別ファイルに分けると片方だけ更新されて割れる)。別のファイルから使うものだけ定義側で `export` する
+- **base / 型 / override / getter は同じファイルに置く** (別ファイルに分けると片方だけ更新されて割れる)。別のファイルから使うものだけ定義側で `export` する (例: 上の `CHILD_SHOP_KANJI_OVERRIDES` は、子供のページガイドの漢字変種 `CHILD_PAGE_GUIDE_KANJI_OVERRIDES` がボタン名・リンク名を引くため、実物では `export` している)
 - **ひらがな側を base にする** — baby / preschool / elementary が既定、junior / senior だけ漢字 override (docs/DESIGN.md §8)
 - **文言セット型は値をリテラルでなく `string` に広げる**（`as const` のままだと override が別の文字列を入れられない）
 - **component は `page` を読まず `uiMode` を prop で受ける**（テストしやすさと、どこから来た値かの明示のため）
