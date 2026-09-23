@@ -349,8 +349,9 @@ describe('#4369 follow-up: ORIGIN_VERIFY_SECRET_PREVIOUS 残置の CDK synth war
 				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 				[originVerifyContextKey]: SECRET,
-				// #4706: 本番 synth の必須 context (未指定は addError)。形式だけ本物に合わせたダミー。
-				vapidPublicKey: `B${'A'.repeat(86)}`,
+				// #4706: 本番 synth の必須 context (未指定・組にならない鍵は addError)。秘密鍵 'a'×43 と組になる非秘密ダミー。
+				vapidPublicKey:
+					'BAicvjX0tNtk9b2G2iUUZAXdKw4WqVrzzfHCX9KLrJCA5cTYr522SGO382Bhpd9gfNaBcP8Nw-Tz3JKBMzNHcfY',
 				vapidPrivateKey: 'a'.repeat(43),
 				...extraContext,
 			},

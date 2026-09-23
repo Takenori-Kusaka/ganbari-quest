@@ -76,9 +76,10 @@ const SYNTH_CONTEXT = {
 	// 32 文字以上の非秘密ダミー。
 	originVerifySecret: 'cfnlint-dummy-origin-verify-secret-000000',
 	opsSecretKey: 'cfnlint-dummy-ops-secret-key',
-	// #4706: 本番 ComputeStack は VAPID 鍵の未指定 / 形式不正を addError にする。
-	// 形式 (base64url の公開鍵 87 文字 / 秘密鍵 43 文字) だけを満たす非秘密ダミー。
-	vapidPublicKey: `B${'A'.repeat(86)}`,
+	// #4706: 本番 ComputeStack は VAPID 鍵の未指定 / 形式不正 / 組にならない鍵を addError にする。
+	// 秘密鍵 'c'×43 と組になる非秘密ダミー (形式に加えて組の一致も検査される)。
+	vapidPublicKey:
+		'BOCUInad2D500P1tNUsjVC5kpsv05KTNRb_oPrixTemHqBBggeLQjM7itlwVhi6BGUYiKomWarGULULJEqYhSLg',
 	vapidPrivateKey: 'c'.repeat(43),
 	dsqlEndpoint: 'cfnlintdummy1234.dsql.us-east-1.on.aws',
 	dsqlClusterArn: `arn:aws:dsql:us-east-1:${SYNTH_ACCOUNT}:cluster/cfnlintdummy1234`,

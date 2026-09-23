@@ -79,8 +79,8 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 | `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push (リマインダー / ストリーク警告) の署名鍵 (#4706)。未注入でも起動はするが push が 1 通も送れない | **Lambda 必須** (未指定 / 形式不正は CDK synth error) / **staging・NUC には配布しない** (push を配信しない構成)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
 | `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は CDK synth error) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
 

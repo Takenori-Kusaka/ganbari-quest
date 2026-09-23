@@ -61,6 +61,12 @@ interface AchievementNotificationData {
 // #4664: 値は domain/constants/notification.ts が SSOT (設定画面 / ページガイドも同じ値を引く)。
 export { MAX_DAILY_NOTIFICATIONS };
 
+/**
+ * push サービス 1 endpoint あたりの socket idle 上限 (#4706)。達成通知は子供の記録リクエストの中で、
+ * 定期配信は 30 秒 Lambda の cron の中で送るため、応答しない endpoint 1 つでそれらを止めない。
+ */
+const PUSH_SEND_TIMEOUT_MS = 5_000;
+
 // ============================================================
 // ヘルパー
 // ============================================================
@@ -220,6 +226,9 @@ export async function sendPushNotification(
 	// テナントの全購読を取得
 	const allSubscriptions = await findByTenant(tenantId);
 	if (allSubscriptions.length === 0) {
+		logger.info('[notification] 購読が 0 件のためスキップ', {
+			context: { tenantId, notificationType },
+		});
 		return { sent: 0, failed: 0 };
 	}
 
@@ -299,6 +308,7 @@ export async function sendPushNotification(
 					keys: { p256dh: sub.keysP256dh, auth: sub.keysAuth },
 				},
 				payload,
+				{ timeout: PUSH_SEND_TIMEOUT_MS },
 			);
 			sent++;
 		} catch (err: unknown) {

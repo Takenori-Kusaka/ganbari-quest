@@ -14,6 +14,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
 import { resolveOriginVerifyPreviousSecret } from './origin-verify-context';
+import { isVapidKeyPair } from './vapid-context';
 
 // SSOT: src/lib/server/cron/schedule-registry.ts
 // CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
@@ -291,19 +292,19 @@ export class ComputeStack extends cdk.Stack {
 		}
 
 		// --- Web Push VAPID 鍵 (#4706) ---
-		// notification-service.ts は鍵が無いと warn + `sent: 0` を返すだけで、cron は 200 のまま
+		// 公開鍵は購読時に /api/v1/settings/vapid-key で配り、秘密鍵で全 push を署名する。無いと
+		// 保護者は購読できず、notification-service.ts は warn + `sent: 0` を返すだけで cron は 200 のまま
 		// 「送信 0 件」を返し続ける (本番で 2026-09-11〜23 の送信判定がすべてこれで止まっていた)。
-		// 本番は未指定 / 形式不正を synth error にする。形式検査は公開鍵 (65 byte) と秘密鍵 (32 byte)
-		// の取り違えを拾うため。staging は cron-dispatcher を持たず push を配信しないので配らない。
+		// 本番は未指定 / 形式不正 / 組になっていない鍵を synth error にする (isVapidKeyPair)。
+		// staging には配らない (公開鍵が無いので購読できず push は届かない。記録時の achievement 送信で
+		// 出る VAPID 未設定 warn は想定内)。
 		const vapidPublicKey = this.node.tryGetContext('vapidPublicKey') ?? '';
 		const vapidPrivateKey = this.node.tryGetContext('vapidPrivateKey') ?? '';
-		if (
-			isProd &&
-			!(/^[A-Za-z0-9_-]{87}$/.test(vapidPublicKey) && /^[A-Za-z0-9_-]{43}$/.test(vapidPrivateKey))
-		) {
+		if (isProd && !isVapidKeyPair(vapidPublicKey, vapidPrivateKey)) {
 			cdk.Annotations.of(this).addError(
-				'[ComputeStack] VAPID 鍵 (vapidPublicKey / vapidPrivateKey context) が未指定か形式不正です。' +
-					'公開鍵は base64url 87 文字、秘密鍵は 43 文字です (取り違えに注意)。' +
+				'[ComputeStack] VAPID 鍵 (vapidPublicKey / vapidPrivateKey context) が未指定・形式不正、' +
+					'または公開鍵と秘密鍵が組になっていません。公開鍵は base64url 87 文字、秘密鍵は 43 文字で、' +
+					'同じ generateVAPIDKeys() の出力を組で登録します (片方だけの作り直し・取り違えに注意)。' +
 					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
 					'deploy workflow で -c vapidPublicKey=${{ secrets.VAPID_PUBLIC_KEY }} -c vapidPrivateKey=${{ secrets.VAPID_PRIVATE_KEY }} を渡してください。' +
 					'See infra/CLAUDE.md。',
