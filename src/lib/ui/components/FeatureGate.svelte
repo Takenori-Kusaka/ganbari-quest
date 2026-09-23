@@ -167,8 +167,11 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 	:global(.feature-gate-btn) {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 1rem;
+		gap: 0.25rem;
+		/* #4992: 一覧の行 (ごほうび管理の「編集」) に置くと 🔒 と枠のぶん本物のボタンより幅を取り、
+		   モバイルで行タイトルの折り返しが増える。左右を詰めて Button size="sm" の幅に近づける */
+		padding: 0.5rem 0.75rem;
+		white-space: nowrap;
 		border: 1px solid var(--color-border-default);
 		border-radius: var(--radius-md);
 		background: var(--color-surface-secondary);
