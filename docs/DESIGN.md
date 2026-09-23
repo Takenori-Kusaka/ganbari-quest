@@ -80,11 +80,13 @@ CSS カスタムプロパティの `var()` は**宣言された要素**で解決
 
 日本語は空白区切りがないため、見出し・ボタン・カードタイトルが不自然な位置で折り返される問題への方針:
 
-- **第一選択（CSS, 0KB）**: `h1`, `h2`, `h3`, `.heading`, `.tutorial-title`, `.btn-label` に `text-wrap: balance; word-break: auto-phrase;` を適用（`app.css`）
-- **フォールバック（BudouX, ~15KB）**: 古いブラウザ / 長文段落 / チュートリアル本文で `use:budoux` Svelte action を必要箇所のみ適用（`$lib/ui/actions/budoux.ts`）
+- **見出し（CSS, 0KB）**: `h1`〜`h4` に `text-wrap: balance` を適用（`app.css`）。行の長さを揃えるだけで、文節は見ない
+- **文節で折り返す（`use:budoux`）**: 語の途中で折れると読めなくなる本文・見出しには `use:budoux` Svelte action（`src/lib/ui/actions/budoux.ts`）を付ける。現在の適用先はチュートリアル（`TutorialBubble`）とページガイド（`PageGuideBubble` / `PageGuideTabs`）の本文
+  - `word-break: auto-phrase` を解釈するブラウザ（Chromium 系）: CSS（`[data-budoux]`）だけで文節折り返しになり、BudouX は読み込まない
+  - 解釈しないブラウザ（Safari / Firefox）: BudouX（`budoux` package の ja model、~24KB）を遅延読込し、文節の境界に ZWSP を差し込んで `keep-all` で折り返す（`[data-budoux-applied]`）
 - **LP 側**: CDN Web Component (`<budoux-ja>`) で追加バンドルなし
 
-SSR 二重適用は `data-budoux-applied` フラグで回避。BudouX の OSS 選定根拠は [decisions/README.md §OSS 採用記録](decisions/README.md)（旧 ADR-0016、git 履歴）。
+action はクライアントでだけ動き、SSR 出力には手を入れない。text node は分割せず値だけを書き換える（Svelte は text node への参照を保持して値を更新するため、分割すると更新時に古い断片が残る）。値が書き換わったら差し込み直す。BudouX の OSS 選定根拠は [decisions/README.md §OSS 採用記録](decisions/README.md)（旧 ADR-0016、git 履歴）。
 
 ---
 

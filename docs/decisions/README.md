@@ -68,7 +68,7 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 | 領域 | 採用 OSS | 採用 PR / Issue | 採用根拠 |
 |------|---------|----------------|---------|
-| LP テキスト折り返し (日本語) | BudouX (CDN Web Component) | #584 / #1353 (旧 ADR-0016、git 履歴。運用ルール: docs/DESIGN.md §3) | OS-non-dependent + 0 KB (CDN)。tiny-segmenter (切れすぎ) / kuromoji.js (辞書 17MB) / mecab (WASM 複雑) は不採用 |
+| 日本語テキスト折り返し (LP / アプリ) | BudouX (LP: CDN Web Component / アプリ: `budoux` npm、devDependency) | #584 / #1353 (旧 ADR-0016、git 履歴) / #4964 (アプリの `use:budoux`)。運用ルール: docs/DESIGN.md §3 | OS-non-dependent + LP は 0 KB (CDN)。アプリは `word-break: auto-phrase` 非対応ブラウザ (Safari / Firefox) でだけ ja model を遅延読込し、Chromium には配信しない。tiny-segmenter (切れすぎ) / kuromoji.js (辞書 17MB) / mecab (WASM 複雑) は不採用 |
 | LP SSOT 注入 (XSS 設計) | DOMPurify | ADR-0025 / #1683 | innerHTML 経路の XSS 防御、業界標準 |
 | Parent-Gate session cookie 署名 | cookie-signature | ADR-0050 / #2310 | HMAC-SHA256 検証、4 OSS 比較 |
 | **Marketplace schema validation (5 type SSOT)** | **Valibot + @standard-schema/spec** | **#2362 EPIC / #2364** | **bundle 92% 削減 (vs Zod v3)、Standard Schema spec で将来 Zod/ArkType 切替自由度** |

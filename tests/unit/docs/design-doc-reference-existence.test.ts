@@ -75,6 +75,7 @@ const STRICT_DOCS = [
 	'docs/design/08-データベース設計書.md',
 	'docs/design/09-テスト設計書.md',
 	'docs/design/parallel-implementations.md',
+	'docs/DESIGN.md',
 ] as const;
 
 /** API 設計書 (endpoint 集合を**両方向**で突合する唯一の doc)。 */
@@ -174,6 +175,9 @@ type Ref = { file: string; line: number; ref: string; kind: 'file' | 'dir' };
 function extractPathRefs(file: string, body: string): Ref[] {
 	const refs: Ref[] = [];
 	stripFencedBlocks(body)
+		// `$lib/…` は SvelteKit の alias。repo 上の実体 (`src/lib/…`) に読み替えて同じ検査に掛ける
+		// (DESIGN.md は実装の置き場所を alias で書くことが多く、読み替えないと素通りする。#4964)
+		.replace(/(?<![\w$])\$lib\//g, 'src/lib/')
 		.split('\n')
 		.forEach((line, idx) => {
 			const collect = (re: RegExp, kind: Ref['kind']) => {

@@ -43,7 +43,7 @@ export function getChildShopLabels(uiMode: string): ChildShopLabels {
 
 ### 日本語テキスト折り返し（docs/DESIGN.md §3）
 
-見出し / Dialog / `.tutorial-title` / `.btn-label` は `app.css` の `text-wrap: balance; word-break: auto-phrase;` で対応 (0KB)。長文段落 / 旧ブラウザ対応は `use:budoux` 個別適用 (~15KB)。LP 側は `<budoux-ja>` Web Component。
+見出し (`h1`〜`h4`) は `app.css` の `text-wrap: balance` のみ (0KB、文節は見ない)。語の途中で折らせたくない本文・見出しには `use:budoux` を付ける (Chromium は CSS の auto-phrase、Safari / Firefox は BudouX を遅延読込)。LP 側は `<budoux-ja>` Web Component。
 
 ## チュートリアル修正
 
