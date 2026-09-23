@@ -94,7 +94,7 @@ npx -y @nanonets/graft@0.12.1 build "$(git rev-parse --show-toplevel)"   # 約 7
   UI 層の探索は `docs/codebase-map.md` + grep を主経路にする
 - **alias 経由で import した関数を値として渡す参照**（`$lib/...` から import して `.map(fn)` に渡す など）。
   0.12.1 は `.` で始まる相対 import しか解決しない（`dist/graph/resolve.js` の `resolveImport`）。
-  関数**呼び出し**は名前で結ぶので、`$lib` 経由でも名前が一意なら返る
+  関数**呼び出し**は名前で結ぶので、`$lib` 経由でも名前が一意なら返る（この項はコード読解による。計測はしていない）
 - **dot で始まるディレクトリとファイル**（`.claude/hooks` / `.storybook` / `.dependency-cruiser.cjs` など）。
   0.12.1 は設定でも覆せない形で丸ごと飛ばす（`dist/ingest/fs.js` の `shouldSkipDir`）。`scripts/lib` の export を
   rename するときは `.claude/hooks` からの呼び出しを grep で確かめる
