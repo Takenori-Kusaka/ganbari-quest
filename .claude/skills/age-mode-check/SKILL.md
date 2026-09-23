@@ -5,11 +5,11 @@ description: Use when modifying child-facing UI to verify all 5 age modes (baby/
 
 # 年齢モード 5 重複検証
 
-## 5 モード定義（age-tier.ts）
+## 5 モード定義（SSOT: `src/lib/domain/validation/age-tier.ts` の `AGE_TIER_CONFIG` / `AGE_TIER_CAPABILITIES`。下表と食い違ったら SSOT が正）
 
 | コード | 日本語 | fontScale | tapSize | 特性 |
 |--------|--------|-----------|---------|------|
-| `baby` | 乳幼児 (0-2歳) | 1.5 | 120px | 大きなボタン、シンプルな色 |
+| `baby` | 準備モード (0-2歳) | 1.5 | 120px | 親向けの準備モード。子供向けゲーミフィケーション非適用（ADR-0011） |
 | `preschool` | 幼児 (3-5歳) | 1.2 | 80px | 丸い形、ひらがなのみ |
 | `elementary` | 小学生 (6-12歳) | 1.0 | 56px | 標準レイアウト、漢字最小限 |
 | `junior` | 中学生 (13-15歳) | 1.0 | 48px | 情報密度やや高い |
@@ -33,7 +33,7 @@ description: Use when modifying child-facing UI to verify all 5 age modes (baby/
 
 ### ルーティング
 - [ ] `src/routes/(child)/[uiMode=uiMode]/` 配下の統合ルートを使用しているか
-- [ ] 年齢モード固有のハードコードがないか（age-tier.ts の設定を参照）
+- [ ] 年齢モード固有のハードコードがないか（age-tier.ts の設定を参照。機能の出し分けは `hasAgeTierCapability()` 経由）
 
 ## 検証手順
 

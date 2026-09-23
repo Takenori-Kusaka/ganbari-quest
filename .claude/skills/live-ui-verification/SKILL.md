@@ -89,7 +89,7 @@ browser_fill_form → pin code 1..4 of 4 に 1 文字ずつ
 browser_wait_for  { time: 4 }
 ```
 
-- PIN は `PIN_LENGTH`（`src/lib/domain/constants/oyakagi.ts`、4 桁）で、既定値は無い（初回に親ゲートで作成する、#2992 / #4698）。**運用中の環境の値はオーナーに聞く**。3 回失敗するとロックされる実装があれば、試行を繰り返さない
+- PIN は `PIN_LENGTH`（`src/lib/domain/constants/oyakagi.ts`、4 桁）で、既定値は無い（初回に親ゲートで作成する、#2992 / #4698）。**運用中の環境の値はオーナーに聞く**。失敗が続くとロックされる（回数は `src/lib/domain/validation/auth.ts` の `MAX_FAILED_ATTEMPTS`）ので、試行を繰り返さない
 - ページ再読込すると snapshot の ref prefix が変わる（`e45` → `f1e7`）。**fill する直前に snapshot を取り直す**
 
 ### Step 2: snapshot を主、screenshot を従とする（最重要）
@@ -129,7 +129,7 @@ browser_take_screenshot { fullPage: true, filename: "prod-<page>-<date>.png" }
 ```bash
 # 例: 家族名が "kokorokagami+test1の家族" と表示されていた件
 grep -rn "の家族" src/
-# → src/lib/server/auth/providers/cognito.ts:316
+# → src/lib/server/auth/provisioning.ts
 #    name: `${familyName}の家族`  ← メールのローカル部から生成。仕様どおりだった
 ```
 
@@ -164,7 +164,7 @@ gh issue comment <N> --body @'...'@
 起票基準（`docs/sessions/po-session.md` §「Issue を起票する基準」）を適用する。**目視で見つけたからといって全部起票しない。**
 
 - **起票する**: 顧客価値の作業単位（EPIC と傘下の実装単位）、またはオーナーの手番が要るもの（不可逆 4 操作）
-- **起票しない（記録のみ）**: 軽微な表示ゆらぎ、仕様どおりの挙動、装置起因
+- **Issue にしない**: 直せる不備（軽微な表示ゆらぎ・装置起因を含む）はその場で PR（同基準の「Issue にしない = その場で PR」）。仕様どおりの挙動は記録のみ
 - **仕様として確定させる**: 実装とコメント / 設計書が食い違っているだけのもの。実装を変えずに記述を直す
 
 起票する場合は、**発見経緯（どの画面で / 何をして / 何が起きたか）と、snapshot の該当箇所を Issue 本文に貼る**。「押しても何も起きない」は再現手順が無いと Dev が確認できない。

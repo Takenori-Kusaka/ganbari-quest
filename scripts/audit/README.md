@@ -30,7 +30,7 @@ LLM 判定 (policy filter / adversarial) を **hard gate にしない**のは EP
    - プロダクト実装調査 = `pr-review` / `regression-check`
    - ユーザビリティ・a11y = `cognitive-walkthrough` / `customer-voice` / `age-mode-check` / axe-core job
    - セキュリティ = `security-scan.yml` / codeql / dependency-review
-   - パフォーマンス = `lp-metrics` / visual regression / `cost-review`
+   - パフォーマンス = `lp-metrics` / visual regression / `cost-audit.yml`
    - テスト品質 = `flake-hunt`
    - 競合調査 = `competitive-research` (一次情報 URL 必須)
    - ポリシー準拠判定 = `policy-compliance`

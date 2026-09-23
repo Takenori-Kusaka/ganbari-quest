@@ -10,7 +10,7 @@ description: Use when evaluating the blast radius of a code change. Identifies a
 ### 1. 変更ファイルの特定
 
 ```bash
-git diff --name-only main...HEAD
+git diff --name-only develop...HEAD   # feature / fix の base は develop（hotfix のみ main）
 ```
 
 ### 2. 影響範囲マッピング
@@ -23,14 +23,14 @@ git diff --name-only main...HEAD
 | `src/lib/ui/primitives/` | 使用している全コンポーネント |
 | `src/routes/(child)/` | 5年齢モード全てに影響 |
 | `src/routes/(parent)/admin/` | 管理画面全体 |
-| `src/routes/demo/` | デモモード |
+| `src/lib/server/demo/` | デモデータ（デモ専用ルートは無い。本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動、ADR-0048） |
 | `site/` | LP・パンフレット |
 
 ### 3. 並行実装チェック（docs/design/parallel-implementations.md）
 
 - [ ] UI ラベル変更 → labels.ts + site/ + tutorial
-- [ ] 本番画面変更 → デモ画面
-- [ ] ナビ変更 → Desktop + Mobile + BottomNav
+- [ ] 本番画面変更 → デモでも同じ本番ルートが動く（`DATA_SOURCE=demo` のデモデータで表示が破綻しないか）
+- [ ] ナビ変更 → 面を固定数で数えず `grep -rn "<nav\b" src/` で洗い出す（`AdminLayout` に Desktop / Mobile 同居、ほか `BottomNav` / 設定サブナビ / 運営者ナビ / ページ内タブ）
 - [ ] DB 変更 → テストデータ + デモデータ
 
 ### 4. テストカバレッジ確認

@@ -3,7 +3,7 @@ name: Issue Triage
 description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, marketing/legal/finance/customer perspectives, and root cause analysis before submission.
 ---
 
-> **親 SSOT**: [PO Session — Goal 1](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
+> **親 SSOT**: [PO Session §Issue を起票する基準](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
 >
 > **本 SKILL の位置付け (Issue #2089)**: Issue 起票運用の **SSOT**。Pre-PMF check / HEREDOC 禁止 / OSS 先調査 / research 添付 の 4 領域は本 SKILL に集約し、他文書 (`docs/sessions/po-session.md` / `.github/CLAUDE.md` / `.claude/skills/lp-review/SKILL.md`) からは link 参照のみとする。ADR-0003 / ADR-0010 は背景・根拠の reference として残置 (本 SKILL の各セクションから refer)。旧 ADR-0014（labels / i18n 機構選定）は #2440 PR-A5 で削除済み（詳細は手順 B 参照）。
 
@@ -54,7 +54,7 @@ gh issue list --state open --search "XXX_TERMS"
 Issue 起票時の Pre-PMF バイアスチェック (ADR-0010 §3 を SSOT として 5 質問版に統一、#2089 / #2095 BLOCK 1 Fix)。
 旧 3 質問版 (本 SKILL に過去存在) / 旧 4 質問版 (#2089 初版) は本 §で退役。
 
-### 5 質問チェックリスト (ADR-0010 §3 L44-L52 完全準拠)
+### 5 質問チェックリスト (ADR-0010 §3 完全準拠)
 
 1. **ペルソナ紐付け**: どのペルソナ（P1 / P2）のどの課題を解決するか明記したか
 2. **V2MOM 紐付け**: V2MOM の Method（M1〜M4）に紐づけたか
@@ -155,7 +155,7 @@ ADR 起票テンプレ (`docs/decisions/README.md` §テンプレート) も同�
 ## 手順 C: research 添付
 
 Issue 起票時の Deep Research 添付責務 (#2088 で po-session.md タスク 4 に追加済 / PR #2094 で merge 完了 / 本 SKILL に集約)。
-PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep research を実行し、調査レポートを Issue 本文 + `docs/reference/` に添付する。
+PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep research を実行し、調査レポートを Issue 本文に添付する（ファイルとして残す場合の置き場所は下記「出力先ルール」）。
 
 ### Deep Research 価値判定の決定木 (3 段階)
 
@@ -172,11 +172,11 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 1. **規模判定** → 上記決定木で 3 段階のどれかに分類
 2. **実行ツール選択**:
    - 軽量: 補佐の通常リサーチで完結（WebSearch 数回）
-   - 中規模: `deep-research-agent` skill / Plan Agent 経由
-   - 大規模: `deep-research-agent` + Spike escalation (PO 承認)
+   - 中規模: Plan Agent 経由
+   - 大規模: Spike escalation (PO 承認)
 3. **出力先ルール**:
    - **Issue 本文 inline 要約 300-500 字** (「OSS / 確立パターン調査結果」セクションに統合可)
-   - **詳細レポート**: `docs/reference/NN-research-<topic>.md` (NN は通し番号、命名規則 PR #2094 で確定済)
+   - **詳細レポート**: 置き場所は `docs/CLAUDE.md` §「docs SSOT 原則」の research 配置規律 (#3516) に従う（one-off の結論は Issue 本文に内包し、継続参照される根拠だけを `docs/research/` に置く）
    - **方法論 reference (連番外)**: [`docs/reference/deep-research-request-methodology.md`](../../../docs/reference/deep-research-request-methodology.md)
 
 ### PO 確認 4 段階
@@ -327,7 +327,7 @@ gh issue list --search "notification push" --state all --limit 20
 
 ## Deep Research 添付 (補佐起票時必須、#2088 / 本 SKILL §research 添付)
 - 規模: [軽量 / 中規模 / 大規模]
-- 詳細レポート: [docs/reference/NN-research-<topic>.md or 「なし」]
+- 詳細レポート: [docs/research/<file>.md（research 配置規律に該当する場合のみ） or 「なし」]
 ```
 
 ## 手順 D: HEREDOC 禁止 / `--body-file` 運用
