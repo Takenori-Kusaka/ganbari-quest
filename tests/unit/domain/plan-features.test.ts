@@ -6,7 +6,11 @@
 // 更新すれば通るが、プラン間の差異が崩れると明確に失敗する設計。
 
 import { describe, expect, it } from 'vitest';
-import { PAGE_GUIDE_LABELS, PLAN_GATE_LABELS } from '../../../src/lib/domain/labels';
+import {
+	CUSTOM_REWARD_FEATURE_NAME,
+	PAGE_GUIDE_LABELS,
+	PLAN_GATE_LABELS,
+} from '../../../src/lib/domain/labels';
 import {
 	getLicenseHighlights,
 	getPricingFeatures,
@@ -18,12 +22,7 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
-import {
-	ADD_MENU_TERMS,
-	PLAN_TERMS,
-	REWARD_TERMS,
-	TEMPLATE_TERMS,
-} from '../../../src/lib/domain/terms';
+import { ADD_MENU_TERMS, PLAN_TERMS, TEMPLATE_TERMS } from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
@@ -35,10 +34,10 @@ describe('plan-features.ts SSOT', () => {
 		});
 
 		it('free プランに オリジナルのごほうびの作成・編集の制限が明記される (#4705 / #4928 / #4992)', () => {
-			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ atom を読む (REWARD_TERMS.originalCreateEdit)
+			// LP / FAQ / アプリ内 pricing の 3 箇所が同じ名前を読む (CUSTOM_REWARD_FEATURE_NAME)
 			expect(
 				PRICING_PAGE_FEATURES.free.some(
-					(f) => f.includes(REWARD_TERMS.originalCreateEdit) && f.includes(PLAN_TERMS.standard),
+					(f) => f.includes(CUSTOM_REWARD_FEATURE_NAME) && f.includes(PLAN_TERMS.standard),
 				),
 			).toBe(true);
 		});
@@ -113,7 +112,7 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('AI による活動提案');
 			// #4705: 旧「特別なごほうび設定（即時付与）」は実ゲート (isCustomRewardUnlocked、#4584 が
 			// 止めるのはショップ商品の登録) と別機能を指して読めたため atom に是正。
-			expect(PRICING_PAGE_FEATURES.standard).toContain(REWARD_TERMS.originalCreateEdit);
+			expect(PRICING_PAGE_FEATURES.standard).toContain(CUSTOM_REWARD_FEATURE_NAME);
 			expect(PRICING_PAGE_FEATURES.standard).not.toContain('特別なごほうび設定（即時付与）');
 		});
 

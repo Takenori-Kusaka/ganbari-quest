@@ -9,7 +9,7 @@
 //   選択肢を提示するが取込試行は warning として記録される。setup フローでは敢えて
 //   非表示にして bonus + exchange のみ提示する (Pre-PMF UX 単純化)。
 
-import { redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { asChildId } from '$lib/domain/ids';
 import { SETUP_RULES_LABELS } from '$lib/domain/labels';
@@ -18,6 +18,7 @@ import type { RulePresetPayload } from '$lib/domain/marketplace-item';
 import { marketplaceRegistry } from '$lib/marketplace';
 import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -95,6 +96,20 @@ export const actions: Actions = {
 
 		if (itemIds.length === 0) {
 			redirect(302, '/setup/activities-defaults?rulesImported=0&rulesSkipped=0');
+		}
+
+		// 交換ルールは childId の子供のごほうび (special_rewards) として登録される。childId は
+		// フォーム (hidden input) から来るため、家族の子供かを確かめてから使う。取込の strategy は
+		// childId と tenantId の所属を照合しない (admin/rewards の取込 action と同じ防御)。
+		// 未指定 (「選択しない」) はボーナスルールだけの取込なので照合しない。
+		if (childId !== undefined) {
+			const tenantChildren = await getAllChildren(tenantId);
+			if (!tenantChildren.some((c) => c.id === childId)) {
+				logger.warn('[setup/rules] tenant 外 child ID が importRules に指定された', {
+					context: { childId, tenantId, itemCount: itemIds.length },
+				});
+				return fail(403, { error: SETUP_RULES_LABELS.errorChildNotFound });
+			}
 		}
 
 		let totalImported = 0;

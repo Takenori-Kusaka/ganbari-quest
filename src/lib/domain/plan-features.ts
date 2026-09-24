@@ -20,14 +20,8 @@
 //  5. tests/unit/domain/plan-features.test.ts の期待値を更新
 
 import type { PlanKey } from './labels';
-import { ACTION_LABELS, TRIAL_LABELS } from './labels';
-import {
-	FAMILY_MEMBER_LIMIT_TERMS,
-	PLAN_RETENTION_TERMS,
-	PLAN_TERMS,
-	PRICE_TERMS,
-	REWARD_TERMS,
-} from './terms';
+import { ACTION_LABELS, CUSTOM_REWARD_FEATURE_NAME, TRIAL_LABELS } from './labels';
+import { FAMILY_MEMBER_LIMIT_TERMS, PLAN_RETENTION_TERMS, PLAN_TERMS, PRICE_TERMS } from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -56,7 +50,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// 検討時点で見えている必要がある。止まるのはオリジナルの作成と、登録済みごほうびの編集
 		// (取り込んだごほうびのポイント調整を含む、#4992) で、プリセットの取込は全プラン可
 		// (実ゲートは isCustomRewardUnlocked、#4584)。
-		`${REWARD_TERMS.originalCreateEdit}は${PLAN_TERMS.standard}以上`,
+		`${CUSTOM_REWARD_FEATURE_NAME}は${PLAN_TERMS.standard}以上`,
 	],
 	standard: [
 		'お子さまの登録人数：無制限',
@@ -66,7 +60,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #4500: 上限は owner 込みの合計なので、招待できる人数と区別して書く (値は terms.ts atom 経由)
 		`家族メンバー招待：${FAMILY_MEMBER_LIMIT_TERMS.standardInvites}まで（オーナーを含めご家族${FAMILY_MEMBER_LIMIT_TERMS.standardTotal}）`,
 		// #4705 / #4928 / #4992: 行名を実ゲート (isCustomRewardUnlocked、#4584) が止めている機能に揃える
-		REWARD_TERMS.originalCreateEdit,
+		CUSTOM_REWARD_FEATURE_NAME,
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 		'データのダウンロード',
@@ -143,7 +137,7 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 	standard: [
 		{ text: 'オリジナル活動の作成：無制限', icon: '✅' },
 		{ text: 'チェックリストの自由作成', icon: '✅' },
-		{ text: REWARD_TERMS.originalCreateEdit, icon: '✅' },
+		{ text: CUSTOM_REWARD_FEATURE_NAME, icon: '✅' },
 		{ text: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`, icon: '✅' },
 	],
 	family: [
@@ -152,7 +146,7 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
 		{ text: 'AI 自動提案（活動・ごほうび・チェックリスト）', icon: '✨' },
 		// #4992: 旧「特別なごほうび設定（即時付与）」は料金表と別の名前で、応援の即時付与とも読めた。
 		// 解放される機能は standard と同じ (isCustomRewardUnlocked) なので同じ行名にする。
-		{ text: REWARD_TERMS.originalCreateEdit, icon: '✅' },
+		{ text: CUSTOM_REWARD_FEATURE_NAME, icon: '✅' },
 		{ text: 'きょうだいランキング', icon: '✅' },
 		{ text: 'ひとことメッセージ（自由テキスト）', icon: '✅' },
 		{ text: '無制限の履歴保持', icon: '✅' },

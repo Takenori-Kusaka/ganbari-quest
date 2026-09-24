@@ -5,6 +5,7 @@ import {
 	CHILD_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
+	POINT_TERMS,
 	PRICE_TERMS,
 	REWARD_TERMS,
 	TRIAL_TERMS,
@@ -107,6 +108,26 @@ export const ACTIVITY_QUOTA_LABELS = {
 		`${dateLabel} の復元で、${archived} 件の活動をプランの上限のため保管しました（${UPGRADE_TERMS.actionVerb}で使えます）`,
 } as const;
 
+/**
+ * 有料プラン (スタンダード以上) で解放される、ごほうび管理の機能の名前 (#4705 / #4915 / #4928 / #4992)。
+ *
+ * 実ゲート `isCustomRewardUnlocked` (#4584) が止めている操作:
+ *   - オリジナル (自作) のごほうびの**作成**: admin/rewards の ?/add ?/addPreset、special-rewards API
+ *     (POST / templates PUT)
+ *   - 登録済みごほうびの**編集**: ?/update。プリセットから取り込んだごほうびの名前・ポイントの
+ *     調整もここに入る (無料で編集を開けると、取り込んで書き換えることで作成と同じことが
+ *     件数の上限なしにできてしまうため、#4992 PO 決裁 Q2)
+ *   - 作成と同じ結果になる経路: ?/copyFromChild (他の子供から写す)、?/restorePreview /
+ *     ?/restoreFile (バックアップファイルからの復元。ファイルは書き換えられる)
+ * プリセットのごほうび取込 (初期セットアップ / admin/rewards の取込 / marketplace) と削除は全プラン可。
+ *
+ * LP・アプリ内料金表・アップグレード直後の案内・拒否メッセージは、すべてこの名前で「何が有料か」を言う。
+ * 値は PO 決裁 (#4992) の文言そのもの。変えるときは決裁を取り直す。複数の atom (ごほうび / ポイント) を
+ * 組み立てた文なので terms.ts ではなく labels 層に置く (ADR-0045)。LP の namespace も値に使うため、
+ * `generate-lp-labels` が読める 1 行の const で書く。
+ */
+export const CUSTOM_REWARD_FEATURE_NAME = `オリジナルの${REWARD_TERMS.canonical}の作成・編集（${POINT_TERMS.unitFull}の調整を含む）`;
+
 export const PLAN_GATE_LABELS = {
 	/**
 	 * "{feature}はスタンダードプラン以上でご利用いただけます"
@@ -126,10 +147,10 @@ export const PLAN_GATE_LABELS = {
 	 *
 	 * プリセット / テンプレートの取込は全プラン可なので「ごほうび管理」全体を有料と言わない。
 	 * admin/rewards の拒否文言とページガイドの tips が同じ語を使うよう 1 箇所に置く。
-	 * 値は料金表の行名 (REWARD_TERMS.originalCreateEdit) と同じにする — 拒否された操作が
+	 * 値は料金表の行名 (CUSTOM_REWARD_FEATURE_NAME) と同じにする — 拒否された操作が
 	 * 料金表のどの行かを顧客が突き合わせられるように (#4992)。
 	 */
-	rewardCustomizeFeature: REWARD_TERMS.originalCreateEdit,
+	rewardCustomizeFeature: CUSTOM_REWARD_FEATURE_NAME,
 
 	/**
 	 * "無料プランではお子さま1人あたり N 個までです。スタンダードプラン以上にアップグレードすると無制限に作成できます。"

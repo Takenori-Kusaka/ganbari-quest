@@ -7,7 +7,7 @@
 // - skip 動線は packs と異なり「auto-import なし」(reward は趣味性が強く、親に選んでほしいため)
 // - 次の遷移先は /setup/rules
 
-import { redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { asChildId } from '$lib/domain/ids';
 import { SETUP_REWARDS_LABELS } from '$lib/domain/labels';
@@ -16,6 +16,7 @@ import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -89,6 +90,18 @@ export const actions: Actions = {
 		if (itemIds.length === 0 || !childId) {
 			// Nothing to import — fall through to next step
 			redirect(302, '/setup/rules?rewardsImported=0&rewardsSkipped=0');
+		}
+
+		// childId はフォーム (hidden input) から来るため、家族の子供かを確かめてから取込に渡す。
+		// 取込の service は childId と tenantId を別々に受け取り、両者の所属を照合しない。
+		// 照合しないと、改ざんした childId で自テナント内に他家族の子供 ID に紐づくごほうびが作られる
+		// (admin/rewards の importPresetToChildren / importMarketplaceRewardSet と同じ防御)。
+		const tenantChildren = await getAllChildren(tenantId);
+		if (!tenantChildren.some((c) => c.id === childId)) {
+			logger.warn('[setup/rewards] tenant 外 child ID が importRewards に指定された', {
+				context: { childId, tenantId, itemCount: itemIds.length },
+			});
+			return fail(403, { error: SETUP_REWARDS_LABELS.errorChildNotFound });
 		}
 
 		let totalImported = 0;

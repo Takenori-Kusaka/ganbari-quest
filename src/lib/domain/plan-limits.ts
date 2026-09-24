@@ -38,7 +38,7 @@ export interface PlanLimits {
 	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
 	/**
 	 * オリジナルのごほうびの作成・編集（スタンダード以上、#728 / #4992）。
-	 * 顧客向けの名前は `REWARD_TERMS.originalCreateEdit`（料金表・拒否文言と同じ）。
+	 * 顧客向けの名前は `CUSTOM_REWARD_FEATURE_NAME`（料金表・拒否文言と同じ）。
 	 *
 	 * #4584: 値は `isCustomRewardUnlocked` から導出する。旧実装はここに真偽値を直書きし、
 	 * 実際の拒否は admin/rewards が `isPaidTier` を直接呼んでいたため、**このフラグは

@@ -1,8 +1,11 @@
 // src/lib/domain/custom-reward-gate.ts (#4584)
 //
-// 「オリジナルのごほうびの作成・編集（ポイントの調整を含む）」(REWARD_TERMS.originalCreateEdit、#4992)
+// 「オリジナルのごほうびの作成・編集（ポイントの調整を含む）」(CUSTOM_REWARD_FEATURE_NAME、#4992)
 // の解放判定。**表示と実行が同じ述語を読む**ための SSOT。
-// 拒否: admin/rewards の ?/add ?/addPreset ?/update + special-rewards API (POST / templates PUT)。
+// 拒否: admin/rewards の ?/add ?/addPreset ?/update ?/copyFromChild ?/restorePreview ?/restoreFile
+//       + special-rewards API (POST / templates PUT)。
+//       copyFromChild / restore* はごほうびの行を新しく作る (写し元のオリジナルや、書き換えた
+//       バックアップファイルの内容がそのまま入る) ため、作成と同じ扱いにする。
 // 表示: admin/rewards の「+ 追加」手動項目の鍵マーク、一覧の「編集」のロック表示と注記 (#4992)。
 //
 // # なぜ独立した module にするか
