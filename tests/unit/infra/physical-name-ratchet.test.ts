@@ -339,6 +339,10 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable-burst',
 			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',
+			// #4706: 保護者向け push 不達の観測 alarm 2 本。通知方針表 (ops-alert-policy.ts) と
+			// runbook (notification-runbook.md) がこの名前で参照する。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-push-send-failed',
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-push-vapid-missing',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
 			// #4327: 顧客データ物理削除の部分失敗。runbook (grace-period-deletion-operations.md §2) が

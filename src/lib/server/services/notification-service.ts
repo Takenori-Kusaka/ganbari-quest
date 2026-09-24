@@ -67,6 +67,25 @@ export { MAX_DAILY_NOTIFICATIONS };
  */
 const PUSH_SEND_TIMEOUT_MS = 5_000;
 
+// push が送れていないことを運営に届けるための log 用語 (SSOT、#4706)。
+//
+// push の失敗は保護者の画面にも cron の応答にも出ない (鍵が無ければ `sent: 0` を返し、
+// push サービスに拒否されても 1 行 log を出すだけで cron は 200 のまま)。保護者は
+// 「届くはずの通知が届いていない」ことに自分では気付けない。
+//
+// metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数 (CDK の tsconfig rootDir 制約で
+// src を import できないため literal で持ち、`tests/unit/infra/push-notification-alarm.test.ts` が
+// drift と「実際に書き出す行が filter にマッチすること」を機械検証する)。
+
+/** 本番 Lambda env に VAPID 鍵が無く、送信を始められなかった。 */
+export const PUSH_VAPID_MISSING_LOG_TERM = '[push-alert] vapid-missing';
+
+/**
+ * push サービスが送信を受け付けなかった (401/403 = 鍵の組違い、timeout、5xx 等)。
+ * 失効した購読 (410/404) の自動削除は保護者側の解除であって障害ではないので含めない。
+ */
+export const PUSH_SEND_FAILED_LOG_TERM = '[push-alert] send-failed';
+
 // ============================================================
 // ヘルパー
 // ============================================================
@@ -218,7 +237,7 @@ export async function sendPushNotification(
 	// VAPID 設定
 	const vapid = getVapidKeys();
 	if (!vapid.publicKey || !vapid.privateKey) {
-		logger.warn('[notification] VAPID キーが設定されていません');
+		logger.warn(`${PUSH_VAPID_MISSING_LOG_TERM} VAPID キーが設定されていません`);
 		return { sent: 0, failed: 0 };
 	}
 	webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
@@ -320,9 +339,10 @@ export async function sendPushNotification(
 				});
 				await deleteByEndpoint(sub.endpoint, tenantId);
 			} else {
-				logger.error('[notification] プッシュ通知送信失敗', {
-					context: { endpoint: sub.endpoint, error: String(err) },
-				});
+				logger.error(
+					`${PUSH_SEND_FAILED_LOG_TERM} status=${statusCode ?? 'none'} プッシュ通知送信失敗`,
+					{ context: { endpoint: sub.endpoint, error: String(err) } },
+				);
 			}
 			failed++;
 		}
