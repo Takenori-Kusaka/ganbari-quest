@@ -1517,11 +1517,12 @@ async function handleCopyFromChild() {
 		text-align: center;
 	}
 	/* #4992: why "edit" is locked on the free plan. Sticky inside the list, just below the sticky admin header
-	   (AdminLayout publishes its bottom edge as --admin-header-bottom), so it stays readable before pressing
-	   "edit" on every row, including rows far down a long list on mobile */
+	   (AdminLayout publishes its measured bottom edge as --admin-header-bottom), so it stays readable before
+	   pressing "edit" on every row, including rows far down a long list on mobile. Until the header is measured
+	   (before hydration) fall back to about the header height so the note does not slide under the header */
 	.reward-list__gate-note {
 		position: sticky;
-		top: var(--admin-header-bottom, 0px);
+		top: var(--admin-header-bottom, 4.5rem);
 		z-index: var(--z-sticky);
 		font-size: 0.8rem;
 		padding: 0.5rem 0.75rem;

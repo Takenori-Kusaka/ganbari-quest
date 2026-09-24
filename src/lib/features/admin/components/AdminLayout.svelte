@@ -79,9 +79,10 @@ const isAnonymousLambda = $derived(authMode === 'anonymous');
 // 本文で `position: sticky` にする要素 (例: ごほうび管理の無料プランの理由の注記、#4992) が
 // sticky のヘッダーの裏に隠れないよう、ヘッダーの下端 (sticky の top + 高さ) を CSS 変数
 // `--admin-header-bottom` で配る。高さはロゴ・トライアル表示・デモ帯の有無・画面幅で変わるため、
-// 固定値を書かずに実測する (ResizeObserver で追従)。
+// 固定値を書かずに実測する (ResizeObserver で追従)。実測前 (SSR / hydration 前) は変数を出さず、
+// 使う側の fallback に任せる (0px を配ると、hydration 前に sticky 要素がヘッダーの裏へ潜る)。
 let headerEl = $state<HTMLElement | null>(null);
-let headerBottom = $state(0);
+let headerBottom = $state<number | null>(null);
 
 $effect(() => {
 	const el = headerEl;
@@ -349,7 +350,7 @@ function isItemActive(itemHref: string): boolean {
 	data-theme="admin"
 	data-plan={planTier}
 	class="admin-shell"
-	style:--admin-header-bottom="{headerBottom}px"
+	style:--admin-header-bottom={headerBottom === null ? undefined : `${headerBottom}px`}
 >
 	<!-- Admin Header -->
 	<header bind:this={headerEl} class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3">

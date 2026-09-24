@@ -211,17 +211,21 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 
 			const note = page.getByTestId('reward-edit-gate-note');
 			await expect(note).toBeInViewport({ ratio: 1 });
-			// ヘッダー (sticky) の裏に隠れず、その直下に出ている
-			const headerBox = await page.locator('header.admin-header').boundingBox();
+			// ヘッダー (sticky) の裏に隠れず、その直下に出ている。ヘッダーの下端は AdminLayout が
+			// hydration 後に実測して配るので、配られるまで待つ (配られる前は fallback の位置)
+			const header = page.locator('header.admin-header');
+			await expect
+				.poll(async () => {
+					const h = await header.boundingBox();
+					const n = await note.boundingBox();
+					return Math.abs((n?.y ?? 0) - ((h?.y ?? 0) + (h?.height ?? 0)));
+				})
+				.toBeLessThanOrEqual(1);
+			// 注記は押す行より上にある (行を覆っていない)
 			const noteBox = await note.boundingBox();
 			const lastBox = await lastLocked.boundingBox();
-			expect(headerBox).not.toBeNull();
 			expect(noteBox).not.toBeNull();
 			expect(lastBox).not.toBeNull();
-			expect(noteBox?.y ?? 0).toBeGreaterThanOrEqual(
-				(headerBox?.y ?? 0) + (headerBox?.height ?? 0) - 1,
-			);
-			// 注記は押す行より上にある (行を覆っていない)
 			expect((noteBox?.y ?? 0) + (noteBox?.height ?? 0)).toBeLessThanOrEqual(lastBox?.y ?? 0);
 		} finally {
 			await deleteReward4992(...seeded.rewardIds);
