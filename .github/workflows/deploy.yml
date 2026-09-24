@@ -121,8 +121,10 @@ jobs:
           # 結果は exit code だけで受け取り、鍵の値は出力しない。組になっていないときは 3 を返させ、
           # node 自体が落ちたとき (import 失敗等も exit 1) と区別する。判定できなかっただけなのに
           # 「組になっていない」と出すと、鍵を作り直して全保護者の購読を無効にしかねない。
-          vapid_rc=0
-          node --input-type=module -e "import { isVapidKeyPair } from './infra/lib/vapid-context.ts'; process.exit(isVapidKeyPair(process.env.VAPID_PUBLIC_KEY ?? '', process.env.VAPID_PRIVATE_KEY ?? '') ? 0 : 3)" || vapid_rc=$?
+          set +e
+          node --input-type=module -e "import { isVapidKeyPair } from './infra/lib/vapid-context.ts'; process.exit(isVapidKeyPair(process.env.VAPID_PUBLIC_KEY ?? '', process.env.VAPID_PRIVATE_KEY ?? '') ? 0 : 3)"
+          vapid_rc=$?
+          set -e
           case "$vapid_rc" in
             0)
               echo "::notice::VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は鍵の組になっています" ;;
