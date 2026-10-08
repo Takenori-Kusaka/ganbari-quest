@@ -293,6 +293,13 @@ export const SETUP_PACKS_LABELS = {
 	errorPackLoadFailed: (packId: string) => `パック「${packId}」の読み込みに失敗しました`,
 } as const;
 
+/**
+ * 取込 step (ごほうび / ルール) に、家族の子供ではない childId が送られたときの文言。
+ * 画面の子供選択から送る限り起きない (改ざんされた送信か、別の画面で子供を削除した直後)。
+ * 取り込まずに止まるので、何が起きたかと次の一手 (読み込み直し) を言う (ADR-0062 §1)。
+ */
+const SETUP_IMPORT_CHILD_NOT_FOUND = `選んだ${CHILD_TERMS.honorific}が見つかりませんでした。ページを読み込み直してから、もう一度お試しください。`;
+
 // #2140 MP-5: setup wizard β step 2「ごほうび一括追加」labels
 export const SETUP_REWARDS_LABELS = {
 	pageTitle: 'ごほうびセットをえらぼう',
@@ -311,6 +318,8 @@ export const SETUP_REWARDS_LABELS = {
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorSetNotFound: (itemId: string) => `セット「${itemId}」が見つかりません`,
 	errorSetLoadFailed: (itemId: string) => `セット「${itemId}」の読み込みに失敗しました`,
+	/** 取込先の子供が家族の子供ではない (取り込まずに止める) */
+	errorChildNotFound: SETUP_IMPORT_CHILD_NOT_FOUND,
 } as const;
 
 // #2140 MP-5: setup wizard β step 3「ルール一括追加」labels
@@ -337,6 +346,8 @@ export const SETUP_RULES_LABELS = {
 	// #4512: server action のエラー文言 (旧: +page.server.ts 直書き)
 	errorRuleNotFound: (itemId: string) => `ルール「${itemId}」が見つかりません`,
 	errorRuleLoadFailed: (itemId: string) => `ルール「${itemId}」の読み込みに失敗しました`,
+	/** 交換ルールの紐付け先が家族の子供ではない (取り込まずに止める) */
+	errorChildNotFound: SETUP_IMPORT_CHILD_NOT_FOUND,
 } as const;
 
 // #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels

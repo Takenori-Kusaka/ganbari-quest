@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
-import { REWARD_TERMS } from '$lib/domain/terms';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
 import { parentGateResponse } from '$lib/server/auth/owner-gate';
 import { planLimitError, validationError } from '$lib/server/errors';
@@ -51,7 +51,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	);
 	if (!isCustomRewardUnlocked(tier)) {
 		// #4767 PO 回答 #4: 顧客に届く文言は errors.ts が機能名 + tier + 導線で 1 本に組み立てる
-		return planLimitError('standard', REWARD_TERMS.originalCreateEdit, { tenantId, tier });
+		return planLimitError('standard', PLAN_GATE_LABELS.rewardCustomizeFeature, { tenantId, tier });
 	}
 
 	const body = await request.json();
