@@ -18,7 +18,9 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn(async () => {}),
 }));
 
-const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+const fetchMock = vi.fn(
+	async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 200 }),
+);
 globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 import { getChildStatusIcon, ICON_CHECKLIST } from '../../../src/lib/domain/icons';
