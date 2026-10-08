@@ -59,7 +59,20 @@ interface Props {
 	describedBy?: string;
 	/** ロック中の trigger の data-testid (一覧の各行など、同じ画面に複数置くときの区別用) */
 	testid?: string;
+	/**
+	 * popover を開く向き (既定 = 上)。押す前の理由を trigger の**上**に常時出している画面
+	 * (ごほうび管理の一覧直上の注記、#4992) では、上に開くとその注記を覆うため、trigger の上端より
+	 * 上に出ない向き (`left-start` = 左に、上端をそろえて) を指定する。
+	 */
+	placement?: PopoverPlacement;
+	/**
+	 * `placement` で入りきらないときに順に試す向き (zag popper の `flip`)。未指定なら反対側へ反転する。
+	 * 幅の狭い画面では横に入りきらないため、ここで下 → 上の順を渡す。
+	 */
+	fallbackPlacements?: PopoverPlacement[];
 }
+
+type PopoverPlacement = 'top' | 'top-end' | 'bottom' | 'bottom-end' | 'left-start';
 
 let {
 	currentTier,
@@ -73,7 +86,11 @@ let {
 	unlocked,
 	describedBy,
 	testid = 'feature-gate-locked-trigger',
+	placement = 'top',
+	fallbackPlacements,
 }: Props = $props();
+
+const positioning = $derived({ placement, flip: fallbackPlacements ?? true });
 
 const TIER_LABELS: Record<PlanTier, string> = {
 	free: PLAN_TERMS.free,
@@ -126,7 +143,7 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 {:else if locked}
 	{@render locked()}
 {:else if display === 'inline' && buttonLabel}
-	<Popover.Root positioning={{ placement: 'top' }}>
+	<Popover.Root {positioning}>
 		<Popover.Trigger
 			class="feature-gate-btn"
 			aria-disabled="true"
@@ -141,7 +158,7 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 	</Popover.Root>
 {:else}
 	<div class="feature-gate-section">
-		<Popover.Root positioning={{ placement: 'top' }}>
+		<Popover.Root {positioning}>
 			<Popover.Trigger
 				class="feature-gate-overlay"
 				aria-disabled="true"
@@ -167,10 +184,10 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 	:global(.feature-gate-btn) {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.25rem;
-		/* #4992: when used in a list row (admin/rewards edit), the lock icon and border make it wider than
-		   the real Button and wrap more row titles on mobile. Tighter inline padding keeps it close to size="sm" */
-		padding: 0.5rem 0.75rem;
+		gap: 0.125rem;
+		/* #4992: in a list row (admin/rewards edit) the lock icon makes it wider than the real Button (size="sm")
+		   and wraps more row titles on mobile. Inline padding + gap are trimmed so the pill is about as wide as it */
+		padding: 0.5rem;
 		white-space: nowrap;
 		border: 1px solid var(--color-border-default);
 		border-radius: var(--radius-md);

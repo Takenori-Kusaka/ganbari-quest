@@ -294,7 +294,7 @@ export class ComputeStack extends cdk.Stack {
 		// --- Web Push VAPID 鍵 (#4706) ---
 		// 公開鍵は購読時に /api/v1/settings/vapid-key で配り、秘密鍵で全 push を署名する。無いと
 		// 保護者は購読できず、notification-service.ts は warn + `sent: 0` を返すだけで cron は 200 のまま
-		// 「送信 0 件」を返し続ける (本番で 2026-09-11〜23 の送信判定がすべてこれで止まっていた)。
+		// 「送信 0 件」を返し続ける (本番ログ 2026-09-13〜23 の送信判定 1,710 回がすべてこれで止まっていた)。
 		// 本番は未指定 / 形式不正 / 組になっていない鍵を synth error にする (isVapidKeyPair)。
 		// staging には配らない (公開鍵が無いので購読できず push は届かない。記録時の achievement 送信で
 		// 出る VAPID 未設定 warn は想定内)。
