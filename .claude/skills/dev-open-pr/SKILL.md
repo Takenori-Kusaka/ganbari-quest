@@ -277,31 +277,15 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 ### customer-facing PR の CX-DoR 確認 (#2553)
 
-**critical user journey (活動追加 / 報酬交換 / 子供記録 等) に触れる PR** (`type:feat` / `type:fix` で UI 変更 or marketplace import 系) は、上記 CI gate に加えて **CX 版 DoR** (`tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」が条件一覧の SSOT。下表は条件 1〜8 の抜粋で、9〜12 は SSOT を参照) を確認する。#2558 で実証された通り、機能 E2E 緑のまま謎用語 / 経路重複 / dead-end が顧客 1 分露出する事故への構造的対策。
+**critical user journey (活動追加 / 報酬交換 / 子供記録 等) に触れる PR** (`type:feat` / `type:fix` で UI 変更 or marketplace import 系) は、上記 CI gate に加えて **CX 版 DoR** を確認する。#2558 で実証された通り、機能 E2E 緑のまま謎用語 / 経路重複 / dead-end が顧客 1 分露出する事故への構造的対策。
 
-| # | 条件 | 軽量 (per-PR) | 重量 (EPIC-merge / 顧客レビュー gate) |
-|---|---|---|---|
-| 1 | goal 完遂 dead-end ゼロ | 該当 CUJ targeted E2E | 全 CUJ 貫通 |
-| 2 | Cognitive Walkthrough 4 質問 全 Yes | — | session sheet 添付 (`.claude/skills/cognitive-walkthrough/SKILL.md` 経由、#2554) |
-| 3 | 用語 SSOT 準拠 | プラン文字列のみ `check-no-plan-literals.mjs`（`pre-ready` Step 7）。他はレビュー担保（`check-terminology-coherence.ts` は #4322 で削除済） | 同 |
-| 4 | add 経路 ≤ 4 + 用語重複なし | add dropdown 同型性のみ `tests/e2e/admin-add-path-isomorphism.spec.ts`。用語重複はレビュー担保 | 同 |
-| 5 | vision LLM review + 人間 filter | — | C-5 POC 採用後に opt-in |
-| 6 | exploratory 1 セッション dead-end ゼロ | — | C-6 POC 採用後に opt-in |
-| 7 | 実機 1 クリック貫通 (NUC or demo Lambda preview) | UI 変更時は人間 1 回 | trace/video 証跡 (#2544 AC6) |
-| 8 | 5 mode visual + primitives 準拠 | UI 変更時 5 年齢 SS | 同 + pixelmatch + Storybook play |
+**条件の一覧・検証手段・per-PR と EPIC-merge のどちらで満たすか・禁忌は `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」が SSOT**（条件表 / §適用タイミング / §禁忌）。本 skill には写さない（条件が増減したときに本 skill だけが古くなる。docs/CLAUDE.md §skill も削除主義）。
 
 **判定 flow**:
 
 1. 「該当 PR が customer-facing か」を Issue / 変更 file から判定 (`src/routes/**` UI 変更 or `src/lib/marketplace/**` or `src/lib/features/**` に該当)
-2. customer-facing なら per-PR 列を満たすことを `pre-ready` + 該当 E2E + SS で確認
-3. EPIC 完了時 / 顧客レビュー前は重量列も満たし、PR body or EPIC umbrella の「テスト・品質セルフチェック」section に証跡を集約
-
-**禁忌**:
-- customer-facing PR で「機能 E2E 緑だけで Ready 化」(条件 1 だけで判定すると bug-2/3/4 級が露出する、#2558 教訓)
-- 条件 5 (AI vision review) を主担保にする (research §3-1 false-positive 80%、必ず人間 filter)
-- 全画面網羅 / 多人数 user testing 招集を Pre-PMF で要求する (5-user rule で 85% 捕捉、ADR-0010)
-
-詳細 SSOT: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」。
+2. customer-facing なら、SSOT §適用タイミングの **per-PR** で求められる条件を `pre-ready` + 該当 E2E + SS で確認する
+3. EPIC 完了時 / 顧客レビュー前は同 §の **EPIC-merge / 顧客レビュー gate** で求められる条件も満たし、証跡を PR body の `## 検証` か EPIC umbrella に集約する
 
 ## kind 別 template 選択ガイド
 

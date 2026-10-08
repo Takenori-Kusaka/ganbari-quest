@@ -146,8 +146,8 @@ describe('#4189 ops alarm の宛先', () => {
 
 	it('制約 ①: staging 側 stack に OpsStack を作らない (bin/app.ts)', () => {
 		// stg のアラートがリリース以外で届くと、本番の異常が埋もれる (オーナー決裁 2026-08-03)。
-		// 現状 staging は Storage / Auth / Compute の 3 stack のみで alarm を持たない。
-		// 将来 `stagingEnabled` ブロックに Ops を足したらここで落ちる。
+		// staging に OpsStack は無く、alarm を持たない (staging の stack は deploy-aws-staging.yml の
+		// `STAGING_STACKS` が SSOT)。将来 `stagingEnabled` ブロックに Ops を足したらここで落ちる。
 		const binSource = fs.readFileSync(path.join(__dirname, '../../../infra/bin/app.ts'), 'utf-8');
 		const stagingBlock = binSource.slice(binSource.indexOf('if (stagingEnabled)'));
 		expect(

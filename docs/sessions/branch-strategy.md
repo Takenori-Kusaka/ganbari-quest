@@ -39,17 +39,17 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 
 ### §3.1 release ブランチ方式（統合 PR の「動く標的」問題の構造的解消、#3063）
 
-統合 PR を `develop → main` で出すと、PR の HEAD が develop の日次/毎時マージで動き続け、APPROVE→merge 直前に develop が動くたびに 8 領域監査・adversarial evidence（TTL 30 分）が無効化され再監査ループに陥る（#3021 で顕在化）。これを構造的に解消するため、統合は **release ブランチ方式（git-flow）** で行う。
+統合 PR を `develop → main` で出すと、PR の HEAD が develop の日次/毎時マージで動き続け、APPROVE→merge 直前に develop が動くたびに 8 領域監査の対象が変わって無効化され、再監査ループに陥る（#3021 で顕在化）。これを構造的に解消するため、統合は **release ブランチ方式（git-flow）** で行う。
 
 | 手順 | 内容 |
 |---|---|
 | 1. cut | 統合したい `develop` の**特定コミットを凍結**し、そこから `release/<YYYY-MM-DD>`（例 `release/2026-06-16`）を cut する。以後 develop が進んでも release branch の HEAD は不変＝frozen 標的 |
 | 2. 統合 PR | `release/* → main` の PR を発行する。`pr-lane.mjs` rule 2 で `integration`（重量レーン）に分類され、`main-pr-base-guard` が release/* を許可、重量 job + `integration-evidence` が保証発火する |
-| 3. 監査・merge | frozen な release HEAD に対し 8 領域監査 + adversarial evidence（ADR-0056）→ lab approve（author≠approver, ADR-0022）→ **merge commit（`gh pr merge --merge`、squash 禁止。根拠 SSOT = §2 #2871）**。HEAD が動かないため監査が無効化されない |
+| 3. 監査・merge | frozen な release HEAD に対し 8 領域監査（adversarial evidence は判断材料で前提ではない = [audit-team.md](audit-team.md) §3.3 / ADR-0068）→ lab approve（author≠approver, ADR-0022）→ **merge commit（`gh pr merge --merge`、squash 禁止。根拠 SSOT = §2 #2871）**。HEAD が動かないため監査が無効化されない |
 | 4. back-merge | merge 後、`main → develop` の back-merge sync PR で main の merge commit を develop へ取り込む（hotfix back-merge と同じ §5 経路 / #2951・#3061 自動化）|
 
 - release branch は **force-push（history 書換）を禁止する ruleset（`release-lane-freeze`）で保護**し、標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
-- **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: push による approval の自動 dismiss に依存しない。approve 後に release branch へ append すると stale approval が残り未監査差分が merge され得るため、**adversarial evidence 取得・lab approve の後に release へ commit を積んだ場合は、adversarial evidence を再生成（TTL 30 分）し再 approve する**こと。approve した HEAD = merge する HEAD を必ず一致させる。
+- **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: push による approval の自動 dismiss に依存しない。approve 後に release branch へ append すると stale approval が残り未監査差分が merge され得るため、**lab approve の後に release へ commit を積んだ場合は、append 後の HEAD を監査し直してから再 approve する**こと（自分が積んだ修正なら独立検証を経る = [audit-team.md](audit-team.md) §3.8.1 禁則 3）。approve した HEAD = merge する HEAD を必ず一致させる。
 - 命名は `release/<YYYY-MM-DD>` を基本とし、同日複数回は `-2` 等の suffix を付ける。
 - 統合 PR の題名は `[統合] release/<YYYY-MM-DD> → main` とし、**回数（「第 N 回」）は入れない**。回数は人の記憶で採番するため揺れる（#4976）。識別は cut の日付で足りる。
 - machine 層: `pr-lane.mjs`（lane 判定）/ `resolve-base-branch.mjs`（release/* → main 基点解決）/ `ci.yml`（base-guard + 重量発火）が release/* を統合レーンとして扱う。
@@ -126,7 +126,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | visual regression（`lp-visual-regression.yml` / `child-home-visual-regression.yml` / `app-visual-regression.yml`） | pixelmatch baseline 比較 | — |
 | `e2e-matrix`（#2874） | ADR-0040 mode×plan matrix（4 project、port 5201-5204、`playwright.matrix.config.ts`） | 約 4-7min（並列、critical path 不変） |
 | `deploy-nuc-staging`（#2872） | NUC staging deploy + migration 込み起動貫通 + health（self-hosted runner） | — |
-| `deploy-aws-staging`（#2873） | AWS staging 4 stack deploy + post-deploy health / smoke（Phase 1 advisory → Phase 2 required 化、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | 約 15min |
+| `deploy-aws-staging`（#2873） | AWS staging stack（`STAGING_STACKS`）deploy + post-deploy health / smoke（Phase 1 advisory → Phase 2 required 化、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | 約 15min |
 | `integration-evidence`（#2874） | audit-team.md §3.5 #3/#4 エビデンス自動生成（`integration-pr-evidence-*` artifact、gate ではない） | 約 1-2min |
 
 > `storybook-test` は `deps` / `stories` filter でも発火する。発火条件は `base_ref != 'develop'` かつ `deps || stories` なので、main 向け PR (hotfix) / push に加え `release/*` や feature branch を base にする PR でも走る。#4859 で `svelte.config.js` / `vite.config.ts` / `tsconfig.json` / `src/app.html` が `stories` に入ったため、これらの変更でも発火するようになった (約 106s)。ただし発火するのは `develop` 以外を base にする PR と push に限られ、直近 200 PR の base は develop 193 / main 7 (うち統合 3 は元から無条件発火) だったため、**実際に新規発火するのは hotfix がこれらの path を触った場合と push のみ**で、現状ほぼ 0 件。統合 PR は filter に依らず無条件発火する (#2874)。
@@ -291,7 +291,7 @@ develop→main 統合の運用を **手動（audit-manager が release ブラン
 
 **不変条件**: 各段で **merge を止めるのは rules-based 自動チェックのみ / LLM finding は advisory**（#2949・#2861 設計原則）を堅持。main = 本番（push 即 deploy）の不変条件に触れない。
 
-**S1 frozen 標的の担保（§3.1 整合）**: S1 で手動 cut を廃し standing 統合 PR を vehicle 化しても、§3.1 の「動く標的」問題（#3063）を再導入しないため、approve→merge は **frozen な HEAD（audit 時点の commit）に対してのみ成立**させる。standing PR の HEAD が develop の進行で動いた場合は adversarial evidence（TTL 30 分、ADR-0056）を無効化し再監査する（approve HEAD = merge HEAD の一致を必須）。vehicle 化は cut の手作業を省く範囲に留め、frozen 標的での監査・TTL 30 分 evidence の不変条件は維持する。
+**S1 frozen 標的の担保（§3.1 整合）**: S1 で手動 cut を廃し standing 統合 PR を vehicle 化しても、§3.1 の「動く標的」問題（#3063）を再導入しないため、approve→merge は **frozen な HEAD（audit 時点の commit）に対してのみ成立**させる。standing PR の HEAD が develop の進行で動いた場合は、それまでの監査結果を無効として再監査する（approve HEAD = merge HEAD の一致を必須）。vehicle 化は cut の手作業を省く範囲に留め、frozen 標的で監査する不変条件は維持する。
 
 ### no-diff 早期 exit ガード（全段共通の必須ガード、#3399）
 

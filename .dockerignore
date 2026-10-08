@@ -12,3 +12,7 @@ tests
 sound
 graft
 graphify-out
+# CDK の合成物。deploy workflow は `-c <秘密>` 付きの cdk diff / deploy の後に同じ checkout で
+# docker build するため、残った template の秘密が build stage (COPY . .) の layer と cache に載る
+cdk.out
+infra/cdk.out
