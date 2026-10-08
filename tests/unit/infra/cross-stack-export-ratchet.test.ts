@@ -96,9 +96,8 @@ interface ExportEntry {
 	descriptor: string;
 }
 
-// #3858 実測 baseline。#3854 Deploy-2 で MainTable + 両 export を撤去したため、prod/staging とも
-// MainTable Ref/Arn を allowlist から削除した (計 17 → 13)。
-// prod 9 export (Storage 4 / Compute 4 / Network 1) + staging 4 export (StorageStaging 4) = 計 13。
+// #3858 実測 baseline (本数はこの配列が SSOT。コメントに数字を書かない)。#3854 Deploy-2 で
+// MainTable + 両 export を撤去したため、prod/staging とも MainTable Ref/Arn は含まない。
 const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
 	// --- prod StorageStack (4) — Compute が assets/repo を import (MainTable Ref/Arn は #3854 で撤去) ---
 	{
@@ -293,7 +292,7 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		staticAssetsBucket: network.staticAssetsBucket,
 	});
 
-	// --- staging 4 stack (bin/app.ts stagingEnabled=true と同一 wire) ---
+	// --- staging (bin/app.ts stagingEnabled=true と同一 wire) ---
 	const sStorage = new StorageStack(app, `${APP_NAME}StorageStaging`, {
 		env,
 		envConfig: STAGING_ENV_CONFIG,
@@ -367,7 +366,7 @@ describe('#3858 cross-stack 自動 export/ImportValue allowlist ratchet (ADR-006
 		).toEqual([]);
 	});
 
-	it('生成 Export と allowlist が集合として過不足なく一致する (計 14 = prod 9 + staging 5)', () => {
+	it('生成 Export と allowlist が集合として過不足なく一致する', () => {
 		// 上記 2 assert の統合表明 (数の drift を 1 行で可視化)。実測とズレたら人手承認 (本 test 更新) を要する。
 		expect(synthResult.exports.size).toBe(AUTO_EXPORT_ALLOWLIST.length);
 		expect(new Set(synthResult.exports)).toEqual(ALLOWLIST_NAMES);
