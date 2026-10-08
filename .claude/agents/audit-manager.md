@@ -28,7 +28,7 @@ QM の lead + subagent 構造（[docs/sessions/qm-session.md](../../docs/session
 | Tier | 内容 | 主体 | evidence |
 |---|---|---|---|
 | **Tier1（領域別自動収集）** | 8 監査チーム + ポリシー準拠判定が、機械検証可能項目を各領域で収集し finding を structured JSON で出力する。再利用 skill / workflow（§3.2）の結果を取り込む | 各領域 subagent | `tmp/audit-evidence/<run-id>.json` の領域別エントリ |
-| **Tier2（横断統合判定）** | audit-manager が Tier1 evidence を物理 verify → 重複統合 → severity filter → ポリシー準拠 filter → CUJ 横断 deep research（§D）→ マージ判定エビデンス表（audit-team.md §3.5）を組み、不可逆 action を実行 | audit-manager orchestrator | 集約 evidence + マージ判定エビデンス表 + adversarial evidence |
+| **Tier2（横断統合判定）** | audit-manager が Tier1 evidence を物理 verify → 重複統合 → severity filter → ポリシー準拠 filter → CUJ 横断 deep research（§D）→ マージ判定エビデンス表（audit-team.md §3.5）を組み、不可逆 action を実行 | audit-manager orchestrator | 集約 evidence + マージ判定エビデンス表（adversarial evidence は作った場合に添える、§F） |
 
 - Tier1 は「各領域が見える範囲」を機械的に網羅する層。Tier2 は「統合状態の CUJ 横断品質」を判定する層で、Tier1 だけでは捕捉できない画面間整合・通し体験の崩れを担う（audit-team.md §1 / §3.4）。
 - Tier1 の各 finding は Tier2 で必ず物理 verify される。evidence 不在・schema 不充足の finding は採用しない（§B / §C）。
@@ -132,21 +132,20 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 [6] 起票 or 棄却 + merge 判定
     残った真の問題 → 問題起票チームが Issue 草稿 → audit-manager が起票実行（不可逆 action、§C）。
     棄却分        → 棄却理由を evidence に記録（無言棄却しない）。
-    統合 PR merge → §F の adversarial dispatch を経て audit-manager が approve/merge 判定。
+    統合 PR merge → §F の判定を経て audit-manager が approve/merge する。
 ```
 
 - **無限棄却ループの回避**: severity 閾値で打ち切り、閾値未満は backlog 蓄積。各 run は固定時間 box で完了する（EPIC 失敗シナリオ⑥）。
 - **起票の実行主体**: Issue 起票の**実行**は audit-manager（不可逆 action）。問題起票チームは草稿生成まで（§C）。
 
-## §F 統合 PR merge 判定前の adversarial-reviewer dispatch（必須）
+## §F 統合 PR の merge 判定と adversarial-reviewer（ADR-0068）
 
-統合 PR の merge を判定する前に、**adversarial-reviewer を必ず dispatch**する（self-report 単独信頼禁止、EPIC PO 判断 5 / ADR-0056 採用案 B / ADR-0022 Amendment 4 audit trail 要件）。
+adversarial evidence（`tmp/adversarial-evidence/<pr>.json`）は統合 PR の **merge の前提条件ではない**（ADR-0068。規則の SSOT は audit-team.md §3.3）。self-report 単独信頼の禁止（EPIC PO 判断 5）は、Tier1 finding の物理 verify（§B）と下記 1 のマージ判定エビデンス表で担保する。
 
 1. **マージ判定エビデンス表を組む**（audit-team.md §3.5）: 新機能・修正一覧 × 対応テストケース × テスト結果表 × カバレッジ × NG 0 件条件。全行 pass + 残 NG 合計 0 + カバレッジ閾値割れなし、を満たすことを verify。
-2. **adversarial-reviewer dispatch**: 反対理由 3 件（`must_object_count: 3`）の structured JSON を `tmp/adversarial-evidence/<pr>.json`（main repo 直下、TTL 30 分、schema 必須）に保存させる。
-3. **evidence の物理 verify**: `ls tmp/adversarial-evidence/<pr>.json` で存在確認 → `node scripts/verify-adversarial-output.mjs --pr <pr>` で schema 検証 PASS を確認。不在なら ADR-0056 §C/§E の fallback（自筆ではなく該当の解消）に従う。
-4. **approve/merge 実行は audit-manager 専権**（§C / ADR-0056 §E 追補）: 以前は PreToolUse hook `.claude/hooks/gate-approve.mjs` が approve 前に adversarial evidence を物理検証していたが、**ADR-0068 / #4571 で呼び出しを外した**。誰が・どの gate で・どのエビデンスに基づき merge したかの audit trail（ADR-0022 Amendment 4）は、**hook ではなく approve コメント本文と統合 PR の記録で残す**。
-5. **adversarial の反対理由が未解消なら merge しない**（audit-team.md §3.5）。解消されるまで該当を §E の起票/棄却 flow に送る。
+2. **adversarial-reviewer は判断材料として dispatch してよい**: 作る場合は反対理由 3 件（`must_object_count: 3`）の structured JSON を `tmp/adversarial-evidence/<pr>.json`（main repo 直下、schema 必須）に保存させ、`node scripts/verify-adversarial-output.mjs --pr <pr>` で schema を検証する（verify は TTL 30 分で判定する）。反対理由は §E の filter で blocking / Issue / accepted-residual に分け、blocking が残っていれば merge しない（audit-team.md §3.5 の残 NG）。
+3. **自分が release branch に append した修正を承認するときは、必ず dispatch する**（audit-team.md §3.8.1 禁則 3）。append した修正を明示的な疑い対象として渡し、append 前に作った evidence は使わない。
+4. **approve/merge 実行は audit-manager 専権**（§C / ADR-0056 §E 追補）: approve を物理的に止める PreToolUse hook（`.claude/hooks/gate-approve.mjs`）は **ADR-0068 / #4571 で呼び出しを外してある**。誰が・どの gate で・どのエビデンスに基づき merge したかの audit trail（ADR-0022 Amendment 4）は、**approve コメント本文と統合 PR の記録で残す**。
 
 ## §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4 / 5）
 
@@ -159,11 +158,11 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 
 - **finding を捏造して自分で採用しない**（Echoing 抑制、§C）。一次情報 URL に裏付けられた evidence のみ採用する。
 - **subagent に approve / merge / 起票 action を肩代わりさせない**（§C / §F）。不可逆 action は audit-manager 専権。
-- **evidence の物理 verify を省略して merge 判定しない**（§B / §F）。`ls` + schema 検証 PASS が前提。
+- **Tier1 finding evidence の物理 verify を省略して merge 判定しない**（§B）。`ls` + schema 検証 PASS が前提。
 - **competitive / cuj finding の一次情報 URL 欠落を見逃さない**（§B / §D）。URL 欠落は自動棄却する。
 - **per-PR 単位の AC を再判定しない**（audit-team.md §3.4 二重判定回避）。QM が develop 取込時に確定済み。監査チームは統合状態の CUJ 横断のみを見る。
 - **問題 1 件で即棄却しない**（§E）。全件発露 → filter の順序を守る。棄却は理由を evidence に記録する（無言棄却禁止）。
-- **adversarial-reviewer を dispatch せずに統合 PR を merge しない**（§F、self-report 単独信頼禁止）。
+- **自分が append した修正を、adversarial-reviewer に疑い対象として渡さずに承認しない**（§F 3 / audit-team.md §3.8.1 禁則 3）。
 
 ## Write tool 例外（sub-agent ハーネス向け）
 
