@@ -85,6 +85,30 @@ describe('isHeavyCommand', () => {
 		expect(isHeavyCommand('rg "npm run pre-ready" docs/')).toBe(false);
 	});
 
+	// graft の索引構築はピーク約 1.4GB (.claude/skills/graft/SKILL.md の実測)。worktree ごとに並走すると
+	// graphify 撤去の原因になったメモリ不足をそのまま再現するため、build だけを排他対象にする。
+	it.each([
+		'npx -y @nanonets/graft@0.12.1 build "$(git rev-parse --show-toplevel)"',
+		'npx @nanonets/graft build',
+		'graft build',
+		'graft build .',
+		'cd infra && npx -y @nanonets/graft@0.12.1 build',
+	])('graft の索引構築 (build) を重い検証として検出する: %s', (command) => {
+		expect(isHeavyCommand(command)).toBe(true);
+	});
+
+	it.each([
+		// 問い合わせは差分だけを取り込む軽い処理 (約 1.6 秒) なので排他しない。
+		'npx -y @nanonets/graft@0.12.1 callers parseDockerfileCopyRoots --depth 2',
+		'npx -y @nanonets/graft@0.12.1 grep build',
+		'graft ask "how is the docker image built" --source',
+		'npx -y @nanonets/graft@0.12.1 telemetry disable',
+		// graft という名前のディレクトリを片付けるだけのコマンドは起動ではない。
+		'rm -rf infra/graft infra/.ignore',
+	])('graft の問い合わせ・片付けは重い検証として扱わない: %s', (command) => {
+		expect(isHeavyCommand(command)).toBe(false);
+	});
+
 	it('無害な前置きを足しても回避できない (セグメント単位で判定する)', () => {
 		// 全体の先頭トークンだけを見ると `echo` で読み取り専用と誤判定し、
 		// 前置きを 1 つ足すだけで排他を回避できてしまう。
