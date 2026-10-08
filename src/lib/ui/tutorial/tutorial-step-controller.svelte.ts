@@ -8,8 +8,10 @@
 import {
 	endTutorial,
 	getCurrentStep,
+	isExitConfirmShown,
 	isResumePromptShown,
 	isTutorialActive,
+	setExitConfirmShown,
 } from './tutorial-store.svelte';
 import { findVisibleElement, focusElement, waitForElement } from './useStepHighlight.svelte';
 
@@ -23,7 +25,6 @@ let targetRect = $state<DOMRect | null>(null);
  */
 let targetResolved = $state(false);
 let animKey = $state(0);
-let showExitConfirm = $state(false);
 
 // ── Derived state ──
 const active = $derived(isTutorialActive());
@@ -44,8 +45,13 @@ export function getAnimKey(): number {
 	return animKey;
 }
 
+/**
+ * 終了確認ダイアログを出しているか。値は store が持つ — ガイドが外から閉じられたとき
+ * (画面遷移 / ブラウザの戻る → `setChildGuidePage` → `endTutorial`) に store が一緒に下ろす。
+ * ここで別に持つと、閉じたあとも true が残り、次に ❓ を押した瞬間に終了確認が開いてしまう。
+ */
 export function getShowExitConfirm(): boolean {
-	return showExitConfirm;
+	return isExitConfirmShown();
 }
 
 export function isActive(): boolean {
@@ -64,20 +70,20 @@ export function getShowResume(): boolean {
 export function handleOverlayClick(e: MouseEvent) {
 	// #2105: FSM 排他 — resume / exit-confirm dialog 表示中は二重 state 遷移を防ぐ
 	// (Dialog FSM 原則、archive ADR-0019)。既に exit-confirm が出ている場合は noop。
-	if (showExitConfirm || showResume) return;
+	if (isExitConfirmShown() || showResume) return;
 	// Show exit confirmation instead of closing immediately
 	if ((e.target as HTMLElement).classList.contains('tutorial-overlay-bg')) {
-		showExitConfirm = true;
+		setExitConfirmShown(true);
 	}
 }
 
 export function confirmExit() {
-	showExitConfirm = false;
+	setExitConfirmShown(false);
 	endTutorial();
 }
 
 export function cancelExit() {
-	showExitConfirm = false;
+	setExitConfirmShown(false);
 }
 
 // ── Effects ──

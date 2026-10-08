@@ -20,7 +20,7 @@ import TutorialDialogs from './TutorialDialogs.svelte';
 interface Props {
 	/**
 	 * 子供画面で表示するときの年齢モード (#4652)。
-	 * 指定すると再開 / 終了確認ダイアログの文言を子供向け年齢帯 variant
+	 * 指定すると再開 / 終了確認ダイアログと吹き出しのボタンの文言を子供向け年齢帯 variant
 	 * (preschool / elementary = ひらがな、junior / senior = 漢字) にする。
 	 * 親管理画面では未指定 (親向け漢字文言のまま)。
 	 */
@@ -106,7 +106,7 @@ setupResizeScrollTracking();
 		{/if}
 
 		<!-- Bubble: {#key} による DOM 削除を廃止し animKey prop 経由でアニメーション再生 (#1468) -->
-		<TutorialBubble {step} {targetRect} {animKey} />
+		<TutorialBubble {step} {targetRect} {animKey} {childUiMode} />
 	</div>
 {/if}
 

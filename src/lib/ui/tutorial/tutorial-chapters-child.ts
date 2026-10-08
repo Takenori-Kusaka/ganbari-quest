@@ -160,7 +160,24 @@ function getChildChecklistGuideChapters(
 	return [{ id: 1, title: L.checklistChapterTitle, icon: L.checklistChapterIcon, steps }];
 }
 
-/** ショップ (/<uiMode>/shop) の章。`hasRewards` = ごほうびが 1 つでもあるか。 */
+/**
+ * ショップの「主役があるか」を決める (#4864)。ショップのカードは **選んでいるタブ・絞り込みに合うもの**
+ * だけが描かれるため、全ごほうびの件数で決めると、空のタブで存在しないカードを指してしまう。
+ *
+ * - ごほうびが 1 つも無い → `false` (「まだ ないよ」。これは本当に無い)
+ * - 描かれているカードがある → `true` (カードを指す)
+ * - ごほうびはあるが、今のタブ / 絞り込みでは 1 枚も描かれていない → `undefined`
+ *   (カードを指さず、「まだ ないよ」とも言わない。ほかのタブにはあるので、無いと言うと嘘になる)
+ */
+export function resolveShopGuidePresence(
+	totalRewards: number,
+	renderedRewards: number,
+): boolean | undefined {
+	if (totalRewards === 0) return false;
+	return renderedRewards > 0 ? true : undefined;
+}
+
+/** ショップ (/<uiMode>/shop) の章。`hasRewards` = ごほうびのカードが画面にあるか (resolveShopGuidePresence)。 */
 function getChildShopGuideChapters(
 	uiMode: string,
 	hasRewards: boolean | undefined,

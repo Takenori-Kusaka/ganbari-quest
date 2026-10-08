@@ -219,8 +219,8 @@ test.describe('#2393 / #2105 子供画面ガイドモード二重ダイアログ
 			// TutorialBubble が再表示される
 			await expect(bubble).toBeVisible({ timeout: 5_000 });
 			// チュートリアル続行可能 (「次へ」/「完了」ボタンが押せる)
-			// 年齢帯別ラベル: preschool/baby = 「つぎへ」/「おしまい！」、その他 = 「次へ」/「完了！」
-			// (labels 層の UI_COMPONENTS_LABELS.tutorialBubbleNext)
+			// 年齢帯別ラベル: baby/preschool/elementary = 「つぎへ」/「おしまい！」、junior/senior = 「次へ」/「完了！」
+			// (labels 層の getChildTutorialLabels(uiMode).dialog.bubbleNext / bubbleDone)
 			await expect(
 				bubble.locator(
 					'button:has-text("次へ"), button:has-text("完了"), button:has-text("つぎへ"), button:has-text("おしまい")',
