@@ -295,7 +295,7 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 				// 「次へ」「完了」ボタンで進行 (年齢帯別ラベル対応)
 				// preschool/baby (isYoungTier=true) = 「つぎへ」/「おしまい！」
 				// elementary/junior/senior = 「次へ」/「完了！」
-				// (UI_COMPONENTS_LABELS.tutorialBubbleNext / src/lib/domain/labels.ts)
+				// (labels 層の UI_COMPONENTS_LABELS.tutorialBubbleNext)
 				const nextBtn = bubble.locator('.tutorial-nav-next');
 				await expect(nextBtn).toBeVisible();
 				const btnText = (await nextBtn.textContent()) ?? '';

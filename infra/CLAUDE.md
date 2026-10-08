@@ -30,7 +30,7 @@ SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマン�
 
 `ganbari-quest-vault` は旧 MainTable の日次 backup 用 vault。#3854 が vault も撤去しようとしたが、この vault は旧 daily plan が作成した **recovery point 2 件を保持**しており **AWS Backup は「recovery point 有り vault の削除」を API レベルで拒否する** (CloudFormation も同じ)。撤去すると deploy 失敗 → StorageStack rollback → 本番 deploy 停止 (#3881 と同一クラス) になる。canonical 解 = 破壊的な backup データ削除を避け **vault を残しつつ `removalPolicy: RETAIN` に是正** (旧 `DESTROY` = CDK 既定 RETAIN に反していた元凶)。plan / selection / role のみ撤去 (= 新規 backup は取らない)。staging (`enableBackup=false`) は vault 自体を構築しない。vault の物理 empty→delete は移行安定後の **gated out-of-band ops (PO 承認必須)**: `aws backup list-recovery-points-by-backup-vault` → `aws backup delete-recovery-point` ×2 → `aws backup delete-backup-vault` (手順 SSOT は設計書 §3.1)。不変条件は `tests/unit/infra/staging-cdk.test.ts` P-1 (vault RETAIN 1 本 / Plan・Selection 0 本) が fitness function として固定する。
 
-自動 cross-stack export/import の全集合 (実測 13 = prod 9 + staging 4、#3854 で MainTable Ref/Arn 4 本を撤去し 17 → 13) は `tests/unit/infra/cross-stack-export-ratchet.test.ts` が allowlist ratchet で PR 時点に機械検出する (#3858、ADR-0061 shift-left / §3.1.1)。新規自動 export の混入は CI fail、SSM 疎結合化 / 撤去で allowlist から一方通行に減らす。
+自動 cross-stack export/import の全集合 (集合と本数の SSOT は同 test の `AUTO_EXPORT_ALLOWLIST`) は `tests/unit/infra/cross-stack-export-ratchet.test.ts` が allowlist ratchet で PR 時点に機械検出する (#3858、ADR-0061 shift-left / §3.1.1)。新規自動 export の混入は CI fail、SSM 疎結合化 / 撤去で allowlist から一方通行に減らす。
 
 CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は本ファイルを SSOT として `us-east-1`。`tests/unit/e2e-helpers/*` の `ap-northeast-1` 言及はテスト fixture（変更不要）。
 
@@ -42,7 +42,7 @@ CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は
 |---|---|---|---|
 | **Layer 1: synth 静的 lint** | `cdk synth --all` 出力 template を **cfn-lint** で検査し AWS schema 由来の property 制約違反（charset / allowed-value / type）を synth 時点で hard-fail | `scripts/check-cdk-cfn-lint.mjs` + `infra/.cfnlintrc` + ci.yml `cdk-cfn-lint` job（`infra/**` 変更時、develop 向け PR でも発火） | **Class ①（静的プロパティ制約違反）**。例: IAM Role/ManagedPolicy `Description` の非-ASCII（cfn-lint **E3031**、#3870）を含む全リソースの pattern / allowed-value / type 違反を**カスタムコードなしで**網羅捕捉 |
 | **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858）/ `tests/unit/infra/physical-name-ratchet.test.ts`（明示物理名 allowlist ratchet、#3881） | **Class ②（stateful なデプロイ順序制約）の一部 + Class ③（rollback-orphan → named resource `already exists`）**。cross-stack export / 明示物理名の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
-| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 4 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
+| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging。対象 stack は `STAGING_STACKS`）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
 
 **役割分担の要点**: cfn-lint（Layer 1）は「AWS が受け付けない template」を汎用・自動で、assertion（Layer 2）は「本 project の不変条件」を、rehearsal（Layer 3）は「deployed-state 依存の失敗」を守る。3 層は補完関係で、上位ほど安価・高速・shift-left。
 
@@ -80,7 +80,7 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 | `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
 | `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は CDK synth error) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up / monthly_habit を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない (alarm `ganbari-quest-push-vapid-missing` が鳴る) | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は `deploy.yml` の Validate step と CDK synth が止める) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
 
@@ -212,7 +212,7 @@ docker compose logs -f scheduler
 | 項目 | 本番 AWS | AWS staging |
 |---|---|---|
 | workflow | `deploy.yml` | `deploy-aws-staging.yml` |
-| stack | 6 stack (`--all`) | 4 stack (`GanbariQuest{Storage,Auth,Compute,Network}Staging`、明示列挙) |
+| stack | 6 stack (`--all`) | `deploy-aws-staging.yml` の `STAGING_STACKS` に明示列挙した stack |
 | 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging` (Lambda `ganbari-quest-staging-app` / SSM `/ganbari-quest-staging/`) |
 | ECR repo | `ganbari-quest` (maxImageCount:10) | `ganbari-quest-staging` 専用 (maxImageCount:3、prod repo 共有不採用) |
 | 外部サービス | Stripe / Discord / Gemini / SES 注入 | 非注入 (副作用ゼロ。SES / CE の IAM grant も無し) |
@@ -222,7 +222,7 @@ docker compose logs -f scheduler
 | 入口 (ORIGIN / smoke) | CloudFront | **CloudFront** (#4204)。Function URL 直では SvelteKit の名前付き form action (`?/action`) が通らずログインもサインアップもできないため |
 
 - **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
-- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 4 stack の 2 段)。
+- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / `STAGING_STACKS` 全体の 2 段)。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required へ `deploy-aws-staging` を追加。
 - 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md) / 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md)。
 
@@ -303,4 +303,4 @@ gh variable set GRACE_PERIOD_DELETION_DISABLED --body true --repo Takenori-Kusak
 
 - **IAM Role / ManagedPolicy の `description` は英語 ASCII で書く**。日本語で説明したい背景はコード直上の `// コメント` に書く (コメントは synth 対象外なので日本語可)。
 - **`CfnOutput` / CloudWatch `Alarm` (AlarmDescription) / SSM Parameter の `description` は ASCII 制約が無い** ため日本語のままで良い (過剰に ASCII 化しない)。
-- **fitness guard**: `tests/unit/infra/iam-role-description-ascii.test.ts` が全 stack を synth し、全 `AWS::IAM::Role` / `AWS::IAM::ManagedPolicy` の `Description` が `^[\t\n\r\x20-\x7E\xA1-\xFF]*$` にマッチすることを CI で assert する。新 stack を追加したら同 test の対象本数を増やす。
+- **fitness guard**: `tests/unit/infra/iam-role-description-ascii.test.ts` が全 stack を synth し、全 `AWS::IAM::Role` / `AWS::IAM::ManagedPolicy` の `Description` が `^[\t\n\r\x20-\x7E\xA1-\xFF]*$` にマッチすることを CI で assert する。synth した stack の集合が `infra/bin/app.ts` の stack 集合と一致しない（新 stack を足したのに test に wire していない）と同 test の [G1] が fail する。

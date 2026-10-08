@@ -26,12 +26,12 @@
 ## 3. 仕様
 
 ### 3.1 `cloud_exports` に status カラム追加
-`status: 'pending' | 'building' | 'ready' | 'failed'` + `failureReason: string | null` + **`updatedAt: string`（全 status 遷移で更新、§3.2-4 の stale reclaim 判定に使用）** を追加（`schema.ts` + `types/index.ts` + `cloud-export-repo.interface.ts` + sqlite/dynamodb/demo 3 実装）。DB migration は DSQL 移管（#3433）と同期。既存カラム（id/tenantId/exportType/pinCode/s3Key/fileSizeBytes/label/expiresAt/downloadCount/maxDownloads/createdAt）は不変。
+`status: 'pending' | 'building' | 'ready' | 'failed'` + `failureReason: string | null` + **`updatedAt: string`（全 status 遷移で更新、§3.2-4 の stale reclaim 判定に使用）** を追加（`schema.ts` + `types/index.ts` + `cloud-export-repo.interface.ts` + sqlite/dsql/demo 3 実装）。DB migration は DSQL 移管（#3433）と同期。既存カラム（id/tenantId/exportType/pinCode/s3Key/fileSizeBytes/label/expiresAt/downloadCount/maxDownloads/createdAt）は不変。
 
 ### 3.2 生成フロー（同期 build → pending + cron-drain）
 1. export 起票 route が `cloud_exports` を **`status='pending'` で insert して即返す**（ZIP は作らない）。`createCloudExport` の同期 `buildFullBackupZip`（現 `:212-215`）を分離。
 2. 新 cron job **`export-build`**（`schedule-registry.ts` に 1 エントリ、例 1〜5 分毎）→ 既存 `/api/cron/:job` → `status='pending'` を拾い、**`claimForBuild` の CAS で `status='building'` を掴んでから** `buildFullBackupZip` → storage 保存 → `status='ready'`（失敗時 `status='failed'` + `failureReason`）。
-3. 同一 job を **AWS（cron-dispatcher）と NUC（scheduler container `--profile scheduler`）の双方**が回す（dual runtime 同一コードパス）。二重起動・cron 重複発火の下でも同一 `pending` を 2 worker が二重 build しないよう、`pending → building` の遷移は **`claimForBuild` の条件付き更新（`WHERE status='pending'` / DynamoDB は `ConditionExpression`、楽観ロック）で 1 worker に絞る**。claim に敗退した worker は当該レコードを二重 build せず skip する（`contended` としてログ可視化）。SQLite=単一 writer 直列化 / DSQL=OCC / DynamoDB=item 単位 conditional write が原子性を担保する。
+3. 同一 job を **AWS（cron-dispatcher）と NUC（scheduler container `--profile scheduler`）の双方**が回す（dual runtime 同一コードパス）。二重起動・cron 重複発火の下でも同一 `pending` を 2 worker が二重 build しないよう、`pending → building` の遷移は **`claimForBuild` の条件付き更新（`WHERE status='pending'`、楽観ロック）で 1 worker に絞る**。claim に敗退した worker は当該レコードを二重 build せず skip する（`contended` としてログ可視化）。SQLite=単一 writer 直列化 / DSQL=OCC が原子性を担保する。
 4. **stale `building` の reclaim（cron 自己タイムアウト検知）**: `cloud_exports` に `updatedAt`（全 status 遷移で `updateStatus` が更新するタイムスタンプ）を追加する。同一 job（`export-build` = `drainPendingExports`）が **新規 pending を拾う前に毎回**、`status='building'` かつ `updatedAt` が **10 分**（cron cadence 5 分 × 2 サイクル分、Lambda timeout・大容量 ZIP 生成時間を踏まえた安全マージン）超過のレコードを検出し、`status='failed'` + `failureReason='ビルドがタイムアウトしました。再度エクスポートしてください'` へ強制遷移する。reclaim 実行主体は **cron の次回実行時に自分自身が検知する**（別ジョブを新設しない、既存 dual runtime 同一コードパスに相乗り）。
    - `pending` への差し戻し（自動再試行）は採用しない。ワーカーが low-level で kill された場合、対象 ZIP が不完全に S3/FS へ書き込まれている可能性があり、自動リトライは重複書込み・競合を生みうるため、**fail-closed（failed 化）してユーザーに再エクスポートを促す**方が安全（Pre-PMF、ADR-0010 過剰実装回避）。
    - stuck 状態の UI 表示は §3.3 の `listCloudExports` が返す `status` にそのまま従う。reclaim 後は `status='failed'` になるため、既存の「生成状況を UI に見せる」フロー（pending/building/failed を返す）が失敗表示にそのまま反映し、無限「生成中…」表示を防ぐ。reclaim 前（10 分以内）は通常の `building` 表示のまま。
@@ -61,6 +61,6 @@ NUC の `saveFile` は `static/` 配下（web 配信対象）しか許さない�
 **トリガまで待つ**: 分割バックアップ（§2-6、単一家族が生成時 512MB に抵触したら #3436 saga と同時設計）/ SQS・StepFunctions（cron-drain の latency がユーザー体感を害する実測が出たら async self-invoke → その次に SQS）/ build Lambda メモリ増（実 OOM が出たら）。
 
 ### 3.7 実装対象ファイル
-`cloud-export-service.ts`（生成分離 + stale reclaim を `drainPendingExports` 冒頭に実装）/ `storage.interface.ts` + dynamodb/sqlite/demo storage-repo（`getDownloadUrl`）/ `schema.ts` + types + cloud-export-repo 3 実装（status + `updatedAt` + `findStaleBuilds(timeoutMs)`）/ `routes/api/v1/export/cloud/[id]/download/+server.ts`（新設）/ `schedule-registry.ts`（export-build job）/ `infra/lib/compute-stack.ts`（cron rule）。
+`cloud-export-service.ts`（生成分離 + stale reclaim を `drainPendingExports` 冒頭に実装）/ `storage.interface.ts` + s3/sqlite/demo storage-repo（`getDownloadUrl`）/ `schema.ts` + types + cloud-export-repo 3 実装（status + `updatedAt` + `findStaleBuilds(timeoutMs)`）/ `routes/api/v1/export/cloud/[id]/download/+server.ts`（新設）/ `schedule-registry.ts`（export-build job）/ `infra/lib/compute-stack.ts`（cron rule）。
 
 > 根拠調査（実測制約・案比較）は git 履歴の設計調査（2026-07-01）参照。実 transform 不要の identity 部分は作らず、生成非同期化と DL 経路の欠落補修に絞る。

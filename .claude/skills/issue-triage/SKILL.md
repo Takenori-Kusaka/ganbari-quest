@@ -102,7 +102,7 @@ Issue 起票時の Pre-PMF バイアスチェック (ADR-0010 §3 を SSOT と�
 
 - AWS コスト影響は？（docs/design/12-事業計画書.md Year 1 原価枠を参照）
 - 新しい外部サービス（API課金など）を追加するか？
-- aws ce get-* は実行禁止（$0.01/回課金）。月次レポートを参照
+- `aws ce get-*` は実行しない（Cost Explorer API は呼び出しごとに課金される。規律の SSOT は `infra/CLAUDE.md` §AWS Cost Explorer API 使用制限）。費用は `cost-audit.yml` の月次レポートと、週次運用レポート（`weekly-report.yml`、Discord）で見る
 
 ## ステップ 6: 仮想顧客レビュー
 

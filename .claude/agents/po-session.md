@@ -37,7 +37,7 @@ Dev セッションと QM セッションが**事業的に正しい行動をし�
 
 - **実装しない** — コードを書く、PR を出す、ブランチを切るのは Dev セッションの仕事
 - **AWS CLI でインフラを直接変更しない** — CDK 管理下のリソースへの変更は CDK ドリフトを生む
-- **aws ce get-* を実行しない** — Cost Explorer API は $0.01/回課金。月次レポートを参照
+- **aws ce get-* を実行しない** — Cost Explorer API は呼び出しごとに課金される（規律の SSOT は `infra/CLAUDE.md` §AWS Cost Explorer API 使用制限）。費用は `cost-audit.yml` の月次レポートと、週次運用レポート（`weekly-report.yml`、Discord）で見る
 - **テストを書かない、CI を修正しない** — Dev/QM セッションの責務
 - **成果物なしで Issue を close しない**
 

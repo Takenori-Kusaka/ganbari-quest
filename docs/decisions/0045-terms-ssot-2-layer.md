@@ -113,7 +113,7 @@ labels 層 (compound): src/lib/domain/labels/<画面・機能>.ts
 
 ### 3.5 compound 層のファイル分割 (#4965)
 
-単一の `labels.ts` は区切りコメントだけで画面を分けた状態 (選択肢 B が退けた形) に戻り、namespace の置き場所が決まらないため重複と並行 PR の衝突を生んでいた。compound 層を画面・機能ごとのファイル (`src/lib/domain/labels/`、フラット) に分け、**置き場所は表示先から決まる配置規則** (`docs/DESIGN.md` §6) で一意にする。入口 `labels.ts` は `export *` だけを並べ、利用側の import は変えない。namespace の重複は入口の `export *` の TS2308 (svelte-check) と配置規則で防ぐ。重複を検出する ratchet (#4965 の打ち手 1) は、検査装置を増やすことになるため採らない (チーム憲章 `docs/sessions/README.md` §0 ルール 1)。labels をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の一覧経由で層全体を読む。
+単一の `labels.ts` は区切りコメントだけで画面を分けた状態 (選択肢 B が退けた形) に戻り、namespace の置き場所が決まらないため重複と並行 PR の衝突を生んでいた。compound 層を画面・機能ごとのファイル (`src/lib/domain/labels/`、フラット) に分け、**置き場所は表示先から決まる配置規則** (`docs/DESIGN.md` §6) で一意にする。入口 `labels.ts` は `export *` だけを並べ、利用側の import は変えない (入口の形と `labels/` 全ファイルの網羅は `tests/unit/domain/labels-entry-shape.test.ts` が検査する。重複の検出ではない)。namespace の重複は入口の `export *` の TS2308 (svelte-check) と配置規則で防ぐ。重複を検出する ratchet (#4965 の打ち手 1) は、検査装置を増やすことになるため採らない (チーム憲章 `docs/sessions/README.md` §0 ルール 1)。labels をテキストとして読む script / test は `scripts/lib/parse-labels-ts.mjs` の一覧経由で層全体を読む。
 
 ## 4. 結果
 

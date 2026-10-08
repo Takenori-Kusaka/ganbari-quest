@@ -281,7 +281,7 @@ interactive primitive の play 関数 coverage:
 - 基盤: #2544 (機能基盤、ADR-0007 EPIC-merge tier)
 - 兄弟: C-2 #2554 (Cognitive Walkthrough skill、`.claude/skills/cognitive-walkthrough/SKILL.md` で実装) / C-3 #2555 (用語 coherence lint、PR #2587 で実装)
 - 拡張根拠: **PR #2657 後段フェーズ Round 1 deep research** (`tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3 業界網羅 + DoR gap 分析、2026-05-30)
-- 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR 12 条件ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 12 条件チェック)
+- 参照元: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時の判定 flow。条件そのものは本節を指すだけで写さない)。PR template には CX-DoR の条件チェックを置いていない (条件の確認結果は PR body の `## 検証` に書く)
 - 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3 (DoR 1-8 起源) + `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §1-§9 (DoR 9-12 拡張根拠)
 
 ## 負例 fixture と cspell（#4009 / #3967 で 2 回連続で踏んだ）
