@@ -13,7 +13,7 @@
 | `build` | SSR prerender | なし | なし |
 | `demo` | `?mode=demo` / `gq_demo=1` | 非認証 | in-memory |
 | `local-debug` | `npm run dev` | local mock | SQLite |
-| `aws-prod` | Lambda + DynamoDB | Cognito | DynamoDB |
+| `aws-prod` | Lambda + Aurora DSQL | Cognito | Aurora DSQL |
 | `nuc-prod` | ローカル NUC | Cognito | SQLite + ライセンスキー |
 
 特に `nuc-prod` (家庭内 self-host) と `aws-prod` (SaaS subscription) は、**同じ UI コードが両方を駆動**する。
