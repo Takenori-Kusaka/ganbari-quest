@@ -184,8 +184,5 @@ export const UI_COMPONENTS_LABELS = {
 	// 文言は年齢帯 variant を持つため `getChildStampLabels(uiMode)` が SSOT (本 namespace には置かない)
 
 	// ---- TutorialBubble ----
-	tutorialBubbleEnd: (isYoung: boolean) => (isYoung ? 'おわり' : '終了'),
-	tutorialBubblePrev: (isYoung: boolean) => (isYoung ? 'もどる' : '戻る'),
-	tutorialBubbleNext: (isYoung: boolean, isLast: boolean) =>
-		isYoung ? (isLast ? 'おしまい！' : 'つぎへ') : isLast ? '完了！' : '次へ',
+	// ボタン文言は年齢帯 variant を持つため `getChildTutorialLabels(uiMode).dialog` (tutorial.ts) が SSOT
 } as const;

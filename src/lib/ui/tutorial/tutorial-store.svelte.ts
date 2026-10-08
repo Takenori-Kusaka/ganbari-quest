@@ -52,6 +52,11 @@ interface TutorialState {
 	savedChapter: number;
 	/** Saved step index from previous session */
 	savedStepIndex: number;
+	/**
+	 * 終了確認ダイアログを出しているか。ガイドの開閉と同じ場所 (store) で持つ —
+	 * ガイドが外から閉じられたとき (画面遷移 / ブラウザの戻る) に一緒に下ろすため。
+	 */
+	showExitConfirm: boolean;
 }
 
 const state = $state<TutorialState>({
@@ -61,6 +66,7 @@ const state = $state<TutorialState>({
 	showResumePrompt: false,
 	savedChapter: 1,
 	savedStepIndex: 0,
+	showExitConfirm: false,
 });
 
 /**
@@ -163,6 +169,7 @@ export function setChildGuidePage(page: string | null) {
 		if (page === childGuidePage) return;
 		if (state.isActive) endTutorial();
 		state.showResumePrompt = false;
+		state.showExitConfirm = false;
 		childGuidePage = page;
 	});
 }
@@ -419,6 +426,16 @@ export function isResumePromptShown(): boolean {
 	return state.showResumePrompt;
 }
 
+/** 終了確認ダイアログを出しているか (tutorial-step-controller が読む)。 */
+export function isExitConfirmShown(): boolean {
+	return state.showExitConfirm;
+}
+
+/** 終了確認ダイアログを出す / 下ろす (tutorial-step-controller だけが呼ぶ)。 */
+export function setExitConfirmShown(shown: boolean) {
+	state.showExitConfirm = shown;
+}
+
 export function getChapters() {
 	return activeChapters;
 }
@@ -429,6 +446,7 @@ export function getChapters() {
  */
 async function activateChapter(chapterId: number) {
 	state.showResumePrompt = false;
+	state.showExitConfirm = false;
 	state.isActive = true;
 	state.currentChapter = chapterId;
 	state.currentStepIndex = 0;
@@ -553,13 +571,19 @@ export function endTutorial() {
 		saveProgress(state.currentChapter, state.currentStepIndex);
 	}
 	state.isActive = false;
+	state.showExitConfirm = false;
 	state.currentChapter = 1;
 	state.currentStepIndex = 0;
 }
 
 async function completeTutorial() {
 	state.isActive = false;
+	state.showExitConfirm = false;
 	clearSavedProgress();
+
+	// `tutorial_completed_at` は「ホームのツアーを見終えた時刻」(#4864)。ほかの画面のガイドを
+	// 見終えても書かない — 書くと、ホームのツアーを一度も見ていない子でも「見終えた」になる。
+	if (childGuidePage !== CHILD_HOME_GUIDE_PAGE) return;
 
 	// Persist completion to server
 	try {

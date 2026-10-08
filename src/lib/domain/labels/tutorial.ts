@@ -1,4 +1,5 @@
 // labels 層 (ADR-0045 / #4965): チュートリアル (親子共通の TutorialOverlay を含む) / 子供の ❓。置き場所の規則は docs/DESIGN.md §6
+import { ICON_CHECKLIST, ICON_STATUS, ICON_STATUS_OLDER } from '../icons';
 import { PARENT_TERMS } from '../terms';
 // #4652 / #4715: 子供チュートリアルの nav 名 / とりけし秒数は画面と同じ SSOT から引く。
 //   年齢モード別 nav ラベルの SSOT は `getChildNavModeLabels()` (旧 icons.ts の getModeLabels)。
@@ -30,6 +31,11 @@ export const TUTORIAL_LABELS = {
 	exitConfirmHint: '進捗は保存されるので、後から続きを再開できます。',
 	exitConfirmCancel: '続ける',
 	exitConfirmConfirm: '終了する',
+	/** 吹き出しのボタン (TutorialBubble) */
+	bubbleEnd: '終了',
+	bubblePrev: '戻る',
+	bubbleNext: '次へ',
+	bubbleDone: '完了！',
 } as const;
 
 // ============================================================
@@ -123,6 +129,10 @@ export function getChildTutorialLabels(uiMode: string) {
 				exitConfirmHint: '途中からあとで再開できます。',
 				exitConfirmCancel: '続ける',
 				exitConfirmConfirm: '終了する',
+				bubbleEnd: '終了',
+				bubblePrev: '戻る',
+				bubbleNext: '次へ',
+				bubbleDone: '完了！',
 			},
 		} as const;
 	}
@@ -144,7 +154,7 @@ export function getChildTutorialLabels(uiMode: string) {
 			// 「かつどうが まだ とどいてないよ」が出る。場所だけを言う。
 			'child-record-card-elsewhere': {
 				title: 'かつどうカード',
-				description: 'かつどうの きろくは ホームの がめんで するよ。ホームに もどって みてね。',
+				description: 'かつどうの きろくは ホームで するよ。ホームに もどって みてね。',
 			},
 			// 活動 0 件のとき用 (漢字側と同じ理由。無いものを指さない)。
 			'child-record-card-empty': {
@@ -162,7 +172,7 @@ export function getChildTutorialLabels(uiMode: string) {
 			},
 			'child-nav-status': {
 				title: statusNav,
-				description: `したの「${statusNav}」で、じぶんの つよさ（5つの ちから）が みられるよ。`,
+				description: `したの「${statusNav}」を おすと、じぶんの つよさ（5つの ちから）が みられるよ。`,
 			},
 			'child-nav-shop': {
 				title: shopNav,
@@ -180,6 +190,11 @@ export function getChildTutorialLabels(uiMode: string) {
 			exitConfirmHint: 'あとで つづきから みられるよ。',
 			exitConfirmCancel: 'つづける',
 			exitConfirmConfirm: 'やめる',
+			// 吹き出しのボタンも本文と同じ年齢帯 variant にする (本文がひらがなでボタンだけ漢字、を作らない)
+			bubbleEnd: 'おわり',
+			bubblePrev: 'もどる',
+			bubbleNext: 'つぎへ',
+			bubbleDone: 'おしまい！',
 		},
 	} as const;
 }
@@ -200,25 +215,31 @@ export function getChildTutorialLabels(uiMode: string) {
 //   - チェックリストのポイントは **全部そろえたときだけ** 付く (checklist-service は全完了時にだけ台帳へ書く)
 //   - ショップの交換は即時交換 / 保護者の承認待ちの 2 通りがある → どちらでも正しい「押せる条件」だけを言う
 //   - ステータスの減衰は家庭の設定で無効にできる → 「へる」とは書かない
+//
+// 吹き出しの幅は 320px 固定で、ひらがな文は文節 (word-break: auto-phrase) で折り返す。
+// 「おせる / よ。」のように文末の「よ。」だけが次の行の頭に落ちる文は、語順を変えて避ける
+// (幼児 1.05rem / 小学生 0.95rem の両方で確かめる。ホームのツアーの文も同じ)。
 
 const CHILD_PAGE_GUIDE_LABELS = {
 	// ---- チェックリスト (/checklist) ----
 	checklistChapterTitle: CHILD_NAV_MODE_LABELS.preschool.checklist,
-	checklistChapterIcon: '📋',
+	// 章のアイコンは下ナビ / CharacterTabs と同じ定数 (同じ画面を指すアイコンを割らない)
+	checklistChapterIcon: ICON_CHECKLIST,
 	checklistCheckTitle: 'チェックの しかた',
 	checklistCheckDesc:
-		'そろえた ものを タップすると ✅ が つくよ。まちがえたら もう いちど タップすると もどせるよ。',
+		'そろえた ものを タップすると、✅ が つくよ。まちがえたら もう いちど タップすると もどせるよ。',
 	checklistPointsTitle: 'ぜんぶ そろったら',
 	checklistPointsDesc: 'リストの ものを ぜんぶ ✅ に すると ポイントが もらえるよ。',
-	// チェックする項目が 1 つも無いとき用 (無いものを指さない、#4860 と同じ理由)
-	checklistEmptyTitle: CHILD_NAV_MODE_LABELS.preschool.checklist,
+	// チェックする項目が 1 つも無いとき用 (無いものを指さない、#4860 と同じ理由)。
+	// title は章の名前 (チェックリスト) と変える — 1 step だけの章で見出しが 2 回並ばないように
+	checklistEmptyTitle: 'チェックする もの',
 	checklistEmptyDesc:
 		'チェックする ものが まだ ないよ。おうちの ひとが よういすると ここに ならぶよ。',
 	// ---- ショップ (/<uiMode>/shop) ----
 	shopChapterTitle: CHILD_SHOP_LABELS.navLabel,
 	shopChapterIcon: CHILD_SHOP_LABELS.navIcon,
 	shopExchangeTitle: 'ごほうびと こうかん',
-	shopExchangeDesc: `ためた ポイントで ごほうびと こうかんできるよ。ポイントが たりると「${CHILD_SHOP_LABELS.exchangeButton}」が おせるよ。`,
+	shopExchangeDesc: `ためた ポイントで ごほうびと こうかんできるよ。ポイントが たりると「${CHILD_SHOP_LABELS.exchangeButton}」ボタンが おせるよ。`,
 	// ごほうびが 1 つも無いとき用
 	shopEmptyTitle: 'ごほうび',
 	shopEmptyDesc: 'ごほうびが まだ ないよ。おうちの ひとが よういすると ここに ならぶよ。',
@@ -226,7 +247,7 @@ const CHILD_PAGE_GUIDE_LABELS = {
 	shopHistoryDesc: `こうかんした きろくは「${CHILD_SHOP_LABELS.historyLinkLabel}」で みられるよ。`,
 	// ---- つよさ / ステータス (/<uiMode>/status) ----
 	statusChapterTitle: CHILD_NAV_MODE_LABELS.preschool.status,
-	statusChapterIcon: '📊',
+	statusChapterIcon: ICON_STATUS,
 	statusGrowthTitle: 'ちからの のばしかた',
 	statusGrowthDesc: 'かつどうを きろくすると、その しゅるいの ちからが のびるよ。',
 	statusLevelTitle: 'レベル',
@@ -248,6 +269,7 @@ const CHILD_PAGE_GUIDE_KANJI_OVERRIDES = {
 		'そろえた物をタップすると ✅ が付きます。間違えたときは、もう一度タップすると外せます。',
 	checklistPointsTitle: '全部そろったら',
 	checklistPointsDesc: 'リストの項目をすべて ✅ にすると、ポイントがもらえます。',
+	checklistEmptyTitle: 'チェックする項目',
 	checklistEmptyDesc: `チェックする項目はまだありません。${PARENT_TERMS.honorific}が用意すると、ここに並びます。`,
 	shopExchangeTitle: 'ごほうびと交換',
 	shopExchangeDesc: `ためたポイントで、ごほうびと交換できます。ポイントが足りると「${CHILD_SHOP_KANJI_OVERRIDES.exchangeButton}」を押せます。`,
@@ -255,6 +277,7 @@ const CHILD_PAGE_GUIDE_KANJI_OVERRIDES = {
 	shopHistoryTitle: '交換の記録',
 	shopHistoryDesc: `交換した記録は「${CHILD_SHOP_KANJI_OVERRIDES.historyLinkLabel}」で見られます。`,
 	statusChapterTitle: CHILD_NAV_MODE_LABELS.senior.status,
+	statusChapterIcon: ICON_STATUS_OLDER,
 	statusGrowthTitle: '力の伸ばし方',
 	statusGrowthDesc: '活動を記録すると、その種類の力が伸びます。',
 	statusLevelDesc: '力がたまると、レベルが上がります。',
