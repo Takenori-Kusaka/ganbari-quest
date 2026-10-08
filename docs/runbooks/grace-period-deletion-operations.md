@@ -46,7 +46,8 @@ aws lambda get-function-configuration --function-name ganbari-quest-app --region
   --query 'Environment.Variables' > /tmp/env.json
 # /tmp/env.json の GRACE_PERIOD_DELETION_DISABLED を "true" にして
 aws lambda update-function-configuration --function-name ganbari-quest-app --region us-east-1 \
-  --environment "Variables=$(jq -c . /tmp/env.json)"
+  --environment "Variables=$(jq -c . /tmp/env.json)" --query 'LastUpdateStatus' --output text
+# 応答をそのまま出すと全 env (秘密値を含む) が端末に出る。証跡として Issue に貼らないよう状態だけを出す
 ```
 
 恒久的に停止したまま deploy する（推奨。deploy で戻らない）:
