@@ -255,7 +255,7 @@ Ruleset の確認・変更はユーザー手動作業。本 SSOT merge 後に実
      - secret `INTEGRATION_BOT_APP_ID` ← App ID
      - secret `INTEGRATION_BOT_APP_PRIVATE_KEY` ← PEM 全文
      - variable `INTEGRATION_BOT_LOGIN` ← App のボット login（`<app-slug>[bot]`、例 `ganbari-quest-integrator[bot]`）。`pr-author-guard.yml` の許可リストに合流し、自動生成 PR が auto-close されないようにする。
-  - 未設定でも workflow は fail せず、hotfix merge / 統合 cron 時に「App 認証未設定で PR 未発行 = drift」を Discord（`vars.DISCORD_WEBHOOK_URL`）+ job summary で通知し silent fail を避ける（人手 back-merge / 手動統合 PR で代替できる、急ぎではない）。本 App 認証は B-3 / B-5 で共有する（両者で 1 セット）。
+  - 未設定でも workflow は fail せず、hotfix merge / 統合 cron 時に「App 認証未設定で PR 未発行 = drift」を Discord（`secrets.DISCORD_WEBHOOK_URL`）+ job summary で通知し silent fail を避ける（人手 back-merge / 手動統合 PR で代替できる、急ぎではない）。本 App 認証は B-3 / B-5 で共有する（両者で 1 セット）。
 
 ## §8 無停止 cutover 手順（順序厳守）
 

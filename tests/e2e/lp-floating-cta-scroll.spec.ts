@@ -4,7 +4,7 @@
 //
 // 関連:
 //   - site/index.html  (floating-cta 要素 + scroll listener)
-//   - src/lib/domain/labels.ts (LP_FLOATING_CTA_LABELS)
+//   - src/lib/domain/labels/lp.ts (LP_FLOATING_CTA_LABELS)
 //   - site/shared-labels.js (自動生成、GANBARI_LABELS.lp.floatingCta を提供)
 //   - docs/design/lp-content-map.md §7.4 floating-cta 深度別文言
 

@@ -285,17 +285,21 @@ jobs:
           always() &&
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
-          steps.appcreds.outputs.present == 'false' &&
-          vars.DISCORD_WEBHOOK_URL != ''
+          steps.appcreds.outputs.present == 'false'
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           AHEAD: ${{ steps.diff.outputs.ahead }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           TITLE="統合 PR 未発行 (GitHub App 認証未設定)"
           DESC="develop が main より ${AHEAD} commit 先行していますが、GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || true
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"
 
       # ----------------------------------------------------------------------
       # 7b. drift 通知 (Discord) — 前回統合から DRIFT_NOTIFY_DAYS 日を超えたら出す (#4976)
@@ -307,10 +311,10 @@ jobs:
         if: >-
           always() &&
           steps.diff.outputs.has_diff == 'true' &&
-          steps.collect.outputs.drift_days != '' &&
-          vars.DISCORD_WEBHOOK_URL != ''
+          steps.collect.outputs.drift_days != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DRIFT_DAYS: ${{ steps.collect.outputs.drift_days }}
           AHEAD: ${{ steps.diff.outputs.ahead }}
           DRIFT_NOTIFY_DAYS: '7'
@@ -324,6 +328,11 @@ jobs:
             echo "前回統合から ${DRIFT_DAYS} 日 (通知は ${DRIFT_NOTIFY_DAYS} 日超)。通知しない。"
             exit 0
           fi
+          # Secret の空判定は通知が要ると決まってから行う (通知不要な run で毎回 warning を出さない)
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::前回統合から ${DRIFT_DAYS} 日ですが、DISCORD_WEBHOOK_URL secret が未設定のため Discord に通知できません。"
+            exit 0
+          fi
           TITLE="統合が ${DRIFT_DAYS} 日止まっています"
           DESC="前回の develop → main 統合から ${DRIFT_DAYS} 日が経過しました（目安は ${DRIFT_NOTIFY_DAYS} 日）。develop は main より ${AHEAD} commit 先行しています。release cut を検討してください（docs/runbooks/integration-pr-operations.md §2）。"
           jq -n --arg title "$TITLE" --arg desc "$DESC" \
@@ -333,11 +342,11 @@ jobs:
             --data-binary @/tmp/drift-notify.json; then
             echo "::notice::前回統合から ${DRIFT_DAYS} 日 (> ${DRIFT_NOTIFY_DAYS} 日) のため Discord に通知した。"
           else
-            echo "::warning::drift 通知の送信に失敗した (前回統合から ${DRIFT_DAYS} 日)。"
+            echo "::warning::drift 通知の送信に失敗した (前回統合から ${DRIFT_DAYS} 日。詳細は直前の curl のエラー出力)。"
           fi
 
       # ----------------------------------------------------------------------
-      # 8. job summary — 発行結果 / drift を常に GitHub log に残す (vars 未設定環境のフォールバック)
+      # 8. job summary — 発行結果 / drift を常に GitHub log に残す (webhook の Secret 未設定環境のフォールバック)
       # ----------------------------------------------------------------------
       - name: Run summary (job summary)
         if: always() && steps.diff.outputs.has_diff == 'true'

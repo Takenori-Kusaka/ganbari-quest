@@ -3,54 +3,35 @@
 // 同一カテゴリで複数活動を記録し、コンボボーナスが表示された後
 // ダイアログチェーンが正常に閉じてホーム画面に復帰できることを検証する
 
-import { expect, test } from '@playwright/test';
+// worker ごとの server / DB を使う (./fixtures)。素の @playwright/test はどの worker で走っても
+// worker 0 の DB を叩くため、別 worker の dialog-queue.spec.ts と同じ子供の同じ先頭カードを同時刻に記録してしまう。
+import { expect, test } from './fixtures';
 import {
 	dismissOverlays,
 	expandAllCategories,
 	expandFirstCategory,
 	getAvailableActivities,
+	recordFirstAvailableActivity,
 	selectKinderChild,
 } from './helpers';
 
-// 直列実行（同一 DB に対して複数活動を記録するため並列不可）
+// 直列実行（この spec の 3 test は同じ子供に記録を積み上げるため）。
+// fixtures 未移行の spec は worker を問わず worker 0 の DB を叩くので、同じ子供の同じカードを
+// 同時刻に記録されることはまだある — その 409 は recordFirstAvailableActivity が次のカードで取り直す。
 test.describe.configure({ mode: 'serial' });
 
 /**
  * 活動を1つ記録し、結果ダイアログチェーンを全て閉じる。
- * コンボボーナステキストの有無を返す。
+ * 結果ダイアログにコンボ欄が出ていたかを返す。
  */
 async function recordActivityAndCloseChain(
 	page: import('@playwright/test').Page,
-	activityIndex: number,
 ): Promise<{ recorded: boolean; hadComboText: boolean }> {
-	const activities = getAvailableActivities(page);
-	const count = await activities.count();
-	if (activityIndex >= count) return { recorded: false, hadComboText: false };
+	if (!(await recordFirstAvailableActivity(page))) return { recorded: false, hadComboText: false };
 
-	await activities.nth(activityIndex).click();
-
-	// 確認ダイアログが出るのを待つ
-	const dialog = page.locator('[data-testid="confirm-dialog"]');
-	try {
-		await dialog.waitFor({ state: 'visible', timeout: 3000 });
-	} catch {
-		return { recorded: false, hadComboText: false };
-	}
-
-	// 記録ボタンをクリック
-	await page.locator('[data-testid="confirm-record-btn"]').click();
-
-	// 結果ダイアログを待つ
-	try {
-		await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
-	} catch {
-		return { recorded: false, hadComboText: false };
-	}
-
-	// コンボボーナステキストが表示されているかチェック
-	const comboText = page.locator(':text("コンボ")');
-	const hadComboText = await comboText
-		.first()
+	// 結果ダイアログのコンボ欄 (コンボ成立時だけ描画される)
+	const hadComboText = await page
+		.getByTestId('result-combo')
 		.isVisible()
 		.catch(() => false);
 
@@ -130,14 +111,14 @@ test.describe('#671: コンボボーナスダイアログ回帰防止', () => {
 		await expandAllCategories(page);
 
 		// 1回目の活動を記録
-		const first = await recordActivityAndCloseChain(page, 0);
+		const first = await recordActivityAndCloseChain(page);
 		expect(first.recorded, '1回目の活動記録に成功すること').toBe(true);
 
 		// カテゴリを再展開（ダイアログ閉じた後にリフレッシュ可能性あり）
 		await expandFirstCategory(page);
 
 		// 2回目の活動を記録（同じカテゴリの別の活動でミニコンボが発火する可能性あり）
-		const second = await recordActivityAndCloseChain(page, 0);
+		const second = await recordActivityAndCloseChain(page);
 		expect(second.recorded, '2回目の活動記録に成功すること').toBe(true);
 
 		// 全ダイアログが閉じていること（無限ループしていないことの証明）
@@ -161,7 +142,7 @@ test.describe('#671: コンボボーナスダイアログ回帰防止', () => {
 		let comboFound = false;
 		for (let attempt = 0; attempt < 3; attempt++) {
 			await expandFirstCategory(page);
-			const result = await recordActivityAndCloseChain(page, 0);
+			const result = await recordActivityAndCloseChain(page);
 			if (!result.recorded) break;
 			if (result.hadComboText) {
 				comboFound = true;
@@ -195,15 +176,8 @@ test.describe('#671: コンボボーナスダイアログ回帰防止', () => {
 		const count = await activities.count();
 		expect(count, '活動カードが1つ以上表示されること').toBeGreaterThan(0);
 
-		// 活動をタップ
-		await activities.first().click();
-
-		const dialog = page.locator('[data-testid="confirm-dialog"]');
-		await dialog.waitFor({ state: 'visible', timeout: 3000 });
-
-		await page.locator('[data-testid="confirm-record-btn"]').click();
-
-		await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
+		// 活動を記録し、結果ダイアログが開くまで待つ
+		expect(await recordFirstAvailableActivity(page), '活動記録に成功すること').toBe(true);
 
 		// 結果ダイアログ以降のチェーンを閉じながら、同時表示数を検証
 		for (let i = 0; i < 8; i++) {

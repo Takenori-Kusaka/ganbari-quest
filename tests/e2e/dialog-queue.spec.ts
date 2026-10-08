@@ -1,11 +1,14 @@
 // tests/e2e/dialog-queue.spec.ts
 // #611: ダイアログキュー E2E テスト — 同時に1つだけ表示されることを確認
 
-import { expect, test } from '@playwright/test';
+// worker ごとの server / DB を使う (./fixtures)。combo-bonus.spec.ts と同じ子供の先頭カードを記録するため、
+// 同じ DB を別 worker から同時刻に叩かない。
+import { expect, test } from './fixtures';
 import {
 	dismissOverlays,
 	expandFirstCategory,
 	getAvailableActivities,
+	recordFirstAvailableActivity,
 	selectKinderChild,
 } from './helpers';
 
@@ -79,30 +82,8 @@ test.describe('#611: ダイアログキュー', () => {
 			return;
 		}
 
-		// 活動カードをタップ
-		await activities.first().click();
-
-		// 確認ダイアログが出るのを待つ
-		const dialog = page.locator('[data-testid="confirm-dialog"]');
-		try {
-			await dialog.waitFor({ timeout: 3000 });
-		} catch {
-			// Baby モード等では確認ダイアログがない場合がある
-			test.skip();
-			return;
-		}
-
-		// 記録ボタンをクリック
-		await page.locator('[data-testid="confirm-record-btn"]').click();
-
-		// 結果ダイアログを待つ
-		try {
-			await page.getByText(/きろくしたよ！/).waitFor({ timeout: 5000 });
-		} catch {
-			// 記録できなかった場合（ALREADY_RECORDED等）— テスト自体はスキップ
-			test.skip();
-			return;
-		}
+		// 活動を記録し、結果ダイアログが開くまで待つ
+		expect(await recordFirstAvailableActivity(page), '活動記録に成功すること').toBe(true);
 
 		// 結果ダイアログ以降のオーバーレイを順次閉じる
 		// 各ステップで同時に2つ以上のダイアログが開かないことを検証
@@ -160,13 +141,8 @@ test.describe('#611: ダイアログキュー', () => {
 			return;
 		}
 
-		// 活動を記録
-		await activities.first().click();
-		const dialog = page.locator('[data-testid="confirm-dialog"]');
-		await expect(dialog).toBeVisible({ timeout: 3000 });
-		await page.locator('[data-testid="confirm-record-btn"]').click();
-
-		await expect(page.getByText(/きろくしたよ！/)).toBeVisible({ timeout: 5000 });
+		// 活動を記録し、結果ダイアログが開くまで待つ
+		expect(await recordFirstAvailableActivity(page), '活動記録に成功すること').toBe(true);
 
 		// 全ダイアログを順次閉じる
 		for (let i = 0; i < 10; i++) {
