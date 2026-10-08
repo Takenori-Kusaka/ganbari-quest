@@ -42,6 +42,7 @@ import {
 	VIEWER_LINK_TERMS,
 } from '../terms';
 import { FREE_PLAN_RETENTION_NOTICE, WRITES_CONTINUE_ASSURANCE } from './billing';
+import { FEATURES_PWA_WEB_APP_TOGGLE_NOTE } from './features';
 import { CUSTOM_REWARD_FEATURE_NAME } from './plan';
 
 // 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
@@ -1315,7 +1316,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	pwaAndroidTitle: 'Android / Chrome',
 	pwaAndroidSteps: `画面右上の「⋮」→「${PWA_TERMS.installAction}」または「アプリをインストール」→「追加」（見当たらないときは「${PWA_TERMS.chromeSaveShareMenu}」の中）`,
 	pwaIosTitle: 'iPhone / iPad（Safari）',
-	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑。無いときは「${PWA_TERMS.iosMoreButton}」の中）→「${PWA_TERMS.installAction}」→「追加」`,
+	pwaIosSteps: `画面下の「${PWA_TERMS.iosShareButton}」（□に↑。無いときは「${PWA_TERMS.iosMoreButton}」の中）→「${PWA_TERMS.installAction}」→「追加」。${FEATURES_PWA_WEB_APP_TOGGLE_NOTE}`,
 	// #4979: この紹介ページ (別ドメイン) にはマニフェストが無く、ここで追加してもアプリとしては開かない
 	pwaNote:
 		'アプリストアからのダウンロードは不要です。追加はログインしたあとのアプリの画面で行ってください（この紹介ページからは追加できません）。あとからアプリの「設定」→「サポート」でも手順を確認できます。',

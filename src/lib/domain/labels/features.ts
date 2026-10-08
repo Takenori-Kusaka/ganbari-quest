@@ -445,6 +445,17 @@ export const FEATURES_LABELS = {
 	},
 } as const;
 
+/**
+ * iOS の追加ダイアログにある「Webアプリとして開く」が何をする切り替えか (#4988 の QM 指摘)。
+ * 手順に「オンのまま」とだけ書くと、何のための切り替えか分からずオフにされる。
+ *
+ * 出典: Apple「iPhoneのSafariでWebサイトをアプリにする」(iPhone ユーザガイド iOS 26)
+ * — オンにして追加すると「そのアイコンをタップすると、Webサイトがアプリのように開きます」。
+ * オフのときの挙動は Apple が明記していないため書かない。
+ * アプリ内の手順 (PWA_INSTALL_LABELS) と LP (LP_INDEX_PHASEB_LABELS) の両方に出す。
+ */
+export const FEATURES_PWA_WEB_APP_TOGGLE_NOTE = `「${PWA_TERMS.iosWebAppToggle}」をオンにすると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開きます。`;
+
 // #4644: ホーム画面への追加 (インストール) ガイドの文言。
 //
 // 親向けの案内。ADR-0012 整合で「押し付けない」— バナーは閉じたら二度と出さず、
@@ -481,6 +492,8 @@ export const PWA_INSTALL_LABELS = {
 	iosStep1: `画面下の「${PWA_TERMS.iosShareButton}」ボタン（□に↑）をおす。見当たらないときは「${PWA_TERMS.iosMoreButton}」ボタンをおすと出てきます`,
 	iosStep2: `メニューを下にスクロールして「${PWA_TERMS.installAction}」をえらぶ`,
 	iosStep3: `「${PWA_TERMS.iosWebAppToggle}」が出たらオンのまま、右上の「追加」をおす`,
+	/** iOS 手順の下の補足: 「Webアプリとして開く」が何の切り替えか */
+	iosHint: FEATURES_PWA_WEB_APP_TOGGLE_NOTE,
 	/** 追加後に何が起きるか */
 	afterNote: `追加すると、ホーム画面のアイコンから${PWA_TERMS.standalone}で開けるようになります。`,
 	/** 設定 > サポート のカード見出し */

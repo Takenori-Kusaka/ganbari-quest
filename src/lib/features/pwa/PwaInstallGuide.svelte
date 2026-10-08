@@ -43,6 +43,9 @@ const showIos = $derived(platform !== 'android');
 				<li>{PWA_INSTALL_LABELS.iosStep2}</li>
 				<li>{PWA_INSTALL_LABELS.iosStep3}</li>
 			</ol>
+			<p class="pwa-guide__hint" data-testid="pwa-install-guide-ios-hint">
+				{PWA_INSTALL_LABELS.iosHint}
+			</p>
 		</section>
 	{/if}
 
