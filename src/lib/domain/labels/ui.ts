@@ -1,4 +1,4 @@
-// labels 層 (ADR-0045 / #4965): src/lib/ui/ の共有部品 (primitives / components)。置き場所の規則は docs/DESIGN.md §6
+// labels 層 (ADR-0045 / #4965): 2 つ以上の画面に出る src/lib/ui/ の共有部品 (primitives / components)。1 つの画面にだけ出る部品の文言はその画面のファイルに置く。置き場所の規則は docs/DESIGN.md §6
 import { PLAN_TERMS } from '../terms';
 import { PLAN_GATE_LABELS } from './plan';
 

@@ -16,7 +16,7 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  * ## レスポンス例
  *
  * `message` は `PLAN_GATE_LABELS.standardOrAboveFor('AI 活動提案')` 等で組み立てる
- * （プラン名直書き禁止、SSOT は `src/lib/domain/labels.ts` PLAN_GATE_LABELS / #1925 / #1926）。
+ * （プラン名直書き禁止、SSOT は labels 層の `PLAN_GATE_LABELS` (`$lib/domain/labels`) / #1925 / #1926）。
  *
  * ```json
  * {
@@ -42,7 +42,7 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  *
  * @see docs/design/07-API設計書.md §4.2 プラン制限エラー
  * @see ADR-0024 plan-tier-resolution-pattern
- * @see PLAN_GATE_LABELS in src/lib/domain/labels.ts (プラン制限メッセージ SSOT)
+ * @see PLAN_GATE_LABELS in $lib/domain/labels (プラン制限メッセージ SSOT)
  */
 /**
  * アップグレード導線の URL (SSOT)。
@@ -83,7 +83,7 @@ export type PlanLimitErrorBody = PlanLimitError;
  * PlanLimitError を組み立てるヘルパー。
  *
  * `message` は `PLAN_GATE_LABELS` のテンプレートメソッド経由で組み立てること
- * （プラン名直書き禁止、SSOT は `src/lib/domain/labels.ts` PLAN_GATE_LABELS / #1925 / #1926）。
+ * （プラン名直書き禁止、SSOT は labels 層の `PLAN_GATE_LABELS` (`$lib/domain/labels`) / #1925 / #1926）。
  *
  * @example
  * ```ts
