@@ -515,11 +515,13 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 			return toConsent(result.rows[0] as ConsentRow);
 		},
 
-		async findLatestConsent(tenantId, type) {
+		async findLatestConsent(tenantId, type, userId) {
 			// 最新判定は consented_at 降順 (version 文字列順に依存しない、§6.6)。
+			// userId 指定時は本人が記録した行だけを見る (#5040)。
+			const userFilter = userId ? sql`AND user_id = ${userId}` : sql``;
 			const result = await db.execute(sql`
 				SELECT ${CONSENT_COLUMNS} FROM consents
-				WHERE family_id = ${tenantId} AND type = ${type}
+				WHERE family_id = ${tenantId} AND type = ${type} ${userFilter}
 				ORDER BY consented_at DESC LIMIT 1
 			`);
 			const row = result.rows[0] as ConsentRow | undefined;
