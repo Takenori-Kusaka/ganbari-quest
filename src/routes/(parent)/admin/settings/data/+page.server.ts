@@ -3,6 +3,7 @@
 
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { isCustomRewardUnlocked } from '$lib/domain/custom-reward-gate';
 import type { ChildId } from '$lib/domain/ids';
 // #4512: 確認テキストの合言葉と文言は labels SSOT (画面側と同じ定数を見る)
 import { SETTINGS_LABELS } from '$lib/domain/labels';
@@ -53,6 +54,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		dataSummary,
 		canExport: planLimits.canExport,
+		// #4992 Q4-c: 復元後に「編集できない」理由を出すか (表示と実ゲートは同じ述語を読む、#4584)
+		customRewardUnlocked: isCustomRewardUnlocked(planTier),
 		maxCloudExports: planLimits.maxCloudExports,
 		children,
 		// #3325 AC3: 実行環境の実効 import 上限 (AWS = Function URL 6MB 弱 / NUC・local = 100MB)。
