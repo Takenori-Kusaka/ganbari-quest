@@ -382,6 +382,9 @@ export const SETTINGS_LABELS = {
 	// #3095: silent-skip 可視化 — 静的ファイル / チェックリスト履歴 / ごほうび の復元・skip 件数を surface
 	dataImportResultSpecialRewards: (imported: number | string, skipped: number | string) =>
 		`ごほうび: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	// #4992 PO 決裁 Q4-c: 復元はプランゲートを通さない (#3307)。無料プランで復元したオリジナルのごほうびは
+	// 「編集」が押せない (編集は有料のまま、Q2)。これは不具合ではなく決裁の帰結なので、黙らず結果で伝える。
+	dataImportResultRewardEditLocked: `取り込んだオリジナルの${REWARD_TERMS.canonical}は、${PLAN_FULL_TERMS.free}では編集できません（削除はできます）`,
 	dataImportResultChecklistLogs: (imported: number | string, skipped: number | string) =>
 		`チェックリスト履歴: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultStaticFiles: (restored: number | string, skipped: number | string) =>
