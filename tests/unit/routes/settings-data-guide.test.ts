@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { PAGE_GUIDE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
 import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import { SETTINGS_DATA_GUIDE } from '../../../src/routes/(parent)/admin/settings/data/_guide';
+import { stripHtmlComments } from '../helpers/strip-html-comments';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PAGE = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings/data/+page.svelte');
@@ -126,7 +127,7 @@ describe('#4665 設定 > データ のガイドが不可逆操作を説明する
 		expect(body, '「クラウドバックアップ」の別名が残っている').not.toContain(
 			'クラウドバックアップ',
 		);
-		const pageBody = fs.readFileSync(PAGE, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+		const pageBody = stripHtmlComments(fs.readFileSync(PAGE, 'utf8'));
 		const badgeLiterals = [...pageBody.matchAll(/<PremiumBadge[^>]*label="([^"]+)"/g)].map(
 			(m) => m[1],
 		);

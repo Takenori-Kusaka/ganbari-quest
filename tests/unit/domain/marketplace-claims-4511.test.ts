@@ -26,6 +26,7 @@ import {
 import { MARKETPLACE_TYPE_LABELS } from '../../../src/lib/domain/marketplace-item';
 import { DEMO_SITE_TERMS } from '../../../src/lib/domain/terms';
 import { MARKETPLACE_TYPE_METAS_CLIENT } from '../../../src/lib/marketplace/client-types';
+import { stripHtmlComments } from '../helpers/strip-html-comments';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(__dirname, '../../../', p), 'utf-8');
@@ -43,7 +44,7 @@ describe('#4511 marketplace の導線と説明', () => {
 			// 検査対象は「描画される markup」であって散文ではない。#4677 の再発防止コメント自身が
 			// href="/demo" を引用しているため、HTML コメントを除いてから直書きを探す
 			// (コメント内の文字列は顧客に描画されないので実害がない)。
-			const markup = page.replace(/<!--[\s\S]*?-->/g, '');
+			const markup = stripHtmlComments(page);
 			expect(markup, '旧 /demo の直書きが残っていない').not.toMatch(/href="\/demo"/);
 		});
 
