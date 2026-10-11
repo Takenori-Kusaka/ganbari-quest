@@ -5,8 +5,10 @@
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
 import {
+	ACHIEVEMENT_NOTIFICATION_TYPES,
 	DEFAULT_QUIET_END,
 	DEFAULT_QUIET_START,
+	MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS,
 	MAX_DAILY_NOTIFICATIONS,
 } from '$lib/domain/constants/notification';
 import {
@@ -179,7 +181,15 @@ export function isQuietHours(
 // レート制限チェック
 // ============================================================
 
-export async function canSendNotification(tenantId: string): Promise<boolean> {
+/**
+ * `notificationType` を渡すと、種別ごとの日次上限も見る (#4706)。達成通知 (`achievement` / `level_up`) は
+ * 全体の上限とは別に 1 日 `MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS` 通まで。これにより、達成通知が全体の
+ * 枠を使い切ってリマインダー / ストリーク警告が届かなくなることを構造的に防ぐ。
+ */
+export async function canSendNotification(
+	tenantId: string,
+	notificationType?: string,
+): Promise<boolean> {
 	const settings = await getNotificationSettings(tenantId);
 
 	// サイレント時間帯チェック
@@ -191,12 +201,22 @@ export async function canSendNotification(tenantId: string): Promise<boolean> {
 	// (旧実装は JST の日付文字列をそのまま UTC 日境界として比較しており、カウント窓が 9 時間ずれ、
 	// JST 0〜9 時の送信が前日の枠で数えられていた)。
 	const today = todayDateJST();
-	const count = await countLogsBetween(
-		tenantId,
-		jstDayStartUtcIso(today),
-		jstDayStartUtcIso(addDaysJST(today, 1)),
-	);
-	return count < MAX_DAILY_NOTIFICATIONS;
+	const dayStartUtc = jstDayStartUtcIso(today);
+	const dayEndUtc = jstDayStartUtcIso(addDaysJST(today, 1));
+	const count = await countLogsBetween(tenantId, dayStartUtc, dayEndUtc);
+	if (count >= MAX_DAILY_NOTIFICATIONS) return false;
+
+	// 種別ごとの上限 (#4706): 達成通知だけ別カウンタ。送信済みの達成通知が上限に達していたら送らない。
+	if ((ACHIEVEMENT_NOTIFICATION_TYPES as readonly string[]).includes(notificationType ?? '')) {
+		const achievementCount = await countLogsBetween(
+			tenantId,
+			dayStartUtc,
+			dayEndUtc,
+			ACHIEVEMENT_NOTIFICATION_TYPES,
+		);
+		return achievementCount < MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS;
+	}
+	return true;
 }
 
 // ============================================================
@@ -226,7 +246,7 @@ export async function sendPushNotification(
 	}
 
 	// レート制限チェック
-	const allowed = await canSendNotification(tenantId);
+	const allowed = await canSendNotification(tenantId, notificationType);
 	if (!allowed) {
 		logger.info('[notification] レート制限またはサイレント時間帯のためスキップ', {
 			context: { tenantId, notificationType },

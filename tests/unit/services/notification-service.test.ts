@@ -182,6 +182,60 @@ describe('notification-service', () => {
 			mockCountLogsBetween.mockResolvedValue(0);
 			expect(await canSendNotification('T1')).toBe(false);
 		});
+
+		// #4706 PO 決裁 (2026-10-08): 達成通知は 1 日 1 通。ストリーク警告 / リマインダーが押し出されない。
+		describe('達成通知の日次上限 (#4706)', () => {
+			/** 当日の送信済みログを種別つきで持ち、countLogsBetween の種別フィルタを再現する。 */
+			function stubTodayLogs(sentTypes: string[]) {
+				mockCountLogsBetween.mockImplementation(
+					async (_t: string, _from: string, _to: string, types?: readonly string[]) =>
+						types ? sentTypes.filter((t) => types.includes(t)).length : sentTypes.length,
+				);
+			}
+
+			it('達成通知を 1 通送った後の 2 通目 (achievement / level_up どちらも) は送らない', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				expect(await canSendNotification('T1', 'achievement')).toBe(false);
+				expect(await canSendNotification('T1', 'level_up')).toBe(false);
+			});
+
+			it('その日まだ達成通知が 0 通なら送れる', async () => {
+				setDaytimeJST();
+				stubTodayLogs([]);
+				expect(await canSendNotification('T1', 'achievement')).toBe(true);
+				expect(await canSendNotification('T1', 'level_up')).toBe(true);
+			});
+
+			it('達成通知が上限に達していても、リマインダーとストリーク警告は送れる (押し出されない)', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				expect(await canSendNotification('T1', 'reminder')).toBe(true);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(true);
+			});
+
+			it('朝に達成通知 1 + リマインダー 1 を送った後でも、夜のストリーク警告が送れる', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['reminder', 'achievement']);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(true);
+				// さらに達成通知を足そうとしても止まる (全体の枠を食わない)
+				expect(await canSendNotification('T1', 'achievement')).toBe(false);
+			});
+
+			it('全体の上限 (3 通) は種別によらず効く', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['reminder', 'streak_warning', 'monthly_habit']);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(false);
+			});
+
+			it('sendPushNotification も種別を渡し、達成通知の 2 通目は送信しない', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				const result = await sendPushNotification('T1', 'achievement', 'T', 'B');
+				expect(result).toEqual({ sent: 0, failed: 0 });
+				expect(mockSendNotification).not.toHaveBeenCalled();
+			});
+		});
 	});
 
 	// ============================================================
