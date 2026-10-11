@@ -38,9 +38,9 @@ const HEALTHY_ADMIN_HTML = `<!DOCTYPE html><html lang="ja"><head><title>活動�
 <main><ul class="activity-list"><li>あさのしたく</li></ul></main>
 </body></html>`;
 
-// infra/error-pages/500.html の実ファイルを fixture として読む (marker と実装の同期を保証)
-const INFRA_500_HTML = readFileSync(
-	join(process.cwd(), 'infra', 'error-pages', '500.html'),
+// infra/error-pages/502.html の実ファイルを fixture として読む (500 は #5050 で origin の応答を通すため静的ページを持たない) (marker と実装の同期を保証)
+const INFRA_5XX_HTML = readFileSync(
+	join(process.cwd(), 'infra', 'error-pages', '502.html'),
 	'utf8',
 );
 
@@ -159,8 +159,8 @@ describe('detectErrorMarkersInHtml (#3012)', () => {
 		expect(reasons.join('\n')).toContain('status 404');
 	});
 
-	it('infra/error-pages/500.html (実ファイル) を検出する — marker と実装の同期回帰', () => {
-		const reasons = detectErrorMarkersInHtml(INFRA_500_HTML);
+	it('infra/error-pages/502.html (実ファイル) を検出する — marker と実装の同期回帰', () => {
+		const reasons = detectErrorMarkersInHtml(INFRA_5XX_HTML);
 		expect(reasons.length).toBeGreaterThan(0);
 		expect(reasons.join('\n')).toContain('Error 5xx');
 	});
@@ -280,7 +280,7 @@ describe('check-ss-render-health.mjs — checkSsRenderHealth (fetcher DI)', () =
 	it('error ページ dom.html 混入で fail (PR #3006 再発パターン)', async () => {
 		const fetcher = makeFetcher([
 			{ name: 'admin-rewards-mobile.dom.html', html: APP_ERROR_PAGE_HTML },
-			{ name: 'admin-checklists-mobile.dom.html', html: INFRA_500_HTML },
+			{ name: 'admin-checklists-mobile.dom.html', html: INFRA_5XX_HTML },
 		]);
 		const result = await checkSsRenderHealth({
 			repo,
