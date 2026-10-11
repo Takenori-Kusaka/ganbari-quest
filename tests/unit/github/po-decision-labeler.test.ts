@@ -83,6 +83,8 @@ const LOW_RISK_REPRESENTATIVES: string[] = [
 	'src/routes/(child)/[uiMode=uiMode]/home/+page.svelte',
 	'src/lib/ui/primitives/Button.svelte',
 	'src/lib/domain/labels.ts',
+	// 日常の文言編集は入口ではなく labels 層のファイルに入る (#4965)。名前に plan を含む点でも代表にする
+	'src/lib/domain/labels/plan.ts',
 	'tests/e2e/admin-add-path-isomorphism.spec.ts',
 	'docs/DESIGN.md',
 	'site/index.html',

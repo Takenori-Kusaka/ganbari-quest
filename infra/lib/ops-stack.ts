@@ -28,6 +28,20 @@ import {
  */
 const OPS_ALERT_FORWARD_METRIC_NAMESPACE = 'GanbariQuest/Ops';
 
+/**
+ * SLO の目標値 (#4978)。dashboard の SLO 行の見出しに出す。
+ *
+ * 目標の意味と根拠は docs/design/32-SLI-SLO定義書.md。可用性は公開 SLA
+ * (docs/operations/sla.md §3.2 = site/sla.html) が顧客に約束している値と同じ。
+ */
+export const SLO_TARGETS = {
+	availabilityPercent: 99.5,
+	latencyMs: { p50: 200, p95: 1_000, p99: 3_000 },
+} as const;
+
+/** SLO を集計する窓。閲覧者が dashboard の時間範囲を変えても月次の値が読めるよう固定する */
+const SLO_WINDOW = '-P30D';
+
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
 	distribution: cloudfront.Distribution;
@@ -131,6 +145,25 @@ export const AI_CALL_FAILED_LOG_TERM = '[ai-alert] ai-call-failed';
 
 /** #4726: AI 呼び出しの成功を表す log の検索語 (fallback 率の分母)。SSOT は同上。 */
 export const AI_CALL_SUCCEEDED_LOG_TERM = '[ai-alert] ai-call-succeeded';
+
+/**
+ * #4706: 保護者向け push を送れなかったことを表す log の検索語。
+ *
+ * SSOT は `PUSH_VAPID_MISSING_LOG_TERM` / `PUSH_SEND_FAILED_LOG_TERM`
+ * (`src/lib/server/services/notification-service.ts`)。上記と同じく rootDir 制約で import できないため
+ * literal で持ち、`tests/unit/infra/push-notification-alarm.test.ts` が drift を機械検証する。
+ *
+ * push の失敗は保護者の画面にも cron の応答にも出ない。鍵が無ければ `sent: 0` を返すだけで
+ * cron は 200 のまま (本番ログ 2026-09-13〜23 の送信判定 1,710 回が鍵なしで止まっていたのに、
+ * 誰も気付けなかった)。保護者は「届くはずの通知が届いていない」ことに自分では気付けない。
+ */
+export const PUSH_VAPID_MISSING_LOG_TERM = '[push-alert] vapid-missing';
+
+/** #4706: push サービスが送信を受け付けなかった (401/403 = 鍵の組違い、timeout、5xx 等)。SSOT は同上。 */
+export const PUSH_SEND_FAILED_LOG_TERM = '[push-alert] send-failed';
+
+/** push 不達の metric の namespace。通知の配信はアプリ由来の Auth / Ai / Deletion とも別の関心として分ける。 */
+const NOTIFICATION_METRIC_NAMESPACE = 'GanbariQuest/Notification';
 
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
@@ -666,6 +699,69 @@ export class OpsStack extends cdk.Stack {
 			);
 			gracePeriodPartialFailureAlarm.addAlarmAction(alarmAction);
 			gracePeriodPartialFailureAlarm.addOkAction(alarmAction);
+
+			// #4706: 保護者向け push が送れていないことの観測 (ADR-0024 alarm)。
+			//
+			// 鍵の欠落: 本番は CDK synth が鍵の組を検査してから deploy するため、正常運用では起きない。
+			// 1 件でも出たら Lambda env が壊れている (手で消された / 配線が外れた) ので即発火にする。
+			//
+			// 送信失敗: push サービスの拒否 (401/403 = 鍵の組違いで全送信が失敗する) と timeout / 5xx。
+			// 送信は 1 家庭 1 日 3 通までなので失敗の系列は疎になる。1 件で鳴らすと push サービスの
+			// 単発 timeout で鳴り、長い window で件数を積むと組違いでも気付くのが翌日以降になる。
+			// 1 時間に 2 件 = 「単発ではない」の最小で切る。
+			//
+			// **OK action はどちらにも付けない** (ai-provider-unavailable と同じ理由)。どちらの log も
+			// 「送ろうとしたとき」にしか出ないため、送信が無い window はデータ点が無く、
+			// treatMissingData=NOT_BREACHING で alarm は OK に戻る。OK 遷移は「直った」ではなく
+			// 「その間に誰にも送ろうとしなかった」でも起きるので、OK action は偽の復旧通知になる。
+			// 固定: tests/unit/infra/push-notification-alarm.test.ts [A4]
+			const pushVapidMissing = new logs.MetricFilter(this, 'PushVapidMissingFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${PUSH_VAPID_MISSING_LOG_TERM}"`),
+				metricNamespace: NOTIFICATION_METRIC_NAMESPACE,
+				metricName: 'PushVapidMissing',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+			const pushVapidMissingAlarm = new cloudwatch.Alarm(this, 'PushVapidMissing', {
+				alarmName: 'ganbari-quest-push-vapid-missing',
+				alarmDescription:
+					'保護者向け push の VAPID 鍵が本番 Lambda env に無い: 5分内に1件以上。リマインダー・ストリーク警告・達成通知が 1 通も届いていない (#4706)',
+				metric: pushVapidMissing.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			pushVapidMissingAlarm.addAlarmAction(alarmAction);
+
+			const pushSendFailed = new logs.MetricFilter(this, 'PushSendFailedFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${PUSH_SEND_FAILED_LOG_TERM}"`),
+				metricNamespace: NOTIFICATION_METRIC_NAMESPACE,
+				metricName: 'PushSendFailed',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+			const pushSendFailedAlarm = new cloudwatch.Alarm(this, 'PushSendFailed', {
+				alarmName: 'ganbari-quest-push-send-failed',
+				alarmDescription:
+					'push サービスが保護者向け push を受け付けなかった: 1時間に2件以上 (401/403 = 鍵の組違い / timeout / 5xx。status はアプリ log に出る) (#4706)',
+				metric: pushSendFailed.metric({
+					period: cdk.Duration.hours(1),
+					statistic: 'Sum',
+				}),
+				threshold: 2,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			pushSendFailedAlarm.addAlarmAction(alarmAction);
 		}
 
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)
@@ -776,6 +872,58 @@ export class OpsStack extends cdk.Stack {
 								statistic: 'Maximum',
 							}),
 						],
+						width: 12,
+					}),
+				],
+				// #4978: SLO (docs/design/32) を直近 30 日で計算する。計測元は Function URL の
+				// 標準メトリクスで、3 日で消える CloudFront アクセスログには依存しない。
+				// Function URL を通るのは CloudFront が Lambda に回したリクエストだけなので、
+				// S3 から配る静的アセットと CloudFront 自体の障害は含まない (後者は CloudFront5xx alarm)。
+				[
+					new cloudwatch.SingleValueWidget({
+						title: `SLO (30d) — Availability % (target ${SLO_TARGETS.availabilityPercent})`,
+						metrics: [
+							new cloudwatch.MathExpression({
+								// 5xx が 0 件の期間は Url5xxCount が欠損するため FILL で 0 に埋める
+								expression: '100 * (1 - FILL(e5xx, 0) / requests)',
+								usingMetrics: {
+									requests: new cloudwatch.Metric({
+										namespace: 'AWS/Lambda',
+										metricName: 'UrlRequestCount',
+										dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+										statistic: 'Sum',
+									}),
+									e5xx: new cloudwatch.Metric({
+										namespace: 'AWS/Lambda',
+										metricName: 'Url5xxCount',
+										dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+										statistic: 'Sum',
+									}),
+								},
+								label: 'availability %',
+							}),
+						],
+						start: SLO_WINDOW,
+						setPeriodToTimeRange: true,
+						fullPrecision: true,
+						width: 12,
+					}),
+					new cloudwatch.SingleValueWidget({
+						title: `SLO (30d) — Latency ms (p50 < ${SLO_TARGETS.latencyMs.p50} / p95 < ${SLO_TARGETS.latencyMs.p95} / p99 < ${SLO_TARGETS.latencyMs.p99})`,
+						// UrlRequestLatency は Function URL の受信から応答までで、コールドスタートを含む
+						// (Lambda の Duration は初期化時間を含まない)
+						metrics: (['p50', 'p95', 'p99'] as const).map(
+							(stat) =>
+								new cloudwatch.Metric({
+									namespace: 'AWS/Lambda',
+									metricName: 'UrlRequestLatency',
+									dimensionsMap: { FunctionName: props.lambdaFn.functionName },
+									statistic: stat,
+									label: stat,
+								}),
+						),
+						start: SLO_WINDOW,
+						setPeriodToTimeRange: true,
 						width: 12,
 					}),
 				],

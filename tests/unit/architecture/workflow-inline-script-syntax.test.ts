@@ -9,8 +9,6 @@
 // なぜ必要か: `.github/workflows/*.yml` の `run:` に埋めた JS は、**CI では検出できない**。
 //   - actionlint / shellcheck は入っていない
 //   - workflow step を parse する検査は他に無い
-//   - `graphify-refresh.yml` は `ref: develop` を固定 checkout するので、PR branch の
-//     内容で `workflow_dispatch` して確かめることもできない
 //
 // 実際に #4866 では**同じ class を 3 回**踏んだ:
 //   1. heredoc の行継続が潰れて 30 件が 1 論理行になり、install が 1 件で成功した
@@ -275,8 +273,8 @@ const ALL_SCRIPTS = SCANNED.flatMap((s) => s.scripts);
  * どの workflow に何本あるかの実測台帳 (#4866 round 8)。
  *
  * 前版は「合計 3 本以上」という下限だった。合計だと **file をまるごと消しても、別 file に
- * 残っている本数で埋め合わさって緑のまま**になる (実測: `graphify-refresh.yml` を消しても
- * `ci.yml` 2 + `pr-info.yml` 1 = 3 本で下限を満たす)。減ったことに気づけるよう file 名つきで
+ * 残っている本数で埋め合わさって緑のまま**になる (実測: 2 本を持つ workflow を 1 file 消しても
+ * `ci.yml` 2 + `pr-info.yml` 1 = 3 本で下限を満たしていた)。減ったことに気づけるよう file 名つきで
  * 固定する。
  *
  * **本数が変わったらこの表を同じ commit で直すこと。** 台帳に無い workflow に `node -e` を
@@ -284,7 +282,6 @@ const ALL_SCRIPTS = SCANNED.flatMap((s) => s.scripts);
  */
 const EXPECTED_BY_FILE: Readonly<Record<string, number>> = {
 	'.github/workflows/ci.yml': 2,
-	'.github/workflows/graphify-refresh.yml': 2,
 	'.github/workflows/pr-info.yml': 1,
 };
 

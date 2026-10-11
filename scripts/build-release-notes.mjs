@@ -41,15 +41,9 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { extractH2Section } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
-import { parseSimpleBlock } from './lib/parse-labels-ts.mjs';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, '..');
-const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
+import { parseSimpleBlock, readLabelsSource } from './lib/parse-labels-ts.mjs';
 
 // ============================================================
 // 定数
@@ -178,13 +172,13 @@ const CUSTOMER_VALUE_HEADING = '## 顧客価値・目的';
 let cachedLabels = null;
 
 /**
- * 通知の固定文言を labels.ts（SSOT、docs/DESIGN.md §6）から読む。
+ * 通知の固定文言を labels 層（SSOT、docs/DESIGN.md §6）から読む。
  *
  * @returns {{ release: Record<string, string>, app: Record<string, string> }}
  */
 export function loadLabels() {
 	if (cachedLabels === null) {
-		const src = fs.readFileSync(LABELS_TS, 'utf8');
+		const src = readLabelsSource();
 		cachedLabels = {
 			release: parseSimpleBlock(src, 'RELEASE_NOTES_LABELS'),
 			app: parseSimpleBlock(src, 'APP_LABELS'),
@@ -194,7 +188,7 @@ export function loadLabels() {
 }
 
 /**
- * labels.ts から引けなかった文言を空文字で代替しない。
+ * labels 層から引けなかった文言を空文字で代替しない。
  *
  * 代替すると「空の見出し」「空の箇条書き」が顧客へ配信され、しかも CI は緑のままになる。
  * build-time パーサは namespace ブロックを最初の `}` で切る等の制約があり、値の書き方 1 つで
@@ -208,7 +202,7 @@ function requireLabel(labels, key) {
 	const value = labels[key];
 	if (value === undefined || value === '') {
 		throw new Error(
-			`RELEASE_NOTES_LABELS.${key} を src/lib/domain/labels.ts から読めませんでした（値に波括弧を含めていませんか）`,
+			`RELEASE_NOTES_LABELS.${key} を labels 層 (src/lib/domain/labels.ts + labels/*.ts) から読めませんでした（値に波括弧を含めていませんか）`,
 		);
 	}
 	return value;

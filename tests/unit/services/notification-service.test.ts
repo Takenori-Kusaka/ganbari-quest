@@ -39,6 +39,7 @@ import {
 	insertLog,
 } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
+import { logger } from '$lib/server/logger';
 import {
 	canSendNotification,
 	getNotificationSettings,
@@ -181,6 +182,60 @@ describe('notification-service', () => {
 			mockCountLogsBetween.mockResolvedValue(0);
 			expect(await canSendNotification('T1')).toBe(false);
 		});
+
+		// #4706 PO 決裁 (2026-10-08): 達成通知は 1 日 1 通。ストリーク警告 / リマインダーが押し出されない。
+		describe('達成通知の日次上限 (#4706)', () => {
+			/** 当日の送信済みログを種別つきで持ち、countLogsBetween の種別フィルタを再現する。 */
+			function stubTodayLogs(sentTypes: string[]) {
+				mockCountLogsBetween.mockImplementation(
+					async (_t: string, _from: string, _to: string, types?: readonly string[]) =>
+						types ? sentTypes.filter((t) => types.includes(t)).length : sentTypes.length,
+				);
+			}
+
+			it('達成通知を 1 通送った後の 2 通目 (achievement / level_up どちらも) は送らない', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				expect(await canSendNotification('T1', 'achievement')).toBe(false);
+				expect(await canSendNotification('T1', 'level_up')).toBe(false);
+			});
+
+			it('その日まだ達成通知が 0 通なら送れる', async () => {
+				setDaytimeJST();
+				stubTodayLogs([]);
+				expect(await canSendNotification('T1', 'achievement')).toBe(true);
+				expect(await canSendNotification('T1', 'level_up')).toBe(true);
+			});
+
+			it('達成通知が上限に達していても、リマインダーとストリーク警告は送れる (押し出されない)', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				expect(await canSendNotification('T1', 'reminder')).toBe(true);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(true);
+			});
+
+			it('朝に達成通知 1 + リマインダー 1 を送った後でも、夜のストリーク警告が送れる', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['reminder', 'achievement']);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(true);
+				// さらに達成通知を足そうとしても止まる (全体の枠を食わない)
+				expect(await canSendNotification('T1', 'achievement')).toBe(false);
+			});
+
+			it('全体の上限 (3 通) は種別によらず効く', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['reminder', 'streak_warning', 'monthly_habit']);
+				expect(await canSendNotification('T1', 'streak_warning')).toBe(false);
+			});
+
+			it('sendPushNotification も種別を渡し、達成通知の 2 通目は送信しない', async () => {
+				setDaytimeJST();
+				stubTodayLogs(['achievement']);
+				const result = await sendPushNotification('T1', 'achievement', 'T', 'B');
+				expect(result).toEqual({ sent: 0, failed: 0 });
+				expect(mockSendNotification).not.toHaveBeenCalled();
+			});
+		});
 	});
 
 	// ============================================================
@@ -229,6 +284,48 @@ describe('notification-service', () => {
 			expect(result.sent).toBe(2);
 			expect(result.failed).toBe(0);
 			expect(mockSendNotification).toHaveBeenCalledTimes(2);
+		});
+
+		// #4706: 鍵が配られて初めて本番で HTTP を出す経路。push サービスが応答しないと、子供の記録
+		// リクエスト (達成通知) と 30 秒 Lambda 内の cron が止まるため、1 送信ごとに timeout を渡す。
+		it('push サービスへの送信に timeout を渡す', async () => {
+			setDaytimeJST();
+			mockCountLogsBetween.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: '1',
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/push1',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			await sendPushNotification('T1', 'test', 'Title', 'Body');
+			const options = mockSendNotification.mock.calls[0]?.[2] as { timeout?: number } | undefined;
+			expect(options?.timeout).toBeGreaterThan(0);
+			expect(options?.timeout).toBeLessThanOrEqual(10_000);
+		});
+
+		// #4706: 購読 0 件で送れなかったことをログで追えるようにする (鍵の配布直後は全テナントがこの状態)
+		it('購読が 0 件ならその旨をログに残して送信しない', async () => {
+			setDaytimeJST();
+			mockCountLogsBetween.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([]);
+
+			const result = await sendPushNotification('T1', 'reminder', 'Title', 'Body');
+			expect(result).toEqual({ sent: 0, failed: 0 });
+			expect(mockSendNotification).not.toHaveBeenCalled();
+			expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+				expect.stringContaining('購読'),
+				expect.objectContaining({
+					context: expect.objectContaining({ tenantId: 'T1', notificationType: 'reminder' }),
+				}),
+			);
 		});
 
 		it('410応答で stale subscription を削除', async () => {

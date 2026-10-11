@@ -12,7 +12,7 @@
 | 2 | 文字列・段落 | テキスト切れ / overflow / 改行位置 |
 | 3 | 読解容易性 | フォント size / コントラスト |
 | 4 | ユーザビリティ | ボタン視認性 / 重要情報 / 3 秒判断 |
-| 5 | タップ領域 | 年齢帯別 tapSize（baby:120 / preschool:80 / elementary:56 / junior:48 / senior:44） |
+| 5 | タップ領域 | 年齢帯別 tapSize（値は `src/lib/domain/validation/age-tier.ts` の `AGE_TIER_CONFIG` が SSOT） |
 | 6 | モバイル固有 | floating CTA 重なり / 横スクロール |
 | 7 | アクセシビリティ | テキストのみで意味伝達 / ARIA / キーボード |
 | 8 | ダークパターン | 焦らせ文言 / 誤誘導 (ADR-0012) |

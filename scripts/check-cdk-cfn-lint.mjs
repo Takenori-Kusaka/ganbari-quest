@@ -60,11 +60,11 @@ const SYNTH_ACCOUNT = '000000000000';
  * 一時 `cdk.context.json` に書き込んで synth 後に元へ戻す (gitignored な build artifact、
  * CLI の JSON quoting を跨がず cross-platform で決定的)。
  *
- * - addError / throw guard (parentGateCookieSecret / opsSecretKey / dsqlEndpoint /
+ * - addError / throw guard (parentGateCookieSecret / opsSecretKey / vapidPublicKey / vapidPrivateKey / dsqlEndpoint /
  *   dsqlClusterArn / originVerifySecret の非空要求) を満たす**非秘密のダミー値**
  * - 全 stack を synth 対象にする context gate (dsqlEnabled / dsqlStagingEnabled / stagingEnabled)。
- *   #3870 の DsqlBackupRole を含む全 11 stack (prod 6 + Dsql + DsqlStaging + staging 3) を検査対象化
- *   (`tests/unit/infra/iam-role-description-ascii.test.ts` と同じ網羅性)
+ *   #3870 の DsqlBackupRole を含め、bin/app.ts が context gate の内側で instantiate する stack まで
+ *   すべてを検査対象化 (`tests/unit/infra/iam-role-description-ascii.test.ts` と同じ網羅性)
  * - **hosted-zone lookup の cache**: `ses-stack.ts` の `HostedZone.fromLookup` は無条件に
  *   `ganbari-quest.com` を引くため、cache が無いと CI (creds 無し) で AWS 呼び出しに落ちる。
  *   `tests/unit/infra/iam-role-description-ascii.test.ts` の `makeApp()` と同じダミー値を与える。
@@ -76,6 +76,11 @@ const SYNTH_CONTEXT = {
 	// 32 文字以上の非秘密ダミー。
 	originVerifySecret: 'cfnlint-dummy-origin-verify-secret-000000',
 	opsSecretKey: 'cfnlint-dummy-ops-secret-key',
+	// #4706: 本番 ComputeStack は VAPID 鍵の未指定 / 形式不正 / 組にならない鍵を addError にする。
+	// 秘密鍵 'c'×43 と組になる非秘密ダミー (形式に加えて組の一致も検査される)。
+	vapidPublicKey:
+		'BOCUInad2D500P1tNUsjVC5kpsv05KTNRb_oPrixTemHqBBggeLQjM7itlwVhi6BGUYiKomWarGULULJEqYhSLg',
+	vapidPrivateKey: 'c'.repeat(43),
 	dsqlEndpoint: 'cfnlintdummy1234.dsql.us-east-1.on.aws',
 	dsqlClusterArn: `arn:aws:dsql:us-east-1:${SYNTH_ACCOUNT}:cluster/cfnlintdummy1234`,
 	dsqlEnabled: true,
@@ -112,7 +117,7 @@ function runSynth() {
 	try {
 		// npx は Windows で npx.cmd。Node の .cmd spawn 制約 (要 shell) を跨ぐため shell:true。
 		// 引数は固定 (context は cdk.context.json 経由) なので注入リスクなし。
-		console.log('[check-cdk-cfn-lint] cdk synth --all (dummy context、全 11 stack)...');
+		console.log('[check-cdk-cfn-lint] cdk synth --all (dummy context、全 stack)...');
 		const synth = spawnSync('npx cdk synth --all --quiet', {
 			cwd: infraDir,
 			stdio: 'inherit',

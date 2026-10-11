@@ -90,7 +90,7 @@ QM は PR の **base branch でレーンを判別**し、レーンごとに gate
 
 - **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=`release/*`（§3.1）または develop（後方互換）→ 統合 / base=main かつ head=`fix/*`（緊急 fix / CI 環境構築）→ hotfix。**base=main でそれ以外の head（feature 系）は起票時の base 誤設定** — 開発チームに差し戻さず QM の **Fix Agent が base を develop へ訂正 + develop へ rebase** して軽量レーンに載せる（2026-06-11 User 指示。手順は本節下部 + Step 2 コメント参照。旧「retarget 依頼で保留」は差し戻しコストが高いため廃止）。
 - **hotfix 安全側フォールバック（label 単独依存の防止、#2938 項目 3）**: base=main かつ head=`fix/*` で `priority:critical` label が無い PR は、判別から漏らさず**安全側で hotfix レーン（重量 gate）として扱った上で**、linked Issue を開いて critical 該当性を確認する。該当 → label 付与 + hotfix 続行（ADR-0002 5 要件適用）/ 非該当（CI 環境構築例外にも該当しない）→ Fix Agent が base を develop へ訂正 + rebase（上記 base 誤設定対応と同手順）。`ci.yml` の `main-pr-base-guard`（#2933）は head=`fix/*` を base 制限としては許容するため、label 有無による critical 判定は本フォールバック（QM 側）が担う。
-- **統合 PR（`release/*` → main、§3.1。develop→main は後方互換）は外部監査チーム担当**: release 統合 PR の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + lead 専権 approve の規律は同一に適用する。
+- **統合 PR（`release/*` → main、§3.1。develop→main は後方互換）は外部監査チーム担当**: release 統合 PR の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも §④ の承認規律（lead 専権 approve。adversarial evidence は前提条件ではない）を同一に適用する。
 - **base 誤設定 feature の修正 subagent 対応手順**: (1) `gh pr edit <N> --base develop` (2) worktree 内で `git rebase origin/develop` → conflict 解消 → `git push --force-with-lease`（旧 main ベースの drift を解消し本来の diff に戻す） (3) base=develop の軽量レーンとして通常のレビュー → develop merge。
 - **発効条件（cutover §8 連動）**: 本レーン区分は **develop branch 作成 + workflow 改修（branch-strategy.md §8 Step 2-3）完了後に発効**する。発効前は現行どおり main 向け PR を重量 gate で 5 手順レビューする。既存 open PR は retarget しない（§8 Step 6）。
 - **軽量レーンの CI 解釈**: e2e / a11y / storybook / visual regression が**不発火・skip でも approve を保留しない**（これらは統合 PR で集約検証される設計）。逆に、軽量レーンの required（lint-and-test / unit / PR テンプレ gate）が red のまま approve することは引き続き禁止。
@@ -191,7 +191,7 @@ gh issue view <X>  # PR body の closes #X から取得
 - PR body の `![...]()` / `<img>` / 外部 URL を **Read tool で実際に開く**（見ていない画像に所見書かない）
 - **1 画像ごと最低 1 行の具体所見**（「見ました」だけ不可）
 - **DOM HTML スナップショット (`<file>.dom.html`) 併記確認** (#1747 / #1766)。SS 1 枚に対し同名 `.dom.html` リンクが PR body に存在するか / `.dom.html` を Read で開き SS の主要ラベルが grep できるか確認
-- 「描画変化なし」主張時 (#1744): `gh pr diff` で `.svelte` / `.css` / `site/**` / `labels.ts` の文字列 / アイコン / 改行位置の置換を検出。明記欠落なら BLOCK
+- 「描画変化なし」主張時 (#1744): `gh pr diff` で `.svelte` / `.css` / `site/**` / labels 層 (`src/lib/domain/labels.ts` + `src/lib/domain/labels/**`) の文字列 / アイコン / 改行位置の置換を検出。明記欠落なら BLOCK
 
 UI/UX 品質チェックは @docs/sessions/qm-checklist-ui-quality.md（10 項目）。気になった点だけ具体記述、無言 approve 不可。
 

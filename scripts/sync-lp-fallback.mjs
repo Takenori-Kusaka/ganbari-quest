@@ -261,7 +261,7 @@ function syncFallbackInFile(_filePath, html, lpLabels) {
 		const hasLpKeyDescendant = collectHasDescendantLpKey(node);
 		if (hasLpKeyDescendant) {
 			errorsNestedReplace.push(
-				`${dottedKey}: 子孫に data-lp-key を持つため上書き不可。labels.ts の構造を見直してください。`,
+				`${dottedKey}: 子孫に data-lp-key を持つため上書き不可。labels 層 (src/lib/domain/labels/lp.ts) の構造を見直してください。`,
 			);
 			continue;
 		}
@@ -402,7 +402,7 @@ function processFile(relPath, lpLabels) {
  * @param {number} totalChanges
  */
 function printCheckModeReport(fileSummaries, totalChanges) {
-	console.error(`✗ fallback テキストが labels.ts と乖離しています (${totalChanges} 件)`);
+	console.error(`✗ fallback テキストが labels 層と乖離しています (${totalChanges} 件)`);
 	for (const summary of fileSummaries) {
 		console.error(`\n  ${summary.path} (${summary.count} 件):`);
 		for (const c of summary.changes.slice(0, 5)) {
@@ -501,10 +501,10 @@ function main() {
 		);
 		for (const entry of htmlKeyCheck.unresolved) console.error(`  - ${entry}`);
 		console.error(
-			'  これらは照合対象から外れるため、labels.ts を直しても LP は HTML 直書きの文言を出し続けます。',
+			'  これらは照合対象から外れるため、labels 層を直しても LP は HTML 直書きの文言を出し続けます。',
 		);
 		console.error(
-			'  対処: labels.ts に値を定義し LP_NAMESPACE_TABLE 経由で配信する / HTML の key を実在する key に直す /',
+			'  対処: labels 層 (src/lib/domain/labels/*.ts。LP の namespace は lp.ts) に値を定義し LP_NAMESPACE_TABLE 経由で配信する / HTML の key を実在する key に直す /',
 		);
 		console.error('        意図的に許容するなら HTML_LP_KEY_EXCLUSIONS に理由付きで登録する。');
 		totalErrors += htmlKeyCheck.unresolved.length;
@@ -531,7 +531,7 @@ function main() {
 
 	if (CHECK_MODE) {
 		if (totalChanges === 0) {
-			console.log('✓ 全 site/*.html の fallback テキストは labels.ts と同期済みです');
+			console.log('✓ 全 site/*.html の fallback テキストは labels 層と同期済みです');
 			return;
 		}
 		printCheckModeReport(fileSummaries, totalChanges);
@@ -539,7 +539,7 @@ function main() {
 	}
 
 	if (totalChanges === 0) {
-		console.log('✓ 全 site/*.html の fallback テキストは既に labels.ts と同期済みです');
+		console.log('✓ 全 site/*.html の fallback テキストは既に labels 層と同期済みです');
 		return;
 	}
 

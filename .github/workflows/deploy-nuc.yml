@@ -12,6 +12,8 @@ on:
       - 'vite.config.ts'
       - 'tsconfig.json'
       - 'Dockerfile'
+      - 'Dockerfile.scheduler'
+      - '.dockerignore'
       - 'docker-compose.yml'
       - 'drizzle/**'
       - 'scripts/**'

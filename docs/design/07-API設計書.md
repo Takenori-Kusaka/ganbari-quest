@@ -254,7 +254,7 @@
 - `usagePeriodDays` (hidden): load で取得した利用日数（保存用）
 
 **処理:**
-1. `graduation-service.recordGraduationConsent()` で graduation_consent テーブル / DynamoDB に保存
+1. `graduation-service.recordGraduationConsent()` で graduation_consent テーブルに保存
 2. 課金プラン（stripeCustomerId あり）→ `/admin/subscription` に 303 redirect
 3. 無料プラン → `/admin/subscription/cancel/thanks` に 303 redirect
 
@@ -1275,7 +1275,6 @@ liveness probe。**DATA_SOURCE に応じた実 backend への実接続検証**�
 | DATA_SOURCE | probe | schema 検証 |
 |---|---|---|
 | `sqlite` (既定) | `probeSqlite` — rawSqlite `SELECT 1` | lazy migration の validation 結果 (`schemaValid` / `migrationsApplied` / `schemaWarnings`) |
-| `dynamodb` | `probeDynamoDB` — DescribeTable ACTIVE | なし (`schema` は空 object) |
 | `dsql` / `pglite` | `probePg` — 実 backend へ `SELECT 1` + `children` 表 count | children count 成功 = migration 適用済み schema 実在 (`schemaValid: true`) |
 
 backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"status":"error", "error":..., "dataSource":...}` を返す (空 backend の偽陽性 200 を返さない)。
@@ -1678,7 +1677,7 @@ repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 #### POST /api/v1/settings/tutorial
 
-チュートリアル完了をマーク（子供画面チュートリアルの最終ステップで送信）。
+チュートリアル完了をマーク（子供画面のホームのツアーの最終ステップで送信。チェックリスト / ショップ / つよさのガイドを見終えても送らない）。
 
 **認証:** owner/parent
 
@@ -1858,7 +1857,7 @@ Push 通知の購読解除。
 | 設定キー | settings KVS `reward_auto_approve`（`sibling_ranking_enabled` と同じ bool 規約 = `'true'` のみ真。**DB スキーマ変更なし**）。取得 `getSetting` / 保存 `setSetting`、保存 action は `POST /admin/settings/rules ?/setRewardAutoApprove` |
 | 既定 | OFF（未設定 = 保護者承認必須）。POST 申請は `pending_parent_approval` のまま、ポイント未減算 |
 | ON | POST 申請を**即時 `approved` 確定 + その場でポイント減算**（親承認スキップ、`resolved_by_parent_id = null` = システム自動承認）。レスポンスに `instant: true` を付与 |
-| 減算の原子性（#3347 TOCTOU 二重減算根治） | 減算は `point` repo の `spendPointsAtomic` で実行する。`getBalance`（残高読込）→ 非負確認 → `insertPointEntry`（台帳挿入）を service 層で await を跨いで行うと並行 / 二重 submit で二重減算・残高マイナスが起き得る（#3336 同型）ため、backend ごとの原子境界（**SQLite=同期トランザクション / DynamoDB=条件付き `TransactWrite`（`balance >= cost` 成立時のみ `ADD balance -cost` + 台帳 Put）/ demo=同期チェック**）で「再読込 → 非負確認 → 挿入」を 1 単位に閉じ込める。残高不足側は `INSUFFICIENT_POINTS` を返し、即時モードで作成済の幻の pending 行は `expired` に回収する |
+| 減算の原子性（#3347 TOCTOU 二重減算根治） | 減算は `point` repo の `spendPointsAtomic` で実行する。`getBalance`（残高読込）→ 非負確認 → `insertPointEntry`（台帳挿入）を service 層で await を跨いで行うと並行 / 二重 submit で二重減算・残高マイナスが起き得る（#3336 同型）ため、backend ごとの原子境界（**SQLite=同期トランザクション / DSQL / PGlite=トランザクション内で残高行（`children.total_point`）を `SELECT … FOR UPDATE` → `balance >= cost` 成立時のみ台帳 INSERT + `total_point - cost`（並行 spend は一方が OCC 40001 → retry）/ demo=同期チェック**）で「再読込 → 非負確認 → 挿入」を 1 単位に閉じ込める。残高不足側は `INSUFFICIENT_POINTS` を返し、即時モードで作成済の幻の pending 行は `expired` に回収する |
 
 ---
 
@@ -2176,7 +2175,11 @@ export interface PlanLimitError {
 | `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/checklists ?/importMarketplace` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#2137) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/add` | standard | ごほうび管理 (`canCustomReward`, #728 / #2268 grant→add リネーム) | `createPlanLimitError()` 済 (#787) |
-| `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 プリセット取り込み (#728) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 (`canCustomReward`)。title / points をクライアントが送るため、名前に反してオリジナル登録と同じ扱い (#728 / #4928) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/update` | standard | 登録済みごほうびの編集 (`canCustomReward`)。プリセットから取り込んだごほうびの名前・ポイントの調整を含む (#2832 / #4992 PO 決裁 Q2: 無料で開けると取込 → 書き換えでオリジナル作成と同じことが件数の上限なしにできるため)。拒否文言の機能名は料金表の行名と同じ `CUSTOM_REWARD_FEATURE_NAME` | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/copyFromChild` | standard | 他のお子さまのごほうびを写す (`canCustomReward`)。写し元の行 (スタンダード以上の期間に作ったオリジナルを含む) を写し先に新しい行として作るため、作成と同じ扱い。コピー元・コピー先の childId はテナント内か照合する (他テナントは 403) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/restorePreview` | standard | バックアップファイルからの復元の確認 (`canCustomReward`、#3079)。ファイルは手で書き換えられ、任意のタイトル・ポイントの行を作れるため、作成と同じ扱い | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/rewards ?/restoreFile` | standard | バックアップファイルからの復元の実行 (`canCustomReward`、#3079)。理由は `?/restorePreview` と同じ | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
 | `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
@@ -2185,6 +2188,7 @@ export interface PlanLimitError {
 | `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
 **注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
+プリセットのごほうび取込 (`POST /admin/rewards ?/importMarketplaceRewardSet` / `?/importPresetToChildren`、および marketplace 詳細の reward-set 取込 CTA) も全プラン可 (#4928)。サーバが presetId から中身を読み、利用者は内容を指定できないため、初期セットアップ (`/setup/rewards`) と同じ扱いにそろえている。
 新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
 
 クライアント側では `getErrorMessage(form?.error)` ヘルパー（`src/lib/domain/errors.ts`）を使うと

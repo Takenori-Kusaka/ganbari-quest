@@ -1,25 +1,26 @@
 ---
 name: DB Migration
-description: Use when changing database schema (adding/modifying tables, columns, or indexes). Checks parallel implementations, test data, and ADR-0031 compatibility requirements.
+description: Use when changing database schema (adding/modifying tables, columns, or indexes). Checks parallel implementations, test data, and existing-data compatibility requirements (tests/CLAUDE.md §スキーマ変更 PR のテスト要件).
 ---
 
 # スキーマ変更の並行実装チェック
 
 ## 変更前チェックリスト
 
-### 1. 並行実装の同期（8 箇所）
+### 1. 並行実装の同期
 
-スキーマを変更する場合、以下の全てを同期:
+スキーマを変更する場合、以下の全てを同期（列ごとの既知ペアの SSOT は `docs/design/parallel-implementations.md` §既知の並行ペア（DB スキーマ））:
 
-- [ ] `src/lib/server/db/schema.ts` — 本体のスキーマ定義
+- [ ] `src/lib/server/db/schema.ts` — SQLite（local / test）のスキーマ定義
+- [ ] `src/lib/server/db/create-tables.ts` / `src/lib/server/db/migration/lazy-startup-migrations.ts` — SQLite の起動時 schema 適用（破壊的変更・新規 table の同期漏れは CI `schema-migration-completeness-check` が落とす）
 - [ ] `tests/e2e/global-setup.ts` — E2E テスト用のシードデータ
 - [ ] `tests/unit/helpers/test-db.ts` — ユニットテスト用のヘルパー
 - [ ] `src/lib/server/demo/demo-data.ts` — デモモード用のサンプルデータ
 - [ ] `src/lib/server/db/dsql/schema.ts` — cloud (DSQL) / NUC (PGlite) 共用 pg schema
 - [ ] `docs/design/08-データベース設計書.md` — 設計書
-- [ ] マイグレーションファイル — `npx drizzle-kit generate`
+- [ ] pg 系マイグレーションファイル — `npx drizzle-kit generate --config drizzle.pglite.config.ts`（出力 `drizzle/pglite/` が PGlite と DSQL 共通の migration SSOT。引数なしの `drizzle-kit generate` は SQLite 用 `drizzle.config.ts` を読むので使わない）
 
-### 2. ADR-0031: 既存データ互換性（必須）
+### 2. 既存データ互換性（必須、`tests/CLAUDE.md` §スキーマ変更 PR のテスト要件。旧 ADR-0031 は #3908 で削除済）
 
 - [ ] NULL 混在行テスト — 既存データに NULL が存在する可能性を考慮
 - [ ] backfill UPDATE — 新カラム追加時は既存行のデフォルト値更新を同梱
@@ -27,7 +28,7 @@ description: Use when changing database schema (adding/modifying tables, columns
 
 ### 3. fresh-DB 互換 + cross-backend 3 経路検証（#3925 / #3928、第17回リリース 4 連続 blocker の教訓）
 
-ADR-0031 (既存データ互換) と**対**で必須。migration は「既存 state を持つ本番」だけでなく
+§2（既存データ互換）と**対**で必須。migration は「既存 state を持つ本番」だけでなく
 「**空 DB からの全 migration 貫通**」(fresh staging provision / 新規 NUC / DR 再構築) でも成立させる:
 
 - [ ] **fresh-DB 貫通**: 空 DB に全 migration を journal 順で通して成功するか。既存 table / 行の
@@ -43,7 +44,7 @@ ADR-0031 (既存データ互換) と**対**で必須。migration は「既存 st
 
 ### 4. startup migration の fail-fast 落とし穴（#3286 infra-1）
 
-`applyLazyStartupMigrations` は **try/catch + rollback + 再 throw（fail-fast）** の意図的設計。冪等 / skip 可能な migration は安全だが、**確定的に throw する migration（例: 前提行不在で例外）を仕込むと cold-start でプロセスが brick する**（起動のたびに同じ例外で落ち続ける）。
+`applyLazyStartupMigrations` は `DATA_SOURCE=sqlite`（local / test）でだけ走る（`src/lib/server/db/client.ts`。NUC 本番は PGlite で boot 時に drizzle migrator、cloud は DSQL で deploy workflow の `dsql:migrate`）。**try/catch + rollback + 再 throw（fail-fast）** の意図的設計。冪等 / skip 可能な migration は安全だが、**確定的に throw する migration（例: 前提行不在で例外）を仕込むと cold-start でプロセスが brick する**（起動のたびに同じ例外で落ち続ける）。
 
 - [ ] startup migration は **冪等**（再実行・部分適用済でも成功）かつ **前提不在時は skip**（throw でなく no-op）にする
 - [ ] 不可逆 / 失敗時に手当てが要る migration は startup ではなく **明示的な運用手順（runbook）** に置く
@@ -55,7 +56,7 @@ ADR-0031 (既存データ互換) と**対**で必須。migration は「既存 st
 
 drizzle-orm の migrator（pg-core dialect）は `適用済み最大 created_at < folderMillis` の migration だけを適用する。つまり **実時刻より未来の `when` を一度でも本番 DB へ適用すると、以降 drizzle-kit が生成する全 migration（`when` は実時刻）が既存 DB で永久に skip される**。#3946 はこれで NUC 本番の `/preschool/home` が 500 になった（0002 の手書き丸め値 1784500000000 が未来 → 0003/0004 が永久 skip → `login_streaks` 未作成）。
 
-- [ ] `when` は `npx drizzle-kit generate` の出力のまま（丸め値・連番・未来値にしない）
+- [ ] `when` は `npx drizzle-kit generate --config drizzle.pglite.config.ts` の出力のまま（丸め値・連番・未来値にしない）
 - [ ] 既存 migration の `when` を後から編集しない（既に本番 `__drizzle_migrations.created_at` に記録済のため、編集は「適用済みだが journal 上は未適用」の不整合になる）
 - [ ] 機械 gate: `scripts/lib/db/drizzle-journal-gate.mjs`（判定 SSOT）。発火点は 2 つ — commit 時 = `.husky/pre-commit`（`drizzle/*/meta/_journal.json` が staged のときだけ `node scripts/check-drizzle-journal.mjs` を実行、#3953）/ CI = `tests/unit/db/pglite-journal-when-range-3948.test.ts`
 - [ ] 走査は **`drizzle/*/meta/_journal.json` の glob**（PGlite 固定ではない）。新しい dialect の journal を足しても自動で gate 対象になる。0 件マッチも fail する（#3953）

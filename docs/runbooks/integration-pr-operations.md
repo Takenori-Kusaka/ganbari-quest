@@ -23,28 +23,24 @@
 
 ## §2 drift アラート閾値（develop ⇔ main 乖離）
 
-develop が main より先行し続けると、統合時の diff が肥大し監査の欠陥検出力が落ちる（§3）。乖離を 2 軸で監視する。算出は B-3 `integration-pr.yml` の diff step（`git rev-list --count origin/main..origin/develop`）+ B-5 未取込 back-merge PR（`is:open is:pr label:back-merge base:develop`）。
+統合の cadence は **週 1 回**。develop が main より先行し続けると、統合時の diff が肥大し監査の欠陥検出力が落ちる（§3）。
 
-| 指標 | 警告閾値 | 危険閾値 | 対応 |
-|---|---|---|---|
-| **乖離日数**（前回統合 merge からの経過日数） | 3 日 | 5 日 | 警告: 次 cron を待たず `integration-pr.yml` を `workflow_dispatch` で手動発行 → 監査 run。危険: その日のうちに統合 run を実施 |
-| **未統合 PR 数**（main 未取込で develop に積まれた PR 件数） | 10 件 | 20 件 | 警告: 統合 run を前倒し。危険: §3 の分割を検討（1 統合 PR に 20 件超は監査 1 回の認知限界超過、設計原則 2）|
-| **未取込 hotfix（back-merge drift）** | 1 件（即） | — | `label:back-merge` の open PR は main の hotfix が develop 未反映 = main/develop の論理 drift。即 merge（軽量レーン）して解消。B-3 統合 PR §6 がこれを「未取込 hotfix」として読む |
+乖離は **前回統合からの経過日数**で見る。**PR 本数・ファイル数は閾値にしない** — AI 駆動の開発では 1 本の PR が小さく本数が多くなりやすく、本数は「統合すべき量」を表さない。統合が止まる原因は量ではなく、cut・監査・merge の手番が止まることで、それは経過日数に現れる（#4976）。
 
-- 乖離日数の機械通知は `integration-pr.yml` / `hotfix-back-merge.yml` の drift 通知（Discord `vars.DISCORD_WEBHOOK_URL` + job summary）で degrade-safe に出る。閾値判断は本 runbook、通知配管は workflow が担う。
-- App 認証（`INTEGRATION_BOT_*`）未設定環境では統合 PR が自動発行されない（[branch-strategy.md §7](../sessions/branch-strategy.md)）。この間は乖離日数を手動監視し、危険閾値で手動統合 PR を発行する。
+| 指標 | 閾値 | 対応 |
+|---|---|---|
+| **前回統合からの経過日数**（main 上の直近の統合 merge から） | **7 日超** | 週 1 の cadence を逃している。`integration-pr.yml` が Discord（deploy-log）に通知する。その週のうちに release cut → 統合 run を行う |
+| **`main..develop` の commit 数**（非常口） | **50 超** | 週 1 を待たずに release cut を提案する（[audit-team.md §0](../sessions/audit-team.md)）。develop が動き続けて凍結できなくなるのを防ぐ |
+| **未取込 hotfix（back-merge drift）** | 1 件（即） | `label:back-merge` の open PR は main の hotfix が develop 未反映 = main/develop の論理 drift。即 merge（軽量レーン）して解消。統合 PR §6 がこれを「未取込 hotfix」として読む |
+
+- 経過日数の通知は `integration-pr.yml` の `Notify drift (前回統合から 7 日超)` step が出す（cron 実行のたび。`dry_run` でも出す）。経過日数そのものは job summary に毎回残る
+- App 認証（`INTEGRATION_BOT_*`）未設定環境では統合 PR が自動発行されない（[branch-strategy.md §7](../sessions/branch-strategy.md)）。その場合も経過日数の通知は出る
 
 ---
 
 ## §3 統合 PR 肥大時の分割手順
 
-1 統合 PR の diff が大きすぎると監査の欠陥検出力が低下する（EPIC #2861 設計原則 2: DORA 2025「AI で PR が +154%」/ 400 行超で review 検出力が落ちる）。コードにも docs の分割ルール（[docs/CLAUDE.md](../CLAUDE.md) 50 ファイル警告 / 100 ファイル BLOCK）を準用する。
-
-| 指標 | 警告 | 分割必須 |
-|---|---|---|
-| 変更行数（含有 PR 合計の純増） | 400 行 | — （行数は警告のみ。機能境界を優先）|
-| 変更ファイル数 | 50 ファイル | 100 ファイル |
-| 含有 PR 数 | 10 件（§2 警告と連動） | 20 件 |
+1 統合 PR の diff が大きすぎると監査の欠陥検出力が低下する（EPIC #2861 設計原則 2）。分割するかどうかは **行数・ファイル数・PR 本数の閾値では決めない**（§2 と同じ理由）。**audit-manager が「1 回の監査 run で実査しきれない」と判断したら**分割する。§2 の cadence（週 1 / 50 commit の非常口）を守っていれば、通常は分割を要しない。
 
 **分割手順（release ブランチ方式で時系列 / 領域別に切る）**:
 

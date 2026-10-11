@@ -43,7 +43,36 @@ interface Props {
 	 * requiredTier は「上限を引き上げる対象プラン名」として popover 文言に使う。
 	 */
 	quota?: { allowed: boolean; current: number; max: number | null };
+	/**
+	 * 呼び出し側で判定済みの解放状態 (#4992)。指定時は tier / quota より優先する。
+	 *
+	 * server の拒否と**同じ述語**で表示も出したいとき (例: ごほうび管理の `isCustomRewardUnlocked`、
+	 * #4584) に渡す。本 component の tier 判定 (`meetsRequiredTier`) に任せると、述語が 2 つになり
+	 * 「押せるのに 403」「押せないのに通る」が定義上起こり得る。requiredTier は popover の
+	 * 対象プラン名にだけ使われる。
+	 */
+	unlocked?: boolean;
+	/**
+	 * ロック中の trigger の aria-describedby (#4992)。押せない理由を画面に常時出している要素の id。
+	 * popover は押してから開くため、押す前に理由を伝える文は呼び出し側が近くに置き、ここで結びつける。
+	 */
+	describedBy?: string;
+	/** ロック中の trigger の data-testid (一覧の各行など、同じ画面に複数置くときの区別用) */
+	testid?: string;
+	/**
+	 * popover を開く向き (既定 = 上)。押す前の理由を trigger の**上**に常時出している画面
+	 * (ごほうび管理の一覧直上の注記、#4992) では、上に開くとその注記を覆うため、trigger の上端より
+	 * 上に出ない向き (`left-start` = 左に、上端をそろえて) を指定する。
+	 */
+	placement?: PopoverPlacement;
+	/**
+	 * `placement` で入りきらないときに順に試す向き (zag popper の `flip`)。未指定なら反対側へ反転する。
+	 * 幅の狭い画面では横に入りきらないため、ここで下 → 上の順を渡す。
+	 */
+	fallbackPlacements?: PopoverPlacement[];
 }
+
+type PopoverPlacement = 'top' | 'top-end' | 'bottom' | 'bottom-end' | 'left-start';
 
 let {
 	currentTier,
@@ -54,7 +83,14 @@ let {
 	display = 'section',
 	planPageHref = '/admin/subscription',
 	quota,
+	unlocked,
+	describedBy,
+	testid = 'feature-gate-locked-trigger',
+	placement = 'top',
+	fallbackPlacements,
 }: Props = $props();
+
+const positioning = $derived({ placement, flip: fallbackPlacements ?? true });
 
 const TIER_LABELS: Record<PlanTier, string> = {
 	free: PLAN_TERMS.free,
@@ -69,10 +105,16 @@ const TIER_FULL_LABELS: Record<PlanTier, string> = {
 	family: PLAN_FULL_TERMS.premium,
 };
 
-// quota 指定時は quota で判定 (§10.2.2)。max===null は無制限 = 非ロック (ゲート痕跡なし)。
-// quota 未指定時は tier で判定 (tutorial-chapters / page-guide と同じ TIER_ORDER SSOT)。
+// 判定の優先順:
+//   1. unlocked 指定時は呼び出し側の判定をそのまま使う (#4992、server と同じ述語で出すため)
+//   2. quota 指定時は quota で判定 (§10.2.2)。max===null は無制限 = 非ロック (ゲート痕跡なし)
+//   3. それ以外は tier で判定 (tutorial-chapters / page-guide と同じ TIER_ORDER SSOT)
 const isLocked = $derived(
-	quota ? quota.max !== null && !quota.allowed : !meetsRequiredTier(currentTier, requiredTier),
+	unlocked !== undefined
+		? !unlocked
+		: quota
+			? quota.max !== null && !quota.allowed
+			: !meetsRequiredTier(currentTier, requiredTier),
 );
 const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
@@ -101,11 +143,12 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 {:else if locked}
 	{@render locked()}
 {:else if display === 'inline' && buttonLabel}
-	<Popover.Root positioning={{ placement: 'top' }}>
+	<Popover.Root {positioning}>
 		<Popover.Trigger
 			class="feature-gate-btn"
 			aria-disabled="true"
-			data-testid="feature-gate-locked-trigger"
+			aria-describedby={describedBy}
+			data-testid={testid}
 			title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
 		>
 			<span class="feature-gate-btn__icon" aria-hidden="true">🔒</span>
@@ -115,11 +158,12 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 	</Popover.Root>
 {:else}
 	<div class="feature-gate-section">
-		<Popover.Root positioning={{ placement: 'top' }}>
+		<Popover.Root {positioning}>
 			<Popover.Trigger
 				class="feature-gate-overlay"
 				aria-disabled="true"
-				data-testid="feature-gate-locked-trigger"
+				aria-describedby={describedBy}
+				data-testid={testid}
 				title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
 			>
 				<span class="feature-gate-lock" aria-hidden="true">🔒</span>
@@ -140,8 +184,11 @@ const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 	:global(.feature-gate-btn) {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 1rem;
+		gap: 0.125rem;
+		/* #4992: in a list row (admin/rewards edit) the lock icon makes it wider than the real Button (size="sm")
+		   and wraps more row titles on mobile. Inline padding + gap are trimmed so the pill is about as wide as it */
+		padding: 0.5rem;
+		white-space: nowrap;
 		border: 1px solid var(--color-border-default);
 		border-radius: var(--radius-md);
 		background: var(--color-surface-secondary);

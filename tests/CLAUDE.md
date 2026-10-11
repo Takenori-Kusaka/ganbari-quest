@@ -242,7 +242,7 @@ interactive primitive の play 関数 coverage:
 |---|---|---|---|---|
 | 1 | critical user journey が機能的に goal 完遂する (dead-end ゼロ) | 機能 | 上記「act → outcome assert」E2E (helper `goal-flows.ts`) + Storybook play | **#2544 (実装済 基盤)** |
 | 2 | 同一 CUJ を **Cognitive Walkthrough 4 質問**で 1 周し全 Yes | UX (体験) | PO or AI が初見 persona × 4 質問 (Q1 正しい結果を得ようとするか / Q2 正しい操作が利用可能と気づくか / Q3 操作 ↔ 結果結びつけ / Q4 進捗 visible)。AI は H2 / H4 / H8 担当、**H3 / H6 / H9 は人間が必ず検証** (AI 弱点、Baymard false-positive 80% 抑制、research §3-1) | **`.claude/skills/cognitive-walkthrough/SKILL.md` (#2554、本 skill SSOT)** |
-| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | 情報統一性 | プラン文字列のみ [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) が `pre-ready` Step 7 で自動実行。**それ以外の用語 SSOT 逸脱を検出する lint は無く、レビューで担保する** | **用語 SSOT は `terms.ts` (atom) / `labels.ts` (compound)、ADR-0045** |
+| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | 情報統一性 | プラン文字列のみ [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) が `pre-ready` Step 7 で自動実行。**それ以外の用語 SSOT 逸脱を検出する lint は無く、レビューで担保する** | **用語 SSOT は `terms.ts` (atom) / labels 層 (compound、`src/lib/domain/labels/`、置き場所は docs/DESIGN.md §6)、ADR-0045** |
 | 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | 導線 + 統一性 | [`tests/e2e/admin-add-path-isomorphism.spec.ts`](e2e/admin-add-path-isomorphism.spec.ts) が 3 画面の add dropdown 同型性を assert。**用語重複そのものを検出する lint は無く、レビューで担保する** | **DESIGN.md §10 構造ルール (add 経路 ≤ 4 / dropdown 集約)** |
 | 5 | critical flow の screenshot を vision LLM に task-grounded prompt で review → 人間 filter 済 | 見た目 | §3 flow (research §3-3 prompt)、capture.mjs 連番 → vision LLM → PO filter | **C-5 別 Issue (POC 中、opt-in)** |
 | 6 | charter ベース exploratory 1 セッション (add/cancel 連打・空送信) で dead-end ゼロ | 体験 + dead-end | AI exploratory agent or 人間 45 分 session | **C-6 別 Issue (POC 中、opt-in)** |
@@ -281,7 +281,7 @@ interactive primitive の play 関数 coverage:
 - 基盤: #2544 (機能基盤、ADR-0007 EPIC-merge tier)
 - 兄弟: C-2 #2554 (Cognitive Walkthrough skill、`.claude/skills/cognitive-walkthrough/SKILL.md` で実装) / C-3 #2555 (用語 coherence lint、PR #2587 で実装)
 - 拡張根拠: **PR #2657 後段フェーズ Round 1 deep research** (`tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3 業界網羅 + DoR gap 分析、2026-05-30)
-- 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR 12 条件ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 12 条件チェック)
+- 参照元: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時の判定 flow。条件そのものは本節を指すだけで写さない)。PR template には CX-DoR の条件チェックを置いていない (条件の確認結果は PR body の `## 検証` に書く)
 - 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3 (DoR 1-8 起源) + `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §1-§9 (DoR 9-12 拡張根拠)
 
 ## 負例 fixture と cspell（#4009 / #3967 で 2 回連続で踏んだ）

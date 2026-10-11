@@ -144,10 +144,12 @@
 
 | チャンネル | Webhook 用途 | GitHub Actions 登録先 | 種別 |
 |-----------|-------------|---------------------|------|
-| 📢 アップデート情報 | 顧客向けリリースノート | Variable: `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Variable |
-| 🔧 deploy-log | デプロイ成否通知 | Variable: `DISCORD_WEBHOOK_URL` | Variable |
+| 📢 アップデート情報 | 顧客向けリリースノート | Secret: `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Secret |
+| 🔧 deploy-log | デプロイ成否 / 月次コスト監査 / hotfix back-merge / 統合 PR の通知 | Secret: `DISCORD_WEBHOOK_URL` | Secret |
 | 📩 お問い合わせ受信 | アプリ内フィードバックフォーム | Secret: `FEEDBACK_DISCORD_WEBHOOK_URL` | Secret |
 | 📩 お問い合わせ受信（メール） | support@ メール受信通知 | Secret: `DISCORD_WEBHOOK_SUPPORT` | Secret |
+
+**webhook URL は必ず Secret で持つ（#4994）**。URL はそれ自体が「そのチャンネルに bot として投稿する権限」であり、GitHub Actions の Variable は実行ログでマスクされない（step の `env:` がログ冒頭に平文で展開される）。リポジトリは public なので、Variable に置いた時点で誰でも読める。Secret は `if:` で直接参照できないため、step の `env:` で受けて shell で空判定する（未登録なら warning を出して skip）。
 
 #### 📢 アップデート情報の本文の出典（#4883）
 
@@ -171,7 +173,7 @@
 │    │   └─ DISCORD_RELEASE_NOTES_WEBHOOK_URL ──→ 📢 アップデート情報  │
 │    ├─ weekly-report.yml                                            │
 │    │   └─ DISCORD_WEEKLY_REPORT_WEBHOOK_URL ──→ (週次レポート)      │
-│    └─ cost-audit.yml                                               │
+│    └─ cost-audit.yml / hotfix-back-merge.yml / integration-pr.yml  │
 │        └─ DISCORD_WEBHOOK_URL ──→ 🔧 deploy-log                   │
 │                                                                    │
 │  [AWS Lambda]                                                      │
@@ -192,9 +194,9 @@
 
 | 変数名 | 種別 | 設定場所 | 用途 |
 |--------|------|---------|------|
-| `DISCORD_WEBHOOK_URL` | Variable | GitHub Settings → Variables | デプロイ通知・コスト監査通知 |
-| `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Variable | GitHub Settings → Variables | リリースノート投稿 |
-| `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` | Variable | GitHub Settings → Variables | 週次レポート |
+| `DISCORD_WEBHOOK_URL` | Secret | GitHub Settings → Secrets | デプロイ通知・コスト監査・hotfix back-merge・統合 PR の通知 |
+| `DISCORD_RELEASE_NOTES_WEBHOOK_URL` | Secret | GitHub Settings → Secrets | リリースノート投稿 |
+| `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` | Secret | GitHub Settings → Secrets | 週次レポート（未登録の間は skip） |
 | `FEEDBACK_DISCORD_WEBHOOK_URL` | Secret | GitHub Settings → Secrets | フィードバック送信先 |
 | `DISCORD_WEBHOOK_SUPPORT` | Secret | GitHub Settings → Secrets | サポートメール受信通知 |
 | `DISCORD_WEBHOOK_HEALTH` | Secret | GitHub Settings → Secrets | ヘルスチェック / 稼働状況（利用者向け） |
@@ -391,6 +393,17 @@ FEEDBACK_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 
 > **今後の拡張**: 未実装の通知は、チャンネルの追加（例: `#課金通知`, `#退会通知`）または deploy-log への統合で対応する。
 > 運用設計書 §8 の推奨チケット #0195「Discord運用者通知の体系的整備」で対応予定。
+
+### 7.2 週次運営レポート（`weekly-report.yml`）の中身
+
+Secret `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` が登録されていれば、毎週月曜 09:00 JST に 1 通届く（未登録の間は送信を skip する）。各節の出典:
+
+| 節 | 出典 | 導出 |
+|---|---|---|
+| 利用状況 | 本番 DSQL | `/ops` ダッシュボードと同じ `getKpiSummary()`（`src/lib/server/services/ops-service.ts`）を `scripts/ops-kpi-summary.ts` で呼ぶ。文面は同ファイルの `formatOpsKpiReportText()`、ラベルは `OPS_LABELS`。取得に失敗したら古い値を出さず「取得に失敗しました」と明記し、job を失敗させる |
+| 先週の AWS コスト | Cost Explorer（サービス別） | 費用の大きい順に上位 5 サービス + その他。合計は全サービスの和（サービス名を固定で列挙しない） |
+| Stripe 売上 | Stripe API（先週の paid invoice） | 件数と `amount_paid` の和 |
+| サマリー | 上記 | MRR 概算（月、利用状況と同じ値）と今週の AWS 費用 |
 
 ---
 

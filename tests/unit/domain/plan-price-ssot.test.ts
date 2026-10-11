@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 // LP 生成側の実処理 (.mjs script) をそのまま検査する
 import { buildPriceTerms } from '../../../scripts/generate-lp-labels.mjs';
+import { labelSourceFiles } from '../../../scripts/lib/parse-labels-ts.mjs';
 import {
 	formatYen,
 	PLAN_MRR_UNIT_YEN,
@@ -218,9 +219,10 @@ describe('plan price SSOT (#4533)', () => {
 			}
 		});
 
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) は全ファイルを見る
 		it.each([
 			'src/lib/domain/terms.ts',
-			'src/lib/domain/labels.ts',
+			...labelSourceFiles(),
 			'src/lib/domain/plan-features.ts',
 		])('%s に円記号付きの金額 literal が残っていない', (rel) => {
 			const src = stripComments(readSrc(rel));

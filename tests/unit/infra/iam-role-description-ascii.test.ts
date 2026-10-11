@@ -29,6 +29,7 @@ import { NetworkStack } from '../../../infra/lib/network-stack';
 import { OpsStack } from '../../../infra/lib/ops-stack';
 import { SesStack } from '../../../infra/lib/ses-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
+import { readBinStackNames } from '../helpers/bin-app-stack-ids';
 
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
 
@@ -60,9 +61,9 @@ function makeApp(): cdk.App {
 }
 
 /**
- * bin/app.ts が instantiate し得る全 stack (prod 6 stack + Dsql + Dsql staging + AWS staging 3 stack)
- * の Template を [stack 名, Template] のペアで返す。IAM Role の網羅性を最大化するため、context gate
- * を要する stack も明示 instantiate する。
+ * bin/app.ts が instantiate し得る全 stack (prod / Dsql prod・staging / AWS staging。集合は [G1] が
+ * bin/app.ts と突き合わせる) の Template を [stack 名, Template] のペアで返す。IAM Role の網羅性を
+ * 最大化するため、context gate を要する stack も明示 instantiate する。
  */
 function buildAllTemplates(): Array<[string, Template]> {
 	const templates: Array<[string, Template]> = [];
@@ -126,7 +127,8 @@ function buildAllTemplates(): Array<[string, Template]> {
 		),
 	]);
 
-	// --- AWS staging 3 stack (#2873) ---
+	// --- AWS staging (bin/app.ts の stagingEnabled ブロックと同一 wire。stack の SSOT は
+	//     deploy-aws-staging.yml の STAGING_STACKS、網羅は [G1] が bin/app.ts と突き合わせる) ---
 	const stagingApp = makeApp();
 	const stStorage = new StorageStack(stagingApp, 'GanbariQuestStorageStaging', {
 		env,
@@ -142,10 +144,19 @@ function buildAllTemplates(): Array<[string, Template]> {
 		repository: stStorage.repository,
 		envConfig: STAGING_ENV_CONFIG,
 	});
+	const stNetwork = new NetworkStack(stagingApp, 'GanbariQuestNetworkStaging', {
+		env,
+		functionUrl: stCompute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
+		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
+		geoRestrictionCountries: [],
+	});
 	for (const [name, stack] of [
 		['GanbariQuestStorageStaging', stStorage],
 		['GanbariQuestAuthStaging', stAuth],
 		['GanbariQuestComputeStaging', stCompute],
+		['GanbariQuestNetworkStaging', stNetwork],
 	] as const) {
 		templates.push([name, Template.fromStack(stack)]);
 	}
@@ -156,9 +167,14 @@ function buildAllTemplates(): Array<[string, Template]> {
 describe('全 stack の IAM Role description は AWS IAM 制約 (ASCII/Latin-1) 準拠 (#3870)', () => {
 	const templates = buildAllTemplates();
 
-	it('[G1] instantiate 対象 stack を漏れなく synth できる (網羅性の担保)', () => {
-		// stack を追加したら本数を増やす。silent に synth 対象が減っていないことの guard。
-		expect(templates.length).toBe(11);
+	it('[G1] bin/app.ts が instantiate し得る全 stack を synth している (網羅性の担保)', () => {
+		// 本数を数字で固定すると、bin/app.ts に stack が増えても数字ごと古いまま緑になる
+		// (NetworkStaging が本 test から漏れていた)。bin/app.ts の stack 集合と突き合わせる。
+		const synthesized = templates.map(([name]) => name).sort();
+		expect(
+			synthesized,
+			'bin/app.ts の stack と synth 対象が一致しません。buildAllTemplates() に bin/app.ts と同じ wire で足してください',
+		).toEqual(readBinStackNames());
 	});
 
 	it('[G2] 全 stack の AWS::IAM::Role の Description が U+00FF 以下のみで構成される', () => {

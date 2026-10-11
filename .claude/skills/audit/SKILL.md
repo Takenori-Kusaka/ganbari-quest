@@ -49,7 +49,7 @@ CI の結果を必要としない。CI 結果が要るのは fail triage だけ�
 3. テスト範囲・方針・影響範囲を deep research して抜け漏れを確認
 4. テストケース一覧 + 自動テスト追加。**develop の既存テストとの網羅性マッピング**で冗長を排除
 5. 追加テスト一式を **develop へ PR** として提出
-6. 特定コミットを凍結し `release/<YYYY-MM-DD>` を cut → **`release/*` → main 統合 PR を発行**
+6. 特定コミットを凍結し `release/<YYYY-MM-DD>` を cut → **`release/*` → main 統合 PR を発行**（題名は `[統合] release/<YYYY-MM-DD> → main`。「第 N 回」は入れない、branch-strategy.md §3.1）
 7. 統合 PR の全 CI 成功を確認。**fail は 1 件で止めず全件洗い出し**、各々 deep research で真因・なぜなぜ・横展開まで行う
 8. 全緑なら **merge commit**（`gh pr merge --merge`、**squash 禁止**）で merge → 本番 deploy を watch →
    **main → develop back-merge sync PR**
@@ -59,8 +59,9 @@ CI の結果を必要としない。CI 結果が要るのは fail triage だけ�
 
 ## 4. adversarial evidence（approve 直前に 1 回）
 
-evidence には **TTL 30 分**がある。`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れるため、
-**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
+evidence は **merge の前提条件ではない**（ADR-0068 / #4571 で gate-approve hook の呼び出しを外した）。
+作る場合、`scripts/verify-adversarial-output.mjs` は **TTL 30 分**で判定するため、`生成 → 指摘を処置 → 本文更新 → 再生成`
+のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
 
 **ただし release branch に append したら必ず再生成する。** 寄せてよいのは「処置前の先取り生成」であって、
 append 後の再生成ではない。省くと stale approval で未監査差分が merge される。

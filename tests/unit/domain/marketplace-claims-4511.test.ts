@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import {
 	getChildNavModeLabels,
 	MARKETPLACE_LABELS,
@@ -47,7 +48,7 @@ describe('#4511 marketplace の導線と説明', () => {
 		});
 
 		it('LP 側の CTA と同じ遷移先である (LP だけ切替済みの状態に戻らない)', () => {
-			const lpLabels = repoFile('src/lib/domain/labels.ts');
+			const lpLabels = readLabelsSource();
 			// LP は https://demo.ganbari-quest.com/ を使っている (#2181)
 			expect(lpLabels).toContain(`midHref: '${DEMO_SITE_TERMS.url}'`);
 		});
@@ -139,7 +140,7 @@ describe('#4511 marketplace の導線と説明', () => {
 			// 値の一致だけでなく、labels.ts が literal を書かず atom を参照することも pin する
 			// (片方だけ変わって再びズレるのを防ぐ)。
 			expect(MARKETPLACE_LABELS.detailCtaImportChecklistDesc).toContain(NAV_ITEM_LABELS.checklists);
-			const labelsSrc = repoFile('src/lib/domain/labels.ts');
+			const labelsSrc = readLabelsSource();
 			const descLine = labelsSrc.match(/^\tdetailCtaImportChecklistDesc: .*$/m)?.[0] ?? '';
 			expect(descLine, 'detailCtaImportChecklistDesc の定義行が見つかる').not.toBe('');
 			expect(descLine, '画面名を literal で複製しない').toContain('NAV_ITEM_LABELS.checklists');

@@ -154,7 +154,8 @@
 			"!tests/fixtures/crlf",
 			"!**/.dependency-cruiser-known-violations.json",
 			"!**/eslint-suppressions.json",
-			"!**/graphify-out"
+			"!**/graphify-out",
+			"!graft"
 		]
 	}
 }

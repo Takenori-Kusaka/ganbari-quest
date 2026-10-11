@@ -18,7 +18,7 @@ jobs:
     environment: production
     steps:
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -164,12 +164,16 @@ jobs:
             --output table 2>/dev/null || echo "None found"
 
       - name: Post audit summary to Discord
-        if: vars.DISCORD_WEBHOOK_URL != ''
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           MONTH=$(date -u +"%Y年%-m月")
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
@@ -178,4 +182,4 @@ jobs:
                 \"color\": 3447003,
                 \"footer\": {\"text\": \"がんばりクエスト Cost Audit\"}
               }]
-            }"
+            }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"

@@ -3,7 +3,7 @@ name: LP Review
 description: Use when conducting LP (Landing Page) review rounds. Initializes templates for materials/findings/integration/issue-list, spawns 3 specialist agents in parallel, and enforces SSOT for PO screenshots. Replaces ad-hoc per-round file creation.
 ---
 
-> **親 SSOT**: [PO Session — Goal 2](../../../docs/sessions/po-session.md) / **関連 Skill**: [Issue Triage (Goal 1)](../issue-triage/SKILL.md)
+> **親 SSOT**: [PO Session](../../../docs/sessions/po-session.md)（§参照「LP レビュー」） / **関連 Skill**: [Issue Triage](../issue-triage/SKILL.md)
 
 # LP レビューワークフロー
 
@@ -91,7 +91,7 @@ PO-N-1（詳細: tmp/reviews/lp-YYYY-MM-DD/materials/po-direct-findings.md#po-n-
 
 | ドキュメント | 用途 |
 |---|---|
-| @docs/sessions/po-session.md | PO Orchestrator 親 SSOT |
+| @docs/sessions/po-session.md | PO セッション（親 SSOT） |
 | @docs/decisions/0010-pre-pmf-scope-judgment.md | Pre-PMF |
 | @docs/decisions/0012-anti-engagement-principle.md | Anti-engagement |
 | @docs/decisions/0013-lp-truth-from-implementation.md | LP truth (Committed/Aspirational) |

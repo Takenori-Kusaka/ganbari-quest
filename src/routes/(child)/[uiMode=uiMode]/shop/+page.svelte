@@ -12,6 +12,8 @@ import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Tabs from '$lib/ui/primitives/Tabs.svelte';
+import { resolveShopGuidePresence } from '$lib/ui/tutorial/tutorial-chapters-child';
+import { setChildGuidePresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 import ConfirmExchangeDialog from './ConfirmExchangeDialog.svelte';
 
 let { data, form } = $props();
@@ -93,6 +95,19 @@ function applyFilters(rewards: typeof data.rewards) {
 	return list;
 }
 
+// #4864: ❓ ガイドに「ごほうびのカードが画面にあるか」を伝える (知っているのはこの画面だけ)。
+// カードは選んでいるタブ・絞り込みに合うものだけが描かれるので、全ごほうびの件数ではなく
+// **描かれているカード** で判定する (空のタブでガイドが無いカードを指さない)。値の決め方は
+// resolveShopGuidePresence を参照。真偽値を $derived に切り出すのは #4923 と同じ理由
+// (自動リロードで `data` が差し替わっても、値が変わらなければ書き直さない)。
+const shopGuidePresence = $derived(
+	resolveShopGuidePresence(data.rewards.length, applyFilters(rewardsForTab(activeTabRaw)).length),
+);
+$effect(() => {
+	setChildGuidePresence('shop', shopGuidePresence);
+	return () => setChildGuidePresence('shop', undefined);
+});
+
 // バッジ表示制御（#2160 AC3） — snippet 内で各 panel ごとに件数を計算するので
 // グローバル derived は表示判定のみ
 const isFilterActive = $derived(pointsRangeFilter !== 'all' || availableOnlyFilter);
@@ -155,6 +170,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 		class="history-link"
 		href={resolve(`/${uiMode}/history?kind=purchases`)}
 		data-testid="shop-history-link"
+		data-tutorial="shop-history"
 	>
 		{L.historyLinkLabel}
 	</a>
@@ -284,6 +300,7 @@ const ptsText = (points: number) => formatPointDisplayText(points, ps, L.pointUn
 										<div
 											class="reward-card"
 											data-testid="reward-card-{reward.id}"
+											data-tutorial="shop-reward-card"
 											data-shop-category={reward.shopCategory}
 										>
 											<div class="reward-icon-wrap">

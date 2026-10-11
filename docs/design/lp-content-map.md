@@ -118,8 +118,8 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | **運営者が管理する環境の内か外か**（「運営者が管理する AWS 環境内で処理」/「外部事業者へ送信」） | 内部の構成（どのデータストア・どの実行基盤か） |
 | 移転先国・リージョン（米国 / us-east-1）、法的根拠（DPA / SCC）、用途 | 「AI に送っている」事実を伏せること（**用途と送信先の性質は必ず書く**） |
 
-**理由**: サービス名は実装を差し替えるたびに法務文書を嘘にする（実際、`DynamoDB` は #3438 の
-DSQL 移管後も privacy.html に残り、事実と乖離した状態で公開されていた）。一方、個人情報保護法
+**理由**: サービス名は実装を差し替えるたびに法務文書を嘘にする（データストアや実行基盤を差し替えても
+法務文書の改訂は連動しないため、書き換え漏れがそのまま事実と乖離した公開文面になる）。一方、個人情報保護法
 §27 / §28 と電気通信事業法 §27-12 が要求するのは提供先の**第三者の名称**・移転先国・用途であり、
 マネージドサービス名の粒度は要求されていない。事業者名と「環境の内か外か」を残せば開示水準は
 下がらず、実装変更に対して不変な文面になる。
@@ -744,7 +744,7 @@ floating-cta の CTA ボタン文言は、ratchet とは独立に **既存 CTA 3
 #### 7.3.5 並行実装ペア
 
 - `src/lib/domain/labels.ts` `LP_FLOATING_CTA_LABELS` ←→ `site/shared-labels.js` `GANBARI_LABELS.lp.floatingCta`
-- 文言を変更するときは labels.ts を編集し `node scripts/generate-lp-labels.mjs` で再生成
+- 文言を変更するときは labels 層の `src/lib/domain/labels/lp.ts` (LP の namespace の置き場所、docs/DESIGN.md §6) を編集し `node scripts/generate-lp-labels.mjs` で再生成
 
 ### 7.4 CTA 以外のリンク
 

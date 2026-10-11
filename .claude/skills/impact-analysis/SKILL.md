@@ -44,7 +44,7 @@ grep は Dependency IA の syntactic 層のみ。3 つを併用しないと派�
 # 文字列 grep (高速、network なし)
 rg -n "pattern" --type-add 'svelte:*.svelte' -t svelte -t ts -t md path/
 
-# AST 構造マッチ (template literal / 動的構築まで捉える)
+# AST 構造マッチ (template literal / 動的構築まで捉える。@ast-grep/cli は未導入 — 下表の導入コマンド参照)
 npx ast-grep --pattern '$VAR.family' --lang ts src/
 npx ast-grep --pattern 'PLAN_TERMS.$KEY' --lang ts src/
 ```
@@ -54,7 +54,7 @@ npx ast-grep --pattern 'PLAN_TERMS.$KEY' --lang ts src/
 ### L2: 意味層 (型情報経由)
 
 ```typescript
-// ts-morph script (例: rename safety)
+// ts-morph script (例: rename safety。ts-morph は未導入 — 下表の導入コマンド参照)
 import { Project } from 'ts-morph';
 const project = new Project({ tsConfigFilePath: './tsconfig.json' });
 const sourceFile = project.getSourceFileOrThrow('src/lib/domain/terms.ts');
@@ -72,7 +72,7 @@ const refs = propDecl.findReferences();
 ### L3: 構造層 (call graph / 依存グラフ)
 
 ```bash
-# dead code / 取り残し export
+# dead code / 取り残し export (knip は導入済、`npm run knip` でも可)
 npx knip --reporter symbols
 
 # 依存境界 gate + 循環/orphan 検出 (#3871 で dependency-cruiser を dev dep 導入済、repo config あり)
@@ -82,9 +82,9 @@ npm run depcruise:infra    # infra (CDK): 循環=error / stack 間直 import=err
 # モジュール依存グラフ生成 (.dot は graphviz 不要で常に生成、SVG 化は graphviz `dot` が必要)
 npm run depcruise:graph        # → tmp/dep-graph.dot (graphviz 不要、決定的)
 npm run depcruise:graph:svg    # → tmp/dep-graph.svg (graphviz `dot` が PATH に必要)
-npx madge --circular --extensions ts,svelte src/  # 循環検出のみの補助 (madge)
+npx madge --circular --extensions ts,svelte src/  # 循環検出のみの補助 (madge は未導入、npx で都度取得)
 
-# call graph (TypeScript)
+# call graph (TypeScript。jelly は未導入、npx で都度取得)
 npx jelly --target src/lib/server/services/stripe-service.ts
 ```
 
@@ -125,7 +125,7 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 
 #### C. 外部 SaaS 連携
 - [ ] 7. Stripe (Product / Price slug / Webhook event / past invoice)
-- [ ] 8. Cognito (group name / custom attribute、rename 不可、ADR-0018 教訓)
+- [ ] 8. Cognito (group name / custom attribute、rename 不可。User Pool Replacement の教訓と deploy 前 gate は ADR-0019、旧 ADR-0018 は削除済)
 - [ ] 9. Sentry / Datadog (project / tag / alert query)
 - [ ] 10. email / push template (SES / SendGrid / FCM handlebars 変数)
 
@@ -164,8 +164,8 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 |---|---|---|
 | **fast feedback** | ast-grep + ESLint | `npm i -D @ast-grep/cli` |
 | **rename safety** | ts-morph | `npm i -D ts-morph` |
-| **dead code** | Knip | `npm i -D knip` (既存導入確認) |
-| **依存グラフ / 境界 gate** | dependency-cruiser / Madge | 導入済 (#3871): `npm run depcruise` / `depcruise:infra` / `depcruise:graph` (`:svg` は graphviz 要) |
+| **dead code** | Knip | 導入済: `npm run knip` |
+| **依存グラフ / 境界 gate** | dependency-cruiser / Madge | dependency-cruiser は導入済 (#3871): `npm run depcruise` / `depcruise:infra` / `depcruise:graph` (`:svg` は graphviz 要)。Madge は未導入 |
 | **deep semantic (year 1-2 回)** | CodeQL | GitHub Actions |
 | **cross-repo** | Sourcegraph Batch Changes | mono-repo 外波及時のみ |
 
@@ -203,10 +203,8 @@ CodeQL は重く Pre-PMF オーバーキル、security review 用途で別軸。
 
 ## 関連 SSOT
 
-- memory: `reference_impact_analysis_methodology.md` (詳細方法論、業界事例、primary source URL)
 - ADR: `docs/decisions/README.md` §OSS 先調査ルール（旧 ADR-0014 は #2440 PR-A5 で削除、本 skill のツール選定根拠）
 - skill: `db-migration` (DB schema 変更時の追加 skill) / `pr-review` (QM レビュー時の本 skill 適用確認) / `regression-check` (rename 後の回帰テスト)
-- 関連 memory: [[plan-name-implementation-gap]] / [[deep-research-product-specific]] / [[replan-on-unforeseen-blocker]] / [[ssot-verification-before-proposal]]
 
 ## 禁忌
 

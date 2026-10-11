@@ -1,5 +1,6 @@
 <script lang="ts">
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getChildTutorialLabels, TUTORIAL_LABELS } from '$lib/domain/labels';
+import { budoux } from '$lib/ui/actions/budoux';
 import {
 	endTutorial,
 	getChapters,
@@ -20,9 +21,15 @@ interface Props {
 	 */
 	targetRect: DOMRect | null;
 	animKey: number;
+	/**
+	 * 子供画面で表示するときの年齢モード。ボタンの文言を本文と同じ年齢帯 variant にする
+	 * (baby / preschool / elementary = ひらがな、junior / senior = 漢字。src/routes/CLAUDE.md §年齢帯 variant)。
+	 * 未指定は漢字 (親向け)。
+	 */
+	childUiMode?: string;
 }
 
-let { step, targetRect, animKey }: Props = $props();
+let { step, targetRect, animKey, childUiMode }: Props = $props();
 let showChapterMenu = $state(false);
 let bubbleEl = $state<HTMLDivElement | null>(null);
 
@@ -170,16 +177,11 @@ const bubbleStyle = $derived.by(() => {
 
 const isFirst = $derived(progress.current === 1);
 const isLast = $derived(progress.current === progress.total);
+// 1 step だけのガイドでは「おわり」と「おしまい！」が並ぶ (どちらも閉じる) ので、閉じるボタンは 1 つにする
+const isSingleStep = $derived(progress.total <= 1);
 
-// 年齢帯別のナビラベル（baby/kinder はひらがなのみ）
-const ageTier = $derived.by(() => {
-	if (typeof document === 'undefined') return '';
-	return document.querySelector('[data-age-tier]')?.getAttribute('data-age-tier') ?? '';
-});
-const isYoungTier = $derived(['baby', 'preschool'].includes(ageTier));
-const labelEnd = $derived(UI_COMPONENTS_LABELS.tutorialBubbleEnd(isYoungTier));
-const labelPrev = $derived(UI_COMPONENTS_LABELS.tutorialBubblePrev(isYoungTier));
-const labelNext = $derived(UI_COMPONENTS_LABELS.tutorialBubbleNext(isYoungTier, isLast));
+const L = $derived(childUiMode ? getChildTutorialLabels(childUiMode).dialog : TUTORIAL_LABELS);
+const labelNext = $derived(isLast ? L.bubbleDone : L.bubbleNext);
 
 function handleEnd() {
 	endTutorial();
@@ -230,8 +232,8 @@ function handleEnd() {
 
 	<!-- Content -->
 	<div class="tutorial-content">
-		<h3 class="tutorial-title">{step.title}</h3>
-		<p class="tutorial-description">{step.description}</p>
+		<h3 class="tutorial-title" use:budoux>{step.title}</h3>
+		<p class="tutorial-description" use:budoux>{step.description}</p>
 	</div>
 
 	<!-- Progress -->
@@ -246,20 +248,22 @@ function handleEnd() {
 	</div>
 
 	<!-- Navigation -->
-	<div class="tutorial-nav">
-		<button
-			class="tutorial-nav-btn tutorial-nav-end"
-			onclick={handleEnd}
-		>
-			{labelEnd}
-		</button>
+	<div class="tutorial-nav" class:single={isSingleStep}>
+		{#if !isSingleStep}
+			<button
+				class="tutorial-nav-btn tutorial-nav-end"
+				onclick={handleEnd}
+			>
+				{L.bubbleEnd}
+			</button>
+		{/if}
 		<div class="tutorial-nav-right">
 			{#if !isFirst}
 				<button
 					class="tutorial-nav-btn tutorial-nav-prev"
 					onclick={() => prevStep()}
 				>
-					{labelPrev}
+					{L.bubblePrev}
 				</button>
 			{/if}
 			<button
@@ -412,6 +416,10 @@ function handleEnd() {
 		justify-content: space-between;
 		padding: 8px 12px 12px;
 		gap: 8px;
+	}
+
+	.tutorial-nav.single {
+		justify-content: flex-end;
 	}
 
 	.tutorial-nav-right {

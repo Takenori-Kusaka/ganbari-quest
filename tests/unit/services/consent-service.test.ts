@@ -109,6 +109,43 @@ describe('consent-service', () => {
 			expect(result.needsReconsent).toBe(true);
 		});
 
+		// #5040: 判定は本人単位。世帯の別の保護者の同意を本人の判定に流用しない。
+		it('userId を 3 種すべての検索に渡す（本人単位で引く）', async () => {
+			const { checkConsent } = await import('../../../src/lib/server/services/consent-service');
+			mockFindLatestConsent.mockResolvedValue(undefined);
+
+			await checkConsent('tenant-1', 'user-b');
+
+			expect(mockFindLatestConsent).toHaveBeenCalledTimes(3);
+			expect(mockFindLatestConsent.mock.calls.map((c) => [c[1], c[2]])).toEqual([
+				['terms', 'user-b'],
+				['privacy', 'user-b'],
+				['cross-border', 'user-b'],
+			]);
+		});
+
+		it('世帯の他の保護者が同意済みでも、本人の記録が無ければ needsReconsent=true', async () => {
+			const {
+				checkConsent,
+				CURRENT_TERMS_VERSION,
+				CURRENT_PRIVACY_VERSION,
+				CURRENT_CROSS_BORDER_VERSION,
+			} = await import('../../../src/lib/server/services/consent-service');
+			const versionByType: Record<string, string> = {
+				terms: CURRENT_TERMS_VERSION,
+				privacy: CURRENT_PRIVACY_VERSION,
+				'cross-border': CURRENT_CROSS_BORDER_VERSION,
+			};
+			// 記録は user-a のものだけ。user-a で引けば同意済み、user-b で引けば何も無い。
+			mockFindLatestConsent.mockImplementation(
+				async (_tenantId: string, type: string, userId?: string) =>
+					userId === 'user-a' ? ({ version: versionByType[type] } as ConsentRecord) : undefined,
+			);
+
+			expect((await checkConsent('tenant-1', 'user-a')).needsReconsent).toBe(false);
+			expect((await checkConsent('tenant-1', 'user-b')).needsReconsent).toBe(true);
+		});
+
 		it('同意記録がない場合 needsReconsent=true', async () => {
 			const { checkConsent } = await import('../../../src/lib/server/services/consent-service');
 

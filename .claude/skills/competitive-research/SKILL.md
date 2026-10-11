@@ -11,7 +11,7 @@ description: Use weekly (not in the daily audit run) to observe competitor produ
 
 競合プロダクト（子供向け習慣化 / 家庭内ゲーミフィケーション / お小遣い管理系）の機能・UX・価格動向を **週 1 回**観測し、本プロダクトの監査 finding（改善示唆）として報告するための手順。
 
-audit-team.md §3.1 が定義する「競合調査」role の evidence 形式（structured JSON、一次情報 URL 必須）を満たす finding を生成する。finding の採否（自動棄却含む）の最終判定は audit-manager（orchestrator）が行い、本 skill は **finding 生成までが責務**（ADR-0056 §E の subagent ≠ orchestrator 役割分離を継承、audit-team.md §3.3）。
+audit-team.md §3.1 が定義する「競合調査」role の evidence 形式（structured JSON、一次情報 URL 必須）を満たす finding を生成する。finding の採否（自動棄却含む）の最終判定は audit-manager（orchestrator）が行い、本 skill は **finding 生成までが責務**（audit-team.md §3.3 の subagent ≠ orchestrator 役割分離。出典の ADR-0056 §E は ADR-0068 で superseded だが、役割分離は §3.3 で現役）。
 
 ## 実行頻度（週 1、daily audit run には含めない）— AC6
 
@@ -25,7 +25,7 @@ audit-team.md §3.1 が定義する「競合調査」role の evidence 形式（
 1. **WebSearch コスト**: 競合調査は competitor ごとに複数回の WebSearch + 一次情報 fetch を要する。これを毎日回すと daily run の固定時間 box（EPIC 失敗シナリオ⑥の無限棄却ループ防止のため box 化）を圧迫する。
 2. **情報鮮度**: 競合の機能・価格は日次では実質変動しない。日次観測は同一 finding の重複生成を招くだけで監査価値を増やさない。週 1 cadence で鮮度として十分。
 
-この分離は audit-team.md §3.4（2 段 gate 境界）の「各 run は固定時間 box で完了」原則と整合する。
+この分離は audit-team.md §3.6（棄却運用 flow）の「各 run は固定時間 box で完了」原則、および §3.1.1 の「競合調査は run 単位では起動しない（週次）」と整合する。
 
 ## 手順（issue-triage 手順 B/C の流用）— AC1
 
@@ -110,7 +110,7 @@ WebSearch ベース調査の最大リスクは**幻覚 finding（実在しない
 }
 ```
 
-- `policy_filter_required: true` の finding は、起票前に**ポリシー準拠判定**（audit-team.md §3.1、[pre-pmf-check](../pre-pmf-check/SKILL.md) + [brand-check](../brand-check/SKILL.md) + [adversarial-reviewer](../adversarial-reviewer/SKILL.md) 統合判定）の filter にかける（後述ポリシー準拠判定例参照）。
+- `policy_filter_required: true` の finding は、起票前に**ポリシー準拠判定**（audit-team.md §3.1、実体は [policy-compliance](../policy-compliance/SKILL.md) = [pre-pmf-check](../pre-pmf-check/SKILL.md) + [brand-check](../brand-check/SKILL.md) + [adversarial-reviewer](../adversarial-reviewer/SKILL.md) 統合判定）の filter にかける（後述ポリシー準拠判定例参照）。
 - `source_url` 欠落 finding は出力に含めない（AC2）。
 
 ## サンプル実行（competitor 1〜2 件）— AC5

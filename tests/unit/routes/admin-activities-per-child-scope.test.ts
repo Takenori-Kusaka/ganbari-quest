@@ -111,10 +111,21 @@ function makeLocals() {
 	} as unknown as App.Locals;
 }
 
+/**
+ * action が読むのは `request.formData()` だけなので、それだけを備えた stub を渡す
+ * (他の route unit test と同じ作り方: avatar-upload-old-file-deletion / child-cookie-guard 等)。
+ *
+ * `new Request(url, { body: form })` で実際に multipart へ直列化してはいけない。jsdom 環境の
+ * `FormData` / `Blob` は jsdom の実装で、vitest が `Request` に渡す前に Node 側の実体へ詰め替える
+ * 互換層は jsdom の非公開内部を読んでいる。jsdom 30.1 が内部の持ち方を変えたため、Blob を含む
+ * FormData を渡すと `Cannot read properties of undefined (reading '_buffer')` で落ちる
+ * (vitest-dev/vitest#11336。修正 #11379 は vitest 5.0.3 以降にしか入っていない)。
+ * 本 test が固定したいのは「どの子が操作対象になるか」であり、multipart の直列化ではない。
+ */
 function makeFormRequest(fields: Record<string, string | Blob>): Request {
 	const form = new FormData();
 	for (const [k, v] of Object.entries(fields)) form.append(k, v);
-	return new Request('http://localhost/admin/activities', { method: 'POST', body: form });
+	return { formData: async () => form } as unknown as Request;
 }
 
 beforeEach(() => {

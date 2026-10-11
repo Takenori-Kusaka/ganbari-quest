@@ -36,6 +36,7 @@ on:
       - 'site/**'
       - 'scripts/check-orphan-*.mjs'
       - 'scripts/lib/ci/orphan-utils.mjs'
+      - 'scripts/lib/parse-labels-ts.mjs'
       - 'scripts/orphan-baselines/**'
       - '.env.example'
       - '.github/workflows/orphan-check.yml'
@@ -74,7 +75,7 @@ jobs:
       - name: 'check-orphan-fixtures (demo/demo-data.ts DEMO_* exports)'
         run: node scripts/check-orphan-fixtures.mjs
 
-      - name: 'check-orphan-labels (labels.ts / terms.ts namespace exports)'
+      - name: 'check-orphan-labels (labels 層 / terms.ts namespace exports)'
         run: node scripts/check-orphan-labels.mjs
 
       - name: 'check-orphan-ui (ui/{primitives,components,features}/*.svelte)'

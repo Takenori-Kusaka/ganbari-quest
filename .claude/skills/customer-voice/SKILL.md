@@ -5,7 +5,7 @@ description: Use when evaluating features from the end-user perspective. Generat
 
 # 仮想顧客フィードバック
 
-## ペルソナ定義（docs/design/11-ペルソナ設計.md 準拠）
+## ペルソナ定義（本 skill 独自の簡易 3 persona。正式なペルソナは `docs/design/11-ペルソナ定義書.md` の P1 / P2 / C1〜C3 で、下記とは年齢・家族構成が一致しない）
 
 ### ペルソナ A: 3歳児の親（30代）
 - **ニーズ**: 子供の基本的な生活習慣づけ（歯磨き、お片付け）

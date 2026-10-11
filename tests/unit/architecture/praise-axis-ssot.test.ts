@@ -24,6 +24,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { labelSourceFiles } from '../../../scripts/lib/parse-labels-ts.mjs';
 import {
 	MONTHLY_HABIT_DAYS_THRESHOLD,
 	PRAISE_MILESTONE_IDS,
@@ -86,7 +87,8 @@ describe('褒める軸 SSOT (#4268 AC4 / #4172 方針の両側適用)', () => {
 	it('[P7] 撤去した量ベース軸の識別子が src 配下に残っていない', () => {
 		const sources = [
 			'src/lib/server/services/value-preview-service.ts',
-			'src/lib/domain/labels.ts',
+			// #4965: labels 層 (入口 labels.ts + labels/*.ts) は全ファイルを見る
+			...labelSourceFiles(),
 			'src/lib/domain/constants/habit-milestones.ts',
 			'src/lib/server/services/activity-log-service.ts',
 			'src/lib/server/demo/demo-data.ts',
