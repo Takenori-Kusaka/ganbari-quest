@@ -233,6 +233,8 @@ export async function acceptInvite(
 		 * 「唯一のメンバーかつ owner」+ 顧客の明示同意を確認したときだけ。
 		 */
 		allowRelocation?: boolean;
+		/** #5049: 引っ越し合流で畳む元の家族グループ。受諾と同じ txn で元の membership を外す。 */
+		vacateTenantId?: string;
 	},
 ): Promise<{ membership: Membership } | { error: string }> {
 	const invite = await getInvite(inviteCode);
@@ -265,6 +267,7 @@ export async function acceptInvite(
 		// #4723: 上限は txn の中で数え直す (残り 1 枠への同時受諾を排他する)。
 		// 値は preflight が招待元テナントの契約から解決したものをそのまま使う。
 		maxMembers: preflight.maxMembers,
+		vacateFamilyId: opts?.vacateTenantId,
 	});
 	if (!accepted.ok) {
 		return { error: ACCEPT_INVITE_FAILURE_ERRORS[accepted.reason] };

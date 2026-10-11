@@ -13,7 +13,7 @@
 
 import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
-import { logger } from '$lib/server/logger';
+import { describeError, logger } from '$lib/server/logger';
 
 /**
  * email から内部 AuthUser を確保する (Cognito sub と内部 u-xxx ID は別物のため email が鍵)。
@@ -64,7 +64,7 @@ export async function provisionOwnTenant(email: string): Promise<Membership | nu
 		return membership;
 	} catch (e) {
 		logger.error('[AUTH] Failed to provision own tenant', {
-			error: e instanceof Error ? e.message : String(e),
+			error: describeError(e),
 		});
 		return null;
 	}

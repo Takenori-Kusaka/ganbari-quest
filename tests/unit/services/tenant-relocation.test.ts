@@ -170,7 +170,14 @@ describe('#4642 引っ越し合流の実行', () => {
 			EMAIL,
 			expect.objectContaining({ allowRelocation: true, emailVerified: true }),
 		);
-		expect(mockDeleteMembership).toHaveBeenCalledWith(USER_ID, OLD_TENANT);
+		expect(mockAcceptInvite).toHaveBeenCalledWith(
+			CODE,
+			USER_ID,
+			EMAIL,
+			expect.objectContaining({ vacateTenantId: OLD_TENANT }),
+		);
+		// #5049: 元の membership は受諾と同じ txn で外す。単独 owner の削除を拒む deleteMembership は呼ばない
+		expect(mockDeleteMembership).not.toHaveBeenCalled();
 		expect(mockDeleteVacatedTenant).toHaveBeenCalledWith(
 			OLD_TENANT,
 			expect.objectContaining({ route: 'relocation' }),

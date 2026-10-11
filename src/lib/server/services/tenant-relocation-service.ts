@@ -94,9 +94,8 @@ export type RelocationResult =
  *
  * 失敗しても「どこにも所属しない人」を作らない順序で実行する:
  *   1. 引っ越し可否を再検証 (画面の同意だけを信用しない)
- *   2. 招待を受諾 (ここで失敗しても元の家族はそのまま)
- *   3. 元の membership を削除 (この時点で移動が確定)
- *   4. 無人になった元テナントを削除 (失敗しても移動は成立済み。ログに残して続行する)
+ *   2. 招待を受諾 + 元の membership を削除 (**単一 txn**。失敗すれば両方とも起きない)
+ *   3. 無人になった元テナントを削除 (失敗しても移動は成立済み。ログに残して続行する)
  */
 export async function relocateToInvitedTenant(
 	inviteCode: string,
@@ -113,6 +112,9 @@ export async function relocateToInvitedTenant(
 	const accepted = await acceptInvite(inviteCode, userId, userEmail, {
 		emailVerified: opts.emailVerified,
 		allowRelocation: true,
+		// #5049: 元の membership は受諾と同じ txn で外す (別の呼び出しにすると、唯一の owner の
+		// 削除を拒む deleteMembership に当たって 500 になり、2 世帯所属が残った)。
+		vacateTenantId: oldTenantId,
 	});
 	if ('error' in accepted) {
 		logger.warn('[relocation] 招待受諾に失敗したため引っ越しを中止 (元の家族は無傷)', {
@@ -130,8 +132,6 @@ export async function relocateToInvitedTenant(
 			role: accepted.membership.role,
 		},
 	});
-
-	await getRepos().auth.deleteMembership(userId, oldTenantId);
 
 	// 元テナントの掃除。ここで失敗しても引っ越し自体は成立しているので throw しない
 	// (顧客を「合流できたのにエラー画面」に落とさない)。残骸はログから追える。

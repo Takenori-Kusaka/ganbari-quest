@@ -265,6 +265,63 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 		expect(await membershipCount(user)).toBe(1);
 	});
 
+	// #5049: 引っ越し合流は「受諾」と「元の家族グループの owner membership の削除」を同じ txn で行う。
+	// 以前は別の呼び出しで、後者が単独 owner の削除を拒んで 500 になり、新旧 2 世帯に所属が残った。
+	it('[B9] vacateFamilyId 指定: 受諾と同じ txn で元の家族の owner membership が消える (#5049)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000005049';
+		const mover = '20000000-0000-4000-8000-000000005049';
+		const oldFamily = '00000000-0000-4000-8000-000000005049';
+		await seedInvite({ id });
+		await db.execute(sql`
+			INSERT INTO memberships (family_id, user_id, role, joined_at)
+			VALUES (${oldFamily}, ${mover}, 'owner', ${NOW})
+		`);
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: mover,
+			userEmail: 'mover@example.com',
+			now: NOW,
+			maxMembers: null,
+			vacateFamilyId: oldFamily,
+		});
+
+		expect(result.ok).toBe(true);
+		const rows = (
+			await db.execute(sql`SELECT family_id, role FROM memberships WHERE user_id = ${mover}`)
+		).rows as { family_id: string; role: string }[];
+		// 所属は招待先の 1 件だけ (2 世帯所属を残さない)
+		expect(rows).toEqual([{ family_id: FAMILY, role: 'parent' }]);
+	});
+
+	it('[B9] 受諾が拒否されたら元の家族の membership は消えない (#5049)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000005050';
+		const mover = '20000000-0000-4000-8000-000000005050';
+		const oldFamily = '00000000-0000-4000-8000-000000005050';
+		// 失効済みの招待 → INVALID_OR_EXPIRED
+		await seedInvite({ id, expiresAt: PAST });
+		await db.execute(sql`
+			INSERT INTO memberships (family_id, user_id, role, joined_at)
+			VALUES (${oldFamily}, ${mover}, 'owner', ${NOW})
+		`);
+
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: mover,
+			userEmail: 'mover@example.com',
+			now: NOW,
+			maxMembers: null,
+			vacateFamilyId: oldFamily,
+		});
+
+		expect(result).toEqual({ ok: false, reason: 'INVALID_OR_EXPIRED' });
+		const rows = (await db.execute(sql`SELECT family_id FROM memberships WHERE user_id = ${mover}`))
+			.rows as { family_id: string }[];
+		expect(rows).toEqual([{ family_id: oldFamily }]);
+	});
+
 	it('[B2] 失効 invite → INVALID_OR_EXPIRED (retry 禁止の業務失敗、状態不変)', async () => {
 		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
 		const id = '10000000-0000-4000-8000-000000000002';
