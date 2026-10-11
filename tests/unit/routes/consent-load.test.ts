@@ -46,8 +46,12 @@ async function captureRedirect(fn: () => unknown): Promise<{ status: number; loc
 function makeLocals(opts: { authenticated?: boolean; tenantId?: string | null } = {}) {
 	return {
 		authenticated: opts.authenticated ?? true,
-		context: opts.tenantId !== null ? { tenantId: opts.tenantId ?? 'tenant-1' } : undefined,
-		identity: { type: 'cognito', userId: 'user-1' },
+		// #4643 / #5040: 判定に使うのは context.userId (users.user_id)。identity.userId は IdP の sub
+		context:
+			opts.tenantId !== null
+				? { tenantId: opts.tenantId ?? 'tenant-1', userId: 'app-user-1' }
+				: undefined,
+		identity: { type: 'cognito', userId: 'cognito-sub-user-1' },
 	};
 }
 
@@ -86,6 +90,20 @@ describe('consent load', () => {
 			load({ locals: makeLocals() } as Parameters<typeof load>[0]),
 		);
 		expect(r.location).toBe('/admin');
+	});
+
+	// #5040: checkConsent は userId を省くと世帯単位で引く。渡し忘れると、世帯の別の保護者が
+	// 同意済みなら本人は同意画面に来ても /admin へ返され、何も落ちない。引数を固定する。
+	it('同意状況は本人 (context.userId) 単位で引く', async () => {
+		mockCheckConsent.mockResolvedValue({
+			termsAccepted: false,
+			privacyAccepted: false,
+			crossBorderAccepted: false,
+			needsReconsent: true,
+		});
+		await load({ locals: makeLocals() } as Parameters<typeof load>[0]);
+		expect(mockCheckConsent).toHaveBeenCalledOnce();
+		expect(mockCheckConsent).toHaveBeenCalledWith('tenant-1', 'app-user-1');
 	});
 
 	it('新規ユーザー（同意レコードなし）は hasExistingConsent: false', async () => {
