@@ -13,7 +13,8 @@
 
 import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
-import { describeError, logger } from '$lib/server/logger';
+import { describeError } from '$lib/server/describe-error';
+import { logger } from '$lib/server/logger';
 
 /**
  * email から内部 AuthUser を確保する (Cognito sub と内部 u-xxx ID は別物のため email が鍵)。

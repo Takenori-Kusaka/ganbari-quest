@@ -2,7 +2,7 @@
 // Drizzle は原因を `cause` に入れるので、describeError が cause (SQLSTATE / constraint) まで出すことを固定する。
 
 import { describe, expect, it } from 'vitest';
-import { describeError } from '../../../src/lib/server/logger';
+import { describeError } from '../../../src/lib/server/describe-error';
 
 describe('describeError (#5049)', () => {
 	it('Drizzle の包みエラーから cause の SQLSTATE と constraint を取り出す', () => {
