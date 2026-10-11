@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 // LP 生成側の実処理 (.mjs script) をそのまま検査する
 import { buildFamilyMemberLimitTerms } from '../../../scripts/generate-lp-labels.mjs';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import {
 	FAMILY_MEMBER_LIMIT,
 	formatMemberCount,
@@ -129,8 +130,9 @@ describe('#4500 家族メンバー上限 — 合計と招待可能数', () => {
 		// **招待の文脈に総数が単独で出ている形**だけを禁じる。
 		const FORBIDDEN = ['家族メンバー招待：4人まで', '4 人までの招待', '4人まで招待'];
 
-		it.each(FORBIDDEN)('labels.ts に「%s」が無い', (phrase) => {
-			expect(repoFile('src/lib/domain/labels.ts')).not.toContain(phrase);
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) の全ファイルを見る
+		it.each(FORBIDDEN)('labels 層に「%s」が無い', (phrase) => {
+			expect(readLabelsSource()).not.toContain(phrase);
 		});
 
 		it.each(FORBIDDEN)('site/shared-labels.js に「%s」が無い (LP 配信物)', (phrase) => {

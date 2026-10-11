@@ -33,7 +33,7 @@ WebUI レビューが**刹那的**（特定画面を目視して「ここを直�
 |---|---|
 | コンポーネントライブラリ | `src/lib/ui/primitives/`（Ark UI ラッパ、DESIGN.md §5、再実装禁止） |
 | デザイントークン | `app.css` の 3 層トークン（Base → Semantic → Component、DESIGN.md §2 / §4） |
-| 用語 SSOT | `terms.ts`（atom）/ `labels.ts`（compound）の 2 階層（ADR-0045） |
+| 用語 SSOT | `terms.ts`（atom）/ labels 層（compound、`src/lib/domain/labels/`）の 2 階層（ADR-0045） |
 | ドキュメント | `docs/DESIGN.md`（SSOT）/ Storybook story |
 | a11y 内包 | `@axe-core/playwright` の CI gate（`.github/workflows/ci.yml` `a11y` job） |
 | 機械 gate | biome / svelte-check / pixelmatch visual regression 3 層 / Storybook test-runner / pre-ready 全 step（一覧 SSOT は `npm run pre-ready -- --help`） |

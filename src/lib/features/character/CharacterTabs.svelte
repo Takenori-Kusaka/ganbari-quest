@@ -1,6 +1,11 @@
 <script lang="ts">
 import { page } from '$app/stores';
-import { ICON_ACHIEVEMENTS, ICON_BATTLE, ICON_HISTORY, ICON_STATUS } from '$lib/domain/icons';
+import {
+	getChildStatusIcon,
+	ICON_ACHIEVEMENTS,
+	ICON_BATTLE,
+	ICON_HISTORY,
+} from '$lib/domain/icons';
 // #4715: 年齢モード別ラベルの SSOT は icons.ts から labels.ts へ移設済 (旧 getModeLabels)。
 import { FEATURES_LABELS, getChildNavModeLabels } from '$lib/domain/labels';
 
@@ -12,9 +17,6 @@ let { uiMode }: Props = $props();
 
 const labels = $derived(getChildNavModeLabels(uiMode));
 
-// junior/senior はステータスアイコンに📊を使用
-const statusIcon = $derived(uiMode === 'junior' || uiMode === 'senior' ? '📊' : ICON_STATUS);
-
 interface TabDef {
 	label: string;
 	icon: string;
@@ -24,13 +26,14 @@ interface TabDef {
 const TAB_LABELS = FEATURES_LABELS.character;
 
 const tabsByMode: Record<string, TabDef[]> = {
+	// つよさ / ステータスのアイコンは子供の ❓ の章見出しと同じ getChildStatusIcon から引く
 	baby: [
-		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: getChildStatusIcon('baby'), path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 	],
 	preschool: [
-		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: getChildStatusIcon('preschool'), path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryYoung, icon: ICON_HISTORY, path: 'history' },
@@ -38,21 +41,21 @@ const tabsByMode: Record<string, TabDef[]> = {
 	// #4681: elementary 以上にバトル入口 (BottomNav つよさ → バトル = 2 タップ)。
 	// baby / preschool はバトル非提供 (route 側 404) のため tab を出さない。
 	elementary: [
-		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
+		{ label: TAB_LABELS.tabStatusYoung, icon: getChildStatusIcon('elementary'), path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	junior: [
-		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
+		{ label: TAB_LABELS.tabStatusOlder, icon: getChildStatusIcon('junior'), path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	senior: [
-		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
+		{ label: TAB_LABELS.tabStatusOlder, icon: getChildStatusIcon('senior'), path: 'status' },
 		// #2175: rename achievements → challenges (route + tab path 整合)
 		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabBattle, icon: ICON_BATTLE, path: 'battle' },

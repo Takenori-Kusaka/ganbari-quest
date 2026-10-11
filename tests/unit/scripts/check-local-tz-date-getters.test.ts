@@ -394,6 +394,8 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 				'dist',
 				'test-results',
 				'playwright-report',
+				// graft のローカルキャッシュ (gitignore)。graphify-out は撤去後も手元に残りうる旧出力
+				'graft',
 				'graphify-out',
 			]);
 			return readdirSync(join(repoRoot, rel), { withFileTypes: true })

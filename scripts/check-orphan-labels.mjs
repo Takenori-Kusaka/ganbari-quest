@@ -2,12 +2,12 @@
 /**
  * scripts/check-orphan-labels.mjs (EPIC #2362 follow-up)
  *
- * src/lib/domain/labels.ts の `LABELS` namespace export (compound) と
+ * labels 層 (src/lib/domain/labels.ts + labels/*.ts、#4965) の `LABELS` namespace export (compound) と
  * src/lib/domain/terms.ts の `TERMS` namespace export (atom) について、
  * src/ / site/ / scripts/ / tests/ から参照されていないものを検出する。
  *
  * 構造的予防の目的:
- *   - 機能撤去で labels.ts の namespace が取り残されるのを可視化
+ *   - 機能撤去で labels 層の namespace が取り残されるのを可視化
  *   - ADR-0045 SSOT (atom → compound → 表示) の最末端 dead constant を block
  *
  * 使用法:
@@ -18,10 +18,14 @@
  * baseline: scripts/orphan-baselines/labels.json
  *
  * 検出ロジック:
- *   1. labels.ts / terms.ts から `export const <UPPER_CASE>` を抽出
+ *   1. labels 層 / terms.ts から `export const <UPPER_CASE>` を抽出
  *   2. 各 export について src/ / site/ / tests/ / scripts/ 全体から参照を集計
  *   3. site/shared-labels.js (自動生成) は SEARCH_DIRS から除外
- *   4. 自分自身ファイルからの参照は除外、boundary match
+ *   4. 定義元からの参照は除外、boundary match。labels 層の export は **labels 層全体を定義元** とみなす
+ *      (labels 層は 1 つの SSOT をファイルに分けたもの。分割前の「labels.ts 内の相互参照は数えない」と同じ判定)。
+ *      labels ファイル同士の `import { X } from './<file>'` も labels 層の中の参照なので数えない。
+ *      ファイルをまたいで使うためだけに export を付けた名前 (分割前は非 export で本検査の対象外) は、
+ *      baseline に理由付きで載せる
  *   5. 参照 0 件 = orphan
  */
 
@@ -36,8 +40,8 @@ import {
 	walkDir,
 } from './lib/ci/orphan-utils.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { isLabelsLayerPath, labelSourceFiles } from './lib/parse-labels-ts.mjs';
 
-const LABELS_FILE = path.join(REPO_ROOT, 'src', 'lib', 'domain', 'labels.ts');
 const TERMS_FILE = path.join(REPO_ROOT, 'src', 'lib', 'domain', 'terms.ts');
 const SEARCH_DIRS = ['src', 'tests/unit', 'tests/integration', 'tests/e2e', 'scripts'];
 
@@ -66,7 +70,8 @@ function main() {
 	const exports = [];
 	const sources = new Map(); // name -> file
 
-	for (const f of [LABELS_FILE, TERMS_FILE]) {
+	const labelFiles = labelSourceFiles().map((rel) => path.join(REPO_ROOT, rel));
+	for (const f of [...labelFiles, TERMS_FILE]) {
 		if (!fs.existsSync(f)) {
 			process.stderr.write(`[check-orphan-labels] file not found: ${f}\n`);
 			process.exit(1);
@@ -112,7 +117,10 @@ function main() {
 		.map((name) => {
 			const r = refs.get(name) || [];
 			const sourceFile = sources.get(name);
-			const external = r.filter((ref) => ref.file !== sourceFile);
+			const inLabelsLayer = isLabelsLayerPath(sourceFile);
+			const external = r.filter((ref) =>
+				inLabelsLayer ? !isLabelsLayerPath(ref.file) : ref.file !== sourceFile,
+			);
 			if (external.length === 0) {
 				return {
 					name,

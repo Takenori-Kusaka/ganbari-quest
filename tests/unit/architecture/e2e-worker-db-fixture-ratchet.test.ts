@@ -39,7 +39,7 @@ const REPO_ROOT = resolve(__dirname, '../../..');
  * **この数値は下げる方向にしか動かさない。** spec を `./fixtures` へ移行したら実測値まで下げる。
  * 引き上げが必要に見えるときは、新規 spec が `@playwright/test` を直接 import している。
  */
-const BASELINE = 136;
+const BASELINE = 133;
 
 describe('E2E spec の worker DB 分離 ratchet (#4489)', () => {
 	// #4712: `tests/e2e/demo-lambda/**` は別 config (`playwright.demo.config.ts`) で

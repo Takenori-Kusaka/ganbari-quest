@@ -39,7 +39,7 @@
 
 | key | 対象 | 粒度 | TTL |
 |---|---|---|---|
-| `heavy` | `pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test\|check\|e2e` | **マシン全体で 1 本** | 60 分 |
+| `heavy` | `pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test\|check\|e2e` / `graft build` (ピーク約 1.4GB。問い合わせ系の `ask` / `grep` / `callers` 等は対象外) | **マシン全体で 1 本** | 60 分 |
 
 `git push` を branch 単位で排他する `task-<Issue番号>` key は **#4076 で撤去した**。hook が受け取る `cwd` はセッションの起動ディレクトリなので、worktree から push しても main clone の branch が読まれ、押す対象と無関係な branch の lock で全 worktree の push が止まっていた。押す対象から branch を割り出す精緻化は refspec の無い bare `git push` を解決できず穴が残るため、精緻化ではなく撤去を選んでいる (PO 判断 2026-07-30)。二重作業の検知は GitHub 側 (同一 branch への push 競合 / PR の重複) に委ねる。
 

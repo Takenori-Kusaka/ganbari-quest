@@ -36,7 +36,7 @@
 | `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
-| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Network |
+| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, AWS Health 通知, 外部ヘルスチェック | Compute, Network |
 | `GanbariQuestDsql` | Aurora DSQL cluster (context gate `-c dsqlEnabled=true`) | なし |
 | `GanbariQuestSes` | SES Email Identity, Configuration Set, 受信パイプライン (S3 + Lambda) | なし |
 
@@ -108,9 +108,9 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 #### 3.1.1 cross-stack export allowlist ratchet（#3858、ADR-0061 shift-left）
 
-自動 cross-stack export（producer 側 `CfnOutput` + Export / consumer 側 `Fn::ImportValue`）は **synth 時に初めて生成されソースに存在しない**ため、撤去時の in-use 削除制約（#3438 → #3850）は develop 軽量レーンをすり抜け release 統合監査（deploy-aws-staging）で初めて露見していた。`tests/unit/infra/cross-stack-export-ratchet.test.ts` が全 stack（prod 6 + staging 3）を `bin/app.ts` と同一に wire して synth し、`findOutputs('*')` の Export 名 + `Fn::ImportValue` を **allowlist と集合一致**で照合する fitness gate を PR 時点（unit-test 層）に前倒し配備する（cdk-nag / ESLint-AST は自動 export を取りこぼすため、synth 後の template 検査層が唯一確実）。
+自動 cross-stack export（producer 側 `CfnOutput` + Export / consumer 側 `Fn::ImportValue`）は **synth 時に初めて生成されソースに存在しない**ため、撤去時の in-use 削除制約（#3438 → #3850）は develop 軽量レーンをすり抜け release 統合監査（deploy-aws-staging）で初めて露見していた。`tests/unit/infra/cross-stack-export-ratchet.test.ts` が `bin/app.ts` の全 stack（prod と staging。synth 対象と `bin/app.ts` の stack 集合が一致することも同 test が assert する）を `bin/app.ts` と同一に wire して synth し、`findOutputs('*')` の Export 名 + `Fn::ImportValue` を **allowlist と集合一致**で照合する fitness gate を PR 時点（unit-test 層）に前倒し配備する（cdk-nag / ESLint-AST は自動 export を取りこぼすため、synth 後の template 検査層が唯一確実）。
 
-- **baseline（実測 13 = prod 9 + staging 4）**: prod StorageStack 4（AssetsBucket Ref/Arn + ECR AppRepo Ref/Arn）/ prod ComputeStack 4（main・demo Fn FunctionUrl + main・cron-dispatcher Fn Ref）/ prod NetworkStack 1（CloudFront Distribution Ref）/ staging StorageStack 4（prod Storage と同 hash、stack 名 prefix のみ差）。**属性ごとに別 entry**（#3855 = Ref を Arn と別本と認識する構造的再発防止）。#3854 Deploy-2 で MainTable Ref/Arn（prod + staging = 4 本）を撤去したため 17 → 13。
+- **baseline（集合と本数の SSOT は同 test の `AUTO_EXPORT_ALLOWLIST`）**: prod StorageStack（AssetsBucket Ref/Arn + ECR AppRepo Ref/Arn）/ prod ComputeStack（main・demo Fn FunctionUrl + main・cron-dispatcher Fn Ref）/ prod NetworkStack（CloudFront Distribution Ref）/ staging StorageStack（prod Storage と同 hash、stack 名 prefix のみ差）/ staging ComputeStack（main Fn FunctionUrl、staging NetworkStack が参照）。**属性ごとに別 entry**（#3855 = Ref を Arn と別本と認識する構造的再発防止）。
 - **ratchet 運用（一方通行で減らす）**: cross-stack 境界を SSM 疎結合化 / 撤去したら該当 export を allowlist から削除する（= 疎結合の進捗計測器）。**新規自動 export の追加（allowlist 外）は CI fail** で止める。cross-stack 完全禁止は AWS 公式（同一 App の層状参照は正規手段）に反するため意図的残存を allowlist で管理する（`base-token-routes-ratchet` / `check-cdk-replacement` の承認マーカーと同一思想）。
 - **#3854 撤去完遂の guard**: #3850 Deploy-1 で dangling export として allowlist に載せた MainTable Ref/Arn（prod + staging = 4 本）は、Deploy-2（#3854）で table + 両 export を撤去したため allowlist からも削除した。以後 MainTable 由来 export が synth に現れないことを本 test が断言し、export が復活したら（table 復元等）「新規 export = allowlist 外」assert が fail する。
 
@@ -148,12 +148,10 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 ### 3.3 ComputeStack
 
-**Lambda (SvelteKitFn):**
+**Lambda (SvelteKitFn):** メモリ・タイムアウト・アーキテクチャ・Function URL の設定値は `infra/lib/compute-stack.ts` が SSOT（本書に値を複製しない）。要点のみ:
 - ランタイム: Docker (Node.js 22 + Lambda Web Adapter)
-- メモリ: 512MB
-- タイムアウト: 30秒
-- アーキテクチャ: ARM64 (Graviton2、コスト20%削減)
-- Function URL: RESPONSE_STREAM モード（SSR対応）
+- アーキテクチャ: ARM64 (Graviton)
+- Function URL: `InvokeMode.BUFFERED`（応答を組み立て終えてから返す。ストリーミングはしない。demo 関数も同じ）
 
 **Lambda Web Adapter:**
 - AWS公式のWeb Adapterを使用
@@ -170,7 +168,7 @@ opt-in の確認手順を含む復元 runbook は [dsql-restore.md](../runbooks/
 
 - **readiness を deep DB probe に結合しない**。結合すると DB 障害時に LWA が never-ready となり、アプリの fail-close 503 が外に出ず Function URL 全体が 502 化する（外形の劣化 + 障害原因の不可視化）。さらに cold start の readiness 成立が DB 接続に律速されて Lambda init 10s 上限の `INIT_REPORT timeout` → 再 init ループを誘発する（DSQL 構成 staging 実測: probe 込み Init 3315ms）
 - LWA 0.9.1 の readiness は HTTP status ≥ 500（`AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS` 既定値）を unhealthy と判定するため、/api/health の 503 fail-close はそのまま never-ready になる。LWA 既定の readiness path が `/`（軽量応答想定）である点とも整合し、shallow readiness + deep health の分離は Kubernetes の readiness/liveness 分離・AWS Builders' Library「Implementing health checks」（依存 deep check を起動 gate に使うと単一依存障害が全遮断へ増幅される）と同型の確立パターン
-- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、Lambda-URL-5xx alarm（§3.4 #7、≥5回/5分 P0）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
+- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、alarm `ganbari-quest-lambda-url-5xx`（§3.4）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
 - `/api/ready` はメンテナンスモード（§3.5）でも 503 化しない（`hooks.server.ts` で `/api/health` と同様に除外）。メンテ中の cold start が never-ready → 502 になり、メンテページ（503 → S3 差し替え）が出せなくなるのを防ぐ
 
 **ECRリポジトリ:**
@@ -248,42 +246,24 @@ cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍
 - トピック名: `ganbari-quest-ops-alerts`
 - サブスクリプション: メール（`-c opsEmail=xxx` で指定）
 
-**CloudWatch Alarms（抜粋。全量は `ops-stack.ts` が SSOT、13+ alarm 存在）:**
+**CloudWatch Alarms / Dashboard / Budgets:** alarm 名・メトリクス・閾値・評価窓、dashboard の widget 構成、Budget の金額と通知段階は **`infra/lib/ops-stack.ts` が SSOT**（本書に値を複製しない。複製すると CDK の変更に追随しない）。通知方針（どの alarm が Discord / メールに届くか）の SSOT は `infra/lib/ops-alert-policy.ts`。DSQL の alarm と Budget は `infra/lib/dsql-stack.ts`。
 
-| # | アラーム名 | メトリクス | 閾値 | 優先度 |
-|---|----------|-----------|------|--------|
-| 1 | Lambda-Errors | Lambda Errors | ≥ 3回/5分 | P0 |
-| 2 | Lambda-Throttles | Lambda Throttles | ≥ 1回/5分 | P0 |
-| 3 | Lambda-Duration-p99 | Lambda Duration | ≥ 10秒 | P1 |
-| 4 | Lambda-Concurrent | ConcurrentExecutions | ≥ 50 | P1 |
-| 5 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
-| 6 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
-| 7 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
-| 8 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
-| 9 | **EntitlementFailClosed** (#3998) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | ≥ 1件、15分内2つの5分window (2-of-3) | P0 |
-| 10 | **EntitlementFailClosedBurst** (#4918) | `GanbariQuest/Auth` `EntitlementDbUnavailable` | 同一5分window内に≥3件、即時発火 | P0 |
+監視の分担（何をどの層で捕まえるか）だけを示す:
 
-> DynamoDB alarms（Throttles / SystemErrors / ConsumedCapacity）は #3438 で撤去（DB backend は
-> Aurora DSQL に一本化、DynamoDB table 無し）。DSQL の監視は `DsqlStack` が担う。
->
-> #9 / #10 は同一 metric (`EntitlementDbUnavailable`) を異なる評価窓で見る対の alarm。#9 は
-> 「15 分継続する低頻度障害」を、#10 は「同一 5 分 window に集中する burst」を捕捉する
-> (#4918: 本番 incident は同一 window に 4 件発生し #9 だけでは 15 分継続しないため検知できなかった)。
-> `AI-Provider-Unavailable` / `AI-Fallback-Rate` / `Ops-Access-Denied` / `Grace-Period-Partial-Failure` /
-> `Ops-Alert-Forward-Failed` / S3 Origin 4xx/5xx 等の残り alarm は本表に掲載しない
-> (通知方針の SSOT は `infra/lib/ops-alert-policy.ts`、CDK 定義の SSOT は `infra/lib/ops-stack.ts`)。
+| 監視対象 | 見るもの |
+|---|---|
+| アプリ（Lambda） | エラー / スロットリング / 実行時間 p99 / 同時実行数 / Function URL の 5xx と 4xx 急増 |
+| エッジ（CloudFront） | 5xx エラー率 |
+| 定期ジョブ | cron-dispatcher のエラー |
+| 認証・課金状態の解決 | DB に届かず fail-closed した件数（低頻度の継続と、同一 5 分の集中を別 alarm で見る） |
+| AI 提案 | 提供元の利用不可 / フォールバック率 |
+| 保護者向け push 通知 | VAPID 鍵の欠落 / push サービスが送信を受け付けなかった件数 |
+| 運営画面・削除バッチ・通知転送・静的アセット S3 | 拒否 / 部分失敗 / 転送失敗 / S3 origin の 4xx・5xx |
+| コスト | 月額 Budget（実績と予測の段階通知） |
 
-**CloudWatch Dashboard:** `ganbari-quest-ops`
-- Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
-- Alarm Status: SingleValueWidget
+dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレイテンシ）がある。定義と目標は [32-SLI-SLO定義書](32-SLI-SLO定義書.md)。
 
-**AWS Budgets:**
-- 月額予算: $5
-- 3段階アラート: 実績50%, 実績80%, 予測100%超過
-
-**Cost Anomaly Detection:**
-- モニタータイプ: DIMENSIONAL (SERVICE)
-- 通知閾値: $1以上の異常
+**Cost Anomaly Detection:** CDK では作成しない。AWS アカウント既定のモニター（Default-Services-Monitor）を使う（CDK でカスタムモニターを作ると、アカウント上限との競合で AlreadyExists になるため）。IaC の管理外。
 
 **AWS Health EventBridge:**
 - 対象サービス: LAMBDA, CLOUDFRONT, COGNITO, S3（DYNAMODB は #3438 で除外、DB backend は DSQL）
@@ -559,13 +539,13 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 ### 4.3 AWS staging 環境 (Issue #2873 / EPIC #2861 D 系)
 
-本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **4 stack** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging` / `GanbariQuestNetworkStaging`)。Ses / Ops は省略する。
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging で deploy する stack は同 workflow の `STAGING_STACKS` に明示列挙したものが SSOT（Ses / Ops は省略する）。
 
 **Network (CloudFront) は staging にも必要**: SvelteKit の名前付き form action (`?/action`) は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `<prefix>-query-slash-encode` を通さないと届かない。`/auth/login` / `/auth/signup` はいずれも default action を持たず名前付き action しかないため、これが無いと staging では**ログインもサインアップもできない** (= 認証後の画面に到達する手段がゼロ)。staging の ORIGIN / post-deploy smoke は CloudFront を入口にする。
 
 | 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
 |---|---|---|
-| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 4 stack (`GanbariQuest{Storage,Auth,Compute,Network}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | `deploy-aws-staging.yml` の `STAGING_STACKS` に明示列挙した stack を deploy (`--all` 不使用) |
 | CloudFront geoRestriction | JP allowlist | **なし** (post-deploy smoke を回す GitHub runner が日本国外にあるため)。前提 = staging に本番データを入れないこと。入れる運用が生まれたら JP allowlist を戻す |
 | CloudFront 物理名 | `ganbari-quest-query-slash-encode` / `ganbari-quest-error-pages-<account>` | `ganbari-quest-staging-` prefix (同一アカウント・同一リージョンでの衝突回避)。prod 側の名前は不変 (ADR-0019) |
 | 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
@@ -576,10 +556,10 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
-| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 4 stack） |
-| tag | — | `gq-env=staging`（staging 4 stack に付与） |
+| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / `STAGING_STACKS` 全体） |
+| tag | — | `gq-env=staging`（staging の全 stack に付与） |
 
-実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 4 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
+実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
 
 - **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
 - **Lambda env の SSOT は CDK synth 出力 (#4352)**: staging Lambda の環境変数は、**synth 出力（`infra/cdk.out/GanbariQuestComputeStaging.template.json`）の Lambda `Environment.Variables` が唯一の SSOT**。deploy はこの集合に ORIGIN 系 3 本（`ORIGIN` / `COGNITO_CALLBACK_URL` / `COGNITO_LOGOUT_URL`、CloudFront ドメインが synth 時未確定のため deploy 後に解決）を上書きした**完全な集合で全上書き**する（`scripts/lambda-env-ssot.mjs derive` → `update-function-configuration`）。
@@ -591,7 +571,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
 - **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。本番相当データが必要になった場合は DSQL の論理エクスポート / import 経由で別 cluster に流し込む（本番 cluster へは一切 write しない）。旧 DynamoDB AWS Backup restore 経路は #3438 で DynamoDB 撤去により廃止。
-- **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
+- **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存の月額 budget（OpsStack の `MonthlyBudget`）が包含するため staging 専用 budget alarm は追加しない。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
 - **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
 
@@ -603,9 +583,9 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
-| CloudWatch Alarms | 13+アラーム（詳細は §3.4 表、全量は `ops-stack.ts` が SSOT） | 無料枠10個超過分は課金対象（$0.10/alarm/月、実費は僅少） |
-| CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
-| AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
+| CloudWatch Alarms | 本数と定義は `ops-stack.ts` / `dsql-stack.ts` が SSOT（§3.4） | 無料枠 10 個を超えた分は課金対象（単価は AWS 料金表） |
+| CloudWatch Dashboard | 運用ダッシュボード（SLO 行を含む、§3.4） | 無料枠 3 個の範囲 |
+| AWS Budgets | 月額予算と段階通知（金額は `ops-stack.ts` / `dsql-stack.ts` が SSOT） | 無料枠の範囲 |
 | Cost Anomaly Detection | ML異常検知 | 完全無料 |
 
 ## 6. コスト試算（月額）
@@ -637,7 +617,7 @@ infra/
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離
 │   ├── network-stack.ts  # CloudFront (本番 + demo #2097) + Route53 + ACM + S3エラーページ + S3静的アセットoffload (#3087 解決策B)
-│   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
+│   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard (SLO 行を含む) + Budgets + Health通知 + 外部ヘルスチェック
 │   └── ses-stack.ts      # SES Email Identity + Configuration Set + メール受信パイプライン
 ├── error-pages/            # CloudFrontカスタムエラーページHTML（S3にデプロイ）
 ├── package.json

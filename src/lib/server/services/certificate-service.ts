@@ -228,6 +228,7 @@ export async function checkAndIssueLevelCertificates(
  * 通貨は付与するので子の残高は増える — **そこで親が声をかければ噛み合う**。
  * 経路は既存の Web Push のみ。`/api/v1/notifications/subscribe` が child role を 403 で
  * 拒否する (#1593) ため、**親のみは経路の設計上すでに保証されている**。
+ * 送るのは保護者が通知設定の「達成通知」をオンにしているときだけ (#4706)。
  */
 export async function issueMonthlyHabitCertificateIfEligible(
 	childId: ChildId,
@@ -291,13 +292,24 @@ export async function issueMonthlyHabitCertificateIfEligible(
 	}
 
 	// 通知は付帯物。失敗しても証明書と通貨は取り消さない。
+	//
+	// **保護者の通知設定に従う** (#4706)。通知設定画面は「選んだお知らせだけが、この端末に届く」と
+	// 約束している。この push は子供の記録の直後に届くので、設定の「達成通知 (記録完了・
+	// レベルアップ時)」に含める (ページガイドが達成通知を「お子さまが記録した直後」と説明している
+	// 範囲に入る)。独立した設定を足すと、設定画面に項目が増えるだけで保護者の判断材料は増えない。
+	// 設定を読めなかったときは送らない (オフにした保護者に届けてしまう側に倒さない)。
 	try {
-		const { sendPushNotification } = await import('$lib/server/services/notification-service');
-		await sendPushNotification(tenantId, 'monthly_habit', def.title, def.description, {
-			childId,
-			yearMonth,
-			daysWithActivity: report.daysWithActivity,
-		});
+		const { getNotificationSettings, sendPushNotification } = await import(
+			'$lib/server/services/notification-service'
+		);
+		const settings = await getNotificationSettings(tenantId);
+		if (settings.achievementsEnabled) {
+			await sendPushNotification(tenantId, 'monthly_habit', def.title, def.description, {
+				childId,
+				yearMonth,
+				daysWithActivity: report.daysWithActivity,
+			});
+		}
 	} catch (e) {
 		logger.warn('[certificate] 月間習慣化の通知に失敗', {
 			service: 'certificate',

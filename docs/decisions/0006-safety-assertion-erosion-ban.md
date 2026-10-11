@@ -19,7 +19,7 @@ PR #863 が `assertLicenseKeyConfigured()` を追加した際、対応する `AW
 
 ### 禁止 5 項目
 
-以下を含む PR は Copilot / PO レビューで `[must]` 所見として検出し、本 ADR への明示的な supersede 手続きなしには承認しない:
+以下を含む PR は QM のレビュー（ADR-0022）で `[must]` 所見として検出し、本 ADR への明示的な supersede 手続きなしには承認しない:
 
 1. **throw を含む production guard を warn に落とす変更** — fail-closed → fail-open のサイレントなダウングレードは OWASP A10 違反
 2. **`NODE_ENV === 'test'` 等で本体コードの assertion を skip する分岐の混入** — escape hatch は production リグレッションの温床

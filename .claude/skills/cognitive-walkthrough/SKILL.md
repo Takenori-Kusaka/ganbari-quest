@@ -7,7 +7,7 @@ description: Use when reviewing customer-facing UI flow (e.g. before customer re
 
 機能 E2E (#2544 goal 完遂) が緑でも、**「動くが分かりにくい」UX 破綻**は捕捉できない (#2558 で実証: bug-2 分離ボタン / bug-3 謎用語 / bug-4 独自 UI / bug-1 dead-end が機能 E2E 緑のまま 1 分で顧客発見)。本 skill は評価者 (人間 or AI) が **初見ユーザー persona** で critical flow をステップごとに歩き、NN/G の **4 質問**を問うことで明白な 85% 級 UX 問題を実ユーザー 0 人 / コーディング前から捕捉する (NN/G「relatively cheap」、CX research §B-1 / §3-3)。
 
-接続: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR (8 条件 SSOT、#2553)」 の **条件 2** を担当する。発展元: [`customer-voice` skill](../customer-voice/SKILL.md) (3 persona × 5 評価軸の汎用フィードバック) を walkthrough 4 質問へ specialize した skill。
+接続: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」（条件の一覧・数は同節が SSOT、#2553）の **条件 2** を担当する。発展元: [`customer-voice` skill](../customer-voice/SKILL.md) (3 persona × 5 評価軸の汎用フィードバック) を walkthrough 4 質問へ specialize した skill。
 
 ---
 
@@ -121,7 +121,7 @@ vision LLM (Claude / GPT-4o) に critical flow の screenshot 連番 (`scripts/c
 
 ## セッションシート (出力フォーマット)
 
-walkthrough 1 セッション = 1 critical flow × 1 persona。以下を Markdown table で記録し、customer-facing PR の body or EPIC umbrella の「テスト・品質セルフチェック」section に証跡として添付する:
+walkthrough 1 セッション = 1 critical flow × 1 persona。以下を Markdown table で記録し、customer-facing PR の body（`## 検証` 節。PR 本文の節構成は `.github/PR_TEMPLATE_SECTIONS.json` が SSOT）or EPIC umbrella に証跡として添付する:
 
 ```markdown
 ### Cognitive Walkthrough session - {flow 名} × {persona}
@@ -178,7 +178,7 @@ session sheet は `docs/cx-walkthrough-sessions/{YYYY-MM-DD}-{flow-slug}-{person
 
 - **AI-vision UX review skill (C-5)**: open-ended audit でなく、本 skill の 4 質問 prompt 経由のみ。general「UX を評価して」prompt は別 POC (C-5 #2553 関連 follow-up Issue) で精度検証中、本 skill では採用しない
 - **AI 自律 exploratory agent (C-6)**: dead-end / unreachable button 検出用、別 POC (C-6 follow-up)
-- **全画面 walkthrough**: critical flow (`tests/CLAUDE.md` §「CUJ」5 件) のみ
+- **全画面 walkthrough**: critical flow（`tests/CLAUDE.md` §「CUJ」に列挙されたもの）のみ
 - **moderated user testing 多数招集**: 最初の 5 人は walkthrough 後の深い問題発見に温存 (NN/G 5-user rule、研究 §B-4)
 - **multi-agent committee**: F1 0.91 だが API コスト過剰、Pre-PMF 不採用 (research §3-4)
 
@@ -188,7 +188,7 @@ session sheet は `docs/cx-walkthrough-sessions/{YYYY-MM-DD}-{flow-slug}-{person
 
 - 親 EPIC: [#2459 Test Strategy 全体最適化](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2459)
 - 基盤: [#2544 機能基盤](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2544) (条件 1/7/8 担当、PR #2556 merge 済)
-- 兄弟: [#2553 CX C-1 DoR 明文化](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2553) (本 skill が条件 2 を担当、PR #2619 merge 済) / [#2555 C-3 用語 lint](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2555) (条件 3/4 担当、PR #2587)
+- 兄弟: [#2553 CX C-1 DoR 明文化](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2553) (本 skill が条件 2 を担当、PR #2619 merge 済) / [#2555 C-3 用語 lint](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2555) (PR #2587 で導入した `check-terminology-coherence.ts` は #4322 で削除済。条件 3/4 の現在の担保手段は `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」を参照)
 - 発展元 skill: [`customer-voice`](../customer-voice/SKILL.md) (3 persona × 5 評価軸の汎用フィードバック)
 - research: CX 検証手法研究ノート (主セッション内 `tmp/` 配下、git 管理外。要点は本 SKILL §「NN/G の 4 質問」と §「AI と人間の担当分担」に統合済)
 

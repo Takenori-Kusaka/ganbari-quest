@@ -355,7 +355,12 @@ describe('#4075 AC2 — hook の相対 import は全て dynamic (fitness functio
 		for (const entries of Object.values(settings.hooks ?? {})) {
 			for (const entry of entries) {
 				for (const hook of entry.hooks ?? []) {
-					const match = (hook.command ?? '').match(/(?:^|\s)((?:\.claude|scripts)\/\S+\.mjs)/);
+					// `node scripts/x.mjs` (cwd 相対) と `node "${CLAUDE_PROJECT_DIR}/scripts/x.mjs"` の両方を拾う。
+					// 後者は hook の cwd がセッションの `cd` に追従するため (cwd 相対だと tmp/ 配下の別 clone に
+					// 移った途端 MODULE_NOT_FOUND で毎回 hook error になる)。
+					const match = (hook.command ?? '').match(
+						/(?:^|\s)"?(?:\$\{CLAUDE_PROJECT_DIR\}\/)?((?:\.claude|scripts)\/[^\s"]+\.mjs)"?/,
+					);
 					if (match?.[1]) paths.add(match[1]);
 				}
 			}

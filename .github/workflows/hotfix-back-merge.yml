@@ -323,15 +323,19 @@ jobs:
           always() &&
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
-          vars.DISCORD_WEBHOOK_URL != '' &&
           (steps.appcreds.outputs.present == 'false' || steps.merge.outputs.conflict == 'true')
         env:
-          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          # #4994: webhook URL は Secret (Variable はログでマスクされない)
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
           CREDS_PRESENT: ${{ steps.appcreds.outputs.present }}
           CONFLICT: ${{ steps.merge.outputs.conflict }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
+            exit 0
+          fi
           if [ "${CREDS_PRESENT}" = "false" ]; then
             TITLE="hotfix back-merge 未発行 (GitHub App 認証未設定)"
             DESC="hotfix #${HOTFIX_PR} の develop back-merge を発行できません (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY 未設定)。main/develop が drift します。手動 back-merge が必要です。"
@@ -341,11 +345,11 @@ jobs:
             DESC="hotfix #${HOTFIX_PR} の back-merge PR #${PR_NUMBER} で conflict 発生。status:blocked 付与済。手動解決が必要です。"
             COLOR=15105570
           fi
-          curl -s -X POST "$WEBHOOK_URL" \
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || true
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"
 
-      # App 認証未設定時は Discord に加えて GitHub log にも残す (vars 未設定環境のフォールバック)。
+      # App 認証未設定時は Discord に加えて GitHub log にも残す (webhook の Secret 未設定環境のフォールバック)。
       - name: Drift summary (job summary)
         if: >-
           always() &&

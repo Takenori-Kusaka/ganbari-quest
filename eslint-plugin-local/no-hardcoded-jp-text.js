@@ -2,7 +2,8 @@
  * Custom ESLint rule: no-hardcoded-jp-text
  *
  * Flags hardcoded Japanese text (hiragana, katakana, kanji) directly in Svelte templates.
- * Forces usage of constants from $lib/domain/labels.ts instead.
+ * Forces usage of constants from $lib/domain/labels instead (the labels layer, #4965: which file a new
+ * namespace goes into is decided by the placement rules in docs/DESIGN.md §6).
  *
  * Applied as 'error' to src/routes/**\/*.svelte and src/lib/**\/*.svelte via eslint.config.js,
  * so `npm run lint:svelte` (a hard-fail step of the CI `lint-and-test` job) rejects new violations.
@@ -19,16 +20,16 @@ export default {
 	meta: {
 		docs: {
 			description:
-				'disallow hardcoded Japanese text in Svelte templates; use constants from $lib/domain/labels.ts',
+				'disallow hardcoded Japanese text in Svelte templates; use constants from $lib/domain/labels',
 			category: 'Best Practices',
 			recommended: false,
 		},
 		schema: [],
 		messages: {
 			hardcodedJpText:
-				'Hardcoded Japanese text. Use a constant from $lib/domain/labels.ts instead.',
+				'Hardcoded Japanese text. Use a constant from $lib/domain/labels instead (where to add it: docs/DESIGN.md §6).',
 			hardcodedJpAttr:
-				'Hardcoded Japanese text in "{{attr}}" attribute. Use a constant from $lib/domain/labels.ts instead.',
+				'Hardcoded Japanese text in "{{attr}}" attribute. Use a constant from $lib/domain/labels instead (where to add it: docs/DESIGN.md §6).',
 		},
 		type: 'suggestion',
 	},

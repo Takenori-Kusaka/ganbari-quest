@@ -207,7 +207,7 @@ CREATE INDEX idx_cancellation_reasons_category_date ON cancellation_reasons(cate
 CREATE INDEX idx_cancellation_reasons_date ON cancellation_reasons(created_at);
 ```
 
-DynamoDB: PK=`CANCEL_REASON`, SK=`<isoTs>#<uuid>` (single global partition、低頻度書込み < 100/月想定)
+DSQL: `cancellation_reasons` PK=(`family_id`, `reason_id` UUID) (`src/lib/server/db/dsql/schema.ts`、低頻度書込み < 100/月想定)
 
 詳細: `docs/design/08-データベース設計書.md` §「cancellation_reasons」
 
@@ -226,7 +226,7 @@ PO の「『卒業』をプロダクト哲学（ADR-0023 §3.8）として実装
 1. **ポジティブだが煽らない (ADR-0012)** — 「もう一度始めましょう」「もっと使えば〜」等の引き止め CTA を出さない。卒業を素直に祝うだけ。
 2. **公開時の実名禁止** — 親が任意指定するニックネームのみ。お子さまの特定不可性を最優先。
 3. **承諾なしでも KPI に含む** — 「卒業者数 / 平均利用期間 / 卒業率」は consented=false でもカウント。事例公開承諾は別管理。
-4. **DynamoDB GSI 不採用 (Pre-PMF / ADR-0010)** — 単一パーティション + Scan + 属性フィルタで Tenant 単位検索。書込み < 50/月想定で過剰防衛しない。
+4. **index は最小限 (Pre-PMF / ADR-0010)** — Tenant 単位検索は PK 先頭の `family_id` で引き、secondary index は公開事例・集計用の (`consented`, `consented_at`) 1 本のみ。書込み < 50/月想定で過剰防衛しない。
 
 #### §3. 仕様
 
@@ -290,7 +290,7 @@ CREATE INDEX idx_graduation_consent_consented_date
 CREATE INDEX idx_graduation_consent_date ON graduation_consent(consented_at);
 ```
 
-DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition、低頻度書込み < 50/月想定、#1596 同パターン)
+DSQL: `graduation_consent` PK=(`family_id`, `consent_id` UUID) + secondary `graduation_consent_public_idx` (`consented`, `consented_at`) (`src/lib/server/db/dsql/schema.ts`、低頻度書込み < 50/月想定)
 
 ##### プライバシーポリシー
 

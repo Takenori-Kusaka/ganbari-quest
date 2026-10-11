@@ -62,6 +62,7 @@ import DataPageRaw from '../../../src/routes/(parent)/admin/settings/data/+page.
 type DataProps = {
 	dataSummary: null;
 	canExport: boolean;
+	customRewardUnlocked: boolean;
 	maxCloudExports: number;
 	children: Array<{ id: string; nickname: string; age: number }>;
 	maxImportBytes: number;
@@ -76,6 +77,7 @@ function makeData(overrides: Partial<DataProps> = {}): DataProps {
 	return {
 		dataSummary: null,
 		canExport: true,
+		customRewardUnlocked: true,
 		maxCloudExports: 0,
 		children: [],
 		maxImportBytes: 10 * 1024 * 1024,
@@ -144,6 +146,99 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 			// 送信前に弾かれ、preview / file-input select ステップに留まる (importStep=select)
 			expect(queryByTestId('import-preview-summary')).toBeNull();
 			expect(container.querySelector('[data-testid="import-file-input"]')).not.toBeNull();
+		});
+	});
+
+	// ── #4992 PO 決裁 Q4-c: 復元は無料でも通すが、編集は有料のまま。入ったのに押せない理由を結果で伝える ──
+	describe('復元結果: 無料プランのオリジナルごほうびは編集できない旨 (#4992 Q4-c)', () => {
+		const PREVIEW = {
+			children: 1,
+			activities: 0,
+			activityLogs: 0,
+			pointLedger: 0,
+			statuses: 0,
+			achievements: 0,
+			titles: 0,
+			specialRewards: 1,
+			duplicates: {
+				activities: [],
+				specialRewards: [],
+				checklistTemplates: [],
+				activityLogs: [],
+				loginBonuses: [],
+			},
+		};
+
+		function resultWith(specialRewardsImported: number) {
+			return {
+				childrenImported: 1,
+				activitiesCreated: 0,
+				activityLogsImported: 0,
+				activityLogsSkipped: 0,
+				pointLedgerImported: 0,
+				pointLedgerSkipped: 0,
+				specialRewardsImported,
+				specialRewardsSkipped: 0,
+				checklistLogsImported: 0,
+				checklistLogsSkipped: 0,
+				staticFilesRestored: 0,
+				staticFilesSkipped: 0,
+				childVoicesImported: 0,
+				childVoicesSkipped: 0,
+				settingsImported: 0,
+				settingsSkipped: 0,
+				errors: [],
+				warnings: [],
+			};
+		}
+
+		/** バックアップを選び、復元を実行して結果画面 (done) まで進める。 */
+		async function restoreUntilDone(customRewardUnlocked: boolean, specialRewardsImported: number) {
+			pageStore.set({ data: { authMode: 'local' } });
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string) => {
+					const isPreview = typeof url === 'string' && url.includes('mode=preview');
+					return Promise.resolve({
+						ok: true,
+						json: () =>
+							Promise.resolve(
+								isPreview
+									? { ok: true, preview: PREVIEW }
+									: { ok: true, result: resultWith(specialRewardsImported) },
+							),
+					} as Response);
+				}),
+			);
+			const view = render(DataPage, { data: makeData({ customRewardUnlocked }), form: null });
+			await selectImportFile(
+				view.container,
+				new File(['{"a":1}'], 'backup.json', { type: 'application/json' }),
+			);
+			await fireEvent.click(await view.findByTestId('import-execute-button'));
+			await view.findByTestId('data-import-result');
+			return view;
+		}
+
+		it('無料プランで復元したオリジナルのごほうびがあるとき、編集できない旨と削除はできる旨を出す', async () => {
+			const { getByTestId } = await restoreUntilDone(false, 2);
+			expect(getByTestId('data-import-result-reward-edit-locked').textContent).toContain(
+				SETTINGS_LABELS.dataImportResultRewardEditLocked,
+			);
+			// PO 決裁の文面どおり (編集は不可、削除は可)
+			expect(SETTINGS_LABELS.dataImportResultRewardEditLocked).toBe(
+				'取り込んだオリジナルのごほうびは、無料プランでは編集できません（削除はできます）',
+			);
+		});
+
+		it('有料プランでは出さない (編集できるので誤案内になる)', async () => {
+			const { queryByTestId } = await restoreUntilDone(true, 2);
+			expect(queryByTestId('data-import-result-reward-edit-locked')).toBeNull();
+		});
+
+		it('無料でも、ごほうびが 1 件も復元されなかったときは出さない', async () => {
+			const { queryByTestId } = await restoreUntilDone(false, 0);
+			expect(queryByTestId('data-import-result-reward-edit-locked')).toBeNull();
 		});
 	});
 

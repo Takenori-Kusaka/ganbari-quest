@@ -17,7 +17,8 @@
  *   - site/index.html, site/faq.html, site/pricing.html
  *   - site/sla.html, site/tokushoho.html, site/help/license-key.html
  *   - site/shared-labels.js (labels.ts から自動生成、SSOT 反映確認用)
- *   - src/lib/domain/labels.ts (LP_FLOATING_CTA_LABELS.midHref / LP_INDEX_PHASEB_LABELS.k13/k17/k18)
+ *   - labels 層 (src/lib/domain/labels.ts + labels/*.ts、#4965) の LP_FLOATING_CTA_LABELS.midHref /
+ *     LP_INDEX_PHASEB_LABELS.k13/k17/k18
  *
  * AC マッピング (Issue #2097 Phase B-10):
  *   - AC1: LP 全ファイルから `ganbari-quest.com/demo` (旧 URL) が消滅していること
@@ -28,6 +29,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
@@ -40,8 +42,6 @@ const LP_FILES = [
 	'site/tokushoho.html',
 	'site/shared-labels.js',
 ];
-
-const LABELS_TS = 'src/lib/domain/labels.ts';
 
 const OLD_URL = 'https://ganbari-quest.com/demo';
 const NEW_URL = 'https://demo.ganbari-quest.com/';
@@ -90,20 +90,20 @@ describe('LP demo CTA href migration (#2097 Phase B-10, ADR-0048)', () => {
 		expect(total).toBe(10);
 	});
 
-	it(`AC3: labels.ts SSOT に新 URL '${NEW_URL}' が 4 箇所存在すること (midHref / k13 / k17 / k18)`, () => {
-		const content = readFileSync(path.join(REPO_ROOT, LABELS_TS), 'utf8');
+	it(`AC3: labels 層 SSOT に新 URL '${NEW_URL}' が 4 箇所存在すること (midHref / k13 / k17 / k18)`, () => {
+		const content = readLabelsSource();
 		const matches = content.match(/https:\/\/demo\.ganbari-quest\.com\//g);
 		expect(matches).not.toBeNull();
 		expect(matches?.length ?? 0).toBe(4);
 	});
 
-	it(`AC3: labels.ts SSOT に旧 URL '${OLD_URL}' が残存しないこと`, () => {
-		const content = readFileSync(path.join(REPO_ROOT, LABELS_TS), 'utf8');
+	it(`AC3: labels 層 SSOT に旧 URL '${OLD_URL}' が残存しないこと`, () => {
+		const content = readLabelsSource();
 		const regex = /https:\/\/ganbari-quest\.com\/demo(?![a-zA-Z0-9_-])/;
 		const match = content.match(regex);
 		if (match) {
 			throw new Error(
-				`labels.ts SSOT に旧 URL が残存しています。\nMatch: ${match[0]}\n` +
+				`labels 層 SSOT に旧 URL が残存しています。\nMatch: ${match[0]}\n` +
 					`修正方針: midHref / k13 / k17 / k18 の 4 箇所を新 URL に置換し、` +
 					`scripts/generate-lp-labels.mjs を実行して site/shared-labels.js を再生成する。`,
 			);

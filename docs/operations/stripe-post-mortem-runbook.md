@@ -43,7 +43,7 @@ PII redaction 済 (PR #2747、`src/lib/server/stripe/pii-redaction.ts`) のた�
 
 ### Step 2. CloudWatch Logs Insights で関連 log 検索
 
-AWS Console → CloudWatch → Logs Insights → log group `/aws/lambda/ganbari-quest-app` で以下 query 実行 (retention 30 日、本 issue #2735 で SSOT 化済):
+AWS Console → CloudWatch → Logs Insights → log group `/aws/lambda/ganbari-quest-app` で以下 query 実行 (遡れる期間は §4 の保持期間まで):
 
 ```text
 fields @timestamp, message, service, context.kind, context.plan, context.lookupKey, context.fallbackUsed, context.errorSummary
@@ -114,20 +114,25 @@ webhook shadow mode の kill switch (`STRIPE_WEBHOOK_SHADOW_MODE`) は #4128 で
 
 ---
 
-## 4. CloudWatch Logs retention 30 日 SSOT (#2735)
+## 4. CloudWatch Logs の保持期間 (#2735)
 
-### 4.1 設計判断
+### 4.1 どこに値があるか
 
-| 項目 | 値 | 根拠 |
+保持期間の値は **CDK の各 LogGroup の `retention` が SSOT** で、本書には写さない（写すと CDK を変えたときに本書だけが古くなる。[17b-ログ設計書.md](../design/17b-ログ設計書.md) §8 と同じ扱い）。
+
+| log group | 定義（`retention` の場所） | 本書との関係 |
 |---|---|---|
-| `/aws/lambda/ganbari-quest-app` (本番 + Stripe webhook + checkout 経路) | **30 日** (`RetentionDays.ONE_MONTH`) | 本書 §2 query 実行に必要な期間、Pre-PMF Bucket A 課金別格 (`feedback_billing_critical_extra_caution`) |
-| `/aws/lambda/ganbari-quest-cron-dispatcher` | 3 日 (現状維持) | cron は HTTP POST のみで Stripe API call せず、Stripe 関連 log は AppLogGroup 側に集約される |
-| `/aws/lambda/ganbari-quest-app-demo` | 3 日 (現状維持) | demo Lambda は課金 path に到達しない (IAM isolation、`tests/unit/infra/multi-lambda-cdk.test.ts` C-1) |
-| `/aws/lambda/ganbari-quest-health-check` | 3 日 (現状維持) | 死活監視のみ、Stripe 関連なし |
+| `/aws/lambda/ganbari-quest-app`（本番 app。Stripe webhook / checkout を含む） | `infra/lib/compute-stack.ts` の `AppLogGroup` | §2 の query の対象。**課金経路の post-mortem を遡れるよう、ほかの log group より長く保持する**。保持期間を過ぎた log は S3 archive（assets bucket の `logs/`、翌日 Glacier へ移る。`setupLogArchiving`）にしか無く、Logs Insights では引けない |
+| `/aws/lambda/ganbari-quest-cron-dispatcher` | `infra/lib/compute-stack.ts` の `CronDispatcherLogGroup` | cron は HTTP POST を送るだけで Stripe API を呼ばない。Stripe 関連の log は app 側に集まる |
+| `/aws/lambda/ganbari-quest-app-demo` | `infra/lib/compute-stack.ts` の `DemoAppLogGroup` | demo Lambda は課金経路に到達しない（IAM 分離、`tests/unit/infra/multi-lambda-cdk.test.ts` C-1） |
+| `/aws/lambda/ganbari-quest-health-check` | `infra/lib/ops-stack.ts` の `HealthCheckLogGroup` | 死活監視のみ。Stripe 関連なし |
+| `/aws/lambda/ganbari-quest-ops-alert-forwarder` | `infra/lib/ops-stack.ts` の `OpsAlertForwarderLogGroup` | alert の転送のみ。Stripe 関連なし |
 
-ADR-0010 整合: 30 日 retention は AWS CloudWatch Logs 標準料金 ($0.03/GB/月) で 1 ヶ月分 = Pre-PMF coverage で十分。それ以上 (60/90/365 日) は Pre-PMF Bucket B/C の過剰防衛 (Stripe 公式 webhook event 自体は Stripe 側に 90 日保持されているため、CloudWatch には post-mortem triage 用の 30 日で十分)。
+`ganbari-quest-cognito-custom-message`（`infra/lib/auth-stack.ts`）と `ganbari-quest-ses-receive`（`infra/lib/ses-stack.ts`）は CDK で LogGroup を定義しておらず、log group は Lambda が初回実行時に自動で作る。CDK が保持期間を持たないため、§4.2 の出力で `retentionInDays` が空（無期限）になる。
 
-### 4.2 retention 確認コマンド (CDK deploy 後の post-deploy verification)
+長さの考え方（ADR-0010）: 本番 app は、障害に気づいてから §2 の query を打つまでの猶予が取れる長さにする。それ以上の長期保存は S3 archive が担うので、CloudWatch 側を延ばさない（Stripe の webhook event 自体は Stripe 側にも保持されている）。
+
+### 4.2 確認コマンド（CDK deploy 後）
 
 ```bash
 aws logs describe-log-groups \
@@ -137,18 +142,7 @@ aws logs describe-log-groups \
   --output table
 ```
 
-期待される出力:
-
-```text
-+--------------------------------------------------+--------+
-|  /aws/lambda/ganbari-quest-app                   |  30    |
-|  /aws/lambda/ganbari-quest-app-demo              |  3     |
-|  /aws/lambda/ganbari-quest-cron-dispatcher       |  3     |
-|  /aws/lambda/ganbari-quest-health-check          |  3     |
-+--------------------------------------------------+--------+
-```
-
-CDK deploy 後 (PR #2735 merge 後) に retention=30 になっていない場合は CDK synth/deploy をやり直す。手動で `aws logs put-retention-policy --log-group-name ... --retention-in-days 30` を打って暫定復旧することも可能。
+§4.1 の表にある各行の `retentionInDays` が、表の場所にある CDK の `retention` と一致することを確かめる。一致しない場合は、コンソールや CLI で変えずに CDK deploy をやり直す（手で変えた値は次の deploy で CDK の値に戻る）。
 
 ---
 

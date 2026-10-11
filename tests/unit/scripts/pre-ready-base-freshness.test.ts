@@ -156,6 +156,7 @@ describe('#4390 isGateSsotPath — 検査基準の判定', () => {
 
 	it('[B8] 検査基準でない path は false (over-block しない)', () => {
 		expect(isGateSsotPath('src/lib/domain/labels.ts')).toBe(false);
+		expect(isGateSsotPath('src/lib/domain/labels/plan.ts')).toBe(false);
 		expect(isGateSsotPath('docs/decisions/README.md')).toBe(false);
 		// 名前が似ているだけの path を拾わない
 		expect(isGateSsotPath('tests/unit/scripts/check-pr-body.test.ts')).toBe(false);

@@ -143,15 +143,25 @@ export function createDsqlPushSubscriptionRepo(db: SqlExecutor): IPushSubscripti
 			return toLog(row);
 		},
 
-		async countLogsBetween(tenantId, fromIso, toIso) {
+		async countLogsBetween(tenantId, fromIso, toIso, notificationTypes) {
 			// #4722: 境界は呼び出し側が instant (UTC ISO) にして渡す。'YYYY-MM-DD'::timestamptz の裸 cast は
 			// **session TZ 依存** (実 DSQL は TZ=UTC 固定 P10 だが PGlite はローカル TZ を継承する) で、
 			// かつ JST 暦日をそのまま UTC 日境界として使うとカウント窓が 9 時間ずれる。
+			// #4706: 種別指定時は IN 句 (空配列は常に偽にして 0 件を返す)。値は全て bind parameter。
+			const typeFilter = notificationTypes
+				? notificationTypes.length > 0
+					? sql`AND notification_type IN (${sql.join(
+							notificationTypes.map((t) => sql`${t}`),
+							sql`, `,
+						)})`
+					: sql`AND false`
+				: sql``;
 			const result = await db.execute(sql`
 				SELECT count(*) AS c FROM notification_logs
 				WHERE family_id = ${tenantId}
 					AND sent_at >= ${fromIso}::timestamptz
 					AND sent_at < ${toIso}::timestamptz
+					${typeFilter}
 			`);
 			return Number((result.rows[0] as { c: unknown }).c);
 		},

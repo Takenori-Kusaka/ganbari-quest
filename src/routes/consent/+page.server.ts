@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/auth/login');
 	}
 
-	const consent = await checkConsent(locals.context.tenantId);
+	const consent = await checkConsent(locals.context.tenantId, locals.context.userId);
 	if (!consent.needsReconsent) {
 		redirect(302, '/admin');
 	}
@@ -78,7 +78,7 @@ export const actions: Actions = {
 
 		// 既に最新版へ同意済みの種別は記録し直さない。画面に出していない文書について
 		// 「いま同意した」証跡を作ると、記録が実際の行為とずれるため（append-only、監査対象）。
-		const current = await checkConsent(tenantId);
+		const current = await checkConsent(tenantId, userId);
 		const missing: ConsentType[] = [];
 		if (!current.termsAccepted) missing.push('terms');
 		if (!current.privacyAccepted) missing.push('privacy');

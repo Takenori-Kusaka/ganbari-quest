@@ -10,6 +10,16 @@
 export const ICON_HOME = '🏠';
 /** つよさ / ステータス */
 export const ICON_STATUS = '⭐';
+/** ステータス (junior / senior の CharacterTabs。つよさ ⭐ ではなく数値の画面として見せる) */
+export const ICON_STATUS_OLDER = '📊';
+
+/**
+ * つよさ / ステータス画面を表すアイコン (CharacterTabs の先頭タブ / 子供の ❓ の章見出し)。
+ * 同じ画面を指すのに、タブとガイドの見出しでアイコンが割れないよう 1 箇所で決める。
+ */
+export function getChildStatusIcon(uiMode: string): string {
+	return uiMode === 'junior' || uiMode === 'senior' ? ICON_STATUS_OLDER : ICON_STATUS;
+}
 /** きろく / 記録（履歴） */
 export const ICON_HISTORY = '📋';
 /** チャレンジきろく */

@@ -5,8 +5,10 @@
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
 import {
+	ACHIEVEMENT_NOTIFICATION_TYPES,
 	DEFAULT_QUIET_END,
 	DEFAULT_QUIET_START,
+	MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS,
 	MAX_DAILY_NOTIFICATIONS,
 } from '$lib/domain/constants/notification';
 import {
@@ -60,6 +62,31 @@ interface AchievementNotificationData {
 
 // #4664: 値は domain/constants/notification.ts が SSOT (設定画面 / ページガイドも同じ値を引く)。
 export { MAX_DAILY_NOTIFICATIONS };
+
+/**
+ * push サービス 1 endpoint あたりの socket idle 上限 (#4706)。達成通知は子供の記録リクエストの中で、
+ * 定期配信は 30 秒 Lambda の cron の中で送るため、応答しない endpoint 1 つでそれらを止めない。
+ */
+const PUSH_SEND_TIMEOUT_MS = 5_000;
+
+// push が送れていないことを運営に届けるための log 用語 (SSOT、#4706)。
+//
+// push の失敗は保護者の画面にも cron の応答にも出ない (鍵が無ければ `sent: 0` を返し、
+// push サービスに拒否されても 1 行 log を出すだけで cron は 200 のまま)。保護者は
+// 「届くはずの通知が届いていない」ことに自分では気付けない。
+//
+// metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数 (CDK の tsconfig rootDir 制約で
+// src を import できないため literal で持ち、`tests/unit/infra/push-notification-alarm.test.ts` が
+// drift と「実際に書き出す行が filter にマッチすること」を機械検証する)。
+
+/** 本番 Lambda env に VAPID 鍵が無く、送信を始められなかった。 */
+export const PUSH_VAPID_MISSING_LOG_TERM = '[push-alert] vapid-missing';
+
+/**
+ * push サービスが送信を受け付けなかった (401/403 = 鍵の組違い、timeout、5xx 等)。
+ * 失効した購読 (410/404) の自動削除は保護者側の解除であって障害ではないので含めない。
+ */
+export const PUSH_SEND_FAILED_LOG_TERM = '[push-alert] send-failed';
 
 // ============================================================
 // ヘルパー
@@ -154,7 +181,15 @@ export function isQuietHours(
 // レート制限チェック
 // ============================================================
 
-export async function canSendNotification(tenantId: string): Promise<boolean> {
+/**
+ * `notificationType` を渡すと、種別ごとの日次上限も見る (#4706)。達成通知 (`achievement` / `level_up`) は
+ * 全体の上限とは別に 1 日 `MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS` 通まで。これにより、達成通知が全体の
+ * 枠を使い切ってリマインダー / ストリーク警告が届かなくなることを構造的に防ぐ。
+ */
+export async function canSendNotification(
+	tenantId: string,
+	notificationType?: string,
+): Promise<boolean> {
 	const settings = await getNotificationSettings(tenantId);
 
 	// サイレント時間帯チェック
@@ -166,12 +201,22 @@ export async function canSendNotification(tenantId: string): Promise<boolean> {
 	// (旧実装は JST の日付文字列をそのまま UTC 日境界として比較しており、カウント窓が 9 時間ずれ、
 	// JST 0〜9 時の送信が前日の枠で数えられていた)。
 	const today = todayDateJST();
-	const count = await countLogsBetween(
-		tenantId,
-		jstDayStartUtcIso(today),
-		jstDayStartUtcIso(addDaysJST(today, 1)),
-	);
-	return count < MAX_DAILY_NOTIFICATIONS;
+	const dayStartUtc = jstDayStartUtcIso(today);
+	const dayEndUtc = jstDayStartUtcIso(addDaysJST(today, 1));
+	const count = await countLogsBetween(tenantId, dayStartUtc, dayEndUtc);
+	if (count >= MAX_DAILY_NOTIFICATIONS) return false;
+
+	// 種別ごとの上限 (#4706): 達成通知だけ別カウンタ。送信済みの達成通知が上限に達していたら送らない。
+	if ((ACHIEVEMENT_NOTIFICATION_TYPES as readonly string[]).includes(notificationType ?? '')) {
+		const achievementCount = await countLogsBetween(
+			tenantId,
+			dayStartUtc,
+			dayEndUtc,
+			ACHIEVEMENT_NOTIFICATION_TYPES,
+		);
+		return achievementCount < MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS;
+	}
+	return true;
 }
 
 // ============================================================
@@ -201,7 +246,7 @@ export async function sendPushNotification(
 	}
 
 	// レート制限チェック
-	const allowed = await canSendNotification(tenantId);
+	const allowed = await canSendNotification(tenantId, notificationType);
 	if (!allowed) {
 		logger.info('[notification] レート制限またはサイレント時間帯のためスキップ', {
 			context: { tenantId, notificationType },
@@ -212,7 +257,7 @@ export async function sendPushNotification(
 	// VAPID 設定
 	const vapid = getVapidKeys();
 	if (!vapid.publicKey || !vapid.privateKey) {
-		logger.warn('[notification] VAPID キーが設定されていません');
+		logger.warn(`${PUSH_VAPID_MISSING_LOG_TERM} VAPID キーが設定されていません`);
 		return { sent: 0, failed: 0 };
 	}
 	webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
@@ -220,6 +265,9 @@ export async function sendPushNotification(
 	// テナントの全購読を取得
 	const allSubscriptions = await findByTenant(tenantId);
 	if (allSubscriptions.length === 0) {
+		logger.info('[notification] 購読が 0 件のためスキップ', {
+			context: { tenantId, notificationType },
+		});
 		return { sent: 0, failed: 0 };
 	}
 
@@ -299,6 +347,7 @@ export async function sendPushNotification(
 					keys: { p256dh: sub.keysP256dh, auth: sub.keysAuth },
 				},
 				payload,
+				{ timeout: PUSH_SEND_TIMEOUT_MS },
 			);
 			sent++;
 		} catch (err: unknown) {
@@ -310,9 +359,10 @@ export async function sendPushNotification(
 				});
 				await deleteByEndpoint(sub.endpoint, tenantId);
 			} else {
-				logger.error('[notification] プッシュ通知送信失敗', {
-					context: { endpoint: sub.endpoint, error: String(err) },
-				});
+				logger.error(
+					`${PUSH_SEND_FAILED_LOG_TERM} status=${statusCode ?? 'none'} プッシュ通知送信失敗`,
+					{ context: { endpoint: sub.endpoint, error: String(err) } },
+				);
 			}
 			failed++;
 		}

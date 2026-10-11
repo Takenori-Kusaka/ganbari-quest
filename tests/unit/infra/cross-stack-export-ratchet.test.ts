@@ -12,7 +12,7 @@
 // 捕捉できる** (Issue #3858 deep research)。本 test は PR 時点 (unit-test 層) に前倒し検出する。
 //
 // ## 何をするか
-// 1. 全 stack (prod 6 + staging 3) を bin/app.ts と同一に wire して synth する。
+// 1. 全 stack (prod と staging。対象は SYNTH_STACK_IDS) を bin/app.ts と同一に wire して synth する。
 //    自動 export は「consumer stack が同一 App 内に存在して初めて」生成されるため、Storage/Auth/Compute
 //    だけの部分 synth (staging-cdk.test.ts) では Compute→Network / Compute→Ops の export を取りこぼす。
 //    したがって本 test は 6 prod stack を全て wire する (これが #3855 = 「Ref export を見落とす」class の
@@ -41,13 +41,10 @@
 // ratchet が自動追随しない (= その stack の export/import が検査から silent に漏れる growth-drift)。
 // これを塞ぐため、bin/app.ts のソースを parse して instantiate される stack id 集合を抽出し、
 // 「synth 対象 ∪ 明示除外 (RATCHET_EXCLUDED_STACK_IDS)」と**集合として過不足なく一致**することを
-// assert する (#3872 の `templates.length === 11` guard / admin-resource-model-registry の
+// assert する (iam-role-description-ascii / physical-name-ratchet の [G1] stack 集合 guard / admin-resource-model-registry の
 // NON_CANONICAL 明示除外 no-silent-gap guard と同型思想)。除外 entry は理由付き登録 + 除外根拠
 // (cross-stack export 0 本) を実 synth で自己検証し、根拠が崩れたら fail して組み込みを強制する。
 
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -59,6 +56,7 @@ import { NetworkStack } from '../../../infra/lib/network-stack';
 import { OpsStack } from '../../../infra/lib/ops-stack';
 import { SesStack } from '../../../infra/lib/ses-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
+import { readBinStackIds } from '../helpers/bin-app-stack-ids';
 
 // cspell:ignore TESTPOOL ZTEST
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
@@ -98,9 +96,8 @@ interface ExportEntry {
 	descriptor: string;
 }
 
-// #3858 実測 baseline。#3854 Deploy-2 で MainTable + 両 export を撤去したため、prod/staging とも
-// MainTable Ref/Arn を allowlist から削除した (計 17 → 13)。
-// prod 9 export (Storage 4 / Compute 4 / Network 1) + staging 4 export (StorageStaging 4) = 計 13。
+// #3858 実測 baseline (本数はこの配列が SSOT。コメントに数字を書かない)。#3854 Deploy-2 で
+// MainTable + 両 export を撤去したため、prod/staging とも MainTable Ref/Arn は含まない。
 const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
 	// --- prod StorageStack (4) — Compute が assets/repo を import (MainTable Ref/Arn は #3854 で撤去) ---
 	{
@@ -218,23 +215,6 @@ const RATCHET_EXCLUDED_STACK_IDS: Readonly<Record<string, string>> = {
 		'(同一 DsqlStack class、deletionProtection のみ差分)',
 };
 
-const BIN_APP_TS_PATH = resolve(
-	dirname(fileURLToPath(import.meta.url)),
-	'../../../infra/bin/app.ts',
-);
-
-/**
- * bin/app.ts のソースから instantiate される stack id (`${appName}` prefix 抜き) を抽出する。
- * bin/app.ts は module scope で `app.synth()` まで実行する実行スクリプトのため import できず、
- * `new XxxStack(app, `${appName}<Id>`, ...)` の定型 instantiation をソース parse で拾う
- * (context gate (`if (dsqlEnabled)` 等) の内側も含めて「instantiate し得る全 stack」を返す)。
- */
-function parseBinStackIds(source: string): string[] {
-	return [...source.matchAll(/new \w+Stack\(\s*app,\s*`\$\{appName\}(\w+)`/g)].flatMap((m) =>
-		m[1] === undefined ? [] : [m[1]],
-	);
-}
-
 /**
  * bin/app.ts の stack 集合 vs 「ratchet synth 対象 ∪ 明示除外」の差分を返す (pure 関数。
  * negative test で「guard に歯がある」ことを直接実証できるよう判定ロジックを分離)。
@@ -312,7 +292,7 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		staticAssetsBucket: network.staticAssetsBucket,
 	});
 
-	// --- staging 3 stack (bin/app.ts stagingEnabled=true と同一 wire) ---
+	// --- staging (bin/app.ts stagingEnabled=true と同一 wire) ---
 	const sStorage = new StorageStack(app, `${APP_NAME}StorageStaging`, {
 		env,
 		envConfig: STAGING_ENV_CONFIG,
@@ -386,7 +366,7 @@ describe('#3858 cross-stack 自動 export/ImportValue allowlist ratchet (ADR-006
 		).toEqual([]);
 	});
 
-	it('生成 Export と allowlist が集合として過不足なく一致する (計 14 = prod 9 + staging 5)', () => {
+	it('生成 Export と allowlist が集合として過不足なく一致する', () => {
 		// 上記 2 assert の統合表明 (数の drift を 1 行で可視化)。実測とズレたら人手承認 (本 test 更新) を要する。
 		expect(synthResult.exports.size).toBe(AUTO_EXPORT_ALLOWLIST.length);
 		expect(new Set(synthResult.exports)).toEqual(ALLOWLIST_NAMES);
@@ -444,7 +424,7 @@ describe('#3858 ratchet が有効に機能する (negative test / failing-test-f
 });
 
 describe('#3882 stack 数 guard (bin/app.ts vs ratchet synth 対象の no-silent-gap)', () => {
-	const binStackIds = parseBinStackIds(readFileSync(BIN_APP_TS_PATH, 'utf8'));
+	const binStackIds = readBinStackIds();
 	const excludedIds = Object.keys(RATCHET_EXCLUDED_STACK_IDS);
 
 	it('bin/app.ts の stack instantiation を parser が抽出できる (parser 陳腐化 guard)', () => {
@@ -453,7 +433,7 @@ describe('#3882 stack 数 guard (bin/app.ts vs ratchet synth 対象の no-silent
 		expect(
 			binStackIds.length,
 			`bin/app.ts から抽出できた stack が ${binStackIds.length} 件しかない。instantiation の書式が ` +
-				'変わった場合は parseBinStackIds() の regex を追随させる (#3882)。',
+				'変わった場合は tests/unit/helpers/bin-app-stack-ids.ts の parseBinStackIds() の regex を追随させる (#3882)。',
 		).toBeGreaterThanOrEqual(6);
 		expect(binStackIds).toContain('Storage');
 		expect(binStackIds).toContain('Compute');

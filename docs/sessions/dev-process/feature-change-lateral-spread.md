@@ -13,7 +13,7 @@
 1. テキスト修正前に `grep -rn "修正前テキスト" src/ site/` で全出現箇所を洗い出す
 2. 全箇所を修正する（1 箇所だけ直して `closes #xxx` にしない）
 3. 変更説明に「grep 結果: N 箇所中 N 箇所修正、除外理由: ...」を明記
-4. 用語 SSOT は `src/lib/domain/terms.ts`（atom）→ `labels.ts`（compound）の 2 階層（ADR-0045）。atom 1 行修正で全画面伝播することを確認
+4. 用語 SSOT は `src/lib/domain/terms.ts`（atom）→ labels 層（compound、`src/lib/domain/labels/`）の 2 階層（ADR-0045）。atom 1 行修正で全画面伝播することを確認
 
 ---
 
@@ -24,7 +24,7 @@
 ```bash
 # 該当機能を LP / pricing / faq で訴求しているか確認
 grep -rn "<機能関連キーワード>" site/index.html site/pricing.html site/faq.html
-grep -rn "<機能関連キーワード>" src/lib/domain/labels.ts
+grep -rn "<機能関連キーワード>" src/lib/domain/labels/
 ```
 
 ヒットあれば Issue / PR の AC に追加（LP 3 ページの該当箇所 path を明示）:
@@ -32,7 +32,7 @@ grep -rn "<機能関連キーワード>" src/lib/domain/labels.ts
 - [ ] LP トップ（hero / 機能訴求の該当 section）
 - [ ] pricing（プラン比較表 / FAQ の該当行）
 - [ ] faq（該当 Q&A）
-- [ ] labels.ts / shared-labels.js（生成 source）
+- [ ] `src/lib/domain/labels/lp.ts` / shared-labels.js（生成 source）
 - [ ] LP メトリクス ratchet 維持（forbiddenTerms 0 / desktopHeight 8000 / presetActivityCountClaimedMin 300）
 - [ ] LP SS 再撮影（該当 page）
 - [ ] `node scripts/generate-lp-labels.mjs --check`

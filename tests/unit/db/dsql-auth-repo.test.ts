@@ -624,6 +624,24 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		expect((await repo.findLatestConsent(tenant.tenantId, 'cross-border'))?.version).toBe('cb1');
 	});
 
+	// #5040: 同意の判定は本人単位。userId を渡したとき、世帯の別の保護者の記録は見えない。
+	it('[T7c] findLatestConsent: userId 指定は本人の記録だけを返す (#5040)', async () => {
+		const tenant = await repo.createTenant({ name: '本人単位家', ownerId: USER_A });
+		const base = { tenantId: tenant.tenantId, ipAddress: '127.0.0.1', userAgent: 'vitest' };
+		await repo.recordConsent({ ...base, userId: USER_A, type: 'privacy', version: 'pa' });
+
+		expect((await repo.findLatestConsent(tenant.tenantId, 'privacy', USER_A))?.version).toBe('pa');
+		// 同じ世帯の別の保護者 B からは、A の同意は見えない
+		expect(await repo.findLatestConsent(tenant.tenantId, 'privacy', USER_B)).toBeUndefined();
+		// userId 省略は従来どおり世帯全体 (旧形式トークン等の退避経路)
+		expect((await repo.findLatestConsent(tenant.tenantId, 'privacy'))?.version).toBe('pa');
+
+		await new Promise((r) => setTimeout(r, 10));
+		await repo.recordConsent({ ...base, userId: USER_B, type: 'privacy', version: 'pb' });
+		expect((await repo.findLatestConsent(tenant.tenantId, 'privacy', USER_A))?.version).toBe('pa');
+		expect((await repo.findLatestConsent(tenant.tenantId, 'privacy', USER_B))?.version).toBe('pb');
+	});
+
 	// #4497: consents.type の DB CHECK は migration 0007 で外した (DSQL は値集合を後から広げられない)。
 	// 法務証跡テーブルなので、DB 制約を落とした分の防衛線を repo 入口に置いている。
 	// service 層を経由しない直接呼び出しでも未知の type が書けないこと。

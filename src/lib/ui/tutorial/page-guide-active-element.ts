@@ -17,6 +17,19 @@
 // gap 0ms (完全同期連打) でも本ユーティリティを `onHighlightStarted` に配線すれば
 // `.driver-active-element` が常に 1 件に保たれることを検証する。
 //
+// 【driver.js 1.9.0 で上流が直した — この回避は残置】
+// 1.9.0 は遷移のたびに `document.querySelectorAll('.driver-active-element')` を無条件に掃除する
+// (driver.js 本体の commit 2a30339 "Restore aria attributes after a highlight")。上の根本原因は
+// 1.8.0 までのもので、いまは本関数を配線しなくても class は残留しない (test の
+// 「fix 配線なしでも」2 件が実 driver.js で固定)。class の除去は冪等なので挙動を変えずに残している。
+//
+// ただし ARIA については冪等ではない。1.9.0 は対象が元から持っていた `aria-haspopup` 等を
+// 退避し、掃除のときに書き戻す。本関数は `onHighlightStarted` (掃除より前) で class を外すため、
+// driver.js の掃除が前 step の要素を見つけられず、書き戻しが走らない — 元の値は 1.8.0 のときと
+// 同じく失われたままになる (1.8.0 からの退行ではないが、上流の修正の効果を受け取れていない)。
+// 配線を外せば受け取れる。外すときは `PageGuideOverlay.svelte` の `onHighlightStarted` と
+// 本ファイル下部の DRIVER_OWN_ARIA の扱いを合わせて見直すこと。
+//
 // 【対処方針】
 // driver.js の `onHighlightStarted` フックは、新しい対象が解決された直後・実 DOM 操作 (クラス
 // 追加/除去) の前に、`duration` に関係なく毎回同期的に呼ばれる (driver.js.mjs `J` 関数冒頭)。

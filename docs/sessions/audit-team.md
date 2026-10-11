@@ -61,7 +61,7 @@ main = 本番（push 即 deploy、不変条件）であるにもかかわらず�
 ## §2 設計原則
 
 - **マネージャ orchestrator 専権 + subagent は evidence 生成まで（ADR-0056 §E 継承）**: 不可逆 side-effect（統合 PR の approve / merge、Issue 起票の実行）は audit-manager orchestrator が直接実行する。8 チーム・ポリシー準拠判定の各 agent は finding（structured JSON evidence）を生成・報告するまでが責務で、approve / merge / 起票 action を肩代わりしない。これは QM lead 本体の専権（[qm-session.md](qm-session.md) §「全手順 Pass → approve & merge」）と同型。
-- **self-report 単独信頼の禁止（PO 判断 5 / ADR-0056）**: 監査チームの merge 判定は structured JSON evidence + adversarial verify を物理強制する。各 agent の「問題なし」自己申告だけでは merge しない。Echoing（arXiv:2511.09710）と Persona Drift を抑制するため、Adversarial Reviewer による反対理由生成を evidence の一部として要求する。
+- **self-report 単独信頼の禁止（PO 判断 5）**: 各 agent の「問題なし」自己申告だけでは merge しない。merge 判定は、各領域 agent の structured JSON evidence（finding）を audit-manager が verify し、§3.5 のエビデンス表に集約して行う。Adversarial Reviewer の反対理由（Echoing（arXiv:2511.09710）と Persona Drift の抑制）は判断材料として使うが、**merge の前提条件ではない**（ADR-0068。approve を物理的に止める hook は外してあり、手順はロール定義の遵守で保つ）。例外は §3.8.1 禁則 3（自分が append した修正を承認するとき）。
 - **2 段 gate の責務分離（PO 判断 6）**: QM = feature → develop（per-PR の機能正、毎時）、監査チーム = release/* → main（統合前の CUJ 横断、1 日 1 回。release ブランチ方式 = branch-strategy.md §3.1）。両者は同一 gh アカウント `ganbariquestsupport-lab` を base branch（= レビュー対象 PR の種別）で role 区別する（[branch-strategy.md](branch-strategy.md) §6 継承）。二重判定が起きないよう §3.4 の境界表で「監査チームが判定しないこと」を明示する。
 - **全件発露 → filter → 起票/棄却（PO 判断 7）**: 問題は 1 件で即棄却せず、まず全件を発露させる。その後 (1) 重複統合、(2) severity 閾値、(3) ポリシー準拠判定 filter を順に通し、残ったものを Issue 起票 + 棄却判定する。「あえてそうしている」プロダクトポリシー由来の挙動を誤起票しないことが filter の主目的。
 - **Pre-PMF 整合（ADR-0010）**: 監査体制は Bucket A（顧客品質の構造的担保）。ただし staging stack / 最重厚テスト束ねは過剰防衛にならぬよう各 sub-issue で個別 bucket 判断する（本ファイルは役割定義のみで AWS コスト影響なし）。
@@ -118,7 +118,7 @@ EPIC #2861「既存資産再利用マップ」を本ファイルに正本化す�
 | プロダクト実装調査 | 再利用 | pr-review skill / regression-check skill |
 | ユーザビリティ・a11y | 再利用 | cognitive-walkthrough skill / customer-voice skill / age-mode-check skill / a11y job（axe-core） |
 | セキュリティ | 再利用 | security-scan workflow / codeql workflow / dependency-review workflow |
-| パフォーマンス | 一部新設（アプリ perf budget） | lp-metrics workflow / visual regression 3 層 / cost-review skill |
+| パフォーマンス | 一部新設（アプリ perf budget） | lp-metrics workflow / visual regression 3 層 / cost-audit workflow（コストの方針は docs/design/35-コスト管理計画書.md） |
 | テスト品質 | 再利用 | flake-hunt skill / ADR-0005 テスト品質 ratchet |
 | 問題起票 | 再利用 | issue-triage skill |
 | ポリシー準拠判定 | 新設 | pre-pmf-check skill + brand-check skill + adversarial-reviewer skill を統合した判定 |
@@ -134,7 +134,7 @@ ADR-0056 §E が定義する「subagent ≠ QM（役割分離 SSOT）」を、�
 - **subagent（8 チーム + ポリシー準拠判定）**: evidence 生成（finding を structured JSON で出力）が責務。approve / merge / Issue 起票の action 不可。
 - **audit-manager（orchestrator）**: subagent 起動 → evidence 物理 verify → filter → 不可逆 action 実行が責務。evidence 生成（finding 自体の捏造）は不可（Echoing 抑制のため自分で finding を作って自分で採用しない）。
 - **evidence 配置 SSOT**: structured JSON evidence は main repo 直下の規定ディレクトリに置く（subagent worktree 内のみは NG）。audit-manager は dispatch 後に evidence の物理存在を verify し、不在なら fallback（自筆ではなく再 dispatch ではなく、§3.4 の境界に従い該当 agent を再起動 or BLOCK）する。これは ADR-0056 §E の「evidence 流通 / action 接続点での drift」対策の継承。
-- **adversarial verify の物理強制**: merge 判定 evidence には Adversarial Reviewer による反対理由（structured JSON、`must_object_count` を満たす）を含める。これにより self-report 単独信頼を構造的に禁止する（ADR-0056 採用案 B 継承）。
+- **adversarial evidence の位置づけ（ADR-0068）**: Adversarial Reviewer の反対理由（structured JSON、`must_object_count` を満たす。`tmp/adversarial-evidence/<pr>.json`）は、統合 PR の **merge の前提条件ではない**。作った場合は §3.5 のエビデンス表に添える判断材料とし、反対理由は §3.6 の filter で blocking / Issue / accepted-residual に分ける（blocking が残れば §3.5 の残 NG として merge しない）。**例外は、audit-manager が release branch に自分の修正を append したとき**で、approve の前に adversarial-reviewer へその修正を疑い対象として渡す（§3.8.1 禁則 3。修正の作成者と承認者が同じになる構図を独立検証で補う）。
 
 両者を混同すると drift が再発する（subagent が approve を肩代わり / orchestrator が finding を肩代わりで bias）ため、役割境界を越える動作は禁止する。
 
@@ -185,7 +185,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 例: 機能 A（#NNNN） | admin/activities | unit×N / e2e×M | pass | 閾値内 | 0 |
 | 例: 修正 B（#NNNN） | child-home | unit×N / e2e×M | pass | 閾値内 | 0 |
 
-- 全行が pass + 残 NG 合計 0 + CodeQL new-alert 0 件 + カバレッジ閾値割れなし + adversarial evidence の反対理由が解消済、を満たして初めて audit-manager が merge を実行する。
+- 全行が pass + 残 NG 合計 0 + CodeQL new-alert 0 件 + カバレッジ閾値割れなし、を満たして初めて audit-manager が merge を実行する。adversarial evidence は前提条件ではない（§3.3）。作った場合、その反対理由のうち §3.6 で blocking に分けたものは残 NG に数える。
 - 1 行でも fail / 残 NG > 0 の場合は merge せず、該当を §3.6 の起票/棄却 flow に送る。
 - **#3 / #4 は CI artifact `integration-pr-evidence-<run_id>` が自動生成する**（`ci.yml` `integration-evidence` job、#2874。テスト結果表 = toJSON(needs) 横断 + カバレッジ gap map + API 設計書突合）。**#1 / #2 は B-1（#2950）領域**で、artifact 内 placeholder 行を audit-manager run が記入する。
 - **finding の SARIF 2.1.0 化 + advisory 評価（#2876）**: 各領域 finding は `scripts/audit/to-sarif.mjs` で SARIF 2.1.0 document に変換され、`integration-evidence` job が「NG-0（severity 3-4 + policy_compliant=false が 0）+ カバレッジ ratchet 達成 + 全 job 緑」を **advisory（非 block）** で評価し evidence.md §5 に出す。advisory は merge を block しない（required_status_checks 未登録、continue-on-error）。**NG の最終確定は本表の audit-manager 人間判定が正本**であり、advisory は CI が機械集約できるスナップショットに限る（EPIC 設計原則 1）。
@@ -279,17 +279,17 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 3 | テスト範囲・方針・影響範囲見積もりを deep research し抜け漏れを確認 | 技術調査（deep-research） | — |
 | 4 | テストケース一覧 + 自動テスト追加（E2E / Storybook / API）。**develop に既存のテストとの網羅性マッピング**を行い冗長を排除 | テスト品質 | — |
 | 5 | 追加テスト一式を **develop ブランチへ PR** として提出 | audit-manager（PR 発行） | **可** |
-| 6 | テスト取込後の develop の**特定コミットを凍結**し `release/<YYYY-MM-DD>` を cut → **release/* → main 統合 PR を発行**（branch-strategy.md §3.1。以後 develop が動いても release HEAD 不変＝frozen 標的で監査が無効化されない） | audit-manager（PR 発行） | **可** |
-| 7 | 統合 PR の全 CI 成功を確認。fail は **1 件で止めず全件洗い出し**、各々 deep research で真因特定・なぜなぜ分析・横展開（影響範囲）まで行い **Issue 起票**。監査中の修正は release branch への commit（append）で対応するが、**approve 後に append したら adversarial evidence を再生成し再 approve する**（`PR_Mearge` は `dismiss_stale_reviews_on_push=false` のため stale approval が残り未監査差分が merge され得る。approve HEAD = merge HEAD を一致させる） | audit-manager（起票） + 各領域 agent | **可** |
+| 6 | テスト取込後の develop の**特定コミットを凍結**し `release/<YYYY-MM-DD>` を cut → **release/* → main 統合 PR を発行**（題名は `[統合] release/<YYYY-MM-DD> → main`、回数は入れない。branch-strategy.md §3.1。以後 develop が動いても release HEAD 不変＝frozen 標的で監査が無効化されない） | audit-manager（PR 発行） | **可** |
+| 7 | 統合 PR の全 CI 成功を確認。fail は **1 件で止めず全件洗い出し**、各々 deep research で真因特定・なぜなぜ分析・横展開（影響範囲）まで行い **Issue 起票**。監査中の修正は release branch への commit（append）で対応するが、**approve 後に append したら、append 後の HEAD を監査し直してから再 approve する**（自分の修正なら §3.8.1 禁則 3 の独立検証を経る。`PR_Mearge` は `dismiss_stale_reviews_on_push=false` のため stale approval が残り未監査差分が merge され得る。approve HEAD = merge HEAD を一致させる） | audit-manager（起票） + 各領域 agent | **可** |
 | 8 | 全緑なら統合 PR を **merge commit（`gh pr merge --merge`、squash 禁止、§3.5 / branch-strategy.md §3.1）** で merge → 本番 deploy actions を watch し成功確認 → **main → develop back-merge sync PR** で main の merge commit を develop へ取り込む（§5 / #2951・#3061） | audit-manager（merge） | **可** |
 | 9 | deploy 完了後、本番 **AWS 版・ローカル NUC 版の両方へ health check** | audit-manager + deploy-verify skill | — |
 
 - **全件発露原則（step 7）**: CI fail は最初の 1 件で止めず、固定時間 box 内で全 fail を発露させてから triage する（§3.6 / EPIC 失敗シナリオ⑥）。起票 Issue には真因・なぜなぜ・横展開（同種 defect の他箇所）を必須記載する（ADR-0003 Issue 品質）。
-- **adversarial evidence は「処置が全部終わってから 1 回」に寄せる（#4171）**: evidence には **TTL 30 分**があり、`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
+- **adversarial evidence を作るなら「処置が全部終わってから 1 回」に寄せる（#4171）**: evidence は merge の前提ではない（§3.3）が、`scripts/verify-adversarial-output.mjs` で verify する場合は **TTL 30 分**で判定されるため、`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成する。**
   - 第 19 回 run の実測: **4 世代生成したうち 1 世代は「TTL が切れたから作り直しただけ」**で、監査上の価値はゼロだった
-  - **ただし release branch に append したら必ず再生成する**（本 step の「approve 後に append したら再生成」要求は不変）。**寄せてよいのは「処置前の先取り生成」であって、append 後の再生成ではない**。省くと stale approval で未監査差分が merge される（§3.8.1 禁則 3）
+  - **ただし release branch に append したら、append 前に作った evidence は判断材料に使わない**（append 後の差分を見ていない）。**寄せてよいのは「処置前の先取り生成」であって、append 後の独立検証（§3.8.1 禁則 3）を省くことではない**。省くと stale approval で未監査差分が merge される
 - **冗長テスト回避（step 4）**: develop 取込時点で feature PR が追加済みのテストと突合し、同一観点の二重追加を避ける。監査チームが足すのは「統合状態でしか検出できない CUJ 横断テスト」に限る（§3.4 二重判定回避と同型）。
-- **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DynamoDB backend で lazy migration を呼ばないため schema assert 無し）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
+- **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DSQL backend は lazy migration を呼ばず、schema は前段の `Provision DSQL schema` step（`dsql:migrate`）が適用するため、health step では schema を assert しない）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
 
 ### §3.8.1 merge 判断の 3 禁則
 
@@ -308,7 +308,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 
 §3.8 step 7 は「監査中の修正は release branch への append」を認めるが、**append した本人が承認者でもある構図**になる。
 
-- **append 後は必ず adversarial evidence を再生成**し、**自分の修正を明示的な疑い対象として渡す**
+- **append 後は adversarial-reviewer を dispatch し直し**、**自分の修正を明示的な疑い対象として渡す**（adversarial evidence は一般には merge の前提ではない（ADR-0068）が、自分の修正を自分で承認するこの構図では、これが独立検証の手段になる）
 - 特に「assertion を実質的に弱めていないか」「『製品は正常』判定が環境からの推論に依存していないか」を渡す
 - **approve は最後に置く**（`dismiss_stale_reviews_on_push=false` のため approve 後の append は stale approval を残す）
 

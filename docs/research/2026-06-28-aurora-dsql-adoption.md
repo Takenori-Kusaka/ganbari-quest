@@ -40,7 +40,7 @@
 - アンチパターン: フルスキャン / N+1（小 txn 多発 → 最小値課金が割高、batch 化せよ）/ 不要 secondary index（全 index 書込課金、最大 24/table）/ hot key write 集中（OCC 競合 → 再実行二重課金、ランダム PK 分散）。
 - **無料枠超過検知**: CloudWatch `AWS/AuroraDSQL`（dimension ClusterId）— Usage: WriteDPU/ReadDPU/ComputeDPU/TotalDPU。Observability: ClusterStorageSize/TotalTransactions/QueryTimeouts/OccConflicts/CommitLatency(P50)/BytesWritten/BytesRead/ComputeTime。接続系 `AWS/Usage`: ResourceCount(ClusterConnectionCount)/CallCount(DbConnect)。
   - Alarm: TotalDPU 日次 Sum > 約 3,225DPU/日(=10万/月)、ClusterStorageSize→1GB 接近。Budgets ¥100 + 80/100%。Cost Anomaly Detection。
-  - 注: cost-review skill は Cost Explorer API 直叩き禁止（$0.01/req）→ CloudWatch + Budgets で代替。
+  - 注: Cost Explorer API は直接叩かない（規律の SSOT は `infra/CLAUDE.md` §AWS Cost Explorer API 使用制限）→ CloudWatch + Budgets で代替。
 - `EXPLAIN ANALYZE VERBOSE`（VERBOSE 必須）で文末 Statement DPU Estimate。directional 相対比較用（billing-grade でない）。代表データ量でテスト。CI は相対回帰チェック向き、絶対閾値 gate 不向き。
 
 ## 2. コネクション（Lambda）

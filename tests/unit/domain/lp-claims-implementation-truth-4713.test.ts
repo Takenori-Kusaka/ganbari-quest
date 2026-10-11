@@ -22,6 +22,7 @@ import {
 } from '../../../src/lib/domain/constants/auto-sleep';
 import { isCustomRewardUnlocked } from '../../../src/lib/domain/custom-reward-gate';
 import {
+	CUSTOM_REWARD_FEATURE_NAME,
 	LP_FAQ_PHASEB_LABELS,
 	LP_HERO_SPEC_BADGES_LABELS,
 	LP_INDEX_PHASEB_LABELS,
@@ -167,11 +168,9 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 
 	it('pricing.html 無料プランの説明が「プリセットから追加できる」ことを述べ、逆の全面ロックを述べない', () => {
 		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(`${REWARD_TERMS.preset}から追加`);
-		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_PHASEB_LABELS.k8b).toContain(CUSTOM_REWARD_FEATURE_NAME);
 		// 旧文言「ごほうびショップへの商品登録はスタンダード以上」(無料で一切登録できないと読める) の再発防止
-		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe(
-			`${REWARD_TERMS.productRegistration}はスタンダード以上`,
-		);
+		expect(LP_PRICING_PHASEB_LABELS.k8b).not.toBe('ごほうびショップへの商品登録はスタンダード以上');
 	});
 
 	it('比較表がプリセット利用 (全プラン ✓) とオリジナル登録 (無料 ✗ / スタンダード以上 ✓) を別行で表す', () => {
@@ -181,7 +180,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 			`<td>${REWARD_TERMS.preset}${REWARD_TERMS.canonical}の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>`,
 		);
 		// オリジナル登録: canCustomReward の値と行の ✗/✓ 配置が一致する
-		expect(LP_PRICING_PHASEB_LABELS.k39).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_PHASEB_LABELS.k39).toContain(CUSTOM_REWARD_FEATURE_NAME);
 		expect(getPlanLimits('free').canCustomReward).toBe(false);
 		expect(LP_PRICING_PHASEB_LABELS.k39).toMatch(
 			/<td>.*<\/td><td class="dash">&#8212;<\/td><td class="check">&#10003;<\/td><td class="check">&#10003;<\/td>/,
@@ -190,7 +189,7 @@ describe('#4915 無料プランのごほうびプリセット訴求', () => {
 
 	it('FAQ 回答がプリセットのごほうびも無料で使えることを述べ、旧「貯めたポイントと交換する商品の登録」の未限定表現を残さない', () => {
 		expect(LP_PRICING_LABELS.faqFreeA).toContain(`プリセット`);
-		expect(LP_PRICING_LABELS.faqFreeA).toContain(REWARD_TERMS.originalRegistration);
+		expect(LP_PRICING_LABELS.faqFreeA).toContain(CUSTOM_REWARD_FEATURE_NAME);
 		// 「オリジナル」を伴わない単なる「商品の登録」表現 (無料で一切不可と誤読される) を残さない
 		expect(LP_PRICING_LABELS.faqFreeA).not.toContain('貯めたポイントと交換する商品の登録');
 	});

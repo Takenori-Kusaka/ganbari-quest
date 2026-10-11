@@ -1,5 +1,6 @@
 <script lang="ts">
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { budoux } from '$lib/ui/actions/budoux';
 import type { GuideStep } from '$lib/ui/tutorial/page-guide-types';
 
 interface Props {
@@ -45,7 +46,7 @@ $effect(() => {
 </div>
 
 <!-- Tab content -->
-<div class="guide-tab-content">
+<div class="guide-tab-content" use:budoux>
 	{#if activeTab === 'what'}
 		<p>{step.what}</p>
 	{:else if activeTab === 'how'}

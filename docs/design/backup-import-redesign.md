@@ -69,7 +69,7 @@
 > - **回帰の固定**: `tests/integration/db/pg-replace-import-atomicity.test.ts`（PGlite 実 migration + factory + service 貫通）が「clear 後の失敗で旧データが件数・内容とも復元される」「成功時に recovery ZIP が残らない」「snapshot 保存不能なら置換を開始しない」を assert する。
 
 ### 3.4 完全性テスト（#3328）
-- 全 source 実体の **round-trip**（rich fixture → export →(clear)→ import → 派生再計算 → **件数 + 代表内容一致**）を SQLite + DynamoDB / add + replace で。
+- 全 source 実体の **round-trip**（rich fixture → export →(clear)→ import → 派生再計算 → **件数 + 代表内容一致**）を SQLite / add + replace で（`tests/unit/services/backup-roundtrip-completeness.test.ts`。pg 系の replace 復元は §3.3 の `pg-replace-import-atomicity.test.ts`）。
 - **活動 101→0 を赤で再現** → 修正で緑（failing-test-first）。
 - 部分失敗（skip/warning>0）を success と扱わない assert。
 - 「`keys.ts` family ⊆ 分類レジストリ」整合の機械検証。

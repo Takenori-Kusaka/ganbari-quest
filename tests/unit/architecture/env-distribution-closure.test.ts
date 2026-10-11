@@ -417,11 +417,6 @@ const NOT_DISTRIBUTED: Array<{
 		keys: ['COGNITO_CLIENT_SECRET'],
 		why: 'Cognito app client を secret 無し (public client) で作っているため、渡す値自体が存在しない',
 	},
-	{
-		readers: ['app-env-schema'],
-		keys: ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'],
-		why: 'Web Push は未提供で鍵も発行していない。提供を決めた時点で配布経路ごと足す',
-	},
 
 	// ---- CDK context ----
 	{

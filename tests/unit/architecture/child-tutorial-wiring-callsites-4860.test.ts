@@ -76,6 +76,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'svelte/compiler';
 import { describe, expect, it } from 'vitest';
+import { CHILD_GUIDE_PAGE_BY_ROUTE } from '../../../src/lib/ui/tutorial/tutorial-chapters-child';
 
 const ROOT = join(__dirname, '../../..');
 const LAYOUT = 'src/routes/(child)/+layout.svelte';
@@ -218,11 +219,38 @@ function resolveDerivedInit(ast: Node, node: Node): Node {
 	return resolved ?? node;
 }
 
-/** その関数本体に `setChildActivityPresence(undefined)` があるか。 */
-function clearsPresence(fn: Node, aliasSource: Node): boolean {
-	return callsTo(fn, 'setChildActivityPresence', aliasSource).some((call) => {
-		const first = args(call)[0];
-		return first?.type === 'Identifier' && first.name === 'undefined';
+/**
+ * 「件数を書く関数」の呼び出し形 (#4864 で画面ごとに一般化)。
+ *
+ * - ホーム: `setChildActivityPresence(<値>)`
+ * - ほかの画面: `setChildGuidePresence('<page>', <値>)` — 第 1 引数は**自分の** page key
+ */
+interface PresenceWriter {
+	fnName: string;
+	/** 第 1 引数に要求する page key (無ければ page 引数を持たない形) */
+	pageKey?: string;
+}
+
+const HOME_WRITER: PresenceWriter = { fnName: 'setChildActivityPresence' };
+
+/** 呼び出しのうち「書く値」の引数 (page key 引数を除いた位置)。page key が違う呼び出しは undefined。 */
+function writtenValue(call: Node, writer: PresenceWriter): Node | undefined {
+	const a = args(call);
+	if (writer.pageKey === undefined) return a[0];
+	const page = a[0] as { type?: string; value?: unknown } | undefined;
+	if (page?.type !== 'Literal' || page.value !== writer.pageKey) return undefined;
+	return a[1];
+}
+
+/** その関数本体に「件数を undefined へ戻す」呼び出しがあるか。 */
+function clearsPresence(
+	fn: Node,
+	aliasSource: Node,
+	writer: PresenceWriter = HOME_WRITER,
+): boolean {
+	return callsTo(fn, writer.fnName, aliasSource).some((call) => {
+		const value = writtenValue(call, writer);
+		return value?.type === 'Identifier' && value.name === 'undefined';
 	});
 }
 
@@ -242,15 +270,19 @@ function returnedFunctionName(returned: Node): string | undefined {
  * 直接 arrow を返す形に加え、`return makeCleanup()` / `return cleanup` のように 1 段
  * 挟む形も認める (安全な抽出を false-positive で落とさないため。名前は module スコープで解決)。
  */
-function returnedFunctionClearsPresence(returned: Node | undefined, ast: Node): boolean {
+function returnedFunctionClearsPresence(
+	returned: Node | undefined,
+	ast: Node,
+	writer: PresenceWriter = HOME_WRITER,
+): boolean {
 	if (!returned) return false;
 	if (returned.type === 'ArrowFunctionExpression' || returned.type === 'FunctionExpression') {
-		return clearsPresence(returned, ast);
+		return clearsPresence(returned, ast, writer);
 	}
 	const refName = returnedFunctionName(returned);
 	if (!refName) return false;
 	const target = findLocalFunction(ast, refName);
-	return target ? clearsPresence(target, ast) : false;
+	return target ? clearsPresence(target, ast, writer) : false;
 }
 
 describe('[W1][W2] 子供 layout の配線', () => {
@@ -290,6 +322,11 @@ describe('[W1][W2] 子供 layout の配線', () => {
 			callsTo(ast, 'setChildActivityPresence').length,
 			`${LAYOUT} が件数を書いている。件数を知っているのはホームだけで、` +
 				'layout が書くとホームの訂正を上書きする (#4860 must-A)',
+		).toBe(0);
+		// #4864: ホーム以外の画面の件数も同じ。知っているのはその画面だけ
+		expect(
+			callsTo(ast, 'setChildGuidePresence').length,
+			`${LAYOUT} が画面の件数を書いている (#4864)。件数はその画面だけが書く`,
 		).toBe(0);
 	});
 
@@ -364,5 +401,156 @@ describe('[W3][W4] ホームの配線', () => {
 				'持ち越すと、活動のある子が /checklist へ移ったときに「カードをタップ」と案内し、' +
 				'その画面にカードは 1 枚も無い (#4860 adversarial 実測)',
 		).toBe(true);
+	});
+});
+
+// ============================================================
+// #4864: 子供の ❓ は押した画面の章を開く (PO 決裁 2026-09-23 案 1)
+//
+//   [W5] layout は `page.route.id` から解決した画面を `$effect` の中で store に書き、
+//        説明を持たない画面 (null) では Header に ❓ (onHelpClick) を渡さない
+//   [W6] ホーム以外の説明を持つ画面は、**自分の page key** で「主役があるか」を計算した値で書き、
+//        `$effect` の cleanup で undefined へ戻す (ホームの W3 / W4 と同じ契約)
+// ============================================================
+
+/** `<script>` だけでなくテンプレートも含む AST (Header への props を見るため)。 */
+function fullAst(relPath: string): Node {
+	const source = readFileSync(join(ROOT, relPath), 'utf8');
+	return parse(source, { modern: true }) as unknown as Node;
+}
+
+/** route id → その画面の +page.svelte (repo root からの相対パス)。 */
+function pageFileOf(routeId: string): string {
+	return `src/routes${routeId}/+page.svelte`;
+}
+
+describe('[W5] layout: ❓ は押した画面の章を開く (#4864)', () => {
+	const ast = scriptAst(LAYOUT);
+
+	it('画面は page.route.id から解決し、$effect の中で store に書く', () => {
+		const calls = callsTo(ast, 'setChildGuidePage');
+		expect(
+			calls.length,
+			`${LAYOUT} が setChildGuidePage を呼んでいない。画面を書かないと ❓ はどの画面でも ` +
+				'ホームのツアーを開く (#4864 の不具合そのもの)',
+		).toBeGreaterThan(0);
+
+		// $effect の中で呼ぶ (画面遷移のたびに書き直す。onMount 1 回だと遷移に追従しない)
+		const inEffect = effectBodies(ast).some(
+			(body) => callsTo(body, 'setChildGuidePage', ast).length > 0,
+		);
+		expect(inEffect, `${LAYOUT}: setChildGuidePage が $effect の中に無い`).toBe(true);
+
+		for (const call of calls) {
+			const arg = args(call)[0];
+			expect(arg, `${LAYOUT}: setChildGuidePage に引数が無い`).toBeDefined();
+			const resolved = resolveDerivedInit(ast, arg as Node);
+			const callee = resolved.callee as Node | undefined;
+			expect(
+				resolved.type === 'CallExpression' &&
+					callee?.type === 'Identifier' &&
+					callee.name === 'resolveChildGuidePage',
+				`${LAYOUT}: setChildGuidePage に渡す画面が resolveChildGuidePage(...) 由来ではない ` +
+					'(決め打ちの画面を書くと、別の画面の章を開く)',
+			).toBe(true);
+			const routeArg = args(resolved)[0] as Node | undefined;
+			const property = routeArg?.property as Node | undefined;
+			const object = routeArg?.object as Node | undefined;
+			expect(
+				routeArg?.type === 'MemberExpression' &&
+					property?.name === 'id' &&
+					(object?.property as Node | undefined)?.name === 'route',
+				`${LAYOUT}: resolveChildGuidePage に page.route.id 以外を渡している`,
+			).toBe(true);
+		}
+	});
+
+	it('説明を持たない画面では Header に ❓ を渡さない (onHelpClick が画面の解決結果で分岐する)', () => {
+		let onHelp: Node | undefined;
+		walk(fullAst(LAYOUT), (n) => {
+			if (onHelp || n.type !== 'Component' || n.name !== 'Header') return;
+			for (const attr of (n.attributes as Node[] | undefined) ?? []) {
+				if (attr.type === 'Attribute' && attr.name === 'onHelpClick') {
+					const value = attr.value as Node | Node[] | undefined;
+					onHelp = Array.isArray(value)
+						? ((value[0] as Node | undefined)?.expression as Node | undefined)
+						: ((value as Node | undefined)?.expression as Node | undefined);
+				}
+			}
+		});
+		expect(onHelp, `${LAYOUT}: Header に onHelpClick が無い`).toBeDefined();
+		expect(
+			onHelp?.type,
+			`${LAYOUT}: onHelpClick が条件分岐になっていない (説明の無い画面でも ❓ が出る)`,
+		).toBe('ConditionalExpression');
+		let testsGuidePage = false;
+		walk(onHelp?.test, (n) => {
+			if (n.type === 'Identifier' && n.name === 'guidePage') testsGuidePage = true;
+		});
+		expect(
+			testsGuidePage,
+			`${LAYOUT}: onHelpClick の条件が画面の解決結果 (guidePage) を見ていない`,
+		).toBe(true);
+	});
+});
+
+describe('[W6] ホーム以外の画面: 自分の page key で「主役があるか」を書く (#4864)', () => {
+	const nonHome = Object.entries(CHILD_GUIDE_PAGE_BY_ROUTE).filter(([, page]) => page !== 'home');
+
+	it('対象の画面が空振りしていない', () => {
+		// 0 件だと下の it.each が 1 件も走らず vacuous に通る
+		expect(nonHome.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it.each(nonHome)('%s は計算した値を自分の page key で書き、cleanup で戻す', (routeId, page) => {
+		const file = pageFileOf(routeId);
+		const ast = scriptAst(file);
+		const writer: PresenceWriter = { fnName: 'setChildGuidePresence', pageKey: page };
+
+		const calls = callsTo(ast, 'setChildGuidePresence');
+		expect(calls.length, `${file} が setChildGuidePresence を呼んでいない`).toBeGreaterThan(0);
+		for (const call of calls) {
+			const first = args(call)[0] as { type?: string; value?: unknown } | undefined;
+			expect(
+				first?.type === 'Literal' && first.value === page,
+				`${file}: 自分の page key ('${page}') 以外の枠に書いている。別の画面の件数を上書きする`,
+			).toBe(true);
+		}
+
+		const resolvedWrites = calls
+			.map((c) => writtenValue(c, writer))
+			.filter((v): v is Node => v !== undefined)
+			.map((v) => resolveDerivedInit(ast, v));
+		expect(
+			resolvedWrites.find(
+				(a) => a.type === 'Literal' && typeof (a as { value?: unknown }).value === 'boolean',
+			),
+			`${file}: 真偽値リテラルを書いている (決め打ちの件数でガイドが嘘をつく)`,
+		).toBeUndefined();
+		expect(
+			resolvedWrites.some((a) => a.type !== 'Literal' && a.type !== 'Identifier'),
+			`${file}: 実データ由来の書き込みが無い`,
+		).toBe(true);
+
+		let cleared = false;
+		for (const body of effectBodies(ast)) {
+			walk(body, (n) => {
+				if (cleared || n.type !== 'ReturnStatement') return;
+				if (returnedFunctionClearsPresence(n.argument as Node | undefined, ast, writer)) {
+					cleared = true;
+				}
+			});
+		}
+		expect(
+			cleared,
+			`${file}: 画面を離れるときに件数を捨てていない ($effect の cleanup に ` +
+				`setChildGuidePresence('${page}', undefined) が無い)`,
+		).toBe(true);
+
+		// ホームの件数 (活動カード) を書かない
+		expect(
+			callsTo(ast, 'setChildActivityPresence').length,
+			`${file}: ホームの件数を書いている`,
+		).toBe(0);
 	});
 });

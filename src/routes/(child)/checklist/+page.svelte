@@ -16,8 +16,19 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
+import { setChildGuidePresence } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data } = $props();
+
+// #4864: ❓ ガイドに「チェックする項目が 1 つでもあるか」を伝える (知っているのはこの画面だけ)。
+// 無ければガイドは項目を指さず「まだ ないよ」を出す。チェックリストが在っても項目 0 件なら
+// 押す行が無いので、項目の有無で判定する。真偽値を $derived に切り出すのは #4923 と同じ理由
+// (1 分ごとの自動リロードで `data` が差し替わっても、値が変わらなければ書き直さない)。
+const hasChecklistItems = $derived(data.checklists.some((c) => c.items.length > 0));
+$effect(() => {
+	setChildGuidePresence('checklist', hasChecklistItems);
+	return () => setChildGuidePresence('checklist', undefined);
+});
 
 const celebEffect: CelebrationType = 'default';
 const ps = $derived(data.pointSettings);
@@ -108,6 +119,7 @@ const flatChecklists = $derived(data.checklists);
 					{#each checklist.items as item (item.id)}
 						<form
 							data-testid="checklist-item-{item.id}"
+							data-tutorial="checklist-item"
 							method="POST"
 							action="?/toggle"
 							use:enhance={() => {
@@ -155,7 +167,7 @@ const flatChecklists = $derived(data.checklists);
 				</div>
 
 				<!-- Footer: points info -->
-				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]">
+				<div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]" data-tutorial="checklist-points">
 					{#if checklist.completedAll}
 						<span class="text-[var(--theme-accent)] font-bold">{t.completedAll} {fmtPts(checklist.pointsAwarded)}</span>
 					{:else}

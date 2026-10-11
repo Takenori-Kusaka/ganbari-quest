@@ -51,6 +51,7 @@ vi.mock('$lib/server/services/report-service', () => ({
 }));
 
 vi.mock('$lib/server/services/notification-service', () => ({
+	getNotificationSettings: vi.fn(),
 	sendPushNotification: vi.fn(),
 }));
 
@@ -73,7 +74,10 @@ import { hasCertificate, issueCertificate } from '$lib/server/db/certificate-rep
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import { issueMonthlyHabitCertificateIfEligible } from '$lib/server/services/certificate-service';
 import { recordHabitCertificateNotice } from '$lib/server/services/habit-certificate-notice-service';
-import { sendPushNotification } from '$lib/server/services/notification-service';
+import {
+	getNotificationSettings,
+	sendPushNotification,
+} from '$lib/server/services/notification-service';
 import { getMonthlyReport } from '$lib/server/services/report-service';
 
 const CHILD_ID = asChildId(1);
@@ -112,7 +116,20 @@ beforeEach(() => {
 	vi.mocked(sendPushNotification).mockResolvedValue(
 		undefined as unknown as Awaited<ReturnType<typeof sendPushNotification>>,
 	);
+	vi.mocked(getNotificationSettings).mockResolvedValue(notificationSettings(true));
 });
+
+/** 通知設定。本契約が見るのは「達成通知」の on / off だけ。 */
+function notificationSettings(achievementsEnabled: boolean) {
+	return {
+		remindersEnabled: true,
+		reminderTime: '09:00',
+		streakEnabled: true,
+		achievementsEnabled,
+		quietStart: '21:00',
+		quietEnd: '07:00',
+	};
+}
 
 describe('#4172 月間の習慣化を褒める (記録の量ではなく日数)', () => {
 	it('[H1] 1 日に何回記録しても 1 日と数える — 回数が閾値を超えていても日数が足りなければ発行しない', async () => {
@@ -239,6 +256,35 @@ describe('#4172 月間の習慣化を褒める (記録の量ではなく日数)'
 		expect(insertPointEntry).toHaveBeenCalledTimes(1);
 		// 告知が落ちても親への Push は送る (2 経路が相互に道連れにならない)
 		expect(sendPushNotification).toHaveBeenCalledTimes(1);
+	});
+
+	// 通知設定画面は「選んだお知らせだけが、この端末に届く」と約束している。月の証明書の push は
+	// 子供の記録の直後に届くので「達成通知」の設定に従う (ガイドが達成通知を「記録した直後」と
+	// 説明している範囲に入る)。保護者が達成通知をオフにしていたら送らない。
+	it('[H9] 保護者が達成通知をオフにしていれば push を送らない (証明書・通貨・子への告知は出す)', async () => {
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(20));
+		vi.mocked(getNotificationSettings).mockResolvedValue(notificationSettings(false));
+
+		const result = await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT);
+
+		expect(getNotificationSettings).toHaveBeenCalledWith(TENANT);
+		expect(sendPushNotification).not.toHaveBeenCalled();
+		// 通知の on / off は付帯物の話。発行・付与・子への告知は変わらない
+		expect(result).not.toBeNull();
+		expect(insertPointEntry).toHaveBeenCalledTimes(1);
+		expect(recordHabitCertificateNotice).toHaveBeenCalledTimes(1);
+	});
+
+	it('[H9] 設定を読めなくても証明書と通貨は取り消さない (通知は付帯物)', async () => {
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(20));
+		vi.mocked(getNotificationSettings).mockRejectedValue(new Error('settings unavailable'));
+
+		const result = await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT);
+
+		expect(result).not.toBeNull();
+		expect(insertPointEntry).toHaveBeenCalledTimes(1);
+		// 設定が分からないときは送らない (オフにした保護者に届けてしまう側に倒さない)
+		expect(sendPushNotification).not.toHaveBeenCalled();
 	});
 
 	it('月次レポートが取れない月は何もしない', async () => {

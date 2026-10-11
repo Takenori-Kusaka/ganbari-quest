@@ -161,6 +161,24 @@ describe('consent action (#708)', () => {
 		);
 	});
 
+	// #5040: 何を記録するかは「本人がまだ同意していない種類」で決める。ここを世帯単位で引くと
+	// (= userId を渡し忘れると)、世帯の別の保護者が同意済みの種類は本人の分が記録されず、
+	// 本人は同意画面から抜けられなくなる。判定と記録が同じ本人を指すことを固定する。
+	it('記録前の現況は本人 (context.userId) 単位で引き、同じ本人の名義で記録する', async () => {
+		await captureRedirect(() =>
+			actions.default!(
+				createEvent({
+					agreedTerms: 'on',
+					agreedPrivacy: 'on',
+					agreedCrossBorder: 'on',
+				}) as unknown as Parameters<NonNullable<typeof actions.default>>[0],
+			),
+		);
+		expect(mockCheckConsent).toHaveBeenCalledOnce();
+		expect(mockCheckConsent).toHaveBeenCalledWith('tenant-1', 'user-1');
+		expect(mockRecordConsent.mock.calls[0]?.slice(0, 2)).toEqual(['tenant-1', 'user-1']);
+	});
+
 	// #4497: 同意記録は監査証跡 (append-only)。画面に出していない = 利用者が同意操作を
 	// していない文書について「いま同意した」行を作ってはならない。
 	it('既に最新版へ同意済みの種別は記録し直さない', async () => {

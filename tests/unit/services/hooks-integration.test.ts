@@ -624,11 +624,16 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 	// (それまでは誰も needsReconsent にならず潜在していた)。誰が再同意画面に流されるのかを
 	// 固定しておかないと、子供まで法務文書に突き当たる事故が silent に混入する。
 	describe('#4497 同意 gate の適用範囲', () => {
+		// #5040: 判定は本人単位。identity.userId (IdP の sub) と context.userId (users.user_id) を
+		// 別の値にしておく — 取り違えても、渡し忘れても (= 世帯単位に倒れる) 下の assert が落ちる。
+		const APP_USER_ID = 'app-user-1';
+
 		function setupCognito(role: AuthContext['role']) {
 			currentAuthMode = 'cognito';
 			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' } as Identity);
 			mockResolveContext.mockResolvedValue({
 				tenantId: 't-1',
+				userId: APP_USER_ID,
 				role,
 				licenseStatus: 'none',
 			} as AuthContext);
@@ -654,6 +659,21 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 				expect(e).toBeInstanceOf(RedirectError);
 				expect((e as RedirectError).location).toBe('/consent');
 			}
+		});
+
+		// #5040: checkConsent は userId を省くと世帯単位で引く (local / anonymous 用の逃げ道)。
+		// hooks が userId を渡し忘れると、世帯の誰かが同意済みなら本人は同意画面を一度も見ずに
+		// 通ってしまい、しかも何も落ちない。呼び出しの引数そのものを固定する。
+		it('保護者 (owner) の同意判定は本人 (context.userId) 単位で引く', async () => {
+			setupCognito('owner');
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await expect(handle({ event, resolve } as any)).rejects.toBeInstanceOf(RedirectError);
+
+			expect(mockCheckConsent).toHaveBeenCalledOnce();
+			expect(mockCheckConsent).toHaveBeenCalledWith('t-1', APP_USER_ID);
 		});
 
 		// 同意主体は保護者 (privacy.html 第9条)。子供に法務文書のチェックボックスを操作させると

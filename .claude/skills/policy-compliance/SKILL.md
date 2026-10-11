@@ -22,7 +22,7 @@ description: 監査チームの finding（指摘候補）が「プロダクト�
 ### あなたが絶対にしてはいけないこと
 
 - ❌ finding 自体を生成・捏造する（8 監査チームの責務。本 skill は受け取った finding を判定するだけ）
-- ❌ Issue 起票 / approve / merge を実行する（audit-manager 専権、`audit-team.md` §3.3 / ADR-0056 §E）
+- ❌ Issue 起票 / approve / merge を実行する（audit-manager 専権、`audit-team.md` §3.3）
 - ❌ 根拠 SSOT（ADR / 設計書 / Issue 番号）を示さず `policy_compliant` を二値化する（pointer なき棄却は無言棄却と同じ）
 - ❌ 判定不能な finding を無理に `true`/`false` に倒す（`needs_po_review` に分類する。下記④）
 
@@ -56,7 +56,7 @@ finding が指す挙動が「意図的にそう設計されている」と明文
 
 「未実装」「欠落」系の finding は、Pre-PMF で**意図的に採用しない**ものかを `pre-pmf-check` skill（ADR-0010）で判定する。**重複再実装せず参照する**:
 
-- 判定ロジック SSOT: `.claude/skills/pre-pmf-check/SKILL.md`（ADR-0010 採用しないリスト = 汎用監査ログ DynamoDB / S3+Athena / AWS WAF / IP 単位ブルートフォース検知）+ `docs/decisions/0010-pre-pmf-scope-judgment.md`。
+- 判定ロジック SSOT: `.claude/skills/pre-pmf-check/SKILL.md`（ADR-0010 採用しないリスト。一覧は同 skill §セキュリティ最小化方針を参照し、ここに写さない）+ `docs/decisions/0010-pre-pmf-scope-judgment.md` §2 / §4。ADR-0010 §0 により、既存実装の品質・bug fix・security 是正の finding は「Pre-PMF で意図的に未実装」に当たらない。
 - finding が ADR-0010 の「採用しない」リストに該当 → `policy_compliant: true`（Pre-PMF で意図的に未実装、誤起票）。
 - 該当しなければ③へ。
 
@@ -64,8 +64,8 @@ finding が指す挙動が「意図的にそう設計されている」と明文
 
 UI / 用語 / トーン系の finding は、`brand-check` skill（DESIGN.md §9 禁忌 + 用語辞書）で「ブランド規約による意図的選択」かを判定する。**重複再実装せず参照する**:
 
-- 判定ロジック SSOT: `.claude/skills/brand-check/SKILL.md` + `docs/DESIGN.md` §9 禁忌事項 + §6 用語辞書（`src/lib/domain/labels.ts` / `terms.ts`）+ `docs/design/parallel-implementations.md`。
-- finding が「DESIGN.md 準拠の意図的選択」（例: 明るいトーン固定 / 絵文字許容範囲 / labels.ts SSOT 由来の用語統一）→ `policy_compliant: true`。
+- 判定ロジック SSOT: `.claude/skills/brand-check/SKILL.md` + `docs/DESIGN.md` §9 禁忌事項 + §6 用語辞書（labels 層 `src/lib/domain/labels/` / `terms.ts`）+ `docs/design/parallel-implementations.md`。
+- finding が「DESIGN.md 準拠の意図的選択」（例: 明るいトーン固定 / 絵文字許容範囲 / labels 層 SSOT 由来の用語統一）→ `policy_compliant: true`。
 - 逆に finding が DESIGN.md §9 禁忌の**違反**を正しく指摘している場合は → `policy_compliant: false`（真の問題、起票候補）。
 - 判定できなければ④へ。
 
@@ -156,24 +156,25 @@ finding 1 件ごとに以下 schema で出力する（AC2）:
 |---|---|---|---|
 | `true` | 任意 | `reject_as_policy` | **棄却**（backlog にも積まず、棄却理由 = `policy_pointers` を evidence に記録。無言棄却しない） |
 | `false` | 3-4 | `issue_candidate` | **起票候補**（問題起票チームへ送る） |
-| `false` | 1-2 | `backlog` | **backlog 蓄積のみ**（起票せず。無限棄却ループ回避、`audit-team.md` §3.6 [3]） |
+| `false` | 1-2 | `backlog` | **accepted-residual**（起票せず、統合 PR 本文「Accepted residual (Pre-PMF)」に記録。無限棄却ループ回避、`audit-team.md` §3.6 [3] / [5b]） |
 | `"needs_po_review"` | 任意 | `po_review` | **PO 判断待ち backlog**（起票も棄却もしない） |
 
 - `true` は棄却（backlog 蓄積もしない、純粋な誤検出）。`false` かつ severity 3-4 のみ起票候補へ（EPIC #2861 PO 判断 7）。
-- 起票・棄却の**実行**は audit-manager（不可逆 action）。本 skill は filter 判定 JSON を生成するまで（`audit-team.md` §3.3 / ADR-0056 §E）。
+- 起票・棄却の**実行**は audit-manager（不可逆 action）。本 skill は filter 判定 JSON を生成するまで（`audit-team.md` §3.3）。
+- **現行の運用モード（`docs/sessions/README.md` §0 ルール 7 / 8。§1 以降と食い違えば §0 が優先）**: 監査 finding は Issue に積まず統合 PR のコメントに書き、直せるものは監査が自分で PR を出す。`issue_candidate` は「Issue 起票」ではなく「統合 PR コメント / 修正 PR の対象」として扱う。
 
 ## 運用位置（audit-team.md §3.6 flow への挿入）
 
 本 skill は棄却運用 flow の **[4] ポリシー準拠判定 filter** 段に挿入される（`docs/sessions/audit-team.md` §3.6）:
 
 ```
-[1] 全件発露 → [2] 重複統合 → [3] severity 閾値（1-2 は backlog）
+[1] 全件発露 → [2] 重複統合 → [3] severity 閾値（1-2 は accepted-residual）
     → [4] ポリシー準拠判定 filter（← 本 skill）
         ├─ policy_compliant=true        → reject_as_policy（棄却、根拠 pointer 記録）
         ├─ policy_compliant=false sev3-4 → issue_candidate（起票候補）
-        ├─ policy_compliant=false sev1-2 → backlog
+        ├─ policy_compliant=false sev1-2 → backlog（= accepted-residual）
         └─ needs_po_review              → po_review
-    → [5] 起票（audit-manager 実行）or 棄却（理由記録）
+    → [5] blocking / class-lock / accepted-residual の 3 区分（audit-manager 実行、§3.6 [5]）
 ```
 
 ## サンプル検証（AC5 — 代表 3 例）
@@ -185,7 +186,7 @@ finding 1 件ごとに以下 schema で出力する（AC2）:
 - **finding**: 「SQLite の `child-activity-repo.ts` が `tenantId` 引数を受け取るが行レベル filter していない。マルチテナント分離が欠落している。」（`raw_severity: 3`）
 - **判定段**: ①（意図的設計 SSOT 探索）
 - **SSOT 一致**: `docs/design/data-model-resource-scope.md` §4.1（#2494）に「`_tenantId` 受領のみで filter しない（意図的 no-op）」「SQLite が選ばれる process は 1 process = 1 DB = 1 tenant」「別 tenant の childId が入力される経路が構造的に存在せず、行レベル tenant filter は冗長」と明文化。
-- **adversarial check**: 「SQLite backend が将来マルチテナント process で共有される設計に変わったら no-op は危険」→ 現設計（`auth/providers/local.ts` で tenantId が `'local'`/`'demo'` 固定）が維持される限り妥当。陳腐化兆候なし。
+- **adversarial check**: 「SQLite backend が将来マルチテナント process で共有される設計に変わったら no-op は危険」→ 現設計（`auth/local-tenant.ts` の `resolveLocalTenantId` で SQLite は tenantId `'local'` 固定。SQLite は local / test 専用で、NUC 本番は PGlite、cloud は DSQL）が維持される限り妥当。陳腐化兆候なし。
 - **出力**: `policy_compliant: true` / `decision_stage: "1"` / `filter_action: "reject_as_policy"` / `policy_pointers: [{ ssot: "docs/design/data-model-resource-scope.md", section: "§4.1", issue: "#2494" }]`。
 
 ### 例 2: anti-engagement で演出抑制（ADR-0012）
@@ -198,9 +199,9 @@ finding 1 件ごとに以下 schema で出力する（AC2）:
 
 ### 例 3: Pre-PMF で監査ログ不採用（ADR-0010）
 
-- **finding**: 「汎用監査ログ用の DynamoDB テーブルが存在しない。全操作の監査証跡を残すべき。」（`raw_severity: 3`）
+- **finding**: 「汎用監査ログ用のテーブルが存在しない。全操作の監査証跡を残すべき。」（`raw_severity: 3`）
 - **判定段**: ②（Pre-PMF bucket 判定、`pre-pmf-check` 参照）
-- **SSOT 一致**: `.claude/skills/pre-pmf-check/SKILL.md` + `docs/decisions/0010-pre-pmf-scope-judgment.md` の「採用しない」リストに「汎用監査ログ DynamoDB テーブル」が明記。Pre-PMF で意図的に未実装。
+- **SSOT 一致**: `.claude/skills/pre-pmf-check/SKILL.md` + `docs/decisions/0010-pre-pmf-scope-judgment.md` §2 / §4 の「採用しない」リストに汎用監査ログ（ADR 本文の表記は DSQL 移管前の「DynamoDB」）が明記。Pre-PMF で意図的に未実装。
 - **adversarial check**: 「COPPA / 法務要件で監査証跡が必須では」→ ADR-0010 は Pre-PMF 段階での不採用であり、PMF 後の再評価対象。現段階では認証・認可境界（既存 state カラム）で十分とする方針が維持されている。陳腐化兆候なし（ただし法務要件が変われば `needs_po_review` 格下げ候補）。
 - **出力**: `policy_compliant: true` / `decision_stage: "2"` / `filter_action: "reject_as_policy"` / `policy_pointers: [{ ssot: "docs/decisions/0010-pre-pmf-scope-judgment.md" }, { ssot: ".claude/skills/pre-pmf-check/SKILL.md" }]`。
 
@@ -210,7 +211,7 @@ finding 1 件ごとに以下 schema で出力する（AC2）:
 
 - **EPIC #2861 PO 判断 7**: 全件発露 → 重複統合 + severity 閾値 + ポリシー準拠判定 agent の filter（本 skill）。
 - **`docs/sessions/audit-team.md`** §2 / §3.1 / §3.6: 監査チーム役割定義 SSOT。本 skill は §3.6 [4] filter 段に挿入される。
-- **ADR-0056 §E**: subagent ≠ orchestrator の役割分離（本 skill は判定 JSON 生成まで、起票・棄却の実行は audit-manager 専権）。
+- **`audit-team.md` §3.3（ADR-0056 §E 継承）**: subagent ≠ orchestrator の役割分離（本 skill は判定 JSON 生成まで、起票・棄却の実行は audit-manager 専権）。ADR-0056 は ADR-0068 で superseded だが、役割分離は §3.3 で現役。
 - **arXiv:2511.09710** "Echoing": adversarial check（反証強制）で「これはポリシーだから OK」の安易棄却を抑止。
 
 ## 関連

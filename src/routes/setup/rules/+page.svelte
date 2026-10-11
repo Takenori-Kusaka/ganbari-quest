@@ -9,10 +9,11 @@ import {
 	SETUP_LABELS,
 	SETUP_RULES_LABELS,
 } from '$lib/domain/labels';
+import { ErrorAlert } from '$lib/ui/components';
 import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 
 let selectedItems = $state<Set<string>>(new Set());
 // svelte-ignore state_referenced_locally
@@ -88,6 +89,14 @@ $effect(() => {
 <p class="text-xs text-[var(--color-text-muted)] bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded p-2 mb-4">
 	{SETUP_RULES_LABELS.bonusOnlyNotice}
 </p>
+
+<!-- 取込を止めたときの理由 (家族の子供ではない childId が送られた等)。出さないと、押しても
+     何も起きないように見える (ADR-0062 §1: 状態起因 = Banner + 次アクション)。 -->
+{#if form?.error}
+	<div data-testid="setup-rules-error">
+		<ErrorAlert message={form.error} severity="warning" />
+	</div>
+{/if}
 
 <SetupNoScriptNotice />
 

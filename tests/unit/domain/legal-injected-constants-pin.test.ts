@@ -43,7 +43,7 @@ const LEGAL_CHANGE_NOTICE = [
 	'この値は特商法・利用規約に自動注入される。変更は約款変更にあたるため、周知の要否を判断すること。',
 	'注入経路: src/lib/domain/constants/{deletion-grace,plan-retention}.ts',
 	'  → src/lib/domain/terms.ts (DELETION_GRACE_TERMS / PLAN_RETENTION_TERMS)',
-	'  → src/lib/domain/labels.ts (LP_LEGAL_TERMS_LABELS.section13 / LP_LEGAL_TOKUSHOHO_LABELS.tableContent)',
+	'  → src/lib/domain/labels/lp.ts (LP_LEGAL_TERMS_LABELS.section13 / LP_LEGAL_TOKUSHOHO_LABELS.tableContent)',
 	'  → scripts/generate-lp-labels.mjs (buildDeletionGraceTerms / buildPlanRetentionTerms)',
 	'  → site/shared-labels.js (生成物、コミット対象)',
 	'  → site/terms.html (第13条) / site/tokushoho.html (返品・キャンセル欄) の data-lp-key 注入',
@@ -117,7 +117,7 @@ describe('法定表示に注入される定数の pin (#4540 Q7)', () => {
 		});
 
 		it('生成物 site/shared-labels.js に同じ値が載っている', () => {
-			// labels.ts を直しても再生成を忘れれば、顧客が読む HTML は旧値のまま残る。
+			// lp.ts を直しても再生成を忘れれば、顧客が読む HTML は旧値のまま残る。
 			// (再生成漏れ自体は pre-ready の generate-lp-labels --check が別途 hard-fail する)
 			expect(sharedLabel('legalTerms', 'section13'), LEGAL_CHANGE_NOTICE).toContain(
 				DELETION_GRACE_TERMS.standard,

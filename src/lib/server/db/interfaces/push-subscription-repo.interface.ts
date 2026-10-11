@@ -29,6 +29,12 @@ export interface IPushSubscriptionRepo {
 	 * 日次上限のカウント窓が 9 時間ずれていた (JST 09:00 〜 翌 09:00 を「今日」と数えていた)。
 	 * 呼び出し側が `jstDayStartUtcIso()` で JST 暦日の境界を instant 化して渡す。
 	 */
-	countLogsBetween(tenantId: string, fromIso: string, toIso: string): Promise<number>;
+	countLogsBetween(
+		tenantId: string,
+		fromIso: string,
+		toIso: string,
+		/** 指定すると、その `notification_type` の行だけを数える (#4706: 種別ごとの日次上限)。省略時は全種別 */
+		notificationTypes?: readonly string[],
+	): Promise<number>;
 	findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]>;
 }

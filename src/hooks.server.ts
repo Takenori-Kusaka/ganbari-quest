@@ -831,7 +831,7 @@ export const handle: Handle = ({ event, resolve }) =>
 			!path.startsWith('/_app/') &&
 			!path.startsWith('/favicon')
 		) {
-			const consent = await checkConsent(context.tenantId);
+			const consent = await checkConsent(context.tenantId, context.userId);
 			if (consent.needsReconsent) {
 				redirect(302, '/consent');
 			}

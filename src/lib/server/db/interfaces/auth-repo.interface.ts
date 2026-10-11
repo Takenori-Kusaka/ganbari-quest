@@ -172,9 +172,14 @@ export interface IAuthRepo {
 
 	// --- Consent (#0192) ---
 	recordConsent(input: RecordConsentInput): Promise<ConsentRecord>;
+	/**
+	 * 種別ごとの最新の同意。`userId` を渡すと、その利用者本人が記録した行だけを対象にする
+	 * （#5040: 同意の判定は本人単位）。省略時は世帯（tenant）全体から引く。
+	 */
 	findLatestConsent(
 		tenantId: string,
 		type: ConsentRecord['type'],
+		userId?: string,
 	): Promise<ConsentRecord | undefined>;
 	findAllConsents(tenantId: string): Promise<ConsentRecord[]>;
 }

@@ -2,24 +2,24 @@
 
 > **Skill 親**: [SKILL.md](./SKILL.md) / **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md)
 
-Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate に初回 fail した知見を skill 化したもの。Draft → Ready 化前にこの 4 gate を**機械的に**通過させてから `gh pr ready <num>` する。
+Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate に初回 fail した知見を skill 化したもの。Draft → Ready 化前にこれらの gate を確認してから `gh pr ready <num>` する（うち gate 1 / 3 は #4305 で feature / hotfix lane の機械検査が撤去されたため、自分で確認する）。
 
 **親 SSOT との関係**: 「PR 起票手順」は [SKILL.md](./SKILL.md) のステップ 1〜4 を参照。本ファイルは **Ready 化直前の最終チェックリスト** として SKILL.md ステップ 4 の前段に挿入される位置付け。
 
-## 4 必須 CI gate サマリ
+## CI gate サマリ
 
 | # | CI gate | workflow | hard-fail | 関連 ADR / Issue |
 |---|---|---|---|---|
-| 1 | AC 検証マップ (`Verify AC map in PR body`) | `pr-ac-verification-check.yml` | yes | ADR-0004 / #1775 |
-| 2 | 必須セクションの存在確認 | `pr-template-gate.yml` (5 ジョブ並列) | yes | #1855 |
-| 3 | PR チェックリスト `[x]` 完了確認 | `pr-merge-gate.yml` / `check-pr-body.mjs` | yes | ADR-0030 / #1775 |
+| 1 | AC 検証マップ (`Verify AC map in PR body`) | `pr-ac-verification-check.yml` | **feature / hotfix lane は無条件 PASS**（#4305 で撤去。integration lane のみ検査） | ADR-0004 / #1775 |
+| 2 | 必須セクションの存在確認 | `pr-template-gate.yml`（job 構成は workflow が SSOT） | yes | #1855 |
+| 3 | PR チェックリスト `[x]` 完了確認 | `pr-merge-gate.yml` | **integration lane のみ**（feature / hotfix lane は #4305 で撤去） | ADR-0030 / #1775 |
 | 4 | screenshot-check (4 スロット) | `pr-quality-gate.yml` | yes (UI 変更時) | #1740 / #1741 / #1747 |
 
-ローカル一括検証: `npm run pre-ready -- --pr <num>` (#1775 / ADR-0030 / #1920 / #2918 で SSOT 検証 step 拡張)。全 6 step (#4121)、一覧 SSOT は `npm run pre-ready -- --help`。Step 9 (`check-pr-body.mjs`) が gate 1〜3 を網羅。Step 11b (SS embed gate #2918) が gate 4 を担う。6 step 外の検査は CI で hard-fail のまま走るため `gh pr checks <num>` で pass を確認する。
+ローカル一括検証: `npm run pre-ready -- --pr <num>`。step 一覧は `npm run pre-ready -- --help` が SSOT。Step 9 (`check-pr-body.mjs`) が gate 2 を advisory で検出（hard-fail は CI 側）、Step 11b (SS embed gate #2918) が gate 4 を担う。pre-ready 外の検査は CI で hard-fail のまま走るため `gh pr checks <num>` で pass を確認する。
 
-### hotfix PR (priority:critical / hotfix label) は 4 種 pre-push check 追加必須 (#2343)
+### hotfix PR (priority:critical) は 3 種 pre-push check 追加必須 (#2343)
 
-`priority:critical` / `hotfix` label PR は urgency 文脈で 4 PR 連続 fail (#2318 / #2340 / #2341 / #2342) した教訓に基づき、Ready 化前に以下 4 種を**順次**実行:
+`priority:critical` PR（`hotfix` label は repo に存在しない）は urgency 文脈で 4 PR 連続 fail (#2318 / #2340 / #2341 / #2342) した教訓に基づき、Ready 化前に以下 3 種を**順次**実行（`docs/sessions/dev-session.md` §hotfix PR runbook Step 5 と同じ）:
 
 ```bash
 # 1. PR body 全体 (必須セクション 7 件 / 禁止語 / hotfix 配布証跡欄強化チェック)
@@ -29,17 +29,14 @@ Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate �
 node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md \
   --skip-mergeable
 
-# 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or refactor:internal-no-doc-impact label exempt)
-PR_FILES="$(gh pr diff <num> --name-only)" \
-PR_LABELS="$(gh pr view <num> --json labels --jq '[.labels[].name] | join(",")')" \
-node scripts/check-design-doc-sync.mjs
-
-# 3. env 直接参照禁止 (ADR-0040 P1)
+# 2. env 直接参照禁止 (ADR-0040 P1)
 node scripts/check-no-direct-env-access.mjs
 
-# 4. 新規 env 配布証跡 (ADR-0006)
+# 3. 新規 env 配布証跡 (ADR-0006)
 node scripts/check-new-required-env.mjs
 ```
+
+旧 `check-design-doc-sync.mjs`（設計書同期）は #4322 で削除済。`docs/design/` の同期漏れは目視で確認する。
 
 > **PR 作成前に先出しで検証したい場合 (#3983)**: `--pr` が使えないので
 > `--labels "priority:critical,hotfix"` を渡す。このとき **発火しなかった label 条件付き gate は
@@ -52,26 +49,22 @@ node scripts/check-new-required-env.mjs
 
 ---
 
-## Section 1: 4 必須 CI gate 詳細
+## Section 1: CI gate 詳細
 
 ### Gate 1: AC 検証マップ (ADR-0004)
 
-**条件**: PR body の `## AC 検証マップ (ADR-0004)` 表に Issue の Acceptance Criteria 1 行ごとに 1 行を追加し、**4 列全て**埋めること。
+> **機械検査は無い（feature / hotfix lane）。** #4305 で `.github/PULL_REQUEST_TEMPLATE.md` から `## AC 検証マップ` 節が撤去され、`pr-ac-verification-check.yml` は feature / hotfix lane を無条件 PASS にした（`scripts/check-ac-verification-map.mjs`）。以下は skill 雛形の書式として残す。
+
+**条件**: PR body の `## 検証` にある AC 表に Issue の Acceptance Criteria 1 行ごとに 1 行を追加し、**4 列全て**埋めること。
 
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---|---|---|---|
 | AC1 | （Issue 本文から転記） | `<コマンド>` または `<ファイルパス>` または `<SS パス>` | PASS / 値 / `node scripts/...` 出力末尾 |
 
-**確認方法**:
-```bash
-# ローカル
-node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
-# CI 上
-gh pr checks <num> --watch
-```
+**確認方法**: 目視（`check-pr-body.mjs` / CI とも AC 表を検査しない）。ただし `## 検証` 内の `--pr <数字>` が自 PR と不一致なら `check-pr-body.mjs` が `evidence-pr-mismatch` で blocking fail する（#4074）
 
 **典型的失敗パターン**:
-- 「検証手段」「結果 / エビデンス」列が `<!-- 例: ... -->` のままで空 → CI fail (`AC1 row 4列目がコメントのみ`)
+- 「検証手段」「結果 / エビデンス」列が `<!-- 例: ... -->` のままで空（CI は検出しない。QM レビューで指摘される）
 - 行を追加せず雛形 `AC1` 行のみ → Issue に AC が複数あるのに 1 行しかない (実装未了扱い)
 - AC を削除/縮小して通そうとする → ADR-0004 違反 (Issue 改訂が必要なら別 PR で先行)
 
@@ -80,15 +73,15 @@ gh pr checks <num> --watch
 - 検証手段は機械検証可能な形式 (`npx vitest run path/to/test.ts` / `docs/screenshots/pr-NNN/<file>.png` / `grep -c '...' src/...`)
 - 例外: 監査ログ的な合理的理由がある AC のみ `<!-- ac-verification-skip: 理由 -->` で対象外化
 
-### Gate 2: 必須セクションの存在確認 (`pr-template-gate.yml` 5 ジョブ並列)
+### Gate 2: 必須セクションの存在確認 (`pr-template-gate.yml`)
 
-**条件**: `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) の `sections` 配列にある `## ` 全見出しを PR body に**全て含める**こと。SSOT JSON が template と同期しているかは `check-pr-template-sections-sync.yml` が別途検証する。
+**条件**: `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) の `sections` 配列にある `## ` 全見出しを PR body に**全て含める**こと。SSOT JSON と template の同期を検証していた `check-pr-template-sections-sync.yml` は #4322 で削除済（機械検出なし）。
 
 **必須セクション (削除禁止、`## QM レビュー結果` も SSOT 内)**:
 
-SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 7 件 (template 更新時は `scripts/check-pr-template-sections-sync.mjs --fix` で再生成):
+SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。下記は参考の写しで、食い違ったら JSON が正:
 
-1. `## 顧客価値・目的` (プレースホルダー残置は CI hard-fail)
+1. `## 顧客価値・目的`（CI「顧客価値・目的の記入」は template 第 1 節の `**field**:` 行を検査するが、現行 template にその行は無い）
 2. `## 関連 Issue`
 3. `## 変更内容`
 4. `## 検証`
@@ -98,26 +91,26 @@ SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピ
 
 **確認方法**:
 ```bash
-# SSOT JSON 経由でローカル検証 (#2060)
+# ローカル検証 (#2060。check-pr-body では advisory = exit 0 で出力のみ)
 node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
-# template ↔ SSOT JSON 同期検証
-node scripts/check-pr-template-sections-sync.mjs
-# CI: pr-template-gate.yml「必須セクションの存在確認」ジョブ + check-pr-template-sections-sync.yml
+# CI: pr-template-gate.yml「必須セクションの存在確認」ジョブ (hard-fail、Draft 中は走らない)
 ```
 
 **典型的失敗パターン (#2039 / #2043 教訓)**:
 - Skill 雛形 (`init-pr-body.mjs`) を使わず手書きしてセクションを **12 件全欠落** (#2039 / #2043 連続再発)
 - 「該当なしなのでセクションごと削除」 → fail (該当なしは「N/A」明記が正解)
-- セクション名の表記揺れ (`## AC検証マップ` のように半角空白を消す) → SSOT 不一致で fail
-- template だけ更新して `.github/PR_TEMPLATE_SECTIONS.json` を更新し忘れる → drift gate で fail (#2060)
+- セクション名の表記揺れ (`## 影響範囲・横展開チェック` のように見出しを変える) → SSOT 不一致で fail
+- template だけ更新して `.github/PR_TEMPLATE_SECTIONS.json` を更新し忘れる → drift gate は #4322 で削除済のため検出されず、CI は JSON 側で判定し続ける
 
 **修正方法**:
 - **第一選択**: `npm run dev:open-pr -- --issue <num> --kind default` で雛形再生成
 - 該当なしの場合は `「該当なし（理由）」` または `N/A` を本文に明記してセクション自体は残す
 - セクション見出しは `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) から **逐語コピー**
-- template 更新時は `node scripts/check-pr-template-sections-sync.mjs --fix` で JSON を再生成
+- template 更新時は JSON を手で同期する（再生成 script は #4322 で削除済）
 
 ### Gate 3: PR チェックリスト `[x]` 完了確認
+
+> **機械検査は integration lane のみ。** feature / hotfix lane の未チェック検出（`pr-merge-gate.yml` / `check-pr-body.mjs` の `unchecked-ready-checklist`）は #4305 で撤去済。`## Ready for Review チェックリスト` は `PR_TEMPLATE_SECTIONS.json` の必須見出しでもない（skill 雛形にだけ残る）。
 
 **条件**: `## Ready for Review チェックリスト` の項目を**実機検証してから** `[x]` に変更。虚偽チェック禁止。
 
@@ -128,20 +121,15 @@ node scripts/check-pr-template-sections-sync.mjs
 - [N/A] 認証画面変更時: `npm run dev:cognito` (#1026) で実ブラウザ操作した SS を添付
 ```
 
-**確認方法**:
-```bash
-node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
-# Output: "Ready for Review / 完了チェックリストの未チェック残置" 検出
-```
+**確認方法**: 目視（feature / hotfix lane は機械検査なし）
 
 **典型的失敗パターン**:
-- `[ ]` のまま Ready 化 → CI fail (`未チェックの Ready チェックリスト項目が残っている`)
-- 該当なし項目を削除 → セクション欠落で gate 2 fail
+- `[ ]` のまま Ready 化（CI は検出しない。QM レビューで記録の不整合として扱われる）
 - 検証していないのに `[x]` → ラバースタンプ禁止 (memory `feedback_done_criteria_strict` / `feedback_no_rubber_stamp_merge`)
 
 **修正方法**:
 - 各項目を**順に実機検証**してから `[x]` (`pre-ready` 通過 / SS 撮影完了 / etc.)
-- 該当なしは `[N/A]` または `[x]` + 末尾に「N/A — 該当なし」コメント (両方とも CI 通過する)
+- 該当なしは `[N/A]` または `[x]` + 末尾に「N/A — 該当なし」コメント
 - UI 変更なし PR は SS 関連項目に `[N/A]` を付与
 
 ### Gate 4: screenshot-check (UI 変更時のみ)
@@ -167,24 +155,24 @@ gh pr checks <num> --watch
 
 **典型的失敗パターン**:
 - UI 変更ありなのに SS ゼロ → `screenshot-check` fail
-- `tmp/...` 相対パス参照 → `screenshot-quality-check` warning (将来 hard-fail 化)
+- `tmp/...` 相対パス参照 → `pre-ready` Step 11b（SS embed gate、`check-pr-screenshot.mjs`）で hard-fail
 - 「修正前」スロットなし (修正後のみ) → `screenshot-quality-check` で 4 スロット要件不足
 - DOM HTML スナップショット (`<file>.dom.html`) なし → #1747 / #1766 違反
 
 **修正方法**:
 - UI 変更**なし** PR (refactor / docs / infra のみ) は本セクションに `**該当なし（理由）**` 明記 (画像不要)
 - UI 変更**あり** PR は Section 2 の SS 撮影手順を順に実行
-- 「修正前」は `git checkout origin/main -- <変更ファイル>` で main 状態に戻して撮影 → `git checkout HEAD -- <ファイル>` で復元
+- 「修正前」は PR の base branch（軽量レーン = develop / hotfix = main）の状態で撮影する: `git checkout origin/<base> -- <変更ファイル>` → 撮影 → `git checkout HEAD -- <ファイル>` で復元
 
 ---
 
 ## Section 2: SS 撮影手順 (Windows + Git Bash)
 
-### 修正前 SS の取得 (main 状態に切替)
+### 修正前 SS の取得 (base branch 状態に切替)
 
 ```bash
-# 1. 変更したファイルを main 状態に一時切替
-git checkout origin/main -- site/index.html src/routes/...
+# 1. 変更したファイルを base branch 状態に一時切替 (軽量レーン = develop / hotfix = main)
+git checkout origin/<base> -- site/index.html src/routes/...
 
 # 2. dev サーバー起動 (別ターミナル)
 npm run dev               # port 5173, 通常 UI 用
@@ -309,25 +297,24 @@ git worktree remove .tmp-ss-worktree-<num>
 
 ### 罠 3: stacked PR は CI workflow が起動しない
 
-**症状**: PR を別の feature branch (`feat-A` ブランチを base にして `feat-B` を作成) で起票すると、`pr-template-gate.yml` 等の workflow が起動しない (`branches: [main]` trigger のため)。
+**症状**: PR を別の feature branch (`feat-A` ブランチを base にして `feat-B` を作成) で起票すると、`ci.yml` 等の workflow が起動しない。
 
-**原因**: `.github/workflows/*.yml` の多くは `pull_request: types: [...]` のうち `branches: [main]` で base が main の PR にしか反応しない。
+**原因**: `ci.yml` は `pull_request: branches: [main, develop]`、visual regression 系などは `branches: [main]` で、base が feature branch の PR には反応しない（どの workflow がどの base に反応するかは各 `.github/workflows/*.yml` の `on:` が SSOT）。
 
 **対処**:
-- **main 起点で 1 PR ずつ直列 merge** する (Wave 1 推奨パターン)
-- どうしても stacked が必要な場合は base を main に戻し、conflict は rebase で解決
-- 「stacked PR で CI が通っていないのに ready 化」は PO ルール違反 → 必ず main 起点で再起票
+- **develop 起点で 1 PR ずつ直列 merge** する（hotfix のみ main 起点。branch-strategy.md）
+- どうしても stacked が必要な場合は base を develop に戻し、conflict は rebase で解決
+- 「stacked PR で CI が通っていないのに ready 化」は禁止 → 必ず develop 起点で再起票
 
-### 罠 4: biome cognitive-complexity は CI のみで `--error-on-warnings`
+### 罠 4: 素の `npx biome check .` は warnings を許容する
 
 **症状**: ローカル `npx biome check .` は通ったのに CI で fail (`Cognitive Complexity of <X> exceeds threshold`)。
 
-**原因**: CI 側 `ci.yml` は `npx biome check --error-on-warnings .` を実行するが、`pre-ready` Step 1 はデフォルトで warnings を許容する。
+**原因**: CI 側 `ci.yml` は `npx biome check --error-on-warnings .` を実行する。`pre-ready` Step 1 も `--error-on-warnings` で CI と揃っている（PR #2503）ため、ずれるのは素の `npx biome check .` だけ。
 
 **対処**:
-- **複雑関数を新規追加した PR** は事前に `npx biome check --error-on-warnings <file>` でローカル確認
+- ローカルで biome を単独実行するときも `--error-on-warnings` を付ける（または `pre-ready` を回す）
 - 関数を分割するか、複雑度許容ファイルに追加する (後者は ADR-0007 静的解析 tier ポリシー要参照)
-- pre-ready CLI は将来 `--strict` モードで `--error-on-warnings` を有効化予定 (#1775 follow-up)
 
 ### 罠 5: `git push --no-verify` は原則禁止 (例外あり)
 
@@ -351,14 +338,14 @@ npm run dev:open-pr -- --issue <num> --kind default
 
 # 2. 実装 + AC 検証マップ穴埋め (SKILL.md ステップ 2)
 
-# 3. ローカル一括検証 (SKILL.md ステップ 3 + 本ファイル gate 1〜3 の機械検証)
+# 3. ローカル一括検証 (SKILL.md ステップ 3)
 npm run pre-ready -- --pr <num>
-# Step 9 (check-pr-body) で gate 1+2+3 を網羅検出 / Step 11b (SS embed gate #2918) で gate 4 を前倒し検出 (全 6 step、一覧 SSOT は --help)
+# Step 9 (check-pr-body) で gate 2 を検出 / Step 11b (SS embed gate #2918) で gate 4 を前倒し検出 (step 一覧 SSOT は --help)。gate 1 / 3 は目視
 
 # 4. UI 変更ありなら本ファイル Section 2 で SS 撮影 (gate 4)
 
-# 5. Draft PR 起票 + CI 全緑後 Ready (SKILL.md ステップ 4)
-gh pr create --draft --title "..." --body-file tmp/pr-bodies/<num>-<slug>.md
+# 5. Draft PR 起票 + CI 全緑後 Ready (SKILL.md ステップ 4。--base develop 必須、hotfix のみ --base main)
+gh pr create --draft --base develop --title "..." --body-file tmp/pr-bodies/<num>-<slug>.md
 gh pr checks <PR番号> --watch
 gh pr ready <PR番号>
 
@@ -395,10 +382,10 @@ npm run pre-ready -- --pr <num> && gh pr ready <num>
 | @.claude/skills/dev-open-pr/SKILL.md | Skill 親 (PR 起票 4 ステップ) |
 | @docs/sessions/dev-session.md | Dev Session 親 SSOT (PR 作業手順) |
 | @.github/PULL_REQUEST_TEMPLATE.md | PR template SSOT (本ファイル gate 2 の根拠) |
-| @scripts/check-pr-body.mjs | gate 1+2+3 の機械検証 CLI |
+| @scripts/check-pr-body.mjs | PR body 検証 CLI（blocking / advisory の区分は `BLOCKING_GATES` が SSOT） |
 | @scripts/check-pr-screenshot.mjs | gate 4 の機械検証 CLI |
-| @scripts/pre-ready.mjs | 10 Step 一括検証 CLI (#1920 で SSOT 検証 step 3 件追加) |
+| @scripts/pre-ready.mjs | 一括検証 CLI（step 一覧は `npm run pre-ready -- --help` が SSOT） |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB (SC-007 / SC-008 / etc.) |
 | @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務 (gate 1) |
-| @docs/decisions/0030-pre-ready-cli.md | pre-ready 全 Step PASS 必須 |
-| @docs/decisions/0026-no-force-push.md | force push 禁止 (罠 5) |
+| @docs/decisions/0030-pre-ready-cli-and-no-pre-push-hook.md | pre-ready 全 Step PASS 必須 |
+| @docs/decisions/0026-force-push-protection.md | force push 禁止 (罠 5) |

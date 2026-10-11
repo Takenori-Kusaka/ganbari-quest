@@ -36,9 +36,9 @@ on:
       - "site/**"
       - "scripts/measure-lp-dimensions.mjs"
       - "src/lib/data/marketplace/activity-packs/**"
-      # NOTE (#4420): lp-fallback-check.yml は #4322 で削除済み。scripts/sync-lp-fallback.mjs /
-      # labels.ts / terms.ts の LP fallback 整合を検証する CI は現状無い (機械強制は無い。
-      # レビューで担保する)。
+      # labels 層 / terms.ts と LP (site/shared-labels.js・site/*.html の fallback) の整合は本 workflow では
+      # 見ない。ci.yml lint-and-test の `npm run lint:parallel` (generate-lp-labels --check /
+      # sync-lp-fallback --check) が検査する。
 
 permissions:
   contents: read

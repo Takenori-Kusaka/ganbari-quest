@@ -20,6 +20,9 @@
 /* biome-ignore-all lint/suspicious/noTemplateCurlyInString: fixture には literal "${NS.key}" を文字列として含む */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
 	isTemplateLiteral,
@@ -31,6 +34,13 @@ import {
 	resolveAllTemplates,
 	resolveTemplateLiteralValue,
 } from '../generate-lp-labels.mjs';
+import {
+	isLabelsLayerPath,
+	LABELS_DIR,
+	LABELS_ENTRY,
+	labelSourceFiles,
+	readLabelsSource,
+} from '../lib/parse-labels-ts.mjs';
 
 // ---------------------------------------------------------------------------
 // AC1: parseBlockLine が template literal 形式をマッチ
@@ -315,13 +325,9 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 //      (未解決の interpolation が LP へ配信されない)
 // ---------------------------------------------------------------------------
 describe('実 labels.ts / terms.ts は template literal を含み、かつ全て解決できる (ADR-0045)', () => {
-	it('LP namespace に template literal が現に存在する (atom 参照が生きている)', async () => {
-		const fs = await import('node:fs');
-		const path = await import('node:path');
-		const url = await import('node:url');
-		const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-		const labelsTs = path.resolve(__dirname, '../../src/lib/domain/labels.ts');
-		const src = fs.readFileSync(labelsTs, 'utf-8');
+	it('LP namespace に template literal が現に存在する (atom 参照が生きている)', () => {
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) の連結本文を生成器と同じ経路で読む
+		const src = readLabelsSource();
 
 		const samples = [
 			'LP_RETENTION_LABELS',
@@ -409,5 +415,103 @@ describe('module-local 共有 const 参照 (#4619)', () => {
 		for (const key of ['k19', 'k20', 'k21', 'k22', 'k124']) {
 			assert.ok(faqB[key], `LP_FAQ_PHASEB_LABELS.${key} が解決結果から欠落している`);
 		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4965: labels 層はファイルに分かれる (入口 labels.ts + labels/*.ts)
+// ---------------------------------------------------------------------------
+describe('labels 層の複数ファイル対応 (#4965)', () => {
+	it('別ファイルから使う共有 const (`export const`) も共有 const として拾う', () => {
+		const fixture = [
+			'export const SHARED_EXPORTED = `${PLAN_TERMS.standard}は継続できます`;',
+			"export const SHARED_PLAIN = 'そのままの文';",
+			"export const NOT_SHARED = 'as const は対象外' as const;",
+		].join('\n');
+		const locals = parseLabelsLocalConsts(fixture);
+		assert.ok(isTemplateLiteral(locals.SHARED_EXPORTED));
+		assert.equal(locals.SHARED_PLAIN, 'そのままの文');
+		assert.equal(locals.NOT_SHARED, undefined);
+	});
+
+	it('同じ名前の共有 const が 2 つあれば throw する (連結順で値が変わるのを許さない)', () => {
+		const fixture = ["const DUP = 'a';", "export const DUP = 'b';"].join('\n');
+		assert.throws(() => parseLabelsLocalConsts(fixture), /DUP/);
+	});
+
+	it('parseBlock は名前の前方一致で別の namespace を拾わない', () => {
+		const fixture = [
+			'export const LP_PRICING_PHASEB_LABELS = {',
+			"\tk1: 'phaseB',",
+			'} as const;',
+			'export const LP_PRICING = {',
+			"\tk1: 'exact',",
+			'} as const;',
+		].join('\n');
+		assert.deepEqual(parseBlock(fixture, 'LP_PRICING'), { k1: 'exact' });
+	});
+});
+
+describe('parse-labels-ts: labels 層のファイル一覧と本文 (#4965)', () => {
+	/** @param {Record<string, string>} files repo 相対パス → 本文 */
+	function makeRepo(files) {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'labels-layer-'));
+		for (const [rel, text] of Object.entries(files)) {
+			fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+			fs.writeFileSync(path.join(root, rel), text);
+		}
+		return root;
+	}
+
+	it('labels/ が無ければ入口だけを返す', () => {
+		const root = makeRepo({ 'src/lib/domain/labels.ts': "export const A = { k: 'a' };\n" });
+		assert.deepEqual(labelSourceFiles(root), [LABELS_ENTRY]);
+		assert.equal(readLabelsSource(root), "export const A = { k: 'a' };\n");
+	});
+
+	it('入口 → labels/*.ts (名前順) の順に並べ、test file と .ts 以外は含めない', () => {
+		const root = makeRepo({
+			'src/lib/domain/labels.ts': "export * from './labels/b';\n",
+			'src/lib/domain/labels/b.ts': "export const B = { k: 'b' };\n",
+			'src/lib/domain/labels/a.ts': "export const A = { k: 'a' };\n",
+			'src/lib/domain/labels/a.test.ts': "const X = 'test';\n",
+			'src/lib/domain/labels/README.md': '# memo\n',
+		});
+		assert.deepEqual(labelSourceFiles(root), [
+			LABELS_ENTRY,
+			`${LABELS_DIR}/a.ts`,
+			`${LABELS_DIR}/b.ts`,
+		]);
+		const src = readLabelsSource(root);
+		assert.ok(src.indexOf('export const A') < src.indexOf('export const B'));
+		assert.ok(!src.includes("'test'"));
+	});
+
+	it('入口に export * を書き忘れたファイルも一覧に入る (テキスト検査から漏らさない)', () => {
+		const root = makeRepo({
+			'src/lib/domain/labels.ts': '',
+			'src/lib/domain/labels/lp.ts': "export const LP_X_LABELS = { k: 'x' };\n",
+		});
+		assert.ok(labelSourceFiles(root).includes(`${LABELS_DIR}/lp.ts`));
+	});
+
+	it('labels/ にサブディレクトリがあれば throw する (フラット構成の前提)', () => {
+		const root = makeRepo({
+			'src/lib/domain/labels.ts': '',
+			'src/lib/domain/labels/admin/rewards.ts': "export const R = { k: 'r' };\n",
+		});
+		assert.throws(() => labelSourceFiles(root), /サブディレクトリ/);
+	});
+
+	it('isLabelsLayerPath は入口と labels/ 直下の .ts だけを labels 層とみなす', () => {
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels.ts'), true);
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/lp.ts'), true);
+		assert.equal(isLabelsLayerPath('src\\lib\\domain\\labels\\lp.ts'), true);
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/sub/x.ts'), false);
+		// labelSourceFiles() と同じく、labels/ 直下の test / spec は labels 層のソースではない
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/foo.test.ts'), false);
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels/foo.spec.ts'), false);
+		assert.equal(isLabelsLayerPath('src/lib/domain/labels-extra.ts'), false);
+		assert.equal(isLabelsLayerPath('src/lib/domain/terms.ts'), false);
 	});
 });

@@ -56,13 +56,20 @@ export interface ConsentCheck {
 	crossBorderVersion?: string;
 }
 
-/** テナントの同意状況を確認 */
-export async function checkConsent(tenantId: string): Promise<ConsentCheck> {
+/**
+ * 利用者の同意状況を確認する (#5040: 判定は本人単位)。
+ *
+ * `userId` を渡すと、その利用者本人が記録した同意だけで判定する。世帯の別の保護者が
+ * 同意済みでも、本人の判定には流用しない（Google ログインの招待受諾や規約改定で、
+ * 本人が一度も同意画面を見ないまま使い始めるのを防ぐ）。
+ * `userId` が無い (local / anonymous / 旧形式トークン) ときだけ世帯単位で引く。
+ */
+export async function checkConsent(tenantId: string, userId?: string): Promise<ConsentCheck> {
 	const repos = getRepos();
 	const [termsConsent, privacyConsent, crossBorderConsent] = await Promise.all([
-		repos.auth.findLatestConsent(tenantId, 'terms'),
-		repos.auth.findLatestConsent(tenantId, 'privacy'),
-		repos.auth.findLatestConsent(tenantId, 'cross-border'),
+		repos.auth.findLatestConsent(tenantId, 'terms', userId),
+		repos.auth.findLatestConsent(tenantId, 'privacy', userId),
+		repos.auth.findLatestConsent(tenantId, 'cross-border', userId),
 	]);
 
 	const termsAccepted = termsConsent?.version === CURRENT_TERMS_VERSION;

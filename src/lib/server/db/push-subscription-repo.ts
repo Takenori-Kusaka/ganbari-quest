@@ -35,8 +35,9 @@ export async function countLogsBetween(
 	tenantId: string,
 	fromIso: string,
 	toIso: string,
+	notificationTypes?: readonly string[],
 ): Promise<number> {
-	return getRepos().pushSubscription.countLogsBetween(tenantId, fromIso, toIso);
+	return getRepos().pushSubscription.countLogsBetween(tenantId, fromIso, toIso, notificationTypes);
 }
 
 async function _findRecentLogs(tenantId: string, limit: number): Promise<NotificationLog[]> {

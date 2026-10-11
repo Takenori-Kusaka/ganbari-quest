@@ -134,6 +134,16 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'AI 呼び出しの半分以上が落ちている = 有料プランの筆頭訴求 (AI 提案) が事実上死んでいる状態で、応答は HTTP 200 のため顧客も運営も画面からは気付けない。#4726 の本番障害 (base model ID を on-demand で呼べず全リクエスト ValidationException) は latch 型の ai-provider-unavailable では拾えず、丸一日以上 100% fallback のまま発見はオーナーの手動実行だった。ノイズ懸念には「件数」と「率」の両方を掛けて対処済み (15 分 window で **失敗 2 件以上かつ 50% 以上**) — 単発の throttle / timeout は 1 件なので鳴らず、100% 壊れていれば 2 件目で鳴る',
 	},
+	'ganbari-quest-push-vapid-missing': {
+		notify: true,
+		reason:
+			'本番 Lambda env に VAPID 鍵が無い = 保護者向けのリマインダー・ストリーク警告・達成通知が 1 通も届いていない。cron は 200 を返し続けるので、この alarm が無いと誰も気付けない (#4706 で本番ログの送信判定 1,710 回が鍵なしで止まっていた)。本番は CDK synth が鍵の組を検査してから deploy するため平常時は鳴らず、鳴ったら Lambda env が壊れている',
+	},
+	'ganbari-quest-push-send-failed': {
+		notify: true,
+		reason:
+			'push サービスが送信を拒否している = 保護者の端末に通知が届いていない。401/403 は鍵の組違いで全送信が失敗し続け、410/404 と違って購読も消えないため放置すると毎日同じ失敗が続く。保護者は届いていないことに自分では気付けない。単発の timeout で鳴らないよう「1 時間に 2 件以上」に調整して通知は維持する',
+	},
 	'ganbari-quest-ops-alert-forward-failed': {
 		notify: true,
 		reason:

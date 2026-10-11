@@ -147,14 +147,12 @@ child_activities
 - ✅ parallel write 撤去: `activity-import-service.ts:151` の family master insert を削除、childIds 未指定時は fallback で tenant 最初の child に bind
 - ✅ regression test: `tests/unit/services/activity-legacy-table-write-zero.test.ts` — 全 write method に対し旧 `activities` table row count が 0 のまま不変であることを assert (8 test)
 
-**実装状況 PR-A2 (2026-05-26、#2458 Path A の demo + dynamodb 同期)**:
+**実装状況 PR-A2 (2026-05-26、#2458 Path A の demo 同期)**:
 
-- ✅ 旧 DynamoDB activity-repo rewrite (backend は #3438 Phase 2B で撤去) — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換していた。per-child schema (ADR-0055) 経由で実装し直す構造的ガードを設置し旧 `activities` partition (`SK=MASTER`) への退行を防止していた
 - ✅ `src/lib/server/db/demo/activity-repo.ts` SSOT コメント追記 — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archive / restore / insertActivityLog / insertPointLedger / markActivityLogCancelled / deleteDailyMissionsByActivity / deleteActivityLogsBeforeDate) は元から no-op stub または synthetic 戻り値 (id=0) を返すのみで fixture を mutate しないことを明文化。read 経路は marketplace integration テスト (#2097 Phase B-7) を退行させないため `ALL_DEMO_ACTIVITIES` (hand-curated + marketplace merged) を primary source として保持し、per-child scope queries は別 file (demo/child-activity-repo.ts) 経由で `DEMO_CHILD_ACTIVITIES` から取得する設計
 - ✅ regression test (demo): `tests/unit/services/activity-legacy-table-write-zero-demo.test.ts` (12 test) — 全 11 write/stub method 呼出後に `DEMO_CHILD_ACTIVITIES` / `DEMO_ACTIVITIES` / `DEMO_MARKETPLACE_ACTIVITIES` / `DEMO_ACTIVITY_LOGS` の長さ + flag 不変を assert + read 経路 (marketplace integration) 維持を 2 件確認
-- ✅ regression test (dynamodb、#3438 Phase 2B で backend とともに撤去) — 全 write method が `NotImplementedError` throw + DynamoDB Client 未到達を assert し、エラー message に「ADR-0055」「child-activity-repo」を含め再実装方針を誘導していた
 - ✅ schema 不変 (本 PR は backend rewrite のみ、`schema.ts` / `create-tables.ts` / `interfaces/activity-repo.interface.ts` 変更なし。interface.ts は comment 更新のみ)
-- ⏳ physical drop (#2458-C): 3 backend (sqlite / demo / dynamodb) で旧 `activities` table / partition への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema / dynamodb partition から削除
+- ⏳ physical drop (#2458-C): 2 backend (sqlite / demo) で旧 `activities` への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema から削除
 
 **実装状況 PR-C-1 (2026-05-26、#2458 Path B 第 1 弾)**:
 
@@ -181,7 +179,7 @@ SQLite の `child_activities` は **tenant_id 列を持たず childId scope** �
 **実装状況** (2026-05-25 PR-5 Phase 1):
 - ✅ schema flip 完了 (`checklist_templates.child_id` 削除 + `tenant_id` 列追加 + `checklist_template_assignments` 新規)
 - ✅ repo interface 改定 (`IChecklistRepo` に `findTemplatesByTenant` / `findAssignmentsByTemplate` / `assignTemplateToChildren` / `unassignTemplate` 等 family + distribution method 追加)
-- ✅ 3 実装 (sqlite / dynamodb / demo) 全 method 更新
+- ✅ 3 実装 (sqlite / dsql / demo) 全 method 更新
 - ✅ `checklist-distribution-service.ts` 新規 (SRP: 配信先管理専用)
 - ✅ `checklist-template-import-service.ts` family scope 重複判定 + `importChecklistTemplateForFamily` 追加
 - ✅ `event-checklist-strategy.ts` discriminated union ctx (`family-master-with-distribution` / `legacy-single-binding`) 対応
@@ -222,7 +220,7 @@ checklist_logs       -- 既存維持 (per-child progress、(child_id, template_i
 
 C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_assignments` 側で表現。C2「たろうにだけ色鉛筆追加」は `checklist_overrides` (既存 per-child override) で表現。
 
-**兄弟共通化 copy の per-child quota (#3474)**: 「別の子から取り込む」copy (`?/copyDistributionFromChild`) は source child の配信 template を target child の `checklist_template_assignments` に追加する (template 複製なし、assignments 行のみ増える)。free プランの per-child テンプレ上限 (`maxChecklistTemplates`) を守るため、各 grant 直前に `checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId)` を **live 再評価** し (`checklist_template_assignments` の per-child 基数を毎回数え直す)、上限到達で残余 source を copy しない。取り込めなかった件数は「上限拒否 (`limitRejected`)」と「既に target に配信済みで no-op skip (`alreadyDistributed`)」に分離集計する (`distributeToChildren` の空戻り = 既配信を no-op 成功として扱い、上限拒否と混同しない)。TOCTOU window の backend 別有無 (SQLite=exact / DynamoDB=bounded over-grant を accepted residual) は [rationale/14-checklist-copy-toctou-rationale.md](../rationale/14-checklist-copy-toctou-rationale.md) が SSOT。
+**兄弟共通化 copy の per-child quota (#3474)**: 「別の子から取り込む」copy (`?/copyDistributionFromChild`) は source child の配信 template を target child の `checklist_template_assignments` に追加する (template 複製なし、assignments 行のみ増える)。free プランの per-child テンプレ上限 (`maxChecklistTemplates`) を守るため、各 grant 直前に `checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId)` を **live 再評価** し (`checklist_template_assignments` の per-child 基数を毎回数え直す)、上限到達で残余 source を copy しない。取り込めなかった件数は「上限拒否 (`limitRejected`)」と「既に target に配信済みで no-op skip (`alreadyDistributed`)」に分離集計する (`distributeToChildren` の空戻り = 既配信を no-op 成功として扱い、上限拒否と混同しない)。TOCTOU window の backend 別有無は [rationale/14-checklist-copy-toctou-rationale.md](../rationale/14-checklist-copy-toctou-rationale.md) が SSOT。
 
 ### 4.3 reward exchange (PR-4、現状 per-child 維持 + UX 整備済)
 

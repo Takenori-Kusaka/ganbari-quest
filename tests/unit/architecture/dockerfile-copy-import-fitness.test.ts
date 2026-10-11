@@ -30,10 +30,23 @@
 //   - 旧実装は relative / $lib specifier が候補列で解決不能なとき silent に対象外
 //     (false negative の余地) だった → unresolved として収集し 1 件でも fail する (#3684 AC1)。
 //     候補列の近似が実 import パターンに追随できていない場合、この fail が可視化する
+//
+// 後半の describe は「COPY 元そのもの」と「image を build する CI の発火条件」を見る:
+//   - COPY 元の実在: build context からの COPY / build stage 経由の COPY の元が repo に実在し、
+//     .dockerignore で除外されていない (消した file を COPY したままだと docker build が
+//     "not found" で落ちるが、docker-build job は重量レーンで develop 向け PR では走らない)
+//   - 秘密を含む合成物を build context に入れない (.dockerignore の cdk.out)
+//   - image の入力が変わったら image を build する CI が発火する (ci.yml の paths filter /
+//     deploy-nuc.yml の paths) + 全 Dockerfile が main より前に 1 度 build される
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, posix, relative, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+
+// repo 走査 test の区分宣言 (scripts/lib/ci/repo-scan-test-registry.mjs)。読むのは repo 直下と
+// glob COPY 元の親ディレクトリだけで有界だが、静的判定に合わせて明示 timeout を置く。
+vi.setConfig({ testTimeout: 30_000 });
 
 const REPO_ROOT = resolve(__dirname, '../../..');
 
@@ -261,5 +274,415 @@ describe('Dockerfile COPY ↔ CLI import 一致 fitness (#3652、ADR-0061)', () 
 		expect(roots).toContain('scripts/prepare.mjs');
 		expect(isCovered('src/lib/server/db/factory.ts', roots)).toBe(true);
 		expect(isCovered('scripts/lib/other.ts', roots)).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// COPY 元の実在 / 秘密を build context に入れない / image を build する CI の発火条件
+// ---------------------------------------------------------------------------
+
+/**
+ * `.dockerignore` / paths-filter で使う単純 glob を正規表現にする。
+ * `**` は階層をまたぎ、`*` / `?` は 1 階層内。文字クラス (`[...]`) は使っていないので未対応とし、
+ * 書かれたら黙って誤判定せずに落とす (matcher を拡張する合図)。
+ */
+function globToRegExp(glob: string): RegExp {
+	if (/[[\]]/.test(glob)) {
+		throw new Error(`glob "${glob}" の文字クラスは本 test の matcher 未対応。matcher を拡張する`);
+	}
+	let out = '';
+	for (let i = 0; i < glob.length; i++) {
+		const ch = glob.charAt(i);
+		if (ch === '*' && glob.charAt(i + 1) === '*') {
+			if (glob.charAt(i + 2) === '/') {
+				out += '(?:.*/)?';
+				i += 2;
+			} else {
+				out += '.*';
+				i += 1;
+			}
+		} else if (ch === '*') out += '[^/]*';
+		else if (ch === '?') out += '[^/]';
+		else out += ch.replace(/[.+^${}()|\\]/g, '\\$&');
+	}
+	return new RegExp(`^${out}$`);
+}
+
+/** `.dockerignore` の除外パターン。Docker は build context の root に固定して照合する。 */
+function readDockerignorePatterns(text: string): { pattern: string; re: RegExp }[] {
+	return text
+		.split(/\r?\n/)
+		.map((l) => l.trim())
+		.filter((l) => l !== '' && !l.startsWith('#'))
+		.map((pattern) => {
+			if (pattern.startsWith('!')) {
+				throw new Error(
+					`例外パターン "${pattern}" は本 test の matcher 未対応。matcher を拡張する`,
+				);
+			}
+			return { pattern, re: globToRegExp(pattern.replace(/^\/+/, '').replace(/\/+$/, '')) };
+		});
+}
+
+const DOCKERIGNORE = readDockerignorePatterns(
+	readFileSync(join(REPO_ROOT, '.dockerignore'), 'utf-8'),
+);
+
+/** repo パスを除外するパターンを返す (ディレクトリが除外されれば中身も除外される)。無ければ null。 */
+function dockerignoreMatch(
+	repoPath: string,
+	patterns: { pattern: string; re: RegExp }[] = DOCKERIGNORE,
+): string | null {
+	const parts = repoPath.split('/');
+	for (let i = 1; i <= parts.length; i++) {
+		const prefix = parts.slice(0, i).join('/');
+		const hit = patterns.find((p) => p.re.test(prefix));
+		if (hit) return hit.pattern;
+	}
+	return null;
+}
+
+interface CopyInstruction {
+	/** `--from=` の値。build context からの COPY なら null */
+	from: string | null;
+	srcs: string[];
+	line: string;
+}
+
+interface DockerStage {
+	base: string;
+	name: string | null;
+	copies: CopyInstruction[];
+}
+
+/** Dockerfile を stage ごとに分け、各 stage の COPY を集める。 */
+function parseDockerStages(dockerfileText: string): DockerStage[] {
+	const stages: DockerStage[] = [];
+	for (const raw of dockerfileText.split('\n')) {
+		const line = raw.trim();
+		const from = /^FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?/i.exec(line);
+		if (from) {
+			stages.push({ base: from[1] ?? '', name: from[2] ?? null, copies: [] });
+			continue;
+		}
+		if (/^ADD\s/i.test(line) || /^COPY\s+(--\S+\s+)*\[/i.test(line)) {
+			throw new Error(
+				`"${line}" (ADD / JSON 形式の COPY) は本 test の parser 未対応。parser を拡張する`,
+			);
+		}
+		if (!line.startsWith('COPY ')) continue;
+		const tokens = line.slice('COPY '.length).trim().split(/\s+/);
+		const fromFlag = tokens.find((t) => t.startsWith('--from='));
+		const rest = tokens.filter((t) => !t.startsWith('--'));
+		stages.at(-1)?.copies.push({
+			from: fromFlag ? fromFlag.slice('--from='.length) : null,
+			srcs: rest.slice(0, -1),
+			line,
+		});
+	}
+	return stages;
+}
+
+/** COPY の src を repo パス形に正規化する (`./a/` → `a`、`.` → ``)。 */
+function normalizeSrc(src: string): string {
+	const p = src.replace(/^\.\//, '').replace(/\/+$/, '');
+	return p === '.' ? '' : p;
+}
+
+/**
+ * build context からの COPY 元を repo パスに展開する。glob は親ディレクトリの実在 file に照合する。
+ * `.` (context 全体) は空配列 = 個別の実在確認の対象外。
+ */
+function expandContextSrc(src: string): string[] {
+	const p = normalizeSrc(src);
+	if (p === '') return [];
+	if (!/[*?]/.test(p)) return [p];
+	const dir = posix.dirname(p);
+	const re = globToRegExp(posix.basename(p));
+	const base = dir === '.' ? REPO_ROOT : join(REPO_ROOT, dir);
+	if (!existsSync(base)) return [];
+	return readdirSync(base)
+		.filter((name) => re.test(name))
+		.map((name) => (dir === '.' ? name : `${dir}/${name}`));
+}
+
+/** repo パスが実在し、.dockerignore で除外されていなければ null、問題があれば理由を返す。 */
+function contextPathProblem(repoPath: string): string | null {
+	if (!existsSync(join(REPO_ROOT, repoPath))) return 'repo に存在しない';
+	const ignored = dockerignoreMatch(repoPath);
+	if (ignored) return `.dockerignore の "${ignored}" で build context から除外されている`;
+	return null;
+}
+
+/**
+ * build stage の RUN が作るもの (repo には無いので実在確認の対象外)。
+ * ここに足すのは「その stage の RUN が生成する」と言えるものだけ。
+ */
+const GENERATED_IN_BUILD: Record<string, string> = {
+	build: 'npm run build (SvelteKit adapter の出力)',
+	node_modules: 'npm ci の出力',
+	'.svelte-kit': 'npm run build 中の svelte-kit sync が生成する',
+};
+
+/** stage とその祖先 stage が build context から COPY した src の一覧。 */
+function contextSrcsOfChain(stages: DockerStage[], stage: DockerStage): string[] {
+	const srcs: string[] = [];
+	let cur: DockerStage | undefined = stage;
+	const seen = new Set<DockerStage>();
+	while (cur && !seen.has(cur)) {
+		seen.add(cur);
+		for (const c of cur.copies) if (c.from === null) srcs.push(...c.srcs.map(normalizeSrc));
+		const baseName: string = cur.base;
+		cur = stages.find((s) => s.name === baseName);
+	}
+	return srcs;
+}
+
+/** build context からの COPY 1 行の問題 (元が repo に無い / .dockerignore で外れている)。 */
+function contextCopyProblems(copy: CopyInstruction): string[] {
+	const problems: string[] = [];
+	for (const src of copy.srcs) {
+		const expanded = expandContextSrc(src);
+		if (normalizeSrc(src) !== '' && expanded.length === 0) {
+			problems.push(`${copy.line} — "${src}" に一致する file が repo に無い`);
+		}
+		for (const p of expanded) {
+			const why = contextPathProblem(p);
+			if (why) problems.push(`${copy.line} — ${p} が ${why}`);
+		}
+	}
+	return problems;
+}
+
+/**
+ * stage 内パス (`/app/<p>`) が、その stage に build context から入っている or RUN が作ったものか。
+ * 問題があれば理由を返す。
+ */
+function stagePathProblem(stages: DockerStage[], source: DockerStage, src: string): string | null {
+	if (!src.startsWith('/app/')) return `stage 内パス "${src}" が /app/ 配下でない`;
+	const p = normalizeSrc(src.slice('/app/'.length));
+	if (Object.keys(GENERATED_IN_BUILD).some((g) => p === g || p.startsWith(`${g}/`))) return null;
+	const covered = contextSrcsOfChain(stages, source).some(
+		(s) =>
+			s === '' || p === s || p.startsWith(`${s}/`) || (/[*?]/.test(s) && globToRegExp(s).test(p)),
+	);
+	if (!covered) {
+		return (
+			`stage "${source.name}" は ${p} を build context から COPY していない` +
+			' (RUN が生成するなら GENERATED_IN_BUILD に理由付きで足す)'
+		);
+	}
+	const why = contextPathProblem(p);
+	return why ? `${p} が ${why}` : null;
+}
+
+/** Dockerfile 1 本の COPY 元の問題を列挙する (空なら問題なし)。 */
+function findCopySourceProblems(dockerfile: string, dockerfileText: string): string[] {
+	const stages = parseDockerStages(dockerfileText);
+	const problems: string[] = [];
+	for (const copy of stages.flatMap((stage) => stage.copies)) {
+		if (copy.from === null) {
+			problems.push(...contextCopyProblems(copy).map((p) => `${dockerfile}: ${p}`));
+			continue;
+		}
+		const source = stages.find((s) => s.name === copy.from);
+		if (!source) continue; // 外部 image (`--from=public.ecr.aws/...`) は repo と無関係
+		for (const src of copy.srcs) {
+			const why = stagePathProblem(stages, source, src);
+			if (why) problems.push(`${dockerfile}: ${copy.line} — ${why}`);
+		}
+	}
+	return problems;
+}
+
+/** repo 直下の Dockerfile (`Dockerfile` / `Dockerfile.<name>`)。 */
+const DOCKERFILES = readdirSync(REPO_ROOT)
+	.filter((name) => /^Dockerfile(\..+)?$/.test(name) && statSync(join(REPO_ROOT, name)).isFile())
+	.sort();
+
+/** Dockerfile の build context からの COPY 元 (repo パス。ディレクトリは `<dir>/` 付き)。 */
+function contextCopyInputs(dockerfile: string): string[] {
+	const stages = parseDockerStages(readFileSync(join(REPO_ROOT, dockerfile), 'utf-8'));
+	const inputs = new Set<string>();
+	for (const stage of stages) {
+		for (const copy of stage.copies) {
+			if (copy.from !== null) continue;
+			for (const src of copy.srcs) {
+				for (const p of expandContextSrc(src)) {
+					const abs = join(REPO_ROOT, p);
+					inputs.add(existsSync(abs) && statSync(abs).isDirectory() ? `${p}/` : p);
+				}
+			}
+		}
+	}
+	return [...inputs].sort();
+}
+
+/** paths-filter のパターン群のどれかに一致するか。ディレクトリは配下の file で照合する。 */
+function isMatchedByPaths(input: string, patterns: string[]): boolean {
+	const probe = input.endsWith('/') ? `${input}any-file` : input;
+	return patterns.some((p) => globToRegExp(p).test(probe));
+}
+
+type WorkflowStep = { id?: string; run?: string; with?: Record<string, unknown> };
+type Workflow = {
+	on?: { push?: { paths?: string[] } };
+	jobs?: Record<string, { steps?: WorkflowStep[] }>;
+};
+
+function readWorkflow(file: string): Workflow {
+	return parseYaml(readFileSync(join(REPO_ROOT, '.github/workflows', file), 'utf-8')) as Workflow;
+}
+
+/** ci.yml の changes job (dorny/paths-filter) の filter 定義。 */
+function ciPathFilters(): Record<string, string[]> {
+	const step = readWorkflow('ci.yml').jobs?.changes?.steps?.find((s) => s.id === 'filter');
+	const filters = step?.with?.filters;
+	if (typeof filters !== 'string') throw new Error('ci.yml の changes / filter step が読めない');
+	return parseYaml(filters) as Record<string, string[]>;
+}
+
+/** docker-compose.yml が build する Dockerfile (NUC の app / backup / scheduler)。 */
+function composeDockerfiles(): string[] {
+	const compose = parseYaml(readFileSync(join(REPO_ROOT, 'docker-compose.yml'), 'utf-8')) as {
+		services?: Record<string, { build?: string | { dockerfile?: string } }>;
+	};
+	const files = new Set<string>();
+	for (const service of Object.values(compose.services ?? {})) {
+		if (service.build === undefined) continue;
+		files.add(
+			typeof service.build === 'string' ? 'Dockerfile' : (service.build.dockerfile ?? 'Dockerfile'),
+		);
+	}
+	return [...files].sort();
+}
+
+describe('Dockerfile の COPY 元が build context に実在する', () => {
+	it('fitness の対象 (TARGETS) が repo 直下の全 Dockerfile を覆う (Dockerfile 追加時の空白化防止)', () => {
+		expect(DOCKERFILES.length, 'repo 直下に Dockerfile が見つからない').toBeGreaterThan(0);
+		expect(TARGETS.map((t) => t.dockerfile).sort()).toEqual(DOCKERFILES);
+	});
+
+	for (const dockerfile of DOCKERFILES) {
+		it(`${dockerfile}: COPY 元が repo に実在し、.dockerignore で除外されていない`, () => {
+			const problems = findCopySourceProblems(
+				dockerfile,
+				readFileSync(join(REPO_ROOT, dockerfile), 'utf-8'),
+			);
+			expect(
+				problems,
+				`COPY 元が build context に無いため docker build が "not found" で落ちます。` +
+					`file を戻すか COPY を直してください:\n${problems.join('\n')}`,
+			).toEqual([]);
+		});
+	}
+
+	it('[mutation 演繹] 存在しない file / .dockerignore で外した file の COPY を検出する', () => {
+		const problems = findCopySourceProblems(
+			'Dockerfile.probe',
+			[
+				'FROM node:22-alpine AS deps',
+				'WORKDIR /app',
+				'COPY package*.json ./',
+				'COPY scripts/does-not-exist-probe.mjs ./scripts/does-not-exist-probe.mjs',
+				'COPY docs/CLAUDE.md ./docs/CLAUDE.md',
+				'FROM deps AS build',
+				'COPY . .',
+				'FROM node:22-alpine AS runtime',
+				'COPY --from=build /app/build/ ./',
+				'COPY --from=build /app/drizzle-does-not-exist-probe.config.ts ./',
+				'COPY --from=deps /app/src ./src',
+			].join('\n'),
+		);
+		expect(problems.some((p) => p.includes('scripts/does-not-exist-probe.mjs'))).toBe(true);
+		expect(problems.some((p) => p.includes('docs/CLAUDE.md') && p.includes('"docs"'))).toBe(true);
+		expect(problems.some((p) => p.includes('drizzle-does-not-exist-probe.config.ts'))).toBe(true);
+		// deps stage は src を build context から COPY していない
+		expect(problems.some((p) => p.includes('stage "deps" は src を'))).toBe(true);
+		// build 出力 (RUN が生成) と実在する package*.json は問題にしない
+		expect(problems.some((p) => p.includes('/app/build/'))).toBe(false);
+		expect(problems.some((p) => p.includes('package'))).toBe(false);
+	});
+});
+
+describe('.dockerignore が秘密を含む合成物を build context から外す', () => {
+	// deploy.yml / deploy-aws-staging.yml は `cdk diff` / `cdk deploy` を `-c <secret>` 付きで
+	// 実行した後に、同じ checkout で `docker build` (build stage は `COPY . .`) を行う。
+	// cdk.out には Lambda の環境変数に入る秘密がそのまま書かれた template が残るため、
+	// build context に入ると build stage の layer と `cache-to: type=gha,mode=max` の cache に載る。
+	it.each([
+		'infra/cdk.out/GanbariQuestCompute.template.json',
+		'infra/cdk.out/manifest.json',
+		'cdk.out/manifest.json',
+	])('%s は build context に入らない', (repoPath) => {
+		expect(dockerignoreMatch(repoPath), `${repoPath} が build context に入る`).not.toBeNull();
+	});
+
+	it('[matcher 健全性] Docker と同じく root に固定して照合する', () => {
+		const patterns = readDockerignorePatterns(
+			['node_modules', 'data/*.db*', '*.log', 'infra/cdk.out', '**/secret.txt'].join('\n'),
+		);
+		expect(dockerignoreMatch('node_modules/x/index.js', patterns)).toBe('node_modules');
+		expect(dockerignoreMatch('data/app.db-wal', patterns)).toBe('data/*.db*');
+		expect(dockerignoreMatch('app.log', patterns)).toBe('*.log');
+		expect(dockerignoreMatch('infra/cdk.out/a.json', patterns)).toBe('infra/cdk.out');
+		expect(dockerignoreMatch('a/b/secret.txt', patterns)).toBe('**/secret.txt');
+		// root 固定: 入れ子の同名は除外されない (Docker の .dockerignore の仕様)
+		expect(dockerignoreMatch('infra/node_modules/x.js', patterns)).toBeNull();
+		expect(dockerignoreMatch('logs/app.log', patterns)).toBeNull();
+		expect(() => readDockerignorePatterns('!keep.txt')).toThrow();
+	});
+});
+
+describe('image の入力が変わったら image を build する CI が発火する', () => {
+	it('ci.yml: docker-build job が repo 直下の全 Dockerfile を build する (main より前に 1 度は build する)', () => {
+		const steps = readWorkflow('ci.yml').jobs?.['docker-build']?.steps ?? [];
+		const built = new Set<string>();
+		for (const step of steps) {
+			for (const m of (step.run ?? '').matchAll(/docker build\b([^\n]*)/g)) {
+				const file = /(?:^|\s)-f\s+(\S+)/.exec(m[1] ?? '')?.[1];
+				built.add(file ?? 'Dockerfile');
+			}
+		}
+		const notBuilt = DOCKERFILES.filter((f) => !built.has(f));
+		expect(
+			notBuilt,
+			`ci.yml の docker-build job が build しない Dockerfile があります。` +
+				`統合 PR で 1 度も build されないまま main に入ります:\n${notBuilt.join('\n')}`,
+		).toEqual([]);
+	});
+
+	it('ci.yml: Dockerfile と build context からの COPY 元の変更で docker-build が発火する', () => {
+		const filters = ciPathFilters();
+		expect(filters.docker, 'ci.yml に docker filter が無い').toBeDefined();
+		// docker-build job の発火条件は `docker == 'true' || deps == 'true'`
+		const patterns = [...(filters.docker ?? []), ...(filters.deps ?? [])];
+		const inputs = new Set<string>(['.dockerignore', ...DOCKERFILES]);
+		for (const dockerfile of DOCKERFILES) {
+			for (const p of contextCopyInputs(dockerfile)) inputs.add(p);
+		}
+		const unmatched = [...inputs].filter((p) => !isMatchedByPaths(p, patterns)).sort();
+		expect(
+			unmatched,
+			`image の入力なのに ci.yml の docker / deps filter に一致しません。変更しても docker-build が走りません。` +
+				`ci.yml の docker filter に足してください:\n${unmatched.join('\n')}`,
+		).toEqual([]);
+	});
+
+	it('deploy-nuc.yml: NUC が build する Dockerfile と COPY 元の変更で deploy が発火する', () => {
+		const paths = readWorkflow('deploy-nuc.yml').on?.push?.paths ?? [];
+		expect(paths.length, 'deploy-nuc.yml の on.push.paths が読めない').toBeGreaterThan(0);
+		const nucDockerfiles = composeDockerfiles();
+		expect(nucDockerfiles).toContain('Dockerfile');
+		const inputs = new Set<string>(['.dockerignore', 'docker-compose.yml', ...nucDockerfiles]);
+		for (const dockerfile of nucDockerfiles) {
+			for (const p of contextCopyInputs(dockerfile)) inputs.add(p);
+		}
+		const unmatched = [...inputs].filter((p) => !isMatchedByPaths(p, paths)).sort();
+		expect(
+			unmatched,
+			`NUC の image の入力なのに deploy-nuc.yml の paths に一致しません。main に入っても NUC に配られません。` +
+				`deploy-nuc.yml の paths に足してください:\n${unmatched.join('\n')}`,
+		).toEqual([]);
 	});
 });

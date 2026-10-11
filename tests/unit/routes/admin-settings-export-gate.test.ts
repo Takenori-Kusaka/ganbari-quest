@@ -135,6 +135,17 @@ describe('GET /admin/settings load — export plan gate (#773)', () => {
 		expect(result.maxCloudExports).toBe(0);
 	});
 
+	// #4992 Q4-c: 復元結果に「編集できない」旨を出すかは、実ゲート (isCustomRewardUnlocked) と同じ述語で決める
+	it.each([
+		['free', false],
+		['standard', true],
+		['family', true],
+	] as const)('%s プランでは customRewardUnlocked=%s が返る (#4992)', async (tier, expected) => {
+		primeMocks(tier);
+		const result = (await load!(createLoadEvent(tier))) as { customRewardUnlocked: boolean };
+		expect(result.customRewardUnlocked).toBe(expected);
+	});
+
 	it('standard プランでは canExport=true, maxCloudExports=3 が返る', async () => {
 		primeMocks('standard');
 		const result = (await load!(createLoadEvent('standard'))) as {

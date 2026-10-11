@@ -16,7 +16,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PAGE_GUIDE_LABELS, SETTINGS_LABELS } from '$lib/domain/labels';
+import { readLabelsSource } from '../../../scripts/lib/parse-labels-ts.mjs';
 import { SETTINGS_DATA_GUIDE } from '../../../src/routes/(parent)/admin/settings/data/_guide';
+import { stripHtmlComments } from '../helpers/strip-html-comments';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PAGE = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings/data/+page.svelte');
@@ -119,12 +121,13 @@ describe('#4665 設定 > データ のガイドが不可逆操作を説明する
 	// #4665 F6: 「クラウドバックアップ」/「スタンダード以上」の別名が復活すると、
 	// 同じものが画面内で 2 つの名前を持つ状態に戻る。
 	it('[D9] クラウドセクションの呼称とプラン表記が 1 つに揃っている', () => {
-		const labelsSource = fs.readFileSync(path.join(REPO_ROOT, 'src/lib/domain/labels.ts'), 'utf8');
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) の全ファイルを見る
+		const labelsSource = readLabelsSource();
 		const body = labelsSource.replace(/^\s*\/\/.*$/gm, '');
 		expect(body, '「クラウドバックアップ」の別名が残っている').not.toContain(
 			'クラウドバックアップ',
 		);
-		const pageBody = fs.readFileSync(PAGE, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+		const pageBody = stripHtmlComments(fs.readFileSync(PAGE, 'utf8'));
 		const badgeLiterals = [...pageBody.matchAll(/<PremiumBadge[^>]*label="([^"]+)"/g)].map(
 			(m) => m[1],
 		);

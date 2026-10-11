@@ -19,6 +19,7 @@ import {
 	findSilentDrops,
 	parseAllNamespacesResolved,
 } from '../generate-lp-labels.mjs';
+import { readLabelsSource } from '../lib/parse-labels-ts.mjs';
 
 /** parseBlock が値を解決できない書き方だけを集めた fixture */
 const DROPPED_FIXTURE = [
@@ -139,11 +140,10 @@ describe('取りこぼし検出 gate (#4626)', () => {
 		assert.deepEqual(result.staleExclusions.sort(), ['LP_GONE_LABELS', 'LP_KEPT_LABELS.k1']);
 	});
 
-	it('実 labels.ts では取りこぼし 0 件 (回帰ガード)', () => {
-		const src = fs.readFileSync(
-			new URL('../../src/lib/domain/labels.ts', import.meta.url),
-			'utf-8',
-		);
+	it('実 labels 層では取りこぼし 0 件 (回帰ガード)', () => {
+		// #4965: 生成器と同じ連結本文 (入口 labels.ts + labels/*.ts) を見る。入口だけを読むと
+		// labels/*.ts に置いた LP_* namespace を数えず、取りこぼしがあっても 0 件と答える
+		const src = readLabelsSource();
 		const result = findSilentDrops(src, parseAllNamespacesResolved());
 		assert.deepEqual(result.missingNamespaces, []);
 		assert.deepEqual(result.droppedKeys, []);

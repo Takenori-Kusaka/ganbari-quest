@@ -1,6 +1,6 @@
 {
 	"name": "がんばりクエスト",
-	"short_name": "がんばり",
+	"short_name": "がんばりクエスト",
 	"description": "子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ",
 	"start_url": "/",
 	"display": "standalone",

@@ -28,6 +28,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { isLabelsLayerPath, labelSourceFiles } from '../../../scripts/lib/parse-labels-ts.mjs';
 import { DEFAULT_PIN, PIN_LENGTH, PIN_PATTERN } from '../../../src/lib/domain/constants/oyakagi';
 import { OYAKAGI_TERMS } from '../../../src/lib/domain/terms';
 import { stripCommentsAndStrings } from './helpers/strip-comments-and-strings';
@@ -90,8 +91,9 @@ describe('#4698 おやカギコード桁数 SSOT fitness', () => {
 		expect(violations, `PinInput length に桁数リテラル:\n${violations.join('\n')}`).toEqual([]);
 	});
 
-	it('[P3] labels.ts / terms.ts のおやカギ文言に桁数リテラル (N桁 / N〜M桁) を書かない', () => {
-		const targets = ['src/lib/domain/labels.ts', 'src/lib/domain/terms.ts'];
+	it('[P3] labels 層 / terms.ts のおやカギ文言に桁数リテラル (N桁 / N〜M桁) を書かない', () => {
+		// #4965: labels 層 (入口 labels.ts + labels/*.ts) は全ファイルを見る
+		const targets = [...labelSourceFiles(), 'src/lib/domain/terms.ts'];
 		const digitsLiteral = /[0-9０-９]+(?:\s*[〜～\-–]\s*[0-9０-９]+)?\s*桁/;
 		const violations: string[] = [];
 		for (const t of targets) {
@@ -117,7 +119,7 @@ describe('#4698 おやカギコード桁数 SSOT fitness', () => {
 			if (
 				!(
 					r.endsWith('.svelte') ||
-					r === 'src/lib/domain/labels.ts' ||
+					isLabelsLayerPath(r) ||
 					r === 'src/lib/domain/terms.ts' ||
 					r.endsWith('tutorial-chapters.ts')
 				)

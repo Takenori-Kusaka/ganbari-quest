@@ -64,13 +64,9 @@ ganbari-quest-platform  → Platform の team  （lead = Platform セッショ�
 
 ### §3.2 重い検証の並列化に使わない
 
-[agent-concurrency.md](agent-concurrency.md) §3.1 のとおり、**`heavy` lock はマシン全体で 1 本**である。
+[agent-concurrency.md](agent-concurrency.md) §3.1 のとおり、**`heavy` lock はマシン全体で 1 本**である。heavy に当たるコマンドの集合は `scripts/lib/agent-lock-policy.mjs` の `HEAVY_PATTERNS` が SSOT（pre-ready / vitest / playwright test 等の検証系と、graft の索引構築）。
 
-```
-heavy = pre-ready / vitest / playwright test / svelte-check / npm run test|check|e2e
-```
-
-**teammate を 5 人にしても、この 5 種は 1 本ずつ順番に流れる。** 残り 4 人は hook に exit 2 で止められて待つだけで、トークンだけ消費する。
+**teammate を 5 人にしても、heavy に当たるコマンドは 1 本ずつ順番に流れる。** 残り 4 人は hook に exit 2 で止められて待つだけで、トークンだけ消費する。
 
 「テストを並列で回して速くする」は本リポジトリでは成立しない。速くなるのは **読む・調べる・書く**（lock 対象外）だけ。
 

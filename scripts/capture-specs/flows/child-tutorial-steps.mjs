@@ -1,7 +1,8 @@
 /**
  * scripts/capture-specs/flows/child-tutorial-steps.mjs
  *
- * 汎用: 子供ホームの ❓ から子供チュートリアルを起動し、全 step を順に撮影する (#4652、EPIC #4650)。
+ * 汎用: 子供画面の ❓ から子供チュートリアルを起動し、全 step を順に撮影する (#4652、EPIC #4650)。
+ * 既定はホーム。`CHILD_TUT_SS_PATH` でほかの子供画面の ❓ (画面ごとの章、#4864) を撮る。
  * 子供チュートリアルを直す PR の before / after SS を同じ手順で撮るための共通フロー
  * (ページガイド用は page-guide-steps.mjs、#4677)。
  *
@@ -18,12 +19,20 @@
  *   CHILD_TUT_SS_PREFIX  before | after (既定 after)
  *   CHILD_TUT_SS_PRESET  label 用の識別子 (例 preschool-mobile)。viewport 自体は --presets で指定
  *   CHILD_TUT_SS_CHILD   /switch で選ぶお子さまの表示名 (必須)
+ *   CHILD_TUT_SS_PATH    ホーム以外の画面で ❓ を押すとき、その画面のパス (#4864)。
+ *                        `{mode}` はお子さまの年齢モードに置き換える (例 `/{mode}/shop` / `/checklist`)。
+ *                        省略時はホームで押す
+ *   CHILD_TUT_SS_NO_HELP `1` のとき、その画面に ❓ が **出ていない** ことを撮る (説明を持たない画面、#4864)。
+ *                        ❓ が出ていたら撮らずに throw する (撮影で不具合を見逃さない)
+ *   CHILD_TUT_SS_MAX_STEPS 撮る step 数の上限 (既定 12)。before で「最初に何が出るか」だけ撮るときに 1 を渡す
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const PREFIX = process.env.CHILD_TUT_SS_PREFIX || 'after';
 const PRESET = process.env.CHILD_TUT_SS_PRESET || 'child';
 const CHILD = process.env.CHILD_TUT_SS_CHILD || '';
+const TARGET_PATH = process.env.CHILD_TUT_SS_PATH || '';
+const EXPECT_NO_HELP = process.env.CHILD_TUT_SS_NO_HELP === '1';
 
 const HELP_BTN = '[data-testid="header-help-btn"]';
 const BUBBLE = '.tutorial-bubble';
@@ -37,6 +46,66 @@ async function settleFrame(page) {
 				requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
 			),
 	);
+}
+
+/**
+ * step が「見える状態」に落ち着くまで待つ (#4864)。
+ * rAF 2 回だけだと、吹き出しのフェードイン途中 / spotlight の解決前 / scrollIntoView の途中を撮ってしまい、
+ * 顧客が実際に見る画面と違う SS になる。
+ *   1. selector を持つ step は spotlight が実要素に解決する (最大 5 秒。解決しなければそのまま撮る = 中央表示)
+ *   2. スクロールが止まる (scrollY が 3 frame 連続で変わらない、最大 1.5 秒)
+ *   3. 吹き出しが「止まって不透明」な状態が 400ms 続く — `data-tutorial-target="resolved"` はスクロール中の
+ *      位置追従で先に立ち、その約 300ms 後に対象の確定 (focusElement) で吹き出しのフェードインが
+ *      再生し直される。1 回アニメーションの終わりを待つだけでは 2 回目のフェードイン途中を撮る
+ */
+async function settleStep(page, bubble) {
+	if ((await bubble.getAttribute('data-has-target')) === 'true') {
+		await page
+			.waitForFunction(
+				() =>
+					document.querySelector('.tutorial-overlay')?.getAttribute('data-tutorial-target') ===
+					'resolved',
+				null,
+				{ timeout: 5000 },
+			)
+			.catch(() => {});
+	}
+	await page.evaluate(
+		() =>
+			new Promise((resolve) => {
+				const started = performance.now();
+				let last = window.scrollY;
+				let stable = 0;
+				const tick = () => {
+					stable = window.scrollY === last ? stable + 1 : 0;
+					last = window.scrollY;
+					if (stable >= 3 || performance.now() - started > 1500) resolve(undefined);
+					else requestAnimationFrame(tick);
+				};
+				requestAnimationFrame(tick);
+			}),
+	);
+	await page.evaluate(() => {
+		window.__childTutStableSince = undefined;
+	});
+	await page
+		.waitForFunction(
+			() => {
+				const b = document.querySelector('.tutorial-bubble');
+				if (!b) return false;
+				const moving = b.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+				if (moving || getComputedStyle(b).opacity !== '1') {
+					window.__childTutStableSince = undefined;
+					return false;
+				}
+				window.__childTutStableSince ??= performance.now();
+				return performance.now() - window.__childTutStableSince >= 400;
+			},
+			null,
+			{ timeout: 5000, polling: 'raf' },
+		)
+		.catch(() => {});
+	await settleFrame(page);
 }
 
 /** 子供ホーム到達時に auto-open する overlay 群を閉じ、チュートリアル起動を妨げないようにする。 */
@@ -86,7 +155,26 @@ export default async (page, capture) => {
 			.catch(() => false);
 		if (arrived) break;
 	}
+	// #4864: ホーム以外の画面で ❓ を押す (子供の ❓ は押した画面の章を開く)
+	if (TARGET_PATH) {
+		const mode = new URL(page.url()).pathname.split('/')[1] ?? '';
+		await page.goto(`${BASE_URL}${TARGET_PATH.replace('{mode}', mode)}`, {
+			waitUntil: 'domcontentloaded',
+		});
+		await page
+			.locator('[data-testid="header-balance"]')
+			.waitFor({ state: 'visible', timeout: 30_000 });
+	}
 	await dismissOverlays(page);
+	if (EXPECT_NO_HELP) {
+		// 説明を持たない画面: ❓ が出ていない状態を撮る。出ていたら不具合なので撮らずに止める
+		const count = await page.locator(HELP_BTN).count();
+		if (count !== 0)
+			throw new Error(`${TARGET_PATH}: ❓ が出ている (説明を持たない画面では出さない)`);
+		await settleFrame(page);
+		await capture(`${PREFIX}-${PRESET}-no-help`);
+		return;
+	}
 	// localStorage の進捗を消して常に最初から。
 	// key は #4651 で `tutorial-progress:<scope>:chapter|step`、#4765 で scope が子供ごとになったため、
 	// 個別 key 名ではなく prefix 一致で全 scope を掃除する (旧実装は消えた key 名を消していて無効だった)。
@@ -112,10 +200,10 @@ export default async (page, capture) => {
 	const bubble = page.locator(BUBBLE);
 	await bubble.waitFor({ state: 'visible', timeout: 15_000 });
 
-	const MAX_STEPS = 12;
+	const MAX_STEPS = Number.parseInt(process.env.CHILD_TUT_SS_MAX_STEPS ?? '', 10) || 12;
 	for (let i = 0; i < MAX_STEPS; i++) {
-		await settleFrame(page);
 		await bubble.waitFor({ state: 'visible', timeout: 10_000 });
+		await settleStep(page, bubble);
 		const stepId = (await bubble.getAttribute('data-step-id')) ?? `step${i + 1}`;
 		await capture(`${PREFIX}-${PRESET}-${String(i + 1).padStart(2, '0')}-${stepId}`);
 

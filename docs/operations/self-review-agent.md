@@ -38,7 +38,7 @@
 | 2 | **テスト十分性** | 新規 service / component に対応 test、E2E 動線 cover、skip count 増加 0 | `tests/` grep + skip count diff |
 | 3 | **UI SS 期待 UX** | SS で期待動線が実現 | screenshots branch + Storybook |
 | 4 | **Storybook 適合** | 新 primitive の `*.stories.svelte` 存在、autodocs、test:storybook PASS | `npm run test:storybook` |
-| 5 | **過去 QA 指摘事前回避 (7 件)** | ADR 番号衝突 / ADR deprecation chain / copilot-instructions 同期 / todo trap / label / SS / discriminated union | 各観点の検証は `docs/sessions/qm-session.md` Tier 2 手順 5 と `docs/decisions/README.md` (ADR インベントリ + supersede 関係) を参照 |
+| 5 | **過去 QA 指摘事前回避 (7 件)** | ADR 番号衝突 / ADR deprecation chain / todo trap / label / SS / discriminated union | 各観点の検証は `docs/sessions/qm-session.md` Tier 2 手順 5 と `docs/decisions/README.md` (ADR インベントリ + supersede 関係) を参照 |
 | 6 | **docs SSOT 原則 (#2440)** | docs 本体に変更履歴 / supersede / 経緯メタ 0 件 | `grep -rE "supersede\|以前は\|⚠ .*覆\|変更履歴" docs/<新ファイル>` |
 | 7 | **SOLID 違反** | DIP (ORM 直呼び) / SRP (1 関数全責) / ISP (巨大 interface) | コードレビュー (Read tool) |
 | 8 | **場当たり対応** | hex 直書き / `<button>` 直書き / labels ハードコード | `stylelint` / `check-no-plan-literals.mjs`（`check-hardcoded-strings.mjs` は #4322 で削除済み。機械強制は無い、レビューで担保する、#4420） |
@@ -204,7 +204,7 @@ Self-Review が approve したが QM team が BLOCK した場合:
 |---|---|---|
 | #2438 | Fix Agent が main HEAD の最新 SSOT を確認せず BLOCK 解消が不完全になる (2 回再発) | #5 過去 QA 指摘事前回避 / #14 Research 方針との適合性 |
 | #2444 | Dev Agent が PR body 13 セクション SSOT を遵守せず CI fail を再発させる (3 回再発) | #9 AC 検証マップ完備 / #10 PR body 必須セクション |
-| #2449 | ADR 番号衝突 / deprecation chain / copilot-instructions 同期 | #5 過去 QA 指摘事前回避 |
+| #2449 | ADR 番号衝突 / deprecation chain | #5 過去 QA 指摘事前回避 |
 | #2450 | CI AC todo trap / type:feat label 不足 / UI primitive SS 不足 / TypeScript optional silent skip | #5 過去 QA 指摘事前回避 / #11 禁止語回避 / #12 PR label / #2 テスト十分性 |
 | #2407 / #2435 / #2442 / #2443 | docs research / revert cycle で 13 sections 欠落・dogfooding 失敗 | #6 docs SSOT 原則 / #10 PR body 必須セクション |
 

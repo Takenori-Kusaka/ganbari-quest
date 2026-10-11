@@ -88,7 +88,7 @@ aws logs filter-log-events --region us-east-1 \
   --start-time $(( ($(date +%s) - 86400) * 1000 ))
 ```
 
-⚠ **調査には期限がある。** Discord alert と alarm は「起きた」ことしか伝えず、**どのテナントかは log にしかない**（`discord-alert.ts` の設計制約で payload に顧客識別子を載せられないため）。`AppLogGroup` の retention は **30 日**なので、それを過ぎると孤児行の tenantId を引く手段が無くなる。**alert を見たら 30 日以内に上記コマンドで tenantId を控える**こと。後回しにすると §3 の孤児掃除ができなくなる。
+⚠ **調査には期限がある。** Discord alert と alarm は「起きた」ことしか伝えず、**どのテナントかは log にしかない**（`discord-alert.ts` の設計制約で payload に顧客識別子を載せられないため）。上記コマンドで引けるのは `AppLogGroup` の保持期間のうちだけである（値は `infra/lib/compute-stack.ts` の `AppLogGroup` の `retention` が SSOT）。それを過ぎた log は S3 archive（assets bucket の `logs/`、翌日 Glacier へ移る）にしか無く、取り出すには Glacier からの復元と gzip の展開が要る。**alert を見たら、その場で上記コマンドを打って tenantId を控える**こと。後回しにすると §3 の孤児掃除に必要な tenantId を手早く引けなくなる。
 
 ---
 
@@ -167,9 +167,11 @@ aws logs filter-log-events --region us-east-1 \
 途中失敗して翌日の cron が再試行すれば**同じ `tenantId` の記録が複数行出る**。
 退会件数として数えないこと（完了の判定は `[account-deletion] Pattern N: 削除完了` 側を見る）。
 
-⚠ `AppLogGroup` の retention は **30 日**。それを過ぎると削除記録も残らない。
-問い合わせが 30 日より後に来た場合は「いつ・どの経路で消えたか」を答える手段が無い。
-これは決裁 2（退避先を新設しない）が引き受けた限界である。
+⚠ 上記コマンドで引けるのは `AppLogGroup` の保持期間のうちだけ（値は `infra/lib/compute-stack.ts` の
+`AppLogGroup` の `retention` が SSOT）。それより後に問い合わせが来た場合、削除記録は S3 archive
+（assets bucket の `logs/`、翌日 Glacier へ移る）にしか無く、Glacier からの復元と gzip の展開を経ないと
+「いつ・どの経路で消えたか」を答えられない。削除記録のための退避先を新設しないことは決裁 2 が引き受けた
+（archive は本番 app の log 全体を対象にした既存の仕組みで、削除記録のために作ったものではない）。
 
 ### 途中失敗したテナントはどうなるか（#4327）
 

@@ -28,7 +28,7 @@ grep -rl -F "<basename>" docs scripts .github src tests .claude CLAUDE.md \
   --include='*.yml' --include='*.yaml' --include='*.json' --include='*.svelte'
 ```
 
-scope 注記: `docs/zenn/`（自前 README / prh 運用 #2243）と top-level 4 file（CLAUDE.md / DESIGN.md / codebase-map.md / GEMINI.md = すべて SSOT）は本分類の対象外。`docs/decisions/`（69 file）は **ADR 月 1 棚卸プロセス（docs/CLAUDE.md §ADR 月 1 棚卸）が既存の専用棚卸 SSOT** のため、本書では dir 一括 A とし per-file 再分類しない（二重管理回避）。
+scope 注記: `docs/zenn/`（自前 README / prh 運用 #2243）と top-level の SSOT file（CLAUDE.md / DESIGN.md / codebase-map.md）は本分類の対象外。`docs/decisions/`（69 file）は **ADR 月 1 棚卸プロセス（docs/CLAUDE.md §ADR 月 1 棚卸）が既存の専用棚卸 SSOT** のため、本書では dir 一括 A とし per-file 再分類しない（二重管理回避）。
 
 ## 3. dir 別集計
 
@@ -196,7 +196,7 @@ github_actions.md（被参照 5）/ screenshot_capture.md（被参照 8）。KB 
 | file | 最終更新 | 被参照 | 分類 | 判断論点 |
 |---|---|---|---|---|
 | stripe-setup-guide.md | 2026-04-04 | billing-redesign 3 件 | A | 被参照あり |
-| discord-setup-guide.md / gemini-claude-integration.md / github-pages-custom-domain-guide.md / ses-production-access.md（4） | 2026-03〜04 | 0 | E | 一回限り setup 手順。setup 完了済（Discord 稼働 / Pages 稼働 / SES 送信稼働）なら削除可だが、再構築時の再利用価値は PO 判断 |
+| discord-setup-guide.md / github-pages-custom-domain-guide.md / ses-production-access.md（4） | 2026-03〜04 | 0 | E | 一回限り setup 手順。setup 完了済（Discord 稼働 / Pages 稼働 / SES 送信稼働）なら削除可だが、再構築時の再利用価値は PO 判断 |
 | github-sponsors-1〜4（4） | 2026-04 | 相互 1〜2 | E | GitHub Sponsors 継続有無が PO 判断（放棄済なら 4 file 一括削除） |
 
 ### 4.14 docs/inquiry/（2）— 全件 C

@@ -1,5 +1,7 @@
 // tests/unit/routes/admin-rewards-actions.test.ts
 // #728: /admin/rewards のプランゲート — grant / addPreset 403 + load の isPremium
+// #4928: プリセット取込 (importPresetToChildren / ?import= 着地) は全プラン可
+// #4992: 編集 (update) / 兄弟コピー / バックアップ復元も無料は 403 (料金表の「作成・編集はスタンダード以上」のサーバー側)
 // PR #2474 (#2362 PR-4, ADR-0055 + CWE-598): importPresetToChildren / copyFromChild の
 // tenant 配下 child guard (CWE-598 IDOR 防御) を追加検証 (must-1)。
 
@@ -18,6 +20,7 @@ const mockDispatchImport = vi.fn();
 const mockCopyChildRewardsToSibling = vi.fn();
 const mockCopyChildRewardsToSiblings = vi.fn();
 const mockGetMarketplaceItem = vi.fn();
+const mockUpdateReward = vi.fn();
 
 // #4723: モード判定の実体は auth-mode.ts (factory は re-export)。plan-limit-service など
 // 直接 auth-mode を import する側にも同じ値が見えるよう、両方を差し替える。
@@ -55,6 +58,7 @@ vi.mock('$lib/server/services/special-reward-service', () => ({
 	addReward: mockGrantSpecialReward,
 	grantSpecialReward: mockGrantSpecialReward,
 	saveRewardTemplates: mockSaveRewardTemplates,
+	updateReward: mockUpdateReward,
 }));
 
 vi.mock('$lib/marketplace', () => ({
@@ -89,7 +93,6 @@ const load = mod.load as unknown as (event: { locals: App.Locals; url: URL }) =>
 	children: unknown[];
 	templates: unknown[];
 	importPresetId: string | null;
-	importPresetLocked: boolean;
 }>;
 type PlanLimitErrorShape = {
 	code: 'PLAN_LIMIT_EXCEEDED';
@@ -127,6 +130,11 @@ const importPresetToChildrenAction = mod.actions.importPresetToChildren as unkno
 	locals: App.Locals;
 }) => Promise<ActionResult>;
 const copyFromChildAction = mod.actions.copyFromChild as unknown as (event: {
+	request: Request;
+	locals: App.Locals;
+}) => Promise<ActionResult>;
+const importMarketplaceRewardSetAction = mod.actions
+	.importMarketplaceRewardSet as unknown as (event: {
 	request: Request;
 	locals: App.Locals;
 }) => Promise<ActionResult>;
@@ -189,32 +197,22 @@ describe('/admin/rewards page.server', () => {
 			expect(result.planTier).toBe('family');
 		});
 
-		// #4705: marketplace の取込 CTA から無料プランで着地したとき、子供選択 dialog を
-		// 開いてから拒否しない (旧: CTA 活性 → 子供選択 → POST 後に「スタンダード以上」)。
-		it('無料プランで ?import= 付き着地 → dialog を開かず locked を返す', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('free');
+		// #4928: プリセットの取込は全プラン可 (初期セットアップと同じ)。無料プランでも
+		// ?import= 付きで着地したら子供選択 dialog 用の presetId を返す。
+		it.each([
+			['free', { licenseStatus: 'none' as const }],
+			['standard', { licenseStatus: 'active' as const, plan: 'standard_monthly' }],
+		])('%s プランで ?import= 付き着地 → dialog 用の presetId を返す', async (tier, ctx) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
 			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
 				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
 			);
 			const result = await load({
-				locals: makeLocals({ licenseStatus: 'none' }),
+				locals: makeLocals(ctx),
 				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
 			});
-			expect(result.importPresetLocked).toBe(true);
-			expect(result.importPresetId).toBeNull();
-		});
-
-		it('有料プランで ?import= 付き着地 → 従来どおり dialog 用の presetId を返す', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGetMarketplaceItem.mockImplementation((type: string, id: string) =>
-				type === 'reward-set' && id === 'kinder-rewards' ? { itemId: id, payload: {} } : null,
-			);
-			const result = await load({
-				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
-				url: new URL('http://localhost/admin/rewards?import=kinder-rewards'),
-			});
-			expect(result.importPresetLocked).toBe(false);
 			expect(result.importPresetId).toBe('kinder-rewards');
+			expect(result).not.toHaveProperty('importPresetLocked');
 		});
 	});
 
@@ -239,6 +237,9 @@ describe('/admin/rewards page.server', () => {
 				requiredTier: 'standard',
 				upgradeUrl: '/admin/subscription',
 			});
+			// #4928: 取込は無料でも使えるので「ごほうび管理」全体を有料と言わない。有料の操作だけを名指す
+			expect(err.message).toContain('オリジナル');
+			expect(err.message).not.toContain('ごほうび管理は');
 			expect(mockGrantSpecialReward).not.toHaveBeenCalled();
 		});
 
@@ -470,8 +471,10 @@ describe('/admin/rewards page.server', () => {
 			expect(mockDispatchImport).not.toHaveBeenCalled();
 		});
 
-		it('無料プランは 403 (CWE-598 guard より前にプランゲートで reject)', async () => {
+		// #4928: プリセット取込は全プラン可。無料プランでも取り込め、CWE-598 guard は同じく効く。
+		it('無料プランでもプリセットを取り込める (プランゲートで拒否しない)', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
 
 			const result = await importPresetToChildrenAction({
 				request: makeFormRequest({
@@ -479,6 +482,74 @@ describe('/admin/rewards page.server', () => {
 					childIds: '100',
 				}),
 				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			expect(result.status).toBeUndefined();
+			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+		});
+
+		it('無料プランでも tenant 外の childIds は 403 (IDOR 防御はプランと無関係に効く)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
+
+			const result = await importPresetToChildrenAction({
+				request: makeFormRequest({
+					presetId: 'kinder-rewards',
+					childIds: '99999',
+				}),
+				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			expect(result.status).toBe(403);
+			expect(mockDispatchImport).not.toHaveBeenCalled();
+		});
+	});
+
+	// #4928: プランゲートを外したことで無料テナントも直接 POST できるようになるため、
+	// importPresetToChildren と同じ tenant child guard を掛ける (旧実装は childId を検証せずに
+	// dispatchImport へ渡しており、自テナント内に他テナントの childId を持つ孤児行を作れた)。
+	describe('importMarketplaceRewardSet action — tenant child guard (#4928)', () => {
+		beforeEach(() => {
+			mockGetMarketplaceItem.mockReturnValue({
+				name: 'テスト報酬セット',
+				payload: { rewards: [{ title: 'r1', points: 10, icon: '🎁' }] },
+			});
+			mockDispatchImport.mockResolvedValue({
+				packName: 'テスト報酬セット',
+				imported: 1,
+				skipped: 0,
+				total: 1,
+				errors: [],
+				failed: 0,
+			});
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
+		});
+
+		it.each([
+			['free', { licenseStatus: 'none' }],
+			['standard', { licenseStatus: 'active', plan: 'standard_monthly' }],
+		] as const)('%s プラン: tenant 配下の childId なら取り込む', async (tier, localsOpts) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
+
+			const result = await importMarketplaceRewardSetAction({
+				request: makeFormRequest({ presetId: 'kinder-rewards', childId: '100' }),
+				locals: makeLocals(localsOpts),
+			});
+
+			expect(result.status).toBeUndefined();
+			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
+			expect(mockDispatchImport.mock.calls[0]?.[0].ctx.childId).toBe('100');
+		});
+
+		it.each([
+			['free', { licenseStatus: 'none' }],
+			['standard', { licenseStatus: 'active', plan: 'standard_monthly' }],
+		] as const)('%s プラン: tenant 外の childId は 403 + dispatchImport を呼ばない (IDOR 防御)', async (tier, localsOpts) => {
+			mockResolveFullPlanTier.mockResolvedValue(tier);
+
+			const result = await importMarketplaceRewardSetAction({
+				request: makeFormRequest({ presetId: 'kinder-rewards', childId: '99999' }),
+				locals: makeLocals(localsOpts),
 			});
 
 			expect(result.status).toBe(403);
@@ -566,6 +637,68 @@ describe('/admin/rewards page.server', () => {
 			expect(result.status).toBe(403);
 			expect(mockCopyChildRewardsToSibling).not.toHaveBeenCalled();
 			expect(mockCopyChildRewardsToSiblings).not.toHaveBeenCalled();
+		});
+	});
+
+	// #4992: 料金表とボタン横の案内は「作成・編集（ポイントの調整を含む）はスタンダード以上」と約束する。
+	// その約束をサーバーで守っているのはこの 4 action のゲート。UI のテストだけでは、ゲートを消しても緑のまま。
+	describe('有料の編集系 action — 無料プランは 403 (#4992)', () => {
+		const PAID_EDIT_ACTIONS = ['update', 'copyFromChild', 'restorePreview', 'restoreFile'] as const;
+
+		it.each(
+			PAID_EDIT_ACTIONS,
+		)('%s: 無料プランでは 403 (PlanLimitError) を返し、書き込みを呼ばない', async (name) => {
+			mockResolveFullPlanTier.mockResolvedValue('free');
+			const action = mod.actions[name] as unknown as (event: {
+				request: Request;
+				locals: App.Locals;
+			}) => Promise<ActionResult>;
+			const result = await action({
+				request: makeFormRequest({
+					rewardId: 1,
+					childId: asChildId(1),
+					sourceChildId: asChildId(1),
+					targetChildIds: '2',
+					title: '編集後のごほうび',
+					points: 999,
+					icon: '🎁',
+				}),
+				locals: makeLocals({ licenseStatus: 'none' }),
+			});
+
+			expect(result.status).toBe(403);
+			expect(result.data?.error as PlanLimitErrorShape).toMatchObject({
+				code: 'PLAN_LIMIT_EXCEEDED',
+				currentTier: 'free',
+				requiredTier: 'standard',
+				upgradeUrl: '/admin/subscription',
+			});
+			expect(mockUpdateReward).not.toHaveBeenCalled();
+			expect(mockCopyChildRewardsToSibling).not.toHaveBeenCalled();
+			expect(mockCopyChildRewardsToSiblings).not.toHaveBeenCalled();
+			expect(mockDispatchImport).not.toHaveBeenCalled();
+		});
+
+		it('update: スタンダードでは updateReward まで進む (ゲートが有料プランを止めていない)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('standard');
+			mockUpdateReward.mockResolvedValue({ id: 1 });
+			const updateAction = mod.actions.update as unknown as (event: {
+				request: Request;
+				locals: App.Locals;
+			}) => Promise<ActionResult>;
+			const result = await updateAction({
+				request: makeFormRequest({
+					rewardId: 1,
+					childId: asChildId(1),
+					title: '編集後のごほうび',
+					points: 50,
+					icon: '🎁',
+				}),
+				locals: makeLocals({ licenseStatus: 'active', plan: 'standard' }),
+			});
+
+			expect(result.status).toBeUndefined();
+			expect(mockUpdateReward).toHaveBeenCalledTimes(1);
 		});
 	});
 });

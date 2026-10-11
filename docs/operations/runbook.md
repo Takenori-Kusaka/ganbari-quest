@@ -114,5 +114,5 @@ curl -s https://ganbari-quest.com/api/health | jq .
 | AWS Health | https://health.aws.amazon.com/health/status |
 | GitHub Actions | `gh run list` |
 | Lambda Function | `ganbari-quest-app` (us-east-1) |
-| DynamoDB Table | `ganbari-quest` (us-east-1) |
+| Aurora DSQL Cluster | `GanbariQuestDsql` stack の `ClusterEndpoint` output (us-east-1)。dashboard は `ganbari-quest-dsql` |
 | CloudFront | Distribution ID は `aws cloudfront list-distributions` で確認 |

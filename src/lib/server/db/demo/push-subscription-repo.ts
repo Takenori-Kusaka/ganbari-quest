@@ -53,6 +53,7 @@ export async function countLogsBetween(
 	_tenantId: string,
 	_fromIso: string,
 	_toIso: string,
+	_notificationTypes?: readonly string[],
 ): Promise<number> {
 	return 0;
 }

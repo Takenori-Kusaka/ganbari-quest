@@ -1,10 +1,12 @@
 // src/lib/server/services/ops-service.ts
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
+import { formatYen } from '$lib/domain/constants/plan-price';
 import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { jstDateOfIso, monthStartJST, utcMonthKey } from '$lib/domain/date-utils';
+import { OPS_LABELS } from '$lib/domain/labels';
 import { buildOpsPlanRows, type OpsPlanRow, sumOpsPlanMrr } from '$lib/domain/ops-plan-rows';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -131,6 +133,37 @@ function countPlans(tenants: Tenant[]): {
 	const classified = Object.values(tenantsByPlan).reduce((sum, n) => sum + n, 0);
 	const noPlan = activeTenants.filter((t) => !t.plan).length;
 	return { tenantsByPlan, noPlan, unknownPlan: activeTenants.length - classified - noPlan };
+}
+
+/**
+ * 週次運営レポート (weekly-report.yml) の「利用状況」節を組み立てる (#4962)。
+ *
+ * 数値は getKpiSummary() の導出だけを使い、ラベルも `/ops` と同じ OPS_LABELS を引く。
+ * レポート側で数え直したり単価を掛け直したりしない (2 つ目の集計を作らない、#4505)。
+ * Discord の code block にそのまま入れる複数行テキストを返す。プラン行は 0 件でも出す。
+ */
+export function formatOpsKpiReportText(summary: OpsKpiSummary): string {
+	const s = summary.tenantStats;
+	const activePercent = Math.round(summary.activeRate * 100);
+	const lines = [
+		`${OPS_LABELS.kpiLabelTotal}: ${s.total} (${OPS_LABELS.kpiNewThisMonth(s.newThisMonth)})`,
+		`${OPS_LABELS.kpiLabelActive}: ${s.active} (${activePercent}%)`,
+		`${OPS_LABELS.kpiLabelGracePeriod}: ${s.gracePeriod}`,
+		`${OPS_LABELS.kpiLabelSuspended}: ${s.suspended}`,
+		`${OPS_LABELS.kpiLabelTerminated}: ${s.terminated}`,
+		'',
+		OPS_LABELS.planBreakdownTitle,
+		...s.planRows.map(
+			(row) =>
+				`${OPS_LABELS.planRowLabels[row.plan]}: ${row.tenants} / ${
+					row.mrr === null ? OPS_LABELS.planMrrNone : formatYen(row.mrr)
+				}`,
+		),
+		`${OPS_LABELS.planNone}: ${s.noPlan}`,
+		`${OPS_LABELS.planUnknown}: ${s.unknownPlan}`,
+		`${OPS_LABELS.planTotalMrr}: ${formatYen(s.totalMrr)}`,
+	];
+	return lines.join('\n');
 }
 
 // ============================================================

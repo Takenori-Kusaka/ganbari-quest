@@ -456,6 +456,25 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		`);
 		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd)).toBe(2);
 
+		// #4706: 種別指定は、その notification_type の行だけを数える (達成通知の日次上限の入力)
+		await pushRepo.insertLog({
+			tenantId: FAMILY,
+			notificationType: 'achievement',
+			title: '達成',
+			body: 'z',
+			success: true,
+		});
+		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd, ['achievement'])).toBe(1);
+		expect(
+			await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd, ['achievement', 'level_up']),
+		).toBe(1);
+		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd, ['level_up'])).toBe(0);
+		expect(await pushRepo.countLogsBetween(FAMILY, dayStart, dayEnd, [])).toBe(0);
+		expect(await pushRepo.countLogsBetween(OTHER_FAMILY, dayStart, dayEnd, ['achievement'])).toBe(
+			0,
+		); // §P9
+		await t.db.execute(sql`DELETE FROM notification_logs WHERE notification_type = 'achievement'`);
+
 		const recent = await pushRepo.findRecentLogs(FAMILY, 2);
 		expect(recent.map((l) => l.title)).toEqual(['失敗分', 'きろくの時間']); // sent_at 降順 + limit
 	});

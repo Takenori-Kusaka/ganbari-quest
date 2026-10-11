@@ -12,7 +12,7 @@
 // 検査する不変条件 (4 本):
 //   A. 文書内の日付が 1 つに揃っている  — header の「最終更新日」== 末尾の「最終改定日」
 //      (#4497 finding #4: 条文を足したのに header の日付だけ据え置かれる虚偽表示状態を検出する)
-//   B. SSOT と配信物が一致している      — labels.ts (SSOT) の日付 == site/*.html (fallback) の日付
+//   B. SSOT と配信物が一致している      — labels 層 (SSOT) の日付 == site/*.html (fallback) の日付
 //   C. 文書と同意証跡が一致している      — 文書の改定日 == consent-service.ts の version 定数
 //   D. 本文と改定日が結合している        — 本文 (intro / 各条) を変えたら改定日も動いている
 //
@@ -110,7 +110,7 @@ function computeBodyHash(namespace: Record<string, unknown>): string {
 }
 
 interface BodyPin {
-	/** この本文が確定した「最終改定日」(ISO)。labels.ts の effective と一致していること。 */
+	/** この本文が確定した「最終改定日」(ISO)。namespace の effective と一致していること。 */
 	revision: string;
 	/** その改定日時点の本文 hash。 */
 	sha256: string;
@@ -120,7 +120,7 @@ interface BodyPin {
  * 本文 hash の pin (改定日とセット)。
  *
  * **更新手順** (本文を変えたら 3 点セットで行う):
- *   1. labels.ts の articleHeader / effective の日付を「本文を最後に変更した日」に更新し、
+ *   1. lp.ts の LP_LEGAL_*_LABELS.articleHeader / effective の日付を「本文を最後に変更した日」に更新し、
  *      site/*.html の fallback と site/shared-labels.js (generate-lp-labels.mjs) も揃える
  *   2. consent-service.ts の version 定数を同じ日付へ上げる
  *   3. 下の revision / sha256 を新しい値に置き換える (sha256 は落ちたテストの出力に載る)
@@ -171,12 +171,17 @@ const BODY_PINS: Record<string, BodyPin> = {
 	},
 };
 
+/** 法的文書の namespace (LP_LEGAL_*) を定義している labels 層のファイル (LP 用 namespace の置き場所、docs/DESIGN.md §6 配置規則の 1 行目) */
+const LEGAL_LABELS_FILE = 'src/lib/domain/labels/lp.ts';
+
 interface LegalDoc {
 	/** テスト表示名 */
 	name: string;
 	/** 配信される静的 HTML (data-lp-key の fallback テキストを持つ) */
 	htmlPath: string;
-	/** labels.ts 側の SSOT (LP へは generate-lp-labels.mjs 経由で配信される) */
+	/** labels 層の namespace 名 (失敗メッセージで直す場所を示す) */
+	namespaceName: 'LP_LEGAL_PRIVACY_LABELS' | 'LP_LEGAL_TERMS_LABELS';
+	/** labels 層側の SSOT (LP へは generate-lp-labels.mjs 経由で配信される) */
 	labels: { articleHeader: string; effective: string };
 	/** 同 namespace 全体 (D の本文 key 走査用) */
 	namespace: Record<string, unknown>;
@@ -194,6 +199,7 @@ const DOCS: LegalDoc[] = [
 	{
 		name: 'privacy',
 		htmlPath: 'site/privacy.html',
+		namespaceName: 'LP_LEGAL_PRIVACY_LABELS',
 		labels: LP_LEGAL_PRIVACY_LABELS,
 		namespace: LP_LEGAL_PRIVACY_LABELS,
 		versionConstName: 'CURRENT_PRIVACY_VERSION',
@@ -202,6 +208,7 @@ const DOCS: LegalDoc[] = [
 	{
 		name: 'terms',
 		htmlPath: 'site/terms.html',
+		namespaceName: 'LP_LEGAL_TERMS_LABELS',
 		labels: LP_LEGAL_TERMS_LABELS,
 		namespace: LP_LEGAL_TERMS_LABELS,
 		versionConstName: 'CURRENT_TERMS_VERSION',
@@ -215,14 +222,14 @@ describe('#4497 法的文書の改定日 ⇄ 同意 version 定数の突合 (fit
 			const updatedInLabels = extractLabeledDate(doc.labels.articleHeader, '最終更新日');
 			const revisedInLabels = extractLabeledDate(doc.labels.effective, '最終改定日');
 
-			it('A. labels.ts SSOT 内で header「最終更新日」と末尾「最終改定日」が一致する', () => {
+			it('A. labels 層の SSOT 内で header「最終更新日」と末尾「最終改定日」が一致する', () => {
 				expect(
 					updatedInLabels,
-					`${doc.name}: labels.ts の articleHeader から「最終更新日」を読み取れませんでした`,
+					`${doc.name}: ${LEGAL_LABELS_FILE} の ${doc.namespaceName}.articleHeader から「最終更新日」を読み取れませんでした`,
 				).toBeDefined();
 				expect(
 					revisedInLabels,
-					`${doc.name}: labels.ts の effective から「最終改定日」を読み取れませんでした`,
+					`${doc.name}: ${LEGAL_LABELS_FILE} の ${doc.namespaceName}.effective から「最終改定日」を読み取れませんでした`,
 				).toBeDefined();
 				expect(
 					updatedInLabels,
@@ -231,16 +238,17 @@ describe('#4497 法的文書の改定日 ⇄ 同意 version 定数の突合 (fit
 				).toBe(revisedInLabels);
 			});
 
-			it('B. 配信 HTML の fallback 日付が labels.ts SSOT と一致する', () => {
+			it('B. 配信 HTML の fallback 日付が labels 層の SSOT と一致する', () => {
 				const html = readSiteFile(doc.htmlPath);
 				expect(
 					extractLabeledDate(html, '最終更新日'),
-					`${doc.htmlPath}: header の日付が labels.ts (${updatedInLabels}) と一致しません。` +
-						' labels.ts を直したあと同じ値を HTML の fallback にも反映してください。',
+					`${doc.htmlPath}: header の日付が ${doc.namespaceName} (${updatedInLabels}) と一致しません。` +
+						` ${LEGAL_LABELS_FILE} を直したあと同じ値を HTML の fallback にも反映してください` +
+						' (node scripts/generate-lp-labels.mjs → node scripts/sync-lp-fallback.mjs)。',
 				).toBe(updatedInLabels);
 				expect(
 					extractLabeledDate(html, '最終改定日'),
-					`${doc.htmlPath}: 末尾の日付が labels.ts (${revisedInLabels}) と一致しません。`,
+					`${doc.htmlPath}: 末尾の日付が ${doc.namespaceName} (${revisedInLabels}) と一致しません。`,
 				).toBe(revisedInLabels);
 			});
 
@@ -276,14 +284,14 @@ describe('#4497 法的文書の改定日 ⇄ 同意 version 定数の突合 (fit
 
 				const actualHash = computeBodyHash(doc.namespace);
 				const fixHint =
-					`\n  直し方: 1) labels.ts の articleHeader / effective を「本文を最後に変更した日」に更新` +
+					`\n  直し方: 1) ${LEGAL_LABELS_FILE} の ${doc.namespaceName}.articleHeader / effective を「本文を最後に変更した日」に更新` +
 					` (site/${doc.name}.html の fallback と site/shared-labels.js も揃える)` +
 					`\n          2) ${doc.versionConstName} を同じ日付へ上げる` +
 					`\n          3) BODY_PINS.${doc.name} を { revision: '<新しい改定日>', sha256: '${actualHash}' } に置き換える`;
 
 				expect(
 					revisedInLabels,
-					`${doc.name}: pin の改定日 (${pin.revision}) と labels.ts の最終改定日 (${revisedInLabels})` +
+					`${doc.name}: pin の改定日 (${pin.revision}) と ${doc.namespaceName} の最終改定日 (${revisedInLabels})` +
 						` が食い違っています。改定日を動かしたら BODY_PINS も同時に更新してください。${fixHint}`,
 				).toBe(pin.revision);
 
