@@ -9,6 +9,9 @@
 // 除去が永久にスキップされる。実 driver.js を使い、gap 0ms (完全同期連打、最も過酷な race) でも
 // `clearStaleActiveElementClasses` を `onHighlightStarted` に配線すれば
 // 常に `.driver-active-element` が 1 件に保たれることを検証する。
+//
+// 上の内部状態の説明は driver.js 1.8.0 までのもの。1.9.0 は遷移のたびに全 active element を
+// 掃除するようになり、配線なしでも残留しない (下の「fix 配線なしでも」2 件がそれを固定する)。
 
 import { driver } from 'driver.js';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -92,7 +95,15 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 		);
 	});
 
-	it('fix 配線なし (回帰再現): 同期連打すると前 step の class が残留し複数要素が同時に光る', () => {
+	// 【driver.js 1.9.0 で上流が残留を直した】
+	// 1.8.0 までは「直前の対象」(`__activeElement`、アニメーション完了時にしか更新されない) からだけ
+	// class を外していたため、400ms 以内に進めると前 step の class が残った。以前はこの 2 件で
+	// 「fix 配線なしだと a, b, c が同時に光る」ことを回帰の再現として固定していた。
+	// 1.9.0 は transferHighlight が `document.querySelectorAll('.driver-active-element')` を
+	// 毎回無条件に掃除する (driver.js 本体の commit 2a30339 "Restore aria attributes after a highlight")
+	// ので、再現は成立しない。守りたいのは「複数要素が同時に光らない」ことなので、
+	// 配線なしでも常に 1 件であることを固定する。driver.js が元の実装に戻ればここが落ちる。
+	it('fix 配線なしでも (driver.js 1.9.0 以降) 同期連打で前 step の class が残留しない', () => {
 		document.body.innerHTML = '<div id="a"></div><div id="b"></div><div id="c"></div>';
 		for (const id of ['a', 'b', 'c']) stubVisibleRect(document.getElementById(id) as HTMLElement);
 
@@ -101,15 +112,15 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 		expect(activeElementIds()).toEqual(['a']);
 
 		driverInstance.moveNext();
-		driverInstance.moveNext();
+		expect(activeElementIds(), 'step1→2 を同期連打した直後').toEqual(['b']);
 
-		// driver.js 自身の内部タイミング (アニメーション完了待ち) に起因する既知の挙動:
-		// 前 2 step (a, b) の class が外れないまま c が追加され、3 要素が同時に光る
-		// (本番実測 /admin/subscription 3/6 で 3 要素、/admin/status で最大 7 要素と同型)。
-		expect(activeElementIds()).toEqual(['a', 'b', 'c']);
+		driverInstance.moveNext();
+		// 本番実測 (/admin/subscription 3/6 で 3 要素、/admin/status で最大 7 要素) と同じ操作で、
+		// 光っているのは今の対象だけ。
+		expect(activeElementIds(), 'step2→3 を同期連打した直後').toEqual(['c']);
 	});
 
-	it('段階的にクリック間隔を空けても (400ms 未満) fix なしでは残留が蓄積する', async () => {
+	it('段階的にクリック間隔を空けても (400ms 未満) fix 配線なしで残留が蓄積しない', async () => {
 		document.body.innerHTML =
 			'<div id="a"></div><div id="b"></div><div id="c"></div><div id="d"></div>';
 		for (const id of ['a', 'b', 'c', 'd']) {
@@ -123,14 +134,17 @@ describe('clearStaleActiveElementClasses (#4922)', () => {
 		// 100ms 間隔 (400ms の highlight アニメーションより短い、現実的な素早いクリック速度) で連打。
 		await sleep(100);
 		driverInstance.moveNext();
+		expect(activeElementIds()).toEqual(['b']);
 		await sleep(100);
 		driverInstance.moveNext();
+		expect(activeElementIds()).toEqual(['c']);
 		await sleep(100);
 		driverInstance.moveNext();
+		expect(activeElementIds()).toEqual(['d']);
 		await sleep(100);
 
-		// step を進めるほど枠線付きの要素が増える (#4922 本文の実測描写と同型)。
-		expect(activeElementIds().length, '4 step 進めて a〜d が全て残留する').toBeGreaterThan(1);
+		// step を進めても枠線付きの要素が増えない (#4922 本文の実測は「進めるほど増える」だった)。
+		expect(activeElementIds(), '4 step 進めた後も d だけ').toEqual(['d']);
 	});
 
 	it('段階的にクリック間隔を空けても fix ありなら常に active element が 1 件のまま', async () => {
