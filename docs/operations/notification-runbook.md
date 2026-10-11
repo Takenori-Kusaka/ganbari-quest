@@ -30,7 +30,7 @@ Phase A / B 補佐確認結果:
 
 ### 1.1 #2 Push 通知（5 系統）
 
-どの種別も `notification-service.ts` の `sendPushNotification`（`web-push`）で送り、サイレント時間帯と 1 日 3 通の上限（種類をまたいで共通）を通る。**止める設定**の列は、保護者が `/admin/settings/notifications` でオフにしたら送らなくなる設定。
+どの種別も `notification-service.ts` の `sendPushNotification`（`web-push`）で送り、サイレント時間帯と 1 日 3 通の上限（種類をまたいで共通）を通る。加えて達成通知（`achievement` / `level_up`）は 1 日 1 通まで（`MAX_DAILY_ACHIEVEMENT_NOTIFICATIONS`）。朝の達成通知が枠を使い切って、リマインダーと夜のストリーク警告が届かなくなるのを防ぐ。**止める設定**の列は、保護者が `/admin/settings/notifications` でオフにしたら送らなくなる設定。
 
 | 通知種別 | トリガー | 止める設定 | 配信先 | 送信元 | テスト |
 |---|---|---|---|---|---|

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt } from 'drizzle-orm';
 import { db } from '../client';
 import { notificationLogs, pushSubscriptions } from '../schema';
 import type {
@@ -98,6 +98,7 @@ export async function countLogsBetween(
 	tenantId: string,
 	fromIso: string,
 	toIso: string,
+	notificationTypes?: readonly string[],
 ): Promise<number> {
 	// sent_at は UTC ISO 文字列で保存されるため、UTC instant の ISO 文字列同士の辞書順比較で範囲が取れる。
 	// 境界の TZ は呼び出し側 (service) が JST 暦日から instant 化して渡す (#4722)。
@@ -109,6 +110,9 @@ export async function countLogsBetween(
 				eq(notificationLogs.tenantId, tenantId),
 				gte(notificationLogs.sentAt, fromIso),
 				lt(notificationLogs.sentAt, toIso),
+				notificationTypes
+					? inArray(notificationLogs.notificationType, [...notificationTypes])
+					: undefined,
 			),
 		)
 		.get();
