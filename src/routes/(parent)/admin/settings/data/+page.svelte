@@ -1016,6 +1016,12 @@ const canConfirmClear = $derived(
 									importResult.specialRewardsSkipped,
 								)}
 							</li>
+							<!-- #4992 Q4-c: 復元はプランゲートを通さないが、編集は有料のまま。入ったのに押せない理由を先に伝える -->
+							{#if !data.customRewardUnlocked && importResult.specialRewardsImported > 0}
+								<li data-testid="data-import-result-reward-edit-locked">
+									{SETTINGS_LABELS.dataImportResultRewardEditLocked}
+								</li>
+							{/if}
 							{#if importResult.checklistLogsImported > 0 || importResult.checklistLogsSkipped > 0}
 								<li>
 									{SETTINGS_LABELS.dataImportResultChecklistLogs(
