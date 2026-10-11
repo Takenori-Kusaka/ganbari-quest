@@ -11,13 +11,11 @@
 
 allowlist 外のドメインが登録されると、staging deploy の `Staging PII guard` が Discord の incident チャネルに通知する。**deploy は止まらない**（既に登録されたものは手遅れで、止めても意味がないため）。**気づけることが目的。**
 
-## ⚠️ ステータス: 未実証（2026-07 時点）
+## ステータス
 
-**本 runbook は通しで実行されていない。** 初回実行は Issue [#4099](https://github.com/Takenori-Kusaka/ganbari-quest/issues/4099) で行う（検証主体 = オーナー（AWS SSO 対話ログインが必須）+ GQ-Audit（staging リリース発火））。
+§3〜§7（deploy → sign-up → `families` 行の書き換え → 観測）は通しで実行済み。接続・sign-up・書き換えの 3 点は実測で動くことが確認できている。
 
-未実証の 4 項目は [§8 本 runbook が保証できない点](#8-本-runbook-が保証できない点) を参照 — psql 接続と UPDATE / staging sign-up の確認コード到達性 / staging DSQL の初期データ / Stripe 経路の不在。
-
-初回実行で手順との齟齬が出た場合は、**本 runbook を是正してから**証跡とする。是正の結果として本ステータス見出しを撤去できることが #4099 の close 判定。
+**未実証で残るもの**は [§8 本 runbook が保証できない点](#8-本-runbook-が保証できない点) の 2 項目 — staging DSQL の初期データ（seed 未配線）と、Stripe webhook の実往復。手順と実測が食い違ったら、**本 runbook を是正してから**証跡とする。
 
 ## 1. 適用範囲
 
@@ -81,12 +79,14 @@ Lambda のログは `/aws/lambda/ganbari-quest-staging-app`（`compute-stack.ts`
 aws logs tail /aws/lambda/ganbari-quest-staging-app --region us-east-1 --since 10m --follow
 ```
 
+> **Git Bash（Windows）では `MSYS_NO_PATHCONV=1` を付ける。** `/aws/lambda/...` のような log group 名や URL パスを引数に渡すと、MSYS がパス変換して `InvalidParameterException` で落ちる。log group 名・URL パスを引数に渡す全コマンドで同様（例: `MSYS_NO_PATHCONV=1 aws logs tail /aws/lambda/ganbari-quest-staging-app ...`）。日本語を含むログで落ちるときは `PYTHONIOENCODING=utf-8` も付ける。
+
 ## 5. Step 3 — 検証用アカウント
 
 - staging の Cognito user pool は `ganbari-quest-staging-users-v2`（`infra/lib/auth-stack.ts` の `UserPoolV2` + `env-config.ts` の `resourcePrefix`）。`selfSignUpEnabled: true` / email 検証あり / パスワードは 8 文字以上・大小英字・数字を含むこと。
 - **`DEV_USERS`（`src/lib/server/auth/providers/cognito-dev.ts`）は staging に存在しない**。あれは `COGNITO_DEV_MODE` 前提のローカル専用定義で、staging Lambda env に `COGNITO_DEV_MODE` は入っていない。
 - **staging DSQL には seed 配線が無い**（`docs/design/staging-synthetic-seed.md` §5「AWS staging: 構造準備済 / 配線は #2873」）。検証対象の家族データは、sign-up して自分で作ったものになる。
-- サインアップ確認メールは Cognito default email 送信（SES 非構成）。届かない場合は §6 の gap に従いオーナーに依頼する。
+- **サインアップの確認コードは届く。** 使い捨ての `mailinator.com` 宛に、Cognito 既定送信（`no-reply@verificationemail.com` 経由の SES）で 13 秒ほどで着信した。**オーナーに Cognito 側でのユーザー作成を依頼する必要は無い。** 宛先は `STAGING_ALLOWED_EMAIL_DOMAINS` の許可ドメインに限る（冒頭の PII 警告）。
 - **検証が終わったら作成した Cognito ユーザーを削除する**（`aws cognito-idp admin-delete-user --user-pool-id <staging pool id> --username <検証用ユーザー>`）。放置すると staging に検証者の実メールアドレスが残り続ける。削除権限が無い場合はオーナーに依頼する。
 
 ## 6. Step 4 — DSQL の対象行を書き換える / 戻す
@@ -109,7 +109,26 @@ aws dsql generate-db-connect-admin-auth-token --hostname "$DSQL_ENDPOINT" \
 
 > **トークンの取扱い**: 有効期限は 3600 秒（`--expires-in` の値）。**PR body / Issue / チャットに貼らない**、シェル履歴に残さない（変数へ代入するか `HISTCONTROL=ignorespace` 下で先頭スペース付き実行）、検証完了後は変数を破棄（`unset`）してターミナルを閉じる。`aws dsql` は AWS CLI v2 の新しめのバージョンでのみ提供されるサブコマンド。`aws dsql help` が引けない場合は CLI を最新に更新してから再実行する（リポジトリ内の DSQL 経路は SDK 実装で CLI の前例が無いため、初回実行者は先に疎通を確認すること）。
 
-> **リポジトリに任意 SQL を流す汎用 CLI は無い**（`dsql:migrate` は migration 適用、`dsql:grant` は role 付与の専用ツール）。上記トークンを外部 PostgreSQL クライアント（psql 等）のパスワードとして渡して接続する。この接続方式は `docs/research/dsql-poc-phase1-results-2026-07-05.md` の実クラスタ PoC で確認されているが、**staging cluster で本 runbook 作成時に再実行はしていない**（§8 参照）。
+> **リポジトリに任意 SQL を流す汎用 CLI は無い**（`dsql:migrate` は migration 適用、`dsql:grant` は role 付与の専用ツール）。**`psql` は要らない**（Windows 開発機には入っていないのが既定）。上記トークンを、リポジトリ同梱の `pg`（`node_modules/pg`）に password として渡せば、接続・SELECT・UPDATE が通る（staging cluster で実測済み）。
+
+```js
+// 例: スクラッチ用の .mjs に置く。TOKEN と ENDPOINT は環境変数から読み、ログに出さない
+import pg from 'pg';
+
+const client = new pg.Client({
+	host: process.env.DSQL_ENDPOINT,
+	port: 5432,
+	user: 'admin',
+	database: 'postgres',
+	password: process.env.DSQL_TOKEN,
+	ssl: true,
+});
+await client.connect();
+console.log((await client.query('SELECT family_id, plan, status, plan_expires_at FROM families WHERE family_id = $1', [process.env.FAMILY_ID])).rows);
+await client.end();
+```
+
+リポジトリ直下から `node` で実行する（`pg` の解決のため）。スクリプトは使い捨てなので `scripts/` には置かない（`scripts/` への使い捨て追加は禁止）。
 
 ### 6.2 書き換え手順（必ず 5 段で行う）
 
@@ -138,6 +157,8 @@ WHERE family_id = '<検証対象の family uuid>';
 ```
 
 - 書き換えるのは**自分が sign-up して作った family の行だけ**。他の行に触らない。
+- **有料プランとして反映させるには `plan` だけでは足りない。`plan_expires_at` に将来の日時を入れる**（例: `now() + interval '30 days'`）。`plan` だけ書いても、アプリは無料プランのまま扱う（招待 UI が出ない、のように見える）。(4) で戻すときは `plan_expires_at` も控えた値に戻す。
+- **書き換えた後は再ログインが必要**（プラン反映の確認のため）。Cookie の context は発行時点のプランを持つので、再ログインするまで古いプランのまま見える。「毎リクエスト DB から解決しているか」を見たい検証だけは §7 のとおりログアウトしない。
 - `updated_at` は復旧後も (1) とは異なる値になる。差分ゼロを確認するのは `plan` / `status` / `plan_expires_at`。
 - (4) を実行せずに終わらない。次の検証者が汚れた行を掴む。
 
@@ -149,7 +170,14 @@ WHERE family_id = '<検証対象の family uuid>';
 | 権限（entitlement） | 当該プランでのみ使える機能を 1 つ操作する | プランに応じて許可 / 拒否が切り替わる |
 | サーバ側の解決 | `aws logs tail /aws/lambda/ganbari-quest-staging-app --since 10m` | 例外・fail-closed による 5xx が出ていない |
 
-再ログインせずに反映されるかを見る検証では、**書き換え後にログアウトしない**こと（Cookie を作り直すと「毎リクエスト DB から解決しているか」を確認できなくなる）。
+検証の目的で、書き換え後の扱いが変わる:
+
+| 見たいもの | 書き換え後 |
+|---|---|
+| **プラン反映**（表示 / 機能解放が新しいプランになるか） | **再ログインする**。context は発行時点のプランを持つため、しないと古いプランのまま見える |
+| **再ログインせずに反映されるか**（毎リクエスト DB から解決しているか） | **ログアウトしない**。Cookie を作り直すと確認できなくなる |
+
+**親ゲート（おやカギコード）の PIN セッションは短い**。別ページへ移るたびに PIN 再入力になることがあるので、検証スクリプトは「ゲート通過 → 目的ページへ遷移」を 1 セッション内で続けて行う。
 
 証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。**本リポジトリは OSS 公開前提のため、貼付時に `family_id`（UUID）とメールアドレスをマスクする**（`family_id=<masked>` に置換するか、出力を貼らず「(1) と (5) の plan / status / plan_expires_at が一致することを確認した」と記す）。スクリーンショットに課金状態以外の識別情報が写り込んでいないかも貼る前に確認する。
 
@@ -157,8 +185,6 @@ WHERE family_id = '<検証対象の family uuid>';
 
 | 項目 | 状態 | 対処 |
 |---|---|---|
-| §6 の psql 接続と UPDATE の実行 | AWS credential（`DbConnectAdmin` 相当）が必要で、リポジトリ内からは検証できない | 実行者が初回実行時に結果を PR に記録し、齟齬があれば本 runbook を修正する |
-| staging Cognito でのサインアップ完了 | SES 非構成のため確認コードの到達性が未確認 | 届かない場合はオーナーに Cognito 側でのユーザー作成を依頼する（admin 権限が必要） |
 | staging DSQL の初期データ | seed 配線が未実施（`docs/design/staging-synthetic-seed.md` §5） | 検証者が sign-up してデータを作る |
 | Stripe 経路 | **配線済（#4104）**。ただし webhook endpoint 登録と `STRIPE_WEBHOOK_SECRET_TEST` の登録が未完のため、実往復は未実証 | §10 の手順で endpoint を登録し、S-0〜S-5 を実施する |
 
