@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
+import { todayDateJST } from '../../../../../src/lib/domain/date-utils';
 import * as battleRepo from '../../../../../src/lib/server/db/demo/battle-repo';
 import { DEMO_BATTLES, TODAY } from '../../../../../src/lib/server/demo/demo-data';
 
@@ -42,6 +43,14 @@ describe('demo/battle-repo (Phase B-5b)', () => {
 
 	it('findTodayBattle は別日付で undefined', async () => {
 		expect(await battleRepo.findTodayBattle(asChildId(903), '2099-01-01', 'demo')).toBeUndefined();
+	});
+
+	it('実際の今日を問われたら fixture の当日 battle を返し、敵が実行ごとに変わらない', async () => {
+		const first = await battleRepo.findTodayBattle(asChildId(903), todayDateJST(), 'demo');
+		const second = await battleRepo.findTodayBattle(asChildId(903), todayDateJST(), 'demo');
+		expect(first?.status).toBe('pending');
+		expect(first?.date).toBe(todayDateJST());
+		expect(first?.enemyId).toBe(second?.enemyId);
 	});
 
 	it('findRecentBattles は 903 で limit 件分を新しい順に返す', async () => {

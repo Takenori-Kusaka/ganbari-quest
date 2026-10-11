@@ -5,7 +5,8 @@ import type { ChildId } from '$lib/domain/ids';
 // /demo/lower/battle 等の RPG バトル画面が demo 環境でも稼働する。
 
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
-import { DEMO_BATTLES } from '$lib/server/demo/demo-data';
+import { todayDateJST } from '$lib/domain/date-utils';
+import { DEMO_BATTLES, TODAY } from '$lib/server/demo/demo-data';
 import type { DailyBattleRow, EnemyCollectionRow } from '../interfaces/battle-repo.interface';
 
 export async function findTodayBattle(
@@ -13,7 +14,14 @@ export async function findTodayBattle(
 	date: string,
 	_tenantId: string,
 ): Promise<DailyBattleRow | undefined> {
-	return DEMO_BATTLES.find((b) => b.childId === childId && b.date === date);
+	const exact = DEMO_BATTLES.find((b) => b.childId === childId && b.date === date);
+	if (exact) return exact;
+	// fixture の「当日」は固定日付 (TODAY) なので、実際の今日と一致しない。素通しにすると
+	// battle-service が Math.random() で敵を選び、同じコミットでも表示 (LP スクリーンショット
+	// を含む) が実行ごとに変わる。実際の今日を問われたら fixture の当日 battle を返して敵を固定する。
+	if (date !== todayDateJST()) return undefined;
+	const fixtureToday = DEMO_BATTLES.find((b) => b.childId === childId && b.date === TODAY);
+	return fixtureToday ? { ...fixtureToday, date } : undefined;
 }
 
 export async function findRecentBattles(
