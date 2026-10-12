@@ -13,6 +13,7 @@
 
 import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
+import { describeError } from '$lib/server/describe-error';
 import { logger } from '$lib/server/logger';
 
 /**
@@ -64,7 +65,7 @@ export async function provisionOwnTenant(email: string): Promise<Membership | nu
 		return membership;
 	} catch (e) {
 		logger.error('[AUTH] Failed to provision own tenant', {
-			error: e instanceof Error ? e.message : String(e),
+			error: describeError(e),
 		});
 		return null;
 	}
