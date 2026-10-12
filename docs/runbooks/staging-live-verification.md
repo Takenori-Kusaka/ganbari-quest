@@ -136,30 +136,31 @@ await client.end();
 
 ```sql
 -- (1) 変更前の値を控える（この出力を PR body に貼る）
-SELECT family_id, plan, status, plan_expires_at, updated_at
+SELECT family_id, plan, status, plan_expires_at, stripe_subscription_id, updated_at
 FROM families WHERE family_id = '<検証対象の family uuid>';
 
 -- (2) 検証したい状態に書き換える
 UPDATE families
-SET plan = 'family-monthly', status = 'active', updated_at = now()
+SET plan = 'family-monthly', status = 'active', stripe_subscription_id = 'sub_verify', updated_at = now()
 WHERE family_id = '<検証対象の family uuid>';
 
 -- (3) → §7 の観測を実施
 
 -- (4) 控えた値へ戻す（NULL だった列は NULL に戻す）
 UPDATE families
-SET plan = <控えた plan>, status = '<控えた status>', updated_at = now()
+SET plan = <控えた plan>, status = '<控えた status>', plan_expires_at = <控えた plan_expires_at>,
+    stripe_subscription_id = <控えた stripe_subscription_id>, updated_at = now()
 WHERE family_id = '<検証対象の family uuid>';
 
--- (5) 復旧確認（(1) と plan / status / plan_expires_at が一致すること）
-SELECT family_id, plan, status, plan_expires_at FROM families
+-- (5) 復旧確認（(1) と plan / status / plan_expires_at / stripe_subscription_id が一致すること）
+SELECT family_id, plan, status, plan_expires_at, stripe_subscription_id FROM families
 WHERE family_id = '<検証対象の family uuid>';
 ```
 
 - 書き換えるのは**自分が sign-up して作った family の行だけ**。他の行に触らない。
-- **有料プランとして反映させるには `plan` だけでは足りない。`plan_expires_at` に将来の日時を入れる**（例: `now() + interval '30 days'`）。`plan` だけ書いても、アプリは無料プランのまま扱う（招待 UI が出ない、のように見える）。(4) で戻すときは `plan_expires_at` も控えた値に戻す。
+- **有料プランとして反映させるには `plan` だけでは足りない。`stripe_subscription_id` に非 NULL の値を入れる**（例: `'sub_verify'`。staging の検証用なので実在の subscription である必要は無い）。アプリの課金状態（`licenseStatus`）は `deriveLicenseStatus`（`src/lib/domain/contract-state.ts`）が **subscription id の有無**で決める。`plan` や `plan_expires_at` だけ書いても無料プランのまま扱われる（招待 UI が出ない、のように見える）。(4) で戻すときは `stripe_subscription_id` も控えた値（NULL）に戻す。
 - **書き換えた後は再ログインが必要**（プラン反映の確認のため）。Cookie の context は発行時点のプランを持つので、再ログインするまで古いプランのまま見える。「毎リクエスト DB から解決しているか」を見たい検証だけは §7 のとおりログアウトしない。
-- `updated_at` は復旧後も (1) とは異なる値になる。差分ゼロを確認するのは `plan` / `status` / `plan_expires_at`。
+- `updated_at` は復旧後も (1) とは異なる値になる。差分ゼロを確認するのは `plan` / `status` / `plan_expires_at` / `stripe_subscription_id`。
 - (4) を実行せずに終わらない。次の検証者が汚れた行を掴む。
 
 ## 7. Step 5 — 観測
@@ -179,7 +180,7 @@ WHERE family_id = '<検証対象の family uuid>';
 
 **親ゲート（おやカギコード）の PIN セッションは短い**。別ページへ移るたびに PIN 再入力になることがあるので、検証スクリプトは「ゲート通過 → 目的ページへ遷移」を 1 セッション内で続けて行う。
 
-証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。**本リポジトリは OSS 公開前提のため、貼付時に `family_id`（UUID）とメールアドレスをマスクする**（`family_id=<masked>` に置換するか、出力を貼らず「(1) と (5) の plan / status / plan_expires_at が一致することを確認した」と記す）。スクリーンショットに課金状態以外の識別情報が写り込んでいないかも貼る前に確認する。
+証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。**本リポジトリは OSS 公開前提のため、貼付時に `family_id`（UUID）とメールアドレスをマスクする**（`family_id=<masked>` に置換するか、出力を貼らず「(1) と (5) の plan / status / plan_expires_at / stripe_subscription_id が一致することを確認した」と記す）。スクリーンショットに課金状態以外の識別情報が写り込んでいないかも貼る前に確認する。
 
 ## 8. 本 runbook が保証できない点
 
