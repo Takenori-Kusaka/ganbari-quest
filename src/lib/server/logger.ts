@@ -3,6 +3,7 @@
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { describeError } from './describe-error';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical';
 
@@ -265,7 +266,7 @@ export const logger = {
 
 	/** Log a caught error with full context */
 	requestError(method: string, path: string, err: unknown, requestId?: string, tenantId?: string) {
-		const error = err instanceof Error ? err.message : String(err);
+		const error = describeError(err);
 		const stack = err instanceof Error ? err.stack : undefined;
 		writeLog({
 			timestamp: new Date().toISOString(),
