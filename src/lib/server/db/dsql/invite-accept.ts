@@ -88,7 +88,7 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 	runner: TransactionRunner<TTx>,
 	input: AcceptInviteInput,
 ): Promise<AcceptInviteResult> {
-	const { inviteId, userId, userEmail, userEmailVerified, now, maxMembers } = input;
+	const { inviteId, userId, userEmail, userEmailVerified, now, maxMembers, vacateFamilyId } = input;
 	// fail-closed (PO 回答 2026-09-03 §4 #3): 型上は必須だが、JS 呼び出し / 古い caller が
 	// 渡し忘れた場合に「上限なし」や「導出した緩い tier」で通してはならない。txn を開く前に
 	// 拒否し、invite / memberships には何も書かない。業務失敗 (AcceptInviteFailure) ではなく
@@ -138,6 +138,14 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 				INSERT INTO memberships (family_id, user_id, role, invited_by, joined_at)
 				VALUES (${invite.family_id}, ${userId}, ${invite.role}, ${invite.invited_by}, ${now})
 			`);
+			// #5049: 引っ越し合流は元の家族グループの membership を同じ txn で外す。受諾だけ commit
+			// されて旧所属が残る (2 世帯所属) 状態を作らない。owner の削除も、その家族グループごと
+			// 畳む前提なので許す (単独 owner の削除を拒む deleteMembership とは別契約)。
+			if (vacateFamilyId !== undefined) {
+				await tx.execute(
+					sql`DELETE FROM memberships WHERE family_id = ${vacateFamilyId} AND user_id = ${userId}`,
+				);
+			}
 			// 呼び出し側 (service 層) が Membership entity を組み立てられるよう、
 			// 書いた行の値をそのまま返す (追加 SELECT を発行しない、#4039)。
 			return {
