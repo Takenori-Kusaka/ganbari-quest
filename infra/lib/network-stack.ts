@@ -367,13 +367,11 @@ function handler(event) {
 				],
 			},
 			additionalBehaviors: prodAdditionalBehaviors,
+			// 500 は差し替えない (#5050)。origin が返す 500 は SvelteKit の `+error.svelte` が描いたもので、
+			// ロール別の文言 (保護者 / 子供) と問い合わせ用のエラー ID を持つ。静的ページに差し替えると
+			// 保護者にも子供向けの文言が出て、ID も消える (実測: 保護者の招待受諾 500 がひらがなの子供向け画面になった)。
+			// 502 / 503 / 504 は origin に届かない・応答しない場合なので、静的ページのままにする。
 			errorResponses: [
-				{
-					httpStatus: 500,
-					responsePagePath: '/error/500.html',
-					responseHttpStatus: 500,
-					ttl: cdk.Duration.seconds(30),
-				},
 				{
 					httpStatus: 502,
 					responsePagePath: '/error/502.html',

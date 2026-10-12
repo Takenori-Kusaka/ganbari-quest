@@ -299,7 +299,7 @@ export async function waitForElementAnimations(page, selector, options = {}) {
 //   - アプリ error ページ: src/routes/+error.svelte
 //       root: <div class="error-page" data-role=...> + <p class="error-status">{status}</p>
 //       (Svelte scoping class が付くため `class="error-page ` 前方一致で検出)
-//   - infra error ページ: infra/error-pages/{500,502,503,504}.html
+//   - infra error ページ: infra/error-pages/{502,503,504}.html
 //       <p class="code">Error 5xx</p> + <title>エラーが おきたよ - がんばりクエスト</title>
 
 /** infra/error-pages/*.html の title / h1 に含まれる固有マーカー文言 */
