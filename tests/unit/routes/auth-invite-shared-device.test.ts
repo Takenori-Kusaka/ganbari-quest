@@ -269,6 +269,12 @@ describe('#4049 招待リンク × 家庭内共有端末', () => {
 		it('招待リンクを再クリックせずサインアップすると新規テナント owner になる (再クリック必須の根拠)', async () => {
 			const browser = createBrowser();
 			mockCreateTenant.mockResolvedValue({ tenantId: 't-new-family' });
+			// #5057: provisionOwnTenant は createTenant が作った owner membership を読み戻す
+			mockFindUserTenants.mockImplementation(async () =>
+				mockCreateTenant.mock.calls.length > 0
+					? [{ userId: 'u-1', tenantId: 't-new-family', role: 'owner', joinedAt: '2026-01-01' }]
+					: [],
+			);
 			mockCreateMembership.mockResolvedValue({
 				userId: 'u-child',
 				tenantId: 't-new-family',
