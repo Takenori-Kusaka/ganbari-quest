@@ -128,14 +128,15 @@ describe('#4643 IdP sub と アプリ user id の分離', () => {
 
 	it('users 行が無ければ membership 検索を sub で撃たない (存在しない id での空振り防止)', async () => {
 		mockFindUserByEmail.mockResolvedValue(undefined);
-		mockFindUserTenants.mockResolvedValue([]);
+		// 1 回目 = 冪等ガードの確認 (所属なし)、2 回目 = createTenant が同 txn で作った owner membership
+		// の読み戻し (#5057: provisionOwnTenant は createMembership で重ねて作らない)
+		mockFindUserTenants
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([
+				{ userId: 'u-new', tenantId: 't-new', role: 'owner', joinedAt: '2026-01-01' },
+			]);
 		mockCreateUser.mockResolvedValue({ userId: 'u-new', email: EMAIL });
 		mockCreateTenant.mockResolvedValue({ tenantId: 't-new' });
-		mockCreateMembership.mockResolvedValue({
-			userId: 'u-new',
-			tenantId: 't-new',
-			role: 'owner',
-		});
 		mockFindTenantById.mockResolvedValue({ tenantId: 't-new', status: 'active' });
 
 		const context = await new CognitoAuthProvider().resolveContext(

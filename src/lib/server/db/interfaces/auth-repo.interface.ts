@@ -92,6 +92,10 @@ export interface IAuthRepo {
 	findTenantById(tenantId: string): Promise<Tenant | undefined>;
 	findTenantByStripeCustomerId(stripeCustomerId: string): Promise<Tenant | undefined>;
 	listAllTenants(): Promise<Tenant[]>;
+	/**
+	 * 家族グループを作る。**owner の membership も同じ txn で作る** (呼び出し側が
+	 * `createMembership` で重ねて作ると主キー重複になる、#5057)。
+	 */
 	createTenant(input: CreateTenantInput): Promise<Tenant>;
 	updateTenantStatus(tenantId: string, status: Tenant['status']): Promise<void>;
 	/**

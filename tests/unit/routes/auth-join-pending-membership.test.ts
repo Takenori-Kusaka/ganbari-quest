@@ -75,6 +75,12 @@ beforeEach(() => {
 	mockFindUserByEmail.mockResolvedValue({ userId: 'u-1', email: identity.email });
 	mockFindUserTenants.mockResolvedValue([]);
 	mockCreateTenant.mockResolvedValue({ tenantId: 't-new' });
+	// #5057: provisionOwnTenant は createTenant が作った owner membership を読み戻す
+	mockFindUserTenants.mockImplementation(async () =>
+		mockCreateTenant.mock.calls.length > 0
+			? [{ userId: 'u-1', tenantId: 't-new', role: 'owner', joinedAt: '2026-01-01' }]
+			: [],
+	);
 	mockCreateMembership.mockResolvedValue({ userId: 'u-1', tenantId: 't-new', role: 'owner' });
 });
 
