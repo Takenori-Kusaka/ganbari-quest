@@ -49,11 +49,17 @@ export async function provisionOwnTenant(email: string): Promise<Membership | nu
 			ownerId: effectiveUserId,
 		});
 
-		const membership = await repos.auth.createMembership({
-			userId: effectiveUserId,
-			tenantId: tenant.tenantId,
-			role: 'owner',
-		});
+		// #5057: owner membership は `createTenant` が同じ txn で作る (auth-repo.interface.ts の契約)。
+		// ここで `createMembership` を呼ぶと主キー重複 (23505) で必ず throw し、家族グループは
+		// できているのに「作れなかった」扱いで null を返していた。作られた行を読み戻すだけにする。
+		const membership = (await repos.auth.findUserTenants(effectiveUserId)).find(
+			(m) => m.tenantId === tenant.tenantId,
+		);
+		if (!membership) {
+			throw new Error(
+				`createTenant did not create the owner membership (tenantId=${tenant.tenantId})`,
+			);
+		}
 
 		// #314: サインアップ時の自動トライアル開始を廃止
 		// トライアルはユーザーがご家族の見守り画面から明示的に開始する

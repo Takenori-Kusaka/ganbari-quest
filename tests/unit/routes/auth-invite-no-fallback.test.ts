@@ -167,6 +167,12 @@ describe('#4636 招待受諾失敗時に新規家族グループを自動作成�
 	it('招待 Cookie が無い通常のサインアップは従来どおり自動プロビジョニングする', async () => {
 		const jar = new Map<string, string>();
 		mockCreateTenant.mockResolvedValue({ tenantId: 't-new-family' });
+		// #5057: provisionOwnTenant は createTenant が作った owner membership を読み戻す
+		mockFindUserTenants.mockImplementation(async () =>
+			mockCreateTenant.mock.calls.length > 0
+				? [{ userId: 'u-1', tenantId: 't-new-family', role: 'owner', joinedAt: '2026-01-01' }]
+				: [],
+		);
 		mockCreateMembership.mockResolvedValue({
 			userId: 'u-invited',
 			tenantId: 't-new-family',
