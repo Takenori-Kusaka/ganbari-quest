@@ -48,6 +48,8 @@ const shownPoints = $derived(
 // 数値と単位を分けて描く: 単位「ポイント」は 4 文字あり、数値と同じ大きさだと幅 390px で
 // 名前 / 残高が折り返す (#4567)。単位は数値の下に小さく積み、横幅を数値ぶんに収める。textContent は「1,250 ポイント」のまま。
 const balanceParts = $derived(splitPointDisplay(shownPoints, settings, POINT_TERMS.unit));
+// 先頭の空白は見た目では消える (flex 子要素) が、textContent は「1,250 ポイント」のまま保たれる。
+const balanceUnitText = $derived(` ${balanceParts.unit}`);
 
 // #4448: 残高要素を演出の到着点として登録する。固定座標ではなく実 DOM の座標を使うため、
 // 表示位置が変わっても (通知 bell / スタンプの有無で横位置が動く) 追従する。
@@ -108,7 +110,7 @@ $effect(() => {
 		{/if}
 		<div class="flex items-center gap-1 font-bold">
 			<span class="text-xl" aria-hidden="true">⭐</span>
-			<span class="inline-flex flex-col items-end leading-tight text-lg whitespace-nowrap" bind:this={balanceEl} data-testid="header-balance">{balanceParts.amount}{#if balanceParts.unit}{' '}<span class="text-[0.625rem]">{balanceParts.unit}</span>{/if}</span>
+			<span class="inline-flex flex-col items-end leading-tight text-lg whitespace-nowrap" bind:this={balanceEl} data-testid="header-balance">{balanceParts.amount}{#if balanceParts.unit}<span class="text-[0.625rem]">{balanceUnitText}</span>{/if}</span>
 		</div>
 	</div>
 </header>
