@@ -7,9 +7,14 @@ import Alert from './Alert.svelte';
 /**
  * #4572: 各 variant の重大度が、視覚的に隠れたラベルとして本文の先頭に在ること (スクリーンリーダー向け)。
  * danger だけ role=alert、他は role=status。絵文字アイコンは aria-hidden のまま読み上げ対象外。
+ *
+ * @param {'success' | 'warning' | 'danger' | 'info'} variant
+ * @param {'alert' | 'status'} role
+ * @param {string} message
  */
 const severityPlay =
 	(variant, role, message) =>
+	/** @param {{ canvasElement: HTMLElement }} context */
 	async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const region = canvas.getByRole(role);
