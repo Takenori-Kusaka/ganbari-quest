@@ -127,10 +127,11 @@ jobs:
       - name: No-op guard (merge SHA が既に develop の祖先か)
         id: noop
         if: steps.classify.outputs.do_back_merge == 'true'
+        env:
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
         run: |
           set -euo pipefail
           git fetch origin develop --depth=0 || git fetch origin develop
-          MERGE_SHA='${{ steps.classify.outputs.merge_sha }}'
           if git merge-base --is-ancestor "$MERGE_SHA" origin/develop 2>/dev/null; then
             echo "already_in_develop=true" >> "$GITHUB_OUTPUT"
             echo "merge SHA $MERGE_SHA は既に develop の祖先 → back-merge no-op (AC5)"
@@ -204,6 +205,9 @@ jobs:
           BRANCH: ${{ steps.classify.outputs.branch }}
           MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
+          # App token は argv (URL) に載せず、環境変数経由の git config で渡す (#4570)。
+          # URL に埋めると ps / エラートレースに露出する経路が増える。
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           git fetch origin main develop
@@ -222,9 +226,14 @@ jobs:
             echo "conflict=true" >> "$GITHUB_OUTPUT"
             echo "::warning::back-merge で conflict 発生。conflict marker を残した PR を発行し status:blocked を付与する。"
           fi
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$APP_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="$AUTH_HEADER"
+          git push "https://github.com/$GITHUB_REPOSITORY.git" \
             "$BRANCH" --force-with-lease || \
-          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
+          git push "https://github.com/$GITHUB_REPOSITORY.git" \
             "$BRANCH" --force
 
       # ----------------------------------------------------------------------

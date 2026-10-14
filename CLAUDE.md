@@ -70,6 +70,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 - `node scripts/check-license-key-leak.mjs --budget-ms 120000` — license key 再導入禁止
 - `node scripts/check-no-direct-env-access.mjs` — `process.env` 直参照禁止
 - `node scripts/check-no-waitfortimeout.mjs` — `scripts/` の `waitForTimeout` 禁止
+- `node scripts/check-workflow-run-expressions.mjs` — workflow の `run:` 本文への `${{ }}` 直接埋め込み禁止 (注入 / 露出の入口になる式)
 - `node --test "scripts/__tests__/**/*.test.mjs"` — scripts の node:test 全件
 - `npm run check:no-demo-route-dup` — demo route 二重実装禁止
 - `npm run cspell` — スペルチェック (warning=error)
