@@ -31,6 +31,14 @@ export const UI_PRIMITIVES_LABELS = {
 	menuOpenAriaLabel: 'メニューを開く',
 	// Button loading spinner (#2632 CX-DoR #9 NN/G #1、スクリーンリーダー向け)
 	loadingAriaLabel: '処理中',
+	// Alert の重大度 (#4572、スクリーンリーダー向け)。アイコン (絵文字) は aria-hidden で読み上げ対象外のため、
+	// 色とアイコンだけで伝えていた重大度を、視覚的に隠れた本文の先頭ラベルで等価に伝える (WCAG 1.4.1)。
+	alertSeverity: {
+		success: '成功:',
+		warning: '警告:',
+		danger: 'エラー:',
+		info: 'お知らせ:',
+	},
 } as const;
 
 export const UI_COMPONENTS_LABELS = {
