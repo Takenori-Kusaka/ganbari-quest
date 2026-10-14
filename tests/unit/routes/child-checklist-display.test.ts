@@ -109,7 +109,9 @@ describe('#4509 ③ 完了ダイアログの獲得ポイント', () => {
 		renderChecklist({ uiMode: 'elementary', pointSettings: POINT_MODE });
 		await completeChecklist(50);
 
-		expect((await screen.findByTestId('checklist-complete-points')).textContent).toBe('+50 ポイント');
+		expect((await screen.findByTestId('checklist-complete-points')).textContent).toBe(
+			'+50 ポイント',
+		);
 	});
 
 	it('フッターの見込みポイントも同じ換算を通る', () => {
