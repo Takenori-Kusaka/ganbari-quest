@@ -25,7 +25,13 @@ import {
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
-import { CHILD_TERMS, CONCEPT_ICONS, REWARD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
+import {
+	CHILD_TERMS,
+	CONCEPT_ICONS,
+	POINT_TERMS,
+	REWARD_TERMS,
+	TEMPLATE_TERMS,
+} from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
@@ -979,7 +985,7 @@ async function handleCopyFromChild() {
 											{ADMIN_REWARDS_PAGE_LABELS.rewardPendingBadge}
 										</span>
 									{/if}
-									<span class="reward-item__points">{reward.points}P</span>
+									<span class="reward-item__points">{reward.points}{POINT_TERMS.unitCompact}</span>
 								</span>
 							</div>
 							<div class="reward-item__actions">
@@ -1093,7 +1099,7 @@ async function handleCopyFromChild() {
 							>
 								<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
 								<p class="text-xs font-bold text-[var(--color-text-muted)] mt-1">{tmpl.title}</p>
-								<p class="text-xs text-[var(--color-point)] font-bold">{tmpl.points}P</p>
+								<p class="text-xs text-[var(--color-point)] font-bold">{tmpl.points}{POINT_TERMS.unitCompact}</p>
 							</Button>
 						{/each}
 					</div>

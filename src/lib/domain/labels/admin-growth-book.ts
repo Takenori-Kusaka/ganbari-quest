@@ -14,7 +14,7 @@ export const GROWTH_BOOK_LABELS = {
 	pageHeading: adminScreenHeading('growthBook'),
 	backToReports: '← レポートへ',
 	// #4716 item 12: 「395pt」が .svelte に直書きされ、単位が POINT_TERMS を経由していなかった。
-	monthlyTotalPoints: (points: number) => `${points.toLocaleString()}${POINT_TERMS.unit}`,
+	monthlyTotalPoints: (points: number) => `${points.toLocaleString()} ${POINT_TERMS.unit}`,
 	printButton: '🖨️ 印刷 / PDF',
 	premiumNotePrefix: 'PDF保存は',
 	premiumNoteLink: 'スタンダードプラン以上',

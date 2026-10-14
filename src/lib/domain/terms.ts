@@ -26,7 +26,7 @@
 //   CTA_TERMS        — CTA / トライアル動詞句 atom（無料体験 / 無料で試す / 無料で試せます、#1958）
 //   LP_FAQ_TERMS     — LP「FAQ / よくある(ご)質問」atom（PO-4-10、#1896 + PO-4-12、#1898）
 //   AGE_RANGE_TERMS  — 年齢レンジ atom（3〜18 歳 / 3 歳から 18 歳まで、UIUX-E-1、#1913）
-//   POINT_TERMS      — ポイント単位 atom（pt / ポイント / P、UIUX-E-3、#1913）
+//   POINT_TERMS      — ポイント単位 atom（ポイントに統一。親画面の狭い箇所だけ P、UIUX-E-3、#1913 / #4567）
 //   CURRENCY_TERMS   — 通貨 atom（¥ / 円、UIUX-E-5、#1913）
 //   FREE_PLAN_TERMS  — 無料プラン訴求 atom（永久無料 バッジ語、UIUX-E-7、#1913）
 //   AUTONOMY_TERMS   — 自律 / 自走 リフレーム atom（UIUX-F-16、#2058）
@@ -315,23 +315,25 @@ export const AGE_RANGE_TERMS = {
 } as const;
 
 // ============================================================
-// POINT_TERMS — ポイント単位 atom (UIUX-E-3、#1913)
+// POINT_TERMS — ポイント単位 atom (UIUX-E-3、#1913 / #4567)
 // ============================================================
 //
-// アプリ全体で「ポイント」「P」「pt」が混在し、子供 SS では P / 説明文では「ポイント」と
-// 文脈別に揃えるべきところを単に揺れていた状態 (#1913 E-3)。
-// AC5 = 子供 SS 以外の説明文で「P」（半角アルファベット単独）が 0 件であり、
-// 「pt」は単位短縮形として shop / status 系で運用継続（AC5 対象外）。
+// ポイントの単位は「ポイント」1 つに統一する (PO 決裁 2026-10-14、#4567)。
+// 子供画面・親画面とも対象で、`P` / `pt` は使わない (略号は読めない子がいる。DESIGN.md §8 の
+// ひらがな方針とも整合)。通貨換算モードの家庭は従来どおり通貨表記 (point-display.ts)。
+//
+// 親画面だけの例外: 表の列やバッジなど**幅が足りず折り返す箇所に限り**略号を許す。
+// 使うなら `unitCompact` (P) の 1 種だけで、`pt` は使わない。子供画面では使わない。
 //
 // 設計指針:
-//   - unit       : 'pt' （単位短縮形、shop / status / weeklyChallenge 等の数値直後）
-//   - unitFull   : 'ポイント' （説明文・LP 訴求文の標準形）
-//   - unitSymbol : 'P' （子供 SS 内の単位記号、shop 内 manualHint / manualMin 等の限定的短縮形）
+//   - unit        : 'ポイント' (標準形。子供・親・説明文のすべて)
+//   - unitFull    : 'ポイント' (unit の別名。既存の参照を壊さないため残す)
+//   - unitCompact : 'P' (親画面の幅が足りない箇所だけ)
 
 export const POINT_TERMS = {
-	unit: 'pt',
+	unit: 'ポイント',
 	unitFull: 'ポイント',
-	unitSymbol: 'P',
+	unitCompact: 'P',
 } as const;
 
 // ============================================================

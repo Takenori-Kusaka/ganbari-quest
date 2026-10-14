@@ -5,6 +5,7 @@ import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	FEATURES_LABELS,
 } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { getActivityDisplayNameForAdult, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
@@ -48,7 +49,7 @@ function dailyLimitLabel(val: number | null): string {
 		<div class="flex-1 min-w-0">
 			<div class="flex items-center gap-2 flex-wrap">
 				<p class="text-sm font-bold truncate" style:color="var(--color-text)">{getActivityDisplayNameForAdult(activity)}</p>
-				<span class="activity-points">{activity.basePoints}P</span>
+				<span class="activity-points">{activity.basePoints}{POINT_TERMS.unitCompact}</span>
 				{#if activity.isMainQuest}
 					<span class="main-quest-badge">{L.mainQuestBadge}</span>
 				{/if}

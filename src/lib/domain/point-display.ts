@@ -3,6 +3,8 @@
  * Internal points remain integers; currency conversion is display-only.
  */
 
+import { POINT_TERMS } from './terms';
+
 /** Supported point display modes */
 export type PointUnitMode = 'point' | 'currency';
 
@@ -36,6 +38,22 @@ export interface PointSettings {
 	rate: number;
 }
 
+/**
+ * 整形オプション。
+ *
+ * `compact` は**親画面で幅が足りず折り返す箇所だけ**に使う (PO 決裁 2026-10-14、#4567)。
+ * 単位が「ポイント」から略号 `POINT_TERMS.unitCompact` (P) に変わる。子供画面では使わない。
+ * 通貨モードでは効かない (通貨記号は常に同じ)。
+ */
+export interface PointFormatOptions {
+	compact?: boolean;
+}
+
+/** point モードの単位。既定は「ポイント」、compact のときだけ略号。 */
+function pointUnitText(options?: PointFormatOptions): string {
+	return options?.compact ? POINT_TERMS.unitCompact : POINT_TERMS.unit;
+}
+
 /** Default settings (point mode) */
 export const DEFAULT_POINT_SETTINGS: PointSettings = {
 	mode: 'point',
@@ -46,22 +64,26 @@ export const DEFAULT_POINT_SETTINGS: PointSettings = {
 /**
  * Format a point value for display.
  *
- * In point mode: returns "1,250P"
+ * In point mode: returns "1,250 ポイント" (compact: "1,250P")
  * In currency mode: converts via rate and formats with currency symbol.
  *
  * @param points - Internal point value (integer)
  * @param mode - 'point' or 'currency'
  * @param currency - Currency code (used only in currency mode)
- * @param rate - Conversion rate: 1P = rate * currency units
+ * @param rate - Conversion rate: 1 point = rate * currency units
+ * @param options - compact: 親画面の幅が足りない箇所だけ略号 (P) にする
  */
 export function formatPointValue(
 	points: number,
 	mode: PointUnitMode,
 	currency: CurrencyCode,
 	rate: number,
+	options?: PointFormatOptions,
 ): string {
 	if (mode === 'point') {
-		return `${points.toLocaleString('ja-JP')}P`;
+		const unit = pointUnitText(options);
+		const amount = points.toLocaleString('ja-JP');
+		return options?.compact ? `${amount}${unit}` : `${amount} ${unit}`;
 	}
 
 	const value = points * rate;
@@ -76,7 +98,7 @@ export function formatPointValue(
 }
 
 /**
- * Format a point value with sign prefix (e.g., "+10P", "+5円", "-$1.00").
+ * Format a point value with sign prefix (e.g., "+10 ポイント", "+5円", "-$1.00").
  * Used for activity completion messages and transaction displays.
  */
 export function formatPointValueWithSign(
@@ -84,10 +106,13 @@ export function formatPointValueWithSign(
 	mode: PointUnitMode,
 	currency: CurrencyCode,
 	rate: number,
+	options?: PointFormatOptions,
 ): string {
 	const sign = points >= 0 ? '+' : '';
 	if (mode === 'point') {
-		return `${sign}${points.toLocaleString('ja-JP')}P`;
+		const unit = pointUnitText(options);
+		const amount = points.toLocaleString('ja-JP');
+		return options?.compact ? `${sign}${amount}${unit}` : `${sign}${amount} ${unit}`;
 	}
 
 	const value = points * rate;
@@ -105,10 +130,14 @@ export function formatPointValueWithSign(
 
 /**
  * Get the unit label for the current mode.
- * Point mode: "P", Currency mode: currency symbol (e.g., "円", "$")
+ * Point mode: "ポイント" (compact: "P"), Currency mode: currency symbol (e.g., "円", "$")
  */
-export function getUnitLabel(mode: PointUnitMode, currency: CurrencyCode): string {
-	if (mode === 'point') return 'P';
+export function getUnitLabel(
+	mode: PointUnitMode,
+	currency: CurrencyCode,
+	options?: PointFormatOptions,
+): string {
+	if (mode === 'point') return pointUnitText(options);
 	return CURRENCY_DEFS[currency].symbol;
 }
 
@@ -167,13 +196,21 @@ export function formatPointDisplayText(
 /**
  * Format using PointSettings object (convenience wrapper).
  */
-export function formatWithSettings(points: number, settings: PointSettings): string {
-	return formatPointValue(points, settings.mode, settings.currency, settings.rate);
+export function formatWithSettings(
+	points: number,
+	settings: PointSettings,
+	options?: PointFormatOptions,
+): string {
+	return formatPointValue(points, settings.mode, settings.currency, settings.rate, options);
 }
 
 /**
  * Format with sign using PointSettings object (convenience wrapper).
  */
-export function formatWithSettingsAndSign(points: number, settings: PointSettings): string {
-	return formatPointValueWithSign(points, settings.mode, settings.currency, settings.rate);
+export function formatWithSettingsAndSign(
+	points: number,
+	settings: PointSettings,
+	options?: PointFormatOptions,
+): string {
+	return formatPointValueWithSign(points, settings.mode, settings.currency, settings.rate, options);
 }

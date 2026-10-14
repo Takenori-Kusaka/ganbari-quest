@@ -735,8 +735,8 @@ export async function sendWeeklyReportEmail(
         </div>
         <div style="flex:1;min-width:120px;background:#dbeafe;border-radius:8px;padding:12px;text-align:center">
           <div style="font-size:24px">⭐</div>
-          <div style="font-size:20px;font-weight:bold">+${report.pointsEarned}pt</div>
-          <div style="font-size:12px;color:#666">累計: ${report.totalPoints}pt</div>
+          <div style="font-size:20px;font-weight:bold">+${report.pointsEarned} ポイント</div>
+          <div style="font-size:12px;color:#666">累計: ${report.totalPoints} ポイント</div>
         </div>
       </div>
       ${achievementHtml}
@@ -744,7 +744,7 @@ export async function sendWeeklyReportEmail(
         <a href="https://ganbari-quest.com/admin" class="button">アプリを開く</a>
       </p>
     `),
-		textBody: `${report.childName}の今週のがんばり（${report.dateRange}）\n\n${report.categories.map((c) => `${c.name}: ${c.count}回`).join('\n')}\n\n🔥 連続記録: ${report.streak}日\n⭐ ポイント: +${report.pointsEarned}pt（累計: ${report.totalPoints}pt）`,
+		textBody: `${report.childName}の今週のがんばり（${report.dateRange}）\n\n${report.categories.map((c) => `${c.name}: ${c.count}回`).join('\n')}\n\n🔥 連続記録: ${report.streak}日\n⭐ ポイント: +${report.pointsEarned} ポイント（累計: ${report.totalPoints} ポイント）`,
 	});
 }
 

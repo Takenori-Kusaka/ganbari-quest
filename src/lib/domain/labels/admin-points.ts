@@ -6,7 +6,7 @@ export const POINTS_LABELS = {
 	// ページヘッダー
 	pageTitle: adminScreenHeading('points'),
 	displaySetting: (isCurrencyMode: boolean, currency: string) =>
-		`表示: ${isCurrencyMode ? currency : 'ポイント（P）'}`,
+		`表示: ${isCurrencyMode ? currency : 'ポイント'}`,
 
 	// 残高カード
 	// #4716: 旧「変換可能: 0P」は「かんたん」タブ (単位切り上げ) だけの値なのに、
@@ -34,9 +34,9 @@ export const POINTS_LABELS = {
 	// 手動モード
 	manualLabel: (unit: string) => `変換${unit}数（自由入力）`,
 	manualOverBalanceError: '残高を超えています',
-	manualMinError: '1P以上を入力してください',
+	manualMinError: '1 ポイント以上を入力してください',
 	manualHintCurrency: (current: string) => `残高: ${current}`,
-	manualHintPoints: (current: string) => `1P = 1円 / 残高: ${current}`,
+	manualHintPoints: (current: string) => `1 ポイント = 1円 / 残高: ${current}`,
 	manualPlaceholder: '金額を入力',
 	manualMaxButton: POINTS_ADMIN_TERMS.maxButton,
 

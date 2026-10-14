@@ -69,7 +69,7 @@ export const FEATURES_LABELS = {
 		// BirthdayBanner
 		bannerTitle: 'おたんじょうびボーナスがとどいているよ！',
 		bannerSub: (name: string, age: number) => `${name}${age}さいおめでとう！ タップしてうけとろう`,
-		bannerPoints: (totalPoints: number) => `⭐${totalPoints}pt`,
+		bannerPoints: (totalPoints: number) => `⭐${totalPoints} ポイント`,
 		// BirthdayModal
 		modalMainPreClaimed: 'おたんじょうび おめでとう！',
 		modalAgeText: (name: string, age: number) => `${name}${age}さい になったね！`,

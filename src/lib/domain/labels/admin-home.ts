@@ -5,6 +5,7 @@ import {
 	ADMIN_HOME_TERMS,
 	ADMIN_VIEW_TERMS,
 	CHILD_TERMS,
+	POINT_TERMS,
 	REWARD_TERMS,
 	USAGE_SUMMARY_TERMS,
 } from '../terms';
@@ -102,7 +103,7 @@ export const VALUE_PREVIEW_LABELS = {
 	currentStreakUnit: '日',
 	longestStreakLabel: '最長連続記録',
 	totalPointsLabel: 'ためたポイント',
-	totalPointsUnit: 'pt',
+	totalPointsUnit: POINT_TERMS.unit,
 	achievedMilestonesHeading: '達成したマイルストーン',
 	noMilestonesYet: 'まだマイルストーン未達成です。最初の記録から始めましょう',
 	categoryBreakdownHeading: 'カテゴリ別の活動回数',

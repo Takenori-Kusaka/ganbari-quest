@@ -150,7 +150,7 @@ export const OPS_GRADUATION_LABELS = {
 	publicSampleEmpty: '公開承諾された卒業事例はまだありません',
 	publicSampleNickname: (nickname: string) => `${nickname} さん`,
 	publicSampleUsagePeriod: (days: number) => `ご利用期間: ${days} 日`,
-	publicSamplePoints: (pt: number) => `残ポイント: ${pt} pt`,
+	publicSamplePoints: (pt: number) => `残ポイント: ${pt} ポイント`,
 	graduationRateLabel: (rate: number) => `${(rate * 100).toFixed(1)}%`,
 } as const satisfies Record<string, unknown>;
 

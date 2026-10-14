@@ -92,7 +92,7 @@ export const REWARDS_LABELS = {
 	categoryLabel: 'カテゴリ',
 	// #2268: grant → add リネーム（実態は special_rewards INSERT、子供 shop に並べる商品の追加）
 	grantButton: (icon: string, title: string, points: number) =>
-		`${icon} ${title || REWARD_TERMS.canonical} (${points}P)${REWARD_ADMIN_TERMS.submitSuffix}`,
+		`${icon} ${title || REWARD_TERMS.canonical} (${points} ポイント)${REWARD_ADMIN_TERMS.submitSuffix}`,
 	grantSuccess: 'ごほうびを追加しました！',
 	// #2268: overflow menu / 申請承認導線（子#3 で /admin/rewards/requests へ分離）
 	overflowMenuAriaLabel: 'その他の操作',
