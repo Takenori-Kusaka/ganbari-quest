@@ -44,7 +44,7 @@ describe('planBalanceChange — 演出する側 (AC1 / AC2 / AC3)', () => {
 		if (!plan.animate) return;
 		expect(plan.tone).toBe('gain');
 		expect(plan.label.startsWith('+')).toBe(true);
-		expect(plan.label).toBe('+10P');
+		expect(plan.label).toBe('+10 ポイント');
 		// 出発点 = 渡された矩形の中心
 		expect(plan.from).toEqual({ x: 100 + 80 / 2, y: 400 + 30 / 2 });
 		// 到着点 = ヘッダー残高の実座標の中心 (固定座標のベタ書きではない)
@@ -66,7 +66,7 @@ describe('planBalanceChange — 演出する側 (AC1 / AC2 / AC3)', () => {
 		expect(plan.animate).toBe(true);
 		if (!plan.animate) return;
 		expect(plan.tone).toBe('spend');
-		expect(plan.label).toBe('-30P');
+		expect(plan.label).toBe('-30 ポイント');
 		expect(plan.countFrom).toBe(100);
 		expect(plan.countTo).toBe(70);
 	});

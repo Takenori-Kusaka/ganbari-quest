@@ -53,11 +53,11 @@ describe('#4841 スタンプカード (ログインボーナス受取) の文言
 
 	it('交換済みの受取額表示も年齢帯で切り替わる (uiMode 未指定はひらがな側の既定)', () => {
 		const senior = renderCard('senior', { status: 'redeemed', redeemedPoints: 80 });
-		expect(senior).toContain('80pt 受け取り済み');
+		expect(senior).toContain('80 ポイント 受け取り済み');
 		expect(senior).not.toContain('もらったよ');
 		cleanup();
 
 		const preschool = renderCard('preschool', { status: 'redeemed', redeemedPoints: 80 });
-		expect(preschool).toContain('80pt もらったよ！');
+		expect(preschool).toContain('80 ポイント もらったよ！');
 	});
 });

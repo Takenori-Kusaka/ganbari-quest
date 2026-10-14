@@ -125,7 +125,7 @@ describe('[F-C] server の basePoints と totalPoints の食い違いに内訳�
 			levelUp: null,
 		});
 
-		expect(screen.getByText('+20pt')).toBeTruthy();
+		expect(screen.getByText('+20 ポイント')).toBeTruthy();
 		expect(screen.getByText(SETUP_FIRST_ADVENTURE_LABELS.pointsBreakdown(10, 20))).toBeTruthy();
 	});
 
@@ -138,13 +138,13 @@ describe('[F-C] server の basePoints と totalPoints の食い違いに内訳�
 			levelUp: null,
 		});
 
-		expect(screen.getByText('+10pt')).toBeTruthy();
+		expect(screen.getByText('+10 ポイント')).toBeTruthy();
 		expect(screen.queryByText(SETUP_FIRST_ADVENTURE_LABELS.pointsBreakdown(10, 10))).toBeNull();
 	});
 
 	it('basePoints が欠けているとき (旧 form shape 互換) は内訳を出さない', () => {
 		renderPage({ success: true, activityName: 'しゅくだいをした', totalPoints: 10, levelUp: null });
-		expect(screen.getByText('+10pt')).toBeTruthy();
+		expect(screen.getByText('+10 ポイント')).toBeTruthy();
 		expect(screen.queryByText(SETUP_FIRST_ADVENTURE_LABELS.pointsBreakdown(10, 10))).toBeNull();
 	});
 });

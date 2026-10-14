@@ -71,7 +71,7 @@ const { Story } = defineMeta({
 		const canvas = within(canvasElement);
 		// .success-screen は fadeIn (opacity 0→1、0.3s) で入場するため、mount 直後は
 		// 一時的に opacity:0 = toBeVisible() 不成立になりうる。アニメ完了を待つ。
-		await waitFor(() => expect(canvas.getByText('+10pt')).toBeVisible());
+		await waitFor(() => expect(canvas.getByText('+10 ポイント')).toBeVisible());
 	}}
 />
 
@@ -98,7 +98,7 @@ const { Story } = defineMeta({
 	}}
 	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
-		await waitFor(() => expect(canvas.getByText('+20pt')).toBeVisible());
+		await waitFor(() => expect(canvas.getByText('+20 ポイント')).toBeVisible());
 		await expect(
 			canvas.getByText(SETUP_FIRST_ADVENTURE_LABELS.pointsBreakdown(10, 20)),
 		).toBeVisible();

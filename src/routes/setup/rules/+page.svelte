@@ -9,6 +9,7 @@ import {
 	SETUP_LABELS,
 	SETUP_RULES_LABELS,
 } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { ErrorAlert } from '$lib/ui/components';
 import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -204,11 +205,11 @@ $effect(() => {
 									<span class="truncate flex-1">{rule.title}</span>
 									{#if rule.pointBonus !== undefined && rule.pointBonus !== 0}
 										<span class="text-[9px] font-bold text-[var(--color-feedback-success-text)] flex-shrink-0">
-											+{rule.pointBonus}P
+											+{rule.pointBonus} {POINT_TERMS.unit}
 										</span>
 									{:else if rule.pointCost !== undefined && rule.pointCost !== 0}
 										<span class="text-[9px] font-bold text-[var(--color-feedback-warning-text)] flex-shrink-0">
-											-{rule.pointCost}P
+											-{rule.pointCost} {POINT_TERMS.unit}
 										</span>
 									{/if}
 								</div>
