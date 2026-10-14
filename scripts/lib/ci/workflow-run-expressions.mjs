@@ -58,10 +58,16 @@ export function isRiskyExpression(expr) {
  */
 export function findRunExpressionViolations(text) {
 	const lines = text.split(/\r?\n/);
+	/** @type {Array<{ line: number, expr: string, text: string }>} */
 	const found = [];
 	let inRun = false;
 	let runIndent = -1;
 
+	/**
+	 * @param {string} str
+	 * @param {number} lineNo
+	 * @param {string} original
+	 */
 	const scan = (str, lineNo, original) => {
 		for (const m of str.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)) {
 			const expr = m[1] ?? '';
