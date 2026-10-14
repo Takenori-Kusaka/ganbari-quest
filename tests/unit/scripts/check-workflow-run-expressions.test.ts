@@ -55,7 +55,9 @@ describe('isRiskyExpression', () => {
 
 describe('findRunExpressionViolations', () => {
 	it('block scalar の run: 本文の危険な式を行番号つきで返す', () => {
-		const v = findRunExpressionViolations(wf(`git fetch origin ${expr('github.base_ref')}\necho ok`));
+		const v = findRunExpressionViolations(
+			wf(`git fetch origin ${expr('github.base_ref')}\necho ok`),
+		);
 		expect(v).toHaveLength(1);
 		expect(v[0]?.expr).toBe('github.base_ref');
 		expect(v[0]?.line).toBe(6);

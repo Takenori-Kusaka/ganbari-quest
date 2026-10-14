@@ -48,7 +48,9 @@ function main() {
 		}
 		console.error('');
 		console.error('対処: 値を step の `env:` に渡し、run: 本文では "$VAR" として参照する。');
-		console.error('      例) env に BASE_BRANCH を渡し、run: では git fetch origin "$BASE_BRANCH" と書く');
+		console.error(
+			'      例) env に BASE_BRANCH を渡し、run: では git fetch origin "$BASE_BRANCH" と書く',
+		);
 		process.exit(1);
 	}
 	console.log(`✅ ${scanned} workflow の run: 本文に危険な \${{ }} はありません`);
