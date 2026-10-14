@@ -2,7 +2,8 @@
 import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
-import { DEFAULT_POINT_SETTINGS, formatPointValue } from '$lib/domain/point-display';
+import { DEFAULT_POINT_SETTINGS, splitPointDisplay } from '$lib/domain/point-display';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { pointFlight } from '$lib/features/point-flight/point-flight.svelte';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 
@@ -44,9 +45,9 @@ const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
 const shownPoints = $derived(
 	animateBalance ? (pointFlight.displayBalance ?? totalPoints) : totalPoints,
 );
-const balanceDisplay = $derived(
-	formatPointValue(shownPoints, settings.mode, settings.currency, settings.rate),
-);
+// 数値と単位を分けて描く: 単位「ポイント」は 4 文字あり、数値と同じ大きさだと幅 390px で
+// 名前 / 残高が折り返す (#4567)。単位は数値の下に小さく積み、横幅を数値ぶんに収める。textContent は「1,250 ポイント」のまま。
+const balanceParts = $derived(splitPointDisplay(shownPoints, settings, POINT_TERMS.unit));
 
 // #4448: 残高要素を演出の到着点として登録する。固定座標ではなく実 DOM の座標を使うため、
 // 表示位置が変わっても (通知 bell / スタンプの有無で横位置が動く) 追従する。
@@ -107,7 +108,7 @@ $effect(() => {
 		{/if}
 		<div class="flex items-center gap-1 font-bold">
 			<span class="text-xl" aria-hidden="true">⭐</span>
-			<span class="text-lg" bind:this={balanceEl} data-testid="header-balance">{balanceDisplay}</span>
+			<span class="inline-flex flex-col items-end leading-tight text-lg whitespace-nowrap" bind:this={balanceEl} data-testid="header-balance">{balanceParts.amount}{#if balanceParts.unit}{' '}<span class="text-[0.625rem]">{balanceParts.unit}</span>{/if}</span>
 		</div>
 	</div>
 </header>
