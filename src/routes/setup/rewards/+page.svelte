@@ -9,6 +9,7 @@ import {
 	SETUP_LABELS,
 	SETUP_REWARDS_LABELS,
 } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { ErrorAlert } from '$lib/ui/components';
 import SetupNoScriptNotice from '$lib/ui/components/SetupNoScriptNotice.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -181,7 +182,7 @@ $effect(() => {
 									<span>{reward.icon}</span>
 									<span class="truncate flex-1">{reward.title}</span>
 									<span class="text-[9px] font-bold text-[var(--color-text-muted)] flex-shrink-0">
-										{reward.points}P
+										{reward.points} {POINT_TERMS.unit}
 									</span>
 								</div>
 							{/each}

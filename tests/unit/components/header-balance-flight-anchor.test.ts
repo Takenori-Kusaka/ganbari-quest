@@ -20,13 +20,13 @@ describe('Header — 残高 anchor の登録条件 (#4448)', () => {
 
 	it('animateBalance=true なら残高要素が到着点として登録される', () => {
 		render(Header, { ...BASE, animateBalance: true });
-		expect(screen.getByTestId('header-balance').textContent).toBe('120P');
+		expect(screen.getByTestId('header-balance').textContent).toBe('120 ポイント');
 		expect(pointFlight.anchorRect, '到着点が登録されていること').not.toBeNull();
 	});
 
 	it('animateBalance=false (baby / ?screenshot) なら登録されない = 演出が始まらない', () => {
 		render(Header, { ...BASE, animateBalance: false });
-		expect(screen.getByTestId('header-balance').textContent).toBe('120P');
+		expect(screen.getByTestId('header-balance').textContent).toBe('120 ポイント');
 		expect(pointFlight.anchorRect, '到着点を登録しないことで演出を止める').toBeNull();
 	});
 
@@ -41,11 +41,11 @@ describe('Header — 残高 anchor の登録条件 (#4448)', () => {
 
 		pointFlight.hold(100);
 		await Promise.resolve();
-		expect(el.textContent, '変化前の値で止めてから数え上げる').toBe('100P');
+		expect(el.textContent, '変化前の値で止めてから数え上げる').toBe('100 ポイント');
 
 		pointFlight.release();
 		await Promise.resolve();
-		expect(el.textContent, '演出後は実データをそのまま表示する').toBe('120P');
+		expect(el.textContent, '演出後は実データをそのまま表示する').toBe('120 ポイント');
 	});
 
 	it('animateBalance=false のときは hold されていても実データを表示する', async () => {
@@ -54,7 +54,7 @@ describe('Header — 残高 anchor の登録条件 (#4448)', () => {
 
 		pointFlight.hold(100);
 		await Promise.resolve();
-		expect(el.textContent, '演出対象外の画面は常に最終値').toBe('120P');
+		expect(el.textContent, '演出対象外の画面は常に最終値').toBe('120 ポイント');
 	});
 
 	it('円換算モードでも残高表示は formatPointValue 経由 (単位を pt 決め打ちにしない)', () => {

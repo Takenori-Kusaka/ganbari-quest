@@ -7,6 +7,7 @@ import {
 	CHILD_ADMIN_TERMS,
 	CHILD_TERMS,
 	PLAN_FULL_TERMS,
+	POINT_TERMS,
 	TEMPLATE_TERMS,
 } from '../terms';
 import { SETTINGS_NAV_LABELS } from './admin-settings';
@@ -133,7 +134,7 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	//   ストリーク / 習熟 / メインクエスト倍率等のボーナスで食い違うことがある。内訳を出さないと
 	//   「10 と言ったのに 20」に見える。基礎と合計が一致するときはこの文言を出さない。
 	pointsBreakdown: (base: number, total: number) =>
-		`（きほん +${base}pt ＋ ボーナス +${total - base}pt）`,
+		`（きほん +${base} ポイント ＋ ボーナス +${total - base} ポイント）`,
 } as const;
 
 /**
@@ -389,7 +390,7 @@ export const SETUP_CHALLENGES_LABELS = {
 	challengesNotice: '家族全員で協力するチャレンジです。クリアすると家族みんなに点数が配られます。',
 	noticeNoChildren: 'お子さまが登録されていないため、このステップはスキップされます。',
 	targetSuffix: '回',
-	rewardSuffix: 'P',
+	rewardSuffix: POINT_TERMS.unit,
 	// #4911: 保護者向け日付書式 SSOT (formatDateRange) 経由に統一。旧実装は ISO 文字列
 	// (`2027-03-01`) をそのまま出しており #4802 の日付書式統一から漏れていた。
 	periodFormat: (start: string, end: string): string => `期間: ${formatDateRange(start, end)}`,

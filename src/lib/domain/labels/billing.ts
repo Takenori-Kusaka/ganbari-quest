@@ -17,6 +17,7 @@ import {
 	PLAN_FULL_TERMS,
 	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
+	POINT_TERMS,
 	PRICE_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
@@ -709,7 +710,7 @@ export const GRADUATION_LABELS = {
 	// 残ポイントセクション
 	pointsSectionTitle: '残ポイント',
 	pointsSectionHint: '卒業時点での合計ポイントです',
-	pointsUnit: 'pt',
+	pointsUnit: POINT_TERMS.unit,
 	pointsZero: 'ポイント残高はありません',
 
 	// 還元提案セクション
@@ -717,7 +718,7 @@ export const GRADUATION_LABELS = {
 	rewardSuggestionHint: `${CHILD_TERMS.honorific}ががんばって貯めたポイントを、ご家庭で意味のある形に変えていただくための参考例です。`,
 	rewardCashLabel: '現金換算の目安',
 	rewardCashDesc: (yenAmount: number) =>
-		`100 pt = 100 円換算 (目安) で、約 ${yenAmount.toLocaleString('ja-JP')} 円相当`,
+		`100 ポイント = 100 円換算 (目安) で、約 ${yenAmount.toLocaleString('ja-JP')} 円相当`,
 	rewardItemsLabel: '物品の例',
 	rewardItemsDesc: 'お小遣い帳・図書カード・本人の欲しがっていたグッズ・文房具 など',
 	rewardExperienceLabel: '体験の例',

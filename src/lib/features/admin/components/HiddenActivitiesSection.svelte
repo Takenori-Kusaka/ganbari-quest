@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { FEATURES_LABELS } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { getActivityDisplayNameForAdult, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import type { ActivityItem } from './activity-types';
@@ -39,7 +40,7 @@ let showHidden = $state(false);
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-bold text-[var(--color-text-disabled)] truncate">{getActivityDisplayNameForAdult(activity)}</p>
 								<p class="text-xs text-[var(--color-text-disabled)]">
-									{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints}P
+									{getCategoryById(activity.categoryId)?.name ?? ''} / {activity.basePoints} {POINT_TERMS.unit}
 									{#if logCount > 0}
 										{FEATURES_LABELS.hiddenActivities.recordCount(logCount)}
 									{/if}

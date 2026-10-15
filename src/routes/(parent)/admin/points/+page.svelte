@@ -4,6 +4,7 @@ import { isInJstMonth, monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import { POINT_TERMS } from '$lib/domain/terms';
 import AiInputNotice from '$lib/features/admin/components/AiInputNotice.svelte';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -327,7 +328,7 @@ async function handleReceiptFile(event: Event) {
 									outline-none transition-colors"
 								inputmode="numeric"
 							/>
-							<span class="text-lg font-bold text-[var(--color-text-muted)]">P</span>
+							<span class="text-lg font-bold text-[var(--color-text-muted)]">{POINT_TERMS.unitCompact}</span>
 						</div>
 						<div class="flex items-center justify-end mt-2">
 							<Button

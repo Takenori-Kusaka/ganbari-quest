@@ -55,7 +55,7 @@ export const CHEER_LABELS = {
 	grantButton: CHEER_TERMS.action,
 	grantButtonDisabled: '理由とポイントを入力してください',
 	grantSuccess: `${CHEER_TERMS.canonical}を送りました！`,
-	grantSuccessDesc: (points: number) => `+${points}P をプレゼントしました`,
+	grantSuccessDesc: (points: number) => `+${points} ポイントをプレゼントしました`,
 	historyTitle: `最近の${CHEER_TERMS.canonical}`,
 	recentMessagesTitle: '最近のメッセージ（旧履歴含む）',
 	msgRead: '既読',

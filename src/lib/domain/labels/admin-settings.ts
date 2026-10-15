@@ -10,6 +10,7 @@ import {
 	PARENT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
+	POINT_TERMS,
 	REWARD_TERMS,
 	RULES_TERMS,
 } from '../terms';
@@ -39,7 +40,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	removeConfirm: '本当に削除しますか？取り込んだルールは元に戻せません。',
 	importedAtLabel: '取込日時',
 	rulesLabel: '含まれるルール',
-	pointBonusSuffix: 'pt',
+	pointBonusSuffix: POINT_TERMS.unit,
 	updateSuccess: 'ルールを更新しました',
 	removeSuccess: 'ルールを削除しました',
 	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
@@ -250,15 +251,15 @@ export const SETTINGS_LABELS = {
 	pointSectionTitle: '💰 ポイント表示設定',
 	pointSaved: 'ポイント表示設定を保存しました',
 	pointDisplayMode: '表示モード',
-	pointModePoint: 'ポイント（P）',
+	pointModePoint: 'ポイント',
 	pointModeCurrency: '通貨で表示',
-	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
+	pointPreviewLabel: (n: number) => `プレビュー（${n} ポイントの場合）`,
 	// #4663 F7: 通貨モードの追加入力欄。svelte に直書きされており、ガイドから同じ語を
 	// 引けなかった (DESIGN.md §6 逸脱)。
 	// #4512: 「通貨」は CURRENCY_TERMS atom に集約し、検証エラー文言もここへ寄せた。
 	pointCurrencyLabel: `${CURRENCY_TERMS.canonical}`,
-	pointRateLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
-	pointRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	pointRateLabel: (symbol: string) => `レート（1 ポイント = ？${symbol}）`,
+	pointRateHint: '例: 1 ポイント = 1円なら「1」、1 ポイント = 0.01ドルなら「0.01」',
 	// #4512: 活動・ポイント設定 (settings/activities) の form action 検証エラー (旧: server 直書き)。
 	pointModeInvalid: 'モードが不正です',
 	pointCurrencyInvalid: `${CURRENCY_TERMS.canonical}コードが不正です`,
@@ -756,8 +757,8 @@ export const SETTINGS_LABELS = {
 	decayStrictLabel: 'きびしめ',
 	decayStrictDesc: '上級者向け。1.5倍の速度で減少します',
 	currencyFieldLabel: '通貨',
-	currencyRateFieldLabel: (symbol: string) => `レート（1P = ？${symbol}）`,
-	currencyRateHint: '例: 1P = 1円なら「1」、1P = 0.01ドルなら「0.01」',
+	currencyRateFieldLabel: (symbol: string) => `レート（1 ポイント = ？${symbol}）`,
+	currencyRateHint: '例: 1 ポイント = 1円なら「1」、1 ポイント = 0.01ドルなら「0.01」',
 	// #4716 の「直書き文言を SSOT へ」は、#4664 F8 が同じ 3 語を
 	// notificationReminderTimeLabel / notificationQuietLabel / notificationQuietHint として
 	// 先に置いており (ページガイドと共有)、そちらを画面が参照する。同義キーを 2 組持つと

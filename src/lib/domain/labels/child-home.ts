@@ -129,14 +129,15 @@ export const CHILD_HOME_LABELS = {
 	 * #4916: 結果ダイアログの内訳 (基本ポイント行)。主要数字 (grandTotal) と内訳の整合を
 	 * 顧客が追えるように、基本ポイントも 1 行として明示する。
 	 */
-	resultBreakdownBase: (points: number | string) => `きほん +${points}P`,
+	resultBreakdownBase: (points: number | string) => `きほん +${points} ポイント`,
 	/** #4916: メインクエスト倍率タグ (base 行に併記)。 */
 	resultBreakdownMainQuestTag: '⚔️ メインクエスト ×2',
 	/** #4916: bonus-hook 由来の倍率タグ (weekend 2倍 等、preset の title を動的に差し込む)。 */
 	resultBreakdownMultiplierTag: (title: string, multiplier: number | string) =>
 		`${title} ×${multiplier}`,
 	/** #4916: bonus-hook 由来の加点行 (はやおきボーナス等、preset の title を動的に差し込む)。 */
-	resultBreakdownBonusHook: (title: string, points: number | string) => `${title} +${points}P`,
+	resultBreakdownBonusHook: (title: string, points: number | string) =>
+		`${title} +${points} ポイント`,
 	resultXpLabel: 'けいけんち',
 	/**
 	 * #4509 ⑤: きょうだいの名前が引けなかったときの汎用語。
@@ -162,7 +163,7 @@ export const CHILD_HOME_LABELS = {
 	mustRemaining: (n: number | string) => `あと ${n}こ`,
 	mustAllComplete: 'ぜんぶできた！',
 	mustAllCompleteEmoji: '✨',
-	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
+	mustBonusGranted: (pts: number | string) => `+${pts} ポイント`,
 	mustBonusGrantedAriaLabel: (pts: number | string) =>
 		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
 } as const;
@@ -208,7 +209,7 @@ const CHILD_HOME_KANJI_OVERRIDES = {
 		`🎖️ ${name}が Lv.${level} になりました`,
 	resultXpLabel: '経験値',
 	/** #4916: hiragana 側「きほん」の漢字 override */
-	resultBreakdownBase: (points: number | string) => `基本 +${points}P`,
+	resultBreakdownBase: (points: number | string) => `基本 +${points} ポイント`,
 	siblingUnknownName: 'きょうだい',
 	resultMissionComplete: '🎯 ミッション達成！',
 	resultMissionAllClear: '🎉 すべてクリア！',
@@ -243,7 +244,7 @@ export const BABY_HOME_LABELS = {
 	initialPointsTitle: '初期ポイントを設定する',
 	initialPointsDesc: '3歳以降に使えるポイントを今から積み立てられます',
 	initialPointsLinkLabel: '初期ポイントを設定する',
-	currentPoints: (pts: number) => `現在のポイント: ${pts} pt`,
+	currentPoints: (pts: number) => `現在のポイント: ${pts} ポイント`,
 	goToAdmin: `${ADMIN_VIEW_TERMS.canonical}へ`,
 	initialPointsPageTitle: '初期ポイント設定',
 	initialPointsAmountLabel: 'ポイント数',
