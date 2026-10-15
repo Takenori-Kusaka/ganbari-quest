@@ -3,6 +3,7 @@ import { enhance } from '$app/forms';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { asCategoryId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { ACTIVITY_FORM_LABELS as L } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { type CategoryDef, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import {
@@ -227,7 +228,7 @@ function resetForm() {
 						{formPoints === guide.points ? guide.color + ' ring-2 ring-offset-1 ring-[var(--color-action-primary)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-100)]'}"
 					onclick={() => formPoints = guide.points}
 				>
-					{guide.points}P<br /><span class="font-normal">{guide.label}</span>
+					{guide.points}{POINT_TERMS.unitCompact}<br /><span class="font-normal">{guide.label}</span>
 				</button>
 			{/each}
 		</div>

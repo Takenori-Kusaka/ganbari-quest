@@ -12,20 +12,20 @@ import {
 
 describe('formatPointValue', () => {
 	describe('point mode', () => {
-		it('formats integer points with P suffix', () => {
-			expect(formatPointValue(100, 'point', 'JPY', 1)).toBe('100P');
+		it('formats integer points with the ポイント unit (#4567)', () => {
+			expect(formatPointValue(100, 'point', 'JPY', 1)).toBe('100 ポイント');
 		});
 
 		it('formats large numbers with locale separators', () => {
-			expect(formatPointValue(1250, 'point', 'JPY', 1)).toBe('1,250P');
+			expect(formatPointValue(1250, 'point', 'JPY', 1)).toBe('1,250 ポイント');
 		});
 
 		it('formats zero', () => {
-			expect(formatPointValue(0, 'point', 'JPY', 1)).toBe('0P');
+			expect(formatPointValue(0, 'point', 'JPY', 1)).toBe('0 ポイント');
 		});
 
 		it('ignores currency and rate in point mode', () => {
-			expect(formatPointValue(50, 'point', 'USD', 0.01)).toBe('50P');
+			expect(formatPointValue(50, 'point', 'USD', 0.01)).toBe('50 ポイント');
 		});
 	});
 
@@ -103,15 +103,15 @@ describe('formatPointValue', () => {
 describe('formatPointValueWithSign', () => {
 	describe('point mode', () => {
 		it('adds + prefix for positive', () => {
-			expect(formatPointValueWithSign(10, 'point', 'JPY', 1)).toBe('+10P');
+			expect(formatPointValueWithSign(10, 'point', 'JPY', 1)).toBe('+10 ポイント');
 		});
 
 		it('adds - prefix for negative', () => {
-			expect(formatPointValueWithSign(-5, 'point', 'JPY', 1)).toBe('-5P');
+			expect(formatPointValueWithSign(-5, 'point', 'JPY', 1)).toBe('-5 ポイント');
 		});
 
 		it('formats zero with +', () => {
-			expect(formatPointValueWithSign(0, 'point', 'JPY', 1)).toBe('+0P');
+			expect(formatPointValueWithSign(0, 'point', 'JPY', 1)).toBe('+0 ポイント');
 		});
 	});
 
@@ -137,8 +137,8 @@ describe('formatPointValueWithSign', () => {
 });
 
 describe('getUnitLabel', () => {
-	it('returns P for point mode', () => {
-		expect(getUnitLabel('point', 'JPY')).toBe('P');
+	it('returns ポイント for point mode', () => {
+		expect(getUnitLabel('point', 'JPY')).toBe('ポイント');
 	});
 
 	it('returns currency symbol for currency mode', () => {
@@ -150,7 +150,7 @@ describe('getUnitLabel', () => {
 
 describe('formatWithSettings', () => {
 	it('works with default settings', () => {
-		expect(formatWithSettings(100, DEFAULT_POINT_SETTINGS)).toBe('100P');
+		expect(formatWithSettings(100, DEFAULT_POINT_SETTINGS)).toBe('100 ポイント');
 	});
 
 	it('works with currency settings', () => {
@@ -160,7 +160,7 @@ describe('formatWithSettings', () => {
 
 describe('formatWithSettingsAndSign', () => {
 	it('works with default settings', () => {
-		expect(formatWithSettingsAndSign(10, DEFAULT_POINT_SETTINGS)).toBe('+10P');
+		expect(formatWithSettingsAndSign(10, DEFAULT_POINT_SETTINGS)).toBe('+10 ポイント');
 	});
 
 	it('works with currency settings', () => {
@@ -177,5 +177,33 @@ describe('CURRENCY_CODES', () => {
 
 	it('matches CURRENCY_DEFS keys', () => {
 		expect(CURRENCY_CODES).toEqual(Object.keys(CURRENCY_DEFS));
+	});
+});
+
+// #4567: ポイントの単位は「ポイント」1 つに統一する。親画面の幅が足りない箇所だけ compact で略号 (P) を許す。
+describe('単位の統一 (#4567)', () => {
+	it('point モードの既定は P / pt ではなく「ポイント」 (子供画面で略号を出さない)', () => {
+		const texts = [
+			formatPointValue(50, 'point', 'JPY', 1),
+			formatPointValueWithSign(50, 'point', 'JPY', 1),
+			formatPointValueWithSign(-50, 'point', 'JPY', 1),
+			formatWithSettings(50, DEFAULT_POINT_SETTINGS),
+			getUnitLabel('point', 'JPY'),
+		];
+		for (const t of texts) {
+			expect(t, t).toContain('ポイント');
+			expect(t, t).not.toMatch(/[0-9]\s?(P|pt)\b|^(P|pt)$/);
+		}
+	});
+
+	it('compact は親画面の狭い箇所用に P 1 種だけを返す (pt は使わない)', () => {
+		expect(formatPointValue(50, 'point', 'JPY', 1, { compact: true })).toBe('50P');
+		expect(formatPointValueWithSign(50, 'point', 'JPY', 1, { compact: true })).toBe('+50P');
+		expect(getUnitLabel('point', 'JPY', { compact: true })).toBe('P');
+	});
+
+	it('通貨モードは compact でも変わらない (通貨記号は従来どおり)', () => {
+		expect(formatPointValue(50, 'currency', 'JPY', 1, { compact: true })).toBe('50円');
+		expect(getUnitLabel('currency', 'USD', { compact: true })).toBe('$');
 	});
 });

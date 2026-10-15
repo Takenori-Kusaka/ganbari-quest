@@ -432,7 +432,8 @@ export function buildRenderData(
 	if (meta.streakDays) stats.push({ label: 'れんぞくにっすう', value: `${meta.streakDays}にち` });
 	if (meta.activityCount)
 		stats.push({ label: 'かつどうかいすう', value: `${meta.activityCount}かい` });
-	if (meta.totalPoints) stats.push({ label: 'かくとくポイント', value: `${meta.totalPoints}pt` });
+	if (meta.totalPoints)
+		stats.push({ label: 'かくとくポイント', value: `${meta.totalPoints} ポイント` });
 	if (meta.level) stats.push({ label: 'レベル', value: `${meta.level}` });
 	if (meta.maxStreak) stats.push({ label: 'さいちょうストリーク', value: `${meta.maxStreak}にち` });
 	if (meta.totalActivities)

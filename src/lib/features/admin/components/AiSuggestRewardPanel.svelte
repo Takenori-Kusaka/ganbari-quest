@@ -1,5 +1,6 @@
 <script lang="ts">
 import { FEATURES_LABELS } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import AiInputNotice from './AiInputNotice.svelte';
@@ -141,7 +142,7 @@ function acceptPreview() {
 				<div class="flex-1">
 					<p class="font-bold text-[var(--color-text)]">{aiPreview.title}</p>
 					<p class="text-xs text-[var(--color-text-disabled)]">
-						{aiPreview.category} / {aiPreview.points}P
+						{aiPreview.category} / {aiPreview.points} {POINT_TERMS.unit}
 					</p>
 				</div>
 			</div>

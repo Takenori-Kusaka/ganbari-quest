@@ -398,7 +398,7 @@ describe('buildRenderData', () => {
 		const result = buildRenderData(cert, 'テスト花子');
 
 		expect(result.stats).toContainEqual({ label: 'かつどうかいすう', value: '25かい' });
-		expect(result.stats).toContainEqual({ label: 'かくとくポイント', value: '500pt' });
+		expect(result.stats).toContainEqual({ label: 'かくとくポイント', value: '500 ポイント' });
 		expect(result.stats).toContainEqual({ label: 'レベル', value: '12' });
 	});
 
@@ -425,7 +425,7 @@ describe('buildRenderData', () => {
 		const result = buildRenderData(cert, 'テスト次郎');
 
 		expect(result.stats).toContainEqual({ label: 'ねんかんかつどう', value: '120かい' });
-		expect(result.stats).toContainEqual({ label: 'かくとくポイント', value: '5000pt' });
+		expect(result.stats).toContainEqual({ label: 'かくとくポイント', value: '5000 ポイント' });
 		expect(result.stats).toContainEqual({ label: 'さいちょうストリーク', value: '45にち' });
 		expect(result.stats).toContainEqual({ label: 'レベル', value: '25' });
 	});

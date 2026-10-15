@@ -10,6 +10,7 @@ import {
 	SETUP_FIRST_ADVENTURE_LABELS,
 	SETUP_LABELS,
 } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 // #4908: server が返す levelUp の実体は LevelUpInfo (oldLevel/newLevel)。型で結び、
 // フィールド名の無音の食い違い (levelBefore/levelAfter) を二度と作らない。
 import type { LevelUpInfo } from '$lib/server/services/status-service';
@@ -104,7 +105,7 @@ function goToComplete() {
 			class="points-display border-2 border-[var(--color-gold-600)] rounded-2xl p-4 my-4"
 			data-testid="first-adventure-points-display"
 		>
-			<div class="text-[2rem] font-extrabold text-[var(--color-text-gold)]">+{resultPoints}pt</div>
+			<div class="text-[2rem] font-extrabold text-[var(--color-text-gold)]">+{resultPoints} {POINT_TERMS.unit}</div>
 			{#if resultPointsBreakdown}
 				<div class="text-xs text-[var(--color-text-gold)]">{resultPointsBreakdown}</div>
 			{/if}
@@ -248,7 +249,7 @@ function goToComplete() {
 					>
 						<span class="text-[2rem]">{activity.icon || '⭐'}</span>
 						<span class="text-xs font-semibold text-[var(--color-text)] text-center leading-tight">{activity.name}</span>
-						<span class="text-[0.625rem] text-[var(--color-gold-600)] font-bold">+{activity.basePoints}pt</span>
+						<span class="text-[0.625rem] text-[var(--color-gold-600)] font-bold">+{activity.basePoints} {POINT_TERMS.unit}</span>
 					</Button>
 				{/each}
 			</div>

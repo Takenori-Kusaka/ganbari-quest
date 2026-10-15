@@ -25,7 +25,7 @@ export const CHALLENGES_LABELS = {
 	badgeCompleted: 'クリア！',
 	badgeActive: '開催中',
 	// #4716: 同じものを「報酬」「ほうしゅう」「ごほうび」の 3 語で呼んでいた。ごほうびに寄せる。
-	rewardLabel: (points: number) => `${REWARD_TERMS.canonical}${points}P`,
+	rewardLabel: (points: number) => `${REWARD_TERMS.canonical}${points} ポイント`,
 	deleteButton: '削除',
 	dateSeparator: ' 〜 ',
 	periodLabelWeekly: '週間',

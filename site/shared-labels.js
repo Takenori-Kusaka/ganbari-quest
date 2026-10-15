@@ -154,7 +154,7 @@
 			"ageRangeLong": "3 歳から 18 歳まで",
 			"yenSymbol": "¥",
 			"pointUnitFull": "ポイント",
-			"pointUnit": "pt",
+			"pointUnit": "ポイント",
 			"noCreditCardNote": "クレジットカード登録不要",
 			"cancelAnytime": "いつでも解約できます（契約期間の縛りなし）",
 			"bulletPoint": "・",
