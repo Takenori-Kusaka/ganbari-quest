@@ -63,9 +63,12 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          GIT_REF: ${{ github.ref }}
+          GIT_REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
+          if [[ "$GIT_REF" == refs/tags/v* ]]; then
+            VERSION="$GIT_REF_NAME"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "image-tag=$VERSION" >> "$GITHUB_OUTPUT"
             echo "is-release=true" >> "$GITHUB_OUTPUT"
@@ -1209,12 +1212,15 @@ jobs:
       # 対外コミュニケーションの内容は job ログの流れに任せず証跡として残す。
       - name: Record what was sent
         if: always() && steps.range.outputs.resolved == 'true'
+        env:
+          RANGE_PREV: ${{ steps.range.outputs.prev }}
+          NOTES_STATUS: ${{ steps.notes.outputs.status }}
         run: |
           {
             echo "## リリース通知"
             echo ""
-            echo "- 対象範囲: \`${{ steps.range.outputs.prev }}..HEAD\`"
-            echo "- 判定: \`${{ steps.notes.outputs.status }}\`"
+            echo "- 対象範囲: \`${RANGE_PREV}..HEAD\`"
+            echo "- 判定: \`${NOTES_STATUS}\`"
             echo ""
             if [ -f /tmp/discord-payload.json ]; then
               echo "### 配信本文"
@@ -1269,6 +1275,7 @@ jobs:
           STATUS: ${{ needs.deploy.result }}
           E2E_STATUS: ${{ needs.e2e-production.result }}
           VERSION: ${{ needs.deploy.outputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "::warning::DISCORD_WEBHOOK_URL secret is not set. Skipping Discord notification."
@@ -1293,7 +1300,7 @@ jobs:
                 \"fields\": [
                   {\"name\": \"Commit\", \"value\": \"\`$(echo ${{ github.sha }} | cut -c1-7)\`\", \"inline\": true},
                   {\"name\": \"Author\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                  {\"name\": \"Branch/Tag\", \"value\": \"${{ github.ref_name }}\", \"inline\": true}
+                  {\"name\": \"Branch/Tag\", \"value\": \"$REF_NAME\", \"inline\": true}
                 ]
               }]
             }" || echo "::warning::Discord 通知の送信に失敗した (HTTP エラーなら webhook の Secret が有効か、それ以外は名前解決・接続・タイムアウトを確認する。詳細は直前の curl のエラー出力)"

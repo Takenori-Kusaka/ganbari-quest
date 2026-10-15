@@ -309,6 +309,9 @@ jobs:
       - name: No waitForTimeout in scripts/ check (#1208)
         run: node scripts/check-no-waitfortimeout.mjs
 
+      - name: Workflow run 本文の式展開 (script injection) check (#4570)
+        run: node scripts/check-workflow-run-expressions.mjs
+
       - name: Scripts unit tests (node:test, scripts/__tests__/ 全件)
         # vitest config は tests/unit/** / tests/integration/** のみを見るため
         # scripts/__tests__/*.test.mjs は vitest の対象外 (#2259 C3)。node --test を CI gate に
@@ -1151,7 +1154,9 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Fetch base ref
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
 
       - name: Check newly required env / secret distribution evidence (ADR-0024 ルール 5)
         env:
@@ -1180,7 +1185,9 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Fetch base ref
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
 
       - name: Check schema change has tests (archive ADR-0031 schema-change-compat-testing, warn only)
         env:
@@ -1210,7 +1217,9 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Fetch base ref
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
 
       - name: Check destructive schema change syncs lazy-startup-migrations (#2520 AC6/AC7)
         env:
@@ -1425,7 +1434,8 @@ jobs:
             exit 0
           fi
           echo "advisory: $ADVISORY"
-          if ! PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)"); then
+          # $ADVISORY を node -e の本文へ連結しない (コード注入の形になる、#4570)。同じ file を読み直す。
+          if ! PASS=$(node -e "const a=require('./integration-evidence/evidence.json').mergeReadinessAdvisory||{};console.log(a.advisoryPass===true)"); then
             PASS=false
           fi
           {
