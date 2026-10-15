@@ -208,6 +208,46 @@ jobs:
             echo "::notice::SSM $PARAM_NAME created"
           fi
 
+      # #5064: cdk diff が context cookie の署名鍵 (CONTEXT_TOKEN_SECRET) を公開ログに出さない。
+      # この値は SSM から CFN parameter 経由で解決されるため secrets.* ではなく、SSM と Lambda env が
+      # 食い違うと `cdk diff` が `[-] 旧値` / `[+] 新値` を平文で出す (このリポジトリの Actions ログは公開)。
+      # diff より前に SSM の現行値と deploy 済みの Lambda env の値を add-mask で登録する。
+      # 値はシェル変数にだけ持ち、add-mask 以外の行には出さない (xtrace を有効にしない)。
+      # 読めないまま diff に進むと伏せ字にできないので止める (まだ無い場合だけは伏せる値が無いので通す)。
+      - name: Mask context token secret (SSM + deployed Lambda env)
+        env:
+          CONTEXT_TOKEN_SSM_PARAM: /ganbari-quest-staging/context-token-secret
+        run: |
+          mask_if_present() {
+            if [ -n "$1" ] && [ "$1" != "None" ]; then
+              echo "::add-mask::$1"
+            fi
+          }
+          if ! ssm_value=$(aws ssm get-parameter --name "$CONTEXT_TOKEN_SSM_PARAM" --region "$AWS_REGION" \
+              --query 'Parameter.Value' --output text 2>"$RUNNER_TEMP/ctx-mask-ssm.err"); then
+            if grep -q 'ParameterNotFound' "$RUNNER_TEMP/ctx-mask-ssm.err"; then
+              echo "::notice::$CONTEXT_TOKEN_SSM_PARAM がまだ無いため、SSM 側に伏せ字にする値はありません"
+              ssm_value=""
+            else
+              echo "::error::SSM の署名鍵を読めませんでした。伏せ字にしないまま cdk diff を出すと、鍵を差し替えた deploy で新旧の値が公開ログに出るため止めます。再実行してください (#5064)"
+              exit 1
+            fi
+          fi
+          mask_if_present "$ssm_value"
+          if ! lambda_value=$(aws lambda get-function-configuration \
+              --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+              --query 'Environment.Variables.CONTEXT_TOKEN_SECRET' --output text 2>"$RUNNER_TEMP/ctx-mask-lambda.err"); then
+            if grep -q 'ResourceNotFoundException' "$RUNNER_TEMP/ctx-mask-lambda.err"; then
+              echo "::notice::$LAMBDA_FUNCTION がまだ無いため、Lambda 側に伏せ字にする値はありません"
+              lambda_value=""
+            else
+              echo "::error::deploy 済みの署名鍵を読めませんでした。伏せ字にしないまま cdk diff を出すと旧い値が公開ログに出るため止めます。再実行してください (#5064)"
+              exit 1
+            fi
+          fi
+          mask_if_present "$lambda_value"
+          echo "::notice::署名鍵 (CONTEXT_TOKEN_SECRET) を、以降のログで伏せ字にしました"
+
       # Step 7: ADR-0019 gate (Storage) — Replacement / Destroy を deploy 前に検知し、
       # 未承認なら exit 1 で停止する (scripts/check-cdk-replacement.mjs 再利用、#1400)。
       - name: CDK diff — replacement check (StorageStaging)
