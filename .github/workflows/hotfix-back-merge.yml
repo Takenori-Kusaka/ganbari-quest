@@ -228,9 +228,14 @@ jobs:
           fi
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$APP_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
-          export GIT_CONFIG_COUNT=1
+          # actions/checkout は GITHUB_TOKEN の Authorization を同じキーに既に入れている。
+          # extraheader は複数値のため、足すだけだとヘッダが 2 本になり GitHub が 400 を返す。
+          # 空値で一度リストを空にしてから App token のヘッダを入れる (空値 = リセット、git-config(1))。
+          export GIT_CONFIG_COUNT=2
           export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
-          export GIT_CONFIG_VALUE_0="$AUTH_HEADER"
+          export GIT_CONFIG_VALUE_0=""
+          export GIT_CONFIG_KEY_1="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_1="$AUTH_HEADER"
           git push "https://github.com/$GITHUB_REPOSITORY.git" \
             "$BRANCH" --force-with-lease || \
           git push "https://github.com/$GITHUB_REPOSITORY.git" \
