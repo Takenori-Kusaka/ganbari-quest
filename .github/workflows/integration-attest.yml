@@ -121,12 +121,13 @@ jobs:
         # (script injection 定石、#3745)
         env:
           TARGET_SHA: ${{ inputs.sha || github.sha }}
+          CLASSIFY_REASON: ${{ steps.classify.outputs.reason }}
         run: |
           {
             echo "## integration-attest: no-op";
             echo "";
             echo "- 対象 SHA: \`$TARGET_SHA\`";
-            echo "- 理由: ${{ steps.classify.outputs.reason }}";
+            echo "- 理由: $CLASSIFY_REASON";
             echo "";
             echo "統合 PR (base=main + head=develop|release/*) の merge ではないため attestation を発行しません (silent fail なし)。";
           } >> "$GITHUB_STEP_SUMMARY"

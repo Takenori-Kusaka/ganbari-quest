@@ -1,11 +1,12 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
 import { CATEGORIES } from '$lib/domain/categories';
 import { CHEER_POINTS } from '$lib/domain/constants/cheer-points';
 import { isFreeTextMessageUnlocked } from '$lib/domain/free-text-message-gate';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+// #4512: 既定カテゴリ名は categories.ts (SSOT) から引く (旧: 画面側に直書き)
+import { POINT_TERMS } from '$lib/domain/terms';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -270,7 +271,7 @@ $effect(() => {
 						<dt class="text-[var(--color-text-muted)]">{CHEER_LABELS.confirmReasonLabel}</dt>
 						<dd class="text-[var(--color-text)] font-medium">{reason.trim() || '—'}</dd>
 						<dt class="text-[var(--color-text-muted)]">{CHEER_LABELS.confirmPointsLabel}</dt>
-						<dd class="text-[var(--color-text)] font-medium">+{points}P</dd>
+						<dd class="text-[var(--color-text)] font-medium">+{points} {POINT_TERMS.unit}</dd>
 						<dt class="text-[var(--color-text-muted)]">{CHEER_LABELS.confirmCategoryLabel}</dt>
 						<dd class="text-[var(--color-text)] font-medium">{category}</dd>
 						<dt class="text-[var(--color-text-muted)]">{CHEER_LABELS.confirmIconLabel}</dt>
@@ -319,7 +320,7 @@ $effect(() => {
 								<p class="text-sm font-bold text-[var(--color-text)]">
 									{msg.body ?? ''}
 									{#if msg.bonusPoints}
-										<span class="text-[var(--color-action-primary)]"> +{msg.bonusPoints}P</span>
+										<span class="text-[var(--color-action-primary)]"> +{msg.bonusPoints} {POINT_TERMS.unit}</span>
 									{/if}
 								</p>
 								{#if msg.rewardCategory}

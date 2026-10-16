@@ -58,7 +58,7 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	multiplierLabel: '倍率',
 	multiplierApplyButton: '適用',
 	bonusFormulaPreview: (age: number, multiplier: number) =>
-		`→ ${age}歳 × 100pt × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)}pt`,
+		`→ ${age}歳 × 100 ポイント × ${multiplier}倍 = ${Math.round(age * 100 * multiplier)} ポイント`,
 	deleteConfirmText: `この${CHILD_TERMS.honorific}を本当に削除しますか？`,
 	deleteConfirmButton: '本当に削除',
 	deleteCancelButton: 'やめる',

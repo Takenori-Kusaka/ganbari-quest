@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { todayDateJST, weekEndOfDateJST, weekStartOfDateJST } from '$lib/domain/date-utils';
 import { pickOmikujiRank } from '$lib/domain/stamp-image';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import {
 	findCardByChildAndWeek,
@@ -233,7 +234,7 @@ export async function stampToday(
 				childId,
 				amount: instantPoints,
 				type: 'stamp_instant',
-				description: `スタンプ押印 +${instantPoints}pt (${omikujiRank})`,
+				description: `スタンプ押印 +${instantPoints} ${POINT_TERMS.unit} (${omikujiRank})`,
 			},
 			tenantId,
 		);

@@ -358,6 +358,16 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 **この規約に機械強制は無い。レビューで担保する。**（文言が第一層/第二層のどちらに属すべきかは意味の判断であり、lint では決まらない。個別の回帰は `tests/unit/domain/legal-labels.test.ts` が「第二層に法定記載が在る」「第一層に固有名詞が無い」の対で固定している）
 
+### ポイントの単位は「ポイント」1 つ（#4567）
+
+子供画面・親画面とも、ポイントの単位は `POINT_TERMS.unit`（「ポイント」）に統一する。`P` / `pt` は使わない（略号は読めない子がいる。preschool はひらがな方針でラテン文字も避ける）。通貨換算モードの家庭は従来どおり通貨表記。
+
+- **親画面だけの例外**: 表の列やバッジなど**幅が足りず折り返す箇所に限り**略号を許す。使うなら `POINT_TERMS.unitCompact`（P）の 1 種だけ。`pt` は使わない。子供画面では使わない
+- 数値と単位の連結は `formatPointValue*`（`src/lib/domain/point-display.ts`）に任せる。狭い箇所は `{ compact: true }`
+- ラベルで単位を書くときは `POINT_TERMS.unit` を参照する（文字列に `P` / `pt` を直書きしない）
+
+**この規約に機械強制は無い。レビューで担保する。**（`tests/unit/domain/point-display.test.ts` が formatter の出力だけを固定している）
+
 ### 禁忌（terms.ts atom 関連、ADR-0045）
 
 | 禁止事項 | 理由 | 検出方法 |

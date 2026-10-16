@@ -1,6 +1,17 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import type { HTMLAttributes } from 'svelte/elements';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
+
+/**
+ * 重大度は色 + アイコンだけでなく、視覚的に隠れたラベル (sr-only) でも伝える (#4572)。
+ * アイコンは aria-hidden のため、ラベルが無いとスクリーンリーダー利用者には danger と info の区別が届かない。
+ *
+ * **role="alert" は動的に挿入されたときだけ読み上げられる。** ページ描画時から在る Alert は
+ * 読み上げ通知されず、利用者が読み進めたときに本文として読まれる。だから重大度のラベルは
+ * role に頼らず本文側に持たせている。「操作の結果として後から出す」Alert と「最初から在る」Alert で
+ * 読み上げの期待が違う点に注意する。
+ */
 
 type Variant = 'success' | 'warning' | 'danger' | 'info';
 
@@ -37,6 +48,7 @@ const iconMap: Record<Variant, string> = {
 >
 	<span class="shrink-0 text-base" aria-hidden="true">{iconMap[variant]}</span>
 	<div class="flex-1">
+		<span class="sr-only">{UI_PRIMITIVES_LABELS.alertSeverity[variant]}</span>
 		{#if message}
 			<p>{message}</p>
 		{/if}

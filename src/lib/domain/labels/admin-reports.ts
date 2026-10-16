@@ -1,6 +1,6 @@
 // labels 層 (ADR-0045 / #4965): 親の管理画面 /admin/reports。置き場所の規則は docs/DESIGN.md §6
 import { adminScreenHeading } from '../admin-screens';
-import { CHILD_TERMS, WEEKDAY_TERMS } from '../terms';
+import { CHILD_TERMS, POINT_TERMS, WEEKDAY_TERMS } from '../terms';
 
 export const REPORTS_LABELS = {
 	// #4512: カテゴリ名は categories.ts (SSOT) から引く。ここに持つのは
@@ -35,7 +35,7 @@ export const REPORTS_LABELS = {
 	// #4697: 月次の「ポイント」は台帳のその月の獲得合計 (子供画面の所持ポイントと同じ単位)。
 	// 旧実装は XP 累計を出しており、どの月でも同じ数 = 先月比が常に ±0 だった。
 	monthlyPointsLabel: 'ポイント',
-	monthlyPointsUnit: 'pt',
+	monthlyPointsUnit: POINT_TERMS.unit,
 	monthlyPointsHint: '今月ためた分',
 	// #4697: XP は「ポイント」と別の量 (消費されない成長の累計)。名前を分けて併記する。
 	monthlyXpLabel: 'つよさ (XP)',
@@ -74,7 +74,7 @@ export const REPORTS_LABELS = {
 	weeklyActivityLabel: '活動',
 	weeklyActivityUnit: '回',
 	weeklyPointsLabel: 'ポイント',
-	weeklyPointsUnit: 'pt',
+	weeklyPointsUnit: POINT_TERMS.unit,
 	weeklyAchievementsLabel: '実績',
 	weeklyAchievementsUnit: '獲得',
 	weeklyHighlightsTitle: '🏆 今週のハイライト',

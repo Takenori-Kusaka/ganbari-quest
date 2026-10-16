@@ -1,6 +1,7 @@
 <script lang="ts">
 import { getChildStampLabels, STAMP_PRESS_N_MESSAGES } from '$lib/domain/labels';
 import { getStampImagePathSafe } from '$lib/domain/stamp-image';
+import { POINT_TERMS } from '$lib/domain/terms';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -243,7 +244,7 @@ function handleClose() {
 				</div>
 
 				<div class="sp__weekly-points">
-					<p class="sp__points-value sp__points-value--big" data-testid="stamp-weekly-points">+{weeklyRedeem?.points ?? 0}pt</p>
+					<p class="sp__points-value sp__points-value--big" data-testid="stamp-weekly-points">+{weeklyRedeem?.points ?? 0} {POINT_TERMS.unit}</p>
 					{#if weeklyRedeem?.completeBonus}
 						<p class="sp__weekly-bonus">{t.stampPressWeeklyBonus(weeklyRedeem.completeBonus)}</p>
 					{/if}

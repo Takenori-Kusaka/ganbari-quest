@@ -2,6 +2,7 @@
 // #2775 (Issue #2774 Phase 2): rule-preset exchange の `<a href>` 統一移行に伴い
 // `enhance` / `invalidateAll` / `NativeSelect` は本ファイルで未使用となったため import 撤去。
 // 5 type 全てが `<a href="/admin/<page>?import=">` に統一され server action 経由 form 取込は消滅。
+
 import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
@@ -16,6 +17,7 @@ import {
 	MARKETPLACE_TYPE_LABELS,
 	PERSONA_LABELS,
 } from '$lib/domain/marketplace-item';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { buildLoginHrefWithNext } from '$lib/domain/validation/login-redirect';
 import { isBrowseableMarketplaceType } from '$lib/marketplace/types';
 import Badge from '$lib/ui/primitives/Badge.svelte';
@@ -298,7 +300,7 @@ function deselectAllActivities() {
 									<p class="text-xs text-[var(--color-text-tertiary)]">{act.triggerHint}</p>
 								{/if}
 							</div>
-							<span class="text-xs text-[var(--color-text-tertiary)]">+{act.basePoints}P</span>
+							<span class="text-xs text-[var(--color-text-tertiary)]">+{act.basePoints} {POINT_TERMS.unit}</span>
 						</label>
 					{/each}
 				</div>
@@ -314,7 +316,7 @@ function deselectAllActivities() {
 									<p class="text-xs text-[var(--color-text-tertiary)]">{reward.description}</p>
 								{/if}
 							</div>
-							<span class="text-xs text-[var(--color-text-tertiary)]">{reward.points}P</span>
+							<span class="text-xs text-[var(--color-text-tertiary)]">{reward.points} {POINT_TERMS.unit}</span>
 						</div>
 					{/each}
 				</div>
@@ -340,12 +342,12 @@ function deselectAllActivities() {
 							<p class="text-xs text-[var(--color-text-secondary)] ml-8">{rule.description}</p>
 							{#if rule.pointCost}
 								<p class="text-xs text-[var(--color-status-error)] ml-8 mt-1">
-									{MARKETPLACE_LABELS.detailRulePointCost}: {rule.pointCost}P
+									{MARKETPLACE_LABELS.detailRulePointCost}: {rule.pointCost} {POINT_TERMS.unit}
 								</p>
 							{/if}
 							{#if rule.pointBonus}
 								<p class="text-xs text-[var(--color-status-success)] ml-8 mt-1">
-									{MARKETPLACE_LABELS.detailRulePointBonus}: +{rule.pointBonus}P
+									{MARKETPLACE_LABELS.detailRulePointBonus}: +{rule.pointBonus} {POINT_TERMS.unit}
 								</p>
 							{/if}
 						</div>

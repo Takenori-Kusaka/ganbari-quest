@@ -17,6 +17,7 @@ import {
 	jstMinuteOfDay,
 	todayDateJST,
 } from '$lib/domain/date-utils';
+import { POINT_TERMS } from '$lib/domain/terms';
 import {
 	countLogsBetween,
 	deleteByEndpoint,
@@ -405,7 +406,7 @@ export async function sendAchievementNotification(
 			tenantId,
 			'achievement',
 			'きろく完了！',
-			`${formatChildName(data.childName, 'subject')}「${data.activityName}」を がんばったよ！ +${data.totalPoints}P`,
+			`${formatChildName(data.childName, 'subject')}「${data.activityName}」を がんばったよ！ +${data.totalPoints} ${POINT_TERMS.unit}`,
 			{ type: 'achievement' },
 		);
 	}

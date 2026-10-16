@@ -6,6 +6,9 @@
  * (= 獲得ポイント、整数) と一致しない虚偽の数値を子供に見せていた。
  * 増分は必ず xpAfter - xpBefore から導出する。表示の唯一の出所を本 component に集約し、
  * 呼び出し側 (home/+page.svelte) が数値を組み立て直せないようにする。
+ *
+ * #4567: けいけんちはゲーム進行の指標であり、ポイントの単位にも通貨換算にも乗せない。
+ * 通貨モードの家庭ではポイント行が「+¥50」、この行が「+50」と並ぶが、それが意図した表示である。
  */
 import { getCategoryDisplayName, getChildHomeLabels } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';

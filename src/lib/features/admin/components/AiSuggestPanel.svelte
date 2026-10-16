@@ -1,6 +1,7 @@
 <script lang="ts">
 import { splitIcon } from '$lib/domain/icon-utils';
 import { FEATURES_LABELS } from '$lib/domain/labels';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import ProgressMessage from '$lib/ui/components/ProgressMessage.svelte';
@@ -137,7 +138,7 @@ function acceptPreview() {
 				<div class="flex-1">
 					<p class="font-bold text-[var(--color-text)]">{aiPreview.nameKanji || aiPreview.name}</p>
 					<p class="text-xs text-[var(--color-text-disabled)]">
-						{getCategoryById(aiPreview.categoryId)?.name ?? ''} / {aiPreview.basePoints}P
+						{getCategoryById(aiPreview.categoryId)?.name ?? ''} / {aiPreview.basePoints} {POINT_TERMS.unit}
 					</p>
 					{#if aiPreview.nameKana || aiPreview.nameKanji}
 						<p class="text-xs text-[var(--color-text-disabled)] mt-0.5">

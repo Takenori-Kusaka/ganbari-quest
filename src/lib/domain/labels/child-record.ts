@@ -141,7 +141,7 @@ const CHILD_PARENT_MESSAGE_LABELS = {
 	parentMessageBody: (body: string) => `「${body}」`,
 	parentMessageConfirmBtn: 'うれしい！',
 	/** #4688 (F4): 応援メッセージに付いたボーナスポイント (親が付けた額をそのまま出す) */
-	parentMessageBonusPoints: (points: number | string) => `+${points}pt もらったよ！`,
+	parentMessageBonusPoints: (points: number | string) => `+${points} ポイント もらったよ！`,
 } as const;
 
 /**
@@ -159,7 +159,7 @@ const CHILD_PARENT_MESSAGE_KANJI_OVERRIDES = {
 	parentMessageTitle: '💌 応援メッセージ',
 	parentMessageFrom: `${PARENT_TERMS.honorific}からのメッセージ`,
 	parentMessageConfirmBtn: 'OK',
-	parentMessageBonusPoints: (points: number | string) => `+${points}pt 受け取りました`,
+	parentMessageBonusPoints: (points: number | string) => `+${points} ポイント 受け取りました`,
 } as const satisfies Partial<ChildParentMessageLabels>;
 
 /** 応援メッセージ dialog の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
@@ -190,7 +190,7 @@ const CHILD_STAMP_LABELS = {
 	// ---- StampCard ----
 	stampCardTitle: 'スタンプカード',
 	stampCardPeriod: (start: string, end: string) => `${start}〜${end}`,
-	stampCardRedeemed: (points: number) => `✅ ${points}pt もらったよ！`,
+	stampCardRedeemed: (points: number) => `✅ ${points} ポイント もらったよ！`,
 	stampCardComplete: '🎊 コンプリート！',
 	stampCardCompleteSub: '週明けにボーナスポイントがもらえるよ！',
 	stampCardStampedToday: '✅ きょうはもうおしたよ！',
@@ -207,21 +207,21 @@ const CHILD_STAMP_LABELS = {
 	stampPressWeeklyTitle: '先週のがんばり',
 	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} おしたよ！`,
 	stampPressWeeklyComplete: 'コンプリート！',
-	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus}pt`,
+	stampPressWeeklyBonus: (bonus: number) => `コンプリートボーナス +${bonus} ポイント`,
 	stampPressWeeklyMessage: '今週もがんばろう！',
 	/** #4687 ②: 週 5 枠が埋まっている日のログイン (スタンプは押せない) */
 	stampPressAlreadyComplete: '今週はコンプリート！',
 	/** #4687 ③: おみくじログインボーナス (台帳に載る額をそのまま出す) */
 	stampPressLoginBonus: (rank: string, points: number | string) =>
-		`おみくじ ${rank}！ +${points}pt`,
-	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points}pt`,
+		`おみくじ ${rank}！ +${points} ポイント`,
+	stampPressLoginBonusNoRank: (points: number | string) => `ログインボーナス +${points} ポイント`,
 	/** #4687 ①: 複数週ぶんをまとめて交換したときの見出し */
 	stampPressWeeklyTitleMulti: (weeks: number) => `${weeks}週ぶんのがんばり`,
 	// #4913: 押印ぶん (instantPoints) が何に対する +Npt か分からず、おみくじぶんの +Npt と
 	// 並ぶと「+5pt」が 2 回連続で読める状態になっていた。おみくじ側と同じく「何の pt か」を
 	// 明示し、両方ある日は合計行を出す。
-	stampPressInstantPointsLabel: (points: number | string) => `スタンプ +${points}pt`,
-	stampPressTotalPointsLabel: (points: number | string) => `あわせて +${points}pt`,
+	stampPressInstantPointsLabel: (points: number | string) => `スタンプ +${points} ポイント`,
+	stampPressTotalPointsLabel: (points: number | string) => `あわせて +${points} ポイント`,
 } as const;
 
 /**
@@ -236,14 +236,14 @@ type ChildStampLabels = {
 
 /** 13-18 歳 (junior / senior) の漢字変種。差分だけを持ち、ベースに spread で重ねる。 */
 const CHILD_STAMP_KANJI_OVERRIDES = {
-	stampCardRedeemed: (points: number) => `✅ ${points}pt 受け取り済み`,
+	stampCardRedeemed: (points: number) => `✅ ${points} ポイント 受け取り済み`,
 	stampCardCompleteSub: '週明けにボーナスポイントを受け取れます',
 	stampCardStampedToday: '✅ 今日は押印済み',
 	stampPressStreakLabel: (days: number) => `${days}日連続！`,
 	stampPressNextBtn: '次へ',
 	stampPressConfirmBtn: 'OK',
 	stampPressWeeklyCount: (filled: number, total: number) => `${filled}/${total} 達成`,
-	stampPressTotalPointsLabel: (points: number | string) => `合計 +${points}pt`,
+	stampPressTotalPointsLabel: (points: number | string) => `合計 +${points} ポイント`,
 } as const satisfies Partial<ChildStampLabels>;
 
 /** ログインボーナス受取 UI の文言を年齢帯で選ぶ (docs/DESIGN.md §8)。 */
