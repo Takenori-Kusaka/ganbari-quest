@@ -82,7 +82,11 @@ export default async (page, capture) => {
 		const next = bubble.locator('.guide-nav-next');
 		if (((await next.textContent()) ?? '').includes('かんりょう')) break;
 		await next.click();
-		await page.waitForTimeout(300);
+		await page.waitForFunction(
+			(prev) => document.querySelector('.guide-bubble')?.textContent !== prev,
+			text,
+			{ timeout: 5_000 },
+		);
 	}
 	await page.evaluate(
 		() =>
