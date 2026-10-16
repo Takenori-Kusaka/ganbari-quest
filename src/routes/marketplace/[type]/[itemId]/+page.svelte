@@ -300,7 +300,7 @@ function deselectAllActivities() {
 									<p class="text-xs text-[var(--color-text-tertiary)]">{act.triggerHint}</p>
 								{/if}
 							</div>
-							<span class="text-xs text-[var(--color-text-tertiary)]">+{act.basePoints}P</span>
+							<span class="text-xs text-[var(--color-text-tertiary)]">+{act.basePoints} {POINT_TERMS.unit}</span>
 						</label>
 					{/each}
 				</div>
@@ -316,7 +316,7 @@ function deselectAllActivities() {
 									<p class="text-xs text-[var(--color-text-tertiary)]">{reward.description}</p>
 								{/if}
 							</div>
-							<span class="text-xs text-[var(--color-text-tertiary)]">{reward.points}P</span>
+							<span class="text-xs text-[var(--color-text-tertiary)]">{reward.points} {POINT_TERMS.unit}</span>
 						</div>
 					{/each}
 				</div>

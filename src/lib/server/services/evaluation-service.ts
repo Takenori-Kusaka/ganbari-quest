@@ -3,6 +3,7 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 // 週次評価・日次ステータス減少サービス
 
 import { addDaysJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import { POINT_TERMS } from '$lib/domain/terms';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDecay, type DecayIntensity } from '$lib/domain/validation/status';
 import {
@@ -124,7 +125,7 @@ export async function evaluateChild(
 				childId,
 				amount: bonusPoints,
 				type: 'weekly_bonus',
-				description: `しゅうかんひょうかボーナス +${bonusPoints}P`,
+				description: `しゅうかんひょうかボーナス +${bonusPoints} ${POINT_TERMS.unit}`,
 			},
 			tenantId,
 		);
