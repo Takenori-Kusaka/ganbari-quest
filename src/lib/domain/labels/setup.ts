@@ -366,7 +366,7 @@ export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
 		'これらの初期値はあくまでスタート地点です。家族の使い方に合わせて、あとから自由に変更できます。',
 	defaultsSummaryTitle: '適用される初期設定',
 	defaultDecayLabel: 'ステータス減少: ふつう（最初の2日は減少しません）',
-	defaultPointModeLabel: 'ポイント表示: 「P」（あとで通貨換算も選べます）',
+	defaultPointModeLabel: `ポイント表示: 「${POINT_TERMS.unit}」（あとで通貨換算も選べます）`,
 	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力（家族みんなで取り組みます）',
 	// #4909: 撤去済み旧称「family」直書きを禁止（ADR-0045）。PLAN_FULL_TERMS.premium 経由にする。
 	defaultSiblingRankingLabel: `きょうだいランキング: OFF（${PLAN_FULL_TERMS.premium}で ON 可能）`,
