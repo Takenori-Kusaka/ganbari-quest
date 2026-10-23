@@ -177,7 +177,7 @@ jobs:
       - name: Build and start
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          # --pull: host に残った古い node:22-alpine を使わず、Node のセキュリティリリースを取り込む
+          # --pull: always re-resolve node:22-alpine so Node security releases are picked up (no stale host image)
           docker compose --profile backup --profile scheduler build --pull
           docker compose --profile backup --profile scheduler up -d
 
