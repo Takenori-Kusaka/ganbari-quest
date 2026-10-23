@@ -177,7 +177,8 @@ jobs:
       - name: Build and start
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          docker compose --profile backup --profile scheduler build
+          # --pull: host に残った古い node:22-alpine を使わず、Node のセキュリティリリースを取り込む
+          docker compose --profile backup --profile scheduler build --pull
           docker compose --profile backup --profile scheduler up -d
 
       # Step 4: Verify the service is healthy after deployment

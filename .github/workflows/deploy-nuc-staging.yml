@@ -222,7 +222,8 @@ jobs:
       - name: Build (staging)
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          docker compose -p ganbari-quest-staging build
+          # --pull: host に残った古い node:22-alpine を使わず、Node のセキュリティリリースを取り込む
+          docker compose -p ganbari-quest-staging build --pull
           if ($LASTEXITCODE -ne 0) { throw "docker compose build failed (exit $LASTEXITCODE)" }
 
       # Step 5.5 (EPIC #3620 AC-C5、PGlite lane のみ): cutover リハーサル。
