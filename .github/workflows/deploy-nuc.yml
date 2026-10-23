@@ -177,7 +177,8 @@ jobs:
       - name: Build and start
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          docker compose --profile backup --profile scheduler build
+          # --pull: always re-resolve node:22-alpine so Node security releases are picked up (no stale host image)
+          docker compose --profile backup --profile scheduler build --pull
           docker compose --profile backup --profile scheduler up -d
 
       # Step 4: Verify the service is healthy after deployment

@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { ChildId } from '$lib/domain/ids';
 import { FEATURES_LABELS, getAgeTierLabel, getThemeLabel } from '$lib/domain/labels';
+import { imageError } from '$lib/ui/actions/image-error';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface Props {
@@ -47,9 +48,9 @@ function formatBirthday(dateStr: string): string {
 						alt={child.nickname}
 						class="child-list-card__avatar-img"
 						loading="lazy"
-						onerror={() => {
+						{@attach imageError(() => {
 							imgFailed = true;
-						}}
+						})}
 					/>
 				{:else}
 					<span class="child-list-card__avatar-placeholder">👤</span>

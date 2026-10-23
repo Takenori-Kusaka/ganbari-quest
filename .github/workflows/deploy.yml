@@ -283,6 +283,9 @@ jobs:
             BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
             APP_MAJOR_VERSION=${{ env.APP_MAJOR_VERSION }}
           provenance: false
+          # base image (node:22-alpine) は floating tag。gha cache があっても毎回 registry から
+          # 解決し直し、Node のセキュリティリリースを確実に取り込む。
+          pull: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

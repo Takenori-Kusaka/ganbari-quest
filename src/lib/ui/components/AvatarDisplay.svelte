@@ -1,4 +1,6 @@
 <script lang="ts">
+import { imageError } from '$lib/ui/actions/image-error';
+
 interface Props {
 	nickname?: string;
 	avatarUrl?: string | null;
@@ -52,9 +54,9 @@ $effect(() => {
 				class="avatar-img"
 				style:width="{px - 6}px"
 				style:height="{px - 6}px"
-				onerror={() => {
+				{@attach imageError(() => {
 					imgFailed = true;
-				}}
+				})}
 			/>
 		{:else}
 			<span class="avatar-fallback" style:font-size={fontSize[size]}>👤</span>

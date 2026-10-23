@@ -22,14 +22,14 @@
 
 | 宣言 | 値 | 意味 |
 |---|---|---|
-| `.nvmrc` | `22.23.2` | CI が使う版。exact pin |
-| `package.json` の `engines.node` | `>=22.22.2 <23` | 下限 = `jsdom@30` の要求 / 上限 = `better-sqlite3` の ABI 束縛による major skew 防止 |
+| `.nvmrc` | `22.23.4` | CI が使う版。exact pin |
+| `package.json` の `engines.node` | `>=22.23.4 <23` | 下限 = Node のセキュリティリリース (2026-10-20、`fetch()` の Brotli 展開等) を含む版 / 上限 = `better-sqlite3` の ABI 束縛による major skew 防止 |
 | `.npmrc` の `engine-strict` | `true` | `engines` を**警告でなく install 失敗**にする。**外さない** — 外すと `engines` の宣言が飾りになる |
 
 ```bash
-nvm install 22.23.2   # .nvmrc の値
-nvm use 22.23.2
-node -v               # v22.23.2
+nvm install 22.23.4   # .nvmrc の値
+nvm use 22.23.4
+node -v               # v22.23.4
 ```
 
 **PATH に古い node が残っていると、新しい方を隠す。** `nvm` の shim が効かない構成なら実体を確認する:
@@ -38,9 +38,9 @@ node -v               # v22.23.2
 where node            # Windows / Git Bash。複数出たら先頭が使われる
 ```
 
-**`npm ci` が EBADENGINE で落ちたとき、別 major に上げない（#4199）。** 22 系のまま patch を上げれば通る。実例: `jsdom@30` の要求は `^22.22.2 || ^24.15.0 || >=26.0.0` で、ローカルが `22.19.0` だったため落ちた — **「22 系では満たせない」のではなく「22 系が古すぎた」だけ**で、`22.23.2` に上げれば解決する。
+**`npm ci` が EBADENGINE で落ちたとき、別 major に上げない（#4199）。** 22 系のまま patch を上げれば通る。実例: `jsdom@30` の要求は `^22.22.2 || ^24.15.0 || >=26.0.0` で、ローカルが `22.19.0` だったため落ちた — **「22 系では満たせない」のではなく「22 系が古すぎた」だけ**で、`22.23.4` に上げれば解決する。
 
-すでに 24 系が入っている場合も**アンインストールは不要**。`nvm use 22.23.2` で 22 系に切り替えるだけでよい（24 を消す必要はない）。**リポジトリは Dockerfile / Lambda runtime / workflow すべて 22 で、24 を宣言している箇所は 1 つも無い** — ローカルだけ 24 にすると、本番と別 major で開発することになる。この一致は `tests/unit/architecture/node-version-single-source.test.ts` が CI で検査する。
+すでに 24 系が入っている場合も**アンインストールは不要**。`nvm use 22.23.4` で 22 系に切り替えるだけでよい（24 を消す必要はない）。**リポジトリは Dockerfile / Lambda runtime / workflow すべて 22 で、24 を宣言している箇所は 1 つも無い** — ローカルだけ 24 にすると、本番と別 major で開発することになる。この一致は `tests/unit/architecture/node-version-single-source.test.ts` が CI で検査する。
 
 ---
 
@@ -54,7 +54,7 @@ cd ganbari-quest-<role>
 git checkout develop
 
 # 2. Node を .nvmrc に合わせる（§2）
-nvm use 22.23.2 && node -v
+nvm use 22.23.4 && node -v
 
 # 3. 依存 install — 2 ステップとも必要
 npm ci
