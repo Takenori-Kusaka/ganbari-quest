@@ -105,7 +105,7 @@
 		"@storybook/addon-svelte-csf": "^5.1.5",
 		"@storybook/addon-vitest": "^10.6.2",
 		"@storybook/sveltekit": "^10.6.2",
-		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-auto": "^8.0.0",
 		"@sveltejs/adapter-node": "5.5.7",
 		"@sveltejs/kit": "2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
