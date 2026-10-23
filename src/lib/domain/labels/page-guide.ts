@@ -43,6 +43,7 @@ import {
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
+	POINT_TERMS,
 	POINTS_ADMIN_TERMS,
 	REWARD_ADMIN_TERMS,
 	REWARD_TERMS,
@@ -227,8 +228,8 @@ export const PAGE_GUIDE_LABELS = {
 			// ④ 今週のカードの見方 (1 件以上あるときだけ描画 → optional)
 			'challenges-card': {
 				title: '画面の見方（今週のカード）',
-				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「報酬 N P」（P はポイント）が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
-				how: `1. 進捗バーで達成までの距離を確認します\n2. 「報酬 N P」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
+				what: `上に今週の${CHALLENGE_TERMS.canonical}、その下に過去の履歴が並びます。カードには期間中を表す「開催中」、全員が達成した「全員クリア！」のしるしと、達成でもらえる「${REWARD_TERMS.canonical} N ${POINT_TERMS.unit}」が表示されます。同じ週の${CHALLENGE_TERMS.canonical}は、お子さまごとの進捗が 1 枚のカードに並びます。`,
+				how: `1. 進捗バーで達成までの距離を確認します\n2. 「${REWARD_TERMS.canonical} N ${POINT_TERMS.unit}」で達成時にもらえるポイントを確認します\n3. ポイントはお子さまが自分のホーム画面で受け取ります（保護者の操作は不要です）`,
 				goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
 			},
 			// ⑤ 削除 (カードが 1 件以上あるときだけ描画 → optional)

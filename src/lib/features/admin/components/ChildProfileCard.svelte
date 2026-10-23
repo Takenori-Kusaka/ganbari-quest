@@ -16,6 +16,7 @@ import {
 	getUnitLabel,
 } from '$lib/domain/point-display';
 import type { CategoryDef } from '$lib/domain/validation/activity';
+import { imageError } from '$lib/ui/actions/image-error';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -280,9 +281,9 @@ $effect(() => {
 								src={avatarSrc}
 								alt={child.nickname}
 								class="profile-edit__avatar-img"
-								onerror={() => {
+								{@attach imageError(() => {
 									imgFailed = true;
-								}}
+								})}
 							/>
 						{:else}
 							<span class="profile-edit__avatar-placeholder">👤</span>
@@ -482,9 +483,9 @@ $effect(() => {
 						src={avatarSrc}
 						alt={child.nickname}
 						class="profile-header__avatar-img"
-						onerror={() => {
+						{@attach imageError(() => {
 							imgFailed = true;
-						}}
+						})}
 					/>
 				{:else}
 					<span class="profile-header__avatar-placeholder">👤</span>

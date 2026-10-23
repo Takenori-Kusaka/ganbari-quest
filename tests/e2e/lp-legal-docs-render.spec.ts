@@ -33,6 +33,11 @@ const MIME: Record<string, string> = {
 let server: Server;
 let baseUrl: string;
 
+// playwright.config.ts の `extraHTTPHeaders.Origin` (app server 向けの CSRF 対策) を外す。
+// この spec はページを別 origin の静的 server から配信するため、Origin が実際の origin と食い違い、
+// Chrome 156 以降はその不一致を理由にサブリソース (CSS / JS / 画像) の要求を拒否する (net::ERR_INVALID_ARGUMENT)。
+test.use({ extraHTTPHeaders: {} });
+
 test.beforeAll(async () => {
 	await new Promise<void>((resolvePromise, rejectPromise) => {
 		server = createServer((req, res) => {

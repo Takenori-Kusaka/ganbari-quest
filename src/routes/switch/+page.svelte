@@ -14,6 +14,7 @@ import {
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import { resolvePinVerifyError } from '$lib/features/parent-gate/pin-verify-error';
+import { imageError } from '$lib/ui/actions/image-error';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -331,9 +332,9 @@ async function handlePinComplete(details: { valueAsString: string }) {
 									alt={child.nickname}
 									class="w-12 h-12 rounded-full object-cover border-2 border-[var(--theme-primary)] shrink-0"
 									loading="lazy"
-									onerror={() => {
+									{@attach imageError(() => {
 										avatarFailedIds = { ...avatarFailedIds, [String(child.id)]: true };
-									}}
+									})}
 								/>
 							{:else}
 								<span class="text-[2.5rem] shrink-0">👤</span>
