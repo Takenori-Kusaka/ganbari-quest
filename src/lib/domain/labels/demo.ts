@@ -37,15 +37,15 @@ export const DEMO_LABELS = {
 	 * #2097 Phase B Bug 2: demo Lambda では Cognito 未注入のため /auth/signup を
 	 * relative で叩くと中途半端な signup 画面 (失敗確定) が表示される。本番 (Cognito)
 	 * への absolute URL に固定する。
-	 * #2261 (2026-05-19 PO 報告): exitHref と同じく www. canonical に統一。
+	 * アプリ (/auth/*) は apex で配信される。www. は LP 専用で /auth/* が 404 になるため apex に向ける。
 	 */
-	signupHref: 'https://www.ganbari-quest.com/auth/signup',
+	signupHref: 'https://ganbari-quest.com/auth/signup',
 	/**
 	 * ログイン CTA 先。
 	 * #4712: demo Lambda には Cognito が無いため relative `/auth/login` はフォームだけ出て
 	 * 送信しても何も起きない (write no-op)。signupHref と同じく本番 absolute に固定する。
 	 */
-	loginHref: 'https://www.ganbari-quest.com/auth/login',
+	loginHref: 'https://ganbari-quest.com/auth/login',
 } as const;
 
 // ============================================================
