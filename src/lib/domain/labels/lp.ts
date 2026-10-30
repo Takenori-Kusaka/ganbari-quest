@@ -897,12 +897,11 @@ export const LP_FLOATING_CTA_LABELS = {
 	midButton: 'デモを見る',
 	bottomButton: `${FREE_TERMS.tryFree}`,
 	// 各 phase の CTA href
-	// #2261 (2026-05-19 PO 報告): apex (ganbari-quest.com) ではなく www. canonical
-	// に統一。LP は www. で配信されているため apex 経由だと 301 リダイレクトが
-	// 挟まり UX 劣化（DemoBanner と同一 root cause、DEMO_LABELS.exitHref / signupHref 修正と同時対応）。
-	heroHref: 'https://www.ganbari-quest.com/auth/signup',
+	// アプリ (/auth/*) は apex (ganbari-quest.com) で配信される。www. は LP (GitHub Pages) 専用で /auth/* が無く 404 になる。
+	// signup / login など「アプリ側の画面」への href は apex に向ける (LP 静的ページだけ www.)。
+	heroHref: 'https://ganbari-quest.com/auth/signup',
 	midHref: 'https://demo.ganbari-quest.com/',
-	bottomHref: 'https://www.ganbari-quest.com/auth/signup',
+	bottomHref: 'https://ganbari-quest.com/auth/signup',
 	// aria-label（読み上げ用）
 	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
 	ariaLabelHero: `${TRIAL_PERIOD_TERMS.full}へのご案内`,
