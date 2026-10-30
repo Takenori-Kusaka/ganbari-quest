@@ -285,6 +285,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'src/lib/data/marketplace/activity-packs/ の 1 ディレクトリだけを読み、LP 訴求値と突合する (#4713)',
 	},
+	'tests/unit/domain/www-host-links-lp-only.test.ts': {
+		scope: 'repo',
+		note: 'src / site / scripts / infra/lambda を走査して、www.ganbari-quest.com が site/ に実在する静的ファイルだけを指すことを検査する',
+	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の settings 定義を走査して backup 分類の網羅を検査する',

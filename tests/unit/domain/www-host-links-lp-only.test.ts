@@ -48,7 +48,7 @@ describe('www.ganbari-quest.com は LP の静的ファイルだけを指す', ()
 		const files = scanTargets();
 		expect(files.length, '走査 0 件 = 検査の空振り').toBeGreaterThan(50);
 		expect(files.flatMap(badWwwUrls)).toEqual([]);
-	});
+	}, 60_000);
 
 	it('デモのサインアップ / ログイン先は、アプリのホスト (apex) を指す', () => {
 		expect(DEMO_LABELS.signupHref).toBe('https://ganbari-quest.com/auth/signup');
