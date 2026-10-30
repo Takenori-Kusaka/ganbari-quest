@@ -20,7 +20,7 @@
  *
  * AC マッピング (Issue #2097 Phase B + #2261 follow-up):
  *   - AC1: ctaStart = '本当に始める' (漢字)
- *   - AC2: signupHref = 'https://www.ganbari-quest.com/auth/signup' (absolute, www canonical)
+ *   - AC2: signupHref = 'https://ganbari-quest.com/auth/signup' (absolute, アプリのホスト = apex)
  *   - AC3: exitHref = 'https://www.ganbari-quest.com/' (absolute, www canonical)
  *   - AC4: 他フィールド (bannerTitle / bannerDescription / ctaExit) は変更されていない
  */
@@ -35,12 +35,12 @@ describe('DEMO_LABELS (#2097 Phase B: DemoBanner CTA / href SSOT)', () => {
 		expect(DEMO_LABELS.ctaStart).not.toContain('ほんとうに');
 	});
 
-	it('AC2: signupHref は www canonical absolute URL (apex 経由 301 リダイレクトを防ぐ、#2261)', () => {
-		expect(DEMO_LABELS.signupHref).toBe('https://www.ganbari-quest.com/auth/signup');
-		// relative path regression を検出
+	it('AC2: signupHref は apex (アプリのホスト) の absolute URL。www は LP 専用で /auth/* が 404 になる', () => {
+		expect(DEMO_LABELS.signupHref).toBe('https://ganbari-quest.com/auth/signup');
+		// relative path regression を検出 (demo Lambda では relative だと Cognito 未注入の画面になる)
 		expect(DEMO_LABELS.signupHref.startsWith('http')).toBe(true);
-		// apex (no www.) regression を構造的に検出 (#2261)
-		expect(DEMO_LABELS.signupHref).toMatch(/^https:\/\/www\./);
+		// www. regression を構造的に検出
+		expect(DEMO_LABELS.signupHref).not.toMatch(/^https:\/\/www\./);
 	});
 
 	it('AC3: exitHref は www canonical LP absolute URL (apex 経由 301 リダイレクト + /demo/exit 404 を防ぐ、#2261)', () => {
