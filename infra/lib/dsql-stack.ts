@@ -65,44 +65,31 @@ export class DsqlStack extends cdk.Stack {
 		}
 		const alarmAction = new cw_actions.SnsAction(topic);
 
-		// ── 3. コストガードレール alarm (#3431: TotalDPU / Storage の 2 本に限定。
-		//       可観測性 metric は alarm でなく dashboard で見る = 無料枠 10 alarm を温存) ──
-
-		// 無料枠 10 万 DPU/月 ≈ 3,225 DPU/日 (research doc 閾値)。日次 Sum で超過を検知。
-		const totalDpuAlarm = new cloudwatch.Alarm(this, 'TotalDpuDaily', {
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/AuroraDSQL',
-				metricName: 'TotalDPU',
-				dimensionsMap: dim,
-				statistic: 'Sum',
-				period: cdk.Duration.days(1),
-			}),
-			threshold: 3225,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			alarmDescription:
-				'DSQL TotalDPU が無料枠ペース (10万 DPU/月 ≈ 3,225/日) を超過 (#3431。DPU 単価: Write は Read の約 27 倍) 一次対応: docs/runbooks/dsql-alert-response.md',
-		});
-		totalDpuAlarm.addAlarmAction(alarmAction);
-
-		// 無料枠 1GB に 80% 接近で通知 (storage は $0.40/GB-month、消し忘れ検知)。
-		const storageAlarm = new cloudwatch.Alarm(this, 'StorageSize', {
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/AuroraDSQL',
-				metricName: 'ClusterStorageSize',
-				dimensionsMap: dim,
-				statistic: 'Maximum',
-				period: cdk.Duration.hours(6),
-			}),
-			threshold: 0.8 * 1024 * 1024 * 1024, // 0.8 GiB (bytes)
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			alarmDescription:
-				'DSQL storage が無料枠 1GB の 80% に接近 (#3431) 一次対応: docs/runbooks/dsql-alert-response.md',
-		});
-		storageAlarm.addAlarmAction(alarmAction);
+		// ── 3. コストガードレール alarm (#3431 / #5109)。
+		//       alarm は無料枠の 10 本に絞っている (#5109、本数は tests/unit/infra/cloudwatch-alarm-budget.test.ts)。
+		//       残すのは本番の TotalDPU 日次 1 本だけ。Storage は dashboard と Budgets で見る。
+		//       staging は使い捨てで DPU も小さいため alarm を作らない (作ると本番と同じく課金される)。
+		//       可観測性 metric は alarm でなく dashboard で見る。 ──
+		const isStaging = nameSuffix === '-staging';
+		if (!isStaging) {
+			// 無料枠 10 万 DPU/月 ≈ 3,225 DPU/日 (research doc 閾値)。日次 Sum で超過を検知。
+			const totalDpuAlarm = new cloudwatch.Alarm(this, 'TotalDpuDaily', {
+				metric: new cloudwatch.Metric({
+					namespace: 'AWS/AuroraDSQL',
+					metricName: 'TotalDPU',
+					dimensionsMap: dim,
+					statistic: 'Sum',
+					period: cdk.Duration.days(1),
+				}),
+				threshold: 3225,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+				alarmDescription:
+					'DSQL TotalDPU が無料枠ペース (10万 DPU/月 ≈ 3,225/日) を超過 (#3431。DPU 単価: Write は Read の約 27 倍) 一次対応: docs/runbooks/dsql-alert-response.md',
+			});
+			totalDpuAlarm.addAlarmAction(alarmAction);
+		}
 
 		// ── 4. Budgets ¥100 ガードレール (#3431: 80% / 100% の 2 段通知)。
 		//       Budgets は USD のみのため $1 (≈¥150) を上限とし、実質「課金が発生したら知る」。
@@ -208,7 +195,6 @@ export class DsqlStack extends cdk.Stack {
 		// 論理 backup として別レイヤー併存 (役割分担は data-model §6.4)。cluster ARN を **明示 assign**
 		// するため AWS Backup の Service Opt-in は不要 (explicit resource assignment は opt-in 設定に
 		// 依らず対象化される、AWS Backup 仕様)。staging は使い捨て (#2873) のため backup を省略する。
-		const isStaging = nameSuffix === '-staging';
 		if (!isStaging) {
 			const backupVault = new backup.BackupVault(this, 'DsqlBackupVault', {
 				backupVaultName: `ganbari-quest-dsql${nameSuffix}-vault`,

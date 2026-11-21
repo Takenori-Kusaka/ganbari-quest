@@ -4,13 +4,14 @@
 // #4399 で alarm の既定が「届ける」になったが、その通知は SNS → 転送 Lambda → Discord webhook
 // の一本道を通る。転送 Lambda は失敗を全経路で握り潰して例外を投げないため、**末端で捨てられた
 // 通知は Errors metric にも乗らず、誰にも分からない**。Discord は channel 単位の rate limit を
-// 持つので、16 alarm が同時に鳴る「最も通知が必要な瞬間」ほど 429 で消える。
+// 持つので、多数の alarm が同時に鳴る「最も通知が必要な瞬間」ほど 429 で消える。
 //
 // 3 層で固定する (ai-provider-unavailable-alarm.test.ts / entitlement-fail-closed-alarm.test.ts と同型):
 //
 //   [A] Lambda 実挙動 … 実 HTTP サーバ相手に成功 / 非 2xx / timeout / network を再現し、
 //                       metric 用の log が「出る / 出ない」を実測する
-//   [B] CDK 構造 …… MetricFilter 2 本 + 失敗 alarm が期待の namespace / 閾値 / 通知先で存在する
+//   [B] CDK 構造 …… MetricFilter 2 本が期待の namespace で存在する。失敗 alarm は #5109 で撤去した
+//                    (alarm は無料枠の 10 本に絞った)。転送の成否は 2 metric の Sum で読む
 //
 // [A] は CDK と同じ定数 (`ops-alert-log-terms.ts`) で実 log 行を照合するため、「filter を定義した
 // が 1 件もマッチしない」(= 作ったが効いていない) も同時に潰れる。書き手と読み手が同一 SSOT を
@@ -325,7 +326,7 @@ beforeAll(() => {
 	template = Template.fromStack(ops);
 }, 180_000);
 
-describe('[B] 転送の成否が metric 化され、失敗が alarm になる', () => {
+describe('[B] 転送の成否が metric 化される', () => {
 	it('成功 / 失敗の MetricFilter が転送 Lambda の LogGroup に付いている', () => {
 		template.hasResourceProperties('AWS::Logs::MetricFilter', {
 			FilterPattern: `"${OPS_ALERT_FORWARD_SUCCEEDED_LOG_TERM}"`,
@@ -352,32 +353,12 @@ describe('[B] 転送の成否が metric 化され、失敗が alarm になる', 
 		});
 	});
 
-	it('転送失敗 alarm が 1 件でも発火し、SNS に通知される', () => {
-		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-			AlarmName: ALARM_NAME,
-			MetricName: 'AlertForwardFailed',
-			Namespace: METRIC_NAMESPACE,
-			Threshold: 1,
-			EvaluationPeriods: 1,
-			ComparisonOperator: 'GreaterThanOrEqualToThreshold',
-			TreatMissingData: 'notBreaching',
-			AlarmActions: Match.anyValue(),
-			OKActions: Match.anyValue(),
-		});
-	});
-
-	it('方針表に entry があり notify: true (no-silent-gap gate が拾うことの確認)', () => {
-		const policy = ALARM_NOTIFY_POLICY[ALARM_NAME];
-		expect(
-			policy,
-			`${ALARM_NAME} が ALARM_NOTIFY_POLICY に未宣言です (ops-alert-policy.test.ts の ` +
-				'no-silent-gap がこれを検出するはずです)',
-		).toBeDefined();
-		expect(policy?.notify, '転送失敗の alarm を無音にしたら気付く手段が無くなります').toBe(true);
-		// 自己参照の限界 (この alarm 自身も同じ転送経路を通る) を reason に明記させる
-		expect(
-			policy?.reason ?? '',
-			'この alarm 自身が転送経路に依存するため、連鎖失敗時に何が起きるかを reason に書いてください',
-		).toMatch(/自己参照|同じ経路|同じ転送/);
+	it('転送失敗の alarm は作らず、方針表にも残さない (#5109)', () => {
+		const alarms = template.findResources('AWS::CloudWatch::Alarm');
+		const names = Object.values(alarms).map(
+			(r) => (r.Properties as { AlarmName: string }).AlarmName,
+		);
+		expect(names).not.toContain(ALARM_NAME);
+		expect(ALARM_NOTIFY_POLICY[ALARM_NAME]).toBeUndefined();
 	});
 });

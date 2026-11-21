@@ -93,10 +93,12 @@ jobs:
           echo "========================================"
           echo "  CloudWatch Alarms (expected: 10)"
           echo "========================================"
+          # 無料枠は alarm-metric 10 本 (#5109)。名前で絞らない — DSQL の alarm は
+          # CFN auto-naming (GanbariQuestDsql-...) で "ganbari-quest" の前方一致に入らない。
           aws cloudwatch describe-alarms \
-            --alarm-name-prefix "ganbari-quest" \
             --query 'MetricAlarms[].{Name:AlarmName,State:StateValue}' \
             --output table
+          echo "Total metric alarms: $(aws cloudwatch describe-alarms --query 'length(MetricAlarms)' --output text)"
 
           echo ""
           echo "========================================"

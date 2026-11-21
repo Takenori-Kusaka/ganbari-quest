@@ -250,11 +250,28 @@ describe('#3087 解決策 B — /_app/immutable/* S3 origin offload', () => {
 			});
 		});
 
-		it('#3402-1: static-assets bucket に request metrics (EntireBucket) が有効 (S3 origin 4xx/5xx alarm 用)', () => {
-			onTemplate.hasResourceProperties('AWS::S3::Bucket', {
-				BucketName: Match.stringLikeRegexp('^ganbari-quest-static-assets-'),
-				MetricsConfigurations: Match.arrayWith([Match.objectLike({ Id: 'EntireBucket' })]),
+		it('#5109: static-assets bucket に request metrics を付けない (読み手の S3 origin alarm を撤去したため)', () => {
+			const buckets = onTemplate.findResources('AWS::S3::Bucket', {
+				Properties: { BucketName: Match.stringLikeRegexp('^ganbari-quest-static-assets-') },
 			});
+			const entries = Object.values(buckets);
+			expect(entries).toHaveLength(1);
+			const props = (entries[0] as { Properties: Record<string, unknown> }).Properties;
+			expect(
+				props.MetricsConfigurations,
+				'request metrics は CloudWatch の有料 metric になる。読む alarm が無いのに付けない',
+			).toBeUndefined();
+		});
+
+		// #5109 Deploy-1: 本番の OpsStack は旧 template でこの bucket 名を import している。
+		// Network が先に更新されるため、export を同時に消すと in-use で deploy が止まる。
+		// Ops の import 消失が本番に反映されたら、network-stack.ts の exportValue と本 test を消す。
+		it('#5109: Ops が import していた bucket 名の export を Deploy-1 の間は残す', () => {
+			const outputs = onTemplate.findOutputs('*');
+			const exportNames = Object.values(outputs)
+				.map((o) => (o as { Export?: { Name?: string } }).Export?.Name ?? '')
+				.filter((n) => /:ExportsOutputRefStaticAssetsBucket/.test(n));
+			expect(exportNames).toHaveLength(1);
 		});
 
 		it('#3402-2: 本番 CDN が BucketDeployment(upload) に依存し、更新順序で 403 propagation 窓を塞ぐ', () => {

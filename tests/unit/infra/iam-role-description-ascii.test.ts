@@ -97,7 +97,6 @@ function buildAllTemplates(): Array<[string, Template]> {
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
-		staticAssetsBucket: network.staticAssetsBucket,
 		opsEmail: 'ops@example.com',
 	});
 	for (const [name, stack] of [
