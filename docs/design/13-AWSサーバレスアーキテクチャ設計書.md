@@ -264,7 +264,7 @@ alarm を持つ監視対象（何をどの層で捕まえるか）:
 | DSQL（本番） | 日次 TotalDPU（コストの暴走） |
 | コスト | 月額 Budget（実績と予測の段階通知。Budget は alarm の本数に数えない） |
 
-alarm を持たないもの（Lambda のスロットリング / 実行時間 / 同時実行数 / 4xx、AI のフォールバック率、VAPID 鍵の欠落、通知転送の成否、DSQL の storage）は、dashboard と metric（MetricFilter が作る `GanbariQuest/*` namespace）で見る。
+alarm を持たないもの（Lambda のスロットリング / 実行時間 / 同時実行数 / 4xx、AI のフォールバック率、VAPID 鍵の欠落、通知転送の成否、DSQL の storage）は、dashboard と metric（MetricFilter が作る `GanbariQuest/*` namespace）で見る。**通知は来ない**ので、気付くのは誰かが見に行ったときになる。特に Lambda のスロットリング（同時実行上限に当たると Function URL は 429 を返し、`lambda-errors` / `lambda-url-5xx` / `cloudfront-5xx` のどれにも乗らない）と、S3 origin の 4xx（下記）は、通知なしで顧客の画面が使えなくなりうる。これは #5109 で受容したリスクである。
 
 dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレイテンシ）がある。定義と目標は [32-SLI-SLO定義書](32-SLI-SLO定義書.md)。
 
@@ -305,7 +305,7 @@ dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレ�
   - **robustness (#3402、offload ON 時のみ)**:
     - **403 propagation 窓の解消 (#3402-2)**: distribution を `StaticAssetsDeploy`（BucketDeployment）に `addDependency` させ、初回有効化時に upload 完了後へ distribution 更新順序を強制する（S3 が空を指す 403 窓を塞ぐ）。Origin Group failover は #3087 の origin index preempt 不変条件を churn させるため不採用、CFN 依存で低リスク解決
     - **旧 hash 剪定 (#3402-3)**: `prune: false` の旧 content-hash 無限蓄積を、`_app/immutable/` prefix の **30 日 expiration lifecycle rule** で剪定（deploy window は数分、30 日以上前の hash は参照されない）
-    - **S3 origin の監視**: 専用 alarm と bucket の request metrics は持たない（#5109、alarm は無料枠の 10 本に絞った。request metrics は有料 metric になる）。S3 origin の障害は配信層の `ganbari-quest-cloudfront-5xx` と deploy 後の smoke test で見る
+    - **S3 origin の監視**: 専用 alarm と bucket の request metrics は持たない（#5109、alarm は無料枠の 10 本に絞った。request metrics は有料 metric になる）。**S3 origin の 4xx（OAC / bucket policy の誤設定、chunk の upload 欠落による 403 / 404）を検知する仕組みは無い**。CloudFront は 4xx を 5xx 率に数えないため `ganbari-quest-cloudfront-5xx` には出ず、deploy 後の smoke test は Function URL を直接叩くため `/_app/immutable/*` を通らない。S3 自体の 5xx だけが `ganbari-quest-cloudfront-5xx` に乗る
 - `/_app/*`: SvelteKit の非 immutable 静的アセット（`_app/version.json` 等。burst しない）
   - origin = `staticAssetOrigin`（**Origin Shield 有効 / region `us-east-1`、#3087 解決策 A**）。S3 offload OFF 時は immutable も含め `/_app/*` 全体をここで配信。Origin Shield（regional mid-tier cache）で cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に collapse + 二次キャッシュで Lambda 直撃を激減。region は origin (Lambda) と同一 us-east-1
 - `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）
