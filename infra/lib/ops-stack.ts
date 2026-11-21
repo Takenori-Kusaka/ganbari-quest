@@ -10,7 +10,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -54,11 +53,6 @@ export interface OpsStackProps extends cdk.StackProps {
 	 * #1376 AC6: cron dispatcher Lambda のエラーを CloudWatch Alarm で通知するため。
 	 */
 	cronDispatcherFn?: lambda.Function;
-	/**
-	 * #3402-1: staticAssetsS3Offload=true 時のみ生成される immutable アセット S3 origin bucket。
-	 * 指定時のみ S3 origin 専用 4xx/5xx alarm を作成する (offload OFF = undefined = alarm も cost も無し)。
-	 */
-	staticAssetsBucket?: s3.Bucket;
 	/**
 	 * #3998: アプリ Lambda の LogGroup (ComputeStack が生成)。
 	 * 指定時のみ log 由来 MetricFilter + Alarm を作成する (未指定 = 監視 cost ゼロ)。
@@ -132,7 +126,7 @@ export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavaila
  * #4726: AI 呼び出しが失敗して fallback に落ちたことを表す log の検索語 (分子)。
  *
  * SSOT は `AI_CALL_FAILED_LOG_TERM` (`src/lib/server/ai/availability.ts`)。rootDir 制約で
- * import できないため literal で持ち、`tests/unit/infra/ai-fallback-rate-alarm.test.ts` が
+ * import できないため literal で持ち、`tests/unit/infra/ai-fallback-rate-metric.test.ts` が
  * drift を機械検証する。
  *
  * 上の `AI_PROVIDER_UNAVAILABLE_LOG_TERM` は **可用性クラスの失敗** (権限 / 資格情報 /
@@ -228,7 +222,7 @@ export class OpsStack extends cdk.Stack {
 		//
 		//   - 転送 Lambda は失敗を例外にしない (上記 index.ts の判断) ため Errors metric に乗らない
 		//   - 転送 Lambda 自身を監視する alarm も無かった
-		//   - Discord webhook は channel 単位の rate limit を持つため、**16 alarm が同時に鳴る
+		//   - Discord webhook は channel 単位の rate limit を持つため、**多数の alarm が同時に鳴る
 		//     「最も通知が必要な瞬間」に 429 が返り、その通知だけが黙って捨てられる**
 		//
 		// = #4119 / #4174 の「経路はあるのに 0 通」と同じ欠陥。log 本文を唯一の情報源として
@@ -254,31 +248,20 @@ export class OpsStack extends cdk.Stack {
 			metricValue: '1',
 			defaultValue: 0,
 		});
-
-		// 閾値: 1 件で即発火。**1 件 = 1 通の通知が人に届かなかった**という単位であり、
-		// 「継続したら鳴らす」形にすると、単発で消えた 1 通 (それが本番障害の第一報でありうる)
-		// が観測されないまま終わる。平常時は log 自体が出ないためデータ点が無く
-		// (NOT_BREACHING)、鳴りっぱなしにはならない。
-		const forwardFailedAlarm = new cloudwatch.Alarm(this, 'OpsAlertForwardFailed', {
-			alarmName: 'ganbari-quest-ops-alert-forward-failed',
-			alarmDescription:
-				'CloudWatch アラームの Discord 転送に失敗した (通知が人に届いていない): 5分内に1件以上 (#4399 follow-up)',
-			metric: forwardFailed.metric({
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 1,
-			evaluationPeriods: 1,
-			datapointsToAlarm: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-		});
-		forwardFailedAlarm.addAlarmAction(alarmAction);
-		forwardFailedAlarm.addOkAction(alarmAction);
+		// 失敗側にも alarm は付けない (#5109: alarm は無料枠の 10 本に絞った)。
+		// 転送の成否は GanbariQuest/Ops の AlertForwardFailed / AlertForwardSucceeded の Sum で読める。
+		void forwardFailed;
 
 		// ================================================================
-		// 2. CloudWatch Alarms (9 of 10 free-tier basic alarms)
+		// 2. CloudWatch Alarms — 無料枠の 10 本以内に保つ (#5109)
 		// ================================================================
+		//
+		// alarm は ActionsEnabled=false でも課金される (無料枠 10 alarm-metric を超えた分は
+		// $0.10/月/metric。metric math は使う metric の数だけ数える)。残すのはお金・データ・
+		// 全面障害に直結するものだけで、本 stack に 9 本 + DsqlStack (本番) の TotalDPU 1 本 = 10 本。
+		// 追加するときは同じ PR で 1 本減らす (件数は tests/unit/infra/cloudwatch-alarm-budget.test.ts が固定)。
+		// 削った alarm の metric (Throttles / Duration / ConcurrentExecutions / Url4xxCount) は
+		// ダッシュボードで見られる。
 
 		// P0: Lambda Errors
 		const lambdaErrors = props.lambdaFn
@@ -292,49 +275,6 @@ export class OpsStack extends cdk.Stack {
 			});
 		lambdaErrors.addAlarmAction(alarmAction);
 		lambdaErrors.addOkAction(alarmAction);
-
-		// P0: Lambda Throttles
-		const lambdaThrottles = props.lambdaFn
-			.metricThrottles({ period: cdk.Duration.minutes(5) })
-			.createAlarm(this, 'LambdaThrottles', {
-				alarmName: 'ganbari-quest-lambda-throttles',
-				alarmDescription: 'Lambda スロットリング: 5分間に1回以上',
-				threshold: 1,
-				evaluationPeriods: 1,
-				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-			});
-		lambdaThrottles.addAlarmAction(alarmAction);
-
-		// P1: Lambda Duration (P99 > 10s)
-		const lambdaDuration = new cloudwatch.Alarm(this, 'LambdaDuration', {
-			alarmName: 'ganbari-quest-lambda-duration-p99',
-			alarmDescription: 'Lambda レイテンシ P99 > 10秒 (10分連続)',
-			metric: props.lambdaFn.metricDuration({
-				period: cdk.Duration.minutes(5),
-				statistic: 'p99',
-			}),
-			threshold: 10_000,
-			// cold start の単発スパイクで鳴らないよう 2 期間連続を要求する。
-			// 通知を止めるのではなく「何を異常と呼ぶか」を直す (ops-alert-policy.ts §既定は届ける)。
-			evaluationPeriods: 2,
-			datapointsToAlarm: 2,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		lambdaDuration.addAlarmAction(alarmAction);
-
-		// P1: Lambda Concurrent Executions
-		const lambdaConcurrency = new cloudwatch.Alarm(this, 'LambdaConcurrentExec', {
-			alarmName: 'ganbari-quest-lambda-concurrent',
-			alarmDescription: 'Lambda 同時実行数 > 50',
-			metric: props.lambdaFn.metric('ConcurrentExecutions', {
-				period: cdk.Duration.minutes(1),
-				statistic: 'Maximum',
-			}),
-			threshold: 50,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		lambdaConcurrency.addAlarmAction(alarmAction);
 
 		// #3438 (EPIC #3424): DynamoDB alarms (Throttles / SystemErrors / ConsumedCapacity) を撤去。
 		// DB backend は Aurora DSQL に一本化済で DynamoDB table は存在しない (metric の TableName が
@@ -357,25 +297,6 @@ export class OpsStack extends cdk.Stack {
 		});
 		lambdaUrl5xx.addAlarmAction(alarmAction);
 		lambdaUrl5xx.addOkAction(alarmAction);
-
-		// P1: Lambda Function URL 4xx spike
-		const lambdaUrl4xx = new cloudwatch.Alarm(this, 'LambdaUrl4xx', {
-			alarmName: 'ganbari-quest-lambda-url-4xx-spike',
-			alarmDescription: 'Lambda Function URL 4xx スパイク: 5分間に50回以上が10分連続',
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/Lambda',
-				metricName: 'Url4xxCount',
-				dimensionsMap: { FunctionName: props.lambdaFn.functionName },
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 50,
-			// bot / 未認証アクセス由来の単発スパイクで鳴らないよう 2 期間連続を要求する。
-			evaluationPeriods: 2,
-			datapointsToAlarm: 2,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		lambdaUrl4xx.addAlarmAction(alarmAction);
 
 		// P0: CloudFront 5xx Error Rate (> 5%)
 		const cf5xx = new cloudwatch.Alarm(this, 'CloudFront5xx', {
@@ -451,38 +372,6 @@ export class OpsStack extends cdk.Stack {
 			});
 			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
 			entitlementFailClosedAlarm.addOkAction(alarmAction);
-
-			// #4918: burst (同一 5 分 window 内の複数件発生) を追加で観測する。
-			//
-			// 背景: 上の `entitlementFailClosedAlarm` は「継続時間」で一過性を判定するため
-			// 2 つの 5 分 window (合計 15 分) に跨って発生しないと鳴らない。本番で実際に
-			// 起きた incident は 1 つの 5 分 window 内に 4 件 (約 2 秒間に集中) 発生し、
-			// その後 1 時間エラー無しという「短時間 burst → 自然回復」パターンだった。
-			// このパターンは 15 分継続しないため上の alarm は正しく鳴らないが、
-			// 「同時に複数リクエストが 503 になった」こと自体は運営者が気付く価値がある
-			// (#4918 PO 判定: 少なくとも 5 分枠で 3 件以上なら notify)。
-			// 継続判定用の alarm とは別に、**単一 window でも即時発火**する低閾値 alarm を追加する
-			// (evaluationPeriods=1 / datapointsToAlarm=1、ops-access-denied と同型)。
-			const entitlementFailClosedBurstAlarm = new cloudwatch.Alarm(
-				this,
-				'EntitlementFailClosedBurst',
-				{
-					alarmName: 'ganbari-quest-auth-entitlement-db-unavailable-burst',
-					alarmDescription:
-						'課金状態を DB から解決できず 503 になったリクエスト: 同一5分windowで3件以上のburst (#4918)',
-					metric: entitlementFailClosed.metric({
-						period: cdk.Duration.minutes(5),
-						statistic: 'Sum',
-					}),
-					threshold: 3,
-					evaluationPeriods: 1,
-					datapointsToAlarm: 1,
-					comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-					treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-				},
-			);
-			entitlementFailClosedBurstAlarm.addAlarmAction(alarmAction);
-			entitlementFailClosedBurstAlarm.addOkAction(alarmAction);
 
 			// #4363 T4: `/ops` アクセス拒否の観測。
 			//
@@ -574,31 +463,11 @@ export class OpsStack extends cdk.Stack {
 			// 成功 metric) を作って別 alarm にすること。
 			// 固定: tests/unit/infra/ai-provider-unavailable-alarm.test.ts [A2b]
 
-			// #4726: AI 呼び出しの fallback 率。
+			// #4726: AI 呼び出しの成功 / 失敗の件数 (fallback 率の分子・分母)。
 			//
-			// 上の ai-provider-unavailable は「可用性クラスの失敗」しか拾わない。#4726 の本番障害
-			// (base model ID を on-demand で呼べず全リクエスト ValidationException) は
-			// そのクラスに入らないため 1 度も鳴らず、有料プランの筆頭訴求である AI 提案が
-			// 100% キーワード fallback のまま丸一日以上放置された。発見はオーナーの手動実行だった。
-			//
-			// **なぜ件数ではなく率か**: Pre-PMF の AI 呼び出しは 1 日数件規模で、件数閾値
-			// (例: 15 分で 3 件) は 100% 壊れていても到達しない (#4726 の実測でも 2 件だった)。
-			// 一方 1 件の失敗で即発火にすると、単発の throttle / timeout で鳴りっぱなしになる。
-			// 「呼んだうちどれだけ落ちたか」だけが両方を分離できる。
-			//
-			// 閾値の根拠: 15 分の window で **失敗 2 件以上 かつ fallback 率 50% 以上**。
-			//
-			// 率だけだと「その window の AI 呼び出しが 1 件で、それが単発の throttle / timeout で
-			// 落ちた」ケースが 100% になり、鳴りっぱなしの原因になる (Pre-PMF は呼び出しが疎)。
-			// 逆に件数だけだと 100% 壊れていても到達しない (#4726 の実測は 2 件)。
-			// **両方を掛ける** — `IF(failed >= 2, rate, 0)` にして、単発失敗は 0 に潰し、
-			// 2 件以上落ちたときだけ率で判定する。#4726 の実障害 (2 回とも失敗) は発火する。
-			//
-			// この形にすると **0 除算が原理的に起きない** — 分子が 2 以上のときしか除算に進まず、
-			// そのとき分母 (failed + succeeded) は必ず 2 以上である。metric math の 0/0 挙動に
-			// 依存した仮定を持たない (CDK の unit test では検証できない仮定を残さない)。
-			// 呼び出しが無い window は式が 0 を返すか、metric 自体にデータ点が無い
-			// (treatMissingData=NOT_BREACHING) ため、いずれにせよ鳴らない。
+			// ai-provider-unavailable は「可用性クラスの失敗」しか拾わず、#4726 の本番障害
+			// (全リクエスト ValidationException で 100% fallback) では鳴らなかった。その率を見るための
+			// metric。#5109 で率の alarm (metric math で 3 metric 分の課金) は撤去し、metric だけ残す。
 			const aiCallFailed = new logs.MetricFilter(this, 'AiCallFailedFilter', {
 				logGroup: props.appLogGroup,
 				filterPattern: logs.FilterPattern.literal(`"${AI_CALL_FAILED_LOG_TERM}"`),
@@ -616,41 +485,9 @@ export class OpsStack extends cdk.Stack {
 				defaultValue: 0,
 			});
 
-			const aiFallbackRate = new cloudwatch.MathExpression({
-				expression: 'IF(failed >= 2, 100 * failed / (failed + succeeded), 0)',
-				usingMetrics: {
-					failed: aiCallFailed.metric({
-						period: cdk.Duration.minutes(15),
-						statistic: 'Sum',
-					}),
-					succeeded: aiCallSucceeded.metric({
-						period: cdk.Duration.minutes(15),
-						statistic: 'Sum',
-					}),
-				},
-				period: cdk.Duration.minutes(15),
-				label: 'AI fallback rate (%)',
-			});
-
-			const aiFallbackRateAlarm = new cloudwatch.Alarm(this, 'AiFallbackRate', {
-				alarmName: 'ganbari-quest-ai-fallback-rate',
-				alarmDescription:
-					'AI 呼び出しが 15 分で 2 件以上失敗し、その割合が 50% 以上: 顧客には AI ではなくキーワード規則の結果が返っている (HTTP 200 のため顧客も失敗に気付けない)',
-				metric: aiFallbackRate,
-				threshold: 50,
-				evaluationPeriods: 1,
-				datapointsToAlarm: 1,
-				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			});
-			aiFallbackRateAlarm.addAlarmAction(alarmAction);
-			// **OK action は付けない** (ai-provider-unavailable [A2b] と同じ理由)。
-			// AI が 1 度も呼ばれない window は分母 0 でデータ点が無く、NOT_BREACHING により
-			// alarm は自動的に OK へ戻る。つまり OK 遷移は「直った」ではなく「誰も呼ばなかった」
-			// でも起きる。OK action を付けると 100% 壊れたままでも「復旧しました」に等しい通知が
-			// Discord に飛び、運営は手を止め顧客は使えないまま放置される (沈黙より悪い)。
-			// 復旧を鳴らしたいなら OK 遷移を流用せず、復旧を表す信号を別 alarm にすること。
-			// 固定: tests/unit/infra/ai-fallback-rate-alarm.test.ts [A2b]
+			// #5109: fallback 率の alarm は撤去した。率は 2 つの metric の Sum から読める。
+			void aiCallFailed;
+			void aiCallSucceeded;
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//
@@ -702,15 +539,15 @@ export class OpsStack extends cdk.Stack {
 
 			// #4706: 保護者向け push が送れていないことの観測 (ADR-0024 alarm)。
 			//
-			// 鍵の欠落: 本番は CDK synth が鍵の組を検査してから deploy するため、正常運用では起きない。
-			// 1 件でも出たら Lambda env が壊れている (手で消された / 配線が外れた) ので即発火にする。
+			// 鍵の欠落: 本番は CDK synth と deploy 時の検査 (#5015) が鍵の組を確かめるため、正常運用では
+			// 起きない。#5109 で alarm は外し、metric (PushVapidMissing) だけ残す。
 			//
 			// 送信失敗: push サービスの拒否 (401/403 = 鍵の組違いで全送信が失敗する) と timeout / 5xx。
 			// 送信は 1 家庭 1 日 3 通までなので失敗の系列は疎になる。1 件で鳴らすと push サービスの
 			// 単発 timeout で鳴り、長い window で件数を積むと組違いでも気付くのが翌日以降になる。
 			// 1 時間に 2 件 = 「単発ではない」の最小で切る。
 			//
-			// **OK action はどちらにも付けない** (ai-provider-unavailable と同じ理由)。どちらの log も
+			// **OK action は付けない** (ai-provider-unavailable と同じ理由)。push の log は
 			// 「送ろうとしたとき」にしか出ないため、送信が無い window はデータ点が無く、
 			// treatMissingData=NOT_BREACHING で alarm は OK に戻る。OK 遷移は「直った」ではなく
 			// 「その間に誰にも送ろうとしなかった」でも起きるので、OK action は偽の復旧通知になる。
@@ -723,21 +560,9 @@ export class OpsStack extends cdk.Stack {
 				metricValue: '1',
 				defaultValue: 0,
 			});
-			const pushVapidMissingAlarm = new cloudwatch.Alarm(this, 'PushVapidMissing', {
-				alarmName: 'ganbari-quest-push-vapid-missing',
-				alarmDescription:
-					'保護者向け push の VAPID 鍵が本番 Lambda env に無い: 5分内に1件以上。リマインダー・ストリーク警告・達成通知が 1 通も届いていない (#4706)',
-				metric: pushVapidMissing.metric({
-					period: cdk.Duration.minutes(5),
-					statistic: 'Sum',
-				}),
-				threshold: 1,
-				evaluationPeriods: 1,
-				datapointsToAlarm: 1,
-				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			});
-			pushVapidMissingAlarm.addAlarmAction(alarmAction);
+			// #5109: 鍵欠落の alarm は撤去した。本番 deploy は VAPID 鍵の組を検査してから進むため
+			// (#5015)、Lambda env を手で壊さない限り起きない。metric は件数の確認用に残す。
+			void pushVapidMissing;
 
 			const pushSendFailed = new logs.MetricFilter(this, 'PushSendFailedFilter', {
 				logGroup: props.appLogGroup,
@@ -778,56 +603,6 @@ export class OpsStack extends cdk.Stack {
 				});
 			cronDispatcherErrors.addAlarmAction(alarmAction);
 			cronDispatcherErrors.addOkAction(alarmAction);
-		}
-
-		// P1: 静的アセット S3 origin 4xx/5xx (#3402-1, ADR-0024 ルール D)
-		// staticAssetsS3Offload=true で /_app/immutable/* を S3(OAC) から配信するとき、部分 upload 失敗 /
-		// OAC 誤設定で S3 が 4xx/5xx を返し、親画面 JS チャンクが欠落して白画面化しうる。既存の
-		// distribution-level CloudFront5xx alarm は S3 origin の 4xx (403/404) を捉えられないため、S3
-		// request metrics (AWS/S3 4xxErrors/5xxErrors) を直接監視して misconfig を継続検知する
-		// (deploy 後の post-deploy smoke を transitive にしか検出しない gap を埋める)。bucket が渡された
-		// とき (= offload 有効時) のみ作成し、offload OFF では alarm も監視 cost も発生させない。
-		if (props.staticAssetsBucket) {
-			const s3OriginDims = {
-				BucketName: props.staticAssetsBucket.bucketName,
-				FilterId: 'EntireBucket',
-			};
-			const staticS3_4xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin4xx', {
-				alarmName: 'ganbari-quest-static-assets-s3-4xx',
-				alarmDescription:
-					'静的アセット S3 origin 4xx (OAC 誤設定 / 部分 upload 欠落): 5分間に10回以上 (#3402)',
-				metric: new cloudwatch.Metric({
-					namespace: 'AWS/S3',
-					metricName: '4xxErrors',
-					dimensionsMap: s3OriginDims,
-					period: cdk.Duration.minutes(5),
-					statistic: 'Sum',
-				}),
-				threshold: 10,
-				evaluationPeriods: 1,
-				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			});
-			staticS3_4xx.addAlarmAction(alarmAction);
-			staticS3_4xx.addOkAction(alarmAction);
-
-			const staticS3_5xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin5xx', {
-				alarmName: 'ganbari-quest-static-assets-s3-5xx',
-				alarmDescription: '静的アセット S3 origin 5xx (S3 障害): 5分間に5回以上 (#3402)',
-				metric: new cloudwatch.Metric({
-					namespace: 'AWS/S3',
-					metricName: '5xxErrors',
-					dimensionsMap: s3OriginDims,
-					period: cdk.Duration.minutes(5),
-					statistic: 'Sum',
-				}),
-				threshold: 5,
-				evaluationPeriods: 1,
-				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			});
-			staticS3_5xx.addAlarmAction(alarmAction);
-			staticS3_5xx.addOkAction(alarmAction);
 		}
 
 		// ================================================================

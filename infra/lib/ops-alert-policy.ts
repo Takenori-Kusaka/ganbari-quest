@@ -70,29 +70,9 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'アプリ Lambda が 5 分で 3 回以上失敗している = 顧客の画面がエラーになっている。知らずに済ませてよい事象ではない',
 	},
-	'ganbari-quest-lambda-throttles': {
-		notify: true,
-		reason:
-			'throttle は顧客に 429 / 503 が返っている状態で、同時実行上限の引き上げか原因の除去が要る。1 回でも人が知る必要がある',
-	},
-	'ganbari-quest-lambda-duration-p99': {
-		notify: true,
-		reason:
-			'p99 10 秒超は SSR が実用的な速度で返せていない状態。cold start の単発スパイクで鳴らないよう、evaluationPeriods 2 / datapointsToAlarm 2（10 分連続）に調整して通知は維持する',
-	},
-	'ganbari-quest-lambda-concurrent': {
-		notify: true,
-		reason:
-			'同時実行 50 到達は throttle の直前で、到達した時点が上限引き上げを判断する唯一のタイミング。現在の規模では平常時に到達しないためノイズにならない',
-	},
 	'ganbari-quest-lambda-url-5xx': {
 		notify: true,
 		reason: '5xx は顧客がサービスを使えていない直接の証拠。届けるべき筆頭であり抑止する理由が無い',
-	},
-	'ganbari-quest-lambda-url-4xx-spike': {
-		notify: true,
-		reason:
-			'4xx スパイクは認可・ルーティングの破損か攻撃の兆候。bot 由来の平常ノイズで鳴らないよう evaluationPeriods 2 / datapointsToAlarm 2（10 分連続で 5 分あたり 50 回以上）に調整して通知は維持する',
 	},
 	'ganbari-quest-cloudfront-5xx': {
 		notify: true,
@@ -103,11 +83,6 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		notify: true,
 		reason:
 			'entitlement 解決の fail-closed 発火 = DB 障害で有効な Cookie を持つ顧客が軒並み 503 になっている。#3998 で PO がこの trade-off を承認した前提が「起きたら気付けること」であり、届かなければ承認の前提が崩れる',
-	},
-	'ganbari-quest-auth-entitlement-db-unavailable-burst': {
-		notify: true,
-		reason:
-			'#4918: 上の継続判定 alarm (15 分 2-of-3 window) は単一 window に閉じた burst を捕捉できない。本番で実際に「同一 5 分 window に 4 件・その後 1 時間平常」という burst-then-recover パターンが未通知のまま発生した。人が気付く価値があるため届ける',
 	},
 	'ganbari-quest-grace-period-partial-failure': {
 		notify: true,
@@ -129,34 +104,10 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'オーナー決裁 2026-08-07「AI 不達のアラートは Discord の障害通知へ webhook で飛ばすべき」。(a) AI 不達は有料機能が事実上死んでいる状態で、顧客向け文言が「運営が検知済み」と伝えている以上、人に届かなければその一文が嘘になる。(b) 発生源の log は latch により理由ごとにプロセス内 1 回しか出ないため、構造的に鳴りっぱなしにならない。(c) 万一恒常発火したら通知を止めるのではなく、早期回復 / 例外処理の是正で応じる (同決裁: 恒常的に発生する障害は早期回復対象であって、通知を握りつぶしてよいという意味ではない)',
 	},
-	'ganbari-quest-ai-fallback-rate': {
-		notify: true,
-		reason:
-			'AI 呼び出しの半分以上が落ちている = 有料プランの筆頭訴求 (AI 提案) が事実上死んでいる状態で、応答は HTTP 200 のため顧客も運営も画面からは気付けない。#4726 の本番障害 (base model ID を on-demand で呼べず全リクエスト ValidationException) は latch 型の ai-provider-unavailable では拾えず、丸一日以上 100% fallback のまま発見はオーナーの手動実行だった。ノイズ懸念には「件数」と「率」の両方を掛けて対処済み (15 分 window で **失敗 2 件以上かつ 50% 以上**) — 単発の throttle / timeout は 1 件なので鳴らず、100% 壊れていれば 2 件目で鳴る',
-	},
-	'ganbari-quest-push-vapid-missing': {
-		notify: true,
-		reason:
-			'本番 Lambda env に VAPID 鍵が無い = 保護者向けのリマインダー・ストリーク警告・達成通知が 1 通も届いていない。cron は 200 を返し続けるので、この alarm が無いと誰も気付けない (#4706 で本番ログの送信判定 1,710 回が鍵なしで止まっていた)。本番は CDK synth が鍵の組を検査してから deploy するため平常時は鳴らず、鳴ったら Lambda env が壊れている',
-	},
 	'ganbari-quest-push-send-failed': {
 		notify: true,
 		reason:
 			'push サービスが送信を拒否している = 保護者の端末に通知が届いていない。401/403 は鍵の組違いで全送信が失敗し続け、410/404 と違って購読も消えないため放置すると毎日同じ失敗が続く。保護者は届いていないことに自分では気付けない。単発の timeout で鳴らないよう「1 時間に 2 件以上」に調整して通知は維持する',
-	},
-	'ganbari-quest-ops-alert-forward-failed': {
-		notify: true,
-		reason:
-			'転送そのものが失敗した = 鳴った alarm が人に届いていない状態で、#4399 で既定を「届ける」に戻した意味が末端で失われている。Discord は channel 単位の rate limit を持つため、多数の alarm が同時に鳴る「最も通知が必要な瞬間」ほど 429 で消える。**自己参照の限界**: この alarm 自身も同じ転送経路を通るため、Discord が完全に不達な間はこの通知も届かない — その場合に残るのは CloudWatch console の ALARM 状態と GanbariQuest/Ops の AlertForwardFailed / AlertForwardSucceeded の Sum である。届くのは「一部だけ落ちた」場合 (429 のバースト・単発 timeout・webhook 失効) で、実際に起きるのは主にこちら。届かない場合の検知を通知に足すこと (外形監視) は Pre-PMF では過剰と判断し、metric を残すところまでとする',
-	},
-	'ganbari-quest-static-assets-s3-4xx': {
-		notify: true,
-		reason:
-			'S3 origin の 4xx は deploy 漏れ / 参照ずれで顧客の画面が崩れている状態。offload 有効時のみ生成されるため無効な間は発火しない',
-	},
-	'ganbari-quest-static-assets-s3-5xx': {
-		notify: true,
-		reason: 'S3 origin の 5xx は静的配信そのものの障害。4xx と同じく届けないと画面崩れに気付けない',
 	},
 };
 

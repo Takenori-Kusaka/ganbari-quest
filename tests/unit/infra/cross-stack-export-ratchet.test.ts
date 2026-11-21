@@ -289,7 +289,6 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
-		staticAssetsBucket: network.staticAssetsBucket,
 	});
 
 	// --- staging (bin/app.ts stagingEnabled=true と同一 wire) ---

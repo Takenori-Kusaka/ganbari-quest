@@ -62,9 +62,9 @@
 
 3. **`infra/lib/ops-alert-policy.ts` を書き換える**
    ```ts
-   'ganbari-quest-lambda-url-4xx-spike': {
+   'ganbari-quest-lambda-url-5xx': {
      notify: false,
-     reason: '2026-09 の 30 日間で 41 回発火（bot 由来）。閾値の見直しを #9999 で進めている',
+     reason: '2026-09 の 30 日間で 41 回発火（bot の不正リクエスト由来）。閾値の見直しを #9999 で進めている',
    },
    ```
    **`reason` には (a) 何がどれくらいの頻度で鳴っているか (b) どこで直しているか を書く。** 是正作業の参照 (`#NNNN`、Issue / PR いずれでも可) が無い `notify: false` は CI が弾く。空 / 定型 stub / 極端な短文も同様
@@ -121,9 +121,9 @@ aws cloudwatch get-metric-statistics \
 
 日あたりの通数が捌けない量なら、**通知を止めるのではなく §2 の 1 → 2 → 3 の順で原因を直す**。どの alarm が量を占めるかは alarm ごとの `describe-alarm-history`（§3）で切り分ける。
 
-### `ganbari-quest-ops-alert-forward-failed` が鳴ったとき
+### 届かなかった通知に気付く
 
-**通知が人に届いていない**というメッセージ。log の `reason=` で対処が分かれる。
+**転送失敗の alarm は無い**（#5109、alarm は CloudWatch の無料枠 10 本に絞った）。届かなかった通数は `AlertForwardFailed` の Sum で読む。上の `AlertForwardSucceeded` と同じコマンドで `--metric-name AlertForwardFailed` を指定する。log の `reason=` で対処が分かれる。
 
 | reason | 意味 / 対処 |
 |---|---|
@@ -131,8 +131,6 @@ aws cloudwatch get-metric-statistics \
 | `http-401` / `http-404` | webhook URL の失効・誤り。`gh secret set DISCORD_WEBHOOK_INCIDENT` で再設定して deploy |
 | `timeout` / `network` | Discord 側の輻輳 / egress の問題。単発なら経過観察、継続するなら Discord の status を見る |
 | `no-webhook` | secret 未設定で**全通知が 0 通**。deploy gate（§5）をすり抜けている。gate 自体を疑う |
-
-**自己参照の限界**: この alarm 自身も同じ転送経路を通る。Discord が完全に不達な間はこの通知も届かず、残るのは CloudWatch console の ALARM 状態と上記 metric だけになる。届くのは「一部だけ落ちた」場合（429 のバースト・単発 timeout・webhook 失効）で、実際に起きるのは主にこちら。
 
 ## 7. 通知が来ないときの切り分け
 
