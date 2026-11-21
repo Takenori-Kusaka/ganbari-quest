@@ -1,6 +1,6 @@
 # Runbook — DSQL dashboard / Alarm 閾値超過時の一次対応
 
-本番 DSQL (Aurora DSQL、us-east-1) の可観測性 dashboard `ganbari-quest-dsql` と alarm (#3431/#3432、`infra/lib/dsql-stack.ts` が SSOT) の閾値超過時に行う一次対応。staging は `-staging` suffix の同型 dashboard。メトリクスは CloudWatch 15 ヶ月保持のため過去比較は console で直接行える。
+本番 DSQL (Aurora DSQL、us-east-1) の可観測性 dashboard `ganbari-quest-dsql` と alarm (#3431/#3432、`infra/lib/dsql-stack.ts` が SSOT) の閾値超過時に行う一次対応。alarm は本番の TotalDPU 日次 1 本だけ (#5109)。staging は `-staging` suffix の同型 dashboard で、alarm は無い。メトリクスは CloudWatch 15 ヶ月保持のため過去比較は console で直接行える。
 
 ```bash
 # dashboard を開く (us-east-1 固定)
@@ -28,9 +28,9 @@ aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/AuroraDS
    - **OccConflicts 同時増** → 下記 OccConflicts 項の retry 嵐と同根。そちらを先に収束させる
 4. 課金軌道が継続する場合は Budgets alarm (下記) の 80% 通知を待たず PO へ報告
 
-## Alarm: ClusterStorageSize 0.8 GiB 超過 (無料枠 1 GB の 80%)
+## storage が無料枠 1 GB に近づいたとき (alarm なし)
 
-**意味**: storage が無料枠に接近。単調増加 metric のため放置で必ず 100% に到達する。
+**storage の alarm は無い** (#5109、alarm は CloudWatch の無料枠 10 本に絞った)。dashboard `ganbari-quest-dsql` の Storage widget と、下の Budgets で気付く。storage は単調増加 metric のため放置すると必ず 1 GB に到達する。
 
 1. 増加ペースを確認 (急増 = 異常データ、緩増 = 自然成長)
 2. 急増時: 直近の restore 多重実行 / retention-cleanup cron の停止を疑う

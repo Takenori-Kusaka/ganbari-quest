@@ -12,7 +12,7 @@
 //   [C] 実マッチ …… logger が Lambda 上で実際に書き出す文字列を捕捉し、その行が
 //                    filter pattern にマッチすること / 無関係な行にはマッチしないこと
 //
-// context stub パターンは tests/unit/infra/ops-static-assets-alarm.test.ts を踏襲。
+// context stub パターンは tests/unit/infra/static-assets-s3-offload.test.ts を踏襲。
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -255,49 +255,15 @@ describe('#3998 [C] filter pattern が実際の log 出力にマッチする', (
 	});
 });
 
-// #4918: 本番で「同一 5 分 window 内に 4 件」の burst が発生したが、既存 alarm
-// (2-of-3 window、15 分継続判定) は単発 window では鳴らないため notify されなかった。
-// PO 判定: 少なくとも 5 分枠で 3 件以上なら notify する burst 専用 alarm を追加する。
-describe('#4918 [D] entitlement burst alarm (単一 5 分 window で 3 件以上なら即時発火)', () => {
-	it('[D1] burst alarm が「3 件 / 単一 5 分 window」で即時発火する構造で定義されている', () => {
-		const template = withLogGroupTemplate;
-
-		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-			AlarmName: 'ganbari-quest-auth-entitlement-db-unavailable-burst',
-			Namespace: 'GanbariQuest/Auth',
-			MetricName: 'EntitlementDbUnavailable',
-			Statistic: 'Sum',
-			Period: 300,
-			Threshold: 3,
-			EvaluationPeriods: 1,
-			DatapointsToAlarm: 1,
-			ComparisonOperator: 'GreaterThanOrEqualToThreshold',
-			TreatMissingData: 'notBreaching',
-			AlarmActions: Match.arrayWith([
-				Match.objectLike({ Ref: Match.stringLikeRegexp('OpsAlerts') }),
-			]),
-			OKActions: Match.arrayWith([Match.objectLike({ Ref: Match.stringLikeRegexp('OpsAlerts') })]),
-		});
-	});
-
-	it('[D2] burst alarm は既存の継続判定 alarm (2-of-3) を置き換えず併存する', () => {
-		const template = withLogGroupTemplate;
-
-		const alarms = template.findResources('AWS::CloudWatch::Alarm');
+// #4918 で足した burst alarm (同一 5 分 window で 3 件以上) は、同じ metric を見る継続判定 alarm と
+// 重複するため #5109 で撤去した (alarm は無料枠の 10 本に絞った)。
+describe('#5109 [D] entitlement の alarm は継続判定の 1 本だけ', () => {
+	it('[D1] burst alarm は作らず、継続判定 alarm は残す', () => {
+		const alarms = withLogGroupTemplate.findResources('AWS::CloudWatch::Alarm');
 		const names = Object.values(alarms).map(
 			(r) => (r.Properties as { AlarmName: string }).AlarmName,
 		);
 		expect(names).toContain('ganbari-quest-auth-entitlement-db-unavailable');
-		expect(names).toContain('ganbari-quest-auth-entitlement-db-unavailable-burst');
-	});
-
-	it('[D3] appLogGroup 未指定なら burst alarm も作らない (監視 cost ゼロ)', () => {
-		const template = withoutLogGroupTemplate;
-
-		const alarms = template.findResources('AWS::CloudWatch::Alarm');
-		const names = Object.values(alarms).map(
-			(r) => (r.Properties as { AlarmName: string }).AlarmName,
-		);
 		expect(names).not.toContain('ganbari-quest-auth-entitlement-db-unavailable-burst');
 	});
 });

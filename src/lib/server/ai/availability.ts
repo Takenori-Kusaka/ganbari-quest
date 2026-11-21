@@ -139,11 +139,11 @@ export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavaila
  *
  * **成功・失敗を同じ log level (info) で出す。** 片方だけ level を上げると、`LOG_LEVEL` の
  * 設定 1 つで分母だけが消えて率が壊れる (「1 件でも失敗すれば 100%」に化ける)。
- * 対称性は `tests/unit/infra/ai-fallback-rate-alarm.test.ts` [C3] が固定する。
+ * 対称性は `tests/unit/infra/ai-fallback-rate-metric.test.ts` [C3] が固定する。
  *
- * metric 化と alarm は `infra/lib/ops-stack.ts` の同名定数
+ * metric 化は `infra/lib/ops-stack.ts` の同名定数 (fallback 率の alarm は #5109 で撤去)
  * (CDK の tsconfig rootDir 制約で src を import できないため literal で持ち、
- * `tests/unit/infra/ai-fallback-rate-alarm.test.ts` が drift を機械検証する)。
+ * `tests/unit/infra/ai-fallback-rate-metric.test.ts` が drift を機械検証する)。
  */
 export const AI_CALL_FAILED_LOG_TERM = '[ai-alert] ai-call-failed';
 

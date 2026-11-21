@@ -11,7 +11,7 @@
 // 4. **理由が実質空でない** — 「何がどれくらい鳴っているか / どこで直しているか」が書かれている（#4237 と同型）
 //
 // alarm 名は CDK synth した**実テンプレート**から取る（source の grep ではなく実際に作られるもの）。
-// stack 構築の context stub は `ops-static-assets-alarm.test.ts` を踏襲する。
+// stack 構築は本番 deploy (deploy.yml) と同じく S3 offload を有効にする。
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -50,7 +50,7 @@ function makeApp(): cdk.App {
 	});
 }
 
-/** S3 offload ON（= alarm が最大数作られる構成）で OpsStack を synth する。 */
+/** S3 offload ON（本番 deploy と同じ構成）で OpsStack を synth する。 */
 function buildOpsTemplate(sourceDir: string): Template {
 	const app = makeApp();
 	const storage = new StorageStack(app, 'TestStorage', { env });
@@ -76,7 +76,6 @@ function buildOpsTemplate(sourceDir: string): Template {
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
-		staticAssetsBucket: network.staticAssetsBucket,
 		appLogGroup: compute.appLogGroup,
 	});
 	return Template.fromStack(ops as unknown as cdk.Stack);

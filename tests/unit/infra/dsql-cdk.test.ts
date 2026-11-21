@@ -48,8 +48,10 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		template.hasOutput('ClusterArn', {});
 	});
 
-	it('[I3] コストガードレール alarm 2 本 (TotalDPU 日次 3,225 / Storage 0.8GiB) (#3431)', () => {
-		template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+	// #5109: alarm は無料枠の 10 本に絞ったため、DSQL は TotalDPU の 1 本だけ残す
+	// (storage は dashboard と Budgets で見る)。
+	it('[I3] コストガードレール alarm は TotalDPU 日次 3,225 の 1 本 (#3431 / #5109)', () => {
+		template.resourceCountIs('AWS::CloudWatch::Alarm', 1);
 		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
 			MetricName: 'TotalDPU',
 			Namespace: 'AWS/AuroraDSQL',
@@ -57,20 +59,15 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 			Period: 86400,
 			Threshold: 3225,
 		});
-		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-			MetricName: 'ClusterStorageSize',
-			Namespace: 'AWS/AuroraDSQL',
-			Threshold: 0.8 * 1024 * 1024 * 1024,
-		});
 	});
 
-	it('[I3b] 両 alarm の description が一次対応 runbook link を含む (#3730、2am 発見時の可観測性)', () => {
+	it('[I3b] alarm の description が一次対応 runbook link を含む (#3730、2am 発見時の可観測性)', () => {
 		// runbook link が silent に消えると alarm 発火時の一次対応導線が失われる (#3432 residual)。
 		const alarms = template.findResources('AWS::CloudWatch::Alarm');
 		const descriptions = Object.values(alarms).map(
 			(alarm) => alarm.Properties.AlarmDescription as string,
 		);
-		expect(descriptions).toHaveLength(2);
+		expect(descriptions).toHaveLength(1);
 		for (const description of descriptions) {
 			expect(description).toContain('docs/runbooks/dsql-alert-response.md');
 		}
@@ -277,5 +274,12 @@ describe('DsqlStack nameSuffix guard (#3703 / #3708 staging・prod 物理名一�
 		staging.resourceCountIs('AWS::IAM::Role', 0);
 		prod.resourceCountIs('AWS::Events::Rule', 1);
 		staging.resourceCountIs('AWS::Events::Rule', 0);
+	});
+
+	it('[N5] staging は alarm を作らない / 本番は TotalDPU の 1 本 (#5109、alarm は staging でも課金される)', () => {
+		const prod = Template.fromStack(new DsqlStack(new cdk.App(), 'GanbariQuestDsql'));
+		const staging = Template.fromStack(new DsqlStack(new cdk.App(), 'GanbariQuestDsqlStaging'));
+		prod.resourceCountIs('AWS::CloudWatch::Alarm', 1);
+		staging.resourceCountIs('AWS::CloudWatch::Alarm', 0);
 	});
 });

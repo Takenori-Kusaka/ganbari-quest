@@ -29,8 +29,9 @@
  *      「何回目のリトライで諦めたか」は分からず、結局どの失敗が起きたのか (429 / timeout /
  *      webhook 失効) を切り分けられない
  *   3. 一方で **握り潰したままにはしない** — 成否を構造化 log に出し、OpsStack 側の
- *      MetricFilter で metric 化して、失敗は専用 alarm (`ganbari-quest-ops-alert-forward-failed`)
- *      で拾う。「落とさない」と「気付けない」を切り離す
+ *      MetricFilter で metric 化する (失敗の Sum は `GanbariQuest/Ops` の AlertForwardFailed)。
+ *      「落とさない」と「気付けない」を切り離す。失敗専用の alarm は #5109 で撤去した
+ *      (alarm は CloudWatch の無料枠 10 本に絞った)
  *
  * 429 に対する retry-after 準拠の再送は、実測 (`GanbariQuest/Ops` の AlertForwardFailed) で
  * 実際に起きることを確かめてから入れる。起きるか分からない再送機構を先に足さない (ADR-0010)。
@@ -203,7 +204,7 @@ async function postDiscordEmbed(embed: object): Promise<void> {
 					if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
 						settle({ ok: true });
 					} else {
-						// 429 (channel 単位の rate limit) はここに来る。**16 alarm が同時に鳴る
+						// 429 (channel 単位の rate limit) はここに来る。**多数の alarm が同時に鳴る
 						// = 最も通知が要る瞬間**ほど起きるため、必ず数える。
 						settle({
 							ok: false,

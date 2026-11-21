@@ -297,11 +297,16 @@ function handler(event) {
 						expiration: cdk.Duration.days(30),
 					},
 				],
-				// #3402-1: S3 origin 専用 4xx/5xx alarm (OpsStack) のため request metrics を有効化する
-				// (#3939: BucketProps.metrics が L2 で公開されているため escape hatch 不要)。
-				metrics: [{ id: 'EntireBucket' }],
+				// request metrics (`metrics`) は付けない。S3 origin 4xx/5xx alarm の撤去 (#5109) で
+				// 読み手がいなくなり、残すと CloudWatch の有料 metric だけが発生し続ける。
 			});
 			this.staticAssetsBucket = staticAssetsBucket;
+			// #5109 Deploy-1 (2-deploy strangler、#3850 と同型): OpsStack は S3 origin alarm を撤去して
+			// この bucket を参照しなくなったが、本番の Ops はまだ旧 export を import している。
+			// cdk deploy は Network → Ops の順に更新するため、export を同時に消すと
+			// 「in use by GanbariQuestOps」で Network の deploy が止まる。export だけ明示的に残し、
+			// Ops の import 消失が本番に反映された後の PR で次の 1 行を消す。
+			this.exportValue(staticAssetsBucket.bucketName);
 
 			// content-hash 付きで immutable。prune:false で旧 hash を残し、deploy window 中に
 			// 旧 HTML (Lambda 由来) が参照する旧 chunk が 403 にならないようにする。

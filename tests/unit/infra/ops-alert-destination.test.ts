@@ -76,7 +76,6 @@ function buildOpsTemplate(sourceDir: string): Template {
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
-		staticAssetsBucket: network.staticAssetsBucket,
 		appLogGroup: compute.appLogGroup,
 		opsEmail: 'ops@example.com',
 		discordWebhookIncident: 'https://discord.com/api/webhooks/test',

@@ -10,6 +10,8 @@
 // entitlement fail-closed (#3998) / AI 不達 (#4375) と同じ 3 層で固定する:
 //
 //   [A] CDK 構造 …… MetricFilter / Alarm が期待の namespace / 閾値 / 通知先で存在する
+//                    (鍵欠落の Alarm は #5109 で撤去した。本番 deploy が鍵の組を検査する #5015 で
+//                     代替され、alarm は無料枠の 10 本に絞ったため。MetricFilter は件数の確認用に残す)
 //   [B] SSOT drift … CDK の literal 検索語がアプリ側の定数と一致する
 //                    (CDK tsconfig rootDir の制約で src を import できないため literal で持つ)
 //   [C] 実マッチ …… アプリが実際に書き出す行が filter pattern にマッチする
@@ -157,24 +159,16 @@ describe('[A] push 不達の MetricFilter / Alarm が CDK に定義されてい�
 		});
 	});
 
-	// 本番は CDK synth が鍵の組を検査してから deploy するため、正常運用で鍵欠落は起きない。
-	// 1 件でも出たら Lambda env が壊れている (手で消された / 配線が外れた)。即発火にする。
-	it('[A2] 鍵欠落の Alarm は 1 件 / 1 window で即発火し、既存 SNS topic に繋がる', () => {
-		withLogGroupTemplate.hasResourceProperties('AWS::CloudWatch::Alarm', {
-			AlarmName: VAPID_MISSING_ALARM,
-			Namespace: NAMESPACE,
-			MetricName: 'PushVapidMissing',
-			Statistic: 'Sum',
-			Period: 300,
-			Threshold: 1,
-			EvaluationPeriods: 1,
-			DatapointsToAlarm: 1,
-			ComparisonOperator: 'GreaterThanOrEqualToThreshold',
-			TreatMissingData: 'notBreaching',
-			AlarmActions: Match.arrayWith([
-				Match.objectLike({ Ref: Match.stringLikeRegexp('OpsAlerts') }),
-			]),
-		});
+	// 本番は CDK synth と deploy 時の検査 (#5015) が鍵の組を確かめるため、正常運用で鍵欠落は起きない。
+	// #5109 で alarm は撤去した (alarm は無料枠の 10 本に絞った)。
+	it('[A2] 鍵欠落の Alarm は作らない (#5109)', () => {
+		const alarms = withLogGroupTemplate.findResources('AWS::CloudWatch::Alarm');
+		const names = Object.values(alarms).map(
+			(r) => (r.Properties as { AlarmName: string }).AlarmName,
+		);
+		expect(names).not.toContain(VAPID_MISSING_ALARM);
+		expect(names).toContain(SEND_FAILED_ALARM);
+		expect(ALARM_NOTIFY_POLICY[VAPID_MISSING_ALARM]).toBeUndefined();
 	});
 
 	// 送信は 1 家庭 1 日 3 通までなので、失敗の系列は疎になる。1 件で鳴らすと push サービスの
@@ -202,12 +196,9 @@ describe('[A] push 不達の MetricFilter / Alarm が CDK に定義されてい�
 	// treatMissingData=NOT_BREACHING で alarm は OK に戻る。これは「直った」ではなく
 	// 「その間に誰にも送ろうとしなかった」でも起きるので、OK action を付けると
 	// 鍵が無いままでも「復旧しました」に等しい通知が Discord に飛ぶ (沈黙より悪い)。
-	it.each([
-		VAPID_MISSING_ALARM,
-		SEND_FAILED_ALARM,
-	])('[A4] %s は OK action を持たない (データ点が無いことは復旧を意味しないため)', (alarmName) => {
+	it('[A4] 送信失敗の alarm は OK action を持たない (データ点が無いことは復旧を意味しないため)', () => {
 		expect(
-			okActionsOf(withLogGroupTemplate, alarmName),
+			okActionsOf(withLogGroupTemplate, SEND_FAILED_ALARM),
 			'この alarm の OK 遷移は「復旧」ではなく「送信が無かった」でも起きます。' +
 				'OK action を付けると偽の復旧通知になります',
 		).toEqual([]);
@@ -218,15 +209,11 @@ describe('[A] push 不達の MetricFilter / Alarm が CDK に定義されてい�
 		const names = Object.values(alarms).map(
 			(r) => (r.Properties as { AlarmName: string }).AlarmName,
 		);
-		expect(names).not.toContain(VAPID_MISSING_ALARM);
 		expect(names).not.toContain(SEND_FAILED_ALARM);
 	});
 
-	it.each([
-		VAPID_MISSING_ALARM,
-		SEND_FAILED_ALARM,
-	])('[A6] %s は通知方針表に「届ける」で宣言されている (#4189 no-silent-gap)', (alarmName) => {
-		expect(ALARM_NOTIFY_POLICY[alarmName]?.notify).toBe(true);
+	it('[A6] 送信失敗の alarm は通知方針表に「届ける」で宣言されている (#4189 no-silent-gap)', () => {
+		expect(ALARM_NOTIFY_POLICY[SEND_FAILED_ALARM]?.notify).toBe(true);
 	});
 });
 

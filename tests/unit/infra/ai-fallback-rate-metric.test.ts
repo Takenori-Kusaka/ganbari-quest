@@ -1,5 +1,9 @@
-// tests/unit/infra/ai-fallback-rate-alarm.test.ts
-// #4726: AI 呼び出しの fallback 率を観測する MetricFilter + Alarm の構造検証。
+// tests/unit/infra/ai-fallback-rate-metric.test.ts
+// #4726: AI 呼び出しの fallback 率を観測する MetricFilter の構造検証。
+//
+// #5109 で fallback 率の Alarm (metric math で 3 metric 分の課金) は撤去した (alarm は無料枠の
+// 10 本に絞る、tests/unit/infra/cloudwatch-alarm-budget.test.ts)。率は分子・分母の 2 metric の
+// Sum から読めるため、MetricFilter とアプリ側の log 出力は残す。
 //
 // ## なぜ既存の ai-provider-unavailable では足りないか
 //
@@ -10,7 +14,7 @@
 // 足すのは不可 (入力起因の失敗で AI 全停止に倒れる) なので、latch ではなく **率** を見る。
 //
 // 固定の 3 層は ai-provider-unavailable-alarm.test.ts と同型:
-//   [A] CDK 構造 …… MetricFilter 2 本 (分子 / 分母) と metric math Alarm が存在する
+//   [A] CDK 構造 …… MetricFilter 2 本 (分子 / 分母) が存在し、Alarm は作らない (#5109)
 //   [B] SSOT drift … CDK の literal 検索語がアプリ側の定数と一致する
 //   [C] 実マッチ …… アプリが実際に書き出す行が filter pattern にマッチする
 
@@ -95,16 +99,7 @@ beforeAll(() => {
 	withoutLogGroupTemplate = buildOpsTemplate({ withAppLogGroup: false });
 }, 180_000);
 
-function theAlarmProperties(): Record<string, unknown> {
-	const alarms = withLogGroupTemplate.findResources('AWS::CloudWatch::Alarm', {
-		Properties: { AlarmName: ALARM_NAME },
-	});
-	const entries = Object.values(alarms);
-	expect(entries, `${ALARM_NAME} が synth されていません`).toHaveLength(1);
-	return (entries[0] as { Properties: Record<string, unknown> }).Properties;
-}
-
-describe('[A] fallback 率の MetricFilter / Alarm が CDK に定義されている', () => {
+describe('[A] fallback 率の MetricFilter が CDK に定義されている', () => {
 	it('[A1] 分子 (失敗) / 分母 (成功) の MetricFilter が両方作られる', () => {
 		withLogGroupTemplate.hasResourceProperties('AWS::Logs::MetricFilter', {
 			FilterPattern: `"${AI_CALL_FAILED_LOG_TERM}"`,
@@ -130,76 +125,21 @@ describe('[A] fallback 率の MetricFilter / Alarm が CDK に定義されてい
 		});
 	});
 
-	// **件数ではなく率であること**を固定する。Pre-PMF の AI 呼び出しは 1 日数件規模で、
-	// 件数閾値は 100% 壊れていても到達しない (#4726 の実測は 2 件だった)。
-	// ここが単純な件数 alarm に差し替えられたら、#4726 と同じ「壊れているのに鳴らない」に戻る。
-	it('[A2] Alarm は metric math (fallback 率) で 15 分 window / 50% 閾値', () => {
-		const props = theAlarmProperties();
-
-		expect(props.Threshold).toBe(50);
-		expect(props.EvaluationPeriods).toBe(1);
-		expect(props.DatapointsToAlarm).toBe(1);
-		expect(props.ComparisonOperator).toBe('GreaterThanOrEqualToThreshold');
-		expect(props.TreatMissingData).toBe('notBreaching');
-
-		// metric math を使っている (単一 metric の件数 alarm ではない)
-		const metrics = props.Metrics as Array<Record<string, unknown>> | undefined;
-		expect(metrics, 'Metrics (metric math) を持たない = 件数 alarm に退行している').toBeDefined();
-
-		const expression = metrics
-			?.map((m) => (m.Expression as string) ?? '')
-			.find((e) => e.length > 0);
-		// **件数と率を掛けている**こと。率だけだと 1 件の単発失敗が 100% になって鳴りっぱなしになり、
-		// 件数だけだと Pre-PMF の呼び出し量では 100% 壊れていても到達しない。
-		// この形は 0 除算も原理的に起きない (分子 2 以上のときしか除算に進まない)。
-		expect(expression).toBe('IF(failed >= 2, 100 * failed / (failed + succeeded), 0)');
-
-		// 分子・分母の両方が式に供給されている
-		const metricNames = (metrics ?? [])
-			.map(
-				(m) =>
-					((m.MetricStat as { Metric?: { MetricName?: string } } | undefined)?.Metric?.MetricName ??
-						'') as string,
-			)
-			.filter((n) => n.length > 0)
-			.sort();
-		expect(metricNames).toEqual(['AiCallFailed', 'AiCallSucceeded']);
-
-		// window は 15 分 (分母が 0 になりにくい長さ)
-		for (const m of metrics ?? []) {
-			const stat = m.MetricStat as { Period?: number; Stat?: string } | undefined;
-			if (!stat) continue;
-			expect(stat.Period).toBe(900);
-			expect(stat.Stat).toBe('Sum');
-		}
-
-		expect(props.AlarmActions).toEqual(
-			expect.arrayContaining([expect.objectContaining({ Ref: expect.any(String) })]),
-		);
-	});
-
-	// AI が 1 度も呼ばれない window は分母 0 でデータ点が無く、NOT_BREACHING により OK へ戻る。
-	// つまり OK 遷移は「直った」ではなく「誰も呼ばなかった」でも起きる。OK action を付けると
-	// 100% 壊れたままでも「復旧しました」に等しい通知が飛び、運営は手を止め顧客は放置される。
-	it('[A2b] OK action を持たない (分母 0 の OK 遷移は復旧を意味しないため)', () => {
-		const props = theAlarmProperties() as { OKActions?: unknown[] };
-		expect(
-			props.OKActions ?? [],
-			'分母 0 で OK に戻るため、OK action は偽の復旧通知になります',
-		).toEqual([]);
-	});
-
-	it('[A3] appLogGroup 未指定なら Alarm を作らない (監視 cost ゼロ)', () => {
-		const alarms = withoutLogGroupTemplate.findResources('AWS::CloudWatch::Alarm');
+	it('[A2] fallback 率の Alarm は作らない (#5109: alarm は無料枠の 10 本に絞った)', () => {
+		const alarms = withLogGroupTemplate.findResources('AWS::CloudWatch::Alarm');
 		const names = Object.values(alarms).map(
 			(r) => (r.Properties as { AlarmName: string }).AlarmName,
 		);
 		expect(names).not.toContain(ALARM_NAME);
+		expect(ALARM_NOTIFY_POLICY[ALARM_NAME]).toBeUndefined();
 	});
 
-	it('[A4] 通知方針表に宣言されている (#4189 no-silent-gap)', () => {
-		expect(ALARM_NOTIFY_POLICY[ALARM_NAME]).toBeDefined();
-		expect(ALARM_NOTIFY_POLICY[ALARM_NAME]?.notify).toBe(true);
+	it('[A3] appLogGroup 未指定なら MetricFilter も作らない (監視 cost ゼロ)', () => {
+		withoutLogGroupTemplate.resourcePropertiesCountIs(
+			'AWS::Logs::MetricFilter',
+			{ FilterPattern: `"${AI_CALL_FAILED_LOG_TERM}"` },
+			0,
+		);
 	});
 });
 

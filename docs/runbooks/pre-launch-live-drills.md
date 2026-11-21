@@ -203,9 +203,8 @@ Discord に緑の `復旧: ...` が 1 通出る。**それが出て初めて実�
    伝播待ちか、経路 A の 5 分評価がまだ回っていない
 3. **`DISCORD_WEBHOOK_INCIDENT` が転送 Lambda の実 env にあるか**（ops-alert-notification.md §5）
 
-> **自己参照の限界**（ops-alert-notification.md §6 と同じ話）: 「転送が失敗した」ことを知らせる
-> alarm `ganbari-quest-ops-alert-forward-failed` も**同じ転送経路**を通る。Discord が完全に不達な間は
-> その通知も届かず、残るのは CloudWatch console の状態と `GanbariQuest/Ops` の metric だけになる。
+> **転送失敗は通知されない**（#5109 で転送失敗の alarm を撤去した）。Discord が不達な間に残るのは
+> CloudWatch console の状態と `GanbariQuest/Ops` の metric（`AlertForwardFailed` の Sum）だけになる。
 > **この実演が「届かない」で終わったときは、Discord を見ても答えは出ない。上の 1 → 2 → 3 を見る。**
 
 ### 2.6 成功の判定条件

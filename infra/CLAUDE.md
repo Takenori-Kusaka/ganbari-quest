@@ -80,7 +80,7 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 | `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
 | `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up / monthly_habit を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない (alarm `ganbari-quest-push-vapid-missing` が鳴る) | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は `deploy.yml` の Validate step と CDK synth が止める) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push 全般の鍵 (#4706)。公開鍵は購読時に `/api/v1/settings/vapid-key` で配り、秘密鍵で reminder / streak_warning / achievement / level_up / monthly_habit を署名する。未注入でも起動はするが、保護者は購読できず push は 1 通も送れない (alarm は無い。`[push-alert] vapid-missing` のログと `PushVapidMissing` metric で気付く、#5109) | **本番 Lambda 必須** (未指定 / 形式不正 / 組になっていない鍵は `deploy.yml` の Validate step と CDK synth が止める) / **staging・NUC・demo には配布しない** (staging は push を配信せず、NUC は `AUTH_MODE=local` でログ出力のみ、demo は匿名公開)。生成・確認手順: `docs/operations/notification-runbook.md` §2.1 |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
 
@@ -254,6 +254,8 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ### CloudWatch Alarm
 
 `ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts`) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
+
+**alarm は CloudWatch の無料枠 (10 alarm-metric) に収める (#5109)。** alarm は `ActionsEnabled=false` でも課金される。全 stack の alarm は 10 本で、本数と名前は `tests/unit/infra/cloudwatch-alarm-budget.test.ts` が synth 結果で固定する。足すときは同じ PR で 1 本減らす (11 本目からは課金が始まるため、増やす判断はオーナーが行う)。staging の DSQL stack には alarm を作らない。
 
 ### 自動リトライを切るのは非冪等な cron だけ (#4327)
 

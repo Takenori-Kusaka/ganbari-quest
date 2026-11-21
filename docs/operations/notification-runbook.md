@@ -119,14 +119,15 @@ fields @timestamp, @message
 
 #### push 不達の alarm
 
-`[push-alert] vapid-missing` / `[push-alert] send-failed` の 2 行は CloudWatch alarm になっていて、鳴ると Discord の障害通知に届く（`infra/lib/ops-stack.ts`、通知方針は `infra/lib/ops-alert-policy.ts`）:
+`[push-alert] send-failed` は CloudWatch alarm になっていて、鳴ると Discord の障害通知に届く（`infra/lib/ops-stack.ts`、通知方針は `infra/lib/ops-alert-policy.ts`）:
 
 | alarm | 鳴る条件 | 見ること |
 |---|---|---|
-| `ganbari-quest-push-vapid-missing` | 5 分に 1 件以上 | 本番 Lambda env のキー名（上の確認コマンド）。無ければ `deploy.yml` で再デプロイ |
 | `ganbari-quest-push-send-failed` | 1 時間に 2 件以上 | ログの `status=`。401 / 403 は鍵の組違い（控えの組と Secrets の組を照合し、組で登録し直す）、`none` は timeout / 接続失敗、5xx は push サービス側 |
 
-どちらも送信を試みたときにしかログが出ないので、送信の無い時間帯には alarm が OK に戻る。OK に戻ったことは復旧を意味しないため、OK の通知は出さない（直ったかどうかは次の送信のログで確かめる）。
+送信を試みたときにしかログが出ないので、送信の無い時間帯には alarm が OK に戻る。OK に戻ったことは復旧を意味しないため、OK の通知は出さない（直ったかどうかは次の送信のログで確かめる）。
+
+`[push-alert] vapid-missing`（本番 Lambda env に鍵が無い）は alarm にしていない（#5109、alarm は CloudWatch の無料枠 10 本に絞った）。本番 deploy が鍵の組を検査してから進む（#5015）ため、Lambda env を手で壊さない限り起きない。件数は `GanbariQuest/Notification` の `PushVapidMissing` metric で見る。
 
 ### 2.2 Push 受信確認手順
 
@@ -296,7 +297,7 @@ EPIC #2190 / 子 Issue #2191 (Push) + #2192 (Email) の動作確認・配布証�
 配布経路・確認コマンド・鍵の生成と登録は本文 §2.1 が SSOT（GitHub Actions Secrets → `deploy.yml` の `-c vapidPublicKey` / `-c vapidPrivateKey` → CDK → 本番 app Lambda env の 1 本だけ。SSM は使わない。staging / NUC には配らない）。
 
 **未配布時のフォールバック動作**:
-- `notification-service.ts` の `sendPushNotification` が `[push-alert] vapid-missing` を warn し、`{ sent: 0, failed: 0 }` を返す。cron は 200 のままなので、本番では alarm `ganbari-quest-push-vapid-missing` で検知する (本文 §2.1)
+- `notification-service.ts` の `sendPushNotification` が `[push-alert] vapid-missing` を warn し、`{ sent: 0, failed: 0 }` を返す。cron は 200 のままなので、本番では `PushVapidMissing` metric とログで確かめる (本文 §2.1。alarm は #5109 で撤去)
 - 本番では鍵が未指定 / 形式不正 / 組になっていないと `deploy.yml` の `Validate required secrets` と CDK synth が止めるため、この状態のまま deploy されることはない
 
 ### SES sender ID + DKIM/SPF (#2192 AC2)
@@ -413,7 +414,7 @@ curl -X POST "http://localhost:5174/unsubscribe/<token>?/"
 
 | 症状 | 原因候補 | 確認 / 対処 |
 |---|---|---|
-| サーバ log `[push-alert] vapid-missing` / alarm `ganbari-quest-push-vapid-missing` | 本番 Lambda env に鍵が無い（staging では想定内） | 本文 §2.1 で Secrets の登録と Lambda env のキー名を確認し、deploy.yml で再デプロイ |
+| サーバ log `[push-alert] vapid-missing` / metric `PushVapidMissing` | 本番 Lambda env に鍵が無い（staging では想定内） | 本文 §2.1 で Secrets の登録と Lambda env のキー名を確認し、deploy.yml で再デプロイ |
 | `[notification] レート制限またはサイレント時間帯のためスキップ` | 日次 3 通上限 / 21-07 JST | 設定画面でサイレント時間帯変更、または翌日待つ |
 | `[notification] 非 parent/owner role の subscription への送信をスキップ` | child role で subscribe 済 (過去 bug 想定) | `push_subscriptions` テーブルから `subscriber_role='child'` 行を削除 |
 | 410 / 404 で `stale subscription を削除` | ブラウザ側で通知許可解除済 | 正常動作、re-subscribe 必要 |

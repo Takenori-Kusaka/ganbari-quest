@@ -248,18 +248,23 @@ cron endpoint が実際に呼ばれた時刻を記録し、想定間隔の 3 倍
 
 **CloudWatch Alarms / Dashboard / Budgets:** alarm 名・メトリクス・閾値・評価窓、dashboard の widget 構成、Budget の金額と通知段階は **`infra/lib/ops-stack.ts` が SSOT**（本書に値を複製しない。複製すると CDK の変更に追随しない）。通知方針（どの alarm が Discord / メールに届くか）の SSOT は `infra/lib/ops-alert-policy.ts`。DSQL の alarm と Budget は `infra/lib/dsql-stack.ts`。
 
-監視の分担（何をどの層で捕まえるか）だけを示す:
+**alarm は CloudWatch の無料枠（10 alarm-metric）に収める（#5109）。** alarm は `ActionsEnabled=false` でも課金されるため、残すのはお金・データ・全面障害に直結するものだけにする。本数は `tests/unit/infra/cloudwatch-alarm-budget.test.ts` が全 stack の synth 結果で固定する。足すときは同じ PR で 1 本減らす（11 本目からは課金が始まるため、増やす判断はオーナーが行う）。
 
-| 監視対象 | 見るもの |
+alarm を持つ監視対象（何をどの層で捕まえるか）:
+
+| 監視対象 | alarm が見るもの |
 |---|---|
-| アプリ（Lambda） | エラー / スロットリング / 実行時間 p99 / 同時実行数 / Function URL の 5xx と 4xx 急増 |
+| アプリ（Lambda） | エラー / Function URL の 5xx |
 | エッジ（CloudFront） | 5xx エラー率 |
-| 定期ジョブ | cron-dispatcher のエラー |
-| 認証・課金状態の解決 | DB に届かず fail-closed した件数（低頻度の継続と、同一 5 分の集中を別 alarm で見る） |
-| AI 提案 | 提供元の利用不可 / フォールバック率 |
-| 保護者向け push 通知 | VAPID 鍵の欠落 / push サービスが送信を受け付けなかった件数 |
-| 運営画面・削除バッチ・通知転送・静的アセット S3 | 拒否 / 部分失敗 / 転送失敗 / S3 origin の 4xx・5xx |
-| コスト | 月額 Budget（実績と予測の段階通知） |
+| 定期ジョブ | cron-dispatcher のエラー / 削除バッチの部分失敗 |
+| 認証・課金状態の解決 | DB に届かず fail-closed した件数（継続したとき） |
+| AI 提案 | 提供元の利用不可 |
+| 保護者向け push 通知 | push サービスが送信を受け付けなかった件数 |
+| 運営画面 | `/ops` へのアクセス拒否 |
+| DSQL（本番） | 日次 TotalDPU（コストの暴走） |
+| コスト | 月額 Budget（実績と予測の段階通知。Budget は alarm の本数に数えない） |
+
+alarm を持たないもの（Lambda のスロットリング / 実行時間 / 同時実行数 / 4xx、AI のフォールバック率、VAPID 鍵の欠落、通知転送の成否、DSQL の storage）は、dashboard と metric（MetricFilter が作る `GanbariQuest/*` namespace）で見る。
 
 dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレイテンシ）がある。定義と目標は [32-SLI-SLO定義書](32-SLI-SLO定義書.md)。
 
@@ -300,7 +305,7 @@ dashboard `ganbari-quest-ops` には SLO 行（直近 30 日の可用性とレ�
   - **robustness (#3402、offload ON 時のみ)**:
     - **403 propagation 窓の解消 (#3402-2)**: distribution を `StaticAssetsDeploy`（BucketDeployment）に `addDependency` させ、初回有効化時に upload 完了後へ distribution 更新順序を強制する（S3 が空を指す 403 窓を塞ぐ）。Origin Group failover は #3087 の origin index preempt 不変条件を churn させるため不採用、CFN 依存で低リスク解決
     - **旧 hash 剪定 (#3402-3)**: `prune: false` の旧 content-hash 無限蓄積を、`_app/immutable/` prefix の **30 日 expiration lifecycle rule** で剪定（deploy window は数分、30 日以上前の hash は参照されない）
-    - **S3 origin 4xx/5xx alarm (#3402-1、ADR-0024 ルール D)**: bucket に request metrics（`EntireBucket`）を有効化し、`OpsStack` が `AWS/S3` `4xxErrors`（≥10/5分、OAC 誤設定/部分 upload 欠落）/ `5xxErrors`（≥5/5分、S3 障害）を SNS 通知で継続監視。offload OFF（bucket 不在）時は alarm 未作成 = 監視 cost ゼロ
+    - **S3 origin の監視**: 専用 alarm と bucket の request metrics は持たない（#5109、alarm は無料枠の 10 本に絞った。request metrics は有料 metric になる）。S3 origin の障害は配信層の `ganbari-quest-cloudfront-5xx` と deploy 後の smoke test で見る
 - `/_app/*`: SvelteKit の非 immutable 静的アセット（`_app/version.json` 等。burst しない）
   - origin = `staticAssetOrigin`（**Origin Shield 有効 / region `us-east-1`、#3087 解決策 A**）。S3 offload OFF 時は immutable も含め `/_app/*` 全体をここで配信。Origin Shield（regional mid-tier cache）で cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に collapse + 二次キャッシュで Lambda 直撃を激減。region は origin (Lambda) と同一 us-east-1
 - `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）
