@@ -113,7 +113,6 @@ function buildAllTemplates(): Array<[string, Template]> {
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
-		staticAssetsBucket: network.staticAssetsBucket,
 		// #3998: prod (infra/bin/app.ts) と同じ配線にする。渡さないと log 由来 alarm が
 		// この ratchet の観測対象から外れ、明示物理名の増加を見逃す。
 		appLogGroup: compute.appLogGroup,
