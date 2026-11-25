@@ -281,6 +281,7 @@ gh variable set GRACE_PERIOD_DELETION_DISABLED --body true --repo Takenori-Kusak
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
 
 - `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は **branch の commit message (body) に** `replacement-approved: <ID>` を記載して承認する (squash message は commit message 由来 — PR body は乗らない) (初出: aws-cdk-lib 2.257→2.258、#2963)。
+- **release の merge commit は含有 PR の承認を引き継がない**: gate が読むのは deploy 時点の main HEAD 1 commit の message だけ (`deploy.yml` の `COMMIT_MSG`)。統合 PR (`release/*` → main) を merge commit で入れると main HEAD は merge commit になり、その body に含有 PR の commit message にあった `replacement-approved:` は入らないため、develop 側で承認済みの置換でも本番 deploy で BLOCK される。**監査が統合 PR を merge するときは、PO が承認した ID を merge commit の body に `replacement-approved: <ID>,<ID>` として書き入れる** (実例: release/2026-11-21 の #5112 が trailer なしで merge され、本番 deploy が止まった)。
 
 ## 明示物理名は auto-naming が既定 (rollback-orphan 予防、#3881)
 
